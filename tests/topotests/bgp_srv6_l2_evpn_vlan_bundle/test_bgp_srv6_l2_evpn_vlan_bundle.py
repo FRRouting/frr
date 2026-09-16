@@ -71,6 +71,44 @@ srl2_required = pytest.mark.skipif(
     not srl2_supported,
     reason="kernel lacks SRv6 srl2 netdev support (End.DT2U/DT2M dataplane)")
 
+def _srl2_reprogram_supported():
+    """Operator-owned srl2 model: the operator pre-creates the sr6 netdev with a
+    placeholder SID and zebra rewrites it in place (RTM_SETLINK / IFLA_SR6_SRH
+    changelink) with the dynamically-allocated End.DT2U/DT2M SID.  Some sr6
+    drivers accept `segs` only at create time and reject the in-place change
+    with EOPNOTSUPP; without the kernel patch that adds changelink support the
+    netdev keeps the placeholder SID and L2 *encap* (unicast + BUM) cannot work,
+    so the forwarding tests would fail.  Probe once so those tests SKIP (not
+    fail) there.  SRL2_REPROGRAM=0/1 overrides the auto-detect."""
+    import subprocess
+
+    env = os.environ.get("SRL2_REPROGRAM")
+    if env is not None:
+        return env not in ("0", "", "no", "false")
+    if not srl2_supported:
+        return False
+    dev = "sr6repr%d" % os.getpid()
+    try:
+        add = subprocess.run(
+            ["ip", "link", "add", "name", dev, "type", "sr6", "mode", "full",
+             "segs", "2001:db8::1"], capture_output=True)
+        if add.returncode != 0:
+            return False
+        chg = subprocess.run(
+            ["ip", "link", "set", dev, "type", "sr6", "mode", "full",
+             "segs", "2001:db8::2"], capture_output=True)
+        return chg.returncode == 0
+    except OSError:
+        return False
+    finally:
+        subprocess.run(["ip", "link", "del", dev], capture_output=True)
+
+srl2_reprogram_supported = _srl2_reprogram_supported()
+srl2_reprogram_required = pytest.mark.skipif(
+    not srl2_reprogram_supported,
+    reason="sr6 driver lacks in-place segs reprogram (RTM_SETLINK IFLA_SR6_SRH); "
+    "operator-owned srl2 encap needs the sr6 kernel patch")
+
 BUNDLE_EVI = 50001
 BUNDLE_BR = "br-bundle"
 BUNDLE_VLANS = (11, 12, 13)
@@ -81,6 +119,27 @@ def build_topo(tgen):
     tgen.add_router("r1")
     tgen.add_router("r2")
     tgen.add_link(tgen.gears["r1"], tgen.gears["r2"], "eth0", "eth0")   # SRv6 core
+
+
+# Operator-owned srl2 model: zebra no longer creates/enslaves/brings up the
+# sr6 (srl2) tunnel netdevs.  The operator pre-creates them, enslaves them to
+# the bundle bridge and brings them up; zebra discovers them by name prefix
+# (srl2-* unicast / bum-srl2-* BUM) and programs the zebra-assigned
+# End.DT2U/DT2M SID in place.  The segs below is a placeholder zebra overwrites.
+_SRL2_DUMMY_SID = "2001:db8:5262::1"
+
+def _add_srl2(pe, name, br, is_bum):
+    # Create the sr6 (srl2) netdev: `mode` is mandatory and `segs` takes a
+    # comma-separated SID list; the SID here is a placeholder that zebra
+    # overwrites in place with the zebra-assigned End.DT2U/DT2M SID.  The rest
+    # is exactly what zebra used to program in its interface-add hook.
+    pe.run("ip link add name %s type sr6 mode full segs %s" % (name, _SRL2_DUMMY_SID))
+    pe.run("ip link set %s addrgenmode none" % name)
+    pe.run("ip link set %s master %s" % (name, br))
+    fl = "on" if is_bum else "off"
+    pe.run("bridge link set dev %s learning off flood %s mcast_flood %s "
+           "bcast_flood %s isolated on" % (name, fl, fl, fl))
+    pe.run("ip link set %s up" % name)
 
 
 def _pe_kernel(pe, last):
@@ -96,6 +155,10 @@ def _pe_kernel(pe, last):
         pe.run("ip link add link cust2p name cust2p.%d type vlan id %d" % (vid, vid))
         pe.run("ip addr add %s.%d/24 dev cust2p.%d" % (VLAN_NET[vid], last, vid))
         pe.run("ip link set cust2p.%d up" % vid)
+    # operator-created decap netdevs for the single bundle EVI (VLAN-unaware,
+    # so the overlay ports sit at vid 0 - no bridge-vlan programming needed).
+    _add_srl2(pe, "srl2-bundle", BUNDLE_BR, is_bum=False)
+    _add_srl2(pe, "bum-srl2-bundle", BUNDLE_BR, is_bum=True)
 
 
 def setup_module(mod):
@@ -245,6 +308,7 @@ def test_bundle_single_srl2():
 
 
 @srl2_required
+@srl2_reprogram_required
 def test_bundle_transparent_ping():
     # Ping within EACH customer VLAN's /24: success proves the C-tag is carried
     # transparently across the single bundle EVI.

@@ -725,6 +725,16 @@ void zebra_srv6_evi_realize(struct zebra_srv6_evi *evi)
 	if (!evi || evi->vni == 0 || !evi->bridge_if)
 		return; /* not enough config yet */
 
+	/*
+	 * Discover the operator-owned srl2 (End.DT2U) / bum-srl2 (End.DT2M) on this
+	 * EVI's bridge and mirror the kernel-configured encap mode (no software
+	 * default).  Stored per EVI for programming and show output.
+	 */
+	evi->srl2_ifindex = zebra_srl2_discover_on_bridge(evi->bridge_if->ifindex, false, NULL);
+	evi->bum_srl2_ifindex = zebra_srl2_discover_on_bridge(evi->bridge_if->ifindex, true, NULL);
+	evi->l2_encap_mode = zebra_srl2_kernel_encap_mode(evi->srl2_ifindex,
+							  zebra_srl2_get_encap_mode());
+
 	zevpn = zebra_evpn_lookup(evi->vni);
 	if (!zevpn)
 		zevpn = zebra_evpn_add(evi->vni);

@@ -227,6 +227,17 @@ struct dplane_intf_info {
 	bool br_untagged;
 	bool br_pvid;
 	struct in6_addr srl2_sid;
+	/*
+	 * Kernel-reported sr6 encap mode for this interface, parsed from
+	 * IFLA_SR6_ENCAP_MODE on RTM_NEWLINK.  Present only for sr6-kind netdevs.
+	 */
+	bool srl2_kernel_mode_present;
+	uint8_t srl2_kernel_mode;
+	/* Encap mode to PROGRAM (zebra enum); present-flag distinguishes an
+	 * explicit per-EVI/VPWS mode from the legacy device-wide fallback.
+	 */
+	bool srl2_mode_present;
+	uint8_t srl2_mode;
 	ns_id_t link_nsid;
 	enum zebra_slave_iftype zslave_type;
 	uint8_t bypass;
@@ -1843,6 +1854,45 @@ dplane_ctx_get_ifp_gre_info(const struct zebra_dplane_ctx *ctx)
 	DPLANE_CTX_VALID(ctx);
 
 	return &ctx->u.intf.grinfo;
+}
+
+void dplane_ctx_set_ifp_srl2_kernel_mode(struct zebra_dplane_ctx *ctx, uint8_t mode)
+{
+	DPLANE_CTX_VALID(ctx);
+
+	ctx->u.intf.srl2_kernel_mode = mode;
+	ctx->u.intf.srl2_kernel_mode_present = true;
+}
+
+bool dplane_ctx_get_ifp_srl2_kernel_mode(const struct zebra_dplane_ctx *ctx, uint8_t *mode)
+{
+	DPLANE_CTX_VALID(ctx);
+
+	if (!ctx->u.intf.srl2_kernel_mode_present)
+		return false;
+	if (mode)
+		*mode = ctx->u.intf.srl2_kernel_mode;
+	return true;
+}
+
+void dplane_ctx_set_srl2_mode(struct zebra_dplane_ctx *ctx, uint8_t mode)
+{
+	DPLANE_CTX_VALID(ctx);
+
+	ctx->u.intf.srl2_mode = mode;
+	ctx->u.intf.srl2_mode_present = true;
+}
+
+uint8_t dplane_ctx_get_srl2_mode(const struct zebra_dplane_ctx *ctx)
+{
+	DPLANE_CTX_VALID(ctx);
+	return ctx->u.intf.srl2_mode;
+}
+
+bool dplane_ctx_get_srl2_mode_present(const struct zebra_dplane_ctx *ctx)
+{
+	DPLANE_CTX_VALID(ctx);
+	return ctx->u.intf.srl2_mode_present;
 }
 
 void dplane_ctx_set_ifp_vxlan_info(struct zebra_dplane_ctx *ctx,
@@ -6071,34 +6121,6 @@ bool dplane_ctx_get_br_pvid(const struct zebra_dplane_ctx *ctx)
 	DPLANE_CTX_VALID(ctx);
 	return ctx->u.intf.br_pvid;
 }
-
-static enum zebra_dplane_result srl2_link_op_enqueue(enum dplane_op_e op, ifindex_t ifindex)
-{
-	enum zebra_dplane_result result = ZEBRA_DPLANE_REQUEST_FAILURE;
-	struct zebra_dplane_ctx *ctx;
-	struct zebra_ns *zns;
-	int ret;
-
-	if (ifindex == 0)
-		return result;
-	ctx = dplane_ctx_alloc();
-	ctx->zd_op = op;
-	ctx->zd_status = ZEBRA_DPLANE_REQUEST_SUCCESS;
-	ctx->zd_vrf_id = VRF_DEFAULT;
-	ctx->zd_ifindex = ifindex;
-	zns = zebra_ns_lookup(NS_DEFAULT);
-	dplane_ctx_ns_init(ctx, zns, false);
-	ret = dplane_update_enqueue(ctx);
-	atomic_fetch_add_explicit(&zdplane_info.dg_intfs_in, 1, memory_order_relaxed);
-	if (ret == AOK)
-		result = ZEBRA_DPLANE_REQUEST_QUEUED;
-	else {
-		atomic_fetch_add_explicit(&zdplane_info.dg_intf_errors, 1, memory_order_relaxed);
-		dplane_ctx_free(&ctx);
-	}
-	return result;
-}
-
 enum zebra_dplane_result dplane_srl2_brport_flags(ifindex_t ifindex, bool is_bum)
 {
 	enum zebra_dplane_result result = ZEBRA_DPLANE_REQUEST_FAILURE;
@@ -6155,45 +6177,6 @@ enum zebra_dplane_result dplane_srl2_bridge_vlan_add(ifindex_t ifindex, vlanid_t
 	}
 	return result;
 }
-
-enum zebra_dplane_result dplane_srl2_if_up(ifindex_t ifindex)
-{
-	return srl2_link_op_enqueue(DPLANE_OP_SRL2_IF_UP, ifindex);
-}
-
-enum zebra_dplane_result dplane_srl2_addrgenmode(ifindex_t ifindex)
-{
-	return srl2_link_op_enqueue(DPLANE_OP_SRL2_ADDRGENMODE, ifindex);
-}
-
-enum zebra_dplane_result dplane_srl2_create(const char *name, const struct in6_addr *sid)
-{
-	enum zebra_dplane_result result = ZEBRA_DPLANE_REQUEST_FAILURE;
-	struct zebra_dplane_ctx *ctx;
-	struct zebra_ns *zns;
-	int ret;
-
-	if (!name || !name[0] || !sid)
-		return result;
-	ctx = dplane_ctx_alloc();
-	ctx->zd_op = DPLANE_OP_SRL2_CREATE;
-	ctx->zd_status = ZEBRA_DPLANE_REQUEST_SUCCESS;
-	ctx->zd_vrf_id = VRF_DEFAULT;
-	strlcpy(ctx->zd_ifname, name, sizeof(ctx->zd_ifname));
-	dplane_ctx_set_srl2_sid(ctx, sid);
-	zns = zebra_ns_lookup(NS_DEFAULT);
-	dplane_ctx_ns_init(ctx, zns, false);
-	ret = dplane_update_enqueue(ctx);
-	atomic_fetch_add_explicit(&zdplane_info.dg_intfs_in, 1, memory_order_relaxed);
-	if (ret == AOK)
-		result = ZEBRA_DPLANE_REQUEST_QUEUED;
-	else {
-		atomic_fetch_add_explicit(&zdplane_info.dg_intf_errors, 1, memory_order_relaxed);
-		dplane_ctx_free(&ctx);
-	}
-	return result;
-}
-
 void dplane_ctx_set_srl2_sid(struct zebra_dplane_ctx *ctx, const struct in6_addr *sid)
 {
 	DPLANE_CTX_VALID(ctx);
@@ -6234,25 +6217,28 @@ enum zebra_dplane_result dplane_srl2_update_sid(ifindex_t ifindex, const struct 
 }
 
 /*
- * Enqueue an in-place MTU change for an existing srl2 interface, applied on the
- * dplane thread (RTM_SETLINK + IFLA_MTU).  Mirrors dplane_srl2_update_sid();
- * the MTU rides the shared intf ctx field via dplane_ctx_set_ifp_mtu().
+ * (Re)program an operator-owned srl2 interface in place via the dplane thread:
+ * one RTM_NEWLINK changelink carrying the full triplet {MTU, encap-mode, SID}.
+ * FRR never creates or deletes the interface.
  */
-enum zebra_dplane_result dplane_srl2_set_mtu(ifindex_t ifindex, uint32_t mtu)
+enum zebra_dplane_result dplane_srl2_program(ifindex_t ifindex, const struct in6_addr *sid,
+					     uint32_t mtu, uint8_t mode)
 {
 	enum zebra_dplane_result result = ZEBRA_DPLANE_REQUEST_FAILURE;
 	struct zebra_dplane_ctx *ctx;
 	struct zebra_ns *zns;
 	int ret;
 
-	if (ifindex == 0 || mtu == 0)
+	if (ifindex == 0 || !sid)
 		return result;
 	ctx = dplane_ctx_alloc();
-	ctx->zd_op = DPLANE_OP_SRL2_SET_MTU;
+	ctx->zd_op = DPLANE_OP_SRL2_UPDATE_SID;
 	ctx->zd_status = ZEBRA_DPLANE_REQUEST_SUCCESS;
 	ctx->zd_vrf_id = VRF_DEFAULT;
 	ctx->zd_ifindex = ifindex;
+	dplane_ctx_set_srl2_sid(ctx, sid);
 	dplane_ctx_set_ifp_mtu(ctx, mtu);
+	dplane_ctx_set_srl2_mode(ctx, mode);
 	zns = zebra_ns_lookup(NS_DEFAULT);
 	dplane_ctx_ns_init(ctx, zns, false);
 	ret = dplane_update_enqueue(ctx);
@@ -6265,7 +6251,6 @@ enum zebra_dplane_result dplane_srl2_set_mtu(ifindex_t ifindex, uint32_t mtu)
 	}
 	return result;
 }
-
 /*
  * Enqueue vxlan/evpn mac add (or update).
  */

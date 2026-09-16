@@ -61,6 +61,45 @@ srl2_required = pytest.mark.skipif(
     reason="kernel lacks SRv6 srl2 netdev support (End.DT2U/DT2M dataplane)",
 )
 
+def _srl2_reprogram_supported():
+    """Operator-owned srl2 model: the operator pre-creates the sr6 netdev with a
+    placeholder SID and zebra rewrites it in place (RTM_SETLINK / IFLA_SR6_SRH
+    changelink) with the dynamically-allocated End.DT2U/DT2M/DX2 SID.  Some sr6
+    drivers accept `segs` only at create time and reject the in-place change
+    with EOPNOTSUPP; without the kernel patch that adds changelink support the
+    netdev keeps the placeholder SID and L2 *encap* (unicast + BUM) cannot work,
+    so the forwarding tests would fail.  Probe once so those tests SKIP (not
+    fail) there.  SRL2_REPROGRAM=0/1 overrides the auto-detect."""
+    import subprocess
+
+    env = os.environ.get("SRL2_REPROGRAM")
+    if env is not None:
+        return env not in ("0", "", "no", "false")
+    if not srl2_supported:
+        return False
+    dev = "sr6repr%d" % os.getpid()
+    try:
+        add = subprocess.run(
+            ["ip", "link", "add", "name", dev, "type", "sr6", "mode", "full",
+             "segs", "2001:db8::1"], capture_output=True)
+        if add.returncode != 0:
+            return False
+        chg = subprocess.run(
+            ["ip", "link", "set", dev, "type", "sr6", "mode", "full",
+             "segs", "2001:db8::2"], capture_output=True)
+        return chg.returncode == 0
+    except OSError:
+        return False
+    finally:
+        subprocess.run(["ip", "link", "del", dev], capture_output=True)
+
+srl2_reprogram_supported = _srl2_reprogram_supported()
+srl2_reprogram_required = pytest.mark.skipif(
+    not srl2_reprogram_supported,
+    reason="sr6 driver lacks in-place segs reprogram (RTM_SETLINK IFLA_SR6_SRH); "
+    "operator-owned srl2 encap needs the sr6 kernel patch",
+)
+
 # EVI id -> (bridge, member AC ifname, VLAN id) mapping applied on both PEs.
 EVIS = ((10, "br10", "eth1", 10), (20, "br20", "eth3", 20))
 
@@ -76,25 +115,58 @@ def build_topo(tgen):
     tgen.add_link(tgen.gears["host2c"], tgen.gears["r2"], "eth0", "eth3")
 
 
+# Operator-owned srl2 model: zebra no longer creates/enslaves/brings up the
+# sr6 (srl2) tunnel netdevs.  The operator pre-creates them, enslaves them to
+# the EVI/VPWS bridge and brings them up; zebra discovers them by name prefix
+# (srl2-* unicast / bum-srl2-* BUM / vpws-srl2-<inst>), programs the
+# zebra-assigned End.DT2U/DT2M/DX2 SID in place, and (for a VLAN-aware EVI
+# bridge) adds the EVI VLAN.  The segs below is a placeholder zebra overwrites.
+_SRL2_DUMMY_SID = "2001:db8:5262::1"
+
+def _add_srl2(pe, name, br, is_bum, brport=True):
+    # Create the sr6 (srl2) netdev: `mode` is mandatory and `segs` takes a
+    # comma-separated SID list; the SID here is a placeholder that zebra
+    # overwrites in place with the zebra-assigned End.DT2U/DT2M/DX2 SID.  The
+    # rest is exactly what zebra used to program in its interface-add hook.
+    pe.run("ip link add name %s type sr6 mode full segs %s" % (name, _SRL2_DUMMY_SID))
+    pe.run("ip link set %s addrgenmode none" % name)
+    pe.run("ip link set %s master %s" % (name, br))
+    if brport:
+        # EVPN split-horizon + flood policy (was dplane_srl2_brport_flags):
+        # learning off; unknown-unicast/mcast/bcast flood only on the BUM port;
+        # isolated on both (a frame from one overlay port is never re-flooded to
+        # another - no PE-to-PE loop).
+        fl = "on" if is_bum else "off"
+        pe.run("bridge link set dev %s learning off flood %s mcast_flood %s "
+               "bcast_flood %s isolated on" % (name, fl, fl, fl))
+    pe.run("ip link set %s up" % name)
+
+
 def _pe_kernel(pe):
     # SRv6 L2 EVPN: one VLAN-aware bridge per EVI, bound to the EVI purely via
-    # 'segment-routing srv6 l2-evpn'; zebra creates the srl2 / bum-srl2 decap
-    # netdevs itself.
-    for _evi, br, ac, vid in EVIS:
+    # 'segment-routing srv6 l2-evpn'.  Operator-owned model: the operator
+    # pre-creates the srl2 (unicast) / bum-srl2 (BUM) decap netdevs and enslaves
+    # them to the EVI bridge; zebra discovers them and programs the per-EVI SID.
+    for evi, br, ac, vid in EVIS:
         pe.run("ip link add %s type bridge vlan_filtering 1" % br)
         pe.run("ip link set %s up" % br)
         pe.run("ip link set %s master %s" % (ac, br))
         pe.run("bridge vlan add dev %s vid %d self" % (br, vid))
         pe.run("bridge vlan add dev %s vid %d pvid untagged" % (ac, vid))
         pe.run("ip link set %s up" % ac)
+        _add_srl2(pe, "srl2-%d" % evi, br, is_bum=False)
+        _add_srl2(pe, "bum-srl2-%d" % evi, br, is_bum=True)
 
-    # Operator-created VPWS bridge.  The VPWS instance binds it with
-    # `interface eth2 sid auto bridge br-vpws`; the operator provisions the
-    # (empty, dedicated) bridge here and zebra enslaves the AC (eth2) and the
-    # vpws-srl2 encap netdev to it.  Point-to-point, so no VLAN filtering.
+    # Operator-created VPWS bridge + srl2.  The VPWS instance binds the bridge
+    # with `interface eth2 sid auto bridge br-vpws`; the operator provisions the
+    # (empty, dedicated) bridge, enslaves the AC (eth2) and the vpws-srl2 encap
+    # netdev, and zebra programs the peer SID into it.  Point-to-point, so no
+    # VLAN filtering and no brport isolation.
     pe.run("ip link add br-vpws type bridge")
     pe.run("ip link set br-vpws up")
+    pe.run("ip link set eth2 master br-vpws")
     pe.run("ip link set eth2 up")
+    _add_srl2(pe, "vpws-srl2-V2", "br-vpws", is_bum=False, brport=False)
 
 def setup_module(mod):
     if required_linux_kernel_version("5.14") is not True:
@@ -265,10 +337,12 @@ def test_srl2_interfaces():
 # (5) E2E ping over each EVI - proves both VLAN->EVI bridges forward.
 #     Each learns the remote MAC => triggers that EVI's unicast DT2U + srl2.
 @srl2_required
+@srl2_reprogram_required
 def test_ping_evi10():
     check_ping("host1", "192.0.2.2", True, 20, 1)
 
 @srl2_required
+@srl2_reprogram_required
 def test_ping_evi20():
     check_ping("host1c", "198.51.100.2", True, 20, 1)
 

@@ -43,7 +43,6 @@ extern enum netlink_msg_status netlink_put_link_update_msg(struct nl_batch *bth,
 
 
 /* SRv6 SR-L2 (srl2) interface helpers (moved here from rt_netlink.c; link ops). */
-extern int netlink_srl2_if_del(ifindex_t srl2_ifindex);
 
 #ifdef __cplusplus
 }

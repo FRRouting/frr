@@ -433,6 +433,11 @@ void dplane_ctx_set_ifp_gre_info(struct zebra_dplane_ctx *ctx,
 				 struct zebra_l2info_gre *greinfo);
 const struct zebra_l2info_gre *
 dplane_ctx_get_ifp_gre_info(const struct zebra_dplane_ctx *ctx);
+void dplane_ctx_set_ifp_srl2_kernel_mode(struct zebra_dplane_ctx *ctx, uint8_t mode);
+bool dplane_ctx_get_ifp_srl2_kernel_mode(const struct zebra_dplane_ctx *ctx, uint8_t *mode);
+void dplane_ctx_set_srl2_mode(struct zebra_dplane_ctx *ctx, uint8_t mode);
+uint8_t dplane_ctx_get_srl2_mode(const struct zebra_dplane_ctx *ctx);
+bool dplane_ctx_get_srl2_mode_present(const struct zebra_dplane_ctx *ctx);
 void dplane_ctx_set_ifp_zltype(struct zebra_dplane_ctx *ctx,
 			       enum zebra_link_type zlt);
 enum zebra_link_type
@@ -1071,14 +1076,11 @@ enum zebra_dplane_result dplane_link_delete(ifindex_t ifindex);
 enum zebra_dplane_result dplane_srl2_brport_flags(ifindex_t ifindex, bool is_bum);
 enum zebra_dplane_result dplane_srl2_bridge_vlan_add(ifindex_t ifindex, vlanid_t vid,
 						     bool untagged, bool pvid);
-enum zebra_dplane_result dplane_srl2_if_up(ifindex_t ifindex);
 enum zebra_dplane_result dplane_srl2_update_sid(ifindex_t ifindex, const struct in6_addr *sid);
+enum zebra_dplane_result dplane_srl2_program(ifindex_t ifindex, const struct in6_addr *sid,
+					     uint32_t mtu, uint8_t mode);
 void dplane_ctx_set_srl2_sid(struct zebra_dplane_ctx *ctx, const struct in6_addr *sid);
 const struct in6_addr *dplane_ctx_get_srl2_sid(const struct zebra_dplane_ctx *ctx);
-enum zebra_dplane_result dplane_srl2_create(const char *name, const struct in6_addr *sid);
-enum zebra_dplane_result dplane_srl2_addrgenmode(ifindex_t ifindex);
-/* Live-apply a new MTU to an existing srl2 interface via the dplane thread. */
-enum zebra_dplane_result dplane_srl2_set_mtu(ifindex_t ifindex, uint32_t mtu);
 void dplane_ctx_set_br_is_bum(struct zebra_dplane_ctx *ctx, bool is_bum);
 bool dplane_ctx_get_br_is_bum(const struct zebra_dplane_ctx *ctx);
 void dplane_ctx_set_br_vlan(struct zebra_dplane_ctx *ctx, vlanid_t vid, bool untagged, bool pvid);
