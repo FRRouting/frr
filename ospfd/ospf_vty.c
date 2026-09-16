@@ -4243,6 +4243,7 @@ static void show_ip_ospf_interface_sub(struct vty *vty, struct ospf *ospf,
 	struct route_node *rn;
 	uint32_t bandwidth = ifp->bandwidth ? ifp->bandwidth : ifp->speed;
 	struct ospf_if_params *params;
+	json_object *json_oi = NULL;
 
 	/* Is interface up? */
 	if (use_json) {
@@ -4299,9 +4300,12 @@ static void show_ip_ospf_interface_sub(struct vty *vty, struct ospf *ospf,
 		if (oi == NULL)
 			continue;
 
+		if (use_json)
+			json_oi = json_object_new_object();
+
 		if (CHECK_FLAG(oi->connected->flags, ZEBRA_IFA_UNNUMBERED)) {
 			if (use_json)
-				json_object_boolean_true_add(json_interface_sub,
+				json_object_boolean_true_add(json_oi,
 							     "ifUnnumbered");
 			else
 				vty_out(vty, "  This interface is UNNUMBERED,");
@@ -4635,6 +4639,8 @@ static void show_ip_ospf_interface_sub(struct vty *vty, struct ospf *ospf,
 
 		/* OSPF Authentication information */
 		ospf_interface_auth_show(vty, oi, json_interface_sub, use_json);
+
+		ospf_interface_auth_show(vty, oi, json_oi, use_json);
 
 		/* Point-to-Multipoint Interface options. */
 		if (oi->type == OSPF_IFTYPE_POINTOMULTIPOINT) {
