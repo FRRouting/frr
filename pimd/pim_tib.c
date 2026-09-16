@@ -401,11 +401,11 @@ bool tib_sg_gm_join(struct pim_instance *pim, pim_sgaddr sg,
 		result = pim_channel_add_oif(*oilp, oif, PIM_OIF_FLAG_PROTO_GM,
 					     __func__);
 		/*
-		  PIM_OIF_ADD_EXISTS means the other subscriber on this
-		  interface - a static group, or IGMP/MLD membership - claimed
-		  the flag first.  The forwarding state this join asks for is
-		  in place, it is just shared, so this is a success here too
-		  and this subscriber is on the hook for releasing it.
+		 * PIM_OIF_ADD_EXISTS means the other subscriber on this
+		 * interface - a static group, or IGMP/MLD membership - claimed
+		 * the flag first.  The forwarding state this join asks for is
+		 * in place, it is just shared, so this is a success here too
+		 * and this subscriber is on the hook for releasing it.
 		 */
 		if (result && result != PIM_OIF_ADD_EXISTS) {
 			if (PIM_DEBUG_MROUTE)
