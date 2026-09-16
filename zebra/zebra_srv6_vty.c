@@ -1652,22 +1652,22 @@ static int zebra_sr_config(struct vty *vty)
 		vty_out(vty, "  locators\n");
 		for (ALL_LIST_ELEMENTS_RO(srv6->locators, node, locator)) {
 			vty_out(vty, "   locator %s\n", locator->name);
-			vty_out(vty, "    prefix %pFX", &locator->prefix);
-			if (locator->block_bits_length !=
-			    locator->prefix.prefixlen - ZEBRA_SRV6_LOCATOR_NODE_LENGTH)
-				vty_out(vty, " block-len %u",
-					locator->block_bits_length);
-			if (locator->node_bits_length != ZEBRA_SRV6_LOCATOR_NODE_LENGTH)
-				vty_out(vty, " node-len %u",
-					locator->node_bits_length);
+			if (SRV6_LOCATOR_PREFIX_IS_SET(locator)) {
+				vty_out(vty, "    prefix %pFX", &locator->prefix);
+				if (locator->block_bits_length !=
+				    locator->prefix.prefixlen - ZEBRA_SRV6_LOCATOR_NODE_LENGTH)
+					vty_out(vty, " block-len %u", locator->block_bits_length);
+				if (locator->node_bits_length != ZEBRA_SRV6_LOCATOR_NODE_LENGTH)
+					vty_out(vty, " node-len %u", locator->node_bits_length);
 
-			if (locator->function_bits_length != ZEBRA_SRV6_FUNCTION_LENGTH)
-				vty_out(vty, " func-bits %u", locator->function_bits_length);
+				if (locator->function_bits_length != ZEBRA_SRV6_FUNCTION_LENGTH)
+					vty_out(vty, " func-bits %u",
+						locator->function_bits_length);
 
-			if (locator->argument_bits_length)
-				vty_out(vty, " arg-len %u",
-					locator->argument_bits_length);
-			vty_out(vty, "\n");
+				if (locator->argument_bits_length)
+					vty_out(vty, " arg-len %u", locator->argument_bits_length);
+				vty_out(vty, "\n");
+			}
 			if (CHECK_FLAG(locator->flags, SRV6_LOCATOR_USID))
 				vty_out(vty, "    behavior usid\n");
 			if (CHECK_FLAG(locator->flags, SRV6_LOCATOR_PSP))
