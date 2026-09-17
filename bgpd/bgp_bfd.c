@@ -122,10 +122,10 @@ static void bfd_session_status_update(struct bfd_session_params *bsp,
 			   bfd_get_status_str(bss->previous_state),
 			   bfd_get_status_str(bss->state));
 
-	frrtrace(6, frr_bgp, bfd_session_status_update,
-		 peer->conf_if ? peer->conf_if : peer->host,
-		 bfd_sess_vrf_id(bsp), bss->previous_state, bss->state,
-		 local_cbit, bss->remote_cbit);
+	frrtrace(9, frr_bgp, bfd_session_status_update, peer->conf_if ? peer->conf_if : peer->host,
+		 bfd_sess_vrf_id(bsp), bss->previous_state, bss->state, local_cbit,
+		 bss->remote_cbit, peer->connection->status, (int64_t)bss->last_event,
+		 (int64_t)peer->uptime);
 
 	/*
 	 * Handle Admin Down from peer separately.

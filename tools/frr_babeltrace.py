@@ -1126,6 +1126,11 @@ def parse_frr_bgp_fsm_event(event):
     parse_event(event, field_parsers)
 
 
+def parse_frr_bgp_bfd_session_status_update(event):
+    field_parsers = {"fsm_status": bgp_status_to_string}
+    parse_event(event, field_parsers)
+
+
 def parse_frr_bgp_bgp_err_str(event):
     field_parsers = {
         "location": lambda x: {
@@ -1886,6 +1891,7 @@ def main():
         "frr_bgp:session_state_change": parse_frr_bgp_session_state_change,
         "frr_bgp:connection_attempt": parse_frr_bgp_connection_attempt,
         "frr_bgp:fsm_event": parse_frr_bgp_fsm_event,
+        "frr_bgp:bfd_session_status_update": parse_frr_bgp_bfd_session_status_update,
         "frr_bgp:bgp_err_str": parse_frr_bgp_bgp_err_str,
         "frr_bgp:bgp_zebra_process_local_ip_prefix_zrecv": parse_frr_bgp_bgp_zebra_process_local_ip_prefix_zrecv,
         "frr_bgp:bgp_zebra_vxlan_flood_control": parse_frr_bgp_bgp_zebra_vxlan_flood_control,
