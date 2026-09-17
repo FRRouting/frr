@@ -44,6 +44,7 @@
 #include "eigrpd/eigrp_metric.h"
 
 DEFINE_MTYPE_STATIC(EIGRPD, EIGRP_IF, "EIGRP interface");
+DEFINE_MTYPE_STATIC(EIGRPD, EIGRP_CONNECTED, "EIGRP connected prefix");
 DEFINE_MTYPE_STATIC(EIGRPD, EIGRP_IF_INFO, "EIGRP interface info");
 DEFINE_MTYPE_STATIC(EIGRPD, EIGRP_IF_PARAMS, "EIGRP interface parameters");
 
@@ -102,6 +103,67 @@ void eigrp_if_info_free(struct interface *ifp)
 	XFREE(MTYPE_EIGRP_IF_PARAMS, eii->def_params);
 
 	XFREE(MTYPE_EIGRP_IF_INFO, ifp->info);
+}
+
+struct eigrp_connected *eigrp_connected_lookup(struct eigrp_interface *ei,
+					      const struct prefix *address)
+{
+	struct eigrp_connected *ec;
+	struct listnode *node;
+	struct prefix subnet;
+
+	prefix_copy(&subnet, address);
+	apply_mask(&subnet);
+
+	for (ALL_LIST_ELEMENTS_RO(ei->connected, node, ec))
+		if (prefix_same(&ec->address, &subnet))
+			return ec;
+
+	return NULL;
+}
+
+struct eigrp_connected *eigrp_connected_add(struct eigrp_interface *ei,
+					    const struct prefix *address)
+{
+	struct eigrp_connected *ec;
+
+	ec = eigrp_connected_lookup(ei, address);
+	if (ec)
+		return ec;
+
+	ec = XCALLOC(MTYPE_EIGRP_CONNECTED, sizeof(struct eigrp_connected));
+	ec->ei = ei;
+	prefix_copy(&ec->address, address);
+	apply_mask(&ec->address);
+
+	listnode_add(ei->connected, ec);
+
+	return ec;
+}
+
+/*
+ * Stop advertising a connected subnet.
+ *
+ * This keeps master's behaviour of dropping the whole prefix descriptor
+ * rather than just this instance's contribution; narrowing that is a
+ * separate concern from where the subnet list lives.
+ */
+void eigrp_connected_withdraw(struct eigrp_connected *ec)
+{
+	struct eigrp *eigrp = ec->ei->eigrp;
+	struct eigrp_prefix_descriptor *pe;
+
+	pe = eigrp_topology_table_lookup_ipv4(eigrp->topology_table,
+					      &ec->address);
+	if (pe)
+		eigrp_prefix_descriptor_delete(eigrp, eigrp->topology_table,
+					       pe);
+}
+
+void eigrp_connected_delete(struct eigrp_connected *ec)
+{
+	listnode_delete(ec->ei->connected, ec);
+	XFREE(MTYPE_EIGRP_CONNECTED, ec);
 }
 
 struct eigrp_interface *eigrp_if_lookup(struct eigrp *eigrp, struct interface *ifp)
@@ -168,6 +230,8 @@ struct eigrp_interface *eigrp_if_new(struct eigrp *eigrp, struct interface *ifp,
 	/* Initialize neighbor list. */
 	eigrp_nbr_hash_init(&ei->nbr_hash_head);
 
+	ei->connected = list_new();
+
 	ei->crypt_seqnum = frr_sequence32_next();
 
 	/* Initialize lists */
@@ -198,6 +262,10 @@ static void eigrp_if_delete_one(struct eigrp_interface *ei)
 
 	eigrp_nbr_hash_fini(&ei->nbr_hash_head);
 	eigrp_interface_hash_del(&eigrp->eifs, ei);
+
+	while (!list_isempty(ei->connected))
+		eigrp_connected_delete(listnode_head(ei->connected));
+	list_delete(&ei->connected);
 	eigrp_fifo_free(ei->obuf);
 
 	XFREE(MTYPE_EIGRP_IF, ei);
@@ -407,12 +475,99 @@ static void eigrp_mtu_convert(struct eigrp_metrics *metric, uint32_t host_mtu)
 	metric->mtu[2] = nm[3];
 }
 
-int eigrp_if_up(struct eigrp_interface *ei)
+/*
+ * Contribute one connected subnet to the topology table.
+ *
+ * This runs again every time the interface is brought back up, and
+ * eigrp_if_reset() does exactly that on a bandwidth, delay or MTU change
+ * while eigrp_if_down() deliberately leaves the descriptor in place.  So an
+ * existing descriptor from this instance is refreshed with the new metric
+ * rather than duplicated -- skipping it instead would silently drop the very
+ * change that triggered the reset.
+ */
+static void eigrp_connected_advertise(struct eigrp_connected *ec,
+				      struct eigrp_metrics metric)
 {
+	struct eigrp_interface *ei = ec->ei;
+	struct eigrp *eigrp = ei->eigrp;
 	struct eigrp_prefix_descriptor *pe;
 	struct eigrp_route_descriptor *ne;
-	struct eigrp_metrics metric;
+	struct eigrp_fsm_action_message msg;
 	struct eigrp_interface *ei2;
+
+	pe = eigrp_topology_table_lookup_ipv4(eigrp->topology_table,
+					      &ec->address);
+
+	if (pe == NULL) {
+		ne = eigrp_route_descriptor_new();
+		ne->ei = ei;
+		ne->reported_metric = metric;
+		ne->total_metric = metric;
+		ne->distance = eigrp_calculate_metrics(eigrp, metric);
+		ne->reported_distance = 0;
+		ne->adv_router = eigrp->neighbor_self;
+		ne->flags = EIGRP_ROUTE_DESCRIPTOR_SUCCESSOR_FLAG;
+
+		pe = eigrp_prefix_descriptor_new();
+		pe->serno = eigrp->serno;
+		prefix_copy(&pe->destination, &ec->address);
+		pe->af = AF_INET;
+		pe->nt = EIGRP_TOPOLOGY_TYPE_CONNECTED;
+
+		ne->prefix = pe;
+		pe->reported_metric = metric;
+		pe->state = EIGRP_FSM_STATE_PASSIVE;
+		pe->fdistance = eigrp_calculate_metrics(eigrp, metric);
+		pe->req_action |= EIGRP_FSM_NEED_UPDATE;
+		eigrp_prefix_descriptor_add(eigrp->topology_table, pe);
+		listnode_add(eigrp->topology_changes_internalIPV4, pe);
+
+		eigrp_route_descriptor_add(eigrp, pe, ne);
+
+		frr_each (eigrp_interface_hash, &eigrp->eifs, ei2)
+			eigrp_update_send(ei2);
+
+		pe->req_action &= ~EIGRP_FSM_NEED_UPDATE;
+		listnode_delete(eigrp->topology_changes_internalIPV4, pe);
+
+		return;
+	}
+
+	ne = eigrp_route_descriptor_lookup_ei(pe, eigrp->neighbor_self, ei);
+	if (ne == NULL) {
+		ne = eigrp_route_descriptor_new();
+		ne->ei = ei;
+		ne->reported_distance = 0;
+		ne->adv_router = eigrp->neighbor_self;
+		ne->flags = EIGRP_ROUTE_DESCRIPTOR_SUCCESSOR_FLAG;
+		ne->prefix = pe;
+		ne->reported_metric = metric;
+		ne->total_metric = metric;
+		ne->distance = eigrp_calculate_metrics(eigrp, metric);
+
+		eigrp_route_descriptor_add(eigrp, pe, ne);
+	} else {
+		/* Already advertising it -- take the new metric. */
+		ne->reported_metric = metric;
+		ne->total_metric = metric;
+		ne->distance = eigrp_calculate_metrics(eigrp, metric);
+	}
+
+	msg.packet_type = EIGRP_OPC_UPDATE;
+	msg.eigrp = eigrp;
+	msg.data_type = EIGRP_CONNECTED;
+	msg.adv_router = NULL;
+	msg.entry = ne;
+	msg.prefix = pe;
+
+	eigrp_fsm_event(&msg);
+}
+
+int eigrp_if_up(struct eigrp_interface *ei)
+{
+	struct eigrp_metrics metric;
+	struct eigrp_connected *ec;
+	struct listnode *node;
 	struct eigrp *eigrp;
 
 	if (ei == NULL)
@@ -438,61 +593,9 @@ int eigrp_if_up(struct eigrp_interface *ei)
 	metric.flags = 0;
 	metric.tag = 0;
 
-	/*Add connected entry to topology table*/
-
-	ne = eigrp_route_descriptor_new();
-	ne->ei = ei;
-	ne->reported_metric = metric;
-	ne->total_metric = metric;
-	ne->distance = eigrp_calculate_metrics(eigrp, metric);
-	ne->reported_distance = 0;
-	ne->adv_router = eigrp->neighbor_self;
-	ne->flags = EIGRP_ROUTE_DESCRIPTOR_SUCCESSOR_FLAG;
-
-	struct prefix dest_addr;
-
-	dest_addr = ei->address;
-	apply_mask(&dest_addr);
-	pe = eigrp_topology_table_lookup_ipv4(eigrp->topology_table,
-					      &dest_addr);
-
-	if (pe == NULL) {
-		pe = eigrp_prefix_descriptor_new();
-		pe->serno = eigrp->serno;
-		prefix_copy(&pe->destination, &dest_addr);
-		pe->af = AF_INET;
-		pe->nt = EIGRP_TOPOLOGY_TYPE_CONNECTED;
-
-		ne->prefix = pe;
-		pe->reported_metric = metric;
-		pe->state = EIGRP_FSM_STATE_PASSIVE;
-		pe->fdistance = eigrp_calculate_metrics(eigrp, metric);
-		pe->req_action |= EIGRP_FSM_NEED_UPDATE;
-		eigrp_prefix_descriptor_add(eigrp->topology_table, pe);
-		listnode_add(eigrp->topology_changes_internalIPV4, pe);
-
-		eigrp_route_descriptor_add(eigrp, pe, ne);
-
-		frr_each (eigrp_interface_hash, &eigrp->eifs, ei2)
-			eigrp_update_send(ei2);
-
-		pe->req_action &= ~EIGRP_FSM_NEED_UPDATE;
-		listnode_delete(eigrp->topology_changes_internalIPV4, pe);
-	} else {
-		struct eigrp_fsm_action_message msg;
-
-		ne->prefix = pe;
-		eigrp_route_descriptor_add(eigrp, pe, ne);
-
-		msg.packet_type = EIGRP_OPC_UPDATE;
-		msg.eigrp = eigrp;
-		msg.data_type = EIGRP_CONNECTED;
-		msg.adv_router = NULL;
-		msg.entry = ne;
-		msg.prefix = pe;
-
-		eigrp_fsm_event(&msg);
-	}
+	/* Advertise every connected subnet this instance speaks for. */
+	for (ALL_LIST_ELEMENTS_RO(ei->connected, node, ec))
+		eigrp_connected_advertise(ec, metric);
 
 	return 1;
 }
@@ -587,22 +690,16 @@ uint8_t eigrp_default_iftype(struct interface *ifp)
 
 void eigrp_if_free(struct eigrp_interface *ei, int source)
 {
-	struct prefix dest_addr;
-	struct eigrp_prefix_descriptor *pe;
-	struct eigrp *eigrp = ei->eigrp;
+	struct eigrp_connected *ec;
+	struct listnode *node;
 
 	if (source == INTERFACE_DOWN_BY_VTY) {
 		event_cancel(&ei->t_hello);
 		eigrp_hello_send(ei, EIGRP_HELLO_GRACEFUL_SHUTDOWN, NULL);
 	}
 
-	dest_addr = ei->address;
-	apply_mask(&dest_addr);
-	pe = eigrp_topology_table_lookup_ipv4(eigrp->topology_table,
-					      &dest_addr);
-	if (pe)
-		eigrp_prefix_descriptor_delete(eigrp, eigrp->topology_table,
-					       pe);
+	for (ALL_LIST_ELEMENTS_RO(ei->connected, node, ec))
+		eigrp_connected_withdraw(ec);
 
 	eigrp_if_down(ei);
 

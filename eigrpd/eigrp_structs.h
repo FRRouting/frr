@@ -181,6 +181,22 @@ enum { MEMBER_ALLROUTERS = 0,
 
 PREDECL_HASH(eigrp_nbr_hash);
 
+/*
+ * A connected prefix that EIGRP advertises on an interface.
+ *
+ * Mirrors ifp->connected: the interface object is the wire, and these hang
+ * off it describing which of its subnets EIGRP speaks for.  Several
+ * addresses in one subnet produce a single entry, because they describe the
+ * same EIGRP prefix.
+ */
+struct eigrp_connected {
+	/* The interface instance advertising this prefix. */
+	struct eigrp_interface *ei;
+
+	/* The connected subnet, masked. */
+	struct prefix address;
+};
+
 /*EIGRP interface structure*/
 struct eigrp_interface {
 	struct eigrp_interface_hash_item eif_item;
@@ -215,6 +231,12 @@ struct eigrp_interface {
 	uint8_t type;
 
 	struct prefix address;      /* Interface prefix */
+
+	/* Connected subnets this instance advertises, as struct
+	 * eigrp_connected *.  A `network` statement adds every connected
+	 * subnet of the interface that it covers.
+	 */
+	struct list *connected;
 
 	/* Neighbor information. */
 	struct eigrp_nbr_hash_head nbr_hash_head;

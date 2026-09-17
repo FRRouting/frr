@@ -65,6 +65,18 @@ extern void eigrp_if_free_process(struct eigrp *eigrp, struct interface *ifp);
  * "is any EIGRP process running here" and is for the zebra interface hooks,
  * which have no process in hand.
  */
+/*
+ * The connected subnets an instance advertises.  eigrp_connected_add() is
+ * idempotent per subnet: two addresses in one subnet share a single entry,
+ * because they describe the same EIGRP prefix.
+ */
+extern struct eigrp_connected *eigrp_connected_add(struct eigrp_interface *ei,
+						   const struct prefix *address);
+extern struct eigrp_connected *eigrp_connected_lookup(struct eigrp_interface *ei,
+						      const struct prefix *address);
+extern void eigrp_connected_withdraw(struct eigrp_connected *ec);
+extern void eigrp_connected_delete(struct eigrp_connected *ec);
+
 extern struct eigrp_interface *eigrp_if_lookup(struct eigrp *eigrp, struct interface *ifp);
 extern struct eigrp_interface *eigrp_if_lookup_by_ifp(struct interface *ifp);
 extern struct eigrp_interface *eigrp_if_new(struct eigrp *eigrp, struct interface *ifp,
