@@ -1629,7 +1629,6 @@ static int zebra_sr_config(struct vty *vty)
 	struct listnode *node;
 	struct srv6_locator *locator;
 	struct srv6_sid_format *format;
-	char str[256];
 	bool display_source_srv6 = false;
 
 	if (srv6 && !IPV6_ADDR_SAME(&srv6->encap_src_addr, &in6addr_any))
@@ -1651,11 +1650,8 @@ static int zebra_sr_config(struct vty *vty)
 	if (srv6 && zebra_srv6_is_enable()) {
 		vty_out(vty, "  locators\n");
 		for (ALL_LIST_ELEMENTS_RO(srv6->locators, node, locator)) {
-			inet_ntop(AF_INET6, &locator->prefix.prefix,
-				  str, sizeof(str));
 			vty_out(vty, "   locator %s\n", locator->name);
-			vty_out(vty, "    prefix %s/%u", str,
-				locator->prefix.prefixlen);
+			vty_out(vty, "    prefix %pFX", &locator->prefix);
 			if (locator->block_bits_length !=
 			    locator->prefix.prefixlen - ZEBRA_SRV6_LOCATOR_NODE_LENGTH)
 				vty_out(vty, " block-len %u",
