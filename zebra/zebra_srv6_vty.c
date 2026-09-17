@@ -805,7 +805,6 @@ DEFUN_NOSH (srv6_locator,
 	locator = zebra_srv6_locator_lookup(argv[1]->arg);
 	if (locator) {
 		VTY_PUSH_CONTEXT(SRV6_LOC_NODE, locator);
-		locator->status_up = true;
 		return CMD_SUCCESS;
 	}
 
