@@ -892,7 +892,6 @@ DEFPY (locator_prefix,
 	int idx = 0;
 	bool node_bit_not_conf = false;
 
-	locator->prefix = *prefix;
 	/* Only set default if func_bit_len was not provided in command */
 	if (func_bit_len == 0 && !argv_find(argv, argc, "func-bits", &idx))
 		func_bit_len = ZEBRA_SRV6_FUNCTION_LENGTH;
@@ -950,6 +949,7 @@ DEFPY (locator_prefix,
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 
+	locator->prefix = *prefix;
 	locator->block_bits_length = block_bit_len;
 	locator->node_bits_length = node_bit_len;
 	locator->function_bits_length = func_bit_len;
