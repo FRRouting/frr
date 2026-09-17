@@ -457,14 +457,33 @@ static void bmp_notify_put(struct stream *s, struct bgp_notify *nfy)
 			+ sizeof(marker));
 }
 
+static struct stream *bmp_open_make(struct peer *peer)
+{
+	uint16_t send_holdtime;
+	as_t local_as;
+
+	if (CHECK_FLAG(peer->flags, PEER_FLAG_TIMER))
+		send_holdtime = peer->holdtime;
+	else
+		send_holdtime = peer->bgp->default_holdtime;
+
+	/* local-as Change */
+	if (peer->change_local_as)
+		local_as = peer->change_local_as;
+	else
+		local_as = peer->local_as;
+
+	return bgp_open_make(peer->connection, send_holdtime, local_as, &peer->local_id);
+}
+
 /* send peer up/down for peer based on down boolean value
  * returns the message to send or NULL if the peer_distinguisher is not
  * available
  */
 static struct stream *bmp_peerstate(struct peer *peer, bool down)
 {
-	struct stream *s;
-	size_t len;
+	struct stream *s, *s_temp;
+	size_t len, s_len_temp;
 	struct timeval uptime, uptime_real;
 	struct timeval *uptime_tv = NULL;
 	uint8_t peer_type;
@@ -545,17 +564,28 @@ static struct stream *bmp_peerstate(struct peer *peer, bool down)
 				/* update bgp id each time peer up LOC-RIB message is to be sent */
 				bmp_bgp_peer_vrf(bbpeer, peer->bgp);
 			stream_put(s, bbpeer->open_tx, bbpeer->open_tx_len);
-		} else {
+		} else if (is_locrib) {
 			stream_put(s, dummy_open, sizeof(dummy_open));
-			zlog_warn("bmp: missing TX OPEN message for peer %s",
-				  peer->host);
+			zlog_warn("bmp: missing TX OPEN message for loc-rib (%s)", peer->host);
+		} else {
+			zlog_warn("bmp: missing TX OPEN message for peer %s", peer->host);
+			s_temp = bmp_open_make(peer);
+			s_len_temp = stream_get_endp(s_temp);
+			stream_put(s, s_temp->data, s_len_temp);
+			stream_free(s_temp);
 		}
 		if (bbpeer && bbpeer->open_rx)
 			stream_put(s, bbpeer->open_rx, bbpeer->open_rx_len);
-		else {
+		else if (is_locrib) {
 			stream_put(s, dummy_open, sizeof(dummy_open));
+			zlog_warn("bmp: missing RX OPEN message for loc-rib (%s)", peer->host);
+		} else {
 			zlog_warn("bmp: missing RX OPEN message for peer %s",
 				  peer->host);
+			s_temp = bmp_open_make(peer);
+			s_len_temp = stream_get_endp(s_temp);
+			stream_put(s, s_temp->data, s_len_temp);
+			stream_free(s_temp);
 		}
 
 		if (peer->desc)
@@ -2390,23 +2420,10 @@ static int bmp_bgp_del(struct bgp *bgp)
 static void bmp_bgp_peer_vrf(struct bmp_bgp_peer *bbpeer, struct bgp *bgp)
 {
 	struct peer *peer = bgp->peer_self;
-	uint16_t send_holdtime;
-	as_t local_as;
 	struct stream *s;
 	size_t open_len;
 
-	if (CHECK_FLAG(peer->flags, PEER_FLAG_TIMER))
-		send_holdtime = peer->holdtime;
-	else
-		send_holdtime = peer->bgp->default_holdtime;
-
-	/* local-as Change */
-	if (peer->change_local_as)
-		local_as = peer->change_local_as;
-	else
-		local_as = peer->local_as;
-
-	s = bgp_open_make(peer->connection, send_holdtime, local_as, &peer->local_id);
+	s = bmp_open_make(peer);
 	open_len = stream_get_endp(s);
 
 	bbpeer->open_rx_len = open_len;
@@ -2418,7 +2435,7 @@ static void bmp_bgp_peer_vrf(struct bmp_bgp_peer *bbpeer, struct bgp *bgp)
 	stream_free(s);
 
 	/* rfc9069#section-5.2 : Received OPEN Message: Repeat of the same sent OPEN message */
-	s = bgp_open_make(peer->connection, send_holdtime, local_as, &peer->local_id);
+	s = bmp_open_make(peer);
 	open_len = stream_get_endp(s);
 	bbpeer->open_tx_len = open_len;
 	if (bbpeer->open_tx)
