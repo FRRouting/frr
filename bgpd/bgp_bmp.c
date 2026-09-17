@@ -2778,7 +2778,7 @@ static void bmp_stats_peer(struct peer *peer, struct bmp_targets *bt)
 			bmp_stat_put_u64(s, &count, BMP_STATS_SIZE_LOC_RIB, per_af_sum), false);
 
 	BMP_PER_AF_STAT(afi, safi, af_stat, per_af_sum,
-			((subgrp = peer_subgroup(peer, afi, safi)) ? subgrp->pscount : 0),
+			((subgrp = peer_subgroup(peer, afi, safi)) ? subgrp->scount : 0),
 			bmp_stat_put_af_u64(s, &count, BMP_STATS_SIZE_ADJ_RIB_OUT_POST_SAFI, afi,
 					    safi, af_stat[afi][safi]),
 			bmp_stat_put_u64(s, &count, BMP_STATS_SIZE_ADJ_RIB_OUT_POST, per_af_sum),
