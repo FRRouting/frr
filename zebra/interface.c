@@ -870,6 +870,29 @@ static void ipv6_ll_address_to_mac(struct in6_addr *address, uint8_t *mac)
 	mac[5] = address->s6_addr[15];
 }
 
+/*
+ * Derive a unique 169.254.x.y from the last two MAC octets embedded in
+ * an IPv6 link-local EUI-64 address.  On point-to-point links only one
+ * peer exists so the address is stable; on multi-access segments each
+ * RA source maps to a distinct 169.254.x.y, allowing zebra to install
+ * per-peer ARP entries and BGP to round-robin through candidates.
+ */
+void ipv6ll_to_ipv4ll(const struct in6_addr *v6, struct in_addr *v4)
+{
+	uint8_t *p = (uint8_t *)&v4->s_addr;
+
+	p[0] = 169;
+	p[1] = 254;
+	p[2] = v6->s6_addr[14]; /* penultimate MAC octet */
+	p[3] = v6->s6_addr[15]; /* last MAC octet */
+
+	/* Avoid the network and broadcast addresses of 169.254.0.0/16 */
+	if (p[2] == 0 && p[3] == 0)
+		p[3] = 1;
+	if (p[2] == 255 && p[3] == 255)
+		p[3] = 254;
+}
+
 void if_nbr_mac_to_ipv4ll_neigh_update(struct interface *ifp,
 				       char mac[6],
 				       struct in6_addr *address,
@@ -877,11 +900,10 @@ void if_nbr_mac_to_ipv4ll_neigh_update(struct interface *ifp,
 {
 	struct zebra_vrf *zvrf = ifp->vrf->info;
 	struct zebra_if *zif = ifp->info;
-	char buf[16] = "169.254.0.1";
 	struct in_addr ipv4_ll;
 	ns_id_t ns_id;
 
-	inet_pton(AF_INET, buf, &ipv4_ll);
+	ipv6ll_to_ipv4ll(address, &ipv4_ll);
 
 	ns_id = zvrf->zns->ns_id;
 
@@ -913,7 +935,10 @@ void if_nbr_mac_to_ipv4ll_neigh_update(struct interface *ifp,
 	 * someone unwisely accidentally deletes this entry
 	 * we can shove it back in.
 	 */
-	zif->v6_2_v4_ll_neigh_entry = !!add;
+	if (add)
+		zif->v6_2_v4_ll_neigh_entry = true;
+	else
+		zif->v6_2_v4_ll_neigh_entry = (listcount(ifp->nbr_connected) > 0);
 	memcpy(&zif->v6_2_v4_ll_addr6, address, sizeof(*address));
 
 	zvrf->neigh_updates++;
