@@ -2892,6 +2892,43 @@ void frr_event_loop_set_handle_sigs(struct event_loop *loop, bool handle_p)
 	loop->handle_signals = handle_p;
 }
 
+bool frr_event_get_epoll_fd_avail(struct event_loop *loop)
+{
+	int32_t avail;
+	struct listnode *ln;
+	struct event_loop *m;
+
+	avail = loop->fd_limit;
+
+	frr_with_mutex (&masters_mtx) {
+		for (ALL_LIST_ELEMENTS_RO(masters, ln, m)) {
+#if EPOLL_ENABLED
+			/*
+			 * Every registered fd, including regular files that
+			 * are also tracked on the revents list, lives in the
+			 * hash, so the hash count is the full registered
+			 * count.  Add the descriptors the loop itself owns
+			 * that are never registered by users: the epoll fd
+			 * and both ends of the wakeup pipe.
+			 */
+			avail -= epoll_event_hash_count(&m->handler.epoll_event_hash) + 3;
+#else
+			/* The two ends of the wakeup pipe are not in pfdcount */
+			avail -= m->handler.pfdcount + 2;
+#endif
+		}
+	}
+
+	/*
+	 * The caller is about to consume a descriptor, so we must still have
+	 * more than the reserve available, otherwise opening it would eat into
+	 * the descriptors saved for operator (vtysh) access.
+	 */
+	if (avail <= FRREVENT_FD_LIMIT_SAVE_SOME)
+		return false;
+	return true;
+}
+
 static ssize_t printfrr_thread_dbg(struct fbuf *buf, struct printfrr_eargs *ea,
 				   const struct event *event)
 {
