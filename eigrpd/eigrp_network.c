@@ -257,15 +257,16 @@ static void eigrp_network_run_interface(struct eigrp *eigrp, struct prefix *p,
 			continue;
 
 		/*
-		 * ifp->info is now always set (it holds the interface
-		 * configuration), so it can no longer be used to test whether
-		 * EIGRP is already running here.  Keep the existing
-		 * one-instance-per-interface behaviour by checking for a
-		 * running instance instead; supporting several connected
-		 * prefixes is a separate change.
+		 * ifp->info is always set -- it holds the interface
+		 * configuration -- so it cannot be used to test whether EIGRP
+		 * is already running here.  Ask whether *this* process has an
+		 * instance: another autonomous system may already have one on
+		 * the same interface, and that must not stop this one from
+		 * starting.  Supporting several connected prefixes is a
+		 * separate change.
 		 */
 		if (p->family == co->address->family &&
-		    !eigrp_if_lookup_by_ifp(ifp) &&
+		    !eigrp_if_lookup(eigrp, ifp) &&
 		    eigrp_network_match_iface(co->address, p)) {
 
 			ei = eigrp_if_new(eigrp, ifp, co->address);

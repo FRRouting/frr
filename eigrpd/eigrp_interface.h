@@ -34,7 +34,7 @@ extern void eigrp_del_if_params(struct eigrp_if_params *eip);
  */
 #define IF_EIGRP_IF_INFO(I) ((struct eigrp_if_info *)((I)->info))
 #define EIGRP_IF_DEF_PARAMS(I) (IF_EIGRP_IF_INFO(I)->def_params)
-#define EIGRP_IF_EIFS(I) (IF_EIGRP_IF_INFO(I)->eifs)
+#define EIGRP_IF_EIS(I) (IF_EIGRP_IF_INFO(I)->eis)
 
 /*
  * Interface configuration lifecycle.
@@ -54,14 +54,18 @@ extern void eigrp_if_info_free(struct interface *ifp);
  */
 extern void eigrp_if_free_all(struct interface *ifp);
 
+/* As above, but only the instances belonging to one EIGRP process. */
+extern void eigrp_if_free_process(struct eigrp *eigrp, struct interface *ifp);
+
 /*
- * Look up the running EIGRP instance on an interface.
+ * Look up the instance a given EIGRP process runs on an interface.
  *
- * Transitional: EIGRP currently runs on at most one connected prefix per
- * interface, so this returns that single instance.  Once per-address
- * instances land, callers that are address-specific must look up by prefix
- * in EIGRP_IF_EIFS() instead.
+ * An interface can carry one instance per autonomous system, so the process
+ * is part of the question.  eigrp_if_lookup_by_ifp() answers the weaker
+ * "is any EIGRP process running here" and is for the zebra interface hooks,
+ * which have no process in hand.
  */
+extern struct eigrp_interface *eigrp_if_lookup(struct eigrp *eigrp, struct interface *ifp);
 extern struct eigrp_interface *eigrp_if_lookup_by_ifp(struct interface *ifp);
 extern struct eigrp_interface *eigrp_if_new(struct eigrp *eigrp, struct interface *ifp,
 					    struct prefix *p);

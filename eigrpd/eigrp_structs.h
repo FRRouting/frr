@@ -168,10 +168,11 @@ struct eigrp_if_info {
 	 */
 	struct eigrp_if_params *def_params;
 
-	/* Running struct eigrp_interface instances, keyed by connected
-	 * address.  A single interface may run EIGRP on several prefixes.
+	/* Running struct eigrp_interface instances on this interface, one per
+	 * EIGRP process, since an interface can be in more than one
+	 * autonomous system.  Holds struct eigrp_interface *.
 	 */
-	struct route_table *eifs;
+	struct list *eis;
 };
 
 enum { MEMBER_ALLROUTERS = 0,

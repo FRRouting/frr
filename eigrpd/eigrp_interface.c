@@ -82,7 +82,7 @@ struct eigrp_if_info *eigrp_if_info_get(struct interface *ifp)
 	eii = XCALLOC(MTYPE_EIGRP_IF_INFO, sizeof(struct eigrp_if_info));
 	eii->def_params = eigrp_new_if_params();
 	eii->def_params->type = eigrp_default_iftype(ifp);
-	eii->eifs = route_table_init();
+	eii->eis = list_new();
 
 	ifp->info = eii;
 
@@ -96,7 +96,7 @@ void eigrp_if_info_free(struct interface *ifp)
 	if (!eii)
 		return;
 
-	route_table_finish(eii->eifs);
+	list_delete(&eii->eis);
 
 	eigrp_del_if_params(eii->def_params);
 	XFREE(MTYPE_EIGRP_IF_PARAMS, eii->def_params);
@@ -104,23 +104,27 @@ void eigrp_if_info_free(struct interface *ifp)
 	XFREE(MTYPE_EIGRP_IF_INFO, ifp->info);
 }
 
-struct eigrp_interface *eigrp_if_lookup_by_ifp(struct interface *ifp)
+struct eigrp_interface *eigrp_if_lookup(struct eigrp *eigrp, struct interface *ifp)
 {
-	struct route_node *rn;
+	struct eigrp_interface *ei;
+	struct listnode *node;
 
 	if (!ifp->info)
 		return NULL;
 
-	for (rn = route_top(EIGRP_IF_EIFS(ifp)); rn; rn = route_next(rn)) {
-		if (rn->info) {
-			struct eigrp_interface *ei = rn->info;
-
-			route_unlock_node(rn);
+	for (ALL_LIST_ELEMENTS_RO(EIGRP_IF_EIS(ifp), node, ei))
+		if (ei->eigrp == eigrp)
 			return ei;
-		}
-	}
 
 	return NULL;
+}
+
+struct eigrp_interface *eigrp_if_lookup_by_ifp(struct interface *ifp)
+{
+	if (!ifp->info || list_isempty(EIGRP_IF_EIS(ifp)))
+		return NULL;
+
+	return listnode_head(EIGRP_IF_EIS(ifp));
 }
 
 int eigrp_interface_cmp(const struct eigrp_interface *a, const struct eigrp_interface *b)
@@ -138,19 +142,17 @@ struct eigrp_interface *eigrp_if_new(struct eigrp *eigrp, struct interface *ifp,
 {
 	struct eigrp_if_info *eii = eigrp_if_info_get(ifp);
 	struct eigrp_interface *ei;
-	struct route_node *rn;
 	int i;
 
 	/*
-	 * Running instances are keyed by connected address, so an interface
-	 * is no longer limited to a single one.  The node lock taken by
-	 * route_node_get() is held for as long as rn->info is set.
+	 * One instance per EIGRP process per interface.  A second `network`
+	 * statement in the same process matching another connected prefix
+	 * reuses this instance rather than making a new one; which prefixes
+	 * it advertises is tracked separately.
 	 */
-	rn = route_node_get(eii->eifs, p);
-	if (rn->info) {
-		route_unlock_node(rn);
-		return rn->info;
-	}
+	ei = eigrp_if_lookup(eigrp, ifp);
+	if (ei)
+		return ei;
 
 	ei = XCALLOC(MTYPE_EIGRP_IF, sizeof(struct eigrp_interface));
 
@@ -158,7 +160,7 @@ struct eigrp_interface *eigrp_if_new(struct eigrp *eigrp, struct interface *ifp,
 	ei->ifp = ifp;
 	prefix_copy(&ei->address, p);
 
-	rn->info = ei;
+	listnode_add(eii->eis, ei);
 	eigrp_interface_hash_add(&eigrp->eifs, ei);
 
 	ei->type = EIGRP_IFTYPE_BROADCAST;
@@ -212,18 +214,8 @@ static void eigrp_if_delete_one(struct eigrp_interface *ei)
 static void eigrp_if_remove(struct eigrp_interface *ei)
 {
 	struct interface *ifp = ei->ifp;
-	struct route_node *rn;
 
-	rn = route_node_lookup(EIGRP_IF_EIFS(ifp), &ei->address);
-	if (rn) {
-		if (rn->info == ei) {
-			rn->info = NULL;
-			/* reference held for as long as rn->info was set */
-			route_unlock_node(rn);
-		}
-		/* reference taken by the lookup above */
-		route_unlock_node(rn);
-	}
+	listnode_delete(EIGRP_IF_EIS(ifp), ei);
 
 	eigrp_if_delete_one(ei);
 }
@@ -237,23 +229,39 @@ static void eigrp_if_remove(struct eigrp_interface *ei)
  * configured on it remain.  Previously this freed ifp->info outright, which
  * is why interface configuration could not outlive the protocol.
  */
-void eigrp_if_free_all(struct interface *ifp)
+/*
+ * Drop the instances an interface runs, optionally narrowed to one process.
+ *
+ * An interface carries one instance per EIGRP process, so a process going
+ * away must take only its own: freeing the rest would tear down another
+ * autonomous system's adjacency and leave its topology descriptors pointing
+ * at freed interfaces.  The interface itself going away takes all of them.
+ */
+static void eigrp_if_free_instances(struct eigrp *eigrp, struct interface *ifp)
 {
-	struct route_node *rn;
+	struct eigrp_interface *ei;
+	struct listnode *node, *nnode;
 
 	if (!ifp->info)
 		return;
 
-	for (rn = route_top(EIGRP_IF_EIFS(ifp)); rn; rn = route_next(rn)) {
-		struct eigrp_interface *ei = rn->info;
-
-		if (!ei)
+	for (ALL_LIST_ELEMENTS(EIGRP_IF_EIS(ifp), node, nnode, ei)) {
+		if (eigrp && ei->eigrp != eigrp)
 			continue;
 
+		list_delete_node(EIGRP_IF_EIS(ifp), node);
 		eigrp_if_delete_one(ei);
-		rn->info = NULL;
-		route_unlock_node(rn);
 	}
+}
+
+void eigrp_if_free_process(struct eigrp *eigrp, struct interface *ifp)
+{
+	eigrp_if_free_instances(eigrp, ifp);
+}
+
+void eigrp_if_free_all(struct interface *ifp)
+{
+	eigrp_if_free_instances(NULL, ifp);
 }
 
 /* The interface itself is going away, so the configuration goes with it. */
