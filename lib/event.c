@@ -2908,6 +2908,23 @@ void frr_event_loop_set_handle_sigs(struct event_loop *loop, bool handle_p)
 	loop->handle_signals = handle_p;
 }
 
+#define FD_LIMIT_SAVE_SOME 5
+bool frr_event_get_epoll_fd_avail(struct event_loop *loop)
+{
+	int32_t avail;
+
+#if EPOLL_ENABLED
+	avail = loop->fd_limit - epoll_event_hash_count(&loop->handler.epoll_event_hash) -
+		epoll_revent_list_count(&loop->handler.epoll_revents_list);
+#else
+	avail = loop->fd_limit - loop->handler.pfdcount;
+#endif
+
+	if (avail < FD_LIMIT_SAVE_SOME)
+		return false;
+	return true;
+}
+
 static ssize_t printfrr_thread_dbg(struct fbuf *buf, struct printfrr_eargs *ea,
 				   const struct event *event)
 {
