@@ -872,6 +872,13 @@ enum connect_result bgp_connect(struct peer_connection *connection)
 			zlog_debug("Peer address not learnt: Returning from connect");
 		return connect_error;
 	}
+
+	if (!frr_event_get_epoll_fd_avail(bm->master)) {
+		zlog_warn("%s: BGP is down to a small number of FD available(<= %d), leaving some for vtysh connections",
+			  __func__, FRREVENT_FD_LIMIT_SAVE_SOME);
+		return connect_error;
+	}
+
 	frr_with_privs(&bgpd_privs) {
 		/* Make socket for the peer. */
 		connection->fd =
