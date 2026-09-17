@@ -2453,12 +2453,18 @@ Configuring Peers
    If you do not want specific attributes, you can drop them using this command, and
    let the BGP proceed by ignoring those attributes.
 
+   These attributes: ORIGIN AS_PATH NEXT_HOP MULTI_EXIT_DISC MP_REACH_NLRI
+   MP_UNREACH_NLRI EXT_COMMUNITIES and OTC cannot be dropped. Additionally if the
+   peer is ebgp then LOCAL_PREF ORIGINATOR_ID and CLUSTER_LIST cannot be dropped.
+   OTC is rejected because :rfc:`9234` does not allow the operator to alter the
+   route leak prevention procedures.
+
 .. clicmd:: neighbor <A.B.C.D|X:X::X:X|WORD> path-attribute treat-as-withdraw (1-255)...
 
    Received BGP UPDATES that contain specified path attributes are treat-as-withdraw. If
    there is an existing prefix in the BGP routing table, it will be removed.  These
    attributes: ORIGIN AS_PATH NEXT_HOP MULTI_EXIT_DISC MP_REACH_NLRI MP_UNREACH_NLRI
-   and EXT_COMMUNITIES cannot be ignored.  Additionally if the peer is ebgp then
+   EXT_COMMUNITIES and OTC cannot be ignored.  Additionally if the peer is ebgp then
    LOCAL_PREF ORIGINATOR_ID and CLUSTER_LIST cannot be ignored.  If you choose
    any of these then the whole command will be ignored.
 
