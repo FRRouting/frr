@@ -2012,22 +2012,40 @@ static int bgp_peer_conf_if_to_su_update_v4(struct peer_connection *connection,
 static bool bgp_peer_conf_if_to_su_update_v6(struct peer_connection *connection,
 					     struct interface *ifp)
 {
+	struct peer *peer = connection->peer;
 	struct nbr_connected *ifc_nbr;
+	struct listnode *node;
+	uint32_t count, idx, i;
 
 	/* Have we learnt the peer's IPv6 link-local address? */
-	if (ifp->nbr_connected
-	    && (ifc_nbr = listnode_head(ifp->nbr_connected))) {
-		connection->su.sa.sa_family = AF_INET6;
-		memcpy(&connection->su.sin6.sin6_addr,
-		       &ifc_nbr->address->u.prefix, sizeof(struct in6_addr));
-#ifdef SIN6_LEN
-		connection->su.sin6.sin6_len = sizeof(struct sockaddr_in6);
-#endif
-		connection->su.sin6.sin6_scope_id = ifp->ifindex;
-		return true;
-	}
+	if (!ifp->nbr_connected)
+		return false;
 
-	return false;
+	count = listcount(ifp->nbr_connected);
+	if (count == 0)
+		return false;
+
+	/*
+	 * On multi-access segments the list may contain multiple RA
+	 * sources.  Use the peer's nbr_conn_idx to select which entry
+	 * to try (round-robin on failure).  On PTP links count == 1
+	 * and idx is always 0, identical to the old listnode_head().
+	 */
+	idx = peer->nbr_conn_idx % count;
+	node = listhead(ifp->nbr_connected);
+	for (i = 0; i < idx; i++)
+		node = listnextnode(node);
+
+	ifc_nbr = listgetdata(node);
+
+	connection->su.sa.sa_family = AF_INET6;
+	memcpy(&connection->su.sin6.sin6_addr, &ifc_nbr->address->u.prefix,
+	       sizeof(struct in6_addr));
+#ifdef SIN6_LEN
+	connection->su.sin6.sin6_len = sizeof(struct sockaddr_in6);
+#endif
+	connection->su.sin6.sin6_scope_id = ifp->ifindex;
+	return true;
 }
 
 /*

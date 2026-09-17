@@ -2371,6 +2371,121 @@ enum bgp_fsm_state_progress bgp_stop(struct peer_connection *connection)
 	} else {
 		bgp_peer_conf_if_to_su_update(connection);
 	}
+
+	/*
+	 * Multi-access round-robin for unnumbered peers.
+	 *
+	 * On multi-access segments (shared VLANs), nbr_connected contains
+	 * entries for every RA source -- other compute nodes, VMs, and the
+	 * TOR.  When BGP connects to the wrong peer (same ASN via
+	 * "remote-as external"), the OPEN exchange results in Bad Peer AS
+	 * and sent_bad_peer_as is set.  Both Bad Peer AS and transient
+	 * failures (TCP refused, connection reset) use IMMEDIATE_RETRY to
+	 * cycle through entries quickly (~10ms per wrong-peer attempt).
+	 *
+	 * NHT-not-yet-valid is handled separately: the index is held so
+	 * that once NHT resolves, the retry targets the same address
+	 * rather than skipping it.
+	 *
+	 * When dropping from Established, nbr_conn_found is cleared
+	 * (deferred until after the round-robin logic) so that if the
+	 * nbr_connected list reordered during the outage, subsequent
+	 * failures trigger a re-search.
+	 */
+	if (ret == BGP_FSM_SUCCESS && peer->conf_if && peer->ifp && peer->ifp->nbr_connected) {
+		uint32_t count = listcount(peer->ifp->nbr_connected);
+		bool was_established = peer_established(connection);
+
+		if (peer->sent_bad_peer_as && count > 1 && peer->nbr_conn_tried < count) {
+			/* Wrong peer confirmed: advance and retry now. */
+			peer->sent_bad_peer_as = false;
+			peer->nbr_conn_idx++;
+			peer->nbr_conn_tried++;
+			peer->v_start = BGP_INIT_START_TIMER;
+			peer->v_connect = BGP_INIT_START_TIMER;
+			if (bgp_debug_neighbor_events(peer))
+				zlog_debug("%s [RR] %s: bad AS, advance idx=%u tried=%u/%u",
+					   peer->host, __func__, peer->nbr_conn_idx,
+					   peer->nbr_conn_tried, count);
+			return BGP_FSM_IMMEDIATE_RETRY;
+		}
+
+		if (peer->sent_bad_peer_as) {
+			/* Bad-AS cycle exhausted: reset for next round. */
+			peer->sent_bad_peer_as = false;
+			peer->nbr_conn_tried = 0;
+			peer->v_start = BGP_INIT_START_TIMER;
+			peer->v_connect = BGP_INIT_START_TIMER;
+			if (bgp_debug_neighbor_events(peer))
+				zlog_debug("%s [RR] %s: bad-AS cycle exhausted tried=%u/%u",
+					   peer->host, __func__, peer->nbr_conn_tried, count);
+		} else if (peer->last_reset == PEER_DOWN_WAITING_NHT) {
+			/* NHT was not yet valid -- the peer was never
+			 * actually contacted.  Don't count this as a
+			 * round-robin attempt; stay on the current address
+			 * so that once NHT resolves (via the interface
+			 * event scheduled by bgp_connect_fail), the retry
+			 * connects to this address rather than skipping it.
+			 */
+			peer->v_connect = BGP_INIT_START_TIMER;
+			if (bgp_debug_neighbor_events(peer))
+				zlog_debug("%s [RR] %s: NHT pending, hold idx=%u tried=%u/%u",
+					   peer->host, __func__, peer->nbr_conn_idx,
+					   peer->nbr_conn_tried, count);
+		} else if (count > 1 && !peer->nbr_conn_found && peer->nbr_conn_tried < count) {
+			/* Transient failure while searching: advance idx and
+			 * retry immediately.  NHT and collision cases are
+			 * already handled above; reaching here means the TCP
+			 * connect was attempted and rejected (~10ms), so
+			 * there is no reason to wait for a timer.
+			 */
+			peer->nbr_conn_idx++;
+			peer->nbr_conn_tried++;
+			peer->v_connect = BGP_INIT_START_TIMER;
+			if (bgp_debug_neighbor_events(peer))
+				zlog_debug("%s [RR] %s: transient, advance idx=%u tried=%u/%u",
+					   peer->host, __func__, peer->nbr_conn_idx,
+					   peer->nbr_conn_tried, count);
+			return BGP_FSM_IMMEDIATE_RETRY;
+		} else if (count > 1 && !peer->nbr_conn_found) {
+			/* Cycle exhausted, reset for next round. */
+			peer->nbr_conn_tried = 0;
+			peer->v_connect = BGP_INIT_START_TIMER;
+			if (bgp_debug_neighbor_events(peer))
+				zlog_debug("%s [RR] %s: cycle exhausted tried=%u/%u", peer->host,
+					   __func__, peer->nbr_conn_tried, count);
+		} else if (!peer->nbr_conn_found) {
+			/* Single entry (or empty list) failed -- nothing to
+			 * rotate to, so no IMMEDIATE_RETRY.  Advance the
+			 * index so that when a new RA source arrives and
+			 * count increases, the next attempt targets the new
+			 * entry.  Set fast timers so the retry fires in ~1s
+			 * instead of the default 30s connect interval.
+			 */
+			peer->nbr_conn_idx++;
+			peer->v_connect = BGP_INIT_START_TIMER;
+			if (bgp_debug_neighbor_events(peer))
+				zlog_debug("%s [RR] %s: single-entry advance idx=%u count=%u",
+					   peer->host, __func__, peer->nbr_conn_idx, count);
+		}
+
+		/* Dropping from Established: the nbr_connected list may
+		 * have changed while the session was up (link flap that
+		 * reorders entries).  Clear nbr_conn_found AFTER the
+		 * round-robin logic so the current (known-good) index is
+		 * kept for the first reconnect attempt.  If that attempt
+		 * fails, the next bgp_stop will see nbr_conn_found=false
+		 * and advance.
+		 *
+		 * Use a fast connect timer so the first reconnect attempt
+		 * fires in ~1s instead of the default 30s retry.
+		 */
+		if (was_established) {
+			peer->nbr_conn_found = false;
+			peer->v_connect = BGP_INIT_START_TIMER;
+		}
+	}
+
 	return ret;
 }
 
@@ -2614,7 +2729,7 @@ bgp_connect_fail(struct peer_connection *connection)
 	}
 
 	/*
-	 * If we are doing nht for a peer that ls v6 LL based
+	 * If we are doing nht for a peer that is v6 LL based
 	 * massage the event system to make things happy
 	 */
 	bgp_nht_interface_events(peer);
@@ -2719,6 +2834,13 @@ static enum bgp_fsm_state_progress bgp_start(struct peer_connection *connection)
 			return BGP_FSM_SUCCESS;
 		}
 	}
+
+	/* NHT succeeded — clear any stale WAITING_NHT so the round-robin
+	 * guard in bgp_stop only fires for genuine NHT-only failures,
+	 * not subsequent TCP failures after a real connect attempt.
+	 */
+	if (peer->last_reset == PEER_DOWN_WAITING_NHT)
+		peer->last_reset = PEER_DOWN_NONE;
 
 	assert(!connection->t_write);
 	assert(!connection->t_read);
@@ -3099,6 +3221,12 @@ bgp_establish(struct peer_connection *connection)
 	if (peer->bfd_config)
 		bgp_peer_bfd_update_source(peer);
 
+	/* Multi-access: correct peer found, reset round-robin counters */
+	if (peer->conf_if) {
+		peer->nbr_conn_tried = 0;
+		peer->nbr_conn_found = true;
+	}
+
 	return ret;
 }
 
@@ -3162,8 +3290,20 @@ void bgp_fsm_nht_update(struct peer_connection *connection, struct peer *peer,
 		break;
 	case Connect:
 		if (!has_valid_nexthops) {
-			event_cancel(&connection->t_connect);
-			BGP_EVENT_ADD(connection, TCP_fatal_error);
+			/* Only abort a real TCP connection (fd >= 0).
+			 * When fd < 0 the peer entered Connect via the
+			 * NHT-pending path in bgp_start() and there is
+			 * no socket to tear down.  Firing TCP_fatal_error
+			 * on a synthetic entry creates a feedback loop
+			 * through bgp_connect_fail -> bgp_nht_interface_events
+			 * that floods the event queue under ASAN-speed
+			 * conditions.  The pending TCP_connection_open_failed
+			 * event or the connect timer handles the transition.
+			 */
+			if (connection->fd >= 0) {
+				event_cancel(&connection->t_connect);
+				BGP_EVENT_ADD(connection, TCP_fatal_error);
+			}
 		}
 		break;
 	case Active:
@@ -3406,6 +3546,20 @@ int bgp_event_update(struct peer_connection *connection,
 			connection);
 
 	switch (ret) {
+	case BGP_FSM_IMMEDIATE_RETRY:
+		/*
+		 * Multi-access round-robin: Bad Peer AS detected, force
+		 * back to Idle and fire BGP_Start on the next event-loop
+		 * iteration to try the next nbr_connected entry.  We
+		 * ignore the FSM table's next_state because the paths
+		 * through bgp_stop land in states where BGP_Start is a
+		 * no-op (e.g. Active).
+		 */
+		if (connection->status != Idle)
+			bgp_fsm_change_status(connection, Idle);
+		BGP_EVENT_ADD(connection, BGP_Start);
+		fsm_result = FSM_PEER_TRANSITIONED;
+		break;
 	case BGP_FSM_SUCCESS:
 	case BGP_FSM_SUCCESS_STATE_TRANSFER:
 		if (ret == BGP_FSM_SUCCESS_STATE_TRANSFER &&
