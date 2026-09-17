@@ -311,7 +311,7 @@ void isis_circuit_add_addr(struct isis_circuit *circuit,
 	struct listnode *node;
 	struct prefix_ipv4 *ipv4;
 	struct prefix_ipv6 *ipv6;
-	bool first_address;
+	bool first_address = false;
 
 
 	if (connected->address->family == AF_INET) {
