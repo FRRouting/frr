@@ -166,6 +166,11 @@ struct srv6_locator {
 };
 DECLARE_QOBJ_TYPE(srv6_locator);
 
+static inline bool srv6_locator_is_up(const struct srv6_locator *locator)
+{
+	return locator && locator->status_up;
+}
+
 struct srv6_locator_chunk {
 	char locator_name[SRV6_LOCNAME_SIZE];
 	struct prefix_ipv6 prefix;
