@@ -19,6 +19,7 @@ import sys
 import pytest
 import json
 from functools import partial
+from lib.common_config import step
 from lib.topolog import logger
 
 pytestmark = pytest.mark.random_order(disabled=True)
@@ -336,6 +337,44 @@ def test_zebra_mtu_single_local_route_per_address():
         _check_one_local_per_address, None, count=20, wait=1
     )
     assert result is None, "Local route check failed: {}".format(result)
+
+
+def test_zebra_ipv6_dad_kernel_route():
+    "Test that a kernel route is deleted in favor of the connected one (IPv6 with DAD enabled)"
+
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    router = tgen.gears["r1"]
+    router.run("sysctl -w net.ipv6.conf.r1-eth0.accept_dad=1")
+    router.run("ip -6 address add 2001:db8:dead:beef::1/64 dev r1-eth0")
+
+    def _check_duplicated_kernel_route():
+        try:
+            routes = json.loads(router.vtysh_cmd("show ipv6 route json"))
+        except (json.JSONDecodeError, TypeError) as err:
+            return "failed to parse ipv6 routes: {}".format(err)
+
+        found_connected = False
+        for route_prefix, entries in routes.items():
+            if not route_prefix == "2001:db8:dead:beef::/64":
+                continue
+            for entry in entries:
+                if entry.get("protocol") == "connected":
+                    found_connected = True
+                elif entry.get("protocol") == "kernel":
+                    return "found ipv6 kernel route"
+
+        if not found_connected:
+            return "ipv6 connected route not found"
+        return None
+
+    step("IPv6 with DAD enabled: check for duplicated kernel route")
+    _, result = topotest.run_and_expect(
+        _check_duplicated_kernel_route, None, count=20, wait=1
+    )
+    assert result is None, result
 
 
 if __name__ == "__main__":
