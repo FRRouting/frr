@@ -810,7 +810,6 @@ DEFUN_NOSH (srv6_locator,
 	}
 
 	locator = srv6_locator_alloc(argv[1]->arg);
-	locator->status_up = true;
 
 	VTY_PUSH_CONTEXT(SRV6_LOC_NODE, locator);
 	return CMD_SUCCESS;
