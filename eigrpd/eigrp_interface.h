@@ -58,13 +58,13 @@ extern void eigrp_if_free_all(struct interface *ifp);
 extern void eigrp_if_free_process(struct eigrp *eigrp, struct interface *ifp);
 
 /*
- * Look up the instance a given EIGRP process runs on an interface.
- *
- * An interface can carry one instance per autonomous system, so the process
- * is part of the question.  eigrp_if_lookup_by_ifp() answers the weaker
- * "is any EIGRP process running here" and is for the zebra interface hooks,
- * which have no process in hand.
+ * The address EIGRP sources packets from on an interface.  Re-derived from
+ * ifp->connected rather than pinned, so it cannot name an address the box no
+ * longer holds.
  */
+extern void eigrp_if_refresh_address(struct eigrp_interface *ei);
+extern bool eigrp_if_has_address(struct eigrp_interface *ei, struct in_addr address);
+
 /*
  * The connected subnets an instance advertises.  eigrp_connected_add() is
  * idempotent per subnet: two addresses in one subnet share a single entry,
@@ -77,8 +77,14 @@ extern struct eigrp_connected *eigrp_connected_lookup(struct eigrp_interface *ei
 extern void eigrp_connected_withdraw(struct eigrp_connected *ec);
 extern void eigrp_connected_delete(struct eigrp_connected *ec);
 
+/*
+ * Look up the instance a given EIGRP process runs on an interface.
+ *
+ * An interface can carry one instance per autonomous system, so the process
+ * is part of the question.  Interface-scoped work with no process in hand --
+ * the zebra hooks -- walks EIGRP_IF_EIS() instead.
+ */
 extern struct eigrp_interface *eigrp_if_lookup(struct eigrp *eigrp, struct interface *ifp);
-extern struct eigrp_interface *eigrp_if_lookup_by_ifp(struct interface *ifp);
 extern struct eigrp_interface *eigrp_if_new(struct eigrp *eigrp, struct interface *ifp,
 					    struct prefix *p);
 extern int eigrp_if_up(struct eigrp_interface *ei);

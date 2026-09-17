@@ -277,12 +277,18 @@ static void eigrp_network_run_interface(struct eigrp *eigrp, struct prefix *p,
 		eigrp_connected_add(ei, co->address);
 	}
 
+	if (!ei)
+		return;
+
+	/* The set of advertised subnets decides what we may speak from. */
+	eigrp_if_refresh_address(ei);
+
 	/*
 	 * if router_id is not configured, dont bring up interfaces.
 	 * eigrp_router_id_update() will call eigrp_if_update whenever r-id is
 	 * configured instead.
 	 */
-	if (ei && if_is_operative(ifp))
+	if (if_is_operative(ifp))
 		eigrp_if_up(ei);
 }
 
@@ -366,8 +372,16 @@ int eigrp_network_unset(struct eigrp *eigrp, struct prefix *p)
 			}
 		}
 
-		if (list_isempty(ei->connected))
+		if (list_isempty(ei->connected)) {
 			eigrp_if_free(ei, INTERFACE_DOWN_BY_VTY);
+			continue;
+		}
+
+		/*
+		 * Still advertising something, but possibly no longer the
+		 * subnet it was speaking from.
+		 */
+		eigrp_if_refresh_address(ei);
 	}
 
 	return 1;

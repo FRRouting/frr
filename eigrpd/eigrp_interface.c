@@ -166,6 +166,85 @@ void eigrp_connected_delete(struct eigrp_connected *ec)
 	XFREE(MTYPE_EIGRP_CONNECTED, ec);
 }
 
+/*
+ * Re-derive the address EIGRP speaks from on this interface.
+ *
+ * Every packet is sourced from it (eigrp_write()), and it selects the local
+ * interface for IP_MULTICAST_IF and the multicast memberships, so it has to
+ * track ifp->connected rather than being pinned when the instance is
+ * created.  An address can be removed while EIGRP keeps running on the
+ * interface -- another address in the same subnet may remain -- and packets
+ * sourced from an address the box no longer holds go nowhere.
+ */
+void eigrp_if_refresh_address(struct eigrp_interface *ei)
+{
+	struct eigrp_connected *ec;
+	struct listnode *node;
+
+	/*
+	 * The address has to sit inside a subnet this instance advertises.
+	 * A peer accepts a packet only when its source is in one of the
+	 * subnets the peer itself runs on, so sourcing from another subnet of
+	 * the same interface -- which an interface may well carry without
+	 * EIGRP being enabled for it -- would have every packet rejected.
+	 */
+	for (ALL_LIST_ELEMENTS_RO(ei->connected, node, ec)) {
+		struct connected *secondary = NULL;
+		struct connected *co;
+
+		frr_each (if_connected, ei->ifp->connected, co) {
+			struct prefix subnet;
+
+			if (co->address->family != ec->address.family)
+				continue;
+
+			prefix_copy(&subnet, co->address);
+			apply_mask(&subnet);
+
+			if (!prefix_same(&subnet, &ec->address))
+				continue;
+
+			/*
+			 * Prefer the subnet's primary address, but a
+			 * secondary is still inside the subnet and is better
+			 * than nothing to speak from.
+			 */
+			if (CHECK_FLAG(co->flags, ZEBRA_IFA_SECONDARY)) {
+				if (!secondary)
+					secondary = co;
+				continue;
+			}
+
+			prefix_copy(&ei->address, co->address);
+			return;
+		}
+
+		if (secondary) {
+			prefix_copy(&ei->address, secondary->address);
+			return;
+		}
+	}
+
+	/* Nothing left to speak from. */
+	memset(&ei->address, 0, sizeof(ei->address));
+}
+
+/* Does this interface hold the given address? */
+bool eigrp_if_has_address(struct eigrp_interface *ei, struct in_addr address)
+{
+	struct connected *co;
+
+	frr_each (if_connected, ei->ifp->connected, co) {
+		if (co->address->family != AF_INET)
+			continue;
+
+		if (IPV4_ADDR_SAME(&address, &co->address->u.prefix4))
+			return true;
+	}
+
+	return false;
+}
+
 struct eigrp_interface *eigrp_if_lookup(struct eigrp *eigrp, struct interface *ifp)
 {
 	struct eigrp_interface *ei;
@@ -179,14 +258,6 @@ struct eigrp_interface *eigrp_if_lookup(struct eigrp *eigrp, struct interface *i
 			return ei;
 
 	return NULL;
-}
-
-struct eigrp_interface *eigrp_if_lookup_by_ifp(struct interface *ifp)
-{
-	if (!ifp->info || list_isempty(EIGRP_IF_EIS(ifp)))
-		return NULL;
-
-	return listnode_head(EIGRP_IF_EIS(ifp));
 }
 
 int eigrp_interface_cmp(const struct eigrp_interface *a, const struct eigrp_interface *b)
@@ -220,7 +291,7 @@ struct eigrp_interface *eigrp_if_new(struct eigrp *eigrp, struct interface *ifp,
 
 	/* Set zebra interface pointer. */
 	ei->ifp = ifp;
-	prefix_copy(&ei->address, p);
+	eigrp_if_refresh_address(ei);
 
 	listnode_add(eii->eis, ei);
 	eigrp_interface_hash_add(&eigrp->eifs, ei);
@@ -362,53 +433,71 @@ static int eigrp_ifp_create(struct interface *ifp)
 
 static int eigrp_ifp_up(struct interface *ifp)
 {
-	struct eigrp_interface *ei = eigrp_if_lookup_by_ifp(ifp);
+	struct eigrp_interface *ei;
+	struct listnode *node, *nnode;
+	bool mtu_changed = false;
 
 	if (IS_DEBUG_EIGRP(zebra, ZEBRA_INTERFACE))
 		zlog_debug("Zebra: Interface[%s] state change to up.",
 			   ifp->name);
 
-	if (!ei)
+	if (!ifp->info)
 		return 0;
 
-	if (ei->curr_bandwidth != ifp->bandwidth) {
-		if (IS_DEBUG_EIGRP(zebra, ZEBRA_INTERFACE))
-			zlog_debug(
-				"Zebra: Interface[%s] bandwidth change %d -> %d.",
-				ifp->name, ei->curr_bandwidth,
-				ifp->bandwidth);
+	/* Every EIGRP process running on this interface is affected. */
+	for (ALL_LIST_ELEMENTS(EIGRP_IF_EIS(ifp), node, nnode, ei)) {
+		if (ei->curr_bandwidth != ifp->bandwidth) {
+			if (IS_DEBUG_EIGRP(zebra, ZEBRA_INTERFACE))
+				zlog_debug(
+					"Zebra: Interface[%s] bandwidth change %d -> %d.",
+					ifp->name, ei->curr_bandwidth,
+					ifp->bandwidth);
 
-		ei->curr_bandwidth = ifp->bandwidth;
-		// eigrp_if_recalculate_output_cost (ifp);
+			ei->curr_bandwidth = ifp->bandwidth;
+			// eigrp_if_recalculate_output_cost (ifp);
+		}
+
+		if (ei->curr_mtu != ifp->mtu) {
+			if (IS_DEBUG_EIGRP(zebra, ZEBRA_INTERFACE))
+				zlog_debug(
+					"Zebra: Interface[%s] MTU change %u -> %u.",
+					ifp->name, ei->curr_mtu, ifp->mtu);
+
+			ei->curr_mtu = ifp->mtu;
+			mtu_changed = true;
+		}
 	}
 
-	if (ei->curr_mtu != ifp->mtu) {
-		if (IS_DEBUG_EIGRP(zebra, ZEBRA_INTERFACE))
-			zlog_debug(
-				"Zebra: Interface[%s] MTU change %u -> %u.",
-				ifp->name, ei->curr_mtu, ifp->mtu);
-
-		ei->curr_mtu = ifp->mtu;
-		/* Must reset the interface (simulate down/up) when MTU
-		 * changes. */
+	/*
+	 * Must reset the interface (simulate down/up) when MTU changes.  The
+	 * MTU belongs to the interface, so the reset is interface-wide and
+	 * walks every instance itself -- it has to happen after this loop
+	 * rather than inside it.
+	 */
+	if (mtu_changed) {
 		eigrp_if_reset(ifp);
 		return 0;
 	}
 
-	eigrp_if_up(ei);
+	for (ALL_LIST_ELEMENTS(EIGRP_IF_EIS(ifp), node, nnode, ei))
+		eigrp_if_up(ei);
 
 	return 0;
 }
 
 static int eigrp_ifp_down(struct interface *ifp)
 {
-	struct eigrp_interface *ei = eigrp_if_lookup_by_ifp(ifp);
+	struct eigrp_interface *ei;
+	struct listnode *node, *nnode;
 
 	if (IS_DEBUG_EIGRP(zebra, ZEBRA_INTERFACE))
 		zlog_debug("Zebra: Interface[%s] state change to down.",
 			   ifp->name);
 
-	if (ei)
+	if (!ifp->info)
+		return 0;
+
+	for (ALL_LIST_ELEMENTS(EIGRP_IF_EIS(ifp), node, nnode, ei))
 		eigrp_if_down(ei);
 
 	return 0;
@@ -428,9 +517,12 @@ static int eigrp_ifp_destroy(struct interface *ifp)
 			ifp->name, ifp->ifindex, (unsigned long long)ifp->flags,
 			ifp->metric, ifp->mtu);
 
-	ei = eigrp_if_lookup_by_ifp(ifp);
-	if (ei)
-		eigrp_if_free(ei, INTERFACE_DOWN_BY_ZEBRA);
+	if (ifp->info) {
+		struct listnode *node, *nnode;
+
+		for (ALL_LIST_ELEMENTS(EIGRP_IF_EIS(ifp), node, nnode, ei))
+			eigrp_if_free(ei, INTERFACE_DOWN_BY_ZEBRA);
+	}
 
 	return 0;
 }
@@ -715,13 +807,16 @@ void eigrp_if_free(struct eigrp_interface *ei, int source)
    the MTU changes. */
 void eigrp_if_reset(struct interface *ifp)
 {
-	struct eigrp_interface *ei = eigrp_if_lookup_by_ifp(ifp);
+	struct eigrp_interface *ei;
+	struct listnode *node, *nnode;
 
-	if (!ei)
+	if (!ifp->info)
 		return;
 
-	eigrp_if_down(ei);
-	eigrp_if_up(ei);
+	for (ALL_LIST_ELEMENTS(EIGRP_IF_EIS(ifp), node, nnode, ei)) {
+		eigrp_if_down(ei);
+		eigrp_if_up(ei);
+	}
 }
 
 struct eigrp_interface *eigrp_if_lookup_by_local_addr(struct eigrp *eigrp,
@@ -734,7 +829,7 @@ struct eigrp_interface *eigrp_if_lookup_by_local_addr(struct eigrp *eigrp,
 		if (ifp && ei->ifp != ifp)
 			continue;
 
-		if (IPV4_ADDR_SAME(&address, &ei->address.u.prefix4))
+		if (eigrp_if_has_address(ei, address))
 			return ei;
 	}
 
