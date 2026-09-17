@@ -1751,7 +1751,8 @@ TRACEPOINT_EVENT(
 	frr_bgp,
 	bfd_session_status_update,
 	TP_ARGS(const char *, peer_host, vrf_id_t, vrf_id, uint8_t, old_state,
-		uint8_t, new_state, bool, cbit, bool, remote_cbit),
+		uint8_t, new_state, bool, cbit, bool, remote_cbit, uint8_t,
+		fsm_status, int64_t, last_event, int64_t, peer_uptime),
 	TP_FIELDS(
 		ctf_string(peer, peer_host)
 		ctf_integer(vrf_id_t, vrf_id, vrf_id)
@@ -1759,6 +1760,9 @@ TRACEPOINT_EVENT(
 		ctf_enum(frr_bgp, bfd_state, uint8_t, new_state, new_state)
 		ctf_integer(bool, cbit, cbit)
 		ctf_integer(bool, remote_cbit, remote_cbit)
+		ctf_integer(uint8_t, fsm_status, fsm_status)
+		ctf_integer(int64_t, last_event, last_event)
+		ctf_integer(int64_t, peer_uptime, peer_uptime)
 	)
 )
 TRACEPOINT_LOGLEVEL(frr_bgp, bfd_session_status_update, TRACE_INFO)
