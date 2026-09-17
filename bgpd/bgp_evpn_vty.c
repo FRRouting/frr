@@ -4363,6 +4363,7 @@ DEFUN (no_bgp_evpn_advertise_type5,
 	uint32_t flag_oi_none, flag_oi_gw_ip;
 	uint32_t suppress_flag;
 	bool has_flag_oi_none, has_flag_oi_gw_ip;
+	int idx = 0;
 
 	if (!bgp_vrf)
 		return CMD_WARNING;
@@ -4399,6 +4400,26 @@ DEFUN (no_bgp_evpn_advertise_type5,
 	suppress_flag = bgp_evpn_suppress_import_from_evpn_flag(afi);
 	has_flag_oi_none = CHECK_FLAG(bgp_vrf->af_flags[AFI_L2VPN][SAFI_EVPN], flag_oi_none);
 	has_flag_oi_gw_ip = CHECK_FLAG(bgp_vrf->af_flags[AFI_L2VPN][SAFI_EVPN], flag_oi_gw_ip);
+
+	if (argv_find(argv, argc, "route-map", &idx)) {
+		if (!bgp_vrf->adv_cmd_rmap[afi][safi].name)
+			/* route-map was not configured nothing to do */
+			return CMD_SUCCESS;
+
+		/* clear the route-map information for advertise ipv4/ipv6 unicast */
+		XFREE(MTYPE_ROUTE_MAP_NAME, bgp_vrf->adv_cmd_rmap[afi][safi].name);
+		bgp_vrf->adv_cmd_rmap[afi][safi].name = NULL;
+		bgp_vrf->adv_cmd_rmap[afi][safi].map = NULL;
+
+		if (!has_flag_oi_none && !has_flag_oi_gw_ip)
+			/* was not advertising */
+			return CMD_SUCCESS;
+
+		bgp_evpn_withdraw_local_type5_routes(bgp_vrf, afi, safi);
+		bgp_evpn_advertise_type5_routes(bgp_vrf, afi, safi);
+
+		return CMD_SUCCESS;
+	}
 
 	/* if we are not advertising ipv4/ipv6 prefix as type-5, nothing to do */
 	if (has_flag_oi_none || has_flag_oi_gw_ip) {
