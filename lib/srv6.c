@@ -455,8 +455,7 @@ static json_object *srv6_locator_json_common(const struct srv6_locator *loc, boo
 		json_object_int_add(jo_root, "algoNum", loc->algonum);
 
 	/* set status_up */
-	json_object_boolean_add(jo_root, "statusUp",
-				loc->status_up);
+	json_object_boolean_add(jo_root, "statusUp", srv6_locator_is_up(loc));
 
 	/* set chunks */
 	jo_chunks = json_object_new_array();
