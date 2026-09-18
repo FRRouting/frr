@@ -729,7 +729,7 @@ struct frr_yang_module_info {
 	 * module. The unlock_tree function if non-NULL will be called with
 	 * the returned tree and the *user_lock value.
 	 */
-	const struct lyd_node *(*get_tree_locked)(const char *xpath, void **user_lock);
+	const struct lyd_node *(*get_tree_locked)(void **user_lock);
 
 	/*
 	 * This function will be called following a call to get_tree_locked() in
