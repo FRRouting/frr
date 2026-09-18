@@ -912,6 +912,8 @@ static int bgp_capability_hostname(struct peer_connection *connection,
 	struct peer *peer = connection->peer;
 	struct stream *s = BGP_INPUT(connection);
 	char str[BGP_MAX_HOSTNAME + 1];
+	char *new_hostname = NULL;
+	char *new_domainname = NULL;
 	size_t end = stream_get_getp(s) + hdr->length;
 	uint8_t len;
 
@@ -946,18 +948,14 @@ static int bgp_capability_hostname(struct peer_connection *connection,
 	}
 
 	str[len] = '\0';
-
-	XFREE(MTYPE_BGP_PEER_HOST, peer->hostname);
-	XFREE(MTYPE_BGP_PEER_HOST, peer->domainname);
-
-	peer->hostname = XSTRDUP(MTYPE_BGP_PEER_HOST, str);
+	new_hostname = XSTRDUP(MTYPE_BGP_PEER_HOST, str);
 
 	if (stream_get_getp(s) + 1 > end) {
 		flog_warn(
 			EC_BGP_CAPABILITY_INVALID_DATA,
 			"%s: Received invalid domain name len (hostname capability) from peer %s",
 			__func__, peer->host);
-		XFREE(MTYPE_BGP_PEER_HOST, peer->hostname);
+		XFREE(MTYPE_BGP_PEER_HOST, new_hostname);
 		return -1;
 	}
 
@@ -967,7 +965,7 @@ static int bgp_capability_hostname(struct peer_connection *connection,
 			EC_BGP_CAPABILITY_INVALID_DATA,
 			"%s: Received runt domain name (hostname capability) from peer %s",
 			__func__, peer->host);
-		XFREE(MTYPE_BGP_PEER_HOST, peer->hostname);
+		XFREE(MTYPE_BGP_PEER_HOST, new_hostname);
 		return -1;
 	}
 
@@ -981,16 +979,19 @@ static int bgp_capability_hostname(struct peer_connection *connection,
 	if (len) {
 		str[len] = '\0';
 
-		XFREE(MTYPE_BGP_PEER_HOST, peer->domainname);
-
-		peer->domainname = XSTRDUP(MTYPE_BGP_PEER_HOST, str);
+		new_domainname = XSTRDUP(MTYPE_BGP_PEER_HOST, str);
 	}
+
+	XFREE(MTYPE_BGP_PEER_HOST, peer->hostname);
+	XFREE(MTYPE_BGP_PEER_HOST, peer->domainname);
+	peer->hostname = new_hostname;
+	peer->domainname = new_domainname;
 
 	SET_FLAG(peer->cap, PEER_CAP_HOSTNAME_RCV);
 
 	if (bgp_debug_neighbor_events(peer)) {
-		zlog_debug("%s received hostname %s, domainname %s", peer->host,
-			   peer->hostname, peer->domainname);
+		zlog_debug("%s received hostname %s, domainname %s", peer->host, peer->hostname,
+			   peer->domainname ? peer->domainname : "n/a");
 	}
 
 	return 0;

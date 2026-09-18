@@ -2379,6 +2379,33 @@ static void bgp_update_receive_eor(struct peer_connection *connection, afi_t afi
 	/* NSF delete stale route */
 	if (peer->nsf[afi][safi])
 		bgp_clear_stale_route(peer, afi, safi);
+
+	if (event_is_scheduled(peer->connection->t_gr_stale)) {
+		afi_t tafi;
+		safi_t tsafi;
+		bool pending = false;
+
+		FOREACH_AFI_SAFI_NSF (tafi, tsafi) {
+			if (peer->nsf[tafi][tsafi] &&
+			    !CHECK_FLAG(peer->af_sflags[tafi][tsafi], PEER_STATUS_EOR_RECEIVED)) {
+				pending = true;
+				break;
+			}
+		}
+
+		if (!pending) {
+			/*
+			 * Every NSF AFI/SAFI has sent EOR; each one was
+			 * already stale-cleared above when its EOR arrived.
+			 * Cancel t_gr_stale so we do not repeat those full
+			 * table walks when the timer fires.
+			 */
+			event_cancel(&peer->connection->t_gr_stale);
+			if (bgp_debug_neighbor_events(peer))
+				zlog_debug("%pBP stalepath timer stopped - all EORs received",
+					   peer);
+		}
+	}
 }
 
 /**
@@ -3530,6 +3557,8 @@ static void bgp_dynamic_capability_fqdn(uint8_t *pnt, int action,
 	uint8_t *data = pnt + 3;
 	uint8_t *end = data + hdr->length;
 	char str[BGP_MAX_HOSTNAME + 1] = {};
+	char *new_hostname = NULL;
+	char *new_domainname = NULL;
 	uint8_t len;
 
 	if (action == CAPABILITY_ACTION_SET) {
@@ -3564,15 +3593,13 @@ static void bgp_dynamic_capability_fqdn(uint8_t *pnt, int action,
 		}
 		data += len;
 
-		XFREE(MTYPE_BGP_PEER_HOST, peer->hostname);
-		XFREE(MTYPE_BGP_PEER_HOST, peer->domainname);
-
-		peer->hostname = XSTRDUP(MTYPE_BGP_PEER_HOST, str);
+		new_hostname = XSTRDUP(MTYPE_BGP_PEER_HOST, str);
 
 		if (data + 1 > end) {
 			flog_err(EC_BGP_CAPABILITY_INVALID_LENGTH,
 				 "%pBP: Received invalid FQDN capability (domain name length)",
 				 peer);
+			XFREE(MTYPE_BGP_PEER_HOST, new_hostname);
 			return;
 		}
 
@@ -3582,6 +3609,7 @@ static void bgp_dynamic_capability_fqdn(uint8_t *pnt, int action,
 			flog_err(EC_BGP_CAPABILITY_INVALID_LENGTH,
 				 "%pBP: Received invalid FQDN capability length (domain name) %d",
 				 peer, len);
+			XFREE(MTYPE_BGP_PEER_HOST, new_hostname);
 			return;
 		}
 		data++;
@@ -3595,11 +3623,13 @@ static void bgp_dynamic_capability_fqdn(uint8_t *pnt, int action,
 		}
 		/* data += len;  In case new code is ever added */
 
-		if (len) {
-			XFREE(MTYPE_BGP_PEER_HOST, peer->domainname);
+		if (len)
+			new_domainname = XSTRDUP(MTYPE_BGP_PEER_HOST, str);
 
-			peer->domainname = XSTRDUP(MTYPE_BGP_PEER_HOST, str);
-		}
+		XFREE(MTYPE_BGP_PEER_HOST, peer->hostname);
+		XFREE(MTYPE_BGP_PEER_HOST, peer->domainname);
+		peer->hostname = new_hostname;
+		peer->domainname = new_domainname;
 
 		SET_FLAG(peer->cap, PEER_CAP_HOSTNAME_RCV);
 	} else {
