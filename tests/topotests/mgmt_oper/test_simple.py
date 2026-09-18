@@ -93,6 +93,16 @@ def test_oper_simple(tgen):
             '/frr-interface:lib/interface[name="r1-eth0"]/state/mtu',
             "simple-results/result-intf-eth0-state-mtu.json",
         ),
+        (
+            # Leaf of container query selected by a NON-key predicate.  The
+            # predicate is applied by trimming the returned tree, so the walk
+            # has to emit 'vrf' even though the query descends to 'state/mtu'
+            # -- otherwise there is nothing for the trim to match and the
+            # answer comes back empty.  'interface' is keyed, so this covers
+            # the case for keyed lists too, not just keyless ones.
+            '/frr-interface:lib/interface[vrf="red"]/state/mtu',
+            "simple-results/result-intf-vrf-red-state-mtu.json",
+        ),
         # VRF
         ("/frr-vrf:lib", "simple-results/result-lib.json"),
         ("/frr-vrf:lib/vrf", "simple-results/result-lib-vrf-nokey.json"),
