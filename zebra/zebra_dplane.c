@@ -4183,7 +4183,8 @@ int dplane_ctx_route_init(struct zebra_dplane_ctx *ctx, enum dplane_op_e op,
 		struct nhg_hash_entry *nhe = zebra_nhg_resolve(re->nhe);
 
 		ctx->u.rinfo.nhe.id = nhe->id;
-		ctx->u.rinfo.nhe.old_id = 0;
+		/* Fill the old installed id. */
+		ctx->u.rinfo.nhe.old_id = re->nhe_installed_id;
 		/*
 		 * Check if the nhe is installed/queued before doing anything
 		 * with this route.
@@ -4923,7 +4924,8 @@ dplane_route_update_internal(struct route_node *rn,
 			ctx->u.rinfo.zd_old_instance = old_re->instance;
 			ctx->u.rinfo.zd_old_distance = old_re->distance;
 			ctx->u.rinfo.zd_old_metric = old_re->metric;
-			ctx->u.rinfo.nhe.old_id = old_re->nhe->id;
+			/* Fill the old installed id. */
+			ctx->u.rinfo.nhe.old_id = old_re->nhe_installed_id;
 
 #ifndef HAVE_NETLINK
 			/* For bsd, capture previous re's nexthops too, sigh.
@@ -7422,9 +7424,13 @@ static void kernel_dplane_log_detail(struct zebra_dplane_ctx *ctx)
 	case DPLANE_OP_ROUTE_INSTALL:
 	case DPLANE_OP_ROUTE_UPDATE:
 	case DPLANE_OP_ROUTE_DELETE:
-		zlog_debug("%u:%pFX Dplane route update ctx %p op %s",
-			   dplane_ctx_get_vrf(ctx), dplane_ctx_get_dest(ctx),
-			   ctx, dplane_op2str(dplane_ctx_get_op(ctx)));
+		zlog_debug("%u:%u:%pFX Dplane route update ctx %p op %s nhg %u->%u type %s->%s seq %u->%u",
+			   dplane_ctx_get_vrf(ctx), dplane_ctx_get_table(ctx),
+			   dplane_ctx_get_dest(ctx), ctx, dplane_op2str(dplane_ctx_get_op(ctx)),
+			   dplane_ctx_get_old_nhe_id(ctx), dplane_ctx_get_nhe_id(ctx),
+			   zebra_route_string(dplane_ctx_get_old_type(ctx)),
+			   zebra_route_string(dplane_ctx_get_type(ctx)),
+			   dplane_ctx_get_old_seq(ctx), dplane_ctx_get_seq(ctx));
 		break;
 
 	case DPLANE_OP_NH_INSTALL:
@@ -7895,8 +7901,8 @@ static int kernel_dplane_process_func(struct zebra_dplane_provider *prov)
 	limit = dplane_provider_get_work_limit(prov);
 
 	if (IS_ZEBRA_DEBUG_DPLANE_DETAIL)
-		zlog_debug("dplane provider '%s': processing",
-			   dplane_provider_get_name(prov));
+		zlog_debug("dplane provider '%s' (%u): processing, limit %d",
+			   dplane_provider_get_name(prov), dplane_provider_get_id(prov), limit);
 
 	for (counter = 0; counter < limit; counter++) {
 		ctx = dplane_provider_dequeue_in_ctx(prov);
@@ -7922,8 +7928,12 @@ static int kernel_dplane_process_func(struct zebra_dplane_provider *prov)
 		    dplane_ctx_get_old_nhe_id(ctx) == dplane_ctx_get_nhe_id(ctx) &&
 		    dplane_ctx_get_old_type(ctx) == dplane_ctx_get_type(ctx)) {
 			if (IS_ZEBRA_DEBUG_DPLANE_DETAIL)
-				zlog_debug("%s: %pFX Route Update with same nexthop group as old, Marking success",
-					   __func__, dplane_ctx_get_dest(ctx));
+				zlog_debug("%s: %u:%u:%pFX Route Update with same nexthop group %u and type %s as old, skipping kernel update, marking success, ctx %p seq %u->%u",
+					   __func__, dplane_ctx_get_vrf(ctx),
+					   dplane_ctx_get_table(ctx), dplane_ctx_get_dest(ctx),
+					   dplane_ctx_get_nhe_id(ctx),
+					   zebra_route_string(dplane_ctx_get_type(ctx)), ctx,
+					   dplane_ctx_get_old_seq(ctx), dplane_ctx_get_seq(ctx));
 			atomic_fetch_add_explicit(&zdplane_info.dg_routes_kernel_skipped, 1,
 						  memory_order_relaxed);
 			dplane_ctx_set_status(ctx, ZEBRA_DPLANE_REQUEST_SUCCESS);

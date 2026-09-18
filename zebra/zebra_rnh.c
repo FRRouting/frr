@@ -722,7 +722,9 @@ zebra_rnh_resolve_nexthop_entry(struct zebra_vrf *zvrf, afi_t afi,
 
 		/* Identify appropriate route entry. */
 		RNODE_FOREACH_RE (rn, re) {
-			if (CHECK_FLAG(re->status, ROUTE_ENTRY_REMOVED)) {
+			/* Treat REMOVED+TRACKER as still-alive: tracker-park window. */
+			if (CHECK_FLAG(re->status, ROUTE_ENTRY_REMOVED) &&
+			    !CHECK_FLAG(re->status, ROUTE_ENTRY_TRACKER)) {
 				if (IS_ZEBRA_DEBUG_NHT_DETAILED)
 					zlog_debug(
 						"        Route Entry %s removed",
