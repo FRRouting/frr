@@ -2726,6 +2726,20 @@ size_t ac_x; ac_x = malloc_size(NULL);
   ])
 ])
 
+AC_MSG_CHECKING([whether malloc_trim is available])
+AC_LINK_IFELSE([AC_LANG_PROGRAM([[
+#ifdef HAVE_MALLOC_H
+#include <malloc.h>
+#endif
+]], [[
+malloc_trim(0);
+]])], [
+  AC_MSG_RESULT([yes])
+  AC_DEFINE([HAVE_MALLOC_TRIM], [1], [malloc_trim])
+], [
+  AC_MSG_RESULT([no])
+])
+
 dnl ----------
 dnl configure date
 dnl ----------
