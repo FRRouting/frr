@@ -375,6 +375,20 @@ def test_srv6_locator_status_lifecycle():
     )
     check_srv6_locator_state(router, locator_name, locator_prefix, True)
 
+    step("Attempt an incompatible prefix update")
+    output = router.vtysh_cmd(
+        """
+        configure terminal
+         segment-routing
+          srv6
+           locators
+            locator loc3
+             prefix fcbb:bbbb:4::/64
+        """
+    )
+    assert "inconsistent with configured format" in output
+    check_srv6_locator_state(router, locator_name, locator_prefix, True)
+
 
 if __name__ == "__main__":
     args = ["-s"] + sys.argv[1:]
