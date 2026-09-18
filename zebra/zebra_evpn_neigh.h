@@ -171,7 +171,10 @@ static inline bool zebra_evpn_neigh_is_ready_for_bgp(struct zebra_neigh *n)
 	bool mac_ready;
 	bool neigh_ready;
 
-	mac_ready = !!(n->mac->flags & ZEBRA_MAC_LOCAL);
+	/* A neighbor that is not linked to a MAC (transiently, while
+	 * being re-linked) is not advertisable.
+	 */
+	mac_ready = n->mac && (n->mac->flags & ZEBRA_MAC_LOCAL);
 	neigh_ready =
 		((n->flags & ZEBRA_NEIGH_LOCAL) && IS_ZEBRA_NEIGH_ACTIVE(n)
 		 && (!(n->flags & ZEBRA_NEIGH_LOCAL_INACTIVE)
