@@ -168,6 +168,125 @@ def test_pbr_data():
         )
 
 
+def _pbr_map_seq(router, mapname, seqno):
+    try:
+        maps = json.loads(router.vtysh_cmd("show pbr map json"))
+    except ValueError:
+        return None
+    if not isinstance(maps, list):
+        return None
+    for pmap in maps:
+        if pmap.get("name") != mapname:
+            continue
+        for policy in pmap.get("policies", []):
+            if policy.get("sequenceNumber") == seqno:
+                return policy
+    return None
+
+
+def test_pbr_late_if_real_invalid_seq():
+    """
+    Reproduce if_real after NHG C is already installed.
+
+    AKIHABARA seq 10 is intentionally empty (match dst-ip, then no match)
+    and must not be programmed. pbr_map_check() honors that, but
+    pbr_map_policy_interface_update() sends ZEBRA_RULE_ADD for every
+    sequence when an interface becomes real.
+
+    Startup usually hides this: if_real can install seq 10, then the NHG C
+    table-install notify runs pbr_map_check() and uninstalls it. If that
+    notify already happened, a later if_real leaves seq 10 installed as a
+    catch-all `ip rule` (from all iif <if> lookup 10002).
+
+    This test forces that second ordering: attach the policy to a stub
+    interface, then create the kernel device after C is already up.
+    """
+
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    router = tgen.gears["r1"]
+    late_if = "r1-late"
+
+    def _nhg_c_ready(router):
+        seq5 = _pbr_map_seq(router, "AKIHABARA", 5)
+        seq10 = _pbr_map_seq(router, "AKIHABARA", 10)
+        if seq5 is None or seq10 is None:
+            return "AKIHABARA seq 5/10 missing"
+        nhg = seq10.get("nexthopGroup") or {}
+        if seq5.get("installed") is not True or nhg.get("installed") is not True:
+            return "NHG C / seq 5 not installed yet"
+        if seq10.get("installed") is not False:
+            return "seq 10 already installed: {}".format(seq10)
+        return None
+
+    test_func = partial(_nhg_c_ready, router)
+    _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
+    if result is not None:
+        gather_pbr_data_on_error(router)
+    assert result is None, "PBR not ready for late if_real: {}".format(result)
+
+    seq10 = _pbr_map_seq(router, "AKIHABARA", 10)
+    logger.info(
+        "Before late if_real: AKIHABARA seq 10 installed=%s reason=%s",
+        seq10.get("installed"),
+        seq10.get("installedReason"),
+    )
+
+    router.vtysh_multicmd(
+        "configure terminal\n"
+        "debug pbr map\n"
+        "debug pbr zebra\n"
+        "interface {}\n"
+        " pbr-policy AKIHABARA\n"
+        "end\n".format(late_if)
+    )
+
+    try:
+        router.run("ip link add {} type dummy".format(late_if))
+        router.run("ip link set {} up".format(late_if))
+
+        def _late_if_real(router, ifname):
+            try:
+                ifaces = json.loads(router.vtysh_cmd("show pbr interface json"))
+            except ValueError:
+                return "show pbr interface json is not JSON"
+            for iface in ifaces:
+                if iface.get("name") == ifname and iface.get("valid") is True:
+                    return None
+            return "{} is not a real PBR interface yet".format(ifname)
+
+        test_func = partial(_late_if_real, router, late_if)
+        _, result = topotest.run_and_expect(test_func, None, count=20, wait=0.5)
+        assert result is None, "PBR did not see {} become real".format(late_if)
+
+        seq10 = _pbr_map_seq(router, "AKIHABARA", 10)
+        ip_rules = router.run("ip rule show")
+        pbr_map = router.vtysh_cmd("show pbr map")
+        logger.info("After late if_real:\n%s", pbr_map)
+        logger.info("ip rule show:\n%s", ip_rules)
+
+        assert seq10 is not None, "AKIHABARA seq 10 missing after late if_real"
+        assertmsg = (
+            "AKIHABARA seq 10 installed after if_real (NHG C was already up); "
+            "invalid empty sequence programmed as catch-all on {}. "
+            "seq10={} rules=\n{}".format(late_if, seq10, ip_rules)
+        )
+        if seq10.get("installed") is not False:
+            gather_pbr_data_on_error(router)
+        assert seq10.get("installed") is False, assertmsg
+        assert "from all iif {}".format(late_if) not in ip_rules, assertmsg
+    finally:
+        router.vtysh_multicmd(
+            "configure terminal\n"
+            "interface {}\n"
+            " no pbr-policy AKIHABARA\n"
+            "end\n".format(late_if)
+        )
+        router.run("ip link delete {} || true".format(late_if))
+
+
 ########################################################################
 # 			Field test - START
 ########################################################################
