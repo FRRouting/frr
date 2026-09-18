@@ -1468,6 +1468,25 @@ int bgp_ls_process_message(struct bgp *bgp, struct ls_message *msg)
 		if (BGP_DEBUG(zebra, ZEBRA) || BGP_DEBUG(linkstate, LINKSTATE))
 			zlog_debug("%s: Node vertex key=%" PRIu64, __func__, vertex->key);
 
+		if (msg->event == LS_MSG_EVENT_DELETE) {
+			/*
+			 * Before destroying the vertex, withdraw all Link NLRIs
+			 * that reference it (both outgoing and incoming edges).
+			 * Once the vertex is gone, edge->source or edge->destination
+			 * becomes NULL and we can no longer build the NLRI to withdraw.
+			 */
+			struct ls_edge *e;
+			struct listnode *lnode;
+			for (ALL_LIST_ELEMENTS_RO(vertex->outgoing_edges, lnode, e))
+				bgp_ls_process_edge(bgp, e, LS_MSG_EVENT_DELETE);
+			for (ALL_LIST_ELEMENTS_RO(vertex->incoming_edges, lnode, e))
+				bgp_ls_process_edge(bgp, e, LS_MSG_EVENT_DELETE);
+			/* Also withdraw Prefix NLRIs attached to this vertex */
+			struct ls_subnet *s;
+			for (ALL_LIST_ELEMENTS_RO(vertex->prefixes, lnode, s))
+				bgp_ls_process_subnet(bgp, s, LS_MSG_EVENT_DELETE);
+		}
+
 		bgp_ls_process_vertex(bgp, vertex, msg->event);
 
 		if (msg->event == LS_MSG_EVENT_DELETE)
@@ -1476,6 +1495,13 @@ int bgp_ls_process_message(struct bgp *bgp, struct ls_message *msg)
 		break;
 
 	case LS_MSG_TYPE_ATTRIBUTES:
+		if (msg->event == LS_MSG_EVENT_UPDATE) {
+			struct ls_edge *old_edge;
+			old_edge = ls_find_edge_by_source(bgp->ls_info->ted,
+							  msg->data.attr);
+			if (old_edge)
+				bgp_ls_process_edge(bgp, old_edge, LS_MSG_EVENT_DELETE);
+		}
 		edge = ls_msg2edge(bgp->ls_info->ted, msg, false);
 		if (!edge) {
 			zlog_err("%s: Failed to convert message to edge", __func__);
