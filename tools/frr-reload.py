@@ -69,22 +69,45 @@ class Vtysh(object):
             args = ["-c", command]
         return self._call(args, stdin, stdout, stderr)
 
-    def __call__(self, command, stdouts=None):
+    def __call__(self, command):
         """
         Call a CLI command (e.g. "show running-config")
 
         Output text is automatically redirected, decoded and returned.
         Multiple commands may be passed as list.
         """
-        proc = self._call_cmd(command, stdout=subprocess.PIPE)
+        # vtysh splits its diagnostics over both streams: it writes its own
+        # errors ("line N: % Unknown command: ...", "Failed to connect to
+        # ...") to stderr, while a rejection coming back from a daemon
+        # ("% Only inactive VRFs can be deleted") is echoed on stdout as part
+        # of the CLI session. A caller that only reads stdout therefore sees
+        # an exit status with no reason for half the failures, so capture
+        # both. communicate() reads the two pipes concurrently; a plain
+        # wait() would hang once either pipe buffer fills.
+        proc = self._call_cmd(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         stdout, stderr = proc.communicate()
-        if proc.wait() != 0:
-            if stdouts is not None:
-                stdouts.append(stdout.decode("UTF-8"))
+        # errors="replace": vtysh echoes the running config back verbatim and
+        # those bytes are not guaranteed to be UTF-8 (interface descriptions,
+        # route-map and peer-group names are free-form). Strict decoding would
+        # raise UnicodeDecodeError here and hide the vtysh error. errors="replace"
+        # means keep going: turn those bytes into U+FFFD so we still get the
+        # error text.
+        out = (stdout or b"").decode("UTF-8", errors="replace")
+        err = (stderr or b"").decode("UTF-8", errors="replace")
+        combined = out + err
+        if proc.returncode != 0:
             raise VtyshException(
-                'vtysh returned status %d for command "%s"' % (proc.returncode, command)
+                'vtysh returned status %d for command "%s"\n%s'
+                % (proc.returncode, command, combined)
             )
-        return stdout.decode("UTF-8")
+        # Success returns stdout only: callers parse this as command output
+        # ("show running-config"), and stderr is not part of it. Before we
+        # piped stderr, those diagnostics inherited the parent process; a
+        # successful daemon reconnect still warns there, so replay it.
+        if err:
+            sys.stderr.write(err)
+            sys.stderr.flush()
+        return out
 
     def is_config_available(self):
         """
@@ -102,11 +125,36 @@ class Vtysh(object):
         return True
 
     def exec_file(self, filename):
-        child = self._call(["-f", filename])
-        if child.wait() != 0:
+        child = self._call(
+            ["-f", filename], stdout=subprocess.PIPE, stderr=subprocess.PIPE
+        )
+        stdout, stderr = child.communicate()
+        # errors="replace" as in __call__(): echoed config may not be UTF-8;
+        # keep going and turn those bytes into U+FFFD so we still get the text.
+        out = (stdout or b"").decode("UTF-8", errors="replace")
+        err = (stderr or b"").decode("UTF-8", errors="replace")
+        if child.returncode != 0:
+            # --reload logs exec_file failures at WARNING (logfile only).
+            # After piping, the journal would otherwise miss vtysh's streams.
+            # Replay both to stderr (northbound reasons are stdout of the CLI
+            # session; keep them off frr-reload stdout), then raise so callers
+            # can log the same text.
+            combined = out + err
+            if combined:
+                sys.stderr.write(combined)
+                sys.stderr.flush()
             raise VtyshException(
-                f"vtysh (exec file) exited with status {child.returncode}"
+                "vtysh (exec file) exited with status %d:\n%s"
+                % (child.returncode, combined)
             )
+        # Success: stdout is the CLI session, stderr is vtysh warnings
+        # (reconnect). Piping would otherwise drop both.
+        if out:
+            sys.stdout.write(out)
+            sys.stdout.flush()
+        if err:
+            sys.stderr.write(err)
+            sys.stderr.flush()
 
     def mark_file(self, filename, stdin=None):
         child = self._call(
@@ -2361,17 +2409,17 @@ def delete_line_with_vtysh(vtysh, ctx_keys, line):
     cmd = lines_to_config(ctx_keys, line, True)
     original_cmd = cmd
 
-    stdouts = []
     while True:
         try:
-            vtysh(["configure"] + cmd, stdouts)
+            vtysh(["configure"] + cmd)
 
-        except VtyshException:
+        except VtyshException as e:
             # - Pull the last entry from cmd (this would be
             #   'no ip ospf authentication message-digest 1.1.1.1' in
             #   our example above
             # - Split that last entry by whitespace and drop the last word
             log.error("Failed to execute %s", " ".join(cmd))
+            log.error("%s", e)
             last_arg = cmd[-1].split(" ")
 
             if len(last_arg) <= 2:
@@ -2379,9 +2427,6 @@ def delete_line_with_vtysh(vtysh, ctx_keys, line):
                     '"%s" we failed to remove this command',
                     " -- ".join(original_cmd),
                 )
-                # Log first error msg for original_cmd
-                if stdouts:
-                    log.error(stdouts[0])
                 return False
 
             new_last_arg = last_arg[0:-1]
@@ -2804,7 +2849,7 @@ if __name__ == "__main__":
                     except VtyshException as e:
                         log.warning(
                             "batch delete failed, falling back to per-line "
-                            "delete:\n%s" % (e.args,)
+                            "delete:\n%s" % (e,)
                         )
                         for ctx_keys, line in vrf_lines_to_del:
                             if not delete_line_with_vtysh(vtysh, ctx_keys, line):
@@ -2855,7 +2900,7 @@ if __name__ == "__main__":
                     try:
                         vtysh.exec_file(filename)
                     except VtyshException as e:
-                        log.warning(f"frr-reload.py failed due to\n{e.args}")
+                        log.warning(f"frr-reload.py failed due to\n{e}")
                         reload_ok = False
                     os.unlink(filename)
 
