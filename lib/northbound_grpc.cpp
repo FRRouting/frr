@@ -25,6 +25,8 @@
 #include <string>
 
 #define GRPC_DEFAULT_PORT 50051
+#define GRPC_INIT_MAX_RETRIES	    50
+#define GRPC_INIT_RETRY_INTERVAL_US 10000
 
 
 // ------------------------------------------------------
@@ -1157,6 +1159,15 @@ static void *grpc_pthread_start(void *arg)
 	void *tag;
 	bool ok;
 
+	if (!server) {
+		flog_err(EC_LIB_GRPC_INIT, "%s: gRPC server failed to start on %s", __func__,
+			 server_address.str().c_str());
+		pthread_mutex_lock(&s_server_lock);
+		grpc_state = GRPC_STATE_SHUTDOWN;
+		pthread_mutex_unlock(&s_server_lock);
+		return NULL;
+	}
+
 	pthread_mutex_lock(&s_server_lock); // Make coverity happy
 	if (grpc_state == GRPC_STATE_SHUTDOWN) {
 		unsigned int n = 0;
@@ -1275,6 +1286,45 @@ static int frr_grpc_init(uint port)
 		return -1;
 	}
 
+	/*
+	 * Wait for the gRPC server to initialize. The thread sets
+	 * grpc_state to GRPC_STATE_RUNNING on success, or to
+	 * GRPC_STATE_SHUTDOWN on failure.
+	 */
+	enum grpc_state state = GRPC_STATE_INIT;
+
+	for (int i = 0; i < GRPC_INIT_MAX_RETRIES; i++) {
+		pthread_mutex_lock(&s_server_lock);
+		state = grpc_state;
+		pthread_mutex_unlock(&s_server_lock);
+		if (state == GRPC_STATE_RUNNING || state == GRPC_STATE_SHUTDOWN)
+			break;
+		usleep(GRPC_INIT_RETRY_INTERVAL_US);
+	}
+
+	if (state != GRPC_STATE_RUNNING) {
+		pthread_mutex_lock(&s_server_lock);
+		if (grpc_state == GRPC_STATE_RUNNING) {
+			pthread_mutex_unlock(&s_server_lock);
+			return 0;
+		}
+		flog_err(EC_LIB_SYSTEM_CALL, "%s: gRPC server failed to start", __func__);
+		grpc_state = GRPC_STATE_SHUTDOWN;
+		if (s_server) {
+			s_server->Shutdown();
+			s_server = NULL;
+		}
+		if (s_cq) {
+			s_cq->Shutdown();
+			s_cq = NULL;
+		}
+		pthread_mutex_unlock(&s_server_lock);
+		pthread_join(fpt->thread, NULL);
+		frr_pthread_destroy(fpt);
+		fpt = NULL;
+		return -1;
+	}
+
 	return 0;
 }
 
@@ -1349,6 +1399,7 @@ static void frr_grpc_module_very_late_init(struct event *event)
 
 error:
 	flog_err(EC_LIB_GRPC_INIT, "failed to initialize the gRPC module");
+	exit(1);
 }
 
 static int frr_grpc_module_late_init(struct event_loop *tm)
