@@ -25,6 +25,7 @@ sys.path.append(os.path.join(CWD, "../"))
 
 # pylint: disable=C0413
 from lib import topotest
+from lib.common_config import step
 from lib.topogen import Topogen, TopoRouter, get_topogen
 from lib.topolog import logger
 
@@ -63,6 +64,25 @@ def check_sharpd_chunk(router, expected_file):
     func = functools.partial(_check_sharpd_chunk, router, expected_file)
     _, result = topotest.run_and_expect(func, None, count=15, wait=1)
     assert result is None, "Failed"
+
+
+def check_srv6_locator_state(router, locator_name, expected_prefix, expected_status):
+    def _check():
+        output = json.loads(router.vtysh_cmd("show segment-routing srv6 locator json"))
+        locator = next(
+            (item for item in output["locators"] if item["name"] == locator_name),
+            None,
+        )
+        if locator is None:
+            return "Locator {} not found".format(locator_name)
+        if locator["prefix"] != expected_prefix:
+            return "Unexpected prefix: {}".format(locator["prefix"])
+        if locator["statusUp"] is not expected_status:
+            return "Unexpected status: {}".format(locator["statusUp"])
+        return None
+
+    _, result = topotest.run_and_expect(_check, None, count=15, wait=1)
+    assert result is None, result
 
 
 def setup_module(mod):
@@ -306,6 +326,42 @@ def test_srv6_no_locator():
         """
     )
     check_srv6_locator(router, "expected_locators7.json")
+
+
+def test_srv6_locator_status_lifecycle():
+    """Keep locator state consistent across prefix changes and re-entry."""
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+    router = tgen.gears["r1"]
+    locator_name = "loc3"
+    locator_prefix = "fcbb:bbbb:3::/48"
+
+    step("Create loc3 without a prefix", reset=True)
+    router.vtysh_cmd(
+        """
+        configure terminal
+         segment-routing
+          srv6
+           locators
+            locator loc3
+        """
+    )
+    check_srv6_locator_state(router, locator_name, "UNK prefix", False)
+
+    step("Configure a valid uSID locator prefix")
+    router.vtysh_cmd(
+        """
+        configure terminal
+         segment-routing
+          srv6
+           locators
+            locator loc3
+             prefix fcbb:bbbb:3::/48
+             format usid-f3216
+        """
+    )
+    check_srv6_locator_state(router, locator_name, locator_prefix, True)
 
 
 if __name__ == "__main__":
