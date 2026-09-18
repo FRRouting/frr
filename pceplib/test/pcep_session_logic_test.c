@@ -268,11 +268,11 @@ void test_create_pcep_session_open_tlvs()
 	pceplib_free(PCEPLIB_MESSAGES, encoded_msg);
 
 
-	/* Verify the created Open message only has 4 TLVs:
+	/* Verify the created Open message only has 3 TLVs:
 	 *   pcep_tlv_create_stateful_pce_capability()
 	 *   pcep_tlv_create_lsp_db_version()
-	 *   pcep_tlv_create_sr_pce_capability()
-	 *   pcep_tlv_create_path_setup_type_capability() */
+	 *   pcep_tlv_create_path_setup_type_capability()
+	 */
 	reset_mock_socket_comm_info();
 	mock_info->send_message_save_message = true;
 	config.support_sr_te_pst = true;
