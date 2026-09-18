@@ -2058,7 +2058,7 @@ static void rib_process_result(struct zebra_dplane_ctx *ctx)
 	bool is_update = false;
 	enum dplane_op_e op;
 	enum zebra_dplane_result status;
-	uint32_t seq;
+	uint32_t seq, old_seq;
 	rib_dest_t *dest;
 	bool fib_changed = false;
 	struct rib_table_info *info;
@@ -2097,73 +2097,75 @@ static void rib_process_result(struct zebra_dplane_ctx *ctx)
 	 */
 	is_update = dplane_ctx_is_update(ctx);
 
+	seq = dplane_ctx_get_seq(ctx);
+	old_seq = dplane_ctx_get_old_seq(ctx);
+
 	/*
-	 * Take a pass through the routes, look for matches with the context
-	 * info.
+	 * Resolve the result back to the entry the operation was issues for.
+	 * dplane_ctx_route_init() stamps re->dplane_sequence and
+	 * ctx->zd_seq unconditionally, so for anything zebra originated the
+	 * sequence is an exact identity: it names one entry, and it cannot
+	 * collapse both roles onto the same one.
+	 *
+	 * REMOVED entries are deliberately eligible here. An entry can be
+	 * replaced or deleted while its own result is still in flight, and it
+	 * is still the owner of that result - rib_delnode() only sets the flag
+	 * and leaves the entry linked until rib_process() is called.
+	 *
+	 * A zero old_seq means the update was issued with old_re == re, i.e.
+	 * zebra re-pushed one entry in place, so there is no distinct old side
+	 * to look for and old_re is left NULL.
 	 */
-	RNODE_FOREACH_RE(rn, rib) {
+	RNODE_FOREACH_RE (rn, rib) {
+		if (re == NULL && rib->dplane_sequence == seq)
+			re = rib;
 
-		if (re == NULL) {
-			if (rib_route_match_ctx(rib, ctx, false, false))
-				re = rib;
-		}
-
-		/* Check for old route match */
-		if (is_update && (old_re == NULL)) {
-			if (rib_route_match_ctx(rib, ctx, true, false))
-				old_re = rib;
-		}
+		if (is_update && old_re == NULL && old_seq != 0 && rib->dplane_sequence == old_seq)
+			old_re = rib;
 
 		/* Have we found the routes we need to work on? */
-		if (re && ((!is_update || old_re)))
+		if (re && (!is_update || old_re || old_seq == 0))
 			break;
 	}
 
-	seq = dplane_ctx_get_seq(ctx);
-
-	/*
-	 * Check sequence number(s) to detect stale results before continuing
-	 */
 	if (re) {
-		if (re->dplane_sequence != seq) {
-			if (IS_ZEBRA_DEBUG_DPLANE_DETAIL)
-				zlog_debug(
-					"%s(%u):%pRN Stale dplane result for re %p",
-					VRF_LOGNAME(vrf),
-					dplane_ctx_get_vrf(ctx), rn, re);
-		} else {
-			/*
-			 * Currently FRR expects a second async dplane ctx for the asic_offloaded
-			 * case, where FRR gets the result of the offload success failure
-			 * But if we are asic_offloaded and the first response fails we
-			 * know that the dplane provider has not successfully sent the route
-			 * operation at all to the dplane and as such we will never get
-			 * a second async response to the request.  In this case we know
-			 * that we should just mark it as no longer queued at all.
-			 */
-			if (zrouter.zav.asic_offloaded && status == ZEBRA_DPLANE_REQUEST_FAILURE)
-				UNSET_FLAG(re->status, ROUTE_ENTRY_QUEUED);
+		/*
+		 * Currently FRR expects a second async dplane ctx for the asic_offloaded
+		 * case, where FRR gets the result of the offload success failure
+		 * But if we are asic_offloaded and the first response fails we
+		 * know that the dplane provider has not successfully sent the route
+		 * operation at all to the dplane and as such we will never get
+		 * a second async response to the request.  In this case we know
+		 * that we should just mark it as no longer queued at all.
+		 */
+		if (zrouter.zav.asic_offloaded && status == ZEBRA_DPLANE_REQUEST_FAILURE)
+			UNSET_FLAG(re->status, ROUTE_ENTRY_QUEUED);
 
-			if (!zrouter.zav.asic_offloaded ||
-			    (CHECK_FLAG(re->flags, ZEBRA_FLAG_OFFLOADED) ||
-			     CHECK_FLAG(re->flags, ZEBRA_FLAG_OFFLOAD_FAILED))) {
-				UNSET_FLAG(re->status,
-					   ROUTE_ENTRY_ROUTE_REPLACING);
-				UNSET_FLAG(re->status, ROUTE_ENTRY_QUEUED);
-			}
+		if (!zrouter.zav.asic_offloaded ||
+		    (CHECK_FLAG(re->flags, ZEBRA_FLAG_OFFLOADED) ||
+		     CHECK_FLAG(re->flags, ZEBRA_FLAG_OFFLOAD_FAILED))) {
+			UNSET_FLAG(re->status, ROUTE_ENTRY_ROUTE_REPLACING);
+			UNSET_FLAG(re->status, ROUTE_ENTRY_QUEUED);
 		}
+	} else {
+		if (IS_ZEBRA_DEBUG_DPLANE_DETAIL)
+			zlog_debug("%s(%u:%u):%pRN No entry owns dplane result, op %s result %s seq %u old_seq %u: superseded or unlinked",
+				   VRF_LOGNAME(vrf), dplane_ctx_get_vrf(ctx),
+				   dplane_ctx_get_table(ctx), rn, dplane_op2str(op),
+				   dplane_res2str(status), seq, old_seq);
 	}
 
 	if (old_re) {
-		if (old_re->dplane_sequence != dplane_ctx_get_old_seq(ctx)) {
-			if (IS_ZEBRA_DEBUG_DPLANE_DETAIL)
-				zlog_debug(
-					"%s(%u:%u):%pRN Stale dplane result for old_re %p",
-					VRF_LOGNAME(vrf),
-					dplane_ctx_get_vrf(ctx), old_re->table,
-					rn, old_re);
-		} else
-			UNSET_FLAG(old_re->status, ROUTE_ENTRY_QUEUED);
+		UNSET_FLAG(old_re->status, ROUTE_ENTRY_QUEUED);
+	} else {
+		/*
+		 * Only worth reporting when the ctx returned a distinct old side:
+		 * for an install old_re is legitimately NULL.
+		 */
+		if (is_update && old_seq != 0 && IS_ZEBRA_DEBUG_DPLANE_DETAIL)
+			zlog_debug("%s(%u:%u):%pRN No entry owns the old side of dplane result, op %s old_seq %u: unlinked while in flight",
+				   VRF_LOGNAME(vrf), dplane_ctx_get_vrf(ctx),
+				   dplane_ctx_get_table(ctx), rn, dplane_op2str(op), old_seq);
 	}
 
 	if (op == DPLANE_OP_ROUTE_INSTALL || op == DPLANE_OP_ROUTE_UPDATE) {
