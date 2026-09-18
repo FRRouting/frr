@@ -53,15 +53,10 @@
 #include "bgpd/bgp_trace.h"
 #include "bgpd/bgp_ls.h"
 
-DEFINE_HOOK(bgp_packet_dump,
-		(struct peer *peer, uint8_t type, bgp_size_t size,
-			struct stream *s),
-		(peer, type, size, s));
-
-DEFINE_HOOK(bgp_packet_send,
-		(struct peer *peer, uint8_t type, bgp_size_t size,
-			struct stream *s),
-		(peer, type, size, s));
+#define HOOKS_DEFINE
+#include "lib/hooks_begin.h"
+#include "bgpd/bgp_packet_hooks.h"
+#include "lib/hooks_end.h"
 
 /**
  * Sets marker and type fields for a BGP message.

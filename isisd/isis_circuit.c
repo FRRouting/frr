@@ -56,16 +56,16 @@ DEFINE_MTYPE_STATIC(ISISD, ISIS_CIRCUIT, "ISIS circuit");
 
 DEFINE_QOBJ_TYPE(isis_circuit);
 
-DEFINE_HOOK(isis_if_new_hook, (struct interface *ifp), (ifp));
+#define HOOKS_DEFINE
+#include "lib/hooks_begin.h"
+#include "isisd/isis_circuit_hooks.h"
+#include "lib/hooks_end.h"
 
 /*
  * Prototypes.
  */
 int isis_if_new_hook(struct interface *);
 int isis_if_delete_hook(struct interface *);
-
-DEFINE_HOOK(isis_circuit_new_hook, (struct isis_circuit *circuit), (circuit));
-DEFINE_HOOK(isis_circuit_del_hook, (struct isis_circuit *circuit), (circuit));
 
 static void isis_circuit_enable(struct isis_circuit *circuit)
 {
@@ -276,9 +276,6 @@ struct isis_circuit *circuit_scan_by_ifp(struct interface *ifp)
 {
 	return (struct isis_circuit *)ifp->info;
 }
-
-DEFINE_HOOK(isis_circuit_add_addr_hook, (struct isis_circuit *circuit),
-	    (circuit));
 
 /*
  * A local IP address was added or removed on this circuit. Re-evaluate
@@ -1222,10 +1219,6 @@ void isis_circuit_print_vty(struct isis_circuit *circuit, struct vty *vty,
 }
 
 #ifdef FABRICD
-DEFINE_HOOK(isis_circuit_config_write,
-	    (struct isis_circuit *circuit, struct vty *vty),
-	    (circuit, vty));
-
 static int isis_interface_config_write(struct vty *vty)
 {
 	struct vrf *vrf = vrf_lookup_by_id(VRF_DEFAULT);

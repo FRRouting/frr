@@ -85,7 +85,10 @@ static pid_t		 lde_pid;
 
 static struct frr_daemon_info ldpd_di;
 
-DEFINE_HOOK(ldp_register_mib, (struct event_loop * tm), (tm));
+#define HOOKS_DEFINE
+#include "lib/hooks_begin.h"
+#include "ldpd/ldpd_hooks.h"
+#include "lib/hooks_end.h"
 
 static void ldp_load_module(const char *name)
 {

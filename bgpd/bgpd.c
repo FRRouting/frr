@@ -87,9 +87,11 @@ DEFINE_MTYPE_STATIC(BGPD, PEER_TX_SHUTDOWN_MSG, "Peer shutdown message (TX)");
 DEFINE_QOBJ_TYPE(bgp_master);
 DEFINE_QOBJ_TYPE(bgp);
 DEFINE_QOBJ_TYPE(peer);
-DEFINE_HOOK(bgp_inst_delete, (struct bgp *bgp), (bgp));
-DEFINE_HOOK(bgp_instance_state, (struct bgp *bgp), (bgp));
-DEFINE_HOOK(bgp_routerid_update, (struct bgp *bgp, bool withdraw), (bgp, withdraw));
+
+#define HOOKS_DEFINE
+#include "lib/hooks_begin.h"
+#include "bgpd/bgpd_hooks.h"
+#include "lib/hooks_end.h"
 
 /* Peers with connection error/failure, per bgp instance */
 DECLARE_DLIST(bgp_peer_conn_errlist, struct peer_connection, conn_err_link);
