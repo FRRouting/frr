@@ -95,3 +95,12 @@
    ...
    fun:yang_module_load
 }
+{
+   <pimd pim_nht_init>
+   Memcheck:Leak
+   fun:calloc
+   fun:qcalloc
+   fun:pim_nht_init
+   ...
+   fun:pim_vrf_init
+}
