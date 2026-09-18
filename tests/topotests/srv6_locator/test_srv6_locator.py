@@ -349,6 +349,18 @@ def test_srv6_locator_status_lifecycle():
     )
     check_srv6_locator_state(router, locator_name, "UNK prefix", False)
 
+    step("Re-enter the locator and verify it stays down")
+    router.vtysh_cmd(
+        """
+        configure terminal
+         segment-routing
+          srv6
+           locators
+            locator loc3
+        """
+    )
+    check_srv6_locator_state(router, locator_name, "UNK prefix", False)
+
     step("Configure a valid uSID locator prefix")
     router.vtysh_cmd(
         """
