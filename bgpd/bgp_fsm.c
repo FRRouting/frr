@@ -2592,6 +2592,9 @@ bgp_connect_success_w_delayopen(struct peer_connection *connection)
 	if (peer->bfd_config)
 		bgp_peer_bfd_update_source(peer);
 
+	if (peer->bfd_config)
+		bgp_peer_bfd_update_source(peer);
+
 	return BGP_FSM_SUCCESS;
 }
 
