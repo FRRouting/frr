@@ -54,6 +54,27 @@
 /** BFD data plane protocol version. */
 #define BFD_DP_VERSION 1
 
+/**
+ * Longest authentication key `DP_SESSION_AUTH` will carry.
+ *
+ * One HMAC block, so any key a digest defined by RFC 5880 Section 6.7 can
+ * use without first being hashed down fits. The RFC bounds the keys
+ * themselves far lower: 16 bytes for a simple password and 20 for keyed
+ * SHA1.
+ */
+#define BFDDP_AUTH_KEY_MAX 64
+
+/**
+ * Most keys a single `DP_SESSION_AUTH` message will carry.
+ *
+ * A bound on the message rather than on what a key chain may hold. A
+ * rollover needs the outgoing key and whatever is still valid for accept,
+ * which is a handful, so this is already generous. It is kept small
+ * enough that `struct bfddp_message` stays cheap to put on the stack,
+ * since every message type shares that size.
+ */
+#define BFDDP_AUTH_KEY_COUNT_MAX 16
+
 /** BFD data plane message types. */
 enum bfddp_message_type {
 	/** Ask for BFD daemon or data plane for echo packet. */
@@ -71,6 +92,9 @@ enum bfddp_message_type {
 	DP_REQUEST_SESSION_COUNTERS = 5,
 	/** Tell BFD daemon about counters values. */
 	BFD_SESSION_COUNTERS = 6,
+
+	/** Send a session's authentication keys. */
+	DP_SESSION_AUTH = 7,
 };
 
 /**
@@ -109,6 +133,22 @@ enum bfddp_session_flag {
 	SESSION_PASSIVE = (1 << 5),
 	/** Set when session is administrative down. */
 	SESSION_SHUTDOWN = (1 << 6),
+	/**
+	 * Set when the session is configured to authenticate.
+	 *
+	 * The keys arrive separately. \see DP_SESSION_AUTH. A data plane
+	 * that cannot authenticate must refuse a session carrying this flag
+	 * rather than run it in the clear, because the peer will be
+	 * authenticating and `show bfd peer` reports the session as
+	 * authenticated either way.
+	 *
+	 * There is no capability exchange in this protocol, so the daemon
+	 * cannot tell whether the data plane honours any of this. A data
+	 * plane written against an earlier version ignores both the flag and
+	 * the keys, and such a session runs unauthenticated, which is what
+	 * happens today for want of anywhere to carry a key at all.
+	 */
+	SESSION_AUTH = (1 << 7),
 };
 
 /**
@@ -174,7 +214,11 @@ struct bfddp_session {
 	/** Interface name (empty when unavailable). */
 	char ifname[64];
 
-	/* TODO: missing authentication. */
+	/*
+	 * Authentication keys are not carried here. They change on their own
+	 * schedule rather than with the session, and there may be several.
+	 * \see DP_SESSION_AUTH.
+	 */
 };
 
 /** BFD packet state values as defined in RFC 5880, Section 4.1. */
@@ -298,6 +342,89 @@ struct bfddp_control_packet {
 };
 
 /**
+ * Period during which a key may be used.
+ *
+ * Seconds since the Unix epoch. A `start` of zero means the key has always
+ * been valid, and an `end` of `-1` means it never expires. Both sentinels
+ * come from the BFD daemon's key chain and a data plane must honour them,
+ * since a key configured without lifetimes carries them.
+ */
+struct bfddp_key_lifetime {
+	/** First second the key may be used, or zero for no start. */
+	int64_t start;
+	/** Last second the key may be used, or `-1` for no expiry. */
+	int64_t end;
+};
+
+/**
+ * One authentication key belonging to a session.
+ *
+ * The data plane decides which key to use and when, so the lifetimes
+ * travel with the key. Transmit with the key whose `send` period contains
+ * the current time, and verify a received packet with the key whose
+ * `key_id` matches the Auth Key ID field, provided its `accept` period
+ * contains the current time.
+ *
+ * The two periods overlap on purpose during a rollover: a key stops being
+ * used to transmit before it stops being accepted, so packets already in
+ * flight still verify.
+ */
+struct bfddp_auth_key {
+	/** Authentication type, as in RFC 5880 Section 4.1. */
+	uint8_t type;
+	/** Authentication Key ID, as in RFC 5880 Section 4.2. */
+	uint8_t key_id;
+	/** Length of `key`, in bytes. */
+	uint8_t key_len;
+	/**
+	 * Reserved / zeroed.
+	 *
+	 * Sized so the lifetimes below start on an eight byte boundary
+	 * without the compiler inserting padding of its own.
+	 */
+	uint8_t zero[5];
+
+	/** When this key may be used to transmit. */
+	struct bfddp_key_lifetime send;
+	/** When this key may be used to verify a received packet. */
+	struct bfddp_key_lifetime accept;
+
+	/** Key material, zero padded. */
+	char key[BFDDP_AUTH_KEY_MAX];
+};
+
+/**
+ * `DP_SESSION_AUTH` data payload.
+ *
+ * `key_count` `struct bfddp_auth_key` follow this header, so the message
+ * is variable length and `bfddp_message_header.length` is what bounds it.
+ *
+ * Sent whenever the session's keys change, which is a configuration event
+ * rather than a rollover: a rollover is the data plane noticing that a
+ * lifetime has passed. A message carrying no keys means the session has
+ * none left and must not be authenticated.
+ */
+struct bfddp_session_auth {
+	/** Session local discriminator. */
+	uint32_t lid;
+	/** Number of entries of `keys` that are present. */
+	uint16_t key_count;
+	/** Reserved / zeroed. */
+	uint16_t zero;
+	/**
+	 * The keys themselves.
+	 *
+	 * Only the first `key_count` entries are sent, so the message on the
+	 * wire is shorter than this structure and
+	 * `bfddp_message_header.length` is what says how much of it is
+	 * there. The array is declared at its full size so that a receiver
+	 * may copy a message into `struct bfddp_message` and read it in
+	 * place, which is how the rest of this protocol is handled.
+	 */
+	struct bfddp_auth_key keys[BFDDP_AUTH_KEY_COUNT_MAX];
+};
+
+/**
  * The protocol wire message header structure.
  */
 struct bfddp_message_header {
@@ -371,6 +498,7 @@ struct bfddp_message {
 		struct bfddp_control_packet control;
 		struct bfddp_request_counters counters_req;
 		struct bfddp_session_counters session_counters;
+		struct bfddp_session_auth session_auth;
 	} data;
 };
 

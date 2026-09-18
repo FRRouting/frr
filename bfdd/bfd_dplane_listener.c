@@ -40,13 +40,26 @@ XREF_SETUP();
 
 #define BFD_DPLANE_DEFAULT_PORT 50700
 #define BFD_DPLANE_MAX_SESSIONS 256
-#define BFD_DPLANE_MSG_TYPES	8
+#define BFD_DPLANE_MSG_TYPES	9
+/* Keys recorded from the most recent DP_SESSION_AUTH, for a test to read. */
+#define BFD_DPLANE_MAX_AUTH_KEYS 8
 #define BFD_DPLANE_BUFSIZ	65536
 
 static const char *const msgtype_str[BFD_DPLANE_MSG_TYPES] = {
 	"ECHO_REQUEST",		"ECHO_REPLY",	    "DP_ADD_SESSION",
 	"DP_DELETE_SESSION",	"BFD_STATE_CHANGE", "DP_REQUEST_SESSION_COUNTERS",
-	"BFD_SESSION_COUNTERS", "UNKNOWN",
+	"BFD_SESSION_COUNTERS", "DP_SESSION_AUTH",  "UNKNOWN",
+};
+
+/* One key as it arrived, so the lifetimes can be checked as sent. */
+struct listener_auth_key {
+	uint8_t type;
+	uint8_t key_id;
+	uint8_t key_len;
+	int64_t send_start;
+	int64_t send_end;
+	int64_t accept_start;
+	int64_t accept_end;
 };
 
 struct listener_glob {
@@ -61,6 +74,15 @@ struct listener_glob {
 	unsigned long counter_replies;
 	unsigned long state_changes;
 	unsigned long bytes_in;
+
+	/* Sessions registered that said they authenticate. */
+	unsigned long auth_sessions;
+
+	/* Authentication keys, from the most recent message carrying any. */
+	unsigned long auth_keys;
+	uint32_t auth_lid;
+	size_t auth_key_count;
+	struct listener_auth_key auth_key[BFD_DPLANE_MAX_AUTH_KEYS];
 
 	/* Handed out as the remote discriminator, one per session. */
 	uint32_t next_rid;
@@ -142,6 +164,20 @@ static void sigusr1_handler(int signum)
 	fprintf(out, "Messages received:\n");
 	for (i = 0; i < BFD_DPLANE_MSG_TYPES; i++)
 		fprintf(out, "  %s: %lu\n", msgtype_str[i], glob->msg_count[i]);
+
+	fprintf(out, "Auth sessions: %lu\n", glob->auth_sessions);
+	fprintf(out, "Auth keys received: %lu\n", glob->auth_keys);
+	fprintf(out, "Auth last lid: %u\n", glob->auth_lid);
+	fprintf(out, "Auth last key count: %zu\n", glob->auth_key_count);
+	for (i = 0; i < glob->auth_key_count; i++)
+		fprintf(out,
+			"  auth key: id %u type %u len %u send %lld %lld accept %lld %lld\n",
+			glob->auth_key[i].key_id, glob->auth_key[i].type,
+			glob->auth_key[i].key_len,
+			(long long)glob->auth_key[i].send_start,
+			(long long)glob->auth_key[i].send_end,
+			(long long)glob->auth_key[i].accept_start,
+			(long long)glob->auth_key[i].accept_end);
 
 	fprintf(out, "Sessions registered: %zu\n", glob->session_count);
 	for (i = 0; i < glob->session_count; i++)
@@ -284,6 +320,44 @@ static bool send_state_change(int sock, const struct bfddp_session *session)
 	return true;
 }
 
+/*
+ * Keep what a DP_SESSION_AUTH carried.
+ *
+ * The keys travel with the periods in which they may be used, so a test
+ * can check that the lifetimes configured are the lifetimes that arrived,
+ * not merely that some key turned up.
+ */
+static void record_auth_keys(const struct bfddp_message *msg)
+{
+	const struct bfddp_auth_key *keys;
+	uint16_t count;
+	size_t i;
+
+	count = ntohs(msg->data.session_auth.key_count);
+	glob->auth_lid = ntohl(msg->data.session_auth.lid);
+	glob->auth_keys += count;
+
+	keys = msg->data.session_auth.keys;
+
+	glob->auth_key_count = count < BFD_DPLANE_MAX_AUTH_KEYS
+				       ? count
+				       : BFD_DPLANE_MAX_AUTH_KEYS;
+
+	for (i = 0; i < glob->auth_key_count; i++) {
+		glob->auth_key[i].type = keys[i].type;
+		glob->auth_key[i].key_id = keys[i].key_id;
+		glob->auth_key[i].key_len = keys[i].key_len;
+		glob->auth_key[i].send_start =
+			(int64_t)be64toh((uint64_t)keys[i].send.start);
+		glob->auth_key[i].send_end =
+			(int64_t)be64toh((uint64_t)keys[i].send.end);
+		glob->auth_key[i].accept_start =
+			(int64_t)be64toh((uint64_t)keys[i].accept.start);
+		glob->auth_key[i].accept_end =
+			(int64_t)be64toh((uint64_t)keys[i].accept.end);
+	}
+}
+
 static void handle_message(int sock, const struct bfddp_message *msg)
 {
 	uint16_t type = ntohs(msg->header.type);
@@ -298,6 +372,8 @@ static void handle_message(int sock, const struct bfddp_message *msg)
 		send_echo_reply(sock, msg);
 		break;
 	case DP_ADD_SESSION:
+		if (ntohl(msg->data.session.flags) & SESSION_AUTH)
+			glob->auth_sessions++;
 		if (session_add(ntohl(msg->data.session.lid)))
 			send_state_change(sock, &msg->data.session);
 		break;
@@ -306,6 +382,9 @@ static void handle_message(int sock, const struct bfddp_message *msg)
 		break;
 	case DP_REQUEST_SESSION_COUNTERS:
 		send_counters_reply(sock, msg->header.id, msg->data.counters_req.lid);
+		break;
+	case DP_SESSION_AUTH:
+		record_auth_keys(msg);
 		break;
 	default:
 		break;
