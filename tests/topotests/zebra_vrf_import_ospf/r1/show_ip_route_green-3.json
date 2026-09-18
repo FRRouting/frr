@@ -1,0 +1,27 @@
+{
+  "10.0.94.0/24":[
+    {
+      "prefix":"10.0.94.0/24",
+      "protocol":"vrf-import",
+      "vrfName":"green",
+      "distance":15,
+      "metric":120,
+      "selected":true,
+      "installed":true,
+      "nexthops":[
+        {
+          "ip":"10.0.20.6",
+          "active":true,
+          "recursive":true
+        },
+        {
+          "ip":"10.0.12.9",
+          "interfaceName":"r1-eth4",
+          "resolver":true,
+          "active":true,
+          "fib":true
+        }
+      ]
+    }
+  ]
+}
