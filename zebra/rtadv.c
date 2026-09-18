@@ -1176,6 +1176,19 @@ static struct adv_if *adv_if_del(struct zebra_vrf *zvrf, const char *name)
 	return adv_if;
 }
 
+static bool rtadv_if_events_active(struct interface *ifp)
+{
+	struct zebra_vrf *zvrf = rtadv_interface_get_zvrf(ifp);
+	struct adv_if lookup = {};
+
+	strlcpy(lookup.name, ifp->name, sizeof(lookup.name));
+	if (adv_if_list_find(&zvrf->rtadv.adv_if, &lookup))
+		return true;
+	if (adv_if_list_find(&zvrf->rtadv.adv_msec_if, &lookup))
+		return true;
+	return false;
+}
+
 /*
  * Add to list. On Success, return NULL, otherwise return already existing
  * adv_if.
@@ -1630,6 +1643,53 @@ void rtadv_stop_ra(struct interface *ifp, bool if_down_event)
 
 	if (zif->rtadv.AdvSendAdvertisements)
 		rtadv_send_packet(zvrf->rtadv.sock, ifp, RA_SUPPRESS);
+}
+
+/*
+ * React to an ifindex change on @ifp from @old_ifindex to @new_ifindex.
+ * Call before if_set_index() while ifp->ifindex still equals @old_ifindex;
+ * for live->live re-keys, call again after if_set_index() with the same
+ * @old_ifindex and @new_ifindex so the RA wheel entry is re-added under the
+ * new hash key.
+ *
+ * UAF prevention always drains the wheel slot keyed on @old_ifindex before
+ * the index is cleared or re-keyed.  rtadv_stop_ra() is used only when RA
+ * events were actually started (adv_if present), matching a belated if_down.
+ */
+void rtadv_ifindex_change(struct interface *ifp, ifindex_t old_ifindex, ifindex_t new_ifindex)
+{
+	struct zebra_if *zif;
+
+	if (!ifp)
+		return;
+
+	zif = ifp->info;
+
+	if (!zif || old_ifindex == new_ifindex)
+		return;
+
+	if (!zif->rtadv.AdvSendAdvertisements)
+		return;
+
+	if (ifp->ifindex == old_ifindex) {
+		if (new_ifindex == IFINDEX_INTERNAL) {
+			if (old_ifindex != IFINDEX_INTERNAL) {
+				if (rtadv_if_events_active(ifp))
+					rtadv_stop_ra(ifp, true);
+				else
+					wheel_remove_item(zrouter.ra_wheel, ifp);
+			}
+			return;
+		}
+
+		if (old_ifindex != IFINDEX_INTERNAL)
+			wheel_remove_item(zrouter.ra_wheel, ifp);
+		return;
+	}
+
+	if (ifp->ifindex == new_ifindex && old_ifindex != IFINDEX_INTERNAL &&
+	    new_ifindex != IFINDEX_INTERNAL && rtadv_if_events_active(ifp))
+		wheel_add_item(zrouter.ra_wheel, ifp);
 }
 
 /*
