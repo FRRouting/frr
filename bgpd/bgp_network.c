@@ -778,7 +778,7 @@ static char *bgp_get_bound_name(struct peer_connection *connection)
 	 * some random source address to be choosen.
 	 */
 	if (connection->su.sa.sa_family == AF_INET6) {
-		c = if_lookup_address(&connection->su.sa, connection->su.sa.sa_family,
+		c = if_lookup_address(&connection->su.sin6.sin6_addr, connection->su.sa.sa_family,
 				      peer->bgp->vrf_id);
 		if (c)
 			return c->ifp->name;
