@@ -618,8 +618,12 @@ void pcep_pcc_timeout_handler(struct ctrl_state *ctrl_state,
 			path = pcep_copy_path(req->path);
 			path->is_delegated = true;
 			send_report(pcc_state, path);
-			free_req_entry(req);
+			/* send_report() formats its own message from the
+			 * path; the copy stays ours and must be freed.
+			 */
+			pcep_free_path(path);
 		}
+		free_req_entry(req);
 		break;
 	case TO_UNDEFINED:
 	case TO_MAX:
@@ -1329,10 +1333,13 @@ void handle_pcep_lsp_initiate(struct ctrl_state *ctrl_state,
 		}
 	}
 
-	/* TODO: If there is a conflict with the symbolic path name of an
-	 * existing LSP, the PCC MUST send a PCErr message with Error-type=23
-	 * (Bad Parameter value) and Error-value=1 (SYMBOLIC-PATH-NAME in
-	 * use) */
+	/* If there is a conflict with the symbolic path name of an existing
+	 * LSP, the PCC MUST send a PCErr message with Error-type=23 (Bad
+	 * Parameter value) and Error-value=1 (SYMBOLIC-PATH-NAME in use).
+	 * The candidate paths live on the main thread, so the check is done
+	 * in path_pcep_config_initiate_path() and the error sent from
+	 * pcep_main_event_initiate_candidate().
+	 */
 
 	specialize_incoming_path(pcc_state, path);
 	/* TODO: Validate the PCC address received from the PCE is valid */
@@ -1587,6 +1594,12 @@ void send_pcep_message(struct pcc_state *pcc_state, struct pcep_message *msg)
 		PCEP_DEBUG_PCEP("%s Sending PCEP message: %s", pcc_state->tag,
 				format_pcep_message(msg));
 		send_message(pcc_state->sess, msg, true);
+	} else {
+		/* The callers format the message before checking the
+		 * session, so it must be freed when there is no session
+		 * to send it to (when down or reconnecting).
+		 */
+		pcep_msg_free_message(msg);
 	}
 }
 

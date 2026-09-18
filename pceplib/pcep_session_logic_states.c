@@ -725,8 +725,14 @@ void increment_unknown_message(pcep_session *session)
 		}
 	}
 
-	if ((int)session->num_unknown_messages_time_queue->num_entries
-	    >= session->pcc_config.max_unknown_messages) {
+	/* Close the session only once.  This runs for every message received,
+	 * so a many undecodable messages keeps the count over the limit and
+	 * would call close_pcep_session_with_reason() repeatably leading to
+	 * a double free.
+	 */
+	if ((int)session->num_unknown_messages_time_queue->num_entries >=
+		    session->pcc_config.max_unknown_messages &&
+	    session->session_state == SESSION_STATE_PCEP_CONNECTED) {
 		pcep_log(
 			LOG_INFO,
 			"%s: [%ld-%ld] Max unknown messages reached [%d] closing session [%d]",
