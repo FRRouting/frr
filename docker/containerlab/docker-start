@@ -18,6 +18,14 @@ else
         }
 fi
 
+# The management network hands the container a default route for v4 and for v6.
+# A router in a lab should carry only the routes its own configuration produces
+# -- a leftover default is redistributed into the IGP, and it is the route the
+# lab is usually there to test. Dropping it leaves the management network
+# reachable over its connected route, which is all containerlab needs.
+ip -4 route del default 2>/dev/null
+ip -6 route del default 2>/dev/null
+
 # Host keys are generated here rather than baked into the image, so that every
 # container gets its own set instead of the whole world sharing one key.
 if ! ls /etc/ssh/ssh_host_*_key >/dev/null 2>&1; then
