@@ -22,6 +22,7 @@
 #include <netinet/if_ether.h>
 #include <linux/if_bridge.h>
 #include <linux/if_link.h>
+#include <linux/seg6.h>
 #include <linux/if_tunnel.h>
 #include <net/if_arp.h>
 #include <linux/sockios.h>
@@ -63,6 +64,7 @@
 #include "zebra/zebra_l2.h"
 #include "zebra/netconf_netlink.h"
 #include "zebra/zebra_trace.h"
+#include "zebra/zebra_srl2.h"
 #include "lib/netlink_parser.h"
 
 extern struct zebra_privs_t zserv_privs;
@@ -965,6 +967,77 @@ int kernel_interface_set_master(struct interface *master,
 	return netlink_talk(netlink_talk_filter, &req.n, &zns->netlink_cmd, zns, false, NULL, NULL);
 }
 
+/* -------------------------------------------------------------------------- */
+/* SRv6 SR-L2 (srl2) interface management via netlink.                        */
+/*                                                                             */
+/* An srl2 interface performs RFC 8986 H.Encaps.L2.Red: it wraps an outgoing  */
+/* Ethernet frame in an outer IPv6 header whose DA is the SID bound to the    */
+/* interface.  No Segment Routing Header is inserted when a single segment is  */
+/* used (reduced encapsulation).                                               */
+/*                                                                             */
+/* IFLA_INFO_DATA attributes for type=srl2 interfaces.                        */
+/* These must match the kernel driver's uapi header.                           */
+/* -------------------------------------------------------------------------- */
+
+/*
+ * Upstream SRv6 L2 tunnel device ("sr6") UAPI (see include/uapi/linux/if_link.h
+ * in the sr6 kernel patch).  Defined locally and guarded so this also compiles
+ * once the kernel headers ship these definitions.
+ *
+ * The encapsulation mode is mandatory: the kernel's sr6_validate() rejects a
+ * newlink that omits IFLA_SR6_ENCAP_MODE.  FULL keeps the SRH on the wire;
+ * REDUCED with a single SID puts it in the outer IPv6 destination address and
+ * inserts no SRH (H.Encaps.L2.Red).  The mode is a device-wide policy selected
+ * by the `l2-encap-mode` CLI (see srl2_sr6_encap_mode()).
+ */
+#ifndef IFLA_SR6_MAX
+enum sr6_encap_mode {
+	SR6_ENCAP_MODE_FULL,
+	SR6_ENCAP_MODE_REDUCED,
+};
+enum {
+	IFLA_SR6_UNSPEC,
+	IFLA_SR6_SRH,	     /* struct ipv6_sr_hdr + segment array (RFC 8754) */
+	IFLA_SR6_FIB_TABLE,  /* u32, optional */
+	IFLA_SR6_ENCAP_MODE, /* u8 enum sr6_encap_mode, REQUIRED */
+	__IFLA_SR6_MAX,
+};
+#define IFLA_SR6_MAX (__IFLA_SR6_MAX - 1)
+#endif
+
+/*
+ * Map the device-wide zebra srl2 encap policy onto the kernel's
+ * enum sr6_encap_mode value carried in IFLA_SR6_ENCAP_MODE.
+ */
+static uint8_t srl2_sr6_encap_mode(void)
+{
+	return zebra_srl2_get_encap_mode() == ZEBRA_SRL2_ENCAP_MODE_REDUCED
+		       ? SR6_ENCAP_MODE_REDUCED
+		       : SR6_ENCAP_MODE_FULL;
+}
+
+/*
+ * Map a zebra srl2 encap-mode value onto the kernel enum sr6_encap_mode value
+ * for IFLA_SR6_ENCAP_MODE.
+ */
+static uint8_t srl2_encap_mode_to_kernel(uint8_t zmode)
+{
+	return zmode == ZEBRA_SRL2_ENCAP_MODE_REDUCED ? SR6_ENCAP_MODE_REDUCED
+						      : SR6_ENCAP_MODE_FULL;
+}
+
+/*
+ * Inverse of srl2_sr6_encap_mode(): map a kernel enum sr6_encap_mode value
+ * (read from IFLA_SR6_ENCAP_MODE on an sr6 netdev) back onto the zebra srl2
+ * encap-mode value.  Lets FRR mirror the operator's kernel-configured mode
+ * instead of imposing a software default.
+ */
+static uint8_t srl2_encap_mode_from_kernel(uint8_t kmode)
+{
+	return kmode == SR6_ENCAP_MODE_REDUCED ? ZEBRA_SRL2_ENCAP_MODE_REDUCED
+					       : ZEBRA_SRL2_ENCAP_MODE_FULL;
+}
+
 /* Interface address modification. */
 static ssize_t netlink_address_msg_encoder(struct zebra_dplane_ctx *ctx,
 					   void *buf, size_t buflen)
@@ -1074,6 +1147,137 @@ enum netlink_msg_status
 netlink_put_intf_update_msg(struct nl_batch *bth, struct zebra_dplane_ctx *ctx)
 {
 	return netlink_batch_add_msg(bth, ctx, netlink_intf_msg_encoder, false);
+}
+
+/*
+ * Encoder for the SRv6 VPWS bridge-create / port set-master / link-delete
+ * dataplane ops.  This is the netlink message building that previously lived in
+ * module-private helpers in zebra_srv6_vpws.c (vpws_nl_bridge_create /
+ * vpws_nl_set_master / vpws_nl_link_delete), re-homed here so it runs through
+ * the dataplane provider's batch socket instead of a private netlink_talk().
+ */
+static ssize_t netlink_link_update_msg_encoder(struct zebra_dplane_ctx *ctx, void *buf,
+					       size_t buflen)
+{
+	struct {
+		struct nlmsghdr n;
+		struct ifinfomsg ifi;
+		char buf[];
+	} *req = buf;
+	enum dplane_op_e op = dplane_ctx_get_op(ctx);
+
+	if (buflen < sizeof(*req))
+		return 0;
+	memset(req, 0, sizeof(*req));
+
+	req->n.nlmsg_len = NLMSG_LENGTH(sizeof(struct ifinfomsg));
+	req->n.nlmsg_flags = NLM_F_REQUEST | NLM_F_ACK;
+	req->ifi.ifi_family = AF_UNSPEC;
+
+	/*
+	 * if/else on op (rather than switch) intentionally: this encoder only
+	 * ever handles the three link ops below, and a switch over the full
+	 * dplane_op_e would trip -Wswitch-enum.  Mirrors netlink_intf_msg_encoder.
+	 */
+	if (op == DPLANE_OP_INTF_SET_MASTER) {
+		req->n.nlmsg_type = RTM_SETLINK;
+		req->ifi.ifi_index = dplane_ctx_get_ifindex(ctx);
+		if (!nl_attr_put32(&req->n, buflen, IFLA_MASTER,
+				   dplane_ctx_get_ifp_master_ifindex(ctx)))
+			return 0;
+	} else if (op == DPLANE_OP_LINK_DELETE) {
+		req->n.nlmsg_type = RTM_DELLINK;
+		req->ifi.ifi_index = dplane_ctx_get_ifindex(ctx);
+	} else if (op == DPLANE_OP_BRPORT_FLAGS) {
+		struct rtattr *protinfo;
+		bool is_bum = dplane_ctx_get_br_is_bum(ctx);
+
+		/*
+		 * srl2 bridge-port profile: never learn (decap'd frames carry a
+		 * remote MAC); unicast srl2 floods off, BUM srl2 floods on; both
+		 * isolated (EVPN split-horizon - no PE-to-PE re-flood loop).
+		 */
+		req->n.nlmsg_type = RTM_SETLINK;
+		req->ifi.ifi_family = AF_BRIDGE;
+		req->ifi.ifi_index = dplane_ctx_get_ifindex(ctx);
+		protinfo = nl_attr_nest(&req->n, buflen, IFLA_PROTINFO | NLA_F_NESTED);
+		if (!protinfo)
+			return 0;
+		if (!nl_attr_put8(&req->n, buflen, IFLA_BRPORT_LEARNING, 0) ||
+		    !nl_attr_put8(&req->n, buflen, IFLA_BRPORT_UNICAST_FLOOD, is_bum ? 1 : 0) ||
+		    !nl_attr_put8(&req->n, buflen, IFLA_BRPORT_MCAST_FLOOD, is_bum ? 1 : 0) ||
+		    !nl_attr_put8(&req->n, buflen, IFLA_BRPORT_BCAST_FLOOD, is_bum ? 1 : 0) ||
+		    !nl_attr_put8(&req->n, buflen, IFLA_BRPORT_ISOLATED, 1))
+			return 0;
+		nl_attr_nest_end(&req->n, protinfo);
+	} else if (op == DPLANE_OP_BRIDGE_VLAN_ADD) {
+		struct rtattr *afspec;
+		struct bridge_vlan_info vinfo = {};
+
+		req->n.nlmsg_type = RTM_SETLINK;
+		req->ifi.ifi_family = AF_BRIDGE;
+		req->ifi.ifi_index = dplane_ctx_get_ifindex(ctx);
+		afspec = nl_attr_nest(&req->n, buflen, IFLA_AF_SPEC);
+		if (!afspec)
+			return 0;
+		vinfo.vid = dplane_ctx_get_br_vid(ctx);
+		if (dplane_ctx_get_br_untagged(ctx))
+			vinfo.flags |= BRIDGE_VLAN_INFO_UNTAGGED;
+		if (dplane_ctx_get_br_pvid(ctx))
+			vinfo.flags |= BRIDGE_VLAN_INFO_PVID;
+		if (!nl_attr_put(&req->n, buflen, IFLA_BRIDGE_VLAN_INFO, &vinfo, sizeof(vinfo)))
+			return 0;
+		nl_attr_nest_end(&req->n, afspec);
+	} else if (op == DPLANE_OP_SRL2_UPDATE_SID) {
+		struct rtattr *linkinfo, *infodata;
+		const struct in6_addr *sid = dplane_ctx_get_srl2_sid(ctx);
+		uint32_t mtu = dplane_ctx_get_ifp_mtu(ctx);
+		uint8_t kmode = dplane_ctx_get_srl2_mode_present(ctx)
+					? srl2_encap_mode_to_kernel(dplane_ctx_get_srl2_mode(ctx))
+					: srl2_sr6_encap_mode();
+		uint8_t srh_buf[sizeof(struct ipv6_sr_hdr) + sizeof(struct in6_addr)];
+
+		/*
+		 * Changelink: (re)program an operator-owned sr6 interface in place
+		 * (same ifindex).  Always carries the full triplet {MTU, encap-mode,
+		 * SID}; the interface is never created or deleted here.  IFLA_MTU is a
+		 * top-level attribute and must precede IFLA_LINKINFO.
+		 */
+		req->n.nlmsg_type = RTM_NEWLINK;
+		req->ifi.ifi_index = dplane_ctx_get_ifindex(ctx);
+		if (mtu == 0)
+			mtu = zebra_srl2_get_mtu() ? zebra_srl2_get_mtu() : ZEBRA_SRL2_DEFAULT_MTU;
+		if (!nl_attr_put32(&req->n, buflen, IFLA_MTU, mtu))
+			return 0;
+		memset(srh_buf, 0, sizeof(srh_buf));
+		fill_srh((struct ipv6_sr_hdr *)srh_buf, sid, 1);
+		linkinfo = nl_attr_nest(&req->n, buflen, IFLA_LINKINFO);
+		if (!linkinfo)
+			return 0;
+		if (!nl_attr_put(&req->n, buflen, IFLA_INFO_KIND, "sr6", 4))
+			return 0;
+		infodata = nl_attr_nest(&req->n, buflen, IFLA_INFO_DATA);
+		if (!infodata)
+			return 0;
+		if (!nl_attr_put(&req->n, buflen, IFLA_SR6_SRH, srh_buf, sizeof(srh_buf)))
+			return 0;
+		if (!nl_attr_put8(&req->n, buflen, IFLA_SR6_ENCAP_MODE, kmode))
+			return 0;
+		nl_attr_nest_end(&req->n, infodata);
+		nl_attr_nest_end(&req->n, linkinfo);
+	} else {
+		flog_err(EC_ZEBRA_NHG_FIB_UPDATE,
+			 "Context for link update with incorrect OP code (%u)", op);
+		return -1;
+	}
+
+	return NLMSG_ALIGN(req->n.nlmsg_len);
+}
+
+enum netlink_msg_status netlink_put_link_update_msg(struct nl_batch *bth,
+						    struct zebra_dplane_ctx *ctx)
+{
+	return netlink_batch_add_msg(bth, ctx, netlink_link_update_msg_encoder, false);
 }
 
 /*
@@ -1424,6 +1628,21 @@ int netlink_link_change(struct nlmsghdr *h, ns_id_t ns_id, int startup, void *ar
 	dplane_ctx_set_ifp_family(ctx, ifi->ifi_family);
 	dplane_ctx_set_intf_txqlen(ctx, txqlen);
 	dplane_ctx_set_intf_carrier_changes(ctx, cchanges);
+
+	/*
+	 * sr6 (SRv6 L2 tunnel) netdev: capture the operator's kernel-configured
+	 * encap mode from IFLA_SR6_ENCAP_MODE so the SRv6 L2 EVPN backend can
+	 * mirror it per EVI / VPWS rather than imposing a software default.
+	 */
+	if (kind && strcmp(kind, "sr6") == 0 && linkinfo[IFLA_INFO_DATA]) {
+		struct rtattr *sr6data[IFLA_SR6_MAX + 1] = {};
+
+		netlink_parse_rtattr_nested(sr6data, IFLA_SR6_MAX, linkinfo[IFLA_INFO_DATA]);
+		if (sr6data[IFLA_SR6_ENCAP_MODE])
+			dplane_ctx_set_ifp_srl2_kernel_mode(ctx,
+							    srl2_encap_mode_from_kernel(*(uint8_t *)RTA_DATA(
+								    sr6data[IFLA_SR6_ENCAP_MODE])));
+	}
 
 	/* We are interested in some AF_BRIDGE notifications. */
 #ifndef AF_BRIDGE
