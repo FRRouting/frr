@@ -57,15 +57,13 @@ frr_sysconfdir="\${sysconfdir}/frr"
 AC_MSG_CHECKING([whether --localstatedir option is FRR-specific])
 case "$localstatedir" in
   */run/frr)
-    AC_MSG_RESULT([yes, ends in /run/frr - removing suffix])
+    AC_MSG_RESULT([yes, ends in /run/frr])
     AC_MSG_WARN([Please remove /run/frr suffix from --localstatedir=${localstatedir} (it should be /var in 99% of cases)])
-    localstatedir="${localstatedir%/run/frr}"
     path_warn_banner=true
     ;;
   */frr)
-    AC_MSG_RESULT([yes, ends in /frr - removing suffix])
+    AC_MSG_RESULT([yes, ends in /frr])
     AC_MSG_WARN([The --localstatedir=${localstatedir} option seems to include /frr but not /run, this is unexpected.  Please check for consistency.)])
-    localstatedir="${localstatedir%/frr}"
     path_warn_banner=true
     ;;
   *)
