@@ -100,6 +100,7 @@ struct bgp_adj_in {
 
 	/* timestamp (monotime) */
 	time_t uptime;
+	uint32_t uptime_usec;
 
 	/* Addpath identifier */
 	uint32_t addpath_rx_id;
