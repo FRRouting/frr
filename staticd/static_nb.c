@@ -28,7 +28,6 @@ const struct frr_yang_module_info frr_staticd_info = {
 				.apply_finish = routing_control_plane_protocols_control_plane_protocol_staticd_route_list_path_list_apply_finish,
 				.create = routing_control_plane_protocols_control_plane_protocol_staticd_route_list_path_list_create,
 				.destroy = routing_control_plane_protocols_control_plane_protocol_staticd_route_list_path_list_destroy,
-				.pre_validate = routing_control_plane_protocols_control_plane_protocol_staticd_route_list_path_list_pre_validate,
 			}
 		},
 		{
