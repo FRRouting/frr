@@ -8,6 +8,7 @@
 #ifndef _ZEBRA_BFD_H
 #define _ZEBRA_BFD_H
 
+#include "lib/srv6.h"
 #include "lib/zclient.h"
 
 #ifdef __cplusplus
@@ -355,6 +356,32 @@ void bfd_sess_show(struct vty *vty, struct json_object *json,
  */
 void bfd_protocol_integration_init(struct zclient *zc, struct event_loop *tm);
 
+/*
+ * Optional-field flags for the ZEBRA_BFD_DEST_REGISTER / DEST_UPDATE tail.
+ *
+ * Each bit indicates that the corresponding field is present in the wire
+ * payload and carries a meaningful value (including zero). Modeled on the
+ * ZAPI_MESSAGE_* pattern used by the route ZAPI messages: presence is
+ * explicit, so "field absent" and "field set to zero" remain
+ * distinguishable, and new optional fields can be added by claiming a new
+ * bit without reshuffling positional probing on either side.
+ *
+ * Encoder: if any bit in `bfd_regext_flags` is set, emit the 16-bit
+ * flags word followed by each flagged field in the order below. The
+ * tail is emitted on deregister too — `bfd_name` participates in
+ * `gen_bfd_key`, so a named session cannot be located for deletion
+ * without it. Classical-BFD callers leave `bfd_regext_flags` zero and
+ * produce byte-identical wire frames to the pre-extension layout.
+ *
+ * Decoder: detect the no-tail case via STREAM_READABLE; on a non-empty
+ * tail, read the flags word and conditionally read each flagged field.
+ */
+#define BFD_REGEXT_FLAG_BFD_MODE     0x0001
+#define BFD_REGEXT_FLAG_REMOTE_DISCR 0x0002
+#define BFD_REGEXT_FLAG_SRV6_SOURCE  0x0004
+#define BFD_REGEXT_FLAG_SEG_LIST     0x0008
+#define BFD_REGEXT_FLAG_BFD_NAME     0x0010
+
 /**
  * BFD session registration arguments.
  */
@@ -414,6 +441,26 @@ struct bfd_session_arg {
 	uint32_t detection_multiplier;
 	/* bfd session name*/
 	char bfd_name[BFD_NAME_SIZE + 1];
+
+	/*
+	 * Optional-tail fields for the ZEBRA_BFD_DEST_REGISTER /
+	 * DEST_UPDATE payload. Each field is emitted on the wire iff the
+	 * corresponding BFD_REGEXT_FLAG_* bit is set in `bfd_regext_flags`
+	 * (above). Classical-BFD callers leave `bfd_regext_flags` zero and
+	 * none of these fields are touched on the wire.
+	 */
+	/** Bitmask of optional-tail fields present (BFD_REGEXT_FLAG_*). */
+	uint16_t bfd_regext_flags;
+	/** BFD session mode (`bfd_mode_type` in bfdd/bfd.h). */
+	uint8_t bfd_mode;
+	/** A-priori remote discriminator (sbfd_init only). */
+	uint32_t remote_discr;
+	/** SRv6 outer-IPv6 source. */
+	struct in6_addr srv6_source_ipv6;
+	/** Number of valid SIDs in `seg_list[]` (0 .. `SRV6_MAX_SEGS`). */
+	uint8_t seg_num;
+	/** SRv6 SID list, transmission order. */
+	struct in6_addr seg_list[SRV6_MAX_SEGS];
 };
 
 /**
