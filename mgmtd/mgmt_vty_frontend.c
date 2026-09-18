@@ -219,9 +219,9 @@ static void vty_out_yang_error(struct vty *vty, LYD_FORMAT format, const struct 
 	else if (ei->level == LY_LLWRN)
 		severity = "warning";
 
-	ecode = yang_ly_strerrcode(err);
+	ecode = ly_strerrcode(err);
 	if (err == LY_EVALID && ei->vecode != LYVE_SUCCESS)
-		evalid = yang_ly_strvecode(ei->vecode);
+		evalid = ly_strvecode(ei->vecode);
 
 	switch (format) {
 	case LYD_XML:
