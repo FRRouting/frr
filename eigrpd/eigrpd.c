@@ -271,7 +271,7 @@ void eigrp_finish_final(struct eigrp *eigrp)
 		 * The instance is going away, not the interface, so drop the
 		 * running state but leave the interface configuration alone.
 		 */
-		eigrp_if_free_all(ei->ifp);
+		eigrp_if_free_process(eigrp, ei->ifp);
 	}
 
 	event_cancel(&eigrp->t_write);

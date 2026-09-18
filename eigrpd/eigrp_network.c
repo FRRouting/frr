@@ -247,41 +247,49 @@ static int eigrp_network_match_iface(const struct prefix *co_prefix,
 static void eigrp_network_run_interface(struct eigrp *eigrp, struct prefix *p,
 					struct interface *ifp)
 {
-	struct eigrp_interface *ei;
+	struct eigrp_interface *ei = NULL;
 	struct connected *co;
 
 	/* if interface prefix is match specified prefix,
 	   then create socket and join multicast group. */
 	frr_each (if_connected, ifp->connected, co) {
-		if (CHECK_FLAG(co->flags, ZEBRA_IFA_SECONDARY))
+		if (p->family != co->address->family)
+			continue;
+
+		if (!eigrp_network_match_iface(co->address, p))
 			continue;
 
 		/*
-		 * ifp->info is now always set (it holds the interface
-		 * configuration), so it can no longer be used to test whether
-		 * EIGRP is already running here.  Keep the existing
-		 * one-instance-per-interface behaviour by checking for a
-		 * running instance instead; supporting several connected
-		 * prefixes is a separate change.
+		 * One instance per interface, holding every connected subnet
+		 * this process covers.  Secondaries are no longer skipped:
+		 * eigrp_connected_add() folds addresses that share a subnet
+		 * into one entry, because they describe one EIGRP prefix.
+		 *
+		 * Re-running this is harmless.  eigrp_if_new() hands back the
+		 * existing instance, eigrp_connected_add() the existing
+		 * subnet, and eigrp_if_up() refreshes rather than duplicates.
 		 */
-		if (p->family == co->address->family &&
-		    !eigrp_if_lookup_by_ifp(ifp) &&
-		    eigrp_network_match_iface(co->address, p)) {
+		ei = eigrp_if_new(eigrp, ifp, co->address);
 
-			ei = eigrp_if_new(eigrp, ifp, co->address);
+		/* Relate eigrp interface to eigrp instance. */
+		ei->eigrp = eigrp;
 
-			/* Relate eigrp interface to eigrp instance. */
-			ei->eigrp = eigrp;
-
-			/* if router_id is not configured, dont bring up
-			 * interfaces.
-			 * eigrp_router_id_update() will call eigrp_if_update
-			 * whenever r-id is configured instead.
-			 */
-			if (if_is_operative(ifp))
-				eigrp_if_up(ei);
-		}
+		eigrp_connected_add(ei, co->address);
 	}
+
+	if (!ei)
+		return;
+
+	/* The set of advertised subnets decides what we may speak from. */
+	eigrp_if_refresh_address(ei);
+
+	/*
+	 * if router_id is not configured, dont bring up interfaces.
+	 * eigrp_router_id_update() will call eigrp_if_update whenever r-id is
+	 * configured instead.
+	 */
+	if (if_is_operative(ifp))
+		eigrp_if_up(ei);
 }
 
 void eigrp_if_update(struct interface *ifp)
@@ -335,22 +343,45 @@ int eigrp_network_unset(struct eigrp *eigrp, struct prefix *p)
 	 * hash.
 	 */
 	frr_each_safe (eigrp_interface_hash, &eigrp->eifs, ei) {
-		bool found = false;
+		struct eigrp_connected *ec;
+		struct listnode *cnode, *cnnode;
 
-		for (rn = route_top(eigrp->networks); rn; rn = route_next(rn)) {
-			if (rn->info == NULL)
-				continue;
+		/*
+		 * Drop the subnets no remaining network statement covers, and
+		 * the instance itself once it speaks for none of them.
+		 */
+		for (ALL_LIST_ELEMENTS(ei->connected, cnode, cnnode, ec)) {
+			bool found = false;
 
-			if (eigrp_network_match_iface(&ei->address, &rn->p)) {
-				found = true;
-				route_unlock_node(rn);
-				break;
+			for (rn = route_top(eigrp->networks); rn;
+			     rn = route_next(rn)) {
+				if (rn->info == NULL)
+					continue;
+
+				if (eigrp_network_match_iface(&ec->address,
+							      &rn->p)) {
+					found = true;
+					route_unlock_node(rn);
+					break;
+				}
+			}
+
+			if (!found) {
+				eigrp_connected_withdraw(ec);
+				eigrp_connected_delete(ec);
 			}
 		}
 
-		if (!found) {
+		if (list_isempty(ei->connected)) {
 			eigrp_if_free(ei, INTERFACE_DOWN_BY_VTY);
+			continue;
 		}
+
+		/*
+		 * Still advertising something, but possibly no longer the
+		 * subnet it was speaking from.
+		 */
+		eigrp_if_refresh_address(ei);
 	}
 
 	return 1;
