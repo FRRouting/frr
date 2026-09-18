@@ -178,6 +178,16 @@ struct nhg_hash_entry {
  * by the NHG layer, not the EVPN-MH layer.
  */
 #define NEXTHOP_GROUP_STALE_FDB (1 << 11)
+
+/*
+ * Set when a dplane install is still queued at the moment an interface
+ * flap invalidates this nhe. NEXTHOP_GROUP_REINSTALL already means
+ * something else (carrier-up reinstall of dependents), so this flag is
+ * kept separate: it marks the in-flight request itself as stale, and is
+ * consumed by zebra_nhg_dplane_result() when that request's result
+ * finally lands, even if the nhe has since been revalidated.
+ */
+#define NEXTHOP_GROUP_STALE_QUEUED (1 << 12)
 };
 
 /* Upper 4 bits of the NHG are reserved for indicating the NHG type */
