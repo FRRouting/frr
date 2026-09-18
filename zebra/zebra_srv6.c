@@ -920,6 +920,9 @@ void zebra_srv6_locator_add(struct srv6_locator *locator)
 	if (!tmp)
 		listnode_add(srv6->locators, locator);
 
+	if (!srv6_locator_is_up(locator))
+		return;
+
 	/*
 	 * Notify new locator info to zclients.
 	 *
@@ -977,6 +980,9 @@ struct srv6_locator *zebra_srv6_locator_lookup(const char *name)
 void zebra_notify_srv6_locator_add(struct srv6_locator *locator)
 {
 	struct zserv *client;
+
+	if (!srv6_locator_is_up(locator))
+		return;
 
 	/*
 	 * Notify new locator info to zclients.
@@ -1118,7 +1124,7 @@ static int zebra_srv6_manager_get_locator_chunk(struct srv6_locator **loc,
 			  (*loc)->name, zebra_route_string(client->proto),
 			  client->instance);
 
-	if (*loc && (*loc)->status_up)
+	if (srv6_locator_is_up(*loc))
 		ret = zsend_srv6_manager_get_locator_chunk_response(client,
 								    vrf_id,
 								    *loc);
@@ -2603,6 +2609,9 @@ static int srv6_manager_get_srv6_locator_internal(struct srv6_locator **locator,
 
 	if (!locator_name) {
 		for (ALL_LIST_ELEMENTS_RO(srv6->locators, node, *locator)) {
+			if (!srv6_locator_is_up(*locator))
+				continue;
+
 			ret = zsend_zebra_srv6_locator_add(client, *locator);
 			if (ret < 0)
 				return ret;
@@ -2612,6 +2621,8 @@ static int srv6_manager_get_srv6_locator_internal(struct srv6_locator **locator,
 
 	*locator = zebra_srv6_locator_lookup(locator_name);
 	if (!*locator)
+		return -1;
+	if (!srv6_locator_is_up(*locator))
 		return -1;
 
 	return zsend_zebra_srv6_locator_add(client, *locator);

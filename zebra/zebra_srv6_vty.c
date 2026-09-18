@@ -177,9 +177,8 @@ DEFUN (show_srv6_locator,
 		id = 1;
 		for (ALL_LIST_ELEMENTS_RO(srv6->locators, node, locator)) {
 			prefix2str(&locator->prefix, str, sizeof(str));
-			vty_out(vty, "%-20s %7d %-24s %s\n",
-				locator->name, id, str,
-				locator->status_up ? "Up" : "Down");
+			vty_out(vty, "%-20s %7d %-24s %s\n", locator->name, id, str,
+				srv6_locator_is_up(locator) ? "Up" : "Down");
 			++id;
 		}
 		vty_out(vty, "\n");
@@ -805,12 +804,10 @@ DEFUN_NOSH (srv6_locator,
 	locator = zebra_srv6_locator_lookup(argv[1]->arg);
 	if (locator) {
 		VTY_PUSH_CONTEXT(SRV6_LOC_NODE, locator);
-		locator->status_up = true;
 		return CMD_SUCCESS;
 	}
 
 	locator = srv6_locator_alloc(argv[1]->arg);
-	locator->status_up = true;
 
 	VTY_PUSH_CONTEXT(SRV6_LOC_NODE, locator);
 	return CMD_SUCCESS;
@@ -894,7 +891,6 @@ DEFPY (locator_prefix,
 	int idx = 0;
 	bool node_bit_not_conf = false;
 
-	locator->prefix = *prefix;
 	/* Only set default if func_bit_len was not provided in command */
 	if (func_bit_len == 0 && !argv_find(argv, argc, "func-bits", &idx))
 		func_bit_len = ZEBRA_SRV6_FUNCTION_LENGTH;
@@ -952,6 +948,7 @@ DEFPY (locator_prefix,
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 
+	locator->prefix = *prefix;
 	locator->block_bits_length = block_bit_len;
 	locator->node_bits_length = node_bit_len;
 	locator->function_bits_length = func_bit_len;
