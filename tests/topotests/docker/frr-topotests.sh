@@ -45,6 +45,11 @@ if [[ "$1" = "-h" ]] || [[ "$1" = "--help" ]]; then
 	TOPOTEST_OPTIONS        These options are appended to the docker-run
 	                        command for starting the tests.
 
+	TOPOTESTS_USE_HOST_TMUX Set automatically when launched from host tmux.
+	                        For custom docker/podman runs with host tmux, pass
+	                        -e TOPOTESTS_USE_HOST_TMUX=1 and bind-mount the
+	                        tmux socket directory.
+
 	TOPOTEST_SANITIZER      Controls whether to use the address sanitizer.
 	                        Enabled by default, set to 0 to disable.
 
@@ -122,7 +127,11 @@ if [ -z "$TOPOTEST_BUILDCACHE" ]; then
 fi
 
 if [[ -n "$TMUX" ]]; then
-    TMUX_OPTIONS="-v $(dirname $TMUX):$(dirname $TMUX) -e TMUX=$TMUX -e TMUX_PANE=$TMUX_PANE"
+    # $cmd is resolved on the host; it's only ever embedded as a string in
+    # the pane command that the host's own tmux server executes, so a
+    # host-side path is correct here (unlike tmux itself below, which runs
+    # as a client directly inside the container's own namespace).
+    TMUX_OPTIONS="-v $(dirname $TMUX):$(dirname $TMUX) -e TMUX=$TMUX -e TMUX_PANE=$TMUX_PANE -e TOPOTESTS_USE_HOST_TMUX=1 -e TOPOTESTS_HOST_DOCKER_CMD=$cmd"
 fi
 
 if [[ -n "$STY" ]]; then
