@@ -94,6 +94,8 @@ struct host host;
 /* for vtysh, put together CLI trees only when switching into node */
 static bool defer_cli_tree;
 
+static bool is_vtysh;
+
 /*
  * Returns host.name if any, otherwise
  * it returns the system hostname.
@@ -297,6 +299,105 @@ void cmd_defer_tree(bool val)
 	defer_cli_tree = val;
 }
 
+static struct graph *get_output_modifier_graph(void)
+{
+	struct cmd_token *start;
+	static struct graph *output_modifier_graph;
+	static const struct cmd_element pipe_cmd = {
+		.string = "\\| include REGEX...",
+		.doc = "Output modifiers\nInclude lines that match\nRegular Expression\n",
+	};
+
+	if (output_modifier_graph)
+		return output_modifier_graph;
+
+	start = cmd_token_new(START_TKN, 0, NULL, NULL);
+
+	output_modifier_graph = graph_new();
+	graph_new_node(output_modifier_graph, start, (void (*)(void *))cmd_token_del);
+
+	cmd_graph_parse(output_modifier_graph, &pipe_cmd);
+	cmd_graph_names(output_modifier_graph);
+
+	return output_modifier_graph;
+}
+
+static struct graph_node *find_show_node(struct graph *cmd_graph)
+{
+	struct graph_node *start_node = vector_slot(cmd_graph->nodes, 0);
+	struct graph_node *show_node = NULL;
+	struct graph_node *gn;
+	struct cmd_token *tok;
+
+	for (unsigned int i = 0; i < vector_active(start_node->to); i++) {
+		gn = vector_slot(start_node->to, i);
+		tok = gn->data;
+
+		if (tok && tok->text && strmatch(tok->text, "show")) {
+			show_node = gn;
+			break;
+		}
+	}
+
+	return show_node;
+}
+
+PREDECL_LIST(leaf_list);
+struct leaf_node {
+	struct graph_node *gn;
+	struct leaf_list_item itm;
+};
+DECLARE_LIST(leaf_list, struct leaf_node, itm);
+
+static void collect_leaves_cb(struct graph_node *gn, void *arg)
+{
+	struct leaf_list_head *leaves = arg;
+	struct cmd_token *tok = gn->data;
+	struct graph_node *next;
+	struct leaf_node *leaf;
+
+	if (tok && tok->type == END_TKN)
+		return;
+
+	for (unsigned int j = 0; j < vector_active(gn->to); j++) {
+		next = vector_slot(gn->to, j);
+		tok = next->data;
+		if (tok && tok->type == END_TKN) {
+			leaf = XMALLOC(MTYPE_TMP, sizeof(*leaf));
+			leaf->gn = gn;
+			leaf_list_add_tail(leaves, leaf);
+			break;
+		}
+	}
+}
+
+static void attach_output_modifiers(struct graph *cmd_graph)
+{
+	struct graph *mod_graph;
+	struct graph_node *mod_start, *pipe_node, *show_node;
+	struct leaf_node *leaf;
+	struct leaf_list_head leaves;
+
+	show_node = find_show_node(cmd_graph);
+	if (!show_node)
+		return;
+
+	mod_graph = get_output_modifier_graph();
+	mod_start = vector_slot(mod_graph->nodes, 0);
+	pipe_node = vector_slot(mod_start->to, 0);
+
+	leaf_list_init(&leaves);
+
+	graph_dfs(cmd_graph, show_node, collect_leaves_cb, &leaves);
+
+	while ((leaf = leaf_list_pop(&leaves))) {
+		graph_add_edge(leaf->gn, pipe_node);
+		XFREE(MTYPE_TMP, leaf);
+	}
+
+	leaf_list_fini(&leaves);
+}
+
 enum graph_modify_operation { GRAPH_MODIFY_ADD, GRAPH_MODIFY_REMOVE };
 
 static void cmd_graph_modify(struct graph *cmd_graph, const struct cmd_element *cmd,
@@ -373,6 +474,10 @@ void cmd_finalize_node(struct cmd_node *cnode)
 		return;
 
 	hash_iterate(cnode->cmd_hash, cmd_finalize_iter, cnode);
+
+	if (is_vtysh)
+		attach_output_modifiers(cnode->cmdgraph);
+
 	cnode->graph_built = true;
 }
 
@@ -1166,6 +1271,63 @@ static enum output_filter resolve_filter(const char *token)
 	return match_filter;
 }
 
+static void extract_pipe_tail(const char *cmd_in, char **cmd_out)
+{
+	char *pipe;
+
+	*cmd_out = XSTRDUP(MTYPE_TMP, cmd_in);
+	pipe = strstr(*cmd_out, " | ");
+	*pipe = '\0';
+}
+
+/*
+ * Parses and matches a command string against a node's command graph.
+ */
+static enum matcher_rv match_command_on_node(const char *cmd_str, enum node_type node,
+					     struct list **argv_out)
+{
+	struct graph *cmd_graph;
+	vector command;
+	enum matcher_rv rv;
+	const struct cmd_element *element = NULL;
+
+	*argv_out = NULL;
+
+	command = cmd_make_strvec(cmd_str);
+	if (!command || vector_active(command) == 0) {
+		cmd_free_strvec(command);
+		return MATCHER_NO_MATCH;
+	}
+
+	if (cmd_try_do_shortcut(node, vector_slot(command, 0))) {
+		vector_remove(command, 0);
+		node = ENABLE_NODE;
+	}
+
+	cmd_graph = cmd_node_graph(cmdvec, node);
+	rv = command_match(cmd_graph, command, argv_out, &element);
+
+	cmd_free_strvec(command);
+	return rv;
+}
+
+static enum matcher_rv match_show_command_on_node(const char *cmd_str, enum node_type node)
+{
+	struct cmd_token *token;
+	enum matcher_rv rv;
+	struct list *argv = NULL;
+
+	rv = match_command_on_node(cmd_str, node, &argv);
+	if (rv == MATCHER_OK) {
+		token = listnode_head(argv);
+		if (!token || !strmatch(token->text, "show"))
+			rv = MATCHER_NO_MATCH;
+		list_delete(&argv);
+	}
+
+	return rv;
+}
+
 /*
  * cmd_execute hook subscriber to handle `|` actions.
  */
@@ -1173,14 +1335,27 @@ static int handle_pipe_action(struct vty *vty, const char *cmd_in,
 			      char **cmd_out)
 {
 	const char *pipe, *action_err;
-	char *orig, *working, *token, *u, *regexp;
+	char *orig, *working, *token, *regexp;
 	enum output_filter filter;
+	enum matcher_rv rv;
 	int ret = 0;
 	bool succ;
 
 	pipe = strstr(cmd_in, " | ");
 	if (!pipe)
 		return 0;
+
+	extract_pipe_tail(cmd_in, cmd_out);
+	rv = match_show_command_on_node(*cmd_out, vty->node);
+	if (MATCHER_ERROR(rv)) {
+		if (rv == MATCHER_NO_MATCH)
+			vty_out(vty, "%% Unknown command: %s\n", cmd_in);
+		else if (rv == MATCHER_INCOMPLETE)
+			vty_out(vty, "%% Incomplete command before pipe\n");
+		else if (rv == MATCHER_AMBIGUOUS)
+			vty_out(vty, "%% Ambiguous command: %s\n", *cmd_out);
+		return 1;
+	}
 
 	/*
 	 * duplicate string for processing purposes,
@@ -1234,10 +1409,6 @@ static int handle_pipe_action(struct vty *vty, const char *cmd_in,
 		ret = 1;
 		goto fail;
 	}
-
-	*cmd_out = XSTRDUP(MTYPE_TMP, cmd_in);
-	u = *cmd_out;
-	strsep(&u, "|");
 
 fail:
 	XFREE(MTYPE_TMP, orig);
@@ -2600,6 +2771,8 @@ void cmd_init(int terminal)
 	/* Each node's basic commands. */
 	install_element(VIEW_NODE, &show_version_cmd);
 	install_element(ENABLE_NODE, &show_startup_config_cmd);
+
+	is_vtysh = terminal == 0;
 
 	if (terminal) {
 		install_element(ENABLE_NODE, &debug_memstats_cmd);
