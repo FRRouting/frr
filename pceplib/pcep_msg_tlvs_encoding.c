@@ -32,11 +32,8 @@
 #include "pcep_utils_logging.h"
 #include "pcep_utils_memory.h"
 
-void write_tlv_header(struct pcep_object_tlv_header *tlv_hdr,
-		      uint16_t tlv_length, struct pcep_versioning *versioning,
-		      uint8_t *buf);
-void pcep_decode_tlv_hdr(const uint8_t *tlv_buf,
-			 struct pcep_object_tlv_header *tlv_hdr);
+void write_tlv_header(struct pcep_object_tlv_header *tlv_hdr, uint16_t tlv_length,
+		      struct pcep_versioning *versioning, uint8_t *buf);
 
 /*
  * forward declarations for initialize_tlv_encoders()
@@ -620,14 +617,15 @@ uint16_t pcep_encode_tlv_path_setup_type(struct pcep_object_tlv_header *tlv,
 	return LENGTH_1WORD;
 }
 
-uint16_t
-pcep_encode_tlv_path_setup_type_capability(struct pcep_object_tlv_header *tlv,
-					   struct pcep_versioning *versioning,
-					   uint8_t *tlv_body_buf)
+uint16_t pcep_encode_tlv_path_setup_type_capability(struct pcep_object_tlv_header *tlv,
+						    struct pcep_versioning *vers,
+						    uint8_t *tlv_body_buf)
 {
-	(void)versioning;
+	uint16_t pst_length;
 	struct pcep_object_tlv_path_setup_type_capability *pst_cap =
 		(struct pcep_object_tlv_path_setup_type_capability *)tlv;
+	(void)vers;
+
 	if (pst_cap->pst_list == NULL) {
 		return 0;
 	}
@@ -641,27 +639,36 @@ pcep_encode_tlv_path_setup_type_capability(struct pcep_object_tlv_header *tlv,
 		tlv_body_buf[index++] = *((uint8_t *)node->data);
 	}
 
-	uint16_t pst_length = normalize_pcep_tlv_length(
-		LENGTH_1WORD + pst_cap->pst_list->num_entries);
-	if (pst_cap->sub_tlv_list == NULL) {
+	/* If there are no sub-TLVS, any padding needed for the PSTs
+	 * should not be included in the tlv header length
+	 */
+	pst_length = LENGTH_1WORD + pst_cap->pst_list->num_entries;
+	if (pst_cap->sub_tlv_list == NULL || pst_cap->sub_tlv_list->num_entries == 0) {
 		return pst_length;
 	}
 
-	/* Any padding used for the PSTs should not be included in the tlv
-	 * header length */
-	index = normalize_pcep_tlv_length(index);
-	uint16_t sub_tlvs_length = 0;
+	/* Pad PST list, then start sub-TLVs */
+	pst_length = normalize_pcep_tlv_length(pst_length);
+
+	index = pst_length;
+	uint16_t sub_tlvs_total = 0;
 	node = pst_cap->sub_tlv_list->head;
 	for (; node != NULL; node = node->next_node) {
-		struct pcep_object_tlv_header *sub_tlv =
-			(struct pcep_object_tlv_header *)node->data;
-		uint16_t sub_tlv_length = pcep_encode_tlv(sub_tlv, versioning,
-							  tlv_body_buf + index);
-		index += sub_tlv_length;
-		sub_tlvs_length += sub_tlv_length;
+		struct pcep_object_tlv_header *sub_tlv = node->data;
+		uint16_t sub_length = pcep_encode_tlv(sub_tlv, vers, tlv_body_buf + index);
+
+		/* Each sub-TLV is padded - except the last one */
+		if (node->next_node) {
+			sub_length = normalize_pcep_tlv_length(sub_length);
+			index += sub_length;
+			sub_tlvs_total += sub_length;
+		} else {
+			index += sub_length;
+			sub_tlvs_total += sub_length;
+		}
 	}
 
-	return sub_tlvs_length + pst_length;
+	return sub_tlvs_total + pst_length;
 }
 
 uint16_t pcep_encode_tlv_te_path_binding(struct pcep_object_tlv_header *tlv,
@@ -1266,18 +1273,18 @@ pcep_decode_tlv_path_setup_type(struct pcep_object_tlv_header *tlv_hdr,
 struct pcep_object_tlv_header *pcep_decode_tlv_path_setup_type_capability(
 	struct pcep_object_tlv_header *tlv_hdr, const uint8_t *tlv_body_buf)
 {
-	struct pcep_object_tlv_path_setup_type_capability *tlv =
-		(struct pcep_object_tlv_path_setup_type_capability *)
-			common_tlv_create(
-				tlv_hdr,
-				sizeof(struct
-				       pcep_object_tlv_path_setup_type_capability));
+	struct pcep_object_tlv_path_setup_type_capability *tlv = (void *)
+		common_tlv_create(tlv_hdr,
+				  sizeof(struct pcep_object_tlv_path_setup_type_capability));
 	bool error_p = false;
 	uint16_t len = tlv->header.encoded_tlv_length;
 	int i;
 	uint8_t num_psts;
 	uint16_t buf_index;
 	uint8_t num_iterations;
+	struct pcep_object_tlv_header sub_hdr;
+	struct pcep_object_tlv_header *sub_tlv;
+	uint16_t norm_len;
 
 	/* RFC 8408 Section 3, RFC 8664 Section 4.1.1, 4.1.2 */
 
@@ -1321,32 +1328,71 @@ struct pcep_object_tlv_header *pcep_decode_tlv_path_setup_type_capability(
 		dll_append(tlv->pst_list, pst);
 	}
 
-	/* If no sub-tlvs, all done */
-	if (tlv->header.encoded_tlv_length == (LENGTH_1WORD + num_psts))
+	/* If no sub-tlvs follow the PSTs, all done
+	 * RFC8408, section 3
+	 */
+	if (tlv->header.encoded_tlv_length == LENGTH_1WORD + num_psts)
 		goto done;
 
-	/* Compute padded length for start of subtlvs */
+	/* Compute padded length of types for start of sub-TLVs */
 	buf_index = normalize_pcep_tlv_length(LENGTH_1WORD + num_psts);
-	num_iterations = 0;
 
-	/* If we have sub-TLVs, they must be included in the overall length */
-	if (buf_index > tlv->header.encoded_tlv_length) {
+	/* If we have sub-TLVs, they must be included in the overall length; there
+	 * must be room for at least one sub-tlv header
+	 */
+	if (buf_index > tlv->header.encoded_tlv_length ||
+	    tlv->header.encoded_tlv_length - buf_index < TLV_HEADER_LENGTH) {
 		pcep_log(LOG_INFO, "%s: Path Setup Type Capability length invalid", __func__);
 		error_p = true;
 		goto done;
 	}
 
-	/* Must have one sub-TLV per PST value, no more */
+	/* Must have zero or one sub-TLV per PST value, no more ((RFC8408, section 3)*/
+	num_iterations = 0;
 	tlv->sub_tlv_list = dll_initialize();
-	while ((tlv->header.encoded_tlv_length - buf_index) > TLV_HEADER_LENGTH &&
-	       num_iterations < num_psts &&
+	while ((tlv->header.encoded_tlv_length - buf_index) >= TLV_HEADER_LENGTH &&
 	       num_iterations++ < MAX_ITERATIONS) {
-		struct pcep_object_tlv_header *sub_tlv =
-			pcep_decode_tlv(tlv_body_buf + buf_index);
-		if (sub_tlv == NULL) {
+		/*
+		 * RFC8408, section 3
+		 */
+		if (num_iterations > num_psts) {
+			pcep_log(LOG_INFO, "PathSetupType Capability TLV: too many sub-TLVs");
+			error_p = true;
+			goto done;
+		}
+
+		/* Examine the sub-tlv header, validate length
+		 * RFC5440, 7.1
+		 */
+		pcep_decode_tlv_hdr(tlv_body_buf + buf_index, &sub_hdr);
+
+		/* Check for over-size length value that will wrap uint16_t
+		 * when normalized
+		 */
+		if (sub_hdr.encoded_tlv_length > 0xFFF8) {
 			pcep_log(LOG_INFO,
-				 "%s: Decode PathSetupType Capability sub-TLV decode returned NULL",
+				 "%s: PathSetupType Capability sub-TLV length too large",
 				 __func__);
+			error_p = true;
+			goto done;
+		}
+
+		/* Test the full, padded length */
+		norm_len = normalize_pcep_tlv_length(
+			sub_hdr.encoded_tlv_length + TLV_HEADER_LENGTH);
+
+		if (norm_len > tlv->header.encoded_tlv_length - buf_index) {
+			pcep_log(LOG_INFO,
+				 "%s: PathSetupType Capability sub-TLV invalid length %d",
+				 __func__, sub_hdr.encoded_tlv_length);
+			error_p = true;
+			goto done;
+		}
+
+		sub_tlv = pcep_decode_tlv(tlv_body_buf + buf_index);
+		if (sub_tlv == NULL) {
+			pcep_log(LOG_INFO, "%s: sub-TLV decode returned NULL", __func__);
+			error_p = true;
 			goto done;
 		}
 
@@ -1356,7 +1402,7 @@ struct pcep_object_tlv_header *pcep_decode_tlv_path_setup_type_capability(
 		 * _except_ for the last sub-TLV; the padding bytes are not included
 		 * for the last sub-TLV. What were they thinking?
 		 */
-		buf_index += normalize_pcep_tlv_length(sub_tlv->encoded_tlv_length);
+		buf_index += norm_len;
 	}
 
 done:
