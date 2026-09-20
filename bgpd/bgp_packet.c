@@ -2401,10 +2401,10 @@ static int bgp_update_receive(struct peer_connection *connection, bgp_size_t siz
 	bgp_size_t update_len;
 	bgp_size_t withdraw_len;
 	enum NLRI_TYPES {
-		NLRI_UPDATE,
 		NLRI_WITHDRAW,
-		NLRI_MP_UPDATE,
 		NLRI_MP_WITHDRAW,
+		NLRI_UPDATE,
+		NLRI_MP_UPDATE,
 		NLRI_TYPE_MAX
 	};
 	struct bgp_nlri nlris[NLRI_TYPE_MAX];
@@ -2559,7 +2559,7 @@ static int bgp_update_receive(struct peer_connection *connection, bgp_size_t siz
 			   withdraw_len, attribute_len, update_len);
 
 	/* Parse any given NLRIs */
-	for (int i = NLRI_UPDATE; i < NLRI_TYPE_MAX; i++) {
+	for (int i = NLRI_WITHDRAW; i < NLRI_TYPE_MAX; i++) {
 		if (!nlris[i].nlri)
 			continue;
 
@@ -2596,9 +2596,8 @@ static int bgp_update_receive(struct peer_connection *connection, bgp_size_t siz
 			flog_err(EC_BGP_UPDATE_RCV,
 				 "%s [Error] Error parsing NLRI", peer->host);
 			if (peer_established(connection))
-				bgp_notify_send(connection,
-						BGP_NOTIFY_UPDATE_ERR,
-						i <= NLRI_WITHDRAW
+				bgp_notify_send(connection, BGP_NOTIFY_UPDATE_ERR,
+						(i == NLRI_WITHDRAW || i == NLRI_UPDATE)
 							? BGP_NOTIFY_UPDATE_INVAL_NETWORK
 							: BGP_NOTIFY_UPDATE_OPT_ATTR_ERR);
 			bgp_attr_unintern_sub(&attr);
