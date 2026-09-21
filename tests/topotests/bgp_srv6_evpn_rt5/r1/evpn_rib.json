@@ -10,7 +10,19 @@
       "paths": [
         [
           {
-            "valid": true
+            "valid": true,
+            "label": "1040640",
+            "remoteSid": "fcbb:bbbb:1::",
+            "remoteTransposedSid": "fcbb:bbbb:1:fe10::",
+            "endpointBehavior": "uDT46",
+            "remoteSidStructure": {
+              "locatorBlockLen": 32,
+              "locatorNodeLen": 16,
+              "functionLen": 16,
+              "argumentLen": 0,
+              "transpositionLen": 16,
+              "transpositionOffset": 48
+            }
           }
         ]
       ]
@@ -24,7 +36,19 @@
       "paths": [
         [
           {
-            "valid": true
+            "valid": true,
+            "label": "1040640",
+            "remoteSid": "fcbb:bbbb:1::",
+            "remoteTransposedSid": "fcbb:bbbb:1:fe10::",
+            "endpointBehavior": "uDT46",
+            "remoteSidStructure": {
+              "locatorBlockLen": 32,
+              "locatorNodeLen": 16,
+              "functionLen": 16,
+              "argumentLen": 0,
+              "transpositionLen": 16,
+              "transpositionOffset": 48
+            }
           }
         ]
       ]
@@ -38,7 +62,19 @@
       "paths": [
         [
           {
-            "valid": true
+            "valid": true,
+            "label": "1040640",
+            "remoteSid": "fcbb:bbbb:1::",
+            "remoteTransposedSid": "fcbb:bbbb:1:fe10::",
+            "endpointBehavior": "uDT46",
+            "remoteSidStructure": {
+              "locatorBlockLen": 32,
+              "locatorNodeLen": 16,
+              "functionLen": 16,
+              "argumentLen": 0,
+              "transpositionLen": 16,
+              "transpositionOffset": 48
+            }
           }
         ]
       ]
@@ -52,7 +88,19 @@
       "paths": [
         [
           {
-            "valid": true
+            "valid": true,
+            "label": "1040640",
+            "remoteSid": "fcbb:bbbb:1::",
+            "remoteTransposedSid": "fcbb:bbbb:1:fe10::",
+            "endpointBehavior": "uDT46",
+            "remoteSidStructure": {
+              "locatorBlockLen": 32,
+              "locatorNodeLen": 16,
+              "functionLen": 16,
+              "argumentLen": 0,
+              "transpositionLen": 16,
+              "transpositionOffset": 48
+            }
           }
         ]
       ]
@@ -69,7 +117,19 @@
       "paths": [
         [
           {
-            "valid": true
+            "valid": true,
+            "label": "1040896",
+            "remoteSid": "fcbb:bbbb:1::",
+            "remoteTransposedSid": "fcbb:bbbb:1:fe20::",
+            "endpointBehavior": "uDT46",
+            "remoteSidStructure": {
+              "locatorBlockLen": 32,
+              "locatorNodeLen": 16,
+              "functionLen": 16,
+              "argumentLen": 0,
+              "transpositionLen": 16,
+              "transpositionOffset": 48
+            }
           }
         ]
       ]
@@ -83,7 +143,19 @@
       "paths": [
         [
           {
-            "valid": true
+            "valid": true,
+            "label": "1040896",
+            "remoteSid": "fcbb:bbbb:1::",
+            "remoteTransposedSid": "fcbb:bbbb:1:fe20::",
+            "endpointBehavior": "uDT46",
+            "remoteSidStructure": {
+              "locatorBlockLen": 32,
+              "locatorNodeLen": 16,
+              "functionLen": 16,
+              "argumentLen": 0,
+              "transpositionLen": 16,
+              "transpositionOffset": 48
+            }
           }
         ]
       ]
@@ -100,7 +172,19 @@
       "paths": [
         [
           {
-            "valid": true
+            "valid": true,
+            "label": "1040640",
+            "remoteSid": "fcbb:bbbb:2::",
+            "remoteTransposedSid": "fcbb:bbbb:2:fe10::",
+            "endpointBehavior": "uDT46",
+            "remoteSidStructure": {
+              "locatorBlockLen": 32,
+              "locatorNodeLen": 16,
+              "functionLen": 16,
+              "argumentLen": 0,
+              "transpositionLen": 16,
+              "transpositionOffset": 48
+            }
           }
         ]
       ]
@@ -114,7 +198,19 @@
       "paths": [
         [
           {
-            "valid": true
+            "valid": true,
+            "label": "1040640",
+            "remoteSid": "fcbb:bbbb:2::",
+            "remoteTransposedSid": "fcbb:bbbb:2:fe10::",
+            "endpointBehavior": "uDT46",
+            "remoteSidStructure": {
+              "locatorBlockLen": 32,
+              "locatorNodeLen": 16,
+              "functionLen": 16,
+              "argumentLen": 0,
+              "transpositionLen": 16,
+              "transpositionOffset": 48
+            }
           }
         ]
       ]
@@ -131,7 +227,19 @@
       "paths": [
         [
           {
-            "valid": true
+            "valid": true,
+            "label": "1040896",
+            "remoteSid": "fcbb:bbbb:2::",
+            "remoteTransposedSid": "fcbb:bbbb:2:fe20::",
+            "endpointBehavior": "uDT46",
+            "remoteSidStructure": {
+              "locatorBlockLen": 32,
+              "locatorNodeLen": 16,
+              "functionLen": 16,
+              "argumentLen": 0,
+              "transpositionLen": 16,
+              "transpositionOffset": 48
+            }
           }
         ]
       ]
@@ -145,7 +253,19 @@
       "paths": [
         [
           {
-            "valid": true
+            "valid": true,
+            "label": "1040896",
+            "remoteSid": "fcbb:bbbb:2::",
+            "remoteTransposedSid": "fcbb:bbbb:2:fe20::",
+            "endpointBehavior": "uDT46",
+            "remoteSidStructure": {
+              "locatorBlockLen": 32,
+              "locatorNodeLen": 16,
+              "functionLen": 16,
+              "argumentLen": 0,
+              "transpositionLen": 16,
+              "transpositionOffset": 48
+            }
           }
         ]
       ]
@@ -159,7 +279,19 @@
       "paths": [
         [
           {
-            "valid": true
+            "valid": true,
+            "label": "1040896",
+            "remoteSid": "fcbb:bbbb:2::",
+            "remoteTransposedSid": "fcbb:bbbb:2:fe20::",
+            "endpointBehavior": "uDT46",
+            "remoteSidStructure": {
+              "locatorBlockLen": 32,
+              "locatorNodeLen": 16,
+              "functionLen": 16,
+              "argumentLen": 0,
+              "transpositionLen": 16,
+              "transpositionOffset": 48
+            }
           }
         ]
       ]
@@ -173,7 +305,19 @@
       "paths": [
         [
           {
-            "valid": true
+            "valid": true,
+            "label": "1040896",
+            "remoteSid": "fcbb:bbbb:2::",
+            "remoteTransposedSid": "fcbb:bbbb:2:fe20::",
+            "endpointBehavior": "uDT46",
+            "remoteSidStructure": {
+              "locatorBlockLen": 32,
+              "locatorNodeLen": 16,
+              "functionLen": 16,
+              "argumentLen": 0,
+              "transpositionLen": 16,
+              "transpositionOffset": 48
+            }
           }
         ]
       ]
