@@ -138,8 +138,8 @@ def test_bmp_locrib_eor_once_per_afi_safi():
 
     # IPv6 is dumped after IPv4, so its Loc-RIB EoR closes the initial dump
     expected = {
-        "pre-policy 1/1": 2,
-        "post-policy 1/1": 2,
+        "rib-in-pre-policy 1/1": 2,
+        "rib-in-post-policy 1/1": 2,
         "loc-rib 1/1": 1,
         "loc-rib 2/1": 1,
     }
