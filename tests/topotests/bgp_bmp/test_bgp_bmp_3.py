@@ -50,6 +50,7 @@ from .bgpbmp import (
     bmp_get_seq,
     bmp_update_seq,
     bmp_reset_seq,
+    _test_prefixes,
     BMPSequenceContext,
 )
 from lib.topogen import Topogen, get_topogen
@@ -61,7 +62,6 @@ PRE_POLICY = "pre-policy"
 POST_POLICY = "post-policy"
 LOC_RIB = "loc-rib"
 
-UPDATE_EXPECTED_JSON = False
 DEBUG_PCAP = False
 
 # Create a global BMP sequence context for this test module
@@ -135,7 +135,7 @@ def test_bgp_convergence():
     assert result is True, "BGP is not converging"
 
 
-def _test_prefixes_syncro(policy, vrf=None, step=1, bmp_name="bmp1import"):
+def _test_prefixes_syncro(policy, seq_context, vrf=None, step=1, bmp_name="bmp1import"):
     """
     Check that the given policy has syncronised the previously received BGP
     updates.
@@ -154,79 +154,12 @@ def _test_prefixes_syncro(policy, vrf=None, step=1, bmp_name="bmp1import"):
         os.path.join(tgen.logdir, bmp_name),
         tgen.gears["r1import"],
         f"{CWD}/{bmp_name}",
-        UPDATE_EXPECTED_JSON,
+        False,
         LOC_RIB,
-        bmp_seq_context,
+        seq_context,
     )
     success, res = topotest.run_and_expect(test_func, None, count=30, wait=1)
     assert success, "Checking the updated prefixes has failed ! %s" % res
-
-
-def _test_prefixes(policy, vrf=None, step=0):
-    """
-    Setup the BMP  monitor policy, Add and withdraw ipv4/v6 prefixes.
-    Check if the previous actions are logged in the BMP server with the right
-    message type and the right policy.
-    """
-    tgen = get_topogen()
-
-    safi = "vpn" if vrf else "unicast"
-
-    prefixes = ["172.31.0.77/32", "2001::1125/128"]
-
-    for type in ("update", "withdraw"):
-        bmp_update_seq(
-            tgen.gears["bmp1import"],
-            os.path.join(tgen.logdir, "bmp1import", "bmp.log"),
-            bmp_seq_context,
-        )
-
-        bgp_configure_prefixes(
-            tgen.gears["r3"],
-            65501,
-            "unicast",
-            prefixes,
-            vrf=None,
-            update=(type == "update"),
-        )
-
-        logger.info(f"checking for prefixes {type}")
-
-        for ipver in [4, 6]:
-            if UPDATE_EXPECTED_JSON:
-                continue
-            ref_file = "{}/r1import/show-bgp-{}-ipv{}-{}-step{}.json".format(
-                CWD, vrf, ipver, type, step
-            )
-            expected = json.loads(open(ref_file).read())
-
-            test_func = partial(
-                topotest.router_json_cmp,
-                tgen.gears["r1import"],
-                f"show bgp vrf {vrf} ipv{ipver} json",
-                expected,
-            )
-            _, res = topotest.run_and_expect(test_func, None, count=30, wait=1)
-            assertmsg = f"r1: BGP IPv{ipver} convergence failed"
-            assert res is None, assertmsg
-
-        # check
-        test_func = partial(
-            bmp_check_for_prefixes,
-            prefixes,
-            type,
-            policy,
-            step,
-            tgen.gears["bmp1import"],
-            os.path.join(tgen.logdir, "bmp1import"),
-            tgen.gears["r1import"],
-            f"{CWD}/bmp1import",
-            UPDATE_EXPECTED_JSON,
-            LOC_RIB,
-            bmp_seq_context,
-        )
-        success, res = topotest.run_and_expect(test_func, None, count=30, wait=1)
-        assert success, "Checking the updated prefixes has failed ! %s" % res
 
 
 def _test_peer_up(check_locrib=True, bmp_name="bmp1import"):
@@ -282,11 +215,11 @@ def test_bmp_bgp_unicast():
     Add/withdraw bgp unicast prefixes and check the bmp logs.
     """
     logger.info("*** Unicast prefixes pre-policy logging ***")
-    _test_prefixes(PRE_POLICY, vrf="vrf1", step=1)
+    _test_prefixes(PRE_POLICY, bmp_seq_context, vrf="vrf1", step=1)
     logger.info("*** Unicast prefixes post-policy logging ***")
-    _test_prefixes(POST_POLICY, vrf="vrf1", step=1)
+    _test_prefixes(POST_POLICY, bmp_seq_context, vrf="vrf1", step=1)
     logger.info("*** Unicast prefixes loc-rib logging ***")
-    _test_prefixes(LOC_RIB, vrf="vrf1", step=1)
+    _test_prefixes(LOC_RIB, bmp_seq_context, vrf="vrf1", step=1)
 
 
 def _test_r1import_update_networks(update=True):
@@ -353,11 +286,11 @@ def test_bmp2_bgp_unicast():
     Check the bmp logs.
     """
     logger.info("*** Unicast prefixes pre-policy logging ***")
-    _test_prefixes_syncro(PRE_POLICY, vrf="vrf1", bmp_name="bmp2import")
+    _test_prefixes_syncro(PRE_POLICY, bmp_seq_context, vrf="vrf1", bmp_name="bmp2import")
     logger.info("*** Unicast prefixes post-policy logging ***")
-    _test_prefixes_syncro(POST_POLICY, vrf="vrf1", bmp_name="bmp2import")
+    _test_prefixes_syncro(POST_POLICY, bmp_seq_context, vrf="vrf1", bmp_name="bmp2import")
     logger.info("*** Unicast prefixes loc-rib logging ***")
-    _test_prefixes_syncro(LOC_RIB, vrf="vrf1", bmp_name="bmp2import")
+    _test_prefixes_syncro(LOC_RIB, bmp_seq_context, vrf="vrf1", bmp_name="bmp2import")
 
     bmp_reset_seq(bmp_seq_context, seq_param=SEQ_BACKUP)
 
@@ -440,11 +373,11 @@ def test_monitor_syncro():
     )
 
     logger.info("*** Unicast prefixes pre-policy logging ***")
-    _test_prefixes_syncro(PRE_POLICY, vrf="vrf1")
+    _test_prefixes_syncro(PRE_POLICY, bmp_seq_context, vrf="vrf1")
     logger.info("*** Unicast prefixes post-policy logging ***")
-    _test_prefixes_syncro(POST_POLICY, vrf="vrf1")
+    _test_prefixes_syncro(POST_POLICY, bmp_seq_context, vrf="vrf1")
     logger.info("*** Unicast prefixes loc-rib logging ***")
-    _test_prefixes_syncro(LOC_RIB, vrf="vrf1")
+    _test_prefixes_syncro(LOC_RIB, bmp_seq_context, vrf="vrf1")
 
 
 def test_reconfigure_route_distinguisher_vrf1():
@@ -527,11 +460,11 @@ def test_reconfigure_route_distinguisher_vrf1():
     ), "Checking the BMP peer up messages with route-distinguisher set to 666:22 failed !."
 
     logger.info("*** Unicast prefixes pre-policy logging ***")
-    _test_prefixes_syncro(PRE_POLICY, vrf="vrf1", step=2)
+    _test_prefixes_syncro(PRE_POLICY, bmp_seq_context, vrf="vrf1", step=2)
     logger.info("*** Unicast prefixes post-policy logging ***")
-    _test_prefixes_syncro(POST_POLICY, vrf="vrf1", step=2)
+    _test_prefixes_syncro(POST_POLICY, bmp_seq_context, vrf="vrf1", step=2)
     logger.info("*** Unicast prefixes loc-rib logging ***")
-    _test_prefixes_syncro(LOC_RIB, vrf="vrf1", step=2)
+    _test_prefixes_syncro(LOC_RIB, bmp_seq_context, vrf="vrf1", step=2)
 
 
 def test_bgp_routerid_changed():
