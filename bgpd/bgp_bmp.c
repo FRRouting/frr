@@ -2390,23 +2390,10 @@ static int bmp_bgp_del(struct bgp *bgp)
 static void bmp_bgp_peer_vrf(struct bmp_bgp_peer *bbpeer, struct bgp *bgp)
 {
 	struct peer *peer = bgp->peer_self;
-	uint16_t send_holdtime;
-	as_t local_as;
 	struct stream *s;
 	size_t open_len;
 
-	if (CHECK_FLAG(peer->flags, PEER_FLAG_TIMER))
-		send_holdtime = peer->holdtime;
-	else
-		send_holdtime = peer->bgp->default_holdtime;
-
-	/* local-as Change */
-	if (peer->change_local_as)
-		local_as = peer->change_local_as;
-	else
-		local_as = peer->local_as;
-
-	s = bgp_open_make(peer->connection, send_holdtime, local_as, &peer->local_id);
+	s = bgp_open_make(peer);
 	open_len = stream_get_endp(s);
 
 	bbpeer->open_rx_len = open_len;
@@ -2418,7 +2405,7 @@ static void bmp_bgp_peer_vrf(struct bmp_bgp_peer *bbpeer, struct bgp *bgp)
 	stream_free(s);
 
 	/* rfc9069#section-5.2 : Received OPEN Message: Repeat of the same sent OPEN message */
-	s = bgp_open_make(peer->connection, send_holdtime, local_as, &peer->local_id);
+	s = bgp_open_make(peer);
 	open_len = stream_get_endp(s);
 	bbpeer->open_tx_len = open_len;
 	if (bbpeer->open_tx)

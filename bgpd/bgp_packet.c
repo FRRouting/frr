@@ -656,12 +656,24 @@ void bgp_keepalive_send(struct peer_connection *connection)
 	bgp_writes_on(connection);
 }
 
-struct stream *bgp_open_make(struct peer_connection *connection, uint16_t send_holdtime,
-			     as_t local_as, struct in_addr *id)
+struct stream *bgp_open_make(struct peer *peer)
 {
-	struct peer *peer = connection->peer;
+	struct peer_connection *connection = peer->connection;
 	struct stream *s = stream_new(BGP_STANDARD_MESSAGE_MAX_PACKET_SIZE);
 	bool ext_opt_params = false;
+	uint16_t send_holdtime;
+	as_t local_as;
+
+	if (CHECK_FLAG(peer->flags, PEER_FLAG_TIMER))
+		send_holdtime = peer->holdtime;
+	else
+		send_holdtime = peer->bgp->default_holdtime;
+
+	/* local-as Change */
+	if (peer->change_local_as)
+		local_as = peer->change_local_as;
+	else
+		local_as = peer->local_as;
 
 	/* Make open packet. */
 	bgp_packet_set_marker(s, BGP_MSG_OPEN);
@@ -671,7 +683,7 @@ struct stream *bgp_open_make(struct peer_connection *connection, uint16_t send_h
 	stream_putw(s, (local_as <= BGP_AS_MAX) ? (uint16_t)local_as
 						: BGP_AS_TRANS);
 	stream_putw(s, send_holdtime);		/* Hold Time */
-	stream_put_in_addr(s, id);		/* BGP Identifier */
+	stream_put_in_addr(s, &peer->local_id); /* BGP Identifier */
 
 	/* Set capabilities */
 	if (CHECK_FLAG(peer->flags, PEER_FLAG_EXTENDED_OPT_PARAMS)) {
@@ -705,22 +717,9 @@ struct stream *bgp_open_make(struct peer_connection *connection, uint16_t send_h
 void bgp_open_send(struct peer_connection *connection)
 {
 	struct stream *s;
-	uint16_t send_holdtime;
-	as_t local_as;
 	struct peer *peer = connection->peer;
 
-	if (CHECK_FLAG(peer->flags, PEER_FLAG_TIMER))
-		send_holdtime = peer->holdtime;
-	else
-		send_holdtime = peer->bgp->default_holdtime;
-
-	/* local-as Change */
-	if (peer->change_local_as)
-		local_as = peer->change_local_as;
-	else
-		local_as = peer->local_as;
-
-	s = bgp_open_make(connection, send_holdtime, local_as, &peer->local_id);
+	s = bgp_open_make(peer);
 
 	/* Dump packet if debug option is set. */
 	/* bgp_packet_dump (s); */
