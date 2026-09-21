@@ -221,7 +221,7 @@ def test_bmp_bgp_unicast():
     _test_prefixes(
         ADJ_IN_PRE_POLICY,
         TEST_PREFIXES,
-        "r3",
+        ["r3"],
         "r1import",
         "bmp1import",
         CWD,
@@ -235,7 +235,7 @@ def test_bmp_bgp_unicast():
     _test_prefixes(
         ADJ_IN_POST_POLICY,
         TEST_PREFIXES,
-        "r3",
+        ["r3"],
         "r1import",
         "bmp1import",
         CWD,
@@ -249,7 +249,7 @@ def test_bmp_bgp_unicast():
     _test_prefixes(
         LOC_RIB,
         TEST_PREFIXES,
-        "r3",
+        ["r3"],
         "r1import",
         "bmp1import",
         CWD,

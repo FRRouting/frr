@@ -435,7 +435,7 @@ def bmp_check_for_peer_message(
 def _test_prefixes(
     policy,
     prefixes,
-    r_conf,
+    r_conf_list,
     r_check,
     bmp,
     cur_dir,
@@ -460,14 +460,15 @@ def _test_prefixes(
             tgen.gears[bmp], os.path.join(tgen.logdir, bmp, "bmp.log"), seq_context
         )
 
-        bgp_configure_prefixes(
-            tgen.gears[r_conf],
-            asn,
-            "unicast",
-            prefixes,
-            vrf=vrf_conf,
-            update=(type == BMP_UPDATE),
-        )
+        for r_conf in r_conf_list:
+            bgp_configure_prefixes(
+                tgen.gears[r_conf],
+                asn,
+                "unicast",
+                prefixes,
+                vrf=vrf_conf,
+                update=(type == BMP_UPDATE),
+            )
 
         logger.info(f"checking for prefixes %s {type}" % prefixes)
 

@@ -185,7 +185,7 @@ def test_bmp_bgp_unicast():
     _test_prefixes(
         ADJ_IN_PRE_POLICY,
         TEST_PREFIXES,
-        "r2",
+        ["r2"],
         "r1",
         "bmp1",
         CWD,
@@ -197,7 +197,7 @@ def test_bmp_bgp_unicast():
     _test_prefixes(
         ADJ_IN_POST_POLICY,
         TEST_PREFIXES,
-        "r2",
+        ["r2"],
         "r1",
         "bmp1",
         CWD,
@@ -209,7 +209,7 @@ def test_bmp_bgp_unicast():
     _test_prefixes(
         LOC_RIB,
         TEST_PREFIXES,
-        "r2",
+        ["r2"],
         "r1",
         "bmp1",
         CWD,
@@ -221,7 +221,7 @@ def test_bmp_bgp_unicast():
     _test_prefixes(
         ADJ_OUT_PRE_POLICY,
         TEST_PREFIXES,
-        "r2",
+        ["r2"],
         "r1",
         "bmp1",
         CWD,
@@ -233,7 +233,7 @@ def test_bmp_bgp_unicast():
     _test_prefixes(
         ADJ_OUT_POST_POLICY,
         TEST_PREFIXES,
-        "r2",
+        ["r2"],
         "r1",
         "bmp1",
         CWD,
@@ -250,7 +250,7 @@ def test_bmp_bgp_vpn():
     _test_prefixes(
         ADJ_IN_PRE_POLICY,
         TEST_PREFIXES,
-        "r2",
+        ["r2"],
         "r1",
         "bmp1",
         CWD,
@@ -264,7 +264,7 @@ def test_bmp_bgp_vpn():
     _test_prefixes(
         ADJ_IN_POST_POLICY,
         TEST_PREFIXES,
-        "r2",
+        ["r2"],
         "r1",
         "bmp1",
         CWD,
@@ -278,7 +278,7 @@ def test_bmp_bgp_vpn():
     _test_prefixes(
         LOC_RIB,
         TEST_PREFIXES,
-        "r2",
+        ["r2"],
         "r1",
         "bmp1",
         CWD,
@@ -302,19 +302,10 @@ def multipath_unicast_prefixes(policy, seq_context, step, vrf=None):
 
     MULTIPATH_TEST_PREFIXES = ["10.1.1.0/31", "172.16.3.0/31"]
 
-    bgp_configure_prefixes(
-        tgen.gears["r3ecmp"],
-        65502,
-        "unicast",
-        MULTIPATH_TEST_PREFIXES,
-        vrf,
-        update=True,
-    )
-
     _test_prefixes(
         policy,
         MULTIPATH_TEST_PREFIXES,
-        "r2",
+        ["r3ecmp", "r2"],
         "r1",
         "bmp1",
         CWD,
@@ -324,15 +315,6 @@ def multipath_unicast_prefixes(policy, seq_context, step, vrf=None):
         65502,
         "unicast",
         3,
-    )
-
-    bgp_configure_prefixes(
-        tgen.gears["r3ecmp"],
-        65502,
-        "unicast",
-        MULTIPATH_TEST_PREFIXES,
-        vrf,
-        update=False,
     )
 
 
