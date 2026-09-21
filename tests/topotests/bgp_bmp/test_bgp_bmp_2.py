@@ -172,7 +172,7 @@ def test_bmp_bgp_unicast():
     _test_prefixes(
         ADJ_IN_PRE_POLICY,
         TEST_PREFIXES,
-        "r2vrf",
+        ["r2vrf"],
         "r1vrf",
         "bmp1vrf",
         CWD,
@@ -185,7 +185,7 @@ def test_bmp_bgp_unicast():
     _test_prefixes(
         ADJ_IN_POST_POLICY,
         TEST_PREFIXES,
-        "r2vrf",
+        ["r2vrf"],
         "r1vrf",
         "bmp1vrf",
         CWD,
@@ -198,7 +198,7 @@ def test_bmp_bgp_unicast():
     _test_prefixes(
         LOC_RIB,
         TEST_PREFIXES,
-        "r2vrf",
+        ["r2vrf"],
         "r1vrf",
         "bmp1vrf",
         CWD,
@@ -211,7 +211,7 @@ def test_bmp_bgp_unicast():
     _test_prefixes(
         ADJ_OUT_PRE_POLICY,
         TEST_PREFIXES,
-        "r2vrf",
+        ["r2vrf"],
         "r1vrf",
         "bmp1vrf",
         CWD,
@@ -224,7 +224,7 @@ def test_bmp_bgp_unicast():
     _test_prefixes(
         ADJ_OUT_POST_POLICY,
         TEST_PREFIXES,
-        "r2vrf",
+        ["r2vrf"],
         "r1vrf",
         "bmp1vrf",
         CWD,
