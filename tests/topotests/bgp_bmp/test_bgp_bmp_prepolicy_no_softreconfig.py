@@ -77,7 +77,9 @@ def build_topo(tgen):
     switch.add_link(tgen.gears["r1nosr"])
     switch.add_link(tgen.gears["bmp1nosr"])
 
-    tgen.add_link(tgen.gears["r1nosr"], tgen.gears["r2nosr"], "r1nosr-eth1", "r2nosr-eth0")
+    tgen.add_link(
+        tgen.gears["r1nosr"], tgen.gears["r2nosr"], "r1nosr-eth1", "r2nosr-eth0"
+    )
 
 
 def setup_module(mod):
@@ -137,7 +139,7 @@ def _prepolicy_eor_seq():
     for m in messages:
         if (
             m.get("seq", 0) > baseline
-            and m.get("policy") == "pre-policy"
+            and m.get("policy") == "rib-in-pre-policy"
             and m.get("bmp_log_type") == "update"
             and "ip_prefix" not in m
         ):
@@ -238,7 +240,7 @@ def test_prepolicy_feed_announce():
     # Gate on the sentinel's post-policy update.  Once it is logged, every
     # message bgpd emitted while processing WATCHED_PREFIX is already present.
     def _sentinel_seen():
-        if _route_messages("post-policy", "update", SENTINEL_PREFIX):
+        if _route_messages("rib-in-post-policy", "update", SENTINEL_PREFIX):
             return True
         return "sentinel post-policy update not logged yet"
 
@@ -248,22 +250,22 @@ def test_prepolicy_feed_announce():
     )
 
     # Control: the watched prefix must have a post-policy update.
-    post_updates = _route_messages("post-policy", "update", WATCHED_PREFIX)
-    assert post_updates, (
-        "expected a post-policy update for {} but none was logged".format(
-            WATCHED_PREFIX
-        )
-    )
+    post_updates = _route_messages("rib-in-post-policy", "update", WATCHED_PREFIX)
+    assert (
+        post_updates
+    ), "expected a post-policy update for {} but none was logged".format(WATCHED_PREFIX)
 
     # The fix: pre-policy monitoring maintains Adj-RIB-In itself, so the
     # announcement must show up in the pre-policy feed even without
     # soft-reconfiguration inbound.
     def _prepolicy_update_seen():
-        if _route_messages("pre-policy", "update", WATCHED_PREFIX):
+        if _route_messages("rib-in-pre-policy", "update", WATCHED_PREFIX):
             return True
         return "pre-policy update not logged yet"
 
-    success, res = topotest.run_and_expect(_prepolicy_update_seen, True, count=30, wait=1)
+    success, res = topotest.run_and_expect(
+        _prepolicy_update_seen, True, count=30, wait=1
+    )
     assert success, (
         "expected a pre-policy update for {} (no soft-reconfiguration "
         "inbound, adj-in driven by BMP pre-policy monitoring): {}".format(
@@ -273,7 +275,7 @@ def test_prepolicy_feed_announce():
 
     # The original bug: with no Adj-RIB-In, bgpd fabricated a pre-policy
     # withdrawal for a prefix that was only ever announced.  Must stay fixed.
-    fabricated = _route_messages("pre-policy", "withdraw", WATCHED_PREFIX)
+    fabricated = _route_messages("rib-in-pre-policy", "withdraw", WATCHED_PREFIX)
     assert not fabricated, (
         "bgpd fabricated {} pre-policy withdrawal(s) for {} that was only "
         "announced: {}".format(len(fabricated), WATCHED_PREFIX, fabricated)
@@ -290,9 +292,9 @@ def test_no_adj_rib_in_warning():
 
     # Positive control: make sure we are looking at a live bgpd log before
     # asserting on the absence of the warning.
-    assert "ADJCHANGE" in out, (
-        "r1nosr's bgpd.log looks empty or unreadable; cannot assert on it"
-    )
+    assert (
+        "ADJCHANGE" in out
+    ), "r1nosr's bgpd.log looks empty or unreadable; cannot assert on it"
 
     assert ADJ_RIB_IN_WARNING not in out, (
         "bgpd warned about a missing Adj-RIB-In although BMP pre-policy "
@@ -324,7 +326,7 @@ def test_prepolicy_initial_dump():
 
     eor_seq = _prepolicy_eor_seq()
     for prefix in (WATCHED_PREFIX, SENTINEL_PREFIX):
-        updates = _route_messages("pre-policy", "update", prefix)
+        updates = _route_messages("rib-in-pre-policy", "update", prefix)
         assert updates, (
             "expected {} in the initial pre-policy dump of the new BMP "
             "session but it was never logged".format(prefix)
@@ -352,17 +354,18 @@ def test_prepolicy_genuine_withdraw():
     )
 
     def _withdraw_seen():
-        if _route_messages("pre-policy", "withdraw", WATCHED_PREFIX):
+        if _route_messages("rib-in-pre-policy", "withdraw", WATCHED_PREFIX):
             return True
         return "pre-policy withdraw not logged yet"
 
     success, res = topotest.run_and_expect(_withdraw_seen, True, count=30, wait=1)
-    assert success, (
-        "expected a pre-policy withdrawal for the genuinely withdrawn "
-        "{}: {}".format(WATCHED_PREFIX, res)
+    assert (
+        success
+    ), "expected a pre-policy withdrawal for the genuinely withdrawn " "{}: {}".format(
+        WATCHED_PREFIX, res
     )
 
-    fabricated = _route_messages("pre-policy", "withdraw", SENTINEL_PREFIX)
+    fabricated = _route_messages("rib-in-pre-policy", "withdraw", SENTINEL_PREFIX)
     assert not fabricated, (
         "pre-policy withdrawal(s) logged for {} which was never "
         "withdrawn: {}".format(SENTINEL_PREFIX, fabricated)
@@ -381,14 +384,15 @@ def test_prepolicy_peer_bounce():
     tgen.gears["r1nosr"].vtysh_cmd("clear ip bgp 192.168.0.2")
 
     def _reannounced():
-        if _route_messages("pre-policy", "update", SENTINEL_PREFIX):
+        if _route_messages("rib-in-pre-policy", "update", SENTINEL_PREFIX):
             return True
         return "pre-policy update not re-logged yet"
 
     success, res = topotest.run_and_expect(_reannounced, True, count=60, wait=1)
-    assert success, (
-        "expected a pre-policy update for {} after the peer bounce: "
-        "{}".format(SENTINEL_PREFIX, res)
+    assert (
+        success
+    ), "expected a pre-policy update for {} after the peer bounce: " "{}".format(
+        SENTINEL_PREFIX, res
     )
 
 
@@ -413,9 +417,10 @@ def test_prepolicy_disable_frees_adj_in():
         return "Adj-RIB-In count still {}".format(count)
 
     success, res = topotest.run_and_expect(_adj_in_freed, True, count=30, wait=1)
-    assert success, (
-        "Adj-RIB-In was not freed after disabling pre-policy "
-        "monitoring: {}".format(res)
+    assert (
+        success
+    ), "Adj-RIB-In was not freed after disabling pre-policy " "monitoring: {}".format(
+        res
     )
 
 
@@ -439,7 +444,7 @@ def test_prepolicy_reenable_repopulates_adj_in():
         count = _adj_in_count()
         if not count:
             return "Adj-RIB-In count is {}".format(count)
-        if not _route_messages("pre-policy", "update", SENTINEL_PREFIX):
+        if not _route_messages("rib-in-pre-policy", "update", SENTINEL_PREFIX):
             return "pre-policy update not logged yet"
         return True
 
