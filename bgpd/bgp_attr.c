@@ -4353,6 +4353,12 @@ bgp_attr_unknown(struct bgp_attr_parser_args *args)
 	   in the Attribute Flags octet is set to 1 by some previous AS, it
 	   is not set back to 0 by the current AS. */
 	SET_FLAG(*startp, BGP_ATTR_FLAG_PARTIAL);
+	/* RFC 4271 defines:
+	 * The lower-order four bits of the Attribute Flags octet are
+	 * unused. They MUST be zero when sent and MUST be ignored when
+	 * received.
+	 */
+	UNSET_FLAG(*startp, 0x0F);
 
 	/* Store transitive attribute to the end of attr->transit. */
 	transit = bgp_attr_get_transit(attr);
