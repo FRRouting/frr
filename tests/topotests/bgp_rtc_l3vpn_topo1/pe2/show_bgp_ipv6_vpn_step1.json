@@ -1,0 +1,122 @@
+{
+  "vrfName": "default",
+  "routerId": "192.168.0.2",
+  "localAS": 65000,
+  "routes": {
+    "routeDistinguishers": {
+      "65000:100": {
+        "2001:db8:1::/64": [
+          {
+            "valid": true,
+            "bestpath": true,
+            "peerId": "3fff::192:168:0:101",
+            "path": "65501",
+            "nexthops": [
+              {
+                "ip": "3fff::192:168:0:1",
+                "hostname": "rr1",
+                "used": true
+              }
+            ]
+          }
+        ],
+        "2001:db8:3::/64": [
+          {
+            "valid": true,
+            "bestpath": true,
+            "peerId": "(unspec)",
+            "path": "65503",
+            "nhVrfName": "RED",
+            "nexthops": [
+              {
+                "ip": "3fff:3::ff",
+                "hostname": "pe2",
+                "used": true
+              }
+            ]
+          }
+        ],
+        "2001:db8:5::/64": [
+          {
+            "valid": true,
+            "bestpath": true,
+            "peerId": "3fff::192:168:0:101",
+            "path": "65505",
+            "nexthops": [
+              {
+                "ip": "3fff::192:168:0:3",
+                "hostname": "rr1",
+                "used": true
+              }
+            ]
+          }
+        ],
+        "2001:db8:7::/64": [
+          {
+            "valid": true,
+            "bestpath": true,
+            "peerId": "3fff::192:168:0:101",
+            "path": "65507",
+            "nexthops": [
+              {
+                "ip": "3fff::192:168:0:4",
+                "hostname": "rr1",
+                "used": true
+              }
+            ]
+          }
+        ],
+        "2001:db8:9::/64": [
+          {
+            "valid": true,
+            "bestpath": true,
+            "peerId": "3fff::192:168:0:101",
+            "path": "65201 65204 65205 65001 65509",
+            "nexthops": [
+              {
+                "ip": "3fff::192:168:0:101",
+                "hostname": "rr1",
+                "used": true
+              }
+            ]
+          }
+        ]
+      },
+      "65000:102": {
+        "2001:db8:4::/64": [
+          {
+            "valid": true,
+            "bestpath": true,
+            "peerId": "(unspec)",
+            "path": "65504",
+            "nhVrfName": "GREEN",
+            "nexthops": [
+              {
+                "ip": "3fff:4::ff",
+                "hostname": "pe2",
+                "used": true
+              }
+            ]
+          }
+        ],
+        "2001:db8:8::/64": [
+          {
+            "valid": true,
+            "bestpath": true,
+            "peerId": "3fff::192:168:0:101",
+            "path": "65508",
+            "nexthops": [
+              {
+                "ip": "3fff::192:168:0:4",
+                "hostname": "rr1",
+                "used": true
+              }
+            ]
+          }
+        ]
+      }
+    }
+  },
+  "totalRoutes": 7,
+  "totalPaths": 7
+}

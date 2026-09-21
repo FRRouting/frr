@@ -1,0 +1,45 @@
+{
+  "vrfName": "default",
+  "routerId": "192.168.0.201",
+  "localAS": 65201,
+  "routes": {
+    "routeDistinguishers": {
+      "65000:100": {
+        "2001:db8:9::/64": [
+          {
+            "valid": true,
+            "bestpath": true,
+            "peerId": "10.0.10.203",
+            "path": "65203 65001 65509",
+            "nexthops": [
+              {
+                "hostname": "p3",
+                "used": true
+              }
+            ]
+          }
+        ]
+      },
+      "65000:101": {
+        "2001:db8:10::/64": [
+          {
+            "valid": true,
+            "bestpath": true,
+            "peerId": "10.0.10.203",
+            "path": "65203 65001 65510",
+            "nexthops": [
+              {
+                "hostname": "p3",
+                "used": true
+              }
+            ]
+          }
+        ]
+      },
+      "65000:102": {},
+      "65000:103": {}
+    }
+  },
+  "totalRoutes": 2,
+  "totalPaths": 2
+}

@@ -1375,6 +1375,16 @@ module frr-bgp {
     uses structure-neighbor-group-filter-config;
   }
 
+  augment "/frr-rt:routing/frr-rt:control-plane-protocols/frr-rt:control-plane-protocol/bgp/neighbors/neighbor/afi-safis/afi-safi/ipv4-rtc" {
+    uses structure-neighbor-route-reflector;
+
+    uses structure-neighbor-route-server;
+
+    uses structure-neighbor-group-soft-reconfiguration;
+
+    uses structure-neighbor-group-filter-config;
+  }
+
   augment "/frr-rt:routing/frr-rt:control-plane-protocols/frr-rt:control-plane-protocol/bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv4-unicast" {
     description
       "Augmentation for unnumbered neighbor IPv4 unicast AFI-SAFI configuration.";
@@ -1744,6 +1754,16 @@ module frr-bgp {
     uses structure-neighbor-group-as-path-options;
 
     uses structure-neighbor-prefix-limit;
+
+    uses structure-neighbor-group-filter-config;
+  }
+
+  augment "/frr-rt:routing/frr-rt:control-plane-protocols/frr-rt:control-plane-protocol/bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv4-rtc" {
+    uses structure-neighbor-route-reflector;
+
+    uses structure-neighbor-route-server;
+
+    uses structure-neighbor-group-soft-reconfiguration;
 
     uses structure-neighbor-group-filter-config;
   }
@@ -2151,5 +2171,15 @@ module frr-bgp {
         "Bind a local MPLS label to incoming L3VPN updates on this
          interface.";
     }
+  }
+
+  augment "/frr-rt:routing/frr-rt:control-plane-protocols/frr-rt:control-plane-protocol/bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv4-rtc" {
+    uses structure-neighbor-route-reflector;
+
+    uses structure-neighbor-route-server;
+
+    uses structure-neighbor-group-soft-reconfiguration;
+
+    uses structure-neighbor-group-filter-config;
   }
 }
