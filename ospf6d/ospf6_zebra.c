@@ -76,6 +76,7 @@ static int ospf6_router_id_update_zebra(ZAPI_CALLBACK_ARGS)
 {
 	struct prefix router_id;
 	struct ospf6 *o;
+	in_addr_t old_router_id;
 
 	zebra_router_id_update_read(zclient->ibuf, &router_id);
 
@@ -88,9 +89,36 @@ static int ospf6_router_id_update_zebra(ZAPI_CALLBACK_ARGS)
 	if (o == NULL)
 		return 0;
 
+	old_router_id = o->router_id;
 	o->router_id_zebra = router_id.u.prefix4.s_addr;
 
-	ospf6_router_id_update(o, false);
+	if (!ospf6_router_id_update(o, false))
+		return 0;
+
+	/*
+	 * A router-id learnt from zebra has to restart the process the same
+	 * way an explicit "ospf6 router-id" does. Self-originated LSAs carry
+	 * the router-id as their advertising router, so without the restart
+	 * the LSAs originated under the previous router-id are neither
+	 * refreshed nor flushed. A Link-LSA is the visible casualty: it is
+	 * only originated when the interface comes up, so it keeps the old
+	 * advertising router and the neighbour's lookup, keyed on advertising
+	 * router and link state id, no longer finds it. IPv6 nexthop
+	 * resolution over that link fails until the LSA reaches MaxAge.
+	 */
+	if (old_router_id != INADDR_ANY && o->router_id != old_router_id) {
+		/*
+		 * A graceful restart cannot outlive the router-id it was
+		 * started under, because the helping neighbours are holding
+		 * our routes against the old identity. Leaving the restart in
+		 * progress would also keep suppressing route updates to zebra
+		 * after the database has been rebuilt under the new router-id.
+		 */
+		if (o->gr_info.restart_in_progress)
+			ospf6_gr_restart_exit(o, "router-id changed");
+
+		ospf6_process_reset_old_router_id(o, old_router_id);
+	}
 
 	return 0;
 }
