@@ -157,9 +157,19 @@ def test_bfd_auth_held_sequence_is_accepted():
     """
     skip_unless_ready()
 
-    before = counter(SEQ_ERROR)
-    peer = run_peer(after_up="hold", seconds=25)
+    expect_state("down", count=60)
+    # Repeat the same sequence until it is accepted, so the window left
+    # by the previous session ages out first. A restarted sequence would
+    # otherwise be counted as a replay rather than as the repeat this
+    # test wants. Snapshot the error counter only after the session is
+    # up, so those ageing-out drops are not mistaken for a refused hold.
+    peer = run_peer(after_up="hold", seconds=25, hold_until_up=True)
     expect_state("up")
+
+    before = counter(SEQ_ERROR)
+    accepted = counter("control-packet-input")
+    expect_counter_above("control-packet-input", accepted + 20)
+    assert peer_state() == "up", "session dropped while the sequence number was held"
     assert counter(SEQ_ERROR) == before, "a held sequence number was refused"
     peer.terminate()
     peer.wait()
