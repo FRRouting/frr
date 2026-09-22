@@ -7,6 +7,8 @@
 
 #include <zebra.h>
 #include <grpcpp/grpcpp.h>
+#include <grpcpp/health_check_service_interface.h>
+#include <grpcpp/ext/health_check_service_server_builder_option.h>
 #include "grpc/frr-northbound.grpc.pb.h"
 
 #include "log.h"
@@ -25,6 +27,7 @@
 #include <string>
 
 #define GRPC_DEFAULT_PORT 50051
+#define GRPC_HEALTH_SERVICE_NAME "gRPC-handler"
 
 
 // ------------------------------------------------------
@@ -1151,6 +1154,31 @@ static void *grpc_pthread_start(void *arg)
 	builder.RegisterService(&service);
 	builder.AddChannelArgument(
 		GRPC_ARG_HTTP2_MIN_RECV_PING_INTERVAL_WITHOUT_DATA_MS, 5000);
+
+	/*
+	 * Enable health check service for handler readiness signaling.
+	 *
+	 * Race condition: gRPC binds the listening port during BuildAndStart()
+	 * before handler registration. Clients connecting during handler
+	 * registration can trigger segfaults due to concurrent access between
+	 * gRPC I/O threads (processing incoming requests) and FRR's grpc_pthread
+	 * (registering handlers) on shared data structures.
+	 *
+	 * This allows clients to check if RPC handlers are registered before
+	 * sending requests, avoiding crashes from the race condition.
+	 *
+	 * Clients should query health status of service "gRPC-handler".
+	 * Only send gRPC requests when status is SERVING:
+	 *
+	 *   - SERVING: handlers registered, safe to send requests
+	 *   - NOT_SERVING: handlers not yet registered, wait and retry
+	 *   - SERVICE_UNKNOWN: service not registered yet (brief window
+	 *     between BuildAndStart and first SetServingStatus), wait and retry
+	 *   - NOT_FOUND/UNIMPLEMENTED: health check not supported, server
+	 *     may be an older version without health check
+	 */
+	grpc::EnableDefaultHealthCheckService(true);
+
 	std::unique_ptr<grpc::ServerCompletionQueue> cq =
 		builder.AddCompletionQueue();
 	std::unique_ptr<grpc::Server> server = builder.BuildAndStart();
@@ -1185,6 +1213,13 @@ static void *grpc_pthread_start(void *arg)
 	s_cq = cq.get();
 	grpc_state = GRPC_STATE_RUNNING;
 
+	/* Set health to NOT_SERVING while registering handlers */
+	grpc::HealthCheckServiceInterface *health_service = server->GetHealthCheckService();
+	if (health_service) {
+		health_service->SetServingStatus(GRPC_HEALTH_SERVICE_NAME, false);
+		grpc_debug("%s: health check set to NOT_SERVING", __func__);
+	}
+
 	/* Schedule unary RPC handlers */
 	REQUEST_NEWRPC(GetCapabilities, NULL);
 	REQUEST_NEWRPC(CreateCandidate, &candidates);
@@ -1201,6 +1236,12 @@ static void *grpc_pthread_start(void *arg)
 	/* Schedule streaming RPC handlers */
 	REQUEST_NEWRPC_STREAMING(Get);
 	REQUEST_NEWRPC_STREAMING(ListTransactions);
+
+	/* All handlers registered - set health check to SERVING */
+	if (health_service) {
+		health_service->SetServingStatus(GRPC_HEALTH_SERVICE_NAME, true);
+		grpc_debug("%s: health check set to SERVING", __func__);
+	}
 
 	zlog_notice("gRPC server listening on %s",
 		    server_address.str().c_str());
