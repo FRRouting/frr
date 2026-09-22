@@ -179,6 +179,7 @@ static uint16_t parse_port(const char *port_string, char *error, size_t error_si
 bool network_address_parse(const char *address_string, struct network_address *address,
 			   uint16_t default_port)
 {
+	const char *addr_start;
 	char *str_pos, *str_pos_aux;
 	size_t str_len;
 	char addr[128];
@@ -190,19 +191,19 @@ bool network_address_parse(const char *address_string, struct network_address *a
 	memset(address, 0, sizeof(*address));
 
 	/* Basic parsing: find ':' to figure out type part and address part. */
-	str_pos = strchr(address_string, ':');
-	if (!str_pos) {
+	addr_start = strchr(address_string, ':');
+	if (!addr_start) {
 		snprintfrr(address->error, sizeof(address->error), "invalid address format: %s",
 			   address_string);
 		return false;
 	}
 
 	/* Calculate type string length. */
-	str_len = (size_t)(str_pos - address_string);
+	str_len = (size_t)(addr_start - address_string);
 
 	/* Copy the address part. */
-	str_pos++;
-	strlcpy(addr, str_pos, sizeof(addr));
+	addr_start++;
+	strlcpy(addr, addr_start, sizeof(addr));
 
 	if (strlen(addr) == 0) {
 		snprintfrr(address->error, sizeof(address->error), "address part is empty");
