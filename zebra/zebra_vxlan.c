@@ -1418,14 +1418,31 @@ static int zl3vni_rmac_uninstall(struct zebra_l3vni *zl3vni,
 		return -1;
 }
 
+/*
+ * Build the VTEP address stored on the RMAC forwarding entry.
+ * Callers use this when the L3VNI local VTEP is IPv4.
+ *
+ * ::ffff:0:0/96 is rewritten to IPv4. A native IPv6 address is
+ * copied unchanged; its low 32 bits would turn 2001::10 into
+ * 0.0.0.16. An IPv4 address is copied as IPv4.
+ */
 static void vtep_to_v4(const struct ipaddr *vtep_ip, struct ipaddr *ipv4_vtep)
 {
-	memset(ipv4_vtep, 0, sizeof(struct ipaddr));
+	memset(ipv4_vtep, 0, sizeof(*ipv4_vtep));
+
+	if (IS_IPADDR_V6(vtep_ip)) {
+		if (IS_MAPPED_IPV6(&vtep_ip->ipaddr_v6)) {
+			ipv4_vtep->ipa_type = IPADDR_V4;
+			ipv4_mapped_ipv6_to_ipv4(&vtep_ip->ipaddr_v6, &ipv4_vtep->ipaddr_v4);
+		} else {
+			*ipv4_vtep = *vtep_ip;
+		}
+
+		return;
+	}
+
 	ipv4_vtep->ipa_type = IPADDR_V4;
-	if (vtep_ip->ipa_type == IPADDR_V6)
-		ipv4_mapped_ipv6_to_ipv4(&vtep_ip->ipaddr_v6, &ipv4_vtep->ipaddr_v4);
-	else
-		memcpy(&ipv4_vtep->ipaddr_v4, &vtep_ip->ipaddr_v4, sizeof(struct in_addr));
+	ipv4_vtep->ipaddr_v4 = vtep_ip->ipaddr_v4;
 }
 
 /* handle rmac add */
@@ -1437,11 +1454,10 @@ static int zl3vni_remote_rmac_add(struct zebra_l3vni *zl3vni,
 	struct ipaddr *vtep = NULL;
 	struct ipaddr ip_vtep;
 
-	/* L3VNI local VTEP-IP is v4 then map to v4 remote vtep,
-	 * if local VTEP-IP is v6 then use as is.
-	 * if the remote vtep is a ipv4 mapped ipv6 address convert it to ipv4
-	 * address. Rmac is programmed against the ipv4 vtep because we only
-	 * support ipv4 tunnels in the h/w right now
+	/*
+	 * Local VTEP is IPv4: rewrite only an IPv4-mapped remote.
+	 * A native IPv6 remote is kept. Any remote is kept when the
+	 * local VTEP is not IPv4.
 	 */
 	if (IS_IPADDR_V4(&zl3vni->local_vtep_ip))
 		vtep_to_v4(vtep_ip, &ip_vtep);
