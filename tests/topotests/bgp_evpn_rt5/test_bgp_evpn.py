@@ -432,8 +432,8 @@ def test_evpn_disable_routemap():
 configure terminal
  router bgp 65000 vrf vrf-101
   address-family l2vpn evpn
-   no l3-advertise ipv4 unicast route-map rmap4
-   no l3-advertise ipv6 unicast route-map rmap6
+   no advertise ipv4 unicast route-map rmap4
+   no advertise ipv6 unicast route-map rmap6
         """
     )
 
