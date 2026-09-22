@@ -40,6 +40,39 @@ try:
             f" --python_out={tmpdir} --grpc_python_out={tmpdir}"
             f" -I {CWD}/../../../grpc frr-northbound.proto"
         )
+
+        # Create health.proto for gRPC health check support
+        health_proto = """
+syntax = "proto3";
+
+package grpc.health.v1;
+
+message HealthCheckRequest {
+  string service = 1;
+}
+
+message HealthCheckResponse {
+  enum ServingStatus {
+    UNKNOWN = 0;
+    SERVING = 1;
+    NOT_SERVING = 2;
+    SERVICE_UNKNOWN = 3;
+  }
+  ServingStatus status = 1;
+}
+
+service Health {
+  rpc Check(HealthCheckRequest) returns (HealthCheckResponse);
+  rpc Watch(HealthCheckRequest) returns (stream HealthCheckResponse);
+}
+"""
+        with open(os.path.join(tmpdir, "health.proto"), "w") as f:
+            f.write(health_proto)
+        commander.cmd_raises(
+            "python3 -m grpc_tools.protoc"
+            f" --python_out={tmpdir} --grpc_python_out={tmpdir}"
+            f" -I {tmpdir} health.proto"
+        )
     except Exception as error:
         logging.error("can't create proto definition modules %s", error)
         raise
@@ -48,6 +81,8 @@ try:
         sys.path[0:0] = [tmpdir]
         import frr_northbound_pb2
         import frr_northbound_pb2_grpc
+        import health_pb2
+        import health_pb2_grpc
 
         sys.path = sys.path[1:]
     except Exception as error:
@@ -62,6 +97,34 @@ class GRPCClient:
     def __init__(self, server, port):
         self.channel = grpc.insecure_channel("{}:{}".format(server, port))
         self.stub = frr_northbound_pb2_grpc.NorthboundStub(self.channel)
+        self.health_stub = health_pb2_grpc.HealthStub(self.channel)
+
+    def check_health(self, service_name="", timeout=5):
+        """Check health status of a service.
+
+        Args:
+          service_name: Name of the service to check (empty for default).
+          timeout: Timeout in seconds for the health check (default 5s).
+
+        Returns:
+          Health status: SERVING, NOT_SERVING, UNKNOWN, SERVICE_UNKNOWN
+          RPC error code: UNIMPLEMENTED, NOT_FOUND, UNAVAILABLE, DEADLINE_EXCEEDED, etc.
+        """
+        request = health_pb2.HealthCheckRequest(service=service_name)
+        try:
+            response = self.health_stub.Check(request, timeout=timeout)
+            status_map = {
+                health_pb2.HealthCheckResponse.UNKNOWN: "UNKNOWN",
+                health_pb2.HealthCheckResponse.SERVING: "SERVING",
+                health_pb2.HealthCheckResponse.NOT_SERVING: "NOT_SERVING",
+                health_pb2.HealthCheckResponse.SERVICE_UNKNOWN: "SERVICE_UNKNOWN",
+            }
+            status = status_map.get(response.status, f"UNKNOWN({response.status})")
+            logging.debug("Health check for '%s': %s", service_name, status)
+            return status
+        except grpc.RpcError as error:
+            logging.debug("Health check failed: %s", error)
+            return error.code().name
 
     def get_capabilities(self):
         request = frr_northbound_pb2.GetCapabilitiesRequest()
@@ -113,7 +176,7 @@ def main(*args):
     parser.add_argument("-v", "--verbose", action="store_true", help="be verbose")
     parser.add_argument("--check", action="store_true", help="check runable")
     parser.add_argument("--xml", action="store_true", help="encode XML instead of JSON")
-    parser.add_argument("actions", nargs="*", help="GETCAP|GET,xpath")
+    parser.add_argument("actions", nargs="*", help="GETCAP|GET,xpath|HEALTH,service")
     args = parser.parse_args(*args)
 
     level = logging.DEBUG if args.verbose else logging.INFO
@@ -130,28 +193,34 @@ def main(*args):
     c = GRPCClient(args.server, args.port)
 
     for action in next_action(args.actions):
-        action = action.casefold()
+        action_lower = action.casefold()
         logging.debug("GOT ACTION: %s", action)
-        if action == "getcap":
+        if action_lower == "getcap":
             caps = c.get_capabilities()
             print(caps)
-        elif action.startswith("get,"):
+        elif action_lower.startswith("get,"):
             # Get and print config and state
             _, xpath = action.split(",", 1)
             logging.debug("Get XPath: %s", xpath)
             print(c.get(xpath, encoding, gtype=frr_northbound_pb2.GetRequest.ALL))
-        elif action.startswith("get-config,"):
+        elif action_lower.startswith("get-config,"):
             # Get and print config
             _, xpath = action.split(",", 1)
             logging.debug("Get Config XPath: %s", xpath)
             print(c.get(xpath, encoding, gtype=frr_northbound_pb2.GetRequest.CONFIG))
-            # for _ in range(0, 1):
-        elif action.startswith("get-state,"):
+        elif action_lower.startswith("get-state,"):
             # Get and print state
             _, xpath = action.split(",", 1)
             logging.debug("Get State XPath: %s", xpath)
             print(c.get(xpath, encoding, gtype=frr_northbound_pb2.GetRequest.STATE))
-            # for _ in range(0, 1):
+        elif action_lower.startswith("health"):
+            # Check health status - preserve case for service name
+            if "," in action:
+                _, service = action.split(",", 1)
+            else:
+                service = ""
+            status = c.check_health(service)
+            print("Health[{}]: {}".format(service, status))
 
 
 if __name__ == "__main__":
