@@ -2244,13 +2244,48 @@ fi
 dnl ------------------------------------------
 dnl Check whether rtrlib was build with ssh support
 dnl ------------------------------------------
+dnl These probes #include <rtrlib/rtrlib.h> and link against librtr, so they
+dnl need the flags pkg-config gave us. Without them the tests fail to compile
+dnl and silently report "no" whenever rtrlib lives outside the default include
+dnl path.
+rtrlib_probe_CFLAGS_save="$CFLAGS"
+rtrlib_probe_LIBS_save="$LIBS"
+CFLAGS="$CFLAGS $RTRLIB_CFLAGS"
+LIBS="$LIBS $RTRLIB_LIBS"
+
+dnl rtrlib prefixed its whole public API with "rtr_" after 0.8.0, so the SSH
+dnl config struct goes by two names depending on the version. Try both.
 AC_MSG_CHECKING([whether the RTR Library is compiled with SSH])
 AC_LINK_IFELSE([AC_LANG_PROGRAM([[#include "rtrlib/rtrlib.h"]],
-			[[struct tr_ssh_config config;]])],
+			[[struct rtr_tr_ssh_config config;]])],
 	[AC_MSG_RESULT([yes])
 	AC_DEFINE([FOUND_SSH], [1], [found_ssh])],
+	[AC_LINK_IFELSE([AC_LANG_PROGRAM([[#include "rtrlib/rtrlib.h"]],
+			[[struct tr_ssh_config config;]])],
+		[AC_MSG_RESULT([yes])
+		AC_DEFINE([FOUND_SSH], [1], [found_ssh])],
+		AC_MSG_RESULT([no])
+	)]
+)
+
+dnl ------------------------------------------
+dnl Check whether rtrlib supports ASPA
+dnl
+dnl rtrlib did not bump its version when ASPA landed, nor when it renamed its
+dnl public API in the same unreleased window, so pkg-config cannot tell the two
+dnl apart. Probe for the symbol instead.
+dnl ------------------------------------------
+AC_MSG_CHECKING([whether the RTR Library supports ASPA])
+AC_LINK_IFELSE([AC_LANG_PROGRAM([[#include "rtrlib/rtrlib.h"
+				  #include "rtrlib/aspa/aspa.h"]],
+			[[rtr_mgr_add_aspa_support(NULL, NULL);]])],
+	[AC_MSG_RESULT([yes])
+	AC_DEFINE([FOUND_ASPA], [1], [found_aspa])],
 	AC_MSG_RESULT([no])
 )
+
+CFLAGS="$rtrlib_probe_CFLAGS_save"
+LIBS="$rtrlib_probe_LIBS_save"
 
 dnl ---------------
 dnl dlopen & dlinfo

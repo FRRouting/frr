@@ -116,6 +116,9 @@ DEFINE_HOOK(bgp_rpki_prefix_status,
 	     const struct prefix *prefix),
 	    (peer, attr, prefix));
 
+DEFINE_HOOK(bgp_aspa_path_status, (struct peer *peer, struct attr *attr, int direction),
+	    (peer, attr, direction));
+
 DEFINE_HOOK(bgp_route_update,
 	    (struct bgp *bgp, afi_t afi, safi_t safi, struct bgp_dest *bn,
 	     struct bgp_path_info *old_route, struct bgp_path_info *new_route),
@@ -11447,6 +11450,23 @@ static const char *bgp_rpki_validation2str(enum rpki_states v_state)
 	return "ERROR";
 }
 
+static const char *bgp_aspa_validation2str(enum aspa_states v_state)
+{
+	switch (v_state) {
+	case ASPA_NOT_BEING_USED:
+		return "not used";
+	case ASPA_VALID:
+		return "valid";
+	case ASPA_INVALID:
+		return "invalid";
+	case ASPA_UNKNOWN:
+		return "unknown";
+	}
+
+	assert(!"We should never get here this is a dev escape");
+	return "ERROR";
+}
+
 static int bgp_aggregate_unset(struct vty *vty, const char *prefix_str,
 			       afi_t afi, safi_t safi)
 {
@@ -14314,6 +14334,24 @@ skip_nexthop:
 		else
 			vty_out(vty, ", rpki validation-state: %s",
 				bgp_rpki_validation2str(rpki_curr_state));
+	}
+
+	enum aspa_states aspa_up, aspa_down;
+
+	aspa_up = hook_call(bgp_aspa_path_status, path->peer, path->attr, BGP_ASPA_UPSTREAM);
+	aspa_down = hook_call(bgp_aspa_path_status, path->peer, path->attr, BGP_ASPA_DOWNSTREAM);
+
+	if (aspa_up != ASPA_NOT_BEING_USED || aspa_down != ASPA_NOT_BEING_USED) {
+		if (json_paths) {
+			json_object_string_add(json_path, "aspaUpstreamState",
+					       bgp_aspa_validation2str(aspa_up));
+			json_object_string_add(json_path, "aspaDownstreamState",
+					       bgp_aspa_validation2str(aspa_down));
+		} else {
+			vty_out(vty, ", aspa (upstream: %s, downstream: %s)",
+				bgp_aspa_validation2str(aspa_up),
+				bgp_aspa_validation2str(aspa_down));
+		}
 	}
 
 	if (json_bestpath)

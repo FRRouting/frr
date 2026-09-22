@@ -17,4 +17,6 @@ enum rpki_states {
 	RPKI_INVALID
 };
 
+enum aspa_states { ASPA_NOT_BEING_USED, ASPA_VALID, ASPA_INVALID, ASPA_UNKNOWN };
+
 #endif

@@ -83,6 +83,12 @@ module frr-bgp-route-map {
       "Control rpki specific settings derived from extended community";
   }
 
+  identity aspa {
+    base frr-route-map:rmap-match-type;
+    description
+      "Control ASPA AS_PATH verification settings";
+  }
+
   identity probability {
     base frr-route-map:rmap-match-type;
     description
@@ -725,6 +731,49 @@ identity set-extcommunity-color {
         }
         description
           "Specifies the rpki extended community";
+      }
+    }
+
+    case aspa {
+      when "derived-from-or-self(../frr-route-map:condition, 'frr-bgp-route-map:aspa')";
+      leaf aspa-direction {
+        type enumeration {
+          enum "upstream" {
+            value 0;
+            description
+              "Route received from a customer, lateral peer or RS-client";
+          }
+          enum "downstream" {
+            value 1;
+            description
+              "Route received from a provider or route server";
+          }
+        }
+        mandatory true;
+        description
+          "Which ASPA verification algorithm to apply";
+      }
+      leaf aspa-state {
+        type enumeration {
+          enum "invalid" {
+            value 0;
+            description
+              "AS_PATH is ASPA invalid";
+          }
+          enum "unknown" {
+            value 1;
+            description
+              "AS_PATH cannot be fully verified";
+          }
+          enum "valid" {
+            value 2;
+            description
+              "AS_PATH is ASPA valid";
+          }
+        }
+        mandatory true;
+        description
+          "Specifies the ASPA verification state of the AS_PATH";
       }
     }
 
