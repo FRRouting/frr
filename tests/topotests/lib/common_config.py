@@ -2522,9 +2522,9 @@ def create_route_maps(tgen, input_dict, build=False):
                                 )
                                 return False
                         if large_comm_list:
-                            id = large_comm_list.setdefault("id", None)
+                            comm_id = large_comm_list.setdefault("id", None)
                             del_comm = large_comm_list.setdefault("delete", None)
-                            if id and del_comm:
+                            if comm_id and del_comm:
                                 cmd = "set large-comm-list delete {}".format(comm_id)
                                 rmap_data.append(cmd)
                             else:
