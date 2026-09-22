@@ -150,6 +150,45 @@ def test_capabilities(tgen):
     assert encodings == expected
 
 
+def test_health_check(tgen):
+    """Test gRPC health check service.
+
+    Verifies that the health check service reports SERVING status for
+    the "gRPC-handler" service after handlers are registered.
+    """
+    r1 = tgen.gears["r1"]
+
+    step("Check health status of 'gRPC-handler' service")
+    output = run_grpc_client(r1, GRPCP_ZEBRA, "HEALTH,gRPC-handler")
+    logging.info("grpc health check output: %s", output)
+    # Check for ": SERVING" to avoid matching "NOT_SERVING"
+    assert ": SERVING" in output, f"Expected SERVING status, got: {output}"
+
+    step("Check health status of default (empty) service")
+    output = run_grpc_client(r1, GRPCP_ZEBRA, "HEALTH")
+    logging.info("grpc health check (default) output: %s", output)
+    # Default service should also be SERVING or SERVICE_UNKNOWN
+    # Check for ": SERVING" to avoid matching "NOT_SERVING"
+    assert (
+        ": SERVING" in output or ": SERVICE_UNKNOWN" in output
+    ), f"Unexpected health status: {output}"
+
+
+def test_health_check_no_grpc(tgen):
+    """Test health check against a port with no gRPC server.
+
+    Verifies that the client handles connection failures gracefully
+    when querying a port where no gRPC server is listening.
+    """
+    r1 = tgen.gears["r1"]
+
+    step("Check health status against non-existent gRPC server (port 50099)")
+    output = run_grpc_client(r1, 50099, "HEALTH,gRPC-handler")
+    logging.info("grpc health check (no server) output: %s", output)
+    # Should return UNAVAILABLE (connection failed), not SERVING
+    assert "UNAVAILABLE" in output, f"Expected UNAVAILABLE, got: {output}"
+
+
 def test_get_config(tgen):
     nrepeat = 5
     r1 = tgen.gears["r1"]
