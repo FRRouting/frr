@@ -331,5 +331,114 @@ RPKI Configuration Example
    route-map rpki permit 40
    !
 
+.. _aspa:
+
+ASPA AS_PATH Verification
+=========================
+
+ASPA (Autonomous System Provider Authorization) verifies that every hop in a
+received ``AS_PATH`` is consistent with the customer-to-provider relationships
+published in the RPKI. ASPA records arrive over the same RTR sessions as ROAs
+and require RTR protocol version 2, so no extra cache configuration is needed
+beyond :ref:`configuring-rpki-rtr-cache-servers`.
+
+ASPA support is a build-time capability: it is present only when FRR was built
+against a version of librtr that provides ASPA. ``configure`` reports this as
+``checking whether the RTR Library supports ASPA``. On a build without it,
+``match aspa`` is still accepted by the parser but never matches.
+
+Verification Direction
+----------------------
+
+ASPA defines two verification algorithms, and which one applies depends on the
+business relationship with the neighbor the route was received from:
+
+``upstream``
+   For routes received from a customer, a lateral peer, or an RS-client. The
+   whole ``AS_PATH`` must form a customer-to-provider chain.
+
+``downstream``
+   For routes received from a provider or a route server. The ``AS_PATH`` may
+   rise to an apex and descend again, which is a strictly weaker test.
+
+The same ``AS_PATH`` can therefore be invalid upstream and valid downstream.
+
+FRR takes the direction from the route-map rather than deriving it from
+:clicmd:`neighbor PEER local-role ROLE`. The two features are deliberately
+independent: configuring ``local-role`` also enables RFC 9234 Only-To-Customer
+route-leak handling and advertises the Role capability, which operators
+adopting ASPA may not want. State the direction explicitly instead, and attach
+the route-map to the matching session.
+
+.. clicmd:: match aspa <upstream|downstream> <valid|invalid|unknown>
+
+   Match the ASPA verification state of the route's ``AS_PATH``, evaluated in
+   the given direction.
+
+.. note::
+
+   ASPA records arriving from a cache server only re-evaluate routes that were
+   already received if the peer has ``soft-reconfiguration inbound`` enabled,
+   because revalidation replays the Adj-RIB-In. The same requirement already
+   applies to ROA updates.
+
+.. clicmd:: show rpki aspa [ASNUM] [vrf NAME] [json]
+
+   Display the validated ASPA records received from the cache servers, sorted
+   by customer AS, optionally for a single customer AS only.
+
+.. code-block:: frr
+
+   router# show rpki aspa
+   Customer ASN   Provider ASNs
+   64500          64496, 64497
+   64501          64496
+
+The per-prefix detail view reports both directions, because outside a
+route-map there is no direction to choose:
+
+.. code-block:: frr
+
+   router# show bgp ipv4 unicast 192.0.2.0/24
+   BGP routing table entry for 192.0.2.0/24, version 4
+   Paths: (1 available, best #1, table default)
+     65001 65004
+       10.0.0.1 from 10.0.0.1 (10.0.0.1)
+         Origin IGP, valid, external, best (First path received), rpki validation-state: not found, aspa (upstream: invalid, downstream: valid)
+
+ASPA Configuration Example
+--------------------------
+
+.. code-block:: frr
+
+   router bgp 65001
+    neighbor 192.0.2.1 remote-as 65002
+    neighbor 203.0.113.1 remote-as 65100
+    address-family ipv4 unicast
+     neighbor 192.0.2.1 soft-reconfiguration inbound
+     neighbor 192.0.2.1 route-map FROM-CUSTOMER in
+     neighbor 203.0.113.1 soft-reconfiguration inbound
+     neighbor 203.0.113.1 route-map FROM-TRANSIT in
+    exit-address-family
+   !
+   rpki
+    rpki cache tcp 10.0.0.10 3323 preference 1
+   exit
+   !
+   ! A customer must send us a complete customer-to-provider chain.
+   route-map FROM-CUSTOMER deny 10
+    match aspa upstream invalid
+   !
+   route-map FROM-CUSTOMER permit 20
+   !
+   ! A transit provider may legitimately send valley paths, so the same
+   ! AS_PATH is checked downstream instead.
+   route-map FROM-TRANSIT permit 10
+    match aspa downstream invalid
+    set local-preference 50
+   !
+   route-map FROM-TRANSIT permit 20
+   !
+
 .. [Securing-BGP] Geoff Huston, Randy Bush: Securing BGP, In: The Internet Protocol Journal, Volume 14, No. 2, 2011. <https://www.cisco.com/c/dam/en_us/about/ac123/ac147/archived_issues/ipj_14-2/ipj_14-2.pdf>
 .. [Resource-Certification] Geoff Huston: Resource Certification, In: The Internet Protocol Journal, Volume 12, No.1, 2009. <https://www.cisco.com/c/dam/en_us/about/ac123/ac147/archived_issues/ipj_12-1/ipj_12-1.pdf>
