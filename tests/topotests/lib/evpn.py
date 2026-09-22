@@ -2142,3 +2142,254 @@ def evpn_verify_overlay_route_in_kernel(
         f"{len(actual_nexthops)} nexthops via {expected_dev}"
     )
     return None
+
+
+#
+# Scale VRF EVPN route-target lists (frr-reload RTLIST packing / import map)
+#
+# Field-scale shared-services leaves use three ASNs x 512 explicit import RTs
+# (1,536 total). One matching export RT on the remote PE is enough to import
+# Type-5s; the rest of the list exists so frr-reload packs RTLIST chunks and
+# bgpd rebuilds the VRF import map once per chunk, not once per RT.
+#
+EVPN_SCALE_RT_ASNS = (60005, 60006, 65001)
+EVPN_SCALE_RT_FIRST = 102011
+EVPN_SCALE_RT_PER_ASN = 512
+
+
+def evpn_scale_rt_list(asns=None, first=None, per_asn=None, limit=None):
+    """Return explicit VRF EVPN route-target values (``ASN:local-admin``).
+
+    Default is the 1,536-entry field-scale import set. ``limit`` truncates
+    after generation so tests can keep the same first RT (the matching import)
+    while shrinking the list.
+    """
+    asns = EVPN_SCALE_RT_ASNS if asns is None else asns
+    first = EVPN_SCALE_RT_FIRST if first is None else first
+    per_asn = EVPN_SCALE_RT_PER_ASN if per_asn is None else per_asn
+    rts = [
+        "{}:{}".format(asn, value)
+        for asn in asns
+        for value in range(first, first + per_asn)
+    ]
+    if limit is not None:
+        return rts[:limit]
+    return rts
+
+
+def evpn_rt_config_lines(direction, rts, indent="  "):
+    """One ``route-target <direction> <rt>`` line per value (reload target form).
+
+    frr-reload.py packs adjacent VRF EVPN AF lines into RTLIST commands when it
+    applies this config; the target file itself stays one RT per line, matching
+    ``show running-config``.
+    """
+    return ["{}route-target {} {}".format(indent, direction, rt) for rt in rts]
+
+
+def evpn_routemap_stanza_lines(name, seqs, set_cmd="set metric"):
+    """Dummy route-map sequences so a reload can batch-delete whole clauses.
+
+    ``seqs`` is an iterable of sequence numbers. Each clause is a single
+    ``set`` so the stanza is valid and unused by forwarding.
+    """
+    lines = []
+    for seq in seqs:
+        lines.extend(
+            [
+                "route-map {} permit {}".format(name, seq),
+                " {} {}".format(set_cmd, seq),
+                "exit",
+                "!",
+            ]
+        )
+    return lines
+
+
+def evpn_type5_prefix_key(prefix):
+    """EVPN Type-5 prefix token as shown by ``show bgp l2vpn evpn route``."""
+    address, prefixlen = prefix.split("/")
+    return "[5]:[0]:[{}]:[{}]".format(prefixlen, address)
+
+
+def evpn_plumb_l3vni(router, vrf, table, vni, local_vtep):
+    """Create a VRF-lite L3VNI (bridge + VXLAN) so Type-5 can be originated.
+
+    ``local_vtep`` must already be configured on an interface. Returns None.
+    """
+    br = "br{}".format(vni)
+    vxlan = "vxlan{}".format(vni)
+    cmds = [
+        "ip link add {} type vrf table {}".format(vrf, table),
+        "ip link set dev {} up".format(vrf),
+        "ip link add {} type bridge stp_state 0".format(br),
+        "ip link set dev {} master {}".format(br, vrf),
+        "ip link set dev {} up".format(br),
+        (
+            "ip link add {} type vxlan id {} dstport 4789 local {} "
+            "nolearning".format(vxlan, vni, local_vtep)
+        ),
+        "ip link set dev {} master {}".format(vxlan, br),
+        (
+            "ip link set dev {} up type bridge_slave learning off "
+            "flood off mcast_flood off".format(vxlan)
+        ),
+    ]
+    for cmd in cmds:
+        router.cmd_raises(cmd)
+
+
+def _evpn_vni_json(router, vrf=None, vni=None):
+    """L3VNI JSON from the VRF view, else the per-VNI EVPN view."""
+    if vrf:
+        return router.vtysh_cmd("show bgp vrf {} vni json".format(vrf), isjson=True)
+    return router.vtysh_cmd("show bgp l2vpn evpn vni {} json".format(vni), isjson=True)
+
+
+def evpn_verify_vni_rt_member(router, field, rt, present=True, vrf=None, vni=None):
+    """Check that ``importRts`` / ``exportRts`` contains (or lacks) ``rt``.
+
+    Prefer ``vni=`` (``show bgp l2vpn evpn vni N json``) or ``vrf=`` for L3.
+    Returns None on success, error string on failure (for run_and_expect).
+    """
+    output = _evpn_vni_json(router, vrf=vrf, vni=vni)
+    if not output or not isinstance(output, dict):
+        return "{}: no VNI JSON for vrf={} vni={}".format(router.name, vrf, vni)
+    rts = output.get(field)
+    if rts is None and vni is not None:
+        nested = output.get(str(vni))
+        if isinstance(nested, dict):
+            rts = nested.get(field)
+    rts = rts or []
+    found = rt in rts
+    if present and not found:
+        return "{}: {} {} missing (have {})".format(router.name, field, rt, rts[:8])
+    if not present and found:
+        return "{}: {} {} still present".format(router.name, field, rt)
+    return None
+
+
+def evpn_verify_evpn_peer_established(router, peer):
+    """Return None once the L2VPN EVPN neighbor is Established."""
+    output = router.vtysh_cmd("show bgp l2vpn evpn summary json", isjson=True)
+    if not output or not isinstance(output, dict):
+        return "{}: no EVPN summary json".format(router.name)
+    peers = output.get("peers")
+    if not peers:
+        l2 = output.get("l2VpnEvpn") or output.get("l2vpnEvpn") or {}
+        peers = l2.get("peers") or {}
+    info = peers.get(peer) or {}
+    state = str(info.get("state") or info.get("peerState") or "")
+    if state.lower() != "established":
+        return "{}: EVPN peer {} state {!r}".format(router.name, peer, state)
+    return None
+
+
+def evpn_verify_type5_prefix(router, prefix, present=True):
+    """Type-5 prefix present/absent in the global EVPN table (not the VRF)."""
+    key = evpn_type5_prefix_key(prefix)
+    text = router.vtysh_cmd("show bgp l2vpn evpn route type prefix") or ""
+    found = key in text
+    if present and not found:
+        return "{}: Type-5 {} missing from EVPN table".format(router.name, prefix)
+    if not present and found:
+        return "{}: Type-5 {} still in EVPN table".format(router.name, prefix)
+    return None
+
+
+def evpn_verify_type5_prefixes(router, prefixes, present=True):
+    """All Type-5 prefixes present or absent in the EVPN table."""
+    for prefix in prefixes:
+        err = evpn_verify_type5_prefix(router, prefix, present=present)
+        if err:
+            return err
+    return None
+
+
+def evpn_verify_bgp_vrf_prefix(router, vrf, prefix, present=True, family="ipv4"):
+    """Imported (or local) unicast prefix in ``show bgp vrf`` JSON.
+
+    ``present=True`` requires at least one path that is not marked invalid.
+    ``present=False`` requires the prefix to have no such path.
+    """
+    cmd = "show bgp vrf {} {} unicast {} json".format(vrf, family, prefix)
+    output = router.vtysh_cmd(cmd, isjson=True) or {}
+    if not isinstance(output, dict):
+        output = {}
+    paths = output.get("paths") or []
+    has_valid = any(path.get("valid") is not False for path in paths)
+    if present and not has_valid:
+        return "{}: VRF {} missing BGP {} {}".format(router.name, vrf, family, prefix)
+    if not present and has_valid:
+        return "{}: VRF {} still has BGP {} {}".format(router.name, vrf, family, prefix)
+    return None
+
+
+def evpn_verify_bgp_vrf_prefixes(router, vrf, prefixes, present=True, family="ipv4"):
+    """All prefixes present or absent in the VRF BGP unicast table."""
+    for prefix in prefixes:
+        err = evpn_verify_bgp_vrf_prefix(
+            router, vrf, prefix, present=present, family=family
+        )
+        if err:
+            return err
+    return None
+
+
+def evpn_verify_vrf_route_present(router, vrf, route, protocol="bgp"):
+    """Selected route in the VRF RIB (partial JSON match)."""
+    expected = {
+        route: [
+            {
+                "protocol": protocol,
+                "selected": True,
+            }
+        ]
+    }
+    return evpn_verify_vrf_rib_route(router, vrf, route, expected)
+
+
+def evpn_verify_vrf_route_absent(router, vrf, route):
+    """Prefix gone from the VRF RIB (withdrawn after import-RT removal)."""
+    family = "ipv6" if ":" in route else "ip"
+    cmd = "show {} route vrf {} {} json".format(family, vrf, route)
+    output = router.vtysh_cmd(cmd, isjson=True) or {}
+    if not output:
+        return None
+    if isinstance(output, dict) and route in output:
+        return "{}: VRF {} still has RIB {}".format(router.name, vrf, route)
+    return None
+
+
+def evpn_verify_vrf_routes(router, vrf, prefixes, present=True, protocol="bgp"):
+    """All prefixes present or absent in the VRF RIB."""
+    for prefix in prefixes:
+        if present:
+            err = evpn_verify_vrf_route_present(router, vrf, prefix, protocol=protocol)
+        else:
+            err = evpn_verify_vrf_route_absent(router, vrf, prefix)
+        if err:
+            return err
+    return None
+
+
+def evpn_count_running_rt_lines(running_text, direction="import"):
+    """Count ``route-target <direction>`` lines in running-config text."""
+    needle = "route-target {} ".format(direction)
+    return sum(
+        1 for line in running_text.splitlines() if line.strip().startswith(needle)
+    )
+
+
+def evpn_reload_has_packed_rtlist(output, direction, rts, delete=False):
+    """True if frr-reload stdout contains a packed RTLIST for ``rts[:2]``.
+
+    Packed adds look like ``route-target import A B``; packed deletes prefix
+    ``no``. Two values are enough to prove packing (one RT per line would not
+    put both tokens on the same command).
+    """
+    if len(rts) < 2:
+        raise ValueError("need at least two RTs to detect RTLIST packing")
+    verb = "no route-target" if delete else "route-target"
+    needle = "{} {} {} {}".format(verb, direction, rts[0], rts[1])
+    return needle in output
