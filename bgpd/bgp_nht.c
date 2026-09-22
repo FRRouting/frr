@@ -441,9 +441,8 @@ int bgp_find_or_add_nexthop(struct bgp *bgp_route, struct bgp *bgp_nexthop, afi_
 
 	bnc = bnc_find(tree, &p, srte_color, ifindex);
 	if (!bnc) {
-		bnc = bnc_new(tree, &p, srte_color, ifindex);
+		bnc = bnc_new(bgp_nexthop, tree, &p, srte_color, ifindex);
 		bnc->afi = afi;
-		bnc->bgp = bgp_nexthop;
 		if (BGP_DEBUG(nht, NHT))
 			zlog_debug("Allocated bnc %pFX(%d)(%u)(%s) peer %p",
 				   &bnc->prefix, bnc->ifindex_ipv6_ll,
@@ -1056,8 +1055,15 @@ void bgp_nexthop_update(struct vrf *vrf, struct prefix *match,
 	 * make zebra's RNH subsystem aware of SR-TE colors (like bgpd is),
 	 * which should provide a better infrastructure to solve this issue in
 	 * a more efficient and elegant way.
+	 *
+	 * The walk below visits every nexthop cache entry in the instance for
+	 * every colorless NH update. With N tracked nexthops (e.g. one per
+	 * EVPN VTEP) this makes convergence O(N^2), which gets very expensive
+	 * at scale. Skip the walk entirely when the instance has no colored
+	 * nexthops at all (srte_bnc_count == 0), which is the common case for
+	 * deployments not using SR-TE.
 	 */
-	if (nhr->srte_color == 0) {
+	if (nhr->srte_color == 0 && bgp->srte_bnc_count) {
 		struct bgp_nexthop_cache *bnc_iter;
 
 		frr_each (bgp_nexthop_cache, &bgp->nexthop_cache_table[afi],
