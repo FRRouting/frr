@@ -9780,7 +9780,13 @@ static bool bgp_upa_is_prefix_unreachable(struct bgp_dest *dest)
 	for (pi = bgp_dest_get_bgp_path_info(dest); pi; pi = pi->next) {
 		if (bgp_upa_has_extcomm(pi))
 			continue;
-		if (CHECK_FLAG(pi->flags, BGP_PATH_STALE))
+		/*
+		 * NHT clears BGP_PATH_VALID synchronously when import-check
+		 * rejects our UPA blackhole, but BGP_PATH_SELECTED can linger
+		 * until best-path is reprocessed. A path in holddown must not
+		 * count as reachability, or UPA can withdraw and re-originate.
+		 */
+		if (BGP_PATH_HOLDDOWN(pi) || CHECK_FLAG(pi->flags, BGP_PATH_STALE))
 			continue;
 		if (CHECK_FLAG(pi->flags, BGP_PATH_SELECTED))
 			return false;
