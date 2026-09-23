@@ -105,6 +105,22 @@ def _batch_entries(reload, entries):
     return batch, remain
 
 
+def _split_vrf_deletes(reload, entries):
+    """Split deletes into inner vtysh -f, no-vrf vtysh -f, and per-line."""
+    inner = []
+    vrf_ctx = []
+    remain = []
+    for entry in entries:
+        ctx_keys, line = entry
+        if reload.is_vrf_context_delete(ctx_keys, line):
+            vrf_ctx.append(entry)
+        elif reload.delete_via_vtysh_file(ctx_keys, line):
+            inner.append(entry)
+        else:
+            remain.append(entry)
+    return inner, vrf_ctx, remain
+
+
 def test_one_af_packs_import_and_export(reload):
     """One VRF EVPN AF; import and export pack onto separate RTLIST lines."""
     entries = [
@@ -501,7 +517,9 @@ def test_vni_rt_is_batched_but_not_packed(reload):
     "ctx_keys, line, expect",
     [
         (("vrf vrf1",), "vni 4001", True),
-        (("vrf vrf1",), None, False),
+        (("vrf vrf1",), None, True),
+        (("vrf vrf1", "rpki"), None, True),
+        (("vrf vrf1", "rpki"), "rpki polling_period 10", True),
         (("route-map RM permit 10",), None, True),
         (("route-map RM permit 10",), "set metric 10", True),
         (VRF_AF, "route-target import 1:1", True),
@@ -513,7 +531,7 @@ def test_vni_rt_is_batched_but_not_packed(reload):
     ],
 )
 def test_delete_via_vtysh_file_gate(reload, ctx_keys, line, expect):
-    """Only scaled VRF / route-map / RT line deletes use the vtysh -f batch."""
+    """Scaled VRF, route-map, RT, and whole-VRF deletes use vtysh -f."""
     assert reload.delete_via_vtysh_file(ctx_keys, line) is expect
 
 
@@ -755,3 +773,81 @@ def test_vni_context_delete_is_not_vtysh_file_batched(reload):
     batch, remain = _batch_entries(reload, dels)
     assert batch == []
     assert any(line is None and ctx[-1].startswith("vni ") for ctx, line in remain)
+
+
+def test_dropped_vrf_stanza_emits_no_vrf_after_inner_lines(reload):
+    """Removing a VRF stanza deletes inner lines, then 'no vrf NAME'."""
+    running = _config(reload, ["vrf vrf1", "vni 4001", "exit"])
+    target = _config(reload, [])
+    _adds, dels = reload.compare_context_objects(target, running)
+    assert dels == [(("vrf vrf1",), "vni 4001"), (("vrf vrf1",), None)]
+
+    inner = [entry for entry in dels if not reload.is_vrf_context_delete(*entry)]
+    ctx = [entry for entry in dels if reload.is_vrf_context_delete(*entry)]
+    inner_text = _text(reload.emit_grouped_config(inner, True))
+    ctx_text = _text(reload.emit_grouped_config(ctx, True))
+    assert "no vni 4001" in inner_text
+    assert "no vrf" not in inner_text
+    assert ctx_text.strip() == "no vrf vrf1"
+
+
+def test_nested_vrf_context_is_not_a_whole_vrf_delete(reload):
+    """'no rpki' under a VRF is not 'no vrf', and it runs before 'no vrf'."""
+    running = _config(
+        reload,
+        [
+            "vrf blue",
+            "vni 4001",
+            "rpki",
+            "rpki polling_period 10",
+            "exit",
+            "exit",
+        ],
+    )
+    target = _config(reload, [])
+    _adds, dels = reload.compare_context_objects(target, running)
+    assert (("vrf blue",), None) in dels
+    assert (("vrf blue", "rpki"), None) in dels
+    assert reload.is_vrf_context_delete(("vrf blue",), None)
+    assert not reload.is_vrf_context_delete(("vrf blue", "rpki"), None)
+
+    inner, vrf_ctx, remain = _split_vrf_deletes(reload, dels)
+    assert remain == []
+    inner_text = _text(reload.emit_grouped_config(inner, True))
+    vrf_text = _text(reload.emit_grouped_config(vrf_ctx, True))
+    assert "no rpki" in inner_text
+    assert "no vrf" not in inner_text
+    assert vrf_text.strip() == "no vrf blue"
+
+
+def test_dropped_rpki_under_kept_vrf_does_not_emit_no_vrf(reload):
+    """Removing only the nested rpki context leaves the VRF stanza."""
+    running = _config(
+        reload,
+        [
+            "vrf blue",
+            "vni 4001",
+            "rpki",
+            "rpki polling_period 10",
+            "exit",
+            "exit",
+        ],
+    )
+    target = _config(reload, ["vrf blue", "vni 4001", "exit"])
+    _adds, dels = reload.compare_context_objects(target, running)
+    assert all(not reload.is_vrf_context_delete(ctx, line) for ctx, line in dels)
+    inner, vrf_ctx, remain = _split_vrf_deletes(reload, dels)
+    assert vrf_ctx == []
+    assert remain == []
+    text = _text(reload.emit_grouped_config(inner, True))
+    assert "no rpki" in text
+    assert "no vrf" not in text
+
+
+def test_dropped_interface_does_not_emit_no_interface(reload):
+    """Interface stanzas still delete inner lines only."""
+    running = _config(reload, ["interface swp1", "ip address 1.1.1.1/24", "exit"])
+    target = _config(reload, [])
+    _adds, dels = reload.compare_context_objects(target, running)
+    assert dels == [(("interface swp1",), "ip address 1.1.1.1/24")]
+    assert all(not reload.is_vrf_context_delete(ctx, line) for ctx, line in dels)

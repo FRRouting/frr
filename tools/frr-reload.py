@@ -2127,13 +2127,20 @@ def compare_context_objects(newconf, running):
                 delete_bgpd = True
                 lines_to_del.append((running_ctx_keys, None))
 
-            # We cannot do 'no interface' or 'no vrf' in FRR, and so deal with it
+            # Whole VRF stanza is in running-config but gone from the new
+            # file. First append each inner line to lines_to_del, then
+            # append (ctx, None) for the VRF stanza itself ("no vrf NAME").
+            elif running_ctx_keys[0].startswith("vrf "):
+                for line in running_ctx.lines:
+                    lines_to_del.append((running_ctx_keys, line))
+                lines_to_del.append((running_ctx_keys, None))
+
+            # We cannot do 'no interface' in FRR, and so deal with it
             # If we try 'no interface' for still active interface, FRR tries to delete it and fails.
             # All commands under 'interface' section MUST support 'no' commands and exit silently
             # without errors if interface is deleted
             elif (
                 running_ctx_keys[0].startswith("interface")
-                or running_ctx_keys[0].startswith("vrf")
                 or running_ctx_keys[0].startswith("router pim")
             ):
                 for line in running_ctx.lines:
@@ -2388,6 +2395,27 @@ class LogFmtFormatter(logging.Formatter):
         return logfmt
 
 
+# Older lib_vrf_destroy VALIDATE rejected a kernel-backed VRF with this
+# text. This tree unconfigures that VRF in APPLY; if a daemon still
+# returns the message, do not fail the reload.
+VRF_ACTIVE_DELETE_ERR = "Only inactive VRFs can be deleted"
+
+
+def is_vrf_context_delete(ctx_keys, line):
+    """True for a top-level VRF stanza delete: emit 'no vrf NAME'.
+
+    Nested contexts such as ('vrf NAME', 'rpki') also have line is None.
+    lines_to_config renders those as 'vrf NAME' / 'no rpki', which recreates
+    the VRF if they run after 'no vrf NAME'.
+    """
+    return len(ctx_keys) == 1 and ctx_keys[0].startswith("vrf ") and line is None
+
+
+def vrf_delete_blocked_as_active(output):
+    """True if vtysh rejected 'no vrf' because the kernel VRF is still up."""
+    return bool(output) and VRF_ACTIVE_DELETE_ERR in output
+
+
 def delete_via_vtysh_file(ctx_keys, line):
     """
     True if this line delete should go through one "vtysh -f" batch instead
@@ -2408,9 +2436,19 @@ def delete_via_vtysh_file(ctx_keys, line):
     # so for route-map line=None is expected.
     if ctx_keys[0].startswith("route-map "):
         return True
-    # Note: Only route-map is parsed above this check, because its delete
-    # could have line=None. Every other context with a valid line has to
-    # be added after the below line!=None check.
+    # "no vrf NAME" is represented as (('vrf NAME',), None). Batch those
+    # separately from inner "vrf NAME" / "no vni ..." / "exit" stanzas.
+    if is_vrf_context_delete(ctx_keys, line):
+        return True
+    # A nested VRF context delete, ('vrf NAME', 'rpki') with line None,
+    # renders as "vrf NAME" / "no rpki". Keep it on the inner vtysh -f
+    # batch so it runs before "no vrf NAME" and does not recreate the VRF.
+    if len(ctx_keys) > 1 and ctx_keys[0].startswith("vrf ") and line is None:
+        return True
+    # Note: Only route-map, top-level VRF, and nested VRF context deletes
+    # are parsed above this check, because those deletes have line=None.
+    # Every other context with a valid line has to be added after the
+    # below line!=None check.
     if not line:
         return False
     if ctx_keys[0].startswith("vrf "):
@@ -2724,15 +2762,37 @@ def delete_line_with_vtysh(vtysh, ctx_keys, line):
       frr(config-if)#
 
     Returns True on success, False if the line could not be removed.
+    'no vrf NAME' is not token-trimmed ("no vrf" is not a command). If
+    vtysh still returns "Only inactive VRFs can be deleted", that is not
+    a reload failure: skip it and leave the VRF for a later reload.
     """
     cmd = lines_to_config(ctx_keys, line, True)
     original_cmd = cmd
+    vrf_ctx_del = is_vrf_context_delete(ctx_keys, line)
 
     while True:
         try:
             vtysh(["configure"] + cmd)
 
         except VtyshException as e:
+            combined = str(e)
+            if vrf_ctx_del and vrf_delete_blocked_as_active(combined):
+                # Daemon still rejected an active VRF. Do not log at
+                # warning: a scale unset would flood frr-reload.log.
+                log.debug(
+                    "skipping '%s': VRF is still active (kernel interface " "present)",
+                    " ".join(cmd),
+                )
+                return True
+            # Do not strip words from "no vrf NAME"; "no vrf" is not valid.
+            if vrf_ctx_del:
+                log.error("Failed to execute %s", " ".join(cmd))
+                log.error(
+                    '"%s" we failed to remove this command',
+                    " -- ".join(original_cmd),
+                )
+                log.error("%s", e)
+                return False
             # - Pull the last entry from cmd (this would be
             #   'no ip ospf authentication message-digest 1.1.1.1' in
             #   our example above
@@ -3156,10 +3216,16 @@ if __name__ == "__main__":
                 # vtysh -c call.
                 #
                 batch_lines_to_del = []
+                vrf_ctx_batch = []
                 remaining_lines_to_del = []
                 for entry in lines_to_del:
                     ctx_keys, line = entry
-                    if delete_via_vtysh_file(ctx_keys, line):
+                    if is_vrf_context_delete(ctx_keys, line):
+                        # Apply after batched "vrf NAME / no vni / exit"
+                        # deletes so emit_grouped_config does not mix
+                        # "no vrf" into those stanzas.
+                        vrf_ctx_batch.append(entry)
+                    elif delete_via_vtysh_file(ctx_keys, line):
                         batch_lines_to_del.append(entry)
                     else:
                         remaining_lines_to_del.append(entry)
@@ -3181,6 +3247,29 @@ if __name__ == "__main__":
                             "delete:\n%s" % (exc,)
                         )
                         for ctx_keys, line in batch_lines_to_del:
+                            if not delete_line_with_vtysh(vtysh, ctx_keys, line):
+                                reload_ok = False
+
+                if vrf_ctx_batch:
+                    exc = write_and_exec_batch_deletes(
+                        vtysh, args.rundir, vrf_ctx_batch
+                    )
+                    if exc is not None:
+                        if vrf_delete_blocked_as_active(str(exc)):
+                            # Daemon still rejected an active VRF. Logging
+                            # the exception at warning dumps every VRF's
+                            # northbound reason into frr-reload.log.
+                            log.debug(
+                                "batch 'no vrf' rejected while a kernel VRF "
+                                "is still active; applying remaining VRF "
+                                "context deletes per-line:\n%s" % (exc,)
+                            )
+                        else:
+                            log.warning(
+                                "batch delete failed, falling back to "
+                                "per-line delete:\n%s" % (exc,)
+                            )
+                        for ctx_keys, line in vrf_ctx_batch:
                             if not delete_line_with_vtysh(vtysh, ctx_keys, line):
                                 reload_ok = False
 
