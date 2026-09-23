@@ -10056,14 +10056,14 @@ DEFPY(sid_export,
 			return CMD_SUCCESS;
 		}
 
+		bgp_srv6_unicast_sids_unset(bgp, afi);
+
 		if (bgp->srv6_unicast[afi].sid_explicit) {
 			XFREE(MTYPE_BGP_SRV6_SID, bgp->srv6_unicast[afi].sid_explicit);
 			bgp->srv6_unicast[afi].sid_explicit = NULL;
 		}
 		bgp->srv6_unicast[afi].sid_index = 0;
 		UNSET_FLAG(bgp->af_flags[afi][safi], BGP_CONFIG_SRV6_UNICAST_SID_AUTO);
-
-		bgp_srv6_unicast_sids_unset(bgp, afi);
 
 		return CMD_SUCCESS;
 	}
