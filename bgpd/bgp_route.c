@@ -13647,7 +13647,7 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp, struct bgp_dest *bn,
 	struct bgp_route_evpn *bre = bgp_attr_get_evpn_overlay(attr);
 	bool ll_nexthop_only = attr->mp_nexthop_len == BGP_ATTR_NHLEN_IPV6_GLOBAL &&
 			       PEER_HAS_LINK_LOCAL_CAPABILITY(path->peer);
-	struct bgp_attr_srv6_l3service *srv6_l3service = bgp_attr_get_srv6_l3service(path->attr);
+	struct bgp_attr_srv6_service *srv6_l3service = bgp_attr_get_srv6_l3service(path->attr);
 
 	if (json_paths) {
 		json_path = json_object_new_object();
@@ -15684,7 +15684,7 @@ void route_vty_out_detail_header(struct vty *vty, struct bgp *bgp,
 	int no_peer = 0;
 	int first = 1;
 	int has_valid_label = 0;
-	struct bgp_attr_srv6_l3service *srv6_l3service;
+	struct bgp_attr_srv6_service *srv6_l3service;
 	mpls_label_t label = 0;
 	json_object *json_adv_to = NULL;
 	uint32_t ttl = 0;

@@ -1146,7 +1146,7 @@ static bool make_prefix(int afi, struct bgp_path_info *pi, struct prefix *p,
 		}
 		break;
 	case AFI_IP6: {
-		struct bgp_attr_srv6_l3service *srv6_l3service =
+		struct bgp_attr_srv6_service *srv6_l3service =
 			bgp_attr_get_srv6_l3service(pi->attr);
 
 		p->family = AF_INET6;
