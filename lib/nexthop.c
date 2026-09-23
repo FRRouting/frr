@@ -915,6 +915,8 @@ uint32_t nexthop_hash(const struct nexthop *nexthop)
 					i += 1;
 				}
 				key = jhash_1word(nexthop->nh_srv6->seg6_segs->encap_behavior, key);
+				key = jhash(&nexthop->nh_srv6->seg6_segs->rmap_encap_source,
+					    sizeof(struct in6_addr), key);
 				key = jhash(&nexthop->nh_srv6->seg6_segs->encap_source,
 					    sizeof(struct in6_addr), key);
 				key = jhash_1word(nexthop->nh_srv6->seg6_segs->lookup_table, key);
