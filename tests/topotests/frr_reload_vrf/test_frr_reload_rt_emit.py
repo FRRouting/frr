@@ -851,3 +851,71 @@ def test_dropped_interface_does_not_emit_no_interface(reload):
     _adds, dels = reload.compare_context_objects(target, running)
     assert dels == [(("interface swp1",), "ip address 1.1.1.1/24")]
     assert all(not reload.is_vrf_context_delete(ctx, line) for ctx, line in dels)
+
+
+def test_kept_interface_suppresses_no_vrf(reload):
+    """vrf-lite 'no vrf NAME' also destroys interface NAME, so keep the stanza."""
+    running = _config(
+        reload,
+        [
+            "vrf vrftest",
+            "vni 1001",
+            "exit",
+            "interface vrftest",
+            "description keep me",
+            "exit",
+        ],
+    )
+    target = _config(
+        reload,
+        [
+            "interface vrftest",
+            "description keep me",
+            "exit",
+        ],
+    )
+    _adds, dels = reload.compare_context_objects(target, running)
+    assert (("vrf vrftest",), "vni 1001") in dels
+    assert all(not reload.is_vrf_context_delete(ctx, line) for ctx, line in dels)
+    text = _text(reload.emit_grouped_config(dels, True))
+    assert "no vni 1001" in text
+    assert "no vrf" not in text
+    assert "description" not in text
+
+
+def test_no_vrf_follows_bgp_instance_deletes(reload):
+    """'no vrf' is queued after BGP deletes that delete_move_lines() moves last."""
+    running = _config(
+        reload,
+        [
+            "router bgp 65000",
+            "bgp router-id 1.1.1.1",
+            "exit",
+            "router bgp 65000 vrf blue",
+            "bgp router-id 2.2.2.2",
+            "exit",
+            "vrf blue",
+            "vni 4001",
+            "exit",
+        ],
+    )
+    target = _config(reload, [])
+    _adds, dels = reload.compare_context_objects(target, running)
+    vrf_at = dels.index((("vrf blue",), None))
+    bgp_deletes = [
+        i
+        for i, (ctx, line) in enumerate(dels)
+        if ctx[0].startswith("router bgp") and line is None
+    ]
+    assert bgp_deletes
+    assert vrf_at > max(bgp_deletes)
+
+
+def test_vrf_delete_blocked_matches_device_up_errors(reload):
+    """Device-up refusals from current and older lib are both non-fatal."""
+    assert reload.vrf_delete_blocked_as_active(
+        "% only inactive interfaces can be deleted"
+    )
+    assert reload.vrf_delete_blocked_as_active("% Only inactive VRFs can be deleted")
+    assert not reload.vrf_delete_blocked_as_active("% Unknown command")
+    assert not reload.vrf_delete_blocked_as_active("")
