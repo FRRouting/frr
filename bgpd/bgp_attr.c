@@ -809,9 +809,9 @@ static void *srv6_l3service_hash_alloc(void *p)
 	return p;
 }
 
-void bgp_attr_srv6_service_free(struct bgp_attr_srv6_service *l3service)
+void bgp_attr_srv6_service_free(struct bgp_attr_srv6_service *service)
 {
-	XFREE(MTYPE_BGP_SRV6_SERVICE, l3service);
+	XFREE(MTYPE_BGP_SRV6_SERVICE, service);
 }
 
 struct bgp_attr_srv6_service *bgp_attr_srv6_l3service_intern(struct bgp_attr_srv6_service *l3service)

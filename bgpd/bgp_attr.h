@@ -411,8 +411,8 @@ extern enum bgp_attr_parse_ret bgp_attr_parse(struct peer_connection *connection
 					      struct bgp_nlri *mp_withdraw, bool has_nlri);
 extern struct attr *bgp_attr_intern(struct attr *attr);
 extern struct bgp_attr_srv6_service *
-bgp_attr_srv6_l3service_intern(struct bgp_attr_srv6_service *vpn);
-extern void bgp_attr_srv6_service_free(struct bgp_attr_srv6_service *vpn);
+bgp_attr_srv6_l3service_intern(struct bgp_attr_srv6_service *l3service);
+extern void bgp_attr_srv6_service_free(struct bgp_attr_srv6_service *service);
 extern void bgp_attr_unintern_sub(struct attr *attr);
 extern void bgp_attr_unintern(struct attr **pattr);
 extern void bgp_attr_flush(struct attr *attr);
