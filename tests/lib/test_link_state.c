@@ -83,8 +83,31 @@ static void test_edge_remote_endpoint_update(void)
 	assert(ted == NULL);
 }
 
+/*
+ * Two edges name the same remote address, so one reverse edge is claimed
+ * twice. Router ids are vertex keys: teardown walks 1, then 2, then 3.
+ * That order disconnects the reverse edge from its first destination, frees
+ * it with the second vertex, and then finds it still listed on the third.
+ * The old code aborts there. Teardown must free each edge once.
+ */
+static void test_shared_remote_does_not_double_free(void)
+{
+	struct ls_ted *ted;
+
+	ted = ls_ted_new(1, "link-state-test", 0);
+	assert(ted);
+
+	assert(ls_edge_add(ted, edge_attributes(1, "10.0.1.1", "10.0.1.2")));
+	assert(ls_edge_add(ted, edge_attributes(2, "10.0.1.2", "10.0.1.1")));
+	assert(ls_edge_add(ted, edge_attributes(3, "10.0.1.3", "10.0.1.2")));
+
+	ls_ted_del_all(&ted);
+	assert(ted == NULL);
+}
+
 int main(void)
 {
 	test_edge_remote_endpoint_update();
+	test_shared_remote_does_not_double_free();
 	printf("Link State database tests passed.\n");
 }
