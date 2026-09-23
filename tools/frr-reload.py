@@ -2425,6 +2425,40 @@ def delete_via_vtysh_file(ctx_keys, line):
     return False
 
 
+def write_and_exec_batch_deletes(vtysh, rundir, entries):
+    """Write entries as one vtysh -f batch and execute. Returns None on
+    success, or the VtyshException on failure (caller decides fallback)."""
+    if not entries:
+        return None
+
+    batch_del_cmds = emit_grouped_config(entries, True)
+    random_string = "".join(
+        random.SystemRandom().choice(string.ascii_uppercase + string.digits)
+        for _ in range(6)
+    )
+    filename = rundir + "/reload-batch-del-%s.txt" % random_string
+    log.info("%s content\n%s" % (filename, pformat(batch_del_cmds)))
+
+    # Flush log before vtysh.exec_file() so content is preserved if crash occurs
+    for handler in log.handlers:
+        handler.flush()
+
+    with open(filename, "w") as fh:
+        for cmd in batch_del_cmds:
+            fh.write(cmd + "\n")
+
+    try:
+        vtysh.exec_file(filename)
+        return None
+    except VtyshException as exc:
+        return exc
+    finally:
+        try:
+            os.unlink(filename)
+        except OSError:
+            pass
+
+
 # CMD_ARGC_MAX is 256 in lib/command.h, and command_match() prepends a dummy
 # token before matching, so a command is rejected with CMD_ERR_NO_MATCH once
 # its own token count reaches 256. "no route-target import" already consumes
@@ -3138,37 +3172,17 @@ if __name__ == "__main__":
                 # the new value. On any failure, fall back to per-line delete
                 # with token trimming so a "picky" no still gets applied.
                 if batch_lines_to_del:
-                    batch_del_cmds = emit_grouped_config(batch_lines_to_del, True)
-
-                    random_string = "".join(
-                        random.SystemRandom().choice(
-                            string.ascii_uppercase + string.digits
-                        )
-                        for _ in range(6)
+                    exc = write_and_exec_batch_deletes(
+                        vtysh, args.rundir, batch_lines_to_del
                     )
-                    filename = args.rundir + "/reload-batch-del-%s.txt" % random_string
-                    log.info("%s content\n%s" % (filename, pformat(batch_del_cmds)))
-
-                    # Flush log before vtysh.exec_file() so content is preserved if crash occurs
-                    for handler in log.handlers:
-                        handler.flush()
-
-                    with open(filename, "w") as fh:
-                        for cmd in batch_del_cmds:
-                            fh.write(cmd + "\n")
-
-                    try:
-                        # Sending the batch delete commands to vtysh.
-                        vtysh.exec_file(filename)
-                    except VtyshException as e:
+                    if exc is not None:
                         log.warning(
                             "batch delete failed, falling back to per-line "
-                            "delete:\n%s" % (e,)
+                            "delete:\n%s" % (exc,)
                         )
                         for ctx_keys, line in batch_lines_to_del:
                             if not delete_line_with_vtysh(vtysh, ctx_keys, line):
                                 reload_ok = False
-                    os.unlink(filename)
 
                 # Apply the remaining (non-batched) deletes per line.
                 for ctx_keys, line in lines_to_del:
