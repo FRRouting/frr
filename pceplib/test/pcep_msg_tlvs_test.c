@@ -219,7 +219,7 @@ void test_pcep_tlv_create_path_setup_type_capability(void)
 	pcep_encode_tlv(&tlv->header, versioning, tlv_buf);
 	CU_ASSERT_EQUAL(tlv->header.type,
 			PCEP_OBJ_TLV_TYPE_PATH_SETUP_TYPE_CAPABILITY);
-	CU_ASSERT_EQUAL(tlv->header.encoded_tlv_length, sizeof(uint32_t) * 2);
+	CU_ASSERT_EQUAL(tlv->header.encoded_tlv_length, sizeof(uint32_t) + 3);
 	CU_ASSERT_PTR_NOT_NULL(tlv->pst_list);
 	assert(tlv != NULL);
 	CU_ASSERT_EQUAL(tlv->pst_list->num_entries, 3);
