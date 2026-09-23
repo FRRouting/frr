@@ -186,16 +186,19 @@ uint64_t mgmt_be_interested_clients(const char *xpath, enum mgmt_be_xpath_subscr
 {
 	struct mgmt_be_xpath_map *maps = NULL, *map;
 	uint64_t clients = 0;
+	const char *typ = "providers";
 	bool wild_root;
 
 	switch (type) {
 	case MGMT_BE_XPATH_SUBSCR_TYPE_CFG:
+		typ = "consumers";
 		maps = be_cfg_xpath_map;
 		break;
 	case MGMT_BE_XPATH_SUBSCR_TYPE_OPER:
 		maps = be_oper_xpath_map;
 		break;
 	case MGMT_BE_XPATH_SUBSCR_TYPE_NOTIF:
+		typ = "consumers";
 		maps = be_notif_xpath_map;
 		break;
 	case MGMT_BE_XPATH_SUBSCR_TYPE_RPC:
@@ -207,8 +210,8 @@ uint64_t mgmt_be_interested_clients(const char *xpath, enum mgmt_be_xpath_subscr
 	wild_root = !strcmp(xpath, "/") || !strcmp(xpath, "/*");
 	darr_foreach_p (maps, map) {
 		if (wild_root || mgmt_be_xpath_prefix(map->xpath_prefix, xpath)) {
-			_dbg_nf("%s: xpath: '%s' matched map-prefix: '%s' clients: %pMBM",
-				dbg_user, xpath, map->xpath_prefix, &map->clients);
+			_dbg_nf("%s: xpath: '%s' matched map-prefix: '%s' clients: %s %pMBM",
+				dbg_user, xpath, map->xpath_prefix, typ, &map->clients);
 			clients |= map->clients;
 		}
 	}
@@ -294,6 +297,36 @@ walk_cont:
 		}
 	}
 	return changes;
+}
+
+static bool be_adapter_subscribe_prefix_ok(const char *prefix)
+{
+	const char *sep;
+	char *module_name;
+	int err;
+
+	if (*prefix++ != '/')
+		return false;
+
+	/* A subscription to "/" is valid and means "all modules" */
+	if (*prefix == 0)
+		return true;
+
+	sep = strchr(prefix, ':');
+	if (!sep) {
+		if (!nb_assure_module(prefix))
+			return true;
+		_log_err("Cannot load YANG module matching subscription request: %s", prefix);
+		return false;
+	}
+	module_name = darr_sprintf("%.*s", (int)(sep - prefix), prefix);
+	err = nb_assure_module(module_name);
+	darr_free(module_name);
+
+	if (!err && nb_node_find(--prefix))
+		return true;
+	_log_err("Cannot find schema node matching subscription request: %s", prefix);
+	return false;
 }
 
 static void be_adapter_register_client_xpath(mgmt_be_client_id_t id, const char *xpath,
@@ -417,6 +450,7 @@ static void be_adapter_handle_subscribe(struct mgmt_msg_subscribe *msg, size_t m
 	const char **s = NULL;
 	const char *new_name;
 	uint i = 0;
+	uint j;
 
 	_dbg("SUBSCRIBE '%s' to register xpaths config: %u oper: %u notif: %u rpc: %u",
 	     adapter->name, msg->nconfig, msg->noper, msg->nnotify, msg->nrpc);
@@ -436,6 +470,11 @@ static void be_adapter_handle_subscribe(struct mgmt_msg_subscribe *msg, size_t m
 	new_name = s[i++];
 	_dbg("\"%s\" now known as \"%s\"", adapter->name, new_name);
 	darr_in_strdup(adapter->name, new_name);
+
+	for (j = i; j < darr_len(s); j++) {
+		if (!be_adapter_subscribe_prefix_ok(s[j]))
+			_log_warn("invalid xpath prefix: %s", s[j]);
+	}
 
 	/* Get or allocate the ID based on the name */
 	for (id = 0; id < darr_len(mgmt_be_client_names); id++)
@@ -467,19 +506,19 @@ static void be_adapter_handle_subscribe(struct mgmt_msg_subscribe *msg, size_t m
 	/* schedule INIT sequence now that it is registered */
 	be_adapter_sched_init_event(adapter);
 
-	for (uint j = 0; j < msg->nconfig; j++)
+	for (j = 0; j < msg->nconfig; j++)
 		be_adapter_register_client_xpath(adapter->id, s[i++],
 						 MGMT_BE_XPATH_SUBSCR_TYPE_CFG);
 
-	for (uint j = 0; j < msg->noper; j++)
+	for (j = 0; j < msg->noper; j++)
 		be_adapter_register_client_xpath(adapter->id, s[i++],
 						 MGMT_BE_XPATH_SUBSCR_TYPE_OPER);
 
 	darr_ensure_avail(adapter->notify_xpaths, msg->nnotify);
-	for (uint j = 0; j < msg->nnotify; i++, j++)
+	for (j = 0; j < msg->nnotify; i++, j++)
 		*darr_append(adapter->notify_xpaths) = darr_strdup(s[i]);
 
-	for (uint j = 0; j < msg->nrpc; j++)
+	for (j = 0; j < msg->nrpc; j++)
 		be_adapter_register_client_xpath(adapter->id, s[i++],
 						 MGMT_BE_XPATH_SUBSCR_TYPE_RPC);
 
