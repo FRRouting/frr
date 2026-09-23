@@ -354,10 +354,16 @@ void bfd_dplane_echo_negotiate(struct bfd_session *bs)
 	if (bs->bdc == NULL || !CHECK_FLAG(bs->flags, BFD_SESS_FLAG_ECHO))
 		return;
 
-	negotiated = bs->remote_timers.required_min_echo >
-				     bs->timers.desired_min_echo_tx
-			     ? bs->remote_timers.required_min_echo
-			     : bs->timers.desired_min_echo_tx;
+	/*
+	 * A peer advertising zero does not accept echo packets at all, which
+	 * the software path honours by stopping echo (RFC 5880 Section 6.8.9).
+	 */
+	if (bs->remote_timers.required_min_echo == 0)
+		negotiated = 0;
+	else if (bs->remote_timers.required_min_echo > bs->timers.desired_min_echo_tx)
+		negotiated = bs->remote_timers.required_min_echo;
+	else
+		negotiated = bs->timers.desired_min_echo_tx;
 
 	if (bs->echo_xmt_TO == negotiated)
 		return;
@@ -928,12 +934,11 @@ static void _bfd_dplane_session_fill(const struct bfd_session *bs,
 	/*
 	 * Echo transmission is performed by the data plane, but only bfdd
 	 * sees the peer's Required Min Echo RX in control packets, so send
-	 * the negotiated interval rather than the configured one. Before
-	 * negotiation `echo_xmt_TO` is zero and the configured value stands.
+	 * the negotiated interval rather than the configured one. It is zero,
+	 * no echo, until the peer has advertised a nonzero Required Min Echo
+	 * RX (RFC 5880 Section 6.8.9).
 	 */
-	msg->data.session.min_echo_tx =
-		htonl(bs->echo_xmt_TO ? bs->echo_xmt_TO
-				      : bs->timers.desired_min_echo_tx);
+	msg->data.session.min_echo_tx = htonl(bs->echo_xmt_TO);
 	msg->data.session.min_echo_rx = htonl(bs->timers.required_min_echo_rx);
 }
 
