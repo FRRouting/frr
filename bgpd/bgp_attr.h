@@ -152,6 +152,9 @@ struct attr_extra {
 	/* SRv6 VPN SID */
 	struct bgp_attr_srv6_vpn *srv6_vpn;
 
+	/* SRv6 L2 service SID */
+	struct bgp_attr_srv6_service *srv6_l2service;
+
 	/* SRv6 L3 service SID */
 	struct bgp_attr_srv6_service *srv6_l3service;
 
@@ -410,6 +413,8 @@ extern enum bgp_attr_parse_ret bgp_attr_parse(struct peer_connection *connection
 					      bgp_size_t size, struct bgp_nlri *mp_update,
 					      struct bgp_nlri *mp_withdraw, bool has_nlri);
 extern struct attr *bgp_attr_intern(struct attr *attr);
+extern struct bgp_attr_srv6_service *
+bgp_attr_srv6_l2service_intern(struct bgp_attr_srv6_service *l2service);
 extern struct bgp_attr_srv6_service *
 bgp_attr_srv6_l3service_intern(struct bgp_attr_srv6_service *l3service);
 extern void bgp_attr_srv6_service_free(struct bgp_attr_srv6_service *service);
@@ -851,6 +856,11 @@ static inline struct bgp_attr_srv6_service *bgp_attr_get_srv6_l3service(const st
 	return attr->extra ? attr->extra->srv6_l3service : NULL;
 }
 
+static inline struct bgp_attr_srv6_service *bgp_attr_get_srv6_l2service(const struct attr *attr)
+{
+	return attr->extra ? attr->extra->srv6_l2service : NULL;
+}
+
 static inline void bgp_attr_set_srv6_l3service(struct attr *attr,
 					       struct bgp_attr_srv6_service *srv6_l3service)
 {
@@ -862,6 +872,21 @@ static inline void bgp_attr_set_srv6_l3service(struct attr *attr,
 		attr->extra->srv6_l3service = srv6_l3service; /* replace; refcnt unchanged */
 	} else if (!srv6_l3service && old) {
 		attr->extra->srv6_l3service = NULL;
+		bgp_attr_extra_put(attr);
+	}
+}
+
+static inline void bgp_attr_set_srv6_l2service(struct attr *attr,
+					       struct bgp_attr_srv6_service *srv6_l2service)
+{
+	struct bgp_attr_srv6_service *old = bgp_attr_get_srv6_l2service(attr);
+
+	if (srv6_l2service && !old) {
+		bgp_attr_extra_get(attr)->srv6_l2service = srv6_l2service;
+	} else if (srv6_l2service && old) {
+		attr->extra->srv6_l2service = srv6_l2service; /* replace; refcnt unchanged */
+	} else if (!srv6_l2service && old) {
+		attr->extra->srv6_l2service = NULL;
 		bgp_attr_extra_put(attr);
 	}
 }
