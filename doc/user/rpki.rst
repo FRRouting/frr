@@ -382,6 +382,20 @@ the route-map to the matching session.
    because revalidation replays the Adj-RIB-In. The same requirement already
    applies to ROA updates.
 
+.. clicmd:: show bgp [afi] [safi] aspa <upstream|downstream> <valid|invalid|unknown>
+
+   Display all prefixes whose ``AS_PATH`` matches the given ASPA state when
+   verified in the given direction.
+
+.. code-block:: frr
+
+   router# show bgp ipv4 unicast aspa upstream invalid
+   ...
+        Network          Next Hop            Metric LocPrf Weight Path
+   N*>  172.16.2.0/24    10.0.0.1                 0    100      0 65001 65004 i
+
+   Displayed 1 routes and 3 total paths
+
 .. clicmd:: show rpki aspa [ASNUM] [vrf NAME] [json]
 
    Display the validated ASPA records received from the cache servers, sorted

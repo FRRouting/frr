@@ -15136,6 +15136,17 @@ static int bgp_show_table(struct vty *vty, struct bgp *bgp, afi_t afi, safi_t sa
 					continue;
 			}
 
+			if (type == bgp_show_type_aspa) {
+				struct bgp_aspa_show_filter *aspa_filter = output_arg;
+				enum aspa_states aspa_curr_state;
+
+				aspa_curr_state = hook_call(bgp_aspa_path_status, pi->peer,
+							    pi->attr, aspa_filter->direction);
+
+				if (aspa_curr_state != aspa_filter->state)
+					continue;
+			}
+
 			if (type == bgp_show_type_flap_statistics
 			    || type == bgp_show_type_flap_neighbor
 			    || type == bgp_show_type_dampend_paths
@@ -16602,6 +16613,7 @@ DEFPY(show_ip_bgp, show_ip_bgp_cmd,
           |access-list ACCESSLIST_NAME\
           |route-map RMAP_NAME\
           |rpki <invalid|valid|notfound>\
+          |aspa <upstream|downstream> <invalid|valid|unknown>\
           |version (1-4294967295)\
           |alias ALIAS_NAME\
           |A.B.C.D/M longer-prefixes\
@@ -16648,6 +16660,12 @@ DEFPY(show_ip_bgp, show_ip_bgp_cmd,
       "A valid path as determined by rpki\n"
       "A invalid path as determined by rpki\n"
       "A path that has no rpki data\n"
+      "Display only paths that match the specified ASPA state\n"
+      "Verify the AS_PATH as received from a customer, lateral peer or RS-client\n"
+      "Verify the AS_PATH as received from a provider or route server\n"
+      "An invalid AS_PATH as determined by ASPA\n"
+      "A valid AS_PATH as determined by ASPA\n"
+      "An AS_PATH that cannot be fully verified by ASPA\n"
       "Display prefixes with matching version numbers\n"
       "Version number and above\n"
       "Display prefixes with matching BGP community alias\n"
@@ -16675,6 +16693,7 @@ DEFPY(show_ip_bgp, show_ip_bgp_cmd,
 	bool first = true;
 	uint16_t show_flags = 0;
 	enum rpki_states rpki_target_state = RPKI_NOT_BEING_USED;
+	struct bgp_aspa_show_filter aspa_filter = {};
 	struct prefix p;
 
 	if (uj) {
@@ -16830,6 +16849,23 @@ DEFPY(show_ip_bgp, show_ip_bgp_cmd,
 			rpki_target_state = RPKI_INVALID;
 		else if (argv_find(argv, argc, "notfound", &idx))
 			rpki_target_state = RPKI_NOTFOUND;
+	}
+
+	if (argv_find(argv, argc, "aspa", &idx)) {
+		sh_type = bgp_show_type_aspa;
+
+		aspa_filter.direction = argv_find(argv, argc, "downstream", &idx)
+						? BGP_ASPA_DOWNSTREAM
+						: BGP_ASPA_UPSTREAM;
+
+		if (argv_find(argv, argc, "valid", &idx))
+			aspa_filter.state = ASPA_VALID;
+		else if (argv_find(argv, argc, "invalid", &idx))
+			aspa_filter.state = ASPA_INVALID;
+		else
+			aspa_filter.state = ASPA_UNKNOWN;
+
+		output_arg = &aspa_filter;
 	}
 
 	/* Display prefixes with matching version numbers */

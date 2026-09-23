@@ -49,6 +49,7 @@ enum bgp_show_type {
 	bgp_show_type_damp_neighbor,
 	bgp_show_type_detail,
 	bgp_show_type_rpki,
+	bgp_show_type_aspa,
 	bgp_show_type_prefix_version,
 	bgp_show_type_self_originated,
 };
@@ -60,6 +61,10 @@ enum bgp_show_adj_route_type {
 	bgp_show_adj_route_bestpath,
 };
 
+struct bgp_aspa_show_filter {
+	int direction;
+	enum aspa_states state;
+};
 
 #define BGP_SHOW_SCODE_HEADER                                                  \
 	"Status codes:  s suppressed, d damped, "                              \

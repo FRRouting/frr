@@ -310,6 +310,40 @@ def test_aspa_state_in_route_detail():
     )
 
 
+def test_show_bgp_aspa_filter():
+    """'show bgp ... aspa <direction> <state>' must list exactly the prefixes
+    in that state, and the direction must change the answer."""
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    def _prefixes(direction, state):
+        output = json.loads(
+            tgen.gears["r2"].vtysh_cmd(
+                "show bgp ipv4 unicast aspa {} {} json".format(direction, state)
+            )
+        )
+        return sorted(output.get("routes", {}).keys())
+
+    expected = {
+        ("upstream", "valid"): [PREFIX_VALID],
+        ("upstream", "invalid"): [PREFIX_INVALID],
+        ("upstream", "unknown"): [PREFIX_UNKNOWN],
+        # Downstream is the weaker test: everything passes it here.
+        ("downstream", "valid"): sorted([PREFIX_VALID, PREFIX_INVALID, PREFIX_UNKNOWN]),
+        ("downstream", "invalid"): [],
+    }
+
+    for (direction, state), want in expected.items():
+        test_func = functools.partial(_prefixes, direction, state)
+        _, result = topotest.run_and_expect(test_func, want, count=60, wait=1)
+        assert (
+            result == want
+        ), "'show bgp ipv4 unicast aspa {} {}' listed {}, expected {}".format(
+            direction, state, result, want
+        )
+
+
 def test_aspa_match_survives_config_write():
     """'match aspa' must render back into running-config, or the condition is
     silently lost on save/restore."""
