@@ -12,6 +12,9 @@
  * daemon to treat it as established, which is what lets a test reach
  * the code paths that only run when a data plane is attached.
  *
+ * `-e` sets the Required Min Echo RX it reports for the peer, and the
+ * dump shows the echo interval the daemon asked for in return.
+ *
  * Copyright (C) 2026 Abdul Wasey <awasey8905@gmail.com>
  */
 
@@ -86,6 +89,13 @@ struct listener_glob {
 
 	/* Handed out as the remote discriminator, one per session. */
 	uint32_t next_rid;
+
+	/* Reported as the peer's Required Min Echo RX (-e), and the echo
+	 * interval the daemon last asked for in return.
+	 */
+	uint32_t echo_rx;
+	uint32_t echo_tx_requested;
+	bool echo_flag;
 
 	uint32_t sessions[BFD_DPLANE_MAX_SESSIONS];
 	size_t session_count;
@@ -176,6 +186,8 @@ static void sigusr1_handler(int signum)
 			(long long)glob->auth_key[i].send_end,
 			(long long)glob->auth_key[i].accept_start,
 			(long long)glob->auth_key[i].accept_end);
+	fprintf(out, "Echo requested: %s\n", glob->echo_flag ? "yes" : "no");
+	fprintf(out, "Echo interval requested: %u\n", glob->echo_tx_requested);
 
 	fprintf(out, "Sessions registered: %zu\n", glob->session_count);
 	for (i = 0; i < glob->session_count; i++)
@@ -306,7 +318,7 @@ static bool send_state_change(int sock, const struct bfddp_session *session)
 	msg.data.state.detection_multiplier = session->detect_mult;
 	msg.data.state.desired_tx = session->min_tx;
 	msg.data.state.required_rx = session->min_rx;
-	msg.data.state.required_echo_rx = 0;
+	msg.data.state.required_echo_rx = htonl(glob->echo_rx);
 
 	if (write(sock, &msg, len) != len) {
 		fprintf(glob->output_file, "Failed to send state change: %s\n", strerror(errno));
@@ -366,6 +378,8 @@ static void handle_message(int sock, const struct bfddp_message *msg)
 	case DP_ADD_SESSION:
 		if (ntohl(msg->data.session.flags) & SESSION_AUTH)
 			glob->auth_sessions++;
+		glob->echo_flag = !!(ntohl(msg->data.session.flags) & SESSION_ECHO);
+		glob->echo_tx_requested = ntohl(msg->data.session.min_echo_tx);
 		if (session_add(ntohl(msg->data.session.lid)))
 			send_state_change(sock, &msg->data.session);
 		break;
@@ -486,10 +500,13 @@ int main(int argc, char **argv)
 
 	signal(SIGPIPE, SIG_IGN);
 
-	while ((r = getopt(argc, argv, "do:p:z:")) != -1) {
+	while ((r = getopt(argc, argv, "de:o:p:z:")) != -1) {
 		switch (r) {
 		case 'd':
 			fork_daemon = true;
+			break;
+		case 'e':
+			glob->echo_rx = strtoul(optarg, NULL, 10);
 			break;
 		case 'o':
 			output_file = optarg;
