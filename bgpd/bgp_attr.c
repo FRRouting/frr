@@ -3490,7 +3490,7 @@ encap_ignore:
  * RFC 9252
  */
 static enum bgp_attr_parse_ret bgp_attr_srv6_service_data(struct bgp_attr_parser_args *args,
-							  size_t remaining)
+							  size_t remaining, uint8_t psid_type)
 {
 	struct peer_connection *const connection = args->connection;
 	struct peer *const peer = connection->peer;
@@ -3499,6 +3499,7 @@ static enum bgp_attr_parse_ret bgp_attr_srv6_service_data(struct bgp_attr_parser
 		transposition_len, transposition_offset;
 	uint16_t length;
 	size_t headersz = sizeof(type) + sizeof(length);
+	struct bgp_attr_srv6_service *srv6_service = NULL;
 
 	if (remaining < headersz || STREAM_READABLE(connection->curr) < headersz) {
 		flog_err(EC_BGP_ATTR_LEN,
@@ -3545,21 +3546,26 @@ static enum bgp_attr_parse_ret bgp_attr_srv6_service_data(struct bgp_attr_parser
 
 		/* Log SRv6 Service Data Sub-Sub-TLV */
 		if (BGP_DEBUG(vpn, VPN_LEAK_LABEL)) {
-			zlog_debug("%s: srv6-l3-srv-data loc-block-len=%u, loc-node-len=%u func-len=%u, arg-len=%u, transposition-len=%u, transposition-offset=%u",
-				   __func__, loc_block_len, loc_node_len, func_len, arg_len,
+			zlog_debug("%s: srv6-l%s-srv-data loc-block-len=%u, loc-node-len=%u func-len=%u, arg-len=%u, transposition-len=%u, transposition-offset=%u",
+				   __func__,
+				   psid_type == BGP_PREFIX_SID_SRV6_L2_SERVICE ? "2" : "3",
+				   loc_block_len, loc_node_len, func_len, arg_len,
 				   transposition_len, transposition_offset);
 		}
 
-		struct bgp_attr_srv6_service *srv6_l3service = bgp_attr_get_srv6_l3service(attr);
+		if (psid_type == BGP_PREFIX_SID_SRV6_L2_SERVICE)
+			srv6_service = bgp_attr_get_srv6_l2service(attr);
+		else
+			srv6_service = bgp_attr_get_srv6_l3service(attr);
 
-		assert(srv6_l3service);
+		assert(srv6_service);
 
-		srv6_l3service->loc_block_len = loc_block_len;
-		srv6_l3service->loc_node_len = loc_node_len;
-		srv6_l3service->func_len = func_len;
-		srv6_l3service->arg_len = arg_len;
-		srv6_l3service->transposition_len = transposition_len;
-		srv6_l3service->transposition_offset = transposition_offset;
+		srv6_service->loc_block_len = loc_block_len;
+		srv6_service->loc_node_len = loc_node_len;
+		srv6_service->func_len = func_len;
+		srv6_service->arg_len = arg_len;
+		srv6_service->transposition_len = transposition_len;
+		srv6_service->transposition_offset = transposition_offset;
 	}
 
 	else {
@@ -3580,7 +3586,7 @@ static enum bgp_attr_parse_ret bgp_attr_srv6_service_data(struct bgp_attr_parser
  * RFC 9252
  */
 static enum bgp_attr_parse_ret bgp_attr_srv6_service(struct bgp_attr_parser_args *args,
-						     size_t remaining)
+						     size_t remaining, uint8_t psid_type)
 {
 	struct peer_connection *const connection = args->connection;
 	struct peer *const peer = connection->peer;
@@ -3590,6 +3596,10 @@ static enum bgp_attr_parse_ret bgp_attr_srv6_service(struct bgp_attr_parser_args
 	uint16_t length, endpoint_behavior;
 	size_t headersz = sizeof(type) + sizeof(length);
 	enum bgp_attr_parse_ret err;
+	struct bgp_attr_srv6_service *srv6_service;
+
+	assert(psid_type == BGP_PREFIX_SID_SRV6_L2_SERVICE ||
+	       psid_type == BGP_PREFIX_SID_SRV6_L3_SERVICE);
 
 	if (remaining < headersz || STREAM_READABLE(connection->curr) < headersz) {
 		flog_err(EC_BGP_ATTR_LEN,
@@ -3631,49 +3641,71 @@ static enum bgp_attr_parse_ret bgp_attr_srv6_service(struct bgp_attr_parser_args
 
 		/* Log SRv6 Service Sub-TLV */
 		if (BGP_DEBUG(vpn, VPN_LEAK_LABEL))
-			zlog_debug("%s: srv6-l3-srv sid %pI6, sid-flags 0x%02x, end-behaviour 0x%04x",
-				   __func__, &ipv6_sid, sid_flags, endpoint_behavior);
+			zlog_debug("%s: srv6-l%s-srv sid %pI6, sid-flags 0x%02x, end-behaviour 0x%04x",
+				   __func__,
+				   psid_type == BGP_PREFIX_SID_SRV6_L2_SERVICE ? "2" : "3",
+				   &ipv6_sid, sid_flags, endpoint_behavior);
 
 		/* Configure from Info */
-		if (bgp_attr_get_srv6_l3service(attr)) {
+		if (psid_type == BGP_PREFIX_SID_SRV6_L2_SERVICE)
+			srv6_service = bgp_attr_get_srv6_l2service(attr);
+		else
+			srv6_service = bgp_attr_get_srv6_l3service(attr);
+
+		if (srv6_service) {
 			flog_err(EC_BGP_ATTRIBUTE_REPEATED,
-				 "Prefix SID SRv6 L3 Service field repeated");
+				 "Prefix SID SRv6 L%s Service field repeated",
+				 psid_type == BGP_PREFIX_SID_SRV6_L2_SERVICE ? "2" : "3");
 			return bgp_attr_malformed(
 				args, BGP_NOTIFY_UPDATE_MAL_ATTR, args->total);
 		}
 
-		struct bgp_attr_srv6_service *srv6_l3service =
-			XCALLOC(MTYPE_BGP_SRV6_SERVICE, sizeof(struct bgp_attr_srv6_service));
+		srv6_service = XCALLOC(MTYPE_BGP_SRV6_SERVICE,
+				       sizeof(struct bgp_attr_srv6_service));
 
-		sid_copy(&srv6_l3service->sid, &ipv6_sid);
-		srv6_l3service->sid_flags = sid_flags;
-		srv6_l3service->endpoint_behavior = endpoint_behavior;
-		srv6_l3service->loc_block_len = 0;
-		srv6_l3service->loc_node_len = 0;
-		srv6_l3service->func_len = 0;
-		srv6_l3service->arg_len = 0;
-		srv6_l3service->transposition_len = 0;
-		srv6_l3service->transposition_offset = 0;
-		bgp_attr_set_srv6_l3service(attr, srv6_l3service);
+		sid_copy(&srv6_service->sid, &ipv6_sid);
+		srv6_service->sid_flags = sid_flags;
+		srv6_service->endpoint_behavior = endpoint_behavior;
+		srv6_service->loc_block_len = 0;
+		srv6_service->loc_node_len = 0;
+		srv6_service->func_len = 0;
+		srv6_service->arg_len = 0;
+		srv6_service->transposition_len = 0;
+		srv6_service->transposition_offset = 0;
+		if (psid_type == BGP_PREFIX_SID_SRV6_L2_SERVICE)
+			bgp_attr_set_srv6_l2service(attr, srv6_service);
+		else
+			bgp_attr_set_srv6_l3service(attr, srv6_service);
 
 		// Sub-Sub-TLV found
 		if (length > BGP_PREFIX_SID_SRV6_SERVICE_SID_INFO_LENGTH) {
 			err = bgp_attr_srv6_service_data(args,
 							 (size_t)length -
-								 BGP_PREFIX_SID_SRV6_SERVICE_SID_INFO_LENGTH);
+								 BGP_PREFIX_SID_SRV6_SERVICE_SID_INFO_LENGTH,
+							 psid_type);
 
 			/* l3service object hasn't been interned yet - must free it */
 			if (err != BGP_ATTR_PARSE_PROCEED) {
-				srv6_l3service = bgp_attr_get_srv6_l3service(attr);
-				bgp_attr_srv6_service_free(srv6_l3service);
-				bgp_attr_set_srv6_l3service(attr, NULL);
+				srv6_service = psid_type == BGP_PREFIX_SID_SRV6_L2_SERVICE
+						       ? bgp_attr_get_srv6_l2service(attr)
+						       : bgp_attr_get_srv6_l3service(attr);
+				bgp_attr_srv6_service_free(srv6_service);
+				if (psid_type == BGP_PREFIX_SID_SRV6_L2_SERVICE)
+					bgp_attr_set_srv6_l2service(attr, NULL);
+				else
+					bgp_attr_set_srv6_l3service(attr, NULL);
 				return err;
 			}
 		}
 
-		bgp_attr_set_srv6_l3service(attr, bgp_attr_srv6_l3service_intern(
-							  bgp_attr_get_srv6_l3service(attr)));
-
+		if (psid_type == BGP_PREFIX_SID_SRV6_L2_SERVICE)
+			bgp_attr_set_srv6_l2service(attr,
+						    bgp_attr_srv6_l2service_intern(
+							    bgp_attr_get_srv6_l2service(attr)));
+		else
+			bgp_attr_set_srv6_l3service(attr,
+						    bgp_attr_srv6_l3service_intern(
+							    bgp_attr_get_srv6_l3service(attr)));
 		consumed = stream_get_getp(connection->curr) - start;
 		if (consumed < length)
 			stream_forward_getp(connection->curr, length - consumed);
@@ -3724,7 +3756,8 @@ bgp_attr_psid_sub(uint8_t type, uint16_t length,
 		/* RFC 9252 requires malformed SRv6 Service TLVs, Sub-TLVs,
 		 * and Sub-Sub-TLVs to be handled as treat-as-withdraw.
 		 */
-		if (type == BGP_PREFIX_SID_SRV6_L3_SERVICE)
+		if (type == BGP_PREFIX_SID_SRV6_L2_SERVICE ||
+		    type == BGP_PREFIX_SID_SRV6_L3_SERVICE)
 			return BGP_ATTR_PARSE_WITHDRAW;
 
 		return bgp_attr_malformed(args, BGP_NOTIFY_UPDATE_ATTR_LENG_ERR,
@@ -3854,7 +3887,8 @@ bgp_attr_psid_sub(uint8_t type, uint16_t length,
 			sid_copy(&vpn->sid, &ipv6_sid);
 			bgp_attr_set_srv6_vpn(attr, srv6_vpn_intern(vpn));
 		}
-	} else if (type == BGP_PREFIX_SID_SRV6_L3_SERVICE) {
+	} else if (type == BGP_PREFIX_SID_SRV6_L2_SERVICE ||
+		   type == BGP_PREFIX_SID_SRV6_L3_SERVICE) {
 		size_t start;
 		size_t consumed;
 		enum bgp_attr_parse_ret err;
@@ -3870,7 +3904,7 @@ bgp_attr_psid_sub(uint8_t type, uint16_t length,
 		/* ignore reserved */
 		stream_getc(connection->curr);
 
-		err = bgp_attr_srv6_service(args, (size_t)length - 1);
+		err = bgp_attr_srv6_service(args, (size_t)length - 1, type);
 		if (err != BGP_ATTR_PARSE_PROCEED)
 			return err;
 
@@ -3911,6 +3945,8 @@ enum bgp_attr_parse_ret bgp_attr_prefix_sid(struct bgp_attr_parser_args *args)
 	size_t tlv_total_len;
 	size_t psid_parsed_length = 0;
 	bool srv6_l3_service_tlv_seen = false;
+	bool srv6_l2_service_tlv_seen = false;
+	bool *tlv_seen = NULL;
 
 	if (peer->discard_attrs[args->type] || peer->withdraw_attrs[args->type])
 		goto prefix_sid_ignore;
@@ -3939,7 +3975,8 @@ enum bgp_attr_parse_ret bgp_attr_prefix_sid(struct bgp_attr_parser_args *args)
 			 * Sub-TLVs, and Sub-Sub-TLVs to be handled as
 			 * treat-as-withdraw.
 			 */
-			if (type == BGP_PREFIX_SID_SRV6_L3_SERVICE)
+			if (type == BGP_PREFIX_SID_SRV6_L2_SERVICE ||
+			    type == BGP_PREFIX_SID_SRV6_L3_SERVICE)
 				return BGP_ATTR_PARSE_WITHDRAW;
 
 			return bgp_attr_malformed(args,
@@ -3949,17 +3986,25 @@ enum bgp_attr_parse_ret bgp_attr_prefix_sid(struct bgp_attr_parser_args *args)
 
 		psid_parsed_length += tlv_total_len;
 
-		if (type == BGP_PREFIX_SID_SRV6_L3_SERVICE) {
-			if (srv6_l3_service_tlv_seen) {
+		if (type == BGP_PREFIX_SID_SRV6_L2_SERVICE)
+			tlv_seen = &srv6_l2_service_tlv_seen;
+		else if (type == BGP_PREFIX_SID_SRV6_L3_SERVICE)
+			tlv_seen = &srv6_l3_service_tlv_seen;
+		else
+			tlv_seen = NULL;
+
+		if (tlv_seen) {
+			/* type is BGP_PREFIX_SID_SRV6_L2_SERVICE or BGP_PREFIX_SID_SRV6_L3_SERVICE */
+			if (*tlv_seen) {
 				/*
 				 * RFC 9252 Section 7: ignore all but the first
-				 * SRv6 L3 Service TLV instance.
+				 * SRv6 Service TLV instance.
 				 */
 				stream_forward_getp(connection->curr, length);
 				continue;
 			}
 
-			srv6_l3_service_tlv_seen = true;
+			*tlv_seen = true;
 		}
 
 		ret = bgp_attr_psid_sub(type, length, args);
