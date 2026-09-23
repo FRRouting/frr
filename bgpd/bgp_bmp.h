@@ -13,6 +13,8 @@
 #include "qobj.h"
 #include "resolver.h"
 
+struct peer_connection;
+
 #define BMP_VERSION_3	3
 
 #define BMP_LENGTH_POS  1
@@ -253,15 +255,19 @@ struct bmp_targets {
 };
 DECLARE_QOBJ_TYPE(bmp_targets);
 
-/* per struct peer * data.  Lookup by peer->qobj_node.nid, created on demand,
- * deleted in peer_backward hook. */
+/*
+ * Saved OPEN messages, keyed by the connection they were exchanged on.
+ * Collision resolution swaps connections between the configured peer and
+ * its doppelganger, so a per-peer key would attach the OPENs of the losing
+ * connection to the surviving session. Created on demand, freed when the
+ * owning peer is deleted.
+ */
 PREDECL_HASH(bmp_peerh);
 
 struct bmp_bgp_peer {
 	struct bmp_peerh_item bpi;
 
-	uint64_t peerid;
-	/* struct peer *peer; */
+	const struct peer_connection *connection;
 
 	uint8_t *open_rx;
 	size_t open_rx_len;
