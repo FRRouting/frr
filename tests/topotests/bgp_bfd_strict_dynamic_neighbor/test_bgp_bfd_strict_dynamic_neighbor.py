@@ -66,6 +66,19 @@ def _bgp_dynamic_neighbor_held(r2):
     return topotest.json_cmp(output, expected)
 
 
+def _bfd_session_source_resolved(r2):
+    output = json.loads(r2.vtysh_cmd("show bfd peers json"))
+    for session in output:
+        if session.get("peer") != "192.0.2.1":
+            continue
+        if session.get("local") != "192.0.2.2" or not session.get("interface"):
+            return "BFD session source is {} on {}".format(
+                session.get("local"), session.get("interface")
+            )
+        return None
+    return "no BFD session to 192.0.2.1"
+
+
 def _bgp_dynamic_neighbor_gone(r2):
     try:
         output = json.loads(r2.vtysh_cmd("show bgp neighbor 192.0.2.1 json"))
@@ -103,6 +116,11 @@ def test_bgp_bfd_strict_dynamic_neighbor_held():
     test_func = functools.partial(_bgp_dynamic_neighbor_held, r2)
     _, result = topotest.run_and_expect(test_func, None, count=60, wait=1)
     assert result is None, "R2 did not hold the dynamic neighbor connection"
+
+    step("Check that the held BFD session already knows its source and interface")
+    test_func = functools.partial(_bfd_session_source_resolved, r2)
+    _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
+    assert result is None, "R2 holds a BFD session with an unresolved source"
 
     step("Check that neither side establishes the session while BFD is not up")
     test_func = functools.partial(_bgp_established, r2, "192.0.2.1")
