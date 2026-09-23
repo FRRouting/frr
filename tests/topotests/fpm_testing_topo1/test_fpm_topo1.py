@@ -176,25 +176,13 @@ def test_fpm_connected_and_local_routes():
         if not dump_fpm_listener_data():
             return 0
 
-        def check_route():
-            return check_specific_route("10.10.10.0/24")
-
-        success, result = topotest.run_and_expect(
-            check_route, router_count, count=30, wait=0.5
-        )
-        return result if success else 0
+        return check_specific_route("10.10.10.0/24")
 
     def check_r1_local_routes():
         if not dump_fpm_listener_data():
             return 0
 
-        def check_route():
-            return check_specific_route("10.10.10.10/32")
-
-        success, result = topotest.run_and_expect(
-            check_route, router_count, count=30, wait=0.5
-        )
-        return result if success else 0
+        return check_specific_route("10.10.10.10/32")
 
     success, result = topotest.run_and_expect(
         check_r1_connected_routes, router_count, count=30, wait=1
@@ -218,11 +206,12 @@ def test_fpm_connected_and_local_routes():
     success, result = topotest.run_and_expect(
         check_r1_connected_routes, router_count, count=30, wait=1
     )
-    assert success, f"Failed to find {result} connected routes"
+    assert success, f"Failed to find 10.10.10.0/24 connected route"
+
     success, result = topotest.run_and_expect(
         check_r1_local_routes, router_count, count=30, wait=1
     )
-    assert success, f"Failed to find {result} local routes"
+    assert success, f"Failed to find 10.10.10.10/32 local route"
 
 
 def _get_nhg_for_prefix(router, prefix):
