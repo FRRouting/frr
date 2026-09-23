@@ -3417,7 +3417,7 @@ encap_ignore:
 
 
 /* SRv6 Service Data Sub-Sub-TLV attribute
- * draft-ietf-bess-srv6-services-07
+ * RFC 9252
  */
 static enum bgp_attr_parse_ret bgp_attr_srv6_service_data(struct bgp_attr_parser_args *args,
 							  size_t remaining)
@@ -3507,7 +3507,7 @@ static enum bgp_attr_parse_ret bgp_attr_srv6_service_data(struct bgp_attr_parser
 }
 
 /* SRv6 Service Sub-TLV attribute
- * draft-ietf-bess-srv6-services-07
+ * RFC 9252
  */
 static enum bgp_attr_parse_ret bgp_attr_srv6_service(struct bgp_attr_parser_args *args,
 						     size_t remaining)
@@ -3826,7 +3826,7 @@ bgp_attr_psid_sub(uint8_t type, uint16_t length,
 }
 
 /* Prefix SID attribute
- * draft-ietf-idr-bgp-prefix-sid-05
+ * RFC 8669
  */
 enum bgp_attr_parse_ret bgp_attr_prefix_sid(struct bgp_attr_parser_args *args)
 {
