@@ -13565,7 +13565,7 @@ static void route_vty_out_detail_es_info(struct vty *vty,
 }
 
 static void route_vty_out_detail_remote_sid(struct vty *vty, struct bgp_path_info *path,
-					    struct bgp_attr_srv6_l3service *srv6_l3service,
+					    struct bgp_attr_srv6_service *srv6_service,
 					    json_object *json_path)
 {
 	json_object *json_sid_attr;
@@ -13577,37 +13577,36 @@ static void route_vty_out_detail_remote_sid(struct vty *vty, struct bgp_path_inf
 		    (decode_label(&path->extra->labels->label[0]) >= MPLS_LABEL_UNRESERVED_MIN))
 			label_sid = decode_label(&path->extra->labels->label[0]);
 
-		json_object_string_addf(json_path, "remoteSid", "%pI6", &srv6_l3service->sid);
-		IPV6_ADDR_COPY(&sid_transposed, &srv6_l3service->sid);
-		transpose_sid(&sid_transposed, label_sid, srv6_l3service->transposition_offset,
-			      srv6_l3service->transposition_len,
+		json_object_string_addf(json_path, "remoteSid", "%pI6", &srv6_service->sid);
+		IPV6_ADDR_COPY(&sid_transposed, &srv6_service->sid);
+		transpose_sid(&sid_transposed, label_sid, srv6_service->transposition_offset,
+			      srv6_service->transposition_len,
 			      BGP_PREFIX_SID_SRV6_MAX_FUNCTION_LENGTH_FOR_LABEL);
 		json_object_string_addf(json_path, "remoteTransposedSid", "%pI6", &sid_transposed);
 		json_object_string_add(json_path, "endpointBehavior",
 				       srv6_endpoint_behavior_codepoint2str(
-					       srv6_l3service->endpoint_behavior));
+					       srv6_service->endpoint_behavior));
 		json_object_string_add(json_path, "prefixSidType", "l3");
 
 		json_sid_attr = json_object_new_object();
 		json_object_object_add(json_path, "remoteSidStructure", json_sid_attr);
-		json_object_int_add(json_sid_attr, "locatorBlockLen",
-				    srv6_l3service->loc_block_len);
-		json_object_int_add(json_sid_attr, "locatorNodeLen", srv6_l3service->loc_node_len);
-		json_object_int_add(json_sid_attr, "functionLen", srv6_l3service->func_len);
-		json_object_int_add(json_sid_attr, "argumentLen", srv6_l3service->arg_len);
+		json_object_int_add(json_sid_attr, "locatorBlockLen", srv6_service->loc_block_len);
+		json_object_int_add(json_sid_attr, "locatorNodeLen", srv6_service->loc_node_len);
+		json_object_int_add(json_sid_attr, "functionLen", srv6_service->func_len);
+		json_object_int_add(json_sid_attr, "argumentLen", srv6_service->arg_len);
 		json_object_int_add(json_sid_attr, "transpositionLen",
-				    srv6_l3service->transposition_len);
+				    srv6_service->transposition_len);
 		json_object_int_add(json_sid_attr, "transpositionOffset",
-				    srv6_l3service->transposition_offset);
+				    srv6_service->transposition_offset);
 		return;
 	}
 
-	vty_out(vty, "      Remote SID: %pI6", &srv6_l3service->sid);
+	vty_out(vty, "      Remote SID: %pI6", &srv6_service->sid);
 	vty_out(vty, ", %s, sid structure=[%u %u %u %u %u %u]\n",
-		srv6_endpoint_behavior_codepoint2str(srv6_l3service->endpoint_behavior),
-		srv6_l3service->loc_block_len, srv6_l3service->loc_node_len,
-		srv6_l3service->func_len, srv6_l3service->arg_len,
-		srv6_l3service->transposition_len, srv6_l3service->transposition_offset);
+		srv6_endpoint_behavior_codepoint2str(srv6_service->endpoint_behavior),
+		srv6_service->loc_block_len, srv6_service->loc_node_len, srv6_service->func_len,
+		srv6_service->arg_len, srv6_service->transposition_len,
+		srv6_service->transposition_offset);
 }
 
 void route_vty_out_detail(struct vty *vty, struct bgp *bgp, struct bgp_dest *bn,
@@ -13657,7 +13656,7 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp, struct bgp_dest *bn,
 	struct bgp_route_evpn *bre = bgp_attr_get_evpn_overlay(attr);
 	bool ll_nexthop_only = attr->mp_nexthop_len == BGP_ATTR_NHLEN_IPV6_GLOBAL &&
 			       PEER_HAS_LINK_LOCAL_CAPABILITY(path->peer);
-	struct bgp_attr_srv6_l3service *srv6_l3service = bgp_attr_get_srv6_l3service(path->attr);
+	struct bgp_attr_srv6_service *srv6_l3service = bgp_attr_get_srv6_l3service(path->attr);
 
 	if (json_paths) {
 		json_path = json_object_new_object();
@@ -15694,7 +15693,7 @@ void route_vty_out_detail_header(struct vty *vty, struct bgp *bgp,
 	int no_peer = 0;
 	int first = 1;
 	int has_valid_label = 0;
-	struct bgp_attr_srv6_l3service *srv6_l3service;
+	struct bgp_attr_srv6_service *srv6_l3service;
 	mpls_label_t label = 0;
 	json_object *json_adv_to = NULL;
 	uint32_t ttl = 0;

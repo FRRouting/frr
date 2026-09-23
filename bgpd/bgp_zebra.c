@@ -1483,7 +1483,7 @@ static void bgp_zebra_announce_parse_nexthop(struct bgp_path_info *info, const s
 		api_nh->weight = nh_weight;
 
 		struct bgp_attr_srv6_vpn *vpn_tmp = bgp_attr_get_srv6_vpn(mpinfo->attr);
-		struct bgp_attr_srv6_l3service *srv6_l3service =
+		struct bgp_attr_srv6_service *srv6_l3service =
 			bgp_attr_get_srv6_l3service(mpinfo->attr);
 
 		if (((srv6_l3service && !sid_zero_ipv6(&srv6_l3service->sid)) ||
@@ -2535,7 +2535,7 @@ void bgp_zebra_update_srv6_encap_routes(struct bgp *bgp, afi_t afi, struct bgp *
 				continue;
 
 			struct bgp_attr_srv6_vpn *vpn = bgp_attr_get_srv6_vpn(pi->attr);
-			struct bgp_attr_srv6_l3service *srv6_l3service =
+			struct bgp_attr_srv6_service *srv6_l3service =
 				bgp_attr_get_srv6_l3service(pi->attr);
 
 			if ((srv6_l3service && !sid_zero_ipv6(&srv6_l3service->sid)) ||
