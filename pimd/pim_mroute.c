@@ -2018,6 +2018,7 @@ void pim_mroute_update_counters(struct channel_oil *c_oil)
 {
 	struct pim_instance *pim = c_oil->pim;
 	pim_sioc_sg_req sgreq;
+	int err;
 
 	c_oil->cc.oldpktcnt = c_oil->cc.pktcnt;
 	c_oil->cc.oldbytecnt = c_oil->cc.bytecnt;
@@ -2048,7 +2049,22 @@ void pim_mroute_update_counters(struct channel_oil *c_oil)
 	sgreq.src = c_oil->oil.mf6cc_origin;
 	sgreq.grp = c_oil->oil.mf6cc_mcastgrp;
 #endif
-	if (ioctl(pim->mroute_socket, PIM_SIOCGETSGCNT, &sgreq)) {
+#ifdef GNU_LINUX
+	err = ioctl(pim->mroute_socket, PIM_SIOCGETSGCNT, &sgreq);
+#else
+	/*
+	 * BSD gates this ioctl on PRIV_NETINET_MROUTE (X_mrt_ioctl()) and pimd
+	 * has long since dropped to its unprivileged user, so every call
+	 * returned EPERM and the (S,G) counters stayed at zero -- which is
+	 * what the keepalive timer and the SPT switchover decision are read
+	 * from.
+	 */
+	frr_with_privs (&pimd_privs) {
+		err = ioctl(pim->mroute_socket, PIM_SIOCGETSGCNT, &sgreq);
+	}
+#endif
+
+	if (err) {
 		pim_sgaddr sg;
 
 		sg.src = *oil_origin(c_oil);
