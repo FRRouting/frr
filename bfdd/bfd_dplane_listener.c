@@ -7,7 +7,8 @@
  * bfdd registers, reports them up, answers session counter requests,
  * and dumps what it has seen on SIGUSR1 so a test can inspect it.
  *
- * With `-c <bits>` it declares those capabilities when bfdd connects.
+ * With `-c <bits>` it declares those capabilities when bfdd connects, and
+ * SIGUSR2 withdraws them all.
  *
  * It runs no BFD state machine and sends no BFD packets: a session is
  * declared up as soon as it is registered. That is enough for the
@@ -30,11 +31,13 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/select.h>
 #include <sys/socket.h>
 #include <time.h>
 #include <unistd.h>
 
 #include "lib/libfrr.h"
+#include "lib/frratomic.h"
 
 #include "bfddp_packet.h"
 
@@ -98,6 +101,11 @@ struct listener_glob {
 	uint32_t sessions[BFD_DPLANE_MAX_SESSIONS];
 	size_t session_count;
 };
+
+/* Set by SIGUSR2; the connection loop withdraws the capabilities. */
+static atomic_bool caps_withdraw;
+/* The signal mask to wait with: SIGUSR2 is blocked everywhere else. */
+static sigset_t wait_mask;
 
 static struct listener_glob glob_space;
 static struct listener_glob *glob = &glob_space;
@@ -300,6 +308,14 @@ static bool send_capabilities(int sock)
 	return true;
 }
 
+/* Signal handler for SIGUSR2: withdraw every capability declared. */
+static void sigusr2_handler(int signum)
+{
+	(void)signum;
+
+	atomic_store_explicit(&caps_withdraw, true, memory_order_relaxed);
+}
+
 static bool send_echo_reply(int sock, const struct bfddp_message *req)
 {
 	struct bfddp_message msg = {};
@@ -426,6 +442,24 @@ static void handle_connection(int sock)
 		ssize_t rv;
 		size_t offset = 0;
 
+		fd_set rfds;
+
+		if (atomic_exchange_explicit(&caps_withdraw, false, memory_order_relaxed)) {
+			glob->caps = 0;
+			glob->caps_set = true;
+			send_capabilities(sock);
+		}
+
+		/* SIGUSR2 can only arrive in here, so it is never missed. */
+		FD_ZERO(&rfds);
+		FD_SET(sock, &rfds);
+		if (pselect(sock + 1, &rfds, NULL, NULL, NULL, &wait_mask) < 0) {
+			if (errno == EINTR)
+				continue;
+			fprintf(glob->output_file, "Wait failed: %s\n", strerror(errno));
+			break;
+		}
+
 		rv = read(sock, buf + buflen, sizeof(buf) - buflen);
 		if (rv == 0) {
 			fprintf(glob->output_file, "Connection closed\n");
@@ -489,6 +523,7 @@ static void handle_connection(int sock)
 int main(int argc, char **argv)
 {
 	struct sigaction sa;
+	sigset_t usr2;
 	bool fork_daemon = false;
 	const char *output_file = NULL;
 	int port = BFD_DPLANE_DEFAULT_PORT;
@@ -508,6 +543,19 @@ int main(int argc, char **argv)
 		fprintf(stderr, "Failed to set up SIGUSR1 handler: %s\n", strerror(errno));
 		exit(1);
 	}
+
+	memset(&sa, 0, sizeof(sa));
+	sa.sa_handler = sigusr2_handler;
+	sigemptyset(&sa.sa_mask);
+	if (sigaction(SIGUSR2, &sa, NULL) < 0) {
+		fprintf(stderr, "Failed to set up SIGUSR2 handler: %s\n", strerror(errno));
+		exit(1);
+	}
+
+	/* Blocked except while the connection loop waits for bfdd. */
+	sigemptyset(&usr2);
+	sigaddset(&usr2, SIGUSR2);
+	sigprocmask(SIG_BLOCK, &usr2, &wait_mask);
 
 	memset(&sa, 0, sizeof(sa));
 	sa.sa_handler = sigterm_handler;
