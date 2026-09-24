@@ -796,9 +796,10 @@ static void bmp_mirror_cull(struct bmp_bgp *bmpbgp)
 	}
 }
 
-static int bmp_mirror_packet(struct peer *peer, uint8_t type, bgp_size_t size,
-		struct stream *packet)
+static int bmp_mirror_packet(struct peer_connection *connection, uint8_t type, bgp_size_t size,
+			     struct stream *packet)
 {
+	struct peer *peer = connection->peer;
 	struct bmp_bgp *bmpbgp;
 	struct timeval tv;
 	struct bmp_targets *bt;
@@ -957,9 +958,11 @@ out:
 	return written;
 }
 
-static int bmp_outgoing_packet(struct peer *peer, uint8_t type, bgp_size_t size,
-		struct stream *packet)
+static int bmp_outgoing_packet(struct peer_connection *connection, uint8_t type, bgp_size_t size,
+			       struct stream *packet)
 {
+	struct peer *peer = connection->peer;
+
 	if (type == BGP_MSG_OPEN) {
 		frrtrace(2, frr_bgp, bmp_update_saved_open, peer, packet);
 
@@ -1090,13 +1093,14 @@ static void bmp_adj_in_release(struct bmp_targets *bt, afi_t afi, safi_t safi)
 	}
 }
 
-static int bmp_peer_status_changed(struct peer *peer)
+static int bmp_peer_status_changed(struct peer_connection *connection)
 {
+	struct peer *peer = connection->peer;
 	struct bmp_bgp_peer *bbpeer, *bbdopp;
 
 	frrtrace(1, frr_bgp, bmp_peer_status_changed, peer);
 
-	if (peer->connection->status == Deleted) {
+	if (connection->status == Deleted) {
 		bbpeer = bmp_bgp_peer_find(peer->qobj_node.nid);
 		if (bbpeer) {
 			XFREE(MTYPE_BMP_OPEN, bbpeer->open_rx);
@@ -1108,8 +1112,7 @@ static int bmp_peer_status_changed(struct peer *peer)
 	}
 
 	/* Check if this peer just went to Established */
-	if ((peer->connection->ostatus != OpenConfirm) ||
-	    !(peer_established(peer->connection)))
+	if ((connection->ostatus != OpenConfirm) || !(peer_established(connection)))
 		return 0;
 
 	if (peer->doppelganger &&

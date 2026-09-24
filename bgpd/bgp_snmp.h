@@ -15,7 +15,7 @@
 #define IPADDRESS ASN_IPADDRESS
 #define GAUGE32 ASN_UNSIGNED
 
-extern int bgpTrapEstablished(struct peer *peer);
+extern int bgpTrapEstablished(struct peer_connection *connection);
 extern int bgpTrapBackwardTransition(struct peer *peer);
 
 #endif /* _FRR_BGP_SNMP_H_ */
