@@ -13621,6 +13621,8 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp, struct bgp_dest *bn,
 	json_object *json_nexthop_ll = NULL;
 	json_object *json_nexthops = NULL;
 	json_object *json_path = NULL;
+	json_object *json_prefix_sids = NULL;
+	json_object *json_prefix_sid = NULL;
 	json_object *json_peer = NULL;
 	json_object *json_string = NULL;
 	json_object *json_int = NULL;
@@ -14532,7 +14534,17 @@ skip_nexthop:
 	}
 
 	/* Remote SID */
-	if (srv6_l3service)
+	if (safi == SAFI_EVPN) {
+		if (srv6_l3service) {
+			if (json_paths) {
+				json_prefix_sids = json_object_new_array();
+				json_object_object_add(json_path, "prefixSids", json_prefix_sids);
+				json_prefix_sid = json_object_new_object();
+				json_object_array_add(json_prefix_sids, json_prefix_sid);
+			}
+			route_vty_out_detail_remote_sid(vty, path, srv6_l3service, json_prefix_sid);
+		}
+	} else if (srv6_l3service)
 		route_vty_out_detail_remote_sid(vty, path, srv6_l3service, json_path);
 	else if (bgp_attr_get_srv6_vpn(path->attr)) {
 		if (json_paths)
