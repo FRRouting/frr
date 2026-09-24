@@ -1271,6 +1271,7 @@ struct gm_sock *pim_igmp_sock_add(struct list *igmp_sock_list,
 		return NULL;
 	}
 
+	memset(&sin, 0, sizeof(sin));
 	sin.sin_family = AF_INET;
 	sin.sin_addr = ifaddr;
 	sin.sin_port = 0;
