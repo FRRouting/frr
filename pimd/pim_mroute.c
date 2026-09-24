@@ -1603,6 +1603,38 @@ int pim_mroute_add_vif(struct interface *ifp, pim_addr ifaddr,
 #ifdef VIFF_USE_IFINDEX
 	vc.vc_lcl_ifindex = ifp->ifindex;
 #else
+	if (ifaddr.s_addr == INADDR_ANY && (flags & VIFF_REGISTER)) {
+		/*
+		 * pimreg is a pseudo interface with no address of its own
+		 * (pim_if_create_pimreg()), which on Linux is fine: the vif is
+		 * added by ifindex.  BSD adds a vif by local address, and its
+		 * add_vif() rejects INADDR_ANY before it ever looks at
+		 * VIFF_REGISTER -- even though the same function documents
+		 * that a register vif "does not really need a valid local
+		 * interface".  Without an address here the register vif is
+		 * never created, so the first hop router's mfc entry points at
+		 * a vif that does not exist, no PIM Register is ever built,
+		 * and the RP never learns of a source behind it.
+		 *
+		 * Lend it the address of another PIM interface, and fall back
+		 * to a loopback address when none has one yet, since only
+		 * non-nullness is actually required.
+		 */
+		struct interface *tmp_ifp;
+
+		FOR_ALL_INTERFACES (pim_ifp->pim->vrf, tmp_ifp) {
+			struct pim_interface *tmp_pim_ifp = tmp_ifp->info;
+
+			if (!tmp_pim_ifp || tmp_ifp == ifp)
+				continue;
+			if (pim_addr_is_any(tmp_pim_ifp->primary_address))
+				continue;
+			ifaddr = tmp_pim_ifp->primary_address;
+			break;
+		}
+		if (ifaddr.s_addr == INADDR_ANY)
+			ifaddr.s_addr = htonl(INADDR_LOOPBACK + 1);
+	}
 	if (ifaddr.s_addr == INADDR_ANY) {
 		zlog_warn(
 			"%s: unnumbered interfaces are not supported on this platform",
