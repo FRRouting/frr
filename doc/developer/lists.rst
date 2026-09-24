@@ -147,6 +147,37 @@ Functions provided:
 functions.
 
 
+Deleting items not in the container
+-----------------------------------
+
+The various containers differ in their behavior when a call to
+:c:func:`Z_del()` is made given an item that isn't actually on the container:
+
+* guaranteed to return ``NULL``:
+
+  * ``LIST``
+  * ``HASH``
+  * ``SORTLIST_*``
+  * ``SKIPLIST_*``
+
+* crash or data corruption (e.g. remove the item from a different container):
+
+  * ``DLIST``
+  * ``RBTREE_*``
+
+* ``assert`` failure:
+
+  * ``HEAP``
+  * ``ATOMLIST``
+  * ``ATOMSORT_*``
+  * ``ATOMHASH``
+
+For the atomic data structures, since a :c:func:`Z_pop()` call can essentially
+choose any item, usage of that function makes **all** :c:func:`Z_del()` calls
+inherently unsafe.  In most cases, quite simply only one of the two functions
+should be used (across the entire data structure, possibly excluding shutdown).
+
+
 Datastructure type setup
 ------------------------
 
