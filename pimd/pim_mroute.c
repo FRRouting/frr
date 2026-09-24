@@ -2069,8 +2069,18 @@ int pim_mroute_del(struct channel_oil *c_oil, const char *name)
 		return -2;
 	}
 
-	err = setsockopt(pim->mroute_socket, PIM_IPPROTO, MRT_DEL_MFC,
-			 &c_oil->oil, sizeof(c_oil->oil));
+	/*
+	 * Privileged, exactly as the MRT_ADD_MFC that put the entry there is:
+	 * a kernel that checks (FreeBSD gates the mroute setsockopts on
+	 * PRIV_NETINET_MROUTE) otherwise answers EPERM, and pimd goes on to
+	 * free its own state, leaving the mfc installed with nothing left to
+	 * remove it.
+	 */
+	frr_with_privs (&pimd_privs) {
+		err = setsockopt(pim->mroute_socket, PIM_IPPROTO, MRT_DEL_MFC, &c_oil->oil,
+				 sizeof(c_oil->oil));
+	}
+
 	if (err) {
 		if (PIM_DEBUG_MROUTE)
 			zlog_warn(
