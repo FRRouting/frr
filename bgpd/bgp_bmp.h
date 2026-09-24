@@ -169,6 +169,10 @@ struct bmp_active {
 	int port;
 	unsigned minretry, maxretry;
 	char *ifsrc;
+	/* Optional transport VRF for the outbound TCP session; distinct from
+	 * the monitored BGP instance VRF used for stats collection.
+	 */
+	char *vrfname;
 	union sockunion addrsrc;
 
 	struct resolver_query resq;
