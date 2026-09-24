@@ -179,10 +179,51 @@ static void pim_mroute_nocache_forward_existing(struct interface *ifp, pim_sgadd
 	struct pim_nexthop rpf_nh;
 	struct prefix grp;
 	struct pim_rpf old;
+	bool on_rpt = false;
 
 	up = pim_upstream_find(pim, sg);
-	if (!up)
-		return;
+	if (!up) {
+		/*
+		 * No (S,G) state yet.  On Linux this upcall would never have
+		 * been raised: ipmr_cache_find_any() resolves the lookup
+		 * against the (*,G) entry and the kernel forwards the packet
+		 * itself.  BSD's mfc_find() matches the source exactly and has
+		 * no wildcard mfc, so a last hop router whose receivers joined
+		 * (*,G) is asked about every new source and has to build the
+		 * (S,G) itself, or the traffic stops one hop short of the
+		 * receiver.
+		 *
+		 * Only do so when the (*,G) it would inherit from exists --
+		 * otherwise this is a source nobody here asked for.  The
+		 * creation is the same one the WHOLEPKT path uses for an LHR;
+		 * the rest of this function resolves the iif and inherits the
+		 * olist, and returns without installing anything if there turn
+		 * out to be no receivers.
+		 */
+		pim_sgaddr star_g = *sg;
+
+		star_g.src = PIMADDR_ANY;
+		if (!pim_upstream_find(pim, &star_g))
+			return;
+
+		up = pim_upstream_add(pim, sg, ifp, PIM_UPSTREAM_FLAG_MASK_SRC_LHR, __func__, NULL);
+		if (!up)
+			return;
+
+		/*
+		 * The keepalive is this entry's expiry: when the source stops,
+		 * it fires and pim_upstream_keep_alive_timer_proc() releases
+		 * the SRC_LHR reference, taking the mfc with it.  It no longer
+		 * drags the router onto the source tree either -- whether that
+		 * switch may happen is decided by spt-switchover, in
+		 * pim_upstream_evaluate_join_desired().
+		 */
+		pim_upstream_keep_alive_timer_start(up, pim->keep_alive_time);
+
+		if (PIM_DEBUG_MROUTE)
+			zlog_debug("%s: %pSG NOCACHE on %s, creating (S,G) from (*,G) on LHR",
+				   __func__, sg, ifp->name);
+	}
 
 	memset(&rpf_nh, 0, sizeof(rpf_nh));
 	pim_addr_to_prefix(&grp, sg->grp);
@@ -201,14 +242,31 @@ static void pim_mroute_nocache_forward_existing(struct interface *ifp, pim_sgadd
 	}
 
 	if (!rpf_nh.interface || rpf_nh.interface->ifindex != ifp->ifindex) {
-		if (PIM_DEBUG_MROUTE_DETAIL)
-			zlog_debug("%s: %pSG NOCACHE on %s, RPF interface is %s", __func__, sg,
-				   ifp->name, rpf_nh.interface ? rpf_nh.interface->name : "(none)");
-		return;
+		/*
+		 * Not the RPF interface towards the source -- which on a
+		 * shared tree is the ordinary case, not an error: the packet
+		 * comes from the RP, and it is the (*,G) this (S,G) inherits
+		 * from that knows the interface it arrives on.  Forward it
+		 * along the RPT instead of dropping it; Linux's wildcard mfc
+		 * does exactly that without involving the daemon at all.
+		 *
+		 * A packet on neither interface is genuinely unexpected, and
+		 * still returns.
+		 */
+		if (!up->parent || !up->parent->rpf.source_nexthop.interface ||
+		    up->parent->rpf.source_nexthop.interface->ifindex != ifp->ifindex) {
+			if (PIM_DEBUG_MROUTE_DETAIL)
+				zlog_debug("%s: %pSG NOCACHE on %s, RPF interface is %s", __func__,
+					   sg, ifp->name,
+					   rpf_nh.interface ? rpf_nh.interface->name : "(none)");
+			return;
+		}
+		on_rpt = true;
 	}
 
-	if (up->rpf.source_nexthop.interface != rpf_nh.interface ||
-	    pim_addr_cmp(up->rpf.source_nexthop.mrib_nexthop_addr, rpf_nh.mrib_nexthop_addr)) {
+	if (!on_rpt &&
+	    (up->rpf.source_nexthop.interface != rpf_nh.interface ||
+	     pim_addr_cmp(up->rpf.source_nexthop.mrib_nexthop_addr, rpf_nh.mrib_nexthop_addr))) {
 		enum pim_rpf_result rpf_result;
 
 		memset(&old, 0, sizeof(old));
@@ -218,6 +276,16 @@ static void pim_mroute_nocache_forward_existing(struct interface *ifp, pim_sgadd
 			pim_zebra_upstream_rpf_changed(pim, up, &old);
 	}
 
+	/*
+	 * An (S,G) forwarding off the shared tree takes its iif from the
+	 * parent rather than from the route to the source, and USE_RPT is
+	 * what pim_upstream_get_mroute_iif() reads to pick it.  Without this
+	 * the entry would be installed pointing at the interface the traffic
+	 * is not arriving on.
+	 */
+	if (on_rpt)
+		pim_upstream_update_use_rpt(up, false /*update_mroute*/);
+
 	pim_upstream_inherited_olist_decide(pim, up);
 	if (pim_upstream_empty_inherited_olist(up)) {
 		if (PIM_DEBUG_MROUTE_DETAIL)
@@ -226,10 +294,21 @@ static void pim_mroute_nocache_forward_existing(struct interface *ifp, pim_sgadd
 		return;
 	}
 
-	if (up->sptbit != PIM_UPSTREAM_SPTBIT_TRUE)
+	/* Only the source tree sets the SPT bit; on the RPT we have not
+	 * switched trees and must not claim to have.
+	 */
+	if (!on_rpt && up->sptbit != PIM_UPSTREAM_SPTBIT_TRUE)
 		pim_upstream_set_sptbit(up, ifp);
 
-	PIM_UPSTREAM_FLAG_SET_SRC_STREAM(up->flags);
+	/*
+	 * SRC_STREAM says this entry exists because traffic is flowing on the
+	 * source tree, and the keepalive expiry releases the stream reference
+	 * that goes with it.  An (S,G) forwarding off the shared tree is not
+	 * that: its reference is SRC_LHR, and it has to expire through that
+	 * branch instead.
+	 */
+	if (!on_rpt)
+		PIM_UPSTREAM_FLAG_SET_SRC_STREAM(up->flags);
 	up->channel_oil->cc.pktcnt++;
 
 	pim_upstream_update_join_desired(pim, up);
