@@ -113,33 +113,18 @@ int pim_mroute_set(struct pim_instance *pim, int enable)
 		}
 	}
 
-#if defined(HAVE_IP_PKTINFO)
-	if (enable) {
-		/* Linux and Solaris IP_PKTINFO */
-		data = 1;
-		if (setsockopt(pim->mroute_socket, PIM_IPPROTO, IP_PKTINFO,
-			       &data, data_len)) {
-			zlog_warn(
-				"Could not set IP_PKTINFO on socket fd=%d: errno=%d: %s",
-				pim->mroute_socket, errno,
-				safe_strerror(errno));
-		}
-	}
-#endif
-
-#if PIM_IPV == 6
-	if (enable) {
-		/* Linux and Solaris IPV6_PKTINFO */
-		data = 1;
-		if (setsockopt(pim->mroute_socket, PIM_IPPROTO,
-			       IPV6_RECVPKTINFO, &data, data_len)) {
-			zlog_warn(
-				"Could not set IPV6_RECVPKTINFO on socket fd=%d: errno=%d: %s",
-				pim->mroute_socket, errno,
-				safe_strerror(errno));
-		}
-	}
-#endif
+	/*
+	 * pim_mroute_msg() hands every IPPROTO_IGMP packet read from this
+	 * socket to process_igmp_packet(), which needs the ingress ifindex to
+	 * find the interface the report came in on; without it
+	 * if_lookup_by_index() fails and every IGMP report is dropped
+	 * silently.  setsockopt_ifindex() asks for it with whatever this
+	 * platform provides -- IP_PKTINFO on Linux and Solaris, IP_RECVIF on
+	 * BSD, IPV6_RECVPKTINFO for v6.
+	 */
+	if (enable && setsockopt_ifindex(PIM_AF, pim->mroute_socket, 1) < 0)
+		zlog_warn("Could not request the ingress ifindex on socket fd=%d",
+			  pim->mroute_socket);
 	setsockopt_so_recvbuf(pim->mroute_socket, 1024 * 1024 * 8);
 
 	if (set_nonblocking(pim->mroute_socket) < 0) {
