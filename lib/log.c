@@ -584,6 +584,8 @@ uint8_t proto_redistnum(int afi, const char *s)
 			return ZEBRA_ROUTE_OPENFABRIC;
 		else if (strmatch(s, "table-direct"))
 			return ZEBRA_ROUTE_TABLE_DIRECT;
+		else if (strmatch(s, "adjacency"))
+			return ZEBRA_ROUTE_ADJACENCY;
 	}
 	if (afi == AFI_IP6) {
 		if (strmatch(s, "kernel"))
@@ -618,6 +620,8 @@ uint8_t proto_redistnum(int afi, const char *s)
 			return ZEBRA_ROUTE_OPENFABRIC;
 		else if (strmatch(s, "table-direct"))
 			return ZEBRA_ROUTE_TABLE_DIRECT;
+		else if (strmatch(s, "adjacency"))
+			return ZEBRA_ROUTE_ADJACENCY;
 	}
 	return ZEBRA_ROUTE_ERROR;
 }
