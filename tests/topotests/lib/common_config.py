@@ -927,7 +927,7 @@ def get_frr_ipv6_linklocal(tgen, router, intf=None, vrf=None):
 def generate_support_bundle():
     """
     API to generate support bundle on any verification ste failure.
-    it runs a python utility, /usr/lib/frr/generate_support_bundle.py,
+    it runs generate_support_bundle.py from the FRR daemon directory,
     which basically runs defined CLIs and dumps the data to specified location
     """
 
@@ -960,7 +960,7 @@ def generate_support_bundle():
             return True
 
         gen_sup_cmd = [
-            "/usr/lib/frr/generate_support_bundle.py",
+            os.path.join(topotest.default_frrdir(), "generate_support_bundle.py"),
             "--log-dir=" + dst_bundle,
         ]
         bundle_procs[rname] = tgen.net[rname].popen(gen_sup_cmd, stdin=None)

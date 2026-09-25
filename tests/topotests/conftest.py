@@ -628,6 +628,11 @@ def pytest_configure(config):
     """
     topotest.g_pytest_config = ConfigOptionsProxy(config)
 
+    if sys.platform.startswith("freebsd"):
+        from munet import freebsd
+
+        freebsd.reap_stale()
+
     if config.getoption("--collect-only"):
         return
 
@@ -754,12 +759,20 @@ def session_autouse():
     is_main = is_main_runner()
 
     logger.debug("Before the run (is_main: %s)", is_main)
+    if sys.platform.startswith("freebsd"):
+        from munet import freebsd
+
+        freebsd.reap_stale()
     if is_main:
         cleanup_previous()
     yield
     # Reap munet/mutini children on xdist workers too; otherwise a few stuck
     # workers with zombie mutini block the controller until the session is killed.
     cleanup_current()
+    if sys.platform.startswith("freebsd"):
+        from munet import freebsd
+
+        freebsd.cleanup_our_jails()
     logger.debug("After the run (is_main: %s)", is_main)
 
 
