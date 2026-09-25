@@ -64,7 +64,6 @@ noinst_HEADERS += \
 EXTRA_DIST += \
 	tools/etc \
 	tools/frr-reload \
-	tools/frr-reload.py \
 	tools/frr.service \
 	tools/frr@.service \
 	tools/frr_babeltrace.py \
