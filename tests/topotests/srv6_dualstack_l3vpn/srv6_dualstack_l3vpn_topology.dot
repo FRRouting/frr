@@ -1,0 +1,150 @@
+digraph template {
+  label="SRv6 L3VPN";
+  labelloc=t;
+  fontsize=22;
+
+  splines=true;
+  overlap=false;
+  rankdir=LR;
+  newrank=true;
+  ranksep=1.2;
+  nodesep=0.25;
+  edge [dir=none];
+
+  // Core routers (ISIS + SRv6)
+  r1  [shape=doubleoctagon, style=filled, fillcolor="#e8f4ff", label="r1\nCore"];
+  r2  [shape=doubleoctagon, style=filled, fillcolor="#e8f4ff", label="r2\nCore"];
+  r3  [shape=box,           style=filled, fillcolor="#ffe6d6", label="r3 (PE)\nVRF Client1/2\nLocator 2001:dead:30::/64"];
+  r4  [shape=doubleoctagon, style=filled, fillcolor="#e8f4ff", label="r4\nCore"];
+  r5  [shape=doubleoctagon, style=filled, fillcolor="#e8f4ff", label="r5\nCore"];
+  r6  [shape=box,           style=filled, fillcolor="#ffe6d6", label="r6 (PE)\nVRF Client1/2\nLocator 2001:dead:60::/64"];
+
+  // Client zones (PE-CE)
+  r7  [shape=box, style=filled, fillcolor="#e8ffe8", label="r7 (CE)\nClient1"];
+  r8  [shape=box, style=filled, fillcolor="#e8ffe8", label="r8 (CE)\nClient1"];
+  r9  [shape=box, style=filled, fillcolor="#fff7e8", label="r9 (CE)\nClient2"];
+  r10 [shape=box, style=filled, fillcolor="#fff7e8", label="r10 (CE)\nClient2"];
+
+  // Legend (colors/styles correspond to protocols)
+  legend [shape=box, style=rounded, penwidth=1,
+    fixedsize=true, width=3.7, height=1.9,
+    label=<<TABLE BORDER="0" CELLBORDER="0" CELLSPACING="0" CELLPADDING="3">
+      <TR><TD COLSPAN="2"><B>Legend</B></TD></TR>
+      <TR><TD><FONT color="#1c58d0" FACE="monospace">────</FONT></TD><TD>IS-IS core</TD></TR>
+      <TR><TD><FONT color="#28a745" FACE="monospace">----</FONT></TD><TD>SRv6 locator</TD></TR>
+      <TR><TD><FONT color="#ff9900" FACE="monospace">----</FONT></TD><TD>OSPF area 0 (VRFs)</TD></TR>
+      <TR><TD><FONT color="#ff00ff" FACE="monospace">----</FONT></TD><TD>BGP VPNv4/v6</TD></TR>
+    </TABLE>>,
+    fontsize=14];
+
+  // Cluster boxes to mimic the dashed client sites in your screenshot.
+  // Split by (Client1/Client2) and (Site1/Site2) so colors stay consistent.
+  subgraph cluster_core {
+    label="Core: ISIS (IPv4+IPv6) + SRv6";
+    style=rounded;
+    color="#b0c4de";
+    penwidth=2;
+    rankdir=TB;
+    r1; r2; r3; r4; r5; r6;
+  }
+
+  subgraph cluster_c1s1 {
+    label="Client 1 Site 1 (CE)";
+    style=dashed;
+    color="#1e63ff";
+    penwidth=2;
+    r7;
+  }
+
+  subgraph cluster_c1s2 {
+    label="Client 1 Site 2 (CE)";
+    style=dashed;
+    color="#1e63ff";
+    penwidth=2;
+    r8;
+  }
+
+  subgraph cluster_c2s1 {
+    label="Client 2 Site 1 (CE)";
+    style=dashed;
+    color="#2f9e44";
+    penwidth=2;
+    r9;
+  }
+
+  subgraph cluster_c2s2 {
+    label="Client 2 Site 2 (CE)";
+    style=dashed;
+    color="#2f9e44";
+    penwidth=2;
+    r10;
+  }
+
+  // ISIS/SRv6 core links (prefix labels removed to avoid overlap)
+  r1 -> r2 [color="#1c58d0", penwidth=2, constraint=false];
+  r1 -> r3 [color="#1c58d0", penwidth=2, constraint=false];
+  r1 -> r5 [color="#1c58d0", penwidth=2, constraint=false];
+  r2 -> r6 [color="#1c58d0", penwidth=2, constraint=false];
+  r3 -> r4 [color="#1c58d0", penwidth=2, constraint=false];
+  r4 -> r5 [color="#1c58d0", penwidth=2, constraint=false];
+  r5 -> r6 [color="#1c58d0", penwidth=2, constraint=false];
+
+  // PE-CE links (IPv4+IPv6 VRF client side)
+  // Layout is driven by edge direction in Graphviz for digraphs.
+  // To force placement like:
+  // - extreme left clients (r7,r9) connected to PE r3
+  // - center core routers (r1..r6)
+  // - extreme right clients (r8,r10) connected to PE r6
+  // we reverse the arrow direction so Graphviz positions endpoints accordingly.
+  // Real mapping from test_srv6_dualstack_l3vpn.py:
+  // - r3: eth2 -> r7 (Client1), eth3 -> r9 (Client2)
+  // - r6: eth2 -> r8 (Client1), eth3 -> r10 (Client2)
+  // OSPF area 0 runs inside the PE VRFs on the PE-CE interfaces (see ospfd.conf).
+  // OSPF area 0 in the PE VRFs (edge labels removed to avoid overlap)
+  r7  -> r3  [style=dashed, color="#ff9900", penwidth=2, constraint=false];
+  r9  -> r3  [style=dashed, color="#ffcc66", penwidth=2, constraint=false];
+  r6 -> r8   [style=dashed, color="#ff9900", penwidth=2, constraint=false];
+  r6 -> r10  [style=dashed, color="#ffcc66", penwidth=2, constraint=false];
+
+  // SRv6 signaling hint between PEs (visual aid)
+  r3 -> r6 [style=dashed, color="#28a745", penwidth=2, constraint=false];
+
+  // BGP VPNv4/VPNv6 overlay between PEs (see bgpd.conf)
+  r3 -> r6 [style="dashed", color="#ff00ff", penwidth=3, constraint=false];
+
+  // Force layout to put clients on both sides and core in the center.
+  // With rankdir=LR:
+  // - rank=min appears on the left
+  // - rank=max appears on the right
+  // - rank=same forms the middle column.
+  { rank=min;  legend; }
+  { rank=min;  r7; }
+  { rank=min;  r9; }
+  { rank=same; r1; r2; r3; r4; r5; r6; }
+  { rank=max;  r8; r10; }
+
+  // Anchor edges (invisible) so Graphviz keeps the intended left/right sides.
+  // Anchor invisible edges to stabilize left/right columns.
+  r7  -> r3 [style=invis, weight=10];
+  r9  -> r3 [style=invis, weight=10];
+  r6 -> r8 [style=invis, weight=10];
+  r6 -> r10 [style=invis, weight=10];
+
+  // Anchor vertical ordering (top/bottom) within each extreme column.
+  // This helps keep r7 above r9 and r8 above r10.
+  r7 -> r9  [style=invis, weight=50];
+  r8 -> r10 [style=invis, weight=50];
+
+  // Legend positioning is handled by the rank constraints above.
+
+  // Center core vertical ordering (top-to-bottom): r6, r2, r5, r4, r1, r3.
+  // Graphviz seems to place targets above sources for this setup, so flip direction.
+  r3 -> r1 [style=invis, weight=100];
+  r1 -> r4 [style=invis, weight=100];
+  r4 -> r5 [style=invis, weight=100];
+  r5 -> r2 [style=invis, weight=100];
+  r2 -> r6 [style=invis, weight=100];
+
+  // Keep legend near the top-left by tying it to the top core router (r6).
+  r6 -> legend [style=invis, weight=250];
+}
