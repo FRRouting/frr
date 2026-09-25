@@ -2696,8 +2696,8 @@ class Router(Node):
             )
 
         # Update the permissions on the log files
-        self.cmd("chown frr:frr -R {}/{}".format(self.logdir, self.name))
-        self.cmd("chmod ug+rwX,o+r -R {}/{}".format(self.logdir, self.name))
+        self.cmd("chown -R frr:frr {}/{}".format(self.logdir, self.name))
+        self.cmd("chmod -R ug+rwX,o+r {}/{}".format(self.logdir, self.name))
 
         if "frr" in logd_options:
             logdopt = logd_options["frr"]
