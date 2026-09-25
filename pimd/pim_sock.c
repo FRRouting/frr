@@ -198,6 +198,26 @@ int pim_reg_sock(void)
 		return PIM_SOCK_ERR_SOCKET;
 	}
 
+#if PIM_IPV == 4
+	/*
+	 * pim_msg_send() builds the outer IP header itself for everything it
+	 * puts on this socket.  Linux implies IP_HDRINCL for an IPPROTO_RAW
+	 * socket, so that header goes on the wire as written; BSD does not,
+	 * and without the option the kernel prepends a second header of its
+	 * own carrying ip_p = IPPROTO_RAW.  A Register then leaves as IP
+	 * protocol 255 with FRR's header as payload, and the RP answers
+	 * "protocol 255 unreachable" instead of learning the source.
+	 * Setting it explicitly is a no-op on Linux and the fix on BSD.
+	 */
+	{
+		int hincl = 1;
+
+		if (setsockopt(fd, IPPROTO_IP, IP_HDRINCL, &hincl, sizeof(hincl)))
+			zlog_warn("Could not set IP_HDRINCL on socket fd=%d: errno=%d: %s", fd,
+				  errno, safe_strerror(errno));
+	}
+#endif
+
 	if (sockopt_reuseaddr(fd)) {
 		close(fd);
 		return PIM_SOCK_ERR_REUSE;
