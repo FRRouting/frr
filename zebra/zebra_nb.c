@@ -62,6 +62,12 @@ const struct frr_yang_module_info frr_zebra_info = {
 			}
 		},
 		{
+			.xpath = "/frr-zebra:zebra/state/kernel-mac-ext-learn",
+			.cbs = {
+				.get_elem = zebra_state_kernel_mac_ext_learn_get_elem,
+			}
+		},
+		{
 			.xpath = "/frr-zebra:zebra/workqueue-hold-timer",
 			.cbs = {
 				.modify = zebra_workqueue_hold_timer_modify,
