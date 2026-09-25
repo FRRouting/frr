@@ -1778,8 +1778,8 @@ static bool vpn_leak_from_vrf_fill_srv6(struct attr *attr, struct bgp *from_bgp,
 	if (from_bgp->vpn_policy[afi].tovpn_sid_locator && from_bgp->vpn_policy[afi].tovpn_sid) {
 		struct srv6_locator *locator = from_bgp->vpn_policy[afi].tovpn_sid_locator;
 
-		struct bgp_attr_srv6_l3service *srv6_l3service =
-			XCALLOC(MTYPE_BGP_SRV6_L3SERVICE, sizeof(struct bgp_attr_srv6_l3service));
+		struct bgp_attr_srv6_service *srv6_l3service =
+			XCALLOC(MTYPE_BGP_SRV6_SERVICE, sizeof(struct bgp_attr_srv6_service));
 
 		encode_label(from_bgp->vpn_policy[afi].tovpn_sid_transpose_label, label);
 		srv6_l3service->sid_flags = 0x00;
@@ -1819,8 +1819,8 @@ static bool vpn_leak_from_vrf_fill_srv6(struct attr *attr, struct bgp *from_bgp,
 	}
 	if (from_bgp->tovpn_sid_locator && from_bgp->tovpn_sid) {
 		struct srv6_locator *locator = from_bgp->tovpn_sid_locator;
-		struct bgp_attr_srv6_l3service *srv6_l3service =
-			XCALLOC(MTYPE_BGP_SRV6_L3SERVICE, sizeof(struct bgp_attr_srv6_l3service));
+		struct bgp_attr_srv6_service *srv6_l3service =
+			XCALLOC(MTYPE_BGP_SRV6_SERVICE, sizeof(struct bgp_attr_srv6_service));
 
 		encode_label(from_bgp->tovpn_sid_transpose_label, label);
 		srv6_l3service->sid_flags = 0x00;
