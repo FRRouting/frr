@@ -95,6 +95,9 @@ DECLARE_MTYPE(BITFIELD);
 /* check if the bit field has been setup */
 #define bf_is_inited(v) ((v).data)
 
+/* check if a bit index is valid (within allocated range) */
+#define bf_index_is_valid(v, b) ((b) < ((v).m * WORD_SIZE))
+
 /* compare two bitmaps of the same length */
 #define bf_cmp(v1, v2) (memcmp((v1).data, (v2).data, ((v1).m * sizeof(word_t))))
 
