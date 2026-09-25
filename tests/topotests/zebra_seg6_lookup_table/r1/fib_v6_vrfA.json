@@ -1,0 +1,39 @@
+[
+	{
+		"dst": "2001:db8:5::/48",
+		"encap": {
+			"encap_type": "seg6",
+			"mode": "encap",
+			"segs": ["fec0::ff"],
+			"lookup": "main"
+		},
+		"dev": "eth0"
+	},
+
+	{
+		"dst": "2001:db8:6::/48",
+		"nexthops": [
+			{
+				"encap": {
+					"encap_type": "seg6",
+					"mode": "encap",
+					"segs": ["fec1::ff"],
+					"lookup": "1001"
+				},
+				"gateway": "fec1::2",
+				"dev": "eth1"
+			}
+		]
+	},
+
+	{
+		"type": "local",
+		"dst": "fec1::1",
+		"dev": "eth1"
+	},
+
+	{
+		"dst": "fec1::/64",
+		"dev": "eth1"
+	}
+]
