@@ -514,6 +514,14 @@ static void bgp_accept(struct event *event)
 		struct peer *dynamic_peer = peer_lookup_dynamic_neighbor(bgp, &su);
 
 		if (dynamic_peer) {
+			if (!frr_event_get_epoll_fd_avail(bm->master)) {
+				zlog_warn("%s: BGP is down to a small number of FD available(<= %d), leaving some for vtysh connections",
+					  __func__, FRREVENT_FD_LIMIT_SAVE_SOME);
+				peer_delete(dynamic_peer);
+				close(bgp_sock);
+				return;
+			}
+
 			if (peergroup_flag_check(dynamic_peer, PEER_FLAG_RPKI_STRICT) &&
 			    !bgp_rpki_cache_connected(dynamic_peer->bgp)) {
 				if (bgp_debug_neighbor_events(dynamic_peer))
@@ -590,6 +598,14 @@ static void bgp_accept(struct event *event)
 				inet_sutop(&su, buf), bgp->name_pretty, bgp->as,
 				VRF_LOGNAME(vrf_lookup_by_id(bgp->vrf_id)));
 		}
+		close(bgp_sock);
+		return;
+	}
+
+	if (!frr_event_get_epoll_fd_avail(bm->master)) {
+		zlog_warn("%s: BGP is down to a small number of FD available(<= %d), leaving some for vtysh connections",
+			  __func__, FRREVENT_FD_LIMIT_SAVE_SOME);
+
 		close(bgp_sock);
 		return;
 	}
@@ -872,6 +888,13 @@ enum connect_result bgp_connect(struct peer_connection *connection)
 			zlog_debug("Peer address not learnt: Returning from connect");
 		return connect_error;
 	}
+
+	if (!frr_event_get_epoll_fd_avail(bm->master)) {
+		zlog_warn("%s: BGP is down to a small number of FD available(<= %d), leaving some for vtysh connections",
+			  __func__, FRREVENT_FD_LIMIT_SAVE_SOME);
+		return connect_error;
+	}
+
 	frr_with_privs(&bgpd_privs) {
 		/* Make socket for the peer. */
 		connection->fd =
