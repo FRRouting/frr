@@ -10,8 +10,8 @@ Routing Protocol is "rip"
     r2-eth0          2     2      
     r2-eth1          2     2      
   Routing for Networks:
-    193.1.1.0/26
-    193.1.2.0/24
+    r2-eth0
+    r2-eth1
   Routing Information Sources:
     Gateway          BadPackets BadRoutes  Distance Last Update
     193.1.1.1                 0         0       120    XX:XX:XX
