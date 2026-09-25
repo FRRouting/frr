@@ -199,9 +199,18 @@ void zebra_router_release_table(struct zebra_vrf *zvrf, uint32_t tableid,
 
 uint32_t zebra_router_get_next_sequence(void)
 {
-	return 1
-	       + atomic_fetch_add_explicit(&zrouter.sequence_num, 1,
-					   memory_order_relaxed);
+	uint32_t seq;
+
+	/*
+	 * Never hand out 0. A route entry that was never sent to the
+	 * dataplane has sequence 0, and 0 also means "no old entry" in the
+	 * dplane context.
+	 */
+	do {
+		seq = 1 + atomic_fetch_add_explicit(&zrouter.sequence_num, 1, memory_order_relaxed);
+	} while (seq == 0);
+
+	return seq;
 }
 
 static inline unsigned int interface_hash_key(const void *arg)
