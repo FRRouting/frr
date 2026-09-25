@@ -33,6 +33,7 @@ void test_pcep_obj_create_close(void);
 void test_pcep_obj_create_srp(void);
 void test_pcep_obj_create_lsp(void);
 void test_pcep_obj_create_vendor_info(void);
+void test_pcep_decode_obj_vendor_info_color(void);
 void test_pcep_obj_create_ero(void);
 void test_pcep_obj_create_rro(void);
 void test_pcep_obj_create_iro(void);

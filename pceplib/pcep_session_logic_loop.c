@@ -72,25 +72,48 @@ int session_logic_msg_ready_handler(void *data, int socket_fd)
 	 * in pcep_session_logic_states.c */
 	pcep_session_event *rcvd_msg_event = create_session_event(session);
 
-	int msg_length = 0;
-	double_linked_list *msg_list = pcep_msg_read(socket_fd);
+	/*
+	 * The socket comm loop stops reading from the socket when 0 is
+	 * returned, which must only happen when the socket was closed. A
+	 * read that completes no message (a message split across reads,
+	 * or an undecodable one) keeps the socket open. When messages were
+	 * received, the length of the first one is returned, as before.
+	 */
+	int result = 1;
+	int invalid_msgs = 0;
+	double_linked_list *msg_list =
+		pcep_msg_read_buffered(socket_fd, session->rx_buffer, sizeof(session->rx_buffer),
+				       &session->rx_buffer_len, &invalid_msgs);
+
+	while (invalid_msgs > 0) {
+		increment_unknown_message(session);
+		invalid_msgs--;
+	}
+
+	/*
+	 * Not a complete message. A partial message split
+	 * across reads. Keep the session and wait for more data.
+	 */
+	if (msg_list != NULL && msg_list->num_entries == 0) {
+		dll_destroy(msg_list);
+		pceplib_free(PCEPLIB_INFRA, rcvd_msg_event);
+		pthread_mutex_unlock(&(session_logic_handle_->session_logic_mutex));
+		return result;
+	}
 
 	if (msg_list == NULL) {
 		/* The socket was closed, or there was a socket read error */
 		pcep_log(LOG_INFO,
 			 "%s: PCEP connection closed for session [%d]",
 			 __func__, session->session_id);
-		dll_destroy(msg_list);
+		result = 0;
+		session->rx_buffer_len = 0;
 		rcvd_msg_event->socket_closed = true;
 		socket_comm_session_teardown(session->socket_comm_session);
 		pcep_session_cancel_timers(session);
 		session->socket_comm_session = NULL;
 		session->session_state = SESSION_STATE_INITIALIZED;
 		enqueue_event(session, PCE_CLOSED_SOCKET, NULL);
-	} else if (msg_list->num_entries == 0) {
-		/* Invalid message received */
-		increment_unknown_message(session);
-		dll_destroy_with_data(msg_list);
 	} else {
 		/* Just logging the first of potentially several messages
 		 * received */
@@ -104,7 +127,7 @@ int session_logic_msg_ready_handler(void *data, int socket_fd)
 			session->session_id);
 
 		rcvd_msg_event->received_msg_list = msg_list;
-		msg_length = msg->encoded_message_length;
+		result = msg->encoded_message_length;
 	}
 
 	queue_enqueue(session_logic_handle_->session_event_queue,
@@ -112,7 +135,7 @@ int session_logic_msg_ready_handler(void *data, int socket_fd)
 	pthread_cond_signal(&(session_logic_handle_->session_logic_cond_var));
 	pthread_mutex_unlock(&(session_logic_handle_->session_logic_mutex));
 
-	return msg_length;
+	return result;
 }
 
 
@@ -288,6 +311,12 @@ void *session_logic_loop(void *data)
 					 != TIMER_ID_NOT_SET)
 						? "timer"
 						: "message");
+				/* The messages the event carries are only
+				 * freed when the event is handled, so a
+				 * discarded event must free them itself.
+				 */
+				if (event->received_msg_list != NULL)
+					pcep_msg_free_message_list(event->received_msg_list);
 				pceplib_free(PCEPLIB_INFRA, event);
 				event = queue_dequeue(
 					session_logic_handle
@@ -315,6 +344,9 @@ void *session_logic_loop(void *data)
 					 != TIMER_ID_NOT_SET)
 						? "timer"
 						: "message");
+				/* discarded event must free its own messages. */
+				if (event->received_msg_list != NULL)
+					pcep_msg_free_message_list(event->received_msg_list);
 				pceplib_free(PCEPLIB_INFRA, event);
 				event = queue_dequeue(
 					session_logic_handle
