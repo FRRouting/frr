@@ -1072,12 +1072,14 @@ static void nhrp_peer_forward(struct nhrp_peer *p,
 			 */
 			break;
 		default:
-			if (htons(ext->type) & NHRP_EXTENSION_FLAG_COMPULSORY)
-				/* FIXME: RFC says to just copy, but not
-				 * append our selves to the transit NHS list
+			if (htons(ext->type) & NHRP_EXTENSION_FLAG_COMPULSORY) {
+				/* RFC 2332 §5.3: unknown compulsory extensions
+				 * must be forwarded but the transit NHS MUST
+				 * NOT cache the packet information or add
+				 * itself to transit records.  Copy through
+				 * without processing.
 				 */
-				goto err;
-			fallthrough;
+			}
 		case NHRP_EXTENSION_RESPONDER_ADDRESS:
 			/* Supported compulsory extensions, and any
 			 * non-compulsory that is not explicitly handled,
