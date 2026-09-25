@@ -163,8 +163,19 @@ struct route_entry {
 	/* Sequence value incremented for each dataplane operation */
 	uint32_t dplane_sequence;
 
-	/* Source protocol instance */
-	uint16_t instance;
+	/*
+	 * Route source discriminator.
+	 *
+	 * Most route types use 'instance' to identify the source protocol
+	 * instance. ZEBRA_ROUTE_VRF_IMPORT routes do not have a protocol
+	 * instance; they use the same storage to record the source VRF ID
+	 * instead. Use route_entry_get_proto_instance() when the protocol instance
+	 * value is needed for arbitrary route types.
+	 */
+	union {
+		uint16_t instance;
+		vrf_id_t vrf_import_src_vrf_id;
+	};
 
 	/* Distance. */
 	uint8_t distance;
@@ -177,6 +188,11 @@ struct route_entry {
 
 	struct re_opaque *opaque;
 };
+
+static inline uint16_t route_entry_get_proto_instance(const struct route_entry *re)
+{
+	return re->type == ZEBRA_ROUTE_VRF_IMPORT ? 0 : re->instance;
+}
 
 #define RIB_SYSTEM_ROUTE(R) RSYSTEM_ROUTE((R)->type)
 
