@@ -29,6 +29,22 @@ DECLARE_RBTREE_UNIQ(p_spaces, struct p_space, p_spaces_item,
 DECLARE_RBTREE_UNIQ(q_spaces, struct q_space, q_spaces_item,
 		    q_spaces_compare_func);
 
+static void test_missing_prefix_sid(void)
+{
+	struct in_addr router_id;
+	struct sr_node *srn;
+
+	assert(inet_aton("192.0.2.1", &router_id));
+
+	/* No SR node exists for this router ID. */
+	assert(ospf_sr_get_prefix_sid_by_id(&router_id) == MPLS_INVALID_LABEL);
+
+	/* The SR node exists, but no Prefix-SID has been learned yet. */
+	srn = ospf_sr_node_create(&router_id);
+	assert(srn);
+	assert(ospf_sr_get_prefix_sid_by_id(&router_id) == MPLS_INVALID_LABEL);
+}
+
 static struct ospf *test_init(struct ospf_test_node *root)
 {
 	struct ospf *ospf;
@@ -291,6 +307,7 @@ int main(int argc, char **argv)
 	/* needed for SR DB init */
 	ospf_vty_init();
 	ospf_sr_init();
+	test_missing_prefix_sid();
 
 	term_debug_ospf_ti_lfa = 1;
 

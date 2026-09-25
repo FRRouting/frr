@@ -680,7 +680,7 @@ mpls_label_t ospf_sr_get_prefix_sid_by_id(struct in_addr *id)
 {
 	struct sr_node *srn;
 	struct sr_prefix *srp;
-	mpls_label_t label;
+	mpls_label_t label = MPLS_INVALID_LABEL;
 
 	srn = (struct sr_node *)hash_lookup(OspfSR.neighbors, id);
 
@@ -691,9 +691,19 @@ mpls_label_t ospf_sr_get_prefix_sid_by_id(struct in_addr *id)
 		 * the list, probably needs tweaking.
 		 */
 		srp = listnode_head(srn->ext_prefix);
+		if (!srp)
+			return label;
+
+		/*
+		 * SR Node could be known, but SRGB could be not
+		 * initialized yet. This is due to the fact that
+		 * Extended Prefix could be received before the
+		 * corresponding Router Information LSA.
+		 */
+		if (srn->srgb.lower_bound == 0 || srn->srgb.range_size == 0)
+			return label;
+
 		label = index2label(srp->sid, srn->srgb);
-	} else {
-		label = MPLS_INVALID_LABEL;
 	}
 
 	return label;
