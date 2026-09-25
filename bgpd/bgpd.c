@@ -4909,6 +4909,10 @@ int bgp_delete(struct bgp *bgp)
 		bgp_evpn_cleanup_per_vni_routes(bgp);
 	}
 
+	/* drop pending BGP-LU label requests before bgp_free() frees the dests */
+	if (!bm->terminating && !IS_BGP_INSTANCE_HIDDEN(bgp))
+		bgp_lp_release_instance_lu(bgp);
+
 	bgp_cleanup_routes(bgp);
 
 	if (bm->bgp_evpn == bgp) {
