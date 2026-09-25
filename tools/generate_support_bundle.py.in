@@ -26,11 +26,11 @@ def main():
     parser.add_argument(
         "-c",
         "--config",
-        default="/etc/frr/support_bundle_commands.conf",
+        default="@e_frr_sysconfdir@/support_bundle_commands.conf",
         help="input config",
     )
     parser.add_argument(
-        "-l", "--log-dir", default="/var/log/frr", help="directory for logfiles"
+        "-l", "--log-dir", default="@e_frr_logdir@", help="directory for logfiles"
     )
     parser.add_argument(
         "-N", "--pathspace", help="Insert prefix into config & socket paths"
