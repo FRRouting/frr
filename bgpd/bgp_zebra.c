@@ -1657,7 +1657,7 @@ enum zclient_send_status bgp_zebra_announce_actual(struct bgp_dest *dest,
 		api.tableid = info->attr->rmap_table_id;
 	}
 
-	if (info->extra && info->extra->srte_color)
+	if (bgp_path_info_get_srte_color(info))
 		SET_FLAG(api.message, ZAPI_MESSAGE_SRTE);
 
 	/* Metric is currently based on the best-path only */
