@@ -1903,7 +1903,7 @@ void send_request(struct interface *ifp, const unsigned char *prefix, unsigned c
 		struct vrf *vrf = vrf_lookup_by_id(VRF_DEFAULT);
 		struct interface *ifp_aux;
 		FOR_ALL_INTERFACES (vrf, ifp_aux) {
-			if (if_up(ifp_aux))
+			if (!if_up(ifp_aux))
 				continue;
 			send_request(ifp_aux, prefix, plen);
 		}
