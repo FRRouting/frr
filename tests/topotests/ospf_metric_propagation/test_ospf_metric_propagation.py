@@ -321,7 +321,9 @@ def test_link_1_2_3_4_down():
         pytest.skip("skipped because of router(s) failure")
 
     # Explicitly set link states: all links down
-    set_link_states(tgen, link1_up=False, link2_up=False, link3_up=False, link4_up=False)
+    set_link_states(
+        tgen, link1_up=False, link2_up=False, link3_up=False, link4_up=False
+    )
     r1 = tgen.gears["r1"]
 
     json_file = "{}/r1/show_ip_route-4.json".format(CWD)
@@ -364,18 +366,56 @@ def test_link_1_4_down_2_up():
     if tgen.routers_have_failure():
         pytest.skip("skipped because of router(s) failure")
 
-    # Explicitly set link states: link1 down, link2 up, link3 up, link4 down
-    set_link_states(tgen, link1_up=False, link2_up=True, link3_up=True, link4_up=False)
-    r1 = tgen.gears["r1"]
+    def _r2_blue_external_gone():
+        # Other routers' externals stay in the LSDB until MaxAge. Only r2's
+        # own advertisement (router-id 10.0.255.2) is flooded when r2-eth1
+        # comes up. A MaxAge copy is already being flushed.
+        out = tgen.gears["r2"].vtysh_cmd("show ip ospf vrf blue database external")
+        for line in out.splitlines():
+            parts = line.split()
+            if len(parts) < 3:
+                continue
+            if parts[0] != "10.0.94.0" or parts[1] != "10.0.255.2":
+                continue
+            if parts[2] == "3600":
+                continue
+            return "r2 still originating 10.0.94.0 into blue: " + line.strip()
+        return None
 
-    json_file = "{}/r1/show_ip_route-5.json".format(CWD)
-    expected = json.loads(open(json_file).read())
-    test_func = partial(
-        topotest.router_json_cmp, r1, "show ip route vrf green 10.0.94.2 json", expected
-    )
-    _, result = topotest.run_and_expect(test_func, None, count=120, wait=2)
+    # Withdraw r2's green path before r2-eth1 joins blue. Otherwise r2 floods
+    # the expensive green metric into blue OSPF in the same exchange that
+    # carries r3's cheaper external, and BGP keeps the worse one.
+    tgen.net["r2"].cmd("ip link set dev r2-eth2 down")
+    try:
+        _, result = topotest.run_and_expect(
+            _r2_blue_external_gone, None, count=60, wait=1
+        )
+        assert result is None, result
 
-    assertmsg = "r1 JSON output mismatches"
+        # Explicitly set link states: link1 down, link2 up, link3 up, link4 down
+        set_link_states(
+            tgen, link1_up=False, link2_up=True, link3_up=True, link4_up=False
+        )
+        r1 = tgen.gears["r1"]
+
+        json_file = "{}/r1/show_ip_route-5.json".format(CWD)
+        expected = json.loads(open(json_file).read())
+        test_func = partial(
+            topotest.router_json_cmp,
+            r1,
+            "show ip route vrf green 10.0.94.2 json",
+            expected,
+        )
+        _, result = topotest.run_and_expect(test_func, None, count=120, wait=2)
+
+        assertmsg = "r1 JSON output mismatches"
+        assert result is None, assertmsg
+    finally:
+        tgen.net["r2"].cmd("ip link set dev r2-eth2 up")
+
+    # Green import returns with the worse metric. The redistributed blue OSPF
+    # path stays best, so 10.0.94.0/24 remains metric 238.
+    _, result = topotest.run_and_expect(test_func, None, count=60, wait=1)
     assert result is None, assertmsg
 
 
