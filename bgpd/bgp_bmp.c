@@ -46,7 +46,7 @@
 static void bmp_close(struct bmp *bmp);
 static struct bmp_bgp *bmp_bgp_find(struct bgp *bgp);
 static void bmp_targets_put(struct bmp_targets *bt);
-static struct bmp_bgp_peer *bmp_bgp_peer_find(uint64_t peerid);
+static struct bmp_bgp_peer *bmp_bgp_peer_find(const struct peer_connection *connection);
 static struct bmp_bgp_peer *bmp_bgp_peer_get(struct peer *peer);
 static void bmp_active_disconnected(struct bmp_active *ba);
 static void bmp_active_put(struct bmp_active *ba);
@@ -96,16 +96,16 @@ struct bmp_bgph_head bmp_bgph;
 static int bmp_bgp_peer_cmp(const struct bmp_bgp_peer *a,
 		const struct bmp_bgp_peer *b)
 {
-	if (a->peerid < b->peerid)
+	if (a->connection < b->connection)
 		return -1;
-	if (a->peerid > b->peerid)
+	if (a->connection > b->connection)
 		return 1;
 	return 0;
 }
 
 static uint32_t bmp_bgp_peer_hash(const struct bmp_bgp_peer *e)
 {
-	return e->peerid;
+	return jhash(&e->connection, sizeof(e->connection), 0x8a7b9c1d);
 }
 
 DECLARE_HASH(bmp_peerh, struct bmp_bgp_peer, bpi,
@@ -538,7 +538,7 @@ static struct stream *bmp_peerstate(struct peer *peer, bool down)
 			0x00, 0x13, 0x01,
 		};
 
-		bbpeer = bmp_bgp_peer_find(peer->qobj_node.nid);
+		bbpeer = bmp_bgp_peer_find(peer->connection);
 
 		if (bbpeer && bbpeer->open_tx) {
 			if (is_locrib)
@@ -1092,12 +1092,12 @@ static void bmp_adj_in_release(struct bmp_targets *bt, afi_t afi, safi_t safi)
 
 static int bmp_peer_status_changed(struct peer *peer)
 {
-	struct bmp_bgp_peer *bbpeer, *bbdopp;
+	struct bmp_bgp_peer *bbpeer;
 
 	frrtrace(1, frr_bgp, bmp_peer_status_changed, peer);
 
 	if (peer->connection->status == Deleted) {
-		bbpeer = bmp_bgp_peer_find(peer->qobj_node.nid);
+		bbpeer = bmp_bgp_peer_find(peer->connection);
 		if (bbpeer) {
 			XFREE(MTYPE_BMP_OPEN, bbpeer->open_rx);
 			XFREE(MTYPE_BMP_OPEN, bbpeer->open_tx);
@@ -1112,24 +1112,11 @@ static int bmp_peer_status_changed(struct peer *peer)
 	    !(peer_established(peer->connection)))
 		return 0;
 
-	if (peer->doppelganger &&
-	    (peer->doppelganger->connection->status != Deleted)) {
-		bbpeer = bmp_bgp_peer_get(peer);
-		bbdopp = bmp_bgp_peer_find(peer->doppelganger->qobj_node.nid);
-		if (bbdopp) {
-			XFREE(MTYPE_BMP_OPEN, bbpeer->open_tx);
-			XFREE(MTYPE_BMP_OPEN, bbpeer->open_rx);
-
-			bbpeer->open_tx = bbdopp->open_tx;
-			bbpeer->open_tx_len = bbdopp->open_tx_len;
-			bbpeer->open_rx = bbdopp->open_rx;
-			bbpeer->open_rx_len = bbdopp->open_rx_len;
-
-			bmp_peerh_del(&bmp_peerh, bbdopp);
-			XFREE(MTYPE_BMP_PEER, bbdopp);
-		}
-	}
-
+	/*
+	 * peer_xfer_conn() has already attached the surviving connection to
+	 * this peer, so the record keyed on peer->connection holds the OPENs
+	 * that were actually exchanged on the session.
+	 */
 	bmp_send_all_bgp(peer, false);
 	return 0;
 }
@@ -1140,7 +1127,7 @@ static int bmp_peer_backward(struct peer *peer)
 
 	frrtrace(1, frr_bgp, bmp_peer_backward_transition, peer);
 
-	bbpeer = bmp_bgp_peer_find(peer->qobj_node.nid);
+	bbpeer = bmp_bgp_peer_find(peer->connection);
 	if (bbpeer) {
 		XFREE(MTYPE_BMP_OPEN, bbpeer->open_tx);
 		bbpeer->open_tx_len = 0;
@@ -2461,7 +2448,7 @@ bool bmp_bgp_update_vrf_status(enum bmp_vrf_state *vrf_state, struct bgp *bgp,
 			bbpeer = bmp_bgp_peer_get(peer);
 			bmp_bgp_peer_vrf(bbpeer, bgp);
 		} else {
-			bbpeer = bmp_bgp_peer_find(peer->qobj_node.nid);
+			bbpeer = bmp_bgp_peer_find(peer->connection);
 			if (bbpeer) {
 				XFREE(MTYPE_BMP_OPEN, bbpeer->open_tx);
 				XFREE(MTYPE_BMP_OPEN, bbpeer->open_rx);
@@ -2474,9 +2461,10 @@ bool bmp_bgp_update_vrf_status(enum bmp_vrf_state *vrf_state, struct bgp *bgp,
 	return changed;
 }
 
-static struct bmp_bgp_peer *bmp_bgp_peer_find(uint64_t peerid)
+static struct bmp_bgp_peer *bmp_bgp_peer_find(const struct peer_connection *connection)
 {
-	struct bmp_bgp_peer dummy = { .peerid = peerid };
+	struct bmp_bgp_peer dummy = { .connection = connection };
+
 	return bmp_peerh_find(&bmp_peerh, &dummy);
 }
 
@@ -2484,12 +2472,12 @@ static struct bmp_bgp_peer *bmp_bgp_peer_get(struct peer *peer)
 {
 	struct bmp_bgp_peer *bbpeer;
 
-	bbpeer = bmp_bgp_peer_find(peer->qobj_node.nid);
+	bbpeer = bmp_bgp_peer_find(peer->connection);
 	if (bbpeer)
 		return bbpeer;
 
 	bbpeer = XCALLOC(MTYPE_BMP_PEER, sizeof(*bbpeer));
-	bbpeer->peerid = peer->qobj_node.nid;
+	bbpeer->connection = peer->connection;
 	bmp_peerh_add(&bmp_peerh, bbpeer);
 
 	return bbpeer;
