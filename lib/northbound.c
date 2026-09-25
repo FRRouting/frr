@@ -6,6 +6,10 @@
 
 #include <zebra.h>
 
+#ifdef HAVE_MALLOC_TRIM
+#include <malloc.h>
+#endif
+
 #include "darr.h"
 #include "host_nb.h"
 #include "libfrr.h"
@@ -352,13 +356,15 @@ struct nb_config *nb_config_new(struct lyd_node *dnode)
 	else
 		config->dnode = yang_dnode_new(ly_native_ctx, true);
 	config->version = 0;
+	config->dnode_shared = false;
 
 	return config;
 }
 
 void nb_config_free(struct nb_config *config)
 {
-	if (config->dnode)
+	/* Don't free shared dnode - it's owned by running_config */
+	if (config->dnode && !config->dnode_shared)
 		yang_dnode_free(config->dnode);
 
 	XFREE(MTYPE_NB_CONFIG, config);
@@ -371,6 +377,7 @@ struct nb_config *nb_config_dup(const struct nb_config *config)
 	dup = XCALLOC(MTYPE_NB_CONFIG, sizeof(*dup));
 	dup->dnode = yang_dnode_dup(config->dnode);
 	dup->version = config->version;
+	dup->dnode_shared = false;
 
 	return dup;
 }
@@ -397,9 +404,12 @@ void nb_config_replace(struct nb_config *config_dst,
 	if (config_src->version != 0)
 		config_dst->version = config_src->version;
 
-	/* Update dnode. */
-	if (config_dst->dnode)
+	/* Update dnode - don't free if shared (owned by running_config) */
+	if (config_dst->dnode && !config_dst->dnode_shared)
 		yang_dnode_free(config_dst->dnode);
+
+	config_dst->dnode_shared = false;
+
 	if (preserve_source) {
 		config_dst->dnode = yang_dnode_dup(config_src->dnode);
 	} else {
@@ -407,6 +417,28 @@ void nb_config_replace(struct nb_config *config_dst,
 		config_src->dnode = NULL;
 		nb_config_free(config_src);
 	}
+}
+
+void nb_config_share_running(struct nb_config *candidate)
+{
+	/* Already sharing or no candidate - nothing to do */
+	if (!candidate || candidate->dnode_shared)
+		return;
+
+	/* Free existing candidate dnode */
+	if (candidate->dnode)
+		yang_dnode_free(candidate->dnode);
+
+	/* Share running_config's dnode */
+	candidate->dnode = running_config->dnode;
+	candidate->dnode_shared = true;
+	candidate->version = running_config->version;
+	candidate->cow_share_count++;
+
+	/* Release freed memory to OS */
+#ifdef HAVE_MALLOC_TRIM
+	malloc_trim(0);
+#endif
 }
 
 /* Generate the nb_config_cbs tree. */
@@ -757,6 +789,25 @@ static LY_ERR dnode_create(struct nb_config *candidate, const char *xpath, const
 	return LY_SUCCESS;
 }
 
+/*
+ * Copy-on-write: duplicate shared dnode before modification.
+ *
+ * If running_config was replaced (e.g., by rollback) since we started
+ * sharing, our dnode pointer is stale. Detect this via version mismatch
+ * and re-share from current running_config before duplicating.
+ */
+static void nb_candidate_cow_trigger(struct nb_config *candidate)
+{
+	if (!candidate->dnode_shared)
+		return;
+
+	if (candidate->version != running_config->version)
+		candidate->dnode = running_config->dnode;
+	candidate->dnode = yang_dnode_dup(candidate->dnode);
+	candidate->dnode_shared = false;
+	candidate->cow_trigger_count++;
+}
+
 int nb_candidate_edit(struct nb_config *candidate, const struct nb_node *nb_node,
 		      enum nb_operation operation, const char *xpath, const char *value)
 {
@@ -765,6 +816,8 @@ int nb_candidate_edit(struct nb_config *candidate, const struct nb_node *nb_node
 	struct lyd_node *parent = NULL;
 	uint32_t options = 0;
 	LY_ERR err;
+
+	nb_candidate_cow_trigger(candidate);
 
 	switch (operation) {
 	case NB_OP_CREATE:
@@ -1093,6 +1146,8 @@ int nb_candidate_edit_tree(struct nb_config *candidate,
 			   char *xpath_created, char *errmsg, size_t errmsg_len)
 {
 	int ret = NB_ERR;
+
+	nb_candidate_cow_trigger(candidate);
 
 	switch (operation) {
 	case NB_OP_CREATE_EXCL:
