@@ -1385,8 +1385,18 @@ static void zebra_if_addr_update_ctx(struct zebra_dplane_ctx *ctx,
 	 * See rib_update_handle_kernel_route_down_possibility for more details
 	 */
 	if (op != DPLANE_OP_INTF_ADDR_ADD && addr->family == AF_INET &&
-	    !if_has_connected_with_family(ifp, AF_INET))
+	    !if_has_connected_with_family(ifp, AF_INET)) {
+		struct zebra_if *zif = ifp->info;
+
+		/* Record which interface lost its last IPv4 address, so that
+		 * the walk below only reaps the routes the kernel actually
+		 * dropped.
+		 */
+		if (zif)
+			SET_FLAG(zif->flags, ZIF_FLAG_IPV4_ADDR_GONE);
+
 		rib_update(RIB_UPDATE_KERNEL_LAST_IPV4_ADDRESS_DELETED);
+	}
 }
 
 static void zebra_if_update_ctx(struct zebra_dplane_ctx *ctx,
