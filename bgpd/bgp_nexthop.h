@@ -135,7 +135,8 @@ extern bool bgp_nexthop_self(struct bgp *bgp, afi_t afi, uint8_t type,
 			     uint8_t sub_type, struct attr *attr,
 			     struct bgp_dest *dest);
 extern bool bgp_hostroute_self(struct bgp *bgp, const struct prefix *p);
-extern struct bgp_nexthop_cache *bnc_new(struct bgp_nexthop_cache_head *tree,
+extern struct bgp_nexthop_cache *bnc_new(struct bgp *bgp,
+					 struct bgp_nexthop_cache_head *tree,
 					 struct prefix *prefix,
 					 uint32_t srte_color,
 					 ifindex_t ifindex);

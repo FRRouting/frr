@@ -845,6 +845,12 @@ struct bgp {
 	/* BGP per AF peer count */
 	uint32_t af_peer_count[AFI_MAX][SAFI_MAX];
 
+	/* Number of nexthop cache entries with a nonzero SR-TE color.
+	 * Used to skip the full nexthop table walk in bgp_nexthop_update()
+	 * when no colored nexthops exist (the common, non-SR-TE case).
+	 */
+	uint32_t srte_bnc_count;
+
 	/* Tree for next-hop lookup cache. */
 	struct bgp_nexthop_cache_head nexthop_cache_table[AFI_MAX];
 

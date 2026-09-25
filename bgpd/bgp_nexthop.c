@@ -57,7 +57,8 @@ void bnc_nexthop_free(struct bgp_nexthop_cache *bnc)
 	nexthops_free(bnc->nexthop);
 }
 
-struct bgp_nexthop_cache *bnc_new(struct bgp_nexthop_cache_head *tree,
+struct bgp_nexthop_cache *bnc_new(struct bgp *bgp,
+				  struct bgp_nexthop_cache_head *tree,
 				  struct prefix *prefix, uint32_t srte_color,
 				  ifindex_t ifindex)
 {
@@ -69,6 +70,9 @@ struct bgp_nexthop_cache *bnc_new(struct bgp_nexthop_cache_head *tree,
 	bnc->ifindex_ipv6_ll = ifindex;
 	bnc->srte_color = srte_color;
 	bnc->tree = tree;
+	bnc->bgp = bgp;
+	if (srte_color)
+		bgp->srte_bnc_count++;
 	LIST_INIT(&(bnc->paths));
 	bgp_nexthop_cache_add(tree, bnc);
 
@@ -90,6 +94,13 @@ bool bnc_existing_for_prefix(struct bgp_nexthop_cache *bnc)
 
 void bnc_free(struct bgp_nexthop_cache *bnc)
 {
+	if (bnc->srte_color) {
+		if (bnc->bgp->srte_bnc_count)
+			bnc->bgp->srte_bnc_count--;
+		else
+			zlog_err("%s: srte_bnc_count underflow for %pFX",
+				 __func__, &bnc->prefix);
+	}
 	bnc_nexthop_free(bnc);
 	bgp_nexthop_cache_del(bnc->tree, bnc);
 	XFREE(MTYPE_BGP_NEXTHOP_CACHE, bnc);
