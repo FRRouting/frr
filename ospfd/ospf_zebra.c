@@ -211,6 +211,12 @@ static void ospf_zebra_add_nexthop(struct ospf *ospf, struct ospf_path *path,
 	}
 	api_nh->vrf_id = ospf->vrf_id;
 
+	if (path->nh_weight) {
+		SET_FLAG(api_nh->flags, ZAPI_NEXTHOP_FLAG_WEIGHT);
+		api_nh->weight = path->nh_weight;
+	} else
+		UNSET_FLAG(api_nh->flags, ZAPI_NEXTHOP_FLAG_WEIGHT);
+
 	/* Set TI-LFA backup nexthop info if present */
 	if (path->srni.backup_label_stack) {
 		SET_FLAG(api->message, ZAPI_MESSAGE_BACKUP_NEXTHOPS);

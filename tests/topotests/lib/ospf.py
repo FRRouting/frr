@@ -404,6 +404,7 @@ def config_ospf_interface(
             data_ospf_auth = ospf_data.setdefault("authentication", None)
             data_ospf_dr_priority = ospf_data.setdefault("priority", None)
             data_ospf_cost = ospf_data.setdefault("cost", None)
+            data_ospf_weight = ospf_data.setdefault("weight", None)
             data_ospf_mtu = ospf_data.setdefault("mtu_ignore", None)
 
             try:
@@ -466,6 +467,14 @@ def config_ospf_interface(
             # interface ospf cost
             if data_ospf_cost:
                 cmd = "ip ospf cost {}".format(ospf_data["cost"])
+                if "del_action" in ospf_data:
+                    cmd = "no {}".format(cmd)
+                config_data.append(cmd)
+
+            # interface ospf weight
+            if data_ospf_weight:
+                cmd = "ip ospf weight {}".format(ospf_data["weight"])
+                print(cmd)
                 if "del_action" in ospf_data:
                     cmd = "no {}".format(cmd)
                 config_data.append(cmd)
