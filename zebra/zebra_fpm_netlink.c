@@ -139,6 +139,7 @@ struct netlink_route_info {
 	 * Nexthop structures
 	 */
 	struct netlink_nh_info nhs[MULTIPATH_NUM];
+	union g_addr v4ll_gateways[MULTIPATH_NUM]; /* per-nh RFC 5549 storage */
 	union g_addr *pref_src;
 };
 
@@ -183,9 +184,10 @@ static int netlink_route_info_add_nh(struct netlink_route_info *ri,
 	    || nexthop->type == NEXTHOP_TYPE_IPV6_IFINDEX) {
 		/* Special handling for IPv4 route with IPv6 Link Local next hop
 		 */
-		if (ri->af == AF_INET)
-			nhi.gateway = &ipv4ll_gateway;
-		else
+		if (ri->af == AF_INET) {
+			ipv6ll_to_ipv4ll(&nexthop->gate.ipv6, &ri->v4ll_gateways[ri->num_nhs].ipv4);
+			nhi.gateway = &ri->v4ll_gateways[ri->num_nhs];
+		} else
 			nhi.gateway = &nexthop->gate;
 	}
 

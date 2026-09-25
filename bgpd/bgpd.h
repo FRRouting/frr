@@ -1704,6 +1704,10 @@ struct peer {
 
 	char *conf_if;	 /* neighbor interface config name. */
 	struct interface *ifp; /* corresponding interface */
+	uint32_t nbr_conn_idx; /* index into nbr_connected list */
+	uint32_t nbr_conn_tried; /* entries tried in current cycle */
+	bool nbr_conn_found;	 /* true once established on current nbr_connected list */
+	bool sent_bad_peer_as;	 /* last notify was Bad Peer AS (for round-robin) */
 	char *ifname;	  /* bind interface name. */
 	char *update_if;
 	union sockunion *update_source;
