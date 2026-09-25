@@ -13577,6 +13577,8 @@ static void route_vty_out_detail_remote_sid(struct vty *vty, struct bgp_path_inf
 		json_object_string_add(json_path, "endpointBehavior",
 				       srv6_endpoint_behavior_codepoint2str(
 					       srv6_service->endpoint_behavior));
+		json_object_string_add(json_path, "prefixSidType", "l3");
+
 		json_sid_attr = json_object_new_object();
 		json_object_object_add(json_path, "remoteSidStructure", json_sid_attr);
 		json_object_int_add(json_sid_attr, "locatorBlockLen", srv6_service->loc_block_len);
