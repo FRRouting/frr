@@ -1447,6 +1447,17 @@ static int lsp_to_subnet_cb(const struct prefix *prefix, uint32_t metric, bool e
 	return LSP_ITER_CONTINUE;
 }
 
+/*
+ * A LAN pseudonode LSP reuses the DIS system ID. TED vertices are indexed
+ * by that system ID alone, so the pseudonode must not be parsed or deleted
+ * as the router node: the pseudonode carries no TE IP sub-TLVs, and doing
+ * so orphans or removes the real router's edges.
+ */
+static bool isis_te_lsp_is_pseudonode(const struct isis_lsp *lsp)
+{
+	return LSP_PSEUDO_ID(lsp->hdr.lsp_id) != 0;
+}
+
 /**
  * Parse ISIS LSP to fulfill the Link State Database
  *
@@ -1465,6 +1476,12 @@ static void isis_te_parse_lsp(struct mpls_te_area *mta, struct isis_lsp *lsp)
 	/* Sanity Check */
 	if (!IS_MPLS_TE(mta) || !mta->ted || !lsp)
 		return;
+
+	if (isis_te_lsp_is_pseudonode(lsp)) {
+		te_debug("ISIS-TE(%s): Skip pseudonode LSP %pSY", lsp->area->area_tag,
+			 lsp->hdr.lsp_id);
+		return;
+	}
 
 	ted = mta->ted;
 
@@ -1542,6 +1559,12 @@ static void isis_te_delete_lsp(struct mpls_te_area *mta, struct isis_lsp *lsp)
 	/* Sanity Check */
 	if (!IS_MPLS_TE(mta) || !mta->ted || !lsp)
 		return;
+
+	if (isis_te_lsp_is_pseudonode(lsp)) {
+		te_debug("ISIS-TE(%s): Skip pseudonode LSP %pSY", lsp->area->area_tag,
+			 lsp->hdr.lsp_id);
+		return;
+	}
 
 	te_debug("ISIS-TE(%s): Delete Link State TED objects from LSP %pSY", lsp->area->area_tag,
 		 lsp->hdr.lsp_id);
