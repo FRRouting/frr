@@ -3132,6 +3132,40 @@ static int netlink_nexthop_msg_encode_end_b6_encaps(struct nlmsghdr *nlmsg,
 	return 1;
 }
 
+/*
+ * Encode a nexthop's resolved-via information (for FPM, not kernel)
+ */
+static bool encode_nh_resolved_via(struct nlmsghdr *n, size_t buflen,
+				   const struct nexthop *nh)
+{
+	if (nh->res_info == NULL)
+		goto done;
+
+	if (!nl_attr_put32(n, buflen, NHA_FPM_RESOLVED_VIA, nh->res_info->id))
+		return false;
+
+	if (!nl_attr_put8(n, buflen, NHA_FPM_RESOLVED_PREFIX_FAM,
+			  nh->res_info->addr.ipa_type))
+		return false;
+
+	if (IS_IPADDR_V4(&(nh->res_info->addr))) {
+		if (!nl_attr_put(n, buflen, NHA_FPM_RESOLVED_PREFIX,
+				 &(nh->res_info->addr.ipaddr_v4), IPV4_MAX_BYTELEN))
+			return false;
+	} else {
+		if (!nl_attr_put(n, buflen, NHA_FPM_RESOLVED_PREFIX,
+				 &(nh->res_info->addr.ipaddr_v6), IPV6_MAX_BYTELEN))
+			return false;
+	}
+
+	if (!nl_attr_put8(n, buflen, NHA_FPM_RESOLVED_PREFIX_LEN, nh->res_info->pfxlen))
+		return false;
+
+done:
+
+	return true;
+}
+
 /**
  * Next hop packet encoding helper function.
  *
@@ -3391,12 +3425,9 @@ ssize_t netlink_nexthop_msg_encode(uint16_t cmd,
 
 			/* FPM-specific nexthop-group attributes */
 			if (fpm) {
-				if (nh->res_info) {
-					if (!nl_attr_put32(&req->n, buflen,
-							   NHA_FPM_RESOLVED_VIA,
-							   nh->res_info->id))
-						return 0;
-				}
+				/* Resolved-via info, if present */
+				if (!encode_nh_resolved_via(&req->n, buflen, nh))
+					return 0;
 			}
 
 nexthop_done:
