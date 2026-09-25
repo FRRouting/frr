@@ -734,8 +734,14 @@ static struct ls_vertex *lsp_to_vertex(struct ls_ted *ted, struct isis_lsp *lsp)
 	/* Create a new one if not found */
 	if (!vertex) {
 		old = ls_node_new(lnode.adv, inaddr_any, in6addr_any);
+		if (!old)
+			return NULL;
 		old->type = STANDARD;
 		vertex = ls_vertex_add(ted, old);
+		if (!vertex) {
+			ls_node_del(old);
+			return NULL;
+		}
 	}
 	old = vertex->node;
 	te_debug("  |- %s Vertex (%" PRIu64 ") for node %s",
