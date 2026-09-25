@@ -315,7 +315,7 @@ static void nhrp_interface_update_address(struct interface *ifp, afi_t afi,
 	if (sockunion_family(&if_ad->addr) != AF_UNSPEC) {
 		nc = nhrp_cache_get(ifp, &if_ad->addr, 0);
 		if (nc)
-			nhrp_cache_update_binding(nc, NHRP_CACHE_LOCAL, -1,
+			nhrp_cache_update_binding(nc, NHRP_CACHE_LOCAL, -1, 0,
 						  NULL, 0, NULL, NULL);
 	}
 
@@ -327,7 +327,7 @@ static void nhrp_interface_update_address(struct interface *ifp, afi_t afi,
 	if (if_ad->configured && sockunion_family(&if_ad->addr) != AF_UNSPEC) {
 		nc = nhrp_cache_get(ifp, &addr, 1);
 		if (nc)
-			nhrp_cache_update_binding(nc, NHRP_CACHE_LOCAL, 0, NULL,
+			nhrp_cache_update_binding(nc, NHRP_CACHE_LOCAL, 0, 0, NULL,
 						  0, NULL, NULL);
 	}
 
@@ -426,7 +426,7 @@ static void interface_config_update_nhrp_map(struct nhrp_cache_config *cc,
 	if (!ctx->enabled) {
 		if (c && c->map) {
 			nhrp_cache_update_binding(
-				c, c->cur.type, -1,
+				c, c->cur.type, -1, 0,
 				nhrp_peer_get(ifp, &nbma_addr), 0, NULL, NULL);
 		}
 		return;
@@ -437,10 +437,10 @@ static void interface_config_update_nhrp_map(struct nhrp_cache_config *cc,
 
 	c->map = 1;
 	if (cc->type == NHRP_CACHE_LOCAL)
-		nhrp_cache_update_binding(c, NHRP_CACHE_LOCAL, 0, NULL, 0,
+		nhrp_cache_update_binding(c, NHRP_CACHE_LOCAL, 0, 0, NULL, 0,
 					  NULL, NULL);
 	else {
-		nhrp_cache_update_binding(c, NHRP_CACHE_STATIC, 0,
+		nhrp_cache_update_binding(c, NHRP_CACHE_STATIC, 0, 0,
 					  nhrp_peer_get(ifp, &cc->nbma), 0,
 					  NULL, NULL);
 	}
