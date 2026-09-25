@@ -39,9 +39,10 @@
 #include "ospfd/ospf_errors.h"
 #include "ospfd/ospf_quicknbr.h"
 
-DEFINE_HOOK(ospf_nsm_change,
-	    (struct ospf_neighbor * on, int state, int oldstate),
-	    (on, state, oldstate));
+#define HOOKS_DEFINE
+#include "lib/hooks_begin.h"
+#include "ospfd/ospf_nsm_hooks.h"
+#include "lib/hooks_end.h"
 
 /* RFC4222/R5: struct ospf_neighbor is fully defined here so DECLARE_LIST
  * can access pacing_link.  Callers outside this file use the wrappers below.

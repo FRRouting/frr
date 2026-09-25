@@ -16,7 +16,11 @@ DEFINE_MTYPE(LIB, KEYCHAIN_DESC, "Key chain description");
 
 DEFINE_QOBJ_TYPE(keychain);
 DEFINE_QOBJ_TYPE(key);
-DEFINE_HOOK(keychain_removed, (const char *keychain_name), (keychain_name));
+
+#define HOOKS_DEFINE
+#include "lib/hooks_begin.h"
+#include "lib/keychain_hooks.h"
+#include "lib/hooks_end.h"
 
 /* Master list of key chain. */
 struct list *keychain_list;

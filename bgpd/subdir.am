@@ -176,6 +176,16 @@ noinst_HEADERS += \
 	bgpd/bgp_attr_srv6.h \
 	bgpd/bgp_srv6.h \
 	\
+	bgpd/bgp_debug_hooks.h \
+	bgpd/bgp_fsm_hooks.h \
+	bgpd/bgp_main_hooks.h \
+	bgpd/bgp_nht_hooks.h \
+	bgpd/bgp_packet_hooks.h \
+	bgpd/bgp_route_hooks.h \
+	bgpd/bgp_vty_hooks.h \
+	bgpd/bgp_zebra_hooks.h \
+	bgpd/bgpd_hooks.h \
+	\
 	bgpd/rfapi/bgp_rfapi_cfg.h \
 	bgpd/rfapi/rfapi_import.h \
 	bgpd/rfapi/rfapi.h \

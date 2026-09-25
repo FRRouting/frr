@@ -57,12 +57,10 @@
 DEFINE_MTYPE_STATIC(LIB, LOG_MESSAGE,  "log message");
 DEFINE_MTYPE_STATIC(LIB, LOG_TLSBUF,   "log thread-local buffer");
 
-DEFINE_HOOK(zlog_init, (const char *progname, const char *protoname,
-			unsigned short instance, uid_t uid, gid_t gid),
-		       (progname, protoname, instance, uid, gid));
-DEFINE_KOOH(zlog_fini, (), ());
-DEFINE_HOOK(zlog_aux_init, (const char *prefix, int prio_min),
-			   (prefix, prio_min));
+#define HOOKS_DEFINE
+#include "lib/hooks_begin.h"
+#include "lib/zlog_hooks.h"
+#include "lib/hooks_end.h"
 
 char zlog_prefix[128];
 size_t zlog_prefixsz;

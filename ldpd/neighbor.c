@@ -15,8 +15,10 @@
 #include "lde.h"
 #include "log.h"
 
-DEFINE_HOOK(ldp_nbr_state_change, (struct nbr * nbr, int old_state),
-	    (nbr, old_state));
+#define HOOKS_DEFINE
+#include "lib/hooks_begin.h"
+#include "ldpd/neighbor_hooks.h"
+#include "lib/hooks_end.h"
 
 static __inline int	 nbr_id_compare(const struct nbr *, const struct nbr *);
 static __inline int	 nbr_addr_compare(const struct nbr *, const struct nbr *);

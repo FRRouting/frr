@@ -22,8 +22,10 @@
 
 #define ZLOG_MAXLVL(a, b) MAX(a, b)
 
-DEFINE_HOOK(zlog_rotate, (), ());
-DEFINE_HOOK(zlog_cli_show, (struct vty * vty), (vty));
+#define HOOKS_DEFINE
+#include "lib/hooks_begin.h"
+#include "lib/log_vty_hooks.h"
+#include "lib/hooks_end.h"
 
 uint logmsgs_with_persist_bt;
 

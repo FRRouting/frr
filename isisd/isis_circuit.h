@@ -23,8 +23,6 @@
 #include "isis_common.h"
 #include "isis_csm.h"
 
-DECLARE_HOOK(isis_if_new_hook, (struct interface *ifp), (ifp));
-
 /* Typesafe list declarations for circuits */
 PREDECL_DLIST(isis_circuit_list);
 
@@ -236,13 +234,11 @@ int isis_circuit_mt_enabled_set(struct isis_circuit *circuit, uint16_t mtid, boo
 void isis_reset_hello_timer(struct isis_circuit *circuit);
 
 #ifdef FABRICD
-DECLARE_HOOK(isis_circuit_config_write,
-	     (struct isis_circuit *circuit, struct vty *vty), (circuit, vty));
 #endif
 
-DECLARE_HOOK(isis_circuit_add_addr_hook, (struct isis_circuit *circuit), (circuit));
-
-DECLARE_HOOK(isis_circuit_new_hook, (struct isis_circuit *circuit), (circuit));
-DECLARE_HOOK(isis_circuit_del_hook, (struct isis_circuit *circuit), (circuit));
+#define HOOKS_DECLARE
+#include "lib/hooks_begin.h"
+#include "isisd/isis_circuit_hooks.h"
+#include "lib/hooks_end.h"
 
 #endif /* _ZEBRA_ISIS_CIRCUIT_H */
