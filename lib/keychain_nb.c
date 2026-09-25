@@ -87,7 +87,7 @@ static int __destroy_nop(struct nb_cb_destroy_args *args)
 	return NB_OK;
 }
 
-static struct key *__dnode_get_key2(const struct lyd_node *dnode, bool touch)
+static struct key *__dnode_get_key2(const struct lyd_node *dnode, bool touch, struct keychain **kcp)
 {
 	struct keychain *keychain;
 	const char *name;
@@ -100,10 +100,12 @@ static struct key *__dnode_get_key2(const struct lyd_node *dnode, bool touch)
 	key = key_lookup(keychain, index);
 	if (touch)
 		keychain_touch(keychain);
+	if (kcp)
+		*kcp = keychain;
 	return key;
 }
 
-static struct key *__dnode_get_key3(const struct lyd_node *dnode, bool touch)
+static struct key *__dnode_get_key3(const struct lyd_node *dnode, bool touch, struct keychain **kcp)
 {
 	struct keychain *keychain;
 	const char *name;
@@ -116,6 +118,8 @@ static struct key *__dnode_get_key3(const struct lyd_node *dnode, bool touch)
 	key = key_lookup(keychain, index);
 	if (touch)
 		keychain_touch(keychain);
+	if (kcp)
+		*kcp = keychain;
 	return key;
 }
 
@@ -268,15 +272,16 @@ static const void *key_chains_key_chain_key_lookup_entry(struct nb_cb_lookup_ent
 static int __lifetime_create(struct nb_cb_create_args *args, bool send,
 			     bool accept, bool always)
 {
+	struct keychain *keychain;
 	struct key *key;
 
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
 	if (always)
-		key = __dnode_get_key3(args->dnode, true);
+		key = __dnode_get_key3(args->dnode, true, &keychain);
 	else
-		key = __dnode_get_key2(args->dnode, true);
+		key = __dnode_get_key2(args->dnode, true, &keychain);
 	if (send) {
 		key->send.start = 0;
 		key->send.end = -1;
@@ -287,19 +292,30 @@ static int __lifetime_create(struct nb_cb_create_args *args, bool send,
 		key->accept.end = -1;
 		key->accept.duration = 0;
 	}
+
+	/*
+	 * A lifetime is as much a property of the key as its string or its
+	 * algorithm. A user that reads the chain on every packet follows a
+	 * changed period without being told, but one that was handed the
+	 * periods ahead of time - a data plane holding an offloaded session -
+	 * has nothing to re-read and would keep the old window.
+	 */
+	if (keychain)
+		hook_call(keychain_updated, keychain->name);
 	return NB_OK;
 }
 
 static int __lifetime_start_date_time_modify(struct nb_cb_modify_args *args,
 					     bool send, bool accept)
 {
+	struct keychain *keychain;
 	struct key *key;
 	time_t time;
 
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
-	key = __dnode_get_key3(args->dnode, true);
+	key = __dnode_get_key3(args->dnode, true, &keychain);
 	time = yang_dnode_get_date_and_time(args->dnode, NULL);
 
 	if (send)
@@ -307,28 +323,50 @@ static int __lifetime_start_date_time_modify(struct nb_cb_modify_args *args,
 	if (accept)
 		key->accept.start = time;
 
+	/*
+	 * A lifetime is as much a property of the key as its string or its
+	 * algorithm. A user that reads the chain on every packet follows a
+	 * changed period without being told, but one that was handed the
+	 * periods ahead of time - a data plane holding an offloaded session -
+	 * has nothing to re-read and would keep the old window.
+	 */
+	if (keychain)
+		hook_call(keychain_updated, keychain->name);
+
 	return NB_OK;
 }
 
 static int __lifetime_no_end_time_create(struct nb_cb_create_args *args,
 					 bool send, bool accept)
 {
+	struct keychain *keychain;
 	struct key *key;
 
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
-	key = __dnode_get_key3(args->dnode, true);
+	key = __dnode_get_key3(args->dnode, true, &keychain);
 	if (send)
 		key->send.end = -1;
 	if (accept)
 		key->accept.end = -1;
+
+	/*
+	 * A lifetime is as much a property of the key as its string or its
+	 * algorithm. A user that reads the chain on every packet follows a
+	 * changed period without being told, but one that was handed the
+	 * periods ahead of time - a data plane holding an offloaded session -
+	 * has nothing to re-read and would keep the old window.
+	 */
+	if (keychain)
+		hook_call(keychain_updated, keychain->name);
 	return NB_OK;
 }
 
 static int __lifetime_duration_modify(struct nb_cb_modify_args *args, bool send,
 				      bool accept)
 {
+	struct keychain *keychain;
 	struct key *key;
 	uint32_t duration;
 	time_t time;
@@ -336,7 +374,7 @@ static int __lifetime_duration_modify(struct nb_cb_modify_args *args, bool send,
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
-	key = __dnode_get_key3(args->dnode, true);
+	key = __dnode_get_key3(args->dnode, true, &keychain);
 	time = yang_dnode_get_date_and_time(args->dnode, "../start-date-time");
 	duration = yang_dnode_get_uint32(args->dnode, NULL);
 
@@ -344,25 +382,46 @@ static int __lifetime_duration_modify(struct nb_cb_modify_args *args, bool send,
 		key->send.end = time + duration;
 	if (accept)
 		key->accept.end = time + duration;
+
+	/*
+	 * A lifetime is as much a property of the key as its string or its
+	 * algorithm. A user that reads the chain on every packet follows a
+	 * changed period without being told, but one that was handed the
+	 * periods ahead of time - a data plane holding an offloaded session -
+	 * has nothing to re-read and would keep the old window.
+	 */
+	if (keychain)
+		hook_call(keychain_updated, keychain->name);
 	return NB_OK;
 }
 
 static int __lifetime_end_date_time_modify(struct nb_cb_modify_args *args,
 					   bool send, bool accept)
 {
+	struct keychain *keychain;
 	struct key *key;
 	time_t time;
 
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
-	key = __dnode_get_key3(args->dnode, true);
+	key = __dnode_get_key3(args->dnode, true, &keychain);
 	time = yang_dnode_get_date_and_time(args->dnode, NULL);
 
 	if (send)
 		key->send.end = time;
 	if (accept)
 		key->accept.end = time;
+
+	/*
+	 * A lifetime is as much a property of the key as its string or its
+	 * algorithm. A user that reads the chain on every packet follows a
+	 * changed period without being told, but one that was handed the
+	 * periods ahead of time - a data plane holding an offloaded session -
+	 * has nothing to re-read and would keep the old window.
+	 */
+	if (keychain)
+		hook_call(keychain_updated, keychain->name);
 	return NB_OK;
 }
 
