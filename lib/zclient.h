@@ -419,6 +419,13 @@ extern int zclient_bfd_session_update(ZAPI_CALLBACK_ARGS);
 #define ZAPI_MESSAGE_TABLEID 0x0100
 #define ZAPI_MESSAGE_SRTE 0x0200
 #define ZAPI_MESSAGE_OPAQUE 0x0400
+/*
+ * Route-level backup semantic: the backup_nexthops[] pool is engaged
+ * only when *all* primaries are down. There is no per-primary
+ * association; primaries do not carry HAS_BACKUP / backup_idx[].
+ * Used by BGP PIC-Local. Co-existent with ZAPI_MESSAGE_BACKUP_NEXTHOPS.
+ */
+#define ZAPI_MESSAGE_BACKUP_ALL_PRIMARIES_DOWN 0x0800
 
 #define ZSERV_VERSION 6
 /* Zserv protocol message header */
