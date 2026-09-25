@@ -6,6 +6,7 @@
 /watchfrr.sh
 /frrinit.sh
 /frrcommon.sh
+/generate_support_bundle.py
 /frr.service
 /frr@.service
 /frr-llvm-cg

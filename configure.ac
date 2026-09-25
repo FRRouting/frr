@@ -92,6 +92,7 @@ if $path_warn_banner; then
 fi
 
 frr_libstatedir="\${localstatedir}/lib/frr"
+frr_logdir="\${localstatedir}/log/frr"
 
 dnl -----------------------------------
 dnl Get hostname and other information.
@@ -2749,6 +2750,7 @@ AX_SUBST_EXPANDED([sbindir])
 AX_SUBST_EXPANDED([frr_sysconfdir])
 AX_SUBST_EXPANDED([frr_runstatedir])
 AX_SUBST_EXPANDED([frr_libstatedir])
+AX_SUBST_EXPANDED([frr_logdir])
 AX_SUBST_EXPANDED([moduledir])
 AX_SUBST_EXPANDED([pkgconfigdir])
 AX_SUBST_EXPANDED([yangmodelsdir])
@@ -2844,6 +2846,7 @@ AC_CONFIG_FILES([tools/frr], [chmod +x tools/frr])
 AC_CONFIG_FILES([tools/watchfrr.sh], [chmod +x tools/watchfrr.sh])
 AC_CONFIG_FILES([tools/frrinit.sh], [chmod +x tools/frrinit.sh])
 AC_CONFIG_FILES([tools/frrcommon.sh])
+AC_CONFIG_FILES([tools/generate_support_bundle.py], [chmod +x tools/generate_support_bundle.py])
 AC_CONFIG_FILES([tools/frr.service])
 AC_CONFIG_FILES([tools/frr@.service])
 AC_CONFIG_FILES([tools/frr.pc])
@@ -2926,6 +2929,7 @@ linker flags            : ${LDFLAGS} ${SAN_FLAGS} ${LIBS} ${LIBCAP} ${LIBREADLIN
 local state file dir    : ${e_frr_libstatedir}
 run state file dir      : ${e_frr_runstatedir}
 config file directory   : ${e_frr_sysconfdir}
+log file directory      : ${e_frr_logdir}
 module directory        : ${e_moduledir}
 pkgconfig directory     : ${e_pkgconfigdir}
 script directory        : ${e_scriptdir}
