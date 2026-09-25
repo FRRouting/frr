@@ -896,7 +896,6 @@ DEFPY (locator_prefix,
 	int idx = 0;
 	bool node_bit_not_conf = false;
 
-	locator->prefix = *prefix;
 	/* Only set default if func_bit_len was not provided in command */
 	if (func_bit_len == 0 && !argv_find(argv, argc, "func-bits", &idx))
 		func_bit_len = ZEBRA_SRV6_FUNCTION_LENGTH;
@@ -930,12 +929,30 @@ DEFPY (locator_prefix,
 
 	/* Resolve optional arguments */
 	if (block_bit_len == 0 && node_bit_not_conf) {
+		if (prefix->prefixlen < ZEBRA_SRV6_LOCATOR_NODE_LENGTH) {
+			vty_out(vty,
+				"%% Locator prefix length '%u' cannot be smaller than default node-len '%u' when neither block-len nor node-len are set.\n",
+				prefix->prefixlen, ZEBRA_SRV6_LOCATOR_NODE_LENGTH);
+			return CMD_WARNING_CONFIG_FAILED;
+		}
 		block_bit_len = prefix->prefixlen -
 				ZEBRA_SRV6_LOCATOR_NODE_LENGTH;
 		node_bit_len = ZEBRA_SRV6_LOCATOR_NODE_LENGTH;
 	} else if (block_bit_len == 0) {
+		if (prefix->prefixlen < node_bit_len) {
+			vty_out(vty,
+				"%% Locator prefix length '%u' cannot be smaller than node-len '%" PRId64 "' when block-len is 0.\n",
+				prefix->prefixlen, node_bit_len);
+			return CMD_WARNING_CONFIG_FAILED;
+		}
 		block_bit_len = prefix->prefixlen - node_bit_len;
 	} else if (node_bit_not_conf) {
+		if (prefix->prefixlen < block_bit_len) {
+			vty_out(vty,
+				"%% Locator prefix length '%u' cannot be smaller than block-len '%" PRId64 "' when node-len is not configured.\n",
+				prefix->prefixlen, block_bit_len);
+			return CMD_WARNING_CONFIG_FAILED;
+		}
 		node_bit_len = prefix->prefixlen - block_bit_len;
 	} else {
 		if (block_bit_len + node_bit_len != prefix->prefixlen) {
@@ -954,6 +971,7 @@ DEFPY (locator_prefix,
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 
+	locator->prefix = *prefix;
 	locator->block_bits_length = block_bit_len;
 	locator->node_bits_length = node_bit_len;
 	locator->function_bits_length = func_bit_len;
