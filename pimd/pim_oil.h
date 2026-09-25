@@ -18,6 +18,7 @@ struct pim_interface;
  * PIM - Learned from PIM
  * SOURCE - Learned from Source multicast packet received
  * STAR - Inherited
+ * DM - Dense mode flooding
  */
 #define PIM_OIF_FLAG_PROTO_GM     (1 << 0)
 #define PIM_OIF_FLAG_PROTO_PIM    (1 << 1)
@@ -29,6 +30,34 @@ struct pim_interface;
 
 /* OIF is present in the OIL but must not be used for forwarding traffic */
 #define PIM_OIF_FLAG_MUTE         (1 << 4)
+
+/*
+ * Dense mode holds its OIFs directly through `channel_oil_oif_add()` and
+ * `channel_oil_oif_delete()` instead of `pim_channel_add_oif()` and
+ * `pim_channel_del_oif()`, so it is deliberately left out of
+ * `PIM_OIF_FLAG_PROTO_ANY` above: that mask means "a `pim_channel_add_oif()`
+ * subscriber other than the one being removed still wants this OIF".
+ */
+#define PIM_OIF_FLAG_PROTO_DM (1 << 5)
+
+/*
+ * Dense mode lost the Assert election on this OIF (RFC 3973 4.6), so traffic
+ * must not be forwarded onto that LAN until the Assert is over.
+ *
+ * This deliberately does not reuse `PIM_OIF_FLAG_MUTE`: that bit is recomputed
+ * from scratch by `pim_channel_update_oif_mute()` whenever the MLAG DF role or
+ * the VXLAN termination state changes, and that computation knows nothing
+ * about the Assert. Sharing a single bit lets either owner drop the other's
+ * suppression and resume forwarding a duplicate onto the LAN.
+ */
+#define PIM_OIF_FLAG_ASSERT_LOSER (1 << 6)
+
+/*
+ * Every flag that suppresses an OIF, for clearing them in one go.  Deciding
+ * whether an OIF is actually suppressed is `channel_oif_no_forward()` below.
+ */
+#define PIM_OIF_FLAG_NO_FORWARD (PIM_OIF_FLAG_MUTE | PIM_OIF_FLAG_ASSERT_LOSER)
+
 /*
  * We need a pimreg vif id from the kernel.
  * Since ifindex == vif id for most cases and the number
@@ -52,6 +81,42 @@ struct channel_counts {
 	unsigned long wrong_if;
 	unsigned long oldwrong_if;
 };
+
+PREDECL_LIST(channel_oif_list);
+struct channel_oif {
+	struct channel_oif_list_item entry;
+
+	/** Interface index. */
+	ifindex_t index;
+	/** Interface flags. \see `PIM_OIF_FLAG_*`. */
+	uint32_t flags;
+	/** Time of creation. */
+	time_t creation;
+};
+DECLARE_LIST(channel_oif_list, struct channel_oif, entry);
+
+extern struct channel_oif *channel_oil_oif_find(struct channel_oil *oil, ifindex_t index);
+extern struct channel_oif *channel_oil_oif_add(struct channel_oil *oil, ifindex_t index,
+					       uint32_t flags);
+extern void channel_oil_oif_delete(struct channel_oil *oil, ifindex_t index, uint32_t flags);
+#if PIM_IPV == 4
+extern void channel_oil_to_mfcc(struct channel_oil *oil, struct mfcctl *mfcc);
+#else
+extern void channel_oil_to_mfcc(struct channel_oil *oil, struct mf6cctl *mf6cc);
+#endif
+
+/*
+ * `PIM_OIF_FLAG_ASSERT_LOSER` only counts while dense mode still owns the OIF,
+ * so do not fold this back into a `PIM_OIF_FLAG_NO_FORWARD` mask test.
+ */
+static inline bool channel_oif_no_forward(const struct channel_oif *oif)
+{
+	if (CHECK_FLAG(oif->flags, PIM_OIF_FLAG_MUTE))
+		return true;
+
+	return CHECK_FLAG(oif->flags, PIM_OIF_FLAG_ASSERT_LOSER) &&
+	       CHECK_FLAG(oif->flags, PIM_OIF_FLAG_PROTO_DM);
+}
 
 /*
   qpim_channel_oil_list holds a list of struct channel_oil.
@@ -85,89 +150,21 @@ struct channel_oil {
 
 	struct rb_pim_oil_item oil_rb;
 
-#if PIM_IPV == 4
-	struct mfcctl oil;
-#else
-	struct mf6cctl oil;
-#endif
+	pim_addr source;
+	pim_addr group;
+
+	/* Input interface */
+	struct channel_oif iif;
+	/* List of output interfaces and their state */
+	struct channel_oif_list_head oif_list;
+
 	int installed;
 	int oil_inherited_rescan;
-	int oil_size;
 	int oil_ref_count;
-	time_t oif_creation[MAXVIFS];
-	uint32_t oif_flags[MAXVIFS];
 	struct channel_counts cc;
 	struct pim_upstream *up;
 	time_t mroute_creation;
 };
-
-#if PIM_IPV == 4
-static inline pim_addr *oil_origin(struct channel_oil *c_oil)
-{
-	return &c_oil->oil.mfcc_origin;
-}
-
-static inline pim_addr *oil_mcastgrp(struct channel_oil *c_oil)
-{
-	return &c_oil->oil.mfcc_mcastgrp;
-}
-
-static inline vifi_t *oil_incoming_vif(struct channel_oil *c_oil)
-{
-	return &c_oil->oil.mfcc_parent;
-}
-
-static inline bool oil_if_has(struct channel_oil *c_oil, vifi_t ifi)
-{
-	return !!c_oil->oil.mfcc_ttls[ifi];
-}
-
-static inline void oil_if_set(struct channel_oil *c_oil, vifi_t ifi, uint8_t set)
-{
-	c_oil->oil.mfcc_ttls[ifi] = set;
-}
-
-static inline int oil_if_cmp(struct mfcctl *oil1, struct mfcctl *oil2)
-{
-	return memcmp(&oil1->mfcc_ttls[0], &oil2->mfcc_ttls[0],
-		      sizeof(oil1->mfcc_ttls));
-}
-#else
-static inline pim_addr *oil_origin(struct channel_oil *c_oil)
-{
-	return &c_oil->oil.mf6cc_origin.sin6_addr;
-}
-
-static inline pim_addr *oil_mcastgrp(struct channel_oil *c_oil)
-{
-	return &c_oil->oil.mf6cc_mcastgrp.sin6_addr;
-}
-
-static inline mifi_t *oil_incoming_vif(struct channel_oil *c_oil)
-{
-	return &c_oil->oil.mf6cc_parent;
-}
-
-static inline bool oil_if_has(struct channel_oil *c_oil, mifi_t ifi)
-{
-	return !!IF_ISSET(ifi, &c_oil->oil.mf6cc_ifset);
-}
-
-static inline void oil_if_set(struct channel_oil *c_oil, mifi_t ifi,
-			      uint8_t set)
-{
-	if (set)
-		IF_SET(ifi, &c_oil->oil.mf6cc_ifset);
-	else
-		IF_CLR(ifi, &c_oil->oil.mf6cc_ifset);
-}
-
-static inline int oil_if_cmp(struct mf6cctl *oil1, struct mf6cctl *oil2)
-{
-	return memcmp(&oil1->mf6cc_ifset, &oil2->mf6cc_ifset,
-		      sizeof(oil1->mf6cc_ifset));
-}
-#endif
 
 extern int pim_channel_oil_compare(const struct channel_oil *c1,
 				   const struct channel_oil *c2);
@@ -188,6 +185,7 @@ struct channel_oil *pim_channel_oil_del(struct channel_oil *c_oil,
 
 int pim_channel_add_oif(struct channel_oil *c_oil, struct interface *oif,
 			uint32_t proto_mask, const char *caller);
+extern struct channel_oif *pim_channel_add_dm_oif(struct channel_oil *c_oil, struct interface *ifp);
 int pim_channel_del_oif(struct channel_oil *c_oil, struct interface *oif,
 			uint32_t proto_mask, const char *caller);
 
