@@ -1056,9 +1056,22 @@ void bgp_nexthop_update(struct vrf *vrf, struct prefix *match,
 	 * make zebra's RNH subsystem aware of SR-TE colors (like bgpd is),
 	 * which should provide a better infrastructure to solve this issue in
 	 * a more efficient and elegant way.
+	 *
+	 * The walk below is only useful when colored entries exist. The
+	 * cache tree is keyed by (srte_color, ifindex, prefix), so colored
+	 * entries always sort at the end of the tree: if the last entry is
+	 * colorless, there is no colored entry at all and the walk can be
+	 * skipped. Without this check, every colorless NH update walks the
+	 * whole table for nothing, which makes convergence O(N^2) in the
+	 * number of tracked nexthops for deployments not using SR-TE.
 	 */
 	if (nhr->srte_color == 0) {
 		struct bgp_nexthop_cache *bnc_iter;
+
+		bnc_iter = bgp_nexthop_cache_last(
+			&bgp->nexthop_cache_table[afi]);
+		if (!bnc_iter || bnc_iter->srte_color == 0)
+			return;
 
 		frr_each (bgp_nexthop_cache, &bgp->nexthop_cache_table[afi],
 			  bnc_iter) {
