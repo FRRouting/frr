@@ -1316,6 +1316,8 @@ case "$host_os" in
     dnl how to fix it but no real progress on implementation
     dnl when they fix it, remove this
     AC_DEFINE([IPV6_MINHOPCOUNT], [73], [Linux ipv6 Min Hop Count])
+    AC_DEFINE([IPV6_FLOWINFO], [11], [Linux IPv6 flow identification])
+    AC_DEFINE([IPV6_FLOWINFO_SEND], [33], [Linux send IPv6 flow identification])
 
     is_linux=true
     ;;
