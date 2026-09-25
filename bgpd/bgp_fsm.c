@@ -1843,6 +1843,17 @@ static void bgp_start_deferral_timer(struct bgp *bgp, afi_t afi, safi_t safi,
 {
 	struct afi_safi_info *thread_info;
 
+	/*
+	 * Arming this timer opens a selection-deferral cycle.
+	 * select_defer_over is otherwise left set after the first cycle, so
+	 * End-of-RIB skips bgp_gr_check_path_select() and routes stay
+	 * unsorted until the timer expires. route_sync* must be cleared
+	 * as well, or zebra never gets the matching UPDATE_COMPLETE.
+	 */
+	gr_info->select_defer_over = false;
+	gr_info->route_sync = false;
+	gr_info->route_sync_tier2 = false;
+
 	/* Start the timer */
 	thread_info = XMALLOC(MTYPE_TMP, sizeof(struct afi_safi_info));
 
