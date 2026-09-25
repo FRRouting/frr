@@ -866,8 +866,61 @@ def module_present_linux(module, load):
         return True
 
 
+# Linux-only features. Reporting them present makes LDP and VRF tests start
+# and then fail on /proc or an interface type FreeBSD does not have.
+_FREEBSD_ABSENT_MODULES = {
+    "mpls_router",
+    "mpls_iptunnel",
+    "vrf",
+    "sch_netem",
+    "nf_tables",
+    "br_netfilter",
+    "8021q",
+    "dummy",
+}
+
+
+def _kld_present(name):
+    try:
+        rc = subprocess.call(
+            ["/sbin/kldstat", "-q", "-m", name],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
+    except OSError:
+        return False
+    return rc == 0
+
+
 def module_present_freebsd(module, load):
-    return True
+    """Return whether a FreeBSD kernel module is loaded.
+
+    Linux module names that have no FreeBSD equivalent return False so the
+    existing skip paths run.
+    """
+    norm = module.replace("-", "_")
+    if norm in _FREEBSD_ABSENT_MODULES or norm.startswith("mpls"):
+        return False
+    candidates = [norm]
+    if not norm.startswith("if_"):
+        candidates.append("if_" + norm)
+    for candidate in candidates:
+        if _kld_present(candidate):
+            return True
+    if not load:
+        return False
+    for candidate in candidates:
+        try:
+            rc = subprocess.call(
+                ["/sbin/kldload", "-n", candidate],
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+            )
+        except OSError:
+            return False
+        if rc == 0 and _kld_present(candidate):
+            return True
+    return False
 
 
 def module_present(module, load=True):
@@ -1479,6 +1532,18 @@ def rlimit_atleast(rname, min_value, raises=False):
 
 
 def fix_netns_limits(ns):
+    if sys.platform.startswith("freebsd"):
+        # A new VNET starts with forwarding off. dad_count=0 keeps addresses
+        # out of the tentative state while the allowlisted unicast tests run.
+        for assignment in (
+            "net.inet.ip.forwarding=1",
+            "net.inet6.ip6.forwarding=1",
+            "net.inet6.ip6.dad_count=0",
+            "net.inet6.ip6.auto_linklocal=1",
+        ):
+            ns.cmd_status("sysctl " + assignment, warn=False)
+        return
+
     # Maximum read and write socket buffer sizes
     sysctl_atleast(ns, "net.ipv4.tcp_rmem", [10 * 1024, 87380, 16 * 2**20])
     sysctl_atleast(ns, "net.ipv4.tcp_wmem", [10 * 1024, 87380, 16 * 2**20])
@@ -1585,6 +1650,16 @@ def setup_node_tmpdir(logdir, name):
     return logfile
 
 
+def default_frrdir():
+    """Directory that holds the FRR daemon binaries on this host."""
+    if not sys.platform.startswith("freebsd"):
+        return "/usr/lib/frr"
+    for path in ("/usr/local/libexec/frr", "/usr/local/sbin", "/usr/lib/frr"):
+        if os.path.isfile(os.path.join(path, "zebra")):
+            return path
+    return "/usr/local/libexec/frr"
+
+
 class Router(Node):
     "A Node with IPv4/IPv6 forwarding enabled"
 
@@ -1633,7 +1708,7 @@ class Router(Node):
         self.config_defaults = configparser.ConfigParser(
             defaults={
                 "verbosity": "info",
-                "frrdir": "/usr/lib/frr",
+                "frrdir": default_frrdir(),
                 "routertype": "frr",
                 "memleak_path": "",
             }
@@ -2081,8 +2156,9 @@ class Router(Node):
                 return "LDP/MPLS Tests need mpls kernel modules"
 
         # Really want to use sysctl_atleast here, but only when MPLS is actually being
-        # used
-        self.cmd("echo 100000 > /proc/sys/net/mpls/platform_labels")
+        # used. FreeBSD has no Linux MPLS sysctl.
+        if not sys.platform.startswith("freebsd"):
+            self.cmd("echo 100000 > /proc/sys/net/mpls/platform_labels")
 
         if g_pytest_config.name_in_option_list(self.name, "--shell"):
             self.run_in_window(os.getenv("SHELL", "bash"), title="sh-%s" % self.name)
