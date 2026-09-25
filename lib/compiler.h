@@ -390,6 +390,13 @@ extern "C" {
 /* do nothing */
 #elif defined(__STDC_VERSION__) && __STDC_VERSION__ >= 202311L
 /* do nothing - "%w64u" will be used & should match the original defs */
+/* GCC >= 14: -std=gnu23 */
+#define USE_C23_FORMATS
+
+#elif !defined(__clang__) && __GNUC__ >= 13
+/* GCC >= 13: -std=gnu2x supports "%w64u" */
+#define USE_C23_FORMATS
+
 #else
 /* these should be typedefs, but might also be #define */
 #ifdef uint64_t
@@ -422,7 +429,7 @@ _Static_assert(sizeof(_uint64_t) == 8 && sizeof(_int64_t) == 8,
 #endif /* !__cplusplus */
 #endif /* !_FRR_ATTRIBUTE_PRINTFRR */
 
-#if defined(__STDC_VERSION__) && __STDC_VERSION__ >= 202311L
+#ifdef USE_C23_FORMATS
 /* whohoo, we can start moving towards getting rid of these, since
  * __STDC_VERSION__ >= 202311L also implies printf supports it
  *
