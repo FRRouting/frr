@@ -727,11 +727,22 @@ def difflines(text1, text2, title1="", title2="", **opts):
 
 def get_file(content):
     """
-    Generates a temporary file in '/tmp' with `content` and returns the file name.
+    Write `content` to a temporary file and return its name.
+
+    The file is created in the per-test rundir (/tmp/topotests/<test> by
+    default). That directory is mounted into each router, so a command run
+    inside the router can read it. Host /tmp is not.
     """
     if isinstance(content, list) or isinstance(content, tuple):
         content = "\n".join(content)
-    fde = tempfile.NamedTemporaryFile(mode="w", delete=False)
+    directory = None
+    rundir = None
+    if g_pytest_config is not None:
+        rundir = getattr(g_pytest_config.option, "rundir", None)
+    if rundir:
+        directory = get_logs_path(rundir)
+        os.makedirs(directory, exist_ok=True)
+    fde = tempfile.NamedTemporaryFile(mode="w", delete=False, dir=directory)
     fname = fde.name
     fde.write(content)
     fde.close()
