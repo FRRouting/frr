@@ -126,7 +126,8 @@ extern char *pbr_nht_nexthop_make_name(char *name, size_t l, uint32_t seqno,
 				       char *buffer);
 
 extern void pbr_nht_show_nexthop_group(struct vty *vty, const char *name);
-extern void pbr_nht_json_nexthop_group(json_object *j, const char *name);
+extern void pbr_nht_json_nexthop_group(json_object *j, const char *name,
+				       uint16_t *pbr_nhg_count);
 
 /*
  * When we get a callback from zebra about a nexthop changing
