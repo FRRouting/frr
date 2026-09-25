@@ -464,12 +464,6 @@ static void bgp_srv6_per_locator_cache_delete_tovpn_sid(struct bgp_srv6_per_loca
 			   srv6_sid_alloc_mode2str(
 				   bslc->sid_policy.tovpn_zebra_sid_alloc_mode_last_sent));
 
-	if (bslc->bgp->vrf_id == VRF_UNKNOWN) {
-		if (debug)
-			zlog_debug("%s: vrf %s: vrf_id not set, can't set zebra vrf sid", __func__,
-				   bslc->bgp->name_pretty);
-		return;
-	}
 	if (bslc->sid_policy.tovpn_sid) {
 		ctx.vrf_id = bslc->bgp->vrf_id;
 		ctx.behavior = bslc->afi == AFI_IP ? ZEBRA_SEG6_LOCAL_ACTION_END_DT4
@@ -485,6 +479,12 @@ static void bgp_srv6_per_locator_cache_delete_tovpn_sid(struct bgp_srv6_per_loca
 	bslc->sid_policy.tovpn_zebra_sid_alloc_mode_last_sent = SRV6_SID_ALLOC_MODE_UNSPEC;
 	srv6_locator_free(bslc->sid_policy.tovpn_sid_locator);
 	bslc->sid_policy.tovpn_sid_locator = NULL;
+
+	if (bslc->bgp->vrf_id == VRF_UNKNOWN) {
+		if (debug)
+			zlog_debug("%s: vrf %s: vrf_id not set, can't set zebra vrf sid", __func__,
+				   bslc->bgp->name_pretty);
+	}
 }
 
 struct bgp_srv6_per_locator_cache *
