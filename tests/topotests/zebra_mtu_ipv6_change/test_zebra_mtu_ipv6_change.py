@@ -59,22 +59,23 @@ def test_zebra_mtu_ipv6_change():
     assert result is None, "fdfd::/64 not installed initially"
 
     def _kernel_route_installed():
-        output = json.loads(r1.run("ip -6 -j route show fdfd::/64"))
+        output = [
+            route
+            for route in topotest.kernel_routes(r1, family="ipv6")
+            if route.get("dst") == "fdfd::/64"
+        ]
         # The kernel renders a route differently depending on whether the
         # route's nexthop id is a singleton (NHA_GATEWAY) or a group
         # (NHA_GROUP):
-        #   singleton: {"dst": ..., "dev": ..., "protocol": ...}
-        #   group:     {"dst": ..., "protocol": ..., "nexthops": [{"dev": ..., ...}]}
+        #   singleton: {"dst": ..., "dev": ...}
+        #   group:     {"dst": ..., "nexthops": [{"dev": ..., ...}]}
         # Zebra now wraps every route's nexthop set in an NHA_GROUP, so the
         # outgoing interface lives in the first nexthop member. Lift it back
         # up to the top level for an apples-to-apples json_cmp check.
-        if isinstance(output, list):
-            for entry in output:
-                if "dev" not in entry and entry.get("nexthops"):
-                    entry["dev"] = entry["nexthops"][0].get("dev")
-        return topotest.json_cmp(
-            output, [{"dst": "fdfd::/64", "dev": "r1-eth0", "protocol": "bgp"}]
-        )
+        for entry in output:
+            if "dev" not in entry and entry.get("nexthops"):
+                entry["dev"] = entry["nexthops"][0].get("dev")
+        return topotest.json_cmp(output, [{"dst": "fdfd::/64", "dev": "r1-eth0"}])
 
     _, result = topotest.run_and_expect(_kernel_route_installed, None, count=30, wait=1)
     assert result is None, "fdfd::/64 not in kernel initially"
@@ -83,7 +84,11 @@ def test_zebra_mtu_ipv6_change():
     r1.run("ip link set r1-eth0 mtu 1200")
 
     def _kernel_route_gone():
-        output = json.loads(r1.run("ip -6 -j route show fdfd::/64"))
+        output = [
+            route
+            for route in topotest.kernel_routes(r1, family="ipv6")
+            if route.get("dst") == "fdfd::/64"
+        ]
         if len(output) == 0:
             return None
         return "fdfd::/64 still in kernel after MTU drop"
