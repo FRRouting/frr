@@ -29,7 +29,7 @@ from lib import topotest
 from lib.topolog import logger
 
 
-pytestmark = [pytest.mark.bgpd]
+pytestmark = [pytest.mark.bgpd, pytest.mark.freebsd]
 
 
 def build_topo(tgen):

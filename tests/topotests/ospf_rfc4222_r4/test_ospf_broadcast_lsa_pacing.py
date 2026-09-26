@@ -15,7 +15,7 @@ from lib.common_config import step
 from lib.topogen import Topogen
 from lib.topolog import logger
 
-pytestmark = [pytest.mark.ospfd]
+pytestmark = [pytest.mark.ospfd, pytest.mark.freebsd]
 
 CWD = os.path.dirname(os.path.realpath(__file__))
 

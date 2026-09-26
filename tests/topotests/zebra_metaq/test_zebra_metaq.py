@@ -14,7 +14,7 @@ import sys
 
 import pytest
 
-pytestmark = [pytest.mark.sharpd]
+pytestmark = [pytest.mark.sharpd, pytest.mark.freebsd]
 
 CWD = os.path.dirname(os.path.realpath(__file__))
 sys.path.append(os.path.join(CWD, "../"))

@@ -18,7 +18,7 @@ sys.path.append(os.path.join(CWD, "../"))
 from lib.topogen import Topogen, get_topogen
 from lib.topolog import logger
 
-pytestmark = [pytest.mark.vrrpd]
+pytestmark = [pytest.mark.vrrpd, pytest.mark.freebsd]
 
 
 def build_topo(tgen):

@@ -30,7 +30,7 @@ from lib.topogen import Topogen, get_topogen
 from lib.topolog import logger
 from lib.common_config import create_interface_in_kernel, step
 
-pytestmark = [pytest.mark.bgpd]
+pytestmark = [pytest.mark.bgpd, pytest.mark.freebsd]
 
 DUMMY_IF = "dum0"
 NETWORK_PREFIX = "200.1.12.0/24"

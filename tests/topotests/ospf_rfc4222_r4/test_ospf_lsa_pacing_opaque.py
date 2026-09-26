@@ -19,7 +19,7 @@ from lib import topotest
 from lib.topogen import Topogen
 
 
-pytestmark = [pytest.mark.ospfd]
+pytestmark = [pytest.mark.ospfd, pytest.mark.freebsd]
 
 
 def build_topo(tgen):
