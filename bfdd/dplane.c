@@ -42,6 +42,10 @@ DEFINE_MTYPE_STATIC(BFDD, BFDD_DPLANE_CTX,
 /** Data plane client socket buffer size. */
 #define BFD_DPLANE_CLIENT_BUF_SIZE 8192
 
+/** Shortest `BFD_DP_CAPABILITIES` message that carries the whole set. */
+#define BFD_DPLANE_CAPS_LEN                                                                       \
+	(sizeof(struct bfddp_message_header) + sizeof(struct bfddp_capabilities))
+
 struct bfd_dplane_ctx {
 	/** Client file descriptor. */
 	int sock;
@@ -60,6 +64,8 @@ struct bfd_dplane_ctx {
 	socklen_t addrlen;
 	/** Data plane current last used ID. */
 	uint16_t last_id;
+	/** What the data plane declared it supports. \see BFD_DP_CAPABILITIES. */
+	uint64_t caps;
 
 	/** Input buffer data. */
 	struct stream *inbuf;
@@ -99,6 +105,8 @@ typedef void (*bfd_dplane_expect_cb)(struct bfddp_message *msg, void *arg);
 
 static void bfd_dplane_client_connect(struct event *t);
 static bool bfd_dplane_client_connecting(struct bfd_dplane_ctx *bdc);
+static void bfd_dplane_capabilities_handle(struct bfd_dplane_ctx *bdc,
+					   const struct bfddp_message *msg);
 static void bfd_dplane_ctx_free(struct bfd_dplane_ctx *bdc);
 static int _bfd_dplane_add_session(struct bfd_dplane_ctx *bdc,
 				   struct bfd_session *bs);
@@ -126,6 +134,8 @@ static const char *bfd_dplane_messagetype2str(enum bfddp_message_type bmt)
 		return "BFD_SESSION_COUNTERS";
 	case DP_SESSION_AUTH:
 		return "DP_SESSION_AUTH";
+	case BFD_DP_CAPABILITIES:
+		return "BFD_DP_CAPABILITIES";
 	default:
 		return "UNKNOWN";
 	}
@@ -203,6 +213,13 @@ static void bfd_dplane_debug_message(const struct bfddp_message *msg)
 		 */
 		zlog_debug("  [lid=%u keys=%u]", ntohl(msg->data.session_auth.lid),
 			   ntohs(msg->data.session_auth.key_count));
+		break;
+
+	case BFD_DP_CAPABILITIES:
+		if (ntohs(msg->header.length) < BFD_DPLANE_CAPS_LEN)
+			break;
+		zlog_debug("  [capabilities=0x%016" PRIx64 "]",
+			   be64toh(msg->data.capabilities.capabilities));
 		break;
 
 	case BFD_STATE_CHANGE:
@@ -570,6 +587,9 @@ static void bfd_dplane_handle_message(struct bfddp_message *msg, void *arg)
 		 * handle this with `bfd_dplane_expect`.
 		 */
 		break;
+	case BFD_DP_CAPABILITIES:
+		bfd_dplane_capabilities_handle(bdc, msg);
+		break;
 
 	default:
 		zlog_debug("%s: unhandled message type %d", __func__, bmt);
@@ -729,12 +749,42 @@ static void bfd_dplane_read(struct event *t)
 	event_add_read(master, bfd_dplane_read, bdc, bdc->sock, &bdc->inbufev);
 }
 
+/* The capabilities a data plane must have declared to run this session. */
+static uint64_t bfd_dplane_session_needs(const struct bfd_session *bs)
+{
+	uint64_t needs = 0;
+
+	if (bs->kc)
+		needs |= BFDDP_CAP_SESSION_AUTH;
+
+	return needs;
+}
+
+static bool bfd_dplane_can_run(const struct bfd_dplane_ctx *bdc, const struct bfd_session *bs)
+{
+	uint64_t missing = bfd_dplane_session_needs(bs) & ~bdc->caps;
+
+	if (!missing)
+		return true;
+
+	if (bglobal.debug_dplane)
+		zlog_debug("%s: [%s] data plane lacks capabilities 0x%016" PRIx64
+			   ", keeping the session in bfdd",
+			   __func__, bs_to_string(bs), missing);
+
+	return false;
+}
+
 static void _bfd_session_register_dplane(struct hash_bucket *hb, void *arg)
 {
 	struct bfd_session *bs = hb->data;
 	struct bfd_dplane_ctx *bdc = arg;
 
 	if (bs->bdc != NULL)
+		return;
+
+	/* Checked first, so a session it cannot run is not disturbed. */
+	if (!bfd_dplane_can_run(bdc, bs))
 		return;
 
 	/* Disable software session. */
@@ -790,6 +840,40 @@ static void _bfd_session_unregister_dplane(struct hash_bucket *hb, void *arg)
 
 	/* Fallback to software. */
 	bfd_session_enable(bs);
+}
+
+static void _bfd_session_withdraw_dplane(struct hash_bucket *hb, void *arg)
+{
+	struct bfd_session *bs = hb->data;
+	struct bfd_dplane_ctx *bdc = arg;
+
+	if (bs->bdc != bdc || bfd_dplane_can_run(bdc, bs))
+		return;
+
+	zlog_info("%s: [%s] data plane withdrew a capability the session needs, running it in bfdd",
+		  __func__, bs_to_string(bs));
+
+	bfd_dplane_delete_session(bs);
+	bfd_session_enable(bs);
+}
+
+static void bfd_dplane_capabilities_handle(struct bfd_dplane_ctx *bdc,
+					   const struct bfddp_message *msg)
+{
+	if (ntohs(msg->header.length) < BFD_DPLANE_CAPS_LEN) {
+		zlog_warn("%s: capabilities message too short (%u bytes), ignored", __func__,
+			  ntohs(msg->header.length));
+		return;
+	}
+
+	bdc->caps = be64toh(msg->data.capabilities.capabilities);
+
+	/*
+	 * The set replaces the previous one. Take back what the data plane
+	 * can no longer run, then offer it what it now can.
+	 */
+	bfd_key_iterate(_bfd_session_withdraw_dplane, bdc);
+	bfd_key_iterate(_bfd_session_register_dplane, bdc);
 }
 
 /*
@@ -1040,6 +1124,9 @@ static void _bfd_dplane_client_bootstrap(struct bfd_dplane_ctx *bdc)
 {
 	bdc->connecting = false;
 
+	/* Whatever answers this time declares its own capabilities. */
+	bdc->caps = 0;
+
 	/* Clean up buffers. */
 	stream_reset(bdc->inbuf);
 	stream_reset(bdc->outbuf);
@@ -1276,6 +1363,8 @@ int bfd_dplane_add_session(struct bfd_session *bs)
 
 	/* Select a data plane client to install session. */
 	TAILQ_FOREACH (bdc, &bglobal.bg_dplaneq, entry) {
+		if (!bfd_dplane_can_run(bdc, bs))
+			continue;
 		if (_bfd_dplane_add_session(bdc, bs) == 0)
 			return 0;
 	}
@@ -1612,6 +1701,20 @@ static int _bfd_dplane_update_session(struct bfd_session *bs, bool detach)
 
 int bfd_dplane_update_session(struct bfd_session *bs)
 {
+	/*
+	 * A configuration change can give an offloaded session a need the
+	 * data plane never declared, such as a key chain for one that cannot
+	 * authenticate. Take the session back rather than send it something
+	 * the data plane would ignore.
+	 */
+	if (bs->bdc && !bfd_dplane_can_run(bs->bdc, bs)) {
+		zlog_info("%s: [%s] data plane lacks a capability the session now needs, running it in bfdd",
+			  __func__, bs_to_string(bs));
+		bfd_dplane_delete_session(bs);
+		bfd_session_enable(bs);
+		return -1;
+	}
+
 	return _bfd_dplane_update_session(bs, true);
 }
 
@@ -1655,6 +1758,7 @@ void bfd_dplane_show_counters(struct vty *vty)
 	vty_out(vty, "%28s\n%28s\n", "Data plane", "==========");
 	TAILQ_FOREACH (bdc, &bglobal.bg_dplaneq, entry) {
 		SHOW_COUNTER("File descriptor", bdc->sock, "d");
+		SHOW_COUNTER("Capabilities", bdc->caps, "#" PRIx64);
 		SHOW_COUNTER("Input bytes", bdc->in_bytes, PRIu64);
 		SHOW_COUNTER("Input bytes peak", bdc->in_bytes_peak, PRIu64);
 		SHOW_COUNTER("Input messages", bdc->in_msgs, PRIu64);

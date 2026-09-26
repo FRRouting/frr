@@ -7,6 +7,9 @@
  * bfdd registers, reports them up, answers session counter requests,
  * and dumps what it has seen on SIGUSR1 so a test can inspect it.
  *
+ * With `-c <bits>` it declares those capabilities when bfdd connects, and
+ * SIGUSR2 withdraws them all.
+ *
  * It runs no BFD state machine and sends no BFD packets: a session is
  * declared up as soon as it is registered. That is enough for the
  * daemon to treat it as established, which is what lets a test reach
@@ -28,11 +31,13 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/select.h>
 #include <sys/socket.h>
 #include <time.h>
 #include <unistd.h>
 
 #include "lib/libfrr.h"
+#include "lib/frratomic.h"
 
 #include "bfddp_packet.h"
 
@@ -40,15 +45,17 @@ XREF_SETUP();
 
 #define BFD_DPLANE_DEFAULT_PORT 50700
 #define BFD_DPLANE_MAX_SESSIONS 256
-#define BFD_DPLANE_MSG_TYPES	9
+#define BFD_DPLANE_MSG_TYPES	10
 /* Keys recorded from the most recent DP_SESSION_AUTH, for a test to read. */
 #define BFD_DPLANE_MAX_AUTH_KEYS 8
 #define BFD_DPLANE_BUFSIZ	65536
 
 static const char *const msgtype_str[BFD_DPLANE_MSG_TYPES] = {
-	"ECHO_REQUEST",		"ECHO_REPLY",	    "DP_ADD_SESSION",
-	"DP_DELETE_SESSION",	"BFD_STATE_CHANGE", "DP_REQUEST_SESSION_COUNTERS",
-	"BFD_SESSION_COUNTERS", "DP_SESSION_AUTH",  "UNKNOWN",
+	"ECHO_REQUEST",		"ECHO_REPLY",
+	"DP_ADD_SESSION",	"DP_DELETE_SESSION",
+	"BFD_STATE_CHANGE",	"DP_REQUEST_SESSION_COUNTERS",
+	"BFD_SESSION_COUNTERS", "DP_SESSION_AUTH",
+	"BFD_DP_CAPABILITIES",	"UNKNOWN",
 };
 
 /* One key as it arrived, so the lifetimes can be checked as sent. */
@@ -68,6 +75,10 @@ struct listener_glob {
 	int server_sock;
 	int client_sock;
 	bool connected;
+
+	/* Declared on every connection when `caps_set`, `-c`. */
+	uint64_t caps;
+	bool caps_set;
 
 	unsigned long connections;
 	unsigned long msg_count[BFD_DPLANE_MSG_TYPES];
@@ -90,6 +101,11 @@ struct listener_glob {
 	uint32_t sessions[BFD_DPLANE_MAX_SESSIONS];
 	size_t session_count;
 };
+
+/* Set by SIGUSR2; the connection loop withdraws the capabilities. */
+static atomic_bool caps_withdraw;
+/* The signal mask to wait with: SIGUSR2 is blocked everywhere else. */
+static sigset_t wait_mask;
 
 static struct listener_glob glob_space;
 static struct listener_glob *glob = &glob_space;
@@ -158,6 +174,10 @@ static void sigusr1_handler(int signum)
 	fprintf(out, "Connections accepted: %lu\n", glob->connections);
 	fprintf(out, "Connection state: %s\n", glob->connected ? "connected" : "disconnected");
 	fprintf(out, "Bytes received: %lu\n", glob->bytes_in);
+	if (glob->caps_set)
+		fprintf(out, "Capabilities declared: 0x%016llx\n", (unsigned long long)glob->caps);
+	else
+		fprintf(out, "Capabilities declared: none\n");
 	fprintf(out, "Counter replies sent: %lu\n", glob->counter_replies);
 	fprintf(out, "State changes sent: %lu\n", glob->state_changes);
 
@@ -264,6 +284,36 @@ static bool send_counters_reply(int sock, uint16_t id, uint32_t lid)
 	glob->counter_replies++;
 
 	return true;
+}
+
+/*
+ * Declare capabilities as the first message on the connection, the way a
+ * data plane should, before the daemon has offered it anything.
+ */
+static bool send_capabilities(int sock)
+{
+	struct bfddp_message msg = {};
+	uint16_t len = sizeof(struct bfddp_message_header) + sizeof(struct bfddp_capabilities);
+
+	msg.header.version = BFD_DP_VERSION;
+	msg.header.type = htons(BFD_DP_CAPABILITIES);
+	msg.header.length = htons(len);
+	msg.data.capabilities.capabilities = htobe64(glob->caps);
+
+	if (write(sock, &msg, len) != len) {
+		fprintf(glob->output_file, "Failed to send capabilities: %s\n", strerror(errno));
+		return false;
+	}
+
+	return true;
+}
+
+/* Signal handler for SIGUSR2: withdraw every capability declared. */
+static void sigusr2_handler(int signum)
+{
+	(void)signum;
+
+	atomic_store_explicit(&caps_withdraw, true, memory_order_relaxed);
 }
 
 static bool send_echo_reply(int sock, const struct bfddp_message *req)
@@ -392,6 +442,24 @@ static void handle_connection(int sock)
 		ssize_t rv;
 		size_t offset = 0;
 
+		fd_set rfds;
+
+		if (atomic_exchange_explicit(&caps_withdraw, false, memory_order_relaxed)) {
+			glob->caps = 0;
+			glob->caps_set = true;
+			send_capabilities(sock);
+		}
+
+		/* SIGUSR2 can only arrive in here, so it is never missed. */
+		FD_ZERO(&rfds);
+		FD_SET(sock, &rfds);
+		if (pselect(sock + 1, &rfds, NULL, NULL, NULL, &wait_mask) < 0) {
+			if (errno == EINTR)
+				continue;
+			fprintf(glob->output_file, "Wait failed: %s\n", strerror(errno));
+			break;
+		}
+
 		rv = read(sock, buf + buflen, sizeof(buf) - buflen);
 		if (rv == 0) {
 			fprintf(glob->output_file, "Connection closed\n");
@@ -455,6 +523,7 @@ static void handle_connection(int sock)
 int main(int argc, char **argv)
 {
 	struct sigaction sa;
+	sigset_t usr2;
 	bool fork_daemon = false;
 	const char *output_file = NULL;
 	int port = BFD_DPLANE_DEFAULT_PORT;
@@ -476,6 +545,19 @@ int main(int argc, char **argv)
 	}
 
 	memset(&sa, 0, sizeof(sa));
+	sa.sa_handler = sigusr2_handler;
+	sigemptyset(&sa.sa_mask);
+	if (sigaction(SIGUSR2, &sa, NULL) < 0) {
+		fprintf(stderr, "Failed to set up SIGUSR2 handler: %s\n", strerror(errno));
+		exit(1);
+	}
+
+	/* Blocked except while the connection loop waits for bfdd. */
+	sigemptyset(&usr2);
+	sigaddset(&usr2, SIGUSR2);
+	sigprocmask(SIG_BLOCK, &usr2, &wait_mask);
+
+	memset(&sa, 0, sizeof(sa));
 	sa.sa_handler = sigterm_handler;
 	sigemptyset(&sa.sa_mask);
 	if (sigaction(SIGTERM, &sa, NULL) < 0 || sigaction(SIGINT, &sa, NULL) < 0 ||
@@ -486,8 +568,12 @@ int main(int argc, char **argv)
 
 	signal(SIGPIPE, SIG_IGN);
 
-	while ((r = getopt(argc, argv, "do:p:z:")) != -1) {
+	while ((r = getopt(argc, argv, "c:do:p:z:")) != -1) {
 		switch (r) {
+		case 'c':
+			glob->caps = strtoull(optarg, NULL, 0);
+			glob->caps_set = true;
+			break;
 		case 'd':
 			fork_daemon = true;
 			break;
@@ -565,6 +651,9 @@ int main(int argc, char **argv)
 		glob->connected = true;
 		glob->client_sock = sock;
 		fprintf(glob->output_file, "Connection %lu accepted\n", glob->connections);
+
+		if (glob->caps_set)
+			send_capabilities(sock);
 
 		handle_connection(sock);
 
