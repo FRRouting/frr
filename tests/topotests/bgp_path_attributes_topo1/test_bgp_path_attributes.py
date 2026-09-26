@@ -72,7 +72,7 @@ from lib.bgp import (
 from lib.topojson import build_config_from_json
 
 
-pytestmark = [pytest.mark.bgpd, pytest.mark.staticd]
+pytestmark = [pytest.mark.bgpd, pytest.mark.staticd, pytest.mark.freebsd]
 
 
 # Address read from env variables

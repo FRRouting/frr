@@ -13,6 +13,8 @@ import shutil
 
 import pytest
 
+pytestmark = [pytest.mark.freebsd]
+
 CWD = os.path.dirname(os.path.realpath(__file__))
 
 # CI runs the topotests tree detached from the source tree, so the in-tree

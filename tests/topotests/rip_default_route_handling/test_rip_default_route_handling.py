@@ -21,7 +21,7 @@ from lib import topotest
 from lib.topogen import Topogen, get_topogen
 from lib.topolog import logger
 
-pytestmark = [pytest.mark.ripd, pytest.mark.staticd]
+pytestmark = [pytest.mark.ripd, pytest.mark.staticd, pytest.mark.freebsd]
 
 
 def build_topo(tgen):

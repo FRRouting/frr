@@ -19,7 +19,7 @@ from functools import partial
 
 import pytest
 
-pytestmark = [pytest.mark.sharpd, pytest.mark.staticd]
+pytestmark = [pytest.mark.sharpd, pytest.mark.staticd, pytest.mark.freebsd]
 
 CWD = os.path.dirname(os.path.realpath(__file__))
 sys.path.append(os.path.join(CWD, "../"))

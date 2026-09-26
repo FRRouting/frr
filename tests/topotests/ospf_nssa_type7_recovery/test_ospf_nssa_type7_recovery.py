@@ -52,7 +52,7 @@ from lib.topogen import Topogen, get_topogen
 from lib.topolog import logger
 from lib.common_config import shutdown_bringup_interface_in_kernel
 
-pytestmark = [pytest.mark.ospfd]
+pytestmark = [pytest.mark.ospfd, pytest.mark.freebsd]
 
 R1_ROUTER_ID = "10.255.1.1"
 STATIC_PREFIX = "10.20.40.0/24"

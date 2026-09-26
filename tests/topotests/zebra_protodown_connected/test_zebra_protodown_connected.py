@@ -22,7 +22,7 @@ from lib.common_config import (
 from lib.topogen import Topogen, get_topogen
 from lib.topolog import logger
 
-pytestmark = [pytest.mark.vrrpd]
+pytestmark = [pytest.mark.vrrpd, pytest.mark.freebsd]
 
 
 def build_topo(tgen):

@@ -20,7 +20,7 @@ from lib.topogen import Topogen
 from lib.common_config import shutdown_bringup_interface_in_kernel
 
 
-pytestmark = [pytest.mark.ospfd]
+pytestmark = [pytest.mark.ospfd, pytest.mark.freebsd]
 
 
 def build_topo(tgen):

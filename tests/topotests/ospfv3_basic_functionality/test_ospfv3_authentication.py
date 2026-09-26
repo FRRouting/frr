@@ -16,7 +16,7 @@ import pytest
 from time import sleep
 import json
 
-pytestmark = pytest.mark.ospf6d
+pytestmark = [pytest.mark.ospf6d, pytest.mark.freebsd]
 
 # Save the Current Working Directory to find configuration files.
 CWD = os.path.dirname(os.path.realpath(__file__))

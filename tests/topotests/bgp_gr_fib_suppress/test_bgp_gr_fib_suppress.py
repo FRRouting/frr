@@ -48,7 +48,7 @@ from lib.common_config import (
     start_router_daemons,
 )
 
-pytestmark = [pytest.mark.bgpd]
+pytestmark = [pytest.mark.bgpd, pytest.mark.freebsd]
 
 
 def verify_graceful_restart_json(router, neighbor_ip, expected_local_mode="Restart*", expected_remote_mode="Helper"):
