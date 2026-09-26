@@ -270,9 +270,8 @@ def _evpn_routes_with_stale_only_for_rd(
 def _vrf_has_kernel_routes(router: TopoRouter, vrf_name: str, prefixes):
     if isinstance(prefixes, str):
         prefixes = [prefixes]
-    output = router.cmd(f"ip -j route show vrf {vrf_name}")
     try:
-        routes = json.loads(output)
+        routes = topotest.kernel_routes(router, vrf=vrf_name)
     except Exception:
         return False
     have = set()
@@ -655,11 +654,10 @@ def test_bgp_evpn_gr_stale_and_recovery():
 def _vrf_routes_absent(router: TopoRouter, vrf_name: str, prefixes):
     if isinstance(prefixes, str):
         prefixes = [prefixes]
-    output = router.cmd(f"ip -j route show vrf {vrf_name}")
     try:
-        routes = json.loads(output)
+        routes = topotest.kernel_routes(router, vrf=vrf_name)
     except Exception:
-        # If we can't parse routes, treat as absent
+        # If we can't read routes, treat as absent
         return True
     have = set()
     for r in routes:

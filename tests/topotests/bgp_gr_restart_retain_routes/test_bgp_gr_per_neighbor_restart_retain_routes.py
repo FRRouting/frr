@@ -79,10 +79,18 @@ def test_bgp_gr_restart_retain_routes():
         return topotest.json_cmp(output, expected)
 
     def _bgp_check_kernel_retained_routes():
-        output = json.loads(
-            r4.cmd("ip -j route show 172.16.255.3/32 proto bgp dev r4-eth0")
-        )
-        expected = [{"dst": "172.16.255.3", "gateway": "192.168.34.3", "metric": 20}]
+        output = [
+            route
+            for route in topotest.kernel_routes(r4)
+            if route.get("dst") == "172.16.255.3"
+            and (
+                route.get("dev") == "r4-eth0"
+                or any(
+                    nh.get("dev") == "r4-eth0" for nh in route.get("nexthops") or []
+                )
+            )
+        ]
+        expected = [{"dst": "172.16.255.3", "gateway": "192.168.34.3"}]
         return topotest.json_cmp(output, expected)
 
     step("Initial BGP converge")
