@@ -36,6 +36,7 @@ from munet.base import commander, get_exec_path_host, Timeout
 from munet.testing.util import retry
 
 from lib import micronet
+from lib.kernel_routes import kernel_routes
 
 g_pytest_config = None
 
