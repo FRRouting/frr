@@ -51,7 +51,7 @@ from lib import topotest
 from lib.topogen import Topogen, get_topogen
 from lib.topolog import logger
 
-pytestmark = [pytest.mark.ospfd]
+pytestmark = [pytest.mark.ospfd, pytest.mark.freebsd]
 
 R1_ROUTER_ID = "10.255.1.1"
 STATIC_PREFIX = "10.20.40.0/24"

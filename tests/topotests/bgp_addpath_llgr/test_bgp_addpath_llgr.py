@@ -19,7 +19,7 @@ from lib import topotest
 from lib.topogen import Topogen, get_topogen
 from lib.common_config import kill_router_daemons
 
-pytestmark = [pytest.mark.bgpd]
+pytestmark = [pytest.mark.bgpd, pytest.mark.freebsd]
 
 
 def setup_module(mod):

@@ -49,7 +49,7 @@ from lib import topotest
 from lib.topogen import Topogen, get_topogen
 from lib.topolog import logger
 
-pytestmark = [pytest.mark.bgpd, pytest.mark.ospfd]
+pytestmark = [pytest.mark.bgpd, pytest.mark.ospfd, pytest.mark.freebsd]
 
 R1_ROUTER_ID = "10.255.1.1"
 BGP_PREFIX = "172.16.20.0/24"

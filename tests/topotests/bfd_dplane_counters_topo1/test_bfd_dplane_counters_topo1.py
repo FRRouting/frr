@@ -36,7 +36,7 @@ from lib import topotest
 from lib.topogen import Topogen, TopoRouter, get_topogen
 from lib.topolog import logger
 
-pytestmark = [pytest.mark.bfdd]
+pytestmark = [pytest.mark.bfdd, pytest.mark.freebsd]
 
 DPLANE_PORT = 50700
 SESSION_COUNT = 8

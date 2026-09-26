@@ -17,6 +17,8 @@ import re
 
 from lib.topogen import Topogen, get_topogen, TopoRouter, topotest
 
+pytestmark = [pytest.mark.freebsd]
+
 
 def _build_topo(tgen):
     "Simple R1-R2 topology"
