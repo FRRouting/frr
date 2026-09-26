@@ -1059,6 +1059,18 @@ void bfd_recvtimer_cb(struct event *t)
 	case PTM_BFD_UP:
 		ptm_bfd_sess_dn(bs, BD_CONTROL_EXPIRED, false);
 		break;
+	case PTM_BFD_DOWN:
+		/*
+		 * RFC 5880, Section 6.8.1: bfd.RemoteDiscr is set to zero once
+		 * a Detection Time passes without a valid packet. A packet the
+		 * peer sent while we were already Down (AdminDown, kept up for
+		 * a Detection Time as Section 6.8.16 recommends) sets it again,
+		 * and nothing else clears it. If the peer then comes back with
+		 * a new discriminator, it discards everything we send, and a
+		 * passive peer never speaks first.
+		 */
+		bs->discrs.remote_discr = 0;
+		break;
 	}
 }
 
