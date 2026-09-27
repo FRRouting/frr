@@ -169,7 +169,8 @@ bool mgmt_msg_procbufs(struct mgmt_msg_state *ms,
 		left = stream_get_endp(work);
 		MGMT_MSG_TRACE(dbgtag, "Processing stream of len %zu", left);
 		/*
-		 * Q: if the handler disconnects should we stop/flush?
+		 * If the handler disconnects, msg_conn_disconnect() flushes the
+		 * inq so the next pop returns NULL and we exit the loop.
 		 */
 		mhdr = (struct mgmt_msg_hdr *)STREAM_DATA(work);
 		handle_msg(MGMT_MSG_MARKER_VERSION(mhdr->marker), (uint8_t *)(mhdr + 1),
@@ -412,6 +413,39 @@ size_t mgmt_msg_reset_writes(struct mgmt_msg_state *ms)
 	     s = stream_fifo_pop(&ms->outq), nproc++)
 		stream_free(s);
 
+	/* Also drop unqueued message[s]. */
+	if (ms->outs) {
+		stream_free(ms->outs);
+		ms->outs = NULL;
+		nproc++;
+	}
+
+	return nproc;
+}
+
+/**
+ * Reset the read state, freeing any received but unprocessed messages and
+ * discarding any partially read message.
+ *
+ * Args:
+ *	ms: mgmt_msg_state for this process.
+ *
+ * Returns:
+ *      Number of queued (unprocessed) message streams that were freed.
+ */
+size_t mgmt_msg_reset_reads(struct mgmt_msg_state *ms)
+{
+	struct stream *s;
+	size_t nproc = 0;
+
+	for (s = stream_fifo_pop(&ms->inq); s;
+	     s = stream_fifo_pop(&ms->inq), nproc++)
+		stream_free(s);
+
+	/* Drop any unfinished message. */
+	if (ms->ins)
+		stream_reset(ms->ins);
+
 	return nproc;
 }
 
@@ -431,6 +465,7 @@ void mgmt_msg_init(struct mgmt_msg_state *ms, size_t max_read_buf,
 
 void mgmt_msg_destroy(struct mgmt_msg_state *ms)
 {
+	mgmt_msg_reset_reads(ms);
 	mgmt_msg_reset_writes(ms);
 	if (ms->ins)
 		stream_free(ms->ins);
@@ -487,11 +522,28 @@ static void msg_conn_read(struct event *event)
 static void msg_conn_proc_msgs(struct event *event)
 {
 	struct msg_conn *conn = EVENT_ARG(event);
+	bool more;
 
-	if (mgmt_msg_procbufs(&conn->mstate,
-			      (void (*)(uint8_t, uint8_t *, size_t,
-					void *))conn->handle_msg,
-			      conn, conn->debug))
+	/*
+	 * A handler may disconnect the connection; the disconnect callback can
+	 * free `conn` (e.g., server side adapter deletion) so defer calling it
+	 * until we are out of the handler loop.
+	 */
+	conn->in_handler = true;
+	more = mgmt_msg_procbufs(&conn->mstate,
+				 (void (*)(uint8_t, uint8_t *, size_t, void *))conn->handle_msg,
+				 conn, conn->debug);
+	conn->in_handler = false;
+
+	if (conn->disconnect_pending) {
+		conn->disconnect_pending = false;
+		/* NOTE: may free `conn` */
+		if (conn->notify_disconnect)
+			(void)(*conn->notify_disconnect)(conn);
+		return;
+	}
+
+	if (more)
 		/* there's more, schedule handling more */
 		msg_conn_sched_proc_msgs(conn);
 }
@@ -531,9 +583,24 @@ void msg_conn_disconnect(struct msg_conn *conn, bool reconnect)
 		/* We need to unschedule any pending events on this fd */
 		event_cancel(&conn->read_ev);
 		event_cancel(&conn->write_ev);
+		event_cancel(&conn->proc_msg_ev);
 
-		/* Notify client through registered callback (if any) */
-		if (conn->notify_disconnect)
+		/*
+		 * Drop any queued but unsent or unprocessed messages, they
+		 * belong to the old connection and must not be replayed on a
+		 * new one (or delivered to a handler after a disconnect).
+		 */
+		mgmt_msg_reset_writes(&conn->mstate);
+		mgmt_msg_reset_reads(&conn->mstate);
+
+		/*
+		 * Notify client through registered callback (if any). The
+		 * callback may free `conn`, so if we're inside the message
+		 * handler loop defer it until that loop has exited.
+		 */
+		if (conn->in_handler)
+			conn->disconnect_pending = true;
+		else if (conn->notify_disconnect)
 			(void)(*conn->notify_disconnect)(conn);
 	}
 
