@@ -9326,8 +9326,7 @@ vni_t bgp_evpn_path_info_get_l3vni(const struct bgp_path_info *pi)
 /*
  * Returns true if the l3vni of any of this path doesn't match vrf's l3vni.
  */
-static bool bgp_evpn_path_is_dvni(const struct bgp *bgp_vrf,
-				  const struct bgp_path_info *pi)
+bool bgp_evpn_path_is_dvni(const struct bgp *bgp_vrf, const struct bgp_path_info *pi)
 {
 	vni_t vni = 0;
 
