@@ -2393,3 +2393,273 @@ def evpn_reload_has_packed_rtlist(output, direction, rts, delete=False):
     verb = "no route-target" if delete else "route-target"
     needle = "{} {} {} {}".format(verb, direction, rts[0], rts[1])
     return needle in output
+
+
+def evpn_verify_vrf_route_labels(
+    router, vrf, route, expected_labels=None, expected_interface=None
+):
+    """
+    Verify EVPN labels on a selected VRF route in the zebra RIB.
+
+    Parameters
+    ----------
+    * `router`: router object to check
+    * `vrf`: VRF name (e.g., "vrf1", "vrf2")
+    * `route`: Route prefix (e.g., "88.1.1.0/24")
+    * `expected_labels`: list of expected labels, or None/[] for unlabeled
+    * `expected_interface`: optional interface name that must appear on a
+      selected nexthop (e.g., "vxlan48")
+
+    Returns
+    -------
+    None on success, error string on failure (for use with topotest.run_and_expect)
+    """
+    is_ipv6 = ":" in route
+    cmd = f"show {'ipv6' if is_ipv6 else 'ip'} route vrf {vrf} {route} json"
+    output = router.vtysh_cmd(cmd, isjson=True)
+
+    if not output or route not in output:
+        return f"VRF {vrf}: route {route} not found via '{cmd}'"
+
+    routes = output[route]
+    if not isinstance(routes, list) or not routes:
+        return f"VRF {vrf}: unexpected route data for {route}: {output}"
+
+    selected = None
+    for entry in routes:
+        if entry.get("selected") or entry.get("installed"):
+            selected = entry
+            break
+    if selected is None:
+        selected = routes[0]
+
+    nexthops = selected.get("nexthops", [])
+    if not nexthops:
+        return f"VRF {vrf}: route {route} has no nexthops: {selected}"
+
+    want_labels = list(expected_labels) if expected_labels else []
+    matched = False
+    for nh in nexthops:
+        if nh.get("duplicate"):
+            continue
+        labels = nh.get("labels", [])
+        if labels != want_labels:
+            continue
+        if expected_interface and nh.get("interfaceName") != expected_interface:
+            continue
+        matched = True
+        break
+
+    if not matched:
+        return (
+            f"VRF {vrf}: route {route} label/interface mismatch.\n"
+            f"Expected labels={want_labels}"
+            f"{(' interface=' + expected_interface) if expected_interface else ''}\n"
+            f"Nexthops: {nexthops}"
+        )
+
+    logger.info(
+        "%s: VRF %s route %s has labels %s%s",
+        router.name,
+        vrf,
+        route,
+        want_labels,
+        f" via {expected_interface}" if expected_interface else "",
+    )
+    return None
+
+
+def _kernel_nh_group_ids(group):
+    """
+    Return member nexthop ids from `ip -j nexthop` group output.
+
+    Current iproute2 emits a list of objects. Older iproute2 emits a string
+    such as "10/11" or "10,1/11,2" (id,weight pairs separated by '/').
+    """
+    if isinstance(group, dict):
+        group = [group]
+    if isinstance(group, list):
+        ids = []
+        for member in group:
+            if isinstance(member, dict):
+                mid = member.get("id")
+            elif isinstance(member, int):
+                mid = member
+            elif isinstance(member, str) and member.isdigit():
+                mid = int(member)
+            else:
+                mid = None
+            if mid is not None:
+                ids.append(mid)
+        return ids
+    if isinstance(group, str):
+        ids = []
+        for member in group.split("/"):
+            id_tok = member.split(",")[0].strip()
+            if id_tok.isdigit():
+                ids.append(int(id_tok))
+        return ids
+    return []
+
+
+def _kernel_encap_id(nh_entry):
+    """Return the VXLAN/LWTUNNEL id from one `ip -j nexthop` object.
+
+    Used by evpn_verify_kernel_encap_vni() on each leaf nexthop (a group is
+    expanded to its members first). For an EVPN nexthop the tunnel id is the
+    VNI zebra encoded as LWTUNNEL_IP_ID, e.g. the D-VNI 900000. Returns None
+    when the nexthop carries no tunnel id.
+
+    iproute2 has printed this three ways:
+    - nested object: {"encap": {"type": "ip", "id": 900000}}
+    - one string: {"encap": "ip id 900000 dst 10.0.0.30"}
+    - flattened: {"encap": "ip", "id": 900000, "dst": "10.0.0.30", ...}
+      The tunnel fields sit beside the nexthop fields, and both ids use the
+      key "id". json.loads keeps the last duplicate key, so "id" is the
+      tunnel id and the nexthop id is lost.
+
+    Caveat for the flattened form: a bare "ip"/"vxlan" encap is taken to mean
+    the top-level "id" is the tunnel id. If iproute2 ever printed that encap
+    with no tunnel id, "id" would still be the nexthop id and would be
+    returned as if it were a VNI. A VNI check would then fail with a
+    misleading value instead of None.
+    """
+    encap = nh_entry.get("encap")
+    if isinstance(encap, dict):
+        encap_id = encap.get("id")
+    elif isinstance(encap, str):
+        encap_id = None
+        parts = encap.split()
+        if "id" in parts:
+            idx = parts.index("id")
+            if idx + 1 < len(parts) and parts[idx + 1].isdigit():
+                encap_id = int(parts[idx + 1])
+        elif encap in ("ip", "vxlan"):
+            encap_id = nh_entry.get("id")
+    else:
+        encap_id = None
+
+    if isinstance(encap_id, str) and encap_id.isdigit():
+        return int(encap_id)
+    return encap_id
+
+
+def evpn_verify_kernel_encap_vni(
+    router, vrf, route, expected_vni=None, expected_dev=None
+):
+    """
+    Verify Linux kernel nexthop encapsulation VNI for a VRF route.
+
+    Walks `ip -j route show` → nhid → `ip -j nexthop get` and checks
+    encap.id (LWTUNNEL_IP_ID). When expected_vni is None, asserts that no
+    EVPN/VXLAN encap id is present (unlabeled hairpin).
+
+    Parameters
+    ----------
+    * `router`: router object to check
+    * `vrf`: VRF name
+    * `route`: Route prefix
+    * `expected_vni`: D-VNI / L3VNI to expect, or None for no encap id
+    * `expected_dev`: optional output device (e.g., "vxlan48")
+
+    Returns
+    -------
+    None on success, error string on failure (for use with topotest.run_and_expect)
+    """
+    cmd = f"ip -j route show vrf {vrf} {route}"
+    output = router.run(cmd)
+    if not output or not output.strip():
+        return f"VRF {vrf}: no kernel route for '{cmd}'"
+
+    try:
+        route_data = json.loads(output)
+    except json.JSONDecodeError as e:
+        return f"VRF {vrf}: failed to parse '{cmd}': {e}; output={output}"
+
+    if not route_data:
+        return f"VRF {vrf}: route {route} not found in kernel"
+
+    route_entry = route_data[0]
+    nhid = route_entry.get("nhid")
+    if nhid is None:
+        # Some unlabeled hairpins may be installed without an nhid group.
+        if expected_vni is None:
+            encap = route_entry.get("encap") or {}
+            if encap.get("id") is not None:
+                return (
+                    f"VRF {vrf}: route {route} unexpectedly has encap id "
+                    f"{encap.get('id')}: {route_entry}"
+                )
+            logger.info(
+                "%s: VRF %s route %s has no nhid/encap (unlabeled)",
+                router.name,
+                vrf,
+                route,
+            )
+            return None
+        return f"VRF {vrf}: route {route} has no nhid: {route_entry}"
+
+    def _collect_nh_ids(nh_id, seen=None):
+        if seen is None:
+            seen = set()
+        if nh_id in seen:
+            return []
+        seen.add(nh_id)
+
+        nh_out = router.run(f"ip -j nexthop get id {nh_id}")
+        if not nh_out or not nh_out.strip():
+            return []
+        try:
+            nh_data = json.loads(nh_out)
+        except json.JSONDecodeError:
+            return []
+        if not nh_data:
+            return []
+
+        entry = nh_data[0]
+        group = entry.get("group")
+        if group:
+            return [
+                nh
+                for mid in _kernel_nh_group_ids(group)
+                for nh in _collect_nh_ids(mid, seen)
+            ]
+        return [entry]
+
+    nh_entries = _collect_nh_ids(nhid)
+    if not nh_entries:
+        return f"VRF {vrf}: failed to resolve nexthops for nhid {nhid}"
+
+    for nh_entry in nh_entries:
+        if not isinstance(nh_entry, dict):
+            return f"VRF {vrf}: unexpected nexthop entry {nh_entry!r}"
+        encap_id = _kernel_encap_id(nh_entry)
+        nh_dev = nh_entry.get("dev")
+
+        if expected_vni is None:
+            if encap_id is not None:
+                return (
+                    f"VRF {vrf}: route {route} unexpectedly has encap id "
+                    f"{encap_id} on nh {nh_entry}"
+                )
+        else:
+            if encap_id != expected_vni:
+                return (
+                    f"VRF {vrf}: route {route} encap id mismatch: "
+                    f"expected {expected_vni}, got {encap_id}; nh={nh_entry}"
+                )
+            if expected_dev and nh_dev != expected_dev:
+                return (
+                    f"VRF {vrf}: route {route} encap device mismatch: "
+                    f"expected {expected_dev}, got {nh_dev}; nh={nh_entry}"
+                )
+
+    logger.info(
+        "%s: VRF %s route %s kernel encap vni=%s%s",
+        router.name,
+        vrf,
+        route,
+        expected_vni,
+        f" via {expected_dev}" if expected_dev else "",
+    )
+    return None
