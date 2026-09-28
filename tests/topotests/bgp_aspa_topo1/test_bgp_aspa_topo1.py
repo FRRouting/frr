@@ -86,6 +86,18 @@ def setup_module(mod):
 
     tgen.start_router()
 
+    # ASPA is a build-time capability: it exists only when FRR was built
+    # against a librtr that provides it.  Without it the rpki module registers
+    # neither "show rpki aspa" nor "match aspa", so there is nothing to test.
+    probe = tgen.gears["r2"].vtysh_cmd("show rpki aspa")
+    if "Unknown command" in probe:
+        rtrd_process.kill()
+        tgen.stop_topology()
+        pytest.skip(
+            "FRR was built against a librtr without ASPA support",
+            allow_module_level=True,
+        )
+
 
 def teardown_module(mod):
     tgen = get_topogen()
