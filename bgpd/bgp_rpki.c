@@ -938,8 +938,9 @@ static void rpki_aspa_queue_flush(struct rpki_vrf *rpki_vrf)
 static void rpki_aspa_revalidate_all(struct event *event)
 {
 	struct rpki_vrf *rpki_vrf = EVENT_ARG(event);
+	struct listnode *node, *pnode;
 	struct vrf *vrf = NULL;
-	struct listnode *node;
+	struct peer *peer;
 	struct bgp *bgp;
 
 	if (rpki_vrf->vrfname) {
@@ -949,34 +950,21 @@ static void rpki_aspa_revalidate_all(struct event *event)
 	}
 
 	for (ALL_LIST_ELEMENTS_RO(bm->bgp, node, bgp)) {
-		afi_t afi;
-
 		if (!vrf && bgp->vrf_id != VRF_DEFAULT)
 			continue;
 		if (vrf && bgp->vrf_id != vrf->vrf_id)
 			continue;
 
-		for (afi = AFI_IP; afi < AFI_MAX; afi++) {
+		for (ALL_LIST_ELEMENTS_RO(bgp->peer, pnode, peer)) {
+			afi_t afi;
 			safi_t safi;
 
-			for (safi = SAFI_UNICAST; safi < SAFI_MAX; safi++) {
-				struct bgp_table *table = bgp->rib[afi][safi];
-				struct bgp_dest *dest;
-
-				if (!table)
-					continue;
-
-				for (dest = bgp_table_top(table); dest;
-				     dest = bgp_route_next(dest)) {
-					if (!bgp_dest_has_bgp_path_info_data(dest))
-						continue;
-					revalidate_bgp_node(bgp, dest, afi, safi);
-				}
-			}
+			FOREACH_AFI_SAFI (afi, safi)
+				bgp_soft_reconfig_in(peer, afi, safi);
 		}
 	}
 
-	RPKI_DEBUG("ASPA table changed, revalidated all routes");
+	RPKI_DEBUG("ASPA table changed, scheduled revalidation");
 }
 
 static int rpki_aspa_cmp(const struct rpki_aspa_record *a, const struct rpki_aspa_record *b)
