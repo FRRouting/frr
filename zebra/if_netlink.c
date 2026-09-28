@@ -1592,8 +1592,12 @@ int netlink_link_change(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 		link_ifindex = *(ifindex_t *)RTA_DATA(tb[IFLA_LINK]);
 
 	if (tb[IFLA_LINK_NETNSID]) {
-		link_nsid = *(ns_id_t *)RTA_DATA(tb[IFLA_LINK_NETNSID]);
-		link_nsid = ns_id_get_absolute(ns_id, link_nsid);
+		if (vrf_is_backend_netns()) {
+			link_nsid = *(ns_id_t *)RTA_DATA(tb[IFLA_LINK_NETNSID]);
+			link_nsid = ns_id_get_absolute(ns_id, link_nsid);
+		} else
+			/* When the NETNS mode is disabled (per VRF mode), the other netns are unknown */
+			link_nsid = NS_UNKNOWN;
 	}
 
 	if (tb[IFLA_TXQLEN])
