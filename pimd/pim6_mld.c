@@ -1695,9 +1695,8 @@ static void gm_handle_query(struct gm_if *gm_ifp,
 	}
 }
 
-static void gm_rx_process(struct gm_if *gm_ifp,
-			  const struct sockaddr_in6 *pkt_src, pim_addr *pkt_dst,
-			  void *data, size_t pktlen)
+void gm_rx_process(struct gm_if *gm_ifp, const struct sockaddr_in6 *pkt_src, pim_addr *pkt_dst,
+		   void *data, size_t pktlen)
 {
 	struct icmp6_plain_hdr *icmp6 = data;
 
@@ -1720,8 +1719,7 @@ static void gm_rx_process(struct gm_if *gm_ifp,
 	}
 }
 
-static bool ip6_check_hopopts_ra(uint8_t *hopopts, size_t hopopt_len,
-				 uint16_t alert_type)
+bool ip6_check_hopopts_ra(uint8_t *hopopts, size_t hopopt_len, uint16_t alert_type)
 {
 	uint8_t *hopopt_end;
 
