@@ -128,6 +128,28 @@ struct rpki_aspa_record {
 static int rpki_aspa_cmp(const struct rpki_aspa_record *a, const struct rpki_aspa_record *b);
 
 DECLARE_RBTREE_UNIQ(rpki_aspa_table, struct rpki_aspa_record, item, rpki_aspa_cmp);
+
+PREDECL_DLIST(rpki_aspa_msgq);
+
+/*
+ * One ASPA update on its way from the rtrlib thread to the bgpd thread.
+ *
+ * These are queued in memory rather than pushed through the sync socket the
+ * way ROA records are.  A ROA update that overflows the socket can be
+ * recovered from, because rtrlib's pfx_table can be walked again; the ASPA
+ * table cannot be walked at all, so a dropped update would leave our copy
+ * permanently out of step with rtrlib.  The socket is therefore only a
+ * wakeup, and the queue itself is bounded by memory.
+ */
+struct rpki_aspa_msg {
+	struct rpki_aspa_msgq_item item;
+	uint32_t customer_asn;
+	size_t provider_count;
+	uint32_t *providers;
+	bool added;
+};
+
+DECLARE_DLIST(rpki_aspa_msgq, struct rpki_aspa_msg, item);
 #endif
 
 struct rpki_vrf {
@@ -145,6 +167,8 @@ struct rpki_vrf {
 #ifdef FOUND_ASPA
 	int rpki_aspa_sync_socket_rtr;
 	int rpki_aspa_sync_socket_bgpd;
+	pthread_mutex_t aspa_queue_mtx;
+	struct rpki_aspa_msgq_head aspa_queue;
 	struct event *t_aspa_revalidate;
 	struct rpki_aspa_table_head aspa_table;
 #endif
@@ -648,15 +672,6 @@ static void pfx_record_to_prefix(struct rtr_pfx_record *record, struct prefix *p
 	}
 }
 
-#ifdef FOUND_ASPA
-struct rpki_aspa_msg {
-	uint32_t customer_asn;
-	size_t provider_count;
-	uint32_t *providers;
-	bool added;
-};
-#endif
-
 struct rpki_revalidate_prefix {
 	struct bgp *bgp;
 	struct prefix prefix;
@@ -863,14 +878,10 @@ static void rpki_aspa_update_cb_sync_rtr(struct rtr_aspa_table *aspa_table __att
 					 const struct rtr_socket *rtr_socket,
 					 const enum rtr_aspa_operation_type op)
 {
-	struct rpki_aspa_msg msg = {};
+	struct rpki_aspa_msg *msg;
 	struct rpki_vrf *rpki_vrf;
 	const char *ident;
-
-	msg.customer_asn = record.customer_asn;
-	msg.provider_count = record.provider_count;
-	msg.providers = record.provider_asns;
-	msg.added = (op == RTR_ASPA_ADD);
+	uint8_t wake = 0;
 
 	if (!rtr_socket || !rtr_socket->tr_socket)
 		goto discard;
@@ -883,23 +894,45 @@ static void rpki_aspa_update_cb_sync_rtr(struct rtr_aspa_table *aspa_table __att
 	if (!rpki_vrf || is_stopping(rpki_vrf))
 		goto discard;
 
-	if (write(rpki_vrf->rpki_aspa_sync_socket_rtr, &msg, sizeof(msg)) != sizeof(msg)) {
-		RPKI_DEBUG("Could not write to rpki_aspa_sync_socket_rtr");
-		goto discard;
+	msg = XCALLOC(MTYPE_BGP_RPKI_ASPA, sizeof(*msg));
+	msg->customer_asn = record.customer_asn;
+	msg->provider_count = record.provider_count;
+	msg->providers = record.provider_asns;
+	msg->added = (op == RTR_ASPA_ADD);
+
+	frr_with_mutex (&rpki_vrf->aspa_queue_mtx) {
+		rpki_aspa_msgq_add_tail(&rpki_vrf->aspa_queue, msg);
 	}
+
+	/*
+	 * Poke the bgpd thread.  A byte already sitting in the socket is just
+	 * as good a wakeup as a new one, so a full socket is not an error
+	 * here: the reader drains the whole queue whenever it runs.
+	 */
+	if (write(rpki_vrf->rpki_aspa_sync_socket_rtr, &wake, sizeof(wake)) < 0 &&
+	    errno != EAGAIN && errno != EWOULDBLOCK)
+		RPKI_DEBUG("Could not poke rpki_aspa_sync_socket_rtr");
 
 	return;
 
 discard:
-	free_wrapper(msg.providers);
+	free_wrapper(record.provider_asns);
 }
 
-static void rpki_aspa_sync_socket_drain(struct rpki_vrf *rpki_vrf)
+static void rpki_aspa_msg_free(struct rpki_aspa_msg *msg)
 {
-	struct rpki_aspa_msg msg;
+	free_wrapper(msg->providers);
+	XFREE(MTYPE_BGP_RPKI_ASPA, msg);
+}
 
-	while (read(rpki_vrf->rpki_aspa_sync_socket_bgpd, &msg, sizeof(msg)) == sizeof(msg))
-		free_wrapper(msg.providers);
+static void rpki_aspa_queue_flush(struct rpki_vrf *rpki_vrf)
+{
+	struct rpki_aspa_msg *msg;
+
+	frr_with_mutex (&rpki_vrf->aspa_queue_mtx) {
+		while ((msg = rpki_aspa_msgq_pop(&rpki_vrf->aspa_queue)))
+			rpki_aspa_msg_free(msg);
+	}
 }
 
 static void rpki_aspa_revalidate_all(struct event *event)
@@ -998,14 +1031,28 @@ static void rpki_aspa_table_flush(struct rpki_vrf *rpki_vrf)
 static void bgpd_aspa_sync_callback(struct event *event)
 {
 	struct rpki_vrf *rpki_vrf = EVENT_ARG(event);
-	struct rpki_aspa_msg msg;
+	struct rpki_aspa_msgq_head queue;
+	struct rpki_aspa_msg *msg;
+	uint8_t wake[64];
 
 	event_add_read(bm->master, bgpd_aspa_sync_callback, rpki_vrf,
 		       rpki_vrf->rpki_aspa_sync_socket_bgpd, NULL);
 
-	/* Drain everything queued: the initial sync delivers the whole set. */
-	while (read(rpki_vrf->rpki_aspa_sync_socket_bgpd, &msg, sizeof(msg)) == sizeof(msg))
-		rpki_aspa_shadow_update(rpki_vrf, &msg);
+	/* The socket only carries wakeups; swallow all of them. */
+	while (read(rpki_vrf->rpki_aspa_sync_socket_bgpd, wake, sizeof(wake)) > 0)
+		;
+
+	rpki_aspa_msgq_init(&queue);
+	frr_with_mutex (&rpki_vrf->aspa_queue_mtx) {
+		rpki_aspa_msgq_swap_all(&rpki_vrf->aspa_queue, &queue);
+	}
+
+	while ((msg = rpki_aspa_msgq_pop(&queue))) {
+		rpki_aspa_shadow_update(rpki_vrf, msg);
+		XFREE(MTYPE_BGP_RPKI_ASPA, msg);
+	}
+
+	rpki_aspa_msgq_fini(&queue);
 
 	event_add_timer_msec(bm->master, rpki_aspa_revalidate_all, rpki_vrf, 500,
 			     &rpki_vrf->t_aspa_revalidate);
@@ -1086,6 +1133,8 @@ static struct rpki_vrf *bgp_rpki_allocate(const char *vrfname)
 	rpki_vrf->retry_interval = RETRY_INTERVAL_DEFAULT;
 #ifdef FOUND_ASPA
 	rpki_aspa_table_init(&rpki_vrf->aspa_table);
+	rpki_aspa_msgq_init(&rpki_vrf->aspa_queue);
+	pthread_mutex_init(&rpki_vrf->aspa_queue_mtx, NULL);
 #endif
 
 	if (vrfname && !strmatch(vrfname, VRF_DEFAULT_NAME))
@@ -1120,9 +1169,11 @@ static int bgp_rpki_fini(void)
 		close(rpki_vrf->rpki_sync_socket_rtr);
 		close(rpki_vrf->rpki_sync_socket_bgpd);
 #ifdef FOUND_ASPA
-		rpki_aspa_sync_socket_drain(rpki_vrf);
+		rpki_aspa_queue_flush(rpki_vrf);
 		close(rpki_vrf->rpki_aspa_sync_socket_rtr);
 		close(rpki_vrf->rpki_aspa_sync_socket_bgpd);
+		rpki_aspa_msgq_fini(&rpki_vrf->aspa_queue);
+		pthread_mutex_destroy(&rpki_vrf->aspa_queue_mtx);
 		rpki_aspa_table_flush(rpki_vrf);
 		rpki_aspa_table_fini(&rpki_vrf->aspa_table);
 #endif
@@ -1274,6 +1325,7 @@ static void stop(struct rpki_vrf *rpki_vrf)
 		rtr_mgr_stop(rpki_vrf->rtr_config);
 		rtr_mgr_free(rpki_vrf->rtr_config);
 #ifdef FOUND_ASPA
+		rpki_aspa_queue_flush(rpki_vrf);
 		rpki_aspa_table_flush(rpki_vrf);
 #endif
 		rpki_vrf->rtr_is_running = false;
