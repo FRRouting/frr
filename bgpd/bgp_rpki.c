@@ -150,6 +150,16 @@ struct rpki_aspa_msg {
 };
 
 DECLARE_DLIST(rpki_aspa_msgq, struct rpki_aspa_msg, item);
+
+/*
+ * Upper bound on updates queued for the bgpd thread.  A full ASPA set is far
+ * smaller than this, so in practice the cap is never reached; it exists only
+ * so that a wedged event loop combined with repeated cache resyncs cannot grow
+ * the queue without limit.  Dropping is a last resort because rtrlib's ASPA
+ * table cannot be iterated, so a dropped update cannot be reconciled later --
+ * hence the table is flagged incomplete rather than silently diverging.
+ */
+#define RPKI_ASPA_QUEUE_MAX 200000
 #endif
 
 struct rpki_vrf {
@@ -169,6 +179,7 @@ struct rpki_vrf {
 	int rpki_aspa_sync_socket_bgpd;
 	pthread_mutex_t aspa_queue_mtx;
 	struct rpki_aspa_msgq_head aspa_queue;
+	bool aspa_shadow_incomplete;
 	struct event *t_aspa_revalidate;
 	struct rpki_aspa_table_head aspa_table;
 #endif
@@ -873,6 +884,8 @@ err:
 }
 
 #ifdef FOUND_ASPA
+static void rpki_aspa_msg_free(struct rpki_aspa_msg *msg);
+
 static void rpki_aspa_update_cb_sync_rtr(struct rtr_aspa_table *aspa_table __attribute__((unused)),
 					 const struct rtr_aspa_record record,
 					 const struct rtr_socket *rtr_socket,
@@ -880,6 +893,7 @@ static void rpki_aspa_update_cb_sync_rtr(struct rtr_aspa_table *aspa_table __att
 {
 	struct rpki_aspa_msg *msg;
 	struct rpki_vrf *rpki_vrf;
+	bool dropped = false;
 	const char *ident;
 	uint8_t wake = 0;
 
@@ -901,7 +915,19 @@ static void rpki_aspa_update_cb_sync_rtr(struct rtr_aspa_table *aspa_table __att
 	msg->added = (op == RTR_ASPA_ADD);
 
 	frr_with_mutex (&rpki_vrf->aspa_queue_mtx) {
-		rpki_aspa_msgq_add_tail(&rpki_vrf->aspa_queue, msg);
+		if (rpki_aspa_msgq_count(&rpki_vrf->aspa_queue) >= RPKI_ASPA_QUEUE_MAX) {
+			rpki_vrf->aspa_shadow_incomplete = true;
+			dropped = true;
+		} else {
+			rpki_aspa_msgq_add_tail(&rpki_vrf->aspa_queue, msg);
+		}
+	}
+
+	if (dropped) {
+		RPKI_DEBUG("ASPA update queue full (%u); 'show rpki aspa' marked incomplete",
+			   RPKI_ASPA_QUEUE_MAX);
+		rpki_aspa_msg_free(msg);
+		return;
 	}
 
 	/*
@@ -932,6 +958,8 @@ static void rpki_aspa_queue_flush(struct rpki_vrf *rpki_vrf)
 	frr_with_mutex (&rpki_vrf->aspa_queue_mtx) {
 		while ((msg = rpki_aspa_msgq_pop(&rpki_vrf->aspa_queue)))
 			rpki_aspa_msg_free(msg);
+
+		rpki_vrf->aspa_shadow_incomplete = false;
 	}
 }
 
@@ -2731,6 +2759,7 @@ DEFPY (show_rpki_aspa,
 {
 	struct rpki_aspa_show_arg arg = {};
 	struct rpki_aspa_record *rec;
+	bool incomplete;
 	struct rpki_vrf *rpki_vrf;
 	json_object *json = NULL;
 	struct bgp *bgp;
@@ -2751,6 +2780,16 @@ DEFPY (show_rpki_aspa,
 	arg.json = json;
 	arg.as = by_asn;
 	arg.asnotation = bgp_get_asnotation(bgp);
+
+	frr_with_mutex (&rpki_vrf->aspa_queue_mtx) {
+		incomplete = rpki_vrf->aspa_shadow_incomplete;
+	}
+
+	if (json && incomplete)
+		json_object_boolean_true_add(json, "incomplete");
+	else if (!json && incomplete)
+		vty_out(vty,
+			"%% Updates were dropped; this list may be incomplete. Use \"rpki reset\" to rebuild it.\n");
 
 	if (!json)
 		vty_out(vty, "%-14s %s\n", "Customer ASN", "Provider ASNs");
