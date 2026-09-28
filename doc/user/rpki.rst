@@ -363,38 +363,17 @@ business relationship with the neighbor the route was received from:
 
 The same ``AS_PATH`` can therefore be invalid upstream and valid downstream.
 
-The direction can either be stated explicitly in the route-map or derived from
-the neighbor's RFC 9234 role.
+FRR takes the direction from the route-map rather than deriving it from
+:clicmd:`neighbor PEER local-role ROLE`. The two features are deliberately
+independent: configuring ``local-role`` also enables RFC 9234 Only-To-Customer
+route-leak handling and advertises the Role capability, which operators
+adopting ASPA may not want. State the direction explicitly instead, and attach
+the route-map to the matching session.
 
-.. clicmd:: match aspa [<upstream|downstream>] <valid|invalid|unknown>
+.. clicmd:: match aspa <upstream|downstream> <valid|invalid|unknown>
 
-   Match the ASPA verification state of the route's ``AS_PATH``.
-
-   When a direction is given it is used as-is, which allows ASPA to be
-   deployed without RFC 9234. This matters because configuring
-   :clicmd:`neighbor PEER local-role ROLE` also enables Only-To-Customer
-   route-leak handling and advertises the Role capability, which operators
-   adopting ASPA may not want.
-
-   When the direction is omitted it is derived from
-   :clicmd:`neighbor PEER local-role ROLE` on the neighbor the route was
-   received from:
-
-   ============== ==================== ===========
-   ``local-role`` the neighbor is a    direction
-   ============== ==================== ===========
-   ``provider``   customer             upstream
-   ``rs-server``  RS-client            upstream
-   ``peer``       lateral peer         upstream
-   ``customer``   provider             downstream
-   ``rs-client``  route server         downstream
-   ============== ==================== ===========
-
-   If the neighbor has no role configured the direction cannot be derived and
-   the clause does not match, so a missing role never causes a route to be
-   dropped. ``debug rpki`` reports each such case.
-
-   An explicitly stated direction always wins over the role.
+   Match the ASPA verification state of the route's ``AS_PATH``, evaluated in
+   the given direction.
 
 .. note::
 

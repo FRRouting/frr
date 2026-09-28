@@ -344,142 +344,17 @@ def test_show_bgp_aspa_filter():
         )
 
 
-def test_aspa_direction_from_local_role():
-    """'match aspa <state>' with no direction derives it from RFC 9234
-    local-role, and an explicit direction still overrides the role."""
-    tgen = get_topogen()
-    if tgen.routers_have_failure():
-        pytest.skip(tgen.errors)
-
-    step("no local-role yet: the direction-less form must not match")
-
-    tgen.gears["r2"].vtysh_cmd(
-        """
-        configure terminal
-         route-map ASPA-IN permit 10
-          match aspa valid
-         exit
-         route-map ASPA-IN permit 20
-          match aspa invalid
-         exit
-         route-map ASPA-IN permit 30
-          match aspa unknown
-         exit
-        """
-    )
-    tgen.gears["r2"].vtysh_cmd("clear bgp * soft in")
-
-    # Without a role nothing is derivable, so every prefix falls through to
-    # the catch-all clause.
-    test_func = functools.partial(_locpref, "r2", PREFIX_INVALID)
-    _, result = topotest.run_and_expect(test_func, 50, count=60, wait=1)
-    assert (
-        result == 50
-    ), "without local-role the direction-less form should not match, got locPrf {}".format(
-        result
-    )
-
-    step("local-role provider => peer is a customer => upstream")
-
-    tgen.gears["r2"].vtysh_cmd(
-        """
-        configure terminal
-         router bgp 65500
-          neighbor 10.0.0.1 local-role provider
-         exit
-        """
-    )
-    tgen.gears["r2"].vtysh_cmd("clear bgp * soft in")
-
-    # 65001 65004 is upstream-invalid, so it must land in the invalid clause.
-    test_func = functools.partial(_locpref, "r2", PREFIX_INVALID)
-    _, result = topotest.run_and_expect(test_func, LOCPRF_INVALID, count=60, wait=1)
-    assert result == LOCPRF_INVALID, (
-        "with local-role provider the derived direction should be upstream "
-        "(locPrf {}), got {}".format(LOCPRF_INVALID, result)
-    )
-
-    step("local-role customer => peer is a provider => downstream")
-
-    tgen.gears["r2"].vtysh_cmd(
-        """
-        configure terminal
-         router bgp 65500
-          neighbor 10.0.0.1 local-role customer
-         exit
-        """
-    )
-    tgen.gears["r2"].vtysh_cmd("clear bgp * soft in")
-
-    # The same path is downstream-valid, so the verdict must flip.
-    test_func = functools.partial(_locpref, "r2", PREFIX_INVALID)
-    _, result = topotest.run_and_expect(test_func, LOCPRF_VALID, count=60, wait=1)
-    assert result == LOCPRF_VALID, (
-        "with local-role customer the derived direction should be downstream "
-        "(locPrf {}), got {}".format(LOCPRF_VALID, result)
-    )
-
-    step("an explicit direction overrides the role")
-
-    # Both clauses become explicit: route-maps are first-match-wins, so a
-    # direction-less clause 10 would still match downstream-valid here and
-    # clause 20 would never be reached.
-    tgen.gears["r2"].vtysh_cmd(
-        """
-        configure terminal
-         route-map ASPA-IN permit 10
-          match aspa upstream valid
-         exit
-         route-map ASPA-IN permit 20
-          match aspa upstream invalid
-         exit
-        """
-    )
-    tgen.gears["r2"].vtysh_cmd("clear bgp * soft in")
-
-    # local-role still says downstream, but the route-map says upstream.
-    test_func = functools.partial(_locpref, "r2", PREFIX_INVALID)
-    _, result = topotest.run_and_expect(test_func, LOCPRF_INVALID, count=60, wait=1)
-    assert result == LOCPRF_INVALID, (
-        "an explicit 'upstream' must override local-role customer "
-        "(locPrf {}), got {}".format(LOCPRF_INVALID, result)
-    )
-
-
 def test_aspa_match_survives_config_write():
-    """Both forms of 'match aspa' must render back into running-config, or the
-    condition is silently lost on save/restore.  Self-contained: it configures
-    its own route-map so it does not depend on what earlier tests left behind.
-    """
+    """'match aspa' must render back into running-config, or the condition is
+    silently lost on save/restore."""
     tgen = get_topogen()
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
-
-    tgen.gears["r2"].vtysh_cmd(
-        """
-        configure terminal
-         route-map ASPA-WRITE permit 10
-          match aspa downstream valid
-         exit
-         route-map ASPA-WRITE permit 20
-          match aspa invalid
-         exit
-        """
-    )
 
     output = tgen.gears["r2"].vtysh_cmd("show running-config")
-
     assert (
         "match aspa downstream valid" in output
-    ), "explicit 'match aspa' missing from running-config:\n{}".format(output)
-
-    assert (
-        "match aspa invalid" in output
-    ), "direction-less 'match aspa' missing from running-config:\n{}".format(output)
-
-    assert (
-        "match aspa auto" not in output
-    ), "internal 'auto' direction leaked into running-config:\n{}".format(output)
+    ), "'match aspa' missing from running-config:\n{}".format(output)
 
 
 if __name__ == "__main__":

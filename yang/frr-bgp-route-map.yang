@@ -748,12 +748,6 @@ identity set-extcommunity-color {
             description
               "Route received from a provider or route server";
           }
-          enum "auto" {
-            value 2;
-            description
-              "Derive the direction from the RFC 9234 local role configured
-               for the neighbor the route was received from";
-          }
         }
         mandatory true;
         description
