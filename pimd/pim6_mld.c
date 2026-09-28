@@ -1700,26 +1700,6 @@ static void gm_rx_process(struct gm_if *gm_ifp,
 			  void *data, size_t pktlen)
 {
 	struct icmp6_plain_hdr *icmp6 = data;
-	uint16_t pkt_csum, ref_csum;
-	struct ipv6_ph ph6 = {
-		.src = pkt_src->sin6_addr,
-		.dst = *pkt_dst,
-		.ulpl = htonl(pktlen),
-		.next_hdr = IPPROTO_ICMPV6,
-	};
-
-	pkt_csum = icmp6->icmp6_cksum;
-	icmp6->icmp6_cksum = 0;
-	ref_csum = in_cksum_with_ph6(&ph6, data, pktlen);
-
-	if (pkt_csum != ref_csum) {
-		zlog_warn(
-			log_pkt_src(
-				"(dst %pPA) packet RX checksum failure, expected %04hx, got %04hx"),
-			pkt_dst, pkt_csum, ref_csum);
-		gm_ifp->stats.rx_drop_csum++;
-		return;
-	}
 
 	data = (icmp6 + 1);
 	pktlen -= sizeof(*icmp6);
@@ -1787,6 +1767,8 @@ static void gm_t_recv(struct event *t)
 	} cmsgbuf;
 	struct cmsghdr *cmsg;
 	struct in6_pktinfo *pktinfo = NULL;
+	struct icmp6_plain_hdr *icmp6;
+	uint16_t pkt_csum, ref_csum;
 	uint8_t *hopopts = NULL;
 	size_t hopopt_len = 0;
 	int *hoplimit = NULL;
@@ -1796,6 +1778,7 @@ static void gm_t_recv(struct event *t)
 	struct sockaddr_in6 pkt_src[1] = {};
 	ssize_t nread;
 	size_t pktlen;
+	struct ipv6_ph ph6;
 
 	event_add_read(router->master, gm_t_recv, pim, pim->gm_socket,
 		       &pim->t_gm_recv);
@@ -1848,8 +1831,7 @@ static void gm_t_recv(struct event *t)
 	}
 
 	/* Prefer pktinfo as that also works in case of VRF */
-	ifindex_t ifindex = pktinfo ? pktinfo->ipi6_ifindex
-	                            : pkt_src->sin6_scope_id;
+	ifindex_t ifindex = pktinfo ? pktinfo->ipi6_ifindex : pkt_src->sin6_scope_id;
 	struct interface *ifp;
 
 	ifp = if_lookup_by_index(ifindex, pim->vrf->vrf_id);
@@ -1899,6 +1881,26 @@ static void gm_t_recv(struct event *t)
 	if (pktlen < sizeof(struct icmp6_plain_hdr)) {
 		zlog_warn(log_pkt_src("truncated packet"));
 		gm_ifp->stats.rx_drop_malformed++;
+		goto out_free;
+	}
+
+	ph6 = (struct ipv6_ph){
+		.src = pkt_src->sin6_addr,
+		.dst = pktinfo->ipi6_addr,
+		.ulpl = htonl(pktlen),
+		.next_hdr = IPPROTO_ICMPV6,
+	};
+
+	icmp6 = iov->iov_base;
+	pkt_csum = icmp6->icmp6_cksum;
+	icmp6->icmp6_cksum = 0;
+	ref_csum = in_cksum_with_ph6(&ph6, iov->iov_base, pktlen);
+
+	if (pkt_csum != ref_csum) {
+		zlog_warn(log_pkt_src(
+				  "(dst %pI6) packet RX checksum failure, expected %04hx, got %04hx"),
+			  &pktinfo->ipi6_addr, pkt_csum, ref_csum);
+		gm_ifp->stats.rx_drop_csum++;
 		goto out_free;
 	}
 
