@@ -228,6 +228,14 @@ tests_lib_test_idalloc_LDADD = $(ALL_TESTS_LDADD)
 tests_lib_test_idalloc_SOURCES = tests/lib/test_idalloc.c
 
 
+check_PROGRAMS += tests/lib/test_mgmt_msg
+tests_lib_test_mgmt_msg_CFLAGS = $(TESTS_CFLAGS)
+tests_lib_test_mgmt_msg_CPPFLAGS = $(TESTS_CPPFLAGS)
+tests_lib_test_mgmt_msg_LDADD = $(ALL_TESTS_LDADD)
+tests_lib_test_mgmt_msg_SOURCES = tests/lib/test_mgmt_msg.c
+EXTRA_DIST += tests/lib/test_mgmt_msg.py
+
+
 check_PROGRAMS += tests/lib/test_memory
 tests_lib_test_memory_CFLAGS = $(TESTS_CFLAGS)
 tests_lib_test_memory_CPPFLAGS = $(TESTS_CPPFLAGS)
