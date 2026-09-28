@@ -234,6 +234,7 @@ static const struct route_map_rule_cmd route_match_rpki_cmd = {
 #ifdef FOUND_ASPA
 struct rmap_aspa {
 	enum rtr_aspa_direction direction;
+	bool derive_direction;
 	enum aspa_states state;
 };
 
@@ -1642,13 +1643,40 @@ static int rpki_aspa_path_status(struct peer *peer, struct attr *attr, int direc
 									: RTR_ASPA_UPSTREAM);
 }
 
+static bool rpki_aspa_direction_from_role(struct peer *peer, enum rtr_aspa_direction *dir)
+{
+	if (!peer || !CHECK_FLAG(peer->flags, PEER_FLAG_ROLE))
+		return false;
+
+	switch (peer->local_role) {
+	case ROLE_PROVIDER:
+	case ROLE_RS_SERVER:
+	case ROLE_PEER:
+		*dir = RTR_ASPA_UPSTREAM;
+		return true;
+	case ROLE_CUSTOMER:
+	case ROLE_RS_CLIENT:
+		*dir = RTR_ASPA_DOWNSTREAM;
+		return true;
+	}
+
+	return false;
+}
+
 static enum route_map_cmd_result_t route_match_aspa(void *rule, const struct prefix *prefix,
 						    void *object)
 {
 	struct rmap_aspa *aspa = rule;
 	struct bgp_path_info *path = object;
+	enum rtr_aspa_direction direction = aspa->direction;
 
-	if (rpki_aspa_validate_path(path->peer, path->attr, aspa->direction) == aspa->state)
+	if (aspa->derive_direction && !rpki_aspa_direction_from_role(path->peer, &direction)) {
+		RPKI_DEBUG("ASPA direction not derivable: no local-role on peer %s",
+			   path->peer ? path->peer->host : "(unknown)");
+		return RMAP_NOMATCH;
+	}
+
+	if (rpki_aspa_validate_path(path->peer, path->attr, direction) == aspa->state)
 		return RMAP_MATCH;
 
 	return RMAP_NOMATCH;
@@ -1663,8 +1691,9 @@ static void *route_match_aspa_compile(const char *arg)
 	if (sscanf(arg, "%15s %15s", direction, state) != 2)
 		return NULL;
 
-	aspa = XMALLOC(MTYPE_ROUTE_MAP_COMPILED, sizeof(*aspa));
+	aspa = XCALLOC(MTYPE_ROUTE_MAP_COMPILED, sizeof(*aspa));
 
+	aspa->derive_direction = strmatch(direction, "auto");
 	aspa->direction = strmatch(direction, "downstream") ? RTR_ASPA_DOWNSTREAM
 							    : RTR_ASPA_UPSTREAM;
 
@@ -3257,7 +3286,7 @@ DEFUN_YANG (no_match_rpki,
 
 DEFPY_YANG (match_aspa,
        match_aspa_cmd,
-       "match aspa <upstream|downstream>$direction <valid|invalid|unknown>$state",
+       "match aspa [<upstream|downstream>$direction] <valid|invalid|unknown>$state",
        MATCH_STR
        ASPA_OUTPUT_STRING)
 {
@@ -3268,7 +3297,7 @@ DEFPY_YANG (match_aspa,
 
 	snprintf(xpath_value, sizeof(xpath_value),
 		 "%s/rmap-match-condition/frr-bgp-route-map:aspa-direction", xpath);
-	nb_cli_enqueue_change(vty, xpath_value, NB_OP_MODIFY, direction);
+	nb_cli_enqueue_change(vty, xpath_value, NB_OP_MODIFY, direction ? direction : "auto");
 
 	snprintf(xpath_value, sizeof(xpath_value),
 		 "%s/rmap-match-condition/frr-bgp-route-map:aspa-state", xpath);
@@ -3279,7 +3308,7 @@ DEFPY_YANG (match_aspa,
 
 DEFPY_YANG (no_match_aspa,
        no_match_aspa_cmd,
-       "no match aspa <upstream|downstream>$direction <valid|invalid|unknown>$state",
+       "no match aspa [<upstream|downstream>$direction] <valid|invalid|unknown>$state",
        NO_STR
        MATCH_STR
        ASPA_OUTPUT_STRING)

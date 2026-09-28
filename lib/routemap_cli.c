@@ -732,11 +732,20 @@ void route_map_condition_show(struct vty *vty, const struct lyd_node *dnode,
 				dnode,
 				"./rmap-match-condition/frr-bgp-route-map:rpki-extcommunity"));
 	} else if (IS_MATCH_ASPA(condition)) {
-		vty_out(vty, " match aspa %s %s\n",
+		const char *aspa_direction =
 			yang_dnode_get_string(dnode,
-					      "./rmap-match-condition/frr-bgp-route-map:aspa-direction"),
+					      "./rmap-match-condition/frr-bgp-route-map:aspa-direction");
+		const char *aspa_state =
 			yang_dnode_get_string(dnode,
-					      "./rmap-match-condition/frr-bgp-route-map:aspa-state"));
+					      "./rmap-match-condition/frr-bgp-route-map:aspa-state");
+
+		/* "auto" means the direction is taken from the neighbor's RFC 9234
+		 * local role and is not spelled out in the configuration.
+		 */
+		if (strmatch(aspa_direction, "auto"))
+			vty_out(vty, " match aspa %s\n", aspa_state);
+		else
+			vty_out(vty, " match aspa %s %s\n", aspa_direction, aspa_state);
 	} else if (IS_MATCH_PROBABILITY(condition)) {
 		vty_out(vty, " match probability %s\n",
 			yang_dnode_get_string(
