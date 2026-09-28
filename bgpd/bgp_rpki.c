@@ -845,6 +845,7 @@ static void rpki_update_cb_sync_rtr(struct rtr_pfx_table *p __attribute__((unuse
 		return;
 
 	int retval = write(rpki_vrf->rpki_sync_socket_rtr, &rec, sizeof(struct rtr_pfx_record));
+
 	if (retval == -1 && (errno == EAGAIN || errno == EWOULDBLOCK))
 		atomic_store_explicit(&rpki_vrf->rtr_update_overflow, 1,
 				      memory_order_seq_cst);
@@ -891,6 +892,14 @@ static void rpki_aspa_update_cb_sync_rtr(struct rtr_aspa_table *aspa_table __att
 
 discard:
 	free_wrapper(msg.providers);
+}
+
+static void rpki_aspa_sync_socket_drain(struct rpki_vrf *rpki_vrf)
+{
+	struct rpki_aspa_msg msg;
+
+	while (read(rpki_vrf->rpki_aspa_sync_socket_bgpd, &msg, sizeof(msg)) == sizeof(msg))
+		free_wrapper(msg.providers);
 }
 
 static void rpki_aspa_revalidate_all(struct event *event)
@@ -1111,6 +1120,7 @@ static int bgp_rpki_fini(void)
 		close(rpki_vrf->rpki_sync_socket_rtr);
 		close(rpki_vrf->rpki_sync_socket_bgpd);
 #ifdef FOUND_ASPA
+		rpki_aspa_sync_socket_drain(rpki_vrf);
 		close(rpki_vrf->rpki_aspa_sync_socket_rtr);
 		close(rpki_vrf->rpki_aspa_sync_socket_bgpd);
 		rpki_aspa_table_flush(rpki_vrf);
