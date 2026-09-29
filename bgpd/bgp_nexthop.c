@@ -627,6 +627,7 @@ bool bgp_multiaccess_check_v4(struct in_addr nexthop, struct peer *peer)
 
 	ret = (dest1 == dest2);
 
+	/* coverity[double_free] - aliased dest, locked by each bgp_node_match() */
 	return ret;
 }
 
@@ -655,6 +656,7 @@ bool bgp_multiaccess_check_v6(struct in6_addr nexthop, struct peer *peer)
 
 	ret = (dest1 == dest2);
 
+	/* coverity[double_free] - aliased dest, locked by each bgp_node_match() */
 	return ret;
 }
 
@@ -689,6 +691,7 @@ bool bgp_subgrp_multiaccess_check_v6(struct in6_addr nexthop,
 		dest2 = bgp_node_match(bgp->connected_table[AFI_IP6], &p);
 		if (dest1 == dest2) {
 			bgp_dest_unlock_node(dest2);
+			/* coverity[double_free] - aliased dest, locked by each bgp_node_match() */
 			return true;
 		}
 
@@ -731,6 +734,7 @@ bool bgp_subgrp_multiaccess_check_v4(struct in_addr nexthop,
 		dest2 = bgp_node_match(bgp->connected_table[AFI_IP], &p);
 		if (dest1 == dest2) {
 			bgp_dest_unlock_node(dest2);
+			/* coverity[double_free] - aliased dest, locked by each bgp_node_match() */
 			return true;
 		}
 
