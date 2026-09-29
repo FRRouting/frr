@@ -128,6 +128,23 @@ def setup_module(mod):
         logger.info("r2 sharp routes installed (%s): %d" % (cmd, n))
         return n >= NROUTES
 
+    # The IPv4 sharp nexthop is r2's own loopback. If the routes are injected
+    # before zebra has that prefix as a connected route, resolution fails once
+    # and the routes stay inactive. Wait until it is connected.
+    def _loopback_connected():
+        out = tgen.gears["r2"].vtysh_cmd("show ip route 172.16.255.2 json", isjson=True)
+        connected = any(
+            entry.get("protocol") == "connected"
+            for entries in out.values()
+            if isinstance(entries, list)
+            for entry in entries
+        )
+        logger.info("r2 172.16.255.2 connected: %s" % connected)
+        return connected
+
+    _, ok = topotest.run_and_expect(_loopback_connected, True, count=15, wait=1)
+    assert ok, "r2 loopback 172.16.255.2 is not a connected route"
+
     # sharpd uses a single global install continuation (struct buffer_delay);
     # firing the second large `sharp install routes` before the first has drained
     # clobbers it and silently drops routes from the in-flight family. Wait for
