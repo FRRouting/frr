@@ -230,6 +230,9 @@ enum dplane_op_e {
 	/* EVPN-MH FDB (L2) nexthop update */
 	DPLANE_OP_NH_FDB_INSTALL,
 	DPLANE_OP_NH_FDB_DELETE,
+
+	/* Kernel route and nexthop notifications */
+	DPLANE_OP_KERNEL_NOTIFY,
 };
 
 /* Operational status of Bridge Ports */
@@ -623,6 +626,10 @@ ifindex_t dplane_ctx_tc_qdisc_notify_get_ifindex(const struct zebra_dplane_ctx *
 uint32_t dplane_ctx_tc_qdisc_notify_get_major_handle(const struct zebra_dplane_ctx *ctx);
 enum dplane_tc_qdisc_notify_e
 dplane_ctx_tc_qdisc_notify_get_type(const struct zebra_dplane_ctx *ctx);
+
+void *dplane_ctx_kernel_notify_get_msgs(const struct zebra_dplane_ctx *ctx);
+size_t dplane_ctx_kernel_notify_get_len(const struct zebra_dplane_ctx *ctx);
+
 /*
  * For the 'startup' indication on the notification ctx, use the
  * generic dplane_ctx_get_startup() / dplane_ctx_set_startup() pair.
@@ -1064,6 +1071,24 @@ enum zebra_dplane_result dplane_tc_qdisc_notify_enqueue(ns_id_t ns_id,
 							enum dplane_tc_qdisc_notify_e notify_type,
 							bool startup, int kind, ifindex_t ifindex,
 							uint32_t major_handle);
+
+/*
+ * A batch of kernel route and nexthop notifications, read by the dplane thread
+ * and handed to the zebra master thread in order with the interface and
+ * address notifications read on the same socket. Each message is copied with
+ * 'len' bytes and padded to 'space' bytes.
+ */
+struct zebra_dplane_ctx *dplane_kernel_notify_new(ns_id_t ns_id);
+void dplane_kernel_notify_add(struct zebra_dplane_ctx *ctx, const void *msg, size_t len,
+			      size_t space);
+
+/*
+ * If 'ctxlist' is a single batch of kernel notifications and the last context
+ * of 'queue' is a batch from the same namespace, move its messages into that
+ * batch and free it. Returns true if merged.
+ */
+bool dplane_kernel_notify_merge_tail(struct dplane_ctx_list_head *queue,
+				     struct dplane_ctx_list_head *ctxlist);
 
 /*
  * Link layer operations for the dataplane.

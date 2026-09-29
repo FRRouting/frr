@@ -1587,6 +1587,10 @@ int kernel_dplane_read(struct zebra_dplane_info *info)
 	return 0;
 }
 
+void kernel_notify_process(struct zebra_dplane_ctx *ctx)
+{
+}
+
 void kernel_update_multi(struct dplane_ctx_list_head *ctx_list)
 {
 	struct zebra_dplane_ctx *ctx;
@@ -1717,6 +1721,7 @@ void kernel_update_multi(struct dplane_ctx_list_head *ctx_list)
 		case DPLANE_OP_NEIGH_READ:
 		case DPLANE_OP_TC_QDISC_READ:
 		case DPLANE_OP_TC_QDISC_NOTIFY:
+		case DPLANE_OP_KERNEL_NOTIFY:
 			flog_err(EC_ZEBRA_DPLANE_OP_UNHANDLED, "Unhandled dplane data for %s",
 				 dplane_op2str(dplane_ctx_get_op(ctx)));
 			res = ZEBRA_DPLANE_REQUEST_FAILURE;
