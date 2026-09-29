@@ -699,7 +699,8 @@ static void zebra_neigh_macfdb_update(struct zebra_dplane_ctx *ctx)
 			}
 
 			zebra_vxlan_dp_network_mac_add(ifp, br_if, &mac, vid, vni, nhg_id, sticky,
-						       !!(ndm_flags & ZEBRA_NTF_EXT_LEARNED));
+						       !!(ndm_flags & ZEBRA_NTF_EXT_LEARNED),
+						       vtep_ip);
 			return;
 		}
 
