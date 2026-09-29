@@ -20,7 +20,10 @@ static void test(const char *address_string, uint16_t default_port)
 	struct network_address address = {};
 	char buf[INET6_ADDRSTRLEN];
 
-	printf("'%s' (default port %u)\n", address_string, default_port);
+	if (address_string)
+		printf("'%s' (default port %u)\n", address_string, default_port);
+	else
+		printf("NULL (default port %u)\n", default_port);
 
 	if (!network_address_parse(address_string, &address, default_port)) {
 		printf("  error: '%s'\n", address.error);
@@ -109,6 +112,8 @@ int main(int argc, char *argv[])
 	test("unix:/var/run/frr/test.sock:8080", 4444);
 
 	printf("\n== invalid type ==\n");
+	/* A module loaded without arguments. */
+	test(NULL, 4444);
 	test("", 4444);
 	test("nocolon", 4444);
 	test("IPV4:127.0.0.1", 4444);

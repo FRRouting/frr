@@ -1138,9 +1138,14 @@ bool network_address_parse(const char *address_string, struct network_address *a
 	char type[64];
 	char port_error[64];
 
-	assert(address_string != NULL);
-
 	memset(address, 0, sizeof(*address));
+
+	/* e.g. a module loaded without arguments. */
+	if (address_string == NULL) {
+		snprintfrr(address->error, sizeof(address->error),
+			   "missing address (expected <type>:<address>[:<port>])");
+		return false;
+	}
 
 	/* Basic parsing: find ':' to figure out type part and address part. */
 	addr_start = strchr(address_string, ':');

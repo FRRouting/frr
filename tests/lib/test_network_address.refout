@@ -72,6 +72,8 @@
   path: /var/run/frr/test.sock:8080
 
 == invalid type ==
+NULL (default port 4444)
+  error: 'missing address (expected <type>:<address>[:<port>])'
 '' (default port 4444)
   error: 'invalid address format: '
 'nocolon' (default port 4444)
