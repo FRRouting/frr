@@ -2409,6 +2409,7 @@ static int zl3vni_send_add_to_client(struct zebra_l3vni *zl3vni)
 	struct ethaddr svi_rmac, vrr_rmac = {.octet = {0} };
 	struct zebra_vrf *zvrf;
 	bool is_anycast_mac = true;
+	struct ipaddr local_vtep_ip;
 
 	client = zserv_find_client(ZEBRA_ROUTE_BGP, 0);
 	/* BGP may not be running. */
@@ -2437,7 +2438,12 @@ static int zl3vni_send_add_to_client(struct zebra_l3vni *zl3vni)
 	zclient_create_header(s, ZEBRA_L3VNI_ADD, zl3vni_vrf_id(zl3vni));
 	stream_putl(s, zl3vni->vni);
 	stream_put(s, &svi_rmac, sizeof(struct ethaddr));
-	stream_put_ipaddr(s, &zl3vni->local_vtep_ip);
+	local_vtep_ip = zl3vni->local_vtep_ip;
+	if (IS_IPADDR_NONE(&local_vtep_ip)) {
+		SET_IPADDR_V4(&local_vtep_ip);
+		local_vtep_ip.ipaddr_v4.s_addr = INADDR_ANY;
+	}
+	stream_put_ipaddr(s, &local_vtep_ip);
 	stream_put(s, &zl3vni->filter, sizeof(int));
 	stream_putl(s, zl3vni->svi_if->ifindex);
 	stream_put(s, &vrr_rmac, sizeof(struct ethaddr));
