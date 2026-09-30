@@ -763,8 +763,22 @@ void ldp_write_handler(struct event *event)
 	struct imsgbuf	*ibuf = &iev->ibuf;
 	ssize_t		 n;
 
-	if ((n = msgbuf_write(&ibuf->w)) == -1 && errno != EAGAIN)
-		fatal("msgbuf_write");
+	n = msgbuf_write(&ibuf->w);
+	if (n == -1) {
+		/*
+		 * The peer is gone: EPIPE, as SIGPIPE is ignored
+		 * (ECONNRESET is not expected, but would mean the same).
+		 * Drop what is queued and let the read handler see the
+		 * close.
+		 */
+		if (errno == EPIPE || errno == ECONNRESET) {
+			msgbuf_clear(&ibuf->w);
+			imsg_event_add(iev);
+			return;
+		}
+		if (errno != EAGAIN)
+			fatal("msgbuf_write");
+	}
 	if (n == 0) {
 		/* this pipe is dead, so remove the event handlers */
 		event_cancel(&iev->ev_read);
