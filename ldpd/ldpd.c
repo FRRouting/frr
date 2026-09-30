@@ -457,6 +457,16 @@ static FRR_NORETURN void ldpd_shutdown(void)
 	close(iev_ldpe->ibuf.fd);
 	msgbuf_clear(&iev_lde->ibuf.w);
 	close(iev_lde->ibuf.fd);
+	/*
+	 * And the sync pipes.  In the foreground the children are ours, and
+	 * one blocked in ldp_acl_request() would otherwise never get back to
+	 * its event loop to see the closes above: the wait() below would
+	 * wait for it forever.
+	 */
+	msgbuf_clear(&iev_ldpe_sync->ibuf.w);
+	close(iev_ldpe_sync->ibuf.fd);
+	msgbuf_clear(&iev_lde_sync->ibuf.w);
+	close(iev_lde_sync->ibuf.fd);
 
 	config_clear(ldpd_conf);
 
@@ -494,6 +504,8 @@ static FRR_NORETURN void ldpd_shutdown(void)
 
 	free(iev_ldpe);
 	free(iev_lde);
+	free(iev_ldpe_sync);
+	free(iev_lde_sync);
 
 	log_info("terminating");
 
@@ -967,7 +979,8 @@ ldp_acl_request(struct imsgev *iev, char *acl_name, int af,
 			fatal("imsg_read error");
 		if (n == 0) {
 			/*
-			 * The parent is gone, so the answer no longer
+			 * The parent is going away (ldpd_shutdown() closes
+			 * this pipe) or already gone, so the answer no longer
 			 * matters: deny, and let the event loop see the main
 			 * pipe close and shut down.  Say so, in case the pipe
 			 * ever closes for another reason.
