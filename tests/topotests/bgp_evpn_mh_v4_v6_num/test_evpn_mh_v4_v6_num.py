@@ -938,7 +938,9 @@ def tgen_and_ip_version(request):
     # Run this inside the torm11 namespace so that vtysh talks to the correct daemons.
     if torm11 is not None:
         logger.info("Running frr-reload.py on torm11 unified config")
-        cmd = "/usr/lib/frr/frr-reload.py --reload /etc/frr/frr.conf"
+        cmd = "{} --reload /etc/frr/frr.conf".format(
+            topotest.frr_reload_script(torm11.daemondir)
+        )
         # Run this inside the torm11 namespace (TopoRouter.net is the underlying node)
         rc, out, err = torm11.net.cmd_status(cmd, warn=False)
         if rc:

@@ -1661,6 +1661,33 @@ def default_frrdir():
     return "/usr/local/libexec/frr"
 
 
+def configured_frrdir():
+    """FRR daemon directory for this test run.
+
+    Honors ``[topogen] frrdir`` in pytest.ini when set. Otherwise uses
+    ``default_frrdir()``. This is the same directory Topogen gives each router.
+    """
+    parser = configparser.ConfigParser(defaults={"frrdir": default_frrdir()})
+    parser.read(
+        os.path.join(os.path.dirname(os.path.realpath(__file__)), "../pytest.ini")
+    )
+    if parser.has_section("topogen"):
+        return parser.get("topogen", "frrdir")
+    return default_frrdir()
+
+
+def frr_reload_script(frrdir=None):
+    """Path to frr-reload.py installed beside the FRR daemons.
+
+    The script is an sbin script, so it lives in the same directory as zebra
+    (topotest ``frrdir`` / a router's ``daemondir``). Pass that directory when
+    the test has one; otherwise the configured topogen directory is used.
+    """
+    if not frrdir:
+        frrdir = configured_frrdir()
+    return os.path.join(frrdir, "frr-reload.py")
+
+
 class Router(Node):
     "A Node with IPv4/IPv6 forwarding enabled"
 
