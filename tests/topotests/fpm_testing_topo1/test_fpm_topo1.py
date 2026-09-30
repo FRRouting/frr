@@ -27,7 +27,7 @@ sys.path.append(os.path.join(CWD, "../"))
 # pylint: disable=C0413
 # Import topogen and topotest helpers
 from lib import topotest
-from lib.topogen import Topogen, TopoRouter, get_topogen
+from lib.topogen import Topogen, TopoRouter, get_topogen, logger
 
 
 pytestmark = [pytest.mark.fpm, pytest.mark.sharpd]
@@ -454,7 +454,14 @@ def _get_fpm_resolved_via(router):
         nhg_id = re.match(r"  ID: (\d+),", entry)
         value = re.search(r"ResolvedVia: (\d+)", entry)
         if nhg_id and value:
-            resolved_via[int(nhg_id.group(1))] = int(value.group(1))
+            res_obj = {}
+            res_obj["ID"] = int(value.group(1))
+
+            value = re.search(r"ResolvedPfx: ([0-9a-f.:/]+)", entry)
+            if value:
+                res_obj["prefix"] = value.group(1)
+
+            resolved_via[int(nhg_id.group(1))] = res_obj
 
     return resolved_via
 
@@ -487,6 +494,8 @@ def test_fpm_resolved_via_recursive_routes():
     route_nhg_ids = {}
 
     def routes_resolved():
+        route_nhg_ids.clear()
+
         for prefix in prefixes:
             output = router.vtysh_cmd("show ip route {} json".format(prefix))
             try:
@@ -553,6 +562,7 @@ def test_fpm_resolved_via_recursive_routes():
     # nexthop group id is what vtysh should report as the resolved-via.
     connected_nhg_id = _get_route_nhg_id(router, connected_prefix)
     assert connected_nhg_id is not None, "Connected route has no nexthop group id"
+
     expected_values = set().union(*expected_resolved_via.values())
     assert (
         connected_nhg_id in expected_values
@@ -564,8 +574,12 @@ def test_fpm_resolved_via_recursive_routes():
     def fpm_has_expected_resolved_via():
         fpm_resolved_via = _get_fpm_resolved_via(router)
         for nhg_id, values in expected_resolved_via.items():
-            if fpm_resolved_via.get(nhg_id) not in values:
+            fpm_obj = fpm_resolved_via.get(nhg_id)
+            if fpm_obj == None:
                 return False
+            if fpm_obj["ID"] not in values:
+                return False
+
         return True
 
     success, _ = topotest.run_and_expect(
@@ -580,15 +594,27 @@ def test_fpm_resolved_via_recursive_routes():
         )
     )
 
-    # The resolved-via value sent down the FPM pipe must match the value
+    # The resolved-via NHG ID value sent down the FPM pipe must match the value
     # vtysh reports for the same nexthop group.
     fpm_resolved_via = _get_fpm_resolved_via(router)
     for nhg_id, resolved_via in fpm_resolved_via.items():
         if nhg_id in vtysh_resolved_via:
-            assert resolved_via in vtysh_resolved_via[nhg_id], (
+            assert resolved_via["ID"] in vtysh_resolved_via[nhg_id], (
                 "FPM received resolved-via {} for NHG {}, but vtysh "
                 "reports {}".format(resolved_via, nhg_id, vtysh_resolved_via[nhg_id])
             )
+
+    #
+    # Check the resolving prefix info also. Both of the recursive routes should
+    # resolve through 'connected_prefix' and 'connected_nhg_id'
+    #
+    for nhg_id, entry in fpm_resolved_via.items():
+        if entry["ID"] == connected_nhg_id:
+            logger.info(f"FPM entry {nhg_id} with prefix {entry['prefix']}")
+
+            assert (
+                entry["prefix"] == connected_prefix
+            ), f"FPM entry for {nhg_id} has wrong prefix {entry['prefix']}"
 
     # Cleanup
     router.vtysh_cmd(
