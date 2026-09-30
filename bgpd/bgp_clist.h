@@ -175,6 +175,7 @@ extern struct ecommunity *
 ecommunity_list_match_delete(struct ecommunity *ecom,
 			     struct community_list *list);
 extern struct community *community_list_add(struct community *com, struct community_list *list);
+extern struct ecommunity *ecommunity_list_add(struct ecommunity *ecom, struct community_list *list);
 
 static inline uint32_t bgp_clist_hash_key(char *name)
 {
