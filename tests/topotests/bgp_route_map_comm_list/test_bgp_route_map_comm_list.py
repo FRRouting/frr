@@ -58,7 +58,7 @@ def test_bgp_route_map_comm_list():
                 "bgpState": "Established",
                 "addressFamilyInfo": {
                     "ipv4Unicast": {
-                        "acceptedPrefixCounter": 4,
+                        "acceptedPrefixCounter": 6,
                     }
                 },
             }
@@ -187,6 +187,54 @@ def test_bgp_route_map_comm_list():
 
     success, result = topotest.run_and_expect(_verify_bgp_rib, None, count=15, wait=1)
     assert  result is None, "Failed"
+
+def test_bgp_route_map_extcomm_list():
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    r2 = tgen.gears["r2"]
+
+    def _check_extcommunity(prefix, extcommunity):
+        output = json.loads(
+            r2.vtysh_cmd("show bgp ipv4 unicast {} json".format(prefix))
+        )
+        expected = {
+            "paths": [
+                {
+                    "extendedCommunity": {"string": extcommunity},
+                    "peer": {"peerId": "192.168.1.1"},
+                }
+            ]
+        }
+        return topotest.json_cmp(output, expected)
+
+    # r1 sends both prefixes with RT:65001:10.
+    # "set extended-comm-list add ECL_ADD" appends RT:65001:111, and
+    # "set extended-comm-list replace ECL_REP" replaces RT:65001:10 with
+    # RT:65001:222. The string comparison is exact.
+    for prefix, extcommunity, case in (
+        ("10.1.5.0/24", "RT:65001:10 RT:65001:111", "ADD"),
+        ("10.1.6.0/24", "RT:65001:222", "REPLACE"),
+    ):
+        test_func = functools.partial(_check_extcommunity, prefix, extcommunity)
+        _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
+        assert (
+            result is None
+        ), "{} case failed: {} extended communities are not {}".format(
+            case, prefix, extcommunity
+        )
+
+    # the new commands are displayed back in the configuration
+    output = r2.vtysh_cmd("show running-config")
+    for line in (
+        " set extended-comm-list add ECL_ADD",
+        " set extended-comm-list replace ECL_REP",
+    ):
+        assert line in output.splitlines(), "'{}' missing from r2 configuration".format(
+            line
+        )
+
 
 if __name__ == "__main__":
     sys.exit(pytest.main([__file__]))
