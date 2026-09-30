@@ -252,11 +252,40 @@ def bridge_for_member(ifconfig_text, iface):
     return found
 
 
+def _clone_loopback():
+    """Create a lo(4) clone and return its name.
+
+    ``ifconfig lo create`` asks for the next unit. Once an interface is
+    named ``lo``, the kernel rejects that with EEXIST, so try an explicit
+    unit.
+    """
+    import subprocess
+
+    names = ["lo"] + [f"lo{unit}" for unit in range(1, 128)]
+    last = ""
+    for ifname in names:
+        proc = subprocess.run(
+            ["/sbin/ifconfig", ifname, "create"], text=True, capture_output=True
+        )
+        if proc.returncode:
+            last = (proc.stderr or proc.stdout or "").strip()
+            continue
+        text = (proc.stdout or "").strip() or (proc.stderr or "").strip()
+        created = text.split()[-1] if text else ""
+        if not created:
+            die(f"ifconfig {ifname} create returned no name")
+        return created
+    die(f"could not clone a loopback: {last}")
+
+
 def _create_renamed(kind, name):
-    text = _run(["/sbin/ifconfig", kind, "create"], capture=True)
-    created = text.strip().split()[-1]
-    if not created:
-        die(f"ifconfig {kind} create returned no name")
+    if kind == "lo":
+        created = _clone_loopback()
+    else:
+        text = _run(["/sbin/ifconfig", kind, "create"], capture=True)
+        created = text.strip().split()[-1]
+        if not created:
+            die(f"ifconfig {kind} create returned no name")
     if created != name:
         _run(["/sbin/ifconfig", created, "name", name])
     return name

@@ -10,7 +10,8 @@ parent. epair(4) endpoints then move into those children by jail id.
 The jail root is a private directory with read-only nullfs of the base
 system, so cleanup can unmount before removing the directory. ``/usr/local/etc/frr``
 is a symlink to ``/etc/frr`` so a FreeBSD build that uses ``--sysconfdir=/usr/local/etc``
-still reads the configs the tests write.
+still reads the configs the tests write. Each jail also gets a loopback named
+``lo``. Generated frr.conf files use that Linux name; ``lo0`` stays localhost.
 
 Jail ids are not stored in ``Commander.pid``. That field stays the pytest
 process id so namespace teardown does not signal an unrelated process.
@@ -509,6 +510,28 @@ def _jail_sysctl(name):
         ["/usr/sbin/jexec", name, "/sbin/ifconfig", "lo0", "inet6", "-ifdisabled"],
         check=False,
     )
+    _linux_loopback(name)
+
+
+def _linux_loopback(name):
+    """Clone a loopback and name it ``lo``.
+
+    ``ifconfig lo create`` prints the new unit (``lo1`` on a fresh VNET).
+    Rename that to ``lo`` so interface stanzas in frr.conf apply. ``lo0``
+    keeps 127.0.0.1 and ::1.
+    """
+    proc = _host_run(["/usr/sbin/jexec", name, "/sbin/ifconfig", "lo", "create"])
+    text = (proc.stdout or "").strip() or (proc.stderr or "").strip()
+    created = text.split()[-1] if text else ""
+    if not created:
+        raise RuntimeError(f"ifconfig lo create returned no name in {name}")
+    if created != "lo":
+        _host_run(["/usr/sbin/jexec", name, "/sbin/ifconfig", created, "name", "lo"])
+    _host_run(["/usr/sbin/jexec", name, "/sbin/ifconfig", "lo", "up"])
+    _host_run(
+        ["/usr/sbin/jexec", name, "/sbin/ifconfig", "lo", "inet6", "-ifdisabled"],
+        check=False,
+    )
 
 
 def _next_name(node_name):
@@ -840,12 +863,33 @@ def add_link(munet, name1, if1, name2, if2, mtu, isp2p):
     munet.get_mac(name2, nsif2)
 
 
+def _clone_loopback(ns):
+    """Create a lo(4) clone and return its name.
+
+    ``ifconfig lo create`` asks for the next unit. After a jail has an
+    interface named ``lo``, the kernel rejects that with EEXIST, so try
+    an explicit unit.
+    """
+    names = ["lo"] + [f"lo{unit}" for unit in range(1, 128)]
+    last = ""
+    for ifname in names:
+        rc, out, err = ns.cmd_status_nsonly(
+            ["/sbin/ifconfig", ifname, "create"], warn=False
+        )
+        if rc:
+            last = ((out or "") + (err or "")).strip()
+            continue
+        text = (out or "").strip() or (err or "").strip()
+        created = text.split()[-1] if text else ""
+        if not created:
+            raise RuntimeError(f"ifconfig {ifname} create returned no name")
+        return created
+    raise RuntimeError(f"could not clone a loopback: {last}")
+
+
 def add_dummy(host, ifname, nsif, mtu):
     """Create a cloned lo interface and rename it. FreeBSD has no dummy(4)."""
-    text = _cmd_text(host, ["/sbin/ifconfig", "lo", "create"])
-    created = text.split()[-1] if text else ""
-    if not created:
-        raise RuntimeError("ifconfig lo create returned no name")
+    created = _clone_loopback(host)
     _rename_up(host, created, nsif, mtu)
     host.register_interface(ifname)
 
