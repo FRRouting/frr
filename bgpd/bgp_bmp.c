@@ -2837,6 +2837,9 @@ static int bmp_process_ribinpost(struct bgp *bgp, afi_t afi, safi_t safi, struct
 			if (!CHECK_FLAG(bt->afimon[afi][safi], BMP_MON_IN_POSTPOLICY))
 				continue;
 
+			if (bgp_vrf != bgp && !bmp_imported_bgp_find(bt, bgp->name))
+				continue;
+
 			struct bmp_queue_entry *new_head = NULL, *new_item = NULL;
 
 			/* find paths that changed in pre-policy and need update */
