@@ -381,6 +381,7 @@ struct bmp_bgp {
 	size_t mirror_qsizelimit;
 
 	uint32_t startup_delay_ms;
+	bool startup_done;
 };
 
 extern bool bmp_bgp_update_vrf_status(enum bmp_vrf_state *vrf_state, struct bgp *bgp,
