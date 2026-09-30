@@ -3239,12 +3239,24 @@ The following commands can be used in route maps:
    * ``replace``: Overwrites the existing BGP communities attribute entirely 
                   with the communities defined in the community list.
 
-.. clicmd:: set extended-comm-list delete <EXTCOMMUNITY_LIST_NAME>
+.. clicmd:: set extended-comm-list <delete|add|replace> <EXTCOMMUNITY_LIST_NAME>
 
-   Remove extended communities from a route that match the specified
-   extcommunity-list. Both standard and expanded lists may be used. Only
-   ``permit`` entries in the list are removed. See
+   This command modifies the BGP extended communities attribute using the
+   ``permit`` entries of the specified extcommunity-list. See
    :ref:`bgp-extended-community-lists`.
+   The following operations are available:
+
+   * ``delete``: Removes the extended communities of the route that match the
+                 extcommunity-list. Both standard and expanded lists may be
+                 used.
+   * ``add``: Appends the extended communities defined in the extcommunity-list
+              to the existing BGP extended communities attribute of the route.
+   * ``replace``: Overwrites the existing BGP extended communities attribute
+                  entirely with the extended communities defined in the
+                  extcommunity-list.
+
+   Expanded (regular expression) lists define no value to set and are ignored
+   by ``add`` and ``replace``.
 
 .. clicmd:: set large-comm-list delete <LCOMMUNITY_LIST_NAME>
 
