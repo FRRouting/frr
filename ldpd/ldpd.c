@@ -930,6 +930,7 @@ ldp_acl_request(struct imsgev *iev, char *acl_name, int af,
 {
 	struct imsg	 imsg;
 	struct acl_check acl_check;
+	ssize_t n;
 	int result;
 
 	if (acl_name[0] == '\0')
@@ -947,11 +948,34 @@ ldp_acl_request(struct imsgev *iev, char *acl_name, int af,
 	imsg_flush(&iev->ibuf);
 
 	/* receive (blocking) and parse result */
-	if (imsg_read(&iev->ibuf) == -1)
-		fatal("imsg_read error");
+	for (;;) {
+		n = imsg_get(&iev->ibuf, &imsg);
+		if (n == -1)
+			fatal("imsg_get");
+		if (n > 0)
+			break;
 
-	if (imsg_get(&iev->ibuf, &imsg) == -1)
-		fatal("imsg_get");
+		n = ldp_imsg_read(&iev->ibuf);
+		/*
+		 * Unlike the dispatch handlers, no EAGAIN exemption: only the
+		 * parent's end of the sync pipe is nonblocking, so this read
+		 * (on LDPD_FD_SYNC) blocks.  The one EAGAIN left is
+		 * imsg_read()'s own check for running out of fds, and
+		 * retrying that here would spin.
+		 */
+		if (n == -1)
+			fatal("imsg_read error");
+		if (n == 0) {
+			/*
+			 * The parent is gone, so the answer no longer
+			 * matters: deny, and let the event loop see the main
+			 * pipe close and shut down.  Say so, in case the pipe
+			 * ever closes for another reason.
+			 */
+			log_warnx("%s: parent pipe closed, denying acl %s", __func__, acl_name);
+			return FILTER_DENY;
+		}
+	}
 
 	if (imsg.hdr.type != IMSG_ACL_CHECK ||
 	    imsg.hdr.len != IMSG_HEADER_SIZE + sizeof(int)) {
