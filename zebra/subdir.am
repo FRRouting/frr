@@ -198,6 +198,18 @@ nobase_pkginclude_HEADERS += \
 	zebra/zebra_l2_bridge_if.h \
 	zebra/zebra_vxlan_if.h \
 	zebra/zserv.h \
+	\
+	zebra/debug_hooks.h \
+	zebra/interface_hooks.h \
+	zebra/label_manager_hooks.h \
+	zebra/zebra_mlag_hooks.h \
+	zebra/zebra_pbr_hooks.h \
+	zebra/zebra_pw_hooks.h \
+	zebra/zebra_rib_hooks.h \
+	zebra/zebra_router_hooks.h \
+	zebra/zebra_srv6_hooks.h \
+	zebra/zebra_vxlan_hooks.h \
+	zebra/zserv_hooks.h \
 	# end
 
 noinst_HEADERS += \

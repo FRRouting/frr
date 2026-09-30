@@ -47,39 +47,10 @@ static void release_srv6_sid_func(const struct zebra_srv6_sid_ctx *zctx);
 static bool zebra_srv6_sid_compose(struct in6_addr *sid_value, struct srv6_locator *locator,
 				   uint32_t sid_func, uint32_t sid_func_wide, bool is_localonly);
 
-/* define hooks for the basic API, so that it can be specialized or served
- * externally
- */
-
-DEFINE_HOOK(srv6_manager_client_connect,
-	    (struct zserv *client, vrf_id_t vrf_id),
-	    (client, vrf_id));
-DEFINE_HOOK(srv6_manager_client_disconnect,
-	    (struct zserv *client), (client));
-DEFINE_HOOK(srv6_manager_get_chunk,
-	    (struct srv6_locator **loc,
-	     struct zserv *client,
-	     const char *locator_name,
-	     vrf_id_t vrf_id),
-	    (loc, client, locator_name, vrf_id));
-DEFINE_HOOK(srv6_manager_release_chunk,
-	    (struct zserv *client,
-	     const char *locator_name,
-	     vrf_id_t vrf_id),
-	    (client, locator_name, vrf_id));
-
-DEFINE_HOOK(srv6_manager_get_sid,
-	    (struct zebra_srv6_sid **sid, struct zserv *client, struct srv6_sid_ctx *ctx,
-	     struct in6_addr *sid_value, const char *locator_name, bool is_localonly),
-	    (sid, client, ctx, sid_value, locator_name, is_localonly));
-DEFINE_HOOK(srv6_manager_release_sid,
-	    (struct zserv *client, struct srv6_sid_ctx *ctx, const char *locator_name,
-	     bool is_localonly),
-	    (client, ctx, locator_name, is_localonly));
-DEFINE_HOOK(srv6_manager_get_locator,
-	    (struct srv6_locator **locator, struct zserv *client,
-	     const char *locator_name),
-	    (locator, client, locator_name));
+#define HOOKS_DEFINE
+#include "lib/hooks_begin.h"
+#include "zebra/zebra_srv6_hooks.h"
+#include "lib/hooks_end.h"
 
 /* define wrappers to be called in zapi_msg.c (as hooks must be called in
  * source file where they were defined)

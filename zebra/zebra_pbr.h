@@ -264,21 +264,10 @@ extern void zebra_pbr_show_rule(struct vty *vty);
 extern void zebra_pbr_show_rule_unit(struct zebra_pbr_rule *rule,
 				     struct vty *vty);
 
-DECLARE_HOOK(zebra_pbr_ipset_entry_get_stat,
-	     (struct zebra_pbr_ipset_entry *ipset, uint64_t *pkts,
-	      uint64_t *bytes),
-	     (ipset, pkts, bytes));
-DECLARE_HOOK(zebra_pbr_iptable_get_stat,
-	     (struct zebra_pbr_iptable *iptable, uint64_t *pkts,
-	      uint64_t *bytes),
-	     (iptable, pkts, bytes));
-DECLARE_HOOK(zebra_pbr_iptable_update,
-	     (int cmd, struct zebra_pbr_iptable *iptable), (cmd, iptable));
-
-DECLARE_HOOK(zebra_pbr_ipset_entry_update,
-	     (int cmd, struct zebra_pbr_ipset_entry *ipset), (cmd, ipset));
-DECLARE_HOOK(zebra_pbr_ipset_update,
-	     (int cmd, struct zebra_pbr_ipset *ipset), (cmd, ipset));
+#define HOOKS_DECLARE
+#include "lib/hooks_begin.h"
+#include "zebra/zebra_pbr_hooks.h"
+#include "lib/hooks_end.h"
 
 #ifdef __cplusplus
 }

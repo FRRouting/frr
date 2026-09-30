@@ -31,8 +31,11 @@
 
 DEFINE_MTYPE_STATIC(RIPD, RIP_INTERFACE, "RIP interface");
 DEFINE_MTYPE(RIPD, RIP_INTERFACE_STRING, "RIP Interface String");
-DEFINE_HOOK(rip_ifaddr_add, (struct connected * ifc), (ifc));
-DEFINE_HOOK(rip_ifaddr_del, (struct connected * ifc), (ifc));
+
+#define HOOKS_DEFINE
+#include "lib/hooks_begin.h"
+#include "ripd/rip_interface_hooks.h"
+#include "lib/hooks_end.h"
 
 /* static prototypes */
 static void rip_enable_apply(struct interface *);

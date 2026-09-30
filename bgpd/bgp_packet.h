@@ -14,15 +14,10 @@ struct bgp_enhe_capability {
 	uint16_t nh_afi;
 };
 
-DECLARE_HOOK(bgp_packet_dump,
-		(struct peer *peer, uint8_t type, bgp_size_t size,
-			struct stream *s),
-		(peer, type, size, s));
-
-DECLARE_HOOK(bgp_packet_send,
-		(struct peer *peer, uint8_t type, bgp_size_t size,
-			struct stream *s),
-		(peer, type, size, s));
+#define HOOKS_DECLARE
+#include "lib/hooks_begin.h"
+#include "bgpd/bgp_packet_hooks.h"
+#include "lib/hooks_end.h"
 
 #define BGP_NLRI_LENGTH       1U
 #define BGP_TOTAL_ATTR_LEN    2U

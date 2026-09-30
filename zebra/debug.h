@@ -147,7 +147,10 @@ extern unsigned long zebra_debug_srv6;
 
 extern void zebra_debug_init(void);
 
-DECLARE_HOOK(zebra_debug_show_debugging, (struct vty *vty), (vty));
+#define HOOKS_DECLARE
+#include "lib/hooks_begin.h"
+#include "zebra/debug_hooks.h"
+#include "lib/hooks_end.h"
 
 #ifdef __cplusplus
 }

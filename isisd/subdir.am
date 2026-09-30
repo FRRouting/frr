@@ -55,6 +55,13 @@ noinst_HEADERS += \
 	isisd/isisd.h \
 	isisd/iso_checksum.h \
 	isisd/fabricd.h \
+	\
+	isisd/isis_adjacency_hooks.h \
+	isisd/isis_circuit_hooks.h \
+	isisd/isis_nb_notifications_hooks.h \
+	isisd/isis_route_hooks.h \
+	isisd/isis_tlvs_hooks.h \
+	isisd/isisd_hooks.h \
 	# end
 
 LIBISIS_SOURCES = \

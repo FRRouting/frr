@@ -47,27 +47,6 @@ struct label_manager_chunk {
 	uint32_t end;   /* Last label of the chunk */
 };
 
-/* declare hooks for the basic API, so that it can be specialized or served
- * externally. Also declare a hook when those functions have been registered,
- * so that any external module wanting to replace those can react
- */
-
-DECLARE_HOOK(lm_client_connect, (struct zserv *client, vrf_id_t vrf_id),
-	     (client, vrf_id));
-DECLARE_HOOK(lm_client_disconnect, (struct zserv *client), (client));
-DECLARE_HOOK(lm_get_chunk,
-	     (struct label_manager_chunk * *lmc, struct zserv *client,
-	      uint8_t keep, uint32_t size, uint32_t base, vrf_id_t vrf_id),
-	     (lmc, client, keep, size, base, vrf_id));
-DECLARE_HOOK(lm_release_chunk,
-	     (struct zserv *client, uint32_t start, uint32_t end),
-	     (client, start, end));
-DECLARE_HOOK(lm_write_label_block_config,
-	     (struct vty *vty, struct zebra_vrf *zvrf),
-	     (vty, zvrf));
-DECLARE_HOOK(lm_cbs_inited, (), ());
-
-
 /* declare wrappers to be called in zapi_msg.c or zebra_mpls_vty.c (as hooks
  * must be called in source file where they were defined)
  */
@@ -109,6 +88,11 @@ int release_label_chunk(uint8_t proto, unsigned short instance,
 			uint32_t session_id, uint32_t start, uint32_t end);
 int lm_client_disconnect_cb(struct zserv *client);
 int release_daemon_label_chunks(struct zserv *client);
+
+#define HOOKS_DECLARE
+#include "lib/hooks_begin.h"
+#include "zebra/label_manager_hooks.h"
+#include "lib/hooks_end.h"
 
 #ifdef __cplusplus
 }

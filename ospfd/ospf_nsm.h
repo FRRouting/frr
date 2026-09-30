@@ -83,8 +83,9 @@ extern void ospf_adj_pacing_queue_init(struct ospf_adj_pacing *p);
 extern void ospf_adj_pacing_queue_fini(struct ospf_adj_pacing *p);
 extern void ospf_adj_pacing_queue_flush(struct ospf_interface *oi);
 
-DECLARE_HOOK(ospf_nsm_change,
-	     (struct ospf_neighbor * on, int state, int oldstate),
-	     (on, state, oldstate));
+#define HOOKS_DECLARE
+#include "lib/hooks_begin.h"
+#include "ospfd/ospf_nsm_hooks.h"
+#include "lib/hooks_end.h"
 
 #endif /* _ZEBRA_OSPF_NSM_H */

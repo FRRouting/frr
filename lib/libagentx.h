@@ -10,7 +10,9 @@
 extern void libagentx_init(void);
 extern bool agentx_enabled;
 
-DECLARE_HOOK(agentx_cli_enabled, (), ());
-DECLARE_HOOK(agentx_cli_disabled, (), ());
+#define HOOKS_DECLARE
+#include "lib/hooks_begin.h"
+#include "lib/libagentx_hooks.h"
+#include "lib/hooks_end.h"
 
 #endif

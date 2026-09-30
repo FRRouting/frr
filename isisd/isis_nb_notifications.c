@@ -15,55 +15,10 @@
 #include "isisd/isis_dynhn.h"
 #include "isisd/isis_misc.h"
 
-DEFINE_HOOK(isis_hook_lsp_too_large,
-	    (const struct isis_circuit *circuit, uint32_t pdu_size,
-	     const uint8_t *lsp_id),
-	    (circuit, pdu_size, lsp_id));
-DEFINE_HOOK(isis_hook_corrupted_lsp, (const struct isis_area *area), (area));
-DEFINE_HOOK(isis_hook_lsp_exceed_max,
-	    (const struct isis_area *area, const uint8_t *lsp_id),
-	    (area, lsp_id));
-DEFINE_HOOK(isis_hook_max_area_addr_mismatch,
-	    (const struct isis_circuit *circuit, uint8_t max_addrs,
-	     const char *raw_pdu, size_t raw_pdu_len),
-	    (circuit, max_addrs, raw_pdu, raw_pdu_len));
-DEFINE_HOOK(isis_hook_authentication_type_failure,
-	    (const struct isis_circuit *circuit, const char *raw_pdu,
-	     size_t raw_pdu_len),
-	    (circuit, raw_pdu, raw_pdu_len));
-DEFINE_HOOK(isis_hook_authentication_failure,
-	    (const struct isis_circuit *circuit, const char *raw_pdu,
-	     size_t raw_pdu_len),
-	    (circuit, raw_pdu, raw_pdu_len));
-DEFINE_HOOK(isis_hook_adj_state_change, (const struct isis_adjacency *adj),
-	    (adj));
-DEFINE_HOOK(isis_hook_reject_adjacency,
-	    (const struct isis_circuit *circuit, const char *raw_pdu,
-	     size_t raw_pdu_len),
-	    (circuit, raw_pdu, raw_pdu_len));
-DEFINE_HOOK(isis_hook_area_mismatch,
-	    (const struct isis_circuit *circuit, const char *raw_pdu,
-	     size_t raw_pdu_len),
-	    (circuit, raw_pdu, raw_pdu_len));
-DEFINE_HOOK(isis_hook_id_len_mismatch,
-	    (const struct isis_circuit *circuit, uint8_t rcv_id_len,
-	     const char *raw_pdu, size_t raw_pdu_len),
-	    (circuit, rcv_id_len, raw_pdu, raw_pdu_len));
-DEFINE_HOOK(isis_hook_version_skew,
-	    (const struct isis_circuit *circuit, uint8_t version,
-	     const char *raw_pdu, size_t raw_pdu_len),
-	    (circuit, version, raw_pdu, raw_pdu_len));
-DEFINE_HOOK(isis_hook_lsp_error,
-	    (const struct isis_circuit *circuit, const uint8_t *lsp_id,
-	     const char *raw_pdu, size_t raw_pdu_len),
-	    (circuit, lsp_id, raw_pdu, raw_pdu_len));
-DEFINE_HOOK(isis_hook_seqno_skipped,
-	    (const struct isis_circuit *circuit, const uint8_t *lsp_id),
-	    (circuit, lsp_id));
-DEFINE_HOOK(isis_hook_own_lsp_purge,
-	    (const struct isis_circuit *circuit, const uint8_t *lsp_id),
-	    (circuit, lsp_id));
-
+#define HOOKS_DEFINE
+#include "lib/hooks_begin.h"
+#include "isisd/isis_nb_notifications_hooks.h"
+#include "lib/hooks_end.h"
 
 /*
  * Helper functions.

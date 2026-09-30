@@ -229,8 +229,9 @@ extern int config_write_ospf6_p2xp_neighbor(struct vty *vty,
 					    struct ospf6_interface *oi);
 extern void install_element_ospf6_debug_neighbor(void);
 
-DECLARE_HOOK(ospf6_neighbor_change,
-	     (struct ospf6_neighbor * on, int state, int next_state),
-	     (on, state, next_state));
+#define HOOKS_DECLARE
+#include "lib/hooks_begin.h"
+#include "ospf6d/ospf6_neighbor_hooks.h"
+#include "lib/hooks_end.h"
 
 #endif /* OSPF6_NEIGHBOR_H */

@@ -77,8 +77,9 @@ extern void ism_change_status(struct ospf_interface *oi, int status);
 extern void ospf_hello_timer(struct event *event);
 extern int ospf_dr_election(struct ospf_interface *oi);
 
-DECLARE_HOOK(ospf_ism_change,
-	     (struct ospf_interface * oi, int state, int oldstate),
-	     (oi, state, oldstate));
+#define HOOKS_DECLARE
+#include "lib/hooks_begin.h"
+#include "ospfd/ospf_ism_hooks.h"
+#include "lib/hooks_end.h"
 
 #endif /* _ZEBRA_OSPF_ISM_H */
