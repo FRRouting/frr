@@ -23,7 +23,7 @@ from lib import topotest
 from lib.topogen import Topogen, get_topogen
 from lib.common_config import step
 
-pytestmark = [pytest.mark.ripngd]
+pytestmark = [pytest.mark.ripngd, pytest.mark.freebsd]
 
 
 def setup_module(mod):
