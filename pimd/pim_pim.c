@@ -140,8 +140,8 @@ static bool pim_pkt_dst_addr_ok(enum pim_msg_type type, pim_addr addr)
 	return true;
 }
 
-int pim_pim_packet(struct interface *ifp, uint8_t *buf, size_t len,
-		   pim_sgaddr sg, bool is_mcast)
+static int pim_pim_packet_process(struct interface *ifp, uint8_t *buf, size_t len, pim_sgaddr sg,
+				  bool is_mcast, bool verify_checksum)
 {
 	struct iovec iov[2], *iovp = iov;
 #if PIM_IPV == 4
@@ -268,12 +268,15 @@ int pim_pim_packet(struct interface *ifp, uint8_t *buf, size_t len,
 
 	/* save received checksum */
 	pim_checksum = header->checksum;
+	checksum = pim_checksum;
 
 	/* for computing checksum */
 	header->checksum = 0;
 	no_fwd = header->Nbit;
 
-	if (header->type == PIM_MSG_TYPE_REGISTER) {
+	if (!verify_checksum) {
+		/* Already validated by whoever delivered the packet. */
+	} else if (header->type == PIM_MSG_TYPE_REGISTER) {
 		if (pim_msg_len < PIM_MSG_REGISTER_LEN) {
 			if (PIM_DEBUG_PIM_PACKETS)
 				zlog_debug("PIM Register Message size=%d shorther than min length %d",
@@ -443,6 +446,17 @@ int pim_pim_packet(struct interface *ifp, uint8_t *buf, size_t len,
 		}
 		return -1;
 	}
+}
+
+int pim_pim_packet(struct interface *ifp, uint8_t *buf, size_t len, pim_sgaddr sg, bool is_mcast)
+{
+	return pim_pim_packet_process(ifp, buf, len, sg, is_mcast, true);
+}
+
+int pim_pim_packet_nocksum(struct interface *ifp, uint8_t *buf, size_t len, pim_sgaddr sg,
+			   bool is_mcast)
+{
+	return pim_pim_packet_process(ifp, buf, len, sg, is_mcast, false);
 }
 
 int pim_sock_read_helper(int fd, struct pim_instance *pim, bool is_mcast)
