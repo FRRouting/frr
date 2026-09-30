@@ -85,8 +85,9 @@ struct fpm_nhg {
 	uint8_t scope;	      /* Scope */
 	bool is_blackhole;    /* Is this a blackhole nexthop? */
 	uint8_t num_nexthops; /* Number of nexthops in the group */
-	/* Resolving nexthop group ID, if the resolved-via attr was received */
-	uint32_t resolved_via;
+	/* Resolving info, for recursive nexthops */
+	uint32_t resolved_nhg;	    /* resolving NHG ID */
+	struct prefix resolved_pfx; /* resolving prefix */
 
 	/* Individual nexthops in the group */
 	struct {
@@ -701,13 +702,13 @@ static int parse_nexthop_msg(struct nlmsghdr *hdr)
 			buf_pos = 0;
 			for (size_t i = 0; i < count; i++) {
 				int len_written;
+				uint16_t weight;
+
 				if (i > 0)
 					nexthop_buf[buf_pos++] = ',';
 
-				if (nhg[i].weight > 1) {
-					uint16_t weight;
-
-					weight = nhg[i].weight_high << 8 | nhg[i].weight;
+				weight = nexthop_grp_weight(&nhg[i]);
+				if (weight > 1) {
 					len_written = snprintf(nexthop_buf + buf_pos,
 							       sizeof(nexthop_buf) - buf_pos,
 							       " %u(w:%u)", nhg[i].id, weight + 1);
@@ -938,8 +939,8 @@ static void handle_nexthop_update(struct nlmsghdr *hdr, struct nhmsg *nhmsg, str
 	struct fpm_nhg *existing;
 	struct fpm_nhg lookup = { 0 };
 	uint32_t nhgid = 0;
-	uint32_t resolved_via = 0;
 	uint16_t nhg_count = 0;
+	uint8_t cval;
 
 	/* Get Nexthop Group ID */
 	if (tb[NHA_ID])
@@ -947,17 +948,12 @@ static void handle_nexthop_update(struct nlmsghdr *hdr, struct nhmsg *nhmsg, str
 	else
 		return; /* Can't process without an ID */
 
-	/* Get resolving nexthop group ID, if present */
-	if (tb[NHA_FPM_RESOLVED_VIA] &&
-	    RTA_PAYLOAD(tb[NHA_FPM_RESOLVED_VIA]) >= sizeof(resolved_via))
-		resolved_via = *(uint32_t *)RTA_DATA(tb[NHA_FPM_RESOLVED_VIA]);
-
 	/* Count nexthops in the group */
 	if (tb[NHA_GROUP]) {
-		size_t count = (RTA_PAYLOAD(tb[NHA_GROUP]) / sizeof(struct nexthop_group));
+		size_t count = (RTA_PAYLOAD(tb[NHA_GROUP]) / sizeof(struct nexthop_grp));
 
 		if (count > 0 &&
-		    (count * sizeof(struct nexthop_group)) == RTA_PAYLOAD(tb[NHA_GROUP]))
+		    (count * sizeof(struct nexthop_grp)) == RTA_PAYLOAD(tb[NHA_GROUP]))
 			nhg_count = count > MULTIPATH_NUM ? MULTIPATH_NUM
 							  : count; /* Limit to our array size */
 	} else if (tb[NHA_OIF] || tb[NHA_GATEWAY]) {
@@ -971,67 +967,78 @@ static void handle_nexthop_update(struct nlmsghdr *hdr, struct nhmsg *nhmsg, str
 	/* Look up existing nexthop group */
 	existing = fpm_nhg_find(&glob->nhg_hash, &lookup);
 
-	if (is_add) {
-		if (existing) {
-			/* Nexthop group exists, update it */
-			existing->family = nhmsg->nh_family;
-			existing->protocol = nhmsg->nh_protocol;
-			existing->scope = nhmsg->nh_scope;
-			existing->is_blackhole = tb[NHA_BLACKHOLE] ? true : false;
-			existing->num_nexthops = nhg_count;
-			existing->resolved_via = resolved_via;
-
-			/* Update individual nexthop IDs and weights */
-			if (tb[NHA_GROUP]) {
-				struct nexthop_grp *nhgrp =
-					(struct nexthop_grp *)RTA_DATA(tb[NHA_GROUP]);
-				for (size_t i = 0; i < nhg_count; i++) {
-					uint16_t weight;
-
-					existing->nexthops[i].id = nhgrp[i].id;
-					weight = nhgrp[i].weight_high << 8 | nhgrp[i].weight;
-					existing->nexthops[i].weight = weight + 1;
-				}
-			}
-		} else {
-			/* Create new nexthop group */
-			nhg = calloc(1, sizeof(struct fpm_nhg));
-			if (!nhg) {
-				fprintf(stderr, "Failed to allocate nexthop group structure\n");
-				return;
-			}
-
-			/* Copy nexthop group information */
-			nhg->id = nhgid;
-			nhg->family = nhmsg->nh_family;
-			nhg->protocol = nhmsg->nh_protocol;
-			nhg->scope = nhmsg->nh_scope;
-			nhg->is_blackhole = tb[NHA_BLACKHOLE] ? true : false;
-			nhg->num_nexthops = nhg_count;
-			nhg->resolved_via = resolved_via;
-
-			/* Store individual nexthop IDs and weights */
-			if (tb[NHA_GROUP]) {
-				struct nexthop_grp *nhgrp =
-					(struct nexthop_grp *)RTA_DATA(tb[NHA_GROUP]);
-				for (size_t i = 0; i < nhg_count; i++) {
-					nhg->nexthops[i].id = nhgrp[i].id;
-					nhg->nexthops[i].weight = nhgrp[i].weight;
-				}
-			}
-
-			/* Add nexthop group to hash */
-			if (fpm_nhg_add(&glob->nhg_hash, nhg)) {
-				fprintf(stderr, "Failed to add nexthop group to hash\n");
-				free(nhg);
-			}
-		}
-	} else {
+	/* Delete/remove path */
+	if (!is_add) {
 		/* Remove nexthop group from hash */
 		if (existing) {
 			existing = fpm_nhg_del(&glob->nhg_hash, existing);
 			if (existing)
 				free(existing);
+		}
+
+		return;
+	}
+
+	/* Add path starts here */
+
+	if (existing == NULL) {
+		/* Create new nexthop group */
+		nhg = calloc(1, sizeof(struct fpm_nhg));
+		if (!nhg) {
+			fprintf(stderr, "Failed to allocate nexthop group structure\n");
+			return;
+		}
+	}
+
+
+	/* Copy nexthop group information */
+	nhg->id = nhgid;
+	nhg->family = nhmsg->nh_family;
+	nhg->protocol = nhmsg->nh_protocol;
+	nhg->scope = nhmsg->nh_scope;
+	nhg->is_blackhole = tb[NHA_BLACKHOLE] ? true : false;
+	nhg->num_nexthops = nhg_count;
+
+	/* Update recursive resolving info, if present */
+	/* NHG ID */
+	if (tb[NHA_FPM_RESOLVED_VIA] &&
+	    RTA_PAYLOAD(tb[NHA_FPM_RESOLVED_VIA]) >= sizeof(nhg->resolved_nhg))
+		nhg->resolved_nhg = *(uint32_t *)RTA_DATA(tb[NHA_FPM_RESOLVED_VIA]);
+	else
+		nhg->resolved_nhg = 0;
+
+	/* Resolving prefix */
+	if (tb[NHA_FPM_RESOLVED_PREFIX_FAM]) {
+		cval = *(uint8_t *)RTA_DATA(tb[NHA_FPM_RESOLVED_PREFIX_FAM]);
+		if (cval == AF_INET)
+			nhg->resolved_pfx.family = AF_INET;
+		else if (cval == AF_INET6)
+			nhg->resolved_pfx.family = AF_INET6;
+
+		cval = *(uint8_t *)RTA_DATA(tb[NHA_FPM_RESOLVED_PREFIX_LEN]);
+		nhg->resolved_pfx.prefixlen = cval;
+		memcpy(&nhg->resolved_pfx.u.prefix, RTA_DATA(tb[NHA_FPM_RESOLVED_PREFIX]),
+		       RTA_PAYLOAD(tb[NHA_FPM_RESOLVED_PREFIX]));
+	} else {
+		nhg->resolved_pfx.family = AF_UNSPEC;
+		nhg->resolved_pfx.prefixlen = 0;
+	}
+
+	/* Store individual nexthop IDs and weights */
+	if (tb[NHA_GROUP]) {
+		struct nexthop_grp *nhgrp = (struct nexthop_grp *)RTA_DATA(tb[NHA_GROUP]);
+
+		for (size_t i = 0; i < nhg_count; i++) {
+			nhg->nexthops[i].id = nhgrp[i].id;
+			nhg->nexthops[i].weight = nexthop_grp_weight(&nhgrp[i]);
+		}
+	}
+
+	if (existing == NULL) {
+		/* Add new nexthop group to hash */
+		if (fpm_nhg_add(&glob->nhg_hash, nhg)) {
+			fprintf(stderr, "Failed to add nexthop group to hash\n");
+			free(nhg);
 		}
 	}
 }
@@ -1169,8 +1176,12 @@ static void sigusr1_handler(int signum)
 			nhg->num_nexthops ? nhg->num_nexthops : 1,
 			nhg->is_blackhole ? "BLACKHOLE" : "");
 
-		if (nhg->resolved_via)
-			fprintf(out, ", ResolvedVia: %u", nhg->resolved_via);
+		if (nhg->resolved_nhg > 0)
+			fprintf(out, ", ResolvedVia: %u", nhg->resolved_nhg);
+		if (nhg->resolved_pfx.prefixlen > 0) {
+			prefix2str(&nhg->resolved_pfx, buf, sizeof(buf));
+			fprintf(out, ", ResolvedPfx: %s", buf);
+		}
 
 		/* Display individual nexthops if any */
 		if (nhg->num_nexthops > 0 && !nhg->is_blackhole) {
@@ -1179,7 +1190,7 @@ static void sigusr1_handler(int signum)
 				continue;
 			}
 
-			fprintf(out, "    Nexthops: ");
+			fprintf(out, "    NexthopIDs: ");
 			for (uint8_t i = 0; i < nhg->num_nexthops; i++) {
 				if (i > 0)
 					fprintf(out, ", ");
@@ -1191,8 +1202,11 @@ static void sigusr1_handler(int signum)
 				else
 					fprintf(out, "%u", nhg->nexthops[i].id);
 			}
+
 			fprintf(out, "\n");
 		}
+
+		fprintf(out, "\n");
 	}
 	fprintf(out, "=====================\n\n");
 
