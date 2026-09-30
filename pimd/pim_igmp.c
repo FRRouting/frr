@@ -783,9 +783,12 @@ int pim_igmp_packet(struct gm_sock *igmp, char *buf, size_t len)
 	msg_type = *igmp_msg;
 
 	if (PIM_DEBUG_GM_PACKETS) {
+		struct in_addr srcaddr = ip_hdr->ip_src;
+		struct in_addr dstaddr = ip_hdr->ip_dst;
+
 		zlog_debug("Recv IGMP packet from %pI4s to %pI4s on %s: size=%zu ttl=%d msg_type=%d msg_size=%d",
-			   &ip_hdr->ip_src, &ip_hdr->ip_dst, igmp->interface->name, len,
-			   ip_hdr->ip_ttl, msg_type, igmp_msg_len);
+			   &srcaddr, &dstaddr, igmp->interface->name, len, ip_hdr->ip_ttl,
+			   msg_type, igmp_msg_len);
 	}
 
 	switch (msg_type) {
