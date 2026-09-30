@@ -34,8 +34,7 @@ import stat
 import time
 
 from lib.topolog import logger
-
-FRR_RELOAD = "/usr/lib/frr/frr-reload.py"
+from lib.topotest import frr_reload_script
 
 # Regexes over the captured frr-reload output.
 _RE_BATCH_FILE = re.compile(r"reload-batch-del-\w+\.txt content")
@@ -104,7 +103,9 @@ def frr_reload(router, conf_path, debug=True, extra_args=None):
 
     dbg = " --debug" if debug else ""
     extra = (" " + " ".join(args)) if args else ""
-    cmd = "{} --reload --stdout{}{} {}".format(FRR_RELOAD, dbg, extra, conf_path)
+    # Same directory the router was started from, not a fixed /usr/lib/frr path.
+    script = frr_reload_script(getattr(router, "daemondir", None))
+    cmd = "{} --reload --stdout{}{} {}".format(script, dbg, extra, conf_path)
     logger.info("%s: running: %s", router.name, cmd)
 
     t0 = time.time()

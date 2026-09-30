@@ -566,7 +566,9 @@ def reset_config_on_routers(tgen, routerName=None):
         with open(delta_fmt.format(rname, gen), "w") as delta_fd:
             procs[rname] = tgen.net.popen(
                 [
-                    os.path.join(topotest.default_frrdir(), "frr-reload.py"),
+                    topotest.frr_reload_script(
+                        tgen.config.get(tgen.CONFIG_SECTION, "frrdir")
+                    ),
                     "--test-reset",
                     "--input",
                     run_cfg_fmt.format(rname, gen),
