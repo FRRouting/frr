@@ -1974,6 +1974,15 @@ extern void nb_notif_enable_multi_thread(void);
 extern void nb_notif_init(struct event_loop *loop);
 extern void nb_notif_terminate(void);
 
+/**
+ * nb_notif_cancel_walk() - cancel the in-progress oper-state notification cycle
+ *
+ * Cancels the notification timer and the walk, frees the walk args shared by
+ * the two, and discards the change group being notified. Queued groups and the
+ * notification filters are left alone. Takes the notification lock.
+ */
+extern void nb_notif_cancel_walk(void);
+
 #ifdef __cplusplus
 }
 #endif
