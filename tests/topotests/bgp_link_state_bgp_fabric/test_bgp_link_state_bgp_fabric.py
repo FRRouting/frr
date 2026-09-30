@@ -49,7 +49,7 @@ from lib.common_config import (
 )
 from lib.topolog import logger
 
-pytestmark = [pytest.mark.bgpd]
+pytestmark = [pytest.mark.bgpd, pytest.mark.freebsd]
 
 
 def _normalize_bgp_ls_link_ifindex(data):

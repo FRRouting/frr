@@ -25,7 +25,7 @@ from lib.topogen import Topogen, TopoRouter, get_topogen
 from lib.common_config import step, kill_router_daemons, start_router_daemons
 from lib.topolog import logger
 
-pytestmark = [pytest.mark.bgpd]
+pytestmark = [pytest.mark.bgpd, pytest.mark.freebsd]
 
 # Import topogen and required test modules
 CWD = os.path.dirname(os.path.realpath(__file__))

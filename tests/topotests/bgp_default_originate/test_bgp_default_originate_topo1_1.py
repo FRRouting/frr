@@ -54,7 +54,7 @@ from lib.common_config import (
 )
 
 
-pytestmark = [pytest.mark.bgpd, pytest.mark.staticd]
+pytestmark = [pytest.mark.bgpd, pytest.mark.staticd, pytest.mark.freebsd]
 
 # Save the Current Working Directory to find configuration files.
 CWD = os.path.dirname(os.path.realpath(__file__))

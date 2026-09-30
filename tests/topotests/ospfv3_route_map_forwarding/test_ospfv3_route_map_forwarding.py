@@ -40,7 +40,7 @@ from lib import topotest
 from lib.topogen import Topogen, get_topogen
 from lib.topolog import logger
 
-pytestmark = [pytest.mark.ospf6d]
+pytestmark = [pytest.mark.ospf6d, pytest.mark.freebsd]
 
 
 def build_topo(tgen):

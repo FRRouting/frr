@@ -78,7 +78,7 @@ from lib.topogen import Topogen, get_topogen
 from lib.topojson import build_config_from_json
 from lib.topolog import logger
 
-pytestmark = [pytest.mark.bgpd, pytest.mark.staticd]
+pytestmark = [pytest.mark.bgpd, pytest.mark.staticd, pytest.mark.freebsd]
 
 
 # Global Variable
