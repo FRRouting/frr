@@ -23,7 +23,7 @@ import json
 import pytest
 import functools
 
-pytestmark = pytest.mark.ospf6d
+pytestmark = [pytest.mark.ospf6d, pytest.mark.freebsd]
 
 CWD = os.path.dirname(os.path.realpath(__file__))
 sys.path.append(os.path.join(CWD, "../"))

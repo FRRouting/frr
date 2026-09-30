@@ -33,7 +33,7 @@ from lib.common_config import (
     step,
 )
 
-pytestmark = [pytest.mark.bgpd, pytest.mark.staticd]
+pytestmark = [pytest.mark.bgpd, pytest.mark.staticd, pytest.mark.freebsd]
 
 
 def build_topo(tgen):
