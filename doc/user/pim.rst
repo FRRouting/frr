@@ -327,6 +327,283 @@ PIM Routers
    all state.
 
 
+.. _pim-southbound:
+
+Southbound (vendor data plane) module
+=====================================
+
+The southbound module (``pimd_southbound``) replaces the Linux kernel
+multicast data plane used by *pimd* with an external (vendor) data plane.
+When it is loaded *pimd* no longer uses the kernel multicast routing API:
+
+- Multicast routes (the equivalent of kernel ``MFC`` entries) are sent to
+  *zebra*, which installs them in the data plane through FPM (see
+  :ref:`zebra-fib-push-interface` and :ref:`pim-southbound-routes`).
+- Data plane events, the equivalent of the kernel upcalls and route counters
+  (``DATA_START``, ``DATA_STOP``, ``WRONG_IF`` and ``JOIN_SPT``), are received on a TCP (or
+  unix) stream connection between *pimd* and the data plane (see
+  :ref:`pim-southbound-events`).
+- IGMP and PIM packets are exchanged with the data plane through raw sockets
+  using a private IP encapsulation that carries the interface index of the
+  packet (see :ref:`pim-southbound-encapsulation`). Loopback interfaces are
+  the exception: their IGMP stays with the operating system. Static groups
+  (:clicmd:`ip igmp join-group A.B.C.D [A.B.C.D]`) are announced by *pimd*
+  itself, so only on interfaces with IGMP enabled. Unicast PIM packets to a
+  neighbor (an address on the link) are sent with the index of their
+  interface. The other unicast PIM packets (registers, register-stops and
+  Candidate-RP advertisements) are sent with interface index zero in the
+  default VRF, meaning the data plane must route them itself (in other VRFs
+  they carry the VRF device index). In every VRF, the ones sent to the router
+  itself (e.g. when it is also the elected BSR) don't go through the data
+  plane: the operating system delivers them. Neither do the Candidate-RP
+  withdrawals, which have no source address: the operating system picks one.
+  Packets delivered to *pimd*, unicast
+  included, must carry the index of the interface they were received on:
+  packets with an unknown interface index (including zero) are dropped, and
+  so are PIM packets other than Candidate-RP advertisements received on
+  interfaces without PIM enabled.
+- mtrace, AutoRP and ssmpingd keep using the operating system sockets: their
+  packets don't go through the data plane, which must deliver the ones it
+  receives to the operating system (on the interface they arrived on). mtrace
+  packets delivered through the encapsulation are dropped, so they are only
+  handled once.
+
+The module is built by default on Linux (unless FRR is configured with
+:option:`configure --disable-pim-southbound`) and is loaded at *pimd* startup
+with the ``-M`` option (see :ref:`loadable-module-support`)::
+
+   -M southbound:<type>:<address>[:<port>]
+
+``<type>`` selects the socket type and whether *pimd* listens for the data
+plane connection or connects to it:
+
++-----------+------------------------------------------------------------+
+| Type      | Meaning                                                    |
++===========+============================================================+
+| ``ipv4``  | Listen on the IPv4 ``<address>``                           |
++-----------+------------------------------------------------------------+
+| ``ipv4c`` | Connect to the IPv4 ``<address>``                          |
++-----------+------------------------------------------------------------+
+| ``ipv6``  | Listen on the IPv6 ``<address>``                           |
++-----------+------------------------------------------------------------+
+| ``ipv6c`` | Connect to the IPv6 ``<address>``                          |
++-----------+------------------------------------------------------------+
+| ``unix``  | Listen on the unix socket path ``<address>``               |
++-----------+------------------------------------------------------------+
+| ``unixc`` | Connect to the unix socket path ``<address>``              |
++-----------+------------------------------------------------------------+
+
+IPv6 addresses must be enclosed in brackets (e.g. ``ipv6c:[::1]`` or
+``ipv6:[2001:db8::1]:3000``); a scope may be given with ``%<interface>``.
+The port does not apply to unix sockets. When the port is omitted the default
+TCP port ``2650`` is used. The address is mandatory: if it is missing or
+invalid the module fails to load and *pimd* exits. In connect mode *pimd*
+keeps retrying until the data plane accepts the connection. In listen mode a
+single data plane is served: a new connection replaces the previous one (e.g.
+after a data plane restart). A unix socket path is not taken over from another
+running instance (*pimd* exits instead): the instance listening on it locks
+``<address>.lock`` (the file stays when it exits). TCP keepalives notice a
+data plane that went away silently (in about 25 seconds). When the connection is lost
+*pimd* forgets which flows are active (as if every one got a DATA_STOP); the
+data plane reports them again once it is back.
+
+.. warning::
+
+   The data plane connection is not authenticated: whoever connects to the
+   listening socket replaces the data plane and controls the flows *pimd*
+   knows about. Only listen on addresses (or unix socket paths) that other
+   hosts and unprivileged users can't reach, e.g. ``127.0.0.1`` on a router
+   without untrusted local users, or a unix socket in a directory only the
+   FRR user can access.
+
+Encapsulated PIM/IGMP packets are only accepted when addressed to the loopback
+(where the data plane delivers them), so they can't be injected from other
+hosts.
+
+Examples (quote the IPv6 brackets, shells treat them as patterns)::
+
+   # Connect to a data plane listening on 127.0.0.1 port 2650
+   pimd -M southbound:ipv4c:127.0.0.1
+
+   # Listen for the data plane connection on ::1 port 3000
+   pimd -M 'southbound:ipv6:[::1]:3000'
+
+*zebra* must be started with the ``dplane_fpm_nl`` module (``-M
+dplane_fpm_nl``) and configured to send routes to the data plane FPM server
+without next hop groups:
+
+.. code-block:: frr
+
+   fpm address 127.0.0.1
+   no fpm use-next-hop-groups
+
+The ``dplane_fpm_nl`` module is only built on Linux, so the southbound modules
+are only built on Linux (configure fails on other systems). See
+:clicmd:`fpm use-next-hop-groups` for the FPM configuration commands.
+When *pimd* exits (or crashes) *zebra* withdraws the multicast routes it
+installed, like the kernel does when the multicast routing socket is closed.
+
+The data plane must also:
+
+- Number its interfaces like the operating system does (interface indexes)
+  and only use indexes below ``4096``: the multicast interface index is the
+  interface index, and interfaces with larger indexes can't be multicast
+  enabled. The index space is global, so with the network namespace VRF
+  backend the indexes must be unique across VRFs. Routes use the index
+  ``0x7FFF0000`` for the register interface (``pimreg``), as input or
+  output interface.
+- Report ``DATA_STOP`` when the traffic of a route installed with the
+  ``RESTART_DL_TIMER`` flag stops (see :ref:`pim-southbound-routes`):
+  without per-route counters *pimd* only expires the flows it learned from
+  the data plane (``DATA_START``, ``WRONG_IF`` or ``JOIN_SPT``) on
+  ``DATA_STOP`` (or when the connection is lost), so a missing one keeps the
+  flow state (and its joins) alive. On the RP, flows whose keepalive timer
+  runs (registers restart it) expire with that timer instead, like with the
+  kernel.
+
+The following debug commands show the southbound activity:
+
+- ``debug igmp packets``: IGMP packets exchanged with the data plane
+  (including the dropped ones).
+- ``debug igmp trace [detail]``: static groups not announced (no IGMP on the
+  interface).
+- :clicmd:`debug pim packets`: PIM packets exchanged with the data plane
+  (including the dropped ones).
+- :clicmd:`debug mroute`: events received from the data plane (including the
+  ones ignored for their addresses or interface) and the routes sent to
+  *zebra*.
+- :clicmd:`debug mroute detail`: data plane connection details and malformed
+  messages (unknown version or type, truncated events). Invalid message
+  lengths, which reset the connection, are always logged.
+- :clicmd:`debug zebra dplane [detailed]` (in *zebra*): the ``detailed``
+  form logs the multicast routes queued to the data plane.
+- :clicmd:`debug zebra fpm` (in *zebra*): the FPM connection state.
+
+A PIMv6 version of this module also exists, see
+:ref:`PIMv6 southbound module <pimv6-southbound>`.
+
+.. _pim-southbound-events:
+
+Data plane events
+-----------------
+
+Each event is a fixed size message (44 bytes) in network byte order:
+
++--------+------+--------------------------------------------------------+
+| Offset | Size | Field                                                  |
++========+======+========================================================+
+| 0      | 1    | Version: ``1``                                         |
++--------+------+--------------------------------------------------------+
+| 1      | 1    | Type: ``0`` DATA_START, ``1`` DATA_STOP, ``2``         |
+|        |      | WRONG_IF, ``3`` JOIN_SPT (``4`` is reserved)           |
++--------+------+--------------------------------------------------------+
+| 2      | 2    | Message length (header included)                       |
++--------+------+--------------------------------------------------------+
+| 4      | 4    | Flags (reserved: send zero, ignored)                   |
++--------+------+--------------------------------------------------------+
+| 8      | 4    | Input interface index                                  |
++--------+------+--------------------------------------------------------+
+| 12     | 16   | Source address (IPv4 in the first 4 bytes)             |
++--------+------+--------------------------------------------------------+
+| 28     | 16   | Group address (IPv4 in the first 4 bytes)              |
++--------+------+--------------------------------------------------------+
+
+Messages with another version or an unknown (or reserved) type are skipped
+(using their length); shorter events are skipped too. Events must carry a
+unicast source (not link-local for IPv6) and a multicast group outside the
+link-local multicast scope (``224.0.0.0/24``, or the IPv6 interface-local and
+link-local scopes), otherwise they are ignored. A message length smaller than
+the header or larger than 8192 bytes can't be resynchronized, so the
+connection is reset.
+
+.. _pim-southbound-routes:
+
+Multicast routes
+----------------
+
+*zebra* sends the routes to the FPM server as netlink ``RTM_NEWROUTE``
+(install) and ``RTM_DELROUTE`` (delete) messages of family
+``RTNL_FAMILY_IPMR`` (IPv6: ``RTNL_FAMILY_IP6MR``) with these attributes:
+
+- ``RTA_SRC`` and ``RTA_DST``: the source (any for a SG(\*,G)) and the group.
+- ``RTA_IIF``: the input interface index. ``0`` means none (e.g. the RP
+  route before traffic arrives, waiting for it on the notification interface)
+  and ``0x7FFF0000`` the register interface (the RP forwards the traffic it
+  decapsulates from registers). Static mroutes keep their configured input
+  interface.
+- ``RTA_TABLE``: the VRF table.
+- ``RTA_MULTIPATH`` (absent without output interfaces): one ``rtnexthop`` per
+  output interface (its ``rtnh_ifindex``), ``0x7FFF0000`` meaning the register interface: (S,G)
+  routes with a register destination send the traffic in registers to the RP
+  (on the LHR SG(\*,G) it only allows the switch to the shortest path tree).
+  Routes with more output interfaces than fit a *zebra* message (4084, IPv6:
+  4072) are not installed.
+- ``RTA_MRT_EXTRA`` (attribute type ``64``), integer fields in host byte order
+  (addresses in network byte order):
+
+  +--------+------+------------------------------------------------------+
+  | Offset | Size | Field                                                |
+  +========+======+======================================================+
+  | 0      | 4    | SPT threshold (unused, always zero)                  |
+  +--------+------+------------------------------------------------------+
+  | 4      | 4    | Notification interface index (``0`` for none):       |
+  |        |      | report the traffic arriving there (``DATA_START``)   |
+  |        |      | although it is not the input interface, e.g. on the  |
+  |        |      | shortest path tree interface or, when the input      |
+  |        |      | interface is ``0``, the expected one                 |
+  +--------+------+------------------------------------------------------+
+  | 8      | 4    | Flags (see below)                                    |
+  +--------+------+------------------------------------------------------+
+  | 12     | 16   | Register source address (IPv4 in the first 4 bytes)  |
+  +--------+------+------------------------------------------------------+
+  | 28     | 16   | Register destination, the RP (IPv4 in the first 4    |
+  |        |      | bytes): any when the route doesn't register          |
+  +--------+------+------------------------------------------------------+
+
+The flags are:
+
+- ``0x0001`` (``JOIN_SPT_ALLOWED``): LHR SG(\*,G) allowed to switch to the
+  shortest path tree (see :clicmd:`(pim) spt-switchover infinity-and-beyond
+  [prefix-list PLIST]`): report ``JOIN_SPT`` for the sources it forwards.
+- ``0x0002`` (``RESTART_DL_TIMER``): report ``DATA_STOP`` when the traffic
+  stops.
+- ``0x0008`` (``ADDR_TYPE_V6``): IPv6 route.
+- ``0x0020`` (``DUMMY``): no output interface, drop the traffic.
+- ``0x0040`` (``DL_TIMER``): remove the route after its traffic stops (used
+  with ``DUMMY``, so the drop doesn't stay forever, and on the routes of an RP
+  that is also the FHR). Never set when the input interface is ``0``.
+
+.. _pim-southbound-encapsulation:
+
+Packet encapsulation
+--------------------
+
+IGMP and PIM packets are carried in an outer IPv4 header (TTL ``1``, ToS
+``0xC0``, never fragmented) followed by an 8 byte encapsulation header in
+network byte order, then by the original IPv4 packet (header included), which
+may be fragmented:
+
++--------+------+--------------------------------------------------------+
+| Offset | Size | Field                                                  |
++========+======+========================================================+
+| 0      | 2    | Version: ``0``                                         |
++--------+------+--------------------------------------------------------+
+| 2      | 2    | Interface index                                        |
++--------+------+--------------------------------------------------------+
+| 4      | 4    | Magic: ``0x676F6C64``                                  |
++--------+------+--------------------------------------------------------+
+
+- Packets sent by *pimd* use the outer IP protocol ``249`` and the outer
+  destination ``127.130.1.254``.
+- Packets delivered to *pimd* use the outer IP protocol ``251`` for IGMP and
+  ``252`` for PIM, and a loopback (``127.0.0.0/8``, except
+  ``127.130.1.254``) outer destination. Packets with an invalid outer
+  checksum, a fragmented outer header, another version or another magic are
+  dropped. Fragments of the original packet are reassembled per interface:
+  every fragment must carry the index of the interface the packet was
+  received on.
+
+
 .. _pim-global-configuration:
 
 Global Multicast

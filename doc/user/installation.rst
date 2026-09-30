@@ -159,6 +159,25 @@ options from the list below.
    Turn off building of pimd.  On some BSD platforms pimd will not build properly due
    to lack of kernel support.
 
+.. option:: --disable-pim-southbound
+
+   Do not build the ``pimd_southbound`` module for pimd, which replaces the
+   kernel multicast data plane with a vendor data plane (see
+   :ref:`pim-southbound`). The module is built by default on Linux when pimd
+   is enabled: at runtime it requires zebra's ``dplane_fpm_nl`` module, which
+   is only built on Linux. Explicitly enabling it
+   (``--enable-pim-southbound``) fails on other systems or when pimd is
+   disabled.
+
+.. option:: --disable-pim6-southbound
+
+   Do not build the ``pim6d_southbound`` module for pim6d, the IPv6 version
+   of the ``pimd_southbound`` module (see :ref:`pimv6-southbound`). The
+   module is built by default when pim6d is enabled (it is only built on
+   Linux) and also requires zebra's ``dplane_fpm_nl`` module at runtime.
+   Explicitly enabling it (``--enable-pim6-southbound``) fails when pim6d is
+   disabled.
+
 .. option:: --disable-vrrpd
 
    Turn off building of vrrpd. Linux is required for vrrpd support;
