@@ -1147,6 +1147,10 @@ the config was written out.
 
    This turns on debugging for PIM interaction with kernel MFC cache.
 
+.. clicmd:: debug mroute detail
+
+   This turns on detailed debugging for PIM interaction with kernel MFC cache.
+
 .. clicmd:: debug pim events
 
    This turns on debugging for PIM system events. Especially timers.
