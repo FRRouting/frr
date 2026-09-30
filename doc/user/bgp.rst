@@ -4864,7 +4864,8 @@ scanner exits early.
 .. clicmd:: bgp conditional-advertisement timer (5-240)
 
    Set the period to rerun the conditional advertisement scanner process. The
-   default is 60 seconds.
+   default is 60 seconds. Changing the period restarts the scanner timer, so
+   the next scan runs within the new period.
 
 Sample Configuration
 ^^^^^^^^^^^^^^^^^^^^^

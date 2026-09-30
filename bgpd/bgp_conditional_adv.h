@@ -34,6 +34,7 @@ extern void bgp_conditional_adv_enable(struct peer *peer, afi_t afi,
 				       safi_t safi);
 extern void bgp_conditional_adv_disable(struct peer *peer, afi_t afi,
 					safi_t safi);
+extern void bgp_conditional_adv_period_set(struct bgp *bgp, uint32_t period);
 extern int peer_advertise_map_set(struct peer *peer, afi_t afi, safi_t safi,
 				  const char *advertise_name,
 				  struct route_map *advertise_map,
