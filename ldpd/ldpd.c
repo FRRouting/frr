@@ -581,7 +581,8 @@ static void main_dispatch_ldpe(struct event *event)
 	ssize_t			 n;
 	int			 shut = 0;
 
-	if ((n = imsg_read(ibuf)) == -1 && errno != EAGAIN)
+	n = ldp_imsg_read(ibuf);
+	if (n == -1 && errno != EAGAIN)
 		fatal("imsg_read error");
 
 	if (n == 0)	/* connection closed */
@@ -644,7 +645,8 @@ static void main_dispatch_lde(struct event *event)
 	int		 shut = 0;
 	struct zapi_rlfa_response *rlfa_labels;
 
-	if ((n = imsg_read(ibuf)) == -1 && errno != EAGAIN)
+	n = ldp_imsg_read(ibuf);
+	if (n == -1 && errno != EAGAIN)
 		fatal("imsg_read error");
 
 	if (n == 0)	/* connection closed */
@@ -735,6 +737,23 @@ static void main_dispatch_lde(struct event *event)
 		else
 			kill(ldpe_pid, SIGTERM);
 	}
+}
+
+/*
+ * imsg_read() for the pipes between the ldpd processes.  A peer that
+ * closes its end while data we sent it is still unread makes Linux
+ * report ECONNRESET instead of EOF, once our own queue is drained.
+ * It is the same close, so report it as one.
+ */
+ssize_t ldp_imsg_read(struct imsgbuf *ibuf)
+{
+	ssize_t n;
+
+	n = imsg_read(ibuf);
+	if (n == -1 && errno == ECONNRESET)
+		n = 0;
+
+	return n;
 }
 
 /* ARGSUSED */
