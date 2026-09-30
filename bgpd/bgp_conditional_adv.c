@@ -361,6 +361,26 @@ void bgp_conditional_adv_disable(struct peer *peer, afi_t afi, safi_t safi)
 	event_cancel(&bgp->t_condition_check);
 }
 
+void bgp_conditional_adv_period_set(struct bgp *bgp, uint32_t period)
+{
+	/* Re-applying the same period must not delay the next scan. */
+	if (bgp->condition_check_period == period)
+		return;
+
+	bgp->condition_check_period = period;
+
+	/*
+	 * The scanner picks up the configured period only when it re-arms
+	 * itself, so restart it here or the new period would not apply until
+	 * the previously armed interval expires.
+	 */
+	if (event_is_scheduled(bgp->t_condition_check)) {
+		event_cancel(&bgp->t_condition_check);
+		event_add_timer(bm->master, bgp_conditional_adv_timer, bgp,
+				bgp->condition_check_period, &bgp->t_condition_check);
+	}
+}
+
 static void peer_advertise_map_filter_update(struct peer *peer, afi_t afi,
 					     safi_t safi, const char *amap_name,
 					     struct route_map *amap,
