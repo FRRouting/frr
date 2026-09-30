@@ -3301,8 +3301,11 @@ int lib_route_map_entry_set_action_rmap_set_action_comm_list_name_modify(
 {
 	struct routemap_hook_context *rhc;
 	const char *value;
-	const char *action;
 	int rv = CMD_SUCCESS;
+
+	/* The extended-comm-list-delete action keeps this leaf. */
+	if (IS_SET_EXTCOMM_LIST_DEL(yang_dnode_get_string(args->dnode, "../../frr-route-map:action")))
+		return lib_route_map_entry_set_action_rmap_set_action_comm_list_name_change_modify(args);
 
 	switch (args->event) {
 	case NB_EV_VALIDATE:
@@ -3317,12 +3320,7 @@ int lib_route_map_entry_set_action_rmap_set_action_comm_list_name_modify(
 		/* Set destroy information. */
 		rhc->rhc_shook = generic_set_delete;
 
-		action = yang_dnode_get_string(args->dnode,
-				"../../frr-route-map:action");
-		if (IS_SET_EXTCOMM_LIST_DEL(action))
-			rhc->rhc_rule = "extended-comm-list";
-		else
-			rhc->rhc_rule = "large-comm-list";
+		rhc->rhc_rule = "large-comm-list";
 
 		rhc->rhc_event = RMAP_EVENT_SET_DELETED;
 
@@ -3357,6 +3355,8 @@ lib_route_map_entry_set_action_rmap_set_action_comm_list_name_destroy(
 /*
  * XPath:
  * /frr-route-map:lib/route-map/entry/set-action/rmap-set-action/frr-bgp-route-map:comm-list-name-*
+ * and the same path ending with frr-bgp-route-map:extended-comm-list-name-*
+ * (extended-comm-list-delete uses frr-bgp-route-map:comm-list-name)
  */
 int lib_route_map_entry_set_action_rmap_set_action_comm_list_name_change_modify(
 	struct nb_cb_modify_args *args)
@@ -3390,6 +3390,15 @@ int lib_route_map_entry_set_action_rmap_set_action_comm_list_name_change_modify(
 		} else if (IS_SET_COMM_LIST_REPLACE(action)) {
 			rhc->rhc_rule = "comm-list-replace";
 			snprintf(argstr, argstr_len, "%s %s", name, "replace");
+		} else if (IS_SET_EXTCOMM_LIST_DEL(action)) {
+			rhc->rhc_rule = "extended-comm-list-delete";
+			snprintfrr(argstr, argstr_len, "%s %s", name, "delete");
+		} else if (IS_SET_EXTCOMM_LIST_ADD(action)) {
+			rhc->rhc_rule = "extended-comm-list-add";
+			snprintfrr(argstr, argstr_len, "%s %s", name, "add");
+		} else if (IS_SET_EXTCOMM_LIST_REPLACE(action)) {
+			rhc->rhc_rule = "extended-comm-list-replace";
+			snprintfrr(argstr, argstr_len, "%s %s", name, "replace");
 		}
 
 		/* Set destroy information. */
