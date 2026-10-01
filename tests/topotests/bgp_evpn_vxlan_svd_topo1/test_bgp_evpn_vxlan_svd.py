@@ -49,7 +49,10 @@ from lib.evpn import (
 )
 from lib.topogen import Topogen, TopoRouter, get_topogen
 from lib.topolog import logger
-from lib.common_config import required_linux_kernel_version
+from lib.common_config import (
+    create_address_on_interface,
+    required_linux_kernel_version,
+)
 
 # Required to instantiate the topology builder class.
 
@@ -107,7 +110,7 @@ def setup_pe_router(tgen, pe_name, tunnel_local_ip, svi_ip, intf):
     # setup svi
     pe.run("ip link add link bridge name vlan1 type vlan id 1 protocol 802.1q")
     pe.run("ip link set dev vlan1 up")
-    pe.run("ip addr add {0} dev vlan1".format(svi_ip))
+    create_address_on_interface(tgen, pe_name, "vlan1", svi_ip)
     pe.run("/sbin/sysctl net.ipv4.conf.vlan1.arp_accept=1")
 
     # setup single vxlan device
@@ -130,8 +133,8 @@ def setup_pe_router(tgen, pe_name, tunnel_local_ip, svi_ip, intf):
     if pe_name == "PE1":
         pe.run("ip link add vrf-blue type vrf table 1002")
         pe.run("ip link set dev vrf-blue up")
-        pe.run("ip addr add 27.2.0.85/32 dev vrf-blue")
-        pe.run("ip addr add 27.3.0.85/32 dev vrf-purple")
+        create_address_on_interface(tgen, pe_name, "vrf-blue", "27.2.0.85/32")
+        create_address_on_interface(tgen, pe_name, "vrf-purple", "27.3.0.85/32")
     if pe_name == "PE2":
         pe.run("ip link add vrf-blue type vrf table 2400")
         pe.run("ip link set dev vrf-blue up")
