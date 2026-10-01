@@ -4160,10 +4160,34 @@ int dplane_ctx_route_init(struct zebra_dplane_ctx *ctx, enum dplane_op_e op,
 		if (!CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_EVPN))
 			continue;
 
+		/*
+		 * The nexthop VRF owns the L3VNI for a normal EVPN route.
+		 * An on-link SVD D-VNI route is different: nexthop_set_evpn_dvni_svd()
+		 * moves the nexthop into the default VRF, where the VXLAN device
+		 * lives, and that VRF has no L3VNI. The route VRF still does.
+		 */
 		zl3vni = zl3vni_from_vrf(nexthop->vrf_id);
+		if (!zl3vni || !is_l3vni_oper_up(zl3vni))
+			zl3vni = zl3vni_from_vrf(re->vrf_id);
 		if (zl3vni && is_l3vni_oper_up(zl3vni)) {
+			struct mpls_label_stack *labels = nexthop->nh_label;
+			vni_t encap_vni = zl3vni->vni;
+
+			/*
+			 * Default encap is this VRF's L3VNI. A D-VNI route leaked
+			 * with "import vrf" carries the original downstream VNI
+			 * as its last EVPN label. FPM programs nh_encap.vni, so
+			 * use that label. A regular EVPN leak has no such label
+			 * and keeps this VRF's L3VNI.
+			 */
+			if (labels && nexthop->nh_label_type == ZEBRA_LSP_EVPN &&
+			    labels->num_labels)
+				encap_vni = label2vni(&labels->label[labels->num_labels - 1]);
+
 			nexthop->nh_encap_type = NET_VXLAN;
-			nexthop->nh_encap.vni = zl3vni->vni;
+			nexthop->nh_encap.vni = encap_vni;
+			if (IS_ZEBRA_DEBUG_DPLANE_DETAIL)
+				zlog_debug("%s vni %u", __func__, encap_vni);
 		}
 	}
 
