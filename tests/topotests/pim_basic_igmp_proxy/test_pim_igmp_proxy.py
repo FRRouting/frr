@@ -41,6 +41,7 @@ sys.path.append(os.path.join(CWD, "../"))
 
 # pylint: disable=C0413
 from lib import topotest
+from lib.common_config import create_interface_in_kernel
 from lib.topogen import Topogen, TopoRouter, get_topogen
 from lib.topolog import logger
 from lib.pim import verify_local_igmp_proxy_groups
@@ -83,8 +84,7 @@ def build_topo(tgen):
     sw.add_link(tgen.gears["r3"])
 
     # Dummy interface for static joins
-    tgen.gears["r2"].run("ip link add r2-eth1 type dummy")
-    tgen.gears["r2"].run("ip link set r2-eth1 up")
+    create_interface_in_kernel(tgen, "r2", "r2-eth1")
 
 
 def setup_module(mod):

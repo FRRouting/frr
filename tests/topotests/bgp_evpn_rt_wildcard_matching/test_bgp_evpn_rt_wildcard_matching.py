@@ -47,6 +47,7 @@ sys.path.append(os.path.join(CWD, "../"))
 
 # pylint: disable=C0413
 from lib import topotest
+from lib.common_config import create_interface_in_kernel
 from lib.topogen import Topogen, get_topogen
 from lib.topolog import logger
 
@@ -88,9 +89,6 @@ def setup_module(mod):
     cmds_vxlan = [
         "ip link add vrf-101 type vrf table 101",
         "ip link set dev vrf-101 up",
-        "ip link add loop101 type dummy",
-        "ip link set dev loop101 master vrf-101",
-        "ip link set dev loop101 up",
         "ip link add bridge-101 up address 52:54:00:0{0}:01:65 type bridge stp_state 0",
         "ip link set bridge-101 master vrf-101",
         "ip link set dev bridge-101 up",
@@ -110,6 +108,7 @@ def setup_module(mod):
             logger.info("cmd to r{}: {}".format(rid, formatted))
             output = router.cmd_raises(formatted)
             logger.info("result: " + output)
+        create_interface_in_kernel(tgen, "r{}".format(rid), "loop101", vrf="vrf-101")
 
     for router in tgen.routers().values():
         router.load_frr_config()
