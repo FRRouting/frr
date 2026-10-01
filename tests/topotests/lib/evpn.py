@@ -364,6 +364,20 @@ def evpn_verify_vni_remote_vtep_flood(router, vni, vtep_ip, expected_flood):
     return f"VNI {vni}: remote VTEP {vtep_ip} not found"
 
 
+def evpn_verify_vni_remote_vtep_absent(router, vni, vtep_ip):
+    """Verify a remote VTEP is no longer present in zebra EVPN state."""
+    output = router.vtysh_cmd(f"show evpn vni {vni} json", isjson=True)
+    if not output:
+        return f"No output for VNI {vni}"
+
+    remote_vteps = output.get("remoteVteps", [])
+    for vtep in remote_vteps:
+        if vtep.get("ip") == vtep_ip:
+            return f"VNI {vni}: remote VTEP {vtep_ip} still present"
+
+    return None
+
+
 def evpn_verify_hrep_absent(router, vni, vtep_ip):
     """Verify no HREP bridge FDB entry exists for the given VNI and VTEP."""
     if not topotest.iproute2_is_fdb_get_capable():
