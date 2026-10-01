@@ -528,7 +528,6 @@ static void be_adapter_process_msg(uint8_t version, uint8_t *data, size_t msg_le
 	_dbg("Got %s from '%s' txn-id %Lu", mgmt_msg_code_name(msg->code), adapter->name,
 	     msg->refer_id);
 
-	assert(adapter->id != MGMTD_BE_CLIENT_ID_MAX || msg->code == MGMT_MSG_CODE_SUBSCRIBE);
 	if (adapter->id == MGMTD_BE_CLIENT_ID_MAX && msg->code != MGMT_MSG_CODE_SUBSCRIBE) {
 		_log_err("backend client '%s' sent message type %s without subscribing first",
 			 adapter->name, mgmt_msg_code_name(msg->code));
