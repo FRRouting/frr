@@ -530,7 +530,7 @@ int kernel_dplane_read(struct zebra_dplane_info *info)
 {
 	struct nlsock *nl = kernel_netlink_nlsock_lookup(info->sock);
 
-	netlink_parse_info(dplane_netlink_information_fetch, nl, info, 5, false, NULL, NULL);
+	netlink_parse_info(dplane_netlink_information_fetch, nl, info, 500, false, NULL, NULL);
 
 	return 0;
 }
