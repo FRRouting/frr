@@ -24,6 +24,7 @@ sys.path.append(os.path.join(CWD, "../"))
 
 # pylint: disable=C0413
 from lib import topotest
+from lib.common_config import create_interface_in_kernel
 from lib.topogen import Topogen, get_topogen
 from lib.topolog import logger
 
@@ -48,9 +49,9 @@ def _setup_vrfs(router, vrf):
     mac = f"52:54:00:00:{idx}{idx}:{idx}{idx}"
     iface = f"eth-{router.name}"
     router.add_netns(ns)
+    create_interface_in_kernel(get_topogen(), router.name, "loop{}".format(vrf))
     router.cmd_raises(
         f"""
-ip link add loop{vrf} type dummy
 ip link add vxlan-{vrf} type vxlan id {vrf} dstport 4789 dev {iface} local {ip}
 """
     )

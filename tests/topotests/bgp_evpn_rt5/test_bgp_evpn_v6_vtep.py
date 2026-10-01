@@ -29,7 +29,7 @@ sys.path.append(os.path.join(CWD, "../"))
 # Import topogen and topotest helpers
 from lib import topotest
 from lib.bgp import verify_bgp_rib
-from lib.common_config import apply_raw_config
+from lib.common_config import apply_raw_config, create_interface_in_kernel
 from lib.topogen import Topogen, TopoRouter, get_topogen
 from lib.topolog import logger
 
@@ -84,9 +84,6 @@ def setup_module(mod):
         "ip ru add oif {0}-vrf-{1} table {1}",
         "ip ru add iif {0}-vrf-{1} table {1}",
         "ip link set dev {0}-vrf-{1} up",
-        "ip link add loop{1} type dummy",
-        "ip link set dev loop{1} master {0}-vrf-{1}",
-        "ip link set dev loop{1} up",
     ]
 
     cmds_r2 = [  # config routing 101
@@ -121,7 +118,7 @@ def setup_module(mod):
 
     ns = "r1-vrf-101"
     tgen.net["r1"].add_netns(ns)
-    tgen.net["r1"].cmd_raises("ip link add loop101 type dummy")
+    create_interface_in_kernel(tgen, "r1", "loop101")
     tgen.net["r1"].set_intf_netns("loop101", ns, up=True)
 
     router = tgen.gears["r2"]
@@ -129,6 +126,7 @@ def setup_module(mod):
         logger.info("cmd to r2: " + cmd.format("r2", 101))
         output = router.cmd_raises(cmd.format("r2", 101))
         logger.info("result: " + output)
+    create_interface_in_kernel(tgen, "r2", "loop101", vrf="r2-vrf-101")
 
     for cmd in cmds_r2:
         logger.info("cmd to r2: " + cmd.format("r2"))
@@ -140,6 +138,7 @@ def setup_module(mod):
         logger.info("cmd to r3: " + cmd.format("r3", 102))
         output = router.cmd_raises(cmd.format("r3", 102))
         logger.info("result: " + output)
+    create_interface_in_kernel(tgen, "r3", "loop102", vrf="r3-vrf-102")
 
     for cmd in cmds_r3:
         logger.info("cmd to r3: " + cmd.format("r3"))

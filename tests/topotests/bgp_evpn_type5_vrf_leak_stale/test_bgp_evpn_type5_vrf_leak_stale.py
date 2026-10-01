@@ -48,7 +48,7 @@ sys.path.append(os.path.join(CWD, "../"))
 
 # pylint: disable=C0413
 from lib import topotest
-from lib.common_config import step
+from lib.common_config import create_interface_in_kernel, step
 from lib.topogen import Topogen, get_topogen
 from lib.topolog import logger
 
@@ -84,9 +84,6 @@ def _add_vrf_vni(router, rname, vrf, table, vni, local_vtep):
         [
             "ip link add {0} type vrf table {1}".format(vrf, table),
             "ip link set dev {0} up".format(vrf),
-            "ip link add loop{0} type dummy".format(vni),
-            "ip link set dev loop{0} master {1}".format(vni, vrf),
-            "ip link set dev loop{0} up".format(vni),
             "ip link add name br{0} up type bridge stp_state 0".format(vni),
             "ip link set dev br{0} master {1}".format(vni, vrf),
             "ip link set dev br{0} up".format(vni),
@@ -100,6 +97,9 @@ def _add_vrf_vni(router, rname, vrf, table, vni, local_vtep):
                 "learning off flood off mcast_flood off"
             ).format(vni),
         ],
+    )
+    create_interface_in_kernel(
+        router.tgen, router.name, "loop{}".format(vni), vrf=vrf
     )
 
 
