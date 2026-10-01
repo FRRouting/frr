@@ -5197,6 +5197,9 @@ void zebra_rib_dplane_results_unplug(void)
 }
 #endif
 
+/* Time budget for draining dplane results before yielding to the event loop */
+#define RIB_DPLANE_RESULTS_YIELD_TIME (50 * 1000L) /* 50ms */
+
 /*
  * Handle results from the dataplane system. Dequeue update context
  * structs, dispatch to appropriate internal handlers.
@@ -5222,6 +5225,8 @@ static void rib_process_dplane_results(struct event *event)
 					     NULL);
 	}
 #endif /* HAVE_SCRIPTING */
+
+	event_set_yield_time(event, RIB_DPLANE_RESULTS_YIELD_TIME);
 
 	/* Dequeue a list of completed updates with one lock/unlock cycle */
 
@@ -5402,11 +5407,12 @@ static void rib_process_dplane_results(struct event *event)
 		}
 
 		/*
-		 * If the dplane still has results queued, yield back to the
-		 * event loop instead of draining everything in this one call.
-		 * Re-arm rib_process_dplane_results below to serve other events.
+		 * If the dplane still has results queued, keep draining them in
+		 * batches until this event has used up its time budget, then
+		 * yield back to the event loop. Re-arm rib_process_dplane_results
+		 * below to serve other events.
 		 */
-		if (work_left_to_do)
+		if (work_left_to_do && event_should_yield(event))
 			break;
 
 	} while (1);
