@@ -664,8 +664,8 @@ struct nb_node {
 	/* Back pointer to the libyang schema node. */
 	const struct lysc_node *snode;
 
-	/* Data path of this YANG node. */
-	char xpath[XPATH_MAXLEN];
+	/* Data path of this YANG node (allocated to its exact length). */
+	char *xpath;
 
 	/* Priority - lower priorities are processed first. */
 	uint32_t priority;
