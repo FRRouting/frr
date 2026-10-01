@@ -264,8 +264,9 @@ Here is the syntax for using AgentX:
 .. clicmd:: debug agentx
 
    Log AgentX subagent activity: the connection to the master agent going up
-   and down, and the file descriptors polled for it. Net-SNMP's own debug
-   messages are also only logged while this is enabled.
+   and down, the file descriptors polled for it, and each SNMP notification
+   as it is queued. Net-SNMP's own debug messages are also only logged while
+   this is enabled.
 
    The command is available in every daemon that supports ``agentx``,
    including bgpd. When given in configuration mode it is saved to the
