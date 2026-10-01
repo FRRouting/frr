@@ -1443,7 +1443,9 @@ static int zl3vni_remote_rmac_add(struct zebra_l3vni *zl3vni,
 	 * address. Rmac is programmed against the ipv4 vtep because we only
 	 * support ipv4 tunnels in the h/w right now
 	 */
-	if (IS_IPADDR_V4(&zl3vni->local_vtep_ip))
+	if (IS_IPADDR_V4(&zl3vni->local_vtep_ip) ||
+	    (zl3vni->local_vtep_ip.ipa_type == IPADDR_NONE && vtep_ip->ipa_type == IPADDR_V6 &&
+	     IS_MAPPED_IPV6(&vtep_ip->ipaddr_v6)))
 		vtep_to_v4(vtep_ip, &ip_vtep);
 	else
 		ip_vtep = *vtep_ip;
@@ -1521,7 +1523,9 @@ static void zl3vni_remote_rmac_del(struct zebra_l3vni *zl3vni,
 	struct ipaddr found_ip_vtep;
 
 	if (!zl3vni_nh_lookup(zl3vni, vtep_ip)) {
-		if (IS_IPADDR_V4(&zl3vni->local_vtep_ip))
+		if (IS_IPADDR_V4(&zl3vni->local_vtep_ip) ||
+		    (zl3vni->local_vtep_ip.ipa_type == IPADDR_NONE &&
+		     vtep_ip->ipa_type == IPADDR_V6 && IS_MAPPED_IPV6(&vtep_ip->ipaddr_v6)))
 			vtep_to_v4(vtep_ip, &ip_vtep);
 		else
 			ip_vtep = *vtep_ip;
@@ -1540,7 +1544,9 @@ static void zl3vni_remote_rmac_del(struct zebra_l3vni *zl3vni,
 			vtep = listgetdata(listhead(zrmac->nh_list));
 
 			/* Check if mapped */
-			if (IS_IPADDR_V4(&zl3vni->local_vtep_ip))
+			if (IS_IPADDR_V4(&zl3vni->local_vtep_ip) ||
+			    (zl3vni->local_vtep_ip.ipa_type == IPADDR_NONE &&
+			     vtep->ipa_type == IPADDR_V6 && IS_MAPPED_IPV6(&vtep->ipaddr_v6)))
 				vtep_to_v4(vtep, &found_ip_vtep);
 			else
 				found_ip_vtep = *vtep;
