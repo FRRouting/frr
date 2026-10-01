@@ -198,8 +198,7 @@ def plumb_pe(node, num_vrfs, num_mcast_vrfs):
 def plumb_host(node, pe, v, rx=False):
     gw = rx_gw(v) if rx else tenant_gw(pe, v)
     ip = rx_host(v) if rx else tenant_host(pe, v)
-    return [
-        "ip addr add {}/24 dev {}-eth0".format(ip, node),
+    return "{}/24".format(ip), [
         "ip link set dev {}-eth0 up".format(node),
         "ip route add default via {}".format(gw),
     ]

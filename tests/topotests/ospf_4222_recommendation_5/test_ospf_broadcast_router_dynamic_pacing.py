@@ -17,7 +17,7 @@ import time
 from lib import topotest
 from lib.topogen import Topogen, get_topogen
 from lib.topolog import logger
-from lib.common_config import step
+from lib.common_config import create_address_on_interface, step
 from util_pcap import PerInterfacePcapManager
 
 """
@@ -397,8 +397,8 @@ def test_ospf_broadcast_external_lsa_flooding():
     ), f"failed to enable redistribute connected: stdout={out} stderr={err}"
 
     for i in range(1, 101):
-        tgen.net["r1"].cmd(f"ip addr add 198.51.110.{i}/32 dev lo")
-        tgen.net["r1"].cmd(f"ip addr add 198.51.111.{i}/32 dev lo")
+        create_address_on_interface(tgen, "r1", "lo", f"198.51.110.{i}/32")
+        create_address_on_interface(tgen, "r1", "lo", f"198.51.111.{i}/32")
 
     step("Continuously verify key adjacencies remain FULL during LSA storm")
     for _ in range(5):
@@ -602,7 +602,7 @@ def test_ospf_dynamic_pacing_queue_kick_on_limit_increase():
     )
     tgen.net["r1"].cmd("vtysh -c 'conf t' -c 'router ospf' -c 'redistribute connected'")
     for i in range(1, 101):
-        tgen.net["r1"].cmd(f"ip addr add 198.51.120.{i}/32 dev lo")
+        create_address_on_interface(tgen, "r1", "lo", f"198.51.120.{i}/32")
 
     # Step 4: Mark start of the congestion/recovery observation window, then
     # flap r3/r4/r5 simultaneously right after injecting LSAs.

@@ -68,6 +68,7 @@ sys.path.append(os.path.join(CWD, "../"))
 from lib import topotest
 from lib.evpn import evpn_verify_bgp_vni_state, evpn_verify_vni_remote_vteps
 from lib.topogen import Topogen, get_topogen
+from lib.common_config import create_address_on_interface
 from lib.topolog import logger
 
 pytestmark = [pytest.mark.bgpd]
@@ -136,7 +137,9 @@ def config_leaf_dataplane(leaf, name, svi_mac, with_gw_addrs):
         )
         leaf.run("ip link set dev %s address %s" % (svi, svi_mac))
         if with_gw_addrs:
-            leaf.run("ip addr add %s/%d dev %s" % (GW_IPS[vni], GW_PLEN, svi))
+            create_address_on_interface(
+                leaf.tgen, leaf.name, svi, "%s/%d" % (GW_IPS[vni], GW_PLEN)
+            )
         leaf.run("ip link set dev %s up" % svi)
 
     leaf.run("/sbin/sysctl -w net.ipv4.ip_forward=1")

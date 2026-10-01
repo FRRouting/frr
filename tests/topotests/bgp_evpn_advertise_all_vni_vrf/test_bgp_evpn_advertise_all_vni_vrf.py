@@ -54,7 +54,10 @@ sys.path.append(os.path.join(CWD, "../"))
 
 # pylint: disable=C0413
 from lib import topotest
-from lib.common_config import required_linux_kernel_version
+from lib.common_config import (
+    create_address_on_interface,
+    required_linux_kernel_version,
+)
 from lib.topogen import Topogen, get_topogen
 from lib.topolog import logger
 
@@ -167,7 +170,7 @@ def _setup_host(host, config):
     host.run(f"ip link set dev {ifname} down")
     host.run(f"ip addr flush dev {ifname}")
     host.run(f"ip link set dev {ifname} address {config['mac']}")
-    host.run(f"ip addr add {config['ip']} dev {ifname}")
+    create_address_on_interface(host.tgen, host.name, ifname, config["ip"])
     host.run(f"ip link set dev {ifname} up")
 
 

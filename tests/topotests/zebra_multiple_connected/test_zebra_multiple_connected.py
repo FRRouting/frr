@@ -19,7 +19,11 @@ import sys
 import pytest
 import json
 from functools import partial
-from lib.common_config import create_interface_in_kernel, step
+from lib.common_config import (
+    create_address_on_interface,
+    create_interface_in_kernel,
+    step,
+)
 from lib.topolog import logger
 
 # Save the Current Working Directory to find configuration files.
@@ -378,8 +382,8 @@ def test_zebra_kernel_last_ipv4_address_deleted():
     # Prepare scene: create dummy interface
     # add two addresses, two routes
     create_interface_in_kernel(tgen, router.name, ifname)
-    router.run(f"ip -4 addr add 192.168.0.2/24 dev {ifname}")
-    router.run(f"ip -4 addr add 192.168.100.7/24 dev {ifname}")
+    create_address_on_interface(tgen, router.name, ifname, "192.168.0.2/24")
+    create_address_on_interface(tgen, router.name, ifname, "192.168.100.7/24")
     router.run(f"ip -4 route add 203.0.113.0/24 via 192.168.0.1")
     router.run(f"ip -4 route add 10.0.170.0/24 dev {ifname}")
 
@@ -605,8 +609,8 @@ def test_zebra_kernel_last_ipv6_address_deleted():
     create_interface_in_kernel(tgen, router.name, ifname)
     # clear scope link address
     router.run(f"ip -6 addr flush dev {ifname}")
-    router.run(f"ip -6 addr add 2001:db8:a::2/64 dev {ifname}")
-    router.run(f"ip -6 addr add 2001:db8:b::7/64 dev {ifname}")
+    create_address_on_interface(tgen, router.name, ifname, "2001:db8:a::2/64")
+    create_address_on_interface(tgen, router.name, ifname, "2001:db8:b::7/64")
     router.run(f"ip -6 route add 2001:db8:c::/64 via 2001:db8:a::1")
     router.run(f"ip -6 route add 2001:db8:d::/64 dev {ifname}")
 
