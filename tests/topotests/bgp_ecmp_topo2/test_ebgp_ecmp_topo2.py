@@ -302,6 +302,10 @@ def test_ecmp_after_clear_bgp(request, ecmp_num, test_type):
     write_test_header(tc_name)
     tgen = get_topogen()
 
+    # Don't run this test if we have any failure.
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
     reset_config_on_routers(tgen)
 
     # Verifying RIB routes
@@ -358,6 +362,10 @@ def test_ecmp_remove_redistribute_static(request):
     tc_name = request.node.name
     write_test_header(tc_name)
     tgen = get_topogen()
+
+    # Don't run this test if we have any failure.
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
 
     reset_config_on_routers(tgen)
     static_or_nw(tgen, topo, tc_name, "redist_static", "r2")
@@ -471,6 +479,10 @@ def test_ecmp_shut_bgp_neighbor(request, test_type):
     write_test_header(tc_name)
     tgen = get_topogen()
 
+    # Don't run this test if we have any failure.
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
     logger.info(INTF_LIST_R2)
     # Verifying RIB routes
     dut = "r3"
@@ -555,6 +567,10 @@ def test_ecmp_remove_static_route(request):
     tc_name = request.node.name
     write_test_header(tc_name)
     tgen = get_topogen()
+
+    # Don't run this test if we have any failure.
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
 
     # Verifying RIB routes
     dut = "r3"
@@ -653,6 +669,10 @@ def test_ecmp_remove_nw_advertise(request):
     tc_name = request.node.name
     write_test_header(tc_name)
     tgen = get_topogen()
+
+    # Don't run this test if we have any failure.
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
 
     # Verifying RIB routes
     dut = "r3"
