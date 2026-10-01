@@ -41,7 +41,7 @@ from lib.evpn import (
 )
 from lib.topogen import Topogen, TopoRouter, get_topogen
 from lib.topolog import logger
-from lib.common_config import step
+from lib.common_config import create_address_on_interface, step
 
 pytestmark = [pytest.mark.bgpd, pytest.mark.evpn, pytest.mark.ospf6d]
 
@@ -128,7 +128,7 @@ def setup_module(mod):
     ## Setup L2VNI bridge/vxlan + L2 PE/CE link
     # pe1
     pe1.run("ip link add name br101 type bridge stp_state 0")
-    pe1.run("ip addr add 10.10.1.1/24 dev br101")
+    create_address_on_interface(pe1.tgen, pe1.name, "br101", "10.10.1.1/24")
     pe1.run("ip link set dev br101 addr aa:bb:cc:00:11:aa")
     pe1.run("ip link set dev br101 master VRF-A")
     pe1.run("ip link set dev br101 up")
@@ -142,7 +142,7 @@ def setup_module(mod):
     pe1.run("ip link set dev PE1-eth0 up")
     # pe2
     pe2.run("ip link add name br101 type bridge stp_state 0")
-    pe2.run("ip addr add 10.10.1.3/24 dev br101")
+    create_address_on_interface(pe2.tgen, pe2.name, "br101", "10.10.1.3/24")
     pe2.run("ip link set dev br101 addr aa:bb:cc:00:22:ff")
     pe2.run("ip link set dev br101 master VRF-A")
     pe2.run("ip link set dev br101 up")

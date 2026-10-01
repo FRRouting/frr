@@ -34,6 +34,7 @@ sys.path.append(os.path.join(CWD, "../"))
 # Import topogen and topotest helpers
 from lib import topotest
 from lib.common_config import (
+    create_address_on_interface,
     create_interface_in_kernel,
     kill_router_daemons,
     start_router_daemons,
@@ -311,7 +312,7 @@ def config_svi(node, svi_pip):
     Create an SVI for VLAN 1000
     """
     node.run("ip link add link bridge name vlan1000 type vlan id 1000 protocol 802.1q")
-    node.run("ip addr add %s/24 dev vlan1000" % svi_pip)
+    create_address_on_interface(node.tgen, node.name, "vlan1000", "%s/24" % svi_pip)
     node.run("ip link set dev vlan1000 up")
     node.run("/sbin/sysctl net.ipv4.conf.vlan1000.arp_accept=1")
     node.run("ip link add link vlan1000 name vlan1000-v0 type macvlan mode private")
@@ -321,7 +322,7 @@ def config_svi(node, svi_pip):
     node.run("ip link set dev vlan1000-v0 address 00:00:5e:00:01:01")
     node.run("ip link set dev vlan1000-v0 up")
     # metric 1024 is not working
-    node.run("ip addr add 45.0.0.1/24 dev vlan1000-v0")
+    create_address_on_interface(node.tgen, node.name, "vlan1000-v0", "45.0.0.1/24")
 
 
 def config_tor(tor_name, tor, tor_ip, svi_pip):
@@ -377,7 +378,7 @@ def config_host(host_name, host):
     config_bond(host, bond_name, bond_members, "00:00:00:00:00:00", None)
 
     host_ip, host_mac = compute_host_ip_mac(host_name)
-    host.run("ip addr add %s dev %s" % (host_ip, bond_name))
+    create_address_on_interface(host.tgen, host.name, bond_name, host_ip)
     host.run("ip link set dev %s address %s" % (bond_name, host_mac))
 
 
@@ -993,7 +994,9 @@ def test_evpn_vtep_change():
     secondary_vtep = "192.168.100.117"
 
     # 1. Add secondary loopback address on torm21
-    remote_tor.run(f"ip addr add {secondary_vtep}/32 dev lo")
+    create_address_on_interface(
+        remote_tor.tgen, remote_tor.name, "lo", f"{secondary_vtep}/32"
+    )
 
     # 2. Verify primary VTEP is present initially
     test_fn = partial(check_remote_es_vtep_present, dut, esi, primary_vtep)
