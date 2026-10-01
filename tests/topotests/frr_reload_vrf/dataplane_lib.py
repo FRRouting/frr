@@ -188,10 +188,6 @@ def plumb_pe(node, num_vrfs, num_mcast_vrfs):
         if node == MCAST_PE and v <= num_mcast_vrfs:
             rxidx = rx_ifidx(num_vrfs, v)
             cmds += [
-                # RP loopback in the vrf (address via zebra config)
-                "ip link add loop-rp{} type dummy".format(v),
-                "ip link set dev loop-rp{} master {}".format(v, vrf),
-                "ip link set dev loop-rp{} up".format(v),
                 # receiver access iface in the vrf (address via zebra config)
                 "ip link set dev {}-eth{} master {}".format(node, rxidx, vrf),
                 "ip link set dev {}-eth{} up".format(node, rxidx),

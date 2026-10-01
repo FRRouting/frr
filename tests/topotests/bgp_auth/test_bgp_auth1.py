@@ -39,6 +39,7 @@ import sys
 import pytest
 from lib import topotest
 from lib.common_config import (
+    create_interface_in_kernel,
     save_initial_config_on_routers,
     reset_with_new_configs,
 )
@@ -90,15 +91,9 @@ def setup_module(mod):
     r3.cmd_raises("ip link add blue type vrf table 1001")
     r3.cmd_raises("ip link set up dev blue")
 
-    r1.cmd_raises("ip link add lo1 type dummy")
-    r1.cmd_raises("ip link set lo1 master blue")
-    r1.cmd_raises("ip link set up dev lo1")
-    r2.cmd_raises("ip link add lo1 type dummy")
-    r2.cmd_raises("ip link set up dev lo1")
-    r2.cmd_raises("ip link set lo1 master blue")
-    r3.cmd_raises("ip link add lo1 type dummy")
-    r3.cmd_raises("ip link set up dev lo1")
-    r3.cmd_raises("ip link set lo1 master blue")
+    create_interface_in_kernel(tgen, "R1", "lo1", vrf="blue")
+    create_interface_in_kernel(tgen, "R2", "lo1", vrf="blue")
+    create_interface_in_kernel(tgen, "R3", "lo1", vrf="blue")
 
     r1.cmd_raises("ip link set R1-eth2 master blue")
     r1.cmd_raises("ip link set R1-eth3 master blue")
@@ -122,15 +117,9 @@ def setup_module(mod):
     r3.cmd_raises("ip link add red type vrf table 1002")
     r3.cmd_raises("ip link set up dev red")
 
-    r1.cmd_raises("ip link add lo2 type dummy")
-    r1.cmd_raises("ip link set lo2 master red")
-    r1.cmd_raises("ip link set up dev lo2")
-    r2.cmd_raises("ip link add lo2 type dummy")
-    r2.cmd_raises("ip link set up dev lo2")
-    r2.cmd_raises("ip link set lo2 master red")
-    r3.cmd_raises("ip link add lo2 type dummy")
-    r3.cmd_raises("ip link set up dev lo2")
-    r3.cmd_raises("ip link set lo2 master red")
+    create_interface_in_kernel(tgen, "R1", "lo2", vrf="red")
+    create_interface_in_kernel(tgen, "R2", "lo2", vrf="red")
+    create_interface_in_kernel(tgen, "R3", "lo2", vrf="red")
 
     r1.cmd_raises("ip link set R1-eth4 master red")
     r1.cmd_raises("ip link set R1-eth5 master red")
