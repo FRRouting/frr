@@ -45,7 +45,7 @@ from lib import topotest
 from lib.topogen import Topogen
 from lib.topolog import logger
 from lib.topotest import iproute2_is_vrf_capable
-from lib.common_config import required_linux_kernel_version
+from lib.common_config import create_interface_in_kernel, required_linux_kernel_version
 from lib.pim import McastTesterHelper
 
 import dataplane_lib as D
@@ -105,6 +105,11 @@ def tgen(request):
         node = tg.gears[pe]
         for cmd in D.plumb_pe(pe, NUM_VRFS, NUM_MCAST_VRFS):
             node.cmd_raises(cmd)
+        if pe == D.MCAST_PE:
+            for v in range(1, NUM_MCAST_VRFS + 1):
+                create_interface_in_kernel(
+                    tg, pe, "loop-rp{}".format(v), vrf=D.vrf_name(v)
+                )
 
     # generate + load unified frr.conf on the fabric nodes
     for node in [D.SPINE] + D.PES:

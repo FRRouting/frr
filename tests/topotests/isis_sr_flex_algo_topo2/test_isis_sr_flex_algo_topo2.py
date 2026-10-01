@@ -56,6 +56,7 @@ sys.path.append(os.path.join(CWD, "../"))
 # pylint: disable=C0413
 # Import topogen and topotest helpers
 from lib import topotest
+from lib.common_config import create_interface_in_kernel
 from lib.topogen import Topogen, TopoRouter, get_topogen
 from lib.topolog import logger
 
@@ -129,12 +130,10 @@ def setup_module(mod):
             router.load_config(
                 TopoRouter.RD_PATH, os.path.join(CWD, "{}/pathd.conf".format(rname))
             )
-            router.run("ip link add dum0 type dummy")
-            router.run("ip link set dum0 up")
             if rname == "rt0":
-                router.run("ip addr add 10.255.0.1/24 dev dum0")
+                create_interface_in_kernel(tgen, rname, "dum0", "10.255.0.1/24")
             elif rname == "rt9":
-                router.run("ip addr add 10.255.9.1/24 dev dum0")
+                create_interface_in_kernel(tgen, rname, "dum0", "10.255.9.1/24")
     tgen.start_router()
 
 

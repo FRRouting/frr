@@ -37,7 +37,7 @@ import functools
 CWD = os.path.dirname(os.path.realpath(__file__))
 sys.path.append(os.path.join(CWD, "../"))
 
-from lib.common_config import retry
+from lib.common_config import create_interface_in_kernel, retry
 from lib import topotest
 from lib.topogen import Topogen, get_topogen
 from lib.topolog import logger
@@ -67,19 +67,17 @@ def setup_module(mod):
         sysctl -w net.vrf.strict_mode=1
         ip link add vrfdefault type vrf table 254
         ip link set up dev vrfdefault
-        ip link add sr0 type dummy
-        ip link set up dev sr0
         """
     )
+    create_interface_in_kernel(tgen, "r1", "sr0")
     tgen.net["r3"].cmd(
         """
         sysctl -w net.vrf.strict_mode=1
         ip link add vrfdefault type vrf table 254
         ip link set up dev vrfdefault
-        ip link add sr0 type dummy
-        ip link set up dev sr0
         """
     )
+    create_interface_in_kernel(tgen, "r3", "sr0")
 
     for router in router_list.values():
         router.load_frr_config(

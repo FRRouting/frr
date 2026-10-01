@@ -50,7 +50,7 @@ sys.path.append(os.path.join(CWD, ".."))
 
 # pylint: disable=C0413
 from lib import topotest
-from lib.common_config import step
+from lib.common_config import create_interface_in_kernel, step
 from lib.topogen import Topogen, get_topogen
 from lib.topolog import logger
 
@@ -128,8 +128,7 @@ def test_vrf_disable_metaq_leak():
 
     step("Create VRF RED netdev + kernel routes, confirm they install")
     _add_vrf_netdev(r1)
-    r1.run("ip link add metaqflap type dummy")
-    r1.run("ip link set metaqflap up")
+    create_interface_in_kernel(tgen, "r1", "metaqflap")
     _add_kernel_routes(r1)
 
     test_func = partial(_all_routes_active, r1)

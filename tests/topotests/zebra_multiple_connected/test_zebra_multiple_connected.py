@@ -19,7 +19,7 @@ import sys
 import pytest
 import json
 from functools import partial
-from lib.common_config import step
+from lib.common_config import create_interface_in_kernel, step
 from lib.topolog import logger
 
 # Save the Current Working Directory to find configuration files.
@@ -105,8 +105,7 @@ def test_zebra_connected_multiple():
 
     router = tgen.gears["r1"]
     router.run("ip route add 192.168.1.1/32 via 10.0.1.99 dev r1-eth1")
-    router.run("ip link add dummy1 type dummy")
-    router.run("ip link set dummy1 up")
+    create_interface_in_kernel(tgen, router.name, "dummy1")
     router.run("ip link set dummy1 down")
 
     routes = "{}/{}/ip_route.json".format(CWD, router.name)
@@ -130,8 +129,7 @@ def test_zebra_system_recursion():
     router = tgen.gears["r1"]
     router.run("ip route add 10.0.1.30/32 dev r1-eth1")
     router.run("ip route add 10.9.9.0/24 via 10.0.1.30 dev r1-eth1")
-    router.run("ip link add dummy2 type dummy")
-    router.run("ip link set dummy2 up")
+    create_interface_in_kernel(tgen, router.name, "dummy2")
     router.run("ip link set dummy2 down")
 
     routes = "{}/{}/ip_route2.json".format(CWD, router.name)
@@ -379,8 +377,7 @@ def test_zebra_kernel_last_ipv4_address_deleted():
 
     # Prepare scene: create dummy interface
     # add two addresses, two routes
-    router.run(f"ip link add {ifname} type dummy")
-    router.run(f"ip link set {ifname} up")
+    create_interface_in_kernel(tgen, router.name, ifname)
     router.run(f"ip -4 addr add 192.168.0.2/24 dev {ifname}")
     router.run(f"ip -4 addr add 192.168.100.7/24 dev {ifname}")
     router.run(f"ip -4 route add 203.0.113.0/24 via 192.168.0.1")
@@ -442,8 +439,7 @@ def test_zebra_metaq_early_route_table_discriminator():
 
     step("Create dummy0")
     router.run(f"ip link del dev {ifname} >/dev/null 2>&1 || true")
-    router.run(f"ip link add {ifname} type dummy")
-    router.run(f"ip link set {ifname} up")
+    create_interface_in_kernel(tgen, router.name, ifname)
 
     step("Wait for zebra to finish handling dummy0 up")
 
@@ -606,8 +602,7 @@ def test_zebra_kernel_last_ipv6_address_deleted():
 
     # Prepare scene: create dummy interface
     # add two addresses, two routes
-    router.run(f"ip link add {ifname} type dummy")
-    router.run(f"ip link set {ifname} up")
+    create_interface_in_kernel(tgen, router.name, ifname)
     # clear scope link address
     router.run(f"ip -6 addr flush dev {ifname}")
     router.run(f"ip -6 addr add 2001:db8:a::2/64 dev {ifname}")
