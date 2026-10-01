@@ -131,6 +131,13 @@ const struct frr_yang_module_info frr_isisd_info = {
 			},
 		},
 		{
+			.xpath = "/frr-isisd:isis/instance/ipv4-over-ipv6-nexthop",
+			.cbs = {
+				.cli_show = cli_show_ipv4_over_ipv6_nexthop,
+				.modify = isis_instance_ipv4_over_ipv6_nexthop_modify,
+			},
+		},
+		{
 			.xpath = "/frr-isisd:isis/instance/lsp/timers",
 			.cbs = {
 				.cli_show = cli_show_isis_lsp_timers,

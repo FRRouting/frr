@@ -114,6 +114,27 @@ writing, *isisd* does not support multiple ISIS processes.
 
    Advertise prefixes of passive interfaces only.
 
+.. clicmd:: ipv4-over-ipv6-nexthop
+
+   Route IPv4 over circuits that have no usable IPv4 nexthop, such as
+   interfaces without an IPv4 address. It applies to every circuit of the
+   area: on a circuit running both ``ip router isis`` and
+   ``ipv6 router isis``, an adjacency whose IPv4 addressing is missing on
+   either side is used for IPv4 through the neighbor's IPv6 link-local
+   address, which becomes the nexthop of the IPv4 routes installed through
+   it (as with BGP and :rfc:`8950`). Adjacencies with usable IPv4
+   addressing keep IPv4 nexthops.
+
+   The kernel must support IPv4 routes with IPv6 nexthops (Linux 5.2 or
+   later). Nothing in IS-IS tells a neighbor whether this is enabled, so
+   enable it on every router attached to links without IPv4: a router
+   without it does not route IPv4 over such links, while its neighbors
+   still forward IPv4 to it over them.
+
+   Segment Routing adjacency SIDs, and therefore TI-LFA repair paths, are
+   only allocated for IPv4 adjacencies that have IPv4 addresses; prefix
+   SIDs work over IPv6 link-local nexthops.
+
 .. _isis-timer:
 
 ISIS Timer
