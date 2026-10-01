@@ -28,7 +28,7 @@ sys.path.append(os.path.join(CWD, "../"))
 from lib import topotest
 from lib.topogen import Topogen, TopoRouter, get_topogen
 from lib.topolog import logger
-from lib.common_config import required_linux_kernel_version
+from lib.common_config import create_interface_in_kernel, required_linux_kernel_version
 
 # Required to instantiate the topology builder class.
 
@@ -65,15 +65,15 @@ def setup_module(mod):
     cmds = [
         "ip link add {0}-cust1 type vrf table 1001",
         "ip link set {0}-cust1 up",
-        "ip link add loop1 type dummy",
-        "ip link set loop1 master {0}-cust1",
-        "ip link set loop1 up",
         "ip link set {0}-eth0 master {0}-cust1",
     ]
 
     for rname, router in router_list.items():
         for cmd in cmds:
             output = tgen.net[rname].cmd(cmd.format(rname))
+        create_interface_in_kernel(
+            tgen, rname, "loop1", vrf="{}-cust1".format(rname)
+        )
 
     for rname, router in router_list.items():
         router.load_config(

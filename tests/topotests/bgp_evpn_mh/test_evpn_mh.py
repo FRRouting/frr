@@ -33,7 +33,11 @@ sys.path.append(os.path.join(CWD, "../"))
 # pylint: disable=C0413
 # Import topogen and topotest helpers
 from lib import topotest
-from lib.common_config import kill_router_daemons, start_router_daemons
+from lib.common_config import (
+    create_interface_in_kernel,
+    kill_router_daemons,
+    start_router_daemons,
+)
 
 # Required to instantiate the topology builder class.
 from lib.topogen import Topogen, TopoRouter, get_topogen
@@ -258,7 +262,7 @@ def config_mcast_tunnel_termination_device(node):
     The kernel requires a device to terminate VxLAN multicast tunnels
     when EVPN-PIM is used for flooded traffic
     """
-    node.run("ip link add dev ipmr-lo type dummy")
+    create_interface_in_kernel(node.tgen, node.name, "ipmr-lo")
     node.run("ip link set dev ipmr-lo mtu 16000")
     node.run("ip link set dev ipmr-lo mode dormant")
     node.run("ip link set dev ipmr-lo up")

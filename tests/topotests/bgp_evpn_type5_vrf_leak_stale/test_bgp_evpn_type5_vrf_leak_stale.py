@@ -64,10 +64,12 @@ sys.path.append(os.path.join(CWD, "../"))
 # pylint: disable=C0413
 from lib import topotest
 from lib.common_config import (
+    create_interface_in_kernel,
     create_static_routes,
     create_vrf_cfg,
     kill_router_daemons,
     start_router_daemons,
+    step
 )
 from lib.common_check import iproute2_check_path_selection
 from lib.bgp import create_router_bgp, verify_bgp_convergence_from_running_config
@@ -145,6 +147,34 @@ def _configure_l3vni_interfaces(router, rname, vrf, vni, local_vtep):
         router.cmd_raises(command)
 
 
+<<<<<<< HEAD
+=======
+def _add_vrf_vni(router, rname, vrf, table, vni, local_vtep):
+    _run_cmds(
+        router,
+        [
+            "ip link add {0} type vrf table {1}".format(vrf, table),
+            "ip link set dev {0} up".format(vrf),
+            "ip link add name br{0} up type bridge stp_state 0".format(vni),
+            "ip link set dev br{0} master {1}".format(vni, vrf),
+            "ip link set dev br{0} up".format(vni),
+            (
+                "ip link add name vxlan{0} type vxlan id {0} dstport 4789 "
+                "dev {1}-eth0 local {2} nolearning"
+            ).format(vni, rname, local_vtep),
+            "ip link set dev vxlan{0} master br{0}".format(vni),
+            (
+                "ip link set dev vxlan{0} up type bridge_slave "
+                "learning off flood off mcast_flood off"
+            ).format(vni),
+        ],
+    )
+    create_interface_in_kernel(
+        router.tgen, router.name, "loop{}".format(vni), vrf=vrf
+    )
+
+
+>>>>>>> 7d80721b4e (tests: Convert them to use create_interface_in_kernel)
 def setup_module(mod):
     "Create router VRFs and L3VNIs, load configs, and start the topology."
 

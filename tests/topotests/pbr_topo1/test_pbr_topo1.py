@@ -33,7 +33,7 @@ sys.path.append(os.path.join(CWD, "../"))
 from lib import topotest
 from lib.topogen import Topogen, TopoRouter, get_topogen
 from lib.topolog import logger
-from lib.common_config import shutdown_bringup_interface
+from lib.common_config import create_interface_in_kernel, shutdown_bringup_interface
 
 # Required to instantiate the topology builder class.
 
@@ -244,8 +244,7 @@ def test_pbr_late_if_real_invalid_seq():
     )
 
     try:
-        router.run("ip link add {} type dummy".format(late_if))
-        router.run("ip link set {} up".format(late_if))
+        create_interface_in_kernel(tgen, "r1", late_if)
 
         def _late_if_real(router, ifname):
             try:

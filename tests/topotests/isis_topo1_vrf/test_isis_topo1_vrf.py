@@ -26,7 +26,7 @@ from lib import topotest
 from lib.topogen import Topogen, TopoRouter, get_topogen
 from lib.topolog import logger
 from lib.topotest import iproute2_is_vrf_capable
-from lib.common_config import required_linux_kernel_version
+from lib.common_config import create_interface_in_kernel, required_linux_kernel_version
 
 
 pytestmark = [pytest.mark.isisd]
@@ -90,7 +90,6 @@ def setup_module(mod):
 
     cmds = [
         "ip link add {0}-cust1 type vrf table 1001",
-        "ip link add loop1 type dummy",
         "ip link set {0}-eth0 master {0}-cust1",
     ]
 
@@ -101,6 +100,7 @@ def setup_module(mod):
         # create VRF rx-cust1 and link rx-eth0 to rx-cust1
         for cmd in cmds:
             output = tgen.net[rname].cmd(cmd.format(rname))
+        create_interface_in_kernel(tgen, rname, "loop1")
 
         # If router has an rX-eth1, link that to vrf also
         if "{}-eth1".format(rname) in router.links.keys():
