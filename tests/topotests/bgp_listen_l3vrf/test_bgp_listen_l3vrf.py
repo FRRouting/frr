@@ -38,7 +38,7 @@ sys.path.append(os.path.join(CWD, "../"))
 # Import topogen and topotest helpers
 from lib import topotest
 from lib.common_check import ip_check_path_selection, iproute2_check_path_selection
-from lib.common_config import step
+from lib.common_config import create_interface_in_kernel, step
 from lib.topogen import Topogen, TopoRouter, get_topogen
 from lib.topolog import logger
 
@@ -144,9 +144,7 @@ def test_add_vrf():
     r1.cmd("ip link set dev r1-eth1.100 up")
     r1.cmd("ip link set  dev r1-eth1.100 master r1-cust")
 
-    r1.cmd("ip link add r1-loop1 type dummy")
-    r1.cmd("ip link set dev r1-loop1 up")
-    r1.cmd("ip link set  dev r1-loop1 master r1-cust")
+    create_interface_in_kernel(tgen, "r1", "r1-loop1", vrf="r1-cust")
 
     r3.cmd("ip link add link r3-eth1 dev r3-eth1.100 type vlan id 100")
     r3.cmd("ip link set dev r3-eth1.100 up")
