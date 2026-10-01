@@ -15,7 +15,10 @@ sys.path.append(os.path.join(CWD, "../"))
 from lib import topotest
 from lib.topogen import Topogen, get_topogen
 from lib.topolog import logger
-from lib.common_config import required_linux_kernel_version
+from lib.common_config import (
+    create_address_on_interface,
+    required_linux_kernel_version,
+)
 
 pytestmark = [pytest.mark.bgpd]
 
@@ -49,6 +52,11 @@ def setup_module(mod):
         setup = os.path.join(CWD, "{}/setup.sh".format(rname))
         if os.path.exists(setup):
             router.run("/bin/bash {}".format(setup))
+            if rname == "ce":
+                for host in range(1, 11):
+                    create_address_on_interface(
+                        tgen, rname, "dum0", "192.100.0.{}/32".format(host)
+                    )
         router.load_frr_config(os.path.join(CWD, "{}/frr.conf".format(rname)))
 
     tgen.start_router()

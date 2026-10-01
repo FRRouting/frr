@@ -25,6 +25,7 @@ sys.path.append(os.path.join(CWD, "../"))
 from lib import topotest
 from lib.topogen import Topogen, TopoRouter, get_topogen
 from lib.snmptest import SnmpTester
+from lib.common_config import create_address_on_interface
 from lib.topolog import logger
 
 pytestmark = [
@@ -52,14 +53,14 @@ def setup_module(mod):
 
     r1 = tgen.gears["r1"]
 
-    r1.run("ip addr add 192.168.12.12/24 dev r1-eth0")
-    r1.run("ip -6 addr add 2000:1:1:12::12/64 dev r1-eth0")
-    r1.run("ip addr add 192.168.13.13/24 dev r1-eth1")
-    r1.run("ip -6 addr add 2000:1:1:13::13/64 dev r1-eth1")
-    r1.run("ip addr add 192.168.14.14/24 dev r1-eth2")
-    r1.run("ip -6 addr add 2000:1:1:14::14/64 dev r1-eth2")
-    r1.run("ip addr add 1.1.1.1/32 dev lo")
-    r1.run("ip -6 addr add 2000:1:1:1::1/128 dev lo")
+    create_address_on_interface(tgen, "r1", "r1-eth0", "192.168.12.12/24")
+    create_address_on_interface(tgen, "r1", "r1-eth0", "2000:1:1:12::12/64")
+    create_address_on_interface(tgen, "r1", "r1-eth1", "192.168.13.13/24")
+    create_address_on_interface(tgen, "r1", "r1-eth1", "2000:1:1:13::13/64")
+    create_address_on_interface(tgen, "r1", "r1-eth2", "192.168.14.14/24")
+    create_address_on_interface(tgen, "r1", "r1-eth2", "2000:1:1:14::14/64")
+    create_address_on_interface(tgen, "r1", "lo", "1.1.1.1/32")
+    create_address_on_interface(tgen, "r1", "lo", "2000:1:1:1::1/128")
     r1.run("ip addr show")
 
     router_list = tgen.routers()

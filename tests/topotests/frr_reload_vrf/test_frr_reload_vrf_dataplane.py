@@ -45,7 +45,11 @@ from lib import topotest
 from lib.topogen import Topogen
 from lib.topolog import logger
 from lib.topotest import iproute2_is_vrf_capable
-from lib.common_config import create_interface_in_kernel, required_linux_kernel_version
+from lib.common_config import (
+    create_address_on_interface,
+    create_interface_in_kernel,
+    required_linux_kernel_version,
+)
 from lib.pim import McastTesterHelper
 
 import dataplane_lib as D
@@ -125,10 +129,12 @@ def tgen(request):
     tg.start_router()
 
     # Host addressing is applied AFTER start_router: the hosts run no FRR, and a
-    # raw "ip addr add" on their veths before startup is wiped by munet's
+    # kernel address on their veths before startup is wiped by munet's
     # interface reconciliation. Doing it post-start makes it stick.
     for hname, pe, v, rx, ifidx in D.iter_hosts(NUM_VRFS, NUM_MCAST_VRFS):
-        for cmd in D.plumb_host(hname, pe, v, rx=rx):
+        ip, cmds = D.plumb_host(hname, pe, v, rx=rx)
+        create_address_on_interface(tg, hname, "{}-eth0".format(hname), ip)
+        for cmd in cmds:
             tg.gears[hname].cmd_raises(cmd)
 
     yield tg

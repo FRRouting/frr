@@ -46,7 +46,7 @@ sys.path.append(os.path.join(CWD, "../"))
 from lib import topotest
 
 # Required to instantiate the topology builder class.
-from lib.common_config import create_interface_in_kernel
+from lib.common_config import create_address_on_interface, create_interface_in_kernel
 from lib.topogen import Topogen, TopoRouter, get_topogen
 from lib.topolog import logger
 
@@ -535,15 +535,19 @@ def config_svi(node, svi_pip):
 
     if active_ip_version == "ipv6":
         # Assign IPv6 anycast GW only to VLAN 1000 in vrf1
-        node.run("ip -6 addr add %s/64 dev vlan1000" % svi_pip)
+        create_address_on_interface(
+            node.tgen, node.name, "vlan1000", "%s/64" % svi_pip
+        )
     else:
         # Preserve legacy IPv4 anycast gateway behavior used by MAC learning tests.
-        node.run("ip addr add %s/24 dev vlan1000" % svi_pip)
+        create_address_on_interface(
+            node.tgen, node.name, "vlan1000", "%s/24" % svi_pip
+        )
         node.run("/sbin/sysctl net.ipv4.conf.vlan1000.arp_accept=1")
         node.run("ip link add link vlan1000 name vlan1000-v0 type macvlan mode private")
         node.run("ip link set dev vlan1000-v0 address 00:00:5e:00:01:01")
         node.run("ip link set dev vlan1000-v0 up")
-        node.run("ip addr add 45.0.0.1/24 dev vlan1000-v0")
+        create_address_on_interface(node.tgen, node.name, "vlan1000-v0", "45.0.0.1/24")
 
 
 def config_vrf_l3vni(node):
@@ -590,10 +594,10 @@ def config_tor(tor_name, tor, tor_ip, svi_pip, ip_version):
         ipv4_lo = "10.0.0.18"
 
     if ip_version == "ipv4":
-        tor.run("ip addr add %s/32 dev lo" % tor_ip)
+        create_address_on_interface(tor.tgen, tor.name, "lo", "%s/32" % tor_ip)
     else:
-        tor.run("ip addr add %s/32 dev lo" % ipv4_lo)
-        tor.run("ip -6 addr add %s/128 dev lo" % tor_ip)
+        create_address_on_interface(tor.tgen, tor.name, "lo", "%s/32" % ipv4_lo)
+        create_address_on_interface(tor.tgen, tor.name, "lo", "%s/128" % tor_ip)
 
     # Add IPv6 underlay addresses on uplink interfaces using iproute2 as well.
     # This avoids timing/race issues where, when using frr-reload.py, BGP may
@@ -603,10 +607,7 @@ def config_tor(tor_name, tor, tor_ip, svi_pip, ip_version):
     if ip_version == "ipv6":
         uplinks = tor_uplink_ipv6.get(tor_name, {})
     for ifname, prefix in uplinks.items():
-        if ip_version == "ipv6":
-            tor.run("ip -6 addr add %s dev %s" % (prefix, ifname))
-        else:
-            tor.run("ip addr add %s dev %s" % (prefix, ifname))
+        create_address_on_interface(tor.tgen, tor.name, ifname, prefix)
 
     # create VRFs and L3VNI VLANs based on L3VNI_VRF
     config_bridge(tor)
@@ -617,7 +618,7 @@ def config_tor(tor_name, tor, tor_ip, svi_pip, ip_version):
     # each TOR has unique loopback-style addresses in each VRF.
     vrf_ips = VRF_IPV4.get(tor_name, {})
     for vrf, addr in vrf_ips.items():
-        tor.run(f"ip addr add {addr} dev {vrf}")
+        create_address_on_interface(tor.tgen, tor.name, vrf, addr)
 
     # create hostbonds; we will attach them to the bridge explicitly
     if "torm1" in tor_name:
@@ -722,7 +723,7 @@ def config_host(host_name, host):
     config_bond(host, bond_name, bond_members, "00:00:00:00:00:00", None)
 
     host_ip, host_mac = compute_host_ip_mac(host_name)
-    host.run("ip addr add %s dev %s" % (host_ip, bond_name))
+    create_address_on_interface(host.tgen, host.name, bond_name, host_ip)
     host.run("ip link set dev %s address %s" % (bond_name, host_mac))
 
 

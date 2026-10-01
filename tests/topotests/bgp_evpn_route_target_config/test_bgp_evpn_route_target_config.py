@@ -45,7 +45,7 @@ sys.path.append(os.path.join(CWD, "../"))
 
 # pylint: disable=C0413
 from lib import topotest
-from lib.common_config import create_interface_in_kernel
+from lib.common_config import create_address_on_interface, create_interface_in_kernel
 from lib.topogen import Topogen, get_topogen
 from lib.topolog import logger
 
@@ -110,7 +110,6 @@ def setup_module(mod):
         "ip link add name bridge-202 up address {} type bridge stp_state 0".format(
             GW_MAC
         ),
-        "ip addr add {}/24 dev bridge-202".format(GW_IP),
         "ip link add name vxlan-202 type vxlan id 202 dstport 4789 dev r1-eth0 local 192.168.0.1",
         "ip link set dev vxlan-202 master bridge-202",
         "ip link set vxlan-202 up type bridge_slave learning off flood off mcast_flood off",
@@ -129,6 +128,7 @@ def setup_module(mod):
         logger.info("cmd to r1: {}".format(cmd))
         output = tgen.gears["r1"].cmd_raises(cmd)
         logger.info("result: " + output)
+    create_address_on_interface(tgen, "r1", "bridge-202", "{}/24".format(GW_IP))
 
     for router in tgen.routers().values():
         router.load_frr_config()

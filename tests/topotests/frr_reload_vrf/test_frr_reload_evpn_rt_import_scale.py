@@ -40,7 +40,11 @@ CWD = os.path.dirname(os.path.realpath(__file__))
 sys.path.append(os.path.join(CWD, ".."))
 
 from lib import topotest
-from lib.common_config import required_linux_kernel_version, step
+from lib.common_config import (
+    create_address_on_interface,
+    required_linux_kernel_version,
+    step,
+)
 from lib.evpn import (
     EVPN_SCALE_RT_ASNS,
     EVPN_SCALE_RT_PER_ASN,
@@ -223,7 +227,9 @@ def tgen(request):
 
     for name, ip in (("pe1", PE1_IP), ("pe2", PE2_IP)):
         router = tg.gears[name]
-        router.cmd_raises("ip addr add {}/24 dev {}-eth0".format(ip, name))
+        create_address_on_interface(
+            tg, name, "{}-eth0".format(name), "{}/24".format(ip)
+        )
         router.cmd_raises("ip link set dev {}-eth0 up".format(name))
         evpn_plumb_l3vni(router, VRF, VRF_TABLE, L3VNI, ip)
 
