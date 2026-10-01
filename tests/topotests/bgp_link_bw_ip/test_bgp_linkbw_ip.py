@@ -27,6 +27,7 @@ sys.path.append(os.path.join(CWD, "../"))
 # Import topogen and topotest helpers
 from lib import topotest
 from lib.topogen import Topogen, TopoRouter, get_topogen
+from lib.common_config import create_address_on_interface
 from lib.topolog import logger
 
 # Required to instantiate the topology builder class.
@@ -174,7 +175,7 @@ def test_bgp_linkbw_adv():
     # Configure anycast IP on server r7
     logger.info("Configure anycast IP on server r7")
 
-    tgen.net["r7"].cmd("ip addr add 198.10.1.1/32 dev r7-eth1")
+    create_address_on_interface(tgen, "r7", "r7-eth1", "198.10.1.1/32")
 
     # Check on spine router r2 for link-bw advertisement by leaf router r4
     logger.info("Check on spine router r2 for link-bw advertisement by leaf router r4")
@@ -232,7 +233,7 @@ def test_bgp_cumul_linkbw():
     # Configure anycast IP on additional server r8
     logger.info("Configure anycast IP on server r8")
 
-    tgen.net["r8"].cmd("ip addr add 198.10.1.1/32 dev r8-eth1")
+    create_address_on_interface(tgen, "r8", "r8-eth1", "198.10.1.1/32")
 
     # Check multipath on leaf router r4
     logger.info("Check multipath on leaf router r4")
@@ -288,7 +289,7 @@ def test_weighted_ecmp():
     # Configure anycast IP on additional server r9
     logger.info("Configure anycast IP on server r9")
 
-    tgen.net["r9"].cmd("ip addr add 198.10.1.1/32 dev r9-eth1")
+    create_address_on_interface(tgen, "r9", "r9-eth1", "198.10.1.1/32")
 
     # Check multipath on spine router r2
     logger.info("Check multipath on spine router r2")
@@ -316,7 +317,7 @@ def test_weighted_ecmp():
     # Configure anycast IP on additional server r10
     logger.info("Configure anycast IP on server r10")
 
-    tgen.net["r10"].cmd("ip addr add 198.10.1.1/32 dev r10-eth1")
+    create_address_on_interface(tgen, "r10", "r10-eth1", "198.10.1.1/32")
 
     # Check if bandwidth is properly encoded with non IEEE floatig-point (uint32) format on r3
     logger.info(
@@ -448,9 +449,9 @@ def test_weighted_ecmp_second_anycast_ip():
     # Configure anycast IP on additional server r7, r9 and r10
     logger.info("Configure anycast IP on server r7, r9 and r10")
 
-    tgen.net["r7"].cmd("ip addr add 198.10.1.11/32 dev r7-eth1")
-    tgen.net["r9"].cmd("ip addr add 198.10.1.11/32 dev r9-eth1")
-    tgen.net["r10"].cmd("ip addr add 198.10.1.11/32 dev r10-eth1")
+    create_address_on_interface(tgen, "r7", "r7-eth1", "198.10.1.11/32")
+    create_address_on_interface(tgen, "r9", "r9-eth1", "198.10.1.11/32")
+    create_address_on_interface(tgen, "r10", "r10-eth1", "198.10.1.11/32")
 
     # Check link-bandwidth and weighted ECMP on super-spine router r1
     logger.info("Check link-bandwidth and weighted ECMP on super-spine router r1")

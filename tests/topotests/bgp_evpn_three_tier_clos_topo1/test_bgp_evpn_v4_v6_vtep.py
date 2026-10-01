@@ -72,7 +72,10 @@ sys.path.append(os.path.join(CWD, "../"))
 from lib import topotest
 from lib.topogen import Topogen, TopoRouter, get_topogen
 from lib.topolog import logger
-from lib.common_config import required_linux_kernel_version
+from lib.common_config import (
+    create_address_on_interface,
+    required_linux_kernel_version,
+)
 from lib.evpn import (
     evpn_verify_vni_remote_vteps,
     evpn_verify_vni_vtep_src_ip,
@@ -490,17 +493,17 @@ def setup_vtep(tgen, rname, local_ip, is_bordertor=True):
 
     # Configure SVI IPs based on router
     if rname == "bordertor-11":
-        router.run("ip addr add 192.168.11.11/24 dev vlan111")
-        router.run("ip addr add fd00:60:1:1::11/64 dev vlan111")
+        create_address_on_interface(tgen, rname, "vlan111", "192.168.11.11/24")
+        create_address_on_interface(tgen, rname, "vlan111", "fd00:60:1:1::11/64")
     elif rname == "bordertor-12":
-        router.run("ip addr add 192.168.11.12/24 dev vlan111")
-        router.run("ip addr add fd00:60:1:1::12/64 dev vlan111")
+        create_address_on_interface(tgen, rname, "vlan111", "192.168.11.12/24")
+        create_address_on_interface(tgen, rname, "vlan111", "fd00:60:1:1::12/64")
     elif rname == "tor-21":
-        router.run("ip addr add 192.168.11.21/24 dev vlan111")
-        router.run("ip addr add fd00:60:1:1::21/64 dev vlan111")
+        create_address_on_interface(tgen, rname, "vlan111", "192.168.11.21/24")
+        create_address_on_interface(tgen, rname, "vlan111", "fd00:60:1:1::21/64")
     elif rname == "tor-22":
-        router.run("ip addr add 192.168.11.22/24 dev vlan111")
-        router.run("ip addr add fd00:60:1:1::22/64 dev vlan111")
+        create_address_on_interface(tgen, rname, "vlan111", "192.168.11.22/24")
+        create_address_on_interface(tgen, rname, "vlan111", "fd00:60:1:1::22/64")
 
     router.run("ip link set dev vlan111 up")
     router.run("/sbin/sysctl net.ipv4.conf.vlan111.arp_accept=1")
@@ -512,17 +515,17 @@ def setup_vtep(tgen, rname, local_ip, is_bordertor=True):
     router.run("ip link set dev vlan112 master vrf1")
 
     if rname == "bordertor-11":
-        router.run("ip addr add 192.168.12.11/24 dev vlan112")
-        router.run("ip addr add fd00:50:1:1::11/64 dev vlan112")
+        create_address_on_interface(tgen, rname, "vlan112", "192.168.12.11/24")
+        create_address_on_interface(tgen, rname, "vlan112", "fd00:50:1:1::11/64")
     elif rname == "bordertor-12":
-        router.run("ip addr add 192.168.12.12/24 dev vlan112")
-        router.run("ip addr add fd00:50:1:1::12/64 dev vlan112")
+        create_address_on_interface(tgen, rname, "vlan112", "192.168.12.12/24")
+        create_address_on_interface(tgen, rname, "vlan112", "fd00:50:1:1::12/64")
     elif rname == "tor-21":
-        router.run("ip addr add 192.168.12.21/24 dev vlan112")
-        router.run("ip addr add fd00:50:1:1::21/64 dev vlan112")
+        create_address_on_interface(tgen, rname, "vlan112", "192.168.12.21/24")
+        create_address_on_interface(tgen, rname, "vlan112", "fd00:50:1:1::21/64")
     elif rname == "tor-22":
-        router.run("ip addr add 192.168.12.22/24 dev vlan112")
-        router.run("ip addr add fd00:50:1:1::22/64 dev vlan112")
+        create_address_on_interface(tgen, rname, "vlan112", "192.168.12.22/24")
+        create_address_on_interface(tgen, rname, "vlan112", "fd00:50:1:1::22/64")
 
     router.run("ip link set dev vlan112 up")
     router.run("/sbin/sysctl net.ipv4.conf.vlan112.arp_accept=1")
@@ -587,17 +590,21 @@ def setup_bordertor_ext_connectivity(tgen, ip_version):
     # swp3.4001 for VRF1 L3VNI
     router.run("ip link add link swp3 name swp3.4001 type vlan id 4001")
     router.run("ip link set dev swp3.4001 master vrf1")
-    router.run("ip addr add 192.0.2.2/30 dev swp3.4001")
+    create_address_on_interface(tgen, router.name, "swp3.4001", "192.0.2.2/30")
     if ip_version == "ipv6":
-        router.run("ip addr add 2001:db8:144:1::2/64 dev swp3.4001")
+        create_address_on_interface(
+            tgen, router.name, "swp3.4001", "2001:db8:144:1::2/64"
+        )
     router.run("ip link set dev swp3.4001 up")
 
     # swp3.4002 for VRF2 L3VNI
     router.run("ip link add link swp3 name swp3.4002 type vlan id 4002")
     router.run("ip link set dev swp3.4002 master vrf2")
-    router.run("ip addr add 192.0.2.6/30 dev swp3.4002")
+    create_address_on_interface(tgen, router.name, "swp3.4002", "192.0.2.6/30")
     if ip_version == "ipv6":
-        router.run("ip addr add 2001:db8:144:2::6/64 dev swp3.4002")
+        create_address_on_interface(
+            tgen, router.name, "swp3.4002", "2001:db8:144:2::6/64"
+        )
     router.run("ip link set dev swp3.4002 up")
 
     # Configure bordertor-12
@@ -608,17 +615,21 @@ def setup_bordertor_ext_connectivity(tgen, ip_version):
     # swp3.4001 for VRF1 L3VNI
     router.run("ip link add link swp3 name swp3.4001 type vlan id 4001")
     router.run("ip link set dev swp3.4001 master vrf1")
-    router.run("ip addr add 192.0.2.10/30 dev swp3.4001")
+    create_address_on_interface(tgen, router.name, "swp3.4001", "192.0.2.10/30")
     if ip_version == "ipv6":
-        router.run("ip addr add 2001:db8:144:11::2/64 dev swp3.4001")
+        create_address_on_interface(
+            tgen, router.name, "swp3.4001", "2001:db8:144:11::2/64"
+        )
     router.run("ip link set dev swp3.4001 up")
 
     # swp3.4002 for VRF2 L3VNI
     router.run("ip link add link swp3 name swp3.4002 type vlan id 4002")
     router.run("ip link set dev swp3.4002 master vrf2")
-    router.run("ip addr add 192.0.2.14/30 dev swp3.4002")
+    create_address_on_interface(tgen, router.name, "swp3.4002", "192.0.2.14/30")
     if ip_version == "ipv6":
-        router.run("ip addr add 2001:db8:144:12::6/64 dev swp3.4002")
+        create_address_on_interface(
+            tgen, router.name, "swp3.4002", "2001:db8:144:12::6/64"
+        )
     router.run("ip link set dev swp3.4002 up")
 
 
@@ -637,41 +648,45 @@ def setup_ext1(tgen, ip_version):
     # Configure swp1 - Connected to bordertor-11
     router.run("ip link set dev swp1 up")
     if ip_version == "ipv6":
-        router.run("ip addr add fd00:10:254::2:0:2/126 dev swp1")
+        create_address_on_interface(
+            tgen, router.name, "swp1", "fd00:10:254::2:0:2/126"
+        )
     else:  # ipv4
-        router.run("ip addr add 10.254.0.10/30 dev swp1")
+        create_address_on_interface(tgen, router.name, "swp1", "10.254.0.10/30")
 
     # Configure swp2 - Connected to bordertor-12
     router.run("ip link set dev swp2 up")
     if ip_version == "ipv6":
-        router.run("ip addr add fd00:10:254::9:0:2/126 dev swp2")
+        create_address_on_interface(
+            tgen, router.name, "swp2", "fd00:10:254::9:0:2/126"
+        )
     else:  # ipv4
-        router.run("ip addr add 10.254.0.38/30 dev swp2")
+        create_address_on_interface(tgen, router.name, "swp2", "10.254.0.38/30")
 
     # Configure VLAN sub-interfaces on swp1 for bordertor-11
     # swp1.4001 for VRF1 L3VNI connectivity - always configure both IPv4 and IPv6
     router.run("ip link add link swp1 name swp1.4001 type vlan id 4001")
-    router.run("ip addr add 192.0.2.1/30 dev swp1.4001")
-    router.run("ip addr add 2001:db8:144:1::1/64 dev swp1.4001")
+    create_address_on_interface(tgen, router.name, "swp1.4001", "192.0.2.1/30")
+    create_address_on_interface(tgen, router.name, "swp1.4001", "2001:db8:144:1::1/64")
     router.run("ip link set dev swp1.4001 up")
 
     # swp1.4002 for VRF2 L3VNI connectivity - always configure both IPv4 and IPv6
     router.run("ip link add link swp1 name swp1.4002 type vlan id 4002")
-    router.run("ip addr add 192.0.2.5/30 dev swp1.4002")
-    router.run("ip addr add 2001:db8:144:2::5/64 dev swp1.4002")
+    create_address_on_interface(tgen, router.name, "swp1.4002", "192.0.2.5/30")
+    create_address_on_interface(tgen, router.name, "swp1.4002", "2001:db8:144:2::5/64")
     router.run("ip link set dev swp1.4002 up")
 
     # Configure VLAN sub-interfaces on swp2 for bordertor-12
     # swp2.4001 for VRF1 L3VNI connectivity - always configure both IPv4 and IPv6
     router.run("ip link add link swp2 name swp2.4001 type vlan id 4001")
-    router.run("ip addr add 192.0.2.9/30 dev swp2.4001")
-    router.run("ip addr add 2001:db8:144:11::1/64 dev swp2.4001")
+    create_address_on_interface(tgen, router.name, "swp2.4001", "192.0.2.9/30")
+    create_address_on_interface(tgen, router.name, "swp2.4001", "2001:db8:144:11::1/64")
     router.run("ip link set dev swp2.4001 up")
 
     # swp2.4002 for VRF2 L3VNI connectivity - always configure both IPv4 and IPv6
     router.run("ip link add link swp2 name swp2.4002 type vlan id 4002")
-    router.run("ip addr add 192.0.2.13/30 dev swp2.4002")
-    router.run("ip addr add 2001:db8:144:12::5/64 dev swp2.4002")
+    create_address_on_interface(tgen, router.name, "swp2.4002", "192.0.2.13/30")
+    create_address_on_interface(tgen, router.name, "swp2.4002", "2001:db8:144:12::5/64")
     router.run("ip link set dev swp2.4002 up")
 
     # Configure swp3-6 for connection to host-1 (4 links)
@@ -689,8 +704,12 @@ def setup_ext1(tgen, ip_version):
         output = router.run(f"ip link show {intf} 2>&1")
         if "does not exist" not in output and "Cannot find device" not in output:
             router.run(f"ip link set dev {intf} up")
-            router.run(f"ip addr add 198.51.{ipv4_net}.1/24 dev {intf}")
-            router.run(f"ip addr add 2001:db8:81:{ipv6_net}::1/64 dev {intf}")
+            create_address_on_interface(
+                tgen, router.name, intf, f"198.51.{ipv4_net}.1/24"
+            )
+            create_address_on_interface(
+                tgen, router.name, intf, f"2001:db8:81:{ipv6_net}::1/64"
+            )
             logger.info(f"Configured {intf} on ext-1 (connected to host-1 swp{i-2})")
         else:
             logger.info(f"Interface {intf} does not exist on ext-1, skipping")

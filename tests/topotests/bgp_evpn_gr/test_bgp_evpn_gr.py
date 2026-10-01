@@ -34,6 +34,7 @@ from lib.topogen import Topogen, TopoRouter, get_topogen
 from lib.topolog import logger
 from lib.common_config import (
     check_router_status,
+    create_address_on_interface,
     kill_router_daemons,
     start_router_daemons,
 )
@@ -76,12 +77,12 @@ def setup_module(mod):
         pe.cmd_raises("ip link add name br100 type bridge stp_state 0")
         pe.cmd_raises("ip link set dev vxlan100 master br100")
         pe.cmd_raises(f"ip link set dev {name}-eth1 master br100")
-        pe.cmd_raises(f"ip addr add {bridge_ip} dev br100")
+        create_address_on_interface(tgen, name, "br100", bridge_ip)
         pe.cmd_raises("ip link set up dev br100")
         pe.cmd_raises("ip link set up dev vxlan100")
         pe.cmd_raises(f"ip link set up dev {name}-eth1")
         pe.cmd_raises("ip link set dev br100 master vrf-blue")
-        pe.cmd_raises(f"ip -6 addr add {bridge_ipv6} dev br100")
+        create_address_on_interface(tgen, name, "br100", bridge_ipv6)
         pe.cmd_raises(
             f"ip link add vxlan1000 type vxlan id 1000 dstport 4789 local {vtep_ip}"
         )

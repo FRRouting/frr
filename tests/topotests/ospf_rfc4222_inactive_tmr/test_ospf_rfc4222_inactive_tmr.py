@@ -15,6 +15,7 @@ import pytest
 import json
 import re
 
+from lib.common_config import create_address_on_interface
 from lib.topogen import Topogen, get_topogen, TopoRouter, topotest
 
 pytestmark = [pytest.mark.freebsd]
@@ -168,7 +169,7 @@ interface r2-eth0
     # Flood: add 10 loopbacks on r1 and redistribute connected
     r1.vtysh_cmd("conf t\nrouter ospf\n redistribute connected\n exit")
     for i in range(1, 50):
-        r1.cmd(f"ip addr add 198.51.100.{i}/32 dev lo")
+        create_address_on_interface(tgen, "r1", "lo", f"198.51.100.{i}/32")
 
     topotest.sleep(3, "Wait for LSU flood")
     out = r2.vtysh_cmd("show ip ospf neighbor detail")
