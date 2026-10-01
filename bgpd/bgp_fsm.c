@@ -1916,7 +1916,10 @@ static enum bgp_fsm_state_progress bgp_start(struct peer_connection *connection)
 			zlog_debug("%s [FSM] Connect immediately success, fd %d",
 				   peer->host, connection->fd);
 
-		BGP_EVENT_ADD(connection, TCP_connection_open);
+		if (CHECK_FLAG(peer->flags, PEER_FLAG_TIMER_DELAYOPEN))
+			BGP_EVENT_ADD(connection, TCP_connection_open_w_delay);
+		else
+			BGP_EVENT_ADD(connection, TCP_connection_open);
 		break;
 	case connect_in_progress:
 		/* To check nonblocking connect, we wait until socket is
