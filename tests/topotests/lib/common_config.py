@@ -1578,6 +1578,31 @@ def create_interface_in_kernel(
         create_interface_in_kernel_linux(tgen, dut, name, ip_addr, vrf, netmask, create)
 
 
+def create_address_on_interface(tgen, dut, name, ip_addr, vrf=None, netmask=None):
+    """
+    Add an IP address to an existing kernel interface.
+
+    The interface must already exist. Addresses already configured on it are
+    left in place. Link state is not changed.
+
+    Parameters
+    ----------
+    * `tgen` : Topogen object
+    * `dut` : Device whose interface receives the address
+    * `name` : interface name
+    * `ip_addr` : ip address to add. Include the prefix length unless
+                  ``netmask`` is set.
+    * `vrf` : VRF name, to which interface will be associated.
+              Applied on Linux only.
+    * `netmask` : netmask value, default is None
+    """
+
+    if sys.platform.startswith("freebsd"):
+        create_address_on_interface_freebsd(tgen, dut, name, ip_addr, vrf, netmask)
+    else:
+        create_address_on_interface_linux(tgen, dut, name, ip_addr, vrf, netmask)
+
+
 def _kernel_interface_address(ip_addr, netmask):
     """Return an ipaddress interface for ip_addr and an optional netmask."""
     if not netmask:
@@ -1617,6 +1642,23 @@ def create_interface_in_kernel_linux(
 
     if vrf:
         cmd = "ip link set {} master {}".format(name, vrf)
+        rnode.run(cmd)
+
+
+def create_address_on_interface_linux(
+    tgen, dut, name, ip_addr, vrf=None, netmask=None
+):
+    """Add an IP address to an existing Linux interface."""
+
+    rnode = tgen.gears[dut]
+    ifaddr = _kernel_interface_address(ip_addr, netmask)
+    cmd = "ip -{0} a add {1} dev {2}".format(ifaddr.version, ifaddr, name)
+    logger.debug("[DUT: %s]: Running command: %s", dut, cmd)
+    rnode.run(cmd)
+
+    if vrf:
+        cmd = "ip link set {} master {}".format(name, vrf)
+        logger.debug("[DUT: %s]: Running command: %s", dut, cmd)
         rnode.run(cmd)
 
 
@@ -1693,6 +1735,22 @@ def create_interface_in_kernel_freebsd(
             _freebsd_run(rnode, dut, ["/sbin/ifconfig", name, "inet6", "-ifdisabled"])
         _freebsd_run(rnode, dut, ["/sbin/ifconfig", name, family, str(ifaddr)])
     _freebsd_run(rnode, dut, ["/sbin/ifconfig", name, "up"])
+
+    if vrf:
+        logger.debug("[DUT: %s]: %s stays in the base FIB (vrf %s)", dut, name, vrf)
+
+
+def create_address_on_interface_freebsd(
+    tgen, dut, name, ip_addr, vrf=None, netmask=None
+):
+    """Add an IP address to an existing FreeBSD interface."""
+
+    rnode = tgen.gears[dut]
+    ifaddr = _kernel_interface_address(ip_addr, netmask)
+    family = "inet6" if ifaddr.version == 6 else "inet"
+    if ifaddr.version == 6:
+        _freebsd_run(rnode, dut, ["/sbin/ifconfig", name, "inet6", "-ifdisabled"])
+    _freebsd_run(rnode, dut, ["/sbin/ifconfig", name, family, str(ifaddr), "alias"])
 
     if vrf:
         logger.debug("[DUT: %s]: %s stays in the base FIB (vrf %s)", dut, name, vrf)
