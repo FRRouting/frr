@@ -50,7 +50,10 @@ from lib import topotest
 from lib.evpn import evpn_plumb_l3vni, evpn_rt_config_lines, evpn_scale_rt_list
 from lib.topogen import Topogen
 from lib.topotest import iproute2_is_vrf_capable
-from lib.common_config import required_linux_kernel_version
+from lib.common_config import (
+    create_address_on_interface,
+    required_linux_kernel_version,
+)
 
 import frr_reload_lib as f_reload
 
@@ -192,7 +195,7 @@ def tgen(request):
 
     r1 = tg.gears["r1"]
     # VTEP must exist before the VXLAN device is created.
-    r1.cmd_raises("ip addr add {}/32 dev lo".format(VTEP_IP))
+    create_address_on_interface(tg, "r1", "lo", "{}/32".format(VTEP_IP))
     evpn_plumb_l3vni(r1, VRF, VRF_TABLE, L3VNI, VTEP_IP)
     r1.cmd_raises("ip link set dev r1-eth0 master {}".format(VRF))
     r1.cmd_raises("ip link set dev r1-eth0 up")

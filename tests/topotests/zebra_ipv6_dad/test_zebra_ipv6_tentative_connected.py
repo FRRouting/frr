@@ -26,7 +26,7 @@ sys.path.append(os.path.join(CWD, "../"))
 
 # pylint: disable=C0413
 from lib import topotest
-from lib.common_config import step
+from lib.common_config import create_address_on_interface, step
 from lib.topogen import Topogen, TopoRouter, get_topogen
 from lib.topolog import logger
 
@@ -123,7 +123,7 @@ def test_zebra_ipv6_tentative_not_in_rib():
     r1.run("echo 60 > /proc/sys/net/ipv6/conf/{}/dad_transmits".format(IFNAME))
 
     step("Add the IPv6 address while the interface is down")
-    r1.run("ip -6 addr add {}/64 dev {}".format(ADDR, IFNAME))
+    create_address_on_interface(tgen, "r1", IFNAME, "{}/64".format(ADDR))
 
     def _down_iface_and_tentative():
         try:
