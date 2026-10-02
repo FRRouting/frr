@@ -41,7 +41,11 @@ sys.path.append(os.path.join(CWD, "../"))
 # pylint: disable=C0413
 from lib import topotest
 from lib.topogen import Topogen, get_topogen
-from lib.common_config import create_interface_in_kernel, step
+from lib.common_config import (
+    create_interface_in_kernel,
+    step,
+    shutdown_bringup_interface_in_kernel,
+)
 
 pytestmark = [pytest.mark.bgpd]
 
@@ -60,7 +64,8 @@ def setup_module(mod):
     tgen.start_topology()
 
     r1 = tgen.gears["r1"]
-    r1.run("ip link add vrf1 type vrf table 101 && ip link set vrf1 up")
+    r1.run("ip link add vrf1 type vrf table 101")
+    shutdown_bringup_interface_in_kernel(r1.tgen, r1.name, "vrf1", True)
     create_interface_in_kernel(tgen, "r1", "dummy1", "10.10.1.1/24", vrf="vrf1")
 
     r1.load_frr_config(os.path.join(CWD, "r1/frr.conf"))

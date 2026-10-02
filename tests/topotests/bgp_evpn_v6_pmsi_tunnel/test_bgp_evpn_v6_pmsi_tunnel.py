@@ -29,6 +29,7 @@ sys.path.append(os.path.join(CWD, "../"))
 from lib import topotest
 from lib.topogen import Topogen, get_topogen
 from lib.topolog import logger
+from lib.common_config import shutdown_bringup_interface_in_kernel
 
 pytestmark = [pytest.mark.bgpd, pytest.mark.evpn]
 
@@ -55,7 +56,7 @@ def setup_module(mod):
 
     cmds_vxlan = [
         "ip link add name bridge-101 up type bridge stp_state 0",
-        "ip link set dev bridge-101 up",
+        ("up", "bridge-101"),
         "ip link add name vxlan-101 type vxlan id 101 dstport 4789 dev {0}-eth0 local {1}",
         "ip link set dev vxlan-101 master bridge-101",
         "ip link set vxlan-101 up type bridge_slave learning off flood off mcast_flood off",
@@ -64,6 +65,11 @@ def setup_module(mod):
     for rname, vtep_ip in [("r1", "fd00:100::1"), ("r2", "fd00:100::2")]:
         router = tgen.gears[rname]
         for cmd in cmds_vxlan:
+            if isinstance(cmd, tuple):
+                shutdown_bringup_interface_in_kernel(
+                    tgen, rname, cmd[1].format(rname, vtep_ip), cmd[0] == "up"
+                )
+                continue
             formatted = cmd.format(rname, vtep_ip)
             logger.info("cmd to {}: {}".format(rname, formatted))
             output = router.cmd_raises(formatted)

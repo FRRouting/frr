@@ -21,7 +21,7 @@ sys.path.append(os.path.join(CWD, "../"))
 from lib import topotest
 from lib.topolog import logger
 from lib.topogen import Topogen, get_topogen
-from lib.common_config import step
+from lib.common_config import step, shutdown_bringup_interface_in_kernel
 
 
 pytestmark = [
@@ -78,12 +78,15 @@ def setup_module(mod):
 
     pe1 = tgen.gears["pe1"]
     pe1.cmd(
-        f"""
+        """
+
 ip link add RED type vrf table 100
-ip link set RED up
+    """)
+    shutdown_bringup_interface_in_kernel(pe1.tgen, pe1.name, "RED", True)
+    pe1.cmd(
+        """
 ip link set eth-ce1 master RED
-"""
-    )
+    """)
 
     router_list = tgen.routers()
 

@@ -38,7 +38,7 @@ sys.path.append(os.path.join(CWD, "../"))
 # pylint: disable=C0413
 from lib import topotest
 from lib.topogen import Topogen, get_topogen
-from lib.common_config import step
+from lib.common_config import step, shutdown_bringup_interface_in_kernel
 
 pytestmark = [pytest.mark.staticd, pytest.mark.sharpd]
 
@@ -57,14 +57,14 @@ def setup_module(mod):
     r1.net.add_l3vrf("vrf_a", 100)
     r1.net.add_l3vrf("vrf_b", 200)
     r1.run("ip link add dummy5 type dummy")
-    r1.run("ip link set dummy5 up")
+    shutdown_bringup_interface_in_kernel(r1.tgen, r1.name, "dummy5", True)
     # interface IFNAME vrf NAME does not enslave on the l3mdev backend.
     # The connected cover has to be in vrf_b before FRR adds the address.
     r1.run("ip link add dummy_b type dummy")
     r1.net.attach_iface_to_l3vrf("dummy_b", "vrf_b")
-    r1.run("ip link set dummy_b up")
+    shutdown_bringup_interface_in_kernel(r1.tgen, r1.name, "dummy_b", True)
     r1.run("ip link add dummy_c type dummy")
-    r1.run("ip link set dummy_c up")
+    shutdown_bringup_interface_in_kernel(r1.tgen, r1.name, "dummy_c", True)
 
     for router in tgen.routers().values():
         router.load_frr_config(extra_daemons=["sharpd"])

@@ -53,6 +53,7 @@ from lib.topotest import iproute2_is_vrf_capable
 from lib.common_config import (
     create_address_on_interface,
     required_linux_kernel_version,
+    shutdown_bringup_interface_in_kernel,
 )
 
 import frr_reload_lib as f_reload
@@ -198,7 +199,7 @@ def tgen(request):
     create_address_on_interface(tg, "r1", "lo", "{}/32".format(VTEP_IP))
     evpn_plumb_l3vni(r1, VRF, VRF_TABLE, L3VNI, VTEP_IP)
     r1.cmd_raises("ip link set dev r1-eth0 master {}".format(VRF))
-    r1.cmd_raises("ip link set dev r1-eth0 up")
+    shutdown_bringup_interface_in_kernel(r1.tgen, r1.name, "r1-eth0", True)
 
     # Start with Type-5 static routes and no import RTs so the test can add
     # and then roll back the RT set through frr-reload.py --reload.

@@ -66,6 +66,7 @@ sys.path.append(os.path.join(CWD, "../"))
 from lib import topotest
 from lib.topogen import Topogen, TopoRouter, get_topogen
 from lib.topolog import logger
+from lib.common_config import shutdown_bringup_interface_in_kernel
 
 # Required to instantiate the topology builder class.
 
@@ -887,7 +888,7 @@ def test_rib_ipv4_step10():
     logger.info(
         "Shutting down rt5 interface to rt6 from the switch side to test fast-reroute"
     )
-    tgen.net.cmd_raises("ip link set %s down" % tgen.net["s8"].intfs[0])
+    shutdown_bringup_interface_in_kernel(tgen, "s8", tgen.net["s8"].intfs[0], False)
 
     logger.info("Verifying if the BFD session is down")
     expect = (

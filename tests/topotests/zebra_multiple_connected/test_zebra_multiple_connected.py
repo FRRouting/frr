@@ -22,6 +22,7 @@ from functools import partial
 from lib.common_config import (
     create_address_on_interface,
     create_interface_in_kernel,
+    shutdown_bringup_interface_in_kernel,
     step,
 )
 from lib.topolog import logger
@@ -110,7 +111,7 @@ def test_zebra_connected_multiple():
     router = tgen.gears["r1"]
     router.run("ip route add 192.168.1.1/32 via 10.0.1.99 dev r1-eth1")
     create_interface_in_kernel(tgen, router.name, "dummy1")
-    router.run("ip link set dummy1 down")
+    shutdown_bringup_interface_in_kernel(router.tgen, router.name, "dummy1", False)
 
     routes = "{}/{}/ip_route.json".format(CWD, router.name)
     expected = json.loads(open(routes).read())
@@ -134,7 +135,7 @@ def test_zebra_system_recursion():
     router.run("ip route add 10.0.1.30/32 dev r1-eth1")
     router.run("ip route add 10.9.9.0/24 via 10.0.1.30 dev r1-eth1")
     create_interface_in_kernel(tgen, router.name, "dummy2")
-    router.run("ip link set dummy2 down")
+    shutdown_bringup_interface_in_kernel(router.tgen, router.name, "dummy2", False)
 
     routes = "{}/{}/ip_route2.json".format(CWD, router.name)
     expected = json.loads(open(routes).read())
@@ -212,7 +213,7 @@ def test_zebra_kernel_route_blackhole_add():
 
     router = tgen.gears["r1"]
     router.run("ip route add blackhole default")
-    router.run("ip link set dev r1-eth1 down")
+    shutdown_bringup_interface_in_kernel(router.tgen, router.name, "r1-eth1", False)
 
     kernel = "{}/{}/ip_route_kernel_blackhole.json".format(CWD, router.name)
     expected = json.loads(open(kernel).read())
@@ -245,7 +246,7 @@ def test_zebra_kernel_route_interface_linkdown():
 
     # link down
     router2 = tgen.gears["r2"]
-    router2.run("ip link set dev r2-eth2 down")
+    shutdown_bringup_interface_in_kernel(router2.tgen, router2.name, "r2-eth2", False)
 
     kernel = "{}/{}/ip_route_kernel_interface_down.json".format(CWD, router.name)
     expected = json.loads(open(kernel).read())
@@ -258,7 +259,7 @@ def test_zebra_kernel_route_interface_linkdown():
 
     # link up
     router2 = tgen.gears["r2"]
-    router2.run("ip link set dev r2-eth2 up")
+    shutdown_bringup_interface_in_kernel(router2.tgen, router2.name, "r2-eth2", True)
 
     kernel = "{}/{}/ip_route_kernel_interface_up.json".format(CWD, router.name)
     expected = json.loads(open(kernel).read())

@@ -33,7 +33,11 @@ sys.path.append(os.path.join(CWD, "../"))
 from lib import topotest
 from lib.topogen import Topogen, TopoRouter, get_topogen
 from lib.topolog import logger
-from lib.common_config import create_interface_in_kernel, shutdown_bringup_interface
+from lib.common_config import (
+    create_interface_in_kernel,
+    shutdown_bringup_interface,
+    shutdown_bringup_interface_in_kernel,
+)
 
 # Required to instantiate the topology builder class.
 
@@ -81,7 +85,12 @@ def setup_module(module):
         # Install vrf into the kernel and slave eth3
         router.run("ip link add vrf-chiyoda type vrf table 1000")
         router.run("ip link set dev {}-eth3 master vrf-chiyoda".format(rname))
-        router.run("ip link set vrf-chiyoda up")
+        shutdown_bringup_interface_in_kernel(
+            router.tgen,
+            router.name,
+            "vrf-chiyoda",
+            True,
+        )
 
         router.load_config(
             TopoRouter.RD_ZEBRA, os.path.join(CWD, "{}/zebra.conf".format(rname))
@@ -588,7 +597,7 @@ def test_pbr_nhg_with_vrf_disable_enable():
 
     logger.info("Step 2: Disabling VRF vrf-chiyoda")
     router.run("ip link set dev r1-eth3 nomaster")
-    router.run("ip link set vrf-chiyoda down")
+    shutdown_bringup_interface_in_kernel(router.tgen, router.name, "vrf-chiyoda", False)
     router.run("ip link del dev vrf-chiyoda")
 
     # Allow time for VRF deletion to propagate
@@ -605,7 +614,7 @@ def test_pbr_nhg_with_vrf_disable_enable():
     logger.info("Step 4: Re-enabling VRF vrf-chiyoda")
     router.run("ip link add vrf-chiyoda type vrf table 1000")
     router.run("ip link set dev r1-eth3 master vrf-chiyoda")
-    router.run("ip link set vrf-chiyoda up")
+    shutdown_bringup_interface_in_kernel(router.tgen, router.name, "vrf-chiyoda", True)
 
 
     logger.info("Step 5: Verifying nexthop-group C is valid after VRF is enabled")

@@ -24,7 +24,7 @@ sys.path.append(os.path.join(CWD, "../"))
 # pylint: disable=C0413
 from lib import topotest
 from lib.topogen import Topogen, TopoRouter, get_topogen
-from lib.common_config import step
+from lib.common_config import step, shutdown_bringup_interface_in_kernel
 
 pytestmark = [pytest.mark.bgpd]
 
@@ -39,9 +39,9 @@ def setup_module(mod):
 
     router = tgen.gears["r1"]
     router.cmd_raises("ip link add vrf1 type vrf table 10")
-    router.cmd_raises("ip link set up dev vrf1")
+    shutdown_bringup_interface_in_kernel(router.tgen, router.name, "vrf1", True)
     router.cmd_raises("ip link add vrf2 type vrf table 20")
-    router.cmd_raises("ip link set up dev vrf2")
+    shutdown_bringup_interface_in_kernel(router.tgen, router.name, "vrf2", True)
     router.load_config(TopoRouter.RD_ZEBRA, os.path.join(CWD, "r1/zebra.conf"))
     router.load_config(TopoRouter.RD_BGP, os.path.join(CWD, "r1/bgpd.conf"))
     router.start()

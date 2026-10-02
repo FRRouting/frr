@@ -20,6 +20,7 @@ from lib.topolog import logger
 from lib.common_config import (
     create_address_on_interface,
     delete_address_on_interface,
+    shutdown_bringup_interface_in_kernel,
     step,
 )
 from util_pcap import PerInterfacePcapManager
@@ -622,10 +623,10 @@ def test_ospf_dynamic_pacing_queue_kick_on_limit_increase():
         flap_ifaces[rname] = wait_for_ospf_ifname(tgen.gears[rname])
 
     for rname, ifn in flap_ifaces.items():
-        tgen.net[rname].cmd(f"ip link set {ifn} down")
+        shutdown_bringup_interface_in_kernel(tgen, rname, ifn, False)
     time.sleep(1)
     for rname, ifn in flap_ifaces.items():
-        tgen.net[rname].cmd(f"ip link set {ifn} up")
+        shutdown_bringup_interface_in_kernel(tgen, rname, ifn, True)
 
     # Step 4b: Wait for the flap to actually produce an AIMD trigger before
     # spending any of the congestion-detection budget below. Hello exchange
