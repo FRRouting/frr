@@ -50,6 +50,8 @@
 #include "zebra/zebra_srte.h"
 #include "zebra/zebra_srv6.h"
 #include "zebra/zebra_srv6_vty.h"
+#include "zebra/zebra_srl2.h"
+#include "zebra/zebra_srv6_vpws.h"
 
 #define ZEBRA_PTM_SUPPORT
 
@@ -227,6 +229,18 @@ void zebra_finalize(struct event *dummy)
 	vrf_terminate();
 
 	/*
+	 * Delete the SRv6 L2 EVPN (srl2/bum-srl2) and VPWS (vpws-br/vpws-srl2)
+	 * kernel interfaces we created.  Must run here — BEFORE
+	 * zebra_ns_early_shutdown below, which calls kernel_terminate() and
+	 * closes the command netlink socket (zns->netlink_cmd) these deletes
+	 * use.  Otherwise the netdevs persist after a graceful stop and have to
+	 * be reclaimed as orphans on the next start.  (A hard SIGKILL can't run
+	 * this path; those leftovers are still reclaimed on next start.)
+	 */
+	zebra_srl2_delete_all_kernel();
+	zebra_srv6_vpws_delete_all_kernel();
+
+	/*
 	 * Stop dplane thread and finish any cleanup
 	 * This is before the zebra_ns_early_shutdown call
 	 * because sockets that the dplane depends on are closed
@@ -248,6 +262,9 @@ void zebra_finalize(struct event *dummy)
 	zebra_pw_terminate();
 
 	zebra_srv6_terminate();
+
+	zebra_srl2_terminate();
+	zebra_srv6_vpws_fini();
 
 	label_manager_terminate();
 
@@ -537,6 +554,7 @@ int main(int argc, char **argv)
 	zebra_srte_init();
 	zebra_srv6_init();
 	zebra_srv6_vty_init();
+	zebra_srl2_init();
 
 	/* For debug purpose. */
 	/* SET_FLAG (zebra_debug_event, ZEBRA_DEBUG_EVENT); */
@@ -573,6 +591,9 @@ int main(int argc, char **argv)
 
 	/* Config handler Init */
 	zebra_evpn_init();
+
+	/* EVPN-VPWS dataplane init */
+	zebra_srv6_vpws_init();
 
 	/* Error init */
 	zebra_error_init();
