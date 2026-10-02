@@ -5363,6 +5363,10 @@ static void rib_process_dplane_results(struct event *event)
 				zebra_tc_qdisc_handle_notify(ctx);
 				break;
 
+			case DPLANE_OP_KERNEL_NOTIFY:
+				kernel_notify_process(ctx);
+				break;
+
 			/* Some op codes not handled here */
 			case DPLANE_OP_ADDR_INSTALL:
 			case DPLANE_OP_ADDR_UNINSTALL:
@@ -5431,8 +5435,12 @@ static int rib_dplane_results(struct dplane_ctx_list_head *ctxlist)
 	frr_with_mutex (&dplane_mutex) {
 		uint32_t q_count, q_high;
 
-		/* Enqueue context blocks */
-		dplane_ctx_list_append(&rib_dplane_q, ctxlist);
+		/*
+		 * Enqueue context blocks; a batch of kernel notifications is
+		 * folded into the queued one the main pthread has not taken yet.
+		 */
+		if (!dplane_kernel_notify_merge_tail(&rib_dplane_q, ctxlist))
+			dplane_ctx_list_append(&rib_dplane_q, ctxlist);
 		q_count = dplane_ctx_queue_count(&rib_dplane_q);
 		q_high = atomic_load_explicit(&rib_dplane_q_max, memory_order_relaxed);
 		if (q_count > q_high)
