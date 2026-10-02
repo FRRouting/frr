@@ -44,6 +44,8 @@ static void ptm_sbfd_echo_xmt_TO(struct bfd_session *bfd);
 static void sbfd_down_handler(struct bfd_session *bs, int nstate);
 static void sbfd_up_handler(struct bfd_session *bs, int nstate);
 
+static bool bfd_vrf_is_perm(const char *vrf_name);
+
 /**
  * Remove BFD profile from all BFD sessions so we don't leave dangling
  * pointers.
@@ -465,6 +467,14 @@ int bfd_session_enable(struct bfd_session *bs)
 		if (bvrf->bg_session_count == 0)
 			bfd_vrf_start_sockets(bvrf);
 		bvrf->bg_session_count++;
+		/*
+		 * Echo set before the VRF was known opened no echo socket.
+		 * Only where bfd_vrf_start_sockets would open sockets: not
+		 * with a data plane, and not in a VRF left out of --vrfs.
+		 */
+		if (CHECK_FLAG(bs->flags, BFD_SESS_FLAG_ECHO) && !bglobal.bg_use_dplane &&
+		    bfd_vrf_is_perm(bvrf->vrf->name))
+			bfd_vrf_toggle_echo(bvrf);
 	}
 
 	/* Only start timers if we are using active mode. */
