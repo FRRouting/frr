@@ -1814,17 +1814,24 @@ def delete_address_on_interface_freebsd(
 
 def shutdown_bringup_interface_in_kernel(tgen, dut, intf_name, ifaceaction=False):
     """
-    Cretae interfaces in kernel for ipv4/ipv6
-    Config is done in Linux Kernel:
+    Shut down or bring up a kernel interface.
 
     Parameters
     ----------
     * `tgen` : Topogen object
-    * `dut` : Device for which interfaces to be added
+    * `dut` : Device whose interface changes state
     * `intf_name` : interface name
-    * `ifaceaction` : False to shutdown and True to bringup the
-                      ineterface
+    * `ifaceaction` : False to shut the interface down, True to bring it up
     """
+
+    if sys.platform.startswith("freebsd"):
+        shutdown_bringup_interface_in_kernel_freebsd(tgen, dut, intf_name, ifaceaction)
+    else:
+        shutdown_bringup_interface_in_kernel_linux(tgen, dut, intf_name, ifaceaction)
+
+
+def shutdown_bringup_interface_in_kernel_linux(tgen, dut, intf_name, ifaceaction=False):
+    """Set a Linux interface administratively up or down."""
 
     rnode = tgen.gears[dut]
 
@@ -1838,6 +1845,16 @@ def shutdown_bringup_interface_in_kernel(tgen, dut, intf_name, ifaceaction=False
 
     logger.debug("[DUT: %s]: Running command: %s", dut, cmd)
     rnode.run(cmd)
+
+
+def shutdown_bringup_interface_in_kernel_freebsd(
+    tgen, dut, intf_name, ifaceaction=False
+):
+    """Set a FreeBSD interface administratively up or down."""
+
+    rnode = tgen.gears[dut]
+    action = "up" if ifaceaction else "down"
+    _freebsd_run(rnode, dut, ["/sbin/ifconfig", intf_name, action])
 
 
 def validate_ip_address(ip_address):
