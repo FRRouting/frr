@@ -9,6 +9,7 @@
 import asyncio
 import datetime
 import errno
+import functools
 import ipaddress
 import logging
 import os
@@ -45,6 +46,85 @@ PEXPECT_CONTINUATION_PROMPT = "PEXPECT_PROMPT+"
 
 root_hostname = subprocess.check_output("hostname")
 our_pid = os.getpid()
+
+
+@functools.cache
+def get_container_id():
+    """Detect if running inside Docker or Podman and return container ID.
+
+    Returns the container ID if running inside a container, None otherwise.
+    Used with TOPOTESTS_USE_HOST_TMUX to prepend 'docker exec'/'podman exec'
+    when host tmux panes run outside this container but namespaces live
+    inside it.
+    """
+    try:
+        # Try cgroup v1 format first - check any cgroup subsystem, not just cpuset
+        with open("/proc/1/cgroup") as file:
+            cgroup = file.read()
+        m = re.search(r"[0-9]+:[^:]*:/docker/([a-f0-9]{64})", cgroup)
+        if m:
+            return m.group(1)
+
+        # For cgroup v2, check mountinfo for docker container path
+        with open("/proc/self/mountinfo") as file:
+            mountinfo = file.read()
+        m = re.search(r"/docker/containers/([a-f0-9]{64})/", mountinfo)
+        if m:
+            return m.group(1)
+
+        # Podman writes this marker file inside every container it starts,
+        # stable across rootless/rootful modes and cgroup drivers (unlike
+        # its cgroup paths, e.g. "libpod-<id>.scope", which vary by both).
+        with open("/run/.containerenv") as file:
+            containerenv = file.read()
+        m = re.search(r'id="([a-f0-9]{64})"', containerenv)
+        if m:
+            return m.group(1)
+
+    except (IOError, OSError):
+        pass
+    return None
+
+
+def get_host_docker_cmd():
+    """Return the host's docker/podman executable path.
+
+    Prefers TOPOTESTS_HOST_DOCKER_CMD, set by frr-topotests.sh from a
+    host-side `command -v docker/podman` lookup. get_exec_path_host() can
+    only resolve binaries visible to this process's own namespace, which
+    under TOPOTESTS_USE_HOST_TMUX is inside this container, not the host
+    running docker/podman itself.
+    """
+    return os.environ.get("TOPOTESTS_HOST_DOCKER_CMD") or get_exec_path_host(
+        ["docker", "podman"]
+    )
+
+
+@functools.cache
+def check_host_tmux(tmux_path):
+    """Sanity check that `tmux_path` can talk to the running tmux server.
+
+    Runs once per resolved path (cached). The tmux client invoked here
+    always runs in *this* process's own namespace (there is no docker-exec
+    wrapping for it, unlike the pane command it launches), so under
+    TOPOTESTS_USE_HOST_TMUX it is necessarily this container's own tmux
+    binary reaching the host's tmux server over the bind-mounted socket.
+    If that client is a version incompatible with the host server, the
+    failure otherwise surfaces opaquely as "server exited unexpectedly"
+    with no indication why.
+    """
+    rc, _, error = commander.cmd_status([tmux_path, "list-sessions"], warn=False)
+    if rc:
+        logging.warning(
+            "tmux sanity check failed for %s (rc=%s): %s; if pane commands "
+            "fail with 'server exited unexpectedly' this is likely a "
+            "client/server version mismatch between this container's tmux "
+            "and the host tmux server it's connecting to -- match the "
+            "container's tmux version to the host's to fix it",
+            tmux_path,
+            rc,
+            error.strip() if error else "",
+        )
 
 
 detailed_cmd_logging = False
@@ -1508,8 +1588,27 @@ class Commander:  # pylint: disable=R0904
                 + cmd
             )
 
+            # Host tmux panes run outside the container; wrap so nsenter reaches
+            # namespaces inside. Opt-in via TOPOTESTS_USE_HOST_TMUX (set by
+            # frr-topotests.sh when launched from host tmux).
+            if os.environ.get("TOPOTESTS_USE_HOST_TMUX"):
+                container_id = get_container_id()
+                if container_id:
+                    docker_path = get_host_docker_cmd()
+                    if not docker_path:
+                        docker_path = "/usr/bin/docker"
+                    nscmd = f"{docker_path} exec -it {container_id} {nscmd}"
+                else:
+                    logging.warning(
+                        "TOPOTESTS_USE_HOST_TMUX is set but container ID "
+                        "was not detected; tmux pane commands may fail"
+                    )
+
         if "TMUX" in os.environ and not forcex:
-            cmd = [get_exec_path_host("tmux")]
+            tmux_path = get_exec_path_host("tmux")
+            if os.environ.get("TOPOTESTS_USE_HOST_TMUX"):
+                check_host_tmux(tmux_path)
+            cmd = [tmux_path]
             if new_window:
                 cmd.append("new-window")
                 cmd.append("-P")
