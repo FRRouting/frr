@@ -1517,14 +1517,14 @@ void igmp_send_query(int igmp_version, struct gm_group *group, char *query_buf,
 		igmp->igmp_stats.group_queries_sent++;
 
 	if (igmp_version == 3) {
-		sent = igmp_v3_send_query(group, igmp->fd, igmp->interface->name, query_buf,
+		sent = igmp_v3_send_query(group, igmp->fd, igmp->interface, query_buf,
 					  query_buf_size, num_sources, dst_addr, group_addr,
 					  query_max_response_time_dsec, s_flag,
 					  igmp->querier_robustness_variable,
 					  igmp->querier_query_interval);
 	} else if (igmp_version == 2) {
-		sent = igmp_v2_send_query(group, igmp->fd, igmp->interface->name, query_buf,
-					  dst_addr, group_addr, query_max_response_time_dsec);
+		sent = igmp_v2_send_query(group, igmp->fd, igmp->interface, query_buf, dst_addr,
+					  group_addr, query_max_response_time_dsec);
 	}
 
 	if (sent == 0)

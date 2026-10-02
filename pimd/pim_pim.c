@@ -666,9 +666,8 @@ static uint16_t ip_id = 0;
 #endif
 
 #if PIM_IPV == 4
-static int pim_msg_send_frame(int fd, char *buf, size_t len,
-			      struct sockaddr *dst, size_t salen,
-			      const char *ifname)
+static int pim_msg_send_frame(int fd, char *buf, size_t len, struct sockaddr *dst, size_t salen,
+			      const struct interface *ifp)
 {
 	if (sendto(fd, buf, len, MSG_DONTWAIT, dst, salen) >= 0)
 		return 0;
@@ -684,14 +683,14 @@ static int pim_msg_send_frame(int fd, char *buf, size_t len,
 		/* Too small to fragment further */
 		if (newlen1 < hdrsize) {
 			zlog_warn("%s: cannot fragment %zu byte packet to %pSU on %s", __func__,
-				  len, dst, ifname);
+				  len, dst, ifp ? ifp->name : "*");
 			return -1;
 		}
 
 		ip->ip_len = htons(sendlen);
 		ip->ip_off = htons(offset | IP_MF);
 
-		ret = pim_msg_send_frame(fd, buf, sendlen, dst, salen, ifname);
+		ret = pim_msg_send_frame(fd, buf, sendlen, dst, salen, ifp);
 		if (ret)
 			return ret;
 
@@ -703,13 +702,11 @@ static int pim_msg_send_frame(int fd, char *buf, size_t len,
 		memcpy(ip2, ip, hdrsize);
 		ip2->ip_len = htons(sendlen);
 		ip2->ip_off = htons(offset + (newlen1 >> 3));
-		return pim_msg_send_frame(fd, (char *)ip2, sendlen, dst, salen,
-					  ifname);
+		return pim_msg_send_frame(fd, (char *)ip2, sendlen, dst, salen, ifp);
 	}
 
-	zlog_warn(
-		"%s: sendto() failure to %pSU: iface=%s fd=%d msg_size=%zd: %m",
-		__func__, dst, ifname, fd, len);
+	zlog_warn("%s: sendto() failure to %pSU: iface=%s fd=%d msg_size=%zd: %m", __func__, dst,
+		  ifp ? ifp->name : "*", fd, len);
 	return -1;
 }
 
@@ -876,9 +873,7 @@ int pim_msg_send(int fd, pim_addr src, pim_addr dst, uint8_t *pim_msg,
 		pim_pkt_dump(__func__, pim_msg, pim_msg_size);
 	}
 
-	return pim_msg_send_frame(fd, (char *)buffer, sendlen,
-				  (struct sockaddr *)&to, tolen,
-				  ifp ? ifp->name : "*");
+	return pim_msg_send_frame(fd, (char *)buffer, sendlen, (struct sockaddr *)&to, tolen, ifp);
 
 #else
 	struct iovec iovector[2];

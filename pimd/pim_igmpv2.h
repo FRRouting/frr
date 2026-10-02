@@ -8,8 +8,8 @@
 #ifndef PIM_IGMPV2_H
 #define PIM_IGMPV2_H
 
-int igmp_v2_send_query(struct gm_group *group, int fd, const char *ifname, char *query_buf,
-		       struct in_addr dst_addr, struct in_addr group_addr,
+int igmp_v2_send_query(struct gm_group *group, int fd, const struct interface *ifp,
+		       char *query_buf, struct in_addr dst_addr, struct in_addr group_addr,
 		       int query_max_response_time_dsec);
 
 int igmp_v2_recv_report(struct gm_sock *igmp, struct in_addr from, struct in_addr to,
