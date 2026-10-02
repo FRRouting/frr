@@ -16,6 +16,9 @@
     -Verify BGP did not install the static route when it receive route
     with local next hop
 
+Note: flush_zstatic_routes() is called between stop_router() and
+    start_router() to clean up residual RTPROT_ZSTATIC (proto 196)
+    kernel routes.  See common_config.flush_zstatic_routes() for details.
 """
 import sys
 import time
@@ -45,6 +48,7 @@ from lib.common_config import (
     shutdown_bringup_interface,
     stop_router,
     start_router,
+    flush_zstatic_routes,
     create_route_maps,
     verify_ip_nht,
 )
@@ -396,6 +400,7 @@ def test_staticroute_with_ecmp_p0_tc3_ebgp(request):
     step("Reload the FRR router")
     # stop/start -> restart FRR router and verify
     stop_router(tgen, "r2")
+    flush_zstatic_routes(tgen, "r2")
     start_router(tgen, "r2")
 
     result = verify_rib(
@@ -702,6 +707,7 @@ def test_staticroute_with_ecmp_with_diff_AD_p0_tc4_ebgp(request):
     step("Reload the FRR router")
     # stop/start -> restart FRR router and verify
     stop_router(tgen, "r2")
+    flush_zstatic_routes(tgen, "r2")
     start_router(tgen, "r2")
 
     step(
