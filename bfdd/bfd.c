@@ -2616,6 +2616,10 @@ void bfd_vrf_toggle_echo(struct bfd_vrf_global *bfd_vrf)
 		.vrf = bfd_vrf->vrf,
 	};
 
+	/* As bfd_vrf_start_sockets: the data plane sends and receives echo. */
+	if (bglobal.bg_use_dplane)
+		return;
+
 	/* Check for peers using echo */
 	hash_walk(bfd_id_hash, __bfd_session_has_echo, &has_echo);
 
