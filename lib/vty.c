@@ -2976,6 +2976,37 @@ static void vty_event(enum vty_event event, struct vty *vty)
 	}
 }
 
+/*
+ * Check whether a vty cancel command is present, by peeking at the vty
+ * connection socket
+ */
+bool vty_check_for_cancel(struct vty *vty)
+{
+	bool ret = false;
+	int nbytes;
+	unsigned char buf[64];
+
+	/* Take a look at the incoming stream */
+	nbytes = recv(vty->fd, buf, sizeof(buf), MSG_PEEK);
+	if (nbytes <= 0)
+		goto done;
+
+	/* Check for the 'cancel' pseudo-command */
+	if ((size_t)nbytes >= sizeof(VTY_CANCEL_COMMAND) &&
+	    strmatch((const char *)buf, VTY_CANCEL_COMMAND)) {
+		ret = true;
+
+		/* Read the cancel message from the stream; we want
+		 * to handle it immediately, not as a standalone command.
+		 */
+		(void)nbytes;	/* clang-SA */
+		nbytes = recv(vty->fd, buf, sizeof(VTY_CANCEL_COMMAND), 0);
+	}
+
+done:
+	return ret;
+}
+
 DEFUN_NOSH (config_who,
        config_who_cmd,
        "who",

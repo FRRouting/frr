@@ -364,6 +364,21 @@ DEFUN_NOSH(end_config, end_config_cmd, "XFRR_end_configuration",
 	return ret;
 }
 
+/*
+ * Handle the pseudo-command to cancel any running operation. In general,
+ * we expect that the application code has checked for and handled this
+ * while running its handler code. This handler is present only to consume
+ * the string if it arrives.
+ */
+DEFUN_NOSH (XFRR_cancel_command,
+	    XFRR_cancel_command_cmd,
+	    "XFRR_cancel_command",
+	    "Cancel current operation\n")
+{
+	/* Nothing really to do here. */
+	return CMD_SUCCESS;
+}
+
 void cmd_init_config_callbacks(void (*start_config_cb)(struct vty *vty),
 			       void (*end_config_cb)(struct vty *vty))
 {
@@ -398,6 +413,8 @@ void lib_cmd_init(void)
 
 	install_element(CONFIG_NODE, &start_config_cmd);
 	install_element(CONFIG_NODE, &end_config_cmd);
+
+	install_element(ENABLE_NODE, &XFRR_cancel_command_cmd);
 }
 
 /* Stats querying from users */
