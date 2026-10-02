@@ -22,6 +22,7 @@ sys.path.append(os.path.join(CWD, "../"))
 # pylint: disable=C0413
 from lib import topotest
 from lib.topogen import Topogen, TopoRouter, get_topogen
+from lib.common_config import shutdown_bringup_interface_in_kernel
 
 pytestmark = [pytest.mark.bgpd]
 
@@ -43,7 +44,7 @@ def setup_module(mod):
 
     # VRF 'public'
     r1.cmd_raises("ip link add public type vrf table 1001")
-    r1.cmd_raises("ip link set up dev public")
+    shutdown_bringup_interface_in_kernel(r1.tgen, r1.name, "public", True)
     r1.cmd_raises("ip link set r1-eth0 master public")
 
     r1.load_config(TopoRouter.RD_ZEBRA, os.path.join(CWD, "r1/zebra.conf"))

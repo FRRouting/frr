@@ -27,7 +27,10 @@ sys.path.append(os.path.join(CWD, "../"))
 # Import topogen and topotest helpers
 from lib import topotest
 from lib.topogen import Topogen, TopoRouter, get_topogen
-from lib.common_config import create_address_on_interface
+from lib.common_config import (
+    create_address_on_interface,
+    shutdown_bringup_interface_in_kernel,
+)
 from lib.topolog import logger
 
 # Required to instantiate the topology builder class.
@@ -369,7 +372,7 @@ def test_weighted_ecmp_link_flap():
     # Bring down link on server r9
     logger.info("Bring down link on server r9")
 
-    tgen.net["r9"].cmd("ip link set dev r9-eth1 down")
+    shutdown_bringup_interface_in_kernel(tgen, 'r9', "r9-eth1", False)
 
     # Check spine router r2 has only one path
     logger.info("Check spine router r2 has only one path")
@@ -409,7 +412,7 @@ def test_weighted_ecmp_link_flap():
     # Bring up link on server r9
     logger.info("Bring up link on server r9")
 
-    tgen.net["r9"].cmd("ip link set dev r9-eth1 up")
+    shutdown_bringup_interface_in_kernel(tgen, 'r9', "r9-eth1", True)
 
     # Check link-bandwidth change and weighted ECMP rebalance on super-spine router r1
     logger.info(

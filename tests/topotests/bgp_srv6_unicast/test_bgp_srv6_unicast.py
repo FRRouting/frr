@@ -37,7 +37,11 @@ import functools
 CWD = os.path.dirname(os.path.realpath(__file__))
 sys.path.append(os.path.join(CWD, "../"))
 
-from lib.common_config import create_interface_in_kernel, retry
+from lib.common_config import (
+    create_interface_in_kernel,
+    retry,
+    shutdown_bringup_interface_in_kernel,
+)
 from lib import topotest
 from lib.topogen import Topogen, get_topogen
 from lib.topolog import logger
@@ -62,21 +66,21 @@ def setup_module(mod):
     tgen.start_topology()
 
     router_list = tgen.routers()
-    tgen.net["r1"].cmd(
+    tgen.net['r1'].cmd(
         """
+
         sysctl -w net.vrf.strict_mode=1
         ip link add vrfdefault type vrf table 254
-        ip link set up dev vrfdefault
-        """
-    )
+    """)
+    shutdown_bringup_interface_in_kernel(tgen, 'r1', "vrfdefault", True)
     create_interface_in_kernel(tgen, "r1", "sr0")
-    tgen.net["r3"].cmd(
+    tgen.net['r3'].cmd(
         """
+
         sysctl -w net.vrf.strict_mode=1
         ip link add vrfdefault type vrf table 254
-        ip link set up dev vrfdefault
-        """
-    )
+    """)
+    shutdown_bringup_interface_in_kernel(tgen, 'r3', "vrfdefault", True)
     create_interface_in_kernel(tgen, "r3", "sr0")
 
     for router in router_list.values():

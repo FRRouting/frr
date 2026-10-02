@@ -43,6 +43,7 @@ from lib import topotest
 from lib.common_config import (
     create_address_on_interface,
     required_linux_kernel_version,
+    shutdown_bringup_interface_in_kernel,
     step,
 )
 from lib.evpn import (
@@ -230,7 +231,12 @@ def tgen(request):
         create_address_on_interface(
             tg, name, "{}-eth0".format(name), "{}/24".format(ip)
         )
-        router.cmd_raises("ip link set dev {}-eth0 up".format(name))
+        shutdown_bringup_interface_in_kernel(
+            router.tgen,
+            router.name,
+            f"{name}-eth0",
+            True,
+        )
         evpn_plumb_l3vni(router, VRF, VRF_TABLE, L3VNI, ip)
 
     for name, lines in (("pe1", pe1_config()), ("pe2", pe2_config(False))):

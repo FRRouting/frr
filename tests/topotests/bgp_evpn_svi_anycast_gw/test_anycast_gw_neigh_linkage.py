@@ -68,7 +68,10 @@ sys.path.append(os.path.join(CWD, "../"))
 from lib import topotest
 from lib.evpn import evpn_verify_bgp_vni_state, evpn_verify_vni_remote_vteps
 from lib.topogen import Topogen, get_topogen
-from lib.common_config import create_address_on_interface
+from lib.common_config import (
+    create_address_on_interface,
+    shutdown_bringup_interface_in_kernel,
+)
 from lib.topolog import logger
 
 pytestmark = [pytest.mark.bgpd]
@@ -110,7 +113,7 @@ def config_leaf_dataplane(leaf, name, svi_mac, with_gw_addrs):
     leaf.run("ip link set dev bridge type bridge vlan_filtering 1")
     leaf.run("ip link set dev bridge type bridge mcast_snooping 0")
     leaf.run("ip link set dev bridge address %s" % svi_mac)
-    leaf.run("ip link set dev bridge up")
+    shutdown_bringup_interface_in_kernel(leaf.tgen, leaf.name, "bridge", True)
 
     leaf.run(
         "ip link add dev vxlan0 type vxlan dstport 4789 local %s nolearning external"
@@ -121,7 +124,7 @@ def config_leaf_dataplane(leaf, name, svi_mac, with_gw_addrs):
     leaf.run("/sbin/bridge link set dev vxlan0 neigh_suppress on")
     leaf.run("/sbin/bridge link set dev vxlan0 learning off")
     leaf.run("/sbin/bridge vlan del vid 1 dev vxlan0")
-    leaf.run("ip link set dev vxlan0 up")
+    shutdown_bringup_interface_in_kernel(leaf.tgen, leaf.name, "vxlan0", True)
 
     for vni in VNIS:
         leaf.run("/sbin/bridge vlan add vid %d dev vxlan0" % vni)
@@ -140,7 +143,7 @@ def config_leaf_dataplane(leaf, name, svi_mac, with_gw_addrs):
             create_address_on_interface(
                 leaf.tgen, leaf.name, svi, "%s/%d" % (GW_IPS[vni], GW_PLEN)
             )
-        leaf.run("ip link set dev %s up" % svi)
+        shutdown_bringup_interface_in_kernel(leaf.tgen, leaf.name, svi, True)
 
     leaf.run("/sbin/sysctl -w net.ipv4.ip_forward=1")
 

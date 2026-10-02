@@ -30,6 +30,7 @@ from lib.bgpcheck import (
 )
 from lib.topogen import Topogen, TopoRouter, get_topogen
 from lib.topolog import logger
+from lib.common_config import shutdown_bringup_interface_in_kernel
 
 # Required to instantiate the topology builder class.
 
@@ -66,29 +67,29 @@ def _populate_iface():
     tgen = get_topogen()
     cmds_list = [
         "ip link add vrf{} type vrf table {}",
-        "ip link set dev vrf{} up",
+        ("up", "vrf{}"),
         "ip link set dev r1-eth{} master vrf{}",
         "echo 1 > /proc/sys/net/mpls/conf/r1-eth{}/input",
     ]
     cmds_list2 = [
         "ip link add vrf{} type vrf table {}",
-        "ip link set dev vrf{} up",
+        ("up", "vrf{}"),
         "ip link set dev r2-eth{} master vrf{}",
         "echo 1 > /proc/sys/net/mpls/conf/r2-eth{}/input",
     ]
 
     for i in range(1, 6):
-        for cmd in cmds_list:
-            input = cmd.format(i, i)
-            logger.info("input: " + cmd)
-            output = tgen.net["r1"].cmd(cmd.format(i, i))
-            logger.info("output: " + output)
-
-        for cmd in cmds_list2:
-            input = cmd.format(i, i)
-            logger.info("input: " + cmd)
-            output = tgen.net["r2"].cmd(cmd.format(i, i))
-            logger.info("output: " + output)
+        for rname, cmds in (("r1", cmds_list), ("r2", cmds_list2)):
+            for cmd in cmds:
+                if isinstance(cmd, tuple):
+                    shutdown_bringup_interface_in_kernel(
+                        tgen, rname, cmd[1].format(i, i), cmd[0] == "up"
+                    )
+                    continue
+                formatted = cmd.format(i, i)
+                logger.info("input: " + cmd)
+                output = tgen.net[rname].cmd(formatted)
+                logger.info("output: " + output)
 
 def setup_module(mod):
     "Sets up the pytest environment"

@@ -30,6 +30,7 @@ sys.path.append(os.path.join(CWD, "../"))
 from lib import topotest
 from lib.topogen import Topogen, get_topogen
 from lib.topolog import logger
+from lib.common_config import shutdown_bringup_interface_in_kernel
 
 
 def build_topo(tgen):
@@ -57,10 +58,10 @@ def setup_module(mod):
     router_list = tgen.routers()
 
     for rname, router in router_list.items():
+        tgen.net[rname].cmd("ip link add cust1 type vrf table 10")
+        shutdown_bringup_interface_in_kernel(tgen, rname, "cust1", True)
         tgen.net[rname].cmd(
             f"""
-ip link add cust1 type vrf table 10
-ip link set dev cust1 up
 ip link set dev {rname}-eth0 master cust1
 sysctl net.ipv6.conf.{rname}-eth0.keep_addr_on_down=1
 """

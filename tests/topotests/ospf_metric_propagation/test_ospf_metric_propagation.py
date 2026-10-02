@@ -19,6 +19,7 @@ import pytest
 from lib import topotest
 from lib.topogen import Topogen, get_topogen
 from lib.topolog import logger
+from lib.common_config import shutdown_bringup_interface_in_kernel
 
 
 """
@@ -132,20 +133,16 @@ def setup_module(mod):
     tgen = Topogen(build_topo, mod.__name__)
     tgen.start_topology()
 
-    vrf_setup_cmds = [
-        "ip link add name blue type vrf table 11",
-        "ip link set dev blue up",
-        "ip link add name green type vrf table 12",
-        "ip link set dev green up",
-    ]
-
     # Starting Routers
     router_list = tgen.routers()
 
     # Create VRFs and bind to interfaces
     for routern in range(1, 5):
-        for cmd in vrf_setup_cmds:
-            tgen.net["r{}".format(routern)].cmd(cmd)
+        rname = "r{}".format(routern)
+        tgen.net[rname].cmd("ip link add name blue type vrf table 11")
+        shutdown_bringup_interface_in_kernel(tgen, rname, "blue", True)
+        tgen.net[rname].cmd("ip link add name green type vrf table 12")
+        shutdown_bringup_interface_in_kernel(tgen, rname, "green", True)
     for routern in range(1, 5):
         tgen.net["r{}".format(routern)].cmd(
             "ip link set dev r{}-eth1 vrf blue up".format(routern)
@@ -179,24 +176,24 @@ def set_link_states(tgen, link1_up, link2_up, link3_up, link4_up):
     link4: r4-eth1 (R4 to Rb in VRF blue)
     """
     if link1_up:
-        tgen.net["r1"].cmd("ip link set dev r1-eth1 up")
+        shutdown_bringup_interface_in_kernel(tgen, 'r1', "r1-eth1", True)
     else:
-        tgen.net["r1"].cmd("ip link set dev r1-eth1 down")
+        shutdown_bringup_interface_in_kernel(tgen, 'r1', "r1-eth1", False)
 
     if link2_up:
-        tgen.net["r2"].cmd("ip link set dev r2-eth1 up")
+        shutdown_bringup_interface_in_kernel(tgen, 'r2', "r2-eth1", True)
     else:
-        tgen.net["r2"].cmd("ip link set dev r2-eth1 down")
+        shutdown_bringup_interface_in_kernel(tgen, 'r2', "r2-eth1", False)
 
     if link3_up:
-        tgen.net["r3"].cmd("ip link set dev r3-eth1 up")
+        shutdown_bringup_interface_in_kernel(tgen, 'r3', "r3-eth1", True)
     else:
-        tgen.net["r3"].cmd("ip link set dev r3-eth1 down")
+        shutdown_bringup_interface_in_kernel(tgen, 'r3', "r3-eth1", False)
 
     if link4_up:
-        tgen.net["r4"].cmd("ip link set dev r4-eth1 up")
+        shutdown_bringup_interface_in_kernel(tgen, 'r4', "r4-eth1", True)
     else:
-        tgen.net["r4"].cmd("ip link set dev r4-eth1 down")
+        shutdown_bringup_interface_in_kernel(tgen, 'r4', "r4-eth1", False)
 
 
 def test_all_links_up():
@@ -269,10 +266,10 @@ def test_link_1_2_down():
     # Explicitly set link states: link1 down, link2 down, link3 up, link4 up
     set_link_states(tgen, link1_up=False, link2_up=False, link3_up=True, link4_up=True)
     # Bounce r1-eth0 and r2-eth2 to trigger route recalculation
-    tgen.net["r1"].cmd("ip link set dev r1-eth0 down")
-    tgen.net["r2"].cmd("ip link set dev r2-eth2 down")
-    tgen.net["r2"].cmd("ip link set dev r2-eth2 up")
-    tgen.net["r1"].cmd("ip link set dev r1-eth0 up")
+    shutdown_bringup_interface_in_kernel(tgen, 'r1', "r1-eth0", False)
+    shutdown_bringup_interface_in_kernel(tgen, 'r2', "r2-eth2", False)
+    shutdown_bringup_interface_in_kernel(tgen, 'r2', "r2-eth2", True)
+    shutdown_bringup_interface_in_kernel(tgen, 'r1', "r1-eth0", True)
     r1 = tgen.gears["r1"]
 
     json_file = "{}/r1/show_ip_route-3.json".format(CWD)
@@ -296,10 +293,10 @@ def test_link_1_2_3_down():
     # Explicitly set link states: link1 down, link2 down, link3 down, link4 up
     set_link_states(tgen, link1_up=False, link2_up=False, link3_up=False, link4_up=True)
     # Bounce r1-eth0 and r3-eth0 to trigger route recalculation
-    tgen.net["r1"].cmd("ip link set dev r1-eth0 down")
-    tgen.net["r3"].cmd("ip link set dev r3-eth0 down")
-    tgen.net["r3"].cmd("ip link set dev r3-eth0 up")
-    tgen.net["r1"].cmd("ip link set dev r1-eth0 up")
+    shutdown_bringup_interface_in_kernel(tgen, 'r1', "r1-eth0", False)
+    shutdown_bringup_interface_in_kernel(tgen, 'r3', "r3-eth0", False)
+    shutdown_bringup_interface_in_kernel(tgen, 'r3', "r3-eth0", True)
+    shutdown_bringup_interface_in_kernel(tgen, 'r1', "r1-eth0", True)
     r1 = tgen.gears["r1"]
 
     json_file = "{}/r1/show_ip_route-4.json".format(CWD)

@@ -29,7 +29,11 @@ sys.path.append(os.path.join(CWD, "../"))
 # Import topogen and topotest helpers
 from lib import topotest
 from lib.bgp import verify_bgp_rib
-from lib.common_config import apply_raw_config, create_interface_in_kernel
+from lib.common_config import (
+    apply_raw_config,
+    create_interface_in_kernel,
+    shutdown_bringup_interface_in_kernel,
+)
 from lib.topogen import Topogen, TopoRouter, get_topogen
 from lib.topolog import logger
 
@@ -60,6 +64,18 @@ def build_topo(tgen):
     switch.add_link(tgen.gears["r3"])
 
 
+def _apply_link_cmd(tgen, router, cmd, *args):
+    if isinstance(cmd, tuple):
+        shutdown_bringup_interface_in_kernel(
+            tgen, router.name, cmd[1].format(*args), cmd[0] == "up"
+        )
+        return
+    formatted = cmd.format(*args)
+    logger.info("cmd to %s: %s", router.name, formatted)
+    output = router.cmd_raises(formatted)
+    logger.info("result: " + output)
+
+
 def setup_module(mod):
     "Sets up the pytest environment"
 
@@ -83,13 +99,13 @@ def setup_module(mod):
         "ip link add {0}-vrf-{1} type vrf table {1}",
         "ip ru add oif {0}-vrf-{1} table {1}",
         "ip ru add iif {0}-vrf-{1} table {1}",
-        "ip link set dev {0}-vrf-{1} up",
+        ("up", "{0}-vrf-{1}"),
     ]
 
     cmds_r2 = [  # config routing 101
         "ip link add name bridge-101 up type bridge stp_state 0",
         "ip link set bridge-101 master {}-vrf-101",
-        "ip link set dev bridge-101 up",
+        ("up", "bridge-101"),
         "ip link add name vxlan-101 type vxlan id 101 dstport 4789 dev r2-eth0 local 192:168:100::41",
         "ip link set dev vxlan-101 master bridge-101",
         "ip link set vxlan-101 up type bridge_slave learning off flood off mcast_flood off",
@@ -98,7 +114,7 @@ def setup_module(mod):
     cmds_r3 = [  # config routing 102
         "ip link add name bridge-102 up type bridge stp_state 0",
         "ip link set bridge-102 master {}-vrf-102",
-        "ip link set dev bridge-102 up",
+        ("up", "bridge-102"),
         "ip link add name vxlan-102 type vxlan id 102 dstport 4789 dev r3-eth0 local 192:168:100::61",
         "ip link set dev vxlan-102 master bridge-102",
         "ip link set vxlan-102 up type bridge_slave learning off flood off mcast_flood off",
@@ -123,27 +139,19 @@ def setup_module(mod):
 
     router = tgen.gears["r2"]
     for cmd in cmds_vrflite:
-        logger.info("cmd to r2: " + cmd.format("r2", 101))
-        output = router.cmd_raises(cmd.format("r2", 101))
-        logger.info("result: " + output)
+        _apply_link_cmd(tgen, router, cmd, "r2", 101)
     create_interface_in_kernel(tgen, "r2", "loop101", vrf="r2-vrf-101")
 
     for cmd in cmds_r2:
-        logger.info("cmd to r2: " + cmd.format("r2"))
-        output = router.cmd_raises(cmd.format("r2"))
-        logger.info("result: " + output)
+        _apply_link_cmd(tgen, router, cmd, "r2")
 
     router = tgen.gears["r3"]
     for cmd in cmds_vrflite:
-        logger.info("cmd to r3: " + cmd.format("r3", 102))
-        output = router.cmd_raises(cmd.format("r3", 102))
-        logger.info("result: " + output)
+        _apply_link_cmd(tgen, router, cmd, "r3", 102)
     create_interface_in_kernel(tgen, "r3", "loop102", vrf="r3-vrf-102")
 
     for cmd in cmds_r3:
-        logger.info("cmd to r3: " + cmd.format("r3"))
-        output = router.cmd_raises(cmd.format("r3"))
-        logger.info("result: " + output)
+        _apply_link_cmd(tgen, router, cmd, "r3")
 
     tgen.net["r1"].cmd_raises(
         "ip link add name vxlan-101 type vxlan id 101 dstport 4789 dev r1-eth0 local 192:168:100::21"

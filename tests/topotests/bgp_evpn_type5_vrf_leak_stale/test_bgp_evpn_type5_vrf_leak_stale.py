@@ -48,7 +48,11 @@ sys.path.append(os.path.join(CWD, "../"))
 
 # pylint: disable=C0413
 from lib import topotest
-from lib.common_config import create_interface_in_kernel, step
+from lib.common_config import (
+    create_interface_in_kernel,
+    step,
+    shutdown_bringup_interface_in_kernel,
+)
 from lib.topogen import Topogen, get_topogen
 from lib.topolog import logger
 
@@ -74,6 +78,11 @@ def build_topo(tgen):
 
 def _run_cmds(router, commands):
     for command in commands:
+        if isinstance(command, tuple):
+            shutdown_bringup_interface_in_kernel(
+                router.tgen, router.name, command[1], command[0] == "up"
+            )
+            continue
         logger.info("%s: %s", router.name, command)
         router.cmd_raises(command)
 
@@ -83,10 +92,10 @@ def _add_vrf_vni(router, rname, vrf, table, vni, local_vtep):
         router,
         [
             "ip link add {0} type vrf table {1}".format(vrf, table),
-            "ip link set dev {0} up".format(vrf),
+            ("up", vrf),
             "ip link add name br{0} up type bridge stp_state 0".format(vni),
             "ip link set dev br{0} master {1}".format(vni, vrf),
-            "ip link set dev br{0} up".format(vni),
+            ("up", "br{}".format(vni)),
             (
                 "ip link add name vxlan{0} type vxlan id {0} dstport 4789 "
                 "dev {1}-eth0 local {2} nolearning"

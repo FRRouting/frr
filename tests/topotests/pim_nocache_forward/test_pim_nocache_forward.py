@@ -59,6 +59,7 @@ from lib import topotest
 from lib.common_config import (
     create_address_on_interface,
     delete_address_on_interface,
+    shutdown_bringup_interface_in_kernel,
     step,
     write_test_footer,
     write_test_header,
@@ -671,7 +672,7 @@ def test_wrongvif_prefer_kernel_ingress(request):
 
     step("Move source traffic to alternate ingress {}".format(FHR_TO_TUNNEL))
     create_address_on_interface(tgen, "h_src", "h_src-eth1", f"{source}/16")
-    h_src.run("ip link set h_src-eth1 up")
+    shutdown_bringup_interface_in_kernel(h_src.tgen, h_src.name, "h_src-eth1", True)
     h_src.run(f"ip route replace {WRONGVIF_TUNNEL_GW}/32 dev h_src-eth1 || true")
     app_helper.stop_traffic_senders()
     assert app_helper.run_traffic("h_src", group, bind_intf="h_src-eth1") is True

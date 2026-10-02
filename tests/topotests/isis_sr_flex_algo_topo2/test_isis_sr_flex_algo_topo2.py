@@ -56,7 +56,10 @@ sys.path.append(os.path.join(CWD, "../"))
 # pylint: disable=C0413
 # Import topogen and topotest helpers
 from lib import topotest
-from lib.common_config import create_interface_in_kernel
+from lib.common_config import (
+    create_interface_in_kernel,
+    shutdown_bringup_interface_in_kernel,
+)
 from lib.topogen import Topogen, TopoRouter, get_topogen
 from lib.topolog import logger
 
@@ -78,14 +81,34 @@ def build_topo(tgen):
         switch.add_link(tgen.gears[left], nodeif="eth-{}".format(right))
         switch.add_link(tgen.gears[right], nodeif="eth-{}".format(left))
         l_addr = "52:54:00:{}:{}:{}".format(left_idx, right_idx, left_idx)
-        tgen.gears[left].run("ip link set eth-{} down".format(right))
+        shutdown_bringup_interface_in_kernel(
+            tgen.gears[left].tgen,
+            tgen.gears[left].name,
+            f"eth-{right}",
+            False,
+        )
         tgen.gears[left].run("ip link set eth-{} address {}".format(right, l_addr))
-        tgen.gears[left].run("ip link set eth-{} up".format(right))
+        shutdown_bringup_interface_in_kernel(
+            tgen.gears[left].tgen,
+            tgen.gears[left].name,
+            f"eth-{right}",
+            True,
+        )
         tgen.gears[left].run("sysctl -w net.mpls.conf.eth-{}.input=1".format(right))
         r_addr = "52:54:00:{}:{}:{}".format(left_idx, right_idx, right_idx)
-        tgen.gears[right].run("ip link set eth-{} down".format(left))
+        shutdown_bringup_interface_in_kernel(
+            tgen.gears[right].tgen,
+            tgen.gears[right].name,
+            f"eth-{left}",
+            False,
+        )
         tgen.gears[right].run("ip link set eth-{} address {}".format(left, r_addr))
-        tgen.gears[right].run("ip link set eth-{} up".format(left))
+        shutdown_bringup_interface_in_kernel(
+            tgen.gears[right].tgen,
+            tgen.gears[right].name,
+            f"eth-{left}",
+            True,
+        )
         tgen.gears[right].run("sysctl -w net.mpls.conf.eth-{}.input=1".format(left))
 
     connect_routers(tgen, 0, 1)
