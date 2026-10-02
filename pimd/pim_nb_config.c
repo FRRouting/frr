@@ -2285,24 +2285,18 @@ static int pim_interface_num_get(const struct lyd_node *if_dnode)
 	struct pim_instance *pim;
 	const struct lyd_node *iter, *lib_dnode;
 	int cnt = 0;
-	int i;
 
 	/*
 	 * If the interface already exists in running datastore, check the
-	 * per-VRF iface_vif_index array directly for used VIF slots.
+	 * per-VRF multicast interface list directly for used VIF slots.
 	 * This correctly accounts for pimreg reserving VIF index 0, is
 	 * scoped to the correct VRF.
 	 */
 	ifp = nb_running_get_entry(if_dnode, NULL, false);
 	if (ifp) {
 		pim = ifp->vrf->info;
-		if (pim) {
-			for (i = 0; i < MAXVIFS; i++) {
-				if (pim->iface_vif_index[i] != 0)
-					cnt++;
-			}
-			return cnt;
-		}
+		if (pim)
+			return multicast_interface_list_count(&pim->mif_list);
 	}
 
 	/*
