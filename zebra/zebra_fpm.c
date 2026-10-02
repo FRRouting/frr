@@ -1005,7 +1005,10 @@ static int zfpm_build_route_updates(void)
 					zfpm_g->stats.route_dels++;
 			} else {
 				flog_err(EC_ZEBRA_FPM_ENCODE_FAIL,
-					 "%s: Encoding Prefix: %pRN No valid nexthops", __func__,
+					 "%s: Encoding Prefix: (%s:%u:%u)%pRN No valid nexthops",
+					 __func__, zvrf_name(rib_dest_vrf(dest)),
+					 zvrf_id(rib_dest_vrf(dest)),
+					 rib_table_info(rib_dest_table(dest))->table_id,
 					 dest->rnode);
 			}
 		}
@@ -1487,7 +1490,9 @@ static int zfpm_trigger_remove(struct route_node *rn)
 	if (!CHECK_FLAG(dest->flags, RIB_DEST_UPDATE_FPM))
 		return 0;
 
-	zfpm_debug("%pRN Removing from update queue shutting down", rn);
+	zfpm_debug("(%s:%u:%u)%pRN Removing from update queue shutting down",
+		   zvrf_name(rib_dest_vrf(dest)), zvrf_id(rib_dest_vrf(dest)),
+		   rib_table_info(rib_dest_table(dest))->table_id, rn);
 
 	UNSET_FLAG(dest->flags, RIB_DEST_UPDATE_FPM);
 	TAILQ_REMOVE(&zfpm_g->dest_q, dest, fpm_q_entries);

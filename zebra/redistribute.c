@@ -133,10 +133,9 @@ static void zebra_redistribute(struct zserv *client, int type,
 		RNODE_FOREACH_RE (rn, newre) {
 			if (IS_ZEBRA_DEBUG_RIB)
 				zlog_debug(
-					"%s: client %s %pRN(%u:%u) checking: selected=%d, type=%s, instance=%u, distance=%d, metric=%d zebra_check_addr=%d",
-					__func__,
-					zebra_route_string(client->proto), rn,
-					vrf_id, newre->instance,
+					"%s: client %s (%s:%u:%u)%pRN checking: selected=%d, type=%s, instance=%u, distance=%d, metric=%d zebra_check_addr=%d",
+					__func__, zebra_route_string(client->proto),
+					zvrf_name(zvrf), vrf_id, newre->table, rn,
 					!!CHECK_FLAG(newre->flags,
 						     ZEBRA_FLAG_SELECTED),
 					zebra_route_string(newre->type),
@@ -247,14 +246,17 @@ void redistribute_update(const struct route_node *rn,
 
 	if (IS_ZEBRA_DEBUG_RIB)
 		zlog_debug(
-			"(%u:%u):%pRN(%u): Redist update re %p (%s), old %p (%s)",
-			re->vrf_id, re->table, rn, re->instance, re,
+			"(%s:%u:%u)%pRN instance %u: Redist update re %p (%s), old %p (%s)",
+			vrf_id_to_name(re->vrf_id), re->vrf_id, re->table, rn,
+			re->instance, re,
 			zebra_route_string(re->type), prev_re,
 			prev_re ? zebra_route_string(prev_re->type) : "None");
 
 	if (!zebra_check_addr(&rn->p)) {
 		if (IS_ZEBRA_DEBUG_RIB)
-			zlog_debug("Redist update filter prefix %pRN", rn);
+			zlog_debug("Redist update filter prefix (%s:%u:%u)%pRN",
+				   vrf_id_to_name(re->vrf_id), re->vrf_id, re->table,
+				   rn);
 		return;
 	}
 
@@ -262,10 +264,10 @@ void redistribute_update(const struct route_node *rn,
 		if (zebra_redistribute_check(rn, re, client)) {
 			if (IS_ZEBRA_DEBUG_RIB) {
 				zlog_debug(
-					"%s: client %s %pRN(%u:%u), type=%d, distance=%d, metric=%d",
-					__func__,
-					zebra_route_string(client->proto), rn,
-					re->vrf_id, re->table, re->type,
+					"%s: client %s (%s:%u:%u)%pRN, type=%d, distance=%d, metric=%d",
+					__func__, zebra_route_string(client->proto),
+					vrf_id_to_name(re->vrf_id), re->vrf_id, re->table,
+					rn, re->type,
 					re->distance, re->metric);
 			}
 			if (zebra_redistribute_is_table_direct(re))
@@ -323,8 +325,8 @@ void redistribute_delete(const struct route_node *rn,
 			table = new_re->table;
 		}
 
-		zlog_debug("(%s:%u):%pRN: Redist del: re %p (%u:%s), new re %p (%u:%s)",
-			   VRF_LOGNAME(vrf), table, rn, old_re, old_inst,
+		zlog_debug("(%s:%u:%u)%pRN: Redist del: re %p (%u:%s), new re %p (%u:%s)",
+			   VRF_LOGNAME(vrf), vrfid, table, rn, old_re, old_inst,
 			   old_re ? zebra_route_string(old_re->type) : "None",
 			   new_re, new_inst,
 			   new_re ? zebra_route_string(new_re->type) : "None");
@@ -334,8 +336,9 @@ void redistribute_delete(const struct route_node *rn,
 	if (!zebra_check_addr(&rn->p)) {
 		if (IS_ZEBRA_DEBUG_RIB) {
 			zlog_debug(
-				"%u:%pRN: Redist del old: skipping invalid prefix",
-				vrfid, rn);
+				"(%s:%u:%u)%pRN: Redist del old: skipping invalid prefix",
+				vrf_id_to_name(vrfid), vrfid,
+				old_re ? old_re->table : new_re->table, rn);
 		}
 		return;
 	}

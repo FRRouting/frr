@@ -53,7 +53,8 @@ static int fec_change_update_lsp(struct zebra_vrf *zvrf, struct zebra_fec *fec,
 				 mpls_label_t old_label, bool uninstall);
 static int fec_send(struct zebra_fec *fec, struct zserv *client);
 static void fec_update_clients(struct zebra_fec *fec);
-static void fec_print(struct zebra_fec *fec, struct vty *vty);
+static void fec_print(struct zebra_fec *fec, struct vty *vty,
+		      struct zebra_vrf *zvrf);
 static struct zebra_fec *fec_find(struct route_table *table, struct prefix *p);
 static struct zebra_fec *fec_add(struct route_table *table, struct prefix *p,
 				 mpls_label_t label, uint32_t flags,
@@ -370,8 +371,9 @@ static void fec_evaluate(struct zebra_vrf *zvrf)
 
 			if (IS_ZEBRA_DEBUG_MPLS)
 				zlog_debug(
-					"Update fec %pRN new label %u upon label block",
-					rn, new_label);
+					"Update fec (%s:%u:%u)%pRN new label %u upon label block",
+					zvrf_name(zvrf), zvrf_id(zvrf), zvrf->table_id, rn,
+					new_label);
 
 			fec->label = new_label;
 			fec_update_clients(fec);
@@ -522,7 +524,8 @@ static void fec_update_clients(struct zebra_fec *fec)
 /*
  * Print a FEC-label binding entry.
  */
-static void fec_print(struct zebra_fec *fec, struct vty *vty)
+static void fec_print(struct zebra_fec *fec, struct vty *vty,
+		      struct zebra_vrf *zvrf)
 {
 	struct route_node *rn;
 	struct listnode *node;
@@ -2720,7 +2723,7 @@ void zebra_mpls_print_fec_table(struct vty *vty, struct zebra_vrf *zvrf)
 		     rn = route_next(rn)) {
 			if (!rn->info)
 				continue;
-			fec_print(rn->info, vty);
+			fec_print(rn->info, vty, zvrf);
 		}
 	}
 }
@@ -2747,7 +2750,7 @@ void zebra_mpls_print_fec(struct vty *vty, struct zebra_vrf *zvrf,
 	if (!rn->info)
 		return;
 
-	fec_print(rn->info, vty);
+	fec_print(rn->info, vty, zvrf);
 }
 
 static void mpls_zebra_nhe_update(struct route_entry *re, afi_t afi,
