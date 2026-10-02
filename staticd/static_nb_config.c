@@ -573,7 +573,9 @@ static int static_nexthop_srv6_encap_source_destroy(struct nb_cb_destroy_args *a
 
 static int nexthop_mpls_label_stack_entry_create(struct nb_cb_create_args *args)
 {
+	const struct lyd_node *mls_dnode;
 	struct static_nexthop *nh;
+	uint32_t count;
 	uint32_t pos;
 	uint8_t index;
 
@@ -583,6 +585,25 @@ static int nexthop_mpls_label_stack_entry_create(struct nb_cb_create_args *args)
 			snprintf(
 				args->errmsg, args->errmsg_len,
 				"%% MPLS not turned on in kernel ignoring static route");
+			return NB_ERR_VALIDATION;
+		}
+
+		/*
+		 * Validate label count here rather than in pre_validate.
+		 * pre_validate walks the entire candidate config on every
+		 * commit — O(total routes) — even when only one route
+		 * changed.  Moving the check to NB_EV_VALIDATE fires only
+		 * for changed label-stack entries: O(labels being added).
+		 *
+		 * args->dnode is the entry node; its parent is mpls-label-stack.
+		 * At validate time the dnode reflects the candidate config
+		 * including all entries being added in this transaction.
+		 */
+		mls_dnode = lyd_parent(args->dnode);
+		count = yang_get_list_elements_count(lyd_child(mls_dnode));
+		if (count > MPLS_MAX_LABELS) {
+			snprintf(args->errmsg, args->errmsg_len,
+				 "Too many labels, Enter %d or fewer", MPLS_MAX_LABELS);
 			return NB_ERR_VALIDATION;
 		}
 		break;
@@ -812,23 +833,6 @@ void routing_control_plane_protocols_control_plane_protocol_staticd_route_list_p
 	static_install_nexthop(nh);
 }
 
-int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_path_list_pre_validate(
-	struct nb_cb_pre_validate_args *args)
-{
-	const struct lyd_node *mls_dnode;
-	uint32_t count;
-
-	mls_dnode = yang_dnode_get(args->dnode, "mpls-label-stack");
-	count = yang_get_list_elements_count(lyd_child(mls_dnode));
-
-	if (count > MPLS_MAX_LABELS) {
-		snprintf(args->errmsg, args->errmsg_len,
-			"Too many labels, Enter %d or fewer",
-			MPLS_MAX_LABELS);
-		return NB_ERR_VALIDATION;
-	}
-	return NB_OK;
-}
 
 int routing_control_plane_protocols_name_validate(
 	struct nb_cb_create_args *args)
