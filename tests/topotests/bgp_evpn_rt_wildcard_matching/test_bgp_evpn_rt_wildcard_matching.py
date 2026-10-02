@@ -54,6 +54,7 @@ pytestmark = [pytest.mark.bgpd, pytest.mark.evpn]
 
 # 4200000001 & 0xFFFF - the AS2-truncated form of r2's AS used in its
 # auto route targets.
+R2_AS = 4200000001
 R2_AS_TRUNCATED = 59905
 
 R1_TYPE5_PREFIX = "[5]:[0]:[32]:[10.0.101.1]"
@@ -230,8 +231,8 @@ def _check_vni_route_absent(router, vni, prefix):
     return None
 
 
-def _expect(test_func, msg):
-    _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
+def _expect(test_func, msg, count=30, wait=1):
+    _, result = topotest.run_and_expect(test_func, None, count=count, wait=wait)
     assert result is None, msg
 
 
@@ -336,12 +337,14 @@ def test_as4_encoded_rt():
 
     # Replace r2's auto export RT with a manual, AS4-encoded RT that
     # keeps the VNI as the local admin.
-    r2.vtysh_cmd("""
+    r2.vtysh_cmd(
+        """
 configure terminal
 router bgp 4200000001 vrf vrf-101
  address-family l2vpn evpn
   route-target export 4200000001:101
-""")
+"""
+    )
 
     test_func = partial(
         _check_global_route_rt, r1, R2_TYPE5_PREFIX, "RT:4200000001:101"
@@ -356,13 +359,15 @@ router bgp 4200000001 vrf vrf-101
     )
 
     # Move the local admin away from the VNI; r1 must stop importing.
-    r2.vtysh_cmd("""
+    r2.vtysh_cmd(
+        """
 configure terminal
 router bgp 4200000001 vrf vrf-101
  address-family l2vpn evpn
   route-target export 4200000001:999
   no route-target export 4200000001:101
-""")
+"""
+    )
 
     test_func = partial(
         _check_global_route_rt, r1, R2_TYPE5_PREFIX, "RT:4200000001:999"
@@ -374,12 +379,14 @@ router bgp 4200000001 vrf vrf-101
 
     # A fully-qualified import RT must match the AS4-encoded RT on the
     # exact encoded value.
-    r1.vtysh_cmd("""
+    r1.vtysh_cmd(
+        """
 configure terminal
 router bgp 65001 vrf vrf-101
  address-family l2vpn evpn
   route-target import 4200000001:999
-""")
+"""
+    )
 
     _expect(
         _check_vrf_route_present(r1, "10.0.101.2/32"),
@@ -388,13 +395,15 @@ router bgp 65001 vrf vrf-101
 
     # A wildcard import RT must match the AS4-encoded RT on its 2-byte
     # local admin.
-    r1.vtysh_cmd("""
+    r1.vtysh_cmd(
+        """
 configure terminal
 router bgp 65001 vrf vrf-101
  address-family l2vpn evpn
   no route-target import 4200000001:999
   route-target import *:999
-""")
+"""
+    )
 
     _expect(
         _check_vrf_route_present(r1, "10.0.101.2/32"),
@@ -402,18 +411,22 @@ router bgp 65001 vrf vrf-101
     )
 
     # Cleanup: back to auto RTs on both sides.
-    r1.vtysh_cmd("""
+    r1.vtysh_cmd(
+        """
 configure terminal
 router bgp 65001 vrf vrf-101
  address-family l2vpn evpn
   no route-target import *:999
-""")
-    r2.vtysh_cmd("""
+"""
+    )
+    r2.vtysh_cmd(
+        """
 configure terminal
 router bgp 4200000001 vrf vrf-101
  address-family l2vpn evpn
   no route-target export 4200000001:999
-""")
+"""
+    )
 
     _expect(
         _check_vrf_route_present(r1, "10.0.101.2/32"),
@@ -435,12 +448,14 @@ def test_ip_encoded_rt():
     r1 = tgen.gears["r1"]
     r2 = tgen.gears["r2"]
 
-    r2.vtysh_cmd("""
+    r2.vtysh_cmd(
+        """
 configure terminal
 router bgp 4200000001 vrf vrf-101
  address-family l2vpn evpn
   route-target export 192.0.2.2:101
-""")
+"""
+    )
 
     test_func = partial(_check_global_route_rt, r1, R2_TYPE5_PREFIX, "RT:192.0.2.2:101")
     _expect(test_func, "r1: r2's type-5 route does not carry the IP-encoded RT")
@@ -455,12 +470,14 @@ router bgp 4200000001 vrf vrf-101
     # Disable the auto import RT; without any import RT the route must
     # no longer be imported (even though the local admin equals the
     # VNI).
-    r1.vtysh_cmd("""
+    r1.vtysh_cmd(
+        """
 configure terminal
 router bgp 65001 vrf vrf-101
  address-family l2vpn evpn
   auto-route-target import add-never
-""")
+"""
+    )
 
     test_func = partial(_check_vrf_route_absent, r1, "10.0.101.2/32")
     _expect(
@@ -469,12 +486,14 @@ router bgp 65001 vrf vrf-101
 
     # A fully-qualified import RT must match the IP-encoded RT
     # exactly.
-    r1.vtysh_cmd("""
+    r1.vtysh_cmd(
+        """
 configure terminal
 router bgp 65001 vrf vrf-101
  address-family l2vpn evpn
   route-target import 192.0.2.2:101
-""")
+"""
+    )
 
     _expect(
         _check_vrf_route_present(r1, "10.0.101.2/32"),
@@ -484,13 +503,15 @@ router bgp 65001 vrf vrf-101
     # An import RT with the same local admin but a different IP must
     # NOT match (fully-qualified matching is on the exact encoded
     # bytes and the wildcard matching is disabled here).
-    r1.vtysh_cmd("""
+    r1.vtysh_cmd(
+        """
 configure terminal
 router bgp 65001 vrf vrf-101
  address-family l2vpn evpn
   no route-target import 192.0.2.2:101
   route-target import 192.0.2.9:101
-""")
+"""
+    )
 
     test_func = partial(_check_vrf_route_absent, r1, "10.0.101.2/32")
     _expect(
@@ -499,19 +520,23 @@ router bgp 65001 vrf vrf-101
     )
 
     # Cleanup: back to auto RTs on both sides.
-    r1.vtysh_cmd("""
+    r1.vtysh_cmd(
+        """
 configure terminal
 router bgp 65001 vrf vrf-101
  address-family l2vpn evpn
   no route-target import 192.0.2.9:101
   no auto-route-target import add-never
-""")
-    r2.vtysh_cmd("""
+"""
+    )
+    r2.vtysh_cmd(
+        """
 configure terminal
 router bgp 4200000001 vrf vrf-101
  address-family l2vpn evpn
   no route-target export 192.0.2.2:101
-""")
+"""
+    )
 
     _expect(
         _check_vrf_route_present(r1, "10.0.101.2/32"),
@@ -534,12 +559,14 @@ def test_wildcard_keying_as2_full_local_admin():
     r1 = tgen.gears["r1"]
     r2 = tgen.gears["r2"]
 
-    r2.vtysh_cmd("""
+    r2.vtysh_cmd(
+        """
 configure terminal
 router bgp 4200000001 vrf vrf-101
  address-family l2vpn evpn
   route-target export 65002:65637
-""")
+"""
+    )
 
     test_func = partial(_check_global_route_rt, r1, R2_TYPE5_PREFIX, "RT:65002:65637")
     _expect(test_func, "r1: r2's type-5 route does not carry RT 65002:65637")
@@ -553,12 +580,14 @@ router bgp 4200000001 vrf vrf-101
     )
 
     # A wildcard on the full 4-byte local admin must match.
-    r1.vtysh_cmd("""
+    r1.vtysh_cmd(
+        """
 configure terminal
 router bgp 65001 vrf vrf-101
  address-family l2vpn evpn
   route-target import *:65637
-""")
+"""
+    )
 
     expected = {"*:65637": {"rt": "*:65637"}}
     test_func = partial(
@@ -575,23 +604,27 @@ router bgp 65001 vrf vrf-101
     )
 
     # Removing the wildcard again must uninstall the route.
-    r1.vtysh_cmd("""
+    r1.vtysh_cmd(
+        """
 configure terminal
 router bgp 65001 vrf vrf-101
  address-family l2vpn evpn
   no route-target import *:65637
-""")
+"""
+    )
 
     test_func = partial(_check_vrf_route_absent, r1, "10.0.101.2/32")
     _expect(test_func, "r1: type-5 route still imported after removing '*:65637'")
 
     # Cleanup: back to auto RTs.
-    r2.vtysh_cmd("""
+    r2.vtysh_cmd(
+        """
 configure terminal
 router bgp 4200000001 vrf vrf-101
  address-family l2vpn evpn
   no route-target export 65002:65637
-""")
+"""
+    )
 
     _expect(
         _check_vrf_route_present(r1, "10.0.101.2/32"),
@@ -617,12 +650,14 @@ def test_multiple_rts_any_match():
     # share the AS and differ only in the local admin; both must
     # survive (regression: the effective-RT dedup once compared AS4
     # local admins at the wrong offset and collapsed them).
-    r2.vtysh_cmd("""
+    r2.vtysh_cmd(
+        """
 configure terminal
 router bgp 4200000001 vrf vrf-101
  address-family l2vpn evpn
   route-target export 65002:999 192.0.2.2:888 4200000001:777 4200000001:778
-""")
+"""
+    )
 
     for rt in [
         "RT:65002:999",
@@ -634,54 +669,64 @@ router bgp 4200000001 vrf vrf-101
         _expect(test_func, "r1: r2's type-5 route does not carry {}".format(rt))
 
     # Matching the AS4-encoded RT alone must be enough ...
-    r1.vtysh_cmd("""
+    r1.vtysh_cmd(
+        """
 configure terminal
 router bgp 65001 vrf vrf-101
  address-family l2vpn evpn
   route-target import *:777
-""")
+"""
+    )
     _expect(
         _check_vrf_route_present(r1, "10.0.101.2/32"),
         "r1: type-5 route not imported although '*:777' matches one of its RTs",
     )
 
     # ... as must matching the IP-encoded RT alone ...
-    r1.vtysh_cmd("""
+    r1.vtysh_cmd(
+        """
 configure terminal
 router bgp 65001 vrf vrf-101
  address-family l2vpn evpn
   no route-target import *:777
   route-target import *:888
-""")
+"""
+    )
     _expect(
         _check_vrf_route_present(r1, "10.0.101.2/32"),
         "r1: type-5 route not imported although '*:888' matches one of its RTs",
     )
 
     # ... while a wildcard matching none of the RTs must not import.
-    r1.vtysh_cmd("""
+    r1.vtysh_cmd(
+        """
 configure terminal
 router bgp 65001 vrf vrf-101
  address-family l2vpn evpn
   no route-target import *:888
   route-target import *:666
-""")
+"""
+    )
     test_func = partial(_check_vrf_route_absent, r1, "10.0.101.2/32")
     _expect(test_func, "r1: type-5 route imported although none of its RTs match")
 
     # Cleanup: back to auto RTs on both sides.
-    r1.vtysh_cmd("""
+    r1.vtysh_cmd(
+        """
 configure terminal
 router bgp 65001 vrf vrf-101
  address-family l2vpn evpn
   no route-target import *:666
-""")
-    r2.vtysh_cmd("""
+"""
+    )
+    r2.vtysh_cmd(
+        """
 configure terminal
 router bgp 4200000001 vrf vrf-101
  address-family l2vpn evpn
   no route-target export 65002:999 192.0.2.2:888 4200000001:777 4200000001:778
-""")
+"""
+    )
 
     _expect(
         _check_vrf_route_present(r1, "10.0.101.2/32"),
@@ -714,13 +759,15 @@ def test_l2vni_rt_encoding():
 
     # AS4-encoded export RT with the VNI as local admin: r1's auto
     # import RT must still match (2-byte local admin extraction).
-    r2.vtysh_cmd("""
+    r2.vtysh_cmd(
+        """
 configure terminal
 router bgp 4200000001
  address-family l2vpn evpn
   vni 201
    route-target export 4200000001:201
-""")
+"""
+    )
 
     test_func = partial(_check_global_route_rt, r1, R2_IMET_PREFIX, "RT:4200000001:201")
     _expect(test_func, "r1: r2's IMET route does not carry the AS4-encoded RT")
@@ -732,14 +779,16 @@ router bgp 4200000001
 
     # AS2-encoded RT with a 4-byte local admin whose low 16 bits equal
     # the VNI: must NOT match r1's auto import RT.
-    r2.vtysh_cmd("""
+    r2.vtysh_cmd(
+        """
 configure terminal
 router bgp 4200000001
  address-family l2vpn evpn
   vni 201
    no route-target export 4200000001:201
    route-target export 65002:65737
-""")
+"""
+    )
 
     test_func = partial(_check_global_route_rt, r1, R2_IMET_PREFIX, "RT:65002:65737")
     _expect(test_func, "r1: r2's IMET route does not carry RT 65002:65737")
@@ -752,14 +801,16 @@ router bgp 4200000001
 
     # A wildcard on the full 4-byte local admin must match, and must
     # show up in the VNI import RT table.
-    r1.vtysh_cmd("""
+    r1.vtysh_cmd(
+        """
 configure terminal
 router bgp 65001
  address-family l2vpn evpn
   vni 201
    auto-route-target import add-always
    route-target import *:65737
-""")
+"""
+    )
 
     expected = {"*:65737": {"rt": "*:65737", "vnis": [201]}}
     test_func = partial(
@@ -776,21 +827,25 @@ router bgp 65001
     )
 
     # Cleanup: back to auto RTs on both sides.
-    r1.vtysh_cmd("""
+    r1.vtysh_cmd(
+        """
 configure terminal
 router bgp 65001
  address-family l2vpn evpn
   vni 201
    no route-target import *:65737
    no auto-route-target import add-always
-""")
-    r2.vtysh_cmd("""
+"""
+    )
+    r2.vtysh_cmd(
+        """
 configure terminal
 router bgp 4200000001
  address-family l2vpn evpn
   vni 201
    no route-target export 65002:65737
-""")
+"""
+    )
 
     _expect(
         _check_vni_route_present(r1, 201, R2_IMET_PREFIX),
@@ -825,12 +880,14 @@ def test_rfc8365_compatible_encoding():
 
     # Enable RFC 8365 compatible encoding on r2's export direction; the
     # VXLAN bit (0x10000000) is OR'd into the local admin.
-    r2.vtysh_cmd("""
+    r2.vtysh_cmd(
+        """
 configure terminal
 router bgp 4200000001 vrf vrf-101
  address-family l2vpn evpn
   auto-route-target export rfc8365-compatible
-""")
+"""
+    )
 
     rfc8365_local_admin = 0x10000000 + 101
     _expect(
@@ -851,12 +908,14 @@ router bgp 4200000001 vrf vrf-101
     )
 
     # Matching the encoding on r1's import direction restores the import.
-    r1.vtysh_cmd("""
+    r1.vtysh_cmd(
+        """
 configure terminal
 router bgp 65001 vrf vrf-101
  address-family l2vpn evpn
   auto-route-target import rfc8365-compatible
-""")
+"""
+    )
 
     _expect(
         _check_vrf_route_present(r1, "10.0.101.2/32"),
@@ -870,22 +929,237 @@ router bgp 65001 vrf vrf-101
     ), "r2: 'auto-route-target export rfc8365-compatible' not in running config"
 
     # Cleanup: back to the plain auto RTs on both sides.
-    r1.vtysh_cmd("""
+    r1.vtysh_cmd(
+        """
 configure terminal
 router bgp 65001 vrf vrf-101
  address-family l2vpn evpn
   no auto-route-target import rfc8365-compatible
-""")
-    r2.vtysh_cmd("""
+"""
+    )
+    r2.vtysh_cmd(
+        """
 configure terminal
 router bgp 4200000001 vrf vrf-101
  address-family l2vpn evpn
   no auto-route-target export rfc8365-compatible
-""")
+"""
+    )
 
     _expect(
         _check_vrf_route_present(r1, "10.0.101.2/32"),
         "r1: type-5 route not re-imported after clearing the RFC 8365 encoding",
+    )
+
+
+def test_enforce_as4_encoding():
+    """
+    "auto-route-target export enforce-as4" forces the AS4 encoding for auto
+    route targets, placing the 32-bit AS in the global admin field and truncating
+    the VNI to its lower 16 bits in the local admin field.
+    """
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    r1 = tgen.gears["r1"]
+    r2 = tgen.gears["r2"]
+
+    # Baseline: r2's L3VNI and L2VNI auto export RTs are <as-truncated>:<vni> on the wire.
+    _expect(
+        partial(
+            _check_global_route_rt,
+            r1,
+            R2_TYPE5_PREFIX,
+            "RT:{}:101".format(R2_AS_TRUNCATED),
+        ),
+        "r1: r2's type-5 route does not carry the plain auto export RT",
+    )
+    _expect(
+        partial(
+            _check_global_route_rt,
+            r1,
+            R2_IMET_PREFIX,
+            "RT:{}:201".format(R2_AS_TRUNCATED),
+        ),
+        "r1: r2's type-3 route does not carry the plain auto export RT",
+    )
+
+    # Enable enforce-as4 on r2's export direction for both L3VNI and L2VNI.
+    r2.vtysh_cmd(
+        """
+configure terminal
+router bgp 4200000001
+ address-family l2vpn evpn
+  auto-route-target export enforce-as4
+  exit
+ exit
+router bgp 4200000001 vrf vrf-101
+ address-family l2vpn evpn
+  auto-route-target export enforce-as4
+"""
+    )
+
+    _expect(
+        partial(
+            _check_global_route_rt,
+            r1,
+            R2_TYPE5_PREFIX,
+            "RT:{}:101".format(R2_AS),
+        ),
+        "r1: r2's type-5 route does not carry the enforce-as4 encoded auto export RT",
+    )
+    _expect(
+        partial(
+            _check_global_route_rt,
+            r1,
+            R2_IMET_PREFIX,
+            "RT:{}:201".format(R2_AS),
+        ),
+        "r1: r2's type-3 route does not carry the enforce-as4 encoded auto export RT",
+    )
+
+    # r1's plain auto import RT (wildcard on local admin) successfully matches
+    # the AS4 encoded RT's 16-bit local admin.
+    _expect(
+        _check_vrf_route_present(r1, "10.0.101.2/32"),
+        "r1: type-5 route not imported despite matching local admin in enforce-as4 encoded RT",
+    )
+    _expect(
+        _check_vni_route_present(r1, 201, R2_IMET_PREFIX),
+        "r1: type-3 route not imported despite matching local admin in enforce-as4 encoded RT",
+    )
+
+    # Configuring enforce-as4 on r1's import direction should maintain the import.
+    r1.vtysh_cmd(
+        """
+configure terminal
+router bgp 65001
+ address-family l2vpn evpn
+  auto-route-target import enforce-as4
+  exit
+ exit
+router bgp 65001 vrf vrf-101
+ address-family l2vpn evpn
+  auto-route-target import enforce-as4
+"""
+    )
+
+    _expect(
+        _check_vrf_route_present(r1, "10.0.101.2/32"),
+        "r1: type-5 route not imported with matching enforce-as4 import encoding",
+    )
+    _expect(
+        _check_vni_route_present(r1, 201, R2_IMET_PREFIX),
+        "r1: type-3 route not imported with matching enforce-as4 import encoding",
+    )
+
+    # The per-direction setting round-trips in the running config.
+    running_r2 = r2.vtysh_cmd("show running-config", isjson=False)
+    assert (
+        "auto-route-target export enforce-as4" in running_r2
+    ), "r2: 'auto-route-target export enforce-as4' not in running config"
+
+    # Cleanup: back to the plain auto RTs on both sides.
+    r1.vtysh_cmd(
+        """
+configure terminal
+router bgp 65001
+ address-family l2vpn evpn
+  no auto-route-target import enforce-as4
+  exit
+ exit
+router bgp 65001 vrf vrf-101
+ address-family l2vpn evpn
+  no auto-route-target import enforce-as4
+"""
+    )
+    r2.vtysh_cmd(
+        """
+configure terminal
+router bgp 4200000001
+ address-family l2vpn evpn
+  no auto-route-target export enforce-as4
+  exit
+ exit
+router bgp 4200000001 vrf vrf-101
+ address-family l2vpn evpn
+  no auto-route-target export enforce-as4
+"""
+    )
+
+    _expect(
+        _check_vrf_route_present(r1, "10.0.101.2/32"),
+        "r1: type-5 route not re-imported after clearing the enforce-as4 encoding",
+    )
+    _expect(
+        _check_vni_route_present(r1, 201, R2_IMET_PREFIX),
+        "r1: type-3 route not re-imported after clearing the enforce-as4 encoding",
+    )
+
+
+def test_enforce_as4_oversized_vni_skipped():
+    """
+    "auto-route-target <import|export> enforce-as4" cannot fit a VNI
+    above 0xFFFF into the 2-byte local admin of the AS4 route-target
+    encoding. Automatic route-target generation must be skipped for
+    such a VNI (rather than silently truncating it into a colliding
+    route target), and enabling enforce-as4 while an oversized VNI is
+    already configured must warn immediately on the vty.
+    """
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    r2 = tgen.gears["r2"]
+
+    oversized_vni = 700000
+
+    # A standalone L2VNI config entry (no live VXLAN device needed) is
+    # enough to exercise auto route-target derivation.
+    output = r2.vtysh_cmd(
+        """
+configure terminal
+router bgp 4200000001
+ address-family l2vpn evpn
+  vni {vni}
+  exit
+  auto-route-target export enforce-as4
+  auto-route-target import enforce-as4
+""".format(
+            vni=oversized_vni
+        )
+    )
+
+    assert "exceed the 16-bit limit for enforce-as4" in output, (
+        "r2: no immediate vty warning when enabling enforce-as4 while VNI {} "
+        "(> 0xFFFF) is configured".format(oversized_vni)
+    )
+
+    show = r2.vtysh_cmd(
+        "show bgp l2vpn evpn vni {} json".format(oversized_vni), isjson=True
+    )
+    assert show.get("exportRts") == [], (
+        "r2: an export route-target was auto-derived for VNI {}, above the "
+        "16-bit enforce-as4 limit".format(oversized_vni)
+    )
+    assert show.get("importRts") == [], (
+        "r2: an import route-target was auto-derived for VNI {}, above the "
+        "16-bit enforce-as4 limit".format(oversized_vni)
+    )
+
+    # Cleanup: drop the oversized VNI and the enforce-as4 setting.
+    r2.vtysh_cmd(
+        """
+configure terminal
+router bgp 4200000001
+ address-family l2vpn evpn
+  no vni {vni}
+  no auto-route-target export enforce-as4
+  no auto-route-target import enforce-as4
+""".format(
+            vni=oversized_vni
+        )
     )
 
 
