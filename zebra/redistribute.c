@@ -610,11 +610,13 @@ void zebra_interface_address_add_update(struct interface *ifp,
 {
 	struct zserv *client;
 
-	if (IS_ZEBRA_DEBUG_EVENT)
-		zlog_debug(
-			"MESSAGE: ZEBRA_INTERFACE_ADDRESS_ADD %pFX on %s vrf %s(%u)",
-			ifc->address, ifp->name, ifp->vrf->name,
-			ifp->vrf->vrf_id);
+	if (IS_ZEBRA_DEBUG_EVENT) {
+		struct zebra_vrf *zvrf = ifp->vrf->info;
+
+		zlog_debug("MESSAGE: ZEBRA_INTERFACE_ADDRESS_ADD (%s:%u:%u)%pFX on %s",
+			   ifp->vrf->name, ifp->vrf->vrf_id, zvrf ? zvrf->table_id : 0,
+			   ifc->address, ifp->name);
+	}
 
 	if (!CHECK_FLAG(ifc->conf, ZEBRA_IFC_REAL))
 		flog_warn(
@@ -644,11 +646,13 @@ void zebra_interface_address_delete_update(struct interface *ifp,
 {
 	struct zserv *client;
 
-	if (IS_ZEBRA_DEBUG_EVENT)
-		zlog_debug(
-			"MESSAGE: ZEBRA_INTERFACE_ADDRESS_DELETE %pFX on %s vrf %s(%u)",
-			ifc->address, ifp->name, ifp->vrf->name,
-			ifp->vrf->vrf_id);
+	if (IS_ZEBRA_DEBUG_EVENT) {
+		struct zebra_vrf *zvrf = ifp->vrf->info;
+
+		zlog_debug("MESSAGE: ZEBRA_INTERFACE_ADDRESS_DELETE (%s:%u:%u)%pFX on %s",
+			   ifp->vrf->name, ifp->vrf->vrf_id, zvrf ? zvrf->table_id : 0,
+			   ifc->address, ifp->name);
+	}
 
 	zebra_vxlan_add_del_gw_macip(ifp, ifc->address, 0);
 

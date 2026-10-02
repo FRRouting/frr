@@ -2593,8 +2593,9 @@ static int nexthop_active(struct nexthop *nexthop, struct nhg_hash_entry *nhe,
 		if (is_default_prefix(&rn->p)
 		    && !rnh_resolve_via_default(zvrf, p.family)) {
 			if (IS_ZEBRA_DEBUG_RIB_DETAILED)
-				zlog_debug("        :%s: %pFX Resolved against default route",
-					   __func__, &p);
+				zlog_debug("        :%s: (%s:%u:%u)%pFX Resolved against default route",
+					   __func__, zvrf_name(zvrf), nexthop->vrf_id,
+					   zvrf->table_id, &p);
 			return 0;
 		}
 

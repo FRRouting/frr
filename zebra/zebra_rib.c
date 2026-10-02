@@ -1882,7 +1882,7 @@ struct route_node *rib_find_rn_from_ctx(const struct zebra_dplane_ctx *ctx)
 
 	if (table == NULL) {
 		if (IS_ZEBRA_DEBUG_DPLANE) {
-			zlog_debug("Failed to find route for ctx: no table for afi %d, safi %d, vrf %s(%u) table %u Prefix: %pFX",
+			zlog_debug("Failed to find route for ctx: no table for afi %d, safi %d, (%s:%u:%u)%pFX",
 				   dplane_ctx_get_afi(ctx), dplane_ctx_get_safi(ctx),
 				   vrf_id_to_name(vrf_id), vrf_id, tableid,
 				   dplane_ctx_get_dest(ctx));
@@ -1998,9 +1998,9 @@ static void rib_process_result(struct zebra_dplane_ctx *ctx)
 	rn = rib_find_rn_from_ctx(ctx);
 	if (rn == NULL) {
 		if (IS_ZEBRA_DEBUG_DPLANE) {
-			zlog_debug("Failed to process dplane results: no route for %s(%u):%pRN prefix: %pFX",
-				   VRF_LOGNAME(vrf), dplane_ctx_get_vrf(ctx), rn,
-				   dplane_ctx_get_dest(ctx));
+			zlog_debug("Failed to process dplane results: no route for %pRN (%s:%u:%u)%pFX",
+				   rn, VRF_LOGNAME(vrf), dplane_ctx_get_vrf(ctx),
+				   dplane_ctx_get_table(ctx), dplane_ctx_get_dest(ctx));
 		}
 		goto done;
 	}
@@ -2282,8 +2282,8 @@ static void rib_process_dplane_notify(struct zebra_dplane_ctx *ctx)
 	rn = rib_find_rn_from_ctx(ctx);
 	if (rn == NULL) {
 		if (debug_p) {
-			zlog_debug("Failed to process dplane notification: no routes for %s(%u:%u):%pRN prefix %pFX",
-				   VRF_LOGNAME(vrf), dplane_ctx_get_vrf(ctx), tableid, rn,
+			zlog_debug("Failed to process dplane notification: no routes for %pRN (%s:%u:%u)%pFX",
+				   rn, VRF_LOGNAME(vrf), dplane_ctx_get_vrf(ctx), tableid,
 				   dplane_ctx_get_dest(ctx));
 		}
 		goto done;
@@ -3523,7 +3523,8 @@ void mpls_ftn_uninstall(struct zebra_vrf *zvrf, enum lsp_types_t type,
 	w->route_instance = route_instance;
 
 	if (IS_ZEBRA_DEBUG_RIB_DETAILED)
-		zlog_debug("Early Label Handling for %pFX", prefix);
+		zlog_debug("Early Label Handling for (%s:%u:%u)%pFX", zvrf_name(zvrf),
+			   zvrf_id(zvrf), zvrf->table_id, prefix);
 
 	mq_add_handler(w, early_label_meta_queue_add);
 }
@@ -3612,9 +3613,12 @@ int zebra_rib_queue_evpn_route_add(vrf_id_t vrf_id, const struct ethaddr *rmac,
 	w->ip = *vtep_ip;
 	w->prefix = *host_prefix;
 
-	if (IS_ZEBRA_DEBUG_RIB_DETAILED)
-		zlog_debug("%s: (%u)%pIA, host prefix %pFX enqueued", __func__,
-			   vrf_id, vtep_ip, host_prefix);
+	if (IS_ZEBRA_DEBUG_RIB_DETAILED) {
+		struct zebra_vrf *zvrf = zebra_vrf_lookup_by_id(vrf_id);
+
+		zlog_debug("%s: %pIA, (%s:%u:%u)%pFX enqueued", __func__, vtep_ip, zvrf_name(zvrf),
+			   vrf_id, zvrf ? zvrf->table_id : 0, host_prefix);
+	}
 
 	return mq_add_handler(w, rib_meta_queue_evpn_add);
 }
@@ -3633,9 +3637,12 @@ int zebra_rib_queue_evpn_route_del(vrf_id_t vrf_id,
 	w->ip = *vtep_ip;
 	w->prefix = *host_prefix;
 
-	if (IS_ZEBRA_DEBUG_RIB_DETAILED)
-		zlog_debug("%s: (%u)%pIA, host prefix %pFX enqueued", __func__,
-			   vrf_id, vtep_ip, host_prefix);
+	if (IS_ZEBRA_DEBUG_RIB_DETAILED) {
+		struct zebra_vrf *zvrf = zebra_vrf_lookup_by_id(vrf_id);
+
+		zlog_debug("%s: %pIA, (%s:%u:%u)%pFX enqueued", __func__, vtep_ip, zvrf_name(zvrf),
+			   vrf_id, zvrf ? zvrf->table_id : 0, host_prefix);
+	}
 
 	return mq_add_handler(w, rib_meta_queue_evpn_add);
 }
@@ -4346,10 +4353,10 @@ static int rib_meta_queue_early_route_add(struct meta_queue *mq, void *data)
 	if (IS_ZEBRA_DEBUG_RIB_DETAILED) {
 		struct vrf *vrf = vrf_lookup_by_id(ere->re->vrf_id);
 
-		zlog_debug("Route %pFX(%s:%s) (%s) queued for processing into sub-queue %s mq size %u",
-			   &ere->p, VRF_LOGNAME(vrf), safi2str(ere->safi),
-			   ere->deletion ? "delete" : "add", subqueue2str(META_QUEUE_EARLY_ROUTE),
-			   zrouter.mq->size);
+		zlog_debug("Route (%s:%u:%u)%pFX safi %s (%s) queued for processing into sub-queue %s mq size %u",
+			   VRF_LOGNAME(vrf), ere->re->vrf_id, ere->re->table, &ere->p,
+			   safi2str(ere->safi), ere->deletion ? "delete" : "add",
+			   subqueue2str(META_QUEUE_EARLY_ROUTE), zrouter.mq->size);
 	}
 
 	return 0;
@@ -4379,10 +4386,10 @@ void rib_meta_queue_early_route_cleanup(const struct prefix *p, afi_t afi, safi_
 			if (IS_ZEBRA_DEBUG_RIB_DETAILED) {
 				struct vrf *vrf = vrf_lookup_by_id(ere->re->vrf_id);
 
-				zlog_debug("Route %pFX(%s:%s) type %s(%d) table %u removed from early route queue",
-					   p, VRF_LOGNAME(vrf), safi2str(ere->safi),
-					   zebra_route_string(route_type), route_type,
-					   ere->re->table);
+				zlog_debug("Route (%s:%u:%u)%pFX safi %s type %s(%d) removed from early route queue",
+					   VRF_LOGNAME(vrf), vrf_id, ere->re->table, p,
+					   safi2str(ere->safi), zebra_route_string(route_type),
+					   route_type);
 			}
 
 			/* Free the early route memory */
