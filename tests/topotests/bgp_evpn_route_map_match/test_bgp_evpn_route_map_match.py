@@ -6,7 +6,7 @@
 #
 
 """
-Test if route-map match by EVPN route-type works.
+Test if route-map match by EVPN route-type and next-hop works.
 """
 
 import os
@@ -187,6 +187,74 @@ def test_bgp_evpn_route_map_match_route_type2():
     test_func = functools.partial(_check_filter_type2)
     _, result = topotest.run_and_expect(test_func, True, count=60, wait=1)
     assert result is True, "EVPN routes type-2 are not filtered."
+
+
+def test_bgp_evpn_route_map_match_next_hop():
+    tgen = get_topogen()
+
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    r1 = tgen.gears["r1"]
+
+    # The EVPN routes r1 receives from r2 have r2's VTEP as next-hop.
+    def _apply_in(route_map):
+        r1.vtysh_cmd(
+            "\n".join(
+                [
+                    "configure",
+                    "router bgp 65001",
+                    "address-family l2vpn evpn",
+                    "neighbor 192.168.1.2 route-map %s in" % route_map,
+                    "end",
+                    "clear bgp l2vpn evpn 192.168.1.2 soft in",
+                ]
+            )
+        )
+
+    def _check_received(accepted):
+        output = json.loads(r1.vtysh_cmd("show bgp l2vpn evpn summary json"))
+        received = output.get("peers", {}).get("192.168.1.2", {}).get("pfxRcd")
+        if received is None:
+            return False
+        return received > 0 if accepted else received == 0
+
+    r1.vtysh_cmd(
+        "\n".join(
+            [
+                "configure",
+                "ip prefix-list nh-r2 seq 5 permit 10.10.10.2/32",
+                "access-list nh-r2-acl seq 5 permit 10.10.10.2/32",
+                "route-map nh-all permit 10",
+                "exit",
+                "route-map nh-pl deny 10",
+                "match ip next-hop prefix-list nh-r2",
+                "exit",
+                "route-map nh-pl permit 20",
+                "exit",
+                "route-map nh-acl permit 10",
+                "match ip next-hop nh-r2-acl",
+            ]
+        )
+    )
+
+    logger.info("Check EVPN routes are received from r2 without filtering")
+    _apply_in("nh-all")
+    test_func = functools.partial(_check_received, True)
+    _, result = topotest.run_and_expect(test_func, True, count=60, wait=1)
+    assert result is True, "No EVPN routes received from r2"
+
+    logger.info("Check match ip next-hop prefix-list on EVPN routes")
+    _apply_in("nh-pl")
+    test_func = functools.partial(_check_received, False)
+    _, result = topotest.run_and_expect(test_func, True, count=60, wait=1)
+    assert result is True, "EVPN routes with next-hop 10.10.10.2 are not denied"
+
+    logger.info("Check match ip next-hop access-list on EVPN routes")
+    _apply_in("nh-acl")
+    test_func = functools.partial(_check_received, True)
+    _, result = topotest.run_and_expect(test_func, True, count=60, wait=1)
+    assert result is True, "EVPN routes with next-hop 10.10.10.2 are not permitted"
 
 
 if __name__ == "__main__":
