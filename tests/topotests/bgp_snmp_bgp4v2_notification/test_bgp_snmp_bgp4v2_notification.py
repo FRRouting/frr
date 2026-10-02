@@ -125,6 +125,59 @@ no neighbor 192.168.12.2  password 8888"
     assert result1 is None, "Failed to verify the bgp session"
 
 
+def _check_r2_established():
+    r2 = get_topogen().gears["r2"]
+    output = json.loads(r2.vtysh_cmd("show bgp summary json"))
+    expected = {"ipv4Unicast": {"peers": {"192.168.12.4": {"state": "Established"}}}}
+
+    return topotest.json_cmp(output, expected)
+
+
+def test_agentx_debug_traps_logged():
+    tgen = get_topogen()
+    r2 = tgen.gears["r2"]
+
+    def _check_trap_logs():
+        log = r2.net.getLog("log", "bgpd")
+        for line in ("AgentX: queue trap", "AgentX: send trap to snmpd"):
+            if line not in log:
+                return "missing '{}' in bgpd.log".format(line)
+        return None
+
+    _, result = topotest.run_and_expect(_check_trap_logs, None, count=30, wait=1)
+    assert result is None, result
+
+
+def test_agentx_debug_disable():
+    tgen = get_topogen()
+    r2 = tgen.gears["r2"]
+
+    r2.vtysh_multicmd(
+        """
+configure terminal
+no debug agentx
+"""
+    )
+
+    running = r2.vtysh_cmd("show running-config")
+    assert "debug agentx" not in running, "debug agentx still in running-config"
+
+    debugs = r2.vtysh_cmd("show debugging bgp")
+    assert "SNMP AgentX debugging is on" not in debugs, "debug agentx still on"
+
+    # The peer transition queues its trap synchronously, so once the session
+    # is back up any debug line for it would already be in the log.
+    log_offset = len(r2.net.getLog("log", "bgpd"))
+    r2.vtysh_cmd("clear bgp 192.168.12.4")
+    _, result = topotest.run_and_expect(
+        _check_r2_established, None, count=120, wait=0.5
+    )
+    assert result is None, "Failed to verify the bgp session"
+
+    new_log = r2.net.getLog("log", "bgpd")[log_offset:]
+    assert "AgentX: queue trap" not in new_log, "AgentX debug logged while disabled"
+
+
 def test_memory_leak():
     "Run the memory leak test and report results."
     tgen = get_topogen()
