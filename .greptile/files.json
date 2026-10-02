@@ -1,0 +1,16 @@
+{
+  "files": [
+    {
+      "path": "doc/developer/workflow.rst",
+      "description": "FRR core coding standards, PR requirements, commit message format, review process, release cycle, defensive coding, formatting rules, and architectural guidelines."
+    },
+    {
+      "path": "doc/developer/memtypes.rst",
+      "description": "MTYPE memory tracking system — XMALLOC/XCALLOC/XFREE usage, DECLARE_MTYPE/DEFINE_MTYPE patterns, XFREE NULL-safety, DEFINE_MTYPE_STATIC preference."
+    },
+    {
+      "path": "doc/developer/logging.rst",
+      "description": "zlog API usage, printfrr format extensions (%pFX, %pI4, %pSU, etc.), debug flag conventions, assert usage policy (no asserts for input validation), log level guidelines (ERROR/WARNING/INFO/DEBUG semantics)."
+    }
+  ]
+}
