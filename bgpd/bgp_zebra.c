@@ -1920,11 +1920,14 @@ static void bgp_handle_route_announcements_to_zebra(struct event *e)
 				dest);
 		}
 
-		if (BGP_DEBUG(zebra, ZEBRA))
-			zlog_debug("BGP %s%s route %pBD(%s) with dest %p and flags 0x%x to zebra",
+		if (BGP_DEBUG(zebra, ZEBRA)) {
+			struct bgp_debug_vrf dv = bgp_debug_vrf_get(table->bgp);
+
+			zlog_debug("BGP %s%s route (%s:%u:%u)%pBD with dest %p and flags 0x%x to zebra",
 				   install ? "announcing" : "withdrawing",
-				   is_evpn ? " evpn" : " ", dest,
-				   table->bgp->name_pretty, dest, dest->flags);
+				   is_evpn ? " evpn" : " ", dv.name, dv.id, dv.table_id, dest,
+				   dest, dest->flags);
+		}
 
 		if (install) {
 			if (is_evpn)
@@ -3060,6 +3063,11 @@ static int bgp_zebra_route_notify_owner(int command, struct zclient *zclient,
 	struct bgp_dest *dest BGP_DEST_AUTOUNLOCK = NULL;
 	struct bgp *bgp;
 	struct bgp_path_info *pi, *new_select;
+	struct bgp_debug_vrf dv = {
+		.name = "Unknown",
+		.id = VRF_UNKNOWN,
+		.table_id = 0,
+	};
 
 	if (!zapi_route_notify_decode(zclient->ibuf, &p, &table_id, &note,
 				      &afi, &safi)) {
@@ -3087,6 +3095,8 @@ static int bgp_zebra_route_notify_owner(int command, struct zclient *zclient,
 	}
 
 	frrtrace(3, frr_bgp, bgp_zebra_route_notify_owner, note, dest, &p);
+	if (BGP_DEBUG(zebra, ZEBRA))
+		dv = bgp_dest_debug_vrf(dest);
 	switch (note) {
 	case ZAPI_ROUTE_INSTALLED:
 		new_select = NULL;
@@ -3095,7 +3105,8 @@ static int bgp_zebra_route_notify_owner(int command, struct zclient *zclient,
 		UNSET_FLAG(dest->flags, BGP_NODE_FIB_INSTALL_PENDING);
 		SET_FLAG(dest->flags, BGP_NODE_FIB_INSTALLED);
 		if (BGP_DEBUG(zebra, ZEBRA))
-			zlog_debug("route %pBD : INSTALLED", dest);
+			zlog_debug("route (%s:%u:%u)%pBD : INSTALLED", dv.name, dv.id,
+				   dv.table_id, dest);
 		/* Find the best route */
 		for (pi = dest->info; pi; pi = pi->next) {
 			if (CHECK_FLAG(pi->flags, BGP_PATH_SELECTED))
@@ -3123,13 +3134,14 @@ static int bgp_zebra_route_notify_owner(int command, struct zclient *zclient,
 		 */
 		UNSET_FLAG(dest->flags, BGP_NODE_FIB_INSTALLED);
 		if (BGP_DEBUG(zebra, ZEBRA))
-			zlog_debug("route %pBD: Removed from Fib", dest);
+			zlog_debug("route (%s:%u:%u)%pBD: Removed from Fib", dv.name, dv.id,
+				   dv.table_id, dest);
 		break;
 	case ZAPI_ROUTE_FAIL_INSTALL:
 		new_select = NULL;
 		if (BGP_DEBUG(zebra, ZEBRA))
-			zlog_debug("route: %pBD Failed to Install into Fib",
-				   dest);
+			zlog_debug("route: (%s:%u:%u)%pBD Failed to Install into Fib", dv.name,
+				   dv.id, dv.table_id, dest);
 		bgp_dest_decrement_gr_fib_install_pending_count(dest);
 		UNSET_FLAG(dest->flags, BGP_NODE_FIB_INSTALL_PENDING);
 		UNSET_FLAG(dest->flags, BGP_NODE_FIB_INSTALLED);
@@ -3143,8 +3155,8 @@ static int bgp_zebra_route_notify_owner(int command, struct zclient *zclient,
 		break;
 	case ZAPI_ROUTE_BETTER_ADMIN_WON:
 		if (BGP_DEBUG(zebra, ZEBRA))
-			zlog_debug("route: %pBD removed due to better admin won",
-				   dest);
+			zlog_debug("route: (%s:%u:%u)%pBD removed due to better admin won",
+				   dv.name, dv.id, dv.table_id, dest);
 		new_select = NULL;
 		bgp_dest_decrement_gr_fib_install_pending_count(dest);
 		UNSET_FLAG(dest->flags, BGP_NODE_FIB_INSTALL_PENDING);

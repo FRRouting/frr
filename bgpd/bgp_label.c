@@ -260,9 +260,13 @@ static void bgp_send_fec_register_label_msg(struct bgp_dest *dest, bool reg,
 	if (!bgp_zclient || bgp_zclient->sock < 0)
 		return;
 
-	if (BGP_DEBUG(labelpool, LABELPOOL))
-		zlog_debug("%s: FEC %sregister %pBD label_index=%u label=%u",
-			   __func__, reg ? "" : "un", dest, label_index, label);
+	if (BGP_DEBUG(labelpool, LABELPOOL)) {
+		struct bgp_debug_vrf dv = bgp_dest_debug_vrf(dest);
+
+		zlog_debug("%s: FEC %sregister (%s:%u:%u)%pBD label_index=%u label=%u", __func__,
+			   reg ? "" : "un", dv.name, dv.id, dv.table_id, dest, label_index,
+			   label);
+	}
 	/* If the route node has a local_label assigned or the
 	 * path node has an MPLS SR label index allowing zebra to
 	 * derive the label, proceed with registration. */
@@ -326,9 +330,12 @@ int bgp_reg_for_label_callback(mpls_label_t new_label, void *labelid,
 	dest = bgp_dest_unlock_node(dest);
 	assert(dest);
 
-	if (BGP_DEBUG(labelpool, LABELPOOL))
-		zlog_debug("%s: FEC %pBD label=%u, allocated=%d", __func__,
-			   dest, new_label, allocated);
+	if (BGP_DEBUG(labelpool, LABELPOOL)) {
+		struct bgp_debug_vrf dv = bgp_dest_debug_vrf(dest);
+
+		zlog_debug("%s: FEC (%s:%u:%u)%pBD label=%u, allocated=%d", __func__, dv.name,
+			   dv.id, dv.table_id, dest, new_label, allocated);
+	}
 
 	if (!allocated) {
 		/*

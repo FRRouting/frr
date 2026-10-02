@@ -87,6 +87,42 @@
 
 #include "bgpd/bgp_route_clippy.c"
 
+struct bgp_debug_vrf bgp_debug_vrf_get(struct bgp *bgp)
+{
+	struct bgp_debug_vrf dv = {
+		.name = "Unknown",
+		.id = VRF_UNKNOWN,
+		.table_id = 0,
+	};
+	struct vrf *vrf;
+
+	if (!bgp)
+		return dv;
+
+	vrf = bgp_vrf_lookup_by_instance_type(bgp);
+	if (vrf) {
+		dv.name = vrf->name;
+		dv.id = vrf->vrf_id;
+		dv.table_id = vrf->data.l.table_id;
+		return dv;
+	}
+
+	dv.name = bgp->name_pretty ? bgp->name_pretty : "Unknown";
+	dv.id = bgp->vrf_id;
+	return dv;
+}
+
+struct bgp_debug_vrf bgp_dest_debug_vrf(struct bgp_dest *dest)
+{
+	struct bgp_table *table;
+
+	if (!dest || !dest->rn)
+		return bgp_debug_vrf_get(NULL);
+
+	table = bgp_dest_table(dest);
+	return bgp_debug_vrf_get(table ? table->bgp : NULL);
+}
+
 static bool bgp_attr_nexthop_same(const struct attr *attr1, const struct attr *attr2, afi_t afi)
 {
 	afi_t nh_afi1 = BGP_ATTR_NH_AFI(afi, attr1);
@@ -575,13 +611,11 @@ int bgp_dest_set_defer_flag(struct bgp_dest *dest, bool delete)
 
 	if (CHECK_FLAG(dest->flags, BGP_NODE_PROCESS_SCHEDULED)) {
 		if (BGP_DEBUG(update, UPDATE_OUT)) {
-			table = bgp_dest_table(dest);
-			if (table)
-				bgp = table->bgp;
+			struct bgp_debug_vrf dv = bgp_dest_debug_vrf(dest);
 
 			zlog_debug(
-				"Route %pBD(%s) is in workqueue and being processed, not deferred.",
-				dest, bgp ? bgp->name_pretty : "(Unknown)");
+				"Route (%s:%u:%u)%pBD is in workqueue and being processed, not deferred.",
+				dv.name, dv.id, dv.table_id, dest);
 		}
 
 		return 0;
@@ -654,8 +688,12 @@ int bgp_dest_set_defer_flag(struct bgp_dest *dest, bool delete)
 		if (!CHECK_FLAG(dest->flags, BGP_NODE_SELECT_DEFER))
 			bgp->gr_info[afi][safi].gr_deferred++;
 		SET_FLAG(dest->flags, BGP_NODE_SELECT_DEFER);
-		if (BGP_DEBUG(graceful_restart, GRACEFUL_RESTART))
-			zlog_debug("%s: Defer route %pBD, dest %p", bgp->name_pretty, dest, dest);
+		if (BGP_DEBUG(graceful_restart, GRACEFUL_RESTART)) {
+			struct bgp_debug_vrf dv = bgp_dest_debug_vrf(dest);
+
+			zlog_debug("%s: Defer route (%s:%u:%u)%pBD, dest %p", bgp->name_pretty,
+				   dv.name, dv.id, dv.table_id, dest, dest);
+		}
 		return 0;
 	}
 
@@ -3532,7 +3570,12 @@ void bgp_best_selection(struct bgp *bgp, struct bgp_dest *dest,
 	struct bgp_path_info *pi2;
 	int paths_eq, do_mpath;
 	bool debug, any_comparisons;
-	char pfx_buf[PREFIX2STR_BUFFER + VRF_NAMSIZ + 2] = {};
+	struct bgp_debug_vrf dv = {
+		.name = "Unknown",
+		.id = VRF_UNKNOWN,
+		.table_id = 0,
+	};
+	char pfx_buf[PREFIX2STR_BUFFER + VRF_NAMSIZ + 64] = {};
 	char path_buf[PATH_ADDPATH_STR_BUFFER];
 	enum bgp_path_selection_reason reason = bgp_path_selection_none;
 	bool unsorted_items = true;
@@ -3543,8 +3586,11 @@ void bgp_best_selection(struct bgp *bgp, struct bgp_dest *dest,
 
 	debug = bgp_debug_bestpath(dest);
 
-	if (debug)
-		snprintfrr(pfx_buf, sizeof(pfx_buf), "%pBD(%s)", dest, bgp->name_pretty);
+	if (debug) {
+		dv = bgp_dest_debug_vrf(dest);
+		snprintfrr(pfx_buf, sizeof(pfx_buf), "(%s:%u:%u)%pBD", dv.name, dv.id,
+			   dv.table_id, dest);
+	}
 
 	/* bgp deterministic-med */
 	new_select = NULL;
@@ -3610,8 +3656,8 @@ void bgp_best_selection(struct bgp *bgp, struct bgp_dest *dest,
 				bgp_path_info_path_with_addpath_rx_str(
 					new_select, path_buf, sizeof(path_buf));
 				zlog_debug(
-					"%pBD(%s): %s is the bestpath from AS %u",
-					dest, bgp->name_pretty, path_buf,
+					"(%s:%u:%u)%pBD: %s is the bestpath from AS %u",
+					dv.name, dv.id, dv.table_id, dest, path_buf,
 					aspath_get_first_as(
 						new_select->attr->aspath));
 			}
@@ -3698,8 +3744,8 @@ void bgp_best_selection(struct bgp *bgp, struct bgp_dest *dest,
 			 * selected route must stay for a while longer though
 			 */
 			if (debug)
-				zlog_debug("%s: %pBD(%s) pi %p from %s in holddown",
-					   __func__, dest, bgp->name_pretty,
+				zlog_debug("%s: (%s:%u:%u)%pBD pi %p from %s in holddown",
+					   __func__, dv.name, dv.id, dv.table_id, dest,
 					   first, first->peer->host);
 
 			if (old_select != first &&
@@ -3728,8 +3774,8 @@ void bgp_best_selection(struct bgp *bgp, struct bgp_dest *dest,
 		    !CHECK_FLAG(first->peer->sflags, PEER_STATUS_NSF_WAIT) &&
 		    !peer_established(first->peer->connection)) {
 			if (debug)
-				zlog_debug("%s: %pBD(%s) pi %p from %s is not in established state",
-					   __func__, dest, bgp->name_pretty, first,
+				zlog_debug("%s: (%s:%u:%u)%pBD pi %p from %s is not in established state",
+					   __func__, dv.name, dv.id, dv.table_id, dest, first,
 					   first->peer->host);
 
 			/*
@@ -3768,8 +3814,8 @@ void bgp_best_selection(struct bgp *bgp, struct bgp_dest *dest,
 				 * selected route must stay for a while longer though
 				 */
 				if (debug)
-					zlog_debug("%s: %pBD(%s) pi from %s %p in holddown",
-						   __func__, dest, bgp->name_pretty,
+					zlog_debug("%s: (%s:%u:%u)%pBD pi from %s %p in holddown",
+						   __func__, dv.name, dv.id, dv.table_id, dest,
 						   look_thru->peer ? look_thru->peer->host
 								   : "Unknown",
 						   look_thru);
@@ -3792,9 +3838,8 @@ void bgp_best_selection(struct bgp *bgp, struct bgp_dest *dest,
 				if (!peer_established(
 					    look_thru->peer->connection)) {
 					if (debug)
-						zlog_debug("%s: %pBD(%s) non self peer %s not estab state",
-							   __func__, dest,
-							   bgp->name_pretty,
+						zlog_debug("%s: (%s:%u:%u)%pBD non self peer %s not estab state",
+							   __func__, dv.name, dv.id, dv.table_id, dest,
 							   look_thru->peer->host);
 
 					continue;
@@ -3915,15 +3960,15 @@ void bgp_best_selection(struct bgp *bgp, struct bgp_dest *dest,
 		bgp_path_info_path_with_addpath_rx_str(new_select, path_buf,
 						       sizeof(path_buf));
 		zlog_debug(
-			"%pBD(%s): After path selection, newbest is %s oldbest was %s",
-			dest, bgp->name_pretty, path_buf,
+			"(%s:%u:%u)%pBD: After path selection, newbest is %s oldbest was %s",
+			dv.name, dv.id, dv.table_id, dest, path_buf,
 			old_select ? old_select->peer->host : "NONE");
 	}
 
 	if (new_select) {
 		if (debug)
-			zlog_debug("%pBD(%s): %s is the bestpath, add to the multipath list", dest,
-				   bgp->name_pretty, path_buf);
+			zlog_debug("(%s:%u:%u)%pBD: %s is the bestpath, add to the multipath list",
+				   dv.name, dv.id, dv.table_id, dest, path_buf);
 		SET_FLAG(new_select->flags, BGP_PATH_MULTIPATH_NEW);
 		num_candidates++;
 	}
@@ -3960,8 +4005,8 @@ void bgp_best_selection(struct bgp *bgp, struct bgp_dest *dest,
 			if (paths_eq) {
 				if (debug)
 					zlog_debug(
-						"%pBD(%s): %s is equivalent to the bestpath, add to the multipath list",
-						dest, bgp->name_pretty,
+						"(%s:%u:%u)%pBD: %s is equivalent to the bestpath, add to the multipath list",
+						dv.name, dv.id, dv.table_id, dest,
 						path_buf);
 				SET_FLAG(pi->flags, BGP_PATH_MULTIPATH_NEW);
 				num_candidates++;
@@ -4340,6 +4385,11 @@ void bgp_process_main_one(struct bgp *bgp, struct bgp_dest *dest, afi_t afi, saf
 	struct bgp_path_info *old_select;
 	struct bgp_path_info_pair old_and_new;
 	int debug = 0;
+	struct bgp_debug_vrf dv = {
+		.name = "Unknown",
+		.id = VRF_UNKNOWN,
+		.table_id = 0,
+	};
 
 	/*
 	 * For default bgp instance, which is deleted i.e. marked hidden
@@ -4353,10 +4403,12 @@ void bgp_process_main_one(struct bgp *bgp, struct bgp_dest *dest, afi_t afi, saf
 	if (BGP_INSTANCE_HIDDEN_DELETE_IN_PROGRESS(bgp, afi, safi)) {
 		if (dest)
 			debug = bgp_debug_bestpath(dest);
-		if (debug)
+		if (debug) {
+			dv = bgp_dest_debug_vrf(dest);
 			zlog_debug(
-				"%s: bgp delete in progress, ignoring event, p=%pBD(%s)",
-				__func__, dest, bgp->name_pretty);
+				"%s: bgp delete in progress, ignoring event, p=(%s:%u:%u)%pBD",
+				__func__, dv.name, dv.id, dv.table_id, dest);
+		}
 		return;
 	}
 	/* Is it end of initial update? (after startup) */
@@ -4394,8 +4446,10 @@ void bgp_process_main_one(struct bgp *bgp, struct bgp_dest *dest, afi_t afi, saf
 
 	debug = bgp_debug_bestpath(dest);
 	if (debug)
-		zlog_debug("%s: p=%pBD(%s) afi=%s, safi=%s start", __func__,
-			   dest, bgp->name_pretty, afi2str(afi),
+		dv = bgp_dest_debug_vrf(dest);
+	if (debug)
+		zlog_debug("%s: p=(%s:%u:%u)%pBD afi=%s, safi=%s start", __func__,
+			   dv.name, dv.id, dv.table_id, dest, afi2str(afi),
 			   safi2str(safi));
 
 	/* The best path calculation for the route is deferred if
@@ -4432,8 +4486,8 @@ void bgp_process_main_one(struct bgp *bgp, struct bgp_dest *dest, afi_t afi, saf
 
 	if (debug)
 		zlog_debug(
-			"%s: p=%pBD(%s) afi=%s, safi=%s, old_select=%p, new_select=%p",
-			__func__, dest, bgp->name_pretty, afi2str(afi),
+			"%s: p=(%s:%u:%u)%pBD afi=%s, safi=%s, old_select=%p, new_select=%p",
+			__func__, dv.name, dv.id, dv.table_id, dest, afi2str(afi),
 			safi2str(safi), old_select, new_select);
 
 	/* If best route remains the same and this is not due to user-initiated
@@ -4522,8 +4576,8 @@ void bgp_process_main_one(struct bgp *bgp, struct bgp_dest *dest, afi_t afi, saf
 		bgp_path_info_unset_flag(dest, old_select, BGP_PATH_SELECTED);
 	if (new_select) {
 		if (debug)
-			zlog_debug("%s: %pBD(%s) setting SELECTED flag", __func__, dest,
-				   bgp->name_pretty);
+			zlog_debug("%s: (%s:%u:%u)%pBD setting SELECTED flag", __func__,
+				   dv.name, dv.id, dv.table_id, dest);
 		bgp_path_info_set_flag(dest, new_select, BGP_PATH_SELECTED);
 		bgp_path_info_unset_flag(dest, new_select,
 					 BGP_PATH_ATTR_CHANGED);
@@ -4685,11 +4739,15 @@ void bgp_dest_increment_gr_fib_install_pending_count(struct bgp_dest *dest)
 	if (BGP_SUPPRESS_FIB_ENABLED(bgp) && bgp->gr_route_sync_pending &&
 	    !CHECK_FLAG(dest->flags, BGP_NODE_FIB_INSTALL_PENDING)) {
 		bgp->gr_info[afi][safi].gr_route_fib_install_pending_cnt++;
-		if (BGP_DEBUG(graceful_restart, GRACEFUL_RESTART))
-			zlog_debug("%s: GR route FIB install count incremented to %u for %s (prefix: %pBD)",
+		if (BGP_DEBUG(graceful_restart, GRACEFUL_RESTART)) {
+			struct bgp_debug_vrf dv = bgp_dest_debug_vrf(dest);
+
+			zlog_debug("%s: GR route FIB install count incremented to %u for %s (prefix: (%s:%u:%u)%pBD)",
 				   bgp->name_pretty,
 				   bgp->gr_info[afi][safi].gr_route_fib_install_pending_cnt,
-				   get_afi_safi_str(afi, safi, false), dest);
+				   get_afi_safi_str(afi, safi, false), dv.name, dv.id,
+				   dv.table_id, dest);
+		}
 	}
 }
 
@@ -4713,11 +4771,15 @@ void bgp_dest_decrement_gr_fib_install_pending_count(struct bgp_dest *dest)
 	    CHECK_FLAG(dest->flags, BGP_NODE_FIB_INSTALL_PENDING) &&
 	    bgp->gr_info[afi][safi].gr_route_fib_install_pending_cnt > 0) {
 		bgp->gr_info[afi][safi].gr_route_fib_install_pending_cnt--;
-		if (BGP_DEBUG(graceful_restart, GRACEFUL_RESTART))
-			zlog_debug("%s: GR route FIB install count decremented to %u for %s (prefix: %pBD)",
+		if (BGP_DEBUG(graceful_restart, GRACEFUL_RESTART)) {
+			struct bgp_debug_vrf dv = bgp_dest_debug_vrf(dest);
+
+			zlog_debug("%s: GR route FIB install count decremented to %u for %s (prefix: (%s:%u:%u)%pBD)",
 				   bgp->name_pretty,
 				   bgp->gr_info[afi][safi].gr_route_fib_install_pending_cnt,
-				   get_afi_safi_str(afi, safi, false), dest);
+				   get_afi_safi_str(afi, safi, false), dv.name, dv.id,
+				   dv.table_id, dest);
+		}
 	}
 
 	/* Check if graceful restart deferral completion is needed */
@@ -5072,10 +5134,10 @@ static void process_subq_early_route(struct bgp_dest *dest)
 	struct bgp_table *table = bgp_dest_table(dest);
 
 	if (bgp_debug_bestpath(dest)) {
-		struct bgp *bgp = table->bgp;
+		struct bgp_debug_vrf dv = bgp_debug_vrf_get(table->bgp);
 
-		zlog_debug("%pBD(%s) dequeued from sub-queue %s", dest, bgp->name_pretty,
-			   subqueue2str(META_QUEUE_EARLY_ROUTE));
+		zlog_debug("(%s:%u:%u)%pBD dequeued from sub-queue %s", dv.name, dv.id,
+			   dv.table_id, dest, subqueue2str(META_QUEUE_EARLY_ROUTE));
 	}
 
 	/* note, new DESTs may be added as part of processing */
@@ -5092,10 +5154,10 @@ static void process_subq_other_route(struct bgp_dest *dest)
 	struct bgp_table *table = bgp_dest_table(dest);
 
 	if (bgp_debug_bestpath(dest)) {
-		struct bgp *bgp = table->bgp;
+		struct bgp_debug_vrf dv = bgp_debug_vrf_get(table->bgp);
 
-		zlog_debug("%pBD(%s) dequeued from sub-queue %s", dest, bgp->name_pretty,
-			   subqueue2str(META_QUEUE_OTHER_ROUTE));
+		zlog_debug("(%s:%u:%u)%pBD dequeued from sub-queue %s", dv.name, dv.id,
+			   dv.table_id, dest, subqueue2str(META_QUEUE_OTHER_ROUTE));
 	}
 
 	/* note, new DESTs may be added as part of processing */
@@ -5196,11 +5258,10 @@ static int early_route_meta_queue_add(struct meta_queue *mq, void *data)
 	struct bgp_dest *dest = data;
 
 	if (bgp_debug_bestpath(dest)) {
-		struct bgp_table *table = bgp_dest_table(dest);
-		struct bgp *bgp = table->bgp;
+		struct bgp_debug_vrf dv = bgp_dest_debug_vrf(dest);
 
-		zlog_debug("%pBD(%s) queued into sub-queue %s", dest, bgp->name_pretty,
-			   subqueue2str(qindex));
+		zlog_debug("(%s:%u:%u)%pBD queued into sub-queue %s", dv.name, dv.id,
+			   dv.table_id, dest, subqueue2str(qindex));
 	}
 
 	assert(STAILQ_NEXT(dest, pq) == NULL);
@@ -5215,11 +5276,10 @@ static int other_route_meta_queue_add(struct meta_queue *mq, void *data)
 	struct bgp_dest *dest = data;
 
 	if (bgp_debug_bestpath(dest)) {
-		struct bgp_table *table = bgp_dest_table(dest);
-		struct bgp *bgp = table->bgp;
+		struct bgp_debug_vrf dv = bgp_dest_debug_vrf(dest);
 
-		zlog_debug("%pBD(%s) queued into sub-queue %s", dest, bgp->name_pretty,
-			   subqueue2str(qindex));
+		zlog_debug("(%s:%u:%u)%pBD queued into sub-queue %s", dv.name, dv.id,
+			   dv.table_id, dest, subqueue2str(qindex));
 	}
 
 	assert(STAILQ_NEXT(dest, pq) == NULL);
@@ -5440,9 +5500,12 @@ static void bgp_process_internal(struct bgp *bgp, struct bgp_dest *dest,
 	}
 
 	if (CHECK_FLAG(dest->flags, BGP_NODE_NHT_RESOLVED_NODE)) {
-		if (BGP_DEBUG(update, UPDATE_OUT))
-			zlog_debug("Early route processing triggered by NHT for route %pBD",
-				   dest);
+		if (BGP_DEBUG(update, UPDATE_OUT)) {
+			struct bgp_debug_vrf dv = bgp_dest_debug_vrf(dest);
+
+			zlog_debug("Early route processing triggered by NHT for route (%s:%u:%u)%pBD",
+				   dv.name, dv.id, dv.table_id, dest);
+		}
 		early_process = true;
 	}
 
@@ -8000,7 +8063,11 @@ static struct bgp_dest *clearing_dest_helper(struct bgp_table *table,
 
 			zlog_debug("%s: returns RD dest %s (%p)", __func__, buf, dest);
 		} else {
-			zlog_debug("%s: returns dest %pBD", __func__, dest);
+			struct bgp_debug_vrf dv = dest ? bgp_dest_debug_vrf(dest)
+							     : bgp_debug_vrf_get(table->bgp);
+
+			zlog_debug("%s: returns dest (%s:%u:%u)%pBD", __func__, dv.name, dv.id,
+				   dv.table_id, dest);
 		}
 	}
 
@@ -8048,9 +8115,12 @@ static int walk_batch_table_helper(struct bgp_clearing_info *cinfo,
 	UNSET_FLAG(cinfo->flags, (BGP_CLEARING_INFO_FLAG_RESUME |
 				  BGP_CLEARING_INFO_FLAG_INNER));
 
-	if (BGP_DEBUG(neighbor_events, NEIGHBOR_EVENTS_DETAIL))
-		zlog_debug("%s: table %s/%s, dest %pBD", __func__, afi2str(table->afi),
-			   safi2str(table->safi), dest);
+	if (BGP_DEBUG(neighbor_events, NEIGHBOR_EVENTS_DETAIL)) {
+		struct bgp_debug_vrf dv = bgp_debug_vrf_get(table->bgp);
+
+		zlog_debug("%s: table %s/%s, (%s:%u:%u)%pBD", __func__, afi2str(table->afi),
+			   safi2str(table->safi), dv.name, dv.id, dv.table_id, dest);
+	}
 
 	if (dest == NULL) {
 		/* Nothing more to do for this table? */

@@ -1252,12 +1252,20 @@ static struct bgp_path_info *leak_update(struct bgp *to_bgp, struct bgp_dest *bn
 	struct bgp *bgp_nexthop;
 	bool labelssame;
 	uint8_t i;
+	struct bgp_debug_vrf dv = {
+		.name = "Unknown",
+		.id = VRF_UNKNOWN,
+		.table_id = 0,
+	};
+
+	if (debug)
+		dv = bgp_dest_debug_vrf(bn);
 
 	if (debug)
 		zlog_debug(
-			"%s: entry: leak-to=%s, p=%pBD, type=%d, sub_type=%d",
-			__func__, to_bgp->name_pretty, bn, source_bpi->type,
-			source_bpi->sub_type);
+			"%s: entry: leak-to=%s, p=(%s:%u:%u)%pBD, type=%d, sub_type=%d",
+			__func__, to_bgp->name_pretty, dv.name, dv.id, dv.table_id, bn,
+			source_bpi->type, source_bpi->sub_type);
 
 	/*
 	 * Routes that are redistributed into BGP from zebra do not get
@@ -1341,8 +1349,9 @@ static struct bgp_path_info *leak_update(struct bgp *to_bgp, struct bgp_dest *bn
 					      bgp_orig, p,
 					      debug) == !!CHECK_FLAG(bpi->flags, BGP_PATH_VALID)) {
 			if (debug)
-				zlog_debug("%s: ->%s: %pBD: Found route, no change", __func__,
-					   to_bgp->name_pretty, bn);
+				zlog_debug("%s: ->%s: (%s:%u:%u)%pBD: Found route, no change",
+					   __func__, to_bgp->name_pretty, dv.name, dv.id,
+					   dv.table_id, bn);
 			return NULL;
 		}
 
@@ -1409,8 +1418,9 @@ static struct bgp_path_info *leak_update(struct bgp *to_bgp, struct bgp_dest *bn
 		bgp_process(to_bgp, bn, bpi, afi, safi);
 
 		if (debug)
-			zlog_debug("%s: ->%s: %pBD Found route, changed attr",
-				   __func__, to_bgp->name_pretty, bn);
+			zlog_debug("%s: ->%s: (%s:%u:%u)%pBD Found route, changed attr",
+				   __func__, to_bgp->name_pretty, dv.name, dv.id, dv.table_id,
+				   bn);
 
 		bgp_dest_unlock_node(bn);
 
@@ -1484,8 +1494,8 @@ static struct bgp_path_info *leak_update(struct bgp *to_bgp, struct bgp_dest *bn
 	bgp_process(to_bgp, bn, new, afi, safi);
 
 	if (debug)
-		zlog_debug("%s: ->%s: %pBD: Added new route", __func__,
-			   to_bgp->name_pretty, bn);
+		zlog_debug("%s: ->%s: (%s:%u:%u)%pBD: Added new route", __func__,
+			   to_bgp->name_pretty, dv.name, dv.id, dv.table_id, bn);
 
 	bgp_dest_unlock_node(bn);
 
@@ -2169,10 +2179,12 @@ void vpn_leak_from_vrf_withdraw(struct bgp *to_bgp,		/* to */
 	const char *debugmsg;
 
 	if (debug) {
+		struct bgp_debug_vrf dv = bgp_dest_debug_vrf(path_vrf->net);
+
 		zlog_debug(
-			"%s: entry: leak-from=%s, p=%pBD, type=%d, sub_type=%d",
-			__func__, from_bgp->name_pretty, path_vrf->net,
-			path_vrf->type, path_vrf->sub_type);
+			"%s: entry: leak-from=%s, p=(%s:%u:%u)%pBD, type=%d, sub_type=%d",
+			__func__, from_bgp->name_pretty, dv.name, dv.id, dv.table_id,
+			path_vrf->net, path_vrf->type, path_vrf->sub_type);
 	}
 
 	if (!to_bgp)
@@ -2259,8 +2271,10 @@ void vpn_leak_from_vrf_withdraw_all(struct bgp *to_bgp, struct bgp *from_bgp,
 		for (bn = bgp_table_top(table); bn; bn = bgp_route_next(bn)) {
 			bpi = bgp_dest_get_bgp_path_info(bn);
 			if (debug && bpi) {
-				zlog_debug("%s: looking at prefix %pBD",
-					   __func__, bn);
+				struct bgp_debug_vrf dv = bgp_dest_debug_vrf(bn);
+
+				zlog_debug("%s: looking at prefix (%s:%u:%u)%pBD", __func__,
+					   dv.name, dv.id, dv.table_id, bn);
 			}
 
 			for (; (bpi != NULL) && (next = bpi->next, 1);
@@ -2658,12 +2672,15 @@ static void vpn_leak_to_vrf_update_onevrf(struct bgp *to_bgp,	/* to */
 			num_labels = BGP_PATH_INFO_NUM_LABELS(bpi_ultimate);
 			label_pnt = num_labels ? bpi_ultimate->extra->labels->label : NULL;
 			labels_are_evpn = true;
-			if (debug)
-				zlog_debug("%s: VRF leak %pBD from %s to %s: copying D-VNI %u (source L3VNI %u)",
-					   __func__, path_vpn->net, src_vrf->name_pretty,
-					   to_bgp->name_pretty,
+			if (debug) {
+				struct bgp_debug_vrf dv = bgp_dest_debug_vrf(path_vpn->net);
+
+				zlog_debug("%s: VRF leak (%s:%u:%u)%pBD from %s to %s: copying D-VNI %u (source L3VNI %u)",
+					   __func__, dv.name, dv.id, dv.table_id, path_vpn->net,
+					   src_vrf->name_pretty, to_bgp->name_pretty,
 					   bgp_evpn_path_info_get_l3vni(bpi_ultimate),
 					   src_vrf->l3vni);
+			}
 		}
 	} else {
 		/*
@@ -2683,9 +2700,12 @@ static void vpn_leak_to_vrf_update_onevrf(struct bgp *to_bgp,	/* to */
 		label_pnt = num_labels ? path_vpn->extra->labels->label : NULL;
 	}
 
-	if (debug)
-		zlog_debug("%s: pfx %pBD: num_labels %d", __func__,
-			   path_vpn->net, num_labels);
+	if (debug) {
+		struct bgp_debug_vrf dv = bgp_dest_debug_vrf(path_vpn->net);
+
+		zlog_debug("%s: pfx (%s:%u:%u)%pBD: num_labels %d", __func__, dv.name, dv.id,
+			   dv.table_id, path_vpn->net, num_labels);
+	}
 
 	if (!leak_update(to_bgp, bn, &static_attr, afi, safi, path_vpn, label_pnt, num_labels,
 			 labels_are_evpn, src_vrf, &nexthop_orig, nexthop_self_flag, debug,
@@ -2774,9 +2794,13 @@ void vpn_leak_to_vrf_withdraw(struct bgp_path_info *path_vpn)
 
 	int debug = BGP_DEBUG(vpn, VPN_LEAK_TO_VRF);
 
-	if (debug)
-		zlog_debug("%s: entry: p=%pBD, type=%d, sub_type=%d", __func__,
-			   path_vpn->net, path_vpn->type, path_vpn->sub_type);
+	if (debug) {
+		struct bgp_debug_vrf dv = bgp_dest_debug_vrf(path_vpn->net);
+
+		zlog_debug("%s: entry: p=(%s:%u:%u)%pBD, type=%d, sub_type=%d", __func__,
+			   dv.name, dv.id, dv.table_id, path_vpn->net, path_vpn->type,
+			   path_vpn->sub_type);
+	}
 
 	if (debug)
 		zlog_debug("%s: start (path_vpn=%p)", __func__, path_vpn);
