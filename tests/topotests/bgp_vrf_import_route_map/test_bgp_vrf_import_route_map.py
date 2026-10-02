@@ -29,13 +29,14 @@ sys.path.append(os.path.join(CWD, "../"))
 from lib import topotest
 from lib.topogen import Topogen, TopoRouter, get_topogen
 from lib.common_config import (
-    step,
     apply_raw_config,
+    check_address_types,
     create_interface_in_kernel,
     create_route_maps,
-    check_address_types,
-    reset_config_on_routers,
     required_linux_kernel_version,
+    reset_config_on_routers,
+    shutdown_bringup_interface_in_kernel,
+    step,
 )
 from lib.bgp import verify_bgp_rib
 
@@ -63,17 +64,17 @@ def setup_module(mod):
     # Create VRFs in Linux namespace before loading configurations
     r1 = tgen.gears["r1"]
     r1.cmd_raises("ip link add vrf1 type vrf table 10")
-    r1.cmd_raises("ip link set up dev vrf1")
+    shutdown_bringup_interface_in_kernel(r1.tgen, r1.name, "vrf1", True)
     r1.cmd_raises("ip link add vrf2 type vrf table 20")
-    r1.cmd_raises("ip link set up dev vrf2")
+    shutdown_bringup_interface_in_kernel(r1.tgen, r1.name, "vrf2", True)
     create_interface_in_kernel(tgen, "r1", "r1-eth1", vrf="vrf1")
     create_interface_in_kernel(tgen, "r1", "r1-eth2", vrf="vrf2")
     
     r2 = tgen.gears["r2"]
     r2.cmd_raises("ip link add vrf3 type vrf table 30")
-    r2.cmd_raises("ip link set up dev vrf3")
+    shutdown_bringup_interface_in_kernel(r2.tgen, r2.name, "vrf3", True)
     r2.cmd_raises("ip link add vrf4 type vrf table 40")
-    r2.cmd_raises("ip link set up dev vrf4")
+    shutdown_bringup_interface_in_kernel(r2.tgen, r2.name, "vrf4", True)
     create_interface_in_kernel(tgen, "r2", "r2-eth1", vrf="vrf3")
     create_interface_in_kernel(tgen, "r2", "r2-eth2", vrf="vrf4")
 

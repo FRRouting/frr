@@ -55,6 +55,7 @@ from lib.bgpcheck import (
 from lib.topogen import Topogen, TopoRouter, get_topogen
 from lib.topolog import logger
 from lib.checkping import check_ping
+from lib.common_config import shutdown_bringup_interface_in_kernel
 
 
 # Required to instantiate the topology builder class.
@@ -107,16 +108,21 @@ def _populate_iface():
     cmds_list = [
         "ip link add vrf1 type vrf table 10",
         "echo 100000 > /proc/sys/net/mpls/platform_labels",
-        "ip link set dev vrf1 up",
+        ("up", "vrf1"),
         "ip link set dev {0}-eth1 master vrf1",
         "echo 1 > /proc/sys/net/mpls/conf/{0}-eth0/input",
     ]
 
     for rname in ("r1", "r3"):
         for cmd in cmds_list:
-            input = cmd.format(rname)
+            if isinstance(cmd, tuple):
+                shutdown_bringup_interface_in_kernel(
+                    tgen, rname, cmd[1].format(rname), cmd[0] == "up"
+                )
+                continue
+            formatted = cmd.format(rname)
             logger.info("input: " + cmd)
-            output = tgen.net[rname].cmd(cmd.format(rname))
+            output = tgen.net[rname].cmd(formatted)
             logger.info("output: " + output)
 
     cmds_list = [

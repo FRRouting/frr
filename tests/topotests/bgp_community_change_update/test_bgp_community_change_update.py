@@ -41,7 +41,7 @@ sys.path.append(os.path.join(CWD, "../"))
 from lib import topotest
 from lib.topogen import Topogen, TopoRouter, get_topogen
 
-from lib.common_config import step
+from lib.common_config import step, shutdown_bringup_interface_in_kernel
 from time import sleep
 
 pytestmark = [pytest.mark.bgpd]
@@ -145,7 +145,12 @@ def test_bgp_community_update_path_change():
     dup_before = _bgp_get_dup_count()
 
     step("Disable link between y1 and y2")
-    tgen.gears["y1"].run("ip link set dev y1-eth1 down")
+    shutdown_bringup_interface_in_kernel(
+        tgen.gears['y1'].tgen,
+        tgen.gears['y1'].name,
+        "y1-eth1",
+        False,
+    )
 
     def _bgp_converge_link_disabled():
         output = json.loads(tgen.gears["y1"].vtysh_cmd("show ip bgp nei 10.0.3.2 json"))
@@ -172,7 +177,12 @@ def test_bgp_community_update_path_change():
     dup_before = _bgp_get_dup_count()
 
     step("Enable link between y1 and y2")
-    tgen.gears["y1"].run("ip link set dev y1-eth1 up")
+    shutdown_bringup_interface_in_kernel(
+        tgen.gears['y1'].tgen,
+        tgen.gears['y1'].name,
+        "y1-eth1",
+        True,
+    )
 
     def _bgp_converge_link_enabled():
         output = json.loads(tgen.gears["y1"].vtysh_cmd("show ip bgp nei 10.0.3.2 json"))

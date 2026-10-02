@@ -48,6 +48,7 @@ sys.path.append(os.path.join(CWD, "../"))
 # pylint: disable=C0413
 from lib import topotest
 from lib.topogen import Topogen, get_topogen
+from lib.common_config import shutdown_bringup_interface_in_kernel
 
 pytestmark = [pytest.mark.bgpd]
 
@@ -431,7 +432,7 @@ def test_bgp_advertisement_delay_vrf_without_peers():
     r2 = tgen.gears["r2"]
 
     r2.run("ip link add vrf-quiet type vrf table 1010")
-    r2.run("ip link set vrf-quiet up")
+    shutdown_bringup_interface_in_kernel(r2.tgen, r2.name, "vrf-quiet", True)
 
     r2.vtysh_cmd(
         """

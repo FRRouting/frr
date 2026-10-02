@@ -16,7 +16,7 @@ sys.path.append(os.path.join(CWD, "../"))
 # pylint: disable=C0413
 from lib import topotest
 from lib.topogen import Topogen, TopoRouter, get_topogen
-from lib.common_config import step
+from lib.common_config import step, shutdown_bringup_interface_in_kernel
 from lib.topolog import logger
 
 pytestmark = [pytest.mark.bgpd, pytest.mark.staticd]
@@ -59,7 +59,12 @@ def setup_module(mod):
         )
 
     tgen.gears["r2"].run("ip link add vrf10 type vrf table 10")
-    tgen.gears["r2"].run("ip link set vrf10 up")
+    shutdown_bringup_interface_in_kernel(
+        tgen.gears['r2'].tgen,
+        tgen.gears['r2'].name,
+        "vrf10",
+        True,
+    )
 
     tgen.gears["r2"].run("ip link set r2-eth1 master vrf10")
 
