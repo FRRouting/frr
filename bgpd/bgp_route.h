@@ -20,6 +20,21 @@ struct bgp_nexthop_cache;
 struct bgp_route_evpn;
 struct bgp_unreach_nlri;
 
+/*
+ * VRF name, id, and kernel table id for debug output of the form
+ * (%s:%u:%u)%pBD. Call only from a debug path: resolving the VRF walks
+ * the VRF hash. BGP views have no VRF; the printable instance name is
+ * used and the table id is 0.
+ */
+struct bgp_debug_vrf {
+	const char *name;
+	vrf_id_t id;
+	uint32_t table_id;
+};
+
+extern struct bgp_debug_vrf bgp_debug_vrf_get(struct bgp *bgp);
+extern struct bgp_debug_vrf bgp_dest_debug_vrf(struct bgp_dest *dest);
+
 enum bgp_show_type {
 	bgp_show_type_normal,
 	bgp_show_type_regexp,

@@ -1549,16 +1549,21 @@ void evaluate_paths(struct bgp_nexthop_cache *bnc)
 			if (bgp_update_martian_nexthop(
 				    bnc->bgp, afi, safi, path->type,
 				    path->sub_type, path->attr, dest)) {
-				if (BGP_DEBUG(nht, NHT))
+				if (BGP_DEBUG(nht, NHT)) {
+					struct bgp_debug_vrf dv = bgp_dest_debug_vrf(dest);
+
 					zlog_debug(
-						"%s: prefix %pBD (vrf %s), ignoring path due to martian or self-next-hop",
-						__func__, dest, bgp_path->name);
+						"%s: prefix (%s:%u:%u)%pBD (vrf %s), ignoring path due to martian or self-next-hop",
+						__func__, dv.name, dv.id, dv.table_id, dest,
+						bgp_path->name);
+				}
 			} else
 				bnc_is_valid_nexthop =
 					bgp_isvalid_nexthop(bnc) ? true : false;
 		}
 
 		if (BGP_DEBUG(nht, NHT)) {
+			struct bgp_debug_vrf dv = bgp_dest_debug_vrf(dest);
 
 			if (dest->pdest) {
 				char rd_buf[RD_ADDRSTRLEN];
@@ -1569,14 +1574,14 @@ void evaluate_paths(struct bgp_nexthop_cache *bnc)
 					rd_buf, sizeof(rd_buf),
 					bgp_get_asnotation(bnc->bgp));
 				zlog_debug(
-					"... eval path %d/%d %pBD RD %s %s flags 0x%x",
-					afi, safi, dest, rd_buf,
+					"... eval path %d/%d (%s:%u:%u)%pBD RD %s %s flags 0x%x",
+					afi, safi, dv.name, dv.id, dv.table_id, dest, rd_buf,
 					bgp_path->name_pretty, path->flags);
 			} else
 				zlog_debug(
-					"... eval path %d/%d %pBD %s flags 0x%x",
-					afi, safi, dest, bgp_path->name_pretty,
-					path->flags);
+					"... eval path %d/%d (%s:%u:%u)%pBD %s flags 0x%x",
+					afi, safi, dv.name, dv.id, dv.table_id, dest,
+					bgp_path->name_pretty, path->flags);
 		}
 
 		/* Skip paths marked for removal or as history. */

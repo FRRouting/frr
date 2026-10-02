@@ -1744,9 +1744,12 @@ int evpn_route_select_install(struct bgp *bgp, struct bgpevpn *vpn,
 	 * the workqueue
 	 */
 	if (CHECK_FLAG(dest->flags, BGP_NODE_SELECT_DEFER)) {
-		if (BGP_DEBUG(graceful_restart, GRACEFUL_RESTART))
-			zlog_debug("%s: SELECT_DEFER flag set for EVPN route %pBD, dest %p",
-				   bgp->name_pretty, dest, dest);
+		if (BGP_DEBUG(graceful_restart, GRACEFUL_RESTART)) {
+			struct bgp_debug_vrf dv = bgp_dest_debug_vrf(dest);
+
+			zlog_debug("%s: SELECT_DEFER flag set for EVPN route (%s:%u:%u)%pBD, dest %p",
+				   bgp->name_pretty, dv.name, dv.id, dv.table_id, dest, dest);
+		}
 
 		return ret;
 	}
@@ -2510,9 +2513,12 @@ evpn_cleanup_local_non_best_route(struct bgp *bgp, struct bgpevpn *vpn,
 				  struct bgp_path_info *local_pi)
 {
 	/* local path was not picked as the winner; kick it out */
-	if (bgp_debug_zebra(NULL))
-		zlog_debug("evicting local evpn prefix %pBD as remote won",
-			   dest);
+	if (bgp_debug_zebra(NULL)) {
+		struct bgp_debug_vrf dv = bgp_dest_debug_vrf(dest);
+
+		zlog_debug("evicting local evpn prefix (%s:%u:%u)%pBD as remote won", dv.name,
+			   dv.id, dv.table_id, dest);
+	}
 
 	evpn_delete_old_local_route(bgp, vpn, dest, local_pi, NULL);
 
@@ -7908,14 +7914,16 @@ void bgp_reimport_evpn_routes_upon_macvrf_soo_change(struct bgp *bgp,
 				if (old_soo_fnd && !new_soo_fnd) {
 					if (bgp_debug_update(pi->peer, p, NULL,
 							     1)) {
+						struct bgp_debug_vrf dv = bgp_dest_debug_vrf(dest);
 						char attr_str[BUFSIZ] = {0};
 
 						bgp_dump_attr(pi->attr,
 							      attr_str, BUFSIZ);
 
 						zlog_debug(
-							"mac-vrf soo changed: evaluating reimport of prefix %pBD with attr %s",
-							dest, attr_str);
+							"mac-vrf soo changed: evaluating reimport of prefix (%s:%u:%u)%pBD with attr %s",
+							dv.name, dv.id, dv.table_id, dest,
+							attr_str);
 					}
 
 					bgp_evpn_import_route(bgp, afi, safi, p,
@@ -7962,9 +7970,13 @@ static void bgp_evpn_log_martian_discard(struct bgp *bgp, struct bgp_path_info *
 	bgp_dump_attr(pi->attr, attr_str, sizeof(attr_str));
 	prefix2str(p, prefix_str, sizeof(prefix_str));
 
-	if (bgp_debug_update(pi->peer, p, NULL, 1))
-		zlog_debug("%u: prefix %pBD with attr %s - DISCARDED due to Martian/%s",
-			   bgp->vrf_id, dest, attr_str, bgp_martian_type2str(martian_type));
+	if (bgp_debug_update(pi->peer, p, NULL, 1)) {
+		struct bgp_debug_vrf dv = bgp_dest_debug_vrf(dest);
+
+		zlog_debug("(%s:%u:%u)%pBD with attr %s - DISCARDED due to Martian/%s", dv.name,
+			   dv.id, dv.table_id, dest, attr_str,
+			   bgp_martian_type2str(martian_type));
+	}
 
 	frrtrace(4, frr_bgp, upd_attr_discarded_due_to_martian, bgp->vrf_id, prefix_str, attr_str,
 		 bgp_martian_type2str(martian_type));
