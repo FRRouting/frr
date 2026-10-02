@@ -153,7 +153,9 @@ Route Map Match Command
 
 .. clicmd:: match ip next-hop ACCESS_LIST
 
-   Match the next-hop according to the given access-list.
+   Match the next-hop according to the given access-list. In BGP, EVPN
+   routes with an IPv4 next-hop are matched on their BGP next-hop, normally
+   the VTEP address.
 
 .. clicmd:: match ip next-hop address IPV4_ADDR
 
@@ -161,7 +163,9 @@ Route Map Match Command
 
 .. clicmd:: match ip next-hop prefix-list PREFIX_LIST
 
-   Match the next-hop according to the given prefix-list.
+   Match the next-hop according to the given prefix-list. In BGP, EVPN
+   routes with an IPv4 next-hop are matched on their BGP next-hop, normally
+   the VTEP address.
 
 .. clicmd:: match ipv6 next-hop ACCESS_LIST
 
