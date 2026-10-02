@@ -133,6 +133,30 @@ void eigrp_prefix_descriptor_add(struct route_table *topology,
 /*
  * Adding topology entry to topology node
  */
+/*
+ * Find the descriptor a given source contributes to this prefix.
+ *
+ * A descriptor is identified by where the route came from: the advertising
+ * neighbour and the interface instance it arrived on or is connected to.
+ * The neighbour alone is not enough for connected routes -- they all carry
+ * eigrp->neighbor_self, so two interfaces in one subnet would be
+ * indistinguishable.
+ */
+struct eigrp_route_descriptor *
+eigrp_route_descriptor_lookup_ei(struct eigrp_prefix_descriptor *node,
+				 struct eigrp_neighbor *adv_router,
+				 struct eigrp_interface *ei)
+{
+	struct eigrp_route_descriptor *entry;
+	struct listnode *node2;
+
+	for (ALL_LIST_ELEMENTS_RO(node->entries, node2, entry))
+		if (entry->adv_router == adv_router && entry->ei == ei)
+			return entry;
+
+	return NULL;
+}
+
 void eigrp_route_descriptor_add(struct eigrp *eigrp,
 				struct eigrp_prefix_descriptor *node,
 				struct eigrp_route_descriptor *entry)
