@@ -1131,6 +1131,7 @@ static bool leak_update_nexthop_valid(struct bgp *to_bgp, struct bgp_dest *bn,
 	struct bgp *bgp_nexthop;
 	struct bgp_table *table;
 	bool nh_valid;
+	char buff[10] = {};
 
 	bpi_ultimate = bgp_get_imported_bpi_ultimate(source_bpi);
 	table = bgp_dest_table(bpi_ultimate->net);
@@ -1190,10 +1191,16 @@ static bool leak_update_nexthop_valid(struct bgp *to_bgp, struct bgp_dest *bn,
 	    nh_valid)
 		nh_valid = is_pi_srv6_valid(bpi, bgp_nexthop, afi, safi);
 
-	if (debug)
-		zlog_debug("%s: %pFX nexthop is %svalid (in %s)", __func__, p,
-			   (nh_valid ? "" : "not "), bgp_nexthop->name_pretty);
+	if (debug) {
+		if (bpi->attr->srv6_l3service || bpi->attr->srv6_vpn)
+			snprintf(buff, sizeof(buff), " srv6");
+		else if (!bpi->attr->srv6_l3service && BGP_PATH_INFO_NUM_LABELS(bpi) == 1 &&
+			 decode_label(&bpi->extra->labels->label[0]) != MPLS_LABEL_NONE)
+			snprintf(buff, sizeof(buff), " mpls");
 
+		zlog_debug("%s: %pFX nexthop%s is %svalid (in %s)", __func__, p, buff,
+			   (nh_valid ? "" : "not "), bgp_nexthop->name_pretty);
+	}
 	return nh_valid;
 }
 
