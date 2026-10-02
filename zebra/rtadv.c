@@ -32,6 +32,7 @@
 #include "zebra/zebra_vrf.h"
 #include "zebra/zebra_errors.h"
 #include "zebra/zebra_router.h"
+#include "zebra/zserv.h"
 
 extern struct zebra_privs_t zserv_privs;
 
@@ -883,6 +884,44 @@ static void rtadv_process_advert(uint8_t *msg, unsigned int len,
 		nbr_connected_add_ipv6(ifp, &addr->sin6_addr);
 }
 
+void zebra_send_peer_ll_confirmation(struct zserv *client, struct interface *ifp)
+{
+	struct stream *s;
+
+	if (!client || !ifp)
+		return;
+
+	s = stream_new(ZEBRA_SMALL_PACKET_SIZE);
+	zclient_create_header(s, ZEBRA_PEER_LL_CONFIRMATION, ifp->vrf->vrf_id);
+	stream_putl(s, ifp->ifindex);
+	stream_putw_at(s, 0, stream_get_endp(s));
+	zserv_send_message(client, s);
+}
+
+void zebra_send_peer_ll_confirmation_on_peer_ra(struct interface *ifp)
+{
+	struct zserv *client;
+	struct zebra_if *zif;
+
+	if (!ifp || !ifp->info)
+		return;
+
+	zif = ifp->info;
+	if (!CHECK_FLAG(zif->flags, ZIF_FLAG_STATIC_PEER_LL_WAITING))
+		return;
+
+	frr_each (zserv_client_list, &zrouter.client_list, client) {
+		if (client->synchronous)
+			continue;
+		if (client->proto != ZEBRA_ROUTE_STATIC)
+			continue;
+		zebra_send_peer_ll_confirmation(client, ifp);
+	}
+
+	SET_FLAG(zif->flags, ZIF_FLAG_STATIC_PEER_LL_CONFIRMED);
+	UNSET_FLAG(zif->flags, ZIF_FLAG_STATIC_PEER_LL_WAITING);
+}
+
 
 static void rtadv_process_packet(uint8_t *buf, unsigned int len,
 				 ifindex_t ifindex, int hoplimit,
@@ -946,8 +985,10 @@ static void rtadv_process_packet(uint8_t *buf, unsigned int len,
 	/* Check ICMP message type. */
 	if (icmph->icmp6_type == ND_ROUTER_SOLICIT)
 		rtadv_process_solicit(ifp);
-	else if (icmph->icmp6_type == ND_ROUTER_ADVERT)
+	else if (icmph->icmp6_type == ND_ROUTER_ADVERT) {
 		rtadv_process_advert(buf, len, ifp, from);
+		zebra_send_peer_ll_confirmation_on_peer_ra(ifp);
+	}
 
 	return;
 }
@@ -1574,6 +1615,17 @@ static void zebra_interface_radv_set(ZAPI_HANDLER_ARGS, int enable)
 
 	zif = ifp->info;
 	if (enable) {
+		if (client->proto == ZEBRA_ROUTE_STATIC) {
+			SET_FLAG(zif->flags, ZIF_FLAG_STATIC_PEER_LL_WAITING);
+			UNSET_FLAG(zif->flags, ZIF_FLAG_STATIC_PEER_LL_CONFIRMED);
+			ipv6_nd_suppress_ra_set(ifp, RA_ENABLE);
+			if (ra_interval &&
+			    (ra_interval * 1000) < (unsigned int)zif->rtadv.MaxRtrAdvInterval &&
+			    !CHECK_FLAG(zif->rtadv.ra_configured, VTY_RA_INTERVAL_CONFIGURED))
+				zif->rtadv.MaxRtrAdvInterval = ra_interval * 1000;
+			return;
+		}
+
 		if (!CHECK_FLAG(zif->rtadv.ra_configured, BGP_RA_CONFIGURED))
 			interfaces_configured_for_ra_from_bgp++;
 
@@ -1585,6 +1637,15 @@ static void zebra_interface_radv_set(ZAPI_HANDLER_ARGS, int enable)
 				   VTY_RA_INTERVAL_CONFIGURED))
 			zif->rtadv.MaxRtrAdvInterval = ra_interval * 1000;
 	} else {
+		if (client->proto == ZEBRA_ROUTE_STATIC) {
+			UNSET_FLAG(zif->flags, ZIF_FLAG_STATIC_PEER_LL_WAITING);
+			UNSET_FLAG(zif->flags, ZIF_FLAG_STATIC_PEER_LL_CONFIRMED);
+			if (!CHECK_FLAG(zif->rtadv.ra_configured, VTY_RA_CONFIGURED) &&
+			    !CHECK_FLAG(zif->rtadv.ra_configured, BGP_RA_CONFIGURED))
+				ipv6_nd_suppress_ra_set(ifp, RA_SUPPRESS);
+			return;
+		}
+
 		if (CHECK_FLAG(zif->rtadv.ra_configured, BGP_RA_CONFIGURED))
 			interfaces_configured_for_ra_from_bgp--;
 
