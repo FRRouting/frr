@@ -127,9 +127,10 @@ static void zebra_rnh_remove_from_routing_table(struct rnh *rnh)
 		return;
 
 	if (IS_ZEBRA_DEBUG_NHT_DETAILED)
-		zlog_debug("%s: %s(%u):%pRN removed from tracking on %pRN",
-			   __func__, VRF_LOGNAME(zvrf->vrf), rnh->vrf_id,
-			   rnh->node, rn);
+		zlog_debug("%s: (%s:%u:%u)%pRN removed from tracking on (%s:%u:%u)%pRN",
+			   __func__, zvrf_name(zvrf), rnh->vrf_id, zvrf->table_id,
+			   rnh->node, zvrf_name(zvrf), rnh->vrf_id, zvrf->table_id,
+			   rn);
 
 	dest = rib_dest_from_rnode(rn);
 	rnh_list_del(&dest->nht, rnh);
@@ -155,9 +156,10 @@ static void zebra_rnh_store_in_routing_table(struct rnh *rnh)
 		return;
 
 	if (IS_ZEBRA_DEBUG_NHT_DETAILED)
-		zlog_debug("%s: %s(%u):%pRN added for tracking on %pRN",
-			   __func__, VRF_LOGNAME(zvrf->vrf), rnh->vrf_id,
-			   rnh->node, rn);
+		zlog_debug("%s: (%s:%u:%u)%pRN added for tracking on (%s:%u:%u)%pRN",
+			   __func__, zvrf_name(zvrf), rnh->vrf_id, zvrf->table_id,
+			   rnh->node, zvrf_name(zvrf), rnh->vrf_id, zvrf->table_id,
+			   rn);
 
 	dest = rib_dest_from_rnode(rn);
 	rnh_list_add_tail(&dest->nht, rnh);
@@ -327,9 +329,10 @@ static void zebra_delete_rnh(struct rnh *rnh)
 
 	if (IS_ZEBRA_DEBUG_NHT) {
 		struct vrf *vrf = vrf_lookup_by_id(rnh->vrf_id);
+		struct zebra_vrf *zvrf = vrf ? vrf->info : NULL;
 
-		zlog_debug("%s(%u): Del RNH %pRN for client %s", VRF_LOGNAME(vrf), rnh->vrf_id,
-			   rnh->node,
+		zlog_debug("(%s:%u:%u)%pRN: Del RNH for client %s", VRF_LOGNAME(vrf),
+			   rnh->vrf_id, zvrf ? zvrf->table_id : 0, rnh->node,
 			   rnh->client ? zebra_route_string(rnh->client->proto) : "pseudowire");
 	}
 
@@ -363,10 +366,11 @@ void zebra_add_rnh_client(struct rnh *rnh, struct zserv *client,
 {
 	if (IS_ZEBRA_DEBUG_NHT) {
 		struct vrf *vrf = vrf_lookup_by_id(vrf_id);
+		struct zebra_vrf *zvrf = vrf ? vrf->info : NULL;
 
-		zlog_debug("%s(%u): Client %s registers for RNH %pRN",
-			   VRF_LOGNAME(vrf), vrf_id,
-			   zebra_route_string(client->proto), rnh->node);
+		zlog_debug("(%s:%u:%u)%pRN: Client %s registers for RNH",
+			   VRF_LOGNAME(vrf), vrf_id, zvrf ? zvrf->table_id : 0,
+			   rnh->node, zebra_route_string(client->proto));
 	}
 
 	/* Each rnh now has a single client, so just verify it matches */
@@ -383,10 +387,12 @@ void zebra_remove_rnh_client(struct rnh *rnh, struct zserv *client)
 {
 	if (IS_ZEBRA_DEBUG_NHT) {
 		struct vrf *vrf = vrf_lookup_by_id(rnh->vrf_id);
+		struct zebra_vrf *zvrf = vrf ? vrf->info : NULL;
 
-		zlog_debug("Client %s unregisters for RNH %s(%u)%pRN",
+		zlog_debug("Client %s unregisters for RNH (%s:%u:%u)%pRN",
 			   zebra_route_string(client->proto), VRF_LOGNAME(vrf),
-			   vrf ? vrf->vrf_id : rnh->vrf_id, rnh->node);
+			   vrf ? vrf->vrf_id : rnh->vrf_id,
+			   zvrf ? zvrf->table_id : 0, rnh->node);
 	}
 
 	/* Verify this is the right client */
@@ -557,12 +563,15 @@ static void zebra_rnh_notify_protocol_clients(struct zebra_vrf *zvrf, afi_t afi,
 
 	if (IS_ZEBRA_DEBUG_NHT) {
 		if (prn && re) {
-			zlog_debug("%s(%u):%pRN: NH resolved over route %pRN for client %s",
-				   VRF_LOGNAME(zvrf->vrf), zvrf->vrf->vrf_id, nrn, prn,
+			zlog_debug("(%s:%u:%u)%pRN: NH resolved over route (%s:%u:%u)%pRN for client %s",
+				   VRF_LOGNAME(zvrf->vrf), zvrf->vrf->vrf_id,
+				   zvrf->table_id, nrn, VRF_LOGNAME(zvrf->vrf),
+				   zvrf->vrf->vrf_id, zvrf->table_id, prn,
 				   zebra_route_string(client->proto));
 		} else
-			zlog_debug("%s(%u):%pRN: NH has become unresolved for client %s",
-				   VRF_LOGNAME(zvrf->vrf), zvrf->vrf->vrf_id, nrn,
+			zlog_debug("(%s:%u:%u)%pRN: NH has become unresolved for client %s",
+				   VRF_LOGNAME(zvrf->vrf), zvrf->vrf->vrf_id,
+				   zvrf->table_id, nrn,
 				   zebra_route_string(client->proto));
 	}
 
@@ -578,15 +587,17 @@ static void zebra_rnh_notify_protocol_clients(struct zebra_vrf *zvrf, afi_t afi,
 			rnh->filtered = true;
 
 		if (IS_ZEBRA_DEBUG_NHT)
-			zlog_debug("%s(%u):%pRN: Notifying client %s about NH %s",
-				   VRF_LOGNAME(zvrf->vrf), zvrf->vrf->vrf_id, nrn,
+			zlog_debug("(%s:%u:%u)%pRN: Notifying client %s about NH %s",
+				   VRF_LOGNAME(zvrf->vrf), zvrf->vrf->vrf_id,
+				   zvrf->table_id, nrn,
 				   zebra_route_string(client->proto),
 				   num_resolving_nh ? "" : "(filtered by route-map)");
 	} else {
 		rnh->filtered = false;
 		if (IS_ZEBRA_DEBUG_NHT)
-			zlog_debug("%s(%u):%pRN: Notifying client %s about NH (unreachable)",
-				   VRF_LOGNAME(zvrf->vrf), zvrf->vrf->vrf_id, nrn,
+			zlog_debug("(%s:%u:%u)%pRN: Notifying client %s about NH (unreachable)",
+				   VRF_LOGNAME(zvrf->vrf), zvrf->vrf->vrf_id,
+				   zvrf->table_id, nrn,
 				   zebra_route_string(client->proto));
 	}
 
@@ -777,9 +788,10 @@ zebra_rnh_resolve_nexthop_entry(struct zebra_vrf *zvrf, afi_t afi,
 	 */
 	while (rn) {
 		if (IS_ZEBRA_DEBUG_NHT_DETAILED)
-			zlog_debug("%s: %s(%u):%pRN Possible Match to %pRN",
-				   __func__, VRF_LOGNAME(zvrf->vrf),
-				   rnh->vrf_id, rnh->node, rn);
+			zlog_debug("%s: (%s:%u:%u)%pRN Possible Match to (%s:%u:%u)%pRN",
+				   __func__, VRF_LOGNAME(zvrf->vrf), rnh->vrf_id,
+				   zvrf->table_id, rnh->node, VRF_LOGNAME(zvrf->vrf),
+				   rnh->vrf_id, zvrf->table_id, rn);
 
 		/* Do not resolve over default route unless allowed &&
 		 * match route to be exact if so specified
@@ -927,8 +939,9 @@ static void zebra_rnh_evaluate_entry(struct zebra_vrf *zvrf, afi_t afi,
 	struct route_node *prn;
 
 	if (IS_ZEBRA_DEBUG_NHT) {
-		zlog_debug("%s(%u):%pRN: Evaluate RNH, %s", VRF_LOGNAME(zvrf->vrf),
-			   zvrf->vrf ? zvrf->vrf->vrf_id : 0, nrn, force ? "(force)" : "");
+		zlog_debug("(%s:%u:%u)%pRN: Evaluate RNH, %s", VRF_LOGNAME(zvrf->vrf),
+			   zvrf->vrf ? zvrf->vrf->vrf_id : 0, zvrf->table_id, nrn,
+			   force ? "(force)" : "");
 	}
 
 	rnhc = nrn->info;
