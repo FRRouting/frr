@@ -280,6 +280,7 @@ extern void if_nbr_ipv6ll_to_ipv4ll_neigh_update(struct interface *ifp,
 						 struct in6_addr *address,
 						 int add);
 extern void if_nbr_ipv6ll_to_ipv4ll_neigh_del_all(struct interface *ifp);
+extern void ipv6ll_to_ipv4ll(const struct in6_addr *v6, struct in_addr *v4);
 extern void if_delete_update(struct interface **ifp);
 extern void if_add_update(struct interface *ifp);
 extern void if_up(struct interface *ifp, bool install_connected);
