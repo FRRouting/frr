@@ -529,36 +529,37 @@ static int vtysh_execute_func(const char *line, int pager)
 	saved_node = gvty->node;
 
 	/*
-	 * If command doesn't succeeded in current node, try to walk up in node
-	 * tree. Changing vty->node is enough to try it just out without actual
-	 * walkup in the vtysh.
+	 * The "exit" command should not walk up by vtysh_execute("exit").
+	 * otherwise, executing "exit" on a node without "exit" will cause an
+	 * endless recursion on vtysh_execute("exit").
 	 */
-	while (ret != CMD_SUCCESS && ret != CMD_SUCCESS_DAEMON
-	       && ret != CMD_WARNING && ret != CMD_WARNING_CONFIG_FAILED
-	       && ret != CMD_ERR_AMBIGUOUS && ret != CMD_ERR_INCOMPLETE
-	       && gvty->node > CONFIG_NODE) {
-		gvty->node = node_parent(gvty->node);
-		ret = cmd_execute(gvty, line, &cmd, 1);
-		tried++;
-	}
+	if (!strmatch(line, "exit")) {
+		/*
+		 * If command doesn't succeeded in current node, try to walk up in node
+		 * tree. Changing vty->node is enough to try it just out without actual
+		 * walkup in the vtysh.
+		 */
+		while (ret != CMD_SUCCESS && ret != CMD_SUCCESS_DAEMON && ret != CMD_WARNING &&
+		       ret != CMD_WARNING_CONFIG_FAILED && ret != CMD_ERR_AMBIGUOUS &&
+		       ret != CMD_ERR_INCOMPLETE && gvty->node > CONFIG_NODE) {
+			gvty->node = node_parent(gvty->node);
+			ret = cmd_execute(gvty, line, &cmd, 1);
+			tried++;
+		}
 
-	gvty->node = saved_node;
+		gvty->node = saved_node;
 
-	/*
-	 * If command succeeded in any other node than current (tried > 0) we
-	 * have to move into node in the vtysh where it succeeded.
-	 */
-	if (ret == CMD_SUCCESS || ret == CMD_SUCCESS_DAEMON
-	    || ret == CMD_WARNING) {
-		while (tried-- > 0)
-			vtysh_execute("exit");
-	}
-	/*
-	 * If command didn't succeed in any node, continue with return value
-	 * from first try.
-	 */
-	else if (tried) {
-		ret = saved_ret;
+		/*
+		 * If command succeeded in any other node than current (tried > 0) we
+		 * have to move into node in the vtysh where it succeeded.
+		 * If command didn't succeed in any node, continue with return value from first try.
+		 */
+		if (ret == CMD_SUCCESS || ret == CMD_SUCCESS_DAEMON || ret == CMD_WARNING) {
+			while (tried-- > 0)
+				vtysh_execute("exit");
+		} else if (tried) {
+			ret = saved_ret;
+		}
 	}
 
 	cmd_free_strvec(vline);
