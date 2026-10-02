@@ -42,6 +42,13 @@ extern void signal_init(struct event_loop *m, int sigc,
  */
 bool frr_sigevent_check(sigset_t *setp);
 
+/*
+ * Allow an application to test whether a specific signal has been
+ * seen (and not handled). This doesn't block or modify any signals,
+ * so there can be races...
+ */
+bool frr_sigevent_check_sig(int signum);
+
 /* check whether there are signals to handle, process any found */
 extern int frr_sigevent_process(void);
 
