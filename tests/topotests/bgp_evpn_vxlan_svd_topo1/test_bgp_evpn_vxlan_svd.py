@@ -52,6 +52,7 @@ from lib.topolog import logger
 from lib.common_config import (
     create_address_on_interface,
     required_linux_kernel_version,
+    shutdown_bringup_interface_in_kernel,
 )
 
 # Required to instantiate the topology builder class.
@@ -105,11 +106,11 @@ def setup_pe_router(tgen, pe_name, tunnel_local_ip, svi_ip, intf):
         pe.run("ip link set dev bridge address 44:00:00:ff:ff:01")
     if pe_name == "PE2":
         pe.run("ip link set dev bridge address 44:20:00:ff:ff:01")
-    pe.run("ip link set dev bridge up")
+    shutdown_bringup_interface_in_kernel(pe.tgen, pe.name, "bridge", True)
 
     # setup svi
     pe.run("ip link add link bridge name vlan1 type vlan id 1 protocol 802.1q")
-    pe.run("ip link set dev vlan1 up")
+    shutdown_bringup_interface_in_kernel(pe.tgen, pe.name, "vlan1", True)
     create_address_on_interface(tgen, pe_name, "vlan1", svi_ip)
     pe.run("/sbin/sysctl net.ipv4.conf.vlan1.arp_accept=1")
 
@@ -125,19 +126,19 @@ def setup_pe_router(tgen, pe_name, tunnel_local_ip, svi_ip, intf):
     pe.run("bridge link set dev vxlan0 learning off")
     pe.run("bridge vlan add dev vxlan0 vid 1")
     pe.run("bridge vlan add dev vxlan0 vid 1 tunnel_info id 101")
-    pe.run("ip link set up dev vxlan0")
+    shutdown_bringup_interface_in_kernel(pe.tgen, pe.name, "vxlan0", True)
 
     # VRF creation
     pe.run("ip link add vrf-purple type vrf table 1003")
-    pe.run("ip link set dev vrf-purple up")
+    shutdown_bringup_interface_in_kernel(pe.tgen, pe.name, "vrf-purple", True)
     if pe_name == "PE1":
         pe.run("ip link add vrf-blue type vrf table 1002")
-        pe.run("ip link set dev vrf-blue up")
+        shutdown_bringup_interface_in_kernel(pe.tgen, pe.name, "vrf-blue", True)
         create_address_on_interface(tgen, pe_name, "vrf-blue", "27.2.0.85/32")
         create_address_on_interface(tgen, pe_name, "vrf-purple", "27.3.0.85/32")
     if pe_name == "PE2":
         pe.run("ip link add vrf-blue type vrf table 2400")
-        pe.run("ip link set dev vrf-blue up")
+        shutdown_bringup_interface_in_kernel(pe.tgen, pe.name, "vrf-blue", True)
 
     # setup PE interface
     pe.run("ip link set dev {0}-{1} master bridge".format(pe_name, intf))
@@ -150,7 +151,7 @@ def setup_pe_router(tgen, pe_name, tunnel_local_ip, svi_ip, intf):
     pe.run("ip link add vrf-red type vrf table 1400")
     pe.run("ip link add link bridge name vlan100 type vlan id 100 protocol 802.1q")
     pe.run("ip link set dev vlan100 master vrf-blue")
-    pe.run("ip link set dev vlan100 up")
+    shutdown_bringup_interface_in_kernel(pe.tgen, pe.name, "vlan100", True)
     pe.run("bridge vlan add vid 100 dev bridge self")
     pe.run("bridge vlan add dev vxlan0 vid 100")
     pe.run("bridge vlan add dev vxlan0 vid 100 tunnel_info id 100")
@@ -158,7 +159,7 @@ def setup_pe_router(tgen, pe_name, tunnel_local_ip, svi_ip, intf):
     # L3VNI 4000
     pe.run("ip link add link bridge name vlan400 type vlan id 400 protocol 802.1q")
     pe.run("ip link set dev vlan400 master vrf-purple")
-    pe.run("ip link set dev vlan400 up")
+    shutdown_bringup_interface_in_kernel(pe.tgen, pe.name, "vlan400", True)
     pe.run("bridge vlan add vid 400 dev bridge self")
     pe.run("bridge vlan add dev vxlan0 vid 400")
     pe.run("bridge vlan add dev vxlan0 vid 400 tunnel_info id 4000")
@@ -167,7 +168,7 @@ def setup_pe_router(tgen, pe_name, tunnel_local_ip, svi_ip, intf):
     if pe_name == "PE2":
         pe.run("ip link add link bridge name vlan300 type vlan id 300 protocol 802.1q")
         pe.run("ip link set dev vlan300 master vrf-blue")
-        pe.run("ip link set dev vlan300 up")
+        shutdown_bringup_interface_in_kernel(pe.tgen, pe.name, "vlan300", True)
         pe.run("bridge vlan add vid 300 dev bridge self")
         pe.run("bridge vlan add dev vxlan0 vid 300")
         pe.run("bridge vlan add dev vxlan0 vid 300 tunnel_info id 300")

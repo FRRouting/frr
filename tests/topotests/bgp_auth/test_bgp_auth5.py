@@ -33,6 +33,7 @@ import sys
 import pytest
 from lib import common_config, topotest
 from lib.common_config import (
+    shutdown_bringup_interface_in_kernel,
     step,
 )
 from bgp_auth_common import check_neigh_state
@@ -65,15 +66,15 @@ def setup_module(mod):
 
     # blue vrf
     r1.cmd_raises("ip link add blue type vrf table 1001")
-    r1.cmd_raises("ip link set up dev blue")
+    shutdown_bringup_interface_in_kernel(r1.tgen, r1.name, "blue", True)
     r2.cmd_raises("ip link add blue type vrf table 1001")
-    r2.cmd_raises("ip link set up dev blue")
+    shutdown_bringup_interface_in_kernel(r2.tgen, r2.name, "blue", True)
 
     r1.cmd_raises("ip link set R1-eth0 master blue")
     r2.cmd_raises("ip link set R2-eth0 master blue")
 
-    r1.cmd_raises("ip link set up dev  R1-eth0")
-    r2.cmd_raises("ip link set up dev  R2-eth0")
+    shutdown_bringup_interface_in_kernel(r1.tgen, r1.name, "R1-eth0", True)
+    shutdown_bringup_interface_in_kernel(r2.tgen, r2.name, "R2-eth0", True)
 
     r1.cmd_raises("sysctl -w net.ipv4.tcp_l3mdev_accept=1")
     r2.cmd_raises("sysctl -w net.ipv4.tcp_l3mdev_accept=1")

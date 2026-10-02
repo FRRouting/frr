@@ -119,7 +119,10 @@ from lib import topotest
 from lib.topogen import Topogen, TopoRouter, get_topogen
 from lib.topolog import logger
 from lib.topotest import iproute2_is_vrf_capable
-from lib.common_config import required_linux_kernel_version
+from lib.common_config import (
+    required_linux_kernel_version,
+    shutdown_bringup_interface_in_kernel,
+)
 from lib.pim import McastTesterHelper
 
 
@@ -194,8 +197,6 @@ def setup_module(module):
     vrf_setup_cmds = [
         "ip link add name blue type vrf table 11",
         "ip link add name red type vrf table 12",
-        "ip link set dev blue up",
-        "ip link set dev red up",
         "ip link set dev r1-eth0 vrf blue up",
         "ip link set dev r1-eth1 vrf blue up",
         "ip link set dev r1-eth2 vrf red up",
@@ -205,8 +206,12 @@ def setup_module(module):
     # Starting Routers
     router_list = tgen.routers()
 
-    # Create VRF on r2 first and add it's interfaces
-    for cmd in vrf_setup_cmds:
+    # Create VRF on r1 and add its interfaces
+    tgen.net["r1"].cmd(vrf_setup_cmds[0])
+    tgen.net["r1"].cmd(vrf_setup_cmds[1])
+    shutdown_bringup_interface_in_kernel(tgen, "r1", "blue", True)
+    shutdown_bringup_interface_in_kernel(tgen, "r1", "red", True)
+    for cmd in vrf_setup_cmds[2:]:
         tgen.net["r1"].cmd(cmd)
 
     for router in router_list.values():

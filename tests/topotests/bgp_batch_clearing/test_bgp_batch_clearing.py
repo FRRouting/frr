@@ -25,6 +25,7 @@ import pytest
 
 from lib import topotest
 from lib.topogen import Topogen, get_topogen
+from lib.common_config import shutdown_bringup_interface_in_kernel
 
 pytestmark = [pytest.mark.bgpd, pytest.mark.staticd]
 
@@ -225,7 +226,7 @@ def test_link_down_clears_routes():
     r1 = tgen.gears["r1"]
     r2 = tgen.gears["r2"]
 
-    r1.cmd("ip link set r1-eth0 down")
+    shutdown_bringup_interface_in_kernel(r1.tgen, r1.name, "r1-eth0", False)
 
     test_func = functools.partial(_bgp_neighbor_cleared, r1, "10.255.0.2")
     _, result = topotest.run_and_expect(test_func, None, count=60, wait=1)
@@ -239,7 +240,7 @@ def test_link_down_clears_routes():
     _, result = topotest.run_and_expect(test_func, None, count=60, wait=1)
     assert result is None, f"r1 still has BGP routes: {result}"
 
-    r1.cmd("ip link set r1-eth0 up")
+    shutdown_bringup_interface_in_kernel(r1.tgen, r1.name, "r1-eth0", True)
 
 
 if __name__ == "__main__":

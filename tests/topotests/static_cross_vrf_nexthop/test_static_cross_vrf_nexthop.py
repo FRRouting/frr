@@ -25,7 +25,10 @@ sys.path.append(os.path.join(CWD, "../"))
 
 # pylint: disable=C0413
 from lib import topotest
-from lib.common_config import create_interface_in_kernel
+from lib.common_config import (
+    create_interface_in_kernel,
+    shutdown_bringup_interface_in_kernel,
+)
 from lib.topogen import Topogen, TopoRouter, get_topogen
 from lib.topolog import logger
 from time import sleep
@@ -418,10 +421,10 @@ no ip route 10.3.0.0/24 10.2.0.2 vrf vrf_b
     )
     r1.run("ip link delete dummy_b")
     r1.run("ip link add vrf_a type vrf table 100")
-    r1.run("ip link set vrf_a up")
+    shutdown_bringup_interface_in_kernel(r1.tgen, r1.name, "vrf_a", True)
     r1.vtysh_cmd("configure terminal\nvrf vrf_a\nexit-vrf\n")
     r1.run("ip link set r1-eth0 master vrf_a")
-    r1.run("ip link set r1-eth0 up")
+    shutdown_bringup_interface_in_kernel(r1.tgen, r1.name, "r1-eth0", True)
 
     assert result is None, result
 

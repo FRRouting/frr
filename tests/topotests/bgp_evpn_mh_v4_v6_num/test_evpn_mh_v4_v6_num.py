@@ -46,7 +46,11 @@ sys.path.append(os.path.join(CWD, "../"))
 from lib import topotest
 
 # Required to instantiate the topology builder class.
-from lib.common_config import create_address_on_interface, create_interface_in_kernel
+from lib.common_config import (
+    create_address_on_interface,
+    create_interface_in_kernel,
+    shutdown_bringup_interface_in_kernel,
+)
 from lib.topogen import Topogen, TopoRouter, get_topogen
 from lib.topolog import logger
 
@@ -415,11 +419,11 @@ def config_bond(node, bond_name, bond_members, bond_ad_sys_mac, br):
     )
 
     for bond_member in bond_members:
-        node.run("ip link set dev %s down" % bond_member)
+        shutdown_bringup_interface_in_kernel(node.tgen, node.name, bond_member, False)
         node.run("ip link set dev %s master %s" % (bond_member, bond_name))
-        node.run("ip link set dev %s up" % bond_member)
+        shutdown_bringup_interface_in_kernel(node.tgen, node.name, bond_member, True)
 
-    node.run("ip link set dev %s up" % bond_name)
+    shutdown_bringup_interface_in_kernel(node.tgen, node.name, bond_name, True)
 
     # if bridge is specified add the bond as a bridge member
     if br:
@@ -439,7 +443,7 @@ def config_mcast_tunnel_termination_device(node):
     create_interface_in_kernel(node.tgen, node.name, "ipmr-lo")
     node.run("ip link set dev ipmr-lo mtu 16000")
     node.run("ip link set dev ipmr-lo mode dormant")
-    node.run("ip link set dev ipmr-lo up")
+    shutdown_bringup_interface_in_kernel(node.tgen, node.name, "ipmr-lo", True)
 
 
 def config_bridge(node):
@@ -455,7 +459,7 @@ def config_bridge(node):
     node.run("ip link set dev br_default type bridge ageing_time 1800")
     node.run("ip link set dev br_default type bridge mcast_snooping 0")
     node.run("ip link set dev br_default type bridge vlan_stats_enabled 1")
-    node.run("ip link set dev br_default up")
+    shutdown_bringup_interface_in_kernel(node.tgen, node.name, "br_default", True)
     # Self VLAN entries for all L2VNIs and L3VNI VLANs derived from the maps
     for vid in sorted(VLAN_VNI_VRF.keys()):
         node.run(f"/sbin/bridge vlan add vid {vid} dev br_default self")
@@ -500,7 +504,7 @@ def config_vxlan(node, node_ip):
         node.run(f"/sbin/bridge vlan add dev vxlan48 vid {vid}")
         node.run(f"/sbin/bridge vlan add dev vxlan48 vid {vid} tunnel_info id {vni}")
 
-    node.run("ip link set dev vxlan48 up")
+    shutdown_bringup_interface_in_kernel(node.tgen, node.name, "vxlan48", True)
 
 
 def config_l3vni(node, node_ip):
@@ -529,7 +533,7 @@ def config_svi(node, svi_pip):
             f"type vlan id {vid} protocol 802.1q"
         )
         node.run(f"ip link set dev {vlan_name} master {vrf}")
-        node.run(f"ip link set dev {vlan_name} up")
+        shutdown_bringup_interface_in_kernel(node.tgen, node.name, vlan_name, True)
         node.run(f"/sbin/sysctl net.ipv6.conf.{vlan_name}.accept_dad=0")
         node.run(f"/sbin/sysctl net.ipv6.conf.{vlan_name}.dad_transmits=0")
 
@@ -546,7 +550,7 @@ def config_svi(node, svi_pip):
         node.run("/sbin/sysctl net.ipv4.conf.vlan1000.arp_accept=1")
         node.run("ip link add link vlan1000 name vlan1000-v0 type macvlan mode private")
         node.run("ip link set dev vlan1000-v0 address 00:00:5e:00:01:01")
-        node.run("ip link set dev vlan1000-v0 up")
+        shutdown_bringup_interface_in_kernel(node.tgen, node.name, "vlan1000-v0", True)
         create_address_on_interface(node.tgen, node.name, "vlan1000-v0", "45.0.0.1/24")
 
 
@@ -560,7 +564,7 @@ def config_vrf_l3vni(node):
     vrf_tables = {"vrf1": 1001, "vrf2": 1002}
     for vrf, table in vrf_tables.items():
         node.run(f"ip link add {vrf} type vrf table {table} 2>/dev/null || true")
-        node.run(f"ip link set dev {vrf} up")
+        shutdown_bringup_interface_in_kernel(node.tgen, node.name, vrf, True)
 
     # Create L3VNI VLAN interfaces and attach them to the appropriate VRFs
     for l3vni, vrf in L3VNI_VRF.items():
@@ -570,7 +574,7 @@ def config_vrf_l3vni(node):
             f"type vlan id {l3vni} protocol 802.1q"
         )
         node.run(f"ip link set dev {vlan_name} master {vrf}")
-        node.run(f"ip link set dev {vlan_name} up")
+        shutdown_bringup_interface_in_kernel(node.tgen, node.name, vlan_name, True)
         node.run(f"/sbin/sysctl net.ipv6.conf.{vlan_name}.accept_dad=0")
         node.run(f"/sbin/sysctl net.ipv6.conf.{vlan_name}.dad_transmits=0")
 
@@ -660,12 +664,12 @@ def setup_vtep_mh(tgen, tor_name, tor_ip, svi_pip, ip_version):
     # Cleanup any existing SVD-related interfaces
     cleanup_cmds = [
         # SVIs and L3VNI VLANs
-        "ip link set dev vlan1000 down 2>/dev/null || true",
-        "ip link set dev vlan1001 down 2>/dev/null || true",
-        "ip link set dev vlan1002 down 2>/dev/null || true",
-        "ip link set dev vlan1003 down 2>/dev/null || true",
-        "ip link set dev vlan4000 down 2>/dev/null || true",
-        "ip link set dev vlan4001 down 2>/dev/null || true",
+        ("down", "vlan1000"),
+        ("down", "vlan1001"),
+        ("down", "vlan1002"),
+        ("down", "vlan1003"),
+        ("down", "vlan4000"),
+        ("down", "vlan4001"),
         "ip link del vlan1000 2>/dev/null || true",
         "ip link del vlan1001 2>/dev/null || true",
         "ip link del vlan1002 2>/dev/null || true",
@@ -673,17 +677,22 @@ def setup_vtep_mh(tgen, tor_name, tor_ip, svi_pip, ip_version):
         "ip link del vlan4000 2>/dev/null || true",
         "ip link del vlan4001 2>/dev/null || true",
         # VXLAN and bridge
-        "ip link set dev vxlan48 down 2>/dev/null || true",
+        ("down", "vxlan48"),
         "ip link del vxlan48 2>/dev/null || true",
-        "ip link set dev br_default down 2>/dev/null || true",
+        ("down", "br_default"),
         "ip link del br_default 2>/dev/null || true",
         # VRFs
-        "ip link set dev vrf1 down 2>/dev/null || true",
-        "ip link set dev vrf2 down 2>/dev/null || true",
+        ("down", "vrf1"),
+        ("down", "vrf2"),
         "ip link del vrf1 2>/dev/null || true",
         "ip link del vrf2 2>/dev/null || true",
     ]
     for cmd in cleanup_cmds:
+        if isinstance(cmd, tuple):
+            shutdown_bringup_interface_in_kernel(
+                tor.tgen, tor.name, cmd[1], cmd[0] == "up"
+            )
+            continue
         tor.run(cmd)
 
     # Now configure SVD data plane and host bonds using existing helper
@@ -1168,7 +1177,12 @@ def test_evpn_ead_update(tgen_and_ip_version):
     # down a remote host link and check if the EAD withdraw is rxed
     # Note: LACP is not working as expected so I am temporarily shutting
     # down the link on the remote TOR instead of the remote host
-    remote_tor.run("ip link set dev %s-%s down" % (remote_tor_name, "eth2"))
+    shutdown_bringup_interface_in_kernel(
+        remote_tor.tgen,
+        remote_tor.name,
+        f"{remote_tor_name}-{'eth2'}",
+        False,
+    )
     down_vteps.append(tor_ips.get(remote_tor_name))
     _, result = topotest.run_and_expect(test_fn, None, count=20, wait=3)
     assertmsg = '"{}" ES incorrect after remote link down'.format(dut_name)
@@ -1176,7 +1190,12 @@ def test_evpn_ead_update(tgen_and_ip_version):
 
     # bring up remote host link and check if the EAD update is rxed
     down_vteps.remove(tor_ips.get(remote_tor_name))
-    remote_tor.run("ip link set dev %s-%s up" % (remote_tor_name, "eth2"))
+    shutdown_bringup_interface_in_kernel(
+        remote_tor.tgen,
+        remote_tor.name,
+        f"{remote_tor_name}-{'eth2'}",
+        True,
+    )
     _, result = topotest.run_and_expect(test_fn, None, count=20, wait=3)
     assertmsg = '"{}" ES incorrect after remote link flap'.format(dut_name)
     assert result is None, assertmsg
@@ -1379,8 +1398,8 @@ def test_evpn_uplink_tracking(tgen_and_ip_version):
     assert result is None, assertmsg
 
     # disable the uplinks
-    dut.run("ip link set %s-eth0 down" % dut_name)
-    dut.run("ip link set %s-eth1 down" % dut_name)
+    shutdown_bringup_interface_in_kernel(dut.tgen, dut.name, f"{dut_name}-eth0", False)
+    shutdown_bringup_interface_in_kernel(dut.tgen, dut.name, f"{dut_name}-eth1", False)
 
     # check if the access ports have been protodowned
     test_fn = partial(check_protodown_rc, dut, "uplinkDown")
@@ -1389,8 +1408,8 @@ def test_evpn_uplink_tracking(tgen_and_ip_version):
     assert result is None, assertmsg
 
     # enable the uplinks
-    dut.run("ip link set %s-eth0 up" % dut_name)
-    dut.run("ip link set %s-eth1 up" % dut_name)
+    shutdown_bringup_interface_in_kernel(dut.tgen, dut.name, f"{dut_name}-eth0", True)
+    shutdown_bringup_interface_in_kernel(dut.tgen, dut.name, f"{dut_name}-eth1", True)
 
     # check if the access ports have been moved out of protodown
     test_fn = partial(check_protodown_rc, dut, None)

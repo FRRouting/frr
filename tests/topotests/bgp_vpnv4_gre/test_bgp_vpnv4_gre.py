@@ -29,7 +29,7 @@ sys.path.append(os.path.join(CWD, "../"))
 # Import topogen and topotest helpers
 from lib import topotest
 from lib.topogen import Topogen, TopoRouter, get_topogen
-from lib.common_config import retry
+from lib.common_config import retry, shutdown_bringup_interface_in_kernel
 from lib.topolog import logger
 
 # Required to instantiate the topology builder class.
@@ -71,25 +71,28 @@ def _populate_iface(mod):
     cmds_list = [
         "ip link add vrf1 type vrf table 10",
         "echo 10 > /proc/sys/net/mpls/platform_labels",
-        "ip link set dev vrf1 up",
+        ("up", "vrf1"),
         "ip link set dev {0}-eth1 master vrf1",
         "echo 1 > /proc/sys/net/mpls/conf/{0}-eth0/input",
         "ip link add {0}-gre0 type {3} ttl 64 dev {0}-eth0 local 10.125.0.{1} remote 10.125.0.{2}",
-        "ip link set dev {0}-gre0 up",
+        ("up", "{0}-gre0"),
         "echo 1 > /proc/sys/net/mpls/conf/{0}-gre0/input",
     ]
 
-    for cmd in cmds_list:
-        input = cmd.format("r1", "1", "2", TUNNEL_TYPE)
-        logger.info("input: " + input)
-        output = tgen.net["r1"].cmd(cmd.format("r1", "1", "2", TUNNEL_TYPE))
-        logger.info("output: " + output)
-
-    for cmd in cmds_list:
-        input = cmd.format("r2", "2", "1", TUNNEL_TYPE)
-        logger.info("input: " + input)
-        output = tgen.net["r2"].cmd(cmd.format("r2", "2", "1", TUNNEL_TYPE))
-        logger.info("output: " + output)
+    for rname, local, remote in (("r1", "1", "2"), ("r2", "2", "1")):
+        for cmd in cmds_list:
+            if isinstance(cmd, tuple):
+                shutdown_bringup_interface_in_kernel(
+                    tgen,
+                    rname,
+                    cmd[1].format(rname, local, remote, TUNNEL_TYPE),
+                    cmd[0] == "up",
+                )
+                continue
+            formatted = cmd.format(rname, local, remote, TUNNEL_TYPE)
+            logger.info("input: " + formatted)
+            output = tgen.net[rname].cmd(formatted)
+            logger.info("output: " + output)
 
 
 def setup_module(mod):
