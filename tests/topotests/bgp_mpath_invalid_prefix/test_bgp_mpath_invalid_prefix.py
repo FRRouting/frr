@@ -28,7 +28,11 @@ sys.path.append(os.path.join(CWD, "../"))
 from lib import topotest
 from lib.topogen import Topogen, get_topogen
 from lib.topolog import logger
-from lib.common_config import create_interface_in_kernel, step
+from lib.common_config import (
+    create_interface_in_kernel,
+    delete_address_on_interface,
+    step,
+)
 
 pytestmark = [pytest.mark.bgpd, pytest.mark.freebsd]
 
@@ -108,7 +112,7 @@ def test_bgp_mpath_flag_not_set_when_route_invalid():
     assert res is not None, "Route 200.1.12.0/24 should become valid after adding interface"
 
     step("Remove 200.1.12.1/24 from dummy so the route becomes invalid again")
-    r1.run("ip addr del {} dev {}".format(NETWORK_IP, DUMMY_IF))
+    delete_address_on_interface(tgen, "r1", DUMMY_IF, NETWORK_IP)
 
     def _route_has_no_best():
         out = _get_bgp_prefix_json(r1, NETWORK_PREFIX)
