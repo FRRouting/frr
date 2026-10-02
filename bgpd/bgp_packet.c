@@ -2240,10 +2240,14 @@ static void bgp_refresh_stalepath_timer_expire(struct event *thread)
 	safi_t safi = paf->safi;
 	struct peer *peer = paf->peer;
 
+<<<<<<< HEAD
 	peer->t_refresh_stalepath = NULL;
 
 	if (peer->nsf[afi][safi])
 		bgp_clear_stale_route(peer, afi, safi);
+=======
+	bgp_clear_stale_route(peer, afi, safi);
+>>>>>>> a18b262 (bgpd: Clear stale routes when using enhanced route-refresh)
 
 	if (bgp_debug_neighbor_events(peer))
 		zlog_debug(
@@ -3127,8 +3131,7 @@ static int bgp_route_refresh_receive(struct peer_connection *connection,
 				"%pBP rcvd route-refresh (EoRR) for %s/%s, stopping BoRR timer",
 				peer, afi2str(afi), safi2str(safi));
 
-		if (peer->nsf[afi][safi])
-			bgp_clear_stale_route(peer, afi, safi);
+		bgp_clear_stale_route(peer, afi, safi);
 	} else {
 		if (bgp_debug_neighbor_events(peer))
 			zlog_debug(
