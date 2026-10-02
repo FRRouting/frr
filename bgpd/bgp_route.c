@@ -1876,6 +1876,14 @@ int bgp_path_info_cmp(struct bgp *bgp, struct bgp_path_info *new,
 		return 0;
 	}
 
+	/* Two paths imported from a locally originated route (redistribute,
+	 * network, aggregate) have no su_remote and can not be told apart by
+	 * neighbor address: use the default tie-break, as for two paths
+	 * imported from the same remote peer.
+	 */
+	if (peer_new->connection->su_remote == NULL && peer_exist->connection->su_remote == NULL)
+		goto bgp_path_info_cmp_done;
+
 	/* locally configured routes to advertise do not have su_remote */
 	if (peer_new->connection->su_remote == NULL) {
 		*reason = bgp_path_selection_local_configured;
@@ -1906,6 +1914,7 @@ int bgp_path_info_cmp(struct bgp *bgp, struct bgp_path_info *new,
 		return 1;
 	}
 
+bgp_path_info_cmp_done:
 	*reason = bgp_path_selection_default;
 	if (debug)
 		zlog_debug("%s: %s wins over %s due to nothing left to compare",
