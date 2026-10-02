@@ -182,7 +182,7 @@ static void sigtstp(int sig)
 	rl_forced_update_display();
 }
 
-/* SIGINT handler.  This function care user's ^Z input.  */
+/* SIGINT handler.  This function handles a ^C input.  */
 static void sigint(int sig)
 {
 	/* Check this process is not child process. */
@@ -190,10 +190,13 @@ static void sigint(int sig)
 		rl_initialize();
 		printf("\n");
 		rl_forced_update_display();
+
+		/* Note that a SIGINT has arrived */
+		vtysh_cancel_p = true;
 	}
 }
 
-/* Signale wrapper for vtysh. We don't use sigevent because
+/* Signal wrapper for vtysh. We don't use sigevent because
  * vtysh doesn't use threads. TODO */
 static void vtysh_signal_set(int signo, void (*func)(int))
 {
