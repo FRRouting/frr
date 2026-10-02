@@ -1314,10 +1314,14 @@ static void zebra_if_addr_update_ctx(struct zebra_dplane_ctx *ctx,
 	op = dplane_ctx_get_op(ctx);
 	addr = dplane_ctx_get_intf_addr(ctx);
 
-	if (IS_ZEBRA_DEBUG_KERNEL)
-		zlog_debug("%s: %s: ifindex %s(%u), addr %pFX", __func__,
-			   dplane_op2str(dplane_ctx_get_op(ctx)), ifp->name,
-			   ifp->ifindex, addr);
+	if (IS_ZEBRA_DEBUG_KERNEL) {
+		struct zebra_vrf *zvrf = ifp->vrf ? ifp->vrf->info : NULL;
+
+		zlog_debug("%s: %s: ifindex %s(%u), (%s:%u:%u)%pFX", __func__,
+			   dplane_op2str(dplane_ctx_get_op(ctx)), ifp->name, ifp->ifindex,
+			   VRF_LOGNAME(ifp->vrf), ifp->vrf ? ifp->vrf->vrf_id : VRF_UNKNOWN,
+			   zvrf ? zvrf->table_id : 0, addr);
+	}
 
 	if (dplane_ctx_intf_is_tentative(ctx))
 		SET_FLAG(flags, ZEBRA_IFA_TENTATIVE);

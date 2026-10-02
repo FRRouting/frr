@@ -632,9 +632,10 @@ int zsend_redistribute_route(int cmd, struct zserv *client, const struct route_n
 	}
 
 	if (IS_ZEBRA_DEBUG_SEND)
-		zlog_debug("%s: %s to client %s: type %s, vrf_id %d, table %u, p %pFX", __func__,
+		zlog_debug("%s: %s to client %s: type %s, (%s:%u:%u)%pFX", __func__,
 			   zserv_command_string(cmd), zebra_route_string(client->proto),
-			   zebra_route_string(api.type), api.vrf_id, api.tableid, &api.prefix);
+			   zebra_route_string(api.type), vrf_id_to_name(api.vrf_id), api.vrf_id,
+			   api.tableid, &api.prefix);
 	return zserv_send_message(client, s);
 }
 
@@ -765,16 +766,17 @@ static int route_notify_internal(const struct prefix *p,
 		if (IS_ZEBRA_DEBUG_PACKET) {
 			struct vrf *vrf = vrf_lookup_by_id(vrf_id);
 
-			zlog_debug("Not Notifying Owner: %s about prefix %pFX(%u) %d vrf: %s",
-				   zebra_route_string(type), p, table_id, note,
-				   VRF_LOGNAME(vrf));
+			zlog_debug("Not Notifying Owner: %s about (%s:%u:%u)%pFX note %d",
+				   zebra_route_string(type), VRF_LOGNAME(vrf), vrf_id, table_id, p,
+				   note);
 		}
 		return 0;
 	}
 
 	if (IS_ZEBRA_DEBUG_PACKET)
-		zlog_debug("Notifying Owner: %s about prefix %pFX(%u) %d vrf: %u Table: %u",
-			   zebra_route_string(type), p, table_id, note, vrf_id, table_id);
+		zlog_debug("Notifying Owner: %s about (%s:%u:%u)%pFX note %d",
+			   zebra_route_string(type), vrf_id_to_name(vrf_id), vrf_id, table_id, p,
+			   note);
 
 	/* We're just allocating a small-ish buffer here, since we only
 	 * encode a small amount of data.
@@ -2170,9 +2172,9 @@ static void zread_route_add(ZAPI_HANDLER_ARGS)
 	vrf_id = zvrf_id(zvrf);
 
 	if (IS_ZEBRA_DEBUG_RECV)
-		zlog_debug("%s: p=(%s:%u)%pFX, msg flags=0x%x, flags=0x%x",
-			   __func__, zvrf_name(zvrf), api.tableid, &api.prefix,
-			   (int)api.message, api.flags);
+		zlog_debug("%s: (%s:%u:%u)%pFX, msg flags=0x%x, flags=0x%x", __func__,
+			   zvrf_name(zvrf), vrf_id, api.tableid, &api.prefix, (int)api.message,
+			   api.flags);
 
 	/* Allocate new route. */
 	re = zebra_rib_route_entry_new(
@@ -2196,9 +2198,9 @@ static void zread_route_add(ZAPI_HANDLER_ARGS)
 	if (CHECK_FLAG(api.message, ZAPI_MESSAGE_BACKUP_NEXTHOPS)
 	    && api.backup_nexthop_num == 0) {
 		if (IS_ZEBRA_DEBUG_RECV || IS_ZEBRA_DEBUG_EVENT)
-			zlog_debug("%s: client %s: BACKUP flag set but no backup nexthops, prefix %pFX(%s:%u)",
-				   __func__, zebra_route_string(client->proto), &api.prefix,
-				   zvrf_name(zvrf), api.tableid);
+			zlog_debug("%s: client %s: BACKUP flag set but no backup nexthops, (%s:%u:%u)%pFX",
+				   __func__, zebra_route_string(client->proto), zvrf_name(zvrf),
+				   vrf_id, api.tableid, &api.prefix);
 	}
 
 	if (!re->nhe_id
@@ -2333,9 +2335,9 @@ static void zread_route_del(ZAPI_HANDLER_ARGS)
 		table_id = zvrf->table_id;
 
 	if (IS_ZEBRA_DEBUG_RECV)
-		zlog_debug("%s: p=(%u:%u)%pFX, msg flags=0x%x, flags=0x%x",
-			   __func__, zvrf_id(zvrf), table_id, &api.prefix,
-			   (int)api.message, api.flags);
+		zlog_debug("%s: (%s:%u:%u)%pFX, msg flags=0x%x, flags=0x%x", __func__,
+			   zvrf_name(zvrf), zvrf_id(zvrf), table_id, &api.prefix, (int)api.message,
+			   api.flags);
 
 	char lttng_buf_prefix[PREFIX_STRLEN] = { 0 };
 

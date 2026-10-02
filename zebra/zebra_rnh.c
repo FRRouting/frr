@@ -177,8 +177,11 @@ struct rnh *zebra_add_rnh(struct prefix *p, vrf_id_t vrfid, safi_t safi, struct 
 	if (IS_ZEBRA_DEBUG_NHT) {
 		struct vrf *vrf = vrf_lookup_by_id(vrfid);
 
-		zlog_debug("%s(%u): Add RNH %pFX for safi: %u, client: %s", VRF_LOGNAME(vrf), vrfid,
-			   p, safi, client ? zebra_route_string(client->proto) : "pseudowire");
+		struct zebra_vrf *zvrf = vrf ? vrf->info : NULL;
+
+		zlog_debug("Add RNH (%s:%u:%u)%pFX for safi: %u, client: %s", VRF_LOGNAME(vrf),
+			   vrfid, zvrf ? zvrf->table_id : 0, p, safi,
+			   client ? zebra_route_string(client->proto) : "pseudowire");
 	}
 
 	table = get_rnh_table(vrfid, afi, safi);

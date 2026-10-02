@@ -346,8 +346,8 @@ void connected_up(struct interface *ifp, struct connected *ifc)
 		}
 
 		if (IS_ZEBRA_DEBUG_KERNEL)
-			zlog_debug("interface %s vrf %s(%u) connected address %pFX is in %s%s state, not installing connected route",
-				   ifp->name, ifp->vrf->name, ifp->vrf->vrf_id, &p,
+			zlog_debug("interface %s (%s:%u:%u)%pFX is in %s%s state, not installing connected route",
+				   ifp->name, ifp->vrf->name, ifp->vrf->vrf_id, zvrf->table_id, &p,
 				   CHECK_FLAG(ifc->flags, ZEBRA_IFA_TENTATIVE) ? "tentative" : "",
 				   CHECK_FLAG(ifc->flags, ZEBRA_IFA_DADFAILED) ? " DAD failed"
 									       : "");
@@ -375,9 +375,9 @@ void connected_up(struct interface *ifp, struct connected *ifc)
 	/* Schedule LSP forwarding entries for processing, if appropriate. */
 	if (zvrf->vrf->vrf_id == VRF_DEFAULT) {
 		if (IS_ZEBRA_DEBUG_MPLS)
-			zlog_debug(
-				"%u: IF %s IP %pFX address add/up, scheduling MPLS processing",
-				zvrf->vrf->vrf_id, ifp->name, &p);
+			zlog_debug("IF %s (%s:%u:%u)%pFX address add/up, scheduling MPLS processing",
+				   ifp->name, zvrf->vrf->name, zvrf->vrf->vrf_id, zvrf->table_id,
+				   &p);
 		mpls_mark_lsps_for_processing(zvrf, &p);
 	}
 }
@@ -486,8 +486,8 @@ void connected_down(struct interface *ifp, struct connected *ifc)
 	 */
 	if (CHECK_FLAG(ifc->conf, ZEBRA_IFC_DOWN)) {
 		if (IS_ZEBRA_DEBUG_RIB)
-			zlog_debug("%s: ifc %p, %pFX already DOWN",
-				   __func__, ifc, ifc->address);
+			zlog_debug("%s: ifc %p, (%s:%u:%u)%pFX already DOWN", __func__, ifc,
+				   ifp->vrf->name, ifp->vrf->vrf_id, zvrf->table_id, ifc->address);
 		return;
 	}
 
@@ -580,9 +580,9 @@ void connected_down(struct interface *ifp, struct connected *ifc)
 	/* Schedule LSP forwarding entries for processing, if appropriate. */
 	if (zvrf->vrf->vrf_id == VRF_DEFAULT) {
 		if (IS_ZEBRA_DEBUG_MPLS)
-			zlog_debug(
-				"%u: IF %s IP %pFX address down, scheduling MPLS processing",
-				zvrf->vrf->vrf_id, ifp->name, &p);
+			zlog_debug("IF %s (%s:%u:%u)%pFX address down, scheduling MPLS processing",
+				   ifp->name, zvrf->vrf->name, zvrf->vrf->vrf_id, zvrf->table_id,
+				   &p);
 		mpls_mark_lsps_for_processing(zvrf, &p);
 	}
 }
@@ -599,11 +599,13 @@ static void connected_delete_helper(struct connected *ifc, struct prefix *p)
 
 	/* Schedule LSP forwarding entries for processing, if appropriate. */
 	if (ifp->vrf->vrf_id == VRF_DEFAULT) {
+		struct zebra_vrf *zvrf = ifp->vrf->info;
+
 		if (IS_ZEBRA_DEBUG_MPLS)
-			zlog_debug(
-				"%u: IF %s IP %pFX address delete, scheduling MPLS processing",
-				ifp->vrf->vrf_id, ifp->name, p);
-		mpls_mark_lsps_for_processing(ifp->vrf->info, p);
+			zlog_debug("IF %s (%s:%u:%u)%pFX address delete, scheduling MPLS processing",
+				   ifp->name, ifp->vrf->name, ifp->vrf->vrf_id,
+				   zvrf ? zvrf->table_id : 0, p);
+		mpls_mark_lsps_for_processing(zvrf, p);
 	}
 }
 
