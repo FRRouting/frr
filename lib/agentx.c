@@ -17,6 +17,7 @@
 #include <net-snmp/agent/agent_callbacks.h>
 #include <net-snmp/agent/ds_agent.h>
 #include <net-snmp/library/large_fd_set.h>
+#include <net-snmp/library/snmp_transport.h>
 #include <net-snmp/library/system.h>
 
 #include "command.h"
@@ -44,6 +45,8 @@ DEFINE_MTYPE_STATIC(LIB, AGENTX_TRAP, "AgentX pending SNMP notification");
  * only from agentx/subagent.c for that session, not for MIB index walks.
  */
 static bool agentx_connected;
+/* Session passed to SNMPD_CALLBACK_INDEX_START. Cleared on disconnect. */
+static netsnmp_session *agentx_master_sess;
 
 static struct event_loop *agentx_tm;
 static struct event *timeout_thr = NULL;
@@ -298,7 +301,6 @@ static int agentx_cli_off(void)
 #define AGENTX_TRAP_LOG_INTERVAL_MS  10000
 /* Bytes of send-buffer slack required before a blocking send. */
 #define AGENTX_TRAP_MIN_SPACE 2048
-#define AGENTX_TRAP_FD_MAX    8
 
 struct agentx_trap_item {
 	netsnmp_variable_list *vars;
@@ -313,6 +315,8 @@ static struct timeval trap_q_down_since;
 static bool trap_q_down_valid;
 static struct timeval trap_q_log_since;
 static bool trap_q_log_valid;
+static struct timeval trap_q_hold_log_since;
+static bool trap_q_hold_log_valid;
 static bool trap_addr_cached;
 
 static void agentx_trap_flush(struct event *t);
@@ -422,50 +426,92 @@ static bool agentx_fd_has_space(int fd)
 #endif
 }
 
+/*
+ * Called from agentx_master_writable() each time the drain cannot send,
+ * with why naming the reason: no transport, poll error, not writable,
+ * transport error, or send buffer full. Only logs under debug agentx,
+ * and rate-limited by AGENTX_TRAP_LOG_INTERVAL_MS, so a busy socket does
+ * not flood the log on every 10 ms wake.
+ */
+static void agentx_trap_debug_hold(const char *why)
+{
+	if (!agentx_debug())
+		return;
+
+	/*
+	 * The drain can wake every 10 ms while the socket stays busy.
+	 * Log that reason at most once per AGENTX_TRAP_LOG_INTERVAL_MS.
+	 * monotime_since() is microseconds, so the interval is scaled.
+	 */
+	if (trap_q_hold_log_valid && monotime_since(&trap_q_hold_log_since, NULL) <
+					     (int64_t)AGENTX_TRAP_LOG_INTERVAL_MS * 1000)
+		return;
+
+	monotime(&trap_q_hold_log_since);
+	trap_q_hold_log_valid = true;
+	DEBUGD(&agentx_dbg, "AgentX: hold trap drain (%s, %u queued)", why, trap_q_len);
+}
+
+/* The FRR read-event list is not the AgentX transport. It can be empty
+ * while the master session is up, and a descriptor in it that is not
+ * writable stops every trap. send_v2trap() uses this session's socket.
+ */
+static int agentx_master_sock(void)
+{
+	void *sessp;
+	netsnmp_transport *transport;
+
+	if (!agentx_master_sess)
+		return -1;
+
+	sessp = snmp_sess_pointer(agentx_master_sess);
+	if (!sessp) {
+		agentx_master_sess = NULL;
+		return -1;
+	}
+
+	transport = snmp_sess_transport(sessp);
+	if (!transport || transport->sock < 0)
+		return -1;
+	return transport->sock;
+}
+
 static bool agentx_master_writable(void)
 {
-	struct pollfd pfd[AGENTX_TRAP_FD_MAX];
-	struct listnode *ln;
-	struct event **thr;
-	nfds_t n = 0;
-	bool saw_socket = false;
+	struct pollfd pfd;
+	int fd = agentx_master_sock();
+	int ready;
 
-	if (!events)
+	if (fd < 0) {
+		agentx_trap_debug_hold("no AgentX transport");
 		return false;
-
-	for (ALL_LIST_ELEMENTS_RO(events, ln, thr)) {
-		int fd;
-
-		if (!thr || !*thr)
-			continue;
-		fd = EVENT_FD(*thr);
-		if (fd < 0)
-			continue;
-		if (n >= array_size(pfd))
-			break;
-		pfd[n].fd = fd;
-		pfd[n].events = POLLOUT;
-		pfd[n].revents = 0;
-		n++;
 	}
-	if (n == 0)
-		return false;
-	if (poll(pfd, n, 0) <= 0)
-		return false;
 
-	/* Every watched AgentX fd must accept a full PDU. Sending while any
-	 * of them is short on space can block in sendto().
-	 */
-	for (nfds_t i = 0; i < n; i++) {
-		if (pfd[i].revents & (POLLERR | POLLHUP | POLLNVAL))
-			return false;
-		if (!(pfd[i].revents & POLLOUT))
-			return false;
-		if (!agentx_fd_has_space(pfd[i].fd))
-			return false;
-		saw_socket = true;
+	pfd.fd = fd;
+	pfd.events = POLLOUT;
+	pfd.revents = 0;
+	ready = poll(&pfd, 1, 0);
+	if (ready < 0) {
+		agentx_trap_debug_hold("poll error");
+		return false;
 	}
-	return saw_socket;
+	if (ready == 0) {
+		agentx_trap_debug_hold("transport not writable");
+		return false;
+	}
+	if (pfd.revents & (POLLERR | POLLHUP | POLLNVAL)) {
+		agentx_trap_debug_hold("transport error");
+		return false;
+	}
+	if (!(pfd.revents & POLLOUT)) {
+		agentx_trap_debug_hold("transport not writable");
+		return false;
+	}
+	if (!agentx_fd_has_space(fd)) {
+		agentx_trap_debug_hold("send buffer full");
+		return false;
+	}
+	return true;
 }
 
 static void agentx_trap_enqueue(netsnmp_variable_list *vars)
@@ -503,17 +549,37 @@ static void agentx_trap_enqueue(netsnmp_variable_list *vars)
 		agentx_trap_schedule(0);
 }
 
+/*
+ * Copy the neighbor into buf for a debug line. RFC 4273 puts it in
+ * bgpPeerRemoteAddr, an IpAddress binding, not in the trap OID. The
+ * first 4-byte IPv4 binding is that address. buf stays empty when the
+ * notification has none.
+ */
+static void agentx_trap_peer_addr(const netsnmp_variable_list *vb, char *buf, size_t buflen)
+{
+	buf[0] = '\0';
+	for (; vb; vb = vb->next_variable) {
+		if (vb->type != ASN_IPADDRESS || !vb->val.string || vb->val_len != 4)
+			continue;
+		if (!inet_ntop(AF_INET, vb->val.string, buf, buflen))
+			buf[0] = '\0';
+		return;
+	}
+}
+
 /* Callers check agentx_debug() first: formatting the OID is not free. */
 static void agentx_trap_debug(const char *what, const netsnmp_variable_list *vb)
 {
 	char oidbuf[512];
+	char peerbuf[INET_ADDRSTRLEN];
 
 	oidbuf[0] = '\0';
 	/* First binding is snmpTrapOID; its value is the notification. */
 	if (vb && vb->type == ASN_OBJECT_ID && vb->val.objid && vb->val_len >= sizeof(oid))
 		snprint_objid(oidbuf, sizeof(oidbuf), vb->val.objid, vb->val_len / sizeof(oid));
-	DEBUGD(&agentx_dbg, "AgentX: %s%s%s (%u queued)", what, oidbuf[0] ? " " : "", oidbuf,
-	       trap_q_len);
+	agentx_trap_peer_addr(vb, peerbuf, sizeof(peerbuf));
+	DEBUGD(&agentx_dbg, "AgentX: %s%s%s%s%s (%u queued)", what, oidbuf[0] ? " " : "", oidbuf,
+	       peerbuf[0] ? " neighbor " : "", peerbuf, trap_q_len);
 }
 
 static void agentx_trap_flush(struct event *t)
@@ -553,6 +619,9 @@ static void agentx_trap_flush(struct event *t)
 			trap_q_tail = NULL;
 		trap_q_len--;
 
+		if (agentx_debug())
+			agentx_trap_debug("send trap to snmpd", it->vars);
+
 		send_v2trap(it->vars);
 		snmp_free_varbind(it->vars);
 		XFREE(MTYPE_AGENTX_TRAP, it);
@@ -573,6 +642,7 @@ static void agentx_trap_flush(struct event *t)
 
 static int agentx_master_up_cb(int majorID, int minorID, void *serverarg, void *clientarg)
 {
+	agentx_master_sess = serverarg;
 	agentx_connected = true;
 	trap_q_down_valid = false;
 	DEBUGD(&agentx_dbg, "AgentX: master agent session up (%u traps queued)", trap_q_len);
@@ -585,6 +655,7 @@ static int agentx_master_up_cb(int majorID, int minorID, void *serverarg, void *
 
 static int agentx_master_down_cb(int majorID, int minorID, void *serverarg, void *clientarg)
 {
+	agentx_master_sess = NULL;
 	agentx_connected = false;
 	DEBUGD(&agentx_dbg, "AgentX: master agent session down (%u traps queued)", trap_q_len);
 	if (!trap_q_down_valid) {
@@ -598,6 +669,7 @@ static int smux_disable(void)
 {
 	agentx_enabled = false;
 	agentx_connected = false;
+	agentx_master_sess = NULL;
 	agentx_trap_quiesce();
 
 	return 0;
