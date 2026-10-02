@@ -36,6 +36,7 @@ from lib import topotest
 from lib.common_config import (
     create_address_on_interface,
     create_interface_in_kernel,
+    delete_address_on_interface,
     kill_router_daemons,
     start_router_daemons,
 )
@@ -1063,7 +1064,9 @@ def test_evpn_vtep_change():
     assert result is None, assertmsg
 
     # Cleanup: remove secondary loopback
-    remote_tor.run(f"ip addr del {secondary_vtep}/32 dev lo")
+    delete_address_on_interface(
+        remote_tor.tgen, remote_tor.name, "lo", f"{secondary_vtep}/32"
+    )
 
 
 def check_protodown_rc(dut, protodown_rc):

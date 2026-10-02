@@ -58,6 +58,7 @@ sys.path.append(os.path.join(CWD, "../"))
 from lib import topotest
 from lib.common_config import (
     create_address_on_interface,
+    delete_address_on_interface,
     step,
     write_test_footer,
     write_test_header,
@@ -592,7 +593,7 @@ def test_wrongvif_prefer_kernel_ingress(request):
     step("Readdress source host on parent path to overlapping-prefix source")
     # SO_BINDTODEVICE uses the interface primary address; temporarily replace
     # 10.10.4.2 so packets are sourced as WRONGVIF_SOURCE toward the parent.
-    h_src.run("ip addr del 10.10.4.2/24 dev h_src-eth0 || true")
+    delete_address_on_interface(tgen, "h_src", "h_src-eth0", "10.10.4.2/24")
     create_address_on_interface(tgen, "h_src", "h_src-eth0", f"{source}/16")
     h_src.run(
         f"ip route replace default via {WRONGVIF_PARENT_SEC.split('/')[0]} || true"
@@ -716,8 +717,8 @@ def test_wrongvif_prefer_kernel_ingress(request):
     """
     )
     h_src.run(f"ip route del {WRONGVIF_TUNNEL_GW}/32 || true")
-    h_src.run(f"ip addr del {source}/16 dev h_src-eth1 || true")
-    h_src.run(f"ip addr del {source}/16 dev h_src-eth0 || true")
+    delete_address_on_interface(tgen, "h_src", "h_src-eth1", f"{source}/16")
+    delete_address_on_interface(tgen, "h_src", "h_src-eth0", f"{source}/16")
     create_address_on_interface(tgen, "h_src", "h_src-eth0", "10.10.4.2/24")
     h_src.run("ip route replace default via 10.10.4.1 || true")
 
