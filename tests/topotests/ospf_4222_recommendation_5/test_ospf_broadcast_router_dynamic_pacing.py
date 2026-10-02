@@ -17,7 +17,11 @@ import time
 from lib import topotest
 from lib.topogen import Topogen, get_topogen
 from lib.topolog import logger
-from lib.common_config import create_address_on_interface, step
+from lib.common_config import (
+    create_address_on_interface,
+    delete_address_on_interface,
+    step,
+)
 from util_pcap import PerInterfacePcapManager
 
 """
@@ -548,8 +552,8 @@ def test_ospf_dynamic_pacing_queue_kick_on_limit_increase():
         "vtysh -c 'conf t' -c 'router ospf' -c 'no redistribute connected' 2>/dev/null || true"
     )
     for i in range(1, 101):
-        tgen.net["r1"].cmd(f"ip addr del 198.51.110.{i}/32 dev lo 2>/dev/null || true")
-        tgen.net["r1"].cmd(f"ip addr del 198.51.111.{i}/32 dev lo 2>/dev/null || true")
+        delete_address_on_interface(tgen, "r1", "lo", f"198.51.110.{i}/32")
+        delete_address_on_interface(tgen, "r1", "lo", f"198.51.111.{i}/32")
 
     # At 1Mbps, 200 residual LSA withdrawals (~160KB) complete in ~1.3s.
     # Steady-state U settles to 0-5 with no pending LSAs. L=6 ensures drain passes.
@@ -676,7 +680,7 @@ def test_ospf_dynamic_pacing_queue_kick_on_limit_increase():
         "vtysh -c 'conf t' -c 'router ospf' -c 'no redistribute connected'"
     )
     for i in range(1, 101):
-        tgen.net["r1"].cmd(f"ip addr del 198.51.120.{i}/32 dev lo 2>/dev/null || true")
+        delete_address_on_interface(tgen, "r1", "lo", f"198.51.120.{i}/32")
 
     # Step 7: All three neighbors must reach Full within 20s. Widened from
     # 15s alongside the r2 ack-delay increase above: some of the pre-clear
@@ -712,7 +716,7 @@ def test_ospf_dynamic_pacing_queue_kick_on_limit_increase():
         "vtysh -c 'conf t' -c 'router ospf' -c 'no redistribute connected' 2>/dev/null || true"
     )
     for i in range(1, 101):
-        tgen.net["r1"].cmd(f"ip addr del 198.51.120.{i}/32 dev lo 2>/dev/null || true")
+        delete_address_on_interface(tgen, "r1", "lo", f"198.51.120.{i}/32")
     tgen.net["r1"].cmd("tc qdisc del dev r1-eth0 root 2>/dev/null || true")
     tgen.net["r1"].cmd(
         "tc qdisc add dev r1-eth0 root handle 1: "
