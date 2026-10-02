@@ -54,14 +54,12 @@
 #include "bgpd/bgp_ls.h"
 
 DEFINE_HOOK(bgp_packet_dump,
-		(struct peer *peer, uint8_t type, bgp_size_t size,
-			struct stream *s),
-		(peer, type, size, s));
+	    (struct peer_connection * connection, uint8_t type, bgp_size_t size, struct stream *s),
+	    (connection, type, size, s));
 
 DEFINE_HOOK(bgp_packet_send,
-		(struct peer *peer, uint8_t type, bgp_size_t size,
-			struct stream *s),
-		(peer, type, size, s));
+	    (struct peer_connection * connection, uint8_t type, bgp_size_t size, struct stream *s),
+	    (connection, type, size, s));
 
 /**
  * Sets marker and type fields for a BGP message.
@@ -724,7 +722,7 @@ void bgp_open_send(struct peer_connection *connection)
 
 	/* Dump packet if debug option is set. */
 	/* bgp_packet_dump (s); */
-	hook_call(bgp_packet_send, peer, BGP_MSG_OPEN, stream_get_endp(s), s);
+	hook_call(bgp_packet_send, connection, BGP_MSG_OPEN, stream_get_endp(s), s);
 
 	/* Add packet to the peer. */
 	bgp_packet_add(connection, s);
@@ -4195,7 +4193,7 @@ void bgp_process_packet(struct event *event)
 		size = stream_getw(connection->curr);
 		type = stream_getc(connection->curr);
 
-		hook_call(bgp_packet_dump, peer, type, size, connection->curr);
+		hook_call(bgp_packet_dump, connection, type, size, connection->curr);
 
 		/* adjust size to exclude the marker + length + type */
 		size -= BGP_HEADER_SIZE;
