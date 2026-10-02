@@ -179,4 +179,7 @@ struct vtysh_client {
 
 extern struct vtysh_client vtysh_client[22];
 
+/* Global set by the SIGINT handler so that other vtysh code can react. */
+extern bool vtysh_cancel_p;
+
 #endif /* VTYSH_H */
