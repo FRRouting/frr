@@ -120,21 +120,26 @@ static struct gm_packet_sg *gm_packet_sg_find(struct gm_sg *sg,
 					      enum gm_sub_sense sense,
 					      struct gm_subscriber *sub)
 {
-	struct {
+	/* gm_packet_sg_cmp() resolves each item back to its containing
+	 * gm_packet_state with container_of math against items[], so the
+	 * reference item MUST sit exactly offsetof(items[0]) after the
+	 * header.  A plain `struct { hdr; item; }` does NOT guarantee that:
+	 * on ILP32 targets with 64-bit time_t (e.g. armv7/musl), sizeof(hdr)
+	 * pads to 48 while items[] begins at 44, so the compare read
+	 * `subscriber` from 4 bytes past the real header -- NULL deref or
+	 * garbage compares.  Size the storage through items[1] itself so the
+	 * layout is right by construction.
+	 */
+	union {
 		struct gm_packet_state hdr;
-		struct gm_packet_sg item;
-	} ref = {
-		/* clang-format off */
-		.hdr = {
-			.subscriber = sub,
-		},
-		.item = {
-			.offset = 0,
-		},
-		/* clang-format on */
-	};
+		uint8_t storage[offsetof(struct gm_packet_state, items[1])];
+	} ref;
 
-	return gm_packet_sg_subs_find(&sg->subs[sense], &ref.item);
+	memset(&ref, 0, sizeof(ref));
+	ref.hdr.subscriber = sub;
+	ref.hdr.items[0].offset = 0;
+
+	return gm_packet_sg_subs_find(&sg->subs[sense], &ref.hdr.items[0]);
 }
 
 /*
