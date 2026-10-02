@@ -457,6 +457,16 @@ static FRR_NORETURN void ldpd_shutdown(void)
 	close(iev_ldpe->ibuf.fd);
 	msgbuf_clear(&iev_lde->ibuf.w);
 	close(iev_lde->ibuf.fd);
+	/*
+	 * And the sync pipes.  In the foreground the children are ours, and
+	 * one blocked in ldp_acl_request() would otherwise never get back to
+	 * its event loop to see the closes above: the wait() below would
+	 * wait for it forever.
+	 */
+	msgbuf_clear(&iev_ldpe_sync->ibuf.w);
+	close(iev_ldpe_sync->ibuf.fd);
+	msgbuf_clear(&iev_lde_sync->ibuf.w);
+	close(iev_lde_sync->ibuf.fd);
 
 	config_clear(ldpd_conf);
 
@@ -494,6 +504,8 @@ static FRR_NORETURN void ldpd_shutdown(void)
 
 	free(iev_ldpe);
 	free(iev_lde);
+	free(iev_ldpe_sync);
+	free(iev_lde_sync);
 
 	log_info("terminating");
 
@@ -581,7 +593,8 @@ static void main_dispatch_ldpe(struct event *event)
 	ssize_t			 n;
 	int			 shut = 0;
 
-	if ((n = imsg_read(ibuf)) == -1 && errno != EAGAIN)
+	n = ldp_imsg_read(ibuf);
+	if (n == -1 && errno != EAGAIN)
 		fatal("imsg_read error");
 
 	if (n == 0)	/* connection closed */
@@ -644,7 +657,8 @@ static void main_dispatch_lde(struct event *event)
 	int		 shut = 0;
 	struct zapi_rlfa_response *rlfa_labels;
 
-	if ((n = imsg_read(ibuf)) == -1 && errno != EAGAIN)
+	n = ldp_imsg_read(ibuf);
+	if (n == -1 && errno != EAGAIN)
 		fatal("imsg_read error");
 
 	if (n == 0)	/* connection closed */
@@ -737,6 +751,23 @@ static void main_dispatch_lde(struct event *event)
 	}
 }
 
+/*
+ * imsg_read() for the pipes between the ldpd processes.  A peer that
+ * closes its end while data we sent it is still unread makes Linux
+ * report ECONNRESET instead of EOF, once our own queue is drained.
+ * It is the same close, so report it as one.
+ */
+ssize_t ldp_imsg_read(struct imsgbuf *ibuf)
+{
+	ssize_t n;
+
+	n = imsg_read(ibuf);
+	if (n == -1 && errno == ECONNRESET)
+		n = 0;
+
+	return n;
+}
+
 /* ARGSUSED */
 void ldp_write_handler(struct event *event)
 {
@@ -744,8 +775,22 @@ void ldp_write_handler(struct event *event)
 	struct imsgbuf	*ibuf = &iev->ibuf;
 	ssize_t		 n;
 
-	if ((n = msgbuf_write(&ibuf->w)) == -1 && errno != EAGAIN)
-		fatal("msgbuf_write");
+	n = msgbuf_write(&ibuf->w);
+	if (n == -1) {
+		/*
+		 * The peer is gone: EPIPE, as SIGPIPE is ignored
+		 * (ECONNRESET is not expected, but would mean the same).
+		 * Drop what is queued and let the read handler see the
+		 * close.
+		 */
+		if (errno == EPIPE || errno == ECONNRESET) {
+			msgbuf_clear(&ibuf->w);
+			imsg_event_add(iev);
+			return;
+		}
+		if (errno != EAGAIN)
+			fatal("msgbuf_write");
+	}
 	if (n == 0) {
 		/* this pipe is dead, so remove the event handlers */
 		event_cancel(&iev->ev_read);
@@ -897,6 +942,7 @@ ldp_acl_request(struct imsgev *iev, char *acl_name, int af,
 {
 	struct imsg	 imsg;
 	struct acl_check acl_check;
+	ssize_t n;
 	int result;
 
 	if (acl_name[0] == '\0')
@@ -914,11 +960,35 @@ ldp_acl_request(struct imsgev *iev, char *acl_name, int af,
 	imsg_flush(&iev->ibuf);
 
 	/* receive (blocking) and parse result */
-	if (imsg_read(&iev->ibuf) == -1)
-		fatal("imsg_read error");
+	for (;;) {
+		n = imsg_get(&iev->ibuf, &imsg);
+		if (n == -1)
+			fatal("imsg_get");
+		if (n > 0)
+			break;
 
-	if (imsg_get(&iev->ibuf, &imsg) == -1)
-		fatal("imsg_get");
+		n = ldp_imsg_read(&iev->ibuf);
+		/*
+		 * Unlike the dispatch handlers, no EAGAIN exemption: only the
+		 * parent's end of the sync pipe is nonblocking, so this read
+		 * (on LDPD_FD_SYNC) blocks.  The one EAGAIN left is
+		 * imsg_read()'s own check for running out of fds, and
+		 * retrying that here would spin.
+		 */
+		if (n == -1)
+			fatal("imsg_read error");
+		if (n == 0) {
+			/*
+			 * The parent is going away (ldpd_shutdown() closes
+			 * this pipe) or already gone, so the answer no longer
+			 * matters: deny, and let the event loop see the main
+			 * pipe close and shut down.  Say so, in case the pipe
+			 * ever closes for another reason.
+			 */
+			log_warnx("%s: parent pipe closed, denying acl %s", __func__, acl_name);
+			return FILTER_DENY;
+		}
+	}
 
 	if (imsg.hdr.type != IMSG_ACL_CHECK ||
 	    imsg.hdr.len != IMSG_HEADER_SIZE + sizeof(int)) {
