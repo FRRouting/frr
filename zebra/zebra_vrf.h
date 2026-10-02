@@ -40,6 +40,7 @@ struct zebra_rmap {
 };
 
 PREDECL_RBTREE_UNIQ(otable);
+PREDECL_DLIST(zebra_vrf_imports);
 
 struct other_route_table {
 	struct otable_item next;
@@ -119,6 +120,9 @@ struct zebra_vrf {
 
 	struct zebra_rmap proto_rm[AFI_MAX][ZEBRA_ROUTE_MAX + 1];
 	struct zebra_rmap nht_rm[AFI_MAX][ZEBRA_ROUTE_MAX + 1];
+
+	/* Zebra-native VRF route import configuration. */
+	struct zebra_vrf_imports_head vrf_imports;
 
 	/* MPLS processing flags */
 	uint16_t mpls_flags;

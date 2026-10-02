@@ -531,7 +531,7 @@ int zsend_redistribute_route(int cmd, struct zserv *client, const struct route_n
 		api.type = ZEBRA_ROUTE_TABLE_DIRECT;
 		api.vrf_id = *to_vrf;
 	} else
-		api.instance = re->instance;
+		api.instance = route_entry_get_proto_instance(re);
 	api.flags = re->flags;
 
 	afi = family2afi(p->family);
@@ -821,7 +821,7 @@ int zsend_route_notify_owner(const struct route_node *rn,
 
 	srcdest_rnode_prefixes(rn, &p, &src_p);
 
-	return route_notify_internal(p, src_p, re->type, re->instance,
+	return route_notify_internal(p, src_p, re->type, route_entry_get_proto_instance(re),
 				     re->vrf_id, re->table, note, afi, safi);
 }
 

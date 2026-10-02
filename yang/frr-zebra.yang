@@ -3006,6 +3006,38 @@ module frr-zebra {
         }
       }
 
+      list import-vrf {
+        key "afi-safi source-vrf";
+        description
+          "Import selected routes from another VRF into this VRF.";
+        leaf afi-safi {
+          type identityref {
+            base frr-rt:afi-safi-type;
+          }
+          description
+            "AFI-SAFI type.";
+        }
+        leaf source-vrf {
+          type string;
+          description
+            "Source VRF name.";
+        }
+        leaf distance {
+          type uint8 {
+            range "1..255";
+          }
+          default "15";
+          description
+            "The admin distance to use for imported routes. Imported routes
+             never keep the distance they had in the source VRF.";
+        }
+        leaf route-map {
+          type frr-route-map:route-map-ref;
+          description
+            "Optional route-map to filter or rewrite imported routes.";
+        }
+      }
+
       list filter-nht {
         key "afi-safi protocol";
         description
