@@ -96,6 +96,33 @@ static int64_t acl_get_seq(struct vty *vty, const char *xpath, bool is_remove)
 	return seq;
 }
 
+/*
+ * Count at most `limit` "entry" children of the list node.
+ * Resolves the list via yang_dnode_get() (O(1) hash lookup) then walks
+ * lyd_child() pointers directly.  Stops as soon as `limit` entries are
+ * found — O(1) in practice since callers only ever pass 1 or 2.
+ */
+static uint32_t filter_entries_count_upto(const struct lyd_node *tree, const char *ftype,
+					  const char *iptype, const char *name, uint32_t limit)
+{
+	char xpath[XPATH_MAXLEN];
+	const struct lyd_node *list_node, *child;
+	uint32_t count = 0;
+
+	snprintf(xpath, sizeof(xpath), "/frr-filter:lib/%s-list[type='%s'][name='%s']", ftype,
+		 iptype, name);
+	list_node = yang_dnode_get(tree, xpath);
+	if (!list_node)
+		return 0;
+	LY_LIST_FOR (lyd_child(list_node), child) {
+		if (strmatch(child->schema->name, "entry")) {
+			if (++count >= limit)
+				return count;
+		}
+	}
+	return count;
+}
+
 /**
  * Remove main data structure filter list if there are no more entries or
  * remark. This fixes compatibility with old CLI and tests.
@@ -109,10 +136,9 @@ static int filter_remove_check_empty(struct vty *vty, const char *ftype,
 	char xpath[XPATH_MAXLEN];
 	uint32_t count;
 
-	/* Count existing entries */
-	count = yang_dnode_count(vty->candidate_config->dnode,
-				 "/frr-filter:lib/%s-list[type='%s'][name='%s']/entry",
-				 ftype, iptype, name);
+	/* Count entries via O(1) child walk; only need ≤ 2 to decide emptiness. */
+	count = filter_entries_count_upto(vty->candidate_config->dnode, ftype, iptype, name,
+					  del_seq ? 2 : 1);
 
 	/* Check entry-to-delete actually exists */
 	if (del_seq) {
