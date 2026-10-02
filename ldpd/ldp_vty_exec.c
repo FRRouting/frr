@@ -1643,7 +1643,7 @@ ldp_vty_dispatch_lib(struct vty *vty, struct imsg *imsg,
 				filtered = true;
 				return (0);
 			} else if (params->lib.longer_prefixes &&
-			    !prefix_match(&params->lib.prefix, &prefix)) {
+				   !prefix_contains(&params->lib.prefix, &prefix)) {
 				filtered = true;
 				return (0);
 			}

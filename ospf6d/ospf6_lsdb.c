@@ -294,7 +294,7 @@ const struct route_node *ospf6_lsdb_head(struct ospf6_lsdb *lsdb, int argmode,
 					   sizeof(adv_router));
 
 		node = route_table_get_next(lsdb->table, &key);
-		if (!node || !prefix_match((struct prefix *)&key, &node->p))
+		if (!node || !prefix_contains((struct prefix *)&key, &node->p))
 			return NULL;
 
 		for (end = node; end && end->parent
