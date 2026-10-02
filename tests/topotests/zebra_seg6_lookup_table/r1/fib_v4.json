@@ -1,0 +1,44 @@
+[
+	{
+		"dst": "1.1.1.0/24",
+		"encap": {
+			"encap_type": "seg6",
+			"mode": "encap",
+			"segs": ["fec0::ff"]
+		},
+		"dev": "eth0"
+	},
+
+	{
+		"dst": "2.2.2.0/24",
+		"encap": {
+			"encap_type": "seg6",
+			"mode": "encap",
+			"segs": ["fec0::ff"],
+			"lookup": "main"
+		},
+		"dev": "eth0"
+	},
+
+	{
+		"dst": "3.3.3.0/24",
+		"encap": {
+			"encap_type": "seg6",
+			"mode": "encap",
+			"segs": ["fec1::ff"],
+			"lookup": "1001"
+		},
+		"dev": "eth1"
+	},
+
+	{
+		"dst": "4.4.4.0/24",
+		"encap": {
+			"encap_type": "seg6",
+			"mode": "encap",
+			"segs": ["fec0::ff"],
+			"lookup": "main"
+		},
+		"dev": "eth0"
+	}
+]

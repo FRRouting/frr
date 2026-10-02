@@ -1850,6 +1850,7 @@ static bool zapi_read_nexthops(struct zserv *client, struct prefix *p,
 		char nhbuf[NEXTHOP_STRLEN];
 		char labelbuf[MPLS_LABEL_STRLEN];
 		struct zapi_nexthop *api_nh = &nhops[i];
+		struct zebra_vrf *zvrf;
 
 		/* Convert zapi nexthop */
 		nexthop = nexthop_from_zapi(api_nh, flags, p, backup_nh_num);
@@ -1917,9 +1918,12 @@ static bool zapi_read_nexthops(struct zserv *client, struct prefix *p,
 			if (IS_ZEBRA_DEBUG_RECV)
 				zlog_debug("%s: adding seg6", __func__);
 
+			zvrf = zebra_vrf_lookup_by_id(nexthop->vrf_id);
+
 			nexthop_add_srv6_seg6(nexthop, &api_nh->seg6_segs[0], api_nh->seg_num,
 					      api_nh->srv6_encap_behavior,
-					      &api_nh->srv6_encap_source);
+					      &api_nh->srv6_encap_source,
+					      zvrf ? zvrf->table_id : rt_table_main_id);
 		}
 
 		if (IS_ZEBRA_DEBUG_RECV) {
