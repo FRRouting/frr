@@ -75,12 +75,12 @@ char  *asnprintfrr(struct memtype *mt, char *out, size_t sz,
 
 #define printfrr(fmt, ...)                                                     \
 	do {                                                                   \
-		char buf[256], *out;                                           \
-		out = asnprintfrr(MTYPE_TMP, buf, sizeof(buf), fmt,            \
+		char _xbuf[256], *_xout;                                       \
+		_xout = asnprintfrr(MTYPE_TMP, _xbuf, sizeof(_xbuf), fmt,      \
 				  ##__VA_ARGS__);                              \
-		fputs(out, stdout);                                            \
-		if (out != buf)                                                \
-			XFREE(MTYPE_TMP, out);                                 \
+		fputs(_xout, stdout);                                          \
+		if (_xout != _xbuf)                                            \
+			XFREE(MTYPE_TMP, _xout);                               \
 	} while (0)
 
 #undef at
