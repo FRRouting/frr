@@ -4449,15 +4449,22 @@ void bgp_process_main_one(struct bgp *bgp, struct bgp_dest *dest, afi_t afi, saf
 
 	struct bgp_path_info_mpath_diff *diff;
 
-	/* call bmp hook for loc-rib route update / withdraw after flags were
-	 * set
+	/* Best route remains the same and this is not due to user-initiated
+	 * clear: the best path update is not notified (only multipath changes
+	 * are), and only the minimal processing below is done.
 	 */
-	if (old_select || new_select) {
-		if (old_select)
-			bgp_path_info_lock(old_select);
+	bool best_unchanged = old_select && old_select == new_select &&
+			      !CHECK_FLAG(dest->flags, BGP_NODE_USER_CLEAR) &&
+			      !CHECK_FLAG(dest->flags, BGP_NODE_PROCESS_CLEAR) &&
+			      !CHECK_FLAG(old_select->flags, BGP_PATH_ATTR_CHANGED) &&
+			      !bgp_addpath_is_addpath_used(&bgp->tx_addpath, afi, safi);
 
+	if (old_select)
+		bgp_path_info_lock(old_select);
+
+	/* call bmp hook for loc-rib route update / withdraw */
+	if (!best_unchanged && (old_select || new_select))
 		hook_call(bgp_route_update, bgp, afi, safi, dest, old_select, new_select);
-	}
 
 	if (debug)
 		zlog_debug("%s: multipath diff %p computed, mpath_changed=%d", __func__,
@@ -4478,11 +4485,7 @@ void bgp_process_main_one(struct bgp *bgp, struct bgp_dest *dest, afi_t afi, saf
 	/* If best route remains the same and this is not due to user-initiated
 	 * clear, see exactly what needs to be done.
 	 */
-	if (old_select && old_select == new_select &&
-	    !CHECK_FLAG(dest->flags, BGP_NODE_USER_CLEAR) &&
-	    !CHECK_FLAG(dest->flags, BGP_NODE_PROCESS_CLEAR) &&
-	    !CHECK_FLAG(old_select->flags, BGP_PATH_ATTR_CHANGED) &&
-	    !bgp_addpath_is_addpath_used(&bgp->tx_addpath, afi, safi)) {
+	if (best_unchanged) {
 		if (bgp_zebra_has_route_changed(old_select)) {
 #ifdef ENABLE_BGP_VNC
 			vnc_import_bgp_add_route(bgp, p, old_select);
@@ -4661,7 +4664,9 @@ out:
 		if (old_select->peer)
 			old_select->peer->stat_loc_rib_count[afi][safi]--;
 
-		hook_call(bgp_process_main_one_end, bgp, old_select);
+		/* only release what bgp_route_update hook locked */
+		if (!best_unchanged)
+			hook_call(bgp_process_main_one_end, bgp, old_select);
 		bgp_path_info_unlock(old_select);
 	}
 
