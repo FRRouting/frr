@@ -20,6 +20,11 @@
 #include "zebra/zserv.h"
 #include "zebra/debug.h"
 #include "zebra/zebra_neigh.h"
+#include "zebra/interface.h"
+
+#ifndef RTPROT_ZEBRA
+#define RTPROT_ZEBRA 11
+#endif
 
 /* definitions */
 DEFINE_MTYPE_STATIC(ZEBRA, PBR_IPTABLE_IFNAME, "PBR interface list");
@@ -1111,6 +1116,78 @@ void zebra_pbr_dplane_result(struct zebra_dplane_ctx *ctx)
 			EC_ZEBRA_PBR_RULE_UPDATE,
 			"Context received in pbr rule dplane result handler with incorrect OP code (%u)",
 			op);
+}
+
+/*
+ * Interpret a kernel fib-rule notification encoded by the dplane pthread
+ * and apply it on the zebra pthread.
+ *
+ * Handling of an ADD is TBD.
+ * DELs are notified up, if other attributes indicate it may be a
+ * notification of interest. The expectation is that if this corresponds
+ * to a PBR rule added by FRR, it will be readded.
+ *
+ * If startup and we see a rule we created, delete it as its leftover
+ * from a previous instance and should have been removed on shutdown.
+ */
+void zebra_pbr_process_kernel_notif(struct zebra_dplane_ctx *ctx)
+{
+	struct zebra_pbr_rule rule = {};
+	struct zebra_ns *zns;
+	enum dplane_op_e op = dplane_ctx_get_op(ctx);
+	bool startup = dplane_ctx_get_startup(ctx);
+	uint8_t proto = dplane_ctx_get_rule_proto(ctx);
+	const char *ifname = dplane_ctx_rule_get_ifname(ctx);
+
+	dplane_ctx_rule_get(ctx, &rule.rule, NULL);
+	if (ifname)
+		strlcpy(rule.ifname, ifname, sizeof(rule.ifname));
+	rule.vrf_id = dplane_ctx_rule_get_vrfid(ctx);
+
+	if (op == DPLANE_OP_RULE_ADD) {
+		/*
+		 * If we see a rule at startup we created, delete it now.
+		 * It should have been flushed on a previous shutdown.
+		 */
+		if (startup && proto == RTPROT_ZEBRA) {
+			enum zebra_dplane_result ret;
+
+			ret = dplane_pbr_rule_delete(&rule);
+
+			zlog_debug(
+				"%s: %s leftover rule: family %s IF %s Pref %u Src %pFX Dst %pFX Table %u",
+				__func__,
+				((ret == ZEBRA_DPLANE_REQUEST_FAILURE)
+					 ? "Failed to remove"
+					 : "Removed"),
+				family2str(rule.rule.family), rule.ifname,
+				rule.rule.priority, &rule.rule.filter.src_ip,
+				&rule.rule.filter.dst_ip,
+				rule.rule.action.table);
+		}
+
+		/* TBD */
+		return;
+	}
+
+	if (op != DPLANE_OP_RULE_DELETE)
+		return;
+
+	zns = zebra_ns_lookup(dplane_ctx_get_ns_id(ctx));
+
+	/* If we don't know the interface, we don't care. */
+	if (!zns || !if_lookup_by_name_per_ns(zns, rule.ifname))
+		return;
+
+	if (IS_ZEBRA_DEBUG_KERNEL)
+		zlog_debug(
+			"Rx %s family %s IF %s Pref %u Src %pFX Dst %pFX Table %u",
+			dplane_op2str(op), family2str(rule.rule.family),
+			rule.ifname, rule.rule.priority,
+			&rule.rule.filter.src_ip, &rule.rule.filter.dst_ip,
+			rule.rule.action.table);
+
+	kernel_pbr_rule_del(&rule);
 }
 
 /*
