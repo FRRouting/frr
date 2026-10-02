@@ -1,9 +1,9 @@
 SUFFIXES += .yang .yang.c .yin .yin.c
 EXTRA_DIST += yang/embedmodel.py
 
-.yang.yang.c:
+%.yang.c: %.yang
 	$(AM_V_GEN)$(PYTHON) $(top_srcdir)/yang/embedmodel.py $^ $@
-.yin.yin.c:
+%.yin.c: %.yin
 	$(AM_V_GEN)$(PYTHON) $(top_srcdir)/yang/embedmodel.py $^ $@
 
 # use .yang.c files like this:
