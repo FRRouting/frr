@@ -43,7 +43,10 @@ sys.path.append(os.path.join(CWD, "../"))
 # pylint: disable=C0413
 from lib import topotest
 from lib.topogen import Topogen, TopoRouter, get_topogen
-from lib.common_config import create_address_on_interface
+from lib.common_config import (
+    create_address_on_interface,
+    delete_address_on_interface,
+)
 from lib.topolog import logger
 
 pytestmark = [pytest.mark.bgpd, pytest.mark.freebsd]
@@ -905,7 +908,7 @@ def test_loopback_address_unset_restore():
 
     # Step 2: Remove IP address from loopback
     logger.info("Step 2: Removing IP address from loopback interface on r1")
-    r1.run("ip addr del 10.1.1.1/32 dev lo")
+    delete_address_on_interface(r1.tgen, r1.name, "lo", "10.1.1.1/32")
 
     # Step 3: Verify loopback prefix NLRI is withdrawn
     logger.info("Step 3: Verifying loopback prefix NLRI is withdrawn from rr")
