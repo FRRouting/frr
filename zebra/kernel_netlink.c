@@ -695,7 +695,13 @@ const char *nl_rttype_to_str(uint8_t rttype)
 	return lookup_msg(rttype_str, rttype, "");
 }
 
-static void netlink_parse_extended_ack(struct nlmsghdr *h, int proto)
+/*
+ * Parse and log the extended ack attached to a netlink ACK/error message.
+ * When @expected is true the error is a known, benign one (see
+ * netlink_error_is_expected()) and the text is only logged when kernel
+ * debugging is enabled.
+ */
+static void netlink_parse_extended_ack(struct nlmsghdr *h, int proto, bool expected)
 {
 	struct nlattr *tb[NLMSGERR_ATTR_MAX + 1] = {};
 	const struct nlmsgerr *err = (const struct nlmsgerr *)NLMSG_DATA(h);
@@ -739,7 +745,10 @@ static void netlink_parse_extended_ack(struct nlmsghdr *h, int proto)
 	if (msg && *msg != '\0') {
 		bool is_err = !!err->error;
 
-		if (is_err)
+		if (expected) {
+			if (IS_ZEBRA_DEBUG_KERNEL)
+				zlog_debug("Extended %s: %s", is_err ? "Error" : "Warning", msg);
+		} else if (is_err)
 			flog_err(EC_ZEBRA_NETLINK_EXTENDED_ERROR, "Extended Error: %s", msg);
 		else
 			flog_warn(EC_ZEBRA_NETLINK_EXTENDED_WARNING,
@@ -862,6 +871,48 @@ static int netlink_recv_msg(struct nlsock *nl, struct msghdr *msg)
 }
 
 /*
+ * Errors that occur because of races in link handling or because a type or
+ * operation is not supported by the kernel (or by a given device). These are
+ * expected and are only logged when kernel debugging is enabled.
+ */
+static bool netlink_error_is_expected(const struct nlsock *nl, int msg_type, int errnum,
+				      bool is_cmd)
+{
+	if (!is_cmd)
+		return false;
+
+	/* rtnetlink message types only mean something on NETLINK_ROUTE sockets */
+	if (nl->proto == NETLINK_ROUTE) {
+		switch (msg_type) {
+		case RTM_DELROUTE:
+			return -errnum == ENODEV || -errnum == ESRCH;
+		case RTM_NEWROUTE:
+			return -errnum == ENETDOWN || -errnum == EEXIST;
+		case RTM_DELNEXTHOP:
+			return -errnum == ENOENT || -errnum == ESRCH;
+		case RTM_NEWTUNNEL:
+		case RTM_DELTUNNEL:
+		case RTM_GETTUNNEL:
+			return -errnum == EOPNOTSUPP;
+		default:
+			return false;
+		}
+	}
+
+	/*
+	 * ethtool generic netlink: devices without link settings (tunnels,
+	 * tun/tap, wireguard, dummy, ...) answer ETHTOOL_MSG_LINKMODES_GET with
+	 * EOPNOTSUPP, and an interface can disappear (ENODEV) while its speed
+	 * query is in flight. Generic netlink message types are dynamically
+	 * assigned family ids, so match on the protocol and resolved family.
+	 */
+	if (nl->proto == NETLINK_GENERIC && msg_type == genl_family_ethtool())
+		return -errnum == EOPNOTSUPP || -errnum == ENODEV;
+
+	return false;
+}
+
+/*
  * netlink_parse_error - parse a netlink error message
  *
  * Returns 1 if this message is acknowledgement, 0 if this error should be
@@ -873,6 +924,7 @@ static int netlink_parse_error(const struct nlsock *nl, struct nlmsghdr *h,
 	struct nlmsgerr *err = (struct nlmsgerr *)NLMSG_DATA(h);
 	int errnum = err->error;
 	int msg_type = err->msg.nlmsg_type;
+	bool expected;
 
 	if (h->nlmsg_len < NLMSG_LENGTH(sizeof(struct nlmsgerr))) {
 		flog_err(EC_ZEBRA_NETLINK_LENGTH_ERROR,
@@ -884,8 +936,10 @@ static int netlink_parse_error(const struct nlsock *nl, struct nlmsghdr *h,
 	 * Parse the extended information before we actually handle it. At this
 	 * point in time we do not do anything other than report the issue.
 	 */
+	expected = errnum && netlink_error_is_expected(nl, msg_type, errnum, is_cmd);
+
 	if (h->nlmsg_flags & NLM_F_ACK_TLVS)
-		netlink_parse_extended_ack(h, nl->proto);
+		netlink_parse_extended_ack(h, nl->proto, expected);
 
 	/* If the error field is zero, then this is an ACK. */
 	if (err->error == 0) {
@@ -902,21 +956,21 @@ static int netlink_parse_error(const struct nlsock *nl, struct nlmsghdr *h,
 	 * Deal with errors that occur because of races in link handling
 	 * or types are not supported in kernel.
 	 */
-	if (is_cmd &&
-	    ((msg_type == RTM_DELROUTE &&
-	      (-errnum == ENODEV || -errnum == ESRCH)) ||
-	     (msg_type == RTM_NEWROUTE &&
-	      (-errnum == ENETDOWN || -errnum == EEXIST)) ||
-	     (msg_type == RTM_DELNEXTHOP &&
-	      (-errnum == ENOENT || -errnum == ESRCH)) ||
-	     ((msg_type == RTM_NEWTUNNEL || msg_type == RTM_DELTUNNEL ||
-	       msg_type == RTM_GETTUNNEL) &&
-	      (-errnum == EOPNOTSUPP)))) {
+	if (expected) {
 		if (IS_ZEBRA_DEBUG_KERNEL)
 			zlog_debug("%s: error: %s type=%s(%u), seq=%u, pid=%u", nl->name,
 				   safe_strerror(-errnum),
 				   nl_msg_type_to_str_sock(msg_type, nl->proto), msg_type,
 				   err->msg.nlmsg_seq, err->msg.nlmsg_pid);
+		/*
+		 * Route, nexthop, and tunnel races can be dropped. An ethtool
+		 * speed query must still fail the read: a zero return leaves
+		 * the speed unset, and the caller then stores 0 and schedules
+		 * another query. netlink_get_interface_speed() maps a negative
+		 * return plus EOPNOTSUPP/ENODEV to INTERFACE_SPEED_ERROR_READ.
+		 */
+		if (nl->proto == NETLINK_GENERIC && msg_type == genl_family_ethtool())
+			return -1;
 		return 0;
 	}
 
