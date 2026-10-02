@@ -1150,6 +1150,118 @@ bool nb_is_operation_allowed(struct nb_node *nb_node, enum nb_operation oper)
 	return true;
 }
 
+bool nb_operation_is_valid(enum nb_operation operation, const struct lysc_node *snode)
+{
+	struct lysc_node_container *scontainer;
+	struct lysc_node_leaf *sleaf;
+
+	switch (operation) {
+	case NB_OP_CREATE_EXCL:
+	case NB_OP_CREATE:
+		if (!CHECK_FLAG(snode->flags, LYS_CONFIG_W))
+			return false;
+
+		switch (snode->nodetype) {
+		case LYS_LEAF:
+			sleaf = (struct lysc_node_leaf *)snode;
+			if (sleaf->type->basetype != LY_TYPE_EMPTY)
+				return false;
+			break;
+		case LYS_CONTAINER:
+			scontainer = (struct lysc_node_container *)snode;
+			if (!CHECK_FLAG(scontainer->flags, LYS_PRESENCE))
+				return false;
+			break;
+		case LYS_LIST:
+		case LYS_LEAFLIST:
+			break;
+		default:
+			return false;
+		}
+		return true;
+	case NB_OP_MODIFY:
+		if (!CHECK_FLAG(snode->flags, LYS_CONFIG_W))
+			return false;
+
+		switch (snode->nodetype) {
+		case LYS_LEAF:
+			sleaf = (struct lysc_node_leaf *)snode;
+			if (sleaf->type->basetype == LY_TYPE_EMPTY)
+				return false;
+
+			/* List keys can't be modified. */
+			if (lysc_is_key(sleaf))
+				return false;
+			break;
+		default:
+			return false;
+		}
+		return true;
+	case NB_OP_REPLACE:
+		if (!CHECK_FLAG(snode->flags, LYS_CONFIG_W))
+			return false;
+		return true;
+	case NB_OP_DELETE:
+	case NB_OP_DESTROY:
+		if (!CHECK_FLAG(snode->flags, LYS_CONFIG_W))
+			return false;
+
+		switch (snode->nodetype) {
+		case LYS_LEAF:
+			sleaf = (struct lysc_node_leaf *)snode;
+
+			/* List keys can't be deleted. */
+			if (lysc_is_key(sleaf))
+				return false;
+
+			/*
+			 * Only optional leafs can be deleted, or leafs whose
+			 * parent is a case statement.
+			 */
+			if (snode->parent && snode->parent->nodetype == LYS_CASE)
+				return true;
+			if (sleaf->when)
+				return true;
+			if (CHECK_FLAG(sleaf->flags, LYS_MAND_TRUE)
+#if (LY_VERSION_MAJOR < 4)
+			    || sleaf->dflt
+#else
+			    || sleaf->dflt.str
+#endif
+			)
+				return false;
+			break;
+		case LYS_CONTAINER:
+			scontainer = (struct lysc_node_container *)snode;
+			if (!CHECK_FLAG(scontainer->flags, LYS_PRESENCE))
+				return false;
+			break;
+		case LYS_LIST:
+		case LYS_LEAFLIST:
+			break;
+		default:
+			return false;
+		}
+		return true;
+	case NB_OP_MOVE:
+		if (!CHECK_FLAG(snode->flags, LYS_CONFIG_W))
+			return false;
+
+		switch (snode->nodetype) {
+		case LYS_LIST:
+		case LYS_LEAFLIST:
+			if (!CHECK_FLAG(snode->flags, LYS_ORDBY_USER))
+				return false;
+			break;
+		default:
+			return false;
+		}
+		return true;
+	default:
+		return false;
+	}
+}
+
 enum nb_change_result nb_candidate_edit_config_change(struct nb_config *candidate_config,
 						      enum nb_operation operation, const char *xpath,
 						      const char *value, bool in_backend)

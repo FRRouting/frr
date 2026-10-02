@@ -1043,6 +1043,20 @@ extern bool nb_is_operation_allowed(struct nb_node *nb_node,
 				    enum nb_operation oper);
 
 /*
+ * Validate if the given operation is valid for a schema node.
+ *
+ * operation
+ *    Northbound operation.
+ *
+ * snode
+ *    libyang schema node.
+ *
+ * Returns:
+ *    true if the operation is valid, false otherwise.
+ */
+extern bool nb_operation_is_valid(enum nb_operation operation, const struct lysc_node *snode);
+
+/*
  * Edit a candidate configuration.
  *
  * candidate
