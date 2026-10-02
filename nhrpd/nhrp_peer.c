@@ -32,6 +32,8 @@ struct ipv6hdr {
 };
 
 static void nhrp_packet_debug(struct zbuf *zb, const char *dir);
+static int nhrp_packet_send_error(struct nhrp_packet_parser *pp,
+				  uint16_t indication_code, uint16_t offset);
 
 static void nhrp_peer_check_delete(struct nhrp_peer *p)
 {
@@ -1071,14 +1073,34 @@ static void nhrp_peer_forward(struct nhrp_peer *p,
 			 * hop by hop.
 			 */
 			break;
+		case NHRP_EXTENSION_RESPONDER_ADDRESS:
+			/* Copy the extension before parsing its CIE, the
+			 * parse consumes the buffer.
+			 */
+			zbuf_put(zb, extpl.head, len);
+			/*
+			 * RFC 2332 5.3.1: if a forwarded Resolution Reply
+			 * contains our own protocol address in the
+			 * Responder Address Extension, the reply is
+			 * looping back to us.  Generate an Error
+			 * Indication and discard the reply.
+			 */
+			if (hdr->type == NHRP_PACKET_RESOLUTION_REPLY
+			    && nhrp_cie_pull(&extpl, pp->hdr, &cie_nbma,
+					     &cie_protocol)
+			    && sockunion_same(&if_ad->addr, &cie_protocol)) {
+				nhrp_packet_send_error(pp,
+						       NHRP_ERROR_LOOP_DETECTED,
+						       0);
+				goto err;
+			}
+			break;
 		default:
 			if (htons(ext->type) & NHRP_EXTENSION_FLAG_COMPULSORY)
 				/* FIXME: RFC says to just copy, but not
 				 * append our selves to the transit NHS list
 				 */
 				goto err;
-			fallthrough;
-		case NHRP_EXTENSION_RESPONDER_ADDRESS:
 			/* Supported compulsory extensions, and any
 			 * non-compulsory that is not explicitly handled,
 			 * should be just copied.
