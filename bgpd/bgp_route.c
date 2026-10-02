@@ -6502,11 +6502,10 @@ void bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 			    peer->sort == BGP_PEER_EBGP &&
 			    CHECK_FLAG(pi->flags, BGP_PATH_HISTORY)) {
 				if (unlikely(bgp_debug_update(peer, p, NULL, 1))) {
-					bgp_debug_rdpfxpath2str(
-						afi, safi, prd, p, label,
-						num_labels, addpath_id ? 1 : 0,
-						addpath_id, evpn, pfx_buf,
-						sizeof(pfx_buf));
+					bgp_debug_rdpfxpath2str(afi, safi, prd, p, label,
+								num_labels, addpath_id ? 1 : 0,
+								addpath_id, attr_new->evpn_overlay,
+								pfx_buf, sizeof(pfx_buf));
 					zlog_debug("%pBP rcvd %s", peer,
 						   pfx_buf);
 				}
@@ -6527,11 +6526,10 @@ void bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 						bm->rcvd_attr_printed = true;
 					}
 
-					bgp_debug_rdpfxpath2str(
-						afi, safi, prd, p, label,
-						num_labels, addpath_id ? 1 : 0,
-						addpath_id, evpn, pfx_buf,
-						sizeof(pfx_buf));
+					bgp_debug_rdpfxpath2str(afi, safi, prd, p, label,
+								num_labels, addpath_id ? 1 : 0,
+								addpath_id, attr_new->evpn_overlay,
+								pfx_buf, sizeof(pfx_buf));
 					zlog_debug(
 						"%pBP rcvd %s...duplicate ignored",
 						peer, pfx_buf);
@@ -6556,10 +6554,10 @@ void bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 		/* Withdraw/Announce before we fully processed the withdraw */
 		if (CHECK_FLAG(pi->flags, BGP_PATH_REMOVED)) {
 			if (unlikely(bgp_debug_update(peer, p, NULL, 1))) {
-				bgp_debug_rdpfxpath2str(
-					afi, safi, prd, p, label, num_labels,
-					addpath_id ? 1 : 0, addpath_id, evpn,
-					pfx_buf, sizeof(pfx_buf));
+				bgp_debug_rdpfxpath2str(afi, safi, prd, p, label, num_labels,
+							addpath_id ? 1 : 0, addpath_id,
+							attr_new->evpn_overlay, pfx_buf,
+							sizeof(pfx_buf));
 				zlog_debug(
 					"%pBP rcvd %s, flapped quicker than processing",
 					peer, pfx_buf);
@@ -6584,10 +6582,9 @@ void bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 
 		/* Received Logging. */
 		if (unlikely(bgp_debug_update(peer, p, NULL, 1))) {
-			bgp_debug_rdpfxpath2str(afi, safi, prd, p, label,
-						num_labels, addpath_id ? 1 : 0,
-						addpath_id, evpn, pfx_buf,
-						sizeof(pfx_buf));
+			bgp_debug_rdpfxpath2str(afi, safi, prd, p, label, num_labels,
+						addpath_id ? 1 : 0, addpath_id,
+						attr_new->evpn_overlay, pfx_buf, sizeof(pfx_buf));
 			zlog_debug("%pBP rcvd %s", peer, pfx_buf);
 		}
 
@@ -6875,9 +6872,9 @@ void bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 			bm->rcvd_attr_printed = true;
 		}
 
-		bgp_debug_rdpfxpath2str(afi, safi, prd, p, label, num_labels,
-					addpath_id ? 1 : 0, addpath_id, evpn,
-					pfx_buf, sizeof(pfx_buf));
+		bgp_debug_rdpfxpath2str(afi, safi, prd, p, label, num_labels, addpath_id ? 1 : 0,
+					addpath_id, attr_new->evpn_overlay, pfx_buf,
+					sizeof(pfx_buf));
 		zlog_debug("%pBP rcvd %s", peer, pfx_buf);
 	}
 
@@ -7056,9 +7053,9 @@ filtered:
 			bm->rcvd_attr_printed = true;
 		}
 
-		bgp_debug_rdpfxpath2str(afi, safi, prd, p, label, num_labels,
-					addpath_id ? 1 : 0, addpath_id, evpn,
-					pfx_buf, sizeof(pfx_buf));
+		bgp_debug_rdpfxpath2str(afi, safi, prd, p, label, num_labels, addpath_id ? 1 : 0,
+					addpath_id, attr_new->evpn_overlay, pfx_buf,
+					sizeof(pfx_buf));
 		zlog_debug("%pBP rcvd UPDATE about %s -- DENIED due to: %s",
 			   peer, pfx_buf, reason);
 	}
