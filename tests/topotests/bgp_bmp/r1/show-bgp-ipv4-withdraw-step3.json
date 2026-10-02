@@ -1,0 +1,48 @@
+{
+  "routes": {
+    "10.1.1.0/31": [
+      {
+        "valid": true,
+        "pathFrom": "external",
+        "prefix": "10.1.1.0",
+        "prefixLen": 31,
+        "network": "10.1.1.0/31",
+        "metric": 0,
+        "weight": 0,
+        "peerId": "192.168.0.3",
+        "path": "65502",
+        "origin": "IGP",
+        "nexthops": [
+          {
+            "ip": "192.168.0.3",
+            "hostname": "r3ecmp",
+            "afi": "ipv4",
+            "used": true
+          }
+        ]
+      }
+    ],
+    "172.16.3.0/31": [
+      {
+        "valid": true,
+        "pathFrom": "external",
+        "prefix": "172.16.3.0",
+        "prefixLen": 31,
+        "network": "172.16.3.0/31",
+        "metric": 0,
+        "weight": 0,
+        "peerId": "192.168.0.3",
+        "path": "65502",
+        "origin": "IGP",
+        "nexthops": [
+          {
+            "ip": "192.168.0.3",
+            "hostname": "r3ecmp",
+            "afi": "ipv4",
+            "used": true
+          }
+        ]
+      }
+    ]
+  }
+}
