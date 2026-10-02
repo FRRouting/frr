@@ -408,10 +408,6 @@ static int netlink_information_fetch(struct nlmsghdr *h, ns_id_t ns_id, int star
 		return netlink_rule_change(h, ns_id, startup, arg);
 	case RTM_DELRULE:
 		return netlink_rule_change(h, ns_id, startup, arg);
-	case RTM_NEWNEXTHOP:
-		return netlink_nexthop_change(h, ns_id, startup, arg);
-	case RTM_DELNEXTHOP:
-		return netlink_nexthop_change(h, ns_id, startup, arg);
 
 	/* Messages we may receive, but ignore */
 	case RTM_NEWCHAIN:
@@ -424,6 +420,8 @@ static int netlink_information_fetch(struct nlmsghdr *h, ns_id_t ns_id, int star
 	case RTM_DELLINK:
 	case RTM_NEWADDR:
 	case RTM_DELADDR:
+	case RTM_NEWNEXTHOP:
+	case RTM_DELNEXTHOP:
 	case RTM_NEWNETCONF:
 	case RTM_DELNETCONF:
 	case RTM_NEWTUNNEL:
@@ -472,6 +470,10 @@ static int dplane_netlink_information_fetch(struct nlmsghdr *h, ns_id_t ns_id, i
 	case RTM_NEWADDR:
 	case RTM_DELADDR:
 		return netlink_interface_addr_dplane(h, ns_id, startup, arg);
+
+	case RTM_NEWNEXTHOP:
+	case RTM_DELNEXTHOP:
+		return netlink_nexthop_change(h, ns_id, startup, arg);
 
 	case RTM_NEWNETCONF:
 	case RTM_DELNETCONF:
@@ -1760,15 +1762,15 @@ void kernel_init(struct zebra_ns *zns)
 	 * ----------------------------------------------------------------
 	 */
 
-	/* Main listener: route, rule, and nexthop change notifications */
+	/* Main listener: route and rule change notifications */
 	groups = RTMGRP_IPV4_ROUTE | RTMGRP_IPV6_ROUTE | RTMGRP_IPV4_MROUTE |
-		 FRR_NLGRP_BIT(RTNLGRP_IPV4_RULE) | FRR_NLGRP_BIT(RTNLGRP_IPV6_RULE) |
-		 FRR_NLGRP_BIT(RTNLGRP_NEXTHOP);
+		 FRR_NLGRP_BIT(RTNLGRP_IPV4_RULE) | FRR_NLGRP_BIT(RTNLGRP_IPV6_RULE);
 
-	/* Dataplane inbound: link, neighbor, address, netconf, TC events */
+	/* Dataplane inbound: link, neighbor, address, netconf, TC, nexthop */
 	dplane_groups = RTMGRP_LINK | RTMGRP_NEIGH | RTMGRP_IPV4_IFADDR | RTMGRP_IPV6_IFADDR |
 			FRR_NLGRP_BIT(RTNLGRP_IPV4_NETCONF) | FRR_NLGRP_BIT(RTNLGRP_IPV6_NETCONF) |
-			FRR_NLGRP_BIT(RTNLGRP_MPLS_NETCONF) | FRR_NLGRP_BIT(RTNLGRP_TC);
+			FRR_NLGRP_BIT(RTNLGRP_MPLS_NETCONF) | FRR_NLGRP_BIT(RTNLGRP_TC) |
+			FRR_NLGRP_BIT(RTNLGRP_NEXTHOP);
 
 	/* Extended group: bit position >= 32, requires setsockopt */
 	ext_groups = RTNLGRP_TUNNEL;
