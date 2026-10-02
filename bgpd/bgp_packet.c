@@ -2327,8 +2327,7 @@ static void bgp_refresh_stalepath_timer_expire(struct event *event)
 	safi_t safi = paf->safi;
 	struct peer *peer = paf->peer;
 
-	if (peer->nsf[afi][safi])
-		bgp_clear_stale_route(peer, afi, safi);
+	bgp_clear_stale_route(peer, afi, safi);
 
 	if (bgp_debug_neighbor_events(peer))
 		zlog_debug(
@@ -3174,8 +3173,7 @@ static int bgp_route_refresh_receive(struct peer_connection *connection, bgp_siz
 				"%pBP rcvd route-refresh (EoRR) for %s/%s, stopping BoRR timer",
 				peer, afi2str(afi), safi2str(safi));
 
-		if (peer->nsf[afi][safi])
-			bgp_clear_stale_route(peer, afi, safi);
+		bgp_clear_stale_route(peer, afi, safi);
 	} else {
 		if (bgp_debug_neighbor_events(peer))
 			zlog_debug(
