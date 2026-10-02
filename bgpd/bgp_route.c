@@ -1640,18 +1640,24 @@ int bgp_path_info_cmp(struct bgp *bgp, struct bgp_path_info *new,
 		return 0;
 	}
 
+	/* Two paths imported from a locally originated route (redistribute,
+	 * network, aggregate) have no su_remote and can not be told apart by
+	 * neighbor address: use the default tie-break, as for two paths
+	 * imported from the same remote peer.
+	 */
+	if (peer_new->su_remote == NULL && peer_exist->su_remote == NULL)
+		goto bgp_path_info_cmp_done;
+
 	/* locally configured routes to advertise do not have su_remote */
-	if (peer_new->su_remote == NULL) {
+	if (!both_local_imported && peer_new->su_remote == NULL) {
 		*reason = bgp_path_selection_local_configured;
 		return 0;
 	}
 
-	if (peer_exist->su_remote == NULL) {
+	if (!both_local_imported && peer_exist->su_remote == NULL) {
 		*reason = bgp_path_selection_local_configured;
 		return 1;
 	}
-
-	ret = sockunion_cmp(peer_new->su_remote, peer_exist->su_remote);
 
 	/* IPv6 uses memcmp in sockunion_cmp — ret may be any +/- value, not only ±1 */
 	if (ret > 0) {
@@ -1672,6 +1678,7 @@ int bgp_path_info_cmp(struct bgp *bgp, struct bgp_path_info *new,
 		return 1;
 	}
 
+bgp_path_info_cmp_done:
 	*reason = bgp_path_selection_default;
 	if (debug)
 		zlog_debug("%s: %s wins over %s due to nothing left to compare",
