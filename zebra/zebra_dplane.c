@@ -761,7 +761,7 @@ static enum zebra_dplane_result intf_addr_update_internal(
 static enum zebra_dplane_result mac_update_common(enum dplane_op_e op, const struct interface *ifp,
 						  const struct interface *br_ifp, vlanid_t vid,
 						  const struct ethaddr *mac, vni_t vni,
-						  struct ipaddr *vtep_ip, bool sticky,
+						  const struct ipaddr *vtep_ip, bool sticky,
 						  uint32_t nhg_id, uint32_t update_flags);
 static enum zebra_dplane_result
 neigh_update_internal(enum dplane_op_e op, const struct interface *ifp,
@@ -5970,6 +5970,22 @@ enum zebra_dplane_result dplane_rem_mac_del(const struct interface *ifp,
 }
 
 /*
+ * Enqueue the delete of the VXLAN device's own FDB entry for a remote MAC,
+ * leaving the bridge's entries alone - used when the bridge's entry for the
+ * MAC is already a local one.
+ */
+enum zebra_dplane_result dplane_rem_mac_net_del(const struct interface *ifp,
+						const struct interface *bridge_ifp,
+						const struct ethaddr *mac, vni_t vni,
+						const struct ipaddr *vtep_ip)
+{
+	uint32_t update_flags = DPLANE_MAC_REMOTE | DPLANE_MAC_NET_ONLY;
+
+	return mac_update_common(DPLANE_OP_MAC_DELETE, ifp, bridge_ifp, 0, mac, vni, vtep_ip,
+				 false, 0, update_flags);
+}
+
+/*
  * API to configure link local with either MAC address or IP information
  */
 enum zebra_dplane_result dplane_neigh_ip_update(enum dplane_op_e op,
@@ -6049,7 +6065,7 @@ dplane_local_mac_del(const struct interface *ifp,
  */
 void dplane_mac_init(struct zebra_dplane_ctx *ctx, const struct interface *ifp,
 		     const struct interface *br_ifp, vlanid_t vid, const struct ethaddr *mac,
-		     vni_t vni, struct ipaddr *vtep_ip, bool sticky, uint32_t nhg_id,
+		     vni_t vni, const struct ipaddr *vtep_ip, bool sticky, uint32_t nhg_id,
 		     uint32_t update_flags)
 {
 	struct zebra_ns *zns;
@@ -6082,7 +6098,7 @@ void dplane_mac_init(struct zebra_dplane_ctx *ctx, const struct interface *ifp,
 static enum zebra_dplane_result mac_update_common(enum dplane_op_e op, const struct interface *ifp,
 						  const struct interface *br_ifp, vlanid_t vid,
 						  const struct ethaddr *mac, vni_t vni,
-						  struct ipaddr *vtep_ip, bool sticky,
+						  const struct ipaddr *vtep_ip, bool sticky,
 						  uint32_t nhg_id, uint32_t update_flags)
 {
 	enum zebra_dplane_result result = ZEBRA_DPLANE_REQUEST_FAILURE;

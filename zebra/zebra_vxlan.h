@@ -214,11 +214,10 @@ extern void zebra_evpn_init(void);
 extern void zebra_vxlan_macvlan_up(struct interface *ifp);
 extern void zebra_vxlan_macvlan_down(struct interface *ifp);
 extern int vni_list_cmp(void *p1, void *p2);
-extern int zebra_vxlan_dp_network_mac_add(struct interface *ifp,
-					  struct interface *br_if,
-					  struct ethaddr *macaddr, vlanid_t vid,
-					  vni_t vni, uint32_t nhg_id,
-					  bool sticky, bool dp_static);
+extern int zebra_vxlan_dp_network_mac_add(struct interface *ifp, struct interface *br_if,
+					  struct ethaddr *macaddr, vlanid_t vid, vni_t vni,
+					  uint32_t nhg_id, bool sticky, bool dp_static,
+					  const struct ipaddr *vtep_ip);
 extern int zebra_vxlan_dp_network_mac_del(struct interface *ifp,
 					  struct interface *br_if,
 					  struct ethaddr *macaddr, vlanid_t vid,
