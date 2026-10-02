@@ -33,6 +33,7 @@
 #include "zclient.h"
 #include "static_srv6.h"
 #include "lib_errors.h"
+#include "bfd.h"
 
 DEFINE_MTYPE_STATIC(STATIC, STATIC_NHT_DATA, "Static Nexthop tracking data");
 PREDECL_HASH(static_nht_hash);
@@ -177,6 +178,16 @@ static int route_notify_owner(ZAPI_CALLBACK_ARGS)
 static void zebra_connected(struct zclient *zclient)
 {
 	struct vrf *vrf;
+
+	/*
+	 * Send the BFD client registration, as the other BFD-integrated
+	 * daemons do. The one sent from static_bfd_initialize() happens
+	 * before the zebra connection is up and never reaches zebra, so
+	 * without any BFD-tracked route zebra has no registration for us
+	 * and logs "failed to find process pid registration" when we
+	 * disconnect.
+	 */
+	bfd_client_sendmsg(zclient, ZEBRA_BFD_CLIENT_REGISTER, VRF_DEFAULT);
 
 	zebra_route_notify_send(ZEBRA_ROUTE_NOTIFY_REQUEST, zclient, true);
 	zclient_send_reg_requests(zclient, VRF_DEFAULT);
