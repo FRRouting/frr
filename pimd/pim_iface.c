@@ -1126,9 +1126,18 @@ int pim_if_del_vif(struct interface *ifp)
 	pim_upstream_rpf_interface_del(ifp);
 
 	if (pim_ifp->mroute_vif_index < 1) {
-		zlog_warn("%s: vif_index=%d < 1 on interface %s ifindex=%d",
-			  __func__, pim_ifp->mroute_vif_index, ifp->name,
-			  ifp->ifindex);
+		/*
+		 * Nothing to delete. The interface never got a vif (it has no
+		 * usable address or never came up), or it already lost it when
+		 * it went down or was removed from the kernel. pimreg always
+		 * uses vif 0 and is left to the kernel, which removes it with
+		 * the other vifs when the mroute socket is closed. This is
+		 * routine (e.g. for every such interface at shutdown), so don't
+		 * warn.
+		 */
+		if (PIM_DEBUG_ZEBRA)
+			zlog_debug("%s: no vif to delete on interface %s (vif_index=%d ifindex=%d)",
+				   __func__, ifp->name, pim_ifp->mroute_vif_index, ifp->ifindex);
 		return -1;
 	}
 
