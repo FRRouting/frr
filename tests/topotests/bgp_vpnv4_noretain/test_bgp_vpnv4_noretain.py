@@ -29,6 +29,7 @@ sys.path.append(os.path.join(CWD, "../"))
 from lib import topotest
 from lib.topogen import Topogen, TopoRouter, get_topogen
 from lib.topolog import logger
+from lib.common_config import shutdown_bringup_interface_in_kernel
 
 # Required to instantiate the topology builder class.
 
@@ -74,34 +75,37 @@ def _populate_iface():
         "modprobe mpls_router",
         "echo 100000 > /proc/sys/net/mpls/platform_labels",
         "ip link add vrf1 type vrf table 10",
-        "ip link set dev vrf1 up",
+        ("up", "vrf1"),
         "ip link set dev {0}-eth1 master vrf1",
         "echo 1 > /proc/sys/net/mpls/conf/vrf1/input",
         "ip link add vrf2 type vrf table 20",
-        "ip link set dev vrf2 up",
+        ("up", "vrf2"),
         "ip link set dev {0}-eth2 master vrf2",
         "echo 1 > /proc/sys/net/mpls/conf/vrf2/input",
         "ip link add vrf3 type vrf table 30",
-        "ip link set dev vrf3 up",
+        ("up", "vrf3"),
         "ip link set dev {0}-eth3 master vrf3",
         "echo 1 > /proc/sys/net/mpls/conf/vrf3/input",
         "ip link add vrf4 type vrf table 40",
-        "ip link set dev vrf4 up",
+        ("up", "vrf4"),
         "ip link set dev {0}-eth4 master vrf4",
         "echo 1 > /proc/sys/net/mpls/conf/vrf4/input",
     ]
 
-    for cmd in cmds_list:
-        input = cmd.format("r1", "1", "2")
-        logger.info("input: " + cmd)
-        output = tgen.net["r1"].cmd(cmd.format("r1", "1", "2"))
-        logger.info("output: " + output)
-
-    for cmd in cmds_list:
-        input = cmd.format("r2", "2", "1")
-        logger.info("input: " + cmd)
-        output = tgen.net["r2"].cmd(cmd.format("r2", "2", "1"))
-        logger.info("output: " + output)
+    for rname, local, remote in (("r1", "1", "2"), ("r2", "2", "1")):
+        for cmd in cmds_list:
+            if isinstance(cmd, tuple):
+                shutdown_bringup_interface_in_kernel(
+                    tgen,
+                    rname,
+                    cmd[1].format(rname, local, remote),
+                    cmd[0] == "up",
+                )
+                continue
+            formatted = cmd.format(rname, local, remote)
+            logger.info("input: " + cmd)
+            output = tgen.net[rname].cmd(formatted)
+            logger.info("output: " + output)
 
 
 def setup_module(mod):

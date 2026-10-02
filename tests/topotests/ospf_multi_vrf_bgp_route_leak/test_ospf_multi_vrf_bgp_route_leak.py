@@ -18,6 +18,7 @@ import pytest
 from lib import topotest
 from lib.topogen import Topogen, get_topogen
 from lib.topolog import logger
+from lib.common_config import shutdown_bringup_interface_in_kernel
 
 
 """
@@ -106,25 +107,16 @@ def setup_module(mod):
     tgen = Topogen(build_topo, mod.__name__)
     tgen.start_topology()
 
-    r1_vrf_setup_cmds = [
-        "ip link add name neno type vrf table 11",
-        "ip link set dev neno up",
-        "ip link set dev r1-eth2 vrf neno up",
-    ]
-    r2_vrf_setup_cmds = [
-        "ip link add name ray type vrf table 11",
-        "ip link set dev ray up",
-        "ip link set dev r2-eth2 vrf ray up",
-    ]
-
     # Starting Routers
     router_list = tgen.routers()
 
     # Create VRFs on r1/r2 and bind to interfaces
-    for cmd in r1_vrf_setup_cmds:
-        tgen.net["r1"].cmd(cmd)
-    for cmd in r2_vrf_setup_cmds:
-        tgen.net["r2"].cmd(cmd)
+    tgen.net["r1"].cmd("ip link add name neno type vrf table 11")
+    shutdown_bringup_interface_in_kernel(tgen, "r1", "neno", True)
+    tgen.net["r1"].cmd("ip link set dev r1-eth2 vrf neno up")
+    tgen.net["r2"].cmd("ip link add name ray type vrf table 11")
+    shutdown_bringup_interface_in_kernel(tgen, "r2", "ray", True)
+    tgen.net["r2"].cmd("ip link set dev r2-eth2 vrf ray up")
 
     logger.info("Testing OSPF VRF support")
 

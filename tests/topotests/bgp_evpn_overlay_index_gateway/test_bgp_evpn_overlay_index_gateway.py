@@ -56,9 +56,10 @@ from lib.topogen import Topogen, TopoRouter, get_topogen
 from lib.topolog import logger
 from lib.common_config import (
     create_address_on_interface,
+    shutdown_bringup_interface_in_kernel,
     step,
-    write_test_header,
     write_test_footer,
+    write_test_header,
 )
 
 # Required to instantiate the topology builder class.
@@ -132,9 +133,14 @@ def setup_module(mod):
         host = tgen.net[name]
 
         host_mac = "1a:2b:3c:4d:5e:6{}".format(HOST_SUFFIX[name])
-        host.cmd_raises("ip link set dev {}-eth0 down".format(name))
+        shutdown_bringup_interface_in_kernel(
+            host.tgen,
+            host.name,
+            f"{name}-eth0",
+            False,
+        )
         host.cmd_raises("ip link set dev {0}-eth0 address {1}".format(name, host_mac))
-        host.cmd_raises("ip link set dev {}-eth0 up".format(name))
+        shutdown_bringup_interface_in_kernel(host.tgen, host.name, f"{name}-eth0", True)
 
     # Configure PE VxLAN and Bridge interfaces
     for name in tgen.gears:
@@ -147,7 +153,7 @@ def setup_module(mod):
         bridge_ipv6 = "50:0:1::{}/48".format(PE_SUFFIX[name])
 
         pe.cmd_raises("ip link add vrf-blue type vrf table 10")
-        pe.cmd_raises("ip link set dev vrf-blue up")
+        shutdown_bringup_interface_in_kernel(pe.tgen, pe.name, "vrf-blue", True)
         pe.cmd_raises(
             "ip link add vxlan100 type vxlan id 100 dstport 4789 local {}".format(
                 vtep_ip
@@ -157,9 +163,9 @@ def setup_module(mod):
         pe.cmd_raises("ip link set dev vxlan100 master br100")
         pe.cmd_raises("ip link set dev {}-eth1 master br100".format(name))
         create_address_on_interface(tgen, name, "br100", bridge_ip)
-        pe.cmd_raises("ip link set up dev br100")
-        pe.cmd_raises("ip link set up dev vxlan100")
-        pe.cmd_raises("ip link set up dev {}-eth1".format(name))
+        shutdown_bringup_interface_in_kernel(pe.tgen, pe.name, "br100", True)
+        shutdown_bringup_interface_in_kernel(pe.tgen, pe.name, "vxlan100", True)
+        shutdown_bringup_interface_in_kernel(pe.tgen, pe.name, f"{name}-eth1", True)
         pe.cmd_raises("ip link set dev br100 master vrf-blue")
         create_address_on_interface(tgen, name, "br100", bridge_ipv6)
 
@@ -170,8 +176,8 @@ def setup_module(mod):
         )
         pe.cmd_raises("ip link add name br1000 type bridge stp_state 0")
         pe.cmd_raises("ip link set dev vxlan1000 master br100")
-        pe.cmd_raises("ip link set up dev br1000")
-        pe.cmd_raises("ip link set up dev vxlan1000")
+        shutdown_bringup_interface_in_kernel(pe.tgen, pe.name, "br1000", True)
+        shutdown_bringup_interface_in_kernel(pe.tgen, pe.name, "vxlan1000", True)
         pe.cmd_raises("ip link set dev br1000 master vrf-blue")
 
         pe.cmd_raises("sysctl -w net.ipv4.ip_forward=1")
@@ -387,14 +393,14 @@ def test_evpn_gateway_ip_flap_rt2(request):
 
     pe1 = tgen.net["PE1"]
 
-    pe1.cmd_raises("ip link set dev vxlan100 down")
+    shutdown_bringup_interface_in_kernel(pe1.tgen, pe1.name, "vxlan100", False)
 
     result, assertmsg = evpn_gateway_ip_show_op_check("no_rt2")
     assert result is None, assertmsg
 
     step("Bring up VxLAN interface at PE1 and advertise type-2 routes again")
 
-    pe1.cmd_raises("ip link set dev vxlan100 up")
+    shutdown_bringup_interface_in_kernel(pe1.tgen, pe1.name, "vxlan100", True)
 
     result, assertmsg = evpn_gateway_ip_show_op_check("base")
     assert result is None, assertmsg

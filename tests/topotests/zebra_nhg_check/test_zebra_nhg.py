@@ -23,6 +23,7 @@ import json
 
 from lib.common_config import (
     kill_router_daemons,
+    shutdown_bringup_interface_in_kernel,
     start_router_daemons,
 )
 
@@ -392,7 +393,7 @@ def test_bgp_shutdown_some_links():
     # Shutdown interfaces r2-eth30 through r2-eth49
     step("Shutdown interfaces r2-eth30 through r2-eth49")
     for i in range(30, 50):
-        net["r2"].cmd(f"ip link set r2-eth{i} down")
+        shutdown_bringup_interface_in_kernel(tgen, 'r2', f"r2-eth{i}", False)
 
     step("Test that 20 BGP peers are failed")
 
@@ -490,7 +491,7 @@ def test_bgp_shutdown_some_links():
     step("Bring interfaces r2-eth30 through r2-eth49 back up")
     # Bring interfaces r2-eth30 through r2-eth49 back up
     for i in range(30, 50):
-        net["r2"].cmd(f"ip link set r2-eth{i} up")
+        shutdown_bringup_interface_in_kernel(tgen, 'r2', f"r2-eth{i}", True)
 
     step("Test that all BGP peers are established")
 
