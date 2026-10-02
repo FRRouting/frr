@@ -49,6 +49,7 @@ from lib.common_config import (
     create_address_on_interface,
     create_interface_in_kernel,
     required_linux_kernel_version,
+    shutdown_bringup_interface_in_kernel,
 )
 from lib.pim import McastTesterHelper
 
@@ -108,7 +109,7 @@ def tgen(request):
     for pe in D.PES:
         node = tg.gears[pe]
         for cmd in D.plumb_pe(pe, NUM_VRFS, NUM_MCAST_VRFS):
-            node.cmd_raises(cmd)
+            _run_plumb(node, cmd)
         if pe == D.MCAST_PE:
             for v in range(1, NUM_MCAST_VRFS + 1):
                 create_interface_in_kernel(
@@ -135,7 +136,7 @@ def tgen(request):
         ip, cmds = D.plumb_host(hname, pe, v, rx=rx)
         create_address_on_interface(tg, hname, "{}-eth0".format(hname), ip)
         for cmd in cmds:
-            tg.gears[hname].cmd_raises(cmd)
+            _run_plumb(tg.gears[hname], cmd)
 
     yield tg
     tg.stop_topology()
@@ -144,6 +145,15 @@ def tgen(request):
 # ---------------------------------------------------------------------------
 # helpers
 # ---------------------------------------------------------------------------
+
+
+def _run_plumb(node, cmd):
+    if isinstance(cmd, tuple):
+        shutdown_bringup_interface_in_kernel(
+            node.tgen, node.name, cmd[1], cmd[0] == "up"
+        )
+        return
+    node.cmd_raises(cmd)
 
 
 def _skip_if_broken(tgen):

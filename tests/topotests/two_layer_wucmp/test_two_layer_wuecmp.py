@@ -25,7 +25,7 @@ from lib import topotest
 from lib.topogen import Topogen, get_topogen
 from lib.topolog import logger
 from lib.bgp import verify_bgp_convergence, verify_bgp_convergence_from_running_config
-from lib.common_config import step
+from lib.common_config import step, shutdown_bringup_interface_in_kernel
 
 
 """
@@ -665,7 +665,12 @@ def test_single_link_down():
 
     # Bring down interface
     logger.info("Bringing down interface: leaf1-eth0")
-    down_output = net["leaf1"].cmd("ip link set leaf1-eth0 down")
+    down_output = shutdown_bringup_interface_in_kernel(
+                      tgen,
+                      'leaf1',
+                      "leaf1-eth0",
+                      False,
+                  )
 
     def verify_after_link_down():
         # Get current NHG state
@@ -738,7 +743,7 @@ def test_single_link_up():
 
     # Bring up interface
     logger.info("Bringing up interface: leaf1-eth0")
-    net["leaf1"].cmd("ip link set leaf1-eth0 up")
+    shutdown_bringup_interface_in_kernel(tgen, 'leaf1', "leaf1-eth0", True)
 
     def verify_after_link_up():
         (
@@ -808,7 +813,7 @@ def test_partial_links_towards_spine1_down():
     # Bring down 16 interfaces towards spine1
     logger.info("Bringing down 16 interfaces towards spine1: leaf1-eth0 to leaf1-eth15")
     for i in range(16):
-        net["leaf1"].cmd(f"ip link set leaf1-eth{i} down")
+        shutdown_bringup_interface_in_kernel(tgen, 'leaf1', f"leaf1-eth{i}", False)
 
     def verify_after_partial_links_down():
         (
@@ -881,7 +886,7 @@ def test_partial_links_towards_spine1_up():
     # Bring up 16 interfaces towards spine1
     logger.info("Bringing up 16 interfaces towards spine1: leaf1-eth0 to leaf1-eth15")
     for i in range(16):
-        net["leaf1"].cmd(f"ip link set leaf1-eth{i} up")
+        shutdown_bringup_interface_in_kernel(tgen, 'leaf1', f"leaf1-eth{i}", True)
 
     def verify_after_partial_links_up():
         (
