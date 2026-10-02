@@ -84,6 +84,7 @@ def setup_module(mod):
     for rname in ("vtep1", "vtep2"):
         remote = "vtep2" if rname == "vtep1" else "vtep1"
         i = rname.replace("vtep", "")
+        local_param = f"local 10.125.0.{i}" if "explicit" in mod.__name__ else ""
         tgen.gears[rname].cmd(
             f"""
 ip link add overlay type vrf table 10
@@ -98,15 +99,15 @@ ip link set br101 master overlay up
 ip link add br300 type bridge
 ip link set br300 master overlay up
 
-ip link add vxlan100 type vxlan id 100 dstport 4789 dev eth-{remote} nolearning
+ip link add vxlan100 type vxlan id 100 {local_param} dstport 4789 dev eth-{remote} nolearning
 ip link set vxlan100 master br100 up
 ip link set vxlan100 type bridge_slave neigh_suppress on
 
-ip link add vxlan101 type vxlan id 101 dstport 4789 dev eth-{remote} nolearning
+ip link add vxlan101 type vxlan id 101 {local_param} dstport 4789 dev eth-{remote} nolearning
 ip link set vxlan101 master br101 up
 ip link set vxlan101 type bridge_slave neigh_suppress on
 
-ip link add vxlan300 type vxlan id 300 dstport 4789 dev eth-{remote} nolearning
+ip link add vxlan300 type vxlan id 300 {local_param} dstport 4789 dev eth-{remote} nolearning
 ip link set vxlan300 address f2:6f:90:d3:65:0{i} master br300 up
 """
         )
