@@ -1605,6 +1605,33 @@ def create_address_on_interface(tgen, dut, name, ip_addr, vrf=None, netmask=None
         create_address_on_interface_linux(tgen, dut, name, ip_addr, vrf, netmask)
 
 
+def delete_address_on_interface(tgen, dut, name, ip_addr, vrf=None, netmask=None):
+    """
+    Remove an IP address from an existing kernel interface.
+
+    The interface must already exist. Other addresses configured on it are
+    left in place. Link state is not changed. ``vrf`` is accepted so callers
+    can pass the same arguments as ``create_address_on_interface``. Interface
+    VRF membership is left unchanged.
+
+    Parameters
+    ----------
+    * `tgen` : Topogen object
+    * `dut` : Device whose interface loses the address
+    * `name` : interface name
+    * `ip_addr` : ip address to remove. Include the prefix length unless
+                  ``netmask`` is set.
+    * `vrf` : VRF name. Accepted for signature compatibility. Membership is
+              not changed.
+    * `netmask` : netmask value, default is None
+    """
+
+    if sys.platform.startswith("freebsd"):
+        delete_address_on_interface_freebsd(tgen, dut, name, ip_addr, vrf, netmask)
+    else:
+        delete_address_on_interface_linux(tgen, dut, name, ip_addr, vrf, netmask)
+
+
 def _kernel_interface_address(ip_addr, netmask):
     """Return an ipaddress interface for ip_addr and an optional netmask."""
     if not netmask:
@@ -1662,6 +1689,21 @@ def create_address_on_interface_linux(
         cmd = "ip link set {} master {}".format(name, vrf)
         logger.debug("[DUT: %s]: Running command: %s", dut, cmd)
         rnode.run(cmd)
+
+
+def delete_address_on_interface_linux(
+    tgen, dut, name, ip_addr, vrf=None, netmask=None
+):
+    """Remove an IP address from an existing Linux interface."""
+
+    rnode = tgen.gears[dut]
+    ifaddr = _kernel_interface_address(ip_addr, netmask)
+    cmd = "ip -{0} a del {1} dev {2}".format(ifaddr.version, ifaddr, name)
+    logger.debug("[DUT: %s]: Running command: %s", dut, cmd)
+    rnode.run(cmd)
+
+    if vrf:
+        logger.debug("[DUT: %s]: %s VRF membership unchanged (vrf %s)", dut, name, vrf)
 
 
 def _freebsd_run(rnode, dut, args):
@@ -1753,6 +1795,20 @@ def create_address_on_interface_freebsd(
     if ifaddr.version == 6:
         _freebsd_run(rnode, dut, ["/sbin/ifconfig", name, "inet6", "-ifdisabled"])
     _freebsd_run(rnode, dut, ["/sbin/ifconfig", name, family, str(ifaddr), "alias"])
+
+    if vrf:
+        logger.debug("[DUT: %s]: %s stays in the base FIB (vrf %s)", dut, name, vrf)
+
+
+def delete_address_on_interface_freebsd(
+    tgen, dut, name, ip_addr, vrf=None, netmask=None
+):
+    """Remove an IP address from an existing FreeBSD interface."""
+
+    rnode = tgen.gears[dut]
+    ifaddr = _kernel_interface_address(ip_addr, netmask)
+    family = "inet6" if ifaddr.version == 6 else "inet"
+    _freebsd_run(rnode, dut, ["/sbin/ifconfig", name, family, str(ifaddr.ip), "delete"])
 
     if vrf:
         logger.debug("[DUT: %s]: %s stays in the base FIB (vrf %s)", dut, name, vrf)
