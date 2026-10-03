@@ -778,6 +778,26 @@ def is_linux():
     return False
 
 
+def platform_has_vrf():
+    """Return whether this platform can create VRFs.
+
+    Linux supports L3 VRFs. FreeBSD does not.
+    """
+    if sys.platform.startswith("linux"):
+        return True
+    return False
+
+
+def platform_has_evpn():
+    """Return whether this platform can run EVPN.
+
+    EVPN topotests need Linux bridge, VXLAN, and VRF support. FreeBSD does not.
+    """
+    if sys.platform.startswith("linux"):
+        return True
+    return False
+
+
 def iproute2_is_json_capable():
     """
     Checks if the iproute2 version installed on the system is capable of
