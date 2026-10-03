@@ -149,6 +149,9 @@ def config_leaf_dataplane(leaf, name, svi_mac, with_gw_addrs):
 
 
 def setup_module(mod):
+    if not topotest.platform_has_evpn():
+        pytest.skip("platform does not support EVPN")
+
     tgen = Topogen(build_topo, mod.__name__)
     tgen.start_topology()
 

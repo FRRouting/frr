@@ -392,6 +392,9 @@ def config_hosts(tgen, hosts):
 
 def setup_module(module):
     "Setup topology"
+    if not topotest.platform_has_evpn():
+        pytest.skip("platform does not support EVPN")
+
     tgen = Topogen(build_topo, module.__name__)
     tgen.start_topology()
 

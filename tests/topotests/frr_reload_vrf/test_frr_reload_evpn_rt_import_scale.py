@@ -94,6 +94,14 @@ PREFIXES = [
 ]
 
 
+def setup_module(module):
+    if not topotest.platform_has_vrf():
+        pytest.skip("platform does not support VRF")
+
+    if not topotest.platform_has_evpn():
+        pytest.skip("platform does not support EVPN")
+
+
 def test_scale_rt_helpers():
     """Daemon-less checks for the shared RT-list helpers this suite uses."""
     rts = evpn_scale_rt_list()

@@ -23,6 +23,9 @@ pytestmark = [pytest.mark.bgpd, pytest.mark.evpn]
 
 
 def setup_module(mod):
+    if not topotest.platform_has_evpn():
+        pytest.skip("platform does not support EVPN")
+
     topodef = {"s1": ("c1", "r1"), "s2": ("r1", "r2"), "s3": ("r2", "c2")}
     tgen = Topogen(topodef, mod.__name__)
     tgen.start_topology()
