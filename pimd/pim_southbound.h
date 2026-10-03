@@ -64,6 +64,14 @@ struct pim_sb_cbs {
 
 	/*
 	 * (OPTIONAL)
+	 * The southbound installs the multicast routes through zebra (FPM):
+	 * install them again when zebra reconnects or asks for an FPM sync, and
+	 * when their register destination (the RP) changes.
+	 */
+	bool fpm_sync;
+
+	/*
+	 * (OPTIONAL)
 	 * The southbound owns the sockets, don't use the OS ones:
 	 *  - PIM: every interface uses `pim_fd` (the southbound reads it and
 	 *    hands us the packets), the messages are sent with `send`;

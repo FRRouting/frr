@@ -298,6 +298,13 @@ struct pim_upstream {
 #define PIM_MSDP_REG_RXED_PERIOD (3 * (1.5 * router->register_suppress_time))
 
 	int64_t state_transition; /* Record current state uptime */
+
+#ifdef PIM_SOUTHBOUND_COMMON
+	/* Address to send the register to. */
+	pim_addr sb_register_to;
+	/* Address to send the register from. */
+	pim_addr sb_register_from;
+#endif /* PIM_SOUTHBOUND_COMMON */
 };
 
 /*

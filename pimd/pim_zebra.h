@@ -12,6 +12,8 @@
 
 #include "pim_ifchannel.h"
 
+extern struct zclient *pim_zclient;
+
 void pim_zebra_init(void);
 void pim_zebra_zclient_update(struct vty *vty);
 

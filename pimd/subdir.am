@@ -114,6 +114,7 @@ noinst_HEADERS += \
 	pimd/pim_ifchannel.h \
 	pimd/pim_igmp.h \
 	pimd/pim_igmp_join.h \
+	pimd/pim_igmp_packet.h \
 	pimd/pim_igmp_mtrace.h \
 	pimd/pim_igmp_stats.h \
 	pimd/pim_igmpv2.h \
@@ -141,6 +142,7 @@ noinst_HEADERS += \
 	pimd/pim_rpf.h \
 	pimd/pim_signals.h \
 	pimd/pim_sock.h \
+	pimd/pim_southbound_common.h \
 	pimd/pim_southbound.h \
 	pimd/pim_ssm.h \
 	pimd/pim_dm.h \
@@ -192,3 +194,18 @@ pimd_mtracebis_SOURCES = pimd/mtracebis.c \
 			 pimd/mtracebis_netlink.c \
 			 pimd/mtracebis_routeget.c \
 			 # end
+
+if PIMD
+if PIM_SOUTHBOUND
+module_LTLIBRARIES += pimd/pimd_southbound.la
+
+pimd_pimd_southbound_la_SOURCES = \
+	pimd/pim_igmp_packet.c \
+	pimd/pim_southbound_common.c \
+	pimd/pim_southbound.c \
+	# end
+pimd_pimd_southbound_la_CFLAGS  = $(AM_CFLAGS) -DPIM_IPV=4
+pimd_pimd_southbound_la_LDFLAGS = $(MODULE_LDFLAGS)
+pimd_pimd_southbound_la_LIBADD  =
+endif
+endif

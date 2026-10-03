@@ -76,6 +76,36 @@ int pim_rp_list_cmp(void *v1, void *v2);
 struct rp_info *pim_rp_get_root(struct pim_instance *pim);
 struct rp_info *pim_rp_find_match_group(struct pim_instance *pim,
 					const struct prefix *group);
+
+#ifdef PIM_SOUTHBOUND_COMMON
+struct channel_oil;
+
+/**
+ * Tells whether the southbound must program `oil` to register its traffic
+ * with `rp`: it is a (S,G), `pimreg` is in the OIL and the RP is reachable
+ * through a PIM interface.
+ */
+extern bool pim_rp_sb_registers(const struct rp_info *rp, struct channel_oil *oil);
+
+/**
+ * Address the southbound sends the registers to `rp` from: the address of the
+ * interface towards it (IPv6: the first global one, `PIMADDR_ANY` if none).
+ *
+ * Only valid when `pim_rp_sb_registers` is true.
+ */
+extern pim_addr pim_rp_sb_register_source(const struct rp_info *rp);
+
+/**
+ * Reinstalls the (S,G) routes whose register destination changed: the RP
+ * mapping or the RP reachability changed.
+ */
+extern void pim_rp_sb_register_update(struct pim_instance *pim);
+#else
+static inline void pim_rp_sb_register_update(struct pim_instance *pim)
+{
+}
+#endif /* PIM_SOUTHBOUND_COMMON */
+
 void pim_upstream_update(struct pim_instance *pim, struct pim_upstream *up);
 void pim_rp_refresh_group_to_rp_mapping(struct pim_instance *pim);
 

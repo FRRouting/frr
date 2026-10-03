@@ -75,8 +75,10 @@ static bool pim_static_if_vif_ready(struct interface *ifp)
 	if (!ifp || !ifp->info)
 		return false;
 
+	/* `pim_southbound.interface_max` means the data plane has no such interface. */
 	pim_ifp = ifp->info;
-	return pim_ifp->mroute_vif_index > 0;
+	return pim_ifp->mroute_vif_index > 0 &&
+	       pim_ifp->mroute_vif_index < pim_southbound.interface_max;
 }
 
 /*

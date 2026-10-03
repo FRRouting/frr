@@ -977,6 +977,10 @@ static void sock_close(struct gm_sock *igmp)
 		}
 	}
 	event_cancel(&igmp->t_igmp_read);
+#ifdef PIM_SOUTHBOUND_COMMON
+	/* The southbound static join timer holds a pointer to this socket. */
+	event_cancel(&igmp->join_event);
+#endif /* PIM_SOUTHBOUND_COMMON */
 
 	/* Data plane owned interfaces have no OS socket. */
 	if (igmp->fd >= 0 && close(igmp->fd)) {
@@ -1094,6 +1098,9 @@ void igmp_sock_free(struct gm_sock *igmp)
 	assert(!igmp->t_igmp_read);
 	assert(!igmp->t_igmp_query_timer);
 	assert(!igmp->t_other_querier_timer);
+#ifdef PIM_SOUTHBOUND_COMMON
+	assert(!igmp->join_event);
+#endif /* PIM_SOUTHBOUND_COMMON */
 
 	XFREE(MTYPE_PIM_IGMP_SOCKET, igmp);
 }

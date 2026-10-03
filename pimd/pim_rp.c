@@ -26,6 +26,7 @@
 #include "pim_str.h"
 #include "pim_iface.h"
 #include "pim_rp.h"
+#include "pim_register.h"
 #include "pim_rpf.h"
 #include "pim_sock.h"
 #include "pim_memory.h"
@@ -324,6 +325,77 @@ struct rp_info *pim_rp_find_match_group(struct pim_instance *pim,
 	return best;
 }
 
+#ifdef PIM_SOUTHBOUND_COMMON
+bool pim_rp_sb_registers(const struct rp_info *rp, struct channel_oil *oil)
+{
+	/*
+	 * Only sources register: the LHR SG(*,G) `pimreg` only allows the
+	 * SPT switch (see `MRT_FLAG_JOIN_SPT_ALLOWED`).
+	 */
+	if (pim_addr_is_any(oil->source))
+		return false;
+
+	/* The 224.0.0.0/4 RP is kept (without address) when deleted. */
+	if (rp == NULL || pim_addr_is_any(rp->rp.rpf_addr) ||
+	    rp->rp.source_nexthop.interface == NULL ||
+	    rp->rp.source_nexthop.interface->info == NULL)
+		return false;
+
+	return channel_oil_oif_find(oil, PIM_OIF_PIM_REGISTER_VIF) != NULL;
+}
+
+pim_addr pim_rp_sb_register_source(const struct rp_info *rp)
+{
+	struct pim_interface *pim_ifp = rp->rp.source_nexthop.interface->info;
+#if PIM_IPV == 6
+	/* The same source as our own (null-)registers. */
+	return pim_register_get_unicast_v6_addr(pim_ifp);
+#else
+	return pim_ifp->primary_address;
+#endif /* PIM_IPV == 6 */
+}
+
+/*
+ * The southbound installs the RP address for register encapsulation, so
+ * reinstall the (S,G) mroutes whose RP changed.
+ */
+void pim_rp_sb_register_update(struct pim_instance *pim)
+{
+	struct pim_upstream *up;
+
+	/* Only the southbound module programs the register destination. */
+	if (!pim_southbound.fpm_sync)
+		return;
+
+	frr_each (rb_pim_upstream, &pim->upstream_head, up) {
+		struct prefix grp;
+		struct rp_info *trp_info;
+		pim_addr register_to = PIMADDR_ANY;
+		pim_addr register_from = PIMADDR_ANY;
+
+		if (pim_addr_is_any(up->sg.src))
+			continue;
+
+		/* Not installed routes get the current RP when installed. */
+		if (!up->channel_oil || !up->channel_oil->installed)
+			continue;
+
+		/* Same as `pimsb_mroute_do`: only registering routes carry the RP. */
+		pim_addr_to_prefix(&grp, up->sg.grp);
+		trp_info = pim_rp_find_match_group(pim, &grp);
+		if (pim_rp_sb_registers(trp_info, up->channel_oil)) {
+			register_to = trp_info->rp.rpf_addr;
+			register_from = pim_rp_sb_register_source(trp_info);
+		}
+
+		/* The RP, the interface towards it or its address changed. */
+		if (pim_addr_cmp(register_to, up->sb_register_to) ||
+		    pim_addr_cmp(register_from, up->sb_register_from))
+			pim_upstream_mroute_add(up->channel_oil, __func__);
+	}
+}
+#endif /* PIM_SOUTHBOUND_COMMON */
+
 /*
  * Return the all multicast (224.0.0.0/4 or ff00::/8) pseudo-RP: it always
  * exists in the RP table, even when unconfigured (RP address is any), and it
@@ -367,6 +439,8 @@ void pim_rp_refresh_group_to_rp_mapping(struct pim_instance *pim)
 	pim_upstream_dense_reevaluate(pim);
 	pim_upstream_reeval_use_rpt(pim);
 	pim_upstream_register_reevaluate(pim);
+	/* After `pimreg` got added/removed by the registration changes. */
+	pim_rp_sb_register_update(pim);
 }
 
 void pim_rp_prefix_list_update(struct pim_instance *pim,
@@ -618,6 +692,9 @@ int pim_rp_new(struct pim_instance *pim, pim_addr rp_addr, struct prefix group,
 			if (!pim_nht_lookup_ecmp(pim, &rp_all->rp.source_nexthop, nht_p,
 						 &rp_all->group, true, NULL))
 				return PIM_RP_NO_PATH;
+
+			/* The register destination needs the RP nexthop found above. */
+			pim_rp_sb_register_update(pim);
 			return PIM_SUCCESS;
 		}
 
@@ -720,6 +797,9 @@ int pim_rp_new(struct pim_instance *pim, pim_addr rp_addr, struct prefix group,
 	if (!pim_nht_lookup_ecmp(pim, &rp_info->rp.source_nexthop, nht_p, &rp_info->group, true,
 				 NULL))
 		return PIM_RP_NO_PATH;
+
+	/* The register destination needs the RP nexthop found above. */
+	pim_rp_sb_register_update(pim);
 
 	return PIM_SUCCESS;
 }
@@ -836,6 +916,7 @@ int pim_rp_del(struct pim_instance *pim, pim_addr rp_addr, struct prefix group,
 		rp_all->i_am_rp = 0;
 		pim_nht_rp_del(rp_all);
 
+		/* Also stops registering to the deleted RP (southbound). */
 		pim_rp_refresh_group_to_rp_mapping(pim);
 		return PIM_SUCCESS;
 	}
@@ -1026,6 +1107,9 @@ void pim_rp_setup(struct pim_instance *pim)
 			pim_nht_rp_del(rp_info);
 		}
 	}
+
+	/* The RP nexthops (e.g. a new PIM neighbor) set the register destination. */
+	pim_rp_sb_register_update(pim);
 }
 
 /*

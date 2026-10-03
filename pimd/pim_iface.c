@@ -572,8 +572,11 @@ static void detect_address_change(struct interface *ifp, int force_prim_as_any,
 	}
 
 
-	if (changed)
+	if (changed) {
 		pim_addr_change(ifp);
+		/* The southbound registers from the address towards the RP. */
+		pim_rp_sb_register_update(pim_ifp->pim);
+	}
 
 	/* XXX: if we have unnumbered interfaces we need to run detect address
 	 * address change on all of them when the lo address changes */

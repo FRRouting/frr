@@ -736,6 +736,7 @@ fi
 %{_sbindir}/ospf6d
 %if %{with_pimd}
     %{_sbindir}/pimd
+    %{_libdir}/frr/modules/pimd_southbound.so
 %endif
 %if %{with_pim6d}
     %{_sbindir}/pim6d

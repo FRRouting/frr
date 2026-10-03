@@ -34,6 +34,9 @@
 #include "pim_ssm.h"
 #include "pim_vxlan.h"
 #include "pim_mlag.h"
+#ifdef PIM_SOUTHBOUND_COMMON
+#include "pim_static.h"
+#endif /* PIM_SOUTHBOUND_COMMON */
 
 #undef PIM_DEBUG_IFADDR_DUMP
 #define PIM_DEBUG_IFADDR_DUMP
@@ -403,6 +406,43 @@ void sched_rpf_cache_refresh(struct pim_instance *pim)
 			     &pim->rpf_cache_refresher);
 }
 
+#ifdef PIM_SOUTHBOUND_COMMON
+/** Sends the installed multicast routes of `pim` to the data plane again. */
+static void pim_zebra_mroute_replay(struct pim_instance *pim, const char *reason)
+{
+	struct channel_oil *oil;
+	struct static_route *sr;
+	struct listnode *node;
+
+	frr_each (rb_pim_oil, &pim->channel_oil_head, oil) {
+		if (oil->installed)
+			pim_southbound.mroute_install(oil, reason);
+	}
+
+	/* Static mroutes keep their own channel OIL outside the tree. */
+	for (ALL_LIST_ELEMENTS_RO(pim->static_routes, node, sr)) {
+		if (sr->c_oil.installed)
+			pim_southbound.mroute_install(&sr->c_oil, reason);
+	}
+}
+
+static int pim_zebra_fpm_sync(ZAPI_CALLBACK_ARGS)
+{
+	struct pim_instance *pim;
+
+	if (!pim_southbound.fpm_sync)
+		return 0;
+
+	pim = pim_get_pim_instance(vrf_id);
+	if (!pim)
+		return 0;
+
+	pim_zebra_mroute_replay(pim, "FPM sync");
+
+	return 0;
+}
+#endif /* PIM_SOUTHBOUND_COMMON */
+
 static void pim_zebra_connected(struct zclient *zclient)
 {
 #if PIM_IPV == 4
@@ -416,6 +456,21 @@ static void pim_zebra_connected(struct zclient *zclient)
 	/* request for VxLAN BUM group addresses */
 	pim_zebra_vxlan_replay();
 #endif
+
+#ifdef PIM_SOUTHBOUND_COMMON
+	/*
+	 * Zebra drops our multicast routes when the connection goes away (and
+	 * has none after restarting): install them again.
+	 */
+	if (pim_southbound.fpm_sync) {
+		struct vrf *vrf;
+
+		RB_FOREACH (vrf, vrf_id_head, &vrfs_by_id) {
+			if (vrf->info)
+				pim_zebra_mroute_replay(vrf->info, "zebra connected");
+		}
+	}
+#endif /* PIM_SOUTHBOUND_COMMON */
 }
 
 static void pim_zebra_capabilities(struct zclient_capabilities *cap)
@@ -437,6 +492,10 @@ static zclient_handler *const pim_handlers[] = {
 	[ZEBRA_MLAG_PROCESS_DOWN] = pim_zebra_mlag_process_down,
 	[ZEBRA_MLAG_FORWARD_MSG] = pim_zebra_mlag_handle_msg,
 #endif
+
+#ifdef PIM_SOUTHBOUND_COMMON
+	[ZEBRA_PIM_FPM_SYNC] = pim_zebra_fpm_sync,
+#endif /* PIM_SOUTHBOUND_COMMON */
 };
 
 void pim_zebra_init(void)
