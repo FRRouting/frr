@@ -123,9 +123,14 @@ def _populate_iface():
         logger.info("output: " + output)
 
     for cmd in cmds_list:
-        input = cmd.format("r2")
+        if isinstance(cmd, tuple):
+            shutdown_bringup_interface_in_kernel(
+                tgen, "r2", cmd[1].format("r2"), cmd[0] == "up"
+            )
+            continue
+        formatted = cmd.format("r2")
         logger.info("input: " + cmd)
-        output = tgen.net["r2"].cmd(cmd.format("r2"))
+        output = tgen.net["r2"].cmd(formatted)
         logger.info("output: " + output)
 
 
