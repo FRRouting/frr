@@ -798,6 +798,16 @@ def platform_has_evpn():
     return False
 
 
+def platform_has_pimv6():
+    """Return whether this platform can run PIMv6.
+
+    Linux supports PIMv6. FreeBSD does not.
+    """
+    if sys.platform.startswith("linux"):
+        return True
+    return False
+
+
 def iproute2_is_json_capable():
     """
     Checks if the iproute2 version installed on the system is capable of
