@@ -50,6 +50,9 @@ def build_topo(tgen):
 
 def setup_module(mod):
     "Create the dummies and VRFs, then start FRR from the integrated config."
+    if not topotest.platform_has_vrf():
+        pytest.skip("platform does not support VRF")
+
     tgen = Topogen(build_topo, mod.__name__)
     tgen.start_topology()
 

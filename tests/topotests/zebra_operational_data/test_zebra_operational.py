@@ -19,6 +19,11 @@ from lib import topotest
 pytestmark = [pytest.mark.mgmtd]
 
 
+def setup_module(module):
+    if not topotest.platform_has_vrf():
+        pytest.skip("platform does not support VRF")
+
+
 @pytest.fixture(scope="module")
 def tgen(request):
     "Setup/Teardown the environment and provide tgen argument to tests"

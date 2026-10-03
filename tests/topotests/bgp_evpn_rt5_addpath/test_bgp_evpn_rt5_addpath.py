@@ -60,6 +60,12 @@ from lib.topotest import json_cmp_result
 
 
 def setup_module(mod):
+    if not topotest.platform_has_vrf():
+        pytest.skip("platform does not support VRF")
+
+    if not topotest.platform_has_evpn():
+        pytest.skip("platform does not support EVPN")
+
     topodef = {"s1": ("c1", "r1"), "s2": ("c2", "r1"), "s3": ("r1", "r2", "r3", "rr")}
     tgen = Topogen(topodef, mod.__name__)
     tgen.start_topology()
