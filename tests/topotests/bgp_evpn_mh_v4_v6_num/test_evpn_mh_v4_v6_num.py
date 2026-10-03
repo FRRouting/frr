@@ -70,6 +70,9 @@ def setup_module(module):
     if not topotest.platform_has_evpn():
         pytest.skip("platform does not support EVPN")
 
+    if not topotest.platform_has_pimv6():
+        pytest.skip("platform does not support PIMv6")
+
 
 def build_topo(tgen):
     """
