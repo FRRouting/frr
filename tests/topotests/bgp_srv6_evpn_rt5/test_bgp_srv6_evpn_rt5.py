@@ -61,6 +61,12 @@ def build_topo(tgen):
 
 
 def setup_module(mod):
+    if not topotest.platform_has_vrf():
+        pytest.skip("platform does not support VRF")
+
+    if not topotest.platform_has_evpn():
+        pytest.skip("platform does not support EVPN")
+
     result = required_linux_kernel_version("6.1")
     if result is not True:
         pytest.skip("Kernel requirements are not met")

@@ -18,8 +18,14 @@ import pytest
 from lib.common_config import step
 from lib.topogen import Topogen, TopoRouter
 from oper import check_kernel_32
+from lib.topotest import platform_has_vrf
 
 pytestmark = [pytest.mark.mgmtd, pytest.mark.sharpd, pytest.mark.staticd]
+
+
+def setup_module(module):
+    if not platform_has_vrf():
+        pytest.skip("platform does not support VRF")
 
 
 @pytest.fixture(scope="module")

@@ -74,6 +74,14 @@ DP_KNOBS = [
 ]
 
 
+def setup_module(module):
+    if not topotest.platform_has_vrf():
+        pytest.skip("platform does not support VRF")
+
+    if not topotest.platform_has_evpn():
+        pytest.skip("platform does not support EVPN")
+
+
 def build_topo(tgen):
     tgen.add_router(D.SPINE)
     for pe in D.PES:

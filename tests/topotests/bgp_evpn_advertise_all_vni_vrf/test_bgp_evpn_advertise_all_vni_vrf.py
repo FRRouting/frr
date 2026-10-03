@@ -213,6 +213,12 @@ def _wait_for_underlay_address(pe, config):
 
 
 def setup_module(mod):
+    if not topotest.platform_has_vrf():
+        pytest.skip("platform does not support VRF")
+
+    if not topotest.platform_has_evpn():
+        pytest.skip("platform does not support EVPN")
+
     result = required_linux_kernel_version("5.15")
     if result is not True:
         pytest.skip("Linux kernel >= 5.15 is required")

@@ -171,6 +171,9 @@ def _failure_md5_diagnostic_bundle(dut, peer, vrf_name):
 
 
 def setup_module(mod):
+    if not topotest.platform_has_vrf():
+        pytest.skip("platform does not support VRF")
+
     tgen = Topogen(build_topo, mod.__name__)
     tgen.start_topology()
 

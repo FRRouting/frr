@@ -128,6 +128,9 @@ def build_topo(tgen):
 
 
 def setup_module(mod):
+    if not topotest.platform_has_vrf():
+        pytest.skip("platform does not support VRF")
+
     logger.info("OSPF Metric Propagation:\n {}".format(TOPOLOGY))
 
     tgen = Topogen(build_topo, mod.__name__)

@@ -181,6 +181,11 @@ def setup_p_router(tgen, p_name):
 
 def setup_module(mod):
     "Sets up the pytest environment"
+    if not topotest.platform_has_vrf():
+        pytest.skip("platform does not support VRF")
+
+    if not topotest.platform_has_evpn():
+        pytest.skip("platform does not support EVPN")
 
     result = required_linux_kernel_version("5.7")
     if result is not True:
