@@ -72,7 +72,6 @@ def is_pass(testcase):
 STATUS_XFAIL = "Known Failure"
 STATUS_XPASS = "Unexpected Pass"
 STATUS_FAIL = "Failure"
-STATUS_WIDTH = max(len(STATUS_XFAIL), len(STATUS_XPASS), len(STATUS_FAIL))
 
 
 def testcase_label(tcname, testcase):
@@ -84,7 +83,10 @@ def testcase_label(tcname, testcase):
         status = STATUS_FAIL
     else:
         return tcname
-    return "{}: {}".format(status.ljust(STATUS_WIDTH), tcname)
+    # CI reruns use `cut -f1 -d:`. A `::` node id already stops the cut at
+    # the module. Module-level errors are only `file.py`, so the status
+    # needs its own colon or pytest is also handed the status word.
+    return "{}: {}".format(tcname, status)
 
 
 def get_errmsg(testcase):
@@ -521,14 +523,17 @@ def main():
             k: v for k, v in found_files.items() if search_testcase(v, search_re)
         }
 
-    if args.enumerate or (args.test is None and count == 0 and not args.time):
-        # print the selected test names with ordinal (usable with --test)
-        print(
-            "\n".join(
-                "{}: {}".format(i, testcase_label(name, found_files[name]))
-                for i, name in enumerate(found_files)
-            )
-        )
+    if args.test is None and count == 0 and not args.time:
+        # Ordinals only with --enumerate. A leading "N:" is what `cut -f1 -d:`
+        # would hand to pytest instead of the test module.
+        lines = []
+        for i, name in enumerate(found_files):
+            label = testcase_label(name, found_files[name])
+            if args.enumerate:
+                lines.append("{} {}".format(i, label))
+            else:
+                lines.append(label)
+        print("\n".join(lines))
     else:
         rangestr = args.test if args.test else "all"
         for key in dict_range_keys(found_files, rangestr):
