@@ -48,7 +48,7 @@ from lib import topotest
 from lib.topogen import Topogen, get_topogen
 from lib.topolog import logger
 
-pytestmark = [pytest.mark.ospfd]
+pytestmark = [pytest.mark.ospfd, pytest.mark.freebsd]
 
 NEW_RID = "172.16.1.1"
 DR_ADDR = "10.0.0.1"

@@ -26,7 +26,11 @@ sys.path.append(os.path.join(CWD, "../"))
 
 # pylint: disable=C0413
 from lib import topotest
-from lib.common_config import step
+from lib.common_config import (
+    create_address_on_interface,
+    step,
+    shutdown_bringup_interface_in_kernel,
+)
 from lib.topogen import Topogen, TopoRouter, get_topogen
 from lib.topolog import logger
 
@@ -115,15 +119,15 @@ def test_zebra_ipv6_tentative_not_in_rib():
     step("Create a veth pair so DAD actually runs (dummy is NOARP and skips DAD)")
     r1.run("ip link del {} >/dev/null 2>&1 || true".format(IFNAME))
     r1.run("ip link add {} type veth peer name {}".format(IFNAME, PEER))
-    r1.run("ip link set {} up".format(PEER))
-    r1.run("ip link set {} down".format(IFNAME))
+    shutdown_bringup_interface_in_kernel(r1.tgen, r1.name, PEER, True)
+    shutdown_bringup_interface_in_kernel(r1.tgen, r1.name, IFNAME, False)
 
     step("Stretch DAD to 60 NS transmissions (~60s)")
     r1.run("echo 1 > /proc/sys/net/ipv6/conf/{}/accept_dad".format(IFNAME))
     r1.run("echo 60 > /proc/sys/net/ipv6/conf/{}/dad_transmits".format(IFNAME))
 
     step("Add the IPv6 address while the interface is down")
-    r1.run("ip -6 addr add {}/64 dev {}".format(ADDR, IFNAME))
+    create_address_on_interface(tgen, "r1", IFNAME, "{}/64".format(ADDR))
 
     def _down_iface_and_tentative():
         try:
@@ -151,7 +155,7 @@ def test_zebra_ipv6_tentative_not_in_rib():
     )
 
     step("Bring the interface up; kernel DAD is still in progress")
-    r1.run("ip link set {} up".format(IFNAME))
+    shutdown_bringup_interface_in_kernel(r1.tgen, r1.name, IFNAME, True)
 
     def _iface_operative():
         try:

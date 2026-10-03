@@ -36,6 +36,8 @@ from munet.base import commander, get_exec_path_host, Timeout
 from munet.testing.util import retry
 
 from lib import micronet
+from lib.frr_paths import FRR_SYSCONFDIR
+from lib.kernel_routes import kernel_routes
 
 g_pytest_config = None
 
@@ -727,11 +729,22 @@ def difflines(text1, text2, title1="", title2="", **opts):
 
 def get_file(content):
     """
-    Generates a temporary file in '/tmp' with `content` and returns the file name.
+    Write `content` to a temporary file and return its name.
+
+    The file is created in the per-test rundir (/tmp/topotests/<test> by
+    default). That directory is mounted into each router, so a command run
+    inside the router can read it. Host /tmp is not.
     """
     if isinstance(content, list) or isinstance(content, tuple):
         content = "\n".join(content)
-    fde = tempfile.NamedTemporaryFile(mode="w", delete=False)
+    directory = None
+    rundir = None
+    if g_pytest_config is not None:
+        rundir = getattr(g_pytest_config.option, "rundir", None)
+    if rundir:
+        directory = get_logs_path(rundir)
+        os.makedirs(directory, exist_ok=True)
+    fde = tempfile.NamedTemporaryFile(mode="w", delete=False, dir=directory)
     fname = fde.name
     fde.write(content)
     fde.close()
@@ -761,6 +774,36 @@ def is_linux():
     """
 
     if os.uname()[0] == "Linux":
+        return True
+    return False
+
+
+def platform_has_vrf():
+    """Return whether this platform can create VRFs.
+
+    Linux supports L3 VRFs. FreeBSD does not.
+    """
+    if sys.platform.startswith("linux"):
+        return True
+    return False
+
+
+def platform_has_evpn():
+    """Return whether this platform can run EVPN.
+
+    EVPN topotests need Linux bridge, VXLAN, and VRF support. FreeBSD does not.
+    """
+    if sys.platform.startswith("linux"):
+        return True
+    return False
+
+
+def platform_has_pimv6():
+    """Return whether this platform can run PIMv6.
+
+    Linux supports PIMv6. FreeBSD does not.
+    """
+    if sys.platform.startswith("linux"):
         return True
     return False
 
@@ -855,8 +898,61 @@ def module_present_linux(module, load):
         return True
 
 
+# Linux-only features. Reporting them present makes LDP and VRF tests start
+# and then fail on /proc or an interface type FreeBSD does not have.
+_FREEBSD_ABSENT_MODULES = {
+    "mpls_router",
+    "mpls_iptunnel",
+    "vrf",
+    "sch_netem",
+    "nf_tables",
+    "br_netfilter",
+    "8021q",
+    "dummy",
+}
+
+
+def _kld_present(name):
+    try:
+        rc = subprocess.call(
+            ["/sbin/kldstat", "-q", "-m", name],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
+    except OSError:
+        return False
+    return rc == 0
+
+
 def module_present_freebsd(module, load):
-    return True
+    """Return whether a FreeBSD kernel module is loaded.
+
+    Linux module names that have no FreeBSD equivalent return False so the
+    existing skip paths run.
+    """
+    norm = module.replace("-", "_")
+    if norm in _FREEBSD_ABSENT_MODULES or norm.startswith("mpls"):
+        return False
+    candidates = [norm]
+    if not norm.startswith("if_"):
+        candidates.append("if_" + norm)
+    for candidate in candidates:
+        if _kld_present(candidate):
+            return True
+    if not load:
+        return False
+    for candidate in candidates:
+        try:
+            rc = subprocess.call(
+                ["/sbin/kldload", "-n", candidate],
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+            )
+        except OSError:
+            return False
+        if rc == 0 and _kld_present(candidate):
+            return True
+    return False
 
 
 def module_present(module, load=True):
@@ -1468,6 +1564,18 @@ def rlimit_atleast(rname, min_value, raises=False):
 
 
 def fix_netns_limits(ns):
+    if sys.platform.startswith("freebsd"):
+        # A new VNET starts with forwarding off. dad_count=0 keeps addresses
+        # out of the tentative state while the allowlisted unicast tests run.
+        for assignment in (
+            "net.inet.ip.forwarding=1",
+            "net.inet6.ip6.forwarding=1",
+            "net.inet6.ip6.dad_count=0",
+            "net.inet6.ip6.auto_linklocal=1",
+        ):
+            ns.cmd_status("sysctl " + assignment, warn=False)
+        return
+
     # Maximum read and write socket buffer sizes
     sysctl_atleast(ns, "net.ipv4.tcp_rmem", [10 * 1024, 87380, 16 * 2**20])
     sysctl_atleast(ns, "net.ipv4.tcp_wmem", [10 * 1024, 87380, 16 * 2**20])
@@ -1574,6 +1682,43 @@ def setup_node_tmpdir(logdir, name):
     return logfile
 
 
+def default_frrdir():
+    """Directory that holds the FRR daemon binaries on this host."""
+    if not sys.platform.startswith("freebsd"):
+        return "/usr/lib/frr"
+    for path in ("/usr/local/libexec/frr", "/usr/local/sbin", "/usr/lib/frr"):
+        if os.path.isfile(os.path.join(path, "zebra")):
+            return path
+    return "/usr/local/libexec/frr"
+
+
+def configured_frrdir():
+    """FRR daemon directory for this test run.
+
+    Honors ``[topogen] frrdir`` in pytest.ini when set. Otherwise uses
+    ``default_frrdir()``. This is the same directory Topogen gives each router.
+    """
+    parser = configparser.ConfigParser(defaults={"frrdir": default_frrdir()})
+    parser.read(
+        os.path.join(os.path.dirname(os.path.realpath(__file__)), "../pytest.ini")
+    )
+    if parser.has_section("topogen"):
+        return parser.get("topogen", "frrdir")
+    return default_frrdir()
+
+
+def frr_reload_script(frrdir=None):
+    """Path to frr-reload.py installed beside the FRR daemons.
+
+    The script is an sbin script, so it lives in the same directory as zebra
+    (topotest ``frrdir`` / a router's ``daemondir``). Pass that directory when
+    the test has one; otherwise the configured topogen directory is used.
+    """
+    if not frrdir:
+        frrdir = configured_frrdir()
+    return os.path.join(frrdir, "frr-reload.py")
+
+
 class Router(Node):
     "A Node with IPv4/IPv6 forwarding enabled"
 
@@ -1622,7 +1767,7 @@ class Router(Node):
         self.config_defaults = configparser.ConfigParser(
             defaults={
                 "verbosity": "info",
-                "frrdir": "/usr/lib/frr",
+                "frrdir": default_frrdir(),
                 "routertype": "frr",
                 "memleak_path": "",
             }
@@ -2070,8 +2215,9 @@ class Router(Node):
                 return "LDP/MPLS Tests need mpls kernel modules"
 
         # Really want to use sysctl_atleast here, but only when MPLS is actually being
-        # used
-        self.cmd("echo 100000 > /proc/sys/net/mpls/platform_labels")
+        # used. FreeBSD has no Linux MPLS sysctl.
+        if not sys.platform.startswith("freebsd"):
+            self.cmd("echo 100000 > /proc/sys/net/mpls/platform_labels")
 
         if g_pytest_config.name_in_option_list(self.name, "--shell"):
             self.run_in_window(os.getenv("SHELL", "bash"), title="sh-%s" % self.name)
@@ -2126,23 +2272,25 @@ class Router(Node):
         valgrind_memleaks = bool(g_pytest_config.option.valgrind_memleaks)
         strace_daemons = g_pytest_config.get_option_list("--strace-daemons")
 
-        # Get global bundle data
-        if not self.path_exists("/etc/frr/support_bundle_commands.conf"):
+        # Installed into the sysconfdir chosen at configure time. A FreeBSD
+        # jail symlinks that directory to the private /etc/frr.
+        bundle_conf = os.path.join(FRR_SYSCONFDIR, "support_bundle_commands.conf")
+        if not self.path_exists(bundle_conf):
             logger.info(
                 "No support bundle commands.conf found in %s namespace, copying them over",
                 self.name,
             )
             # Copy global value if was covered by namespace mount
             bundle_data = ""
-            if os.path.exists("/etc/frr/support_bundle_commands.conf"):
-                with open("/etc/frr/support_bundle_commands.conf", "r") as rf:
+            if os.path.exists(bundle_conf):
+                with open(bundle_conf, "r") as rf:
                     bundle_data = rf.read()
             else:
                 logger.warning(
                     "No support bundle commands.conf found, please install them on this system"
                 )
             self.cmd_raises(
-                "cat > /etc/frr/support_bundle_commands.conf",
+                "cat > {}".format(bundle_conf),
                 stdin=bundle_data,
             )
 
@@ -2696,8 +2844,8 @@ class Router(Node):
             )
 
         # Update the permissions on the log files
-        self.cmd("chown frr:frr -R {}/{}".format(self.logdir, self.name))
-        self.cmd("chmod ug+rwX,o+r -R {}/{}".format(self.logdir, self.name))
+        self.cmd("chown -R frr:frr {}/{}".format(self.logdir, self.name))
+        self.cmd("chmod -R ug+rwX,o+r {}/{}".format(self.logdir, self.name))
 
         if "frr" in logd_options:
             logdopt = logd_options["frr"]

@@ -39,8 +39,10 @@ import sys
 import pytest
 from lib import topotest
 from lib.common_config import (
-    save_initial_config_on_routers,
+    create_interface_in_kernel,
     reset_with_new_configs,
+    save_initial_config_on_routers,
+    shutdown_bringup_interface_in_kernel,
 )
 from bgp_auth_common import (
     check_vrf_peer_change_passwords,
@@ -72,6 +74,9 @@ def build_topo(tgen):
 
 def setup_module(mod):
     "Sets up the pytest environment"
+    if not topotest.platform_has_vrf():
+        pytest.skip("platform does not support VRF")
+
     # This function initiates the topology build with Topogen...
     tgen = Topogen(build_topo, mod.__name__)
     # ... and here it calls Mininet initialization functions.
@@ -83,21 +88,15 @@ def setup_module(mod):
 
     # blue vrf
     r1.cmd_raises("ip link add blue type vrf table 1001")
-    r1.cmd_raises("ip link set up dev blue")
+    shutdown_bringup_interface_in_kernel(r1.tgen, r1.name, "blue", True)
     r2.cmd_raises("ip link add blue type vrf table 1001")
-    r2.cmd_raises("ip link set up dev blue")
+    shutdown_bringup_interface_in_kernel(r2.tgen, r2.name, "blue", True)
     r3.cmd_raises("ip link add blue type vrf table 1001")
-    r3.cmd_raises("ip link set up dev blue")
+    shutdown_bringup_interface_in_kernel(r3.tgen, r3.name, "blue", True)
 
-    r1.cmd_raises("ip link add lo1 type dummy")
-    r1.cmd_raises("ip link set lo1 master blue")
-    r1.cmd_raises("ip link set up dev lo1")
-    r2.cmd_raises("ip link add lo1 type dummy")
-    r2.cmd_raises("ip link set up dev lo1")
-    r2.cmd_raises("ip link set lo1 master blue")
-    r3.cmd_raises("ip link add lo1 type dummy")
-    r3.cmd_raises("ip link set up dev lo1")
-    r3.cmd_raises("ip link set lo1 master blue")
+    create_interface_in_kernel(tgen, "R1", "lo1", vrf="blue")
+    create_interface_in_kernel(tgen, "R2", "lo1", vrf="blue")
+    create_interface_in_kernel(tgen, "R3", "lo1", vrf="blue")
 
     r1.cmd_raises("ip link set R1-eth2 master blue")
     r1.cmd_raises("ip link set R1-eth3 master blue")
@@ -106,30 +105,24 @@ def setup_module(mod):
     r3.cmd_raises("ip link set R3-eth2 master blue")
     r3.cmd_raises("ip link set R3-eth3 master blue")
 
-    r1.cmd_raises("ip link set up dev  R1-eth2")
-    r1.cmd_raises("ip link set up dev  R1-eth3")
-    r2.cmd_raises("ip link set up dev  R2-eth2")
-    r2.cmd_raises("ip link set up dev  R2-eth3")
-    r3.cmd_raises("ip link set up dev  R3-eth2")
-    r3.cmd_raises("ip link set up dev  R3-eth3")
+    shutdown_bringup_interface_in_kernel(r1.tgen, r1.name, "R1-eth2", True)
+    shutdown_bringup_interface_in_kernel(r1.tgen, r1.name, "R1-eth3", True)
+    shutdown_bringup_interface_in_kernel(r2.tgen, r2.name, "R2-eth2", True)
+    shutdown_bringup_interface_in_kernel(r2.tgen, r2.name, "R2-eth3", True)
+    shutdown_bringup_interface_in_kernel(r3.tgen, r3.name, "R3-eth2", True)
+    shutdown_bringup_interface_in_kernel(r3.tgen, r3.name, "R3-eth3", True)
 
     # red vrf
     r1.cmd_raises("ip link add red type vrf table 1002")
-    r1.cmd_raises("ip link set up dev red")
+    shutdown_bringup_interface_in_kernel(r1.tgen, r1.name, "red", True)
     r2.cmd_raises("ip link add red type vrf table 1002")
-    r2.cmd_raises("ip link set up dev red")
+    shutdown_bringup_interface_in_kernel(r2.tgen, r2.name, "red", True)
     r3.cmd_raises("ip link add red type vrf table 1002")
-    r3.cmd_raises("ip link set up dev red")
+    shutdown_bringup_interface_in_kernel(r3.tgen, r3.name, "red", True)
 
-    r1.cmd_raises("ip link add lo2 type dummy")
-    r1.cmd_raises("ip link set lo2 master red")
-    r1.cmd_raises("ip link set up dev lo2")
-    r2.cmd_raises("ip link add lo2 type dummy")
-    r2.cmd_raises("ip link set up dev lo2")
-    r2.cmd_raises("ip link set lo2 master red")
-    r3.cmd_raises("ip link add lo2 type dummy")
-    r3.cmd_raises("ip link set up dev lo2")
-    r3.cmd_raises("ip link set lo2 master red")
+    create_interface_in_kernel(tgen, "R1", "lo2", vrf="red")
+    create_interface_in_kernel(tgen, "R2", "lo2", vrf="red")
+    create_interface_in_kernel(tgen, "R3", "lo2", vrf="red")
 
     r1.cmd_raises("ip link set R1-eth4 master red")
     r1.cmd_raises("ip link set R1-eth5 master red")
@@ -138,12 +131,12 @@ def setup_module(mod):
     r3.cmd_raises("ip link set R3-eth4 master red")
     r3.cmd_raises("ip link set R3-eth5 master red")
 
-    r1.cmd_raises("ip link set up dev  R1-eth4")
-    r1.cmd_raises("ip link set up dev  R1-eth5")
-    r2.cmd_raises("ip link set up dev  R2-eth4")
-    r2.cmd_raises("ip link set up dev  R2-eth5")
-    r3.cmd_raises("ip link set up dev  R3-eth4")
-    r3.cmd_raises("ip link set up dev  R3-eth5")
+    shutdown_bringup_interface_in_kernel(r1.tgen, r1.name, "R1-eth4", True)
+    shutdown_bringup_interface_in_kernel(r1.tgen, r1.name, "R1-eth5", True)
+    shutdown_bringup_interface_in_kernel(r2.tgen, r2.name, "R2-eth4", True)
+    shutdown_bringup_interface_in_kernel(r2.tgen, r2.name, "R2-eth5", True)
+    shutdown_bringup_interface_in_kernel(r3.tgen, r3.name, "R3-eth4", True)
+    shutdown_bringup_interface_in_kernel(r3.tgen, r3.name, "R3-eth5", True)
 
     r1.cmd_raises("sysctl -w net.ipv4.tcp_l3mdev_accept=1")
     r2.cmd_raises("sysctl -w net.ipv4.tcp_l3mdev_accept=1")

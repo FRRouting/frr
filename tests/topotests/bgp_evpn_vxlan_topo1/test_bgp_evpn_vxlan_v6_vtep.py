@@ -37,6 +37,10 @@ from lib.evpn import (
     evpn_check_bgp_imet,
 )
 from lib.topogen import Topogen, TopoRouter, get_topogen
+from lib.common_config import (
+    create_address_on_interface,
+    shutdown_bringup_interface_in_kernel,
+)
 from lib.topolog import logger
 
 # Required to instantiate the topology builder class.
@@ -81,6 +85,12 @@ def build_topo(tgen):
 
 def setup_module(mod):
     "Sets up the pytest environment"
+    if not topotest.platform_has_vrf():
+        pytest.skip("platform does not support VRF")
+
+    if not topotest.platform_has_evpn():
+        pytest.skip("platform does not support EVPN")
+
     # This function initiates the topology build with Topogen...
     tgen = Topogen(build_topo, mod.__name__)
     # ... and here it calls Mininet initialization functions.
@@ -92,23 +102,23 @@ def setup_module(mod):
 
     # set up PE bridges with the EVPN member interfaces facing the CE hosts
     pe1.run("ip link add name br101 type bridge stp_state 0")
-    pe1.run("ip addr add 10.10.1.1/24 dev br101")
-    pe1.run("ip link set dev br101 up")
+    create_address_on_interface(pe1.tgen, pe1.name, "br101", "10.10.1.1/24")
+    shutdown_bringup_interface_in_kernel(pe1.tgen, pe1.name, "br101", True)
     pe1.run(
         "ip link add vxlan101 type vxlan id 101 dstport 4789 local 10:10:10::10 nolearning"
     )
     pe1.run("ip link set dev vxlan101 master br101")
-    pe1.run("ip link set up dev vxlan101")
+    shutdown_bringup_interface_in_kernel(pe1.tgen, pe1.name, "vxlan101", True)
     pe1.run("ip link set dev PE1-eth0 master br101")
 
     pe2.run("ip link add name br101 type bridge stp_state 0")
-    pe2.run("ip addr add 10.10.1.3/24 dev br101")
-    pe2.run("ip link set dev br101 up")
+    create_address_on_interface(pe2.tgen, pe2.name, "br101", "10.10.1.3/24")
+    shutdown_bringup_interface_in_kernel(pe2.tgen, pe2.name, "br101", True)
     pe2.run(
         "ip link add vxlan101 type vxlan id 101 dstport 4789 local 10:30:30::30 nolearning"
     )
     pe2.run("ip link set dev vxlan101 master br101")
-    pe2.run("ip link set up dev vxlan101")
+    shutdown_bringup_interface_in_kernel(pe2.tgen, pe2.name, "vxlan101", True)
     pe2.run("ip link set dev PE2-eth1 master br101")
     p1.run("sysctl -w net.ipv4.ip_forward=1")
 

@@ -28,6 +28,7 @@ from lib import topotest
 from lib.topogen import Topogen, TopoRouter, get_topogen
 from lib.topolog import logger
 from lib.checkping import check_ping
+from lib.common_config import shutdown_bringup_interface_in_kernel
 
 pytestmark = [pytest.mark.staticd]
 
@@ -359,7 +360,7 @@ def test_srv6_static_sids_interface_down_up():
 
     # Bring down sr0 interface using ip link
     logger.info("Bringing down sr0 interface using ip link")
-    router.run("ip link set sr0 down")
+    shutdown_bringup_interface_in_kernel(router.tgen, router.name, "sr0", False)
 
     # Verify routes using sr0 are removed
     logger.info("Verifying routes using sr0 are removed")
@@ -367,7 +368,7 @@ def test_srv6_static_sids_interface_down_up():
 
     # Bring up sr0 interface using ip link
     logger.info("Bringing up sr0 interface using ip link")
-    router.run("ip link set sr0 up")
+    shutdown_bringup_interface_in_kernel(router.tgen, router.name, "sr0", True)
 
     # Verify routes are restored
     logger.info("Verifying routes are restored")
@@ -478,7 +479,12 @@ def test_srv6_static_sids_ua_neighbor_down():
 
     # Bring down r2 interface
     logger.info("Taking down r2-eth0 interface")
-    tgen.gears["r2"].run("ip link set r2-eth0 down")
+    shutdown_bringup_interface_in_kernel(
+        tgen.gears['r2'].tgen,
+        tgen.gears['r2'].name,
+        "r2-eth0",
+        False,
+    )
 
     # Flush neighbor entry on r1 to simulate neighbor unreachable
     logger.info("Flushing neighbor entry on r1")
@@ -505,7 +511,12 @@ def test_srv6_static_sids_ua_neighbor_recovery():
 
     # Bring up r2 interface
     logger.info("Bringing up r2-eth0 interface")
-    tgen.gears["r2"].run("ip link set r2-eth0 up")
+    shutdown_bringup_interface_in_kernel(
+        tgen.gears['r2'].tgen,
+        tgen.gears['r2'].name,
+        "r2-eth0",
+        True,
+    )
 
     # Wait for neighbor discovery and verify SID is installed
     check_ping("r1", "2001::2", True, 10, 1)

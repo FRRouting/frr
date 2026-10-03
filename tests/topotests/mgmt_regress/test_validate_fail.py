@@ -12,7 +12,7 @@ import pytest
 from lib.common_config import step
 from lib.topogen import Topogen
 
-pytestmark = [pytest.mark.staticd]
+pytestmark = [pytest.mark.staticd, pytest.mark.freebsd]
 
 
 @pytest.fixture(scope="module")

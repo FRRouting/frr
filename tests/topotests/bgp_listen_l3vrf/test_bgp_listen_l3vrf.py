@@ -38,7 +38,11 @@ sys.path.append(os.path.join(CWD, "../"))
 # Import topogen and topotest helpers
 from lib import topotest
 from lib.common_check import ip_check_path_selection, iproute2_check_path_selection
-from lib.common_config import step
+from lib.common_config import (
+    create_interface_in_kernel,
+    step,
+    shutdown_bringup_interface_in_kernel,
+)
 from lib.topogen import Topogen, TopoRouter, get_topogen
 from lib.topolog import logger
 
@@ -85,6 +89,9 @@ def build_topo(tgen):
 
 def setup_module(mod):
     "Sets up the pytest environment"
+    if not topotest.platform_has_vrf():
+        pytest.skip("platform does not support VRF")
+
     tgen = Topogen(build_topo, mod.__name__)
     tgen.start_topology()
 
@@ -138,18 +145,16 @@ def test_add_vrf():
 
     # create vrf
     r1.cmd("ip link add r1-cust type vrf table 10")
-    r1.cmd("ip link set dev r1-cust up")
+    shutdown_bringup_interface_in_kernel(r1.tgen, r1.name, "r1-cust", True)
 
     r1.cmd("ip link add link r1-eth1 dev r1-eth1.100 type vlan id 100")
-    r1.cmd("ip link set dev r1-eth1.100 up")
+    shutdown_bringup_interface_in_kernel(r1.tgen, r1.name, "r1-eth1.100", True)
     r1.cmd("ip link set  dev r1-eth1.100 master r1-cust")
 
-    r1.cmd("ip link add r1-loop1 type dummy")
-    r1.cmd("ip link set dev r1-loop1 up")
-    r1.cmd("ip link set  dev r1-loop1 master r1-cust")
+    create_interface_in_kernel(tgen, "r1", "r1-loop1", vrf="r1-cust")
 
     r3.cmd("ip link add link r3-eth1 dev r3-eth1.100 type vlan id 100")
-    r3.cmd("ip link set dev r3-eth1.100 up")
+    shutdown_bringup_interface_in_kernel(r3.tgen, r3.name, "r3-eth1.100", True)
 
     r3.vtysh_cmd(
         """

@@ -48,8 +48,9 @@ sys.path.append(os.path.join(CWD, "../"))
 from lib import topotest
 from lib.topogen import Topogen, get_topogen
 from lib.topolog import logger
+from lib.common_config import shutdown_bringup_interface_in_kernel
 
-pytestmark = [pytest.mark.bgpd, pytest.mark.ospfd]
+pytestmark = [pytest.mark.bgpd, pytest.mark.ospfd, pytest.mark.freebsd]
 
 R1_ROUTER_ID = "10.255.1.1"
 BGP_PREFIX = "172.16.20.0/24"
@@ -158,7 +159,7 @@ def test_ospf_nssa_type7_recovery_bgp():
 
     # 1. Remove the only usable NSSA forwarding address.
     logger.info("bringing r1-eth0 down (no usable NSSA forwarding address)")
-    r1.run("ip link set r1-eth0 down")
+    shutdown_bringup_interface_in_kernel(r1.tgen, r1.name, "r1-eth0", False)
 
     # 2. Have r4 advertise a prefix that r1 redistributes from BGP while no
     #    forwarding address exists; the Type-7 origination attempt fails to
@@ -207,7 +208,7 @@ def test_ospf_nssa_type7_recovery_bgp():
     # 4. Bring the NSSA interface back up: a forwarding address is now
     #    available, so the Type-7 must be re-originated and the route learned.
     logger.info("bringing r1-eth0 back up; Type-7 must now be re-originated")
-    r1.run("ip link set r1-eth0 up")
+    shutdown_bringup_interface_in_kernel(r1.tgen, r1.name, "r1-eth0", True)
 
     _, result = topotest.run_and_expect(
         partial(_r1_type7, True), None, count=45, wait=1

@@ -15,7 +15,7 @@ import pytest
 from basic import do_test_filter_file, do_test_log, do_test_syslog, setup_test
 from lib.topogen import Topogen
 
-pytestmark = [pytest.mark.staticd, pytest.mark.mgmtd]
+pytestmark = [pytest.mark.staticd, pytest.mark.mgmtd, pytest.mark.freebsd]
 
 #
 # OSPFd is unconverted daemon

@@ -25,14 +25,15 @@ import termios
 import tty
 
 
-try:
-    from . import linux
+# Relative imports work when this file is part of the munet package. Running
+# the file directly as a script has no package, so the modules are imported
+# from this directory instead.
+if __package__:
+    from . import host
     from .config import list_to_dict_with_key
-except ImportError:
-    # We cannot use relative imports and still run this module directly as a script, and
-    # there are some use cases where we want to run this file as a script.
+else:
     sys.path.append(os.path.dirname(os.path.realpath(__file__)))
-    import linux
+    import host
 
     from config import list_to_dict_with_key
 
@@ -222,7 +223,7 @@ def win_cmd_host_split(unet, cmd, kinds, defall):
 def proc_readline(fd, prompt, histfile):
     """Read a line of input from user while running in a sub-process."""
     # How do we change the command though, that's what's displayed in ps normally
-    linux.set_process_name("Munet CLI")
+    host.set_process_name("Munet CLI")
     try:
         # For some reason sys.stdin is fileno == 16 and useless
         sys.stdin = os.fdopen(0)

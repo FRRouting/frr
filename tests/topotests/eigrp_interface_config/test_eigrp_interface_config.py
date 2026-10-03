@@ -22,7 +22,7 @@ import os
 import sys
 import pytest
 
-pytestmark = [pytest.mark.eigrpd]
+pytestmark = [pytest.mark.eigrpd, pytest.mark.freebsd]
 
 CWD = os.path.dirname(os.path.realpath(__file__))
 sys.path.append(os.path.join(CWD, "../"))

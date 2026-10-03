@@ -15,9 +15,14 @@ import pytest
 sys.path.append(os.path.join(os.path.dirname(os.path.realpath(__file__)), "../"))
 
 from lib.ltemplate import *
-
+from lib.topotest import platform_has_vrf
 
 pytestmark = [pytest.mark.bgpd, pytest.mark.ldpd, pytest.mark.ospfd]
+
+
+def setup_module(module):
+    if not platform_has_vrf():
+        pytest.skip("platform does not support VRF")
 
 
 def test_check_linux_vrf():

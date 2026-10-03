@@ -54,6 +54,7 @@ from .bgpbmp import (
 )
 from lib.topogen import Topogen, get_topogen
 from lib.topolog import logger
+from lib.common_config import shutdown_bringup_interface_in_kernel
 
 pytestmark = [pytest.mark.bgpd]
 
@@ -90,16 +91,23 @@ def build_topo(tgen):
 
 
 def setup_module(mod):
+    if not topotest.platform_has_vrf():
+        pytest.skip("platform does not support VRF")
+
     tgen = Topogen(build_topo, mod.__name__)
     tgen.start_topology()
 
-    tgen.net["r1import"].cmd(
+    tgen.net['r1import'].cmd(
         """
+
 ip link add vrf1 type vrf table 10
-ip link set vrf1 up
-ip link set r1import-eth2 master vrf1
+    """)
+    shutdown_bringup_interface_in_kernel(tgen, 'r1import', "vrf1", True)
+    tgen.net['r1import'].cmd(
         """
-    )
+ip link set r1import-eth2 master vrf1
+        
+    """)
 
     bmp_reset_seq(bmp_seq_context)
     if DEBUG_PCAP:
@@ -597,7 +605,7 @@ def test_bgp_instance_flapping():
 
     # create flapping at BMP
     # note: only peer up are handled at BMP level today
-    tgen.net["r1import"].cmd("ip link set dev vrf1 down")
+    shutdown_bringup_interface_in_kernel(tgen, 'r1import', "vrf1", False)
 
     peers = ["0.0.0.0"]
 
@@ -614,7 +622,7 @@ def test_bgp_instance_flapping():
     success, _ = topotest.run_and_expect(test_func, True, count=30, wait=1)
     assert success, "Checking the BMP peer down LOC-RIB message failed !."
 
-    tgen.net["r1import"].cmd("ip link set dev vrf1 up")
+    shutdown_bringup_interface_in_kernel(tgen, 'r1import', "vrf1", True)
 
     logger.info("checking for BMP peer up LOC-RIB message.")
     test_func = partial(

@@ -21,7 +21,7 @@ import sys
 import json
 import pytest
 
-pytestmark = [pytest.mark.bgpd]
+pytestmark = [pytest.mark.bgpd, pytest.mark.freebsd]
 
 CWD = os.path.dirname(os.path.realpath(__file__))
 sys.path.append(os.path.join(CWD, "../"))
@@ -29,6 +29,7 @@ sys.path.append(os.path.join(CWD, "../"))
 # pylint: disable=C0413
 from lib.topogen import Topogen, TopoRouter, get_topogen
 from lib.common_config import step
+from lib.topotest import platform_has_evpn
 
 
 def build_topo(tgen):
@@ -43,6 +44,9 @@ def build_topo(tgen):
 
 
 def setup_module(mod):
+    if not platform_has_evpn():
+        pytest.skip("platform does not support EVPN")
+
     tgen = Topogen(build_topo, mod.__name__)
     tgen.start_topology()
 

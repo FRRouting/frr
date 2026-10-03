@@ -42,6 +42,7 @@ from lib import topotest
 from lib.topogen import Topogen, get_topogen
 from lib.common_config import (
     required_linux_kernel_version,
+    shutdown_bringup_interface_in_kernel,
 )
 
 import json
@@ -663,13 +664,11 @@ def test_nexthop_groups():
     pre_nh_show = net["r1"].cmd("ip next show id {}".format(pre_nhg.group(1)))
     pre_total_nhs = len((re.search(r"group ([\d/]+)", pre_nh_show)).group(1).split("/"))
 
-    net["r1"].cmd(
-        "ip link set r1-eth1 down;ip link set r1-eth2 down;ip link set r1-eth3 down;ip link set r1-eth4 down"
-    )
+    for iface in ("r1-eth1", "r1-eth2", "r1-eth3", "r1-eth4"):
+        shutdown_bringup_interface_in_kernel(get_topogen(), "r1", iface, False)
     sleep(1)
-    net["r1"].cmd(
-        "ip link set r1-eth1 up;ip link set r1-eth2 up;ip link set r1-eth3 up;ip link set r1-eth4 up"
-    )
+    for iface in ("r1-eth1", "r1-eth2", "r1-eth3", "r1-eth4"):
+        shutdown_bringup_interface_in_kernel(get_topogen(), "r1", iface, True)
     sleep(5)
 
     post_out = net["r1"].cmd('ip route show | grep "5.5.5.1"')

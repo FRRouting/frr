@@ -51,7 +51,7 @@ from .bgpbmp import BMPSequenceContext, bmp_update_seq, get_bmp_messages
 from lib.topogen import Topogen, get_topogen
 from lib.topolog import logger
 
-pytestmark = [pytest.mark.bgpd]
+pytestmark = [pytest.mark.bgpd, pytest.mark.freebsd]
 
 WATCHED_PREFIX = "203.0.113.1/32"
 NEVER_ESTABLISHED_PEER = "192.168.0.66"
