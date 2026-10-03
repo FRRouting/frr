@@ -59,14 +59,9 @@ def setup_module(mod):
     host_macs = {"host1": "1a:2b:3c:4d:5e:61", "host2": "1a:2b:3c:4d:5e:62"}
     for name, mac in host_macs.items():
         host = tgen.net[name]
-        shutdown_bringup_interface_in_kernel(
-            host.tgen,
-            host.name,
-            f"{name}-eth0",
-            False,
-        )
+        shutdown_bringup_interface_in_kernel(tgen, name, f"{name}-eth0", False)
         host.cmd_raises(f"ip link set dev {name}-eth0 address {mac}")
-        shutdown_bringup_interface_in_kernel(host.tgen, host.name, f"{name}-eth0", True)
+        shutdown_bringup_interface_in_kernel(tgen, name, f"{name}-eth0", True)
 
     # Configure PE devices: vrf-blue, vxlan100/1000, bridges and sysctls
     pe_suffix = {"PE1": "1", "PE2": "2"}
@@ -76,7 +71,7 @@ def setup_module(mod):
         bridge_ip = f"192.168.50.{suf}/24"
         bridge_ipv6 = f"fd00:50:1::{suf}/48"
         pe.cmd_raises("ip link add vrf-blue type vrf table 10")
-        shutdown_bringup_interface_in_kernel(pe.tgen, pe.name, "vrf-blue", True)
+        shutdown_bringup_interface_in_kernel(tgen, name, "vrf-blue", True)
         pe.cmd_raises(
             f"ip link add vxlan100 type vxlan id 100 dstport 4789 local {vtep_ip}"
         )
@@ -84,9 +79,9 @@ def setup_module(mod):
         pe.cmd_raises("ip link set dev vxlan100 master br100")
         pe.cmd_raises(f"ip link set dev {name}-eth1 master br100")
         create_address_on_interface(tgen, name, "br100", bridge_ip)
-        shutdown_bringup_interface_in_kernel(pe.tgen, pe.name, "br100", True)
-        shutdown_bringup_interface_in_kernel(pe.tgen, pe.name, "vxlan100", True)
-        shutdown_bringup_interface_in_kernel(pe.tgen, pe.name, f"{name}-eth1", True)
+        shutdown_bringup_interface_in_kernel(tgen, name, "br100", True)
+        shutdown_bringup_interface_in_kernel(tgen, name, "vxlan100", True)
+        shutdown_bringup_interface_in_kernel(tgen, name, f"{name}-eth1", True)
         pe.cmd_raises("ip link set dev br100 master vrf-blue")
         create_address_on_interface(tgen, name, "br100", bridge_ipv6)
         pe.cmd_raises(
@@ -94,8 +89,8 @@ def setup_module(mod):
         )
         pe.cmd_raises("ip link add name br1000 type bridge stp_state 0")
         pe.cmd_raises("ip link set dev vxlan1000 master br1000")
-        shutdown_bringup_interface_in_kernel(pe.tgen, pe.name, "br1000", True)
-        shutdown_bringup_interface_in_kernel(pe.tgen, pe.name, "vxlan1000", True)
+        shutdown_bringup_interface_in_kernel(tgen, name, "br1000", True)
+        shutdown_bringup_interface_in_kernel(tgen, name, "vxlan1000", True)
         pe.cmd_raises("ip link set dev br1000 master vrf-blue")
         pe.cmd_raises("sysctl -w net.ipv4.ip_forward=1")
         pe.cmd_raises("sysctl -w net.ipv6.conf.all.forwarding=1")
