@@ -1713,11 +1713,12 @@ def _freebsd_run(rnode, dut, args):
 
 
 def _freebsd_clone_loopback(rnode):
-    """Create a lo(4) clone and return the name ifconfig printed.
+    """Create a lo(4) clone and return its name.
 
-    ``ifconfig lo create`` asks for the next unit. Once an interface is
-    named ``lo``, the kernel rejects that with EEXIST, so try an explicit
-    unit.
+    ``ifconfig lo create`` asks for the next unit and prints it. Once an
+    interface is named ``lo``, the kernel rejects that with EEXIST, so try
+    an explicit unit. ``ifconfig loN create`` succeeds and prints nothing;
+    the created name is the unit that was requested.
     """
 
     names = ["lo"] + ["lo{}".format(unit) for unit in range(1, 128)]
@@ -1730,10 +1731,11 @@ def _freebsd_clone_loopback(rnode):
             last = "{}{}".format(out or "", err or "").strip()
             continue
         text = (out or "").strip() or (err or "").strip()
-        created = text.split()[-1] if text else ""
-        if not created:
-            raise RuntimeError("ifconfig {} create returned no name".format(ifname))
-        return created
+        if text:
+            return text.split()[-1]
+        if ifname != "lo":
+            return ifname
+        raise RuntimeError("ifconfig {} create returned no name".format(ifname))
     raise RuntimeError("could not clone a loopback: {}".format(last))
 
 

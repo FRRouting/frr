@@ -255,9 +255,10 @@ def bridge_for_member(ifconfig_text, iface):
 def _clone_loopback():
     """Create a lo(4) clone and return its name.
 
-    ``ifconfig lo create`` asks for the next unit. Once an interface is
-    named ``lo``, the kernel rejects that with EEXIST, so try an explicit
-    unit.
+    ``ifconfig lo create`` asks for the next unit and prints it. Once an
+    interface is named ``lo``, the kernel rejects that with EEXIST, so try
+    an explicit unit. ``ifconfig loN create`` succeeds and prints nothing;
+    the created name is the unit that was requested.
     """
     import subprocess
 
@@ -271,10 +272,11 @@ def _clone_loopback():
             last = (proc.stderr or proc.stdout or "").strip()
             continue
         text = (proc.stdout or "").strip() or (proc.stderr or "").strip()
-        created = text.split()[-1] if text else ""
-        if not created:
-            die(f"ifconfig {ifname} create returned no name")
-        return created
+        if text:
+            return text.split()[-1]
+        if ifname != "lo":
+            return ifname
+        die(f"ifconfig {ifname} create returned no name")
     die(f"could not clone a loopback: {last}")
 
 
