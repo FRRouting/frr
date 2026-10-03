@@ -246,15 +246,44 @@ static void pim_mroute_nocache_forward_existing(struct interface *ifp, pim_sgadd
 	if (up->sptbit != PIM_UPSTREAM_SPTBIT_TRUE)
 		pim_upstream_set_sptbit(up, ifp);
 
-	PIM_UPSTREAM_FLAG_SET_SRC_STREAM(up->flags);
 	up->channel_oil->cc.pktcnt++;
 
 	pim_upstream_update_join_desired(pim, up);
 
-	if (pim_upstream_kat_start_ok(up))
-		pim_upstream_keep_alive_timer_start(up, pim->keep_alive_time);
-
 	pim_upstream_mroute_add(up->channel_oil, __func__);
+
+	/*
+	 * The keepalive timer expiry releases one reference for SRC_STREAM
+	 * (FHR shares it): like the upstream scan, take it (if SRC_STREAM
+	 * isn't set yet) only when starting the timer, otherwise nothing
+	 * would release it. Check after the MFC update so the timer sees the
+	 * realigned input interface.
+	 */
+	if (pim_upstream_kat_start_ok(up)) {
+		if (!PIM_UPSTREAM_FLAG_TEST_SRC_STREAM(up->flags))
+			pim_upstream_ref(up, PIM_UPSTREAM_FLAG_MASK_SRC_STREAM, __func__);
+		pim_upstream_keep_alive_timer_start(up, pim->keep_alive_time);
+	}
+}
+
+/*
+ * Reference an existing upstream for a NOCACHE upcall. The keepalive timer
+ * expiry releases one reference for SRC_STREAM (FHR shares it): like the
+ * upstream scan, only take it when SRC_STREAM isn't set yet, otherwise
+ * duplicate upcalls inflate ref_count and the upstream is never freed.
+ */
+static void pim_mroute_nocache_ref(struct pim_upstream *up, int flags)
+{
+	if (!PIM_UPSTREAM_FLAG_TEST_SRC_STREAM(up->flags)) {
+		pim_upstream_ref(up, flags, __func__);
+		return;
+	}
+
+	/* Already referenced: only promote to FHR (as `pim_upstream_ref` would). */
+	if (PIM_UPSTREAM_FLAG_TEST_FHR(flags) && !PIM_UPSTREAM_FLAG_TEST_FHR(up->flags)) {
+		PIM_UPSTREAM_FLAG_SET_FHR(up->flags);
+		pim_upstream_update_use_rpt(up, true /*update_mroute*/);
+	}
 }
 
 int pim_mroute_msg_nocache(int fd, struct interface *ifp, const kernmsg *msg)
@@ -378,7 +407,7 @@ int pim_mroute_msg_nocache(int fd, struct interface *ifp, const kernmsg *msg)
 			pre_up = pim_upstream_find(pim_ifp->pim, &sg);
 			mfc_was_installed = pre_up && pre_up->channel_oil->installed;
 			if (pre_up)
-				pim_upstream_ref(pre_up, flags, __func__);
+				pim_mroute_nocache_ref(pre_up, flags);
 			else
 				pre_up = pim_upstream_add(pim_ifp->pim, &sg, ifp, flags, __func__,
 							  NULL);
@@ -496,8 +525,17 @@ int pim_mroute_msg_nocache(int fd, struct interface *ifp, const kernmsg *msg)
 		 * These will be cleared if/when we are elected DR
 		 */
 
-		up = pim_upstream_find_or_add(
-			&sg, ifp, PIM_UPSTREAM_FLAG_MASK_SRC_NOCACHE, __func__);
+		/*
+		 * An existing upstream already has an owner: don't reference
+		 * it. Its MFC may not be installed (no RPF interface), so the
+		 * kernel repeats the upcall and nothing would release the
+		 * references (the keepalive timer only runs for a new
+		 * SRC_NOCACHE upstream).
+		 */
+		up = pim_upstream_find(pim_ifp->pim, &sg);
+		if (!up)
+			up = pim_upstream_add(pim_ifp->pim, &sg, ifp,
+					      PIM_UPSTREAM_FLAG_MASK_SRC_NOCACHE, __func__, NULL);
 		pim_upstream_mroute_add(up->channel_oil, __func__);
 
 		return 0;
@@ -511,7 +549,7 @@ int pim_mroute_msg_nocache(int fd, struct interface *ifp, const kernmsg *msg)
 		pre_up = pim_upstream_find(pim_ifp->pim, &sg);
 		mfc_was_installed = pre_up && pre_up->channel_oil->installed;
 		if (pre_up)
-			pim_upstream_ref(pre_up, PIM_UPSTREAM_FLAG_MASK_FHR, __func__);
+			pim_mroute_nocache_ref(pre_up, PIM_UPSTREAM_FLAG_MASK_FHR);
 		else
 			pre_up = pim_upstream_add(pim_ifp->pim, &sg, ifp,
 						  PIM_UPSTREAM_FLAG_MASK_FHR, __func__, NULL);
@@ -726,14 +764,27 @@ static int pim_upstream_activate_stream(struct interface *ifp, pim_sgaddr *sg)
 				      NULL);
 		if (!up)
 			return -1;
-	} else if (!PIM_UPSTREAM_FLAG_TEST_FHR(up->flags)) {
+	} else {
+		bool was_fhr = PIM_UPSTREAM_FLAG_TEST_FHR(up->flags);
+
 		/*
 		 * Upstream may already exist from join-before-data without
-		 * FHR (e.g. partial MFC).  Promote once; do not call ref on
-		 * every WRONGVIF as that would inflate ref_count.
+		 * FHR (e.g. partial MFC).
+		 *
+		 * The keepalive timer (started below) expiry releases one
+		 * reference for SRC_STREAM, which FHR shares: like the
+		 * upstream scan, only take it when SRC_STREAM isn't set yet
+		 * (so repeated WRONGVIFs don't inflate ref_count). FHR alone
+		 * holds no reference (e.g. set by `pim_upstream_switch`).
 		 */
-		pim_upstream_ref(up, PIM_UPSTREAM_FLAG_MASK_FHR, __func__);
-		PIM_UPSTREAM_FLAG_UNSET_USE_RPT(up->flags);
+		if (!PIM_UPSTREAM_FLAG_TEST_SRC_STREAM(up->flags))
+			pim_upstream_ref(up, PIM_UPSTREAM_FLAG_MASK_FHR, __func__);
+		else
+			PIM_UPSTREAM_FLAG_SET_FHR(up->flags);
+
+		/* Promote once. */
+		if (!was_fhr)
+			PIM_UPSTREAM_FLAG_UNSET_USE_RPT(up->flags);
 	}
 
 	PIM_UPSTREAM_FLAG_SET_SRC_STREAM(up->flags);
@@ -944,18 +995,27 @@ static int pim_mroute_wrongvif_prefer_ingress(struct interface *ifp, pim_sgaddr 
 	if (up->sptbit != PIM_UPSTREAM_SPTBIT_TRUE)
 		pim_upstream_set_sptbit(up, ifp);
 
-	PIM_UPSTREAM_FLAG_SET_SRC_STREAM(up->flags);
 	up->channel_oil->cc.pktcnt++;
 
 	pim_upstream_update_join_desired(pim, up);
-
-	if (pim_upstream_kat_start_ok(up))
-		pim_upstream_keep_alive_timer_start(up, pim->keep_alive_time);
 
 	if (!up->channel_oil->installed)
 		pim_upstream_mroute_add(up->channel_oil, __func__);
 	else
 		pim_upstream_mroute_iif_update(up->channel_oil, __func__);
+
+	/*
+	 * The keepalive timer expiry releases one reference for SRC_STREAM
+	 * (FHR shares it): like the upstream scan, take it (if SRC_STREAM
+	 * isn't set yet) only when starting the timer, otherwise nothing
+	 * would release it. Check after the MFC update so the timer sees the
+	 * realigned input interface.
+	 */
+	if (pim_upstream_kat_start_ok(up)) {
+		if (!PIM_UPSTREAM_FLAG_TEST_SRC_STREAM(up->flags))
+			pim_upstream_ref(up, PIM_UPSTREAM_FLAG_MASK_SRC_STREAM, __func__);
+		pim_upstream_keep_alive_timer_start(up, pim->keep_alive_time);
+	}
 
 	if (PIM_DEBUG_MROUTE)
 		zlog_debug("%s: (%s:%u:%u)%pSG WRONGVIF on %s, realigned MFC iif to ingress%s",

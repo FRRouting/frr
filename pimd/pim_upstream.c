@@ -1414,16 +1414,6 @@ struct pim_upstream *pim_upstream_find(struct pim_instance *pim, pim_sgaddr *sg)
 	return up;
 }
 
-struct pim_upstream *pim_upstream_find_or_add(pim_sgaddr *sg,
-					      struct interface *incoming,
-					      int flags, const char *name)
-{
-	struct pim_interface *pim_ifp = incoming->info;
-
-	return (pim_upstream_add(pim_ifp->pim, sg, incoming, flags, name,
-				NULL));
-}
-
 void pim_upstream_ref(struct pim_upstream *up, int flags, const char *name)
 {
 	/* if a local MLAG reference is being created we need to send the mroute
