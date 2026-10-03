@@ -139,9 +139,15 @@ def setup_module(mod):
 def teardown_module(mod):
     global _lt
     "Teardown the pytest environment"
+    # setup_module may have been skipped before this template created a
+    # topology.  global_tgen can still point at the previous test on this
+    # worker, whose hosts are already gone.
+    if _lt is None:
+        return
+
     tgen = get_topogen()
 
-    if _lt != None and _lt.scriptdir != None and _lt.prestarthooksuccess == True:
+    if _lt.scriptdir != None and _lt.prestarthooksuccess == True:
         luShowResults(logger.info)
         print(luFinish())
 
