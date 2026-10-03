@@ -32,7 +32,7 @@ sys.path.append(os.path.join(CWD, "../lib/"))
 # pylint: disable=C0413
 # Import topogen and topotest helpers
 from lib.topogen import Topogen, get_topogen
-from lib.topotest import version_cmp
+from lib.topotest import version_cmp, platform_has_vrf
 
 from lib.common_config import (
     start_topology,
@@ -75,6 +75,8 @@ def setup_module(mod):
 
     * `mod`: module name
     """
+    if not platform_has_vrf():
+        pytest.skip("platform does not support VRF")
 
     global topo
     testsuite_run_time = time.asctime(time.localtime(time.time()))

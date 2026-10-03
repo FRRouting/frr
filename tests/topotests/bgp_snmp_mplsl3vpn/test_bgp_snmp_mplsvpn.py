@@ -103,6 +103,8 @@ def build_topo(tgen):
 
 def setup_module(mod):
     "Sets up the pytest environment"
+    if not topotest.platform_has_vrf():
+        pytest.skip("platform does not support VRF")
 
     # skip tests is SNMP not installed
     snmpd = os.system("which snmpd")

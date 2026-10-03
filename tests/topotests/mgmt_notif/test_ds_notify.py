@@ -30,6 +30,11 @@ FE_CLIENT = CWD + "/../lib/fe_client.py"
 BE_CLIENT = "/usr/lib/frr/mgmtd_testc"
 
 
+def setup_module(module):
+    if not topotest.platform_has_vrf():
+        pytest.skip("platform does not support VRF")
+
+
 def have_beclient(r1):
     if hasattr(have_beclient, "has"):
         return have_beclient.has
