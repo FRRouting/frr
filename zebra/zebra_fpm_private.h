@@ -9,6 +9,7 @@
 #ifndef _ZEBRA_FPM_PRIVATE_H
 #define _ZEBRA_FPM_PRIVATE_H
 
+#include "lib/ipaddr.h"
 #include "zebra/debug.h"
 
 #ifdef __cplusplus
@@ -45,7 +46,7 @@ struct fpm_mac_info_t {
 	vni_t vni;
 	ifindex_t vxlan_if;
 	ifindex_t svi_if; /* L2 or L3 Bridge interface */
-	struct in_addr r_vtep_ip; /* Remote VTEP IP */
+	struct ipaddr r_vtep_ip; /* Remote VTEP IP */
 
 	/* Linkage to put MAC on the FPM processing queue. */
 	TAILQ_ENTRY(fpm_mac_info_t) fpm_mac_q_entries;

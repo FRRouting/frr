@@ -1423,8 +1423,8 @@ static int zl3vni_rmac_uninstall(struct zebra_l3vni *zl3vni,
  * Callers use this when the L3VNI local VTEP is IPv4.
  *
  * ::ffff:0:0/96 is rewritten to IPv4. A native IPv6 address is
- * copied unchanged; its low 32 bits would turn 2001::10 into
- * 0.0.0.16. An IPv4 address is copied as IPv4.
+ * copied unchanged; copying its last 32 bits would turn
+ * 2001:db8::10 into 0.0.0.16. An IPv4 address is copied as IPv4.
  */
 static void vtep_to_v4(const struct ipaddr *vtep_ip, struct ipaddr *ipv4_vtep)
 {
