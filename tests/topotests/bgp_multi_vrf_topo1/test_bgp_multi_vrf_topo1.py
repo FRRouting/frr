@@ -99,7 +99,7 @@ sys.path.append(os.path.join(CWD, "../lib/"))
 # pylint: disable=C0413
 # Import topogen and topotest helpers
 from lib.topogen import Topogen, get_topogen
-from lib.topotest import iproute2_is_vrf_capable
+from lib.topotest import iproute2_is_vrf_capable, platform_has_vrf
 from lib.common_config import (
     step,
     verify_rib,
@@ -168,6 +168,9 @@ def setup_module(mod):
 
     * `mod`: module name
     """
+    if not platform_has_vrf():
+        pytest.skip("platform does not support VRF")
+
     # Required linux kernel version for this suite to run.
     result = required_linux_kernel_version("4.15")
     if result is not True:

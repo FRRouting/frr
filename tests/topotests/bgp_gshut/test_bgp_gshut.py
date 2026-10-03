@@ -92,6 +92,9 @@ def _run_cmd_and_check(router, cmd, results_file, retries=100, intvl=0.5):
 
 
 def setup_module(mod):
+    if not topotest.platform_has_vrf():
+        pytest.skip("platform does not support VRF")
+
     tgen = Topogen(build_topo, mod.__name__)
     tgen.start_topology()
 

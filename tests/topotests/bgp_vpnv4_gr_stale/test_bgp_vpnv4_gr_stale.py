@@ -52,6 +52,9 @@ def start_peer1(tgen, cfg_dir):
 
 
 def setup_module(mod):
+    if not topotest.platform_has_vrf():
+        pytest.skip("platform does not support VRF")
+
     tgen = Topogen(build_topo, mod.__name__)
     if not tgen.hasmpls:
         pytest.skip("MPLS is not available")

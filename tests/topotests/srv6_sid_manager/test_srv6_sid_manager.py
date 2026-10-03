@@ -259,6 +259,8 @@ def build_topo(tgen):
 
 def setup_module(mod):
     """Sets up the pytest environment"""
+    if not topotest.platform_has_vrf():
+        pytest.skip("platform does not support VRF")
 
     # Verify if kernel requirements are satisfied
     result = required_linux_kernel_version("4.10")

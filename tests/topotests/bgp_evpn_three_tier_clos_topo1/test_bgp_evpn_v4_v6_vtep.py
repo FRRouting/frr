@@ -116,6 +116,14 @@ VTEP_IPS = {
 }
 
 
+def setup_module(module):
+    if not topotest.platform_has_vrf():
+        pytest.skip("platform does not support VRF")
+
+    if not topotest.platform_has_evpn():
+        pytest.skip("platform does not support EVPN")
+
+
 @pytest.fixture(scope="module", params=["ipv4", "ipv6"])
 def tgen_and_ip_version(request):
     """
