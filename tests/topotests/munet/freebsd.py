@@ -866,9 +866,10 @@ def add_link(munet, name1, if1, name2, if2, mtu, isp2p):
 def _clone_loopback(ns):
     """Create a lo(4) clone and return its name.
 
-    ``ifconfig lo create`` asks for the next unit. After a jail has an
-    interface named ``lo``, the kernel rejects that with EEXIST, so try
-    an explicit unit.
+    ``ifconfig lo create`` asks for the next unit and prints it. After a
+    jail has an interface named ``lo``, the kernel rejects that with
+    EEXIST, so try an explicit unit. ``ifconfig loN create`` succeeds and
+    prints nothing; the created name is the unit that was requested.
     """
     names = ["lo"] + [f"lo{unit}" for unit in range(1, 128)]
     last = ""
@@ -880,10 +881,11 @@ def _clone_loopback(ns):
             last = ((out or "") + (err or "")).strip()
             continue
         text = (out or "").strip() or (err or "").strip()
-        created = text.split()[-1] if text else ""
-        if not created:
-            raise RuntimeError(f"ifconfig {ifname} create returned no name")
-        return created
+        if text:
+            return text.split()[-1]
+        if ifname != "lo":
+            return ifname
+        raise RuntimeError(f"ifconfig {ifname} create returned no name")
     raise RuntimeError(f"could not clone a loopback: {last}")
 
 
