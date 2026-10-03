@@ -36,6 +36,7 @@ from munet.base import commander, get_exec_path_host, Timeout
 from munet.testing.util import retry
 
 from lib import micronet
+from lib.frr_paths import FRR_SYSCONFDIR
 from lib.kernel_routes import kernel_routes
 
 g_pytest_config = None
@@ -2241,23 +2242,25 @@ class Router(Node):
         valgrind_memleaks = bool(g_pytest_config.option.valgrind_memleaks)
         strace_daemons = g_pytest_config.get_option_list("--strace-daemons")
 
-        # Get global bundle data
-        if not self.path_exists("/etc/frr/support_bundle_commands.conf"):
+        # Installed into the sysconfdir chosen at configure time. A FreeBSD
+        # jail symlinks that directory to the private /etc/frr.
+        bundle_conf = os.path.join(FRR_SYSCONFDIR, "support_bundle_commands.conf")
+        if not self.path_exists(bundle_conf):
             logger.info(
                 "No support bundle commands.conf found in %s namespace, copying them over",
                 self.name,
             )
             # Copy global value if was covered by namespace mount
             bundle_data = ""
-            if os.path.exists("/etc/frr/support_bundle_commands.conf"):
-                with open("/etc/frr/support_bundle_commands.conf", "r") as rf:
+            if os.path.exists(bundle_conf):
+                with open(bundle_conf, "r") as rf:
                     bundle_data = rf.read()
             else:
                 logger.warning(
                     "No support bundle commands.conf found, please install them on this system"
                 )
             self.cmd_raises(
-                "cat > /etc/frr/support_bundle_commands.conf",
+                "cat > {}".format(bundle_conf),
                 stdin=bundle_data,
             )
 
