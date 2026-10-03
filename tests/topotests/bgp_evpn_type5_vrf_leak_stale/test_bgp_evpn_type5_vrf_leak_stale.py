@@ -180,6 +180,11 @@ def _add_vrf_vni(router, rname, vrf, table, vni, local_vtep):
 
 def setup_module(mod):
     "Create router VRFs and L3VNIs, load configs, and start the topology."
+    if not topotest.platform_has_vrf():
+        pytest.skip("platform does not support VRF")
+
+    if not topotest.platform_has_evpn():
+        pytest.skip("platform does not support EVPN")
 
     krel = platform.release()
     if topotest.version_cmp(krel, "4.18") < 0:

@@ -75,6 +75,7 @@ from lib.bgp import (
     create_router_bgp,
     clear_bgp_and_verify,
 )
+from lib.topotest import platform_has_vrf
 
 # Global variables
 topo = None
@@ -108,6 +109,9 @@ def setup_module(mod):
     Set up the pytest environment
     * `mod`: module name
     """
+    if not platform_has_vrf():
+        pytest.skip("platform does not support VRF")
+
     global topo
     testsuite_run_time = time.asctime(time.localtime(time.time()))
     logger.info("Testsuite start time: {}".format(testsuite_run_time))

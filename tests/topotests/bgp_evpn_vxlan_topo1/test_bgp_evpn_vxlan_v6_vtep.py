@@ -85,6 +85,12 @@ def build_topo(tgen):
 
 def setup_module(mod):
     "Sets up the pytest environment"
+    if not topotest.platform_has_vrf():
+        pytest.skip("platform does not support VRF")
+
+    if not topotest.platform_has_evpn():
+        pytest.skip("platform does not support EVPN")
+
     # This function initiates the topology build with Topogen...
     tgen = Topogen(build_topo, mod.__name__)
     # ... and here it calls Mininet initialization functions.

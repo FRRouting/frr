@@ -184,6 +184,9 @@ def build_topo(tgen):
 
 
 def setup_module(module):
+    if not topotest.platform_has_vrf():
+        pytest.skip("platform does not support VRF")
+
     logger.info("PIM IGMP VRF Topology: \n {}".format(TOPOLOGY))
 
     tgen = Topogen(build_topo, module.__name__)

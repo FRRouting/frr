@@ -76,6 +76,11 @@ def _create_rmac(router, vrf):
 
 def setup_module(mod):
     """Sets up the pytest environment"""
+    if not topotest.platform_has_vrf():
+        pytest.skip("platform does not support VRF")
+
+    if not topotest.platform_has_evpn():
+        pytest.skip("platform does not support EVPN")
 
     tgen = Topogen(build_topo, mod.__name__)
     tgen.start_topology()

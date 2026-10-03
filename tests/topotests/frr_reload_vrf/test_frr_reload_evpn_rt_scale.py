@@ -75,6 +75,14 @@ IMPORT_RT_COUNT = len(IMPORT_RTS)
 RELOAD_TIMEOUT = float(os.environ.get("FRR_RELOAD_RT_TIMEOUT", "120"))
 
 
+def setup_module(module):
+    if not topotest.platform_has_vrf():
+        pytest.skip("platform does not support VRF")
+
+    if not topotest.platform_has_evpn():
+        pytest.skip("platform does not support EVPN")
+
+
 def _static_routes():
     first = int(ipaddress.IPv4Address("198.18.0.0"))
     return [

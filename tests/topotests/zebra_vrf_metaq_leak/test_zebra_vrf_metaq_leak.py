@@ -65,6 +65,9 @@ NHOP = "169.254.0.1"
 
 
 def setup_module(mod):
+    if not topotest.platform_has_vrf():
+        pytest.skip("platform does not support VRF")
+
     topodef = {"s1": ("r1",)}
     tgen = Topogen(topodef, mod.__name__)
     tgen.start_topology()

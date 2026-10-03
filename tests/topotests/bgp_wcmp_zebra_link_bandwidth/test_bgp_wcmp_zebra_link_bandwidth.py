@@ -24,6 +24,9 @@ pytestmark = [pytest.mark.bgpd]
 
 
 def setup_module(mod):
+    if not topotest.platform_has_vrf():
+        pytest.skip("platform does not support VRF")
+
     topodef = {"s1": ("r1", "r2"), "s2": ("r1", "r3")}
     tgen = Topogen(topodef, mod.__name__)
     tgen.start_topology()

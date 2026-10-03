@@ -57,6 +57,9 @@ def setup_module(mod):
     # available only after the VRF module is loaded; if the module is not loaded,
     # the strict_mode command may fail and the test can fail later.
     # Ensure the VRF module is present and loaded before setting strict_mode.
+    if not topotest.platform_has_vrf():
+        pytest.skip("platform does not support VRF")
+
     if not topotest.module_present("vrf"):
         pytest.skip("VRF kernel module is not available")
 

@@ -48,6 +48,7 @@ from lib.bgp import (
     create_router_bgp,
 )
 from lib.topojson import build_config_from_json
+from lib.topotest import platform_has_vrf
 
 pytestmark = [pytest.mark.bgpd, pytest.mark.staticd]
 
@@ -64,6 +65,8 @@ def setup_module(mod):
 
     * `mod`: module name
     """
+    if not platform_has_vrf():
+        pytest.skip("platform does not support VRF")
 
     testsuite_run_time = time.asctime(time.localtime(time.time()))
     logger.info("Testsuite start time: {}".format(testsuite_run_time))
