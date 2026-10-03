@@ -354,6 +354,14 @@ struct gm_if {
 
 	struct timeval started;
 	struct gm_if_stats stats;
+
+#ifdef PIM_SOUTHBOUND_COMMON
+	/*
+	 * Static join reports timer: coalesces the `pim_southbound.interface_join()`
+	 * calls made before it triggers.
+	 */
+	struct event *join_event;
+#endif /* PIM_SOUTHBOUND_COMMON */
 };
 
 #if PIM_IPV == 6

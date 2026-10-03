@@ -864,6 +864,8 @@ AC_ARG_ENABLE([python_runtime],
 
 AC_ARG_ENABLE([pim_southbound],
   AS_HELP_STRING([--disable-pim-southbound], [do not build vendor PIM southbound support]))
+AC_ARG_ENABLE([pim6_southbound],
+  AS_HELP_STRING([--disable-pim6-southbound], [do not build vendor PIMv6 southbound support]))
 
 ##
 ## gperftools tcmalloc version, more complete than "minimal"
@@ -2256,7 +2258,23 @@ fi
 if test "$enable_pim_southbound" = "yes"; then
   AC_DEFINE([PIM_SOUTHBOUND_COMMON], [1], [PIM southbound common code])
 fi
+if test "$enable_pim6_southbound" != "no"; then
+  dnl pim6d is only enabled on Linux.
+  AC_MSG_CHECKING([for PIMv6 southbound support])
+  if test "$enable_pim6d" = "no"; then
+    AC_MSG_RESULT([no (pim6d disabled)])
+    if test "$enable_pim6_southbound" = "yes"; then
+      AC_MSG_ERROR([--enable-pim6-southbound requires pim6d (Linux only)])
+    fi
+    enable_pim6_southbound="no"
+  else
+    AC_MSG_RESULT([yes])
+    enable_pim6_southbound="yes"
+    AC_DEFINE([PIM_SOUTHBOUND_COMMON], [1], [PIM southbound common code])
+  fi
+fi
 AM_CONDITIONAL([PIM_SOUTHBOUND], [test "$enable_pim_southbound" = "yes"])
+AM_CONDITIONAL([PIM6_SOUTHBOUND], [test "$enable_pim6_southbound" = "yes"])
 
 dnl -------------------------------------
 dnl VRRP is only supported on linux

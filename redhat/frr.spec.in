@@ -740,6 +740,7 @@ fi
 %endif
 %if %{with_pim6d}
     %{_sbindir}/pim6d
+    %{_libdir}/frr/modules/pim6d_southbound.so
 %endif
 %if %{with_pbrd}
     %{_sbindir}/pbrd

@@ -314,6 +314,9 @@ extern void ip_fragmentation_handler_stop(void);
 /** IP encapsulation protocol for receiving PIM packets. */
 #define PIM_IP_ENCAP_PIM 252
 
+/** MLDv1/MLDv2 encapsulation protocol. */
+#define PIM_IPV6_ENCAP_MLD 240
+
 /** Encapsulation parse results.  */
 struct ipv4_encap_result {
 	/** Interface index the packet came from. */

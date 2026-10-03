@@ -162,6 +162,7 @@ noinst_HEADERS += \
 	pimd/pim_vxlan_instance.h \
 	pimd/pimd.h \
 	pimd/pim6_mld.h \
+	pimd/pim6_mld_packet.h \
 	pimd/pim6_mld_protocol.h \
 	pimd/mtracebis_netlink.h \
 	pimd/mtracebis_routeget.h \
@@ -207,5 +208,20 @@ pimd_pimd_southbound_la_SOURCES = \
 pimd_pimd_southbound_la_CFLAGS  = $(AM_CFLAGS) -DPIM_IPV=4
 pimd_pimd_southbound_la_LDFLAGS = $(MODULE_LDFLAGS)
 pimd_pimd_southbound_la_LIBADD  =
+endif
+endif
+
+if PIM6D
+if PIM6_SOUTHBOUND
+module_LTLIBRARIES += pimd/pim6d_southbound.la
+
+pimd_pim6d_southbound_la_SOURCES = \
+	pimd/pim6_mld_packet.c \
+	pimd/pim_southbound_common.c \
+	pimd/pim6_southbound.c \
+	# end
+pimd_pim6d_southbound_la_CFLAGS  = $(AM_CFLAGS) -DPIM_IPV=6
+pimd_pim6d_southbound_la_LDFLAGS = $(MODULE_LDFLAGS)
+pimd_pim6d_southbound_la_LIBADD  =
 endif
 endif

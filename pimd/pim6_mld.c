@@ -2435,6 +2435,11 @@ void gm_ifp_teardown(struct interface *ifp)
 	gm_subscribers_fini(gm_ifp->subscribers);
 	gm_sgs_fini(gm_ifp->sgs);
 
+#ifdef PIM_SOUTHBOUND_COMMON
+	/* The southbound static join timer holds a pointer to this interface. */
+	event_cancel(&gm_ifp->join_event);
+#endif /* PIM_SOUTHBOUND_COMMON */
+
 	XFREE(MTYPE_GM_IFACE, gm_ifp);
 	pim_ifp->mld = NULL;
 }
