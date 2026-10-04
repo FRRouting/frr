@@ -194,6 +194,53 @@ def check_ip_route(router, destination, expected_interface):
     assert assertmsg is True, assertmsg
 
 
+@retry(retry_timeout=60)
+def _check_ip_route_missing(router, destination):
+    "Verfiy that IS-IS has no route to the destination"
+
+    tgen = get_topogen()
+    router = tgen.gears[router]
+    logger.info(f"check_ip_route_missing {router}")
+    route_output = router.vtysh_cmd("show ip route {} json".format(destination))
+    route_json = json.loads(route_output)
+
+    if destination in route_json:
+        return "{} expected no route to {} but got {}".format(
+            router.name, destination, route_json
+        )
+
+    return True
+
+
+def check_ip_route_missing(router, destination):
+    "Verfiy that IS-IS has no route to the destination"
+
+    assertmsg = _check_ip_route_missing(router, destination)
+    assert assertmsg is True, assertmsg
+
+
+@retry(retry_timeout=60)
+def _check_lsp_contains_metric(router, lsp, metric):
+    "Verfiy that router's lsp advertises the given metric"
+
+    tgen = get_topogen()
+    router = tgen.gears[router]
+    logger.info(f"check_lsp_contains_metric {router}")
+    isis_lsp_output = router.vtysh_cmd("show isis database detail {}".format(lsp))
+
+    if "Metric: {}".format(metric) not in isis_lsp_output:
+        return "{} lsp {} does not advertise metric {}".format(router.name, lsp, metric)
+
+    return True
+
+
+def check_lsp_contains_metric(router, lsp, metric):
+    "Verfiy that router's lsp advertises the given metric"
+
+    assertmsg = _check_lsp_contains_metric(router, lsp, metric)
+    assert assertmsg is True, assertmsg
+
+
 def test_isis_daemon_up():
     "Check isis daemon up before starting test"
     tgen = get_topogen()
@@ -452,6 +499,90 @@ def test_isis_advertise_high_metrics_route():
     check_ip_route("r1", "192.168.1.6/31", "eth-r2")
 
     # Start r3
+    logger.info("Start router r3")
+    start_router(tgen, "r3")
+
+
+def test_isis_max_link_metric():
+    """
+    Verify RFC 5305 section 3: a link advertised with the maximum wide link
+    metric (2^24 - 1) is still advertised in the LSP, but MUST NOT be
+    considered during the normal SPF computation.  Both a link of the local
+    router and a link advertised by a neighbor are checked.
+    """
+    tgen = get_topogen()
+
+    # Don't run this test if we have any failure.
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    logger.info("Testing maximum wide link metric SPF exclusion")
+
+    r1 = tgen.gears["r1"]
+    r2 = tgen.gears["r2"]
+
+    # The previous test leaves advertise-high-metrics enabled on r2.  Remove
+    # it so that the per-interface metric changes below take effect.
+    r2.vtysh_cmd(
+        """
+          configure
+            router isis 1
+              no advertise-high-metrics
+        """
+    )
+
+    # Keep only the r1 -> r2 -> r4 path.  r4 is now reachable only through
+    # r2, so a destination owned by r4 disappears when r2's link to it is
+    # ignored by the SPF.
+    stop_router(tgen, "r3")
+    check_ip_route("r1", "192.168.1.4/31", "eth-r2")
+
+    # A link of the local router configured with the maximum metric is still
+    # advertised in the LSP, but it must not be used during the SPF
+    # computation.  Both the prefix owned by r4 and the r2-r4 subnet prefix
+    # (also advertised by r2) become unreachable.
+    r1.vtysh_cmd(
+        """
+          configure
+            interface eth-r2
+              isis metric 16777215
+        """
+    )
+    check_lsp_contains_metric("r1", "r1.00-00", 16777215)
+    check_ip_route_missing("r1", "192.168.1.4/31")
+    check_ip_route_missing("r1", "192.168.1.6/31")
+
+    r1.vtysh_cmd(
+        """
+          configure
+            interface eth-r2
+              no isis metric
+        """
+    )
+    check_ip_route("r1", "192.168.1.4/31", "eth-r2")
+
+    # A link advertised by a neighbor with the maximum metric must not be
+    # used in transit either.  r4's own prefix 192.168.1.4/31 is only
+    # advertised by r4, and it can only be reached through r2.
+    r2.vtysh_cmd(
+        """
+          configure
+            interface eth-r4
+              isis metric 16777215
+        """
+    )
+    check_ip_route_missing("r1", "192.168.1.4/31")
+
+    r2.vtysh_cmd(
+        """
+          configure
+            interface eth-r4
+              no isis metric
+        """
+    )
+    check_ip_route("r1", "192.168.1.4/31", "eth-r2")
+
+    # Restart r3 for any following test.
     logger.info("Start router r3")
     start_router(tgen, "r3")
 
