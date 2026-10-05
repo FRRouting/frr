@@ -27,6 +27,19 @@
 #include <linux/if_tunnel.h>
 #include <string.h>
 
+/*
+ * End.DT2U (RFC 8986 Section 4.1.12) and End.DT2M (RFC 8986 Section 4.1.13) are not yet
+ * in the mainline Linux kernel seg6_local.h.  Define fallback values so FRR
+ * can programme them on kernels that carry forward-ported support.
+ * Values follow the natural extension of SEG6_LOCAL_ACTION_END_BPF (16).
+ */
+#ifndef SEG6_LOCAL_ACTION_END_DT2U
+#define SEG6_LOCAL_ACTION_END_DT2U 17
+#endif
+#ifndef SEG6_LOCAL_ACTION_END_DT2M
+#define SEG6_LOCAL_ACTION_END_DT2M 18
+#endif
+
 /* Hack for GNU libc version 2. */
 #ifndef MSG_TRUNC
 #define MSG_TRUNC      0x20
@@ -2040,6 +2053,34 @@ static bool _netlink_nexthop_encode_seg6local_info(const struct nexthop *nexthop
 			return false;
 		break;
 	case ZEBRA_SEG6_LOCAL_ACTION_END_DX2:
+		if (!nl_attr_put32(nlmsg, buflen, SEG6_LOCAL_ACTION, SEG6_LOCAL_ACTION_END_DX2))
+			return false;
+		if (!nl_attr_put32(nlmsg, buflen, SEG6_LOCAL_OIF, ctx->ifindex))
+			return false;
+		break;
+	/* RFC 8986 Section 4.1.12 - bridge-domain unicast MAC lookup.
+	 * Kernel attribute SEG6_LOCAL_L2DEV (NOT SEG6_LOCAL_OIF): the kernel
+	 * resolves the bridge via netdev_master_upper_dev_get(l2dev) and runs
+	 * the FDB lookup on the inner dst MAC; l2dev's xmit() is never called,
+	 * so pointing at an sr6-* encap port is loop-safe.
+	 */
+	case ZEBRA_SEG6_LOCAL_ACTION_END_DT2U:
+		if (!nl_attr_put32(nlmsg, buflen, SEG6_LOCAL_ACTION, SEG6_LOCAL_ACTION_END_DT2U))
+			return false;
+		if (!nl_attr_put32(nlmsg, buflen, SEG6_LOCAL_L2DEV, ctx->ifindex))
+			return false;
+		if (ctx->dt2_bd && !nl_attr_put32(nlmsg, buflen, SEG6_LOCAL_VRFTABLE, ctx->dt2_bd))
+			return false;
+		break;
+	/* RFC 8986 Section 4.1.13 - bridge-domain BUM flooding. */
+	case ZEBRA_SEG6_LOCAL_ACTION_END_DT2M:
+		if (!nl_attr_put32(nlmsg, buflen, SEG6_LOCAL_ACTION, SEG6_LOCAL_ACTION_END_DT2M))
+			return false;
+		if (!nl_attr_put32(nlmsg, buflen, SEG6_LOCAL_L2DEV, ctx->ifindex))
+			return false;
+		if (ctx->dt2_bd && !nl_attr_put32(nlmsg, buflen, SEG6_LOCAL_VRFTABLE, ctx->dt2_bd))
+			return false;
+		break;
 	case ZEBRA_SEG6_LOCAL_ACTION_END_B6:
 	case ZEBRA_SEG6_LOCAL_ACTION_END_BM:
 	case ZEBRA_SEG6_LOCAL_ACTION_END_S:
