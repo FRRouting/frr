@@ -6645,6 +6645,14 @@ static int zebra_evpn_pim_cfg_clean_up(struct zserv *client)
 static int zebra_evpn_cfg_clean_up(struct zserv *client)
 {
 	if (client->proto == ZEBRA_ROUTE_BGP) {
+		/*
+		 * Extra BGP zserv sessions (session_id != 0) own no EVPN
+		 * config; bgpd opens one for synchronous label-manager
+		 * exchanges. Their disconnect must not clear it.
+		 */
+		if (client->session_id)
+			return 0;
+
 		if (DYNAMIC_CLIENT_GR_DISABLED(client)) {
 			if (IS_ZEBRA_DEBUG_EVENT)
 				zlog_debug(
