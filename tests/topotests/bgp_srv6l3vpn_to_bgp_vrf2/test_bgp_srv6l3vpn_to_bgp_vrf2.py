@@ -178,6 +178,99 @@ def test_ping():
     check_ping("ce8", "192.168.7.2", True, 10, 0.5)
 
 
+def check_default_vrf_sid(name, sid, present):
+    """
+    Check the IPv4 VPN SID of the default BGP instance, in BGP and in zebra.
+    """
+
+    def _check():
+        tgen = get_topogen()
+        router = tgen.gears[name]
+
+        output = json.loads(router.vtysh_cmd("show bgp segment-routing srv6 json"))
+        bgp_default = next(
+            (b for b in output.get("bgps", []) if b.get("name") == "default"), None
+        )
+        if bgp_default is None:
+            return "bgp: default instance not found"
+        bgp_sid = bgp_default.get("vpnPolicyIpv4ToVpnSid")
+        expected_bgp_sid = sid if present else None
+        if bgp_sid != expected_bgp_sid:
+            return "bgp: default vpnPolicyIpv4ToVpnSid is {}, expected {}".format(
+                bgp_sid, expected_bgp_sid
+            )
+
+        output = json.loads(router.vtysh_cmd("show segment-routing srv6 sid json"))
+        expected = {sid: {"sid": sid}} if present else {sid: None}
+        return topotest.json_cmp(output, expected)
+
+    logger.info(
+        "[+] check {} default VRF SID {} {}".format(
+            name, sid, "allocated" if present else "released"
+        )
+    )
+    _, result = topotest.run_and_expect(_check, None, count=15, wait=1)
+    assert result is None, "Failed: {}".format(result)
+
+
+def check_vpn_rd_empty(name, rd):
+    """
+    Check that the VPN routes of a route distinguisher are removed.
+    """
+
+    def _check():
+        tgen = get_topogen()
+        router = tgen.gears[name]
+        output = json.loads(router.vtysh_cmd("show bgp ipv4 vpn json"))
+        routes = output.get("routes", {}).get("routeDistinguishers", {}).get(rd, {})
+        if routes:
+            return "{} still has routes: {}".format(rd, list(routes.keys()))
+        return None
+
+    logger.info("[+] check {} VPN routes of {} removed".format(name, rd))
+    _, result = topotest.run_and_expect(_check, None, count=15, wait=1)
+    assert result is None, "Failed: {}".format(result)
+
+
+def test_bgp_srv6_unset():
+    """
+    Unset the SRv6 locator of the default BGP instance on r1: the SID of the
+    default BGP instance must be released, and its routes no more exported.
+    """
+    check_default_vrf_sid("r1", "2001:db8:1:1:300::", True)
+    get_topogen().gears["r1"].vtysh_cmd(
+        """
+        configure terminal
+         router bgp 1
+          no segment-routing srv6
+        """
+    )
+    check_default_vrf_sid("r1", "2001:db8:1:1:300::", False)
+    check_vpn_rd_empty("r1", "1:30")
+    check_vpn_rd_empty("r2", "1:30")
+    check_ping("ce8", "192.168.7.2", False, 10, 0.5)
+
+
+def test_bgp_srv6_reset():
+    """
+    Restore the SRv6 locator of the default BGP instance on r1: the SID of
+    the default BGP instance must be allocated again, and its routes exported.
+    """
+    get_topogen().gears["r1"].vtysh_cmd(
+        """
+        configure terminal
+         router bgp 1
+          segment-routing srv6
+           locator loc1
+        """
+    )
+    check_default_vrf_sid("r1", "2001:db8:1:1:300::", True)
+    check_rib("r1", "show bgp ipv4 vpn json", "r1/vpnv4_rib.json")
+    check_rib("r2", "show bgp ipv4 vpn json", "r2/vpnv4_rib.json")
+    check_ping("ce7", "192.168.8.2", True, 10, 0.5)
+    check_ping("ce8", "192.168.7.2", True, 10, 0.5)
+
+
 if __name__ == "__main__":
     args = ["-s"] + sys.argv[1:]
     sys.exit(pytest.main(args))
