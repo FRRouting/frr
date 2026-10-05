@@ -1331,26 +1331,28 @@ static struct bgp_path_info *bgp_lookup_route_next(struct bgp **l3vpn_bgp,
 
 	/* First route?*/
 	if (prefix->prefixlen == 0) {
-		/* try V4 table */
-		table = (*l3vpn_bgp)->rib[AFI_IP][SAFI_UNICAST];
-		for (*dest = bgp_table_top(table); *dest;
-		     *dest = bgp_route_next(*dest)) {
-			pi = bgp_dest_get_bgp_path_info(*dest);
-			if (pi)
-				break;
-		}
+		/* skip the instances without routes */
+		while (*l3vpn_bgp) {
+			/* try V4 table */
+			table = (*l3vpn_bgp)->rib[AFI_IP][SAFI_UNICAST];
+			for (*dest = bgp_table_top(table); *dest; *dest = bgp_route_next(*dest)) {
+				pi = bgp_dest_get_bgp_path_info(*dest);
+				if (pi)
+					return pi;
+			}
 
-		if (!pi) {
 			/* try V6 table */
 			table = (*l3vpn_bgp)->rib[AFI_IP6][SAFI_UNICAST];
 			for (*dest = bgp_table_top(table); *dest;
 			     *dest = bgp_route_next(*dest)) {
 				pi = bgp_dest_get_bgp_path_info(*dest);
 				if (pi)
-					break;
+					return pi;
 			}
+
+			*l3vpn_bgp = bgp_lookup_by_name_next((*l3vpn_bgp)->name);
 		}
-		return pi;
+		return NULL;
 	}
 	/* real next search for the entry first use exact lookup */
 	pi = bgp_lookup_route(*l3vpn_bgp, dest, prefix, *policy, nexthop);
