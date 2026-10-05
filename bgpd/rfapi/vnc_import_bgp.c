@@ -1989,8 +1989,12 @@ void vnc_import_bgp_exterior_add_route_interior(
 	}
 
 	/*debugging */
-	vnc_zlog_debug_verbose("%s: interior prefix=%pRN, bpi type=%d",
-			       __func__, rn_interior, bpi_interior->type);
+	if (VNC_DEBUG(VERBOSE)) {
+		struct bgp_debug_vrf dv = bgp_debug_vrf_get(bgp);
+
+		zlog_debug("%s: interior prefix=(%s:%u:%u)%pRN, bpi type=%d", __func__, dv.name,
+			   dv.id, dv.table_id, rn_interior, bpi_interior->type);
+	}
 
 	if (RFAPI_HAS_MONITOR_EXTERIOR(rn_interior)) {
 
@@ -2375,8 +2379,12 @@ void vnc_import_bgp_exterior_del_route_interior(
 	}
 
 	/*debugging */
-	vnc_zlog_debug_verbose("%s: interior prefix=%pRN, bpi type=%d",
-			       __func__, rn_interior, bpi_interior->type);
+	if (VNC_DEBUG(VERBOSE)) {
+		struct bgp_debug_vrf dv = bgp_debug_vrf_get(bgp);
+
+		zlog_debug("%s: interior prefix=(%s:%u:%u)%pRN, bpi type=%d", __func__, dv.name,
+			   dv.id, dv.table_id, rn_interior, bpi_interior->type);
+	}
 
 	/*
 	 * Remove constructed routes based on the deleted interior route
