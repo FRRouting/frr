@@ -120,7 +120,7 @@ static void zlog_live(struct zlog_target *zt, struct zlog_msg *msgs[],
 	ssize_t sent;
 
 	for (size_t msgpos = 0; msgpos < msgtotal; msgpos += sent) {
-		sent = sendmmsg(fd, mmhs + msgpos, msgtotal - msgpos, 0);
+		sent = sendmmsg(fd, mmhs + msgpos, msgtotal - msgpos, MSG_EOR);
 
 		if (sent <= 0 && (errno == EAGAIN || errno == EWOULDBLOCK)) {
 			atomic_fetch_add_explicit(&zte->lost_msgs,
@@ -155,6 +155,7 @@ static void zlog_live_sigsafe(struct zlog_target *zt, const char *text,
 	struct zlt_live *zte = container_of(zt, struct zlt_live, zt);
 	struct zlog_live_hdr hdr[1] = {};
 	struct iovec iovs[2], *iov = iovs;
+	struct msghdr mh[1] = {};
 	struct timespec ts;
 	int fd;
 
@@ -178,7 +179,9 @@ static void zlog_live_sigsafe(struct zlog_target *zt, const char *text,
 	iov->iov_len = len;
 	iov++;
 
-	writev(fd, iovs, iov - iovs);
+	mh->msg_iov = iovs;
+	mh->msg_iovlen = iov - iovs;
+	sendmsg(fd, mh, MSG_EOR);
 }
 
 void zlog_live_open(struct zlog_live_cfg *cfg, int prio_min, int *other_fd)

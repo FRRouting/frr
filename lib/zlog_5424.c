@@ -485,8 +485,7 @@ static void zlog_5424(struct zlog_target *zt, struct zlog_msg *msgs[],
 				struct mmsghdr *sendpos;
 
 				for (sendpos = mmsg; sendpos < mpos;) {
-					ret = sendmmsg(fd, sendpos,
-						       mpos - sendpos, 0);
+					ret = sendmmsg(fd, sendpos, mpos - sendpos, MSG_EOR);
 					if (ret <= 0)
 						break;
 					sendpos += ret;
@@ -543,11 +542,11 @@ static void zlog_5424(struct zlog_target *zt, struct zlog_msg *msgs[],
 		need = zlog_one(zte, msgs[i], &state);
 		assert(need == 0);
 
-		if (!zte->sa_len)
+		if (!zte->sa_len && !zte->packets)
 			ret = writev(fd, iov, state.iov - iov);
 		else {
 			mpos->msg_hdr.msg_iovlen = state.iov - iov;
-			ret = sendmsg(fd, &mpos->msg_hdr, 0);
+			ret = sendmsg(fd, &mpos->msg_hdr, MSG_EOR);
 		}
 
 		if (ret < 0)
@@ -688,7 +687,7 @@ static void zlog_5424_sigsafe(struct zlog_target *zt, const char *text,
 
 	fd = atomic_load_explicit(&zte->fd, memory_order_relaxed);
 
-	if (!zte->sa_len)
+	if (!zte->sa_len && !zte->packets)
 		writev(fd, iov, iovp - iov);
 	else {
 		struct msghdr mh = {};
@@ -697,7 +696,7 @@ static void zlog_5424_sigsafe(struct zlog_target *zt, const char *text,
 		mh.msg_namelen = zte->sa_len;
 		mh.msg_iov = iov;
 		mh.msg_iovlen = iovp - iov;
-		sendmsg(fd, &mh, 0);
+		sendmsg(fd, &mh, MSG_EOR);
 	}
 }
 
