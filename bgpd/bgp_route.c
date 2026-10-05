@@ -4130,9 +4130,21 @@ static void bgp_process_evpn_route_injection(struct bgp *bgp, afi_t afi,
 	if ((afi != AFI_IP && afi != AFI_IP6) || (safi != SAFI_UNICAST && safi != SAFI_MPLS_VPN))
 		return;
 
+	if (!advertise_type5_routes_bestpath(bgp, afi, safi))
+		return;
 
-	if (advertise_type5_routes_bestpath(bgp, afi, safi) && new_select &&
-	    is_route_injectable_into_evpn(bgp, afi, safi, new_select)) {
+	/*
+	 * Local type-5 routes are keyed by the path they were exported from
+	 * (type5_originator), so advertising new_select does not replace the
+	 * route exported from old_select.  Withdraw it whenever the best path
+	 * moves, whether or not new_select gets exported in its place.
+	 * Like bgp_evpn_withdraw_type5_routes(), do not skip suppressed paths.
+	 */
+	if (old_select && old_select != new_select &&
+	    is_route_injectable_into_evpn_non_supp(bgp, afi, safi, old_select))
+		bgp_evpn_withdraw_type5_route(bgp, old_select, p, afi, safi, 0);
+
+	if (new_select && is_route_injectable_into_evpn(bgp, afi, safi, new_select)) {
 		/* apply the route-map */
 		if (bgp->adv_cmd_rmap[afi][safi].map) {
 			route_map_result_t ret;
@@ -4153,13 +4165,7 @@ static void bgp_process_evpn_route_injection(struct bgp *bgp, afi_t afi,
 
 			if (ret == RMAP_DENYMATCH) {
 				bgp_attr_flush(&dummy_attr);
-				/*
-				 * I believe it is possible that a new routemap can be applied at the
-				 * same time that a route update happens that causes us to have to
-				 * remove both the old and new selects.
-				 * Very Unlikely though, but let's cover our caluntas
-				 */
-				bgp_evpn_withdraw_type5_route(bgp, old_select, p, afi, safi, 0);
+				/* A different old_select was already withdrawn above */
 				bgp_evpn_withdraw_type5_route(bgp, new_select, p, afi, safi, 0);
 			} else
 				bgp_evpn_advertise_type5_route(bgp, new_select, p, &dummy_attr,
@@ -4169,9 +4175,7 @@ static void bgp_process_evpn_route_injection(struct bgp *bgp, afi_t afi,
 			bgp_evpn_advertise_type5_route(bgp, new_select, p, new_select->attr, afi,
 						       safi, 0);
 		}
-	} else if (advertise_type5_routes_bestpath(bgp, afi, safi) && old_select &&
-		   is_route_injectable_into_evpn(bgp, afi, safi, old_select))
-		bgp_evpn_withdraw_type5_route(bgp, old_select, p, afi, safi, 0);
+	}
 }
 
 /*
