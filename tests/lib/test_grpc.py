@@ -39,7 +39,7 @@ class TestGRPC(object):
         if self.exitcode != 0:
             print("OUTPUT:\n" + output.decode("ascii"))
             raise frrtest.TestExitNonzero(self)
-    
+
     @grpc_enabled
     @yang_installed
     @pytest.mark.parametrize(
@@ -47,8 +47,8 @@ class TestGRPC(object):
         [
             ("50051", "127.0.0.1:50051"),
             ("127.0.0.1:50052", "127.0.0.1:50052"),
-            ("[::1]:50053", "ipv6:[::1]:50053")
-        ]
+            ("[::1]:50053", "ipv6:[::1]:50053"),
+        ],
     )
     def test_valid_grpc_args(self, valid_arg, connect_addr):
         "Verify server binds properly with valid gRPC arguments"
@@ -58,7 +58,7 @@ class TestGRPC(object):
             "--grpc-arg",
             valid_arg,
             "--grpc-connect",
-            connect_addr
+            connect_addr,
         ]
         proc = subprocess.Popen(
             cmd,
@@ -71,7 +71,7 @@ class TestGRPC(object):
         if self.exitcode != 0:
             print("OUTPUT:\n" + output.decode("ascii"))
             raise frrtest.TestExitNonzero(self)
-    
+
     @grpc_enabled
     @yang_installed
     @pytest.mark.parametrize(
@@ -86,12 +86,10 @@ class TestGRPC(object):
             "127.0.0.1:65536",
             "[::1]:80",
             "[::1]:65536",
-
             # IPv4 syntax errors
             ":50051",
             "127.0.0.1:abc",
             "127.0.0.1:50051:extra",
-
             # IPv6 syntax errors
             "::1:50051",
             "[::1]",
@@ -99,7 +97,7 @@ class TestGRPC(object):
             "[::1:50051",
             "[]:50051",
             "[::1]:abc",
-        ]
+        ],
     )
     def test_invalid_grpc_args(self, invalid_arg):
         "Verify server fails to bind with invalid gRPC arguments"
@@ -130,5 +128,8 @@ class TestGRPC(object):
             and "failed to initialize the gRPC module" not in out_str
             and "Failed to load grpc module" not in out_str
         ):
-            print(f"FAILED (unexpected success for invalid arg '{invalid_arg}'):\n" + out_str)
+            print(
+                f"FAILED (unexpected success for invalid arg '{invalid_arg}'):\n"
+                + out_str
+            )
             raise frrtest.TestExitNonzero(self)

@@ -97,19 +97,16 @@ static void static_startup(void)
 	grpc_module = frrmod_load(load_arg.c_str(), modpath.c_str(), 0, 0);
 	if (!grpc_module) {
 		modpath = std::string(binpath) +  std::string("../../lib");
-		grpc_module = frrmod_load(load_arg.c_str(), modpath.c_str(),
-					  _err_print, 0);
+		grpc_module = frrmod_load(load_arg.c_str(), modpath.c_str(), _err_print, 0);
 	}
 	if (!grpc_module) {
 		modpath = std::string(binpath) +
 			  std::string("../../../lib/.libs");
-		grpc_module = frrmod_load(load_arg.c_str(), modpath.c_str(),
-					  _err_print, 0);
+		grpc_module = frrmod_load(load_arg.c_str(), modpath.c_str(), _err_print, 0);
 	}
 	if (!grpc_module) {
 		modpath = std::string(binpath) + std::string("../../../lib");
-		grpc_module = frrmod_load(load_arg.c_str(), modpath.c_str(),
-					  _err_print, 0);
+		grpc_module = frrmod_load(load_arg.c_str(), modpath.c_str(), _err_print, 0);
 	}
 	if (!grpc_module)
 		exit(1);
@@ -415,8 +412,8 @@ void assert_config_same(NorthboundClient &client, const std::string &compare)
 void grpc_client_run_test(void)
 {
 	test_debug("Connecting client to: " + _grpc_connect);
-	NorthboundClient client(grpc::CreateChannel(
-		_grpc_connect, grpc::InsecureChannelCredentials()));
+	NorthboundClient client(
+		grpc::CreateChannel(_grpc_connect, grpc::InsecureChannelCredentials()));
 
 	std::string reply = client.GetCapabilities();
 
@@ -559,7 +556,7 @@ int main(int argc, char **argv)
 	assert(argc >= 1);
 	if (get_binpath(argv[0], binpath) < 0)
 		exit(1);
-	
+
 	for (int i = 1; i < argc; i++) {
 		if (strcmp(argv[i], "--grpc-arg") == 0 && i + 1 < argc) {
 			_grpc_arg = argv[++i];

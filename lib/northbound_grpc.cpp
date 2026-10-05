@@ -535,17 +535,15 @@ static bool grpc_parse_port(const std::string &str, uint &port)
 
 		if (pos != str.length())
 			throw std::invalid_argument("Non-numeric port");
-		
+
 		if (value < 1024 || value > UINT16_MAX) {
-			flog_err(EC_LIB_GRPC_INIT,
-				 "%s: port number must be between 1024 and %d",
+			flog_err(EC_LIB_GRPC_INIT, "%s: port number must be between 1024 and %d",
 				 __func__, UINT16_MAX);
 			return false;
 		}
-	} catch(const std::exception &e) {
-		flog_err(EC_LIB_GRPC_INIT,
-			 "%s: invalid port number '%s': %s",
-			 __func__, str.c_str(), e.what());
+	} catch (const std::exception &e) {
+		flog_err(EC_LIB_GRPC_INIT, "%s: invalid port number '%s': %s", __func__,
+			 str.c_str(), e.what());
 		return false;
 	}
 
@@ -1397,8 +1395,9 @@ static void frr_grpc_module_very_late_init(struct event *event)
 				if (close_bracket == std::string::npos ||
 				    close_bracket + 1 >= arg.size() ||
 				    arg[close_bracket + 1] != ':') {
-					flog_err(EC_LIB_GRPC_INIT, "%s: invalid IPv6 address format '%s'",
-						 __func__, args);
+					flog_err(EC_LIB_GRPC_INIT,
+						 "%s: invalid IPv6 address format '%s'", __func__,
+						 args);
 					goto error;
 				}
 
@@ -1434,8 +1433,9 @@ static void frr_grpc_module_very_late_init(struct event *event)
 
 					host = arg.substr(0, colon);
 					if (!inet_pton(AF_INET, host.c_str(), addr)) {
-						flog_err(EC_LIB_GRPC_INIT, "%s: invalid IPv4 address '%s'",
-								 __func__, host.c_str());
+						flog_err(EC_LIB_GRPC_INIT,
+							 "%s: invalid IPv4 address '%s'", __func__,
+							 host.c_str());
 						goto error;
 					}
 
