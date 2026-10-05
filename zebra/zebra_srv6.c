@@ -910,6 +910,17 @@ struct zebra_srv6_sid_entry *zebra_srv6_sid_entry_add(struct zebra_srv6_sid *sid
 	return entry;
 }
 
+/*
+ * locator WORD creates the object before its prefix and SID block exist.
+ * prefix_match() treats ::/0 as matching every SID, so an unconfigured
+ * locator must not be advertised or used for allocation.
+ */
+static bool zebra_srv6_locator_is_alloc_ready(const struct srv6_locator *locator)
+{
+	return locator && SRV6_LOCATOR_PREFIX_IS_SET(locator) &&
+	       locator->sid_block;
+}
+
 void zebra_srv6_locator_add(struct srv6_locator *locator)
 {
 	struct zebra_srv6 *srv6 = zebra_srv6_get_default();
@@ -919,6 +930,9 @@ void zebra_srv6_locator_add(struct srv6_locator *locator)
 	tmp = zebra_srv6_locator_lookup(locator->name);
 	if (!tmp)
 		listnode_add(srv6->locators, locator);
+
+	if (!zebra_srv6_locator_is_alloc_ready(locator))
+		return;
 
 	/*
 	 * Notify new locator info to zclients.
@@ -977,6 +991,9 @@ struct srv6_locator *zebra_srv6_locator_lookup(const char *name)
 void zebra_notify_srv6_locator_add(struct srv6_locator *locator)
 {
 	struct zserv *client;
+
+	if (!zebra_srv6_locator_is_alloc_ready(locator))
+		return;
 
 	/*
 	 * Notify new locator info to zclients.
@@ -1347,6 +1364,17 @@ static bool zebra_srv6_sid_decompose(struct in6_addr *sid_value,
 		/* Skip locators that don't match the provided locator */
 		if (*locator != NULL && *locator != l)
 			continue;
+
+		/*
+		 * Skip locators that do not yet have a prefix and SID block.
+		 * If the caller named this locator, fail instead of binding
+		 * the SID to a different block.
+		 */
+		if (!zebra_srv6_locator_is_alloc_ready(l)) {
+			if (*locator != NULL)
+				return false;
+			continue;
+		}
 
 		/*
 		 * Check if the locator prefix includes the temporary prefix
@@ -1967,7 +1995,7 @@ static int get_srv6_sid_dynamic(struct zebra_srv6_sid **sid, struct srv6_sid_ctx
 	uint32_t sid_func = 0;
 	char buf[256];
 
-	if (!ctx || !locator)
+	if (!ctx || !zebra_srv6_locator_is_alloc_ready(locator))
 		return -1;
 
 	block = locator->sid_block;
@@ -2603,6 +2631,9 @@ static int srv6_manager_get_srv6_locator_internal(struct srv6_locator **locator,
 
 	if (!locator_name) {
 		for (ALL_LIST_ELEMENTS_RO(srv6->locators, node, *locator)) {
+			if (!zebra_srv6_locator_is_alloc_ready(*locator))
+				continue;
+
 			ret = zsend_zebra_srv6_locator_add(client, *locator);
 			if (ret < 0)
 				return ret;
@@ -2611,7 +2642,7 @@ static int srv6_manager_get_srv6_locator_internal(struct srv6_locator **locator,
 	}
 
 	*locator = zebra_srv6_locator_lookup(locator_name);
-	if (!*locator)
+	if (!zebra_srv6_locator_is_alloc_ready(*locator))
 		return -1;
 
 	return zsend_zebra_srv6_locator_add(client, *locator);
