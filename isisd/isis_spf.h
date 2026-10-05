@@ -46,6 +46,7 @@ isis_spftree_new(struct isis_area *area, struct lspdb_head *lspdb,
 struct isis_vertex *isis_spf_prefix_sid_lookup(struct isis_spftree *spftree,
 					       struct isis_prefix_sid *psid);
 void isis_spf_invalidate_routes(struct isis_spftree *tree);
+bool isis_spf_node_distance(struct isis_spftree *spftree, const uint8_t *sysid, uint32_t *dist);
 void isis_spf_verify_routes(struct isis_area *area, struct isis_spftree **trees,
 			    int tree);
 void isis_spf_switchover_routes(struct isis_area *area,

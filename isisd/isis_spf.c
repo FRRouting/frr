@@ -1857,6 +1857,25 @@ static void isis_run_spf_with_protection(struct isis_area *area, struct isis_spf
 		isis_spf_run_lfa(area, spftree);
 }
 
+/* Metric from the root of the SPT to the (non-pseudonode) router @sysid. */
+bool isis_spf_node_distance(struct isis_spftree *spftree, const uint8_t *sysid, uint32_t *dist)
+{
+	uint8_t id[ISIS_SYS_ID_LEN + 1];
+	struct isis_vertex *vertex;
+
+	memcpy(id, sysid, ISIS_SYS_ID_LEN);
+	id[ISIS_SYS_ID_LEN] = 0;
+
+	vertex = isis_find_vertex(&spftree->paths, id,
+				  spftree->area->newmetric ? VTYPE_NONPSEUDO_TE_IS
+							   : VTYPE_NONPSEUDO_IS);
+	if (!vertex)
+		return false;
+
+	*dist = vertex->d_N;
+	return true;
+}
+
 void isis_spf_verify_routes(struct isis_area *area, struct isis_spftree **trees, int tree)
 {
 	if (area->is_type == IS_LEVEL_1) {
@@ -1952,6 +1971,10 @@ static void isis_run_spf_cb(struct event *event)
 		area->spf_run_count[level - 1]++;
 
 	isis_area_verify_routes(area);
+
+	/* level-1 reachability may have changed, refresh what is leaked into level-2 */
+	if (level == IS_LEVEL_1)
+		lsp_leak_l1_to_l2_check(area);
 
 	/* walk all circuits and reset any spf specific flags */
 	frr_each (isis_circuit_list, &area->circuit_list, circuit)

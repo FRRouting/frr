@@ -1481,6 +1481,9 @@ void isis_circuit_af_set(struct isis_circuit *circuit, bool ip_router,
 
 		if (ip_router || ipv6_router)
 			lsp_regenerate_schedule(area, circuit->is_type, 0);
+
+		/* Leaked prefixes depend on the address families in use */
+		lsp_leak_l1_to_l2_check(area);
 	}
 }
 
