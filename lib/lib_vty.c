@@ -375,8 +375,8 @@ DEFUN_NOSH (XFRR_cancel_command,
 	    "XFRR_cancel_command",
 	    "Cancel current operation\n")
 {
-	/* Nothing really to do here. */
-	return CMD_SUCCESS;
+	/* Nothing really to do here; no reply/response to send, so add a flag */
+	return CMD_SUCCESS | CMD_RET_FLAG_NO_RESPONSE;
 }
 
 void cmd_init_config_callbacks(void (*start_config_cb)(struct vty *vty),
