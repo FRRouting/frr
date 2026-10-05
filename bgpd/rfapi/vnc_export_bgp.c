@@ -424,8 +424,12 @@ static void vnc_direct_bgp_vpn_enable_ce(struct bgp *bgp, afi_t afi)
 		if (!rn->info)
 			continue;
 
-		vnc_zlog_debug_verbose("%s: checking prefix %pRN", __func__,
-				       rn);
+		if (VNC_DEBUG(VERBOSE)) {
+			struct bgp_debug_vrf dv = bgp_debug_vrf_get(bgp);
+
+			zlog_debug("%s: checking prefix (%s:%u:%u)%pRN", __func__, dv.name, dv.id,
+				   dv.table_id, rn);
+		}
 
 		for (ri = rn->info; ri; ri = ri->next) {
 
