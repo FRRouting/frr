@@ -572,6 +572,9 @@ static bool is_bgp_vrf_active(struct bgp *bgp)
 		/* if we are in a vrf skip the l3mdev */
 		if (vrf_name && strncmp(ifp->name, vrf_name, VRF_NAMSIZ) == 0)
 			continue;
+		/* if we are in the default vrf skip the loopback */
+		if (!bgp->name && if_is_loopback_exact(ifp))
+			continue;
 
 		if (if_is_up(ifp))
 			return true;
