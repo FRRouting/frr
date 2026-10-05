@@ -2246,6 +2246,7 @@ static void vtysh_read(struct event *event)
 	struct vty *vty;
 	unsigned char buf[VTY_READ_BUFSIZ];
 	unsigned char *p;
+	bool send_return;
 	uint8_t header[4] = {0, 0, 0, 0};
 
 	sock = EVENT_FD(event);
@@ -2298,6 +2299,8 @@ static void vtysh_read(struct event *event)
 		for (p = buf; p < buf + nbytes; p++) {
 			vty->buf[vty->length++] = *p;
 			if (*p == '\0') {
+				send_return = true;
+
 				/* Pass this line to parser. */
 				ret = vty_execute(vty);
 /* Note that vty_execute clears the command buffer and resets
@@ -2308,6 +2311,13 @@ static void vtysh_read(struct event *event)
 				printf("result: %d\n", ret);
 				printf("vtysh node: %d\n", vty->node);
 #endif /* VTYSH_DEBUG */
+				/* Check for "don't reply" modifier to 'ret' */
+				if (CHECK_FLAG(ret, CMD_RET_FLAG_NO_RESPONSE))
+					send_return = false;
+
+				/* Mask off any modifiers */
+				ret = ret & CMD_RETCODE_MASK;
+
 				if (vty->pass_fd >= 0) {
 					memset(vty->pass_fd_status, 0, 4);
 					vty->pass_fd_status[3] = ret;
@@ -2352,10 +2362,12 @@ static void vtysh_read(struct event *event)
 					return;
 				}
 
-				/* warning: watchfrr hardcodes this result write
-				 */
-				header[3] = ret;
-				buffer_put(vty->obuf, header, 4);
+				if (send_return) {
+					/* warning: watchfrr hardcodes this result write
+					 */
+					header[3] = ret;
+					buffer_put(vty->obuf, header, 4);
+				}
 
 				if (!event_is_scheduled(vty->t_write) && (vtysh_flush(vty) < 0))
 					/* Try to flush results; exit if a write
