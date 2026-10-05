@@ -6052,13 +6052,15 @@ Displaying Nexthop Information
 Segment-Routing IPv6
 --------------------
 
-.. clicmd:: show bgp segment-routing srv6
+.. clicmd:: show bgp segment-routing srv6 [json]
 
    This command displays information about SRv6 L3VPN in bgpd.  Specifically,
    what kind of Locator is being used, and its Locator chunk information.
    And the SID of the SRv6 Function that is actually managed on bgpd.
    In the following example, bgpd is using a Locator named loc1, and two SRv6
    Functions are managed to perform VPNv6 VRF redirect for vrf10 and vrf20.
+   With the ``json`` option, the SIDs which are not allocated are not
+   displayed.
 
 ::
 

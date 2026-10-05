@@ -12082,13 +12082,91 @@ DEFPY (no_bgp_srv6_locator,
 	return CMD_SUCCESS;
 }
 
+static void show_bgp_srv6_locator_json(json_object *json, const struct prefix_ipv6 *prefix,
+				       uint8_t block_bits_length, uint8_t node_bits_length,
+				       uint8_t function_bits_length, uint8_t argument_bits_length)
+{
+	json_object_string_addf(json, "prefix", "%pFX", prefix);
+	json_object_int_add(json, "blockLength", block_bits_length);
+	json_object_int_add(json, "nodeLength", node_bits_length);
+	json_object_int_add(json, "functionLength", function_bits_length);
+	json_object_int_add(json, "argumentLength", argument_bits_length);
+}
+
+static void show_bgp_srv6_sid_json(json_object *json, const char *key, struct in6_addr *sid)
+{
+	if (sid)
+		json_object_string_addf(json, key, "%pI6", sid);
+}
+
+static void show_bgp_srv6_json(struct vty *vty, struct bgp *bgp)
+{
+	struct listnode *node;
+	struct srv6_locator_chunk *chunk;
+	struct bgp_srv6_function *func;
+	json_object *json, *json_locator, *json_array, *json_entry;
+
+	json = json_object_new_object();
+
+	json_object_string_add(json, "locatorName", bgp->srv6_locator_name);
+	if (bgp->srv6_locator) {
+		json_locator = json_object_new_object();
+		show_bgp_srv6_locator_json(json_locator, &bgp->srv6_locator->prefix,
+					   bgp->srv6_locator->block_bits_length,
+					   bgp->srv6_locator->node_bits_length,
+					   bgp->srv6_locator->function_bits_length,
+					   bgp->srv6_locator->argument_bits_length);
+		json_object_object_add(json, "locator", json_locator);
+	}
+
+	json_array = json_object_new_array();
+	for (ALL_LIST_ELEMENTS_RO(bgp->srv6_locator_chunks, node, chunk)) {
+		json_entry = json_object_new_object();
+		show_bgp_srv6_locator_json(json_entry, &chunk->prefix, chunk->block_bits_length,
+					   chunk->node_bits_length, chunk->function_bits_length,
+					   chunk->argument_bits_length);
+		json_object_array_add(json_array, json_entry);
+	}
+	json_object_object_add(json, "locatorChunks", json_array);
+
+	json_array = json_object_new_array();
+	for (ALL_LIST_ELEMENTS_RO(bgp->srv6_functions, node, func)) {
+		json_entry = json_object_new_object();
+		json_object_string_addf(json_entry, "sid", "%pI6", &func->sid);
+		json_object_string_add(json_entry, "locatorName", func->locator_name);
+		json_object_array_add(json_array, json_entry);
+	}
+	json_object_object_add(json, "functions", json_array);
+
+	/* the SIDs which are not allocated are not displayed */
+	json_array = json_object_new_array();
+	for (ALL_LIST_ELEMENTS_RO(bm->bgp, node, bgp)) {
+		json_entry = json_object_new_object();
+		json_object_string_add(json_entry, "name", bgp->name ? bgp->name : "default");
+		show_bgp_srv6_sid_json(json_entry, "vpnPolicyIpv4ToVpnSid",
+				       bgp->vpn_policy[AFI_IP].tovpn_sid);
+		show_bgp_srv6_sid_json(json_entry, "vpnPolicyIpv6ToVpnSid",
+				       bgp->vpn_policy[AFI_IP6].tovpn_sid);
+		show_bgp_srv6_sid_json(json_entry, "perVrfToVpnSid", bgp->tovpn_sid);
+		show_bgp_srv6_sid_json(json_entry, "srv6UnicastIpv4Sid",
+				       bgp->srv6_unicast[AFI_IP].sid);
+		show_bgp_srv6_sid_json(json_entry, "srv6UnicastIpv6Sid",
+				       bgp->srv6_unicast[AFI_IP6].sid);
+		json_object_array_add(json_array, json_entry);
+	}
+	json_object_object_add(json, "bgps", json_array);
+
+	vty_json(vty, json);
+}
+
 DEFPY (show_bgp_srv6,
        show_bgp_srv6_cmd,
-       "show bgp segment-routing srv6",
+       "show bgp segment-routing srv6 [json$uj]",
        SHOW_STR
        BGP_STR
        "BGP Segment Routing\n"
-       "BGP Segment Routing SRv6\n")
+       "BGP Segment Routing SRv6\n"
+       JSON_STR)
 {
 	struct bgp *bgp;
 	struct listnode *node;
@@ -12096,8 +12174,16 @@ DEFPY (show_bgp_srv6,
 	struct bgp_srv6_function *func;
 
 	bgp = bgp_get_default();
-	if (!bgp)
+	if (!bgp) {
+		if (uj)
+			vty_out(vty, "{}\n");
 		return CMD_SUCCESS;
+	}
+
+	if (uj) {
+		show_bgp_srv6_json(vty, bgp);
+		return CMD_SUCCESS;
+	}
 
 	vty_out(vty, "locator_name: %s\n", bgp->srv6_locator_name);
 	if (bgp->srv6_locator) {
