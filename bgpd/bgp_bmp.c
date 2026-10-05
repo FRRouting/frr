@@ -1603,11 +1603,6 @@ static bool bmp_wrqueue_locrib(struct bmp *bmp, struct pullwr *pullwr)
 		 */
 		goto out;
 	}
-	if (peer != peer->bgp->peer_self && !peer_established(peer->connection)) {
-		/* peer is neither self, nor established
-		 */
-		goto out;
-	}
 
 	bool is_vpn = (bqe->afi == AFI_L2VPN && bqe->safi == SAFI_EVPN) ||
 		      (bqe->safi == SAFI_MPLS_VPN);
@@ -1619,20 +1614,25 @@ static bool bmp_wrqueue_locrib(struct bmp *bmp, struct pullwr *pullwr)
 	struct bgp_path_info *bpi;
 
 	for (bpi = bgp_dest_get_bgp_path_info(bn); bpi; bpi = bpi->next) {
-		if (!CHECK_FLAG(bpi->flags, BGP_PATH_SELECTED))
-			continue;
-		if (bpi->peer == peer)
+		if (CHECK_FLAG(bpi->flags, BGP_PATH_SELECTED))
 			break;
 	}
 
 	bpi_num_labels = BGP_PATH_INFO_NUM_LABELS(bpi);
 
+<<<<<<< HEAD
 	bmp_monitor(bmp, peer, 0, BMP_PEER_TYPE_LOC_RIB_INSTANCE, &bqe->p, prd,
 		    bpi ? bpi->attr : NULL, afi, safi,
 		    bpi && bpi->extra ? bpi->extra->bgp_rib_uptime
 				      : (time_t)(-1L),
 		    bpi_num_labels ? bpi->extra->labels->label : NULL,
 		    bpi_num_labels);
+=======
+	bmp_monitor(bmp, bpi ? bpi->peer : peer, 0, BMP_PEER_TYPE_LOC_RIB_INSTANCE, &bqe->p, prd,
+		    bpi ? bpi->attr : NULL, bpi, afi, safi,
+		    bpi && bpi->extra ? bpi->extra->bgp_rib_uptime : (time_t)(-1L),
+		    bpi_num_labels ? bpi->extra->labels->label : NULL, bpi_num_labels);
+>>>>>>> 4067bd0 (bgpd: send bmp loc-rib withdrawals for peers that are down or deleted)
 	written = true;
 
 out:
@@ -3462,7 +3462,11 @@ static int bmp_route_update_bgpbmp(struct bmp_targets *bt, afi_t afi, safi_t saf
 {
 	bool is_withdraw = old_route && !new_route;
 	struct bgp_path_info *updated_route = is_withdraw ? old_route : new_route;
-	struct peer *peer = updated_route->peer;
+	/* The Loc-RIB holds one path per prefix, so its queue items are keyed
+	 * by the instance and not by a peer that can go down or be deleted
+	 * before the queue is written.
+	 */
+	struct peer *peer = updated_route->peer->bgp->peer_self;
 	struct bmp *bmp;
 	struct bmp_queue_entry *last_item;
 
