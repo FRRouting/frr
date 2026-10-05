@@ -1350,7 +1350,10 @@ static struct bgp_path_info *bgp_lookup_route_next(struct bgp **l3vpn_bgp,
 					return pi;
 			}
 
-			*l3vpn_bgp = bgp_lookup_by_name_next((*l3vpn_bgp)->name);
+			if ((*l3vpn_bgp)->name)
+				*l3vpn_bgp = bgp_lookup_by_name_next((*l3vpn_bgp)->name);
+			else
+				*l3vpn_bgp = bgp_lookup_by_name_next((char *)VRF_DEFAULT_NAME);
 		}
 		return NULL;
 	}
