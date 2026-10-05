@@ -981,8 +981,7 @@ bool bgp_zebra_nexthop_set(union sockunion *local, union sockunion *remote,
 	return v6_ll_avail;
 }
 
-static struct in6_addr *
-bgp_path_info_to_ipv6_nexthop(struct bgp_path_info *path, ifindex_t *ifindex)
+struct in6_addr *bgp_path_info_to_ipv6_nexthop(struct bgp_path_info *path, ifindex_t *ifindex)
 {
 	struct in6_addr *nexthop = NULL;
 
