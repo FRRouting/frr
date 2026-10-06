@@ -12,6 +12,7 @@
 #include "stream.h"
 #include "log.h"
 #include "hash.h"
+#include "typesafe.h"
 #include "jhash.h"
 #include "queue.h"
 #include "table.h"
@@ -212,8 +213,24 @@ static struct hash *encap_hash = NULL;
 #ifdef ENABLE_BGP_VNC
 static struct hash *vnc_hash = NULL;
 #endif
-static struct hash *srv6_l2service_hash;
-static struct hash *srv6_l3service_hash;
+
+DEFINE_MTYPE_STATIC(BGPD, BGP_SRV6_SERVICE_ENTRY, "BGP SRv6 service intern entry");
+
+PREDECL_HASH(srv6_service);
+
+struct srv6_service_entry {
+	struct srv6_service_item item;
+	struct bgp_attr_srv6_service *service;
+};
+
+static uint32_t srv6_service_entry_hash(const struct srv6_service_entry *entry);
+static int srv6_service_entry_cmp(const struct srv6_service_entry *a,
+				  const struct srv6_service_entry *b);
+DECLARE_HASH(srv6_service, struct srv6_service_entry, item, srv6_service_entry_cmp,
+	     srv6_service_entry_hash);
+
+static struct srv6_service_head srv6_l2service_head[1];
+static struct srv6_service_head srv6_l3service_head[1];
 static struct hash *srv6_vpn_hash;
 static struct hash *evpn_overlay_hash;
 static struct hash *bgp_nhc_hash;
@@ -805,30 +822,46 @@ static void nhc_finish(void)
 	hash_clean_and_free(&bgp_nhc_hash, (void (*)(void *))bgp_nhc_free);
 }
 
-static void *srv6_l2service_hash_alloc(void *p)
-{
-	return p;
-}
-
-static void *srv6_l3service_hash_alloc(void *p)
-{
-	return p;
-}
-
 void bgp_attr_srv6_service_free(struct bgp_attr_srv6_service *service)
 {
 	XFREE(MTYPE_BGP_SRV6_SERVICE, service);
 }
 
+static struct bgp_attr_srv6_service *srv6_service_intern(struct srv6_service_head *head,
+							 struct bgp_attr_srv6_service *service)
+{
+	struct srv6_service_entry ref = { .service = service };
+	struct srv6_service_entry *entry;
+
+	entry = srv6_service_find(head, &ref);
+	if (!entry) {
+		entry = XCALLOC(MTYPE_BGP_SRV6_SERVICE_ENTRY, sizeof(*entry));
+		entry->service = service;
+		srv6_service_add(head, entry);
+	} else if (entry->service != service) {
+		bgp_attr_srv6_service_free(service);
+	}
+
+	entry->service->refcnt++;
+	return entry->service;
+}
+
+static void srv6_service_release(struct srv6_service_head *head,
+				 struct bgp_attr_srv6_service *service)
+{
+	struct srv6_service_entry ref = { .service = service };
+	struct srv6_service_entry *entry;
+
+	entry = srv6_service_find(head, &ref);
+	if (entry) {
+		srv6_service_del(head, entry);
+		XFREE(MTYPE_BGP_SRV6_SERVICE_ENTRY, entry);
+	}
+}
+
 struct bgp_attr_srv6_service *bgp_attr_srv6_l2service_intern(struct bgp_attr_srv6_service *l2service)
 {
-	struct bgp_attr_srv6_service *find;
-
-	find = hash_get(srv6_l2service_hash, l2service, srv6_l2service_hash_alloc);
-	if (find != l2service)
-		bgp_attr_srv6_service_free(l2service);
-	find->refcnt++;
-	return find;
+	return srv6_service_intern(srv6_l2service_head, l2service);
 }
 
 static void srv6_l2service_unintern(struct bgp_attr_srv6_service **l2servicep)
@@ -842,7 +875,7 @@ static void srv6_l2service_unintern(struct bgp_attr_srv6_service **l2servicep)
 		l2service->refcnt--;
 
 	if (l2service->refcnt == 0) {
-		hash_release(srv6_l2service_hash, l2service);
+		srv6_service_release(srv6_l2service_head, l2service);
 		bgp_attr_srv6_service_free(l2service);
 		*l2servicep = NULL;
 	}
@@ -850,13 +883,7 @@ static void srv6_l2service_unintern(struct bgp_attr_srv6_service **l2servicep)
 
 struct bgp_attr_srv6_service *bgp_attr_srv6_l3service_intern(struct bgp_attr_srv6_service *l3service)
 {
-	struct bgp_attr_srv6_service *find;
-
-	find = hash_get(srv6_l3service_hash, l3service, srv6_l3service_hash_alloc);
-	if (find != l3service)
-		bgp_attr_srv6_service_free(l3service);
-	find->refcnt++;
-	return find;
+	return srv6_service_intern(srv6_l3service_head, l3service);
 }
 
 static void srv6_l3service_unintern(struct bgp_attr_srv6_service **l3servicep)
@@ -870,7 +897,7 @@ static void srv6_l3service_unintern(struct bgp_attr_srv6_service **l3servicep)
 		l3service->refcnt--;
 
 	if (l3service->refcnt == 0) {
-		hash_release(srv6_l3service_hash, l3service);
+		srv6_service_release(srv6_l3service_head, l3service);
 		bgp_attr_srv6_service_free(l3service);
 		*l3servicep = NULL;
 	}
@@ -943,6 +970,17 @@ static bool srv6_service_hash_cmp(const void *p1, const void *p2)
 	       service1->transposition_offset == service2->transposition_offset;
 }
 
+static uint32_t srv6_service_entry_hash(const struct srv6_service_entry *entry)
+{
+	return srv6_service_hash_key_make(entry->service);
+}
+
+static int srv6_service_entry_cmp(const struct srv6_service_entry *a,
+				  const struct srv6_service_entry *b)
+{
+	return srv6_service_hash_cmp(a->service, b->service) ? 0 : 1;
+}
+
 static bool srv6_service_same(const struct bgp_attr_srv6_service *h1,
 			      const struct bgp_attr_srv6_service *h2)
 {
@@ -986,18 +1024,27 @@ static bool srv6_vpn_same(const struct bgp_attr_srv6_vpn *h1,
 
 static void srv6_init(void)
 {
-	srv6_l2service_hash = hash_create(srv6_service_hash_key_make, srv6_service_hash_cmp,
-					  "BGP Prefix-SID SRv6-L2-Service-TLV");
-	srv6_l3service_hash = hash_create(srv6_service_hash_key_make, srv6_service_hash_cmp,
-					  "BGP Prefix-SID SRv6-L3-Service-TLV");
+	srv6_service_init(srv6_l2service_head);
+	srv6_service_init(srv6_l3service_head);
 	srv6_vpn_hash = hash_create(srv6_vpn_hash_key_make, srv6_vpn_hash_cmp,
 				    "BGP Prefix-SID SRv6-VPN-Service-TLV");
 }
 
+static void srv6_service_table_clear(struct srv6_service_head *head)
+{
+	struct srv6_service_entry *entry;
+
+	while ((entry = srv6_service_pop(head))) {
+		bgp_attr_srv6_service_free(entry->service);
+		XFREE(MTYPE_BGP_SRV6_SERVICE_ENTRY, entry);
+	}
+	srv6_service_fini(head);
+}
+
 static void srv6_finish(void)
 {
-	hash_clean_and_free(&srv6_l2service_hash, (void (*)(void *))bgp_attr_srv6_service_free);
-	hash_clean_and_free(&srv6_l3service_hash, (void (*)(void *))bgp_attr_srv6_service_free);
+	srv6_service_table_clear(srv6_l2service_head);
+	srv6_service_table_clear(srv6_l3service_head);
 	hash_clean_and_free(&srv6_vpn_hash, (void (*)(void *))srv6_vpn_free);
 }
 
