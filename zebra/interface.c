@@ -808,6 +808,15 @@ void if_delete_update(struct interface **pifp)
 	/* Send out notification on interface delete. */
 	zebra_interface_delete_update(ifp);
 
+	/*
+	 * SRv6 L2 EVPN (operator-owned sr6 model): an operator-deleted
+	 * sr6-/bum-sr6- netdev leaves its ifindex cached in the sr6 tracking
+	 * table and in remote MACs.  Clear it now, while ifp->ifindex is still
+	 * the real index (if_set_index() below resets it to IFINDEX_INTERNAL),
+	 * so a replacement port rebinds instead of being skipped.
+	 */
+	zebra_sr6_if_del(ifp);
+
 	zebra_ns_unlink_ifp(ifp);
 
 	/* Update ifindex after distributing the delete message.  This is in

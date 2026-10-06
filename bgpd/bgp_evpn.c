@@ -9611,11 +9611,24 @@ static void bgp_evpn_advertise_scope_cb(struct hash_bucket *bucket, void *arg)
 			return;
 		update_routes_for_vni(ctx->bgp, vpn);
 		install_uninstall_routes_for_vni(ctx->bgp, vpn, true);
+		/*
+		 * Re-enabling (`advertise-srv6-evpn`) while advertise-all-vni
+		 * stays up gets no EVI replay from zebra, so restore the local
+		 * End.DT2U/DT2M decap from the SID cache the disable kept.  The
+		 * re-originated routes above already carry the retained SIDs.
+		 */
+		if (ctx->srv6)
+			bgp_evpn_srv6_install_local_decap(ctx->bgp, vpn);
 	} else {
 		delete_routes_for_vni(ctx->bgp, vpn);
 		install_uninstall_routes_for_vni(ctx->bgp, vpn, false);
+		/*
+		 * Keep the cached SIDs on this (advertise-toggle) disable so a
+		 * later re-enable can restore decap + SID-bearing routes without
+		 * a zebra re-notify.
+		 */
 		if (ctx->srv6)
-			bgp_evpn_srv6_uninstall_local_decap(ctx->bgp, vpn);
+			bgp_evpn_srv6_uninstall_local_decap(ctx->bgp, vpn, /*keep_cache=*/true);
 	}
 }
 

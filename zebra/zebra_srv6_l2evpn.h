@@ -146,6 +146,18 @@ struct zebra_srv6_evi {
 
 	/* SRv6 backend anchor (unused for the VXLAN backend) */
 	char locator[SRV6_L2EVPN_LOCNAME_SIZE];
+	/*
+	 * Configured bridge name, retained verbatim from `evi .. bridge NAME`
+	 * even when the bridge does not exist yet (operator-owned netdevs are
+	 * created asynchronously, and on config reload the EVI is read before
+	 * the bridge appears).  This is the source of truth for persistence and
+	 * for deferred resolution; bridge_if below is the resolved handle, NULL
+	 * until zebra_srv6_l2evpn_bridge_resolve() binds it when the bridge
+	 * appears, and nulled again by zebra_srv6_l2evpn_bridge_unresolve() when
+	 * the bridge is deleted (so it never dangles and re-resolves on
+	 * recreation).
+	 */
+	char bridge_name[IFNAMSIZ];
 	struct interface *bridge_if; /* VLAN-aware (vlan_filtering) bridge */
 	struct in6_addr dt2u_sid;    /* per-EVI unicast SID */
 	struct in6_addr dt2m_sid;    /* per-EVI BUM SID */
@@ -161,6 +173,12 @@ struct zebra_srv6_evi {
 	 */
 	ifindex_t local_decap_oif;
 	/*
+	 * Bridge ifindex the local decap sr6 anchor was acquired on.  The sr6
+	 * entry is keyed by (sid, bridge, role); release/lookup MUST replay this
+	 * exact bridge (it is the EVI's own bridge at acquire time).
+	 */
+	ifindex_t local_decap_bridge_ifindex;
+	/*
 	 * The dt2u_sid value the local decap interface was created for.  Used to
 	 * detect a SID change (e.g. locator legacy<->uSID reallocation): when
 	 * dt2u_sid changes, the decap sr6 must be rebuilt keyed by the new SID
@@ -174,8 +192,10 @@ struct zebra_srv6_evi {
 	 */
 	ifindex_t sr6_ifindex;
 	ifindex_t bum_sr6_ifindex;
-	/* Encap mode mirrored from the kernel for this EVI (enum
-	 * zebra_sr6_encap_mode); no software default.
+	/* Per-EVI SRv6 L2 encap mode (enum zebra_sr6_encap_mode), set by the
+	 * `l2-encap-mode <full|reduced>` CLI inside the EVI node.  Defaults to
+	 * ZEBRA_SR6_ENCAP_MODE_FULL at EVI creation.  Applied to every sr6 /
+	 * bum-sr6 changelink {MTU, encap-mode, SID} on this EVI's bridge.
 	 */
 	uint8_t l2_encap_mode;
 
@@ -201,7 +221,16 @@ extern struct zebra_srv6_evi_bd *zebra_srv6_evi_vlan_find(struct zebra_srv6_evi 
 
 /* Config helpers */
 extern void zebra_srv6_evi_set_locator(struct zebra_srv6_evi *evi, const char *locator);
-extern void zebra_srv6_evi_set_bridge(struct zebra_srv6_evi *evi, struct interface *bridge_if);
+extern void zebra_srv6_evi_set_bridge(struct zebra_srv6_evi *evi, const char *bridge_name,
+				      struct interface *bridge_if);
+
+/*
+ * Deferred bridge resolution.  Called when a bridge interface appears
+ * (zebra_l2_bridge_add_update) / is deleted (zebra_l2_bridge_del): bind or
+ * unbind any EVI whose configured bridge_name matches, by name.
+ */
+extern void zebra_srv6_l2evpn_bridge_resolve(struct interface *ifp);
+extern void zebra_srv6_l2evpn_bridge_unresolve(struct interface *ifp);
 extern int zebra_srv6_evi_set_service(struct zebra_srv6_evi *evi, enum zevpn_l2_service svc);
 
 /*
@@ -233,6 +262,13 @@ extern void zebra_srv6_evi_on_locator_delete(const char *locname);
 
 /* Map a (bridge, vlan) to an SRv6 EVI VNI for local MAC association; 0 if none. */
 extern vni_t zebra_srv6_evi_vni_by_bridge_vlan(const struct interface *br_if, vlanid_t vid);
+
+/* Per-EVI `l2-encap-mode <full|reduced>` (default full). Setting it re-programs
+ * the EVI's sr6/bum-sr6 interfaces live.
+ */
+extern void zebra_srv6_evi_set_encap_mode(struct zebra_srv6_evi *evi, uint8_t mode);
+/* Configured encap mode of the EVI bound to @bridge_ifindex; FULL if none. */
+extern uint8_t zebra_srv6_evi_encap_mode_by_bridge(ifindex_t bridge_ifindex);
 
 extern const char *zevpn_l2_service2str(enum zevpn_l2_service svc);
 extern int zevpn_l2_service_str2enum(const char *s, enum zevpn_l2_service *out);

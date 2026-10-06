@@ -115,6 +115,13 @@ struct zebra_mac {
 	 */
 	ifindex_t sr6_ifindex;
 
+	/* Bridge ifindex this MAC's sr6 entry was acquired on.  The sr6 entry
+	 * is keyed by (sid, bridge, role), so release/lookup MUST replay the
+	 * exact bridge used at acquire - the same remote SID can be imported
+	 * into another EVI (another bridge) via overlapping RTs.
+	 */
+	ifindex_t sr6_bridge_ifindex;
+
 	/* True once this MAC holds exactly one reference on the sr6 entry for
 	 * its current srv6_sid.  Tracked separately from sr6_ifindex because
 	 * that ifindex is 0 during the async create window; gating acquisition

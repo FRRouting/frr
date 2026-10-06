@@ -3726,6 +3726,34 @@ static int bgp_zebra_process_local_vni(ZAPI_CALLBACK_ARGS)
 			struct bgpevpn *vpn = bgp_evpn_lookup_vni(bgp, vni);
 
 			if (vpn) {
+				/*
+				 * A locator change (A -> B) re-allocates this
+				 * EVI's SIDs: zebra frees the old End.DT2U/DT2M
+				 * SIDs and ships the new ones in this VNI_ADD.
+				 * The local decap routes are keyed by the SID
+				 * value (installed via zclient_send_localsid with
+				 * the SID as the prefix), so they MUST be removed
+				 * while the cache still holds the OLD SIDs -
+				 * bgp_evpn_srv6_uninstall_local_decap() deletes
+				 * exactly the cached SIDs.  Overwriting first and
+				 * only adding the new routes would strand the old
+				 * seg6local routes in the kernel/hardware, and a
+				 * later reuse of the freed SID would then forward
+				 * into this (old) EVI.  Only churn the kernel when
+				 * a SID actually changed; an idempotent re-notify
+				 * (same SIDs) leaves the installed decap in place.
+				 */
+				bool dt2u_changed = vpn->srv6_dt2u_sid_valid &&
+						    !IPV6_ADDR_SAME(&vpn->srv6_dt2u_sid,
+								    &srv6_dt2u_sid);
+				bool dt2m_changed = vpn->srv6_dt2m_sid_valid &&
+						    !IPV6_ADDR_SAME(&vpn->srv6_dt2m_sid,
+								    &srv6_dt2m_sid);
+
+				if (dt2u_changed || dt2m_changed)
+					bgp_evpn_srv6_uninstall_local_decap(bgp, vpn,
+									    /*keep_cache=*/false);
+
 				vpn->srv6_dt2u_sid = srv6_dt2u_sid;
 				vpn->srv6_dt2m_sid = srv6_dt2m_sid;
 				vpn->srv6_dt2u_sid_valid = !IN6_IS_ADDR_UNSPECIFIED(&srv6_dt2u_sid);
@@ -3777,7 +3805,7 @@ static int bgp_zebra_process_local_vni(ZAPI_CALLBACK_ARGS)
 
 	/* per-EVI: uninstall is a no-op for non-SRv6 EVIs */
 	if (vpn && is_vpn_srv6(vpn))
-		bgp_evpn_srv6_uninstall_local_decap(bgp, vpn);
+		bgp_evpn_srv6_uninstall_local_decap(bgp, vpn, /*keep_cache=*/false);
 
 	return bgp_evpn_local_vni_del(bgp, vni);
 }
@@ -4810,7 +4838,7 @@ static void bgp_locator_del_evi_clear_sids_cb(struct hash_bucket *bucket, void *
 	if (!vpn->srv6_locator_name[0] || strcmp(vpn->srv6_locator_name, ctx->locator_name) != 0)
 		return;
 
-	bgp_evpn_srv6_uninstall_local_decap(ctx->bgp, vpn);
+	bgp_evpn_srv6_uninstall_local_decap(ctx->bgp, vpn, /*keep_cache=*/false);
 	vpn->srv6_locator_name[0] = '\0';
 
 	/*
@@ -5897,7 +5925,8 @@ void bgp_zebra_release_label_range(uint32_t start, uint32_t end)
 }
 
 int bgp_zebra_send_vpws_local(const char *instance, const char *ac_ifname,
-			      const char *bridge_ifname, const struct in6_addr *local_sid)
+			      const char *bridge_ifname, const struct in6_addr *local_sid,
+			      uint8_t l2_encap_mode)
 {
 	struct zapi_vpws_local api = {};
 	struct stream *s;
@@ -5907,6 +5936,7 @@ int bgp_zebra_send_vpws_local(const char *instance, const char *ac_ifname,
 	strlcpy(api.ac_ifname, ac_ifname, sizeof(api.ac_ifname));
 	strlcpy(api.bridge_ifname, bridge_ifname, sizeof(api.bridge_ifname));
 	api.local_sid = *local_sid;
+	api.l2_encap_mode = l2_encap_mode;
 
 	s = bgp_zclient->obuf;
 	zapi_vpws_local_encode(ZEBRA_VPWS_LOCAL_ADD, s, &api);

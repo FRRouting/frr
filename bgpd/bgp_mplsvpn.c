@@ -1156,7 +1156,14 @@ void bgp_evpn_srv6_install_local_decap(struct bgp *bgp, struct bgpevpn *vpn)
  * EVI's End.DT2U/DT2M SIDs are cleaned up on the local node. The cached SID
  * state is cleared so a later re-add re-installs cleanly.
  */
-void bgp_evpn_srv6_uninstall_local_decap(struct bgp *bgp, struct bgpevpn *vpn)
+/*
+ * Remove the per-EVI End.DT2U/DT2M local decap routes.  @keep_cache retains the
+ * cached SID/oif state (used by `no advertise-srv6-evpn`, where zebra does NOT
+ * re-notify the EVI on a later re-enable while advertise-all-vni stays up, so
+ * bgpd must keep the SIDs to re-originate and re-install decap itself); real
+ * teardown (`no evi`, locator delete, VNI_DEL) passes false to clear it.
+ */
+void bgp_evpn_srv6_uninstall_local_decap(struct bgp *bgp, struct bgpevpn *vpn, bool keep_cache)
 {
 	struct seg6local_context ctx = {};
 
@@ -1185,7 +1192,16 @@ void bgp_evpn_srv6_uninstall_local_decap(struct bgp *bgp, struct bgpevpn *vpn)
 				      ZEBRA_SEG6_LOCAL_ACTION_END_DT2U, &ctx);
 	}
 
-	/* Clear cached SID state so a re-add re-installs from a clean slate. */
+	/*
+	 * Clear cached SID state so a re-add re-installs from a clean slate -
+	 * UNLESS the caller is keeping it (advertise toggle): zebra will not
+	 * re-notify the EVI SIDs on a later re-enable while advertise-all-vni
+	 * stays up, so dropping them here would leave the re-enabled EVI with
+	 * SID-less routes and no decap.
+	 */
+	if (keep_cache)
+		return;
+
 	memset(&vpn->srv6_dt2u_sid, 0, sizeof(vpn->srv6_dt2u_sid));
 	memset(&vpn->srv6_dt2m_sid, 0, sizeof(vpn->srv6_dt2m_sid));
 	vpn->srv6_dt2u_sid_valid = false;

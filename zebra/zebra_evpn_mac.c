@@ -287,6 +287,7 @@ int zebra_evpn_rem_mac_install(struct zebra_evpn *zevpn, struct zebra_mac *mac,
 						      false /*is_bum*/, vid);
 			if (sr6) {
 				mac->sr6_ref_held = true;
+				mac->sr6_bridge_ifindex = br_ifp->ifindex;
 				mac->sr6_ifindex = sr6->ifindex;
 				sr6_ifindex = sr6->ifindex;
 			} else {
@@ -295,14 +296,18 @@ int zebra_evpn_rem_mac_install(struct zebra_evpn *zevpn, struct zebra_mac *mac,
 				/* Use the NDA_DST path as fallback. */
 			}
 		} else {
-			/* Reference already held - refresh the async-resolved
-			 * ifindex (0 during the create window) without re-bumping.
+			/* Reference already held - refresh the resolved ifindex
+			 * from the sr6 entry (lookup only, no refcount bump).
+			 * This is 0 during the async create window AND changes
+			 * when the operator deletes and recreates the sr6 netdev
+			 * (zebra_sr6_if_del clears the entry's ifindex, then
+			 * zebra_sr6_if_add rebinds it to the replacement port).
+			 * Always re-resolving - rather than only when 0 - stops
+			 * the FDB oif from being pinned to a deleted ifindex.
 			 */
-			if (mac->sr6_ifindex == 0) {
-				sr6 = zebra_sr6_lookup(&mac->srv6_sid);
-				if (sr6)
-					mac->sr6_ifindex = sr6->ifindex;
-			}
+			sr6 = zebra_sr6_lookup(&mac->srv6_sid, mac->sr6_bridge_ifindex, false);
+			if (sr6)
+				mac->sr6_ifindex = sr6->ifindex;
 			sr6_ifindex = mac->sr6_ifindex;
 		}
 	}
@@ -1287,7 +1292,7 @@ int zebra_evpn_mac_del(struct zebra_evpn *zevpn, struct zebra_mac *mac)
 	 * (not sr6_ifindex, which is 0 while the netdev's create is pending).
 	 */
 	if (mac->sr6_ref_held && mac->has_srv6_sid) {
-		zebra_sr6_release(&mac->srv6_sid);
+		zebra_sr6_release(&mac->srv6_sid, mac->sr6_bridge_ifindex, false);
 		mac->sr6_ifindex = 0;
 		mac->sr6_ref_held = false;
 		mac->has_srv6_sid = false;
@@ -2342,7 +2347,7 @@ int zebra_evpn_mac_remote_macip_add(struct zebra_evpn *zevpn, struct zebra_vrf *
 			 */
 			if (mac->sr6_ref_held && mac->has_srv6_sid &&
 			    memcmp(&mac->srv6_sid, srv6_sid, sizeof(mac->srv6_sid)) != 0) {
-				zebra_sr6_release(&mac->srv6_sid);
+				zebra_sr6_release(&mac->srv6_sid, mac->sr6_bridge_ifindex, false);
 				mac->sr6_ifindex = 0;
 				mac->sr6_ref_held = false;
 			}
@@ -2351,7 +2356,7 @@ int zebra_evpn_mac_remote_macip_add(struct zebra_evpn *zevpn, struct zebra_vrf *
 		} else {
 			/* SID withdrawn - release any existing sr6. */
 			if (mac->sr6_ref_held && mac->has_srv6_sid) {
-				zebra_sr6_release(&mac->srv6_sid);
+				zebra_sr6_release(&mac->srv6_sid, mac->sr6_bridge_ifindex, false);
 				mac->sr6_ifindex = 0;
 				mac->sr6_ref_held = false;
 			}
