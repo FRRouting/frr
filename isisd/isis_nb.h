@@ -257,6 +257,7 @@ int lib_interface_isis_password_destroy(struct nb_cb_destroy_args *args);
 int lib_interface_isis_password_password_modify(struct nb_cb_modify_args *args);
 int lib_interface_isis_password_password_type_modify(struct nb_cb_modify_args *args);
 int lib_interface_isis_disable_three_way_handshake_modify(struct nb_cb_modify_args *args);
+int lib_interface_isis_ipv4_over_ipv6_nexthop_modify(struct nb_cb_modify_args *args);
 int lib_interface_isis_multi_topology_standard_modify(struct nb_cb_modify_args *args);
 int lib_interface_isis_multi_topology_ipv4_multicast_modify(struct nb_cb_modify_args *args);
 int lib_interface_isis_multi_topology_ipv4_management_modify(struct nb_cb_modify_args *args);
@@ -472,6 +473,8 @@ void cli_show_ip_isis_hello_multi(struct vty *vty, const struct lyd_node *dnode,
 				  bool show_defaults);
 void cli_show_ip_isis_threeway_shake(struct vty *vty, const struct lyd_node *dnode,
 				     bool show_defaults);
+void cli_show_ip_isis_ipv4_over_ipv6_nexthop(struct vty *vty, const struct lyd_node *dnode,
+					     bool show_defaults);
 void cli_show_ip_isis_hello_padding(struct vty *vty, const struct lyd_node *dnode,
 				    bool show_defaults);
 void cli_show_ip_isis_csnp_interval(struct vty *vty, const struct lyd_node *dnode,

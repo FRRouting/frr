@@ -2557,6 +2557,34 @@ void cli_show_ip_isis_threeway_shake(struct vty *vty, const struct lyd_node *dno
 }
 
 /*
+ * XPath: /frr-interface:lib/interface/frr-isisd:isis/ipv4-over-ipv6-nexthop
+ */
+DEFPY_YANG(isis_ipv4_over_ipv6_nexthop, isis_ipv4_over_ipv6_nexthop_cmd,
+	   "[no] isis ipv4-over-ipv6-nexthop",
+	   NO_STR
+	   "IS-IS commands\n"
+	   "Route IPv4 over this interface using IPv6 link-local nexthops when it has no IPv4\n")
+{
+	if (!isis_iface_cfg_dnode(vty)) {
+		vty_out(vty, "ISIS is not enabled on this circuit\n");
+		return CMD_SUCCESS;
+	}
+
+	nb_cli_enqueue_change(vty, "./frr-isisd:isis/ipv4-over-ipv6-nexthop", NB_OP_MODIFY,
+			      no ? "false" : "true");
+
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+void cli_show_ip_isis_ipv4_over_ipv6_nexthop(struct vty *vty, const struct lyd_node *dnode,
+					     bool show_defaults)
+{
+	if (!yang_dnode_get_bool(dnode, NULL))
+		vty_out(vty, " no");
+	vty_out(vty, " isis ipv4-over-ipv6-nexthop\n");
+}
+
+/*
  * XPath: /frr-interface:lib/interface/frr-isisd:isis/hello/padding
  */
 DEFPY_YANG(isis_hello_padding, isis_hello_padding_cmd,
@@ -3761,6 +3789,7 @@ void isis_cli_init(void)
 	install_element(INTERFACE_NODE, &no_isis_hello_multiplier_cmd);
 
 	install_element(INTERFACE_NODE, &isis_threeway_adj_cmd);
+	install_element(INTERFACE_NODE, &isis_ipv4_over_ipv6_nexthop_cmd);
 
 	install_element(INTERFACE_NODE, &isis_hello_padding_cmd);
 

@@ -793,6 +793,20 @@ module frr-isisd {
         "Disables three-way handshake when creating new adjacencies.";
     }
 
+    leaf ipv4-over-ipv6-nexthop {
+      type boolean;
+      default "false";
+      description
+        "Route IPv4 over this interface when it has no usable IPv4 nexthop,
+         using the neighbor's IPv6 link-local address as the nexthop of IPv4
+         routes.";
+      reference
+        "RFC 8950: Advertising IPv4 Network Layer Reachability Information
+         (NLRI) with an IPv6 Next Hop
+         RFC 9229: IPv4 Routes with an IPv6 Next Hop in the Babel Routing
+         Protocol";
+    }
+
     container multi-topology {
       description
         "IS-IS topologies configured on this circuit.";
