@@ -2624,7 +2624,7 @@ static void evpn_delete_vni(struct bgp *bgp, struct bgpevpn *vpn)
 	 * "no evi N". Runs in both the free and keep-as-learnt branches.
 	 */
 	if (is_vpn_srv6(vpn))
-		bgp_evpn_srv6_uninstall_local_decap(bgp, vpn);
+		bgp_evpn_srv6_uninstall_local_decap(bgp, vpn, /*keep_cache=*/false);
 
 	if (!is_vni_live(vpn)) {
 		bgp_evpn_free(bgp, vpn);

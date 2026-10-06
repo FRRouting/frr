@@ -52,6 +52,10 @@ struct zebra_vtep {
 	 */
 	struct in6_addr bum_srv6_sid;
 	bool has_bum_srv6_sid;
+	/* Bridge ifindex the BUM sr6 entry was acquired on.  The sr6 entry is
+	 * keyed by (sid, bridge, role); release MUST replay this exact bridge.
+	 */
+	ifindex_t sr6_bridge_ifindex;
 
 	/* Links. */
 	struct zebra_vtep *next;
