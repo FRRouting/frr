@@ -238,6 +238,7 @@ extern void zebra_vxlan_stale_hrep_add(struct ipaddr vtep_ip, vni_t vni);
 extern void zebra_vxlan_stale_remote_mac_add(struct ethaddr *macaddr, struct ipaddr vtep_ip,
 					     bool sticky, vni_t vni);
 extern void zebra_evpn_stale_entries_cleanup(uint64_t gr_cleanup_time);
+extern void zebra_evpn_flood_control_resync(struct zebra_vrf *zvrf);
 #ifdef __cplusplus
 }
 #endif

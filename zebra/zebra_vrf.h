@@ -141,6 +141,9 @@ struct zebra_vrf {
 	 */
 	bool evpn_resync_needed;
 
+	/* Retained VTEPs must be swept before applying replayed flood modes. */
+	bool evpn_flood_resync_needed;
+
 	/*
 	 * Whether we are advertising g/w macip in EVPN or not.
 	 * Only in the EVPN instance.

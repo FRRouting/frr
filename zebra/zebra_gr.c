@@ -692,6 +692,7 @@ static void zebra_gr_delete_stale_route_table_afi(struct event *event)
 	if (gac->afi == AFI_L2VPN && zvrf == zebra_vrf_get_evpn()) {
 		zebra_gr_cleanup_of_non_gr_vrf(gac);
 		zebra_evpn_stale_entries_cleanup(gac->update_pending_time);
+		zebra_evpn_flood_control_resync(zvrf);
 		goto done;
 	}
 
