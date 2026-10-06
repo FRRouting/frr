@@ -32,6 +32,7 @@
 #include "zebra/zebra_evpn_mh.h"
 #include "zebra/zebra_sr6.h"
 #include "zebra/zebra_srv6_vpws.h"
+#include "zebra/zebra_srv6_l2evpn.h"
 
 /* definitions */
 
@@ -257,6 +258,13 @@ void zebra_l2_bridge_add_update(struct interface *ifp,
 
 	/* Link all slaves to this bridge */
 	map_slaves_to_bridge(ifp, 1, false, ZEBRA_BRIDGE_NO_ACTION);
+
+	/*
+	 * SRv6 L2 EVPN: bind any EVI configured with this bridge's name that
+	 * could not resolve it earlier (bridge created after `evi .. bridge
+	 * NAME`, or config reloaded before the bridge appeared).
+	 */
+	zebra_srv6_l2evpn_bridge_resolve(ifp);
 }
 
 /*
@@ -264,6 +272,13 @@ void zebra_l2_bridge_add_update(struct interface *ifp,
  */
 void zebra_l2_bridge_del(struct interface *ifp)
 {
+	/*
+	 * SRv6 L2 EVPN: unbind this bridge from any EVI that resolved to it
+	 * (keeps the configured name for re-resolution) before the interface is
+	 * freed, so evi->bridge_if never dangles.
+	 */
+	zebra_srv6_l2evpn_bridge_unresolve(ifp);
+
 	zebra_l2_bridge_if_del(ifp);
 
 	/* Unlink all slaves to this bridge */
