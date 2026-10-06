@@ -616,7 +616,11 @@ int pim_mroute_msg_wholepkt(int fd, struct interface *ifp, const char *buf,
 
 				up = pim_upstream_add(pim_ifp->pim, &sg, src_conn->ifp, up_flags,
 						      __func__, NULL);
-				PIM_UPSTREAM_FLAG_SET_SRC_STREAM(up->flags);
+				if (up_flags == PIM_UPSTREAM_FLAG_MASK_SRC_NOCACHE)
+					pim_upstream_ref(up, PIM_UPSTREAM_FLAG_MASK_SRC_STREAM,
+							 __func__);
+				else
+					PIM_UPSTREAM_FLAG_SET_SRC_STREAM(up->flags);
 				pim_upstream_keep_alive_timer_start(up,
 								    pim_ifp->pim->keep_alive_time);
 				pim_upstream_inherited_olist(pim_ifp->pim, up);
@@ -1309,7 +1313,10 @@ int pim_mroute_msg_wrvifwhole(int fd, struct interface *ifp, const char *buf,
 					&sg, ifp->name);
 			return -2;
 		}
-		PIM_UPSTREAM_FLAG_SET_SRC_STREAM(up->flags);
+		if (up_flags == PIM_UPSTREAM_FLAG_MASK_SRC_NOCACHE)
+			pim_upstream_ref(up, PIM_UPSTREAM_FLAG_MASK_SRC_STREAM, __func__);
+		else
+			PIM_UPSTREAM_FLAG_SET_SRC_STREAM(up->flags);
 		pim_upstream_keep_alive_timer_start(
 			up, pim_ifp->pim->keep_alive_time);
 		up->channel_oil->cc.pktcnt++;

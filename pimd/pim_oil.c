@@ -161,18 +161,30 @@ void pim_clear_nocache_state(struct pim_interface *pim_ifp)
 	struct channel_oil *c_oil;
 
 	frr_each_safe (rb_pim_oil, &pim_ifp->pim->channel_oil_head, c_oil) {
+		struct pim_upstream *up = c_oil->up;
 
-		if ((!c_oil->up) ||
-		    !(PIM_UPSTREAM_FLAG_TEST_SRC_NOCACHE(c_oil->up->flags)))
+		if ((!up) || !(PIM_UPSTREAM_FLAG_TEST_SRC_NOCACHE(up->flags)))
 			continue;
 
 		if (*oil_incoming_vif(c_oil) != pim_ifp->mroute_vif_index)
 			continue;
 
-		event_cancel(&c_oil->up->t_ka_timer);
-		PIM_UPSTREAM_FLAG_UNSET_SRC_NOCACHE(c_oil->up->flags);
-		PIM_UPSTREAM_FLAG_UNSET_SRC_STREAM(c_oil->up->flags);
-		pim_upstream_del(pim_ifp->pim, c_oil->up, __func__);
+		event_cancel(&up->t_ka_timer);
+
+		/* So we release reference for each owner flag exactly.
+		 * SRC_STREAM is only present when the creator took a
+		 * reference for it, so it must be tested rather than
+		 * cleared unconditionally.
+		 */
+		if (PIM_UPSTREAM_FLAG_TEST_SRC_STREAM(up->flags)) {
+			PIM_UPSTREAM_FLAG_UNSET_SRC_STREAM(up->flags);
+			up = pim_upstream_del(pim_ifp->pim, up, __func__);
+		}
+
+		if (up && PIM_UPSTREAM_FLAG_TEST_SRC_NOCACHE(up->flags)) {
+			PIM_UPSTREAM_FLAG_UNSET_SRC_NOCACHE(up->flags);
+			pim_upstream_del(pim_ifp->pim, up, __func__);
+		}
 	}
 }
 
