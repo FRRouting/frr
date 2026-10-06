@@ -6090,11 +6090,10 @@ void zebra_vxlan_advertise_all_vni(ZAPI_HANDLER_ARGS)
 
 	if (zvrf->advertise_all_vni == advertise) {
 		/*
-		 * No transition to act on, but a reconnecting client still
-		 * needs its state back. Zebra's own tables stayed current
-		 * over netlink, so skip the kernel re-reads the enable path
-		 * does; the gateway MAC-IPs need a walk of their own because
-		 * the MAC replay skips ZEBRA_MAC_DEF_GW entries.
+		 * Zebra's own tables stayed current over netlink, so only
+		 * the client-facing replay is needed. Gateway MAC-IPs and
+		 * subnet prefixes get walks of their own; the MAC replay
+		 * and the retained advertise-subnet state skip them.
 		 */
 		if (advertise && zvrf->vxlan_flood_ctrl != flood_ctrl) {
 			/*
@@ -6126,6 +6125,8 @@ void zebra_vxlan_advertise_all_vni(ZAPI_HANDLER_ARGS)
 			zebra_evpn_es_send_all_to_client(true);
 			hash_iterate(zvrf->evpn_table,
 				     zebra_evpn_gw_macip_add_for_evpn_hash, NULL);
+			hash_iterate(zvrf->evpn_table,
+				     zebra_evpn_advertise_subnet_for_evpn_hash, NULL);
 		}
 		return;
 	}

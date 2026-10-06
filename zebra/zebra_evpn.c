@@ -570,6 +570,47 @@ void zebra_evpn_gw_macip_add_for_evpn_hash(struct hash_bucket *bucket,
 	return;
 }
 
+/*
+ * Re-send the SVI subnet prefixes of every EVPN that has advertise-subnet
+ * enabled. Needed when replaying to a client that reconnected with its EVPN
+ * config retained: zevpn->advertise_subnet was never cleared, so the client
+ * re-sending the same value hits the unchanged-value return in
+ * zebra_vxlan_advertise_subnet() and the prefixes are never re-advertised.
+ */
+void zebra_evpn_advertise_subnet_for_evpn_hash(struct hash_bucket *bucket, void *ctxt)
+{
+	struct zebra_evpn *zevpn = NULL;
+	struct zebra_if *zif = NULL;
+	struct interface *vlan_if = NULL;
+	struct interface *ifp = NULL;
+	struct zebra_vxlan_vni *vni = NULL;
+
+	zevpn = (struct zebra_evpn *)bucket->data;
+
+	if (!zevpn->advertise_subnet)
+		return;
+
+	ifp = zevpn->vxlan_if;
+	if (!ifp)
+		return;
+	zif = ifp->info;
+
+	/* If down or not mapped to a bridge, we're done. */
+	if (!if_is_operative(ifp) || !zif || zif->zif_type != ZEBRA_IF_VXLAN ||
+	    !zif->brslave_info.br_if)
+		return;
+
+	vni = zebra_vxlan_if_vni_find(zif, zevpn->vni);
+	if (!vni)
+		return;
+
+	vlan_if = zvni_map_to_svi(vni->access_vlan, zif->brslave_info.br_if);
+	if (!vlan_if)
+		return;
+
+	zebra_evpn_advertise_subnet(zevpn, vlan_if, 1);
+}
+
 void zebra_evpn_svi_macip_del_for_evpn_hash(struct hash_bucket *bucket,
 					    void *ctxt)
 {
