@@ -147,6 +147,7 @@ int isis_adj_usage2levels(enum isis_adj_usage usage);
 void isis_bfd_startup_timer(struct event *event);
 const char *isis_adj_name(const struct isis_adjacency *adj);
 bool isis_circuit_ipv4_over_ipv6(const struct isis_circuit *circuit);
+bool isis_adj_ipv4_native_usable(const struct isis_adjacency *adj);
 bool isis_adj_ipv4_usable(const struct isis_adjacency *adj);
 bool isis_adj_ipv6_usable(const struct isis_adjacency *adj);
 #endif /* ISIS_ADJACENCY_H */

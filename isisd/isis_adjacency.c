@@ -966,7 +966,7 @@ bool isis_circuit_ipv4_over_ipv6(const struct isis_circuit *circuit)
  * usable IPv4/IPv6 nexthop: the local circuit must have an address in
  * that address family, and the neighbor must have advertised one too.
  */
-bool isis_adj_ipv4_usable(const struct isis_adjacency *adj)
+bool isis_adj_ipv4_native_usable(const struct isis_adjacency *adj)
 {
 	struct isis_circuit *circuit = adj->circuit;
 
@@ -974,6 +974,19 @@ bool isis_adj_ipv4_usable(const struct isis_adjacency *adj)
 		return false;
 
 	return (fabricd_ip_addrs(circuit) && adj->ipv4_address_count);
+}
+
+/*
+ * IPv4 is usable natively, or, failing that, through the neighbor's IPv6
+ * link-local address when the circuit allows IPv4 over IPv6 nexthops.
+ */
+bool isis_adj_ipv4_usable(const struct isis_adjacency *adj)
+{
+	if (isis_adj_ipv4_native_usable(adj))
+		return true;
+
+	return adj->circuit && isis_circuit_ipv4_over_ipv6(adj->circuit) &&
+	       isis_adj_ipv6_usable(adj);
 }
 
 bool isis_adj_ipv6_usable(const struct isis_adjacency *adj)
