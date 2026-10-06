@@ -6347,17 +6347,24 @@ enum zebra_dplane_result dplane_rem_mac_del(const struct interface *ifp,
  * MAC is already a local one.
  *
  * `vid` is the access VLAN the MAC was installed with: the kernel ignores it
- * on a VXLAN device entry, but the FPM gets the entry with it.
+ * on a VXLAN device entry, but the FPM gets the entry with it. `nhg_id` is
+ * the next hop group an EVPN-MH MAC was installed with, instead of a VTEP.
+ * `skip_kernel`: the delete is not sent to the kernel, only to the other
+ * dataplane providers (FPM).
  */
 enum zebra_dplane_result dplane_rem_mac_net_del(const struct interface *ifp,
 						const struct interface *bridge_ifp, vlanid_t vid,
 						const struct ethaddr *mac, vni_t vni,
-						const struct ipaddr *vtep_ip)
+						const struct ipaddr *vtep_ip, uint32_t nhg_id,
+						bool skip_kernel)
 {
 	uint32_t update_flags = DPLANE_MAC_REMOTE | DPLANE_MAC_SELF_ONLY;
 
+	if (skip_kernel)
+		update_flags |= DPLANE_MAC_SKIP_KERNEL;
+
 	return mac_update_common(DPLANE_OP_MAC_DELETE, ifp, bridge_ifp, vid, mac, vni, vtep_ip,
-				 false, 0, update_flags);
+				 false, nhg_id, update_flags);
 }
 
 /*
@@ -6490,6 +6497,8 @@ static enum zebra_dplane_result mac_update_common(enum dplane_op_e op, const str
 	/* Common init for the ctx */
 	dplane_mac_init(ctx, ifp, br_ifp, vid, mac, vni, vtep_ip, sticky,
 			nhg_id, update_flags);
+	if (CHECK_FLAG(update_flags, DPLANE_MAC_SKIP_KERNEL))
+		dplane_ctx_set_skip_kernel(ctx);
 
 	/* Enqueue for processing on the dplane pthread */
 	ret = dplane_update_enqueue(ctx);
