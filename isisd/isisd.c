@@ -3155,6 +3155,15 @@ void isis_area_switchover_routes(struct isis_area *area, int family,
 
 	isis_spf_switchover_routes(area, area->spftree[tree], family,
 				   nexthop_ip, ifindex, level);
+
+	/*
+	 * IPv4 routes may use the same IPv6 link-local nexthop. Not gated on the
+	 * circuit's option: routes computed before it was disabled can still hold it.
+	 * A NULL nexthop (interface down) is already covered by the AF_INET call.
+	 */
+	if (family == AF_INET6 && nexthop_ip && IN6_IS_ADDR_LINKLOCAL(&nexthop_ip->ipv6))
+		isis_spf_switchover_routes(area, area->spftree[SPFTREE_IPV4], family, nexthop_ip,
+					   ifindex, level);
 }
 
 
