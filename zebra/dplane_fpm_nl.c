@@ -112,8 +112,8 @@ struct fpm_nl_ctx {
 	struct event *t_nhgwalk;
 	struct event *t_ribreset;
 	struct event *t_ribwalk;
-	struct event *t_rmacreset;
-	struct event *t_rmacwalk;
+	struct event *t_evpnreset;
+	struct event *t_evpnwalk;
 
 	/* Statistic counters. */
 	struct {
@@ -164,8 +164,8 @@ enum fpm_nl_events {
 	FNE_NHG_FINISHED,
 	/* RIB walk finished. */
 	FNE_RIB_FINISHED,
-	/* RMAC walk finished. */
-	FNE_RMAC_FINISHED,
+	/* EVPN walk finished. */
+	FNE_EVPN_FINISHED,
 };
 
 #define FPM_RECONNECT(fnc)                                                     \
@@ -187,8 +187,8 @@ static void fpm_nhg_send(struct event *t);
 static void fpm_nhg_reset(struct event *t);
 static void fpm_rib_send(struct event *t);
 static void fpm_rib_reset(struct event *t);
-static void fpm_rmac_send(struct event *t);
-static void fpm_rmac_reset(struct event *t);
+static void fpm_evpn_send(struct event *t);
+static void fpm_evpn_reset(struct event *t);
 
 /*
  * CLI.
@@ -545,8 +545,8 @@ static void fpm_reconnect(struct fpm_nl_ctx *fnc)
 	event_cancel_async(zrouter.master, &fnc->t_nhgwalk, NULL);
 	event_cancel_async(zrouter.master, &fnc->t_ribreset, NULL);
 	event_cancel_async(zrouter.master, &fnc->t_ribwalk, NULL);
-	event_cancel_async(zrouter.master, &fnc->t_rmacreset, NULL);
-	event_cancel_async(zrouter.master, &fnc->t_rmacwalk, NULL);
+	event_cancel_async(zrouter.master, &fnc->t_evpnreset, NULL);
+	event_cancel_async(zrouter.master, &fnc->t_evpnwalk, NULL);
 
 	/*
 	 * Grab the lock to empty the streams (data plane might try to
@@ -1348,15 +1348,14 @@ static void fpm_rib_send(struct event *t)
 	/* All RIB routes sent! */
 	WALK_FINISH(fnc, FNE_RIB_FINISHED);
 
-	/* Schedule next event: RMAC reset. */
-	event_add_event(zrouter.master, fpm_rmac_reset, fnc, 0,
-			&fnc->t_rmacreset);
+	/* Schedule next event: EVPN reset. */
+	event_add_event(zrouter.master, fpm_evpn_reset, fnc, 0, &fnc->t_evpnreset);
 }
 
 /*
- * The next three functions will handle RMAC enqueue.
+ * The next functions will handle RMAC enqueue.
  */
-struct fpm_rmac_arg {
+struct fpm_evpn_arg {
 	struct zebra_dplane_ctx *ctx;
 	struct fpm_nl_ctx *fnc;
 	struct zebra_l3vni *zl3vni;
@@ -1365,7 +1364,7 @@ struct fpm_rmac_arg {
 
 static void fpm_enqueue_rmac_table(struct hash_bucket *bucket, void *arg)
 {
-	struct fpm_rmac_arg *fra = arg;
+	struct fpm_evpn_arg *fra = arg;
 	struct zebra_mac *zrmac = bucket->data;
 	struct zebra_if *zif;
 	struct zebra_vxlan_vni *vni;
@@ -1399,8 +1398,7 @@ static void fpm_enqueue_rmac_table(struct hash_bucket *bucket, void *arg)
 			&zrmac->macaddr, vni->vni, &zrmac->fwd_info.r_vtep_ip, false /*sticky*/,
 			0 /*nhg*/, DPLANE_MAC_REMOTE);
 	if (fpm_nl_enqueue(fra->fnc, fra->ctx) == -1) {
-		event_add_timer(zrouter.master, fpm_rmac_send, fra->fnc, 1,
-				&fra->fnc->t_rmacwalk);
+		event_add_timer(zrouter.master, fpm_evpn_send, fra->fnc, 1, &fra->fnc->t_evpnwalk);
 		fra->complete = false;
 		return;
 	}
@@ -1410,7 +1408,7 @@ static void fpm_enqueue_rmac_table(struct hash_bucket *bucket, void *arg)
 
 static void fpm_enqueue_l3vni_table(struct hash_bucket *bucket, void *arg)
 {
-	struct fpm_rmac_arg *fra = arg;
+	struct fpm_evpn_arg *fra = arg;
 	struct zebra_l3vni *zl3vni = bucket->data;
 
 	/*
@@ -1425,9 +1423,9 @@ static void fpm_enqueue_l3vni_table(struct hash_bucket *bucket, void *arg)
 	hash_iterate(zl3vni->rmac_table, fpm_enqueue_rmac_table, fra);
 }
 
-static void fpm_rmac_send(struct event *t)
+static void fpm_evpn_send(struct event *t)
 {
-	struct fpm_rmac_arg fra;
+	struct fpm_evpn_arg fra;
 
 	fra.fnc = EVENT_ARG(t);
 	fra.ctx = dplane_ctx_alloc();
@@ -1435,9 +1433,9 @@ static void fpm_rmac_send(struct event *t)
 	hash_iterate(zrouter.l3vni_table, fpm_enqueue_l3vni_table, &fra);
 	dplane_ctx_fini(&fra.ctx);
 
-	/* RMAC walk completed. */
+	/* EVPN walk completed. */
 	if (fra.complete)
-		WALK_FINISH(fra.fnc, FNE_RMAC_FINISHED);
+		WALK_FINISH(fra.fnc, FNE_EVPN_FINISHED);
 }
 
 /*
@@ -1510,9 +1508,9 @@ static void fpm_rib_reset(struct event *t)
 }
 
 /*
- * The next three function will handle RMAC table reset.
+ * The next functions will handle RMAC table reset.
  */
-static void fpm_unset_rmac_table(struct hash_bucket *bucket, void *arg)
+static void fpm_unset_mac_table(struct hash_bucket *bucket, void *arg)
 {
 	struct zebra_mac *zrmac = bucket->data;
 
@@ -1523,18 +1521,17 @@ static void fpm_unset_l3vni_table(struct hash_bucket *bucket, void *arg)
 {
 	struct zebra_l3vni *zl3vni = bucket->data;
 
-	hash_iterate(zl3vni->rmac_table, fpm_unset_rmac_table, zl3vni);
+	hash_iterate(zl3vni->rmac_table, fpm_unset_mac_table, zl3vni);
 }
 
-static void fpm_rmac_reset(struct event *t)
+static void fpm_evpn_reset(struct event *t)
 {
 	struct fpm_nl_ctx *fnc = EVENT_ARG(t);
 
 	hash_iterate(zrouter.l3vni_table, fpm_unset_l3vni_table, NULL);
 
-	/* Schedule next event: send RMAC entries. */
-	event_add_event(zrouter.master, fpm_rmac_send, fnc, 0,
-			&fnc->t_rmacwalk);
+	/* Schedule next event: send EVPN entries. */
+	event_add_event(zrouter.master, fpm_evpn_send, fnc, 0, &fnc->t_evpnwalk);
 }
 
 static void fpm_process_wedged(struct event *t)
@@ -1669,9 +1666,9 @@ static void fpm_process_event(struct event *t)
 		if (IS_ZEBRA_DEBUG_FPM)
 			zlog_debug("%s: RIB walk finished", __func__);
 		break;
-	case FNE_RMAC_FINISHED:
+	case FNE_EVPN_FINISHED:
 		if (IS_ZEBRA_DEBUG_FPM)
-			zlog_debug("%s: RMAC walk finished", __func__);
+			zlog_debug("%s: EVPN walk finished", __func__);
 		break;
 	case FNE_LSP_FINISHED:
 		if (IS_ZEBRA_DEBUG_FPM)
@@ -1725,8 +1722,8 @@ static int fpm_nl_finish_early(struct fpm_nl_ctx *fnc)
 	event_cancel(&fnc->t_nhgwalk);
 	event_cancel(&fnc->t_ribreset);
 	event_cancel(&fnc->t_ribwalk);
-	event_cancel(&fnc->t_rmacreset);
-	event_cancel(&fnc->t_rmacwalk);
+	event_cancel(&fnc->t_evpnreset);
+	event_cancel(&fnc->t_evpnwalk);
 	event_cancel(&fnc->t_event);
 	event_cancel(&fnc->t_nhg);
 	event_cancel_async(fnc->fthread->master, &fnc->t_read, NULL);
