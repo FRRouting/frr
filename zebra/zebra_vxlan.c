@@ -5553,7 +5553,7 @@ void zebra_vxlan_remote_vtep_add(vrf_id_t vrf_id, vni_t vni, struct ipaddr *vtep
 		 */
 		if (zvtep->has_bum_srv6_sid &&
 		    memcmp(&zvtep->bum_srv6_sid, bum_sid, sizeof(zvtep->bum_srv6_sid)) != 0) {
-			zebra_sr6_release(&zvtep->bum_srv6_sid);
+			zebra_sr6_release(&zvtep->bum_srv6_sid, zvtep->sr6_bridge_ifindex, true);
 			zvtep->has_bum_srv6_sid = false;
 		}
 
@@ -5571,6 +5571,7 @@ void zebra_vxlan_remote_vtep_add(vrf_id_t vrf_id, vni_t vni, struct ipaddr *vtep
 			if (bum_sr6) {
 				/* Track BUM SID on zvtep for future SID-change detection. */
 				zvtep->bum_srv6_sid = *bum_sid;
+				zvtep->sr6_bridge_ifindex = br_ifindex;
 				zvtep->has_bum_srv6_sid = true;
 			} else {
 				zlog_warn("%s: failed to create BUM sr6 for remote DT2M SID %pI6 on VNI %u",
@@ -5590,7 +5591,7 @@ void zebra_vxlan_remote_vtep_add(vrf_id_t vrf_id, vni_t vni, struct ipaddr *vtep
 		 */
 		if ((!bum_sid || IN6_IS_ADDR_UNSPECIFIED(bum_sid)) && zvtep &&
 		    zvtep->has_bum_srv6_sid) {
-			zebra_sr6_release(&zvtep->bum_srv6_sid);
+			zebra_sr6_release(&zvtep->bum_srv6_sid, zvtep->sr6_bridge_ifindex, true);
 			zvtep->has_bum_srv6_sid = false;
 		}
 	}
@@ -5601,7 +5602,7 @@ void zebra_vxlan_remote_vtep_add(vrf_id_t vrf_id, vni_t vni, struct ipaddr *vtep
 	 * bum-sr6 leaks. Release it here.
 	 */
 	if ((!bum_sid || IN6_IS_ADDR_UNSPECIFIED(bum_sid)) && zvtep && zvtep->has_bum_srv6_sid) {
-		zebra_sr6_release(&zvtep->bum_srv6_sid);
+		zebra_sr6_release(&zvtep->bum_srv6_sid, zvtep->sr6_bridge_ifindex, true);
 		zvtep->has_bum_srv6_sid = false;
 	}
 }
