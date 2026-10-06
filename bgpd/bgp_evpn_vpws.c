@@ -479,6 +479,29 @@ struct bgp_evpn_vpws *bgp_evpn_vpws_find_by_target(struct bgp *bgp, uint32_t evi
 	return NULL;
 }
 
+void bgp_evpn_vpws_set_l2_encap_mode(struct bgp_evpn_vpws *vpws, uint8_t mode)
+{
+	if (!vpws)
+		return;
+	if (mode != ZAPI_VPWS_L2_ENCAP_REDUCED)
+		mode = ZAPI_VPWS_L2_ENCAP_FULL;
+	if (vpws->l2_encap_mode == mode)
+		return;
+
+	vpws->l2_encap_mode = mode;
+
+	/*
+	 * LOCAL_ADD is only sent once the End.DX2 SID is allocated (see
+	 * bgp_evpn_vpws_handle_sid_notify()); until then the new mode simply
+	 * rides on that first LOCAL_ADD.  If the dataplane is already set up,
+	 * re-send LOCAL_ADD: zebra treats it as an idempotent update, stores the
+	 * new mode and re-programs vpws-sr6-<name> {MTU, mode, peer SID} in place.
+	 */
+	if (vpws->sid_allocated && vpws->ac_ifname[0] && vpws->bridge_ifname[0])
+		bgp_zebra_send_vpws_local(vpws->name, vpws->ac_ifname, vpws->bridge_ifname,
+					  &vpws->local_sid, vpws->l2_encap_mode);
+}
+
 struct bgp_evpn_vpws *bgp_evpn_vpws_create(struct bgp *bgp, const char *name)
 {
 	struct bgp_evpn_vpws *vpws;
@@ -493,6 +516,7 @@ struct bgp_evpn_vpws *bgp_evpn_vpws_create(struct bgp *bgp, const char *name)
 	vpws = XCALLOC(MTYPE_BGP_EVPN_VPWS, sizeof(*vpws));
 	vpws->bgp = bgp;
 	strlcpy(vpws->name, name, sizeof(vpws->name));
+	vpws->l2_encap_mode = ZAPI_VPWS_L2_ENCAP_FULL; /* `l2-encap-mode` default */
 
 	QOBJ_REG(vpws, bgp_evpn_vpws);
 	evpn_vpws_list_add_tail(&bgp->evpn_vpws_list, vpws);
@@ -908,6 +932,10 @@ static void vpws_config_write_one(struct vty *vty, const struct bgp_evpn_vpws *v
 	if (vpws->locator_name[0])
 		vty_out(vty, "   locator %s\n", vpws->locator_name);
 
+	/* Only emitted when not the default (full). */
+	if (vpws->l2_encap_mode == ZAPI_VPWS_L2_ENCAP_REDUCED)
+		vty_out(vty, "   l2-encap-mode reduced\n");
+
 	vty_out(vty, "  exit-vpws-instance\n");
 }
 
@@ -1222,7 +1250,7 @@ bool bgp_evpn_vpws_handle_sid_notify(struct bgp *bgp, ifindex_t oif, uint32_t ev
 
 		/* NEW: push VPWS dataplane setup to zebra */
 		bgp_zebra_send_vpws_local(vpws->name, vpws->ac_ifname, vpws->bridge_ifname,
-					  &vpws->local_sid);
+					  &vpws->local_sid, vpws->l2_encap_mode);
 
 		/* Install the local End.DX2 decap SID through the RIB (bgpd-owned,
 		 * mirrors End.DT2U/DT2M) instead of a raw netlink install in zebra.

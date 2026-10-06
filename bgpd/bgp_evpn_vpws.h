@@ -70,6 +70,14 @@ struct bgp_evpn_vpws {
 	 */
 	char locator_name[SRV6_LOCNAME_SIZE];
 
+	/* `l2-encap-mode <full|reduced>`: SRv6 L2 headend encap used on this
+	 * instance's vpws-sr6-<name> toward the peer End.DX2 SID
+	 * (ZAPI_VPWS_L2_ENCAP_FULL = H.Encaps.L2, default;
+	 *  ZAPI_VPWS_L2_ENCAP_REDUCED = H.Encaps.L2.Red).  Sent to zebra in
+	 * VPWS LOCAL_ADD.
+	 */
+	uint8_t l2_encap_mode;
+
 	/* runtime state */
 	bool advertised; /* EAD-EVI installed in BGP RIB */
 	bool peer_present;
@@ -155,6 +163,12 @@ extern int bgp_evpn_vpws_clear_interface(struct bgp_evpn_vpws *vpws);
  * the End.DX2 SID from the new locator.
  */
 extern int bgp_evpn_vpws_set_locator(struct bgp_evpn_vpws *vpws, const char *locname);
+
+/* Per-instance `l2-encap-mode` (ZAPI_VPWS_L2_ENCAP_FULL default / _REDUCED).
+ * Re-pushes LOCAL_ADD to zebra when the dataplane is already set up so the
+ * vpws-sr6 encap is re-programmed live.
+ */
+extern void bgp_evpn_vpws_set_l2_encap_mode(struct bgp_evpn_vpws *vpws, uint8_t mode);
 
 /* --------- ZAPI SID notify dispatch (called from bgp_zebra.c) ---------
  * @return true if the notification was consumed by a VPWS instance,

@@ -151,7 +151,8 @@ extern bool bgp_zebra_request_srv6_sid(const struct srv6_sid_ctx *ctx,
 				       uint32_t *sid_func);
 extern void bgp_zebra_release_srv6_sid(const struct srv6_sid_ctx *ctx, const char *locator_name);
 extern int bgp_zebra_send_vpws_local(const char *instance, const char *ac_ifname,
-				     const char *bridge_ifname, const struct in6_addr *local_sid);
+				     const char *bridge_ifname, const struct in6_addr *local_sid,
+				     uint8_t l2_encap_mode);
 extern int bgp_zebra_send_vpws_local_del(const char *instance);
 extern int bgp_zebra_send_vpws_remote(const char *instance, const struct in6_addr *peer_sid);
 extern int bgp_zebra_send_vpws_remote_del(const char *instance);

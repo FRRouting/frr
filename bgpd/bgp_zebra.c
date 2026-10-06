@@ -5758,7 +5758,8 @@ void bgp_zebra_release_label_range(uint32_t start, uint32_t end)
 }
 
 int bgp_zebra_send_vpws_local(const char *instance, const char *ac_ifname,
-			      const char *bridge_ifname, const struct in6_addr *local_sid)
+			      const char *bridge_ifname, const struct in6_addr *local_sid,
+			      uint8_t l2_encap_mode)
 {
 	struct zapi_vpws_local api = {};
 	struct stream *s;
@@ -5768,6 +5769,7 @@ int bgp_zebra_send_vpws_local(const char *instance, const char *ac_ifname,
 	strlcpy(api.ac_ifname, ac_ifname, sizeof(api.ac_ifname));
 	strlcpy(api.bridge_ifname, bridge_ifname, sizeof(api.bridge_ifname));
 	api.local_sid = *local_sid;
+	api.l2_encap_mode = l2_encap_mode;
 
 	s = bgp_zclient->obuf;
 	zapi_vpws_local_encode(ZEBRA_VPWS_LOCAL_ADD, s, &api);

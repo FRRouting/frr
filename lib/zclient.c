@@ -1853,6 +1853,7 @@ int zapi_vpws_local_encode(uint8_t cmd, struct stream *s, const struct zapi_vpws
 	stream_put(s, api->ac_ifname, sizeof(api->ac_ifname));
 	stream_put(s, api->bridge_ifname, sizeof(api->bridge_ifname));
 	stream_put(s, &api->local_sid, sizeof(api->local_sid));
+	stream_putc(s, api->l2_encap_mode);
 	stream_putw_at(s, 0, stream_get_endp(s));
 	return 0;
 }
@@ -1864,6 +1865,7 @@ int zapi_vpws_local_decode(struct stream *s, struct zapi_vpws_local *api)
 	STREAM_GET(api->ac_ifname, s, sizeof(api->ac_ifname));
 	STREAM_GET(api->bridge_ifname, s, sizeof(api->bridge_ifname));
 	STREAM_GET(&api->local_sid, s, sizeof(api->local_sid));
+	STREAM_GETC(s, api->l2_encap_mode);
 	return 0;
 stream_failure:
 	return -1;

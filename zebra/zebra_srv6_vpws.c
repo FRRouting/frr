@@ -63,7 +63,7 @@ struct zsrv6_vpws {
 	ifindex_t br_ifindex;
 	ifindex_t sr6_ifindex;	   /* 0 until REMOTE_ADD */
 	bool sr6_pending;	   /* create queued via dplane, ifindex not yet known */
-	uint8_t l2_encap_mode;	   /* mirrored from kernel; no software default */
+	uint8_t l2_encap_mode;	   /* `l2-encap-mode` from bgpd LOCAL_ADD; default FULL */
 	struct in6_addr local_sid; /* DX2 decap installed */
 	struct in6_addr peer_sid;  /* sr6 encap dst */
 	bool remote_present;
@@ -104,6 +104,7 @@ static struct zsrv6_vpws *vpws_get(const char *name)
 	v = XCALLOC(MTYPE_ZSRV6_VPWS, sizeof(*v));
 
 	strlcpy(v->name, name, sizeof(v->name));
+	v->l2_encap_mode = ZEBRA_SR6_ENCAP_MODE_FULL; /* until LOCAL_ADD says otherwise */
 	vpws_htab_add(vpws_hash, v);
 	return v;
 }
@@ -323,9 +324,9 @@ void zebra_srv6_vpws_if_add(struct interface *ifp)
 		    v->sr6_ifindex != ifp->ifindex && strcmp(ifp->name, sr6name) == 0) {
 			v->sr6_ifindex = ifp->ifindex;
 			v->sr6_pending = false;
-			/* Operator owns enslave/up; FRR only programs the SID. */
-			v->l2_encap_mode = zebra_sr6_kernel_encap_mode(
-				ifp->ifindex, zebra_sr6_get_encap_mode());
+			/* Operator owns enslave/up; FRR only programs the SID
+			 * with the instance's configured l2-encap-mode.
+			 */
 			dplane_sr6_program(ifp->ifindex, &v->peer_sid,
 					    zebra_sr6_get_mtu() ? zebra_sr6_get_mtu()
 								 : ZEBRA_SR6_DEFAULT_MTU,
@@ -371,6 +372,14 @@ int zebra_srv6_vpws_local_add(const struct zapi_vpws_local *api)
 	strlcpy(v->bridge_ifname, api->bridge_ifname, sizeof(v->bridge_ifname));
 	v->ac_ifindex = ac_ifp ? ac_ifp->ifindex : 0;
 	v->local_sid = api->local_sid;
+	/*
+	 * Per-instance `l2-encap-mode` (bgpd vpws-instance config, default full).
+	 * A re-sent LOCAL_ADD with a new mode is re-applied to vpws-sr6-<name>
+	 * by vpws_on_bridge_ready() -> remote_add() below when a peer is present.
+	 */
+	v->l2_encap_mode = api->l2_encap_mode == ZAPI_VPWS_L2_ENCAP_REDUCED
+				   ? ZEBRA_SR6_ENCAP_MODE_REDUCED
+				   : ZEBRA_SR6_ENCAP_MODE_FULL;
 
 	/*
 	 * Operator-created bridge model: zebra does not create the bridge - it
@@ -499,11 +508,10 @@ int zebra_srv6_vpws_remote_add(const struct zapi_vpws_remote *api)
 
 	/*
 	 * Program the encap policy {MTU, mode, peer-SID} in place (idempotent; a
-	 * peer SID change is a complete re-statement).  The mode mirrors the
-	 * operator's kernel-configured mode.  The interface is never recreated.
+	 * peer SID change is a complete re-statement).  The mode is the
+	 * instance's configured `l2-encap-mode` (default full).  The interface
+	 * is never recreated.
 	 */
-	v->l2_encap_mode = zebra_sr6_kernel_encap_mode(v->sr6_ifindex,
-							zebra_sr6_get_encap_mode());
 	v->sr6_pending = false;
 	dplane_sr6_program(v->sr6_ifindex, &v->peer_sid,
 			    zebra_sr6_get_mtu() ? zebra_sr6_get_mtu() : ZEBRA_SR6_DEFAULT_MTU,

@@ -174,8 +174,10 @@ struct zebra_srv6_evi {
 	 */
 	ifindex_t sr6_ifindex;
 	ifindex_t bum_sr6_ifindex;
-	/* Encap mode mirrored from the kernel for this EVI (enum
-	 * zebra_sr6_encap_mode); no software default.
+	/* Per-EVI SRv6 L2 encap mode (enum zebra_sr6_encap_mode), set by the
+	 * `l2-encap-mode <full|reduced>` CLI inside the EVI node.  Defaults to
+	 * ZEBRA_SR6_ENCAP_MODE_FULL at EVI creation.  Applied to every sr6 /
+	 * bum-sr6 changelink {MTU, encap-mode, SID} on this EVI's bridge.
 	 */
 	uint8_t l2_encap_mode;
 
@@ -232,6 +234,13 @@ extern void zebra_srv6_evi_on_locator_update(const char *locname);
 
 /* Map a (bridge, vlan) to an SRv6 EVI VNI for local MAC association; 0 if none. */
 extern vni_t zebra_srv6_evi_vni_by_bridge_vlan(const struct interface *br_if, vlanid_t vid);
+
+/* Per-EVI `l2-encap-mode <full|reduced>` (default full). Setting it re-programs
+ * the EVI's sr6/bum-sr6 interfaces live.
+ */
+extern void zebra_srv6_evi_set_encap_mode(struct zebra_srv6_evi *evi, uint8_t mode);
+/* Configured encap mode of the EVI bound to @bridge_ifindex; FULL if none. */
+extern uint8_t zebra_srv6_evi_encap_mode_by_bridge(ifindex_t bridge_ifindex);
 
 extern const char *zevpn_l2_service2str(enum zevpn_l2_service svc);
 extern int zevpn_l2_service_str2enum(const char *s, enum zevpn_l2_service *out);
