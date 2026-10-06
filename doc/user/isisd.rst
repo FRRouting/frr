@@ -292,6 +292,34 @@ sessions.
    Enable or disable :rfc:`5303` Three-Way Handshake for P2P adjacencies.
    Three-Way Handshake is enabled by default.
 
+.. clicmd:: isis ipv4-over-ipv6-nexthop
+
+   Route IPv4 over this interface when it has no usable IPv4 nexthop, such
+   as when the interface has no IPv4 address. On an interface running both
+   ``ip router isis`` and ``ipv6 router isis``, an adjacency whose IPv4
+   addressing is missing on either side is used for IPv4 through the
+   neighbor's IPv6 link-local address, which becomes the nexthop of the IPv4
+   routes installed through it (as with BGP and :rfc:`8950`). Adjacencies
+   with usable IPv4 addressing keep IPv4 nexthops, so the option can be
+   enabled on some interfaces and not others.
+
+   The kernel must support IPv4 routes with IPv6 nexthops (Linux 5.2 or
+   later). Nothing in IS-IS tells a neighbor whether this is enabled, so
+   enable it on every router attached to a link without IPv4: a router
+   without it does not route IPv4 over that link, while its neighbors still
+   forward IPv4 to it over it.
+
+   Segment Routing prefix SIDs and Flexible Algorithm labels work over IPv6
+   link-local nexthops. Adjacency SIDs, and therefore TI-LFA repair paths,
+   are only allocated for IPv4 adjacencies that have IPv4 addresses.
+
+   LDP does not label IPv4 FECs over such links, so remote LFA cannot
+   protect prefixes through them. With LDP-IGP synchronization the link
+   needs LDP over IPv6: IPv4 LDP cannot form without IPv4 on the link, and
+   the link then stays at the maximum metric. MPLS-TE advertises the link's
+   attributes, but a link without interface addresses gets no edge in the
+   Traffic Engineering Database.
+
 .. clicmd:: isis fast-reroute lfa [level-1 | level-2]
 
    Enable per-prefix local LFA fast reroute link protection.
