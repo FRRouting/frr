@@ -1383,7 +1383,8 @@ static void fpm_rib_send(struct event *t)
 }
 
 /*
- * The next functions will handle RMAC and L2VNI remote MAC enqueue.
+ * The next functions will handle RMAC, EVPN-MH next hop and L2VNI remote
+ * MAC enqueue.
  */
 struct fpm_evpn_arg {
 	struct zebra_dplane_ctx *ctx;
@@ -1452,6 +1453,65 @@ static void fpm_enqueue_l3vni_table(struct hash_bucket *bucket, void *arg)
 
 	fra->zl3vni = zl3vni;
 	hash_iterate(zl3vni->rmac_table, fpm_enqueue_rmac_table, fra);
+}
+
+/*
+ * EVPN-MH L2 next hops: the ES VTEPs the next hop groups below point to
+ * (sent before the groups, like they are installed). All of them, as
+ * installed when allocated (`zebra_evpn_l2_nh_alloc()`), not only the
+ * ones the kernel confirmed: the groups use them all, and a confirmation
+ * still in flight would leave a group with a next hop the FPM never gets.
+ */
+static void fpm_enqueue_l2_nh(struct hash_bucket *bucket, void *arg)
+{
+	struct fpm_evpn_arg *fra = arg;
+	struct zebra_evpn_l2_nh *nh = bucket->data;
+
+	if (CHECK_FLAG(nh->flags, ZEBRA_EVPN_L2_NH_FPM_SENT) || !fra->complete)
+		return;
+
+	dplane_ctx_reset(fra->ctx);
+	dplane_ctx_set_op(fra->ctx, DPLANE_OP_NH_FDB_INSTALL);
+	dplane_fdb_nh_init(fra->ctx, nh->nh_id, &nh->vtep_ip, 0, NULL);
+	if (fpm_nl_enqueue(fra->fnc, fra->ctx) == -1) {
+		event_add_timer(zrouter.master, fpm_evpn_send, fra->fnc, 1, &fra->fnc->t_evpnwalk);
+		fra->complete = false;
+		return;
+	}
+
+	SET_FLAG(nh->flags, ZEBRA_EVPN_L2_NH_FPM_SENT);
+}
+
+/*
+ * EVPN-MH ES next hop groups: the ones the remote MACs behind an ES are
+ * installed with (sent before the MACs), as `zebra_evpn_nhg_update()`
+ * programs them.
+ */
+static void fpm_enqueue_es_nhg(struct fpm_evpn_arg *fra, struct zebra_evpn_es *es)
+{
+	struct nh_grp nh_ids[ES_VTEP_MAX_CNT];
+	uint32_t nh_cnt;
+
+	if (CHECK_FLAG(es->flags, ZEBRA_EVPNES_NHG_FPM_SENT) || !fra->complete)
+		return;
+
+	if (!es->nhg_id || !CHECK_FLAG(es->flags, ZEBRA_EVPNES_NHG_ACTIVE))
+		return;
+
+	nh_cnt = zebra_evpn_es_nhg_members(es, nh_ids);
+	if (!nh_cnt)
+		return;
+
+	dplane_ctx_reset(fra->ctx);
+	dplane_ctx_set_op(fra->ctx, DPLANE_OP_NH_FDB_INSTALL);
+	dplane_fdb_nh_init(fra->ctx, es->nhg_id, NULL, nh_cnt, nh_ids);
+	if (fpm_nl_enqueue(fra->fnc, fra->ctx) == -1) {
+		event_add_timer(zrouter.master, fpm_evpn_send, fra->fnc, 1, &fra->fnc->t_evpnwalk);
+		fra->complete = false;
+		return;
+	}
+
+	SET_FLAG(es->flags, ZEBRA_EVPNES_NHG_FPM_SENT);
 }
 
 /*
@@ -1541,12 +1601,23 @@ static void fpm_enqueue_l2vni_table(struct hash_bucket *bucket, void *arg)
 static void fpm_evpn_send(struct event *t)
 {
 	struct fpm_evpn_arg fra;
+	struct zebra_evpn_es *es;
 	struct zebra_vrf *zvrf;
 
 	fra.fnc = EVENT_ARG(t);
 	fra.ctx = dplane_ctx_alloc();
 	fra.complete = true;
 	hash_iterate(zrouter.l3vni_table, fpm_enqueue_l3vni_table, &fra);
+
+	/*
+	 * The EVPN-MH next hops, then their groups, then the MACs using them
+	 * (the next hops only when the FPM uses next hop groups).
+	 */
+	if (zmh_info && fra.fnc->use_nhg) {
+		hash_iterate(zmh_info->nh_ip_table, fpm_enqueue_l2_nh, &fra);
+		RB_FOREACH (es, zebra_es_rb_head, &zmh_info->es_rb_tree)
+			fpm_enqueue_es_nhg(&fra, es);
+	}
 
 	zvrf = zebra_vrf_get_evpn();
 	if (zvrf && zvrf->evpn_table)
@@ -1629,7 +1700,8 @@ static void fpm_rib_reset(struct event *t)
 }
 
 /*
- * The next functions will handle RMAC and L2VNI remote MAC table reset.
+ * The next functions will handle RMAC, EVPN-MH next hop and L2VNI remote
+ * MAC table reset.
  */
 static void fpm_unset_mac_table(struct hash_bucket *bucket, void *arg)
 {
@@ -1653,12 +1725,25 @@ static void fpm_unset_l2vni_table(struct hash_bucket *bucket, void *arg)
 		hash_iterate(zevpn->mac_table, fpm_unset_mac_table, NULL);
 }
 
+static void fpm_unset_l2_nh(struct hash_bucket *bucket, void *arg)
+{
+	struct zebra_evpn_l2_nh *nh = bucket->data;
+
+	UNSET_FLAG(nh->flags, ZEBRA_EVPN_L2_NH_FPM_SENT);
+}
+
 static void fpm_evpn_reset(struct event *t)
 {
 	struct fpm_nl_ctx *fnc = EVENT_ARG(t);
 	struct zebra_vrf *zvrf = zebra_vrf_get_evpn();
+	struct zebra_evpn_es *es;
 
 	hash_iterate(zrouter.l3vni_table, fpm_unset_l3vni_table, NULL);
+	if (zmh_info) {
+		hash_iterate(zmh_info->nh_ip_table, fpm_unset_l2_nh, NULL);
+		RB_FOREACH (es, zebra_es_rb_head, &zmh_info->es_rb_tree)
+			UNSET_FLAG(es->flags, ZEBRA_EVPNES_NHG_FPM_SENT);
+	}
 	if (zvrf && zvrf->evpn_table)
 		hash_iterate(zvrf->evpn_table, fpm_unset_l2vni_table, NULL);
 
