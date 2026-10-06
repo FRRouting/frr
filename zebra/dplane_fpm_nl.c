@@ -1015,6 +1015,15 @@ static int fpm_nl_enqueue(struct fpm_nl_ctx *fnc, struct zebra_dplane_ctx *ctx)
 
 	case DPLANE_OP_MAC_INSTALL:
 	case DPLANE_OP_MAC_DELETE:
+		/*
+		 * Only the EVPN remote MACs (L2VNI remote MACs and router
+		 * MACs): not the local MACs zebra installs or flushes
+		 * (EVPN-MH sync MACs, local MACs of an ES), which a new FPM
+		 * connection does not get again.
+		 */
+		if (!CHECK_FLAG(dplane_ctx_mac_get_update_flags(ctx), DPLANE_MAC_REMOTE))
+			return 0;
+
 		rv = netlink_macfdb_update_ctx(ctx, nl_buf, sizeof(nl_buf), true);
 		if (rv <= 0) {
 			flog_err(EC_ZEBRA_FPM_ENCODE_FAIL, "%s: netlink_macfdb_update_ctx failed",
