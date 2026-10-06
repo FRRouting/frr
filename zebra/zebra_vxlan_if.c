@@ -960,8 +960,13 @@ int zebra_vxlan_if_vni_down(struct interface *ifp, struct zebra_vxlan_vni *vnip)
 		/* Delete this VNI from BGP. */
 		zebra_evpn_send_del_to_client(zevpn);
 
-		/* Free up all neighbors and MACs, if any. */
+		/*
+		 * Free up all neighbors and MACs, if any. The kernel flushed
+		 * most remote MACs from the vxlan interface if it went down:
+		 * their removal would not reach the FPM.
+		 */
 		zebra_evpn_neigh_del_all(zevpn, 1, 0, DEL_ALL_NEIGH, NULL);
+		zebra_evpn_rem_mac_flushed(zevpn);
 		zebra_evpn_mac_del_all(zevpn, 1, 0, DEL_ALL_MAC, NULL);
 
 		/* Free up all remote VTEPs, if any. */

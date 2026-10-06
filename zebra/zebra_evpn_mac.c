@@ -411,6 +411,74 @@ static void zebra_evpn_rem_es_mac_net_entry_del(struct zebra_evpn *zevpn,
 			       true /*skip_kernel*/);
 }
 
+static void zebra_evpn_rem_mac_flushed_hash(struct hash_bucket *bucket, void *arg)
+{
+	struct zebra_evpn *zevpn = arg;
+	struct zebra_mac *mac = bucket->data;
+	struct zebra_vrf *zvrf = zebra_vrf_get_evpn();
+	const struct zebra_if *zif = zevpn->vxlan_if->info;
+	const struct interface *br_ifp = zif->brslave_info.br_if;
+	struct ipaddr vtep_ip;
+	uint32_t nhg_id = 0;
+
+	if (!CHECK_FLAG(mac->flags, ZEBRA_MAC_REMOTE))
+		return;
+
+	/* Kept by the kernel (NUD_NOARP, see `netlink_macfdb_update_ctx()`). */
+	if (CHECK_FLAG(mac->flags, (ZEBRA_MAC_STICKY | ZEBRA_MAC_REMOTE_DEF_GW)))
+		return;
+
+	/* Duplicate MAC updates are not installed while frozen. */
+	if (CHECK_FLAG(mac->flags, ZEBRA_MAC_DUPLICATE) && zvrf && zvrf->dad_freeze)
+		return;
+
+	/* The same entry `zebra_evpn_rem_mac_install()` installs. */
+	memset(&vtep_ip, 0, sizeof(vtep_ip));
+	if (mac->es) {
+		if (!CHECK_FLAG(mac->es->flags, ZEBRA_EVPNES_NHG_ACTIVE))
+			return;
+
+		nhg_id = mac->es->nhg_id;
+		SET_IPADDR_NONE(&vtep_ip);
+	} else {
+		if (ipaddr_is_zero(&mac->fwd_info.r_vtep_ip))
+			return;
+
+		vtep_ip = mac->fwd_info.r_vtep_ip;
+	}
+
+	if (IS_ZEBRA_DEBUG_VXLAN)
+		zlog_debug("VNI %u MAC %pEA flushed by the kernel, removing it from the FPM",
+			   zevpn->vni, &mac->macaddr);
+
+	dplane_rem_mac_net_del(zevpn->vxlan_if, br_ifp, zebra_evpn_rem_mac_vid(zevpn, zif, br_ifp),
+			       &mac->macaddr, zevpn->vni, &vtep_ip, nhg_id, true /*skip_kernel*/);
+}
+
+/*
+ * The vxlan interface of the VNI went down: the kernel flushed the remote
+ * MACs from it, but the sticky ones (NUD_NOARP), and kept the bridge's
+ * entries. Their removal, coming next (`zebra_evpn_mac_del_all()`), then
+ * fails, and a failed removal never reaches the FPM: send it the removal of
+ * the flushed ones on its own, leaving the kernel alone.
+ *
+ * Nothing is flushed while the vxlan interface stays up (a VNI going down
+ * with the STP state of its VLAN on a single vxlan device).
+ */
+void zebra_evpn_rem_mac_flushed(struct zebra_evpn *zevpn)
+{
+	const struct zebra_if *zif;
+
+	if (!zevpn->vxlan_if || if_is_operative(zevpn->vxlan_if) || !zevpn->mac_table)
+		return;
+
+	zif = zevpn->vxlan_if->info;
+	if (!zif || !zif->brslave_info.br_if)
+		return;
+
+	hash_iterate(zevpn->mac_table, zebra_evpn_rem_mac_flushed_hash, zevpn);
+}
+
 /*
  * Decrement neighbor refcount of MAC; uninstall and free it if
  * appropriate.
