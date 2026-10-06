@@ -6096,6 +6096,25 @@ void zebra_vxlan_advertise_all_vni(ZAPI_HANDLER_ARGS)
 		 * does; the gateway MAC-IPs need a walk of their own because
 		 * the MAC replay skips ZEBRA_MAC_DEF_GW entries.
 		 */
+		if (advertise && zvrf->vxlan_flood_ctrl != flood_ctrl) {
+			/*
+			 * BUM handling rides along in this message, so a
+			 * reconnecting client states its global mode here.
+			 * Apply it as zebra_vxlan_flood_control() would.
+			 */
+			vni_t vni = VNI_MAX;
+			void *args[2];
+
+			zvrf->vxlan_flood_ctrl = flood_ctrl;
+
+			args[0] = &vni;
+			args[1] = zvrf;
+			hash_iterate(zvrf->evpn_table,
+				     (void (*)(struct hash_bucket *,
+					       void *))zebra_evpn_handle_flooding_remote_vteps,
+				     args);
+		}
+
 		if (advertise && zvrf->evpn_resync_needed) {
 			zvrf->evpn_resync_needed = false;
 
