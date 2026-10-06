@@ -123,6 +123,9 @@ struct ospf6_neighbor {
 	/* Inactivity timer */
 	struct event *inactivity_timer;
 
+	/* Event forcing the neighbor down (MTU change, passive, BFD down) */
+	struct event *inactivity_event;
+
 	/* Timer to release the last dbdesc packet */
 	struct event *last_dbdesc_release_timer;
 
