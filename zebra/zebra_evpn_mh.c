@@ -1447,16 +1447,16 @@ static void zebra_evpn_nhg_mac_update(struct zebra_evpn_es *es)
 	}
 }
 
-/* The MAC ECMP group is activated on the first VTEP */
-static void zebra_evpn_nhg_update(struct zebra_evpn_es *es)
+/*
+ * Fill `nh_ids` with the next hops of the ES NHG (the ES VTEPs' L2 next
+ * hops), and return how many there are.
+ */
+uint32_t zebra_evpn_es_nhg_members(const struct zebra_evpn_es *es,
+				   struct nh_grp nh_ids[ES_VTEP_MAX_CNT])
 {
 	uint32_t nh_cnt = 0;
-	struct nh_grp nh_ids[ES_VTEP_MAX_CNT];
 	struct zebra_evpn_es_vtep *es_vtep;
 	struct listnode	*node;
-
-	if (!es->nhg_id)
-		return;
 
 	for (ALL_LIST_ELEMENTS_RO(es->es_vtep_list, node, es_vtep)) {
 		if (!es_vtep->nh)
@@ -1470,6 +1470,19 @@ static void zebra_evpn_nhg_update(struct zebra_evpn_es *es)
 		++nh_cnt;
 	}
 
+	return nh_cnt;
+}
+
+/* The MAC ECMP group is activated on the first VTEP */
+static void zebra_evpn_nhg_update(struct zebra_evpn_es *es)
+{
+	uint32_t nh_cnt;
+	struct nh_grp nh_ids[ES_VTEP_MAX_CNT];
+
+	if (!es->nhg_id)
+		return;
+
+	nh_cnt = zebra_evpn_es_nhg_members(es, nh_ids);
 	if (nh_cnt) {
 		if (IS_ZEBRA_DEBUG_EVPN_MH_NH) {
 			char nh_str[ES_VTEP_LIST_STR_SZ];
@@ -1509,7 +1522,6 @@ static void zebra_evpn_nhg_update(struct zebra_evpn_es *es)
 			dplane_nh_fdb_del(es->nhg_id);
 		}
 	}
-
 }
 
 static void zebra_evpn_es_l2_nh_show_entry(struct zebra_evpn_l2_nh *nh,

@@ -5719,6 +5719,24 @@ enum zebra_dplane_result dplane_nexthop_delete(struct nhg_hash_entry *nhe)
 }
 
 /*
+ * Init the EVPN-MH FDB (L2) nexthop / nexthop-group part of a context: a
+ * nexthop when `nh_cnt` is zero (with its `vtep_ip`), a group of `nh_cnt`
+ * nexthops otherwise.
+ */
+void dplane_fdb_nh_init(struct zebra_dplane_ctx *ctx, uint32_t id, const struct ipaddr *vtep_ip,
+			uint32_t nh_cnt, const struct nh_grp *nh_ids)
+{
+	ctx->u.fdb_nh.id = id;
+	if (vtep_ip)
+		ctx->u.fdb_nh.vtep_ip = *vtep_ip;
+	if (nh_cnt > ES_VTEP_MAX_CNT)
+		nh_cnt = ES_VTEP_MAX_CNT;
+	if (nh_cnt)
+		memcpy(ctx->u.fdb_nh.nh_grp, nh_ids, nh_cnt * sizeof(struct nh_grp));
+	ctx->u.fdb_nh.nh_grp_count = nh_cnt;
+}
+
+/*
  * Common helper to enqueue an EVPN-MH FDB (L2) nexthop / nexthop-group op.
  */
 static enum zebra_dplane_result fdb_nh_update_common(enum dplane_op_e op, uint32_t id,
@@ -5741,17 +5759,11 @@ static enum zebra_dplane_result fdb_nh_update_common(enum dplane_op_e op, uint32
 	zns = zvrf ? zvrf->zns : zebra_ns_lookup(NS_DEFAULT);
 	dplane_ctx_ns_init(ctx, zns, false);
 
-	ctx->u.fdb_nh.id = id;
-	if (vtep_ip)
-		ctx->u.fdb_nh.vtep_ip = *vtep_ip;
-	if (nh_cnt > ES_VTEP_MAX_CNT)
-		nh_cnt = ES_VTEP_MAX_CNT;
-	if (nh_cnt)
-		memcpy(ctx->u.fdb_nh.nh_grp, nh_ids, nh_cnt * sizeof(struct nh_grp));
-	ctx->u.fdb_nh.nh_grp_count = nh_cnt;
+	dplane_fdb_nh_init(ctx, id, vtep_ip, nh_cnt, nh_ids);
 
 	if (IS_ZEBRA_DEBUG_DPLANE_DETAIL)
-		zlog_debug("init fdb-nh ctx %s: id 0x%x cnt %u", dplane_op2str(op), id, nh_cnt);
+		zlog_debug("init fdb-nh ctx %s: id 0x%x cnt %u", dplane_op2str(op), id,
+			   ctx->u.fdb_nh.nh_grp_count);
 
 	ret = dplane_update_enqueue(ctx);
 

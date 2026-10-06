@@ -1207,6 +1207,10 @@ enum zebra_dplane_result dplane_nhg_fdb_add(uint32_t nhg_id, uint32_t nh_cnt,
 /* Deletes are id-only and shared by the single-nexthop and group cases. */
 enum zebra_dplane_result dplane_nh_fdb_del(uint32_t id);
 
+/* Helper api to init an empty or new context for an FDB nexthop update */
+void dplane_fdb_nh_init(struct zebra_dplane_ctx *ctx, uint32_t id, const struct ipaddr *vtep_ip,
+			uint32_t nh_cnt, const struct nh_grp *nh_ids);
+
 /*
  * Enqueue evpn neighbor updates for the dataplane.
  */
