@@ -77,6 +77,7 @@ extern int netlink_nexthop_read(struct zebra_ns *zns);
 extern ssize_t netlink_nexthop_msg_encode(uint16_t cmd,
 					  const struct zebra_dplane_ctx *ctx,
 					  void *buf, size_t buflen, bool fpm);
+extern ssize_t netlink_fdb_nh_msg_encode(struct zebra_dplane_ctx *ctx, void *buf, size_t buflen);
 
 extern ssize_t netlink_lsp_msg_encoder(struct zebra_dplane_ctx *ctx, void *buf,
 				       size_t buflen);

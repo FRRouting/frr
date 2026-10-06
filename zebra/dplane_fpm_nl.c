@@ -960,11 +960,12 @@ static int fpm_nl_enqueue(struct fpm_nl_ctx *fnc, struct zebra_dplane_ctx *ctx)
 
 	/*
 	 * If we were configured to not use next hop groups, then quit as soon
-	 * as possible.
+	 * as possible. The same goes for the EVPN-MH FDB next hops and
+	 * groups.
 	 */
-	if ((!fnc->use_nhg)
-	    && (op == DPLANE_OP_NH_DELETE || op == DPLANE_OP_NH_INSTALL
-		|| op == DPLANE_OP_NH_UPDATE))
+	if ((!fnc->use_nhg) && (op == DPLANE_OP_NH_DELETE || op == DPLANE_OP_NH_INSTALL ||
+				op == DPLANE_OP_NH_UPDATE || op == DPLANE_OP_NH_FDB_INSTALL ||
+				op == DPLANE_OP_NH_FDB_DELETE))
 		return 0;
 
 	nl_buf_len = 0;
@@ -1080,9 +1081,25 @@ static int fpm_nl_enqueue(struct fpm_nl_ctx *fnc, struct zebra_dplane_ctx *ctx)
 		nl_buf_len += (size_t)rv;
 		break;
 
-	/* Un-handled by FPM at this time. */
+	/*
+	 * EVPN-MH FDB next hops and groups: the remote MACs behind an ES
+	 * point to them (NDA_NH_ID). Only sent when the FPM uses next hop
+	 * groups (see above).
+	 */
 	case DPLANE_OP_NH_FDB_INSTALL:
 	case DPLANE_OP_NH_FDB_DELETE:
+		rv = netlink_fdb_nh_msg_encode(ctx, nl_buf, sizeof(nl_buf));
+		if (rv <= 0) {
+			flog_err(EC_ZEBRA_FPM_ENCODE_FAIL, "%s: netlink_fdb_nh_msg_encode failed",
+				 __func__);
+			dplane_ctx_set_status(ctx, ZEBRA_DPLANE_REQUEST_FAILURE);
+			return 0;
+		}
+
+		nl_buf_len = (size_t)rv;
+		break;
+
+	/* Un-handled by FPM at this time. */
 	case DPLANE_OP_PW_INSTALL:
 	case DPLANE_OP_PW_UNINSTALL:
 	case DPLANE_OP_ADDR_INSTALL:

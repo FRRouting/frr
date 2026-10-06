@@ -5082,7 +5082,7 @@ ssize_t netlink_mpls_multipath_msg_encode(int cmd, struct zebra_dplane_ctx *ctx,
  *   - INSTALL, cnt == 0 -> RTM_NEWNEXTHOP with NHA_FDB + NHA_GATEWAY
  *   - INSTALL, cnt  > 0 -> RTM_NEWNEXTHOP with NHA_FDB + NHA_GROUP
  */
-static ssize_t netlink_fdb_nh_msg_encode(struct zebra_dplane_ctx *ctx, void *buf, size_t buflen)
+ssize_t netlink_fdb_nh_msg_encode(struct zebra_dplane_ctx *ctx, void *buf, size_t buflen)
 {
 	struct {
 		struct nlmsghdr n;
