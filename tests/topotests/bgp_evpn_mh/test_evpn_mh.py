@@ -1273,6 +1273,193 @@ def test_evpn_svi_mac_withdraw_on_svi_del():
         config_svi(origin, svi_ips.get(origin_name))
 
 
+def check_type4_route(dut, esi, originator, expected, self_orig=False):
+    """
+    Return None if the presence of the Type-4 route for esi/originator
+    matches expected, the command output otherwise.
+    """
+    command = "show bgp l2vpn evpn route type 4"
+    if self_orig:
+        command += " self-originate"
+
+    output = dut.vtysh_cmd(command)
+    present = any(esi in line and originator in line for line in output.splitlines())
+    if present == expected:
+        return None
+
+    return output
+
+
+def get_evpn_rd_paths(node, route_type, rd, match):
+    """
+    Return the valid paths of the route_type routes under rd whose prefix
+    contains match.
+    """
+    routes = json.loads(
+        node.vtysh_cmd("show bgp l2vpn evpn route type %d json" % route_type) or "{}"
+    )
+    paths = []
+    for prefix, info in routes.get(rd, {}).items():
+        if not isinstance(info, dict) or match not in prefix:
+            continue
+        for path_list in info.get("paths", []):
+            for path in path_list if isinstance(path_list, list) else [path_list]:
+                if path.get("valid"):
+                    paths.append(path)
+
+    return paths
+
+
+def check_es_evpn_routes(tgen, dut, observer, esi, mac, vni):
+    """
+    Return None if the Type-1 and Type-2 routes that dut originates for esi
+    are present on dut and observer, an error string otherwise. The
+    VxLAN devices in this topology use a multicast underlay, so no Type-3
+    routes are exchanged.
+    """
+    es_rd = get_bgp_es(dut, esi).get("rd")
+    vni_rd = json.loads(
+        dut.vtysh_cmd("show bgp l2vpn evpn vni %d json" % vni) or "{}"
+    ).get("rd")
+    if not es_rd or not vni_rd:
+        return "%s ES RD %s or VNI %d RD %s missing" % (dut.name, es_rd, vni, vni_rd)
+
+    # refresh the host MACs so the ES MAC route is originated again
+    ping_anycast_gw(tgen)
+
+    routes = (
+        ("EAD-per-ES", 1, es_rd, "[4294967295]:[%s]" % esi, None),
+        ("EAD-per-EVI", 1, vni_rd, "[0]:[%s]" % esi, None),
+        ("MAC-IP", 2, vni_rd, "[%s]" % mac, esi),
+    )
+    errors = []
+    for node in (dut, observer):
+        for name, route_type, rd, match, path_esi in routes:
+            paths = get_evpn_rd_paths(node, route_type, rd, match)
+            if path_esi:
+                paths = [path for path in paths if path.get("esi") == path_esi]
+            if not paths:
+                errors.append(
+                    "%s missing %s route %s under RD %s" % (node.name, name, match, rd)
+                )
+
+    return "\n".join(errors) if errors else None
+
+
+def get_bgp_es(dut, esi):
+    return json.loads(dut.vtysh_cmd("show bgp l2vpn evpn es %s json" % esi) or "{}")
+
+
+def check_bgp_es_local(dut, esi, expected):
+    """
+    Return None if the BGP local state of the ES matches expected.
+    """
+    es = get_bgp_es(dut, esi)
+    local = "local" in es.get("type", [])
+    if local == expected:
+        return None
+
+    return "ES local is %s, expected %s: %s" % (local, expected, es)
+
+
+def check_bgp_instance_absent(dut, instance):
+    output = dut.vtysh_cmd("show running-config bgpd")
+    if instance not in output.splitlines():
+        return None
+
+    return output
+
+
+def check_rebuilt_es(tgen, dut, observer, esi, originator, mac, vni, vni_count):
+    """
+    Return None once the local ES and all its EVPN state is rebuilt on dut
+    and visible on observer, an error string otherwise.
+    """
+    es = get_bgp_es(dut, esi)
+    checks = (
+        ("ES routes", check_es_evpn_routes(tgen, dut, observer, esi, mac, vni)),
+        (
+            "local Type-4",
+            check_type4_route(dut, esi, originator, True, self_orig=True),
+        ),
+        ("peer Type-4", check_type4_route(observer, esi, originator, True)),
+        (
+            "ES-EVI count",
+            (
+                None
+                if es.get("vniCount") == vni_count
+                else "vniCount %s, expected %s: %s"
+                % (es.get("vniCount"), vni_count, es)
+            ),
+        ),
+        ("local DF role", check_df_role(dut, esi, "DF")),
+        ("peer DF role", check_df_role(observer, esi, "nonDF")),
+    )
+    errors = ["%s: %s" % check for check in checks if check[1] is not None]
+    return "\n".join(errors) if errors else None
+
+
+def test_evpn_mh_bgp_instance_delete_readd():
+    """
+    Delete and re-add the BGP instance on torm11 while its local ES stays
+    operational in zebra.
+    1. Verify the local ES is released and its Type-4 route is withdrawn
+       on torm12 after the instance is deleted.
+    2. Re-add the instance and verify the ES is rebuilt with the same
+       ES-EVI count, the ES's Type-1, Type-2 and Type-4 routes are
+       exchanged again and the DF election result is unchanged.
+    3. Repeat once more to exercise an ES that outlived the instance.
+    """
+
+    tgen = get_topogen()
+
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    dut = tgen.gears["torm11"]
+    observer = tgen.gears["torm12"]
+    esi = host_es_map["hostd12"]
+    originator = tor_ips["torm11"]
+    _, mac = compute_host_ip_mac("hostd12")
+    vni = 1000
+    instance = "router bgp 65002"
+
+    test_fn = partial(check_type4_route, observer, esi, originator, True)
+    _, result = topotest.run_and_expect(test_fn, None, count=30, wait=1)
+    assert result is None, result
+
+    test_fn = partial(check_es_evpn_routes, tgen, dut, observer, esi, mac, vni)
+    _, result = topotest.run_and_expect(test_fn, None, count=30, wait=1)
+    assert result is None, result
+
+    vni_count = get_bgp_es(dut, esi).get("vniCount")
+    assert vni_count, "ES %s has no ES-EVIs on %s" % (esi, dut.name)
+
+    for _ in range(2):
+        dut.vtysh_cmd("configure terminal\nno %s" % instance)
+        test_fn = partial(check_bgp_instance_absent, dut, instance)
+        _, result = topotest.run_and_expect(test_fn, None, count=30, wait=1)
+        assert result is None, result
+
+        test_fn = partial(check_bgp_es_local, dut, esi, False)
+        _, result = topotest.run_and_expect(test_fn, None, count=30, wait=1)
+        assert result is None, result
+
+        test_fn = partial(check_type4_route, observer, esi, originator, False)
+        _, result = topotest.run_and_expect(test_fn, None, count=30, wait=1)
+        assert result is None, result
+
+        dut.cmd_raises("vtysh -f %s/torm11/evpn.conf" % CWD)
+
+        test_fn = partial(
+            check_rebuilt_es, tgen, dut, observer, esi, originator, mac, vni, vni_count
+        )
+        _, result = topotest.run_and_expect(test_fn, None, count=60, wait=1)
+        assert result is None, result
+
+    assert dut.check_router_running() == "", "torm11 daemons are not running"
+
+
 if __name__ == "__main__":
     args = ["-s"] + sys.argv[1:]
     sys.exit(pytest.main(args))
