@@ -4320,9 +4320,14 @@ void kernel_read_macfdb(struct zebra_dplane_ctx *ctx)
 
 /*
  * Netlink-specific handler for MAC updates using dataplane context object.
+ *
+ * `fpm`: encode for the FPM. A remote MAC is sent to the FPM as one entry
+ * (NTF_SELF | NTF_MASTER), so the removal of the VXLAN device's own entry
+ * (`DPLANE_MAC_SELF_ONLY`, the bridge's entry being already a local one in
+ * the kernel) is the removal of the whole remote MAC for it.
  */
-ssize_t netlink_macfdb_update_ctx(struct zebra_dplane_ctx *ctx, void *data,
-				  size_t datalen)
+ssize_t netlink_macfdb_update_ctx(struct zebra_dplane_ctx *ctx, void *data, size_t datalen,
+				  bool fpm)
 {
 	struct ipaddr vtep_ip;
 	vlanid_t vid;
@@ -4361,7 +4366,7 @@ ssize_t netlink_macfdb_update_ctx(struct zebra_dplane_ctx *ctx, void *data,
 		 */
 		if (update_flags & DPLANE_MAC_WAS_STATIC)
 			nfy = true;
-		if (update_flags & DPLANE_MAC_SELF_ONLY)
+		if ((update_flags & DPLANE_MAC_SELF_ONLY) && !fpm)
 			flags &= ~NTF_MASTER;
 	} else {
 		/* local mac */
@@ -4890,11 +4895,15 @@ static ssize_t netlink_neigh_msg_encoder(struct zebra_dplane_ctx *ctx,
  * Update MAC, using dataplane context object.
  */
 
+static ssize_t netlink_macfdb_msg_encoder(struct zebra_dplane_ctx *ctx, void *data, size_t datalen)
+{
+	return netlink_macfdb_update_ctx(ctx, data, datalen, false);
+}
+
 enum netlink_msg_status netlink_put_mac_update_msg(struct nl_batch *bth,
 						   struct zebra_dplane_ctx *ctx)
 {
-	return netlink_batch_add_msg(bth, ctx, netlink_macfdb_update_ctx,
-				     false);
+	return netlink_batch_add_msg(bth, ctx, netlink_macfdb_msg_encoder, false);
 }
 
 enum netlink_msg_status

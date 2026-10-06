@@ -302,6 +302,23 @@ int zebra_evpn_rem_mac_uninstall(struct zebra_evpn *zevpn,
 }
 
 /*
+ * The access VLAN the remote MACs are installed with
+ * (zebra_evpn_rem_mac_install()): the VNI's VLAN on a VLAN aware bridge,
+ * none otherwise.
+ */
+static vlanid_t zebra_evpn_rem_mac_vid(const struct zebra_evpn *zevpn, const struct zebra_if *zif,
+				       const struct interface *br_ifp)
+{
+	const struct zebra_vxlan_vni *vni = zebra_vxlan_if_vni_find(zif, zevpn->vni);
+	const struct zebra_if *br_zif = br_ifp->info;
+
+	if (!vni || !br_zif || !IS_ZEBRA_IF_BRIDGE_VLAN_AWARE(br_zif))
+		return 0;
+
+	return vni->access_vlan;
+}
+
+/*
  * Delete the VXLAN device's own FDB entry (NTF_SELF, dst = the VTEP) that
  * zebra installed for a remote MAC which is now local. When a remote MAC is
  * learnt locally the bridge takes over only its own entry for the VLAN the
@@ -322,6 +339,10 @@ int zebra_evpn_rem_mac_uninstall(struct zebra_evpn *zevpn,
  * kernel error on a delete is logged at debug level only. If the delete
  * fails, the entry is removed the next time zebra reads it back
  * (zebra_vxlan_dp_network_mac_add()).
+ *
+ * The delete carries the access VLAN the MAC was installed with
+ * (zebra_evpn_rem_mac_vid()): the kernel ignores it, but the FPM got the
+ * remote MAC with it and needs it to find the entry.
  *
  * Only for single-homed MACs. A remote MAC behind an ES is installed with
  * a nexthop group and no VTEP address; its entry may stay behind when the
@@ -347,7 +368,8 @@ void zebra_evpn_rem_mac_net_entry_del(struct zebra_evpn *zevpn, const struct eth
 		zlog_debug("VNI %u MAC %pEA is local, removing the vxlan entry to VTEP %pIA",
 			   zevpn->vni, macaddr, vtep_ip);
 
-	dplane_rem_mac_net_del(zevpn->vxlan_if, br_ifp, macaddr, zevpn->vni, vtep_ip);
+	dplane_rem_mac_net_del(zevpn->vxlan_if, br_ifp, zebra_evpn_rem_mac_vid(zevpn, zif, br_ifp),
+			       macaddr, zevpn->vni, vtep_ip);
 }
 
 /*

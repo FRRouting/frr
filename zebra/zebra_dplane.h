@@ -1175,7 +1175,7 @@ enum zebra_dplane_result dplane_rem_mac_del(const struct interface *ifp,
 					    struct ipaddr *vtep_ip);
 
 enum zebra_dplane_result dplane_rem_mac_net_del(const struct interface *ifp,
-						const struct interface *bridge_ifp,
+						const struct interface *bridge_ifp, vlanid_t vid,
 						const struct ethaddr *mac, vni_t vni,
 						const struct ipaddr *vtep_ip);
 

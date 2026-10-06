@@ -6345,15 +6345,18 @@ enum zebra_dplane_result dplane_rem_mac_del(const struct interface *ifp,
  * Enqueue the delete of the VXLAN device's own FDB entry for a remote MAC,
  * leaving the bridge's entries alone - used when the bridge's entry for the
  * MAC is already a local one.
+ *
+ * `vid` is the access VLAN the MAC was installed with: the kernel ignores it
+ * on a VXLAN device entry, but the FPM gets the entry with it.
  */
 enum zebra_dplane_result dplane_rem_mac_net_del(const struct interface *ifp,
-						const struct interface *bridge_ifp,
+						const struct interface *bridge_ifp, vlanid_t vid,
 						const struct ethaddr *mac, vni_t vni,
 						const struct ipaddr *vtep_ip)
 {
 	uint32_t update_flags = DPLANE_MAC_REMOTE | DPLANE_MAC_SELF_ONLY;
 
-	return mac_update_common(DPLANE_OP_MAC_DELETE, ifp, bridge_ifp, 0, mac, vni, vtep_ip,
+	return mac_update_common(DPLANE_OP_MAC_DELETE, ifp, bridge_ifp, vid, mac, vni, vtep_ip,
 				 false, 0, update_flags);
 }
 

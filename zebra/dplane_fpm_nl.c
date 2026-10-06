@@ -1015,7 +1015,7 @@ static int fpm_nl_enqueue(struct fpm_nl_ctx *fnc, struct zebra_dplane_ctx *ctx)
 
 	case DPLANE_OP_MAC_INSTALL:
 	case DPLANE_OP_MAC_DELETE:
-		rv = netlink_macfdb_update_ctx(ctx, nl_buf, sizeof(nl_buf));
+		rv = netlink_macfdb_update_ctx(ctx, nl_buf, sizeof(nl_buf), true);
 		if (rv <= 0) {
 			flog_err(EC_ZEBRA_FPM_ENCODE_FAIL, "%s: netlink_macfdb_update_ctx failed",
 				 __func__);
