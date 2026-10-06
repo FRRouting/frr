@@ -28,7 +28,7 @@
 
 DEFINE_MTYPE_STATIC(ZEBRA, ZEBRA_SR6, "Zebra SRv6 SR-L2 interface");
 
-static void sr6_reset_if(ifindex_t ifindex);
+static void sr6_reset_if(ifindex_t ifindex, ifindex_t bridge_ifindex);
 /* -------------------------------------------------------------------------- */
 /* Hash / compare helpers                                                      */
 /* -------------------------------------------------------------------------- */
@@ -52,9 +52,9 @@ static bool sr6_inited;
 /* Sequential counter for generating unique interface names. */
 
 /*
- * Device-wide sr6 encapsulation mode for sr6 interfaces.  Defaults to FULL;
- * changed via the `l2-encap-mode <full|reduced>` CLI.  Read by rt_netlink.c
- * when it builds the IFLA_SR6_ENCAP_MODE attribute at interface-create time.
+ * Fallback sr6 encapsulation mode (FULL) for sr6 interfaces not bound to an
+ * EVI.  The operative mode is per EVI: `l2-encap-mode <full|reduced>` inside
+ * the EVI node (zebra_srv6_evi_encap_mode_by_bridge()).
  */
 static enum zebra_sr6_encap_mode sr6_encap_mode = ZEBRA_SR6_ENCAP_MODE_FULL;
 
@@ -128,12 +128,11 @@ void zebra_sr6_set_mtu(uint32_t mtu)
 	/* EVPN sr6 / bum-sr6 (this module's own hash). */
 	if (sr6_inited)
 		frr_each (sr6_htab, sr6_table, sr6) {
-			if (sr6->ifindex <= 0)
+			if (sr6->ifindex <= 0 || sr6->local_decap)
 				continue;
 			dplane_sr6_program(sr6->ifindex, &sr6->sid, apply,
-					    zebra_sr6_kernel_encap_mode(
-						    sr6->ifindex,
-						    zebra_sr6_get_encap_mode()));
+					    zebra_srv6_evi_encap_mode_by_bridge(
+						    sr6->bridge_ifindex));
 		}
 
 	/*
@@ -250,21 +249,66 @@ ifindex_t zebra_sr6_discover_on_bridge(ifindex_t bridge_ifindex, bool is_bum, ch
 
 /*
  * Program an operator-owned sr6 entry in place with its SID, the device-wide
- * MTU and the kernel-mirrored encap mode.  FRR never creates the interface.
+ * MTU and the owning EVI's configured `l2-encap-mode` (default full).  FRR
+ * never creates the interface.
  */
 static void sr6_program_if(struct zebra_sr6 *entry)
 {
 	if (!entry || entry->ifindex == 0)
 		return;
+	/* Never push our own (local decap) SID as the encap segment. */
+	if (entry->local_decap)
+		return;
 	dplane_sr6_program(entry->ifindex, &entry->sid,
 			    zebra_sr6_get_mtu() ? zebra_sr6_get_mtu()
 						 : ZEBRA_SR6_DEFAULT_MTU,
-			    zebra_sr6_kernel_encap_mode(entry->ifindex,
-						 zebra_sr6_get_encap_mode()));
+			    zebra_srv6_evi_encap_mode_by_bridge(entry->bridge_ifindex));
 }
 
-struct zebra_sr6 *zebra_sr6_get_or_create(const struct in6_addr *sid, ifindex_t bridge_ifindex,
-					    bool is_bum, vlanid_t vid)
+/*
+ * Push the owning EVI's (new) `l2-encap-mode` onto every sr6/bum-sr6 on
+ * @bridge_ifindex: tracked entries keep their SID, discovered-but-untracked
+ * EVI ports (no remote SID yet) are reset (segs ::) with the new mode so the
+ * kernel never holds a stale mode.  Driven by the per-EVI CLI.
+ */
+void zebra_sr6_reprogram_on_bridge(ifindex_t bridge_ifindex)
+{
+	struct zebra_sr6 *entry;
+	bool have_ucast = false, have_bum = false;
+	ifindex_t ifindex;
+
+	if (!sr6_inited || bridge_ifindex == 0)
+		return;
+
+	frr_each (sr6_htab, sr6_table, entry) {
+		if (entry->bridge_ifindex != bridge_ifindex || entry->ifindex == 0)
+			continue;
+		/* Local decap anchor: shares sr6-<n> with the remote entry but
+		 * carries OUR SID - never program it as encap.
+		 */
+		if (entry->local_decap)
+			continue;
+		sr6_program_if(entry);
+		if (entry->is_bum)
+			have_bum = true;
+		else
+			have_ucast = true;
+	}
+
+	if (!have_ucast) {
+		ifindex = zebra_sr6_discover_on_bridge(bridge_ifindex, false, NULL);
+		if (ifindex)
+			sr6_reset_if(ifindex, bridge_ifindex);
+	}
+	if (!have_bum) {
+		ifindex = zebra_sr6_discover_on_bridge(bridge_ifindex, true, NULL);
+		if (ifindex)
+			sr6_reset_if(ifindex, bridge_ifindex);
+	}
+}
+
+static struct zebra_sr6 *sr6_get_or_create(const struct in6_addr *sid, ifindex_t bridge_ifindex,
+					   bool is_bum, vlanid_t vid, bool local_decap)
 {
 	struct zebra_sr6 key = {};
 	struct zebra_sr6 *entry;
@@ -301,16 +345,29 @@ struct zebra_sr6 *zebra_sr6_get_or_create(const struct in6_addr *sid, ifindex_t 
 	strlcpy(entry->ifname, ifname, sizeof(entry->ifname));
 	entry->refcnt = 1;
 	entry->is_bum = is_bum;
+	entry->local_decap = local_decap; /* set BEFORE any program below */
 
 	sr6_htab_add(sr6_table, entry);
 
 	if (ifindex)
-		sr6_program_if(entry);
+		sr6_program_if(entry); /* no-op for a local decap anchor */
 	else if (IS_ZEBRA_DEBUG_VXLAN)
 		zlog_debug("%s: no %s sr6 on bridge %u yet for SID %pI6 (program on if-add)",
 			   __func__, is_bum ? "BUM" : "unicast", bridge_ifindex, sid);
 
 	return entry;
+}
+
+struct zebra_sr6 *zebra_sr6_get_or_create(const struct in6_addr *sid, ifindex_t bridge_ifindex,
+					    bool is_bum, vlanid_t vid)
+{
+	return sr6_get_or_create(sid, bridge_ifindex, is_bum, vid, false);
+}
+
+struct zebra_sr6 *zebra_sr6_get_or_create_local_decap(const struct in6_addr *sid,
+						       ifindex_t bridge_ifindex, vlanid_t vid)
+{
+	return sr6_get_or_create(sid, bridge_ifindex, false /* unicast sr6 */, vid, true);
 }
 
 /*
@@ -441,7 +498,7 @@ static void sr6_release_kernel_orphans_on_bridge(ifindex_t bridge_ifindex,
 		if (IS_ZEBRA_DEBUG_VXLAN)
 			zlog_debug("%s: resetting orphan sr6 %s (ifindex %u) on bridge %u (EVI teardown)",
 				   __func__, ifp->name, ifp->ifindex, bridge_ifindex);
-		sr6_reset_if(ifp->ifindex);
+		sr6_reset_if(ifp->ifindex, bridge_ifindex);
 	}
 }
 
@@ -469,7 +526,7 @@ void zebra_sr6_release_all_on_bridge(ifindex_t bridge_ifindex)
 				   __func__, entry->ifname, entry->ifindex, &entry->sid,
 				   bridge_ifindex);
 
-		sr6_reset_if(entry->ifindex);
+		sr6_reset_if(entry->ifindex, entry->bridge_ifindex);
 		if (n_reset < array_size(reset_ifindexes))
 			reset_ifindexes[n_reset++] = entry->ifindex;
 		sr6_htab_del(sr6_table, entry);
@@ -503,8 +560,16 @@ struct zebra_sr6 *zebra_sr6_update_sid(const struct in6_addr *old_sid,
 	if (memcmp(&entry->sid, new_sid, sizeof(entry->sid)) == 0)
 		return entry;
 
-	/* Reprogram the kernel interface's encap SID in place via the dplane. */
-	dplane_sr6_update_sid(entry->ifindex, new_sid);
+	/*
+	 * Reprogram the kernel interface's encap SID in place via the dplane.
+	 * Use the full {MTU, encap-mode, SID} changelink so the EVI's configured
+	 * `l2-encap-mode` is preserved (a SID-only update would fall back to the
+	 * FULL default and silently undo `l2-encap-mode reduced`).
+	 */
+	dplane_sr6_program(entry->ifindex, new_sid,
+			    zebra_sr6_get_mtu() ? zebra_sr6_get_mtu()
+						 : ZEBRA_SR6_DEFAULT_MTU,
+			    zebra_srv6_evi_encap_mode_by_bridge(entry->bridge_ifindex));
 
 	/* Re-key the hash entry: remove under old SID, reinsert under new. */
 	sr6_htab_del(sr6_table, entry);
@@ -520,10 +585,11 @@ struct zebra_sr6 *zebra_sr6_update_sid(const struct in6_addr *old_sid,
 
 /*
  * Reset an operator-owned sr6 interface's encap policy in place: program segs
- * :: (stop encapsulating) while keeping the kernel-mirrored MTU and encap mode.
+ * :: (stop encapsulating) while keeping the MTU and the owning EVI's
+ * `l2-encap-mode` (FULL if no EVI is bound to @bridge_ifindex any more).
  * The netdev is never deleted.
  */
-static void sr6_reset_if(ifindex_t ifindex)
+static void sr6_reset_if(ifindex_t ifindex, ifindex_t bridge_ifindex)
 {
 	struct in6_addr any = {};
 
@@ -532,8 +598,7 @@ static void sr6_reset_if(ifindex_t ifindex)
 	dplane_sr6_program(ifindex, &any,
 			    zebra_sr6_get_mtu() ? zebra_sr6_get_mtu()
 						 : ZEBRA_SR6_DEFAULT_MTU,
-			    zebra_sr6_kernel_encap_mode(ifindex,
-						 zebra_sr6_get_encap_mode()));
+			    zebra_srv6_evi_encap_mode_by_bridge(bridge_ifindex));
 }
 
 /*
@@ -552,12 +617,25 @@ void zebra_sr6_release(const struct in6_addr *sid)
 		return;
 	}
 
-	/* Last reference - reset the interface (segs ::), keep it in place. */
+	/*
+	 * Last reference.  A local decap anchor shares sr6-<n> with the
+	 * peer-keyed entry: just drop it, do NOT reset the netdev (that would
+	 * wipe a live remote encap).  Otherwise reset (segs ::), keep it.
+	 */
+	if (entry->local_decap) {
+		if (IS_ZEBRA_DEBUG_VXLAN)
+			zlog_debug("%s: dropping local decap anchor %s (ifindex %u) SID %pI6",
+				   __func__, entry->ifname, entry->ifindex, sid);
+		sr6_htab_del(sr6_table, entry);
+		XFREE(MTYPE_ZEBRA_SR6, entry);
+		return;
+	}
+
 	if (IS_ZEBRA_DEBUG_VXLAN)
 		zlog_debug("%s: resetting sr6 if %s (ifindex %u) for SID %pI6", __func__,
 			   entry->ifname, entry->ifindex, sid);
 
-	sr6_reset_if(entry->ifindex);
+	sr6_reset_if(entry->ifindex, entry->bridge_ifindex);
 	sr6_htab_del(sr6_table, entry);
 	XFREE(MTYPE_ZEBRA_SR6, entry);
 }
@@ -654,6 +732,16 @@ void zebra_sr6_release_all_on_bridge(ifindex_t bridge_ifindex)
 
 void zebra_sr6_bind_vlan_on_bridge(ifindex_t bridge_ifindex, vlanid_t vid)
 {
+}
+
+void zebra_sr6_reprogram_on_bridge(ifindex_t bridge_ifindex)
+{
+}
+
+struct zebra_sr6 *zebra_sr6_get_or_create_local_decap(const struct in6_addr *sid,
+						       ifindex_t bridge_ifindex, vlanid_t vid)
+{
+	return NULL;
 }
 
 #endif /* GNU_LINUX */

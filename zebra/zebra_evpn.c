@@ -130,6 +130,7 @@ void zebra_evpn_print(struct zebra_evpn *zevpn, void **ctxt)
 		struct zebra_srv6_evi *evi = zebra_srv6_evi_lookup(zevpn->vni);
 		const char *svc = evi ? zevpn_l2_service2str(evi->svc_type) : "-";
 		const char *locname = (evi && evi->locator[0]) ? evi->locator : "-";
+		const char *encap = evi ? zebra_sr6_encap_mode2str(evi->l2_encap_mode) : "-";
 
 		num_macs = num_valid_macs(zevpn);
 		num_neigh = zebra_neigh_db_count(zevpn->neigh_table);
@@ -137,12 +138,14 @@ void zebra_evpn_print(struct zebra_evpn *zevpn, void **ctxt)
 			vty_out(vty, " Backend: SRv6 L2 EVPN\n");
 			vty_out(vty, " Service Type: %s\n", svc);
 			vty_out(vty, " Locator: %s\n", locname);
+			vty_out(vty, " L2 Encap Mode: %s\n", encap);
 			vty_out(vty, " Num MACs: %u\n", num_macs);
 			vty_out(vty, " Num ARP/ND: %u\n", num_neigh);
 		} else {
 			json_object_string_add(json, "backend", "srv6");
 			json_object_string_add(json, "serviceType", svc);
 			json_object_string_add(json, "locator", locname);
+			json_object_string_add(json, "l2EncapMode", encap);
 			json_object_int_add(json, "numMacs", num_macs);
 			json_object_int_add(json, "numArpNd", num_neigh);
 		}
