@@ -1018,10 +1018,13 @@ static int fpm_nl_enqueue(struct fpm_nl_ctx *fnc, struct zebra_dplane_ctx *ctx)
 		/*
 		 * Only the EVPN remote MACs (L2VNI remote MACs and router
 		 * MACs): not the local MACs zebra installs or flushes
-		 * (EVPN-MH sync MACs, local MACs of an ES), which a new FPM
-		 * connection does not get again.
+		 * (EVPN-MH sync MACs, local MACs of an ES, including the ones
+		 * programmed like remote ones while their ES is down,
+		 * flagged `DPLANE_MAC_SKIP_FPM`), which a new FPM connection
+		 * does not get again.
 		 */
-		if (!CHECK_FLAG(dplane_ctx_mac_get_update_flags(ctx), DPLANE_MAC_REMOTE))
+		if (!CHECK_FLAG(dplane_ctx_mac_get_update_flags(ctx), DPLANE_MAC_REMOTE) ||
+		    CHECK_FLAG(dplane_ctx_mac_get_update_flags(ctx), DPLANE_MAC_SKIP_FPM))
 			return 0;
 
 		rv = netlink_macfdb_update_ctx(ctx, nl_buf, sizeof(nl_buf), true);

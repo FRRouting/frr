@@ -6301,12 +6301,14 @@ enum zebra_dplane_result dplane_intf_speed_get(const struct interface *ifp)
 
 /*
  * Enqueue vxlan/evpn mac add (or update).
+ *
+ * `skip_fpm`: only for the kernel, not the FPM (see `DPLANE_MAC_SKIP_FPM`).
  */
 enum zebra_dplane_result dplane_rem_mac_add(const struct interface *ifp,
 					    const struct interface *bridge_ifp, vlanid_t vid,
 					    const struct ethaddr *mac, vni_t vni,
 					    struct ipaddr *vtep_ip, bool sticky, uint32_t nhg_id,
-					    bool was_static)
+					    bool was_static, bool skip_fpm)
 {
 	enum zebra_dplane_result result;
 	uint32_t update_flags = 0;
@@ -6314,6 +6316,8 @@ enum zebra_dplane_result dplane_rem_mac_add(const struct interface *ifp,
 	update_flags |= DPLANE_MAC_REMOTE;
 	if (was_static)
 		update_flags |= DPLANE_MAC_WAS_STATIC;
+	if (skip_fpm)
+		update_flags |= DPLANE_MAC_SKIP_FPM;
 
 	/* Use common helper api */
 	result = mac_update_common(DPLANE_OP_MAC_INSTALL, ifp, bridge_ifp, vid,
@@ -6324,16 +6328,20 @@ enum zebra_dplane_result dplane_rem_mac_add(const struct interface *ifp,
 
 /*
  * Enqueue vxlan/evpn mac delete.
+ *
+ * `skip_fpm`: only for the kernel, not the FPM (see `DPLANE_MAC_SKIP_FPM`).
  */
 enum zebra_dplane_result dplane_rem_mac_del(const struct interface *ifp,
 					    const struct interface *bridge_ifp, vlanid_t vid,
 					    const struct ethaddr *mac, vni_t vni,
-					    struct ipaddr *vtep_ip)
+					    struct ipaddr *vtep_ip, bool skip_fpm)
 {
 	enum zebra_dplane_result result;
 	uint32_t update_flags = 0;
 
 	update_flags |= DPLANE_MAC_REMOTE;
+	if (skip_fpm)
+		update_flags |= DPLANE_MAC_SKIP_FPM;
 
 	/* Use common helper api */
 	result = mac_update_common(DPLANE_OP_MAC_DELETE, ifp, bridge_ifp, vid,

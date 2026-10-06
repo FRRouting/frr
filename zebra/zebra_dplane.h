@@ -272,6 +272,14 @@ enum dplane_op_e {
 #define DPLANE_MAC_SELF_ONLY (1 << 4)
 /* Not sent to the kernel, only to the other dataplane providers (FPM) */
 #define DPLANE_MAC_SKIP_KERNEL (1 << 5)
+/*
+ * Not sent to the FPM, only to the kernel: a local MAC programmed like a
+ * remote one (EVPN-MH: a MAC of a local ES that is down, redirected to the
+ * ES peers when there is no fast failover), which a new FPM connection does
+ * not get again, or an update the FPM gets on its own (see
+ * `DPLANE_MAC_SKIP_KERNEL`).
+ */
+#define DPLANE_MAC_SKIP_FPM (1 << 6)
 
 /* Neigh update flags - dplane_neigh_info.update_flags */
 #define DPLANE_NEIGH_REMOTE       (1 << 0)
@@ -1156,7 +1164,7 @@ enum zebra_dplane_result dplane_rem_mac_add(const struct interface *ifp,
 					    const struct interface *bridge_ifp, vlanid_t vid,
 					    const struct ethaddr *mac, vni_t vni,
 					    struct ipaddr *vtep_ip, bool sticky, uint32_t nhg_id,
-					    bool was_static);
+					    bool was_static, bool skip_fpm);
 
 enum zebra_dplane_result dplane_local_mac_add(const struct interface *ifp,
 					const struct interface *bridge_ifp,
@@ -1174,7 +1182,7 @@ dplane_local_mac_del(const struct interface *ifp,
 enum zebra_dplane_result dplane_rem_mac_del(const struct interface *ifp,
 					    const struct interface *bridge_ifp, vlanid_t vid,
 					    const struct ethaddr *mac, vni_t vni,
-					    struct ipaddr *vtep_ip);
+					    struct ipaddr *vtep_ip, bool skip_fpm);
 
 enum zebra_dplane_result dplane_rem_mac_net_del(const struct interface *ifp,
 						const struct interface *bridge_ifp, vlanid_t vid,
