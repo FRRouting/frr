@@ -2007,7 +2007,7 @@ DEFUN (ipv6_ospf6_ifmtu,
 	/* re-establish adjacencies */
 	for (ALL_LIST_ELEMENTS(oi->neighbor_list, node, nnode, on)) {
 		event_cancel(&on->inactivity_timer);
-		event_add_event(master, inactivity_timer, on, 0, NULL);
+		event_add_event(master, inactivity_timer, on, 0, &on->inactivity_timer);
 	}
 
 	return CMD_SUCCESS;
@@ -2053,7 +2053,7 @@ DEFUN (no_ipv6_ospf6_ifmtu,
 	/* re-establish adjacencies */
 	for (ALL_LIST_ELEMENTS(oi->neighbor_list, node, nnode, on)) {
 		event_cancel(&on->inactivity_timer);
-		event_add_event(master, inactivity_timer, on, 0, NULL);
+		event_add_event(master, inactivity_timer, on, 0, &on->inactivity_timer);
 	}
 
 	return CMD_SUCCESS;
@@ -2502,7 +2502,7 @@ DEFUN (ipv6_ospf6_passive,
 
 	for (ALL_LIST_ELEMENTS(oi->neighbor_list, node, nnode, on)) {
 		event_cancel(&on->inactivity_timer);
-		event_add_event(master, inactivity_timer, on, 0, NULL);
+		event_add_event(master, inactivity_timer, on, 0, &on->inactivity_timer);
 	}
 
 	return CMD_SUCCESS;
