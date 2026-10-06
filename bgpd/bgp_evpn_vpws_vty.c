@@ -14,6 +14,7 @@
  *      vpws-evi N
  *      rd RD
  *      route-target {import|export|both} RT
+ *      l2-encap-mode <full|reduced>
  *     exit-vpws-instance
  *    exit-address-family
  */
@@ -24,6 +25,7 @@
 #include "lib/vty.h"
 #include "lib/prefix.h"
 #include "lib/memory.h"
+#include "lib/zclient.h" /* ZAPI_VPWS_L2_ENCAP_* */
 
 #include "bgpd/bgp_rd.h"
 #include "bgpd/bgpd.h"
@@ -291,6 +293,38 @@ DEFPY (no_bgp_evpn_vpws_locator,
 	return CMD_SUCCESS;
 }
 
+/* ---------- l2-encap-mode <full|reduced> ---------- */
+
+DEFPY (bgp_evpn_vpws_l2_encap_mode,
+       bgp_evpn_vpws_l2_encap_mode_cmd,
+       "l2-encap-mode <full|reduced>$mode",
+       "SRv6 L2 encapsulation mode toward the peer End.DX2 SID\n"
+       "Full: H.Encaps.L2 - keep the SRH on the wire (default)\n"
+       "Reduced: H.Encaps.L2.Red - SID in the outer IPv6 DA, no SRH\n")
+{
+	VTY_DECLVAR_CONTEXT_SUB(bgp_evpn_vpws, ctx);
+
+	bgp_evpn_vpws_set_l2_encap_mode(ctx, strmatch(mode, "reduced")
+						     ? ZAPI_VPWS_L2_ENCAP_REDUCED
+						     : ZAPI_VPWS_L2_ENCAP_FULL);
+	return CMD_SUCCESS;
+}
+
+DEFPY (no_bgp_evpn_vpws_l2_encap_mode,
+       no_bgp_evpn_vpws_l2_encap_mode_cmd,
+       "no l2-encap-mode [<full|reduced>]",
+       NO_STR
+       "SRv6 L2 encapsulation mode toward the peer End.DX2 SID\n"
+       "Full: H.Encaps.L2 - keep the SRH on the wire (default)\n"
+       "Reduced: H.Encaps.L2.Red - SID in the outer IPv6 DA, no SRH\n")
+{
+	VTY_DECLVAR_CONTEXT_SUB(bgp_evpn_vpws, ctx);
+
+	/* Revert to the default (full). */
+	bgp_evpn_vpws_set_l2_encap_mode(ctx, ZAPI_VPWS_L2_ENCAP_FULL);
+	return CMD_SUCCESS;
+}
+
 /* ---------- show bgp l2vpn evpn vpws [NAME] ---------- */
 
 static void vpws_show_one(struct vty *vty, const struct bgp_evpn_vpws *vpws)
@@ -324,6 +358,8 @@ static void vpws_show_one(struct vty *vty, const struct bgp_evpn_vpws *vpws)
 		vpws->sid_requested && !vpws->sid_allocated ? " (alloc pending)" : "");
 	vty_out(vty, "  SRv6 locator   : %s\n",
 		vpws->locator_name[0] ? vpws->locator_name : "(BGP instance-wide)");
+	vty_out(vty, "  L2 encap mode  : %s\n",
+		vpws->l2_encap_mode == ZAPI_VPWS_L2_ENCAP_REDUCED ? "reduced" : "full");
 	vty_out(vty, "  Source AC-ID   : %u\n", vpws->source_ac_id);
 	vty_out(vty, "  Target AC-ID   : %u\n", vpws->target_ac_id);
 	vty_out(vty, "  RD             : %s%s\n", vpws->prd_set ? rd_buf : "(unset)",
@@ -393,6 +429,8 @@ void bgp_evpn_vpws_vty_init(void)
 	install_element(BGP_EVPN_VPWS_NODE, &no_bgp_evpn_vpws_interface_cmd);
 	install_element(BGP_EVPN_VPWS_NODE, &bgp_evpn_vpws_locator_cmd);
 	install_element(BGP_EVPN_VPWS_NODE, &no_bgp_evpn_vpws_locator_cmd);
+	install_element(BGP_EVPN_VPWS_NODE, &bgp_evpn_vpws_l2_encap_mode_cmd);
+	install_element(BGP_EVPN_VPWS_NODE, &no_bgp_evpn_vpws_l2_encap_mode_cmd);
 	install_element(BGP_EVPN_VPWS_NODE, &bgp_evpn_vpws_exit_cmd);
 
 	install_element(VIEW_NODE, &show_bgp_l2vpn_evpn_vpws_cmd);
