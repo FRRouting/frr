@@ -1365,12 +1365,20 @@ struct zapi_opaque_notif_info {
 	uint32_t session_id;
 };
 
+/*
+ * Per-VPWS-instance SRv6 L2 headend encap mode (`l2-encap-mode` under
+ * `vpws-instance NAME`).  Values match zebra's enum zebra_sr6_encap_mode.
+ */
+#define ZAPI_VPWS_L2_ENCAP_FULL	   0 /* H.Encaps.L2 (default) */
+#define ZAPI_VPWS_L2_ENCAP_REDUCED 1 /* H.Encaps.L2.Red */
+
 /* sent on local `interface IFNAME sid auto` once the local SID is allocated */
 struct zapi_vpws_local {
 	char instance_name[64];
 	char ac_ifname[IFNAMSIZ];     /* Attachment Circuit (AC) to enslave + use as DX2 oif */
 	char bridge_ifname[IFNAMSIZ]; /* operator-created bridge to enslave AC+sr6 to */
 	struct in6_addr local_sid;    /* DX2 decap SID to install */
+	uint8_t l2_encap_mode;	      /* ZAPI_VPWS_L2_ENCAP_{FULL,REDUCED} */
 };
 
 /* sent on Type-1 EAD-EVI import (peer learned) */

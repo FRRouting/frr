@@ -338,6 +338,7 @@ struct zebra_srv6_evi *zebra_srv6_evi_get_or_create(vni_t vni)
 	evi->vni = vni;
 	evi->dp_backend = ZEVPN_DP_SRV6;
 	evi->svc_type = ZEVPN_SVC_VLAN_AWARE_BUNDLE; /* preferred default */
+	evi->l2_encap_mode = ZEBRA_SR6_ENCAP_MODE_FULL; /* `l2-encap-mode` default */
 	evi->dp_ops = &zevpn_dp_ops_srv6;
 	evi_bds_init(&evi->bds);
 	QOBJ_REG(evi, zebra_srv6_evi);
@@ -726,6 +727,42 @@ static bool srv6_evi_alloc_sids(struct zebra_srv6_evi *evi)
 	return false;
 }
 
+/*
+ * Per-EVI `l2-encap-mode <full|reduced>`.  Stores the mode and, when it
+ * changes on an EVI already bound to a bridge, re-programs that bridge's
+ * sr6/bum-sr6 interfaces live (same SID / MTU, new mode) via the dplane.
+ */
+void zebra_srv6_evi_set_encap_mode(struct zebra_srv6_evi *evi, uint8_t mode)
+{
+	if (!evi)
+		return;
+	if (mode != ZEBRA_SR6_ENCAP_MODE_REDUCED)
+		mode = ZEBRA_SR6_ENCAP_MODE_FULL;
+	if (evi->l2_encap_mode == mode)
+		return;
+
+	evi->l2_encap_mode = mode;
+
+	if (IS_ZEBRA_DEBUG_VXLAN)
+		zlog_debug("%s: EVI %u l2-encap-mode -> %s", __func__, evi->vni,
+			   zebra_sr6_encap_mode2str(mode));
+
+	if (evi->bridge_if && evi->bridge_if->ifindex)
+		zebra_sr6_reprogram_on_bridge(evi->bridge_if->ifindex);
+}
+
+uint8_t zebra_srv6_evi_encap_mode_by_bridge(ifindex_t bridge_ifindex)
+{
+	struct zebra_srv6_evi *evi;
+
+	if (!srv6_evi_inited || bridge_ifindex == 0)
+		return ZEBRA_SR6_ENCAP_MODE_FULL;
+	frr_each (srv6_evi_htab, srv6_evi_table, evi)
+		if (evi->bridge_if && evi->bridge_if->ifindex == bridge_ifindex)
+			return evi->l2_encap_mode;
+	return ZEBRA_SR6_ENCAP_MODE_FULL;
+}
+
 void zebra_srv6_l2evpn_realize_on_bridge(ifindex_t bridge_ifindex)
 {
 	struct zebra_srv6_evi *evi;
@@ -747,13 +784,12 @@ void zebra_srv6_evi_realize(struct zebra_srv6_evi *evi)
 
 	/*
 	 * Discover the operator-owned sr6 (End.DT2U) / bum-sr6 (End.DT2M) on this
-	 * EVI's bridge and mirror the kernel-configured encap mode (no software
-	 * default).  Stored per EVI for programming and show output.
+	 * EVI's bridge.  The encap mode is NOT read back from the kernel: it is
+	 * the per-EVI `l2-encap-mode` config (default full), pushed onto these
+	 * interfaces with every changelink.
 	 */
 	evi->sr6_ifindex = zebra_sr6_discover_on_bridge(evi->bridge_if->ifindex, false, NULL);
 	evi->bum_sr6_ifindex = zebra_sr6_discover_on_bridge(evi->bridge_if->ifindex, true, NULL);
-	evi->l2_encap_mode = zebra_sr6_kernel_encap_mode(evi->sr6_ifindex,
-							  zebra_sr6_get_encap_mode());
 
 	zevpn = zebra_evpn_lookup(evi->vni);
 	if (!zevpn)
@@ -872,39 +908,77 @@ void zebra_srv6_evi_realize(struct zebra_srv6_evi *evi)
 	 * own SID → loop.  The peer-keyed bum-sr6 remains the only flood port.
 	 * Keyed by the EVI's own DT2U SID (distinct from any remote SID).
 	 */
-	if (evi->dt2u_sid_valid && (evi->local_decap_oif == 0 ||
-				    !IPV6_ADDR_SAME(&evi->local_decap_sid, &evi->dt2u_sid))) {
-		struct zebra_sr6 *decap;
+	if (evi->dt2u_sid_valid) {
+		bool have_decap = !IN6_IS_ADDR_UNSPECIFIED(&evi->local_decap_sid);
+		bool sid_changed = have_decap &&
+				   !IPV6_ADDR_SAME(&evi->local_decap_sid, &evi->dt2u_sid);
 
 		/*
-		 * The decap interface is keyed by dt2u_sid.  If a decap already
-		 * exists but was built for a DIFFERENT SID (locator legacy<->uSID
-		 * reallocation changed dt2u_sid), drop the stale one first so we
-		 * don't leak it and so local_decap_oif stops pointing at the old
-		 * (now-deleted) ifindex.  get_or_create() is idempotent by SID, so
-		 * when the SID is unchanged this whole block is skipped (the gate
-		 * above is false) — no sr6 refcount churn on repeated realize.
+		 * Acquire the local decap sr6 exactly once per dt2u SID.  The
+		 * "do we already hold it?" test keys off local_decap_sid (recorded
+		 * the moment we acquire, even while the netdev's ifindex is still
+		 * pending) - NOT local_decap_oif.  local_decap_oif stays 0 through
+		 * the whole discovery window (the operator-owned netdev is not yet
+		 * seen, so get_or_create returns ifindex 0 until zebra_sr6_if_add
+		 * resolves it), so gating on oif == 0 made every realize pass
+		 * re-acquire and inflate the sr6 refcount (sr6_get_or_create does
+		 * refcnt++ per call); a single release on a later SID change then
+		 * could never drive the refcount to 0, leaking the old interface.
+		 * Keying off the SID makes the acquire idempotent, so refcount
+		 * stays 1.
 		 */
-		if (evi->local_decap_oif != 0 &&
-		    !IPV6_ADDR_SAME(&evi->local_decap_sid, &evi->dt2u_sid)) {
-			zebra_sr6_release(&evi->local_decap_sid);
-			evi->local_decap_oif = 0;
+		if (!have_decap || sid_changed) {
+			struct zebra_sr6 *decap;
+
+			/*
+			 * SID changed (locator legacy<->uSID reallocation changed
+			 * dt2u_sid): release the sr6 keyed by the OLD SID first so
+			 * it is reset (not leaked) and local_decap_* stops pointing
+			 * at the stale interface.
+			 */
+			if (sid_changed) {
+				zebra_sr6_release(&evi->local_decap_sid);
+				memset(&evi->local_decap_sid, 0,
+				       sizeof(evi->local_decap_sid));
+				evi->local_decap_oif = 0;
+			}
+
+			/*
+			 * Local decap anchor: resolves the same operator-owned
+			 * sr6-<n> as the peer-keyed entry, so it must never program
+			 * our own SID as the encap segment (that overwrote the
+			 * remote SID on sr6-1).
+			 */
+			decap = zebra_sr6_get_or_create_local_decap(&evi->dt2u_sid,
+								    evi->bridge_if->ifindex,
+								    zevpn->vid);
+			if (decap) {
+				/* Record the held SID now; the ifindex is filled
+				 * in below once the netdev materialises. */
+				evi->local_decap_sid = evi->dt2u_sid;
+				evi->local_decap_oif = decap->ifindex;
+				if (IS_ZEBRA_DEBUG_VXLAN)
+					zlog_debug("%s: EVI %u local decap l2dev %s (ifindex %u) for SID %pI6",
+						   __func__, evi->vni, decap->ifname,
+						   decap->ifindex, &evi->dt2u_sid);
+			} else {
+				memset(&evi->local_decap_sid, 0,
+				       sizeof(evi->local_decap_sid));
+				evi->local_decap_oif = 0;
+				zlog_warn("%s: EVI %u: failed to create local decap interface",
+					  __func__, evi->vni);
+			}
 		}
 
-		decap = zebra_sr6_get_or_create(&evi->dt2u_sid, evi->bridge_if->ifindex,
-						 false /* is_bum: flood-off */, zevpn->vid);
+		/*
+		 * Refresh the cached oif from the tracked entry WITHOUT taking a
+		 * new reference, so the ifindex resolved asynchronously by
+		 * zebra_sr6_if_add() lands here on a subsequent realize.
+		 */
+		if (!IN6_IS_ADDR_UNSPECIFIED(&evi->local_decap_sid)) {
+			struct zebra_sr6 *d = zebra_sr6_lookup(&evi->local_decap_sid);
 
-		if (decap) {
-			evi->local_decap_oif = decap->ifindex;
-			evi->local_decap_sid = evi->dt2u_sid;
-			if (IS_ZEBRA_DEBUG_VXLAN)
-				zlog_debug("%s: EVI %u local decap l2dev %s (ifindex %u) for SID %pI6",
-					   __func__, evi->vni, decap->ifname, decap->ifindex,
-					   &evi->dt2u_sid);
-		} else {
-			evi->local_decap_oif = 0;
-			zlog_warn("%s: EVI %u: failed to create local decap interface", __func__,
-				  evi->vni);
+			evi->local_decap_oif = d ? d->ifindex : 0;
 		}
 	}
 
@@ -1215,21 +1289,14 @@ int zebra_srv6_l2evpn_config_write(struct vty *vty)
 {
 	struct zebra_srv6_evi *evi;
 	struct zebra_srv6_evi_bd *bd;
-	enum zebra_sr6_encap_mode mode = zebra_sr6_get_encap_mode();
 	uint32_t mtu = zebra_sr6_get_mtu();
 	bool have_evis = srv6_evi_inited && srv6_evi_htab_count(srv6_evi_table) > 0;
 
-	/* Nothing to persist: no EVIs, encap mode default, MTU unset. */
-	if (!have_evis && mode == ZEBRA_SR6_ENCAP_MODE_FULL &&
-	    mtu == ZEBRA_SR6_MTU_UNSET)
+	/* Nothing to persist: no EVIs, MTU unset.  (l2-encap-mode is per EVI.) */
+	if (!have_evis && mtu == ZEBRA_SR6_MTU_UNSET)
 		return 0;
 
 	vty_out(vty, "  l2-evpn\n");
-
-	/* Device-wide sr6 encap mode; only emitted when not the default. */
-	if (mode != ZEBRA_SR6_ENCAP_MODE_FULL)
-		vty_out(vty, "   l2-encap-mode %s\n",
-			zebra_sr6_encap_mode2str(mode));
 
 	/* Device-wide sr6 MTU; only emitted when explicitly configured. */
 	if (mtu != ZEBRA_SR6_MTU_UNSET)
@@ -1243,6 +1310,10 @@ int zebra_srv6_l2evpn_config_write(struct vty *vty)
 			vty_out(vty, " bridge %s", evi->bridge_if->name);
 		vty_out(vty, "\n");
 		vty_out(vty, "    service-type %s\n", zevpn_l2_service2str(evi->svc_type));
+		/* Per-EVI encap mode; only emitted when not the default (full). */
+		if (evi->l2_encap_mode != ZEBRA_SR6_ENCAP_MODE_FULL)
+			vty_out(vty, "    l2-encap-mode %s\n",
+				zebra_sr6_encap_mode2str(evi->l2_encap_mode));
 		frr_each (evi_bds, &evi->bds, bd)
 			vty_out(vty, "    vlan %u\n", bd->vid);
 		vty_out(vty, "   exit\n");

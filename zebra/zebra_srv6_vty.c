@@ -1884,9 +1884,9 @@ DEFPY_NOSH (srv6_l2evpn,
 }
 
 /*
- * The `l2-encap-mode` CLI has been removed: the sr6 encap mode is owned by the
- * kernel (operator `ip link add ... type sr6 mode ...`).  FRR MIRRORS it per EVI
- * / VPWS (read from IFLA_SR6_ENCAP_MODE) and never imposes a software default.
+ * `l2-encap-mode <full|reduced>` is configured PER EVI, inside the
+ * `evi <n> [locator ..] [bridge ..]` node (srv6_evi_l2_encap_mode_cmd below).
+ * Default is full; the value is carried on every sr6/bum-sr6 changelink.
  */
 
 DEFPY (srv6_l2evpn_mtu,
@@ -2004,6 +2004,35 @@ DEFPY (srv6_evi_service_type,
 	return CMD_SUCCESS;
 }
 
+DEFPY (srv6_evi_l2_encap_mode,
+       srv6_evi_l2_encap_mode_cmd,
+       "l2-encap-mode <full|reduced>$mode",
+       "SRv6 L2 encapsulation mode for this EVI's sr6 tunnel interfaces\n"
+       "Full: H.Encaps.L2 - keep the SRH on the wire (default)\n"
+       "Reduced: H.Encaps.L2.Red - single SID in the outer IPv6 DA, no SRH\n")
+{
+	VTY_DECLVAR_CONTEXT(zebra_srv6_evi, evi);
+
+	zebra_srv6_evi_set_encap_mode(evi, strmatch(mode, "reduced") ? ZEBRA_SR6_ENCAP_MODE_REDUCED
+								     : ZEBRA_SR6_ENCAP_MODE_FULL);
+	return CMD_SUCCESS;
+}
+
+DEFPY (no_srv6_evi_l2_encap_mode,
+       no_srv6_evi_l2_encap_mode_cmd,
+       "no l2-encap-mode [<full|reduced>]",
+       NO_STR
+       "SRv6 L2 encapsulation mode for this EVI's sr6 tunnel interfaces\n"
+       "Full: H.Encaps.L2 - keep the SRH on the wire (default)\n"
+       "Reduced: H.Encaps.L2.Red - single SID in the outer IPv6 DA, no SRH\n")
+{
+	VTY_DECLVAR_CONTEXT(zebra_srv6_evi, evi);
+
+	/* Revert to the default (full). */
+	zebra_srv6_evi_set_encap_mode(evi, ZEBRA_SR6_ENCAP_MODE_FULL);
+	return CMD_SUCCESS;
+}
+
 DEFPY (srv6_evi_vlan,
        srv6_evi_vlan_cmd,
        "vlan (1-4094)$vid",
@@ -2074,6 +2103,8 @@ void zebra_srv6_vty_init(void)
 	install_element(SRV6_L2EVPN_NODE, &srv6_l2evpn_evi_cmd);
 	install_element(SRV6_L2EVPN_NODE, &no_srv6_l2evpn_evi_cmd);
 	install_element(SRV6_L2EVPN_EVI_NODE, &srv6_evi_service_type_cmd);
+	install_element(SRV6_L2EVPN_EVI_NODE, &srv6_evi_l2_encap_mode_cmd);
+	install_element(SRV6_L2EVPN_EVI_NODE, &no_srv6_evi_l2_encap_mode_cmd);
 	install_element(SRV6_L2EVPN_EVI_NODE, &srv6_evi_vlan_cmd);
 	install_element(SRV6_L2EVPN_EVI_NODE, &no_srv6_evi_vlan_cmd);
 	install_element(SRV6_LOCS_NODE, &srv6_locator_cmd);

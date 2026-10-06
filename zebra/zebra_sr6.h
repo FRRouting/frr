@@ -60,6 +60,16 @@ struct zebra_sr6 {
 
 	/* EVI VLAN to (re)bind once the netdev appears (0 = vlan-bundle). */
 	vlanid_t vid;
+
+	/*
+	 * true -> this entry is the EVI's LOCAL decap anchor, keyed by the
+	 * EVI's own End.DT2U SID.  In the operator-owned model it resolves to
+	 * the SAME sr6-<n> netdev as the peer-keyed (remote SID) entry, so it
+	 * must NEVER be programmed as an encap SID (that would overwrite the
+	 * remote segs with our own SID) nor reset on release (that would wipe a
+	 * live remote encap).  It only supplies the l2dev ifindex for decap.
+	 */
+	bool local_decap;
 };
 
 /*
@@ -71,9 +81,11 @@ struct zebra_sr6 {
  *   FULL    - keep the SRH on the wire (default).
  *   REDUCED - single-SID H.Encaps.L2.Red: SID in the outer IPv6 DA, no SRH.
  *
- * A change takes effect for sr6 interfaces created afterwards; interfaces
- * already in the kernel keep their mode until they are recreated (the sr6
- * driver has no changelink to reprogram it in place).
+ * The mode is configured PER EVI (`l2-encap-mode <full|reduced>` inside
+ * `evi <n> ...`, default full - see struct zebra_srv6_evi.l2_encap_mode) and
+ * is carried on every sr6 changelink {MTU, encap-mode, SID}, so a change is
+ * applied to existing interfaces in place.  zebra_sr6_get_encap_mode() is
+ * only the FULL fallback for interfaces not bound to any EVI.
  */
 enum zebra_sr6_encap_mode {
 	ZEBRA_SR6_ENCAP_MODE_FULL = 0,
@@ -87,6 +99,10 @@ extern const char *zebra_sr6_encap_mode2str(enum zebra_sr6_encap_mode mode);
  * zebra_if), or @fallback if unknown.  No software default.
  */
 extern uint8_t zebra_sr6_kernel_encap_mode(ifindex_t ifindex, uint8_t fallback);
+/* Re-program every tracked sr6/bum-sr6 on @bridge_ifindex with the owning
+ * EVI's current `l2-encap-mode` (and untracked EVI ports with segs ::).
+ */
+extern void zebra_sr6_reprogram_on_bridge(ifindex_t bridge_ifindex);
 /* Discover the operator-owned sr6 (is_bum=false)/bum-sr6 (is_bum=true) on a
  * bridge by name prefix; 0 if not present.  namebuf (optional) gets the name.
  */
@@ -127,6 +143,14 @@ extern void zebra_sr6_terminate(void);
 extern struct zebra_sr6 *zebra_sr6_get_or_create(const struct in6_addr *sid,
 						   ifindex_t bridge_ifindex, bool is_bum,
 						   vlanid_t vid);
+/*
+ * Same as zebra_sr6_get_or_create() for the EVI's local decap anchor (keyed by
+ * the EVI's own DT2U SID): resolves the unicast sr6 on the bridge for use as
+ * the decap l2dev but never programs/resets its encap (see local_decap).
+ */
+extern struct zebra_sr6 *zebra_sr6_get_or_create_local_decap(const struct in6_addr *sid,
+							      ifindex_t bridge_ifindex,
+							      vlanid_t vid);
 
 /*
  * Decrement the reference count for the sr6 entry bound to @sid.
