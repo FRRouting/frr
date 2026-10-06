@@ -12,8 +12,8 @@
       "installed":true,
       "internalStatus":16,
       "internalFlags":8,
-      "internalNextHopNum":4,
-      "internalNextHopActiveNum":4,
+      "internalNextHopNum":2,
+      "internalNextHopActiveNum":2,
       "internalNextHopFibInstalledNum":2,
       "nexthops": [
         {
@@ -27,28 +27,8 @@
           "weight": 1
         },
         {
-          "flags": 281,
-          "duplicate": true,
-          "ip": "fd00:0:20::1",
-          "afi": "ipv6",
-          "interfaceName": "vlan4001",
-          "active": true,
-          "onLink": true,
-          "weight": 1
-        },
-        {
           "flags": 267,
           "fib": true,
-          "ip": "fd00:0:20::2",
-          "afi": "ipv6",
-          "interfaceName": "vlan4001",
-          "active": true,
-          "onLink": true,
-          "weight": 1
-        },
-        {
-          "flags": 281,
-          "duplicate": true,
           "ip": "fd00:0:20::2",
           "afi": "ipv6",
           "interfaceName": "vlan4001",

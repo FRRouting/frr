@@ -638,8 +638,6 @@ def _test_wait_for_multipath_convergence(router, expected_paths=1):
     expected = {
         "10.0.101.1/32": [{"nexthops": [{"ip": "192.168.1.1"}] * expected_paths}]
     }
-    # Using router_json_cmp instead of verify_fib_routes, because we need to check for
-    # two next-hops with the same IP address.
     test_func = partial(
         topotest.router_json_cmp,
         router,
@@ -650,6 +648,22 @@ def _test_wait_for_multipath_convergence(router, expected_paths=1):
     assert (
         result is None
     ), f"R2 does not have {expected_paths} next-hops for 10.0.101.1/32 JSON output mismatches"
+
+
+def _test_wait_for_bgp_paths(router, expected_paths):
+    """
+    Wait for R2 to hold every BGP path for 10.0.101.1/32, so that flapping
+    one session never leaves the route without a path
+    """
+    expected = {"paths": [{"valid": True}] * expected_paths}
+    test_func = partial(
+        topotest.router_json_cmp,
+        router,
+        "show bgp vrf vrf-101 ipv4 unicast 10.0.101.1/32 json",
+        expected,
+    )
+    _, result = topotest.run_and_expect(test_func, None)
+    assert result is None, f"R2 does not have {expected_paths} paths for 10.0.101.1/32"
 
 
 def _test_rmac_present(router):
@@ -736,7 +750,12 @@ def test_evpn_multipath():
 
     rr = tgen.gears["rr"]
     r2 = tgen.gears["r2"]
-    _test_wait_for_multipath_convergence(r2, expected_paths=2)
+    _test_wait_for_bgp_paths(r2, 2)
+    # Both of R1's paths carry the same VTEP, so BGP counts only one of them
+    # as a multipath and zebra is handed a single nexthop. That leaves zebra's
+    # refcounting of a nexthop shared by two paths unexercised; the flaps
+    # still check that the RMAC stays while the route is present.
+    _test_wait_for_multipath_convergence(r2)
     _test_rmac_present(r2)
 
     # Enable dataplane logs in FRR
@@ -761,9 +780,10 @@ configure terminal
         rr.vtysh_cmd("clear bgp {0}".format(r2_addr))
 
         _test_epoch_after_clear(r2, rr_addr, last_established_epoch)
-        _test_wait_for_multipath_convergence(r2, expected_paths=2)
+        _test_wait_for_bgp_paths(r2, 2)
+        _test_wait_for_multipath_convergence(r2)
         _test_rmac_present(r2)
-        _test_router_check_evpn_next_hop(expected_paths=2)
+        _test_router_check_evpn_next_hop()
 
     # Check for MAC_DELETE or NEIGH_DELETE in zebra log
     log = r2.net.getLog("log", "zebra")
