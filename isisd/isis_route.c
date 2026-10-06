@@ -164,6 +164,12 @@ void adjinfo2nexthop(int family, struct list *nexthops, struct isis_adjacency *a
 
 	switch (family) {
 	case AF_INET:
+		/* IPv4 over the neighbor's IPv6 link-local address. */
+		if (!isis_adj_ipv4_usable(adj) && isis_circuit_ipv4_over_ipv6(adj->circuit)) {
+			adjinfo2nexthop(AF_INET6, nexthops, adj, sr, label_stack);
+			break;
+		}
+
 		for (unsigned int i = 0; i < adj->ipv4_address_count; i++) {
 			ip.ipv4 = adj->ipv4_addresses[i];
 

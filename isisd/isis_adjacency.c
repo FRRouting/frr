@@ -949,6 +949,19 @@ int isis_adj_usage2levels(enum isis_adj_usage usage)
 }
 
 /*
+ * Whether IPv4 may be routed over this circuit using IPv6 link-local nexthops
+ * (as BGP does with RFC 8950): the area enables it and IS-IS runs both address
+ * families on the circuit. IPv6 is required locally because only then do our
+ * hellos carry the link-local address the neighbor needs for the reverse
+ * direction; without it the link would be used for IPv4 one way only.
+ */
+bool isis_circuit_ipv4_over_ipv6(const struct isis_circuit *circuit)
+{
+	return circuit->area && circuit->area->ipv4_over_ipv6_nexthop && circuit->ip_router &&
+	       circuit->ipv6_router;
+}
+
+/*
  * Compute (fresh, never cached) whether this adjacency currently has a
  * usable IPv4/IPv6 nexthop: the local circuit must have an address in
  * that address family, and the neighbor must have advertised one too.
