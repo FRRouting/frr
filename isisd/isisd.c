@@ -3155,6 +3155,11 @@ void isis_area_switchover_routes(struct isis_area *area, int family,
 
 	isis_spf_switchover_routes(area, area->spftree[tree], family,
 				   nexthop_ip, ifindex, level);
+
+	/* IPv4 routes may use the same IPv6 link-local nexthop. */
+	if (family == AF_INET6 && area->ipv4_over_ipv6_nexthop)
+		isis_spf_switchover_routes(area, area->spftree[SPFTREE_IPV4], family, nexthop_ip,
+					   ifindex, level);
 }
 
 
