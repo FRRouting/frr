@@ -132,6 +132,7 @@ void zebra_evpn_gw_macip_del_for_evpn_hash(struct hash_bucket *bucket,
 					   void *ctxt);
 void zebra_evpn_gw_macip_add_for_evpn_hash(struct hash_bucket *bucket,
 					   void *ctxt);
+void zebra_evpn_advertise_subnet_for_evpn_hash(struct hash_bucket *bucket, void *ctxt);
 void zebra_evpn_svi_macip_del_for_evpn_hash(struct hash_bucket *bucket,
 					    void *ctxt);
 struct zebra_evpn *zebra_evpn_map_vlan(struct interface *ifp,
