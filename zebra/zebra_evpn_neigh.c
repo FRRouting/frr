@@ -34,6 +34,12 @@
 
 DEFINE_MTYPE_STATIC(ZEBRA, NEIGH, "EVI Neighbor");
 
+static struct zebra_neigh *zebra_evpn_neigh_add(struct zebra_evpn *zevpn,
+						const struct ipaddr *ip,
+						const struct ethaddr *mac,
+						struct zebra_mac *zmac,
+						uint32_t n_flags);
+
 int neigh_list_cmp(void *p1, void *p2)
 {
 	const struct zebra_neigh *n1 = p1;
@@ -281,6 +287,264 @@ int zebra_evpn_neigh_send_del_to_client(vni_t vni, struct ipaddr *ip,
 	return zebra_evpn_macip_send_msg_to_client(
 		vni, macaddr, ip, 0, 0, state, 0, NULL, ZEBRA_MACIP_DEL);
 }
+
+/*
+ * Inform BGP about a pure-L3 (no-L2VNI) local neighbor addition. The MAC/IP is
+ * tagged ZEBRA_MACIP_TYPE_L3_NEIGH_SYNC and carries the BD VLAN as the ETAG so
+ * bgpd originates it as a label[0]=0 RT-2 sourced from the VRF's L3VNI.
+ *
+ * TODO: es is NULL here. The RT-2's ESI must be resolved from the neighbor's
+ * MAC in the local FDB (MAC -> access port -> es_info->es) so a receiver can
+ * ESI-match the route; wired in a follow-up commit.
+ */
+static int zebra_evpn_neigh_send_add_to_client_l3(vni_t vni,
+						  const struct ipaddr *ip,
+						  const struct ethaddr *macaddr,
+						  vlanid_t eth_tag, uint32_t seq)
+{
+	return zebra_evpn_macip_send_msg_to_client(
+		vni, macaddr, ip, ZEBRA_MACIP_TYPE_L3_NEIGH_SYNC, seq,
+		ZEBRA_NEIGH_ACTIVE, eth_tag, NULL, ZEBRA_MACIP_ADD);
+}
+
+/* Inform BGP about a pure-L3 (no-L2VNI) local neighbor deletion. */
+static int zebra_evpn_neigh_send_del_to_client_l3(vni_t vni,
+						  const struct ipaddr *ip,
+						  const struct ethaddr *macaddr,
+						  vlanid_t eth_tag)
+{
+	return zebra_evpn_macip_send_msg_to_client(vni, macaddr, ip, 0, 0,
+						   ZEBRA_NEIGH_ACTIVE, eth_tag,
+						   NULL, ZEBRA_MACIP_DEL);
+}
+
+/* Withdraw one pure-L3 neighbor's RT-2, delete its DB entry, and release the
+ * singleton hold it took when learned. NOTE: this may free both neigh and
+ * (when it was the last holder) zevpn -- callers must not touch either
+ * afterwards.
+ */
+static void zebra_evpn_l3vni_neigh_del_one(struct zebra_evpn *zevpn,
+					   struct zebra_neigh *neigh)
+{
+	if (IS_ZEBRA_DEBUG_EVPN_MH_L3_NEIGH)
+		zlog_debug("local L3VNI-neigh del ip %pIA mac %pEA L3-VNI %u",
+			   &neigh->ip, &neigh->emac, zevpn->vni);
+
+	zebra_evpn_neigh_send_del_to_client_l3(zevpn->vni, &neigh->ip,
+					       &neigh->emac, neigh->eth_tag);
+	zebra_evpn_neigh_del(zevpn, neigh);
+
+	/* Release this neighbor's hold on the singleton. */
+	zebra_evpn_l3_neigh_sync_unref(zevpn);
+}
+
+/*
+ * Local ARP/ND learn on a no-L2VNI SVI: build a pure-L3 neighbor in the
+ * L3VNI-keyed neighbor-sync singleton and advertise it to bgpd. The host MAC
+ * is kept in n->emac (it is part of the RT-2 NLRI and becomes the neighbor's
+ * lladdr on the peering leaf); the kernel bridge still learns that MAC in the
+ * access BD's FDB, and that FDB entry (MAC -> access port) is what resolves the
+ * RT-2's ESI (TODO, a follow-up commit; see the note on
+ * zebra_evpn_neigh_send_add_to_client_l3()). With no L2VNI the BD has no EVPN L2
+ * instance, so no linked zebra_mac is created or advertised as an EVPN MAC
+ * route. The existing zebra_evpn_local_neigh_update() cannot be reused here: it
+ * dereferences zevpn->vxlan_if (NULL for the singleton) and auto-creates a
+ * zebra_mac.
+ */
+int zebra_evpn_l3vni_local_neigh_update(struct interface *ifp,
+					struct interface *br_if,
+					const struct ipaddr *ip,
+					const struct ethaddr *macaddr,
+					bool is_own, bool is_router)
+{
+	struct zebra_evpn *zevpn;
+	struct zebra_neigh *n;
+	struct ipaddr vtep_ip = {};
+	vni_t vni = 0;
+	vlanid_t vid = 0;
+
+	/* Only local learn originates here; remote sync-install is handled by
+	 * the RX path in a later phase.
+	 */
+	if (is_own)
+		return 0;
+
+	if (!zebra_evpn_l3vni_neigh_sync_bd(ifp, br_if, &vni, &vtep_ip, &vid)) {
+		if (IS_ZEBRA_DEBUG_EVPN_MH_L3_NEIGH)
+			zlog_debug("local neigh ip %pIA on %s: not an L3VNI-neigh BD",
+				   ip, ifp->name);
+		return 0;
+	}
+
+	zevpn = zebra_evpn_l3_neigh_sync_ref(vni);
+	if (!zevpn)
+		return 0;
+	zevpn->local_vtep_ip = vtep_ip;
+
+	n = zebra_evpn_neigh_lookup(zevpn, ip);
+	if (!n) {
+		/* Keep the hold taken above as this neighbor's reference. */
+		n = zebra_evpn_neigh_add(zevpn, ip, macaddr, NULL,
+					 ZEBRA_NEIGH_LOCAL);
+	} else {
+		bool mac_changed = !!memcmp(&n->emac, macaddr, ETH_ALEN);
+		bool etag_changed = n->eth_tag != vid;
+
+		/* Existing neighbor: drop the transient hold. */
+		zebra_evpn_l3_neigh_sync_unref(zevpn);
+
+		if (!mac_changed && !etag_changed &&
+		    (is_router ==
+		     !!CHECK_FLAG(n->flags, ZEBRA_NEIGH_ROUTER_FLAG))) {
+			n->ifindex = ifp->ifindex;
+			return 0;
+		}
+
+		/* The RT-2 NLRI key is (MAC, IP, ETAG): a MAC or ETAG change is
+		 * a different route (the singleton's neigh table is IP-keyed and
+		 * shared across no-L2VNI BDs), so withdraw the old
+		 * (old-MAC, IP, old-ETAG) before advertising the new one.
+		 */
+		if (mac_changed || etag_changed) {
+			zebra_evpn_neigh_send_del_to_client_l3(vni, &n->ip,
+							       &n->emac,
+							       n->eth_tag);
+			if (mac_changed)
+				memcpy(&n->emac, macaddr, ETH_ALEN);
+		}
+	}
+
+	SET_FLAG(n->flags, ZEBRA_NEIGH_LOCAL);
+	if (is_router)
+		SET_FLAG(n->flags, ZEBRA_NEIGH_ROUTER_FLAG);
+	else
+		UNSET_FLAG(n->flags, ZEBRA_NEIGH_ROUTER_FLAG);
+	n->ifindex = ifp->ifindex;
+	n->eth_tag = vid;
+
+	/* Mark active so generic client replay picks it up (zebra_evpn_neigh_add
+	 * leaves the entry inactive).
+	 */
+	ZEBRA_NEIGH_SET_ACTIVE(n);
+
+	if (IS_ZEBRA_DEBUG_EVPN_MH_L3_NEIGH)
+		zlog_debug("local L3VNI-neigh add ip %pIA mac %pEA L3-VNI %u ETAG %u",
+			   ip, macaddr, vni, vid);
+
+	zebra_evpn_neigh_send_add_to_client_l3(vni, &n->ip, &n->emac,
+					       n->eth_tag, n->loc_seq);
+	return 0;
+}
+
+/*
+ * Local RTM_DELNEIGH on a no-L2VNI SVI: withdraw a pure-L3 synced neighbor.
+ * The existing zebra_evpn_neigh_del_ip() rejects a neighbor that has no linked
+ * zebra_mac and dereferences vxlan_if, so a dedicated delete is required. The
+ * lookup is mode-independent (resolves the L3VNI from the SVI's VRF, not the
+ * current mode) so a synced neighbor can still be torn down after the BD
+ * has left L3VNI neighbor-sync mode (knob off, L3VNI down, or an L2VNI
+ * appeared).
+ */
+int zebra_evpn_l3vni_local_neigh_del(struct interface *ifp,
+				     struct interface *br_if,
+				     const struct ipaddr *ip)
+{
+	struct zebra_evpn *zevpn;
+	struct zebra_neigh *n;
+	vni_t vni = 0;
+
+	if (!zebra_evpn_l3vni_from_svi(ifp, &vni))
+		return 0;
+
+	/* Look up without a hold: an empty container must not be resurrected
+	 * only to delete nothing.
+	 */
+	zevpn = zebra_evpn_l3_neigh_sync_lookup(vni);
+	if (!zevpn)
+		return 0;
+
+	n = zebra_evpn_neigh_lookup(zevpn, ip);
+	if (!n || n->mac) /* pure-L3 neighbors have no linked zebra_mac */
+		return 0;
+
+	zebra_evpn_l3vni_neigh_del_one(zevpn, n);
+	return 0;
+}
+
+/* Withdraw and delete every local pure-L3 neighbor in a singleton. Used when a
+ * BD leaves L3VNI neighbor-sync mode (L3VNI oper-down, knob off) so no stale
+ * RT-2 or per-neighbor hold is left behind.
+ */
+void zebra_evpn_l3vni_neigh_flush(struct zebra_evpn *zevpn)
+{
+	struct zebra_neigh *n;
+
+	if (!zevpn || !CHECK_FLAG(zevpn->flags, ZEVPN_L3_NEIGH_SYNC))
+		return;
+
+	/* Pin the singleton across the walk so releasing the last neighbor's
+	 * hold does not free it mid-iteration.
+	 */
+	zevpn->l3_sync_holders++;
+
+	frr_each_safe (zebra_neigh_db, zevpn->neigh_table, n) {
+		if (!CHECK_FLAG(n->flags, ZEBRA_NEIGH_LOCAL) || n->mac)
+			continue;
+		zebra_evpn_l3vni_neigh_del_one(zevpn, n);
+	}
+
+	/* Drop the pin; frees the singleton if it is now unheld and empty. */
+	zebra_evpn_l3_neigh_sync_unref(zevpn);
+}
+
+static void zebra_evpn_l3vni_neigh_flush_cb(struct hash_bucket *bucket,
+					    void *arg)
+{
+	struct zebra_evpn *zevpn = bucket->data;
+
+	if (CHECK_FLAG(zevpn->flags, ZEVPN_L3_NEIGH_SYNC))
+		zebra_evpn_l3vni_neigh_flush(zevpn);
+}
+
+/* Flush every L3VNI neighbor-sync singleton (e.g. on l3vni-neigh
+ * disable). hash_iterate tolerates deletion of the current element.
+ */
+void zebra_evpn_l3vni_neigh_flush_all(void)
+{
+	struct zebra_vrf *zvrf = zebra_vrf_get_evpn();
+
+	if (zvrf && zvrf->evpn_table)
+		hash_iterate(zvrf->evpn_table, zebra_evpn_l3vni_neigh_flush_cb,
+			     NULL);
+}
+
+/* Withdraw only the pure-L3 neighbors of a given ETAG (BD VLAN) from an
+ * L3VNI singleton. Used when a BD gains an L2VNI: the BD's other ETAGs keep
+ * syncing via the shared singleton, so a full flush is too broad.
+ */
+void zebra_evpn_l3vni_neigh_flush_bd(vni_t l3vni, vlanid_t vid)
+{
+	struct zebra_evpn *zevpn;
+	struct zebra_neigh *n;
+
+	zevpn = zebra_evpn_l3_neigh_sync_lookup(l3vni);
+	if (!zevpn)
+		return;
+
+	/* Pin across the walk so releasing the last hold does not free it. */
+	zevpn->l3_sync_holders++;
+
+	frr_each_safe (zebra_neigh_db, zevpn->neigh_table, n) {
+		if (!CHECK_FLAG(n->flags, ZEBRA_NEIGH_LOCAL) || n->mac)
+			continue;
+		if (n->eth_tag != vid)
+			continue;
+		zebra_evpn_l3vni_neigh_del_one(zevpn, n);
+	}
+
+	zebra_evpn_l3_neigh_sync_unref(zevpn);
+}
+
 
 static void zebra_evpn_neigh_send_add_del_to_client(struct zebra_neigh *n,
 						    bool old_bgp_ready,
@@ -1670,16 +1934,28 @@ static void zebra_evpn_send_neigh_hash_entry_to_client(struct mac_walk_ctx *wctx
 	if (CHECK_FLAG(zn->flags, ZEBRA_NEIGH_DEF_GW))
 		return;
 
-	if (CHECK_FLAG(zn->flags, ZEBRA_NEIGH_LOCAL)
-	    && IS_ZEBRA_NEIGH_ACTIVE(zn)) {
-		zmac = zebra_evpn_mac_lookup(wctx->zevpn, &zn->emac);
-		if (!zmac)
-			return;
+	if (!CHECK_FLAG(zn->flags, ZEBRA_NEIGH_LOCAL) ||
+	    !IS_ZEBRA_NEIGH_ACTIVE(zn))
+		return;
 
-		zebra_evpn_neigh_send_add_to_client(wctx->zevpn->vni, &zn->ip,
-						    &zn->emac, zn->mac,
-						    zn->flags, zn->loc_seq);
+	/* Pure-L3 (no-L2VNI) neighbors carry the host MAC in emac but have no
+	 * linked zebra_mac; replay them tagged as L3-neigh-sync, skipping the
+	 * zebra_mac lookup the L2 path requires.
+	 */
+	if (CHECK_FLAG(wctx->zevpn->flags, ZEVPN_L3_NEIGH_SYNC)) {
+		zebra_evpn_neigh_send_add_to_client_l3(wctx->zevpn->vni, &zn->ip,
+						       &zn->emac, zn->eth_tag,
+						       zn->loc_seq);
+		return;
 	}
+
+	zmac = zebra_evpn_mac_lookup(wctx->zevpn, &zn->emac);
+	if (!zmac)
+		return;
+
+	zebra_evpn_neigh_send_add_to_client(wctx->zevpn->vni, &zn->ip,
+					    &zn->emac, zn->mac, zn->flags,
+					    zn->loc_seq);
 }
 
 /* Iterator of a specific EVPN */
