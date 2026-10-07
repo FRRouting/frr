@@ -7,6 +7,7 @@
 #define _QUAGGA_BGP_ATTR_H
 
 #include "mpls.h"
+#include "typesafe.h"
 #include "bgp_attr_evpn.h"
 #include "bgpd/bgp_encap_types.h"
 #include "bgpd/bgp_attr_srv6.h"
@@ -143,8 +144,8 @@ struct attr_extra {
 	/* EVPN overlay index */
 	struct bgp_route_evpn *evpn_overlay;
 
-	/* AIGP Metric */
-	uint64_t aigp_metric;
+	/* AIGP TLVs */
+	struct bgp_aigp_tlvs *aigp_tlvs;
 
 	/* For BGP-LS Attribute (RFC 9552) */
 	struct bgp_ls_attr *ls_attr;
@@ -364,6 +365,18 @@ struct cluster_list {
 	unsigned long refcnt;
 	int length;
 	struct in_addr *list;
+};
+
+/* AIGP TLVs (RFC 7311 section 3). Only the first one (metric[0]) is used,
+ * the others are passed along unchanged.
+ */
+PREDECL_HASH(bgp_aigp_tlvs_hash);
+
+struct bgp_aigp_tlvs {
+	struct bgp_aigp_tlvs_hash_item item;
+	unsigned long refcnt;
+	uint16_t count;
+	uint64_t metric[];
 };
 
 /* Unknown transit attribute. */
@@ -694,33 +707,39 @@ static inline void bgp_attr_set_nhc(struct attr *attr, struct bgp_nhc *bnc)
 #define AIGP_TRANSMIT_ALLOWED(peer)                                                               \
 	(CHECK_FLAG((peer)->flags, PEER_FLAG_AIGP) || ((peer)->sort != BGP_PEER_EBGP))
 
-static inline uint64_t bgp_attr_get_aigp_metric(const struct attr *attr)
+static inline struct bgp_aigp_tlvs *bgp_attr_get_aigp_tlvs(const struct attr *attr)
 {
-	return attr->extra ? attr->extra->aigp_metric : 0;
+	return attr->extra ? attr->extra->aigp_tlvs : NULL;
 }
 
-static inline void bgp_attr_unset_aigp_metric(struct attr *attr)
+static inline void bgp_attr_set_aigp_tlvs(struct attr *attr, struct bgp_aigp_tlvs *tlvs)
 {
-	if (!bgp_attr_exists(attr, BGP_ATTR_AIGP))
-		return;
+	struct bgp_aigp_tlvs *old = bgp_attr_get_aigp_tlvs(attr);
 
-	if (attr->extra) {
-		attr->extra->aigp_metric = 0;
+	if (tlvs && !old) {
+		bgp_attr_extra_get(attr)->aigp_tlvs = tlvs;
+	} else if (tlvs && old) {
+		attr->extra->aigp_tlvs = tlvs; /* replace; refcnt unchanged */
+	} else if (!tlvs && old) {
+		attr->extra->aigp_tlvs = NULL;
 		bgp_attr_extra_put(attr);
 	}
 
-	bgp_attr_unset(attr, BGP_ATTR_AIGP);
-}
-
-static inline void bgp_attr_set_aigp_metric(struct attr *attr, uint64_t aigp)
-{
-	if (!bgp_attr_exists(attr, BGP_ATTR_AIGP) || !attr->extra)
-		bgp_attr_extra_get(attr)->aigp_metric = aigp;
+	if (tlvs)
+		bgp_attr_set(attr, BGP_ATTR_AIGP);
 	else
-		attr->extra->aigp_metric = aigp;
-
-	bgp_attr_set(attr, BGP_ATTR_AIGP);
+		bgp_attr_unset(attr, BGP_ATTR_AIGP);
 }
+
+static inline uint64_t bgp_attr_get_aigp_metric(const struct attr *attr)
+{
+	struct bgp_aigp_tlvs *tlvs = bgp_attr_get_aigp_tlvs(attr);
+
+	return tlvs ? tlvs->metric[0] : 0;
+}
+
+extern void bgp_attr_set_aigp_metric(struct attr *attr, uint64_t aigp);
+extern void bgp_attr_unset_aigp_metric(struct attr *attr);
 
 static inline uint64_t bgp_aigp_metric_total(struct bgp_path_info *bpi)
 {
