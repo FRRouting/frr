@@ -12,8 +12,8 @@
 #
 #
 # The base-convergence tests below pass against the current code; the pure-L3
-# RT-2 acceptance tests are marked xfail and flip to pass as the feature phases
-# (A..H) land.
+# RT-2 acceptance tests are marked xfail and flip to pass as the feature is
+# implemented.
 #
 
 """
@@ -196,7 +196,9 @@ def config_leaf_base(node, lo_ip):
     # Host access-BD SVI (VLAN 100) in the VRF, with the anycast gateway. This
     # VLAN has an SVI but NO VNI mapping -- it is the "acc_bd->zevpn == NULL"
     # (no-L2VNI) case the feature targets. Its vid (100) is the RT-2 ETAG source.
-    node.run("ip link add link br_default name vlan%d type vlan id %d" % (HOST_VID, HOST_VID))
+    node.run(
+        "ip link add link br_default name vlan%d type vlan id %d" % (HOST_VID, HOST_VID)
+    )
     node.run("ip link set dev vlan%d master %s" % (HOST_VID, VRF))
     node.run("ip link set dev vlan%d up" % HOST_VID)
     node.run("ip addr add %s/24 dev vlan%d" % (ANYCAST_GW, HOST_VID))
@@ -263,7 +265,9 @@ def config_dataplane(tgen):
     config_access_port(leaf3, "leaf3-eth2")
 
     # Hosts.
-    config_host_bond(tgen.gears["host1"], ["host1-eth0", "host1-eth1"], HOST_IP["host1"])
+    config_host_bond(
+        tgen.gears["host1"], ["host1-eth0", "host1-eth1"], HOST_IP["host1"]
+    )
     config_host_single(tgen.gears["host2"], "host2-eth0", HOST_IP["host2"])
 
 
@@ -328,7 +332,11 @@ def _bgp_peers_established(dut, afi_key, neighbors):
     for neigh in neighbors:
         state = peers.get(neigh, {}).get("state", "")
         if state != "Established":
-            return "%s: neighbor %s not Established (state=%s)" % (dut.name, neigh, state)
+            return "%s: neighbor %s not Established (state=%s)" % (
+                dut.name,
+                neigh,
+                state,
+            )
     return None
 
 
@@ -363,7 +371,7 @@ def check_local_es_zebra(dut, esi):
 
     This validates the multihoming substrate at the zebra level and does NOT
     depend on the ES being advertised to bgpd -- which, with no L2VNI, requires
-    the L3VNI-sourced base EVPN provided by the feature (Phase C).
+    the L3VNI-sourced base EVPN provided by the feature.
     """
     out = dut.vtysh_cmd("show evpn es json")
     try:
@@ -377,11 +385,13 @@ def check_local_es_zebra(dut, esi):
             flags = es.get("flags", [])
             if "local" not in flags:
                 return "%s: ES %s present but not local (flags=%s)" % (
-                    dut.name, esi, flags)
+                    dut.name,
+                    esi,
+                    flags,
+                )
             state = es.get("state", "")
             if state != "up":
-                return "%s: local ES %s not oper-up (state=%s)" % (
-                    dut.name, esi, state)
+                return "%s: local ES %s not oper-up (state=%s)" % (dut.name, esi, state)
             return None
     return "%s: local ES %s not found in zebra" % (dut.name, esi)
 
@@ -449,7 +459,7 @@ def test_evpn_mh_local_es():
 ##   Pure-L3 RT-2 acceptance tests (xfail until the feature lands)
 ##
 ##   These encode the section-5 acceptance targets. They are expected to fail
-##   until phases A..H are implemented, at which point the xfail markers are
+##   until the feature is implemented, at which point the xfail markers are
 ##   removed one by one.
 ##
 #####################################################
@@ -459,32 +469,94 @@ def _ping(host, dst, count=2):
     return host.run("ping -c %d -W 1 %s" % (count, dst))
 
 
-@pytest.mark.xfail(
-    reason="advertise-all-vni l3vni-neigh CLI not yet implemented (Phase A)",
-    strict=False,
-)
 def test_advertise_l3vni_neigh_cli():
-    """The new TX-only knob is accepted under address-family l2vpn evpn."""
+    """The advertise-all-vni l3vni-neigh token is accepted, persists, and
+    reaches zebra.
+
+    Pure CLI + ZAPI plumbing; no dataplane behavior yet. We verify the bgpd
+    running-config and that the flag propagated to zebra's per-VRF state
+    inside ZEBRA_ADVERTISE_ALL_VNI (show evpn -> advertiseL3vniNeigh).
+    Re-entering advertise-all-vni without the token must clear the flag while
+    keeping EVPN enabled.
+    """
     tgen = get_topogen()
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
 
     leaf1 = tgen.gears["leaf1"]
-    leaf1.vtysh_cmd(
-        "configure terminal\n"
-        "router bgp 65011\n"
-        " address-family l2vpn evpn\n"
-        "  advertise-all-vni l3vni-neigh\n"
-    )
-    running = leaf1.vtysh_cmd("show running-config")
-    assert "advertise-all-vni l3vni-neigh" in running, (
-        "advertise-all-vni l3vni-neigh not present in running-config"
-    )
+
+    def _set_token(enable):
+        leaf1.vtysh_cmd(
+            "configure terminal\n"
+            "router bgp 65011\n"
+            " address-family l2vpn evpn\n"
+            "  advertise-all-vni%s\n" % (" l3vni-neigh" if enable else "")
+        )
+
+    # The flag must reach zebra over ZAPI (bgpd -> zebra) and land in zvrf.
+    def _zebra_flag_is(dut, want):
+        out = dut.vtysh_cmd("show evpn json")
+        try:
+            js = json.loads(out)
+        except Exception as exc:  # pragma: no cover - defensive
+            return "cannot parse 'show evpn json': %s" % exc
+        # 'show evpn json' is empty when EVPN itself is disabled.
+        if "advertiseL3vniNeigh" not in js:
+            return "zebra EVPN not enabled: %s" % js
+        if js.get("advertiseL3vniNeigh") == want:
+            return None
+        return "zebra advertiseL3vniNeigh=%s (expected %s)" % (
+            js.get("advertiseL3vniNeigh"),
+            want,
+        )
+
+    def _expect(fn, *args):
+        _, result = topotest.run_and_expect(
+            partial(fn, *args), None, count=15, wait=1
+        )
+        assert result is None, result
+
+    try:
+        _set_token(True)
+        running = leaf1.vtysh_cmd("show running-config")
+        assert (
+            "advertise-all-vni l3vni-neigh" in running
+        ), "advertise-all-vni l3vni-neigh not present in running-config"
+        _expect(_zebra_flag_is, leaf1, "Yes")
+
+        # Token off: EVPN stays on, L3MH neighbor sync goes off.
+        _set_token(False)
+        running = leaf1.vtysh_cmd("show running-config")
+        assert (
+            "advertise-all-vni l3vni-neigh" not in running
+            and "advertise-all-vni" in running
+        ), "expected plain advertise-all-vni in running-config"
+        _expect(_zebra_flag_is, leaf1, "No")
+
+        # 'no advertise-all-vni l3vni-neigh' also drops only the token.
+        _set_token(True)
+        _expect(_zebra_flag_is, leaf1, "Yes")
+        leaf1.vtysh_cmd(
+            "configure terminal\n"
+            "router bgp 65011\n"
+            " address-family l2vpn evpn\n"
+            "  no advertise-all-vni l3vni-neigh\n"
+        )
+        running = leaf1.vtysh_cmd("show running-config")
+        assert (
+            "advertise-all-vni l3vni-neigh" not in running
+            and "advertise-all-vni" in running
+        ), "'no advertise-all-vni l3vni-neigh' must keep advertise-all-vni"
+        _expect(_zebra_flag_is, leaf1, "No")
+    finally:
+        _set_token(True)
+
+    _expect(_zebra_flag_is, leaf1, "Yes")
 
 
 @pytest.mark.xfail(
     reason="local ES not advertised to bgpd without an L2VNI base EVPN; "
-    "needs the L3VNI-sourced base EVPN (Phase C)",
+    "needs the L3VNI-sourced base EVPN",
     strict=False,
 )
 def test_evpn_mh_local_es_in_bgp():
@@ -492,7 +564,7 @@ def test_evpn_mh_local_es_in_bgp():
 
     With no L2VNI, zebra has no base EVPN to derive the ES originator IP, so the
     local ES never reaches bgpd today. The feature must source the base EVPN /
-    originator IP from the L3VNI (Phase C), after which this passes.
+    originator IP from the L3VNI, after which this passes.
     """
     tgen = get_topogen()
     if tgen.routers_have_failure():
@@ -506,7 +578,7 @@ def test_evpn_mh_local_es_in_bgp():
 
 
 @pytest.mark.xfail(
-    reason="pure-L3 RT-2 (label[0]=0) origination not yet implemented (Phases A/C/D)",
+    reason="pure-L3 RT-2 (label[0]=0) origination not yet implemented",
     strict=False,
 )
 def test_pure_l3_rt2_origination():
@@ -531,9 +603,7 @@ def test_pure_l3_rt2_origination():
     _ping(tgen.gears["host1"], ANYCAST_GW)
 
     def _has_pure_l3_rt2(dut):
-        out = dut.vtysh_cmd(
-            "show bgp l2vpn evpn route type macip json"
-        )
+        out = dut.vtysh_cmd("show bgp l2vpn evpn route type macip json")
         try:
             js = json.loads(out)
         except Exception as exc:  # pragma: no cover - defensive
@@ -550,7 +620,7 @@ def test_pure_l3_rt2_origination():
 
 
 @pytest.mark.xfail(
-    reason="ESI-match sync-neighbor install not yet implemented (Phases E/F)",
+    reason="ESI-match sync-neighbor install not yet implemented",
     strict=False,
 )
 def test_pure_l3_sync_neighbor_install():
@@ -578,7 +648,7 @@ def test_pure_l3_sync_neighbor_install():
 
 
 @pytest.mark.xfail(
-    reason="pure-L3 proxy-ARP responder not yet implemented (Phase H)",
+    reason="pure-L3 proxy-ARP responder not yet implemented",
     strict=False,
 )
 def test_pure_l3_proxy_arp_responder():
