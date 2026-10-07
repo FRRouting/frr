@@ -212,6 +212,18 @@ struct zebra_evpn_access_bd {
 	uint8_t vni_refcnt;
 };
 
+/* EVPN origination mode of an access broadcast domain, derived from the
+ * presence of an L2VNI and the advertise-all-vni l3vni-neigh token.
+ */
+enum zebra_evpn_bd_evpn_mode {
+	/* No L2VNI and not eligible for L3VNI neighbor sync: originate nothing. */
+	ZEBRA_EVPN_BD_MODE_NONE,
+	/* Backed by an L2VNI: standard EVPN origination. */
+	ZEBRA_EVPN_BD_MODE_L2VNI,
+	/* No L2VNI: L3VNI neighbor sync, originated as a label[0]=0 RT-2. */
+	ZEBRA_EVPN_BD_MODE_L3VNI_NEIGH,
+};
+
 /* multihoming information stored in zrouter */
 #define zmh_info (zrouter.mh_info)
 struct zebra_evpn_mh_info {
@@ -356,6 +368,13 @@ extern void zebra_evpn_es_clear_base_evpn(struct zebra_evpn *zevpn);
 extern void zebra_evpn_es_l3vni_base_evpn_clear(void);
 extern void zebra_evpn_es_l3vni_base_evpn_reeval(void);
 extern void zebra_evpn_es_l3vni_oper_down(struct zebra_l3vni *zl3vni);
+extern enum zebra_evpn_bd_evpn_mode
+zebra_evpn_bd_evpn_mode(const struct zebra_evpn_access_bd *acc_bd);
+extern bool zebra_evpn_l3vni_neigh_sync_bd(struct interface *ifp,
+					   struct interface *br_if, vni_t *vni,
+					   struct ipaddr *vtep_ip,
+					   vlanid_t *vid);
+extern bool zebra_evpn_l3vni_from_svi(struct interface *ifp, vni_t *vni);
 extern void zebra_evpn_vl_vxl_ref(uint16_t vid, vni_t vni_id,
 				  struct zebra_if *vxlan_zif);
 extern void zebra_evpn_vl_vxl_deref(uint16_t vid, vni_t vni_id,
