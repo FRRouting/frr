@@ -2809,40 +2809,6 @@ static bool bmp_active_vrf_id(struct bmp_active *ba, vrf_id_t *vrf_id)
 	return true;
 }
 
-/* Drop any in-progress or established outbound attempt and schedule a retry
- * so transport setting changes (e.g. VRF) take effect.
- */
-static void bmp_active_force_reconnect(struct bmp_active *ba)
-{
-	event_cancel(&ba->t_timer);
-	event_cancel(&ba->t_read);
-	event_cancel(&ba->t_write);
-
-	if (ba->bmp) {
-		struct bmp *bmp = ba->bmp;
-
-		ba->bmp = NULL;
-		bmp->active = NULL;
-		bmp_close(bmp);
-		bmp_free(bmp);
-	}
-	if (ba->socket != -1) {
-		close(ba->socket);
-		ba->socket = -1;
-	}
-
-	ba->addrpos = 0;
-	ba->addrtotal = 0;
-	sockunion_init(&ba->addrsrc);
-	ba->curretry = ba->minretry;
-
-	/* If DNS resolution is already in flight, let it complete and connect
-	 * with the updated settings. Otherwise start a new attempt.
-	 */
-	if (!ba->resq.callback)
-		bmp_active_setup(ba);
-}
-
 static void bmp_active_connect(struct bmp_active *ba)
 {
 	enum connect_result res;
@@ -3268,7 +3234,6 @@ DEFPY(bmp_connect,
 {
 	VTY_DECLVAR_CONTEXT_SUB(bmp_targets, bt);
 	struct bmp_active *ba;
-	bool reconnect = false;
 
 	if (no) {
 		ba = bmp_active_find(bt, hostname, port);
@@ -3305,7 +3270,12 @@ DEFPY(bmp_connect,
 			if (ba->vrfname)
 				XFREE(MTYPE_TMP, ba->vrfname);
 			ba->vrfname = XSTRDUP(MTYPE_TMP, vrfname);
-			reconnect = true;
+			if (ba->bmp) {
+				struct bmp *bmp = ba->bmp;
+
+				bmp_close(bmp);
+				bmp_free(bmp);
+			}
 		}
 	}
 	if (min_retry_str)
@@ -3313,10 +3283,7 @@ DEFPY(bmp_connect,
 	if (max_retry_str)
 		ba->maxretry = max_retry;
 	ba->curretry = ba->minretry;
-	if (reconnect)
-		bmp_active_force_reconnect(ba);
-	else
-		bmp_active_setup(ba);
+	bmp_active_setup(ba);
 
 	return CMD_SUCCESS;
 }
