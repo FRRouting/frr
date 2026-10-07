@@ -22980,7 +22980,7 @@ ALIAS(no_community_list_standard_all, no_bgp_community_list_standard_all_list_cm
 /*community-list expanded */
 DEFUN (community_list_expanded_all,
        bgp_community_list_expanded_all_cmd,
-       "bgp community-list <(100-500)|expanded COMMUNITY_LIST_NAME> [seq (0-4294967295)] <deny|permit> AA:NN...",
+       "bgp community-list <(100-500)|expanded COMMUNITY_LIST_NAME> [seq (0-4294967295)] <deny|permit> LINE...",
        BGP_STR
        COMMUNITY_LIST_STR
        "Community list number (expanded)\n"
@@ -22990,7 +22990,7 @@ DEFUN (community_list_expanded_all,
        "Sequence number\n"
        "Specify community to reject\n"
        "Specify community to accept\n"
-       COMMUNITY_VAL_STR)
+       "An ordered list as a regular-expression\n")
 {
 	char *cl_name_or_number = NULL;
 	char *seq = NULL;
@@ -23008,7 +23008,7 @@ DEFUN (community_list_expanded_all,
 	cl_name_or_number = argv[idx]->arg;
 	direct = argv_find(argv, argc, "permit", &idx) ? COMMUNITY_PERMIT
 						       : COMMUNITY_DENY;
-	argv_find(argv, argc, "AA:NN", &idx);
+	argv_find(argv, argc, "LINE", &idx);
 	char *str = argv_concat(argv, argc, idx);
 
 	assert(str);
@@ -23028,7 +23028,7 @@ DEFUN (community_list_expanded_all,
 
 DEFUN (no_community_list_expanded_all,
        no_bgp_community_list_expanded_all_cmd,
-       "no bgp community-list <(100-500)|expanded COMMUNITY_LIST_NAME> [seq (0-4294967295)] <deny|permit> AA:NN...",
+       "no bgp community-list <(100-500)|expanded COMMUNITY_LIST_NAME> [seq (0-4294967295)] <deny|permit> LINE...",
        NO_STR
        BGP_STR
        COMMUNITY_LIST_STR
@@ -23039,7 +23039,7 @@ DEFUN (no_community_list_expanded_all,
        "Sequence number\n"
        "Specify community to reject\n"
        "Specify community to accept\n"
-       COMMUNITY_VAL_STR)
+       "An ordered list as a regular-expression\n")
 {
 	char *cl_name_or_number = NULL;
 	char *seq = NULL;
@@ -23061,7 +23061,7 @@ DEFUN (no_community_list_expanded_all,
 				 : COMMUNITY_DENY;
 
 		idx = 0;
-		argv_find(argv, argc, "AA:NN", &idx);
+		argv_find(argv, argc, "LINE", &idx);
 		str = argv_concat(argv, argc, idx);
 	}
 
