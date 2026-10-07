@@ -499,7 +499,7 @@ extern void zebra_nhg_rework_in_place(struct nhg_hash_entry *nhe,
 extern void zebra_nhg_rework_content_release(struct nhg_hash_entry *nhe);
 extern void zebra_nhg_rework_content_mutate(struct nhg_hash_entry *nhe,
 					    struct nhg_hash_entry *source_nhe, afi_t afi);
-extern void zebra_nhg_rework_content_rehash(struct nhg_hash_entry *nhe);
+extern void zebra_nhg_rework_content_rehash(struct nhg_hash_entry *nhe, const char *caller);
 
 /* NHG duplicate consolidation context — used by hash walk callback */
 struct nhg_dup_walk_ctx {
