@@ -703,6 +703,8 @@ void dplane_ctx_set_nhe_notif(struct zebra_dplane_ctx *ctx, bool notif);
 
 uint32_t dplane_ctx_get_nhe_id(const struct zebra_dplane_ctx *ctx);
 uint32_t dplane_ctx_get_old_nhe_id(const struct zebra_dplane_ctx *ctx);
+uint32_t dplane_ctx_get_nhe_invalidated_seq(const struct zebra_dplane_ctx *ctx);
+uint32_t dplane_ctx_get_old_nhe_invalidated_seq(const struct zebra_dplane_ctx *ctx);
 afi_t dplane_ctx_get_nhe_afi(const struct zebra_dplane_ctx *ctx);
 vrf_id_t dplane_ctx_get_nhe_vrf_id(const struct zebra_dplane_ctx *ctx);
 int dplane_ctx_get_nhe_type(const struct zebra_dplane_ctx *ctx);
