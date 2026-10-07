@@ -4178,6 +4178,9 @@ void zebra_vxlan_print_evpn(struct vty *vty, bool uj)
 		json_object_string_add(json, "advertiseSviMac",
 				       zebra_evpn_mh_do_adv_svi_mac() ? "Yes"
 								      : "No");
+		json_object_string_add(json, "advertiseL3vniNeigh",
+				       zvrf->advertise_l3vni_neigh ? "Yes"
+								   : "No");
 		json_object_int_add(json, "numVnis", num_vnis);
 		json_object_int_add(json, "numL2Vnis", num_l2vnis);
 		json_object_int_add(json, "numL3Vnis", num_l3vnis);
@@ -4203,6 +4206,8 @@ void zebra_vxlan_print_evpn(struct vty *vty, bool uj)
 			zvrf->advertise_svi_macip ? "Yes" : "No");
 		vty_out(vty, "Advertise svi mac: %s\n",
 			zebra_evpn_mh_do_adv_svi_mac() ? "Yes" : "No");
+		vty_out(vty, "Advertise l3vni neigh: %s\n",
+			zvrf->advertise_l3vni_neigh ? "Yes" : "No");
 		vty_out(vty, "Duplicate address detection: %s\n",
 			zebra_evpn_do_dup_addr_detect(zvrf) ? "Enable"
 							    : "Disable");
@@ -6070,6 +6075,7 @@ void zebra_vxlan_advertise_all_vni(ZAPI_HANDLER_ARGS)
 {
 	struct stream *s = NULL;
 	int advertise = 0;
+	int l3vni_neigh = 0;
 	enum vxlan_flood_control flood_ctrl;
 
 	/* Mismatch between EVPN VRF and current VRF (should be prevented by
@@ -6080,13 +6086,19 @@ void zebra_vxlan_advertise_all_vni(ZAPI_HANDLER_ARGS)
 	s = msg;
 	STREAM_GETC(s, advertise);
 	STREAM_GETC(s, flood_ctrl);
+	STREAM_GETC(s, l3vni_neigh);
+	if (!advertise)
+		l3vni_neigh = 0;
 
 	if (IS_ZEBRA_DEBUG_VXLAN)
-		zlog_debug("EVPN VRF %s(%u) VNI Adv %s, currently %s, flood control %u",
+		zlog_debug("EVPN VRF %s(%u) VNI Adv %s, currently %s, flood control %u, L3VNI neigh %s, currently %s",
 			   zvrf_name(zvrf), zvrf_id(zvrf),
 			   advertise ? "enabled" : "disabled",
 			   is_evpn_enabled() ? "enabled" : "disabled",
-			   flood_ctrl);
+			   flood_ctrl, l3vni_neigh ? "enabled" : "disabled",
+			   zvrf->advertise_l3vni_neigh ? "enabled" : "disabled");
+
+	zvrf->advertise_l3vni_neigh = l3vni_neigh;
 
 	if (zvrf->advertise_all_vni == advertise)
 		return;
@@ -6133,6 +6145,7 @@ void zebra_vxlan_advertise_all_vni(ZAPI_HANDLER_ARGS)
 stream_failure:
 	return;
 }
+
 
 /*
  * Allocate EVPN hash table for this VRF and do other initialization.

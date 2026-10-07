@@ -2785,6 +2785,8 @@ int bgp_zebra_advertise_all_vni(struct bgp *bgp, int advertise)
 	 * relevant only when 'advertise' is set.
 	 */
 	stream_putc(s, bgp->vxlan_flood_ctrl);
+	/* EVPN L3MH neighbor sync rides with the EVPN enable (no ordering). */
+	stream_putc(s, advertise ? bgp->advertise_l3vni_neigh : 0);
 	stream_putw_at(s, 0, stream_get_endp(s));
 
 	return zclient_send_message(bgp_zclient);
