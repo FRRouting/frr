@@ -4389,8 +4389,11 @@ int bgp_mplsvpn_nh_label_bind_cmp(
 	const struct bgp_mplsvpn_nh_label_bind_cache *a,
 	const struct bgp_mplsvpn_nh_label_bind_cache *b)
 {
-	if (prefix_cmp(&a->nexthop, &b->nexthop))
-		return 1;
+	int ret;
+
+	ret = prefix_cmp(&a->nexthop, &b->nexthop);
+	if (ret)
+		return ret;
 	if (a->orig_label > b->orig_label)
 		return 1;
 	if (a->orig_label < b->orig_label)
