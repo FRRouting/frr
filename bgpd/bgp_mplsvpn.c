@@ -2003,6 +2003,11 @@ void vpn_leak_from_vrf_update(struct bgp *to_bgp,	     /* to */
 					   from_bgp->vpn_policy[afi]
 						   .rmap[BGP_VPN_POLICY_DIR_TOVPN]
 						   ->name);
+			/*
+			 * The path may have been exported before its
+			 * attributes changed: withdraw the stale VPN path.
+			 */
+			vpn_leak_from_vrf_withdraw(to_bgp, from_bgp, path_vrf);
 			return;
 		}
 	}
@@ -2014,6 +2019,7 @@ void vpn_leak_from_vrf_update(struct bgp *to_bgp,	     /* to */
 			zlog_debug("%s: %s skipping: waiting for a valid export rt list.",
 				   __func__, from_bgp->name_pretty);
 		bgp_attr_flush(&static_attr);
+		vpn_leak_from_vrf_withdraw(to_bgp, from_bgp, path_vrf);
 		return;
 	}
 
