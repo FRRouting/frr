@@ -2353,8 +2353,13 @@ static struct zebra_l3vni *zl3vni_from_svi(struct interface *ifp,
 		in_param.vid = vl->vid;
 
 		vni_id = zebra_l2_bridge_if_vni_find(br_zif, in_param.vid);
-		if (vni_id)
-			return zl3vni_lookup(vni_id);
+		/* A vlan-aware bridge is authoritative for its SVIs: if this
+		 * VLAN maps to no VNI there is no L3VNI SVI here. Do not fall
+		 * through to the vlan-unaware NS walk below, which matches any
+		 * VXLAN on the bridge and would misclassify a no-L2VNI access
+		 * SVI as the L3VNI SVI (mirrors zebra_evpn_from_svi()).
+		 */
+		return vni_id ? zl3vni_lookup(vni_id) : NULL;
 	}
 
 	/* See if this interface (or interface plus VLAN Id) maps to a VxLAN */
@@ -2505,6 +2510,8 @@ void zebra_vxlan_process_l3vni_oper_up(struct zebra_l3vni *zl3vni)
 
 void zebra_vxlan_process_l3vni_oper_down(struct zebra_l3vni *zl3vni)
 {
+	struct zebra_evpn *zevpn;
+
 	if (!zl3vni)
 		return;
 
@@ -2514,6 +2521,11 @@ void zebra_vxlan_process_l3vni_oper_down(struct zebra_l3vni *zl3vni)
 
 	/* If this L3VNI sourced the no-L2VNI ES base EVPN, invalidate it. */
 	zebra_evpn_es_l3vni_oper_down(zl3vni);
+
+	/* Withdraw any pure-L3 neighbors synced via this L3VNI's singleton. */
+	zevpn = zebra_evpn_l3_neigh_sync_lookup(zl3vni->vni);
+	if (zevpn)
+		zebra_evpn_l3vni_neigh_flush(zevpn);
 }
 
 static void zevpn_add_to_l3vni_list(struct hash_bucket *bucket, void *ctxt)
@@ -4399,7 +4411,7 @@ int zebra_vxlan_handle_kernel_neigh_del(struct interface *ifp,
 			zlog_debug(
 				"%s: Del neighbor %pIA EVPN is not present for interface %s",
 				__func__, ip, ifp->name);
-		return 0;
+		return zebra_evpn_l3vni_local_neigh_del(ifp, link_if, ip);
 	}
 
 	if (!zevpn->vxlan_if) {
@@ -4447,7 +4459,9 @@ int zebra_vxlan_handle_kernel_neigh_update(struct interface *ifp, struct interfa
 	 */
 	zevpn = zebra_evpn_from_svi(ifp, link_if);
 	if (!zevpn)
-		return 0;
+		return zebra_evpn_l3vni_local_neigh_update(ifp, link_if, ip,
+							   macaddr, is_own,
+							   is_router);
 
 	if (IS_ZEBRA_DEBUG_VXLAN || IS_ZEBRA_DEBUG_EVPN_MH_NEIGH)
 		zlog_debug("Add/Update neighbor %pIA MAC %pEA intf %s(%u) state 0x%x %s%s%s%s-> L2-VNI %u",
@@ -6113,10 +6127,11 @@ void zebra_vxlan_advertise_all_vni(ZAPI_HANDLER_ARGS)
 			   flood_ctrl, l3vni_neigh ? "enabled" : "disabled",
 			   zvrf->advertise_l3vni_neigh ? "enabled" : "disabled");
 
-	/* Release the L3VNI-sourced ES base EVPN hold before EVPN teardown. */
+	/* Tear down L3MH neighbor sync before EVPN so its routes go first. */
 	if (zvrf->advertise_l3vni_neigh && !l3vni_neigh) {
 		zvrf->advertise_l3vni_neigh = 0;
 		zebra_evpn_es_l3vni_base_evpn_clear();
+		zebra_evpn_l3vni_neigh_flush_all();
 	}
 	if (l3vni_neigh)
 		zvrf->advertise_l3vni_neigh = 1;

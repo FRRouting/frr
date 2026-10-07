@@ -282,6 +282,17 @@ int zebra_evpn_local_neigh_update(struct zebra_evpn *zevpn,
 				  const struct ipaddr *ip,
 				  const struct ethaddr *macaddr, bool is_router,
 				  bool local_inactive, bool dp_static);
+int zebra_evpn_l3vni_local_neigh_update(struct interface *ifp,
+					struct interface *br_if,
+					const struct ipaddr *ip,
+					const struct ethaddr *macaddr,
+					bool is_own, bool is_router);
+int zebra_evpn_l3vni_local_neigh_del(struct interface *ifp,
+				     struct interface *br_if,
+				     const struct ipaddr *ip);
+void zebra_evpn_l3vni_neigh_flush(struct zebra_evpn *zevpn);
+void zebra_evpn_l3vni_neigh_flush_all(void);
+void zebra_evpn_l3vni_neigh_flush_bd(vni_t l3vni, vlanid_t vid);
 int zebra_evpn_remote_neigh_update(struct zebra_evpn *zevpn, struct interface *ifp,
 				   const struct ipaddr *ip, const struct ethaddr *macaddr,
 				   uint16_t state, bool is_router);

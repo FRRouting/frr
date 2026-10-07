@@ -37,6 +37,7 @@
 #include "zebra/zebra_vxlan_private.h"
 #include "zebra/zebra_evpn.h"
 #include "zebra/zebra_evpn_mac.h"
+#include "zebra/zebra_evpn_neigh.h"
 #include "zebra/zebra_router.h"
 #include "zebra/zebra_evpn_mh.h"
 #include "zebra/zebra_nhg.h"
@@ -757,6 +758,23 @@ int zebra_evpn_vl_vxl_bridge_lookup(uint16_t vid, struct zebra_if *vxlan_zif)
 	return 1;
 }
 
+/* An access BD that had no L2VNI (L3VNI neighbor-sync mode) gained an L2VNI:
+ * withdraw the pure-L3 neighbors previously synced for that BD's ETAG so they
+ * are not left stale alongside the new L2VNI route.
+ */
+static void zebra_evpn_bd_l2vni_appeared_flush(struct zebra_evpn_access_bd *acc_bd,
+					       vlanid_t vid)
+{
+	struct zebra_l3vni *zl3vni;
+
+	if (!acc_bd->vlan_zif || !acc_bd->vlan_zif->ifp ||
+	    !acc_bd->vlan_zif->ifp->vrf)
+		return;
+
+	zl3vni = zl3vni_from_vrf(acc_bd->vlan_zif->ifp->vrf->vrf_id);
+	if (zl3vni)
+		zebra_evpn_l3vni_neigh_flush_bd(zl3vni->vni, vid);
+}
 
 /* handle VLAN->VxLAN_IF association */
 void zebra_evpn_vl_vxl_ref(uint16_t vid, vni_t vni_id,
@@ -817,6 +835,10 @@ void zebra_evpn_vl_vxl_ref(uint16_t vid, vni_t vni_id,
 	if (IS_ZEBRA_DEBUG_EVPN_MH_ES || IS_ZEBRA_DEBUG_KERNEL)
 		zlog_debug("%s bridge %s access vlan %d vni %u ref", __func__,
 			   br_if->name, acc_bd->vid, vni_id);
+
+	/* An L2VNI just appeared on this BD; withdraw its pure-L3 neighbors. */
+	if (!old_zevpn && acc_bd->zevpn)
+		zebra_evpn_bd_l2vni_appeared_flush(acc_bd, acc_bd->vid);
 
 	if (old_zevpn)
 		zebra_evpn_acc_bd_evpn_set(acc_bd, NULL, old_zevpn);
@@ -939,6 +961,12 @@ void zebra_evpn_vxl_evpn_set(struct zebra_if *zif, struct zebra_evpn *zevpn,
 	if (set) {
 		zebra_evpn_es_set_base_evpn(zevpn);
 		if (acc_bd->zevpn != zevpn) {
+			/* An L2VNI just appeared on this BD; withdraw the
+			 * pure-L3 neighbors previously synced for its ETAG.
+			 */
+			if (!acc_bd->zevpn)
+				zebra_evpn_bd_l2vni_appeared_flush(
+					acc_bd, vni->access_vlan);
 			acc_bd->zevpn = zevpn;
 			zebra_evpn_acc_bd_evpn_set(acc_bd, zevpn, NULL);
 		}
@@ -3987,6 +4015,116 @@ void zebra_evpn_es_l3vni_base_evpn_reeval(void)
 		zevpn->local_vtep_ip = zl3vni->local_vtep_ip;
 		zebra_evpn_es_set_base_evpn(zevpn);
 	}
+}
+
+/* Derive the EVPN origination mode of an access broadcast domain: L2VNI when it
+ * is backed by an L2VNI, L3VNI_NEIGH when it has no L2VNI but a usable SVI whose
+ * VRF has an operational L3VNI and advertise-all-vni l3vni-neigh is on, otherwise NONE.
+ */
+enum zebra_evpn_bd_evpn_mode
+zebra_evpn_bd_evpn_mode(const struct zebra_evpn_access_bd *acc_bd)
+{
+	struct zebra_vrf *evpn_zvrf;
+	struct interface *svi;
+	struct zebra_l3vni *zl3vni;
+
+	if (!acc_bd)
+		return ZEBRA_EVPN_BD_MODE_NONE;
+
+	if (acc_bd->zevpn)
+		return ZEBRA_EVPN_BD_MODE_L2VNI;
+
+	evpn_zvrf = zebra_vrf_get_evpn();
+	if (!evpn_zvrf || !evpn_zvrf->advertise_l3vni_neigh)
+		return ZEBRA_EVPN_BD_MODE_NONE;
+
+	if (!acc_bd->vlan_zif || !acc_bd->vlan_zif->ifp)
+		return ZEBRA_EVPN_BD_MODE_NONE;
+
+	svi = acc_bd->vlan_zif->ifp;
+	if (!svi->vrf)
+		return ZEBRA_EVPN_BD_MODE_NONE;
+
+	zl3vni = zl3vni_from_vrf(svi->vrf->vrf_id);
+	if (!zl3vni || !is_l3vni_oper_up(zl3vni))
+		return ZEBRA_EVPN_BD_MODE_NONE;
+
+	return ZEBRA_EVPN_BD_MODE_L3VNI_NEIGH;
+}
+
+/* If the neighbor's SVI maps to a no-L2VNI BD eligible for L3VNI neighbor sync,
+ * return true and hand back the owning L3VNI's vni, its local VTEP IP, and the
+ * BD's VLAN (used as the RT-2 ETAG). The pure-L3 local origination / withdraw
+ * paths use this to route a MAC-less neighbor to the L3VNI-keyed neighbor-sync
+ * singleton without dereferencing any L2VNI state.
+ */
+bool zebra_evpn_l3vni_neigh_sync_bd(struct interface *ifp,
+				    struct interface *br_if, vni_t *vni,
+				    struct ipaddr *vtep_ip, vlanid_t *vid)
+{
+	struct zebra_if *br_zif;
+	struct zebra_if *svi_zif;
+	struct zebra_evpn_access_bd *acc_bd;
+	struct zebra_l3vni *zl3vni;
+	vlanid_t bd_vid;
+
+	if (!ifp || !br_if || !ifp->vrf)
+		return false;
+
+	if (!IS_ZEBRA_IF_BRIDGE(br_if))
+		return false;
+	br_zif = br_if->info;
+	if (!br_zif || !IS_ZEBRA_IF_BRIDGE_VLAN_AWARE(br_zif))
+		return false;
+
+	if (!IS_ZEBRA_IF_VLAN(ifp))
+		return false;
+	svi_zif = ifp->info;
+	if (!svi_zif)
+		return false;
+	bd_vid = svi_zif->l2info.vl.vid;
+
+	acc_bd = zebra_evpn_acc_vl_find(bd_vid, br_if);
+	if (!acc_bd || acc_bd->zevpn)
+		return false;
+
+	if (zebra_evpn_bd_evpn_mode(acc_bd) != ZEBRA_EVPN_BD_MODE_L3VNI_NEIGH)
+		return false;
+
+	zl3vni = zl3vni_from_vrf(ifp->vrf->vrf_id);
+	if (!zl3vni)
+		return false;
+
+	if (vni)
+		*vni = zl3vni->vni;
+	if (vtep_ip)
+		*vtep_ip = zl3vni->local_vtep_ip;
+	if (vid)
+		*vid = bd_vid;
+
+	return true;
+}
+
+/* Resolve the L3VNI serving an SVI's VRF, independent of the knob / mode.
+ * Used by the local withdraw path so a synced neighbor can still be located
+ * and torn down after the BD has left L3VNI neighbor-sync mode (knob off,
+ * L3VNI down, or an L2VNI appeared).
+ */
+bool zebra_evpn_l3vni_from_svi(struct interface *ifp, vni_t *vni)
+{
+	struct zebra_l3vni *zl3vni;
+
+	if (!ifp || !ifp->vrf)
+		return false;
+
+	zl3vni = zl3vni_from_vrf(ifp->vrf->vrf_id);
+	if (!zl3vni)
+		return false;
+
+	if (vni)
+		*vni = zl3vni->vni;
+
+	return true;
 }
 
 /*****************************************************************************
