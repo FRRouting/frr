@@ -167,7 +167,7 @@ def _start_capture(router, pcap_path, bpf="ip proto 89"):
     )
     # nohup: router.cmd() closing the session would otherwise SIGHUP the sniffer.
     pid = router.cmd(
-        "nohup python3 %s/capture_ospf.py --iface eth1 --pcap %s "
+        "nohup python3 %s/../lib/scapy_sniffer.py --iface eth1 --pcap %s "
         "--filter %s --ready-file %s </dev/null >%s 2>&1 & echo $!"
         % (
             shlex.quote(CWD),
