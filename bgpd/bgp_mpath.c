@@ -449,6 +449,11 @@ void bgp_path_info_mpath_update(struct bgp *bgp, struct bgp_dest *dest,
 	bool all_paths_lb;
 	char path_buf[PATH_ADDPATH_STR_BUFFER];
 	bool old_mpath, new_mpath;
+	struct bgp_debug_vrf dv = {
+		.name = "Unknown",
+		.id = VRF_UNKNOWN,
+		.table_id = 0,
+	};
 
 	mpath_changed = false;
 	maxpaths = multipath_num;
@@ -456,6 +461,8 @@ void bgp_path_info_mpath_update(struct bgp *bgp, struct bgp_dest *dest,
 	old_mpath_count = 0;
 	old_cum_bw = cum_bw = 0;
 	debug = bgp_debug_bestpath(dest);
+	if (debug)
+		dv = bgp_dest_debug_vrf(dest);
 
 	if (old_best) {
 		old_mpath_count = bgp_path_info_mpath_count(dest);
@@ -480,9 +487,9 @@ void bgp_path_info_mpath_update(struct bgp *bgp, struct bgp_dest *dest,
 	}
 
 	if (debug)
-		zlog_debug("%pBD(%s): starting mpath update, newbest %s num candidates %d old-mpath-count %d old-cum-bw %" PRIu64
+		zlog_debug("(%s:%u:%u)%pBD: starting mpath update, newbest %s num candidates %d old-mpath-count %d old-cum-bw %" PRIu64
 			   " maxpaths set %u",
-			   dest, bgp->name_pretty, new_best ? new_best->peer->host : "NONE",
+			   dv.name, dv.id, dv.table_id, dest, new_best ? new_best->peer->host : "NONE",
 			   num_candidates, old_mpath_count, old_cum_bw, maxpaths);
 
 	/*
@@ -518,15 +525,15 @@ void bgp_path_info_mpath_update(struct bgp *bgp, struct bgp_dest *dest,
 			}
 
 			if (debug)
-				zlog_debug("%pBD(%s): Mpath count %u is equal to maximum paths allowed, finished comparison for MPATHS",
-					   dest, bgp->name_pretty, mpath_count);
+				zlog_debug("(%s:%u:%u)%pBD: Mpath count %u is equal to maximum paths allowed, finished comparison for MPATHS",
+					   dv.name, dv.id, dv.table_id, dest, mpath_count);
 
 			break;
 		}
 
 		if (debug)
-			zlog_debug("%pBD(%s): Candidate %s old_mpath: %u new_mpath: %u, Nexthop %pI4 current mpath count: %u",
-				   dest, bgp->name_pretty, cur_iterator->peer->host, old_mpath,
+			zlog_debug("(%s:%u:%u)%pBD: Candidate %s old_mpath: %u new_mpath: %u, Nexthop %pI4 current mpath count: %u",
+				   dv.name, dv.id, dv.table_id, dest, cur_iterator->peer->host, old_mpath,
 				   new_mpath, &cur_iterator->attr->nexthop, mpath_count);
 		/*
 		 * There is nothing to do if the cur_iterator is neither a old path
@@ -559,9 +566,9 @@ void bgp_path_info_mpath_update(struct bgp *bgp, struct bgp_dest *dest,
 			if (debug) {
 				bgp_path_info_path_with_addpath_rx_str(cur_iterator, path_buf,
 								       sizeof(path_buf));
-				zlog_debug("%pBD(%s): add mpath %s nexthop %pI4, cur count %d cum_bw: %" PRIu64
+				zlog_debug("(%s:%u:%u)%pBD: add mpath %s nexthop %pI4, cur count %d cum_bw: %" PRIu64
 					   " all_paths_lb: %u",
-					   dest, bgp->name_pretty, path_buf,
+					   dv.name, dv.id, dv.table_id, dest, path_buf,
 					   &cur_iterator->attr->nexthop, mpath_count, cum_bw,
 					   all_paths_lb);
 			}
@@ -582,8 +589,8 @@ void bgp_path_info_mpath_update(struct bgp *bgp, struct bgp_dest *dest,
 			bgp_path_info_mpath_lb_update(dest, true, all_paths_lb, cum_bw);
 		}
 		if (debug)
-			zlog_debug("%pBD(%s): New mpath count (incl newbest) %d mpath-change %s all_paths_lb %d cum_bw %" PRIu64,
-				   dest, bgp->name_pretty, mpath_count,
+			zlog_debug("(%s:%u:%u)%pBD: New mpath count (incl newbest) %d mpath-change %s all_paths_lb %d cum_bw %" PRIu64,
+				   dv.name, dv.id, dv.table_id, dest, mpath_count,
 				   mpath_changed ? "YES" : "NO", all_paths_lb,
 				   cum_bw);
 

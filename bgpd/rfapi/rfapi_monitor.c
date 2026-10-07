@@ -919,10 +919,13 @@ void rfapiMonitorItNodeChanged(
 					assert(!skiplist_insert(nves_seen,
 								m->rfd, NULL));
 
-					vnc_zlog_debug_verbose(
-						"%s: update rfd %p attached to pfx %pRN (targ=%pFX)",
-						__func__, m->rfd, m->node,
-						&m->p);
+					if (VNC_DEBUG(VERBOSE)) {
+						struct bgp_debug_vrf dv = bgp_debug_vrf_get(bgp);
+
+						zlog_debug("%s: update rfd %p attached to pfx (%s:%u:%u)%pRN (targ=%pFX)",
+							   __func__, m->rfd, dv.name, dv.id,
+							   dv.table_id, m->node, &m->p);
+					}
 
 					/*
 					 * update its RIB

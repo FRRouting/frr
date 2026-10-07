@@ -4222,8 +4222,9 @@ int dplane_ctx_route_init(struct zebra_dplane_ctx *ctx, enum dplane_op_e op,
 			frrtrace(4, frr_zebra, dplane_ctx_route_kernel_nhg_not_ready, op, nhe->id,
 				 nhe->flags, re->vrf_id);
 			if (IS_ZEBRA_DEBUG_DPLANE_DETAIL || IS_ZEBRA_DEBUG_RIB_DETAILED)
-				zlog_debug("%s route %pRN op %s nhg id %u flags 0x%x nh %pNHs not installed nor queued",
-					   __func__, rn, dplane_op2str(op), nhe->id, nhe->flags,
+				zlog_debug("%s (%s:%u:%u)%pRN op %s nhg id %u flags 0x%x nh %pNHs not installed nor queued",
+					   __func__, zvrf_name(zvrf), re->vrf_id, re->table, rn,
+					   dplane_op2str(op), nhe->id, nhe->flags,
 					   nhe->nhg.nexthop);
 
 			return ENOENT;

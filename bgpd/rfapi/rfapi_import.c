@@ -2378,8 +2378,12 @@ static void rfapiWithdrawTimerVPN(struct event *t)
 
 	RFAPI_CHECK_REFCOUNT(wcb->node, SAFI_MPLS_VPN, wcb->lockoffset);
 
-	vnc_zlog_debug_verbose("%s: removing bpi %p at prefix %pRN", __func__,
-			       bpi, wcb->node);
+	if (VNC_DEBUG(VERBOSE)) {
+		struct bgp_debug_vrf dv = bgp_debug_vrf_get(bgp);
+
+		zlog_debug("%s: removing bpi %p at prefix (%s:%u:%u)%pRN", __func__, bpi, dv.name,
+			   dv.id, dv.table_id, wcb->node);
+	}
 
 	/*
 	 * Remove the route (doubly-linked)
@@ -2897,7 +2901,15 @@ static void rfapiBgpInfoFilteredImportEncap(
 	struct prefix un_prefix;
 
 	struct bgp *bgp;
+	struct bgp_debug_vrf dv = {
+		.name = "Unknown",
+		.id = VRF_UNKNOWN,
+		.table_id = 0,
+	};
+
 	bgp = bgp_get_default(); /* assume 1 instance for now */
+	if (VNC_DEBUG(VERBOSE))
+		dv = bgp_debug_vrf_get(bgp);
 
 	switch (action) {
 	case FIF_ACTION_UPDATE:
@@ -3053,22 +3065,18 @@ static void rfapiBgpInfoFilteredImportEncap(
 			/* Same route. Delete this bpi, replace with new one */
 
 			if (action == FIF_ACTION_WITHDRAW) {
-
-				vnc_zlog_debug_verbose(
-					"%s: withdrawing at prefix %pRN",
-					__func__, rn);
+				vnc_zlog_debug_verbose("%s: withdrawing at prefix (%s:%u:%u)%pRN",
+						       __func__, dv.name, dv.id, dv.table_id, rn);
 
 				rfapiBiStartWithdrawTimer(
 					import_table, rn, bpi, afi, SAFI_ENCAP,
 					rfapiWithdrawTimerEncap);
 
 			} else {
-				vnc_zlog_debug_verbose(
-					"%s: %s at prefix %pRN", __func__,
-					((action == FIF_ACTION_KILL)
-						 ? "killing"
-						 : "replacing"),
-					rn);
+				vnc_zlog_debug_verbose("%s: %s at prefix (%s:%u:%u)%pRN", __func__,
+						       ((action == FIF_ACTION_KILL) ? "killing"
+										    : "replacing"),
+						       dv.name, dv.id, dv.table_id, rn);
 
 				/*
 				 * If this route is waiting to be deleted
@@ -3136,8 +3144,8 @@ static void rfapiBgpInfoFilteredImportEncap(
 		rn = agg_node_get(rt, p);
 	}
 
-	vnc_zlog_debug_verbose("%s: (afi=%d, rn=%p) inserting at prefix %pRN",
-			       __func__, afi, rn, rn);
+	vnc_zlog_debug_verbose("%s: (afi=%d, rn=%p) inserting at prefix (%s:%u:%u)%pRN", __func__,
+			       afi, rn, dv.name, dv.id, dv.table_id, rn);
 
 	rfapiBgpInfoAttachSorted(rn, info_new, afi, SAFI_ENCAP);
 
@@ -3360,7 +3368,15 @@ void rfapiBgpInfoFilteredImportVPN(
 	int is_it_ce = 0;
 
 	struct bgp *bgp;
+	struct bgp_debug_vrf dv = {
+		.name = "Unknown",
+		.id = VRF_UNKNOWN,
+		.table_id = 0,
+	};
+
 	bgp = bgp_get_default(); /* assume 1 instance for now */
+	if (VNC_DEBUG(VERBOSE))
+		dv = bgp_debug_vrf_get(bgp);
 
 	switch (action) {
 	case FIF_ACTION_UPDATE:
@@ -3501,12 +3517,10 @@ void rfapiBgpInfoFilteredImportVPN(
 				int washolddown = CHECK_FLAG(bpi->flags,
 							     BGP_PATH_REMOVED);
 
-				vnc_zlog_debug_verbose(
-					"%s: withdrawing at prefix %pRN%s",
-					__func__, rn,
-					(washolddown
-						 ? " (already being withdrawn)"
-						 : ""));
+				vnc_zlog_debug_verbose("%s: withdrawing at prefix (%s:%u:%u)%pRN%s",
+						       __func__, dv.name, dv.id, dv.table_id, rn,
+						       (washolddown ? " (already being withdrawn)"
+								    : ""));
 
 				VNC_ITRCCK;
 				if (!washolddown) {
@@ -3521,12 +3535,10 @@ void rfapiBgpInfoFilteredImportVPN(
 				}
 				VNC_ITRCCK;
 			} else {
-				vnc_zlog_debug_verbose(
-					"%s: %s at prefix %pRN", __func__,
-					((action == FIF_ACTION_KILL)
-						 ? "killing"
-						 : "replacing"),
-					rn);
+				vnc_zlog_debug_verbose("%s: %s at prefix (%s:%u:%u)%pRN", __func__,
+						       ((action == FIF_ACTION_KILL) ? "killing"
+										    : "replacing"),
+						       dv.name, dv.id, dv.table_id, rn);
 
 				/*
 				 * If this route is waiting to be deleted
@@ -3640,8 +3652,8 @@ void rfapiBgpInfoFilteredImportVPN(
 		info_new->extra->vnc->vnc.import.aux_prefix = *aux_prefix;
 	}
 
-	vnc_zlog_debug_verbose("%s: inserting bpi %p at prefix %pRN #%d",
-			       __func__, info_new, rn,
+	vnc_zlog_debug_verbose("%s: inserting bpi %p at prefix (%s:%u:%u)%pRN #%d", __func__,
+			       info_new, dv.name, dv.id, dv.table_id, rn,
 			       agg_node_get_lock_count(rn));
 
 	rfapiBgpInfoAttachSorted(rn, info_new, afi, SAFI_MPLS_VPN);
@@ -4399,6 +4411,14 @@ static void rfapiDeleteRemotePrefixesIt(
 	struct skiplist *uniq_active_nves, struct skiplist *uniq_holddown_nves)
 {
 	afi_t afi;
+	struct bgp_debug_vrf dv = {
+		.name = "Unknown",
+		.id = VRF_UNKNOWN,
+		.table_id = 0,
+	};
+
+	if (VNC_DEBUG(VERBOSE) || VNC_DEBUG(IMPORT_DEL_REMOTE))
+		dv = bgp_debug_vrf_get(bgp);
 
 #ifdef DEBUG_L2_EXTRA
 	{
@@ -4439,13 +4459,14 @@ static void rfapiDeleteRemotePrefixesIt(
 			const struct prefix *rn_p = agg_node_get_prefix(rn);
 
 			if (p && VNC_DEBUG(IMPORT_DEL_REMOTE))
-				vnc_zlog_debug_any("%s: want %pFX, have %pRN",
-						   __func__, p, rn);
+				zlog_debug("%s: want %pFX, have (%s:%u:%u)%pRN", __func__, p,
+					   dv.name, dv.id, dv.table_id, rn);
 
 			if (p && prefix_cmp(p, rn_p))
 				continue;
 
-			vnc_zlog_debug_verbose("%s: rn pfx=%pRN", __func__, rn);
+			vnc_zlog_debug_verbose("%s: rn pfx=(%s:%u:%u)%pRN", __func__, dv.name,
+					       dv.id, dv.table_id, rn);
 
 			/* TBD is this valid for afi == AFI_L2VPN? */
 			RFAPI_CHECK_REFCOUNT(rn, SAFI_MPLS_VPN, 1);

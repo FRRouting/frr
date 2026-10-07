@@ -362,10 +362,13 @@ static int ip_prefix_send_to_client(vrf_id_t vrf_id, struct prefix *p,
 	/* Write packet size. */
 	stream_putw_at(s, 0, stream_get_endp(s));
 
-	if (IS_ZEBRA_DEBUG_VXLAN)
-		zlog_debug("Send ip prefix %pFX %s on vrf %s", p,
-			   (cmd == ZEBRA_IP_PREFIX_ROUTE_ADD) ? "ADD" : "DEL",
-			   vrf_id_to_name(vrf_id));
+	if (IS_ZEBRA_DEBUG_VXLAN) {
+		struct zebra_vrf *zvrf = zebra_vrf_lookup_by_id(vrf_id);
+
+		zlog_debug("Send ip prefix (%s:%u:%u)%pFX %s", vrf_id_to_name(vrf_id), vrf_id,
+			   zvrf ? zvrf->table_id : 0, p,
+			   (cmd == ZEBRA_IP_PREFIX_ROUTE_ADD) ? "ADD" : "DEL");
+	}
 
 	frrtrace(3, frr_zebra, ip_prefix_send_to_client, vrf_id, cmd, p);
 	if (cmd == ZEBRA_IP_PREFIX_ROUTE_ADD)

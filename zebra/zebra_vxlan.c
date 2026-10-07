@@ -1857,9 +1857,13 @@ static int zl3vni_remote_nh_add(struct zebra_l3vni *zl3vni,
 	if (!nh) {
 		nh = zl3vni_nh_add(zl3vni, vtep_ip, rmac);
 		if (!nh) {
-			if (IS_ZEBRA_DEBUG_VXLAN)
-				zlog_debug("Failed to add NH %pIA as Neigh (RMAC %pEA L3-VNI %u prefix %pFX)",
-					   vtep_ip, rmac, zl3vni->vni, host_prefix);
+			if (IS_ZEBRA_DEBUG_VXLAN) {
+				struct zebra_vrf *zvrf = zebra_vrf_lookup_by_id(zl3vni->vrf_id);
+
+				zlog_debug("Failed to add NH %pIA as Neigh (RMAC %pEA L3-VNI %u (%s:%u:%u)%pFX)",
+					   vtep_ip, rmac, zl3vni->vni, zvrf_name(zvrf),
+					   zl3vni->vrf_id, zvrf ? zvrf->table_id : 0, host_prefix);
+			}
 			return -1;
 		}
 
@@ -1891,11 +1895,13 @@ static int zl3vni_remote_nh_add(struct zebra_l3vni *zl3vni,
 			  "L3VNI %u: VTEP %pIA changed RMAC (old %pEA, new %pEA) for prefix %pFX; if this VTEP serves multiple L3VNIs/VRFs, the per-VTEP kernel neighbor entry can only hold one RMAC and traffic for other VRF(s) may be blackholed. Use a single shared system MAC per VTEP.",
 			  zl3vni->vni, vtep_ip, &nh->emac, rmac, host_prefix);
 
-		if (IS_ZEBRA_DEBUG_VXLAN)
-			zlog_debug(
-				"L3VNI %u RMAC change(%pEA --> %pEA) for nexthop %pIA, prefix %pFX",
-				zl3vni->vni, &nh->emac, rmac, vtep_ip,
-				host_prefix);
+		if (IS_ZEBRA_DEBUG_VXLAN) {
+			struct zebra_vrf *zvrf = zebra_vrf_lookup_by_id(zl3vni->vrf_id);
+
+			zlog_debug("L3VNI %u RMAC change(%pEA --> %pEA) for nexthop %pIA, (%s:%u:%u)%pFX",
+				   zl3vni->vni, &nh->emac, rmac, vtep_ip, zvrf_name(zvrf),
+				   zl3vni->vrf_id, zvrf ? zvrf->table_id : 0, host_prefix);
+		}
 
 		frrtrace(5, frr_zebra, remote_nh_add_rmac_change, zl3vni->vni, &nh->emac, rmac,
 			 vtep_ip, nh->refcnt);
@@ -1946,9 +1952,13 @@ static int svd_remote_nh_add(struct zebra_l3vni *zl3vni,
 	if (!nh) {
 		nh = svd_nh_add(vtep_ip, rmac);
 		if (!nh) {
-			if (IS_ZEBRA_DEBUG_VXLAN)
-				zlog_debug("Failed to add NH %pIA as SVD Neigh (RMAC %pEA prefix %pFX)",
-					   vtep_ip, rmac, host_prefix);
+			if (IS_ZEBRA_DEBUG_VXLAN) {
+				struct zebra_vrf *zvrf = zebra_vrf_lookup_by_id(zl3vni->vrf_id);
+
+				zlog_debug("Failed to add NH %pIA as SVD Neigh (RMAC %pEA (%s:%u:%u)%pFX)",
+					   vtep_ip, rmac, zvrf_name(zvrf), zl3vni->vrf_id,
+					   zvrf ? zvrf->table_id : 0, host_prefix);
+			}
 			return -1;
 		}
 
@@ -1967,10 +1977,13 @@ static int svd_remote_nh_add(struct zebra_l3vni *zl3vni,
 			  "SVD L3VNI %u: VTEP %pIA advertised conflicting RMAC (old %pEA, new %pEA) for prefix %pFX; per-VTEP neighbor table can only store one RMAC, cross-VRF routed traffic may be blackholed. Use a single shared system MAC per VTEP.",
 			  zl3vni->vni, vtep_ip, &nh->emac, rmac, host_prefix);
 
-		if (IS_ZEBRA_DEBUG_VXLAN)
-			zlog_debug("SVD RMAC change(%pEA --> %pEA) for nexthop %pIA, prefix %pFX refcnt %u",
-				   &nh->emac, rmac, vtep_ip, host_prefix,
-				   nh->refcnt);
+		if (IS_ZEBRA_DEBUG_VXLAN) {
+			struct zebra_vrf *zvrf = zebra_vrf_lookup_by_id(zl3vni->vrf_id);
+
+			zlog_debug("SVD RMAC change(%pEA --> %pEA) for nexthop %pIA, (%s:%u:%u)%pFX refcnt %u",
+				   &nh->emac, rmac, vtep_ip, zvrf_name(zvrf), zl3vni->vrf_id,
+				   zvrf ? zvrf->table_id : 0, host_prefix, nh->refcnt);
+		}
 
 		frrtrace(5, frr_zebra, remote_nh_add_rmac_change, zl3vni->vni, &nh->emac, rmac,
 			 vtep_ip, nh->refcnt);
