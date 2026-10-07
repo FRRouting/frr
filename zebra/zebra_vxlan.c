@@ -2631,6 +2631,15 @@ static int zebra_vxlan_handle_vni_transition(struct zebra_vrf *zvrf, vni_t vni,
 			return 0;
 
 		zif = ctx.ret_ifp->info;
+
+		/* The L2-VNI is added from its VxLAN interface when EVPN
+		 * gets enabled.
+		 */
+		if (!is_evpn_enabled()) {
+			zebra_vxlan_if_vni_deref(zif, vni);
+			return 0;
+		}
+
 		vnip = ctx.vnip;
 		vxl = &zif->l2info.vxl;
 
