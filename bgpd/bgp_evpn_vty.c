@@ -384,6 +384,8 @@ static void display_rt_list(struct vty *vty, json_object *json, const char *json
  */
 static void evpn_l3vni_fill_json(json_object *json_vni, struct bgp *bgp_vrf)
 {
+	struct bgp *bgp_evpn = bgp_get_evpn();
+
 	if (bgp_vrf->l3vni)
 		json_object_string_addf(json_vni, "vni", "%u", bgp_vrf->l3vni);
 	else
@@ -399,6 +401,9 @@ static void evpn_l3vni_fill_json(json_object *json_vni, struct bgp *bgp_vrf)
 			       (bgp_vrf->evpn_info && bgp_vrf->evpn_info->advertise_svi_macip)
 				       ? "Active"
 				       : "Disabled");
+	json_object_string_add(json_vni, "advertiseL3vniNeigh",
+			       (bgp_evpn && bgp_evpn->advertise_l3vni_neigh) ? "Active"
+									     : "Disabled");
 	if (bgp_vrf->evpn_info) {
 		json_object_string_add(json_vni, "advertisePip",
 				       bgp_vrf->evpn_info->advertise_pip ? "Enabled" : "Disabled");
@@ -473,6 +478,9 @@ static void display_l3vni(struct vty *vty, struct bgp *bgp_vrf, json_object *jso
 			vty_out(vty, "  MAC-VRF Site-of-Origin: %s\n", soo_str);
 		vty_out(vty, "  Advertise-gw-macip : %s\n", gw_macip_state);
 		vty_out(vty, "  Advertise-svi-macip : %s\n", svi_macip_state);
+		vty_out(vty, "  Advertise-all-vni l3vni-neigh : %s\n",
+			(bgp_evpn && bgp_evpn->advertise_l3vni_neigh) ? "Active"
+								      : "Disabled");
 		if (bgp_vrf->evpn_info) {
 			vty_out(vty, "  Advertise-pip: %s\n",
 				bgp_vrf->evpn_info->advertise_pip ? "Yes" : "No");

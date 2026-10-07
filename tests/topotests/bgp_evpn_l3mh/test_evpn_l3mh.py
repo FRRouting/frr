@@ -474,10 +474,11 @@ def test_advertise_l3vni_neigh_cli():
     reaches zebra.
 
     Pure CLI + ZAPI plumbing; no dataplane behavior yet. We verify the bgpd
-    running-config and that the flag propagated to zebra's per-VRF state
-    inside ZEBRA_ADVERTISE_ALL_VNI (show evpn -> advertiseL3vniNeigh).
-    Re-entering advertise-all-vni without the token must clear the flag while
-    keeping EVPN enabled.
+    running-config, that the flag propagated to zebra's per-VRF state inside
+    ZEBRA_ADVERTISE_ALL_VNI (show evpn -> advertiseL3vniNeigh), and that the
+    bgpd per-L3VNI view (show bgp l2vpn evpn vni <vni>) reflects the token.
+    Re-entering advertise-all-vni without the token must clear the flag in
+    both daemons while keeping EVPN enabled.
     """
     tgen = get_topogen()
     if tgen.routers_have_failure():
@@ -510,6 +511,22 @@ def test_advertise_l3vni_neigh_cli():
             want,
         )
 
+    # The bgpd per-L3VNI view must reflect the token as well.
+    def _bgp_vni_flag_is(dut, want):
+        out = dut.vtysh_cmd("show bgp l2vpn evpn vni %d json" % L3VNI)
+        try:
+            js = json.loads(out)
+        except Exception as exc:  # pragma: no cover - defensive
+            return "cannot parse 'show bgp l2vpn evpn vni' json: %s" % exc
+        state = js.get("advertiseL3vniNeigh")
+        if state == want:
+            return None
+        return "bgp vni %d advertiseL3vniNeigh=%s (expected %s)" % (
+            L3VNI,
+            state,
+            want,
+        )
+
     def _expect(fn, *args):
         _, result = topotest.run_and_expect(
             partial(fn, *args), None, count=15, wait=1
@@ -523,8 +540,9 @@ def test_advertise_l3vni_neigh_cli():
             "advertise-all-vni l3vni-neigh" in running
         ), "advertise-all-vni l3vni-neigh not present in running-config"
         _expect(_zebra_flag_is, leaf1, "Yes")
+        _expect(_bgp_vni_flag_is, leaf1, "Active")
 
-        # Token off: EVPN stays on, L3MH neighbor sync goes off.
+        # Token off: EVPN stays on, L3MH neighbor sync goes off in both daemons.
         _set_token(False)
         running = leaf1.vtysh_cmd("show running-config")
         assert (
@@ -532,6 +550,7 @@ def test_advertise_l3vni_neigh_cli():
             and "advertise-all-vni" in running
         ), "expected plain advertise-all-vni in running-config"
         _expect(_zebra_flag_is, leaf1, "No")
+        _expect(_bgp_vni_flag_is, leaf1, "Disabled")
 
         # 'no advertise-all-vni l3vni-neigh' also drops only the token.
         _set_token(True)
@@ -548,10 +567,55 @@ def test_advertise_l3vni_neigh_cli():
             and "advertise-all-vni" in running
         ), "'no advertise-all-vni l3vni-neigh' must keep advertise-all-vni"
         _expect(_zebra_flag_is, leaf1, "No")
+        _expect(_bgp_vni_flag_is, leaf1, "Disabled")
     finally:
         _set_token(True)
 
     _expect(_zebra_flag_is, leaf1, "Yes")
+
+
+def test_l3vni_neigh_debug_cli():
+    """The l3vni-neigh debug selectors are accepted in bgpd and zebra.
+
+    Both daemons expose the sync-neighbor tracing under the existing EVPN-MH
+    debug tree: 'debug bgp evpn mh l3vni-neigh' and 'debug zebra evpn mh
+    l3vni-neigh'. Enabling them from config mode must persist to running-config
+    and be reflected in 'show debugging'.
+    """
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    leaf1 = tgen.gears["leaf1"]
+
+    leaf1.vtysh_cmd(
+        "configure terminal\n"
+        "debug bgp evpn mh l3vni-neigh\n"
+        "debug zebra evpn mh l3vni-neigh\n"
+    )
+
+    running = leaf1.vtysh_cmd("show running-config")
+    assert (
+        "debug bgp evpn mh l3vni-neigh" in running
+    ), "bgp l3vni-neigh debug not persisted to running-config"
+    assert (
+        "debug zebra evpn mh l3vni-neigh" in running
+    ), "zebra l3vni-neigh debug not persisted to running-config"
+
+    dbg = leaf1.vtysh_cmd("show debugging")
+    assert (
+        "BGP EVPN-MH l3vni-neigh debugging is on" in dbg
+    ), "bgp l3vni-neigh debug not shown in 'show debugging'"
+    assert (
+        "Zebra EVPN-MH l3vni-neigh debugging is on" in dbg
+    ), "zebra l3vni-neigh debug not shown in 'show debugging'"
+
+    # Turn it back off so the debug state does not leak into later tests.
+    leaf1.vtysh_cmd(
+        "configure terminal\n"
+        "no debug bgp evpn mh l3vni-neigh\n"
+        "no debug zebra evpn mh l3vni-neigh\n"
+    )
 
 
 @pytest.mark.xfail(

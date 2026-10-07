@@ -865,8 +865,10 @@ static inline const char *zapi_srv6_sid_notify2str(enum zapi_srv6_sid_notify not
 #define ZEBRA_MACIP_TYPE_SVI_IP                0x10 /* SVI MAC-IP */
 #define ZEBRA_MACIP_TYPE_PROXY_ADVERT          0x20 /* Not locally active */
 #define ZEBRA_MACIP_TYPE_SYNC_PATH             0x40 /* sync path */
-/* XXX - flags is an u8; that needs to be changed to u32 if you need
- * to allocate past 0x80.  Additionally touch zclient_evpn_dump_macip_flags
+#define ZEBRA_MACIP_TYPE_L3_NEIGH_SYNC         0x80 /* pure-L3 neigh sync (no L2VNI) */
+/* XXX - flags is an u8 and 0x80 is now the last free bit; that needs to be
+ * changed to u32 if you need to allocate past 0x80.  Additionally touch
+ * zclient_evpn_dump_macip_flags
  */
 #define MACIP_BUF_SIZE 128
 extern char *zclient_evpn_dump_macip_flags(uint8_t flags, char *buf,
