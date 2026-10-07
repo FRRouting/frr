@@ -794,17 +794,12 @@ void nb_notif_init(struct event_loop *tm)
 	op_changes_queue_init(&op_changes_queue);
 }
 
-void nb_notif_terminate(void)
+/* The lock must be held during this call. */
+static void _nb_notif_cancel_walk(void)
 {
-	struct nb_notif_walk_args *args;
-	struct op_changes_group *group;
+	struct nb_notif_walk_args *args = nb_notif_timer ? EVENT_ARG(nb_notif_timer) : NULL;
 
-	if (nb_notif_lock)
-		pthread_mutex_lock(nb_notif_lock);
-
-	args = nb_notif_timer ? EVENT_ARG(nb_notif_timer) : NULL;
-
-	_dbg("terminating: notif running: %d timer: %p timer arg: %p walk %p", nb_notif_running,
+	_dbg("cancelling: notif running: %d timer: %p timer arg: %p walk %p", nb_notif_running,
 	     nb_notif_timer, args, nb_notif_walk);
 
 	event_cancel(&nb_notif_timer);
@@ -820,12 +815,34 @@ void nb_notif_terminate(void)
 		XFREE(MTYPE_NB_NOTIF_WALK_ARGS, args);
 	}
 
+	/* No timer and no walk, so the next change may start a new cycle. */
+	nb_notif_running = false;
+}
+
+void nb_notif_cancel_walk(void)
+{
+	if (nb_notif_lock)
+		pthread_mutex_lock(nb_notif_lock);
+
+	_nb_notif_cancel_walk();
+
+	if (nb_notif_lock)
+		pthread_mutex_unlock(nb_notif_lock);
+}
+
+void nb_notif_terminate(void)
+{
+	struct op_changes_group *group;
+
+	if (nb_notif_lock)
+		pthread_mutex_lock(nb_notif_lock);
+
+	_nb_notif_cancel_walk();
+
 	while ((group = _op_changes_group_next()))
 		op_changes_group_free(group);
 
 	darr_free_free(nb_notif_filters);
-
-	nb_notif_running = false;
 
 	if (nb_notif_lock)
 		pthread_mutex_unlock(nb_notif_lock);

@@ -61,6 +61,15 @@ bool bgp_bfd_strict_hold_start(struct peer *peer)
 	if (!peer->bfd_config || !CHECK_FLAG(peer->flags, PEER_FLAG_BFD_STRICT))
 		return false;
 
+	/* The session was installed when the peer was created, before the local
+	 * address and the outgoing interface were known. Resolve them now:
+	 * correcting them once the connection proceeds removes the session and
+	 * installs a new one, and that new session starts down - tearing down
+	 * the very peer this hold is waiting for.
+	 */
+	if (bgp_getsockname(connection) == 0)
+		bgp_peer_bfd_update_source(peer);
+
 	if (bfd_session_is_up(peer->bfd_config->session))
 		return false;
 

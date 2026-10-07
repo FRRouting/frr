@@ -664,8 +664,8 @@ struct nb_node {
 	/* Back pointer to the libyang schema node. */
 	const struct lysc_node *snode;
 
-	/* Data path of this YANG node. */
-	char xpath[XPATH_MAXLEN];
+	/* Data path of this YANG node (allocated to its exact length). */
+	char *xpath;
 
 	/* Priority - lower priorities are processed first. */
 	uint32_t priority;
@@ -1973,6 +1973,15 @@ extern void nb_notif_enable_multi_thread(void);
 
 extern void nb_notif_init(struct event_loop *loop);
 extern void nb_notif_terminate(void);
+
+/**
+ * nb_notif_cancel_walk() - cancel the in-progress oper-state notification cycle
+ *
+ * Cancels the notification timer and the walk, frees the walk args shared by
+ * the two, and discards the change group being notified. Queued groups and the
+ * notification filters are left alone. Takes the notification lock.
+ */
+extern void nb_notif_cancel_walk(void);
 
 #ifdef __cplusplus
 }

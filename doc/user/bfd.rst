@@ -85,6 +85,15 @@ may also be specified (:ref:`common-invocation-options`).
    restrictive permissions) is strongly recommended.  When using IP sockets,
    you must ensure only the intended BFD data plane entity can connect.
 
+.. warning::
+
+   A session that authenticates is offloaded only over a UNIX socket or a
+   loopback address. Its keys would otherwise be written in the clear to a
+   connection with no transport security and no peer authentication, where
+   anyone on the path can read them and reuse them. Such a session falls
+   back to the BFD daemon, which authenticates it as usual; ``bfdd`` logs
+   the refusal.
+
 .. option:: --vrfs <vrf-list>
 
    Configure which VRFs the BFD daemon will listen. By default BFD

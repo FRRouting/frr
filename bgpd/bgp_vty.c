@@ -9177,9 +9177,9 @@ DEFPY (bgp_condadv_period,
 		for (ALL_LIST_ELEMENTS(bgp->peer, node, nnode, peer))
 			UNSET_FLAG(peer->sflags, PEER_STATUS_COND_ADV_PENDING);
 
-		bgp->condition_check_period = DEFAULT_CONDITIONAL_ROUTES_POLL_TIME;
+		bgp_conditional_adv_period_set(bgp, DEFAULT_CONDITIONAL_ROUTES_POLL_TIME);
 	} else {
-		bgp->condition_check_period = period;
+		bgp_conditional_adv_period_set(bgp, period);
 	}
 
 	return CMD_SUCCESS;

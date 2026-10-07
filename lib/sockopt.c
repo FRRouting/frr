@@ -25,8 +25,6 @@
 
 int setsockopt_so_recvbuf(int sock, int size)
 {
-	int orig_req = size;
-
 	while (setsockopt(sock, SOL_SOCKET, SO_RCVBUF, &size, sizeof(size)) ==
 	       -1) {
 		if (size == 0)
@@ -34,29 +32,17 @@ int setsockopt_so_recvbuf(int sock, int size)
 		size /= 2;
 	}
 
-	if (size != orig_req)
-		flog_err(EC_LIB_SOCKET,
-			 "%s: fd %d: SO_RCVBUF set to %d (requested %d)",
-			 __func__, sock, size, orig_req);
-
 	return size;
 }
 
 int setsockopt_so_sendbuf(const int sock, int size)
 {
-	int orig_req = size;
-
 	while (setsockopt(sock, SOL_SOCKET, SO_SNDBUF, &size, sizeof(size)) ==
 	       -1) {
 		if (size == 0)
 			break;
 		size /= 2;
 	}
-
-	if (size != orig_req)
-		flog_err(EC_LIB_SOCKET,
-			 "%s: fd %d: SO_SNDBUF set to %d (requested %d)",
-			 __func__, sock, size, orig_req);
 
 	return size;
 }

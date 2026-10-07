@@ -1239,9 +1239,9 @@ static struct bgp_path_info *leak_update(struct bgp *to_bgp, struct bgp_dest *bn
 					 struct attr *static_attr, /* not already interned */
 					 afi_t afi, safi_t safi, struct bgp_path_info *source_bpi,
 					 mpls_label_t *label, uint8_t num_labels,
-					 struct bgp *bgp_orig, struct prefix *nexthop_orig,
-					 int nexthop_self_flag, int debug,
-					 const struct bgp_path_info *rmap_bpi)
+					 bool labels_are_evpn, struct bgp *bgp_orig,
+					 struct prefix *nexthop_orig, int nexthop_self_flag,
+					 int debug, const struct bgp_path_info *rmap_bpi)
 {
 	const struct prefix *p = bgp_dest_get_prefix(bn);
 	struct bgp_path_info *bpi;
@@ -1300,7 +1300,13 @@ static struct bgp_path_info *leak_update(struct bgp *to_bgp, struct bgp_dest *bn
 	bgp_labels.num_labels = num_labels;
 	for (i = 0; i < num_labels; i++) {
 		bgp_labels.label[i] = label[i];
-		bgp_set_valid_label(&bgp_labels.label[i]);
+		/*
+		 * bgp_set_valid_label() ORs 0x02 into the third label byte.
+		 * That is an MPLS validity bit. An EVPN VNI is stored as a raw
+		 * 24-bit value, so applying it changes the VNI (900000 -> 900002).
+		 */
+		if (!labels_are_evpn)
+			bgp_set_valid_label(&bgp_labels.label[i]);
 	}
 
 	if (bpi) {
@@ -1867,8 +1873,8 @@ static void _vpn_leak_from_vrf_update_leak_attr(struct attr *static_attr, struct
 
 	bn = bgp_afi_node_get(to_bgp->rib[afi][safi], afi, safi, p,
 			      &(from_bgp->vpn_policy[afi].tovpn_rd));
-	new_info = leak_update(to_bgp, bn, static_attr, afi, safi, path_vrf, label, 1, from_bgp,
-			       NULL, nexthop_self_flag, debug, rmap_bpi);
+	new_info = leak_update(to_bgp, bn, static_attr, afi, safi, path_vrf, label, 1, false,
+			       from_bgp, NULL, nexthop_self_flag, debug, rmap_bpi);
 	/*
 	 * Routes actually installed in the vpn RIB must also be
 	 * offered to all vrfs (because now they originate from
@@ -2361,6 +2367,7 @@ static void vpn_leak_to_vrf_update_onevrf(struct bgp *to_bgp,	/* to */
 	struct prefix nexthop_orig;
 	mpls_label_t *label_pnt = NULL;
 	uint8_t num_labels = 0;
+	bool labels_are_evpn = false;
 	int nexthop_self_flag = 1;
 	struct bgp_path_info *bpi_ultimate = NULL;
 	struct bgp_path_info *bpi;
@@ -2635,19 +2642,30 @@ static void vpn_leak_to_vrf_update_onevrf(struct bgp *to_bgp,	/* to */
 	}
 
 	/*
-	 * ensure labels are copied
+	 * Preserve a downstream VNI when an EVPN-imported route is leaked
+	 * with "import vrf" and that VNI is not the source VRF's L3VNI.
+	 * The intermediate VPN path carries the source VRF's leak label,
+	 * so copy the label stack from the ultimate EVPN parent.
 	 *
-	 * However, there is a special case: if the route originated in
-	 * another local VRF (as opposed to arriving via VPN), then the
-	 * nexthop is reached by hairpinning through this router (me)
-	 * using IP forwarding only (no LSP). Therefore, the route
-	 * imported to the VRF should not have labels attached. Note
-	 * that nexthop tracking is also involved: eliminating the
-	 * labels for these routes enables the non-labeled nexthops
-	 * from the originating VRF to be considered valid for this route.
+	 * A regular EVPN route whose VNI matches the source VRF L3VNI, and
+	 * any other route originating in a local VRF, is still reached by
+	 * hairpinning through this router using IP forwarding only. Keep
+	 * those routes unlabeled so their non-labeled nexthops remain valid.
 	 */
-	if (!CHECK_FLAG(to_bgp->af_flags[afi][safi],
-			BGP_CONFIG_VRF_TO_VRF_IMPORT)) {
+	if (CHECK_FLAG(to_bgp->af_flags[afi][safi], BGP_CONFIG_VRF_TO_VRF_IMPORT)) {
+		if (is_pi_family_evpn(bpi_ultimate) &&
+		    bgp_evpn_path_is_dvni(src_vrf, bpi_ultimate)) {
+			num_labels = BGP_PATH_INFO_NUM_LABELS(bpi_ultimate);
+			label_pnt = num_labels ? bpi_ultimate->extra->labels->label : NULL;
+			labels_are_evpn = true;
+			if (debug)
+				zlog_debug("%s: VRF leak %pBD from %s to %s: copying D-VNI %u (source L3VNI %u)",
+					   __func__, path_vpn->net, src_vrf->name_pretty,
+					   to_bgp->name_pretty,
+					   bgp_evpn_path_info_get_l3vni(bpi_ultimate),
+					   src_vrf->l3vni);
+		}
+	} else {
 		/*
 		 * if original route was unicast,
 		 * then it did not arrive over vpn
@@ -2670,7 +2688,7 @@ static void vpn_leak_to_vrf_update_onevrf(struct bgp *to_bgp,	/* to */
 			   path_vpn->net, num_labels);
 
 	if (!leak_update(to_bgp, bn, &static_attr, afi, safi, path_vpn, label_pnt, num_labels,
-			 src_vrf, &nexthop_orig, nexthop_self_flag, debug,
+			 labels_are_evpn, src_vrf, &nexthop_orig, nexthop_self_flag, debug,
 			 ret == RMAP_PERMITMATCH ? &rmap_bpi : NULL))
 		bgp_dest_unlock_node(bn);
 	bgp_attr_flush(&static_attr);

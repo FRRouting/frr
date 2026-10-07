@@ -2319,6 +2319,8 @@ void nb_oper_cancel_all_walks(void)
 {
 	struct nb_op_yield_state *ys;
 
+	nb_notif_cancel_walk();
+
 	frr_each_safe (nb_op_walks, &nb_op_walks, ys)
 		nb_oper_cancel_walk(ys);
 }

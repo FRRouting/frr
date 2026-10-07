@@ -367,11 +367,84 @@ def test_ospf_json():
         )
 
 
+def ospf6_border_router_absent(router, router_id):
+    """Return None once router_id has left the OSPFv3 border-router table."""
+    border = router.vtysh_cmd("show ipv6 ospf6 border-routers")
+    if router_id not in border:
+        return None
+    return border
+
+
+def ospf6_inter_area_asbr_ready(router, router_id):
+    """Return None once router_id is inter-area and SPF is idle.
+
+    The Type-4 must be installed with no area-0 SPF after it. That SPF would
+    clear OSPF6_ROUTE_ADD, and the link-down failure would not reproduce.
+    """
+    border = router.vtysh_cmd("show ipv6 ospf6 border-routers")
+    spf = router.vtysh_cmd("show ipv6 ospf6")
+    for line in border.splitlines():
+        if (
+            router_id in line
+            and "Inter-Area" in line
+            and "SPF timer is inactive" in spf
+        ):
+            return None
+    return border
+
+
 def test_ospf_link_down():
     "Test OSPF convergence after a link goes down"
     tgen = get_topogen()
     if tgen.routers_have_failure():
         pytest.skip("skipped because of router(s) failure")
+
+    # Reinstall r4's Type-4 after area 0 has gone idle so OSPF6_ROUTE_ADD is
+    # still set on r1/r2. Withdrawing redistribution drops the ASBR bit in
+    # area 1 only; it does not originate an area-0 router or network LSA.
+    logger.info("withdrawing r4 OSPFv3 redistribution to flush its Type-4")
+    tgen.gears["r4"].vtysh_cmd(
+        "configure terminal\n"
+        "router ospf6\n"
+        " no redistribute kernel\n"
+        " no redistribute connected\n"
+        " no redistribute static\n"
+    )
+    for rname in ("r1", "r2"):
+        logger.info("waiting for r4 Type-4 to be withdrawn on %s", rname)
+        test_func = partial(
+            ospf6_border_router_absent, tgen.gears[rname], "10.0.255.4"
+        )
+        _, result = topotest.run_and_expect(test_func, None, count=20, wait=1)
+        assert result is None, "r4 stayed an OSPFv3 border router on {}".format(
+            rname
+        )
+
+    logger.info("restoring r4 OSPFv3 redistribution to reinstall its Type-4")
+    tgen.gears["r4"].vtysh_cmd(
+        "configure terminal\n"
+        "router ospf6\n"
+        " redistribute kernel\n"
+        " redistribute connected\n"
+        " redistribute static\n"
+    )
+    for rname in ("r1", "r2"):
+        logger.info("waiting for r4 Type-4 to be reinstalled on %s", rname)
+        test_func = partial(
+            ospf6_inter_area_asbr_ready, tgen.gears[rname], "10.0.255.4"
+        )
+        _, result = topotest.run_and_expect(test_func, None, count=20, wait=1)
+        assert result is None, "r4 was not reinstalled as an inter-area ASBR on {}".format(
+            rname
+        )
+        # Coalesce the link-down LSAs into the SPF that first sees r3 gone.
+        # An earlier SPF in that burst would clear OSPF6_ROUTE_ADD while r3
+        # is still reachable.
+        tgen.gears[rname].vtysh_cmd(
+            "configure terminal\n"
+            "router ospf6\n"
+            " timers throttle spf 5000 5000 5000\n"
+        )
 
     # Simulate a network down event on router3 switch3 interface.
     router3 = tgen.gears["r3"]

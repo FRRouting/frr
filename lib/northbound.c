@@ -22,6 +22,7 @@
 #include "frrstr.h"
 
 DEFINE_MTYPE_STATIC(LIB, NB_NODE, "Northbound Node");
+DEFINE_MTYPE_STATIC(LIB, NB_NODE_XPATH, "NB XPath");
 DEFINE_MTYPE_STATIC(LIB, NB_CONFIG, "Northbound Config");
 DEFINE_MTYPE_STATIC(LIB, NB_CONFIG_ENTRY, "Northbound Config Entry");
 DEFINE_MTYPE_STATIC(LIB, NB_TRANS, "NB transaction");
@@ -79,11 +80,12 @@ static int nb_node_new_cb(const struct lysc_node *snode, void *arg)
 	struct nb_node *nb_node;
 	struct lysc_node *sparent, *sparent_list;
 	struct frr_yang_module_info *module;
+	char xpath[XPATH_MAXLEN];
 
 	module = (struct frr_yang_module_info *)arg;
 	nb_node = XCALLOC(MTYPE_NB_NODE, sizeof(*nb_node));
-	yang_snode_get_path(snode, YANG_PATH_DATA, nb_node->xpath,
-			    sizeof(nb_node->xpath));
+	yang_snode_get_path(snode, YANG_PATH_DATA, xpath, sizeof(xpath));
+	nb_node->xpath = XSTRDUP(MTYPE_NB_NODE_XPATH, xpath);
 	nb_node->priority = NB_DFLT_PRIORITY;
 	sparent = yang_snode_real_parent(snode);
 	if (sparent)
@@ -163,6 +165,7 @@ static int nb_node_del_cb(const struct lysc_node *snode, void *arg)
 	nb_node = snode->priv;
 	if (nb_node) {
 		((struct lysc_node *)snode)->priv = NULL;
+		XFREE(MTYPE_NB_NODE_XPATH, nb_node->xpath);
 		XFREE(MTYPE_NB_NODE, nb_node);
 	}
 

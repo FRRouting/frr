@@ -8395,10 +8395,8 @@ void bgp_clear_stale_route(struct peer *peer, afi_t afi, safi_t safi)
 					 * If this is VRF leaked route
 					 * process for withdraw.
 					 */
-					if (pi->sub_type ==
-						    BGP_ROUTE_IMPORTED &&
-					    peer->bgp->inst_type ==
-						    BGP_INSTANCE_TYPE_DEFAULT)
+					if (safi == SAFI_MPLS_VPN &&
+					    peer->bgp->inst_type == BGP_INSTANCE_TYPE_DEFAULT)
 						vpn_leak_to_vrf_withdraw(pi);
 
 					bgp_rib_remove(rm, pi, peer, afi, safi);

@@ -229,6 +229,7 @@ bgp_evpn_handle_resolve_overlay_index_unset(struct hash_bucket *bucket,
 extern mpls_label_t *bgp_evpn_path_info_labels_get_l3vni(mpls_label_t *labels,
 							 uint8_t num_labels);
 extern vni_t bgp_evpn_path_info_get_l3vni(const struct bgp_path_info *pi);
+extern bool bgp_evpn_path_is_dvni(const struct bgp *bgp_vrf, const struct bgp_path_info *pi);
 extern bool bgp_evpn_mpath_has_dvni(const struct bgp *bgp_vrf,
 				    struct bgp_path_info *mpinfo);
 extern bool is_route_injectable_into_evpn(struct bgp *bgp_vrf, afi_t afi, safi_t safi,

@@ -563,8 +563,8 @@ static void bgp_accept(struct event *event)
 			/* Rejecting would delete the peer (because it's dynamic) and
 			 * deregister BFD, hold instead.
 			 */
-			if (peer_active(incoming) == BGP_PEER_ACTIVE &&
-			    !bgp_bfd_strict_hold_start(dynamic_peer)) {
+			if (!bgp_bfd_strict_hold_start(dynamic_peer) &&
+			    peer_active(incoming) == BGP_PEER_ACTIVE) {
 				if (CHECK_FLAG(dynamic_peer->flags, PEER_FLAG_TIMER_DELAYOPEN))
 					BGP_EVENT_ADD(incoming, TCP_connection_open_w_delay);
 				else
@@ -778,7 +778,7 @@ static char *bgp_get_bound_name(struct peer_connection *connection)
 	 * some random source address to be choosen.
 	 */
 	if (connection->su.sa.sa_family == AF_INET6) {
-		c = if_lookup_address(&connection->su.sa, connection->su.sa.sa_family,
+		c = if_lookup_address(&connection->su.sin6.sin6_addr, connection->su.sa.sa_family,
 				      peer->bgp->vrf_id);
 		if (c)
 			return c->ifp->name;
