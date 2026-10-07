@@ -143,18 +143,11 @@ def setup_module(mod):
 
     router_list = tgen.routers()
 
-    # For all registered routers, load the zebra configuration file
+    # For all registered routers, load the configuration files
     for rname, router in router_list.items():
-        router.load_config(
-            TopoRouter.RD_ZEBRA, os.path.join(CWD, "{}/zebra.conf".format(rname))
-        )
-        router.load_config(
-            TopoRouter.RD_ISIS, os.path.join(CWD, "{}/isisd.conf".format(rname))
-        )
-        router.load_config(
-            TopoRouter.RD_BGP,
-            os.path.join(CWD, "{}/bgpd.conf".format(rname)),
-            "-M snmp",
+        router.load_frr_config(
+            os.path.join(CWD, "{}/frr.conf".format(rname)),
+            daemons=["zebra", "isisd", ("bgpd", "-M snmp")],
         )
         router.load_config(
             TopoRouter.RD_SNMP,
