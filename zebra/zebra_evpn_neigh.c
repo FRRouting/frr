@@ -291,20 +291,19 @@ int zebra_evpn_neigh_send_del_to_client(vni_t vni, struct ipaddr *ip,
 /*
  * Inform BGP about a pure-L3 (no-L2VNI) local neighbor addition. The MAC/IP is
  * tagged ZEBRA_MACIP_TYPE_L3_NEIGH_SYNC and carries the BD VLAN as the ETAG so
- * bgpd originates it as a label[0]=0 RT-2 sourced from the VRF's L3VNI.
- *
- * TODO: es is NULL here. The RT-2's ESI must be resolved from the neighbor's
- * MAC in the local FDB (MAC -> access port -> es_info->es) so a receiver can
- * ESI-match the route; wired in a follow-up commit.
+ * bgpd originates it as a label[0]=0 RT-2 sourced from the VRF's L3VNI. The ESI
+ * is resolved from the neighbor's access BD (its host ES bond) so a receiver
+ * can ESI-match the route; es is NULL for a single-homed neighbor.
  */
 static int zebra_evpn_neigh_send_add_to_client_l3(vni_t vni,
 						  const struct ipaddr *ip,
 						  const struct ethaddr *macaddr,
-						  vlanid_t eth_tag, uint32_t seq)
+						  vlanid_t eth_tag, uint32_t seq,
+						  struct zebra_evpn_es *es)
 {
 	return zebra_evpn_macip_send_msg_to_client(
 		vni, macaddr, ip, ZEBRA_MACIP_TYPE_L3_NEIGH_SYNC, seq,
-		ZEBRA_NEIGH_ACTIVE, eth_tag, NULL, ZEBRA_MACIP_ADD);
+		ZEBRA_NEIGH_ACTIVE, eth_tag, es, ZEBRA_MACIP_ADD);
 }
 
 /* Inform BGP about a pure-L3 (no-L2VNI) local neighbor deletion. */
@@ -343,13 +342,12 @@ static void zebra_evpn_l3vni_neigh_del_one(struct zebra_evpn *zevpn,
  * L3VNI-keyed neighbor-sync singleton and advertise it to bgpd. The host MAC
  * is kept in n->emac (it is part of the RT-2 NLRI and becomes the neighbor's
  * lladdr on the peering leaf); the kernel bridge still learns that MAC in the
- * access BD's FDB, and that FDB entry (MAC -> access port) is what resolves the
- * RT-2's ESI (TODO, a follow-up commit; see the note on
- * zebra_evpn_neigh_send_add_to_client_l3()). With no L2VNI the BD has no EVPN L2
- * instance, so no linked zebra_mac is created or advertised as an EVPN MAC
- * route. The existing zebra_evpn_local_neigh_update() cannot be reused here: it
- * dereferences zevpn->vxlan_if (NULL for the singleton) and auto-creates a
- * zebra_mac.
+ * access BD's FDB. The RT-2's ESI is resolved from the neighbor's access BD
+ * (its host ES bond) via zebra_evpn_l3vni_neigh_es(). With no L2VNI the BD has
+ * no EVPN L2 instance, so no linked zebra_mac is created or advertised as an
+ * EVPN MAC route. The existing zebra_evpn_local_neigh_update() cannot be reused
+ * here: it dereferences zevpn->vxlan_if (NULL for the singleton) and
+ * auto-creates a zebra_mac.
  */
 int zebra_evpn_l3vni_local_neigh_update(struct interface *ifp,
 					struct interface *br_if,
@@ -359,6 +357,7 @@ int zebra_evpn_l3vni_local_neigh_update(struct interface *ifp,
 {
 	struct zebra_evpn *zevpn;
 	struct zebra_neigh *n;
+	struct zebra_evpn_es *es;
 	struct ipaddr vtep_ip = {};
 	vni_t vni = 0;
 	vlanid_t vid = 0;
@@ -431,8 +430,15 @@ int zebra_evpn_l3vni_local_neigh_update(struct interface *ifp,
 		zlog_debug("local L3VNI-neigh add ip %pIA mac %pEA L3-VNI %u ETAG %u",
 			   ip, macaddr, vni, vid);
 
+	es = zebra_evpn_l3vni_neigh_es(&n->emac, ifp);
 	zebra_evpn_neigh_send_add_to_client_l3(vni, &n->ip, &n->emac,
-					       n->eth_tag, n->loc_seq);
+					       n->eth_tag, n->loc_seq, es);
+
+	/* A multi-member BD with no cached MAC->access-port binding yet resolves
+	 * to a zero ESI (the ARP/ND arrived before the bridge FDB notification);
+	 * a later real FDB event populates the cache and re-advertises with the
+	 * resolved ESI. There is no targeted FDB backfill.
+	 */
 	return 0;
 }
 
@@ -543,6 +549,71 @@ void zebra_evpn_l3vni_neigh_flush_bd(vni_t l3vni, vlanid_t vid)
 	}
 
 	zebra_evpn_l3_neigh_sync_unref(zevpn);
+}
+
+/* Re-advertise every pure-L3 neighbor learned for a given host MAC/ETAG after
+ * its FDB-derived ESI became known, changed, or was cleared, so the RT-2 and
+ * the ARP/ND learn converge regardless of the order the two events arrive in.
+ */
+void zebra_evpn_l3vni_neigh_readvertise_mac(vni_t l3vni,
+					    const struct ethaddr *macaddr,
+					    vlanid_t vid)
+{
+	struct zebra_evpn *zevpn;
+	struct zebra_neigh *n;
+
+	zevpn = zebra_evpn_l3_neigh_sync_lookup(l3vni);
+	if (!zevpn)
+		return;
+
+	frr_each_safe (zebra_neigh_db, zevpn->neigh_table, n) {
+		struct interface *svi_ifp;
+
+		if (!CHECK_FLAG(n->flags, ZEBRA_NEIGH_LOCAL) || n->mac)
+			continue;
+		if (n->eth_tag != vid ||
+		    memcmp(&n->emac, macaddr, ETH_ALEN) != 0)
+			continue;
+		if (!IS_ZEBRA_NEIGH_ACTIVE(n))
+			continue;
+
+		svi_ifp = if_lookup_by_index_per_ns(zebra_ns_lookup(NS_DEFAULT),
+						    n->ifindex);
+		zebra_evpn_neigh_send_add_to_client_l3(
+			l3vni, &n->ip, &n->emac, n->eth_tag, n->loc_seq,
+			zebra_evpn_l3vni_neigh_es(&n->emac, svi_ifp));
+	}
+}
+
+/* Re-advertise every pure-L3 neighbor of an access BD (all MACs on one ETAG),
+ * re-resolving each ESI. Used when a change affects a whole BD rather than a
+ * single MAC -- e.g. an access port's ES was added, removed, or toggled bypass,
+ * which changes the ESI even for neighbors whose MAC->port binding is not
+ * cached (they resolve via the single-member-BD fallback).
+ */
+void zebra_evpn_l3vni_neigh_readvertise_bd(vni_t l3vni, vlanid_t vid)
+{
+	struct zebra_evpn *zevpn;
+	struct zebra_neigh *n;
+
+	zevpn = zebra_evpn_l3_neigh_sync_lookup(l3vni);
+	if (!zevpn)
+		return;
+
+	frr_each_safe (zebra_neigh_db, zevpn->neigh_table, n) {
+		struct interface *svi_ifp;
+
+		if (!CHECK_FLAG(n->flags, ZEBRA_NEIGH_LOCAL) || n->mac)
+			continue;
+		if (n->eth_tag != vid || !IS_ZEBRA_NEIGH_ACTIVE(n))
+			continue;
+
+		svi_ifp = if_lookup_by_index_per_ns(zebra_ns_lookup(NS_DEFAULT),
+						    n->ifindex);
+		zebra_evpn_neigh_send_add_to_client_l3(
+			l3vni, &n->ip, &n->emac, n->eth_tag, n->loc_seq,
+			zebra_evpn_l3vni_neigh_es(&n->emac, svi_ifp));
+	}
 }
 
 
@@ -1940,12 +2011,17 @@ static void zebra_evpn_send_neigh_hash_entry_to_client(struct mac_walk_ctx *wctx
 
 	/* Pure-L3 (no-L2VNI) neighbors carry the host MAC in emac but have no
 	 * linked zebra_mac; replay them tagged as L3-neigh-sync, skipping the
-	 * zebra_mac lookup the L2 path requires.
+	 * zebra_mac lookup the L2 path requires. Re-resolve the ESI from the
+	 * neighbor's SVI so a changed ES state is reflected on replay.
 	 */
 	if (CHECK_FLAG(wctx->zevpn->flags, ZEVPN_L3_NEIGH_SYNC)) {
-		zebra_evpn_neigh_send_add_to_client_l3(wctx->zevpn->vni, &zn->ip,
-						       &zn->emac, zn->eth_tag,
-						       zn->loc_seq);
+		struct interface *svi_ifp = if_lookup_by_index_per_ns(
+			zebra_ns_lookup(NS_DEFAULT), zn->ifindex);
+
+		zebra_evpn_neigh_send_add_to_client_l3(
+			wctx->zevpn->vni, &zn->ip, &zn->emac, zn->eth_tag,
+			zn->loc_seq,
+			zebra_evpn_l3vni_neigh_es(&zn->emac, svi_ifp));
 		return;
 	}
 
