@@ -714,11 +714,6 @@ static inline void bgp_attr_unset_aigp_metric(struct attr *attr)
 
 static inline void bgp_attr_set_aigp_metric(struct attr *attr, uint64_t aigp)
 {
-	if (aigp == 0) {
-		bgp_attr_unset_aigp_metric(attr);
-		return;
-	}
-
 	if (!bgp_attr_exists(attr, BGP_ATTR_AIGP) || !attr->extra)
 		bgp_attr_extra_get(attr)->aigp_metric = aigp;
 	else
