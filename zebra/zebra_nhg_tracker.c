@@ -938,6 +938,30 @@ static struct nhg_event_tracker *tracker_find_flushing(struct nhg_hash_entry *nh
 }
 
 /*
+ * Phase-1 tagging is about to take over an RE that is still moving for
+ * another tracker (FLUSH_BATCH).  Credit that tracker now, exactly as the
+ * RE's ack would, so the RE is only ever counted by its newest owner.
+ */
+static void tracker_loser_settle(struct route_node *rn, struct route_entry *re,
+				 struct nhg_hash_entry *parent_nhe,
+				 struct nhg_event_tracker *tracker)
+{
+	uint32_t owner_id = re->tracker_parent_nhg_id;
+
+	if (!CHECK_FLAG(re->status, ROUTE_ENTRY_NHG_TRACKER_FLUSH_BATCH))
+		return;
+
+	if (IS_ZEBRA_DEBUG_NHG_TRACKER)
+		zlog_debug("%s: %pRN still moving for NHG %u, handed over to NHG %u tracker %u",
+			   __func__, rn, owner_id, parent_nhe->id, tracker->nhg_tracker_id);
+
+	frrtrace(4, frr_zebra, nhg_tracker_phase, "loser-handover", tracker->nhg_tracker_id,
+		 parent_nhe->id, owner_id);
+
+	tracker_flush_batch_route_dplane_ack(re);
+}
+
+/*
  * Walk a tracker table, clear TRACKER on matching REs, optionally repoint
  * them to the parent NHG, and queue route_nodes for rib_process.
  *
@@ -1001,12 +1025,14 @@ static size_t tracker_flush_process_rn(struct nhg_hash_entry *parent_nhe,
 		 */
 		if (opts->track_pending) {
 			/*
-			 * Safety check: a winner still holding it is drained first so its
-			 * count is settled against the parent it was tagged for,
-			 * before phase 1 takes the slot over.
+			 * Safety check: a winner, or another tracker's loser, still
+			 * holding it is drained first so its count is settled against
+			 * the parent it was tagged for, before phase 1 takes the slot over.
 			 */
 			if (CHECK_FLAG(re->status, ROUTE_ENTRY_NHG_TRACKER_WINNER))
 				tracker_winner_pre_remove(rn, re);
+			/* If another tracker still owns this route, release it first */
+			tracker_loser_settle(rn, re, parent_nhe, tracker);
 
 			SET_FLAG(re->status, ROUTE_ENTRY_NHG_TRACKER_FLUSH_BATCH);
 			re->tracker_parent_nhg_id = parent_nhe->id;
@@ -1192,6 +1218,13 @@ void tracker_flush_batch_route_dplane_ack(struct route_entry *re)
 	zrouter.tracker_counters.losers_consumed++;
 
 	/*
+	 * This RE may have landed on a duplicate NHG whose consolidation ran
+	 * before this ack and had to skip it; re-run it now that it is free.
+	 */
+	if (re->nhe && CHECK_FLAG(re->nhe->flags, NEXTHOP_GROUP_DUPLICATE))
+		zebra_nhg_schedule_consolidate(re->nhe);
+
+	/*
 	 * Once this loser RE is flushed, re->tracker_parent_nhg_id is the
 	 * authoritative bridge from this RE back to its flushing tracker.
 	 * Consume (clear) it when this loser RE's dplane ack is handled.
@@ -1339,6 +1372,9 @@ static void tracker_flush_enqueue_silent_res(struct nhg_hash_entry *parent_nhe,
 			continue;
 		if (CHECK_FLAG(re->status, ROUTE_ENTRY_REMOVED))
 			continue;
+
+		/* A loser of another tracker that just landed here looks silent */
+		tracker_loser_settle(re->rn, re, parent_nhe, tracker);
 
 		SET_FLAG(re->status, ROUTE_ENTRY_CHANGED);
 		SET_FLAG(re->status, ROUTE_ENTRY_NHG_TRACKER_FLUSH_BATCH);
@@ -1559,7 +1595,7 @@ static void tracker_flush_complete(struct nhg_hash_entry *nhe, struct nhg_event_
 		/* No first_winner to re-insert parent_nhe; rehash it
 		 * explicitly so future content lookups can dedup.
 		 */
-		zebra_nhg_rework_content_rehash(nhe);
+		zebra_nhg_rework_content_rehash(nhe, __func__);
 	}
 
 	if (IS_ZEBRA_DEBUG_NHG_TRACKER)
@@ -1784,6 +1820,14 @@ static void zebra_nhg_tracker_flush(struct nhg_event_tracker *tracker, struct nh
 		nhg_tracker_table_iter_rn_cleanup(&local_iter);
 
 		zebra_nhg_tracker_free(nhe, tracker);
+
+		/*
+		 * A consolidation may have been skipped because this tracker
+		 * made nhe busy. The tracker is gone now, so run it again
+		 * (same as tracker_flush_batch_finish()).
+		 */
+		if (CHECK_FLAG(nhe->flags, NEXTHOP_GROUP_DUPLICATE))
+			zebra_nhg_schedule_consolidate(nhe);
 		return;
 	}
 
