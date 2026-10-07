@@ -2151,10 +2151,9 @@ def compare_context_objects(newconf, running):
             # If we try 'no interface' for still active interface, FRR tries to delete it and fails.
             # All commands under 'interface' section MUST support 'no' commands and exit silently
             # without errors if interface is deleted
-            elif (
-                running_ctx_keys[0].startswith("interface")
-                or running_ctx_keys[0].startswith("router pim")
-            ):
+            elif running_ctx_keys[0].startswith("interface") or running_ctx_keys[
+                0
+            ].startswith("router pim"):
                 for line in running_ctx.lines:
                     lines_to_del.append((running_ctx_keys, line))
 
