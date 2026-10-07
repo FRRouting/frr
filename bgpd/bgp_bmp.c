@@ -2781,7 +2781,7 @@ static void bmp_active_put(struct bmp_active *ba)
 
 static void bmp_active_setup(struct bmp_active *ba);
 
-/* Resolve the VRF used for outbound BMP transport.
+/* Resolve the VRF used for outbound BMP transport, scheduling a retry if unavailable.
  *
  * When a transport VRF is configured, that VRF must be present and enabled.
  * Without a transport VRF, use the default VRF.
@@ -2795,6 +2795,11 @@ static bool bmp_active_vrf_id(struct bmp_active *ba, vrf_id_t *vrf_id)
 		if (!vrf || !vrf_is_enabled(vrf) ||
 		    vrf->vrf_id == VRF_UNKNOWN) {
 			*vrf_id = VRF_UNKNOWN;
+			zlog_warn("bmp[%s]: VRF %s not available", ba->hostname,
+				  ba->vrfname);
+			ba->last_err = "VRF not available";
+			ba->curretry += ba->curretry / 2;
+			bmp_active_setup(ba);
 			return false;
 		}
 		*vrf_id = vrf->vrf_id;
@@ -2812,14 +2817,8 @@ static void bmp_active_connect(struct bmp_active *ba)
 	vrf_id_t vrf_id = VRF_DEFAULT;
 	int res_bind;
 
-	if (!bmp_active_vrf_id(ba, &vrf_id)) {
-		zlog_warn("bmp[%s]: VRF %s not available", ba->hostname,
-			  ba->vrfname);
-		ba->last_err = "VRF not available";
-		ba->curretry += ba->curretry / 2;
-		bmp_active_setup(ba);
+	if (!bmp_active_vrf_id(ba, &vrf_id))
 		return;
-	}
 
 	for (; ba->addrpos < ba->addrtotal; ba->addrpos++) {
 		if (ba->ifsrc) {
@@ -2951,14 +2950,8 @@ static void bmp_active_thread(struct event *t)
 
 	if (ba->socket == -1) {
 		/* get vrf_id for DNS / transport */
-		if (!bmp_active_vrf_id(ba, &vrf_id)) {
-			zlog_warn("bmp[%s]: VRF %s not available", ba->hostname,
-				  ba->vrfname);
-			ba->last_err = "VRF not available";
-			ba->curretry += ba->curretry / 2;
-			bmp_active_setup(ba);
+		if (!bmp_active_vrf_id(ba, &vrf_id))
 			return;
-		}
 		resolver_resolve(&ba->resq, AF_UNSPEC, vrf_id, ba->hostname,
 				 bmp_active_resolved);
 		return;
