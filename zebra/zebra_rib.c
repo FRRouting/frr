@@ -472,6 +472,7 @@ static void route_entry_attach_ref(struct route_entry *re,
 	re->nhe = new;
 	re->nhe_id = new->id;
 	re->nhe_installed_id = 0;
+	re->nhe_invalidated_seq = 0;
 
 	zebra_nhg_increment_ref(new);
 }
@@ -505,6 +506,7 @@ int route_entry_update_nhe(struct route_entry *re,
 
 		re->nhe_id = 0;
 		re->nhe_installed_id = 0;
+		re->nhe_invalidated_seq = 0;
 		re->nhe = NULL;
 		goto done;
 	}
@@ -2141,6 +2143,12 @@ static void rib_process_result(struct zebra_dplane_ctx *ctx)
 				 * of how we got here
 				 */
 				re->nhe_installed_id = dplane_ctx_get_nhe_id(ctx);
+				/*
+				 * Take the sequence from the request, not the group: if
+				 * the group was invalidated while this install was in
+				 * flight, the route has to stay marked as out of date.
+				 */
+				re->nhe_invalidated_seq = dplane_ctx_get_nhe_invalidated_seq(ctx);
 
 				rib_process_result_import_table_add(rn, re);
 
