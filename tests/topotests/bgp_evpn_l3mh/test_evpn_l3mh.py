@@ -636,44 +636,64 @@ def test_evpn_mh_local_es_in_bgp():
         assert result is None, result
 
 
-@pytest.mark.xfail(
-    reason="pure-L3 RT-2 (label[0]=0) origination not yet implemented",
-    strict=False,
-)
 def test_pure_l3_rt2_origination():
     """
-    With the knob on and no L2VNI, a local ARP entry for host1 produces an RT-2
-    with label[0]=0 / label[1]=L3VNI on the multihoming leaf.
+    With the knob on and no L2VNI, a local ARP entry for host1 is originated as
+    a pure-L3 RT-2 in the global EVPN table under the VRF's RD, carrying the
+    L3VNI route-target, ETAG = the access VLAN id, and label[0]=0 (Explicit
+    NULL) / label[1]=L3VNI -- rendered "0/<L3VNI>" in the "vni" field.
     """
     tgen = get_topogen()
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
 
-    for rname in ("leaf1", "leaf2"):
-        r = tgen.gears[rname]
-        r.vtysh_cmd(
+    leaf_asn = {"leaf1": 65011, "leaf2": 65012}
+    for rname, asn in leaf_asn.items():
+        tgen.gears[rname].vtysh_cmd(
             "configure terminal\n"
-            "router bgp 650%s\n"
+            "router bgp %d\n"
             " address-family l2vpn evpn\n"
-            "  advertise-all-vni l3vni-neigh\n" % ("11" if rname == "leaf1" else "12")
+            "  advertise-all-vni l3vni-neigh\n" % asn
         )
 
     # Trigger local ARP learning for host1 on the leaf SVIs.
     _ping(tgen.gears["host1"], ANYCAST_GW)
 
-    def _has_pure_l3_rt2(dut):
-        out = dut.vtysh_cmd("show bgp l2vpn evpn route type macip json")
+    def _has_pure_l3_rt2(dut, asn):
+        out = dut.vtysh_cmd("show bgp l2vpn evpn route detail type macip json")
         try:
             js = json.loads(out)
         except Exception as exc:  # pragma: no cover - defensive
             return "cannot parse macip routes: %s" % exc
-        blob = json.dumps(js)
-        if HOST_IP["host1"] in blob and '"label1":0' in blob.replace(" ", ""):
-            return None
-        return "no label[0]=0 RT-2 for %s" % HOST_IP["host1"]
+
+        want_rt = "RT:%d:%d" % (asn, L3VNI)
+        want_vni = "0/%d" % L3VNI  # label[0]=0 (Explicit NULL) / label[1]=L3VNI
+        for rdval in js.values():
+            if not isinstance(rdval, dict):
+                continue
+            for entry in rdval.values():
+                if not isinstance(entry, dict) or "paths" not in entry:
+                    continue
+                if (
+                    entry.get("routeType") != 2
+                    or entry.get("ip") != HOST_IP["host1"]
+                    or entry.get("ethTag") != HOST_VID
+                ):
+                    continue
+                for pathset in entry["paths"]:
+                    for path in pathset:
+                        ec = path.get("extendedCommunity", {}).get("string", "")
+                        if path.get("vni") == want_vni and want_rt in ec:
+                            return None
+        return "no pure-L3 RT-2 for %s (ethTag %d, vni %s, %s)" % (
+            HOST_IP["host1"],
+            HOST_VID,
+            want_vni,
+            want_rt,
+        )
 
     dut = tgen.gears["leaf1"]
-    test_fn = partial(_has_pure_l3_rt2, dut)
+    test_fn = partial(_has_pure_l3_rt2, dut, leaf_asn["leaf1"])
     _, result = topotest.run_and_expect(test_fn, None, count=20, wait=2)
     assert result is None, result
 
