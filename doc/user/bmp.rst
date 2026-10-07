@@ -123,7 +123,7 @@ establishment:
    transport VRF is independent of the BGP instance VRF whose routes and
    statistics are monitored (including any ``bmp import-vrf-view`` sources),
    allowing connections through a management VRF while collecting data from
-   another VRF.  When ``vrf`` is omitted, legacy behaviour is preserved.
+   another VRF.  When ``vrf`` is omitted, the default VRF is used.
 
 .. warning::
 

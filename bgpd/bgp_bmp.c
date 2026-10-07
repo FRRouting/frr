@@ -2784,8 +2784,7 @@ static void bmp_active_setup(struct bmp_active *ba);
 /* Resolve the VRF used for outbound BMP transport.
  *
  * When a transport VRF is configured, that VRF must be present and enabled.
- * Otherwise preserve legacy behaviour: DNS / source-interface lookup uses the
- * monitored BGP instance VRF, and the TCP socket is left unbound to a VRF.
+ * Without a transport VRF, use the default VRF.
  */
 static bool bmp_active_vrf_id(struct bmp_active *ba, vrf_id_t *vrf_id)
 {
@@ -2802,10 +2801,7 @@ static bool bmp_active_vrf_id(struct bmp_active *ba, vrf_id_t *vrf_id)
 		return true;
 	}
 
-	if (!ba->targets || !ba->targets->bgp)
-		*vrf_id = VRF_DEFAULT;
-	else
-		*vrf_id = ba->targets->bgp->vrf_id;
+	*vrf_id = VRF_DEFAULT;
 	return true;
 }
 
@@ -3259,23 +3255,32 @@ DEFPY(bmp_connect,
 		return CMD_SUCCESS;
 	}
 
+	if (vrfname) {
+		struct vrf *vrf = vrf_lookup_by_name(vrfname);
+
+		if (!vrf || !vrf_is_enabled(vrf) ||
+		    vrf->vrf_id == VRF_UNKNOWN) {
+			vty_out(vty, "%% VRF %s not available\n", vrfname);
+			return CMD_WARNING;
+		}
+	}
+
 	ba = bmp_active_get(bt, hostname, port);
 	if (srcif) {
 		if (ba->ifsrc)
 			XFREE(MTYPE_TMP, ba->ifsrc);
 		ba->ifsrc = XSTRDUP(MTYPE_TMP, srcif);
 	}
-	if (vrfname) {
-		if (!ba->vrfname || !strmatch(ba->vrfname, vrfname)) {
-			if (ba->vrfname)
-				XFREE(MTYPE_TMP, ba->vrfname);
+	if ((ba->vrfname || vrfname) &&
+	    (!ba->vrfname || !vrfname || !strmatch(ba->vrfname, vrfname))) {
+		XFREE(MTYPE_TMP, ba->vrfname);
+		if (vrfname)
 			ba->vrfname = XSTRDUP(MTYPE_TMP, vrfname);
-			if (ba->bmp) {
-				struct bmp *bmp = ba->bmp;
+		if (ba->bmp) {
+			struct bmp *bmp = ba->bmp;
 
-				bmp_close(bmp);
-				bmp_free(bmp);
-			}
+			bmp_close(bmp);
+			bmp_free(bmp);
 		}
 	}
 	if (min_retry_str)
