@@ -618,17 +618,12 @@ def test_l3vni_neigh_debug_cli():
     )
 
 
-@pytest.mark.xfail(
-    reason="local ES not advertised to bgpd without an L2VNI base EVPN; "
-    "needs the L3VNI-sourced base EVPN",
-    strict=False,
-)
 def test_evpn_mh_local_es_in_bgp():
     """The local ES reaches bgpd (BGP_EVPNES_LOCAL) so RX ESI-match can work.
 
-    With no L2VNI, zebra has no base EVPN to derive the ES originator IP, so the
-    local ES never reaches bgpd today. The feature must source the base EVPN /
-    originator IP from the L3VNI, after which this passes.
+    With no L2VNI, zebra has no L2VNI base EVPN to derive the ES originator IP.
+    The feature sources the base EVPN / originator IP from the L3VNI (gated on
+    advertise-all-vni l3vni-neigh), so the local ES is advertised to bgpd.
     """
     tgen = get_topogen()
     if tgen.routers_have_failure():
