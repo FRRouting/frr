@@ -5124,6 +5124,12 @@ Debugging
 
    Enable or disable debugging of communications between *bgpd* and *zebra*.
 
+.. clicmd:: debug bgp evpn mh <es|route|l3vni-neigh>
+
+   Enable or disable debugging of EVPN multihoming: Ethernet Segments, the
+   routes that use them, or EVPN L3 multihoming neighbor sync without an
+   L2VNI (see :clicmd:`advertise-all-vni [l3vni-neigh]`).
+
 .. clicmd:: debug bgp aggregate [prefix <A.B.C.D/M|X:X::X:X/M>]
 
    Enable or disable debugging of route aggregation, either for one or more

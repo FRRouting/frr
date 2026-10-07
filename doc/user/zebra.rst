@@ -2051,9 +2051,10 @@ Debugging
 
    MLAG events.
 
-.. clicmd:: debug zebra evpn mh <es|mac|neigh|nh>
+.. clicmd:: debug zebra evpn mh <es|mac|neigh|nh|l3vni-neigh>
 
-   EVPN multi-hop events.
+   EVPN multi-hop events. ``l3vni-neigh`` covers EVPN L3 multihoming
+   neighbor sync without an L2VNI (see ``advertise-all-vni l3vni-neigh``).
 
 .. clicmd:: debug zebra nexthop [detail]
 
