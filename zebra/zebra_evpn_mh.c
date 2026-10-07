@@ -3733,7 +3733,8 @@ void zebra_evpn_es_set_base_evpn(struct zebra_evpn *zevpn)
 		/* check if the local vtep-ip has changed */
 	} else {
 		/* check if the EVPN can be used as base EVPN */
-		if (!zebra_evpn_send_to_client_ok(zevpn))
+		if (!zebra_evpn_send_to_client_ok(zevpn) &&
+		    !CHECK_FLAG(zevpn->flags, ZEVPN_L3_NEIGH_SYNC))
 			return;
 
 		if (IS_ZEBRA_DEBUG_EVPN_MH_ES)
@@ -3802,6 +3803,13 @@ static int zebra_evpn_es_get_one_base_evpn_cb(struct hash_bucket *b, void *data)
 {
 	struct zebra_evpn *zevpn = b->data;
 
+	/* L3VNI neighbor-sync singletons live in the same table but are adopted
+	 * only via the explicit, knob-gated L3 fallback -- skip them here so the
+	 * generic walk cannot re-adopt one while it is being torn down.
+	 */
+	if (CHECK_FLAG(zevpn->flags, ZEVPN_L3_NEIGH_SYNC))
+		return HASHWALK_CONTINUE;
+
 	zebra_evpn_es_set_base_evpn(zevpn);
 
 	if (zmh_info->es_base_evpn)
@@ -3810,15 +3818,175 @@ static int zebra_evpn_es_get_one_base_evpn_cb(struct hash_bucket *b, void *data)
 	return HASHWALK_CONTINUE;
 }
 
-/* locate a base_evpn to follow for the purposes of common params like
- * originator IP
+/* Pick the first L3VNI with a resolved local VTEP IP, skipping excl_vni. */
+struct zebra_evpn_es_l3vni_ctx {
+	vni_t excl_vni;
+	struct zebra_l3vni *found;
+};
+
+static int zebra_evpn_es_l3vni_vtep_cb(struct hash_bucket *b, void *data)
+{
+	struct zebra_l3vni *zl3vni = b->data;
+	struct zebra_evpn_es_l3vni_ctx *ctx = data;
+
+	if (zl3vni->vni == ctx->excl_vni)
+		return HASHWALK_CONTINUE;
+
+	/* Only an operational L3VNI is a valid base: local_vtep_ip may linger
+	 * populated after the L3VNI has gone oper-down.
+	 */
+	if (is_l3vni_oper_up(zl3vni) &&
+	    !ipaddr_is_zero(&zl3vni->local_vtep_ip)) {
+		ctx->found = zl3vni;
+		return HASHWALK_ABORT;
+	}
+
+	return HASHWALK_CONTINUE;
+}
+
+/* No L2VNI to follow: in an EVPN L3 multihoming (no-L2VNI) deployment the ES
+ * base EVPN / originator IP is sourced from the L3VNI instead. Use the
+ * L3VNI-keyed neighbor-sync singleton, populated with the L3VNI's local VTEP
+ * IP, as the base EVPN so the local ES can still be advertised to bgpd.
+ * excl_vni lets a caller skip an L3VNI that is being torn down. The hold taken
+ * here is released by zebra_evpn_es_l3vni_base_evpn_clear() (knob off) or
+ * zebra_evpn_es_l3vni_oper_down() (L3VNI down/removed).
  */
-static void zebra_evpn_es_get_one_base_evpn(void)
+static void zebra_evpn_es_get_l3vni_base_evpn(vni_t excl_vni)
+{
+	struct zebra_vrf *zvrf = zebra_vrf_get_evpn();
+	struct zebra_evpn_es_l3vni_ctx ctx = { .excl_vni = excl_vni };
+	struct zebra_l3vni *zl3vni;
+	struct zebra_evpn *zevpn;
+
+	if (!zvrf || !zvrf->advertise_l3vni_neigh)
+		return;
+
+	/* A leaf has a single VTEP loopback shared by all of its L3VNIs, so any
+	 * operational L3VNI with a resolved local VTEP IP yields the right ES
+	 * originator. If none is eligible yet, defer: re-evaluated when the knob
+	 * or an L3VNI comes up.
+	 */
+	hash_walk(zrouter.l3vni_table, zebra_evpn_es_l3vni_vtep_cb, &ctx);
+	zl3vni = ctx.found;
+	if (!zl3vni || ipaddr_is_zero(&zl3vni->local_vtep_ip))
+		return;
+
+	zevpn = zebra_evpn_l3_neigh_sync_ref(zl3vni->vni);
+	if (!zevpn)
+		return;
+
+	zevpn->local_vtep_ip = zl3vni->local_vtep_ip;
+	zebra_evpn_es_set_base_evpn(zevpn);
+
+	/* set_base_evpn should have adopted it; if not, drop the hold. */
+	if (zmh_info->es_base_evpn != zevpn)
+		zebra_evpn_l3_neigh_sync_unref(zevpn);
+}
+
+/* locate a base_evpn to follow for the purposes of common params like
+ * originator IP; excl_vni skips an L3VNI that is being torn down.
+ */
+static void zebra_evpn_es_get_one_base_evpn_excl(vni_t excl_vni)
 {
 	struct zebra_vrf *zvrf;
 
 	zvrf = zebra_vrf_get_evpn();
 	hash_walk(zvrf->evpn_table, zebra_evpn_es_get_one_base_evpn_cb, NULL);
+
+	/* No L2VNI base found; fall back to the L3VNI for a no-L2VNI
+	 * multihoming deployment.
+	 */
+	if (!zmh_info->es_base_evpn)
+		zebra_evpn_es_get_l3vni_base_evpn(excl_vni);
+}
+
+static void zebra_evpn_es_get_one_base_evpn(void)
+{
+	zebra_evpn_es_get_one_base_evpn_excl(0);
+}
+
+/* Drop the ES base EVPN / originator IP and re-eval the local ESs. */
+static void zebra_evpn_es_drop_originator_ip(void)
+{
+	struct listnode *node;
+	struct zebra_evpn_es *es;
+
+	if (ipaddr_is_zero(&zmh_info->es_originator_ip))
+		return;
+
+	memset(&zmh_info->es_originator_ip, 0, sizeof(struct ipaddr));
+	SET_IPADDR_V4(&zmh_info->es_originator_ip);
+
+	for (ALL_LIST_ELEMENTS_RO(zmh_info->local_es_list, node, es))
+		zebra_evpn_es_re_eval_send_to_client(es, true /* es_evi_re_reval */);
+}
+
+/* Release the hold taken by zebra_evpn_es_get_l3vni_base_evpn() and clear the
+ * L3VNI-sourced base EVPN. Called when advertise-all-vni l3vni-neigh is disabled.
+ */
+void zebra_evpn_es_l3vni_base_evpn_clear(void)
+{
+	struct zebra_evpn *zevpn = zmh_info->es_base_evpn;
+
+	if (!zevpn || !CHECK_FLAG(zevpn->flags, ZEVPN_L3_NEIGH_SYNC))
+		return;
+
+	/* Clears es_base_evpn and re-derives: the generic walk skips L3
+	 * singletons and the L3 fallback is now knob-gated off, so at most an
+	 * L2VNI base is chosen. Then release our singleton hold.
+	 */
+	zebra_evpn_es_clear_base_evpn(zevpn);
+	zebra_evpn_l3_neigh_sync_unref(zevpn);
+}
+
+/* The L3VNI currently providing the ES base EVPN is going down or being
+ * removed: drop it, release the hold, and try another usable L3VNI (they share
+ * the leaf VTEP loopback). Called from the L3VNI oper-down path.
+ */
+void zebra_evpn_es_l3vni_oper_down(struct zebra_l3vni *zl3vni)
+{
+	struct zebra_evpn *zevpn = zmh_info->es_base_evpn;
+
+	if (!zl3vni || !zevpn ||
+	    !CHECK_FLAG(zevpn->flags, ZEVPN_L3_NEIGH_SYNC) ||
+	    zevpn->vni != zl3vni->vni)
+		return;
+
+	zmh_info->es_base_evpn = NULL;
+	zebra_evpn_l3_neigh_sync_unref(zevpn);
+
+	/* Re-derive from another base, excluding the L3VNI going away. */
+	zebra_evpn_es_get_one_base_evpn_excl(zl3vni->vni);
+
+	if (!zmh_info->es_base_evpn)
+		zebra_evpn_es_drop_originator_ip();
+}
+
+/* Re-evaluate the base EVPN when advertise-all-vni l3vni-neigh is enabled or an L3VNI
+ * comes up. Also refresh the copied VTEP IP if the L3VNI-sourced base's local
+ * VTEP has since changed.
+ */
+void zebra_evpn_es_l3vni_base_evpn_reeval(void)
+{
+	struct zebra_evpn *zevpn = zmh_info->es_base_evpn;
+	struct zebra_l3vni *zl3vni;
+
+	if (!zevpn) {
+		zebra_evpn_es_get_one_base_evpn();
+		return;
+	}
+
+	if (!CHECK_FLAG(zevpn->flags, ZEVPN_L3_NEIGH_SYNC))
+		return;
+
+	/* Base is L3VNI-sourced: pick up a changed local VTEP IP. */
+	zl3vni = zl3vni_lookup(zevpn->vni);
+	if (zl3vni && !ipaddr_is_zero(&zl3vni->local_vtep_ip) &&
+	    !ipaddr_is_same(&zevpn->local_vtep_ip, &zl3vni->local_vtep_ip)) {
+		zevpn->local_vtep_ip = zl3vni->local_vtep_ip;
+		zebra_evpn_es_set_base_evpn(zevpn);
+	}
 }
 
 /*****************************************************************************
