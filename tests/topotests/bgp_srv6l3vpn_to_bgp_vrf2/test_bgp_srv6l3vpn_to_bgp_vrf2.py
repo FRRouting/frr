@@ -20,7 +20,7 @@ sys.path.append(os.path.join(CWD, "../"))
 # pylint: disable=C0413
 # Import topogen and topotest helpers
 from lib import topotest
-from lib.topogen import Topogen, TopoRouter, get_topogen
+from lib.topogen import Topogen, get_topogen
 from lib.topolog import logger
 from lib.common_config import required_linux_kernel_version
 from lib.checkping import check_ping
@@ -68,12 +68,7 @@ def setup_module(mod):
     for rname, router in tgen.routers().items():
         if os.path.exists("{}/{}/setup.sh".format(CWD, rname)):
             router.run("/bin/bash {}/{}/setup.sh".format(CWD, rname))
-        router.load_config(
-            TopoRouter.RD_ZEBRA, os.path.join(CWD, "{}/zebra.conf".format(rname))
-        )
-        router.load_config(
-            TopoRouter.RD_BGP, os.path.join(CWD, "{}/bgpd.conf".format(rname))
-        )
+        router.load_frr_config(os.path.join(CWD, "{}/frr.conf".format(rname)))
 
     tgen.gears["r1"].run("sysctl net.vrf.strict_mode=1")
     tgen.gears["r1"].run("ip link add vrfdefault type vrf table 254")
