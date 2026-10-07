@@ -353,6 +353,9 @@ extern void zebra_evpn_vxl_evpn_set(struct zebra_if *zif,
 				    struct zebra_evpn *zevpn, bool set);
 extern void zebra_evpn_es_set_base_evpn(struct zebra_evpn *zevpn);
 extern void zebra_evpn_es_clear_base_evpn(struct zebra_evpn *zevpn);
+extern void zebra_evpn_es_l3vni_base_evpn_clear(void);
+extern void zebra_evpn_es_l3vni_base_evpn_reeval(void);
+extern void zebra_evpn_es_l3vni_oper_down(struct zebra_l3vni *zl3vni);
 extern void zebra_evpn_vl_vxl_ref(uint16_t vid, vni_t vni_id,
 				  struct zebra_if *vxlan_zif);
 extern void zebra_evpn_vl_vxl_deref(uint16_t vid, vni_t vni_id,
