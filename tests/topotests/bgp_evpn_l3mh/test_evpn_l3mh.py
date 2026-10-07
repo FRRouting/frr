@@ -104,6 +104,11 @@ HOST_IP = {
     "host2": "45.0.0.102",
 }
 
+# run_and_expect polling bounds: max retries and per-retry wait (seconds).
+# run_and_expect returns as soon as the check passes, so these are upper bounds.
+WAIT_COUNT = 30
+WAIT_STEP = 2
+
 
 def build_topo(tgen):
     """
@@ -416,7 +421,9 @@ def test_underlay_bgp_established():
     for rname, neighbors in checks.items():
         dut = tgen.gears[rname]
         test_fn = partial(check_underlay_bgp, dut, neighbors)
-        _, result = topotest.run_and_expect(test_fn, None, count=30, wait=2)
+        _, result = topotest.run_and_expect(
+            test_fn, None, count=WAIT_COUNT, wait=WAIT_STEP
+        )
         assert result is None, result
 
 
@@ -433,7 +440,9 @@ def test_evpn_sessions_established():
     for rname, neighbors in checks.items():
         dut = tgen.gears[rname]
         test_fn = partial(check_evpn_bgp, dut, neighbors)
-        _, result = topotest.run_and_expect(test_fn, None, count=30, wait=2)
+        _, result = topotest.run_and_expect(
+            test_fn, None, count=WAIT_COUNT, wait=WAIT_STEP
+        )
         assert result is None, result
 
 
@@ -450,23 +459,60 @@ def test_evpn_mh_local_es():
     for rname in ("leaf1", "leaf2"):
         dut = tgen.gears[rname]
         test_fn = partial(check_local_es_zebra, dut, ES1_ID)
-        _, result = topotest.run_and_expect(test_fn, None, count=30, wait=2)
+        _, result = topotest.run_and_expect(
+            test_fn, None, count=WAIT_COUNT, wait=WAIT_STEP
+        )
         assert result is None, result
 
 
 #####################################################
 ##
-##   Pure-L3 RT-2 acceptance tests (xfail until the feature lands)
+##   Pure-L3 RT-2 acceptance tests
 ##
-##   These encode the section-5 acceptance targets. They are expected to fail
-##   until the feature is implemented, at which point the xfail markers are
-##   removed one by one.
+##   These encode the section-5 acceptance targets. Tests for features that
+##   are not yet implemented carry an xfail/skip marker; the markers are
+##   removed as each phase lands.
 ##
 #####################################################
 
 
 def _ping(host, dst, count=2):
     return host.run("ping -c %d -W 1 %s" % (count, dst))
+
+
+def _pure_l3_rt2_path(dut, asn):
+    """Return host1's pure-L3 RT-2 path dict on dut, or None if not present.
+
+    A pure-L3 RT-2 is a routeType-2 macip route for host1's IP with ethTag =
+    the host VLAN, vni "0/L3VNI" (label[0]=0 Explicit NULL / label[1]=L3VNI)
+    and the IP-VRF route-target.
+    """
+    out = dut.vtysh_cmd("show bgp l2vpn evpn route detail type macip json")
+    try:
+        js = json.loads(out)
+    except Exception:  # pragma: no cover - defensive
+        return None
+
+    want_rt = "RT:%d:%d" % (asn, L3VNI)
+    want_vni = "0/%d" % L3VNI
+    for rdval in js.values():
+        if not isinstance(rdval, dict):
+            continue
+        for entry in rdval.values():
+            if not isinstance(entry, dict) or "paths" not in entry:
+                continue
+            if (
+                entry.get("routeType") != 2
+                or entry.get("ip") != HOST_IP["host1"]
+                or entry.get("ethTag") != HOST_VID
+            ):
+                continue
+            for pathset in entry["paths"]:
+                for path in pathset:
+                    ec = path.get("extendedCommunity", {}).get("string", "")
+                    if path.get("vni") == want_vni and want_rt in ec:
+                        return path
+    return None
 
 
 def test_advertise_l3vni_neigh_cli():
@@ -529,7 +575,7 @@ def test_advertise_l3vni_neigh_cli():
 
     def _expect(fn, *args):
         _, result = topotest.run_and_expect(
-            partial(fn, *args), None, count=15, wait=1
+            partial(fn, *args), None, count=WAIT_COUNT, wait=WAIT_STEP
         )
         assert result is None, result
 
@@ -594,28 +640,29 @@ def test_l3vni_neigh_debug_cli():
         "debug zebra evpn mh l3vni-neigh\n"
     )
 
-    running = leaf1.vtysh_cmd("show running-config")
-    assert (
-        "debug bgp evpn mh l3vni-neigh" in running
-    ), "bgp l3vni-neigh debug not persisted to running-config"
-    assert (
-        "debug zebra evpn mh l3vni-neigh" in running
-    ), "zebra l3vni-neigh debug not persisted to running-config"
+    try:
+        running = leaf1.vtysh_cmd("show running-config")
+        assert (
+            "debug bgp evpn mh l3vni-neigh" in running
+        ), "bgp l3vni-neigh debug not persisted to running-config"
+        assert (
+            "debug zebra evpn mh l3vni-neigh" in running
+        ), "zebra l3vni-neigh debug not persisted to running-config"
 
-    dbg = leaf1.vtysh_cmd("show debugging")
-    assert (
-        "BGP EVPN-MH l3vni-neigh debugging is on" in dbg
-    ), "bgp l3vni-neigh debug not shown in 'show debugging'"
-    assert (
-        "Zebra EVPN-MH l3vni-neigh debugging is on" in dbg
-    ), "zebra l3vni-neigh debug not shown in 'show debugging'"
-
-    # Turn it back off so the debug state does not leak into later tests.
-    leaf1.vtysh_cmd(
-        "configure terminal\n"
-        "no debug bgp evpn mh l3vni-neigh\n"
-        "no debug zebra evpn mh l3vni-neigh\n"
-    )
+        dbg = leaf1.vtysh_cmd("show debugging")
+        assert (
+            "BGP EVPN-MH l3vni-neigh debugging is on" in dbg
+        ), "bgp l3vni-neigh debug not shown in 'show debugging'"
+        assert (
+            "Zebra EVPN-MH l3vni-neigh debugging is on" in dbg
+        ), "zebra l3vni-neigh debug not shown in 'show debugging'"
+    finally:
+        # Turn it back off so the debug state does not leak into later tests.
+        leaf1.vtysh_cmd(
+            "configure terminal\n"
+            "no debug bgp evpn mh l3vni-neigh\n"
+            "no debug zebra evpn mh l3vni-neigh\n"
+        )
 
 
 def test_evpn_mh_local_es_in_bgp():
@@ -632,7 +679,9 @@ def test_evpn_mh_local_es_in_bgp():
     for rname in ("leaf1", "leaf2"):
         dut = tgen.gears[rname]
         test_fn = partial(check_local_es, dut, ES1_ID)
-        _, result = topotest.run_and_expect(test_fn, None, count=30, wait=2)
+        _, result = topotest.run_and_expect(
+            test_fn, None, count=WAIT_COUNT, wait=WAIT_STEP
+        )
         assert result is None, result
 
 
@@ -660,41 +709,147 @@ def test_pure_l3_rt2_origination():
     _ping(tgen.gears["host1"], ANYCAST_GW)
 
     def _has_pure_l3_rt2(dut, asn):
-        out = dut.vtysh_cmd("show bgp l2vpn evpn route detail type macip json")
-        try:
-            js = json.loads(out)
-        except Exception as exc:  # pragma: no cover - defensive
-            return "cannot parse macip routes: %s" % exc
-
-        want_rt = "RT:%d:%d" % (asn, L3VNI)
-        want_vni = "0/%d" % L3VNI  # label[0]=0 (Explicit NULL) / label[1]=L3VNI
-        for rdval in js.values():
-            if not isinstance(rdval, dict):
-                continue
-            for entry in rdval.values():
-                if not isinstance(entry, dict) or "paths" not in entry:
-                    continue
-                if (
-                    entry.get("routeType") != 2
-                    or entry.get("ip") != HOST_IP["host1"]
-                    or entry.get("ethTag") != HOST_VID
-                ):
-                    continue
-                for pathset in entry["paths"]:
-                    for path in pathset:
-                        ec = path.get("extendedCommunity", {}).get("string", "")
-                        if path.get("vni") == want_vni and want_rt in ec:
-                            return None
-        return "no pure-L3 RT-2 for %s (ethTag %d, vni %s, %s)" % (
-            HOST_IP["host1"],
-            HOST_VID,
-            want_vni,
-            want_rt,
-        )
+        path = _pure_l3_rt2_path(dut, asn)
+        if path is None:
+            return "no pure-L3 RT-2 for %s (ethTag %d, vni 0/%d, RT:%d:%d)" % (
+                HOST_IP["host1"],
+                HOST_VID,
+                L3VNI,
+                asn,
+                L3VNI,
+            )
+        if path.get("esi") != ES1_ID:
+            return "pure-L3 RT-2 has esi %s, want %s" % (
+                path.get("esi"),
+                ES1_ID,
+            )
+        return None
 
     dut = tgen.gears["leaf1"]
     test_fn = partial(_has_pure_l3_rt2, dut, leaf_asn["leaf1"])
-    _, result = topotest.run_and_expect(test_fn, None, count=20, wait=2)
+    _, result = topotest.run_and_expect(test_fn, None, count=WAIT_COUNT, wait=WAIT_STEP)
+    assert result is None, result
+
+
+def test_pure_l3_rt2_esi_cleared_on_es_removal():
+    """
+    Removing the local ES from host1's access port clears the ESI on its
+    pure-L3 RT-2 -- it must NOT fall back to any other BD member's ES -- and
+    restoring the ES brings the ESI back. Exercises the per-port re-advertise
+    on ES local-info clear/set and the MAC/ES cache membership check.
+    """
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    leaf1 = tgen.gears["leaf1"]
+    _ping(tgen.gears["host1"], ANYCAST_GW)
+
+    def _esi_is(want):
+        path = _pure_l3_rt2_path(leaf1, 65011)
+        if path is None:
+            return "pure-L3 RT-2 missing"
+        got = path.get("esi")  # absent when zero ESI
+        if got != want:
+            return "esi is %s, want %s" % (got, want)
+        return None
+
+    # Baseline: the ESI is present.
+    _, result = topotest.run_and_expect(
+        partial(_esi_is, ES1_ID), None, count=WAIT_COUNT, wait=WAIT_STEP
+    )
+    assert result is None, result
+
+    # Remove the local ES from the access port.
+    leaf1.vtysh_cmd(
+        "configure terminal\n"
+        "interface hostbond1\n"
+        " no evpn mh es-id 1\n"
+        " no evpn mh es-sys-mac 44:38:39:ff:ff:01\n"
+    )
+    try:
+        # The RT-2 stays but its ESI clears (no esi field == zero ESI).
+        _, result = topotest.run_and_expect(
+            partial(_esi_is, None), None, count=WAIT_COUNT, wait=WAIT_STEP
+        )
+        assert result is None, result
+    finally:
+        # Restore the ES for subsequent tests.
+        leaf1.vtysh_cmd(
+            "configure terminal\n"
+            "interface hostbond1\n"
+            " evpn mh es-id 1\n"
+            " evpn mh es-sys-mac 44:38:39:ff:ff:01\n"
+        )
+
+    # The ESI returns once the local ES is back.
+    _, result = topotest.run_and_expect(
+        partial(_esi_is, ES1_ID), None, count=WAIT_COUNT, wait=WAIT_STEP
+    )
+    assert result is None, result
+
+
+def test_pure_l3_rt2_replay_on_knob_toggle():
+    """
+    Toggling the l3vni-neigh token off then on withdraws and then replays
+    host1's pure-L3 RT-2 with its ESI. Knob-off flushes the pure-L3 neighbors
+    (the RT-2 is withdrawn) but deliberately keeps the MAC->port cache; knob-on
+    replays zebra's in-memory L3 neighbor database and re-originates, resolving
+    the ESI from the preserved cache -- the same replay a bgpd GR reconnect
+    relies on.
+    """
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    leaf1 = tgen.gears["leaf1"]
+    _ping(tgen.gears["host1"], ANYCAST_GW)
+
+    def _rt2_absent():
+        if _pure_l3_rt2_path(leaf1, 65011) is None:
+            return None
+        return "pure-L3 RT-2 still present"
+
+    def _esi_present():
+        path = _pure_l3_rt2_path(leaf1, 65011)
+        if path is None:
+            return "pure-L3 RT-2 missing"
+        if path.get("esi") != ES1_ID:
+            return "esi is %s, want %s" % (path.get("esi"), ES1_ID)
+        return None
+
+    # Baseline present.
+    _, result = topotest.run_and_expect(
+        _esi_present, None, count=WAIT_COUNT, wait=WAIT_STEP
+    )
+    assert result is None, result
+
+    # Knob off: the pure-L3 RT-2 is withdrawn.
+    leaf1.vtysh_cmd(
+        "configure terminal\n"
+        "router bgp 65011\n"
+        " address-family l2vpn evpn\n"
+        "  advertise-all-vni\n"
+    )
+    try:
+        _, result = topotest.run_and_expect(
+            _rt2_absent, None, count=WAIT_COUNT, wait=WAIT_STEP
+        )
+        assert result is None, result
+    finally:
+        # Knob on: zebra replays its in-memory L3 neighbor database and
+        # re-originates the pure-L3 RT-2, resolving the ESI from the preserved
+        # MAC->port cache.
+        leaf1.vtysh_cmd(
+            "configure terminal\n"
+            "router bgp 65011\n"
+            " address-family l2vpn evpn\n"
+            "  advertise-all-vni l3vni-neigh\n"
+        )
+
+    _, result = topotest.run_and_expect(
+        _esi_present, None, count=WAIT_COUNT, wait=WAIT_STEP
+    )
     assert result is None, result
 
 
@@ -722,7 +877,7 @@ def test_pure_l3_sync_neighbor_install():
 
     dut = tgen.gears["leaf2"]
     test_fn = partial(_has_sync_neigh, dut)
-    _, result = topotest.run_and_expect(test_fn, None, count=20, wait=2)
+    _, result = topotest.run_and_expect(test_fn, None, count=WAIT_COUNT, wait=WAIT_STEP)
     assert result is None, result
 
 
