@@ -1505,20 +1505,20 @@ void zebra_nhg_rework_content_mutate(struct nhg_hash_entry *nhe, struct nhg_hash
 
 /*
  * Rework in-place: rehash — re-insert nhe into the content hash after
- * its content has been mutated.
+ * its content has been mutated, or to make it shareable again.
  */
-void zebra_nhg_rework_content_rehash(struct nhg_hash_entry *nhe)
+void zebra_nhg_rework_content_rehash(struct nhg_hash_entry *nhe, const char *caller)
 {
 	struct nhg_hash_entry *result;
 
 	result = hash_get(zrouter.nhgs, nhe, hash_alloc_intern);
 	if (IS_ZEBRA_DEBUG_NHG_TRACKER)
-		zlog_debug("%s: input NHG %u (ptr=%p flags=0x%x) -> hash_get NHG %u (ptr=%p flags=0x%x) inserted=%d",
-			   __func__, nhe->id, nhe, nhe->flags, result ? result->id : 0, result,
-			   result ? result->flags : 0, (result == nhe) ? 1 : 0);
+		zlog_debug("%s: from %s: input NHG %u (ptr=%p flags=0x%x) -> hash_get NHG %u (ptr=%p flags=0x%x) inserted=%d",
+			   __func__, caller, nhe->id, nhe, nhe->flags, result ? result->id : 0,
+			   result, result ? result->flags : 0, (result == nhe) ? 1 : 0);
 
-	frrtrace(5, frr_zebra, nhg_hash_reinsert, "nhg-tracker-rehash", nhe->id,
-		 result ? result->id : 0, (result == nhe) ? 1 : 0, nhe->flags);
+	frrtrace(5, frr_zebra, nhg_hash_reinsert, caller, nhe->id, result ? result->id : 0,
+		 (result == nhe) ? 1 : 0, nhe->flags);
 }
 
 /*
@@ -1532,7 +1532,7 @@ void zebra_nhg_rework_in_place(struct nhg_hash_entry *nhe, struct nhg_hash_entry
 {
 	zebra_nhg_rework_content_release(nhe);
 	zebra_nhg_rework_content_mutate(nhe, source_nhe, afi);
-	zebra_nhg_rework_content_rehash(nhe);
+	zebra_nhg_rework_content_rehash(nhe, __func__);
 }
 
 /*
@@ -1571,12 +1571,14 @@ static void nhg_dup_find_cb(struct hash_bucket *bucket, void *arg)
  *     the RE between re_head trees, updates refcounts).
  *  2. rib_install_kernel with old=NULL sends RTM_NEWROUTE.
  * After all REs are migrated, the loser's refcount drops and the
- * existing keep-around timer cleans it up.
+ * existing keep-around timer cleans it up.  If tracker-owned REs had
+ * to be skipped, the loser stays a duplicate (see below).
  */
 static void nhg_consolidate_migrate_loser(struct nhg_hash_entry *loser,
 					  struct nhg_hash_entry *winner)
 {
 	uint32_t migrated = 0;
+	uint32_t skipped = 0;
 	uint32_t loser_id = loser->id;
 	struct route_entry *re;
 
@@ -1592,8 +1594,10 @@ static void nhg_consolidate_migrate_loser(struct nhg_hash_entry *loser,
 		 */
 		if (CHECK_FLAG(re->status, ROUTE_ENTRY_TRACKER |
 						   ROUTE_ENTRY_NHG_TRACKER_FLUSH_BATCH |
-						   ROUTE_ENTRY_NHG_TRACKER_WINNER))
+						   ROUTE_ENTRY_NHG_TRACKER_WINNER)) {
+			skipped++;
 			continue;
+		}
 
 		route_entry_update_nhe(re, winner);
 
@@ -1612,9 +1616,23 @@ static void nhg_consolidate_migrate_loser(struct nhg_hash_entry *loser,
 
 	zrouter.tracker_counters.consolidate_migrated += migrated;
 
+	/*
+	 * Skipped REs keep the loser alive, e.g. phase-1 losers of another
+	 * NHG's tracker that landed here and still wait for their dplane ack.
+	 * Keep it a duplicate that later consolidations can find; those REs'
+	 * acks re-run the consolidation (tracker_flush_batch_route_dplane_ack).
+	 */
+	if (skipped) {
+		SET_FLAG(loser->flags, NEXTHOP_GROUP_DUPLICATE);
+		zebra_nhg_rework_content_rehash(loser, __func__);
+		frrtrace(4, frr_zebra, nhg_state, "keep-duplicate", loser->id, loser->flags,
+			 loser->refcnt);
+	}
+
 	if (IS_ZEBRA_DEBUG_NHG_TRACKER)
-		zlog_debug("%s: NHG %u -> %u: migrated %u routes, loser retired from content hash",
-			   __func__, loser_id, winner->id, migrated);
+		zlog_debug("%s: NHG %u -> %u: migrated %u routes, skipped %u tracker-owned, %s",
+			   __func__, loser_id, winner->id, migrated, skipped,
+			   skipped ? "loser kept as duplicate" : "loser retired from content hash");
 
 	frrtrace(5, frr_zebra, nhg_migrate, "migrated", loser_id, winner->id, 0, migrated);
 }
@@ -1643,8 +1661,8 @@ static void zebra_nhg_consolidate_event_handler(struct event *event)
 
 	/*
 	 * If nhe itself is busy, abort this consolidation round entirely.
-	 * nhe keeps its DUPLICATE flag set. pending_winners-hit-zero or
-	 * tracker_flush_batch_finish will re-fire consolidation on this nhe.
+	 * nhe keeps its DUPLICATE flag set. pending_winners-hit-zero or the
+	 * end of a tracker on nhe will re-fire consolidation on this nhe.
 	 */
 	nhe_busy = (nhg_event_tracker_list_count(&nhe->tracker_list) > 0 ||
 		    nhe->tracker_pending_winners > 0);
@@ -1664,8 +1682,9 @@ static void zebra_nhg_consolidate_event_handler(struct event *event)
 		return;
 	}
 
-	/* Pick winner among nhe + non-busy dups by re_count
-	 * Busy dups are skipped silently. their own triggers will re-fire later.
+	/* Pick winner among nhe + non-busy dups by re_count.
+	 * Busy dups are skipped and marked DUPLICATE (below) so their own
+	 * triggers re-run this once they are idle.
 	 */
 	winner = nhe;
 	winner_re_count = nhe_re_tree_count(&nhe->re_head);
@@ -1686,6 +1705,12 @@ static void zebra_nhg_consolidate_event_handler(struct event *event)
 				 (uint32_t)nhg_event_tracker_list_count(&dup->tracker_list),
 				 dup->tracker_pending_winners);
 			zrouter.tracker_counters.consolidate_skipped_busy++;
+			/*
+			 * Mark the busy dup DUPLICATE, so that once it is idle
+			 * (tracker done, winners drained) it runs this
+			 * consolidation itself. Otherwise nothing retries.
+			 */
+			zebra_nhg_mark_duplicate(dup);
 			ctx.dups[i] = NULL;
 			skipped++;
 			continue;
@@ -1702,20 +1727,20 @@ static void zebra_nhg_consolidate_event_handler(struct event *event)
 
 	if (ctx.count - skipped == 0) {
 		/*
-		 * No non-busy dups paired with nhe.  Either there are
-		 * genuinely no dups, or all dups are busy.  Either way we
-		 * clear DUPLICATE on nhe — busy dups carry their own
-		 * DUPLICATE + triggers, and will find nhe via hash walk
-		 * when they re-fire.
+		 * No dup found: nhe is unique, so clear DUPLICATE.
+		 * All dups busy: keep DUPLICATE on nhe. Each busy dup was
+		 * marked DUPLICATE above and runs this again once idle; a
+		 * phase-1 ack on one of nhe's REs can also run it again.
 		 */
 		if (IS_ZEBRA_DEBUG_NHG_TRACKER)
-			zlog_debug("%s: NHG %u no mergeable duplicate this round (dups found=%u, busy=%u%s) - clearing DUPLICATE",
+			zlog_debug("%s: NHG %u no mergeable duplicate this round (dups found=%u, busy=%u) - %s",
 				   __func__, nhe->id, ctx.count, skipped,
-				   ctx.count == 0 ? ", none exist" : "");
+				   skipped ? "busy dups will re-run it" : "clearing DUPLICATE");
 
 		frrtrace(6, frr_zebra, nhg_consolidate, "consolidate-none", nhe->id, 0, ctx.count,
 			 skipped, 0);
-		UNSET_FLAG(nhe->flags, NEXTHOP_GROUP_DUPLICATE);
+		if (!skipped)
+			UNSET_FLAG(nhe->flags, NEXTHOP_GROUP_DUPLICATE);
 		XFREE(MTYPE_NHG, ctx.dups);
 		return;
 	}
@@ -1756,7 +1781,10 @@ static void zebra_nhg_consolidate_event_handler(struct event *event)
 	frrtrace(6, frr_zebra, nhg_consolidate, "consolidate-done", saved_id, winner->id,
 		 ctx.count, skipped, winner_re_count);
 
-	/* Losers clear their own DUPLICATE in nhg_consolidate_migrate_loser(). */
+	/*
+	 * Losers clear their own DUPLICATE in nhg_consolidate_migrate_loser()
+	 * unless they kept tracker-owned REs.
+	 */
 	UNSET_FLAG(winner->flags, NEXTHOP_GROUP_DUPLICATE);
 
 	XFREE(MTYPE_NHG, ctx.dups);
@@ -1819,7 +1847,7 @@ void zebra_nhg_tracker_winners_drained(struct nhg_hash_entry *nhe)
 	 * Reinserting before the consolidate check below keeps that walk honest.
 	 */
 	if (!hash_lookup(zrouter.nhgs, nhe))
-		zebra_nhg_rework_content_rehash(nhe);
+		zebra_nhg_rework_content_rehash(nhe, __func__);
 
 	if (CHECK_FLAG(nhe->flags, NEXTHOP_GROUP_DUPLICATE))
 		zebra_nhg_schedule_consolidate(nhe);
