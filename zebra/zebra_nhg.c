@@ -2058,6 +2058,10 @@ static struct nexthop *nexthop_set_resolved(afi_t afi, const struct nexthop *new
 		nexthop_add_labels(resolved_hop, label_type, num_labels,
 				   labels);
 
+	/* The resolved hop inherits the SVD and its EVPN label encap */
+	if (CHECK_FLAG(newhop->flags, NEXTHOP_FLAG_EVPN_SVD))
+		SET_FLAG(resolved_hop->flags, NEXTHOP_FLAG_EVPN_SVD);
+
 	if (nexthop->nh_srv6) {
 		if (nexthop->nh_srv6->seg6local_action !=
 		    ZEBRA_SEG6_LOCAL_ACTION_UNSPEC)
@@ -2133,19 +2137,32 @@ static bool nexthop_set_evpn_dvni_svd(vrf_id_t re_vrf_id,
 				      struct nexthop *nexthop)
 {
 	if (!is_vrf_l3vni_svd_backed(re_vrf_id)) {
+		/*
+		 * Without an SVD the kernel cannot carry the downstream VNI as
+		 * a route encap: each VNI has its own VXLAN device, and the
+		 * nexthop sits on the VRF's L3VNI SVI. Keep it there, with its
+		 * label, rather than refusing the route. A dataplane fed over
+		 * FPM encapsulates with the label's VNI (see
+		 * dplane_ctx_route_init()), which is how a route leaked between
+		 * VRFs with different L3VNIs is forwarded asymmetrically.
+		 */
 		if (IS_ZEBRA_DEBUG_NHG_DETAIL) {
 			struct vrf *vrf = vrf_lookup_by_id(re_vrf_id);
 
-			zlog_debug(
-				"nexthop %pNHv D-VNI but route's vrf %s(%u) doesn't use SVD",
-				nexthop, VRF_LOGNAME(vrf), re_vrf_id);
+			zlog_debug("nexthop %pNHv D-VNI on vrf %s(%u) without SVD, keeping the L3VNI SVI",
+				   nexthop, VRF_LOGNAME(vrf), re_vrf_id);
 		}
 
-		return false;
+		return true;
 	}
 
 	nexthop->ifindex = get_l3vni_vxlan_ifindex(re_vrf_id);
 	nexthop->vrf_id = 0;
+	/*
+	 * Tell the dataplane encoders, which must not look up interfaces,
+	 * that the EVPN label is now a VXLAN encap on the SVD.
+	 */
+	SET_FLAG(nexthop->flags, NEXTHOP_FLAG_EVPN_SVD);
 
 	if (IS_ZEBRA_DEBUG_NHG_DETAIL)
 		zlog_debug("nexthop %pNHv using SVD", nexthop);
