@@ -2284,6 +2284,104 @@ def test_pure_l3_fdb_sync_mac_delete_reconciles():
     )
 
 
+def test_frr_reload_l3vni_neigh_token_in_place():
+    """
+    frr-reload.py applies a token-only change of 'advertise-all-vni
+    [l3vni-neigh]' in place: it must not emit 'no advertise-all-vni' (which
+    would bounce EVPN), only the new 'advertise-all-vni[ l3vni-neigh]' line.
+    Both directions are driven through a real --reload on leaf2 (RX side), and
+    the resulting zebra flag and synced neighbor are checked. Removing the
+    line entirely must plan the bare 'no advertise-all-vni', since the token
+    form of the 'no' command keeps EVPN enabled.
+    """
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    leaf2 = tgen.gears["leaf2"]
+    _ping(tgen.gears["host1"], ANYCAST_GW)
+
+    frrreload = os.path.join(
+        tgen.config.get(tgen.CONFIG_SECTION, "frrdir"), "frr-reload.py"
+    )
+    rundir = os.path.join(tgen.logdir, "leaf2")
+    conf_on = os.path.join(rundir, "l3mh-token-on.conf")
+    conf_off = os.path.join(rundir, "l3mh-token-off.conf")
+    conf_none = os.path.join(rundir, "l3mh-evpn-off.conf")
+
+    leaf2.cmd_raises("vtysh -c 'write terminal no-header' > %s" % conf_on)
+    with open(conf_on) as f:
+        running = f.read()
+    assert (
+        "advertise-all-vni l3vni-neigh" in running
+    ), "baseline running-config lacks advertise-all-vni l3vni-neigh"
+    with open(conf_off, "w") as f:
+        f.write(running.replace("advertise-all-vni l3vni-neigh", "advertise-all-vni"))
+    with open(conf_none, "w") as f:
+        f.write(running.replace("  advertise-all-vni l3vni-neigh\n", ""))
+
+    def _zebra_flag_is(want):
+        try:
+            js = json.loads(leaf2.vtysh_cmd("show evpn json"))
+        except Exception as exc:  # pragma: no cover - defensive
+            return "cannot parse 'show evpn json': %s" % exc
+        if "advertiseL3vniNeigh" not in js:
+            return "zebra EVPN not enabled: %s" % js
+        if js["advertiseL3vniNeigh"] != want:
+            return "zebra advertiseL3vniNeigh=%s (expected %s)" % (
+                js["advertiseL3vniNeigh"],
+                want,
+            )
+        return None
+
+    def _synced_is(want):
+        if _host1_synced(leaf2) == want:
+            return None
+        return "leaf2 host1 synced=%s (expected %s)" % (not want, want)
+
+    def _expect(fn, *args):
+        _, result = topotest.run_and_expect(
+            partial(fn, *args), None, count=WAIT_COUNT, wait=WAIT_STEP
+        )
+        assert result is None, result
+
+    def _check_plan(conf, want_add):
+        out = leaf2.cmd_raises("%s --test %s" % (frrreload, conf))
+        lines = [l.strip() for l in out.splitlines()]
+        assert not any(
+            l.startswith("no advertise-all-vni") for l in lines
+        ), "frr-reload would bounce EVPN:\n%s" % out
+        assert want_add in lines, "frr-reload does not add '%s':\n%s" % (
+            want_add,
+            out,
+        )
+
+    _expect(_synced_is, True)
+
+    # Whole-line removal (plan only; applying it would tear EVPN down).
+    out = leaf2.cmd_raises("%s --test %s" % (frrreload, conf_none))
+    lines = [l.strip() for l in out.splitlines()]
+    assert "no advertise-all-vni" in lines and not any(
+        "advertise-all-vni l3vni-neigh" in l for l in lines
+    ), "frr-reload must remove EVPN with bare 'no advertise-all-vni':\n%s" % out
+
+    try:
+        _check_plan(conf_off, "advertise-all-vni")
+        leaf2.cmd_raises("%s --reload %s" % (frrreload, conf_off))
+        _expect(_zebra_flag_is, "No")
+        _expect(_synced_is, False)
+
+        _check_plan(conf_on, "advertise-all-vni l3vni-neigh")
+        leaf2.cmd_raises("%s --reload %s" % (frrreload, conf_on))
+        _expect(_zebra_flag_is, "Yes")
+        _expect(_synced_is, True)
+    finally:
+        leaf2.vtysh_cmd(
+            "configure terminal\nrouter bgp 65012\n"
+            " address-family l2vpn evpn\n  advertise-all-vni l3vni-neigh\n"
+        )
+
+
 if __name__ == "__main__":
     args = ["-s"] + sys.argv[1:]
     sys.exit(pytest.main(args))
