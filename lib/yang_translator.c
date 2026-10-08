@@ -97,10 +97,18 @@ static void yang_mapping_add(struct yang_translator *translator, int dir,
 
 	const char *keys[] = {"KEY1", "KEY2", "KEY3", "KEY4"};
 	char *xpfmt;
+	char key_fmt[16];
+
+	/*
+	 * Bound the scanned key length to the size of the destination
+	 * buffers (keys[] in yang_translate_xpath()). Without an explicit
+	 * field width, sscanf() would write the whole key up to the next
+	 * quote, overflowing those fixed-size stack buffers.
+	 */
+	snprintfrr(key_fmt, sizeof(key_fmt), "%%%u[^']", (unsigned int)LIST_MAXKEYLEN - 1);
 
 	for (unsigned int i = 0; i < array_size(keys); i++) {
-		xpfmt = frrstr_replace(mapping->xpath_from_fmt, keys[i],
-				       "%[^']");
+		xpfmt = frrstr_replace(mapping->xpath_from_fmt, keys[i], key_fmt);
 		strlcpy(mapping->xpath_from_fmt, xpfmt,
 			sizeof(mapping->xpath_from_fmt));
 		XFREE(MTYPE_TMP, xpfmt);
