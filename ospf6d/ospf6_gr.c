@@ -159,7 +159,7 @@ static void ospf6_gr_flush_grace_lsas(struct ospf6 *ospf6)
 }
 
 /* Exit from the Graceful Restart mode. */
-static void ospf6_gr_restart_exit(struct ospf6 *ospf6, const char *reason)
+void ospf6_gr_restart_exit(struct ospf6 *ospf6, const char *reason)
 {
 	struct ospf6_area *area;
 	struct listnode *onode, *anode;
