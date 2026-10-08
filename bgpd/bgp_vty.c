@@ -5833,8 +5833,13 @@ DEFUN (no_neighbor,
 			 * interface. */
 			if (peer->ifp)
 				bgp_zebra_terminate_radv(peer->bgp, peer);
+			other = peer->doppelganger;
 			peer_notify_unconfig(peer->connection);
 			peer_delete(peer);
+			if (other && other->connection->status != Deleted) {
+				peer_notify_unconfig(other->connection);
+				peer_delete(other);
+			}
 			return CMD_SUCCESS;
 		}
 
@@ -5903,7 +5908,7 @@ DEFUN (no_neighbor_interface_config,
 {
 	VTY_DECLVAR_CONTEXT(bgp, bgp);
 	int idx_word = 2;
-	struct peer *peer;
+	struct peer *peer, *other;
 
 	/* look up for neighbor by interface name config. */
 	peer = peer_lookup_by_conf_if(bgp, argv[idx_word]->arg);
@@ -5911,8 +5916,13 @@ DEFUN (no_neighbor_interface_config,
 		/* Request zebra to terminate IPv6 RAs on this interface. */
 		if (peer->ifp)
 			bgp_zebra_terminate_radv(peer->bgp, peer);
+		other = peer->doppelganger;
 		peer_notify_unconfig(peer->connection);
 		peer_delete(peer);
+		if (other && other->connection->status != Deleted) {
+			peer_notify_unconfig(other->connection);
+			peer_delete(other);
+		}
 	} else {
 		vty_out(vty, "%% Create the bgp interface first\n");
 		return CMD_WARNING_CONFIG_FAILED;
