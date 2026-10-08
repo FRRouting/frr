@@ -3887,9 +3887,9 @@ static int bgp_zebra_srv6_sid_control_locator_rmap(
 
 	if (bslc && ctx->alloc_mode == SRV6_SID_ALLOC_MODE_EXPLICIT) {
 		if (BGP_DEBUG(zebra, ZEBRA))
-			snprintf(errmsg, errmsg_len,
-				 "%s: SRv6 SID %pI6 %s, Locator rmap is in automatic mode.",
-				 __func__, &sid_addr, srv6_sid_ctx2str(buf, sizeof(buf), ctx));
+			snprintfrr(errmsg, errmsg_len,
+				   "%s: SRv6 SID %pI6 %s, Locator rmap is in automatic mode.",
+				   __func__, sid_addr, srv6_sid_ctx2str(buf, sizeof(buf), ctx));
 		return -1;
 	}
 
