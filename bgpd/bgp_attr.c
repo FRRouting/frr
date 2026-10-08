@@ -1915,7 +1915,6 @@ bgp_attr_malformed(struct bgp_attr_parser_args *args, uint8_t subcode,
 	 * attributes which are malformed should just be ignored and the route
 	 * processed as normal.
 	 */
-	case BGP_ATTR_AS4_AGGREGATOR:
 	case BGP_ATTR_AGGREGATOR:
 	case BGP_ATTR_ATOMIC_AGGREGATE:
 	case BGP_ATTR_PREFIX_SID:
@@ -1929,7 +1928,6 @@ bgp_attr_malformed(struct bgp_attr_parser_args *args, uint8_t subcode,
 	 */
 	case BGP_ATTR_ORIGIN:
 	case BGP_ATTR_AS_PATH:
-	case BGP_ATTR_AS4_PATH:
 	case BGP_ATTR_NEXT_HOP:
 	case BGP_ATTR_MULTI_EXIT_DISC:
 	case BGP_ATTR_LOCAL_PREF:
@@ -1943,6 +1941,16 @@ bgp_attr_malformed(struct bgp_attr_parser_args *args, uint8_t subcode,
 	case BGP_ATTR_ENCAP:
 	case BGP_ATTR_OTC:
 		return BGP_ATTR_PARSE_WITHDRAW;
+
+	/* Reached on Attribute Flags errors (RFC 7606 section 3) and on
+	 * AS_SET in AS4_PATH with `bgp reject-as-sets` (RFC 9774 section 3),
+	 * both treat-as-withdraw. A malformed AS4_PATH or AS4_AGGREGATOR is
+	 * discarded by its parser instead (RFC 6793 section 6).
+	 */
+	case BGP_ATTR_AS4_PATH:
+	case BGP_ATTR_AS4_AGGREGATOR:
+		return BGP_ATTR_PARSE_WITHDRAW;
+
 	case BGP_ATTR_MP_REACH_NLRI:
 	case BGP_ATTR_MP_UNREACH_NLRI:
 		/* This will never hit, because it's checked already above */
@@ -2258,6 +2266,24 @@ static enum bgp_attr_parse_ret bgp_attr_aspath_check(struct peer *const peer,
 	return BGP_ATTR_PARSE_PROCEED;
 }
 
+/* RFC 6793 section 6: AS4_PATH and AS4_AGGREGATOR that are malformed, or
+ * received from a NEW BGP speaker, MUST be discarded and the UPDATE
+ * processed further. This SHOULD be logged.
+ */
+static enum bgp_attr_parse_ret bgp_attr_as4_discard(struct bgp_attr_parser_args *args,
+						    const char *reason)
+{
+	struct peer_connection *const connection = args->connection;
+
+	flog_warn(EC_BGP_ATTRIBUTE_PARSE_ERROR, "%pBP: %s %s, discarding attribute",
+		  connection->peer, lookup_msg(attr_str, args->type, NULL), reason);
+
+	stream_set_getp(BGP_INPUT(connection),
+			(args->startp - STREAM_DATA(BGP_INPUT(connection))) + args->total);
+
+	return BGP_ATTR_PARSE_PROCEED;
+}
+
 /* Parse AS4 path information.  This function is another wrapper of
    aspath_parse. */
 static int bgp_attr_as4_path(struct bgp_attr_parser_args *args,
@@ -2269,18 +2295,23 @@ static int bgp_attr_as4_path(struct bgp_attr_parser_args *args,
 	const bgp_size_t length = args->length;
 	enum asnotation_mode asnotation;
 
+	if (peer->discard_attrs[args->type] || peer->withdraw_attrs[args->type]) {
+		stream_forward_getp(connection->curr, length);
+		return bgp_attr_ignore(peer, args->type);
+	}
+
+	if (CHECK_FLAG(peer->cap, PEER_CAP_AS4_RCV) && CHECK_FLAG(peer->cap, PEER_CAP_AS4_ADV))
+		return bgp_attr_as4_discard(args, "received from AS4 capable peer");
+
+	/* Too small to carry at least one AS number */
+	if (length < 6)
+		return bgp_attr_as4_discard(args, "is malformed");
+
 	asnotation = bgp_get_asnotation(peer->bgp);
 
 	*as4_path = aspath_parse(connection->curr, length, 1, asnotation);
-
-	/* In case of IBGP, length will be zero. */
-	if (!*as4_path) {
-		flog_err(EC_BGP_ATTR_MAL_AS_PATH,
-			 "Malformed AS4 path from %s, length is %d", peer->host,
-			 length);
-		return bgp_attr_malformed(args, BGP_NOTIFY_UPDATE_MAL_AS_PATH,
-					  0);
-	}
+	if (!*as4_path)
+		return bgp_attr_as4_discard(args, "is malformed");
 
 	/* Conformant BGP speakers SHOULD NOT send BGP
 	 * UPDATE messages containing AS_SET or AS_CONFED_SET.  Upon receipt of
@@ -2512,15 +2543,14 @@ bgp_attr_as4_aggregator(struct bgp_attr_parser_args *args,
 	const bgp_size_t length = args->length;
 	as_t aggregator_as;
 
-	if (length != 8) {
-		flog_err(EC_BGP_ATTR_LEN, "New Aggregator length is not 8 [%d]",
-			 length);
-		return bgp_attr_malformed(args, BGP_NOTIFY_UPDATE_ATTR_LENG_ERR,
-					  0);
-	}
-
 	if (peer->discard_attrs[args->type] || peer->withdraw_attrs[args->type])
 		goto as4_aggregator_ignore;
+
+	if (length != 8)
+		return bgp_attr_as4_discard(args, "is malformed");
+
+	if (CHECK_FLAG(peer->cap, PEER_CAP_AS4_RCV) && CHECK_FLAG(peer->cap, PEER_CAP_AS4_ADV))
+		return bgp_attr_as4_discard(args, "received from AS4 capable peer");
 
 	aggregator_as = stream_getl(connection->curr);
 
@@ -2573,25 +2603,11 @@ bgp_attr_munge_as4_attrs(struct peer *const peer, struct attr *const attr,
 		return BGP_ATTR_PARSE_ERROR;
 	}
 
-	if (CHECK_FLAG(peer->cap, PEER_CAP_AS4_RCV)) {
-		/* peer can do AS4, so we ignore AS4_PATH and AS4_AGGREGATOR
-		 * if given.
-		 * It is worth a warning though, because the peer really
-		 * should not send them
-		 */
-		if (BGP_DEBUG(as4, AS4)) {
-			if (bgp_attr_exists(attr, BGP_ATTR_AS4_PATH))
-				zlog_debug("[AS4] %s %s AS4_PATH", peer->host,
-					   "AS4 capable peer, yet it sent");
-
-			if (bgp_attr_exists(attr, BGP_ATTR_AS4_AGGREGATOR))
-				zlog_debug("[AS4] %s %s AS4_AGGREGATOR",
-					   peer->host,
-					   "AS4 capable peer, yet it sent");
-		}
-
+	/* AS4_PATH and AS4_AGGREGATOR from an AS4 capable peer are
+	 * already discarded while parsing.
+	 */
+	if (CHECK_FLAG(peer->cap, PEER_CAP_AS4_RCV) && CHECK_FLAG(peer->cap, PEER_CAP_AS4_ADV))
 		return BGP_ATTR_PARSE_PROCEED;
-	}
 
 	/* We have a asn16 peer.  First, look for AS4_AGGREGATOR
 	 * because that may override AS4_PATH
