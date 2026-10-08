@@ -5840,8 +5840,10 @@ void bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 	new = info_make(type, sub_type, 0, peer, attr_new, dest);
 
 	/* Update MPLS label */
-	bgp_path_info_extra_get(new);
-	new->extra->labels = bgp_labels_intern(&bgp_labels);
+	if (bgp_labels.num_labels) {
+		bgp_path_info_extra_get(new);
+		new->extra->labels = bgp_labels_intern(&bgp_labels);
+	}
 
 	bgp_update_check_valid_flags(bgp, peer, dest, p, afi, safi, new, attr_new,
 				     bgp_nht_param_prefix, accept_own);
