@@ -2625,12 +2625,21 @@ route_map_result_t route_map_apply_ext(struct route_map *map,
 	}
 
 	if (index) {
-		index->applied++;
+		/*
+		 * Only count the head index here when we are on the LPM fast path.
+		 * In that case the loop below skips re-evaluating its match clause, so
+		 * this is its only accounting point. On every other path (non-IP
+		 * families or optimization disabled) the head index is evaluated
+		 * inside the loop and must not be double-counted.
+		 */
+		if (skip_match_clause) {
+			index->applied++;
 
-		GETRUSAGE(&iafter);
-		event_consumed_time(&iafter, &ibefore, &cputime);
-		index->cputime += cputime;
-		ibefore = iafter;
+			GETRUSAGE(&iafter);
+			event_consumed_time(&iafter, &ibefore, &cputime);
+			index->cputime += cputime;
+			ibefore = iafter;
+		}
 
 		if (unlikely(CHECK_FLAG(rmap_debug, DEBUG_ROUTEMAP)))
 			zlog_debug(
