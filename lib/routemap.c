@@ -2611,10 +2611,11 @@ route_map_result_t route_map_apply_ext(struct route_map *map,
 	GETRUSAGE(&mbefore);
 	ibefore = mbefore;
 
-	if (prefix->family != AF_INET && prefix->family != AF_INET6) {
-		/* LPM tries are IPv4/IPv6-only; non-IP families (AF_EVPN,
-		 * AF_FLOWSPEC, AF_UNSPEC) must walk all clauses or
-		 * IPv4-restricted matches get silently bypassed.
+	if ((prefix->family != AF_INET && prefix->family != AF_INET6)
+	    || map->optimization_disabled) {
+		/* LPM tries optimizations are IPv4/IPv6-only;
+		 * non-IP families (AF_EVPN, AF_FLOWSPEC, AF_UNSPEC) must walk
+		 * all clauses or IPv4-restricted matches get silently bypassed.
 		 */
 		index = map->head;
 	} else {
