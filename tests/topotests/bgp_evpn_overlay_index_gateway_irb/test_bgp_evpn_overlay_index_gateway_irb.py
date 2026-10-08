@@ -27,9 +27,10 @@ index (RFC 9136) of an EVPN type-5 route in a symmetric IRB fabric.
                 +------+
 
 r1, r2 and r3 are VTEPs sharing L2VNI 100 (br100, 10.20.0.0/24) and L3VNI
-1000 in vrf-blue. h2 is attached to r2. r1 exports a route whose nexthop is
-h2 as an EVPN type-5 route carrying h2's address as gateway IP. r2 and r3
-have "enable-resolve-overlay-index".
+1000 in vrf-blue. r1 and r3 are in AS 65000, r2 in AS 65002: r2 gets the
+type-5 routes over eBGP, r3 over iBGP. h2 is attached to r2. r1 exports a
+route whose nexthop is h2 as an EVPN type-5 route carrying h2's address as
+gateway IP. r2 and r3 have "enable-resolve-overlay-index".
 
 - r2 learns h2 locally: the gateway's MAC/IP is a local type-2 route and
   the gateway resolves over the L2VNI SVI.
@@ -38,7 +39,8 @@ have "enable-resolve-overlay-index".
   resolves over that SVI. Once r2 stops advertising the L3VNI with its
   type-2 routes, the gateway resolves over the L2VNI SVI on r3 as well.
 
-Both must accept the type-5 route and install it through h2.
+Both must accept the type-5 route and install it through h2, also when
+"enable-resolve-overlay-index" is configured after the routes exist.
 """
 
 import os
@@ -62,6 +64,7 @@ from lib.topolog import logger
 pytestmark = [pytest.mark.bgpd, pytest.mark.evpn]
 
 LEAVES = ["r1", "r2", "r3"]
+ASN = {"r1": 65000, "r2": 65002, "r3": 65000}
 VRF = "vrf-blue"
 L2VNI_SVI = "br100"
 L3VNI_SVI = "br1000"
@@ -123,10 +126,16 @@ sysctl -w net.ipv6.conf.all.forwarding=1
             )
         )
 
+    # Keep the neighbor entries of r2 and h2 for each other reachable for
+    # the whole test: an update of r2's entry for h2, such as one h2's ARP
+    # or ND refresh causes, makes zebra send the local MAC/IP to bgpd again,
+    # which would re-resolve the gateways behind the test's back.
     tgen.net["r2"].cmd_raises(
         """
 ip link set dev r2-eth1 master br100
 ip link set dev r2-eth1 up
+sysctl -w net.ipv4.neigh.br100.base_reachable_time_ms=3600000
+sysctl -w net.ipv6.neigh.br100.base_reachable_time_ms=3600000
 """
     )
     tgen.net["h2"].cmd_raises(
@@ -134,6 +143,8 @@ ip link set dev r2-eth1 up
 ip link set dev h2-eth0 down
 ip link set dev h2-eth0 address {}
 ip link set dev h2-eth0 up
+sysctl -w net.ipv4.neigh.h2-eth0.base_reachable_time_ms=3600000
+sysctl -w net.ipv6.neigh.h2-eth0.base_reachable_time_ms=3600000
 """.format(
             HOST_MAC
         )
@@ -349,6 +360,71 @@ def test_gateway_ip_symmetric_irb_host():
         assert result is None, "r3: {}".format(result)
 
 
+def test_gateway_ip_resolve_enabled_late():
+    """
+    Removing "enable-resolve-overlay-index" from r2 and r3 makes them stop
+    using the type-5 routes. Configuring it again, now that the routes and
+    h2's MAC/IP routes exist, must resolve the gateways again, including
+    r2's local one.
+    """
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    def _resolve_overlay_index(router, enable):
+        router.vtysh_cmd(
+            """
+configure terminal
+ router bgp {}
+  address-family l2vpn evpn
+   {}enable-resolve-overlay-index
+""".format(
+                ASN[router.name], "" if enable else "no "
+            )
+        )
+
+    r2 = tgen.gears["r2"]
+    r3 = tgen.gears["r3"]
+
+    # Let r2's neighbor entries for h2 settle in REACHABLE first: their last
+    # state change sends the local MAC/IP routes again (see setup_module()).
+    def _neighbors_reachable():
+        for _, _, gateway, _ in ROUTES:
+            neigh = tgen.net["r2"].cmd(
+                "ip neigh show {} dev {}".format(gateway, L2VNI_SVI)
+            )
+            if "REACHABLE" not in neigh:
+                return "{}: {}".format(gateway, neigh.strip())
+        return None
+
+    _, result = topotest.run_and_expect(_neighbors_reachable, None, count=30, wait=1)
+    assert result is None, "r2's neighbor entry for h2 is not reachable: {}".format(
+        result
+    )
+    # ... and give zebra and bgpd time to process that last update.
+    time.sleep(2)
+
+    for router in [r2, r3]:
+        _resolve_overlay_index(router, False)
+
+    for router in [r2, r3]:
+        for afi, prefix, _, _ in ROUTES:
+            test_func = partial(_check_gateway_route_invalid, router, afi, prefix)
+            _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
+            assert result is None, "{}: {}".format(router.name, result)
+
+    for router in [r2, r3]:
+        _resolve_overlay_index(router, True)
+
+    for router, ifname in [(r2, L2VNI_SVI), (r3, L3VNI_SVI)]:
+        for afi, prefix, gateway, _ in ROUTES:
+            test_func = partial(
+                _check_gateway_route, router, afi, prefix, gateway, ifname
+            )
+            _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
+            assert result is None, "{}: {}".format(router.name, result)
+
+
 def test_gateway_ip_host_withdrawn():
     """
     When r2 forgets h2, the gateway is no longer a known host on r2 or on r3
@@ -403,7 +479,6 @@ def test_gateway_ip_known_in_another_evi():
         pytest.skip(tgen.errors)
 
     r3 = tgen.gears["r3"]
-    asn = {"r2": 65002, "r3": 65000}
 
     for n, rname in [(2, "r2"), (3, "r3")]:
         tgen.net[rname].cmd_raises(
@@ -427,7 +502,7 @@ configure terminal
     route-target import 65000:200
     route-target export 65000:200
 """.format(
-                asn[rname]
+                ASN[rname]
             )
         )
 
@@ -487,7 +562,7 @@ configure terminal
   address-family l2vpn evpn
    no vni 200
 """.format(
-                asn[rname]
+                ASN[rname]
             )
         )
         tgen.net[rname].cmd_raises(
