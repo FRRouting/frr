@@ -28,6 +28,15 @@ TestAttrParse.okfail(
     "prefix-sid-bad-label-index-ebgp: PREFIX_SID with a malformed Label-Index TLV, eBGP"
 )
 TestAttrParse.okfail("aigp-bad-flags-ibgp: AIGP with the transitive bit set, iBGP")
+TestAttrParse.okfail(
+    "community-partial-ebgp: COMMUNITIES received with Partial is re-advertised with Partial, eBGP"
+)
+TestAttrParse.okfail(
+    "community-complete-ebgp: COMMUNITIES received without Partial is re-advertised without it, eBGP"
+)
+TestAttrParse.okfail(
+    "as4-aggregator-partial-ebgp: partial AS4_AGGREGATOR re-advertised as a partial AGGREGATOR, eBGP"
+)
 TestAttrParse.okfail("nexthop-flag-optional-ebgp: NEXT_HOP with the optional bit set, eBGP")
 TestAttrParse.okfail("nexthop-len-3-ebgp: NEXT_HOP with length 3, eBGP")
 TestAttrParse.okfail("nexthop-len-5-ebgp: NEXT_HOP with length 5, eBGP")
