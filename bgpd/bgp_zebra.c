@@ -1290,6 +1290,57 @@ static bool bgp_zebra_use_nhop_weighted(struct bgp *bgp, struct bgp_path_info *b
 	return true;
 }
 
+/* Is this a VRF path imported from an EVPN route, forwarded with its VNI? */
+static bool bgp_zebra_is_evpn_vni_path(struct bgp_path_info *pi)
+{
+	struct bgp_route_evpn *bre = bgp_attr_get_evpn_overlay(pi->attr);
+
+	return is_route_parent_evpn(pi) && BGP_PATH_INFO_NUM_LABELS(pi) &&
+	       !(bre && bre->type == OVERLAY_INDEX_GATEWAY_IP);
+}
+
+static mpls_label_t bgp_zebra_evpn_path_l3vni(struct bgp_path_info *pi)
+{
+	return *bgp_evpn_path_info_labels_get_l3vni(pi->extra->labels->label,
+						    BGP_PATH_INFO_NUM_LABELS(pi));
+}
+
+/*
+ * EVPN paths from the same VTEP can differ only in their VNI, when the VTEP
+ * originates a prefix from several VRFs and this VRF imports more than one
+ * of them. Multipath may take them all, but the VTEP decapsulates each VNI
+ * into a different VRF, so an ECMP across them sends part of the flows
+ * into a VRF the best path did not choose. Install one VNI per VTEP: the
+ * best path's if the VTEP advertised it, else the VNI of its first path.
+ * Paths with the same VTEP and VNI stay, zebra treats them as duplicates.
+ * Returns true if pi has another VNI.
+ */
+static bool bgp_zebra_evpn_mpath_skip(struct bgp_path_info *best, struct bgp_path_info *pi)
+{
+	struct bgp_path_info *cand, *first = NULL;
+	bool best_is_evpn;
+
+	if (pi == best || !bgp_zebra_is_evpn_vni_path(pi))
+		return false;
+
+	best_is_evpn = bgp_zebra_is_evpn_vni_path(best);
+
+	for (cand = best; cand; cand = bgp_path_info_mpath_next(cand)) {
+		if (!bgp_zebra_is_evpn_vni_path(cand) || bgp_path_info_nexthop_cmp(cand, pi))
+			continue;
+
+		if (best_is_evpn &&
+		    bgp_zebra_evpn_path_l3vni(cand) == bgp_zebra_evpn_path_l3vni(best))
+			return bgp_zebra_evpn_path_l3vni(pi) != bgp_zebra_evpn_path_l3vni(best);
+
+		if (!first)
+			first = cand;
+	}
+
+	/* pi itself is one of the multipaths, so first is set */
+	return first && bgp_zebra_evpn_path_l3vni(pi) != bgp_zebra_evpn_path_l3vni(first);
+}
+
 static void bgp_zebra_announce_parse_nexthop(struct bgp_path_info *info, const struct prefix *p,
 					     struct bgp *bgp, struct zapi_route *api,
 					     unsigned int *valid_nh_count, afi_t afi, safi_t safi,
@@ -1336,6 +1387,9 @@ static void bgp_zebra_announce_parse_nexthop(struct bgp_path_info *info, const s
 
 		if (*valid_nh_count >= multipath_num)
 			break;
+
+		if (bgp_zebra_evpn_mpath_skip(info, mpinfo))
+			continue;
 
 		*mpinfo_cp = *mpinfo;
 		nh_weight = 0;
