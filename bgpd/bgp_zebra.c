@@ -3933,10 +3933,10 @@ static int bgp_zebra_srv6_sid_control_locator(struct srv6_sid_ctx *ctx,
 					   is_srv6_vpn_afi_enabled(bgp_vrf, AFI_IP6))) ||
 		    (is_srv6_vpn_vrf_enabled(bgp_vrf) && (afi == AFI_IP || afi == AFI_IP6))) {
 			if (BGP_DEBUG(zebra, ZEBRA))
-				snprintf(errmsg, errmsg_len,
-					 "%s: SRv6 SID %pI6 %s, BGP %s not configured.", __func__,
-					 sid_addr, srv6_sid_ctx2str(buf, sizeof(buf), ctx),
-					 bgp_vrf->name_pretty);
+				snprintfrr(errmsg, errmsg_len,
+					   "%s: SRv6 SID %pI6 %s, BGP %s not configured.", __func__,
+					   sid_addr, srv6_sid_ctx2str(buf, sizeof(buf), ctx),
+					   bgp_vrf->name_pretty);
 			return -1;
 		}
 
@@ -3988,11 +3988,11 @@ static int bgp_zebra_srv6_sid_control_locator(struct srv6_sid_ctx *ctx,
 		     bgp_is_automatic_mode == false) ||
 		    (ctx->alloc_mode == SRV6_SID_ALLOC_MODE_EXPLICIT && bgp_is_automatic_mode)) {
 			if (BGP_DEBUG(zebra, ZEBRA))
-				snprintf(errmsg, errmsg_len,
-					 "%s: SRv6 SID %pI6 %s, BGP %s configuration does not match incoming SID.",
-					 __func__, sid_addr,
-					 srv6_sid_ctx2str(buf, sizeof(buf), ctx),
-					 bgp_vrf->name_pretty);
+				snprintfrr(errmsg, errmsg_len,
+					   "%s: SRv6 SID %pI6 %s, BGP %s configuration does not match incoming SID.",
+					   __func__, sid_addr,
+					   srv6_sid_ctx2str(buf, sizeof(buf), ctx),
+					   bgp_vrf->name_pretty);
 			return -1;
 		}
 
