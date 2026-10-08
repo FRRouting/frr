@@ -9423,23 +9423,42 @@ void bgp_evpn_handle_resolve_overlay_index_set(struct hash_bucket *bucket,
 					       void *arg)
 {
 	struct bgpevpn *vpn = (struct bgpevpn *)bucket->data;
+	const struct prefix_evpn *evp;
 	struct bgp_dest *dest;
 	struct bgp_path_info *pi;
 
 	bgp_evpn_remote_ip_hash_init(vpn);
 
-	for (dest = bgp_table_top(vpn->ip_table); dest;
-	     dest = bgp_route_next(dest))
+	for (dest = bgp_table_top(vpn->ip_table); dest; dest = bgp_route_next(dest)) {
 		for (pi = bgp_dest_get_bgp_path_info(dest); pi; pi = pi->next)
 			bgp_evpn_remote_ip_hash_add(vpn, pi);
+
+		/* The gateway IP may be known from a local MAC/IP route */
+		evp = (const struct prefix_evpn *)bgp_dest_get_prefix(dest);
+		bgp_evpn_gateway_ip_reevaluate(vpn, evp);
+	}
 }
 
 void bgp_evpn_handle_resolve_overlay_index_unset(struct hash_bucket *bucket,
 						 void *arg)
 {
 	struct bgpevpn *vpn = (struct bgpevpn *)bucket->data;
+	const struct prefix_evpn *evp;
+	struct bgp_dest *dest;
+	struct ipaddr ip;
 
 	bgp_evpn_remote_ip_hash_destroy(vpn, true);
+
+	/* Unresolve the gateway IPs known from local MAC/IP routes too */
+	for (dest = bgp_table_top(vpn->ip_table); dest; dest = bgp_route_next(dest)) {
+		evp = (const struct prefix_evpn *)bgp_dest_get_prefix(dest);
+		if (evp->prefix.route_type != BGP_EVPN_MAC_IP_ROUTE ||
+		    is_evpn_prefix_ipaddr_none(evp))
+			continue;
+
+		ip = evp->prefix.macip_addr.ip;
+		bgp_evpn_remote_ip_process_nexthops(vpn, &ip, false, true);
+	}
 }
 
 /*
