@@ -342,6 +342,7 @@ void bgp_srv6_unicast_register_route(struct bgp *bgp, afi_t afi, struct bgp_dest
 			prep_for_rmap_apply(&info, &extra, dest, bpi, bgp->peer_self, NULL,
 					    &attr_tmp);
 			ret = route_map_apply(rmap, p, &info);
+			bgp_attr_flush(&attr_tmp);
 
 			if (ret == RMAP_DENYMATCH) {
 				if (dest->srv6_unicast)
@@ -350,12 +351,14 @@ void bgp_srv6_unicast_register_route(struct bgp *bgp, afi_t afi, struct bgp_dest
 				if (BGP_DEBUG(update, UPDATE_OUT))
 					zlog_debug("srv6 unicast prefix %pBD denied", dest);
 
-				bgp_attr_extra_discard(&attr_tmp);
 				return;
 			}
+<<<<<<< HEAD
 
 			bgp_attr_extra_discard(&attr_tmp);
 			route_map_counter_increment(rmap);
+=======
+>>>>>>> daf5f4a (bgpd: Flush temporary attr after SRv6 unicast route-map)
 		} else {
 			zlog_warn("route-map %s was no found, ignored",
 				  bgp->srv6_unicast[afi].rmap_name);
