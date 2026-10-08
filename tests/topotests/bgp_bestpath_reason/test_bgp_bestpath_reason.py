@@ -28,6 +28,7 @@ AS 65001                 RID 1.1.1.2
 """
 
 import os
+import re
 import sys
 import json
 import pytest
@@ -438,6 +439,191 @@ def test_bgp_med_based_selection():
     assert med_values.get("192.16.4.4") < med_values.get(
         "192.16.3.3"
     ), "R4's MED should be lower than R3's"
+
+
+def test_unchanged_maximum_paths_skips_bestpath_recalculation():
+    """Verify repeated maximum-paths commands do not process routes again."""
+    tgen = get_topogen()
+
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    r1 = tgen.gears["r1"]
+    prefix = "192.168.199.0/24"
+
+    for router, neighbor in (
+        (tgen.gears["r3"], "192.16.3.1"),
+        (tgen.gears["r4"], "192.16.4.1"),
+    ):
+        router.vtysh_cmd(
+            """
+configure terminal
+ router bgp {}
+  address-family ipv4 unicast
+   neighbor {} activate
+""".format(
+                "65003" if router.name == "r3" else "65024", neighbor
+            )
+        )
+
+    assert _converge_bgp(
+        r1, ["192.16.2.2", "192.16.3.3", "192.16.4.4"]
+    ), "BGP did not converge on r1"
+
+    def prefix_is_present():
+        output = json.loads(
+            r1.vtysh_cmd("show bgp ipv4 unicast {} json".format(prefix))
+        )
+        return None if output.get("pathCount") == 3 else output
+
+    _, result = topotest.run_and_expect(prefix_is_present, None, count=60, wait=1)
+    assert result is None, "{} did not receive three paths".format(prefix)
+
+    # Unconfigured maximum-paths falls back to the platform ECMP limit, and
+    # running-config only shows values that differ from it.
+    match = re.search(r"ECMP Maximum\D*(\d+)", r1.vtysh_cmd("show zebra"))
+    assert match, "show zebra did not report the ECMP maximum"
+    ecmp = int(match.group(1))
+    if ecmp < 5:
+        pytest.skip("ECMP maximum {} is too small for this test".format(ecmp))
+
+    def bestpath_calls():
+        output = json.loads(r1.vtysh_cmd("show bgp ipv4 unicast statistics json"))
+        return output["ipv4Unicast"][0]["bgpBestPathCalls"]
+
+    def stable_bestpath_calls():
+        samples = []
+
+        def unchanged():
+            samples.append(bestpath_calls())
+            return len(samples) > 1 and samples[-1] == samples[-2]
+
+        _, result = topotest.run_and_expect(unchanged, True, count=15, wait=1)
+        assert result, "bgpBestPathCalls did not settle"
+        return samples[-1]
+
+    def maxpaths_config(af):
+        config = r1.vtysh_cmd("show running-config")
+        match = re.search(
+            r"address-family {}\n(.*?)exit-address-family".format(af),
+            config,
+            re.S,
+        )
+        if not match:
+            return []
+        return sorted(
+            line.strip()
+            for line in match.group(1).splitlines()
+            if line.strip().startswith("maximum-paths")
+        )
+
+    def run_step(af, command, recalculates, expected_config):
+        count = stable_bestpath_calls()
+        output = r1.vtysh_cmd(
+            """
+configure terminal
+ router bgp 65001
+  address-family {}
+   {}
+""".format(
+                af, command
+            )
+        )
+        errors = [line for line in output.splitlines() if line.strip().startswith("%")]
+        assert not errors, "[{}] {}: command failed: {}".format(af, command, errors)
+
+        if recalculates:
+
+            def calls_increased():
+                return bestpath_calls() > count
+
+            _, result = topotest.run_and_expect(
+                calls_increased, True, count=30, wait=0.5
+            )
+            after = bestpath_calls()
+        else:
+            after = stable_bestpath_calls()
+            result = after == count
+
+        logger.info("[%s] %s: bgpBestPathCalls %d -> %d", af, command, count, after)
+        assert (
+            result
+        ), "[{}] {}: expected {}recalculation (bgpBestPathCalls {} -> {})".format(
+            af, command, "" if recalculates else "no ", count, after
+        )
+
+        if expected_config is None:
+            return
+        config = maxpaths_config(af)
+        assert config == sorted(
+            expected_config
+        ), "[{}] {}: running-config has {}, expected {}".format(
+            af, command, config, expected_config
+        )
+
+    v4 = "ipv4 unicast"
+    v6 = "ipv6 unicast"
+    steps = [
+        # eBGP: set, repeat, change value, unset, repeat unset
+        (v4, "maximum-paths 2", True, ["maximum-paths 2"]),
+        (v4, "maximum-paths 2", False, ["maximum-paths 2"]),
+        (v4, "maximum-paths 3", True, ["maximum-paths 3"]),
+        (v4, "no maximum-paths 3", True, []),
+        (v4, "no maximum-paths", False, []),
+        # eBGP: explicit default, and an unset whose argument is ignored
+        (v4, "maximum-paths {}".format(ecmp), False, []),
+        (v4, "no maximum-paths 4", False, []),
+        # iBGP: set, repeat, toggle equal-cluster-length on and off
+        (v4, "maximum-paths ibgp 2", True, ["maximum-paths ibgp 2"]),
+        (v4, "maximum-paths ibgp 2", False, ["maximum-paths ibgp 2"]),
+        (
+            v4,
+            "maximum-paths ibgp 2 equal-cluster-length",
+            True,
+            ["maximum-paths ibgp 2 equal-cluster-length"],
+        ),
+        (
+            v4,
+            "maximum-paths ibgp 2 equal-cluster-length",
+            False,
+            ["maximum-paths ibgp 2 equal-cluster-length"],
+        ),
+        (v4, "maximum-paths ibgp 2", True, ["maximum-paths ibgp 2"]),
+        (
+            v4,
+            "maximum-paths ibgp 3 equal-cluster-length",
+            True,
+            ["maximum-paths ibgp 3 equal-cluster-length"],
+        ),
+        (v4, "no maximum-paths ibgp 3 equal-cluster-length", True, []),
+        (v4, "no maximum-paths ibgp", False, []),
+        (v4, "maximum-paths ibgp {}".format(ecmp), False, []),
+        # iBGP: only equal-cluster-length differs from the default. Its
+        # running-config output is not checked: the iBGP line is written
+        # only when the limit differs from the default.
+        (v4, "maximum-paths ibgp {} equal-cluster-length".format(ecmp), True, None),
+        (v4, "maximum-paths ibgp {} equal-cluster-length".format(ecmp), False, None),
+        (v4, "no maximum-paths ibgp", True, []),
+        (v4, "no maximum-paths ibgp", False, []),
+        # eBGP and iBGP limits are compared independently
+        (v4, "maximum-paths 4", True, ["maximum-paths 4"]),
+        (
+            v4,
+            "maximum-paths ibgp 4",
+            True,
+            ["maximum-paths 4", "maximum-paths ibgp 4"],
+        ),
+        (v4, "no maximum-paths", True, ["maximum-paths ibgp 4"]),
+        (v4, "no maximum-paths ibgp", True, []),
+        # Address families are compared independently
+        (v4, "maximum-paths 2", True, ["maximum-paths 2"]),
+        (v6, "maximum-paths 2", True, ["maximum-paths 2"]),
+        (v6, "maximum-paths 2", False, ["maximum-paths 2"]),
+        (v6, "no maximum-paths", True, []),
+        (v4, "no maximum-paths", True, []),
+    ]
+    for af, command, recalculates, expected_config in steps:
+        run_step(af, command, recalculates, expected_config)
 
 
 if __name__ == "__main__":
