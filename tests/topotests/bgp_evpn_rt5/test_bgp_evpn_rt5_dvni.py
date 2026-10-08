@@ -21,6 +21,7 @@ import os
 import platform
 import re
 import sys
+import time
 from functools import partial
 
 import pytest
@@ -46,6 +47,7 @@ L3VNI = 101
 IMPORTING_VRF = "vrf-102"
 IMPORTING_SVI = "bridge-102"
 VRF_101_RT = "65000:101"
+VRF_103_RT = "65000:103"
 
 
 def build_topo(tgen):
@@ -80,7 +82,8 @@ def setup_module(mod):
         return pytest.skip("Skipping BGP EVPN RT5 NETNS Test. Kernel not supported")
 
     r1 = tgen.net["r1"]
-    for vrf in (101, 102):
+    # vrf-103 exists only on r1, see test_dvni_multipath_single_vni().
+    for vrf in (101, 102, 103):
         ns = "vrf-{}".format(vrf)
         r1.add_netns(ns)
         r1.cmd_raises(
@@ -104,6 +107,9 @@ ip -n vrf-{0} link set vxlan-{0} up
                 vrf, _create_rmac(1, vrf)
             )
         )
+
+        if vrf == 103:
+            continue
 
         tgen.gears["r2"].cmd(
             """
@@ -160,6 +166,7 @@ def teardown_module(_mod):
 
     tgen.net["r1"].delete_netns("vrf-101")
     tgen.net["r1"].delete_netns("vrf-102")
+    tgen.net["r1"].delete_netns("vrf-103")
     tgen.stop_topology()
 
 
@@ -544,6 +551,133 @@ configure terminal
     )
     _, result = topotest.run_and_expect(test_func, None, count=10, wait=1)
     assert result is None, "{} left vrf-101:\n{}".format(EVPN_PREFIX, result)
+
+
+def _fpm_route_vnis(router, prefix, ifname):
+    """
+    VNIs of the nexthops out of ``ifname`` in the newest FPM message for
+    ``prefix`` that has such nexthops, None for a nexthop without one.
+    Returns None if that message is a delete or there is none, so an
+    update that drops the VNI fails the check rather than leaving an older
+    install to pass it.
+    """
+    nexthops = _fpm_route_nexthops(router, prefix, ifname)
+    return None if nexthops is None else [vni for _, vni in nexthops]
+
+
+def test_dvni_multipath_single_vni():
+    """
+    r1 originates 10.0.101.1/32 from vrf-102 (VNI 102) and from vrf-103
+    (VNI 103), and r2's vrf-102 imports both, the way a border leaf
+    advertises one aggregate from several VRFs that leak into each other.
+    bgpd takes the two paths, which have the same nexthop and attributes,
+    as multipath. The dataplane must still get a single nexthop to r1, with
+    the VNI of the best path: r1 decapsulates each VNI into a different
+    VRF, and an ECMP across them sends part of the flows into a VRF the
+    best path did not choose.
+    """
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    r1 = tgen.gears["r1"]
+    r2 = tgen.gears["r2"]
+
+    r1.vtysh_cmd(
+        """
+configure terminal
+ vrf vrf-103
+  vni 103
+ exit-vrf
+ router bgp 65000 vrf vrf-103
+  bgp router-id 10.0.103.1
+  no bgp network import-check
+  address-family ipv4 unicast
+   network {0}
+  exit-address-family
+  address-family l2vpn evpn
+   rd 65000:5
+   route-target both {1}
+   advertise ipv4 unicast
+  exit-address-family
+ exit
+ router bgp 65000 vrf vrf-102
+  address-family ipv4 unicast
+   network {0}
+""".format(
+            EVPN_PREFIX, VRF_103_RT
+        )
+    )
+    r2.vtysh_cmd(
+        """
+configure terminal
+ router bgp 65000 vrf {}
+  address-family l2vpn evpn
+   route-target import {}
+""".format(
+            IMPORTING_VRF, VRF_103_RT
+        )
+    )
+
+    def _check_multipath():
+        output = r2.vtysh_cmd(
+            "show bgp vrf {} ipv4 unicast {} json".format(IMPORTING_VRF, EVPN_PREFIX),
+            isjson=True,
+        )
+        paths = output.get("paths", [])
+        if sorted(path.get("vni") for path in paths) != ["102", "103"]:
+            return None, "paths: {}".format(paths)
+        best = [p for p in paths if p.get("bestpath", {}).get("overall")]
+        others = [p for p in paths if p not in best]
+        if not best or not all(p.get("multipath") for p in others):
+            return None, "no best path plus multipath: {}".format(paths)
+        return int(best[0]["vni"]), None
+
+    for _ in range(60):
+        best_vni, result = _check_multipath()
+        if best_vni:
+            break
+        time.sleep(1)
+    assert best_vni, "r2 has no multipath for {} in {}: {}".format(
+        EVPN_PREFIX, IMPORTING_VRF, result
+    )
+
+    def _check_fpm():
+        vnis = _fpm_route_vnis(r2, EVPN_PREFIX, IMPORTING_SVI)
+        if vnis != [best_vni]:
+            return "FPM nexthops for {} on {} have VNIs {}, want [{}]".format(
+                EVPN_PREFIX, IMPORTING_SVI, vnis, best_vni
+            )
+        return None
+
+    _, result = topotest.run_and_expect(_check_fpm, None, count=30, wait=1)
+    assert result is None, result
+
+    r2.vtysh_cmd(
+        """
+configure terminal
+ router bgp 65000 vrf {}
+  address-family l2vpn evpn
+   no route-target import {}
+""".format(
+            IMPORTING_VRF, VRF_103_RT
+        )
+    )
+    r1.vtysh_cmd(
+        """
+configure terminal
+ router bgp 65000 vrf vrf-102
+  address-family ipv4 unicast
+   no network {}
+  exit-address-family
+ exit
+ no router bgp 65000 vrf vrf-103
+ vrf vrf-103
+  no vni 103
+""".format(
+            EVPN_PREFIX
+        )
+    )
 
 
 def test_memory_leak():
