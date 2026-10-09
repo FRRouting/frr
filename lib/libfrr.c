@@ -1051,6 +1051,17 @@ static void frr_config_read_in(struct event *t)
 	hook_call(frr_config_post, master);
 }
 
+/*
+ * Some modules hook frr_config_pre and frr_config_post for post-fork
+ * initialization. We still need to invoke these hooks in FRR_NO_SPLIT_CONFIG
+ * mode even though no config file is read by this daemon.
+ */
+static void frr_config_hooks_only(struct event *t)
+{
+	hook_call(frr_config_pre, master);
+	hook_call(frr_config_post, master);
+}
+
 void frr_config_fork(void)
 {
 	hook_call(frr_late_init, master);
@@ -1064,6 +1075,8 @@ void frr_config_fork(void)
 
 		event_add_event(master, frr_config_read_in, NULL, 0,
 				&di->read_in);
+	} else {
+		event_add_event(master, frr_config_hooks_only, NULL, 0, NULL);
 	}
 
 	if (di->daemon_mode || di->terminal)
