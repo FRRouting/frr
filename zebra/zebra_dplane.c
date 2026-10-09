@@ -85,6 +85,8 @@ const uint32_t DPLANE_DEFAULT_NEW_WORK = 100;
 struct dplane_nexthop_info {
 	uint32_t id;
 	uint32_t old_id;
+	uint32_t invalidated_seq;
+	uint32_t old_invalidated_seq;
 	afi_t afi;
 	vrf_id_t vrf_id;
 	int type;
@@ -2510,6 +2512,18 @@ uint32_t dplane_ctx_get_old_nhe_id(const struct zebra_dplane_ctx *ctx)
 	return ctx->u.rinfo.nhe.old_id;
 }
 
+uint32_t dplane_ctx_get_nhe_invalidated_seq(const struct zebra_dplane_ctx *ctx)
+{
+	DPLANE_CTX_VALID(ctx);
+	return ctx->u.rinfo.nhe.invalidated_seq;
+}
+
+uint32_t dplane_ctx_get_old_nhe_invalidated_seq(const struct zebra_dplane_ctx *ctx)
+{
+	DPLANE_CTX_VALID(ctx);
+	return ctx->u.rinfo.nhe.old_invalidated_seq;
+}
+
 afi_t dplane_ctx_get_nhe_afi(const struct zebra_dplane_ctx *ctx)
 {
 	DPLANE_CTX_VALID(ctx);
@@ -4208,6 +4222,8 @@ int dplane_ctx_route_init(struct zebra_dplane_ctx *ctx, enum dplane_op_e op,
 
 		ctx->u.rinfo.nhe.id = nhe->id;
 		ctx->u.rinfo.nhe.old_id = 0;
+		ctx->u.rinfo.nhe.invalidated_seq = nhe->invalidated_seq;
+		ctx->u.rinfo.nhe.old_invalidated_seq = 0;
 		/*
 		 * Check if the nhe is installed/queued before doing anything
 		 * with this route.
@@ -4953,6 +4969,7 @@ dplane_route_update_internal(struct route_node *rn,
 			ctx->u.rinfo.zd_old_distance = old_re->distance;
 			ctx->u.rinfo.zd_old_metric = old_re->metric;
 			ctx->u.rinfo.nhe.old_id = old_re->nhe->id;
+			ctx->u.rinfo.nhe.old_invalidated_seq = old_re->nhe_invalidated_seq;
 
 #ifndef HAVE_NETLINK
 			/* For bsd, capture previous re's nexthops too, sigh.
@@ -7946,9 +7963,16 @@ static int kernel_dplane_process_func(struct zebra_dplane_provider *prov)
 			continue;
 		}
 
+		/*
+		 * A matching group id alone does not mean the kernel still has
+		 * the route: if the group was invalidated since the old route was
+		 * installed, the kernel dropped that route along with the group.
+		 */
 		if (zebra_nhg_kernel_nexthops_enabled() &&
 		    dplane_ctx_get_op(ctx) == DPLANE_OP_ROUTE_UPDATE &&
 		    dplane_ctx_get_old_nhe_id(ctx) == dplane_ctx_get_nhe_id(ctx) &&
+		    dplane_ctx_get_old_nhe_invalidated_seq(ctx) ==
+			    dplane_ctx_get_nhe_invalidated_seq(ctx) &&
 		    dplane_ctx_get_old_type(ctx) == dplane_ctx_get_type(ctx)) {
 			if (IS_ZEBRA_DEBUG_DPLANE_DETAIL)
 				zlog_debug("%s: %pFX Route Update with same nexthop group as old, Marking success",
