@@ -109,6 +109,7 @@ enum bgp_log_refs {
 	EC_BGP_LS_PACKET,
 	EC_BGP_UNREACH_PARSE_FAILURE,
 	EC_BGP_UPA,
+	EC_BGP_MUP_PACKET,
 };
 
 extern void bgp_error_init(void);
