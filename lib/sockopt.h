@@ -178,6 +178,19 @@ extern int setsockopt_tcp_keepalive(int sock, uint16_t keepalive_idle,
  */
 extern void sockopt_ip_transparent(int sock);
 
+/*
+ * Bind a socket to a particular device, as specified in the
+ * passed interface name. If the ifname is an empty string or
+ * the option size is zero, the socket device binding is removed.
+ *
+ * sock
+ *    Socket to set option on.
+ *
+ * ifname
+ *    Interface name
+ */
+extern int sockopt_bindtodevice(int sock, const char *ifname);
+
 extern int sockopt_reuseaddr(int sock);
 extern int sockopt_reuseport(int sock);
 extern int sockopt_v6only(int family, int sock);

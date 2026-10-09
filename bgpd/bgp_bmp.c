@@ -17,6 +17,7 @@
 #include "pullwr.h"
 #include "memory.h"
 #include "network.h"
+#include "privs.h"
 #include "filter.h"
 #include "lib_errors.h"
 #include "stream.h"
@@ -24,6 +25,7 @@
 #include "lib/version.h"
 #include "jhash.h"
 #include "termtable.h"
+#include "vrf.h"
 
 #include "bgpd/bgp_table.h"
 #include "bgpd/bgpd.h"
@@ -57,6 +59,8 @@ static void bmp_send_all_bgp(struct peer *peer, bool down);
 static struct bmp_imported_bgp *bmp_imported_bgp_find(struct bmp_targets *bt, char *name);
 static void bmp_stats_per_instance(struct bgp *bgp, struct bmp_targets *bt);
 static void bmp_bgp_peer_vrf(struct bmp_bgp_peer *bbpeer, struct bgp *bgp);
+
+extern struct zebra_privs_t bgpd_privs;
 
 DEFINE_MGROUP(BMP, "BMP (BGP Monitoring Protocol)");
 
@@ -2780,17 +2784,14 @@ static void bmp_active_connect(struct bmp_active *ba)
 {
 	enum connect_result res;
 	struct interface *ifp;
-	vrf_id_t vrf_id = VRF_DEFAULT;
 	int res_bind;
 
 	for (; ba->addrpos < ba->addrtotal; ba->addrpos++) {
 		if (ba->ifsrc) {
-			if (ba->targets && ba->targets->bgp)
-				vrf_id = ba->targets->bgp->vrf_id;
-
-			/* find interface and related */
-			/* address with same family   */
-			ifp = if_lookup_by_name(ba->ifsrc, vrf_id);
+			/* find the interface in any VRF and select a
+			 * source address from it that matches the
+			 * destination family */
+			ifp = if_lookup_by_name_all_vrf(ba->ifsrc);
 			if (!ifp) {
 				zlog_warn("bmp[%s]: failed to find interface",
 					  ba->ifsrc);
@@ -2812,6 +2813,30 @@ static void bmp_active_connect(struct bmp_active *ba)
 			zlog_warn("bmp[%s]: failed to create socket",
 				  ba->hostname);
 			continue;
+		}
+
+		/*
+		 * Bind the socket to the source interface with
+		 * SO_BINDTODEVICE.  The source interface may be enslaved to a
+		 * VRF other than the one used by the BGP instance (for
+		 * example, the BMP collector is reachable only through an
+		 * interface in the management VRF).  Without the bind,
+		 * connect() would follow the routing table of the BGP
+		 * instance's VRF and the session could be routed elsewhere or
+		 * fail. Note that this only works with the l3mdev VRF
+		 * backend.
+		 */
+		if (ba->ifsrc && !vrf_is_backend_netns()) {
+			frr_with_privs(&bgpd_privs) {
+				if (sockopt_bindtodevice(ba->socket, ba->ifsrc)) {
+					/* sockopt_bindtodevice() has already
+					 * logged the error message */
+					close(ba->socket);
+					ba->socket = -1;
+					sockunion_init(&ba->addrsrc);
+					continue;
+				}
+			}
 		}
 
 		set_nonblocking(ba->socket);

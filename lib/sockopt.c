@@ -861,3 +861,17 @@ int sockopt_v6only(int family, int sock)
 #endif /* IPV6_V6ONLY */
 	return 0;
 }
+
+int sockopt_bindtodevice(int sock, const char *ifname)
+{
+	int ret = 0;
+#ifdef SO_BINDTODEVICE
+	ret = setsockopt(sock, SOL_SOCKET, SO_BINDTODEVICE, ifname,
+			 strnlen(ifname, IFNAMSIZ) + 1);
+	if (ret < 0)
+		flog_err(EC_LIB_SOCKET,
+			 "can't set sockopt SO_BINDTODEVICE to %s on socket %d: %s",
+			 ifname, sock, safe_strerror(errno));
+#endif /* SO_BINDTODEVICE */
+	return ret;
+}
