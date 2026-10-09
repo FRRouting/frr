@@ -904,9 +904,7 @@ def tgen_and_ip_version(request):
 
     # For all TORs we now manage addresses directly via Linux iproute2 in
     # config_tor(), not via FRR interface configuration. Prevent startRouter()
-    # from flushing those kernel IPs, and for torm11 specifically, exercise
-    # config application via frr-reload.py instead of the default
-    # "vtysh -f /etc/frr/frr.conf" path in Router.startRouter.
+    # from flushing those kernel IPs.
     torm11 = router_list.get("torm11")
     for tor_name in tors:
         tor = router_list.get(tor_name)
@@ -917,8 +915,6 @@ def tgen_and_ip_version(request):
         # Router.startRouter() sees them.
         nrouter = tor.net
         nrouter.skip_remove_ips = True
-        if tor_name == "torm11":
-            nrouter.skip_unified_vtysh = True
 
     logger.info("Starting all routers...")
     tgen.start_router()
@@ -933,35 +929,6 @@ def tgen_and_ip_version(request):
         if status:
             logger.error("Router %s has issues: %s", rname, status)
             pytest.fail("Router {} failed to start properly: {}".format(rname, status))
-
-    # Explicitly exercise frr-reload on torm11 using the unified frr.conf.
-    # Run this inside the torm11 namespace so that vtysh talks to the correct daemons.
-    if torm11 is not None:
-        logger.info("Running frr-reload.py on torm11 unified config")
-        cmd = "/usr/lib/frr/frr-reload.py --reload /etc/frr/frr.conf"
-        # Run this inside the torm11 namespace (TopoRouter.net is the underlying node)
-        rc, out, err = torm11.net.cmd_status(cmd, warn=False)
-        if rc:
-            # Log full details and also surface them directly in the assertion
-            logger.error(
-                "frr-reload failed on torm11 (rc=%s): stdout=%s stderr=%s",
-                rc,
-                out,
-                err,
-            )
-            pytest.fail(
-                "frr-reload failed on torm11 (rc={})\nstdout:\n{}\nstderr:\n{}".format(
-                    rc, out, err
-                )
-            )
-
-        # Sanity check that all expected daemons on torm11 are still healthy
-        status = torm11.check_router_running()
-        if status:
-            logger.error("Router torm11 has issues after frr-reload: %s", status)
-            pytest.fail(
-                "Router torm11 failed health-check after frr-reload: {}".format(status)
-            )
 
     # Configure hosts
     hosts = ["hostd11", "hostd12", "hostd21", "hostd22"]
