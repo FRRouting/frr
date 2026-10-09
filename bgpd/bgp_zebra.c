@@ -142,6 +142,37 @@ static void bgp_start_interface_nbrs(struct bgp *bgp, struct interface *ifp)
 	for (ALL_LIST_ELEMENTS(bgp->peer, node, nnode, peer)) {
 		if (peer->conf_if && (strcmp(peer->conf_if, ifp->name) == 0) &&
 		    !peer_established(peer->connection)) {
+			/* Reset round-robin so the new entry is included */
+			peer->nbr_conn_tried = 0;
+			peer->nbr_conn_found = false;
+
+			/*
+			 * If a TCP connect or OPEN exchange is already in
+			 * progress, just update the round-robin counters
+			 * without restarting the connection.  On slow
+			 * systems (e.g. ASAN), frequent RA arrivals would
+			 * otherwise kill every connection attempt before
+			 * the OPEN exchange could complete.  The updated
+			 * counters ensure that if this attempt fails, the
+			 * next round-robin cycle includes the new entry.
+			 */
+			if (peer->connection->status == Connect ||
+			    peer->connection->status == OpenSent ||
+			    peer->connection->status == OpenConfirm) {
+				peer->v_connect = BGP_INIT_START_TIMER;
+				continue;
+			}
+
+			/*
+			 * Reset the start and connect timers so a backed-off
+			 * peer retries immediately when a new nbr_connected
+			 * entry arrives.  v_connect controls the Active-state
+			 * ConnectRetry timer (default 30s, doubles each fire);
+			 * without resetting it the peer waits far too long
+			 * between round-robin attempts.
+			 */
+			peer->v_start = BGP_INIT_START_TIMER;
+			peer->v_connect = BGP_INIT_START_TIMER;
 			if (peer_active(peer->connection) == BGP_PEER_ACTIVE)
 				BGP_EVENT_ADD(peer->connection, BGP_Stop);
 			BGP_EVENT_ADD(peer->connection, BGP_Start);

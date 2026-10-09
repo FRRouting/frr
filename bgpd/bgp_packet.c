@@ -789,6 +789,11 @@ static void bgp_write_notify(struct peer_connection *connection)
 	/* Type should be notify. */
 	atomic_fetch_add_explicit(&peer->notify_out, 1, memory_order_relaxed);
 
+	/* Flag Bad Peer AS for multi-access round-robin (cleared in bgp_stop) */
+	if (peer->notify.code == BGP_NOTIFY_OPEN_ERR &&
+	    peer->notify.subcode == BGP_NOTIFY_OPEN_BAD_PEER_AS)
+		peer->sent_bad_peer_as = true;
+
 	/* Double start timer. */
 	peer->v_start *= 2;
 
