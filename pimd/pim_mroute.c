@@ -348,6 +348,8 @@ int pim_mroute_msg_nocache(int fd, struct interface *ifp, const kernmsg *msg)
 
 
 	if (dodense) {
+		struct interface *rpf_ifp;
+
 		/*
 		For proper dense handling....
 
@@ -400,21 +402,27 @@ int pim_mroute_msg_nocache(int fd, struct interface *ifp, const kernmsg *msg)
 
 		up->channel_oil->cc.pktcnt++;
 
-		/* Detect if the rpf for the source is different from the interface the packet was received on.
-		 * In this case, we need to prune immediately
+		rpf_ifp = up->rpf.source_nexthop.interface;
+
+		/*
+		 * Packet arrived on an interface other than RPF_interface(S).
+		 * Still install an MFC with the correct parent vif: the kernel
+		 * keys the unresolved cache on (S,G) only, so returning here
+		 * would pin later packets (including those on RPF_interface(S))
+		 * to this wrong incoming vif and they would never be forwarded.
 		 */
-		if (!up->rpf.source_nexthop.interface ||
-		    up->rpf.source_nexthop.interface->ifindex != ifp->ifindex) {
+		if (!rpf_ifp || rpf_ifp->ifindex != ifp->ifindex) {
 			if (PIM_DEBUG_PIM_J_P)
 				zlog_debug("%s: Dense Mode WRONGVIF on %s for (S,G)=%pSG",
 					   __func__, ifp->name, &sg);
 			pim_dm_wrongif(ifp, sg, up);
-			return 0;
+			rpf_ifp = up->rpf.source_nexthop.interface;
+			if (!rpf_ifp)
+				return 0;
 		}
 
 		/* resolve mfcc_parent prior to mroute_add in channel_add_oif */
-		if (up->rpf.source_nexthop.interface &&
-		    *oil_incoming_vif(up->channel_oil) >= MAXVIFS) {
+		if (rpf_ifp && *oil_incoming_vif(up->channel_oil) >= MAXVIFS) {
 			pim_upstream_mroute_iif_update(up->channel_oil, __func__);
 		}
 
@@ -423,8 +431,9 @@ int pim_mroute_msg_nocache(int fd, struct interface *ifp, const kernmsg *msg)
 
 			pim_ifp2 = ifp2->info;
 
-			/* Make sure the interface has PIM enabled and is not the current interface and is a dense type mode */
+			/* Skip ingress, RPF_interface(S), and non-dense interfaces. */
 			if (!pim_ifp2 || !pim_ifp2->pim_enable || ifp2->ifindex == ifp->ifindex ||
+			    (rpf_ifp && ifp2->ifindex == rpf_ifp->ifindex) ||
 			    !HAVE_DENSE_MODE(pim_ifp2->pim_mode))
 				continue;
 
@@ -443,7 +452,7 @@ int pim_mroute_msg_nocache(int fd, struct interface *ifp, const kernmsg *msg)
 			}
 		}
 
-		if (update_oil || desync) {
+		if (update_oil || desync || (rpf_ifp && ifp->ifindex != rpf_ifp->ifindex)) {
 			PIM_UPSTREAM_DM_SET_INTERFACE(up->flags);
 			PIM_UPSTREAM_FLAG_UNSET_USE_RPT(up->flags);
 			PIM_UPSTREAM_FLAG_UNSET_DR_JOIN_DESIRED(up->flags);
