@@ -29,6 +29,10 @@ do not contribute to r1's echo input counter, which counts only packets
 that reach the discriminator demux.
 
 See FRRouting/frr#22875.
+
+The echoes must also carry the traffic class bfdd gives every other BFD
+packet (CS6), so a network that prioritizes by DSCP does not drop them
+first.
 """
 
 import os
@@ -51,6 +55,16 @@ R1_ADDR = "2001:db8:1::1"
 R1_DECOY = "2001:db8:1::5"
 R2_ADDR = "2001:db8:1::2"
 PREFIXLEN = 64
+
+# Sniffs in r2's namespace with scapy, as tcpdump is often missing in CI
+# images. lfilter rather than a BPF filter, which scapy compiles with tcpdump.
+SNIFF_ECHO = """
+from scapy.all import IPv6, UDP, sniff
+pkts = sniff(iface="r2-eth0", count=5, timeout=10,
+             lfilter=lambda p: IPv6 in p and UDP in p and p[UDP].dport == 3785
+             and p[IPv6].src == "{}" and p[IPv6].dst == "{}")
+print("tc: " + " ".join("0x%02x" % p[IPv6].tc for p in pkts))
+"""
 
 # Echo detection is detect-multiplier * echo transmit-interval, i.e. 300ms
 # with the configuration used here.  A broken echo source takes the session
@@ -234,6 +248,27 @@ def test_bfd_echo6_stability():
             "{} recorded {} down events with {} while idle: echo detection "
             "is expiring".format(router.name, flaps, peer)
         )
+
+
+def test_bfd_echo6_traffic_class():
+    "r1's echoes must carry traffic class 0xc0, like its control packets."
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    r2 = tgen.gears["r2"]
+    script = os.path.join(tgen.logdir, "r2", "sniff_echo.py")
+    with open(script, "w") as f:
+        f.write(SNIFF_ECHO.format(R1_ADDR, R2_ADDR))
+    output = r2.run("python3 {} 2>&1".format(script))
+    logger.info("traffic class of r1's echoes on r2: {}".format(output))
+
+    # scapy may warn on stderr, which is kept for the failure message.
+    lines = [line for line in output.splitlines() if line.startswith("tc:")]
+    classes = lines[-1][3:].split() if lines else []
+    assert len(classes) == 5, "did not capture 5 of r1's echoes: {}".format(output)
+    for tc in classes:
+        assert tc == "0xc0", "echo with traffic class {}, want 0xc0".format(tc)
 
 
 def test_memory_leak():
