@@ -2132,6 +2132,12 @@ static void bgp_evpn_es_local_info_set(struct bgp *bgp, struct bgp_evpn_es *es)
 	if (CHECK_FLAG(es->flags, BGP_EVPNES_LOCAL))
 		return;
 
+	/* The ES may have outlived the instance that owned its route table */
+	if (es->route_table->bgp != bgp) {
+		assert(!bgp_table_count(es->route_table));
+		es->route_table->bgp = bgp;
+	}
+
 	old_is_local = bgp_evpn_is_es_local_and_non_bypass(es);
 	SET_FLAG(es->flags, BGP_EVPNES_LOCAL);
 
@@ -5220,6 +5226,38 @@ void bgp_evpn_es_cleanup_routes(struct bgp *bgp)
 
 	RB_FOREACH (es, bgp_es_rb_head, &bgp_mh_info->es_rb_tree)
 		bgp_evpn_es_route_del_all(bgp, es);
+}
+
+/* Release the local ES state owned by a BGP instance that is being deleted.
+ * Must run after the instance's VNIs, and with them the local ES-EVIs,
+ * have been freed. An ES kept alive by remote references has its route
+ * table re-bound when it is made local again under a new instance.
+ */
+void bgp_evpn_es_instance_del_cleanup(struct bgp *bgp)
+{
+	struct bgp_evpn_es *es;
+	struct bgp_evpn_es *es_next;
+	struct bgp_evpn_es_vtep *es_vtep;
+	struct listnode *node, *next;
+
+	if (!bgp_mh_info)
+		return;
+
+	RB_FOREACH_SAFE (es, bgp_es_rb_head, &bgp_mh_info->es_rb_tree, es_next) {
+		if (!es->route_table || es->route_table->bgp != bgp)
+			continue;
+
+		bgp_evpn_es_route_table_purge(es);
+
+		/* The ES table was reaped without route selection, so the
+		 * ESR references taken by the imported Type-4 routes remain.
+		 */
+		for (ALL_LIST_ELEMENTS(es->es_vtep_list, node, next, es_vtep))
+			if (CHECK_FLAG(es_vtep->flags, BGP_EVPNES_VTEP_ESR))
+				bgp_evpn_es_vtep_do_del(bgp, es_vtep, true);
+
+		bgp_evpn_es_local_info_clear(es, false);
+	}
 }
 
 void bgp_evpn_mh_finish(void)
