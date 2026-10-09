@@ -348,17 +348,22 @@ m4_if(m4_version_compare(m4_defn([AC_AUTOCONF_VERSION]), [2.70]), [-1], [dnl
   AC_PROG_CC_C99
 
   dnl AC_PROG_CC_C99 may change CC to include -std=gnu99 or something
-  ac_cc="$CC"
   CC="${CC% -std=gnu99}"
   CC="${CC% -std=c99}"
-
-  AC_C_FLAG([-std=gnu11], [CC="$ac_cc"], [CC="$CC -std=gnu11"])
 ], [
   dnl autoconf >= 2.70
   if test "$ac_cv_prog_cc_c11" = "no"; then
     AC_MSG_ERROR([ISO C11 compiler support (with GNU extensions) is required.])
   fi
 ])
+
+ac_cc="$CC"
+AC_C_FLAG([-std=gnu23], [
+  AC_C_FLAG([-std=gnu2x], [
+    AC_MSG_WARN([compiler does not accept either of -std=gnu23 or -std=gnu2x.])
+    AC_C_FLAG([-std=gnu11], [CC="$ac_cc"], [CC="$CC -std=gnu11"])
+  ], [CC="$CC -std=gnu2x"])
+], [CC="$CC -std=gnu23"])
 
 dnl if the user has specified any CFLAGS, override our settings
 if test "$enable_gcov" = "yes"; then
