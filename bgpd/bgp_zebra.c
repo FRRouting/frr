@@ -1445,7 +1445,13 @@ static void bgp_zebra_announce_parse_nexthop(struct bgp_path_info *info, const s
 		num_labels = BGP_PATH_INFO_NUM_LABELS(mpinfo);
 		labels = num_labels ? mpinfo->extra->labels->label : NULL;
 
-		if (num_labels && (is_evpn || bgp_is_valid_label(&labels[0]))) {
+		/*
+		 * The label of a path imported from EVPN is a VNI, which only
+		 * goes with an EVPN nexthop. A gateway IP overlay index nexthop
+		 * has no label: zebra resolves it through the route to the
+		 * gateway, which brings its own encapsulation if it needs one.
+		 */
+		if (num_labels && (is_evpn || (!is_parent_evpn && bgp_is_valid_label(&labels[0])))) {
 			enum lsp_types_t nh_label_type = ZEBRA_LSP_NONE;
 
 			if (is_evpn) {
