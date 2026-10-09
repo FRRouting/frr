@@ -28,6 +28,7 @@
 extern "C" {
 #endif
 
+#define FRREVENT_FD_LIMIT_SAVE_SOME 5
 #define CONSUMED_TIME_CHECK 5000000
 
 extern bool cputime_enabled;
@@ -279,6 +280,8 @@ static inline void event_ignore_late_timer(struct event *event)
 /* Accessors for event loop pthread */
 pthread_t frr_event_loop_get_pthread_owner(struct event_loop *loop);
 void frr_event_loop_set_pthread_owner(struct event_loop *loop, pthread_t pth);
+
+bool frr_event_get_epoll_fd_avail(struct event_loop *loop);
 
 /* Control whether 'loop' is the signal-handler for a process */
 void frr_event_loop_set_handle_sigs(struct event_loop *loop, bool handle_p);
