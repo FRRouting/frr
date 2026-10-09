@@ -1482,7 +1482,7 @@ class TopoBMPCollector(TopoHost):
             )
 
     def stop(self):
-        self.run(f"kill $(cat {self.pid_file}")
+        self.run(f"kill $(cat {self.pid_file})")
         return ""
 
 
