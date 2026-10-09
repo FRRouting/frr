@@ -470,13 +470,11 @@ def _test_wait_for_multipath_convergence(router):
     """
     Wait for multipath convergence on R2
     """
-    expected = {
-        "192.168.102.21/32": [
-            {"nexthops": [{"ip": "192:168:100::21"}, {"ip": "192:168:100::21"}]}
-        ]
-    }
-    # Using router_json_cmp instead of verify_fib_routes, because we need to check for
-    # two next-hops with the same IP address.
+    expected = {"192.168.102.21/32": [{"nexthops": [{"ip": "192:168:100::21"}]}]}
+    # Both of R1's paths carry the same VTEP, so BGP counts only one of them
+    # as a multipath and zebra is handed a single nexthop. That leaves zebra's
+    # refcounting of a nexthop shared by two paths unexercised; the flaps
+    # still check that the RMAC stays while the route is present.
     test_func = partial(
         topotest.router_json_cmp,
         router,
@@ -486,7 +484,25 @@ def _test_wait_for_multipath_convergence(router):
     _, result = topotest.run_and_expect(test_func, None, count=20, wait=1)
     assert (
         result is None
-    ), "R2 does not have two next-hops for 192.168.102.21/32 JSON output mismatches"
+    ), "R2 does not have one next-hop for 192.168.102.21/32 JSON output mismatches"
+
+
+def _test_wait_for_bgp_paths(router, expected_paths):
+    """
+    Wait for R2 to hold every BGP path for 192.168.102.21/32, so that
+    flapping one session never leaves the route without a path
+    """
+    expected = {"paths": [{"valid": True}] * expected_paths}
+    test_func = partial(
+        topotest.router_json_cmp,
+        router,
+        "show bgp vrf r2-vrf-101 ipv4 unicast 192.168.102.21/32 json",
+        expected,
+    )
+    _, result = topotest.run_and_expect(test_func, None)
+    assert (
+        result is None
+    ), f"R2 does not have {expected_paths} paths for 192.168.102.21/32"
 
 
 def _test_rmac_present(router):
@@ -553,12 +569,14 @@ def test_evpn_multipath():
 
     dut = tgen.gears["r2"]
     dut_peer = tgen.gears["r1"]
+    _test_wait_for_bgp_paths(dut, 2)
     _test_wait_for_multipath_convergence(dut)
     _test_rmac_present(dut)
 
     for i in range(4):
         peer = "192:168:100::41" if i % 2 == 0 else "192:168:99::41"
         dut_peer.vtysh_cmd("clear bgp {0}".format(peer))
+        _test_wait_for_bgp_paths(dut, 2)
         _test_wait_for_multipath_convergence(dut)
         _test_rmac_present(dut)
 
