@@ -223,6 +223,53 @@ static int rtadv_recv_packet(struct zebra_vrf *zvrf, int sock, uint8_t *buf,
 
 #define RTADV_MSG_SIZE 4096
 
+/*
+ * Find the flush entry for a prefix, or NULL.  prefix_cmp() masks both sides,
+ * so a caller need not pre-mask the lookup key.
+ */
+static struct rtadv_flush *rtadv_flush_find(struct zebra_if *zif, const struct prefix_ipv6 *p)
+{
+	uint8_t i;
+
+	for (i = 0; i < zif->rtadv.flush_count; i++)
+		if (prefix_cmp(&zif->rtadv.flush[i].prefix, p) == 0)
+			return &zif->rtadv.flush[i];
+
+	return NULL;
+}
+
+/*
+ * One bit per flush slot, so the cap cannot grow past the width of the
+ * bitmask without the extra entries being silently dropped from it.
+ */
+_Static_assert(RTADV_MAX_FLUSH_PREFIXES <= 16,
+	       "flush bitmask is uint16_t; widen it before raising the cap");
+
+/*
+ * Charge a transmitted RA against the flush entries whose option it carried,
+ * then drop the ones that are finished.  Only called on a successful send, so
+ * a transient sendmsg() failure cannot burn a prefix's remaining RAs.
+ */
+static void rtadv_flush_consume(struct zebra_if *zif, uint16_t sent)
+{
+	uint8_t i, keep = 0;
+
+	for (i = 0; i < zif->rtadv.flush_count; i++)
+		if ((sent & (1U << i)) && zif->rtadv.flush[i].remaining)
+			zif->rtadv.flush[i].remaining--;
+
+	/* Compact in a second pass: indices in @sent must stay valid above. */
+	for (i = 0; i < zif->rtadv.flush_count; i++) {
+		if (!zif->rtadv.flush[i].remaining)
+			continue;
+		if (keep != i)
+			zif->rtadv.flush[keep] = zif->rtadv.flush[i];
+		keep++;
+	}
+
+	zif->rtadv.flush_count = keep;
+}
+
 /* Send router advertisement packet. */
 static void rtadv_send_packet(int sock, struct interface *ifp,
 			      enum ipv6_nd_suppress_ra_status stop)
@@ -244,6 +291,9 @@ static void rtadv_send_packet(int sock, struct interface *ifp,
 				    0,    0,    0, 0, 0, 0, 0, 1};
 	struct listnode *node;
 	uint16_t pkt_RouterLifetime;
+	/* Which flush entries got a prefix option into this packet. */
+	uint16_t flush_done = 0;
+	uint8_t fidx;
 
 	/* Logging of packet. */
 	if (IS_ZEBRA_DEBUG_PACKET)
@@ -261,6 +311,14 @@ static void rtadv_send_packet(int sock, struct interface *ifp,
 
 	/* Fetch interface information. */
 	zif = ifp->info;
+
+	/* Flush a deferred LL retraction (link is up now). */
+	if (!IN6_IS_ADDR_UNSPECIFIED(&zif->rtadv.retract_ll)) {
+		struct in6_addr ll = zif->rtadv.retract_ll;
+
+		memset(&zif->rtadv.retract_ll, 0, sizeof(ll));
+		rtadv_retract_router(zif, &ll);
+	}
 
 	/* Make router advertisement message. */
 	rtadv = (struct nd_router_advert *)buf;
@@ -348,9 +406,73 @@ static void rtadv_send_packet(int sock, struct interface *ifp,
 		len += sizeof(struct nd_opt_adv_interval);
 	}
 
+	/*
+	 * There is no limit on the number of configurable recursive DNS
+	 * servers or search list entries, and flushed prefixes add options of
+	 * their own. We don't want the RA message to exceed the link's MTU
+	 * (risking fragmentation) or even blow the stack buffer allocated for
+	 * it.
+	 */
+	size_t max_len = MIN(ifp->mtu6 - 40, sizeof(buf));
+
+	/*
+	 * Flush entries for prefixes this interface does not advertise need a
+	 * PIO of their own.  This is the mis-cabling case: a host moved to a
+	 * new port still holds the old port's prefix, so the RA that retires it
+	 * has to go out here, on the link the host is actually attached to.
+	 *
+	 * These go in ahead of the advertised prefixes.  Behind them, an
+	 * interface carrying enough connected prefixes to fill the packet
+	 * would leave no room under max_len and drop the flush options, which
+	 * is exactly the case the flush exists to handle.  A prefix this
+	 * interface does advertise is skipped here and picked up by the
+	 * substitution below.
+	 *
+	 * The Autonomous flag must be set or hosts ignore the option for
+	 * address autoconfiguration and the deprecation accomplishes nothing.
+	 */
+	for (fidx = 0; fidx < zif->rtadv.flush_count; fidx++) {
+		struct rtadv_flush *flush = &zif->rtadv.flush[fidx];
+		struct rtadv_prefix ref = {};
+		struct nd_opt_prefix_info *pinfo;
+
+		ref.prefix = flush->prefix;
+		if (rtadv_prefixes_find(zif->rtadv.prefixes, &ref))
+			continue;
+
+		if (len + sizeof(struct nd_opt_prefix_info) > max_len) {
+			zlog_err("%s(%s:%u): Tx RA: no room for flush of %pFX, prefix not retired",
+				 ifp->name, ifp->vrf->name, ifp->ifindex,
+				 (const struct prefix *)&flush->prefix);
+			goto no_more_opts;
+		}
+
+		pinfo = (struct nd_opt_prefix_info *)(buf + len);
+
+		pinfo->nd_opt_pi_type = ND_OPT_PREFIX_INFORMATION;
+		pinfo->nd_opt_pi_len = 4;
+		pinfo->nd_opt_pi_prefix_len = flush->prefix.prefixlen;
+		pinfo->nd_opt_pi_flags_reserved = ND_OPT_PI_FLAG_ONLINK | ND_OPT_PI_FLAG_AUTO;
+		pinfo->nd_opt_pi_valid_time = htonl(flush->AdvValidLifetime);
+		pinfo->nd_opt_pi_preferred_time = htonl(flush->AdvPreferredLifetime);
+		pinfo->nd_opt_pi_reserved2 = 0;
+
+		IPV6_ADDR_COPY(&pinfo->nd_opt_pi_prefix, &flush->prefix.prefix);
+
+		len += sizeof(struct nd_opt_prefix_info);
+		flush_done |= 1U << fidx;
+
+		if (IS_ZEBRA_DEBUG_SEND)
+			zlog_debug("%s(%s:%u): Tx RA: flushing unadvertised %pFX, valid %u preferred %u",
+				   ifp->name, ifp->vrf->name, ifp->ifindex,
+				   (const struct prefix *)&flush->prefix, flush->AdvValidLifetime,
+				   flush->AdvPreferredLifetime);
+	}
+
 	/* Fill in prefix. */
 	frr_each (rtadv_prefixes, zif->rtadv.prefixes, rprefix) {
 		struct nd_opt_prefix_info *pinfo;
+		struct rtadv_flush *flush;
 
 		pinfo = (struct nd_opt_prefix_info *)(buf + len);
 
@@ -367,9 +489,26 @@ static void rtadv_send_packet(int sock, struct interface *ifp,
 		if (rprefix->AdvRouterAddressFlag)
 			pinfo->nd_opt_pi_flags_reserved |= ND_OPT_PI_FLAG_RADDR;
 
-		pinfo->nd_opt_pi_valid_time = htonl(rprefix->AdvValidLifetime);
-		pinfo->nd_opt_pi_preferred_time =
-			htonl(rprefix->AdvPreferredLifetime);
+		/*
+		 * A flush substitutes the lifetimes on the wire without
+		 * touching the configured values, so the config stays
+		 * authoritative and there is nothing to restore afterwards.
+		 */
+		flush = rtadv_flush_find(zif, &rprefix->prefix);
+		if (flush) {
+			pinfo->nd_opt_pi_valid_time = htonl(flush->AdvValidLifetime);
+			pinfo->nd_opt_pi_preferred_time = htonl(flush->AdvPreferredLifetime);
+			flush_done |= 1U << (flush - zif->rtadv.flush);
+
+			if (IS_ZEBRA_DEBUG_SEND)
+				zlog_debug("%s(%s:%u): Tx RA: flushing advertised %pFX, valid %u preferred %u",
+					   ifp->name, ifp->vrf->name, ifp->ifindex,
+					   (const struct prefix *)&rprefix->prefix,
+					   flush->AdvValidLifetime, flush->AdvPreferredLifetime);
+		} else {
+			pinfo->nd_opt_pi_valid_time = htonl(rprefix->AdvValidLifetime);
+			pinfo->nd_opt_pi_preferred_time = htonl(rprefix->AdvPreferredLifetime);
+		}
 		pinfo->nd_opt_pi_reserved2 = 0;
 
 		IPV6_ADDR_COPY(&pinfo->nd_opt_pi_prefix,
@@ -403,14 +542,6 @@ static void rtadv_send_packet(int sock, struct interface *ifp,
 		opt->nd_opt_mtu_mtu = htonl(zif->rtadv.AdvLinkMTU);
 		len += sizeof(struct nd_opt_mtu);
 	}
-
-	/*
-	 * There is no limit on the number of configurable recursive DNS
-	 * servers or search list entries. We don't want the RA message
-	 * to exceed the link's MTU (risking fragmentation) or even
-	 * blow the stack buffer allocated for it.
-	 */
-	size_t max_len = MIN(ifp->mtu6 - 40, sizeof(buf));
 
 	/* Recursive DNS servers */
 	struct rtadv_rdnss *rdnss;
@@ -545,8 +676,249 @@ no_more_opts:
 			     "%s(%u): Tx RA failed, socket %u error %d (%s)",
 			     ifp->name, ifp->ifindex, sock, errno,
 			     safe_strerror(errno));
-	} else
+	} else {
 		zif->ra_sent++;
+		rtadv_flush_consume(zif, flush_done);
+	}
+}
+
+static void rtadv_flush_timer(struct event *event);
+
+/*
+ * Schedule the next RA of a flush burst.  event_add_timer_msec() no-ops when
+ * the timer is already pending, so a burst that is running simply picks up any
+ * newly queued prefix on its next tick.
+ */
+static void rtadv_flush_arm(struct zebra_if *zif)
+{
+	event_add_timer_msec(zrouter.master, rtadv_flush_timer, zif->ifp, RTADV_FLUSH_PERIOD_MS,
+			     &zif->rtadv.flush_timer);
+}
+
+/* Emit one RA now, if the interface is in a state to carry it. */
+static void rtadv_flush_send_now(struct zebra_if *zif)
+{
+	struct zebra_vrf *zvrf;
+
+	if (!if_is_operative(zif->ifp))
+		return;
+
+	zvrf = rtadv_interface_get_zvrf(zif->ifp);
+	if (!zvrf || zvrf->rtadv.sock < 0)
+		return;
+
+	/*
+	 * Never put a live Router Lifetime on a link whose RAs the operator
+	 * has turned off.  RA_SUPPRESS still carries the prefix options that
+	 * do the deprecating, with Router Lifetime 0.
+	 */
+	rtadv_send_packet(zvrf->rtadv.sock, zif->ifp,
+			  zif->rtadv.AdvSendAdvertisements ? RA_ENABLE : RA_SUPPRESS);
+}
+
+static void rtadv_flush_timer(struct event *event)
+{
+	struct interface *ifp = EVENT_ARG(event);
+	struct zebra_if *zif = ifp->info;
+	time_t now = monotime(NULL);
+	uint8_t i, keep = 0;
+
+	if (!zif)
+		return;
+
+	/*
+	 * Drop entries past their backstop.  An entry is only charged once its
+	 * prefix option reaches the wire, so one that never fits -- the RA is
+	 * already at the MTU/buffer limit -- or whose sends keep failing would
+	 * hold its slot indefinitely and emit stale zero-lifetime RAs if the
+	 * prefix were later re-added.  Interface down and RA suppression clear
+	 * the queue outright, so they do not rely on this.
+	 */
+	for (i = 0; i < zif->rtadv.flush_count; i++) {
+		struct rtadv_flush *flush = &zif->rtadv.flush[i];
+
+		if (flush->deadline <= now) {
+			zlog_warn("%s(%s:%u): flush of %pFX expired with %u RA(s) unsent",
+				  ifp->name, ifp->vrf->name, ifp->ifindex,
+				  (const struct prefix *)&flush->prefix, flush->remaining);
+			continue;
+		}
+
+		if (keep != i)
+			zif->rtadv.flush[keep] = *flush;
+		keep++;
+	}
+	zif->rtadv.flush_count = keep;
+
+	if (!zif->rtadv.flush_count)
+		return;
+
+	rtadv_flush_send_now(zif);
+
+	/* The send above may have retired the last entry. */
+	if (zif->rtadv.flush_count)
+		rtadv_flush_arm(zif);
+}
+
+/*
+ * Queue a prefix to be flushed and start the burst.  Re-queueing a prefix that
+ * is already in flight refreshes it instead of adding a duplicate, so repeated
+ * invocations are idempotent.
+ *
+ * Returns false when this interface already has RTADV_MAX_FLUSH_PREFIXES in
+ * flight.
+ */
+static bool rtadv_flush_enqueue(struct zebra_if *zif, const struct prefix_ipv6 *p, uint32_t valid,
+				uint32_t preferred, uint8_t count)
+{
+	struct rtadv_flush *flush;
+
+	flush = rtadv_flush_find(zif, p);
+	if (!flush) {
+		if (zif->rtadv.flush_count >= RTADV_MAX_FLUSH_PREFIXES)
+			return false;
+
+		flush = &zif->rtadv.flush[zif->rtadv.flush_count++];
+		flush->prefix = *p;
+		/*
+		 * str2prefix_ipv6() does not mask host bits and the option is
+		 * copied verbatim onto the wire, so mask here.
+		 */
+		apply_mask_ipv6(&flush->prefix);
+	}
+
+	flush->AdvValidLifetime = valid;
+	flush->AdvPreferredLifetime = preferred;
+	flush->remaining = count;
+	flush->deadline = monotime(NULL) + RTADV_FLUSH_DEADLINE_SECS;
+
+	/*
+	 * Send the first RA inline, so a caller that runs the command and then
+	 * immediately looks at the wire sees it rather than waiting a tick.
+	 */
+	rtadv_flush_send_now(zif);
+
+	if (zif->rtadv.flush_count)
+		rtadv_flush_arm(zif);
+
+	return true;
+}
+
+/* Abandon any in-flight flush on this interface. */
+static void rtadv_flush_clear(struct zebra_if *zif)
+{
+	event_cancel(&zif->rtadv.flush_timer);
+	zif->rtadv.flush_count = 0;
+}
+
+/* RFC 4861 6.2.5: send up to MAX_FINAL_RTR_ADVERTISEMENTS (3) final RAs. */
+#define RTADV_MAX_FINAL_RTR_ADVERTS 3
+
+/*
+ * Withdraw the default router we advertised from a just-removed link-local
+ * (e.g. MAC changed to the anycast gateway): send final Router-Lifetime-0 RAs
+ * sourced from the old LL (RFC 4861 6.2.5). The LL is already gone, so the send
+ * needs FREEBIND + a bind to the egress interface, done on a throwaway socket
+ * so it cannot disturb the shared RA socket / normal RAs on other ports.
+ */
+void rtadv_retract_router(struct zebra_if *zif, const struct in6_addr *lladdr)
+{
+	struct interface *ifp = zif->ifp;
+	struct nd_router_advert ra = {};
+	struct sockaddr_in6 addr = {};
+	struct in6_pktinfo *pkt;
+	struct msghdr msg = {};
+	struct cmsghdr *cmsgptr;
+	struct iovec iov;
+	char adata[RTADV_ADATA_SIZE] = { 0 };
+	uint8_t all_nodes_addr[] = { 0xff, 0x02, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1 };
+	int sock = -1;
+	int err = 0;
+	int txerr = 0;
+	int sent = 0;
+	int i;
+
+	/* Only interfaces advertising a router send RAs (RFC 4861 6). */
+	if (!zif->rtadv.AdvSendAdvertisements)
+		return;
+
+	/* Link down (mid MAC-flip): defer to the next RA once it is up. */
+	if (!if_is_operative(ifp)) {
+		zif->rtadv.retract_ll = *lladdr;
+		return;
+	}
+
+	/* Throwaway socket: keep FREEBIND + bind off the shared RA socket. */
+	frr_with_privs (&zserv_privs) {
+		sock = socket(AF_INET6, SOCK_RAW, IPPROTO_ICMPV6);
+		err = errno;
+		if (sock >= 0) {
+			setsockopt_ipv6_multicast_hops(sock, 255);
+			setsockopt_ipv6_multicast_loop(sock, 0);
+			setsockopt_ipv6_freebind(sock, 1);
+			setsockopt_so_bindtodevice(sock, ifp->name);
+		}
+	}
+	if (sock < 0) {
+		flog_err_sys(EC_LIB_SOCKET, "%s(%u): retract RA socket: %s", ifp->name,
+			     ifp->ifindex, safe_strerror(err));
+		return;
+	}
+
+	ra.nd_ra_type = ND_ROUTER_ADVERT;
+	ra.nd_ra_curhoplimit = zif->rtadv.AdvCurHopLimit;
+	ra.nd_ra_router_lifetime = htons(0);
+
+	addr.sin6_family = AF_INET6;
+	addr.sin6_port = htons(IPPROTO_ICMPV6);
+	IPV6_ADDR_COPY(&addr.sin6_addr, all_nodes_addr);
+
+	iov.iov_base = &ra;
+	iov.iov_len = sizeof(ra);
+	msg.msg_name = &addr;
+	msg.msg_namelen = sizeof(addr);
+	msg.msg_iov = &iov;
+	msg.msg_iovlen = 1;
+	msg.msg_control = adata;
+	msg.msg_controllen = CMSG_SPACE(sizeof(struct in6_pktinfo));
+
+	cmsgptr = CMSG_FIRSTHDR(&msg);
+	cmsgptr->cmsg_len = CMSG_LEN(sizeof(struct in6_pktinfo));
+	cmsgptr->cmsg_level = IPPROTO_IPV6;
+	cmsgptr->cmsg_type = IPV6_PKTINFO;
+	pkt = (struct in6_pktinfo *)CMSG_DATA(cmsgptr);
+	IPV6_ADDR_COPY(&pkt->ipi6_addr, lladdr); /* source = the removed LL */
+	pkt->ipi6_ifindex = ifp->ifindex;
+
+	/*
+	 * The three finals are independent (RFC 4861 6.2.5), so a failed send
+	 * is no reason to skip the ones after it.
+	 */
+	for (i = 0; i < RTADV_MAX_FINAL_RTR_ADVERTS; i++) {
+		if (sendmsg(sock, &msg, 0) < 0)
+			txerr = errno;
+		else
+			sent++;
+	}
+	if (sent == 0) {
+		/*
+		 * Retry anything transient. Abandoning a retraction is only
+		 * right for a programming error, and that set is closed.
+		 */
+		if (txerr != EINVAL && txerr != EBADF && txerr != EAFNOSUPPORT) {
+			zif->rtadv.retract_ll = *lladdr;
+			if (IS_ZEBRA_DEBUG_PACKET)
+				zlog_debug("%s(%u): retract RA deferred (%s), will retry",
+					   ifp->name, ifp->ifindex, safe_strerror(txerr));
+		} else
+			flog_err_sys(EC_LIB_SOCKET,
+				     "%s(%u): Tx retract RA (lifetime 0) src %pI6 failed: %s",
+				     ifp->name, ifp->ifindex, lladdr, safe_strerror(txerr));
+	} else if (IS_ZEBRA_DEBUG_PACKET)
+		zlog_debug("%s(%u): Tx %d retract RA (lifetime 0) src %pI6", ifp->name,
+			   ifp->ifindex, sent, lladdr);
+
+	close(sock);
 }
 
 static void start_icmpv6_join_timer(struct event *event)
@@ -1280,13 +1652,49 @@ static struct rtadv_prefix *rtadv_prefix_get(struct rtadv_prefixes_head *list,
 	return rprefix;
 }
 
-static void rtadv_prefix_set_defaults(struct rtadv_prefix *rp)
+/*
+ * Lifetimes for a prefix that named none of its own: "ipv6 nd prefix-lifetime"
+ * when the interface has it, otherwise the RFC 4861 defaults.  Every path that
+ * leaves a prefix unqualified comes through here, so the precedence rule lives
+ * in one place.  An operator can therefore shorten a whole link without naming
+ * each prefix, which is the mis-cabling case: the wrong prefix a host picked up
+ * ages out on its own once it stops being advertised at that host.
+ */
+static void rtadv_prefix_inherit_lifetimes(struct zebra_if *zif, struct rtadv_prefix *rp)
+{
+	if (zif->rtadv.AdvPrefixLifetimeSet) {
+		rp->AdvPreferredLifetime = zif->rtadv.AdvPrefixPreferredLifetime;
+		rp->AdvValidLifetime = zif->rtadv.AdvPrefixValidLifetime;
+	} else {
+		rp->AdvPreferredLifetime = RTADV_PREFERRED_LIFETIME;
+		rp->AdvValidLifetime = RTADV_VALID_LIFETIME;
+	}
+}
+
+/*
+ * A per-prefix lifetime leaf changed.  When the prefix no longer names its own
+ * the interface-wide default has to be put back, otherwise removing an explicit
+ * pair would silently leave the RFC values behind until the next re-stamp.
+ */
+void rtadv_prefix_lifetime_reeval(struct interface *ifp, struct rtadv_prefix *rprefix, bool named)
+{
+	struct zebra_if *zif = ifp->info;
+
+	rprefix->AdvLifetimeSet = named;
+
+	if (!named)
+		rtadv_prefix_inherit_lifetimes(zif, rprefix);
+}
+
+/* Reset a prefix to what an address on the interface alone would give it. */
+static void rtadv_prefix_set_defaults(struct zebra_if *zif, struct rtadv_prefix *rp)
 {
 	rp->AdvAutonomousFlag = 1;
 	rp->AdvOnLinkFlag = 1;
 	rp->AdvRouterAddressFlag = 0;
-	rp->AdvPreferredLifetime = RTADV_PREFERRED_LIFETIME;
-	rp->AdvValidLifetime = RTADV_VALID_LIFETIME;
+	rp->AdvLifetimeSet = false;
+
+	rtadv_prefix_inherit_lifetimes(zif, rp);
 }
 
 static struct rtadv_prefix *rtadv_prefix_set(struct zebra_if *zif,
@@ -1313,14 +1721,18 @@ static struct rtadv_prefix *rtadv_prefix_set(struct zebra_if *zif,
 		rprefix->AdvAutonomousFlag = rp->AdvAutonomousFlag;
 		rprefix->AdvOnLinkFlag = rp->AdvOnLinkFlag;
 		rprefix->AdvRouterAddressFlag = rp->AdvRouterAddressFlag;
-		rprefix->AdvPreferredLifetime = rp->AdvPreferredLifetime;
-		rprefix->AdvValidLifetime = rp->AdvValidLifetime;
+		rprefix->AdvLifetimeSet = rp->AdvLifetimeSet;
+		if (rp->AdvLifetimeSet) {
+			rprefix->AdvPreferredLifetime = rp->AdvPreferredLifetime;
+			rprefix->AdvValidLifetime = rp->AdvValidLifetime;
+		} else
+			rtadv_prefix_inherit_lifetimes(zif, rprefix);
 	} else if (rp->AdvPrefixCreate == PREFIX_SRC_AUTO) {
 		if (rprefix->AdvPrefixCreate == PREFIX_SRC_MANUAL)
 			rprefix->AdvPrefixCreate = PREFIX_SRC_BOTH;
 		else if (rprefix->AdvPrefixCreate != PREFIX_SRC_BOTH) {
 			rprefix->AdvPrefixCreate = PREFIX_SRC_AUTO;
-			rtadv_prefix_set_defaults(rprefix);
+			rtadv_prefix_set_defaults(zif, rprefix);
 		}
 	}
 
@@ -1328,7 +1740,7 @@ static struct rtadv_prefix *rtadv_prefix_set(struct zebra_if *zif,
 }
 
 static void rtadv_prefix_reset(struct zebra_if *zif, struct rtadv_prefix *rp,
-			       struct rtadv_prefix *rprefix)
+			       struct rtadv_prefix *rprefix, bool deprecate)
 {
 	if (!rprefix)
 		rprefix = rtadv_prefixes_find(zif->rtadv.prefixes, rp);
@@ -1345,7 +1757,7 @@ static void rtadv_prefix_reset(struct zebra_if *zif, struct rtadv_prefix *rp,
 		if (rp->AdvPrefixCreate == PREFIX_SRC_MANUAL) {
 			if (rprefix->AdvPrefixCreate == PREFIX_SRC_BOTH) {
 				rprefix->AdvPrefixCreate = PREFIX_SRC_AUTO;
-				rtadv_prefix_set_defaults(rprefix);
+				rtadv_prefix_set_defaults(zif, rprefix);
 				return;
 			} else if (rprefix->AdvPrefixCreate == PREFIX_SRC_AUTO)
 				return;
@@ -1361,6 +1773,30 @@ static void rtadv_prefix_reset(struct zebra_if *zif, struct rtadv_prefix *rp,
 				return;
 			}
 		}
+
+		/*
+		 * Before dropping a SLAAC prefix, tell hosts to stop using it:
+		 * re-announce it with zero lifetimes for up to
+		 * MAX_FINAL_RTR_ADVERTISEMENTS RAs (RFC 4861 6.2.5).  RA is
+		 * unacknowledged multicast, so one packet is not enough -- a
+		 * host that misses it keeps the address for the whole
+		 * AdvValidLifetime, 30 days by default.
+		 *
+		 * The flush entry holds the prefix by value, so the burst
+		 * carries on via the synthetic prefix-option path once the
+		 * entry below has been freed.
+		 *
+		 * Only on a link that is advertising and operationally up,
+		 * since nothing else can carry the burst.  Skipped on global
+		 * RA cease (deprecate=false), which already signals
+		 * router-lifetime 0 per RFC 4861 6.2.5.
+		 */
+		if (deprecate && zif->rtadv.AdvSendAdvertisements && if_is_operative(zif->ifp) &&
+		    rprefix->AdvAutonomousFlag &&
+		    !rtadv_flush_enqueue(zif, &rprefix->prefix, 0, 0, RTADV_MAX_FINAL_RTR_ADVERTS))
+			zlog_warn("%s(%s:%u): no room to deprecate %pFX before removal",
+				  zif->ifp->name, zif->ifp->vrf->name, zif->ifp->ifindex,
+				  (const struct prefix *)&rprefix->prefix);
 
 		rtadv_prefixes_del(zif->rtadv.prefixes, rprefix);
 		rtadv_prefix_free(rprefix);
@@ -1381,7 +1817,92 @@ void rtadv_delete_prefix_manual(struct zebra_if *zif,
 
 	rp.AdvPrefixCreate = PREFIX_SRC_MANUAL;
 
-	rtadv_prefix_reset(zif, &rp, rprefix);
+	rtadv_prefix_reset(zif, &rp, rprefix, true);
+}
+
+/*
+ * Apply the interface-wide lifetimes to the prefixes already in the list.
+ *
+ * PREFIX_SRC_AUTO only.  A PREFIX_SRC_BOTH entry holds the values the operator
+ * typed into "ipv6 nd prefix", and those are kept live by the per-leaf
+ * northbound callbacks; re-stamping one here would put a lifetime on the wire
+ * that running-config does not mention, with nothing able to explain the
+ * difference.  An AUTO entry has no configuration to contradict.
+ */
+static void rtadv_prefix_lifetime_restamp(struct zebra_if *zif)
+{
+	struct rtadv_prefix *rprefix;
+
+	frr_each (rtadv_prefixes, zif->rtadv.prefixes, rprefix) {
+		/*
+		 * A prefix that named its own lifetimes keeps them.  Everything
+		 * else follows the interface, whether it came from an address
+		 * on the link or from an "ipv6 nd prefix" line that left the
+		 * lifetimes out: an operator setting an interface-wide default
+		 * means it to cover the prefixes they did not qualify, and on a
+		 * link where every prefix is configured explicitly the knob
+		 * would otherwise reach nothing at all.
+		 */
+		if (rprefix->AdvLifetimeSet)
+			continue;
+
+		rtadv_prefix_inherit_lifetimes(zif, rprefix);
+	}
+
+	/*
+	 * Nudge the next RA out rather than sending one from here.  frr-reload
+	 * replays a value change as a delete followed by an add, so an inline
+	 * send would put the RFC defaults on the wire in between the two.  The
+	 * existing fast-retransmit counter is wheel-driven and coalesces the
+	 * pair.  When fast retransmit is off the change simply appears on the
+	 * next periodic RA, which is fine: nothing here is time critical.
+	 */
+	if (zif->rtadv.AdvSendAdvertisements && zif->rtadv.MaxRtrAdvInterval >= 1000 &&
+	    zif->rtadv.UseFastRexmit) {
+		zif->rtadv.inFastRexmit = 1;
+		zif->rtadv.NumFastReXmitsRemain = RTADV_NUM_FAST_REXMITS;
+	}
+}
+
+void rtadv_prefix_lifetime_set(struct interface *ifp, uint32_t valid, uint32_t preferred)
+{
+	struct zebra_if *zif = ifp->info;
+
+	/*
+	 * RFC 4861 6.2.1 wants a prefix to outlive a few advertisement
+	 * intervals so a host that misses one does not drop the address.  Warn
+	 * rather than reject: aggressively short lifetimes are the whole point
+	 * of this knob, and 0 is legitimate for retiring a prefix outright.
+	 */
+	if (valid != 0 && valid < (uint32_t)(3 * (zif->rtadv.MaxRtrAdvInterval / 1000)))
+		zlog_warn("%s: valid lifetime %u is under three ra-intervals (%d ms); a host missing two RAs will lose its address",
+			  ifp->name, valid, zif->rtadv.MaxRtrAdvInterval);
+
+	/*
+	 * RFC 4862 5.5.3 floors the stored valid lifetime at two hours for an
+	 * address a host already holds, so a shorter value only takes full
+	 * effect for addresses formed after this point.
+	 */
+	if (valid != 0 && valid < 7200)
+		zlog_warn("%s: valid lifetime %u is under two hours; hosts already holding an address will retain it for up to 7200 seconds (RFC 4862 5.5.3)",
+			  ifp->name, valid);
+
+	zif->rtadv.AdvPrefixValidLifetime = valid;
+	zif->rtadv.AdvPrefixPreferredLifetime = preferred;
+	zif->rtadv.AdvPrefixLifetimeSet = true;
+
+	rtadv_prefix_lifetime_restamp(zif);
+}
+
+void rtadv_prefix_lifetime_reset(struct interface *ifp)
+{
+	struct zebra_if *zif = ifp->info;
+
+	zif->rtadv.AdvPrefixLifetimeSet = false;
+	zif->rtadv.AdvPrefixValidLifetime = RTADV_VALID_LIFETIME;
+	zif->rtadv.AdvPrefixPreferredLifetime = RTADV_PREFERRED_LIFETIME;
+
+	rtadv_prefix_lifetime_restamp(zif);
 }
 
 /* Add IPv6 prefixes learned from the kernel to the RA prefix list */
@@ -1403,7 +1924,7 @@ void rtadv_delete_prefix(struct zebra_if *zif, const struct prefix *p)
 	rp.prefix = *((struct prefix_ipv6 *)p);
 	apply_mask_ipv6(&rp.prefix);
 	rp.AdvPrefixCreate = PREFIX_SRC_AUTO;
-	rtadv_prefix_reset(zif, &rp, NULL);
+	rtadv_prefix_reset(zif, &rp, NULL, true);
 }
 
 static void rtadv_start_interface_events(struct zebra_vrf *zvrf,
@@ -1457,6 +1978,13 @@ void ipv6_nd_suppress_ra_set(struct interface *ifp,
 			/* Try to delete from the ra wheel */
 			wheel_remove_item(zrouter.ra_wheel, ifp);
 			rtadv_send_packet(zvrf->rtadv.sock, ifp, RA_SUPPRESS);
+			/*
+			 * Cleared after the suppress RA, which still carries
+			 * prefix options and so can do the deprecating for us.
+			 * Nothing further goes out on this interface, so an
+			 * in-flight flush cannot make progress from here.
+			 */
+			rtadv_flush_clear(zif);
 			zif->rtadv.AdvSendAdvertisements = 0;
 			zif->rtadv.AdvIntervalTimer = 0;
 
@@ -1624,12 +2152,23 @@ void rtadv_stop_ra(struct interface *ifp, bool if_down_event)
 	event_cancel(&zif->icmpv6_join_timer);
 
 	if (if_down_event) {
+		/* No further RA can go out, so abandon any in-flight flush. */
+		rtadv_flush_clear(zif);
 		/* Nothing to do more, return */
 		return;
 	}
 
 	if (zif->rtadv.AdvSendAdvertisements)
 		rtadv_send_packet(zvrf->rtadv.sock, ifp, RA_SUPPRESS);
+
+	/*
+	 * Cleared after the send, not before.  The suppress RA is the last
+	 * packet this link will see and it still carries prefix options, so it
+	 * is the ideal vehicle for a zero-lifetime one.  Clearing first would
+	 * have it re-advertise the configured 30-day lifetime and undo the
+	 * flush we just performed.
+	 */
+	rtadv_flush_clear(zif);
 }
 
 /*
@@ -1653,7 +2192,7 @@ void rtadv_stop_ra_all(void)
 
 			frr_each_safe (rtadv_prefixes, zif->rtadv.prefixes,
 				       rprefix)
-				rtadv_prefix_reset(zif, rprefix, rprefix);
+				rtadv_prefix_reset(zif, rprefix, rprefix, false);
 
 			rtadv_stop_ra(ifp, false);
 		}
@@ -1872,6 +2411,7 @@ static int nd_dump_vty(struct vty *vty, json_object *json_if, struct interface *
 	struct zebra_if *zif;
 	struct rtadvconf *rtadv;
 	int interval;
+	uint8_t fidx;
 
 	zif = (struct zebra_if *)ifp->info;
 	rtadv = &zif->rtadv;
@@ -1908,6 +2448,10 @@ static int nd_dump_vty(struct vty *vty, json_object *json_if, struct interface *
 		else
 			vty_out(vty,
 				"  ND router advertisements lifetime tracks ra-interval\n");
+		if (rtadv->AdvPrefixLifetimeSet)
+			vty_out(vty,
+				"  ND derived prefixes advertised with valid %u preferred %u seconds\n",
+				rtadv->AdvPrefixValidLifetime, rtadv->AdvPrefixPreferredLifetime);
 		vty_out(vty,
 			"  ND router advertisement default router preference is %s\n",
 			rtadv_pref_strs[rtadv->DefaultPreference]);
@@ -1934,6 +2478,19 @@ static int nd_dump_vty(struct vty *vty, json_object *json_if, struct interface *
 			vty_out(vty,
 				"  ND router advertisements with Adv. Interval option.\n");
 	}
+
+	/*
+	 * Without this, the configured lifetimes shown above would contradict
+	 * what is actually on the wire while a flush is in flight.
+	 */
+	if (!json_if)
+		for (fidx = 0; fidx < rtadv->flush_count; fidx++)
+			vty_out(vty,
+				"  ND flushing %pFX with valid %u preferred %u, %u RA(s) left\n",
+				(const struct prefix *)&rtadv->flush[fidx].prefix,
+				rtadv->flush[fidx].AdvValidLifetime,
+				rtadv->flush[fidx].AdvPreferredLifetime,
+				rtadv->flush[fidx].remaining);
 
 	if (json_if && rtadv->AdvSendAdvertisements) {
 		json_object_int_add(json_if, "ndAdvertisedReachableTimeMsecs",
@@ -1964,6 +2521,13 @@ static int nd_dump_vty(struct vty *vty, json_object *json_if, struct interface *
 						"ndRouterAdvertisementsLifetimeTracksRaInterval",
 						true);
 
+		if (rtadv->AdvPrefixLifetimeSet) {
+			json_object_int_add(json_if, "ndDerivedPrefixValidLifetimeSecs",
+					    rtadv->AdvPrefixValidLifetime);
+			json_object_int_add(json_if, "ndDerivedPrefixPreferredLifetimeSecs",
+					    rtadv->AdvPrefixPreferredLifetime);
+		}
+
 		json_object_string_add(json_if, "ndRouterAdvertisementDefaultRouterPreference",
 				       rtadv_pref_strs[rtadv->DefaultPreference]);
 
@@ -1990,6 +2554,28 @@ static int nd_dump_vty(struct vty *vty, json_object *json_if, struct interface *
 		if (rtadv->AdvIntervalOption)
 			json_object_boolean_add(json_if,
 						"ndRouterAdvertisementsWithAdvIntervalOption", true);
+	}
+
+	if (json_if && rtadv->flush_count) {
+		json_object *json_flushes;
+
+		json_flushes = json_object_new_array();
+		json_object_object_add(json_if, "ndFlush", json_flushes);
+
+		for (fidx = 0; fidx < rtadv->flush_count; fidx++) {
+			json_object *json_flush = json_object_new_object();
+			char buf[PREFIX_STRLEN];
+
+			prefix2str(&rtadv->flush[fidx].prefix, buf, sizeof(buf));
+			json_object_string_add(json_flush, "prefix", buf);
+			json_object_int_add(json_flush, "validLifetime",
+					    rtadv->flush[fidx].AdvValidLifetime);
+			json_object_int_add(json_flush, "preferredLifetime",
+					    rtadv->flush[fidx].AdvPreferredLifetime);
+			json_object_int_add(json_flush, "raRemaining",
+					    rtadv->flush[fidx].remaining);
+			json_object_array_add(json_flushes, json_flush);
+		}
 	}
 
 	return 0;
@@ -2090,6 +2676,9 @@ void rtadv_if_init(struct zebra_if *zif)
 	rtadv->AdvIntervalOption = 0;
 	rtadv->UseFastRexmit = true;
 	rtadv->DefaultPreference = RTADV_PREF_MEDIUM;
+	rtadv->AdvPrefixLifetimeSet = false;
+	rtadv->AdvPrefixValidLifetime = RTADV_VALID_LIFETIME;
+	rtadv->AdvPrefixPreferredLifetime = RTADV_PREFERRED_LIFETIME;
 
 	rtadv_prefixes_init(rtadv->prefixes);
 
@@ -2104,6 +2693,13 @@ void rtadv_if_fini(struct zebra_if *zif)
 	struct pref64_adv *pref64_adv;
 
 	rtadv = &zif->rtadv;
+
+	/*
+	 * Must come first: the flush timer holds this interface as its argument
+	 * and rtadv_if_fini() runs from the interface-delete hook, just before
+	 * the interface is freed.
+	 */
+	rtadv_flush_clear(zif);
 
 	while ((rp = rtadv_prefixes_pop(rtadv->prefixes)))
 		rtadv_prefix_free(rp);
@@ -2138,6 +2734,150 @@ void rtadv_vrf_terminate(struct zebra_vrf *zvrf)
 	adv_msec_if_clean(zvrf);
 }
 
+DEFPY(clear_ipv6_nd_prefix, clear_ipv6_nd_prefix_cmd,
+      "clear ipv6 nd prefix X:X::X:X/M$prefix interface IFNAME$ifname [vrf NAME$vrf_name] [count (1-3)$count] [valid-lifetime (0-4294967295)$valid_lifetime] [preferred-lifetime (0-4294967295)$preferred_lifetime]",
+      CLEAR_STR IP6_STR "Neighbor discovery\n"
+			"Prefix advertised to hosts\n"
+			"IPv6 prefix to stop hosts using\n"
+			"Interface to advertise on\n"
+			"Interface name\n" VRF_CMD_HELP_STR "Router Advertisements to send\n"
+			"Count, default 2\n"
+			"Valid lifetime to advertise\n"
+			"Seconds, default 0\n"
+			"Preferred lifetime to advertise\n"
+			"Seconds, default 0\n")
+{
+	struct vrf *vrf;
+	struct interface *ifp = NULL;
+	struct zebra_if *zif;
+	struct zebra_vrf *zvrf;
+	struct rtadv_prefix ref = {}, *rprefix;
+	struct prefix_ipv6 p;
+	uint32_t valid = valid_lifetime_str ? (uint32_t)valid_lifetime : 0;
+	uint32_t preferred = preferred_lifetime_str ? (uint32_t)preferred_lifetime : 0;
+	uint8_t ra_count = count_str ? (uint8_t)count : RTADV_FLUSH_DEFAULT_COUNT;
+
+	if (!vrf_is_backend_netns() && vrf_name) {
+		vty_out(vty, "%% VRF subcommand only applicable for netns-based vrfs.\n");
+		return CMD_WARNING;
+	}
+
+	/*
+	 * RFC 4861 4.6.2: hosts discard a prefix option whose preferred
+	 * lifetime exceeds its valid lifetime, so this would silently do
+	 * nothing.
+	 */
+	if (preferred > valid) {
+		vty_out(vty,
+			"%% preferred-lifetime %u exceeds valid-lifetime %u; hosts would ignore the advertisement\n",
+			preferred, valid);
+		return CMD_WARNING;
+	}
+
+	if (vrf_name) {
+		vrf = vrf_lookup_by_name(vrf_name);
+		if (vrf)
+			ifp = if_lookup_by_name(ifname, vrf->vrf_id);
+	} else if (vrf_is_backend_netns()) {
+		/*
+		 * With netns VRFs the same ifname can exist in more than one
+		 * namespace, so a scan would pick an arbitrary link.  Match
+		 * "show ipv6 nd ra-interfaces" and take the default VRF.
+		 */
+		ifp = if_lookup_by_name(ifname, VRF_DEFAULT);
+	} else {
+		/*
+		 * vrf-lite keeps every interface in one namespace, so the name
+		 * is unambiguous and the scan resolves it wherever it is
+		 * enslaved.  The vrf argument is rejected on this backend
+		 * above, so this is the only way to reach an interface that is
+		 * not in the default VRF.
+		 */
+		RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name) {
+			ifp = if_lookup_by_name(ifname, vrf->vrf_id);
+			if (ifp)
+				break;
+		}
+	}
+
+	if (!ifp) {
+		vty_out(vty, "%% Interface %s not found\n", ifname);
+		return CMD_WARNING;
+	}
+
+	zif = ifp->info;
+	if (!zif) {
+		vty_out(vty, "%% Interface %s is not ready\n", ifp->name);
+		return CMD_WARNING;
+	}
+
+	/*
+	 * Everything below has to hold or the entry would sit in the list
+	 * without any RA to carry it out.
+	 */
+	if (ifp->ifindex == IFINDEX_INTERNAL || !if_is_operative(ifp)) {
+		vty_out(vty, "%% Interface %s is not operationally up\n", ifp->name);
+		return CMD_WARNING;
+	}
+
+	if (!zif->rtadv.AdvSendAdvertisements) {
+		vty_out(vty, "%% Router advertisements are not enabled on %s\n", ifp->name);
+		return CMD_WARNING;
+	}
+
+	/* Validate before rtadv_interface_get_zvrf(), which asserts in netns. */
+	zvrf = rtadv_interface_get_zvrf(ifp);
+	if (!zvrf || zvrf->rtadv.sock < 0) {
+		vty_out(vty, "%% No router advertisement socket for %s\n", ifp->name);
+		return CMD_WARNING;
+	}
+
+	p = *prefix;
+	apply_mask_ipv6(&p);
+
+	ref.prefix = p;
+	rprefix = rtadv_prefixes_find(zif->rtadv.prefixes, &ref);
+	if (rprefix && !rprefix->AdvAutonomousFlag)
+		zlog_warn("%s(%s:%u): %pFX is advertised with autoconfiguration off, so no host address derives from it",
+			  ifp->name, ifp->vrf->name, ifp->ifindex, (const struct prefix *)&p);
+
+	/*
+	 * A prefix this interface does not advertise goes out as a synthetic
+	 * option carrying the Autonomous flag, so a non-zero valid lifetime
+	 * would tell hosts to form an address from a prefix this link does not
+	 * serve, which is the opposite of retiring one.
+	 */
+	if (!rprefix && valid != 0) {
+		vty_out(vty,
+			"%% %s does not advertise %pFX, so only valid-lifetime 0 can retire it\n",
+			ifp->name, (const struct prefix *)&p);
+		return CMD_WARNING;
+	}
+
+	if (!rtadv_flush_enqueue(zif, &p, valid, preferred, ra_count)) {
+		vty_out(vty, "%% %s is already flushing %d prefixes\n", ifp->name,
+			RTADV_MAX_FLUSH_PREFIXES);
+		return CMD_WARNING;
+	}
+
+	/*
+	 * Silent on success, like every other clear command: any output here is
+	 * read as an error by callers that wrap this in an API, and "show
+	 * interface" already reports the in-flight flush.  The audit trail goes
+	 * to the log instead.
+	 *
+	 * Note for whoever reads that log: the host deprecates the derived
+	 * address at once, but RFC 4862 5.5.3(e) floors the valid lifetime it
+	 * stores at two hours, so the address stays present-but-deprecated for
+	 * that long.
+	 */
+	zlog_info("%s(%s:%u): flushing %pFX, valid %u preferred %u in %u RA(s)", ifp->name,
+		  ifp->vrf->name, ifp->ifindex, (const struct prefix *)&p, valid, preferred,
+		  ra_count);
+
+	return CMD_SUCCESS;
+}
+
 void rtadv_cmd_init(void)
 {
 	interfaces_configured_for_ra_from_bgp = 0;
@@ -2145,6 +2885,7 @@ void rtadv_cmd_init(void)
 	hook_register(zebra_if_extra_info, nd_dump_vty);
 
 	install_element(VIEW_NODE, &show_ipv6_nd_ra_if_cmd);
+	install_element(ENABLE_NODE, &clear_ipv6_nd_prefix_cmd);
 }
 
 #ifdef __linux__

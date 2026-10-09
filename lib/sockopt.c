@@ -110,6 +110,32 @@ int setsockopt_ipv6_pktinfo(int sock, int val)
 	return ret;
 }
 
+int setsockopt_ipv6_freebind(int sock, int val)
+{
+	int ret = 0;
+
+#ifdef IPV6_FREEBIND
+	ret = setsockopt(sock, IPPROTO_IPV6, IPV6_FREEBIND, &val, sizeof(val));
+	if (ret < 0)
+		flog_err(EC_LIB_SOCKET, "can't setsockopt IPV6_FREEBIND : %s",
+			 safe_strerror(errno));
+#endif /* IPV6_FREEBIND */
+	return ret;
+}
+
+int setsockopt_so_bindtodevice(int sock, const char *ifname)
+{
+	int ret = 0;
+
+#ifdef SO_BINDTODEVICE
+	ret = setsockopt(sock, SOL_SOCKET, SO_BINDTODEVICE, ifname, strlen(ifname) + 1);
+	if (ret < 0)
+		flog_err(EC_LIB_SOCKET, "can't setsockopt SO_BINDTODEVICE : %s",
+			 safe_strerror(errno));
+#endif /* SO_BINDTODEVICE */
+	return ret;
+}
+
 /* Set multicast hops val to the socket. */
 int setsockopt_ipv6_multicast_hops(int sock, int val)
 {
