@@ -14,6 +14,7 @@ frr_northbound*
 /bgpd/test_mpath
 /bgpd/test_packet
 /bgpd/test_peer_attr
+/bgpd/test_bgp_script
 /isisd/test_fuzz_isis_tlv
 /isisd/test_fuzz_isis_tlv_tests.h
 /isisd/test_isis_lspdb

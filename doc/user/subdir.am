@@ -66,7 +66,7 @@ EXTRA_DIST += \
 	# end
 
 USERBUILD = doc/user/_build
-$(USERBUILD)/.doctrees/environment.pickle: $(user_RSTFILES)
+$(USERBUILD)/.doctrees/environment.pickle: $(user_RSTFILES) doc/developer/bgp-lua-attributes.rst
 
 #
 # automake integration (things that should be built in "all")

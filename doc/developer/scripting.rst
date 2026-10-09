@@ -538,6 +538,8 @@ script with a function named ``route_match``,
 provides route prefix and attributes received from a peer and expects the
 function to return a match / no match / match and update result.
 
+.. include:: bgp-lua-attributes.rst
+
 An example script to use with this follows. This function matches, does not match
 or updates a route depending on how many BGP UPDATE messages the peer has
 received when the script is called, simply as a demonstration of what can be
@@ -568,23 +570,26 @@ accomplished with scripting.
    --     status code for match
    --   integer RM_MATCH_AND_CHANGE
    --     status code for match-and-set
+   --   table path
+   --     path context (type / type_id / sub_type / srte_color); trailing arg
    --
    -- route_match returns table with following keys:
    --   integer action, required
    --     resultant status code. Should be one of RM_*
    --   table attributes, optional
    --     updated route attributes
-   --
+   --   table path, optional
+   --     updated path fields (e.g. srte_color)
 
    function route_match(prefix, attributes, peer,
-           RM_FAILURE, RM_NOMATCH, RM_MATCH, RM_MATCH_AND_CHANGE)
+           RM_FAILURE, RM_NOMATCH, RM_MATCH, RM_MATCH_AND_CHANGE, path)
 
            log.info("Evaluating route " .. prefix.network .. " from peer " .. peer.remote_id.string)
 
            function on_match (prefix, attributes)
                    log.info("Match")
                    return {
-                           attributes = RM_MATCH
+                           action = RM_MATCH
                    }
            end
 
@@ -597,7 +602,7 @@ accomplished with scripting.
 
            function on_match_and_change (prefix, attributes)
                    log.info("Match and change")
-                   attributes["metric"] = attributes["metric"] + 7
+                   attributes["metric"] = (attributes["metric"] or 0) + 7
                    return {
                            action = RM_MATCH_AND_CHANGE,
                            attributes = attributes
