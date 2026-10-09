@@ -46,7 +46,7 @@
 #include "bgpd/bgp_ls.h"
 
 DEFINE_HOOK(peer_backward_transition, (struct peer * peer), (peer));
-DEFINE_HOOK(peer_status_changed, (struct peer * peer), (peer));
+DEFINE_HOOK(peer_status_changed, (struct peer_connection * connection), (connection));
 DEFINE_HOOK(bgp_rpki_connection_status, (const char *vrf_name), (vrf_name));
 
 bool bgp_rpki_cache_connected(struct bgp *bgp)
@@ -2103,11 +2103,10 @@ void bgp_fsm_change_status(struct peer_connection *connection,
 	/* Save event that caused status change. */
 	peer->last_major_event = peer->cur_event;
 
+	hook_call(peer_status_changed, connection);
+
 	if (status == Established)
 		connection->dir = ESTABLISHED;
-
-	/* Operations after status change */
-	hook_call(peer_status_changed, peer);
 
 	/* If max-med processing is applicable, do the necessary. */
 	if (status == Established) {

@@ -112,8 +112,10 @@ int bgp_cli_snmp_traps_config_write(struct vty *vty)
 	return write;
 }
 
-int bgpTrapEstablished(struct peer *peer)
+int bgpTrapEstablished(struct peer_connection *connection)
 {
+	struct peer *peer = connection->peer;
+
 	if (CHECK_FLAG(bm->options, BGP_OPT_TRAPS_RFC4273))
 		bgp4TrapEstablished(peer);
 

@@ -15,14 +15,12 @@ struct bgp_enhe_capability {
 };
 
 DECLARE_HOOK(bgp_packet_dump,
-		(struct peer *peer, uint8_t type, bgp_size_t size,
-			struct stream *s),
-		(peer, type, size, s));
+	     (struct peer_connection * connection, uint8_t type, bgp_size_t size, struct stream *s),
+	     (connection, type, size, s));
 
 DECLARE_HOOK(bgp_packet_send,
-		(struct peer *peer, uint8_t type, bgp_size_t size,
-			struct stream *s),
-		(peer, type, size, s));
+	     (struct peer_connection * connection, uint8_t type, bgp_size_t size, struct stream *s),
+	     (connection, type, size, s));
 
 #define BGP_NLRI_LENGTH       1U
 #define BGP_TOTAL_ATTR_LEN    2U

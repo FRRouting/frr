@@ -519,8 +519,9 @@ static void bgp_dump_common(struct stream *obuf, struct peer *peer,
 }
 
 /* Dump BGP status change. */
-int bgp_dump_state(struct peer *peer)
+int bgp_dump_state(struct peer_connection *connection)
 {
+	struct peer *peer = connection->peer;
 	struct stream *obuf;
 
 	/* If dump file pointer is disabled return immediately. */
@@ -535,8 +536,8 @@ int bgp_dump_state(struct peer *peer)
 			bgp_dump_all.type);
 	bgp_dump_common(obuf, peer, 1); /* force this in as4speak*/
 
-	stream_putw(obuf, peer->connection->ostatus);
-	stream_putw(obuf, peer->connection->status);
+	stream_putw(obuf, connection->ostatus);
+	stream_putw(obuf, connection->status);
 
 	/* Set length. */
 	bgp_dump_set_size(obuf, MSG_PROTOCOL_BGP4MP);
@@ -595,9 +596,11 @@ static void bgp_dump_packet_func(struct bgp_dump *bgp_dump, struct peer *peer,
 }
 
 /* Called from bgp_packet.c when BGP packet is received. */
-static int bgp_dump_packet(struct peer *peer, uint8_t type, bgp_size_t size,
-		struct stream *packet)
+static int bgp_dump_packet(struct peer_connection *connection, uint8_t type, bgp_size_t size,
+			   struct stream *packet)
 {
+	struct peer *peer = connection->peer;
+
 	/* bgp_dump_all. */
 	bgp_dump_packet_func(&bgp_dump_all, peer, packet);
 

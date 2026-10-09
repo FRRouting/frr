@@ -253,21 +253,29 @@ struct bmp_targets {
 };
 DECLARE_QOBJ_TYPE(bmp_targets);
 
-/* per struct peer * data.  Lookup by peer->qobj_node.nid, created on demand,
- * deleted in peer_backward hook. */
+#define BMP_PEER_OPEN_MAX 3
+
 PREDECL_HASH(bmp_peerh);
+
+struct bmp_saved_open {
+	uint8_t *data;
+	size_t len;
+};
 
 struct bmp_bgp_peer {
 	struct bmp_peerh_item bpi;
 
-	uint64_t peerid;
-	/* struct peer *peer; */
+	/* VRF of the BGP instance, plus the neighbor address taken from
+	 * su_remote. The port is not stored. Loc-RIB has no su_remote;
+	 * its address is left zero.
+	 */
+	vrf_id_t vrf_id;
+	union sockunion remote;
 
-	uint8_t *open_rx;
-	size_t open_rx_len;
+	struct bmp_saved_open open_rx[BMP_PEER_OPEN_MAX];
+	struct bmp_saved_open open_tx[BMP_PEER_OPEN_MAX];
 
-	uint8_t *open_tx;
-	size_t open_tx_len;
+	enum connection_direction established_dir;
 };
 
 /* per struct bgp * data */
