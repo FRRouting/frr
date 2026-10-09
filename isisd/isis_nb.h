@@ -33,6 +33,7 @@ int isis_instance_admin_group_send_zero_modify(struct nb_cb_modify_args *args);
 int isis_instance_asla_legacy_flag_modify(struct nb_cb_modify_args *args);
 int isis_instance_lsp_mtu_modify(struct nb_cb_modify_args *args);
 int isis_instance_advertise_passive_only_modify(struct nb_cb_modify_args *args);
+int isis_instance_ipv4_over_ipv6_nexthop_modify(struct nb_cb_modify_args *args);
 int isis_instance_lsp_refresh_interval_level_1_modify(struct nb_cb_modify_args *args);
 int isis_instance_lsp_refresh_interval_level_2_modify(struct nb_cb_modify_args *args);
 int isis_instance_lsp_maximum_lifetime_level_1_modify(struct nb_cb_modify_args *args);
@@ -406,6 +407,8 @@ void cli_show_isis_domain_pwd(struct vty *vty, const struct lyd_node *dnode, boo
 void cli_show_isis_lsp_timers(struct vty *vty, const struct lyd_node *dnode, bool show_defaults);
 void cli_show_isis_lsp_mtu(struct vty *vty, const struct lyd_node *dnode, bool show_defaults);
 void cli_show_advertise_passive_only(struct vty *vty, const struct lyd_node *dnode,
+				     bool show_defaults);
+void cli_show_ipv4_over_ipv6_nexthop(struct vty *vty, const struct lyd_node *dnode,
 				     bool show_defaults);
 void cli_show_isis_spf_min_interval(struct vty *vty, const struct lyd_node *dnode,
 				    bool show_defaults);
