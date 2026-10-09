@@ -2744,9 +2744,11 @@ static void zl3vni_del_nh_hash_entry(struct l3vni_walk_ctx *wctx, struct zebra_n
 	zl3vni_nh_del(zl3vni, n);
 }
 
-/* re-add remote rmac if needed */
-static int zebra_vxlan_readd_remote_rmac(struct zebra_l3vni *zl3vni,
-					 struct ethaddr *rmac)
+/*
+ * 1 when the router-MAC was queued for install, 0 when zebra has no
+ * such MAC, -1 when the install could not be queued.
+ */
+static int zebra_vxlan_readd_remote_rmac(struct zebra_l3vni *zl3vni, struct ethaddr *rmac)
 {
 	struct zebra_mac *zrmac = NULL;
 
@@ -2754,12 +2756,101 @@ static int zebra_vxlan_readd_remote_rmac(struct zebra_l3vni *zl3vni,
 	if (!zrmac)
 		return 0;
 
-	if (IS_ZEBRA_DEBUG_VXLAN)
-		zlog_debug("Del remote RMAC %pEA L3VNI %u - readd",
-			   rmac, zl3vni->vni);
+	if (zl3vni_rmac_install(zl3vni, zrmac) != 0)
+		return -1;
 
-	zl3vni_rmac_install(zl3vni, zrmac);
-	return 0;
+	return 1;
+}
+
+/* Reinstall this MAC only when the VNI is an L3VNI on this vxlan port. */
+static void rmac_reinstall_on_vni(struct interface *ifp, struct zebra_if *zif, struct ethaddr *mac,
+				  vlanid_t vid, vni_t vni)
+{
+	struct zebra_l3vni *zl3vni;
+	struct zebra_vxlan_vni *vnip;
+	int rc;
+
+	zl3vni = zl3vni_lookup(vni);
+	if (!zl3vni || zl3vni->vxlan_if != ifp)
+		return;
+
+	/*
+	 * Install reads this entry for the access VLAN. Skip when the
+	 * kernel no longer has it, or this delete is for another VLAN.
+	 */
+	vnip = zebra_vxlan_if_vni_find(zif, vni);
+	if (!vnip)
+		return;
+
+	if (vid && vnip->access_vlan != vid)
+		return;
+
+	rc = zebra_vxlan_readd_remote_rmac(zl3vni, mac);
+
+	/*
+	 * One line per router-MAC. Build it only while vxlan debug is on.
+	 * rc is 1 when queued, 0 when absent, -1 when install failed.
+	 */
+	if (IS_ZEBRA_DEBUG_VXLAN)
+		zlog_debug("%s: if %s mac %pEA vrf %s vni %u vlan %u reason bridge-fdb-del rc %d",
+			   __func__, ifp->name, mac, vrf_id_to_name(zl3vni->vrf_id), zl3vni->vni,
+			   vid, rc);
+}
+
+/*
+ * Bridge-row delete. Reinstall the router-MAC if zebra still has it.
+ * One dplane install restores the bridge entry the flush removed.
+ */
+void zebra_vxlan_check_readd_rmac(struct interface *ifp, struct ethaddr *mac, vlanid_t vid,
+				  vni_t vni)
+{
+	struct zebra_if *zif;
+	struct interface *br_if;
+	struct zebra_if *br_zif;
+	struct zebra_l2_bridge_if *br;
+	struct zebra_l3vni *zl3vni;
+	vni_t l3vni;
+
+	if (!ifp || !ifp->info || !mac)
+		return;
+
+	zif = ifp->info;
+
+	/* One-VNI device, or the message already carried a VNI. */
+	if (vni) {
+		rmac_reinstall_on_vni(ifp, zif, mac, vid, vni);
+		return;
+	}
+
+	/*
+	 * Shared vxlan device. The delete names a VLAN. The bridge VLAN
+	 * hash holds the VNI for that VLAN, so this is one lookup.
+	 */
+	if (!vid || IS_ZEBRA_VXLAN_IF_VNI(zif))
+		return;
+
+	br_if = zif->brslave_info.br_if;
+	if (!br_if || !br_if->info || !IS_ZEBRA_IF_BRIDGE(br_if))
+		return;
+
+	br_zif = br_if->info;
+	br = BRIDGE_FROM_ZEBRA_IF(br_zif);
+	if (!br->vlan_table)
+		return;
+
+	l3vni = zebra_l2_bridge_if_vni_find(br_zif, vid);
+	if (!l3vni)
+		return;
+
+	/*
+	 * The bridge VLAN can name an L2 VNI. Only an L3VNI on this
+	 * vxlan port has a router-MAC to reinstall.
+	 */
+	zl3vni = zl3vni_lookup(l3vni);
+	if (!zl3vni || zl3vni->vxlan_if != ifp)
+		return;
+
+	rmac_reinstall_on_vni(ifp, zif, mac, vid, l3vni);
 }
 
 /* Public functions */
