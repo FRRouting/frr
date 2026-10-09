@@ -1771,6 +1771,7 @@ static void bmp_eor_afi_safi(struct bmp *bmp, afi_t afi, safi_t safi)
 		bmp->syncpos.family = afi2family(afi);
 		bmp->syncrdpos = NULL;
 		bmp->syncpeerid = 0;
+		bmp->syncaddpathid = 0;
 	} else
 		bmp_update_syncro_set(bmp, afi, safi, bmp->sync_bgp, BMP_AFI_LIVE);
 	bmp->sync_bgp = sync_bgp;
@@ -1923,6 +1924,16 @@ static inline bool bmp_monitor_rib_out_post_walk(struct bmp *bmp, afi_t afi, saf
 	return written;
 }
 
+/* order of the paths of a prefix in the table sync: peer, then add-path ID */
+static int bmp_sync_cmp(uint64_t nid1, uint32_t addpath_id1, uint64_t nid2, uint32_t addpath_id2)
+{
+	if (nid1 != nid2)
+		return nid1 < nid2 ? -1 : 1;
+	if (addpath_id1 != addpath_id2)
+		return addpath_id1 < addpath_id2 ? -1 : 1;
+	return 0;
+}
+
 /* does the bmp initial rib synchronization
  */
 static bool bmp_wrsync(struct bmp *bmp, struct pullwr *pullwr)
@@ -1941,6 +1952,7 @@ static bool bmp_wrsync(struct bmp *bmp, struct pullwr *pullwr)
 			bmp->syncafi = afi;
 			bmp->syncsafi = safi;
 			bmp->syncpeerid = 0;
+			bmp->syncaddpathid = 0;
 			memset(&bmp->syncpos, 0, sizeof(bmp->syncpos));
 			bmp->syncpos.family = afi2family(afi);
 			bmp->syncrdpos = NULL;
@@ -2033,6 +2045,7 @@ afibreak:
 							return true;
 			}
 			bmp->syncpeerid = 0;
+			bmp->syncaddpathid = 0;
 			prefix_copy(&bmp->syncpos, bgp_dest_get_prefix(bn));
 		}
 
@@ -2045,11 +2058,13 @@ afibreak:
 				    !CHECK_FLAG(bpiter->flags,
 						BGP_PATH_SELECTED | BGP_PATH_MULTIPATH))
 					continue;
-				if (bpiter->peer->qobj_node.nid
-				    <= bmp->syncpeerid)
+				if (bmp_sync_cmp(bpiter->peer->qobj_node.nid, bpiter->addpath_rx_id,
+						 bmp->syncpeerid, bmp->syncaddpathid) <= 0)
 					continue;
-				if (bpi && bpiter->peer->qobj_node.nid
-						> bpi->peer->qobj_node.nid)
+				if (bpi && bmp_sync_cmp(bpiter->peer->qobj_node.nid,
+							bpiter->addpath_rx_id,
+							bpi->peer->qobj_node.nid,
+							bpi->addpath_rx_id) > 0)
 					continue;
 				bpi = bpiter;
 			}
@@ -2057,11 +2072,13 @@ afibreak:
 		if (CHECK_FLAG(bmp->targets->afimon[afi][safi], BMP_MON_IN_PREPOLICY)) {
 			for (adjiter = bn->adj_in; adjiter;
 			     adjiter = adjiter->next) {
-				if (adjiter->peer->qobj_node.nid
-				    <= bmp->syncpeerid)
+				if (bmp_sync_cmp(adjiter->peer->qobj_node.nid, adjiter->addpath_rx_id,
+						 bmp->syncpeerid, bmp->syncaddpathid) <= 0)
 					continue;
-				if (adjin && adjiter->peer->qobj_node.nid
-						> adjin->peer->qobj_node.nid)
+				if (adjin && bmp_sync_cmp(adjiter->peer->qobj_node.nid,
+							  adjiter->addpath_rx_id,
+							  adjin->peer->qobj_node.nid,
+							  adjin->addpath_rx_id) > 0)
 					continue;
 				adjin = adjiter;
 			}
@@ -2072,18 +2089,21 @@ afibreak:
 		bn = NULL;
 	} while (1);
 
-	if (adjin && bpi
-	    && adjin->peer->qobj_node.nid < bpi->peer->qobj_node.nid) {
-		bpi = NULL;
-		bmp->syncpeerid = adjin->peer->qobj_node.nid;
-	} else if (adjin && bpi
-		   && adjin->peer->qobj_node.nid > bpi->peer->qobj_node.nid) {
-		adjin = NULL;
+	if (adjin && bpi) {
+		int cmp = bmp_sync_cmp(adjin->peer->qobj_node.nid, adjin->addpath_rx_id,
+				       bpi->peer->qobj_node.nid, bpi->addpath_rx_id);
+
+		if (cmp < 0)
+			bpi = NULL;
+		else if (cmp > 0)
+			adjin = NULL;
+	}
+	if (bpi) {
 		bmp->syncpeerid = bpi->peer->qobj_node.nid;
-	} else if (bpi) {
-		bmp->syncpeerid = bpi->peer->qobj_node.nid;
+		bmp->syncaddpathid = bpi->addpath_rx_id;
 	} else if (adjin) {
 		bmp->syncpeerid = adjin->peer->qobj_node.nid;
+		bmp->syncaddpathid = adjin->addpath_rx_id;
 	}
 
 	const struct prefix *bn_p = bgp_dest_get_prefix(bn);

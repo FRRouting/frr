@@ -170,6 +170,7 @@ struct bmp {
 	struct prefix syncpos;
 	struct bgp_dest *syncrdpos;
 	uint64_t syncpeerid;
+	uint32_t syncaddpathid;
 	afi_t syncafi;
 	safi_t syncsafi;
 	struct bgp *sync_bgp;
