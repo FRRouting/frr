@@ -863,6 +863,10 @@ The BFD data plane will be responsible for:
 
 * Keeping the number of packets/bytes received/transmitted per session
 
+The BFD daemon does not listen for BFD packets in this mode, the echo port
+included. A BFD daemon peer addresses its IPv6 echo packets to this system
+rather than to itself, so returning them is also the data plane's job.
+
 
 The FRR BFD daemon will be responsible for:
 
