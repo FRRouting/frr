@@ -2227,9 +2227,15 @@ class Router(Node):
             elif daemon == "snmpd":
                 binary = "/usr/sbin/snmpd"
                 cmdenv = ""
-                cmdopt = "{} -C -c /etc/frr/snmpd.conf -p ".format(
-                    daemon_opts
-                ) + "{}.pid -x /etc/frr/agentx".format(runbase)
+                # logTimestamp only applies to snmpd file logging (-Lf). Keep the
+                # usual shell redirects so snmpd.out and snmpd.err are still created.
+                cmdopt = (
+                    "{} -C -c /etc/frr/snmpd.conf".format(daemon_opts)
+                    + " --logTimestamp=1 -Lf {}/{}/{}.out".format(
+                        self.logdir, self.name, dfname
+                    )
+                    + " -p {}.pid -x /etc/frr/agentx".format(runbase)
+                )
                 # check_daemon_files.append(runbase + ".pid")
             elif daemon == "snmptrapd":
                 binary = "/usr/sbin/snmptrapd"
