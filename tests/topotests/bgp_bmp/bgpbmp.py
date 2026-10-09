@@ -265,14 +265,12 @@ def bmp_check_for_peer_message(
     logger.info(
         "bmp_check_for_peer_message: SEQ is now: {}".format(seq_context.get_seq())
     )
+    all_sorted = sorted(
+        get_bmp_messages(bmp_collector, bmp_log_file), key=lambda d: d["seq"]
+    )
+    max_seq_in_log = all_sorted[-1]["seq"] if all_sorted else -1
     # we care only about the new messages
-    messages = [
-        m
-        for m in sorted(
-            get_bmp_messages(bmp_collector, bmp_log_file), key=lambda d: d["seq"]
-        )
-        if m["seq"] > seq_context.get_seq()
-    ]
+    messages = [m for m in all_sorted if m["seq"] > seq_context.get_seq()]
 
     # get the list of pairs (prefix, policy, seq) for the given message type
     peers = []
@@ -327,6 +325,19 @@ def bmp_check_for_peer_message(
         else:
             msg = "The peer {} is not present in the {} log messages."
             logger.debug(msg.format(ep, bmp_log_type))
+            logger.warning(
+                "bmp_check_for_peer_message: missing expected peer=%s "
+                "bmp_log_type=%s seq_cursor=%s new_messages=%s "
+                "max_seq_in_bmp_log=%s collector_log=%s "
+                "(if seq_cursor>=max_seq or new_messages=0 while BGP is up, "
+                "check `show bmp` / bgpd.log BMP TCP reconnect)",
+                ep,
+                bmp_log_type,
+                seq_context.get_seq(),
+                len(messages),
+                max_seq_in_log,
+                bmp_log_file,
+            )
             return False
 
     seq_context.set_seq(last_seq)

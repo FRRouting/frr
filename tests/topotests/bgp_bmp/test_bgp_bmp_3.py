@@ -70,6 +70,36 @@ bmp_seq_context = BMPSequenceContext()
 SEQ_BACKUP = 0
 
 
+def _wait_r1import_bmp1_session_up():
+    """
+    Wait until bgpd reports the BMP session to bmp1 as Up.
+
+    BGP convergence does not imply BMP TCP is connected; under load bgpd may
+    disconnect BMP (e.g. peer collision bursts) and reconnect later.
+    """
+    tgen = get_topogen()
+
+    def _bmp_check_bmp_state(router, bmp_collector, state):
+        output = router.cmd(
+            f'vtysh -c "show bmp" 2>/dev/null | grep {bmp_collector} | grep {state}'
+        )
+        if output == "":
+            return "BMP session not Up"
+        return True
+
+    test_func = partial(
+        _bmp_check_bmp_state,
+        tgen.gears["r1import"],
+        "192.0.2.10:1789",
+        "Up",
+    )
+    success, res = topotest.run_and_expect(test_func, True, count=60, wait=1)
+    assert success, (
+        "BMP session to 192.0.2.10:1789 did not reach Up (bmp.log will be stale); "
+        f"last check returned {res!r}"
+    )
+
+
 def build_topo(tgen):
     tgen.add_router("r1import")
     tgen.add_router("r2")
@@ -133,6 +163,7 @@ def test_bgp_convergence():
 
     result = verify_bgp_convergence_from_running_config(tgen, dut="r1import")
     assert result is True, "BGP is not converging"
+    _wait_r1import_bmp1_session_up()
 
 
 def _test_prefixes_syncro(policy, vrf=None, step=1, bmp_name="bmp1import"):
