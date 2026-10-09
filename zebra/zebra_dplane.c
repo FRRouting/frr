@@ -37,6 +37,7 @@ DEFINE_MTYPE_STATIC(ZEBRA, DP_INTF, "Zebra DPlane Intf");
 DEFINE_MTYPE_STATIC(ZEBRA, DP_PROV, "Zebra DPlane Provider");
 DEFINE_MTYPE_STATIC(ZEBRA, DP_NETFILTER, "Zebra Netfilter Internal Object");
 DEFINE_MTYPE_STATIC(ZEBRA, DP_NS, "DPlane NSes");
+DEFINE_MTYPE_STATIC(ZEBRA, DP_KERNEL_NOTIFY, "Zebra DPlane kernel notification");
 
 DEFINE_MTYPE(ZEBRA, VLAN_CHANGE_ARR, "Vlan Change Array");
 
@@ -449,6 +450,12 @@ struct dplane_tc_qdisc_notify_info {
 	enum dplane_tc_qdisc_notify_e notify_type;
 };
 
+struct dplane_kernel_notify_info {
+	uint8_t *msgs;
+	size_t len;
+	size_t size;
+};
+
 /*
  * VLAN info for the dataplane
  */
@@ -527,6 +534,7 @@ struct zebra_dplane_ctx {
 		struct dplane_macfdb_read_info macfdb_read;
 		struct dplane_neigh_read_info neigh_read;
 		struct dplane_tc_qdisc_notify_info tc_qdisc_notify;
+		struct dplane_kernel_notify_info kernel_notify;
 	} u;
 
 	/* Namespace info, used especially for netlink kernel communication */
@@ -1007,6 +1015,9 @@ static void dplane_ctx_free_internal(struct zebra_dplane_ctx *ctx)
 	case DPLANE_OP_TC_QDISC_READ:
 	case DPLANE_OP_TC_QDISC_NOTIFY:
 		break;
+	case DPLANE_OP_KERNEL_NOTIFY:
+		XFREE(MTYPE_DP_KERNEL_NOTIFY, ctx->u.kernel_notify.msgs);
+		break;
 	}
 }
 
@@ -1324,6 +1335,8 @@ const char *dplane_op2str(enum dplane_op_e op)
 		return "TC_QDISC_READ";
 	case DPLANE_OP_TC_QDISC_NOTIFY:
 		return "TC_QDISC_NOTIFY";
+	case DPLANE_OP_KERNEL_NOTIFY:
+		return "KERNEL_NOTIFY";
 	}
 
 	return "UNKNOWN";
@@ -3972,6 +3985,20 @@ enum dplane_tc_qdisc_notify_e dplane_ctx_tc_qdisc_notify_get_type(const struct z
 	DPLANE_CTX_VALID(ctx);
 
 	return ctx->u.tc_qdisc_notify.notify_type;
+}
+
+void *dplane_ctx_kernel_notify_get_msgs(const struct zebra_dplane_ctx *ctx)
+{
+	DPLANE_CTX_VALID(ctx);
+
+	return ctx->u.kernel_notify.msgs;
+}
+
+size_t dplane_ctx_kernel_notify_get_len(const struct zebra_dplane_ctx *ctx)
+{
+	DPLANE_CTX_VALID(ctx);
+
+	return ctx->u.kernel_notify.len;
 }
 
 /*
@@ -6869,6 +6896,58 @@ enum zebra_dplane_result dplane_tc_qdisc_notify_enqueue(ns_id_t ns_id,
 	return ZEBRA_DPLANE_REQUEST_QUEUED;
 }
 
+struct zebra_dplane_ctx *dplane_kernel_notify_new(ns_id_t ns_id)
+{
+	struct zebra_dplane_ctx *ctx;
+
+	ctx = dplane_ctx_alloc();
+	ctx->zd_op = DPLANE_OP_KERNEL_NOTIFY;
+	ctx->zd_status = ZEBRA_DPLANE_REQUEST_SUCCESS;
+	dplane_ctx_set_ns_id(ctx, ns_id);
+
+	return ctx;
+}
+
+void dplane_kernel_notify_add(struct zebra_dplane_ctx *ctx, const void *msg, size_t len,
+			      size_t space)
+{
+	struct dplane_kernel_notify_info *kn = &ctx->u.kernel_notify;
+
+	if (kn->len + space > kn->size) {
+		kn->size = MAX(kn->size * 2, kn->len + space);
+		kn->msgs = XREALLOC(MTYPE_DP_KERNEL_NOTIFY, kn->msgs, kn->size);
+	}
+
+	memcpy(kn->msgs + kn->len, msg, len);
+	memset(kn->msgs + kn->len + len, 0, space - len);
+	kn->len += space;
+}
+
+bool dplane_kernel_notify_merge_tail(struct dplane_ctx_list_head *queue,
+				     struct dplane_ctx_list_head *ctxlist)
+{
+	struct zebra_dplane_ctx *ctx, *tail;
+
+	if (dplane_ctx_list_count(ctxlist) != 1)
+		return false;
+
+	ctx = dplane_ctx_list_first(ctxlist);
+	if (!ctx || ctx->zd_op != DPLANE_OP_KERNEL_NOTIFY)
+		return false;
+
+	tail = dplane_ctx_list_last(queue);
+	if (!tail || tail->zd_op != DPLANE_OP_KERNEL_NOTIFY ||
+	    dplane_ctx_get_ns_id(tail) != dplane_ctx_get_ns_id(ctx))
+		return false;
+
+	dplane_kernel_notify_add(tail, ctx->u.kernel_notify.msgs, ctx->u.kernel_notify.len,
+				 ctx->u.kernel_notify.len);
+	dplane_ctx_list_del(ctxlist, ctx);
+	dplane_ctx_fini(&ctx);
+
+	return true;
+}
+
 /*
  * Handler for 'show dplane'
  */
@@ -7658,6 +7737,10 @@ static void kernel_dplane_log_detail(struct zebra_dplane_ctx *ctx)
 			   dplane_ctx_tc_qdisc_notify_get_major_handle(ctx),
 			   dplane_ctx_get_startup(ctx));
 		break;
+	case DPLANE_OP_KERNEL_NOTIFY:
+		zlog_debug("Dplane %s, ns %u, %zu bytes", dplane_op2str(dplane_ctx_get_op(ctx)),
+			   dplane_ctx_get_ns_id(ctx), dplane_ctx_kernel_notify_get_len(ctx));
+		break;
 	}
 }
 
@@ -7855,6 +7938,7 @@ static void kernel_dplane_handle_result(struct zebra_dplane_ctx *ctx)
 	case DPLANE_OP_NEIGH_READ:
 	case DPLANE_OP_TC_QDISC_READ:
 	case DPLANE_OP_TC_QDISC_NOTIFY:
+	case DPLANE_OP_KERNEL_NOTIFY:
 		break;
 	}
 }

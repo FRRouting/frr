@@ -458,6 +458,22 @@ static int netlink_information_fetch(struct nlmsghdr *h, ns_id_t ns_id, int star
 	return 0;
 }
 
+static void kernel_notify_flush(struct zebra_dplane_ctx **batch)
+{
+	if (*batch) {
+		dplane_provider_enqueue_to_zebra(*batch);
+		*batch = NULL;
+	}
+}
+
+static void kernel_notify_add(struct zebra_dplane_ctx **batch, ns_id_t ns_id, struct nlmsghdr *h)
+{
+	if (!*batch)
+		*batch = dplane_kernel_notify_new(ns_id);
+
+	dplane_kernel_notify_add(*batch, h, h->nlmsg_len, NLMSG_ALIGN(h->nlmsg_len));
+}
+
 /*
  * Dispatch an incoming netlink message; used by the dataplane pthread's
  * netlink event reader code.
@@ -465,27 +481,43 @@ static int netlink_information_fetch(struct nlmsghdr *h, ns_id_t ns_id, int star
 static int dplane_netlink_information_fetch(struct nlmsghdr *h, ns_id_t ns_id, int startup,
 					    void *arg)
 {
+	struct zebra_dplane_ctx **batch = arg;
+
+	switch (h->nlmsg_type) {
+	case RTM_NEWROUTE:
+	case RTM_DELROUTE:
+	case RTM_NEWNEXTHOP:
+	case RTM_DELNEXTHOP:
+		kernel_notify_add(batch, ns_id, h);
+		return 0;
+	default:
+		break;
+	}
+
+	/* Routes read so far must reach the main pthread before this event */
+	kernel_notify_flush(batch);
+
 	/*
 	 * Dispatch the incoming messages that the dplane pthread handles
 	 */
 	switch (h->nlmsg_type) {
 	case RTM_NEWADDR:
 	case RTM_DELADDR:
-		return netlink_interface_addr_dplane(h, ns_id, startup, arg);
+		return netlink_interface_addr_dplane(h, ns_id, startup, NULL);
 
 	case RTM_NEWNETCONF:
 	case RTM_DELNETCONF:
-		return netlink_netconf_change(h, ns_id, startup, arg);
+		return netlink_netconf_change(h, ns_id, startup, NULL);
 
 	/* TODO -- other messages for the dplane socket and pthread */
 
 	case RTM_NEWLINK:
 	case RTM_DELLINK:
-		return netlink_link_change(h, ns_id, startup, arg);
+		return netlink_link_change(h, ns_id, startup, NULL);
 
 	case RTM_NEWVLAN:
 	case RTM_DELVLAN:
-		return netlink_vlan_change(h, ns_id, startup, arg);
+		return netlink_vlan_change(h, ns_id, startup, NULL);
 
 	case RTM_NEWNEIGH:
 	case RTM_DELNEIGH:
@@ -494,13 +526,13 @@ static int dplane_netlink_information_fetch(struct nlmsghdr *h, ns_id_t ns_id, i
 
 	case RTM_NEWQDISC:
 	case RTM_DELQDISC:
-		return netlink_qdisc_change(h, ns_id, startup, arg);
+		return netlink_qdisc_change(h, ns_id, startup, NULL);
 	case RTM_NEWTCLASS:
 	case RTM_DELTCLASS:
-		return netlink_tclass_change(h, ns_id, startup, arg);
+		return netlink_tclass_change(h, ns_id, startup, NULL);
 	case RTM_NEWTFILTER:
 	case RTM_DELTFILTER:
-		return netlink_tfilter_change(h, ns_id, startup, arg);
+		return netlink_tfilter_change(h, ns_id, startup, NULL);
 
 	default:
 		break;
@@ -524,13 +556,29 @@ static void kernel_read(struct event *event)
 }
 
 /*
+ * Called in the zebra main pthread for route and nexthop notifications that
+ * the dplane pthread read in order with the interface and address events.
+ */
+void kernel_notify_process(struct zebra_dplane_ctx *ctx)
+{
+	struct nlmsghdr *h = dplane_ctx_kernel_notify_get_msgs(ctx);
+	int len = (int)dplane_ctx_kernel_notify_get_len(ctx);
+	ns_id_t ns_id = dplane_ctx_get_ns_id(ctx);
+
+	for (; NLMSG_OK(h, (unsigned int)len); h = NLMSG_NEXT(h, len))
+		netlink_information_fetch(h, ns_id, 0, NULL);
+}
+
+/*
  * Called by the dplane pthread to read incoming OS messages and dispatch them.
  */
 int kernel_dplane_read(struct zebra_dplane_info *info)
 {
 	struct nlsock *nl = kernel_netlink_nlsock_lookup(info->sock);
+	struct zebra_dplane_ctx *batch = NULL;
 
-	netlink_parse_info(dplane_netlink_information_fetch, nl, info, 5, false, NULL, NULL);
+	netlink_parse_info(dplane_netlink_information_fetch, nl, info, 5, false, &batch, NULL);
+	kernel_notify_flush(&batch);
 
 	return 0;
 }
@@ -1582,6 +1630,7 @@ static enum netlink_msg_status nl_put_msg(struct nl_batch *bth,
 	case DPLANE_OP_NEIGH_READ:
 	case DPLANE_OP_TC_QDISC_READ:
 	case DPLANE_OP_TC_QDISC_NOTIFY:
+	case DPLANE_OP_KERNEL_NOTIFY:
 		return FRR_NETLINK_ERROR;
 
 	case DPLANE_OP_GRE_SET:
@@ -1791,10 +1840,11 @@ static void netlink_enable_ext_ack(int sock, const char *desc)
  * Initialize all netlink sockets and subsystem for a given network namespace.
  *
  * Creates five netlink sockets:
- *   netlink            - Inbound route/rule/nexthop events (main pthread)
+ *   netlink            - Inbound rule and multicast route events (main pthread)
  *   netlink_cmd        - Outbound synchronous commands (main pthread)
  *   netlink_dplane_out - Outbound dataplane programming (dplane pthread)
- *   netlink_dplane_in  - Inbound link/addr/neigh/netconf/tc events (dplane pthread)
+ *   netlink_dplane_in  - Inbound link/addr/neigh/netconf/tc/route/nexthop events
+ *                        (dplane pthread)
  *   ge_netlink_cmd     - Generic netlink commands (optional, non-fatal)
  *
  * Also configures: multicast group subscriptions, extended ACK, non-blocking
@@ -1814,13 +1864,17 @@ void kernel_init(struct zebra_ns *zns)
 	 * ----------------------------------------------------------------
 	 */
 
-	/* Main listener: route, rule, and nexthop change notifications */
-	groups = RTMGRP_IPV4_ROUTE | RTMGRP_IPV6_ROUTE | RTMGRP_IPV4_MROUTE |
-		 FRR_NLGRP_BIT(RTNLGRP_IPV4_RULE) | FRR_NLGRP_BIT(RTNLGRP_IPV6_RULE) |
-		 FRR_NLGRP_BIT(RTNLGRP_NEXTHOP);
+	/* Main listener: rule and multicast route change notifications */
+	groups = RTMGRP_IPV4_MROUTE | FRR_NLGRP_BIT(RTNLGRP_IPV4_RULE) |
+		 FRR_NLGRP_BIT(RTNLGRP_IPV6_RULE);
 
-	/* Dataplane inbound: link, neighbor, address, netconf, TC events */
+	/*
+	 * Dataplane inbound: link, neighbor, address, netconf, TC events, and
+	 * route and nexthop events on the same socket, so zebra never handles
+	 * a route before the interface changes the kernel made ahead of it.
+	 */
 	dplane_groups = RTMGRP_LINK | RTMGRP_NEIGH | RTMGRP_IPV4_IFADDR | RTMGRP_IPV6_IFADDR |
+			RTMGRP_IPV4_ROUTE | RTMGRP_IPV6_ROUTE | FRR_NLGRP_BIT(RTNLGRP_NEXTHOP) |
 			FRR_NLGRP_BIT(RTNLGRP_IPV4_NETCONF) | FRR_NLGRP_BIT(RTNLGRP_IPV6_NETCONF) |
 			FRR_NLGRP_BIT(RTNLGRP_MPLS_NETCONF) | FRR_NLGRP_BIT(RTNLGRP_TC);
 
