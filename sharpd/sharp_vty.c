@@ -1249,6 +1249,7 @@ DEFUN (show_sharp_ted,
        JSON_STR)
 {
 	int idx = 0;
+	int ret = CMD_SUCCESS;
 	struct in_addr ip_addr;
 	struct prefix pref;
 	struct ls_vertex *vertex;
@@ -1261,7 +1262,10 @@ DEFUN (show_sharp_ted,
 	json_object *json = NULL;
 
 	if (sg.ted == NULL) {
-		vty_out(vty, "MPLS-TE import is not enabled\n");
+		if (!uj)
+			vty_out(vty, "MPLS-TE import is not enabled\n");
+		else
+			vty_json_empty(vty, NULL);
 		return CMD_WARNING;
 	}
 
@@ -1275,18 +1279,20 @@ DEFUN (show_sharp_ted,
 		/* Show Vertex */
 		if (argv_find(argv, argc, "A.B.C.D", &idx)) {
 			if (!inet_aton(argv[idx + 1]->arg, &ip_addr)) {
-				vty_out(vty,
-					"Specified Router ID %s is invalid\n",
-					argv[idx + 1]->arg);
-				return CMD_WARNING_CONFIG_FAILED;
+				if (!uj)
+					vty_out(vty, "Specified Router ID %s is invalid\n",
+						argv[idx + 1]->arg);
+				ret = CMD_WARNING_CONFIG_FAILED;
+				goto out;
 			}
 			/* Get the Vertex from the Link State Database */
 			key = ((uint64_t)ntohl(ip_addr.s_addr)) & 0xffffffff;
 			vertex = ls_find_vertex_by_key(sg.ted, key);
 			if (!vertex) {
-				vty_out(vty, "No vertex found for ID %pI4\n",
-					&ip_addr);
-				return CMD_WARNING;
+				if (!uj)
+					vty_out(vty, "No vertex found for ID %pI4\n", &ip_addr);
+				ret = CMD_WARNING;
+				goto out;
 			}
 		} else
 			vertex = NULL;
@@ -1300,19 +1306,21 @@ DEFUN (show_sharp_ted,
 		/* Show Edge */
 		if (argv_find(argv, argc, "A.B.C.D", &idx)) {
 			if (!inet_aton(argv[idx]->arg, &ip_addr)) {
-				vty_out(vty,
-					"Specified Edge ID %s is invalid\n",
-					argv[idx]->arg);
-				return CMD_WARNING_CONFIG_FAILED;
+				if (!uj)
+					vty_out(vty, "Specified Edge ID %s is invalid\n",
+						argv[idx]->arg);
+				ret = CMD_WARNING_CONFIG_FAILED;
+				goto out;
 			}
 			/* Get the Edge from the Link State Database */
 			ekey.family = AF_INET;
 			IPV4_ADDR_COPY(&ekey.k.addr, &ip_addr);
 			edge = ls_find_edge_by_key(sg.ted, ekey);
 			if (!edge) {
-				vty_out(vty, "No edge found for ID %pI4\n",
-					&ip_addr);
-				return CMD_WARNING;
+				if (!uj)
+					vty_out(vty, "No edge found for ID %pI4\n", &ip_addr);
+				ret = CMD_WARNING;
+				goto out;
 			}
 		} else
 			edge = NULL;
@@ -1326,16 +1334,18 @@ DEFUN (show_sharp_ted,
 		/* Show Subnet */
 		if (argv_find(argv, argc, "A.B.C.D/M", &idx)) {
 			if (!str2prefix(argv[idx]->arg, &pref)) {
-				vty_out(vty, "Invalid prefix format %s\n",
-					argv[idx]->arg);
-				return CMD_WARNING_CONFIG_FAILED;
+				if (!uj)
+					vty_out(vty, "Invalid prefix format %s\n", argv[idx]->arg);
+				ret = CMD_WARNING_CONFIG_FAILED;
+				goto out;
 			}
 			/* Get the Subnet from the Link State Database */
 			subnet = ls_find_subnet(sg.ted, &pref);
 			if (!subnet) {
-				vty_out(vty, "No subnet found for ID %pFX\n",
-					&pref);
-				return CMD_WARNING;
+				if (!uj)
+					vty_out(vty, "No subnet found for ID %pFX\n", &pref);
+				ret = CMD_WARNING;
+				goto out;
 			}
 		} else
 			subnet = NULL;
@@ -1350,10 +1360,15 @@ DEFUN (show_sharp_ted,
 		ls_show_ted(sg.ted, vty, json, verbose);
 	}
 
-	if (uj)
-		vty_json(vty, json);
+out:
+	if (uj) {
+		if (ret == CMD_SUCCESS)
+			vty_json(vty, json);
+		else
+			json_object_free(json);
+	}
 
-	return CMD_SUCCESS;
+	return ret;
 }
 
 DEFPY (sharp_srv6_manager_release_locator_chunk,
