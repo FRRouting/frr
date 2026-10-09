@@ -361,7 +361,8 @@ void srte_policy_del(struct srte_policy *policy)
 
 	path_zebra_delete_sr_policy(policy);
 
-	path_zebra_release_label(policy->binding_sid);
+	if (policy->binding_sid != MPLS_LABEL_NONE)
+		path_zebra_release_label(policy->binding_sid);
 
 	while (!RB_EMPTY(srte_candidate_head, &policy->candidate_paths)) {
 		candidate =
