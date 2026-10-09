@@ -11986,8 +11986,8 @@ DEFUN (no_bgp_segment_routing_srv6,
 		bgp_segment_routing_srv6_hencaps_refresh(bgp);
 	}
 
-	if (bgp->srv6_only)
-		bgp_srv6_only_change(bgp, false);
+	if (!bgp->srv6_only)
+		bgp_srv6_only_change(bgp, true);
 
 	return CMD_SUCCESS;
 }
