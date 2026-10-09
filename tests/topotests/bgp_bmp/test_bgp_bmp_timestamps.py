@@ -31,7 +31,9 @@ Checks:
 * a pre-policy route-monitoring message for a re-announcement of an
   already-known prefix (same prefix, changed attribute) must carry the
   reception time of the re-announcement, not the time the prefix was
-  first received.
+  first received;
+* a recomputation of the best paths which selects the same path again
+  must not send a loc-rib route-monitoring message for that prefix.
 """
 
 import os
@@ -47,6 +49,7 @@ sys.path.append(os.path.join("../lib/"))
 # pylint: disable=C0413
 # Import topogen and topotest helpers
 from lib import topotest
+from lib.common_config import retry
 from .bgpbmp import BMPSequenceContext, bmp_update_seq, get_bmp_messages
 from lib.topogen import Topogen, get_topogen
 from lib.topolog import logger
@@ -54,6 +57,8 @@ from lib.topolog import logger
 pytestmark = [pytest.mark.bgpd]
 
 WATCHED_PREFIX = "203.0.113.1/32"
+SENTINEL_PREFIX_BEFORE = "203.0.113.2/32"
+SENTINEL_PREFIX_AFTER = "203.0.113.3/32"
 NEVER_ESTABLISHED_PEER = "192.168.0.66"
 
 bmp_seq_context = BMPSequenceContext()
@@ -391,7 +396,7 @@ def test_prepolicy_reannouncement_timestamp():
     def _first_update_seen():
         if [
             m
-            for m in _route_messages("pre-policy", "update", WATCHED_PREFIX)
+            for m in _route_messages("rib-in-pre-policy", "update", WATCHED_PREFIX)
             if m.get("communities") == "65502:11"
         ]:
             return True
@@ -406,7 +411,7 @@ def test_prepolicy_reannouncement_timestamp():
 
     first = [
         m
-        for m in _route_messages("pre-policy", "update", WATCHED_PREFIX)
+        for m in _route_messages("rib-in-pre-policy", "update", WATCHED_PREFIX)
         if m.get("communities") == "65502:11"
     ][0]
     first_timestamp = _parse_bmp_timestamp(first["timestamp"])
@@ -425,7 +430,7 @@ def test_prepolicy_reannouncement_timestamp():
     def _second_update_seen():
         if [
             m
-            for m in _route_messages("pre-policy", "update", WATCHED_PREFIX)
+            for m in _route_messages("rib-in-pre-policy", "update", WATCHED_PREFIX)
             if m["seq"] > first["seq"] and m.get("communities") == "65502:77"
         ]:
             return True
@@ -441,7 +446,7 @@ def test_prepolicy_reannouncement_timestamp():
     # existing Adj-RIB-In entry in place.  A pre-policy withdraw in between
     # would mean the entry was deleted and re-created (fresh timestamp even
     # under buggy code), i.e. the test would not exercise the right path.
-    withdraws = _route_messages("pre-policy", "withdraw", WATCHED_PREFIX)
+    withdraws = _route_messages("rib-in-pre-policy", "withdraw", WATCHED_PREFIX)
     assert not withdraws, (
         "test scenario broken: pre-policy withdraw(s) logged for {} "
         "between the two announcements, so the Adj-RIB-In entry was "
@@ -450,7 +455,7 @@ def test_prepolicy_reannouncement_timestamp():
 
     second = [
         m
-        for m in _route_messages("pre-policy", "update", WATCHED_PREFIX)
+        for m in _route_messages("rib-in-pre-policy", "update", WATCHED_PREFIX)
         if m["seq"] > first["seq"] and m.get("communities") == "65502:77"
     ][0]
     second_timestamp = _parse_bmp_timestamp(second["timestamp"])
@@ -469,6 +474,75 @@ def test_prepolicy_reannouncement_timestamp():
             second_timestamp,
             delta,
         )
+    )
+
+
+def test_locrib_best_path_unchanged():
+    """
+    Recompute the best paths of r1ts without changing them, by setting then
+    unsetting 'bgp always-compare-med': the selected path of the watched
+    prefix is the same, so no loc-rib update must be sent for it.
+    A sentinel prefix is announced from r2ts before and after the
+    recomputation: the loc-rib messages logged between both sentinel
+    updates are the ones queued by the recomputation.
+    """
+    tgen = get_topogen()
+
+    @retry(retry_timeout=30)
+    def check_locrib_update(prefix, min_seq=0):
+        messages = get_bmp_messages(tgen.gears["bmp1ts"], _bmp_log_file())
+        for m in messages:
+            if (
+                m.get("seq", 0) > min_seq
+                and m.get("policy") == "loc-rib"
+                and m.get("bmp_log_type") == "update"
+                and m.get("ip_prefix") == prefix
+            ):
+                return m
+        return "no loc-rib update for {} after seq {}".format(prefix, min_seq)
+
+    def announce_sentinel(prefix):
+        tgen.gears["r2ts"].vtysh_cmd(
+            """
+            configure terminal
+             router bgp 65502
+              address-family ipv4 unicast
+               network {}
+            """.format(
+                prefix
+            )
+        )
+        sentinel = check_locrib_update(prefix)
+        assert not isinstance(sentinel, str), sentinel
+        return sentinel["seq"]
+
+    watched = check_locrib_update(WATCHED_PREFIX)
+    assert not isinstance(watched, str), watched
+
+    seq_before = announce_sentinel(SENTINEL_PREFIX_BEFORE)
+
+    tgen.gears["r1ts"].vtysh_cmd(
+        """
+        configure terminal
+         router bgp 65501
+          bgp always-compare-med
+          no bgp always-compare-med
+        """
+    )
+
+    seq_after = announce_sentinel(SENTINEL_PREFIX_AFTER)
+
+    messages = get_bmp_messages(tgen.gears["bmp1ts"], _bmp_log_file())
+    spurious = [
+        m
+        for m in messages
+        if seq_before < m.get("seq", 0) < seq_after
+        and m.get("policy") == "loc-rib"
+        and m.get("ip_prefix") == WATCHED_PREFIX
+    ]
+    assert not spurious, (
+        "loc-rib message(s) sent for {} while its best path is unchanged: "
+        "{}".format(WATCHED_PREFIX, spurious)
     )
 
 
