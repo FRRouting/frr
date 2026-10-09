@@ -6088,9 +6088,50 @@ void zebra_vxlan_advertise_all_vni(ZAPI_HANDLER_ARGS)
 			   is_evpn_enabled() ? "enabled" : "disabled",
 			   flood_ctrl);
 
-	if (zvrf->advertise_all_vni == advertise)
-		return;
+	if (zvrf->advertise_all_vni == advertise) {
+		/*
+		 * Zebra's own tables stayed current over netlink, so only
+		 * the client-facing replay is needed. Gateway MAC-IPs and
+		 * subnet prefixes get walks of their own; the MAC replay
+		 * and the retained advertise-subnet state skip them.
+		 */
+		if (advertise && zvrf->vxlan_flood_ctrl != flood_ctrl) {
+			/*
+			 * BUM handling rides along in this message, so a
+			 * reconnecting client states its global mode here.
+			 * Apply it as zebra_vxlan_flood_control() would.
+			 */
+			vni_t vni = VNI_MAX;
+			void *args[2];
 
+			zvrf->vxlan_flood_ctrl = flood_ctrl;
+
+			args[0] = &vni;
+			args[1] = zvrf;
+			hash_iterate(zvrf->evpn_table,
+				     (void (*)(struct hash_bucket *,
+					       void *))zebra_evpn_handle_flooding_remote_vteps,
+				     args);
+		}
+
+		if (advertise && zvrf->evpn_resync_needed) {
+			zvrf->evpn_resync_needed = false;
+
+			/*
+			 * ESs go after the VNIs: bgpd rejects a local
+			 * ES-EVI add for a VNI it does not know yet.
+			 */
+			zevpn_build_hash_table();
+			zebra_evpn_es_send_all_to_client(true);
+			hash_iterate(zvrf->evpn_table,
+				     zebra_evpn_gw_macip_add_for_evpn_hash, NULL);
+			hash_iterate(zvrf->evpn_table,
+				     zebra_evpn_advertise_subnet_for_evpn_hash, NULL);
+		}
+		return;
+	}
+
+	zvrf->evpn_resync_needed = false;
 	zvrf->advertise_all_vni = advertise;
 	if (EVPN_ENABLED(zvrf)) {
 		zrouter.evpn_vrf = zvrf;
@@ -6645,6 +6686,16 @@ static int zebra_evpn_pim_cfg_clean_up(struct zserv *client)
 static int zebra_evpn_cfg_clean_up(struct zserv *client)
 {
 	if (client->proto == ZEBRA_ROUTE_BGP) {
+		struct zebra_vrf *zvrf;
+
+		/*
+		 * Extra BGP zserv sessions (session_id != 0) own no EVPN
+		 * config; bgpd opens one for synchronous label-manager
+		 * exchanges. Their disconnect must not clear it.
+		 */
+		if (client->session_id)
+			return 0;
+
 		if (DYNAMIC_CLIENT_GR_DISABLED(client)) {
 			if (IS_ZEBRA_DEBUG_EVENT)
 				zlog_debug(
@@ -6657,6 +6708,14 @@ static int zebra_evpn_cfg_clean_up(struct zserv *client)
 		 */
 		if (IS_ZEBRA_DEBUG_EVENT)
 			zlog_debug("EVPN-GR: client bgp has GR enabled. Retaining EVPN entries");
+
+		/*
+		 * GR kept the config, so what the client re-sends on reconnect
+		 * looks unchanged to zebra and is dropped. Ask for a replay.
+		 */
+		zvrf = zebra_vrf_get_evpn();
+		if (zvrf && zvrf->advertise_all_vni)
+			zvrf->evpn_resync_needed = true;
 	}
 
 	if (client->proto == ZEBRA_ROUTE_PIM)

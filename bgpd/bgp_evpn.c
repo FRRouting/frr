@@ -8557,6 +8557,7 @@ int bgp_evpn_local_vni_add(struct bgp *bgp, vni_t vni,
 	struct bgpevpn *vpn;
 	struct prefix_evpn p;
 	struct bgp *bgp_evpn = bgp_get_evpn();
+	int flood_mode;
 
 	/* Lookup VNI. If present and no change, exit. */
 	vpn = bgp_evpn_lookup_vni(bgp, vni);
@@ -8662,13 +8663,14 @@ int bgp_evpn_local_vni_add(struct bgp *bgp, vni_t vni,
 		bgp_filter_evpn_routes_upon_martian_change(bgp_evpn,
 							   BGP_MARTIAN_TUN_IP);
 
+	flood_mode = bgp_evpn_vni_flood_mode_get(bgp, vpn);
+
 	/*
 	 * Create EVPN type-3 route and schedule for processing.
 	 *
 	 * RT-3 only if doing head-end replication
 	 */
-	if (bgp_evpn_vni_flood_mode_get(bgp, vpn)
-			== VXLAN_FLOOD_HEAD_END_REPL) {
+	if (flood_mode == VXLAN_FLOOD_HEAD_END_REPL) {
 		build_evpn_type3_prefix(&p, &vpn->originator_ip);
 		if (update_evpn_route(bgp, vpn, &p, 0, 0, NULL)) {
 			flog_err(EC_BGP_EVPN_ROUTE_CREATE,
@@ -8684,6 +8686,12 @@ int bgp_evpn_local_vni_add(struct bgp *bgp, vni_t vni,
 
 	/* advertise svi mac-ip knob to zebra */
 	bgp_zebra_advertise_svi_macip(bgp, vpn->advertise_svi_macip, vpn->vni);
+
+	/* Reconnect conveyed only the default mode, so anything else has
+	 * to be stated for this VNI.
+	 */
+	if (flood_mode != VXLAN_FLOOD_HEAD_END_REPL)
+		bgp_zebra_vxlan_flood_control(bgp, vpn);
 
 	bgp_evpn_l2vni_remote_route_processing(vpn);
 
