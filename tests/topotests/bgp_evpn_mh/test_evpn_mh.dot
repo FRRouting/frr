@@ -1,0 +1,136 @@
+graph bgp_evpn_mh {
+	label="bgp_evpn_mh";
+
+	# Spine
+	spine1 [
+		shape=doubleoctagon,
+		label="spine-1\nlo: 192.168.100.13, 192.168.100.100\ne0: 192.168.50.1/24\ne1: 192.168.51.1/24",
+		fillcolor="#f08080",
+		style=filled,
+	];
+
+	spine2 [
+		shape=doubleoctagon,
+		label="spine-2\nlo: 192.168.100.14, 192.168.100.100\ne0: 192.168.60.1/24\ne1: 192.168.61.1/24",
+		fillcolor="#f08080",
+		style=filled,
+	];
+
+	# Leafs
+	leaf1 [
+		shape=doubleoctagon,
+		label="leaf-1\ne0: 192.168.50.2/24\ne1: 192.168.60.2/24\ne2: 192.168.1.1/24\ne3: 192.168.2.1/24\ne4: 192.168.3.1/24\ne5: 192.168.4.1/24\ne6: 192.168.9.1/24",
+		fillcolor="#f08080",
+		style=filled,
+	];
+
+	leaf2 [
+		shape=doubleoctagon,
+		label="leaf-2\ne0: 192.168.51.2/24\ne1: 192.168.61.2/24\ne2: 192.168.5.1/24\ne3: 192.168.6.1/24\ne4: 192.168.7.1/24\ne5: 192.168.8.1/24\ne6: 192.168.10.1/24",
+		fillcolor="#f08080",
+		style=filled,
+	];
+
+
+
+
+	# TORMs
+	torm11 [
+		shape=doubleoctagon,
+		label="torm-11\n45.0.0.1/.2\nlo: 192.168.100.15\ne0: 192.168.1.2/24\ne1: 192.168.5.2/24",
+		fillcolor="#f08080",
+		style=filled,
+	];
+	torm12 [
+		shape=doubleoctagon,
+		label="torm-12\n45.0.0.1/.3\nlo: 192.168.100.16\ne0: 192.168.2.2/24\ne1: 192.168.6.2/24",
+		fillcolor="#f08080",
+		style=filled,
+	];
+
+	torm21 [
+		shape=doubleoctagon,
+		label="torm-21\n45.0.0.1/.4\nlo: 192.168.100.17\ne0: 192.168.3.2/24\ne1: 192.168.7.2/24",
+		fillcolor="#f08080",
+		style=filled,
+	];
+	torm22 [
+		shape=doubleoctagon,
+		label="torm-22\n45.0.0.1/.5\nlo: 192.168.100.18\ne0: 192.168.4.2/24\ne1: 192.168.8.2/24",
+		fillcolor="#f08080",
+		style=filled,
+	];
+	torm23 [
+		shape=doubleoctagon,
+		label="torm-23\n45.0.0.1/.6\nlo: 192.168.100.19\ne0: 192.168.9.2/24\ne1: 192.168.10.2/24",
+		fillcolor="#f08080",
+		style=filled,
+	];
+
+	# hosts
+	hostd11 [
+		shape=rectangle,
+		label="hostd-11\n45.0.0.11\n00:00:00:00:00:11",
+		fillcolor="#d0e0d0",
+		style=filled,
+	];
+	hostd12 [
+		shape=rectangle,
+		label="hostd-12\n45.0.0.12\n00:00:00:00:00:12",
+		fillcolor="#d0e0d0",
+		style=filled,
+	];
+	hostd19 [
+		shape=rectangle,
+		label="hostd-19\n45.0.0.19\n00:00:00:00:00:19",
+		fillcolor="#d0e0d0",
+		style=filled,
+	];
+	hostd21 [
+		shape=rectangle,
+		label="hostd-21\n45.0.0.21\n00:00:00:00:00:21",
+		fillcolor="#d0e0d0",
+		style=filled,
+	];
+	hostd22 [
+		shape=rectangle,
+		label="hostd-22\n45.0.0.22\n00:00:00:00:00:22",
+		fillcolor="#d0e0d0",
+		style=filled,
+	];
+	hostd23 [
+		shape=rectangle,
+		label="hostd-23\n45.0.0.23\n00:00:00:00:00:23",
+		fillcolor="#d0e0d0",
+		style=filled,
+	];
+
+	ordering="out"
+
+	spine1 -- leaf1 [label="sw1" color="blue" fontcolor="blue"]
+	spine1 -- leaf2 [label="sw2" color="blue" fontcolor="blue"]
+	spine2 -- leaf1 [label="sw3" color="orange" fontcolor="orange"]
+	spine2 -- leaf2 [label="sw4" color="orange" fontcolor="orange"]
+	leaf1 -- torm11 [label="sw5" color="blue" fontcolor="blue"]
+	leaf1 -- torm12 [label="sw6" color="blue" fontcolor="blue"]
+	leaf1 -- torm21 [label="sw7" color="blue" fontcolor="blue"]
+	leaf1 -- torm22 [label="sw8" color="blue" fontcolor="blue"]
+	leaf1 -- torm23 [label="sw21" color="blue" fontcolor="blue"]
+	leaf2 -- torm11 [label="sw9" color="orange" fontcolor="orange"]
+	leaf2 -- torm12 [label="sw10" color="orange" fontcolor="orange"]
+	leaf2 -- torm21 [label="sw11" color="orange" fontcolor="orange"]
+	leaf2 -- torm22 [label="sw12" color="orange" fontcolor="orange"]
+	leaf2 -- torm23 [label="sw22" color="orange" fontcolor="orange"]
+	torm11 -- hostd11 [label="sw13" color="blue" fontcolor="blue"]
+	torm11 -- hostd12 [label="sw14" color="blue" fontcolor="blue"]
+	torm11 -- hostd19 [label="sw26" color="blue" fontcolor="blue"]
+	torm12 -- hostd11 [label="sw15" color="orange" fontcolor="orange"]
+	torm12 -- hostd12 [label="sw16" color="orange" fontcolor="orange"]
+	torm21 -- hostd21 [label="sw17" color="blue" fontcolor="blue"]
+	torm21 -- hostd22 [label="sw18" color="blue" fontcolor="blue"]
+	torm22 -- hostd21 [label="sw19" color="orange" fontcolor="orange"]
+	torm22 -- hostd22 [label="sw20" color="orange" fontcolor="orange"]
+	torm22 -- hostd23 [label="sw23" color="orange" fontcolor="orange"]
+	torm23 -- hostd22 [label="sw24" color="darkgreen" fontcolor="darkgreen"]
+	torm23 -- hostd23 [label="sw25" color="darkgreen" fontcolor="darkgreen"]
+}
