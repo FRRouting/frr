@@ -217,26 +217,32 @@ bottom until one of the factors can be used.
    AS_PATHs or routes received from eBGP neighbours in the same AS are
    considered equal.
 
-11. **Already-selected external check**
+11. **MPLS over SRv6 check**
+
+    If :clicmd:`bgp bestpath prefer-mpls-over-srv6` is configured, when a
+    route is exported to the VPN table with both an MPLS label and an SRv6
+    SID, prefer the path with the MPLS label.
+
+12. **Already-selected external check**
 
     Where both routes were received from eBGP peers, then prefer the route
     which is already selected. Note that this check is not applied if
     :clicmd:`bgp bestpath compare-routerid` is configured. This check can
     prevent some cases of oscillation.
 
-12. **Router-ID check**
+13. **Router-ID check**
 
     Prefer the route with the lowest `router-ID`. If the route has an
     `ORIGINATOR_ID` attribute, through iBGP reflection, then that router ID is
     used, otherwise the `router-ID` of the peer the route was received from is
     used.
 
-13. **Cluster-List length check**
+14. **Cluster-List length check**
 
     The route with the shortest cluster-list length is used. The cluster-list
     reflects the iBGP reflection path the route has taken.
 
-14. **Peer address**
+15. **Peer address**
 
     Prefer the route received from the peer with the higher transport layer
     address, as a last-resort tie-breaker.
@@ -454,6 +460,15 @@ Route Selection
    selection process by default uses the source VRF's path attributes (AS path
    length, Origin, MED, Originator-ID) for comparison. This command changes
    the behavior to use the imported path's attributes instead.
+
+   Disabled by default.
+
+.. clicmd:: bgp bestpath prefer-mpls-over-srv6
+
+   When a route is exported to the VPN table with both an MPLS label and an
+   SRv6 SID, two VPN paths are imported for the same route, and the selected
+   path is not predictable. This command prefers the path with an MPLS label
+   over the path with an SRv6 SID.
 
    Disabled by default.
 

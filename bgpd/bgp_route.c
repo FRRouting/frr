@@ -1455,6 +1455,7 @@ int bgp_path_info_cmp(struct bgp *bgp, struct bgp_path_info *new,
 	 * parameters are Peer Type, IGP Metric, Cluster List, Neighbor Address.
 	 */
 	struct bgp_path_info *new_path_for_modifiable_attr, *exist_path_for_modifiable_attr;
+	struct bgp_path_info *new_imported, *exist_imported;
 
 	if (CHECK_FLAG(bgp->flags, BGP_FLAG_BESTPATH_USE_IMPORTED_ATTRS)) {
 		/* Use imported (current VRF) attributes for modifiable attributes */
@@ -1465,6 +1466,9 @@ int bgp_path_info_cmp(struct bgp *bgp, struct bgp_path_info *new,
 		new_path_for_modifiable_attr = bgp_get_imported_bpi_ultimate(new);
 		exist_path_for_modifiable_attr = bgp_get_imported_bpi_ultimate(exist);
 	}
+
+	new_imported = new;
+	exist_imported = exist;
 
 	/* Continue to use ultimate path/attr for certain cases like IGP etc */
 	new = bgp_get_imported_bpi_ultimate(new);
@@ -1814,7 +1818,33 @@ int bgp_path_info_cmp(struct bgp *bgp, struct bgp_path_info *new,
 	if (peer_sort_ret >= 0)
 		return peer_sort_ret;
 
-	/* 13. If both paths are external, prefer the path that was received
+	/* 13. If configured, a route exported with both an MPLS label and an
+	 * SRv6 SID is imported as two paths with the same parent: prefer the
+	 * MPLS path.
+	 */
+	if (CHECK_FLAG(bgp->flags, BGP_FLAG_BESTPATH_PREFER_MPLS_OVER_SRV6) && new == exist &&
+	    new_imported != exist_imported) {
+		bool new_srv6 = !!bgp_attr_get_srv6_l3service(new_imported->attr);
+		bool exist_srv6 = !!bgp_attr_get_srv6_l3service(exist_imported->attr);
+
+		if (!new_srv6 && exist_srv6) {
+			*reason = bgp_path_selection_mpls_over_srv6;
+			if (debug)
+				zlog_debug("%s: %s wins over %s due to MPLS over SRv6", pfx_buf,
+					   new_buf, exist_buf);
+			return 1;
+		}
+
+		if (new_srv6 && !exist_srv6) {
+			*reason = bgp_path_selection_mpls_over_srv6;
+			if (debug)
+				zlog_debug("%s: %s loses to %s due to MPLS over SRv6", pfx_buf,
+					   new_buf, exist_buf);
+			return 0;
+		}
+	}
+
+	/* 14. If both paths are external, prefer the path that was received
 	   first (the oldest one).  This step minimizes route-flap, since a
 	   newer path won't displace an older one, even if it was the
 	   preferred route based on the additional decision criteria below.  */
@@ -1839,7 +1869,7 @@ int bgp_path_info_cmp(struct bgp *bgp, struct bgp_path_info *new,
 		}
 	}
 
-	/* 14. Router-ID comparison. */
+	/* 15. Router-ID comparison. */
 	/* If one of the paths is "stale", the corresponding peer router-id will
 	 * be 0 and would always win over the other path. If originator id is
 	 * used for the comparison, it will decide which path is better.
@@ -1871,7 +1901,7 @@ int bgp_path_info_cmp(struct bgp *bgp, struct bgp_path_info *new,
 		return 0;
 	}
 
-	/* 15. Cluster length comparison. */
+	/* 16. Cluster length comparison. */
 	new_cluster = BGP_CLUSTER_LIST_LENGTH(new->attr);
 	exist_cluster = BGP_CLUSTER_LIST_LENGTH(exist->attr);
 
@@ -1895,7 +1925,7 @@ int bgp_path_info_cmp(struct bgp *bgp, struct bgp_path_info *new,
 		return 0;
 	}
 
-	/* 16. Neighbor address comparison. */
+	/* 17. Neighbor address comparison. */
 	/* Do this only if neither path is "stale" as stale paths do not have
 	 * valid peer information (as the connection may or may not be up).
 	 */
@@ -12503,6 +12533,8 @@ const char *bgp_path_selection_reason2str(enum bgp_path_selection_reason reason)
 		return "Confed Peer Type";
 	case bgp_path_selection_igp_metric:
 		return "IGP Metric";
+	case bgp_path_selection_mpls_over_srv6:
+		return "MPLS over SRv6";
 	case bgp_path_selection_older:
 		return "Older Path";
 	case bgp_path_selection_router_id:
