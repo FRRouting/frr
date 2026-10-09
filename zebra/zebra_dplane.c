@@ -6759,6 +6759,18 @@ static void dplane_neigh_init(struct zebra_dplane_ctx *ctx, const struct interfa
 }
 
 /*
+ * Helper api to init an empty or new context for a VTEP flood list update:
+ * the same context dplane_vtep_add()/dplane_vtep_delete() enqueue.
+ */
+void dplane_vtep_init(struct zebra_dplane_ctx *ctx, const struct interface *ifp,
+		      const struct ipaddr *ip, vni_t vni)
+{
+	struct ethaddr mac = { { 0, 0, 0, 0, 0, 0 } };
+
+	dplane_neigh_init(ctx, ifp, &mac, AF_ETHERNET, ip, vni, 0, 0, 0, 0);
+}
+
+/*
  * Common helper api for neighbor updates
  */
 static enum zebra_dplane_result

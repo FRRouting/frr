@@ -1234,6 +1234,10 @@ enum zebra_dplane_result dplane_vtep_add(const struct interface *ifp, const stru
 enum zebra_dplane_result dplane_vtep_delete(const struct interface *ifp, const struct ipaddr *ip,
 					    vni_t vni);
 
+/* Helper api to init an empty or new context for a VTEP flood list update */
+void dplane_vtep_init(struct zebra_dplane_ctx *ctx, const struct interface *ifp,
+		      const struct ipaddr *ip, vni_t vni);
+
 /*
  * Enqueue a neighbour discovery request for the dataplane.
  */

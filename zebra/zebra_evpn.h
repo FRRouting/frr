@@ -45,6 +45,9 @@ struct zebra_vtep {
 	 */
 	int flood_control;
 
+	uint32_t flags;
+#define ZEBRA_VTEP_FPM_SENT (1 << 0) /* Flood entry sent to the FPM. */
+
 	/* Links. */
 	struct zebra_vtep *next;
 	struct zebra_vtep *prev;
