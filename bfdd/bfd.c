@@ -713,6 +713,21 @@ void ptm_bfd_xmt_TO(struct bfd_session *bfd, int fbit)
 	/* Send the scheduled control packet */
 	ptm_bfd_snd(bfd, fbit);
 
+	/*
+	 * Cap AdminDown re-transmit to BFD_ADMIN_DOWN_TX_MAX slow-rate
+	 * packets. Once the budget is exhausted, stop the transmit timer
+	 * so a shut session no longer burns 1 pps forever.
+	 */
+	if (CHECK_FLAG(bfd->flags, BFD_SESS_FLAG_SHUTDOWN) &&
+	    bfd->ses_state == PTM_BFD_ADM_DOWN) {
+		if (bfd->admindown_tx_left > 0)
+			bfd->admindown_tx_left--;
+		if (bfd->admindown_tx_left == 0) {
+			bfd_xmttimer_delete(bfd);
+			return;
+		}
+	}
+
 	/* Restart the timer for next time */
 	ptm_bfd_start_xmt_timer(bfd, false);
 }
@@ -1850,7 +1865,7 @@ void bfd_set_shutdown(struct bfd_session *bs, bool shutdown)
 		SET_FLAG(bs->flags, BFD_SESS_FLAG_SHUTDOWN);
 		bs->local_diag = BD_ADMIN_DOWN;
 
-		/* Handle data plane shutdown case. */
+		/* Offloaded sessions must also keep sending AdminDown. */
 		if (bs->bdc) {
 			bs->ses_state = PTM_BFD_ADM_DOWN;
 			bfd_dplane_update_session(bs);
@@ -1858,25 +1873,55 @@ void bfd_set_shutdown(struct bfd_session *bs, bool shutdown)
 			return;
 		}
 
-		/* Disable all events. */
+		/* Stop receive/echo timers, but keep transmitting AdminDown. */
 		bfd_recvtimer_delete(bs);
 		bfd_echo_recvtimer_delete(bs);
-		bfd_xmttimer_delete(bs);
 		bfd_echo_xmttimer_delete(bs);
 
 		/* Change and notify state change. */
 		bs->ses_state = PTM_BFD_ADM_DOWN;
 		ptm_bfd_notify(bs, bs->ses_state);
 
-		/* Don't try to send packets with a disabled session. */
-		if (bs->sock != -1)
+		/*
+		 * Advertise AdminDown at slow rate for a bounded burst:
+		 *   max(BFD_ADMIN_DOWN_TX_MIN,
+		 *       ceil(pre-slow detect_TO / BFD_DEF_SLOWTX))
+		 * so RFC 5880 6.8.16 ("SHOULD be transmitted for at least a
+		 * Detection Time") holds for any negotiated timers, and
+		 * aggressive-timer sessions still get the min-floor as a
+		 * loss-tolerance margin. Sample detect_TO BEFORE moving to
+		 * slow timers, since bs_set_slow_timers() resets it.
+		 * The first packet goes out immediately; the timer is
+		 * re-armed only while budget remains.
+		 */
+		if (bs->sock != -1) {
+			uint64_t pre_slow_detect_TO = bs->detect_TO;
+			uint32_t detect_pkts;
+
+			bs_set_slow_timers(bs);
+			detect_pkts = (pre_slow_detect_TO + BFD_DEF_SLOWTX - 1)
+				      / BFD_DEF_SLOWTX;
+			bs->admindown_tx_left =
+				MAX(BFD_ADMIN_DOWN_TX_MIN, detect_pkts);
 			ptm_bfd_snd(bs, 0);
+			bs->admindown_tx_left--;
+			if (bs->admindown_tx_left > 0)
+				ptm_bfd_start_xmt_timer(bs, false);
+		}
 	} else {
 		/* Already working. */
 		if (!is_shutdown)
 			return;
 
 		UNSET_FLAG(bs->flags, BFD_SESS_FLAG_SHUTDOWN);
+
+		/*
+		 * Clear any pending AdminDown transmit budget so a rapid
+		 * shut/no-shut cannot leak stale state into the recovered
+		 * session; the timer restart below replaces any pending
+		 * slow-rate AdminDown slot.
+		 */
+		bs->admindown_tx_left = 0;
 
 		/* Handle data plane shutdown case. */
 		if (bs->bdc) {
