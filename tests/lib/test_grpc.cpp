@@ -53,6 +53,10 @@ extern const char *json_loadconf1;
 
 int test_dbg = 1;
 
+// Default configuration
+static std::string _grpc_arg = "50051";
+static std::string _grpc_connect = "127.0.0.1:50051";
+
 void inline test_debug(const std::string &s)
 {
 	if (test_dbg)
@@ -86,24 +90,23 @@ static void static_startup(void)
 	zprivs_preinit(&static_privs);
 	zprivs_init(&static_privs);
 
+	std::string load_arg = "grpc:" + _grpc_arg;
+
 	/* Load the server side module -- check libtool path first */
 	std::string modpath = std::string(binpath) + std::string("../../lib/.libs");
-	grpc_module = frrmod_load("grpc:50051", modpath.c_str(), 0, 0);
+	grpc_module = frrmod_load(load_arg.c_str(), modpath.c_str(), 0, 0);
 	if (!grpc_module) {
 		modpath = std::string(binpath) +  std::string("../../lib");
-		grpc_module = frrmod_load("grpc:50051", modpath.c_str(),
-					  _err_print, 0);
+		grpc_module = frrmod_load(load_arg.c_str(), modpath.c_str(), _err_print, 0);
 	}
 	if (!grpc_module) {
 		modpath = std::string(binpath) +
 			  std::string("../../../lib/.libs");
-		grpc_module = frrmod_load("grpc:50051", modpath.c_str(),
-					  _err_print, 0);
+		grpc_module = frrmod_load(load_arg.c_str(), modpath.c_str(), _err_print, 0);
 	}
 	if (!grpc_module) {
 		modpath = std::string(binpath) + std::string("../../../lib");
-		grpc_module = frrmod_load("grpc:50051", modpath.c_str(),
-					  _err_print, 0);
+		grpc_module = frrmod_load(load_arg.c_str(), modpath.c_str(), _err_print, 0);
 	}
 	if (!grpc_module)
 		exit(1);
@@ -408,8 +411,9 @@ void assert_config_same(NorthboundClient &client, const std::string &compare)
 
 void grpc_client_run_test(void)
 {
-	NorthboundClient client(grpc::CreateChannel(
-		"localhost:50051", grpc::InsecureChannelCredentials()));
+	test_debug("Connecting client to: " + _grpc_connect);
+	NorthboundClient client(
+		grpc::CreateChannel(_grpc_connect, grpc::InsecureChannelCredentials()));
 
 	std::string reply = client.GetCapabilities();
 
@@ -552,6 +556,14 @@ int main(int argc, char **argv)
 	assert(argc >= 1);
 	if (get_binpath(argv[0], binpath) < 0)
 		exit(1);
+
+	for (int i = 1; i < argc; i++) {
+		if (strcmp(argv[i], "--grpc-arg") == 0 && i + 1 < argc) {
+			_grpc_arg = argv[++i];
+		} else if (strcmp(argv[i], "--grpc-connect") == 0 && i + 1 < argc) {
+			_grpc_connect = argv[++i];
+		}
+	}
 
 	static_startup();
 
