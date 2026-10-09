@@ -31,10 +31,12 @@ VTYSH Commands:
 Linux Commands:
 ---------------
 11. bridge -j fdb show
-12. ip -d -j link show {vxlan_device}
-13. ip -j route show vrf {vrf} {route}
-14. ip -j nexthop get id {nhid}
-15. ping / ping6
+12. bridge fdb show br <bridge> dev <vxlan> vlan <vid> | grep <rmac>
+13. bridge fdb flush dev <l3vni bridge>
+14. ip -d -j link show {vxlan_device}
+15. ip -j route show vrf {vrf} {route}
+16. ip -j nexthop get id {nhid}
+17. ping / ping6
 
 Test Execution Order:
 =====================
@@ -44,15 +46,16 @@ Test Execution Order:
 4. test_evpn_local_vtep_ip              - Verify local VTEP source IP
 5. test_vni_state                       - Verify VNI state (L2 and L3)
 6. test_l3vni_rmacs                     - Verify L3VNI RMACs
-7. test_l3vni_rmac_change               - Verify RMAC cleanup on router MAC change (commits 1-3)
-8. test_vrf_routes                      - Display VRF routes (informational)
-9. test_evpn_vtep_nexthops              - Verify L3VNI next-hops
-10. test_evpn_check_overlay_route       - Verify EVPN Type-5 overlay route in VRF RIB
-11. test_evpn_rd_prefix_route_lookup    - Verify EVPN Type-5 RD prefix lookups
-12. test_evpn_vtep_on_uplink_flap       - No stale VTEP when uplinks down; VTEPs back when up
-13. test_host_to_host_ping              - Verify end-to-end connectivity
-14. test_import_vrf_preserves_dvni_label - Preserve D-VNI across import vrf
-15. test_memory_leak                    - Memory leak detection
+7. test_l3vni_rmac_reinstall_on_fdb_flush - tor-21 reinstalls RMACs after bridge fdb flush
+8. test_l3vni_rmac_change               - Verify RMAC cleanup on router MAC change (commits 1-3)
+9. test_vrf_routes                      - Display VRF routes (informational)
+10. test_evpn_vtep_nexthops             - Verify L3VNI next-hops
+11. test_evpn_check_overlay_route       - Verify EVPN Type-5 overlay route in VRF RIB
+12. test_evpn_rd_prefix_route_lookup    - Verify EVPN Type-5 RD prefix lookups
+13. test_evpn_vtep_on_uplink_flap       - No stale VTEP when uplinks down; VTEPs back when up
+14. test_host_to_host_ping              - Verify end-to-end connectivity
+15. test_import_vrf_preserves_dvni_label - Preserve D-VNI across import vrf
+16. test_memory_leak                    - Memory leak detection
 """
 
 import os
@@ -72,7 +75,8 @@ sys.path.append(os.path.join(CWD, "../"))
 from lib import topotest
 from lib.topogen import Topogen, TopoRouter, get_topogen
 from lib.topolog import logger
-from lib.common_config import required_linux_kernel_version
+from lib.common_config import required_iproute2_version, required_linux_kernel_version
+from lib.bgp import get_bgp_summary_json
 from lib.evpn import (
     evpn_verify_vni_remote_vteps,
     evpn_verify_vni_vtep_src_ip,
@@ -81,6 +85,11 @@ from lib.evpn import (
     evpn_verify_bgp_vni_state,
     evpn_verify_l3vni_remote_rmacs,
     evpn_verify_l3vni_remote_nexthops,
+    get_remote_macs,
+    get_l3vni_bridge_vlan,
+    check_mac_in_fdb,
+    flush_bridge_fdb,
+    get_macs_in_bridge_fdb,
     evpn_verify_l3vni_nexthops,
     evpn_verify_no_remote_vtep_in_l3vni,
     evpn_verify_vrf_rib_route,
@@ -1981,6 +1990,270 @@ def test_l3vni_rmacs(tgen_and_ip_version):
 
     # Use library function to discover VTEP IPs and verify L3VNI remote RMACs
     evpn_verify_l3vni_remote_rmacs(tgen, vtep_routers, l3vni_list)
+
+
+def _log_rmac_fdb_state(dut, vni, macs, bridge, vxlan, vlan, state):
+    """Log how many router-MACs are programmed on this L3VNI VLAN."""
+    present, lines = get_macs_in_bridge_fdb(dut, macs, bridge, vxlan, vlan)
+    missing = [mac for mac in macs if mac not in present]
+    logger.info(
+        f"{dut.name}: VNI {vni} {state}: {len(present)}/{len(macs)} "
+        f"router MACs in bridge FDB on {bridge} dev {vxlan} vlan {vlan}"
+    )
+    logger.info(f"{dut.name}: VNI {vni} {state}: present={present} missing={missing}")
+    if lines:
+        logger.info(
+            f"{dut.name}: VNI {vni} {state} bridge FDB rows:\n" + "\n".join(lines)
+        )
+    return present
+
+
+def _require_macs_in_fdb(dut, macs, bridge, vxlan, vlan, stage):
+    """Wait until every MAC is programmed on this bridge, port, and VLAN.
+
+    `stage` is the check point printed on failure, for example
+    "VNI 104001 before flush".
+    """
+    for mac in macs:
+        _, present = topotest.run_and_expect(
+            partial(check_mac_in_fdb, dut, mac, bridge, vxlan, vlan),
+            True,
+            count=40,
+            wait=1,
+        )
+        if present is not True:
+            logger.error(
+                f"{dut.name}: {stage}: {mac} is not in the bridge FDB "
+                f"on {bridge} dev {vxlan} vlan {vlan}"
+            )
+            logger.info(f"{dut.name} bridge fdb show:\n{dut.run('bridge fdb show')}")
+        assert present is True, (
+            f"{dut.name}: {stage}: {mac} is not in the bridge FDB "
+            f"on {bridge} dev {vxlan} vlan {vlan}"
+        )
+
+
+# "9a:9d:28:65:0c:41 dev vxlan48 vlan 112 extern_learn master br_default"
+#   _fdb_field(parts, "dev")    -> "vxlan48"
+#   _fdb_field(parts, "vlan")   -> "112"
+#   _fdb_field(parts, "master") -> "br_default"
+def _fdb_field(parts, key):
+    """Return the token after `key` in a bridge fdb line."""
+    for index, part in enumerate(parts[:-1]):
+        if part == key:
+            return parts[index + 1]
+    return None
+
+
+def _remote_non_rmac_rows(dut, rmacs):
+    """
+    Remote host MAC rows on the bridge, excluding router-MACs.
+
+    These are the type-2 entries `bridge fdb flush` removes and zebra does
+    not put back. Each item is (mac, bridge, vxlan, vlan).
+    """
+    text = dut.run("bridge fdb show") or ""
+    rows = []
+    seen = set()
+    for line in str(text).splitlines():
+        parts = line.lower().split()
+        if "extern_learn" not in parts or "master" not in parts:
+            continue
+        mac = parts[0]
+        if mac in rmacs:
+            continue
+        bridge = _fdb_field(parts, "master")
+        vxlan = _fdb_field(parts, "dev")
+        vlan = _fdb_field(parts, "vlan")
+        if not bridge or not vxlan or not vlan:
+            continue
+        try:
+            vlan = int(vlan)
+        except ValueError:
+            continue
+        row = (mac, bridge, vxlan, vlan)
+        if row not in seen:
+            seen.add(row)
+            rows.append(row)
+    return rows
+
+
+def _l2vpn_evpn_asn(router):
+    """Local AS from `show bgp l2vpn evpn summary json`."""
+    summary = get_bgp_summary_json(router, "l2vpn", "evpn")
+    asn = summary.get("as")
+    if not asn:
+        raise RuntimeError(f"{router.name}: L2VPN EVPN local AS missing: {summary}")
+    return int(asn)
+
+
+def _reimport_evpn_routes(router):
+    """
+    Withdraw imported EVPN routes and import them again.
+
+    Zebra programs a remote MAC when it is added. A later BGP update with
+    the same VTEP and sequence does not install the bridge FDB row again.
+    `no advertise-all-vni` deletes the per-VNI imports and withdraws them
+    from zebra. `advertise-all-vni` imports the global EVPN table again.
+    """
+    asn = _l2vpn_evpn_asn(router)
+    logger.info(
+        f"{router.name}: no advertise-all-vni / advertise-all-vni "
+        f"to reinstall remote type-2 and type-3 MACs (AS {asn})"
+    )
+    router.vtysh_cmd(
+        "configure terminal\n"
+        f"router bgp {asn}\n"
+        " address-family l2vpn evpn\n"
+        "  no advertise-all-vni\n"
+        "  advertise-all-vni\n"
+        " exit-address-family\n"
+        "exit\n"
+    )
+
+
+def test_l3vni_rmac_reinstall_on_fdb_flush(tgen_and_ip_version):
+    """
+    On tor-21, zebra reinstalls remote L3VNI router-MACs after
+    `bridge fdb flush dev <l3vni bridge>`.
+
+    Prerequisite: EVPN has already installed remote RMACs for L3VNIs 104001
+    and 104002. The test reads those MACs, checks each one in the bridge FDB,
+    flushes the L3VNI bridge, and checks that the same MACs are programmed
+    again.
+
+    tor-21 uses one shared VXLAN device. The per-VNI device path is covered
+    by bgp_evpn_rt5/test_bgp_evpn.py. The pass condition is that every MAC
+    from `show evpn rmac vni <vni>` is programmed in the bridge FDB again.
+    After that check, `no advertise-all-vni` / `advertise-all-vni` reimports
+    remote type-2 and type-3 routes so their FDB rows are installed again.
+    A BGP refresh does not install a remote MAC whose VTEP and sequence are
+    unchanged. Requires Linux kernel 6.5 or newer and iproute2 5.19 or
+    newer. Ubuntu 22.04's iproute2 5.15.0 has no `bridge fdb flush`.
+    """
+    tgen, ip_version = tgen_and_ip_version
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+    result = required_linux_kernel_version("6.5")
+    if result is not True:
+        pytest.skip(result)
+    result = required_iproute2_version("5.19")
+    if result is not True:
+        pytest.skip(result)
+
+    dut = tgen.gears["tor-21"]
+    l3vnis = ["104001", "104002"]
+    logger.info(
+        f"{dut.name}: checking RMAC reinstall after bridge fdb flush "
+        f"({ip_version} underlay)"
+    )
+
+    learned = []
+    before_counts = {}
+    for vni in l3vnis:
+        macs = get_remote_macs(dut, vni)
+        assert macs, f"{dut.name}: VNI {vni} has no remote RMACs"
+        bridge, vxlan, vlan = get_l3vni_bridge_vlan(dut, vni)
+        learned.append((vni, bridge, vxlan, vlan, macs))
+        logger.info(
+            f"{dut.name}: VNI {vni}: zebra has {len(macs)} remote router MACs "
+            f"on bridge {bridge} dev {vxlan} vlan {vlan}"
+        )
+        _require_macs_in_fdb(dut, macs, bridge, vxlan, vlan, f"VNI {vni} before flush")
+        present = _log_rmac_fdb_state(
+            dut, vni, macs, bridge, vxlan, vlan, "before flush"
+        )
+        before_counts[vni] = len(present)
+
+    rmacs = {mac for _vni, _bridge, _vxlan, _vlan, macs in learned for mac in macs}
+    remote_rows = _remote_non_rmac_rows(dut, rmacs)
+    logger.info(
+        f"{dut.name}: {len(remote_rows)} remote non-router MAC FDB rows "
+        f"before flush"
+    )
+
+    flushed = set()
+    for vni, bridge, vxlan, vlan, macs in learned:
+        if bridge in flushed:
+            logger.info(
+                f"{dut.name}: VNI {vni} bridge {bridge} already flushed, "
+                f"skipping a second flush"
+            )
+            continue
+        flush_bridge_fdb(dut, bridge)
+        flushed.add(bridge)
+        for (
+            flushed_vni,
+            flushed_bridge,
+            flushed_vxlan,
+            flushed_vlan,
+            flushed_macs,
+        ) in learned:
+            if flushed_bridge != bridge:
+                continue
+            _log_rmac_fdb_state(
+                dut,
+                flushed_vni,
+                flushed_macs,
+                flushed_bridge,
+                flushed_vxlan,
+                flushed_vlan,
+                f"immediately after bridge fdb flush dev {bridge}",
+            )
+
+    for vni, bridge, vxlan, vlan, macs in learned:
+        still_there = get_remote_macs(dut, vni)
+        logger.info(
+            f"{dut.name}: VNI {vni}: zebra router MAC count before flush "
+            f"{len(macs)}, after flush {len(still_there)}"
+        )
+        assert set(still_there) == set(macs), (
+            f"{dut.name}: VNI {vni} RMAC set changed after "
+            f"bridge fdb flush dev {bridge}: before {macs}, after {still_there}"
+        )
+        _require_macs_in_fdb(
+            dut,
+            macs,
+            bridge,
+            vxlan,
+            vlan,
+            f"VNI {vni} after bridge fdb flush dev {bridge}",
+        )
+        present = _log_rmac_fdb_state(
+            dut, vni, macs, bridge, vxlan, vlan, "after flush"
+        )
+        logger.info(
+            f"{dut.name}: VNI {vni}: bridge FDB router MAC count "
+            f"before flush {before_counts[vni]}, after flush {len(present)}"
+        )
+
+    _reimport_evpn_routes(dut)
+    for vni, bridge, vxlan, vlan, macs in learned:
+        _require_macs_in_fdb(
+            dut,
+            macs,
+            bridge,
+            vxlan,
+            vlan,
+            f"VNI {vni} after advertise-all-vni reimport",
+        )
+    if remote_rows:
+
+        def _remote_rows_back():
+            for mac, bridge, vxlan, vlan in remote_rows:
+                if not check_mac_in_fdb(dut, mac, bridge, vxlan, vlan):
+                    return False
+            return True
+
+        _, restored = topotest.run_and_expect(_remote_rows_back, True, count=40, wait=1)
+        assert restored is True, (
+            f"{dut.name}: remote type-2 MACs were not reinstalled after "
+            f"advertise-all-vni"
+        )
+        logger.info(
+            f"{dut.name}: {len(remote_rows)} remote non-router MAC FDB rows "
+            f"restored"
+        )
 
 
 def test_l3vni_rmac_change(tgen_and_ip_version):
