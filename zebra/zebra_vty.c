@@ -4132,6 +4132,24 @@ DEFPY_HIDDEN(zebra_test_dplane_results_plug,
 
 	return CMD_SUCCESS;
 }
+
+DEFPY_HIDDEN(zebra_test_dplane_install_plug,
+	     zebra_test_dplane_install_plug_cmd,
+	     "[no] zebra test dplane disable install",
+	     NO_STR
+	     ZEBRA_STR
+	     "Test command\n"
+	     "Dataplane\n"
+	     "Plug dplane processing (prevent processing)\n"
+	     "Plug sending contexts to the dplane (prevent install)\n")
+{
+	if (no)
+		zebra_dplane_install_unplug();
+	else
+		zebra_dplane_install_plug();
+
+	return CMD_SUCCESS;
+}
 #endif
 
 /* Display Zebra MetaQ counters */
@@ -4408,6 +4426,7 @@ void zebra_vty_init(void)
 	install_element(VIEW_NODE, &zebra_test_metaq_plug_cmd);
 #ifdef DEV_BUILD
 	install_element(VIEW_NODE, &zebra_test_dplane_results_plug_cmd);
+	install_element(VIEW_NODE, &zebra_test_dplane_install_plug_cmd);
 #endif
 
 #ifdef HAVE_NETLINK

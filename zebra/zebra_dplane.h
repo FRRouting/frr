@@ -1427,6 +1427,12 @@ void zebra_dplane_pre_finish(void);
 void zebra_dplane_finish(void);
 void zebra_dplane_shutdown(void);
 
+#ifdef DEV_BUILD
+/* Test hooks: hold or release sending new contexts in dplane_thread_loop. */
+void zebra_dplane_install_plug(void);
+void zebra_dplane_install_unplug(void);
+#endif
+
 void zebra_dplane_startup_stage(ns_id_t ns_id,
 				enum zebra_dplane_startup_notifications spot);
 
