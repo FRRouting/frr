@@ -46,6 +46,9 @@ errors are produced.
 import os
 import sys
 import json
+import threading
+from time import sleep
+
 import pytest
 
 CWD = os.path.dirname(os.path.realpath(__file__))
@@ -55,7 +58,7 @@ sys.path.append(os.path.join(CWD, "../"))
 from lib import topotest
 from lib.topogen import Topogen, TopoRouter, get_topogen
 from lib.topolog import logger
-from lib.common_config import step
+from lib.common_config import shutdown_bringup_interface_in_kernel, step
 
 pytestmark = [pytest.mark.staticd]
 
@@ -171,7 +174,13 @@ def test_nhg_delete_race_with_kernel_cleanup():
     r1.vtysh_cmd("\n".join(cfg_lines))
 
     step("Bring interfaces down at ~1s (kernel GCs NHG, races with timer expiry)")
-    r1.run("(sleep 1 && ip link set dev r1-eth0 down && ip link set dev r1-eth1 down) &")
+
+    def _bring_links_down():
+        sleep(1)
+        shutdown_bringup_interface_in_kernel(r1.tgen, r1.name, "r1-eth0", False)
+        shutdown_bringup_interface_in_kernel(r1.tgen, r1.name, "r1-eth1", False)
+
+    threading.Thread(target=_bring_links_down, daemon=True).start()
 
     step("Wait for NHG to be fully cleaned up from zebra")
 

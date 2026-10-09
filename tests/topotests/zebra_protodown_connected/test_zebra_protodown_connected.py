@@ -15,6 +15,10 @@ CWD = os.path.dirname(os.path.realpath(__file__))
 sys.path.append(os.path.join(CWD, "../"))
 
 # pylint: disable=C0413
+from lib.common_config import (
+    create_address_on_interface,
+    shutdown_bringup_interface_in_kernel,
+)
 from lib.topogen import Topogen, get_topogen
 from lib.topolog import logger
 
@@ -80,8 +84,13 @@ def test_physical_updown():
 
     # Toggle up/down
     for _ in range(20):
-        vrrp2.run("ip link set vrrp2-eth0 down")
-        vrrp2.run("ip link set vrrp2-eth0 up")
+        shutdown_bringup_interface_in_kernel(
+            vrrp2.tgen,
+            vrrp2.name,
+            "vrrp2-eth0",
+            False,
+        )
+        shutdown_bringup_interface_in_kernel(vrrp2.tgen, vrrp2.name, "vrrp2-eth0", True)
 
     sleep(2)
 
@@ -107,14 +116,14 @@ def test_vlan_updown():
     vrrp2.run("ip link del {} 2>/dev/null || true".format(vlan_if))
     cmd = "ip link add link vrrp2-eth0 name {} type vlan id 101"
     vrrp2.run(cmd.format(vlan_if))
-    vrrp2.run("ip addr add 50.0.0.1/24 dev {}".format(vlan_if))
-    vrrp2.run("ip link set {} up".format(vlan_if))
+    create_address_on_interface(tgen, vrrp2.name, vlan_if, "50.0.0.1/24")
+    shutdown_bringup_interface_in_kernel(vrrp2.tgen, vrrp2.name, vlan_if, True)
     sleep(2)
 
     # Toggle up/down
     for _ in range(20):
-        vrrp2.run("ip link set {} down".format(vlan_if))
-        vrrp2.run("ip link set {} up".format(vlan_if))
+        shutdown_bringup_interface_in_kernel(vrrp2.tgen, vrrp2.name, vlan_if, False)
+        shutdown_bringup_interface_in_kernel(vrrp2.tgen, vrrp2.name, vlan_if, True)
 
     sleep(2)
 
@@ -142,14 +151,14 @@ def test_macvlan_updown():
     vrrp2.run("ip link del {} 2>/dev/null || true".format(macvlan))
     cmd = "ip link add {} link vrrp2-eth0 type macvlan mode bridge"
     vrrp2.run(cmd.format(macvlan))
-    vrrp2.run("ip addr add 10.99.0.1/24 dev {}".format(macvlan))
-    vrrp2.run("ip link set {} up".format(macvlan))
+    create_address_on_interface(tgen, vrrp2.name, macvlan, "10.99.0.1/24")
+    shutdown_bringup_interface_in_kernel(vrrp2.tgen, vrrp2.name, macvlan, True)
     sleep(2)
 
     # Toggle up/down
     for _ in range(20):
-        vrrp2.run("ip link set {} down".format(macvlan))
-        vrrp2.run("ip link set {} up".format(macvlan))
+        shutdown_bringup_interface_in_kernel(vrrp2.tgen, vrrp2.name, macvlan, False)
+        shutdown_bringup_interface_in_kernel(vrrp2.tgen, vrrp2.name, macvlan, True)
 
     sleep(2)
 
@@ -177,14 +186,14 @@ def test_rapid_updown():
     vrrp2.run("ip link del {} 2>/dev/null || true".format(vlan_if))
     cmd = "ip link add link vrrp2-eth0 name {} type vlan id 102"
     vrrp2.run(cmd.format(vlan_if))
-    vrrp2.run("ip addr add 60.0.0.1/24 dev {}".format(vlan_if))
-    vrrp2.run("ip link set {} up".format(vlan_if))
+    create_address_on_interface(tgen, vrrp2.name, vlan_if, "60.0.0.1/24")
+    shutdown_bringup_interface_in_kernel(vrrp2.tgen, vrrp2.name, vlan_if, True)
     sleep(2)
 
     # Rapid up/down
     for _ in range(30):
-        vrrp2.run("ip link set {} down".format(vlan_if))
-        vrrp2.run("ip link set {} up".format(vlan_if))
+        shutdown_bringup_interface_in_kernel(vrrp2.tgen, vrrp2.name, vlan_if, False)
+        shutdown_bringup_interface_in_kernel(vrrp2.tgen, vrrp2.name, vlan_if, True)
 
     sleep(2)
 

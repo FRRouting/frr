@@ -33,7 +33,14 @@ sys.path.append(os.path.join(CWD, "../"))
 # pylint: disable=C0413
 # Import topogen and topotest helpers
 from lib import topotest
-from lib.common_config import kill_router_daemons, start_router_daemons
+from lib.common_config import (
+    create_address_on_interface,
+    create_interface_in_kernel,
+    delete_address_on_interface,
+    kill_router_daemons,
+    shutdown_bringup_interface_in_kernel,
+    start_router_daemons,
+)
 
 # Required to instantiate the topology builder class.
 from lib.topogen import Topogen, TopoRouter, get_topogen
@@ -225,11 +232,11 @@ def config_bond(node, bond_name, bond_members, bond_ad_sys_mac, br):
     )
 
     for bond_member in bond_members:
-        node.run("ip link set dev %s down" % bond_member)
+        shutdown_bringup_interface_in_kernel(node.tgen, node.name, bond_member, False)
         node.run("ip link set dev %s master %s" % (bond_member, bond_name))
-        node.run("ip link set dev %s up" % bond_member)
+        shutdown_bringup_interface_in_kernel(node.tgen, node.name, bond_member, True)
 
-    node.run("ip link set dev %s up" % bond_name)
+    shutdown_bringup_interface_in_kernel(node.tgen, node.name, bond_name, True)
 
     # if bridge is specified add the bond as a bridge member
     if br:
@@ -258,10 +265,10 @@ def config_mcast_tunnel_termination_device(node):
     The kernel requires a device to terminate VxLAN multicast tunnels
     when EVPN-PIM is used for flooded traffic
     """
-    node.run("ip link add dev ipmr-lo type dummy")
+    create_interface_in_kernel(node.tgen, node.name, "ipmr-lo")
     node.run("ip link set dev ipmr-lo mtu 16000")
     node.run("ip link set dev ipmr-lo mode dormant")
-    node.run("ip link set dev ipmr-lo up")
+    shutdown_bringup_interface_in_kernel(node.tgen, node.name, "ipmr-lo", True)
 
 
 def config_bridge(node):
@@ -274,7 +281,7 @@ def config_bridge(node):
     node.run("ip link set dev bridge type bridge ageing_time 1800")
     node.run("ip link set dev bridge type bridge mcast_snooping 0")
     node.run("ip link set dev bridge type bridge vlan_stats_enabled 1")
-    node.run("ip link set dev bridge up")
+    shutdown_bringup_interface_in_kernel(node.tgen, node.name, "bridge", True)
     node.run("/sbin/bridge vlan add vid 1000 dev bridge self")
 
 
@@ -289,7 +296,7 @@ def config_vxlan(node, node_ip):
     node.run("ip link set dev vx-1000 type vxlan ttl 64")
     node.run("ip link set dev vx-1000 mtu 9152")
     node.run("ip link set dev vx-1000 type vxlan dev ipmr-lo group 239.1.1.100")
-    node.run("ip link set dev vx-1000 up")
+    shutdown_bringup_interface_in_kernel(node.tgen, node.name, "vx-1000", True)
 
     # bridge attrs
     node.run("ip link set dev vx-1000 master bridge")
@@ -307,17 +314,17 @@ def config_svi(node, svi_pip):
     Create an SVI for VLAN 1000
     """
     node.run("ip link add link bridge name vlan1000 type vlan id 1000 protocol 802.1q")
-    node.run("ip addr add %s/24 dev vlan1000" % svi_pip)
-    node.run("ip link set dev vlan1000 up")
+    create_address_on_interface(node.tgen, node.name, "vlan1000", "%s/24" % svi_pip)
+    shutdown_bringup_interface_in_kernel(node.tgen, node.name, "vlan1000", True)
     node.run("/sbin/sysctl net.ipv4.conf.vlan1000.arp_accept=1")
     node.run("ip link add link vlan1000 name vlan1000-v0 type macvlan mode private")
     node.run("/sbin/sysctl net.ipv6.conf.vlan1000-v0.accept_dad=0")
     node.run("/sbin/sysctl net.ipv6.conf.vlan1000-v0.dad_transmits")
     node.run("/sbin/sysctl net.ipv6.conf.vlan1000-v0.dad_transmits=0")
     node.run("ip link set dev vlan1000-v0 address 00:00:5e:00:01:01")
-    node.run("ip link set dev vlan1000-v0 up")
+    shutdown_bringup_interface_in_kernel(node.tgen, node.name, "vlan1000-v0", True)
     # metric 1024 is not working
-    node.run("ip addr add 45.0.0.1/24 dev vlan1000-v0")
+    create_address_on_interface(node.tgen, node.name, "vlan1000-v0", "45.0.0.1/24")
 
 
 def config_tor(tor_name, tor, tor_ip, svi_pip):
@@ -373,7 +380,7 @@ def config_host(host_name, host):
     config_bond(host, bond_name, bond_members, "00:00:00:00:00:00", None)
 
     host_ip, host_mac = compute_host_ip_mac(host_name)
-    host.run("ip addr add %s dev %s" % (host_ip, bond_name))
+    create_address_on_interface(host.tgen, host.name, bond_name, host_ip)
     host.run("ip link set dev %s address %s" % (bond_name, host_mac))
 
 
@@ -385,6 +392,9 @@ def config_hosts(tgen, hosts):
 
 def setup_module(module):
     "Setup topology"
+    if not topotest.platform_has_evpn():
+        pytest.skip("platform does not support EVPN")
+
     tgen = Topogen(build_topo, module.__name__)
     tgen.start_topology()
 
@@ -739,7 +749,12 @@ def test_evpn_ead_update():
     # down a remote host link and check if the EAD withdraw is rxed
     # Note: LACP is not working as expected so I am temporarily shutting
     # down the link on the remote TOR instead of the remote host
-    remote_tor.run("ip link set dev %s-%s down" % (remote_tor_name, "eth2"))
+    shutdown_bringup_interface_in_kernel(
+        remote_tor.tgen,
+        remote_tor.name,
+        f"{remote_tor_name}-{'eth2'}",
+        False,
+    )
     down_vteps.append(tor_ips.get(remote_tor_name))
     _, result = topotest.run_and_expect(test_fn, None, count=20, wait=3)
     assertmsg = '"{}" ES incorrect after remote link down'.format(dut_name)
@@ -747,7 +762,12 @@ def test_evpn_ead_update():
 
     # bring up remote host link and check if the EAD update is rxed
     down_vteps.remove(tor_ips.get(remote_tor_name))
-    remote_tor.run("ip link set dev %s-%s up" % (remote_tor_name, "eth2"))
+    shutdown_bringup_interface_in_kernel(
+        remote_tor.tgen,
+        remote_tor.name,
+        f"{remote_tor_name}-{'eth2'}",
+        True,
+    )
     _, result = topotest.run_and_expect(test_fn, None, count=20, wait=3)
     assertmsg = '"{}" ES incorrect after remote link flap'.format(dut_name)
     assert result is None, assertmsg
@@ -989,7 +1009,9 @@ def test_evpn_vtep_change():
     secondary_vtep = "192.168.100.117"
 
     # 1. Add secondary loopback address on torm21
-    remote_tor.run(f"ip addr add {secondary_vtep}/32 dev lo")
+    create_address_on_interface(
+        remote_tor.tgen, remote_tor.name, "lo", f"{secondary_vtep}/32"
+    )
 
     # 2. Verify primary VTEP is present initially
     test_fn = partial(check_remote_es_vtep_present, dut, esi, primary_vtep)
@@ -1056,7 +1078,9 @@ def test_evpn_vtep_change():
     assert result is None, assertmsg
 
     # Cleanup: remove secondary loopback
-    remote_tor.run(f"ip addr del {secondary_vtep}/32 dev lo")
+    delete_address_on_interface(
+        remote_tor.tgen, remote_tor.name, "lo", f"{secondary_vtep}/32"
+    )
 
 
 def check_protodown_rc(dut, protodown_rc):
@@ -1099,8 +1123,8 @@ def test_evpn_uplink_tracking():
     assert result is None, assertmsg
 
     # disable the uplinks
-    dut.run("ip link set %s-eth0 down" % dut_name)
-    dut.run("ip link set %s-eth1 down" % dut_name)
+    shutdown_bringup_interface_in_kernel(dut.tgen, dut.name, f"{dut_name}-eth0", False)
+    shutdown_bringup_interface_in_kernel(dut.tgen, dut.name, f"{dut_name}-eth1", False)
 
     # check if the access ports have been protodowned
     test_fn = partial(check_protodown_rc, dut, "uplinkDown")
@@ -1109,8 +1133,8 @@ def test_evpn_uplink_tracking():
     assert result is None, assertmsg
 
     # enable the uplinks
-    dut.run("ip link set %s-eth0 up" % dut_name)
-    dut.run("ip link set %s-eth1 up" % dut_name)
+    shutdown_bringup_interface_in_kernel(dut.tgen, dut.name, f"{dut_name}-eth0", True)
+    shutdown_bringup_interface_in_kernel(dut.tgen, dut.name, f"{dut_name}-eth1", True)
 
     # check if the access ports have been moved out of protodown
     test_fn = partial(check_protodown_rc, dut, None)

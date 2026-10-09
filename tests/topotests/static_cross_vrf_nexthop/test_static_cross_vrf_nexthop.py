@@ -25,6 +25,10 @@ sys.path.append(os.path.join(CWD, "../"))
 
 # pylint: disable=C0413
 from lib import topotest
+from lib.common_config import (
+    create_interface_in_kernel,
+    shutdown_bringup_interface_in_kernel,
+)
 from lib.topogen import Topogen, TopoRouter, get_topogen
 from lib.topolog import logger
 from time import sleep
@@ -47,6 +51,9 @@ def build_topo(tgen):
 
 def setup_module(mod):
     "Sets up the pytest environment"
+    if not topotest.platform_has_vrf():
+        pytest.skip("platform does not support VRF")
+
     tgen = Topogen(build_topo, mod.__name__)
     tgen.start_topology()
 
@@ -318,10 +325,7 @@ ip route 9.9.9.9/32 blackhole vrf vrf_a
 
     # Add a dummy interface to vrf_b so 10.2.0.0/24 is connected there,
     # making 10.2.0.2 resolvable as a local nexthop in vrf_b.
-    r1.run("ip link add dummy_b type dummy")
-    r1.run("ip link set dummy_b master vrf_b")
-    r1.run("ip link set dummy_b up")
-    r1.run("ip addr add 10.2.0.1/24 dev dummy_b")
+    create_interface_in_kernel(tgen, "r1", "dummy_b", "10.2.0.1/24", vrf="vrf_b")
 
     # Configure ECMP route 10.3.0.0/24 in vrf_b with two nexthops:
     #   - 9.9.9.9 resolved in vrf_a (cross-VRF, via blackhole → always active)
@@ -420,10 +424,10 @@ no ip route 10.3.0.0/24 10.2.0.2 vrf vrf_b
     )
     r1.run("ip link delete dummy_b")
     r1.run("ip link add vrf_a type vrf table 100")
-    r1.run("ip link set vrf_a up")
+    shutdown_bringup_interface_in_kernel(r1.tgen, r1.name, "vrf_a", True)
     r1.vtysh_cmd("configure terminal\nvrf vrf_a\nexit-vrf\n")
     r1.run("ip link set r1-eth0 master vrf_a")
-    r1.run("ip link set r1-eth0 up")
+    shutdown_bringup_interface_in_kernel(r1.tgen, r1.name, "r1-eth0", True)
 
     assert result is None, result
 

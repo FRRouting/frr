@@ -54,6 +54,7 @@ sys.path.append(os.path.join(CWD, "../"))
 from lib import topotest
 from lib.topogen import Topogen, TopoRouter, get_topogen
 from lib.topolog import logger
+from lib.common_config import shutdown_bringup_interface_in_kernel
 
 # Required to instantiate the topology builder class.
 
@@ -644,7 +645,7 @@ def test_rib_ipv6_step15():
         pytest.skip(tgen.errors)
 
     logger.info("Shut the interface to rt2 from the switch side and check fast-reroute")
-    tgen.net.cmd_raises("ip link set %s down" % tgen.net["s1"].intfs[0])
+    shutdown_bringup_interface_in_kernel(tgen, "s1", tgen.net["s1"].intfs[0], False)
 
     for rname in ["rt1"]:
         router_compare_json_output(
@@ -707,7 +708,7 @@ def test_rib_ipv6_step17():
     logger.info(
         "Unshut the interface to rt2 from the switch side and check fast-reroute"
     )
-    tgen.net.cmd_raises("ip link set %s up" % tgen.net["s1"].intfs[0])
+    shutdown_bringup_interface_in_kernel(tgen, "s1", tgen.net["s1"].intfs[0], True)
 
     logger.info("Setting spf-delay-ietf init-delay of 15s")
     tgen.net[rname].cmd(
@@ -815,7 +816,7 @@ def test_rib_ipv6_step18():
         pytest.skip(tgen.errors)
 
     logger.info("Drop traffic between rt1 and rt2")
-    tgen.net.cmd_raises("ip link set s1 down")
+    shutdown_bringup_interface_in_kernel(tgen, "s1", "s1", False)
 
     rname = "rt1"
     router = tgen.gears[rname]
@@ -883,7 +884,7 @@ def test_rib_ipv6_step20():
     logger.info(
         "Unshut the interface to rt2 from the switch side and check fast-reroute"
     )
-    tgen.net.cmd_raises("ip link set s1 up")
+    shutdown_bringup_interface_in_kernel(tgen, "s1", "s1", True)
 
     logger.info("Setting spf-delay-ietf init-delay of 15s")
     tgen.net[rname].cmd(
@@ -1017,7 +1018,7 @@ def test_rib_ipv6_step24():
         pytest.skip(tgen.errors)
 
     logger.info("Shut the interface to rt2 from the switch side and check fast-reroute")
-    tgen.net.cmd_raises("ip link set s1 down")
+    shutdown_bringup_interface_in_kernel(tgen, "s1", "s1", False)
 
     rname = "rt1"
     router = tgen.gears[rname]

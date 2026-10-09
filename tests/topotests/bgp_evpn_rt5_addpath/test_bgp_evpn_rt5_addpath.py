@@ -53,12 +53,19 @@ sys.path.append(os.path.join(CWD, "../"))
 
 # pylint: disable=C0413
 from lib import topotest
+from lib.common_config import create_interface_in_kernel
 from lib.topogen import TopoRouter, Topogen, get_topogen
 from lib.topolog import logger
 from lib.topotest import json_cmp_result
 
 
 def setup_module(mod):
+    if not topotest.platform_has_vrf():
+        pytest.skip("platform does not support VRF")
+
+    if not topotest.platform_has_evpn():
+        pytest.skip("platform does not support EVPN")
+
     topodef = {"s1": ("c1", "r1"), "s2": ("c2", "r1"), "s3": ("r1", "r2", "r3", "rr")}
     tgen = Topogen(topodef, mod.__name__)
     tgen.start_topology()
@@ -91,14 +98,18 @@ def setup_module(mod):
         ip link add vrf100 up type vrf table 100
         ip link add br10 up master vrf100 type bridge
         ip link add vxlan10 up master br10 type vxlan id 10 dstport 4789 local 10.0.0.12 nolearning
-        ip link add dummy-c1 up master br10 type dummy
-        ip link add dummy-c2 up master br10 type dummy
         ip addr add 10.0.0.1/31 dev br10
         ip addr add 10.0.0.3/31 dev br10
-        bridge fdb add 00:00:00:00:00:c1 dev dummy-c1 master static
-        bridge fdb add 00:00:00:00:00:c2 dev dummy-c2 master static
         ip neigh add 10.0.0.0 dev br10 lladdr 00:00:00:00:00:c1
         ip neigh add 10.0.0.2 dev br10 lladdr 00:00:00:00:00:c2
+    """
+    )
+    create_interface_in_kernel(tgen, "r3", "dummy-c1", vrf="br10")
+    create_interface_in_kernel(tgen, "r3", "dummy-c2", vrf="br10")
+    tgen.net["r3"].cmd(
+        """
+        bridge fdb add 00:00:00:00:00:c1 dev dummy-c1 master static
+        bridge fdb add 00:00:00:00:00:c2 dev dummy-c2 master static
     """
     )
     # ip link add br100 up master vrf100 type bridge

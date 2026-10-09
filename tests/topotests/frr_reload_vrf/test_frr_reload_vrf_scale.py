@@ -49,6 +49,7 @@ from lib.topolog import logger
 
 import vrf_knobs as K
 import frr_reload_lib as R
+from lib.topotest import platform_has_vrf, platform_has_evpn
 
 pytestmark = [pytest.mark.bgpd, pytest.mark.staticd]
 
@@ -76,6 +77,14 @@ ALL = K.ZEBRA_KNOBS + K.STATIC_KNOBS
 # Daemon names for load_frr_config (strings, not RD_* ints — bare ints are
 # unpacked as (daemon, param) tuples and raise TypeError).
 NEEDED_DAEMONS = ["zebra", "staticd", "bgpd"]
+
+
+def setup_module(module):
+    if not platform_has_vrf():
+        pytest.skip("platform does not support VRF")
+
+    if not platform_has_evpn():
+        pytest.skip("platform does not support EVPN")
 
 
 def _conf_path(tgen, rname="r1"):

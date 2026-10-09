@@ -36,6 +36,7 @@ import sys
 import time
 
 import pytest
+from lib.topotest import platform_has_pimv6
 from lib.common_config import (
     create_debug_log_config,
     reset_config_on_routers,
@@ -100,6 +101,9 @@ def setup_module(mod):
 
     * `mod`: module name
     """
+
+    if not platform_has_pimv6():
+        pytest.skip("platform does not support PIMv6")
 
     testsuite_run_time = time.asctime(time.localtime(time.time()))
     logger.info("Testsuite start time: %s", testsuite_run_time)

@@ -35,6 +35,10 @@ sys.path.append(os.path.join(CWD, "../"))
 
 # pylint: disable=C0413
 from lib import topotest
+from lib.common_config import (
+    create_interface_in_kernel,
+    shutdown_bringup_interface_in_kernel,
+)
 from lib.topogen import Topogen, get_topogen
 from lib.topolog import logger
 
@@ -51,17 +55,17 @@ def build_topo(tgen):
 
 def setup_module(mod):
     "Sets up the pytest environment"
+    if not topotest.platform_has_vrf():
+        pytest.skip("platform does not support VRF")
+
     tgen = Topogen(build_topo, mod.__name__)
     tgen.start_topology()
 
     r1 = tgen.gears["r1"]
     # A VRF with a connected route to redistribute into the ipv4 vpn table.
     r1.run("ip link add dummy-vrf type vrf table 1001")
-    r1.run("ip link set dummy-vrf up")
-    r1.run("ip link add dummy0 type dummy")
-    r1.run("ip link set dummy0 master dummy-vrf")
-    r1.run("ip link set dummy0 up")
-    r1.run("ip addr add 192.0.2.100/32 dev dummy0")
+    shutdown_bringup_interface_in_kernel(r1.tgen, r1.name, "dummy-vrf", True)
+    create_interface_in_kernel(tgen, "r1", "dummy0", "192.0.2.100/32", vrf="dummy-vrf")
 
     for rname, router in tgen.routers().items():
         router.load_frr_config(os.path.join(CWD, rname, "frr.conf"))

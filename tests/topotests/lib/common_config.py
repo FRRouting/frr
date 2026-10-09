@@ -1548,23 +1548,101 @@ def create_vrf_cfg(tgen, topo, input_dict=None, build=False):
 
 
 def create_interface_in_kernel(
-    tgen, dut, name, ip_addr, vrf=None, netmask=None, create=True
+    tgen, dut, name, ip_addr=None, vrf=None, netmask=None, create=True
 ):
     """
-    Cretae interfaces in kernel for ipv4/ipv6
-    Config is done in Linux Kernel:
+    Create an interface in the kernel and optionally assign an address.
+
+    Linux creates a dummy device. FreeBSD creates a lo(4) clone and renames
+    it to ``name``. The interface is brought up. Omit ``ip_addr`` to leave
+    the interface with no address.
 
     Parameters
     ----------
     * `tgen` : Topogen object
     * `dut` : Device for which interfaces to be added
     * `name` : interface name
-    * `ip_addr` : ip address for interface
-    * `vrf` : VRF name, to which interface will be associated
+    * `ip_addr` : ip address for interface, or None
+    * `vrf` : VRF name, to which interface will be associated.
+              Applied on Linux only.
     * `netmask` : netmask value, default is None
     * `create`: Create interface in kernel, if created then no need
                 to create
     """
+
+    if sys.platform.startswith("freebsd"):
+        create_interface_in_kernel_freebsd(
+            tgen, dut, name, ip_addr, vrf, netmask, create
+        )
+    else:
+        create_interface_in_kernel_linux(tgen, dut, name, ip_addr, vrf, netmask, create)
+
+
+def create_address_on_interface(tgen, dut, name, ip_addr, vrf=None, netmask=None):
+    """
+    Add an IP address to an existing kernel interface.
+
+    The interface must already exist. Addresses already configured on it are
+    left in place. Link state is not changed.
+
+    Parameters
+    ----------
+    * `tgen` : Topogen object
+    * `dut` : Device whose interface receives the address
+    * `name` : interface name
+    * `ip_addr` : ip address to add. Include the prefix length unless
+                  ``netmask`` is set.
+    * `vrf` : VRF name, to which interface will be associated.
+              Applied on Linux only.
+    * `netmask` : netmask value, default is None
+    """
+
+    if sys.platform.startswith("freebsd"):
+        create_address_on_interface_freebsd(tgen, dut, name, ip_addr, vrf, netmask)
+    else:
+        create_address_on_interface_linux(tgen, dut, name, ip_addr, vrf, netmask)
+
+
+def delete_address_on_interface(tgen, dut, name, ip_addr, vrf=None, netmask=None):
+    """
+    Remove an IP address from an existing kernel interface.
+
+    The interface must already exist. Other addresses configured on it are
+    left in place. Link state is not changed. ``vrf`` is accepted so callers
+    can pass the same arguments as ``create_address_on_interface``. Interface
+    VRF membership is left unchanged.
+
+    Parameters
+    ----------
+    * `tgen` : Topogen object
+    * `dut` : Device whose interface loses the address
+    * `name` : interface name
+    * `ip_addr` : ip address to remove. Include the prefix length unless
+                  ``netmask`` is set.
+    * `vrf` : VRF name. Accepted for signature compatibility. Membership is
+              not changed.
+    * `netmask` : netmask value, default is None
+    """
+
+    if sys.platform.startswith("freebsd"):
+        delete_address_on_interface_freebsd(tgen, dut, name, ip_addr, vrf, netmask)
+    else:
+        delete_address_on_interface_linux(tgen, dut, name, ip_addr, vrf, netmask)
+
+
+def _kernel_interface_address(ip_addr, netmask):
+    """Return an ipaddress interface for ip_addr and an optional netmask."""
+    if not netmask:
+        return ipaddress.ip_interface(frr_unicode(ip_addr))
+    return ipaddress.ip_interface(
+        "{}/{}".format(frr_unicode(ip_addr), frr_unicode(netmask))
+    )
+
+
+def create_interface_in_kernel_linux(
+    tgen, dut, name, ip_addr=None, vrf=None, netmask=None, create=True
+):
+    """Create a Linux dummy interface and optionally assign an address."""
 
     rnode = tgen.gears[dut]
 
@@ -1572,15 +1650,20 @@ def create_interface_in_kernel(
         cmd = "ip link show {0} >/dev/null || ip link add {0} type dummy".format(name)
         rnode.run(cmd)
 
-    if not netmask:
-        ifaddr = ipaddress.ip_interface(frr_unicode(ip_addr))
-    else:
-        ifaddr = ipaddress.ip_interface(
-            "{}/{}".format(frr_unicode(ip_addr), frr_unicode(netmask))
-        )
-    cmd = "ip -{0} a flush {1} scope global && ip a add {2} dev {1} && ip l set {1} up".format(
-        ifaddr.version, name, ifaddr
-    )
+    if not ip_addr:
+        if vrf:
+            cmd = "ip link set {} master {}".format(name, vrf)
+            logger.debug("[DUT: %s]: Running command: %s", dut, cmd)
+            rnode.run(cmd)
+        cmd = "ip link set {} up".format(name)
+        logger.debug("[DUT: %s]: Running command: %s", dut, cmd)
+        rnode.run(cmd)
+        return
+
+    ifaddr = _kernel_interface_address(ip_addr, netmask)
+    cmd = (
+        "ip -{0} a flush {1} scope global && ip a add {2} dev {1} && ip l set {1} up"
+    ).format(ifaddr.version, name, ifaddr)
     logger.debug("[DUT: %s]: Running command: %s", dut, cmd)
     rnode.run(cmd)
 
@@ -1589,19 +1672,166 @@ def create_interface_in_kernel(
         rnode.run(cmd)
 
 
+def create_address_on_interface_linux(
+    tgen, dut, name, ip_addr, vrf=None, netmask=None
+):
+    """Add an IP address to an existing Linux interface."""
+
+    rnode = tgen.gears[dut]
+    ifaddr = _kernel_interface_address(ip_addr, netmask)
+    cmd = "ip -{0} a add {1} dev {2}".format(ifaddr.version, ifaddr, name)
+    logger.debug("[DUT: %s]: Running command: %s", dut, cmd)
+    rnode.run(cmd)
+
+    if vrf:
+        cmd = "ip link set {} master {}".format(name, vrf)
+        logger.debug("[DUT: %s]: Running command: %s", dut, cmd)
+        rnode.run(cmd)
+
+
+def delete_address_on_interface_linux(
+    tgen, dut, name, ip_addr, vrf=None, netmask=None
+):
+    """Remove an IP address from an existing Linux interface."""
+
+    rnode = tgen.gears[dut]
+    ifaddr = _kernel_interface_address(ip_addr, netmask)
+    cmd = "ip -{0} a del {1} dev {2}".format(ifaddr.version, ifaddr, name)
+    logger.debug("[DUT: %s]: Running command: %s", dut, cmd)
+    rnode.run(cmd)
+
+    if vrf:
+        logger.debug("[DUT: %s]: %s VRF membership unchanged (vrf %s)", dut, name, vrf)
+
+
+def _freebsd_run(rnode, dut, args):
+    """Run an ifconfig argv inside the router and log it."""
+    logger.debug("[DUT: %s]: Running command: %s", dut, " ".join(args))
+    rnode.cmd_raises(args)
+
+
+def _freebsd_clone_loopback(rnode):
+    """Create a lo(4) clone and return the name ifconfig printed.
+
+    ``ifconfig lo create`` asks for the next unit. Once an interface is
+    named ``lo``, the kernel rejects that with EEXIST, so try an explicit
+    unit.
+    """
+
+    names = ["lo"] + ["lo{}".format(unit) for unit in range(1, 128)]
+    last = ""
+    for ifname in names:
+        rc, out, err = rnode.net.cmd_status(
+            ["/sbin/ifconfig", ifname, "create"], warn=False
+        )
+        if rc:
+            last = "{}{}".format(out or "", err or "").strip()
+            continue
+        text = (out or "").strip() or (err or "").strip()
+        created = text.split()[-1] if text else ""
+        if not created:
+            raise RuntimeError("ifconfig {} create returned no name".format(ifname))
+        return created
+    raise RuntimeError("could not clone a loopback: {}".format(last))
+
+
+def _freebsd_flush_global(rnode, dut, name, version):
+    """Delete global addresses of one family. Leave link-local and localhost."""
+
+    rc, out, _ = rnode.net.cmd_status(["/sbin/ifconfig", name], warn=False)
+    if rc or not out:
+        return
+    for line in out.splitlines():
+        parts = line.split()
+        if len(parts) < 2:
+            continue
+        kind, addr = parts[0], parts[1]
+        if version == 4 and kind == "inet" and not addr.startswith("127."):
+            _freebsd_run(rnode, dut, ["/sbin/ifconfig", name, "inet", addr, "delete"])
+        elif version == 6 and kind == "inet6":
+            bare = addr.split("%", 1)[0]
+            if bare == "::1" or bare.lower().startswith("fe80:"):
+                continue
+            _freebsd_run(rnode, dut, ["/sbin/ifconfig", name, "inet6", bare, "delete"])
+
+
+def create_interface_in_kernel_freebsd(
+    tgen, dut, name, ip_addr=None, vrf=None, netmask=None, create=True
+):
+    """Create a lo(4) clone, name it ``name``, and optionally assign an address."""
+
+    rnode = tgen.gears[dut]
+
+    if create:
+        rc, _, _ = rnode.net.cmd_status(["/sbin/ifconfig", name], warn=False)
+        if rc:
+            created = _freebsd_clone_loopback(rnode)
+            if created != name:
+                _freebsd_run(rnode, dut, ["/sbin/ifconfig", created, "name", name])
+
+    if ip_addr:
+        ifaddr = _kernel_interface_address(ip_addr, netmask)
+        _freebsd_flush_global(rnode, dut, name, ifaddr.version)
+        family = "inet6" if ifaddr.version == 6 else "inet"
+        if ifaddr.version == 6:
+            _freebsd_run(rnode, dut, ["/sbin/ifconfig", name, "inet6", "-ifdisabled"])
+        _freebsd_run(rnode, dut, ["/sbin/ifconfig", name, family, str(ifaddr)])
+    _freebsd_run(rnode, dut, ["/sbin/ifconfig", name, "up"])
+
+    if vrf:
+        logger.debug("[DUT: %s]: %s stays in the base FIB (vrf %s)", dut, name, vrf)
+
+
+def create_address_on_interface_freebsd(
+    tgen, dut, name, ip_addr, vrf=None, netmask=None
+):
+    """Add an IP address to an existing FreeBSD interface."""
+
+    rnode = tgen.gears[dut]
+    ifaddr = _kernel_interface_address(ip_addr, netmask)
+    family = "inet6" if ifaddr.version == 6 else "inet"
+    if ifaddr.version == 6:
+        _freebsd_run(rnode, dut, ["/sbin/ifconfig", name, "inet6", "-ifdisabled"])
+    _freebsd_run(rnode, dut, ["/sbin/ifconfig", name, family, str(ifaddr), "alias"])
+
+    if vrf:
+        logger.debug("[DUT: %s]: %s stays in the base FIB (vrf %s)", dut, name, vrf)
+
+
+def delete_address_on_interface_freebsd(
+    tgen, dut, name, ip_addr, vrf=None, netmask=None
+):
+    """Remove an IP address from an existing FreeBSD interface."""
+
+    rnode = tgen.gears[dut]
+    ifaddr = _kernel_interface_address(ip_addr, netmask)
+    family = "inet6" if ifaddr.version == 6 else "inet"
+    _freebsd_run(rnode, dut, ["/sbin/ifconfig", name, family, str(ifaddr.ip), "delete"])
+
+    if vrf:
+        logger.debug("[DUT: %s]: %s stays in the base FIB (vrf %s)", dut, name, vrf)
+
+
 def shutdown_bringup_interface_in_kernel(tgen, dut, intf_name, ifaceaction=False):
     """
-    Cretae interfaces in kernel for ipv4/ipv6
-    Config is done in Linux Kernel:
+    Shut down or bring up a kernel interface.
 
     Parameters
     ----------
     * `tgen` : Topogen object
-    * `dut` : Device for which interfaces to be added
+    * `dut` : Device whose interface changes state
     * `intf_name` : interface name
-    * `ifaceaction` : False to shutdown and True to bringup the
-                      ineterface
+    * `ifaceaction` : False to shut the interface down, True to bring it up
     """
+
+    if sys.platform.startswith("freebsd"):
+        shutdown_bringup_interface_in_kernel_freebsd(tgen, dut, intf_name, ifaceaction)
+    else:
+        shutdown_bringup_interface_in_kernel_linux(tgen, dut, intf_name, ifaceaction)
+
+
+def shutdown_bringup_interface_in_kernel_linux(tgen, dut, intf_name, ifaceaction=False):
+    """Set a Linux interface administratively up or down."""
 
     rnode = tgen.gears[dut]
 
@@ -1615,6 +1845,16 @@ def shutdown_bringup_interface_in_kernel(tgen, dut, intf_name, ifaceaction=False
 
     logger.debug("[DUT: %s]: Running command: %s", dut, cmd)
     rnode.run(cmd)
+
+
+def shutdown_bringup_interface_in_kernel_freebsd(
+    tgen, dut, intf_name, ifaceaction=False
+):
+    """Set a FreeBSD interface administratively up or down."""
+
+    rnode = tgen.gears[dut]
+    action = "up" if ifaceaction else "down"
+    _freebsd_run(rnode, dut, ["/sbin/ifconfig", intf_name, action])
 
 
 def validate_ip_address(ip_address):

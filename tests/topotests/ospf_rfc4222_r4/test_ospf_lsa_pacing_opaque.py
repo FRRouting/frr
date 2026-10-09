@@ -17,6 +17,7 @@ import pytest
 
 from lib import topotest
 from lib.topogen import Topogen
+from lib.common_config import shutdown_bringup_interface_in_kernel
 
 
 pytestmark = [pytest.mark.ospfd]
@@ -104,9 +105,9 @@ def test_opaque_lsa_with_rec4_pacing_survives_interface_flap(tgen):
     _wait_for_te_router(r4, "r4", "3.3.3.3")
     _wait_for_te_router(r4, "r4", "4.4.4.4")
 
-    tgen.net["r3"].cmd("ip link set eth1 down")
+    shutdown_bringup_interface_in_kernel(tgen, 'r3', "eth1", False)
     time.sleep(2)
-    tgen.net["r3"].cmd("ip link set eth1 up")
+    shutdown_bringup_interface_in_kernel(tgen, 'r3', "eth1", True)
 
     _wait_neighbor_full(r3, "4.4.4.4")
     _wait_neighbor_full(r4, "3.3.3.3")

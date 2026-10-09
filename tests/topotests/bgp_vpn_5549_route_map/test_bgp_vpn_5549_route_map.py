@@ -22,6 +22,7 @@ sys.path.append(os.path.join(CWD, "../"))
 # pylint: disable=C0413
 from lib import topotest
 from lib.topogen import Topogen, TopoRouter, get_topogen
+from lib.common_config import shutdown_bringup_interface_in_kernel
 
 pytestmark = [pytest.mark.bgpd, pytest.mark.ldpd, pytest.mark.ospf6d]
 
@@ -46,6 +47,9 @@ def build_topo(tgen):
 
 
 def setup_module(mod):
+    if not topotest.platform_has_vrf():
+        pytest.skip("platform does not support VRF")
+
     tgen = Topogen(build_topo, mod.__name__)
     tgen.start_topology()
 
@@ -53,9 +57,9 @@ def setup_module(mod):
     pe2 = tgen.gears["pe2"]
 
     pe1.run("ip link add RED type vrf table 1001")
-    pe1.run("ip link set up dev RED")
+    shutdown_bringup_interface_in_kernel(pe1.tgen, pe1.name, "RED", True)
     pe2.run("ip link add RED type vrf table 1001")
-    pe2.run("ip link set up dev RED")
+    shutdown_bringup_interface_in_kernel(pe2.tgen, pe2.name, "RED", True)
     pe1.run("ip link set pe1-eth0 master RED")
     pe2.run("ip link set pe2-eth1 master RED")
 

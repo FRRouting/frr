@@ -36,6 +36,8 @@ from munet.base import commander, get_exec_path_host, Timeout
 from munet.testing.util import retry
 
 from lib import micronet
+from lib.frr_paths import FRR_SYSCONFDIR
+from lib.kernel_routes import kernel_routes
 
 g_pytest_config = None
 
@@ -727,11 +729,22 @@ def difflines(text1, text2, title1="", title2="", **opts):
 
 def get_file(content):
     """
-    Generates a temporary file in '/tmp' with `content` and returns the file name.
+    Write `content` to a temporary file and return its name.
+
+    The file is created in the per-test rundir (/tmp/topotests/<test> by
+    default). That directory is mounted into each router, so a command run
+    inside the router can read it. Host /tmp is not.
     """
     if isinstance(content, list) or isinstance(content, tuple):
         content = "\n".join(content)
-    fde = tempfile.NamedTemporaryFile(mode="w", delete=False)
+    directory = None
+    rundir = None
+    if g_pytest_config is not None:
+        rundir = getattr(g_pytest_config.option, "rundir", None)
+    if rundir:
+        directory = get_logs_path(rundir)
+        os.makedirs(directory, exist_ok=True)
+    fde = tempfile.NamedTemporaryFile(mode="w", delete=False, dir=directory)
     fname = fde.name
     fde.write(content)
     fde.close()
@@ -761,6 +774,36 @@ def is_linux():
     """
 
     if os.uname()[0] == "Linux":
+        return True
+    return False
+
+
+def platform_has_vrf():
+    """Return whether this platform can create VRFs.
+
+    Linux supports L3 VRFs. FreeBSD does not.
+    """
+    if sys.platform.startswith("linux"):
+        return True
+    return False
+
+
+def platform_has_evpn():
+    """Return whether this platform can run EVPN.
+
+    EVPN topotests need Linux bridge, VXLAN, and VRF support. FreeBSD does not.
+    """
+    if sys.platform.startswith("linux"):
+        return True
+    return False
+
+
+def platform_has_pimv6():
+    """Return whether this platform can run PIMv6.
+
+    Linux supports PIMv6. FreeBSD does not.
+    """
+    if sys.platform.startswith("linux"):
         return True
     return False
 
@@ -2126,23 +2169,25 @@ class Router(Node):
         valgrind_memleaks = bool(g_pytest_config.option.valgrind_memleaks)
         strace_daemons = g_pytest_config.get_option_list("--strace-daemons")
 
-        # Get global bundle data
-        if not self.path_exists("/etc/frr/support_bundle_commands.conf"):
+        # Installed into the sysconfdir chosen at configure time. A FreeBSD
+        # jail symlinks that directory to the private /etc/frr.
+        bundle_conf = os.path.join(FRR_SYSCONFDIR, "support_bundle_commands.conf")
+        if not self.path_exists(bundle_conf):
             logger.info(
                 "No support bundle commands.conf found in %s namespace, copying them over",
                 self.name,
             )
             # Copy global value if was covered by namespace mount
             bundle_data = ""
-            if os.path.exists("/etc/frr/support_bundle_commands.conf"):
-                with open("/etc/frr/support_bundle_commands.conf", "r") as rf:
+            if os.path.exists(bundle_conf):
+                with open(bundle_conf, "r") as rf:
                     bundle_data = rf.read()
             else:
                 logger.warning(
                     "No support bundle commands.conf found, please install them on this system"
                 )
             self.cmd_raises(
-                "cat > /etc/frr/support_bundle_commands.conf",
+                "cat > {}".format(bundle_conf),
                 stdin=bundle_data,
             )
 
@@ -2696,8 +2741,8 @@ class Router(Node):
             )
 
         # Update the permissions on the log files
-        self.cmd("chown frr:frr -R {}/{}".format(self.logdir, self.name))
-        self.cmd("chmod ug+rwX,o+r -R {}/{}".format(self.logdir, self.name))
+        self.cmd("chown -R frr:frr {}/{}".format(self.logdir, self.name))
+        self.cmd("chmod -R ug+rwX,o+r {}/{}".format(self.logdir, self.name))
 
         if "frr" in logd_options:
             logdopt = logd_options["frr"]
