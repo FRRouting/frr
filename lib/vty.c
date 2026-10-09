@@ -2246,6 +2246,7 @@ static void vtysh_read(struct event *event)
 	struct vty *vty;
 	unsigned char buf[VTY_READ_BUFSIZ];
 	unsigned char *p;
+	bool send_return;
 	uint8_t header[4] = {0, 0, 0, 0};
 
 	sock = EVENT_FD(event);
@@ -2298,6 +2299,8 @@ static void vtysh_read(struct event *event)
 		for (p = buf; p < buf + nbytes; p++) {
 			vty->buf[vty->length++] = *p;
 			if (*p == '\0') {
+				send_return = true;
+
 				/* Pass this line to parser. */
 				ret = vty_execute(vty);
 /* Note that vty_execute clears the command buffer and resets
@@ -2308,6 +2311,13 @@ static void vtysh_read(struct event *event)
 				printf("result: %d\n", ret);
 				printf("vtysh node: %d\n", vty->node);
 #endif /* VTYSH_DEBUG */
+				/* Check for "don't reply" modifier to 'ret' */
+				if (CHECK_FLAG(ret, CMD_RET_FLAG_NO_RESPONSE))
+					send_return = false;
+
+				/* Mask off any modifiers */
+				ret = ret & CMD_RETCODE_MASK;
+
 				if (vty->pass_fd >= 0) {
 					memset(vty->pass_fd_status, 0, 4);
 					vty->pass_fd_status[3] = ret;
@@ -2352,10 +2362,12 @@ static void vtysh_read(struct event *event)
 					return;
 				}
 
-				/* warning: watchfrr hardcodes this result write
-				 */
-				header[3] = ret;
-				buffer_put(vty->obuf, header, 4);
+				if (send_return) {
+					/* warning: watchfrr hardcodes this result write
+					 */
+					header[3] = ret;
+					buffer_put(vty->obuf, header, 4);
+				}
 
 				if (!event_is_scheduled(vty->t_write) && (vtysh_flush(vty) < 0))
 					/* Try to flush results; exit if a write
@@ -2974,6 +2986,37 @@ static void vty_event(enum vty_event event, struct vty *vty)
 	case VTYSH_SERV:
 		assert(!"vty_event() called incorrectly");
 	}
+}
+
+/*
+ * Check whether a vty cancel command is present, by peeking at the vty
+ * connection socket
+ */
+bool vty_check_for_cancel(struct vty *vty)
+{
+	bool ret = false;
+	int nbytes;
+	unsigned char buf[64];
+
+	/* Take a look at the incoming stream */
+	nbytes = recv(vty->fd, buf, sizeof(buf), MSG_PEEK);
+	if (nbytes <= 0)
+		goto done;
+
+	/* Check for the 'cancel' pseudo-command */
+	if ((size_t)nbytes >= sizeof(VTY_CANCEL_COMMAND) &&
+	    strmatch((const char *)buf, VTY_CANCEL_COMMAND)) {
+		ret = true;
+
+		/* Read the cancel message from the stream; we want
+		 * to handle it immediately, not as a standalone command.
+		 */
+		(void)nbytes;	/* clang-SA */
+		nbytes = recv(vty->fd, buf, sizeof(VTY_CANCEL_COMMAND), 0);
+	}
+
+done:
+	return ret;
 }
 
 DEFUN_NOSH (config_who,
