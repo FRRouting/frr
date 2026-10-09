@@ -565,6 +565,7 @@ static struct aspath_tests {
 	const char attrheader[1024];
 	size_t len;
 	const struct test_segment *old_segment;
+	const uint8_t withdraw_attr; /* treat-as-withdraw configured for */
 } aspath_tests[] = {
 	/* 0 */
 	{
@@ -636,7 +637,7 @@ static struct aspath_tests {
 		&test_segments[0],
 		"8466 3 52737 4096",
 		AS2_DATA,
-		-2,
+		0,
 		0,
 		{
 			COMMON_ATTRS,
@@ -645,6 +646,7 @@ static struct aspath_tests {
 			10,
 		},
 		COMMON_ATTR_SIZE + 3,
+		&test_segments[0],
 	},
 	/* 5 */
 	{
@@ -790,6 +792,153 @@ static struct aspath_tests {
 			22,
 		},
 		COMMON_ATTR_SIZE + 3,
+	},
+	/* 14 */
+	{
+		"4b AS4_PATH: malformed from AS4 peer",
+		&test_segments[0],
+		"1",
+		AS2_DATA,
+		0,
+		PEER_CAP_AS4_RCV | PEER_CAP_AS4_ADV,
+		{
+			COMMON_ATTRS,
+			BGP_ATTR_FLAG_TRANS,
+			BGP_ATTR_AS_PATH,
+			6,
+			AS_SEQUENCE,
+			1,
+			0,
+			0,
+			0,
+			1,
+			BGP_ATTR_FLAG_TRANS | BGP_ATTR_FLAG_OPTIONAL,
+			BGP_ATTR_AS4_PATH,
+			10,
+		},
+		COMMON_ATTR_SIZE + 9 + 3,
+	},
+	/* 15 */
+	{
+		"AS4_AGGREGATOR: partial, malformed",
+		&test_segments[16],
+		"8466",
+		AS2_DATA,
+		0,
+		0,
+		{
+			COMMON_ATTRS,
+			BGP_ATTR_FLAG_TRANS,
+			BGP_ATTR_AS_PATH,
+			4,
+			AS_SEQUENCE,
+			1,
+			0x21,
+			0x12,
+			BGP_ATTR_FLAG_TRANS | BGP_ATTR_FLAG_OPTIONAL | BGP_ATTR_FLAG_PARTIAL,
+			BGP_ATTR_AS4_AGGREGATOR,
+			4,
+			0,
+			0,
+			0,
+			1,
+		},
+		COMMON_ATTR_SIZE + 7 + 7,
+	},
+	/* 16 */
+	{
+		"AS4_AGGREGATOR: bad flags",
+		&test_segments[16],
+		"8466",
+		AS2_DATA,
+		-2,
+		0,
+		{
+			COMMON_ATTRS,
+			BGP_ATTR_FLAG_TRANS,
+			BGP_ATTR_AS_PATH,
+			4,
+			AS_SEQUENCE,
+			1,
+			0x21,
+			0x12,
+			BGP_ATTR_FLAG_TRANS,
+			BGP_ATTR_AS4_AGGREGATOR,
+			8,
+			0,
+			0,
+			0,
+			1,
+			192,
+			0,
+			2,
+			1,
+		},
+		COMMON_ATTR_SIZE + 7 + 11,
+	},
+	/* 17 */
+	{
+		"4b AS4_PATH: AS4 received, not advertised",
+		&test_segments[1],
+		"8466 3 8722 4",
+		AS4_DATA,
+		0,
+		PEER_CAP_AS4_RCV,
+		{
+			COMMON_ATTRS,
+			BGP_ATTR_FLAG_TRANS | BGP_ATTR_FLAG_OPTIONAL,
+			BGP_ATTR_AS4_PATH,
+			10,
+		},
+		COMMON_ATTR_SIZE + 3,
+		&test_segments[0],
+	},
+	/* 18 */
+	{
+		"AS4_AGGREGATOR: malformed, treat-as-withdraw configured",
+		&test_segments[16],
+		NULL,
+		AS2_DATA,
+		-3,
+		0,
+		{
+			COMMON_ATTRS,
+			BGP_ATTR_FLAG_TRANS,
+			BGP_ATTR_AS_PATH,
+			4,
+			AS_SEQUENCE,
+			1,
+			0x21,
+			0x12,
+			BGP_ATTR_FLAG_TRANS | BGP_ATTR_FLAG_OPTIONAL | BGP_ATTR_FLAG_PARTIAL,
+			BGP_ATTR_AS4_AGGREGATOR,
+			4,
+			0,
+			0,
+			0,
+			1,
+		},
+		COMMON_ATTR_SIZE + 7 + 7,
+		NULL,
+		BGP_ATTR_AS4_AGGREGATOR,
+	},
+	/* 19 */
+	{
+		"AS4_PATH: malformed, treat-as-withdraw configured",
+		&test_segments[0],
+		NULL,
+		AS2_DATA,
+		-3,
+		0,
+		{
+			COMMON_ATTRS,
+			BGP_ATTR_FLAG_TRANS | BGP_ATTR_FLAG_OPTIONAL,
+			BGP_ATTR_AS4_PATH,
+			10,
+		},
+		COMMON_ATTR_SIZE + 3,
+		&test_segments[0],
+		BGP_ATTR_AS4_PATH,
 	},
 	{NULL, NULL, NULL, 0, 0, 0, {0}, 0},
 };
@@ -1351,6 +1500,8 @@ static int handle_attr_test(struct aspath_tests *t)
 	peer.host = (char *)"none";
 	peer.connection->fd = -1;
 	peer.cap = t->cap;
+	if (t->withdraw_attr)
+		peer.withdraw_attrs[t->withdraw_attr] = true;
 	peer.max_packet_size = BGP_STANDARD_MESSAGE_MAX_PACKET_SIZE;
 
 	stream_write(peer.connection->curr, t->attrheader, t->len);
