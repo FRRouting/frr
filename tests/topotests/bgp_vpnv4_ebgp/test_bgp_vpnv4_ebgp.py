@@ -642,6 +642,109 @@ def test_aggregated_suppressed_networks_not_exported_on_r1():
         assert result is None, assertmsg
 
 
+def test_export_route_map_match_community_from_ce():
+    """
+    Check that a prefix received from r100 with a community matched by the
+    export route-map is exported
+    """
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    r100 = tgen.gears["r100"]
+    logger.info("r100, advertise 198.51.100.1/32 with community 65500:100")
+    r100.vtysh_cmd(
+        """
+configure terminal
+route-map CE_OUT permit 1
+ set community 65500:100
+!
+router bgp 65500
+ no bgp network import-check
+ address-family ipv4 unicast
+  network 198.51.100.1/32
+  neighbor 172.31.2.1 route-map CE_OUT out
+"""
+    )
+
+    router = tgen.gears["r1"]
+    logger.info("r1, export 198.51.100.1/32 only if it has community 65500:100")
+    router.vtysh_cmd(
+        """
+configure terminal
+bgp community-list standard CE_COMM permit 65500:100
+ip prefix-list CE_PREFIX permit 198.51.100.1/32
+!
+route-map RMAP_CE permit 10
+ match ip address prefix-list CE_PREFIX
+ match community CE_COMM
+route-map RMAP_CE deny 20
+ match ip address prefix-list CE_PREFIX
+route-map RMAP_CE permit 30
+!
+router bgp 65500 vrf vrf1
+ address-family ipv4 unicast
+  route-map vpn export RMAP_CE
+"""
+    )
+
+    prefix = "198.51.100.1/32"
+    logger.info("r1, check that exported prefix {} is present".format(prefix))
+    test_func = partial(
+        check_show_bgp_vpn_prefix_found,
+        router,
+        "ipv4",
+        prefix,
+        "444:1",
+    )
+    success, _ = topotest.run_and_expect(test_func, None, count=30, wait=1)
+    assert success, "{}, vpnv4 update {} not present".format(router.name, prefix)
+
+
+def test_export_route_map_community_removed_from_ce():
+    """
+    Check that when r100 stops setting the community, the export route-map
+    denies the updated prefix and the previously exported prefix is removed
+    """
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    r100 = tgen.gears["r100"]
+    logger.info("r100, stop setting community 65500:100")
+    r100.vtysh_cmd(
+        """
+configure terminal
+route-map CE_OUT permit 1
+ no set community
+"""
+    )
+
+    router = tgen.gears["r1"]
+    prefix = "198.51.100.1/32"
+    logger.info("r1, check that {} is received without community".format(prefix))
+    expected = {"paths": [{"peer": {"peerId": "172.31.2.100"}, "community": None}]}
+    test_func = partial(
+        topotest.router_json_cmp,
+        router,
+        "show bgp vrf vrf1 ipv4 unicast {} json".format(prefix),
+        expected,
+    )
+    _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
+    assert result is None, "{}, {} still has a community".format(router.name, prefix)
+
+    logger.info("r1, check that exported prefix {} is removed".format(prefix))
+    test_func = partial(
+        check_show_bgp_vpn_prefix_not_found,
+        router,
+        "ipv4",
+        prefix,
+        "444:1",
+    )
+    success, _ = topotest.run_and_expect(test_func, None, count=15, wait=1)
+    assert success, "{}, vpnv4 update {} still present".format(router.name, prefix)
+
+
 def test_memory_leak():
     "Run the memory leak test and report results."
     tgen = get_topogen()
