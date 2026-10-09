@@ -143,6 +143,7 @@ enum isis_metric_style {
 struct isis_area {
 	struct isis *isis;			       /* back pointer */
 	struct lspdb_head lspdb[ISIS_LEVELS];	       /* link-state dbs */
+	uint32_t l1_leak_hash;			       /* L1 prefixes leaked into L2 */
 	struct isis_spftree *spftree[SPFTREE_COUNT][ISIS_LEVELS];
 #define DEFAULT_LSP_MTU 1497
 	unsigned int lsp_mtu;      /* Size of LSPs to generate */
