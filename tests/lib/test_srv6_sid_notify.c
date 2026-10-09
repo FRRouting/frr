@@ -74,6 +74,12 @@ static void test_names(void)
 	printf("Caller buffers retain independent names.\n");
 }
 
+static void assert_untouched_tail(const char *name, size_t size)
+{
+	for (size_t i = size; i < SRV6_LOCNAME_SIZE; i++)
+		assert((unsigned char)name[i] == 0xa5);
+}
+
 static void test_boundaries(void)
 {
 	struct {
@@ -94,23 +100,39 @@ static void test_boundaries(void)
 	stream_free(s);
 
 	for (size_t len = SRV6_LOCNAME_SIZE; len <= sizeof(payload); len++) {
+		memset(&guarded, 0xa5, sizeof(guarded));
 		s = notification(payload, len);
 		assert(!decode(s, guarded.name, sizeof(guarded.name)));
 		assert(guarded.before == 0xa5 && guarded.after == 0xa5);
 		stream_free(s);
 	}
 	for (size_t size = 0; size <= 4; size += 4) {
+		memset(&guarded, 0xa5, sizeof(guarded));
 		s = notification("MAIN", 4);
 		assert(!decode(s, guarded.name, size));
+		assert_untouched_tail(guarded.name, size);
 		assert(guarded.before == 0xa5 && guarded.after == 0xa5);
 		stream_free(s);
 	}
+	memset(&guarded, 0xa5, sizeof(guarded));
+	s = notification("MAIN", 4);
+	assert(decode(s, guarded.name, 5));
+	assert(!memcmp(guarded.name, "MAIN", 5));
+	assert_untouched_tail(guarded.name, 5);
+	assert(guarded.before == 0xa5 && guarded.after == 0xa5);
+	stream_free(s);
+	memset(&guarded, 0xa5, sizeof(guarded));
 	s = notification("", 0);
 	assert(!decode(s, guarded.name, 0));
+	assert_untouched_tail(guarded.name, 0);
+	assert(guarded.before == 0xa5 && guarded.after == 0xa5);
 	stream_free(s);
+	memset(&guarded, 0xa5, sizeof(guarded));
 	s = notification("", 0);
 	assert(decode(s, guarded.name, 1));
 	assert(guarded.name[0] == '\0');
+	assert_untouched_tail(guarded.name, 1);
+	assert(guarded.before == 0xa5 && guarded.after == 0xa5);
 	stream_free(s);
 	printf("Buffer boundaries reserve space for the terminator.\n");
 }
