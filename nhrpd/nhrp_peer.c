@@ -13,6 +13,7 @@
 #include "memory.h"
 #include "frrevent.h"
 #include "hash.h"
+#include "md5.h"
 #include "network.h"
 
 #include "nhrpd.h"
@@ -617,6 +618,7 @@ err:
 static void nhrp_handle_registration_request(struct nhrp_packet_parser *p)
 {
 	struct interface *ifp = p->ifp;
+	struct nhrp_interface *nifp = ifp->info;
 	struct zbuf *zb, payload;
 	struct nhrp_packet_header *hdr;
 	struct nhrp_cie_header *cie;
@@ -730,6 +732,15 @@ static void nhrp_handle_registration_request(struct nhrp_packet_parser *p)
 			}
 			nhrp_ext_complete(zb, ext);
 			break;
+		case NHRP_EXTENSION_AUTHENTICATION:
+			/* RFC 2332: the keyed hash covers the whole packet
+			 * and cannot be copied; it is regenerated for the
+			 * reply.  The Cisco style plaintext extension is
+			 * copied from the request below.
+			 */
+			if (nifp->auth_mode == NHRP_AUTH_RFC2332)
+				break;
+			fallthrough;
 		default:
 			if (nhrp_ext_reply(zb, hdr, ifp, ext, &payload) < 0)
 				goto err;
@@ -737,8 +748,13 @@ static void nhrp_handle_registration_request(struct nhrp_packet_parser *p)
 		}
 	}
 
-	/* auth ext was validated and copied from the request */
-	nhrp_packet_complete_auth(zb, hdr, ifp, false);
+	/* Cisco style: the auth extension was validated and copied from
+	 * the request.  RFC 2332: it must be regenerated for the reply.
+	 */
+	if (nifp->auth_mode == NHRP_AUTH_RFC2332)
+		nhrp_packet_complete_auth(zb, hdr, ifp, true);
+	else
+		nhrp_packet_complete_auth(zb, hdr, ifp, false);
 	nhrp_peer_send(p->peer, zb);
 err:
 	zbuf_free(zb);
@@ -1185,20 +1201,27 @@ static int nhrp_packet_send_error(struct nhrp_packet_parser *pp,
 
 static bool nhrp_connection_authorized(struct nhrp_packet_parser *pp)
 {
-	struct nhrp_cisco_authentication_extension *auth_ext;
 	struct nhrp_interface *nifp = pp->ifp->info;
 	struct zbuf *auth = nifp->auth_token;
 	struct nhrp_extension_header *ext;
 	struct zbuf *extensions, pl;
-	int cmp = 1;
-	int pl_pass_length, auth_pass_length;
-	size_t auth_size, pl_size;
 
-	extensions = zbuf_alloc(zbuf_used(&pp->extensions));
-	zbuf_copy_peek(extensions, &pp->extensions, zbuf_used(&pp->extensions));
-	while ((ext = nhrp_ext_pull(extensions, &pl)) != NULL) {
-		switch (htons(ext->type) & ~NHRP_EXTENSION_FLAG_COMPULSORY) {
-		case NHRP_EXTENSION_AUTHENTICATION:
+	if (nifp->auth_mode == NHRP_AUTH_CISCO) {
+		/* Cisco style authentication: the extension carries the
+		 * plaintext password which must match ours exactly.
+		 */
+		struct nhrp_cisco_authentication_extension *auth_ext;
+		int cmp = 1;
+		size_t auth_size, pl_size;
+
+		extensions = zbuf_alloc(zbuf_used(&pp->extensions));
+		zbuf_copy_peek(extensions, &pp->extensions,
+			       zbuf_used(&pp->extensions));
+		while ((ext = nhrp_ext_pull(extensions, &pl)) != NULL) {
+			if ((htons(ext->type) & ~NHRP_EXTENSION_FLAG_COMPULSORY)
+			    != NHRP_EXTENSION_AUTHENTICATION)
+				continue;
+
 			/* Size of authentication extensions
 			 * (varies based on password length)
 			 */
@@ -1211,29 +1234,74 @@ static bool nhrp_connection_authorized(struct nhrp_packet_parser *pp)
 				cmp = memcmp(auth_ext, pl.buf, auth_size);
 			else
 				cmp = 1;
-
-			if (unlikely(debug_flags & NHRP_DEBUG_COMMON)) {
-				/* 4 bytes in nhrp_cisco_authentication_extension are
-				 * allocated toward the authentication type.
-				 * The remaining bytes are used for the password -
-				 * so the password length is just the length
-				 * of the extension - 4
-				 */
-				auth_pass_length = (auth_size - 4);
-				pl_pass_length = (pl_size - 4);
-
-				debugf(NHRP_DEBUG_COMMON,
-				       "Processing Authentication Extension: auth len %d, pl_pass len %d => %d",
-				       auth_pass_length, pl_pass_length, cmp);
-			}
-			break;
-		default:
-			/* Ignoring all received extensions except Authentication*/
 			break;
 		}
+		zbuf_free(extensions);
+		return cmp == 0;
 	}
-	zbuf_free(extensions);
-	return cmp == 0;
+
+	/* RFC 2332 5.3.4: the Authentication Extension carries a keyed
+	 * hash over the packet; the hash field must be zeroed before the
+	 * checksum and the hash itself are verified.
+	 */
+	{
+		uint8_t digest[NHRP_AUTH_HASH_LEN];
+		uint8_t *auth_data, *pkt_copy = NULL;
+		uint16_t reserved, spi;
+		size_t src_len, auth_off, pkt_len;
+		bool authorized = false;
+
+		src_len = sockunion_get_addrlen(&pp->src_proto);
+		extensions = zbuf_alloc(zbuf_used(&pp->extensions));
+		zbuf_copy_peek(extensions, &pp->extensions,
+			       zbuf_used(&pp->extensions));
+		while ((ext = nhrp_ext_pull(extensions, &pl)) != NULL) {
+			if ((htons(ext->type) & ~NHRP_EXTENSION_FLAG_COMPULSORY)
+			    != NHRP_EXTENSION_AUTHENTICATION)
+				continue;
+
+			/* RFC 2332 5.3.4.1: Reserved(2) + SPI(2) + Src Addr +
+			 * Authentication Data (HMAC-MD5-128).
+			 */
+			if (zbuf_used(&pl)
+			    != NHRP_AUTH_HDR_LEN + src_len
+				       + NHRP_AUTH_HASH_LEN)
+				break;
+
+			memcpy(&reserved, pl.buf, sizeof(reserved));
+			memcpy(&spi, pl.buf + sizeof(reserved), sizeof(spi));
+			if (reserved != 0 || spi != htons(NHRP_AUTH_SPI))
+				break;
+
+			auth_data = pl.buf + NHRP_AUTH_HDR_LEN + src_len;
+			auth_off = (auth_data - (uint8_t *)extensions->head)
+				   + (pp->extensions.head - pp->pkt->buf);
+			pkt_len = pp->pkt->tail - pp->pkt->buf;
+			pkt_copy = malloc(pkt_len);
+			if (!pkt_copy)
+				break;
+			memcpy(pkt_copy, pp->pkt->buf, pkt_len);
+			memset(pkt_copy + auth_off, 0, NHRP_AUTH_HASH_LEN);
+
+			/* The checksum was calculated with the hash field
+			 * zeroed as well (RFC 2332 5.3.4.3).
+			 */
+			if (nhrp_packet_calculate_checksum(pkt_copy, pkt_len)
+			    != 0)
+				goto out;
+
+			hmac_md5(pkt_copy, pkt_len, (unsigned char *)auth->buf,
+				 zbuf_size(auth), digest);
+			authorized =
+				memcmp(digest, auth_data, NHRP_AUTH_HASH_LEN)
+				== 0;
+			goto out;
+		}
+out:
+		free(pkt_copy);
+		zbuf_free(extensions);
+		return authorized;
+	}
 }
 
 void nhrp_peer_recv(struct nhrp_peer *p, struct zbuf *zb)
@@ -1258,7 +1326,14 @@ void nhrp_peer_recv(struct nhrp_peer *p, struct zbuf *zb)
 		goto drop;
 	}
 
-	if (nhrp_packet_calculate_checksum(zb->head, zbuf_used(zb)) != 0) {
+	/* The Cisco style authentication extension is covered by the
+	 * packet checksum.  With the RFC 2332 keyed hash, the checksum
+	 * is calculated with the authentication data field zeroed, as
+	 * the sender calculated it before the hash was written (RFC 2332
+	 * 5.3.4.3); nhrp_connection_authorized() takes care of that.
+	 */
+	if (nifp->auth_mode != NHRP_AUTH_RFC2332
+	    && nhrp_packet_calculate_checksum(zb->head, zbuf_used(zb)) != 0) {
 		info = "bad checksum";
 		goto drop;
 	}
