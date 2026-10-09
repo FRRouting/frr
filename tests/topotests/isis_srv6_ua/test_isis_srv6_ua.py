@@ -149,7 +149,7 @@ def endx_tlvs(value):
             yield from endx_tlvs(child)
 
 
-def check_pair(levels=(1, 2), expected_sids=None, sid_format=F3216):
+def check_pair(levels=(1, 2), expected_sids=None, sid_format=F3216, locator_name="MAIN"):
     r1, r2 = (get_topogen().gears[name] for name in ("r1", "r2"))
     entries = read_endx_sids()
     combined_sids = [
@@ -175,7 +175,7 @@ def check_pair(levels=(1, 2), expected_sids=None, sid_format=F3216):
         sid: {
             "sid": sid,
             "behavior": "uA",
-            "locator": "MAIN",
+            "locator": locator_name,
             "allocationMode": "dynamic",
             "context": context,
             "clients": [{"protocol": "isis", "instance": 0}],
@@ -279,9 +279,10 @@ def check_pair(levels=(1, 2), expected_sids=None, sid_format=F3216):
     return None
 
 
-def configure_locator(sid_format):
+def configure_locator(sid_format, locator_name="MAIN"):
     get_topogen().gears["r1"].vtysh_cmd(
-        "configure terminal\nsegment-routing\nsrv6\nlocators\nlocator MAIN\n"
+        "configure terminal\nsegment-routing\nsrv6\nlocators\n"
+        f"locator {locator_name}\n"
         f"prefix {sid_format.node_prefix} block-len {sid_format.block.prefixlen} "
         "node-len 16 func-bits 16\n"
         f"format {sid_format.name}\nbehavior usid"
@@ -335,8 +336,12 @@ def test_pair_provisioning(sid_format):
 @pytest.mark.parametrize("localonly", [False, True], ids=["combined", "local-only"])
 def test_pair_forwarding(sid_format, localonly):
     """Both uA forms shift to the next CSID and use the adjacency nexthop."""
-    r1, r2 = (get_topogen().gears[name] for name in ("r1", "r2"))
     wait_for(functools.partial(check_pair, sid_format=sid_format))
+    probe_pair(sid_format, localonly)
+
+
+def probe_pair(sid_format, localonly):
+    r1, r2 = (get_topogen().gears[name] for name in ("r1", "r2"))
     sid = next(
         sid
         for sid in read_endx_sids()
@@ -410,6 +415,72 @@ def test_shared_pair_lifetime(sid_format):
     wait_for(check_pair)
 
 
+def check_pair_unadvertised():
+    database = get_topogen().gears["r2"].vtysh_cmd(
+        "show isis database detail 0000.0000.0001 json", isjson=True
+    )
+    levels = {
+        level.get("id")
+        for area in database.get("areas", [])
+        for level in area.get("levels", [])
+    }
+    if levels != {1, 2}:
+        return f"missing peer LSPs: {database}"
+    if list(endx_tlvs(database)):
+        return f"withdrawn End.X remains advertised: {database}"
+    return None
+
+
+def daemon_identity(router, daemon):
+    """PID plus start ticks detects restarts, including PID reuse."""
+    pid = int(router.cmd_raises(f"cat /var/run/frr/{daemon}.pid").strip())
+    stat = router.cmd_raises(f"cat /proc/{pid}/stat")
+    # comm can contain spaces; fields after its closing parenthesis start at 3.
+    start_ticks = stat.rsplit(")", 1)[1].split()[19]
+    return pid, start_ticks
+
+
+def test_pair_recreated_after_shorter_locator_name(sid_format):
+    """Replace long/short names without restarts and probe both uA forms."""
+    r1 = get_topogen().gears["r1"]
+    wait_for(check_pair)
+    identities = {daemon: daemon_identity(r1, daemon) for daemon in ("zebra", "isisd")}
+    current = "MAIN"
+    try:
+        for name in ("CLASSIC_LONG", "USID", "CLASSIC_LONG", "USID"):
+            prefixes = [sid_prefix(sid) for sid in read_endx_sids()]
+            r1.vtysh_cmd(
+                "configure terminal\nrouter isis 1\nsegment-routing srv6\n"
+                f"no locator {current}\nexit\nexit\nsegment-routing\nsrv6\nlocators\n"
+                f"no locator {current}"
+            )
+            wait_for(functools.partial(check_pair_withdrawn, prefixes))
+            wait_for(check_pair_unadvertised)
+            current = name
+            configure_locator(F3216, name)
+            r1.vtysh_cmd(
+                "configure terminal\nrouter isis 1\nsegment-routing srv6\n"
+                f"locator {name}"
+            )
+            wait_for(functools.partial(check_pair, locator_name=name))
+            probe_pair(F3216, False)
+            probe_pair(F3216, True)
+            assert identities == {
+                daemon: daemon_identity(r1, daemon) for daemon in identities
+            }, "locator replacement restarted a daemon"
+    finally:
+        r1.vtysh_cmd(
+            "configure terminal\nrouter isis 1\nsegment-routing srv6\n"
+            f"no locator {current}\nexit\nexit\nsegment-routing\nsrv6\nlocators\n"
+            f"no locator {current}"
+        )
+        configure_locator(F3216)
+        r1.vtysh_cmd(
+            "configure terminal\nrouter isis 1\nsegment-routing srv6\nlocator MAIN"
+        )
+        wait_for(check_pair)
+
+
 def test_pair_recreated_after_locator_replacement(sid_format):
     """Withdraw both forms and the advertisement before recreating a locator."""
     r1, r2 = (get_topogen().gears[name] for name in ("r1", "r2"))
@@ -421,22 +492,7 @@ def test_pair_recreated_after_locator_replacement(sid_format):
         )
         wait_for(functools.partial(check_pair_withdrawn, prefixes))
 
-        def unadvertised():
-            database = r2.vtysh_cmd(
-                "show isis database detail 0000.0000.0001 json", isjson=True
-            )
-            levels = {
-                level.get("id")
-                for area in database.get("areas", [])
-                for level in area.get("levels", [])
-            }
-            if levels != {1, 2}:
-                return f"missing peer LSPs: {database}"
-            if list(endx_tlvs(database)):
-                return f"withdrawn End.X remains advertised: {database}"
-            return None
-
-        wait_for(unadvertised)
+        wait_for(check_pair_unadvertised)
     finally:
         configure_locator(F3216)
     wait_for(check_pair)
