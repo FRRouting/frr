@@ -396,7 +396,7 @@ def test_prepolicy_reannouncement_timestamp():
     def _first_update_seen():
         if [
             m
-            for m in _route_messages("pre-policy", "update", WATCHED_PREFIX)
+            for m in _route_messages("rib-in-pre-policy", "update", WATCHED_PREFIX)
             if m.get("communities") == "65502:11"
         ]:
             return True
@@ -411,7 +411,7 @@ def test_prepolicy_reannouncement_timestamp():
 
     first = [
         m
-        for m in _route_messages("pre-policy", "update", WATCHED_PREFIX)
+        for m in _route_messages("rib-in-pre-policy", "update", WATCHED_PREFIX)
         if m.get("communities") == "65502:11"
     ][0]
     first_timestamp = _parse_bmp_timestamp(first["timestamp"])
@@ -430,7 +430,7 @@ def test_prepolicy_reannouncement_timestamp():
     def _second_update_seen():
         if [
             m
-            for m in _route_messages("pre-policy", "update", WATCHED_PREFIX)
+            for m in _route_messages("rib-in-pre-policy", "update", WATCHED_PREFIX)
             if m["seq"] > first["seq"] and m.get("communities") == "65502:77"
         ]:
             return True
@@ -446,7 +446,7 @@ def test_prepolicy_reannouncement_timestamp():
     # existing Adj-RIB-In entry in place.  A pre-policy withdraw in between
     # would mean the entry was deleted and re-created (fresh timestamp even
     # under buggy code), i.e. the test would not exercise the right path.
-    withdraws = _route_messages("pre-policy", "withdraw", WATCHED_PREFIX)
+    withdraws = _route_messages("rib-in-pre-policy", "withdraw", WATCHED_PREFIX)
     assert not withdraws, (
         "test scenario broken: pre-policy withdraw(s) logged for {} "
         "between the two announcements, so the Adj-RIB-In entry was "
@@ -455,7 +455,7 @@ def test_prepolicy_reannouncement_timestamp():
 
     second = [
         m
-        for m in _route_messages("pre-policy", "update", WATCHED_PREFIX)
+        for m in _route_messages("rib-in-pre-policy", "update", WATCHED_PREFIX)
         if m["seq"] > first["seq"] and m.get("communities") == "65502:77"
     ][0]
     second_timestamp = _parse_bmp_timestamp(second["timestamp"])

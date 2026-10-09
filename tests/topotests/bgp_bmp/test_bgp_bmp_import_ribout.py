@@ -157,7 +157,7 @@ def test_bmp_sync_imported_ribout():
     result = check_log_file()
     assert result is True, result
 
-    for policy in ("pre-policy", "post-policy"):
+    for policy in ("rib-out-pre-policy", "rib-out-post-policy"):
         result = check_ribout_update(SYNC_PREFIX, policy)
         assert result is True, result
 
@@ -184,7 +184,7 @@ def test_bmp_imported_ribout_update():
     result = check_prefix_advertised(LIVE_PREFIX)
     assert result is True, result
 
-    for policy in ("pre-policy", "post-policy"):
+    for policy in ("rib-out-pre-policy", "rib-out-post-policy"):
         result = check_ribout_update(LIVE_PREFIX, policy)
         assert result is True, result
 

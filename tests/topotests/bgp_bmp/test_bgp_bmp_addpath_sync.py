@@ -177,8 +177,8 @@ def test_bmp_sync_addpath_paths():
         return True
 
     for policy, expected in (
-        ("pre-policy", 2),
-        ("post-policy", 2),
+        ("rib-in-pre-policy", 2),
+        ("rib-in-post-policy", 2),
         ("loc-rib", len(selected)),
     ):
         result = check_sync_path_ids(policy, expected)
