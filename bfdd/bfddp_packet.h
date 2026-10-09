@@ -95,7 +95,21 @@ enum bfddp_message_type {
 
 	/** Send a session's authentication keys. */
 	DP_SESSION_AUTH = 7,
+
+	/** Tell BFD daemon what the data plane supports. */
+	BFD_DP_CAPABILITIES = 8,
 };
+
+/**
+ * Data plane capabilities. \see BFD_DP_CAPABILITIES.
+ *
+ * Each names something the data plane handles beyond the baseline this
+ * protocol started with. The BFD daemon only offloads a session that needs
+ * one of these to a data plane that declared it, and runs the session
+ * itself otherwise.
+ */
+/** Authenticates sessions with the keys `DP_SESSION_AUTH` carries. */
+#define BFDDP_CAP_SESSION_AUTH (1ULL << 0)
 
 /**
  * `ECHO_REQUEST`/`ECHO_REPLY` data payload.
@@ -136,17 +150,12 @@ enum bfddp_session_flag {
 	/**
 	 * Set when the session is configured to authenticate.
 	 *
-	 * The keys arrive separately. \see DP_SESSION_AUTH. A data plane
-	 * that cannot authenticate must refuse a session carrying this flag
-	 * rather than run it in the clear, because the peer will be
-	 * authenticating and `show bfd peer` reports the session as
-	 * authenticated either way.
+	 * The keys arrive separately. \see DP_SESSION_AUTH.
 	 *
-	 * There is no capability exchange in this protocol, so the daemon
-	 * cannot tell whether the data plane honours any of this. A data
-	 * plane written against an earlier version ignores both the flag and
-	 * the keys, and such a session runs unauthenticated, which is what
-	 * happens today for want of anywhere to carry a key at all.
+	 * Only sent to a data plane that declared `BFDDP_CAP_SESSION_AUTH`.
+	 * One that did not, including one written before the capability
+	 * existed, is never given a session that authenticates: the BFD
+	 * daemon keeps it instead.
 	 */
 	SESSION_AUTH = (1 << 7),
 };
@@ -425,6 +434,24 @@ struct bfddp_session_auth {
 };
 
 /**
+ * `BFD_DP_CAPABILITIES` data payload.
+ *
+ * Sent by the data plane, ideally as the first message on a connection:
+ * sessions are offered as soon as the connection is up, and one that needs
+ * a capability not declared yet stays with the BFD daemon until it is.
+ *
+ * A data plane that never sends it has none of the capabilities, which is
+ * how the protocol behaved before they existed. Sending it again replaces
+ * the whole set, and a session that needs a capability no longer declared
+ * is taken back by the BFD daemon. The set starts empty on every new
+ * connection. Bits the BFD daemon does not know are ignored.
+ */
+struct bfddp_capabilities {
+	/** Capability bits. \see BFDDP_CAP_SESSION_AUTH. */
+	uint64_t capabilities;
+};
+
+/**
  * The protocol wire message header structure.
  */
 struct bfddp_message_header {
@@ -499,6 +526,7 @@ struct bfddp_message {
 		struct bfddp_request_counters counters_req;
 		struct bfddp_session_counters session_counters;
 		struct bfddp_session_auth session_auth;
+		struct bfddp_capabilities capabilities;
 	} data;
 };
 
