@@ -119,7 +119,7 @@ static void ospf6_bfd_callback(struct bfd_session_params *bsp,
 	if (bss->state == BFD_STATUS_DOWN
 	    && bss->previous_state == BFD_STATUS_UP) {
 		event_cancel(&on->inactivity_timer);
-		event_add_event(master, inactivity_timer, on, 0, NULL);
+		event_add_event(master, inactivity_timer, on, 0, &on->inactivity_timer);
 	}
 }
 
