@@ -1,0 +1,54 @@
+{
+  "10:254::2/128": [
+    {
+      "nexthops": [
+        {
+          "active": true,
+          "directlyConnected": true,
+          "fib": true,
+          "interfaceName": "lo"
+        }
+      ],
+      "prefix": "10:254::2/128",
+      "protocol": "connected",
+      "selected": true
+    }
+  ],
+  "10:254::1/128": [
+    {
+      "distance": 115,
+      "metric": 20,
+      "nexthops": [
+        {
+          "active": true,
+          "afi": "ipv6",
+          "fib": true,
+          "interfaceName": "r2-eth0",
+          "ip": "10:254::1"
+        }
+      ],
+      "prefix": "10:254::1/128",
+      "protocol": "isis",
+      "selected": true
+    }
+  ],
+  "10:254::3/128": [
+    {
+      "distance": 115,
+      "metric": 20,
+      "nexthops": [
+        {
+          "active": true,
+          "afi": "ipv6",
+          "fib": true,
+          "interfaceName": "r2-eth1",
+          "ip": "10:254::3"
+        }
+      ],
+      "prefix": "10:254::3/128",
+      "protocol": "isis",
+      "selected": true
+    }
+  ]
+}
+
