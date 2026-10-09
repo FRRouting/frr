@@ -475,6 +475,7 @@ static void nhrp_handle_resolution_req(struct nhrp_packet_parser *pp)
 		/* We currently support only unique prefix registrations */
 		if (prefix_len != hostprefix_len) {
 			cie->code = NHRP_CODE_ADMINISTRATIVELY_PROHIBITED;
+			cie->holding_time = 0;
 			continue;
 		}
 
@@ -529,6 +530,7 @@ static void nhrp_handle_resolution_req(struct nhrp_packet_parser *pp)
 			debugf(NHRP_DEBUG_COMMON,
 			       "shortcut res_rep: no cache found");
 			cie->code = NHRP_CODE_INSUFFICIENT_RESOURCES;
+			cie->holding_time = 0;
 			continue;
 		}
 
@@ -540,6 +542,7 @@ static void nhrp_handle_resolution_req(struct nhrp_packet_parser *pp)
 			    nhrp_peer_get(pp->ifp, nbma_addr), htons(cie->mtu),
 			    nbma_addr, claimed_nbma_addr)) {
 			cie->code = NHRP_CODE_ADMINISTRATIVELY_PROHIBITED;
+			cie->holding_time = 0;
 			continue;
 		}
 
@@ -668,6 +671,7 @@ static void nhrp_handle_registration_request(struct nhrp_packet_parser *p)
 		/* We currently support only unique prefix registrations */
 		if (prefix_len != hostprefix_len) {
 			cie->code = NHRP_CODE_ADMINISTRATIVELY_PROHIBITED;
+			cie->holding_time = 0;
 			continue;
 		}
 
@@ -693,6 +697,7 @@ static void nhrp_handle_registration_request(struct nhrp_packet_parser *p)
 		c = nhrp_cache_get(ifp, proto_addr, 1);
 		if (!c) {
 			cie->code = NHRP_CODE_INSUFFICIENT_RESOURCES;
+			cie->holding_time = 0;
 			continue;
 		}
 
@@ -701,6 +706,7 @@ static void nhrp_handle_registration_request(struct nhrp_packet_parser *p)
 					       htons(cie->mtu), nbma_natoa,
 					       nbma_addr)) {
 			cie->code = NHRP_CODE_ADMINISTRATIVELY_PROHIBITED;
+			cie->holding_time = 0;
 			continue;
 		}
 
