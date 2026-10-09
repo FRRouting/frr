@@ -190,8 +190,9 @@ struct bfddp_session {
 	 *
 	 * This is the negotiated value: the larger of the local desired
 	 * interval and the peer's advertised Required Min Echo RX (see
-	 * RFC 5880 Section 6.8.9). The BFD daemon performs the
-	 * negotiation, since only it processes control packets.
+	 * RFC 5880 Section 6.8.9), or zero while the peer accepts no echo
+	 * packets. The BFD daemon performs the negotiation, since only it
+	 * processes control packets.
 	 */
 	uint32_t min_echo_tx;
 	/**
