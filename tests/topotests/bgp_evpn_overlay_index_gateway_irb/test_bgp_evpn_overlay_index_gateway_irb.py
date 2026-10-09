@@ -27,7 +27,7 @@ index (RFC 9136) of an EVPN type-5 route in a symmetric IRB fabric.
                 +------+
 
 r1, r2 and r3 are VTEPs sharing L2VNI 100 (br100, 10.20.0.0/24) and L3VNI
-1000 in vrf-blue. r1 and r3 are in AS 65000, r2 in AS 65002: r2 gets the
+2234 in vrf-blue. r1 and r3 are in AS 65000, r2 in AS 65002: r2 gets the
 type-5 routes over eBGP, r3 over iBGP. h2 is attached to r2. r1 exports a
 route whose nexthop is h2 as an EVPN type-5 route carrying h2's address as
 gateway IP. r2 and r3 have "enable-resolve-overlay-index".
@@ -41,10 +41,18 @@ gateway IP. r2 and r3 have "enable-resolve-overlay-index".
 
 Both must accept the type-5 route and install it through h2, also when
 "enable-resolve-overlay-index" is configured after the routes exist.
+
+r2 and r3 send their routes to an FPM listener. The route through h2 must
+reach it with the encapsulation of the route that resolves the gateway:
+none on r2, where h2 is a local host, and the L3VNI on r3, where h2 is
+behind r2. The L3VNI is 2234 because bit 1 of its low
+octet is set: that is the bit bgp_is_valid_label() checks, so an EVPN
+label holding this VNI also looks like a valid MPLS label.
 """
 
 import os
 import platform
+import re
 import sys
 import time
 from functools import partial
@@ -61,13 +69,18 @@ from lib import topotest
 from lib.topogen import Topogen, get_topogen
 from lib.topolog import logger
 
-pytestmark = [pytest.mark.bgpd, pytest.mark.evpn]
+pytestmark = [pytest.mark.bgpd, pytest.mark.evpn, pytest.mark.fpm]
 
 LEAVES = ["r1", "r2", "r3"]
 ASN = {"r1": 65000, "r2": 65002, "r3": 65000}
 VRF = "vrf-blue"
 L2VNI_SVI = "br100"
-L3VNI_SVI = "br1000"
+L3VNI = 2234
+L3VNI_SVI = "br{}".format(L3VNI)
+# r2's VTEP address
+R2_VTEP = "10.100.0.2"
+# Routers whose zebra sends its routes to an FPM listener
+FPM_ROUTERS = ["r2", "r3"]
 HOST_MAC = "1a:2b:3c:4d:5e:05"
 # (afi, prefix exported by r1, gateway IP = h2, r2's SVI address)
 ROUTES = [
@@ -113,16 +126,16 @@ ip link add vxlan100 type vxlan id 100 dstport 4789 local 10.100.0.{n} nolearnin
 ip link set dev vxlan100 master br100
 ip link set dev br100 up
 ip link set dev vxlan100 up
-ip link add br1000 address 52:54:00:00:0{n}:e8 type bridge stp_state 0
-ip link set dev br1000 master {vrf}
-ip link add vxlan1000 type vxlan id 1000 dstport 4789 local 10.100.0.{n} nolearning
-ip link set dev vxlan1000 master br1000
-ip link set dev br1000 up
-ip link set dev vxlan1000 up
+ip link add br{l3vni} address 52:54:00:00:0{n}:ba type bridge stp_state 0
+ip link set dev br{l3vni} master {vrf}
+ip link add vxlan{l3vni} type vxlan id {l3vni} dstport 4789 local 10.100.0.{n} nolearning
+ip link set dev vxlan{l3vni} master br{l3vni}
+ip link set dev br{l3vni} up
+ip link set dev vxlan{l3vni} up
 sysctl -w net.ipv4.ip_forward=1
 sysctl -w net.ipv6.conf.all.forwarding=1
 """.format(
-                vrf=VRF, n=idx
+                vrf=VRF, n=idx, l3vni=L3VNI
             )
         )
 
@@ -152,15 +165,90 @@ sysctl -w net.ipv6.neigh.h2-eth0.base_reachable_time_ms=3600000
 
     for rname, router in tgen.routers().items():
         logger.info("Loading router %s" % rname)
-        router.load_frr_config()
+        if rname in FPM_ROUTERS:
+            # zebra sends its routes to an FPM listener, which logs every
+            # message it receives.
+            router.load_frr_config(
+                extra_daemons=[
+                    ("zebra", "-M dplane_fpm_nl"),
+                    ("fpm_listener", "-o {}".format(_fpm_log_path(router))),
+                ]
+            )
+        else:
+            router.load_frr_config()
 
     tgen.start_router()
+
+    # Send the routes with their nexthops inline rather than as nexthop
+    # groups, so that each route message carries the nexthop encapsulation.
+    for rname in FPM_ROUTERS:
+        tgen.gears[rname].vtysh_cmd(
+            """
+configure terminal
+ fpm address 127.0.0.1
+ no fpm use-next-hop-groups
+"""
+        )
 
 
 def teardown_module(_mod):
     "Teardown the pytest environment"
     tgen = get_topogen()
     tgen.stop_topology()
+
+
+def _fpm_log_path(router):
+    "Path of the file the FPM listener logs the messages it receives to."
+    return os.path.join(router.gearlogdir, "fpm_listener_messages.log")
+
+
+def _fpm_last_route_message(router, prefix):
+    """
+    Return the last route message the FPM listener received for ``prefix``,
+    or None. It reads "New route <prefix>, ..." or "Del route <prefix>, ..."
+    followed by one line per nexthop, "<gateway> via interface <ifindex>",
+    which goes on with ", Encap Type: <type> Vxlan vni <vni>" when the
+    nexthop has an encapsulation (see netlink_msg_ctx_snprint() in
+    zebra/fpm_listener.c).
+    """
+    try:
+        with open(_fpm_log_path(router), "r") as f:
+            log = f.read()
+    except FileNotFoundError:
+        return None
+
+    messages = re.findall(
+        r"^\[[^\]]*\] ((?:New|Del) route {}, .*?)(?=^\[|\Z)".format(
+            re.escape(prefix)
+        ),
+        log,
+        re.MULTILINE | re.DOTALL,
+    )
+    return messages[-1].strip() if messages else None
+
+
+def _ifindex(router, ifname):
+    "ifindex of ``ifname`` on ``router``."
+    return int(router.cmd("cat /sys/class/net/{}/ifindex".format(ifname)).strip())
+
+
+def _check_fpm_route(router, prefix, nexthop):
+    """
+    Check that the last FPM message for ``prefix`` installs it with the
+    single nexthop line ``nexthop``. Returns None on success, otherwise the
+    message.
+    """
+    message = _fpm_last_route_message(router, prefix)
+    if message is None:
+        return "FPM listener received no message for {}".format(prefix)
+
+    lines = message.splitlines()
+    nexthops = sorted(set(line.strip() for line in lines[1:]))
+    if not lines[0].startswith("New route") or nexthops != [nexthop]:
+        return "FPM message for {} is not an install via '{}': {}".format(
+            prefix, nexthop, message
+        )
+    return None
 
 
 def _learn_host(tgen):
@@ -322,6 +410,24 @@ def test_gateway_ip_local_host():
         assert result is None, "r2: {}".format(result)
 
 
+def test_gateway_ip_local_host_fpm():
+    """
+    On r2 the route through the local gateway reaches the FPM as a plain
+    nexthop on the L2VNI SVI: the gateway is a host on this VTEP, so there
+    is no VXLAN encapsulation, and no MPLS one made up from the VNI either.
+    """
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    r2 = tgen.gears["r2"]
+    for _, prefix, gateway, _ in ROUTES:
+        nexthop = "{} via interface {}".format(gateway, _ifindex(r2, L2VNI_SVI))
+        test_func = partial(_check_fpm_route, r2, prefix, nexthop)
+        _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
+        assert result is None, "r2: {}".format(result)
+
+
 def test_gateway_ip_symmetric_irb_host():
     """
     On r3 the gateway is a remote host reached through its symmetric IRB
@@ -356,6 +462,28 @@ def test_gateway_ip_symmetric_irb_host():
         )
 
         test_func = partial(_check_gateway_route, r3, afi, prefix, gateway, L3VNI_SVI)
+        _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
+        assert result is None, "r3: {}".format(result)
+
+
+def test_gateway_ip_symmetric_irb_host_fpm():
+    """
+    On r3 the route through the remote gateway reaches the FPM with the
+    encapsulation of the gateway's host route: r2's VTEP on the L3VNI SVI
+    and the L3VNI.
+    """
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    r3 = tgen.gears["r3"]
+    for afi, prefix, _, _ in ROUTES:
+        # An IPv6 route has the IPv4 VTEP as an IPv4-mapped IPv6 nexthop.
+        vtep = R2_VTEP if afi == "ip" else "::ffff:" + R2_VTEP
+        nexthop = "{} via interface {}, Encap Type: 100 Vxlan vni {}".format(
+            vtep, _ifindex(r3, L3VNI_SVI), L3VNI
+        )
+        test_func = partial(_check_fpm_route, r3, prefix, nexthop)
         _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
         assert result is None, "r3: {}".format(result)
 
@@ -592,11 +720,11 @@ def test_gateway_ip_l2vni_svi_remote_host():
     tgen.gears["r2"].vtysh_cmd(
         """
 configure terminal
- vrf {}
-  no vni 1000
-  vni 1000 prefix-routes-only
+ vrf {1}
+  no vni {0}
+  vni {0} prefix-routes-only
 """.format(
-            VRF
+            L3VNI, VRF
         )
     )
 
@@ -616,20 +744,30 @@ configure terminal
     _, result = topotest.run_and_expect(_relearned, None, count=30, wait=1)
     assert result is None, "r3 did not learn h2 again: {}".format(result)
 
+    def _no_host_route(afi, host_prefix):
+        # With the FPM, zebra keeps the route node for a while after its
+        # last route is gone, and shows it with an empty list.
+        output = r3.vtysh_cmd(
+            "show {} route vrf {} {} json".format(afi, VRF, host_prefix), isjson=True
+        )
+        return output.get(host_prefix) or None
+
     for afi, prefix, gateway, _ in ROUTES:
         host_prefix = "{}/{}".format(gateway, 32 if afi == "ip" else 128)
-        test_func = partial(
-            topotest.router_json_cmp,
-            r3,
-            "show {} route vrf {} {} json".format(afi, VRF, host_prefix),
-            {host_prefix: None},
-        )
+        test_func = partial(_no_host_route, afi, host_prefix)
         _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
         assert result is None, "r3 still has a host route to {}: {}".format(
             gateway, result
         )
 
         test_func = partial(_check_gateway_route, r3, afi, prefix, gateway, L2VNI_SVI)
+        _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
+        assert result is None, "r3: {}".format(result)
+
+        # h2 is a neighbor on r3's L2VNI SVI: the bridge and the L2VNI
+        # deliver to it, the route has no encapsulation of its own.
+        nexthop = "{} via interface {}".format(gateway, _ifindex(r3, L2VNI_SVI))
+        test_func = partial(_check_fpm_route, r3, prefix, nexthop)
         _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
         assert result is None, "r3: {}".format(result)
 
