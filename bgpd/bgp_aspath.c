@@ -1157,7 +1157,7 @@ struct aspath *aspath_aggregate(struct aspath *as1, struct aspath *as2)
    or not the peer's AS number. */
 bool aspath_firstas_check(struct aspath *aspath, as_t asno)
 {
-	if ((aspath == NULL) || (aspath->segments == NULL))
+	if ((aspath == NULL) || (aspath->segments == NULL) || (aspath->segments->length == 0))
 		return false;
 
 	if (aspath->segments && (aspath->segments->type == AS_SEQUENCE)
@@ -1169,7 +1169,7 @@ bool aspath_firstas_check(struct aspath *aspath, as_t asno)
 
 unsigned int aspath_get_first_as(struct aspath *aspath)
 {
-	if (aspath == NULL || aspath->segments == NULL)
+	if (aspath == NULL || aspath->segments == NULL || aspath->segments->length == 0)
 		return 0;
 
 	return aspath->segments->as[0];
