@@ -215,6 +215,12 @@ extern void kernel_read_pbr_rules(struct zebra_ns *zns);
 extern void zebra_pbr_dplane_result(struct zebra_dplane_ctx *ctx);
 
 /*
+ * Interpret a kernel fib-rule notification encoded by the dplane pthread
+ * and apply it on the zebra pthread.
+ */
+extern void zebra_pbr_process_kernel_notif(struct zebra_dplane_ctx *ctx);
+
+/*
  * Handle success or failure of ipset kinds (un)install in the kernel.
  */
 extern void kernel_pbr_ipset_add_del_status(struct zebra_pbr_ipset *ipset,

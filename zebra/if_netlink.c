@@ -1619,11 +1619,6 @@ void interface_list(struct zebra_ns *zns)
 void interface_list_second(struct zebra_ns *zns)
 {
 	zebra_if_update_all_links(zns);
-	/* We add routes for interface address,
-	 * so we need to get the nexthop info
-	 * from the kernel before we can do that
-	 */
-	netlink_nexthop_read(zns);
 
 	interface_addr_lookup_netlink(zns);
 
@@ -1689,6 +1684,83 @@ int netlink_tunneldump_read(struct zebra_ns *zns)
 	ret = ctx.ret;
 
 	return ret;
+}
+
+/*
+ * netlink_tunnel_change() - Decode an incoming RTM_NEWTUNNEL/RTM_DELTUNNEL
+ * (and RTM_GETTUNNEL dump replies) into typed dplane contexts.
+ *
+ * Each VXLAN_VNIFILTER_ENTRY becomes one DPLANE_OP_TUNNEL_NOTIFY context
+ * enqueued to the zebra master pthread. Interface lookup and policy live
+ * there; this function is only the decoder.
+ *
+ * Startup dumps still use netlink_cmd via netlink_tunneldump_read() and
+ * netlink_link_change(); this parser is for live dplane inbound events.
+ */
+int netlink_tunnel_change(struct nlmsghdr *h, ns_id_t ns_id, int startup, void *arg)
+{
+	struct tunnel_msg *tnlm;
+	struct rtattr *attr;
+	int len;
+	enum dplane_tunnel_notify_e notify_type;
+
+	if (h->nlmsg_type != RTM_NEWTUNNEL && h->nlmsg_type != RTM_DELTUNNEL &&
+	    h->nlmsg_type != RTM_GETTUNNEL)
+		return 0;
+
+	len = h->nlmsg_len - NLMSG_LENGTH(sizeof(struct tunnel_msg));
+	if (len < 0) {
+		flog_err(EC_ZEBRA_NETLINK_LENGTH_ERROR,
+			 "%s: Message received from netlink is of a broken size %d %zu", __func__,
+			 h->nlmsg_len, (size_t)NLMSG_LENGTH(sizeof(struct tunnel_msg)));
+		return -1;
+	}
+
+	tnlm = NLMSG_DATA(h);
+	notify_type = (h->nlmsg_type == RTM_DELTUNNEL) ? DPLANE_TUNNEL_NOTIFY_DEL
+						       : DPLANE_TUNNEL_NOTIFY_NEW;
+
+	if (IS_ZEBRA_DEBUG_KERNEL || IS_ZEBRA_DEBUG_VXLAN)
+		zlog_debug("%s: %s family %u ifindex %u ns %u startup %d", __func__,
+			   nl_msg_type_to_str(h->nlmsg_type), tnlm->family, tnlm->ifindex, ns_id,
+			   startup);
+
+	for (attr = TUNNEL_RTA(tnlm); RTA_OK(attr, len); attr = RTA_NEXT(attr, len)) {
+		struct rtattr *ttb[VXLAN_VNIFILTER_ENTRY_MAX + 1];
+		uint8_t rta_type;
+		vni_t vni_start = 0, vni_end = 0;
+		struct in_addr *mcast_grp = NULL;
+		struct in6_addr *mcast_grp6 = NULL;
+
+		rta_type = attr->rta_type & NLA_TYPE_MASK;
+		if (rta_type != VXLAN_VNIFILTER_ENTRY)
+			continue;
+
+		memset(ttb, 0, sizeof(ttb));
+		netlink_parse_rtattr_flags(ttb, VXLAN_VNIFILTER_ENTRY_MAX, RTA_DATA(attr),
+					   RTA_PAYLOAD(attr), NLA_F_NESTED);
+
+		if (!ttb[VXLAN_VNIFILTER_ENTRY_START])
+			continue;
+
+		vni_start = *(uint32_t *)RTA_DATA(ttb[VXLAN_VNIFILTER_ENTRY_START]);
+		if (ttb[VXLAN_VNIFILTER_ENTRY_END])
+			vni_end = *(uint32_t *)RTA_DATA(ttb[VXLAN_VNIFILTER_ENTRY_END]);
+
+		if (ttb[VXLAN_VNIFILTER_ENTRY_GROUP] &&
+		    RTA_PAYLOAD(ttb[VXLAN_VNIFILTER_ENTRY_GROUP]) >= sizeof(struct in_addr))
+			mcast_grp = (struct in_addr *)RTA_DATA(ttb[VXLAN_VNIFILTER_ENTRY_GROUP]);
+
+		if (ttb[VXLAN_VNIFILTER_ENTRY_GROUP6] &&
+		    RTA_PAYLOAD(ttb[VXLAN_VNIFILTER_ENTRY_GROUP6]) >= sizeof(struct in6_addr))
+			mcast_grp6 = (struct in6_addr *)RTA_DATA(ttb[VXLAN_VNIFILTER_ENTRY_GROUP6]);
+
+		dplane_tunnel_notify_enqueue(ns_id, notify_type, !!startup, tnlm->family,
+					     tnlm->ifindex, vni_start, vni_end, mcast_grp,
+					     mcast_grp6);
+	}
+
+	return 0;
 }
 
 static int tunneldump_walk_cb(struct interface *ifp, void *arg)

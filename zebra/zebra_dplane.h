@@ -59,8 +59,8 @@ zebra_dplane_info_from_zns(struct zebra_dplane_info *zns_info,
 		zns_info->sock = zns->netlink_cmd.sock;
 		zns_info->seq = zns->netlink_cmd.seq;
 	} else {
-		zns_info->sock = zns->netlink.sock;
-		zns_info->seq = zns->netlink.seq;
+		zns_info->sock = zns->netlink_dplane_in.sock;
+		zns_info->seq = zns->netlink_dplane_in.seq;
 	}
 #endif /* NETLINK */
 }
@@ -104,6 +104,7 @@ enum zebra_dplane_startup_notifications {
 	ZEBRA_DPLANE_INTERFACES_READ,
 	ZEBRA_DPLANE_TUNNELS_READ,
 	ZEBRA_DPLANE_ADDRESSES_READ,
+	ZEBRA_DPLANE_NEXTHOPS_READ,
 	ZEBRA_DPLANE_FINISHED_READING,
 };
 /*
@@ -227,6 +228,9 @@ enum dplane_op_e {
 	DPLANE_OP_TC_QDISC_READ,
 	DPLANE_OP_TC_QDISC_NOTIFY,
 
+	/* Incoming kernel tunnel (VXLAN VNI filter) events */
+	DPLANE_OP_TUNNEL_NOTIFY,
+
 	/* EVPN-MH FDB (L2) nexthop update */
 	DPLANE_OP_NH_FDB_INSTALL,
 	DPLANE_OP_NH_FDB_DELETE,
@@ -296,6 +300,14 @@ enum dplane_netconf_status_e {
 enum dplane_tc_qdisc_notify_e {
 	DPLANE_TC_QDISC_NOTIFY_NEW,
 	DPLANE_TC_QDISC_NOTIFY_DEL,
+};
+
+/*
+ * Kernel tunnel (VXLAN VNI filter) notification enum.
+ */
+enum dplane_tunnel_notify_e {
+	DPLANE_TUNNEL_NOTIFY_NEW,
+	DPLANE_TUNNEL_NOTIFY_DEL,
 };
 
 /* Enable system route notifications */
@@ -557,6 +569,8 @@ uint32_t dplane_ctx_get_flags(const struct zebra_dplane_ctx *ctx);
 void dplane_ctx_set_flags(struct zebra_dplane_ctx *ctx, uint32_t flags);
 bool dplane_ctx_route_get_replace(const struct zebra_dplane_ctx *ctx);
 void dplane_ctx_route_set_replace(struct zebra_dplane_ctx *ctx, bool replace);
+void dplane_ctx_set_route_notif(struct zebra_dplane_ctx *ctx, bool notif);
+bool dplane_ctx_get_route_notif(const struct zebra_dplane_ctx *ctx);
 uint32_t dplane_ctx_get_metric(const struct zebra_dplane_ctx *ctx);
 uint32_t dplane_ctx_get_old_metric(const struct zebra_dplane_ctx *ctx);
 void dplane_ctx_set_route_metric(struct zebra_dplane_ctx *ctx, uint32_t metric);
@@ -628,6 +642,19 @@ dplane_ctx_tc_qdisc_notify_get_type(const struct zebra_dplane_ctx *ctx);
  * generic dplane_ctx_get_startup() / dplane_ctx_set_startup() pair.
  */
 
+uint8_t dplane_ctx_tunnel_notify_get_family(const struct zebra_dplane_ctx *ctx);
+ifindex_t dplane_ctx_tunnel_notify_get_ifindex(const struct zebra_dplane_ctx *ctx);
+vni_t dplane_ctx_tunnel_notify_get_vni_start(const struct zebra_dplane_ctx *ctx);
+vni_t dplane_ctx_tunnel_notify_get_vni_end(const struct zebra_dplane_ctx *ctx);
+const struct in_addr *
+dplane_ctx_tunnel_notify_get_mcast_grp(const struct zebra_dplane_ctx *ctx);
+const struct in6_addr *
+dplane_ctx_tunnel_notify_get_mcast_grp6(const struct zebra_dplane_ctx *ctx);
+bool dplane_ctx_tunnel_notify_has_mcast_grp(const struct zebra_dplane_ctx *ctx);
+bool dplane_ctx_tunnel_notify_has_mcast_grp6(const struct zebra_dplane_ctx *ctx);
+enum dplane_tunnel_notify_e
+dplane_ctx_tunnel_notify_get_type(const struct zebra_dplane_ctx *ctx);
+
 void dplane_ctx_set_nexthops(struct zebra_dplane_ctx *ctx, struct nexthop *nh);
 void dplane_ctx_set_backup_nhg(struct zebra_dplane_ctx *ctx,
 			       const struct nexthop_group *nhg);
@@ -660,7 +687,20 @@ dplane_ctx_get_backup_ng(const struct zebra_dplane_ctx *ctx);
 const struct nexthop_group *
 dplane_ctx_get_old_backup_ng(const struct zebra_dplane_ctx *ctx);
 
-/* Accessors for nexthop information */
+/* Setters/accessors for nexthop information */
+void dplane_ctx_set_nhe_id(struct zebra_dplane_ctx *ctx, uint32_t id);
+void dplane_ctx_set_nhe_afi(struct zebra_dplane_ctx *ctx, afi_t afi);
+void dplane_ctx_set_nhe_vrf_id(struct zebra_dplane_ctx *ctx, vrf_id_t vrf_id);
+void dplane_ctx_set_nhe_type(struct zebra_dplane_ctx *ctx, int type);
+void dplane_ctx_set_nhe_nh_grp(struct zebra_dplane_ctx *ctx, const struct nh_grp *grp,
+			       uint16_t count);
+void dplane_ctx_set_nhe_resilience(struct zebra_dplane_ctx *ctx,
+				   const struct nhg_resilience *resilience);
+void dplane_ctx_set_nhe_nh(struct zebra_dplane_ctx *ctx, const struct nexthop *nh);
+void dplane_ctx_set_nhe_labels(struct zebra_dplane_ctx *ctx, const mpls_label_t *labels,
+			       uint16_t count);
+void dplane_ctx_set_nhe_notif(struct zebra_dplane_ctx *ctx, bool notif);
+
 uint32_t dplane_ctx_get_nhe_id(const struct zebra_dplane_ctx *ctx);
 uint32_t dplane_ctx_get_old_nhe_id(const struct zebra_dplane_ctx *ctx);
 afi_t dplane_ctx_get_nhe_afi(const struct zebra_dplane_ctx *ctx);
@@ -671,6 +711,11 @@ dplane_ctx_get_nhe_ng(const struct zebra_dplane_ctx *ctx);
 const struct nh_grp *
 dplane_ctx_get_nhe_nh_grp(const struct zebra_dplane_ctx *ctx);
 uint16_t dplane_ctx_get_nhe_nh_grp_count(const struct zebra_dplane_ctx *ctx);
+bool dplane_ctx_get_nhe_notif(const struct zebra_dplane_ctx *ctx);
+const struct nhg_resilience *dplane_ctx_get_nhe_resilience(const struct zebra_dplane_ctx *ctx);
+const struct nexthop *dplane_ctx_get_nhe_nh(const struct zebra_dplane_ctx *ctx);
+uint16_t dplane_ctx_get_nhe_label_count(const struct zebra_dplane_ctx *ctx);
+const mpls_label_t *dplane_ctx_get_nhe_labels(const struct zebra_dplane_ctx *ctx);
 
 /* Accessors for EVPN-MH FDB (L2) nexthop / nexthop-group information */
 uint32_t dplane_ctx_get_fdb_nh_id(const struct zebra_dplane_ctx *ctx);
@@ -838,8 +883,15 @@ void dplane_ctx_neigh_set_link_layer_ipv4(struct zebra_dplane_ctx *ctx,
 					  union sockunion link_layer_ipv4);
 
 /* Accessors for policy based routing rule information */
+struct zebra_pbr_rule;
 void dplane_ctx_rule_get(const struct zebra_dplane_ctx *ctx,
 	struct pbr_rule *pNew, struct pbr_rule *pOld);
+void dplane_ctx_set_rule_notif(struct zebra_dplane_ctx *ctx, bool notif);
+bool dplane_ctx_get_rule_notif(const struct zebra_dplane_ctx *ctx);
+void dplane_ctx_set_rule_proto(struct zebra_dplane_ctx *ctx, uint8_t proto);
+uint8_t dplane_ctx_get_rule_proto(const struct zebra_dplane_ctx *ctx);
+void dplane_ctx_set_rule_from_pbr(struct zebra_dplane_ctx *ctx,
+				  const struct zebra_pbr_rule *rule);
 int dplane_ctx_rule_get_sock(const struct zebra_dplane_ctx *ctx);
 int dplane_ctx_rule_get_unique(const struct zebra_dplane_ctx *ctx);
 int dplane_ctx_rule_get_seq(const struct zebra_dplane_ctx *ctx);
@@ -1064,6 +1116,17 @@ enum zebra_dplane_result dplane_tc_qdisc_notify_enqueue(ns_id_t ns_id,
 							enum dplane_tc_qdisc_notify_e notify_type,
 							bool startup, int kind, ifindex_t ifindex,
 							uint32_t major_handle);
+
+/*
+ * Enqueue a kernel tunnel (VXLAN VNI filter) notification from the dplane
+ * thread to the zebra master thread. The kernel-specific RTM_*TUNNEL
+ * message type is translated into a generic dplane_tunnel_notify_e
+ * by the dplane decoder before this is called.
+ */
+enum zebra_dplane_result
+dplane_tunnel_notify_enqueue(ns_id_t ns_id, enum dplane_tunnel_notify_e notify_type, bool startup,
+			     uint8_t family, ifindex_t ifindex, vni_t vni_start, vni_t vni_end,
+			     const struct in_addr *mcast_grp, const struct in6_addr *mcast_grp6);
 
 /*
  * Link layer operations for the dataplane.

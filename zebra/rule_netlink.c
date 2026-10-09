@@ -21,7 +21,6 @@
 #include "zebra/zebra_ns.h"
 #include "zebra/zebra_vrf.h"
 #include "zebra/rt.h"
-#include "zebra/interface.h"
 #include "zebra/debug.h"
 #include "zebra/rtadv.h"
 #include "zebra/kernel_netlink.h"
@@ -236,25 +235,27 @@ netlink_put_rule_update_msg(struct nl_batch *bth, struct zebra_dplane_ctx *ctx)
 
 /*
  * Handle netlink notification informing a rule add or delete.
- * Handling of an ADD is TBD.
+ * Decode into a dplane context and enqueue it for the zebra master pthread.
+ *
+ * Handling of an ADD is TBD on the master pthread.
  * DELs are notified up, if other attributes indicate it may be a
  * notification of interest. The expectation is that if this corresponds
  * to a PBR rule added by FRR, it will be readded.
  *
  * If startup and we see a rule we created, delete it as its leftover
  * from a previous instance and should have been removed on shutdown.
- *
  */
 int netlink_rule_change(struct nlmsghdr *h, ns_id_t ns_id, int startup, void *arg)
 {
-	struct zebra_ns *zns;
 	struct fib_rule_hdr *frh;
 	struct rtattr *tb[FRA_MAX + 1];
 	int len;
 	char *ifname;
 	struct zebra_pbr_rule rule = {};
+	struct zebra_dplane_ctx *ctx;
 	uint8_t proto = 0;
 	uint8_t ip_proto = 0;
+	enum dplane_op_e op;
 
 	frrtrace(3, frr_zebra, netlink_rule_change, h, ns_id, startup);
 
@@ -292,6 +293,8 @@ int netlink_rule_change(struct nlmsghdr *h, ns_id_t ns_id, int startup, void *ar
 
 	memset(tb, 0, sizeof(tb));
 	netlink_parse_rtattr(tb, FRA_MAX, RTM_RTA(frh), len);
+
+	rule.rule.family = frh->family;
 
 	if (tb[FRA_PRIORITY])
 		rule.rule.priority = *(uint32_t *)RTA_DATA(tb[FRA_PRIORITY]);
@@ -338,37 +341,10 @@ int netlink_rule_change(struct nlmsghdr *h, ns_id_t ns_id, int startup, void *ar
 	ifname = (char *)RTA_DATA(tb[FRA_IFNAME]);
 	strlcpy(rule.ifname, ifname, sizeof(rule.ifname));
 
-	if (h->nlmsg_type == RTM_NEWRULE) {
-		/*
-		 * If we see a rule at startup we created, delete it now.
-		 * It should have been flushed on a previous shutdown.
-		 */
-		if (startup && proto == RTPROT_ZEBRA) {
-			enum zebra_dplane_result ret;
-
-			ret = dplane_pbr_rule_delete(&rule);
-
-			zlog_debug(
-				"%s: %s leftover rule: family %s IF %s Pref %u Src %pFX Dst %pFX Table %u ip-proto: %u",
-				__func__,
-				((ret == ZEBRA_DPLANE_REQUEST_FAILURE)
-					 ? "Failed to remove"
-					 : "Removed"),
-				nl_family_to_str(frh->family), rule.ifname,
-				rule.rule.priority, &rule.rule.filter.src_ip,
-				&rule.rule.filter.dst_ip,
-				rule.rule.action.table, ip_proto);
-		}
-
-		/* TBD */
-		return 0;
-	}
-
-	zns = zebra_ns_lookup(ns_id);
-
-	/* If we don't know the interface, we don't care. */
-	if (!if_lookup_by_name_per_ns(zns, ifname))
-		return 0;
+	if (h->nlmsg_type == RTM_NEWRULE)
+		op = DPLANE_OP_RULE_ADD;
+	else
+		op = DPLANE_OP_RULE_DELETE;
 
 	if (IS_ZEBRA_DEBUG_KERNEL)
 		zlog_debug(
@@ -379,7 +355,18 @@ int netlink_rule_change(struct nlmsghdr *h, ns_id_t ns_id, int startup, void *ar
 			&rule.rule.filter.dst_ip, rule.rule.action.table,
 			ip_proto);
 
-	return kernel_pbr_rule_del(&rule);
+	ctx = dplane_ctx_alloc();
+	dplane_ctx_set_op(ctx, op);
+	dplane_ctx_set_status(ctx, ZEBRA_DPLANE_REQUEST_SUCCESS);
+	dplane_ctx_set_ns_id(ctx, ns_id);
+	dplane_ctx_set_startup(ctx, startup);
+	dplane_ctx_set_rule_notif(ctx, true);
+	dplane_ctx_set_rule_proto(ctx, proto);
+	dplane_ctx_set_rule_from_pbr(ctx, &rule);
+
+	/* Enqueue ctx for main pthread to process */
+	dplane_provider_enqueue_to_zebra(ctx);
+	return 0;
 }
 
 /*
