@@ -620,7 +620,7 @@ int zfpm_netlink_encode_route(int cmd, rib_dest_t *dest, struct route_entry *re,
 int zfpm_netlink_encode_mac(struct fpm_mac_info_t *mac, char *in_buf,
 			    size_t in_buf_len)
 {
-	size_t buf_offset;
+	size_t buf_offset, ipa_len;
 
 	struct macmsg {
 		struct nlmsghdr hdr;
@@ -660,7 +660,13 @@ int zfpm_netlink_encode_mac(struct fpm_mac_info_t *mac, char *in_buf,
 		return 0;
 	}
 
-	if (!nl_attr_put(&req->hdr, in_buf_len, NDA_DST, &mac->r_vtep_ip, 4)) {
+	/*
+	 * NDA_DST is the remote VTEP. The length is the address width so a
+	 * native IPv6 VTEP is not sent as its first 32 bits. The first 32
+	 * bits of 2001:db8::10 are 32.1.13.184.
+	 */
+	ipa_len = IPADDRSZ(&mac->r_vtep_ip);
+	if (!nl_attr_put(&req->hdr, in_buf_len, NDA_DST, &mac->r_vtep_ip.ip.addr, ipa_len)) {
 		zlog_err("%s: Failed to add NDA_DST nl attribute", __func__);
 		return 0;
 	}
@@ -677,10 +683,9 @@ int zfpm_netlink_encode_mac(struct fpm_mac_info_t *mac, char *in_buf,
 
 	assert(req->hdr.nlmsg_len < in_buf_len);
 
-	zfpm_debug("Tx %s family %s ifindex %u MAC %pEA DEST %pI4",
-		   nl_msg_type_to_str(req->hdr.nlmsg_type),
-		   nl_family_to_str(req->ndm.ndm_family), req->ndm.ndm_ifindex,
-		   &mac->macaddr, &mac->r_vtep_ip);
+	zfpm_debug("Tx %s family %s ifindex %u MAC %pEA DEST %pIA",
+		   nl_msg_type_to_str(req->hdr.nlmsg_type), nl_family_to_str(req->ndm.ndm_family),
+		   req->ndm.ndm_ifindex, &mac->macaddr, &mac->r_vtep_ip);
 
 	return req->hdr.nlmsg_len;
 }
