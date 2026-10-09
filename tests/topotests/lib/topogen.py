@@ -1275,18 +1275,10 @@ class TopoRouter(TopoGear):
         If the neighbor doesn't exist or is not in state 'Full' the function
         asserts.
         """
-        expected = {
-            "neighbors": {
-                neighbor: [{
-                    "converged": "Full"
-                }]
-            }
-        }
+        expected = {"neighbors": {neighbor: [{"converged": "Full"}]}}
         test_func = partial(
-            topotest.router_json_cmp,
-            self,
-            "show ip ospf neighbor json",
-            expected)
+            topotest.router_json_cmp, self, "show ip ospf neighbor json", expected
+        )
         _, result = topotest.run_and_expect(test_func, None, count=60, wait=1)
         assert result is None, f"Router {self.name} failed to converge"
 
@@ -1297,16 +1289,10 @@ class TopoRouter(TopoGear):
 
         If the neighbor doesn't exist the function asserts.
         """
-        expected = {
-                interface: {
-                    neighbor: {}
-                }
-        }
+        expected = {interface: {neighbor: {}}}
         test_func = partial(
-            topotest.router_json_cmp,
-            self,
-            "show ip pim neighbor json",
-            expected)
+            topotest.router_json_cmp, self, "show ip pim neighbor json", expected
+        )
         _, result = topotest.run_and_expect(test_func, None, count=60, wait=1)
         assert result is None, f"Router {self.name} failed to converge"
 
@@ -1482,7 +1468,7 @@ class TopoBMPCollector(TopoHost):
             )
 
     def stop(self):
-        self.run(f"kill $(cat {self.pid_file}")
+        self.run(f"kill $(cat {self.pid_file})")
         return ""
 
 
