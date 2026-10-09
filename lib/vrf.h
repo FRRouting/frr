@@ -177,7 +177,7 @@ extern void vrf_bitmap_init(vrf_bitmap_t *pbmap);
 extern void vrf_bitmap_free(vrf_bitmap_t *pbmap);
 extern void vrf_bitmap_set(vrf_bitmap_t *pbmap, vrf_id_t vrf_id);
 extern void vrf_bitmap_unset(vrf_bitmap_t *pbmap, vrf_id_t vrf_id);
-extern int vrf_bitmap_check(vrf_bitmap_t *pbmap, vrf_id_t vrf_id);
+extern int vrf_bitmap_check(const vrf_bitmap_t *pbmap, vrf_id_t vrf_id);
 
 /*
  * VRF initializer/destructor
