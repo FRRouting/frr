@@ -1847,7 +1847,7 @@ static inline bool bmp_monitor_rib_out_pre_walk(struct bmp *bmp, afi_t afi, safi
 						      .prd = prd,
 						      .written_ref = &written };
 
-	update_group_af_walk(bmp->targets->bgp, afi, safi, bmp_monitor_rib_out_pre_updgrp_walkcb,
+	update_group_af_walk(bmp->sync_bgp, afi, safi, bmp_monitor_rib_out_pre_updgrp_walkcb,
 			     (void *)&walkctx);
 
 	return written;
@@ -1918,7 +1918,7 @@ static inline bool bmp_monitor_rib_out_post_walk(struct bmp *bmp, afi_t afi, saf
 		.bmp = bmp, .pfx = pfx, .dest = dest, .bpi = bpi, .prd = prd, .written_ref = &written
 	};
 
-	update_group_af_walk(bmp->targets->bgp, afi, safi, bmp_monitor_rib_out_post_updgrp_walkcb,
+	update_group_af_walk(bmp->sync_bgp, afi, safi, bmp_monitor_rib_out_post_updgrp_walkcb,
 			     (void *)&walkctx);
 
 	return written;
@@ -2462,6 +2462,33 @@ static int find_subgrp_walkcb(struct update_group *updgrp, void *arg)
 	return CMD_SUCCESS;
 }
 
+/* look up a subgroup in the BGP instance of the target, then in the
+ * imported BGP instances
+ */
+static struct update_subgroup *bmp_subgrp_lookup(struct bmp_targets *bt, afi_t afi, safi_t safi,
+						 uint64_t subgrp_id)
+{
+	struct updwalk_context ctx = {};
+	struct bmp_imported_bgp *bib;
+	struct bgp *bgp;
+
+	ctx.subgrp_id = subgrp_id;
+	update_group_af_walk(bt->bgp, afi, safi, find_subgrp_walkcb, &ctx);
+	if (ctx.context)
+		return ctx.context;
+
+	frr_each (bmp_imported_bgps, &bt->imported_bgps, bib) {
+		bgp = bgp_lookup_by_name(bib->name);
+		if (!bgp)
+			continue;
+		update_group_af_walk(bgp, afi, safi, find_subgrp_walkcb, &ctx);
+		if (ctx.context)
+			return ctx.context;
+	}
+
+	return NULL;
+}
+
 static uint64_t bmp_ribout_clear_bqe(struct bmp *bmp, uint64_t id)
 {
 	uint64_t count = 0;
@@ -2494,7 +2521,6 @@ static uint64_t bmp_ribout_clear_bqe(struct bmp *bmp, uint64_t id)
  */
 static bool bmp_wrqueue_ribout(struct bmp *bmp, struct pullwr *pullwr)
 {
-	struct updwalk_context ctx = {};
 	struct bmp_queue_entry *bqe;
 	struct peer *peer;
 	struct bgp_dest *bn = NULL;
@@ -2512,9 +2538,7 @@ static bool bmp_wrqueue_ribout(struct bmp *bmp, struct pullwr *pullwr)
 	safi_t safi = bqe->safi;
 	uint32_t addpath_tx_id = bqe->addpath_id;
 
-	ctx.subgrp_id = bqe->id;
-	update_group_af_walk(bmp->targets->bgp, afi, safi, find_subgrp_walkcb, &ctx);
-	subgrp = (struct update_subgroup *)ctx.context;
+	subgrp = bmp_subgrp_lookup(bmp->targets, afi, safi, bqe->id);
 
 	if (!subgrp) {
 		zlog_info("bmp: skipping queue item for deleted subgroup %" PRIu64, bqe->id);
@@ -2542,7 +2566,7 @@ static bool bmp_wrqueue_ribout(struct bmp *bmp, struct pullwr *pullwr)
 
 	struct prefix_rd *prd = is_vpn ? &bqe->rd : NULL;
 
-	bn = bgp_safi_node_lookup(bmp->targets->bgp->rib[afi][safi], safi, &bqe->p, prd);
+	bn = bgp_safi_node_lookup(SUBGRP_INST(subgrp)->rib[afi][safi], safi, &bqe->p, prd);
 
 	if (CHECK_FLAG(bmp->targets->afimon[afi][safi], BMP_MON_OUT_PREPOLICY) &&
 	    CHECK_FLAG(bqe->flags, BMP_MON_OUT_PREPOLICY)) {
