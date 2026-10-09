@@ -831,6 +831,79 @@ static const struct route_map_rule_cmd
 	route_match_address_prefix_len_free     /* reuse */
 };
 
+/*
+ * `match ip next-hop seg6 prefix-list PREFIX_LIST'
+ * `match ipv6 next-hop seg6 prefix-list PREFIX_LIST'
+ */
+
+static enum route_map_cmd_result_t
+route_match_next_hop_seg6_prefix_list(void *rule, const struct prefix *prefix, void *object)
+{
+	struct zebra_rmap_obj *rm_data;
+	struct prefix_list *plist;
+	struct prefix_ipv6 seg = {};
+
+	rm_data = (struct zebra_rmap_obj *)object;
+	if (!rm_data || !rm_data->nexthop || !rm_data->nexthop->nh_srv6 ||
+	    !rm_data->nexthop->nh_srv6->seg6_segs ||
+	    rm_data->nexthop->nh_srv6->seg6_segs->num_segs == 0)
+		return RMAP_NOMATCH;
+
+	plist = prefix_list_lookup(AFI_IP6, (char *)rule);
+	if (plist == NULL) {
+		if (unlikely(CHECK_FLAG(rmap_debug, DEBUG_ROUTEMAP_DETAIL)))
+			zlog_debug("%s: Prefix List %s (%s) specified does not exist defaulting to NO_MATCH",
+				   __func__, (char *)rule, afi2str(AFI_IP6));
+		return RMAP_NOMATCH;
+	}
+
+	seg.family = AF_INET6;
+	seg.prefixlen = IPV6_MAX_BITLEN;
+	seg.prefix = rm_data->nexthop->nh_srv6->seg6_segs->seg[0];
+
+	return (prefix_list_apply(plist, &seg) == PREFIX_DENY ? RMAP_NOMATCH : RMAP_MATCH);
+}
+
+static enum route_map_cmd_result_t
+route_match_ip_next_hop_seg6_prefix_list(void *rule, const struct prefix *prefix, void *object)
+{
+	if (prefix->family == AF_INET)
+		return route_match_next_hop_seg6_prefix_list(rule, prefix, object);
+
+	return RMAP_NOMATCH;
+}
+
+static enum route_map_cmd_result_t
+route_match_ipv6_next_hop_seg6_prefix_list(void *rule, const struct prefix *prefix, void *object)
+{
+	if (prefix->family == AF_INET6)
+		return route_match_next_hop_seg6_prefix_list(rule, prefix, object);
+
+	return RMAP_NOMATCH;
+}
+
+static void *route_match_ip_next_hop_seg6_prefix_list_compile(const char *arg)
+{
+	return XSTRDUP(MTYPE_ROUTE_MAP_COMPILED, arg);
+}
+
+static void route_match_ip_next_hop_seg6_prefix_list_free(void *rule)
+{
+	XFREE(MTYPE_ROUTE_MAP_COMPILED, rule);
+}
+
+static const struct route_map_rule_cmd route_match_ip_next_hop_seg6_prefix_list_cmd = {
+	"ip next-hop seg6 prefix-list", route_match_ip_next_hop_seg6_prefix_list,
+	route_match_ip_next_hop_seg6_prefix_list_compile,
+	route_match_ip_next_hop_seg6_prefix_list_free
+};
+
+static const struct route_map_rule_cmd route_match_ipv6_next_hop_seg6_prefix_list_cmd = {
+	"ipv6 next-hop seg6 prefix-list", route_match_ipv6_next_hop_seg6_prefix_list,
+	route_match_ip_next_hop_seg6_prefix_list_compile, /* reuse */
+	route_match_ip_next_hop_seg6_prefix_list_free	  /* reuse */
+};
+
 /* `match ip next-hop type <blackhole>' */
 
 static enum route_map_cmd_result_t
@@ -989,6 +1062,47 @@ static const struct route_map_rule_cmd route_set_src_cmd = {
 	route_set_src,
 	route_set_src_compile,
 	route_set_src_free,
+};
+
+/* `set segment-routing ipv6 encap-source X:X::X:X' */
+
+static enum route_map_cmd_result_t
+route_set_srv6_encap_source(void *rule, const struct prefix *prefix, void *object)
+{
+	struct zebra_rmap_obj *rm_data;
+
+	rm_data = (struct zebra_rmap_obj *)object;
+	if (!rm_data || !rm_data->nexthop || !rm_data->nexthop->nh_srv6 ||
+	    !rm_data->nexthop->nh_srv6->seg6_segs ||
+	    rm_data->nexthop->nh_srv6->seg6_segs->num_segs == 0)
+		return RMAP_OKAY;
+
+	rm_data->nexthop->nh_srv6->seg6_segs->rmap_encap_source = *(struct in6_addr *)rule;
+	return RMAP_OKAY;
+}
+
+static void *route_set_srv6_encap_source_compile(const char *arg)
+{
+	struct in6_addr v6addr = {}, *encap_source;
+
+	if (inet_pton(AF_INET6, arg, &v6addr) == 1) {
+		encap_source = XMALLOC(MTYPE_ROUTE_MAP_COMPILED, sizeof(struct in6_addr));
+		*encap_source = v6addr;
+		return encap_source;
+	}
+	return NULL;
+}
+
+static void route_set_srv6_encap_source_free(void *rule)
+{
+	XFREE(MTYPE_ROUTE_MAP_COMPILED, rule);
+}
+
+static const struct route_map_rule_cmd route_set_srv6_encap_source_cmd = {
+	"segment-routing ipv6 encap-source",
+	route_set_srv6_encap_source,
+	route_set_srv6_encap_source_compile,
+	route_set_srv6_encap_source_free,
 };
 
 /* The function checks if the changed routemap specified by parameter rmap
@@ -1423,6 +1537,8 @@ void zebra_route_map_init(void)
 	route_map_install_match(&route_match_ipv6_address_cmd);
 	route_map_install_match(&route_match_ip_address_prefix_list_cmd);
 	route_map_install_match(&route_match_ipv6_address_prefix_list_cmd);
+	route_map_install_match(&route_match_ip_next_hop_seg6_prefix_list_cmd);
+	route_map_install_match(&route_match_ipv6_next_hop_seg6_prefix_list_cmd);
 	route_map_install_match(&route_match_ip_address_prefix_len_cmd);
 	route_map_install_match(&route_match_ipv6_address_prefix_len_cmd);
 	route_map_install_match(&route_match_ip_nexthop_prefix_len_cmd);
@@ -1433,4 +1549,5 @@ void zebra_route_map_init(void)
 
 	/* */
 	route_map_install_set(&route_set_src_cmd);
+	route_map_install_set(&route_set_srv6_encap_source_cmd);
 }

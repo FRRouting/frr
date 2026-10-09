@@ -8,6 +8,10 @@ module frr-zebra-route-map {
     prefix inet;
   }
 
+  import frr-filter {
+    prefix frr-filter;
+  }
+
   import frr-route-map {
     prefix frr-route-map;
   }
@@ -49,6 +53,15 @@ module frr-zebra-route-map {
      (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
      OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.";
 
+  revision 2026-04-07 {
+    description
+      "Match on next-hop's first seg6 segment (if any)
+       and set the SRv6 encapsulation source address";
+
+    reference
+      "FRRouting";
+  }
+
   revision 2020-01-02 {
     description
       "Initial revision";
@@ -74,6 +87,18 @@ module frr-zebra-route-map {
       "Match IPv6 address prefix length";
   }
 
+  identity ipv4-next-hop-seg6-prefix-list {
+    base frr-route-map:rmap-match-type;
+    description
+      "Match IPv4 next-hop's first seg6 segment";
+  }
+
+  identity ipv6-next-hop-seg6-prefix-list {
+    base frr-route-map:rmap-match-type;
+    description
+      "Match IPv6 next-hop's first seg6 segment";
+  }
+
   identity source-instance {
     base frr-route-map:rmap-match-type;
     description
@@ -90,6 +115,12 @@ module frr-zebra-route-map {
     base frr-route-map:rmap-set-type;
     description
       "Set IPv4/IPv6 source address for route";
+  }
+
+  identity srv6-encap-source {
+    base frr-route-map:rmap-set-type;
+    description
+      "Set the SRv6 encapsulation source address";
   }
 
   augment "/frr-route-map:lib"
@@ -146,6 +177,20 @@ module frr-zebra-route-map {
           "Protocol type via which the route was learnt.";
       }
     }
+
+    case ipv4-next-hop-seg6-prefix-list {
+      when "derived-from-or-self(../frr-route-map:condition, 'frr-zebra-route-map:ipv4-next-hop-seg6-prefix-list')";
+      leaf ipv4-next-hop-seg6-prefix-list {
+        type frr-filter:access-list-name;
+      }
+    }
+
+    case ipv6-next-hop-seg6-prefix-list {
+      when "derived-from-or-self(../frr-route-map:condition, 'frr-zebra-route-map:ipv6-next-hop-seg6-prefix-list')";
+      leaf ipv6-next-hop-seg6-prefix-list {
+        type frr-filter:access-list-name;
+      }
+    }
   }
 
   augment "/frr-route-map:lib"
@@ -179,6 +224,14 @@ module frr-zebra-route-map {
               "IPv6 source address to set for the route.";
           }
         }
+      }
+    }
+
+    case srv6-encap-source {
+      when "derived-from-or-self(../frr-route-map:action, 'frr-zebra-route-map:srv6-encap-source')";
+      leaf srv6-encap-source {
+        type inet:ipv6-address-no-zone;
+        mandatory true;
       }
     }
   }
