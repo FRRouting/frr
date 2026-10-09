@@ -81,7 +81,10 @@ enum zebra_if_flags {
 	/* Kernel protodown state from RTM_NEWLINK - used to detect kernel
 	 * protodown transitions independently from ZIF_FLAG_PROTODOWN
 	 */
-	ZIF_FLAG_KERNEL_PROTODOWN_SET = (1 << 6)
+	ZIF_FLAG_KERNEL_PROTODOWN_SET = (1 << 6),
+
+	/* Manage local neighbor host-routes */
+	ZIF_FLAG_HOST_ROUTES = (1 << 7),
 };
 
 #define ZEBRA_IF_IS_PROTODOWN(zif) ((zif)->flags & ZIF_FLAG_PROTODOWN)
