@@ -319,7 +319,7 @@ class OspfApiClient:
                 logging.debug("%s: binding to ports %s, %s", self, port, port + 1)
                 self._s, self._ls = self._get_bound_sockets(port)
                 break
-            except OSError as error:
+            except Exception as error:
                 if error.errno != errno.EADDRINUSE or port == PORTEND:
                     logging.warning("%s: binding port %s error %s", self, port, error)
                     raise
