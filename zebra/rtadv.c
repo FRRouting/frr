@@ -1411,6 +1411,13 @@ static void rtadv_start_interface_events(struct zebra_vrf *zvrf,
 {
 	struct adv_if *adv_if = NULL;
 
+	if (!if_is_operative(zif->ifp)) {
+		if (IS_ZEBRA_DEBUG_EVENT)
+			zlog_debug("%s(%s) is not up yet, delaying until it is up", zif->ifp->name,
+				   zvrf->vrf->name);
+		return;
+	}
+
 	if (zif->ifp->ifindex == IFINDEX_INTERNAL) {
 		if (IS_ZEBRA_DEBUG_EVENT)
 			zlog_debug(
