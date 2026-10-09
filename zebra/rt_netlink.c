@@ -3932,9 +3932,8 @@ static ssize_t netlink_neigh_update_msg_encode(
  * Add remote VTEP to the flood list for this VxLAN interface (VNI). This
  * is done by adding an FDB entry with a MAC of 00:00:00:00:00:00.
  */
-static ssize_t
-netlink_vxlan_flood_update_ctx(const struct zebra_dplane_ctx *ctx, int cmd,
-			       void *buf, size_t buflen)
+ssize_t netlink_vxlan_flood_update_ctx(const struct zebra_dplane_ctx *ctx, int cmd, void *buf,
+				       size_t buflen)
 {
 	struct ethaddr dst_mac = {.octet = {0}};
 	int proto = RTPROT_ZEBRA;
