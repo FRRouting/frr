@@ -1799,9 +1799,12 @@ static int bmp_monitor_rib_out_pre_updgrp_walkcb(struct update_group *updgrp, vo
 
 	UPDGRP_FOREACH_SUBGRP (updgrp, subgrp) {
 		struct attr dummy_attr = { 0 };
+		bool announced;
 
-		if (!subgroup_announce_check(ctx->dest, bpi, subgrp, ctx->pfx, &dummy_attr, NULL,
-					     BGP_ANNCHK_SPECIAL_PREPOLICY))
+		announced = subgroup_announce_check(ctx->dest, bpi, subgrp, ctx->pfx, &dummy_attr,
+						    NULL, BGP_ANNCHK_SPECIAL_PREPOLICY);
+		bgp_attr_flush(&dummy_attr);
+		if (!announced)
 			continue;
 
 		SUBGRP_FOREACH_PEER (subgrp, paf) {
@@ -4773,10 +4776,15 @@ static int bmp_adj_out_changed(struct update_subgroup *subgrp, struct bgp_dest *
 		 *  so if pre-policy check is false we
 		 *  return early.
 		 */
-		if (locked_path &&
-		    !subgroup_announce_check(dest, locked_path, subgrp, bgp_dest_get_prefix(dest),
-					     &dummy_attr, NULL, BGP_ANNCHK_SPECIAL_PREPOLICY)) {
-			return 0;
+		if (locked_path) {
+			bool announced;
+
+			announced = subgroup_announce_check(dest, locked_path, subgrp,
+							    bgp_dest_get_prefix(dest), &dummy_attr,
+							    NULL, BGP_ANNCHK_SPECIAL_PREPOLICY);
+			bgp_attr_flush(&dummy_attr);
+			if (!announced)
+				return 0;
 		}
 	}
 
