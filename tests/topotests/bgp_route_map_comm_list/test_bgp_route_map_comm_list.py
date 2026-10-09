@@ -58,7 +58,7 @@ def test_bgp_route_map_comm_list():
                 "bgpState": "Established",
                 "addressFamilyInfo": {
                     "ipv4Unicast": {
-                        "acceptedPrefixCounter": 6,
+                        "acceptedPrefixCounter": 8,
                     }
                 },
             }
@@ -233,6 +233,102 @@ def test_bgp_route_map_extcomm_list():
     ):
         assert line in output.splitlines(), "'{}' missing from r2 configuration".format(
             line
+        )
+
+
+def test_bgp_route_map_lcomm_list():
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    r2 = tgen.gears["r2"]
+
+    def _check_lcommunity(prefix, lcommunity):
+        output = json.loads(
+            r2.vtysh_cmd("show bgp ipv4 unicast {} json".format(prefix))
+        )
+        expected = {
+            "paths": [
+                {
+                    "largeCommunity": {"string": lcommunity},
+                    "peer": {"peerId": "192.168.1.1"},
+                }
+            ]
+        }
+        return topotest.json_cmp(output, expected)
+
+    # r1 sends both prefixes with 65001:1:10.
+    # "set large-comm-list add LCL_ADD" appends 65001:1:111, and
+    # "set large-comm-list replace LCL_REP" replaces 65001:1:10 with
+    # 65001:1:222. The string comparison is exact.
+    for prefix, lcommunity, case in (
+        ("10.1.7.0/24", "65001:1:10 65001:1:111", "ADD"),
+        ("10.1.8.0/24", "65001:1:222", "REPLACE"),
+    ):
+        test_func = functools.partial(_check_lcommunity, prefix, lcommunity)
+        _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
+        assert result is None, "{} case failed: {} large communities are not {}".format(
+            case, prefix, lcommunity
+        )
+
+    # the new commands are displayed back in the configuration
+    output = r2.vtysh_cmd("show running-config")
+    for line in (
+        " set large-comm-list add LCL_ADD",
+        " set large-comm-list replace LCL_REP",
+    ):
+        assert line in output.splitlines(), "'{}' missing from r2 configuration".format(
+            line
+        )
+
+
+def test_bgp_route_map_comm_list_replace_expanded():
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    r2 = tgen.gears["r2"]
+
+    # An expanded list defines no value to set: "replace" must leave the
+    # attribute received from r1 unchanged instead of removing it.
+    r2.vtysh_cmd(
+        """
+        configure terminal
+         route-map RM_IN permit 46
+          set extended-comm-list replace ECL_EXP
+         exit
+         route-map RM_IN permit 48
+          set large-comm-list replace LCL_EXP
+         exit
+        end
+        clear bgp ipv4 unicast 192.168.1.1 soft in
+        """
+    )
+
+    def _check_communities(prefix, key, value):
+        output = json.loads(
+            r2.vtysh_cmd("show bgp ipv4 unicast {} json".format(prefix))
+        )
+        expected = {
+            "paths": [
+                {
+                    key: {"string": value},
+                    "peer": {"peerId": "192.168.1.1"},
+                }
+            ]
+        }
+        return topotest.json_cmp(output, expected)
+
+    for prefix, key, value in (
+        ("10.1.6.0/24", "extendedCommunity", "RT:65001:10"),
+        ("10.1.8.0/24", "largeCommunity", "65001:1:10"),
+    ):
+        test_func = functools.partial(_check_communities, prefix, key, value)
+        _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
+        assert (
+            result is None
+        ), "{} {} is not {} after replace with an expanded list".format(
+            prefix, key, value
         )
 
 
