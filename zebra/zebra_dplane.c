@@ -6725,6 +6725,40 @@ enum zebra_dplane_result dplane_neigh_table_update(const struct interface *ifp,
 }
 
 /*
+ * Common init for neighbor update contexts (the caller sets the operation).
+ */
+static void dplane_neigh_init(struct zebra_dplane_ctx *ctx, const struct interface *ifp,
+			      const void *link, int link_family, const struct ipaddr *ip, vni_t vni,
+			      uint32_t flags, uint16_t state, uint32_t update_flags, int protocol)
+{
+	struct zebra_ns *zns;
+
+	ctx->zd_status = ZEBRA_DPLANE_REQUEST_SUCCESS;
+	ctx->zd_vrf_id = ifp->vrf->vrf_id;
+	dplane_ctx_set_type(ctx, protocol);
+
+	zns = zebra_ns_lookup(ifp->vrf->vrf_id);
+	dplane_ctx_ns_init(ctx, zns, false);
+
+	strlcpy(ctx->zd_ifname, ifp->name, sizeof(ctx->zd_ifname));
+	ctx->zd_ifindex = ifp->ifindex;
+
+	/* Init the neighbor-specific data area */
+	memset(&ctx->u.neigh, 0, sizeof(ctx->u.neigh));
+
+	ctx->u.neigh.ip_addr = *ip;
+	if (link && link_family == AF_ETHERNET)
+		ctx->u.neigh.link.mac = *(const struct ethaddr *)link;
+	else if (link)
+		ctx->u.neigh.link.ip_addr = *(const struct ipaddr *)link;
+
+	ctx->u.neigh.flags = flags;
+	ctx->u.neigh.vni = vni;
+	ctx->u.neigh.state = state;
+	ctx->u.neigh.update_flags = update_flags;
+}
+
+/*
  * Common helper api for neighbor updates
  */
 static enum zebra_dplane_result
@@ -6736,7 +6770,6 @@ neigh_update_internal(enum dplane_op_e op, const struct interface *ifp,
 	enum zebra_dplane_result result = ZEBRA_DPLANE_REQUEST_FAILURE;
 	int ret;
 	struct zebra_dplane_ctx *ctx = NULL;
-	struct zebra_ns *zns;
 	const struct ethaddr *mac = NULL;
 	const struct ipaddr *link_ip = NULL;
 
@@ -6760,31 +6793,9 @@ neigh_update_internal(enum dplane_op_e op, const struct interface *ifp,
 	}
 
 	ctx = dplane_ctx_alloc();
-
 	ctx->zd_op = op;
-	ctx->zd_status = ZEBRA_DPLANE_REQUEST_SUCCESS;
-	ctx->zd_vrf_id = ifp->vrf->vrf_id;
-	dplane_ctx_set_type(ctx, protocol);
-
-	zns = zebra_ns_lookup(ifp->vrf->vrf_id);
-	dplane_ctx_ns_init(ctx, zns, false);
-
-	strlcpy(ctx->zd_ifname, ifp->name, sizeof(ctx->zd_ifname));
-	ctx->zd_ifindex = ifp->ifindex;
-
-	/* Init the neighbor-specific data area */
-	memset(&ctx->u.neigh, 0, sizeof(ctx->u.neigh));
-
-	ctx->u.neigh.ip_addr = *ip;
-	if (mac)
-		ctx->u.neigh.link.mac = *mac;
-	else if (link_ip)
-		ctx->u.neigh.link.ip_addr = *link_ip;
-
-	ctx->u.neigh.flags = flags;
-	ctx->u.neigh.vni = vni;
-	ctx->u.neigh.state = state;
-	ctx->u.neigh.update_flags = update_flags;
+	dplane_neigh_init(ctx, ifp, link, link_family, ip, vni, flags, state, update_flags,
+			  protocol);
 
 	/* Enqueue for processing on the dplane pthread */
 	ret = dplane_update_enqueue(ctx);
