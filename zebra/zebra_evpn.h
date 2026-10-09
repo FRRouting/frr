@@ -150,6 +150,9 @@ void *zebra_evpn_alloc(void *p);
 struct zebra_evpn *zebra_evpn_lookup(vni_t vni);
 struct zebra_evpn *zebra_evpn_add(vni_t vni);
 int zebra_evpn_del(struct zebra_evpn *zevpn);
+struct zebra_evpn *zebra_evpn_l3_neigh_sync_lookup(vni_t vni);
+struct zebra_evpn *zebra_evpn_l3_neigh_sync_ref(vni_t vni);
+void zebra_evpn_l3_neigh_sync_unref(struct zebra_evpn *zevpn);
 int zebra_evpn_send_add_to_client(struct zebra_evpn *zevpn);
 int zebra_evpn_send_del_to_client(struct zebra_evpn *zevpn);
 struct zebra_vtep *zebra_evpn_vtep_find(struct zebra_evpn *zevpn, struct ipaddr *vtep_ip);
@@ -164,9 +167,10 @@ void zebra_evpn_handle_flooding_remote_vteps(struct hash_bucket *bucket, void *a
 void zebra_evpn_cleanup_all(struct hash_bucket *bucket, void *arg);
 void zebra_evpn_rem_macip_add(vni_t vni, const struct ethaddr *macaddr, uint16_t ipa_len,
 			      const struct ipaddr *ipaddr, uint8_t flags, uint32_t seq,
-			      struct ipaddr *vtep_ip, const esi_t *esi);
+			      struct ipaddr *vtep_ip, const esi_t *esi, vlanid_t eth_tag);
 void zebra_evpn_rem_macip_del(vni_t vni, const struct ethaddr *macaddr, uint16_t ipa_len,
-			      const struct ipaddr *ipaddr, struct ipaddr *vtep_ip);
+			      const struct ipaddr *ipaddr, struct ipaddr *vtep_ip,
+			      vlanid_t eth_tag);
 void zebra_evpn_cfg_cleanup(struct hash_bucket *bucket, void *ctxt);
 
 #ifdef __cplusplus

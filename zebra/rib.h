@@ -19,6 +19,7 @@
 #include "nexthop_group.h"
 #include "vrf.h"
 #include "if.h"
+#include "vlan.h"
 #include "mpls.h"
 #include "srcdest_table.h"
 #include "zebra/zebra_nhg.h"
@@ -462,10 +463,11 @@ int zebra_rib_queue_evpn_rem_es_add(const esi_t *esi, const struct ipaddr *vtep_
 int zebra_rib_queue_evpn_rem_es_del(const esi_t *esi, const struct ipaddr *vtep_ip);
 /* Enqueue EVPN remote macip update for processing */
 int zebra_rib_queue_evpn_rem_macip_del(vni_t vni, const struct ethaddr *macaddr,
-				       const struct ipaddr *ip, struct ipaddr *vtep_ip);
+				       const struct ipaddr *ip, struct ipaddr *vtep_ip,
+				       vlanid_t eth_tag);
 int zebra_rib_queue_evpn_rem_macip_add(vni_t vni, const struct ethaddr *macaddr,
 				       const struct ipaddr *ipaddr, uint8_t flags, uint32_t seq,
-				       struct ipaddr *vtep_ip, const esi_t *esi);
+				       struct ipaddr *vtep_ip, const esi_t *esi, vlanid_t eth_tag);
 /* Enqueue VXLAN remote vtep update for processing */
 int zebra_rib_queue_evpn_rem_vtep_add(vrf_id_t vrf_id, vni_t vni, struct ipaddr *vtep_ip,
 				      int flood_control);

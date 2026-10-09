@@ -35,9 +35,18 @@ struct zebra_evpn {
 	/* VNI - key */
 	vni_t vni;
 
+	/* Number of holders keeping this instance alive. Used by the L3VNI-keyed
+	 * neighbor-sync singleton (see zebra_evpn_l3_neigh_sync_ref()).
+	 */
+	uint32_t l3_sync_holders;
+
 	/* ES flags */
 	uint32_t flags;
 #define ZEVPN_READY_FOR_BGP (1 << 0) /* ready to be sent to BGP */
+/* EVPN L3 multihoming (L3MH) neighbor-sync instance: L2 paths (FDB,
+ * ES-EVI/RT-1, RT-3, flood) are skipped for it.
+ */
+#define ZEVPN_L3_NEIGH_SYNC (1 << 1)
 
 	/* Corresponding Bridge information */
 	vlanid_t vid;

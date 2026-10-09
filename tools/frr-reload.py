@@ -1800,6 +1800,18 @@ def ignore_delete_re_add_lines(lines_to_add, lines_to_del):
                 if found_table_map:
                     lines_to_del_to_del.append((ctx_keys, line))
 
+            # 'advertise-all-vni [l3vni-neigh]': a token-only change is applied
+            # in place by the add; a 'no advertise-all-vni' first would bounce EVPN.
+            if line.startswith("advertise-all-vni"):
+                if line_exist(lines_to_add, ctx_keys, "advertise-all-vni", False):
+                    lines_to_del_to_del.append((ctx_keys, line))
+                elif line != "advertise-all-vni":
+                    # 'no advertise-all-vni l3vni-neigh' keeps EVPN on, so
+                    # removing the whole line must use the bare 'no' form.
+                    deleted = True
+                    lines_to_del_to_del.append((ctx_keys, line))
+                    lines_to_add.append((ctx_keys, "no advertise-all-vni"))
+
         # More old-to-new config handling. ip import-table no longer accepts
         # distance, but we honor the old syntax. But 'show running' shows only
         # the new syntax. This causes an unnecessary 'no import-table' followed

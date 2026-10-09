@@ -384,6 +384,8 @@ static void display_rt_list(struct vty *vty, json_object *json, const char *json
  */
 static void evpn_l3vni_fill_json(json_object *json_vni, struct bgp *bgp_vrf)
 {
+	struct bgp *bgp_evpn = bgp_get_evpn();
+
 	if (bgp_vrf->l3vni)
 		json_object_string_addf(json_vni, "vni", "%u", bgp_vrf->l3vni);
 	else
@@ -399,6 +401,9 @@ static void evpn_l3vni_fill_json(json_object *json_vni, struct bgp *bgp_vrf)
 			       (bgp_vrf->evpn_info && bgp_vrf->evpn_info->advertise_svi_macip)
 				       ? "Active"
 				       : "Disabled");
+	json_object_string_add(json_vni, "advertiseL3vniNeigh",
+			       (bgp_evpn && bgp_evpn->advertise_l3vni_neigh) ? "Active"
+									     : "Disabled");
 	if (bgp_vrf->evpn_info) {
 		json_object_string_add(json_vni, "advertisePip",
 				       bgp_vrf->evpn_info->advertise_pip ? "Enabled" : "Disabled");
@@ -473,6 +478,9 @@ static void display_l3vni(struct vty *vty, struct bgp *bgp_vrf, json_object *jso
 			vty_out(vty, "  MAC-VRF Site-of-Origin: %s\n", soo_str);
 		vty_out(vty, "  Advertise-gw-macip : %s\n", gw_macip_state);
 		vty_out(vty, "  Advertise-svi-macip : %s\n", svi_macip_state);
+		vty_out(vty, "  Advertise-all-vni l3vni-neigh : %s\n",
+			(bgp_evpn && bgp_evpn->advertise_l3vni_neigh) ? "Active"
+								      : "Disabled");
 		if (bgp_vrf->evpn_info) {
 			vty_out(vty, "  Advertise-pip: %s\n",
 				bgp_vrf->evpn_info->advertise_pip ? "Yes" : "No");
@@ -3663,11 +3671,13 @@ static void evpn_unset_advertise_subnet(struct bgp *bgp, struct bgpevpn *vpn)
 }
 
 /*
- * EVPN (VNI advertisement) enabled. Register with zebra.
+ * EVPN (VNI advertisement) enabled, optionally with EVPN L3 multihoming (L3MH)
+ * neighbor sync (pure-L3 RT-2). Register both with zebra in one message.
  */
-static void evpn_set_advertise_all_vni(struct bgp *bgp)
+static void evpn_set_advertise_all_vni(struct bgp *bgp, bool l3vni_neigh)
 {
 	bgp->advertise_all_vni = 1;
+	bgp->advertise_l3vni_neigh = l3vni_neigh;
 	bgp_set_evpn(bgp);
 	bgp_zebra_advertise_all_vni(bgp, bgp->advertise_all_vni);
 }
@@ -3679,6 +3689,7 @@ static void evpn_set_advertise_all_vni(struct bgp *bgp)
 static void evpn_unset_advertise_all_vni(struct bgp *bgp)
 {
 	bgp->advertise_all_vni = 0;
+	bgp->advertise_l3vni_neigh = 0;
 	bgp_set_evpn(bgp_get_default());
 	bgp_zebra_advertise_all_vni(bgp, bgp->advertise_all_vni);
 	bgp_evpn_cleanup_on_disable(bgp);
@@ -3972,8 +3983,9 @@ DEFPY (no_bgp_evpn_advertise_default_gw,
 
 DEFPY (bgp_evpn_advertise_all_vni,
        bgp_evpn_advertise_all_vni_cmd,
-       "advertise-all-vni",
-       "Advertise All local VNIs\n")
+       "advertise-all-vni [l3vni-neigh$l3vni_neigh]",
+       "Advertise All local VNIs\n"
+       "Advertise/sync neighbor (ARP/ND) RT-2 routes for EVPN L3 multihoming\n")
 {
 	struct bgp *bgp = VTY_GET_CONTEXT(bgp);
 	struct bgp *bgp_evpn = NULL;
@@ -3988,20 +4000,29 @@ DEFPY (bgp_evpn_advertise_all_vni,
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 
-	evpn_set_advertise_all_vni(bgp);
+	evpn_set_advertise_all_vni(bgp, !!l3vni_neigh);
 	return CMD_SUCCESS;
 }
 
 DEFPY (no_bgp_evpn_advertise_all_vni,
        no_bgp_evpn_advertise_all_vni_cmd,
-       "no advertise-all-vni",
+       "no advertise-all-vni [l3vni-neigh$l3vni_neigh]",
        NO_STR
-       "Advertise All local VNIs\n")
+       "Advertise All local VNIs\n"
+       "Advertise/sync neighbor (ARP/ND) RT-2 routes for EVPN L3 multihoming\n")
 {
 	struct bgp *bgp = VTY_GET_CONTEXT(bgp);
 
 	if (!bgp)
 		return CMD_WARNING;
+
+	/* With the token, disable only L3MH neighbor sync; EVPN stays on. */
+	if (l3vni_neigh) {
+		if (bgp->advertise_all_vni && bgp->advertise_l3vni_neigh)
+			evpn_set_advertise_all_vni(bgp, false);
+		return CMD_SUCCESS;
+	}
+
 	evpn_unset_advertise_all_vni(bgp);
 	return CMD_SUCCESS;
 }
@@ -8117,7 +8138,8 @@ void bgp_config_write_evpn_info(struct vty *vty, struct bgp *bgp, afi_t afi, saf
 	char rt_buf[RT_ADDRSTRLEN];
 
 	if (bgp->advertise_all_vni)
-		vty_out(vty, "  advertise-all-vni\n");
+		vty_out(vty, "  advertise-all-vni%s\n",
+			bgp->advertise_l3vni_neigh ? " l3vni-neigh" : "");
 
 	if (hashcount(bgp->vnihash)) {
 		struct list *vnilist = hash_to_list(bgp->vnihash);

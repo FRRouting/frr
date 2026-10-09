@@ -982,7 +982,7 @@ void zebra_evpn_print_mac_hash_detail(struct hash_bucket *bucket, void *ctxt)
  */
 int zebra_evpn_macip_send_msg_to_client(vni_t vni, const struct ethaddr *macaddr,
 					const struct ipaddr *ip, uint8_t flags,
-					uint32_t seq, int state,
+					uint32_t seq, int state, vlanid_t eth_tag,
 					struct zebra_evpn_es *es, uint16_t cmd)
 {
 	int ipa_len;
@@ -1020,6 +1020,8 @@ int zebra_evpn_macip_send_msg_to_client(vni_t vni, const struct ethaddr *macaddr
 	} else {
 		stream_putl(s, state); /* state - active/inactive */
 	}
+
+	stream_putl(s, eth_tag); /* ETAG (VLAN) of the owning bridge domain */
 
 
 	/* Write packet size. */
@@ -1342,7 +1344,7 @@ int zebra_evpn_mac_send_add_to_client(vni_t vni, const struct ethaddr *macaddr,
 		SET_FLAG(flags, ZEBRA_MACIP_TYPE_GW);
 
 	return zebra_evpn_macip_send_msg_to_client(vni, macaddr, NULL, flags,
-						   seq, ZEBRA_NEIGH_ACTIVE, es,
+						   seq, ZEBRA_NEIGH_ACTIVE, 0, es,
 						   ZEBRA_MACIP_ADD);
 }
 
@@ -1373,7 +1375,8 @@ int zebra_evpn_mac_send_del_to_client(vni_t vni, const struct ethaddr *macaddr,
 	}
 
 	return zebra_evpn_macip_send_msg_to_client(vni, macaddr, NULL, 0, 0,
-						   state, NULL, ZEBRA_MACIP_DEL);
+						   state, 0, NULL,
+						   ZEBRA_MACIP_DEL);
 }
 
 /*

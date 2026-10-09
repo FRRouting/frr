@@ -4193,7 +4193,7 @@ There can only be a single underlay VRF.
 Specifying ``advertise-all-vni``, which lives under
 ``address-family l2vpn evpn``, marks this VRF as underlay and enables EVPN.
 
-.. clicmd:: advertise-all-vni
+.. clicmd:: advertise-all-vni [l3vni-neigh]
 
    This command defines the VRF to be used as the underlay for EVPN-VXLAN and enables EVPN. In most
    cases, this will be the default VRF. It is mandatory for EVPN-VXLAN to work.
@@ -4201,12 +4201,28 @@ Specifying ``advertise-all-vni``, which lives under
    This command can only be configured in a single VRF. Any attempt to configure it in multiple VRFs
    will be rejected (e.g. ``% Please unconfigure EVPN in VRF default``)
 
+   The optional ``l3vni-neigh`` token additionally enables neighbor (ARP/ND)
+   synchronization for EVPN L3 multihoming (L3MH) deployments, i.e. pure-L3
+   fabrics that have **no L2VNI**. When enabled, FRR originates and processes
+   EVPN Route Type-2 (MAC/IP) routes that carry an MPLS Explicit-NULL label
+   (``label[0] = 0``) purely to synchronize a dual-homed host's ARP/ND entry
+   between the multihoming leaves; no bridge/FDB (Layer 2) data plane is
+   driven.
+
+   The token gates both directions: origination of the pure-L3 RT-2 and
+   acceptance of a received one. Because RFC 7432 makes the MAC/IP route's
+   MPLS label mandatory, ``label[0] = 0`` is an out-of-spec signal, so a
+   receiver must be explicitly enabled to honor it; otherwise such a route is
+   ignored for install. Re-entering ``advertise-all-vni`` without the token, or
+   ``no advertise-all-vni l3vni-neigh``, disables L3MH neighbor sync while
+   keeping EVPN enabled; ``no advertise-all-vni`` disables both.
+
    .. code-block:: frr
 
       router bgp 65001
        !
        address-family l2vpn evpn
-        advertise-all-vni
+        advertise-all-vni l3vni-neigh
 
 A more comprehensive configuration example can be found in the :ref:`evpn` page.
 

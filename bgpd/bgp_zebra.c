@@ -2785,6 +2785,8 @@ int bgp_zebra_advertise_all_vni(struct bgp *bgp, int advertise)
 	 * relevant only when 'advertise' is set.
 	 */
 	stream_putc(s, bgp->vxlan_flood_ctrl);
+	/* EVPN L3MH neighbor sync rides with the EVPN enable (no ordering). */
+	stream_putc(s, advertise ? bgp->advertise_l3vni_neigh : 0);
 	stream_putw_at(s, 0, stream_get_endp(s));
 
 	return zclient_send_message(bgp_zclient);
@@ -3582,6 +3584,7 @@ static int bgp_zebra_process_local_macip(ZAPI_CALLBACK_ARGS)
 	uint8_t flags = 0;
 	uint32_t seqnum = 0;
 	int state = 0;
+	uint32_t eth_tag = 0;
 	char buf2[ESI_STR_LEN];
 	esi_t esi;
 
@@ -3613,15 +3616,17 @@ static int bgp_zebra_process_local_macip(ZAPI_CALLBACK_ARGS)
 		memset(&esi, 0, sizeof(esi_t));
 	}
 
+	eth_tag = stream_getl(s);
+
 	bgp = bgp_lookup_by_vrf_id(vrf_id);
 	if (!bgp)
 		return 0;
 
 	if (BGP_DEBUG(zebra, ZEBRA))
 		zlog_debug(
-			"%u:Recv MACIP %s f 0x%x MAC %pEA IP %pIA VNI %u seq %u state %d ESI %s",
+			"%u:Recv MACIP %s f 0x%x MAC %pEA IP %pIA VNI %u seq %u state %d ETAG %u ESI %s",
 			vrf_id, (cmd == ZEBRA_MACIP_ADD) ? "Add" : "Del", flags,
-			&mac, &ip, vni, seqnum, state,
+			&mac, &ip, vni, seqnum, state, eth_tag,
 			esi_to_str(&esi, buf2, sizeof(buf2)));
 
 	if (cmd == ZEBRA_MACIP_ADD) {
@@ -3629,12 +3634,12 @@ static int bgp_zebra_process_local_macip(ZAPI_CALLBACK_ARGS)
 			 flags, seqnum, &esi);
 
 		return bgp_evpn_local_macip_add(bgp, vni, &mac, &ip,
-						flags, seqnum, &esi);
+						flags, seqnum, &esi, eth_tag);
 	} else {
 		frrtrace(4, frr_bgp, evpn_local_macip_del_zrecv, vni, &mac, &ip,
 			 state);
 
-		return bgp_evpn_local_macip_del(bgp, vni, &mac, &ip, state);
+		return bgp_evpn_local_macip_del(bgp, vni, &mac, &ip, state, eth_tag);
 	}
 }
 
