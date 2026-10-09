@@ -215,26 +215,31 @@ bottom until one of the factors can be used.
    AS_PATHs or routes received from eBGP neighbours in the same AS are
    considered equal.
 
-10. **Already-selected external check**
+10. **MPLS over SRv6 check**
+
+    When a route is exported to the VPN table with both an MPLS label and an
+    SRv6 SID, prefer the path with the MPLS label.
+
+11. **Already-selected external check**
 
     Where both routes were received from eBGP peers, then prefer the route
     which is already selected. Note that this check is not applied if
     :clicmd:`bgp bestpath compare-routerid` is configured. This check can
     prevent some cases of oscillation.
 
-11. **Router-ID check**
+12. **Router-ID check**
 
     Prefer the route with the lowest `router-ID`. If the route has an
     `ORIGINATOR_ID` attribute, through iBGP reflection, then that router ID is
     used, otherwise the `router-ID` of the peer the route was received from is
     used.
 
-12. **Cluster-List length check**
+13. **Cluster-List length check**
 
     The route with the shortest cluster-list length is used. The cluster-list
     reflects the iBGP reflection path the route has taken.
 
-13. **Peer address**
+14. **Peer address**
 
     Prefer the route received from the peer with the higher transport layer
     address, as a last-resort tie-breaker.
