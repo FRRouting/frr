@@ -42,6 +42,7 @@ int main(void)
 					   locator, sizeof(locator), &flags));
 	assert(!strcmp(locator, locator_name));
 	assert(flags == ZAPI_SRV6_MANAGER_SID_FLAG_IS_LOCALONLY);
+	assert(STREAM_READABLE(s) == 0);
 	stream_free(s);
 	printf("Local-only flag decoded after locator.\n");
 
@@ -50,6 +51,7 @@ int main(void)
 	assert(zapi_srv6_sid_notify_decode(s, &ctx, &sid, NULL, NULL, &note,
 					   locator, sizeof(locator), &flags));
 	assert(flags == 0);
+	assert(STREAM_READABLE(s) == 0);
 	stream_free(s);
 	printf("Legacy notification defaults to zero flags.\n");
 
@@ -59,6 +61,37 @@ int main(void)
 	assert(STREAM_READABLE(s) == 0);
 	stream_free(s);
 	printf("Unused locator and flags are consumed.\n");
+
+	s = notification(true);
+	flags = UINT8_MAX;
+	assert(zapi_srv6_sid_notify_decode(s, &ctx, &sid, NULL, NULL, &note,
+					   NULL, 0, &flags));
+	assert(flags == ZAPI_SRV6_MANAGER_SID_FLAG_IS_LOCALONLY);
+	assert(STREAM_READABLE(s) == 0);
+	stream_free(s);
+	printf("Flag decoded when locator output is ignored.\n");
+
+	s = notification(true);
+	memset(locator, 0xa5, sizeof(locator));
+	assert(zapi_srv6_sid_notify_decode(s, &ctx, &sid, NULL, NULL, &note,
+					   locator, sizeof(locator), NULL));
+	assert(!strcmp(locator, locator_name));
+	assert(STREAM_READABLE(s) == 0);
+	stream_free(s);
+	printf("Locator decoded when flag output is ignored.\n");
+
+	for (unsigned int i = 0; i < 4; i++) {
+		bool present = !(i % 2);
+
+		s = notification(present);
+		assert(zapi_srv6_sid_notify_decode(s, &ctx, &sid, NULL, NULL, &note,
+						   locator, sizeof(locator), &flags));
+		assert(!strcmp(locator, locator_name));
+		assert(flags == (present ? ZAPI_SRV6_MANAGER_SID_FLAG_IS_LOCALONLY : 0));
+		assert(STREAM_READABLE(s) == 0);
+		stream_free(s);
+	}
+	printf("Alternating legacy and flagged notifications reset the output.\n");
 
 	return 0;
 }
