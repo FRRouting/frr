@@ -28,7 +28,8 @@ from lib.common_config import step
 
 pytestmark = [
     pytest.mark.ripd,
-    pytest.mark.staticd
+    pytest.mark.staticd,
+    pytest.mark.freebsd,
     ]
 
 

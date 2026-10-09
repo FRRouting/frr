@@ -31,6 +31,7 @@ sys.path.append(os.path.join(CWD, "../"))
 # pylint: disable=C0413
 from lib import topotest
 from lib.topogen import Topogen, get_topogen
+from lib.common_config import shutdown_bringup_interface_in_kernel
 
 pytestmark = [pytest.mark.bfdd]
 
@@ -221,7 +222,7 @@ def test_bfd_demand_poll_detects_failure():
 
     # Break the path silently.  Stopping the router would let r2 signal the
     # session down, which is a different diagnostic than the one under test.
-    r2.run("ip link set r2-eth0 down")
+    shutdown_bringup_interface_in_kernel(r2.tgen, r2.name, "r2-eth0", False)
 
     topotest.sleep(UNDETECTED_SECS, "checking that the failure goes unnoticed")
 
@@ -258,7 +259,7 @@ def test_bfd_demand_disable_restores_detection():
     # Bring the session back with the link and demand mode restored, so this
     # test starts from a working demanding session rather than the previous
     # test's leftovers.
-    r2.run("ip link set r2-eth0 up")
+    shutdown_bringup_interface_in_kernel(r2.tgen, r2.name, "r2-eth0", True)
     _set_demand(r1, R2_ADDR, False)
 
     test_func = partial(_check_peer, r1, R2_ADDR, {"status": "up"})
@@ -288,7 +289,7 @@ def test_bfd_demand_disable_restores_detection():
 
     # Break the path while the detection timer is disabled, so nothing will
     # arrive to re-arm it once demand mode is turned off again.
-    r2.run("ip link set r2-eth0 down")
+    shutdown_bringup_interface_in_kernel(r2.tgen, r2.name, "r2-eth0", False)
     topotest.sleep(3, "letting the failure go unnoticed")
 
     _set_demand(r1, R2_ADDR, False)
@@ -314,7 +315,7 @@ def test_bfd_demand_both_ends_disable():
 
     r1, r2 = tgen.gears["r1"], tgen.gears["r2"]
 
-    r2.run("ip link set r2-eth0 up")
+    shutdown_bringup_interface_in_kernel(r2.tgen, r2.name, "r2-eth0", True)
     _set_demand(r1, R2_ADDR, False)
     _set_demand(r2, R1_ADDR, False)
 

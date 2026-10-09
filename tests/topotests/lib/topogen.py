@@ -35,6 +35,7 @@ import platform
 import pwd
 import re
 import shlex
+import shutil
 import subprocess
 import sys
 from collections import OrderedDict
@@ -122,10 +123,15 @@ def get_exabgp_cmd(commander=None):
 # Main class: topology builder
 #
 
+def _default_frrdir():
+    """Pick the FRR daemon directory for this platform."""
+    return topotest.default_frrdir()
+
+
 # Topogen configuration defaults
 tgen_defaults = {
     "verbosity": "info",
-    "frrdir": "/usr/lib/frr",
+    "frrdir": _default_frrdir(),
     "routertype": "frr",
     "memleak_path": "",
 }
@@ -926,14 +932,17 @@ class TopoRouter(TopoGear):
                 if result:
                     self.load_config(daemon, "")
                     if daemonstr == "ospf":
-                        grep_cmd = "grep -E 'router ospf ([0-9]+*)' {} | grep -o -E '([0-9]*)'".format(
-                            source_path
-                        )
+                        # [0-9]+ is valid on both GNU and BSD grep. [0-9]+*
+                        # is not: BSD grep reports "repetition-operator
+                        # operand invalid", and that text was then used as
+                        # an instance id.
+                        grep_cmd = (
+                            "grep -E 'router ospf [0-9]+' {} | grep -o -E '[0-9]+'"
+                        ).format(source_path)
                         result = self.run(grep_cmd, warn=False)
-                        if result:  # instances
-                            instances = result.split("\n")
-                            for inst in instances:
-                                if inst != "":
+                        if result:
+                            for inst in result.split("\n"):
+                                if inst.isdigit():
                                     self.load_config(daemon, "", None, inst)
             if extra_daemons is not None:
                 for item in extra_daemons:
@@ -1616,14 +1625,128 @@ def diagnose_env_linux(rundir):
     return ret
 
 
-def diagnose_env_freebsd():
-    return True
+def diagnose_env_freebsd(rundir):
+    """Check the FreeBSD host can create VNET jails and start FRR.
+
+    zebra and mgmtd are required. Other daemons are reported and do not fail
+    the session, so a partial install can still run the allowlisted tests
+    that match what was built.
+    """
+    ret = True
+    config = configparser.ConfigParser(defaults=tgen_defaults)
+    config.read(os.path.join(CWD, "../pytest.ini"))
+
+    os.makedirs(rundir, exist_ok=True)
+    fhandler = logging.FileHandler(filename="{}/diagnostics.txt".format(rundir))
+    fhandler.setLevel(logging.DEBUG)
+    fhandler.setFormatter(logging.Formatter(fmt=topolog.FORMAT))
+    logger.addHandler(fhandler)
+    logger.info("Running FreeBSD environment diagnostics")
+
+    if os.geteuid() != 0:
+        logger.error("you must run topotest as root")
+        ret = False
+
+    for tool, label in (
+        ("/usr/sbin/jail", "jail"),
+        ("/usr/sbin/jexec", "jexec"),
+        ("/sbin/ifconfig", "ifconfig"),
+        ("/sbin/kldload", "kldload"),
+        ("/sbin/sysctl", "sysctl"),
+    ):
+        if not os.path.isfile(tool):
+            logger.error("could not find %s (%s)", tool, label)
+            ret = False
+
+    bash = None
+    for candidate in ("/usr/local/bin/bash", "/bin/bash"):
+        if os.path.isfile(candidate):
+            bash = candidate
+            break
+    if bash is None:
+        logger.error("could not find bash (pkg install bash)")
+        ret = False
+
+    if shutil.which("python3") is None:
+        logger.error("could not find python3")
+        ret = False
+
+    try:
+        vimage = subprocess.check_output(
+            ["/sbin/sysctl", "-n", "kern.features.vimage"], text=True
+        ).strip()
+    except (OSError, subprocess.CalledProcessError):
+        vimage = ""
+    if vimage != "1":
+        logger.error("kern.features.vimage is not 1; the kernel needs VIMAGE")
+        ret = False
+
+    try:
+        from munet import freebsd
+
+        freebsd.ensure_modules()
+    except Exception as error:
+        logger.error("could not load if_epair/if_bridge: %s", error)
+        ret = False
+
+    try:
+        pwd.getpwnam("frr")
+    except KeyError:
+        logger.error('could not find "frr" user')
+        ret = False
+    try:
+        members = grp.getgrnam("frrvty").gr_mem
+        if "frr" not in members:
+            logger.error('"frr" user is not a member of group "frrvty"')
+            ret = False
+    except KeyError:
+        logger.error('could not find "frrvty" group')
+        ret = False
+
+    frrdir = config.get("topogen", "frrdir")
+    if not os.path.isdir(frrdir):
+        logger.error("could not find %s directory", frrdir)
+        ret = False
+    else:
+        for fname in (
+            "zebra",
+            "mgmtd",
+            "staticd",
+            "ospfd",
+            "ospf6d",
+            "bgpd",
+            "ripd",
+            "ripngd",
+            "eigrpd",
+            "babeld",
+            "isisd",
+            "pimd",
+            "pim6d",
+            "ldpd",
+            "pbrd",
+        ):
+            path = os.path.join(frrdir, fname)
+            if os.path.isfile(path):
+                continue
+            if fname in ("zebra", "mgmtd"):
+                logger.error("could not find %s in %s", fname, frrdir)
+                ret = False
+            else:
+                logger.info("could not find %s in %s", fname, frrdir)
+
+    if shutil.which("gdb") is None:
+        logger.info("gdb is not installed; daemon backtraces will be limited")
+
+    logger.info("MPLS, SRv6, and Linux VRF tests are outside the FreeBSD allowlist")
+    logger.removeHandler(fhandler)
+    fhandler.close()
+    return ret
 
 
 def diagnose_env(rundir):
     if sys.platform.startswith("linux"):
         return diagnose_env_linux(rundir)
     elif sys.platform.startswith("freebsd"):
-        return diagnose_env_freebsd()
+        return diagnose_env_freebsd(rundir)
 
     return False

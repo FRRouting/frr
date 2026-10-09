@@ -10,17 +10,25 @@
 import importlib.util
 import os
 import shutil
+import sys
 
 import pytest
 
+pytestmark = [pytest.mark.freebsd]
+
 CWD = os.path.dirname(os.path.realpath(__file__))
+sys.path.append(os.path.join(CWD, ".."))
+
+# pylint: disable=C0413
+from lib.topotest import frr_reload_script
 
 # CI runs the topotests tree detached from the source tree, so the in-tree
-# tools/ directory is not always reachable; fall back to the installed script.
+# tools/ directory is not always reachable; fall back to the installed script
+# next to the daemons (topogen frrdir), then PATH.
 FRR_RELOAD_CANDIDATES = (
     os.environ.get("FRR_RELOAD_PY"),
     os.path.abspath(os.path.join(CWD, "../../../tools/frr-reload.py")),
-    "/usr/lib/frr/frr-reload.py",
+    frr_reload_script(),
     shutil.which("frr-reload.py"),
 )
 

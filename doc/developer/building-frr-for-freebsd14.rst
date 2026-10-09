@@ -120,3 +120,9 @@ Add the following lines to the end of ``/etc/sysctl.conf``:
    net.inet6.ip6.forwarding=1
 
 **Reboot** or use ``sysctl`` to apply the same config to the running system.
+
+Topotests
+^^^^^^^^^
+
+FreeBSD 15.1 can run topology tests marked ``freebsd`` in VNET jails. See
+:ref:`topotests` for the host requirements.

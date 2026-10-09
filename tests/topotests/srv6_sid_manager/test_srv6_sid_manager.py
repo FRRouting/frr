@@ -74,8 +74,9 @@ from lib import topotest
 from lib.topogen import Topogen, TopoRouter, get_topogen
 from lib.topolog import logger
 from lib.common_config import (
-    required_linux_kernel_version,
     create_interface_in_kernel,
+    required_linux_kernel_version,
+    shutdown_bringup_interface_in_kernel,
 )
 from lib.checkping import check_ping
 
@@ -153,24 +154,54 @@ def build_topo(tgen):
     tgen.add_link(tgen.gears["ce7"], tgen.gears["rt5"], "eth-rt5", "eth-ce7")
 
     tgen.gears["rt1"].run("ip link add vrf10 type vrf table 10")
-    tgen.gears["rt1"].run("ip link set vrf10 up")
+    shutdown_bringup_interface_in_kernel(
+        tgen.gears['rt1'].tgen,
+        tgen.gears['rt1'].name,
+        "vrf10",
+        True,
+    )
     tgen.gears["rt1"].run("ip link add vrf20 type vrf table 20")
-    tgen.gears["rt1"].run("ip link set vrf20 up")
+    shutdown_bringup_interface_in_kernel(
+        tgen.gears['rt1'].tgen,
+        tgen.gears['rt1'].name,
+        "vrf20",
+        True,
+    )
     tgen.gears["rt1"].run("ip link set eth-ce1 master vrf10")
     tgen.gears["rt1"].run("ip link set eth-ce3 master vrf10")
     tgen.gears["rt1"].run("ip link set eth-ce5 master vrf20")
 
     tgen.gears["rt5"].run("ip link add vrf10 type vrf table 10")
-    tgen.gears["rt5"].run("ip link set vrf10 up")
+    shutdown_bringup_interface_in_kernel(
+        tgen.gears['rt5'].tgen,
+        tgen.gears['rt5'].name,
+        "vrf10",
+        True,
+    )
     tgen.gears["rt5"].run("ip link set eth-dst2 master vrf10")
     tgen.gears["rt5"].run("ip link add vrf20 type vrf table 20")
-    tgen.gears["rt5"].run("ip link set vrf20 up")
+    shutdown_bringup_interface_in_kernel(
+        tgen.gears['rt5'].tgen,
+        tgen.gears['rt5'].name,
+        "vrf20",
+        True,
+    )
     tgen.gears["rt5"].run("ip link set eth-ce7 master vrf20")
 
     tgen.gears["rt6"].run("ip link add vrf10 type vrf table 10")
-    tgen.gears["rt6"].run("ip link set vrf10 up")
+    shutdown_bringup_interface_in_kernel(
+        tgen.gears['rt6'].tgen,
+        tgen.gears['rt6'].name,
+        "vrf10",
+        True,
+    )
     tgen.gears["rt6"].run("ip link add vrf20 type vrf table 20")
-    tgen.gears["rt6"].run("ip link set vrf20 up")
+    shutdown_bringup_interface_in_kernel(
+        tgen.gears['rt6'].tgen,
+        tgen.gears['rt6'].name,
+        "vrf20",
+        True,
+    )
     tgen.gears["rt6"].run("ip link set eth-ce2 master vrf10")
     tgen.gears["rt6"].run("ip link set eth-ce4 master vrf20")
     tgen.gears["rt6"].run("ip link set eth-ce6 master vrf20")
@@ -228,6 +259,8 @@ def build_topo(tgen):
 
 def setup_module(mod):
     """Sets up the pytest environment"""
+    if not topotest.platform_has_vrf():
+        pytest.skip("platform does not support VRF")
 
     # Verify if kernel requirements are satisfied
     result = required_linux_kernel_version("4.10")

@@ -50,7 +50,11 @@ from lib import topotest
 from lib.evpn import evpn_plumb_l3vni, evpn_rt_config_lines, evpn_scale_rt_list
 from lib.topogen import Topogen
 from lib.topotest import iproute2_is_vrf_capable
-from lib.common_config import required_linux_kernel_version
+from lib.common_config import (
+    create_address_on_interface,
+    required_linux_kernel_version,
+    shutdown_bringup_interface_in_kernel,
+)
 
 import frr_reload_lib as f_reload
 
@@ -69,6 +73,14 @@ STATIC_ROUTE_COUNT = 1200
 IMPORT_RTS = evpn_scale_rt_list()
 IMPORT_RT_COUNT = len(IMPORT_RTS)
 RELOAD_TIMEOUT = float(os.environ.get("FRR_RELOAD_RT_TIMEOUT", "120"))
+
+
+def setup_module(module):
+    if not topotest.platform_has_vrf():
+        pytest.skip("platform does not support VRF")
+
+    if not topotest.platform_has_evpn():
+        pytest.skip("platform does not support EVPN")
 
 
 def _static_routes():
@@ -192,10 +204,10 @@ def tgen(request):
 
     r1 = tg.gears["r1"]
     # VTEP must exist before the VXLAN device is created.
-    r1.cmd_raises("ip addr add {}/32 dev lo".format(VTEP_IP))
+    create_address_on_interface(tg, "r1", "lo", "{}/32".format(VTEP_IP))
     evpn_plumb_l3vni(r1, VRF, VRF_TABLE, L3VNI, VTEP_IP)
     r1.cmd_raises("ip link set dev r1-eth0 master {}".format(VRF))
-    r1.cmd_raises("ip link set dev r1-eth0 up")
+    shutdown_bringup_interface_in_kernel(r1.tgen, r1.name, "r1-eth0", True)
 
     # Start with Type-5 static routes and no import RTs so the test can add
     # and then roll back the RT set through frr-reload.py --reload.

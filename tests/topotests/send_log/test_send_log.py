@@ -15,7 +15,7 @@ from lib.topogen import Topogen
 from munet.testing.util import retry
 from munet.watchlog import WatchLog
 
-pytestmark = [pytest.mark.staticd, pytest.mark.mgmtd]
+pytestmark = [pytest.mark.staticd, pytest.mark.mgmtd, pytest.mark.freebsd]
 
 
 @pytest.fixture(scope="module")

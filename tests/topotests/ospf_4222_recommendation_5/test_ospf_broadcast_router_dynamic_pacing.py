@@ -17,7 +17,12 @@ import time
 from lib import topotest
 from lib.topogen import Topogen, get_topogen
 from lib.topolog import logger
-from lib.common_config import step
+from lib.common_config import (
+    create_address_on_interface,
+    delete_address_on_interface,
+    shutdown_bringup_interface_in_kernel,
+    step,
+)
 from util_pcap import PerInterfacePcapManager
 
 """
@@ -397,8 +402,8 @@ def test_ospf_broadcast_external_lsa_flooding():
     ), f"failed to enable redistribute connected: stdout={out} stderr={err}"
 
     for i in range(1, 101):
-        tgen.net["r1"].cmd(f"ip addr add 198.51.110.{i}/32 dev lo")
-        tgen.net["r1"].cmd(f"ip addr add 198.51.111.{i}/32 dev lo")
+        create_address_on_interface(tgen, "r1", "lo", f"198.51.110.{i}/32")
+        create_address_on_interface(tgen, "r1", "lo", f"198.51.111.{i}/32")
 
     step("Continuously verify key adjacencies remain FULL during LSA storm")
     for _ in range(5):
@@ -548,8 +553,8 @@ def test_ospf_dynamic_pacing_queue_kick_on_limit_increase():
         "vtysh -c 'conf t' -c 'router ospf' -c 'no redistribute connected' 2>/dev/null || true"
     )
     for i in range(1, 101):
-        tgen.net["r1"].cmd(f"ip addr del 198.51.110.{i}/32 dev lo 2>/dev/null || true")
-        tgen.net["r1"].cmd(f"ip addr del 198.51.111.{i}/32 dev lo 2>/dev/null || true")
+        delete_address_on_interface(tgen, "r1", "lo", f"198.51.110.{i}/32")
+        delete_address_on_interface(tgen, "r1", "lo", f"198.51.111.{i}/32")
 
     # At 1Mbps, 200 residual LSA withdrawals (~160KB) complete in ~1.3s.
     # Steady-state U settles to 0-5 with no pending LSAs. L=6 ensures drain passes.
@@ -602,7 +607,7 @@ def test_ospf_dynamic_pacing_queue_kick_on_limit_increase():
     )
     tgen.net["r1"].cmd("vtysh -c 'conf t' -c 'router ospf' -c 'redistribute connected'")
     for i in range(1, 101):
-        tgen.net["r1"].cmd(f"ip addr add 198.51.120.{i}/32 dev lo")
+        create_address_on_interface(tgen, "r1", "lo", f"198.51.120.{i}/32")
 
     # Step 4: Mark start of the congestion/recovery observation window, then
     # flap r3/r4/r5 simultaneously right after injecting LSAs.
@@ -618,10 +623,10 @@ def test_ospf_dynamic_pacing_queue_kick_on_limit_increase():
         flap_ifaces[rname] = wait_for_ospf_ifname(tgen.gears[rname])
 
     for rname, ifn in flap_ifaces.items():
-        tgen.net[rname].cmd(f"ip link set {ifn} down")
+        shutdown_bringup_interface_in_kernel(tgen, rname, ifn, False)
     time.sleep(1)
     for rname, ifn in flap_ifaces.items():
-        tgen.net[rname].cmd(f"ip link set {ifn} up")
+        shutdown_bringup_interface_in_kernel(tgen, rname, ifn, True)
 
     # Step 4b: Wait for the flap to actually produce an AIMD trigger before
     # spending any of the congestion-detection budget below. Hello exchange
@@ -676,7 +681,7 @@ def test_ospf_dynamic_pacing_queue_kick_on_limit_increase():
         "vtysh -c 'conf t' -c 'router ospf' -c 'no redistribute connected'"
     )
     for i in range(1, 101):
-        tgen.net["r1"].cmd(f"ip addr del 198.51.120.{i}/32 dev lo 2>/dev/null || true")
+        delete_address_on_interface(tgen, "r1", "lo", f"198.51.120.{i}/32")
 
     # Step 7: All three neighbors must reach Full within 20s. Widened from
     # 15s alongside the r2 ack-delay increase above: some of the pre-clear
@@ -712,7 +717,7 @@ def test_ospf_dynamic_pacing_queue_kick_on_limit_increase():
         "vtysh -c 'conf t' -c 'router ospf' -c 'no redistribute connected' 2>/dev/null || true"
     )
     for i in range(1, 101):
-        tgen.net["r1"].cmd(f"ip addr del 198.51.120.{i}/32 dev lo 2>/dev/null || true")
+        delete_address_on_interface(tgen, "r1", "lo", f"198.51.120.{i}/32")
     tgen.net["r1"].cmd("tc qdisc del dev r1-eth0 root 2>/dev/null || true")
     tgen.net["r1"].cmd(
         "tc qdisc add dev r1-eth0 root handle 1: "

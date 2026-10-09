@@ -7,7 +7,9 @@
 #
 import os
 import sys
+import pytest
 
+from lib.topotest import platform_has_pimv6
 from lib.topogen import Topogen, get_topogen
 from lib.topolog import logger
 from lib.pim import verify_pim_rp_info
@@ -24,6 +26,9 @@ CRP_FAILOVER_TIMEOUT = 180
 
 
 def setup_module(mod):
+    if not platform_has_pimv6():
+        pytest.skip("platform does not support PIMv6")
+
     logger.info("PIM BSR RP failover:\n {}".format(TOPOLOGY))
 
     tgen = Topogen(build_topo, mod.__name__)

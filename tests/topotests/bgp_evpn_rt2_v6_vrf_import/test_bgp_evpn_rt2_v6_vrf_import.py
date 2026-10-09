@@ -18,7 +18,7 @@ sys.path.append(os.path.join(CWD, "../"))
 
 # pylint: disable=C0413
 from lib import topotest
-from lib.common_config import step
+from lib.common_config import step, shutdown_bringup_interface_in_kernel
 from lib.topogen import Topogen, get_topogen
 
 pytestmark = [pytest.mark.bgpd, pytest.mark.evpn]
@@ -40,6 +40,11 @@ def build_topo(tgen):
 
 def _run_cmds(node, commands):
     for command in commands:
+        if isinstance(command, tuple):
+            shutdown_bringup_interface_in_kernel(
+                node.tgen, node.name, command[1], command[0] == "up"
+            )
+            continue
         node.cmd_raises(command)
 
 
@@ -82,6 +87,12 @@ def _setup_pe(router, idx):
 
 
 def setup_module(mod):
+    if not topotest.platform_has_vrf():
+        pytest.skip("platform does not support VRF")
+
+    if not topotest.platform_has_evpn():
+        pytest.skip("platform does not support EVPN")
+
     tgen = Topogen(build_topo, mod.__name__)
     tgen.start_topology()
 
@@ -92,9 +103,9 @@ def setup_module(mod):
     _run_cmds(
         tgen.gears["h2"],
         [
-            "ip link set eth-pe2 down",
+            ("down", "eth-pe2"),
             "ip link set eth-pe2 address 02:00:00:00:00:02",
-            "ip link set eth-pe2 up",
+            ("up", "eth-pe2"),
         ],
     )
 

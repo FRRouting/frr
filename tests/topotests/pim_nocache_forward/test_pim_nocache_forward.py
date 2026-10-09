@@ -56,7 +56,14 @@ CWD = os.path.dirname(os.path.realpath(__file__))
 sys.path.append(os.path.join(CWD, "../"))
 
 from lib import topotest
-from lib.common_config import step, write_test_footer, write_test_header
+from lib.common_config import (
+    create_address_on_interface,
+    delete_address_on_interface,
+    shutdown_bringup_interface_in_kernel,
+    step,
+    write_test_footer,
+    write_test_header,
+)
 from lib.pim import (
     McastTesterHelper,
     clear_mroute,
@@ -587,8 +594,8 @@ def test_wrongvif_prefer_kernel_ingress(request):
     step("Readdress source host on parent path to overlapping-prefix source")
     # SO_BINDTODEVICE uses the interface primary address; temporarily replace
     # 10.10.4.2 so packets are sourced as WRONGVIF_SOURCE toward the parent.
-    h_src.run("ip addr del 10.10.4.2/24 dev h_src-eth0 || true")
-    h_src.run(f"ip addr add {source}/16 dev h_src-eth0")
+    delete_address_on_interface(tgen, "h_src", "h_src-eth0", "10.10.4.2/24")
+    create_address_on_interface(tgen, "h_src", "h_src-eth0", f"{source}/16")
     h_src.run(
         f"ip route replace default via {WRONGVIF_PARENT_SEC.split('/')[0]} || true"
     )
@@ -664,8 +671,8 @@ def test_wrongvif_prefer_kernel_ingress(request):
     )
 
     step("Move source traffic to alternate ingress {}".format(FHR_TO_TUNNEL))
-    h_src.run(f"ip addr add {source}/16 dev h_src-eth1 || true")
-    h_src.run("ip link set h_src-eth1 up")
+    create_address_on_interface(tgen, "h_src", "h_src-eth1", f"{source}/16")
+    shutdown_bringup_interface_in_kernel(h_src.tgen, h_src.name, "h_src-eth1", True)
     h_src.run(f"ip route replace {WRONGVIF_TUNNEL_GW}/32 dev h_src-eth1 || true")
     app_helper.stop_traffic_senders()
     assert app_helper.run_traffic("h_src", group, bind_intf="h_src-eth1") is True
@@ -711,9 +718,9 @@ def test_wrongvif_prefer_kernel_ingress(request):
     """
     )
     h_src.run(f"ip route del {WRONGVIF_TUNNEL_GW}/32 || true")
-    h_src.run(f"ip addr del {source}/16 dev h_src-eth1 || true")
-    h_src.run(f"ip addr del {source}/16 dev h_src-eth0 || true")
-    h_src.run("ip addr add 10.10.4.2/24 dev h_src-eth0 || true")
+    delete_address_on_interface(tgen, "h_src", "h_src-eth1", f"{source}/16")
+    delete_address_on_interface(tgen, "h_src", "h_src-eth0", f"{source}/16")
+    create_address_on_interface(tgen, "h_src", "h_src-eth0", "10.10.4.2/24")
     h_src.run("ip route replace default via 10.10.4.1 || true")
 
     write_test_footer(tc_name)

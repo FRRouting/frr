@@ -74,7 +74,7 @@ from lib.topogen import Topogen, TopoRouter, get_topogen
 CWD = os.path.dirname(os.path.realpath(__file__))
 sys.path.append(os.path.join(CWD, "../"))
 
-pytestmark = [pytest.mark.staticd]
+pytestmark = [pytest.mark.staticd, pytest.mark.freebsd]
 
 NH1_V4 = "192.0.2.2"
 NH2_V4 = "198.51.100.2"
