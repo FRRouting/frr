@@ -2795,8 +2795,17 @@ def delete_line_with_vtysh(vtysh, ctx_keys, line):
     reload.
     """
     cmd = lines_to_config(ctx_keys, line, True)
-    original_cmd = cmd
     vrf_ctx_del = is_vrf_context_delete(ctx_keys, line)
+
+    # Create a copy of list `cmd` instead of pointing to `cmd`, because
+    # it will be modified later in the loop below.
+    original_cmd = list(cmd)
+
+    # `lines_to_config()` closes every context it opens with "exit", so the
+    # command to trim is the last line that is not an "exit".
+    cmd_index = len(cmd) - 1
+    while cmd_index > 0 and cmd[cmd_index].strip() == "exit":
+        cmd_index -= 1
 
     while True:
         try:
@@ -2828,17 +2837,18 @@ def delete_line_with_vtysh(vtysh, ctx_keys, line):
             # - Split that last entry by whitespace and drop the last word
             log.error("Failed to execute %s", " ".join(cmd))
             log.error("%s", e)
-            last_arg = cmd[-1].split(" ")
+            no_line = cmd[cmd_index]
+            indent = no_line[: len(no_line) - len(no_line.lstrip())]
+            words = no_line.split()
 
-            if len(last_arg) <= 2:
+            if len(words) <= 2:
                 log.error(
                     '"%s" we failed to remove this command',
                     " -- ".join(original_cmd),
                 )
                 return False
 
-            new_last_arg = last_arg[0:-1]
-            cmd[-1] = " ".join(new_last_arg)
+            cmd[cmd_index] = indent + " ".join(words[:-1])
         else:
             # Success is not logged here: lines_to_del is logged upfront before
             # deletes run (see reload path), matching ADD's avoid-double-log.
