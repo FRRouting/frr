@@ -1130,6 +1130,7 @@ struct grpc_pthread_attr {
 
 // Capture these objects so we can try to shut down cleanly
 static pthread_mutex_t s_server_lock = PTHREAD_MUTEX_INITIALIZER;
+static pthread_cond_t s_server_cond = PTHREAD_COND_INITIALIZER;
 static grpc::Server *s_server;
 static grpc::ServerCompletionQueue *s_cq;
 
@@ -1157,13 +1158,22 @@ static void *grpc_pthread_start(void *arg)
 	void *tag;
 	bool ok;
 
+	if (!server) {
+		flog_err(EC_LIB_GRPC_INIT, "%s: gRPC server failed to start on %s", __func__,
+			 server_address.str().c_str());
+		pthread_mutex_lock(&s_server_lock);
+		grpc_state = GRPC_STATE_SHUTDOWN;
+		pthread_cond_signal(&s_server_cond);
+		pthread_mutex_unlock(&s_server_lock);
+		return NULL;
+	}
+
 	pthread_mutex_lock(&s_server_lock); // Make coverity happy
 	if (grpc_state == GRPC_STATE_SHUTDOWN) {
 		unsigned int n = 0;
 
 		pthread_mutex_unlock(&s_server_lock);
-		if (server)
-			server->Shutdown();
+		server->Shutdown();
 		if (cq)
 			cq->Shutdown();
 		/*
@@ -1184,6 +1194,7 @@ static void *grpc_pthread_start(void *arg)
 	s_server = server.get();
 	s_cq = cq.get();
 	grpc_state = GRPC_STATE_RUNNING;
+	pthread_cond_signal(&s_server_cond);
 
 	/* Schedule unary RPC handlers */
 	REQUEST_NEWRPC(GetCapabilities, NULL);
@@ -1275,6 +1286,22 @@ static int frr_grpc_init(uint port)
 		return -1;
 	}
 
+	/*
+	 * Wait for the gRPC server to initialize. The thread sets
+	 * grpc_state to GRPC_STATE_RUNNING on success, or to
+	 * GRPC_STATE_SHUTDOWN on failure, and signals the condition.
+	 */
+	pthread_mutex_lock(&s_server_lock);
+	while (grpc_state == GRPC_STATE_INIT)
+		pthread_cond_wait(&s_server_cond, &s_server_lock);
+
+	if (grpc_state != GRPC_STATE_RUNNING) {
+		flog_err(EC_LIB_GRPC_INIT, "%s: gRPC server failed to start", __func__);
+		pthread_mutex_unlock(&s_server_lock);
+		return -1;
+	}
+	pthread_mutex_unlock(&s_server_lock);
+
 	return 0;
 }
 
@@ -1349,6 +1376,7 @@ static void frr_grpc_module_very_late_init(struct event *event)
 
 error:
 	flog_err(EC_LIB_GRPC_INIT, "failed to initialize the gRPC module");
+	exit(1);
 }
 
 static int frr_grpc_module_late_init(struct event_loop *tm)
