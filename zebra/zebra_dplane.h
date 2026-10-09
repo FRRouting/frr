@@ -264,6 +264,8 @@ enum dplane_op_e {
 #define DPLANE_MAC_WAS_STATIC   (1 << 1)
 #define DPLANE_MAC_SET_STATIC   (1 << 2)
 #define DPLANE_MAC_SET_INACTIVE (1 << 3)
+/* Address the VXLAN device's own FDB only (NTF_SELF), not the bridge's */
+#define DPLANE_MAC_NET_ONLY (1 << 4)
 
 /* Neigh update flags - dplane_neigh_info.update_flags */
 #define DPLANE_NEIGH_REMOTE       (1 << 0)
@@ -1102,10 +1104,15 @@ enum zebra_dplane_result dplane_rem_mac_del(const struct interface *ifp,
 					    const struct ethaddr *mac, vni_t vni,
 					    struct ipaddr *vtep_ip);
 
+enum zebra_dplane_result dplane_rem_mac_net_del(const struct interface *ifp,
+						const struct interface *bridge_ifp,
+						const struct ethaddr *mac, vni_t vni,
+						const struct ipaddr *vtep_ip);
+
 /* Helper api to init an empty or new context for a MAC update */
 void dplane_mac_init(struct zebra_dplane_ctx *ctx, const struct interface *ifp,
 		     const struct interface *br_ifp, vlanid_t vid, const struct ethaddr *mac,
-		     vni_t vni, struct ipaddr *vtep_ip, bool sticky, uint32_t nhg_id,
+		     vni_t vni, const struct ipaddr *vtep_ip, bool sticky, uint32_t nhg_id,
 		     uint32_t update_flags);
 
 /*

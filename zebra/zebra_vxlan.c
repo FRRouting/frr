@@ -4715,11 +4715,10 @@ static int zebra_vxlan_check_del_local_mac(struct interface *ifp,
  * 1. This can be a local MAC on a down ES (if fast-failover is not possible
  * 2. Or it can be a remote MAC
  */
-int zebra_vxlan_dp_network_mac_add(struct interface *ifp,
-				   struct interface *br_if,
-				   struct ethaddr *macaddr, vlanid_t vid,
-				   vni_t vni, uint32_t nhg_id, bool sticky,
-				   bool dp_static)
+int zebra_vxlan_dp_network_mac_add(struct interface *ifp, struct interface *br_if,
+				   struct ethaddr *macaddr, vlanid_t vid, vni_t vni,
+				   uint32_t nhg_id, bool sticky, bool dp_static,
+				   const struct ipaddr *vtep_ip)
 {
 	struct zebra_evpn_es *es;
 	struct interface *acc_ifp;
@@ -4737,6 +4736,42 @@ int zebra_vxlan_dp_network_mac_add(struct interface *ifp,
 	/* Get vxlan's vid for netlink message has no it. */
 	vid = ((struct zebra_if *)ifp->info)
 		      ->l2info.vxl.vni_info.vni.access_vlan;
+
+	/*
+	 * An extern_learn entry to a VTEP, without a nexthop group, is one
+	 * zebra installed for a remote MAC, not something the dataplane
+	 * learnt. Seen for a MAC that is local, it is a leftover of the MAC
+	 * moving back (see zebra_evpn_rem_mac_net_entry_del()), from this
+	 * zebra or a previous one - never a move. Remove it and keep the
+	 * local MAC. This is also the backstop for a failed delete on the
+	 * remote-to-local transition.
+	 *
+	 * On the VXLAN device dp_static is the entry's extern_learn flag.
+	 *
+	 * The kernel records no owner for a VXLAN FDB entry, so "zebra
+	 * installed it" is an assumption: zebra is taken to be the only
+	 * control plane that installs extern_learn entries on this device.
+	 * It also assumes the dataplane does not learn on the VXLAN port
+	 * ("learning off", as EVPN requires): a switchdev driver that learns
+	 * there installs the same flags and state with a VTEP, and such an
+	 * entry would be removed here instead of being taken for a move.
+	 *
+	 * EVPN-MH remote MACs are installed with a nexthop group and no
+	 * VTEP address, and never reach this function; see
+	 * zebra_evpn_rem_mac_net_entry_del().
+	 */
+	if (!nhg_id && dp_static && vtep_ip && !ipaddr_is_zero(vtep_ip)) {
+		struct zebra_evpn *zevpn = zebra_evpn_lookup(vni);
+		struct zebra_mac *mac = zevpn ? zebra_evpn_mac_lookup(zevpn, macaddr) : NULL;
+
+		if (mac && CHECK_FLAG(mac->flags, ZEBRA_MAC_LOCAL)) {
+			if (IS_ZEBRA_DEBUG_VXLAN)
+				zlog_debug("dpAdd own remote MAC %pEA VTEP %pIA for a local MAC - leftover, removing it",
+					   macaddr, vtep_ip);
+			zebra_evpn_rem_mac_net_entry_del(zevpn, macaddr, vtep_ip);
+			return 0;
+		}
+	}
 
 	/* if remote mac delete the local entry */
 	if (!nhg_id || !zebra_evpn_nhg_is_local_es(nhg_id, &es)
