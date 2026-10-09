@@ -108,6 +108,26 @@ def peer_state_messages(bmp_name, peer_ip):
     ]
 
 
+def test_bmp_server_logging():
+    """
+    Wait for both BMP collectors to start logging (session established).
+    """
+    tgen = get_topogen()
+
+    @retry(retry_timeout=30)
+    def check_log_file(bmp_name):
+        output = tgen.gears[bmp_name].run(
+            "ls {}".format(os.path.join(tgen.logdir, bmp_name))
+        )
+        if "bmp.log" in output:
+            return True
+        return "{} is not logging".format(bmp_name)
+
+    for bmp_name in ("bmp1sd", "bmp2sd"):
+        result = check_log_file(bmp_name)
+        assert result is True, result
+
+
 def test_bmp_default_instance_started():
     """
     The default instance has no startup delay: bmp1sd receives the Peer Up
@@ -157,17 +177,6 @@ def test_bmp_vrf_instance_startup_wait():
         if peer.get("connectionsDropped", 0) < min_dropped:
             return "{} did not flap yet".format(VRF_PEER)
         return True
-
-    @retry(retry_timeout=30)
-    def check_bmp2_initiation():
-        log_file = os.path.join(tgen.logdir, "bmp2sd", "bmp.log")
-        for m in get_bmp_messages(tgen.gears["bmp2sd"], log_file):
-            if "system_name" in m:
-                return True
-        return "no BMP Initiation logged by bmp2sd"
-
-    result = check_bmp2_initiation()
-    assert result is True, result
 
     result = check_vrf_peer_established(0)
     assert result is True, result
