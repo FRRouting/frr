@@ -798,7 +798,7 @@ def test_custom_peer_hdr():
         tgen.gears["bmp1import"],
         os.path.join(tgen.logdir, "bmp1import", "bmp.log"),
         bmp_seq_context,
-        policy="post-policy",
+        policy="rib-in-post-policy",
     )
     success, ret = topotest.run_and_expect(test_func, True, count=30, wait=1)
     assert (
@@ -814,7 +814,7 @@ def test_custom_peer_hdr():
         tgen.gears["bmp1import"],
         os.path.join(tgen.logdir, "bmp1import", "bmp.log"),
         bmp_seq_context,
-        policy="post-policy",
+        policy="rib-in-post-policy",
     )
     success, ret = topotest.run_and_expect(test_func, True, count=30, wait=1)
     assert (

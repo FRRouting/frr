@@ -96,9 +96,7 @@ def test_bgp_addpath_paths_received():
     @retry(retry_timeout=60)
     def check_two_paths():
         output = json.loads(
-            tgen.gears["r1ap"].vtysh_cmd(
-                "show bgp ipv4 unicast {} json".format(PREFIX)
-            )
+            tgen.gears["r1ap"].vtysh_cmd("show bgp ipv4 unicast {} json".format(PREFIX))
         )
         paths = [
             p
@@ -127,9 +125,7 @@ def test_bmp_sync_addpath_paths():
     r1ap = tgen.gears["r1ap"]
     log_file = os.path.join(tgen.logdir, "bmp1ap", "bmp.log")
 
-    output = json.loads(
-        r1ap.vtysh_cmd("show bgp ipv4 unicast {} json".format(PREFIX))
-    )
+    output = json.loads(r1ap.vtysh_cmd("show bgp ipv4 unicast {} json".format(PREFIX)))
     selected = [
         p
         for p in output.get("paths", [])
@@ -177,8 +173,8 @@ def test_bmp_sync_addpath_paths():
         return True
 
     for policy, expected in (
-        ("pre-policy", 2),
-        ("post-policy", 2),
+        ("rib-in-pre-policy", 2),
+        ("rib-in-post-policy", 2),
         ("loc-rib", len(selected)),
     ):
         result = check_sync_path_ids(policy, expected)
