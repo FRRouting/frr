@@ -2058,15 +2058,23 @@ int zebra_evpn_mac_remote_macip_add(struct zebra_evpn *zevpn, struct zebra_vrf *
 				return -1;
 
 			old_es_present = !!mac->es;
-			zebra_evpn_es_mac_ref(mac, esi);
-			new_es_present = !!mac->es;
+			/* Derive new_es_present from the incoming ESI, not
+			 * mac->es after es_mac_ref(). The transition uninstall
+			 * below must delete using the old binding (single VTEP
+			 * vs NHG) while mac->es still reflects it.
+			 */
+			new_es_present = !!memcmp(esi, zero_esi, sizeof(esi_t));
 			/* XXX - dataplane is currently not able to handle a MAC
 			 * replace if the destination changes from L2-NHG to
 			 * single VTEP and vice-versa. So delete the old entry
-			 * and re-install
+			 * and re-install. Only when the MAC is already remote:
+			 * on local-to-remote, fwd_info still holds local if
+			 * fields and rem_mac_uninstall would use a bogus VTEP.
 			 */
-			if (old_es_present != new_es_present)
+			if (old_es_present != new_es_present &&
+			    CHECK_FLAG(mac->flags, ZEBRA_MAC_REMOTE))
 				zebra_evpn_rem_mac_uninstall(zevpn, mac, false);
+			zebra_evpn_es_mac_ref(mac, esi);
 		}
 
 		/* Check MAC's current state is local (this is the case
