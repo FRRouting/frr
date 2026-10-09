@@ -11874,6 +11874,18 @@ DEFPY(aggregate_addressv6, aggregate_addressv6_cmd,
 
 /* Redistribute route treatment. */
 
+/* Find the redistributed route in the BGP dest node. */
+static inline struct bgp_path_info *bgp_find_redistributed_route(struct bgp *bgp,
+								 struct bgp_dest *dest)
+{
+	struct bgp_path_info *pi;
+
+	for (pi = bgp_dest_get_bgp_path_info(dest); pi; pi = pi->next)
+		if (pi->peer == bgp->peer_self && pi->sub_type == BGP_ROUTE_REDISTRIBUTE)
+			return pi;
+	return NULL;
+}
+
 void bgp_redistribute_add(struct bgp *bgp, struct prefix *p, const union g_addr *nexthop,
 			  ifindex_t ifindex, enum nexthop_types_t nhtype, uint8_t distance,
 			  enum blackhole_type bhtype, uint32_t metric, uint8_t type,
@@ -11963,11 +11975,26 @@ void bgp_redistribute_add(struct bgp *bgp, struct prefix *p, const union g_addr 
 
 	afi = family2afi(p->family);
 
+	bn = bgp_afi_node_get(bgp->rib[afi][SAFI_UNICAST], afi, SAFI_UNICAST, p, NULL);
+	bpi = bgp_find_redistributed_route(bgp, bn);
+
+	/* If existing route has different type, delete it first */
+	if (bpi && bpi->type != type) {
+		bgp_redistribute_delete(bgp, p, bpi->type, bpi->instance);
+		bpi = NULL;
+	}
+
 	/* Handle BGP-LS concerns including SRv6 localsid updates */
 	bgp_ls_handle_route_add(bgp, p, afi, type, instance, seg6local_action, seg6local_ctx);
 
 	red = bgp_redist_lookup(bgp, afi, type, instance);
-	if (red) {
+	if (!red) {
+		/* Incoming type not configured for redistribution.
+		 * Delete any existing redistributed route.
+		 */
+		if (bpi)
+			bgp_redistribute_delete(bgp, p, type, instance);
+	} else {
 		struct attr attr_new;
 		struct bgp_path_info_extra rmap_extra = {};
 		struct bgp_path_info rmap_path = { .extra = &rmap_extra };
@@ -12005,19 +12032,9 @@ void bgp_redistribute_add(struct bgp *bgp, struct prefix *p, const union g_addr 
 		if (bgp_in_graceful_shutdown(bgp))
 			bgp_attr_add_gshut_community(&attr_new);
 
-		bn = bgp_afi_node_get(bgp->rib[afi][SAFI_UNICAST], afi,
-				      SAFI_UNICAST, p, NULL);
-
 		new_attr = bgp_attr_intern(&attr_new);
 
-		for (bpi = bgp_dest_get_bgp_path_info(bn); bpi; bpi = bpi->next)
-			if (bpi->peer == bgp->peer_self
-			    && bpi->sub_type == BGP_ROUTE_REDISTRIBUTE)
-				break;
-
 		if (bpi) {
-			/* Ensure the (source route) type is updated. */
-			bpi->type = type;
 			if (!CHECK_FLAG(bpi->flags, BGP_PATH_REMOVED) &&
 			    attrhash_cmp(bpi->attr, new_attr) &&
 			    bgp_path_info_extra_same(bpi, &rmap_path)) {
@@ -12095,7 +12112,6 @@ void bgp_redistribute_delete(struct bgp *bgp, struct prefix *p, uint8_t type,
 	afi_t afi;
 	struct bgp_dest *dest;
 	struct bgp_path_info *pi;
-	struct bgp_redist *red;
 
 	afi = family2afi(p->family);
 	frrtrace(4, frr_bgp, bgp_redistribute_delete_zrecv, bgp, p, type, instance);
@@ -12103,15 +12119,9 @@ void bgp_redistribute_delete(struct bgp *bgp, struct prefix *p, uint8_t type,
 	/* Handle BGP-LS concerns including SRv6 localsid updates */
 	bgp_ls_handle_route_delete(bgp, p, afi, type, instance);
 
-	red = bgp_redist_lookup(bgp, afi, type, instance);
-	if (red) {
-		dest = bgp_afi_node_get(bgp->rib[afi][SAFI_UNICAST], afi,
-					SAFI_UNICAST, p, NULL);
-
-		for (pi = bgp_dest_get_bgp_path_info(dest); pi; pi = pi->next)
-			if (pi->peer == bgp->peer_self && pi->type == type)
-				break;
-
+	dest = bgp_node_lookup(bgp->rib[afi][SAFI_UNICAST], p);
+	if (dest) {
+		pi = bgp_find_redistributed_route(bgp, dest);
 		if (pi) {
 			if ((bgp->inst_type == BGP_INSTANCE_TYPE_VRF)
 			    || (bgp->inst_type == BGP_INSTANCE_TYPE_DEFAULT)) {
