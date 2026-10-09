@@ -893,6 +893,18 @@ lspfragloop:
 					continue;
 #endif /* ifndef FABRICD */
 
+				/*
+				 * RFC 5305 section 3: a link advertised with the
+				 * maximum link metric (2^24 - 1) MUST NOT be
+				 * considered during the normal SPF computation.
+				 *
+				 * The hop-count metric (OpenFabric) does not use
+				 * the advertised metric, so keep those links.
+				 */
+				if (!CHECK_FLAG(spftree->flags, F_SPFTREE_HOPCOUNT_METRIC) &&
+				    er->metric == MAX_WIDE_LINK_METRIC)
+					continue;
+
 				dist = cost + (CHECK_FLAG(spftree->flags, F_SPFTREE_HOPCOUNT_METRIC)
 						       ? 1
 						       : er->metric);
@@ -1260,6 +1272,15 @@ static int spf_adj_find_reverse_metric_cb(const uint8_t *id, uint32_t metric, bo
 	if (memcmp(id, args->id_self, ISIS_SYS_ID_LEN))
 		return LSP_ITER_CONTINUE;
 
+	/*
+	 * RFC 5305 section 3: a link advertised with the maximum wide metric
+	 * is not usable in the direction used by the reverse SPF.  There can
+	 * be several parallel links to the same neighbor, so keep looking for
+	 * a usable one.
+	 */
+	if (!oldmetric && metric == MAX_WIDE_LINK_METRIC)
+		return LSP_ITER_CONTINUE;
+
 	args->reverse_metric = metric;
 
 	return LSP_ITER_STOP;
@@ -1307,11 +1328,15 @@ static void spf_adj_get_reverse_metrics(struct isis_spftree *spftree)
 		isis_lsp_iterate_is_reach(lsp_adj, spftree->mtid, spf_adj_find_reverse_metric_cb,
 					  &args);
 		if (args.reverse_metric == UINT32_MAX) {
-			/* Delete one-way adjacency. */
+			/*
+			 * Delete one-way adjacency or an adjacency whose
+			 * reverse metric is the maximum wide metric.
+			 */
 			listnode_delete(spftree->sadj_list, sadj);
 			isis_spf_adj_free(sadj);
 			continue;
 		}
+
 		sadj->metric = args.reverse_metric;
 	}
 }
@@ -1352,6 +1377,23 @@ static void spf_adj_list_parse_tlv(struct isis_spftree *spftree, struct spf_adj_
 	if ((oldmetric && sadj->metric == ISIS_NARROW_METRIC_INFINITY) ||
 	    (!oldmetric && sadj->metric == ISIS_WIDE_METRIC_INFINITY))
 		SET_FLAG(flags, F_ISIS_SPF_ADJ_METRIC_INFINITY);
+
+	/*
+	 * RFC 5305 section 3: a link advertised with the maximum link metric
+	 * (2^24 - 1) MUST NOT be considered during the normal SPF computation.
+	 * Ignore the local circuit and the neighbor entries using that value.
+	 *
+	 * The reverse SPF uses the reverse metric, which is applied later in
+	 * spf_adj_get_reverse_metrics(), so leave that case to it.  The
+	 * hop-count metric (OpenFabric) does not use the advertised metric.
+	 */
+	if (!oldmetric && (spftree->type != SPF_TYPE_REVERSE || LSP_PSEUDO_ID(id)) &&
+	    !CHECK_FLAG(spftree->flags, F_SPFTREE_HOPCOUNT_METRIC) &&
+	    sadj->metric == MAX_WIDE_LINK_METRIC) {
+		XFREE(MTYPE_ISIS_SPF_ADJ, sadj);
+		return;
+	}
+
 	sadj->lsp = lsp;
 	sadj->subtlvs = subtlvs;
 	sadj->flags = flags;
