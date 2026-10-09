@@ -10218,6 +10218,8 @@ static void bgp_process_conn_error(struct event *event)
 
 	/* Dequeue peers from the error list */
 	while (connection != NULL) {
+		bool ended = false;
+
 		peer = connection->peer;
 
 		if (bgp_debug_neighbor_events(peer))
@@ -10232,17 +10234,33 @@ static void bgp_process_conn_error(struct event *event)
 					   PEER_FLAG_GRACEFUL_RESTART_HELPER))
 			    && CHECK_FLAG(peer->sflags, PEER_STATUS_NSF_MODE)
 			    && !peer->notify.hard_reset) {
-				peer_set_last_reset(peer, PEER_DOWN_NSF_CLOSE_SESSION);
-				SET_FLAG(peer->sflags, PEER_STATUS_NSF_WAIT);
+				/*
+				 * The peer's routes will be kept as stale. First
+				 * process the messages it sent before closing, so
+				 * the routes kept are its latest ones. Its socket
+				 * is closed, so stop sending to it.
+				 */
+				bgp_keepalives_off(connection);
+				bgp_writes_off(connection);
+				ended = bgp_process_ibuf_before_close(connection);
+
+				/* Nothing ended the session: this is a graceful restart. */
+				if (!ended) {
+					peer_set_last_reset(peer, PEER_DOWN_NSF_CLOSE_SESSION);
+					SET_FLAG(peer->sflags, PEER_STATUS_NSF_WAIT);
+				}
 			} else
 				peer_set_last_reset(peer, PEER_DOWN_CLOSE_SESSION);
 		}
 
-		/* No need for keepalives, if enabled */
-		bgp_keepalives_off(peer->connection);
+		/* If a queued message ended the session, the close has nothing to do. */
+		if (!ended) {
+			/* No need for keepalives, if enabled */
+			bgp_keepalives_off(peer->connection);
 
-		/* Drive into state-machine changes */
-		bgp_event_update(connection, connection->connection_errcode);
+			/* Drive into state-machine changes */
+			bgp_event_update(connection, connection->connection_errcode);
+		}
 
 		counter++;
 		if (counter >= bm->peer_conn_errs_dequeue_limit)

@@ -4096,6 +4096,107 @@ int bgp_capability_receive(struct peer_connection *connection, bgp_size_t size)
 	return bgp_capability_msg_parse(connection, pnt, size);
 }
 
+/*
+ * Process the received message in connection->curr and return the FSM event
+ * it produced. Used by bgp_process_packet() and bgp_process_ibuf_before_close().
+ */
+static int bgp_process_curr_packet(struct peer_connection *connection)
+{
+	struct peer *peer = connection->peer;
+	uint8_t type = 0;
+	bgp_size_t size;
+	char notify_data_length[2];
+	int mprc;
+
+	/* skip the marker and copy the packet length */
+	stream_forward_getp(connection->curr, BGP_MARKER_SIZE);
+	memcpy(notify_data_length, stream_pnt(connection->curr), 2);
+
+	/* read in the packet length and type */
+	size = stream_getw(connection->curr);
+	type = stream_getc(connection->curr);
+
+	hook_call(bgp_packet_dump, peer, type, size, connection->curr);
+
+	/* adjust size to exclude the marker + length + type */
+	size -= BGP_HEADER_SIZE;
+
+	/* Read rest of the packet and call each sort of packet routine
+	 */
+	switch (type) {
+	case BGP_MSG_OPEN:
+		frrtrace(2, frr_bgp, open_process, peer, size);
+		atomic_fetch_add_explicit(&peer->open_in, 1, memory_order_relaxed);
+		mprc = bgp_open_receive(connection, size);
+		if (mprc == BGP_Stop)
+			flog_err(EC_BGP_PKT_OPEN, "%s: BGP OPEN receipt failed for peer: %s(%s)",
+				 __func__, peer->host,
+				 bgp_peer_get_connection_direction_string(connection));
+		break;
+	case BGP_MSG_UPDATE:
+		frrtrace(2, frr_bgp, update_process, peer, size);
+		atomic_fetch_add_explicit(&peer->update_in, 1, memory_order_relaxed);
+		peer->readtime = monotime(NULL);
+		mprc = bgp_update_receive(connection, size);
+		if (mprc == BGP_Stop)
+			flog_err(EC_BGP_UPDATE_RCV,
+				 "%s: BGP UPDATE receipt failed for peer: %s(%s)", __func__,
+				 peer->host, bgp_peer_get_connection_direction_string(connection));
+		break;
+	case BGP_MSG_NOTIFY:
+		frrtrace(2, frr_bgp, notification_process, peer, size);
+		atomic_fetch_add_explicit(&peer->notify_in, 1, memory_order_relaxed);
+		mprc = bgp_notify_receive(connection, size);
+		if (mprc == BGP_Stop)
+			flog_err(EC_BGP_NOTIFY_RCV,
+				 "%s: BGP NOTIFY receipt failed for peer: %s(%s)", __func__,
+				 peer->host, bgp_peer_get_connection_direction_string(connection));
+		break;
+	case BGP_MSG_KEEPALIVE:
+		frrtrace(2, frr_bgp, keepalive_process, peer, size);
+		peer->readtime = monotime(NULL);
+		atomic_fetch_add_explicit(&peer->keepalive_in, 1, memory_order_relaxed);
+		mprc = bgp_keepalive_receive(connection, size);
+		if (mprc == BGP_Stop)
+			flog_err(EC_BGP_KEEP_RCV,
+				 "%s: BGP KEEPALIVE receipt failed for peer: %s(%s)", __func__,
+				 peer->host, bgp_peer_get_connection_direction_string(connection));
+		break;
+	case BGP_MSG_ROUTE_REFRESH_NEW:
+	case BGP_MSG_ROUTE_REFRESH_OLD:
+		frrtrace(2, frr_bgp, refresh_process, peer, size);
+		atomic_fetch_add_explicit(&peer->refresh_in, 1, memory_order_relaxed);
+		mprc = bgp_route_refresh_receive(connection, size);
+		if (mprc == BGP_Stop)
+			flog_err(EC_BGP_RFSH_RCV,
+				 "%s: BGP ROUTEREFRESH receipt failed for peer: %s(%s)", __func__,
+				 peer->host, bgp_peer_get_connection_direction_string(connection));
+		break;
+	case BGP_MSG_CAPABILITY:
+		frrtrace(2, frr_bgp, capability_process, peer, size);
+		atomic_fetch_add_explicit(&peer->dynamic_cap_in, 1, memory_order_relaxed);
+		mprc = bgp_capability_receive(connection, size);
+		if (mprc == BGP_Stop)
+			flog_err(EC_BGP_CAP_RCV,
+				 "%s: BGP CAPABILITY receipt failed for peer: %s(%s)", __func__,
+				 peer->host, bgp_peer_get_connection_direction_string(connection));
+		break;
+	default:
+		/* Suppress uninitialized variable warning */
+		mprc = 0;
+		(void)mprc;
+		/*
+		 * The message type should have been sanitized before
+		 * we ever got here. Receipt of a message with an
+		 * invalid header at this point is indicative of a
+		 * security issue.
+		 */
+		assert(!"Message of invalid type received during input processing");
+	}
+
+	return mprc;
+}
+
 /**
  * Processes a peer's input buffer.
  *
@@ -4160,10 +4261,6 @@ void bgp_process_packet(struct event *event)
 			continue;
 		}
 
-		uint8_t type = 0;
-		bgp_size_t size;
-		char notify_data_length[2];
-
 		bool rearm_reads = false;
 
 		frr_with_mutex (&connection->io_mtx) {
@@ -4185,103 +4282,7 @@ void bgp_process_packet(struct event *event)
 			continue;
 		}
 
-		/* skip the marker and copy the packet length */
-		stream_forward_getp(connection->curr, BGP_MARKER_SIZE);
-		memcpy(notify_data_length, stream_pnt(connection->curr), 2);
-
-		/* read in the packet length and type */
-		size = stream_getw(connection->curr);
-		type = stream_getc(connection->curr);
-
-		hook_call(bgp_packet_dump, peer, type, size, connection->curr);
-
-		/* adjust size to exclude the marker + length + type */
-		size -= BGP_HEADER_SIZE;
-
-		/* Read rest of the packet and call each sort of packet routine
-		 */
-		switch (type) {
-		case BGP_MSG_OPEN:
-			frrtrace(2, frr_bgp, open_process, peer, size);
-			atomic_fetch_add_explicit(&peer->open_in, 1,
-						  memory_order_relaxed);
-			mprc = bgp_open_receive(connection, size);
-			if (mprc == BGP_Stop)
-				flog_err(EC_BGP_PKT_OPEN,
-					 "%s: BGP OPEN receipt failed for peer: %s(%s)", __func__,
-					 peer->host,
-					 bgp_peer_get_connection_direction_string(connection));
-			break;
-		case BGP_MSG_UPDATE:
-			frrtrace(2, frr_bgp, update_process, peer, size);
-			atomic_fetch_add_explicit(&peer->update_in, 1,
-						  memory_order_relaxed);
-			peer->readtime = monotime(NULL);
-			mprc = bgp_update_receive(connection, size);
-			if (mprc == BGP_Stop)
-				flog_err(EC_BGP_UPDATE_RCV,
-					 "%s: BGP UPDATE receipt failed for peer: %s(%s)",
-					 __func__, peer->host,
-					 bgp_peer_get_connection_direction_string(connection));
-			break;
-		case BGP_MSG_NOTIFY:
-			frrtrace(2, frr_bgp, notification_process, peer, size);
-			atomic_fetch_add_explicit(&peer->notify_in, 1,
-						  memory_order_relaxed);
-			mprc = bgp_notify_receive(connection, size);
-			if (mprc == BGP_Stop)
-				flog_err(EC_BGP_NOTIFY_RCV,
-					 "%s: BGP NOTIFY receipt failed for peer: %s(%s)",
-					 __func__, peer->host,
-					 bgp_peer_get_connection_direction_string(connection));
-			break;
-		case BGP_MSG_KEEPALIVE:
-			frrtrace(2, frr_bgp, keepalive_process, peer, size);
-			peer->readtime = monotime(NULL);
-			atomic_fetch_add_explicit(&peer->keepalive_in, 1,
-						  memory_order_relaxed);
-			mprc = bgp_keepalive_receive(connection, size);
-			if (mprc == BGP_Stop)
-				flog_err(EC_BGP_KEEP_RCV,
-					 "%s: BGP KEEPALIVE receipt failed for peer: %s(%s)",
-					 __func__, peer->host,
-					 bgp_peer_get_connection_direction_string(connection));
-			break;
-		case BGP_MSG_ROUTE_REFRESH_NEW:
-		case BGP_MSG_ROUTE_REFRESH_OLD:
-			frrtrace(2, frr_bgp, refresh_process, peer, size);
-			atomic_fetch_add_explicit(&peer->refresh_in, 1,
-						  memory_order_relaxed);
-			mprc = bgp_route_refresh_receive(connection, size);
-			if (mprc == BGP_Stop)
-				flog_err(EC_BGP_RFSH_RCV,
-					 "%s: BGP ROUTEREFRESH receipt failed for peer: %s(%s)",
-					 __func__, peer->host,
-					 bgp_peer_get_connection_direction_string(connection));
-			break;
-		case BGP_MSG_CAPABILITY:
-			frrtrace(2, frr_bgp, capability_process, peer, size);
-			atomic_fetch_add_explicit(&peer->dynamic_cap_in, 1,
-						  memory_order_relaxed);
-			mprc = bgp_capability_receive(connection, size);
-			if (mprc == BGP_Stop)
-				flog_err(EC_BGP_CAP_RCV,
-					 "%s: BGP CAPABILITY receipt failed for peer: %s(%s)",
-					 __func__, peer->host,
-					 bgp_peer_get_connection_direction_string(connection));
-			break;
-		default:
-			/* Suppress uninitialized variable warning */
-			mprc = 0;
-			(void)mprc;
-			/*
-			 * The message type should have been sanitized before
-			 * we ever got here. Receipt of a message with an
-			 * invalid header at this point is indicative of a
-			 * security issue.
-			 */
-			assert (!"Message of invalid type received during input processing");
-		}
+		mprc = bgp_process_curr_packet(connection);
 
 		/* delete processed packet */
 		stream_free(connection->curr);
@@ -4362,6 +4363,71 @@ done:
 
 	if (count)
 		event_add_event(bm->master, bgp_process_packet, NULL, 0, &bm->e_process_packet);
+}
+
+/*
+ * Called from the close handler, bgp_process_conn_error(), when the peer
+ * closes an Established session that will be kept as a graceful restart.
+ *
+ * Messages the peer sent before it closed may still be waiting on ibuf. Process
+ * all of them now, in the order they arrived, before the close. This way the
+ * routes kept as stale are the peer's latest ones: for example, a withdraw sent
+ * just before the close is applied, and a NOTIFICATION sent before the close
+ * ends the session the way it says.
+ *
+ * Returns true if one of the messages ended the session. The close then has
+ * nothing left to do.
+ */
+bool bgp_process_ibuf_before_close(struct peer_connection *connection)
+{
+	struct peer *peer = connection->peer;
+	uint32_t processed = 0;
+	bool ended = false;
+	int fsm_update_result;
+	int mprc;
+
+	while (true) {
+		frr_with_mutex (&connection->io_mtx) {
+			connection->curr = stream_fifo_pop(connection->ibuf);
+		}
+
+		if (!connection->curr)
+			break;
+
+		mprc = bgp_process_curr_packet(connection);
+		stream_free(connection->curr);
+		connection->curr = NULL;
+		processed++;
+
+		if (mprc == BGP_PACKET_NOOP)
+			continue;
+
+		fsm_update_result = bgp_event_update(connection, mprc);
+
+		/*
+		 * The session ended and the connection (or the peer) may be
+		 * gone, so do not touch it again.
+		 */
+		if (fsm_update_result == FSM_PEER_TRANSFERRED ||
+		    fsm_update_result == FSM_PEER_STOPPED)
+			return true;
+
+		/* For example a NOTIFICATION was processed. */
+		if (!peer_established(connection)) {
+			ended = true;
+			break;
+		}
+	}
+
+	frrtrace(3, frr_bgp, close_ibuf_process, connection, processed, ended);
+
+	if (bgp_debug_neighbor_events(peer))
+		zlog_debug("%s(%s) [Event] Connection closed (error %u, fd %d): processed %u queued message(s) first; %s",
+			   peer->host, bgp_peer_get_connection_direction_string(connection),
+			   connection->connection_errcode, connection->fd, processed,
+			   ended ? "one of them ended the session" : "handling the close now");
+
+	return ended;
 }
 
 /* Send EOR when routes are processed by selection deferral timer */
