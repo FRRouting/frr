@@ -1414,6 +1414,7 @@ int bgp_path_info_cmp(struct bgp *bgp, struct bgp_path_info *new,
 	 * parameters are Peer Type, IGP Metric, Cluster List, Neighbor Address.
 	 */
 	struct bgp_path_info *new_path_for_modifiable_attr, *exist_path_for_modifiable_attr;
+	struct bgp_path_info *new_imported, *exist_imported;
 
 	if (CHECK_FLAG(bgp->flags, BGP_FLAG_BESTPATH_USE_IMPORTED_ATTRS)) {
 		/* Use imported (current VRF) attributes for modifiable attributes */
@@ -1424,6 +1425,9 @@ int bgp_path_info_cmp(struct bgp *bgp, struct bgp_path_info *new,
 		new_path_for_modifiable_attr = bgp_get_imported_bpi_ultimate(new);
 		exist_path_for_modifiable_attr = bgp_get_imported_bpi_ultimate(exist);
 	}
+
+	new_imported = new;
+	exist_imported = exist;
 
 	/* Continue to use ultimate path/attr for certain cases like IGP etc */
 	new = bgp_get_imported_bpi_ultimate(new);
@@ -1773,6 +1777,30 @@ int bgp_path_info_cmp(struct bgp *bgp, struct bgp_path_info *new,
 	if (peer_sort_ret >= 0)
 		return peer_sort_ret;
 
+	/* A route exported with both an MPLS label and an SRv6 SID is
+	 * imported as two paths with the same parent: prefer the MPLS path.
+	 */
+	if (new == exist && new_imported != exist_imported) {
+		bool new_srv6 = !!bgp_attr_get_srv6_l3service(new_imported->attr);
+		bool exist_srv6 = !!bgp_attr_get_srv6_l3service(exist_imported->attr);
+
+		if (!new_srv6 && exist_srv6) {
+			*reason = bgp_path_selection_mpls_over_srv6;
+			if (debug)
+				zlog_debug("%s: %s wins over %s due to MPLS over SRv6", pfx_buf,
+					   new_buf, exist_buf);
+			return 1;
+		}
+
+		if (new_srv6 && !exist_srv6) {
+			*reason = bgp_path_selection_mpls_over_srv6;
+			if (debug)
+				zlog_debug("%s: %s loses to %s due to MPLS over SRv6", pfx_buf,
+					   new_buf, exist_buf);
+			return 0;
+		}
+	}
+
 	/* 12. If both paths are external, prefer the path that was received
 	   first (the oldest one).  This step minimizes route-flap, since a
 	   newer path won't displace an older one, even if it was the
@@ -1876,14 +1904,6 @@ int bgp_path_info_cmp(struct bgp *bgp, struct bgp_path_info *new,
 		return 0;
 	}
 
-	/* Two paths imported from a locally originated route (redistribute,
-	 * network, aggregate) have no su_remote and can not be told apart by
-	 * neighbor address: use the default tie-break, as for two paths
-	 * imported from the same remote peer.
-	 */
-	if (peer_new->connection->su_remote == NULL && peer_exist->connection->su_remote == NULL)
-		goto bgp_path_info_cmp_done;
-
 	/* locally configured routes to advertise do not have su_remote */
 	if (peer_new->connection->su_remote == NULL) {
 		*reason = bgp_path_selection_local_configured;
@@ -1914,7 +1934,6 @@ int bgp_path_info_cmp(struct bgp *bgp, struct bgp_path_info *new,
 		return 1;
 	}
 
-bgp_path_info_cmp_done:
 	*reason = bgp_path_selection_default;
 	if (debug)
 		zlog_debug("%s: %s wins over %s due to nothing left to compare",
@@ -12292,6 +12311,8 @@ const char *bgp_path_selection_reason2str(enum bgp_path_selection_reason reason)
 		return "Confed Peer Type";
 	case bgp_path_selection_igp_metric:
 		return "IGP Metric";
+	case bgp_path_selection_mpls_over_srv6:
+		return "MPLS over SRv6";
 	case bgp_path_selection_older:
 		return "Older Path";
 	case bgp_path_selection_router_id:

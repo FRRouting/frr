@@ -134,6 +134,9 @@ def setup_module(mod):
     tgen.gears["r1"].run("ip link set eth2 master vrf10")
     tgen.gears["r1"].run("ip link set eth3 master vrf20")
     tgen.gears["r1"].run("ip link set eth4 master vrf30")
+    tgen.gears["r1"].run("ip link add dummy30 type dummy")
+    tgen.gears["r1"].run("ip link set dummy30 master vrf30")
+    tgen.gears["r1"].run("ip link set dummy30 up")
     tgen.gears["r1"].run("sysctl net.vrf.strict_mode=1")
     tgen.gears["r1"].run("sysctl net.ipv4.conf.default.rp_filter=0")
     tgen.gears["r1"].run("sysctl net.ipv4.conf.all.rp_filter=0")
@@ -540,8 +543,11 @@ def test_sid_add_locator_vrf_10():
 def test_sid_vrf_30_basic_config():
     """
     Test that VPN prefix is valid, after configuring the VRF with no label
+    Test that the prefix of dummy30 and the prefix received from ce7 are
+    exported
     """
-    get_topogen().gears["r1"].vtysh_cmd(
+    r1 = get_topogen().gears["r1"]
+    r1.vtysh_cmd(
         """
         configure terminal
          router bgp 1 vrf vrf30
@@ -551,7 +557,11 @@ def test_sid_vrf_30_basic_config():
           bgp router-id 192.0.2.1
           no bgp ebgp-requires-policy
           no bgp default ipv4-unicast
+          neighbor 2001:8::2 remote-as 7
+          neighbor 2001:8::2 timers 3 10
+          neighbor 2001:8::2 timers connect 1
           address-family ipv6 unicast
+           neighbor 2001:8::2 activate
            rd vpn export 1:30
            rt vpn both 55:55
            import vpn
@@ -566,6 +576,17 @@ def test_sid_vrf_30_basic_config():
         "show bgp ipv6 vpn 2001:8::/64 json",
         "r1/vpnv6_rib_2001_8_valid_with_label_3.json",
     )
+
+    @retry(retry_timeout=30)
+    def check_vpn_prefixes_exported(prefixes):
+        for prefix in prefixes:
+            output = json.loads(r1.vtysh_cmd(f"show bgp ipv6 vpn {prefix} json"))
+            if "1:30" not in output:
+                return f"{prefix} not exported to VPN"
+        return True
+
+    result = check_vpn_prefixes_exported(["2001:88::/64", "2001:77::/64"])
+    assert result is True, result
 
 
 def test_sid_vrf_30_mpls():
@@ -631,10 +652,30 @@ def test_sid_add_vrf_30_srv6():
     )
 
 
+@retry(retry_timeout=10)
+def check_vpn_bestpath_dataplane(router, prefixes, dataplane):
+    dataplanes = {}
+    for prefix in prefixes:
+        output = json.loads(router.vtysh_cmd(f"show bgp ipv6 vpn {prefix} json"))
+        paths = output.get("1:30", {}).get("paths", [])
+        if len(paths) != 2:
+            return f"{prefix}: 2 paths expected, {len(paths)} found"
+        for path in paths:
+            if path.get("bestpath", {}).get("overall"):
+                dataplanes[prefix] = "srv6" if "remoteSid" in path else "mpls"
+        if prefix not in dataplanes:
+            return f"{prefix}: no bestpath found"
+    if set(dataplanes.values()) != {dataplane}:
+        return f"{dataplane} bestpath expected: {dataplanes}"
+    return True
+
+
 def test_sid_add_vrf_30_srv6_and_mpls():
     """
     Test that 2 VPN prefixs are present on r1, after configuring SRv6, then MPLS
     Test that MPLS and SRv6 are both present, only MPLS is bestpath
+    Test that the prefix of dummy30 and the prefix received from ce7 select
+    the MPLS bestpath
     """
     get_topogen().gears["r1"].vtysh_cmd(
         """
@@ -650,6 +691,10 @@ def test_sid_add_vrf_30_srv6_and_mpls():
         "show bgp ipv6 vpn 2001:8::/64 json",
         "r1/vpnv6_rib_2001_8_srv6_and_mpls.json",
     )
+    result = check_vpn_bestpath_dataplane(
+        get_topogen().gears["r1"], ["2001:88::/64", "2001:77::/64"], "mpls"
+    )
+    assert result is True, result
 
 
 def test_sid_add_vrf_30_remove_srv6_keep_mpls():
@@ -677,6 +722,8 @@ def test_sid_add_vrf_30_readd_srv6_keep_mpls():
     """
     Test that reconfiguring SRv6 will trigger add of VPN SRv6 prefix
     Test that VPN MPLS prefix remains selected
+    Test that the prefix of dummy30 and the prefix received from ce7 select
+    the MPLS bestpath
     """
     get_topogen().gears["r1"].vtysh_cmd(
         """
@@ -692,6 +739,10 @@ def test_sid_add_vrf_30_readd_srv6_keep_mpls():
         "show bgp ipv6 vpn 2001:8::/64 json",
         "r1/vpnv6_rib_2001_8_srv6_and_mpls.json",
     )
+    result = check_vpn_bestpath_dataplane(
+        get_topogen().gears["r1"], ["2001:88::/64", "2001:77::/64"], "mpls"
+    )
+    assert result is True, result
 
 
 def test_sid_add_peer_srv6_check_both_entries_received():
