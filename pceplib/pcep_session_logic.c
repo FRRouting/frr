@@ -252,6 +252,30 @@ bool stop_session_logic(void)
 	pthread_mutex_unlock(&(session_logic_handle_->session_logic_mutex));
 	pthread_join(session_logic_handle_->session_logic_thread, NULL);
 
+	/* Stop the socket comm thread before destroying the sessions
+	 * still on the list. The socket comm handle stays alive so
+	 * the session teardowns below can free their socket state;
+	 * destroy_socket_comm_loop() below cleans up the remains.
+	 */
+	stop_socket_comm_loop();
+
+	/* A session whose destroy was deferred until its Close message was
+	 * written is destroyed by the message-sent callback which can no
+	 * longer be run now.  Destroy any session still on the list.
+	 */
+	while (session_logic_handle_->session_list->head != NULL)
+		destroy_pcep_session(session_logic_handle_->session_list->head->data);
+
+	/* Free any events queued, along with the messages they carry. */
+	pcep_session_event *event = queue_dequeue(session_logic_handle_->session_event_queue);
+
+	while (event != NULL) {
+		if (event->received_msg_list != NULL)
+			pcep_msg_free_message_list(event->received_msg_list);
+		pceplib_free(PCEPLIB_INFRA, event);
+		event = queue_dequeue(session_logic_handle_->session_event_queue);
+	}
+
 	pthread_mutex_destroy(&(session_logic_handle_->session_logic_mutex));
 	pthread_mutex_destroy(&(session_logic_handle_->session_list_mutex));
 	ordered_list_destroy(session_logic_handle_->session_list);
