@@ -63,6 +63,12 @@ struct attr_test {
 	const uint8_t *transit;
 	/* octet count of .transit -- set by TRANSIT_DATA(), never by hand */
 	size_t transit_len;
+	/* attribute whose re-advertised flags octet is checked; 0 to skip */
+	uint8_t out_type;
+	/* expected flags octet of .out_type in bgp_packet_attribute() output */
+	uint8_t out_flags;
+	/* received from a two-octet-AS peer, re-advertised to a four-octet one */
+	bool as2;
 };
 
 /*
@@ -290,6 +296,73 @@ static const struct attr_test attr_tests[] = {
 		TRANSIT_DATA(0xe0, 0xfa, 0x01, 0x99),
 	},
 	/*
+	 * RFC 4271 section 5: "If a path with a recognized, transitive
+	 * optional attribute is accepted and passed along to other BGP peers
+	 * and the Partial bit in the Attribute Flags octet is set to 1 by some
+	 * previous AS, it MUST NOT be set back to 0 by the current AS."
+	 *
+	 * COMMUNITIES is recognized, so unlike the case above it is not kept
+	 * verbatim but re-encoded by bgp_packet_attribute(); the received
+	 * Partial bit has to survive that.  The second case guards against
+	 * setting Partial on an attribute that was received complete.
+	 */
+	{
+		.name = "community-partial-ebgp",
+		.desc = "COMMUNITIES received with Partial is re-advertised with Partial, eBGP",
+		.sort = BGP_PEER_EBGP,
+		.sub_sort = 0,
+		.has_nlri = true,
+		ATTR_DATA(0x40, 0x01, 0x01, 0x00,			  /* ORIGIN igp */
+			  0x40, 0x02, 0x06,				  /* AS_PATH */
+			  0x02, 0x01, 0x00, 0x00, 0xfd, 0xe9,		  /* AS_SEQ 65001 */
+			  0x40, 0x03, 0x04, 0x0a, 0x00, 0x00, 0x02,	  /* NEXT_HOP */
+			  0xe0, 0x08, 0x04, 0xfc, 0x00, 0x00, 0x7b),	  /* COMMUNITIES, partial */
+		.expect = BGP_ATTR_PARSE_PROCEED,
+		.out_type = BGP_ATTR_COMMUNITIES,
+		.out_flags = BGP_ATTR_FLAG_OPTIONAL | BGP_ATTR_FLAG_TRANS | BGP_ATTR_FLAG_PARTIAL,
+	},
+	{
+		.name = "community-complete-ebgp",
+		.desc = "COMMUNITIES received without Partial is re-advertised without it, eBGP",
+		.sort = BGP_PEER_EBGP,
+		.sub_sort = 0,
+		.has_nlri = true,
+		ATTR_DATA(0x40, 0x01, 0x01, 0x00,			  /* ORIGIN igp */
+			  0x40, 0x02, 0x06,				  /* AS_PATH */
+			  0x02, 0x01, 0x00, 0x00, 0xfd, 0xe9,		  /* AS_SEQ 65001 */
+			  0x40, 0x03, 0x04, 0x0a, 0x00, 0x00, 0x02,	  /* NEXT_HOP */
+			  0xc0, 0x08, 0x04, 0xfc, 0x00, 0x00, 0x7b),	  /* COMMUNITIES */
+		.expect = BGP_ATTR_PARSE_PROCEED,
+		.out_type = BGP_ATTR_COMMUNITIES,
+		.out_flags = BGP_ATTR_FLAG_OPTIONAL | BGP_ATTR_FLAG_TRANS,
+	},
+	/*
+	 * RFC 6793: a two-octet-AS speaker carries a four-octet aggregator AS
+	 * as AS_TRANS in AGGREGATOR plus the real one in AS4_AGGREGATOR, and
+	 * bgp_attr_munge_as4_attrs() folds the latter into AGGREGATOR.  Here
+	 * only AS4_AGGREGATOR is partial, so the AGGREGATOR re-advertised to
+	 * a four-octet-AS peer carries partial information and must say so.
+	 */
+	{
+		.name = "as4-aggregator-partial-ebgp",
+		.desc = "partial AS4_AGGREGATOR re-advertised as a partial AGGREGATOR, eBGP",
+		.sort = BGP_PEER_EBGP,
+		.sub_sort = 0,
+		.has_nlri = true,
+		ATTR_DATA(0x40, 0x01, 0x01, 0x00,			  /* ORIGIN igp */
+			  0x40, 0x02, 0x04,				  /* AS_PATH */
+			  0x02, 0x01, 0xfd, 0xe9,			  /* AS_SEQ 65001 */
+			  0x40, 0x03, 0x04, 0x0a, 0x00, 0x00, 0x02,	  /* NEXT_HOP */
+			  0xc0, 0x07, 0x06, 0x5b, 0xa0,			  /* AGGREGATOR AS_TRANS */
+			  0x0a, 0x00, 0x00, 0x01,			  /* 10.0.0.1 */
+			  0xe0, 0x12, 0x08, 0x00, 0x01, 0x00, 0x00,	  /* AS4_AGGREGATOR 65536 */
+			  0x0a, 0x00, 0x00, 0x01),			  /* 10.0.0.1, partial */
+		.expect = BGP_ATTR_PARSE_PROCEED,
+		.out_type = BGP_ATTR_AGGREGATOR,
+		.out_flags = BGP_ATTR_FLAG_OPTIONAL | BGP_ATTR_FLAG_TRANS | BGP_ATTR_FLAG_PARTIAL,
+		.as2 = true,
+	},
+	/*
 	 * NEXT_HOP.  ExaBGP cannot put any of these on the wire: a raw
 	 * attribute [0x03 ...] after the next-hop keyword is dropped by the
 	 * first-wins Attributes.add(), one placed before it makes
@@ -438,6 +511,37 @@ static void print_data(const uint8_t *data, size_t len)
 	print_hex("data:", data, len);
 }
 
+/*
+ * Re-advertise attr to peer the way an UPDATE would, and return the flags
+ * octet bgp_packet_attribute() wrote for attribute type, or -1 if absent.
+ */
+static int encoded_flags(struct peer *peer, struct attr *attr, uint8_t type)
+{
+	struct stream *s = stream_new(BGP_MAX_PACKET_SIZE);
+	size_t len, i = 0;
+	int ret = -1;
+
+	len = bgp_packet_attribute(NULL, peer, s, attr, NULL, NULL, AFI_IP, SAFI_UNICAST, NULL,
+				   NULL, NULL, 0, NULL, false, 0, NULL, NULL, false);
+
+	while (i + 3 <= len) {
+		uint8_t flags = stream_getc_from(s, i);
+
+		if (stream_getc_from(s, i + 1) == type) {
+			ret = flags;
+			break;
+		}
+
+		if (CHECK_FLAG(flags, BGP_ATTR_FLAG_EXTLEN))
+			i += 4 + stream_getw_from(s, i + 2);
+		else
+			i += 3 + stream_getc_from(s, i + 2);
+	}
+
+	stream_free(s);
+	return ret;
+}
+
 static void parse_test(struct peer *peer, const struct attr_test *t)
 {
 	struct attr attr = {};
@@ -469,8 +573,13 @@ static void parse_test(struct peer *peer, const struct attr_test *t)
 
 	print_data(t->data, t->len);
 
+	if (t->as2)
+		UNSET_FLAG(peer->cap, PEER_CAP_AS4_RCV | PEER_CAP_AS4_ADV);
+
 	ret = bgp_attr_parse(peer->connection, &attr, t->len, &mp_update, &mp_withdraw,
 			     t->has_nlri);
+
+	SET_FLAG(peer->cap, PEER_CAP_AS4_RCV | PEER_CAP_AS4_ADV);
 
 	printf("  got:      %s\n", parse_ret_str(ret));
 	printf("  expected: %s\n", parse_ret_str(t->expect));
@@ -487,6 +596,16 @@ static void parse_test(struct peer *peer, const struct attr_test *t)
 
 		if (!transit || (size_t)transit->length != t->transit_len ||
 		    memcmp(transit->val, t->transit, t->transit_len))
+			failed++;
+	}
+
+	if (t->out_type) {
+		int flags = encoded_flags(peer, &attr, t->out_type);
+
+		printf("  flags:    0x%02x\n", flags);
+		printf("  expected: 0x%02x\n", t->out_flags);
+
+		if (flags != t->out_flags)
 			failed++;
 	}
 
@@ -540,6 +659,9 @@ int main(void)
 	/* AS_PATH blobs carry 4-octet ASNs */
 	SET_FLAG(peer->cap, PEER_CAP_AS4_RCV);
 	SET_FLAG(peer->cap, PEER_CAP_AS4_ADV);
+
+	/* re-advertised COMMUNITIES are only encoded with send-community */
+	SET_FLAG(peer->af_flags[AFI_IP][SAFI_UNICAST], PEER_FLAG_SEND_COMMUNITY);
 
 	for (afi = AFI_IP; afi < AFI_MAX; afi++)
 		for (safi = SAFI_UNICAST; safi < SAFI_MAX; safi++) {

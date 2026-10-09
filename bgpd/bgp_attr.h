@@ -164,6 +164,9 @@ struct attr_extra {
 	/* RFC 9234 */
 	uint32_t otc;
 
+	/* Attributes received with the Partial bit set (RFC 4271 section 5). */
+	uint64_t partial_attrs;
+
 	/* IPv6 Extended Communities attribute. */
 	struct ecommunity *ipv6_ecommunity;
 };
@@ -825,6 +828,35 @@ static inline void bgp_attr_set_otc(struct attr *attr, uint32_t otc)
 		bgp_attr_extra_put(attr);
 		bgp_attr_unset(attr, BGP_ATTR_OTC);
 	}
+}
+
+static inline uint64_t bgp_attr_get_partial_attrs(const struct attr *attr)
+{
+	return attr->extra ? attr->extra->partial_attrs : 0;
+}
+
+static inline void bgp_attr_set_partial_attrs(struct attr *attr, uint64_t partial_attrs)
+{
+	uint64_t old = bgp_attr_get_partial_attrs(attr);
+
+	if (partial_attrs && !old) {
+		bgp_attr_extra_get(attr)->partial_attrs = partial_attrs;
+	} else if (partial_attrs && old) {
+		attr->extra->partial_attrs = partial_attrs; /* replace; refcnt unchanged */
+	} else if (!partial_attrs && old) {
+		attr->extra->partial_attrs = 0;
+		bgp_attr_extra_put(attr);
+	}
+}
+
+static inline uint8_t bgp_attr_partial(const struct attr *attr, uint8_t type)
+{
+	if (type < 1 || type > 64)
+		return 0;
+
+	return CHECK_FLAG(bgp_attr_get_partial_attrs(attr), 1ULL << (type - 1))
+		       ? BGP_ATTR_FLAG_PARTIAL
+		       : 0;
 }
 
 static inline struct bgp_attr_srv6_vpn *bgp_attr_get_srv6_vpn(const struct attr *attr)
