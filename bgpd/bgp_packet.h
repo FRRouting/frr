@@ -77,6 +77,7 @@ extern void bgp_packet_set_size(struct stream *s);
 
 extern void bgp_generate_updgrp_packets(struct event *event);
 extern void bgp_process_packet(struct event *event);
+extern bool bgp_process_ibuf_before_close(struct peer_connection *connection);
 
 extern void bgp_send_delayed_eor(struct bgp *bgp);
 
