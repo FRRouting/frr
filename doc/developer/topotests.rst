@@ -1052,7 +1052,7 @@ Some things to keep in mind:
 
 - BGP tests MUST use generous convergence timeouts - you must ensure
   that any test involving BGP uses a convergence timeout of at least
-  130 seconds.
+  15 seconds.
 - Topotests are run on a range of Linux versions: if your test
   requires some OS-specific capability (like mpls support, or vrf
   support), there are test functions available in the libraries that
