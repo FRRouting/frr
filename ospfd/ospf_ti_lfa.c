@@ -924,7 +924,7 @@ void ospf_ti_lfa_generate_p_spaces(struct ospf_area *area,
 				 * Q spaces so we can later on generate a
 				 * backup path for the link.
 				 */
-				if (prefix_match(&stub_prefix, &child_prefix)) {
+				if (prefix_contains(&stub_prefix, &child_prefix)) {
 					zlog_info(
 						"%s: Generating P space for %pI4",
 						__func__, &l->link_id);

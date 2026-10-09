@@ -597,7 +597,7 @@ zebra_srv6_sid_block_lookup(struct prefix_ipv6 *prefix)
 	struct listnode *node;
 
 	for (ALL_LIST_ELEMENTS_RO(srv6->sid_blocks, node, block))
-		if (prefix_match(prefix, &block->prefix))
+		if (prefix_contains(prefix, &block->prefix))
 			return block;
 
 	return NULL;
@@ -1352,8 +1352,7 @@ static bool zebra_srv6_sid_decompose(struct in6_addr *sid_value,
 		 * Check if the locator prefix includes the temporary prefix
 		 * representing the SID.
 		 */
-		if (prefix_match((struct prefix *)&l->prefix,
-				 (struct prefix *)&tmp_prefix)) {
+		if (prefix_contains((struct prefix *)&l->prefix, (struct prefix *)&tmp_prefix)) {
 			format = l->sid_format;
 
 			if (format) {
@@ -1419,8 +1418,7 @@ static bool zebra_srv6_sid_decompose(struct in6_addr *sid_value,
 		 * Check if the block prefix includes the temporary prefix
 		 * representing the SID
 		 */
-		if (prefix_match((struct prefix *)&b->prefix,
-				 (struct prefix *)&tmp_prefix)) {
+		if (prefix_contains((struct prefix *)&b->prefix, (struct prefix *)&tmp_prefix)) {
 			format = b->sid_format;
 
 			if (format) {

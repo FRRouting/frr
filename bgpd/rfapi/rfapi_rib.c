@@ -1817,7 +1817,7 @@ int rfapiRibFTDFilterRecentPrefix(
 	/*
 	 * prefix covers target address, so allow prefix
 	 */
-	if (prefix_match(p, pfx_target_original)) {
+	if (prefix_contains(p, pfx_target_original)) {
 #ifdef DEBUG_FTD_FILTER_RECENT
 		vnc_zlog_debug_verbose("%s: prefix covers target, allowed",
 				       __func__);
@@ -2398,8 +2398,8 @@ void rfapiRibShowResponses(void *stream, struct prefix *pfx_match,
 				routes_total++;
 				nhs_total += skiplist_count(sl);
 
-				if (pfx_match && !prefix_match(pfx_match, p)
-				    && !prefix_match(p, pfx_match))
+				if (pfx_match && !prefix_contains(pfx_match, p) &&
+				    !prefix_contains(p, pfx_match))
 					continue;
 
 				if (!printedheader) {

@@ -2102,8 +2102,7 @@ void vnc_import_bgp_exterior_add_route_interior(
 			rfapiUnicastNexthop2Prefix(afi, bpi_exterior->attr,
 						   &pfx_nexthop);
 
-			if (prefix_match(p, &pfx_nexthop)) {
-
+			if (prefix_contains(p, &pfx_nexthop)) {
 				struct bgp_path_info *bpi;
 				struct prefix_rd *prd;
 				struct attr new_attr;
@@ -2250,8 +2249,7 @@ void vnc_import_bgp_exterior_add_route_interior(
 		rfapiUnicastNexthop2Prefix(afi, bpi_exterior->attr,
 					   &pfx_nexthop);
 
-		if (prefix_match(p, &pfx_nexthop)) {
-
+		if (prefix_contains(p, &pfx_nexthop)) {
 			struct prefix_rd *prd;
 			struct attr new_attr;
 			uint32_t label;
