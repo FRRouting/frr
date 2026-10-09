@@ -2089,6 +2089,8 @@ static struct timeval *thread_timer_wait(struct event_timer_list_head *timers,
 static struct event *event_run(struct event_loop *m, struct event *event, struct event *fetch)
 {
 	*fetch = *event;
+
+	memset(&fetch->mtx, 0, sizeof(fetch->mtx));
 	thread_add_unuse(m, event);
 	return fetch;
 }
@@ -2624,7 +2626,7 @@ int event_should_yield(struct event *event)
 {
 	int result;
 
-	frr_with_mutex (&event->mtx) {
+	frr_with_mutex (&event->master->mtx) {
 		result = monotime_since(&event->real, NULL)
 			 > (int64_t)event->yield;
 	}
@@ -2633,7 +2635,7 @@ int event_should_yield(struct event *event)
 
 void event_set_yield_time(struct event *event, unsigned long yield_time)
 {
-	frr_with_mutex (&event->mtx) {
+	frr_with_mutex (&event->master->mtx) {
 		event->yield = yield_time;
 	}
 }
