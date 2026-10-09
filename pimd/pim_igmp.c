@@ -737,7 +737,7 @@ static bool ip_check_hopopts_ra(const uint8_t *options, size_t options_len)
 		return false;
 	if (options[1] != 4)
 		return false;
-	if (options[2] != 0 && options[3] != 0)
+	if (options[2] != 0 || options[3] != 0)
 		return false;
 
 	return true;

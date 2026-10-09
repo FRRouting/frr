@@ -1257,7 +1257,7 @@ int pim_ifchannel_local_membership_add(struct interface *ifp, pim_sgaddr *sg,
 		if (pim->spt.switchover == PIM_SPT_INFINITY) {
 			if (pim->spt.plist) {
 				struct prefix_list *plist = prefix_list_lookup(
-					AFI_IP, pim->spt.plist);
+					PIM_AFI, pim->spt.plist);
 				struct prefix g;
 
 				pim_addr_to_prefix(&g, up->sg.grp);
