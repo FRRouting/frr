@@ -1335,15 +1335,25 @@ merge_global(struct ldpd_conf *conf, struct ldpd_conf *xconf)
 
 	/* change of router-id requires resetting all neighborships */
 	if (conf->rtr_id.s_addr != xconf->rtr_id.s_addr) {
-		if (ldpd_process == PROC_LDP_ENGINE) {
+		in_addr_t old_rtr_id = conf->rtr_id.s_addr;
+
+		/*
+		 * Reset with the old router-id so the shutdown notifications
+		 * carry the LSR Id the sessions were established with, then
+		 * commit the new one before re-evaluating the interfaces.
+		 */
+		if (ldpd_process == PROC_LDP_ENGINE)
 			ldpe_reset_nbrs(AF_UNSPEC);
-			if (conf->rtr_id.s_addr == INADDR_ANY ||
+
+		conf->rtr_id = xconf->rtr_id;
+
+		if (ldpd_process == PROC_LDP_ENGINE) {
+			if (old_rtr_id == INADDR_ANY ||
 			    xconf->rtr_id.s_addr == INADDR_ANY) {
 				if_update_all(AF_UNSPEC);
 				tnbr_update_all(AF_UNSPEC);
 			}
 		}
-		conf->rtr_id = xconf->rtr_id;
 	}
 
 	/*
