@@ -81,7 +81,16 @@ enum zebra_if_flags {
 	/* Kernel protodown state from RTM_NEWLINK - used to detect kernel
 	 * protodown transitions independently from ZIF_FLAG_PROTODOWN
 	 */
-	ZIF_FLAG_KERNEL_PROTODOWN_SET = (1 << 6)
+	ZIF_FLAG_KERNEL_PROTODOWN_SET = (1 << 6),
+
+	/* The last IPv4 address of this interface has just been deleted and
+	 * the RIB walk that emulates the kernel's implicit removal of the
+	 * IPv4 routes using it has not run yet.  Only while this is set does
+	 * "interface has no IPv4 address" mean "the kernel dropped the
+	 * routes"; an interface that never had an address keeps its routes.
+	 * See rib_update_handle_kernel_route_down_possibility().
+	 */
+	ZIF_FLAG_IPV4_ADDR_GONE = (1 << 7)
 };
 
 #define ZEBRA_IF_IS_PROTODOWN(zif) ((zif)->flags & ZIF_FLAG_PROTODOWN)
