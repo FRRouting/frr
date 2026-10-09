@@ -810,6 +810,28 @@ struct nb_transaction {
 struct nb_config {
 	struct lyd_node *dnode;
 	uint32_t version;
+
+	/*
+	 * Copy-on-write sharing with running_config.
+	 *
+	 * After a commit, candidate->dnode is identical in content to
+	 * running_config->dnode. Setting dnode_shared=true lets candidate
+	 * borrow running_config->dnode directly (no copy), halving the
+	 * steady-state libyang memory between config sessions.
+	 *
+	 * Before any modification to candidate->dnode, nb_candidate_edit()
+	 * detects dnode_shared=true and makes a fresh independent copy
+	 * (copy-on-write trigger).
+	 *
+	 * IMPORTANT: when dnode_shared=true, candidate->dnode must NOT be
+	 * freed - it is owned by running_config. nb_config_free() and
+	 * nb_config_replace() both guard against this.
+	 */
+	bool dnode_shared;
+
+	/* Debug/test counters for copy-on-write */
+	uint64_t cow_share_count;   /* times nb_config_share_running() called */
+	uint64_t cow_trigger_count; /* times COW triggered on candidate edit */
 };
 
 /*
@@ -1015,6 +1037,21 @@ extern int nb_config_merge(struct nb_config *config_dst,
 extern void nb_config_replace(struct nb_config *config_dst,
 			      struct nb_config *config_src,
 			      bool preserve_source);
+
+/*
+ * Share running_config's dnode with candidate (copy-on-write).
+ *
+ * After a successful commit, candidate and running have identical content.
+ * Instead of maintaining a separate O(N) copy, this function lets candidate
+ * borrow running_config's dnode directly, halving steady-state memory.
+ *
+ * The next nb_candidate_edit() will trigger copy-on-write, making a fresh
+ * independent copy before any modification.
+ *
+ * candidate
+ *    The candidate configuration to share with running.
+ */
+extern void nb_config_share_running(struct nb_config *candidate);
 
 /*
  * Return a human-readable string representing a northbound operation.
