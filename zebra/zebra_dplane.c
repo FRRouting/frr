@@ -6612,12 +6612,14 @@ enum zebra_dplane_result dplane_local_neigh_delete(const struct interface *ifp,
  * Enqueue evpn neighbor delete for the dataplane.
  */
 enum zebra_dplane_result dplane_rem_neigh_delete(const struct interface *ifp,
-					     const struct ipaddr *ip)
+						 const struct ipaddr *ip, bool skip_kernel)
 {
 	enum zebra_dplane_result result;
 	uint32_t update_flags = 0;
 
 	update_flags |= DPLANE_NEIGH_REMOTE;
+	if (skip_kernel)
+		update_flags |= DPLANE_NEIGH_SKIP_KERNEL;
 
 	result = neigh_update_internal(DPLANE_OP_NEIGH_DELETE, ifp, NULL,
 				       AF_ETHERNET, ip, 0, 0, 0, update_flags,
@@ -6831,6 +6833,8 @@ neigh_update_internal(enum dplane_op_e op, const struct interface *ifp,
 	ctx->zd_op = op;
 	dplane_neigh_init(ctx, ifp, link, link_family, ip, vni, flags, state, update_flags,
 			  protocol);
+	if (CHECK_FLAG(update_flags, DPLANE_NEIGH_SKIP_KERNEL))
+		dplane_ctx_set_skip_kernel(ctx);
 
 	/* Enqueue for processing on the dplane pthread */
 	ret = dplane_update_enqueue(ctx);

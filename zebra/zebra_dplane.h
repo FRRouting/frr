@@ -287,6 +287,8 @@ enum dplane_op_e {
 #define DPLANE_NEIGH_SET_STATIC   (1 << 2)
 #define DPLANE_NEIGH_SET_INACTIVE (1 << 3)
 #define DPLANE_NEIGH_NO_EXTENSION (1 << 4)
+/* Not sent to the kernel, only to the other dataplane providers (FPM) */
+#define DPLANE_NEIGH_SKIP_KERNEL (1 << 5)
 
 #define DPLANE_BR_PORT_NON_DF (1 << 0)
 
@@ -1223,8 +1225,13 @@ enum zebra_dplane_result dplane_local_neigh_add(const struct interface *ifp,
 					  const struct ethaddr *mac,
 					  bool set_router, bool set_static,
 					  bool set_inactive);
+/*
+ * `skip_kernel`: the removal is not sent to the kernel, only to the other
+ * dataplane providers (FPM). Used when a remote neighbor turns local: the
+ * kernel entry is already the local one.
+ */
 enum zebra_dplane_result dplane_rem_neigh_delete(const struct interface *ifp,
-					     const struct ipaddr *ip);
+						 const struct ipaddr *ip, bool skip_kernel);
 
 /*
  * Enqueue the removal of a neighbor zebra installed itself (not an EVPN

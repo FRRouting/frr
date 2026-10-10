@@ -1781,7 +1781,7 @@ static int _nh_uninstall(struct interface *ifp, struct zebra_neigh *n)
 		return 0;
 
 	frrtrace(3, frr_zebra, evpn_dplane_remote_nh_del, &n->emac, &n->ip, ifp);
-	dplane_rem_neigh_delete(ifp, &n->ip);
+	dplane_rem_neigh_delete(ifp, &n->ip, false /*skip_kernel*/);
 
 	return 0;
 }

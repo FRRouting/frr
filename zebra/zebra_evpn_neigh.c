@@ -127,6 +127,31 @@ void zebra_evpn_install_neigh_hash(struct zebra_evpn *zevpn, struct zebra_neigh 
 }
 
 /*
+ * A remote neighbor turns local: the kernel entry is replaced by the local
+ * one, but the FPM only gets the remote neighbors, so it would keep the
+ * remote one. Send it the removal, and leave the kernel alone. Nothing to
+ * remove if the remote neighbor was not installed (inactive).
+ */
+static void zebra_evpn_rem_neigh_to_local(struct zebra_evpn *zevpn, struct zebra_neigh *n)
+{
+	struct interface *vlan_if;
+
+	if (!CHECK_FLAG(n->flags, ZEBRA_NEIGH_REMOTE) || !IS_ZEBRA_NEIGH_ACTIVE(n))
+		return;
+
+	/*
+	 * The SVI it is installed on, whatever the state of the vxlan
+	 * interface, like `zebra_evpn_neigh_uninstall()` (the neighbor stays
+	 * on the SVI while the vxlan interface is down).
+	 */
+	vlan_if = zevpn_map_to_svi(zevpn, false);
+	if (!vlan_if)
+		return;
+
+	dplane_rem_neigh_delete(vlan_if, &n->ip, true /*skip_kernel*/);
+}
+
+/*
  * Callback to allocate neighbor hash entry.
  */
 static void *zebra_evpn_neigh_alloc(void *p)
@@ -699,6 +724,9 @@ struct zebra_neigh *zebra_evpn_proc_sync_neigh_update(
 		n->rem_seq = 0;
 		memset(&n->r_vtep_ip.ip.addr, 0, sizeof(n->r_vtep_ip.ip));
 
+		/* A remote neighbor turning local: remove it from the FPM. */
+		zebra_evpn_rem_neigh_to_local(zevpn, n);
+
 		/* setup new flags */
 		n->flags = 0;
 		SET_FLAG(n->flags, ZEBRA_NEIGH_LOCAL);
@@ -835,7 +863,7 @@ int zebra_evpn_neigh_uninstall(struct zebra_evpn *zevpn, struct zebra_neigh *n)
 	ZEBRA_NEIGH_SET_INACTIVE(n);
 	n->loc_seq = 0;
 
-	dplane_rem_neigh_delete(vlan_if, &n->ip);
+	dplane_rem_neigh_delete(vlan_if, &n->ip, false /*skip_kernel*/);
 
 	return 0;
 }
@@ -1456,6 +1484,8 @@ int zebra_evpn_local_neigh_update(struct zebra_evpn *zevpn,
 			 */
 			neigh_was_remote = true;
 			vtep_ip = n->r_vtep_ip;
+			/* Remove the remote neighbor from the FPM. */
+			zebra_evpn_rem_neigh_to_local(zevpn, n);
 			/* Mark appropriately */
 			UNSET_FLAG(n->flags, ZEBRA_NEIGH_REMOTE);
 			memset(&n->r_vtep_ip.ip.addr, 0, sizeof(n->r_vtep_ip.ip));
