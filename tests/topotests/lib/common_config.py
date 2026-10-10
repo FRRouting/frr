@@ -4699,6 +4699,51 @@ def required_linux_kernel_version(required_version):
     return True
 
 
+def required_iproute2_version(required_version):
+    """
+    Check that the installed iproute2 version meets `required_version`.
+
+    Reads `ip -V`; for example, `ip utility, iproute2-5.15.0` yields
+    version ``5.15.0``. Returns True when supported. On FreeBSD, older
+    platforms, or any host where `ip` is missing or its version cannot be
+    read, returns an error message and does not raise.
+    """
+    system = platform.system()
+    if system != "Linux":
+        error_msg = f"iproute2 is not available on {system}"
+        logger.info(error_msg)
+        return error_msg
+
+    try:
+        completed = subprocess.run(
+            ["ip", "-V"],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            timeout=5,
+            check=False,
+        )
+        output = (completed.stdout or b"").decode(errors="replace")
+        found = re_search(r"iproute2-(\d+(?:\.\d+)*)", output)
+        if not found:
+            error_msg = f"Unable to determine iproute2 version from: {output!r}"
+            logger.info(error_msg)
+            return error_msg
+
+        installed_version = found.group(1)
+        if version_cmp(installed_version, required_version) < 0:
+            error_msg = (
+                f'These tests will not run with iproute2 "{installed_version}", '
+                f"they require iproute2 >= {required_version}"
+            )
+            logger.info(error_msg)
+            return error_msg
+    except Exception as error:
+        error_msg = f"Unable to determine iproute2 version: {error}"
+        logger.info(error_msg)
+        return error_msg
+    return True
+
+
 class HostApplicationHelper(object):
     """Helper to track and cleanup per-host based test processes."""
 

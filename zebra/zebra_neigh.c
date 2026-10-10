@@ -742,8 +742,16 @@ static void zebra_neigh_macfdb_update(struct zebra_dplane_ctx *ctx)
 		return;
 	}
 
-	if (IS_ZEBRA_IF_VXLAN(ifp))
+	/*
+	 * Bridge-row delete on a vxlan port. Put the router-MAC back
+	 * if zebra still has it. Remote host and local MH MACs stay
+	 * ignored: this notification has no VTEP, and it must not be
+	 * treated as a local MAC delete.
+	 */
+	if (IS_ZEBRA_IF_VXLAN(ifp)) {
+		zebra_vxlan_check_readd_rmac(ifp, &mac, vid, vni);
 		return;
+	}
 
 	zebra_vxlan_local_mac_del(ifp, br_if, &mac, vid);
 }
