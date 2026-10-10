@@ -2949,9 +2949,13 @@ static void bmp_active_thread(struct event *t)
 	ba->last_err = NULL;
 
 	if (ba->socket == -1) {
-		/* get vrf_id for DNS / transport */
+		/* Check transport VRF availability before resolving. */
 		if (!bmp_active_vrf_id(ba, &vrf_id))
 			return;
+		/* Keep the existing resolver behavior: it switches network
+		 * namespaces but does not bind DNS sockets to Linux VRF devices.
+		 * The transport VRF option does not add VRF device support for DNS.
+		 */
 		resolver_resolve(&ba->resq, AF_UNSPEC, vrf_id, ba->hostname,
 				 bmp_active_resolved);
 		return;
