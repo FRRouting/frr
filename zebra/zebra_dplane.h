@@ -230,6 +230,17 @@ enum dplane_op_e {
 	/* EVPN-MH FDB (L2) nexthop update */
 	DPLANE_OP_NH_FDB_INSTALL,
 	DPLANE_OP_NH_FDB_DELETE,
+
+	/*
+	 * Port master set/unset (enslave/unslave) and link delete.  Used by the
+	 * SRv6 L2 EVPN / VPWS path so it programs the kernel through the dataplane
+	 * provider abstraction instead of private netlink sockets.
+	 */
+	DPLANE_OP_BRPORT_FLAGS,
+	DPLANE_OP_BRIDGE_VLAN_ADD,
+	DPLANE_OP_SR6_UPDATE_SID,
+	DPLANE_OP_SR6_SET_MTU,
+
 };
 
 /* Operational status of Bridge Ports */
@@ -418,6 +429,11 @@ void dplane_ctx_set_ifp_gre_info(struct zebra_dplane_ctx *ctx,
 				 struct zebra_l2info_gre *greinfo);
 const struct zebra_l2info_gre *
 dplane_ctx_get_ifp_gre_info(const struct zebra_dplane_ctx *ctx);
+void dplane_ctx_set_ifp_sr6_kernel_mode(struct zebra_dplane_ctx *ctx, uint8_t mode);
+bool dplane_ctx_get_ifp_sr6_kernel_mode(const struct zebra_dplane_ctx *ctx, uint8_t *mode);
+void dplane_ctx_set_sr6_mode(struct zebra_dplane_ctx *ctx, uint8_t mode);
+uint8_t dplane_ctx_get_sr6_mode(const struct zebra_dplane_ctx *ctx);
+bool dplane_ctx_get_sr6_mode_present(const struct zebra_dplane_ctx *ctx);
 void dplane_ctx_set_ifp_zltype(struct zebra_dplane_ctx *ctx,
 			       enum zebra_link_type zlt);
 enum zebra_link_type
@@ -787,6 +803,11 @@ const struct ethaddr *dplane_ctx_mac_get_addr(
 vni_t dplane_ctx_mac_get_vni(const struct zebra_dplane_ctx *ctx);
 const struct ipaddr *dplane_ctx_mac_get_vtep_ip(const struct zebra_dplane_ctx *ctx);
 ifindex_t dplane_ctx_mac_get_br_ifindex(const struct zebra_dplane_ctx *ctx);
+bool dplane_ctx_mac_has_srv6_sid(const struct zebra_dplane_ctx *ctx);
+const struct in6_addr *dplane_ctx_mac_get_srv6_sid(const struct zebra_dplane_ctx *ctx);
+bool dplane_ctx_mac_has_sr6_if(const struct zebra_dplane_ctx *ctx);
+ifindex_t dplane_ctx_mac_get_sr6_ifindex(const struct zebra_dplane_ctx *ctx);
+void dplane_ctx_mac_set_sr6_ifindex(struct zebra_dplane_ctx *ctx, ifindex_t sr6_ifindex);
 uint32_t dplane_ctx_mac_get_dst_present(const struct zebra_dplane_ctx *ctx);
 bool dplane_ctx_mac_get_local_inactive(const struct zebra_dplane_ctx *ctx);
 bool dplane_ctx_mac_get_dp_static(const struct zebra_dplane_ctx *ctx);
@@ -1035,6 +1056,26 @@ enum zebra_dplane_result dplane_intf_add(const struct interface *ifp);
 enum zebra_dplane_result dplane_intf_update(const struct interface *ifp);
 enum zebra_dplane_result dplane_intf_speed_get(const struct interface *ifp);
 
+
+/*
+ * SRv6 sr6 bridge-port programming through the dataplane provider.  The single
+ * dplane FIFO preserves enslave -> brport -> vlan -> up ordering.
+ */
+enum zebra_dplane_result dplane_sr6_brport_flags(ifindex_t ifindex, bool is_bum);
+enum zebra_dplane_result dplane_sr6_bridge_vlan_add(ifindex_t ifindex, vlanid_t vid, bool untagged,
+						    bool pvid);
+enum zebra_dplane_result dplane_sr6_update_sid(ifindex_t ifindex, const struct in6_addr *sid);
+enum zebra_dplane_result dplane_sr6_program(ifindex_t ifindex, const struct in6_addr *sid,
+					    uint32_t mtu, uint8_t mode);
+void dplane_ctx_set_sr6_sid(struct zebra_dplane_ctx *ctx, const struct in6_addr *sid);
+const struct in6_addr *dplane_ctx_get_sr6_sid(const struct zebra_dplane_ctx *ctx);
+void dplane_ctx_set_br_is_bum(struct zebra_dplane_ctx *ctx, bool is_bum);
+bool dplane_ctx_get_br_is_bum(const struct zebra_dplane_ctx *ctx);
+void dplane_ctx_set_br_vlan(struct zebra_dplane_ctx *ctx, vlanid_t vid, bool untagged, bool pvid);
+vlanid_t dplane_ctx_get_br_vid(const struct zebra_dplane_ctx *ctx);
+bool dplane_ctx_get_br_untagged(const struct zebra_dplane_ctx *ctx);
+bool dplane_ctx_get_br_pvid(const struct zebra_dplane_ctx *ctx);
+
 /*
  * Enqueue tc link changes for the dataplane.
  */
@@ -1082,7 +1123,8 @@ enum zebra_dplane_result dplane_rem_mac_add(const struct interface *ifp,
 					    const struct interface *bridge_ifp, vlanid_t vid,
 					    const struct ethaddr *mac, vni_t vni,
 					    struct ipaddr *vtep_ip, bool sticky, uint32_t nhg_id,
-					    bool was_static);
+					    bool was_static, const struct in6_addr *srv6_sid,
+					    ifindex_t sr6_ifindex);
 
 enum zebra_dplane_result dplane_local_mac_add(const struct interface *ifp,
 					const struct interface *bridge_ifp,
@@ -1102,11 +1144,17 @@ enum zebra_dplane_result dplane_rem_mac_del(const struct interface *ifp,
 					    const struct ethaddr *mac, vni_t vni,
 					    struct ipaddr *vtep_ip);
 
+/* SRv6 L2 EVPN: del a remote MAC via the sr6 (End.DT2U) FDB path (no VXLAN). */
+enum zebra_dplane_result
+dplane_rem_mac_del_sr6(const struct interface *ifp, const struct interface *bridge_ifp,
+		       vlanid_t vid, const struct ethaddr *mac, vni_t vni, struct ipaddr *vtep_ip,
+		       const struct in6_addr *srv6_sid, ifindex_t sr6_ifindex);
+
 /* Helper api to init an empty or new context for a MAC update */
 void dplane_mac_init(struct zebra_dplane_ctx *ctx, const struct interface *ifp,
 		     const struct interface *br_ifp, vlanid_t vid, const struct ethaddr *mac,
 		     vni_t vni, struct ipaddr *vtep_ip, bool sticky, uint32_t nhg_id,
-		     uint32_t update_flags);
+		     uint32_t update_flags, const struct in6_addr *srv6_sid);
 
 /*
  * Enqueue EVPN-MH FDB (L2) nexthop / nexthop-group operations for the

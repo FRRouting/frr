@@ -465,10 +465,13 @@ int zebra_rib_queue_evpn_rem_macip_del(vni_t vni, const struct ethaddr *macaddr,
 				       const struct ipaddr *ip, struct ipaddr *vtep_ip);
 int zebra_rib_queue_evpn_rem_macip_add(vni_t vni, const struct ethaddr *macaddr,
 				       const struct ipaddr *ipaddr, uint8_t flags, uint32_t seq,
-				       struct ipaddr *vtep_ip, const esi_t *esi);
+				       struct ipaddr *vtep_ip, const esi_t *esi,
+				       const struct in6_addr *srv6_sid);
 /* Enqueue VXLAN remote vtep update for processing */
 int zebra_rib_queue_evpn_rem_vtep_add(vrf_id_t vrf_id, vni_t vni, struct ipaddr *vtep_ip,
 				      int flood_control);
+int zebra_rib_queue_evpn_rem_vtep_add_srv6(vrf_id_t vrf_id, vni_t vni, struct ipaddr *vtep_ip,
+					   int flood_control, const struct in6_addr *bum_sid);
 int zebra_rib_queue_evpn_rem_vtep_del(vrf_id_t vrf_id, vni_t vni, struct ipaddr *vtep_ip);
 
 extern void meta_queue_free(struct meta_queue *mq, struct zebra_vrf *zvrf);
