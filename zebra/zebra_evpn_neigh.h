@@ -58,6 +58,12 @@ struct zebra_neigh {
 	/* Underlying interface. */
 	ifindex_t ifindex;
 
+	/*
+	 * Namespace of `ifindex`, for the L3VNI next hops (their SVI or vxlan
+	 * interface may be in the namespace of a VRF).
+	 */
+	ns_id_t ns_id;
+
 	struct zebra_evpn *zevpn;
 
 	/* Refcnt - Only used by SVD neighs currently */
