@@ -1781,6 +1781,16 @@ static bool _netlink_route_encode_label_info(const struct nexthop *nexthop,
 				       label_buf, label_buf_size);
 
 	if (num_labels && nh_label_type == ZEBRA_LSP_EVPN) {
+		/*
+		 * A downstream-VNI label is a route encap only when
+		 * nexthop_set_evpn_dvni_svd() moved the nexthop onto the SVD.
+		 * Without an SVD the nexthop stays on the L3VNI SVI, the kernel
+		 * route is a plain onlink route, and an FPM dataplane gets the
+		 * VNI from nh_encap instead.
+		 */
+		if (!CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_EVPN_SVD))
+			return true;
+
 		if (nexthop->type == NEXTHOP_TYPE_IPV6_IFINDEX &&
 		    !IS_MAPPED_IPV6(&nexthop->gate.ipv6))
 			encap_type = LWTUNNEL_ENCAP_IP6;
@@ -3302,7 +3312,13 @@ ssize_t netlink_nexthop_msg_encode(uint16_t cmd,
 				nh->nh_label, nh->nh_label_type, out_lse,
 				label_buf, sizeof(label_buf));
 
-			if (num_labels && nh->nh_label_type == ZEBRA_LSP_EVPN) {
+			/*
+			 * Without an SVD the kernel nexthop stays on the L3VNI
+			 * SVI with no encap, but an FPM peer using nexthop
+			 * groups gets the downstream VNI only from here.
+			 */
+			if (num_labels && nh->nh_label_type == ZEBRA_LSP_EVPN &&
+			    (fpm || CHECK_FLAG(nh->flags, NEXTHOP_FLAG_EVPN_SVD))) {
 				if (!nl_attr_put16(&req->n, buflen,
 						   NHA_ENCAP_TYPE,
 						   nh_afi))
@@ -3319,7 +3335,7 @@ ssize_t netlink_nexthop_msg_encode(uint16_t cmd,
 
 				nl_attr_nest_end(&req->n, nest);
 
-			} else if (num_labels) {
+			} else if (num_labels && nh->nh_label_type != ZEBRA_LSP_EVPN) {
 				/* Set the BoS bit */
 				out_lse[num_labels - 1] |=
 					htonl(1 << MPLS_LS_S_SHIFT);
