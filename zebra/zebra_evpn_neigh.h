@@ -264,6 +264,7 @@ struct zebra_neigh *zebra_evpn_neigh_lookup(struct zebra_evpn *zevpn,
 
 int zebra_evpn_rem_neigh_install(struct zebra_evpn *zevpn,
 				 struct zebra_neigh *n, bool was_static);
+void zebra_evpn_rem_neigh_svi_down(struct zebra_evpn *zevpn, const struct interface *svi);
 void zebra_evpn_process_neigh_on_remote_mac_add(struct zebra_evpn *zevpn,
 						struct zebra_mac *zmac);
 void zebra_evpn_process_neigh_on_local_mac_del(struct zebra_evpn *zevpn,

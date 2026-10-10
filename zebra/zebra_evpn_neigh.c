@@ -152,6 +152,25 @@ static void zebra_evpn_rem_neigh_to_local(struct zebra_evpn *zevpn, struct zebra
 }
 
 /*
+ * The SVI the remote neighbors are installed on goes down: the kernel
+ * removes them, but the FPM is not told. Send it their removal, and leave
+ * the kernel alone. They are installed again when the SVI comes back up
+ * (`zebra_vxlan_svi_up()`).
+ */
+void zebra_evpn_rem_neigh_svi_down(struct zebra_evpn *zevpn, const struct interface *svi)
+{
+	struct zebra_neigh *n;
+
+	frr_each (zebra_neigh_db, zevpn->neigh_table, n) {
+		if (!CHECK_FLAG(n->flags, ZEBRA_NEIGH_REMOTE) || !IS_ZEBRA_NEIGH_ACTIVE(n))
+			continue;
+
+		ZEBRA_NEIGH_SET_INACTIVE(n);
+		dplane_rem_neigh_delete(svi, &n->ip, true /*skip_kernel*/);
+	}
+}
+
+/*
  * Callback to allocate neighbor hash entry.
  */
 static void *zebra_evpn_neigh_alloc(void *p)

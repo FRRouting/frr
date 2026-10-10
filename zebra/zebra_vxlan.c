@@ -5546,6 +5546,9 @@ int zebra_vxlan_svi_down(struct interface *ifp, struct interface *link_if)
 		zevpn = zebra_evpn_from_svi(ifp, link_if);
 
 		if (zevpn) {
+			/* The kernel removed the remote neighbors: the FPM too. */
+			zebra_evpn_rem_neigh_svi_down(zevpn, ifp);
+
 			/* remove from l3-vni list */
 			zl3vni = zl3vni_from_vrf(zevpn->vrf_id);
 			if (zl3vni)

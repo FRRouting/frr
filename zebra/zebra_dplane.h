@@ -1227,8 +1227,9 @@ enum zebra_dplane_result dplane_local_neigh_add(const struct interface *ifp,
 					  bool set_inactive);
 /*
  * `skip_kernel`: the removal is not sent to the kernel, only to the other
- * dataplane providers (FPM). Used when a remote neighbor turns local: the
- * kernel entry is already the local one.
+ * dataplane providers (FPM). Used when the kernel already replaced or
+ * removed the entry by itself: a remote neighbor turning local (the kernel
+ * entry is the local one), or the SVI it is installed on going down.
  */
 enum zebra_dplane_result dplane_rem_neigh_delete(const struct interface *ifp,
 						 const struct ipaddr *ip, bool skip_kernel);
