@@ -39,6 +39,7 @@ class VtyshException(Exception):
     def __init__(self, *args, **kwargs):
         super(VtyshException, self).__init__(*args)
         self.stderr = kwargs.get("stderr", None)
+        self.stdout = kwargs.get("stdout", None)
 
 
 class Vtysh(object):
@@ -150,6 +151,7 @@ class Vtysh(object):
                 "vtysh (exec file) exited with status %d:\n%s"
                 % (child.returncode, combined),
                 stderr=err,
+                stdout=out,
             )
         # Success: stdout is the CLI session, stderr is vtysh warnings
         # (reconnect). Piping would otherwise drop both.
@@ -2919,6 +2921,7 @@ def exec_delete_lines(vtysh, rundir, entries):
         return True
     except VtyshException as e:
         failed_line_nums = get_failed_line_nums(e.stderr)
+        commit_failed = "% Configuration failed." in (e.stdout or "")
         log.info("Failed to execute deletion script due to\n%s" % (e,))
     finally:
         try:
@@ -2926,7 +2929,7 @@ def exec_delete_lines(vtysh, rundir, entries):
         except OSError:
             pass
 
-    if failed_line_nums:
+    if failed_line_nums and not commit_failed:
         retry = [
             entry
             for entry, (first, last) in zip(entries, entry_lines)
