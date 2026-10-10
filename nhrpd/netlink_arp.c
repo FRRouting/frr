@@ -145,6 +145,37 @@ void netlink_set_nflog_group(int nlgroup)
 	}
 }
 
+/*
+ * The binding of an NHS or a static entry comes from a registration or from
+ * configuration, so no resolution request installs it again once the kernel
+ * has lost its neighbor entry: install it again from the cache. A dynamic
+ * entry (a shortcut, or a client registered with this NHS) is left alone so
+ * that it is resolved or registered again.
+ *
+ * Without an IPsec profile every peer on an enabled interface is online, so
+ * the peer check only holds the binding back while an IPsec SA is missing.
+ */
+static bool nhrp_neighbor_rebind(struct nhrp_cache *c)
+{
+	union sockunion *nbma;
+
+	if (c->cur.type != NHRP_CACHE_NHS && c->cur.type != NHRP_CACHE_STATIC)
+		return false;
+
+	if (!c->cur.peer || !nhrp_peer_check(c->cur.peer, 0))
+		return false;
+
+	nbma = nhrp_cache_nbma(c);
+	if (sockunion_is_null(nbma))
+		return false;
+
+	debugf(NHRP_DEBUG_KERNEL, "Netlink: restore binding for %pSU dev %s to %pSU",
+	       &c->remote_addr, c->ifp->name, nbma);
+	netlink_update_binding(c->ifp, &c->remote_addr, nbma);
+
+	return true;
+}
+
 int nhrp_neighbor_operation(ZAPI_CALLBACK_ARGS)
 {
 	union sockunion addr = {}, lladdr = {};
@@ -201,6 +232,9 @@ int nhrp_neighbor_operation(ZAPI_CALLBACK_ARGS)
 			 */
 			netlink_update_binding(ifp, &addr, &lladdr);
 		}
+	} else if (cmd == ZEBRA_NEIGH_GET && nhrp_neighbor_rebind(c)) {
+		/* who-has for an incomplete entry, answered from the cache */
+		nhrp_cache_set_used(c, 1);
 	} else {
 		state = (cmd == ZEBRA_NEIGH_ADDED) ? ndm_state
 						   : ZEBRA_NEIGH_STATE_FAILED;
