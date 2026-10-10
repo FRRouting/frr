@@ -1,0 +1,33 @@
+OSPF ASBR summary member lifetime tests
+
+aggregate 10.150.0.0/15 is configured                                  OK
+aggregated member is linked before the update                          OK
+changing the tag replaces the external info                            OK
+replaced member is dropped from the aggregate                          OK
+replacement member is linked again by the ADD path                     OK
+deleted member is dropped from the aggregate                           OK
+member of a second instance is linked                                  OK
+implicitly deleted member is dropped from the aggregate                OK
+member used for the field changes is linked                            OK
+metric change drops the old member from the aggregate                  OK
+nexthop change drops the old member from the aggregate                 OK
+ifindex change drops the old member from the aggregate                 OK
+member is linked again after the field changes                         OK
+member deleted after the field changes is dropped                      OK
+nested aggregates 10.151.0.0/15 and /16 are configured                 OK
+member starts in the less specific aggregate                           OK
+member moved out of the less specific aggregate                        OK
+member deleted from the more specific aggregate                        OK
+teardown member is linked to its aggregate                             OK
+releasing the aggregate clears the member backpointer                  OK
+member can still be deleted after the aggregate was freed              OK
+wrong-owner aggregates 10.153.0.0/15 and /16 are configured            OK
+denying route map is available                                         OK
+member is owned by the less specific aggregate                         OK
+filter rejection unlinks from the owning aggregate                     OK
+member survives the filter rejection                                   OK
+member is linked again for the delete case                             OK
+deleting the member unlinks it from the owning aggregate               OK
+aggregate holds no member reference at the end                         OK
+
+result: OK

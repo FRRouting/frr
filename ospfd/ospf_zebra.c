@@ -1512,10 +1512,10 @@ static int ospf_zebra_read_route(ZAPI_CALLBACK_ARGS)
 		 */
 		ospf_external_lsa_default_routemap_apply(ospf, ei, cmd);
 
-		aggr = ospf_external_aggr_match(ospf, &ei->p);
+		aggr = ei->aggr_route;
 
-		if (aggr && (ei->aggr_route == aggr)) {
-			ospf_unlink_ei_from_aggr(ospf, aggr, ei);
+		if (aggr) {
+			ospf_unlink_ei_from_aggr(ospf, ei);
 
 			ospf_external_info_delete(ospf, rt_type, api.instance,
 						  p);
@@ -1685,9 +1685,7 @@ static void ospf_distribute_list_update_timer(struct event *event)
 						 */
 						if (!ospf_redistribute_check(
 							    ospf, ei, NULL)) {
-
-							ospf_unlink_ei_from_aggr(
-								ospf, aggr, ei);
+							ospf_unlink_ei_from_aggr(ospf, ei);
 							continue;
 						}
 
