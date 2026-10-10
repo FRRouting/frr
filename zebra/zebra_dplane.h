@@ -1227,6 +1227,13 @@ enum zebra_dplane_result dplane_rem_neigh_delete(const struct interface *ifp,
 					     const struct ipaddr *ip);
 
 /*
+ * Enqueue the removal of a neighbor zebra installed itself (not an EVPN
+ * remote neighbor), e.g. with `dplane_local_neigh_add()`.
+ */
+enum zebra_dplane_result dplane_local_neigh_delete(const struct interface *ifp,
+						   const struct ipaddr *ip);
+
+/*
  * Enqueue evpn VTEP updates for the dataplane.
  */
 enum zebra_dplane_result dplane_vtep_add(const struct interface *ifp, const struct ipaddr *ip,

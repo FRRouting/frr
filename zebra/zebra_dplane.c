@@ -6597,6 +6597,18 @@ enum zebra_dplane_result dplane_local_neigh_add(const struct interface *ifp,
 }
 
 /*
+ * Enqueue the removal of a neighbor zebra installed itself. Unlike
+ * `dplane_rem_neigh_delete()` it is not flagged remote: a dataplane
+ * provider only getting the EVPN remote neighbors (the FPM) leaves it out.
+ */
+enum zebra_dplane_result dplane_local_neigh_delete(const struct interface *ifp,
+						   const struct ipaddr *ip)
+{
+	return neigh_update_internal(DPLANE_OP_NEIGH_DELETE, ifp, NULL, AF_ETHERNET, ip, 0, 0, 0,
+				     DPLANE_NEIGH_NO_EXTENSION, 0);
+}
+
+/*
  * Enqueue evpn neighbor delete for the dataplane.
  */
 enum zebra_dplane_result dplane_rem_neigh_delete(const struct interface *ifp,
