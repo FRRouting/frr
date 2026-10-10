@@ -2148,10 +2148,12 @@ DEFUNSH(VTYSH_OSPFD, router_ospf, router_ospf_cmd,
 #endif /* HAVE_OSPFD */
 
 #ifdef HAVE_EIGRPD
-DEFUNSH(VTYSH_EIGRPD, router_eigrp, router_eigrp_cmd, "router eigrp (1-65535) [vrf NAME]",
+DEFUNSH(VTYSH_EIGRPD, router_eigrp, router_eigrp_cmd,
+	"router eigrp <(1-65535)|WORD> [vrf NAME]",
 	"Enable a routing process\n"
 	"Start EIGRP configuration\n"
 	"AS number to use\n"
+	"EIGRP named-mode instance name\n"
 	VRF_CMD_HELP_STR)
 {
 	vty->node = EIGRP_NODE;
@@ -5632,6 +5634,11 @@ void vtysh_init_vty(void)
 	/* eigrpd */
 #ifdef HAVE_EIGRPD
 	install_element(CONFIG_NODE, &router_eigrp_cmd);
+	/*
+	 * Allow `router eigrp ...` to re-enter EIGRP router mode from
+	 * EIGRP configuration mode. The daemon owns the XPath/context rewind.
+	 */
+	install_element(EIGRP_NODE, &router_eigrp_cmd);
 	install_element(EIGRP_NODE, &vtysh_exit_eigrpd_cmd);
 	install_element(EIGRP_NODE, &vtysh_quit_eigrpd_cmd);
 	install_element(EIGRP_NODE, &vtysh_end_all_cmd);

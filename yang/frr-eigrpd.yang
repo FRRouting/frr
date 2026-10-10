@@ -55,6 +55,10 @@ module frr-eigrpd {
      (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
      OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.";
 
+  revision 2026-10-08 {
+    description
+      "Add optional named-mode EIGRP configuration extensions.";
+  }
   revision 2019-09-09 {
     description
       "Changed interface references to use
@@ -68,6 +72,11 @@ module frr-eigrpd {
       "RFC 7868: Cisco's Enhanced Interior Gateway Routing Protocol (EIGRP).";
   }
 
+  feature open-eigrp-extensions {
+    description
+      "Enable OpenEIGRP named address families and extended configuration. Disabled by default for the original FRR EIGRP daemon.";
+  }
+
   /*
    * Types specification.
    */
@@ -76,6 +85,32 @@ module frr-eigrpd {
       range "1..65535";
     }
     description "Administrative domain identification for a network";
+  }
+
+  typedef eigrp-redistribution-protocol {
+    type enumeration {
+      enum "connected";
+      enum "static";
+      enum "rip";
+      enum "ospf";
+      enum "isis";
+      enum "bgp";
+      enum "eigrp";
+    }
+    description
+      "Source routing protocols that Cisco EIGRP redistribution and the
+       FRR EIGRP integration can represent.";
+  }
+
+  typedef eigrp-redistribution-route-instance {
+    type uint16 {
+      range "0..65535";
+    }
+    description
+      "Normalized FRR route-instance carried with a redistributed route.
+       Zero is the unqualified/no-route-instance value; a nonzero value is
+       meaningful only for a source protocol whose FRR route entries carry
+       a protocol instance.";
   }
 
   typedef authentication-type {
@@ -157,6 +192,13 @@ module frr-eigrpd {
           range "1..32";
         }
         description "Most number of paths to forward packets to";
+      }
+
+      leaf event-log-size {
+        if-feature "open-eigrp-extensions";
+        type uint32;
+        description
+          "Maximum number of EIGRP diagnostic events retained";
       }
 
       container metric-weights {
@@ -290,6 +332,51 @@ module frr-eigrpd {
         }
       }
     }
+
+    list named {
+      if-feature "open-eigrp-extensions";
+      key "name";
+      description
+        "EIGRP named-mode parent process";
+      leaf name {
+        type string {
+          length "1..64";
+        }
+        description
+          "Case-sensitive local EIGRP process name";
+      }
+      list address-family {
+        key "afi vrf asn";
+        description
+          "Address-family protocol context owned by a named process";
+        leaf afi {
+          type enumeration {
+            enum "ipv4" {
+              value 4;
+              description
+                "IPv4 unicast address family";
+            }
+            enum "ipv6" {
+              value 6;
+              description
+                "IPv6 unicast address family";
+            }
+          }
+          description
+            "Network-layer address family";
+        }
+        leaf vrf {
+          type frr-vrf:vrf-ref;
+          description
+            "Virtual Routing Domain name";
+        }
+        leaf asn {
+          type autonomous-system;
+          description
+            "EIGRP autonomous-system number for this address family";
+        }
+      }
+    }
   }
 
   /*
@@ -372,4 +459,586 @@ module frr-eigrpd {
        }
      }
    }
+
+  augment "/eigrpd/named/address-family" {
+    if-feature "open-eigrp-extensions";
+    list af-interface {
+      key "interface";
+      description
+        "Interface or default interface template configuration";
+      leaf interface {
+        type string {
+          length "1..255";
+        }
+        description
+          "Host interface name or the special default template";
+      }
+      leaf bandwidth-percent {
+        type uint32 {
+          range "1..999999";
+        }
+        description
+          "Maximum percentage of interface bandwidth used by EIGRP";
+      }
+      leaf bandwidth {
+        type uint32 {
+          range "1..10000000";
+        }
+        units "kilobits per second";
+        description
+          "EIGRP interface bandwidth informational parameter";
+      }
+      leaf delay {
+        type uint32 {
+          range "1..16777215";
+        }
+        units "tens of microseconds";
+        description
+          "EIGRP interface throughput delay";
+      }
+      leaf hello-interval {
+        type uint16 {
+          range "1..65535";
+        }
+        units "seconds";
+        description
+          "EIGRP hello interval";
+      }
+      leaf hold-time {
+        type uint16 {
+          range "1..65535";
+        }
+        units "seconds";
+        description
+          "EIGRP neighbor hold time";
+      }
+      leaf passive-interface {
+        type empty;
+        description
+          "Suppress EIGRP hello packets and updates";
+      }
+      leaf authentication-mode {
+        type authentication-type;
+        must ". != 'hmac-sha-256' or (../authentication-encryption-type and ../authentication-password)";
+        description
+          "EIGRP packet authentication mode";
+      }
+      leaf authentication-encryption-type {
+        when "../authentication-mode = 'hmac-sha-256'";
+        type uint8 {
+          range "0 | 7";
+        }
+        description
+          "Cisco password encoding selector for HMAC SHA-256";
+      }
+      leaf authentication-password {
+        when "../authentication-mode = 'hmac-sha-256'";
+        type string {
+          length "1..32";
+        }
+        description
+          "HMAC SHA-256 authentication password";
+      }
+      leaf authentication-key-chain {
+        type string;
+        description
+          "Host key-chain name used for EIGRP authentication";
+      }
+      leaf next-hop-self {
+        type boolean;
+        default "true";
+        description
+          "Advertise the local outbound interface as next hop";
+      }
+      leaf split-horizon {
+        type boolean;
+        default "true";
+        description
+          "Enable EIGRP split horizon on this interface";
+      }
+      list summary-address {
+        key "prefix";
+        description
+          "Manual summary configured on this address-family interface";
+        leaf prefix {
+          type inet:ip-prefix;
+          description
+            "IPv4 or IPv6 summary prefix";
+        }
+        leaf administrative-distance {
+          type uint8 {
+            range "1..255";
+          }
+          description
+            "Administrative distance for the summary route";
+        }
+        leaf leak-map {
+          when "../administrative-distance";
+          type string {
+            length "1..255";
+          }
+          description
+            "Route-map used to leak component routes";
+        }
+      }
+      leaf shutdown {
+        type empty;
+        description
+          "Administratively disable EIGRP on this AF interface";
+      }
+    }
+  }
+
+  augment "/eigrpd/named/address-family" {
+    if-feature "open-eigrp-extensions";
+    leaf router-id {
+      type inet:ipv4-address;
+      description
+        "Router identification for this address-family context";
+    }
+    leaf-list network {
+      type inet:ipv4-prefix;
+      description
+        "IPv4 networks enabled in this named address family";
+    }
+    list neighbor {
+      key "address interface";
+      description
+        "Static EIGRP neighbor for this named address family";
+      leaf address {
+        type inet:ip-address;
+        description
+          "Neighbor IPv4 or IPv6 address";
+      }
+      leaf interface {
+        type frr-interface:interface-ref;
+        description
+          "Interface used to reach the configured neighbor";
+      }
+    }
+    list neighbor-policy {
+      key "address";
+      description
+        "Per-neighbor EIGRP policy and metadata";
+      leaf address {
+        type inet:ip-address;
+      }
+      leaf description {
+        type string {
+          length "1..80";
+        }
+      }
+      container maximum-prefix {
+        presence "Configure a per-neighbor prefix limit";
+        leaf maximum {
+          type uint32 {
+            range "1..4294967295";
+          }
+          mandatory true;
+        }
+        leaf threshold {
+          type uint8 {
+            range "1..100";
+          }
+        }
+        leaf warning-only {
+          type empty;
+        }
+      }
+    }
+    container neighbor-maximum-prefix {
+      presence "Configure a prefix limit for all neighbors";
+      leaf maximum {
+        type uint32 {
+          range "1..4294967295";
+        }
+        mandatory true;
+      }
+      leaf threshold {
+        type uint8 {
+          range "1..100";
+        }
+      }
+      leaf warning-only {
+        type empty;
+      }
+      leaf dampened {
+        type empty;
+      }
+      leaf reset-time {
+        type uint16 {
+          range "1..65535";
+        }
+      }
+      leaf restart {
+        type uint16 {
+          range "1..65535";
+        }
+      }
+      leaf restart-count {
+        type uint16 {
+          range "1..65535";
+        }
+      }
+    }
+    leaf log-neighbor-changes {
+      type boolean;
+      description
+        "Explicit neighbor adjacency-change logging state";
+    }
+    container log-neighbor-warnings {
+      presence "Configure neighbor warning logging";
+      leaf enabled {
+        type boolean;
+        mandatory true;
+      }
+      leaf interval {
+        type uint16 {
+          range "1..65535";
+        }
+      }
+    }
+    container metric-weights {
+      presence "Configure EIGRP metric coefficients";
+      description
+        "Address-family metric weights: TOS, K1 through K5, and optional RFC 7868 K6";
+      leaf tos {
+        type uint8 {
+          range "0";
+        }
+        mandatory true;
+      }
+      leaf K1 {
+        type uint8;
+        mandatory true;
+      }
+      leaf K2 {
+        type uint8;
+        mandatory true;
+      }
+      leaf K3 {
+        type uint8;
+        mandatory true;
+      }
+      leaf K4 {
+        type uint8;
+        mandatory true;
+      }
+      leaf K5 {
+        type uint8;
+        mandatory true;
+      }
+      leaf K6 {
+        type uint8;
+      }
+    }
+    leaf shutdown {
+      type empty;
+      description
+        "Administratively disable this address-family context";
+    }
+  }
+
+  augment "/eigrpd/named/address-family" {
+    if-feature "open-eigrp-extensions";
+    container topology {
+      presence "Configure the EIGRP base topology";
+      description
+        "Base topology configuration for this named address family";
+      leaf auto-summary {
+        type empty;
+        description
+          "Enable automatic classful summarization";
+      }
+      container default-information-in {
+        presence "Accept exterior or default routing information";
+        leaf access-list {
+          type string {
+            length "1..255";
+          }
+        }
+      }
+      container default-information-out {
+        presence "Advertise exterior or default routing information";
+        leaf access-list {
+          type string {
+            length "1..255";
+          }
+        }
+      }
+      container default-metric {
+        presence "Configure a default redistribution metric";
+        leaf bandwidth {
+          type uint32 {
+            range "1..4294967295";
+          }
+          mandatory true;
+        }
+        leaf delay {
+          type uint32;
+          mandatory true;
+        }
+        leaf reliability {
+          type uint8;
+          mandatory true;
+        }
+        leaf load {
+          type uint8 {
+            range "1..255";
+          }
+          mandatory true;
+        }
+        leaf mtu {
+          type uint16 {
+            range "1..65535";
+          }
+          mandatory true;
+        }
+      }
+      container distance {
+        presence "Configure EIGRP administrative distances";
+        leaf internal {
+          type uint8 {
+            range "1..255";
+          }
+          mandatory true;
+        }
+        leaf external {
+          type uint8 {
+            range "1..255";
+          }
+          mandatory true;
+        }
+      }
+      container maximum-prefix {
+        presence "Configure a topology prefix limit";
+        leaf maximum {
+          type uint32 {
+            range "1..4294967295";
+          }
+          mandatory true;
+        }
+        leaf threshold {
+          type uint8 {
+            range "1..100";
+          }
+        }
+        leaf warning-only {
+          type empty;
+        }
+        leaf dampened {
+          type empty;
+        }
+        leaf reset-time {
+          type uint16 {
+            range "1..65535";
+          }
+        }
+        leaf restart {
+          type uint16 {
+            range "1..65535";
+          }
+        }
+        leaf restart-count {
+          type uint16 {
+            range "1..65535";
+          }
+        }
+      }
+      leaf maximum-paths {
+        type uint8 {
+          range "1..32";
+        }
+      }
+      leaf metric-maximum-hops {
+        type uint8 {
+          range "1..255";
+        }
+      }
+      leaf metric-version-32bit {
+        type empty;
+      }
+      leaf event-log-size {
+        type uint32;
+      }
+      uses frr-filter:distribute-list-group;
+      list offset-list {
+        key "access-list direction interface";
+        description
+          "Metric offset applied to incoming or outgoing updates";
+        leaf access-list {
+          type string {
+            length "1..255";
+          }
+        }
+        leaf direction {
+          type enumeration {
+            enum "in";
+            enum "out";
+          }
+        }
+        leaf interface {
+          type string;
+          description
+            "Interface name, or empty for all interfaces";
+        }
+        leaf offset {
+          type uint32 {
+            range "0..2147483647";
+          }
+          mandatory true;
+        }
+      }
+      list redistribute {
+        key "protocol route-instance";
+        description
+          "Routes redistributed into this EIGRP topology";
+        leaf protocol {
+          type eigrp-redistribution-protocol;
+          description
+            "Source routing protocol";
+        }
+        leaf route-instance {
+          type eigrp-redistribution-route-instance;
+          must "../protocol != 'eigrp' or . != 0" {
+            error-message
+              "EIGRP redistribution requires the source EIGRP AS as its route instance";
+          }
+          must "../protocol = 'eigrp' or ../protocol = 'ospf' or . = 0" {
+            error-message
+              "This source protocol has no distinct FRR route instance; use zero";
+          }
+          description
+            "Source route-instance using FRR redistribution semantics. EIGRP
+             uses the source AS as a nonzero route instance. OSPF may use its
+             FRR process instance; zero represents an unqualified OSPF
+             subscription. Connected, static, RIP, IS-IS, and BGP use zero
+             because FRR does not carry a distinct route instance for those
+             route types. A BGP ASN or IS-IS area tag is a protocol
+             configuration identity, not an FRR route-instance value, and is
+             not encoded in this key.";
+        }
+        leaf route-map {
+          type string {
+            length "1..255";
+          }
+          description
+            "Route-map applied to redistributed routes";
+        }
+        container metrics {
+          presence "Configure an explicit redistribution metric";
+          leaf bandwidth {
+            type uint32 {
+              range "1..4294967295";
+            }
+            mandatory true;
+          }
+          leaf delay {
+            type uint32;
+            mandatory true;
+          }
+          leaf reliability {
+            type uint8;
+            mandatory true;
+          }
+          leaf load {
+            type uint8 {
+              range "1..255";
+            }
+            mandatory true;
+          }
+          leaf mtu {
+            type uint16 {
+              range "1..65535";
+            }
+            mandatory true;
+          }
+        }
+      }
+      container redistribute-maximum-prefix {
+        presence "Configure a redistributed-route prefix limit";
+        leaf maximum {
+          type uint32 {
+            range "1..4294967295";
+          }
+          mandatory true;
+        }
+        leaf threshold {
+          type uint8 {
+            range "1..100";
+          }
+        }
+        leaf warning-only {
+          type empty;
+        }
+        leaf dampened {
+          type empty;
+        }
+        leaf reset-time {
+          type uint16 {
+            range "1..65535";
+          }
+        }
+        leaf restart {
+          type uint16 {
+            range "1..65535";
+          }
+        }
+        leaf restart-count {
+          type uint16 {
+            range "1..65535";
+          }
+        }
+      }
+      list summary-metric {
+        key "prefix";
+        description
+          "Fixed metric for an IPv4 or IPv6 summary aggregate";
+        leaf prefix {
+          type inet:ip-prefix;
+        }
+        leaf bandwidth {
+          type uint32 {
+            range "1..4294967295";
+          }
+        }
+        leaf delay {
+          type uint32;
+        }
+        leaf reliability {
+          type uint8;
+        }
+        leaf load {
+          type uint8 {
+            range "1..255";
+          }
+        }
+        leaf mtu {
+          type uint16 {
+            range "1..65535";
+          }
+        }
+        leaf distance {
+          type uint8 {
+            range "1..255";
+          }
+        }
+      }
+      leaf active-time {
+        type uint16;
+        description
+          "Active-state time limit in minutes; zero means disabled";
+      }
+      leaf traffic-share-balanced {
+        type boolean;
+        description
+          "Whether unequal-cost eligible routes share traffic";
+      }
+      leaf variance {
+        type uint8 {
+          range "1..128";
+        }
+      }
+    }
+  }
 }
