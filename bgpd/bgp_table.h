@@ -96,7 +96,7 @@ struct bgp_dest {
 
 	struct bgp_ls_nlri *ls_nlri;
 
-	struct bgp_attr_srv6_l3service *srv6_unicast;
+	struct bgp_attr_srv6_service *srv6_unicast;
 
 	uint16_t flags;
 #define BGP_NODE_PROCESS_SCHEDULED	(1 << 0)
