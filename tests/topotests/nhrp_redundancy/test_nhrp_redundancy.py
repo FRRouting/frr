@@ -501,6 +501,38 @@ def test_redundancy_shortcut_backup():
     assert result is None, assertmsg
 
 
+def test_nhs_binding_restored_after_neighbor_failure():
+    """
+    Fail the kernel neighbor entry of a registered NHS on a client and verify
+    nhrpd installs the binding again when the kernel asks for it
+    """
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    nhc1 = tgen.gears["nhc1"]
+
+    def _nhs_reachable():
+        output = nhc1.run("ping 172.16.1.3 -c 1 -W 1")
+        return True if " 0% packet loss" in output else output
+
+    _, result = topotest.run_and_expect(_nhs_reachable, True, count=20, wait=1)
+    assert result is True, "nhc1 cannot reach nhs3 before the test: {}".format(result)
+
+    logger.info("Failing the kernel neighbor entry of nhs3 on nhc1")
+    # "replace" also works when the kernel has already dropped the entry. The
+    # state is only logged: registration traffic uses this tunnel, so nhrpd may
+    # have restored the entry before it is read back.
+    nhc1.cmd_raises(
+        "ip neigh replace 172.16.1.3 dev nhc1-gre0 lladdr 192.168.1.3 nud failed"
+    )
+    logger.info(nhc1.run("ip neigh show 172.16.1.3 dev nhc1-gre0"))
+
+    _, result = topotest.run_and_expect(_nhs_reachable, True, count=20, wait=1)
+    assertmsg = "nhc1 neighbor binding for nhs3 was not restored: {}".format(result)
+    assert result is True, assertmsg
+
+
 def test_memory_leak():
     "Run the memory leak test and report results."
     tgen = get_topogen()
