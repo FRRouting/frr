@@ -15,7 +15,7 @@ import pytest
 from lib import topotest
 from lib.topogen import Topogen, get_topogen
 
-pytestmark = [pytest.mark.ospfd]
+pytestmark = [pytest.mark.ospfd, pytest.mark.staticd]
 CWD = os.path.dirname(os.path.realpath(__file__))
 PREFIX = "198.51.100.99/32"
 
@@ -50,6 +50,37 @@ def _healthy():
         if not any(r.get("installed") for r in routes.get(remote, [])):
             return "{} control route is missing".format(name)
     return None
+
+
+def _neighbor_epochs():
+    """Bound the last progressive state change using the real CLI uptime."""
+    epochs = {}
+    for name, router in get_topogen().routers().items():
+        before = time.monotonic()
+        neighbors = json.loads(router.vtysh_cmd("show ip ospf neighbor json"))
+        after = time.monotonic()
+        rows = [n for group in neighbors["neighbors"].values() for n in group]
+        assert len(rows) == 1 and rows[0]["nbrState"].startswith("Full")
+        age = rows[0]["upTimeInMsec"] / 1000
+        assert after - before < 1, "Neighbor observation took too long"
+        epochs[name] = (before - age, after - age)
+    return epochs
+
+
+def _assert_neighbor_continuity(initial, label):
+    current = _neighbor_epochs()
+    for name, (lower, upper) in current.items():
+        old_lower, old_upper = initial[name]
+        # The uptime must advance with elapsed time. Merely increasing can
+        # miss a reset followed by reconvergence during a long capture.
+        assert lower <= old_upper + 0.2 and upper >= old_lower - 0.2, (
+            name,
+            label,
+            initial[name],
+            current[name],
+        )
+    path = Path(get_topogen().gears["r1"].gearlogdir) / (label + "-neighbors.json")
+    path.write_text(json.dumps({"initial": initial, "current": current}, indent=2))
 
 
 def _sent_at(path):
@@ -143,6 +174,10 @@ def test_live_retransmit_set_unset_and_address_override():
     _, result = topotest.run_and_expect(_healthy, None, count=60, wait=1)
     assert result is None, result
     r1, r2 = tgen.gears["r1"], tgen.gears["r2"]
+    # Ensure a very recent initial Full transition cannot fit the tolerance
+    # used to compare CLI observation windows after each configuration change.
+    time.sleep(1)
+    epochs = _neighbor_epochs()
     pids = [r.cmd("cat /var/run/frr/ospfd.pid").strip() for r in [r1, r2]]
     try:
         # Drop only the peer's ordinary LSAcks so native LSUs repeat. Hellos,
@@ -166,6 +201,7 @@ def test_live_retransmit_set_unset_and_address_override():
             if command:
                 r1.vtysh_cmd("configure terminal\ninterface r1-eth0\n" + command)
             _observe(r1, label, expected)
+            _assert_neighbor_continuity(epochs, label)
             assert pids == [
                 r.cmd("cat /var/run/frr/ospfd.pid").strip() for r in [r1, r2]
             ]
