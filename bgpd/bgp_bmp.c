@@ -3248,16 +3248,6 @@ DEFPY(bmp_connect,
 		return CMD_SUCCESS;
 	}
 
-	if (vrfname) {
-		struct vrf *vrf = vrf_lookup_by_name(vrfname);
-
-		if (!vrf || !vrf_is_enabled(vrf) ||
-		    vrf->vrf_id == VRF_UNKNOWN) {
-			vty_out(vty, "%% VRF %s not available\n", vrfname);
-			return CMD_WARNING;
-		}
-	}
-
 	ba = bmp_active_get(bt, hostname, port);
 	if (srcif) {
 		if (ba->ifsrc)
