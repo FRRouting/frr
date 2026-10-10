@@ -1805,18 +1805,38 @@ static int zl3vni_nh_uninstall(struct zebra_l3vni *zl3vni,
 
 /*
  * Install SVD remote nh as neigh into the kernel.
+ *
+ * The SVD table is shared by all the SVD backed L3VNIs, which may not all
+ * use the same vxlan interface: remember the one the entry is installed on
+ * (`ifindex`), to remove it from there.
  */
 static int svd_nh_install(struct zebra_l3vni *zl3vni, struct zebra_neigh *n)
 {
-	return _nh_install(zl3vni, zl3vni->vxlan_if, n);
+	int ret;
+
+	ret = _nh_install(zl3vni, zl3vni->vxlan_if, n);
+	if (ret == 0)
+		n->ifindex = zl3vni->vxlan_if->ifindex;
+
+	return ret;
 }
 
 /*
- * Uninstall SVD remote nh from the kernel.
+ * Uninstall SVD remote nh from the kernel, from the vxlan interface it was
+ * installed on.
  */
 static int svd_nh_uninstall(struct zebra_l3vni *zl3vni, struct zebra_neigh *n)
 {
-	return _nh_uninstall(zl3vni->vxlan_if, n);
+	struct interface *ifp = zl3vni->vxlan_if;
+
+	if (n->ifindex != IFINDEX_INTERNAL) {
+		if (!ifp || ifp->ifindex != n->ifindex)
+			ifp = if_lookup_by_index(n->ifindex, ifp ? ifp->vrf->vrf_id : VRF_DEFAULT);
+
+		n->ifindex = IFINDEX_INTERNAL;
+	}
+
+	return _nh_uninstall(ifp, n);
 }
 
 /* Check for stale RMAC and delete if exists */
@@ -2016,6 +2036,7 @@ static int svd_remote_nh_add(struct zebra_l3vni *zl3vni,
 			     const struct prefix *host_prefix)
 {
 	struct zebra_neigh *nh = NULL;
+	struct interface *ifp;
 
 	/* SVD backed VNI check */
 	if (!IS_ZL3VNI_SVD_BACKED(zl3vni))
@@ -2063,8 +2084,20 @@ static int svd_remote_nh_add(struct zebra_l3vni *zl3vni,
 			 vtep_ip, nh->refcnt);
 
 		memcpy(&nh->emac, rmac, ETH_ALEN);
-		/* install (update) the nh neigh in kernel */
-		svd_nh_install(zl3vni, nh);
+
+		/*
+		 * Update (install) the nh neigh in kernel where it is
+		 * installed: the entry is shared by the SVD backed L3VNIs, and
+		 * may be installed on the vxlan interface of another one, which
+		 * would lose it if it moved to this one.
+		 */
+		ifp = NULL;
+		if (nh->ifindex != IFINDEX_INTERNAL)
+			ifp = if_lookup_by_index(nh->ifindex, zl3vni->vxlan_if->vrf->vrf_id);
+		if (!ifp)
+			ifp = zl3vni->vxlan_if;
+		if (_nh_install(zl3vni, ifp, nh) == 0)
+			nh->ifindex = ifp->ifindex;
 
 		/* Don't increment refcnt change */
 		return 0;
