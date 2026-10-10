@@ -4231,12 +4231,6 @@ int dplane_ctx_route_init(struct zebra_dplane_ctx *ctx, enum dplane_op_e op,
 	}
 #endif /* HAVE_NETLINK */
 
-	/* Trying out the sequence number idea, so we can try to detect
-	 * when a result is stale.
-	 */
-	re->dplane_sequence = zebra_router_get_next_sequence();
-	ctx->zd_seq = re->dplane_sequence;
-
 	return AOK;
 }
 
@@ -4932,6 +4926,17 @@ dplane_route_update_internal(struct route_node *rn,
 	/* Init context with info from zebra data structs */
 	ret = dplane_ctx_route_init(ctx, op, rn, re);
 	if (ret == AOK) {
+		/*
+		 * Stamp the entry with this operation's sequence number: it
+		 * is the identity used to match the result back to the entry.
+		 * Done here rather than in dplane_ctx_route_init() because
+		 * this is the only caller whose result comes back to the rib.
+		 * Other callers just build a context from an entry, and must
+		 * not overwrite the identity of an operation in flight.
+		 */
+		re->dplane_sequence = zebra_router_get_next_sequence();
+		ctx->zd_seq = re->dplane_sequence;
+
 		/* Capture some extra info for update case
 		 * where there's a different 'old' route.
 		 */
@@ -8305,6 +8310,27 @@ void zebra_dplane_finish(void)
 			NULL, 0, &zdplane_info.dg_t_shutdown_check);
 }
 
+#ifdef DEV_BUILD
+/*
+ * When set, dplane_thread_loop leaves new contexts on the incoming queue
+ * instead of handing them to the first provider.
+ */
+static _Atomic bool dplane_install_plugged;
+
+void zebra_dplane_install_plug(void)
+{
+	atomic_store_explicit(&dplane_install_plugged, true, memory_order_relaxed);
+}
+
+void zebra_dplane_install_unplug(void)
+{
+	atomic_store_explicit(&dplane_install_plugged, false, memory_order_relaxed);
+
+	/* Wake the dplane thread so queued contexts are sent. */
+	dplane_provider_work_ready();
+}
+#endif
+
 /*
  * Main dataplane pthread event loop. The thread takes new incoming work
  * and offers it to the first provider. It then iterates through the
@@ -8325,6 +8351,9 @@ static void dplane_thread_loop(struct event *event)
 	int limit, counter, error_counter;
 	uint64_t curr, out_curr, high;
 	bool reschedule = false;
+#ifdef DEV_BUILD
+	bool install_plugged = false;
+#endif
 
 	/* Capture work limit per cycle */
 	limit = zdplane_info.dg_updates_per_cycle;
@@ -8338,6 +8367,19 @@ static void dplane_thread_loop(struct event *event)
 	/* Check for zebra shutdown */
 	if (!zdplane_info.dg_run)
 		return;
+
+#ifdef DEV_BUILD
+	/*
+	 * Test plug: hold new contexts on the incoming queue instead of
+	 * sending them to the first provider.
+	 */
+	install_plugged = atomic_load_explicit(&dplane_install_plugged, memory_order_relaxed);
+	if (install_plugged) {
+		if (IS_ZEBRA_DEBUG_DPLANE_DETAIL)
+			zlog_debug("%s: dplane install plugged, holding off new work", __func__);
+		return;
+	}
+#endif
 
 	/* Dequeue some incoming work from zebra (if any) onto the temporary
 	 * working list.

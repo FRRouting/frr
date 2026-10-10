@@ -373,7 +373,7 @@ bool tib_sg_gm_join(struct pim_instance *pim, pim_sgaddr sg,
 			if (PIM_DEBUG_GRAFT)
 				zlog_debug("%s: Evaluating c_oil for DM graft", __func__);
 
-			if (!pim_addr_cmp(sg.grp, *oil_mcastgrp(c_oil))) {
+			if (!pim_addr_cmp(sg.grp, c_oil->group)) {
 				if (c_oil->up && PIM_UPSTREAM_DM_TEST_PRUNE(c_oil->up->flags)) {
 					struct interface *ifp =
 						c_oil->up->rpf.source_nexthop.interface;
@@ -470,7 +470,7 @@ void tib_sg_gm_prune(struct pim_instance *pim, pim_sgaddr sg,
 	}
 
 	/* dm: check if we need to send a prune message */
-	if ((*oilp)->oil_size == 0) {
+	if (channel_oif_list_count(&(*oilp)->oif_list) == 0) {
 		/* Not forwarding to any other interfaces, prune it */
 		/* Only if the upstream is dense and group is dense */
 		if (pim_iface_grp_dm(pim_oif, sg.grp) && HAVE_DENSE_MODE(pim_oif->pim_mode)) {
