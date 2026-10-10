@@ -6783,6 +6783,17 @@ void dplane_vtep_init(struct zebra_dplane_ctx *ctx, const struct interface *ifp,
 }
 
 /*
+ * Helper api to init an empty or new context for a remote neighbor add:
+ * the same context dplane_rem_neigh_add() enqueues.
+ */
+void dplane_rem_neigh_init(struct zebra_dplane_ctx *ctx, const struct interface *ifp,
+			   const struct ipaddr *ip, const struct ethaddr *mac, uint32_t flags)
+{
+	dplane_neigh_init(ctx, ifp, mac, AF_ETHERNET, ip, 0 /*vni*/, flags, DPLANE_NUD_NOARP,
+			  DPLANE_NEIGH_REMOTE, 0);
+}
+
+/*
  * Common helper api for neighbor updates
  */
 static enum zebra_dplane_result

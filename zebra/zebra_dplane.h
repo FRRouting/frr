@@ -1245,6 +1245,10 @@ enum zebra_dplane_result dplane_vtep_delete(const struct interface *ifp, const s
 void dplane_vtep_init(struct zebra_dplane_ctx *ctx, const struct interface *ifp,
 		      const struct ipaddr *ip, vni_t vni);
 
+/* Helper api to init an empty or new context for a remote neighbor add */
+void dplane_rem_neigh_init(struct zebra_dplane_ctx *ctx, const struct interface *ifp,
+			   const struct ipaddr *ip, const struct ethaddr *mac, uint32_t flags);
+
 /*
  * Enqueue a neighbour discovery request for the dataplane.
  */

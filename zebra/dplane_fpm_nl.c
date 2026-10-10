@@ -41,6 +41,7 @@
 #include "zebra/zebra_vxlan_private.h"
 #include "zebra/zebra_evpn.h"
 #include "zebra/zebra_evpn_mac.h"
+#include "zebra/zebra_evpn_neigh.h"
 #include "zebra/zebra_evpn_mh.h"
 #include "zebra/kernel_netlink.h"
 #include "zebra/rt_netlink.h"
@@ -1420,14 +1421,15 @@ static void fpm_rib_send(struct event *t)
 }
 
 /*
- * The next functions will handle RMAC, EVPN-MH next hop, L2VNI remote MAC
- * and flood list enqueue.
+ * The next functions will handle RMAC, EVPN-MH next hop, L2VNI remote MAC,
+ * remote neighbor and flood list enqueue.
  */
 struct fpm_evpn_arg {
 	struct zebra_dplane_ctx *ctx;
 	struct fpm_nl_ctx *fnc;
 	struct zebra_l3vni *zl3vni;
 	struct zebra_evpn *zevpn;
+	struct interface *svi;
 	bool complete;
 };
 
@@ -1642,14 +1644,49 @@ static void fpm_enqueue_l2vni_vtep(struct fpm_evpn_arg *fra, struct zebra_vtep *
 	SET_FLAG(zvtep->flags, ZEBRA_VTEP_FPM_SENT);
 }
 
+/*
+ * L2VNI remote neighbors: the same entries `zebra_evpn_rem_neigh_install()`
+ * programs on the SVI.
+ */
+static void fpm_enqueue_l2vni_neigh(struct fpm_evpn_arg *fra, struct zebra_neigh *n)
+{
+	struct zebra_vrf *zvrf = zebra_vrf_get_evpn();
+	uint32_t flags;
+
+	if (!CHECK_FLAG(n->flags, ZEBRA_NEIGH_REMOTE) || !IS_ZEBRA_NEIGH_ACTIVE(n) ||
+	    CHECK_FLAG(n->flags, ZEBRA_NEIGH_FPM_SENT) || !fra->complete)
+		return;
+
+	/* Duplicate neighbor updates are not installed while frozen. */
+	if (CHECK_FLAG(n->flags, ZEBRA_NEIGH_DUPLICATE) && zvrf && zvrf->dad_freeze)
+		return;
+
+	flags = DPLANE_NTF_EXT_LEARNED;
+	if (CHECK_FLAG(n->flags, ZEBRA_NEIGH_ROUTER_FLAG))
+		flags |= DPLANE_NTF_ROUTER;
+
+	dplane_ctx_reset(fra->ctx);
+	dplane_ctx_set_op(fra->ctx, DPLANE_OP_NEIGH_INSTALL);
+	dplane_rem_neigh_init(fra->ctx, fra->svi, &n->ip, &n->emac, flags);
+	if (fpm_nl_enqueue(fra->fnc, fra->ctx) == -1) {
+		event_add_timer(zrouter.master, fpm_evpn_send, fra->fnc, 1, &fra->fnc->t_evpnwalk);
+		fra->complete = false;
+		return;
+	}
+
+	SET_FLAG(n->flags, ZEBRA_NEIGH_FPM_SENT);
+}
+
 static void fpm_enqueue_l2vni_table(struct hash_bucket *bucket, void *arg)
 {
 	struct fpm_evpn_arg *fra = arg;
 	struct zebra_evpn *zevpn = bucket->data;
 	struct zebra_vtep *zvtep;
+	struct zebra_neigh *n;
 	struct zebra_if *zif;
 
-	if (!zevpn->vxlan_if)
+	/* The output buffer is full: the walk restarts later. */
+	if (!zevpn->vxlan_if || !fra->complete)
 		return;
 
 	fra->zevpn = zevpn;
@@ -1658,10 +1695,31 @@ static void fpm_enqueue_l2vni_table(struct hash_bucket *bucket, void *arg)
 
 	/* Remote MACs are only installed on a bridged VXLAN interface. */
 	zif = zevpn->vxlan_if->info;
-	if (!zif || !zif->brslave_info.br_if || !zevpn->mac_table)
+	if (!zif || !zif->brslave_info.br_if)
 		return;
 
-	hash_iterate(zevpn->mac_table, fpm_enqueue_l2vni_mac_table, fra);
+	if (zevpn->mac_table)
+		hash_iterate(zevpn->mac_table, fpm_enqueue_l2vni_mac_table, fra);
+
+	/*
+	 * Remote neighbors are only installed on the VNI's SVI: look it up
+	 * (an interface walk on a VLAN aware bridge) only when one is still to
+	 * be sent, not on every walk restart.
+	 */
+	fra->svi = NULL;
+	frr_each (zebra_neigh_db, zevpn->neigh_table, n) {
+		if (!CHECK_FLAG(n->flags, ZEBRA_NEIGH_REMOTE) || !IS_ZEBRA_NEIGH_ACTIVE(n) ||
+		    CHECK_FLAG(n->flags, ZEBRA_NEIGH_FPM_SENT))
+			continue;
+
+		if (!fra->svi) {
+			fra->svi = zevpn_map_to_svi(zevpn, true);
+			if (!fra->svi)
+				break;
+		}
+
+		fpm_enqueue_l2vni_neigh(fra, n);
+	}
 }
 
 static void fpm_evpn_send(struct event *t)
@@ -1766,8 +1824,8 @@ static void fpm_rib_reset(struct event *t)
 }
 
 /*
- * The next functions will handle RMAC, EVPN-MH next hop, L2VNI remote MAC
- * and flood list reset.
+ * The next functions will handle RMAC, EVPN-MH next hop, L2VNI remote MAC,
+ * remote neighbor and flood list reset.
  */
 static void fpm_unset_mac_table(struct hash_bucket *bucket, void *arg)
 {
@@ -1787,12 +1845,16 @@ static void fpm_unset_l2vni_table(struct hash_bucket *bucket, void *arg)
 {
 	struct zebra_evpn *zevpn = bucket->data;
 	struct zebra_vtep *zvtep;
+	struct zebra_neigh *n;
 
 	for (zvtep = zevpn->vteps; zvtep; zvtep = zvtep->next)
 		UNSET_FLAG(zvtep->flags, ZEBRA_VTEP_FPM_SENT);
 
 	if (zevpn->mac_table)
 		hash_iterate(zevpn->mac_table, fpm_unset_mac_table, NULL);
+
+	frr_each (zebra_neigh_db, zevpn->neigh_table, n)
+		UNSET_FLAG(n->flags, ZEBRA_NEIGH_FPM_SENT);
 }
 
 static void fpm_unset_l2_nh(struct hash_bucket *bucket, void *arg)
