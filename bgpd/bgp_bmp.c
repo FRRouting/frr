@@ -3541,24 +3541,16 @@ DEFPY(show_bmp,
 			ttable_rowseps(tt, 0, BOTTOM, true, '-');
 			frr_each (bmp_actives, &bt->actives, ba) {
 				const char *state_str = "?";
-				char remote[128];
-
-				if (ba->vrfname)
-					snprintfrr(remote, sizeof(remote),
-						   "%s:%d vrf %s", ba->hostname,
-						   ba->port, ba->vrfname);
-				else
-					snprintfrr(remote, sizeof(remote),
-						   "%s:%d", ba->hostname,
-						   ba->port);
 
 				if (ba->bmp) {
 					peer_uptime(ba->bmp->t_up.tv_sec,
 						    uptime, sizeof(uptime),
 						    false, NULL);
 					ttable_add_row(tt,
-						       "%s|Up|%s|%s|%pSU",
-						       remote,
+						       "%s:%d%s%s|Up|%s|%s|%pSU",
+						       ba->hostname, ba->port,
+						       ba->vrfname ? " vrf " : "",
+						       ba->vrfname ? ba->vrfname : "",
 						       ba->bmp->remote, uptime,
 						       &ba->addrsrc);
 					continue;
@@ -3580,8 +3572,11 @@ DEFPY(show_bmp,
 					state_str = "Resolving";
 				}
 
-				ttable_add_row(tt, "%s|%s|%s|%s|%pSU",
-					       remote, state_str,
+				ttable_add_row(tt, "%s:%d%s%s|%s|%s|%s|%pSU",
+					       ba->hostname, ba->port,
+					       ba->vrfname ? " vrf " : "",
+					       ba->vrfname ? ba->vrfname : "",
+					       state_str,
 					       ba->last_err ? ba->last_err : "",
 					       uptime, &ba->addrsrc);
 			}
