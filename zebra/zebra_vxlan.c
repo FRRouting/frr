@@ -5695,6 +5695,24 @@ int zebra_vxlan_add_del_gw_macip(struct interface *ifp, const struct prefix *p,
 	return 0;
 }
 
+struct zl3vni_svi_walk_ctx {
+	const struct interface *svi_if;
+	struct zebra_l3vni *zl3vni;
+};
+
+/* Find the L3VNI using an SVI. */
+static int zl3vni_svi_walk(struct hash_bucket *bucket, void *arg)
+{
+	struct zebra_l3vni *zl3vni = bucket->data;
+	struct zl3vni_svi_walk_ctx *wctx = arg;
+
+	if (zl3vni->svi_if != wctx->svi_if)
+		return HASHWALK_CONTINUE;
+
+	wctx->zl3vni = zl3vni;
+	return HASHWALK_ABORT;
+}
+
 /*
  * Handle SVI interface going down.
  * SVI can be associated to either L3-VNI or L2-VNI.
@@ -5707,6 +5725,7 @@ int zebra_vxlan_add_del_gw_macip(struct interface *ifp, const struct prefix *p,
 int zebra_vxlan_svi_down(struct interface *ifp, struct interface *link_if)
 {
 	struct zebra_l3vni *zl3vni = NULL;
+	struct zl3vni_svi_walk_ctx wctx = {};
 
 	zl3vni = zl3vni_from_svi(ifp, link_if);
 	if (zl3vni) {
@@ -5743,6 +5762,19 @@ int zebra_vxlan_svi_down(struct interface *ifp, struct interface *link_if)
 			if (zevpn->vxlan_if && if_is_operative(zevpn->vxlan_if))
 				zebra_evpn_send_add_to_client(zevpn);
 		}
+
+		/*
+		 * Without VLAN filtering, the SVI (the bridge itself) only maps
+		 * to an L3VNI whose vxlan interface is up. One whose vxlan
+		 * interface went down first, the L3VNI with it, still has its
+		 * next hops installed on the SVI: the kernel removes them now,
+		 * remove them from the FPM too, so that they are installed
+		 * again when the L3VNI comes back up.
+		 */
+		wctx.svi_if = ifp;
+		hash_walk(zrouter.l3vni_table, zl3vni_svi_walk, &wctx);
+		if (wctx.zl3vni)
+			zl3vni_nh_uninstall_all(wctx.zl3vni);
 	}
 	return 0;
 }
