@@ -61,6 +61,8 @@ extern ssize_t netlink_macfdb_update_ctx(struct zebra_dplane_ctx *ctx, void *dat
 					 bool fpm);
 extern ssize_t netlink_vxlan_flood_update_ctx(const struct zebra_dplane_ctx *ctx, int cmd,
 					      void *buf, size_t buflen);
+extern ssize_t netlink_neigh_update_ctx(const struct zebra_dplane_ctx *ctx, int cmd, void *buf,
+					size_t buflen);
 
 extern int netlink_route_change(struct nlmsghdr *h, ns_id_t ns_id, int startup, void *arg);
 extern int netlink_route_read(struct zebra_ns *zns);

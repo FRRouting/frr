@@ -4742,8 +4742,8 @@ int netlink_neigh_change(struct nlmsghdr *h, ns_id_t ns_id)
 /*
  * Utility neighbor-update function, using info from dplane context.
  */
-static ssize_t netlink_neigh_update_ctx(const struct zebra_dplane_ctx *ctx,
-					int cmd, void *buf, size_t buflen)
+ssize_t netlink_neigh_update_ctx(const struct zebra_dplane_ctx *ctx, int cmd, void *buf,
+				 size_t buflen)
 {
 	const struct ipaddr *ip;
 	const struct ethaddr *mac = NULL;

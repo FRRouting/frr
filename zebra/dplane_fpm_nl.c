@@ -1056,6 +1056,32 @@ static int fpm_nl_enqueue(struct fpm_nl_ctx *fnc, struct zebra_dplane_ctx *ctx)
 		nl_buf_len = (size_t)rv;
 		break;
 
+	case DPLANE_OP_NEIGH_INSTALL:
+	case DPLANE_OP_NEIGH_UPDATE:
+	case DPLANE_OP_NEIGH_DELETE:
+		/*
+		 * Only the EVPN remote neighbors (MAC/IP routes and L3VNI next
+		 * hops): not the other neighbors zebra installs (EVPN-MH local
+		 * sync neighbors, IPv4 link local next hops of IPv6 peers),
+		 * which a new FPM connection does not get again.
+		 */
+		if (!CHECK_FLAG(dplane_ctx_neigh_get_update_flags(ctx), DPLANE_NEIGH_REMOTE))
+			return 0;
+
+		rv = netlink_neigh_update_ctx(ctx,
+					      op == DPLANE_OP_NEIGH_DELETE ? RTM_DELNEIGH
+									   : RTM_NEWNEIGH,
+					      nl_buf, sizeof(nl_buf));
+		if (rv <= 0) {
+			flog_err(EC_ZEBRA_FPM_ENCODE_FAIL, "%s: netlink_neigh_update_ctx failed",
+				 __func__);
+			dplane_ctx_set_status(ctx, ZEBRA_DPLANE_REQUEST_FAILURE);
+			return 0;
+		}
+
+		nl_buf_len = (size_t)rv;
+		break;
+
 	case DPLANE_OP_NH_DELETE:
 		rv = netlink_nexthop_msg_encode(RTM_DELNEXTHOP, ctx, nl_buf,
 						sizeof(nl_buf), true);
@@ -1120,9 +1146,6 @@ static int fpm_nl_enqueue(struct fpm_nl_ctx *fnc, struct zebra_dplane_ctx *ctx)
 	case DPLANE_OP_PW_UNINSTALL:
 	case DPLANE_OP_ADDR_INSTALL:
 	case DPLANE_OP_ADDR_UNINSTALL:
-	case DPLANE_OP_NEIGH_INSTALL:
-	case DPLANE_OP_NEIGH_UPDATE:
-	case DPLANE_OP_NEIGH_DELETE:
 	case DPLANE_OP_SYS_ROUTE_ADD:
 	case DPLANE_OP_SYS_ROUTE_DELETE:
 	case DPLANE_OP_ROUTE_NOTIFY:
