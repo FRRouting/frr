@@ -111,14 +111,22 @@ Inside a ``bmp targets`` block, the following commands control session
 establishment:
 
 
-.. clicmd:: bmp connect HOSTNAME port (1-65535) {min-retry MSEC|max-retry MSEC} [source-interface WORD]
+.. clicmd:: bmp connect HOSTNAME port (1-65535) {min-retry MSEC|max-retry MSEC} [{source-interface WORD|vrf NAME}]
 
    Add/remove an active outbound BMP session.  HOSTNAME is resolved via DNS,
    if multiple addresses are returned they are tried in nondeterministic
    order.  Only one connection will be established even if multiple addresses
    are returned.  ``min-retry`` and ``max-retry`` specify (in milliseconds)
    bounds for exponential backoff. ``source-interface`` is the local interface on
-   which the connection has to bind.
+   which the connection has to bind. ``vrf`` selects the VRF used for
+   source-interface lookup and the outbound TCP socket.  DNS resolution keeps
+   the existing resolver behavior: it switches network namespaces but does not
+   bind DNS sockets to Linux VRF devices.  Use an IP address for HOSTNAME when
+   DNS is only reachable through a Linux management VRF device.  This
+   transport VRF is independent of the BGP instance VRF whose routes and
+   statistics are monitored (including any ``bmp import-vrf-view`` sources),
+   allowing connections through a management VRF while collecting data from
+   another VRF.  When ``vrf`` is omitted, the default VRF is used.
 
 .. warning::
 

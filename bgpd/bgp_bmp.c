@@ -24,8 +24,12 @@
 #include "lib/version.h"
 #include "jhash.h"
 #include "termtable.h"
+#include "privs.h"
+#include "vrf.h"
 
 #include "bgpd/bgp_table.h"
+
+extern struct zebra_privs_t bgpd_privs;
 #include "bgpd/bgpd.h"
 #include "bgpd/bgp_route.h"
 #include "bgpd/bgp_nht.h"
@@ -2770,11 +2774,41 @@ static void bmp_active_put(struct bmp_active *ba)
 		close(ba->socket);
 
 	XFREE(MTYPE_TMP, ba->ifsrc);
+	XFREE(MTYPE_TMP, ba->vrfname);
 	XFREE(MTYPE_TMP, ba->hostname);
 	XFREE(MTYPE_BMP_ACTIVE, ba);
 }
 
 static void bmp_active_setup(struct bmp_active *ba);
+
+/* Resolve the VRF used for outbound BMP transport, scheduling a retry if unavailable.
+ *
+ * When a transport VRF is configured, that VRF must be present and enabled.
+ * Without a transport VRF, use the default VRF.
+ */
+static bool bmp_active_vrf_id(struct bmp_active *ba, vrf_id_t *vrf_id)
+{
+	struct vrf *vrf;
+
+	if (ba->vrfname) {
+		vrf = vrf_lookup_by_name(ba->vrfname);
+		if (!vrf || !vrf_is_enabled(vrf) ||
+		    vrf->vrf_id == VRF_UNKNOWN) {
+			*vrf_id = VRF_UNKNOWN;
+			zlog_warn("bmp[%s]: VRF %s not available", ba->hostname,
+				  ba->vrfname);
+			ba->last_err = "VRF not available";
+			ba->curretry += ba->curretry / 2;
+			bmp_active_setup(ba);
+			return false;
+		}
+		*vrf_id = vrf->vrf_id;
+		return true;
+	}
+
+	*vrf_id = VRF_DEFAULT;
+	return true;
+}
 
 static void bmp_active_connect(struct bmp_active *ba)
 {
@@ -2783,11 +2817,11 @@ static void bmp_active_connect(struct bmp_active *ba)
 	vrf_id_t vrf_id = VRF_DEFAULT;
 	int res_bind;
 
+	if (!bmp_active_vrf_id(ba, &vrf_id))
+		return;
+
 	for (; ba->addrpos < ba->addrtotal; ba->addrpos++) {
 		if (ba->ifsrc) {
-			if (ba->targets && ba->targets->bgp)
-				vrf_id = ba->targets->bgp->vrf_id;
-
 			/* find interface and related */
 			/* address with same family   */
 			ifp = if_lookup_by_name(ba->ifsrc, vrf_id);
@@ -2807,7 +2841,18 @@ static void bmp_active_connect(struct bmp_active *ba)
 				  ba->ifsrc, &ba->addrsrc);
 		}
 
-		ba->socket = sockunion_socket(&ba->addrs[ba->addrpos]);
+		if (ba->vrfname) {
+			const char *bind_name = ba->ifsrc ? ba->ifsrc
+							  : ba->vrfname;
+
+			frr_with_privs(&bgpd_privs) {
+				ba->socket = vrf_sockunion_socket(
+					&ba->addrs[ba->addrpos], vrf_id,
+					bind_name);
+			}
+		} else
+			ba->socket = sockunion_socket(&ba->addrs[ba->addrpos]);
+
 		if (ba->socket < 0) {
 			zlog_warn("bmp[%s]: failed to create socket",
 				  ba->hostname);
@@ -2904,11 +2949,13 @@ static void bmp_active_thread(struct event *t)
 	ba->last_err = NULL;
 
 	if (ba->socket == -1) {
-		/* get vrf_id */
-		if (!ba->targets || !ba->targets->bgp)
-			vrf_id = VRF_DEFAULT;
-		else
-			vrf_id = ba->targets->bgp->vrf_id;
+		/* Check transport VRF availability before resolving. */
+		if (!bmp_active_vrf_id(ba, &vrf_id))
+			return;
+		/* Keep the existing resolver behavior: it switches network
+		 * namespaces but does not bind DNS sockets to Linux VRF devices.
+		 * The transport VRF option does not add VRF device support for DNS.
+		 */
 		resolver_resolve(&ba->resq, AF_UNSPEC, vrf_id, ba->hostname,
 				 bmp_active_resolved);
 		return;
@@ -3163,7 +3210,7 @@ DEFPY(no_bmp_listener_main,
 
 DEFPY(bmp_connect,
       bmp_connect_cmd,
-      "[no] bmp connect HOSTNAME port (1-65535) {min-retry (100-86400000)|max-retry (100-86400000)} [source-interface <WORD$srcif>]",
+      "[no] bmp connect HOSTNAME port (1-65535) {min-retry (100-86400000)|max-retry (100-86400000)} [{source-interface <WORD$srcif>|vrf NAME$vrfname}]",
       NO_STR
       BMP_STR
       "Actively establish connection to monitoring station\n"
@@ -3175,7 +3222,8 @@ DEFPY(bmp_connect,
       "Maximum connection retry interval\n"
       "Maximum connection retry interval (milliseconds)\n"
       "Source interface to use\n"
-      "Define an interface\n")
+      "Define an interface\n"
+      VRF_CMD_HELP_STR)
 {
 	VTY_DECLVAR_CONTEXT_SUB(bmp_targets, bt);
 	struct bmp_active *ba;
@@ -3193,6 +3241,13 @@ DEFPY(bmp_connect,
 					"%% No such active connection found\n");
 				return CMD_WARNING;
 			}
+		if (ba->vrfname || vrfname)
+			if ((!ba->vrfname) || (!vrfname) ||
+			    !strmatch(ba->vrfname, vrfname)) {
+				vty_out(vty,
+					"%% No such active connection found\n");
+				return CMD_WARNING;
+			}
 		bmp_active_put(ba);
 		return CMD_SUCCESS;
 	}
@@ -3202,6 +3257,18 @@ DEFPY(bmp_connect,
 		if (ba->ifsrc)
 			XFREE(MTYPE_TMP, ba->ifsrc);
 		ba->ifsrc = XSTRDUP(MTYPE_TMP, srcif);
+	}
+	if ((ba->vrfname || vrfname) &&
+	    (!ba->vrfname || !vrfname || !strmatch(ba->vrfname, vrfname))) {
+		XFREE(MTYPE_TMP, ba->vrfname);
+		if (vrfname)
+			ba->vrfname = XSTRDUP(MTYPE_TMP, vrfname);
+		if (ba->bmp) {
+			struct bmp *bmp = ba->bmp;
+
+			bmp_close(bmp);
+			bmp_free(bmp);
+		}
 	}
 	if (min_retry_str)
 		ba->minretry = min_retry;
@@ -3480,8 +3547,10 @@ DEFPY(show_bmp,
 						    uptime, sizeof(uptime),
 						    false, NULL);
 					ttable_add_row(tt,
-						       "%s:%d|Up|%s|%s|%pSU",
+						       "%s:%d%s%s|Up|%s|%s|%pSU",
 						       ba->hostname, ba->port,
+						       ba->vrfname ? " vrf " : "",
+						       ba->vrfname ? ba->vrfname : "",
 						       ba->bmp->remote, uptime,
 						       &ba->addrsrc);
 					continue;
@@ -3503,8 +3572,10 @@ DEFPY(show_bmp,
 					state_str = "Resolving";
 				}
 
-				ttable_add_row(tt, "%s:%d|%s|%s|%s|%pSU",
+				ttable_add_row(tt, "%s:%d%s%s|%s|%s|%s|%pSU",
 					       ba->hostname, ba->port,
+					       ba->vrfname ? " vrf " : "",
+					       ba->vrfname ? ba->vrfname : "",
 					       state_str,
 					       ba->last_err ? ba->last_err : "",
 					       uptime, &ba->addrsrc);
@@ -3610,9 +3681,10 @@ static int bmp_config_write(struct bgp *bgp, struct vty *vty)
 				ba->minretry, ba->maxretry);
 
 			if (ba->ifsrc)
-				vty_out(vty, " source-interface %s\n", ba->ifsrc);
-			else
-				vty_out(vty, "\n");
+				vty_out(vty, " source-interface %s", ba->ifsrc);
+			if (ba->vrfname)
+				vty_out(vty, " vrf %s", ba->vrfname);
+			vty_out(vty, "\n");
 		}
 		vty_out(vty, " exit\n");
 	}
