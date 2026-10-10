@@ -1893,10 +1893,12 @@ static void _nh_reinstall(struct zebra_l3vni *zl3vni, struct interface *ifp, str
 }
 
 /*
- * Remove the next hops of the L3VNI the kernel removed (the SVI is down)
- * from the other dataplanes (FPM), as a removal would never reach the FPM
- * afterwards: installed again when the L3VNI comes back up
- * (`zebra_vxlan_process_l3vni_oper_up()`).
+ * Remove the next hops installed for the L3VNI, installed again when it
+ * comes back up (`zebra_vxlan_process_l3vni_oper_up()`): from the kernel
+ * too while the SVI is up, only from the other dataplanes (FPM) once it is
+ * down, as the kernel removed them then, and a removal would never reach
+ * the FPM afterwards. With `flushed_only`, only the ones the kernel removed
+ * (nothing while the SVI is up).
  *
  * The SVD next hops are shared with the other L3VNIs on the same vxlan
  * interface: left alone while it is up, only removed from the FPM once it
@@ -1908,15 +1910,19 @@ static void _nh_reinstall(struct zebra_l3vni *zl3vni, struct interface *ifp, str
  * down, whose next hops the kernel removes then; the other SVD backed L3VNIs
  * on the vxlan interface go down with it too.
  */
-static void zl3vni_nh_uninstall_all(struct zebra_l3vni *zl3vni)
+static void zl3vni_nh_uninstall_all(struct zebra_l3vni *zl3vni, bool flushed_only)
 {
 	struct interface *ifp;
 	struct zebra_neigh *n;
+	bool skip_kernel;
 
 	ifp = zl3vni->svi_if;
-	if (ifp && !if_is_operative(ifp))
-		frr_each (zebra_neigh_db, zl3vni->nh_table, n)
-			_nh_remove(ifp, n, true /*skip_kernel*/);
+	if (ifp) {
+		skip_kernel = !if_is_operative(ifp);
+		if (skip_kernel || !flushed_only)
+			frr_each (zebra_neigh_db, zl3vni->nh_table, n)
+				_nh_remove(ifp, n, skip_kernel);
+	}
 
 	if (IS_ZL3VNI_SVD_BACKED(zl3vni) && !if_is_operative(zl3vni->vxlan_if))
 		frr_each (zebra_neigh_db, svd_nh_table, n)
@@ -2779,6 +2785,16 @@ void zebra_vxlan_process_l3vni_oper_up(struct zebra_l3vni *zl3vni)
 	zl3vni_send_add_to_client(zl3vni);
 }
 
+/*
+ * The SVI of the L3VNI changes (an access VLAN change): remove its next
+ * hops from the old one, in the kernel too. They are installed on the new
+ * one when the L3VNI comes back up.
+ */
+void zebra_vxlan_l3vni_svi_change(struct zebra_l3vni *zl3vni)
+{
+	zl3vni_nh_uninstall_all(zl3vni, false /*flushed_only*/);
+}
+
 void zebra_vxlan_process_l3vni_oper_down(struct zebra_l3vni *zl3vni)
 {
 	if (!zl3vni)
@@ -2791,7 +2807,7 @@ void zebra_vxlan_process_l3vni_oper_down(struct zebra_l3vni *zl3vni)
 	 * changes keeping them (e.g. the bridge MAC). Also while it is already
 	 * down: the other interface may go down later.
 	 */
-	zl3vni_nh_uninstall_all(zl3vni);
+	zl3vni_nh_uninstall_all(zl3vni, true /*flushed_only*/);
 
 	/* send l3-vni del to BGP*/
 	frrtrace(3, frr_zebra, send_l3vni_oper_to_client, zl3vni->vrf_id, zl3vni->vni, 1);
@@ -5774,7 +5790,7 @@ int zebra_vxlan_svi_down(struct interface *ifp, struct interface *link_if)
 		wctx.svi_if = ifp;
 		hash_walk(zrouter.l3vni_table, zl3vni_svi_walk, &wctx);
 		if (wctx.zl3vni)
-			zl3vni_nh_uninstall_all(wctx.zl3vni);
+			zl3vni_nh_uninstall_all(wctx.zl3vni, true /*flushed_only*/);
 	}
 	return 0;
 }

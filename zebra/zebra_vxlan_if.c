@@ -263,6 +263,14 @@ static int zebra_vxlan_if_update_vni(struct interface *ifp,
 		 */
 		if (CHECK_FLAG(chgflags, ZEBRA_VXLIF_VLAN_CHANGE)) {
 			if (if_is_operative(ifp)) {
+				/*
+				 * The next hops are installed on the SVI: remove
+				 * them from the old one if it changes (SVD devices
+				 * signal a VLAN change for every VNI on any VLAN to
+				 * VNI mapping update).
+				 */
+				if (zl3vni_map_to_svi_if(zl3vni) != zl3vni->svi_if)
+					zebra_vxlan_l3vni_svi_change(zl3vni);
 				zebra_vxlan_process_l3vni_oper_down(zl3vni);
 				zl3vni->svi_if = NULL;
 				zl3vni->svi_if = zl3vni_map_to_svi_if(zl3vni);
