@@ -436,3 +436,10 @@ tests_lib_test_zlog_CPPFLAGS = $(TESTS_CPPFLAGS)
 tests_lib_test_zlog_LDADD = $(ALL_TESTS_LDADD)
 tests_lib_test_zlog_SOURCES = tests/lib/test_zlog.c
 EXTRA_DIST += tests/lib/test_zlog.py
+
+check_PROGRAMS += tests/lib/test_bfd_timer
+tests_lib_test_bfd_timer_CFLAGS = $(TESTS_CFLAGS)
+tests_lib_test_bfd_timer_CPPFLAGS = $(TESTS_CPPFLAGS)
+tests_lib_test_bfd_timer_LDADD = $(ALL_TESTS_LDADD)
+tests_lib_test_bfd_timer_SOURCES = tests/lib/test_bfd_timer.c
+EXTRA_DIST += tests/lib/test_bfd_timer.py
