@@ -92,6 +92,7 @@ extern void kernel_read_macfdb(struct zebra_dplane_ctx *ctx);
 extern void kernel_read_neigh(struct zebra_dplane_ctx *ctx);
 extern void kernel_read_tc_qdisc(struct zebra_dplane_ctx *ctx);
 extern void kernel_read_intf_speed(struct zebra_dplane_ctx *ctx);
+extern void nexthop_read(struct zebra_ns *zns);
 extern void route_read(struct zebra_ns *zns);
 
 /*
