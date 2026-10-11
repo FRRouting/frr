@@ -17,6 +17,7 @@ import re
 import sys
 
 import pytest
+from lib.checkping import check_ping
 from lib.common_config import step
 from lib.topogen import Topogen, TopoRouter
 from lib.topotest import json_cmp
@@ -133,7 +134,7 @@ def run_grpc_client(r, port, commands):
 
 
 def test_connectivity(tgen):
-    tgen.gears["r1"].cmd_raises("ping -c1 192.168.1.2")
+    check_ping("r1", "192.168.1.2", True, 10, 1)
 
 
 def test_capabilities(tgen):
