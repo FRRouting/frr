@@ -1229,12 +1229,13 @@ void yang_debugging_set(bool enable)
 struct ly_ctx *yang_ctx_new_setup(bool embedded_modules, bool explicit_compile, bool load_library)
 {
 	struct ly_ctx *ctx = NULL;
-	const char *yang_models_path = YANG_MODELS_PATH;
+	char search_dir[PATH_MAX] = {};
 	uint options;
 	LY_ERR err;
 
-	if (access(yang_models_path, R_OK | X_OK)) {
-		yang_models_path = NULL;
+	if (access(YANG_MODELS_PATH, R_OK | X_OK) == 0) {
+		strlcat(search_dir, YANG_MODELS_PATH, sizeof(search_dir));
+	} else {
 		if (errno == ENOENT)
 			zlog_info("yang model directory \"%s\" does not exist",
 				  YANG_MODELS_PATH);
@@ -1244,6 +1245,12 @@ struct ly_ctx *yang_ctx_new_setup(bool embedded_modules, bool explicit_compile, 
 				     YANG_MODELS_PATH);
 	}
 
+#ifdef HAVE_LY_YANG_MODULE_DIR
+	if (search_dir[0])
+		strlcat(search_dir, ":", sizeof(search_dir));
+	strlcat(search_dir, ly_yang_module_dir(), sizeof(search_dir));
+#endif
+
 	options = LY_CTX_DISABLE_SEARCHDIR_CWD;
 #if (LY_VERSION_MAJOR >= 4)
 	options |= LY_CTX_LYB_HASHES;
@@ -1252,7 +1259,7 @@ struct ly_ctx *yang_ctx_new_setup(bool embedded_modules, bool explicit_compile, 
 		options |= LY_CTX_NO_YANGLIBRARY;
 	if (explicit_compile)
 		options |= LY_CTX_EXPLICIT_COMPILE;
-	err = ly_ctx_new(yang_models_path, options, &ctx);
+	err = ly_ctx_new(search_dir, options, &ctx);
 	if (err)
 		return NULL;
 
