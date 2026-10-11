@@ -59,12 +59,13 @@ def setup_module(mod):
     dump_file = os.path.join(router.gearlogdir, "bfd_dplane.data")
 
     # The listener has to be accepting before bfdd starts, since bfdd
-    # connects to it as a client.
+    # connects to it as a client. It declares that it authenticates, or
+    # bfdd would keep the session instead of offloading it.
     router.load_frr_config(
         daemons=[
             (
                 TopoRouter.RD_BFD_DPLANE_LISTENER,
-                "-p {} -z {}".format(DPLANE_PORT, dump_file),
+                "-c 0x1 -p {} -z {}".format(DPLANE_PORT, dump_file),
             ),
             (TopoRouter.RD_ZEBRA, None),
             (
@@ -230,21 +231,21 @@ def test_keys_carry_their_lifetimes():
 
     # The next key becomes acceptable before it starts being sent, which
     # is the other half of the same overlap.
-    assert second["accept_start"] < second["send_start"], (
-        "key 2 is not accepted until it is already being sent"
-    )
+    assert (
+        second["accept_start"] < second["send_start"]
+    ), "key 2 is not accepted until it is already being sent"
 
     # The keys hand over rather than overlapping on transmit.
-    assert first["send_end"] < second["send_start"], (
-        "keys 1 and 2 would both be used to transmit at the same time"
-    )
+    assert (
+        first["send_end"] < second["send_start"]
+    ), "keys 1 and 2 would both be used to transmit at the same time"
 
     # A key configured without lifetimes carries the sentinels that mean
     # always valid: a start of zero and an end of -1, as bfddp_packet.h
     # promises a data plane.
-    assert third["send_start"] == 0 and third["accept_start"] == 0, (
-        "key 3 has no configured lifetimes, but its periods have a start"
-    )
+    assert (
+        third["send_start"] == 0 and third["accept_start"] == 0
+    ), "key 3 has no configured lifetimes, but its periods have a start"
     assert third["send_end"] == -1 and third["accept_end"] == -1, (
         "key 3 has no configured lifetimes, but its periods end at {} and {} "
         "rather than -1".format(third["send_end"], third["accept_end"])
@@ -270,9 +271,9 @@ def test_a_new_key_is_pushed():
         return _dump_value(_listener_dump(), "Auth last key count")
 
     _, result = topotest.run_and_expect(_count, KEY_COUNT + 1, count=30, wait=1)
-    assert result == KEY_COUNT + 1, (
-        "the data plane was not sent the key that was added, it has {}".format(result)
-    )
+    assert (
+        result == KEY_COUNT + 1
+    ), "the data plane was not sent the key that was added, it has {}".format(result)
 
 
 def test_a_lifetime_edit_is_pushed():
@@ -297,7 +298,9 @@ def test_a_lifetime_edit_is_pushed():
         key {}
         accept-lifetime 00:00:00 1 January 2030 23:59:59 31 December 2035
         end
-        """.format(target)
+        """.format(
+            target
+        )
     )
 
     def _accept_end():
@@ -309,10 +312,10 @@ def test_a_lifetime_edit_is_pushed():
     _, result = topotest.run_and_expect(
         lambda: _accept_end() != before[0]["accept_end"], True, count=30, wait=1
     )
-    assert result is True, (
-        "the data plane still holds the old accept lifetime for key {}, {}".format(
-            target, before[0]["accept_end"]
-        )
+    assert (
+        result is True
+    ), "the data plane still holds the old accept lifetime for key {}, {}".format(
+        target, before[0]["accept_end"]
     )
 
 

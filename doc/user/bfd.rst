@@ -87,7 +87,8 @@ may also be specified (:ref:`common-invocation-options`).
 
 .. warning::
 
-   A session that authenticates is offloaded only over a UNIX socket or a
+   A session that authenticates is offloaded only to a data plane that
+   declared ``BFDDP_CAP_SESSION_AUTH``, and only over a UNIX socket or a
    loopback address. Its keys would otherwise be written in the clear to a
    connection with no transport security and no peer authentication, where
    anyone on the path can read them and reuse them. Such a session falls
@@ -874,6 +875,16 @@ The FRR BFD daemon will be responsible for:
   ``ospfd`` etc...)
 
 
+A data plane may declare optional features it supports by sending a
+``BFD_DP_CAPABILITIES`` message, ideally as the first message on the
+connection. A session that needs a feature the data plane has not declared is
+not offloaded and the BFD daemon runs it itself. A data plane that never sends
+the message is treated as supporting none of them. The features are:
+
+* ``BFDDP_CAP_SESSION_AUTH``: authenticates sessions with the keys the BFD
+  daemon sends. Without it a session configured with an authentication key
+  chain stays in the BFD daemon.
+
 BFD daemon will also keep record of data plane communication statistics with
 the command :clicmd:`show bfd distributed`.
 
@@ -885,6 +896,7 @@ Sample output:
                Data plane
                ==========
           File descriptor: 16
+             Capabilities: 0x1
               Input bytes: 1296
          Input bytes peak: 72
            Input messages: 42
