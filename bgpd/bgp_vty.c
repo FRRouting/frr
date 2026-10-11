@@ -19914,6 +19914,8 @@ DEFUN (bgp_redistribute_ipv4,
 	VTY_DECLVAR_CONTEXT(bgp, bgp);
 	int idx_protocol = 1;
 	uint8_t type;
+	struct bgp_redist *red;
+	bool changed;
 
 	type = proto_redistnum(AFI_IP, argv[idx_protocol]->text);
 	if (type == ZEBRA_ROUTE_ERROR) {
@@ -19921,8 +19923,10 @@ DEFUN (bgp_redistribute_ipv4,
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 
-	bgp_redist_add(bgp, AFI_IP, type, 0);
-	return bgp_redistribute_set(bgp, AFI_IP, type, 0, false);
+	red = bgp_redist_add(bgp, AFI_IP, type, 0);
+	changed = bgp_redistribute_rmap_unset(red);
+	changed |= bgp_redistribute_metric_unset(bgp, red, AFI_IP, type);
+	return bgp_redistribute_set(bgp, AFI_IP, type, 0, changed);
 }
 
 ALIAS_HIDDEN(
@@ -19954,8 +19958,8 @@ DEFUN (bgp_redistribute_ipv4_rmap,
 	}
 
 	red = bgp_redist_add(bgp, AFI_IP, type, 0);
-	changed =
-		bgp_redistribute_rmap_set(red, argv[idx_word]->arg, route_map);
+	changed = bgp_redistribute_metric_unset(bgp, red, AFI_IP, type);
+	changed |= bgp_redistribute_rmap_set(red, argv[idx_word]->arg, route_map);
 	return bgp_redistribute_set(bgp, AFI_IP, type, 0, changed);
 }
 
@@ -19990,7 +19994,8 @@ DEFUN (bgp_redistribute_ipv4_metric,
 	metric = strtoul(argv[idx_number]->arg, NULL, 10);
 
 	red = bgp_redist_add(bgp, AFI_IP, type, 0);
-	changed = bgp_redistribute_metric_set(bgp, red, AFI_IP, type, metric);
+	changed = bgp_redistribute_rmap_unset(red);
+	changed |= bgp_redistribute_metric_set(bgp, red, AFI_IP, type, metric);
 	return bgp_redistribute_set(bgp, AFI_IP, type, 0, changed);
 }
 
@@ -20107,6 +20112,8 @@ DEFUN (bgp_redistribute_ipv4_ospf,
 	int idx_number = 2;
 	unsigned short instance;
 	unsigned short protocol;
+	struct bgp_redist *red;
+	bool changed;
 
 	instance = strtoul(argv[idx_number]->arg, NULL, 10);
 
@@ -20127,8 +20134,10 @@ DEFUN (bgp_redistribute_ipv4_ospf,
 			protocol = ZEBRA_ROUTE_TABLE;
 	}
 
-	bgp_redist_add(bgp, AFI_IP, protocol, instance);
-	return bgp_redistribute_set(bgp, AFI_IP, protocol, instance, false);
+	red = bgp_redist_add(bgp, AFI_IP, protocol, instance);
+	changed = bgp_redistribute_rmap_unset(red);
+	changed |= bgp_redistribute_metric_unset(bgp, red, AFI_IP, protocol);
+	return bgp_redistribute_set(bgp, AFI_IP, protocol, instance, changed);
 }
 
 ALIAS_HIDDEN(bgp_redistribute_ipv4_ospf, bgp_redistribute_ipv4_ospf_hidden_cmd,
@@ -20181,8 +20190,8 @@ DEFUN (bgp_redistribute_ipv4_ospf_rmap,
 	}
 
 	red = bgp_redist_add(bgp, AFI_IP, protocol, instance);
-	changed =
-		bgp_redistribute_rmap_set(red, argv[idx_word]->arg, route_map);
+	changed = bgp_redistribute_metric_unset(bgp, red, AFI_IP, protocol);
+	changed |= bgp_redistribute_rmap_set(red, argv[idx_word]->arg, route_map);
 	return bgp_redistribute_set(bgp, AFI_IP, protocol, instance, changed);
 }
 
@@ -20240,8 +20249,8 @@ DEFUN (bgp_redistribute_ipv4_ospf_metric,
 	metric = strtoul(argv[idx_number_2]->arg, NULL, 10);
 
 	red = bgp_redist_add(bgp, AFI_IP, protocol, instance);
-	changed = bgp_redistribute_metric_set(bgp, red, AFI_IP, protocol,
-						metric);
+	changed = bgp_redistribute_rmap_unset(red);
+	changed |= bgp_redistribute_metric_set(bgp, red, AFI_IP, protocol, metric);
 	return bgp_redistribute_set(bgp, AFI_IP, protocol, instance, changed);
 }
 
@@ -20495,6 +20504,8 @@ DEFUN (bgp_redistribute_ipv6,
 	VTY_DECLVAR_CONTEXT(bgp, bgp);
 	int idx_protocol = 1;
 	uint8_t type;
+	struct bgp_redist *red;
+	bool changed;
 
 	type = proto_redistnum(AFI_IP6, argv[idx_protocol]->text);
 	if (type == ZEBRA_ROUTE_ERROR) {
@@ -20502,8 +20513,10 @@ DEFUN (bgp_redistribute_ipv6,
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 
-	bgp_redist_add(bgp, AFI_IP6, type, 0);
-	return bgp_redistribute_set(bgp, AFI_IP6, type, 0, false);
+	red = bgp_redist_add(bgp, AFI_IP6, type, 0);
+	changed = bgp_redistribute_rmap_unset(red);
+	changed |= bgp_redistribute_metric_unset(bgp, red, AFI_IP6, type);
+	return bgp_redistribute_set(bgp, AFI_IP6, type, 0, changed);
 }
 
 DEFUN (bgp_redistribute_ipv6_rmap,
@@ -20530,8 +20543,8 @@ DEFUN (bgp_redistribute_ipv6_rmap,
 	}
 
 	red = bgp_redist_add(bgp, AFI_IP6, type, 0);
-	changed =
-		bgp_redistribute_rmap_set(red, argv[idx_word]->arg, route_map);
+	changed = bgp_redistribute_metric_unset(bgp, red, AFI_IP6, type);
+	changed |= bgp_redistribute_rmap_set(red, argv[idx_word]->arg, route_map);
 	return bgp_redistribute_set(bgp, AFI_IP6, type, 0, changed);
 }
 
@@ -20559,7 +20572,8 @@ DEFUN (bgp_redistribute_ipv6_metric,
 	metric = strtoul(argv[idx_number]->arg, NULL, 10);
 
 	red = bgp_redist_add(bgp, AFI_IP6, type, 0);
-	changed = bgp_redistribute_metric_set(bgp, red, AFI_IP6, type, metric);
+	changed = bgp_redistribute_rmap_unset(red);
+	changed |= bgp_redistribute_metric_set(bgp, red, AFI_IP6, type, metric);
 	return bgp_redistribute_set(bgp, AFI_IP6, type, 0, changed);
 }
 
@@ -20696,8 +20710,7 @@ DEFUN (bgp_redistribute_ipv6_metric_rmap,
 	metric = strtoul(argv[idx_number]->arg, NULL, 10);
 
 	red = bgp_redist_add(bgp, AFI_IP6, type, 0);
-	changed = bgp_redistribute_metric_set(bgp, red, AFI_IP6, SAFI_UNICAST,
-						metric);
+	changed = bgp_redistribute_metric_set(bgp, red, AFI_IP6, type, metric);
 	changed |=
 		bgp_redistribute_rmap_set(red, argv[idx_word]->arg, route_map);
 	return bgp_redistribute_set(bgp, AFI_IP6, type, 0, changed);
