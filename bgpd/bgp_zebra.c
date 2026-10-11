@@ -2173,18 +2173,37 @@ bool bgp_redistribute_rmap_set(struct bgp_redist *red, const char *name,
 	return true;
 }
 
-/* Redistribute with metric specification.  */
-bool bgp_redistribute_metric_set(struct bgp *bgp, struct bgp_redist *red,
-				 afi_t afi, int type, uint32_t metric)
+/* Unset redistribute route-map configuration. */
+bool bgp_redistribute_rmap_unset(struct bgp_redist *red)
+{
+	if (!red->rmap.name)
+		return false;
+
+	XFREE(MTYPE_ROUTE_MAP_NAME, red->rmap.name);
+	route_map_counter_decrement(red->rmap.map);
+	red->rmap.map = NULL;
+
+	return true;
+}
+
+/* Core function to set or unset redistribution metric. */
+static bool bgp_redistribute_metric_set_core(struct bgp *bgp, struct bgp_redist *red, afi_t afi,
+					     int type, uint32_t metric, bool set)
 {
 	struct bgp_dest *dest;
 	struct bgp_path_info *pi;
 
-	if (red->redist_metric_flag && red->redist_metric == metric)
-		return false;
-
-	red->redist_metric_flag = 1;
-	red->redist_metric = metric;
+	if (set) {
+		if (red->redist_metric_flag && red->redist_metric == metric)
+			return false;
+		red->redist_metric_flag = 1;
+		red->redist_metric = metric;
+	} else {
+		if (!red->redist_metric_flag)
+			return false;
+		red->redist_metric_flag = 0;
+		red->redist_metric = 0;
+	}
 
 	for (dest = bgp_table_top(bgp->rib[afi][SAFI_UNICAST]); dest;
 	     dest = bgp_route_next(dest)) {
@@ -2209,6 +2228,19 @@ bool bgp_redistribute_metric_set(struct bgp *bgp, struct bgp_redist *red,
 	}
 
 	return true;
+}
+
+/* Set redistribution metric. */
+bool bgp_redistribute_metric_set(struct bgp *bgp, struct bgp_redist *red, afi_t afi, int type,
+				 uint32_t metric)
+{
+	return bgp_redistribute_metric_set_core(bgp, red, afi, type, metric, true);
+}
+
+/* Unset redistribution metric. */
+bool bgp_redistribute_metric_unset(struct bgp *bgp, struct bgp_redist *red, afi_t afi, int type)
+{
+	return bgp_redistribute_metric_set_core(bgp, red, afi, type, 0, false);
 }
 
 /* Unset redistribution.  */
