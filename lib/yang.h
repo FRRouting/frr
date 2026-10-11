@@ -32,6 +32,10 @@ extern "C" {
 #define LYD_API_PARENT_TYPE(p) ((struct lyd_node_inner *)(p))
 #endif
 
+#if (LY_VERSION_MAJOR >= 6)
+#define LY_ARRAY_COUNT LYA_COUNT
+#endif
+
 struct frr_yang_module_info;
 
 /* Maximum XPath length. */
