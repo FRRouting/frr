@@ -663,6 +663,8 @@ static void bgp_bnc_mark_nht_important(struct bgp_nexthop_cache *bnc, struct zap
 	bgp_dest_unlock_node(dest);
 }
 
+static bool bgp_aigp_nexthop_cache_changed(struct bgp_nexthop_cache *bnc);
+
 static void bgp_process_nexthop_update(struct bgp_nexthop_cache *bnc,
 				       struct zapi_route *nhr,
 				       bool import_check)
@@ -714,8 +716,13 @@ static void bgp_process_nexthop_update(struct bgp_nexthop_cache *bnc,
 	} else if (nhr->nexthop_num) {
 		struct peer *peer = bnc->nht_info;
 
+		if ((bnc->resolved_type == ZEBRA_ROUTE_BGP || nhr->type == ZEBRA_ROUTE_BGP) &&
+		    (bnc->resolved_type != nhr->type ||
+		     !prefix_same(&bnc->resolved_prefix, &nhr->prefix)))
+			SET_FLAG(bnc->change_flags, BGP_NEXTHOP_METRIC_CHANGED);
+
 		prefix_copy(&bnc->resolved_prefix, &nhr->prefix);
-		bnc->resolved_type = nhr->type;
+		bnc_set_resolved_type(bnc, nhr->type);
 
 		/* notify bgp fsm if nbr ip goes from invalid->valid */
 		if (!bnc->nexthop_num)
@@ -827,7 +834,7 @@ static void bgp_process_nexthop_update(struct bgp_nexthop_cache *bnc,
 		}
 	} else {
 		memset(&bnc->resolved_prefix, 0, sizeof(bnc->resolved_prefix));
-		bnc->resolved_type = ZEBRA_ROUTE_SYSTEM;
+		bnc_set_resolved_type(bnc, ZEBRA_ROUTE_SYSTEM);
 		UNSET_FLAG(bnc->flags, BGP_NEXTHOP_EVPN_INCOMPLETE);
 		UNSET_FLAG(bnc->flags, BGP_NEXTHOP_VALID);
 		UNSET_FLAG(bnc->flags, BGP_NEXTHOP_LABELED_VALID);
@@ -839,6 +846,9 @@ static void bgp_process_nexthop_update(struct bgp_nexthop_cache *bnc,
 		bnc_nexthop_free(bnc);
 		bnc->nexthop = NULL;
 	}
+
+	if (bgp_aigp_nexthop_cache_changed(bnc))
+		SET_FLAG(bnc->change_flags, BGP_NEXTHOP_METRIC_CHANGED);
 
 	evaluate_paths(bnc);
 }
@@ -1510,6 +1520,58 @@ bool bgp_aigp_metric_total(struct bgp_path_info *bpi, const struct attr *attr, u
 
 	*aigp = bgp_aigp_metric_add(*aigp, distance);
 	return true;
+}
+
+/*
+ * Returns true if the AIGP distance to the nexthop changed since the last
+ * call. The paths using this nexthop must then be advertised again.
+ */
+static bool bgp_aigp_nexthop_cache_changed(struct bgp_nexthop_cache *bnc)
+{
+	struct bgp_path_info *path = LIST_FIRST(&bnc->paths);
+	uint64_t distance = 0;
+	bool valid = false;
+
+	if (path && bnc->resolved_type == ZEBRA_ROUTE_BGP)
+		valid = bgp_aigp_nexthop_distance(path, &distance, 0);
+	if (!valid)
+		distance = 0;
+
+	if (valid == bnc->aigp_valid && distance == bnc->aigp_distance)
+		return false;
+
+	bnc->aigp_valid = valid;
+	bnc->aigp_distance = distance;
+	return true;
+}
+
+/* The AIGP metric of the paths resolved by this route depends on its AIGP */
+void bgp_aigp_nexthop_route_update(struct bgp *bgp, afi_t afi, struct bgp_dest *dest)
+{
+	const struct prefix *p = bgp_dest_get_prefix(dest);
+	struct bgp_nexthop_cache *bnc;
+	struct bgp_path_info *path;
+	struct bgp_table *table;
+
+	if (!bgp->nexthop_cache_bgp_resolved[afi])
+		return;
+
+	frr_each (bgp_nexthop_cache, &bgp->nexthop_cache_table[afi], bnc) {
+		if (bnc->resolved_type != ZEBRA_ROUTE_BGP || !prefix_same(&bnc->resolved_prefix, p))
+			continue;
+
+		if (!bgp_aigp_nexthop_cache_changed(bnc))
+			continue;
+
+		LIST_FOREACH (path, &bnc->paths, nh_thread) {
+			if (!bgp_attr_exists(path->attr, BGP_ATTR_AIGP))
+				continue;
+
+			table = bgp_dest_table(path->net);
+			SET_FLAG(path->flags, BGP_PATH_IGP_CHANGED);
+			bgp_process(table->bgp, path->net, path, table->afi, table->safi);
+		}
+	}
 }
 
 /**
