@@ -19,6 +19,28 @@ r1 receives routes with aigp-metric TLV 81, 91 and 82, 92 respectively.
 r1 advertises MED from IGP protocol (set metric igp) to r8.
 
 r1 advertises MED from AIGP (set metric aigp) to r8.
+<<<<<<< HEAD
+=======
+
+r8 does not receive the AIGP attribute, as r1 -> r8 is an eBGP session
+without "neighbor PEER aigp".
+
+peer1 and peer2 are eBGP peers of r7, and both advertise a prefix with
+the AIGP attribute. r7 accepts it from peer1 ("neighbor PEER aigp"),
+and ignores it from peer2.
+
+The AIGP commands are displayed in the running configuration of r1
+and r7.
+
+r7 sets aigp-metric 0 for 10.0.0.72/32, and r6 receives the AIGP
+attribute with a metric of 0.
+
+r7 removes the aigp-metric action for 10.0.0.72/32, and r6 receives it
+without the AIGP attribute.
+
+r6 sets aigp-metric 100 in the outbound route-map that changes the
+nexthop towards r4, and r4 receives 10.0.0.71/32 with this AIGP metric.
+>>>>>>> 59420ae (topotests: check aigp set by an outbound route-map in bgp_aigp)
 """
 
 import os
@@ -284,6 +306,27 @@ def test_bgp_aigp():
     assert (
         result is None
     ), "MED attribute values are not derived from `set metric [a]igp`"
+
+
+def test_bgp_aigp_outbound_route_map():
+    tgen = get_topogen()
+
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    r4 = tgen.gears["r4"]
+    r6 = tgen.gears["r6"]
+
+    r6.vtysh_cmd(
+        """
+    configure terminal
+        route-map set-nexthop permit 10
+            set aigp-metric 100
+    """
+    )
+
+    result = check_aigp_metric(r4, "10.0.0.71/32", 100)
+    assert result is True, result
 
 
 if __name__ == "__main__":
