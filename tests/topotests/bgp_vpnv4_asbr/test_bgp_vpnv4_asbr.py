@@ -15,7 +15,7 @@ h1 is a host behind r1 VRF1, and {h2,h3} are hosts behind r3 VRF1
 The test demonstrates the connectivity across the network between h1 and h3.
 r3 sets an AIGP metric on its exported VPN routes, and AIGP is enabled on
 the eBGP sessions between r2, rs200 and r3: r2 and r1 receive the AIGP
-metric.
+metric. r2 increases it towards rr100 with "set aigp-metric +1".
 
 
 +----------+          +----+--------+              +--------+              +--------+-----+
@@ -439,6 +439,16 @@ def test_mpls_setup_ok():
     check_ping("h1", "172.31.2.10", True, 20, 0.5)
 
 
+@retry(retry_timeout=60)
+def check_vpn_aigp_metric(router, rd, prefix, aigp):
+    output = router.vtysh_cmd("show bgp ipv4 vpn {} json".format(prefix), isjson=True)
+    expected = {rd: {"paths": [{"aigpMetric": aigp}]}}
+    result = topotest.json_cmp(output, expected)
+    if result is not None:
+        return "{}, {}".format(router.name, result)
+    return True
+
+
 def test_aigp_vpn_inter_as():
     """
     Check that r2 and r1 receive 172.31.3.0/24 from r3 with the AIGP metric
@@ -447,18 +457,34 @@ def test_aigp_vpn_inter_as():
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
 
-    @retry(retry_timeout=30)
-    def check_vpn_aigp_metric(router):
-        output = router.vtysh_cmd("show bgp ipv4 vpn 172.31.3.0/24 json", isjson=True)
-        expected = {"444:3": {"paths": [{"aigpMetric": 30}]}}
-        result = topotest.json_cmp(output, expected)
-        if result is not None:
-            return "{}, {}".format(router.name, result)
-        return True
-
     for rname in ("r2", "r1"):
-        result = check_vpn_aigp_metric(tgen.gears[rname])
+        result = check_vpn_aigp_metric(tgen.gears[rname], "444:3", "172.31.3.0/24", 30)
         assert result is True, result
+
+
+def test_aigp_vpn_increase():
+    """
+    r2 reaches r3 through a static route, so the IGP metric to r3 is 0.
+    r2 adds 1 to the AIGP metric in the outbound route-map towards rr100,
+    and r1 receives 172.31.3.0/24 with an AIGP metric of 31.
+    """
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    tgen.gears["r2"].vtysh_cmd(
+        """
+configure terminal
+route-map aigp-increase permit 10
+ set aigp-metric +1
+router bgp 65500
+ address-family ipv4 vpn
+  neighbor 192.0.2.100 route-map aigp-increase out
+"""
+    )
+
+    result = check_vpn_aigp_metric(tgen.gears["r1"], "444:3", "172.31.3.0/24", 31)
+    assert result is True, result
 
 
 def test_r3_prefixes_removed():
