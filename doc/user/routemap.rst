@@ -342,12 +342,19 @@ Route Map Set Command
 
    Set the maximum metric for the route.
 
-.. clicmd:: set aigp-metric <igp-metric|(0-4294967295)>
+.. clicmd:: set aigp-metric <igp-metric|[+](0-4294967295)>
 
    Set the BGP attribute AIGP to a specific value. If ``igp-metric`` is specified,
    then the value is taken from the IGP protocol, otherwise an arbitrary value.
    A value of 0 is valid: the route carries the AIGP attribute with a metric
    of 0, which is compared in the best path selection.
+
+   If the value is prefixed with ``+``, it is added to the AIGP metric of the
+   route, and the result is capped at 0xffffffffffffffff. A route without the
+   AIGP attribute is left unchanged. RFC 7311 requires the AIGP metric to be
+   increased by a non-zero amount when the nexthop is changed, even on a direct
+   link where no IGP is running: for instance, ``set aigp-metric +10`` in the
+   outbound route-map of an eBGP neighbor provides this increase.
 
 .. clicmd:: set as-path prepend AS_PATH
 
