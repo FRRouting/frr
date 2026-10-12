@@ -2397,15 +2397,9 @@ bgp_stop_with_error(struct peer_connection *connection)
 }
 
 
-/* something went wrong, send notify and tear down */
-enum bgp_fsm_state_progress
-bgp_stop_with_notify(struct peer_connection *connection, uint8_t code,
-		     uint8_t sub_code)
+static enum bgp_fsm_state_progress bgp_stop_without_notify(struct peer_connection *connection)
 {
 	struct peer *peer = connection->peer;
-
-	/* Send notify to remote peer */
-	bgp_notify_send(connection, code, sub_code);
 
 	if (peer_dynamic_neighbor_no_nsf(peer)) {
 		if (bgp_debug_neighbor_events(peer))
@@ -2420,6 +2414,14 @@ bgp_stop_with_notify(struct peer_connection *connection, uint8_t code,
 	peer->v_start = BGP_INIT_START_TIMER;
 
 	return bgp_stop(connection);
+}
+
+enum bgp_fsm_state_progress bgp_stop_with_notify(struct peer_connection *connection, uint8_t code,
+						 uint8_t sub_code)
+{
+	bgp_notify_send(connection, code, sub_code);
+
+	return bgp_stop_without_notify(connection);
 }
 
 /**
@@ -2805,19 +2807,63 @@ bgp_fsm_open(struct peer_connection *connection)
 	return BGP_FSM_SUCCESS;
 }
 
+/*
+ * The type of the received message that raised the event.  Returns false for
+ * an event that was not raised by a received message.
+ */
+static bool bgp_fsm_event_msg_type(enum bgp_fsm_events event, uint8_t *type)
+{
+	switch (event) {
+	case Receive_OPEN_message:
+		*type = BGP_MSG_OPEN;
+		return true;
+	case Receive_KEEPALIVE_message:
+		*type = BGP_MSG_KEEPALIVE;
+		return true;
+	case Receive_UPDATE_message:
+		*type = BGP_MSG_UPDATE;
+		return true;
+	case Receive_NOTIFICATION_message:
+		*type = BGP_MSG_NOTIFY;
+		return true;
+	case BGP_Start:
+	case BGP_Stop:
+	case TCP_connection_open:
+	case TCP_connection_open_w_delay:
+	case TCP_connection_closed:
+	case TCP_connection_open_failed:
+	case TCP_fatal_error:
+	case ConnectRetry_timer_expired:
+	case Hold_Timer_expired:
+	case KeepAlive_timer_expired:
+	case DelayOpen_timer_expired:
+	case Clearing_Completed:
+	case BGP_EVENTS_MAX:
+		break;
+	}
+
+	return false;
+}
+
 /* FSM error, unexpected event.  This is error of BGP connection. So cut the
    peer and change to Idle status. */
 static enum bgp_fsm_state_progress
 bgp_fsm_event_error(struct peer_connection *connection)
 {
 	struct peer *peer = connection->peer;
+	uint8_t type;
 
 	flog_err(EC_BGP_FSM, "%s [FSM] unexpected packet received in state %s",
 		 peer->host,
 		 lookup_msg(bgp_status_msg, connection->status, NULL));
 
-	return bgp_stop_with_notify(connection, BGP_NOTIFY_FSM_ERR,
-				    bgp_fsm_error_subcode(connection->status));
+	if (!bgp_fsm_event_msg_type(peer->cur_event, &type))
+		return bgp_stop_with_notify(connection, BGP_NOTIFY_FSM_ERR,
+					    bgp_fsm_error_subcode(connection->status));
+
+	bgp_notify_send_fsm_error(connection, type);
+
+	return bgp_stop_without_notify(connection);
 }
 
 /* Hold timer expire.  This is error of BGP connection. So cut the

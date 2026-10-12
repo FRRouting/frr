@@ -1112,6 +1112,24 @@ void bgp_notify_send_with_data(struct peer_connection *connection, uint8_t code,
 }
 
 /*
+ * Send a Finite State Machine Error for an unexpected message of the given
+ * type.
+ *
+ * RFC 6608 section 4: with the state specific subcodes, the Data field is a
+ * 1-octet unsigned integer that indicates the type of the unexpected message.
+ * No Data is defined for the Unspecified subcode, so none is sent with it.
+ */
+void bgp_notify_send_fsm_error(struct peer_connection *connection, uint8_t type)
+{
+	uint8_t sub_code = bgp_fsm_error_subcode(connection->status);
+
+	if (sub_code == BGP_NOTIFY_FSM_ERR_SUBCODE_UNSPECIFIC)
+		bgp_notify_send(connection, BGP_NOTIFY_FSM_ERR, sub_code);
+	else
+		bgp_notify_send_with_data(connection, BGP_NOTIFY_FSM_ERR, sub_code, &type, 1);
+}
+
+/*
  * For use by the io pthread, queueing a notification but avoiding access to
  * the peer object.
  */
@@ -2412,8 +2430,7 @@ static int bgp_update_receive(struct peer_connection *connection, bgp_size_t siz
 	if (!peer_established(connection)) {
 		flog_err(EC_BGP_INVALID_STATUS, "%s [FSM] Update packet received under status %s",
 			 peer->host, lookup_msg(bgp_status_msg, connection->status, NULL));
-		bgp_notify_send(connection, BGP_NOTIFY_FSM_ERR,
-				bgp_fsm_error_subcode(connection->status));
+		bgp_notify_send_fsm_error(connection, BGP_MSG_UPDATE);
 		return BGP_Stop;
 	}
 
@@ -2826,8 +2843,9 @@ static int bgp_route_refresh_receive(struct peer_connection *connection, bgp_siz
 		flog_err(EC_BGP_INVALID_STATUS,
 			 "%s [Error] Route refresh packet received under status %s", peer->host,
 			 lookup_msg(bgp_status_msg, connection->status, NULL));
-		bgp_notify_send(connection, BGP_NOTIFY_FSM_ERR,
-				bgp_fsm_error_subcode(connection->status));
+		/* BGP_MSG_ROUTE_REFRESH_NEW or _OLD, as received */
+		bgp_notify_send_fsm_error(connection,
+					  stream_getc_from(connection->curr, BGP_MARKER_SIZE + 2));
 		return BGP_Stop;
 	}
 
@@ -4087,8 +4105,7 @@ int bgp_capability_receive(struct peer_connection *connection, bgp_size_t size)
 			 "%s [Error] Dynamic capability packet received under status %s",
 			 peer->host,
 			 lookup_msg(bgp_status_msg, connection->status, NULL));
-		bgp_notify_send(connection, BGP_NOTIFY_FSM_ERR,
-				bgp_fsm_error_subcode(connection->status));
+		bgp_notify_send_fsm_error(connection, BGP_MSG_CAPABILITY);
 		return BGP_Stop;
 	}
 

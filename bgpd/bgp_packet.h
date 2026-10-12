@@ -57,6 +57,7 @@ extern void bgp_notify_send(struct peer_connection *connection, uint8_t code,
 extern void bgp_notify_send_with_data(struct peer_connection *connection,
 				      uint8_t code, uint8_t sub_code,
 				      uint8_t *data, size_t datalen);
+extern void bgp_notify_send_fsm_error(struct peer_connection *connection, uint8_t type);
 void bgp_notify_io_invalid(struct peer_connection *connection, uint8_t code, uint8_t sub_code,
 			   uint8_t *data, size_t datalen);
 extern void bgp_route_refresh_send(struct peer_connection *connection, afi_t afi, safi_t safi,
