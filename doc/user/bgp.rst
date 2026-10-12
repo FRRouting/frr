@@ -2879,9 +2879,18 @@ Capability Negotiation
 .. clicmd:: neighbor PEER aigp
 
    Send and receive AIGP attribute for this neighbor. This is valid only for
-   eBGP neighbors.
+   eBGP neighbors. When disabled, a received AIGP attribute is ignored, and
+   the AIGP attribute is not sent.
 
-   Disabled by default. iBGP neighbors have this option enabled implicitly.
+   This command does not add the AIGP attribute to the advertised routes: only
+   the routes that already carry it are sent with it. A route gets the AIGP
+   attribute from :clicmd:`set aigp-metric \<igp-metric|(0-4294967295)\>`, or
+   from a neighbor with AIGP enabled. When the nexthop is changed to the local
+   address, the AIGP metric is increased by the IGP metric to the previous
+   nexthop.
+
+   Disabled by default. iBGP and confederation neighbors have this option
+   enabled implicitly.
 
 .. _bgp-as-path-access-lists:
 
