@@ -19,6 +19,9 @@ r1 receives routes with aigp-metric TLV 81, 91 and 82, 92 respectively.
 r1 advertises MED from IGP protocol (set metric igp) to r8.
 
 r1 advertises MED from AIGP (set metric aigp) to r8.
+
+r8 does not receive the AIGP attribute, as r1 -> r8 is an eBGP session
+without "neighbor PEER aigp".
 """
 
 import os
@@ -154,12 +157,18 @@ def test_bgp_aigp():
 
     def _bgp_check_received_med():
         output = json.loads(
-            r8.vtysh_cmd("show bgp ipv4 unicast 10.0.0.64/28 longer-prefixes json")
+            r8.vtysh_cmd(
+                "show bgp ipv4 unicast 10.0.0.64/28 longer-prefixes json detail"
+            )
         )
         expected = {
             "routes": {
-                "10.0.0.71/32": [{"valid": True, "metric": 10}],
-                "10.0.0.72/32": [{"valid": True, "metric": 92}],
+                "10.0.0.71/32": {
+                    "paths": [{"valid": True, "metric": 10, "aigpMetric": None}]
+                },
+                "10.0.0.72/32": {
+                    "paths": [{"valid": True, "metric": 92, "aigpMetric": None}]
+                },
             }
         }
         return topotest.json_cmp(output, expected)
@@ -288,7 +297,7 @@ def test_bgp_aigp():
     _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
     assert (
         result is None
-    ), "MED attribute values are not derived from `set metric [a]igp`"
+    ), "MED is not derived from `set metric [a]igp`, or AIGP is received"
 
 
 if __name__ == "__main__":
