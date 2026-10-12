@@ -26,6 +26,9 @@ without "neighbor PEER aigp".
 peer1 and peer2 are eBGP peers of r7, and both advertise a prefix with
 the AIGP attribute. r7 accepts it from peer1 ("neighbor PEER aigp"),
 and ignores it from peer2.
+
+r7 sets aigp-metric 0 for 10.0.0.72/32, and r6 receives the AIGP
+attribute with a metric of 0.
 """
 
 import os
@@ -345,6 +348,27 @@ def test_bgp_aigp_ebgp_peer():
 
     # peer2 is not configured with "neighbor PEER aigp"
     result = check_aigp_metric(r7, "10.0.7.102/32", None)
+    assert result is True, result
+
+
+def test_bgp_aigp_metric_zero():
+    tgen = get_topogen()
+
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    r6 = tgen.gears["r6"]
+    r7 = tgen.gears["r7"]
+
+    r7.vtysh_cmd(
+        """
+    configure terminal
+        route-map rmap permit 20
+            set aigp-metric 0
+    """
+    )
+
+    result = check_aigp_metric(r6, "10.0.0.72/32", 0)
     assert result is True, result
 
 
