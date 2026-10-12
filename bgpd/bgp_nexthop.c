@@ -89,8 +89,41 @@ bool bnc_existing_for_prefix(struct bgp_nexthop_cache *bnc)
 	return false;
 }
 
+int bgp_nexthop_resolved_compare(const struct bgp_nexthop_cache *a,
+				 const struct bgp_nexthop_cache *b)
+{
+	int ret = prefix_cmp(&a->resolved_prefix, &b->resolved_prefix);
+
+	if (ret)
+		return ret;
+
+	if (a->afi != b->afi)
+		return numcmp(a->afi, b->afi);
+
+	return bgp_nexthop_cache_compare(a, b);
+}
+
+void bnc_set_resolved(struct bgp_nexthop_cache *bnc, uint8_t type, const struct prefix *prefix)
+{
+	struct bgp *bgp = bnc->bgp;
+	bool indexed = bnc->tree == &bgp->nexthop_cache_table[bnc->afi];
+
+	if (indexed && bnc->resolved_type == ZEBRA_ROUTE_BGP)
+		bgp_nexthop_resolved_del(&bgp->nexthop_cache_resolved, bnc);
+
+	bnc->resolved_type = type;
+	if (prefix)
+		prefix_copy(&bnc->resolved_prefix, prefix);
+	else
+		memset(&bnc->resolved_prefix, 0, sizeof(bnc->resolved_prefix));
+
+	if (indexed && type == ZEBRA_ROUTE_BGP)
+		bgp_nexthop_resolved_add(&bgp->nexthop_cache_resolved, bnc);
+}
+
 void bnc_free(struct bgp_nexthop_cache *bnc)
 {
+	bnc_set_resolved(bnc, ZEBRA_ROUTE_SYSTEM, NULL);
 	bnc_nexthop_free(bnc);
 	bgp_nexthop_cache_del(bnc->tree, bnc);
 	XFREE(MTYPE_BGP_NEXTHOP_CACHE, bnc);
@@ -1397,6 +1430,7 @@ void bgp_scan_init(struct bgp *bgp)
 		bgp->connected_table[afi] = bgp_table_init(bgp, afi,
 			SAFI_UNICAST);
 	}
+	bgp_nexthop_resolved_init(&bgp->nexthop_cache_resolved);
 }
 
 void bgp_scan_vty_init(void)

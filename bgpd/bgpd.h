@@ -857,6 +857,8 @@ struct bgp {
 
 	/* Tree for next-hop lookup cache. */
 	struct bgp_nexthop_cache_head nexthop_cache_table[AFI_MAX];
+	/* Nexthops of nexthop_cache_table resolved by a BGP route */
+	struct bgp_nexthop_resolved_head nexthop_cache_resolved;
 
 	/* Tree for import-check */
 	struct bgp_nexthop_cache_head import_check_table[AFI_MAX];

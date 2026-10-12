@@ -4448,6 +4448,7 @@ void bgp_process_main_one(struct bgp *bgp, struct bgp_dest *dest, afi_t afi, saf
 	struct bgp_path_info *new_select;
 	struct bgp_path_info *old_select;
 	struct bgp_path_info_pair old_and_new;
+	bool aigp_nexthop_update;
 	int debug = 0;
 	struct bgp_debug_vrf dv = {
 		.name = "Unknown",
@@ -4535,6 +4536,12 @@ void bgp_process_main_one(struct bgp *bgp, struct bgp_dest *dest, afi_t afi, saf
 	old_select = old_and_new.old;
 	new_select = old_and_new.new;
 
+	aigp_nexthop_update =
+		safi == SAFI_UNICAST &&
+		(old_select != new_select ||
+		 (new_select && (CHECK_FLAG(new_select->flags, BGP_PATH_ATTR_CHANGED) ||
+				 CHECK_FLAG(new_select->flags, BGP_PATH_IGP_CHANGED))));
+
 	if (safi == SAFI_UNICAST && is_srv6_unicast_enabled(bgp, afi))
 		bgp_srv6_unicast_register_route(bgp, afi, dest, new_select);
 
@@ -4611,6 +4618,8 @@ void bgp_process_main_one(struct bgp *bgp, struct bgp_dest *dest, afi_t afi, saf
 
 		UNSET_FLAG(old_select->flags, BGP_PATH_MULTIPATH_CHG);
 		UNSET_FLAG(old_select->flags, BGP_PATH_LINK_BW_CHG);
+		if (aigp_nexthop_update)
+			bgp_aigp_nexthop_route_update(bgp, dest);
 		bgp_zebra_clear_route_change_flags(dest);
 		UNSET_FLAG(dest->flags, BGP_NODE_ZEBRA_ANNOUNCE_EARLY);
 		UNSET_FLAG(dest->flags, BGP_NODE_PROCESS_SCHEDULED);
@@ -4658,6 +4667,10 @@ void bgp_process_main_one(struct bgp *bgp, struct bgp_dest *dest, afi_t afi, saf
 		bgp_dest_decrement_gr_fib_install_pending_count(dest);
 		UNSET_FLAG(dest->flags, BGP_NODE_FIB_INSTALL_PENDING);
 	}
+
+	/* The AIGP distance is read from the path flagged as selected */
+	if (aigp_nexthop_update)
+		bgp_aigp_nexthop_route_update(bgp, dest);
 
 	/* call bmp hook for loc-rib route update / withdraw after flags were
 	 * set
