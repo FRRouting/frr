@@ -22,6 +22,10 @@ r1 advertises MED from AIGP (set metric aigp) to r8.
 
 r8 does not receive the AIGP attribute, as r1 -> r8 is an eBGP session
 without "neighbor PEER aigp".
+
+peer1 and peer2 are eBGP peers of r7, and both advertise a prefix with
+the AIGP attribute. r7 accepts it from peer1 ("neighbor PEER aigp"),
+and ignores it from peer2.
 """
 
 import os
@@ -36,6 +40,7 @@ sys.path.append(os.path.join(CWD, "../"))
 # pylint: disable=C0413
 from lib import topotest
 from lib.topogen import Topogen, TopoRouter, get_topogen
+from lib.common_config import retry
 
 pytestmark = [pytest.mark.bgpd, pytest.mark.ospfd]
 
@@ -76,6 +81,16 @@ def build_topo(tgen):
     switch.add_link(tgen.gears["r1"])
     switch.add_link(tgen.gears["r8"])
 
+    switch = tgen.add_switch("s9")
+    switch.add_link(tgen.gears["r7"])
+    for peern in range(1, 3):
+        peer = tgen.add_exabgp_peer(
+            "peer{}".format(peern),
+            ip="192.168.7.10{}/24".format(peern),
+            defaultRoute="via 192.168.7.7",
+        )
+        switch.add_link(peer)
+
 
 def setup_module(mod):
     tgen = Topogen(build_topo, mod.__name__)
@@ -96,10 +111,26 @@ def setup_module(mod):
 
     tgen.start_router()
 
+    for peern in range(1, 3):
+        peer = tgen.gears["peer{}".format(peern)]
+        peer.start(os.path.join(CWD, peer.name), os.path.join(CWD, "exabgp.env"))
+
 
 def teardown_module(mod):
     tgen = get_topogen()
     tgen.stop_topology()
+
+
+@retry(retry_timeout=60)
+def check_aigp_metric(router, prefix, aigp):
+    output = json.loads(
+        router.vtysh_cmd("show bgp ipv4 unicast {} json".format(prefix))
+    )
+    expected = {"paths": [{"valid": True, "aigpMetric": aigp}]}
+    result = topotest.json_cmp(output, expected)
+    if result is not None:
+        return str(result)
+    return True
 
 
 def test_bgp_aigp():
@@ -298,6 +329,23 @@ def test_bgp_aigp():
     assert (
         result is None
     ), "MED is not derived from `set metric [a]igp`, or AIGP is received"
+
+
+def test_bgp_aigp_ebgp_peer():
+    tgen = get_topogen()
+
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    r7 = tgen.gears["r7"]
+
+    # peer1 is configured with "neighbor PEER aigp"
+    result = check_aigp_metric(r7, "10.0.7.101/32", 101)
+    assert result is True, result
+
+    # peer2 is not configured with "neighbor PEER aigp"
+    result = check_aigp_metric(r7, "10.0.7.102/32", None)
+    assert result is True, result
 
 
 if __name__ == "__main__":
