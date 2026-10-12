@@ -532,7 +532,7 @@ static int zebra_read_route(ZAPI_CALLBACK_ARGS)
 	ifindex_t ifindex = IFINDEX_INTERNAL;
 	uint32_t seg6local_action = ZEBRA_SEG6_LOCAL_ACTION_UNSPEC;
 	const struct seg6local_context *seg6local_ctx = NULL;
-	int add, i;
+	int add;
 	struct bgp *bgp;
 
 	bgp = bgp_lookup_by_vrf_id(vrf_id);
@@ -569,22 +569,6 @@ static int zebra_read_route(ZAPI_CALLBACK_ARGS)
 		seg6local_action = api.nexthops[0].seg6local_action;
 		seg6local_ctx = &api.nexthops[0].seg6local_ctx;
 
-		/*
-		 * The ADD message is actually an UPDATE and there is no
-		 * explicit DEL
-		 * for a prior redistributed route, if any. So, perform an
-		 * implicit
-		 * DEL processing for the same redistributed route from any
-		 * other
-		 * source type.
-		 */
-		for (i = 0; i < ZEBRA_ROUTE_MAX; i++) {
-			if (i != api.type)
-				bgp_redistribute_delete(bgp, &api.prefix, i,
-							api.instance);
-		}
-
-		/* Now perform the add/update. */
 		bgp_redistribute_add(bgp, &api.prefix, &nexthop, ifindex, nhtype, api.distance,
 				     bhtype, api.metric, api.type, api.instance, api.tag,
 				     seg6local_action, seg6local_ctx);

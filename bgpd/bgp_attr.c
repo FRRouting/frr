@@ -4353,6 +4353,12 @@ bgp_attr_unknown(struct bgp_attr_parser_args *args)
 	   in the Attribute Flags octet is set to 1 by some previous AS, it
 	   is not set back to 0 by the current AS. */
 	SET_FLAG(*startp, BGP_ATTR_FLAG_PARTIAL);
+	/* RFC 4271 defines:
+	 * The lower-order four bits of the Attribute Flags octet are
+	 * unused. They MUST be zero when sent and MUST be ignored when
+	 * received.
+	 */
+	UNSET_FLAG(*startp, 0x0F);
 
 	/* Store transitive attribute to the end of attr->transit. */
 	transit = bgp_attr_get_transit(attr);
@@ -6438,14 +6444,18 @@ void bgp_path_attribute_discard_vty(struct vty *vty, struct peer *peer,
 
 			XFREE(MTYPE_TMP, attributes[i]);
 
-			/* Some of the attributes, just can't be ignored. */
-			if (attr_num == BGP_ATTR_ORIGIN ||
-			    attr_num == BGP_ATTR_AS_PATH ||
-			    attr_num == BGP_ATTR_NEXT_HOP ||
-			    attr_num == BGP_ATTR_MULTI_EXIT_DISC ||
+			/* Some of the attributes, just can't be ignored.
+			 *
+			 * OTC is in this list because RFC 9234 forbids the
+			 * operator from altering the route leak prevention
+			 * procedures. Discarding it on ingress would let a
+			 * Provider or an RS accept a leaked route.
+			 */
+			if (attr_num == BGP_ATTR_ORIGIN || attr_num == BGP_ATTR_AS_PATH ||
+			    attr_num == BGP_ATTR_NEXT_HOP || attr_num == BGP_ATTR_MULTI_EXIT_DISC ||
 			    attr_num == BGP_ATTR_MP_REACH_NLRI ||
 			    attr_num == BGP_ATTR_MP_UNREACH_NLRI ||
-			    attr_num == BGP_ATTR_EXT_COMMUNITIES) {
+			    attr_num == BGP_ATTR_EXT_COMMUNITIES || attr_num == BGP_ATTR_OTC) {
 				vty_out(vty,
 					"%% Can't discard path-attribute %s, ignoring.\n",
 					lookup_msg(attr_str, attr_num, NULL));
@@ -6507,14 +6517,17 @@ void bgp_path_attribute_withdraw_vty(struct vty *vty, struct peer *peer,
 
 			XFREE(MTYPE_TMP, attributes[i]);
 
-			/* Some of the attributes, just can't be ignored. */
-			if (attr_num == BGP_ATTR_ORIGIN ||
-			    attr_num == BGP_ATTR_AS_PATH ||
-			    attr_num == BGP_ATTR_NEXT_HOP ||
-			    attr_num == BGP_ATTR_MULTI_EXIT_DISC ||
+			/* Some of the attributes, just can't be ignored.
+			 *
+			 * OTC is in this list because RFC 9234 forbids the
+			 * operator from altering the route leak prevention
+			 * procedures.
+			 */
+			if (attr_num == BGP_ATTR_ORIGIN || attr_num == BGP_ATTR_AS_PATH ||
+			    attr_num == BGP_ATTR_NEXT_HOP || attr_num == BGP_ATTR_MULTI_EXIT_DISC ||
 			    attr_num == BGP_ATTR_MP_REACH_NLRI ||
 			    attr_num == BGP_ATTR_MP_UNREACH_NLRI ||
-			    attr_num == BGP_ATTR_EXT_COMMUNITIES) {
+			    attr_num == BGP_ATTR_EXT_COMMUNITIES || attr_num == BGP_ATTR_OTC) {
 				vty_out(vty,
 					"%% Can't treat-as-withdraw path-attribute %s, ignoring.\n",
 					lookup_msg(attr_str, attr_num, NULL));

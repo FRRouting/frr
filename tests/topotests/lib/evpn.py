@@ -2142,3 +2142,524 @@ def evpn_verify_overlay_route_in_kernel(
         f"{len(actual_nexthops)} nexthops via {expected_dev}"
     )
     return None
+
+
+#
+# Scale VRF EVPN route-target lists (frr-reload RTLIST packing / import map)
+#
+# Field-scale shared-services leaves use three ASNs x 512 explicit import RTs
+# (1,536 total). One matching export RT on the remote PE is enough to import
+# Type-5s; the rest of the list exists so frr-reload packs RTLIST chunks and
+# bgpd rebuilds the VRF import map once per chunk, not once per RT.
+#
+EVPN_SCALE_RT_ASNS = (60005, 60006, 65001)
+EVPN_SCALE_RT_FIRST = 102011
+EVPN_SCALE_RT_PER_ASN = 512
+
+
+def evpn_scale_rt_list(asns=None, first=None, per_asn=None, limit=None):
+    """Return explicit VRF EVPN route-target values (``ASN:local-admin``).
+
+    Default is the 1,536-entry field-scale import set. ``limit`` truncates
+    after generation so tests can keep the same first RT (the matching import)
+    while shrinking the list.
+    """
+    asns = EVPN_SCALE_RT_ASNS if asns is None else asns
+    first = EVPN_SCALE_RT_FIRST if first is None else first
+    per_asn = EVPN_SCALE_RT_PER_ASN if per_asn is None else per_asn
+    rts = [
+        "{}:{}".format(asn, value)
+        for asn in asns
+        for value in range(first, first + per_asn)
+    ]
+    if limit is not None:
+        return rts[:limit]
+    return rts
+
+
+def evpn_rt_config_lines(direction, rts, indent="  "):
+    """One ``route-target <direction> <rt>`` line per value (reload target form).
+
+    frr-reload.py packs adjacent VRF EVPN AF lines into RTLIST commands when it
+    applies this config; the target file itself stays one RT per line, matching
+    ``show running-config``.
+    """
+    return ["{}route-target {} {}".format(indent, direction, rt) for rt in rts]
+
+
+def evpn_routemap_stanza_lines(name, seqs, set_cmd="set metric"):
+    """Dummy route-map sequences so a reload can batch-delete whole clauses.
+
+    ``seqs`` is an iterable of sequence numbers. Each clause is a single
+    ``set`` so the stanza is valid and unused by forwarding.
+    """
+    lines = []
+    for seq in seqs:
+        lines.extend(
+            [
+                "route-map {} permit {}".format(name, seq),
+                " {} {}".format(set_cmd, seq),
+                "exit",
+                "!",
+            ]
+        )
+    return lines
+
+
+def evpn_type5_prefix_key(prefix):
+    """EVPN Type-5 prefix token as shown by ``show bgp l2vpn evpn route``."""
+    address, prefixlen = prefix.split("/")
+    return "[5]:[0]:[{}]:[{}]".format(prefixlen, address)
+
+
+def evpn_plumb_l3vni(router, vrf, table, vni, local_vtep):
+    """Create a VRF-lite L3VNI (bridge + VXLAN) so Type-5 can be originated.
+
+    ``local_vtep`` must already be configured on an interface. Returns None.
+    """
+    br = "br{}".format(vni)
+    vxlan = "vxlan{}".format(vni)
+    cmds = [
+        "ip link add {} type vrf table {}".format(vrf, table),
+        "ip link set dev {} up".format(vrf),
+        "ip link add {} type bridge stp_state 0".format(br),
+        "ip link set dev {} master {}".format(br, vrf),
+        "ip link set dev {} up".format(br),
+        (
+            "ip link add {} type vxlan id {} dstport 4789 local {} "
+            "nolearning".format(vxlan, vni, local_vtep)
+        ),
+        "ip link set dev {} master {}".format(vxlan, br),
+        (
+            "ip link set dev {} up type bridge_slave learning off "
+            "flood off mcast_flood off".format(vxlan)
+        ),
+    ]
+    for cmd in cmds:
+        router.cmd_raises(cmd)
+
+
+def _evpn_vni_json(router, vrf=None, vni=None):
+    """L3VNI JSON from the VRF view, else the per-VNI EVPN view."""
+    if vrf:
+        return router.vtysh_cmd("show bgp vrf {} vni json".format(vrf), isjson=True)
+    return router.vtysh_cmd("show bgp l2vpn evpn vni {} json".format(vni), isjson=True)
+
+
+def evpn_verify_vni_rt_member(router, field, rt, present=True, vrf=None, vni=None):
+    """Check that ``importRts`` / ``exportRts`` contains (or lacks) ``rt``.
+
+    Prefer ``vni=`` (``show bgp l2vpn evpn vni N json``) or ``vrf=`` for L3.
+    Returns None on success, error string on failure (for run_and_expect).
+    """
+    output = _evpn_vni_json(router, vrf=vrf, vni=vni)
+    if not output or not isinstance(output, dict):
+        return "{}: no VNI JSON for vrf={} vni={}".format(router.name, vrf, vni)
+    rts = output.get(field)
+    if rts is None and vni is not None:
+        nested = output.get(str(vni))
+        if isinstance(nested, dict):
+            rts = nested.get(field)
+    rts = rts or []
+    found = rt in rts
+    if present and not found:
+        return "{}: {} {} missing (have {})".format(router.name, field, rt, rts[:8])
+    if not present and found:
+        return "{}: {} {} still present".format(router.name, field, rt)
+    return None
+
+
+def evpn_verify_evpn_peer_established(router, peer):
+    """Return None once the L2VPN EVPN neighbor is Established."""
+    output = router.vtysh_cmd("show bgp l2vpn evpn summary json", isjson=True)
+    if not output or not isinstance(output, dict):
+        return "{}: no EVPN summary json".format(router.name)
+    peers = output.get("peers")
+    if not peers:
+        l2 = output.get("l2VpnEvpn") or output.get("l2vpnEvpn") or {}
+        peers = l2.get("peers") or {}
+    info = peers.get(peer) or {}
+    state = str(info.get("state") or info.get("peerState") or "")
+    if state.lower() != "established":
+        return "{}: EVPN peer {} state {!r}".format(router.name, peer, state)
+    return None
+
+
+def evpn_verify_type5_prefix(router, prefix, present=True):
+    """Type-5 prefix present/absent in the global EVPN table (not the VRF)."""
+    key = evpn_type5_prefix_key(prefix)
+    text = router.vtysh_cmd("show bgp l2vpn evpn route type prefix") or ""
+    found = key in text
+    if present and not found:
+        return "{}: Type-5 {} missing from EVPN table".format(router.name, prefix)
+    if not present and found:
+        return "{}: Type-5 {} still in EVPN table".format(router.name, prefix)
+    return None
+
+
+def evpn_verify_type5_prefixes(router, prefixes, present=True):
+    """All Type-5 prefixes present or absent in the EVPN table."""
+    for prefix in prefixes:
+        err = evpn_verify_type5_prefix(router, prefix, present=present)
+        if err:
+            return err
+    return None
+
+
+def evpn_verify_bgp_vrf_prefix(router, vrf, prefix, present=True, family="ipv4"):
+    """Imported (or local) unicast prefix in ``show bgp vrf`` JSON.
+
+    ``present=True`` requires at least one path that is not marked invalid.
+    ``present=False`` requires the prefix to have no such path.
+    """
+    cmd = "show bgp vrf {} {} unicast {} json".format(vrf, family, prefix)
+    output = router.vtysh_cmd(cmd, isjson=True) or {}
+    if not isinstance(output, dict):
+        output = {}
+    paths = output.get("paths") or []
+    has_valid = any(path.get("valid") is not False for path in paths)
+    if present and not has_valid:
+        return "{}: VRF {} missing BGP {} {}".format(router.name, vrf, family, prefix)
+    if not present and has_valid:
+        return "{}: VRF {} still has BGP {} {}".format(router.name, vrf, family, prefix)
+    return None
+
+
+def evpn_verify_bgp_vrf_prefixes(router, vrf, prefixes, present=True, family="ipv4"):
+    """All prefixes present or absent in the VRF BGP unicast table."""
+    for prefix in prefixes:
+        err = evpn_verify_bgp_vrf_prefix(
+            router, vrf, prefix, present=present, family=family
+        )
+        if err:
+            return err
+    return None
+
+
+def evpn_verify_vrf_route_present(router, vrf, route, protocol="bgp"):
+    """Selected route in the VRF RIB (partial JSON match)."""
+    expected = {
+        route: [
+            {
+                "protocol": protocol,
+                "selected": True,
+            }
+        ]
+    }
+    return evpn_verify_vrf_rib_route(router, vrf, route, expected)
+
+
+def evpn_verify_vrf_route_absent(router, vrf, route):
+    """Prefix gone from the VRF RIB (withdrawn after import-RT removal)."""
+    family = "ipv6" if ":" in route else "ip"
+    cmd = "show {} route vrf {} {} json".format(family, vrf, route)
+    output = router.vtysh_cmd(cmd, isjson=True) or {}
+    if not output:
+        return None
+    if isinstance(output, dict) and route in output:
+        return "{}: VRF {} still has RIB {}".format(router.name, vrf, route)
+    return None
+
+
+def evpn_verify_vrf_routes(router, vrf, prefixes, present=True, protocol="bgp"):
+    """All prefixes present or absent in the VRF RIB."""
+    for prefix in prefixes:
+        if present:
+            err = evpn_verify_vrf_route_present(router, vrf, prefix, protocol=protocol)
+        else:
+            err = evpn_verify_vrf_route_absent(router, vrf, prefix)
+        if err:
+            return err
+    return None
+
+
+def evpn_count_running_rt_lines(running_text, direction="import"):
+    """Count ``route-target <direction>`` lines in running-config text."""
+    needle = "route-target {} ".format(direction)
+    return sum(
+        1 for line in running_text.splitlines() if line.strip().startswith(needle)
+    )
+
+
+def evpn_reload_has_packed_rtlist(output, direction, rts, delete=False):
+    """True if frr-reload stdout contains a packed RTLIST for ``rts[:2]``.
+
+    Packed adds look like ``route-target import A B``; packed deletes prefix
+    ``no``. Two values are enough to prove packing (one RT per line would not
+    put both tokens on the same command).
+    """
+    if len(rts) < 2:
+        raise ValueError("need at least two RTs to detect RTLIST packing")
+    verb = "no route-target" if delete else "route-target"
+    needle = "{} {} {} {}".format(verb, direction, rts[0], rts[1])
+    return needle in output
+
+
+def evpn_verify_vrf_route_labels(
+    router, vrf, route, expected_labels=None, expected_interface=None
+):
+    """
+    Verify EVPN labels on a selected VRF route in the zebra RIB.
+
+    Parameters
+    ----------
+    * `router`: router object to check
+    * `vrf`: VRF name (e.g., "vrf1", "vrf2")
+    * `route`: Route prefix (e.g., "88.1.1.0/24")
+    * `expected_labels`: list of expected labels, or None/[] for unlabeled
+    * `expected_interface`: optional interface name that must appear on a
+      selected nexthop (e.g., "vxlan48")
+
+    Returns
+    -------
+    None on success, error string on failure (for use with topotest.run_and_expect)
+    """
+    is_ipv6 = ":" in route
+    cmd = f"show {'ipv6' if is_ipv6 else 'ip'} route vrf {vrf} {route} json"
+    output = router.vtysh_cmd(cmd, isjson=True)
+
+    if not output or route not in output:
+        return f"VRF {vrf}: route {route} not found via '{cmd}'"
+
+    routes = output[route]
+    if not isinstance(routes, list) or not routes:
+        return f"VRF {vrf}: unexpected route data for {route}: {output}"
+
+    selected = None
+    for entry in routes:
+        if entry.get("selected") or entry.get("installed"):
+            selected = entry
+            break
+    if selected is None:
+        selected = routes[0]
+
+    nexthops = selected.get("nexthops", [])
+    if not nexthops:
+        return f"VRF {vrf}: route {route} has no nexthops: {selected}"
+
+    want_labels = list(expected_labels) if expected_labels else []
+    matched = False
+    for nh in nexthops:
+        if nh.get("duplicate"):
+            continue
+        labels = nh.get("labels", [])
+        if labels != want_labels:
+            continue
+        if expected_interface and nh.get("interfaceName") != expected_interface:
+            continue
+        matched = True
+        break
+
+    if not matched:
+        return (
+            f"VRF {vrf}: route {route} label/interface mismatch.\n"
+            f"Expected labels={want_labels}"
+            f"{(' interface=' + expected_interface) if expected_interface else ''}\n"
+            f"Nexthops: {nexthops}"
+        )
+
+    logger.info(
+        "%s: VRF %s route %s has labels %s%s",
+        router.name,
+        vrf,
+        route,
+        want_labels,
+        f" via {expected_interface}" if expected_interface else "",
+    )
+    return None
+
+
+def _kernel_nh_group_ids(group):
+    """
+    Return member nexthop ids from `ip -j nexthop` group output.
+
+    Current iproute2 emits a list of objects. Older iproute2 emits a string
+    such as "10/11" or "10,1/11,2" (id,weight pairs separated by '/').
+    """
+    if isinstance(group, dict):
+        group = [group]
+    if isinstance(group, list):
+        ids = []
+        for member in group:
+            if isinstance(member, dict):
+                mid = member.get("id")
+            elif isinstance(member, int):
+                mid = member
+            elif isinstance(member, str) and member.isdigit():
+                mid = int(member)
+            else:
+                mid = None
+            if mid is not None:
+                ids.append(mid)
+        return ids
+    if isinstance(group, str):
+        ids = []
+        for member in group.split("/"):
+            id_tok = member.split(",")[0].strip()
+            if id_tok.isdigit():
+                ids.append(int(id_tok))
+        return ids
+    return []
+
+
+def _kernel_encap_id(nh_entry):
+    """Return the VXLAN/LWTUNNEL id from one `ip -j nexthop` object.
+
+    Used by evpn_verify_kernel_encap_vni() on each leaf nexthop (a group is
+    expanded to its members first). For an EVPN nexthop the tunnel id is the
+    VNI zebra encoded as LWTUNNEL_IP_ID, e.g. the D-VNI 900000. Returns None
+    when the nexthop carries no tunnel id.
+
+    iproute2 has printed this three ways:
+    - nested object: {"encap": {"type": "ip", "id": 900000}}
+    - one string: {"encap": "ip id 900000 dst 10.0.0.30"}
+    - flattened: {"encap": "ip", "id": 900000, "dst": "10.0.0.30", ...}
+      The tunnel fields sit beside the nexthop fields, and both ids use the
+      key "id". json.loads keeps the last duplicate key, so "id" is the
+      tunnel id and the nexthop id is lost.
+
+    Caveat for the flattened form: a bare "ip"/"vxlan" encap is taken to mean
+    the top-level "id" is the tunnel id. If iproute2 ever printed that encap
+    with no tunnel id, "id" would still be the nexthop id and would be
+    returned as if it were a VNI. A VNI check would then fail with a
+    misleading value instead of None.
+    """
+    encap = nh_entry.get("encap")
+    if isinstance(encap, dict):
+        encap_id = encap.get("id")
+    elif isinstance(encap, str):
+        encap_id = None
+        parts = encap.split()
+        if "id" in parts:
+            idx = parts.index("id")
+            if idx + 1 < len(parts) and parts[idx + 1].isdigit():
+                encap_id = int(parts[idx + 1])
+        elif encap in ("ip", "vxlan"):
+            encap_id = nh_entry.get("id")
+    else:
+        encap_id = None
+
+    if isinstance(encap_id, str) and encap_id.isdigit():
+        return int(encap_id)
+    return encap_id
+
+
+def evpn_verify_kernel_encap_vni(
+    router, vrf, route, expected_vni=None, expected_dev=None
+):
+    """
+    Verify Linux kernel nexthop encapsulation VNI for a VRF route.
+
+    Walks `ip -j route show` → nhid → `ip -j nexthop get` and checks
+    encap.id (LWTUNNEL_IP_ID). When expected_vni is None, asserts that no
+    EVPN/VXLAN encap id is present (unlabeled hairpin).
+
+    Parameters
+    ----------
+    * `router`: router object to check
+    * `vrf`: VRF name
+    * `route`: Route prefix
+    * `expected_vni`: D-VNI / L3VNI to expect, or None for no encap id
+    * `expected_dev`: optional output device (e.g., "vxlan48")
+
+    Returns
+    -------
+    None on success, error string on failure (for use with topotest.run_and_expect)
+    """
+    cmd = f"ip -j route show vrf {vrf} {route}"
+    output = router.run(cmd)
+    if not output or not output.strip():
+        return f"VRF {vrf}: no kernel route for '{cmd}'"
+
+    try:
+        route_data = json.loads(output)
+    except json.JSONDecodeError as e:
+        return f"VRF {vrf}: failed to parse '{cmd}': {e}; output={output}"
+
+    if not route_data:
+        return f"VRF {vrf}: route {route} not found in kernel"
+
+    route_entry = route_data[0]
+    nhid = route_entry.get("nhid")
+    if nhid is None:
+        # Some unlabeled hairpins may be installed without an nhid group.
+        if expected_vni is None:
+            encap = route_entry.get("encap") or {}
+            if encap.get("id") is not None:
+                return (
+                    f"VRF {vrf}: route {route} unexpectedly has encap id "
+                    f"{encap.get('id')}: {route_entry}"
+                )
+            logger.info(
+                "%s: VRF %s route %s has no nhid/encap (unlabeled)",
+                router.name,
+                vrf,
+                route,
+            )
+            return None
+        return f"VRF {vrf}: route {route} has no nhid: {route_entry}"
+
+    def _collect_nh_ids(nh_id, seen=None):
+        if seen is None:
+            seen = set()
+        if nh_id in seen:
+            return []
+        seen.add(nh_id)
+
+        nh_out = router.run(f"ip -j nexthop get id {nh_id}")
+        if not nh_out or not nh_out.strip():
+            return []
+        try:
+            nh_data = json.loads(nh_out)
+        except json.JSONDecodeError:
+            return []
+        if not nh_data:
+            return []
+
+        entry = nh_data[0]
+        group = entry.get("group")
+        if group:
+            return [
+                nh
+                for mid in _kernel_nh_group_ids(group)
+                for nh in _collect_nh_ids(mid, seen)
+            ]
+        return [entry]
+
+    nh_entries = _collect_nh_ids(nhid)
+    if not nh_entries:
+        return f"VRF {vrf}: failed to resolve nexthops for nhid {nhid}"
+
+    for nh_entry in nh_entries:
+        if not isinstance(nh_entry, dict):
+            return f"VRF {vrf}: unexpected nexthop entry {nh_entry!r}"
+        encap_id = _kernel_encap_id(nh_entry)
+        nh_dev = nh_entry.get("dev")
+
+        if expected_vni is None:
+            if encap_id is not None:
+                return (
+                    f"VRF {vrf}: route {route} unexpectedly has encap id "
+                    f"{encap_id} on nh {nh_entry}"
+                )
+        else:
+            if encap_id != expected_vni:
+                return (
+                    f"VRF {vrf}: route {route} encap id mismatch: "
+                    f"expected {expected_vni}, got {encap_id}; nh={nh_entry}"
+                )
+            if expected_dev and nh_dev != expected_dev:
+                return (
+                    f"VRF {vrf}: route {route} encap device mismatch: "
+                    f"expected {expected_dev}, got {nh_dev}; nh={nh_entry}"
+                )
+
+    logger.info(
+        "%s: VRF %s route %s kernel encap vni=%s%s",
+        router.name,
+        vrf,
+        route,
+        expected_vni,
+        f" via {expected_dev}" if expected_dev else "",
+    )
+    return None

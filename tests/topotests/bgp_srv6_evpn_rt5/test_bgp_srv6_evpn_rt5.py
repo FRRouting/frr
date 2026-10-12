@@ -131,18 +131,10 @@ def check_rib(name, cmd, expected_file, count=20, wait=3):
 
 def check_vpn_ribs(expected_suffix=""):
     suffix = "_{}".format(expected_suffix) if expected_suffix else ""
-    check_rib(
-        "r1", "show bgp ipv4 vpn json", "r1/vpnv4_rib{}.json".format(suffix)
-    )
-    check_rib(
-        "r2", "show bgp ipv4 vpn json", "r2/vpnv4_rib{}.json".format(suffix)
-    )
-    check_rib(
-        "r1", "show bgp ipv6 vpn json", "r1/vpnv6_rib{}.json".format(suffix)
-    )
-    check_rib(
-        "r2", "show bgp ipv6 vpn json", "r2/vpnv6_rib{}.json".format(suffix)
-    )
+    check_rib("r1", "show bgp ipv4 vpn json", "r1/vpnv4_rib{}.json".format(suffix))
+    check_rib("r2", "show bgp ipv4 vpn json", "r2/vpnv4_rib{}.json".format(suffix))
+    check_rib("r1", "show bgp ipv6 vpn json", "r1/vpnv6_rib{}.json".format(suffix))
+    check_rib("r2", "show bgp ipv6 vpn json", "r2/vpnv6_rib{}.json".format(suffix))
 
 
 def test_rib():
@@ -151,8 +143,8 @@ def test_rib():
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
 
-    check_rib("r1", "show bgp l2vpn evpn json", "r1/evpn_rib.json")
-    check_rib("r2", "show bgp l2vpn evpn json", "r2/evpn_rib.json")
+    check_rib("r1", "show bgp l2vpn evpn route detail json", "r1/evpn_rib.json")
+    check_rib("r2", "show bgp l2vpn evpn route detail json", "r2/evpn_rib.json")
 
     check_vpn_ribs()
 
@@ -265,12 +257,8 @@ def test_locator_recreate():
         """
     )
     check_vpn_ribs("locator_recreated")
-    check_rib(
-        "r1", "show bgp l2vpn evpn json", "r1/evpn_rib_locator_recreated.json"
-    )
-    check_rib(
-        "r2", "show bgp l2vpn evpn json", "r2/evpn_rib_locator_recreated.json"
-    )
+    check_rib("r1", "show bgp l2vpn evpn json", "r1/evpn_rib_locator_recreated.json")
+    check_rib("r2", "show bgp l2vpn evpn json", "r2/evpn_rib_locator_recreated.json")
     check_ping("ce1", "192.168.2.2", True, 20, 3)
     check_ping("ce1", "2001:db8:102::2", True, 20, 3)
 

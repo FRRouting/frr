@@ -32,6 +32,7 @@
 #include "pim_ssm.h"
 #include "pim_rp.h"
 #include "pim_mlag.h"
+#include "pim_dm.h"
 
 RB_GENERATE(pim_ifchannel_rb, pim_ifchannel, pim_ifp_rb, pim_ifchannel_compare);
 
@@ -168,6 +169,9 @@ void pim_ifchannel_delete(struct pim_ifchannel *origch)
 			for (ALL_LIST_ELEMENTS_RO(up->sources, up_node, child))
 				pim_channel_del_inherited_oif(child->channel_oil, ifp, __func__);
 		}
+
+		/* Release any Assert suppression cached for this ifchannel. */
+		pim_dm_ifchannel_deleting(origch);
 	}
 
 	/*
@@ -306,8 +310,7 @@ void pim_ifchannel_ifjoin_switch(const char *caller, struct pim_ifchannel *ch,
 					 * supplying the implied
 					 * if channel.  So remove it.
 					 */
-					if (oil_if_has(c_oil,
-						       pim_ifp->mroute_vif_index))
+					if (channel_oil_oif_find(c_oil, pim_ifp->mroute_vif_index))
 						pim_channel_del_inherited_oif(
 							c_oil, ch->interface,
 							__func__);
@@ -1322,7 +1325,7 @@ void pim_ifchannel_local_membership_del(struct interface *ifp, pim_sgaddr *sg)
 			 */
 			if (!pim_upstream_evaluate_join_desired_interface(child, chchannel,
 									  chchannelrpt, starch) ||
-			    (!chchannel && oil_if_has(c_oil, pim_ifp->mroute_vif_index))) {
+			    (!chchannel && channel_oil_oif_find(c_oil, pim_ifp->mroute_vif_index))) {
 				pim_channel_del_inherited_oif(c_oil, ifp,
 						__func__);
 			}

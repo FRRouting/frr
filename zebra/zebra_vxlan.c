@@ -5954,7 +5954,10 @@ void zebra_vxlan_advertise_gw_macip(ZAPI_HANDLER_ARGS)
 
 		zvrf->advertise_gw_macip = advertise;
 
-		if (advertise_gw_macip_enabled(zevpn))
+		/* zevpn is NULL in the global branch; the walkers re-check
+		 * the per-EVPN override themselves.
+		 */
+		if (advertise_gw_macip_enabled(NULL))
 			hash_iterate(zvrf->evpn_table,
 				     zebra_evpn_gw_macip_add_for_evpn_hash,
 				     NULL);
@@ -6805,6 +6808,34 @@ void zebra_vlan_dplane_result(struct zebra_dplane_ctx *ctx)
 		vlan_id_range_state_change(ifp, vid, (vrange ? vrange : vid),
 					   state);
 	}
+}
+
+/*
+ * Handle a kernel VXLAN VNI-filter tunnel notification on the zebra
+ * master pthread. The dplane thread is only the decoder; interface
+ * lookup and any later policy belong here.
+ *
+ * Live RTM_NEWTUNNEL/RTM_DELTUNNEL events were previously ignored on
+ * the main netlink socket. Preserve that until VNI-filter apply is
+ * wired up here.
+ */
+void zebra_tunnel_dplane_result(struct zebra_dplane_ctx *ctx)
+{
+	ns_id_t ns_id = dplane_ctx_get_ns_id(ctx);
+	ifindex_t ifindex = dplane_ctx_tunnel_notify_get_ifindex(ctx);
+	enum dplane_tunnel_notify_e notify_type = dplane_ctx_tunnel_notify_get_type(ctx);
+	struct interface *ifp;
+
+	ifp = if_lookup_by_index_per_ns(zebra_ns_lookup(ns_id), ifindex);
+
+	if (IS_ZEBRA_DEBUG_KERNEL || IS_ZEBRA_DEBUG_VXLAN)
+		zlog_debug("%s: %s IF %s ifindex %u NS %u family %u vni %u-%u startup %d", __func__,
+			   notify_type == DPLANE_TUNNEL_NOTIFY_NEW ? "new" : "del",
+			   ifp ? ifp->name : "unknown", ifindex, ns_id,
+			   dplane_ctx_tunnel_notify_get_family(ctx),
+			   dplane_ctx_tunnel_notify_get_vni_start(ctx),
+			   dplane_ctx_tunnel_notify_get_vni_end(ctx),
+			   dplane_ctx_get_startup(ctx));
 }
 
 /*********************** EVPN graceful restart *******************/

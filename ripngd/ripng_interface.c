@@ -127,8 +127,12 @@ static int ripng_if_ipv6_lladdress_check(struct interface *ifp)
 		struct prefix *p;
 		p = connected->address;
 
-		if ((p->family == AF_INET6) &&
-		    IN6_IS_ADDR_LINKLOCAL(&p->u.prefix6))
+		/*
+		 * A link-local still undergoing DAD is not usable as a
+		 * RIPng source address yet.
+		 */
+		if ((p->family == AF_INET6) && IN6_IS_ADDR_LINKLOCAL(&p->u.prefix6) &&
+		    !CHECK_FLAG(connected->flags, ZEBRA_IFA_TENTATIVE))
 			count++;
 	}
 

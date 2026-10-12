@@ -51,7 +51,8 @@ Test Execution Order:
 11. test_evpn_rd_prefix_route_lookup    - Verify EVPN Type-5 RD prefix lookups
 12. test_evpn_vtep_on_uplink_flap       - No stale VTEP when uplinks down; VTEPs back when up
 13. test_host_to_host_ping              - Verify end-to-end connectivity
-14. test_memory_leak                    - Memory leak detection
+14. test_import_vrf_preserves_dvni_label - Preserve D-VNI across import vrf
+15. test_memory_leak                    - Memory leak detection
 """
 
 import os
@@ -86,6 +87,8 @@ from lib.evpn import (
     evpn_verify_overlay_route_in_kernel,
     evpn_trigger_arp_scapy,
     evpn_verify_ping_connectivity,
+    evpn_verify_vrf_route_labels,
+    evpn_verify_kernel_encap_vni,
 )
 
 # Required to instantiate the topology builder class.
@@ -3405,6 +3408,301 @@ def test_ext21_dynamic_neighbor_password(tgen_and_ip_version):
         "ext-21 password test completed: dynamic neighbor correctly torn down "
         "on password set and re-established after password removal"
     )
+
+
+def test_import_vrf_preserves_dvni_label(tgen_and_ip_version):
+    """
+    Preserve D-VNI across VRF leak on SVD.
+
+    Tenant ToR originates Type-5 with VNI 900000 (different from hub L3VNI
+    104001). The auto export RT is (AS & 0xFFFF):VNI. tor-21's AS 650030 does
+    not fit in a 2-octet RT together with a 24-bit VNI, so 650030:900000 is
+    rejected. Hub VRF imports *:900000, then dest VRF leaks with "import vrf".
+
+    Assert:
+    - hub VRF keeps encap/label 900000 on SVD
+    - dest VRF leaked route keeps encap/label 900000 on SVD (not hairpin SVI)
+    - a non-EVPN local route leaked hub→dest stays unlabeled
+    """
+    tgen, ip_version = tgen_and_ip_version
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    # D-VNI Type-5 is IPv4 overlay; run once under IPv4 underlay.
+    if ip_version != "ipv4":
+        pytest.skip("D-VNI import-vrf label preservation runs with IPv4 underlay")
+
+    logger.info("Testing D-VNI label preservation across import vrf")
+
+    tor21 = tgen.gears["tor-21"]
+    bordertor11 = tgen.gears["bordertor-11"]
+    tor21_vtep = VTEP_IPS["ipv4"]["tor-21"]
+
+    dvni = 900000
+    hub_l3vni = 104001
+    tenant_vrf = "tenant_dvni"
+    hub_vrf = "vrf1"
+    dest_vrf = "vrf2"
+    dvni_route = "203.0.120.0/24"
+    local_leak_route = "203.0.121.0/24"
+    # 802.1Q VIDs are 1..4094. 900000 is the VNI, not a VLAN id.
+    # 111/112/4001/4002 are already used on this topology.
+    tenant_vlan = 900
+    # Wildcard on the VNI. Auto export RT is (650030 & 0xFFFF):900000.
+    import_rt = f"*:{dvni}"
+
+    def _setup_tenant_dvni_origin():
+        """Create tenant VRF/L3VNI 900000 on tor-21 and advertise Type-5."""
+        logger.info("Configuring tenant D-VNI origin on tor-21")
+        tor21.run(f"ip link del {tenant_vrf} 2>/dev/null || true")
+        tor21.run(f"ip link del vlan{tenant_vlan} 2>/dev/null || true")
+
+        tor21.run("bridge vlan add vid %u dev br_default self" % tenant_vlan)
+        tor21.run("bridge vlan add dev vxlan48 vid %u" % tenant_vlan)
+        tor21.run(
+            "bridge vlan add dev vxlan48 vid %u tunnel_info id %u" % (tenant_vlan, dvni)
+        )
+
+        tor21.run(f"ip link add {tenant_vrf} type vrf table 1900")
+        tor21.run(f"ip link set dev {tenant_vrf} up")
+        tor21.run(
+            "ip link add link br_default name vlan%u type vlan id %u protocol 802.1q"
+            % (tenant_vlan, tenant_vlan)
+        )
+        tor21.run(f"ip link set dev vlan{tenant_vlan} master {tenant_vrf}")
+        tor21.run(f"ip link set dev vlan{tenant_vlan} up")
+
+        tor21.vtysh_multicmd(
+            f"""
+            configure terminal
+            vrf {tenant_vrf}
+             vni {dvni}
+             ip route {dvni_route} blackhole
+            exit-vrf
+            !
+            router bgp 650030 vrf {tenant_vrf}
+             bgp router-id 10.0.0.30
+             address-family ipv4 unicast
+              redistribute static
+             exit-address-family
+             address-family l2vpn evpn
+              advertise ipv4 unicast
+             exit-address-family
+            exit
+            """
+        )
+
+    def _setup_hub_import_and_leak():
+        """Import D-VNI RT into hub VRF and leak hub→dest; also leak a local route."""
+        logger.info("Configuring hub RT import and dest import-vrf on bordertor-11")
+        bordertor11.vtysh_multicmd(
+            f"""
+            configure terminal
+            vrf {hub_vrf}
+             ip route {local_leak_route} blackhole
+            exit-vrf
+            !
+            router bgp 660000 vrf {hub_vrf}
+             address-family ipv4 unicast
+              redistribute static
+             exit-address-family
+             address-family l2vpn evpn
+              auto-route-target import add-always
+              route-target import {import_rt}
+             exit-address-family
+            exit
+            !
+            router bgp 660000 vrf {dest_vrf}
+             address-family ipv4 unicast
+              import vrf {hub_vrf}
+             exit-address-family
+            exit
+            """
+        )
+
+    def _cleanup():
+        """
+        Remove only the state this test added, so later tests see the
+        original bordertor-11 and tor-21 configuration.
+
+        bordertor-11:
+        - drop "import vrf vrf1" from vrf2
+        - drop the temporary RT import *:900000 from vrf1 and restore
+          auto-route-target import to its default
+        - drop "redistribute static" added under vrf1 ipv4 unicast
+          (vrf1 did not redistribute static before this test)
+        - delete the temporary blackhole 203.0.121.0/24 from vrf1
+
+        tor-21:
+        - delete the temporary BGP VRF and VRF tenant_dvni
+        - delete vlan900, its VRF binding, and the vxlan48 VLAN/VNI map
+          used to originate D-VNI 900000
+        """
+        logger.info("Cleaning up D-VNI import-vrf test config")
+        try:
+            bordertor11.vtysh_multicmd(
+                f"""
+                configure terminal
+                router bgp 660000 vrf {dest_vrf}
+                 address-family ipv4 unicast
+                  no import vrf {hub_vrf}
+                 exit-address-family
+                exit
+                !
+                router bgp 660000 vrf {hub_vrf}
+                 address-family l2vpn evpn
+                  no route-target import {import_rt}
+                  no auto-route-target import add-always
+                 exit-address-family
+                 address-family ipv4 unicast
+                  no redistribute static
+                 exit-address-family
+                exit
+                !
+                vrf {hub_vrf}
+                 no ip route {local_leak_route} blackhole
+                exit-vrf
+                """
+            )
+        except Exception as e:
+            logger.warning("bordertor-11 cleanup failed: %s", e)
+
+        try:
+            tor21.vtysh_multicmd(
+                f"""
+                configure terminal
+                no router bgp 650030 vrf {tenant_vrf}
+                !
+                no vrf {tenant_vrf}
+                """
+            )
+        except Exception as e:
+            logger.warning("tor-21 BGP/VRF cleanup failed: %s", e)
+
+        tor21.run(f"ip link del vlan{tenant_vlan} 2>/dev/null || true")
+        tor21.run(f"ip link del {tenant_vrf} 2>/dev/null || true")
+        tor21.run(
+            "bridge vlan del dev vxlan48 vid %u tunnel_info id %u 2>/dev/null || true"
+            % (tenant_vlan, dvni)
+        )
+        tor21.run(
+            "bridge vlan del dev vxlan48 vid %u 2>/dev/null || true" % tenant_vlan
+        )
+        tor21.run(
+            "bridge vlan del vid %u dev br_default self 2>/dev/null || true"
+            % tenant_vlan
+        )
+
+    try:
+        _setup_tenant_dvni_origin()
+        _setup_hub_import_and_leak()
+
+        # Hub VRF must learn Type-5 with D-VNI 900000 (not hub L3VNI 104001).
+        test_func = partial(
+            evpn_verify_vrf_route_labels,
+            bordertor11,
+            hub_vrf,
+            dvni_route,
+            expected_labels=[dvni],
+            expected_interface="vxlan48",
+        )
+        _, result = topotest.run_and_expect(test_func, None, count=60, wait=1)
+        assert result is None, f"hub VRF D-VNI RIB label check failed: {result}"
+
+        test_func = partial(
+            evpn_verify_kernel_encap_vni,
+            bordertor11,
+            hub_vrf,
+            dvni_route,
+            expected_vni=dvni,
+            expected_dev="vxlan48",
+        )
+        _, result = topotest.run_and_expect(test_func, None, count=60, wait=1)
+        assert result is None, f"hub VRF D-VNI kernel encap check failed: {result}"
+
+        # Dest VRF leak must preserve D-VNI on SVD.
+        test_func = partial(
+            evpn_verify_vrf_route_labels,
+            bordertor11,
+            dest_vrf,
+            dvni_route,
+            expected_labels=[dvni],
+            expected_interface="vxlan48",
+        )
+        _, result = topotest.run_and_expect(test_func, None, count=60, wait=1)
+        assert result is None, f"dest VRF leaked D-VNI RIB label check failed: {result}"
+
+        test_func = partial(
+            evpn_verify_kernel_encap_vni,
+            bordertor11,
+            dest_vrf,
+            dvni_route,
+            expected_vni=dvni,
+            expected_dev="vxlan48",
+        )
+        _, result = topotest.run_and_expect(test_func, None, count=60, wait=1)
+        assert (
+            result is None
+        ), f"dest VRF leaked D-VNI kernel encap check failed: {result}"
+
+        # Non-EVPN local route leaked hub→dest must stay unlabeled (IP hairpin).
+        test_func = partial(
+            evpn_verify_vrf_route_labels,
+            bordertor11,
+            dest_vrf,
+            local_leak_route,
+            expected_labels=[],
+        )
+        _, result = topotest.run_and_expect(test_func, None, count=60, wait=1)
+        assert result is None, f"non-EVPN leaked route unexpectedly labeled: {result}"
+
+        test_func = partial(
+            evpn_verify_kernel_encap_vni,
+            bordertor11,
+            dest_vrf,
+            local_leak_route,
+            expected_vni=None,
+        )
+        _, result = topotest.run_and_expect(test_func, None, count=60, wait=1)
+        assert (
+            result is None
+        ), f"non-EVPN leaked route unexpectedly has kernel encap: {result}"
+
+        # Sanity: hub still points at the tenant VTEP for the D-VNI prefix.
+        # "show ip route ... json" is a dict keyed by prefix. The prefix value
+        # is either one route object or a list of them. A failed JSON parse
+        # comes back as a non-dict, and a nexthop entry is not always an
+        # object. Normalize before calling .get so a bad shape fails this
+        # assert instead of raising AttributeError.
+        rib = bordertor11.vtysh_cmd(
+            f"show ip route vrf {hub_vrf} {dvni_route} json", isjson=True
+        )
+        routes = rib.get(dvni_route) if isinstance(rib, dict) else None
+        if isinstance(routes, dict):
+            routes = [routes]
+        assert (
+            isinstance(routes, list) and routes and isinstance(routes[0], dict)
+        ), f"hub VRF route {dvni_route} unexpected JSON: {rib}"
+        nhs = routes[0].get("nexthops") or []
+        nh_ips = {nh.get("ip") for nh in nhs if isinstance(nh, dict) and nh.get("ip")}
+        assert (
+            tor21_vtep in nh_ips
+        ), f"hub VRF route {dvni_route} missing tenant VTEP {tor21_vtep}: {nhs}"
+        # Same guard: only dict nexthops have a labels list.
+        assert hub_l3vni not in [
+            label
+            for nh in nhs
+            if isinstance(nh, dict)
+            for label in nh.get("labels", [])
+        ], f"hub VRF unexpectedly used hub L3VNI {hub_l3vni}: {nhs}"
+
+        logger.info(
+            "D-VNI import-vrf label preservation verified "
+            "(hub + dest keep %u; non-EVPN leak unlabeled)",
+            dvni,
+        )
+    finally:
+        _cleanup()
 
 
 def test_memory_leak(tgen_and_ip_version):

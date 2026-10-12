@@ -30,6 +30,7 @@ raw hex values:
 import json
 import os
 import sys
+import time
 import pytest
 
 CWD = os.path.dirname(os.path.realpath(__file__))
@@ -1785,12 +1786,15 @@ def test_global_upa_with_dbit():
 
     r1 = tgen.gears["r1"]
 
-    # Configure global UPA with drop and network statement
+    # Configure global UPA with drop.  Re-assert "redistribute static"
+    # explicitly: earlier tests may have removed it with "no redistribute
+    # static", so we cannot rely on the base config still having it.
     r1.vtysh_cmd(
         """
         configure terminal
         router bgp 65001
         address-family ipv4 unicast
+        redistribute static
         upa originate-all
         upa drop
         exit
@@ -1798,22 +1802,34 @@ def test_global_upa_with_dbit():
         """
     )
 
-    # Add static route and network statement
+    # Add static route only.  With "redistribute static" this prefix enters
+    # BGP via redistribution.  Do NOT add a "network" statement here: with
+    # "upa drop" the originated UPA installs a zebra blackhole, and a network
+    # statement's import-check would resolve through that blackhole, causing
+    # the UPA to oscillate (originate -> network path becomes valid ->
+    # withdraw -> re-originate).
     r1.vtysh_cmd(
         """
         configure terminal
         ip route 172.18.1.0/24 Null0
-        router bgp 65001
-        address-family ipv4 unicast
-        network 172.18.1.0/24
         """
     )
 
-    # Wait for route to be redistributed into BGP
+    # Wait until the redistributed static path is actually valid and selected
+    # (not merely that the prefix key exists), so we start from the intended
+    # state before removing the static route.
     def _route_installed():
         output = r1.vtysh_cmd("show bgp ipv4 unicast json")
         data = json.loads(output)
-        return "172.18.1.0/24" in data.get("routes", {})
+        paths = data.get("routes", {}).get("172.18.1.0/24", [])
+        for path in paths:
+            # The redistributed static is a non-UPA, valid, best path.
+            extcom = path.get("extendedCommunity", {}).get("string", "")
+            if "upa:" in extcom.lower():
+                continue
+            if path.get("valid") and path.get("bestpath"):
+                return True
+        return False
 
     success, _ = topotest.run_and_expect(_route_installed, True, count=30, wait=1)
     assert success, "Route not installed"
@@ -1882,9 +1898,229 @@ def test_global_upa_with_dbit():
         configure terminal
         router bgp 65001
         address-family ipv4 unicast
-        no network 172.18.1.0/24
         no upa drop
         no upa originate-all
+        exit
+        exit
+        """
+    )
+
+
+def test_global_upa_network_import_check_no_oscillation():
+    """
+    Test 2.3b: Global UPA with D-bit must be stable when a `network`
+    statement with import-check tracks the same prefix.
+
+    Regression for the UPA/import-check oscillation: the network path's
+    import-check must NOT resolve through the BGP-originated UPA D-bit
+    blackhole. If it did, the prefix would look reachable, the UPA would be
+    withdrawn, the blackhole removed, import-check would fail again, and the
+    UPA would be re-originated (present -> gone -> present oscillation).
+    """
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    r1 = tgen.gears["r1"]
+
+    # Global UPA with drop, plus a network statement for the same prefix.
+    # import-check is on by default, so the network path's validity depends on
+    # the prefix being present/reachable in the RIB.
+    r1.vtysh_cmd(
+        """
+        configure terminal
+        router bgp 65001
+        address-family ipv4 unicast
+        upa originate-all
+        upa drop
+        network 172.18.9.0/24
+        exit
+        exit
+        ip route 172.18.9.0/24 Null0
+        """
+    )
+
+    # Wait until the network path is actually valid and selected (via
+    # import-check resolving the static Null0 in the RIB), not merely that the
+    # prefix key exists, so we start from the intended state.
+    def _route_installed():
+        data = json.loads(r1.vtysh_cmd("show bgp ipv4 unicast json"))
+        paths = data.get("routes", {}).get("172.18.9.0/24", [])
+        for path in paths:
+            extcom = path.get("extendedCommunity", {}).get("string", "")
+            if "upa:" in extcom.lower():
+                continue
+            if path.get("valid") and path.get("bestpath"):
+                return True
+        return False
+
+    success, _ = topotest.run_and_expect(_route_installed, True, count=30, wait=1)
+    assert success, "Route 172.18.9.0/24 not installed"
+
+    # Remove the static route -> prefix becomes unreachable -> UPA originates.
+    r1.vtysh_cmd(
+        """
+        configure terminal
+        no ip route 172.18.9.0/24 Null0
+        """
+    )
+
+    def _upa_originated():
+        data = json.loads(r1.vtysh_cmd("show bgp ipv4 unicast upa json"))
+        return any(r.get("network") == "172.18.9.0/24" for r in data.get("routes", []))
+
+    success, _ = topotest.run_and_expect(_upa_originated, True, count=30, wait=1)
+    assert success, "UPA not originated for 172.18.9.0/24"
+
+    # Sample repeatedly: the UPA must stay present (no oscillation) and the
+    # network path must never be selected via the UPA blackhole.  Spread the
+    # samples over several seconds (small wait between them) so a transient
+    # withdrawal window is actually observable rather than skipped by a tight
+    # back-to-back loop.
+    missing = 0
+    network_selected = 0
+    samples = 24
+    for i in range(samples):
+        if i:
+            time.sleep(0.25)
+        upa = json.loads(r1.vtysh_cmd("show bgp ipv4 unicast upa json"))
+        if not any(r.get("network") == "172.18.9.0/24" for r in upa.get("routes", [])):
+            missing += 1
+
+        route = json.loads(r1.vtysh_cmd("show bgp ipv4 unicast 172.18.9.0/24 json"))
+        for path in route.get("paths", []):
+            extcom = path.get("extendedCommunity", {}).get("string", "")
+            is_upa = "upa:" in extcom.lower()
+            # A selected/best path that is NOT the UPA path means the network
+            # path won via the blackhole -> the bug.
+            if path.get("bestpath", {}).get("overall") and not is_upa:
+                network_selected += 1
+
+    assert (
+        missing == 0
+    ), f"UPA for 172.18.9.0/24 oscillated: absent in {missing}/{samples} samples"
+    assert network_selected == 0, (
+        "network import-check path was selected via the UPA blackhole "
+        f"in {network_selected}/{samples} samples"
+    )
+
+    # Cleanup
+    r1.vtysh_cmd(
+        """
+        configure terminal
+        router bgp 65001
+        address-family ipv4 unicast
+        no network 172.18.9.0/24
+        no upa drop
+        no upa originate-all
+        exit
+        exit
+        """
+    )
+
+
+def test_global_upa_network_import_check_static_restore():
+    """
+    Test 2.3c: Restoring a real static Null0 route must make the `network`
+    import-check valid again and withdraw the UPA, even while the UPA D-bit
+    path is still present.
+
+    Regression for the ambiguity between a BGP-originated UPA blackhole and a
+    genuine "ip route X Null0" (both resolve as a blackhole nexthop): the
+    import-check must accept the restored static route (nhr->type STATIC) and
+    must not keep treating it as the self UPA blackhole.
+    """
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    r1 = tgen.gears["r1"]
+
+    # Isolate the import-check as the ONLY reachability source for the prefix:
+    # disable "redistribute static" so a restored static Null0 does not create
+    # a separate redistributed BGP path that would withdraw the UPA on its own
+    # (which would mask an import-check that is wrongly kept invalid).
+    r1.vtysh_cmd(
+        """
+        configure terminal
+        router bgp 65001
+        address-family ipv4 unicast
+        no redistribute static
+        upa originate-all
+        upa drop
+        network 172.18.10.0/24
+        exit
+        exit
+        ip route 172.18.10.0/24 Null0
+        """
+    )
+
+    def _network_valid_selected():
+        data = json.loads(r1.vtysh_cmd("show bgp ipv4 unicast json"))
+        paths = data.get("routes", {}).get("172.18.10.0/24", [])
+        for path in paths:
+            extcom = path.get("extendedCommunity", {}).get("string", "")
+            if "upa:" in extcom.lower():
+                continue
+            if path.get("valid") and path.get("bestpath"):
+                return True
+        return False
+
+    success, _ = topotest.run_and_expect(
+        _network_valid_selected, True, count=30, wait=1
+    )
+    assert success, "network path not valid/selected with static present"
+
+    # Remove the static -> UPA originates for the prefix.
+    r1.vtysh_cmd(
+        """
+        configure terminal
+        no ip route 172.18.10.0/24 Null0
+        """
+    )
+
+    def _upa_originated():
+        data = json.loads(r1.vtysh_cmd("show bgp ipv4 unicast upa json"))
+        return any(r.get("network") == "172.18.10.0/24" for r in data.get("routes", []))
+
+    success, _ = topotest.run_and_expect(_upa_originated, True, count=30, wait=1)
+    assert success, "UPA not originated for 172.18.10.0/24"
+
+    # Restore the static Null0.  Even though a self UPA drop path is still
+    # present, the restored static must re-validate the import-check so the
+    # network path becomes valid again and the UPA is withdrawn.
+    r1.vtysh_cmd(
+        """
+        configure terminal
+        ip route 172.18.10.0/24 Null0
+        """
+    )
+
+    success, _ = topotest.run_and_expect(
+        _network_valid_selected, True, count=30, wait=1
+    )
+    assert success, "network path did not become valid after restoring static"
+
+    def _upa_withdrawn():
+        data = json.loads(r1.vtysh_cmd("show bgp ipv4 unicast upa json"))
+        return not any(
+            r.get("network") == "172.18.10.0/24" for r in data.get("routes", [])
+        )
+
+    success, _ = topotest.run_and_expect(_upa_withdrawn, True, count=30, wait=1)
+    assert success, "UPA not withdrawn after restoring static Null0"
+
+    # Cleanup
+    r1.vtysh_cmd(
+        """
+        configure terminal
+        no ip route 172.18.10.0/24 Null0
+        router bgp 65001
+        address-family ipv4 unicast
+        no network 172.18.10.0/24
+        no upa drop
+        no upa originate-all
+        redistribute static
         exit
         exit
         """

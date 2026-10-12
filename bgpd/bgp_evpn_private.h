@@ -995,19 +995,29 @@ extern void bgp_evpn_install_uninstall_default_route(struct bgp *bgp_vrf, afi_t 
 						     struct bgp_path_info *originator, bool add);
 extern void bgp_evpn_l2vni_regenerate_effective_import_rts(struct bgp *bgp, struct bgpevpn *vpn);
 extern void bgp_evpn_l2vni_regenerate_effective_export_rts(struct bgp *bgp, struct bgpevpn *vpn);
+extern void bgp_evpn_vrf_rt_change_begin(struct bgp *bgp_vrf, bool is_import);
+extern void bgp_evpn_vrf_rt_change_end(struct bgp *bgp_vrf, bool is_import);
 extern void bgp_evpn_configure_export_rt_for_vrf(struct bgp *bgp_vrf,
 						 struct bgp_evpn_cfgd_rt *cfgd_rt);
+extern void bgp_evpn_configure_export_rt_for_vrf_deferred(struct bgp *bgp_vrf,
+							  struct bgp_evpn_cfgd_rt *cfgd_rt);
 extern void bgp_evpn_configure_export_auto_rt_for_vrf(struct bgp *bgp_vrf,
 						      enum bgp_evpn_autort_cfgd autort);
 extern void bgp_evpn_unconfigure_export_rt_for_vrf(struct bgp *bgp_vrf,
 						   const struct bgp_evpn_cfgd_rt *cfgd_rt);
+extern void bgp_evpn_unconfigure_export_rt_for_vrf_deferred(struct bgp *bgp_vrf,
+							    const struct bgp_evpn_cfgd_rt *cfgd_rt);
 extern void bgp_evpn_unconfigure_export_auto_rt_for_vrf(struct bgp *bgp_vrf);
 extern void bgp_evpn_configure_import_rt_for_vrf(struct bgp *bgp_vrf,
 						 struct bgp_evpn_cfgd_rt *cfgd_rt);
+extern void bgp_evpn_configure_import_rt_for_vrf_deferred(struct bgp *bgp_vrf,
+							  struct bgp_evpn_cfgd_rt *cfgd_rt);
 extern void bgp_evpn_configure_import_auto_rt_for_vrf(struct bgp *bgp_vrf,
 						      enum bgp_evpn_autort_cfgd autort);
 extern void bgp_evpn_unconfigure_import_rt_for_vrf(struct bgp *bgp_vrf,
 						   const struct bgp_evpn_cfgd_rt *cfgd_rt);
+extern void bgp_evpn_unconfigure_import_rt_for_vrf_deferred(struct bgp *bgp_vrf,
+							    const struct bgp_evpn_cfgd_rt *cfgd_rt);
 extern void bgp_evpn_unconfigure_import_auto_rt_for_vrf(struct bgp *bgp_vrf);
 extern int bgp_evpn_handle_export_rt_change(struct bgp *bgp,
 					    struct bgpevpn *vpn);

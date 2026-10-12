@@ -791,6 +791,8 @@ struct bgp {
  * for bestpath comparison of imported paths.
  */
 #define BGP_FLAG_BESTPATH_USE_IMPORTED_ATTRS (1ULL << 47)
+/* Shutdown without sending notification (for HA standby transition) */
+#define BGP_FLAG_SHUTDOWN_NO_NOTIFY (1ULL << 48)
 
 	/* BGP default address-families.
 	 * New peers inherit enabled afi/safis from bgp instance.
@@ -1720,8 +1722,7 @@ struct peer {
 #define ROLE_RS_SERVER                      1
 #define ROLE_RS_CLIENT                      2
 #define ROLE_CUSTOMER                       3
-#define ROLE_PEER                           4
-#define ROLE_UNDEFINED                    255
+#define ROLE_PEER			    4
 
 #define ROLE_NAME_MAX_LEN                  20
 
@@ -2985,7 +2986,8 @@ extern void peer_tx_shutdown_message_set(struct peer *peer, const char *msg);
 extern void peer_tx_shutdown_message_unset(struct peer *peer);
 
 extern void bgp_route_map_update_timer(struct event *event);
-extern const char *bgp_get_name_by_role(uint8_t role);
+extern const char *bgp_get_local_role_name(const struct peer *peer);
+extern const char *bgp_get_remote_role_name(const struct peer *peer);
 extern enum asnotation_mode bgp_get_asnotation(struct bgp *bgp);
 
 extern void bgp_route_map_terminate(void);
@@ -3004,7 +3006,7 @@ extern struct peer_af *peer_af_create(struct peer *peer, afi_t afi, safi_t safi)
 extern struct peer_af *peer_af_find(struct peer *peer, afi_t afi, safi_t safi);
 extern int peer_af_delete(struct peer *peer, afi_t afi, safi_t safi);
 
-extern void bgp_shutdown_enable(struct bgp *bgp, const char *msg);
+extern void bgp_shutdown_enable(struct bgp *bgp, const char *msg, bool send_notify);
 extern void bgp_shutdown_disable(struct bgp *bgp);
 
 extern void bgp_close(void);

@@ -172,8 +172,16 @@ static int eigrp_interface_address_delete(ZAPI_CALLBACK_ARGS)
 	ifp = c->ifp;
 	ei = eigrp_if_lookup_by_ifp(ifp);
 
-	/* Call interface hook functions to clean up */
-	if (ei && prefix_cmp(&ei->address, c->address) == 0)
+	/*
+	 * Call interface hook functions to clean up.
+	 *
+	 * prefix_cmp() compares only the first prefixlen bits, so it reports
+	 * two addresses in the same subnet as equal.  Deleting a secondary
+	 * address therefore tore EIGRP down on an interface whose primary
+	 * address was still configured, and nothing restarted it.  Compare
+	 * the full address instead.
+	 */
+	if (ei && prefix_same(&ei->address, c->address))
 		eigrp_if_free(ei, INTERFACE_DOWN_BY_ZEBRA);
 
 	/*

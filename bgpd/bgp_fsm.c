@@ -2316,9 +2316,6 @@ enum bgp_fsm_state_progress bgp_stop(struct peer_connection *connection)
 	/* Capabilities are gone: revert the message-size limit to standard. */
 	bgp_peer_set_max_packet_size(peer);
 
-	/* Resetting neighbor role to the default value */
-	peer->remote_role = ROLE_UNDEFINED;
-
 	FOREACH_AFI_SAFI (afi, safi) {
 		/* Reset all negotiated variables */
 		peer->afc_nego[afi][safi] = 0;
@@ -2740,7 +2737,10 @@ static enum bgp_fsm_state_progress bgp_start(struct peer_connection *connection)
 				   peer->host, connection->fd,
 				   bgp_peer_get_connection_direction_string(connection));
 
-		BGP_EVENT_ADD(connection, TCP_connection_open);
+		if (CHECK_FLAG(peer->flags, PEER_FLAG_TIMER_DELAYOPEN))
+			BGP_EVENT_ADD(connection, TCP_connection_open_w_delay);
+		else
+			BGP_EVENT_ADD(connection, TCP_connection_open);
 		break;
 	case connect_in_progress:
 		/* To check nonblocking connect, we wait until socket is

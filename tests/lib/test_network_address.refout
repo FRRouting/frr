@@ -1,0 +1,143 @@
+== IPv4 ==
+'ipv4:127.0.0.1' (default port 4444)
+  mode: listen
+  type: ipv4
+  address: 127.0.0.1
+  port: 4444
+'ipv4:127.0.0.1:8080' (default port 4444)
+  mode: listen
+  type: ipv4
+  address: 127.0.0.1
+  port: 8080
+'ipv4c:127.0.0.1:8080' (default port 4444)
+  mode: connect
+  type: ipv4
+  address: 127.0.0.1
+  port: 8080
+'ipv4:0.0.0.0:1' (default port 4444)
+  mode: listen
+  type: ipv4
+  address: 0.0.0.0
+  port: 1
+'ipv4:255.255.255.255:65535' (default port 4444)
+  mode: listen
+  type: ipv4
+  address: 255.255.255.255
+  port: 65535
+
+== IPv6 ==
+'ipv6:[::1]' (default port 4444)
+  mode: listen
+  type: ipv6
+  address: ::1
+  port: 4444
+  scope: unset
+'ipv6:[::1]:8080' (default port 4444)
+  mode: listen
+  type: ipv6
+  address: ::1
+  port: 8080
+  scope: unset
+'ipv6c:[::1]:8080' (default port 4444)
+  mode: connect
+  type: ipv6
+  address: ::1
+  port: 8080
+  scope: unset
+'ipv6:[2001:db8::1]:179' (default port 4444)
+  mode: listen
+  type: ipv6
+  address: 2001:db8::1
+  port: 179
+  scope: unset
+'ipv6:[::]:1' (default port 4444)
+  mode: listen
+  type: ipv6
+  address: ::
+  port: 1
+  scope: unset
+
+== unix ==
+'unix:/var/run/frr/test.sock' (default port 4444)
+  mode: listen
+  type: unix
+  path: /var/run/frr/test.sock
+'unixc:/var/run/frr/test.sock' (default port 4444)
+  mode: connect
+  type: unix
+  path: /var/run/frr/test.sock
+'unix:/var/run/frr/test.sock:8080' (default port 4444)
+  mode: listen
+  type: unix
+  path: /var/run/frr/test.sock:8080
+
+== invalid type ==
+'' (default port 4444)
+  error: 'invalid address format: '
+'nocolon' (default port 4444)
+  error: 'invalid address format: nocolon'
+'IPV4:127.0.0.1' (default port 4444)
+  error: 'invalid address type: IPV4'
+'bogus:127.0.0.1' (default port 4444)
+  error: 'invalid address type: bogus'
+':127.0.0.1' (default port 4444)
+  error: 'invalid address type: '
+'ipv4:' (default port 4444)
+  error: 'address part is empty'
+'ipv6:' (default port 4444)
+  error: 'address part is empty'
+'unix:' (default port 4444)
+  error: 'address part is empty'
+
+== invalid address ==
+'ipv4:256.0.0.1' (default port 4444)
+  error: 'invalid IPv4 address: 256.0.0.1'
+'ipv4:not-an-address' (default port 4444)
+  error: 'invalid IPv4 address: not-an-address'
+'ipv6:[::g]' (default port 4444)
+  error: 'invalid IPv6 address: ::g'
+'ipv6:::1' (default port 4444)
+  error: 'invalid IPv6 format (expected '['): ::1'
+'ipv6:[::1' (default port 4444)
+  error: 'invalid IPv6 format (expected ']'): [::1'
+'ipv6:[]' (default port 4444)
+  error: 'invalid IPv6 address: '
+
+== trailing garbage after ']' ==
+'ipv6:[::1]junk' (default port 4444)
+  error: 'expected port or nothing, got: junk'
+'ipv6:[::1]junk:80' (default port 4444)
+  error: 'expected port or nothing, got: junk:80'
+'ipv6:[::1]:80:90' (default port 4444)
+  error: 'invalid port: unexpected ending: :90'
+
+== invalid port ==
+'ipv4:127.0.0.1:0' (default port 4444)
+  error: 'invalid port: outside valid range: 0'
+'ipv4:127.0.0.1:65536' (default port 4444)
+  error: 'invalid port: outside valid range: 65536'
+'ipv4:127.0.0.1:-1' (default port 4444)
+  error: 'invalid port: invalid format: -1'
+'ipv4:127.0.0.1:+80' (default port 4444)
+  error: 'invalid port: invalid format: +80'
+'ipv4:127.0.0.1: 80' (default port 4444)
+  error: 'invalid port: invalid format:  80'
+'ipv4:127.0.0.1:80x' (default port 4444)
+  error: 'invalid port: unexpected ending: x'
+'ipv4:127.0.0.1:' (default port 4444)
+  error: 'invalid port: invalid format: '
+'ipv4:127.0.0.1:99999999999999999999' (default port 4444)
+  error: 'invalid port: outside valid range: 99999999999999999999'
+'ipv6:[::1]:0' (default port 4444)
+  error: 'invalid port: outside valid range: 0'
+'ipv6:[::1]:65536' (default port 4444)
+  error: 'invalid port: outside valid range: 65536'
+
+== IPv6 scope ==
+'ipv6:[fe80::1%frr-no-such-if]:1234' (default port 4444)
+  error: 'invalid IPv6 scope: frr-no-such-if'
+
+== unix path length boundary ==
+unix path of sizeof(sun_path)-1 bytes: accepted
+unix path of sizeof(sun_path)+0 bytes: rejected
+unix path of sizeof(sun_path)+64 bytes: rejected

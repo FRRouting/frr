@@ -1986,6 +1986,10 @@ static int unpack_item_ext_subtlvs(uint16_t mtid, uint8_t len, struct stream *s,
 		sum += subtlv_len + ISIS_SUBTLV_HDR_SIZE;
 	}
 
+	/* Skip trailing bytes too small for a sub-TLV, to stay aligned */
+	if (sum < len)
+		stream_forward_getp(s, len - sum);
+
 	return 0;
 }
 

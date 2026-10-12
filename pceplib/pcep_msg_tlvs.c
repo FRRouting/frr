@@ -475,7 +475,7 @@ pcep_tlv_create_tlv_arbitrary(const char *data, uint16_t data_length,
 				  : data_length;
 	memcpy(tlv->data, data, length);
 	tlv->data_length = length;
-	tlv->arbitraty_type = tlv_id;
+	tlv->arbitrary_type = tlv_id;
 
 	return tlv;
 }

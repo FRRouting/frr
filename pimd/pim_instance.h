@@ -108,6 +108,20 @@ struct pim_router {
 	struct interface *peerlink_rif_p;
 };
 
+PREDECL_SORTLIST_UNIQ(multicast_interface_list);
+struct pim_multicast_if {
+	struct multicast_interface_list_item entry;
+
+	/* Interface index */
+	ifindex_t index;
+};
+
+extern int pim_instance_mif_cmp(const struct pim_multicast_if *mifa,
+				const struct pim_multicast_if *mifb);
+
+DECLARE_SORTLIST_UNIQ(multicast_interface_list, struct pim_multicast_if, entry,
+		      pim_instance_mif_cmp);
+
 /* Per VRF PIM DB */
 struct pim_instance {
 	// vrf_id_t vrf_id;
@@ -158,8 +172,7 @@ struct pim_instance {
 	struct list *rp_list;
 	struct route_table *rp_table;
 
-	int iface_vif_index[MAXVIFS];
-	int mcast_if_count;
+	struct multicast_interface_list_head mif_list;
 
 	struct rb_pim_oil_head channel_oil_head;
 
@@ -239,6 +252,9 @@ struct pim_instance {
 	} embedded_rp;
 #endif /* PIM_IPV == 6 */
 };
+
+extern void pim_instance_mif_add(struct pim_instance *pim, ifindex_t index);
+extern void pim_instance_mif_delete(struct pim_instance *pim, ifindex_t index);
 
 void pim_vrf_init(void);
 void pim_vrf_terminate(void);

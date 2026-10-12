@@ -1985,7 +1985,7 @@ static void rib_process_result(struct zebra_dplane_ctx *ctx)
 	bool is_update = false;
 	enum dplane_op_e op;
 	enum zebra_dplane_result status;
-	uint32_t seq;
+	uint32_t seq, old_seq;
 	rib_dest_t *dest;
 	bool fib_changed = false;
 	struct rib_table_info *info;
@@ -2024,73 +2024,75 @@ static void rib_process_result(struct zebra_dplane_ctx *ctx)
 	 */
 	is_update = dplane_ctx_is_update(ctx);
 
+	seq = dplane_ctx_get_seq(ctx);
+	old_seq = dplane_ctx_get_old_seq(ctx);
+
 	/*
-	 * Take a pass through the routes, look for matches with the context
-	 * info.
+	 * Resolve the result back to the entry the operation was issues for.
+	 * dplane_ctx_route_init() stamps re->dplane_sequence and
+	 * ctx->zd_seq unconditionally, so for anything zebra originated the
+	 * sequence is an exact identity: it names one entry, and it cannot
+	 * collapse both roles onto the same one.
+	 *
+	 * REMOVED entries are deliberately eligible here. An entry can be
+	 * replaced or deleted while its own result is still in flight, and it
+	 * is still the owner of that result - rib_delnode() only sets the flag
+	 * and leaves the entry linked until rib_process() is called.
+	 *
+	 * A zero old_seq means the update was issued with old_re == re, i.e.
+	 * zebra re-pushed one entry in place, so there is no distinct old side
+	 * to look for and old_re is left NULL.
 	 */
-	RNODE_FOREACH_RE(rn, rib) {
+	RNODE_FOREACH_RE (rn, rib) {
+		if (re == NULL && rib->dplane_sequence == seq)
+			re = rib;
 
-		if (re == NULL) {
-			if (rib_route_match_ctx(rib, ctx, false, false))
-				re = rib;
-		}
-
-		/* Check for old route match */
-		if (is_update && (old_re == NULL)) {
-			if (rib_route_match_ctx(rib, ctx, true, false))
-				old_re = rib;
-		}
+		if (is_update && old_re == NULL && old_seq != 0 && rib->dplane_sequence == old_seq)
+			old_re = rib;
 
 		/* Have we found the routes we need to work on? */
-		if (re && ((!is_update || old_re)))
+		if (re && (!is_update || old_re || old_seq == 0))
 			break;
 	}
 
-	seq = dplane_ctx_get_seq(ctx);
-
-	/*
-	 * Check sequence number(s) to detect stale results before continuing
-	 */
 	if (re) {
-		if (re->dplane_sequence != seq) {
-			if (IS_ZEBRA_DEBUG_DPLANE_DETAIL)
-				zlog_debug(
-					"%s(%u):%pRN Stale dplane result for re %p",
-					VRF_LOGNAME(vrf),
-					dplane_ctx_get_vrf(ctx), rn, re);
-		} else {
-			/*
-			 * Currently FRR expects a second async dplane ctx for the asic_offloaded
-			 * case, where FRR gets the result of the offload success failure
-			 * But if we are asic_offloaded and the first response fails we
-			 * know that the dplane provider has not successfully sent the route
-			 * operation at all to the dplane and as such we will never get
-			 * a second async response to the request.  In this case we know
-			 * that we should just mark it as no longer queued at all.
-			 */
-			if (zrouter.zav.asic_offloaded && status == ZEBRA_DPLANE_REQUEST_FAILURE)
-				UNSET_FLAG(re->status, ROUTE_ENTRY_QUEUED);
+		/*
+		 * Currently FRR expects a second async dplane ctx for the asic_offloaded
+		 * case, where FRR gets the result of the offload success failure
+		 * But if we are asic_offloaded and the first response fails we
+		 * know that the dplane provider has not successfully sent the route
+		 * operation at all to the dplane and as such we will never get
+		 * a second async response to the request.  In this case we know
+		 * that we should just mark it as no longer queued at all.
+		 */
+		if (zrouter.zav.asic_offloaded && status == ZEBRA_DPLANE_REQUEST_FAILURE)
+			UNSET_FLAG(re->status, ROUTE_ENTRY_QUEUED);
 
-			if (!zrouter.zav.asic_offloaded ||
-			    (CHECK_FLAG(re->flags, ZEBRA_FLAG_OFFLOADED) ||
-			     CHECK_FLAG(re->flags, ZEBRA_FLAG_OFFLOAD_FAILED))) {
-				UNSET_FLAG(re->status,
-					   ROUTE_ENTRY_ROUTE_REPLACING);
-				UNSET_FLAG(re->status, ROUTE_ENTRY_QUEUED);
-			}
+		if (!zrouter.zav.asic_offloaded ||
+		    (CHECK_FLAG(re->flags, ZEBRA_FLAG_OFFLOADED) ||
+		     CHECK_FLAG(re->flags, ZEBRA_FLAG_OFFLOAD_FAILED))) {
+			UNSET_FLAG(re->status, ROUTE_ENTRY_ROUTE_REPLACING);
+			UNSET_FLAG(re->status, ROUTE_ENTRY_QUEUED);
 		}
+	} else {
+		if (IS_ZEBRA_DEBUG_DPLANE_DETAIL)
+			zlog_debug("%s(%u:%u):%pRN No entry owns dplane result, op %s result %s seq %u old_seq %u: superseded or unlinked",
+				   VRF_LOGNAME(vrf), dplane_ctx_get_vrf(ctx),
+				   dplane_ctx_get_table(ctx), rn, dplane_op2str(op),
+				   dplane_res2str(status), seq, old_seq);
 	}
 
 	if (old_re) {
-		if (old_re->dplane_sequence != dplane_ctx_get_old_seq(ctx)) {
-			if (IS_ZEBRA_DEBUG_DPLANE_DETAIL)
-				zlog_debug(
-					"%s(%u:%u):%pRN Stale dplane result for old_re %p",
-					VRF_LOGNAME(vrf),
-					dplane_ctx_get_vrf(ctx), old_re->table,
-					rn, old_re);
-		} else
-			UNSET_FLAG(old_re->status, ROUTE_ENTRY_QUEUED);
+		UNSET_FLAG(old_re->status, ROUTE_ENTRY_QUEUED);
+	} else {
+		/*
+		 * Only worth reporting when the ctx returned a distinct old side:
+		 * for an install old_re is legitimately NULL.
+		 */
+		if (is_update && old_seq != 0 && IS_ZEBRA_DEBUG_DPLANE_DETAIL)
+			zlog_debug("%s(%u:%u):%pRN No entry owns the old side of dplane result, op %s old_seq %u: unlinked while in flight",
+				   VRF_LOGNAME(vrf), dplane_ctx_get_vrf(ctx),
+				   dplane_ctx_get_table(ctx), rn, dplane_op2str(op), old_seq);
 	}
 
 	if (op == DPLANE_OP_ROUTE_INSTALL || op == DPLANE_OP_ROUTE_UPDATE) {
@@ -5198,6 +5200,204 @@ void zebra_rib_dplane_results_unplug(void)
 #endif
 
 /*
+ * Interpret a kernel unicast-route notification encoded by the dplane
+ * pthread and add/delete it on the zebra pthread. VRF lookup, table
+ * validation, leftover self-route ignore, and interface/VRF resolution
+ * for nexthops all belong here — the dplane is only the decoder.
+ */
+static void rib_process_kernel_route_notif(struct zebra_dplane_ctx *ctx)
+{
+	enum dplane_op_e op = dplane_ctx_get_op(ctx);
+	vrf_id_t vrf_id = dplane_ctx_get_vrf(ctx);
+	uint32_t table = dplane_ctx_get_table(ctx);
+	uint32_t flags = dplane_ctx_get_flags(ctx);
+	bool startup = dplane_ctx_get_startup(ctx);
+	bool selfroute = CHECK_FLAG(flags, ZEBRA_FLAG_SELFROUTE);
+	int proto = dplane_ctx_get_type(ctx);
+	uint32_t nhe_id = dplane_ctx_get_nhg_id(ctx);
+	uint32_t metric = dplane_ctx_get_metric(ctx);
+	uint32_t mtu = dplane_ctx_get_mtu(ctx);
+	uint8_t distance = dplane_ctx_get_distance(ctx);
+	route_tag_t tag = dplane_ctx_get_tag(ctx);
+	afi_t afi = dplane_ctx_get_afi(ctx);
+	const struct prefix *p = dplane_ctx_get_dest(ctx);
+	const struct prefix *src = dplane_ctx_get_src(ctx);
+	struct prefix src_p = {};
+	struct nexthop_group *ng = NULL;
+	const struct nexthop_group *ctx_ng;
+	struct nexthop *nexthop;
+	struct interface *ifp;
+	struct zebra_ns *zns;
+	uint16_t nhop_num = 0;
+
+	if (!startup && selfroute && op == DPLANE_OP_ROUTE_INSTALL && !zrouter.zav.asic_offloaded) {
+		if (IS_ZEBRA_DEBUG_KERNEL)
+			zlog_debug("Route type: %d Received that we think we have originated, ignoring",
+				   proto);
+		return;
+	}
+
+	if (vrf_id == VRF_DEFAULT) {
+		if (!is_zebra_valid_kernel_table(table) && !is_zebra_main_routing_table(table)) {
+			if (IS_ZEBRA_DEBUG_KERNEL)
+				zlog_debug("Route %s unable to parse table received %u, ignoring",
+					   dplane_op2str(op), table);
+			return;
+		}
+	}
+
+	if (src)
+		src_p = *src;
+
+	ctx_ng = dplane_ctx_get_ng(ctx);
+	if (!nhe_id && ctx_ng && ctx_ng->nexthop) {
+		ng = nexthop_group_new();
+		copy_nexthops(&ng->nexthop, ctx_ng->nexthop, NULL);
+
+		zns = zebra_ns_lookup(dplane_ctx_get_ns_id(ctx));
+		for (ALL_NEXTHOPS_PTR(ng, nexthop)) {
+			if (!nexthop->ifindex) {
+				nexthop->vrf_id = vrf_id;
+				continue;
+			}
+
+			ifp = zns ? if_lookup_by_index_per_ns(zns, nexthop->ifindex) : NULL;
+			if (ifp)
+				nexthop->vrf_id = ifp->vrf->vrf_id;
+			else {
+				flog_warn(EC_ZEBRA_UNKNOWN_INTERFACE,
+					  "%s: Unknown interface %u specified, defaulting to VRF_DEFAULT",
+					  __func__, nexthop->ifindex);
+				nexthop->vrf_id = VRF_DEFAULT;
+			}
+		}
+		nhop_num = nexthop_group_nexthop_num(ng);
+	}
+
+	if (IS_ZEBRA_DEBUG_KERNEL) {
+		char buf2[PREFIX_STRLEN];
+
+		zlog_debug("%s %pFX%s%s vrf %s(%u) table_id: %u metric: %d Admin Distance: %d",
+			   dplane_op2str(op), p, src_p.prefixlen ? " from " : "",
+			   src_p.prefixlen ? prefix2str(&src_p, buf2, sizeof(buf2)) : "",
+			   vrf_id_to_name(vrf_id), vrf_id, table, metric, distance);
+	}
+
+	if (op == DPLANE_OP_ROUTE_INSTALL || op == DPLANE_OP_ROUTE_UPDATE) {
+		struct route_entry *re;
+
+		if (!nhe_id)
+			zserv_nexthop_num_warn(__func__, p, nhop_num);
+
+		if (nhe_id || ng) {
+			re = zebra_rib_route_entry_new(vrf_id, proto, 0, flags, nhe_id, table,
+						       metric, mtu, distance, tag);
+			rib_add_multipath(afi, SAFI_UNICAST, (struct prefix *)p,
+					  (struct prefix_ipv6 *)&src_p, re, ng, startup,
+					  dplane_ctx_route_get_replace(ctx));
+		} else {
+			zlog_err("%s: %pFX multipath RTM_NEWROUTE has a invalid nexthop group from the kernel",
+				 __func__, p);
+		}
+	} else {
+		const struct nexthop *nh = NULL;
+
+		if (!nhe_id && nhop_num == 1)
+			nh = ng->nexthop;
+
+		rib_delete(afi, SAFI_UNICAST, vrf_id, proto, 0, flags, p, (struct prefix_ipv6 *)&src_p,
+			   nh, nhe_id, table, metric, distance, true);
+	}
+
+	if (ng)
+		nexthop_group_delete(&ng);
+}
+
+/*
+ * Interpret a kernel nexthop notification encoded by the dplane pthread
+ * and install/delete it on the zebra pthread.
+ */
+static void zebra_nhg_process_kernel_notif(struct zebra_dplane_ctx *ctx)
+{
+	enum dplane_op_e op = dplane_ctx_get_op(ctx);
+	uint32_t id = dplane_ctx_get_nhe_id(ctx);
+	vrf_id_t vrf_id = dplane_ctx_get_nhe_vrf_id(ctx);
+	afi_t afi = dplane_ctx_get_nhe_afi(ctx);
+	int type = dplane_ctx_get_nhe_type(ctx);
+	bool startup = dplane_ctx_get_startup(ctx);
+	uint16_t grp_count = dplane_ctx_get_nhe_nh_grp_count(ctx);
+	const struct nhg_resilience *nhgr = dplane_ctx_get_nhe_resilience(ctx);
+
+	if (zebra_evpn_mh_is_fdb_nh(id) && !startup) {
+		/* Runtime FDB NH updates are owned by EVPN-MH, not kernel notifs */
+		if (IS_ZEBRA_DEBUG_KERNEL || IS_ZEBRA_DEBUG_EVPN_MH_NH)
+			zlog_debug("Ignore kernel update (%u) for fdb-nh 0x%x", op, id);
+
+		frrtrace(2, frr_zebra, netlink_nexthop_change_err, op, id);
+		return;
+	}
+
+	if (op == DPLANE_OP_NH_DELETE) {
+		zebra_nhg_kernel_del(id, vrf_id);
+		return;
+	}
+
+	if (grp_count) {
+		const struct nh_grp *grp = dplane_ctx_get_nhe_nh_grp(ctx);
+
+		if (zebra_nhg_kernel_find(id, NULL, (struct nh_grp *)grp, grp_count, vrf_id, afi,
+					  type, startup, (struct nhg_resilience *)nhgr))
+			return;
+	} else {
+		const struct nexthop *ctx_nh = dplane_ctx_get_nhe_nh(ctx);
+		struct nexthop nh;
+		const mpls_label_t *labels;
+		uint16_t label_count;
+		struct interface *ifp = NULL;
+		struct zebra_ns *zns;
+
+		if (!ctx_nh) {
+			flog_warn(EC_ZEBRA_BAD_NHG_MESSAGE,
+				  "Invalid Nexthop message received from the kernel with ID (%u)",
+				  id);
+			return;
+		}
+
+		nh = *ctx_nh;
+
+		labels = dplane_ctx_get_nhe_labels(ctx);
+		label_count = dplane_ctx_get_nhe_label_count(ctx);
+		if (label_count)
+			nexthop_add_labels(&nh, ZEBRA_LSP_STATIC, label_count, labels);
+
+		if (nh.type == NEXTHOP_TYPE_BLACKHOLE) {
+			nh.vrf_id = VRF_DEFAULT;
+		} else if (nh.ifindex) {
+			zns = zebra_ns_lookup(dplane_ctx_get_ns_id(ctx));
+			if (zns)
+				ifp = if_lookup_by_index_per_ns(zns, nh.ifindex);
+
+			if (ifp)
+				nh.vrf_id = ifp->vrf->vrf_id;
+			else {
+				flog_warn(EC_ZEBRA_UNKNOWN_INTERFACE,
+					  "%s: Unknown nexthop interface %u received, defaulting to VRF_DEFAULT",
+					  __func__, nh.ifindex);
+				nh.vrf_id = VRF_DEFAULT;
+			}
+		} else {
+			/* FDB / gateway-only nexthops have no OIF */
+			nh.vrf_id = vrf_id;
+		}
+
+		vrf_id = nh.vrf_id;
+
+		zebra_nhg_kernel_find(id, &nh, NULL, 0, vrf_id, afi, type, startup,
+				      (struct nhg_resilience *)nhgr);
+	}
+}
+
+/*
  * Handle results from the dataplane system. Dequeue update context
  * structs, dispatch to appropriate internal handlers.
  */
@@ -5278,7 +5478,9 @@ static void rib_process_dplane_results(struct event *event)
 				 * we don't want to continue processing these
 				 * in the rib.
 				 */
-				if (dplane_ctx_get_notif_provider(ctx) == 0)
+				if (dplane_ctx_get_route_notif(ctx))
+					rib_process_kernel_route_notif(ctx);
+				else if (dplane_ctx_get_notif_provider(ctx) == 0)
 					rib_process_result(ctx);
 				break;
 
@@ -5289,7 +5491,10 @@ static void rib_process_dplane_results(struct event *event)
 			case DPLANE_OP_NH_INSTALL:
 			case DPLANE_OP_NH_UPDATE:
 			case DPLANE_OP_NH_DELETE:
-				zebra_nhg_dplane_result(ctx);
+				if (dplane_ctx_get_nhe_notif(ctx))
+					zebra_nhg_process_kernel_notif(ctx);
+				else
+					zebra_nhg_dplane_result(ctx);
 				break;
 
 			case DPLANE_OP_LSP_INSTALL:
@@ -5330,6 +5535,12 @@ static void rib_process_dplane_results(struct event *event)
 			case DPLANE_OP_RULE_ADD:
 			case DPLANE_OP_RULE_DELETE:
 			case DPLANE_OP_RULE_UPDATE:
+				if (dplane_ctx_get_rule_notif(ctx))
+					zebra_pbr_process_kernel_notif(ctx);
+				else
+					zebra_pbr_dplane_result(ctx);
+				break;
+
 			case DPLANE_OP_IPTABLE_ADD:
 			case DPLANE_OP_IPTABLE_DELETE:
 			case DPLANE_OP_IPSET_ADD:
@@ -5380,6 +5591,10 @@ static void rib_process_dplane_results(struct event *event)
 
 			case DPLANE_OP_VLAN_INSTALL:
 				zebra_vlan_dplane_result(ctx);
+				break;
+
+			case DPLANE_OP_TUNNEL_NOTIFY:
+				zebra_tunnel_dplane_result(ctx);
 				break;
 
 			case DPLANE_OP_NEIGH_IP_INSTALL:

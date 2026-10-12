@@ -300,7 +300,11 @@ static int ssmpingd_read_msg(struct ssmpingd_sock *ss)
 	ssmpingd_sendto(ss, buf, len, from);
 
 	/* multicast reply */
-	memcpy(&from, &ss->pim->ssmpingd_group_addr, sizeof(pim_addr));
+#if PIM_IPV == 4
+	((struct sockaddr_in *)&from)->sin_addr = ss->pim->ssmpingd_group_addr;
+#else
+	((struct sockaddr_in6 *)&from)->sin6_addr = ss->pim->ssmpingd_group_addr;
+#endif
 	ssmpingd_sendto(ss, buf, len, from);
 
 	return 0;

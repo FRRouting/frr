@@ -294,11 +294,11 @@ void pim_send_staterefresh(struct pim_upstream *up)
 	struct listnode *neighnode;
 	struct pim_neighbor *neigh;
 
-	ifp = pim_if_find_by_vif_index(up->pim, *oil_incoming_vif(up->channel_oil));
+	ifp = pim_if_find_by_vif_index(up->pim, up->channel_oil->iif.index);
 	if (!ifp) {
 		if (PIM_DEBUG_PIM_EVENTS)
-			zlog_debug("%s: could not find input interface for oil_incoming_vif=%d",
-				   __func__, *oil_incoming_vif(up->channel_oil));
+			zlog_debug("%s: could not find input interface for input interface: %d",
+				   __func__, up->channel_oil->iif.index);
 		return;
 	}
 	if (up->pim->staterefresh_counter < 3) {

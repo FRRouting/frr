@@ -170,6 +170,23 @@ def test_step1():
         compare_ted_json_output(tgen, rname, "ted_step1.json")
 
 
+def test_invalid_vertex_identifiers():
+    "Verify malformed vertex identifiers do not crash isisd."
+
+    tgen = setup_testcase("Test malformed IS-IS TE vertex identifiers")
+    router = tgen.gears["r1"]
+    identifiers = ["a-00", "{}.00".format("A" * 255)]
+
+    for identifier in identifiers:
+        output = router.vtysh_cmd(
+            "show isis mpls-te database vertex {}".format(identifier),
+            isjson=False,
+        )
+        assert "No vertex found for ID {}".format(identifier) in output
+
+    assert not tgen.routers_have_failure()
+
+
 def test_step2():
     "Step2: Shutdown interface between r1 and r2 and verify that \
     corresponding Edges are removed from the TED on all routers "

@@ -664,8 +664,8 @@ struct nb_node {
 	/* Back pointer to the libyang schema node. */
 	const struct lysc_node *snode;
 
-	/* Data path of this YANG node. */
-	char xpath[XPATH_MAXLEN];
+	/* Data path of this YANG node (allocated to its exact length). */
+	char *xpath;
 
 	/* Priority - lower priorities are processed first. */
 	uint32_t priority;
@@ -729,7 +729,7 @@ struct frr_yang_module_info {
 	 * module. The unlock_tree function if non-NULL will be called with
 	 * the returned tree and the *user_lock value.
 	 */
-	const struct lyd_node *(*get_tree_locked)(const char *xpath, void **user_lock);
+	const struct lyd_node *(*get_tree_locked)(void **user_lock);
 
 	/*
 	 * This function will be called following a call to get_tree_locked() in
@@ -1839,6 +1839,13 @@ extern void nb_init(struct event_loop *tm, const struct frr_yang_module_info *co
 		    size_t nmodules, bool db_enabled, bool load_library);
 
 /*
+ * Assure the module is loaded, if it has to be loaded, all features are
+ * enabled. NOTE: Currently just fails if not loaded until other 1/2 is coded
+ * up
+ */
+extern int nb_assure_module(const char *module_name);
+
+/*
  * Finish the northbound layer gracefully. Should be called only when the daemon
  * is exiting.
  */
@@ -1966,6 +1973,15 @@ extern void nb_notif_enable_multi_thread(void);
 
 extern void nb_notif_init(struct event_loop *loop);
 extern void nb_notif_terminate(void);
+
+/**
+ * nb_notif_cancel_walk() - cancel the in-progress oper-state notification cycle
+ *
+ * Cancels the notification timer and the walk, frees the walk args shared by
+ * the two, and discards the change group being notified. Queued groups and the
+ * notification filters are left alone. Takes the notification lock.
+ */
+extern void nb_notif_cancel_walk(void);
 
 #ifdef __cplusplus
 }

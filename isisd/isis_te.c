@@ -1447,6 +1447,17 @@ static int lsp_to_subnet_cb(const struct prefix *prefix, uint32_t metric, bool e
 	return LSP_ITER_CONTINUE;
 }
 
+/*
+ * A LAN pseudonode LSP reuses the DIS system ID. TED vertices are indexed
+ * by that system ID alone, so the pseudonode must not be parsed or deleted
+ * as the router node: the pseudonode carries no TE IP sub-TLVs, and doing
+ * so orphans or removes the real router's edges.
+ */
+static bool isis_te_lsp_is_pseudonode(const struct isis_lsp *lsp)
+{
+	return LSP_PSEUDO_ID(lsp->hdr.lsp_id) != 0;
+}
+
 /**
  * Parse ISIS LSP to fulfill the Link State Database
  *
@@ -1465,6 +1476,12 @@ static void isis_te_parse_lsp(struct mpls_te_area *mta, struct isis_lsp *lsp)
 	/* Sanity Check */
 	if (!IS_MPLS_TE(mta) || !mta->ted || !lsp)
 		return;
+
+	if (isis_te_lsp_is_pseudonode(lsp)) {
+		te_debug("ISIS-TE(%s): Skip pseudonode LSP %pSY", lsp->area->area_tag,
+			 lsp->hdr.lsp_id);
+		return;
+	}
 
 	ted = mta->ted;
 
@@ -1542,6 +1559,12 @@ static void isis_te_delete_lsp(struct mpls_te_area *mta, struct isis_lsp *lsp)
 	/* Sanity Check */
 	if (!IS_MPLS_TE(mta) || !mta->ted || !lsp)
 		return;
+
+	if (isis_te_lsp_is_pseudonode(lsp)) {
+		te_debug("ISIS-TE(%s): Skip pseudonode LSP %pSY", lsp->area->area_tag,
+			 lsp->hdr.lsp_id);
+		return;
+	}
 
 	te_debug("ISIS-TE(%s): Delete Link State TED objects from LSP %pSY", lsp->area->area_tag,
 		 lsp->hdr.lsp_id);
@@ -1906,13 +1929,18 @@ DEFUN (show_isis_mpls_te_interface,
 static struct ls_vertex *vertex_for_arg(struct ls_ted *ted, const char *id, struct isis *isis)
 {
 	char sysid[255] = { 0 };
-	uint8_t number[3];
+	uint8_t number[3] = { 0 };
 	const char *pos;
 	uint8_t lspid[ISIS_SYS_ID_LEN + 2] = { 0 };
 	struct isis_dynhn *dynhn;
 	uint64_t key = 0;
+	size_t id_len;
 
 	if (!id)
+		return NULL;
+
+	id_len = strlen(id);
+	if (id_len >= sizeof(sysid))
 		return NULL;
 
 	/*
@@ -1925,11 +1953,13 @@ static struct ls_vertex *vertex_for_arg(struct ls_ted *ted, const char *id, stru
 	 * xxxx.xxxx.xxxx
 	 */
 	strlcpy(sysid, id, sizeof(sysid));
-	if (strlen(id) > 3) {
-		pos = id + strlen(id) - 3;
+	if (id_len > 3) {
+		pos = id + id_len - 3;
 		if (strncmp(pos, "-", 1) == 0) {
 			memcpy(number, ++pos, 2);
 			lspid[ISIS_SYS_ID_LEN + 1] = (uint8_t)strtol((char *)number, NULL, 16);
+			if (pos - id < 4)
+				return NULL;
 			pos -= 4;
 			if (strncmp(pos, ".", 1) != 0)
 				return NULL;

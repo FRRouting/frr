@@ -24,6 +24,8 @@ extern int interface_lookup_netlink(struct zebra_ns *zns);
 extern int netlink_vlan_change(struct nlmsghdr *h, ns_id_t ns_id, int startup, void *arg);
 extern int netlink_vlan_read(struct zebra_ns *zns);
 
+extern int netlink_tunnel_change(struct nlmsghdr *h, ns_id_t ns_id, int startup, void *arg);
+
 extern ssize_t netlink_intf_msg_encode(uint16_t cmd,
 				       const struct zebra_dplane_ctx *ctx,
 				       void *buf, size_t buflen);

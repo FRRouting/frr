@@ -326,6 +326,7 @@ static unsigned int updgrp_hash_key_make(const void *p)
 	const struct bgp_filter *filter;
 	uint64_t flags;
 	uint32_t key;
+	bool role_cfgd;
 	afi_t afi;
 	safi_t safi;
 
@@ -452,7 +453,10 @@ static unsigned int updgrp_hash_key_make(const void *p)
 	 * Multiple sessions with the same neighbor should get their own
 	 * update-group if they have different roles.
 	 */
-	key = jhash_1word(peer->local_role, key);
+	role_cfgd = CHECK_FLAG(peer->flags, PEER_FLAG_ROLE);
+	key = jhash_1word(role_cfgd, key);
+	if (role_cfgd)
+		key = jhash_1word(peer->local_role, key);
 
 	/* If the peer has disabled Link-Local Next Hop capability, but we
 	 * send it, it's not taken into consideration and we always merge both
@@ -538,13 +542,9 @@ static unsigned int updgrp_hash_key_make(const void *p)
 				      PEER_CAP_ORF_PREFIX_SM_RCV),
 			   (intmax_t)CHECK_FLAG(peer->af_flags[afi][safi],
 						PEER_FLAG_MAX_PREFIX_OUT));
-		zlog_debug(
-			"%pBP Update Group Hash: local role: %u AIGP: %d SOO: %s",
-			peer, peer->local_role,
-			!!CHECK_FLAG(peer->flags, PEER_FLAG_AIGP),
-			peer->soo[afi][safi]
-				? ecommunity_str(peer->soo[afi][safi])
-				: "(NONE)");
+		zlog_debug("%pBP Update Group Hash: local role: %s AIGP: %d SOO: %s", peer,
+			   bgp_get_local_role_name(peer), !!CHECK_FLAG(peer->flags, PEER_FLAG_AIGP),
+			   peer->soo[afi][safi] ? ecommunity_str(peer->soo[afi][safi]) : "(NONE)");
 		zlog_debug("%pBP Update Group Hash: IPv6 nexthop-local unchanged: %d IPv6 global %pI6",
 			   peer,
 			   afi == AFI_IP6 && (CHECK_FLAG(peer->af_flags[afi][safi],
@@ -633,7 +633,9 @@ static bool updgrp_hash_cmp(const void *p1, const void *p2)
 		return false;
 
 	/* Roles can affect filtering */
-	if (pe1->local_role != pe2->local_role)
+	if (!!CHECK_FLAG(pe1->flags, PEER_FLAG_ROLE) != !!CHECK_FLAG(pe2->flags, PEER_FLAG_ROLE))
+		return false;
+	if (CHECK_FLAG(pe1->flags, PEER_FLAG_ROLE) && pe1->local_role != pe2->local_role)
 		return false;
 
 	/* route-map names should be the same */

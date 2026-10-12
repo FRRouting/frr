@@ -1347,6 +1347,7 @@ static int nhg_ctx_process_new(struct nhg_ctx *ctx)
 	struct nhg_connected_tree_head nhg_depends = {};
 	struct nhg_hash_entry *lookup = NULL;
 	struct nhg_hash_entry *nhe = NULL;
+	struct nhg_hash_entry *old = NULL;
 
 	uint32_t id = nhg_ctx_get_id(ctx);
 	uint16_t count = nhg_ctx_get_count(ctx);
@@ -1354,6 +1355,9 @@ static int nhg_ctx_process_new(struct nhg_ctx *ctx)
 	int type = nhg_ctx_get_type(ctx);
 	afi_t afi = nhg_ctx_get_afi(ctx);
 	bool startup = nhg_ctx_get_startup(ctx);
+	int ret = 0;
+	bool replace = false;
+	bool restore_old_id = false;
 
 	lookup = zebra_nhg_lookup_id(id);
 
@@ -1362,11 +1366,22 @@ static int nhg_ctx_process_new(struct nhg_ctx *ctx)
 			   __func__, id, count, lookup);
 
 	if (lookup) {
-		/* This is already present in our table, hence an update
-		 * that we did not initiate.
+		if (lookup->type != ZEBRA_ROUTE_KERNEL) {
+			/* This is already present in our table, hence an
+			 * update that we did not initiate. If the NHG is
+			 * FRR-owned, restore our version in the kernel.
+			 */
+			zebra_nhg_handle_kernel_state_change(lookup, false);
+			return 0;
+		}
+
+		/* Kernel-owned NHGs should track kernel replaces in-memory
+		 * instead of re-installing the previous version back down.
 		 */
-		zebra_nhg_handle_kernel_state_change(lookup, false);
-		return 0;
+		old = lookup;
+		replace = true;
+		hash_release(zrouter.nhgs_id, old);
+		restore_old_id = true;
 	}
 
 	if (nhg_ctx_get_count(ctx)) {
@@ -1374,9 +1389,8 @@ static int nhg_ctx_process_new(struct nhg_ctx *ctx)
 		if (zebra_nhg_process_grp(nhg, &nhg_depends,
 					  nhg_ctx_get_grp(ctx), count,
 					  nhg_ctx_get_resilience(ctx))) {
-			depends_decrement_free(&nhg_depends);
-			nexthop_group_delete(&nhg);
-			return -ENOENT;
+			ret = -ENOENT;
+			goto done;
 		}
 
 		if (!zebra_nhg_find(&nhe, id, nhg, &nhg_depends, vrf_id, afi,
@@ -1394,30 +1408,61 @@ static int nhg_ctx_process_new(struct nhg_ctx *ctx)
 			EC_ZEBRA_TABLE_LOOKUP_FAILED,
 			"Zebra failed to find or create a nexthop hash entry for ID (%u)",
 			id);
-		return -1;
+		ret = -1;
+		goto done;
 	}
 
 	if (IS_ZEBRA_DEBUG_NHG_DETAIL)
-		zlog_debug("%s: nhe %p (%pNG) is new", __func__, nhe, nhe);
+		zlog_debug("%s: nhe %p (%pNG) is %s", __func__, nhe, nhe,
+			   replace ? "replacement" : "new");
 
 	frrtrace(1, frr_zebra, nhg_ctx_process_new_nhe, id);
+
+	if (old) {
+		restore_old_id = false;
+		zebra_nhg_release_all_deps(old);
+
+		/*
+		 * Pin `old` for the duration of the rib walk.  Routes handing
+		 * back their last reference would otherwise try to clean it
+		 * up, and rib_handle_nhg_replace() only tells us that a free
+		 * was *expected*: it returns non-zero when a route dropped
+		 * the final reference, which frees the NHE for zebra and
+		 * proto owned groups but not for a kernel owned one.  With
+		 * the extra reference nothing can free `old` underneath us
+		 * and we can unconditionally clean it up ourselves.
+		 */
+		old->refcnt++;
+		rib_handle_nhg_replace(old, nhe);
+
+		/*
+		 * Only the id table was released above.  `old` may also live
+		 * in the by-nexthop hash: zebra hands out ids from the same
+		 * low range the kernel uses, so an NHE built here for a
+		 * route can own an id that the dplane later delivers a
+		 * kernel object for.  Freeing without this release leaves a
+		 * dangling entry that the next content lookup would return.
+		 */
+		if (old->id < ZEBRA_NHG_PROTO_LOWER)
+			hash_release(zrouter.nhgs, old);
+
+		old->refcnt = 0;
+		event_cancel(&old->timer);
+		zebra_nhg_free(old);
+		old = NULL;
+	}
 
 	SET_FLAG(nhe->flags, NEXTHOP_GROUP_RECEIVED_FROM_EXTERNAL);
 	SET_FLAG(nhe->flags, NEXTHOP_GROUP_VALID);
 	SET_FLAG(nhe->flags, NEXTHOP_GROUP_INSTALLED);
 
 	/*
-	 * On startup Zebra is creating the nexthop group cache entry
-	 * after the router has it's startup time set.  This is because
-	 * the process of grabbing routes and nexthops is now *after*
-	 * the dataplane starts up, which is after the routers startup
-	 * time is set.  So let's just cheat a tiny bit on the time
-	 * and set the nexthop group hash entry startup time to be
-	 * slightly before the zrouter.startup_time.  Then graceful
-	 * restart sweeping will work properly for these nexthop entries
+	 * The startup boundary is recorded after kernel nexthops are read.
+	 * Use zero to mark an entry imported before that boundary.  A later
+	 * protocol update replaces it with the current monotonic time.
 	 */
 	if (startup) {
-		nhe->uptime = zrouter.startup_time - 1;
+		nhe->uptime = 0;
 		/* tag stale FDB NH/NHG and reserve its bitmap bit; sweep
 		 * releases the bit via zebra_evpn_mh_release_stale_nhid()
 		 */
@@ -1426,7 +1471,20 @@ static int nhg_ctx_process_new(struct nhg_ctx *ctx)
 			zebra_evpn_mh_reserve_stale_nhid(id);
 		}
 	}
-	return 0;
+
+	ret = 0;
+
+done:
+	if (ret && old && restore_old_id)
+		zebra_nhg_insert_id(old);
+
+	if (ret == -ENOENT)
+		depends_decrement_free(&nhg_depends);
+
+	if (nhg)
+		nexthop_group_delete(&nhg);
+
+	return ret;
 }
 
 static int nhg_ctx_process_del(struct nhg_ctx *ctx)
@@ -1444,7 +1502,26 @@ static int nhg_ctx_process_del(struct nhg_ctx *ctx)
 		return -1;
 	}
 
-	zebra_nhg_handle_kernel_state_change(nhe, true);
+	if (nhe->type != ZEBRA_ROUTE_KERNEL) {
+		zebra_nhg_handle_kernel_state_change(nhe, true);
+		return 0;
+	}
+
+	/* Kernel-owned NHGs should track the kernel delete in-memory instead
+	 * of re-installing the previous version back down.
+	 */
+	UNSET_FLAG(nhe->flags, NEXTHOP_GROUP_INSTALLED);
+	UNSET_FLAG(nhe->flags, NEXTHOP_GROUP_QUEUED);
+	UNSET_FLAG(nhe->flags, NEXTHOP_GROUP_KEEP_AROUND);
+
+	if (nhe->refcnt > 0) {
+		if (IS_ZEBRA_DEBUG_NHG_DETAIL)
+			zlog_debug("%s: keeping deleted kernel NHG %pNG in memory while still referenced (refcnt %u)",
+				   __func__, nhe, nhe->refcnt);
+		return 0;
+	}
+
+	zebra_nhg_handle_uninstall(nhe);
 
 	return 0;
 }
@@ -1913,16 +1990,20 @@ static void zebra_nhg_timer(struct event *event)
 
 void zebra_nhg_decrement_ref(struct nhg_hash_entry *nhe)
 {
+	bool unrefreshed_stale_fdb = CHECK_FLAG(nhe->flags, NEXTHOP_GROUP_STALE_FDB) &&
+				     nhe->uptime == 0;
+
 	if (IS_ZEBRA_DEBUG_NHG_DETAIL)
 		zlog_debug("%s: nhe %p (%pNG) %d => %d", __func__, nhe, nhe,
 			   nhe->refcnt, nhe->refcnt - 1);
 
 	nhe->refcnt--;
 
-	if (!zebra_router_in_shutdown() && nhe->refcnt <= 0 &&
+	if (!zebra_router_in_shutdown() && ZEBRA_NHG_CREATED(nhe) && nhe->refcnt <= 0 &&
 	    (CHECK_FLAG(nhe->flags, NEXTHOP_GROUP_INSTALLED) ||
 	     CHECK_FLAG(nhe->flags, NEXTHOP_GROUP_QUEUED)) &&
-	    !CHECK_FLAG(nhe->flags, NEXTHOP_GROUP_KEEP_AROUND)) {
+	    !CHECK_FLAG(nhe->flags, NEXTHOP_GROUP_KEEP_AROUND) &&
+	    !unrefreshed_stale_fdb) {
 		nhe->refcnt = 1;
 		SET_FLAG(nhe->flags, NEXTHOP_GROUP_KEEP_AROUND);
 		event_add_timer(zrouter.master, zebra_nhg_timer, nhe,
@@ -1932,6 +2013,16 @@ void zebra_nhg_decrement_ref(struct nhg_hash_entry *nhe)
 
 	if (!zebra_nhg_depends_is_empty(nhe))
 		nhg_connected_tree_decrement_ref(&nhe->nhg_depends);
+
+	if (nhe->type == ZEBRA_ROUTE_KERNEL && nhe->refcnt == 0 &&
+	    !CHECK_FLAG(nhe->flags, NEXTHOP_GROUP_INSTALLED) &&
+	    !CHECK_FLAG(nhe->flags, NEXTHOP_GROUP_QUEUED)) {
+		if (IS_ZEBRA_DEBUG_NHG_DETAIL)
+			zlog_debug("%s: uninstalling unreferenced deleted kernel NHG %pNG",
+				   __func__, nhe);
+		zebra_nhg_handle_uninstall(nhe);
+		return;
+	}
 
 	if (ZEBRA_NHG_CREATED(nhe) && nhe->refcnt <= 0)
 		zebra_nhg_uninstall_kernel(nhe);
@@ -3809,13 +3900,11 @@ static int zebra_nhg_sweep_entry(struct hash_bucket *bucket, void *arg)
 	}
 
 	/*
-	 * same logic as with routes.
-	 *
-	 * If older than startup time, we know we read them in from the
-	 * kernel and have not gotten and update for them since startup
-	 * from an upper level proto.
+	 * Entries imported from the kernel during startup have an uptime of
+	 * zero.  An upper-level protocol refresh gives the entry a nonzero
+	 * timestamp.
 	 */
-	if (zrouter.startup_time < nhe->uptime)
+	if (nhe->uptime != 0)
 		return HASHWALK_CONTINUE;
 
 	/*

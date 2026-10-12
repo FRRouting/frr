@@ -43,6 +43,8 @@ pytestmark = [pytest.mark.bfdd]
 KEY = "bfdauthkey123"
 RT1_ADDR = "10.0.1.1"
 RT2_ADDR = "10.0.1.2"
+# rt2 is the namespace the scripted peer speaks from.
+RT2_IFACE = "eth-rt1"
 
 SEQ_ERROR = "rx-pkt-authentication-keyed-sha1-sequence-error"
 SEQ_ERROR_METICULOUS = "rx-pkt-authentication-keyed-sha1-sequence-meticulous-error"
@@ -84,19 +86,67 @@ def peer_state():
     return output[0].get("status") if output else None
 
 
-def run_peer(after_up="none", meticulous=False, by=400000, seconds=20,
-             seq_start=None, hold_until_up=False):
+def address_in_kernel(router, ifname, address):
+    """True once `address` is on `ifname` and no longer tentative.
+
+    zebra installs the configured address after the daemon starts. Until
+    that address is usable in the kernel, binding it fails.
+    """
+    output = router.run("ip -4 -j addr show dev {}".format(ifname))
+    try:
+        interfaces = json.loads(output)
+    except ValueError:
+        return False
+    if not interfaces:
+        return False
+    for info in interfaces[0].get("addr_info", []):
+        if info.get("local") != address:
+            continue
+        # iproute2 reports this either as a boolean or in the flags list.
+        flags = info.get("flags", [])
+        if info.get("tentative") is True or "tentative" in flags:
+            return False
+        return True
+    return False
+
+
+def wait_for_peering_address():
+    "Wait until rt2 can bind the address the scripted peer speaks from."
+    rt2 = get_topogen().gears["rt2"]
+
+    def _ready():
+        return address_in_kernel(rt2, RT2_IFACE, RT2_ADDR)
+
+    _, result = topotest.run_and_expect(_ready, True, count=20, wait=1)
+    assert result is True, "{} on {} is not in the kernel".format(RT2_ADDR, RT2_IFACE)
+
+
+def run_peer(
+    after_up="none",
+    meticulous=False,
+    by=400000,
+    seconds=20,
+    seq_start=None,
+    hold_until_up=False,
+):
     """Speak BFD from rt2 for `seconds`, misbehaving as asked once up."""
+    wait_for_peering_address()
     rt2 = get_topogen().gears["rt2"]
     cmd = [
         sys.executable,
         os.path.join(CWD, "bfd_replay_peer.py"),
-        "--local", RT2_ADDR,
-        "--peer", RT1_ADDR,
-        "--key", KEY,
-        "--after-up", after_up,
-        "--by", str(by),
-        "--seconds", str(seconds),
+        "--local",
+        RT2_ADDR,
+        "--peer",
+        RT1_ADDR,
+        "--key",
+        KEY,
+        "--after-up",
+        after_up,
+        "--by",
+        str(by),
+        "--seconds",
+        str(seconds),
     ]
     if seq_start is not None:
         cmd += ["--seq-start", str(seq_start)]
@@ -157,9 +207,19 @@ def test_bfd_auth_held_sequence_is_accepted():
     """
     skip_unless_ready()
 
-    before = counter(SEQ_ERROR)
-    peer = run_peer(after_up="hold", seconds=25)
+    expect_state("down", count=60)
+    # Repeat the same sequence until it is accepted, so the window left
+    # by the previous session ages out first. A restarted sequence would
+    # otherwise be counted as a replay rather than as the repeat this
+    # test wants. Snapshot the error counter only after the session is
+    # up, so those ageing-out drops are not mistaken for a refused hold.
+    peer = run_peer(after_up="hold", seconds=25, hold_until_up=True)
     expect_state("up")
+
+    before = counter(SEQ_ERROR)
+    accepted = counter("control-packet-input")
+    expect_counter_above("control-packet-input", accepted + 20)
+    assert peer_state() == "up", "session dropped while the sequence number was held"
     assert counter(SEQ_ERROR) == before, "a held sequence number was refused"
     peer.terminate()
     peer.wait()
@@ -228,8 +288,9 @@ def test_bfd_auth_sequence_may_wrap():
     # Held at six short of the wrap until something is accepted, so the
     # window is established there and the wrap falls inside the session
     # rather than while the previous window is still ageing out.
-    peer = run_peer(after_up="none", seconds=40, seq_start=0xFFFFFFFA,
-                    hold_until_up=True)
+    peer = run_peer(
+        after_up="none", seconds=40, seq_start=0xFFFFFFFA, hold_until_up=True
+    )
     expect_state("up")
 
     before = counter(SEQ_ERROR)
@@ -266,7 +327,9 @@ def test_bfd_auth_meticulous_refuses_a_repeat():
         authentication algorithm meticulous
         exit
         exit
-        """.format(RT2_ADDR, RT1_ADDR)
+        """.format(
+            RT2_ADDR, RT1_ADDR
+        )
     )
 
     before = counter(SEQ_ERROR_METICULOUS)

@@ -166,6 +166,10 @@ struct srv6_locator {
 };
 DECLARE_QOBJ_TYPE(srv6_locator);
 
+#define SRV6_LOCATOR_PREFIX_IS_SET(loc)                                                           \
+	(!IPV6_ADDR_SAME(&(loc)->prefix.prefix, &in6addr_any) || (loc)->prefix.prefixlen ||       \
+	 (loc)->block_bits_length || (loc)->node_bits_length || (loc)->function_bits_length)
+
 struct srv6_locator_chunk {
 	char locator_name[SRV6_LOCNAME_SIZE];
 	struct prefix_ipv6 prefix;

@@ -5471,7 +5471,7 @@ DEFPY(bgp_shutdown_msg, bgp_shutdown_msg_cmd, "bgp shutdown message MSG...",
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 
-	bgp_shutdown_enable(bgp, msgstr);
+	bgp_shutdown_enable(bgp, msgstr, true);
 	XFREE(MTYPE_TMP, msgstr);
 
 	return CMD_SUCCESS;
@@ -5482,7 +5482,19 @@ DEFPY(bgp_shutdown, bgp_shutdown_cmd, "bgp shutdown",
 {
 	VTY_DECLVAR_CONTEXT(bgp, bgp);
 
-	bgp_shutdown_enable(bgp, NULL);
+	bgp_shutdown_enable(bgp, NULL, true);
+
+	return CMD_SUCCESS;
+}
+
+DEFPY(bgp_shutdown_no_notify, bgp_shutdown_no_notify_cmd, "bgp shutdown no-notify",
+      BGP_STR
+      "Administrative shutdown of the BGP instance\n"
+      "Do not send BGP notification (for HA standby transition)\n")
+{
+	VTY_DECLVAR_CONTEXT(bgp, bgp);
+
+	bgp_shutdown_enable(bgp, NULL, false);
 
 	return CMD_SUCCESS;
 }
@@ -5501,6 +5513,11 @@ ALIAS(no_bgp_shutdown, no_bgp_shutdown_msg_cmd,
       "no bgp shutdown message MSG...", NO_STR BGP_STR
       "Administrative shutdown of the BGP instance\n"
       "Add a shutdown message (RFC 8203)\n" "Shutdown message\n")
+
+ALIAS(no_bgp_shutdown, no_bgp_shutdown_no_notify_cmd,
+      "no bgp shutdown no-notify", NO_STR BGP_STR
+      "Administrative shutdown of the BGP instance\n"
+      "Do not send BGP notification (for HA standby transition)\n")
 
 DEFUN (neighbor_remote_as,
        neighbor_remote_as_cmd,
@@ -5848,8 +5865,13 @@ DEFUN (no_neighbor,
 			 * interface. */
 			if (peer->ifp)
 				bgp_zebra_terminate_radv(peer->bgp, peer);
+			other = peer->doppelganger;
 			peer_notify_unconfig(peer->connection);
 			peer_delete(peer);
+			if (other && other->connection->status != Deleted) {
+				peer_notify_unconfig(other->connection);
+				peer_delete(other);
+			}
 			return CMD_SUCCESS;
 		}
 
@@ -5918,7 +5940,7 @@ DEFUN (no_neighbor_interface_config,
 {
 	VTY_DECLVAR_CONTEXT(bgp, bgp);
 	int idx_word = 2;
-	struct peer *peer;
+	struct peer *peer, *other;
 
 	/* look up for neighbor by interface name config. */
 	peer = peer_lookup_by_conf_if(bgp, argv[idx_word]->arg);
@@ -5926,8 +5948,13 @@ DEFUN (no_neighbor_interface_config,
 		/* Request zebra to terminate IPv6 RAs on this interface. */
 		if (peer->ifp)
 			bgp_zebra_terminate_radv(peer->bgp, peer);
+		other = peer->doppelganger;
 		peer_notify_unconfig(peer->connection);
 		peer_delete(peer);
+		if (other && other->connection->status != Deleted) {
+			peer_notify_unconfig(other->connection);
+			peer_delete(other);
+		}
 	} else {
 		vty_out(vty, "%% Create the bgp interface first\n");
 		return CMD_WARNING_CONFIG_FAILED;
@@ -7864,27 +7891,52 @@ DEFPY (neighbor_aigp,
 		return peer_flag_set_vty(vty, neighbor, PEER_FLAG_AIGP);
 }
 
-static uint8_t get_role_by_name(const char *role_str)
+static bool get_role_by_name(const char *role_str, uint8_t *role)
 {
 	if (strncmp(role_str, "peer", 2) == 0)
-		return ROLE_PEER;
-	if (strncmp(role_str, "provider", 2) == 0)
-		return ROLE_PROVIDER;
-	if (strncmp(role_str, "customer", 2) == 0)
-		return ROLE_CUSTOMER;
-	if (strncmp(role_str, "rs-server", 4) == 0)
-		return ROLE_RS_SERVER;
-	if (strncmp(role_str, "rs-client", 4) == 0)
-		return ROLE_RS_CLIENT;
-	return ROLE_UNDEFINED;
+		*role = ROLE_PEER;
+	else if (strncmp(role_str, "provider", 2) == 0)
+		*role = ROLE_PROVIDER;
+	else if (strncmp(role_str, "customer", 2) == 0)
+		*role = ROLE_CUSTOMER;
+	else if (strncmp(role_str, "rs-server", 4) == 0)
+		*role = ROLE_RS_SERVER;
+	else if (strncmp(role_str, "rs-client", 4) == 0)
+		*role = ROLE_RS_CLIENT;
+	else
+		return false;
+
+	return true;
+}
+
+/* Re-evaluate routes when the role changes */
+static void bgp_vty_role_update(struct peer *peer, int action)
+{
+	struct listnode *node;
+	struct peer *member;
+
+	bgp_vty_capability_send_dynamic_peer_group(peer, AFI_IP, SAFI_UNICAST,
+						   CAPABILITY_CODE_ROLE, action);
+
+	if (CHECK_FLAG(peer->sflags, PEER_STATUS_GROUP)) {
+		for (ALL_LIST_ELEMENTS_RO(peer->group->peer, node, member)) {
+			peer_clear_soft(member, AFI_IP, SAFI_UNICAST, BGP_CLEAR_SOFT_BOTH);
+			peer_clear_soft(member, AFI_IP6, SAFI_UNICAST, BGP_CLEAR_SOFT_BOTH);
+		}
+
+		return;
+	}
+
+	peer_clear_soft(peer, AFI_IP, SAFI_UNICAST, BGP_CLEAR_SOFT_BOTH);
+	peer_clear_soft(peer, AFI_IP6, SAFI_UNICAST, BGP_CLEAR_SOFT_BOTH);
 }
 
 static int peer_role_set_vty(struct vty *vty, struct peer *peer,
 			     const char *role_str, bool strict_mode)
 {
-	uint8_t role = get_role_by_name(role_str);
+	uint8_t role;
 
-	if (role == ROLE_UNDEFINED)
+	if (!get_role_by_name(role_str, &role))
 		return bgp_vty_return(vty, BGP_ERR_INVALID_ROLE_NAME);
 	return bgp_vty_return(vty, peer_role_set(peer, role, strict_mode));
 }
@@ -7905,9 +7957,10 @@ DEFPY(neighbor_role,
 		return CMD_WARNING_CONFIG_FAILED;
 
 	ret = peer_role_set_vty(vty, peer, role, false);
+	if (ret != CMD_SUCCESS)
+		return ret;
 
-	bgp_capability_send(peer->connection, AFI_IP, SAFI_UNICAST, CAPABILITY_CODE_ROLE,
-			    CAPABILITY_ACTION_SET);
+	bgp_vty_role_update(peer, CAPABILITY_ACTION_SET);
 
 	return ret;
 }
@@ -7929,9 +7982,10 @@ DEFPY(neighbor_role_strict,
 		return CMD_WARNING_CONFIG_FAILED;
 
 	ret = peer_role_set_vty(vty, peer, role, true);
+	if (ret != CMD_SUCCESS)
+		return ret;
 
-	bgp_capability_send(peer->connection, AFI_IP, SAFI_UNICAST, CAPABILITY_CODE_ROLE,
-			    CAPABILITY_ACTION_SET);
+	bgp_vty_role_update(peer, CAPABILITY_ACTION_SET);
 
 	return ret;
 }
@@ -7955,8 +8009,7 @@ DEFPY(no_neighbor_role,
 
 	ret = bgp_vty_return(vty, peer_role_unset(peer));
 
-	bgp_capability_send(peer->connection, AFI_IP, SAFI_UNICAST, CAPABILITY_CODE_ROLE,
-			    CAPABILITY_ACTION_UNSET);
+	bgp_vty_role_update(peer, CAPABILITY_ACTION_UNSET);
 
 	return ret;
 }
@@ -9166,9 +9219,9 @@ DEFPY (bgp_condadv_period,
 		for (ALL_LIST_ELEMENTS(bgp->peer, node, nnode, peer))
 			UNSET_FLAG(peer->sflags, PEER_STATUS_COND_ADV_PENDING);
 
-		bgp->condition_check_period = DEFAULT_CONDITIONAL_ROUTES_POLL_TIME;
+		bgp_conditional_adv_period_set(bgp, DEFAULT_CONDITIONAL_ROUTES_POLL_TIME);
 	} else {
-		bgp->condition_check_period = period;
+		bgp_conditional_adv_period_set(bgp, period);
 	}
 
 	return CMD_SUCCESS;
@@ -11965,8 +12018,8 @@ DEFUN (no_bgp_segment_routing_srv6,
 		bgp_segment_routing_srv6_hencaps_refresh(bgp);
 	}
 
-	if (bgp->srv6_only)
-		bgp_srv6_only_change(bgp, false);
+	if (!bgp->srv6_only)
+		bgp_srv6_only_change(bgp, true);
 
 	return CMD_SUCCESS;
 }
@@ -16939,15 +16992,11 @@ static void bgp_show_peer(struct vty *vty, struct peer *p, uint16_t sh_flags, bo
 
 	/* Roles */
 	if (use_json) {
-		json_object_string_add(json_neigh, "localRole",
-				       bgp_get_name_by_role(p->local_role));
-		json_object_string_add(json_neigh, "remoteRole",
-				       bgp_get_name_by_role(p->remote_role));
+		json_object_string_add(json_neigh, "localRole", bgp_get_local_role_name(p));
+		json_object_string_add(json_neigh, "remoteRole", bgp_get_remote_role_name(p));
 	} else {
-		vty_out(vty, "  Local Role: %s\n",
-			bgp_get_name_by_role(p->local_role));
-		vty_out(vty, "  Remote Role: %s\n",
-			bgp_get_name_by_role(p->remote_role));
+		vty_out(vty, "  Local Role: %s\n", bgp_get_local_role_name(p));
+		vty_out(vty, "  Remote Role: %s\n", bgp_get_remote_role_name(p));
 	}
 
 	/* Are we showing specific information? */
@@ -21583,13 +21632,9 @@ static void bgp_config_write_peer_global(struct vty *vty, struct bgp *bgp,
 		vty_out(vty, " neighbor %s graceful-shutdown\n", addr);
 
 	/* role */
-	if (peergroup_flag_check(peer, PEER_FLAG_ROLE) &&
-	    peer->local_role != ROLE_UNDEFINED)
-		vty_out(vty, " neighbor %s local-role %s%s\n", addr,
-			bgp_get_name_by_role(peer->local_role),
-			CHECK_FLAG(peer->flags, PEER_FLAG_ROLE_STRICT_MODE)
-				? " strict-mode"
-				: "");
+	if (peergroup_flag_check(peer, PEER_FLAG_ROLE))
+		vty_out(vty, " neighbor %s local-role %s%s\n", addr, bgp_get_local_role_name(peer),
+			CHECK_FLAG(peer->flags, PEER_FLAG_ROLE_STRICT_MODE) ? " strict-mode" : "");
 
 	if (peer->sub_sort == BGP_PEER_EBGP_OAD)
 		vty_out(vty, " neighbor %s oad\n", addr);
@@ -22832,8 +22877,12 @@ int bgp_config_write(struct vty *vty)
 			vty_out(vty, " bgp default shutdown\n");
 
 		/* BGP instance administrative shutdown */
-		if (CHECK_FLAG(bgp->flags, BGP_FLAG_SHUTDOWN))
-			vty_out(vty, " bgp shutdown\n");
+		if (CHECK_FLAG(bgp->flags, BGP_FLAG_SHUTDOWN)) {
+			if (CHECK_FLAG(bgp->flags, BGP_FLAG_SHUTDOWN_NO_NOTIFY))
+				vty_out(vty, " bgp shutdown no-notify\n");
+			else
+				vty_out(vty, " bgp shutdown\n");
+		}
 
 		/* Automatic RA enabling by BGP */
 		if (!CHECK_FLAG(bm->flags, BM_FLAG_IPV6_NO_AUTO_RA))
@@ -23904,8 +23953,10 @@ void bgp_vty_init(void)
 	/* "bgp shutdown" commands */
 	install_element(BGP_NODE, &bgp_shutdown_cmd);
 	install_element(BGP_NODE, &bgp_shutdown_msg_cmd);
+	install_element(BGP_NODE, &bgp_shutdown_no_notify_cmd);
 	install_element(BGP_NODE, &no_bgp_shutdown_cmd);
 	install_element(BGP_NODE, &no_bgp_shutdown_msg_cmd);
+	install_element(BGP_NODE, &no_bgp_shutdown_no_notify_cmd);
 
 	/* "neighbor remote-as" commands. */
 	install_element(BGP_NODE, &neighbor_remote_as_cmd);

@@ -2094,6 +2094,13 @@ void ospf6_intra_brouter_calculation(struct ospf6_area *oa)
 			continue;
 
 		SET_FLAG(brouter->flag, OSPF6_ROUTE_REMOVE);
+		/* ADD/CHANGE left by an earlier install are not evidence that
+		 * this calculation re-derived the entry. The SPF transfer
+		 * below sets them again only for routers rebuilt from this
+		 * tree.
+		 */
+		UNSET_FLAG(brouter->flag, OSPF6_ROUTE_ADD);
+		UNSET_FLAG(brouter->flag, OSPF6_ROUTE_CHANGE);
 
 		if (IS_OSPF6_DEBUG_BROUTER_SPECIFIC_ROUTER_ID(brouter_id)
 		    || IS_OSPF6_DEBUG_ROUTE(MEMORY)) {
@@ -2191,10 +2198,9 @@ void ospf6_intra_brouter_calculation(struct ospf6_area *oa)
 				}
 				UNSET_FLAG(brouter->flag, OSPF6_ROUTE_REMOVE);
 			}
-		}
-
-		if (CHECK_FLAG(brouter->flag, OSPF6_ROUTE_REMOVE)
-		    && CHECK_FLAG(brouter->flag, OSPF6_ROUTE_ADD)) {
+		} else if (CHECK_FLAG(brouter->flag, OSPF6_ROUTE_REMOVE) &&
+			   CHECK_FLAG(brouter->flag, OSPF6_ROUTE_ADD)) {
+			/* Reinstalled unchanged from the SPF tree. */
 			UNSET_FLAG(brouter->flag, OSPF6_ROUTE_REMOVE);
 			UNSET_FLAG(brouter->flag, OSPF6_ROUTE_ADD);
 		}

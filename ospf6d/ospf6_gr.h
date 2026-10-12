@@ -115,6 +115,7 @@ extern int config_write_ospf6_gr_helper(struct vty *vty, struct ospf6 *ospf6);
 extern int config_write_ospf6_debug_gr_helper(struct vty *vty);
 
 extern void ospf6_gr_iface_send_grace_lsa(struct event *event);
+extern void ospf6_gr_restart_exit(struct ospf6 *ospf6, const char *reason);
 extern void ospf6_gr_restart_enter(struct ospf6 *ospf6,
 				   enum ospf6_gr_restart_reason reason,
 				   time_t timestamp);

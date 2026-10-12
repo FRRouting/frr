@@ -59,6 +59,10 @@ struct attr_test {
 	size_t len;
 	/* expected bgp_attr_parse() return */
 	enum bgp_attr_parse_ret expect;
+	/* expected attr->transit octets after parse; NULL to skip the check */
+	const uint8_t *transit;
+	/* octet count of .transit -- set by TRANSIT_DATA(), never by hand */
+	size_t transit_len;
 };
 
 /*
@@ -76,6 +80,11 @@ struct attr_test {
  */
 #define ATTR_DATA(...)                                                                            \
 	.data = (const uint8_t[]){ __VA_ARGS__ }, .len = sizeof((const uint8_t[]){ __VA_ARGS__ })
+
+/* As ATTR_DATA(), for the attribute octets kept for re-advertisement. */
+#define TRANSIT_DATA(...)                                                                         \
+	.transit = (const uint8_t[]){ __VA_ARGS__ },                                              \
+	.transit_len = sizeof((const uint8_t[]){ __VA_ARGS__ })
 
 /*
  * Well-formed baseline: ORIGIN(igp) + AS_PATH(65001) + NEXT_HOP(10.0.0.2).
@@ -254,6 +263,33 @@ static const struct attr_test attr_tests[] = {
 		.expect = BGP_ATTR_PARSE_PROCEED,
 	},
 	/*
+	 * RFC 4271 4.3: the lower-order four bits of the Attribute Flags
+	 * octet are unused, and MUST be zero when sent.  bgp_attr_unknown()
+	 * keeps an unrecognized transitive attribute's octets verbatim for
+	 * re-advertisement, so the flags octet it stores is the one that goes
+	 * back on the wire and has to be normalized: Partial set, because the
+	 * attribute is passed along unrecognized, and the unused nibble
+	 * cleared, whatever the sender happened to leave in it.
+	 *
+	 * 0xc5 is optional + transitive with 0x05 in the unused nibble, so a
+	 * missing normalization stores 0xe5 rather than 0xe0.  Type 0xfa is
+	 * unassigned, which is what makes the attribute unrecognized.
+	 */
+	{
+		.name = "unknown-transitive-unused-bits-ebgp",
+		.desc = "unknown transitive attribute with a nonzero unused nibble, eBGP",
+		.sort = BGP_PEER_EBGP,
+		.sub_sort = 0,
+		.has_nlri = true,
+		ATTR_DATA(0x40, 0x01, 0x01, 0x00,		    /* ORIGIN igp */
+			  0x40, 0x02, 0x06,			    /* AS_PATH */
+			  0x02, 0x01, 0x00, 0x00, 0xfd, 0xe9,	    /* AS_SEQ 65001 */
+			  0x40, 0x03, 0x04, 0x0a, 0x00, 0x00, 0x02, /* NEXT_HOP */
+			  0xc5, 0xfa, 0x01, 0x99),		    /* unknown opt-trans */
+		.expect = BGP_ATTR_PARSE_PROCEED,
+		TRANSIT_DATA(0xe0, 0xfa, 0x01, 0x99),
+	},
+	/*
 	 * NEXT_HOP.  ExaBGP cannot put any of these on the wire: a raw
 	 * attribute [0x03 ...] after the next-hop keyword is dropped by the
 	 * first-wins Attributes.add(), one placed before it makes
@@ -382,19 +418,24 @@ static const char *parse_ret_str(enum bgp_attr_parse_ret ret)
 	return "UNKNOWN";
 }
 
-/* Print the octets bgp_attr_parse() is about to be handed, and how many. */
-static void print_data(const uint8_t *data, size_t len)
+static void print_hex(const char *label, const uint8_t *data, size_t len)
 {
 	size_t i;
 
-	printf("  len:      %zu\n", len);
-	printf("  data:    ");
+	printf("  %-9s", label);
 	for (i = 0; i < len; i++) {
 		if (i && !(i % 16))
 			printf("\n           ");
 		printf(" %02x", data[i]);
 	}
 	printf("\n");
+}
+
+/* Print the octets bgp_attr_parse() is about to be handed, and how many. */
+static void print_data(const uint8_t *data, size_t len)
+{
+	printf("  len:      %zu\n", len);
+	print_hex("data:", data, len);
 }
 
 static void parse_test(struct peer *peer, const struct attr_test *t)
@@ -436,6 +477,18 @@ static void parse_test(struct peer *peer, const struct attr_test *t)
 
 	if (ret != t->expect)
 		failed++;
+
+	if (t->transit) {
+		struct transit *transit = bgp_attr_get_transit(&attr);
+
+		print_hex("transit:", transit ? transit->val : NULL,
+			  transit ? (size_t)transit->length : 0);
+		print_hex("expected:", t->transit, t->transit_len);
+
+		if (!transit || (size_t)transit->length != t->transit_len ||
+		    memcmp(transit->val, t->transit, t->transit_len))
+			failed++;
+	}
 
 	if (tty)
 		printf("%s", (failed > oldfailed) ? VT100_RED "failed!" VT100_RESET

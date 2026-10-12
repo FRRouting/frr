@@ -11,6 +11,9 @@ Conditionally advertise 172.16.255.2/32 to r1, only if 172.16.255.3/32
 is received from r3.
 
 Also, withdraw if 172.16.255.3/32 disappears.
+
+Also, check that changing the conditional advertisement timer restarts the
+scanner with the new period.
 """
 
 import os
@@ -264,6 +267,68 @@ def test_bgp_conditional_advertisement_track_peer():
     test_func = functools.partial(_bgp_converge)
     _, result = topotest.run_and_expect(test_func, None, count=60, wait=1)
     assert result is None, "R2 SHOULD not send any routes to R1"
+
+
+def test_bgp_conditional_advertisement_timer_change():
+    tgen = get_topogen()
+
+    r2 = tgen.gears["r2"]
+
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    def _bgp_check_cond_adv_timer(configured, remain_min, remain_max):
+        output = json.loads(r2.vtysh_cmd("show bgp neighbors 192.168.1.1 json"))
+        neighbor = output.get("192.168.1.1", {})
+        period = neighbor.get("bgpTimerConfiguredConditionalAdvertisementsSec")
+        remain = neighbor.get("bgpTimerUntilConditionalAdvertisementsSec")
+        if period == configured and remain is not None:
+            if remain_min <= remain <= remain_max:
+                return None
+
+        return "configured timer {}s, {}s until next scan".format(period, remain)
+
+    step("Set conditional advertisement timer to 100 seconds on R2")
+    r2.vtysh_cmd(
+        """
+    configure terminal
+        router bgp
+            bgp conditional-advertisement timer 100
+    """
+    )
+
+    test_func = functools.partial(_bgp_check_cond_adv_timer, 100, 11, 100)
+    _, result = topotest.run_and_expect(test_func, None)
+    assert result is None, "R2 SHOULD run the scanner every 100s: {}".format(result)
+
+    step("Re-apply the same 100 seconds timer on R2")
+    test_func = functools.partial(_bgp_check_cond_adv_timer, 100, 11, 97)
+    _, result = topotest.run_and_expect(test_func, None)
+    assert result is None, "R2 SHOULD count down from 100s: {}".format(result)
+
+    r2.vtysh_cmd(
+        """
+    configure terminal
+        router bgp
+            bgp conditional-advertisement timer 100
+    """
+    )
+
+    result = _bgp_check_cond_adv_timer(100, 11, 97)
+    assert result is None, "R2 SHOULD keep the running 100s timer: {}".format(result)
+
+    step("Change conditional advertisement timer from 100 to 10 seconds on R2")
+    r2.vtysh_cmd(
+        """
+    configure terminal
+        router bgp
+            bgp conditional-advertisement timer 10
+    """
+    )
+
+    test_func = functools.partial(_bgp_check_cond_adv_timer, 10, 0, 10)
+    _, result = topotest.run_and_expect(test_func, None)
+    assert result is None, "R2 SHOULD restart the scanner with 10s: {}".format(result)
 
 
 if __name__ == "__main__":

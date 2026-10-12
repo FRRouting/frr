@@ -52,7 +52,7 @@ enum pcep_object_tlv_types {
 	PCEP_OBJ_TLV_TYPE_RSVP_ERROR_SPEC = 21,		/* RFC 8232 */
 	PCEP_OBJ_TLV_TYPE_LSP_DB_VERSION = 23,		/* RFC 8232 */
 	PCEP_OBJ_TLV_TYPE_SPEAKER_ENTITY_ID = 24,	/* RFC 8232 */
-	PCEP_OBJ_TLV_TYPE_SR_PCE_CAPABILITY = 26,	/* draft-ietf-pce-segment-routing-16 */
+	PCEP_OBJ_TLV_TYPE_SR_PCE_CAPABILITY = 26,	/* RFC 8664 */
 	PCEP_OBJ_TLV_TYPE_PATH_SETUP_TYPE = 28,		/* RFC 8408 */
 	PCEP_OBJ_TLV_TYPE_PATH_SETUP_TYPE_CAPABILITY =
 		34,				/* RFC 8408, draft-ietf-pce-segment-routing-16 */
@@ -282,7 +282,7 @@ struct pcep_object_tlv_vendor_info {
 #define MAX_ARBITRARY_SIZE 256
 struct pcep_object_tlv_arbitrary {
 	struct pcep_object_tlv_header header;
-	enum pcep_object_tlv_types arbitraty_type;
+	enum pcep_object_tlv_types arbitrary_type;
 	uint16_t data_length;
 	char data[MAX_ARBITRARY_SIZE];
 };

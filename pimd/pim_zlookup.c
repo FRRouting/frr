@@ -595,15 +595,14 @@ int pim_zlookup_sg_statistics(struct channel_oil *c_oil)
 	int count = 0;
 	int ret;
 	pim_sgaddr more = {};
-	struct interface *ifp =
-		pim_if_find_by_vif_index(c_oil->pim, *oil_incoming_vif(c_oil));
+	struct interface *ifp = pim_if_find_by_vif_index(c_oil->pim, c_oil->iif.index);
 
 	if (PIM_DEBUG_ZEBRA) {
-		more.src = *oil_origin(c_oil);
-		more.grp = *oil_mcastgrp(c_oil);
+		more.src = c_oil->source;
+		more.grp = c_oil->group;
 		zlog_debug("Sending Request for New Channel Oil Information%pSG VIIF %d(%s:%s)",
-			   &more, *oil_incoming_vif(c_oil),
-			   ifp ? ifp->name : "Unknown", c_oil->pim->vrf->name);
+			   &more, c_oil->iif.index, ifp ? ifp->name : "Unknown",
+			   c_oil->pim->vrf->name);
 	}
 
 	if (!ifp)
@@ -613,8 +612,8 @@ int pim_zlookup_sg_statistics(struct channel_oil *c_oil)
 	zclient_create_header(s, ZEBRA_IPMR_ROUTE_STATS,
 			      c_oil->pim->vrf->vrf_id);
 	stream_putl(s, PIM_AF);
-	stream_write(s, oil_origin(c_oil), sizeof(pim_addr));
-	stream_write(s, oil_mcastgrp(c_oil), sizeof(pim_addr));
+	stream_write(s, &c_oil->source, sizeof(pim_addr));
+	stream_write(s, &c_oil->group, sizeof(pim_addr));
 	stream_putl(s, ifp->ifindex);
 	stream_putw_at(s, 0, stream_get_endp(s));
 
@@ -651,8 +650,8 @@ int pim_zlookup_sg_statistics(struct channel_oil *c_oil)
 	stream_get(&sg.src, s, sizeof(pim_addr));
 	stream_get(&sg.grp, s, sizeof(pim_addr));
 
-	more.src = *oil_origin(c_oil);
-	more.grp = *oil_mcastgrp(c_oil);
+	more.src = c_oil->source;
+	more.grp = c_oil->group;
 	if (pim_sgaddr_cmp(sg, more)) {
 		if (PIM_DEBUG_ZEBRA)
 			flog_err(

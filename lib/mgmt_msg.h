@@ -67,6 +67,7 @@ extern bool mgmt_msg_procbufs(struct mgmt_msg_state *ms,
 			      void *user, bool debug);
 extern enum mgmt_msg_rsched mgmt_msg_read(struct mgmt_msg_state *ms, int fd,
 					  bool debug);
+extern size_t mgmt_msg_reset_reads(struct mgmt_msg_state *ms);
 extern size_t mgmt_msg_reset_writes(struct mgmt_msg_state *ms);
 extern int mgmt_msg_send_msg(struct mgmt_msg_state *ms, uint8_t version,
 			     void *msg, size_t len,
@@ -98,6 +99,8 @@ struct msg_conn {
 	void *user;
 	uint short_circuit_depth;
 	bool is_short_circuit;	/* true when the message being handled is SC */
+	bool in_handler;	/* true while inside the proc-msgs handler loop */
+	bool disconnect_pending; /* disconnected in_handler, notify deferred */
 	bool is_client;
 	bool debug;
 };

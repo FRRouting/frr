@@ -690,8 +690,13 @@ void ls_vertex_clean(struct ls_ted *ted, struct ls_vertex *vertex,
  * A temporary vertex that corresponds to the source of this Edge i.e. the
  * advertised router, is created if not found in the Data Base. If a Edge that
  * corresponds to the reverse path is found, the Edge is attached to the
- * destination vertex as destination and reverse Edge is attached to the source
- * vertex as source.
+ * destination vertex as destination. The reverse Edge is attached to this
+ * vertex only while it has no destination of its own.
+ *
+ * The reverse edge is looked up by its local address, so more than one edge
+ * can name it (a broadcast LAN, for example). Moving a reverse edge that is
+ * already linked leaves it on the previous incoming list, and TED teardown
+ * then frees that edge twice.
  *
  * @param ted	Link State Data Base
  * @param edge	Link State Edge to be attached
@@ -717,15 +722,22 @@ static void ls_edge_connect_to(struct ls_ted *ted, struct ls_edge *edge)
 
 	/* Then search if there is a reverse Edge */
 	dst = ls_find_edge_by_destination(ted, edge->attributes);
-	/* attach the destination edge to the vertex */
-	if (dst) {
+	if (!dst)
+		return;
+
+	/* Keep an already linked reverse edge where its remote address put it. */
+	if (dst->destination == NULL) {
 		listnode_add_sort_nodup(vertex->incoming_edges, dst);
 		dst->destination = vertex;
-		/* and destination vertex to this edge */
-		vertex = dst->source;
-		listnode_add_sort_nodup(vertex->incoming_edges, edge);
-		edge->destination = vertex;
 	}
+
+	/* and destination vertex to this edge */
+	vertex = dst->source;
+	if (!vertex || edge->destination != NULL)
+		return;
+
+	listnode_add_sort_nodup(vertex->incoming_edges, edge);
+	edge->destination = vertex;
 }
 
 static struct ls_edge_key get_edge_key(struct ls_attributes *attr, bool dst)

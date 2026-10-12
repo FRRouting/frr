@@ -28,6 +28,7 @@
 #include "pcep_msg_tlvs.h"
 #include "pcep_msg_tools.h"
 #include "pcep_utils_memory.h"
+#include "pcep_utils_logging.h"
 #include "pcep_msg_tlvs_test.h"
 
 /*
@@ -166,9 +167,12 @@ void test_pcep_tlv_create_path_setup_type(void)
 
 void test_pcep_tlv_create_path_setup_type_capability(void)
 {
+	uint16_t len;
+
 	/* The sub_tlv list is optional */
 
 	/* Should return NULL if pst_list is NULL */
+	struct pcep_object_tlv_path_setup_type_capability *tlv2;
 	struct pcep_object_tlv_path_setup_type_capability *tlv =
 		pcep_tlv_create_path_setup_type_capability(NULL, NULL);
 	CU_ASSERT_PTR_NULL(tlv);
@@ -215,7 +219,7 @@ void test_pcep_tlv_create_path_setup_type_capability(void)
 	pcep_encode_tlv(&tlv->header, versioning, tlv_buf);
 	CU_ASSERT_EQUAL(tlv->header.type,
 			PCEP_OBJ_TLV_TYPE_PATH_SETUP_TYPE_CAPABILITY);
-	CU_ASSERT_EQUAL(tlv->header.encoded_tlv_length, sizeof(uint32_t) * 2);
+	CU_ASSERT_EQUAL(tlv->header.encoded_tlv_length, sizeof(uint32_t) + 3);
 	CU_ASSERT_PTR_NOT_NULL(tlv->pst_list);
 	assert(tlv != NULL);
 	CU_ASSERT_EQUAL(tlv->pst_list->num_entries, 3);
@@ -232,9 +236,17 @@ void test_pcep_tlv_create_path_setup_type_capability(void)
 	pst_list = dll_initialize();
 	sub_tlv_list = dll_initialize();
 	pst1 = pceplib_malloc(PCEPLIB_MESSAGES, 1);
+	pst2 = pceplib_malloc(PCEPLIB_MESSAGES, 1);
 	*pst1 = 1;
+	*pst2 = 2;
 	dll_append(pst_list, pst1);
+	dll_append(pst_list, pst2);
 	dll_append(sub_tlv_list, sub_tlv);
+
+	/* Add a second sub-tlv */
+	sub_tlv = (void *)pcep_tlv_create_sr_pce_capability(true, false, 0);
+	dll_append(sub_tlv_list, sub_tlv);
+
 	tlv = pcep_tlv_create_path_setup_type_capability(pst_list,
 							 sub_tlv_list);
 	CU_ASSERT_PTR_NOT_NULL(tlv);
@@ -243,9 +255,11 @@ void test_pcep_tlv_create_path_setup_type_capability(void)
 	pcep_encode_tlv(&tlv->header, versioning, tlv_buf);
 	CU_ASSERT_EQUAL(tlv->header.type,
 			PCEP_OBJ_TLV_TYPE_PATH_SETUP_TYPE_CAPABILITY);
-	CU_ASSERT_EQUAL(tlv->header.encoded_tlv_length,
-			sizeof(uint32_t) * 2 + TLV_HEADER_LENGTH
-				+ sub_tlv->encoded_tlv_length);
+
+	/* Encoded length is the TLV body, plus two sub-tlvs */
+	len = sizeof(uint32_t) * 2 + (2 * TLV_HEADER_LENGTH) +
+		(2 * sub_tlv->encoded_tlv_length);
+	CU_ASSERT_EQUAL(tlv->header.encoded_tlv_length, len);
 	CU_ASSERT_PTR_NOT_NULL(tlv->pst_list);
 	CU_ASSERT_PTR_NOT_NULL(tlv->sub_tlv_list);
 	uint32_ptr = (uint32_t *)tlv->header.encoded_tlv;
@@ -253,8 +267,8 @@ void test_pcep_tlv_create_path_setup_type_capability(void)
 	CU_ASSERT_EQUAL(uint16_ptr[0],
 			htons(PCEP_OBJ_TLV_TYPE_PATH_SETUP_TYPE_CAPABILITY));
 	CU_ASSERT_EQUAL(uint16_ptr[1], htons(tlv->header.encoded_tlv_length));
-	CU_ASSERT_EQUAL(uint32_ptr[1], htonl(0x00000001));
-	CU_ASSERT_EQUAL(uint32_ptr[2], htonl(0x01000000));
+	CU_ASSERT_EQUAL(uint32_ptr[1], htonl(0x00000002));
+	CU_ASSERT_EQUAL(uint32_ptr[2], htonl(0x01020000));
 	/* Verify the Sub-TLV */
 	uint16_ptr = (uint16_t *)(tlv->header.encoded_tlv + 12);
 	CU_ASSERT_EQUAL(uint16_ptr[0],
@@ -264,6 +278,55 @@ void test_pcep_tlv_create_path_setup_type_capability(void)
 	CU_ASSERT_EQUAL(uint16_ptr[3], htons(0x0300));
 
 	pcep_obj_free_tlv(&tlv->header);
+
+	pcep_log(LOG_INFO, "%s: validation testing", __func__);
+
+	/* Make the sub-tlv invalid with a huge length */
+	uint16_ptr[1] = 99;
+	/* Ensure the invalid buffer doesn't parse */
+	tlv2 = (void *)pcep_decode_tlv(tlv_buf);
+	CU_ASSERT_PTR_NULL(tlv2);
+	if (tlv2)
+		pcep_obj_free_tlv(&tlv2->header);
+
+	/* Restore sub-tlv length */
+	uint16_ptr[1] = htons(4);
+
+	/* Reduce tlv header length */
+	uint16_ptr = (uint16_t *)tlv_buf;
+	uint16_ptr[1] = htons(len - 4);
+
+	tlv2 = (void *)pcep_decode_tlv(tlv_buf);
+	CU_ASSERT_PTR_NULL(tlv2);
+	if (tlv2)
+		pcep_obj_free_tlv(&tlv2->header);
+
+	/* Test TLV encoder length calculation */
+	pst_list = dll_initialize();
+
+	pst1 = pceplib_malloc(PCEPLIB_MESSAGES, 1);
+	pst2 = pceplib_malloc(PCEPLIB_MESSAGES, 1);
+	*pst1 = 1;
+	*pst2 = 2;
+	dll_append(pst_list, pst1);
+	dll_append(pst_list, pst2);
+	tlv = pcep_tlv_create_path_setup_type_capability(pst_list, NULL);
+	CU_ASSERT_PTR_NOT_NULL(tlv);
+	assert(tlv != NULL);
+
+	reset_tlv_buffer();
+	pcep_encode_tlv(&tlv->header, versioning, tlv_buf);
+
+	/* Encoded length must not include padding */
+	uint16_ptr = (uint16_t *)tlv->header.encoded_tlv;
+	CU_ASSERT_EQUAL(6, htons(uint16_ptr[1]));
+	pcep_obj_free_tlv(&tlv->header);
+
+	/* Decode should succeed */
+	tlv2 = (void *)pcep_decode_tlv(tlv_buf);
+	CU_ASSERT_PTR_NOT_NULL(tlv2);
+	if (tlv2)
+		pcep_obj_free_tlv(&tlv2->header);
 }
 
 void test_pcep_tlv_create_sr_pce_capability(void)
@@ -535,7 +598,7 @@ void test_pcep_tlv_create_srpag_cp_id(void)
 	CU_ASSERT_EQUAL(tlv->header.type,
 			(PCEP_OBJ_TLV_TYPE_SRPOLICY_CPATH_ID));
 	CU_ASSERT_EQUAL(tlv->header.encoded_tlv_length,
-			(sizeof(proto_origin) + sizeof(ASN)
+			(sizeof(uint32_t) + sizeof(ASN)
 			 + sizeof(with_mapped_ipv4) + sizeof(discriminator)));
 	CU_ASSERT_EQUAL(tlv->proto, (proto_origin));
 	CU_ASSERT_EQUAL(tlv->orig_asn, (ASN));

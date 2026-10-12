@@ -209,6 +209,10 @@ Standard: Cpp03
 TabWidth: 8
 UseTab: Always
 WhitespaceSensitiveMacros:
+  - "DECLARE_HOOK"
+  - "DECLARE_KOOH"
+  - "DEFINE_HOOK"
+  - "DEFINE_KOOH"
   - "DEFPY"
   - "DEFPY_ATTR"
   - "DEFPY_HIDDEN"

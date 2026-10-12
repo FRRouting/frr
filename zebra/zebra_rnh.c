@@ -611,34 +611,107 @@ bool rnh_nexthop_valid(const struct route_entry *re, const struct nexthop *nh)
 }
 
 /*
- * Determine whether an re's nexthops are valid for tracking.
+ * True when this nexthop's gateway is the address being tracked.
+ * Interface and blackhole nexthops have no gateway.
  */
-static bool rnh_check_re_nexthops(const struct route_entry *re,
-				  const struct rnh *rnh)
+static bool rnh_nexthop_gate_is_tracked(const struct nexthop *nh, const struct prefix *tracked)
+{
+	switch (nh->type) {
+	case NEXTHOP_TYPE_IPV4:
+	case NEXTHOP_TYPE_IPV4_IFINDEX:
+		return tracked->family == AF_INET &&
+		       IPV4_ADDR_SAME(&nh->gate.ipv4, &tracked->u.prefix4);
+	case NEXTHOP_TYPE_IPV6:
+	case NEXTHOP_TYPE_IPV6_IFINDEX:
+		return tracked->family == AF_INET6 &&
+		       IPV6_ADDR_SAME(&nh->gate.ipv6, &tracked->u.prefix6);
+	case NEXTHOP_TYPE_IFINDEX:
+	case NEXTHOP_TYPE_BLACKHOLE:
+		break;
+	}
+
+	return false;
+}
+
+/*
+ * Determine whether an re's nexthops are valid for tracking.
+ *
+ * nexthop_active() will not resolve a route over itself unless that match
+ * is a host route, and it does not apply that check to a cross-VRF nexthop.
+ * The same rule applies here for a host registration: a non-host route whose
+ * gateway is the tracked address, in the same VRF as the route, depends on
+ * the nexthop it would be asked to prove. That gateway, and resolved children
+ * reached through it, are skipped in this walk. A gateway in another VRF, or
+ * an ECMP member with a different gateway, can still resolve the tracked
+ * address.
+ *
+ * Shorter registrations are masked down to their network address by
+ * zebra_add_rnh(). A gateway equal to that network address is a real nexthop,
+ * so this comparison is not applied to them.
+ */
+static bool rnh_check_re_nexthops(const struct route_entry *re, const struct rnh *rnh,
+				  const struct prefix *match)
 {
 	bool ret = false;
+	bool saw_self = false;
+	bool tracked_host;
+	bool host_route;
+	bool skip_children;
+	const struct prefix *tracked = &rnh->node->p;
 	const struct nexthop *nexthop = NULL;
 
+	tracked_host = (tracked->family == AF_INET && tracked->prefixlen == IPV4_MAX_BITLEN) ||
+		       (tracked->family == AF_INET6 && tracked->prefixlen == IPV6_MAX_BITLEN);
+	host_route = (tracked->family == AF_INET && match->prefixlen == IPV4_MAX_BITLEN) ||
+		     (tracked->family == AF_INET6 && match->prefixlen == IPV6_MAX_BITLEN);
+
 	/* Check route's nexthops */
+	skip_children = false;
 	for (ALL_NEXTHOPS(re->nhe->nhg, nexthop)) {
+		if (!nexthop->rparent) {
+			skip_children = tracked_host && !host_route &&
+					nexthop->vrf_id == re->vrf_id &&
+					rnh_nexthop_gate_is_tracked(nexthop, tracked);
+			if (skip_children) {
+				saw_self = true;
+				continue;
+			}
+		} else if (skip_children)
+			continue;
+
 		if (rnh_nexthop_valid(re, nexthop))
 			break;
 	}
 
 	/* Check backup nexthops, if any. */
-	if (nexthop == NULL && re->nhe->backup_info &&
-	    re->nhe->backup_info->nhe) {
+	if (nexthop == NULL && re->nhe->backup_info && re->nhe->backup_info->nhe) {
+		skip_children = false;
 		for (ALL_NEXTHOPS(re->nhe->backup_info->nhe->nhg, nexthop)) {
+			if (!nexthop->rparent) {
+				skip_children = tracked_host && !host_route &&
+						nexthop->vrf_id == re->vrf_id &&
+						rnh_nexthop_gate_is_tracked(nexthop, tracked);
+				if (skip_children) {
+					saw_self = true;
+					continue;
+				}
+			} else if (skip_children)
+				continue;
+
 			if (rnh_nexthop_valid(re, nexthop))
 				break;
 		}
 	}
 
 	if (nexthop == NULL) {
-		if (IS_ZEBRA_DEBUG_NHT_DETAILED)
-			zlog_debug(
-				"        Route Entry %s no nexthops",
-				zebra_route_string(re->type));
+		if (IS_ZEBRA_DEBUG_NHT_DETAILED) {
+			if (saw_self)
+				zlog_debug("        Route Entry %s matched against itself",
+					   zebra_route_string(re->type));
+			else
+				zlog_debug("        Route Entry %s no nexthops",
+					   zebra_route_string(re->type));
+		}
 
 		goto done;
 	}
@@ -748,10 +821,13 @@ zebra_rnh_resolve_nexthop_entry(struct zebra_vrf *zvrf, afi_t afi,
 			}
 
 			/* Just being SELECTED isn't quite enough - must
-			 * have an installed nexthop to be useful.
+			 * have an installed nexthop to be useful. A route
+			 * reached only through the tracked gateway is not.
 			 */
-			if (rnh_check_re_nexthops(re, rnh))
-				break;
+			if (!rnh_check_re_nexthops(re, rnh, &rn->p))
+				continue;
+
+			break;
 		}
 
 		/* Route entry found, we're done; else, walk up the tree. */

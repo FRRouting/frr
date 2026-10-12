@@ -69,22 +69,46 @@ class Vtysh(object):
             args = ["-c", command]
         return self._call(args, stdin, stdout, stderr)
 
-    def __call__(self, command, stdouts=None):
+    def __call__(self, command):
         """
         Call a CLI command (e.g. "show running-config")
 
         Output text is automatically redirected, decoded and returned.
         Multiple commands may be passed as list.
         """
-        proc = self._call_cmd(command, stdout=subprocess.PIPE)
+        # vtysh splits its diagnostics over both streams: it writes its own
+        # errors ("line N: % Unknown command: ...", "Failed to connect to
+        # ...") to stderr, while a rejection coming back from a daemon
+        # ("% only inactive interfaces can be deleted", and on older lib
+        # "% Only inactive VRFs can be deleted") is echoed on stdout as part
+        # of the CLI session. A caller that only reads stdout therefore sees
+        # an exit status with no reason for half the failures, so capture
+        # both. communicate() reads the two pipes concurrently; a plain
+        # wait() would hang once either pipe buffer fills.
+        proc = self._call_cmd(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         stdout, stderr = proc.communicate()
-        if proc.wait() != 0:
-            if stdouts is not None:
-                stdouts.append(stdout.decode("UTF-8"))
+        # errors="replace": vtysh echoes the running config back verbatim and
+        # those bytes are not guaranteed to be UTF-8 (interface descriptions,
+        # route-map and peer-group names are free-form). Strict decoding would
+        # raise UnicodeDecodeError here and hide the vtysh error. errors="replace"
+        # means keep going: turn those bytes into U+FFFD so we still get the
+        # error text.
+        out = (stdout or b"").decode("UTF-8", errors="replace")
+        err = (stderr or b"").decode("UTF-8", errors="replace")
+        combined = out + err
+        if proc.returncode != 0:
             raise VtyshException(
-                'vtysh returned status %d for command "%s"' % (proc.returncode, command)
+                'vtysh returned status %d for command "%s"\n%s'
+                % (proc.returncode, command, combined)
             )
-        return stdout.decode("UTF-8")
+        # Success returns stdout only: callers parse this as command output
+        # ("show running-config"), and stderr is not part of it. Before we
+        # piped stderr, those diagnostics inherited the parent process; a
+        # successful daemon reconnect still warns there, so replay it.
+        if err:
+            sys.stderr.write(err)
+            sys.stderr.flush()
+        return out
 
     def is_config_available(self):
         """
@@ -102,11 +126,36 @@ class Vtysh(object):
         return True
 
     def exec_file(self, filename):
-        child = self._call(["-f", filename])
-        if child.wait() != 0:
+        child = self._call(
+            ["-f", filename], stdout=subprocess.PIPE, stderr=subprocess.PIPE
+        )
+        stdout, stderr = child.communicate()
+        # errors="replace" as in __call__(): echoed config may not be UTF-8;
+        # keep going and turn those bytes into U+FFFD so we still get the text.
+        out = (stdout or b"").decode("UTF-8", errors="replace")
+        err = (stderr or b"").decode("UTF-8", errors="replace")
+        if child.returncode != 0:
+            # --reload logs exec_file failures at WARNING (logfile only).
+            # After piping, the journal would otherwise miss vtysh's streams.
+            # Replay both to stderr (northbound reasons are stdout of the CLI
+            # session; keep them off frr-reload stdout), then raise so callers
+            # can log the same text.
+            combined = out + err
+            if combined:
+                sys.stderr.write(combined)
+                sys.stderr.flush()
             raise VtyshException(
-                f"vtysh (exec file) exited with status {child.returncode}"
+                "vtysh (exec file) exited with status %d:\n%s"
+                % (child.returncode, combined)
             )
+        # Success: stdout is the CLI session, stderr is vtysh warnings
+        # (reconnect). Piping would otherwise drop both.
+        if out:
+            sys.stdout.write(out)
+            sys.stdout.flush()
+        if err:
+            sys.stderr.write(err)
+            sys.stderr.flush()
 
     def mark_file(self, filename, stdin=None):
         child = self._call(
@@ -2043,6 +2092,7 @@ def compare_context_objects(newconf, running):
     seglist_to_del = []
     pceconf_to_del = []
     pcclist_to_del = []
+    vrf_to_del = []
     candidates_to_add = []
     delete_bgpd = False
     area_stub_no_sum = r"area (\S+) stub no-summary"
@@ -2079,13 +2129,30 @@ def compare_context_objects(newconf, running):
                 delete_bgpd = True
                 lines_to_del.append((running_ctx_keys, None))
 
-            # We cannot do 'no interface' or 'no vrf' in FRR, and so deal with it
+            # VRF context is in running-config but gone from the new file.
+            # Delete each inner line. A nested context such as
+            # ('vrf NAME', 'rpki') also queues (ctx, None), which renders
+            # as "vrf NAME" / "no rpki" and must run before "no vrf".
+            # A top-level stanza queues "no vrf NAME" separately, after
+            # every other delete. On the vrf-lite backend that command
+            # also destroys "interface NAME", so skip it when the new
+            # file still contains that interface.
+            elif running_ctx_keys[0].startswith("vrf "):
+                for line in running_ctx.lines:
+                    lines_to_del.append((running_ctx_keys, line))
+                if len(running_ctx_keys) > 1:
+                    lines_to_del.append((running_ctx_keys, None))
+                else:
+                    vrf_name = running_ctx_keys[0].split(None, 1)[1]
+                    if ("interface %s" % vrf_name,) not in newconf.contexts:
+                        vrf_to_del.append((running_ctx_keys, None))
+
+            # We cannot do 'no interface' in FRR, and so deal with it
             # If we try 'no interface' for still active interface, FRR tries to delete it and fails.
             # All commands under 'interface' section MUST support 'no' commands and exit silently
             # without errors if interface is deleted
             elif (
                 running_ctx_keys[0].startswith("interface")
-                or running_ctx_keys[0].startswith("vrf")
                 or running_ctx_keys[0].startswith("router pim")
             ):
                 for line in running_ctx.lines:
@@ -2164,10 +2231,15 @@ def compare_context_objects(newconf, running):
             ):
                 continue
 
-            # Segment routing never needs to be deleted
+            # Segment routing and its srv6 stanza never need to be deleted (they are automatically
+            # removed if they are empty)
             elif (
                 running_ctx_keys[0].startswith("segment-routing")
                 and len(running_ctx_keys) == 1
+            ) or (
+                running_ctx_keys[0].startswith("segment-routing")
+                and running_ctx_keys[1].startswith("srv6")
+                and len(running_ctx_keys) == 2
             ):
                 continue
 
@@ -2288,6 +2360,12 @@ def compare_context_objects(newconf, running):
     lines_to_add, lines_to_del = delete_move_lines(lines_to_add, lines_to_del)
     lines_to_add, lines_to_del = ignore_unconfigurable_lines(lines_to_add, lines_to_del)
 
+    # "no vrf NAME" after every other delete, including the BGP deletes
+    # delete_move_lines() pushes to the end ("router bgp ASN vrf NAME").
+    # The reload path runs this list as its own vtysh -f file, after the
+    # per-line deletes, so a refused "no vrf" cannot roll those back.
+    lines_to_del.extend(vrf_to_del)
+
     return (lines_to_add, lines_to_del)
 
 
@@ -2335,6 +2413,356 @@ class LogFmtFormatter(logging.Formatter):
         return logfmt
 
 
+# no_vrf_cmd on the vrf-lite backend destroys interface NAME in the same
+# transaction. lib_interface_destroy() rejects that while the kernel device
+# is up. Older lib_vrf_destroy VALIDATE rejected the VRF itself with the
+# second string. Either reply means: leave this VRF configured, do not
+# fail the reload.
+VRF_DELETE_SKIP_ERRS = (
+    "only inactive interfaces can be deleted",
+    "Only inactive VRFs can be deleted",
+)
+
+
+def is_vrf_context_delete(ctx_keys, line):
+    """True for a top-level VRF stanza delete: emit 'no vrf NAME'.
+
+    Nested contexts such as ('vrf NAME', 'rpki') also have line is None.
+    lines_to_config renders those as 'vrf NAME' / 'no rpki', which recreates
+    the VRF if they run after 'no vrf NAME'.
+    """
+    return len(ctx_keys) == 1 and ctx_keys[0].startswith("vrf ") and line is None
+
+
+def vrf_delete_blocked_as_active(output):
+    """True if vtysh rejected 'no vrf' because the kernel device is still up."""
+    return bool(output) and any(err in output for err in VRF_DELETE_SKIP_ERRS)
+
+
+def delete_via_vtysh_file(ctx_keys, line):
+    """
+    True if this line delete should go through one "vtysh -f" batch instead
+    of a per-line "vtysh -c" call.
+
+    Per-line deletes each trigger a full mgmtd commit. At scale that blows
+    past systemd's ExecReload TimeoutSec (e.g. hundreds of L3VNI unsets under
+    "vrf NAME", thousands of EVPN "route-target import" unsets under
+    "router bgp ... vrf ...", or a thousand "route-map" unsets). Batching
+    keeps one commit for the whole set.
+    """
+    if not ctx_keys:
+        return False
+    # A route-map delete is translated to,
+    # ("no route-map RM permit 10")
+    # which gets represented as,
+    # (('route-map RM permit 10',), None)
+    # so for route-map line=None is expected.
+    if ctx_keys[0].startswith("route-map "):
+        return True
+    # "no vrf NAME" is represented as (('vrf NAME',), None). Batch those
+    # separately from inner "vrf NAME" / "no vni ..." / "exit" stanzas.
+    if is_vrf_context_delete(ctx_keys, line):
+        return True
+    # A nested VRF context delete, ('vrf NAME', 'rpki') with line None,
+    # renders as "vrf NAME" / "no rpki". Keep it on the inner vtysh -f
+    # batch so it runs before "no vrf NAME" and does not recreate the VRF.
+    if len(ctx_keys) > 1 and ctx_keys[0].startswith("vrf ") and line is None:
+        return True
+    # Note: Only route-map, top-level VRF, and nested VRF context deletes
+    # are parsed above this check, because those deletes have line=None.
+    # Every other context with a valid line has to be added after the
+    # below line!=None check.
+    if not line:
+        return False
+    if ctx_keys[0].startswith("vrf "):
+        return True
+    # Shared-services / DVNI leaves put large explicit RT import lists under
+    # the BGP VRF address-family, not under a top-level "vrf" context.
+    if ctx_keys[0].startswith("router bgp") and line.lstrip().startswith(
+        "route-target "
+    ):
+        return True
+
+    return False
+
+
+def write_and_exec_batch_deletes(vtysh, rundir, entries):
+    """Write entries as one vtysh -f batch and execute. Returns None on
+    success, or the VtyshException on failure (caller decides fallback)."""
+    if not entries:
+        return None
+
+    batch_del_cmds = emit_grouped_config(entries, True)
+    random_string = "".join(
+        random.SystemRandom().choice(string.ascii_uppercase + string.digits)
+        for _ in range(6)
+    )
+    filename = rundir + "/reload-batch-del-%s.txt" % random_string
+    log.info("%s content\n%s" % (filename, pformat(batch_del_cmds)))
+
+    # Flush log before vtysh.exec_file() so content is preserved if crash occurs
+    for handler in log.handlers:
+        handler.flush()
+
+    with open(filename, "w") as fh:
+        for cmd in batch_del_cmds:
+            fh.write(cmd + "\n")
+
+    try:
+        vtysh.exec_file(filename)
+        return None
+    except VtyshException as exc:
+        return exc
+    finally:
+        try:
+            os.unlink(filename)
+        except OSError:
+            pass
+
+
+# CMD_ARGC_MAX is 256 in lib/command.h, and command_match() prepends a dummy
+# token before matching, so a command is rejected with CMD_ERR_NO_MATCH once
+# its own token count reaches 256. "no route-target import" already consumes
+# 3 tokens, leaving 252 RTs. Emitting 253 makes vtysh reject the whole batch
+# file with "% Unknown command" and exit 2, which drops the reload back to the
+# per-RT path this packing exists to avoid.
+RT_LIST_CHUNK = 256 - 1 - 3
+
+# vtysh reads the batch file with fgets(vty->buf, VTY_BUFSIZ, ...) and the
+# daemons read the command over the vtysh socket into the same size buffer, so
+# a packed line must also stay under VTY_BUFSIZ (8192 in lib/vty.h). Keep a
+# margin for the leading indent and the trailing newline.
+RT_LINE_MAX_BYTES = 8192 - 256
+
+
+def group_ctx_lines(entries):
+    """Group (ctx_keys, line) pairs by full ctx_keys, preserving first-seen order."""
+    groups = OrderedDict()
+    for ctx_keys, line in entries:
+        key = tuple(ctx_keys)
+        groups.setdefault(key, []).append(line)
+    return groups
+
+
+def parse_rt_line(line):
+    """Return (import|export|both, value) or None if the line is not packable.
+
+    "route-target import auto" is not packable: the CLI rejects auto on RTLIST.
+    """
+    if not line:
+        return None
+    match = re.match(r"^route-target\s+(import|export|both)\s+(\S+)$", line.lstrip())
+    if not match:
+        return None
+    if match.group(2) == "auto":
+        return None
+    return match.group(1), match.group(2)
+
+
+def is_vrf_evpn_af(ctx_keys):
+    """True for L3 VRF EVPN AF (not a nested L2 VNI context)."""
+    return (
+        len(ctx_keys) == 2
+        and ctx_keys[0].startswith("router bgp")
+        and ctx_keys[1].startswith("address-family l2vpn evpn")
+    )
+
+
+def _ctx_open_close(ctx_keys):
+    open_lines = []
+    close_lines = []
+    for i, ctx_key in enumerate(ctx_keys):
+        open_lines.append(" " * i + ctx_key)
+        close_lines.append(" " * i + "exit")
+    close_lines.reverse()
+    return open_lines, close_lines
+
+
+def _emit_line_in_ctx(indent, line, delete):
+    line = line.lstrip()
+    if delete:
+        if line.startswith("no "):
+            return "%s%s" % (indent, line[3:])
+        return "%sno %s" % (indent, line)
+    return indent + line
+
+
+def _rt_chunks(values, direction, indent, delete):
+    """Split RT values into commands that vtysh will actually parse.
+
+    Bounded by RT_LIST_CHUNK tokens and RT_LINE_MAX_BYTES bytes, whichever
+    hits first. Both bounds are hard: exceeding either makes vtysh reject the
+    line, and one rejected line aborts the whole batch file.
+    """
+    fixed = len(_emit_line_in_ctx(indent, "route-target %s x" % direction, delete)) - 1
+    chunk = []
+    size = fixed
+    for value in values:
+        grow = len(value) + 1
+        if chunk and (len(chunk) == RT_LIST_CHUNK or size + grow > RT_LINE_MAX_BYTES):
+            yield chunk
+            chunk = []
+            size = fixed
+        chunk.append(value)
+        size += grow
+    if chunk:
+        yield chunk
+
+
+def emit_ctx_block(ctx_keys, lines, delete):
+    """Emit one context stanza for a group of lines.
+
+    EVPN VRF route-target deletes (and the matching adds) are grouped
+    into one address-family block with RTLIST chunks so bgpd runs
+    parse_rtlist once per line (one unmap/map), not once per RT.
+
+    old way (still what lines_to_config emits per delta line):
+      router bgp 4200000102 vrf vrf_shared1
+       address-family l2vpn evpn
+        no route-target import 60005:1
+       exit
+      exit
+      router bgp 4200000102 vrf vrf_shared1
+       address-family l2vpn evpn
+        no route-target import 60005:2
+       exit
+      exit
+      router bgp 4200000102 vrf vrf_shared1
+       address-family l2vpn evpn
+        no route-target export 65000:1
+       exit
+      exit
+
+    new way (one AF; import list and export list are separate commands):
+      router bgp 4200000102 vrf vrf_shared1
+       address-family l2vpn evpn
+        no route-target import 60005:1 60005:2
+        no route-target export 65000:1
+       exit
+      exit
+
+    Do not pack "route-target import auto" into RTLIST (CLI rejects auto).
+    Do not pack L2 VNI ctx_keys (..., "vni N") into RTLIST (CLI is a single RT).
+    Chunk at RT_LIST_CHUNK RTs and RT_LINE_MAX_BYTES bytes per command.
+    Fallback per-line delete still uses the old one-RT form.
+    """
+    cmd = []
+    open_lines, close_lines = _ctx_open_close(ctx_keys)
+    indent = len(ctx_keys) * " "
+
+    if is_vrf_evpn_af(ctx_keys):
+        buckets = {"import": [], "export": [], "both": []}
+        leftover = []
+        for line in lines:
+            parsed = parse_rt_line(line)
+            if parsed:
+                buckets[parsed[0]].append(parsed[1])
+            else:
+                leftover.append(line)
+
+        cmd.extend(open_lines)
+        for direction in ("import", "export", "both"):
+            for chunk in _rt_chunks(buckets[direction], direction, indent, delete):
+                rtline = "route-target %s %s" % (direction, " ".join(chunk))
+                cmd.append(_emit_line_in_ctx(indent, rtline, delete))
+        for line in leftover:
+            cmd.append(_emit_line_in_ctx(indent, line, delete))
+        cmd.extend(close_lines)
+        return cmd
+
+    cmd.extend(open_lines)
+    for line in lines:
+        cmd.append(_emit_line_in_ctx(indent, line, delete))
+    cmd.extend(close_lines)
+    return cmd
+
+
+def emit_grouped_config(entries, delete):
+    """Serialize delta entries as one stanza per ctx_keys (RTLIST inside VRF EVPN AF).
+
+    entries is a list of (ctx_keys, line) from the vtysh -f batch.  Same
+    ctx_keys are collapsed into one stanza.  VRF EVPN route-targets pack
+    into RTLIST; a context-only delete (line is None) still goes through
+    lines_to_config so a whole route-map becomes "no route-map ...".
+
+    Input (delete=True), list of (ctx_keys, line):
+      (("router bgp 4200000102 vrf vrf_shared1",
+        "address-family l2vpn evpn"), "route-target import 60005:1")
+      (same ctx, "route-target import 60005:2")
+      (same ctx, "route-target import 60005:3")
+      (("route-map rmap1 permit 10",), None)
+      (("vrf vrf1",), "vni 4001")
+      (("vrf vrf1",), "vni 4002")
+
+    Output (blocks written to reload-batch-del-*.txt):
+      router bgp 4200000102 vrf vrf_shared1
+       address-family l2vpn evpn
+        no route-target import 60005:1 60005:2 60005:3
+       exit
+      exit
+
+      no route-map rmap1 permit 10
+
+      vrf vrf1
+       no vni 4001
+       no vni 4002
+      exit
+    """
+    blocks = []
+    for ctx_keys, lines in group_ctx_lines(entries).items():
+        if any(line is None for line in lines):
+            for line in lines:
+                blocks.append("\n".join(lines_to_config(ctx_keys, line, delete)) + "\n")
+            continue
+        cmd = emit_ctx_block(ctx_keys, lines, delete)
+        blocks.append("\n".join(cmd) + "\n")
+    return blocks
+
+
+def emit_add_config(entries):
+    """Pack VRF EVPN route-target adds; leave other add lines as-is.
+
+    Restoring a previous config that still has the import list is an add
+    of the same lines (the inverse of the unset).  Pack so bgpd sees one
+    RTLIST per command, not one RT per command.
+
+      route-target import 60005:1
+      route-target import 60005:2
+      route-target import 60005:3
+    becomes
+      route-target import 60005:1 60005:2 60005:3
+    """
+    rt_by_ctx = OrderedDict()
+    slots = []
+    for ctx_keys, line in entries:
+        if line == "!":
+            continue
+        key = tuple(ctx_keys)
+        if is_vrf_evpn_af(key) and parse_rt_line(line):
+            if key not in rt_by_ctx:
+                rt_by_ctx[key] = []
+                slots.append(("rt", key))
+            rt_by_ctx[key].append(line)
+        else:
+            # Everything that is not a packable VRF EVPN RT: one stanza,
+            # via lines_to_config (including line is None = context-only).
+            #   (("router bgp 1",), "bgp router-id 1.1.1.1")
+            #   (("router bgp 1",), None)
+            #   (("no ipv6 forwarding",), None)
+            #   (("vrf vrf1",), "vni 4001")
+            slots.append(("line", ctx_keys, line))
+
+    cmds = []
+    for slot in slots:
+        if slot[0] == "rt":
+            cmd = emit_ctx_block(slot[1], rt_by_ctx[slot[1]], False)
+            cmds.append("\n".join(cmd) + "\n")
+        else:
+            _, ctx_keys, line = slot
+            cmds.append("\n".join(lines_to_config(ctx_keys, line, False)) + "\n")
+    return cmds
+
+
 def delete_line_with_vtysh(vtysh, ctx_keys, line):
     """
     Remove a single config line via "vtysh -c configure ...".
@@ -2357,21 +2785,46 @@ def delete_line_with_vtysh(vtysh, ctx_keys, line):
       frr(config-if)#
 
     Returns True on success, False if the line could not be removed.
+    'no vrf NAME' is not token-trimmed ("no vrf" is not a command). If
+    vtysh returns "only inactive interfaces can be deleted" (vrf-lite,
+    device still up) or the older "Only inactive VRFs can be deleted",
+    that is not a reload failure: skip it and leave the VRF for a later
+    reload.
     """
     cmd = lines_to_config(ctx_keys, line, True)
     original_cmd = cmd
+    vrf_ctx_del = is_vrf_context_delete(ctx_keys, line)
 
-    stdouts = []
     while True:
         try:
-            vtysh(["configure"] + cmd, stdouts)
+            vtysh(["configure"] + cmd)
 
-        except VtyshException:
+        except VtyshException as e:
+            combined = str(e)
+            if vrf_ctx_del and vrf_delete_blocked_as_active(combined):
+                # Device is still up, so no vrf could not remove the
+                # interface node. Do not log at warning: a scale unset
+                # would flood frr-reload.log.
+                log.debug(
+                    "skipping '%s': VRF device is still up",
+                    " ".join(cmd),
+                )
+                return True
+            # Do not strip words from "no vrf NAME"; "no vrf" is not valid.
+            if vrf_ctx_del:
+                log.error("Failed to execute %s", " ".join(cmd))
+                log.error(
+                    '"%s" we failed to remove this command',
+                    " -- ".join(original_cmd),
+                )
+                log.error("%s", e)
+                return False
             # - Pull the last entry from cmd (this would be
             #   'no ip ospf authentication message-digest 1.1.1.1' in
             #   our example above
             # - Split that last entry by whitespace and drop the last word
             log.error("Failed to execute %s", " ".join(cmd))
+            log.error("%s", e)
             last_arg = cmd[-1].split(" ")
 
             if len(last_arg) <= 2:
@@ -2379,9 +2832,6 @@ def delete_line_with_vtysh(vtysh, ctx_keys, line):
                     '"%s" we failed to remove this command',
                     " -- ".join(original_cmd),
                 )
-                # Log first error msg for original_cmd
-                if stdouts:
-                    log.error(stdouts[0])
                 return False
 
             new_last_arg = last_arg[0:-1]
@@ -2468,10 +2918,19 @@ if __name__ == "__main__":
     parser.add_argument(
         "--logfile",
         help="logfile for frr-reload",
-        default="/var/log/frr/frr-reload.log",
+        default=None,
     )
 
     args = parser.parse_args()
+
+    # Derive logfile path if not explicitly specified.
+    # In topotest context, use cwd (router's log directory).
+    # In production, use /var/log/frr/.
+    if args.logfile is None:
+        if os.environ.get("PYTEST_CURRENT_TEST"):
+            args.logfile = os.path.join(os.getcwd(), "frr-reload.log")
+        else:
+            args.logfile = "/var/log/frr/frr-reload.log"
 
     # Logging
     # For --test log to stdout
@@ -2738,14 +3197,22 @@ if __name__ == "__main__":
                 for handler in log.handlers:
                     handler.flush()
 
-                # Take vrf line deletes out of lines_to_del and apply them as a
-                # single "vtysh -f" batch (below) to avoid the per-line
+                # Take scaled line deletes out of lines_to_del and apply them
+                # as a single "vtysh -f" batch (below) to avoid the per-line
                 # "vtysh -c" timeouts seen at scale (e.g. hundreds of L3VNI
-                # unsets during scaled deletes). The rest stay in lines_to_del and go
-                # through the per-line delete path.
+                # unsets under "vrf NAME", thousands of EVPN route-target
+                # unsets under "router bgp ... vrf ...", or a thousand
+                # "route-map" unsets). The rest stay in lines_to_del
+                # and go through the per-line delete path.
                 # old way:
                 #   vtysh -c 'configure' -c 'vrf vrf1' -c ' no vni 4001' -c 'exit'
                 #   vtysh -c 'configure' -c 'vrf vrf2' -c ' no vni 4002' -c 'exit'
+                #   vtysh -c 'configure' -c 'router bgp 1 vrf vrf_shared1' \
+                #        -c 'address-family l2vpn evpn' \
+                #        -c ' no route-target import 1:1' -c 'exit' -c 'exit'
+                #   vtysh -c 'configure' -c 'no route-map rmap1 permit 10'
+                #   vtysh -c 'configure' -c 'route-map rmap2 permit 10' \
+                #        -c ' no set metric 10'
                 #
                 # new way:
                 #   /var/run/frr/reload-batch-del-A1B2C3.txt
@@ -2757,81 +3224,115 @@ if __name__ == "__main__":
                 #      no vni 4002
                 #     exit
                 #
-                #   vtysh -f /var/run/frr/reload-batch-del-A1B2C3.txt
+                #     router bgp 1 vrf vrf_shared1
+                #      address-family l2vpn evpn
+                #       no route-target import 1:1 1:2
+                #       no route-target export 2:1
+                #      exit
+                #     exit
                 #
-                vrf_lines_to_del = []
+                #     no route-map rmap1 permit 10
+                #
+                #     route-map rmap2 permit 10
+                #      no set metric 10
+                #
+                #   vtysh -f /var/run/frr/reload-batch-del-A1B2C3.txt
+                # Route-target lines for one VRF EVPN AF are packed into RTLIST
+                # commands (see emit_ctx_block). Fallback still uses one RT per
+                # vtysh -c call.
+                #
+                batch_lines_to_del = []
+                vrf_ctx_batch = []
                 remaining_lines_to_del = []
                 for entry in lines_to_del:
                     ctx_keys, line = entry
-                    if ctx_keys and ctx_keys[0].startswith("vrf ") and line:
-                        vrf_lines_to_del.append(entry)
+                    if is_vrf_context_delete(ctx_keys, line):
+                        # Own file, applied after the per-line deletes
+                        # below. emit_grouped_config must not mix "no vrf"
+                        # into "vrf NAME / no vni" stanzas, and "router bgp
+                        # ... vrf NAME" has to go first.
+                        vrf_ctx_batch.append(entry)
+                    elif delete_via_vtysh_file(ctx_keys, line):
+                        batch_lines_to_del.append(entry)
                     else:
                         remaining_lines_to_del.append(entry)
                 lines_to_del = remaining_lines_to_del
 
-                # Apply vrf deletes first, as one batch file, so they are
+                # Apply batch deletes first, as one file, so they are
                 # committed before the adds further below. This preserves the
                 # delete-before-add ordering the per-line path relied on, so an
                 # in-place change (delete old value + add new value) ends with
                 # the new value. On any failure, fall back to per-line delete
                 # with token trimming so a "picky" no still gets applied.
-                if vrf_lines_to_del:
-                    vrf_del_cmds = []
-                    for ctx_keys, line in vrf_lines_to_del:
-                        cmd = "\n".join(lines_to_config(ctx_keys, line, True)) + "\n"
-                        vrf_del_cmds.append(cmd)
-
-                    random_string = "".join(
-                        random.SystemRandom().choice(
-                            string.ascii_uppercase + string.digits
-                        )
-                        for _ in range(6)
+                if batch_lines_to_del:
+                    exc = write_and_exec_batch_deletes(
+                        vtysh, args.rundir, batch_lines_to_del
                     )
-                    filename = args.rundir + "/reload-batch-del-%s.txt" % random_string
-                    log.info("%s content\n%s" % (filename, pformat(vrf_del_cmds)))
-
-                    # Flush log before vtysh.exec_file() so content is preserved if crash occurs
-                    for handler in log.handlers:
-                        handler.flush()
-
-                    with open(filename, "w") as fh:
-                        for cmd in vrf_del_cmds:
-                            fh.write(cmd + "\n")
-
-                    try:
-                        # Sending the batch delete commands to vtysh.
-                        vtysh.exec_file(filename)
-                    except VtyshException as e:
+                    if exc is not None:
                         log.warning(
                             "batch delete failed, falling back to per-line "
-                            "delete:\n%s" % (e.args,)
+                            "delete:\n%s" % (exc,)
                         )
-                        for ctx_keys, line in vrf_lines_to_del:
+                        for ctx_keys, line in batch_lines_to_del:
                             if not delete_line_with_vtysh(vtysh, ctx_keys, line):
                                 reload_ok = False
-                    os.unlink(filename)
 
                 # Apply the remaining (non-batched) deletes per line.
+                # This includes "router bgp ... vrf NAME", which
+                # delete_move_lines() pushes to the end of lines_to_del.
                 for ctx_keys, line in lines_to_del:
                     if line == "!":
                         continue
                     if not delete_line_with_vtysh(vtysh, ctx_keys, line):
                         reload_ok = False
 
+                # "no vrf NAME" last, as its own vtysh -f file. A refused
+                # "no vrf" is one transaction and must not roll back the
+                # deletes above. On failure, retry per VRF so one refused
+                # VRF does not keep the rest configured.
+                if vrf_ctx_batch:
+                    exc = write_and_exec_batch_deletes(
+                        vtysh, args.rundir, vrf_ctx_batch
+                    )
+                    if exc is not None:
+                        if vrf_delete_blocked_as_active(str(exc)):
+                            # Device still up. Logging the exception at
+                            # warning dumps every VRF's northbound reason
+                            # into frr-reload.log.
+                            log.debug(
+                                "batch 'no vrf' rejected while a VRF device "
+                                "is still up; applying remaining VRF "
+                                "context deletes per-line:\n%s" % (exc,)
+                            )
+                        else:
+                            log.warning(
+                                "batch delete failed, falling back to "
+                                "per-line delete:\n%s" % (exc,)
+                            )
+                        for ctx_keys, line in vrf_ctx_batch:
+                            if not delete_line_with_vtysh(vtysh, ctx_keys, line):
+                                reload_ok = False
+
             if lines_to_add:
-                lines_to_configure = []
+                add_entries = []
 
                 for ctx_keys, line in lines_to_add:
                     if line == "!":
                         continue
 
                     # Don't run "no" commands twice since they can error
-                    # out the second time due to first deletion
-                    if x == 1 and ctx_keys[0].startswith("no "):
+                    # out the second time due to first deletion.
+                    # Also, do not run bgp global config knob in second run
+                    # as it may end being in different vtysh context.
+                    if x == 1 and (
+                        ctx_keys[0].startswith("no ")
+                        or ctx_keys[0].startswith("bgp graceful-shutdown")
+                    ):
                         continue
 
-                    cmd = "\n".join(lines_to_config(ctx_keys, line, False)) + "\n"
-                    lines_to_configure.append(cmd)
+                    add_entries.append((ctx_keys, line))
+
+                lines_to_configure = emit_add_config(add_entries)
 
                 if lines_to_configure:
                     random_string = "".join(
@@ -2855,7 +3356,7 @@ if __name__ == "__main__":
                     try:
                         vtysh.exec_file(filename)
                     except VtyshException as e:
-                        log.warning(f"frr-reload.py failed due to\n{e.args}")
+                        log.warning(f"frr-reload.py failed due to\n{e}")
                         reload_ok = False
                     os.unlink(filename)
 
