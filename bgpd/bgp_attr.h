@@ -599,9 +599,9 @@ static inline void bgp_attr_set_aigp_metric(struct attr *attr, uint64_t aigp)
 	SET_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_AIGP));
 }
 
-static inline uint64_t bgp_aigp_metric_total(struct bgp_path_info *bpi)
+static inline uint64_t bgp_aigp_metric_total(struct bgp_path_info *bpi, const struct attr *attr)
 {
-	uint64_t aigp = bgp_attr_get_aigp_metric(bpi->attr);
+	uint64_t aigp = bgp_attr_get_aigp_metric(attr);
 
 	/* Don't increment if it's locally sourced */
 	if (bpi->peer == bpi->peer->bgp->peer_self)
