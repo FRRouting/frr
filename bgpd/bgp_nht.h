@@ -7,6 +7,7 @@
 #define _BGP_NHT_H
 
 struct attr;
+struct bgp_dest;
 
 /**
  * bgp_nexthop_update() - process a nexthop update message from Zebra.
@@ -80,6 +81,7 @@ extern void bgp_nht_reg_enhe_cap_intfs(struct peer *peer);
 extern void bgp_nht_dereg_enhe_cap_intfs(struct peer *peer);
 extern void evaluate_paths(struct bgp_nexthop_cache *bnc);
 
+extern void bgp_aigp_nexthop_route_update(struct bgp *bgp, afi_t afi, struct bgp_dest *dest);
 extern bool bgp_aigp_metric_total(struct bgp_path_info *bpi, const struct attr *attr,
 				  uint64_t *aigp);
 

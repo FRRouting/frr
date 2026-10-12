@@ -92,6 +92,9 @@ struct bgp_nexthop_cache {
 	struct prefix prefix;
 	struct prefix resolved_prefix;
 	uint8_t resolved_type;
+	/* AIGP distance through the BGP route resolving the nexthop */
+	uint64_t aigp_distance;
+	bool aigp_valid;
 	void *nht_info; /* In BGP, peer session */
 	LIST_HEAD(path_list, bgp_path_info) paths;
 	unsigned int path_count;
@@ -142,6 +145,7 @@ extern struct bgp_nexthop_cache *bnc_new(struct bgp_nexthop_cache_head *tree,
 					 ifindex_t ifindex);
 extern bool bnc_existing_for_prefix(struct bgp_nexthop_cache *bnc);
 extern void bnc_free(struct bgp_nexthop_cache *bnc);
+extern void bnc_set_resolved_type(struct bgp_nexthop_cache *bnc, uint8_t type);
 extern struct bgp_nexthop_cache *bnc_find(struct bgp_nexthop_cache_head *tree,
 					  struct prefix *prefix,
 					  uint32_t srte_color,

@@ -89,8 +89,18 @@ bool bnc_existing_for_prefix(struct bgp_nexthop_cache *bnc)
 	return false;
 }
 
+void bnc_set_resolved_type(struct bgp_nexthop_cache *bnc, uint8_t type)
+{
+	if (bnc->resolved_type == ZEBRA_ROUTE_BGP)
+		bnc->bgp->nexthop_cache_bgp_resolved[bnc->afi]--;
+	if (type == ZEBRA_ROUTE_BGP)
+		bnc->bgp->nexthop_cache_bgp_resolved[bnc->afi]++;
+	bnc->resolved_type = type;
+}
+
 void bnc_free(struct bgp_nexthop_cache *bnc)
 {
+	bnc_set_resolved_type(bnc, ZEBRA_ROUTE_SYSTEM);
 	bnc_nexthop_free(bnc);
 	bgp_nexthop_cache_del(bnc->tree, bnc);
 	XFREE(MTYPE_BGP_NEXTHOP_CACHE, bnc);
