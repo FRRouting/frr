@@ -93,6 +93,19 @@ static void peer_process(struct hash_bucket *hb, void *arg)
 	if (v_ka == 0)
 		return;
 
+	/* Completed UPDATEs restart the timer too (RFC 4271, section 8.2.2).
+	 * An enqueued or partially written UPDATE must not postpone it.
+	 * I/O is stopped before peer connection transfer; a previous session's
+	 * timestamp predates the new pkat->last baseline.
+	 */
+	uint64_t last_update = atomic_load_explicit(
+		&pkat->peer->last_update, memory_order_relaxed);
+	struct timeval update = {.tv_sec = last_update / 1000000,
+				.tv_usec = last_update % 1000000};
+
+	if (timercmp(&update, &pkat->last, >))
+		pkat->last = update;
+
 	/* calculate elapsed time since last keepalive */
 	monotime_since(&pkat->last, &elapsed);
 
