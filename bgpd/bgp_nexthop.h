@@ -91,6 +91,7 @@ struct bgp_nexthop_cache {
 
 	struct prefix prefix;
 	struct prefix resolved_prefix;
+	uint8_t resolved_type;
 	void *nht_info; /* In BGP, peer session */
 	LIST_HEAD(path_list, bgp_path_info) paths;
 	unsigned int path_count;
