@@ -727,9 +727,16 @@ static inline void bgp_attr_set_aigp_metric(struct attr *attr, uint64_t aigp)
 	bgp_attr_set(attr, BGP_ATTR_AIGP);
 }
 
+<<<<<<< HEAD
 static inline uint64_t bgp_aigp_metric_total(struct bgp_path_info *bpi)
+=======
+extern void bgp_attr_set_aigp_metric(struct attr *attr, uint64_t aigp);
+extern void bgp_attr_unset_aigp_metric(struct attr *attr);
+
+static inline uint64_t bgp_aigp_metric_total(struct bgp_path_info *bpi, const struct attr *attr)
+>>>>>>> d3dfbc2 (bgpd: keep the aigp set by an outbound route-map)
 {
-	uint64_t aigp = bgp_attr_get_aigp_metric(bpi->attr);
+	uint64_t aigp = bgp_attr_get_aigp_metric(attr);
 
 	/* Don't increment if it's locally sourced */
 	if (bpi->peer == bpi->peer->bgp->peer_self)
