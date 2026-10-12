@@ -1,8 +1,12 @@
-name: Add rebase label if the branch is > 50 commits behind
+name: Add or remove a "rebase" label as needed
 
 on:
   pull_request_target:
     types: [synchronize, opened, reopened]
+
+concurrency:
+  group: behind-base-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
 
 jobs:
   behind:
@@ -27,10 +31,17 @@ jobs:
             "repos/${REPO}/compare/${BASE_REF}...${HEAD_SHA}" \
             --jq .behind_by)
           echo "behind_by=${behind_by}" >> "$GITHUB_OUTPUT"
-      - name: Add rebase label if needed
+      - name: Add "rebase" label if the branch is > 50 commits behind
         if: ${{ steps.vars.outputs.behind_by > 50 }}
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
         run: gh pr edit "$PR_NUMBER" --add-label rebase
+      - name: Remove "rebase" label if the branch is <= 50 commits behind
+        if: ${{ steps.vars.outputs.behind_by <= 50 }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: gh pr edit "$PR_NUMBER" --remove-label rebase
