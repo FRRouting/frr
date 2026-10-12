@@ -750,7 +750,12 @@ static int netlink_recv_msg(struct nlsock *nl, struct msghdr *msg)
 
 		bytes = recv(nl->sock, NULL, 0, MSG_PEEK | MSG_TRUNC);
 
-		if (bytes >= 0 && (size_t)bytes > nl->buflen) {
+		if (bytes < 0) {
+			status = -1;
+			continue;
+		}
+
+		if ((size_t)bytes > nl->buflen) {
 			nl->buf = XREALLOC(MTYPE_NL_BUF, nl->buf, bytes);
 			nl->buflen = bytes;
 			iov.iov_base = nl->buf;
