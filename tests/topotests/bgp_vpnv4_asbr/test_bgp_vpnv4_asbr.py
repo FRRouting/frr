@@ -16,6 +16,8 @@ The test demonstrates the connectivity across the network between h1 and h3.
 r3 sets an AIGP metric on its exported VPN routes, and AIGP is enabled on
 the eBGP sessions between r2, rs200 and r3: r2 and r1 receive the AIGP
 metric. r2 increases it towards rr100 with "set aigp-metric +1".
+r1 sets an AIGP metric on its exported VPN routes and on its
+labeled-unicast route 192.0.2.1/32: r3 receives the sum of both.
 
 
 +----------+          +----+--------+              +--------+              +--------+-----+
@@ -484,6 +486,71 @@ router bgp 65500
     )
 
     result = check_vpn_aigp_metric(tgen.gears["r1"], "444:3", "172.31.3.0/24", 31)
+    assert result is True, result
+
+
+def test_aigp_vpn_recursive_nexthop():
+    """
+    r1 sets an AIGP metric of 10 on its exported VPN routes, and of 20 on
+    the labeled-unicast route 192.0.2.1/32. On r2, the nexthop 192.0.2.1
+    of 172.31.0.0/24 is resolved by this labeled-unicast route, so r3
+    receives 172.31.0.0/24 with an AIGP metric of 10 + 20.
+    r1 changes the AIGP metric of 192.0.2.1/32 to 40, and r3 receives an
+    AIGP metric of 50.
+    r1 removes the AIGP metric from 192.0.2.1/32, and r3 receives
+    172.31.0.0/24 without the AIGP attribute.
+    """
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    r1 = tgen.gears["r1"]
+    r2 = tgen.gears["r2"]
+    r3 = tgen.gears["r3"]
+
+    r1.vtysh_cmd(
+        """
+configure terminal
+route-map aigp-lu permit 10
+ set aigp-metric 20
+route-map aigp-vpn permit 10
+ set aigp-metric 10
+router bgp 65500
+ address-family ipv4 unicast
+  network 192.0.2.1/32 route-map aigp-lu
+router bgp 65500 vrf vrf1
+ address-family ipv4 unicast
+  route-map vpn export aigp-vpn
+"""
+    )
+
+    result = check_vpn_aigp_metric(r2, "444:1", "172.31.0.0/24", 10)
+    assert result is True, result
+    result = check_vpn_aigp_metric(r3, "444:1", "172.31.0.0/24", 30)
+    assert result is True, result
+
+    r1.vtysh_cmd(
+        """
+configure terminal
+route-map aigp-lu permit 10
+ set aigp-metric 40
+"""
+    )
+
+    result = check_vpn_aigp_metric(r3, "444:1", "172.31.0.0/24", 50)
+    assert result is True, result
+
+    r1.vtysh_cmd(
+        """
+configure terminal
+route-map aigp-lu permit 10
+ no set aigp-metric
+"""
+    )
+
+    result = check_vpn_aigp_metric(r2, "444:1", "172.31.0.0/24", 10)
+    assert result is True, result
+    result = check_vpn_aigp_metric(r3, "444:1", "172.31.0.0/24", None)
     assert result is True, result
 
 
