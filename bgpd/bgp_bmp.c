@@ -2989,7 +2989,7 @@ static int bmp_process_ribinpost(struct bgp *bgp, afi_t afi, safi_t safi, struct
 		char pfxprint[PREFIX2STR_BUFFER];
 
 		prefix2str(bgp_dest_get_prefix(bn), pfxprint, sizeof(pfxprint));
-		frrtrace(5, frr_bgp, bmp_process_ribinpre, peer, pfxprint, afi, safi, true);
+		frrtrace(5, frr_bgp, bmp_process_ribinpre, NULL, pfxprint, afi, safi, true);
 	}
 
 	for (ALL_LIST_ELEMENTS_RO(bm->bgp, node, bgp_vrf)) {
