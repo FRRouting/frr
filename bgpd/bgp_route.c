@@ -1419,8 +1419,11 @@ int bgp_path_info_cmp(struct bgp *bgp, struct bgp_path_info *new,
 	/* 4. Tie-breaker - AIGP (Metric TLV) attribute */
 	if (bgp_attr_exists(newattr, BGP_ATTR_AIGP) && bgp_attr_exists(existattr, BGP_ATTR_AIGP) &&
 	    CHECK_FLAG(bgp->flags, BGP_FLAG_COMPARE_AIGP)) {
-		uint64_t new_aigp = bgp_aigp_metric_total(new, new->attr);
-		uint64_t exist_aigp = bgp_aigp_metric_total(exist, exist->attr);
+		uint64_t new_aigp;
+		uint64_t exist_aigp;
+
+		bgp_aigp_metric_total(new, new->attr, &new_aigp);
+		bgp_aigp_metric_total(exist, exist->attr, &exist_aigp);
 
 		if (new_aigp < exist_aigp) {
 			*reason = bgp_path_selection_aigp;
@@ -3378,9 +3381,12 @@ bool subgroup_announce_check(struct bgp_dest *dest, struct bgp_path_info *pi,
 		if (AIGP_TRANSMIT_ALLOWED(peer)) {
 			if (nh_reset ||
 			    CHECK_FLAG(attr->rmap_change_flags, BATTR_RMAP_NEXTHOP_PEER_ADDRESS)) {
-				uint64_t aigp = bgp_aigp_metric_total(pi, attr);
+				uint64_t aigp;
 
-				bgp_attr_set_aigp_metric(attr, aigp);
+				if (bgp_aigp_metric_total(pi, attr, &aigp))
+					bgp_attr_set_aigp_metric(attr, aigp);
+				else
+					bgp_attr_unset_aigp_metric(attr);
 			}
 		} else {
 			bgp_attr_unset_aigp_metric(attr);

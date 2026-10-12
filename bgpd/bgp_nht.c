@@ -715,6 +715,7 @@ static void bgp_process_nexthop_update(struct bgp_nexthop_cache *bnc,
 		struct peer *peer = bnc->nht_info;
 
 		prefix_copy(&bnc->resolved_prefix, &nhr->prefix);
+		bnc->resolved_type = nhr->type;
 
 		/* notify bgp fsm if nbr ip goes from invalid->valid */
 		if (!bnc->nexthop_num)
@@ -826,6 +827,7 @@ static void bgp_process_nexthop_update(struct bgp_nexthop_cache *bnc,
 		}
 	} else {
 		memset(&bnc->resolved_prefix, 0, sizeof(bnc->resolved_prefix));
+		bnc->resolved_type = ZEBRA_ROUTE_SYSTEM;
 		UNSET_FLAG(bnc->flags, BGP_NEXTHOP_EVPN_INCOMPLETE);
 		UNSET_FLAG(bnc->flags, BGP_NEXTHOP_VALID);
 		UNSET_FLAG(bnc->flags, BGP_NEXTHOP_LABELED_VALID);
@@ -1441,6 +1443,72 @@ static bool bgp_nht_handle_gr_stale_nh_unreach(struct bgp_path_info *path,
 	    bgp_path->inst_type != BGP_INSTANCE_TYPE_VIEW)
 		vpn_leak_from_vrf_withdraw(bgp_get_default(), bgp_path, path);
 	bgp_rib_remove(dest, path, path->peer, afi, safi);
+	return true;
+}
+
+#define BGP_AIGP_RECURSION_DEPTH_MAX 8
+
+/* Distance to the nexthop of a path, RFC 7311 section 3.4.3 steps 4 to 8 */
+static bool bgp_aigp_nexthop_distance(struct bgp_path_info *bpi, uint64_t *distance,
+				      unsigned int depth)
+{
+	struct bgp_nexthop_cache *bnc = bpi->nexthop;
+	struct bgp_dest *dest BGP_DEST_AUTOUNLOCK = NULL;
+	struct bgp_path_info *resolving;
+	struct bgp_table *table;
+	uint64_t next;
+
+	if (!bnc || bnc->resolved_type != ZEBRA_ROUTE_BGP) {
+		*distance = bpi->extra ? bpi->extra->igpmetric : 0;
+		return true;
+	}
+
+	if (depth >= BGP_AIGP_RECURSION_DEPTH_MAX)
+		return false;
+
+	table = bnc->bgp->rib[family2afi(bnc->resolved_prefix.family)][SAFI_UNICAST];
+	if (!table)
+		return false;
+
+	dest = bgp_node_lookup(table, &bnc->resolved_prefix);
+	if (!dest)
+		return false;
+
+	for (resolving = bgp_dest_get_bgp_path_info(dest); resolving; resolving = resolving->next)
+		if (CHECK_FLAG(resolving->flags, BGP_PATH_SELECTED))
+			break;
+
+	if (!resolving || !bgp_attr_exists(resolving->attr, BGP_ATTR_AIGP))
+		return false;
+
+	if (!bgp_aigp_nexthop_distance(resolving, &next, depth + 1))
+		return false;
+
+	*distance = bgp_aigp_metric_add(bgp_attr_get_aigp_metric(resolving->attr), next);
+	return true;
+}
+
+/*
+ * Returns false if the nexthop is resolved by a BGP route without AIGP
+ * attribute: the AIGP attribute must not be advertised.
+ */
+bool bgp_aigp_metric_total(struct bgp_path_info *bpi, const struct attr *attr, uint64_t *aigp)
+{
+	uint64_t distance;
+
+	*aigp = bgp_attr_get_aigp_metric(attr);
+
+	/* Don't increment if it's locally sourced */
+	if (bpi->peer == bpi->peer->bgp->peer_self)
+		return true;
+
+	if (!bgp_aigp_nexthop_distance(bpi, &distance, 0)) {
+		distance = bpi->extra ? bpi->extra->igpmetric : 0;
+		*aigp = bgp_aigp_metric_add(*aigp, distance);
+		return false;
+	}
+
+	*aigp = bgp_aigp_metric_add(*aigp, distance);
 	return true;
 }
 
