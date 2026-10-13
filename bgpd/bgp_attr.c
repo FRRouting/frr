@@ -1185,6 +1185,16 @@ unsigned long int attr_unknown_count(void)
 	return transit_hash->count;
 }
 
+static unsigned int bgp_attr_partial_attrs_hash_key(uint64_t partial_attrs)
+{
+	uint32_t key = 0;
+
+	key = jhash_1word((uint32_t)(partial_attrs >> 32), key);
+	key = jhash_1word((uint32_t)partial_attrs, key);
+
+	return key;
+}
+
 unsigned int attrhash_key_make(const void *p)
 {
 	const struct attr *attr = (struct attr *)p;
@@ -1245,6 +1255,8 @@ unsigned int attrhash_key_make(const void *p)
 		MIX(bgp_nhc_hash_key_make(bgp_attr_get_nhc(attr)));
 	if (bgp_attr_get_ls_attr(attr))
 		MIX(bgp_ls_attr_hash_key(bgp_attr_get_ls_attr(attr)));
+	if (bgp_attr_get_partial_attrs(attr))
+		MIX(bgp_attr_partial_attrs_hash_key(bgp_attr_get_partial_attrs(attr)));
 
 	return key;
 }
@@ -1294,6 +1306,7 @@ bool attrhash_cmp(const void *p1, const void *p2)
 		    srv6_vpn_same(bgp_attr_get_srv6_vpn(attr1), bgp_attr_get_srv6_vpn(attr2)) &&
 		    attr1->nh_type == attr2->nh_type && attr1->bh_type == attr2->bh_type &&
 		    bgp_attr_get_otc(attr1) == bgp_attr_get_otc(attr2) &&
+		    bgp_attr_get_partial_attrs(attr1) == bgp_attr_get_partial_attrs(attr2) &&
 		    !memcmp(&attr1->rmac, &attr2->rmac, sizeof(struct ethaddr)) &&
 		    bgp_nhc_same(bgp_attr_get_nhc(attr1), bgp_attr_get_nhc(attr2)) &&
 		    bgp_ls_attr_same(bgp_attr_get_ls_attr(attr1), bgp_attr_get_ls_attr(attr2)) &&
@@ -2790,6 +2803,13 @@ bgp_attr_munge_as4_attrs(struct peer *const peer, struct attr *const attr,
 			 * AGGREGATOR */
 			bgp_attr_set(attr, BGP_ATTR_AGGREGATOR);
 		}
+
+		/* AGGREGATOR now carries the AS4_AGGREGATOR information, so
+		 * it must carry its Partial bit too (RFC 4271 section 5).
+		 */
+		if (!ignore_as4_path && bgp_attr_partial(attr, BGP_ATTR_AS4_AGGREGATOR))
+			bgp_attr_set_partial_attrs(attr, bgp_attr_get_partial_attrs(attr) |
+								 ATTR_FLAG_BIT(BGP_ATTR_AGGREGATOR));
 	}
 
 	/* need to reconcile NEW_AS_PATH and AS_PATH */
@@ -4881,6 +4901,17 @@ enum bgp_attr_parse_ret bgp_attr_parse(struct peer_connection *connection, struc
 					    endp - BGP_INPUT_PNT(connection));
 			goto done;
 		}
+
+		/* RFC 4271 section 5: If a path with a recognized, transitive
+		 * optional attribute is accepted and passed along to other BGP
+		 * peers and the Partial bit in the Attribute Flags octet is set
+		 * to 1 by some previous AS, it MUST NOT be set back to 0 by the
+		 * current AS.
+		 */
+		if (CHECK_FLAG(flag, BGP_ATTR_FLAG_PARTIAL) && type >= 1 && type <= 64 &&
+		    CHECK_FLAG(attr->flag, 1ULL << (type - 1)))
+			bgp_attr_set_partial_attrs(attr, bgp_attr_get_partial_attrs(attr) |
+								 (1ULL << (type - 1)));
 	}
 
 	/*
@@ -5263,7 +5294,8 @@ static void bgp_packet_nhc(struct stream *s, struct peer *peer, afi_t afi, safi_
 	total = bgp_path_info_mpath_count(bpi->net) * IPV4_MAX_BYTELEN;
 	total += IPV4_MAX_BYTELEN; /* Next-hop BGP ID */
 
-	stream_putc(s, BGP_ATTR_FLAG_OPTIONAL | BGP_ATTR_FLAG_TRANS | BGP_ATTR_FLAG_EXTLEN);
+	stream_putc(s, BGP_ATTR_FLAG_OPTIONAL | BGP_ATTR_FLAG_TRANS | BGP_ATTR_FLAG_EXTLEN |
+			       bgp_attr_partial(attr, BGP_ATTR_NHC));
 	stream_putc(s, BGP_ATTR_NHC);
 	sizep = stream_get_endp(s);
 	stream_putw(s, 0);
@@ -5636,14 +5668,14 @@ static void bgp_packet_mpattr_tea(struct bgp *bgp, struct peer *peer,
 
 	if (attrlenfield > 0xff) {
 		/* 2-octet length field */
-		stream_putc(s,
-			    BGP_ATTR_FLAG_TRANS | BGP_ATTR_FLAG_OPTIONAL
-				    | BGP_ATTR_FLAG_EXTLEN);
+		stream_putc(s, BGP_ATTR_FLAG_TRANS | BGP_ATTR_FLAG_OPTIONAL |
+				       BGP_ATTR_FLAG_EXTLEN | bgp_attr_partial(attr, attrtype));
 		stream_putc(s, attrtype);
 		stream_putw(s, CHECK_FLAG(attrlenfield, 0xffff));
 	} else {
 		/* 1-octet length field */
-		stream_putc(s, BGP_ATTR_FLAG_TRANS | BGP_ATTR_FLAG_OPTIONAL);
+		stream_putc(s, BGP_ATTR_FLAG_TRANS | BGP_ATTR_FLAG_OPTIONAL |
+				       bgp_attr_partial(attr, attrtype));
 		stream_putc(s, attrtype);
 		stream_putc(s, CHECK_FLAG(attrlenfield, 0xff));
 	}
@@ -5692,18 +5724,21 @@ static bool bgp_append_local_as(struct peer *peer, afi_t afi, safi_t safi)
 	return false;
 }
 
-static void bgp_packet_ecommunity_attribute(struct stream *s, struct peer *peer,
+static void bgp_packet_ecommunity_attribute(struct stream *s, struct peer *peer, struct attr *attr,
 					    struct ecommunity *ecomm, int attribute)
 {
+	uint8_t partial = bgp_attr_partial(attr, attribute);
+
 	if (!ecomm || !ecomm->size)
 		return;
 
 	if (ecomm->size * ecomm->unit_size > 255) {
-		stream_putc(s, BGP_ATTR_FLAG_OPTIONAL | BGP_ATTR_FLAG_TRANS | BGP_ATTR_FLAG_EXTLEN);
+		stream_putc(s, BGP_ATTR_FLAG_OPTIONAL | BGP_ATTR_FLAG_TRANS |
+				       BGP_ATTR_FLAG_EXTLEN | partial);
 		stream_putc(s, attribute);
 		stream_putw(s, ecomm->size * ecomm->unit_size);
 	} else {
-		stream_putc(s, BGP_ATTR_FLAG_OPTIONAL | BGP_ATTR_FLAG_TRANS);
+		stream_putc(s, BGP_ATTR_FLAG_OPTIONAL | BGP_ATTR_FLAG_TRANS | partial);
 		stream_putc(s, attribute);
 		stream_putc(s, ecomm->size * ecomm->unit_size);
 	}
@@ -5944,7 +5979,8 @@ bgp_size_t bgp_packet_attribute(struct bgp *bgp, struct peer *peer, struct strea
 	/* Aggregator. */
 	if (bgp_attr_exists(attr, BGP_ATTR_AGGREGATOR)) {
 		/* Common to BGP_ATTR_AGGREGATOR, regardless of ASN size */
-		stream_putc(s, BGP_ATTR_FLAG_OPTIONAL | BGP_ATTR_FLAG_TRANS);
+		stream_putc(s, BGP_ATTR_FLAG_OPTIONAL | BGP_ATTR_FLAG_TRANS |
+				       bgp_attr_partial(attr, BGP_ATTR_AGGREGATOR));
 		stream_putc(s, BGP_ATTR_AGGREGATOR);
 
 		if (use32bit) {
@@ -5979,15 +6015,14 @@ bgp_size_t bgp_packet_attribute(struct bgp *bgp, struct peer *peer, struct strea
 
 		comm = bgp_attr_get_community(attr);
 		if (comm->size * 4 > 255) {
-			stream_putc(s,
-				    BGP_ATTR_FLAG_OPTIONAL | BGP_ATTR_FLAG_TRANS
-					    | BGP_ATTR_FLAG_EXTLEN);
+			stream_putc(s, BGP_ATTR_FLAG_OPTIONAL | BGP_ATTR_FLAG_TRANS |
+					       BGP_ATTR_FLAG_EXTLEN |
+					       bgp_attr_partial(attr, BGP_ATTR_COMMUNITIES));
 			stream_putc(s, BGP_ATTR_COMMUNITIES);
 			stream_putw(s, comm->size * 4);
 		} else {
-			stream_putc(s,
-				    BGP_ATTR_FLAG_OPTIONAL
-					    | BGP_ATTR_FLAG_TRANS);
+			stream_putc(s, BGP_ATTR_FLAG_OPTIONAL | BGP_ATTR_FLAG_TRANS |
+					       bgp_attr_partial(attr, BGP_ATTR_COMMUNITIES));
 			stream_putc(s, BGP_ATTR_COMMUNITIES);
 			stream_putc(s, comm->size * 4);
 		}
@@ -6000,16 +6035,15 @@ bgp_size_t bgp_packet_attribute(struct bgp *bgp, struct peer *peer, struct strea
 	if (CHECK_FLAG(peer->af_flags[afi][safi], PEER_FLAG_SEND_LARGE_COMMUNITY) &&
 	    bgp_attr_exists(attr, BGP_ATTR_LARGE_COMMUNITIES)) {
 		if (lcom_length(bgp_attr_get_lcommunity(attr)) > 255) {
-			stream_putc(s,
-				    BGP_ATTR_FLAG_OPTIONAL | BGP_ATTR_FLAG_TRANS
-					    | BGP_ATTR_FLAG_EXTLEN);
+			stream_putc(s, BGP_ATTR_FLAG_OPTIONAL | BGP_ATTR_FLAG_TRANS |
+					       BGP_ATTR_FLAG_EXTLEN |
+					       bgp_attr_partial(attr, BGP_ATTR_LARGE_COMMUNITIES));
 			stream_putc(s, BGP_ATTR_LARGE_COMMUNITIES);
 			stream_putw(s,
 				    lcom_length(bgp_attr_get_lcommunity(attr)));
 		} else {
-			stream_putc(s,
-				    BGP_ATTR_FLAG_OPTIONAL
-					    | BGP_ATTR_FLAG_TRANS);
+			stream_putc(s, BGP_ATTR_FLAG_OPTIONAL | BGP_ATTR_FLAG_TRANS |
+					       bgp_attr_partial(attr, BGP_ATTR_LARGE_COMMUNITIES));
 			stream_putc(s, BGP_ATTR_LARGE_COMMUNITIES);
 			stream_putc(s,
 				    lcom_length(bgp_attr_get_lcommunity(attr)));
@@ -6073,14 +6107,15 @@ bgp_size_t bgp_packet_attribute(struct bgp *bgp, struct peer *peer, struct strea
 		if (bgp_attr_exists(attr, BGP_ATTR_EXT_COMMUNITIES)) {
 			struct ecommunity *ecomm = bgp_attr_get_ecommunity(attr);
 
-			bgp_packet_ecommunity_attribute(s, peer, ecomm, BGP_ATTR_EXT_COMMUNITIES);
+			bgp_packet_ecommunity_attribute(s, peer, attr, ecomm,
+							BGP_ATTR_EXT_COMMUNITIES);
 		}
 
 		if (bgp_attr_exists(attr, BGP_ATTR_IPV6_EXT_COMMUNITIES)) {
 			struct ecommunity *ecomm =
 				bgp_attr_get_ipv6_ecommunity(attr);
 
-			bgp_packet_ecommunity_attribute(s, peer, ecomm,
+			bgp_packet_ecommunity_attribute(s, peer, attr, ecomm,
 							BGP_ATTR_IPV6_EXT_COMMUNITIES);
 		}
 	}
@@ -6093,9 +6128,8 @@ bgp_size_t bgp_packet_attribute(struct bgp *bgp, struct peer *peer, struct strea
 			label_index = attr->label_index;
 
 			if (label_index != BGP_INVALID_LABEL_INDEX) {
-				stream_putc(s,
-					    BGP_ATTR_FLAG_OPTIONAL
-						    | BGP_ATTR_FLAG_TRANS);
+				stream_putc(s, BGP_ATTR_FLAG_OPTIONAL | BGP_ATTR_FLAG_TRANS |
+						       bgp_attr_partial(attr, BGP_ATTR_PREFIX_SID));
 				stream_putc(s, BGP_ATTR_PREFIX_SID);
 				stream_putc(s, 10);
 				stream_putc(s, BGP_PREFIX_SID_LABEL_INDEX);
@@ -6131,8 +6165,8 @@ bgp_size_t bgp_packet_attribute(struct bgp *bgp, struct peer *peer, struct strea
 				+ BGP_PREFIX_SID_SRV6_L3_SERVICE_SID_INFO_LENGTH;
 			uint8_t tlv_len = subtlv_len + BGP_ATTR_MIN_LEN + 1;
 			uint8_t attr_len = tlv_len + BGP_ATTR_MIN_LEN;
-			stream_putc(s, BGP_ATTR_FLAG_OPTIONAL
-					       | BGP_ATTR_FLAG_TRANS);
+			stream_putc(s, BGP_ATTR_FLAG_OPTIONAL | BGP_ATTR_FLAG_TRANS |
+					       bgp_attr_partial(attr, BGP_ATTR_PREFIX_SID));
 			stream_putc(s, BGP_ATTR_PREFIX_SID);
 			stream_putc(s, attr_len);
 			stream_putc(s, BGP_PREFIX_SID_SRV6_L3_SERVICE);
@@ -6160,8 +6194,8 @@ bgp_size_t bgp_packet_attribute(struct bgp *bgp, struct peer *peer, struct strea
 		} else if (bgp_attr_get_srv6_vpn(attr)) {
 			struct bgp_attr_srv6_vpn *vpn = bgp_attr_get_srv6_vpn(attr);
 
-			stream_putc(s, BGP_ATTR_FLAG_OPTIONAL
-					       | BGP_ATTR_FLAG_TRANS);
+			stream_putc(s, BGP_ATTR_FLAG_OPTIONAL | BGP_ATTR_FLAG_TRANS |
+					       bgp_attr_partial(attr, BGP_ATTR_PREFIX_SID));
 			stream_putc(s, BGP_ATTR_PREFIX_SID);
 			stream_putc(s, 22);     /* tlv len */
 			stream_putc(s, BGP_PREFIX_SID_VPN_SID);
@@ -6192,9 +6226,8 @@ bgp_size_t bgp_packet_attribute(struct bgp *bgp, struct peer *peer, struct strea
 			aspath = aspath_dup(attr->aspath);
 		aspath = aspath_delete_confed_seq(aspath);
 
-		stream_putc(s,
-			    BGP_ATTR_FLAG_TRANS | BGP_ATTR_FLAG_OPTIONAL
-				    | BGP_ATTR_FLAG_EXTLEN);
+		stream_putc(s, BGP_ATTR_FLAG_TRANS | BGP_ATTR_FLAG_OPTIONAL | BGP_ATTR_FLAG_EXTLEN |
+				       bgp_attr_partial(attr, BGP_ATTR_AS4_PATH));
 		stream_putc(s, BGP_ATTR_AS4_PATH);
 		aspath_sizep = stream_get_endp(s);
 		stream_putw(s, 0);
@@ -6210,7 +6243,8 @@ bgp_size_t bgp_packet_attribute(struct bgp *bgp, struct peer *peer, struct strea
 		 * correct
 		 * *ascending* order of attributes
 		 */
-		stream_putc(s, BGP_ATTR_FLAG_OPTIONAL | BGP_ATTR_FLAG_TRANS);
+		stream_putc(s, BGP_ATTR_FLAG_OPTIONAL | BGP_ATTR_FLAG_TRANS |
+				       bgp_attr_partial(attr, BGP_ATTR_AS4_AGGREGATOR));
 		stream_putc(s, BGP_ATTR_AS4_AGGREGATOR);
 		stream_putc(s, 8);
 		stream_putl(s, attr->aggregator_as);
@@ -6235,7 +6269,8 @@ bgp_size_t bgp_packet_attribute(struct bgp *bgp, struct peer *peer, struct strea
 		uint8_t *nh;
 		struct in_addr tunn_id;
 
-		stream_putc(s, BGP_ATTR_FLAG_OPTIONAL | BGP_ATTR_FLAG_TRANS);
+		stream_putc(s, BGP_ATTR_FLAG_OPTIONAL | BGP_ATTR_FLAG_TRANS |
+				       bgp_attr_partial(attr, BGP_ATTR_PMSI_TUNNEL));
 		stream_putc(s, BGP_ATTR_PMSI_TUNNEL);
 
 		/* Encode tunnel id for known tunnel type */
@@ -6268,7 +6303,8 @@ bgp_size_t bgp_packet_attribute(struct bgp *bgp, struct peer *peer, struct strea
 
 	/* OTC */
 	if (bgp_attr_exists(attr, BGP_ATTR_OTC)) {
-		stream_putc(s, BGP_ATTR_FLAG_OPTIONAL | BGP_ATTR_FLAG_TRANS);
+		stream_putc(s, BGP_ATTR_FLAG_OPTIONAL | BGP_ATTR_FLAG_TRANS |
+				       bgp_attr_partial(attr, BGP_ATTR_OTC));
 		stream_putc(s, BGP_ATTR_OTC);
 		stream_putc(s, 4);
 		stream_putl(s, bgp_attr_get_otc(attr));
