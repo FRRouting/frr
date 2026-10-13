@@ -1,8 +1,9 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
+/* Copyright (c) 2026 Qipeng Ding */
 #ifdef NDEBUG
 #undef NDEBUG
 #endif
-#include <assert.h>
+#include <zebra.h>
 #include <stdint.h>
 #include <stdio.h>
 
@@ -24,13 +25,14 @@ int main(void)
 										: intervals[b];
 				/* Independent reference by repeated addition, not multiplication. */
 				uint64_t expected = 0;
-				for (unsigned int n = 0; n < multipliers[m]; n++)
-					expected += interval;
 				uint64_t actual = bfd_detection_timeout_us(multipliers[m],
 									   intervals[a],
 									   intervals[b]);
-				assert(actual == expected);
 				struct timeval tv = bfd_detection_timeout_tv(actual);
+
+				for (unsigned int n = 0; n < multipliers[m]; n++)
+					expected += interval;
+				assert(actual == expected);
 				assert(tv.tv_usec >= 0 && tv.tv_usec < 1000000);
 				assert((uint64_t)tv.tv_sec * 1000000 + tv.tv_usec == expected);
 				/* The greatest legal product's normalized parts fit signed 32 bits. */
@@ -41,5 +43,6 @@ int main(void)
 	}
 	assert(checks == 196);
 	puts("BFD detection-time arithmetic and normalized timer conversion passed.");
+
 	return 0;
 }
