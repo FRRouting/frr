@@ -4307,11 +4307,6 @@ static void show_ip_ospf_interface_sub(struct vty *vty, struct ospf *ospf,
 		if (oi == NULL)
 			continue;
 
-#if CONFDATE > 20240601
-		CPP_NOTICE(
-			"Use all fields following ospfEnabled from interfaceIp hierarchy")
-#endif
-
 		if (use_json)
 			json_oi = json_object_new_object();
 
