@@ -33,6 +33,7 @@
 #include "bgpd/bgp_rd.h"
 #include "bgpd/bgp_mplsvpn.h"
 #include "bgpd/bgp_bfd.h"
+#include "bgpd/bgp_zebra.h"
 
 DEFINE_MTYPE_STATIC(BGPD, MARTIAN_STRING, "BGP Martian Addr Intf String");
 
@@ -378,6 +379,49 @@ static void bgp_address_del(struct bgp *bgp, struct connected *ifc,
 	}
 }
 
+static void bgp_connected_peer_nexthop_update(struct bgp *bgp)
+{
+	struct listnode *node, *nnode;
+	struct peer *peer;
+	afi_t afi;
+	safi_t safi;
+
+	for (ALL_LIST_ELEMENTS(bgp->peer, node, nnode, peer)) {
+		struct bgp_nexthop nexthop, old;
+		bool addr_changed;
+
+		if (!peer->connection || !peer->connection->su_local ||
+		    !peer->connection->su_remote)
+			continue;
+
+		if (!bgp_zebra_nexthop_set(peer->connection->su_local,
+					   peer->connection->su_remote,
+					   &nexthop, peer))
+			continue;
+
+		if (peer->nexthop.ifp == nexthop.ifp)
+			continue;
+
+		old = peer->nexthop;
+		addr_changed = !IPV4_ADDR_SAME(&old.v4, &nexthop.v4) ||
+			       !IPV6_ADDR_SAME(&old.v6_global, &nexthop.v6_global) ||
+			       !IPV6_ADDR_SAME(&old.v6_local, &nexthop.v6_local);
+
+		peer->nexthop = nexthop;
+		bgp_peer_bfd_update_source(peer);
+
+		if (BGP_DEBUG(zebra, ZEBRA))
+			zlog_debug("%pBP nexthop changed: ifp %s -> %s, v4 %pI4 -> %pI4, global %pI6 -> %pI6, local %pI6 -> %pI6%s",
+				   peer, old.ifp ? old.ifp->name : "(none)",
+				   nexthop.ifp ? nexthop.ifp->name : "(none)", &old.v4,
+				   &nexthop.v4, &old.v6_global, &nexthop.v6_global, &old.v6_local,
+				   &nexthop.v6_local, addr_changed ? ", reannouncing routes" : "");
+
+		if (addr_changed)
+			FOREACH_AFI_SAFI (afi, safi)
+				bgp_announce_route(peer, afi, safi, true);
+	}
+}
 
 struct bgp_connected_ref {
 	unsigned int refcnt;
@@ -439,10 +483,10 @@ void bgp_connected_add(struct bgp *bgp, struct connected *ifc)
 		}
 	}
 
-	/*
-	 * Iterate over all the peers and attempt to set the bfd session
-	 * data and if it's a bgp unnumbered get her flowing if necessary
-	 */
+	/* Refresh peer interfaces after connected addresses change. */
+	bgp_connected_peer_nexthop_update(bgp);
+
+	/* If it's a BGP unnumbered get her flowing if necessary. */
 	for (ALL_LIST_ELEMENTS(bgp->peer, node, nnode, peer)) {
 		bgp_peer_bfd_update_source(peer);
 		if (peer->conf_if && (strcmp(peer->conf_if, ifc->ifp->name) == 0) &&
@@ -472,6 +516,7 @@ void bgp_connected_delete(struct bgp *bgp, struct connected *ifc)
 			return;
 
 		bgp_address_del(bgp, ifc, addr);
+		bgp_connected_peer_nexthop_update(bgp);
 
 		dest = bgp_node_lookup(bgp->connected_table[AFI_IP], &p);
 	} else if (addr->family == AF_INET6) {
@@ -482,6 +527,7 @@ void bgp_connected_delete(struct bgp *bgp, struct connected *ifc)
 			return;
 
 		bgp_address_del(bgp, ifc, addr);
+		bgp_connected_peer_nexthop_update(bgp);
 
 		dest = bgp_node_lookup(bgp->connected_table[AFI_IP6], &p);
 	}
