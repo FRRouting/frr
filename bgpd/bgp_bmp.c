@@ -2251,8 +2251,6 @@ afibreak:
 		bmp_monitor(bmp, bpi->peer, BMP_PEER_FLAG_L, bmp_get_peer_type(bpi->peer), bn_p,
 			    prd, bpi->attr, NULL, afi, safi, bpi->addpath_rx_id, bpi->uptime,
 			    bpi_num_labels ? bpi->extra->labels->label : NULL, bpi_num_labels);
-
-		UNSET_FLAG(bpi->flags, BGP_PATH_BMP_ADJIN_CHG);
 		written = true;
 	}
 
@@ -3020,8 +3018,6 @@ static int bmp_process_ribinpost(struct bgp *bgp, afi_t afi, safi_t safi, struct
 								   BMP_MON_IN_POSTPOLICY);
 
 					new_head = !new_head ? new_item : new_head;
-
-					UNSET_FLAG(bpi->flags, BGP_PATH_BMP_ADJIN_CHG);
 				}
 			}
 
@@ -3039,6 +3035,9 @@ static int bmp_process_ribinpost(struct bgp *bgp, afi_t afi, safi_t safi, struct
 			}
 		}
 	}
+
+	for (struct bgp_path_info *bpi = bgp_dest_get_bgp_path_info(bn); bpi; bpi = bpi->next)
+		UNSET_FLAG(bpi->flags, BGP_PATH_BMP_ADJIN_CHG);
 
 	return 0;
 }
