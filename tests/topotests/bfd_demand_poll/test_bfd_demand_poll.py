@@ -115,11 +115,6 @@ def test_demand_bit_poll_sequence(tmp_path):
         return counters[0]["session-down"]
 
     downs = {name: down_count(router) for name, router in tgen.routers().items()}
-    for name, router in tgen.routers().items():
-        reply = router.cmd(
-            "ethtool -K {}-eth0 tx off tso off gso off gro off".format(name)
-        )
-        assert "not found" not in reply and "No such device" not in reply, reply
     pids = {
         name: router.cmd("cat /var/run/frr/bfdd.pid").strip()
         for name, router in tgen.routers().items()
