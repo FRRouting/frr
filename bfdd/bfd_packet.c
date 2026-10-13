@@ -2307,6 +2307,12 @@ int bp_echov6_socket(const struct vrf *vrf)
 	bp_set_ipv6opts(s);
 	bp_bind_ipv6(s, BFD_DEF_ECHO_PORT);
 
+	/* As the control sockets and the IPv4 echo header. */
+	if (bp_set_tosv6(s, BFD_TOS_VAL) != 0) {
+		close(s);
+		return -1;
+	}
+
 	return s;
 }
 
