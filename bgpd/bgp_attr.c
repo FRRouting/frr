@@ -22,6 +22,7 @@
 
 #include "bgpd/bgpd.h"
 #include "bgpd/bgp_attr.h"
+#include "bgpd/bgp_attr_disposition.h"
 #include "bgpd/bgp_route.h"
 #include "bgpd/bgp_aspath.h"
 #include "bgpd/bgp_community.h"
@@ -4438,6 +4439,7 @@ enum bgp_attr_parse_ret bgp_attr_parse(struct peer_connection *connection, struc
 {
 	struct peer *peer = connection->peer;
 	enum bgp_attr_parse_ret ret;
+	enum bgp_attr_parse_ret pending = BGP_ATTR_PARSE_PROCEED;
 	uint8_t flag = 0;
 	uint8_t type = 0;
 	bgp_size_t length = 0;
@@ -4592,7 +4594,7 @@ enum bgp_attr_parse_ret bgp_attr_parse(struct peer_connection *connection, struc
 			ret = bgp_attr_malformed(
 				&attr_args, BGP_NOTIFY_UPDATE_ATTR_FLAG_ERR,
 				attr_args.total);
-			if (ret == BGP_ATTR_PARSE_PROCEED)
+			if (ret == BGP_ATTR_PARSE_PROCEED || bgp_attr_defer_withdraw(&pending, ret))
 				continue;
 			stream_forward_getp(BGP_INPUT(connection),
 					    endp - BGP_INPUT_PNT(connection));
@@ -4701,9 +4703,14 @@ enum bgp_attr_parse_ret bgp_attr_parse(struct peer_connection *connection, struc
 				flog_warn(EC_BGP_ATTRIBUTE_PARSE_WITHDRAW,
 					  "%s: Attribute %s, parse error - treating as withdrawal",
 					  peer->host, lookup_msg(attr_str, type, NULL));
-			stream_forward_getp(BGP_INPUT(connection),
-					    endp - BGP_INPUT_PNT(connection));
-			goto done;
+			bgp_attr_defer_withdraw(&pending, ret);
+			/* attr_endp was checked against the enclosing attribute
+			 * block before calling the handler. Continue at that
+			 * boundary so a weaker result cannot hide a later error.
+			 */
+			stream_set_getp(BGP_INPUT(connection),
+					attr_endp - STREAM_DATA(BGP_INPUT(connection)));
+			continue;
 		}
 
 		/* Check the fetched length.
@@ -4722,12 +4729,18 @@ enum bgp_attr_parse_ret bgp_attr_parse(struct peer_connection *connection, struc
 				  peer->host, lookup_msg(attr_str, type, NULL));
 			ret = bgp_attr_malformed(&attr_args, BGP_NOTIFY_UPDATE_ATTR_LENG_ERR,
 						 attr_args.total);
-			if (ret == BGP_ATTR_PARSE_PROCEED)
+			if (ret == BGP_ATTR_PARSE_PROCEED || bgp_attr_defer_withdraw(&pending, ret))
 				continue;
 			stream_forward_getp(BGP_INPUT(connection),
 					    endp - BGP_INPUT_PNT(connection));
 			goto done;
 		}
+	}
+
+	/* Never install or intern an attribute set already marked withdrawn. */
+	if (pending != BGP_ATTR_PARSE_PROCEED) {
+		ret = pending;
+		goto done;
 	}
 
 	/*

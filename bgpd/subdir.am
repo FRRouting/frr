@@ -113,6 +113,7 @@ noinst_HEADERS += \
 	bgpd/bgp_advertise.h \
 	bgpd/bgp_aspath.h \
 	bgpd/bgp_attr.h \
+	bgpd/bgp_attr_disposition.h \
 	bgpd/bgp_attr_evpn.h \
 	bgpd/bgp_bfd.h \
 	bgpd/bgp_clist.h \
