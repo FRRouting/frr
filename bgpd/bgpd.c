@@ -4928,6 +4928,10 @@ int bgp_delete(struct bgp *bgp)
 		 * tables are empty) and then frees the bgpevpn structs.
 		 */
 		bgp_evpn_cleanup(bgp);
+
+		/* Shutdown releases ESs from bgp_evpn_mh_finish() instead */
+		if (!bm->terminating)
+			bgp_evpn_es_instance_del_cleanup(bgp);
 	}
 
 	for (afi = 0; afi < AFI_MAX; ++afi) {
