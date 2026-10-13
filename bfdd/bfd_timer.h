@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
+/* Copyright (c) 2026 Qipeng Ding */
 #ifndef _BFDD_TIMER_H
 #define _BFDD_TIMER_H
 
