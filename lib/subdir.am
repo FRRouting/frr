@@ -537,7 +537,7 @@ CLEANFILES += vtysh/vtysh_cmd.c $(vtysh_cmd_split)
 .l.c:
 	$(AM_V_LEX)$(am__skiplex) $(LEXCOMPILE) $<
 .y.c:
-	$(AM_V_YACC)$(am__skipyacc) $(YACCCOMPILE) $<
+	$(AM_V_YACC)$(am__skipyacc) $(YACCCOMPILE) -o $@ $<
 
 #
 # generated sources & extra foo

@@ -16,10 +16,6 @@
 %define api.pure full
 /* define api.prefix {cmd_yy} */
 
-/* names for generated header and parser files */
-%defines "lib/command_parse.h"
-%output  "lib/command_parse.c"
-
 /* note: code blocks are output in order, to both .c and .h:
  *  1. %code requires
  *  2. %union + bison forward decls
