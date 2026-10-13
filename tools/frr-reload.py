@@ -1555,6 +1555,7 @@ def ignore_delete_re_add_lines(lines_to_add, lines_to_del):
             return None
 
         # The word after route-map is a name and may match an option keyword.
+        gateway_ip = False
         route_map = None
         skip_evpn_imported = False
         i = 3
@@ -1564,12 +1565,15 @@ def ignore_delete_re_add_lines(lines_to_add, lines_to_del):
                     route_map = words[i + 1]
                 i += 2
                 continue
-            if words[i] == "skip-evpn-imported":
+            if words[i] == "gateway-ip":
+                gateway_ip = True
+            elif words[i] == "skip-evpn-imported":
                 skip_evpn_imported = True
             i += 1
 
         return {
             "base": " ".join(words[:3]),
+            "gateway_ip": gateway_ip,
             "route_map": route_map,
             "skip_evpn_imported": skip_evpn_imported,
         }
@@ -1856,14 +1860,16 @@ def ignore_delete_re_add_lines(lines_to_add, lines_to_del):
 
                 if desired_advertise:
                     add_ctx_keys, add_line, add_options = desired_advertise
-                    # Each parsed command records its base command, route-map,
-                    # and skip option. For example, changing
+                    # Each parsed command records its base command, overlay
+                    # index, route-map, and skip option. For example, changing
                     # "advertise ipv4 unicast route-map map1 skip-evpn-imported"
                     # to "advertise ipv4 unicast skip-evpn-imported" produces:
                     # evpn_options = {"base": "advertise ipv4 unicast",
-                    #                 "route_map": "map1", "skip_evpn_imported": True}
+                    #                 "gateway_ip": False, "route_map": "map1",
+                    #                 "skip_evpn_imported": True}
                     # add_options = {"base": "advertise ipv4 unicast",
-                    #                "route_map": None, "skip_evpn_imported": True}
+                    #                "gateway_ip": False, "route_map": None,
+                    #                "skip_evpn_imported": True}
                     route_map_removed = (
                         evpn_options["route_map"] and not add_options["route_map"]
                     )
@@ -1878,11 +1884,18 @@ def ignore_delete_re_add_lines(lines_to_add, lines_to_del):
                         add_options["skip_evpn_imported"]
                         and not evpn_options["skip_evpn_imported"]
                     )
+                    gateway_ip_removed = (
+                        evpn_options["gateway_ip"] and not add_options["gateway_ip"]
+                    )
+                    gateway_ip_added = (
+                        add_options["gateway_ip"] and not evpn_options["gateway_ip"]
+                    )
 
-                    # Route-map and skip-evpn-imported are updated independently.
-                    # Do not turn an option change into a bare "no advertise",
-                    # because that disables Type-5 export before the replacement
-                    # command can apply the requested option state.
+                    # gateway-ip, route-map and skip-evpn-imported are updated
+                    # independently. Do not turn an option change into a bare
+                    # "no advertise", because that disables Type-5 export
+                    # before the replacement command can apply the requested
+                    # option state.
                     lines_to_del_to_del.append((ctx_keys, line))
 
                     # If route-map is deleted, add its no form.
@@ -1900,8 +1913,18 @@ def ignore_delete_re_add_lines(lines_to_add, lines_to_del):
                             (ctx_keys, "%s skip-evpn-imported" % evpn_options["base"])
                         )
 
+                    # If gateway-ip is deleted, add its no form.
+                    if gateway_ip_removed:
+                        evpn_option_deletes.append(
+                            (ctx_keys, "%s gateway-ip" % evpn_options["base"])
+                        )
+
                     # Removes the desired positive command from lines_to_add.
-                    if not route_map_added_or_changed and not skip_added:
+                    if (
+                        not route_map_added_or_changed
+                        and not skip_added
+                        and not gateway_ip_added
+                    ):
                         lines_to_add_to_del.append((add_ctx_keys, add_line))
                 else:
                     # When the whole command is removed, render the bare

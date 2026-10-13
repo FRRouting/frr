@@ -4493,14 +4493,15 @@ DEFPY (bgp_evpn_advertise_type5,
 					   !CHECK_FLAG(bgp_vrf->af_flags[AFI_L2VPN][SAFI_EVPN],
 						       suppress_flag);
 
-	if (!has_flag_oi_none && !has_flag_oi_gw_ip) {
-		if (oly == OVERLAY_INDEX_GATEWAY_IP)
-			adv_flag_changed = true;
-	} else if (!has_flag_oi_none && oly == OVERLAY_INDEX_TYPE_NONE)
-		adv_flag_changed = true;
-	else if (!has_flag_oi_gw_ip && oly == OVERLAY_INDEX_GATEWAY_IP)
-		adv_flag_changed = true;
-	else if (!rmap_changed && !skip_evpn_imported_newly_enabled) {
+	/* Omitting gateway-ip leaves the overlay index as configured, so the
+	 * mode only ever moves to gateway-ip here. Use
+	 * "no advertise <afi> unicast gateway-ip" to drop back to no overlay
+	 * index.
+	 */
+	adv_flag_changed = oly == OVERLAY_INDEX_GATEWAY_IP && !has_flag_oi_gw_ip;
+
+	if (was_advertising && !adv_flag_changed && !rmap_changed &&
+	    !skip_evpn_imported_newly_enabled) {
 		/* The supplied options are already configured. */
 		return CMD_SUCCESS;
 	}
@@ -4539,23 +4540,15 @@ DEFPY (bgp_evpn_advertise_type5,
 		bgp_vrf->adv_cmd_rmap[afi][safi].map = NULL;
 	}
 
-	if (!has_flag_oi_none && !has_flag_oi_gw_ip) {
-		/* this is the case for first time ever configuration
-		 * adv ipv4 unicast is enabled for the first time. So no
-		 * need to reset any flag
-		 */
-		if (oly == OVERLAY_INDEX_TYPE_NONE)
-			SET_FLAG(bgp_vrf->af_flags[AFI_L2VPN][SAFI_EVPN], flag_oi_none);
-		else if (oly == OVERLAY_INDEX_GATEWAY_IP)
-			SET_FLAG(bgp_vrf->af_flags[AFI_L2VPN][SAFI_EVPN], flag_oi_gw_ip);
-	} else if (oly == OVERLAY_INDEX_TYPE_NONE && !has_flag_oi_none) {
-		/* This is modify case from gateway-ip to no overlay index */
-		UNSET_FLAG(bgp_vrf->af_flags[AFI_L2VPN][SAFI_EVPN], flag_oi_gw_ip);
-		SET_FLAG(bgp_vrf->af_flags[AFI_L2VPN][SAFI_EVPN], flag_oi_none);
-	} else if (oly == OVERLAY_INDEX_GATEWAY_IP && !has_flag_oi_gw_ip) {
+	if (adv_flag_changed) {
 		/* This is modify case from no overlay index to gateway-ip */
 		UNSET_FLAG(bgp_vrf->af_flags[AFI_L2VPN][SAFI_EVPN], flag_oi_none);
 		SET_FLAG(bgp_vrf->af_flags[AFI_L2VPN][SAFI_EVPN], flag_oi_gw_ip);
+	} else if (!was_advertising) {
+		/* Type-5 export is enabled for the first time, without an
+		 * overlay index. So no need to reset any flag.
+		 */
+		SET_FLAG(bgp_vrf->af_flags[AFI_L2VPN][SAFI_EVPN], flag_oi_none);
 	}
 
 	if (adv_flag_changed)
@@ -4592,11 +4585,12 @@ DEFPY (bgp_evpn_advertise_type5,
 DEFPY (no_bgp_evpn_advertise_type5,
        no_bgp_evpn_advertise_type5_cmd,
        "no advertise " BGP_AFI_CMD_STR "" BGP_SAFI_CMD_STR
-       " [route-map RMAP_NAME$rmap_name] [skip-evpn-imported$skip_evpn_imported]",
+       " [gateway-ip$gateway_ip] [route-map RMAP_NAME$rmap_name] [skip-evpn-imported$skip_evpn_imported]",
        NO_STR
        "Advertise prefix routes\n"
        BGP_AFI_HELP_STR
        BGP_SAFI_HELP_STR
+       "advertise gateway IP overlay index\n"
        "route-map for filtering specific routes\n"
        "Name of the route map\n"
        "Do not advertise routes imported from EVPN as Type-5 routes\n")
@@ -4632,6 +4626,11 @@ DEFPY (no_bgp_evpn_advertise_type5,
 		return CMD_WARNING;
 	}
 
+	if (safi == SAFI_MPLS_VPN && gateway_ip) {
+		vty_out(vty, "%% gateway-ip overlay index is only supported for unicast SAFI\n");
+		return CMD_WARNING;
+	}
+
 	if (safi == SAFI_UNICAST) {
 		if (afi == AFI_IP) {
 			flag_oi_none = BGP_L2VPN_EVPN_ADV_IPV4_UNICAST;
@@ -4651,26 +4650,40 @@ DEFPY (no_bgp_evpn_advertise_type5,
 	has_flag_oi_none = CHECK_FLAG(bgp_vrf->af_flags[AFI_L2VPN][SAFI_EVPN], flag_oi_none);
 	has_flag_oi_gw_ip = CHECK_FLAG(bgp_vrf->af_flags[AFI_L2VPN][SAFI_EVPN], flag_oi_gw_ip);
 
-	/* Remove a single advertise option and keep Type-5 export enabled. */
-	if (skip_evpn_imported)
-		return bgp_evpn_clear_suppress_import_from_evpn(bgp_vrf, afi, safi);
+	/* Remove the named advertise options and keep Type-5 export enabled. */
+	if (skip_evpn_imported || rmap_name || gateway_ip) {
+		if (skip_evpn_imported)
+			bgp_evpn_clear_suppress_import_from_evpn(bgp_vrf, afi, safi);
 
-	if (rmap_name) {
-		if (!bgp_vrf->adv_cmd_rmap[afi][safi].name ||
-		    strcmp(bgp_vrf->adv_cmd_rmap[afi][safi].name, rmap_name) != 0)
-			return CMD_SUCCESS;
+		if (rmap_name && bgp_vrf->adv_cmd_rmap[afi][safi].name &&
+		    strcmp(bgp_vrf->adv_cmd_rmap[afi][safi].name, rmap_name) == 0) {
+			bgp_evpn_withdraw_type5_routes(bgp_vrf, afi, safi);
+			XFREE(MTYPE_ROUTE_MAP_NAME, bgp_vrf->adv_cmd_rmap[afi][safi].name);
+			route_map_counter_decrement(bgp_vrf->adv_cmd_rmap[afi][safi].map);
+			bgp_vrf->adv_cmd_rmap[afi][safi].name = NULL;
+			bgp_vrf->adv_cmd_rmap[afi][safi].map = NULL;
 
-		bgp_evpn_withdraw_type5_routes(bgp_vrf, afi, safi);
-		XFREE(MTYPE_ROUTE_MAP_NAME, bgp_vrf->adv_cmd_rmap[afi][safi].name);
-		route_map_counter_decrement(bgp_vrf->adv_cmd_rmap[afi][safi].map);
-		bgp_vrf->adv_cmd_rmap[afi][safi].name = NULL;
-		bgp_vrf->adv_cmd_rmap[afi][safi].map = NULL;
+			/* Re-advertise without the removed route-map when Type-5
+			 * export remains enabled in normal or gateway-IP
+			 * overlay-index mode.
+			 */
+			if (has_flag_oi_none || has_flag_oi_gw_ip)
+				bgp_evpn_advertise_type5_routes(bgp_vrf, afi, safi);
+		}
 
-		/* Re-advertise without the removed route-map when Type-5 export
-		 * remains enabled in normal or gateway-IP overlay-index mode.
-		 */
-		if (has_flag_oi_none || has_flag_oi_gw_ip)
+		if (gateway_ip && has_flag_oi_gw_ip) {
+			/* Drop back to no overlay index. Type-5 export stays
+			 * enabled, so the routes are re-originated without a
+			 * gateway IP.
+			 */
+			bgp_evpn_withdraw_type5_routes(bgp_vrf, afi, safi);
+			UNSET_FLAG(bgp_vrf->af_flags[AFI_L2VPN][SAFI_EVPN], flag_oi_gw_ip);
+			SET_FLAG(bgp_vrf->af_flags[AFI_L2VPN][SAFI_EVPN], flag_oi_none);
+			/* Cleanup addpath IDs allocated for the overlay index */
+			bgp_addpath_type_changed(bgp_vrf);
 			bgp_evpn_advertise_type5_routes(bgp_vrf, afi, safi);
+		}
+
 		return CMD_SUCCESS;
 	}
 

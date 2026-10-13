@@ -4487,9 +4487,8 @@ prefix:
 When this CLI is configured for a BGP vrf under L2VPN EVPN address family, EVPN
 type-5 routes are generated for BGP prefixes in the vrf.
 
-If the above command is configured without the "gateway-ip" keyword, type-5
-routes are generated without overlay index, and only the best path for each
-prefix is exported to EVPN.
+By default type-5 routes are generated without overlay index, and only the best
+path for each prefix is exported to EVPN.
 
 If the above command is configured with the "gateway-ip" keyword, all paths are
 exported to EVPN using AddPath, and each path's nexthop becomes the gateway IP
@@ -4501,10 +4500,28 @@ prefix, and addpath must be properly configured in EVPN to enable multipathing.
 The optional ``skip-evpn-imported`` keyword prevents exporting a
 unicast route as a Type-5 route when its ultimate VRF-leak import parent is in
 the EVPN table. This prevents an EVPN-origin route leaked between VRFs from
-being re-exported into EVPN. It can be removed without disabling Type-5 export
-with the following command:
+being re-exported into EVPN.
+
+The ``gateway-ip``, ``route-map`` and ``skip-evpn-imported`` keywords are
+additive: each one is configured by naming it, and omitting it from a later
+command leaves it as it was. So ``advertise ipv4 unicast route-map RMAP_NAME``
+does not clear a previously configured ``gateway-ip``. Each option is removed
+individually, without disabling type-5 export, using the matching no form:
+
+.. clicmd:: no advertise <ipv4|ipv6> unicast gateway-ip
+
+.. clicmd:: no advertise <ipv4|ipv6> unicast route-map RMAP_NAME
 
 .. clicmd:: no advertise <ipv4|ipv6> unicast skip-evpn-imported
+
+Removing ``gateway-ip`` returns the vrf to exporting only the best path for
+each prefix, without an overlay index. Removing ``route-map`` requires the
+configured route-map name, and re-exports the prefixes without any filtering.
+
+To stop generating type-5 routes altogether, and clear all of the options
+above, use the no form without any keyword:
+
+.. clicmd:: no advertise <ipv4|ipv6> unicast
 
 VPN routes can also be advertised as EVPN type-5 routes:
 
