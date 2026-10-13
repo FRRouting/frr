@@ -1258,6 +1258,13 @@ static void ospf6_ase_calculate_timer(struct event *t)
 		ospf6_zebra_gr_disable(ospf6);
 		ospf6_zebra_gr_enable(ospf6, ospf6->gr_info.grace_period);
 		ospf6->gr_info.finishing_restart = false;
+
+		/*
+		 * RFC 3623 - Section 2.3 step 5: now that the routing tables
+		 * are complete, flush any received self-originated
+		 * summary-LSAs that are no longer valid.
+		 */
+		ospf6_schedule_abr_task(ospf6);
 	}
 }
 
