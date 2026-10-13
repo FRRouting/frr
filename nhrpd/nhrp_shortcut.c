@@ -25,9 +25,11 @@ static void nhrp_shortcut_send_resolution_req(struct nhrp_shortcut *s,
 					      bool retry);
 static void nhrp_shortcut_retry_resolution_req(struct event *t);
 
+static void nhrp_shortcut_update_binding_dst(struct nhrp_shortcut *s, struct nhrp_cache *c);
+
 static void nhrp_shortcut_check_use(struct nhrp_shortcut *s)
 {
-	if (s->expiring && s->cache && s->cache->used) {
+	if (s->expiring && ((s->cache && s->cache->used) || (s->cache_dst && s->cache_dst->used))) {
 		debugf(NHRP_DEBUG_ROUTE, "Shortcut %pFX used and expiring",
 		       s->p);
 		nhrp_shortcut_send_resolution_req(s, false);
@@ -78,6 +80,33 @@ static void nhrp_shortcut_cache_notify(struct notifier_block *n,
 			nhrp_shortcut_delete(s, NULL);
 		break;
 	}
+}
+
+static void nhrp_shortcut_cache_dst_notify(struct notifier_block *n, unsigned long cmd)
+{
+	struct nhrp_shortcut *s = container_of(n, struct nhrp_shortcut, cache_dst_notifier);
+
+	switch (cmd) {
+	case NOTIFY_CACHE_USED:
+		nhrp_shortcut_check_use(s);
+		break;
+	case NOTIFY_CACHE_DELETE:
+		nhrp_shortcut_update_binding_dst(s, NULL);
+		break;
+	}
+}
+
+static void nhrp_shortcut_update_binding_dst(struct nhrp_shortcut *s, struct nhrp_cache *c)
+{
+	if (c == s->cache_dst)
+		return;
+
+	if (s->cache_dst)
+		nhrp_cache_notify_del(s->cache_dst, &s->cache_dst_notifier);
+	s->cache_dst = c;
+	if (s->cache_dst)
+		nhrp_cache_notify_add(s->cache_dst, &s->cache_dst_notifier,
+				      nhrp_shortcut_cache_dst_notify);
 }
 
 static void nhrp_shortcut_update_binding(struct nhrp_shortcut *s,
@@ -147,6 +176,7 @@ static void nhrp_shortcut_delete(struct nhrp_shortcut *s,
 
 	debugf(NHRP_DEBUG_ROUTE, "Shortcut %pFX purged", s->p);
 
+	nhrp_shortcut_update_binding_dst(s, NULL);
 	nhrp_shortcut_update_binding(s, NHRP_CACHE_INVALID, NULL, 0);
 
 	/* Delete node */
@@ -362,6 +392,7 @@ static void nhrp_shortcut_recv_resolution_rep(struct nhrp_reqid *reqid,
 			ps->addr = s->addr;
 			debugf(NHRP_DEBUG_COMMON,
 			       "Shortcut: calling update_binding");
+			nhrp_shortcut_update_binding_dst(ps, c_dst);
 			nhrp_shortcut_update_binding(ps, NHRP_CACHE_DYNAMIC, c,
 						     holding_time);
 		} else {
