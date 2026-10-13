@@ -8,10 +8,80 @@ To enable gRPC support one needs to add `--enable-grpc` when running
 `configure`. Additionally, when launching each daemon one needs to request
 the gRPC module be loaded and which port to bind to. This can be done by adding
 `-M grpc:<port>` to the daemon's CLI arguments.
+If the module option is rejected, the daemon continues without a gRPC listener;
+check the daemon log for the parse error.
 
-Currently there is no gRPC "routing" so you will need to bind your gRPC
-`channel` to the particular daemon's gRPC port to interact with that daemon's
-gRPC northbound interface.
+When gRPC is loaded directly into a protocol daemon, the gRPC northbound
+interface is process-local: callbacks registered in that daemon can be invoked
+from that daemon's gRPC port. When gRPC is loaded into ``mgmtd``,
+``Get(CONFIG)`` is served from mgmtd's running datastore through the
+northbound config-get dispatcher. Omitting the path, or requesting the root
+path, returns the whole running datastore; any other config path returns the
+YANG subtree rooted at that path. Daemon-local gRPC keeps using the
+process-local running configuration.
+
+``Get(STATE)`` continues to use the process-local operational-state walk.
+``Get(ALL)`` combines configuration and state when both are present, and can
+return the side that exists when only one side owns the requested path.
+
+When gRPC is loaded into ``mgmtd``, ``Execute`` uses mgmtd's backend RPC
+transaction machinery. The request is matched against the backend RPC xpath
+registry, sent to the daemon that owns the RPC, and the backend reply is
+returned to the gRPC client.
+For RPC input validation, mgmtd exposes its running-configuration root through
+``nb_config_root_borrow_dispatch``.  The gRPC handler borrows that tree
+read-only so cross-tree leafrefs can resolve without copying the whole running
+configuration for each ``Execute`` request.
+
+When gRPC is loaded into ``mgmtd``, ``Subscribe`` uses mgmtd's frontend
+notification selector machinery.  A gRPC subscriber registers its requested
+YANG notification selectors as a virtual frontend subscription.  Selectors must
+resolve to a loaded northbound node, or to a module-root shorthand such as
+``/frr-ripd``.  Invalid selectors are rejected with ``INVALID_ARGUMENT``.
+Backend notifications received by mgmtd are matched with the same selector
+tree used for native frontend clients, then the already encoded notification
+payload is written to the gRPC stream.  If the backend notification message
+does not carry an explicit xpath, the gRPC handler derives
+``SubscribeResponse.update.path`` from the encoded notification tree; JSON
+payloads have a final top-level-key fallback.
+
+``Subscribe`` ``STREAM`` mode first reads the requested operational-state data
+paths through the same process-local northbound path used by local ``Get``
+state requests.  In ``mgmtd`` this covers mgmtd-owned operational state.  It
+writes those snapshots as ``SubscribeResponse.update`` messages, sends a
+``sync_response`` marker, then keeps the stream registered with mgmtd's
+frontend selector machinery for later matching notifications.
+
+``Subscribe`` ``SAMPLE`` mode uses the same operational-state read path as the
+initial ``STREAM`` snapshot, but it does not register a notification selector.
+The request supplies ``sample_interval_ms`` and the gRPC handler schedules an
+FRR main-loop timer to enqueue a fresh state read at that cadence.
+
+When ``heartbeat_interval_ms`` is non-zero, the handler schedules a second
+main-loop timer.  Any real update resets the heartbeat window; if the window
+expires first, the handler enqueues an empty ``SubscribeResponse.heartbeat`` and
+keeps the stream open.
+
+The Subscribe writer keeps a bounded pending queue.  If the client cannot drain
+responses quickly enough, the handler unregisters any mgmtd selector, cancels
+its timers and closes the stream with ``OUT_OF_RANGE`` so the pending queue
+cannot grow without bound.
+
+The ``Subscription`` object owns the mgmtd selector handle, timers and pending
+response queue for a Subscribe stream.  Normal stream completion releases that
+object before issuing the gRPC ``Finish`` operation, because the completion
+queue's final ``FINISH`` tag only deletes the RPC tag.  Cancellation and failed
+writes arrive on the gRPC completion-queue thread, so they schedule main-loop
+cleanup before the RPC tag is deleted.  During module shutdown, cleanup avoids
+waiting on the main loop and leaves already queued completion tags to drain.
+``mgmtd`` fires ``nb_grpc_terminate`` before destroying frontend state so that
+gRPC subscriptions can release mgmtd notification selector handles while they
+are still valid.
+
+``Subscribe`` ``POLL`` is deliberately left unimplemented in this
+server-streaming RPC.  A client-driven poll needs a client-streaming or
+bidirectional Subscribe shape so that the client can send poll requests after
+the stream has opened.
 
 The minimum version of gRPC known to work is 1.16.1.
 
