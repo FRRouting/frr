@@ -4602,24 +4602,16 @@ static int netlink_ipneigh_change(struct nlmsghdr *h, int len, ns_id_t ns_id)
 	memset(&mac, 0, sizeof(mac));
 	if (h->nlmsg_type == RTM_NEWNEIGH) {
 		if (tb[NDA_LLADDR]) {
-			if (RTA_PAYLOAD(tb[NDA_LLADDR]) != ETH_ALEN) {
-				if (IS_ZEBRA_DEBUG_KERNEL)
-					zlog_debug(
-						"%s family %s IF %u NSID %u - LLADDR is not MAC, len %lu",
-						nl_msg_type_to_str(
-							h->nlmsg_type),
-						nl_family_to_str(
-							ndm->ndm_family),
-						ndm->ndm_ifindex, ns_id,
-						(unsigned long)RTA_PAYLOAD(
-							tb[NDA_LLADDR]));
-
-				dplane_ctx_fini(&ctx);
-				return 0;
-			}
-
-			mac_present = 1;
-			memcpy(&mac, RTA_DATA(tb[NDA_LLADDR]), ETH_ALEN);
+			if (RTA_PAYLOAD(tb[NDA_LLADDR]) == ETH_ALEN) {
+				mac_present = 1;
+				memcpy(&mac, RTA_DATA(tb[NDA_LLADDR]), ETH_ALEN);
+			} else if (IS_ZEBRA_DEBUG_KERNEL)
+				zlog_debug(
+					"%s family %s IF %u NSID %u - LLADDR is not MAC, len %lu",
+					nl_msg_type_to_str(h->nlmsg_type),
+					nl_family_to_str(ndm->ndm_family),
+					ndm->ndm_ifindex, ns_id,
+					(unsigned long)RTA_PAYLOAD(tb[NDA_LLADDR]));
 		}
 
 		dplane_ctx_neigh_set_mac(ctx, &mac);

@@ -510,6 +510,12 @@ static void zebra_neigh_ipaddr_update(struct zebra_dplane_ctx *ctx)
 	if (op == DPLANE_OP_NEIGH_DISCOVER)
 		return;
 
+	/* Clients were notified above. A non-Ethernet LLADDR (e.g. GRE/NHRP)
+	 * cannot be used for the zebra neigh table or EVPN, so stop here.
+	 */
+	if (op == DPLANE_OP_NEIGH_IP_INSTALL && l2_len && l2_len != ETH_ALEN)
+		return;
+
 	/* The neighbor is present on an SVI. From this, we locate the
 	 * underlying
 	 * bridge because we're only interested in neighbors on a VxLAN bridge.
