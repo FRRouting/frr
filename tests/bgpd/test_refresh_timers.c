@@ -70,10 +70,12 @@ int main(void)
 		struct peer other = {0};
 		struct bgp_path_info removed = {.peer = peer, .flags = BGP_PATH_REMOVED};
 		struct bgp_path_info control = {.peer = &other, .next = &removed};
-		struct bgp_path_info target = {.peer = peer, .next = &control};
+		struct bgp_path_info target = {
+			.peer = peer, .next = &control, .flags = BGP_PATH_VALID};
 		struct prefix prefix;
 		struct bgp_dest *dest;
 		struct event *deadline;
+		struct timeval expiry;
 
 		bgp->rib[AFI_IP][SAFI_UNICAST] = bgp_table_init(bgp, AFI_IP, SAFI_UNICAST);
 		assert(str2prefix("192.0.2.0/24", &prefix) > 0);
@@ -88,12 +90,18 @@ int main(void)
 		event_add_timer(master, forbidden_callback, ipv4, 60,
 				&ipv4->t_refresh_stalepath);
 		deadline = ipv4->t_refresh_stalepath;
+		expiry = deadline->u.sands;
 		bgp_path_info_unset_flag(dest, &target, BGP_PATH_STALE);
 		assert(!peer_refresh_stale_start(ipv4));
 		assert(CHECK_FLAG(target.flags, BGP_PATH_STALE));
 		assert(!CHECK_FLAG(control.flags | removed.flags, BGP_PATH_STALE));
 		assert(ipv4->t_refresh_stalepath == deadline);
+		assert(deadline->u.sands.tv_sec == expiry.tv_sec);
+		assert(deadline->u.sands.tv_usec == expiry.tv_usec);
 		assert(event_is_scheduled(deadline));
+		assert(CHECK_FLAG(peer->af_sflags[AFI_IP][SAFI_UNICAST],
+				 PEER_STATUS_BORR_RECEIVED));
+		assert(!peer->af_sflags[AFI_IP6][SAFI_UNICAST]);
 		assert(peer_refresh_stale_timers_cancel(peer));
 		bgp_dest_set_bgp_path_info(dest, NULL);
 		bgp_dest_unlock_node(dest);
