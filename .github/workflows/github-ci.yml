@@ -275,14 +275,12 @@ jobs:
           fi
           echo "ADD_DOCKER_ENV: ${ADD_DOCKER_ENV}"
 
-          # analyze.py lists "N: Status : nodeid" so -t can select by number.
-          # Reruns want the module. A bare node id is "file.py::test", and
-          # cut -f1 -d: used to stop at that first colon. Strip the ordinal
-          # and status, then do the same cut. -S fe skips known xfails.
+          # Determine the pytest modules to re-run, skipping known xfails.
+          # Note that analyze.py outputs "N: Status : nodeid", where nodeid
+          # is "directory/file.py::test"; extract and sort the filenames.
           failed_pytest_modules() {
             ./tests/topotests/analyze.py -S fe -r "$1" \
-              | sed -E 's/^[0-9]+:[[:space:]]+[^:]+:[[:space:]]+//' \
-              | cut -f1 -d: \
+              | cut -f3 -d: \
               | sort -u
           }
 
