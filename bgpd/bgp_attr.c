@@ -456,44 +456,144 @@ static void transit_unintern(struct transit **transit)
 	}
 }
 
-static bool bgp_attr_aigp_get_tlv_metric(uint8_t *pnt, int length,
-					 uint64_t *aigp)
+/* AIGP TLVs */
+static uint32_t bgp_aigp_tlvs_hash_key(const struct bgp_aigp_tlvs *tlvs)
 {
-	uint8_t *data = pnt;
-	uint8_t tlv_type;
+	return jhash(tlvs->metric, tlvs->count * sizeof(tlvs->metric[0]), 0);
+}
+
+static int bgp_aigp_tlvs_hash_cmp(const struct bgp_aigp_tlvs *tlvs1,
+				  const struct bgp_aigp_tlvs *tlvs2)
+{
+	if (tlvs1->count != tlvs2->count)
+		return tlvs1->count < tlvs2->count ? -1 : 1;
+
+	return memcmp(tlvs1->metric, tlvs2->metric, tlvs1->count * sizeof(tlvs1->metric[0]));
+}
+
+DECLARE_HASH(bgp_aigp_tlvs_hash, struct bgp_aigp_tlvs, item, bgp_aigp_tlvs_hash_cmp,
+	     bgp_aigp_tlvs_hash_key);
+
+static struct bgp_aigp_tlvs_hash_head aigp_tlvs_hash;
+
+static void aigp_tlvs_free(struct bgp_aigp_tlvs *tlvs)
+{
+	XFREE(MTYPE_BGP_AIGP_TLVS, tlvs);
+}
+
+static struct bgp_aigp_tlvs *aigp_tlvs_intern(struct bgp_aigp_tlvs *tlvs)
+{
+	struct bgp_aigp_tlvs *find;
+
+	find = bgp_aigp_tlvs_hash_add(&aigp_tlvs_hash, tlvs);
+	if (find)
+		aigp_tlvs_free(tlvs);
+	else
+		find = tlvs;
+	find->refcnt++;
+
+	return find;
+}
+
+static void aigp_tlvs_unintern(struct bgp_aigp_tlvs **tlvs)
+{
+	if (!*tlvs)
+		return;
+
+	if ((*tlvs)->refcnt)
+		(*tlvs)->refcnt--;
+
+	if ((*tlvs)->refcnt == 0) {
+		bgp_aigp_tlvs_hash_del(&aigp_tlvs_hash, *tlvs);
+		aigp_tlvs_free(*tlvs);
+		*tlvs = NULL;
+	}
+}
+
+static void aigp_tlvs_init(void)
+{
+	bgp_aigp_tlvs_hash_init(&aigp_tlvs_hash);
+}
+
+static void aigp_tlvs_finish(void)
+{
+	struct bgp_aigp_tlvs *tlvs;
+
+	while ((tlvs = bgp_aigp_tlvs_hash_pop(&aigp_tlvs_hash)))
+		aigp_tlvs_free(tlvs);
+
+	bgp_aigp_tlvs_hash_fini(&aigp_tlvs_hash);
+}
+
+static struct bgp_aigp_tlvs *bgp_attr_aigp_get_tlvs(uint8_t *pnt, int length)
+{
+	struct bgp_aigp_tlvs *tlvs = NULL;
+	uint8_t *end = pnt + length;
+	uint8_t *data;
 	uint16_t tlv_length;
 
-	while (length) {
-		tlv_type = *data;
+	for (data = pnt; data < end; data += tlv_length) {
 		ptr_get_be16(data + 1, &tlv_length);
-		(void)data;
+		if (*data != BGP_AIGP_TLV_METRIC)
+			continue;
+
+		if (!tlvs) {
+			/* Upper bound of the AIGP TLVs left */
+			size_t max = (end - data) / BGP_AIGP_TLV_METRIC_LEN;
+
+			tlvs = XCALLOC(MTYPE_BGP_AIGP_TLVS,
+				       sizeof(*tlvs) + max * sizeof(tlvs->metric[0]));
+		}
 
 		/* The value field of the AIGP TLV is always 8 octets
 		 * long and its value is interpreted as an unsigned 64-bit
 		 * integer.
 		 */
-		if (tlv_type == BGP_AIGP_TLV_METRIC) {
-			(void)ptr_get_be64(data + 3, aigp);
-
-			/* If an AIGP attribute is received and its first AIGP
-			 * TLV contains the maximum value 0xffffffffffffffff,
-			 * the attribute SHOULD be considered to be malformed
-			 * and SHOULD be discarded as specified in this section.
-			 */
-			if (*aigp == BGP_AIGP_TLV_METRIC_MAX) {
-				flog_err(EC_BGP_ATTR_AIGP, "Bad AIGP TLV (%s) length: %llu",
-					 BGP_AIGP_TLV_METRIC_DESC, BGP_AIGP_TLV_METRIC_MAX);
-				return false;
-			}
-
-			return true;
-		}
-
-		data += tlv_length;
-		length -= tlv_length;
+		(void)ptr_get_be64(data + 3, &tlvs->metric[tlvs->count++]);
 	}
 
-	return false;
+	/* If an AIGP attribute is received and its first AIGP
+	 * TLV contains the maximum value 0xffffffffffffffff,
+	 * the attribute SHOULD be considered to be malformed
+	 * and SHOULD be discarded as specified in this section.
+	 */
+	if (tlvs && tlvs->metric[0] == BGP_AIGP_TLV_METRIC_MAX) {
+		flog_err(EC_BGP_ATTR_AIGP, "Bad AIGP TLV (%s) length: %llu",
+			 BGP_AIGP_TLV_METRIC_DESC, BGP_AIGP_TLV_METRIC_MAX);
+		aigp_tlvs_free(tlvs);
+		return NULL;
+	}
+
+	return tlvs;
+}
+
+void bgp_attr_set_aigp_metric(struct attr *attr, uint64_t aigp)
+{
+	struct bgp_aigp_tlvs *old = bgp_attr_get_aigp_tlvs(attr);
+	uint16_t count = old ? old->count : 1;
+	struct bgp_aigp_tlvs *tlvs;
+
+	/* Interned TLVs are shared, so change the first one in a copy */
+	tlvs = XCALLOC(MTYPE_BGP_AIGP_TLVS, sizeof(*tlvs) + count * sizeof(tlvs->metric[0]));
+	if (old)
+		memcpy(tlvs->metric, old->metric, count * sizeof(tlvs->metric[0]));
+	tlvs->count = count;
+	tlvs->metric[0] = aigp;
+
+	if (old && !old->refcnt)
+		aigp_tlvs_free(old);
+
+	bgp_attr_set_aigp_tlvs(attr, tlvs);
+}
+
+void bgp_attr_unset_aigp_metric(struct attr *attr)
+{
+	struct bgp_aigp_tlvs *old = bgp_attr_get_aigp_tlvs(attr);
+
+	if (old && !old->refcnt)
+		aigp_tlvs_free(old);
+
+	bgp_attr_set_aigp_tlvs(attr, NULL);
 }
 
 static void stream_put_bgp_aigp_tlv_metric(struct stream *s, uint64_t aigp)
@@ -501,6 +601,25 @@ static void stream_put_bgp_aigp_tlv_metric(struct stream *s, uint64_t aigp)
 	stream_putc(s, BGP_AIGP_TLV_METRIC);
 	stream_putw(s, BGP_AIGP_TLV_METRIC_LEN);
 	stream_putq(s, aigp);
+}
+
+static void bgp_packet_aigp_attribute(struct stream *s, uint8_t flags, const struct attr *attr)
+{
+	struct bgp_aigp_tlvs *tlvs = bgp_attr_get_aigp_tlvs(attr);
+	size_t len = BGP_AIGP_TLV_METRIC_LEN * tlvs->count;
+
+	if (len > 255)
+		SET_FLAG(flags, BGP_ATTR_FLAG_EXTLEN);
+
+	stream_putc(s, flags);
+	stream_putc(s, BGP_ATTR_AIGP);
+	if (CHECK_FLAG(flags, BGP_ATTR_FLAG_EXTLEN))
+		stream_putw(s, len);
+	else
+		stream_putc(s, len);
+
+	for (uint16_t i = 0; i < tlvs->count; i++)
+		stream_put_bgp_aigp_tlv_metric(s, tlvs->metric[i]);
 }
 
 /* Put NLRI with optional label and optional addpath*/
@@ -1094,6 +1213,8 @@ unsigned int attrhash_key_make(const void *p)
 		MIX(cluster_hash_key_make(bgp_attr_get_cluster(attr)));
 	if (bgp_attr_get_transit(attr))
 		MIX(transit_hash_key_make(bgp_attr_get_transit(attr)));
+	if (bgp_attr_get_aigp_tlvs(attr))
+		MIX(bgp_aigp_tlvs_hash_key(bgp_attr_get_aigp_tlvs(attr)));
 	if (attr->encap_subtlvs)
 		MIX(encap_hash_key_make(attr->encap_subtlvs));
 	if (bgp_attr_get_srv6_l3service(attr))
@@ -1112,7 +1233,8 @@ unsigned int attrhash_key_make(const void *p)
 	key = jhash(attr->mp_nexthop_global.s6_addr, IPV6_MAX_BYTELEN, key);
 	key = jhash(attr->mp_nexthop_local.s6_addr, IPV6_MAX_BYTELEN, key);
 	MIX3(attr->nh_ifindex, attr->nh_lla_ifindex, attr->distance);
-	MIX3(attr->bh_type, bgp_attr_get_otc(attr), bgp_attr_get_aigp_metric(attr));
+	MIX(attr->bh_type);
+	MIX(bgp_attr_get_otc(attr));
 	MIX3(attr->mm_seqnum, attr->df_alg, attr->df_pref);
 	MIX(attr->encap_tunneltype);
 	MIX(bgp_attr_get_pmsi_tnl_type(attr));
@@ -1148,7 +1270,7 @@ bool attrhash_cmp(const void *p1, const void *p2)
 		    bgp_attr_get_lcommunity(attr1) == bgp_attr_get_lcommunity(attr2) &&
 		    bgp_attr_get_cluster(attr1) == bgp_attr_get_cluster(attr2) &&
 		    bgp_attr_get_transit(attr1) == bgp_attr_get_transit(attr2) &&
-		    bgp_attr_get_aigp_metric(attr1) == bgp_attr_get_aigp_metric(attr2) &&
+		    bgp_attr_get_aigp_tlvs(attr1) == bgp_attr_get_aigp_tlvs(attr2) &&
 		    attr1->rmap_table_id == attr2->rmap_table_id &&
 		    (attr1->encap_tunneltype == attr2->encap_tunneltype) &&
 		    encap_same(attr1->encap_subtlvs, attr2->encap_subtlvs)
@@ -1385,6 +1507,16 @@ struct attr *bgp_attr_intern(struct attr *attr)
 		else
 			transit->refcnt++;
 	}
+
+	struct bgp_aigp_tlvs *aigp_tlvs = bgp_attr_get_aigp_tlvs(attr);
+
+	if (aigp_tlvs) {
+		if (!aigp_tlvs->refcnt)
+			bgp_attr_set_aigp_tlvs(attr, aigp_tlvs_intern(aigp_tlvs));
+		else
+			aigp_tlvs->refcnt++;
+	}
+
 	if (attr->encap_subtlvs) {
 		if (!attr->encap_subtlvs->refcnt)
 			attr->encap_subtlvs = encap_intern(attr->encap_subtlvs,
@@ -1643,6 +1775,7 @@ void bgp_attr_unintern_sub(struct attr *attr)
 	struct bgp_route_evpn *bre;
 	struct bgp_nhc *nhc;
 	struct bgp_ls_attr *ls_attr;
+	struct bgp_aigp_tlvs *aigp_tlvs;
 
 	/* aspath refcount should be decrement. */
 	aspath_unintern(&attr->aspath);
@@ -1707,7 +1840,9 @@ void bgp_attr_unintern_sub(struct attr *attr)
 	bgp_ls_attr_unintern(&ls_attr);
 	bgp_attr_set_ls_attr(attr, NULL);
 
-	bgp_attr_unset_aigp_metric(attr);
+	aigp_tlvs = bgp_attr_get_aigp_tlvs(attr);
+	aigp_tlvs_unintern(&aigp_tlvs);
+	bgp_attr_set_aigp_tlvs(attr, NULL);
 
 	bgp_attr_set_pmsi_tnl_type(attr, PMSI_TNLTYPE_NO_INFO);
 
@@ -3997,7 +4132,7 @@ static enum bgp_attr_parse_ret bgp_attr_aigp(struct bgp_attr_parser_args *args)
 	struct attr *const attr = args->attr;
 	const bgp_size_t length = args->length;
 	uint8_t *s = stream_pnt(connection->curr);
-	uint64_t aigp = 0;
+	struct bgp_aigp_tlvs *tlvs;
 
 	/* If an AIGP attribute is received on a BGP session for which
 	 * AIGP_SESSION is disabled, the attribute MUST be treated exactly
@@ -4021,9 +4156,10 @@ static enum bgp_attr_parse_ret bgp_attr_aigp(struct bgp_attr_parser_args *args)
 	if (!bgp_attr_aigp_valid(s, length))
 		goto aigp_ignore;
 
-	/* Extract AIGP Metric TLV */
-	if (bgp_attr_aigp_get_tlv_metric(s, length, &aigp))
-		bgp_attr_set_aigp_metric(attr, aigp);
+	/* Extract AIGP TLVs */
+	tlvs = bgp_attr_aigp_get_tlvs(s, length);
+	if (tlvs)
+		bgp_attr_set_aigp_tlvs(attr, tlvs);
 
 aigp_ignore:
 	stream_forward_getp(connection->curr, length);
@@ -4451,6 +4587,7 @@ enum bgp_attr_parse_ret bgp_attr_parse(struct peer_connection *connection, struc
 	as_t as4_aggregator = 0;
 	struct in_addr as4_aggregator_addr = {.s_addr = 0};
 	struct transit *transit;
+	struct bgp_aigp_tlvs *aigp_tlvs;
 
 	/* Initialize bitmap. */
 	memset(seen, 0, BGP_ATTR_BITMAP_SIZE);
@@ -4836,6 +4973,7 @@ done:
 	aspath_unintern(&as4_path);
 
 	transit = bgp_attr_get_transit(attr);
+	aigp_tlvs = bgp_attr_get_aigp_tlvs(attr);
 	/* If we received an UPDATE with mandatory attributes, then
 	 * the unrecognized transitive optional attribute of that
 	 * path MUST be passed. Otherwise, it's an error, and from
@@ -4846,6 +4984,8 @@ done:
 		/* Finally intern unknown attribute. */
 		if (transit)
 			bgp_attr_set_transit(attr, transit_intern(transit));
+		if (aigp_tlvs)
+			bgp_attr_set_aigp_tlvs(attr, aigp_tlvs_intern(aigp_tlvs));
 		if (attr->encap_subtlvs)
 			attr->encap_subtlvs = encap_intern(attr->encap_subtlvs,
 							   ENCAP_SUBTLV_TYPE);
@@ -4862,6 +5002,11 @@ done:
 		if (transit) {
 			transit_free(transit);
 			bgp_attr_set_transit(attr, NULL);
+		}
+
+		if (aigp_tlvs) {
+			aigp_tlvs_free(aigp_tlvs);
+			bgp_attr_set_aigp_tlvs(attr, NULL);
 		}
 
 		bgp_attr_flush_encap(attr);
@@ -6114,18 +6259,8 @@ bgp_size_t bgp_packet_attribute(struct bgp *bgp, struct peer *peer, struct strea
 	}
 
 	/* AIGP */
-	if (bgp_attr_exists(attr, BGP_ATTR_AIGP) && AIGP_TRANSMIT_ALLOWED(peer)) {
-		/* At the moment only AIGP Metric TLV exists for AIGP
-		 * attribute. If more comes in, do not forget to update
-		 * attr_len variable to include new ones.
-		 */
-		uint8_t attr_len = BGP_AIGP_TLV_METRIC_LEN;
-
-		stream_putc(s, BGP_ATTR_FLAG_OPTIONAL);
-		stream_putc(s, BGP_ATTR_AIGP);
-		stream_putc(s, attr_len);
-		stream_put_bgp_aigp_tlv_metric(s, bgp_attr_get_aigp_metric(attr));
-	}
+	if (bgp_attr_exists(attr, BGP_ATTR_AIGP) && AIGP_TRANSMIT_ALLOWED(peer))
+		bgp_packet_aigp_attribute(s, BGP_ATTR_FLAG_OPTIONAL, attr);
 
 	/* BGP-LS Attribute (Type 29) - RFC 9552 Section 4 */
 	if (afi == AFI_BGP_LS && safi == SAFI_BGP_LS && bgp_attr_get_ls_attr(attr))
@@ -6204,6 +6339,7 @@ void bgp_attr_init(void)
 	lcommunity_init();
 	cluster_init();
 	transit_init();
+	aigp_tlvs_init();
 	encap_init();
 	srv6_init();
 	evpn_overlay_init();
@@ -6219,6 +6355,7 @@ void bgp_attr_finish(void)
 	lcommunity_finish();
 	cluster_finish();
 	transit_finish();
+	aigp_tlvs_finish();
 	encap_finish();
 	srv6_finish();
 	evpn_overlay_finish();
@@ -6396,18 +6533,8 @@ void bgp_dump_routes_attr(struct stream *s, struct bgp_path_info *bpi,
 	}
 
 	/* AIGP */
-	if (bgp_attr_exists(attr, BGP_ATTR_AIGP)) {
-		/* At the moment only AIGP Metric TLV exists for AIGP
-		 * attribute. If more comes in, do not forget to update
-		 * attr_len variable to include new ones.
-		 */
-		uint8_t attr_len = BGP_AIGP_TLV_METRIC_LEN;
-
-		stream_putc(s, BGP_ATTR_FLAG_OPTIONAL | BGP_ATTR_FLAG_TRANS);
-		stream_putc(s, BGP_ATTR_AIGP);
-		stream_putc(s, attr_len);
-		stream_put_bgp_aigp_tlv_metric(s, bgp_attr_get_aigp_metric(attr));
-	}
+	if (bgp_attr_exists(attr, BGP_ATTR_AIGP))
+		bgp_packet_aigp_attribute(s, BGP_ATTR_FLAG_OPTIONAL | BGP_ATTR_FLAG_TRANS, attr);
 
 	/* Return total size of attribute. */
 	len = stream_get_endp(s) - cp - 2;
