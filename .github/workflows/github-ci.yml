@@ -275,10 +275,21 @@ jobs:
           fi
           echo "ADD_DOCKER_ENV: ${ADD_DOCKER_ENV}"
 
+          # analyze.py lists "N: Status : nodeid" so -t can select by number.
+          # Reruns want the module. A bare node id is "file.py::test", and
+          # cut -f1 -d: used to stop at that first colon. Strip the ordinal
+          # and status, then do the same cut. -S fe skips known xfails.
+          failed_pytest_modules() {
+            ./tests/topotests/analyze.py -S fe -r "$1" \
+              | sed -E 's/^[0-9]+:[[:space:]]+[^:]+:[[:space:]]+//' \
+              | cut -f1 -d: \
+              | sort -u
+          }
+
           if [ -f test-results-${{ matrix.cfg.platform }}/topotests.xml ]; then
             ./tests/topotests/analyze.py -r test-results-${{ matrix.cfg.platform }}
             ls -l test-results-${{ matrix.cfg.platform }}/topotests.xml
-            run_tests=$(./tests/topotests/analyze.py -r test-results-${{ matrix.cfg.platform }}| cut -f1 -d: | sort -u)
+            run_tests=$(failed_pytest_modules test-results-${{ matrix.cfg.platform }})
           else
             echo "No test results dir"
             run_tests=""
@@ -311,7 +322,7 @@ jobs:
           sysctl -a > test-results-${{ matrix.cfg.platform }}/sysctl.out 2> /dev/null
 
           # Now get the failed tests (if any) from the archived results directory.
-          rerun_tests=$(./tests/topotests/analyze.py -r test-results-${{ matrix.cfg.platform }} | cut -f1 -d: | sort -u)
+          rerun_tests=$(failed_pytest_modules test-results-${{ matrix.cfg.platform }})
           if [ -z "$rerun_tests" ]; then
             echo "ERROR: Parallel pytest run failed but no failures found in topotests.xml." >&2
             exit 1
