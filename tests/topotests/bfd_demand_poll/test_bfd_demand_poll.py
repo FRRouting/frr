@@ -188,13 +188,16 @@ def test_demand_bit_poll_sequence(tmp_path):
                     assert up()
                     before = len(packets(capture_path))
                     demand(enable)
-                    time.sleep(2.5)
-                    repeated = [
-                        p
-                        for p in packets(capture_path)[before:]
-                        if p["source"] == "192.0.2.1"
-                    ]
-                    assert len(repeated) >= 2
+
+                    def repeated_packets():
+                        records = [
+                            p
+                            for p in packets(capture_path)[before:]
+                            if p["source"] == "192.0.2.1"
+                        ]
+                        return records if len(records) >= 2 else None
+
+                    repeated = wait_for(repeated_packets)
                     assert all(
                         p["demand"] == enable and not p["poll"] for p in repeated
                     ), repeated
