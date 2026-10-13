@@ -4616,6 +4616,7 @@ static int netlink_ipneigh_change(struct nlmsghdr *h, int len, ns_id_t ns_id)
 
 	dplane_ctx_neigh_set_link_layer_ipv4(ctx, link_layer_ipv4);
 	dplane_ctx_set_op(ctx, op);
+	dplane_ctx_set_status(ctx, ZEBRA_DPLANE_REQUEST_QUEUED);
 	dplane_ctx_set_ifindex(ctx, ndm->ndm_ifindex);
 	dplane_ctx_set_ns_id(ctx, ns_id);
 	dplane_ctx_neigh_set_ndm_family(ctx, ndm->ndm_family);
