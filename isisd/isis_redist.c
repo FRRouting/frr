@@ -315,8 +315,12 @@ void isis_redist_add(struct isis *isis, int type, struct prefix *p,
 	int level;
 	struct isis_redist *redist;
 
+	/* DEFAULT_ROUTE is not a zebra route type: isis_redist_delete() re-adds a
+	 * removed default under it for "default-information originate always".
+	 */
 	zlog_debug("%s: New route %pFX from %s: distance %d.", __func__, p,
-		   zebra_route_string(type), distance);
+		   type == DEFAULT_ROUTE ? "default-information" : zebra_route_string(type),
+		   distance);
 
 	if (!ei_table) {
 		zlog_warn("%s: External information table not initialized.",
