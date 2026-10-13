@@ -260,6 +260,10 @@ sessions.
    (level-2).  Max value depend if metric support narrow or wide value (see
    command :clicmd:`metric-style [narrow | transition | wide]`).
 
+   With wide metrics, the maximum metric 16777215 (2^24 - 1) is still
+   advertised, but links advertised with it are ignored during the SPF
+   computation, as required by :rfc:`5305`.
+
 .. clicmd:: isis network point-to-point
 
    Set network type to 'Point-to-Point' (broadcast by default).
