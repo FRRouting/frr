@@ -1,0 +1,18 @@
+{
+  "l2VpnEvpn": {
+    "peers": {
+      "fc00::1": {
+        "pfxRcd": 9,
+        "peerState": "OK",
+        "connectionsEstablished": 1
+      },
+      "fc00::3": {
+        "pfxSnt": 9,
+        "peerState": "OK",
+        "connectionsEstablished": 1
+      }
+    },
+    "failedPeers": 0,
+    "totalPeers": 2
+    }
+}
