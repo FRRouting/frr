@@ -53,6 +53,7 @@ import sys
 import pytest
 import json
 from functools import partial
+from time import sleep
 
 # Save the Current Working Directory to find configuration files.
 CWD = os.path.dirname(os.path.realpath(__file__))
@@ -182,6 +183,65 @@ def expect_grace_lsa(restarting, helper):
     assert result is None, assertmsg
 
 
+def expect_gr_helpers_active(restarting, helpers):
+    """
+    Check that the given helper neighbors entered helper mode for the router
+    performing a graceful restart. Must be called while the graceful restart
+    is still in progress.
+    """
+    tgen = get_topogen()
+
+    logger.info(f"{helpers}: checking if they are helping '{restarting}' to restart")
+
+    def helping(helper):
+        output = tgen.gears[helper].vtysh_cmd(
+            "show ipv6 ospf6 graceful-restart helper detail json", isjson=True
+        )
+        return any(
+            neighbor.get("routerid") == restarting
+            for neighbor in output.get("neighbors", {}).values()
+        )
+
+    # Poll all helpers together: unplanned restarts may finish quickly.
+    pending = set(helpers)
+    for _ in range(120):
+        pending = {helper for helper in pending if not helping(helper)}
+        if not pending:
+            return
+        sleep(0.25)
+
+    assert False, f'{sorted(pending)} didn\'t enter helper mode for "{restarting}"'
+
+
+def expect_gr_helper_success(helper):
+    """
+    Check that the given helper neighbor finished helping the restarting
+    router because the graceful restart was successful, and not because it
+    detected a topology change (e.g. the restarting router flushed some of
+    its own LSAs).
+
+    The last exit reason is kept across graceful restarts, so call
+    expect_gr_helpers_active() first to make sure the helper took part in the
+    current one.
+    """
+    tgen = get_topogen()
+
+    logger.info(f"'{helper}': checking if the graceful restart was successful")
+    test_func = partial(
+        topotest.router_json_cmp,
+        tgen.gears[helper],
+        "show ipv6 ospf6 graceful-restart helper json",
+        {
+            "lastExitReason": "Successful graceful restart",
+            "activeRestarterCnt": None,
+        },
+    )
+    _, result = topotest.run_and_expect(test_func, None, count=60, wait=1)
+    assertmsg = f'"{helper}" didn\'t exit helper mode successfully'
+
+    assert result is None, assertmsg
+
+
 def check_routers(initial_convergence=False, exiting=None, restarting=None):
     for rname in ["rt1", "rt2", "rt3", "rt4", "rt5", "rt6", "rt7"]:
         # Check the RIB first, which should be preserved across restarts in
@@ -276,11 +336,13 @@ def test_gr_rt1():
 
     tgen.net["rt1"].cmd('vtysh -c "graceful-restart prepare ipv6 ospf"')
     expect_grace_lsa(restarting="1.1.1.1", helper="rt2")
+    expect_gr_helpers_active(restarting="1.1.1.1", helpers=["rt2"])
     ensure_gr_is_in_zebra("rt1")
     kill_router_daemons(tgen, "rt1", ["ospf6d"], save_config=False)
     check_routers(exiting="rt1")
     start_router_daemons(tgen, "rt1", ["ospf6d"])
     check_routers(restarting="rt1")
+    expect_gr_helper_success(helper="rt2")
 
 
 #
@@ -297,12 +359,15 @@ def test_gr_rt2():
     tgen.net["rt2"].cmd('vtysh -c "graceful-restart prepare ipv6 ospf"')
     expect_grace_lsa(restarting="2.2.2.2", helper="rt1")
     expect_grace_lsa(restarting="2.2.2.2", helper="rt3")
+    expect_gr_helpers_active(restarting="2.2.2.2", helpers=["rt1", "rt3"])
     ensure_gr_is_in_zebra("rt2")
     kill_router_daemons(tgen, "rt2", ["ospf6d"], save_config=False)
     check_routers(exiting="rt2")
 
     start_router_daemons(tgen, "rt2", ["ospf6d"])
     check_routers(restarting="rt2")
+    expect_gr_helper_success(helper="rt1")
+    expect_gr_helper_success(helper="rt3")
 
 
 #
@@ -320,12 +385,16 @@ def test_gr_rt3():
     expect_grace_lsa(restarting="3.3.3.3", helper="rt2")
     expect_grace_lsa(restarting="3.3.3.3", helper="rt4")
     expect_grace_lsa(restarting="3.3.3.3", helper="rt6")
+    expect_gr_helpers_active(restarting="3.3.3.3", helpers=["rt2", "rt4", "rt6"])
     ensure_gr_is_in_zebra("rt3")
     kill_router_daemons(tgen, "rt3", ["ospf6d"], save_config=False)
     check_routers(exiting="rt3")
 
     start_router_daemons(tgen, "rt3", ["ospf6d"])
     check_routers(restarting="rt3")
+    expect_gr_helper_success(helper="rt2")
+    expect_gr_helper_success(helper="rt4")
+    expect_gr_helper_success(helper="rt6")
 
 
 #
@@ -342,12 +411,15 @@ def test_gr_rt4():
     tgen.net["rt4"].cmd('vtysh -c "graceful-restart prepare ipv6 ospf"')
     expect_grace_lsa(restarting="4.4.4.4", helper="rt3")
     expect_grace_lsa(restarting="4.4.4.4", helper="rt5")
+    expect_gr_helpers_active(restarting="4.4.4.4", helpers=["rt3", "rt5"])
     ensure_gr_is_in_zebra("rt4")
     kill_router_daemons(tgen, "rt4", ["ospf6d"], save_config=False)
     check_routers(exiting="rt4")
 
     start_router_daemons(tgen, "rt4", ["ospf6d"])
     check_routers(restarting="rt4")
+    expect_gr_helper_success(helper="rt3")
+    expect_gr_helper_success(helper="rt5")
 
 
 #
@@ -363,12 +435,14 @@ def test_gr_rt5():
 
     tgen.net["rt5"].cmd('vtysh -c "graceful-restart prepare ipv6 ospf"')
     expect_grace_lsa(restarting="5.5.5.5", helper="rt4")
+    expect_gr_helpers_active(restarting="5.5.5.5", helpers=["rt4"])
     ensure_gr_is_in_zebra("rt5")
     kill_router_daemons(tgen, "rt5", ["ospf6d"], save_config=False)
     check_routers(exiting="rt5")
 
     start_router_daemons(tgen, "rt5", ["ospf6d"])
     check_routers(restarting="rt5")
+    expect_gr_helper_success(helper="rt4")
 
 
 #
@@ -385,12 +459,15 @@ def test_gr_rt6():
     tgen.net["rt6"].cmd('vtysh -c "graceful-restart prepare ipv6 ospf"')
     expect_grace_lsa(restarting="6.6.6.6", helper="rt3")
     expect_grace_lsa(restarting="6.6.6.6", helper="rt7")
+    expect_gr_helpers_active(restarting="6.6.6.6", helpers=["rt3", "rt7"])
     ensure_gr_is_in_zebra("rt6")
     kill_router_daemons(tgen, "rt6", ["ospf6d"], save_config=False)
     check_routers(exiting="rt6")
 
     start_router_daemons(tgen, "rt6", ["ospf6d"])
     check_routers(restarting="rt6")
+    expect_gr_helper_success(helper="rt3")
+    expect_gr_helper_success(helper="rt7")
 
 
 #
@@ -406,12 +483,14 @@ def test_gr_rt7():
 
     tgen.net["rt7"].cmd('vtysh -c "graceful-restart prepare ipv6 ospf"')
     expect_grace_lsa(restarting="7.7.7.7", helper="rt6")
+    expect_gr_helpers_active(restarting="7.7.7.7", helpers=["rt6"])
     ensure_gr_is_in_zebra("rt7")
     kill_router_daemons(tgen, "rt7", ["ospf6d"], save_config=False)
     check_routers(exiting="rt7")
 
     start_router_daemons(tgen, "rt7", ["ospf6d"])
     check_routers(restarting="rt7")
+    expect_gr_helper_success(helper="rt6")
 
 
 #
@@ -428,9 +507,11 @@ def test_unplanned_gr_rt1():
     kill_router_daemons(tgen, "rt1", ["ospf6d"], save_config=False)
     start_router_daemons(tgen, "rt1", ["ospf6d"])
 
+    expect_gr_helpers_active(restarting="1.1.1.1", helpers=["rt2"])
     expect_grace_lsa(restarting="1.1.1.1", helper="rt2")
     ensure_gr_is_in_zebra("rt1")
     check_routers(restarting="rt1")
+    expect_gr_helper_success(helper="rt2")
 
 
 #
@@ -447,10 +528,13 @@ def test_unplanned_gr_rt2():
     kill_router_daemons(tgen, "rt2", ["ospf6d"], save_config=False)
     start_router_daemons(tgen, "rt2", ["ospf6d"])
 
+    expect_gr_helpers_active(restarting="2.2.2.2", helpers=["rt1", "rt3"])
     expect_grace_lsa(restarting="2.2.2.2", helper="rt1")
     expect_grace_lsa(restarting="2.2.2.2", helper="rt3")
     ensure_gr_is_in_zebra("rt2")
     check_routers(restarting="rt2")
+    expect_gr_helper_success(helper="rt1")
+    expect_gr_helper_success(helper="rt3")
 
 
 #
@@ -467,11 +551,15 @@ def test_unplanned_gr_rt3():
     kill_router_daemons(tgen, "rt3", ["ospf6d"], save_config=False)
     start_router_daemons(tgen, "rt3", ["ospf6d"])
 
+    expect_gr_helpers_active(restarting="3.3.3.3", helpers=["rt2", "rt4", "rt6"])
     expect_grace_lsa(restarting="3.3.3.3", helper="rt2")
     expect_grace_lsa(restarting="3.3.3.3", helper="rt4")
     expect_grace_lsa(restarting="3.3.3.3", helper="rt6")
     ensure_gr_is_in_zebra("rt3")
     check_routers(restarting="rt3")
+    expect_gr_helper_success(helper="rt2")
+    expect_gr_helper_success(helper="rt4")
+    expect_gr_helper_success(helper="rt6")
 
 
 #
@@ -488,10 +576,13 @@ def test_unplanned_gr_rt4():
     kill_router_daemons(tgen, "rt4", ["ospf6d"], save_config=False)
     start_router_daemons(tgen, "rt4", ["ospf6d"])
 
+    expect_gr_helpers_active(restarting="4.4.4.4", helpers=["rt3", "rt5"])
     expect_grace_lsa(restarting="4.4.4.4", helper="rt3")
     expect_grace_lsa(restarting="4.4.4.4", helper="rt5")
     ensure_gr_is_in_zebra("rt4")
     check_routers(restarting="rt4")
+    expect_gr_helper_success(helper="rt3")
+    expect_gr_helper_success(helper="rt5")
 
 
 #
@@ -508,9 +599,11 @@ def test_unplanned_gr_rt5():
     kill_router_daemons(tgen, "rt5", ["ospf6d"], save_config=False)
     start_router_daemons(tgen, "rt5", ["ospf6d"])
 
+    expect_gr_helpers_active(restarting="5.5.5.5", helpers=["rt4"])
     expect_grace_lsa(restarting="5.5.5.5", helper="rt4")
     ensure_gr_is_in_zebra("rt5")
     check_routers(restarting="rt5")
+    expect_gr_helper_success(helper="rt4")
 
 
 #
@@ -527,10 +620,13 @@ def test_unplanned_gr_rt6():
     kill_router_daemons(tgen, "rt6", ["ospf6d"], save_config=False)
     start_router_daemons(tgen, "rt6", ["ospf6d"])
 
+    expect_gr_helpers_active(restarting="6.6.6.6", helpers=["rt3", "rt7"])
     expect_grace_lsa(restarting="6.6.6.6", helper="rt3")
     expect_grace_lsa(restarting="6.6.6.6", helper="rt7")
     ensure_gr_is_in_zebra("rt6")
     check_routers(restarting="rt6")
+    expect_gr_helper_success(helper="rt3")
+    expect_gr_helper_success(helper="rt7")
 
 
 #
@@ -547,9 +643,11 @@ def test_unplanned_gr_rt7():
     kill_router_daemons(tgen, "rt7", ["ospf6d"], save_config=False)
     start_router_daemons(tgen, "rt7", ["ospf6d"])
 
+    expect_gr_helpers_active(restarting="7.7.7.7", helpers=["rt6"])
     expect_grace_lsa(restarting="7.7.7.7", helper="rt6")
     ensure_gr_is_in_zebra("rt7")
     check_routers(restarting="rt7")
+    expect_gr_helper_success(helper="rt6")
 
 
 # Memory leak test template
