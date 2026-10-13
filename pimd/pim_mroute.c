@@ -667,8 +667,7 @@ have_up:
 
 	rpg = pim_ifp ? RP(pim_ifp->pim, sg.grp) : NULL;
 
-	if ((pim_rpf_addr_is_inaddr_any(rpg)) || (!pim_ifp) ||
-	    (!(PIM_I_am_DR(pim_ifp)))) {
+	if (!rpg || pim_rpf_addr_is_inaddr_any(rpg) || !pim_ifp || !PIM_I_am_DR(pim_ifp)) {
 		if (PIM_DEBUG_MROUTE) {
 			zlog_debug("%s: Failed Check send packet", __func__);
 		}

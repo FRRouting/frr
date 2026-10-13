@@ -249,6 +249,11 @@ struct pim_upstream {
 
 	enum pim_upstream_state join_state;
 	enum pim_reg_state reg_state;
+	/*
+	 * RP the register machine last joined, or was suppressed toward.
+	 * Compared when the group-to-RP mapping changes (RFC 7761 4.4.1).
+	 */
+	pim_addr reg_rp;
 	enum pim_upstream_sptbit sptbit;
 
 	int ref_count;

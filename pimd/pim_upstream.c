@@ -898,50 +898,114 @@ void pim_upstream_dense_reevaluate(struct pim_instance *pim)
 		pim_upstream_transition_dm_to_sm(pim, up);
 }
 
-/* Re-evaluate source-registration setup for SSM/ASM changes. */
+/* RP address the (S,G) would register to, or PIMADDR_ANY if there is none. */
+static pim_addr pim_upstream_current_reg_rp(struct pim_upstream *up)
+{
+	struct pim_rpf *rpg = RP(up->pim, up->sg.grp);
+
+	if (!rpg || pim_rpf_addr_is_inaddr_any(rpg))
+		return PIMADDR_ANY;
+
+	return rpg->rpf_addr;
+}
+
+/* CouldRegister -> False, or the group is no longer ASM.
+ * Remove the register tunnel and return to NoInfo.
+ */
+static void pim_upstream_register_clear(struct pim_upstream *up)
+{
+	struct pim_instance *pim = up->pim;
+
+	event_cancel(&up->t_rs_timer);
+	if (up->reg_state != PIM_REG_NOINFO) {
+		pim_channel_del_oif(up->channel_oil, pim->regiface, PIM_OIF_FLAG_PROTO_PIM,
+				    __func__);
+		pim_vxlan_update_sg_reg_state(pim, up, false);
+		up->reg_state = PIM_REG_NOINFO;
+	}
+	up->reg_rp = PIMADDR_ANY;
+}
+
+/* Re-evaluate source-registration setup for SSM/ASM and RP-mapping changes.
+ *
+ * RFC 7761 section 4.4.1, event "RP changed":
+ *   Prune or Join-Pending -> Join, add the register tunnel, cancel RST.
+ *   Join stays Join; encapsulation uses RP(G) when the Register is sent.
+ * With no RP(G), Prune and Join-Pending still go to Join and the
+ * Register-Stop timer is cancelled. There is no encapsulation target.
+ *
+ * A refresh that does not change this group's RP must leave a suppressed
+ * FHR in Prune. reg_rp is the RP the machine last joined.
+ */
 void pim_upstream_register_reevaluate(struct pim_instance *pim)
 {
 	struct pim_upstream *up;
 
 	frr_each_safe (rb_pim_upstream, &pim->upstream_head, up) {
+		pim_addr rp_addr;
+
 		/* If FHR is set CouldRegister is True. Also check if the flow
 		 * is actually active; if it is not kat setup will trigger
-		 * source
-		 * registration whenever the flow becomes active.
+		 * source registration whenever the flow becomes active.
 		 */
-
-		if (!PIM_UPSTREAM_FLAG_TEST_FHR(up->flags) ||
-			!pim_upstream_is_kat_running(up))
+		if (!PIM_UPSTREAM_FLAG_TEST_FHR(up->flags) || !pim_upstream_is_kat_running(up))
 			continue;
 
 		if (pim_is_grp_ssm(pim, up->sg.grp)) {
-			/* clear the register state  for SSM groups */
-			if (up->reg_state != PIM_REG_NOINFO) {
+			if (up->reg_state != PIM_REG_NOINFO || event_is_scheduled(up->t_rs_timer)) {
 				if (PIM_DEBUG_PIM_EVENTS)
-					zlog_debug(
-						"Clear register for %s as G is now SSM",
-						up->sg_str);
-				/* remove regiface from the OIL if it is there*/
-				pim_channel_del_oif(up->channel_oil,
-						    pim->regiface,
-						    PIM_OIF_FLAG_PROTO_PIM,
-							__func__);
-				up->reg_state = PIM_REG_NOINFO;
+					zlog_debug("Clear register for %s as G is now SSM",
+						   up->sg_str);
+				pim_upstream_register_clear(up);
 			}
-		} else {
-			/* register ASM sources with the RP */
-			if (up->reg_state == PIM_REG_NOINFO) {
-				if (PIM_DEBUG_PIM_EVENTS)
-					zlog_debug(
-						"Register %s as G is now ASM",
-						up->sg_str);
-				pim_channel_add_oif(up->channel_oil,
-						    pim->regiface,
-						    PIM_OIF_FLAG_PROTO_PIM,
-							__func__);
-				up->reg_state = PIM_REG_JOIN;
-			}
+			continue;
 		}
+
+		rp_addr = pim_upstream_current_reg_rp(up);
+		if (pim_addr_is_any(rp_addr)) {
+			/*
+			 * RFC 7761 4.4.1 "RP changed": Prune and Join-Pending
+			 * go to Join, the register tunnel is added, and the
+			 * Register-Stop timer is cancelled. Join stays Join.
+			 * NoInfo is unchanged. Encapsulation waits until an
+			 * RP is configured again.
+			 */
+			if (up->reg_state == PIM_REG_NOINFO) {
+				event_cancel(&up->t_rs_timer);
+				continue;
+			}
+
+			if (PIM_DEBUG_PIM_EVENTS)
+				zlog_debug("%s RP(G) unknown; register state -> Join", up->sg_str);
+			event_cancel(&up->t_rs_timer);
+			pim_register_join(up);
+			continue;
+		}
+
+		/* register ASM sources with the RP */
+		if (up->reg_state == PIM_REG_NOINFO) {
+			if (PIM_DEBUG_PIM_EVENTS)
+				zlog_debug("Register %s as G is now ASM", up->sg_str);
+			pim_register_join(up);
+			continue;
+		}
+
+		if (!pim_addr_cmp(up->reg_rp, rp_addr))
+			continue;
+
+		if (PIM_DEBUG_PIM_EVENTS)
+			zlog_debug("RP(G) changed for %s from %pPA to %pPA", up->sg_str,
+				   &up->reg_rp, &rp_addr);
+
+		/* Join: the pimreg OIF stays. The next Register uses RP(G). */
+		if (up->reg_state == PIM_REG_JOIN) {
+			up->reg_rp = rp_addr;
+			continue;
+		}
+
+		/* Prune or Join-Pending. */
+		event_cancel(&up->t_rs_timer);
+		pim_register_join(up);
 	}
 }
 
@@ -1217,6 +1281,7 @@ static struct pim_upstream *pim_upstream_new(struct pim_instance *pim,
 	up->ref_count = 1;
 	up->join_state = PIM_UPSTREAM_NOTJOINED;
 	up->reg_state = PIM_REG_NOINFO;
+	up->reg_rp = PIMADDR_ANY;
 	up->state_transition = pim_time_monotonic_sec();
 	up->channel_oil = pim_channel_oil_add(pim, &up->sg, __func__);
 	up->sptbit = PIM_UPSTREAM_SPTBIT_FALSE;
@@ -1699,8 +1764,7 @@ static void pim_upstream_update_assert_tracking_desired(struct pim_upstream *up)
 /* When kat is stopped CouldRegister goes to false so we need to
  * transition  the (S, G) on FHR to NI state and remove reg tunnel
  * from the OIL */
-static void pim_upstream_fhr_kat_expiry(struct pim_instance *pim,
-					struct pim_upstream *up)
+static void pim_upstream_fhr_kat_expiry(struct pim_upstream *up)
 {
 	if (!PIM_UPSTREAM_FLAG_TEST_FHR(up->flags))
 		return;
@@ -1709,13 +1773,7 @@ static void pim_upstream_fhr_kat_expiry(struct pim_instance *pim,
 		zlog_debug("kat expired on %s; clear fhr reg state",
 			   up->sg_str);
 
-	/* stop reg-stop timer */
-	event_cancel(&up->t_rs_timer);
-	/* remove regiface from the OIL if it is there*/
-	pim_channel_del_oif(up->channel_oil, pim->regiface,
-			    PIM_OIF_FLAG_PROTO_PIM, __func__);
-	/* clear the register state */
-	up->reg_state = PIM_REG_NOINFO;
+	pim_upstream_register_clear(up);
 	PIM_UPSTREAM_FLAG_UNSET_FHR(up->flags);
 }
 
@@ -1777,7 +1835,7 @@ struct pim_upstream *pim_upstream_keep_alive_timer_proc(
 
 	/* if entry was created because of activity we need to deref it */
 	if (PIM_UPSTREAM_FLAG_TEST_SRC_STREAM(up->flags)) {
-		pim_upstream_fhr_kat_expiry(pim, up);
+		pim_upstream_fhr_kat_expiry(up);
 		if (PIM_DEBUG_PIM_TRACE)
 			zlog_debug(
 				"kat expired on %s[%s]; remove stream reference",
@@ -2032,6 +2090,15 @@ static void pim_upstream_register_stop_timer(struct event *t)
 					     sizeof(state_str)));
 	}
 
+	/* RP(G) went away. Leave suppression and do not arm another probe. */
+	if (up->reg_state != PIM_REG_NOINFO && pim_addr_is_any(pim_upstream_current_reg_rp(up))) {
+		if (PIM_DEBUG_PIM_TRACE)
+			zlog_debug("%s: %s RP(G) unknown; register state -> Join", __func__,
+				   up->sg_str);
+		pim_register_join(up);
+		return;
+	}
+
 	switch (up->reg_state) {
 	case PIM_REG_JOIN_PENDING:
 		up->reg_state = PIM_REG_JOIN;
@@ -2048,7 +2115,7 @@ static void pim_upstream_register_stop_timer(struct event *t)
 			if (PIM_DEBUG_PIM_TRACE)
 				zlog_debug("%s: up %s RPF is not present",
 					   __func__, up->sg_str);
-			up->reg_state = PIM_REG_NOINFO;
+			pim_upstream_register_clear(up);
 			PIM_UPSTREAM_FLAG_UNSET_FHR(up->flags);
 			return;
 		}
@@ -2099,6 +2166,14 @@ static void pim_upstream_start_register_stop_timer(struct pim_upstream *up)
 static void pim_upstream_register_probe_timer(struct event *t)
 {
 	struct pim_upstream *up = EVENT_ARG(t);
+
+	if (pim_addr_is_any(pim_upstream_current_reg_rp(up))) {
+		if (PIM_DEBUG_PIM_REG)
+			zlog_debug("%s: %s RP(G) unknown; register state -> Join", __func__,
+				   up->sg_str);
+		pim_register_join(up);
+		return;
+	}
 
 	if (!up->rpf.source_nexthop.interface ||
 	    !up->rpf.source_nexthop.interface->info) {
