@@ -8,4 +8,5 @@ class TestRefreshTimers(frrtest.TestMultiOut):
 
 TestRefreshTimers.onesimple("family isolation OK")
 TestRefreshTimers.onesimple("session cleanup OK")
+TestRefreshTimers.onesimple("repeated refresh state OK")
 TestRefreshTimers.onesimple("family deletion OK")

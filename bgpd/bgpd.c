@@ -1109,6 +1109,22 @@ int peer_af_delete(struct peer *peer, afi_t afi, safi_t safi)
 	return 0;
 }
 
+/* Mark this refresh epoch; return whether a deadline needs scheduling.
+ * A repeated BoRR marks refreshed paths again without extending the bound.
+ */
+bool peer_refresh_stale_start(struct peer_af *paf)
+{
+	struct peer *peer = paf->peer;
+	afi_t afi = paf->afi;
+	safi_t safi = paf->safi;
+
+	SET_FLAG(peer->af_sflags[afi][safi], PEER_STATUS_BORR_RECEIVED);
+	UNSET_FLAG(peer->af_sflags[afi][safi], PEER_STATUS_EORR_RECEIVED);
+	SET_FLAG(peer->af_sflags[afi][safi], PEER_STATUS_ENHANCED_REFRESH);
+	bgp_set_stale_route(peer, afi, safi);
+	return !event_is_scheduled(paf->t_refresh_stalepath);
+}
+
 /* Cancel all family refresh timers when the peer session is stopped. */
 bool peer_refresh_stale_timers_cancel(struct peer *peer)
 {
