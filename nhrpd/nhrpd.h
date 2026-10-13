@@ -262,6 +262,10 @@ struct nhrp_shortcut {
 
 	struct nhrp_cache *cache;
 	struct notifier_block cache_notifier;
+
+	/* cache entry of the resolved destination */
+	struct nhrp_cache *cache_dst;
+	struct notifier_block cache_dst_notifier;
 };
 
 PREDECL_DLIST(nhrp_nhslist);
