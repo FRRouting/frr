@@ -20,7 +20,7 @@ Algorithm
 
 The CSPF algorithm is based on a Priority Queue which store the on-going
 possible path sorted by their respective weights. This weight corresponds
-to the cost of the cuurent path from the source up to the current node.
+to the cost of the current path from the source up to the current node.
 
 The algorithm is as followed:
 
@@ -139,7 +139,7 @@ computation.
 .. c:function:: void cspf_del(struct cspf *algo);
 
 Delete cspf structure. A call to cspf_clean() function is perform prior to
-free allocated memeory.
+free allocated memory.
 
 .. c:function:: struct c_path *compute_p2p_path(struct ls_ted *ted, struct cspf *algo);
 
