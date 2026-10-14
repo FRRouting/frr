@@ -1949,7 +1949,14 @@ int send_hello(struct isis_circuit *circuit, int level)
 
 	struct isis_tlvs *tlvs = isis_alloc_tlvs();
 
-	isis_tlvs_add_auth(tlvs, &circuit->passwd);
+	if (!isis_tlvs_add_auth(tlvs, &circuit->passwd)) {
+		if (IS_DEBUG_ADJ_PACKETS)
+			zlog_debug("ISIS-Adj (%s): Not sending IIH on %s: key chain %s has no key to sign it",
+				   circuit->area->area_tag, circuit->interface->name,
+				   circuit->passwd.passwd);
+		isis_free_tlvs(tlvs);
+		return ISIS_WARNING;
+	}
 
 	if (!iso_address_list_count(&circuit->area->area_addrs)) {
 		isis_free_tlvs(tlvs);
@@ -2153,6 +2160,23 @@ void send_hello_sched(struct isis_circuit *circuit, int level, long delay)
 
 
 /*
+ * Add the SNP authentication passwd calls for, if any. False if the key chain
+ * has no key to sign with: RFC 5310 has the PDU discarded then.
+ */
+static bool snp_add_auth(struct isis_circuit *circuit, int level, char typechar,
+			 struct isis_passwd *passwd, struct isis_tlvs *tlvs)
+{
+	if (!CHECK_FLAG(passwd->snp_auth, SNP_AUTH_SEND) || isis_tlvs_add_auth(tlvs, passwd))
+		return true;
+
+	if (IS_DEBUG_SNP_PACKETS)
+		zlog_debug("ISIS-Snp (%s): Not sending L%d %cSNP on %s: key chain %s has no key to sign it",
+			   circuit->area->area_tag, level, typechar, circuit->interface->name,
+			   passwd->passwd);
+	return false;
+}
+
+/*
  * Count the maximum number of lsps that can be accommodated by a given size.
  */
 #define LSP_ENTRIES_LEN (10 + ISIS_SYS_ID_LEN)
@@ -2203,8 +2227,10 @@ int send_csnp(struct isis_circuit *circuit, int level)
 
 	struct isis_tlvs *tlvs = isis_alloc_tlvs();
 
-	if (CHECK_FLAG(passwd->snp_auth, SNP_AUTH_SEND))
-		isis_tlvs_add_auth(tlvs, passwd);
+	if (!snp_add_auth(circuit, level, 'C', passwd, tlvs)) {
+		isis_free_tlvs(tlvs);
+		return ISIS_WARNING;
+	}
 
 	size_t tlv_start = stream_get_endp(circuit->snd_stream);
 	if (isis_pack_tlvs(tlvs, circuit->snd_stream, len_pointer, false,
@@ -2225,8 +2251,10 @@ int send_csnp(struct isis_circuit *circuit, int level)
 	bool loop = true;
 	while (loop) {
 		tlvs = isis_alloc_tlvs();
-		if (CHECK_FLAG(passwd->snp_auth, SNP_AUTH_SEND))
-			isis_tlvs_add_auth(tlvs, passwd);
+		if (!snp_add_auth(circuit, level, 'C', passwd, tlvs)) {
+			isis_free_tlvs(tlvs);
+			return ISIS_WARNING;
+		}
 
 		struct isis_lsp *last_lsp;
 		isis_tlvs_add_csnp_entries(tlvs, start, stop, num_lsps,
@@ -2370,8 +2398,10 @@ static int send_psnp(int level, struct isis_circuit *circuit)
 
 	struct isis_tlvs *tlvs = isis_alloc_tlvs();
 
-	if (CHECK_FLAG(passwd->snp_auth, SNP_AUTH_SEND))
-		isis_tlvs_add_auth(tlvs, passwd);
+	if (!snp_add_auth(circuit, level, 'P', passwd, tlvs)) {
+		isis_free_tlvs(tlvs);
+		return ISIS_WARNING;
+	}
 
 	size_t tlv_start = stream_get_endp(circuit->snd_stream);
 	if (isis_pack_tlvs(tlvs, circuit->snd_stream, len_pointer, false,
@@ -2388,8 +2418,10 @@ static int send_psnp(int level, struct isis_circuit *circuit)
 		struct isis_lsp *lsp;
 
 		tlvs = isis_alloc_tlvs();
-		if (CHECK_FLAG(passwd->snp_auth, SNP_AUTH_SEND))
-			isis_tlvs_add_auth(tlvs, passwd);
+		if (!snp_add_auth(circuit, level, 'P', passwd, tlvs)) {
+			isis_free_tlvs(tlvs);
+			return ISIS_WARNING;
+		}
 
 		frr_each (lspdb, &circuit->area->lspdb[level - 1], lsp) {
 			if (ISIS_CHECK_FLAG(lsp->SSNflags, circuit))
