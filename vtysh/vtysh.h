@@ -85,7 +85,8 @@ extern struct event_loop *master;
 		VTYSH_VRRPD | VTYSH_MGMTD
 #define VTYSH_INTERFACE VTYSH_INTERFACE_SUBSET | VTYSH_BGPD
 #define VTYSH_VRF	VTYSH_INTERFACE_SUBSET | VTYSH_BGPD
-#define VTYSH_KEYS	VTYSH_MGMTD | VTYSH_EIGRPD | VTYSH_OSPF6D | VTYSH_OSPFD | VTYSH_BFDD
+#define VTYSH_KEYS                                                                                \
+	VTYSH_MGMTD | VTYSH_EIGRPD | VTYSH_OSPF6D | VTYSH_OSPFD | VTYSH_BFDD | VTYSH_ISISD
 /* Daemons who can process nexthop-group configs */
 #define VTYSH_NH_GROUP    VTYSH_PBRD|VTYSH_SHARPD
 #define VTYSH_SR          VTYSH_ZEBRA|VTYSH_PATHD

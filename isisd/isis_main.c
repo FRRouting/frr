@@ -29,6 +29,7 @@
 #include "libfrr.h"
 #include "routemap.h"
 #include "affinitymap.h"
+#include "keychain.h"
 #include "libagentx.h"
 
 #include "isisd/isis_affinitymap.h"
@@ -122,6 +123,7 @@ static FRR_NORETURN void terminate(int i)
 
 #ifndef FABRICD
 	isis_affinity_map_terminate();
+	keychain_terminate();
 #endif
 	isis_master_terminate();
 	isis_tlvs_terminate();
@@ -194,6 +196,8 @@ static const struct frr_yang_module_info *const isisd_yang_modules[] = {
 	&frr_filter_info,
 	&frr_interface_info,
 #ifndef FABRICD
+	&ietf_key_chain_info,
+	&ietf_key_chain_deviation_info,
 	&frr_isisd_info,
 #endif /* ifndef FABRICD */
 	&frr_route_map_info,
@@ -354,6 +358,7 @@ int main(int argc, char **argv, char **envp)
 	isis_vty_daemon_init();
 #endif /* FABRICD */
 #ifndef FABRICD
+	keychain_init();
 	isis_cli_init();
 #endif /* ifndef FABRICD */
 	isis_spf_init();
