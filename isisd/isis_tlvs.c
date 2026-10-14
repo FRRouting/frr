@@ -5854,6 +5854,39 @@ static const struct key *crypto_auth_key_for_send(const char *keychain_name)
 	return NULL;
 }
 
+/*
+ * The next time after now at which a key of the chain starts or stops being
+ * valid for sending, which may change the key signing our PDUs; 0 if none.
+ */
+time_t isis_keychain_next_send_change(const char *keychain_name, time_t now)
+{
+	const struct keychain *keychain = keychain_lookup(keychain_name);
+	struct listnode *node;
+	const struct key *key;
+	time_t next = 0;
+
+	if (!keychain)
+		return 0;
+
+	for (ALL_LIST_ELEMENTS_RO(keychain->key, node, key)) {
+		time_t change;
+
+		if (key->send.start == 0)
+			continue;
+		if (key->send.start > now)
+			change = key->send.start;
+		else if (key->send.end != -1 && key->send.end >= now)
+			change = key->send.end + 1;
+		else
+			continue;
+
+		if (!next || change < next)
+			next = change;
+	}
+
+	return next;
+}
+
 static struct isis_item *copy_item_auth(struct isis_item *i)
 {
 	struct isis_auth *auth = (struct isis_auth *)i;

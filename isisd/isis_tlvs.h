@@ -826,6 +826,7 @@ struct list *isis_fragment_tlvs(struct isis_tlvs *tlvs, size_t size);
 
 bool isis_tlvs_add_auth(struct isis_tlvs *tlvs, struct isis_passwd *passwd);
 size_t isis_tlvs_auth_len(const struct isis_tlvs *tlvs);
+time_t isis_keychain_next_send_change(const char *keychain_name, time_t now);
 void isis_tlvs_add_area_addresses(struct isis_tlvs *tlvs, struct iso_address_list_head *addresses);
 void isis_tlvs_add_lan_neighbors(struct isis_tlvs *tlvs, struct list *neighbors);
 void isis_tlvs_set_protocols_supported(struct isis_tlvs *tlvs, struct nlpids *nlpids);
