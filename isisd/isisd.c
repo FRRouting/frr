@@ -3120,6 +3120,12 @@ int isis_area_passwd_hmac_md5_set(struct isis_area *area, int level,
 				    passwd, snp_auth);
 }
 
+int isis_area_passwd_keychain_set(struct isis_area *area, int level, const char *keychain,
+				  uint8_t snp_auth)
+{
+	return isis_area_passwd_set(area, level, ISIS_PASSWD_TYPE_CRYPTO_AUTH, keychain, snp_auth);
+}
+
 void isis_area_invalidate_routes(struct isis_area *area, int levels)
 {
 #ifndef FABRICD
