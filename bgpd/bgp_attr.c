@@ -22,7 +22,6 @@
 
 #include "bgpd/bgpd.h"
 #include "bgpd/bgp_attr.h"
-#include "bgpd/bgp_attr_disposition.h"
 #include "bgpd/bgp_route.h"
 #include "bgpd/bgp_aspath.h"
 #include "bgpd/bgp_community.h"

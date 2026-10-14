@@ -9,7 +9,7 @@
 #include "stream.h"
 #include "privs.h"
 #include "bgpd/bgpd.h"
-#include "bgpd/bgp_attr_disposition.h"
+#include "bgpd/bgp_attr.h"
 #include "bgpd/bgp_community_alias.h"
 #include "bgpd/bgp_network.h"
 #include "bgpd/bgp_vty.h"
