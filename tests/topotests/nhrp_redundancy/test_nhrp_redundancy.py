@@ -13,6 +13,7 @@ import json
 from functools import partial
 import pytest
 import re
+import time
 
 # pylint: disable=C0413
 # Import topogen and topotest helpers
@@ -71,6 +72,8 @@ sys.path.append(os.path.join(CWD, "../"))
 # Required to instantiate the topology builder class.
 
 pytestmark = [pytest.mark.nhrpd]
+
+PING_PID = None
 
 
 def build_topo(tgen):
@@ -243,9 +246,23 @@ def setup_module(mod):
     router_list = tgen.routers()
     _populate_iface()
 
+<<<<<<< HEAD
     for rname, router in router_list.items():
         logger.info("Loading router %s" % rname)
         router.load_frr_config(os.path.join(CWD, "{}/frr.conf".format(rname)))
+=======
+    for rname in ("nhc1", "nhc2"):
+        # set probe timer to 5s (1/3 of the NHRP holdtime of 15s)
+        tgen.gears[rname].cmd(
+            f"""
+sysctl -w net.ipv4.neigh.{rname}-gre0.base_reachable_time_ms=5000
+sysctl -w net.ipv4.neigh.{rname}-gre0.delay_first_probe_time=0
+        """
+        )
+
+    for router in router_list.values():
+        router.load_frr_config()
+>>>>>>> fe76b06 (tests: nhrp_redundancy, check renewal)
 
     # Initialize all routers.
     tgen.start_router()
@@ -254,6 +271,10 @@ def setup_module(mod):
 def teardown_module(_mod):
     "Teardown the pytest environment"
     tgen = get_topogen()
+
+    if PING_PID:
+        tgen.gears["host"].cmd(f"kill {PING_PID}")
+
     tgen.stop_topology()
 
 
@@ -354,6 +375,10 @@ def test_redundancy_shortcut():
     host = tgen.gears["host"]
     ping_test(host, "10.5.5.5", 1000, "nhc2 via shortcut")
 
+    logger.info("Ping in background to maintain the shorcut")
+    global PING_PID
+    PING_PID = host.cmd("ping -W 1 10.5.5.5 >/dev/null 2>&1 & echo $!").strip()
+
     logger.info("Check that NHRP shortcut route installed")
     json_file = "{}/{}/nhrp_route_shortcut.json".format(CWD, nhc1.name)
     assertmsg = "No nhrp_route file found"
@@ -378,13 +403,24 @@ def test_redundancy_shortcut():
     assertmsg = '"{}" "show ip nhrp shortcut" output mismatches'.format(nhc1.name)
     assert result is None, assertmsg
 
+    logger.info("Testing NHRP shortcuts are stable for 30s")
+    end = time.time() + 30
+    while time.time() < end:
+        result = test_func()
+        assertmsg = f"NHRP shortcut output changed during stability check: {result}"
+        assert result is None, assertmsg
+        time.sleep(0.5)
+
+    host.cmd(f"kill {PING_PID}")
+    PING_PID = None
+
     logger.info("check the shortcut disappears because of no traffic")
     json_file = "{}/{}/nhrp_shortcut_absent.json".format(CWD, nhc1.name)
     expected = json.loads(open(json_file).read())
     test_func = partial(
         router_nhrp_json_cmp, nhc1, "show ip nhrp shortcut json", expected
     )
-    _, result = topotest.run_and_expect(test_func, None, count=40, wait=0.5)
+    _, result = topotest.run_and_expect(test_func, None, count=60, wait=1)
 
     assertmsg = '"{}" "show ip nhrp shortcut" output mismatches'.format(nhc1.name)
     assert result is None, assertmsg
@@ -404,7 +440,6 @@ def test_redundancy_shortcut_backup():
     nhc1 = tgen.gears["nhc1"]
     router_list = tgen.routers()
 
-    # Bring down primary GRE interface and verify shortcut is not disturbed
     logger.info("Bringing down nhs1, primary NHRP server.")
     shutdown_bringup_interface(tgen, "nhs1", "nhs1-gre0", False)
 
@@ -485,10 +520,7 @@ def test_redundancy_shortcut_backup():
     test_func = partial(
         router_nhrp_json_cmp, nhc1, "show ip nhrp shortcut json", expected
     )
-    _, result = topotest.run_and_expect(test_func, None, count=40, wait=0.5)
-
-    output = nhc1.vtysh_cmd("show ip nhrp shortcut")
-    logger.info(output)
+    _, result = topotest.run_and_expect(test_func, None, count=60, wait=1)
 
     assertmsg = '"{}" "show ip nhrp shortcut" output mismatches'.format(nhc1.name)
     assert result is None, assertmsg
