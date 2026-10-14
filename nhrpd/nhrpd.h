@@ -453,6 +453,7 @@ void nhrp_cache_foreach(struct interface *ifp,
 void nhrp_cache_config_foreach(struct interface *ifp,
 			       void (*cb)(struct nhrp_cache_config *, void *), void *ctx);
 void nhrp_cache_set_used(struct nhrp_cache *c, int used);
+union sockunion *nhrp_cache_nbma(struct nhrp_cache *c);
 int nhrp_cache_update_binding(struct nhrp_cache *, enum nhrp_cache_type type,
 			      int holding_time, struct nhrp_peer *p,
 			      uint32_t mtu, union sockunion *nbma_natoa,
