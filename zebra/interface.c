@@ -1049,7 +1049,7 @@ void if_up(struct interface *ifp, bool install_connected)
 
 	if_handle_bond_speed_change(ifp);
 
-	rib_update_handle_vrf_all(RIB_UPDATE_KERNEL, ZEBRA_ROUTE_KERNEL);
+	rib_update(RIB_UPDATE_KERNEL, ZEBRA_ROUTE_KERNEL);
 }
 
 /* Interface goes down.  We have to manage different behavior of based
@@ -1314,10 +1314,14 @@ static void zebra_if_addr_update_ctx(struct zebra_dplane_ctx *ctx,
 	op = dplane_ctx_get_op(ctx);
 	addr = dplane_ctx_get_intf_addr(ctx);
 
-	if (IS_ZEBRA_DEBUG_KERNEL)
-		zlog_debug("%s: %s: ifindex %s(%u), addr %pFX", __func__,
-			   dplane_op2str(dplane_ctx_get_op(ctx)), ifp->name,
-			   ifp->ifindex, addr);
+	if (IS_ZEBRA_DEBUG_KERNEL) {
+		struct zebra_vrf *zvrf = ifp->vrf ? ifp->vrf->info : NULL;
+
+		zlog_debug("%s: %s: ifindex %s(%u), (%s:%u:%u)%pFX", __func__,
+			   dplane_op2str(dplane_ctx_get_op(ctx)), ifp->name, ifp->ifindex,
+			   VRF_LOGNAME(ifp->vrf), ifp->vrf ? ifp->vrf->vrf_id : VRF_UNKNOWN,
+			   zvrf ? zvrf->table_id : 0, addr);
+	}
 
 	if (dplane_ctx_intf_is_tentative(ctx))
 		SET_FLAG(flags, ZEBRA_IFA_TENTATIVE);
@@ -1386,7 +1390,7 @@ static void zebra_if_addr_update_ctx(struct zebra_dplane_ctx *ctx,
 	 */
 	if (op != DPLANE_OP_INTF_ADDR_ADD && addr->family == AF_INET &&
 	    !if_has_connected_with_family(ifp, AF_INET))
-		rib_update(RIB_UPDATE_KERNEL_LAST_IPV4_ADDRESS_DELETED);
+		rib_update(RIB_UPDATE_KERNEL_LAST_IPV4_ADDRESS_DELETED, ZEBRA_ROUTE_ALL);
 }
 
 static void zebra_if_update_ctx(struct zebra_dplane_ctx *ctx,
@@ -2306,7 +2310,7 @@ static void zebra_if_dplane_ifp_handling(struct zebra_dplane_ctx *ctx)
 					frrtrace(3, frr_zebra, if_dplane_ifp_handling, name,
 						 ifp->ifindex, 1);
 					if_down(ifp);
-					rib_update(RIB_UPDATE_KERNEL);
+					rib_update(RIB_UPDATE_KERNEL, ZEBRA_ROUTE_ALL);
 				} else if (if_is_operative(ifp)) {
 					bool mac_updated = false;
 
@@ -2373,7 +2377,7 @@ static void zebra_if_dplane_ifp_handling(struct zebra_dplane_ctx *ctx)
 					frrtrace(3, frr_zebra, if_dplane_ifp_handling, name,
 						 ifp->ifindex, 5);
 					if_down(ifp);
-					rib_update(RIB_UPDATE_KERNEL);
+					rib_update(RIB_UPDATE_KERNEL, ZEBRA_ROUTE_ALL);
 				}
 			}
 

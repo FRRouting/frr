@@ -229,9 +229,12 @@ static int group_announce_route_walkcb(struct update_group *updgrp, void *arg)
 	peer = UPDGRP_PEER(updgrp);
 	addpath_capable = bgp_addpath_encode_tx(peer, afi, safi);
 
-	if (BGP_DEBUG(update, UPDATE_OUT))
-		zlog_debug("%s: afi=%s, safi=%s, p=%pBD", __func__,
-			   afi2str(afi), safi2str(safi), ctx->dest);
+	if (BGP_DEBUG(update, UPDATE_OUT)) {
+		struct bgp_debug_vrf dv = bgp_dest_debug_vrf(ctx->dest);
+
+		zlog_debug("%s: afi=%s, safi=%s, p=(%s:%u:%u)%pBD", __func__, afi2str(afi),
+			   safi2str(safi), dv.name, dv.id, dv.table_id, ctx->dest);
+	}
 
 	UPDGRP_FOREACH_SUBGRP (updgrp, subgrp) {
 		/* An update-group that uses addpath */
@@ -553,6 +556,11 @@ bool bgp_adj_out_set_subgroup(struct bgp_dest *dest,
 	struct bgp *bgp;
 	struct attr *attr_new;
 	bool debug;
+	struct bgp_debug_vrf dv = {
+		.name = "Unknown",
+		.id = VRF_UNKNOWN,
+		.table_id = 0,
+	};
 
 	peer = SUBGRP_PEER(subgrp);
 	afi = SUBGRP_AFI(subgrp);
@@ -563,6 +571,8 @@ bool bgp_adj_out_set_subgroup(struct bgp_dest *dest,
 		return false;
 
 	debug = BGP_DEBUG(update, UPDATE_OUT);
+	if (debug)
+		dv = bgp_dest_debug_vrf(dest);
 
 	/* Look for adjacency information. */
 	adj = adj_lookup(
@@ -604,8 +614,9 @@ bool bgp_adj_out_set_subgroup(struct bgp_dest *dest,
 
 			bgp_dump_attr(attr_new, attr_str, sizeof(attr_str));
 
-			zlog_debug("%s suppress UPDATE %pBD w/ attr: %s, afi=%s, safi=%s",
-				   peer->host, dest, attr_str, afi2str(afi), safi2str(safi));
+			zlog_debug("%s suppress UPDATE (%s:%u:%u)%pBD w/ attr: %s, afi=%s, safi=%s",
+				   peer->host, dv.name, dv.id, dv.table_id, dest, attr_str,
+				   afi2str(afi), safi2str(safi));
 		}
 
 		/*
@@ -615,8 +626,9 @@ bool bgp_adj_out_set_subgroup(struct bgp_dest *dest,
 		 */
 		if (adj->adv && (attr_new == adj->attr)) {
 			if (debug) {
-				zlog_debug("%s delete queued UPDATE %pBD, afi=%s, safi=%s",
-					   peer->host, dest, afi2str(afi), safi2str(safi));
+				zlog_debug("%s delete queued UPDATE (%s:%u:%u)%pBD, afi=%s, safi=%s",
+					   peer->host, dv.name, dv.id, dv.table_id, dest,
+					   afi2str(afi), safi2str(safi));
 			}
 
 			bgp_advertise_clean_subgroup(subgrp, adj);
@@ -664,8 +676,8 @@ bool bgp_adj_out_set_subgroup(struct bgp_dest *dest,
 	bgp_advertise_add(adv->baa, adv);
 
 	if (debug) {
-		zlog_debug("%s queue UPDATE %pBD, afi=%s, safi=%s", peer->host, dest, afi2str(afi),
-			   safi2str(safi));
+		zlog_debug("%s queue UPDATE (%s:%u:%u)%pBD, afi=%s, safi=%s", peer->host, dv.name,
+			   dv.id, dv.table_id, dest, afi2str(afi), safi2str(safi));
 	}
 
 	/*
@@ -749,12 +761,15 @@ void bgp_adj_out_unset_subgroup(struct bgp_dest *dest, struct update_subgroup *s
 			bgp_adv_fifo_add_tail(&subgrp->sync->withdraw, adv);
 
 			if (BGP_DEBUG(update, UPDATE_OUT)) {
+				struct bgp_debug_vrf dv = bgp_dest_debug_vrf(dest);
+
 				peer = SUBGRP_PEER(subgrp);
 				afi = SUBGRP_AFI(subgrp);
 				safi = SUBGRP_SAFI(subgrp);
 
-				zlog_debug("%s queue UPDATE (withdraw) %pBD, afi=%s, safi=%s",
-					   peer->host, dest, afi2str(afi), safi2str(safi));
+				zlog_debug("%s queue UPDATE (withdraw) (%s:%u:%u)%pBD, afi=%s, safi=%s",
+					   peer->host, dv.name, dv.id, dv.table_id, dest,
+					   afi2str(afi), safi2str(safi));
 			}
 		} else {
 			/* Free allocated information.  */

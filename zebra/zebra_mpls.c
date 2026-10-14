@@ -53,7 +53,8 @@ static int fec_change_update_lsp(struct zebra_vrf *zvrf, struct zebra_fec *fec,
 				 mpls_label_t old_label, bool uninstall);
 static int fec_send(struct zebra_fec *fec, struct zserv *client);
 static void fec_update_clients(struct zebra_fec *fec);
-static void fec_print(struct zebra_fec *fec, struct vty *vty);
+static void fec_print(struct zebra_fec *fec, struct vty *vty,
+		      struct zebra_vrf *zvrf);
 static struct zebra_fec *fec_find(struct route_table *table, struct prefix *p);
 static struct zebra_fec *fec_add(struct route_table *table, struct prefix *p,
 				 mpls_label_t label, uint32_t flags,
@@ -370,8 +371,9 @@ static void fec_evaluate(struct zebra_vrf *zvrf)
 
 			if (IS_ZEBRA_DEBUG_MPLS)
 				zlog_debug(
-					"Update fec %pRN new label %u upon label block",
-					rn, new_label);
+					"Update fec (%s:%u:%u)%pRN new label %u upon label block",
+					zvrf_name(zvrf), zvrf_id(zvrf), zvrf->table_id, rn,
+					new_label);
 
 			fec->label = new_label;
 			fec_update_clients(fec);
@@ -522,7 +524,8 @@ static void fec_update_clients(struct zebra_fec *fec)
 /*
  * Print a FEC-label binding entry.
  */
-static void fec_print(struct zebra_fec *fec, struct vty *vty)
+static void fec_print(struct zebra_fec *fec, struct vty *vty,
+		      struct zebra_vrf *zvrf)
 {
 	struct route_node *rn;
 	struct listnode *node;
@@ -2360,14 +2363,11 @@ int zebra_mpls_fec_register(struct zebra_vrf *zvrf, struct prefix *p,
 		listnode_add(fec->client_list, client);
 
 	if (IS_ZEBRA_DEBUG_MPLS)
-		zlog_debug("FEC %pFX label%s %u %s by client %s%s", p,
-			   have_label_index ? " index" : "",
+		zlog_debug("FEC (%s:%u:%u)%pFX label%s %u %s by client %s%s", zvrf_name(zvrf),
+			   zvrf_id(zvrf), zvrf->table_id, p, have_label_index ? " index" : "",
 			   have_label_index ? label_index : label,
-			   new_client ? "registered" : "updated",
-			   zebra_route_string(client->proto),
-			   is_configured_fec
-				   ? ", but using statically configured label"
-				   : "");
+			   new_client ? "registered" : "updated", zebra_route_string(client->proto),
+			   is_configured_fec ? ", but using statically configured label" : "");
 
 	/* If not a statically configured FEC, derive the local label
 	 * from label index or use the provided label
@@ -2427,8 +2427,8 @@ int zebra_mpls_fec_unregister(struct zebra_vrf *zvrf, struct prefix *p,
 	listnode_delete(fec->client_list, client);
 
 	if (IS_ZEBRA_DEBUG_MPLS)
-		zlog_debug("FEC %pFX unregistered by client %s", p,
-			   zebra_route_string(client->proto));
+		zlog_debug("FEC (%s:%u:%u)%pFX unregistered by client %s", zvrf_name(zvrf),
+			   zvrf_id(zvrf), zvrf->table_id, p, zebra_route_string(client->proto));
 
 	/* If not a configured entry, delete the FEC if no other clients. Before
 	 * deleting, see if any LSP needs to be uninstalled.
@@ -2591,7 +2591,8 @@ int zebra_mpls_static_fec_add(struct zebra_vrf *zvrf, struct prefix *p,
 		}
 
 		if (IS_ZEBRA_DEBUG_MPLS)
-			zlog_debug("Add fec %pFX label %u", p, in_label);
+			zlog_debug("Add fec (%s:%u:%u)%pFX label %u", zvrf_name(zvrf),
+				   zvrf_id(zvrf), zvrf->table_id, p, in_label);
 	} else {
 		SET_FLAG(fec->flags, FEC_FLAG_CONFIGURED);
 		if (fec->label == in_label)
@@ -2601,7 +2602,8 @@ int zebra_mpls_static_fec_add(struct zebra_vrf *zvrf, struct prefix *p,
 		/* Label change, update clients. */
 		old_label = fec->label;
 		if (IS_ZEBRA_DEBUG_MPLS)
-			zlog_debug("Update fec %pFX new label %u", p, in_label);
+			zlog_debug("Update fec (%s:%u:%u)%pFX new label %u", zvrf_name(zvrf),
+				   zvrf_id(zvrf), zvrf->table_id, p, in_label);
 
 		fec->label = in_label;
 		fec_update_clients(fec);
@@ -2637,8 +2639,8 @@ int zebra_mpls_static_fec_del(struct zebra_vrf *zvrf, struct prefix *p)
 	}
 
 	if (IS_ZEBRA_DEBUG_MPLS) {
-		zlog_debug("Delete fec %pFX label %u label index %u", p,
-			   fec->label, fec->label_index);
+		zlog_debug("Delete fec (%s:%u:%u)%pFX label %u label index %u", zvrf_name(zvrf),
+			   zvrf_id(zvrf), zvrf->table_id, p, fec->label, fec->label_index);
 	}
 
 	old_label = fec->label;
@@ -2721,7 +2723,7 @@ void zebra_mpls_print_fec_table(struct vty *vty, struct zebra_vrf *zvrf)
 		     rn = route_next(rn)) {
 			if (!rn->info)
 				continue;
-			fec_print(rn->info, vty);
+			fec_print(rn->info, vty, zvrf);
 		}
 	}
 }
@@ -2748,7 +2750,7 @@ void zebra_mpls_print_fec(struct vty *vty, struct zebra_vrf *zvrf,
 	if (!rn->info)
 		return;
 
-	fec_print(rn->info, vty);
+	fec_print(rn->info, vty, zvrf);
 }
 
 static void mpls_zebra_nhe_update(struct route_entry *re, afi_t afi,
@@ -2977,9 +2979,9 @@ void zebra_mpls_zapi_labels_process(bool add_p, struct zebra_vrf *zvrf,
 			 * find a route/FEC, so we'll continue that way.
 			 */
 			if (IS_ZEBRA_DEBUG_RECV || IS_ZEBRA_DEBUG_MPLS)
-				zlog_debug(
-					"%s: FTN update requested: no route for prefix %pFX",
-					__func__, prefix);
+				zlog_debug("%s: FTN update requested: no route for (%s:%u:%u)%pFX",
+					   __func__, zvrf_name(zvrf), zvrf_id(zvrf),
+					   zvrf->table_id, prefix);
 		}
 	}
 
@@ -3021,9 +3023,9 @@ void zebra_mpls_zapi_labels_process(bool add_p, struct zebra_vrf *zvrf,
 			counter++;
 		} else if (IS_ZEBRA_DEBUG_RECV | IS_ZEBRA_DEBUG_MPLS) {
 			zapi_nexthop2str(znh, buf, sizeof(buf));
-			zlog_debug(
-				"%s: Unable to update FEC: prefix %pFX, label %u, znh %s",
-				__func__, prefix, zl->local_label, buf);
+			zlog_debug("%s: Unable to update FEC: (%s:%u:%u)%pFX, label %u, znh %s",
+				   __func__, zvrf_name(zvrf), zvrf_id(zvrf),
+				   re ? re->table : zvrf->table_id, prefix, zl->local_label, buf);
 		}
 	}
 
@@ -3071,9 +3073,9 @@ void zebra_mpls_zapi_labels_process(bool add_p, struct zebra_vrf *zvrf,
 			counter++;
 		} else if (IS_ZEBRA_DEBUG_RECV | IS_ZEBRA_DEBUG_MPLS) {
 			zapi_nexthop2str(znh, buf, sizeof(buf));
-			zlog_debug(
-				"%s: Unable to update backup FEC: prefix %pFX, label %u, znh %s",
-				__func__, prefix, zl->local_label, buf);
+			zlog_debug("%s: Unable to update backup FEC: (%s:%u:%u)%pFX, label %u, znh %s",
+				   __func__, zvrf_name(zvrf), zvrf_id(zvrf),
+				   re ? re->table : zvrf->table_id, prefix, zl->local_label, buf);
 		}
 	}
 
