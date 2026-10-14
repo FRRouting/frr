@@ -19,6 +19,9 @@ Test the EVPN route-target configuration features:
 - manual route targets replacing the auto route target per direction
   (add-if-no-manual default), and the split/merge behavior of
   "route-target both <RT>" and its no-forms,
+- adding and removing several manual route targets with one RTLIST
+  command on an L3VNI VRF, including repeated and already configured
+  entries,
 - canonical ordering of the effective import route-target list,
 - cleanup of the wildcard auto import RT when the L3VNI is detached,
 - the deprecated "route-target <dir> auto"/"autort rfc8365-compatible"
@@ -1158,6 +1161,146 @@ router bgp 65002 vrf vrf-101
   no auto-route-target import add-always
   no auto-route-target export add-if-no-manual
 """
+    )
+
+
+def test_l3vni_rtlist():
+    """
+    Add and remove several manual RTs with one RTLIST command on r2's
+    L3VNI VRF. Entries already configured, or repeated within the same
+    list, warn while the remaining entries still apply. Route import
+    and export follow the resulting RT set in both directions, and
+    "route-target both" with a split import/export state only adds or
+    removes the missing or present direction.
+    """
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    r1 = tgen.gears["r1"]
+    r2 = tgen.gears["r2"]
+
+    # A list that does not match r1's export RT replaces the auto import
+    # RT. The repeated entry warns once.
+    out = r2.vtysh_cmd(
+        """
+configure terminal
+router bgp 65002 vrf vrf-101
+ address-family l2vpn evpn
+  route-target import 65001:998 65001:999 65001:999
+"""
+    )
+    assert (
+        out.count("RT specified already configured for this VRF: 65001:999") == 1
+    ), "r2: repeated RT in an import list did not warn exactly once"
+
+    test_func = partial(
+        _check_vni_rt_list, r2, 101, "importRts", ["65001:998", "65001:999"]
+    )
+    _expect(test_func, "r2: import RTs of the L3VNI not set from the RT list")
+    test_func = partial(_check_vrf_route_absent, r2, "10.0.101.1/32")
+    _expect(test_func, "r2: r1's type-5 route still imported without a matching RT")
+
+    # Mixed list: the already configured entry warns, the new one applies.
+    out = r2.vtysh_cmd(
+        """
+configure terminal
+router bgp 65002 vrf vrf-101
+ address-family l2vpn evpn
+  route-target import 65001:101 65001:998
+"""
+    )
+    assert (
+        "RT specified already configured for this VRF: 65001:998" in out
+    ), "r2: already configured RT in an import list did not warn"
+
+    test_func = partial(
+        _check_vni_rt_list,
+        r2,
+        101,
+        "importRts",
+        ["65001:101", "65001:998", "65001:999"],
+    )
+    _expect(test_func, "r2: new RT of a mixed import list not applied")
+    _expect(
+        _check_vrf_route_present(r2, "10.0.101.1/32"),
+        "r2: r1's type-5 route not imported via the added RT",
+    )
+
+    # Removing all of them in one list restores the auto import RT. The
+    # repeated entry no longer matches the configuration and warns once.
+    out = r2.vtysh_cmd(
+        """
+configure terminal
+router bgp 65002 vrf vrf-101
+ address-family l2vpn evpn
+  no route-target import 65001:101 65001:998 65001:999 65001:999
+"""
+    )
+    assert (
+        out.count("RT specified does not match configuration for this VRF: 65001:999")
+        == 1
+    ), "r2: repeated RT in a removal list did not warn exactly once"
+
+    test_func = partial(_check_vni_rt_list, r2, 101, "importRts", ["*:101"])
+    _expect(test_func, "r2: auto import RT not restored after removing the RT list")
+    _expect(
+        _check_vrf_route_present(r2, "10.0.101.1/32"),
+        "r2: r1's type-5 route not imported via the restored auto RT",
+    )
+
+    # "both" on top of a split state: 65002:7 only lacks the import
+    # direction, 65002:8 lacks both. No entry warns.
+    out = r2.vtysh_cmd(
+        """
+configure terminal
+router bgp 65002 vrf vrf-101
+ address-family l2vpn evpn
+  route-target export 65002:7
+  route-target both 65002:7 65002:8
+"""
+    )
+    assert "RT specified" not in out, "r2: 'route-target both' on a split state warned"
+
+    test_func = partial(
+        _check_vni_rt_list, r2, 101, "importRts", ["65002:7", "65002:8"]
+    )
+    _expect(test_func, "r2: import RTs of the L3VNI not set by 'route-target both'")
+    test_func = partial(
+        _check_vni_rt_list, r2, 101, "exportRts", ["65002:7", "65002:8"]
+    )
+    _expect(test_func, "r2: export RTs of the L3VNI not set by 'route-target both'")
+    test_func = partial(_check_vrf_route_absent, r2, "10.0.101.1/32")
+    _expect(test_func, "r2: r1's type-5 route still imported without a matching RT")
+    test_func = partial(_check_vrf_route_absent, r1, "10.0.101.2/32")
+    _expect(test_func, "r1: r2's type-5 route still imported after r2's export change")
+
+    # Removing them restores both auto RTs and route exchange. The
+    # repeated entry warns once.
+    out = r2.vtysh_cmd(
+        """
+configure terminal
+router bgp 65002 vrf vrf-101
+ address-family l2vpn evpn
+  no route-target both 65002:7 65002:8 65002:8
+"""
+    )
+    assert (
+        out.count("RT specified does not match configuration for this VRF: 65002:8")
+        == 1
+    ), "r2: repeated RT in a 'no route-target both' list did not warn exactly once"
+
+    test_func = partial(_check_vni_rt_list, r2, 101, "importRts", ["*:101"])
+    _expect(test_func, "r2: auto import RT not restored after 'no route-target both'")
+    test_func = partial(_check_vni_rt_list, r2, 101, "exportRts", ["65002:101"])
+    _expect(test_func, "r2: auto export RT not restored after 'no route-target both'")
+    _expect(
+        _check_vrf_route_present(r2, "10.0.101.1/32"),
+        "r2: r1's type-5 route not re-imported after 'no route-target both'",
+    )
+    _expect(
+        _check_vrf_route_present(r1, "10.0.101.2/32"),
+        "r1: r2's type-5 route not re-imported after 'no route-target both'",
     )
 
 
