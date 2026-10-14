@@ -1725,6 +1725,22 @@ TRACEPOINT_EVENT(
 TRACEPOINT_LOGLEVEL(frr_bgp, bfd_session_register, TRACE_INFO)
 
 /*
+ * Single-hop BFD session install deferred: egress interface not yet known
+ * loc: same as bfd_session_register
+ */
+TRACEPOINT_EVENT(
+	frr_bgp,
+	bfd_session_install_deferred,
+	TP_ARGS(const char *, peer_host, vrf_id_t, vrf_id, uint8_t, loc),
+	TP_FIELDS(
+		ctf_string(peer, peer_host)
+		ctf_integer(vrf_id_t, vrf_id, vrf_id)
+		ctf_integer(uint8_t, location, loc)
+	)
+)
+TRACEPOINT_LOGLEVEL(frr_bgp, bfd_session_install_deferred, TRACE_INFO)
+
+/*
  * BFD session deregistration tracepoint
  * Traced when BGP deregisters BFD session (e.g., during fast shutdown/warmboot)
  * loc: 1=fast_shutdown, 2=update_source_change, 3=multihop_change,
