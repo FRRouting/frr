@@ -1002,6 +1002,7 @@ void subgroup_default_originate(struct update_subgroup *subgrp, bool withdraw)
 
 	if (peer->default_rmap[afi][safi].name) {
 		struct bgp_path_info tmp_pi = {0};
+		uint8_t nh_family = peer_cap_enhe(peer, afi, safi) ? AF_INET6 : AF_INET;
 
 		tmp_pi.peer = bgp->peer_self;
 
@@ -1029,6 +1030,10 @@ void subgroup_default_originate(struct update_subgroup *subgrp, bool withdraw)
 					&new_pref);
 
 				if (new_ret == RMAP_PERMITMATCH) {
+					/* Keep a next-hop set by the route-map */
+					if (!bgp_rmap_nhop_changed(tmp_pi.attr->rmap_change_flags))
+						subgroup_announce_reset_nhop(nh_family,
+									     tmp_pi.attr);
 					if (new_pref < pref) {
 						pref = new_pref;
 						bgp_attr_flush(new_attr);
@@ -1040,11 +1045,6 @@ void subgroup_default_originate(struct update_subgroup *subgrp, bool withdraw)
 							tmp_pi.attr);
 					}
 					bgp_attr_flush(tmp_pi.attr);
-					subgroup_announce_reset_nhop(
-						(peer_cap_enhe(peer, afi, safi)
-							 ? AF_INET6
-							 : AF_INET),
-						new_attr);
 					ret = new_ret;
 				} else
 					bgp_attr_flush(&tmp_attr);
