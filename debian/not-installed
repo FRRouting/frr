@@ -2,4 +2,3 @@ usr/include
 usr/lib/frr/ospfclient
 usr/lib/frr/rfptest
 usr/lib/*/frr/modules/dplane_sample_plugin.so
-usr/lib/*/frr/pkgconfig/frr.pc
