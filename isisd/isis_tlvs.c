@@ -20,6 +20,7 @@
 
 #ifdef CRYPTO_INTERNAL
 #include "md5.h"
+#include "sha256.h"
 #endif
 #include "memory.h"
 #include "stream.h"
@@ -5688,6 +5689,171 @@ static int unpack_tlv_router_cap(enum isis_tlv_context context, uint8_t tlv_type
 }
 
 /* Functions related to TLV 10 Authentication */
+
+/*
+ * RFC 5310 generic cryptographic authentication. The key comes from a key
+ * chain, whose Key ID is sent in the TLV and selects the key on receipt.
+ */
+#define CRYPTO_AUTH_KEY_ID_LEN 2
+
+static const uint8_t crypto_auth_apad[] = { 0x87, 0x8f, 0xe1, 0xf3 };
+
+/* The key chain algorithms RFC 5310 defines that this build implements; the
+ * key chain configuration already rejects the others.
+ */
+static bool crypto_auth_algo_supported(enum keychain_hash_algo algo)
+{
+	switch (algo) {
+	case KEYCHAIN_ALGO_HMAC_SHA1:
+	case KEYCHAIN_ALGO_HMAC_SHA384:
+	case KEYCHAIN_ALGO_HMAC_SHA512:
+#ifdef CRYPTO_OPENSSL
+		return true;
+#else
+		return false;
+#endif
+	case KEYCHAIN_ALGO_HMAC_SHA256:
+		return true;
+	case KEYCHAIN_ALGO_NULL:
+	case KEYCHAIN_ALGO_CLEARTEXT:
+	case KEYCHAIN_ALGO_MD5:
+	case KEYCHAIN_ALGO_MAX:
+		return false;
+	}
+
+	return false;
+}
+
+#ifdef CRYPTO_OPENSSL
+static const EVP_MD *crypto_auth_md(enum keychain_hash_algo algo)
+{
+	switch (algo) {
+	case KEYCHAIN_ALGO_HMAC_SHA1:
+		return EVP_sha1();
+	case KEYCHAIN_ALGO_HMAC_SHA256:
+		return EVP_sha256();
+	case KEYCHAIN_ALGO_HMAC_SHA384:
+		return EVP_sha384();
+	case KEYCHAIN_ALGO_HMAC_SHA512:
+		return EVP_sha512();
+	case KEYCHAIN_ALGO_NULL:
+	case KEYCHAIN_ALGO_CLEARTEXT:
+	case KEYCHAIN_ALGO_MD5:
+	case KEYCHAIN_ALGO_MAX:
+		break;
+	}
+
+	assert(!"not an RFC 5310 algorithm");
+	return NULL;
+}
+#endif
+
+static void crypto_auth_hash(enum keychain_hash_algo algo, const void *data, size_t len,
+			     uint8_t *digest)
+{
+#ifdef CRYPTO_OPENSSL
+	EVP_Digest(data, len, digest, NULL, crypto_auth_md(algo), NULL);
+#else
+	SHA256_CTX ctx;
+
+	assert(algo == KEYCHAIN_ALGO_HMAC_SHA256);
+	SHA256_Init(&ctx);
+	SHA256_Update(&ctx, data, len);
+	SHA256_Final(digest, &ctx);
+#endif
+}
+
+static void crypto_auth_hmac(enum keychain_hash_algo algo, const uint8_t *key, size_t key_len,
+			     const uint8_t *data, size_t len, uint8_t *digest)
+{
+#ifdef CRYPTO_OPENSSL
+	HMAC(crypto_auth_md(algo), key, key_len, data, len, digest, NULL);
+#else
+	HMAC_SHA256_CTX ctx;
+
+	assert(algo == KEYCHAIN_ALGO_HMAC_SHA256);
+	HMAC__SHA256_Init(&ctx, key, key_len);
+	HMAC__SHA256_Update(&ctx, data, len);
+	HMAC__SHA256_Final(digest, &ctx);
+#endif
+}
+
+/*
+ * The HMAC key: the key, or its hash when it is longer than the block size,
+ * as plain HMAC (RFC 2104) has it. RFC 5310 section 3.3 (1) hashes keys longer
+ * than the hash instead, but IOS XR, EOS and Holo all use plain HMAC, and the
+ * two only differ for keys longer than the hash and no longer than the block.
+ * Hashing long keys here bounds what struct isis_auth has to hold.
+ */
+_Static_assert(sizeof(((struct isis_auth *)0)->passwd) >= KEYCHAIN_ALGO_MAX_INTERNAL_BLK_SIZE,
+	       "struct isis_auth must hold any HMAC key");
+
+static size_t crypto_auth_ko(enum keychain_hash_algo algo, const char *key, uint8_t *ko)
+{
+	size_t key_len = strlen(key);
+
+	if (key_len > keychain_get_block_size(algo)) {
+		crypto_auth_hash(algo, key, key_len, ko);
+		return keychain_get_hash_len(algo);
+	}
+
+	memcpy(ko, key, key_len);
+	return key_len;
+}
+
+static void crypto_auth_fill_apad(uint8_t *dst, size_t len)
+{
+	for (size_t i = 0; i < len; i++)
+		dst[i] = crypto_auth_apad[i % sizeof(crypto_auth_apad)];
+}
+
+static bool crypto_auth_digest_equal(const uint8_t *a, const uint8_t *b, size_t len)
+{
+	uint8_t diff = 0;
+
+	for (size_t i = 0; i < len; i++)
+		diff |= a[i] ^ b[i];
+
+	return diff == 0;
+}
+
+/* A key that can sign an IS-IS PDU: a key string, a Key ID that fits the
+ * 16-bit field and an algorithm RFC 5310 defines.
+ */
+static bool crypto_auth_key_usable(const struct key *key)
+{
+	return key->string && key->index <= UINT16_MAX &&
+	       crypto_auth_algo_supported(key->hash_algo);
+}
+
+/* The lifetime test of key_lookup_for_send() */
+static bool key_send_active(const struct key *key, time_t now)
+{
+	if (key->send.start == 0)
+		return true;
+
+	return key->send.start <= now && (key->send.end == -1 || key->send.end >= now);
+}
+
+/* The first key of the chain that is valid for sending and usable for IS-IS */
+static const struct key *crypto_auth_key_for_send(const char *keychain_name)
+{
+	const struct keychain *keychain = keychain_lookup(keychain_name);
+	struct listnode *node;
+	const struct key *key;
+	time_t now = time(NULL);
+
+	if (!keychain)
+		return NULL;
+
+	for (ALL_LIST_ELEMENTS_RO(keychain->key, node, key)) {
+		if (key_send_active(key, now) && crypto_auth_key_usable(key))
+			return key;
+	}
+
+	return NULL;
+}
+
 static struct isis_item *copy_item_auth(struct isis_item *i)
 {
 	struct isis_auth *auth = (struct isis_auth *)i;
@@ -5696,6 +5862,8 @@ static struct isis_item *copy_item_auth(struct isis_item *i)
 	rv->type = auth->type;
 	rv->length = auth->length;
 	memcpy(rv->value, auth->value, sizeof(rv->value));
+	rv->key_id = auth->key_id;
+	rv->algo = auth->algo;
 	return (struct isis_item *)rv;
 }
 
@@ -5724,6 +5892,19 @@ static void format_item_auth(uint16_t mtid, struct isis_item *i, struct sbuf *bu
 			json_object_string_add(json, "authHmacMd5", obuf);
 		else
 			sbuf_push(buf, indent, "  HMAC-MD5: %s\n", obuf);
+		break;
+	case ISIS_PASSWD_TYPE_CRYPTO_AUTH:
+		/* A received TLV can carry a Key ID and no digest */
+		obuf[0] = '\0';
+		for (unsigned int j = 0; j < auth->length; j++)
+			snprintfrr(obuf + 2 * j, sizeof(obuf) - 2 * j, "%02hhx", auth->value[j]);
+		if (json) {
+			json_object_int_add(json, "authKeyId", auth->key_id);
+			json_object_string_add(json, "authCryptoDigest", obuf);
+		} else {
+			sbuf_push(buf, indent, "  Crypto Auth: Key ID %hu, %s\n", auth->key_id,
+				  obuf);
+		}
 		break;
 	default:
 		if (json)
@@ -5765,6 +5946,18 @@ static int pack_item_auth(struct isis_item *i, struct stream *s, size_t *min_len
 		auth->offset = stream_get_endp(s);
 		stream_put(s, NULL, 16);
 		break;
+	case ISIS_PASSWD_TYPE_CRYPTO_AUTH: {
+		size_t hash_len = keychain_get_hash_len(auth->algo);
+
+		if (STREAM_WRITEABLE(s) < CRYPTO_AUTH_KEY_ID_LEN + hash_len) {
+			*min_len = 1 + CRYPTO_AUTH_KEY_ID_LEN + hash_len;
+			return 1;
+		}
+		stream_putw(s, auth->key_id);
+		auth->offset = stream_get_endp(s);
+		stream_put(s, NULL, hash_len);
+		break;
+	}
 	default:
 		return 1;
 	}
@@ -5795,6 +5988,18 @@ static int unpack_item_auth(uint16_t mtid, uint8_t len, struct stream *s, struct
 			  rv->length);
 		XFREE(MTYPE_ISIS_TLV, rv);
 		return 1;
+	}
+
+	if (rv->type == ISIS_PASSWD_TYPE_CRYPTO_AUTH) {
+		if (rv->length < CRYPTO_AUTH_KEY_ID_LEN) {
+			sbuf_push(log, indent,
+				  "Not enough data left.(Expected %d bytes of Key ID, got %hhu)\n",
+				  CRYPTO_AUTH_KEY_ID_LEN, rv->length);
+			XFREE(MTYPE_ISIS_TLV, rv);
+			return 1;
+		}
+		rv->key_id = stream_getw(s);
+		rv->length -= CRYPTO_AUTH_KEY_ID_LEN;
 	}
 
 	rv->offset = stream_get_getp(s);
@@ -6786,7 +6991,7 @@ static void add_padding(struct stream *s)
 
 #define LSP_REM_LIFETIME_OFF 10
 #define LSP_CHECKSUM_OFF     24
-static void safe_auth_md5(struct stream *s, uint16_t *checksum, uint16_t *rem_lifetime)
+static void lsp_auth_fields_clear(struct stream *s, uint16_t *checksum, uint16_t *rem_lifetime)
 {
 	memcpy(rem_lifetime, STREAM_DATA(s) + LSP_REM_LIFETIME_OFF, sizeof(*rem_lifetime));
 	memset(STREAM_DATA(s) + LSP_REM_LIFETIME_OFF, 0, sizeof(*rem_lifetime));
@@ -6794,7 +6999,7 @@ static void safe_auth_md5(struct stream *s, uint16_t *checksum, uint16_t *rem_li
 	memset(STREAM_DATA(s) + LSP_CHECKSUM_OFF, 0, sizeof(*checksum));
 }
 
-static void restore_auth_md5(struct stream *s, uint16_t checksum, uint16_t rem_lifetime)
+static void lsp_auth_fields_restore(struct stream *s, uint16_t checksum, uint16_t rem_lifetime)
 {
 	memcpy(STREAM_DATA(s) + LSP_REM_LIFETIME_OFF, &rem_lifetime, sizeof(rem_lifetime));
 	memcpy(STREAM_DATA(s) + LSP_CHECKSUM_OFF, &checksum, sizeof(checksum));
@@ -6806,7 +7011,7 @@ static void update_auth_hmac_md5(struct isis_auth *auth, struct stream *s, bool 
 	uint16_t checksum = 0, rem_lifetime = 0;
 
 	if (is_lsp)
-		safe_auth_md5(s, &checksum, &rem_lifetime);
+		lsp_auth_fields_clear(s, &checksum, &rem_lifetime);
 
 	memset(STREAM_DATA(s) + auth->offset, 0, 16);
 #ifdef CRYPTO_OPENSSL
@@ -6821,7 +7026,28 @@ static void update_auth_hmac_md5(struct isis_auth *auth, struct stream *s, bool 
 	memcpy(STREAM_DATA(s) + auth->offset, digest, 16);
 
 	if (is_lsp)
-		restore_auth_md5(s, checksum, rem_lifetime);
+		lsp_auth_fields_restore(s, checksum, rem_lifetime);
+}
+
+/* RFC 5310 section 3.4: HMAC over the PDU with the digest set to Apad and, in
+ * LSPs, the checksum and remaining lifetime set to zero.
+ */
+static void update_auth_crypto(struct isis_auth *auth, struct stream *s, bool is_lsp)
+{
+	size_t hash_len = keychain_get_hash_len(auth->algo);
+	uint16_t checksum = 0, rem_lifetime = 0;
+
+	if (is_lsp)
+		lsp_auth_fields_clear(s, &checksum, &rem_lifetime);
+
+	crypto_auth_fill_apad(STREAM_DATA(s) + auth->offset, hash_len);
+	crypto_auth_hmac(auth->algo, auth->passwd, auth->plength, STREAM_DATA(s),
+			 stream_get_endp(s), auth->value);
+	auth->length = hash_len;
+	memcpy(STREAM_DATA(s) + auth->offset, auth->value, hash_len);
+
+	if (is_lsp)
+		lsp_auth_fields_restore(s, checksum, rem_lifetime);
 }
 
 static void update_auth(struct isis_tlvs *tlvs, struct stream *s, bool is_lsp)
@@ -6831,6 +7057,8 @@ static void update_auth(struct isis_tlvs *tlvs, struct stream *s, bool is_lsp)
 	for (struct isis_auth *auth = auth_head; auth; auth = auth->next) {
 		if (auth->type == ISIS_PASSWD_TYPE_HMAC_MD5)
 			update_auth_hmac_md5(auth, s, is_lsp);
+		else if (auth->type == ISIS_PASSWD_TYPE_CRYPTO_AUTH)
+			update_auth_crypto(auth, s, is_lsp);
 	}
 }
 
@@ -7239,13 +7467,34 @@ static const struct tlv_ops *const tlv_table[ISIS_CONTEXT_MAX][ISIS_TLV_MAX] = {
 
 /* Accessor functions */
 
-void isis_tlvs_add_auth(struct isis_tlvs *tlvs, struct isis_passwd *passwd)
+/*
+ * Replace the authentication of tlvs with passwd's. Returns false when passwd
+ * names a key chain that has no key to sign with, in which case tlvs is left
+ * without authentication: RFC 5310 section 3.4 has such a PDU discarded.
+ */
+bool isis_tlvs_add_auth(struct isis_tlvs *tlvs, struct isis_passwd *passwd)
 {
 	free_items(ISIS_CONTEXT_LSP, ISIS_TLV_AUTH, &tlvs->isis_auth);
 	init_item_list(&tlvs->isis_auth);
 
 	if (passwd->type == ISIS_PASSWD_TYPE_UNUSED)
-		return;
+		return true;
+
+	if (passwd->type == ISIS_PASSWD_TYPE_CRYPTO_AUTH) {
+		const struct key *key = crypto_auth_key_for_send((const char *)passwd->passwd);
+
+		if (!key)
+			return false;
+
+		struct isis_auth *auth = XCALLOC(MTYPE_ISIS_TLV, sizeof(*auth));
+
+		auth->type = ISIS_PASSWD_TYPE_CRYPTO_AUTH;
+		auth->key_id = key->index;
+		auth->algo = key->hash_algo;
+		auth->plength = crypto_auth_ko(key->hash_algo, key->string, auth->passwd);
+		append_item(&tlvs->isis_auth, (struct isis_item *)auth);
+		return true;
+	}
 
 	struct isis_auth *auth = XCALLOC(MTYPE_ISIS_TLV, sizeof(*auth));
 
@@ -7261,6 +7510,31 @@ void isis_tlvs_add_auth(struct isis_tlvs *tlvs, struct isis_passwd *passwd)
 	}
 
 	append_item(&tlvs->isis_auth, (struct isis_item *)auth);
+	return true;
+}
+
+/* The bytes the authentication TLVs of tlvs take once packed */
+size_t isis_tlvs_auth_len(const struct isis_tlvs *tlvs)
+{
+	const struct isis_auth *auth;
+	size_t len = 0;
+
+	for (auth = (const struct isis_auth *)tlvs->isis_auth.head; auth; auth = auth->next) {
+		len += 2 + 1;
+		switch (auth->type) {
+		case ISIS_PASSWD_TYPE_HMAC_MD5:
+			len += 16;
+			break;
+		case ISIS_PASSWD_TYPE_CRYPTO_AUTH:
+			len += CRYPTO_AUTH_KEY_ID_LEN + keychain_get_hash_len(auth->algo);
+			break;
+		default:
+			len += auth->length;
+			break;
+		}
+	}
+
+	return len;
 }
 
 void isis_tlvs_add_area_addresses(struct isis_tlvs *tlvs, struct iso_address_list_head *addresses)
@@ -7387,7 +7661,7 @@ static bool auth_validator_hmac_md5(struct isis_passwd *passwd, struct stream *s
 	uint16_t rem_lifetime;
 
 	if (is_lsp)
-		safe_auth_md5(stream, &checksum, &rem_lifetime);
+		lsp_auth_fields_clear(stream, &checksum, &rem_lifetime);
 
 	memset(STREAM_DATA(stream) + auth->offset, 0, 16);
 #ifdef CRYPTO_OPENSSL
@@ -7403,13 +7677,54 @@ static bool auth_validator_hmac_md5(struct isis_passwd *passwd, struct stream *s
 	bool rv = !memcmp(digest, auth->value, 16);
 
 	if (is_lsp)
-		restore_auth_md5(stream, checksum, rem_lifetime);
+		lsp_auth_fields_restore(stream, checksum, rem_lifetime);
 
 	return rv;
 }
 
+/* RFC 5310 section 3.5: the Key ID selects a key of the chain valid for
+ * accepting, whose algorithm must produce a digest of the length received.
+ */
+static bool auth_validator_crypto(struct isis_passwd *passwd, struct stream *stream,
+				  struct isis_auth *auth, bool is_lsp)
+{
+	const struct keychain *keychain = keychain_lookup((const char *)passwd->passwd);
+	uint8_t ko[KEYCHAIN_ALGO_MAX_INTERNAL_BLK_SIZE];
+	uint8_t digest[KEYCHAIN_MAX_HASH_SIZE];
+	uint16_t checksum = 0, rem_lifetime = 0;
+	const struct key *key;
+	size_t hash_len, ko_len;
+
+	if (!keychain)
+		return false;
+
+	key = key_lookup_for_accept(keychain, auth->key_id, true);
+	if (!key || !crypto_auth_key_usable(key))
+		return false;
+
+	hash_len = keychain_get_hash_len(key->hash_algo);
+	if (auth->length != hash_len)
+		return false;
+
+	ko_len = crypto_auth_ko(key->hash_algo, key->string, ko);
+
+	if (is_lsp)
+		lsp_auth_fields_clear(stream, &checksum, &rem_lifetime);
+
+	crypto_auth_fill_apad(STREAM_DATA(stream) + auth->offset, hash_len);
+	crypto_auth_hmac(key->hash_algo, ko, ko_len, STREAM_DATA(stream), stream_get_endp(stream),
+			 digest);
+	memcpy(STREAM_DATA(stream) + auth->offset, auth->value, hash_len);
+
+	if (is_lsp)
+		lsp_auth_fields_restore(stream, checksum, rem_lifetime);
+
+	return crypto_auth_digest_equal(digest, auth->value, hash_len);
+}
+
 static const auth_validator_func auth_validators[] = {
 	[ISIS_PASSWD_TYPE_CLEARTXT] = auth_validator_cleartxt,
+	[ISIS_PASSWD_TYPE_CRYPTO_AUTH] = auth_validator_crypto,
 	[ISIS_PASSWD_TYPE_HMAC_MD5] = auth_validator_hmac_md5,
 };
 
