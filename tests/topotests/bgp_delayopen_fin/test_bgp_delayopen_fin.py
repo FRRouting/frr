@@ -97,13 +97,10 @@ def test_peer_close(tmp_path, delay, manual_stop):
     )
     pid = r1.cmd("cat /var/run/frr/bgpd.pid").strip()
     log = tmp_path / "peer.log"
-    for name, router in tgen.routers().items():
-        reply = router.cmd(
-            "ethtool -K {}-eth0 tx off tso off gso off gro off".format(name)
-        )
-        assert "not found" not in reply and "No such device" not in reply, reply
     capture_log = tmp_path / "capture.log"
-    with log.open("w") as output, capture_log.open("w") as capture_output:
+    with log.open("w") as output, capture_log.open("w") as capture_output, (
+        tmp_path / "wire.pcap"
+    ).open("wb") as pcap_output:
         capture = r2.popen(
             [
                 "tcpdump",
@@ -114,20 +111,21 @@ def test_peer_close(tmp_path, delay, manual_stop):
                 "-s",
                 "0",
                 "-w",
-                str(tmp_path / "wire.pcap"),
+                "-",
                 "tcp port 179",
             ],
-            stdout=capture_output,
+            stdout=pcap_output,
             stderr=capture_output,
         )
-        server = r2.popen(
-            ["python3", os.path.join(CWD, "tcp_peer.py")],
-            stdin=subprocess.PIPE,
-            stdout=output,
-            stderr=output,
-        )
+        server = None
         observations = []
         try:
+            server = r2.popen(
+                ["python3", os.path.join(CWD, "tcp_peer.py")],
+                stdin=subprocess.PIPE,
+                stdout=output,
+                stderr=output,
+            )
             wait_for(lambda: "listening on" in capture_log.read_text())
             wait_for(lambda: "LISTENING" in log.read_text())
             configure("no neighbor 192.0.2.2 shutdown")
@@ -186,20 +184,30 @@ def test_peer_close(tmp_path, delay, manual_stop):
             (tmp_path / "observations.json").write_text(
                 json.dumps(observations, indent=2)
             )
-        finally:
-            configure("neighbor 192.0.2.2 shutdown")
-            if server.poll() is None:
-                server.terminate()
-            server.wait(timeout=5)
-            wait_for(lambda: state() == "Idle")
-            # A short native exchange must not pass with a header-only pcap.
             wait_for(
                 lambda: captured_fin(
                     tmp_path / "wire.pcap", bytes([192, 0, 2, 1 if manual_stop else 2])
                 ),
                 timeout=3,
             )
-            if capture.poll() is None:
-                capture.send_signal(signal.SIGINT)
-            capture.wait(timeout=5)
-            assert "0 packets dropped by kernel" in capture_log.read_text()
+            configure("neighbor 192.0.2.2 shutdown")
+            wait_for(lambda: state() == "Idle")
+        finally:
+            try:
+                if server is not None and server.poll() is None:
+                    server.terminate()
+                    try:
+                        server.wait(timeout=5)
+                    except subprocess.TimeoutExpired:
+                        server.kill()
+                        server.wait(timeout=5)
+            finally:
+                if capture.poll() is None:
+                    capture.send_signal(signal.SIGINT)
+                    try:
+                        capture.wait(timeout=5)
+                    except subprocess.TimeoutExpired:
+                        capture.kill()
+                        capture.wait(timeout=5)
+        assert capture.returncode == 0, capture_log.read_text()
+        assert "0 packets dropped by kernel" in capture_log.read_text()
