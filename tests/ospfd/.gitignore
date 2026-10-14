@@ -1,3 +1,4 @@
 /*_afl/*
 test_ospf_spf
+test_ospf_opaque_show
 core
