@@ -26,6 +26,8 @@ struct isis_passwd {
 	uint8_t snp_auth;
 	/* The password, or for ISIS_PASSWD_TYPE_CRYPTO_AUTH the key chain name */
 	uint8_t passwd[255];
+	/* ISIS_PASSWD_TYPE_CRYPTO_AUTH: hash keys as RFC 5310 section 3.3 does */
+	bool strict_rfc5310;
 };
 
 /* RFC 7602 Extended Sequence Numbers on a circuit */

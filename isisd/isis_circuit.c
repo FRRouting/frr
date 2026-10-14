@@ -1589,7 +1589,17 @@ ferr_r isis_circuit_passwd_set(struct isis_circuit *circuit,
 	strlcpy((char *)circuit->passwd.passwd, passwd,
 		sizeof(circuit->passwd.passwd));
 	circuit->passwd.type = passwd_type;
+	circuit->passwd.strict_rfc5310 = false;
 	return ferr_ok();
+}
+
+ferr_r isis_circuit_passwd_keychain_set(struct isis_circuit *circuit, const char *keychain,
+					bool strict_rfc5310)
+{
+	ferr_r rv = isis_circuit_passwd_set(circuit, ISIS_PASSWD_TYPE_CRYPTO_AUTH, keychain);
+
+	circuit->passwd.strict_rfc5310 = strict_rfc5310;
+	return rv;
 }
 
 ferr_r isis_circuit_passwd_cleartext_set(struct isis_circuit *circuit,
