@@ -1154,6 +1154,11 @@ def parse_frr_bgp_bfd_session_register(event):
     parse_event(event, field_parsers)
 
 
+def parse_frr_bgp_bfd_session_install_deferred(event):
+    field_parsers = {"location": print_location_bgp_bfd_session_register}
+    parse_event(event, field_parsers)
+
+
 def parse_frr_bgp_bfd_session_deregister(event):
     field_parsers = {"location": print_location_bgp_bfd_session_deregister}
     parse_event(event, field_parsers)
@@ -1926,6 +1931,7 @@ def main():
         "frr_bgp:fsm_event": parse_frr_bgp_fsm_event,
         "frr_bgp:bfd_session_status_update": parse_frr_bgp_bfd_session_status_update,
         "frr_bgp:bfd_session_register": parse_frr_bgp_bfd_session_register,
+        "frr_bgp:bfd_session_install_deferred": parse_frr_bgp_bfd_session_install_deferred,
         "frr_bgp:bfd_session_deregister": parse_frr_bgp_bfd_session_deregister,
         "frr_bgp:bfd_fast_shutdown": parse_frr_bgp_bfd_fast_shutdown,
         "frr_bgp:bgp_err_str": parse_frr_bgp_bgp_err_str,
