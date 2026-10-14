@@ -123,6 +123,7 @@ struct isis_circuit {
 	 */
 	char *tag;		   /* area tag */
 	struct isis_passwd passwd; /* Circuit rx/tx password */
+	enum isis_esn_mode esn_mode;
 	int is_type_config;	   /* configured circuit is type */
 	/*
 	 * circuit is type == level of circuit
