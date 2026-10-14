@@ -146,10 +146,10 @@ void netlink_set_nflog_group(int nlgroup)
 }
 
 /*
- * The binding of an NHS or a static entry comes from a registration or from
- * configuration, and nothing installs it again once the kernel
- * has lost its neighbor entry: install it again from the cache. Dynamic
- * entries (shortcuts, clients registered with this NHS) are left alone.
+ * Once the kernel has lost a neighbor entry (e.g. to its garbage collection)
+ * nothing installs the binding again: a registration or resolution that does
+ * not change the NBMA address only refreshes the cache entry. Install it again
+ * from the cache, as a probe of an existing entry is answered.
  *
  * Without an IPsec profile every peer on an enabled interface is online, so
  * the peer check only holds the binding back while an IPsec SA is missing.
@@ -158,7 +158,7 @@ static bool nhrp_neighbor_rebind(struct nhrp_cache *c)
 {
 	union sockunion *nbma;
 
-	if (c->cur.type != NHRP_CACHE_NHS && c->cur.type != NHRP_CACHE_STATIC)
+	if (c->cur.type < NHRP_CACHE_CACHED)
 		return false;
 
 	if (!c->cur.peer || !nhrp_peer_check(c->cur.peer, 0))
