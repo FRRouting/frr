@@ -1131,6 +1131,39 @@ def parse_frr_bgp_bfd_session_status_update(event):
     parse_event(event, field_parsers)
 
 
+def print_location_bgp_bfd_session_register(field_val):
+    return {
+        1: "config_apply",
+        2: "config_apply_group",
+        3: "update_source",
+    }.get(field_val, f"unknown({field_val})")
+
+
+def print_location_bgp_bfd_session_deregister(field_val):
+    return {
+        1: "fast_shutdown",
+        2: "update_source_change",
+        3: "multihop_change",
+        4: "peer_config_removal",
+        5: "peer_group_config_removal",
+    }.get(field_val, f"unknown({field_val})")
+
+
+def parse_frr_bgp_bfd_session_register(event):
+    field_parsers = {"location": print_location_bgp_bfd_session_register}
+    parse_event(event, field_parsers)
+
+
+def parse_frr_bgp_bfd_session_deregister(event):
+    field_parsers = {"location": print_location_bgp_bfd_session_deregister}
+    parse_event(event, field_parsers)
+
+
+def parse_frr_bgp_bfd_fast_shutdown(event):
+    field_parsers = {"upgrade": lambda x: "true" if x else "false"}
+    parse_event(event, field_parsers)
+
+
 def parse_frr_bgp_bgp_err_str(event):
     field_parsers = {
         "location": lambda x: {
@@ -1892,6 +1925,9 @@ def main():
         "frr_bgp:connection_attempt": parse_frr_bgp_connection_attempt,
         "frr_bgp:fsm_event": parse_frr_bgp_fsm_event,
         "frr_bgp:bfd_session_status_update": parse_frr_bgp_bfd_session_status_update,
+        "frr_bgp:bfd_session_register": parse_frr_bgp_bfd_session_register,
+        "frr_bgp:bfd_session_deregister": parse_frr_bgp_bfd_session_deregister,
+        "frr_bgp:bfd_fast_shutdown": parse_frr_bgp_bfd_fast_shutdown,
         "frr_bgp:bgp_err_str": parse_frr_bgp_bgp_err_str,
         "frr_bgp:bgp_zebra_process_local_ip_prefix_zrecv": parse_frr_bgp_bgp_zebra_process_local_ip_prefix_zrecv,
         "frr_bgp:bgp_zebra_vxlan_flood_control": parse_frr_bgp_bgp_zebra_vxlan_flood_control,
