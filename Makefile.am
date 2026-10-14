@@ -237,7 +237,7 @@ rc_SCRIPTS = \
 	# end
 endif
 
-CLEANFILES += frr.pc tools/frr.pc
+DISTCLEANFILES += frr.pc tools/frr.pc
 tools_pkgconfigdir = @pkgconfigdir@
 tools_pkgconfig_DATA = frr.pc
 
