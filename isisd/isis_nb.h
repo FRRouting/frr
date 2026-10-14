@@ -268,6 +268,8 @@ int lib_interface_isis_password_password_type_modify(struct nb_cb_modify_args *a
 int lib_interface_isis_password_password_type_destroy(struct nb_cb_destroy_args *args);
 int lib_interface_isis_password_key_chain_modify(struct nb_cb_modify_args *args);
 int lib_interface_isis_password_key_chain_destroy(struct nb_cb_destroy_args *args);
+int lib_interface_isis_extended_sequence_number_modify(struct nb_cb_modify_args *args);
+int lib_interface_isis_extended_sequence_number_destroy(struct nb_cb_destroy_args *args);
 int lib_interface_isis_disable_three_way_handshake_modify(struct nb_cb_modify_args *args);
 int lib_interface_isis_multi_topology_standard_modify(struct nb_cb_modify_args *args);
 int lib_interface_isis_multi_topology_ipv4_multicast_modify(struct nb_cb_modify_args *args);
@@ -478,6 +480,7 @@ void cli_show_isis_frr_remote_lfa_plist(struct vty *vty, const struct lyd_node *
 					bool show_defaults);
 void cli_show_ip_isis_passive(struct vty *vty, const struct lyd_node *dnode, bool show_defaults);
 void cli_show_ip_isis_password(struct vty *vty, const struct lyd_node *dnode, bool show_defaults);
+void cli_show_ip_isis_esn(struct vty *vty, const struct lyd_node *dnode, bool show_defaults);
 void cli_show_ip_isis_metric(struct vty *vty, const struct lyd_node *dnode, bool show_defaults);
 void cli_show_ip_isis_hello_interval(struct vty *vty, const struct lyd_node *dnode,
 				     bool show_defaults);

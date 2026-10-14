@@ -154,6 +154,11 @@ struct isis_area {
 	struct event *t_overload_on_startup_timer;
 	/* Re-signs our LSPs when a key chain's send key may change */
 	struct event *t_auth_rollover;
+	/* RFC 7602 Extended Session Sequence Number, 0 until ESNs are sent,
+	 * and the last Packet Sequence Number sent on any circuit
+	 */
+	uint64_t esn_session;
+	uint32_t esn_psn;
 	struct timeval last_lsp_refresh_event[ISIS_LEVELS];
 	struct event *t_rlfa_rib_update;
 	/* t_lsp_refresh is used in two ways:
@@ -364,6 +369,8 @@ int isis_area_passwd_hmac_md5_set(struct isis_area *area, int level,
 				  const char *passwd, uint8_t snp_auth);
 int isis_area_passwd_keychain_set(struct isis_area *area, int level, const char *keychain,
 				  uint8_t snp_auth);
+uint64_t isis_area_esn_session(struct isis_area *area);
+void isis_area_esn_new_session(struct isis_area *area);
 void show_isis_database_lspdb_json(struct json_object *json,
 				   struct isis_area *area, int level,
 				   struct lspdb_head *lspdb, const char *argv,

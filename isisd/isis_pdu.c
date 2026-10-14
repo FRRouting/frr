@@ -589,6 +589,35 @@ static void update_rej_adj_count(struct isis_circuit *circuit)
 	}
 }
 
+/*
+ * RFC 7602 Extended Sequence Numbers. The PDUs of an area are numbered from
+ * one counter, which keeps the numbers each neighbor receives increasing
+ * however circuits come and go; they are verified per neighbor and PDU type.
+ */
+/* Number the next PDU sent on circuit */
+static void esn_add(struct isis_circuit *circuit, struct isis_tlvs *tlvs)
+{
+	struct isis_area *area = circuit->area;
+
+	if (circuit->esn_mode == ISIS_ESN_OFF)
+		return;
+
+	if (area->esn_psn == UINT32_MAX) {
+		/* Section 3.1: a new session keeps the 96-bit value increasing */
+		isis_area_esn_new_session(area);
+		area->esn_psn = 0;
+	}
+
+	isis_tlvs_set_esn(tlvs, isis_area_esn_session(area), ++area->esn_psn);
+}
+
+/* Room for the ESN TLV in a PDU that is sized before it is numbered */
+static void esn_reserve(struct isis_circuit *circuit, struct isis_tlvs *tlvs)
+{
+	if (circuit->esn_mode != ISIS_ESN_OFF)
+		isis_tlvs_set_esn(tlvs, 0, 0);
+}
+
 static int process_hello(uint8_t pdu_type, struct isis_circuit *circuit,
 			 uint8_t *ssnpa)
 {
@@ -2029,6 +2058,8 @@ int send_hello(struct isis_circuit *circuit, int level)
 		isis_tlvs_add_global_ipv6_addresses(tlvs,
 						    circuit->ipv6_non_link);
 
+	esn_add(circuit, tlvs);
+
 	bool should_pad_hello =
 		circuit->pad_hellos == ISIS_HELLO_PADDING_ALWAYS ||
 		(circuit->pad_hellos ==
@@ -2230,6 +2261,7 @@ int send_csnp(struct isis_circuit *circuit, int level)
 		isis_free_tlvs(tlvs);
 		return ISIS_WARNING;
 	}
+	esn_reserve(circuit, tlvs);
 
 	size_t tlv_start = stream_get_endp(circuit->snd_stream);
 	if (isis_pack_tlvs(tlvs, circuit->snd_stream, len_pointer, false,
@@ -2254,6 +2286,7 @@ int send_csnp(struct isis_circuit *circuit, int level)
 			isis_free_tlvs(tlvs);
 			return ISIS_WARNING;
 		}
+		esn_add(circuit, tlvs);
 
 		struct isis_lsp *last_lsp;
 		isis_tlvs_add_csnp_entries(tlvs, start, stop, num_lsps,
@@ -2401,6 +2434,7 @@ static int send_psnp(int level, struct isis_circuit *circuit)
 		isis_free_tlvs(tlvs);
 		return ISIS_WARNING;
 	}
+	esn_reserve(circuit, tlvs);
 
 	size_t tlv_start = stream_get_endp(circuit->snd_stream);
 	if (isis_pack_tlvs(tlvs, circuit->snd_stream, len_pointer, false,
@@ -2434,6 +2468,7 @@ static int send_psnp(int level, struct isis_circuit *circuit)
 			isis_free_tlvs(tlvs);
 			return ISIS_OK;
 		}
+		esn_add(circuit, tlvs);
 
 		stream_set_endp(circuit->snd_stream, tlv_start);
 		if (isis_pack_tlvs(tlvs, circuit->snd_stream, len_pointer,

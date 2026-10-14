@@ -28,6 +28,13 @@ struct isis_passwd {
 	uint8_t passwd[255];
 };
 
+/* RFC 7602 Extended Sequence Numbers on a circuit */
+enum isis_esn_mode {
+	ISIS_ESN_OFF = 0,
+	ISIS_ESN_SEND,	 /* add the ESN TLV to IIHs and SNPs */
+	ISIS_ESN_VERIFY, /* also discard IIHs and SNPs without a newer one */
+};
+
 /*
  * Supported Protocol IDs
  */
