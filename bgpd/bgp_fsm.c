@@ -2235,8 +2235,14 @@ enum bgp_fsm_state_progress bgp_stop(struct peer_connection *connection)
 		peer->dropped++;
 
 		if (peer->bfd_config && (peer->last_reset == PEER_DOWN_UPDATE_SOURCE_CHANGE ||
-					 peer->last_reset == PEER_DOWN_MULTIHOP_CHANGE))
+					 peer->last_reset == PEER_DOWN_MULTIHOP_CHANGE)) {
 			bfd_sess_uninstall(peer->bfd_config->session);
+			/*
+			 * The session parameters are kept, so nothing looks changed
+			 * when the peer reconnects: install it again from there.
+			 */
+			peer->bfd_config->install_pending = true;
+		}
 
 		if (peer->bfd_config)
 			event_cancel(&peer->bfd_config->t_hold_timer);
