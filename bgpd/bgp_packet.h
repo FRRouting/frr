@@ -45,6 +45,29 @@ DECLARE_HOOK(bgp_packet_send,
 		}                                                                                 \
 	} while (0)
 
+/* The inner error code and subcode carried by a Hard Reset notification. */
+#define BGP_NOTIFY_CODE_SUBCODE_SIZE (BGP_MSG_NOTIFY_MIN_SIZE - BGP_HEADER_SIZE)
+
+/* Enhanced refresh reuses the reserved octet for its subtype. Allow the
+ * body without its final SAFI octet so the receiver can classify a short
+ * BoRR/EoRR; ordinary refresh still requires the complete four-octet body.
+ */
+static inline size_t bgp_refresh_min_payload(bool enhanced)
+{
+	return BGP_MSG_ROUTE_REFRESH_MIN_SIZE - BGP_HEADER_SIZE - (enhanced ? 1 : 0);
+}
+
+/* Account for the outer NOTIFICATION and optional Hard Reset wrapper. */
+static inline size_t bgp_refresh_error_data_size(size_t message_size, size_t available,
+					       size_t maximum, bool hard_reset)
+{
+	size_t overhead = BGP_MSG_NOTIFY_MIN_SIZE + (hard_reset ? BGP_NOTIFY_CODE_SUBCODE_SIZE : 0);
+
+	if (maximum <= overhead)
+		return 0;
+	return MIN(MIN(message_size, available), maximum - overhead);
+}
+
 /* Packet send and receive function prototypes. */
 extern void bgp_keepalive_send(struct peer_connection *connection);
 extern struct stream *bgp_open_make(struct peer_connection *connection, uint16_t send_holdtime,
