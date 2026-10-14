@@ -4703,10 +4703,6 @@ enum bgp_attr_parse_ret bgp_attr_parse(struct peer_connection *connection, struc
 					  "%s: Attribute %s, parse error - treating as withdrawal",
 					  peer->host, lookup_msg(attr_str, type, NULL));
 			bgp_attr_defer_withdraw(&pending, ret);
-			/* attr_endp was checked against the enclosing attribute
-			 * block before calling the handler. Continue at that
-			 * boundary so a weaker result cannot hide a later error.
-			 */
 			stream_set_getp(BGP_INPUT(connection),
 					attr_endp - STREAM_DATA(BGP_INPUT(connection)));
 			continue;
