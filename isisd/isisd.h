@@ -152,6 +152,8 @@ struct isis_area {
 	struct event *t_tick; /* LSP walker */
 	struct event *t_lsp_refresh[ISIS_LEVELS];
 	struct event *t_overload_on_startup_timer;
+	/* Re-signs our LSPs when a key chain's send key may change */
+	struct event *t_auth_rollover;
 	struct timeval last_lsp_refresh_event[ISIS_LEVELS];
 	struct event *t_rlfa_rib_update;
 	/* t_lsp_refresh is used in two ways:
