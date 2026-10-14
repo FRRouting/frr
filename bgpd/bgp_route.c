@@ -6125,10 +6125,17 @@ void bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 			 * `set` actions in the route-map do not leak into the
 			 * downstream inbound processing.
 			 */
-			struct attr local_attr = *attr;
+			struct attr local_attr;
 			struct bgp_path_info rmap_path;
 			struct bgp_path_info_extra allowas_extra;
 			route_map_result_t rmap_ret;
+
+			/*
+			 * A plain struct copy would share attr->extra with the
+			 * parsed attr, and the flush below would then free it
+			 * from under every later user of attr.
+			 */
+			bgp_attr_dup_into(&local_attr, attr);
 
 			prep_for_rmap_apply(&rmap_path, &allowas_extra, dest, NULL, peer, NULL,
 					    &local_attr);
@@ -6153,9 +6160,9 @@ void bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 
 			/* Always flush; the route-map is for matching only and
 			 * we never carry forward any of its `set` modifications.
+			 * This also frees local_attr's own copy of extra.
 			 */
 			bgp_attr_flush(&local_attr);
-			bgp_attr_extra_discard(&local_attr);
 
 			if (rmap_ret == RMAP_PERMITMATCH)
 				allowas_in_apply = true;

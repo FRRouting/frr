@@ -4,6 +4,7 @@
 frr-northbound.proto
 frr_northbound*
 .pytest_cache
+/bgpd/test_allowas_rmap
 /bgpd/test_aspath
 /bgpd/test_attr_parse
 /bgpd/test_bgp_table
