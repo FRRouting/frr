@@ -78,6 +78,7 @@ frr_northbound*
 /lib/test_zlog
 /lib/test_zmq
 /ospfd/test_ospf_asbr_summary
+/ospf6d/test_grace_lsa
 /ospf6d/test_lsdb
 /ospf6d/test_lsdb_clippy.c
 /zebra/test_lm_plugin
