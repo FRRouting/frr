@@ -176,7 +176,6 @@ def ping_test(source_router, target_ip, count=1000, description=""):
         logger.info(f"Check Ping IPv4 from {source_router.name} to {target_ip}")
 
     output = source_router.run(f"ping {target_ip} -f -c {count}")
-    logger.info(output)
 
     # Parse the output for transmitted/received
     match = re.search(
@@ -241,7 +240,7 @@ def test_protocols_convergence():
     logger.info("Checking NHRP cache for convergence")
     router_list = tgen.routers()
 
-    # Check NHRP cache on servers and clients
+    logger.info("Check NHRP cache on servers and clients")
     for rname, router in router_list.items():
         if "nh" not in rname:
             continue
@@ -253,10 +252,7 @@ def test_protocols_convergence():
         )
         _, result = topotest.run_and_expect(test_func, None, count=40, wait=0.5)
 
-        output = router.vtysh_cmd("show ip nhrp cache")
-        logger.info(output)
-
-        assertmsg = '"{}" JSON output mismatches'.format(router.name)
+        assertmsg = '"{}" "show ip nhrp cache" output mismatches'.format(router.name)
         assert result is None, assertmsg
 
     # Check NHRP IPV4 routes on servers and clients
@@ -272,10 +268,7 @@ def test_protocols_convergence():
         )
         _, result = topotest.run_and_expect(test_func, None, count=40, wait=0.5)
 
-        output = router.vtysh_cmd("show ip route nhrp")
-        logger.info(output)
-
-        assertmsg = '"{}" JSON output mismatches'.format(router.name)
+        assertmsg = '"{}" "show ip route nhrp" output mismatches'.format(router.name)
         assert result is None, assertmsg
 
     # Test connectivity from 1 NHRP server to all clients
@@ -313,7 +306,7 @@ def test_redundancy_shortcut():
 
     logger.info("Testing NHRP shortcuts with redundant servers")
 
-    # Verify nhc1 nhrp routes before shortcut creation
+    logger.info("Verify nhc1 nhrp routes before shortcut creation")
     nhc1 = tgen.gears["nhc1"]
     json_file = "{}/{}/nhrp_route.json".format(CWD, nhc1.name)
     assertmsg = "No nhrp_route file found"
@@ -325,17 +318,14 @@ def test_redundancy_shortcut():
     )
     _, result = topotest.run_and_expect(test_func, None, count=40, wait=0.5)
 
-    output = nhc1.vtysh_cmd("show ip route nhrp")
-    logger.info(output)
-
-    assertmsg = '"{}" JSON output mismatches'.format(nhc1.name)
+    assertmsg = '"{}" "show ip route nhrp" output mismatches'.format(nhc1.name)
     assert result is None, assertmsg
 
-    # Initiate shortcut by pinging between clients
+    logger.info("Initiate shortcut by pinging between clients")
     host = tgen.gears["host"]
     ping_test(host, "10.5.5.5", 1000, "nhc2 via shortcut")
 
-    # Now check that NHRP shortcut route installed
+    logger.info("Check that NHRP shortcut route installed")
     json_file = "{}/{}/nhrp_route_shortcut.json".format(CWD, nhc1.name)
     assertmsg = "No nhrp_route file found"
     assert os.path.isfile(json_file), assertmsg
@@ -346,10 +336,7 @@ def test_redundancy_shortcut():
     )
     _, result = topotest.run_and_expect(test_func, None, count=40, wait=0.5)
 
-    output = nhc1.vtysh_cmd("show ip route nhrp")
-    logger.info(output)
-
-    assertmsg = '"{}" JSON output mismatches'.format(nhc1.name)
+    assertmsg = '"{}" "show ip route nhrp" output mismatches'.format(nhc1.name)
     assert result is None, assertmsg
 
     json_file = "{}/{}/nhrp_shortcut_present.json".format(CWD, nhc1.name)
@@ -359,13 +346,10 @@ def test_redundancy_shortcut():
     )
     _, result = topotest.run_and_expect(test_func, None, count=40, wait=0.5)
 
-    output = nhc1.vtysh_cmd("show ip nhrp shortcut")
-    logger.info(output)
-
-    assertmsg = '"{}" JSON output mismatches'.format(nhc1.name)
+    assertmsg = '"{}" "show ip nhrp shortcut" output mismatches'.format(nhc1.name)
     assert result is None, assertmsg
 
-    # check the shortcut disappears because of no traffic
+    logger.info("check the shortcut disappears because of no traffic")
     json_file = "{}/{}/nhrp_shortcut_absent.json".format(CWD, nhc1.name)
     expected = json.loads(open(json_file).read())
     test_func = partial(
@@ -373,10 +357,7 @@ def test_redundancy_shortcut():
     )
     _, result = topotest.run_and_expect(test_func, None, count=40, wait=0.5)
 
-    output = nhc1.vtysh_cmd("show ip nhrp shortcut")
-    logger.info(output)
-
-    assertmsg = '"{}" JSON output mismatches'.format(nhc1.name)
+    assertmsg = '"{}" "show ip nhrp shortcut" output mismatches'.format(nhc1.name)
     assert result is None, assertmsg
 
 
@@ -398,7 +379,7 @@ def test_redundancy_shortcut_backup():
     logger.info("Bringing down nhs1, primary NHRP server.")
     shutdown_bringup_interface(tgen, "nhs1", "nhs1-gre0", False)
 
-    # Check NHRP cache on servers and clients
+    logger.info("Check NHRP cache on servers and clients")
     for rname, router in router_list.items():
         if "nh" not in rname:
             continue
@@ -412,14 +393,10 @@ def test_redundancy_shortcut_backup():
         )
         _, result = topotest.run_and_expect(test_func, None, count=40, wait=0.5)
 
-        output = router.vtysh_cmd("show ip nhrp cache")
-        logger.info(output)
-
-        assertmsg = '"{}" JSON output mismatches'.format(router.name)
+        assertmsg = '"{}" "show ip nhrp cache" output mismatches'.format(router.name)
         assert result is None, assertmsg
 
-    # Check NHRP IPV4 routes on servers and clients
-    logger.info("Checking IPv4 routes for convergence")
+    logger.info("Check NHRP IPV4 routes on servers and clients")
     for rname, router in router_list.items():
         if "nh" not in rname:
             continue
@@ -433,17 +410,13 @@ def test_redundancy_shortcut_backup():
         )
         _, result = topotest.run_and_expect(test_func, None, count=40, wait=0.5)
 
-        output = router.vtysh_cmd("show ip route nhrp")
-        logger.info(output)
-
-        assertmsg = '"{}" JSON output mismatches'.format(router.name)
+        assertmsg = '"{}" "show ip route nhrp" output mismatches'.format(router.name)
         assert result is None, assertmsg
 
-    # Verify shortcut is still active
-    host = tgen.gears["host"]
+    logger.info("Verify ping is still operational")
     ping_test(host, "10.5.5.5", 1000, "nhc2 via shortcut")
 
-    # Verify shortcut is present in routing table
+    logger.info("Verify shortcut is present in routing table")
     json_file = "{}/{}/nhrp_route_shortcut_nhs1_down.json".format(CWD, nhc1.name)
     assertmsg = "No nhrp_route file found"
     assert os.path.isfile(json_file), assertmsg
@@ -454,9 +427,6 @@ def test_redundancy_shortcut_backup():
     )
     _, result = topotest.run_and_expect(test_func, None, count=40, wait=0.5)
 
-    output = nhc1.vtysh_cmd("show ip route nhrp")
-    logger.info(output)
-
     json_file = "{}/{}/nhrp_shortcut_present.json".format(CWD, nhc1.name)
     expected = json.loads(open(json_file).read())
     test_func = partial(
@@ -464,13 +434,10 @@ def test_redundancy_shortcut_backup():
     )
     _, result = topotest.run_and_expect(test_func, None, count=40, wait=0.5)
 
-    output = nhc1.vtysh_cmd("show ip nhrp shortcut")
-    logger.info(output)
-
-    assertmsg = '"{}" JSON output mismatches'.format(nhc1.name)
+    assertmsg = '"{}" "show ip route nhrp" output mismatches'.format(nhc1.name)
     assert result is None, assertmsg
 
-    # Now verify shortcut is purged with lack of traffic
+    logger.info("Check shortcut is purged with lack of traffic")
     json_file = "{}/{}/nhrp_route_nhs1_down.json".format(CWD, nhc1.name)
     assertmsg = "No nhrp_route file found"
     assert os.path.isfile(json_file), assertmsg
@@ -481,10 +448,7 @@ def test_redundancy_shortcut_backup():
     )
     _, result = topotest.run_and_expect(test_func, None, count=40, wait=0.5)
 
-    output = nhc1.vtysh_cmd("show ip route nhrp")
-    logger.info(output)
-
-    assertmsg = '"{}" JSON output mismatches'.format(nhc1.name)
+    assertmsg = '"{}" "show ip route nhrp" output mismatches'.format(nhc1.name)
     assert result is None, assertmsg
 
     json_file = "{}/{}/nhrp_shortcut_absent.json".format(CWD, nhc1.name)
@@ -497,7 +461,7 @@ def test_redundancy_shortcut_backup():
     output = nhc1.vtysh_cmd("show ip nhrp shortcut")
     logger.info(output)
 
-    assertmsg = '"{}" JSON output mismatches'.format(nhc1.name)
+    assertmsg = '"{}" "show ip nhrp shortcut" output mismatches'.format(nhc1.name)
     assert result is None, assertmsg
 
 
