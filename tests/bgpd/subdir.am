@@ -3,6 +3,15 @@ PYTEST_IGNORE += --ignore=bgpd/
 endif
 BGP_TEST_LDADD = bgpd/libbgp.a $(RFPLDADD) $(ALL_TESTS_LDADD) $(LIBYANG_LIBS) $(UST_LIBS) -lm
 
+if BGPD
+check_PROGRAMS += tests/bgpd/test_classic_nlri_attr
+endif
+tests_bgpd_test_classic_nlri_attr_CFLAGS = $(TESTS_CFLAGS)
+tests_bgpd_test_classic_nlri_attr_CPPFLAGS = $(TESTS_CPPFLAGS)
+tests_bgpd_test_classic_nlri_attr_LDADD = $(BGP_TEST_LDADD)
+tests_bgpd_test_classic_nlri_attr_SOURCES = tests/bgpd/test_classic_nlri_attr.c
+EXTRA_DIST += tests/bgpd/test_classic_nlri_attr.py
+
 
 if BGPD
 check_PROGRAMS += tests/bgpd/test_aspath
