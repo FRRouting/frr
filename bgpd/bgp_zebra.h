@@ -168,4 +168,6 @@ extern enum zclient_send_status
 bgp_zebra_announce_actual(struct bgp_dest *dest, struct bgp_path_info *info, struct bgp *bgp);
 extern void bgp_zebra_update_fib_install_pending(struct bgp_dest *dest, struct bgp *bgp,
 						 bool install);
+extern struct in6_addr *bgp_path_info_to_ipv6_nexthop(struct bgp_path_info *path,
+						      ifindex_t *ifindex);
 #endif /* _QUAGGA_BGP_ZEBRA_H */

@@ -16,6 +16,7 @@
 #include "memory.h"
 #include "queue.h"
 #include "filter.h"
+#include "jhash.h"
 
 #include "bgpd/bgpd.h"
 #include "bgpd/bgp_table.h"
@@ -26,8 +27,12 @@
 #include "bgpd/bgp_community.h"
 #include "bgpd/bgp_ecommunity.h"
 #include "bgpd/bgp_lcommunity.h"
+#include "bgpd/bgp_label.h"
+#include "bgpd/bgp_attr_evpn.h"
+#include "bgpd/bgp_evpn.h"
 #include "bgpd/bgp_mpath.h"
 #include "bgpd/bgp_nhc.h"
+#include "bgpd/bgp_zebra.h"
 
 /*
  * bgp_maximum_paths_set
@@ -437,6 +442,166 @@ static void bgp_path_info_mpath_attr_set(struct bgp_dest *dest, struct attr *att
  * Compare and sync up the multipath flags with what was chosen
  * in best selection
  */
+
+/*
+ * Forwarding identity of a path, used to keep duplicate nexthops from
+ * consuming a maxpaths slot.
+ *
+ * This must never be coarser than the identity zebra ends up programming:
+ * merging two nexthops that would have become distinct forwarding entries
+ * loses a path, whereas letting a duplicate through only costs a slot that
+ * zebra reclaims later.
+ */
+struct bgp_mpath_nh_key {
+	enum nexthop_types_t type;
+	vrf_id_t vrf_id;
+	union {
+		struct in_addr ipv4;
+		struct in6_addr ipv6;
+	} gate;
+	/*
+	 * An EVPN gateway-IP route carries the forwarding address in
+	 * attr->nexthop and the VTEP in mp_nexthop_global_in, so both have
+	 * to be part of the identity.
+	 */
+	struct in_addr mp_gate_v4;
+	/*
+	 * On the type-5 route in the EVPN table both of those are the VTEP,
+	 * and the gateway IP is held only in the overlay index.
+	 */
+	struct ipaddr gw_ip;
+	ifindex_t ifindex;
+	struct in6_addr sid;
+	mpls_label_t labels[BGP_MAX_LABELS];
+	/*
+	 * Under weighted ECMP each nexthop takes the weight of its own path,
+	 * and zebra keeps two nexthops apart when only their weights differ.
+	 */
+	uint64_t weight;
+	/*
+	 * Set when the forwarding identity cannot be settled here, which
+	 * keeps the path from matching anything else.
+	 */
+	const void *indeterminate;
+	uint8_t num_labels;
+	bool is_evpn;
+	bool gw_ip_overlay;
+};
+
+PREDECL_HASH(bgp_mpath_nh);
+
+struct bgp_mpath_nh_entry {
+	struct bgp_mpath_nh_item itm;
+	struct bgp_mpath_nh_key key;
+};
+
+static void bgp_mpath_nh_key_make(struct bgp *bgp, struct bgp_path_info *pi,
+				  struct bgp_mpath_nh_key *key)
+{
+	struct attr *attr = pi->attr;
+	struct bgp_route_evpn *bre = bgp_attr_get_evpn_overlay(attr);
+	struct bgp_attr_srv6_l3service *srv6_l3service;
+	struct bgp_attr_srv6_vpn *srv6_vpn;
+	uint8_t num_labels = BGP_PATH_INFO_NUM_LABELS(pi);
+
+	/*
+	 * The key is hashed and compared as raw bytes, so padding has to be
+	 * zeroed rather than left indeterminate.
+	 */
+	memset(key, 0, sizeof(*key));
+
+	key->is_evpn = !!is_route_parent_evpn(pi);
+	key->gw_ip_overlay = bre && bre->type == OVERLAY_INDEX_GATEWAY_IP;
+	if (key->gw_ip_overlay) {
+		key->gw_ip.ipa_type = bre->gw_ip.ipa_type;
+		if (IS_IPADDR_V4(&bre->gw_ip))
+			key->gw_ip.ipaddr_v4 = bre->gw_ip.ipaddr_v4;
+		else if (IS_IPADDR_V6(&bre->gw_ip))
+			key->gw_ip.ipaddr_v6 = bre->gw_ip.ipaddr_v6;
+	}
+
+	if (pi->extra && pi->extra->vrfleak && pi->extra->vrfleak->bgp_orig)
+		key->vrf_id = pi->extra->vrfleak->bgp_orig->vrf_id;
+	else
+		key->vrf_id = bgp->vrf_id;
+
+	if (BGP_ATTR_MP_NEXTHOP_LEN_IP6(attr)) {
+		ifindex_t ifindex = IFINDEX_INTERNAL;
+		struct in6_addr *nexthop;
+
+		/*
+		 * Resolve the nexthop exactly as the announce path does. A
+		 * link-local address is only unique per interface, and which
+		 * of the global, link-local or peer address applies is not
+		 * obvious from the attribute alone.
+		 */
+		nexthop = bgp_path_info_to_ipv6_nexthop(pi, &ifindex);
+		key->type = NEXTHOP_TYPE_IPV6;
+		if (nexthop) {
+			key->gate.ipv6 = *nexthop;
+			key->ifindex = ifindex;
+			/*
+			 * The same link-local address can be in use on
+			 * several interfaces at once, so it only identifies a
+			 * nexthop together with one. When the attribute
+			 * carries no ifindex the interface is settled much
+			 * later, as the route is handed to zebra, from peer
+			 * state the path does not record. Two sessions over
+			 * different interfaces advertising one link-local
+			 * address would therefore look alike here while zebra
+			 * goes on to program two distinct interface-scoped
+			 * nexthops. Keep such a path out of the comparison: a
+			 * slot spent on it is reclaimed later, whereas
+			 * merging the two would drop a usable ECMP path.
+			 */
+			if (!ifindex && IN6_IS_ADDR_LINKLOCAL(nexthop))
+				key->indeterminate = pi;
+		}
+	} else {
+		key->type = NEXTHOP_TYPE_IPV4;
+		key->gate.ipv4 = attr->nexthop;
+		key->mp_gate_v4 = attr->mp_nexthop_global_in;
+	}
+
+	if (num_labels) {
+		key->num_labels = num_labels;
+		memcpy(key->labels, pi->extra->labels->label, num_labels * sizeof(mpls_label_t));
+	}
+
+	srv6_l3service = bgp_attr_get_srv6_l3service(attr);
+	srv6_vpn = bgp_attr_get_srv6_vpn(attr);
+	if (srv6_l3service)
+		key->sid = srv6_l3service->sid;
+	else if (srv6_vpn)
+		key->sid = srv6_vpn->sid;
+
+	/*
+	 * Take the weight from the same place bgp_path_info_mpath_chkwtd()
+	 * does: the next-next hop node count of the NHC attribute when link
+	 * bandwidth is ignored, and the link bandwidth otherwise.
+	 */
+	if (bgp->lb_handling == BGP_LINK_BW_IGNORE_BW) {
+		if (bgp_attr_exists(attr, BGP_ATTR_NHC))
+			key->weight = bgp_nhc_nnhn_count(bgp_attr_get_nhc(attr));
+	} else {
+		key->weight = bgp_path_info_get_link_bw(pi);
+	}
+}
+
+static uint32_t bgp_mpath_nh_hash_key(const struct bgp_mpath_nh_entry *entry)
+{
+	return jhash(&entry->key, sizeof(entry->key), 0x5a5a55aa);
+}
+
+static int bgp_mpath_nh_hash_cmp(const struct bgp_mpath_nh_entry *a,
+				 const struct bgp_mpath_nh_entry *b)
+{
+	return memcmp(&a->key, &b->key, sizeof(a->key));
+}
+
+DECLARE_HASH(bgp_mpath_nh, struct bgp_mpath_nh_entry, itm, bgp_mpath_nh_hash_cmp,
+	     bgp_mpath_nh_hash_key);
+
 void bgp_path_info_mpath_update(struct bgp *bgp, struct bgp_dest *dest,
 				struct bgp_path_info *new_best, struct bgp_path_info *old_best,
 				uint32_t num_candidates, struct bgp_maxpaths_cfg *mpath_cfg)
@@ -449,6 +614,10 @@ void bgp_path_info_mpath_update(struct bgp *bgp, struct bgp_dest *dest,
 	bool all_paths_lb;
 	char path_buf[PATH_ADDPATH_STR_BUFFER];
 	bool old_mpath, new_mpath;
+	struct bgp_mpath_nh_head nh_dedup;
+	struct bgp_mpath_nh_entry dedup_items[MULTIPATH_NUM];
+	unsigned int dedup_idx = 0;
+	bool do_dedup;
 
 	mpath_changed = false;
 	maxpaths = multipath_num;
@@ -498,6 +667,15 @@ void bgp_path_info_mpath_update(struct bgp *bgp, struct bgp_dest *dest,
 	 */
 	all_paths_lb = true; /* We'll reset if any path doesn't have LB. */
 
+	/*
+	 * A lone candidate is the bestpath itself and cannot duplicate
+	 * anything, so skip the table entirely rather than pay for the
+	 * bucket allocation on every prefix.
+	 */
+	do_dedup = num_candidates > 1;
+	if (do_dedup)
+		bgp_mpath_nh_init(&nh_dedup);
+
 	while (cur_iterator) {
 		old_mpath = CHECK_FLAG(cur_iterator->flags, BGP_PATH_MULTIPATH);
 		new_mpath = CHECK_FLAG(cur_iterator->flags, BGP_PATH_MULTIPATH_NEW);
@@ -528,6 +706,32 @@ void bgp_path_info_mpath_update(struct bgp *bgp, struct bgp_dest *dest,
 			zlog_debug("%pBD(%s): Candidate %s old_mpath: %u new_mpath: %u, Nexthop %pI4 current mpath count: %u",
 				   dest, bgp->name_pretty, cur_iterator->peer->host, old_mpath,
 				   new_mpath, &cur_iterator->attr->nexthop, mpath_count);
+		/*
+		 * A path resolving to a nexthop we have already selected adds
+		 * nothing to the forwarding entry, so it must not spend one of
+		 * the maxpaths slots. Demoting it to "not a new multipath"
+		 * lets the handling below do the flag and counter cleanup.
+		 *
+		 * new_best is walked first against an empty table, so the
+		 * bestpath is always accepted and always seeds the table.
+		 */
+		if (do_dedup && new_mpath && dedup_idx < array_size(dedup_items)) {
+			struct bgp_mpath_nh_entry *entry = &dedup_items[dedup_idx];
+
+			bgp_mpath_nh_key_make(bgp, cur_iterator, &entry->key);
+
+			if (bgp_mpath_nh_find(&nh_dedup, entry)) {
+				if (debug)
+					zlog_debug("%pBD(%s): %s nexthop %pI4 is already selected, not counting it as a multipath",
+						   dest, bgp->name_pretty, cur_iterator->peer->host,
+						   &cur_iterator->attr->nexthop);
+				new_mpath = false;
+			} else {
+				bgp_mpath_nh_add(&nh_dedup, entry);
+				dedup_idx++;
+			}
+		}
+
 		/*
 		 * There is nothing to do if the cur_iterator is neither a old path
 		 * or a new path
@@ -574,6 +778,12 @@ void bgp_path_info_mpath_update(struct bgp *bgp, struct bgp_dest *dest,
 		}
 
 		cur_iterator = cur_iterator->next;
+	}
+
+	if (do_dedup) {
+		while (bgp_mpath_nh_pop(&nh_dedup))
+			;
+		bgp_mpath_nh_fini(&nh_dedup);
 	}
 
 	if (new_best) {

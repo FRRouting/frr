@@ -98,7 +98,6 @@ def test_bgp_addpath_graceful_restart():
                     {
                         "stale": True,
                         "valid": True,
-                        "multipath": True,
                     },
                 ]
             }
