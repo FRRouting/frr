@@ -19,6 +19,7 @@ import re
 from lib import topotest
 from lib.topogen import Topogen, TopoRouter, get_topogen
 from lib.topolog import logger
+from lib.checkping import check_ping
 from lib.common_config import (
     required_linux_kernel_version,
     shutdown_bringup_interface,
@@ -288,6 +289,121 @@ def test_protocols_convergence():
     ping_test(nhc1, "172.16.1.1", 1000, "nhs1")
     ping_test(nhc1, "172.16.1.2", 1000, "nhs2")
     ping_test(nhc1, "172.16.1.3", 1000, "nhs3")
+
+
+def _set_gre_neigh_sysctls(router, values):
+    "Set neighbor sysctls of the router's GRE interface, return the old values"
+    old = {}
+    for name, value in values.items():
+        key = "net.ipv4.neigh.{}-gre0.{}".format(router.name, name)
+        old[name] = router.cmd_raises("sysctl -n {}".format(key)).strip()
+        router.cmd_raises("sysctl -w {}={}".format(key, value))
+    return old
+
+
+def _wait_cache_entry_unused(router, protocol):
+    """
+    Wait until the kernel reports the neighbor entry STALE and nhrpd clears the
+    "used" flag of the cache entry, which the later cache checks expect.
+    """
+
+    def _unused():
+        output = router.vtysh_cmd("show ip nhrp cache json", isjson=True)
+        for entry in output.get("table", []):
+            if entry.get("protocol") == protocol:
+                return not entry.get("used")
+        return False
+
+    _, result = topotest.run_and_expect(_unused, True, count=30, wait=1)
+    assert result, "{} cache entry {} still used".format(router.name, protocol)
+
+
+def test_nhs_binding_kept_while_kernel_probes():
+    """
+    With a reachable time below the NHRP holdtime the kernel re-validates the
+    NHS neighbor entry while traffic flows (STALE, DELAY, then PROBE with one
+    application probe). nhrpd answers each probe by installing the binding
+    again, so no packet is lost.
+    """
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    nhc1 = tgen.gears["nhc1"]
+    check_ping("nhc1", "172.16.1.2", True, 40, 1)
+
+    old = _set_gre_neigh_sysctls(nhc1, {"base_reachable_time_ms": 1000})
+    try:
+        # 16 seconds of traffic span at least two probe cycles
+        output = nhc1.run("ping -i 0.2 -c 80 172.16.1.2")
+        logger.info(output)
+        assert (
+            " 0% packet loss" in output
+        ), "packets to nhs2 lost while the kernel probed"
+        _wait_cache_entry_unused(nhc1, "172.16.1.2")
+    finally:
+        _set_gre_neigh_sysctls(nhc1, old)
+
+
+def test_nhs_binding_restored_after_neighbor_gc():
+    """
+    Let the kernel garbage-collect the neighbor entry of an idle NHS on nhc1,
+    then send traffic to that NHS. The kernel creates an incomplete entry and
+    asks for the address; nhrpd has to answer from its cache. The NHS's entry
+    for nhc1 is usually collected too, so its nhrpd has to do the same.
+    """
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    nhc1 = tgen.gears["nhc1"]
+    check_ping("nhc1", "172.16.1.3", True, 40, 1)
+
+    # The periodic neighbor GC only runs while the neighbor table, which all
+    # network namespaces share, holds at least gc_thresh1 entries (128 by
+    # default). It removes STALE entries unused for gc_stale_time. An entry
+    # only becomes STALE if its reachable time (at least half of
+    # base_reachable_time) outlasts delay_first_probe_time: otherwise it goes
+    # to DELAY and PROBE, nhrpd confirms it again, and that repeats for ever.
+    delay = int(
+        nhc1.cmd_raises(
+            "sysctl -n net.ipv4.neigh.nhc1-gre0.delay_first_probe_time"
+        ).strip()
+    )
+
+    def _entry_removed():
+        out = nhc1.cmd("ip neigh show 172.16.1.3 dev nhc1-gre0")
+        logger.info("nhs3 neighbor entry: %s", out.strip())
+        return out.strip() == ""
+
+    old = {}
+    try:
+        try:
+            nhc1.cmd_raises("ip link add gcfill type dummy && ip link set gcfill up")
+            nhc1.cmd_raises(
+                "for i in $(seq 0 199); do"
+                " echo neigh add 10.254.$((i / 200)).$((i % 200 + 1))"
+                " lladdr 02:00:00:00:00:01 dev gcfill nud permanent;"
+                " done | ip -batch -"
+            )
+            old = _set_gre_neigh_sysctls(
+                nhc1,
+                {"base_reachable_time_ms": (2 * delay + 2) * 1000, "gc_stale_time": 1},
+            )
+            _, removed = topotest.run_and_expect(
+                _entry_removed, True, count=120, wait=1
+            )
+        finally:
+            nhc1.cmd("ip link del gcfill")
+
+        if not removed:
+            pytest.skip("the kernel did not garbage-collect the neighbor entry")
+
+        check_ping("nhc1", "172.16.1.3", True, 10, 1)
+        _wait_cache_entry_unused(nhc1, "172.16.1.3")
+    finally:
+        if old:
+            _set_gre_neigh_sysctls(nhc1, old)
 
 
 @retry(retry_timeout=30, initial_wait=5)
