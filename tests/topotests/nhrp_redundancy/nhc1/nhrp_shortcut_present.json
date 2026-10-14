@@ -1,4 +1,7 @@
 {
+  "attr": {
+    "entriesCount": 1
+  },
   "table":{
     "10.5.5.0/24": {
       "type":"dynamic",
