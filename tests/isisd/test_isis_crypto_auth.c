@@ -51,11 +51,15 @@ static void clear_keys(void)
 		key_delete(keychain, key);
 }
 
+/* Whether the tests sign and verify with strict-rfc5310 */
+static bool strict_rfc5310;
+
 static struct isis_passwd passwd(const char *keychain_name)
 {
 	struct isis_passwd pw = { .type = ISIS_PASSWD_TYPE_CRYPTO_AUTH };
 
 	pw.len = strlcpy((char *)pw.passwd, keychain_name, sizeof(pw.passwd));
+	pw.strict_rfc5310 = strict_rfc5310;
 	return pw;
 }
 
@@ -151,6 +155,34 @@ static void test_digests(void)
 	test_digest("hmac-sha-512, LSP", KEYCHAIN_ALGO_HMAC_SHA512, "isis", true,
 		    "0f3b4e38e43236dd81857b8562b0031dc09efe265b84162c28b3f086d3cd04ddbde5e58f5b92c1d656f9df526dcc109cc656fb0cdab4264d07a15e5b2af6cfd9");
 #endif
+}
+
+/* RFC 5310 section 3.3 (1): keys longer than the hash are hashed */
+static void test_strict_rfc5310(void)
+{
+	static const char key40[] = "0123456789012345678901234567890123456789";
+	struct stream *s;
+
+	strict_rfc5310 = true;
+	test_digest("strict-rfc5310, 40-byte key", KEYCHAIN_ALGO_HMAC_SHA256, key40, false,
+		    "e55177659aa69452edda71701f71ee740fb29cd475d6130e9052fa676717a98a");
+	/* shorter than the hash: the same as plain HMAC */
+	test_digest("strict-rfc5310, 4-byte key", KEYCHAIN_ALGO_HMAC_SHA256, "isis", false,
+		    "2c055ae57cd8e41c680c10f5f31fcf2500449e318b9b3591c27bd83464da51f1");
+#ifdef CRYPTO_OPENSSL
+	test_digest("strict-rfc5310, hmac-sha-384, 60-byte key", KEYCHAIN_ALGO_HMAC_SHA384,
+		    "012345678901234567890123456789012345678901234567890123456789", false,
+		    "a27e977eae7d876a0a3c2c793c13d550e2fc07b79b3a356ce6cd4b6a5b64f94a1bd6b23a29a16901a683f6e4f153f1c4");
+#endif
+
+	/* with such a key, the two do not verify each other */
+	clear_keys();
+	add_key(7, KEYCHAIN_ALGO_HMAC_SHA256, key40);
+	s = sign(false);
+	strict_rfc5310 = false;
+	assert(verify(s, "kc", false) == ISIS_AUTH_FAILURE);
+	stream_free(s);
+	printf("strict-rfc5310 against plain HMAC: ok\n");
 }
 
 static void test_verify_failures(void)
@@ -321,6 +353,7 @@ int main(int argc, char **argv)
 	keychain = keychain_get("kc");
 
 	test_digests();
+	test_strict_rfc5310();
 	test_verify_failures();
 	test_truncated_key_id();
 	test_digest_length();
