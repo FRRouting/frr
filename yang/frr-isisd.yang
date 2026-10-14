@@ -805,6 +805,31 @@ module frr-isisd {
         "Container for the password of this IS interface.";
     }
 
+    leaf extended-sequence-number {
+      type enumeration {
+        enum "send" {
+          value 1;
+          description
+            "Add an Extended Sequence Number TLV to the IIHs and SNPs sent
+             on this interface.";
+        }
+        enum "verify" {
+          value 2;
+          description
+            "Also discard the IIHs and SNPs received on this interface
+             without an Extended Sequence Number greater than the last one
+             accepted from the same neighbor for the same PDU type. Applies
+             to the PDUs authenticated with HMAC-MD5 or a key chain: the
+             IIHs when the interface authenticates them, the SNPs when
+             their level validates them.";
+        }
+      }
+      description
+        "Extended Sequence Numbers (RFC 7602), which protect the IIHs and
+         SNPs of an authenticated interface against replay. Enable send on
+         every router of a link before verify.";
+    }
+
     leaf disable-three-way-handshake {
       type boolean;
       default "false";

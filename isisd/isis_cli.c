@@ -2403,6 +2403,38 @@ void cli_show_ip_isis_password(struct vty *vty, const struct lyd_node *dnode, bo
 }
 
 /*
+ * XPath: /frr-interface:lib/interface/frr-isisd:isis/extended-sequence-number
+ */
+DEFPY_YANG(isis_esn, isis_esn_cmd, "isis extended-sequence-number <send|verify>$mode",
+      "IS-IS routing protocol\n"
+      "Extended Sequence Numbers in IIHs and SNPs (RFC 7602)\n"
+      "Send Extended Sequence Numbers\n"
+      "Send Extended Sequence Numbers, and discard PDUs without a newer one\n")
+{
+	nb_cli_enqueue_change(vty, "./frr-isisd:isis/extended-sequence-number", NB_OP_MODIFY, mode);
+
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFPY_YANG(no_isis_esn, no_isis_esn_cmd, "no isis extended-sequence-number [<send|verify>]",
+      NO_STR
+      "IS-IS routing protocol\n"
+      "Extended Sequence Numbers in IIHs and SNPs (RFC 7602)\n"
+      "Send Extended Sequence Numbers\n"
+      "Send Extended Sequence Numbers, and discard PDUs without a newer one\n")
+{
+	nb_cli_enqueue_change(vty, "./frr-isisd:isis/extended-sequence-number", NB_OP_DESTROY,
+			      NULL);
+
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+void cli_show_ip_isis_esn(struct vty *vty, const struct lyd_node *dnode, bool show_defaults)
+{
+	vty_out(vty, " isis extended-sequence-number %s\n", yang_dnode_get_string(dnode, NULL));
+}
+
+/*
  * XPath: /frr-interface:lib/interface/frr-isisd:isis/metric
  */
 DEFPY_YANG(isis_metric, isis_metric_cmd,
@@ -3782,6 +3814,8 @@ void isis_cli_init(void)
 
 	install_element(INTERFACE_NODE, &isis_passwd_cmd);
 	install_element(INTERFACE_NODE, &no_isis_passwd_cmd);
+	install_element(INTERFACE_NODE, &isis_esn_cmd);
+	install_element(INTERFACE_NODE, &no_isis_esn_cmd);
 
 	install_element(INTERFACE_NODE, &isis_metric_cmd);
 	install_element(INTERFACE_NODE, &no_isis_metric_cmd);

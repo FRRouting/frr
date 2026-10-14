@@ -3469,6 +3469,49 @@ void isis_area_advertise_high_metrics_set(struct isis_area *area,
 }
 
 /*
+ * RFC 7602 Appendix A: the Extended Session Sequence Number of an area is the
+ * current time (A.1) or one more than the last one, kept in the daemon state
+ * (A.2), whichever is greater, so that it keeps increasing across restarts as
+ * long as either the clock or the state file survives. A session starts when
+ * the area first sends an ESN, and again whenever a Packet Sequence Number
+ * wraps. Not under "areas", which isis_restart_read_overload_time() deletes.
+ */
+#define ESN_SESSIONS_KEY "extended-session-sequence-numbers"
+
+void isis_area_esn_new_session(struct isis_area *area)
+{
+	json_object *json = frr_daemon_state_load();
+	json_object *json_sessions = NULL;
+	json_object *json_session = NULL;
+	uint64_t last = area->esn_session;
+
+	json_object_object_get_ex(json, ESN_SESSIONS_KEY, &json_sessions);
+	if (!json_object_is_type(json_sessions, json_type_object)) {
+		json_sessions = json_object_new_object();
+		json_object_object_add(json, ESN_SESSIONS_KEY, json_sessions);
+	}
+
+	json_object_object_get_ex(json_sessions, area->area_tag, &json_session);
+	if (json_object_is_type(json_session, json_type_int) &&
+	    json_object_get_int64(json_session) > 0)
+		last = MAX(last, (uint64_t)json_object_get_int64(json_session));
+
+	area->esn_session = MAX(last + 1, (uint64_t)time(NULL));
+	json_object_object_add(json_sessions, area->area_tag,
+			       json_object_new_int64(area->esn_session));
+
+	frr_daemon_state_save(&json);
+}
+
+uint64_t isis_area_esn_session(struct isis_area *area)
+{
+	if (!area->esn_session)
+		isis_area_esn_new_session(area);
+
+	return area->esn_session;
+}
+
+/*
  * Record in non-volatile memory the overload on startup time.
  */
 void isis_restart_write_overload_time(struct isis_area *isis_area,
