@@ -116,6 +116,41 @@ static void ospf6_enable_rtr_hash_destroy(struct ospf6 *ospf6)
 }
 
 /*
+ * Check the grace LSA TLV at offset sum of a TLV area of length bytes:
+ * the whole TLV must fit in the area and be long enough for the fields
+ * its type carries.
+ */
+static bool ospf6_grace_tlv_valid(const struct tlv_header *tlvh, int sum, uint16_t length)
+{
+	uint32_t min_size;
+
+	if (sum + TLV_SIZE(tlvh) > length)
+		return false;
+
+	switch (ntohs(tlvh->type)) {
+	case TLV_GRACE_PERIOD_TYPE:
+		min_size = GRACE_PERIOD_TLV_SIZE;
+		break;
+	case TLV_GRACE_RESTART_REASON_TYPE:
+		min_size = GRACE_RESTART_REASON_TLV_SIZE;
+		break;
+	default:
+		min_size = TLV_HDR_SIZE;
+		break;
+	}
+
+	return TLV_SIZE(tlvh) >= min_size;
+}
+
+static const char *ospf6_restart_reason_str(uint8_t reason)
+{
+	if (reason >= array_size(ospf6_restart_reason_desc))
+		return ospf6_restart_reason_desc[0];
+
+	return ospf6_restart_reason_desc[reason];
+}
+
+/*
  * Extracting tlv info from GRACE LSA.
  *
  * lsa
@@ -148,8 +183,8 @@ static int ospf6_extract_grace_lsa_fields(struct ospf6_lsa *lsa,
 	/* Iterate as long as we have at least a TLV header available */
 	for (tlvh = lsdesc_start(lsah); sum + TLV_HDR_SIZE <= length && tlvh;
 	     tlvh = TLV_HDR_NEXT(tlvh)) {
-		/* Check TLV len against overall LSA */
-		if (sum + TLV_SIZE(tlvh) > length) {
+		/* Check TLV len against overall LSA and its type */
+		if (!ospf6_grace_tlv_valid(tlvh, sum, length)) {
 			if (IS_DEBUG_OSPF6_GR)
 				zlog_debug(
 					"%s: Malformed packet: Invalid TLV len:%d",
@@ -1243,10 +1278,10 @@ static int ospf6_grace_lsa_show_info(struct vty *vty, struct ospf6_lsa *lsa,
 		zlog_debug("  TLV info:");
 	}
 
-	for (tlvh = lsdesc_start(lsah); sum < length && tlvh;
+	for (tlvh = lsdesc_start(lsah); sum + TLV_HDR_SIZE <= length && tlvh;
 	     tlvh = TLV_HDR_NEXT(tlvh)) {
-		/* Check TLV len */
-		if (sum + TLV_SIZE(tlvh) > length) {
+		/* Check TLV len against overall LSA and its type */
+		if (!ospf6_grace_tlv_valid(tlvh, sum, length)) {
 			if (vty)
 				vty_out(vty, "%% Invalid TLV length: %d\n",
 					TLV_SIZE(tlvh));
@@ -1279,21 +1314,19 @@ static int ospf6_grace_lsa_show_info(struct vty *vty, struct ospf6_lsa *lsa,
 			sum += TLV_SIZE(tlvh);
 			if (vty) {
 				if (use_json)
-					json_object_string_add(
-						json, "restartReason",
-						ospf6_restart_reason_desc
-							[grReason->reason]);
+					json_object_string_add(json, "restartReason",
+							       ospf6_restart_reason_str(
+								       grReason->reason));
 				else
 					vty_out(vty, "   Restart reason:%s\n",
-						ospf6_restart_reason_desc
-							[grReason->reason]);
+						ospf6_restart_reason_str(grReason->reason));
 			} else {
 				zlog_debug("    Restart reason:%s",
-					   ospf6_restart_reason_desc
-						   [grReason->reason]);
+					   ospf6_restart_reason_str(grReason->reason));
 			}
 			break;
 		default:
+			sum += TLV_SIZE(tlvh);
 			break;
 		}
 	}
