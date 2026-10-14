@@ -1088,6 +1088,7 @@ int peer_af_delete(struct peer *peer, afi_t afi, safi_t safi)
 	bgp_soft_reconfig_table_task_cancel(bgp, bgp->rib[afi][safi], peer);
 
 	bgp_stop_announce_route_timer(af);
+	event_cancel(&af->t_refresh_stalepath);
 	event_cancel(&peer->t_llgr_stale[afi][safi]);
 
 	if (PAF_SUBGRP(af)) {
@@ -1106,6 +1107,35 @@ int peer_af_delete(struct peer *peer, afi_t afi, safi_t safi)
 	peer->peer_af_array[afid] = NULL;
 	XFREE(MTYPE_BGP_PEER_AF, af);
 	return 0;
+}
+
+bool peer_refresh_stale_start(struct peer_af *paf)
+{
+	struct peer *peer = paf->peer;
+	afi_t afi = paf->afi;
+	safi_t safi = paf->safi;
+
+	SET_FLAG(peer->af_sflags[afi][safi], PEER_STATUS_BORR_RECEIVED);
+	UNSET_FLAG(peer->af_sflags[afi][safi], PEER_STATUS_EORR_RECEIVED);
+	SET_FLAG(peer->af_sflags[afi][safi], PEER_STATUS_ENHANCED_REFRESH);
+	bgp_set_stale_route(peer, afi, safi);
+	return !event_is_scheduled(paf->t_refresh_stalepath);
+}
+
+/* Cancel all family refresh timers when the peer session is stopped. */
+bool peer_refresh_stale_timers_cancel(struct peer *peer)
+{
+	bool scheduled = false;
+
+	for (enum bgp_af_index index = BGP_AF_START; index < BGP_AF_MAX; index++) {
+		struct peer_af *paf = peer->peer_af_array[index];
+
+		if (!paf)
+			continue;
+		scheduled |= event_is_scheduled(paf->t_refresh_stalepath);
+		event_cancel(&paf->t_refresh_stalepath);
+	}
+	return scheduled;
 }
 
 /* Peer comparison function for sorting.  */

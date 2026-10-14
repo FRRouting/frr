@@ -498,7 +498,7 @@ void bgp_timer_set(struct peer_connection *connection)
 			event_cancel(&peer->t_llgr_stale[afi][safi]);
 
 		event_cancel(&connection->t_pmax_restart);
-		event_cancel(&peer->t_refresh_stalepath);
+		peer_refresh_stale_timers_cancel(peer);
 		fallthrough;
 	case Clearing:
 		event_cancel(&connection->t_start);
@@ -2237,9 +2237,7 @@ enum bgp_fsm_state_progress bgp_stop(struct peer_connection *connection)
 		}
 
 		/* Stop route-refresh stalepath timer */
-		if (event_is_scheduled(peer->t_refresh_stalepath)) {
-			event_cancel(&peer->t_refresh_stalepath);
-
+		if (peer_refresh_stale_timers_cancel(peer)) {
 			if (bgp_debug_neighbor_events(peer))
 				zlog_debug("%pBP route-refresh restart stalepath timer stopped for %s",
 					   peer,
