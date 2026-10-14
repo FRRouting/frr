@@ -594,6 +594,29 @@ static void update_rej_adj_count(struct isis_circuit *circuit)
  * one counter, which keeps the numbers each neighbor receives increasing
  * however circuits come and go; they are verified per neighbor and PDU type.
  */
+static int esn_pdu_index(uint8_t pdu_type)
+{
+	switch (pdu_type) {
+	case L1_LAN_HELLO:
+		return 0;
+	case L2_LAN_HELLO:
+		return 1;
+	case P2P_HELLO:
+		return 2;
+	case L1_COMPLETE_SEQ_NUM:
+		return 3;
+	case L2_COMPLETE_SEQ_NUM:
+		return 4;
+	case L1_PARTIAL_SEQ_NUM:
+		return 5;
+	case L2_PARTIAL_SEQ_NUM:
+		return 6;
+	}
+
+	assert(!"PDU type without an ESN");
+	return 0;
+}
+
 /* Number the next PDU sent on circuit */
 static void esn_add(struct isis_circuit *circuit, struct isis_tlvs *tlvs)
 {
@@ -616,6 +639,131 @@ static void esn_reserve(struct isis_circuit *circuit, struct isis_tlvs *tlvs)
 {
 	if (circuit->esn_mode != ISIS_ESN_OFF)
 		isis_tlvs_set_esn(tlvs, 0, 0);
+}
+
+/*
+ * Whether passwd made the PDU it validated tamper-proof. Only then is its ESN
+ * worth checking, or safe to remember: anyone on the link could write a
+ * clear-text password, read off the wire, or an ESN into any other PDU.
+ */
+static bool esn_pdu_authenticated(const struct isis_passwd *passwd)
+{
+	return passwd->type == ISIS_PASSWD_TYPE_HMAC_MD5 ||
+	       passwd->type == ISIS_PASSWD_TYPE_CRYPTO_AUTH;
+}
+
+DEFINE_MTYPE_STATIC(ISISD, ISIS_ESN_PEER, "ISIS ESN neighbor state");
+
+/* The last ESN accepted from a neighbor on a circuit, per PDU type */
+struct isis_esn_peer {
+	struct isis_esn_peer_list_item item;
+	uint8_t sysid[ISIS_SYS_ID_LEN];
+	uint64_t essn[ISIS_ESN_PDU_TYPES]; /* 0, which no valid ESN has, if none */
+	uint32_t psn[ISIS_ESN_PDU_TYPES];
+};
+
+DECLARE_LIST(isis_esn_peer_list, struct isis_esn_peer, item);
+
+/*
+ * Only authenticated PDUs that were accepted create an entry, so a circuit
+ * holds one per router with the key that has been its neighbor.
+ */
+static struct isis_esn_peer *esn_peer(struct isis_circuit *circuit, const uint8_t *sys_id,
+				      bool create)
+{
+	struct isis_esn_peer *peer;
+
+	frr_each (isis_esn_peer_list, &circuit->esn_peers, peer) {
+		if (!memcmp(peer->sysid, sys_id, ISIS_SYS_ID_LEN))
+			return peer;
+	}
+
+	if (!create)
+		return NULL;
+
+	peer = XCALLOC(MTYPE_ISIS_ESN_PEER, sizeof(*peer));
+	memcpy(peer->sysid, sys_id, ISIS_SYS_ID_LEN);
+	isis_esn_peer_list_add_tail(&circuit->esn_peers, peer);
+	return peer;
+}
+
+void isis_esn_peers_init(struct isis_circuit *circuit)
+{
+	isis_esn_peer_list_init(&circuit->esn_peers);
+}
+
+void isis_esn_peers_clear(struct isis_circuit *circuit)
+{
+	struct isis_esn_peer *peer;
+
+	while ((peer = isis_esn_peer_list_pop(&circuit->esn_peers)))
+		XFREE(MTYPE_ISIS_ESN_PEER, peer);
+}
+
+void isis_esn_peers_fini(struct isis_circuit *circuit)
+{
+	isis_esn_peers_clear(circuit);
+	isis_esn_peer_list_fini(&circuit->esn_peers);
+}
+
+/*
+ * In verify mode, accept only an authenticated PDU with exactly one valid ESN
+ * TLV whose value is greater than the last one accepted from sys_id for the
+ * same PDU type (RFC 7602 sections 3 and 5.1).
+ */
+static bool esn_accept(struct isis_circuit *circuit, uint8_t pdu_type, const char *pdu_name,
+		       const struct isis_tlvs *tlvs, const uint8_t *sys_id, bool authenticated,
+		       bool debug)
+{
+	const struct isis_esn *esn = tlvs->esn;
+	struct isis_esn_peer *peer;
+	int i;
+
+	if (circuit->esn_mode != ISIS_ESN_VERIFY || !authenticated)
+		return true;
+
+	if (!esn || esn->invalid || !esn->essn) {
+		circuit->esn_missing_drops++;
+		if (debug)
+			zlog_debug("ISIS-ESN (%s): Discarding %s from %pSY on %s: %s Extended Sequence Number",
+				   circuit->area->area_tag, pdu_name, sys_id,
+				   circuit->interface->name, esn ? "invalid" : "no");
+		return false;
+	}
+
+	peer = esn_peer(circuit, sys_id, false);
+	if (!peer)
+		return true;
+
+	i = esn_pdu_index(pdu_type);
+	if (esn->essn < peer->essn[i] || (esn->essn == peer->essn[i] && esn->psn <= peer->psn[i])) {
+		circuit->esn_replay_drops++;
+		if (debug)
+			zlog_debug("ISIS-ESN (%s): Discarding %s from %pSY on %s: ESN %" PRIu64
+				   ".%" PRIu32 " not after %" PRIu64 ".%" PRIu32,
+				   circuit->area->area_tag, pdu_name, sys_id,
+				   circuit->interface->name, esn->essn, esn->psn, peer->essn[i],
+				   peer->psn[i]);
+		return false;
+	}
+
+	return true;
+}
+
+/* Section 4: remember the ESN of a PDU from sys_id that esn_accept() let through */
+static void esn_accepted(struct isis_circuit *circuit, uint8_t pdu_type,
+			 const struct isis_tlvs *tlvs, const uint8_t *sys_id, bool authenticated)
+{
+	struct isis_esn_peer *peer;
+	int i;
+
+	if (circuit->esn_mode != ISIS_ESN_VERIFY || !authenticated || !tlvs->esn)
+		return;
+
+	peer = esn_peer(circuit, sys_id, true);
+	i = esn_pdu_index(pdu_type);
+	peer->essn[i] = tlvs->esn->essn;
+	peer->psn[i] = tlvs->esn->psn;
 }
 
 static int process_hello(uint8_t pdu_type, struct isis_circuit *circuit,
@@ -813,6 +961,12 @@ static int process_hello(uint8_t pdu_type, struct isis_circuit *circuit,
 		goto out;
 	}
 
+	bool authenticated = esn_pdu_authenticated(&circuit->passwd);
+
+	if (!esn_accept(circuit, pdu_type, pdu_name, iih.tlvs, iih.sys_id, authenticated,
+			IS_DEBUG_ADJ_PACKETS))
+		goto out;
+
 	if (!p2p_hello
 	    && (iso_address_list_count(&circuit->area->area_addrs) == 0
 		|| (level == ISIS_LEVEL1
@@ -853,6 +1007,8 @@ static int process_hello(uint8_t pdu_type, struct isis_circuit *circuit,
 	}
 
 	retval = p2p_hello ? process_p2p_hello(&iih) : process_lan_hello(&iih);
+	if (retval == ISIS_OK)
+		esn_accepted(circuit, pdu_type, iih.tlvs, iih.sys_id, authenticated);
 out:
 	isis_free_tlvs(iih.tlvs);
 
@@ -1517,6 +1673,15 @@ static int process_snp(uint8_t pdu_type, struct isis_circuit *circuit,
 		}
 	}
 
+	bool authenticated = CHECK_FLAG(passwd->snp_auth, SNP_AUTH_RECV) &&
+			     esn_pdu_authenticated(passwd);
+	char pdu_name[8];
+
+	snprintfrr(pdu_name, sizeof(pdu_name), "L%d %cSNP", level, typechar);
+	if (!esn_accept(circuit, pdu_type, pdu_name, tlvs, rem_sys_id, authenticated,
+			IS_DEBUG_SNP_PACKETS))
+		goto out;
+
 	struct isis_lsp_entry *entry_head =
 		(struct isis_lsp_entry *)tlvs->lsp_entries.head;
 
@@ -1652,6 +1817,7 @@ static int process_snp(uint8_t pdu_type, struct isis_circuit *circuit,
 	if (fabricd_initial_sync_is_complete(circuit->area) && resync_needed)
 		zlog_warn("OpenFabric: Needed to resync LSPDB using CSNP!");
 
+	esn_accepted(circuit, pdu_type, tlvs, rem_sys_id, authenticated);
 	retval = ISIS_OK;
 out:
 	isis_free_tlvs(tlvs);
