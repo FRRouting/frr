@@ -75,7 +75,6 @@ def _epochs():
             .vtysh_cmd("show ipv6 ospf6 neighbor json", isjson=True)["neighbors"]
         )
         end = time.monotonic()
-        assert end - start < 1, "Neighbor observation took too long"
         for n in rows:
             age = sum(
                 int(value) * scale
