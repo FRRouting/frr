@@ -3140,9 +3140,8 @@ static int isis_keychain_changed(const char *keychain_name)
 	return 0;
 }
 
-static int isis_area_passwd_set(struct isis_area *area, int level,
-				uint8_t passwd_type, const char *passwd,
-				uint8_t snp_auth)
+static int isis_area_passwd_set(struct isis_area *area, int level, uint8_t passwd_type,
+				const char *passwd, uint8_t snp_auth, bool strict_rfc5310)
 {
 	struct isis_passwd *dest;
 	struct isis_passwd modified;
@@ -3166,6 +3165,7 @@ static int isis_area_passwd_set(struct isis_area *area, int level,
 			sizeof(modified.passwd));
 		modified.type = passwd_type;
 		modified.snp_auth = snp_auth;
+		modified.strict_rfc5310 = strict_rfc5310;
 	}
 
 	if (memcmp(&modified, dest, sizeof(modified))) {
@@ -3179,28 +3179,28 @@ static int isis_area_passwd_set(struct isis_area *area, int level,
 
 int isis_area_passwd_unset(struct isis_area *area, int level)
 {
-	return isis_area_passwd_set(area, level, ISIS_PASSWD_TYPE_UNUSED, NULL,
-				    0);
+	return isis_area_passwd_set(area, level, ISIS_PASSWD_TYPE_UNUSED, NULL, 0, false);
 }
 
 int isis_area_passwd_cleartext_set(struct isis_area *area, int level,
 				   const char *passwd, uint8_t snp_auth)
 {
-	return isis_area_passwd_set(area, level, ISIS_PASSWD_TYPE_CLEARTXT,
-				    passwd, snp_auth);
+	return isis_area_passwd_set(area, level, ISIS_PASSWD_TYPE_CLEARTXT, passwd, snp_auth,
+				    false);
 }
 
 int isis_area_passwd_hmac_md5_set(struct isis_area *area, int level,
 				  const char *passwd, uint8_t snp_auth)
 {
-	return isis_area_passwd_set(area, level, ISIS_PASSWD_TYPE_HMAC_MD5,
-				    passwd, snp_auth);
+	return isis_area_passwd_set(area, level, ISIS_PASSWD_TYPE_HMAC_MD5, passwd, snp_auth,
+				    false);
 }
 
 int isis_area_passwd_keychain_set(struct isis_area *area, int level, const char *keychain,
-				  uint8_t snp_auth)
+				  bool strict_rfc5310, uint8_t snp_auth)
 {
-	return isis_area_passwd_set(area, level, ISIS_PASSWD_TYPE_CRYPTO_AUTH, keychain, snp_auth);
+	return isis_area_passwd_set(area, level, ISIS_PASSWD_TYPE_CRYPTO_AUTH, keychain, snp_auth,
+				    strict_rfc5310);
 }
 
 void isis_area_invalidate_routes(struct isis_area *area, int levels)

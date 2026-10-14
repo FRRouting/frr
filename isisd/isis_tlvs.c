@@ -5674,20 +5674,23 @@ static void crypto_auth_hmac(enum keychain_hash_algo algo, const uint8_t *key, s
 /*
  * The HMAC key: the key, or its hash when it is longer than the block size,
  * as plain HMAC (RFC 2104) has it. RFC 5310 section 3.3 (1) hashes keys longer
- * than the hash instead, but IOS XR, EOS and Holo all use plain HMAC, and the
- * two only differ for keys longer than the hash and no longer than the block.
- * Hashing long keys here bounds what struct isis_auth has to hold.
+ * than the hash instead, which strict_rfc5310 selects: IOS XR, EOS and Holo
+ * all use plain HMAC, and the two only differ for keys longer than the hash
+ * and no longer than the block. Hashing long keys here bounds what struct
+ * isis_auth has to hold.
  */
 _Static_assert(sizeof(((struct isis_auth *)0)->passwd) >= KEYCHAIN_ALGO_MAX_INTERNAL_BLK_SIZE,
 	       "struct isis_auth must hold any HMAC key");
 
-static size_t crypto_auth_ko(enum keychain_hash_algo algo, const char *key, uint8_t *ko)
+static size_t crypto_auth_ko(enum keychain_hash_algo algo, const char *key, bool strict_rfc5310,
+			     uint8_t *ko)
 {
 	size_t key_len = strlen(key);
+	size_t hash_len = keychain_get_hash_len(algo);
 
-	if (key_len > keychain_get_block_size(algo)) {
+	if (key_len > (strict_rfc5310 ? hash_len : keychain_get_block_size(algo))) {
 		crypto_auth_hash(algo, key, key_len, ko);
-		return keychain_get_hash_len(algo);
+		return hash_len;
 	}
 
 	memcpy(ko, key, key_len);
@@ -7417,7 +7420,8 @@ bool isis_tlvs_add_auth(struct isis_tlvs *tlvs, struct isis_passwd *passwd)
 		auth->type = ISIS_PASSWD_TYPE_CRYPTO_AUTH;
 		auth->key_id = key->index;
 		auth->algo = key->hash_algo;
-		auth->plength = crypto_auth_ko(key->hash_algo, key->string, auth->passwd);
+		auth->plength = crypto_auth_ko(key->hash_algo, key->string, passwd->strict_rfc5310,
+					       auth->passwd);
 		append_item(&tlvs->isis_auth, (struct isis_item *)auth);
 		return true;
 	}
@@ -7632,7 +7636,7 @@ static bool auth_validator_crypto(struct isis_passwd *passwd, struct stream *str
 	if (auth->length != hash_len)
 		return false;
 
-	ko_len = crypto_auth_ko(key->hash_algo, key->string, ko);
+	ko_len = crypto_auth_ko(key->hash_algo, key->string, passwd->strict_rfc5310, ko);
 
 	if (is_lsp)
 		lsp_auth_fields_clear(stream, &checksum, &rem_lifetime);
