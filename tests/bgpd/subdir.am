@@ -73,6 +73,16 @@ EXTRA_DIST += tests/bgpd/test_orf_defer.py
 
 
 if BGPD
+check_PROGRAMS += tests/bgpd/test_orf_instance
+endif
+tests_bgpd_test_orf_instance_CFLAGS = $(TESTS_CFLAGS)
+tests_bgpd_test_orf_instance_CPPFLAGS = $(TESTS_CPPFLAGS)
+tests_bgpd_test_orf_instance_LDADD = $(BGP_TEST_LDADD)
+tests_bgpd_test_orf_instance_SOURCES = tests/bgpd/test_orf_instance.c
+EXTRA_DIST += tests/bgpd/test_orf_instance.py
+
+
+if BGPD
 check_PROGRAMS += tests/bgpd/test_packet
 endif
 tests_bgpd_test_packet_CFLAGS = $(TESTS_CFLAGS)

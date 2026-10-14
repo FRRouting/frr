@@ -2957,8 +2957,7 @@ static int bgp_route_refresh_receive(struct peer_connection *connection, bgp_siz
 				}
 
 				/* ORF prefix-list name */
-				snprintf(name, sizeof(name), "%s.%d.%d",
-					 peer->host, afi, safi);
+				peer_orf_plist_name(peer, afi, safi, name, sizeof(name));
 
 				/* we're going to read at least 1 byte of common
 				 * ORF header,

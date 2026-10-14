@@ -2338,8 +2338,7 @@ enum bgp_fsm_state_progress bgp_stop(struct peer_connection *connection)
 		if ((connection->status == OpenConfirm) ||
 		    peer_established(connection)) {
 			/* ORF received prefix-filter pnt */
-			snprintf(orf_name, sizeof(orf_name), "%s.%d.%d",
-				 peer->host, afi, safi);
+			peer_orf_plist_name(peer, afi, safi, orf_name, sizeof(orf_name));
 			prefix_bgp_orf_remove_all(afi, orf_name);
 		}
 	}
