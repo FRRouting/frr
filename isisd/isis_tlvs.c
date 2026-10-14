@@ -4463,6 +4463,93 @@ static int unpack_tlv_threeway_adj(enum isis_tlv_context context, uint8_t tlv_ty
 	return 0;
 }
 
+/* Functions related to TLV 11 Extended Sequence Number (RFC 7602) */
+#define ESN_TLV_LEN 12
+
+static struct isis_esn *copy_tlv_esn(const struct isis_esn *esn)
+{
+	if (!esn)
+		return NULL;
+
+	struct isis_esn *rv = XCALLOC(MTYPE_ISIS_TLV, sizeof(*rv));
+
+	rv->essn = esn->essn;
+	rv->psn = esn->psn;
+	rv->invalid = esn->invalid;
+	return rv;
+}
+
+static void format_tlv_esn(const struct isis_esn *esn, struct sbuf *buf, struct json_object *json,
+			   int indent)
+{
+	if (!esn)
+		return;
+
+	if (json) {
+		struct json_object *esn_json = json_object_new_object();
+
+		json_object_object_add(json, "extendedSequenceNumber", esn_json);
+		json_object_int_add(esn_json, "session", esn->essn);
+		json_object_int_add(esn_json, "packet", esn->psn);
+	} else {
+		sbuf_push(buf, indent,
+			  "Extended Sequence Number: session %" PRIu64 ", packet %" PRIu32 "\n",
+			  esn->essn, esn->psn);
+	}
+}
+
+static void free_tlv_esn(struct isis_esn *esn)
+{
+	XFREE(MTYPE_ISIS_TLV, esn);
+}
+
+static int pack_tlv_esn(const struct isis_esn *esn, struct stream *s)
+{
+	if (!esn)
+		return 0;
+
+	if (STREAM_WRITEABLE(s) < 2 + ESN_TLV_LEN)
+		return 1;
+
+	stream_putc(s, ISIS_TLV_ESN);
+	stream_putc(s, ESN_TLV_LEN);
+	stream_putq(s, esn->essn);
+	stream_putl(s, esn->psn);
+	return 0;
+}
+
+static int unpack_tlv_esn(enum isis_tlv_context context, uint8_t tlv_type, uint8_t tlv_len,
+			  struct stream *s, struct sbuf *log, void *dest, int indent)
+{
+	struct isis_tlvs *tlvs = dest;
+
+	sbuf_push(log, indent, "Unpacking Extended Sequence Number TLV...\n");
+
+	/* RFC 7602 section 3: a PDU with more than one ESN TLV, malformed ones
+	 * included, is invalid; the receiver verifying ESNs discards it.
+	 */
+	if (tlvs->esn) {
+		sbuf_push(log, indent,
+			  "WARNING: Extended Sequence Number TLV present multiple times.\n");
+		tlvs->esn->invalid = true;
+		stream_forward_getp(s, tlv_len);
+		return 0;
+	}
+
+	tlvs->esn = XCALLOC(MTYPE_ISIS_TLV, sizeof(*tlvs->esn));
+	if (tlv_len != ESN_TLV_LEN) {
+		sbuf_push(log, indent, "WARNING: Unexpected TLV size\n");
+		tlvs->esn->invalid = true;
+		stream_forward_getp(s, tlv_len);
+		return 0;
+	}
+
+	tlvs->esn->essn = stream_getq(s);
+	tlvs->esn->psn = stream_getl(s);
+	format_tlv_esn(tlvs->esn, log, NULL, indent + 2);
+	return 0;
+}
+
 /* Functions related to TLVs 236/237 IPv6/MT-IPv6 reach */
 static struct isis_item *copy_item_ipv6_reach(struct isis_item *i)
 {
@@ -6751,6 +6838,8 @@ struct isis_tlvs *isis_copy_tlvs(struct isis_tlvs *tlvs)
 
 	rv->threeway_adj = copy_tlv_threeway_adj(tlvs->threeway_adj);
 
+	rv->esn = copy_tlv_esn(tlvs->esn);
+
 	rv->router_cap = copy_tlv_router_cap(tlvs->router_cap);
 
 	rv->spine_leaf = copy_tlv_spine_leaf(tlvs->spine_leaf);
@@ -6834,6 +6923,8 @@ static void format_tlvs(struct isis_tlvs *tlvs, struct sbuf *buf, struct json_ob
 
 	format_tlv_threeway_adj(tlvs->threeway_adj, buf, json, indent);
 
+	format_tlv_esn(tlvs->esn, buf, json, indent);
+
 	format_tlv_spine_leaf(tlvs->spine_leaf, buf, json, indent);
 
 	format_mt_items(ISIS_CONTEXT_LSP, ISIS_TLV_SRV6_LOCATOR, &tlvs->srv6_locator, buf, json,
@@ -6887,6 +6978,7 @@ void isis_free_tlvs(struct isis_tlvs *tlvs)
 	free_items(ISIS_CONTEXT_LSP, ISIS_TLV_IPV6_REACH, &tlvs->ipv6_reach);
 	free_mt_items(ISIS_CONTEXT_LSP, ISIS_TLV_MT_IPV6_REACH, &tlvs->mt_ipv6_reach);
 	free_tlv_threeway_adj(tlvs->threeway_adj);
+	free_tlv_esn(tlvs->esn);
 	free_tlv_router_cap(tlvs->router_cap);
 	free_tlv_spine_leaf(tlvs->spine_leaf);
 	free_mt_items(ISIS_CONTEXT_LSP, ISIS_TLV_SRV6_LOCATOR, &tlvs->srv6_locator);
@@ -7097,6 +7189,12 @@ static int pack_tlvs(struct isis_tlvs *tlvs, struct stream *stream, struct isis_
 		return rv;
 	if (fragment_tlvs)
 		fragment_tlvs->threeway_adj = copy_tlv_threeway_adj(tlvs->threeway_adj);
+
+	rv = pack_tlv_esn(tlvs->esn, stream);
+	if (rv)
+		return rv;
+	if (fragment_tlvs)
+		fragment_tlvs->esn = copy_tlv_esn(tlvs->esn);
 
 	rv = pack_tlv_spine_leaf(tlvs->spine_leaf, stream);
 	if (rv)
@@ -7324,6 +7422,7 @@ TLV_OPS(dynamic_hostname, "TLV 137 Dynamic Hostname");
 TLV_OPS(te_router_id_ipv6, "TLV 140 IPv6 TE Router ID");
 TLV_OPS(spine_leaf, "TLV 150 Spine Leaf Extensions");
 ITEM_TLV_OPS(mt_router_info, "TLV 229 MT Router Information");
+TLV_OPS(esn, "TLV 11 Extended Sequence Number");
 TLV_OPS(threeway_adj, "TLV 240 P2P Three-Way Adjacency");
 ITEM_TLV_OPS(ipv6_address, "TLV 232 IPv6 Interface Address");
 ITEM_TLV_OPS(global_ipv6_address, "TLV 233 Global IPv6 Interface Address");
@@ -7364,6 +7463,7 @@ static const struct tlv_ops *const tlv_table[ISIS_CONTEXT_MAX][ISIS_TLV_MAX] = {
 		[ISIS_TLV_MT_IP_REACH] = &tlv_extended_ip_reach_ops,
 		[ISIS_TLV_IPV6_REACH] = &tlv_ipv6_reach_ops,
 		[ISIS_TLV_MT_IPV6_REACH] = &tlv_ipv6_reach_ops,
+		[ISIS_TLV_ESN] = &tlv_esn_ops,
 		[ISIS_TLV_THREE_WAY_ADJ] = &tlv_threeway_adj_ops,
 		[ISIS_TLV_ROUTER_CAPABILITY] = &tlv_router_cap_ops,
 		[ISIS_TLV_SRV6_LOCATOR] = &tlv_srv6_locator_ops,
@@ -8309,6 +8409,15 @@ void isis_tlvs_add_srlg(struct isis_tlvs *tlvs, const uint8_t *id, const uint32_
 		memcpy(s->srlgs, srlgs, num * sizeof(uint32_t));
 		append_item(&tlvs->srlg_ipv6, (struct isis_item *)s);
 	}
+}
+
+void isis_tlvs_set_esn(struct isis_tlvs *tlvs, uint64_t essn, uint32_t psn)
+{
+	if (!tlvs->esn)
+		tlvs->esn = XCALLOC(MTYPE_ISIS_TLV, sizeof(*tlvs->esn));
+
+	tlvs->esn->essn = essn;
+	tlvs->esn->psn = psn;
 }
 
 void isis_tlvs_add_threeway_adj(struct isis_tlvs *tlvs, enum isis_threeway_state state,

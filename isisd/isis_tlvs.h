@@ -126,6 +126,16 @@ struct isis_threeway_adj {
 	uint32_t neighbor_circuit_id;
 };
 
+/* RFC 7602 Extended Sequence Number */
+struct isis_esn {
+	uint64_t essn; /* Extended Session Sequence Number */
+	uint32_t psn;  /* Packet Sequence Number */
+	/* Set on receipt of a PDU with more than one ESN TLV or a malformed one,
+	 * which RFC 7602 section 3 makes invalid; the values are then unusable
+	 */
+	bool invalid;
+};
+
 /* Segment Routing subTLV's as per RFC8667 */
 #define ISIS_SUBTLV_SRGB_FLAG_I 0x80
 #define ISIS_SUBTLV_SRGB_FLAG_V 0x40
@@ -446,6 +456,7 @@ struct isis_tlvs {
 	struct isis_item_list ipv6_reach;
 	struct isis_mt_item_list mt_ipv6_reach;
 	struct isis_threeway_adj *threeway_adj;
+	struct isis_esn *esn;
 	struct isis_router_cap *router_cap;
 	struct isis_spine_leaf *spine_leaf;
 	struct isis_mt_item_list srv6_locator;
@@ -492,6 +503,7 @@ enum isis_tlv_type {
 	ISIS_TLV_PADDING = 8,
 	ISIS_TLV_LSP_ENTRY = 9,
 	ISIS_TLV_AUTH = 10,
+	ISIS_TLV_ESN = 11,
 	ISIS_TLV_PURGE_ORIGINATOR = 13,
 	ISIS_TLV_EXTENDED_REACH = 22,
 
@@ -884,6 +896,7 @@ void isis_tlvs_add_srlg(struct isis_tlvs *tlvs, const uint8_t *id, const uint32_
 
 const char *isis_threeway_state_name(enum isis_threeway_state state);
 
+void isis_tlvs_set_esn(struct isis_tlvs *tlvs, uint64_t essn, uint32_t psn);
 void isis_tlvs_add_threeway_adj(struct isis_tlvs *tlvs, enum isis_threeway_state state,
 				uint32_t local_circuit_id, const uint8_t *neighbor_id,
 				uint32_t neighbor_circuit_id);
