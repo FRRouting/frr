@@ -58,14 +58,15 @@ writing, *isisd* does not support multiple ISIS processes.
    of the level are authenticated too: sent authenticated, and also verified
    with ``validate``.
 
-.. clicmd:: area-password key-chain KEYCHAIN [authenticate snp <send-only|validate>]
+.. clicmd:: area-password key-chain KEYCHAIN [strict-rfc5310] [authenticate snp <send-only|validate>]
 
-.. clicmd:: domain-password key-chain KEYCHAIN [authenticate snp <send-only|validate>]
+.. clicmd:: domain-password key-chain KEYCHAIN [strict-rfc5310] [authenticate snp <send-only|validate>]
    :daemon: isisd
 
    Authenticate the LSPs of an area, respectively a domain, and with
    ``authenticate snp`` its Sequence Number PDUs, with the keys of a key chain
-   (:rfc:`5310`). See :ref:`isis-authentication`.
+   (:rfc:`5310`); ``strict-rfc5310`` derives the HMAC key from them as
+   section 3.3 of :rfc:`5310` does. See :ref:`isis-authentication`.
 
 .. clicmd:: attached-bit [receive ignore | send]
    :daemon: isisd
@@ -288,10 +289,11 @@ sessions.
    Configure the authentication password (clear or encoded text) for the
    interface.
 
-.. clicmd:: isis password key-chain KEYCHAIN
+.. clicmd:: isis password key-chain KEYCHAIN [strict-rfc5310]
 
    Authenticate the hellos of the interface with the keys of a key chain
-   (:rfc:`5310`). See :ref:`isis-authentication`.
+   (:rfc:`5310`); ``strict-rfc5310`` derives the HMAC key from them as
+   section 3.3 of :rfc:`5310` does. See :ref:`isis-authentication`.
 
 .. clicmd:: isis extended-sequence-number <send|verify>
 
@@ -344,9 +346,9 @@ ISIS Authentication
 ===================
 
 Besides clear text and HMAC-MD5 (:rfc:`5304`) passwords, the hellos of an
-interface (:clicmd:`isis password key-chain KEYCHAIN`) and the LSPs and SNPs
-of a level (:clicmd:`area-password key-chain KEYCHAIN [authenticate snp <send-only|validate>]`,
-:clicmd:`domain-password key-chain KEYCHAIN [authenticate snp <send-only|validate>]`)
+interface (:clicmd:`isis password key-chain KEYCHAIN [strict-rfc5310]`) and the LSPs and SNPs
+of a level (:clicmd:`area-password key-chain KEYCHAIN [strict-rfc5310] [authenticate snp <send-only|validate>]`,
+:clicmd:`domain-password key-chain KEYCHAIN [strict-rfc5310] [authenticate snp <send-only|validate>]`)
 can be authenticated with the keys of a key chain, as :rfc:`5310` generic
 cryptographic authentication.
 
@@ -378,10 +380,11 @@ link (hellos) or of a level (LSPs) at the same time.
 The HMAC key is the key string, hashed when it is longer than the block size
 of the hash, as plain HMAC (:rfc:`2104`) has it. Section 3.3 of :rfc:`5310`
 hashes the keys longer than the hash instead, which none of the
-implementations tested does (IOS XR, EOS, Holo); the two only differ for keys
-longer than the hash and no longer than its block. Arista EOS computes
-:rfc:`5310` digests only with the ``rfc-5310`` keyword of its authentication
-commands.
+implementations tested does (IOS XR, EOS, Holo); ``strict-rfc5310`` selects
+it, for peers that do. The two only differ for keys longer than the hash and
+no longer than its block (33 to 64 bytes for HMAC-SHA-256), so the option
+does not matter with shorter keys. Arista EOS computes :rfc:`5310` digests
+only with the ``rfc-5310`` keyword of its authentication commands.
 
 .. code-block:: frr
 
