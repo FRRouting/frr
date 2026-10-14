@@ -27,6 +27,7 @@ DECLARE_HOOK(isis_if_new_hook, (struct interface *ifp), (ifp));
 
 /* Typesafe list declarations for circuits */
 PREDECL_DLIST(isis_circuit_list);
+PREDECL_LIST(isis_esn_peer_list);
 
 struct isis_lsp;
 
@@ -124,6 +125,11 @@ struct isis_circuit {
 	char *tag;		   /* area tag */
 	struct isis_passwd passwd; /* Circuit rx/tx password */
 	enum isis_esn_mode esn_mode;
+	/* RFC 7602: the last ESNs accepted, per neighbor (struct isis_esn_peer);
+	 * kept until the circuit goes down, not with the adjacency, which a
+	 * replayed IIH could bring back otherwise
+	 */
+	struct isis_esn_peer_list_head esn_peers;
 	int is_type_config;	   /* configured circuit is type */
 	/*
 	 * circuit is type == level of circuit
@@ -180,6 +186,9 @@ struct isis_circuit {
 	uint32_t max_area_addr_mismatches; /* max-area-addresses-mismatch */
 	uint32_t auth_type_failures;	   /*authentication-type-fails */
 	uint32_t auth_failures;		   /* authentication-fails */
+	/* IIHs and SNPs discarded verifying RFC 7602 ESNs */
+	uint32_t esn_missing_drops; /* no valid ESN TLV */
+	uint32_t esn_replay_drops;  /* an ESN not newer than the last accepted */
 
 	uint32_t snmp_id; /* Circuit id in snmp */
 

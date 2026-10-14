@@ -37,6 +37,11 @@ enum isis_esn_mode {
 	ISIS_ESN_VERIFY, /* also discard IIHs and SNPs without a newer one */
 };
 
+/* The PDU types that carry an ESN, each verified on its own (RFC 7602
+ * section 4): L1, L2 and P2P IIHs, L1 and L2 CSNPs and PSNPs
+ */
+#define ISIS_ESN_PDU_TYPES 7
+
 /*
  * Supported Protocol IDs
  */

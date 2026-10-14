@@ -100,6 +100,7 @@ struct isis_circuit *isis_circuit_new(struct interface *ifp, const char *tag)
 	int i;
 
 	circuit = XCALLOC(MTYPE_ISIS_CIRCUIT, sizeof(struct isis_circuit));
+	isis_esn_peers_init(circuit);
 
 	circuit->tag = XSTRDUP(MTYPE_ISIS_CIRCUIT, tag);
 
@@ -204,6 +205,7 @@ void isis_circuit_del(struct isis_circuit *circuit)
 	isis_lfa_excluded_ifaces_delete(circuit, ISIS_LEVEL1);
 	isis_lfa_excluded_ifaces_delete(circuit, ISIS_LEVEL2);
 
+	isis_esn_peers_fini(circuit);
 	list_delete(&circuit->ip_addrs);
 	list_delete(&circuit->ipv6_link);
 	list_delete(&circuit->ipv6_non_link);
@@ -898,6 +900,7 @@ void isis_circuit_down(struct isis_circuit *circuit)
 		circuit->u.p2p.neighbor = NULL;
 		event_cancel(&circuit->u.p2p.t_send_p2p_hello);
 	}
+	isis_esn_peers_clear(circuit);
 
 	/*
 	 * All adjacencies have to be gone, delete snmp list
@@ -965,6 +968,21 @@ void circuit_update_nlpids(struct isis_circuit *circuit)
 		circuit->nlpids.count++;
 	}
 	return;
+}
+
+static const char *isis_esn_mode2string(enum isis_esn_mode mode)
+{
+	switch (mode) {
+	case ISIS_ESN_OFF:
+		return "off";
+	case ISIS_ESN_SEND:
+		return "send";
+	case ISIS_ESN_VERIFY:
+		return "verify";
+	}
+
+	assert(!"Reached end of function where we were not expecting to");
+	return "unknown";
 }
 
 void isis_circuit_print_json(struct isis_circuit *circuit,
@@ -1067,6 +1085,16 @@ void isis_circuit_print_json(struct isis_circuit *circuit,
 			json_object_array_add(levels_json, level_json);
 		}
 
+		if (circuit->esn_mode != ISIS_ESN_OFF) {
+			json_object *esn_json = json_object_new_object();
+
+			json_object_object_add(iface_json, "extended-sequence-number", esn_json);
+			json_object_string_add(esn_json, "mode",
+					       isis_esn_mode2string(circuit->esn_mode));
+			json_object_int_add(esn_json, "session", circuit->area->esn_session);
+			json_object_int_add(esn_json, "missing-drops", circuit->esn_missing_drops);
+			json_object_int_add(esn_json, "replay-drops", circuit->esn_replay_drops);
+		}
 		if (listcount(circuit->ip_addrs) > 0) {
 			ipv4_addr_json = json_object_new_object();
 			json_object_object_add(iface_json, "ip-prefix",
@@ -1202,6 +1230,12 @@ void isis_circuit_print_vty(struct isis_circuit *circuit, struct vty *vty,
 				vty_out(vty, "\n");
 			}
 		}
+		if (circuit->esn_mode != ISIS_ESN_OFF)
+			vty_out(vty,
+				"    Extended sequence numbers: %s, session %" PRIu64
+				", dropped %u without, %u replayed\n",
+				isis_esn_mode2string(circuit->esn_mode), circuit->area->esn_session,
+				circuit->esn_missing_drops, circuit->esn_replay_drops);
 		if (listcount(circuit->ip_addrs) > 0) {
 			vty_out(vty, "    IP Prefix(es):\n");
 			for (ALL_LIST_ELEMENTS_RO(circuit->ip_addrs, node,
