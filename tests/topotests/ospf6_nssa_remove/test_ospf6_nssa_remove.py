@@ -170,18 +170,6 @@ def test_nssa_remove_capabilities_and_asbr():
     area_config(2, False)
     restored()
 
-    # Real static redistribution must continue to hold ASBR status on NSSA exit.
-    tgen.gears["r2"].vtysh_cmd(
-        "configure terminal\nipv6 route "
-        + EXTERNAL
-        + " Null0\nrouter ospf6\nredistribute static"
-    )
-    wait_state(set(), True)
-    area_config(1, True)
-    wait_state({"0.0.0.1"}, True)
-    area_config(1, False)
-    wait_state(set(), True)
-
     def external_present():
         text = tgen.gears["r3"].vtysh_cmd("show ipv6 route " + EXTERNAL + " json")
         assert "Unknown command" not in text, text
@@ -193,8 +181,24 @@ def test_nssa_remove_capabilities_and_asbr():
             else "Redistributed control route is not installed: " + json.dumps(rows)
         )
 
+    # Real static redistribution must continue to hold ASBR status on NSSA exit.
+    tgen.gears["r2"].vtysh_cmd(
+        "configure terminal\nipv6 route "
+        + EXTERNAL
+        + " Null0\nrouter ospf6\nredistribute static"
+    )
+    wait_state(set(), True)
     _, error = topotest.run_and_expect(external_present, None, count=30, wait=1)
     assert error is None, error
+    area_config(1, True)
+    wait_state({"0.0.0.1"}, True)
+    _, error = topotest.run_and_expect(external_present, None, count=30, wait=1)
+    assert error is None, error
+    area_config(1, False)
+    wait_state(set(), True)
+    _, error = topotest.run_and_expect(external_present, None, count=30, wait=1)
+    assert error is None, error
+
     tgen.gears["r2"].vtysh_cmd(
         "configure terminal\nno ipv6 route "
         + EXTERNAL
