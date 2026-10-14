@@ -67,6 +67,8 @@ int isis_instance_area_password_password_type_modify(struct nb_cb_modify_args *a
 int isis_instance_area_password_password_type_destroy(struct nb_cb_destroy_args *args);
 int isis_instance_area_password_key_chain_modify(struct nb_cb_modify_args *args);
 int isis_instance_area_password_key_chain_destroy(struct nb_cb_destroy_args *args);
+int isis_instance_area_password_strict_rfc5310_modify(struct nb_cb_modify_args *args);
+int isis_instance_area_password_strict_rfc5310_destroy(struct nb_cb_destroy_args *args);
 int isis_instance_area_password_authenticate_snp_modify(struct nb_cb_modify_args *args);
 int isis_instance_domain_password_create(struct nb_cb_create_args *args);
 int isis_instance_domain_password_destroy(struct nb_cb_destroy_args *args);
@@ -76,6 +78,8 @@ int isis_instance_domain_password_password_type_modify(struct nb_cb_modify_args 
 int isis_instance_domain_password_password_type_destroy(struct nb_cb_destroy_args *args);
 int isis_instance_domain_password_key_chain_modify(struct nb_cb_modify_args *args);
 int isis_instance_domain_password_key_chain_destroy(struct nb_cb_destroy_args *args);
+int isis_instance_domain_password_strict_rfc5310_modify(struct nb_cb_modify_args *args);
+int isis_instance_domain_password_strict_rfc5310_destroy(struct nb_cb_destroy_args *args);
 int isis_instance_domain_password_authenticate_snp_modify(struct nb_cb_modify_args *args);
 int isis_instance_default_information_originate_ipv4_create(struct nb_cb_create_args *args);
 int isis_instance_default_information_originate_ipv4_destroy(struct nb_cb_destroy_args *args);
@@ -268,6 +272,8 @@ int lib_interface_isis_password_password_type_modify(struct nb_cb_modify_args *a
 int lib_interface_isis_password_password_type_destroy(struct nb_cb_destroy_args *args);
 int lib_interface_isis_password_key_chain_modify(struct nb_cb_modify_args *args);
 int lib_interface_isis_password_key_chain_destroy(struct nb_cb_destroy_args *args);
+int lib_interface_isis_password_strict_rfc5310_modify(struct nb_cb_modify_args *args);
+int lib_interface_isis_password_strict_rfc5310_destroy(struct nb_cb_destroy_args *args);
 int lib_interface_isis_disable_three_way_handshake_modify(struct nb_cb_modify_args *args);
 int lib_interface_isis_ipv4_over_ipv6_nexthop_modify(struct nb_cb_modify_args *args);
 int lib_interface_isis_multi_topology_standard_modify(struct nb_cb_modify_args *args);
