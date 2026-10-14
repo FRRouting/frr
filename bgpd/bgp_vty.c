@@ -8783,8 +8783,7 @@ DEFPY (bgp_condadv_period,
 {
 	VTY_DECLVAR_CONTEXT(bgp, bgp);
 
-	bgp->condition_check_period =
-		no ? DEFAULT_CONDITIONAL_ROUTES_POLL_TIME : period;
+	bgp_conditional_adv_period_set(bgp, no ? DEFAULT_CONDITIONAL_ROUTES_POLL_TIME : period);
 
 	return CMD_SUCCESS;
 }
