@@ -30,8 +30,17 @@ tests_ospfd_test_ospf_opaque_show_CPPFLAGS = $(TESTS_CPPFLAGS)
 tests_ospfd_test_ospf_opaque_show_LDADD = $(OSPFD_TEST_LDADD)
 tests_ospfd_test_ospf_opaque_show_SOURCES = tests/ospfd/test_ospf_opaque_show.c
 
+if OSPFD
+check_PROGRAMS += tests/ospfd/test_ospf_grace_lsa
+endif
+tests_ospfd_test_ospf_grace_lsa_CFLAGS = $(TESTS_CFLAGS)
+tests_ospfd_test_ospf_grace_lsa_CPPFLAGS = $(TESTS_CPPFLAGS)
+tests_ospfd_test_ospf_grace_lsa_LDADD = $(OSPFD_TEST_LDADD)
+tests_ospfd_test_ospf_grace_lsa_SOURCES = tests/ospfd/test_ospf_grace_lsa.c
+
 EXTRA_DIST += \
 	tests/ospfd/test_ospf_opaque_show.py \
+	tests/ospfd/test_ospf_grace_lsa.py \
 	tests/ospfd/test_ospf_spf.py \
 	tests/ospfd/test_ospf_spf.in \
 	tests/ospfd/test_ospf_spf.refout \
