@@ -68,7 +68,7 @@ class MLDv2(MLD):
     ]
 
     def __init__(self, proto_type=143, code=0, rtype=1,
-                 chksum=None, src_ip="fe80::1", dst_ip="ff02::16", maddrs=[], *args, **kwargs):
+                 chksum=None, src_ip="fe80::1", dst_ip="ff02::16", maddrs=[], sources=[], *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.type = proto_type
         self.code = code
@@ -78,15 +78,11 @@ class MLDv2(MLD):
         self.dst_ip = dst_ip
         self.options = []
 
-        num_maddrs = len(maddrs)
-        grouped_sources = [[] for _ in range(num_maddrs)]
-        for index, source in enumerate(maddrs):
-            grouped_sources[index % num_maddrs].append(source)
+        for maddr in maddrs:
+            self.records.append(ICMPv6MLDMultAddrRec(dst=maddr, rtype=rtype,
+                                                     sources=sources))
 
-        for maddr, sources in zip(maddrs, grouped_sources):
-            self.records.append(ICMPv6MLDMultAddrRec(dst=maddr, rtype=rtype))
-
-        self.records_number = num_maddrs
+        self.records_number = len(maddrs)
 
 
 if __name__ == "__main__":
@@ -98,6 +94,7 @@ if __name__ == "__main__":
     parser.add_argument("--dst_ip", type=str, default="ff02::16", help="Destination IP address")
     parser.add_argument("--maddr", action='append', default=[], help="Multicast Address Records")
     parser.add_argument("--rtype", type=int, default=2, help="Record type")
+    parser.add_argument("--source", action='append', default=[], help="Source address of every record")
     parser.add_argument("--enable_router_alert", action="store_true", help="Enable Router Alert option")
     parser.add_argument("--iface", type=str, default="eth0", help="Network interface to send the packet")
     parser.add_argument("--count", type=int, default=1, help="Number of packets to send")
@@ -109,6 +106,7 @@ if __name__ == "__main__":
                    src_ip=args.src_ip,
                    dst_ip=args.dst_ip,
                    rtype=args.rtype,
+                   sources=args.source,
                    proto_type=args.type,
                    code=args.code)
 
