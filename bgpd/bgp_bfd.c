@@ -257,6 +257,7 @@ static void bgp_peer_bfd_install(struct peer *p, uint8_t loc)
 		if (BGP_DEBUG(bfd, BFD_LIB) && !p->bfd_config->install_pending)
 			zlog_debug("%s: deferring BFD session for peer %pBP vrf %s(%u) until interface and source are known",
 				   __func__, p, p->bgp->name_pretty, p->bgp->vrf_id);
+		frrtrace(3, frr_bgp, bfd_session_install_deferred, p->host, p->bgp->vrf_id, loc);
 		p->bfd_config->install_pending = true;
 		return;
 	}
