@@ -27,6 +27,7 @@
 #include "bgpd/bgp_vty.h"
 #include "bgpd/bgp_packet.h"
 #include "bgpd/bgp_network.h"
+#include "bgpd/bgp_zebra.h"
 #ifndef VTYSH_EXTRACT_PL
 #include "bgpd/bgp_bfd_clippy.c"
 #endif
@@ -182,6 +183,86 @@ static void bfd_session_status_update(struct bfd_session_params *bsp,
 	}
 }
 
+/*
+ * Egress interface of a single-hop peer.  It must come out the same before
+ * and after TCP connects, or the session is re-keyed at connect: so it only
+ * depends on configuration and connected routes, and p->nexthop.ifp (which
+ * follows the TCP local address) is used only when nothing else resolves.
+ */
+static struct interface *bgp_peer_bfd_egress_ifp(struct peer *p)
+{
+	union sockunion *su = &p->connection->su;
+	vrf_id_t vrf_id = p->bgp->vrf_id;
+	struct interface *ifp = NULL;
+	const char *ifname = p->conf_if ? p->conf_if : p->ifname;
+
+	/* Link-local (or not yet learnt) peer: the local address is link-local. */
+	if ((su->sa.sa_family == AF_INET6 && IN6_IS_ADDR_LINKLOCAL(&su->sin6.sin6_addr)) ||
+	    (su->sa.sa_family != AF_INET && su->sa.sa_family != AF_INET6)) {
+		if (ifname)
+			ifp = if_lookup_by_name(ifname, vrf_id);
+		else if (p->update_if)
+			ifp = if_lookup_by_name(p->update_if, vrf_id);
+	} else if (p->update_if)
+		ifp = if_lookup_by_name(p->update_if, vrf_id);
+	else if (ifname)
+		ifp = if_lookup_by_name(ifname, vrf_id);
+	else if (su->sa.sa_family == AF_INET)
+		ifp = if_lookup_by_ipv4(&su->sin.sin_addr, vrf_id);
+	else
+		ifp = if_lookup_by_ipv6(&su->sin6.sin6_addr, 0, vrf_id);
+
+	return ifp ? ifp : p->nexthop.ifp;
+}
+
+static bool bgp_peer_bfd_keyed(struct bfd_session_params *session)
+{
+	int family;
+	union {
+		struct in_addr v4;
+		struct in6_addr v6;
+	} src, dst;
+
+	if (!bfd_sess_interface(session))
+		return false;
+
+	bfd_sess_addresses(session, &family, &src.v6, &dst.v6);
+	if (family == AF_INET)
+		return src.v4.s_addr != INADDR_ANY;
+
+	return !IN6_IS_ADDR_UNSPECIFIED(&src.v6);
+}
+
+/*
+ * bfdd keys single-hop sessions on the interface and local address, so
+ * registering before either is known and filling them in at TCP connect
+ * deletes the (possibly already Up) session and creates a new one; the
+ * remote sees BFD Down and resets BGP.  Hold a single-hop install back until
+ * both are known, except when nothing better can be learnt any more
+ * (connection already up) or BGP itself waits for BFD (strict mode).
+ */
+static void bgp_peer_bfd_install(struct peer *p)
+{
+	struct bfd_session_params *session = p->bfd_config->session;
+
+	if (!PEER_IS_MULTIHOP(p) && !bgp_peer_bfd_keyed(session) && !p->connection->su_local &&
+	    !CHECK_FLAG(p->flags, PEER_FLAG_BFD_STRICT)) {
+		if (BGP_DEBUG(bfd, BFD_LIB) && !p->bfd_config->install_pending)
+			zlog_debug("%s: deferring BFD session for peer %pBP vrf %s(%u) until interface and source are known",
+				   __func__, p, p->bgp->name_pretty, p->bgp->vrf_id);
+		p->bfd_config->install_pending = true;
+		return;
+	}
+
+	if (BGP_DEBUG(bfd, BFD_LIB))
+		zlog_debug("%s: registering BFD session for peer %pBP vrf %s(%u)", __func__, p,
+			   p->bgp->name_pretty, p->bgp->vrf_id);
+	p->bfd_config->install_pending = false;
+	bfd_sess_install(session);
+}
+
+static bool bgp_peer_bfd_sync(struct peer *p);
+
 void bgp_peer_config_apply(struct peer *p, struct peer_group *pg)
 {
 	struct listnode *n;
@@ -209,7 +290,9 @@ void bgp_peer_config_apply(struct peer *p, struct peer_group *pg)
 		bfd_sess_set_cbit(p->bfd_config->session, p->bfd_config->cbit);
 		bfd_sess_set_profile(p->bfd_config->session,
 				     p->bfd_config->profile);
-		bfd_sess_install(p->bfd_config->session);
+		if (!PEER_IS_MULTIHOP(p))
+			bgp_peer_bfd_sync(p);
+		bgp_peer_bfd_install(p);
 		return;
 	}
 
@@ -219,9 +302,9 @@ void bgp_peer_config_apply(struct peer *p, struct peer_group *pg)
 	 */
 	gconfig = pg->conf;
 
-	if (CHECK_FLAG(gconfig->flags, PEER_FLAG_UPDATE_SOURCE) ||
+	if (!PEER_IS_MULTIHOP(p) || CHECK_FLAG(gconfig->flags, PEER_FLAG_UPDATE_SOURCE) ||
 	    CHECK_FLAG(p->flags_override, PEER_FLAG_UPDATE_SOURCE))
-		bgp_peer_bfd_update_source(p);
+		bgp_peer_bfd_sync(p);
 
 	/*
 	 * If using default control plane independent configuration,
@@ -259,12 +342,16 @@ void bgp_peer_config_apply(struct peer *p, struct peer_group *pg)
 				    p->bfd_config->min_rx,
 				    p->bfd_config->min_tx);
 
-	bfd_sess_install(p->bfd_config->session);
+	bgp_peer_bfd_install(p);
 }
 
-void bgp_peer_bfd_update_source(struct peer *p)
+/*
+ * Bring the session parameters in line with the peer; returns true if
+ * anything changed and the session needs to be (re-)installed.
+ */
+static bool bgp_peer_bfd_sync(struct peer *p)
 {
-	struct bfd_session_params *session;
+	struct bfd_session_params *session = p->bfd_config->session;
 	const union sockunion *source = NULL;
 	bool changed = false;
 	int family;
@@ -273,15 +360,8 @@ void bgp_peer_bfd_update_source(struct peer *p)
 		struct in6_addr v6;
 	} src, dst;
 	struct interface *ifp;
+	struct interface *egress_ifp;
 	union sockunion addr;
-
-	if (!p->bfd_config)
-		return;
-
-	session = p->bfd_config->session;
-	/* Nothing to do for groups. */
-	if (CHECK_FLAG(p->sflags, PEER_STATUS_GROUP))
-		return;
 
 	/* Figure out the correct source to use. */
 	if (CHECK_FLAG(p->flags, PEER_FLAG_UPDATE_SOURCE)) {
@@ -302,6 +382,22 @@ void bgp_peer_bfd_update_source(struct peer *p)
 		}
 	} else {
 		source = p->connection->su_local;
+	}
+
+	egress_ifp = PEER_IS_MULTIHOP(p) ? p->nexthop.ifp : bgp_peer_bfd_egress_ifp(p);
+
+	/*
+	 * Without update-source the kernel picks the TCP source, so a guess can
+	 * differ and rekey the session at connect: wait for su_local instead.
+	 * Strict mode must install before TCP is up, so guess there.
+	 */
+	if (!source && !PEER_IS_MULTIHOP(p) && egress_ifp &&
+	    CHECK_FLAG(p->flags, PEER_FLAG_BFD_STRICT)) {
+		sockunion_init(&addr);
+		if (!bgp_update_address(egress_ifp, &p->connection->su, &addr) &&
+		    (addr.sa.sa_family != AF_INET6 || !IN6_IS_ADDR_LINKLOCAL(&addr.sin6.sin6_addr) ||
+		     IN6_IS_ADDR_LINKLOCAL(&p->connection->su.sin6.sin6_addr)))
+			source = &addr;
 	}
 
 	/* Update peer's source/destination addresses. */
@@ -341,16 +437,15 @@ void bgp_peer_bfd_update_source(struct peer *p)
 	}
 
 	/* Update interface. */
-	const char *ifname = bfd_sess_interface(session);
-
-	if (p->nexthop.ifp &&
-	    (!ifname || !strmatch(ifname, p->nexthop.ifp->name))) {
+	if (egress_ifp && (!bfd_sess_interface(session) ||
+			   !strmatch(bfd_sess_interface(session), egress_ifp->name))) {
 		if (BGP_DEBUG(bfd, BFD_LIB))
 			zlog_debug("%s: interface %s to %s", __func__,
-				   ifname ? ifname : "none",
-				   p->nexthop.ifp->name);
+				   bfd_sess_interface(session) ? bfd_sess_interface(session)
+							       : "none",
+				   egress_ifp->name);
 
-		bfd_sess_set_interface(session, p->nexthop.ifp->name);
+		bfd_sess_set_interface(session, egress_ifp->name);
 		changed = true;
 	}
 
@@ -391,8 +486,20 @@ void bgp_peer_bfd_update_source(struct peer *p)
 		changed = true;
 	}
 
-	if (changed)
-		bfd_sess_install(session);
+	return changed;
+}
+
+void bgp_peer_bfd_update_source(struct peer *p)
+{
+	if (!p->bfd_config)
+		return;
+
+	/* Nothing to do for groups. */
+	if (CHECK_FLAG(p->sflags, PEER_STATUS_GROUP))
+		return;
+
+	if (bgp_peer_bfd_sync(p) || p->bfd_config->install_pending)
+		bgp_peer_bfd_install(p);
 }
 
 /**
@@ -698,16 +805,29 @@ DEFPY (neighbor_bfd_strict,
        "BFD support\n"
        "Strict mode\n")
 {
-	struct peer *peer;
+	struct peer *peer, *pn;
+	struct listnode *n;
+	int ret;
 
 	peer = peer_and_group_lookup_vty(vty, neighbor);
 	if (!peer)
 		return CMD_WARNING_CONFIG_FAILED;
 
 	if (no)
-		return peer_flag_unset(peer, PEER_FLAG_BFD_STRICT);
+		ret = peer_flag_unset(peer, PEER_FLAG_BFD_STRICT);
+	else
+		ret = peer_flag_set(peer, PEER_FLAG_BFD_STRICT);
 
-	return peer_flag_set(peer, PEER_FLAG_BFD_STRICT);
+	/* Strict mode needs the session installed for BGP to come up. */
+	if (!no) {
+		if (CHECK_FLAG(peer->sflags, PEER_STATUS_GROUP)) {
+			for (ALL_LIST_ELEMENTS_RO(peer->group->peer, n, pn))
+				bgp_peer_bfd_update_source(pn);
+		} else
+			bgp_peer_bfd_update_source(peer);
+	}
+
+	return ret;
 }
 
 DEFPY (neighbor_bfd_strict_hold_time,

@@ -2303,6 +2303,8 @@ struct peer {
 		 * BFD session does not enter the Up state.
 		 */
 		struct event *t_hold_timer;
+		/* Single-hop install held back until the egress interface is known. */
+		bool install_pending;
 	} * bfd_config;
 
 	/* hostname and domainname advertised by host */
