@@ -24,6 +24,10 @@ module frr-isisd {
     prefix frr-route-types;
   }
 
+  import ietf-key-chain {
+    prefix kc;
+  }
+
   import frr-routing {
     prefix frr-rt;
   }
@@ -333,31 +337,46 @@ module frr-isisd {
   grouping isis-password {
     description
       "Authentication attributes or an IS-IS area or domain.";
-    leaf password {
-      type string {
-        length "1..254";
-      }
+    choice authentication {
       mandatory true;
       description
-        "Actual password.";
-    }
+        "A password, or a key chain.";
+      case password {
+        leaf password {
+          type string {
+            length "1..254";
+          }
+          mandatory true;
+          description
+            "Actual password.";
+        }
 
-    leaf password-type {
-      type enumeration {
-        enum "clear" {
-          value 1;
+        leaf password-type {
+          type enumeration {
+            enum "clear" {
+              value 1;
+              description
+                "Clear-text password type.";
+            }
+            enum "md5" {
+              value 54;
+              description
+                "MD5 password type.";
+            }
+          }
+          mandatory true;
           description
-            "Clear-text password type.";
-        }
-        enum "md5" {
-          value 54;
-          description
-            "MD5 password type.";
+            "Type of password used.";
         }
       }
-      mandatory true;
-      description
-        "Type of password used.";
+      leaf key-chain {
+        type kc:key-chain-ref;
+        description
+          "Key chain for generic cryptographic authentication (RFC 5310).
+           The Key ID of each PDU selects the key that verifies it; PDUs are
+           signed with the first key valid for sending that has a key string
+           and an HMAC-SHA algorithm.";
+      }
     }
   }
 
