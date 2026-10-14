@@ -379,7 +379,7 @@ int isis_area_passwd_cleartext_set(struct isis_area *area, int level,
 int isis_area_passwd_hmac_md5_set(struct isis_area *area, int level,
 				  const char *passwd, uint8_t snp_auth);
 int isis_area_passwd_keychain_set(struct isis_area *area, int level, const char *keychain,
-				  uint8_t snp_auth);
+				  bool strict_rfc5310, uint8_t snp_auth);
 void show_isis_database_lspdb_json(struct json_object *json,
 				   struct isis_area *area, int level,
 				   struct lspdb_head *lspdb, const char *argv,

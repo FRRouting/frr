@@ -369,13 +369,27 @@ module frr-isisd {
             "Type of password used.";
         }
       }
-      leaf key-chain {
-        type kc:key-chain-ref;
-        description
-          "Key chain for generic cryptographic authentication (RFC 5310).
-           The Key ID of each PDU selects the key that verifies it; PDUs are
-           signed with the first key valid for sending that has a key string
-           and an HMAC-SHA algorithm.";
+      case key-chain {
+        leaf key-chain {
+          type kc:key-chain-ref;
+          mandatory true;
+          description
+            "Key chain for generic cryptographic authentication (RFC 5310).
+             The Key ID of each PDU selects the key that verifies it; PDUs
+             are signed with the first key valid for sending that has a key
+             string and an HMAC-SHA algorithm.";
+        }
+
+        leaf strict-rfc5310 {
+          type boolean;
+          default "false";
+          description
+            "Hash the key strings longer than the hash, as RFC 5310 section
+             3.3 specifies, rather than those longer than its block, as
+             HMAC (RFC 2104) and the implementations interoperated with do.
+             The two only differ for keys longer than the hash and no
+             longer than its block.";
+        }
       }
     }
   }
