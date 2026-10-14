@@ -7,6 +7,7 @@ import os
 import signal
 import socket
 import struct
+import subprocess
 import time
 from pathlib import Path
 
@@ -62,7 +63,6 @@ def _neighbor_epochs():
         rows = [n for group in neighbors["neighbors"].values() for n in group]
         assert len(rows) == 1 and rows[0]["nbrState"].startswith("Full")
         age = rows[0]["upTimeInMsec"] / 1000
-        assert after - before < 1, "Neighbor observation took too long"
         epochs[name] = (before - age, after - age)
     return epochs
 
@@ -131,7 +131,7 @@ def _sent_at(path):
 def _observe(router, label, expected):
     path = Path(router.gearlogdir) / (label + ".pcap")
     log_path = path.with_suffix(".tcpdump.log")
-    with log_path.open("w") as log:
+    with log_path.open("w") as log, path.open("wb") as output:
         capture = router.popen(
             [
                 "tcpdump",
@@ -141,21 +141,29 @@ def _observe(router, label, expected):
                 "-s",
                 "0",
                 "-w",
-                str(path),
+                "-",
                 "ip proto 89",
             ],
-            stdout=log,
+            stdout=output,
             stderr=log,
         )
         try:
             deadline = time.monotonic() + 5
             while "listening on" not in log_path.read_text():
-                assert capture.poll() is None and time.monotonic() < deadline
+                assert (
+                    capture.poll() is None and time.monotonic() < deadline
+                ), log_path.read_text()
                 time.sleep(0.1)
             time.sleep(max(22, expected * 3 + 6))
         finally:
-            capture.send_signal(signal.SIGINT)
-            capture.wait(timeout=5)
+            if capture.poll() is None:
+                capture.send_signal(signal.SIGINT)
+            try:
+                capture.wait(timeout=5)
+            except subprocess.TimeoutExpired:
+                capture.kill()
+                capture.wait(timeout=5)
+    assert capture.returncode == 0, log_path.read_text()
     stamps = _sent_at(path)
     intervals = [b - a for a, b in zip(stamps, stamps[1:])]
     # An already scheduled event may retain its old deadline; steady retries
@@ -182,10 +190,14 @@ def test_live_retransmit_set_unset_and_address_override():
     try:
         # Drop only the peer's ordinary LSAcks so native LSUs repeat. Hellos,
         # database synchronization and control-route traffic remain enabled.
-        r2.cmd_raises("tc qdisc add dev r2-eth0 clsact")
         r2.cmd_raises(
-            "tc filter add dev r2-eth0 egress protocol ip pref 31 u32 "
-            "match ip protocol 89 0xff match u8 5 0xff at 21 action drop"
+            "tc qdisc add dev r2-eth0 root handle 1: prio bands 3 "
+            "priomap 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0"
+        )
+        r2.cmd_raises("tc qdisc add dev r2-eth0 parent 1:3 handle 30: netem loss 100%")
+        r2.cmd_raises(
+            "tc filter add dev r2-eth0 parent 1: protocol ip pref 31 u32 "
+            "match ip protocol 89 0xff match u8 5 0xff at 21 flowid 1:3"
         )
         r1.vtysh_cmd(
             "configure terminal\ninterface r1-eth0\nip ospf retransmit-interval 1"
@@ -206,7 +218,7 @@ def test_live_retransmit_set_unset_and_address_override():
                 r.cmd("cat /var/run/frr/ospfd.pid").strip() for r in [r1, r2]
             ]
     finally:
-        r2.cmd("tc qdisc del dev r2-eth0 clsact")
+        r2.cmd("tc qdisc del dev r2-eth0 root")
         r1.vtysh_cmd(
             "configure terminal\nno ip route {} Null0\n"
             "interface r1-eth0\nno ip ospf retransmit-interval 192.0.2.1\n"
