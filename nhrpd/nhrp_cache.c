@@ -208,38 +208,38 @@ static void nhrp_cache_do_timeout(struct event *t)
 					  NULL);
 }
 
+/*
+ * NBMA address a cache entry binds to: the NAT outside address when the
+ * entry has one, otherwise the remote address of the peer's VC. The entry
+ * must have a peer.
+ */
+union sockunion *nhrp_cache_nbma(struct nhrp_cache *c)
+{
+	assert(c->cur.peer && c->cur.peer->vc);
+
+	if (sockunion_family(&c->cur.remote_nbma_natoa) != AF_UNSPEC)
+		return &c->cur.remote_nbma_natoa;
+
+	return &c->cur.peer->vc->remote.nbma;
+}
+
 static void nhrp_cache_update_route(struct nhrp_cache *c)
 {
 	struct prefix pfx;
 	struct nhrp_peer *p = c->cur.peer;
 	struct nhrp_interface *nifp;
+	union sockunion *nbma;
 
 	if (!sockunion2hostprefix(&c->remote_addr, &pfx))
 		return;
 
 	if (p && nhrp_peer_check(p, 1)) {
-		if (sockunion_family(&c->cur.remote_nbma_natoa) != AF_UNSPEC) {
-			/* remote_nbma_natoa is already set. Therefore, binding
-			 * should be updated to this value and not vc's remote
-			 * nbma.
-			 */
-			debugf(NHRP_DEBUG_COMMON,
-			       "cache (remote_nbma_natoa set): Update binding for %pSU dev %s from (deleted) peer.vc.nbma %pSU to %pSU",
-			       &c->remote_addr, p->ifp->name,
-			       &p->vc->remote.nbma, &c->cur.remote_nbma_natoa);
+		nbma = nhrp_cache_nbma(c);
+		debugf(NHRP_DEBUG_COMMON,
+		       "cache: Update binding for %pSU dev %s from (deleted) to %pSU (peer.vc.nbma %pSU)",
+		       &c->remote_addr, p->ifp->name, nbma, &p->vc->remote.nbma);
 
-			netlink_update_binding(p->ifp, &c->remote_addr,
-					       &c->cur.remote_nbma_natoa);
-		} else {
-			/* update binding to peer->vc->remote->nbma */
-			debugf(NHRP_DEBUG_COMMON,
-			       "cache (remote_nbma_natoa unspec): Update binding for %pSU dev %s from (deleted) to peer.vc.nbma %pSU",
-			       &c->remote_addr, p->ifp->name,
-			       &p->vc->remote.nbma);
-
-			netlink_update_binding(p->ifp, &c->remote_addr,
-					       &p->vc->remote.nbma);
-		}
+		netlink_update_binding(p->ifp, &c->remote_addr, nbma);
 
 		nhrp_route_announce(1, c->cur.type, &pfx, c->ifp, NULL,
 				    c->cur.mtu);
