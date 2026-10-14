@@ -320,6 +320,49 @@ def test_lsp_key_mismatch():
     _check_baseline()
 
 
+def test_strict_rfc5310():
+    _skip_on_failure()
+    tgen = get_topogen()
+    r1, r2, r4 = tgen.gears["r1"], tgen.gears["r2"], tgen.gears["r4"]
+    strict = "domain-password key-chain domain strict-rfc5310 authenticate snp validate"
+    plain = "domain-password key-chain domain authenticate snp validate"
+    assert 32 < len(KEY_STRINGS["domain"]) <= 64  # where RFC 5310 and HMAC differ
+
+    step("r4 alone hashes its domain key as RFC 5310 does: r1 keeps r4's last LSP")
+    before = _seqno(r1, "r4.00-00", 2)
+    _configure(r4, "router isis 1", strict)
+
+    def check():
+        own, seen = _seqno(r4, "r4.00-00", 2), _seqno(r1, "r4.00-00", 2)
+        if own > before and seen == before:
+            return None
+        return "r4.00-00 at level 2: {} on r4, {} on r1 (was {})".format(
+            own, seen, before
+        )
+
+    _wait(check)
+
+    step("With every router doing so, r1 gets r4's current LSP")
+    for name in ROUTERS:
+        _configure(tgen.gears[name], "router isis 1", strict)
+    _wait(_check_same_seqno, "r4.00-00", 2, r1, r4)
+    assert " " + strict in r2.vtysh_cmd("show running-config").splitlines()
+    _check_baseline()
+
+    step("The hello key is shorter than the hash: r1 hashing it alone changes nothing")
+    flaps = _flaps(r2)
+    _configure(r1, "interface r1-eth0", "isis password key-chain hello strict-rfc5310")
+    time.sleep(6)  # twice the holding time
+    assert _check_adjacency(r2, "r2-eth0", "r1", True) is None
+    assert _flaps(r2) == flaps
+
+    _configure(r1, "interface r1-eth0", "isis password key-chain hello")
+    for name in ROUTERS:
+        _configure(tgen.gears[name], "router isis 1", plain)
+    _wait(_check_same_seqno, "r4.00-00", 2, r1, r4)
+    _check_baseline()
+
+
 def test_no_send_key():
     _skip_on_failure()
     tgen = get_topogen()
