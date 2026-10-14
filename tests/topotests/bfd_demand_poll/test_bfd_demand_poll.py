@@ -6,7 +6,9 @@ import json
 import os
 import signal
 import struct
+import subprocess
 import time
+from pathlib import Path
 
 import pytest
 
@@ -36,14 +38,14 @@ def teardown_module(_mod):
     get_topogen().stop_topology()
 
 
-def wait_for(predicate, timeout=20):
+def wait_for(predicate, description, timeout=20):
     deadline = time.monotonic() + timeout
     while time.monotonic() < deadline:
         value = predicate()
         if value:
             return value
         time.sleep(0.1)
-    raise AssertionError("required native BFD observation did not arrive")
+    raise AssertionError("Timed out waiting for " + description)
 
 
 def packets(path):
@@ -86,7 +88,7 @@ def packets(path):
     return records
 
 
-def test_demand_bit_poll_sequence(tmp_path):
+def test_demand_bit_poll_sequence():
     tgen = get_topogen()
     assert not tgen.routers_have_failure(), tgen.errors
     r1, r2 = tgen.gears["r1"], tgen.gears["r2"]
@@ -107,7 +109,7 @@ def test_demand_bit_poll_sequence(tmp_path):
         )
         assert "%" not in reply, reply
 
-    wait_for(up)
+    wait_for(up, "both BFD sessions to be Up")
 
     def down_count(router):
         counters = router.vtysh_cmd("show bfd peers counters json", isjson=True)
@@ -119,9 +121,10 @@ def test_demand_bit_poll_sequence(tmp_path):
         name: router.cmd("cat /var/run/frr/bfdd.pid").strip()
         for name, router in tgen.routers().items()
     }
-    capture_path = tmp_path / "wire.pcap"
-    capture_log = tmp_path / "capture.log"
-    with capture_log.open("w") as output:
+    output_dir = Path(r1.gearlogdir)
+    capture_path = output_dir / "wire.pcap"
+    capture_log = output_dir / "capture.log"
+    with capture_log.open("w") as output, capture_path.open("wb") as wire:
         capture = r1.popen(
             [
                 "tcpdump",
@@ -132,18 +135,26 @@ def test_demand_bit_poll_sequence(tmp_path):
                 "-s",
                 "0",
                 "-w",
-                str(capture_path),
+                "-",
                 "udp port 3784",
             ],
-            stdout=output,
+            stdout=wire,
             stderr=output,
         )
         try:
-            wait_for(lambda: "listening on" in capture_log.read_text())
-            wait_for(lambda: len(packets(capture_path)) >= 6)
+
+            def capture_ready():
+                assert capture.poll() is None, capture_log.read_text()
+                return "listening on" in capture_log.read_text()
+
+            wait_for(capture_ready, "tcpdump readiness")
+            wait_for(lambda: len(packets(capture_path)) >= 6, "baseline BFD packets")
             baseline = packets(capture_path)
             assert all(not p["demand"] for p in baseline)
-            wait_for(lambda: all(not p["poll"] for p in packets(capture_path)[-4:]))
+            wait_for(
+                lambda: all(not p["poll"] for p in packets(capture_path)[-4:]),
+                "initial Poll Sequence to finish",
+            )
             observations = []
             for cycle in range(2):
                 for enable in [True, False]:
@@ -159,12 +170,12 @@ def test_demand_bit_poll_sequence(tmp_path):
                             and p["demand"] == enable
                         ]
 
-                    changed_packets = wait_for(changed)
+                    changed_packets = wait_for(changed, "changed Demand bit")
                     first = changed_packets[0]
                     observations.append(
                         {"cycle": cycle, "enable": enable, "first": first}
                     )
-                    (tmp_path / "transitions.json").write_text(
+                    (output_dir / "transitions.json").write_text(
                         json.dumps(observations, indent=2)
                     )
                     assert (
@@ -177,9 +188,13 @@ def test_demand_bit_poll_sequence(tmp_path):
                         lambda: any(
                             p["source"] == "192.0.2.2" and p["final"]
                             for p in packets(capture_path)[before:]
-                        )
+                        ),
+                        "peer Final response",
                     )
-                    wait_for(lambda: any(not p["poll"] for p in changed()))
+                    wait_for(
+                        lambda: any(not p["poll"] for p in changed()),
+                        "Poll Sequence completion",
+                    )
                     assert up()
                     before = len(packets(capture_path))
                     demand(enable)
@@ -192,7 +207,9 @@ def test_demand_bit_poll_sequence(tmp_path):
                         ]
                         return records if len(records) >= 2 else None
 
-                    repeated = wait_for(repeated_packets)
+                    repeated = wait_for(
+                        repeated_packets, "packets after repeated CLI command"
+                    )
                     assert all(
                         p["demand"] == enable and not p["poll"] for p in repeated
                     ), repeated
@@ -201,7 +218,12 @@ def test_demand_bit_poll_sequence(tmp_path):
                 assert router.cmd("cat /var/run/frr/bfdd.pid").strip() == pids[name]
                 assert down_count(router) == downs[name]
         finally:
-            capture.send_signal(signal.SIGINT)
-            capture.wait(timeout=10)
+            if capture.poll() is None:
+                capture.send_signal(signal.SIGINT)
+            try:
+                capture.wait(timeout=10)
+            except subprocess.TimeoutExpired:
+                capture.kill()
+                capture.wait(timeout=5)
         assert "0 packets dropped by kernel" in capture_log.read_text()
         assert capture.returncode == 0
