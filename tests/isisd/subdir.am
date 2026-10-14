@@ -32,6 +32,16 @@ tests/isisd/test_fuzz_isis_tlv-test_fuzz_isis_tlv.$(OBJEXT): \
 
 
 if ISISD
+check_PROGRAMS += tests/isisd/test_isis_crypto_auth
+endif
+tests_isisd_test_isis_crypto_auth_CFLAGS = $(TESTS_CFLAGS)
+tests_isisd_test_isis_crypto_auth_CPPFLAGS = $(TESTS_CPPFLAGS)
+tests_isisd_test_isis_crypto_auth_LDADD = $(ISISD_TEST_LDADD)
+tests_isisd_test_isis_crypto_auth_SOURCES = tests/isisd/test_isis_crypto_auth.c tests/isisd/test_common.c
+EXTRA_DIST += tests/isisd/test_isis_crypto_auth.py
+
+
+if ISISD
 check_PROGRAMS += tests/isisd/test_isis_lspdb
 endif
 tests_isisd_test_isis_lspdb_CFLAGS = $(TESTS_CFLAGS)
