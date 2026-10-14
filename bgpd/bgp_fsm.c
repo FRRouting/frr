@@ -1190,8 +1190,7 @@ void bgp_adjust_routeadv(struct peer *peer)
 	 */
 	/* Keep MRAI calculations in monotonic seconds. */
 	diff = difftime(nowtime,
-			(time_t)(atomic_load_explicit(&peer->last_update,
-						     memory_order_relaxed) /
+			(time_t)(atomic_load_explicit(&peer->last_update, memory_order_relaxed) /
 				 1000000));
 	if (diff > (double)peer->v_routeadv) {
 		event_cancel(&connection->t_routeadv);

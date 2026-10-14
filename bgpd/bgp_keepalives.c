@@ -98,10 +98,9 @@ static void peer_process(struct hash_bucket *hb, void *arg)
 	 * I/O is stopped before peer connection transfer; a previous session's
 	 * timestamp predates the new pkat->last baseline.
 	 */
-	uint64_t last_update = atomic_load_explicit(
-		&pkat->peer->last_update, memory_order_relaxed);
-	struct timeval update = {.tv_sec = last_update / 1000000,
-				.tv_usec = last_update % 1000000};
+	uint64_t last_update = atomic_load_explicit(&pkat->peer->last_update, memory_order_relaxed);
+	struct timeval update = { .tv_sec = last_update / 1000000,
+				  .tv_usec = last_update % 1000000 };
 
 	if (timercmp(&update, &pkat->last, >))
 		pkat->last = update;

@@ -445,7 +445,7 @@ static uint16_t bgp_write(struct peer_connection *connection)
 			break;
 		case BGP_MSG_UPDATE:
 			atomic_store_explicit(&peer->last_update,
-					      monotime_since(&(struct timeval){0}, NULL),
+					      monotime_since(&(struct timeval){ 0 }, NULL),
 					      memory_order_relaxed);
 			atomic_fetch_add_explicit(&peer->update_out, 1,
 						  memory_order_relaxed);
