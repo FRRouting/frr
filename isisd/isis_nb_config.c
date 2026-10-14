@@ -4153,6 +4153,35 @@ int lib_interface_isis_password_strict_rfc5310_destroy(struct nb_cb_destroy_args
 }
 
 /*
+ * XPath: /frr-interface:lib/interface/frr-isisd:isis/extended-sequence-number
+ */
+int lib_interface_isis_extended_sequence_number_modify(struct nb_cb_modify_args *args)
+{
+	struct isis_circuit *circuit;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	circuit = nb_running_get_entry(args->dnode, NULL, true);
+	circuit->esn_mode = yang_dnode_get_enum(args->dnode, NULL);
+
+	return NB_OK;
+}
+
+int lib_interface_isis_extended_sequence_number_destroy(struct nb_cb_destroy_args *args)
+{
+	struct isis_circuit *circuit;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	circuit = nb_running_get_entry(args->dnode, NULL, true);
+	circuit->esn_mode = ISIS_ESN_OFF;
+
+	return NB_OK;
+}
+
+/*
  * XPath:
  * /frr-interface:lib/interface/frr-isisd:isis/disable-three-way-handshake
  */

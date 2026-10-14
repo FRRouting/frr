@@ -1182,6 +1182,14 @@ const struct frr_yang_module_info frr_isisd_info = {
 			},
 		},
 		{
+			.xpath = "/frr-interface:lib/interface/frr-isisd:isis/extended-sequence-number",
+			.cbs = {
+				.cli_show = cli_show_ip_isis_esn,
+				.modify = lib_interface_isis_extended_sequence_number_modify,
+				.destroy = lib_interface_isis_extended_sequence_number_destroy,
+			},
+		},
+		{
 			.xpath = "/frr-interface:lib/interface/frr-isisd:isis/disable-three-way-handshake",
 			.cbs = {
 				.cli_show = cli_show_ip_isis_threeway_shake,
