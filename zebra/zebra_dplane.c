@@ -2588,7 +2588,6 @@ int dplane_ctx_get_ns_sock(const struct zebra_dplane_ctx *ctx)
 	return -1;
 #endif
 }
-
 /* Setters/accessors for nexthop information */
 void dplane_ctx_set_nhe_id(struct zebra_dplane_ctx *ctx, uint32_t id)
 {
@@ -7736,7 +7735,7 @@ static void dplane_incoming_request(struct event *event)
 		       zi->info.sock, &zi->t_read);
 
 	/* Send requests */
-	netlink_request_netconf(zi->info.sock);
+	netlink_request_netconf(&zi->info);
 }
 
 /*
