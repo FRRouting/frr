@@ -38,3 +38,13 @@ EXTRA_DIST += \
 	tests/ospfd/test_ospf_asbr_summary.py \
 	tests/ospfd/test_ospf_asbr_summary.refout \
 	# end
+
+
+if OSPFD
+check_PROGRAMS += tests/ospfd/test_ospf_lsa_examin
+endif
+tests_ospfd_test_ospf_lsa_examin_CFLAGS = $(TESTS_CFLAGS)
+tests_ospfd_test_ospf_lsa_examin_CPPFLAGS = $(TESTS_CPPFLAGS)
+tests_ospfd_test_ospf_lsa_examin_LDADD = $(OSPFD_TEST_LDADD)
+tests_ospfd_test_ospf_lsa_examin_SOURCES = tests/ospfd/test_ospf_lsa_examin.c
+EXTRA_DIST += tests/ospfd/test_ospf_lsa_examin.py
