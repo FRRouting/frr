@@ -42,6 +42,9 @@ struct nlsock {
 	/* Backpointer, so a netlink user can keep this ns alive. */
 	struct zebra_ns *zns;
 
+	/* Bumped per socket open; a queued context names the one it was built for. */
+	uint32_t gen;
+
 	/* Holders of this socket. Touched under the nlsock lock. */
 	uint32_t users;
 
