@@ -865,16 +865,11 @@ void event_master_set_name(struct event_loop *master, const char *name)
 /* Move thread to unuse list. */
 static void thread_add_unuse(struct event_loop *m, struct event *event)
 {
-	pthread_mutex_t mtxc = event->mtx;
-
 	assert(m != NULL && event != NULL);
 
 	event->hist->total_active--;
 	memset(event, 0, sizeof(struct event));
 	event->type = EVENT_UNUSED;
-
-	/* Restore the event mutex context. */
-	event->mtx = mtxc;
 
 	if (event_list_count(&m->unuse) < EVENT_UNUSED_DEPTH) {
 		event_list_add_tail(&m->unuse, event);
@@ -973,7 +968,7 @@ unsigned long event_timer_remain_msec(struct event *event)
 	if (!event_is_scheduled(event))
 		return 0;
 
-	frr_with_mutex (&event->mtx) {
+	frr_with_mutex (&event->master->mtx) {
 		remain = monotime_until(&event->u.sands, NULL) / 1000LL;
 	}
 
@@ -990,7 +985,7 @@ struct timeval event_timer_remain(struct event *event)
 {
 	struct timeval remain;
 
-	frr_with_mutex (&event->mtx) {
+	frr_with_mutex (&event->master->mtx) {
 		monotime_until(&event->u.sands, &remain);
 	}
 	return remain;
@@ -1031,11 +1026,8 @@ static struct event *event_get(struct event_loop *m, uint8_t type,
 {
 	struct event *event = event_list_pop(&m->unuse);
 
-	if (!event) {
+	if (!event)
 		event = XCALLOC(MTYPE_THREAD, sizeof(struct event));
-		/* mutex only needs to be initialized at struct creation. */
-		pthread_mutex_init(&event->mtx, NULL);
-	}
 
 	event->type = type;
 	event->add_type = type;
@@ -1073,7 +1065,6 @@ static struct event *event_get(struct event_loop *m, uint8_t type,
 static void thread_free(struct event_loop *master, struct event *event)
 {
 	/* Free allocated resources. */
-	pthread_mutex_destroy(&event->mtx);
 	XFREE(MTYPE_THREAD, event);
 }
 
@@ -1394,10 +1385,8 @@ void _event_add_read_write(const struct xref_eventsched *xref,
 		event = event_get(m, dir, func, arg, xref);
 
 		if (event) {
-			frr_with_mutex (&event->mtx) {
-				event->u.fd = fd;
-				thread_array[event->u.fd] = event;
-			}
+			event->u.fd = fd;
+			thread_array[event->u.fd] = event;
 
 			if (t_ptr) {
 				*t_ptr = event;
@@ -1439,13 +1428,11 @@ static void _event_add_timer_timeval(const struct xref_eventsched *xref,
 		/* default lateness warning: 4s */
 		event->tardy_threshold = TARDY_DEFAULT_THRESHOLD;
 
-		frr_with_mutex (&event->mtx) {
-			event->u.sands = t;
-			event_timer_list_add(&m->timer, event);
-			if (t_ptr) {
-				*t_ptr = event;
-				event->ref = t_ptr;
-			}
+		event->u.sands = t;
+		event_timer_list_add(&m->timer, event);
+		if (t_ptr) {
+			*t_ptr = event;
+			event->ref = t_ptr;
 		}
 
 		/* The timer list is sorted - if this new timer
@@ -1520,10 +1507,8 @@ void _event_add_event(const struct xref_eventsched *xref, struct event_loop *m,
 			break;
 
 		event = event_get(m, EVENT_EVENT, func, arg, xref);
-		frr_with_mutex (&event->mtx) {
-			event->u.val = val;
-			event_list_add_tail(&m->event, event);
-		}
+		event->u.val = val;
+		event_list_add_tail(&m->event, event);
 
 		if (t_ptr) {
 			*t_ptr = event;
@@ -2089,6 +2074,7 @@ static struct timeval *thread_timer_wait(struct event_timer_list_head *timers,
 static struct event *event_run(struct event_loop *m, struct event *event, struct event *fetch)
 {
 	*fetch = *event;
+
 	thread_add_unuse(m, event);
 	return fetch;
 }
@@ -2624,7 +2610,7 @@ int event_should_yield(struct event *event)
 {
 	int result;
 
-	frr_with_mutex (&event->mtx) {
+	frr_with_mutex (&event->master->mtx) {
 		result = monotime_since(&event->real, NULL)
 			 > (int64_t)event->yield;
 	}
@@ -2633,7 +2619,7 @@ int event_should_yield(struct event *event)
 
 void event_set_yield_time(struct event *event, unsigned long yield_time)
 {
-	frr_with_mutex (&event->mtx) {
+	frr_with_mutex (&event->master->mtx) {
 		event->yield = yield_time;
 	}
 }
@@ -2832,10 +2818,8 @@ void _event_execute(const struct xref_eventsched *xref, struct event_loop *m,
 		event = event_get(m, EVENT_EXECUTE, func, arg, xref);
 
 		/* Set its event value. */
-		frr_with_mutex (&event->mtx) {
-			event->u.val = val;
-			event->ref = &event;
-		}
+		event->u.val = val;
+		event->ref = &event;
 	}
 
 	/* Execute thread doing all accounting. */
