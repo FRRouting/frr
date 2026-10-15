@@ -3258,9 +3258,25 @@ The following commands can be used in route maps:
    Expanded (regular expression) lists define no value to set and are ignored
    by ``add`` and ``replace``.
 
-.. clicmd:: set large-comm-list delete <LCOMMUNITY_LIST_NAME>
+.. clicmd:: set large-comm-list <delete|add|replace> <LCOMMUNITY_LIST_NAME>
 
-   Set BGP large community list for deletion.
+   This command modifies the BGP large communities attribute using the
+   ``permit`` entries of the specified large-community-list. See
+   :ref:`bgp-large-community-lists`.
+   The following operations are available:
+
+   * ``delete``: Removes the large communities of the route that match the
+                 large-community-list. Both standard and expanded lists may be
+                 used.
+   * ``add``: Appends the large communities defined in the
+              large-community-list to the existing BGP large communities
+              attribute of the route.
+   * ``replace``: Overwrites the existing BGP large communities attribute
+                  entirely with the large communities defined in the
+                  large-community-list.
+
+   Expanded (regular expression) lists define no value to set and are ignored
+   by ``add`` and ``replace``.
 
 
 .. _bgp-communities-example:
