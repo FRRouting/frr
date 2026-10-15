@@ -9907,13 +9907,37 @@ void bgp_terminate(void)
 #endif
 }
 
+/*
+ * First member of peer-group @name. A NULL @bgp means "vrf all": search every
+ * instance, as the other peer lookups do, and skip groups that have no members
+ * so that an empty group of the same name does not hide a populated one.
+ */
+static struct peer *peer_group_lookup_member(struct bgp *bgp, const char *name)
+{
+	struct peer_group *group;
+	struct listnode *node;
+	struct peer *peer;
+
+	if (bgp) {
+		group = peer_group_lookup(bgp, name);
+		return group ? listnode_head(group->peer) : NULL;
+	}
+
+	for (ALL_LIST_ELEMENTS_RO(bm->bgp, node, bgp)) {
+		peer = peer_group_lookup_member(bgp, name);
+		if (peer)
+			return peer;
+	}
+
+	return NULL;
+}
+
 struct peer *peer_lookup_in_view(struct vty *vty, struct bgp *bgp,
 				 const char *ip_str, bool use_json)
 {
 	int ret;
 	struct peer *peer;
 	union sockunion su;
-	struct peer_group *group;
 
 	/* Get peer sockunion. */
 	ret = str2sockunion(ip_str, &su);
@@ -9922,11 +9946,8 @@ struct peer *peer_lookup_in_view(struct vty *vty, struct bgp *bgp,
 		if (!peer) {
 			peer = peer_lookup_by_hostname(bgp, ip_str);
 
-			if (!peer) {
-				group = peer_group_lookup(bgp, ip_str);
-				if (group)
-					peer = listnode_head(group->peer);
-			}
+			if (!peer)
+				peer = peer_group_lookup_member(bgp, ip_str);
 
 			if (!peer) {
 				if (use_json) {
