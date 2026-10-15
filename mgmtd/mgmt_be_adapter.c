@@ -334,7 +334,7 @@ static void be_adapter_register_client_xpath(mgmt_be_client_id_t id, const char 
 {
 	struct mgmt_be_xpath_map **maps, *map;
 	const char *interest = "interest in";
-	const char *typ;
+	const char *typ = NULL;
 
 	maps = NULL;
 
