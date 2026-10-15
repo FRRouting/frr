@@ -57,6 +57,10 @@ r1 and fe80::<n>:2 on r2):
                                                               local address is
                                                               on lo, BFD egress
                                                               stays r1-eth14
+  r1-eth15 192.0.2.29/30     ---- r2-eth14 192.0.2.30/30      update-source lo
+                                                              (r1 lo .129): BFD
+                                                              egress stays
+                                                              r1-eth15, not lo
   r1 lo 198.51.100.1 ---(via eth0)--- r2 lo 198.51.100.3      multihop
   r1 lo 2001:db8:ff::1 ---(via eth1)--- r2 lo 2001:db8:ff::3  IPv6 multihop
 """
@@ -66,7 +70,6 @@ import sys
 import json
 import time
 import pytest
-import functools
 
 CWD = os.path.dirname(os.path.realpath(__file__))
 sys.path.append(os.path.join(CWD, "../"))
@@ -110,6 +113,7 @@ RESOLVABLE = {
     "fe80::a:2": ("fe80::a:2%r1-eth10", "r1-eth10", "fe80::a:1", ("r2", "fe80::a:1%r2-eth10")),
     "192.0.2.18": ("192.0.2.18", "r1-eth13", "192.0.2.17", ("r2", "192.0.2.17")),
     "192.0.2.26": ("192.0.2.26", "r1-eth14", "198.51.100.11", ("r2", "198.51.100.11")),
+    "192.0.2.30": ("192.0.2.30", "r1-eth15", "192.0.2.129", ("r2", "192.0.2.129")),
 }
 # Installed only once TCP is up.
 DEFERRED = {
@@ -162,7 +166,7 @@ def build_topo(tgen):
     switch.add_link(tgen.gears["r1"])
     switch.add_link(tgen.gears["r3"])
 
-    for switchn in (14, 15):
+    for switchn in (14, 15, 16):
         switch = tgen.add_switch("s{}".format(switchn))
         switch.add_link(tgen.gears["r1"])
         switch.add_link(tgen.gears["r2"])
