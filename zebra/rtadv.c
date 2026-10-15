@@ -734,15 +734,30 @@ static const char *rtadv_optionalhdr2str(uint8_t opt_type)
  * which is when a interface does not have a LL
  * v6 address.  We still need to be able to install
  * the mac address for v4 to v6 resolution
+ *
+ * Returns false when an option is malformed, in which case RFC 4861 4.6
+ * says the whole message is invalid and the caller should drop it.
  */
-static void rtadv_process_optional(uint8_t *optional, unsigned int len,
+static bool rtadv_process_optional(uint8_t *optional, unsigned int len,
 				   struct interface *ifp,
 				   struct sockaddr_in6 *addr)
 {
 	char *mac;
 
-	while (len > 0) {
+	while (len >= sizeof(struct nd_opt_hdr)) {
 		struct nd_opt_hdr *opt_hdr = (struct nd_opt_hdr *)optional;
+		unsigned int opt_len = 8 * opt_hdr->nd_opt_len;
+
+		/*
+		 * RFC 4861 4.6 options are a multiple of 8 octets and never
+		 * zero. A zero length would spin here forever, and a length
+		 * past the bytes we received would wrap the unsigned counter
+		 * below and keep reading off the end of the packet buffer.
+		 * Either way the option framing is broken, so report the
+		 * message as invalid.
+		 */
+		if (opt_len == 0 || opt_len > len)
+			return false;
 
 		switch(opt_hdr->nd_opt_type) {
 		case ND_OPT_SOURCE_LINKADDR:
@@ -761,9 +776,11 @@ static void rtadv_process_optional(uint8_t *optional, unsigned int len,
 			break;
 		}
 
-		len -= 8 * opt_hdr->nd_opt_len;
-		optional += 8 * opt_hdr->nd_opt_len;
+		len -= opt_len;
+		optional += opt_len;
 	}
+
+	return true;
 }
 
 static void rtadv_process_advert(uint8_t *msg, unsigned int len,
@@ -789,9 +806,16 @@ static void rtadv_process_advert(uint8_t *msg, unsigned int len,
 	}
 
 	if (!IN6_IS_ADDR_LINKLOCAL(&addr->sin6_addr)) {
-		rtadv_process_optional(msg + sizeof(struct nd_router_advert),
-				       len - sizeof(struct nd_router_advert),
-				       ifp, addr);
+		if (!rtadv_process_optional(msg + sizeof(struct nd_router_advert),
+					    len - sizeof(struct nd_router_advert),
+					    ifp, addr)) {
+			if (IS_ZEBRA_DEBUG_PACKET)
+				zlog_debug(
+					"%s(%s:%u): Rx RA with invalid option, dropping message from %s",
+					ifp->name, ifp->vrf->name, ifp->ifindex,
+					addr_str);
+			return;
+		}
 		if (IS_ZEBRA_DEBUG_PACKET)
 			zlog_debug(
 				"%s(%s:%u): Rx RA with non-linklocal source address from %s",
