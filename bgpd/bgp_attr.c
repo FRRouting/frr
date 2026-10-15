@@ -5766,6 +5766,70 @@ static bool bgp_append_local_as(struct peer *peer, afi_t afi, safi_t safi)
 	return false;
 }
 
+/*
+ * Prepend the local-as, if appropriate, to the outbound as-path in
+ * the adj_out attribute.
+ */
+void bgp_peer_prepend_local_as(struct peer *peer, afi_t afi, safi_t safi, struct attr *attr)
+{
+	struct aspath *aspath;
+	struct bgp *bgp = peer->bgp;
+
+	/* If remote-peer is EBGP */
+	if (peer->sort == BGP_PEER_EBGP &&
+	    (!CHECK_FLAG(peer->af_flags[afi][safi], PEER_FLAG_AS_PATH_UNCHANGED) ||
+	     attr->aspath->segments == NULL) &&
+	    (!CHECK_FLAG(peer->af_flags[afi][safi], PEER_FLAG_RSERVER_CLIENT))) {
+		aspath = aspath_dup(attr->aspath);
+
+		/* Even though we may not be configured for confederations we may
+		 * have RXed an AS_PATH with AS_CONFED_SEQUENCE or AS_CONFED_SET.
+		 */
+		aspath = aspath_delete_confed_seq(aspath);
+
+		if (CHECK_FLAG(bgp->config, BGP_CONFIG_CONFEDERATION)) {
+			/* A confed member, so we need to do the
+			 * AS_CONFED_SEQUENCE thing if it's outside a common
+			 * administration.
+			 * Configured confederation peers MUST be validated
+			 * under BGP_PEER_CONFED, but if we have configured
+			 * remote-as as AS_EXTERNAL, we need to check again
+			 * if the peer belongs to us.
+			 */
+			if (bgp_confederation_peers_check(bgp, peer->as)) {
+				aspath = aspath_add_confed_seq(aspath, peer->local_as);
+			} else {
+				/* Stuff our path CONFED_ID on the front */
+				aspath = aspath_add_seq(aspath, bgp->confed_id);
+			}
+		} else {
+			if (peer->change_local_as) {
+				/* If replace-as is specified, we only use the
+				 * change_local_as when advertising routes.
+				 */
+				if (!CHECK_FLAG(peer->flags, PEER_FLAG_LOCAL_AS_REPLACE_AS))
+					if (bgp_append_local_as(peer, afi, safi))
+						aspath = aspath_add_seq(aspath, peer->local_as);
+				aspath = aspath_add_seq(aspath, peer->change_local_as);
+			} else {
+				aspath = aspath_add_seq(aspath, peer->local_as);
+			}
+		}
+	} else if (peer->sort == BGP_PEER_CONFED) {
+		/* A confed member, so we need to do the AS_CONFED_SEQUENCE */
+		aspath = aspath_dup(attr->aspath);
+		aspath = aspath_add_confed_seq(aspath, peer->local_as);
+	} else
+		aspath = attr->aspath;
+
+	if (aspath != attr->aspath) {
+		/* Free old aspath if not interned (refcnt==0) */
+		if (attr->aspath && attr->aspath->refcnt == 0)
+			aspath_free(attr->aspath);
+		attr->aspath = aspath;
+	}
+}
+
 static void bgp_packet_ecommunity_attribute(struct stream *s, struct peer *peer, struct attr *attr,
 					    struct ecommunity *ecomm, int attribute)
 {
@@ -5840,84 +5904,23 @@ bgp_size_t bgp_packet_attribute(struct bgp *bgp, struct peer *peer, struct strea
 	stream_putc(s, 1);
 	stream_putc(s, attr->origin);
 
-	/* AS path attribute. */
-
 	/*
-	 * The for_bmp path is taken from bmp_update(), which only ever feeds
-	 * in attributes that come from receive-side storage in the three BMP
-	 * modes FRR currently emits:
+	 * AS path attribute.
 	 *
-	 *   - pre-policy Adj-RIB-In:   adjin->attr (raw on-wire from peer)
-	 *   - post-policy Adj-RIB-In:  bpi->attr   (path-info in local RIB)
-	 *   - Loc-RIB:                 bpi->attr   (selected best path)
+	 * Callers must supply the final outbound AS_PATH in attr->aspath.
+	 * The peer-specific transformations (local-AS prepend for eBGP,
+	 * confed-seq, change-local-as) are applied earlier by the caller
+	 * via bgp_peer_prepend_local_as() before invoking this function.
 	 *
-	 * None of these have been through the outbound peer-specific AS_PATH
-	 * transformations below (local-AS prepend for eBGP, confed-seq,
-	 * change-local-as), so they're skipped when for_bmp is set.
+	 * For BMP, bmp_update() feeds receive-side attributes (adjin->attr
+	 * or bpi->attr) which have not been through outbound transformations,
+	 * and that is correct for Adj-RIB-In and Loc-RIB monitoring.
 	 *
 	 * If RFC 8671 Adj-RIB-Out monitoring is added, post-policy
 	 * Adj-RIB-Out MUST be encoded "as actually transmitted to the peer"
-	 * (RFC 8671 §5.1) — that future caller must invoke this function
-	 * with for_bmp=false so the transformations below run.
+	 * (RFC 8671 S5.1) - that caller must prepare the path beforehand.
 	 */
-	/* If remote-peer is EBGP */
-	if (!for_bmp && peer->sort == BGP_PEER_EBGP &&
-	    (!CHECK_FLAG(peer->af_flags[afi][safi], PEER_FLAG_AS_PATH_UNCHANGED) ||
-	     attr->aspath->segments == NULL) &&
-	    (!CHECK_FLAG(peer->af_flags[afi][safi], PEER_FLAG_RSERVER_CLIENT))) {
-		aspath = aspath_dup(attr->aspath);
-
-		/* Even though we may not be configured for confederations we
-		 * may have
-		 * RXed an AS_PATH with AS_CONFED_SEQUENCE or AS_CONFED_SET */
-		aspath = aspath_delete_confed_seq(aspath);
-
-		if (CHECK_FLAG(bgp->config, BGP_CONFIG_CONFEDERATION)) {
-			/* A confed member, so we need to do the
-			 * AS_CONFED_SEQUENCE thing if it's outside a common
-			 * administration.
-			 * Configured confederation peers MUST be validated
-			 * under BGP_PEER_CONFED, but if we have configured
-			 * remote-as as AS_EXTERNAL, we need to check again
-			 * if the peer belongs to us.
-			 */
-			if (bgp_confederation_peers_check(bgp, peer->as)) {
-				aspath = aspath_add_confed_seq(aspath,
-							       peer->local_as);
-			} else {
-				/* Stuff our path CONFED_ID on the front */
-				aspath = aspath_add_seq(aspath, bgp->confed_id);
-			}
-		} else {
-			if (peer->change_local_as) {
-				/* If replace-as is specified, we only use the
-				   change_local_as when
-				   advertising routes. */
-				if (!CHECK_FLAG(peer->flags,
-						PEER_FLAG_LOCAL_AS_REPLACE_AS))
-					if (bgp_append_local_as(peer, afi,
-								safi))
-						aspath = aspath_add_seq(
-							aspath, peer->local_as);
-				aspath = aspath_add_seq(aspath,
-							peer->change_local_as);
-			} else {
-				aspath = aspath_add_seq(aspath, peer->local_as);
-			}
-		}
-	} else if (!for_bmp && peer->sort == BGP_PEER_CONFED) {
-		/* A confed member, so we need to do the AS_CONFED_SEQUENCE
-		 * thing */
-		aspath = aspath_dup(attr->aspath);
-		aspath = aspath_add_confed_seq(aspath, peer->local_as);
-	} else
-		/*
-		 * NOTE: with for_bmp=true we always reach here, including for
-		 * confed peers — the confed-seq above is intentionally
-		 * skipped. See the for_bmp commentary above the EBGP block for
-		 * the rationale and the RFC 8671 Adj-RIB-Out caveat.
-		 */
-		aspath = attr->aspath;
+	aspath = attr->aspath;
 
 	/* If peer is not AS4 capable, then:
 	 * - send the created AS_PATH out as AS4_PATH (optional, transitive),
