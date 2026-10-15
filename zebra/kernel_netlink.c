@@ -1137,6 +1137,7 @@ int ge_netlink_talk(netlink_parse_filter_t filter, struct nlmsghdr *n, struct ze
 	dp_info.is_cmd = true;
 	dp_info.sock = zns->ge_netlink_cmd.sock;
 	dp_info.seq = zns->ge_netlink_cmd.seq;
+	dp_info.sock_gen = zns->ge_netlink_cmd.gen;
 
 	return netlink_talk_info(filter, n, &dp_info, startup, arg, nl_err);
 }
@@ -1552,6 +1553,11 @@ static enum netlink_msg_status nl_put_msg(struct nl_batch *bth,
 	return FRR_NETLINK_ERROR;
 }
 
+static bool nl_batch_same_sock(const struct zebra_dplane_info *a, const struct zebra_dplane_info *b)
+{
+	return a->ns_id == b->ns_id && a->sock == b->sock && a->sock_gen == b->sock_gen;
+}
+
 void kernel_update_multi(struct dplane_ctx_list_head *ctx_list)
 {
 	struct nl_batch batch;
@@ -1580,8 +1586,8 @@ void kernel_update_multi(struct dplane_ctx_list_head *ctx_list)
 			continue;
 		}
 
-		if (batch.zns != NULL
-		    && batch.zns->ns_id != dplane_ctx_get_ns(ctx)->ns_id)
+		/* A batch goes out on a single socket generation. */
+		if (batch.zns != NULL && !nl_batch_same_sock(batch.zns, dplane_ctx_get_ns(ctx)))
 			nl_batch_send(&batch);
 
 		/*
@@ -1615,8 +1621,8 @@ struct nlsock *kernel_netlink_nlsock_hold(const struct zebra_dplane_info *info)
 
 	NLSOCK_LOCK();
 	nl = hash_lookup(nlsock_hash, &lookup);
-	/* Ensure the fd still belongs to the requested namespace. */
-	if (nl && nl->zns && nl->zns->ns_id == info->ns_id) {
+	/* A recycled fd, or a reopen of this ns, is not the socket info was built for. */
+	if (nl && nl->zns && nl->zns->ns_id == info->ns_id && nl->gen == info->sock_gen) {
 		nl->users++;
 		atomic_fetch_add_explicit(&nl->zns->refcount, 1, memory_order_acq_rel);
 	} else
@@ -1726,11 +1732,17 @@ static int kernel_init_nlsock(struct nlsock *nl, const char *name_prefix, unsign
 			      uint32_t ext_groups[], uint8_t ext_group_size, ns_id_t ns_id,
 			      int nl_family, bool warn_only, struct zebra_ns *zns)
 {
+	static uint32_t nlsock_gen;
+
 	snprintf(nl->name, sizeof(nl->name), "%s (NS %u)", name_prefix, ns_id);
 	nl->sock = -1;
 	nl->proto = nl_family;
 	nl->zns = zns;
 	nl->detached = false;
+	/* Never 0, so a zeroed dplane info matches no socket. */
+	if (++nlsock_gen == 0)
+		++nlsock_gen;
+	nl->gen = nlsock_gen;
 
 	if (netlink_socket(nl, groups, ext_groups, ext_group_size, ns_id, nl_family) < 0) {
 		if (warn_only)
@@ -1745,7 +1757,8 @@ static int kernel_init_nlsock(struct nlsock *nl, const char *name_prefix, unsign
 }
 
 /*
- * Wait for existing holders to finish before reusing ns buffers.
+ * Holders of the previous generation finish their recv and close the fd.
+ * Wait so this generation does not reuse the nlsock under them.
  */
 static void kernel_ns_drain_holders(struct zebra_ns *zns)
 {

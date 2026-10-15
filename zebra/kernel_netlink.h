@@ -110,7 +110,7 @@ extern void netlink_set_batch_buffer_size(uint32_t size, uint32_t threshold,
 					  bool set);
 
 /*
- * Find the socket named by this info (fd and ns) and keep its
+ * Find the socket named by this info (fd, ns and generation) and keep its
  * ns alive until release.
  */
 extern struct nlsock *kernel_netlink_nlsock_hold(const struct zebra_dplane_info *info);
