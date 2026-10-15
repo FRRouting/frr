@@ -3294,69 +3294,11 @@ lib_route_map_entry_set_action_rmap_set_action_aggregator_aggregator_address_mod
 
 /*
  * XPath:
- * /frr-route-map:lib/route-map/entry/set-action/rmap-set-action/frr-bgp-route-map:comm-list-name
- */
-int lib_route_map_entry_set_action_rmap_set_action_comm_list_name_modify(
-	struct nb_cb_modify_args *args)
-{
-	struct routemap_hook_context *rhc;
-	const char *value;
-	int rv = CMD_SUCCESS;
-
-	/* The extended-comm-list-delete action keeps this leaf. */
-	if (IS_SET_EXTCOMM_LIST_DEL(yang_dnode_get_string(args->dnode, "../../frr-route-map:action")))
-		return lib_route_map_entry_set_action_rmap_set_action_comm_list_name_change_modify(args);
-
-	switch (args->event) {
-	case NB_EV_VALIDATE:
-	case NB_EV_PREPARE:
-	case NB_EV_ABORT:
-		break;
-	case NB_EV_APPLY:
-		/* Add configuration. */
-		rhc = nb_running_get_entry(args->dnode, NULL, true);
-		value = yang_dnode_get_string(args->dnode, NULL);
-
-		/* Set destroy information. */
-		rhc->rhc_shook = generic_set_delete;
-
-		rhc->rhc_rule = "large-comm-list";
-
-		rhc->rhc_event = RMAP_EVENT_SET_DELETED;
-
-		rv = generic_set_add(rhc->rhc_rmi, rhc->rhc_rule, value,
-				     args->errmsg, args->errmsg_len);
-
-		if (rv != CMD_SUCCESS) {
-			rhc->rhc_shook = NULL;
-			return NB_ERR_INCONSISTENCY;
-		}
-	}
-
-	return NB_OK;
-}
-
-int
-lib_route_map_entry_set_action_rmap_set_action_comm_list_name_destroy(
-	struct nb_cb_destroy_args *args)
-{
-	switch (args->event) {
-	case NB_EV_VALIDATE:
-	case NB_EV_PREPARE:
-	case NB_EV_ABORT:
-		break;
-	case NB_EV_APPLY:
-		return lib_route_map_entry_set_destroy(args);
-	}
-
-	return NB_OK;
-}
-
-/*
- * XPath:
  * /frr-route-map:lib/route-map/entry/set-action/rmap-set-action/frr-bgp-route-map:comm-list-name-*
- * and the same path ending with frr-bgp-route-map:extended-comm-list-name-*
- * (extended-comm-list-delete uses frr-bgp-route-map:comm-list-name)
+ * and the same paths ending with frr-bgp-route-map:extended-comm-list-name-*
+ * and frr-bgp-route-map:large-comm-list-name-*
+ * (the delete actions of extended and large lists use
+ * frr-bgp-route-map:comm-list-name)
  */
 int lib_route_map_entry_set_action_rmap_set_action_comm_list_name_change_modify(
 	struct nb_cb_modify_args *args)
@@ -3398,6 +3340,15 @@ int lib_route_map_entry_set_action_rmap_set_action_comm_list_name_change_modify(
 			snprintfrr(argstr, argstr_len, "%s %s", name, "add");
 		} else if (IS_SET_EXTCOMM_LIST_REPLACE(action)) {
 			rhc->rhc_rule = "extended-comm-list-replace";
+			snprintfrr(argstr, argstr_len, "%s %s", name, "replace");
+		} else if (IS_SET_LCOMM_LIST_DEL(action)) {
+			rhc->rhc_rule = "large-comm-list-delete";
+			snprintfrr(argstr, argstr_len, "%s %s", name, "delete");
+		} else if (IS_SET_LCOMM_LIST_ADD(action)) {
+			rhc->rhc_rule = "large-comm-list-add";
+			snprintfrr(argstr, argstr_len, "%s %s", name, "add");
+		} else if (IS_SET_LCOMM_LIST_REPLACE(action)) {
+			rhc->rhc_rule = "large-comm-list-replace";
 			snprintfrr(argstr, argstr_len, "%s %s", name, "replace");
 		}
 
