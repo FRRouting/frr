@@ -60,6 +60,7 @@ sys.path.append(os.path.join(CWD, "../"))
 # pylint: disable=C0413
 # Import topogen and topotest helpers
 from lib import topotest
+from lib.common_config import retry
 from lib.topogen import Topogen, TopoRouter, get_topogen
 from lib.topolog import logger
 
@@ -269,6 +270,46 @@ def test_ldp_pseudowires_with_changed_configuration():
         pw-id 100
         """
     )
+
+    for rname in ["r1", "r2", "r3"]:
+        router_compare_json_output(
+            rname, "show l2vpn atom vc json", "show_l2vpn_vc.ref", count=160, wait=1
+        )
+
+
+def test_ldp_pseudowires_control_word():
+    logger.info("Test: verify the LDP pseudowire control word configuration")
+    tgen = get_topogen()
+
+    # Skip if previous fatal error condition is raised
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    router = tgen.gears["r1"]
+
+    @retry(retry_timeout=60)
+    def check_local_control_word(expected):
+        output = router.vtysh_cmd("show l2vpn atom binding json", isjson=True)
+        diff = topotest.json_cmp(
+            output, {"2.2.2.2: 100": {"localControlWord": expected}}
+        )
+        if diff is not None:
+            return "r1 local control word is not {}: {}".format(expected, diff)
+        return True
+
+    for preference, expected in [("exclude", 0), ("include", 1)]:
+        router.vtysh_cmd(
+            """
+            configure terminal
+             l2vpn CUST_A type vpls
+              member pseudowire r1-mpw0
+               control-word {}
+            """.format(
+                preference
+            )
+        )
+        result = check_local_control_word(expected)
+        assert result is True, result
 
     for rname in ["r1", "r2", "r3"]:
         router_compare_json_output(
