@@ -4279,9 +4279,9 @@ static int netlink_macfdb_read_mcast_for_vni(struct nlsock *nl,
 void kernel_read_macfdb(struct zebra_dplane_ctx *ctx)
 {
 	const struct zebra_dplane_info *dp_info = dplane_ctx_get_ns(ctx);
-	struct nlsock *nl;
+	struct nlsock *nl NLSOCK_AUTO = NULL;
 
-	nl = kernel_netlink_nlsock_lookup(dplane_ctx_get_ns_sock(ctx));
+	nl = kernel_netlink_nlsock_hold(dplane_ctx_get_ns(ctx));
 	if (!nl) {
 		dplane_ctx_set_status(ctx, ZEBRA_DPLANE_REQUEST_FAILURE);
 		return;
@@ -4652,12 +4652,12 @@ void kernel_read_neigh(struct zebra_dplane_ctx *ctx)
 {
 	const struct zebra_dplane_info *dp_info = dplane_ctx_get_ns(ctx);
 	const struct ipaddr *ip;
-	struct nlsock *nl;
+	struct nlsock *nl NLSOCK_AUTO = NULL;
 	ifindex_t ifindex;
 	int ret;
 	int nl_err = 0;
 
-	nl = kernel_netlink_nlsock_lookup(dplane_ctx_get_ns_sock(ctx));
+	nl = kernel_netlink_nlsock_hold(dplane_ctx_get_ns(ctx));
 	if (!nl) {
 		dplane_ctx_set_status(ctx, ZEBRA_DPLANE_REQUEST_FAILURE);
 		return;

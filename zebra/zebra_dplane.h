@@ -1015,7 +1015,6 @@ void dplane_ctx_set_netconf_linkdown(struct zebra_dplane_ctx *ctx,
 /* Namespace fd info - esp. for netlink communication */
 const struct zebra_dplane_info *dplane_ctx_get_ns(
 	const struct zebra_dplane_ctx *ctx);
-int dplane_ctx_get_ns_sock(const struct zebra_dplane_ctx *ctx);
 
 /* Indicates zebra shutdown/exit is in progress. Some operations may be
  * simplified or skipped during shutdown processing.
