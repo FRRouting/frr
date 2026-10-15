@@ -30,6 +30,8 @@
 /libtool.orig
 /test-driver
 /test-suite.log
+/frr.pc
+/tools/frr.pc
 
 /Makefile
 /Makefile.in
