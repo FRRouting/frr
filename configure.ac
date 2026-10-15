@@ -935,6 +935,56 @@ fi
 AC_SUBST([DFLT_NAME])
 AC_DEFINE_UNQUOTED([DFLT_NAME], ["$DFLT_NAME"], [Name of the configuration default set])
 
+
+dnl ----------------------------------------------
+dnl Optional Split Horizon Filter using TCX + eBPF
+dnl ----------------------------------------------
+
+AC_ARG_ENABLE([splithorizon],
+  AS_HELP_STRING([--disable-splithorizon], [Disable eBPF-based split horizon filter]),
+  [enable_split_horizon=$enableval],
+  [enable_split_horizon=yes]
+)
+
+HAVE_SPLIT_HORIZON_FILTER=no
+AS_IF([test "x$enable_split_horizon" = "xyes"], [
+  AC_CHECK_PROG([CLANG], [clang], [clang])
+  AC_CHECK_PROG([BPFTOOL], [bpftool], [bpftool])
+  # 1.3 is needed for bpf_program__attach_tcx
+  PKG_CHECK_MODULES([LIBBPF], [libbpf >= 1.3], [have_libbpf=yes], [have_libbpf=no])
+
+  AS_IF([test "x$CLANG" != "x" -a "x$BPFTOOL" != "x" -a "x$have_libbpf" = "xyes"], [
+    AC_MSG_CHECKING([whether $CLANG supports BPF target])
+    echo 'int x;' > conftest.c
+    $CLANG -O2 -target bpf -c conftest.c -o conftest.o >/dev/null 2>&1
+    if test $? -eq 0; then
+      AC_MSG_RESULT([yes])
+      HAVE_SPLIT_HORIZON_FILTER=yes
+    else
+      AC_MSG_RESULT([no])
+    fi
+    rm -f conftest.c conftest.o
+  ])
+])
+
+AM_CONDITIONAL([HAVE_SPLIT_HORIZON_FILTER], [test "x$HAVE_SPLIT_HORIZON_FILTER" = "xyes"])
+AC_SUBST([CLANG])
+AC_SUBST([BPFTOOL])
+AC_SUBST([LIBBPF_CFLAGS])
+AC_SUBST([LIBBPF_LIBS])
+
+AS_IF([test "x$enable_split_horizon" = "xyes"], [
+  if test "x$HAVE_SPLIT_HORIZON_FILTER" = "xyes"; then
+    AC_DEFINE([HAVE_SPLIT_HORIZON_FILTER], [1], [Build with eBPF-based split horizon filter support])
+    AC_MSG_NOTICE([Split Horizon Filtering with BPF: ENABLED])
+  else
+    AC_MSG_NOTICE([Split Horizon Filtering with BPF: DISABLED (missing clang, bpftool or libbpf)])
+  fi
+], [
+  AC_MSG_NOTICE([Split Horizon Filtering with BPF: DISABLED (by user)])
+])
+
+
 #
 # Python for clippy
 #

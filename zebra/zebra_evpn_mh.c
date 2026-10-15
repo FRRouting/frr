@@ -1239,6 +1239,9 @@ void zebra_evpn_if_cleanup(struct zebra_if *zif)
 	vlanid_t vid;
 	struct zebra_evpn_es *es;
 
+	if (zif->flags & ZIF_FLAG_EVPN_MH_UPLINK)
+		dplane_evpn_mh_uplink_update(DPLANE_OP_EVPN_MH_UPLINK_DELETE, zif->ifp);
+
 	if (bf_is_inited(zif->vlan_bitmap)) {
 		bf_for_each_set_bit(zif->vlan_bitmap, vid, IF_VLAN_BITMAP_MAX)
 		{
@@ -2652,6 +2655,8 @@ static void zebra_evpn_es_local_info_clear(struct zebra_evpn_es **esp)
 	if (!dplane_updated)
 		zebra_evpn_es_br_port_dplane_clear(es);
 
+	dplane_evpn_mh_es_update(DPLANE_OP_EVPN_MH_ES_DELETE, es->zif->ifp);
+
 	/* clear the es from the parent interface */
 	zif->es_info.es = NULL;
 	es->zif = NULL;
@@ -4008,6 +4013,8 @@ void zebra_evpn_mh_uplink_cfg_update(struct zebra_if *zif, bool set)
 
 		zif->flags |= ZIF_FLAG_EVPN_MH_UPLINK;
 		++zmh_info->uplink_cfg_cnt;
+		if (zif->ifp->ifindex)
+			dplane_evpn_mh_uplink_update(DPLANE_OP_EVPN_MH_UPLINK_ADD, zif->ifp);
 	} else {
 		if (!(zif->flags & ZIF_FLAG_EVPN_MH_UPLINK))
 			return;
@@ -4015,6 +4022,8 @@ void zebra_evpn_mh_uplink_cfg_update(struct zebra_if *zif, bool set)
 		zif->flags &= ~ZIF_FLAG_EVPN_MH_UPLINK;
 		if (zmh_info->uplink_cfg_cnt)
 			--zmh_info->uplink_cfg_cnt;
+		if (zif->ifp->ifindex)
+			dplane_evpn_mh_uplink_update(DPLANE_OP_EVPN_MH_UPLINK_DELETE, zif->ifp);
 	}
 
 	zebra_evpn_mh_uplink_oper_flags_update(zif, set);
@@ -4030,6 +4039,12 @@ void zebra_evpn_mh_uplink_cfg_update(struct zebra_if *zif, bool set)
 
 	zebra_evpn_mh_update_protodown(ZEBRA_PROTODOWN_EVPN_UPLINK_DOWN,
 				       new_protodown);
+}
+
+void zebra_evpn_mh_uplink_oper_add(struct zebra_if *zif)
+{
+	if (zif->ifp->ifindex)
+		dplane_evpn_mh_uplink_update(DPLANE_OP_EVPN_MH_UPLINK_ADD, zif->ifp);
 }
 
 void zebra_evpn_mh_uplink_oper_update(struct zebra_if *zif)

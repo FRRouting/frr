@@ -40,6 +40,7 @@
 #include "zebra/netconf_netlink.h"
 #include "zebra/zebra_errors.h"
 #include "zebra/ge_netlink.h"
+#include "zebra/zebra_split_horizon_filter.h"
 #include "zebra/zebra_trace.h"
 
 #ifndef SO_RCVBUFFORCE
@@ -1492,8 +1493,10 @@ static enum netlink_msg_status nl_put_msg(struct nl_batch *bth,
 	case DPLANE_OP_SYS_ROUTE_DELETE:
 	case DPLANE_OP_ROUTE_NOTIFY:
 	case DPLANE_OP_LSP_NOTIFY:
-	case DPLANE_OP_BR_PORT_UPDATE:
 		return FRR_NETLINK_SUCCESS;
+
+	case DPLANE_OP_BR_PORT_UPDATE:
+		return sph_process_br_port_msg(bth, ctx);
 
 	case DPLANE_OP_INTF_SPEED_GET:
 	case DPLANE_OP_IPTABLE_ADD:
@@ -1541,6 +1544,13 @@ static enum netlink_msg_status nl_put_msg(struct nl_batch *bth,
 
 	case DPLANE_OP_SRV6_ENCAP_SRCADDR_SET:
 		return netlink_put_sr_tunsrc_set_msg(bth, ctx);
+
+	case DPLANE_OP_EVPN_MH_UPLINK_ADD:
+		return sph_process_uplink_add_msg(bth, ctx);
+	case DPLANE_OP_EVPN_MH_UPLINK_DELETE:
+		return sph_process_uplink_delete_msg(bth, ctx);
+	case DPLANE_OP_EVPN_MH_ES_DELETE:
+		return sph_process_es_delete_msg(bth, ctx);
 	}
 
 	return FRR_NETLINK_ERROR;
