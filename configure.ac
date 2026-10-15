@@ -935,6 +935,73 @@ fi
 AC_SUBST([DFLT_NAME])
 AC_DEFINE_UNQUOTED([DFLT_NAME], ["$DFLT_NAME"], [Name of the configuration default set])
 
+
+dnl ------------------------------------------------------------
+dnl Check clang, libbpf, bpftool, result variable: HAVE_EBPF_TCX
+dnl ------------------------------------------------------------
+
+HAVE_EBPF_TCX=no
+AC_CHECK_PROG([CLANG], [clang], [clang])
+AC_CHECK_PROG([BPFTOOL], [bpftool], [bpftool])
+# 1.3 is needed for bpf_program__attach_tcx
+PKG_CHECK_MODULES([LIBBPF], [libbpf >= 1.3], [have_libbpf=yes], [have_libbpf=no])
+
+AS_IF([test "x$CLANG" != "x" -a "x$BPFTOOL" != "x" -a "x$have_libbpf" = "xyes"], [
+  AC_MSG_CHECKING([whether $CLANG supports BPF target])
+  echo "int x;" > conftest.c
+  $CLANG -O2 -target bpf -c conftest.c -o conftest.o >/dev/null 2>&1
+  if test $? -eq 0; then
+    AC_MSG_RESULT([yes])
+
+    AC_MSG_CHECKING([whether required eBPF headers are available])
+
+    # Command taken from https://github.com/libbpf/libbpf-bootstrap/commit/2b2426e0cdc1a39e30ece3361519757cb76e294a
+    # This is needed to have asm/types.h etc
+    CLANG_BPF_SYS_INCLUDES="`$CLANG -v -E - </dev/null 2>&1 \
+        | sed -n '/<...> search starts here:/,/End of search list./s| \(/.*\)|-idirafter \1|p' | tr '\n' ' '`"
+
+    printf "#include <linux/bpf.h>\n#include <bpf/bpf_helpers.h>\nint x;" > conftest2.c
+    $CLANG -O2 -target bpf $CLANG_BPF_SYS_INCLUDES $LIBBPF_CFLAGS -c conftest2.c -o conftest2.o >/dev/null 2>&1
+    if test $? -eq 0; then
+      AC_MSG_RESULT([yes])
+      HAVE_EBPF_TCX=yes
+    else
+      AC_MSG_RESULT([no])
+    fi
+    rm -f conftest2.c conftest2.o
+  else
+    AC_MSG_RESULT([no])
+  fi
+  rm -f conftest.c conftest.o
+])
+AC_SUBST([CLANG])
+AC_SUBST([BPFTOOL])
+AC_SUBST([LIBBPF_CFLAGS])
+AC_SUBST([LIBBPF_LIBS])
+AC_SUBST([CLANG_BPF_SYS_INCLUDES])
+
+
+dnl ----------------------------------------------
+dnl Optional Split Horizon Filter using TCX + eBPF
+dnl ----------------------------------------------
+
+AC_ARG_ENABLE(splithorizon,
+	AS_HELP_STRING([--enable-splithorizon], [Enable eBPF-based split horizon filter]),
+[case "${enableval}" in
+  yes) enable_splithorizon=yes ;;
+  no) enable_splithorizon=no ;;
+  *) AC_MSG_ERROR([bad value ${enableval} for --enable-splithorizon]) ;;
+esac],[enable_splithorizon=no])
+
+AS_IF([test "x$enable_splithorizon" = "xyes"], [
+  AS_IF([test "x$HAVE_EBPF_TCX" != "xyes"], [
+    AC_MSG_ERROR([Failed to enable requested Split Horizon Filtering: check clang, bpftool, libbpf ])
+  ])
+  AC_DEFINE([HAVE_SPLIT_HORIZON_FILTER], [1], [Build with eBPF-based split horizon filter support])
+])
+AM_CONDITIONAL([HAVE_SPLIT_HORIZON_FILTER], [test "x$enable_splithorizon" = "xyes"])
+
+
 #
 # Python for clippy
 #
@@ -2957,6 +3024,7 @@ config file mask        : ${enable_configfile_mask}
 log file mask           : ${enable_logfile_mask}
 zebra protobuf enabled  : ${enable_protobuf:-yes}
 vici socket path        : ${vici_socket}
+split horizon filter    : ${enable_splithorizon}
 
 The above user and group must have read/write access to the state file
 directory and to the config files in the config file directory."
