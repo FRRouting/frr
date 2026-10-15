@@ -153,7 +153,6 @@ sighup(void)
 	 * and build a new configuration from scratch.
 	 */
 	ldp_config_reset(vty_conf);
-	ldp_config_reset_l2vpns(&l2vpn_tree_config);
 	vty_read_config(NULL, ldpd_di.config_file, config_default);
 	ldp_config_apply(NULL, vty_conf);
 }
