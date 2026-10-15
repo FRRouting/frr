@@ -25,6 +25,9 @@
 #include "table_manager.h"
 #include "zebra_errors.h"
 #include "zebra_dplane.h"
+#ifdef HAVE_NETLINK
+#include "zebra/kernel_netlink.h"
+#endif
 
 extern struct zebra_privs_t zserv_privs;
 
@@ -239,6 +242,13 @@ static int zebra_ns_new(struct ns *ns)
 	ns->info = zns;
 	zns->ns = ns;
 	zns->ns_id = ns->ns_id;
+	atomic_init(&zns->refcount, 1);
+#ifdef HAVE_NETLINK
+	zns->netlink_cmd.sock = -1;
+	zns->netlink_dplane_out.sock = -1;
+	zns->netlink_dplane_in.sock = -1;
+	zns->ge_netlink_cmd.sock = -1;
+#endif
 
 	/* Do any needed per-NS data structure allocation. */
 	ifp_tree_init(&zns->ifp_tree);
@@ -265,8 +275,27 @@ static int zebra_ns_delete(struct ns *ns)
 		XFREE(MTYPE_ZNS_IFP, link);
 	}
 
-	XFREE(MTYPE_ZEBRA_NS, ns->info);
+	/* A holder may still be using this ns; the last ref frees it. */
+	ns->info = NULL;
+	zns->ns = NULL;
+	if (zns == dzns)
+		dzns = NULL;
+	zebra_ns_put(zns);
 	return 0;
+}
+
+void zebra_ns_put(struct zebra_ns *zns)
+{
+	if (!zns)
+		return;
+
+	if (atomic_fetch_sub_explicit(&zns->refcount, 1, memory_order_acq_rel) != 1)
+		return;
+
+#ifdef HAVE_NETLINK
+	kernel_ns_free_bufs(zns);
+#endif
+	XFREE(MTYPE_ZEBRA_NS, zns);
 }
 
 static int zebra_ns_enabled(struct ns *ns)

@@ -7648,7 +7648,7 @@ static void dplane_incoming_request(struct event *event)
 		       zi->info.sock, &zi->t_read);
 
 	/* Send requests */
-	netlink_request_netconf(zi->info.sock);
+	netlink_request_netconf(&zi->info);
 }
 
 /*
