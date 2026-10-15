@@ -275,7 +275,10 @@ static int zebra_ns_delete(struct ns *ns)
 		XFREE(MTYPE_ZNS_IFP, link);
 	}
 
-	/* A holder may still be using this ns; the last ref frees it. */
+	/*
+	 * A holder may still be receiving. It closes its own fd, and the
+	 * last ref frees the ns.
+	 */
 	ns->info = NULL;
 	zns->ns = NULL;
 	if (zns == dzns)
