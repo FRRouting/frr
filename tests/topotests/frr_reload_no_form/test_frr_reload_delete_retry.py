@@ -141,3 +141,27 @@ def test_trim_gives_up_at_two_words(reload):
         " no foo",
     ]
     assert all(call[-1] == "exit" for call in calls)
+
+
+def test_vrf_context_delete_not_trimmed(reload):
+    """Never shorten "no vrf NAME" to "no vrf", which is not valid."""
+    ok, calls = _delete(reload, [], ("vrf blue",), None)
+    assert not ok
+    assert calls == [["configure", "no vrf blue"]]
+
+
+def test_vrf_context_delete_active_vrf_skipped(reload):
+    """VRF device still up: not a reload failure, and no trimmed retry."""
+    calls = []
+
+    def vtysh(command, stdouts=None):
+        calls.append(list(command))
+        raise reload.VtyshException(reload.VRF_DELETE_SKIP_ERRS[0])
+
+    logging.disable(logging.CRITICAL)
+    try:
+        ok = reload.delete_line_with_vtysh(vtysh, ("vrf blue",), None)
+    finally:
+        logging.disable(logging.NOTSET)
+    assert ok
+    assert calls == [["configure", "no vrf blue"]]
