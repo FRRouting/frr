@@ -360,6 +360,7 @@ int netlink_sr_tunsrc_read(struct zebra_ns *zns)
 	dp_info.is_cmd = true;
 	dp_info.sock = zns->ge_netlink_cmd.sock;
 	dp_info.seq = zns->ge_netlink_cmd.seq;
+	dp_info.sock_gen = zns->ge_netlink_cmd.gen;
 
 	/* Get SR tunsrc. */
 	ret = netlink_request_sr_tunsrc(zns);

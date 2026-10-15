@@ -4302,6 +4302,7 @@ static void ctx_info_from_zns(struct zebra_dplane_info *ns_info,
 	ns_info->is_cmd = true;
 	ns_info->sock = zns->netlink_dplane_out.sock;
 	ns_info->seq = zns->netlink_dplane_out.seq;
+	ns_info->sock_gen = zns->netlink_dplane_out.gen;
 	ns_info->nlmsg_pid = zns->netlink_dplane_out.snl.nl_pid;
 #endif /* NETLINK */
 }
@@ -7742,6 +7743,7 @@ void zebra_dplane_ns_enable(struct zebra_ns *zns, bool enabled)
 #if defined(HAVE_NETLINK)
 		zi->info.is_cmd = false;
 		zi->info.sock = zns->netlink_dplane_in.sock;
+		zi->info.sock_gen = zns->netlink_dplane_in.gen;
 
 		/* Initiate requests for existing info from the OS, and
 		 * begin reading from the netlink socket.
