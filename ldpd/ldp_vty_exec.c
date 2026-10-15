@@ -1332,6 +1332,7 @@ show_l2vpn_binding_msg(struct vty *vty, struct imsg *imsg,
 			vty_out (vty, "%-8sCbit: %u,    VC Type: %s,    GroupID: %u\n", "", pw->local_cword,
 			    pw_type_name(pw->type),pw->local_gid);
 			vty_out (vty, "%-8sMTU: %u\n", "",pw->local_ifmtu);
+			vty_out(vty, "%-8sPW Status TLV: %u\n", "", pw->local_status_tlv);
 			vty_out (vty, "%-8sLast failure: %s\n", "",
 			    pw_error_code(pw->reason));
 		} else
@@ -1344,6 +1345,7 @@ show_l2vpn_binding_msg(struct vty *vty, struct imsg *imsg,
 			vty_out (vty, "%-8sCbit: %u,    VC Type: %s,    GroupID: %u\n", "", pw->remote_cword,
 			    pw_type_name(pw->type),pw->remote_gid);
 			vty_out (vty, "%-8sMTU: %u\n", "",pw->remote_ifmtu);
+			vty_out(vty, "%-8sPW Status TLV: %u\n", "", pw->remote_status_tlv);
 		} else
 			vty_out (vty,"    Remote Label: unassigned\n");
 		break;
@@ -1386,6 +1388,7 @@ show_l2vpn_binding_msg_json(struct imsg *imsg, struct show_params *params,
 			    pw->local_gid);
 			json_object_int_add(json_pw, "localIfMtu",
 			    pw->local_ifmtu);
+			json_object_int_add(json_pw, "localPwStatusTlv", pw->local_status_tlv);
 			json_object_string_add(json_pw, "lastFailureReason",
 			    pw_error_code(pw->reason));
 		} else
@@ -1404,6 +1407,7 @@ show_l2vpn_binding_msg_json(struct imsg *imsg, struct show_params *params,
 			    pw->remote_gid);
 			json_object_int_add(json_pw, "remoteIfMtu",
 			    pw->remote_ifmtu);
+			json_object_int_add(json_pw, "remotePwStatusTlv", pw->remote_status_tlv);
 		} else
 			json_object_string_add(json_pw, "remoteLabel",
 			    "unassigned");
