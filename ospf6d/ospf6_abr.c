@@ -1495,6 +1495,19 @@ static void ospf6_abr_remove_unapproved_summaries(struct ospf6 *ospf6)
  */
 void ospf6_abr_task(struct ospf6 *ospf6)
 {
+	/*
+	 * RFC 3623 - Section 2.2: while restarting, don't originate or flush
+	 * summary-LSAs. The routing tables are not complete yet, so running
+	 * the ABR task now would prematurely age all self-originated
+	 * summary-LSAs. The task is scheduled again once the restart is over
+	 * and the routing tables are complete.
+	 */
+	if (ospf6->gr_info.restart_in_progress) {
+		if (IS_OSPF6_DEBUG_ABR)
+			zlog_debug("%s : Graceful Restart in progress, skip", __func__);
+		return;
+	}
+
 	if (IS_OSPF6_DEBUG_ABR)
 		zlog_debug("%s : starting processing", __func__);
 
@@ -1547,6 +1560,16 @@ void ospf6_abr_task(struct ospf6 *ospf6)
 static void ospf6_abr_task_timer(struct event *event)
 {
 	struct ospf6 *ospf6 = EVENT_ARG(event);
+
+	/*
+	 * During and right after a graceful restart the routing tables are
+	 * not complete. The ABR task is scheduled again once they are.
+	 */
+	if (ospf6->gr_info.restart_in_progress || ospf6->gr_info.finishing_restart) {
+		if (IS_OSPF6_DEBUG_ABR)
+			zlog_debug("Graceful Restart not finished, skip ABR task timer");
+		return;
+	}
 
 	if (IS_OSPF6_DEBUG_ABR)
 		zlog_debug("Running ABR task on timer");

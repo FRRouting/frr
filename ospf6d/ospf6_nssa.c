@@ -695,6 +695,12 @@ void ospf6_abr_nssa_type_7_defaults(struct ospf6 *ospf6)
 
 void ospf6_abr_nssa_task(struct ospf6 *ospf6)
 {
+	if (ospf6->gr_info.restart_in_progress) {
+		if (IS_OSPF6_DEBUG_NSSA)
+			zlog_debug("%s : Graceful Restart in progress, skip", __func__);
+		return;
+	}
+
 	if (IS_OSPF6_DEBUG_NSSA)
 		zlog_debug("Check for NSSA-ABR Tasks():");
 
