@@ -317,6 +317,46 @@ def test_ldp_pseudowires_control_word():
         )
 
 
+def test_ldp_pseudowires_status_tlv():
+    logger.info("Test: verify the LDP pseudowire status TLV configuration")
+    tgen = get_topogen()
+
+    # Skip if previous fatal error condition is raised
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    router = tgen.gears["r1"]
+
+    @retry(retry_timeout=60)
+    def check_local_status_tlv(expected):
+        output = router.vtysh_cmd("show l2vpn atom binding json", isjson=True)
+        diff = topotest.json_cmp(
+            output, {"2.2.2.2: 100": {"localPwStatusTlv": expected}}
+        )
+        if diff is not None:
+            return "r1 local PW status TLV is not {}: {}".format(expected, diff)
+        return True
+
+    for command, expected in [("pw-status disable", 0), ("no pw-status disable", 1)]:
+        router.vtysh_cmd(
+            """
+            configure terminal
+             l2vpn CUST_A type vpls
+              member pseudowire r1-mpw0
+               {}
+            """.format(
+                command
+            )
+        )
+        result = check_local_status_tlv(expected)
+        assert result is True, result
+
+    for rname in ["r1", "r2", "r3"]:
+        router_compare_json_output(
+            rname, "show l2vpn atom vc json", "show_l2vpn_vc.ref", count=160, wait=1
+        )
+
+
 def test_ldp_pseudowires_after_link_down():
     logger.info("Test: verify LDP pseudowires after r1-r2 link goes down")
     tgen = get_topogen()
