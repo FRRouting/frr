@@ -2,3 +2,4 @@ zebra
 zebra.conf
 client
 fpm_listener
+zebra_split_horizon_filter.bpf.skel.h

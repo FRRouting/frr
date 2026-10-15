@@ -14,6 +14,7 @@ AM_CFLAGS = \
 	$(LIBYANG_CFLAGS) \
 	$(SQLITE3_CFLAGS) \
 	$(UNWIND_CFLAGS) \
+	$(LIBBPF_CFLAGS) \
 	$(SAN_FLAGS) \
 	$(WERROR) \
 	$(FPLUGIN) \
@@ -316,6 +317,16 @@ AM_V_LLVM_LD = $(am__v_LLVM_LD_$(V))
 am__v_LLVM_LD_ = $(am__v_LLVM_LD_$(AM_DEFAULT_VERBOSITY))
 am__v_LLVM_LD_0 = @echo "  LLVM.LD " $@;
 am__v_LLVM_LD_1 = 
+
+AM_V_BPFTOOL = $(am__v_BPFTOOL_$(V))
+am__v_BPFTOOL_ = $(am__v_BPFTOOL_$(AM_DEFAULT_VERBOSITY))
+am__v_BPFTOOL_0 = @echo "  BPFTOOL " $@;
+am__v_BPFTOOL_1 = 
+
+AM_V_CLANG_BPF = $(am__v_CLANG_BPF_$(V))
+am__v_CLANG_BPF_ = $(am__v_CLANG_BPF_$(AM_DEFAULT_VERBOSITY))
+am__v_CLANG_BPF_0 = @echo "  CLANG.BPF " $@;
+am__v_CLANG_BPF_1 = 
 
 SUFFIXES += .lo.bc .o.bc
 
