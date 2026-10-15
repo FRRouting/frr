@@ -1595,9 +1595,29 @@ bgp_zebra_announce_actual(struct bgp_dest *dest, struct bgp_path_info *info,
 	/* Metric is currently based on the best-path only */
 	metric = info->attr->med;
 
+<<<<<<< HEAD
 	bgp_zebra_announce_parse_nexthop(info, p, bgp, &api, &valid_nh_count,
 					 table->afi, table->safi, &nhg_id,
 					 &metric, &tag, &allow_recursion);
+=======
+	/* Determine if we're doing weighted ECMP or not */
+	do_wt_ecmp = bgp_path_info_mpath_chkwtd(bgp, dest);
+	bgp_zebra_announce_parse_nexthop(info, p, bgp, &api, &valid_nh_count, table->afi,
+					 table->safi, &nhg_id, &metric, &tag, &allow_recursion,
+					 do_wt_ecmp);
+
+	/*
+	 * No usable nexthop is left (e.g. the table-map denied every path).
+	 * Withdraw the route instead of sending an ADD without nexthops:
+	 * zebra rejects such an ADD, logs a warning and keeps the previously
+	 * installed route, which then stays stale in the RIB/FIB.
+	 */
+	if (!valid_nh_count && !nhg_id)
+		return bgp_zebra_withdraw_actual(dest, info, bgp);
+
+	if (do_wt_ecmp == BGP_WECMP_BEHAVIOR_USE_RECURSIVE_VALUE)
+		SET_FLAG(api.flags, ZEBRA_FLAG_USE_RECURSIVE_WEIGHT);
+>>>>>>> 890d9f0 (bgpd: withdraw route from zebra when no nexthop is left)
 
 	if (CHECK_FLAG(bm->flags, BM_FLAG_SEND_EXTRA_DATA_TO_ZEBRA)) {
 		struct bgp_zebra_opaque bzo = {};
