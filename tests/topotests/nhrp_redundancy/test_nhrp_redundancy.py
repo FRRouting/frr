@@ -153,6 +153,34 @@ def _verify_iptables():
     return True if rc == 0 else False
 
 
+# Key of the "table" entries of the nhrp json commands
+NHRP_TABLE_KEYS = {
+    "show ip nhrp cache json": "protocol",
+    "show ip nhrp shortcut json": "prefix",
+}
+
+
+def router_nhrp_json_cmp(router, cmd, expected):
+    """
+    Compare the nhrp json output with the "table" list converted to a
+    dictionary, so that a mismatch reports the missing or wrong entry.
+    The entries not expected are reported as well.
+    """
+    output = router.vtysh_cmd(cmd, isjson=True)
+    key = NHRP_TABLE_KEYS[cmd]
+    output["table"] = {entry[key]: entry for entry in output.get("table", [])}
+    result = topotest.json_cmp(output, expected)
+    if result is None:
+        return None
+
+    for name, entry in output["table"].items():
+        if name not in expected.get("table", {}):
+            result.add_error(
+                f"> $->table->{name}: output has unexpected entry: {json.dumps(entry)}"
+            )
+    return result
+
+
 def ping_test(source_router, target_ip, count=1000, description=""):
     """
     Test ping connectivity between routers, allowing up to 90% packet loss.
@@ -249,7 +277,7 @@ def test_protocols_convergence():
         json_file = "{}/{}/nhrp_cache.json".format(CWD, router.name)
         expected = json.loads(open(json_file).read())
         test_func = partial(
-            topotest.router_json_cmp, router, "show ip nhrp cache json", expected
+            router_nhrp_json_cmp, router, "show ip nhrp cache json", expected
         )
         _, result = topotest.run_and_expect(test_func, None, count=40, wait=0.5)
 
@@ -343,7 +371,7 @@ def test_redundancy_shortcut():
     json_file = "{}/{}/nhrp_shortcut_present.json".format(CWD, nhc1.name)
     expected = json.loads(open(json_file).read())
     test_func = partial(
-        topotest.router_json_cmp, nhc1, "show ip nhrp shortcut json", expected
+        router_nhrp_json_cmp, nhc1, "show ip nhrp shortcut json", expected
     )
     _, result = topotest.run_and_expect(test_func, None, count=40, wait=0.5)
 
@@ -354,7 +382,7 @@ def test_redundancy_shortcut():
     json_file = "{}/{}/nhrp_shortcut_absent.json".format(CWD, nhc1.name)
     expected = json.loads(open(json_file).read())
     test_func = partial(
-        topotest.router_json_cmp, nhc1, "show ip nhrp shortcut json", expected
+        router_nhrp_json_cmp, nhc1, "show ip nhrp shortcut json", expected
     )
     _, result = topotest.run_and_expect(test_func, None, count=40, wait=0.5)
 
@@ -390,7 +418,7 @@ def test_redundancy_shortcut_backup():
         json_file = "{}/{}/nhrp_cache_nhs1_down.json".format(CWD, router.name)
         expected = json.loads(open(json_file).read())
         test_func = partial(
-            topotest.router_json_cmp, router, "show ip nhrp cache json", expected
+            router_nhrp_json_cmp, router, "show ip nhrp cache json", expected
         )
         _, result = topotest.run_and_expect(test_func, None, count=40, wait=0.5)
 
@@ -431,7 +459,7 @@ def test_redundancy_shortcut_backup():
     json_file = "{}/{}/nhrp_shortcut_present.json".format(CWD, nhc1.name)
     expected = json.loads(open(json_file).read())
     test_func = partial(
-        topotest.router_json_cmp, nhc1, "show ip nhrp shortcut json", expected
+        router_nhrp_json_cmp, nhc1, "show ip nhrp shortcut json", expected
     )
     _, result = topotest.run_and_expect(test_func, None, count=40, wait=0.5)
 
@@ -455,7 +483,7 @@ def test_redundancy_shortcut_backup():
     json_file = "{}/{}/nhrp_shortcut_absent.json".format(CWD, nhc1.name)
     expected = json.loads(open(json_file).read())
     test_func = partial(
-        topotest.router_json_cmp, nhc1, "show ip nhrp shortcut json", expected
+        router_nhrp_json_cmp, nhc1, "show ip nhrp shortcut json", expected
     )
     _, result = topotest.run_and_expect(test_func, None, count=40, wait=0.5)
 
