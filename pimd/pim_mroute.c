@@ -1617,7 +1617,7 @@ static void pim_mroute_check_mfc_size(struct pim_instance *pim)
 }
 #endif /* PIM_IPV == 4 && __linux__ && DEV_BUILD */
 
-int pim_mroute_socket_enable(struct pim_instance *pim)
+void pim_mroute_socket_enable(struct pim_instance *pim)
 {
 	int fd;
 
@@ -1632,7 +1632,7 @@ int pim_mroute_socket_enable(struct pim_instance *pim)
 			zlog_warn("Could not create mroute socket: errno=%d: %s",
 				  errno,
 				  safe_strerror(errno));
-			return -2;
+			return;
 		}
 
 #if PIM_IPV == 6
@@ -1659,7 +1659,7 @@ int pim_mroute_socket_enable(struct pim_instance *pim)
 		if (vrf_bind(pim->vrf->vrf_id, fd, NULL)) {
 			zlog_warn("Could not bind to vrf: %s", safe_strerror(errno));
 			close(fd);
-			return -3;
+			return;
 		}
 	}
 
@@ -1671,7 +1671,7 @@ int pim_mroute_socket_enable(struct pim_instance *pim)
 		close(fd);
 		mroute_read_off(pim);
 		pim->mroute_socket = -1;
-		return -3;
+		return;
 	}
 
 	pim->mroute_socket_creation = pim_time_monotonic_sec();
@@ -1681,29 +1681,25 @@ int pim_mroute_socket_enable(struct pim_instance *pim)
 #endif
 
 	mroute_read_on(pim);
-
-	return 0;
 }
 
-int pim_mroute_socket_disable(struct pim_instance *pim)
+void pim_mroute_socket_disable(struct pim_instance *pim)
 {
 	if (pim_mroute_set(pim, 0)) {
 		zlog_warn(
 			"Could not disable mroute on socket fd=%d: errno=%d: %s",
 			pim->mroute_socket, errno, safe_strerror(errno));
-		return -2;
+		return;
 	}
 
 	if (close(pim->mroute_socket)) {
 		zlog_warn("Failure closing mroute socket: fd=%d errno=%d: %s",
 			  pim->mroute_socket, errno, safe_strerror(errno));
-		return -3;
+		return;
 	}
 
 	mroute_read_off(pim);
 	pim->mroute_socket = -1;
-
-	return 0;
 }
 
 /*
@@ -1768,7 +1764,7 @@ int pim_mroute_add_vif(struct interface *ifp, pim_addr ifaddr,
 	return 0;
 }
 
-int pim_mroute_del_vif(struct interface *ifp)
+void pim_mroute_del_vif(struct interface *ifp)
 {
 	struct pim_interface *pim_ifp = ifp->info;
 	pim_vifctl vc;
@@ -1787,14 +1783,10 @@ int pim_mroute_del_vif(struct interface *ifp)
 				 (void *)&vc, sizeof(vc));
 	}
 	if (err) {
-		zlog_warn(
-			"%s %s: failure: setsockopt(fd=%d,PIM_IPPROTO,MRT_DEL_VIF,vif_index=%d): errno=%d: %s",
-			__FILE__, __func__, pim_ifp->pim->mroute_socket,
-			pim_ifp->mroute_vif_index, errno, safe_strerror(errno));
-		return -2;
+		zlog_warn("%s %s: failure: setsockopt(fd=%d,PIM_IPPROTO,MRT_DEL_VIF,vif_index=%d): errno=%d: %s",
+			  __FILE__, __func__, pim_ifp->pim->mroute_socket,
+			  pim_ifp->mroute_vif_index, errno, safe_strerror(errno));
 	}
-
-	return 0;
 }
 
 /*
@@ -1825,10 +1817,7 @@ bool pim_mroute_allow_iif_in_oil(struct channel_oil *c_oil,
 #endif
 }
 
-/* This function must not be called directly 0
- * use pim_upstream_mroute_add or pim_static_mroute_add instead
- */
-static int pim_mroute_add(struct channel_oil *c_oil, const char *name)
+int pim_mroute_add(struct channel_oil *c_oil, const char *name)
 {
 	struct pim_instance *pim = c_oil->pim;
 #if PIM_IPV == 4
@@ -2026,11 +2015,6 @@ int pim_upstream_mroute_iif_update(struct channel_oil *c_oil, const char *name)
 	return pim_upstream_mroute_update(c_oil, name);
 }
 
-int pim_static_mroute_add(struct channel_oil *c_oil, const char *name)
-{
-	return pim_mroute_add(c_oil, name);
-}
-
 void pim_static_mroute_iif_update(struct channel_oil *c_oil,
 				int input_vif_index,
 				const char *name)
@@ -2042,7 +2026,7 @@ void pim_static_mroute_iif_update(struct channel_oil *c_oil,
 	if (input_vif_index == MAXVIFS)
 		pim_mroute_del(c_oil, name);
 	else
-		pim_static_mroute_add(c_oil, name);
+		pim_mroute_add(c_oil, name);
 }
 
 int pim_mroute_del(struct channel_oil *c_oil, const char *name)
