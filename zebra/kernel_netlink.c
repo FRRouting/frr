@@ -1617,6 +1617,7 @@ struct nlsock *kernel_netlink_nlsock_hold(const struct zebra_dplane_info *info)
 	nl = hash_lookup(nlsock_hash, &lookup);
 	/* Ensure the fd still belongs to the requested namespace. */
 	if (nl && nl->zns && nl->zns->ns_id == info->ns_id) {
+		nl->users++;
 		atomic_fetch_add_explicit(&nl->zns->refcount, 1, memory_order_acq_rel);
 	} else
 		nl = NULL;
@@ -1625,10 +1626,25 @@ struct nlsock *kernel_netlink_nlsock_hold(const struct zebra_dplane_info *info)
 	return nl;
 }
 
+static void kernel_nlsock_shutdown_locked(struct nlsock *nls);
+
 void kernel_netlink_nlsock_release(struct nlsock *nl)
 {
-	if (nl)
-		zebra_ns_put(nl->zns);
+	struct zebra_ns *zns;
+
+	if (!nl)
+		return;
+
+	zns = nl->zns;
+
+	NLSOCK_LOCK();
+	nl->users--;
+	/* Fini left this fd open so the in-flight recv could finish. */
+	if (nl->detached && nl->users == 0)
+		kernel_nlsock_shutdown_locked(nl);
+	NLSOCK_UNLOCK();
+
+	zebra_ns_put(zns);
 }
 
 /* Insert nlsock entry into hash */
@@ -1674,6 +1690,22 @@ static void kernel_nlsock_buf_free(struct nlsock *nls)
 	nls->buflen = 0;
 }
 
+/* Caller holds the nlsock lock. users == 0. */
+static void kernel_nlsock_shutdown_locked(struct nlsock *nls)
+{
+	int fd;
+
+	if (!nls || nls->sock < 0)
+		return;
+
+	fd = nls->sock;
+	nls->sock = -1;
+	nls->detached = false;
+	kernel_nlsock_buf_free(nls);
+	/* Close before dropping the lock so this fd cannot be reused yet. */
+	close(fd);
+}
+
 /*
  * Create, configure, and register a netlink socket. Consolidates the
  * common 5-step init pattern: format name, mark uncreated, create socket,
@@ -1698,6 +1730,7 @@ static int kernel_init_nlsock(struct nlsock *nl, const char *name_prefix, unsign
 	nl->sock = -1;
 	nl->proto = nl_family;
 	nl->zns = zns;
+	nl->detached = false;
 
 	if (netlink_socket(nl, groups, ext_groups, ext_group_size, ns_id, nl_family) < 0) {
 		if (warn_only)
@@ -1712,7 +1745,7 @@ static int kernel_init_nlsock(struct nlsock *nl, const char *name_prefix, unsign
 }
 
 /*
- * Wait for existing netlink users to finish before reusing ns buffers.
+ * Wait for existing holders to finish before reusing ns buffers.
  */
 static void kernel_ns_drain_holders(struct zebra_ns *zns)
 {
@@ -1902,24 +1935,20 @@ void kernel_ns_free_bufs(struct zebra_ns *zns)
 /* Helper to clean up an nlsock */
 static void kernel_nlsock_fini(struct nlsock *nls)
 {
-	int fd;
-	bool busy = false;
-
-	if (!nls || nls->sock < 0)
+	if (!nls)
 		return;
 
+	/* A releasing holder may close a detached socket concurrently. */
 	NLSOCK_LOCK();
-	(void)hash_release(nlsock_hash, nls);
-	fd = nls->sock;
-	nls->sock = -1;
-	if (nls->zns &&
-	    atomic_load_explicit(&nls->zns->refcount, memory_order_acquire) > 1)
-		busy = true;
+	if (nls->sock >= 0) {
+		(void)hash_release(nlsock_hash, nls);
+		if (nls->users == 0)
+			kernel_nlsock_shutdown_locked(nls);
+		else
+			/* In a recv: leave the fd open. The last holder closes it. */
+			nls->detached = true;
+	}
 	NLSOCK_UNLOCK();
-
-	close(fd);
-	if (!busy)
-		kernel_nlsock_buf_free(nls);
 }
 
 void kernel_terminate(struct zebra_ns *zns, bool complete)

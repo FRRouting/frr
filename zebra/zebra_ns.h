@@ -42,6 +42,11 @@ struct nlsock {
 	/* Backpointer, so a netlink user can keep this ns alive. */
 	struct zebra_ns *zns;
 
+	/* Holders of this socket. Touched under the nlsock lock. */
+	uint32_t users;
+
+	/* Out of the hash; the last holder closes the fd. */
+	bool detached;
 };
 #endif
 
