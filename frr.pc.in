@@ -4,7 +4,7 @@
 #
 moduledir="@e_moduledir@"
 prefix="@prefix@"
-includedir=${prefix}/include/frr
+includedir="${prefix}/include/frr"
 #
 # these are needed to make the build work
 #
