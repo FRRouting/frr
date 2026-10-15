@@ -40,6 +40,9 @@ is accepted.
    its transaction, such as the descriptions, so frr-reload.py must retry
    those too and report the failure instead of leaving the old settings
    behind.
+6. Run a deletion file where vtysh rejects a context line. vtysh then leaves
+   the file at that context's "exit", so the deletes after it must still be
+   applied.
 """
 
 import difflib
@@ -279,6 +282,60 @@ exit
     check_descriptions(r1, NEW_DESCRIPTIONS)
     check_stanzas(r1, NEW_STANZAS)
     assert "affinity-map blue" in r1.vtysh_cmd("show running-config")
+
+
+def test_delete_file_failed_context():
+    """
+    A rejected context line must not stop the rest of the deletion file.
+
+    When vtysh rejects the line that enters a context, it stays at the
+    config node, so the "exit" closing that context leaves the config file
+    ("early exit from config file") and vtysh stops reading it. Only the
+    entry with the rejected lines is retried, so every delete after it must
+    still be applied.
+    """
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    r1 = tgen.gears["r1"]
+    frrdir = tgen.config.get(tgen.CONFIG_SECTION, "frrdir")
+    prefix_lists = (
+        "ip prefix-list PL-BEFORE seq 5 permit 10.0.0.0/8",
+        "ip prefix-list PL-AFTER seq 5 permit 172.16.0.0/12",
+    )
+    r1.vtysh_multicmd("configure\n" + "\n".join(prefix_lists) + "\n")
+    running = r1.vtysh_cmd("show running-config")
+    for prefix_list in prefix_lists:
+        assert prefix_list in running
+
+    # "router unknown" stands for any context line vtysh rejects.
+    entries = [
+        ((prefix_lists[0],), None),
+        (("router unknown",), "foo bar"),
+        ((prefix_lists[1],), None),
+    ]
+    rc, out, err = r1.net.cmd_status(
+        f"""python3 - <<'EOF'
+import importlib.util
+
+spec = importlib.util.spec_from_file_location(
+    "frr_reload", "{frrdir}/frr-reload.py"
+)
+reload = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(reload)
+ok = reload.exec_delete_lines(reload.Vtysh(), "/var/run/frr", {entries!r})
+print("exec_delete_lines returned", ok)
+EOF""",
+        warn=False,
+    )
+    assert rc == 0, f"running exec_delete_lines failed:\n{out}\n{err}"
+    # The "router unknown" entry cannot be deleted.
+    assert "exec_delete_lines returned False" in out, out
+
+    running = r1.vtysh_cmd("show running-config")
+    for prefix_list in prefix_lists:
+        assert prefix_list not in running, f"{prefix_list!r} was not deleted"
 
 
 def test_memory_leak():
