@@ -272,11 +272,18 @@ static void netlink_vrf_change(struct nlmsghdr *h, struct rtattr *tb,
 void kernel_read_intf_speed(struct zebra_dplane_ctx *ctx)
 {
 	const char *ifname = dplane_ctx_get_ifname(ctx);
-	struct zebra_ns *zns = zebra_ns_lookup(dplane_ctx_get_ns_id(ctx));
+	/* Pins the ns, and so its generic netlink socket, for the query. */
+	struct nlsock *nl NLSOCK_AUTO = kernel_netlink_nlsock_hold(dplane_ctx_get_ns(ctx));
 	uint32_t speed;
 	int error = 0;
 
-	speed = netlink_get_interface_speed(zns, ifname, &error);
+	if (!nl) {
+		dplane_ctx_set_status(ctx, ZEBRA_DPLANE_REQUEST_FAILURE);
+		dplane_ctx_set_ifp_speed_set(ctx, false);
+		return;
+	}
+
+	speed = netlink_get_interface_speed(nl->zns, ifname, &error);
 	switch (error) {
 	case 0:
 		dplane_ctx_set_status(ctx, ZEBRA_DPLANE_REQUEST_SUCCESS);
@@ -1559,11 +1566,13 @@ ssize_t netlink_intf_msg_encode(uint16_t cmd,
 	ifindex_t ifindex = dplane_ctx_get_ifindex(ctx);
 	bool down = dplane_ctx_intf_is_protodown(ctx);
 	bool pd_reason_val = dplane_ctx_get_intf_pd_reason_val(ctx);
-	struct nlsock *nl =
-		kernel_netlink_nlsock_lookup(dplane_ctx_get_ns_sock(ctx));
+	struct nlsock *nl NLSOCK_AUTO = kernel_netlink_nlsock_hold(dplane_ctx_get_ns(ctx));
 
 	if (buflen < sizeof(*req))
 		return 0;
+
+	if (!nl)
+		return -1;
 
 	memset(req, 0, sizeof(*req));
 
