@@ -11874,8 +11874,10 @@ DEFPY (bgp_srv6_locator,
 	VTY_DECLVAR_CONTEXT(bgp, bgp);
 	int ret;
 
-	if (strlen(bgp->srv6_locator_name) > 0
-	    && strcmp(name, bgp->srv6_locator_name) != 0) {
+	if (strlen(bgp->srv6_locator_name) > 0) {
+		if (strcmp(name, bgp->srv6_locator_name) == 0)
+			return CMD_SUCCESS;
+
 		vty_out(vty, "srv6 locator is already configured\n");
 		return CMD_WARNING_CONFIG_FAILED;
 	}
