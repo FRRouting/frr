@@ -1,6 +1,6 @@
 {
     "attr": {
-        "entriesCount": 3
+        "entriesCount": 5
     },
     "table": {
         "172.16.1.2": {
@@ -9,7 +9,6 @@
             "protocol": "172.16.1.2",
             "nbma": "192.168.1.2",
             "claimed_nbma": "192.168.1.2",
-            "used": false,
             "timeout": true,
             "auth": false,
             "identity": ""
@@ -20,7 +19,6 @@
             "protocol": "172.16.1.3",
             "nbma": "192.168.1.3",
             "claimed_nbma": "192.168.1.3",
-            "used": false,
             "timeout": true,
             "auth": false,
             "identity": ""
@@ -31,10 +29,29 @@
             "protocol": "172.16.1.5",
             "nbma": "192.168.2.5",
             "claimed_nbma": "192.168.2.5",
-            "used": false,
             "timeout": false,
             "auth": false,
             "identity": "-"
+        },
+        "172.16.1.4": {
+            "interface": "nhc2-gre0",
+            "type": "dynamic",
+            "protocol": "172.16.1.4",
+            "nbma": "192.168.2.4",
+            "claimed_nbma": "192.168.2.4",
+            "timeout": true,
+            "auth": false,
+            "identity": ""
+        },
+        "10.4.4.7": {
+            "interface": "nhc2-gre0",
+            "type": "dynamic",
+            "protocol": "10.4.4.7",
+            "nbma": "192.168.2.4",
+            "claimed_nbma": "192.168.2.4",
+            "timeout": true,
+            "auth": false,
+            "identity": ""
         }
     }
 }
