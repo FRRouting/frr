@@ -99,6 +99,11 @@ def _get_frr_owned_nhg_ids(r1, prefix):
     carrying the gateway. Kernel replace/delete of the group id as a
     `via` object is rejected (Invalid argument), so tests that mutate
     the kernel object must target the singleton.
+
+    Both IDs must already exist in the kernel. Zebra's RIB exposes them
+    while the dataplane install is still queued, and `ip nexthop del`
+    of a missing id fails with ENOENT. `ip nexthop show id` returns
+    that same netlink error when the id is absent.
     """
     group_id = _get_route_nhg_id(r1, prefix)
     if group_id is None:
@@ -140,6 +145,16 @@ def _get_frr_owned_nhg_ids(r1, prefix):
             singleton,
         )
         return None
+
+    for nhg_id in (group_id, singleton_id):
+        rc, _, err = r1.net.cmd_status(f"ip nexthop show id {nhg_id}", warn=False)
+        if rc:
+            logger.info(
+                "Kernel NHG %s is not installed: %s",
+                nhg_id,
+                (err or "").strip(),
+            )
+            return None
 
     return (group_id, singleton_id)
 
