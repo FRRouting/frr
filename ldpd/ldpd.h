@@ -652,10 +652,12 @@ struct ctl_pw {
 	uint32_t		 local_gid;
 	uint16_t		 local_ifmtu;
 	uint8_t			 local_cword;
+	uint8_t local_status_tlv;
 	uint32_t		 remote_label;
 	uint32_t		 remote_gid;
 	uint16_t		 remote_ifmtu;
 	uint8_t			 remote_cword;
+	uint8_t remote_status_tlv;
 	uint32_t		 status;
 	uint8_t			 reason;
 };
