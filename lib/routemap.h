@@ -386,6 +386,9 @@ DECLARE_QOBJ_TYPE(route_map);
 #define IS_SET_COMM_LIST_REPLACE(A) (strmatch(A, "frr-bgp-route-map:comm-list-replace"))
 #define IS_SET_LCOMM_LIST_DEL(A)                                               \
 	(strmatch(A, "frr-bgp-route-map:large-comm-list-delete"))
+#define IS_SET_LCOMM_LIST_ADD(A) (strmatch(A, "frr-bgp-route-map:large-comm-list-add"))
+#define IS_SET_LCOMM_LIST_REPLACE(A)                                                               \
+	(strmatch(A, "frr-bgp-route-map:large-comm-list-replace"))
 #define IS_SET_EXTCOMM_LIST_DEL(A) (strmatch(A, "frr-bgp-route-map:extended-comm-list-delete"))
 #define IS_SET_EXTCOMM_LIST_ADD(A) (strmatch(A, "frr-bgp-route-map:extended-comm-list-add"))
 #define IS_SET_EXTCOMM_LIST_REPLACE(A)                                                             \
