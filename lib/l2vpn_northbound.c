@@ -587,9 +587,9 @@ static int l2vpn_instance_member_pseudowire_pw_status_modify(struct nb_cb_modify
 	case NB_EV_APPLY:
 		pw = nb_running_get_entry(args->dnode, NULL, true);
 		if (yang_dnode_get_bool(args->dnode, NULL))
-			pw->flags &= ~F_PW_STATUSTLV_CONF;
-		else
 			pw->flags |= F_PW_STATUSTLV_CONF;
+		else
+			pw->flags &= ~F_PW_STATUSTLV_CONF;
 
 		if (l2vpn_lib_master.event_hook)
 			(*l2vpn_lib_master.event_hook)(pw);
