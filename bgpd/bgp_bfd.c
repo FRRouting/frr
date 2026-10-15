@@ -188,23 +188,32 @@ static void bfd_session_status_update(struct bfd_session_params *bsp,
  * and after TCP connects, or the session is re-keyed at connect: so it only
  * depends on configuration and connected routes, and p->nexthop.ifp (which
  * follows the TCP local address) is used only when nothing else resolves.
+ * A loopback or VRF device never carries the packets, so an update-source
+ * on one only gives the source address.
  */
 static struct interface *bgp_peer_bfd_egress_ifp(struct peer *p)
 {
 	union sockunion *su = &p->connection->su;
 	vrf_id_t vrf_id = p->bgp->vrf_id;
 	struct interface *ifp = NULL;
+	struct interface *update_ifp = NULL;
 	const char *ifname = p->conf_if ? p->conf_if : p->ifname;
+
+	if (p->update_if) {
+		update_ifp = if_lookup_by_name(p->update_if, vrf_id);
+		if (update_ifp && if_is_loopback(update_ifp))
+			update_ifp = NULL;
+	}
 
 	/* Link-local (or not yet learnt) peer: the local address is link-local. */
 	if ((su->sa.sa_family == AF_INET6 && IN6_IS_ADDR_LINKLOCAL(&su->sin6.sin6_addr)) ||
 	    (su->sa.sa_family != AF_INET && su->sa.sa_family != AF_INET6)) {
 		if (ifname)
 			ifp = if_lookup_by_name(ifname, vrf_id);
-		else if (p->update_if)
-			ifp = if_lookup_by_name(p->update_if, vrf_id);
-	} else if (p->update_if)
-		ifp = if_lookup_by_name(p->update_if, vrf_id);
+		else
+			ifp = update_ifp;
+	} else if (update_ifp)
+		ifp = update_ifp;
 	else if (ifname)
 		ifp = if_lookup_by_name(ifname, vrf_id);
 	else {
@@ -219,7 +228,13 @@ static struct interface *bgp_peer_bfd_egress_ifp(struct peer *p)
 			ifp = c->ifp;
 	}
 
-	return ifp ? ifp : p->nexthop.ifp;
+	if (ifp)
+		return ifp;
+
+	if (p->nexthop.ifp && !if_is_loopback(p->nexthop.ifp))
+		return p->nexthop.ifp;
+
+	return NULL;
 }
 
 static bool bgp_peer_bfd_keyed(struct bfd_session_params *session)
