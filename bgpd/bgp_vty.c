@@ -13786,13 +13786,13 @@ static void bgp_show_aggregate_one(struct vty *vty, const struct prefix *p,
 					       aggregate->suppress_map_name);
 		if (aggregate->community)
 			json_object_string_add(json_aggr, "community",
-					       community_str(aggregate->community, false, false));
+					       community_str(aggregate->community, false));
 		if (aggregate->ecommunity)
 			json_object_string_add(json_aggr, "extendedCommunity",
 					       ecommunity_str(aggregate->ecommunity));
 		if (aggregate->lcommunity)
 			json_object_string_add(json_aggr, "largeCommunity",
-					       lcommunity_str(aggregate->lcommunity, false, false));
+					       lcommunity_str(aggregate->lcommunity, false));
 		if (aggregate->aspath)
 			json_object_string_add(json_aggr, "asPath",
 					       aspath_print(aggregate->aspath));
@@ -13822,13 +13822,13 @@ static void bgp_show_aggregate_one(struct vty *vty, const struct prefix *p,
 			vty_out(vty, "  Suppress-map: %s\n", aggregate->suppress_map_name);
 		if (aggregate->community)
 			vty_out(vty, "  Community: %s\n",
-				community_str(aggregate->community, false, false));
+				community_str(aggregate->community, false));
 		if (aggregate->ecommunity)
 			vty_out(vty, "  Extended community: %s\n",
 				ecommunity_str(aggregate->ecommunity));
 		if (aggregate->lcommunity)
 			vty_out(vty, "  Large community: %s\n",
-				lcommunity_str(aggregate->lcommunity, false, false));
+				lcommunity_str(aggregate->lcommunity, false));
 		if (aggregate->aspath)
 			vty_out(vty, "  AS path: %s\n", aspath_print(aggregate->aspath));
 	}
@@ -19085,8 +19085,7 @@ static void community_show_all_iterator(struct hash_bucket *bucket,
 	struct community *com;
 
 	com = (struct community *)bucket->data;
-	vty_out(vty, "[%p] (%ld) %s\n", (void *)com, com->refcnt,
-		community_str(com, false, false));
+	vty_out(vty, "[%p] (%ld) %s\n", (void *)com, com->refcnt, community_str(com, false));
 }
 
 /* Show BGP's community internal data. */
@@ -19114,8 +19113,7 @@ static void lcommunity_show_all_iterator(struct hash_bucket *bucket,
 	struct lcommunity *lcom;
 
 	lcom = (struct lcommunity *)bucket->data;
-	vty_out(vty, "[%p] (%ld) %s\n", (void *)lcom, lcom->refcnt,
-		lcommunity_str(lcom, false, false));
+	vty_out(vty, "[%p] (%ld) %s\n", (void *)lcom, lcom->refcnt, lcommunity_str(lcom, false));
 }
 
 /* Show BGP's community internal data. */
@@ -25613,9 +25611,9 @@ static const char *community_list_config_str(struct community_entry *entry)
 	const char *str;
 
 	if (entry->style == COMMUNITY_LIST_STANDARD)
-		str = community_str(entry->u.com, false, false);
+		str = community_str(entry->u.com, false);
 	else if (entry->style == LARGE_COMMUNITY_LIST_STANDARD)
-		str = lcommunity_str(entry->u.lcom, false, false);
+		str = lcommunity_str(entry->u.lcom, false);
 	else
 		str = entry->config;
 

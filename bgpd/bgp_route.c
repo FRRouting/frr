@@ -13872,7 +13872,7 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp, struct bgp_dest *bn,
 	if (attr->aspath) {
 		if (json_paths) {
 			if (!attr->aspath->json)
-				aspath_str_update(attr->aspath, true);
+				aspath_json_update(attr->aspath);
 			json_object_lock(attr->aspath->json);
 			json_object_object_add(json_path, "aspath",
 					       attr->aspath->json);
@@ -14476,17 +14476,17 @@ skip_nexthop:
 	if (bgp_attr_exists(attr, BGP_ATTR_COMMUNITIES)) {
 		if (json_paths) {
 			if (!bgp_attr_get_community(attr)->json)
-				community_str(bgp_attr_get_community(attr),
-					      true, true);
+				community_str(bgp_attr_get_community(attr), true);
 			json_object_lock(bgp_attr_get_community(attr)->json);
 			json_object_object_add(
 				json_path, "community",
 				bgp_attr_get_community(attr)->json);
 		} else {
-			if (!bgp_attr_get_community(attr)->str)
-				community_str(bgp_attr_get_community(attr), true, true);
-			vty_out(vty, "      Community: %s\n",
-				bgp_attr_get_community(attr)->str);
+			char *str = bgp_community2alias_str(
+				community_str(bgp_attr_get_community(attr), false));
+
+			vty_out(vty, "      Community: %s\n", str);
+			XFREE(MTYPE_TMP, str);
 		}
 	}
 
@@ -14530,17 +14530,17 @@ skip_nexthop:
 	if (bgp_attr_exists(attr, BGP_ATTR_LARGE_COMMUNITIES)) {
 		if (json_paths) {
 			if (!bgp_attr_get_lcommunity(attr)->json)
-				lcommunity_str(bgp_attr_get_lcommunity(attr),
-					       true, true);
+				lcommunity_str(bgp_attr_get_lcommunity(attr), true);
 			json_object_lock(bgp_attr_get_lcommunity(attr)->json);
 			json_object_object_add(
 				json_path, "largeCommunity",
 				bgp_attr_get_lcommunity(attr)->json);
 		} else {
-			if (!bgp_attr_get_lcommunity(attr)->str)
-				lcommunity_str(bgp_attr_get_lcommunity(attr), true, true);
-			vty_out(vty, "      Large Community: %s\n",
-				bgp_attr_get_lcommunity(attr)->str);
+			char *str = bgp_community2alias_str(
+				lcommunity_str(bgp_attr_get_lcommunity(attr), false));
+
+			vty_out(vty, "      Large Community: %s\n", str);
+			XFREE(MTYPE_TMP, str);
 		}
 	}
 

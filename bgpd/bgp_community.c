@@ -184,8 +184,7 @@ struct community *community_uniq_sort(struct community *com)
    0xFFFFFF04      "no-peer"
 
    For other values, "AS:VAL" format is used.  */
-static void set_community_string(struct community *com, bool make_json,
-				 bool translate_alias)
+static void set_community_string(struct community *com, bool make_json)
 {
 	int i;
 	char *str;
@@ -217,8 +216,7 @@ static void set_community_string(struct community *com, bool make_json,
 			json_object_object_add(com->json, "list",
 					       json_community_list);
 		}
-		com->str = str;
-		return;
+		goto out;
 	}
 
 	/* Memory allocation is time consuming work.  So we calculate
@@ -279,7 +277,7 @@ static void set_community_string(struct community *com, bool make_json,
 			val = CHECK_FLAG(comval, 0xFFFF);
 
 			snprintf(buf, sizeof(buf), "%u:%d", as, val);
-			const char *com2alias = translate_alias ? bgp_community2alias(buf) : buf;
+			const char *com2alias = make_json ? bgp_community2alias(buf) : buf;
 
 			/* Plus one for the space separator. */
 			len += strlen(com2alias) + 1;
@@ -432,8 +430,7 @@ static void set_community_string(struct community *com, bool make_json,
 			val = CHECK_FLAG(comval, 0xFFFF);
 			char buf[32];
 			snprintf(buf, sizeof(buf), "%u:%d", as, val);
-			const char *com2alias =
-				translate_alias ? bgp_community2alias(buf) : buf;
+			const char *com2alias = make_json ? bgp_community2alias(buf) : buf;
 
 			strlcat(str, com2alias, len);
 			if (make_json) {
@@ -449,7 +446,12 @@ static void set_community_string(struct community *com, bool make_json,
 		json_object_string_add(com->json, "string", str);
 		json_object_object_add(com->json, "list", json_community_list);
 	}
-	com->str = str;
+
+out:
+	if (!com->str && !make_json)
+		com->str = str;
+	else
+		XFREE(MTYPE_COMMUNITY_STR, str);
 }
 
 /* Intern communities attribute.  */
@@ -473,7 +475,7 @@ struct community *community_intern(struct community *com)
 
 	/* Make string.  */
 	if (!find->str)
-		set_community_string(find, false, true);
+		set_community_string(find, false);
 
 	return find;
 }
@@ -534,16 +536,15 @@ struct community *community_dup(struct community *com)
 }
 
 /* Return string representation of communities attribute. */
-char *community_str(struct community *com, bool make_json, bool translate_alias)
+char *community_str(struct community *com, bool make_json)
 {
 	if (!com)
 		return NULL;
 
-	if (make_json && !com->json && com->str)
-		XFREE(MTYPE_COMMUNITY_STR, com->str);
-
 	if (!com->str)
-		set_community_string(com, make_json, translate_alias);
+		set_community_string(com, false);
+	if (make_json && !com->json)
+		set_community_string(com, true);
 	return com->str;
 }
 
