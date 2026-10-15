@@ -438,7 +438,13 @@ def test_redundancy_shortcut_backup():
         pytest.skip("iptables not installed")
 
     nhc1 = tgen.gears["nhc1"]
+    host = tgen.gears["host"]
+
     router_list = tgen.routers()
+
+    # Ping in background to maintain the shorcut
+    global PING_PID
+    PING_PID = host.cmd("ping -W 1 10.5.5.5 >/dev/null 2>&1 & echo $!").strip()
 
     logger.info("Bringing down nhs1, primary NHRP server.")
     shutdown_bringup_interface(tgen, "nhs1", "nhs1-gre0", False)
@@ -502,6 +508,9 @@ def test_redundancy_shortcut_backup():
     assert result is None, assertmsg
 
     logger.info("Check shortcut is purged with lack of traffic")
+    host.cmd(f"kill {PING_PID}")
+    PING_PID = None
+
     json_file = "{}/{}/nhrp_route_nhs1_down.json".format(CWD, nhc1.name)
     assertmsg = "No nhrp_route file found"
     assert os.path.isfile(json_file), assertmsg
