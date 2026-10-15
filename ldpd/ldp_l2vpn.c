@@ -460,6 +460,7 @@ l2vpn_binding_ctl(pid_t pid)
 			pwctl.local_gid = 0;
 			pwctl.local_ifmtu = pw->l2vpn->mtu;
 			pwctl.local_cword = CHECK_FLAG(pw->flags, F_PW_CWORD_CONF) ? 1 : 0;
+			pwctl.local_status_tlv = CHECK_FLAG(pw->flags, F_PW_STATUSTLV_CONF) ? 1 : 0;
 			pwctl.reason = pw->reason;
 		} else
 			pwctl.local_label = NO_LABEL;
@@ -475,6 +476,7 @@ l2vpn_binding_ctl(pid_t pid)
 				pwctl.remote_ifmtu = me->map.fec.pwid.ifmtu;
 			if (pw)
 				pwctl.remote_cword = CHECK_FLAG(pw->flags, F_PW_CWORD) ? 1 : 0;
+			pwctl.remote_status_tlv = CHECK_FLAG(me->map.flags, F_MAP_PW_STATUS) ? 1 : 0;
 
 			lde_imsg_compose_ldpe(IMSG_CTL_SHOW_L2VPN_BINDING,
 			    0, pid, &pwctl, sizeof(pwctl));
