@@ -2873,6 +2873,23 @@ def get_failed_line_nums(stderr):
     return failed_line_nums
 
 
+def get_early_exit_line_num(stderr):
+    """
+    Return the line where vtysh -f stopped reading the file, or None.
+
+    When vtysh rejects the line that enters a context, it stays at the config
+    node, and the "exit" closing that context leaves the file:
+      line 5: Warning[4]...: early exit from config file
+    """
+    line_nums = [
+        int(match.group(1))
+        for match in re.finditer(
+            r"^line (\d+):.*early exit from config file", stderr or "", re.M
+        )
+    ]
+    return min(line_nums) if line_nums else None
+
+
 def exec_delete_lines(vtysh, rundir, entries):
     """
     Apply line deletes as one "vtysh -f" file instead of one "vtysh -c" call
@@ -2883,7 +2900,8 @@ def exec_delete_lines(vtysh, rundir, entries):
     retried through delete_line_with_vtysh(), which trims trailing words until
     a "picky" no is accepted. If vtysh failed without naming a line (e.g. the
     commit at the end of the file was rejected and rolled back), every entry
-    is retried that way.
+    is retried that way. If vtysh stopped reading the file early (a rejected
+    context line), the entries it never read are applied again as a new file.
 
     Returns True on success, False if any line could not be removed.
     """
@@ -2921,6 +2939,7 @@ def exec_delete_lines(vtysh, rundir, entries):
         return True
     except VtyshException as e:
         failed_line_nums = get_failed_line_nums(e.stderr)
+        early_exit_line_num = get_early_exit_line_num(e.stderr)
         commit_failed = "% Configuration failed." in (e.stdout or "")
         log.info("Failed to execute deletion script due to\n%s" % (e,))
     finally:
@@ -2929,18 +2948,29 @@ def exec_delete_lines(vtysh, rundir, entries):
         except OSError:
             pass
 
+    unread = []
     if failed_line_nums and not commit_failed:
         retry = [
             entry
             for entry, (first, last) in zip(entries, entry_lines)
             if any(first <= num <= last for num in failed_line_nums)
         ]
+        if early_exit_line_num is not None:
+            unread = [
+                entry
+                for entry, (first, _) in zip(entries, entry_lines)
+                if first > early_exit_line_num
+            ]
     else:
         retry = entries
 
     exec_success = True
     for ctx_keys, line in retry:
         if not delete_line_with_vtysh(vtysh, ctx_keys, line):
+            exec_success = False
+    if unread:
+        log.info("vtysh stopped at line %d, applying the rest" % early_exit_line_num)
+        if not exec_delete_lines(vtysh, rundir, unread):
             exec_success = False
     return exec_success
 
