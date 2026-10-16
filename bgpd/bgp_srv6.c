@@ -579,7 +579,7 @@ static void bgp_srv6_per_locator_free(struct bgp_srv6_per_locator_cache *bslc)
 }
 
 /* code derived from ensure_vrf_tovpn_sid(), applied to auto mode only */
-static void bgp_srv6_per_locator_cache_delete_tovpn_sid(struct bgp_srv6_per_locator_cache *bslc)
+void bgp_srv6_per_locator_cache_delete_tovpn_sid(struct bgp_srv6_per_locator_cache *bslc)
 {
 	int debug = BGP_DEBUG(vpn, VPN_LEAK_FROM_VRF);
 	struct srv6_sid_ctx ctx = {};

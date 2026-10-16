@@ -4554,6 +4554,7 @@ static void bgp_zebra_process_srv6_locator_routemap_internal(struct bgp *bgp,
 {
 	struct bgp_srv6_per_locator_cache *bslc;
 	struct bgp_path_info *path, *path_next;
+	bool withdraw = false;
 
 	bslc = bgp_srv6_per_locator_find(&bgp->srv6_locators_per_routemap[afi], locator->name);
 	if (bslc) {
@@ -4563,12 +4564,14 @@ static void bgp_zebra_process_srv6_locator_routemap_internal(struct bgp *bgp,
 			  locator->node_bits_length, locator->function_bits_length,
 			  locator->argument_bits_length);
 
-		if (add == false && bslc->sid_policy.tovpn_sid)
-			sid_unregister(bgp_get_default(), bslc->sid_policy.tovpn_sid);
+		if (add == false) {
+			withdraw = !!bslc->sid_policy.tovpn_sid;
+			bgp_srv6_per_locator_cache_delete_tovpn_sid(bslc);
+		}
 
 		LIST_FOREACH_SAFE (path, &(bslc->paths), srv6_vpn.srv6_locator_thread, path_next) {
 			if (add == false) {
-				if (bslc->sid_policy.tovpn_sid)
+				if (withdraw)
 					bgp_srv6_vpn_path_withdraw(bgp_get_default(),
 								   bgp_dest_get_prefix(path->net),
 								   afi, locator);
