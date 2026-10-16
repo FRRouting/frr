@@ -4381,9 +4381,22 @@ void zebra_interface_nhg_reinstall(struct interface *ifp)
 
 			if (IS_ZEBRA_DEBUG_NHG_DETAIL)
 				zlog_debug(
-					"%s install nhe %pNG nh type %u flags 0x%x",
-					__func__, rb_node_dep->nhe, nh->type,
-					rb_node_dep->nhe->flags);
+					"%s: interface %s forcing nhe %pNG reinstall, nh type %u flags 0x%x",
+					__func__, ifp->name, rb_node_dep->nhe,
+					nh->type, rb_node_dep->nhe->flags);
+
+			/*
+			 * The kernel may remove nexthop objects when their
+			 * interface goes down without notifying zebra.  Do not
+			 * trust the cached INSTALLED flag after an interface-up
+			 * event: force the singleton through the dataplane and
+			 * reinstall its dependent groups before routes reuse
+			 * their IDs.
+			 */
+			UNSET_FLAG(rb_node_dep->nhe->flags,
+				   NEXTHOP_GROUP_INSTALLED);
+			SET_FLAG(rb_node_dep->nhe->flags,
+				 NEXTHOP_GROUP_REINSTALL);
 			zebra_nhg_install_kernel(rb_node_dep->nhe,
 						 ZEBRA_ROUTE_MAX);
 
