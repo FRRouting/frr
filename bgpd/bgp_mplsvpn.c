@@ -2729,6 +2729,7 @@ static void vpn_leak_to_vrf_update_onevrf(struct bgp *to_bgp,	/* to */
 		ret = route_map_apply(to_bgp->vpn_policy[afi]
 					      .rmap[BGP_VPN_POLICY_DIR_FROMVPN],
 				      p, &rmap_bpi);
+		cleanup_after_rmap_apply(&rmap_bpi);
 		if (RMAP_DENYMATCH == ret) {
 			bgp_attr_flush(&static_attr); /* free any added parts */
 			if (debug)

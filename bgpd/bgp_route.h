@@ -756,10 +756,14 @@ static inline void prep_for_rmap_apply(struct bgp_path_info *dst_pi,
 		dst_pi->flags = src_pi->flags;
 		dst_pi->type = src_pi->type;
 		dst_pi->sub_type = src_pi->sub_type;
-		if (src_pi->extra)
+		if (src_pi->extra) {
 			memcpy(dst_pie, src_pi->extra, sizeof(struct bgp_path_info_extra));
+			dst_pie->srv6_locator = NULL;
+		}
 	}
 }
+
+extern void cleanup_after_rmap_apply(struct bgp_path_info *pi);
 
 static inline void bgp_path_info_extra_propagate(struct bgp_path_info *dst_bpi,
 						 const struct bgp_path_info *src_bpi)
