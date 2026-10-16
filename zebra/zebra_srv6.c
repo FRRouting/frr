@@ -2835,7 +2835,6 @@ static int srv6_manager_release_sid_internal(struct zserv *client, struct srv6_s
 	struct zebra_srv6_sid_block *block = NULL;
 	struct zebra_srv6_sid_entry *entry = NULL;
 	bool found = false;
-	int rc;
 
 	if (IS_ZEBRA_DEBUG_SRV6)
 		zlog_debug("%s: releasing SRv6 SID associated with ctx %s",
@@ -2871,21 +2870,8 @@ static int srv6_manager_release_sid_internal(struct zserv *client, struct srv6_s
 	}
 
 	/* Lookup Zebra SID context and release it */
-	frr_each_safe (zebra_srv6_sid_ctx_list, &block->sids, zctx) {
-		if (ctx->alloc_mode != SRV6_SID_ALLOC_MODE_UNSPEC)
-			rc = memcmp(&zctx->ctx, ctx, sizeof(struct srv6_sid_ctx));
-		else {
-			ctx->alloc_mode = SRV6_SID_ALLOC_MODE_EXPLICIT;
-			rc = memcmp(&zctx->ctx, ctx, sizeof(struct srv6_sid_ctx));
-			if (rc) {
-				ctx->alloc_mode = SRV6_SID_ALLOC_MODE_DYNAMIC;
-				rc = memcmp(&zctx->ctx, ctx, sizeof(struct srv6_sid_ctx));
-			}
-			if (rc)
-				ctx->alloc_mode = SRV6_SID_ALLOC_MODE_UNSPEC;
-		}
-
-		if (rc == 0) {
+	frr_each_safe (zebra_srv6_sid_ctx_list, &block->sids, zctx)
+		if (memcmp(&zctx->ctx, ctx, sizeof(struct srv6_sid_ctx)) == 0) {
 			found = true;
 			if (zctx->sid) {
 				entry = zebra_srv6_sid_entry_lookup(zctx->sid, locator->name,
@@ -2899,7 +2885,6 @@ static int srv6_manager_release_sid_internal(struct zserv *client, struct srv6_s
 			ret = release_srv6_sid(client, zctx, locator, is_localonly);
 			break;
 		}
-	}
 
 	if (!found && IS_ZEBRA_DEBUG_SRV6)
 		zlog_debug("%s: no SID associated with ctx %s", __func__,
