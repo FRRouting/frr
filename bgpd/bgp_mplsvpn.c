@@ -2230,7 +2230,7 @@ void vpn_leak_from_vrf_update(struct bgp *to_bgp,	     /* to */
 
 	bslc = path_vrf->srv6_vpn.bslc;
 	if (bslc) {
-		if (bslc->sid_policy.tovpn_sid_locator) {
+		if (bslc->sid_policy.tovpn_sid_locator && bslc->sid_policy.tovpn_sid) {
 			struct bgp_attr_srv6_l3service *srv6_l3service;
 
 			encode_label(bslc->sid_policy.tovpn_sid_transpose_label, &label);
@@ -2255,7 +2255,7 @@ void vpn_leak_from_vrf_update(struct bgp *to_bgp,	     /* to */
 							    ret == RMAP_PERMITMATCH ? &rmap_bpi
 										    : NULL);
 		}
-		/* if locator not found, then no srv6 exportation */
+		/* if locator not found or SID not allocated, then no srv6 exportation */
 	} else if (vpn_leak_from_vrf_fill_srv6(&static_attr, from_bgp, afi, &label))
 
 		/* SRv6 */
