@@ -382,6 +382,7 @@ void bgp_srv6_unicast_register_route(struct bgp *bgp, afi_t afi, struct bgp_dest
 			prep_for_rmap_apply(&info, &extra, dest, bpi, bgp->peer_self, NULL,
 					    &attr_tmp);
 			ret = route_map_apply(rmap, p, &info);
+			cleanup_after_rmap_apply(&info);
 			bgp_attr_flush(&attr_tmp);
 
 			if (ret == RMAP_DENYMATCH) {
@@ -558,6 +559,8 @@ void bgp_srv6_locators_finish(void)
 
 void bgp_srv6_path_locator_extra_free(struct bgp_path_info_extra *extra)
 {
+	if (!extra)
+		return;
 	XFREE(MTYPE_SRV6_LOCATOR_EXTRA, extra->srv6_locator);
 }
 

@@ -1019,6 +1019,7 @@ static bool bgp_table_map_apply(struct route_map *map, const struct prefix *p,
 	route_map_result_t ret;
 
 	ret = route_map_apply(map, p, path);
+	cleanup_after_rmap_apply(path);
 	bgp_attr_flush(path->attr);
 	bgp_attr_extra_discard(path->attr);
 
