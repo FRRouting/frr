@@ -181,7 +181,7 @@ static const struct message bgp_pmsi_tnltype_str[] = {
 
 static int clear_batch_rib_helper(struct bgp_clearing_info *cinfo);
 static void bgp_gr_start_tier2_timer_if_required(struct bgp *bgp, afi_t afi, safi_t safi);
-static void bgp_upa_check_prefix_aggregates(struct bgp *bgp, const struct prefix *p, afi_t afi,
+static void bgp_upa_check_prefix_aggregates(struct bgp *bgp, struct bgp_dest *dest, afi_t afi,
 					    safi_t safi, struct bgp_path_info *new_select);
 
 /*
@@ -4688,7 +4688,7 @@ void bgp_process_main_one(struct bgp *bgp, struct bgp_dest *dest, afi_t afi, saf
 	 * Find if this prefix falls under any aggregate with UPA enabled.
 	 * If so, dynamically originate/withdraw UPA based on reachability.
 	 */
-	bgp_upa_check_prefix_aggregates(bgp, bgp_dest_get_prefix(dest), afi, safi, new_select);
+	bgp_upa_check_prefix_aggregates(bgp, dest, afi, safi, new_select);
 
 	return;
 }
@@ -10308,23 +10308,17 @@ void bgp_upa_withdraw_global(struct bgp *bgp, afi_t afi, safi_t safi)
 		zlog_debug("UPA: Global withdrawal complete: %u withdrawn", withdrawn);
 }
 
-static void bgp_upa_check_prefix_aggregates(struct bgp *bgp, const struct prefix *p, afi_t afi,
+static void bgp_upa_check_prefix_aggregates(struct bgp *bgp, struct bgp_dest *dest, afi_t afi,
 					    safi_t safi, struct bgp_path_info *new_select)
 {
+	const struct prefix *p = bgp_dest_get_prefix(dest);
 	struct bgp_table *table;
-	struct bgp_dest *aggr_dest, *dest;
+	struct bgp_dest *aggr_dest;
 	struct bgp_aggregate *aggregate;
 	const struct prefix *aggr_prefix;
 
-	if (!bgp || !p)
-		return;
-
 	table = bgp->aggregate[afi][safi];
-	if (!table)
-		return;
-
-	dest = bgp_node_get(bgp->rib[afi][safi], p);
-	if (!dest)
+	if (!table || !bgp_table_top_nolock(table))
 		return;
 
 	for (aggr_dest = bgp_table_top(table); aggr_dest; aggr_dest = bgp_route_next(aggr_dest)) {
@@ -10386,8 +10380,6 @@ static void bgp_upa_check_prefix_aggregates(struct bgp *bgp, const struct prefix
 				bgp_upa_untrack_route(aggregate, p);
 		}
 	}
-
-	bgp_dest_unlock_node(dest);
 }
 
 /*
