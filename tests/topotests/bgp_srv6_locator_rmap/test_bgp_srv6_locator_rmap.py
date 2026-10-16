@@ -906,6 +906,85 @@ def test_withdraw_route_map_locator_path_after_update_without_vrf_sid():
     assert restored is True, restored
 
 
+def test_mpls_srv6_coexistence_withdraw_unavailable_locator():
+    """
+    MPLS and SRv6 coexistence: with 'label vpn export auto' in Vrf20, entry 3
+    of rmap_locator sets locator NAME3, which does not exist in zebra, so
+    192.168.200.0/24 is only exported with MPLS. Remove the address of
+    192.168.200.0/24, and check that its MPLS VPN path is withdrawn.
+    """
+    tgen = get_topogen()
+
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    r1 = tgen.gears["r1"]
+    prefix = "192.168.200.0/24"
+
+    # no route update upon route-map change: the change is applied by the
+    # re-export of 'label vpn export auto', and no later full re-export
+    # withdraws the MPLS VPN path in place of the tested withdraw
+    r1.vtysh_multicmd(
+        """
+        configure
+        bgp route-map delay-timer 0
+        route-map rmap_locator permit 3
+        set segment-routing srv6 locator NAME3
+        exit
+        router bgp 65001 vrf Vrf20
+        address-family ipv4 unicast
+        label vpn export auto
+        """
+    )
+
+    @retry(retry_timeout=30)
+    def check_vpn_path(expect_mpls_only):
+        output = json.loads(r1.vtysh_cmd("show bgp ipv4 vpn detail json"))
+        rds = output.get("routes", {}).get("routeDistinguishers", {})
+        paths = rds.get("65001:20", {}).get(prefix, [])
+        if not expect_mpls_only:
+            if paths:
+                return f"{prefix} still exported to VPN"
+            return True
+        if not paths:
+            return f"{prefix} not exported to VPN"
+        for path in paths:
+            if "remoteLabel" not in path or "remoteSid" in path:
+                return f"{prefix} not exported with MPLS only: {path}"
+        return True
+
+    result = check_vpn_path(True)
+    output = r1.vtysh_cmd(f"show bgp ipv4 vpn {prefix}")
+    logger.info(output)
+    assert result is True, result
+
+    r1.vtysh_cmd("conf t\ninterface eth3\nno ip address 192.168.200.1/24")
+
+    result = check_vpn_path(False)
+    output = r1.vtysh_cmd(f"show bgp ipv4 vpn {prefix}")
+    logger.info(output)
+
+    r1.vtysh_multicmd(
+        """
+        configure
+        interface eth3
+        ip address 192.168.200.1/24
+        exit
+        route-map rmap_locator permit 3
+        no set segment-routing srv6 locator
+        exit
+        router bgp 65001 vrf Vrf20
+        address-family ipv4 unicast
+        no label vpn export auto
+        exit-address-family
+        exit
+        no bgp route-map delay-timer
+        """
+    )
+
+    assert result is True, result
+
+
 def test_route_map_locator_localsid_uninstall():
     """
     Locator NAME is set by entries 1 and 2 of rmap_locator. Remove the set
