@@ -706,8 +706,8 @@ static void show_bgp_srv6_locators_per_routemap_afi(struct vty *vty, afi_t afi, 
 	json_object *json_path_list, *json_path_entry;
 
 	if (json_list == NULL)
-		vty_out(vty, "Current BGP SRv6 locator per route-map for %s, VRF %s\n",
-			afi2str(afi), bgp->name_pretty);
+		vty_out(vty, "Current BGP SRv6 locator per route-map for %s, %s\n", afi2str(afi),
+			bgp->name_pretty);
 
 	tree = &bgp->srv6_locators_per_routemap[afi];
 	frr_each (bgp_srv6_per_locator_cache, tree, iter) {
