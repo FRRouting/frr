@@ -985,6 +985,70 @@ def test_mpls_srv6_coexistence_withdraw_unavailable_locator():
     assert result is True, result
 
 
+def test_vrf_locator_same_as_route_map_locator():
+    """
+    The export route-map sets locator NAME on 10.0.0.0/24 and 192.168.1.0/24.
+    Configure locator NAME on Vrf20 too, which has 'sid vpn export auto'.
+    The SID of Vrf20 and the SID of the route-map locator context use the same
+    zebra SID context. Check that the SID used to export 10.0.0.0/24 stays
+    allocated by bgp in zebra, and that its local SID stays installed.
+    """
+    tgen = get_topogen()
+
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    r1 = tgen.gears["r1"]
+
+    r1.vtysh_multicmd(
+        """
+        configure
+        router bgp 65001 vrf Vrf20
+        segment-routing srv6
+        locator NAME
+        """
+    )
+
+    @retry(retry_timeout=30)
+    def check_exported_sid_in_zebra():
+        sids = get_vpn_prefix_sids(r1, "10.0.0.0/24")
+        if not sids or not sids[0].startswith("2001:db09:1:2:"):
+            return f"10.0.0.0/24 not exported with a SID of locator NAME: {sids}"
+        sid = sids[0]
+        output = json.loads(r1.vtysh_cmd("show segment-routing srv6 sid json"))
+        clients = [c.get("protocol") for c in output.get(sid, {}).get("clients", [])]
+        if "bgp" not in clients:
+            return f"SID {sid} of 10.0.0.0/24 not allocated by bgp in zebra"
+        output = json.loads(r1.vtysh_cmd(f"show ipv6 route {sid}/128 json"))
+        if f"{sid}/128" not in output:
+            return f"local SID {sid} of 10.0.0.0/24 not installed"
+        return True
+
+    result = check_exported_sid_in_zebra()
+    output = r1.vtysh_cmd("show segment-routing srv6 sid")
+    logger.info(output)
+    output = r1.vtysh_cmd("show bgp ipv4 vpn 10.0.0.0/24")
+    logger.info(output)
+
+    r1.vtysh_multicmd(
+        """
+        configure
+        router bgp 65001 vrf Vrf20
+        segment-routing srv6
+        no locator NAME
+        """
+    )
+
+    @retry(retry_timeout=30)
+    def check_name_used_by_two_paths():
+        return check_locator_count(r1, "Vrf20", "NAME", 2) or True
+
+    restored = check_name_used_by_two_paths()
+
+    assert result is True, result
+    assert restored is True, restored
+
+
 def test_route_map_locator_localsid_uninstall():
     """
     Locator NAME is set by entries 1 and 2 of rmap_locator. Remove the set
