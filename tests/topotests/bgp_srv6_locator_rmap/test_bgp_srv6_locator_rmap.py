@@ -651,6 +651,58 @@ def test_export_vpn_route_map_locator():
     assert result is True, result
 
 
+def test_remove_locator_used_by_two_prefixes():
+    """
+    Set locator NAME on route-map entry 1, so that 192.168.1.0/24 and
+    10.0.0.0/24 use locator NAME. Then remove locator NAME, and check that
+    its SID is no longer used.
+    """
+    tgen = get_topogen()
+
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    r1 = tgen.gears["r1"]
+    prefixes = ("10.0.0.0/24", "192.168.1.0/24")
+
+    r1.vtysh_cmd(
+        "conf t\nroute-map rmap_locator permit 1\nset segment-routing srv6 locator NAME"
+    )
+
+    @retry(retry_timeout=30)
+    def check_name_used_by_two_prefixes():
+        result = check_locator_count(r1, "Vrf20", "NAME", 2)
+        if result:
+            return result
+        for prefix in prefixes:
+            sids = get_vpn_prefix_sids(r1, prefix)
+            if not sids or not all(sid.startswith("2001:db09:1:2:") for sid in sids):
+                return f"{prefix} not exported with a SID of locator NAME: {sids}"
+        return True
+
+    result = check_name_used_by_two_prefixes()
+    assert result is True, result
+
+    r1.vtysh_cmd("conf t\nsegment-routing\nsrv6\nlocators\nno locator NAME")
+
+    @retry(retry_timeout=30)
+    def check_name_sid_not_used():
+        output = json.loads(r1.vtysh_cmd("show bgp vrf Vrf20 locator-routemap json"))
+        for entry in output:
+            if entry.get("locatorName") == "NAME" and "sid" in entry:
+                return f"locator NAME still has SID {entry['sid']}"
+        for prefix in prefixes:
+            sids = get_vpn_prefix_sids(r1, prefix)
+            if any(sid.startswith("2001:db09:1:2:") for sid in sids):
+                return f"{prefix} still exported with a SID of locator NAME: {sids}"
+        return True
+
+    result = check_name_sid_not_used()
+    output = r1.vtysh_cmd("show bgp vrf Vrf20 locator-routemap detail")
+    logger.info(output)
+    assert result is True, result
+
+
 def test_no_export_vpn_route_map_locator_without_vrf_sid():
     """
     Restore locator NAME, set it on route-map entry 1 so that 192.168.1.0/24
