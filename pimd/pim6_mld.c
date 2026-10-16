@@ -715,7 +715,7 @@ static void gm_handle_v2_pass1(struct gm_packet_state *pkt,
 	struct gm_subscriber *subscriber = pkt->subscriber;
 	struct gm_sg *grp;
 	struct gm_packet_sg *old_grp = NULL;
-	struct gm_packet_sg *item;
+	struct gm_packet_sg *item = NULL;
 	size_t j;
 	bool is_excl = false;
 
@@ -740,7 +740,10 @@ static void gm_handle_v2_pass1(struct gm_packet_state *pkt,
 		}
 
 		item = gm_packet_sg_setup(pkt, grp, is_excl, false);
-		item->n_exclude = n_src;
+		/* n_exclude counts the source items actually appended below,
+		 * which can be fewer than n_src if a source is refused
+		 */
+		item->n_exclude = 0;
 
 		/* [EXCL_INCL_SG_NOTE] referenced below
 		 *
@@ -813,6 +816,8 @@ static void gm_handle_v2_pass1(struct gm_packet_state *pkt,
 		}
 
 		gm_packet_sg_setup(pkt, sg, is_excl, true);
+		if (is_excl)
+			item->n_exclude++;
 	}
 }
 
