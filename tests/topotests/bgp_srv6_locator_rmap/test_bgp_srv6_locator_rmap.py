@@ -8,7 +8,7 @@ import sys
 import pytest
 from lib import topotest
 from lib.topogen import Topogen, TopoRouter, get_topogen
-from lib.common_config import step
+from lib.common_config import retry, step
 import functools
 from lib.topolog import logger
 import json
@@ -137,6 +137,16 @@ def check_vpn_leak(router, expected_file):
     func = functools.partial(_check_vpn_leak, router, expected_file)
     _, result = topotest.run_and_expect(func, None, count=15, wait=1)
     assert result is None, "Failed"
+
+
+def get_vpn_prefix_sids(router, prefix, rd="65001:20"):
+    "Return the SIDs of the VPN paths of prefix exported with rd"
+    output = json.loads(router.vtysh_cmd("show bgp ipv4 vpn detail json"))
+    rds = output.get("routes", {}).get("routeDistinguishers", {})
+    return [
+        path.get("remoteTransposedSid", path.get("remoteSid", ""))
+        for path in rds.get(rd, {}).get(prefix, [])
+    ]
 
 
 def test_configure_locator_main_and_verify_export():
@@ -517,3 +527,93 @@ def test_use_explicit_and_dynamic_sid_from_same_locator():
     check_vpn_leak(r1, "r1/expected_step8.json")
     out = r1.vtysh_cmd("show segment-routing srv6 sid")
     logger.info("test_verify_vpn_leak_explicit_export: " + out)
+
+
+def test_no_export_vpn_route_map_locator():
+    """
+    Unconfigure 'export vpn', then flap 10.0.0.0/24 whose locator NAME is set
+    by the export route-map. Check that 10.0.0.0/24 is not exported to VPN.
+    """
+    tgen = get_topogen()
+
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    r1 = tgen.gears["r1"]
+
+    r1.vtysh_multicmd(
+        """
+        configure
+        router bgp 65001 vrf Vrf20
+        address-family ipv4 unicast
+        no export vpn
+        exit-address-family
+        exit
+        interface eth1
+        no ip address 10.0.0.1/24
+        """
+    )
+
+    @retry(retry_timeout=30)
+    def check_vrf_prefix(expect_present):
+        output = json.loads(
+            r1.vtysh_cmd("show bgp vrf Vrf20 ipv4 unicast 10.0.0.0/24 json")
+        )
+        if bool(output.get("paths")) != expect_present:
+            return f"10.0.0.0/24 presence in Vrf20 is not {expect_present}"
+        return True
+
+    result = check_vrf_prefix(False)
+    assert result is True, result
+
+    r1.vtysh_multicmd(
+        """
+        configure
+        interface eth1
+        ip address 10.0.0.1/24
+        """
+    )
+
+    result = check_vrf_prefix(True)
+    assert result is True, result
+
+    sids = get_vpn_prefix_sids(r1, "10.0.0.0/24")
+    output = r1.vtysh_cmd("show bgp ipv4 vpn 10.0.0.0/24")
+    logger.info(output)
+    assert not sids, f"10.0.0.0/24 exported to VPN without export vpn: {sids}"
+
+
+def test_export_vpn_route_map_locator():
+    """
+    Configure 'export vpn' again. Check that 10.0.0.0/24 is exported with a
+    SID of locator NAME.
+    """
+    tgen = get_topogen()
+
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    r1 = tgen.gears["r1"]
+
+    r1.vtysh_multicmd(
+        """
+        configure
+        router bgp 65001 vrf Vrf20
+        address-family ipv4 unicast
+        export vpn
+        """
+    )
+
+    @retry(retry_timeout=30)
+    def check_vpn_prefix_exported_with_name():
+        sids = get_vpn_prefix_sids(r1, "10.0.0.0/24")
+        if not sids:
+            return "10.0.0.0/24 not exported to VPN"
+        if not all(sid.startswith("2001:db09:1:2:") for sid in sids):
+            return f"10.0.0.0/24 not exported with a SID of locator NAME: {sids}"
+        return True
+
+    result = check_vpn_prefix_exported_with_name()
+    output = r1.vtysh_cmd("show bgp ipv4 vpn 10.0.0.0/24")
+    logger.info(output)
+    assert result is True, result
