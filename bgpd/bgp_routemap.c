@@ -442,8 +442,7 @@ route_match_script(void *rule, const struct prefix *prefix, void *object)
 	bgp_attr_dup_into(&newattr, path->attr);
 	orig_srte_color = path->extra ? path->extra->srte_color : 0;
 
-	int result = frrscript_call(
-		fs, routematch_function, ("prefix", prefix),
+	int result = frrscript_call(fs, routematch_function, ("prefix", prefix),
 		("attributes", &newattr), ("peer", path->peer),
 		("RM_FAILURE", LUA_RM_FAILURE), ("RM_NOMATCH", LUA_RM_NOMATCH),
 		("RM_MATCH", LUA_RM_MATCH),
@@ -471,8 +470,7 @@ route_match_script(void *rule, const struct prefix *prefix, void *object)
 		bgp_attr_extra_discard(&newattr);
 		frrscript_delete(fs);
 		if (orig_srte_color || (path->extra && path->extra->srte_color))
-			bgp_path_info_extra_get(path)->srte_color =
-				orig_srte_color;
+			bgp_path_info_extra_get(path)->srte_color = orig_srte_color;
 		return RMAP_NOMATCH;
 	}
 
@@ -512,8 +510,7 @@ route_match_script(void *rule, const struct prefix *prefix, void *object)
 	 * path.srte_color may have been written back during decode; keep it
 	 * only for match-and-change (same rule as attributes).
 	 */
-	if (!keep_path_changes
-	    && (orig_srte_color || (path->extra && path->extra->srte_color)))
+	if (!keep_path_changes && (orig_srte_color || (path->extra && path->extra->srte_color)))
 		bgp_path_info_extra_get(path)->srte_color = orig_srte_color;
 
 	return status;

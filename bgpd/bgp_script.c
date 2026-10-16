@@ -74,15 +74,13 @@ static void lua_decode_aspath_field(lua_State *L, int idx, struct attr *attr)
 	}
 
 	str = lua_tostring(L, -1);
-	if (str && attr->aspath && attr->aspath->str
-	    && strcmp(attr->aspath->str, str) == 0) {
+	if (str && attr->aspath && attr->aspath->str && strcmp(attr->aspath->str, str) == 0) {
 		lua_pop(L, 1);
 		return;
 	}
 
 	if (str && *str)
-		new_aspath = aspath_str2aspath(str,
-					       bgp_get_asnotation(NULL));
+		new_aspath = aspath_str2aspath(str, bgp_get_asnotation(NULL));
 	if (!new_aspath && str && *str) {
 		lua_pop(L, 1);
 		return;
@@ -102,8 +100,7 @@ static void lua_decode_aspath_field(lua_State *L, int idx, struct attr *attr)
 }
 
 
-static void lua_push_community_field(lua_State *L, struct community *com,
-				     const char *key)
+static void lua_push_community_field(lua_State *L, struct community *com, const char *key)
 {
 	if (com) {
 		char *str = community_str(com, false);
@@ -166,8 +163,7 @@ static void bgp_attr_script_apply_community(struct attr *dst, struct attr *src)
 }
 
 
-static void lua_push_lcommunity_field(lua_State *L, struct lcommunity *lcom,
-				      const char *key)
+static void lua_push_lcommunity_field(lua_State *L, struct lcommunity *lcom, const char *key)
 {
 	if (lcom) {
 		char *str = lcommunity_str(lcom, false);
@@ -229,8 +225,7 @@ static void bgp_attr_script_apply_lcommunity(struct attr *dst, struct attr *src)
 }
 
 
-static void lua_push_ecommunity_field(lua_State *L, struct ecommunity *ecom,
-				      const char *key)
+static void lua_push_ecommunity_field(lua_State *L, struct ecommunity *ecom, const char *key)
 {
 	/*
 	 * Use community-list form ("rt 100:1") so ecommunity_str2com(..., 0, 1)
@@ -238,9 +233,7 @@ static void lua_push_ecommunity_field(lua_State *L, struct ecommunity *ecom,
 	 * the parser does not accept.
 	 */
 	if (ecom) {
-		char *str = ecommunity_ecom2str(ecom,
-						ECOMMUNITY_FORMAT_COMMUNITY_LIST,
-						0);
+		char *str = ecommunity_ecom2str(ecom, ECOMMUNITY_FORMAT_COMMUNITY_LIST, 0);
 
 		lua_pushstring(L, str ? str : "");
 		XFREE(MTYPE_ECOMMUNITY_STR, str);
@@ -265,9 +258,7 @@ static void lua_decode_ecommunity_field(lua_State *L, int idx, struct attr *attr
 	str = lua_tostring(L, -1);
 	old = bgp_attr_get_ecommunity(attr);
 	if (str && old) {
-		char *cur = ecommunity_ecom2str(old,
-						ECOMMUNITY_FORMAT_COMMUNITY_LIST,
-						0);
+		char *cur = ecommunity_ecom2str(old, ECOMMUNITY_FORMAT_COMMUNITY_LIST, 0);
 		int same = cur && strcmp(cur, str) == 0;
 
 		XFREE(MTYPE_ECOMMUNITY_STR, cur);
@@ -304,8 +295,7 @@ static void bgp_attr_script_apply_ecommunity(struct attr *dst, struct attr *src)
 }
 
 
-static void lua_decode_ipv6_ecommunity_field(lua_State *L, int idx,
-					     struct attr *attr)
+static void lua_decode_ipv6_ecommunity_field(lua_State *L, int idx, struct attr *attr)
 {
 	struct ecommunity *new_ecom = NULL;
 	struct ecommunity *old;
@@ -321,9 +311,7 @@ static void lua_decode_ipv6_ecommunity_field(lua_State *L, int idx,
 	str = lua_tostring(L, -1);
 	old = bgp_attr_get_ipv6_ecommunity(attr);
 	if (str && old) {
-		char *cur = ecommunity_ecom2str(old,
-						ECOMMUNITY_FORMAT_COMMUNITY_LIST,
-						0);
+		char *cur = ecommunity_ecom2str(old, ECOMMUNITY_FORMAT_COMMUNITY_LIST, 0);
 		int same = cur && strcmp(cur, str) == 0;
 
 		XFREE(MTYPE_ECOMMUNITY_STR, cur);
@@ -344,8 +332,7 @@ static void lua_decode_ipv6_ecommunity_field(lua_State *L, int idx,
 	lua_pop(L, 1);
 }
 
-static void bgp_attr_script_apply_ipv6_ecommunity(struct attr *dst,
-						  struct attr *src)
+static void bgp_attr_script_apply_ipv6_ecommunity(struct attr *dst, struct attr *src)
 {
 	struct ecommunity *old = bgp_attr_get_ipv6_ecommunity(dst);
 	struct ecommunity *new = bgp_attr_get_ipv6_ecommunity(src);
@@ -488,8 +475,7 @@ void bgp_attr_script_discard(struct attr *working, const struct attr *orig)
 	struct community *com = bgp_attr_get_community(working);
 	struct community *ocom = bgp_attr_get_community(orig);
 
-	if (working->aspath && working->aspath != orig->aspath
-	    && working->aspath->refcnt == 0)
+	if (working->aspath && working->aspath != orig->aspath && working->aspath->refcnt == 0)
 		aspath_free(working->aspath);
 	working->aspath = NULL;
 
@@ -548,26 +534,26 @@ static void lua_push_nexthop_table(lua_State *L, const struct attr *attr)
 		lua_pushnil(L);
 	lua_setfield(L, -2, "ipv4");
 
-	if (attr->mp_nexthop_len == BGP_ATTR_NHLEN_IPV4
-	    || attr->mp_nexthop_len == BGP_ATTR_NHLEN_VPNV4) {
+	if (attr->mp_nexthop_len == BGP_ATTR_NHLEN_IPV4 ||
+	    attr->mp_nexthop_len == BGP_ATTR_NHLEN_VPNV4) {
 		inet_ntop(AF_INET, &attr->mp_nexthop_global_in, buf, sizeof(buf));
 		lua_pushstring(L, buf);
 	} else
 		lua_pushnil(L);
 	lua_setfield(L, -2, "vpnv4");
 
-	if (attr->mp_nexthop_len == BGP_ATTR_NHLEN_IPV6_GLOBAL
-	    || attr->mp_nexthop_len == BGP_ATTR_NHLEN_IPV6_GLOBAL_AND_LL
-	    || attr->mp_nexthop_len == BGP_ATTR_NHLEN_VPNV6_GLOBAL
-	    || attr->mp_nexthop_len == BGP_ATTR_NHLEN_VPNV6_GLOBAL_AND_LL) {
+	if (attr->mp_nexthop_len == BGP_ATTR_NHLEN_IPV6_GLOBAL ||
+	    attr->mp_nexthop_len == BGP_ATTR_NHLEN_IPV6_GLOBAL_AND_LL ||
+	    attr->mp_nexthop_len == BGP_ATTR_NHLEN_VPNV6_GLOBAL ||
+	    attr->mp_nexthop_len == BGP_ATTR_NHLEN_VPNV6_GLOBAL_AND_LL) {
 		inet_ntop(AF_INET6, &attr->mp_nexthop_global, buf, sizeof(buf));
 		lua_pushstring(L, buf);
 	} else
 		lua_pushnil(L);
 	lua_setfield(L, -2, "ipv6_global");
 
-	if (attr->mp_nexthop_len == BGP_ATTR_NHLEN_IPV6_GLOBAL_AND_LL
-	    || attr->mp_nexthop_len == BGP_ATTR_NHLEN_VPNV6_GLOBAL_AND_LL) {
+	if (attr->mp_nexthop_len == BGP_ATTR_NHLEN_IPV6_GLOBAL_AND_LL ||
+	    attr->mp_nexthop_len == BGP_ATTR_NHLEN_VPNV6_GLOBAL_AND_LL) {
 		inet_ntop(AF_INET6, &attr->mp_nexthop_local, buf, sizeof(buf));
 		lua_pushstring(L, buf);
 	} else
@@ -582,8 +568,7 @@ static void lua_push_nexthop_table(lua_State *L, const struct attr *attr)
 	lua_pushinteger(L, attr->nh_lla_ifindex);
 	lua_setfield(L, -2, "lla_ifindex");
 
-	lua_pushboolean(L, CHECK_FLAG(attr->nh_flags,
-				      BGP_ATTR_NH_MP_PREFER_GLOBAL));
+	lua_pushboolean(L, CHECK_FLAG(attr->nh_flags, BGP_ATTR_NH_MP_PREFER_GLOBAL));
 	lua_setfield(L, -2, "prefer_global");
 }
 
@@ -613,8 +598,7 @@ static void lua_decode_nexthop_table(lua_State *L, int idx, struct attr *attr,
 	lua_getfield(L, -1, "ipv4");
 	if (lua_isnil(L, -1)) {
 		if (had_ipv4)
-			SET_FLAG(attr->rmap_change_flags,
-				 BATTR_RMAP_IPV4_NHOP_CHANGED);
+			SET_FLAG(attr->rmap_change_flags, BATTR_RMAP_IPV4_NHOP_CHANGED);
 		bgp_attr_unset(attr, BGP_ATTR_NEXT_HOP);
 		memset(&attr->nexthop, 0, sizeof(attr->nexthop));
 	} else {
@@ -623,8 +607,7 @@ static void lua_decode_nexthop_table(lua_State *L, int idx, struct attr *attr,
 		if (str && inet_pton(AF_INET, str, &attr->nexthop) == 1) {
 			bgp_attr_set(attr, BGP_ATTR_NEXT_HOP);
 			if (!had_ipv4 || old_ipv4.s_addr != attr->nexthop.s_addr)
-				SET_FLAG(attr->rmap_change_flags,
-					 BATTR_RMAP_IPV4_NHOP_CHANGED);
+				SET_FLAG(attr->rmap_change_flags, BATTR_RMAP_IPV4_NHOP_CHANGED);
 		}
 	}
 	lua_pop(L, 1); /* ipv4 */
@@ -633,47 +616,38 @@ static void lua_decode_nexthop_table(lua_State *L, int idx, struct attr *attr,
 	if (!lua_isnil(L, -1)) {
 		const char *str = lua_tostring(L, -1);
 
-		if (str && inet_pton(AF_INET, str, &attr->mp_nexthop_global_in)
-			    == 1) {
+		if (str && inet_pton(AF_INET, str, &attr->mp_nexthop_global_in) == 1) {
 			attr->mp_nexthop_len = BGP_ATTR_NHLEN_VPNV4;
 			if (old_vpnv4.s_addr != attr->mp_nexthop_global_in.s_addr)
-				SET_FLAG(attr->rmap_change_flags,
-					 BATTR_RMAP_VPNV4_NHOP_CHANGED);
+				SET_FLAG(attr->rmap_change_flags, BATTR_RMAP_VPNV4_NHOP_CHANGED);
 		}
 	} else
-		memset(&attr->mp_nexthop_global_in, 0,
-		       sizeof(attr->mp_nexthop_global_in));
+		memset(&attr->mp_nexthop_global_in, 0, sizeof(attr->mp_nexthop_global_in));
 	lua_pop(L, 1);
 
 	lua_getfield(L, -1, "ipv6_global");
 	if (!lua_isnil(L, -1)) {
 		const char *str = lua_tostring(L, -1);
 
-		if (str && inet_pton(AF_INET6, str, &attr->mp_nexthop_global)
-			    == 1) {
+		if (str && inet_pton(AF_INET6, str, &attr->mp_nexthop_global) == 1) {
 			if (!attr->mp_nexthop_len)
 				attr->mp_nexthop_len = BGP_ATTR_NHLEN_IPV6_GLOBAL;
-			if (memcmp(&old_v6g, &attr->mp_nexthop_global,
-				   sizeof(old_v6g)))
+			if (memcmp(&old_v6g, &attr->mp_nexthop_global, sizeof(old_v6g)))
 				SET_FLAG(attr->rmap_change_flags,
 					 BATTR_RMAP_IPV6_GLOBAL_NHOP_CHANGED);
 		}
 	} else
-		memset(&attr->mp_nexthop_global, 0,
-		       sizeof(attr->mp_nexthop_global));
+		memset(&attr->mp_nexthop_global, 0, sizeof(attr->mp_nexthop_global));
 	lua_pop(L, 1);
 
 	lua_getfield(L, -1, "ipv6_local");
 	if (!lua_isnil(L, -1)) {
 		const char *str = lua_tostring(L, -1);
 
-		if (str && inet_pton(AF_INET6, str, &attr->mp_nexthop_local)
-			    == 1) {
+		if (str && inet_pton(AF_INET6, str, &attr->mp_nexthop_local) == 1) {
 			attr->mp_nexthop_len = BGP_ATTR_NHLEN_IPV6_GLOBAL_AND_LL;
-			if (memcmp(&old_v6l, &attr->mp_nexthop_local,
-				   sizeof(old_v6l)))
-				SET_FLAG(attr->rmap_change_flags,
-					 BATTR_RMAP_IPV6_LL_NHOP_CHANGED);
+			if (memcmp(&old_v6l, &attr->mp_nexthop_local, sizeof(old_v6l)))
+				SET_FLAG(attr->rmap_change_flags, BATTR_RMAP_IPV6_LL_NHOP_CHANGED);
 		}
 	} else
 		memset(&attr->mp_nexthop_local, 0, sizeof(attr->mp_nexthop_local));
@@ -688,9 +662,9 @@ static void lua_decode_nexthop_table(lua_State *L, int idx, struct attr *attr,
 		 * Address decode may have raised len to GLOBAL_AND_LL.
 		 * Do not let the encoded original mp_len clobber that.
 		 */
-		if ((inferred == BGP_ATTR_NHLEN_IPV6_GLOBAL_AND_LL
-		     || inferred == BGP_ATTR_NHLEN_VPNV6_GLOBAL_AND_LL)
-		    && script_len < inferred)
+		if ((inferred == BGP_ATTR_NHLEN_IPV6_GLOBAL_AND_LL ||
+		     inferred == BGP_ATTR_NHLEN_VPNV6_GLOBAL_AND_LL) &&
+		    script_len < inferred)
 			; /* keep inferred */
 		else
 			attr->mp_nexthop_len = script_len;
@@ -724,8 +698,7 @@ static void lua_decode_nexthop_table(lua_State *L, int idx, struct attr *attr,
 		else
 			UNSET_FLAG(attr->nh_flags, BGP_ATTR_NH_MP_PREFER_GLOBAL);
 		if (old_nh_flags != attr->nh_flags)
-			SET_FLAG(attr->rmap_change_flags,
-				 BATTR_RMAP_IPV6_PREFER_GLOBAL_CHANGED);
+			SET_FLAG(attr->rmap_change_flags, BATTR_RMAP_IPV6_PREFER_GLOBAL_CHANGED);
 	}
 	lua_pop(L, 1);
 
@@ -750,8 +723,7 @@ static void lua_push_evpn_table(lua_State *L, const struct attr *attr)
 	lua_newtable(L);
 	lua_pushboolean(L, CHECK_FLAG(attr->evpn_flags, ATTR_EVPN_FLAG_STICKY));
 	lua_setfield(L, -2, "sticky");
-	lua_pushboolean(L,
-			CHECK_FLAG(attr->evpn_flags, ATTR_EVPN_FLAG_DEFAULT_GW));
+	lua_pushboolean(L, CHECK_FLAG(attr->evpn_flags, ATTR_EVPN_FLAG_DEFAULT_GW));
 	lua_setfield(L, -2, "default_gw");
 	lua_pushboolean(L, CHECK_FLAG(attr->evpn_flags, ATTR_EVPN_FLAG_ROUTER));
 	lua_setfield(L, -2, "router");
@@ -780,8 +752,8 @@ static void lua_decode_evpn_table(lua_State *L, int idx, struct attr *attr)
 		struct bgp_route_evpn *bre;
 
 		if (str && str2ipaddr(str, &gw) == 0) {
-			if (old && old->type == OVERLAY_INDEX_GATEWAY_IP
-			    && ipaddr_is_same(&old->gw_ip, &gw))
+			if (old && old->type == OVERLAY_INDEX_GATEWAY_IP &&
+			    ipaddr_is_same(&old->gw_ip, &gw))
 				; /* unchanged */
 			else {
 				bre = XCALLOC(MTYPE_BGP_EVPN_OVERLAY,
@@ -837,8 +809,7 @@ void lua_decode_bgp_path_info(lua_State *L, int idx, struct bgp_path_info *path)
 {
 	lua_getfield(L, idx, "srte_color");
 	if (!lua_isnil(L, -1))
-		bgp_path_info_extra_get(path)->srte_color =
-			(uint32_t)lua_tointeger(L, -1);
+		bgp_path_info_extra_get(path)->srte_color = (uint32_t)lua_tointeger(L, -1);
 	lua_pop(L, 1);
 
 	/* pop the path table */
@@ -1017,12 +988,9 @@ void lua_pushattr(lua_State *L, const struct attr *attr)
 	lua_setfield(L, -2, "atomic_aggregate");
 
 	lua_push_community_field(L, bgp_attr_get_community(attr), "community");
-	lua_push_lcommunity_field(L, bgp_attr_get_lcommunity(attr),
-				  "large_community");
-	lua_push_ecommunity_field(L, bgp_attr_get_ecommunity(attr),
-				  "extcommunity");
-	lua_push_ecommunity_field(L, bgp_attr_get_ipv6_ecommunity(attr),
-				  "ipv6_extcommunity");
+	lua_push_lcommunity_field(L, bgp_attr_get_lcommunity(attr), "large_community");
+	lua_push_ecommunity_field(L, bgp_attr_get_ecommunity(attr), "extcommunity");
+	lua_push_ecommunity_field(L, bgp_attr_get_ipv6_ecommunity(attr), "ipv6_extcommunity");
 
 	lua_push_nexthop_table(L, attr);
 	lua_setfield(L, -2, "nexthop");
@@ -1115,8 +1083,7 @@ void lua_decode_attr(lua_State *L, int idx, struct attr *attr)
 
 	lua_getfield(L, idx, "label_index");
 	{
-		uint32_t label_index =
-			lua_isnil(L, -1) ? 0 : (uint32_t)lua_tointeger(L, -1);
+		uint32_t label_index = lua_isnil(L, -1) ? 0 : (uint32_t)lua_tointeger(L, -1);
 
 		/* nil or 0 clears Prefix-SID presence, consistent with
 		 * other optional numeric attributes.
