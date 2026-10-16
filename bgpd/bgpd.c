@@ -4722,6 +4722,9 @@ int bgp_delete(struct bgp *bgp)
 
 		vpn_leak_zebra_vrf_sid_withdraw(bgp, afi);
 
+		/* route-map locator SIDs, while vrf_id is still set */
+		bgp_srv6_per_locator_cache_reset(bgp, afi);
+
 		/* SRv6 unicast */
 		bgp_srv6_unicast_delete(bgp_default, afi);
 	}
