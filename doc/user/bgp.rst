@@ -6082,6 +6082,18 @@ Segment-Routing IPv6
      vpn_policy[AFI_IP].tovpn_sid: none
      vpn_policy[AFI_IP6].tovpn_sid: 2001:db8:1:1::200
 
+.. clicmd:: show bgp segment-routing srv6 locators
+
+   This command displays the SRv6 locators that zebra has notified to bgpd,
+   with their prefix. A locator does not need to be configured in a BGP
+   instance to be listed: these are the locators that a route-map can select.
+
+::
+
+   router# show bgp segment-routing srv6 locators
+   loc1                 2001:db8:1:1::/64
+   loc2                 2001:db8:2:2::/64
+
 .. clicmd:: show bgp ipv6 vpn detail
 
 The SID can be advertised along with other SRv6 fields in the BGP prefix sid
