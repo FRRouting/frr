@@ -1319,6 +1319,7 @@ static int ospf_zebra_read_route(ZAPI_CALLBACK_ARGS)
 	unsigned long ifindex = 0;
 	struct in_addr nexthop = {};
 	struct external_info *ei;
+	struct external_info *default_ei;
 	struct ospf *ospf;
 	int i;
 	uint8_t rt_type;
@@ -1387,6 +1388,19 @@ static int ospf_zebra_read_route(ZAPI_CALLBACK_ARGS)
 		ei = ospf_external_info_add(ospf, rt_type, api.instance, p,
 					    ifindex, nexthop, api.tag,
 					    api.metric);
+
+		/* Restore the persistent default route the implicit delete removed */
+		if (rt_type == ZEBRA_ROUTE_OSPF && is_default_prefix4(&p) &&
+		    ospf->default_originate == DEFAULT_ORIGINATE_ALWAYS) {
+			nexthop.s_addr = INADDR_ANY;
+			ospf_external_add(ospf, DEFAULT_ROUTE, 0);
+			default_ei = ospf_external_info_add(ospf, DEFAULT_ROUTE, 0, p, 0, nexthop,
+							    0,
+							    metric_value(ospf, DEFAULT_ROUTE, 0));
+			if (default_ei)
+				default_ei->default_always = true;
+		}
+
 		if (ei == NULL) {
 			/* Nothing has changed, so nothing to do; return */
 			return 0;
