@@ -145,15 +145,12 @@ static int zebra_vxlan_if_del_vni(struct interface *ifp,
 	struct zebra_l3vni *zl3vni;
 	struct interface *br_if;
 
-	/* Check if EVPN is enabled. */
-	if (!is_evpn_enabled())
-		return 0;
-
 	zif = ifp->info;
 	assert(zif);
 	vni = vnip->vni;
 
-	zl3vni = zl3vni_lookup(vni);
+	/* L3-VNIs are only processed while EVPN is enabled. */
+	zl3vni = is_evpn_enabled() ? zl3vni_lookup(vni) : NULL;
 	if (zl3vni) {
 
 		if (IS_ZEBRA_DEBUG_VXLAN)
@@ -176,12 +173,17 @@ static int zebra_vxlan_if_del_vni(struct interface *ifp,
 			zlog_debug("Del L2-VNI %u intf %s(%u)", vni, ifp->name,
 				   ifp->ifindex);
 
-		/* Locate hash entry; it is expected to exist. */
+		/*
+		 * L2-VNI hash entries survive a BGP disconnect (see
+		 * zebra_evpn_bgp_cfg_clean_up()) and are created by vrf-vni
+		 * removal, so they must be freed here even when EVPN is
+		 * disabled, or they leak.
+		 */
 		zevpn = zebra_evpn_lookup(vni);
-		if (!zevpn) {
-			zlog_debug(
-				"Failed to locate VNI hash at del, IF %s(%u) VNI %u",
-				ifp->name, ifp->ifindex, vni);
+		if (!zevpn || zevpn->vxlan_if != ifp) {
+			if (IS_ZEBRA_DEBUG_VXLAN)
+				zlog_debug("No L2-VNI %u bound to intf %s(%u) at del", vni,
+					   ifp->name, ifp->ifindex);
 			return 0;
 		}
 
