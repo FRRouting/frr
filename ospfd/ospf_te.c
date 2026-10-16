@@ -1770,7 +1770,7 @@ static int ospf_te_export(uint8_t type, void *link_state)
  * @param metric	Standard metric attached to this Edge
  */
 static void ospf_te_update_link(struct ls_ted *ted, struct ls_vertex *vertex,
-				struct in_addr link_data, uint8_t metric)
+				struct in_addr link_data, uint32_t metric)
 {
 	struct ls_edge *edge;
 	struct ls_attributes *attr;
@@ -1822,8 +1822,8 @@ static void ospf_te_update_link(struct ls_ted *ted, struct ls_vertex *vertex,
  * @param p		Prefix associated to the Subnet
  * @param metric	Standard metric attached to this Edge
  */
-static void ospf_te_update_subnet(struct ls_ted *ted, struct ls_vertex *vertex,
-				  struct prefix *p, uint8_t metric)
+static void ospf_te_update_subnet(struct ls_ted *ted, struct ls_vertex *vertex, struct prefix *p,
+				  uint32_t metric)
 {
 	struct ls_subnet *subnet;
 	struct ls_prefix *ls_pref;
