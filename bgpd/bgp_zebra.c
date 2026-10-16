@@ -4565,9 +4565,7 @@ static void bgp_zebra_process_srv6_locator_routemap_internal(struct bgp *bgp,
 		LIST_FOREACH_SAFE (path, &(bslc->paths), srv6_vpn.srv6_locator_thread, path_next) {
 			if (add == false) {
 				if (withdraw)
-					bgp_srv6_vpn_path_withdraw(bgp_get_default(),
-								   bgp_dest_get_prefix(path->net),
-								   afi, locator);
+					vpn_leak_from_vrf_withdraw(bgp_get_default(), bgp, path);
 				bgp_srv6_per_locator_unlink(path);
 			}
 			vpn_leak_from_vrf_update(bgp_get_default(), bgp, path);
