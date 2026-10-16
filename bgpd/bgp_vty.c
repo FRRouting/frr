@@ -11760,6 +11760,9 @@ DEFPY (bgp_imexport_vpn,
 			vpn_leak_prechange(dir, afi, bgp_default, bgp);
 		}
 		UNSET_FLAG(bgp->af_flags[afi][safi], flag);
+		if (dir == BGP_VPN_POLICY_DIR_TOVPN &&
+		    !vpn_leak_to_vpn_config_active(bgp, afi, NULL, true))
+			bgp_srv6_per_locator_cache_reset(bgp, afi);
 		if (previous_state && bgp_default &&
 		    !CHECK_FLAG(bgp_default->af_flags[afi][SAFI_MPLS_VPN],
 				BGP_VPNVX_RETAIN_ROUTE_TARGET_ALL))
