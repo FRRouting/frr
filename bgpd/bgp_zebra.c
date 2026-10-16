@@ -4272,8 +4272,6 @@ static void bgp_zebra_srv6_sid_notify_locator(struct srv6_sid_ctx *ctx,
 			/* Unregister the SID */
 			sid_unregister(bgp, bslc->sid_policy.tovpn_sid);
 			XFREE(MTYPE_BGP_SRV6_SID, bslc->sid_policy.tovpn_sid);
-			sid_unregister(bgp_vrf, bslc->sid_policy.tovpn_sid);
-			XFREE(MTYPE_BGP_SRV6_SID, bslc->sid_policy.tovpn_sid);
 			vpn_leak_postchange_all();
 			return;
 		}
