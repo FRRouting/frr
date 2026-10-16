@@ -649,3 +649,87 @@ def test_export_vpn_route_map_locator():
     output = r1.vtysh_cmd("show bgp ipv4 vpn 10.0.0.0/24")
     logger.info(output)
     assert result is True, result
+
+
+def test_no_export_vpn_route_map_locator_without_vrf_sid():
+    """
+    Restore locator NAME, set it on route-map entry 1 so that 192.168.1.0/24
+    and 10.0.0.0/24 use it, and remove the locator of Vrf20 while 'sid vpn
+    export auto' is configured, so that the SID of Vrf20 can not be allocated.
+    The prefixes whose locator NAME is set by the export route-map are exported.
+    Then unconfigure 'export vpn', and check that these prefixes are withdrawn.
+    Configure 'export vpn' again, and check that they are exported again.
+    """
+    tgen = get_topogen()
+
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    r1 = tgen.gears["r1"]
+    prefixes = ("10.0.0.0/24", "192.168.1.0/24")
+
+    r1.vtysh_multicmd(
+        """
+        configure
+        segment-routing
+        srv6
+        locators
+        locator NAME
+        prefix 2001:db09:1:2::/64
+        exit
+        exit
+        exit
+        exit
+        route-map rmap_locator permit 1
+        set segment-routing srv6 locator NAME
+        exit
+        router bgp 65001 vrf Vrf20
+        segment-routing srv6
+        no locator MAIN
+        exit
+        address-family ipv4 unicast
+        no sid vpn export 100
+        sid vpn export auto
+        """
+    )
+
+    @retry(retry_timeout=30)
+    def check_vpn_prefixes_exported(expect_exported):
+        for prefix in prefixes:
+            sids = get_vpn_prefix_sids(r1, prefix)
+            if not expect_exported:
+                if sids:
+                    return f"{prefix} still exported to VPN: {sids}"
+                continue
+            if not sids or not all(sid.startswith("2001:db09:1:2:") for sid in sids):
+                return f"{prefix} not exported with a SID of locator NAME: {sids}"
+        return True
+
+    result = check_vpn_prefixes_exported(True)
+    assert result is True, result
+
+    r1.vtysh_multicmd(
+        """
+        configure
+        router bgp 65001 vrf Vrf20
+        address-family ipv4 unicast
+        no export vpn
+        """
+    )
+
+    result = check_vpn_prefixes_exported(False)
+    output = r1.vtysh_cmd("show bgp ipv4 vpn 10.0.0.0/24")
+    logger.info(output)
+    assert result is True, result
+
+    r1.vtysh_multicmd(
+        """
+        configure
+        router bgp 65001 vrf Vrf20
+        address-family ipv4 unicast
+        export vpn
+        """
+    )
+
+    result = check_vpn_prefixes_exported(True)
+    assert result is True, result
