@@ -623,7 +623,7 @@ void bgp_srv6_per_locator_cache_delete_tovpn_sid(struct bgp_srv6_per_locator_cac
 		ctx.vrf_id = bslc->bgp->vrf_id;
 		ctx.behavior = bslc->afi == AFI_IP ? ZEBRA_SEG6_LOCAL_ACTION_END_DT4
 						   : ZEBRA_SEG6_LOCAL_ACTION_END_DT6;
-		ctx.alloc_mode = SRV6_SID_ALLOC_MODE_DYNAMIC;
+		ctx.alloc_mode = bslc->sid_policy.tovpn_zebra_sid_alloc_mode_last_sent;
 		bgp_zebra_release_srv6_sid(&ctx, bslc->locator_name);
 		sid_unregister(bgp_get_default(), bslc->sid_policy.tovpn_sid);
 		XFREE(MTYPE_BGP_SRV6_SID, bslc->sid_policy.tovpn_sid);
@@ -948,6 +948,7 @@ void bgp_srv6_per_locator_cache_ensure_tovpn_sid(struct bgp_srv6_per_locator_cac
 			 bslc->sid_policy.tovpn_sid_locator->name);
 		return;
 	}
+	bslc->sid_policy.tovpn_zebra_sid_alloc_mode_last_sent = ctx.alloc_mode;
 	if (debug)
 		zlog_debug("%s: allocating new SID for vrf %s: afi %s, locator %s", __func__,
 			   bslc->bgp->name_pretty, afi2str(bslc->afi),
