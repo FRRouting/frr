@@ -4410,8 +4410,10 @@ void bgp_process_main_one(struct bgp *bgp, struct bgp_dest *dest, afi_t afi, saf
 	 * we ignore the event for the prefix.
 	 */
 	if (BGP_INSTANCE_HIDDEN_DELETE_IN_PROGRESS(bgp, afi, safi)) {
-		if (dest)
+		if (dest) {
 			debug = bgp_debug_bestpath(dest);
+			UNSET_FLAG(dest->flags, BGP_NODE_PROCESS_SCHEDULED);
+		}
 		if (debug) {
 			dv = bgp_dest_debug_vrf(dest);
 			zlog_debug(
@@ -4468,6 +4470,7 @@ void bgp_process_main_one(struct bgp *bgp, struct bgp_dest *dest, afi_t afi, saf
 		if (BGP_DEBUG(update, UPDATE_OUT))
 			zlog_debug("SELECT_DEFER flag set for route %p(%s)",
 				   dest, bgp->name_pretty);
+		UNSET_FLAG(dest->flags, BGP_NODE_PROCESS_SCHEDULED);
 		return;
 	}
 
@@ -5470,6 +5473,8 @@ static void bgp_process_internal(struct bgp *bgp, struct bgp_dest *dest,
 				 struct bgp_path_info *pi, afi_t afi,
 				 safi_t safi, bool early_process)
 {
+	int ret;
+
 	/*
 	 * Indicate that *this* pi is in an unsorted
 	 * situation, even if the node is already
@@ -5518,21 +5523,25 @@ static void bgp_process_internal(struct bgp *bgp, struct bgp_dest *dest,
 		early_process = true;
 	}
 
+	if (early_process)
+		ret = early_route_process(bgp, dest);
+	else
+		ret = other_route_process(bgp, dest);
+
+	/* Take the queue's references only once dest is actually enqueued. */
+	if (ret < 0)
+		return;
+
 	/* all unlocked in process_subq_xxx functions */
 	bgp_table_lock(bgp_dest_table(dest));
 
 	SET_FLAG(dest->flags, BGP_NODE_PROCESS_SCHEDULED);
 	bgp_dest_lock_node(dest);
 
-	if (early_process) {
+	if (early_process)
 		SET_FLAG(dest->flags, BGP_NODE_ZEBRA_ANNOUNCE_EARLY);
-		early_route_process(bgp, dest);
-	} else {
+	else
 		UNSET_FLAG(dest->flags, BGP_NODE_ZEBRA_ANNOUNCE_EARLY);
-		other_route_process(bgp, dest);
-	}
-
-	return;
 }
 
 void bgp_process(struct bgp *bgp, struct bgp_dest *dest,
