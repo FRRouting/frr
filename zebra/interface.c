@@ -935,10 +935,13 @@ static void if_nbr_ipv6ll_to_ipv4ll_neigh_add_all(struct interface *ifp)
 		struct nbr_connected *nbr_connected;
 		struct listnode *node;
 
-		for (ALL_LIST_ELEMENTS_RO(ifp->nbr_connected, node,
-					  nbr_connected))
+		for (ALL_LIST_ELEMENTS_RO(ifp->nbr_connected, node, nbr_connected)) {
 			if_nbr_ipv6ll_to_ipv4ll_neigh_update(
 				ifp, &nbr_connected->address->u.prefix6, 1);
+			/* "ipv6 nd multi-access": 169.254.0.1 is the first one's */
+			if (((struct zebra_if *)ifp->info)->rtadv.MultiAccess)
+				break;
+		}
 	}
 }
 
@@ -948,10 +951,13 @@ void if_nbr_ipv6ll_to_ipv4ll_neigh_del_all(struct interface *ifp)
 		struct nbr_connected *nbr_connected;
 		struct listnode *node;
 
-		for (ALL_LIST_ELEMENTS_RO(ifp->nbr_connected, node,
-					  nbr_connected))
+		for (ALL_LIST_ELEMENTS_RO(ifp->nbr_connected, node, nbr_connected)) {
 			if_nbr_ipv6ll_to_ipv4ll_neigh_update(
 				ifp, &nbr_connected->address->u.prefix6, 0);
+			/* "ipv6 nd multi-access": 169.254.0.1 is the first one's */
+			if (((struct zebra_if *)ifp->info)->rtadv.MultiAccess)
+				break;
+		}
 	}
 }
 
