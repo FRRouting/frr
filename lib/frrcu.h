@@ -199,10 +199,18 @@ extern void rcu_close(struct rcu_head_close *head, int fd);
  *
  * seq_local is (if held) guaranteed <= seq_head, but note this is wrapping
  * sequence counter math
+ *
+ * seq_tail is the sequence number the RCU sweeper thread is waiting on, i.e.
+ * it's the last generation that might still be in use == it's guaranteed to be
+ * behind/equal to all threads, including the current one.  It's exported for
+ * use in lock-free tests (which cycle through memory rapidly.)
+ *
+ * seq_tail <= seq_local <= seq_head
  */
 struct rcu_local_state {
 	uint32_t seq_head;
 	uint32_t seq_local;
+	uint32_t seq_tail;
 };
 
 struct rcu_local_state rcu_local_state(void);
