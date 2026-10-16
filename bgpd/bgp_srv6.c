@@ -59,6 +59,8 @@ static bool bgp_srv6_unicast_dt46_needs_sid_request(struct bgp *bgp, afi_t afi)
 		bgp->srv6_unicast[afi].zebra_sid_last_sent = XCALLOC(MTYPE_BGP_SRV6_SID,
 								     sizeof(struct in6_addr));
 		*bgp->srv6_unicast[afi].zebra_sid_last_sent = *bgp->srv6_unicast[afi].sid;
+		bgp->srv6_unicast[afi].zebra_sid_alloc_mode_last_sent =
+			bgp->srv6_unicast[other_afi].zebra_sid_alloc_mode_last_sent;
 
 		return false;
 	}
@@ -92,6 +94,7 @@ void bgp_srv6_unicast_sid_withdraw_dt46(struct bgp *bgp, afi_t afi)
 		if (bgp->srv6_unicast[afi].sid_locator) {
 			ctx.behavior = ZEBRA_SEG6_LOCAL_ACTION_END_DT46;
 			ctx.vrf_id = bgp->vrf_id;
+			ctx.alloc_mode = bgp->srv6_unicast[afi].zebra_sid_alloc_mode_last_sent;
 			bgp_zebra_release_srv6_sid(&ctx, bgp->srv6_unicast[afi].sid_locator->name);
 		}
 		if (bgp->srv6_unicast[afi].sid)
