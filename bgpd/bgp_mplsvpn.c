@@ -1943,6 +1943,7 @@ void vpn_leak_from_vrf_update(struct bgp *to_bgp,	     /* to */
 	struct bgp_path_info rmap_bpi = { .extra = &rmap_extra };
 	route_map_result_t ret = RMAP_DENYMATCH;
 	struct bgp_srv6_per_locator_cache *bslc;
+	char rmap_locator[SRV6_LOCNAME_SIZE] = {};
 
 	if (debug)
 		zlog_debug("%s: from vrf %s", __func__, from_bgp->name_pretty);
@@ -1970,11 +1971,19 @@ void vpn_leak_from_vrf_update(struct bgp *to_bgp,	     /* to */
 	if (!is_route_injectable_into_vpn(path_vrf))
 		return;
 
+	if (!vpn_leak_to_vpn_config_active(from_bgp, afi, &debugmsg, false)) {
+		if (debug)
+			zlog_debug("%s: %s skipping: %s", __func__, from_bgp->name, debugmsg);
+		bgp_srv6_per_locator_unlink(path_vrf);
+		return;
+	}
+
 	/* Aggregate-address suppress check. */
 	if (bgp_path_suppressed(path_vrf)) {
 		if (debug)
 			zlog_debug("%s: %s skipping: suppressed path will not be exported",
 				   __func__, from_bgp->name);
+		bgp_srv6_per_locator_unlink(path_vrf);
 		return;
 	}
 
@@ -2030,7 +2039,6 @@ void vpn_leak_from_vrf_update(struct bgp *to_bgp,	     /* to */
 				      p, &info);
 		if (RMAP_DENYMATCH == ret) {
 			bgp_attr_flush(&static_attr); /* free any added parts */
-			bgp_srv6_per_locator_unlink(path_vrf);
 			bgp_srv6_path_locator_extra_free(&rmap_extra);
 			if (debug)
 				zlog_debug("%s: vrf %s route map \"%s\" says DENY, returning",
@@ -2043,59 +2051,19 @@ void vpn_leak_from_vrf_update(struct bgp *to_bgp,	     /* to */
 			 * attributes changed: withdraw the stale VPN path.
 			 */
 			vpn_leak_from_vrf_withdraw(to_bgp, from_bgp, path_vrf);
+			bgp_srv6_per_locator_unlink(path_vrf);
 			return;
 		}
-		bslc = path_vrf->srv6_vpn.bslc;
-		if (CHECK_FLAG(static_attr.rmap_change_flags, BATTR_RMAP_SRV6_LOCATOR_CHANGED)) {
-			if (bgp_srv6_locator_name_lookup(from_bgp, to_bgp) &&
-			    strmatch(rmap_extra.srv6_locator,
-				     bgp_srv6_locator_name_lookup(from_bgp, to_bgp)) &&
-			    (CHECK_FLAG(from_bgp->vpn_policy[afi].flags,
-					BGP_VPN_POLICY_TOVPN_SID_AUTO))) {
-				UNSET_FLAG(static_attr.rmap_change_flags,
-					   BATTR_RMAP_SRV6_LOCATOR_CHANGED);
-				bgp_srv6_per_locator_unlink(path_vrf);
-			}
-		}
-		if (CHECK_FLAG(static_attr.rmap_change_flags, BATTR_RMAP_SRV6_LOCATOR_CHANGED)) {
-			if ((bslc &&
-			     strcmp(bslc->locator_name, rmap_extra.srv6_locator)) ||
-			    !bslc) {
-				bgp_srv6_per_locator_unlink(path_vrf);
-				/* update bgp srv6 locator cache context */
-				bslc = bgp_srv6_per_locator_find(&from_bgp->srv6_locators_per_routemap
-									  [afi],
-								 rmap_extra.srv6_locator);
-				if (bslc == NULL) {
-					bslc = bgp_srv6_per_locator_new(
-						&from_bgp->srv6_locators_per_routemap[afi],
-						rmap_extra.srv6_locator);
-					bslc->afi = afi;
-					bslc->bgp = from_bgp;
-				}
-				bslc->path_count++;
-				bslc->last_update = monotime(NULL);
-				path_vrf->srv6_vpn.bslc = bslc;
-				LIST_INSERT_HEAD(&(bslc->paths), path_vrf,
-						 srv6_vpn.srv6_locator_thread);
-			}
-			/* else no change */
-			bgp_srv6_path_locator_extra_free(&rmap_extra);
-		} else if (bslc)
-			bgp_srv6_per_locator_unlink(path_vrf);
+		if (CHECK_FLAG(static_attr.rmap_change_flags, BATTR_RMAP_SRV6_LOCATOR_CHANGED) &&
+		    (!bgp_srv6_locator_name_lookup(from_bgp, to_bgp) ||
+		     !strmatch(rmap_extra.srv6_locator,
+			       bgp_srv6_locator_name_lookup(from_bgp, to_bgp)) ||
+		     !CHECK_FLAG(from_bgp->vpn_policy[afi].flags, BGP_VPN_POLICY_TOVPN_SID_AUTO)))
+			strlcpy(rmap_locator, rmap_extra.srv6_locator, sizeof(rmap_locator));
 		bgp_srv6_path_locator_extra_free(&rmap_extra);
-	} else
-		bgp_srv6_per_locator_unlink(path_vrf);
-
-	new_ecom = bgp_attr_get_ecommunity(&static_attr);
-	if (!CHECK_FLAG(static_attr.rmap_change_flags, BATTR_RMAP_SRV6_LOCATOR_CHANGED) &&
-	    !vpn_leak_to_vpn_active(from_bgp, afi, &debugmsg, false)) {
-		if (debug)
-			zlog_debug("%s: %s skipping: %s", __func__, from_bgp->name, debugmsg);
-		ecommunity_free(&new_ecom);
-		return;
 	}
 
+	new_ecom = bgp_attr_get_ecommunity(&static_attr);
 	if (!ecommunity_has_route_target(new_ecom)) {
 		ecommunity_free(&new_ecom);
 		if (debug)
@@ -2103,7 +2071,38 @@ void vpn_leak_from_vrf_update(struct bgp *to_bgp,	     /* to */
 				   __func__, from_bgp->name_pretty);
 		bgp_attr_flush(&static_attr);
 		vpn_leak_from_vrf_withdraw(to_bgp, from_bgp, path_vrf);
+		bgp_srv6_per_locator_unlink(path_vrf);
 		return;
+	}
+
+	bslc = path_vrf->srv6_vpn.bslc;
+	if (rmap_locator[0] == '\0') {
+		if (!vpn_leak_to_vpn_sid_active(from_bgp, afi, &debugmsg)) {
+			if (debug)
+				zlog_debug("%s: %s skipping: %s", __func__, from_bgp->name,
+					   debugmsg);
+			bgp_attr_flush(&static_attr);
+			/* the path may have been exported with a route-map locator SID */
+			vpn_leak_from_vrf_withdraw(to_bgp, from_bgp, path_vrf);
+			bgp_srv6_per_locator_unlink(path_vrf);
+			return;
+		}
+		bgp_srv6_per_locator_unlink(path_vrf);
+	} else if (!bslc || strcmp(bslc->locator_name, rmap_locator)) {
+		bgp_srv6_per_locator_unlink(path_vrf);
+		/* update bgp srv6 locator cache context */
+		bslc = bgp_srv6_per_locator_find(&from_bgp->srv6_locators_per_routemap[afi],
+						 rmap_locator);
+		if (bslc == NULL) {
+			bslc = bgp_srv6_per_locator_new(&from_bgp->srv6_locators_per_routemap[afi],
+							rmap_locator);
+			bslc->afi = afi;
+			bslc->bgp = from_bgp;
+		}
+		bslc->path_count++;
+		bslc->last_update = monotime(NULL);
+		path_vrf->srv6_vpn.bslc = bslc;
+		LIST_INSERT_HEAD(&(bslc->paths), path_vrf, srv6_vpn.srv6_locator_thread);
 	}
 
 	if (debug && bgp_attr_get_ecommunity(&static_attr)) {
@@ -2305,7 +2304,8 @@ void vpn_leak_from_vrf_withdraw(struct bgp *to_bgp,		/* to */
 	if (!is_route_injectable_into_vpn(path_vrf))
 		return;
 
-	if (!path_vrf->srv6_vpn.bslc && !vpn_leak_to_vpn_active(from_bgp, afi, &debugmsg, true)) {
+	if (path_vrf->srv6_vpn.bslc ? !vpn_leak_to_vpn_config_active(from_bgp, afi, &debugmsg, true)
+				    : !vpn_leak_to_vpn_active(from_bgp, afi, &debugmsg, true)) {
 		if (debug)
 			zlog_debug("%s: skipping: %s", __func__, debugmsg);
 		return;
