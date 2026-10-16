@@ -681,11 +681,10 @@ struct zebra_evpn *zebra_evpn_map_vlan(struct interface *ifp,
 	zif = br_if->info;
 	assert(zif);
 
-	/* Special case for vlan */
+	/* The VLAN's access BD is authoritative; the walk below ignores the VLAN. */
 	if (IS_ZEBRA_IF_BRIDGE_VLAN_AWARE(zif)) {
 		vni_id = zebra_l2_bridge_if_vni_find(zif, vid);
-		if (vni_id)
-			return zebra_evpn_lookup(vni_id);
+		return vni_id ? zebra_evpn_lookup(vni_id) : NULL;
 	}
 
 	in_param.vid = vid;
