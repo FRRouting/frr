@@ -1044,3 +1044,44 @@ def test_delete_vrf_instance_releases_locator_sid():
     )
 
     assert result is True, result
+
+
+def test_delete_vrf_releases_locator_sid():
+    """
+    Configure the Vrf20 BGP instance again, so that its prefixes use the SID
+    of locator NAME set by the export route-map. Then delete the Vrf20 VRF
+    from the kernel, and check that zebra no longer has any SID allocated by
+    bgp from locator NAME.
+    """
+    tgen = get_topogen()
+
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    r1 = tgen.gears["r1"]
+
+    r1.vtysh_multicmd(
+        """
+        configure
+        router bgp 65001 vrf Vrf20
+        bgp router-id 1.1.1.1
+        address-family ipv4 unicast
+        sid vpn export auto
+        redistribute connected
+        rd vpn export 65001:20
+        rt vpn both 65001:20
+        export vpn
+        import vpn
+        route-map vpn export rmap_locator
+        """
+    )
+
+    result = check_bgp_sid_of_locator(r1, "NAME", True)
+    assert result is True, result
+
+    r1.run("ip link del Vrf20")
+
+    result = check_bgp_sid_of_locator(r1, "NAME", False)
+    output = r1.vtysh_cmd("show segment-routing srv6 sid")
+    logger.info(output)
+    assert result is True, result
