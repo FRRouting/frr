@@ -1074,6 +1074,34 @@ def test_bgp_srv6_sid_dt46_disable_ipv6():
     check_ping("c1", "fd00:300::2", True, count=5, wait=0.5)
 
 
+def test_bgp_srv6_sid_dt46_released():
+    """
+    'behavior dt46' has been removed from both address-families.
+    Verify that the End.DT46 SID is released in the SID manager of R1.
+    """
+
+    tgen = get_topogen()
+
+    @retry(retry_timeout=10)
+    def check_no_bgp_dt46_sid():
+        output = json.loads(
+            tgen.gears["r1"].vtysh_cmd("show segment-routing srv6 sid json")
+        )
+        for sid, sid_info in output.items():
+            if sid_info.get("behavior") != "End.DT46":
+                continue
+            clients = [c.get("protocol") for c in sid_info.get("clients", [])]
+            if "bgp" in clients:
+                return "R1 End.DT46 SID %s is still allocated by bgp" % sid
+        return True
+
+    logger.info("Check R1 End.DT46 SID is released")
+    res = check_no_bgp_dt46_sid()
+    output = tgen.gears["r1"].vtysh_cmd("show segment-routing srv6 sid")
+    logger.info(output)
+    assert res is True, res
+
+
 def test_bgp_srv6_sid_dt46_restore():
     """
     Remove 'behavior dt46' and restore the original explicit/index SID config.
