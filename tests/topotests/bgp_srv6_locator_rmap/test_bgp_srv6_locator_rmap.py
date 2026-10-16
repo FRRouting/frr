@@ -904,3 +904,38 @@ def test_withdraw_route_map_locator_path_after_update_without_vrf_sid():
     assert exported is True, exported
     assert no_locator is True, no_locator
     assert restored is True, restored
+
+
+def test_delete_vrf_instance_releases_locator_sid():
+    """
+    Remove the Vrf20 BGP instance, whose prefixes use the SID of locator NAME
+    set by the export route-map. Check that zebra no longer has any SID
+    allocated by bgp for Vrf20.
+    """
+    tgen = get_topogen()
+
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    r1 = tgen.gears["r1"]
+
+    result = check_locator_count(r1, "Vrf20", "NAME", 2)
+    assert result is None, result
+
+    r1.vtysh_cmd("conf t\nno router bgp 65001 vrf Vrf20")
+
+    @retry(retry_timeout=30)
+    def check_no_bgp_sid_for_vrf20():
+        output = json.loads(r1.vtysh_cmd("show segment-routing srv6 sid json"))
+        for sid, sid_info in output.items():
+            if sid_info.get("context", {}).get("vrfName") != "Vrf20":
+                continue
+            clients = [c.get("protocol") for c in sid_info.get("clients", [])]
+            if "bgp" in clients:
+                return f"SID {sid} of locator {sid_info.get('locator')} still allocated by bgp for Vrf20"
+        return True
+
+    result = check_no_bgp_sid_for_vrf20()
+    output = r1.vtysh_cmd("show segment-routing srv6 sid")
+    logger.info(output)
+    assert result is True, result
