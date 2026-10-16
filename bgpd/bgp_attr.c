@@ -1377,8 +1377,7 @@ static void attr_show_all_iterator(struct hash_bucket *bucket, void *args[])
 		attr->nh_ifindex, attr->nh_flags, attr->distance, &attr->mp_nexthop_global,
 		&attr->mp_nexthop_local, attr->nh_lla_ifindex);
 	vty_out(vty, "\taspath: %s Community: %s Large Community: %s\n", aspath_print(attr->aspath),
-		community_str(attr->community, false, false),
-		lcommunity_str(attr->lcommunity, false, false));
+		community_str(attr->community, false), lcommunity_str(attr->lcommunity, false));
 	vty_out(vty, "\tExtended Community: %s Extended IPv6 Community: %s\n",
 		ecommunity_str(attr->ecommunity),
 		ecommunity_str(bgp_attr_get_ipv6_ecommunity(attr)));

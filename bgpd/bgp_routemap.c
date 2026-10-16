@@ -7168,7 +7168,7 @@ DEFUN_YANG (set_community,
 	XFREE(MTYPE_TMP, str);
 
 	/* Set communities attribute string.  */
-	str = community_str(com, false, false);
+	str = community_str(com, false);
 
 	if (additive) {
 		size_t argstr_sz = strlen(str) + strlen(" additive") + 1;

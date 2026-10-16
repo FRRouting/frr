@@ -55,6 +55,7 @@
 #include "bgpd/bgp_trace.h"
 #include "bgpd/bgp_community.h"
 #include "bgpd/bgp_lcommunity.h"
+#include "bgpd/bgp_community_alias.h"
 #include "bgpd/bgp_srv6.h"
 #include "bgpd/bgp_ls.h"
 #include "bgpd/bgp_ls_ted.h"
@@ -1673,15 +1674,21 @@ enum zclient_send_status bgp_zebra_announce_actual(struct bgp_dest *dest,
 		strlcpy(bzo.aspath, info->attr->aspath->str,
 			sizeof(bzo.aspath));
 
-		if (bgp_attr_exists(info->attr, BGP_ATTR_COMMUNITIES))
-			strlcpy(bzo.community,
-				bgp_attr_get_community(info->attr)->str,
-				sizeof(bzo.community));
+		if (bgp_attr_exists(info->attr, BGP_ATTR_COMMUNITIES)) {
+			char *str =
+				bgp_community2alias_str(bgp_attr_get_community(info->attr)->str);
 
-		if (bgp_attr_exists(info->attr, BGP_ATTR_LARGE_COMMUNITIES))
-			strlcpy(bzo.lcommunity,
-				bgp_attr_get_lcommunity(info->attr)->str,
-				sizeof(bzo.lcommunity));
+			strlcpy(bzo.community, str, sizeof(bzo.community));
+			XFREE(MTYPE_TMP, str);
+		}
+
+		if (bgp_attr_exists(info->attr, BGP_ATTR_LARGE_COMMUNITIES)) {
+			char *str =
+				bgp_community2alias_str(bgp_attr_get_lcommunity(info->attr)->str);
+
+			strlcpy(bzo.lcommunity, str, sizeof(bzo.lcommunity));
+			XFREE(MTYPE_TMP, str);
+		}
 
 		strlcpy(bzo.selection_reason, reason,
 			sizeof(bzo.selection_reason));

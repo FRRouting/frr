@@ -56,7 +56,7 @@ static void test_large_community_not_truncated(void)
 	com = community_str2com(input);
 	assert(com);
 
-	str = community_str(com, false, false);
+	str = community_str(com, false);
 
 	printf("rendered string length: %zu (%d communities)\n", strlen(str),
 	       com->size);

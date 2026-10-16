@@ -25,6 +25,7 @@
 #include "bgpd/bgp_debug.h"
 #include "bgpd/bgp_community.h"
 #include "bgpd/bgp_lcommunity.h"
+#include "bgpd/bgp_community_alias.h"
 #include "bgpd/bgp_updgrp.h"
 #include "bgpd/bgp_mplsvpn.h"
 #include "bgpd/bgp_ecommunity.h"
@@ -445,13 +446,21 @@ bool bgp_dump_attr(struct attr *attr, char *buf, size_t size)
 	if (bgp_attr_exists(attr, BGP_ATTR_MULTI_EXIT_DISC))
 		snprintfrr(buf + strlen(buf), size - strlen(buf), ", metric %u", attr->med);
 
-	if (bgp_attr_exists(attr, BGP_ATTR_COMMUNITIES))
-		snprintfrr(buf + strlen(buf), size - strlen(buf), ", community %s",
-			   community_str(bgp_attr_get_community(attr), false, true));
+	if (bgp_attr_exists(attr, BGP_ATTR_COMMUNITIES)) {
+		char *str = bgp_community2alias_str(
+			community_str(bgp_attr_get_community(attr), false));
 
-	if (bgp_attr_exists(attr, BGP_ATTR_LARGE_COMMUNITIES))
-		snprintfrr(buf + strlen(buf), size - strlen(buf), ", large-community %s",
-			   lcommunity_str(bgp_attr_get_lcommunity(attr), false, true));
+		snprintfrr(buf + strlen(buf), size - strlen(buf), ", community %s", str);
+		XFREE(MTYPE_TMP, str);
+	}
+
+	if (bgp_attr_exists(attr, BGP_ATTR_LARGE_COMMUNITIES)) {
+		char *str = bgp_community2alias_str(
+			lcommunity_str(bgp_attr_get_lcommunity(attr), false));
+
+		snprintfrr(buf + strlen(buf), size - strlen(buf), ", large-community %s", str);
+		XFREE(MTYPE_TMP, str);
+	}
 
 	if (bgp_attr_exists(attr, BGP_ATTR_EXT_COMMUNITIES))
 		snprintfrr(buf + strlen(buf), size - strlen(buf), ", extcommunity %s",

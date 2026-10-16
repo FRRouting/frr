@@ -54,8 +54,7 @@ extern unsigned int lcommunity_hash_make(const void *arg);
 extern struct hash *lcommunity_hash(void);
 extern struct lcommunity *lcommunity_str2com(const char *str);
 extern bool lcommunity_match(const struct lcommunity *lcom1, const struct lcommunity *lcom2);
-extern char *lcommunity_str(struct lcommunity *lcom, bool make_json,
-			    bool translate_alias);
+extern char *lcommunity_str(struct lcommunity *lcom, bool make_json);
 extern bool lcommunity_include(struct lcommunity *lcom, uint8_t *ptr);
 extern void lcommunity_del_val(struct lcommunity *lcom, uint8_t *ptr);
 

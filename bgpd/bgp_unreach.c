@@ -1074,7 +1074,7 @@ static void bgp_unreach_path_detail_json(json_object *json_path,
 
 		if (comm) {
 			if (!comm->json)
-				community_str(comm, true, true);
+				community_str(comm, true);
 			json_object_lock(comm->json);
 			json_object_object_add(json_path, "community",
 					       comm->json);

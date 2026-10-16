@@ -159,31 +159,30 @@ const char *bgp_alias2community(char *alias)
 	return alias;
 }
 
-/* Communities structs have `->str` which is used
- * for vty outputs and extended BGP community lists
- * with regexp.
- * This is a helper to convert already aliased version
- * of communities into numerical-only format.
+/* Communities structs cache `->str` without aliases (AS:VAL and
+ * well-known names only), which is used for matching.
+ * This is a helper to convert it into the aliased version
+ * for outputs. The result must be freed with MTYPE_TMP.
  */
-char *bgp_alias2community_str(const char *str)
+char *bgp_community2alias_str(const char *str)
 {
-	char **aliases;
-	char *comstr;
+	char **communities;
+	char *aliasstr;
 	int num, i;
 
-	frrstr_split(str, " ", &aliases, &num);
-	const char *communities[num];
+	frrstr_split(str, " ", &communities, &num);
+	const char *aliases[num];
 
 	for (i = 0; i < num; i++)
-		communities[i] = bgp_alias2community(aliases[i]);
+		aliases[i] = bgp_community2alias(communities[i]);
 
-	comstr = frrstr_join(communities, num, " ");
+	aliasstr = frrstr_join(aliases, num, " ");
 
 	for (i = 0; i < num; i++)
-		XFREE(MTYPE_TMP, aliases[i]);
-	XFREE(MTYPE_TMP, aliases);
+		XFREE(MTYPE_TMP, communities[i]);
+	XFREE(MTYPE_TMP, communities);
 
-	return comstr;
+	return aliasstr;
 }
 
 static int bgp_community_alias_vector_walker(struct hash_bucket *bucket,
