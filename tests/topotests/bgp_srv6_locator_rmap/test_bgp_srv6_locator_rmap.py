@@ -906,6 +906,78 @@ def test_withdraw_route_map_locator_path_after_update_without_vrf_sid():
     assert restored is True, restored
 
 
+def test_route_map_locator_localsid_uninstall():
+    """
+    Locator NAME is set by entries 1 and 2 of rmap_locator. Remove the set
+    command from both entries: no prefix uses locator NAME any more, and the
+    local SID of locator NAME must be removed from the RIB.
+    """
+    tgen = get_topogen()
+
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    r1 = tgen.gears["r1"]
+
+    def get_name_sid():
+        output = json.loads(r1.vtysh_cmd("show bgp vrf Vrf20 locator-routemap json"))
+        for entry in output:
+            if entry.get("locatorName") == "NAME":
+                return entry.get("sid")
+        return None
+
+    @retry(retry_timeout=30)
+    def check_localsid_installed(sid, expect_installed):
+        output = json.loads(r1.vtysh_cmd(f"show ipv6 route {sid}/128 json"))
+        installed = f"{sid}/128" in output
+        if installed != expect_installed:
+            return (
+                f"local SID {sid} installed: {installed}, expected {expect_installed}"
+            )
+        return True
+
+    sid = get_name_sid()
+    assert sid, "locator NAME has no SID"
+
+    result = check_localsid_installed(sid, True)
+    assert result is True, result
+
+    r1.vtysh_multicmd(
+        """
+        configure
+        route-map rmap_locator permit 1
+        no set segment-routing srv6 locator
+        exit
+        route-map rmap_locator permit 2
+        no set segment-routing srv6 locator
+        """
+    )
+
+    result = check_localsid_installed(sid, False)
+    output = r1.vtysh_cmd(f"show ipv6 route {sid}/128")
+    logger.info(output)
+
+    r1.vtysh_multicmd(
+        """
+        configure
+        route-map rmap_locator permit 1
+        set segment-routing srv6 locator NAME
+        exit
+        route-map rmap_locator permit 2
+        set segment-routing srv6 locator NAME
+        """
+    )
+
+    @retry(retry_timeout=30)
+    def check_name_used_by_two_paths():
+        return check_locator_count(r1, "Vrf20", "NAME", 2) or True
+
+    restored = check_name_used_by_two_paths()
+
+    assert result is True, result
+    assert restored is True, restored
+
+
 def test_delete_vrf_instance_releases_locator_sid():
     """
     Remove the Vrf20 BGP instance, whose prefixes use the SID of locator NAME
