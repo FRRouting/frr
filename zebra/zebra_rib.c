@@ -1702,7 +1702,15 @@ static bool rib_compare_routes(const struct route_entry *re1, const struct route
 	    re1->metric != re2->metric)
 		return false;
 
-	if (re1->type == ZEBRA_ROUTE_KERNEL && !replace)
+	/*
+	 * Kernel routes that are not a replacement may still be the same
+	 * route being relearned, as happens when a route present during the
+	 * startup read is also delivered as an event.  Only a differing
+	 * nexthop means they are distinct routes, as with v6 RA defaults
+	 * from separate routers.
+	 */
+	if (re1->type == ZEBRA_ROUTE_KERNEL && !replace &&
+	    !nexthop_group_equal_no_recurse(&re1->nhe->nhg, &re2->nhe->nhg))
 		return false;
 
 	if (CHECK_FLAG(re1->flags, ZEBRA_FLAG_RR_USE_DISTANCE) &&
