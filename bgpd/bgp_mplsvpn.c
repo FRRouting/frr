@@ -535,7 +535,6 @@ void vpn_leak_zebra_vrf_sid_withdraw_per_af(struct bgp *bgp, afi_t afi)
 	      bgp->vpn_policy[afi].tovpn_zebra_vrf_sid_last_sent);
 	bgp->vpn_policy[afi].tovpn_zebra_vrf_sid_last_sent = NULL;
 	ctx.alloc_mode = bgp->vpn_policy[afi].tovpn_zebra_vrf_sid_alloc_mode_last_sent;
-	bgp->vpn_policy[afi].tovpn_zebra_vrf_sid_alloc_mode_last_sent = SRV6_SID_ALLOC_MODE_UNSPEC;
 
 	ctx.vrf_id = bgp->vrf_id;
 	ctx.behavior = afi == AFI_IP ? ZEBRA_SEG6_LOCAL_ACTION_END_DT4
@@ -584,7 +583,6 @@ void vpn_leak_zebra_vrf_sid_withdraw_per_vrf(struct bgp *bgp)
 	XFREE(MTYPE_BGP_SRV6_SID, bgp->tovpn_zebra_vrf_sid_last_sent);
 	bgp->tovpn_zebra_vrf_sid_last_sent = NULL;
 	ctx.alloc_mode = bgp->tovpn_zebra_vrf_sid_alloc_mode_last_sent;
-	bgp->tovpn_zebra_vrf_sid_alloc_mode_last_sent = SRV6_SID_ALLOC_MODE_UNSPEC;
 	ctx.vrf_id = bgp->vrf_id;
 	ctx.behavior = ZEBRA_SEG6_LOCAL_ACTION_END_DT46;
 	bgp_zebra_release_srv6_sid(&ctx, bgp->tovpn_sid_locator->name);
