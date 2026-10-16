@@ -247,7 +247,12 @@ bool isis_flex_algo_constraint_drop(struct isis_spftree *spftree, struct isis_ls
 	if (!fad)
 		return true;
 
-	for (ALL_LIST_ELEMENTS_RO(subtlvs->aslas, node, asla)) {
+	/*
+	 * A link can be advertised without any sub-TLV (RFC 5305 section 3),
+	 * which leaves reach->subtlvs NULL. Like a link without an ASLA, it has
+	 * no admin group, so only include-any and include-all can drop it.
+	 */
+	for (ALL_LIST_ELEMENTS_RO(subtlvs ? subtlvs->aslas : NULL, node, asla)) {
 		if (!CHECK_FLAG(asla->standard_apps, ISIS_SABM_FLAG_X))
 			continue;
 		if (asla->legacy) {
