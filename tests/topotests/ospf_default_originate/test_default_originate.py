@@ -153,6 +153,72 @@ def test_default_route_generation():
     }, missing=True)
 
 
+def expect_ospf_default_route(router, nexthop, missing=False):
+    tgen = get_topogen()
+    expected = {"0.0.0.0/0": [{"protocol": "ospf", "nexthops": [{"ip": nexthop}]}]}
+
+    def router_default_route():
+        output = tgen.gears[router].vtysh_cmd(
+            "show ip route 0.0.0.0/0 json", isjson=True
+        )
+        return topotest.json_cmp(output, expected) is None
+
+    if missing:
+        expect = False
+        message = f"OSPF default route via {nexthop} present in router {router}"
+    else:
+        expect = True
+        message = f"OSPF default route via {nexthop} is missing from {router}"
+
+    _, result = topotest.run_and_expect(router_default_route, expect, count=120, wait=1)
+    assert result is expect, message
+
+
+def test_default_route_always_redundant():
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    # Both routers originate a default route, each learns the other one
+    for router in ["r1", "r2"]:
+        tgen.gears[router].vtysh_cmd(
+            """
+        configure terminal
+        router ospf
+         default-information originate always
+        """
+        )
+
+    logger.info("Expect each router to learn the other router's default route")
+    expect_ospf_default_route("r1", "192.168.0.2")
+    expect_ospf_default_route("r2", "192.168.0.1")
+
+    # r2 keeps originating once r1 stops
+    tgen.gears["r1"].vtysh_cmd(
+        """
+    configure terminal
+    router ospf
+     no default-information originate always
+    """
+    )
+
+    logger.info("Expect r2 to stop learning r1's default route")
+    expect_ospf_default_route("r2", "192.168.0.1", missing=True)
+
+    logger.info("Expect r1 to still learn r2's default route")
+    expect_ospf_default_route("r1", "192.168.0.2")
+
+    tgen.gears["r2"].vtysh_cmd(
+        """
+    configure terminal
+    router ospf
+     no default-information originate always
+    """
+    )
+
+    expect_ospf_default_route("r1", "192.168.0.2", missing=True)
+
+
 def test_memory_leak():
     "Run the memory leak test and report results."
     tgen = get_topogen()
