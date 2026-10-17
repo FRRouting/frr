@@ -141,7 +141,6 @@ extern bool is_valid_summary_addr(struct prefix_ipv4 *p);
 extern struct ospf_external_aggr_rt *
 ospf_external_aggr_match(struct ospf *ospf, struct prefix_ipv4 *p);
 extern void ospf_unlink_ei_from_aggr(struct ospf *ospf,
-				     struct ospf_external_aggr_rt *aggr,
 				     struct external_info *ei);
 extern struct ospf_lsa *
 ospf_originate_summary_lsa(struct ospf *ospf,

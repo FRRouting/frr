@@ -9,13 +9,22 @@ noinst_HEADERS += \
 
 if OSPFD
 check_PROGRAMS += tests/ospfd/test_ospf_spf
+check_PROGRAMS += tests/ospfd/test_ospf_asbr_summary
 endif
 tests_ospfd_test_ospf_spf_CFLAGS = $(TESTS_CFLAGS)
 tests_ospfd_test_ospf_spf_CPPFLAGS = $(TESTS_CPPFLAGS)
 tests_ospfd_test_ospf_spf_LDADD = $(OSPFD_TEST_LDADD)
 tests_ospfd_test_ospf_spf_SOURCES = tests/ospfd/test_ospf_spf.c tests/ospfd/common.c tests/ospfd/topologies.c
+tests_ospfd_test_ospf_asbr_summary_CFLAGS = $(TESTS_CFLAGS)
+tests_ospfd_test_ospf_asbr_summary_CPPFLAGS = $(TESTS_CPPFLAGS)
+tests_ospfd_test_ospf_asbr_summary_LDADD = $(OSPFD_TEST_LDADD)
+tests_ospfd_test_ospf_asbr_summary_SOURCES = \
+	tests/ospfd/test_ospf_asbr_summary.c \
+	# end
 EXTRA_DIST += \
 	tests/ospfd/test_ospf_spf.py \
 	tests/ospfd/test_ospf_spf.in \
 	tests/ospfd/test_ospf_spf.refout \
+	tests/ospfd/test_ospf_asbr_summary.py \
+	tests/ospfd/test_ospf_asbr_summary.refout \
 	# end

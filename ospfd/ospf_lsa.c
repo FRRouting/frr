@@ -2754,7 +2754,7 @@ void ospf_external_lsa_refresh_type(struct ospf *ospf, uint8_t type, uint8_t ins
 		if (aggr) {
 			/* Check the AS-external-LSA should be originated. */
 			if (!ospf_redistribute_check(ospf, ei, NULL)) {
-				ospf_unlink_ei_from_aggr(ospf, aggr, ei);
+				ospf_unlink_ei_from_aggr(ospf, ei);
 				continue;
 			}
 
