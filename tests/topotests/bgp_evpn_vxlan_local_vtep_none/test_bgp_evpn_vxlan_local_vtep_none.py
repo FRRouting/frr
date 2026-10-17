@@ -16,6 +16,7 @@ sys.path.append(os.path.join(CWD, "../"))
 # pylint: disable=C0413
 from lib import topotest
 from lib.topogen import Topogen, get_topogen
+from lib.common_config import shutdown_bringup_interface_in_kernel
 
 pytestmark = [pytest.mark.bgpd, pytest.mark.evpn]
 
@@ -24,20 +25,23 @@ ROUTER_ID = "10.0.0.1"
 
 
 def setup_module(mod):
+    if not topotest.platform_has_evpn():
+        pytest.skip("platform does not support EVPN")
+
     topodef = {"s1": ("r1", "r2")}
     tgen = Topogen(topodef, mod.__name__)
     tgen.start_topology()
 
     router = tgen.gears["r1"]
     router.cmd_raises(f"ip link add name br{VNI} type bridge")
-    router.cmd_raises("ip link set dev r1-eth0 up")
+    shutdown_bringup_interface_in_kernel(router.tgen, router.name, "r1-eth0", True)
     router.cmd_raises(
         f"ip link add vxlan{VNI} type vxlan id {VNI} dstport 4789 "
         "group 239.1.1.1 dev r1-eth0 nolearning"
     )
     router.cmd_raises(f"ip link set dev vxlan{VNI} master br{VNI}")
-    router.cmd_raises(f"ip link set dev br{VNI} up")
-    router.cmd_raises(f"ip link set dev vxlan{VNI} up")
+    shutdown_bringup_interface_in_kernel(router.tgen, router.name, f"br{VNI}", True)
+    shutdown_bringup_interface_in_kernel(router.tgen, router.name, f"vxlan{VNI}", True)
 
     for router in tgen.routers().values():
         router.load_frr_config()

@@ -24,32 +24,38 @@ sys.path.append(os.path.join(CWD, "../"))
 from lib import topotest
 from lib.topogen import Topogen, get_topogen
 from lib.topolog import logger
+from lib.common_config import shutdown_bringup_interface_in_kernel
 
 
 def setup_module(mod):
+    if not topotest.platform_has_evpn():
+        pytest.skip("platform does not support EVPN")
+
     topodef = {"s1": ("c1", "r1"), "s2": ("r1", "r2"), "s3": ("r2", "c2")}
     tgen = Topogen(topodef, mod.__name__)
     tgen.start_topology()
 
-    tgen.net["r1"].cmd(
+    tgen.net['r1'].cmd(
         """
+
 ip link add vxlan10 type vxlan id 10 dstport 4789 local 10.10.10.1 nolearning
 ip link add name br10 type bridge
 ip link set dev vxlan10 master br10
 ip link set dev r1-eth0 master br10
-ip link set up dev br10
-ip link set up dev vxlan10"""
-    )
+    """)
+    shutdown_bringup_interface_in_kernel(tgen, 'r1', "br10", True)
+    shutdown_bringup_interface_in_kernel(tgen, 'r1', "vxlan10", True)
 
-    tgen.net["r2"].cmd(
+    tgen.net['r2'].cmd(
         """
+
 ip link add vxlan10 type vxlan id 10 dstport 4789 local 10.10.10.2 nolearning
 ip link add name br10 type bridge
 ip link set dev vxlan10 master br10
 ip link set dev r2-eth1 master br10
-ip link set up dev br10
-ip link set up dev vxlan10"""
-    )
+    """)
+    shutdown_bringup_interface_in_kernel(tgen, 'r2', "br10", True)
+    shutdown_bringup_interface_in_kernel(tgen, 'r2', "vxlan10", True)
 
     router_list = tgen.routers()
 

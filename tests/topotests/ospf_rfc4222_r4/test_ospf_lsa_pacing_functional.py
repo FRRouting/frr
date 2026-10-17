@@ -101,7 +101,7 @@ import time
 from lib.topogen import Topogen
 
 
-pytestmark = [pytest.mark.ospfd]
+pytestmark = [pytest.mark.ospfd, pytest.mark.freebsd]
 
 # Prefixes injected as blackhole static routes on R1.
 # All tests use the same set — each test gets a fresh topology so there is

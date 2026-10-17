@@ -51,7 +51,7 @@ from lib.ospf import (
 
 from ipaddress import IPv6Address
 
-pytestmark = [pytest.mark.ospf6d, pytest.mark.staticd]
+pytestmark = [pytest.mark.ospf6d, pytest.mark.staticd, pytest.mark.freebsd]
 
 
 # Global variables

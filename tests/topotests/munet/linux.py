@@ -12,6 +12,7 @@ import ctypes.util  # pylint: disable=C0415
 import errno
 import functools
 import os
+import sys
 
 
 libc = None
@@ -132,8 +133,9 @@ def pidfd_open(pid, flags=0):
     return fd
 
 
-# Runtime patch if kernel supports the call.
-if not hasattr(os, "pidfd_open"):
+# Runtime patch if kernel supports the call. platform.release() on FreeBSD
+# 15.1 is "15.1-RELEASE", which would otherwise pass the version check.
+if not hasattr(os, "pidfd_open") and sys.platform.startswith("linux"):
     try:
         import platform
 

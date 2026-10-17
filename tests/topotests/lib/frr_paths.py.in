@@ -1,0 +1,6 @@
+# SPDX-License-Identifier: GPL-2.0-or-later
+#
+# Generated from frr_paths.py.in by configure.  Do not edit.
+# frr_sysconfdir is expanded by AX_SUBST_EXPANDED in configure.ac.
+
+FRR_SYSCONFDIR = "@e_frr_sysconfdir@"

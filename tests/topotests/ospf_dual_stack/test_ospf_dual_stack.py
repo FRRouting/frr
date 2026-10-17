@@ -25,7 +25,7 @@ from lib.ospf import (
     verify_ospf6_neighbor,
 )
 
-pytestmark = [pytest.mark.ospfd, pytest.mark.staticd]
+pytestmark = [pytest.mark.ospfd, pytest.mark.staticd, pytest.mark.freebsd]
 
 
 # Global variables

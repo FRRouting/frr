@@ -47,7 +47,7 @@ from lib.bgp import verify_bgp_convergence_from_running_config
 from lib.topogen import Topogen, get_topogen
 from lib.topolog import logger
 
-pytestmark = [pytest.mark.bgpd]
+pytestmark = [pytest.mark.bgpd, pytest.mark.freebsd]
 
 
 def build_topo(tgen):

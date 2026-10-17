@@ -26,7 +26,7 @@ sys.path.append(os.path.join(CWD, "../"))
 from lib import topotest
 from lib.topogen import Topogen, TopoRouter
 
-pytestmark = [pytest.mark.bgpd]
+pytestmark = [pytest.mark.bgpd, pytest.mark.freebsd]
 
 
 topodef = {f"s{i}": ("r1", f"r{i}") for i in range(2, 7)}

@@ -44,7 +44,7 @@ from lib.topolog import logger
 # every directory that ships one, once pytest collects them together.
 from bgp_update_dup_prefix.rawpeer import CASES, LOCAL_IP, SENTINEL
 
-pytestmark = [pytest.mark.bgpd]
+pytestmark = [pytest.mark.bgpd, pytest.mark.freebsd]
 
 PEER_NAME = "peer1"
 PEER_SCRIPT = os.path.join(CWD, "rawpeer.py")

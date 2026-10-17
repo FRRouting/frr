@@ -14,7 +14,7 @@ import json
 import pytest
 from lib.topogen import Topogen
 
-pytestmark = [pytest.mark.ripd, pytest.mark.mgmtd]
+pytestmark = [pytest.mark.ripd, pytest.mark.mgmtd, pytest.mark.freebsd]
 
 
 @pytest.fixture(scope="module")

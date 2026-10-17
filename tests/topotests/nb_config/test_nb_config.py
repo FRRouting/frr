@@ -15,7 +15,7 @@ import pytest
 from lib.topogen import Topogen
 from lib.topotest import json_cmp
 
-pytestmark = [pytest.mark.mgmtd]
+pytestmark = [pytest.mark.mgmtd, pytest.mark.freebsd]
 
 CWD = os.path.dirname(os.path.realpath(__file__))
 

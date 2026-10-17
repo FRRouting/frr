@@ -20,7 +20,7 @@ from lib.topogen import Topogen
 from munet.base import Timeout
 from munet.watchlog import WatchLog
 
-pytestmark = [pytest.mark.staticd]
+pytestmark = [pytest.mark.staticd, pytest.mark.freebsd]
 
 
 @pytest.fixture(scope="function")

@@ -86,8 +86,10 @@ def test_frr_reload_segment_routing():
 
         return sanitized_config
 
-    frrdir = tgen.config.get(tgen.CONFIG_SECTION, "frrdir")
-    frrreload = frrdir + "/frr-reload.py --reload"
+    frrreload = (
+        topotest.frr_reload_script(tgen.config.get(tgen.CONFIG_SECTION, "frrdir"))
+        + " --reload"
+    )
 
     r1.cmd_raises("vtysh -c 'write terminal no-header' > frr-clean.conf")
 

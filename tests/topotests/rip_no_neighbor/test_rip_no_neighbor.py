@@ -30,7 +30,7 @@ from lib import topotest
 from lib.topogen import Topogen, TopoRouter
 from lib.common_config import step
 
-pytestmark = [pytest.mark.ripd, pytest.mark.staticd]
+pytestmark = [pytest.mark.ripd, pytest.mark.staticd, pytest.mark.freebsd]
 
 
 def build_topo(tgen):

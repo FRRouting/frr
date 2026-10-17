@@ -39,7 +39,7 @@ from lib import topotest
 from lib.topogen import Topogen, TopoRouter, get_topogen
 from lib.topolog import logger
 
-pytestmark = [pytest.mark.bgpd, pytest.mark.sharpd]
+pytestmark = [pytest.mark.bgpd, pytest.mark.sharpd, pytest.mark.freebsd]
 
 # Number of routes originated by r1 via sharpd
 ROUTE_COUNT = 1000

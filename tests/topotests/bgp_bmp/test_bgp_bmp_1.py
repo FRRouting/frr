@@ -46,6 +46,7 @@ from .bgpbmp import (
 )
 from lib.topogen import Topogen, get_topogen
 from lib.topolog import logger
+from lib.common_config import shutdown_bringup_interface_in_kernel
 
 pytestmark = [pytest.mark.bgpd]
 
@@ -73,6 +74,9 @@ def build_topo(tgen):
 
 
 def setup_module(mod):
+    if not topotest.platform_has_vrf():
+        pytest.skip("platform does not support VRF")
+
     tgen = Topogen(build_topo, mod.__name__)
     tgen.start_topology()
 
@@ -82,12 +86,12 @@ def setup_module(mod):
             "tcpdump -nni r1-eth0 -s 0 -w {} &".format(pcap_file), stdout=None
         )
 
-    tgen.net["r2"].cmd(
+    tgen.net['r2'].cmd(
         """
+
 ip link add vrf1 type vrf table 10
-ip link set vrf1 up
-"""
-    )
+    """)
+    shutdown_bringup_interface_in_kernel(tgen, 'r2', "vrf1", True)
 
     for router in tgen.routers().values():
         router.load_frr_config(

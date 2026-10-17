@@ -24,12 +24,15 @@ import sys
 from signal import Signals as S
 
 
-try:
+# Relative imports work when this file is part of the munet package. Running
+# the file directly as a script has no package, so the modules are imported
+# from this directory instead.
+if __package__:
+    from munet import host
     from munet import linux
-except ModuleNotFoundError:
-    # We cannot use relative imports and still run this module directly as a script, and
-    # there are some use cases where we want to run this file as a script.
+else:
     sys.path.append(os.path.dirname(os.path.realpath(__file__)))
+    import host
     import linux
 
 
@@ -282,7 +285,7 @@ def be_init(new_pg, exec_args):
     # all procs in any PID namespace we are init for.
     #
     logging.debug("set us to be SIGKILLed when parent exits")
-    linux.set_parent_death_signal(signal.SIGKILL)
+    host.set_parent_death_signal(signal.SIGKILL)
 
     # If we are createing a new PID namespace for children...
     if g.orig_pid != 1:
@@ -309,7 +312,7 @@ def be_init(new_pg, exec_args):
 
         # If the parent exists kill us using SIGKILL
         logging.debug("set us to be SIGKILLed when parent exits")
-        linux.set_parent_death_signal(signal.SIGKILL)
+        host.set_parent_death_signal(signal.SIGKILL)
 
     if not exec_args:
         if not new_pg:

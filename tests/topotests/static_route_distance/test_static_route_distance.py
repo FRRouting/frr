@@ -92,7 +92,7 @@ from lib.topogen import Topogen, TopoRouter, get_topogen
 CWD = os.path.dirname(os.path.realpath(__file__))
 sys.path.append(os.path.join(CWD, "../"))
 
-pytestmark = [pytest.mark.staticd]
+pytestmark = [pytest.mark.staticd, pytest.mark.freebsd]
 
 # Three nexthop addresses reachable via r1-eth0, eth1, eth2 respectively.
 NH1_V4 = "192.0.2.2"

@@ -54,7 +54,7 @@ from .bgpbmp import BMPSequenceContext, bmp_update_seq, get_bmp_messages
 from lib.topogen import Topogen, get_topogen
 from lib.topolog import logger
 
-pytestmark = [pytest.mark.bgpd]
+pytestmark = [pytest.mark.bgpd, pytest.mark.freebsd]
 
 # Prefix whose BMP treatment we assert on, plus a sentinel prefix announced
 # afterwards.  Once the sentinel's post-policy update is logged, any message

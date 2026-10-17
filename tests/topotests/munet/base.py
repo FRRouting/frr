@@ -1225,7 +1225,12 @@ class Commander:  # pylint: disable=R0904
         else:
             # Make sure the code doesn't think `cd` will work.
             assert not re.match(r"cd(\s*|\s+(\S+))$", cmd)
-            cmds = ["/bin/bash", "-c", cmd]
+            shell = "/bin/bash"
+            if sys.platform.startswith("freebsd") and os.path.exists(
+                "/usr/local/bin/bash"
+            ):
+                shell = "/usr/local/bin/bash"
+            cmds = [shell, "-c", cmd]
         return cmds
 
     def cmd_nostatus(self, cmd, **kwargs):
@@ -1928,6 +1933,16 @@ class LinuxNamespace(Commander, InterfaceMixin):
 
         self.logger.debug("%s: creating", self)
 
+        if sys.platform.startswith("freebsd"):
+            from . import freebsd
+
+            freebsd.init_namespace(
+                self,
+                private_mounts=private_mounts,
+                set_hostname=set_hostname,
+            )
+            return
+
         self.cwd = os.path.abspath(os.getcwd())
 
         self.nsflags = []
@@ -2557,11 +2572,22 @@ class LinuxNamespace(Commander, InterfaceMixin):
         return shlex.join(pre_cmd) if use_str else list(pre_cmd)
 
     def tmpfs_mount(self, inner):
+        if sys.platform.startswith("freebsd"):
+            from . import freebsd
+
+            # The jail root is already private to this node.
+            freebsd.jail_mkdir(self, inner)
+            return
         self.logger.debug("Mounting tmpfs on %s", inner)
         self.cmd_raises("mkdir -p " + inner)
         self.cmd_raises("mount -n -t tmpfs tmpfs " + inner)
 
     def bind_mount(self, outer, inner):
+        if sys.platform.startswith("freebsd"):
+            from . import freebsd
+
+            freebsd.jail_bind_mount(self, outer, inner)
+            return
         self.logger.debug("Bind mounting %s on %s", outer, inner)
         if commander.test("-f", outer):
             self.cmd_raises(f"mkdir -p {os.path.dirname(inner)} && touch {inner}")
@@ -2639,6 +2665,11 @@ class LinuxNamespace(Commander, InterfaceMixin):
 
     def set_ns_cwd(self, cwd: Union[str, Path]):
         """Common code for changing pre_cmd and pre_nscmd."""
+        if sys.platform.startswith("freebsd"):
+            from . import freebsd
+
+            freebsd.set_namespace_cwd(self, cwd)
+            return
         self.logger.debug("%s: new CWD %s", self, cwd)
         self.__root_pre_cmd = self.__root_base_pre_cmd + ["--wd=" + str(cwd)]
         if self.__pre_cmd:
@@ -2651,6 +2682,17 @@ class LinuxNamespace(Commander, InterfaceMixin):
             self.logger.info("%s: deleting", self)
         else:
             self.logger.debug("%s: LinuxNamespace sub-class deleting", self)
+
+        if getattr(self, "freebsd_jail", False):
+            from . import freebsd
+
+            freebsd.destroy_namespace(self)
+            self.__root_base_pre_cmd = ["/bin/false"]
+            self.__base_pre_cmd = ["/bin/false"]
+            self.__root_pre_cmd = ["/bin/false"]
+            self.__pre_cmd = ["/bin/false"]
+            await super()._async_delete()
+            return
 
         # Signal pid namespace proc to exit
         if (
@@ -2774,6 +2816,11 @@ class SharedNamespace(Commander):
 
     def set_ns_cwd(self, cwd: Union[str, Path]):
         """Common code for changing pre_cmd and pre_nscmd."""
+        if sys.platform.startswith("freebsd"):
+            from . import freebsd
+
+            freebsd.set_namespace_cwd(self, cwd)
+            return
         self.logger.debug("%s: new CWD %s", self, cwd)
         self.__pre_cmd = self.__base_pre_cmd + ["--wd=" + str(cwd)]
 
@@ -2806,6 +2853,13 @@ class Bridge(SharedNamespace, InterfaceMixin):
 
         self.logger.debug("Bridge: Creating")
 
+        if sys.platform.startswith("freebsd"):
+            from . import freebsd
+
+            freebsd.finish_bridge(self, name, self.mtu)
+            self.logger.debug("%s: Created, Running", self)
+            return
+
         # assert len(self.name) <= 16  # Make sure fits in IFNAMSIZE
         self.cmd_raises(f"ip link delete {name} || true")
         self.cmd_raises(f"ip link add {name} type bridge")
@@ -2824,6 +2878,13 @@ class Bridge(SharedNamespace, InterfaceMixin):
             self.logger.info("%s: deleting", self)
         else:
             self.logger.debug("%s: Bridge sub-class deleting", self)
+
+        if sys.platform.startswith("freebsd"):
+            from . import freebsd
+
+            await freebsd.delete_bridge(self)
+            await super()._async_delete()
+            return
 
         rc, o, e = await self.async_cmd_status(
             [self.ip_path, "link", "show", self.name],
@@ -2887,7 +2948,10 @@ class BaseMunet(LinuxNamespace):
         # Always having a global /proc is required to keep things from exploding
         # complexity with nested new pid namespaces..
         #
-        if pid:
+        if sys.platform.startswith("freebsd"):
+            # VNET jails do not use a private procfs. Commands run through jexec.
+            self.proc_path = Path("/proc")
+        elif pid:
             self.proc_path = Path(tempfile.mkdtemp(suffix="-proc", prefix="mu-"))
             logging.debug("%s: mounting /proc on proc_path %s", name, self.proc_path)
             linux.mount("proc", str(self.proc_path), "proc")
@@ -2899,7 +2963,7 @@ class BaseMunet(LinuxNamespace):
         # unshare or not. Save it in the global variable as well
         #
 
-        if not self.isolated:
+        if sys.platform.startswith("freebsd") or not self.isolated:
             self.rootcmd = commander
         elif not pid:
             nsflags = (
@@ -2979,6 +3043,15 @@ class BaseMunet(LinuxNamespace):
         lhost = self.hosts[name1]
 
         nsif1 = lhost.get_ns_ifname(if1)
+        if sys.platform.startswith("freebsd"):
+            from . import freebsd
+
+            freebsd.add_dummy(lhost, if1, nsif1, mtu)
+            if intf_constraints:
+                self.logger.warning(
+                    "%s: interface constraints are not applied on FreeBSD", lname
+                )
+            return
         lhost.cmd_raises_nsonly(f"ip link add name {nsif1} type dummy")
 
         if mtu:
@@ -3031,6 +3104,16 @@ class BaseMunet(LinuxNamespace):
         lname = "{}:{}-{}:{}".format(name1, if1, name2, if2)
         self.logger.debug("%s: add_link %s%s", self, lname, " p2p" if isp2p else "")
         self.links[lname] = (name1, if1, name2, if2)
+
+        if sys.platform.startswith("freebsd"):
+            from . import freebsd
+
+            freebsd.add_link(self, name1, if1, name2, if2, mtu, isp2p)
+            if intf_constraints:
+                self.logger.warning(
+                    "%s: interface constraints are not applied on FreeBSD", lname
+                )
+            return
 
         # And create the veth now.
         if isp2p:
@@ -3125,9 +3208,14 @@ class BaseMunet(LinuxNamespace):
         nsifname = self.get_ns_ifname(ifname)
 
         if (name, ifname) not in self.macs:
-            _, output, _ = dev.cmd_status_nsonly("ip -o link show " + nsifname)
-            m = re.match(".*link/(loopback|ether) ([0-9a-fA-F:]+) .*", output)
-            mac = m.group(2)
+            if sys.platform.startswith("freebsd"):
+                from . import freebsd
+
+                mac = freebsd.interface_mac(dev, nsifname)
+            else:
+                _, output, _ = dev.cmd_status_nsonly("ip -o link show " + nsifname)
+                m = re.match(".*link/(loopback|ether) ([0-9a-fA-F:]+) .*", output)
+                mac = m.group(2)
             self.macs[(name, ifname)] = mac
             self.rmacs[mac] = (name, ifname)
 
@@ -3139,6 +3227,11 @@ class BaseMunet(LinuxNamespace):
         nsrif = host.get_ns_ifname(rif)
 
         self.logger.debug("%s: Deleting veth pair for link %s", self, lname)
+        if sys.platform.startswith("freebsd"):
+            from . import freebsd
+
+            await freebsd.delete_link(host, nsrif, lname, self.logger)
+            return
         rc, o, e = await host.async_cmd_status_nsonly(
             [self.ip_path, "link", "delete", nsrif],
             stdin=subprocess.DEVNULL,

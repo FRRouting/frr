@@ -40,7 +40,7 @@ from lib import topotest
 from lib.topogen import Topogen, get_topogen
 from lib.topolog import logger
 
-pytestmark = [pytest.mark.isisd]
+pytestmark = [pytest.mark.isisd, pytest.mark.freebsd]
 
 R2_SYSID = "0000.0000.0002"
 R2_EDGE = "10.0.2.2"

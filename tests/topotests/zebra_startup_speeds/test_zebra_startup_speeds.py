@@ -18,7 +18,7 @@ sys.path.append(os.path.join(CWD, "../"))
 from lib import topotest
 from lib.topogen import Topogen, TopoRouter, get_topogen
 from lib.topolog import logger
-from lib.common_config import step
+from lib.common_config import step, shutdown_bringup_interface_in_kernel
 from time import sleep
 
 
@@ -143,19 +143,29 @@ def test_bond_coming_up():
 
     step("Shutdown r1-eth[0-9] interfaces")
     for i in range(10):
-        router.cmd(f"ip link set r1-eth{i} down")
+        shutdown_bringup_interface_in_kernel(
+            router.tgen,
+            router.name,
+            f"r1-eth{i}",
+            False,
+        )
 
     step("Create bond0")
     router.cmd(f"ip link add bond0 type bond")
 
-    router.cmd(f"ip link set bond0 up")
+    shutdown_bringup_interface_in_kernel(router.tgen, router.name, "bond0", True)
     # This is intentionally sleeping 3 seconds between
     # the addition of each member to the bond.  I want
     # the speed to be checked multiple times in zebra
     step("Add interfaces to the bond")
     for i in range(10):
         router.cmd(f"ip link set r1-eth{i} master bond0")
-        router.cmd(f"ip link set r1-eth{i} up")
+        shutdown_bringup_interface_in_kernel(
+            router.tgen,
+            router.name,
+            f"r1-eth{i}",
+            True,
+        )
         sleep(3)
 
     step("Check that bond0 speed is 100000")
@@ -185,8 +195,8 @@ def test_bond_interfaces_going_up_down():
         pytest.skip("Skipped because of router(s) failure")
 
     router = tgen.gears["r1"]
-    router.cmd(f"ip link set r1-eth5 down")
-    router.cmd(f"ip link set r1-eth6 down")
+    shutdown_bringup_interface_in_kernel(router.tgen, router.name, "r1-eth5", False)
+    shutdown_bringup_interface_in_kernel(router.tgen, router.name, "r1-eth6", False)
 
     step("Ensure that bond0's speed actually changes to 80000")
     test_func = partial(check_interface_speed, router, "bond0", 80000)
@@ -195,7 +205,7 @@ def test_bond_interfaces_going_up_down():
     assert success, f"bond0 speed check failed: {result}"
 
     step("Ensure that bond0's speed goes up to 90000")
-    router.cmd(f"ip link set r1-eth5 up")
+    shutdown_bringup_interface_in_kernel(router.tgen, router.name, "r1-eth5", True)
 
     test_func = partial(check_interface_speed, router, "bond0", 90000)
     success, result = topotest.run_and_expect(test_func, None, count=20, wait=1)
@@ -203,7 +213,7 @@ def test_bond_interfaces_going_up_down():
     assert success, f"bond0 speed check failed: {result}"
 
     step("Ensure that bond0's speed goes up to 100k again")
-    router.cmd(f"ip link set r1-eth6 up")
+    shutdown_bringup_interface_in_kernel(router.tgen, router.name, "r1-eth6", True)
     test_func = partial(check_interface_speed, router, "bond0", 100000)
     success, result = topotest.run_and_expect(test_func, None, count=20, wait=1)
 

@@ -61,7 +61,7 @@ CWD = os.path.dirname(os.path.realpath(__file__))
 sys.path.append(os.path.join(CWD, "../"))
 sys.path.append(os.path.join(CWD, "../lib/"))
 
-pytestmark = [pytest.mark.bgpd, pytest.mark.staticd]
+pytestmark = [pytest.mark.bgpd, pytest.mark.staticd, pytest.mark.freebsd]
 
 # Required to instantiate the topology builder class.
 

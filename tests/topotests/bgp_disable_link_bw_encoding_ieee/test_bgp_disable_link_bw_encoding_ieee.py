@@ -38,7 +38,7 @@ sys.path.append(os.path.join(CWD, "../"))
 from lib import topotest
 from lib.topogen import Topogen, get_topogen
 
-pytestmark = [pytest.mark.bgpd]
+pytestmark = [pytest.mark.bgpd, pytest.mark.freebsd]
 
 PREFIX_ORIG = "10.10.10.10/32"
 PREFIX_MERGE = "10.10.10.11/32"

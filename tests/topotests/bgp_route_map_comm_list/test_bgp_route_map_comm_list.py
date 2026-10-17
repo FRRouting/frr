@@ -15,6 +15,8 @@ from lib import topotest
 from lib.topogen import Topogen, TopoRouter, get_topogen
 from lib.topolog import logger
 
+pytestmark = [pytest.mark.freebsd]
+
 
 def build_topo(tgen):
     for routern in range(1, 3):

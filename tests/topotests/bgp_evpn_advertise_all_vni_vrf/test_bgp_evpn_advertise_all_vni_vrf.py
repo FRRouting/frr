@@ -54,7 +54,11 @@ sys.path.append(os.path.join(CWD, "../"))
 
 # pylint: disable=C0413
 from lib import topotest
-from lib.common_config import required_linux_kernel_version
+from lib.common_config import (
+    create_address_on_interface,
+    required_linux_kernel_version,
+    shutdown_bringup_interface_in_kernel,
+)
 from lib.topogen import Topogen, get_topogen
 from lib.topolog import logger
 
@@ -133,10 +137,10 @@ def _prepare_underlay_linux(pe, config):
     pe.run("sysctl -q -w net.ipv4.tcp_l3mdev_accept=0")
 
     pe.run(f"ip link add {UNDERLAY_VRF} type vrf table {UNDERLAY_TABLE}")
-    pe.run(f"ip link set dev {UNDERLAY_VRF} up")
+    shutdown_bringup_interface_in_kernel(pe.tgen, pe.name, UNDERLAY_VRF, True)
 
     pe.run(f"ip link set dev {underlay_if} master {UNDERLAY_VRF}")
-    pe.run(f"ip link set dev {underlay_if} up")
+    shutdown_bringup_interface_in_kernel(pe.tgen, pe.name, underlay_if, True)
 
 
 def _setup_overlay_linux(pe, config):
@@ -146,10 +150,10 @@ def _setup_overlay_linux(pe, config):
     vtep_ip = config["vtep_ip"]
 
     pe.run(f"ip link add name {BRIDGE} type bridge stp_state 0")
-    pe.run(f"ip link set dev {BRIDGE} up")
+    shutdown_bringup_interface_in_kernel(pe.tgen, pe.name, BRIDGE, True)
 
     pe.run(f"ip link set dev {access_if} master {BRIDGE}")
-    pe.run(f"ip link set dev {access_if} up")
+    shutdown_bringup_interface_in_kernel(pe.tgen, pe.name, access_if, True)
 
     pe.run(
         f"ip link add {VXLAN} type vxlan id {VNI} "
@@ -158,17 +162,17 @@ def _setup_overlay_linux(pe, config):
     )
     pe.run(f"ip link set dev {VXLAN} master {BRIDGE}")
     pe.run(f"bridge link set dev {VXLAN} learning off")
-    pe.run(f"ip link set dev {VXLAN} up")
+    shutdown_bringup_interface_in_kernel(pe.tgen, pe.name, VXLAN, True)
 
 
 def _setup_host(host, config):
     ifname = config["ifname"]
 
-    host.run(f"ip link set dev {ifname} down")
+    shutdown_bringup_interface_in_kernel(host.tgen, host.name, ifname, False)
     host.run(f"ip addr flush dev {ifname}")
     host.run(f"ip link set dev {ifname} address {config['mac']}")
-    host.run(f"ip addr add {config['ip']} dev {ifname}")
-    host.run(f"ip link set dev {ifname} up")
+    create_address_on_interface(host.tgen, host.name, ifname, config["ip"])
+    shutdown_bringup_interface_in_kernel(host.tgen, host.name, ifname, True)
 
 
 def _disable_advertise_all_vni(pe):
@@ -209,6 +213,12 @@ def _wait_for_underlay_address(pe, config):
 
 
 def setup_module(mod):
+    if not topotest.platform_has_vrf():
+        pytest.skip("platform does not support VRF")
+
+    if not topotest.platform_has_evpn():
+        pytest.skip("platform does not support EVPN")
+
     result = required_linux_kernel_version("5.15")
     if result is not True:
         pytest.skip("Linux kernel >= 5.15 is required")

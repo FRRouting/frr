@@ -44,7 +44,7 @@ from lib.topojson import build_config_from_json
 CWD = os.path.dirname(os.path.realpath(__file__))
 sys.path.append(os.path.join(CWD, "../"))
 
-pytestmark = [pytest.mark.ospf6d, pytest.mark.staticd]
+pytestmark = [pytest.mark.ospf6d, pytest.mark.staticd, pytest.mark.freebsd]
 
 # Global variables
 topo = None

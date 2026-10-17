@@ -29,7 +29,7 @@ sys.path.append(os.path.join(CWD, "../"))
 from lib import topotest
 from lib.topogen import Topogen, get_topogen
 
-pytestmark = [pytest.mark.staticd]
+pytestmark = [pytest.mark.staticd, pytest.mark.freebsd]
 
 
 def setup_module(mod):

@@ -28,7 +28,7 @@ sys.path.append(os.path.join(CWD, "../"))
 
 # pylint: disable=C0413
 
-pytestmark = [pytest.mark.ospfd]
+pytestmark = [pytest.mark.ospfd, pytest.mark.freebsd]
 
 
 def build_topo(tgen):

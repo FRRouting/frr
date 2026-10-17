@@ -23,7 +23,7 @@ sys.path.append(os.path.join(CWD, "../lib/"))
 
 # pylint: disable=C0413
 
-pytestmark = [pytest.mark.ospf6d]
+pytestmark = [pytest.mark.ospf6d, pytest.mark.freebsd]
 
 
 # Global variables

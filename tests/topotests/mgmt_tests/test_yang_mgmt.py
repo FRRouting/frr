@@ -67,7 +67,7 @@ from lib.topotest import router_json_cmp, version_cmp
 # Save the Current Working Directory to find configuration files.
 CWD = os.path.dirname(os.path.realpath(__file__))
 
-pytestmark = [pytest.mark.bgpd, pytest.mark.staticd, pytest.mark.mgmtd]
+pytestmark = [pytest.mark.bgpd, pytest.mark.staticd, pytest.mark.mgmtd, pytest.mark.freebsd]
 
 # Global variables
 ADDR_TYPES = check_address_types()

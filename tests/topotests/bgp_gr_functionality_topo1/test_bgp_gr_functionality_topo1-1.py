@@ -122,7 +122,7 @@ from lib.common_config import (
     required_linux_kernel_version,
 )
 
-pytestmark = [pytest.mark.bgpd]
+pytestmark = [pytest.mark.bgpd, pytest.mark.freebsd]
 
 
 # Global variables

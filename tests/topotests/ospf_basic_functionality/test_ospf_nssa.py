@@ -40,7 +40,7 @@ sys.path.append(os.path.join(CWD, "../lib/"))
 # pylint: disable=C0413
 # Import topogen and topotest helpers
 
-pytestmark = [pytest.mark.ospfd, pytest.mark.staticd]
+pytestmark = [pytest.mark.ospfd, pytest.mark.staticd, pytest.mark.freebsd]
 
 
 # Global variables

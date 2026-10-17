@@ -11,7 +11,7 @@ import json
 import pytest
 from lib.topogen import Topogen
 
-pytestmark = [pytest.mark.staticd, pytest.mark.mgmtd]
+pytestmark = [pytest.mark.staticd, pytest.mark.mgmtd, pytest.mark.freebsd]
 
 
 @pytest.fixture(scope="module")
