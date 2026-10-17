@@ -2574,7 +2574,21 @@ static int bgp_update_receive(struct peer_connection *connection, bgp_size_t siz
 			continue;
 
 		switch (i) {
-		case NLRI_UPDATE:
+		case NLRI_UPDATE: {
+			struct attr classic;
+			struct attr *nlri_attr = NLRI_ATTR_ARG;
+
+			/* Keep the classic NEXT_HOP independent of MP_REACH's
+			 * next hop when one UPDATE carries both NLRI sections.
+			 */
+			if (nlri_attr && bgp_attr_exists(nlri_attr, BGP_ATTR_NEXT_HOP) &&
+			    bgp_attr_exists(nlri_attr, BGP_ATTR_MP_REACH_NLRI)) {
+				bgp_attr_classic_nlri(&classic, nlri_attr);
+				nlri_attr = &classic;
+			}
+			nlri_ret = bgp_nlri_parse(peer, nlri_attr, &nlris[i], 0);
+			break;
+		}
 		case NLRI_MP_UPDATE:
 			nlri_ret = bgp_nlri_parse(peer, NLRI_ATTR_ARG,
 						  &nlris[i], 0);

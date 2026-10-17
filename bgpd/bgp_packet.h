@@ -7,6 +7,7 @@
 #define _QUAGGA_BGP_PACKET_H
 
 #include "hook.h"
+#include "bgpd/bgp_attr.h"
 
 struct bgp_enhe_capability {
 	uint16_t afi;
@@ -85,5 +86,22 @@ extern bool bgp_notify_send_hard_reset(struct peer *peer, uint8_t code,
 				       uint8_t subcode);
 extern bool bgp_notify_received_hard_reset(struct peer *peer, uint8_t code,
 					   uint8_t subcode);
+
+/* Borrow parsed subobjects: the outer UPDATE retains their cleanup ownership.
+ * MP next-hop information belongs to MP NLRI, not the classic IPv4 section.
+ */
+static inline void bgp_attr_classic_nlri(struct attr *classic, const struct attr *parsed)
+{
+	*classic = *parsed;
+	classic->mp_nexthop_len = 0;
+	classic->mp_nexthop_global_in.s_addr = 0;
+	memset(&classic->mp_nexthop_global, 0, sizeof(classic->mp_nexthop_global));
+	memset(&classic->mp_nexthop_local, 0, sizeof(classic->mp_nexthop_local));
+	classic->nh_lla_ifindex = 0;
+	bgp_attr_unset(classic, BGP_ATTR_MP_REACH_NLRI);
+	bgp_attr_unset(classic, BGP_ATTR_MP_UNREACH_NLRI);
+	memset(&classic->attr_intern_reuse, 0, sizeof(classic->attr_intern_reuse));
+}
+
 
 #endif /* _QUAGGA_BGP_PACKET_H */
