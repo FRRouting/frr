@@ -34,7 +34,9 @@ from lib.topogen import Topogen, TopoRouter, get_topogen
 from lib.topolog import logger
 from lib.common_config import (
     check_router_status,
+    create_address_on_interface,
     kill_router_daemons,
+    shutdown_bringup_interface_in_kernel,
     start_router_daemons,
 )
 
@@ -50,6 +52,12 @@ def build_topo(tgen):
 
 
 def setup_module(mod):
+    if not topotest.platform_has_vrf():
+        pytest.skip("platform does not support VRF")
+
+    if not topotest.platform_has_evpn():
+        pytest.skip("platform does not support EVPN")
+
     tgen = Topogen(build_topo, mod.__name__)
     tgen.start_topology()
 
@@ -57,9 +65,9 @@ def setup_module(mod):
     host_macs = {"host1": "1a:2b:3c:4d:5e:61", "host2": "1a:2b:3c:4d:5e:62"}
     for name, mac in host_macs.items():
         host = tgen.net[name]
-        host.cmd_raises(f"ip link set dev {name}-eth0 down")
+        shutdown_bringup_interface_in_kernel(tgen, name, f"{name}-eth0", False)
         host.cmd_raises(f"ip link set dev {name}-eth0 address {mac}")
-        host.cmd_raises(f"ip link set dev {name}-eth0 up")
+        shutdown_bringup_interface_in_kernel(tgen, name, f"{name}-eth0", True)
 
     # Configure PE devices: vrf-blue, vxlan100/1000, bridges and sysctls
     pe_suffix = {"PE1": "1", "PE2": "2"}
@@ -69,26 +77,26 @@ def setup_module(mod):
         bridge_ip = f"192.168.50.{suf}/24"
         bridge_ipv6 = f"fd00:50:1::{suf}/48"
         pe.cmd_raises("ip link add vrf-blue type vrf table 10")
-        pe.cmd_raises("ip link set dev vrf-blue up")
+        shutdown_bringup_interface_in_kernel(tgen, name, "vrf-blue", True)
         pe.cmd_raises(
             f"ip link add vxlan100 type vxlan id 100 dstport 4789 local {vtep_ip}"
         )
         pe.cmd_raises("ip link add name br100 type bridge stp_state 0")
         pe.cmd_raises("ip link set dev vxlan100 master br100")
         pe.cmd_raises(f"ip link set dev {name}-eth1 master br100")
-        pe.cmd_raises(f"ip addr add {bridge_ip} dev br100")
-        pe.cmd_raises("ip link set up dev br100")
-        pe.cmd_raises("ip link set up dev vxlan100")
-        pe.cmd_raises(f"ip link set up dev {name}-eth1")
+        create_address_on_interface(tgen, name, "br100", bridge_ip)
+        shutdown_bringup_interface_in_kernel(tgen, name, "br100", True)
+        shutdown_bringup_interface_in_kernel(tgen, name, "vxlan100", True)
+        shutdown_bringup_interface_in_kernel(tgen, name, f"{name}-eth1", True)
         pe.cmd_raises("ip link set dev br100 master vrf-blue")
-        pe.cmd_raises(f"ip -6 addr add {bridge_ipv6} dev br100")
+        create_address_on_interface(tgen, name, "br100", bridge_ipv6)
         pe.cmd_raises(
             f"ip link add vxlan1000 type vxlan id 1000 dstport 4789 local {vtep_ip}"
         )
         pe.cmd_raises("ip link add name br1000 type bridge stp_state 0")
         pe.cmd_raises("ip link set dev vxlan1000 master br1000")
-        pe.cmd_raises("ip link set up dev br1000")
-        pe.cmd_raises("ip link set up dev vxlan1000")
+        shutdown_bringup_interface_in_kernel(tgen, name, "br1000", True)
+        shutdown_bringup_interface_in_kernel(tgen, name, "vxlan1000", True)
         pe.cmd_raises("ip link set dev br1000 master vrf-blue")
         pe.cmd_raises("sysctl -w net.ipv4.ip_forward=1")
         pe.cmd_raises("sysctl -w net.ipv6.conf.all.forwarding=1")
@@ -270,9 +278,8 @@ def _evpn_routes_with_stale_only_for_rd(
 def _vrf_has_kernel_routes(router: TopoRouter, vrf_name: str, prefixes):
     if isinstance(prefixes, str):
         prefixes = [prefixes]
-    output = router.cmd(f"ip -j route show vrf {vrf_name}")
     try:
-        routes = json.loads(output)
+        routes = topotest.kernel_routes(router, vrf=vrf_name)
     except Exception:
         return False
     have = set()
@@ -655,11 +662,10 @@ def test_bgp_evpn_gr_stale_and_recovery():
 def _vrf_routes_absent(router: TopoRouter, vrf_name: str, prefixes):
     if isinstance(prefixes, str):
         prefixes = [prefixes]
-    output = router.cmd(f"ip -j route show vrf {vrf_name}")
     try:
-        routes = json.loads(output)
+        routes = topotest.kernel_routes(router, vrf=vrf_name)
     except Exception:
-        # If we can't parse routes, treat as absent
+        # If we can't read routes, treat as absent
         return True
     have = set()
     for r in routes:

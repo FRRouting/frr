@@ -16,6 +16,7 @@ from functools import partial
 # pylint: disable=C0413
 # Import topogen and topotest helpers
 from lib import topotest
+from lib.common_config import create_interface_in_kernel
 from lib.topogen import Topogen, get_topogen
 from lib.topolog import logger
 from lib.pim import (
@@ -77,8 +78,7 @@ def build_topo(tgen):
     tgen.add_link(tgen.gears["r2"], tgen.gears["r4"], "r2-eth1", "r4-eth0")
     tgen.add_link(tgen.gears["r3"], tgen.gears["r4"], "r3-eth1", "r4-eth1")
 
-    tgen.gears["r4"].run("ip link add r4-dum0 type dummy")
-    tgen.gears["r4"].run("ip link set r4-dum0 up")
+    create_interface_in_kernel(tgen, "r4", "r4-dum0")
 
 
 def setup_module(mod):

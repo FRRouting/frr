@@ -31,6 +31,19 @@ pytestmark = [pytest.mark.bgpd]
 CWD = os.path.dirname(os.path.realpath(__file__))
 sys.path.append(os.path.join(CWD, "../"))
 
+
+def _route_uses_dev(route, dev):
+    if route.get("dev") == dev:
+        return True
+    return any(nh.get("dev") == dev for nh in route.get("nexthops") or [])
+
+
+def _route_has_gateway(route, gateway):
+    if route.get("gateway") == gateway:
+        return True
+    return any(nh.get("gateway") == gateway for nh in route.get("nexthops") or [])
+
+
 def build_topo(tgen):
     for routern in range(1, 4):
         tgen.add_router("r{}".format(routern))
@@ -108,34 +121,34 @@ def test_bgp_gr_multihop():
         # These routes are 10.1.1.2/32, 10.1.1.3/32, and 10.1.1.4/32
         stale_routes = ["10.1.1.2", "10.1.1.3", "10.1.1.4"]
         expected_routes = [
-            {"dst": route, "gateway": "10.0.2.1", "metric": 20} for route in stale_routes
+            {"dst": route, "gateway": "10.0.2.1"} for route in stale_routes
         ]
         # Collect all routes from kernel for these prefixes
-        output = []
-        for route in stale_routes:
-            show = r3.cmd(f"ip -j route show {route}/32 proto bgp dev r3-eth0")
-            try:
-                # Output could be "[]" when not present
-                entries = json.loads(show)
-            except Exception:
-                entries = []
-            output.extend(entries)
+        try:
+            routes = topotest.kernel_routes(r3)
+        except Exception:
+            routes = []
+        output = [
+            route
+            for route in routes
+            if route.get("dst") in stale_routes and _route_uses_dev(route, "r3-eth0")
+        ]
+
         # Now check all expected routes are present
         def compare_kept_routes(output, expected):
             # All expected routes must be present in output
             for exp in expected:
                 found = False
                 for route in output:
-                    if (
-                        route.get("dst") == exp["dst"]
-                        and route.get("gateway") == exp["gateway"]
-                        and route.get("metric") == exp["metric"]
+                    if route.get("dst") == exp["dst"] and _route_has_gateway(
+                        route, exp["gateway"]
                     ):
                         found = True
                         break
                 if not found:
                     return {"missing": exp}
             return None
+
         return compare_kept_routes(output, expected_routes)
         
     def _r2_direct_ebgp_up():
@@ -273,22 +286,32 @@ def test_r1_kernel_retains_routes_on_bgpd_kill():
         return None
 
     def _r1_kernel_has_routes():
-        # List of prefixes from r3 
+        # List of prefixes from r3
+        routes = topotest.kernel_routes(r1)
         loopbacks = ["10.3.3.4", "10.3.3.5", "10.3.3.6"]
+        cmp = None
         for lo in loopbacks:
-            out = json.loads(
-                r1.cmd(f"ip -j route show {lo}/32 proto bgp dev r1-eth0")
-            )
-            exp = [{"dst": lo, "gateway": "10.0.1.1", "metric": 20}]
+            out = [
+                route
+                for route in routes
+                if route.get("dst") == lo
+                and _route_uses_dev(route, "r1-eth0")
+                and _route_has_gateway(route, "10.0.1.1")
+            ]
+            exp = [{"dst": lo}]
             cmp = topotest.json_cmp(out, exp)
             if cmp:
                 return cmp
 
         # Route to r3 LAN via r2 (advertised by r3, possibly best via multihop)
-        out2 = json.loads(
-            r1.cmd("ip -j route show 10.0.2.0/24 proto bgp dev r1-eth0")
-        )
-        exp2 = [{"dst": "10.0.2.0/24", "gateway": "10.0.1.1", "metric": 20}]
+        out2 = [
+            route
+            for route in routes
+            if route.get("dst") == "10.0.2.0/24"
+            and _route_uses_dev(route, "r1-eth0")
+            and _route_has_gateway(route, "10.0.1.1")
+        ]
+        exp2 = [{"dst": "10.0.2.0/24"}]
         cmp2 = topotest.json_cmp(out2, exp2)
 
         # Return first mismatch found

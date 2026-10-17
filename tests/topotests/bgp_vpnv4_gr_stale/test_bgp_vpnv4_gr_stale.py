@@ -26,7 +26,7 @@ sys.path.append(os.path.join(CWD, "../"))
 # pylint: disable=C0413
 from lib import topotest
 from lib.topogen import Topogen, get_topogen
-from lib.common_config import step
+from lib.common_config import step, shutdown_bringup_interface_in_kernel
 
 pytestmark = [pytest.mark.bgpd]
 
@@ -52,6 +52,9 @@ def start_peer1(tgen, cfg_dir):
 
 
 def setup_module(mod):
+    if not topotest.platform_has_vrf():
+        pytest.skip("platform does not support VRF")
+
     tgen = Topogen(build_topo, mod.__name__)
     if not tgen.hasmpls:
         pytest.skip("MPLS is not available")
@@ -59,7 +62,7 @@ def setup_module(mod):
 
     r1 = tgen.gears["r1"]
     r1.cmd_raises("ip link add vrf1 type vrf table 10")
-    r1.cmd_raises("ip link set dev vrf1 up")
+    shutdown_bringup_interface_in_kernel(r1.tgen, r1.name, "vrf1", True)
     r1.load_frr_config(os.path.join(CWD, "r1/frr.conf"))
     tgen.start_router()
 

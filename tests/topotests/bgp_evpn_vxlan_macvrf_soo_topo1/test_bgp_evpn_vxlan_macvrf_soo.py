@@ -41,7 +41,11 @@ from lib.evpn import (
 )
 from lib.topogen import Topogen, TopoRouter, get_topogen
 from lib.topolog import logger
-from lib.common_config import step
+from lib.common_config import (
+    create_address_on_interface,
+    step,
+    shutdown_bringup_interface_in_kernel,
+)
 
 pytestmark = [pytest.mark.bgpd, pytest.mark.evpn, pytest.mark.ospfd]
 
@@ -79,6 +83,12 @@ def build_topo(tgen):
 
 def setup_module(mod):
     "Sets up the pytest environment"
+    if not topotest.platform_has_vrf():
+        pytest.skip("platform does not support VRF")
+
+    if not topotest.platform_has_evpn():
+        pytest.skip("platform does not support EVPN")
+
     tgen = Topogen(build_topo, mod.__name__)
     tgen.start_topology()
 
@@ -96,64 +106,64 @@ def setup_module(mod):
     ## Setup VRF
     # pe1
     pe1.run("ip link add VRF-A type vrf table 4000")
-    pe1.run("ip link set VRF-A up")
+    shutdown_bringup_interface_in_kernel(pe1.tgen, pe1.name, "VRF-A", True)
     # pe2
     pe2.run("ip link add VRF-A type vrf table 4000")
-    pe2.run("ip link set VRF-A up")
+    shutdown_bringup_interface_in_kernel(pe2.tgen, pe2.name, "VRF-A", True)
 
     ## Setup L3VNI bridge/vxlan
     # pe1
     pe1.run("ip link add name br404 type bridge stp_state 0")
     pe1.run("ip link set dev br404 addr aa:bb:cc:00:11:ff")
     pe1.run("ip link set dev br404 master VRF-A addrgenmode none")
-    pe1.run("ip link set dev br404 up")
+    shutdown_bringup_interface_in_kernel(pe1.tgen, pe1.name, "br404", True)
     pe1.run(
         "ip link add vxlan404 type vxlan id 404 dstport 4789 local 10.10.10.10 nolearning"
     )
     pe1.run("ip link set dev vxlan404 master br404 addrgenmode none")
     pe1.run("ip link set dev vxlan404 type bridge_slave neigh_suppress on learning off")
-    pe1.run("ip link set dev vxlan404 up")
+    shutdown_bringup_interface_in_kernel(pe1.tgen, pe1.name, "vxlan404", True)
     # pe2
     pe2.run("ip link add name br404 type bridge stp_state 0")
     pe2.run("ip link set dev br404 addr aa:bb:cc:00:22:ff")
     pe2.run("ip link set dev br404 master VRF-A addrgenmode none")
-    pe2.run("ip link set dev br404 up")
+    shutdown_bringup_interface_in_kernel(pe2.tgen, pe2.name, "br404", True)
     pe2.run(
         "ip link add vxlan404 type vxlan id 404 dstport 4789 local 10.30.30.30 nolearning"
     )
     pe2.run("ip link set dev vxlan404 master br404 addrgenmode none")
     pe2.run("ip link set dev vxlan404 type bridge_slave neigh_suppress on learning off")
-    pe2.run("ip link set dev vxlan404 up")
+    shutdown_bringup_interface_in_kernel(pe2.tgen, pe2.name, "vxlan404", True)
 
     ## Setup L2VNI bridge/vxlan + L2 PE/CE link
     # pe1
     pe1.run("ip link add name br101 type bridge stp_state 0")
-    pe1.run("ip addr add 10.10.1.1/24 dev br101")
+    create_address_on_interface(pe1.tgen, pe1.name, "br101", "10.10.1.1/24")
     pe1.run("ip link set dev br101 addr aa:bb:cc:00:11:aa")
     pe1.run("ip link set dev br101 master VRF-A")
-    pe1.run("ip link set dev br101 up")
+    shutdown_bringup_interface_in_kernel(pe1.tgen, pe1.name, "br101", True)
     pe1.run(
         "ip link add vxlan101 type vxlan id 101 dstport 4789 local 10.10.10.10 nolearning"
     )
     pe1.run("ip link set dev vxlan101 master br101")
     pe1.run("ip link set dev vxlan101 type bridge_slave neigh_suppress on learning off")
-    pe1.run("ip link set dev vxlan101 up")
+    shutdown_bringup_interface_in_kernel(pe1.tgen, pe1.name, "vxlan101", True)
     pe1.run("ip link set dev PE1-eth0 master br101")
-    pe1.run("ip link set dev PE1-eth0 up")
+    shutdown_bringup_interface_in_kernel(pe1.tgen, pe1.name, "PE1-eth0", True)
     # pe2
     pe2.run("ip link add name br101 type bridge stp_state 0")
-    pe2.run("ip addr add 10.10.1.3/24 dev br101")
+    create_address_on_interface(pe2.tgen, pe2.name, "br101", "10.10.1.3/24")
     pe2.run("ip link set dev br101 addr aa:bb:cc:00:22:ff")
     pe2.run("ip link set dev br101 master VRF-A")
-    pe2.run("ip link set dev br101 up")
+    shutdown_bringup_interface_in_kernel(pe2.tgen, pe2.name, "br101", True)
     pe2.run(
         "ip link add vxlan101 type vxlan id 101 dstport 4789 local 10.30.30.30 nolearning"
     )
     pe2.run("ip link set dev vxlan101 master br101")
     pe2.run("ip link set dev vxlan101 type bridge_slave neigh_suppress on learning off")
-    pe2.run("ip link set dev vxlan101 up")
+    shutdown_bringup_interface_in_kernel(pe2.tgen, pe2.name, "vxlan101", True)
     pe2.run("ip link set dev PE2-eth1 master br101")
-    pe2.run("ip link set dev PE2-eth1 up")
+    shutdown_bringup_interface_in_kernel(pe2.tgen, pe2.name, "PE2-eth1", True)
 
     ## Enable IPv4 Routing
     p1.run("sysctl -w net.ipv4.ip_forward=1")

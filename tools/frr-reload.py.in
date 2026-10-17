@@ -2888,13 +2888,15 @@ if __name__ == "__main__":
         default=False,
     )
     parser.add_argument(
-        "--bindir", help="path to the vtysh executable", default="/usr/bin"
+        "--bindir", help="path to the vtysh executable", default="@e_bindir@"
     )
     parser.add_argument(
-        "--confdir", help="path to the daemon config files", default="/etc/frr"
+        "--confdir",
+        help="path to the daemon config files",
+        default="@e_frr_sysconfdir@",
     )
     parser.add_argument(
-        "--rundir", help="path for the temp config file", default="/var/run/frr"
+        "--rundir", help="path for the temp config file", default="@e_frr_runstatedir@"
     )
     parser.add_argument(
         "--vty_socket",

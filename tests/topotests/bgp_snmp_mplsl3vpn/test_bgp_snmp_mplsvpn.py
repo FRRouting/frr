@@ -27,6 +27,7 @@ sys.path.append(os.path.join(CWD, "../"))
 from lib.topogen import Topogen, TopoRouter, get_topogen
 from lib.snmptest import SnmpTester
 from lib import topotest
+from lib.common_config import shutdown_bringup_interface_in_kernel
 
 # Required to instantiate the topology builder class.
 
@@ -102,6 +103,8 @@ def build_topo(tgen):
 
 def setup_module(mod):
     "Sets up the pytest environment"
+    if not topotest.platform_has_vrf():
+        pytest.skip("platform does not support VRF")
 
     # skip tests is SNMP not installed
     snmpd = os.system("which snmpd")
@@ -121,11 +124,11 @@ def setup_module(mod):
 
     # setup VRF-a in r1
     r1.run("ip link add VRF-a type vrf table 1001")
-    r1.run("ip link set up dev VRF-a")
+    shutdown_bringup_interface_in_kernel(r1.tgen, r1.name, "VRF-a", True)
     r1.run("ip link add VRF-b type vrf table 1002")
-    r1.run("ip link set up dev VRF-b")
+    shutdown_bringup_interface_in_kernel(r1.tgen, r1.name, "VRF-b", True)
     r4.run("ip link add VRF-a type vrf table 1001")
-    r4.run("ip link set up dev VRF-a")
+    shutdown_bringup_interface_in_kernel(r4.tgen, r4.name, "VRF-a", True)
 
     # enslave vrf interfaces
     r1.run("ip link set r1-eth3 master VRF-a")
@@ -380,7 +383,7 @@ def test_r1_mplsvpn_IfTable():
         assert r1_snmp.test_oid_walk(item, iftable_up_test[item], oids), assertmsg
 
     # an inactive vrf should not affect these values
-    r1.cmd("ip link set r1-eth5 down")
+    shutdown_bringup_interface_in_kernel(r1.tgen, r1.name, "r1-eth5", False)
 
     def _check_iftable(expected):
         for item in expected.keys():
@@ -393,7 +396,7 @@ def test_r1_mplsvpn_IfTable():
     )
     assert result is True, "mplsL3VpnIf table did not converge after link down"
 
-    r1.cmd("ip link set r1-eth5 up")
+    shutdown_bringup_interface_in_kernel(r1.tgen, r1.name, "r1-eth5", True)
 
 
 vrftable_test = {
@@ -487,7 +490,7 @@ def test_r1_mplsvpn_VrfTable():
     )
     ts_val_last_1 = get_timetick_val(ts_last)
     r1.cmd("ip link set r1-eth6 master VRF-a")
-    r1.cmd("ip link set r1-eth6 up")
+    shutdown_bringup_interface_in_kernel(r1.tgen, r1.name, "r1-eth6", True)
 
     def _check_vrf_associated_and_last_changed(last_changed_before):
         associated_int = r1_snmp.get(
@@ -509,7 +512,7 @@ def test_r1_mplsvpn_VrfTable():
         result is True
     ), "VRF associated interface/timestamp did not converge after interface move"
     r1.cmd("ip link del r1-eth6 master VRF-a")
-    r1.cmd("ip link set r1-eth6 down")
+    shutdown_bringup_interface_in_kernel(r1.tgen, r1.name, "r1-eth6", False)
 
 
 rt_table_test = {

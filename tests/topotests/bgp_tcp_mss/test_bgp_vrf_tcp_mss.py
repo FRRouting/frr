@@ -48,6 +48,7 @@ from lib.common_config import (
     step,
     write_test_footer,
 )
+from lib.topotest import platform_has_vrf
 
 # Global variables
 NETWORK1_1 = {"ipv4": "1.1.1.1/32", "ipv6": "1::1/128"}
@@ -73,6 +74,9 @@ def setup_module(mod):
 
     * `mod`: module name
     """
+    if not platform_has_vrf():
+        pytest.skip("platform does not support VRF")
+
     global topo, TCPDUMP_FILE
 
     # Required linux kernel version for this suite to run.
