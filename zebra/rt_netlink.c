@@ -2398,7 +2398,7 @@ ssize_t netlink_route_multipath_msg_encode(int cmd, struct zebra_dplane_ctx *ctx
 	union g_addr src;
 	const struct prefix *p, *src_p;
 	uint32_t table_id;
-	struct nlsock *nl;
+	struct nlsock *nl NLSOCK_AUTO = NULL;
 	route_tag_t tag = 0;
 
 	struct {
@@ -2413,7 +2413,9 @@ ssize_t netlink_route_multipath_msg_encode(int cmd, struct zebra_dplane_ctx *ctx
 	if (datalen < sizeof(*req))
 		return 0;
 
-	nl = kernel_netlink_nlsock_lookup(dplane_ctx_get_ns_sock(ctx));
+	nl = kernel_netlink_nlsock_hold(dplane_ctx_get_ns(ctx));
+	if (!nl)
+		return -1;
 
 	memset(req, 0, sizeof(*req));
 
@@ -2990,8 +2992,10 @@ ssize_t netlink_nexthop_msg_encode(uint16_t cmd,
 	int type = dplane_ctx_get_nhe_type(ctx);
 	struct rtattr *nest;
 	uint16_t encap;
-	struct nlsock *nl =
-		kernel_netlink_nlsock_lookup(dplane_ctx_get_ns_sock(ctx));
+	struct nlsock *nl NLSOCK_AUTO = kernel_netlink_nlsock_hold(dplane_ctx_get_ns(ctx));
+
+	if (!nl)
+		return -1;
 
 	if (!id) {
 		flog_err(
@@ -4248,9 +4252,9 @@ static int netlink_macfdb_read_mcast_for_vni(struct nlsock *nl,
 void kernel_read_macfdb(struct zebra_dplane_ctx *ctx)
 {
 	const struct zebra_dplane_info *dp_info = dplane_ctx_get_ns(ctx);
-	struct nlsock *nl;
+	struct nlsock *nl NLSOCK_AUTO = NULL;
 
-	nl = kernel_netlink_nlsock_lookup(dplane_ctx_get_ns_sock(ctx));
+	nl = kernel_netlink_nlsock_hold(dplane_ctx_get_ns(ctx));
 	if (!nl) {
 		dplane_ctx_set_status(ctx, ZEBRA_DPLANE_REQUEST_FAILURE);
 		return;
@@ -4619,11 +4623,11 @@ void kernel_read_neigh(struct zebra_dplane_ctx *ctx)
 {
 	const struct zebra_dplane_info *dp_info = dplane_ctx_get_ns(ctx);
 	const struct ipaddr *ip;
-	struct nlsock *nl;
+	struct nlsock *nl NLSOCK_AUTO = NULL;
 	ifindex_t ifindex;
 	int ret;
 
-	nl = kernel_netlink_nlsock_lookup(dplane_ctx_get_ns_sock(ctx));
+	nl = kernel_netlink_nlsock_hold(dplane_ctx_get_ns(ctx));
 	if (!nl) {
 		dplane_ctx_set_status(ctx, ZEBRA_DPLANE_REQUEST_FAILURE);
 		return;
@@ -4872,8 +4876,7 @@ ssize_t netlink_mpls_multipath_msg_encode(int cmd, struct zebra_dplane_ctx *ctx,
 	const char *routedesc;
 	int route_type;
 	struct prefix p = {0};
-	struct nlsock *nl =
-		kernel_netlink_nlsock_lookup(dplane_ctx_get_ns_sock(ctx));
+	struct nlsock *nl NLSOCK_AUTO = kernel_netlink_nlsock_hold(dplane_ctx_get_ns(ctx));
 
 	struct {
 		struct nlmsghdr n;
@@ -4883,6 +4886,8 @@ ssize_t netlink_mpls_multipath_msg_encode(int cmd, struct zebra_dplane_ctx *ctx,
 
 	if (buflen < sizeof(*req))
 		return 0;
+	if (!nl)
+		return -1;
 
 	memset(req, 0, sizeof(*req));
 
