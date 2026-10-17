@@ -335,8 +335,15 @@ int pathd_srte_policy_binding_sid_modify(struct nb_cb_modify_args *args)
 	case NB_EV_VALIDATE:
 		break;
 	case NB_EV_PREPARE:
-		if (path_zebra_request_label(binding_sid) < 0)
+		if (path_zebra_request_label(binding_sid) < 0) {
+			/*
+			 * The label may be reserved, outside the unreserved label range,
+			 * used by another protocol (SRGB/SRLB), or in a dynamic-block
+			 */
+			snprintfrr(args->errmsg, args->errmsg_len,
+				   "Failed to allocate label for %u.", binding_sid);
 			return NB_ERR_RESOURCE;
+		}
 		break;
 	case NB_EV_ABORT:
 		break;
