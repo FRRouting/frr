@@ -91,7 +91,7 @@ def test_bgp_match_peer():
                 "10.0.0.3/32": {
                     "network": "10.0.0.3/32",
                     "nextHop": "192.168.1.3",
-                    "path": "65003",
+                    "path": "65001 65003",
                 }
             },
             "totalPrefixCounter": 1,
