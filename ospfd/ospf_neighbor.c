@@ -135,6 +135,11 @@ void ospf_nbr_free(struct ospf_neighbor *nbr)
 	 */
 	ospf_r4_nbr_cancel(nbr);
 
+	/* RFC4222 R5: unlink from the adjacency pacing queue on every
+	 * teardown path; a quick neighbor is freed without KillNbr.
+	 */
+	ospf_adj_pacing_remove(nbr);
+
 	/* Free DB summary list. */
 	if (ospf_db_summary_count(nbr))
 		ospf_db_summary_clear(nbr);
