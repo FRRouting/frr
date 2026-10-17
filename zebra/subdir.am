@@ -56,6 +56,7 @@ zebra_zebra_SOURCES = \
 	zebra/router-id.c \
 	zebra/rt_netlink.c \
 	zebra/ge_netlink.c \
+	zebra/br_port_netlink.c \
 	zebra/rt_socket.c \
 	zebra/rtadv.c \
 	zebra/rtread_netlink.c \
@@ -261,3 +262,26 @@ zebra_zebra_dplane_dpdk_la_SOURCES = zebra/dpdk/zebra_dplane_dpdk.c zebra/dpdk/z
 zebra_zebra_dplane_dpdk_la_LDFLAGS = -avoid-version -module -shared -export-dynamic -L/usr/local/lib -v
 zebra_zebra_dplane_dpdk_la_CFLAGS = $(DPDK_CFLAGS)
 zebra_zebra_dplane_dpdk_la_LIBADD  = $(DPDK_LIBS)
+
+if HAVE_SPLIT_HORIZON_FILTER
+noinst_HEADERS += \
+	zebra/zebra_split_horizon_filter.h \
+	zebra/zebra_split_horizon_filter.bpf.skel.h
+
+zebra_zebra_LDADD += $(LIBBPF_LIBS)
+BUILT_SOURCES += zebra/zebra_split_horizon_filter.bpf.skel.h
+CLEANFILES += \
+        zebra/zebra_split_horizon_filter.bpf.skel.h \
+        zebra/zebra_split_horizon_filter.bpf.o
+
+zebra/zebra_split_horizon_filter.o: zebra/zebra_split_horizon_filter.bpf.skel.h \
+        zebra/zebra_split_horizon_filter.h
+
+zebra/zebra_split_horizon_filter.bpf.o: zebra/zebra_split_horizon_filter.bpf.c zebra/zebra_split_horizon_filter.h
+	$(AM_V_at)mkdir -p $(dir $@)
+	${CLANG} -Wall -O2 -g -target bpf -c $< -o $@
+
+zebra/zebra_split_horizon_filter.bpf.skel.h: zebra/zebra_split_horizon_filter.bpf.o
+	$(AM_V_at)mkdir -p $(dir $@)
+	${BPFTOOL} gen skeleton $< > $@
+endif

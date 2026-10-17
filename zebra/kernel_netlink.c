@@ -40,6 +40,7 @@
 #include "zebra/netconf_netlink.h"
 #include "zebra/zebra_errors.h"
 #include "zebra/ge_netlink.h"
+#include "zebra/br_port_netlink.h"
 #include "zebra/zebra_trace.h"
 
 #ifndef SO_RCVBUFFORCE
@@ -1492,8 +1493,10 @@ static enum netlink_msg_status nl_put_msg(struct nl_batch *bth,
 	case DPLANE_OP_SYS_ROUTE_DELETE:
 	case DPLANE_OP_ROUTE_NOTIFY:
 	case DPLANE_OP_LSP_NOTIFY:
-	case DPLANE_OP_BR_PORT_UPDATE:
 		return FRR_NETLINK_SUCCESS;
+ 
+	case DPLANE_OP_BR_PORT_UPDATE:
+		return netlink_put_br_port_msg(bth, ctx);
 
 	case DPLANE_OP_INTF_SPEED_GET:
 	case DPLANE_OP_IPTABLE_ADD:

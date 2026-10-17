@@ -41,6 +41,8 @@
 #include "zebra/zebra_evpn_mh.h"
 #include "zebra/zebra_nhg.h"
 
+extern struct zebra_privs_t zserv_privs;
+
 DEFINE_MTYPE_STATIC(ZEBRA, ZACC_BD, "Access Broadcast Domain");
 DEFINE_MTYPE_STATIC(ZEBRA, ZES, "Ethernet Segment");
 DEFINE_MTYPE_STATIC(ZEBRA, ZES_EVI, "ES info per-EVI");
@@ -2659,6 +2661,20 @@ static void zebra_evpn_es_local_info_clear(struct zebra_evpn_es **esp)
 	/* clear all local flags associated with the ES */
 	es->flags &= ~(ZEBRA_EVPNES_OPER_UP | ZEBRA_EVPNES_BR_PORT
 		       | ZEBRA_EVPNES_BYPASS);
+ 
+#ifdef HAVE_SPLIT_HORIZON_FILTER
+	/* Destroy TCX bond link */
+	frr_with_privs(&zserv_privs) {
+		bpf_link__destroy(es->sph_bond_link);
+	}
+	es->sph_bond_link = NULL;
+
+	frr_with_privs(&zserv_privs) {
+		bpf_link__destroy(es->sph_bond_link_ingress);
+	}
+	es->sph_bond_link_ingress = NULL;
+#endif
+
 
 	/* remove from the ES list */
 	list_delete_node(zmh_info->local_es_list, &es->local_es_listnode);
@@ -3997,6 +4013,112 @@ static void zebra_evpn_mh_uplink_oper_flags_update(struct zebra_if *zif,
 	}
 }
 
+#ifdef HAVE_SPLIT_HORIZON_FILTER
+void zebra_evpn_mh_sph_skel_init(void)
+{
+	if (zmh_info->sph_skel)
+		return;
+
+	frr_with_privs(&zserv_privs) {
+		zmh_info->sph_skel = zebra_split_horizon_filter_bpf__open_and_load();
+	}
+
+	if (!zmh_info->sph_skel)
+                zlog_warn("%s: failed to open and load split horizon filter tcx skeleton", __func__);
+}
+
+static void zebra_evpn_mh_sph_skel_del(void)
+{
+	frr_with_privs(&zserv_privs) {
+		zebra_split_horizon_filter_bpf__destroy(zmh_info->sph_skel);
+	}
+	zmh_info->sph_skel = NULL;
+}
+#endif // HAVE_SPLIT_HORIZON_FILTER
+
+static void zebra_evpn_mh_uplink_add(struct zebra_if *zif)
+{
+#ifdef HAVE_SPLIT_HORIZON_FILTER
+	int i;
+	int err;
+
+	if (!zmh_info->sph_skel)
+		zebra_evpn_mh_sph_skel_init();
+
+	ifindex_t ifindex = zif->ifp->ifindex;
+	for (i = 0; i < MAX_UPLINK_NUM; i++)
+		if (zmh_info->sph_uplink_ifindexes[i] == ifindex)
+			return;
+
+	for (i = 0; i < MAX_UPLINK_NUM; i++)
+		if (!zmh_info->sph_uplink_ifindexes[i])
+			break;
+
+	if (i == MAX_UPLINK_NUM) {
+		zlog_warn("%s: maximum number of supported uplinks is %d. Split horizon filter won't work for additional ones. Failed for interface %s.", __func__, MAX_UPLINK_NUM, zif->ifp->name);
+		return;
+	}
+
+	zmh_info->sph_uplink_ifindexes[i] = ifindex;
+	frr_with_privs(&zserv_privs) {
+		zmh_info->sph_uplink_links[i] = bpf_program__attach_tcx(zmh_info->sph_skel->progs.split_horizon_filter_uplink,
+							ifindex, NULL);
+	}
+	err = libbpf_get_error(zmh_info->sph_uplink_links[i]);
+	if (err) {
+		zlog_warn("%s: Failed to attach split horizon filter: %s to %s",
+			__func__, strerror(-err), zif->ifp->name);
+		zmh_info->sph_uplink_ifindexes[i] = 0;
+		zmh_info->sph_uplink_links[i] = NULL;
+		return;
+	}
+	// TODO debug
+	zlog_info("%s: HEDROK Attached uplink filter to %s", __func__, zif->ifp->name);
+#endif
+}
+
+static void zebra_evpn_mh_uplink_del(struct zebra_if *zif)
+{
+#ifdef HAVE_SPLIT_HORIZON_FILTER
+	int i;
+	ifindex_t ifindex = zif->ifp->ifindex;
+
+	if (!zmh_info->sph_skel) {
+		zlog_info("%s: HEDROK no fsph_skel, returning", __func__);
+		return;
+	}
+
+	for (i = 0; i < MAX_UPLINK_NUM; i++)
+		if (zmh_info->sph_uplink_ifindexes[i] == ifindex)
+			break;
+
+	/* nothing to do - interface not found */
+	if (i == MAX_UPLINK_NUM) {
+		zlog_info("%s: HEDROK not found filter for %s", __func__, zif->ifp->name);
+		return;
+	}
+
+	/* Ok, deleting link */
+	frr_with_privs(&zserv_privs) {
+		bpf_link__destroy(zmh_info->sph_uplink_links[i]);
+	}
+	zmh_info->sph_uplink_links[i] = NULL;
+	zlog_info("%s: HEDROK deleted filter for %s", __func__, zif->ifp->name);
+
+	/* Check if it was the last one */
+	for (i = 0; i < MAX_UPLINK_NUM; i++)
+		if (zmh_info->sph_uplink_ifindexes[i])
+			return;
+
+	zlog_info("%s: HEDROK no filters left, destroying skeleton", __func__);
+
+	// No links left, unload skeleton?.. What about bond links?..
+	// TODO
+	zebra_evpn_mh_sph_skel_del();
+#endif
+}
+
+
 void zebra_evpn_mh_uplink_cfg_update(struct zebra_if *zif, bool set)
 {
 	bool old_protodown = zebra_evpn_mh_is_all_uplinks_down();
@@ -4008,6 +4130,7 @@ void zebra_evpn_mh_uplink_cfg_update(struct zebra_if *zif, bool set)
 
 		zif->flags |= ZIF_FLAG_EVPN_MH_UPLINK;
 		++zmh_info->uplink_cfg_cnt;
+		zebra_evpn_mh_uplink_add(zif);
 	} else {
 		if (!(zif->flags & ZIF_FLAG_EVPN_MH_UPLINK))
 			return;
@@ -4015,6 +4138,7 @@ void zebra_evpn_mh_uplink_cfg_update(struct zebra_if *zif, bool set)
 		zif->flags &= ~ZIF_FLAG_EVPN_MH_UPLINK;
 		if (zmh_info->uplink_cfg_cnt)
 			--zmh_info->uplink_cfg_cnt;
+		zebra_evpn_mh_uplink_del(zif);
 	}
 
 	zebra_evpn_mh_uplink_oper_flags_update(zif, set);

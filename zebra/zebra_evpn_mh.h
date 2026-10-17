@@ -20,6 +20,12 @@
 #include "zebra_nhg.h"
 #include "zebra_nb.h"
 
+#ifdef HAVE_SPLIT_HORIZON_FILTER
+#include <bpf/bpf.h>
+#include <bpf/libbpf.h>
+#include "zebra/zebra_split_horizon_filter.bpf.skel.h"
+#endif
+
 /* Ethernet Segment entry -
  * - Local and remote ESs are maintained in a global RB tree,
  * zmh_info->es_rb_tree using ESI as key
@@ -88,6 +94,11 @@ struct zebra_evpn_es {
 	 */
 #define ZEBRA_EVPN_MH_DF_DELAY_TIME 3 /* seconds */
 	struct event *df_delay_timer;
+
+#ifdef HAVE_SPLIT_HORIZON_FILTER
+	struct bpf_link *sph_bond_link;
+	struct bpf_link *sph_bond_link_ingress;
+#endif
 };
 RB_HEAD(zebra_es_rb_head, zebra_evpn_es);
 RB_PROTOTYPE(zebra_es_rb_head, zebra_evpn_es, rb_node, zebra_es_rb_cmp);
@@ -295,6 +306,14 @@ struct zebra_evpn_mh_info {
 
 	/* These protodown bits are inherited by all ES bonds */
 	uint32_t protodown_rc;
+
+#define MAX_UPLINK_NUM 10
+#ifdef HAVE_SPLIT_HORIZON_FILTER
+	struct zebra_split_horizon_filter_bpf *sph_skel;
+
+	ifindex_t sph_uplink_ifindexes[MAX_UPLINK_NUM];
+	struct bpf_link *sph_uplink_links[MAX_UPLINK_NUM];
+#endif
 };
 
 /* returns TRUE if the EVPN is ready to be sent to BGP */
@@ -434,5 +453,9 @@ void zebra_evpn_es_bypass_cfg_update(struct zebra_if *zif, bool bypass);
 void zebra_evpn_mh_uplink_cfg_update(struct zebra_if *zif, bool set);
 
 void zebra_evpn_mh_if_init(struct zebra_if *zif);
+
+#ifdef HAVE_SPLIT_HORIZON_FILTER
+void zebra_evpn_mh_sph_skel_init(void);
+#endif
 
 #endif /* _ZEBRA_EVPN_MH_H */
