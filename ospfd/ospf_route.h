@@ -38,6 +38,7 @@ struct ospf_path {
 	struct in_addr nexthop;
 	struct in_addr adv_router;
 	ifindex_t ifindex;
+	uint64_t nh_weight;
 	unsigned char unnumbered;
 	struct sr_nexthop_info srni;
 };
