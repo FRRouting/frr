@@ -249,12 +249,11 @@ static enum nb_error frr_test_module_c2cont_c2value_get(const struct nb_node *nb
 							struct lyd_node *parent)
 {
 	const struct lysc_node *snode = nb_node->snode;
-	uint32_t value = htole32(0xAB010203);
+	char value[11]; /* UINT32_MAX has 10 digits */
 	LY_ERR err;
 
-	/* Note that this api expects 'value' to be in little-endian form */
-	err = yang_new_term_bin(parent, snode->module, snode->name, &value, sizeof(value),
-				LYD_NEW_PATH_UPDATE, NULL);
+	snprintfrr(value, sizeof(value), "%" PRIu32, 0xAB010203);
+	err = lyd_new_term(parent, snode->module, snode->name, value, LYD_NEW_PATH_UPDATE, NULL);
 	assert(err == LY_SUCCESS);
 
 	return NB_OK;
