@@ -464,6 +464,8 @@ extern enum bgp_attr_parse_ret bgp_attr_ignore(struct peer *peer, uint8_t type);
 /* Cluster list prototypes. */
 extern bool cluster_loop_check(struct cluster_list *cluster,
 			       struct in_addr originator);
+extern void bgp_attr_prepend_cluster_id(struct bgp *bgp, struct attr *attr);
+extern void bgp_attr_clear_reflection(struct attr *attr);
 
 /* Below exported for unit-test purposes only */
 struct bgp_attr_parser_args {
