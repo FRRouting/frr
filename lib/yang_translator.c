@@ -38,6 +38,7 @@ struct yang_mapping_node {
 	char xpath_from_canonical[XPATH_MAXLEN];
 	char xpath_from_fmt[XPATH_MAXLEN];
 	char xpath_to_fmt[XPATH_MAXLEN];
+	unsigned int num_keys;
 };
 
 static bool yang_mapping_hash_cmp(const void *value1, const void *value2)
@@ -97,10 +98,34 @@ static void yang_mapping_add(struct yang_translator *translator, int dir,
 
 	const char *keys[] = {"KEY1", "KEY2", "KEY3", "KEY4"};
 	char *xpfmt;
+	char key_fmt[16];
+
+	/*
+	 * Bound the scanned key length to the size of the destination
+	 * buffers (keys[] in yang_translate_xpath()). Without an explicit
+	 * field width, sscanf() would write the whole key up to the next
+	 * quote, overflowing those fixed-size stack buffers.
+	 */
+	snprintfrr(key_fmt, sizeof(key_fmt), "%%%u[^']", (unsigned int)LIST_MAXKEYLEN - 1);
+
+	/*
+	 * Remember how many keys this mapping expects. A bounded conversion
+	 * stops at the buffer limit, so an overlong key makes sscanf() stop
+	 * before the remaining keys; yang_translate_xpath() uses this count
+	 * to reject such partial matches instead of using unread buffers.
+	 */
+	mapping->num_keys = 0;
+	for (unsigned int i = 0; i < array_size(keys); i++) {
+		const char *p = xpath_from_fmt;
+
+		while ((p = strstr(p, keys[i]))) {
+			mapping->num_keys++;
+			p += strlen(keys[i]);
+		}
+	}
 
 	for (unsigned int i = 0; i < array_size(keys); i++) {
-		xpfmt = frrstr_replace(mapping->xpath_from_fmt, keys[i],
-				       "%[^']");
+		xpfmt = frrstr_replace(mapping->xpath_from_fmt, keys[i], key_fmt);
 		strlcpy(mapping->xpath_from_fmt, xpfmt,
 			sizeof(mapping->xpath_from_fmt));
 		XFREE(MTYPE_TMP, xpfmt);
@@ -337,6 +362,12 @@ yang_translate_xpath(const struct yang_translator *translator, int dir,
 		flog_warn(EC_LIB_YANG_TRANSLATION_ERROR,
 			  "%s: sscanf() failed: %s", __func__,
 			  safe_strerror(errno));
+		return YANG_TRANSLATE_FAILURE;
+	}
+	if ((unsigned int)n != mapping->num_keys) {
+		flog_warn(EC_LIB_YANG_TRANSLATION_ERROR,
+			  "%s: key count mismatch (expected %u, matched %d): %s", __func__,
+			  mapping->num_keys, n, xpath);
 		return YANG_TRANSLATE_FAILURE;
 	}
 
