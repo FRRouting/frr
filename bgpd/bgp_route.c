@@ -19168,7 +19168,7 @@ DEFUN (show_ip_bgp_neighbor_received_prefix_filter,
 	if (!peer)
 		return CMD_WARNING;
 
-	snprintf(name, sizeof(name), "%s.%d.%d", peer->host, afi, safi);
+	peer_orf_plist_name(peer, afi, safi, name, sizeof(name));
 	count = prefix_bgp_show_prefix_list(NULL, afi, name, uj);
 	if (count) {
 		if (!uj)
