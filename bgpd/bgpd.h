@@ -2128,10 +2128,12 @@ struct peer {
 				     for EOR */
 
 	time_t synctime;
-	/* timestamp when the last UPDATE msg was written */
+	/* Last completed message write, in monotonic seconds. */
 	_Atomic time_t last_write;
-	/* timestamp when the last msg was written */
-	_Atomic time_t last_update;
+	/* Last completed UPDATE write, in monotonic microseconds.
+	 * Shared by the I/O, keepalive and main threads.
+	 */
+	_Atomic uint64_t last_update;
 
 	/* Notify data. */
 	struct bgp_notify notify;
