@@ -525,22 +525,66 @@ void cli_show_isis_metric_style(struct vty *vty, const struct lyd_node *dnode, b
 }
 
 /*
+ * Set the password or the key chain of an authentication container (area,
+ * domain or circuit), removing the other one.
+ */
+static void isis_password_enqueue(struct vty *vty, const char *container, const char *pwd_type,
+				  const char *pwd, const char *keychain, const char *strict)
+{
+	char xpath[XPATH_MAXLEN];
+
+	nb_cli_enqueue_change(vty, container, NB_OP_CREATE, NULL);
+	snprintfrr(xpath, sizeof(xpath), "%s/key-chain", container);
+	nb_cli_enqueue_change(vty, xpath, keychain ? NB_OP_MODIFY : NB_OP_DESTROY, keychain);
+	snprintfrr(xpath, sizeof(xpath), "%s/strict-rfc5310", container);
+	nb_cli_enqueue_change(vty, xpath, keychain ? NB_OP_MODIFY : NB_OP_DESTROY,
+			      strict ? "true" : "false");
+	snprintfrr(xpath, sizeof(xpath), "%s/password", container);
+	nb_cli_enqueue_change(vty, xpath, keychain ? NB_OP_DESTROY : NB_OP_MODIFY, pwd);
+	snprintfrr(xpath, sizeof(xpath), "%s/password-type", container);
+	nb_cli_enqueue_change(vty, xpath, keychain ? NB_OP_DESTROY : NB_OP_MODIFY, pwd_type);
+}
+
+static void cli_show_isis_password(struct vty *vty, const struct lyd_node *dnode)
+{
+	if (yang_dnode_exists(dnode, "key-chain"))
+		vty_out(vty, " key-chain %s%s", yang_dnode_get_string(dnode, "key-chain"),
+			yang_dnode_get_bool(dnode, "strict-rfc5310") ? " strict-rfc5310" : "");
+	else
+		vty_out(vty, " %s %s", yang_dnode_get_string(dnode, "password-type"),
+			yang_dnode_get_string(dnode, "password"));
+}
+
+static void cli_show_isis_level_pwd(struct vty *vty, const char *cmd, const struct lyd_node *dnode)
+{
+	const char *snp;
+
+	vty_out(vty, " %s", cmd);
+	cli_show_isis_password(vty, dnode);
+	snp = yang_dnode_get_string(dnode, "authenticate-snp");
+	if (!strmatch("none", snp))
+		vty_out(vty, " authenticate snp %s", snp);
+	vty_out(vty, "\n");
+}
+
+/*
  * XPath: /frr-isisd:isis/instance/area-password
  */
 DEFPY_YANG(area_passwd, area_passwd_cmd,
-      "area-password <clear|md5>$pwd_type WORD$pwd [authenticate snp <send-only|validate>$snp]",
+      "area-password <<clear|md5>$pwd_type WORD$pwd|key-chain WORD$keychain [strict-rfc5310$strict]> [authenticate snp <send-only|validate>$snp]",
       "Configure the authentication password for an area\n"
       "Clear-text authentication type\n"
       "MD5 authentication type\n"
       "Level-wide password\n"
+      "Generic cryptographic authentication with a key chain (RFC 5310)\n"
+      "Key chain name\n"
+      "Hash keys longer than the hash, as RFC 5310 does, not as HMAC\n"
       "Authentication\n"
       "SNP PDUs\n"
       "Send but do not check PDUs on receiving\n"
       "Send and check PDUs on receiving\n")
 {
-	nb_cli_enqueue_change(vty, "./area-password", NB_OP_CREATE, NULL);
-	nb_cli_enqueue_change(vty, "./area-password/password", NB_OP_MODIFY, pwd);
-	nb_cli_enqueue_change(vty, "./area-password/password-type", NB_OP_MODIFY, pwd_type);
+	isis_password_enqueue(vty, "./area-password", pwd_type, pwd, keychain, strict);
 	nb_cli_enqueue_change(vty, "./area-password/authenticate-snp", NB_OP_MODIFY,
 			      snp ? snp : "none");
 
@@ -549,33 +593,27 @@ DEFPY_YANG(area_passwd, area_passwd_cmd,
 
 void cli_show_isis_area_pwd(struct vty *vty, const struct lyd_node *dnode, bool show_defaults)
 {
-	const char *snp;
-
-	vty_out(vty, " area-password %s %s", yang_dnode_get_string(dnode, "password-type"),
-		yang_dnode_get_string(dnode, "password"));
-	snp = yang_dnode_get_string(dnode, "authenticate-snp");
-	if (!strmatch("none", snp))
-		vty_out(vty, " authenticate snp %s", snp);
-	vty_out(vty, "\n");
+	cli_show_isis_level_pwd(vty, "area-password", dnode);
 }
 
 /*
  * XPath: /frr-isisd:isis/instance/domain-password
  */
 DEFPY_YANG(domain_passwd, domain_passwd_cmd,
-      "domain-password <clear|md5>$pwd_type WORD$pwd [authenticate snp <send-only|validate>$snp]",
+      "domain-password <<clear|md5>$pwd_type WORD$pwd|key-chain WORD$keychain [strict-rfc5310$strict]> [authenticate snp <send-only|validate>$snp]",
       "Set the authentication password for a routing domain\n"
       "Clear-text authentication type\n"
       "MD5 authentication type\n"
       "Level-wide password\n"
+      "Generic cryptographic authentication with a key chain (RFC 5310)\n"
+      "Key chain name\n"
+      "Hash keys longer than the hash, as RFC 5310 does, not as HMAC\n"
       "Authentication\n"
       "SNP PDUs\n"
       "Send but do not check PDUs on receiving\n"
       "Send and check PDUs on receiving\n")
 {
-	nb_cli_enqueue_change(vty, "./domain-password", NB_OP_CREATE, NULL);
-	nb_cli_enqueue_change(vty, "./domain-password/password", NB_OP_MODIFY, pwd);
-	nb_cli_enqueue_change(vty, "./domain-password/password-type", NB_OP_MODIFY, pwd_type);
+	isis_password_enqueue(vty, "./domain-password", pwd_type, pwd, keychain, strict);
 	nb_cli_enqueue_change(vty, "./domain-password/authenticate-snp", NB_OP_MODIFY,
 			      snp ? snp : "none");
 
@@ -583,13 +621,16 @@ DEFPY_YANG(domain_passwd, domain_passwd_cmd,
 }
 
 DEFPY_YANG(no_area_passwd, no_area_passwd_cmd,
-      "no <area-password|domain-password>$cmd [<clear|md5>$pwd_type WORD$pwd [authenticate snp <send-only|validate>$snp]]",
+      "no <area-password|domain-password>$cmd [<<clear|md5>$pwd_type WORD$pwd|key-chain WORD$keychain [strict-rfc5310$strict]> [authenticate snp <send-only|validate>$snp]]",
       NO_STR
       "Configure the authentication password for an area\n"
       "Set the authentication password for a routing domain\n"
       "Clear-text authentication type\n"
       "MD5 authentication type\n"
       "Level-wide password\n"
+      "Generic cryptographic authentication with a key chain (RFC 5310)\n"
+      "Key chain name\n"
+      "Hash keys longer than the hash, as RFC 5310 does, not as HMAC\n"
       "Authentication\n"
       "SNP PDUs\n"
       "Send but do not check PDUs on receiving\n"
@@ -602,14 +643,7 @@ DEFPY_YANG(no_area_passwd, no_area_passwd_cmd,
 
 void cli_show_isis_domain_pwd(struct vty *vty, const struct lyd_node *dnode, bool show_defaults)
 {
-	const char *snp;
-
-	vty_out(vty, " domain-password %s %s", yang_dnode_get_string(dnode, "password-type"),
-		yang_dnode_get_string(dnode, "password"));
-	snp = yang_dnode_get_string(dnode, "authenticate-snp");
-	if (!strmatch("none", snp))
-		vty_out(vty, " authenticate snp %s", snp);
-	vty_out(vty, "\n");
+	cli_show_isis_level_pwd(vty, "domain-password", dnode);
 }
 
 /*
@@ -2337,27 +2371,33 @@ void cli_show_ip_isis_passive(struct vty *vty, const struct lyd_node *dnode, boo
  * XPath: /frr-interface:lib/interface/frr-isisd:isis/password
  */
 
-DEFPY_YANG(isis_passwd, isis_passwd_cmd, "isis password <md5|clear>$type WORD$pwd",
+DEFPY_YANG(isis_passwd, isis_passwd_cmd,
+      "isis password <<md5|clear>$type WORD$pwd|key-chain WORD$keychain [strict-rfc5310$strict]>",
       "IS-IS routing protocol\n"
       "Configure the authentication password for a circuit\n"
       "HMAC-MD5 authentication\n"
       "Cleartext password\n"
-      "Circuit password\n")
+      "Circuit password\n"
+      "Generic cryptographic authentication with a key chain (RFC 5310)\n"
+      "Key chain name\n"
+      "Hash keys longer than the hash, as RFC 5310 does, not as HMAC\n")
 {
-	nb_cli_enqueue_change(vty, "./frr-isisd:isis/password", NB_OP_CREATE, NULL);
-	nb_cli_enqueue_change(vty, "./frr-isisd:isis/password/password", NB_OP_MODIFY, pwd);
-	nb_cli_enqueue_change(vty, "./frr-isisd:isis/password/password-type", NB_OP_MODIFY, type);
+	isis_password_enqueue(vty, "./frr-isisd:isis/password", type, pwd, keychain, strict);
 
 	return nb_cli_apply_changes(vty, NULL);
 }
 
-DEFPY_YANG(no_isis_passwd, no_isis_passwd_cmd, "no isis password [<md5|clear> WORD]",
+DEFPY_YANG(no_isis_passwd, no_isis_passwd_cmd,
+      "no isis password [<<md5|clear> WORD|key-chain WORD [strict-rfc5310]>]",
       NO_STR
       "IS-IS routing protocol\n"
       "Configure the authentication password for a circuit\n"
       "HMAC-MD5 authentication\n"
       "Cleartext password\n"
-      "Circuit password\n")
+      "Circuit password\n"
+      "Generic cryptographic authentication with a key chain (RFC 5310)\n"
+      "Key chain name\n"
+      "Hash keys longer than the hash, as RFC 5310 does, not as HMAC\n")
 {
 	nb_cli_enqueue_change(vty, "./frr-isisd:isis/password", NB_OP_DESTROY, NULL);
 
@@ -2366,8 +2406,41 @@ DEFPY_YANG(no_isis_passwd, no_isis_passwd_cmd, "no isis password [<md5|clear> WO
 
 void cli_show_ip_isis_password(struct vty *vty, const struct lyd_node *dnode, bool show_defaults)
 {
-	vty_out(vty, " isis password %s %s\n", yang_dnode_get_string(dnode, "password-type"),
-		yang_dnode_get_string(dnode, "password"));
+	vty_out(vty, " isis password");
+	cli_show_isis_password(vty, dnode);
+	vty_out(vty, "\n");
+}
+
+/*
+ * XPath: /frr-interface:lib/interface/frr-isisd:isis/extended-sequence-number
+ */
+DEFPY_YANG(isis_esn, isis_esn_cmd, "isis extended-sequence-number <send|verify>$mode",
+      "IS-IS routing protocol\n"
+      "Extended Sequence Numbers in IIHs and SNPs (RFC 7602)\n"
+      "Send Extended Sequence Numbers\n"
+      "Send Extended Sequence Numbers, and discard PDUs without a newer one\n")
+{
+	nb_cli_enqueue_change(vty, "./frr-isisd:isis/extended-sequence-number", NB_OP_MODIFY, mode);
+
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFPY_YANG(no_isis_esn, no_isis_esn_cmd, "no isis extended-sequence-number [<send|verify>]",
+      NO_STR
+      "IS-IS routing protocol\n"
+      "Extended Sequence Numbers in IIHs and SNPs (RFC 7602)\n"
+      "Send Extended Sequence Numbers\n"
+      "Send Extended Sequence Numbers, and discard PDUs without a newer one\n")
+{
+	nb_cli_enqueue_change(vty, "./frr-isisd:isis/extended-sequence-number", NB_OP_DESTROY,
+			      NULL);
+
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+void cli_show_ip_isis_esn(struct vty *vty, const struct lyd_node *dnode, bool show_defaults)
+{
+	vty_out(vty, " isis extended-sequence-number %s\n", yang_dnode_get_string(dnode, NULL));
 }
 
 /*
@@ -3750,6 +3823,8 @@ void isis_cli_init(void)
 
 	install_element(INTERFACE_NODE, &isis_passwd_cmd);
 	install_element(INTERFACE_NODE, &no_isis_passwd_cmd);
+	install_element(INTERFACE_NODE, &isis_esn_cmd);
+	install_element(INTERFACE_NODE, &no_isis_esn_cmd);
 
 	install_element(INTERFACE_NODE, &isis_metric_cmd);
 	install_element(INTERFACE_NODE, &no_isis_metric_cmd);
