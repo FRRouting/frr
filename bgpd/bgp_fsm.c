@@ -2206,6 +2206,14 @@ enum bgp_fsm_state_progress bgp_stop(struct peer_connection *connection)
 				peer_down_str[(int)peer->last_reset]);
 		}
 
+		/* Remove routes still stale from the preceding GR cycle before
+		 * the clearing work marks this session's routes stale.
+		 */
+		FOREACH_AFI_SAFI_NSF (afi, safi)
+			if (peer->nsf[afi][safi] &&
+			    !CHECK_FLAG(peer->af_sflags[afi][safi], PEER_STATUS_EOR_RECEIVED))
+				bgp_clear_stale_route(peer, afi, safi);
+
 		/* graceful restart */
 		if (event_is_scheduled(connection->t_gr_stale)) {
 			event_cancel(&connection->t_gr_stale);
