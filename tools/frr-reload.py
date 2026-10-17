@@ -2447,8 +2447,9 @@ def delete_via_vtysh_file(ctx_keys, line):
     Per-line deletes each trigger a full mgmtd commit. At scale that blows
     past systemd's ExecReload TimeoutSec (e.g. hundreds of L3VNI unsets under
     "vrf NAME", thousands of EVPN "route-target import" unsets under
-    "router bgp ... vrf ...", or a thousand "route-map" unsets). Batching
-    keeps one commit for the whole set.
+    "router bgp ... vrf ...", tens of thousands of originated "network"
+    prefixes under a BGP address-family, or a thousand "route-map" unsets).
+    Batching keeps one commit for the whole set.
     """
     if not ctx_keys:
         return False
@@ -2481,6 +2482,9 @@ def delete_via_vtysh_file(ctx_keys, line):
     if ctx_keys[0].startswith("router bgp") and line.lstrip().startswith(
         "route-target "
     ):
+        return True
+    # Batch-delete complete [no] network commands
+    if ctx_keys[0].startswith("router bgp") and line.lstrip().startswith("network "):
         return True
 
     return False
@@ -3201,15 +3205,19 @@ if __name__ == "__main__":
                 # as a single "vtysh -f" batch (below) to avoid the per-line
                 # "vtysh -c" timeouts seen at scale (e.g. hundreds of L3VNI
                 # unsets under "vrf NAME", thousands of EVPN route-target
-                # unsets under "router bgp ... vrf ...", or a thousand
-                # "route-map" unsets). The rest stay in lines_to_del
-                # and go through the per-line delete path.
+                # unsets under "router bgp ... vrf ...", tens of thousands of
+                # originated "network" prefixes under a BGP address-family, or
+                # a thousand "route-map" unsets). The rest stay in
+                # lines_to_del and go through the per-line delete path.
                 # old way:
                 #   vtysh -c 'configure' -c 'vrf vrf1' -c ' no vni 4001' -c 'exit'
                 #   vtysh -c 'configure' -c 'vrf vrf2' -c ' no vni 4002' -c 'exit'
                 #   vtysh -c 'configure' -c 'router bgp 1 vrf vrf_shared1' \
                 #        -c 'address-family l2vpn evpn' \
                 #        -c ' no route-target import 1:1' -c 'exit' -c 'exit'
+                #   vtysh -c 'configure' -c 'router bgp 1 vrf GREEN' \
+                #        -c 'address-family ipv4 unicast' \
+                #        -c ' no network 10.0.0.1/32' -c 'exit' -c 'exit'
                 #   vtysh -c 'configure' -c 'no route-map rmap1 permit 10'
                 #   vtysh -c 'configure' -c 'route-map rmap2 permit 10' \
                 #        -c ' no set metric 10'
@@ -3228,6 +3236,13 @@ if __name__ == "__main__":
                 #      address-family l2vpn evpn
                 #       no route-target import 1:1 1:2
                 #       no route-target export 2:1
+                #      exit
+                #     exit
+                #
+                #     router bgp 1 vrf GREEN
+                #      address-family ipv4 unicast
+                #       no network 10.0.0.1/32
+                #       no network 10.0.0.2/32
                 #      exit
                 #     exit
                 #
