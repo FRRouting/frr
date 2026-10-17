@@ -395,10 +395,34 @@ identity set-extcommunity-color {
       "Set BGP large community list (for deletion)";
   }
 
+  identity large-comm-list-add {
+    base frr-route-map:rmap-set-type;
+    description
+      "Set BGP large community list (for addition)";
+  }
+
+  identity large-comm-list-replace {
+    base frr-route-map:rmap-set-type;
+    description
+      "Set BGP large community list (for replacement)";
+  }
+
   identity extended-comm-list-delete {
     base frr-route-map:rmap-set-type;
     description
       "Set BGP extended community list (for deletion)";
+  }
+
+  identity extended-comm-list-add {
+    base frr-route-map:rmap-set-type;
+    description
+      "Set BGP extended community list (for addition)";
+  }
+
+  identity extended-comm-list-replace {
+    base frr-route-map:rmap-set-type;
+    description
+      "Set BGP extended community list (for replacement)";
   }
 
   identity set-evpn-gateway-ip-ipv4 {
@@ -1426,6 +1450,50 @@ identity set-extcommunity-color {
         type bgp-filter:bgp-list-name;
         description
           "Set the community list name value";
+      }
+    }
+
+    case extended-comm-list-name-add {
+      when "derived-from-or-self(../frr-route-map:action, 'frr-bgp-route-map:extended-comm-list-add')";
+      description
+        "Set the extended community list name";
+      leaf extended-comm-list-name-add {
+        type bgp-filter:bgp-list-name;
+        description
+          "Set the extended community list name value";
+      }
+    }
+
+    case extended-comm-list-name-replace {
+      when "derived-from-or-self(../frr-route-map:action, 'frr-bgp-route-map:extended-comm-list-replace')";
+      description
+        "Set the extended community list name";
+      leaf extended-comm-list-name-replace {
+        type bgp-filter:bgp-list-name;
+        description
+          "Set the extended community list name value";
+      }
+    }
+
+    case large-comm-list-name-add {
+      when "derived-from-or-self(../frr-route-map:action, 'frr-bgp-route-map:large-comm-list-add')";
+      description
+        "Set the large community list name";
+      leaf large-comm-list-name-add {
+        type bgp-filter:bgp-list-name;
+        description
+          "Set the large community list name value";
+      }
+    }
+
+    case large-comm-list-name-replace {
+      when "derived-from-or-self(../frr-route-map:action, 'frr-bgp-route-map:large-comm-list-replace')";
+      description
+        "Set the large community list name";
+      leaf large-comm-list-name-replace {
+        type bgp-filter:bgp-list-name;
+        description
+          "Set the large community list name value";
       }
     }
 
