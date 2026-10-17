@@ -703,6 +703,85 @@ def test_bgp_global_peer_ll_nexthop_nht_wrong_interface():
     )
 
 
+def test_bgp_ll_peer_without_interface():
+    """
+    Configure an explicit link-local peer in two steps, remote-as first
+    and the interface later.
+
+    Until the interface is configured, bgpd must not bind the peer's
+    sockets to an interface that just happens to have a matching
+    link-local prefix. r1 has fe80:1::/64 on both r1-eth0 and r1-eth1,
+    and r3 (fe80:1::3) is behind r1-eth1. Binding to the first matching
+    interface sends r1's packets for r3 out r1-eth0, where neighbor
+    discovery for fe80:1::3 fails.
+    """
+    tgen = get_topogen()
+
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    r1 = tgen.gears["r1"]
+    r3 = tgen.gears["r3"]
+
+    def _bgp_r3_established():
+        output = json.loads(r1.vtysh_cmd("show bgp summary json"))
+        expected = {"ipv4Unicast": {"peers": {"fe80:1::3": {"state": "Established"}}}}
+        return topotest.json_cmp(output, expected)
+
+    def _r3_seen_on_r1_eth0():
+        output = r1.run("ip -6 neigh show dev r1-eth0")
+        if "fe80:1::3 " in output:
+            return None
+        return "No neighbor entry for fe80:1::3 on r1-eth0"
+
+    step("Make sure r3 has a router-id, so the r1 <-> r3 session can come up")
+    r3.vtysh_cmd(
+        """
+        configure terminal
+         router bgp 65003
+          bgp router-id 10.0.0.3
+        end
+    """
+    )
+
+    test_func = functools.partial(_bgp_r3_established)
+    _, result = topotest.run_and_expect(test_func, None, count=60, wait=1)
+    assert result is None, "r1 <-> r3 link-local session did not establish"
+
+    step("Re-add fe80:1::3 on r1 without an interface")
+    r1.vtysh_cmd(
+        """
+        configure terminal
+         router bgp 65001
+          no neighbor fe80:1::3
+          neighbor fe80:1::3 remote-as external
+          neighbor fe80:1::3 timers 3 10
+          neighbor fe80:1::3 timers connect 1
+        end
+    """
+    )
+
+    step("Verify r1 sends nothing for fe80:1::3 out r1-eth0")
+    test_func = functools.partial(_r3_seen_on_r1_eth0)
+    _, result = topotest.run_and_expect(test_func, None, count=15, wait=1)
+    assert result is not None, "r1 sent packets for fe80:1::3 out r1-eth0"
+
+    step("Add the interface on r1 and verify the session comes up")
+    r1.vtysh_cmd(
+        """
+        configure terminal
+         router bgp 65001
+          neighbor fe80:1::3 interface r1-eth1
+        end
+    """
+    )
+    r3.vtysh_cmd("clear bgp fe80:1::1")
+
+    test_func = functools.partial(_bgp_r3_established)
+    _, result = topotest.run_and_expect(test_func, None, count=60, wait=1)
+    assert result is None, "r1 <-> r3 link-local session did not come back"
+
+
 if __name__ == "__main__":
     args = ["-s"] + sys.argv[1:]
     sys.exit(pytest.main(args))
