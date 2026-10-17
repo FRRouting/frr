@@ -1920,13 +1920,13 @@ void bfd_set_demand(struct bfd_session *bs, bool demand)
 		SET_FLAG(bs->flags, BFD_SESS_FLAG_DEMAND);
 
 		/*
-		 * Stop the detection timer here rather than waiting for
-		 * the next packet: the peer ceases as soon as it sees
-		 * the Demand bit, so there may be no further packet to
-		 * take the receive path.
+		 * The Demand bit changes only when both ends are Up. Poll
+		 * with the change, retaining detection until Final arrives.
+		 * The receive path stops detection after completing the poll.
+		 * RFC 5880, Section 6.6.
 		 */
 		if (bs->ses_state == PTM_BFD_UP && bs->remote_ses_state == PTM_BFD_UP)
-			bfd_recvtimer_delete(bs);
+			bfd_set_polling(bs);
 
 		return;
 	}
