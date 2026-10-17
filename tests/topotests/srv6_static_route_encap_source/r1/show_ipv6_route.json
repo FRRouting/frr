@@ -101,5 +101,61 @@
 				}
 			]
 		}
+	],
+	"2001:db8:1:1::4/128": [
+		{
+			"prefix": "2001:db8:1:1::4/128",
+			"prefixLen": 128,
+			"protocol": "static",
+			"selected": true,
+			"destSelected": true,
+			"distance": 1,
+			"metric": 0,
+			"installed": true,
+			"nexthops": [
+				{
+					"directlyConnected": true,
+					"active": true,
+					"weight": 1,
+					"seg6local": {
+						"action": "unspec"
+					},
+					"seg6": [
+						"fcbb:bbbb:1:2:3:4:5:7",
+						"fcbb:bbbb:7:8:fe00::"
+					],
+					"srv6EncapBehavior": "H.Encaps.Red",
+					"srv6EncapSource": "2001:db8:dead:6::ff"
+				}
+			]
+		}
+	],
+	"2001:db8:1:1::5/128": [
+		{
+			"prefix": "2001:db8:1:1::5/128",
+			"prefixLen": 128,
+			"protocol": "static",
+			"selected": true,
+			"destSelected": true,
+			"distance": 1,
+			"metric": 0,
+			"installed": true,
+			"nexthops": [
+				{
+					"directlyConnected": true,
+					"active": true,
+					"weight": 1,
+					"seg6local": {
+						"action": "unspec"
+					},
+					"seg6": [
+						"fcbb:bbbb:1:2:3:4:5:7",
+						"fcbb:bbbb:7:8:fe00::"
+					],
+					"srv6EncapBehavior": "H.Encaps.Red",
+					"srv6EncapSource": "2001:db8:dead:6::ff"
+				}
+			]
+		}
 	]
 }
