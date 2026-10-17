@@ -1798,6 +1798,7 @@ static void zl3vni_check_del_rmac(struct zebra_l3vni *zl3vni, const struct ethad
 				  const struct ipaddr *vtep_ip)
 {
 	struct zebra_mac *zrmac = NULL;
+	struct ipaddr ip_vtep;
 
 	zrmac = zl3vni_rmac_lookup(zl3vni, &old_rmac);
 	if (!zrmac) {
@@ -1806,6 +1807,17 @@ static void zl3vni_check_del_rmac(struct zebra_l3vni *zl3vni, const struct ethad
 				   &old_rmac);
 		return;
 	}
+
+	/* nh_list stores each VTEP in the form it was received, so one VTEP can
+	 * appear under both its IPv4 and v4-mapped IPv6 address. fwd_info is
+	 * always held converted, because the dplane consumes it as-is, so every
+	 * comparison below has to be made on converted values.
+	 */
+	if (IS_IPADDR_V4(&zl3vni->local_vtep_ip))
+		vtep_to_v4(vtep_ip, &ip_vtep);
+	else
+		ip_vtep = *vtep_ip;
+
 	if (listcount(zrmac->nh_list)) {
 		struct ipaddr *curr_vtep = NULL;
 		struct listnode *node = NULL, *nnode = NULL;
@@ -1815,16 +1827,50 @@ static void zl3vni_check_del_rmac(struct zebra_l3vni *zl3vni, const struct ethad
 				break;
 		}
 		if (node) {
+			bool was_programmed;
+
+			/* Only the VTEP we are actually forwarding to needs
+			 * re-pointing. Moving off any other one would change
+			 * forwarding for no reason.
+			 */
+			was_programmed = ipaddr_is_same(&zrmac->fwd_info.r_vtep_ip, &ip_vtep);
+
 			l3vni_rmac_nh_free(curr_vtep);
 			list_delete_node(zrmac->nh_list, node);
 			/* Get the first node in the list */
 			node = listhead(zrmac->nh_list);
 			/* Update the forward reference vtep IP to first node in list */
-			if (node) {
+			if (node && was_programmed) {
+				struct ipaddr new_vtep;
+
 				curr_vtep = listgetdata(node);
-				if (IS_ZEBRA_DEBUG_VXLAN)
-					zlog_debug("Updating VTEP IP %pIA", curr_vtep);
-				zrmac->fwd_info.r_vtep_ip = *curr_vtep;
+
+				if (IS_IPADDR_V4(&zl3vni->local_vtep_ip))
+					vtep_to_v4(curr_vtep, &new_vtep);
+				else
+					new_vtep = *curr_vtep;
+
+				/* If the survivor is the same VTEP under its
+				 * other address form, the dplane already has it
+				 * and there is nothing to program.
+				 */
+				if (!ipaddr_is_same(&zrmac->fwd_info.r_vtep_ip, &new_vtep)) {
+					if (IS_ZEBRA_DEBUG_VXLAN)
+						zlog_debug("Updating VTEP IP %pIA", &new_vtep);
+
+					zrmac->fwd_info.r_vtep_ip = new_vtep;
+
+					frrtrace(4, frr_zebra, l3vni_remote_vtep_nh_upd,
+						 zl3vni->vni, vtep_ip, &zrmac->fwd_info.r_vtep_ip,
+						 zrmac->macaddr);
+
+					/* Send RMAC for FPM processing */
+					hook_call(zebra_rmac_update, zrmac, zl3vni, false,
+						  "RMAC changed");
+
+					/* install rmac in kernel */
+					zl3vni_rmac_install(zl3vni, zrmac);
+				}
 			}
 		}
 		if (IS_ZEBRA_DEBUG_VXLAN) {
@@ -1840,6 +1886,13 @@ static void zl3vni_check_del_rmac(struct zebra_l3vni *zl3vni, const struct ethad
 				   zl3vni->vni, &old_rmac, vtep_ip);
 		/* Uninstall from kernel and rmac table */
 		zl3vni_rmac_uninstall(zl3vni, zrmac);
+
+		/* Send RMAC for FPM processing */
+		hook_call(zebra_rmac_update, zrmac, zl3vni, true, "RMAC deleted");
+
+		frrtrace(4, frr_zebra, l3vni_remote_rmac, 2, zl3vni->vni, &ip_vtep,
+			 &zrmac->macaddr);
+
 		zl3vni_rmac_del(zl3vni, zrmac);
 	}
 }
