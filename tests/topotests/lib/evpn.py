@@ -12,6 +12,7 @@ evpn.py: Library of helper functions for EVPN testing
 """
 
 import json
+import shlex
 import sys
 from lib import topotest
 from lib.topolog import logger
@@ -1494,6 +1495,336 @@ def evpn_verify_l3vni_remote_rmacs(
         assert result is None, f"{rname} L3VNI RMAC verification failed: {result}"
 
 
+def get_remote_macs(dut, vni):
+    """
+    Return remote router-MACs zebra has learned for one L3VNI.
+
+    Runs `show evpn rmac vni <vni> json` and collects the MAC address keys.
+
+    Parameters
+    ----------
+    dut : router
+        Device under test.
+    vni : str or int
+        L3VNI to query.
+
+    Returns
+    -------
+    list of str
+        Sorted lowercase MAC addresses. Empty when zebra has no remote RMACs
+        or the command returns no JSON.
+    """
+    output = dut.vtysh_cmd(f"show evpn rmac vni {vni} json", isjson=True)
+    if not isinstance(output, dict):
+        logger.error(
+            f"{dut.name}: no JSON from 'show evpn rmac vni {vni} json' "
+            f"(got {type(output).__name__})"
+        )
+        return []
+
+    macs = []
+    for key, value in output.items():
+        if not isinstance(value, dict) or ":" not in key:
+            continue
+        macs.append(key.lower())
+
+    macs = sorted(set(macs))
+    if macs:
+        logger.info(f"{dut.name}: VNI {vni} remote RMACs: {macs}")
+    else:
+        logger.error(f"{dut.name}: VNI {vni} has no remote RMACs: {output}")
+    return macs
+
+
+def get_l3vni_bridge_vlan(dut, vni):
+    """
+    Return the bridge, VXLAN device, and access VLAN for one L3VNI.
+
+    Reads `show evpn vni <vni> json`. The bridge row zebra reinstalls is
+    specific to this VLAN. Two L3VNIs on one bridge use different VLANs, and
+    a remote VTEP can advertise the same router-MAC for both.
+
+    Parameters
+    ----------
+    dut : router
+        Device under test.
+    vni : str or int
+        L3VNI to query.
+
+    Returns
+    -------
+    tuple of (str, str, int)
+        Bridge name, VXLAN device name, and access VLAN id. VLAN 0 means
+        the bridge is not VLAN-aware, which is the usual per-VNI device.
+
+    Raises
+    ------
+    RuntimeError
+        When the VNI is missing, is not an L3VNI, or has no bridge, VXLAN
+        device, or VLAN.
+    """
+    raw = dut.vtysh_cmd(f"show evpn vni {vni} json", isjson=True)
+    info = _evpn_normalize_vni_json(raw, int(vni))
+    if not isinstance(info, dict) or not info:
+        raise RuntimeError(f"{dut.name}: no JSON from 'show evpn vni {vni} json'")
+
+    vni_type = info.get("type")
+    if vni_type not in (None, "L3"):
+        raise RuntimeError(f"{dut.name}: VNI {vni} is type {vni_type}, expected L3")
+
+    bridge = info.get("bridge")
+    if not bridge or bridge == "-":
+        raise RuntimeError(f"{dut.name}: VNI {vni} has no L3VNI bridge: {info}")
+
+    vxlan = info.get("vxlanIntf") or info.get("vxlanIf") or info.get("vxlanInterface")
+    if not vxlan or vxlan == "-":
+        raise RuntimeError(f"{dut.name}: VNI {vni} has no VXLAN device: {info}")
+
+    try:
+        vlan = int(info.get("vlan"))
+    except (TypeError, ValueError):
+        raise RuntimeError(
+            f"{dut.name}: VNI {vni} has no access VLAN: {info}"
+        ) from None
+    if vlan < 0:
+        raise RuntimeError(f"{dut.name}: VNI {vni} has no access VLAN: {info}")
+
+    logger.info(f"{dut.name}: VNI {vni} L3VNI bridge {bridge} dev {vxlan} vlan {vlan}")
+    return bridge, vxlan, vlan
+
+
+def bridge_fdb_flush_cmd(bridge, vlan=0):
+    """
+    Return a `bridge fdb flush dev <bridge> [vlan <vid>]` command.
+
+    A non-zero VLAN limits the flush to that VLAN. VLAN 0 flushes the whole
+    bridge device.
+    """
+    if vlan:
+        return f"bridge fdb flush dev {bridge} vlan {int(vlan)}"
+    return f"bridge fdb flush dev {bridge}"
+
+
+# Words that follow the NTF_MASTER flag. A later "master <bridge>" is the
+# bridge device from NDA_MASTER, not another flag.
+_FDB_FLAG_OR_STATE = {
+    "self",
+    "router",
+    "extern_learn",
+    "offload",
+    "master",
+    "sticky",
+    "permanent",
+    "static",
+    "stale",
+    "dynamic",
+    "reachable",
+}
+
+
+def _fdb_token(parts, key):
+    """Return the token after `key`, or None."""
+    for index, part in enumerate(parts[:-1]):
+        if part == key:
+            return parts[index + 1]
+    return None
+
+
+def _fdb_bridge_names(parts):
+    """Bridge device names printed as `master <bridge>`."""
+    names = []
+    for index, part in enumerate(parts[:-1]):
+        name = parts[index + 1]
+        if part != "master":
+            continue
+        if name in _FDB_FLAG_OR_STATE or name.startswith("state="):
+            continue
+        names.append(name)
+    return names
+
+
+def _fdb_show_cmd(bridge, vxlan, vlan, mac=None):
+    """
+    `bridge fdb show` limited to one bridge, VXLAN port, and VLAN.
+
+    `dev` is the bridge port. `br` is the bridge. A MAC-only grep also
+    matches the same router-MAC on the other L3VNI VLAN.
+    """
+    cmd = (
+        "bridge fdb show"
+        f" br {shlex.quote(str(bridge))}"
+        f" dev {shlex.quote(str(vxlan))}"
+    )
+    # VLAN 0 is a non-VLAN-aware bridge. `vlan 0` is not a filter.
+    if int(vlan):
+        cmd += f" vlan {int(vlan)}"
+    if mac:
+        cmd += f" | grep -i -F -- {shlex.quote(mac)} || true"
+    return cmd
+
+
+def _fdb_line_programs_mac(line, mac, bridge, vxlan, vlan):
+    """
+    True when this line is the bridge FDB row for `mac` on this target.
+
+    The row zebra reinstalls is the master entry on the L3VNI VXLAN port
+    and access VLAN. A vxlan self entry (`dst`, no master) survives
+    `bridge fdb flush dev <bridge>` and is not that row. The same MAC on
+    another VLAN is a different L3VNI and does not count.
+
+    `bridge fdb show dev <vxlan>` omits `dev <vxlan>` from each line because
+    that port is already the filter. An unfiltered line still has to name it.
+    """
+    parts = line.lower().split()
+    if not parts or parts[0] != mac.lower():
+        return False
+    # `bridge fdb show dev vxlan48` omits the port it was given:
+    #   06:4f:aa:dc:52:5a vlan 4001 extern_learn master br_default
+    # Unfiltered `bridge fdb show` prints it:
+    #   06:4f:aa:dc:52:5a dev vxlan48 vlan 4001 extern_learn master br_default
+    # A missing dev was already limited to this vxlan. A printed dev must match.
+    got_dev = _fdb_token(parts, "dev")
+    if got_dev is not None and got_dev != str(vxlan).lower():
+        return False
+    got_vlan = _fdb_token(parts, "vlan")
+    if int(vlan):
+        if got_vlan != str(int(vlan)):
+            return False
+    elif got_vlan is not None:
+        return False
+    if "master" not in parts:
+        return False
+    bridge_names = _fdb_bridge_names(parts)
+    if bridge_names and str(bridge).lower() not in bridge_names:
+        return False
+    return True
+
+
+def check_mac_in_fdb(dut, mac, bridge, vxlan, vlan):
+    """
+    Return True when this bridge, VXLAN device, and VLAN program `mac`.
+
+    Runs `bridge fdb show br <bridge> dev <vxlan> vlan <vlan>` and keeps
+    the master row for that port and VLAN.
+
+    Parameters
+    ----------
+    dut : router
+        Device under test.
+    mac : str
+        MAC address to look up.
+    bridge : str
+        Bridge device, for example ``br_default``.
+    vxlan : str
+        VXLAN port enslaved to `bridge`.
+    vlan : int
+        Access VLAN of the L3VNI.
+
+    Returns
+    -------
+    bool
+        True when that bridge row is present.
+    """
+    cmd = _fdb_show_cmd(bridge, vxlan, vlan, mac)
+    output = dut.run(cmd)
+    if not output or not str(output).strip():
+        logger.debug(
+            f"{dut.name}: no bridge FDB row for {mac} "
+            f"on {bridge} dev {vxlan} vlan {vlan}"
+        )
+        return False
+
+    for line in str(output).splitlines():
+        if _fdb_line_programs_mac(line, mac, bridge, vxlan, vlan):
+            logger.debug(
+                f"{dut.name}: bridge FDB has {mac} on {bridge} "
+                f"dev {vxlan} vlan {vlan}: {line.strip()}"
+            )
+            return True
+
+    logger.info(
+        f"{dut.name}: no bridge row for {mac} on {bridge} "
+        f"dev {vxlan} vlan {vlan}:\n{output.strip()}"
+    )
+    return False
+
+
+def get_macs_in_bridge_fdb(dut, macs, bridge, vxlan, vlan):
+    """
+    Return which router-MACs have a bridge row on this VLAN.
+
+    Reads `bridge fdb show br <bridge> dev <vxlan> vlan <vlan>` once.
+    A row for the same MAC on a different VLAN is not counted.
+
+    Parameters
+    ----------
+    dut : router
+        Device under test.
+    macs : list of str
+        Router-MAC addresses to look for.
+    bridge : str
+        Bridge device, for example ``br_default``.
+    vxlan : str
+        VXLAN port enslaved to `bridge`.
+    vlan : int
+        Access VLAN of the L3VNI.
+
+    Returns
+    -------
+    tuple of (list of str, list of str)
+        MACs from `macs` that have a matching bridge row, and those lines.
+    """
+    output = dut.run(_fdb_show_cmd(bridge, vxlan, vlan))
+    text = "" if output is None else str(output)
+    present = []
+    lines = []
+    for mac in macs:
+        matched = [
+            line.strip()
+            for line in text.splitlines()
+            if line.strip() and _fdb_line_programs_mac(line, mac, bridge, vxlan, vlan)
+        ]
+        if matched:
+            present.append(mac)
+            lines.extend(matched)
+    return present, lines
+
+
+def flush_bridge_fdb(dut, bridge_dev):
+    """
+    Flush FDB entries on a bridge device.
+
+    Runs `bridge fdb flush dev <bridge_dev>` and deletes that bridge's FDB
+    entries. It does not read or return MAC rows. Callers use
+    `required_iproute2_version("5.19")` before calling this helper.
+
+    Parameters
+    ----------
+    dut : router
+        Device under test.
+    bridge_dev : str
+        Bridge interface name, for example the L3VNI bridge.
+
+    Returns
+    -------
+    str
+        The command that was run.
+
+    Raises
+    ------
+    CalledProcessError
+        When the flush command fails.
+    """
+    cmd = bridge_fdb_flush_cmd(bridge_dev)
+    logger.info(f"{dut.name}: {cmd}")
+    try:
+        dut.cmd_raises(cmd)
+    except Exception as exc:
+        logger.error(f"{dut.name}: '{cmd}' failed: {exc}")
+        raise
+    return cmd
+
+
 def evpn_trigger_host_arp(tgen, host_gateways, interface="swp1", count=3, interval=1):
     """
     Trigger ARP/NDP from hosts to populate MAC address tables in the EVPN fabric.
@@ -2271,8 +2602,10 @@ def evpn_verify_vni_rt_member(router, field, rt, present=True, vrf=None, vni=Non
 
 def evpn_verify_evpn_peer_established(router, peer):
     """Return None once the L2VPN EVPN neighbor is Established."""
-    output = router.vtysh_cmd("show bgp l2vpn evpn summary json", isjson=True)
-    if not output or not isinstance(output, dict):
+    from lib.bgp import get_bgp_summary_json
+
+    output = get_bgp_summary_json(router, "l2vpn", "evpn")
+    if not output:
         return "{}: no EVPN summary json".format(router.name)
     peers = output.get("peers")
     if not peers:

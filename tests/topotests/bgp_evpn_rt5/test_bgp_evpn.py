@@ -28,10 +28,20 @@ sys.path.append(os.path.join(CWD, "../"))
 # pylint: disable=C0413
 # Import topogen and topotest helpers
 from lib import topotest
-from lib.bgp import verify_bgp_rib
-from lib.common_config import apply_raw_config
+from lib.bgp import get_bgp_summary_json, verify_bgp_rib
+from lib.common_config import (
+    apply_raw_config,
+    required_iproute2_version,
+    required_linux_kernel_version,
+)
 from lib.topogen import Topogen, TopoRouter, get_topogen
 from lib.topolog import logger
+from lib.evpn import (
+    check_mac_in_fdb,
+    flush_bridge_fdb,
+    get_l3vni_bridge_vlan,
+    get_remote_macs,
+)
 
 # Required to instantiate the topology builder class.
 
@@ -1185,6 +1195,112 @@ def test_evpn_l3vpn_import():
 
     _test_evpn_rmac(tgen)
     _test_evpn_ping_router(tgen.gears["r1"], tgen.gears["r1"], 101, 102)
+
+
+def test_l3vni_rmac_reinstall_on_fdb_flush():
+    """
+    Per-VNI VXLAN devices: zebra restores remote router-MACs after
+    `bridge fdb flush dev <l3vni bridge>`.
+
+    The pass condition is that every MAC from `show evpn rmac vni <vni>`
+    is programmed in the bridge FDB again. After that check,
+    `no advertise-all-vni` / `advertise-all-vni` reimports remote EVPN
+    routes so the other MAC rows are installed again.
+
+    r2 has one vxlan device per L3VNI (vxlan-101 and vxlan-102). A bridge
+    FDB delete on that device carries the device VNI. The shared VXLAN
+    device path is covered by
+    bgp_evpn_three_tier_clos_topo1/test_l3vni_rmac_reinstall_on_fdb_flush.
+    Requires Linux kernel 6.5 or newer and iproute2 5.19 or newer.
+    Ubuntu 22.04's iproute2 5.15.0 has no `bridge fdb flush`.
+    """
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+    result = required_linux_kernel_version("6.5")
+    if result is not True:
+        pytest.skip(result)
+    result = required_iproute2_version("5.19")
+    if result is not True:
+        pytest.skip(result)
+
+    dut = tgen.gears["r2"]
+    l3vnis = [101, 102]
+    learned = []
+    for vni in l3vnis:
+
+        def _have_rmacs(vni=vni):
+            return bool(get_remote_macs(dut, vni))
+
+        _, ready = topotest.run_and_expect(_have_rmacs, True, count=40, wait=1)
+        assert ready is True, f"{dut.name}: VNI {vni} has no remote RMACs"
+        macs = get_remote_macs(dut, vni)
+        bridge, vxlan, vlan = get_l3vni_bridge_vlan(dut, vni)
+        learned.append((vni, bridge, vxlan, vlan, macs))
+        logger.info(
+            f"{dut.name}: VNI {vni}: {len(macs)} remote router MACs "
+            f"on {bridge} dev {vxlan} vlan {vlan}"
+        )
+        for mac in macs:
+            _, present = topotest.run_and_expect(
+                partial(check_mac_in_fdb, dut, mac, bridge, vxlan, vlan),
+                True,
+                count=40,
+                wait=1,
+            )
+            assert present is True, (
+                f"{dut.name}: VNI {vni} before flush: {mac} is not in the "
+                f"bridge FDB on {bridge} dev {vxlan}"
+            )
+
+    for vni, bridge, vxlan, vlan, macs in learned:
+        flush_bridge_fdb(dut, bridge)
+        for mac in macs:
+            _, present = topotest.run_and_expect(
+                partial(check_mac_in_fdb, dut, mac, bridge, vxlan, vlan),
+                True,
+                count=40,
+                wait=1,
+            )
+            assert present is True, (
+                f"{dut.name}: VNI {vni} after bridge fdb flush dev {bridge}: "
+                f"{mac} was not restored"
+            )
+        still_there = get_remote_macs(dut, vni)
+        assert set(still_there) == set(macs), (
+            f"{dut.name}: VNI {vni} RMAC set changed after "
+            f"bridge fdb flush dev {bridge}: before {macs}, after {still_there}"
+        )
+
+    summary = get_bgp_summary_json(dut, "l2vpn", "evpn")
+    asn = summary.get("as")
+    assert asn, f"{dut.name}: L2VPN EVPN local AS missing: {summary}"
+    asn = int(asn)
+    logger.info(
+        f"{dut.name}: no advertise-all-vni / advertise-all-vni "
+        f"to reinstall remote MACs (AS {asn})"
+    )
+    dut.vtysh_cmd(
+        "configure terminal\n"
+        f"router bgp {asn}\n"
+        " address-family l2vpn evpn\n"
+        "  no advertise-all-vni\n"
+        "  advertise-all-vni\n"
+        " exit-address-family\n"
+        "exit\n"
+    )
+    for vni, bridge, vxlan, vlan, macs in learned:
+        for mac in macs:
+            _, present = topotest.run_and_expect(
+                partial(check_mac_in_fdb, dut, mac, bridge, vxlan, vlan),
+                True,
+                count=40,
+                wait=1,
+            )
+            assert present is True, (
+                f"{dut.name}: VNI {vni} after advertise-all-vni: "
+                f"{mac} is not in the bridge FDB"
+            )
 
 
 def test_memory_leak():
