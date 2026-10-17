@@ -2806,8 +2806,7 @@ static int bgp_route_refresh_receive(struct peer_connection *connection, bgp_siz
 	struct peer_af *paf;
 	uint8_t subtype;
 	bool force_update = false;
-	bgp_size_t msg_length =
-		size - (BGP_MSG_ROUTE_REFRESH_MIN_SIZE - BGP_HEADER_SIZE);
+	bgp_size_t msg_length;
 
 	/* If peer does not have the capability, send notification. */
 	if (!CHECK_FLAG(peer->cap, PEER_CAP_REFRESH_ADV)) {
@@ -2834,7 +2833,52 @@ static int bgp_route_refresh_receive(struct peer_connection *connection, bgp_siz
 	/* Parse packet. */
 	pkt_afi = stream_getw(s);
 	subtype = stream_getc(s);
+
+	/* RFC 7313 processing requires the received enhanced capability.
+	 * Check all subtypes before ORF parsing or changing refresh state.
+	 */
+	/* Without enhanced refresh, this octet is reserved and ignored. */
+	if (!CHECK_FLAG(peer->cap, PEER_CAP_ENHANCED_RR_RCV))
+		subtype = BGP_ROUTE_REFRESH_NORMAL;
+	if (subtype > BGP_ROUTE_REFRESH_EORR) {
+		zlog_info("%s Enhanced Route Refresh invalid subtype %u - ignored",
+			  peer->host, subtype);
+		return BGP_PACKET_NOOP;
+	}
+
+	/* RFC 7313 lengths exclude only the fixed BGP header, not the
+	 * four-octet ROUTE-REFRESH body. Include the received message in
+	 * the diagnostic, bounded by both the input and output buffers.
+	 */
+	if (subtype != BGP_ROUTE_REFRESH_NORMAL &&
+	    size != BGP_MSG_ROUTE_REFRESH_MIN_SIZE - BGP_HEADER_SIZE) {
+		size_t datalen = bgp_refresh_error_data_size(
+			(size_t)size + BGP_HEADER_SIZE, stream_get_endp(s),
+			peer->max_packet_size,
+			bgp_notify_send_hard_reset(peer, BGP_NOTIFY_ROUTE_REFRESH_ERR,
+					   BGP_NOTIFY_ROUTE_REFRESH_INVALID_MSG_LEN));
+
+		flog_err(EC_BGP_ROUTE_REFRESH_INVALID,
+			 "%s Enhanced Route Refresh message length error", peer->host);
+		bgp_notify_send_with_data(connection, BGP_NOTIFY_ROUTE_REFRESH_ERR,
+					  BGP_NOTIFY_ROUTE_REFRESH_INVALID_MSG_LEN,
+					  STREAM_DATA(s), datalen);
+		return BGP_Stop;
+	}
+
+	/* An enhanced peer's short ordinary refresh still uses the header
+	 * length error. Do not read SAFI until the complete fixed body exists.
+	 */
+	if (size < BGP_MSG_ROUTE_REFRESH_MIN_SIZE - BGP_HEADER_SIZE) {
+		uint16_t nsize = htons(size + BGP_HEADER_SIZE);
+
+		bgp_notify_send_with_data(connection, BGP_NOTIFY_HEADER_ERR,
+					  BGP_NOTIFY_HEADER_BAD_MESLEN,
+					  (uint8_t *)&nsize, sizeof(nsize));
+		return BGP_Stop;
+	}
 	pkt_safi = stream_getc(s);
+	msg_length = size - (BGP_MSG_ROUTE_REFRESH_MIN_SIZE - BGP_HEADER_SIZE);
 
 	/* Convert AFI, SAFI to internal values and check. */
 	if (bgp_map_afi_safi_iana2int(pkt_afi, pkt_safi, &afi, &safi)) {
@@ -2857,35 +2901,6 @@ static int bgp_route_refresh_receive(struct peer_connection *connection, bgp_siz
 		uint8_t when_to_refresh;
 		uint8_t orf_type;
 		uint16_t orf_len;
-
-		if (subtype) {
-			/* When the BGP speaker receives a ROUTE-REFRESH message
-			 * with a "Message Subtype" field other than 0, 1, or 2,
-			 * it MUST ignore the received ROUTE-REFRESH message.
-			 */
-			if (subtype > 2) {
-				zlog_info("%s Enhanced Route Refresh invalid subtype %u - ignored",
-					  peer->host, subtype);
-				return BGP_PACKET_NOOP;
-			}
-
-			/* If the length, excluding the fixed-size message
-			 * header, of the received ROUTE-REFRESH message with
-			 * Message Subtype 1 and 2 is not 4, then the BGP
-			 * speaker MUST send a NOTIFICATION message with the
-			 * Error Code of "ROUTE-REFRESH Message Error" and the
-			 * subcode of "Invalid Message Length".
-			 */
-			if (msg_length != 4) {
-				flog_err(EC_BGP_ROUTE_REFRESH_INVALID,
-					 "%s Enhanced Route Refresh message length error",
-					 peer->host);
-				bgp_notify_send(connection,
-						BGP_NOTIFY_ROUTE_REFRESH_ERR,
-						BGP_NOTIFY_ROUTE_REFRESH_INVALID_MSG_LEN);
-				return BGP_Stop;
-			}
-		}
 
 		if (msg_length < 5) {
 			zlog_info("%s ORF route refresh length error",

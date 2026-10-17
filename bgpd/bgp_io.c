@@ -641,9 +641,11 @@ static bool validate_header(struct peer_connection *connection)
 	    || (type == BGP_MSG_NOTIFY && size < BGP_MSG_NOTIFY_MIN_SIZE)
 	    || (type == BGP_MSG_KEEPALIVE && size != BGP_MSG_KEEPALIVE_MIN_SIZE)
 	    || (type == BGP_MSG_ROUTE_REFRESH_NEW
-		&& size < BGP_MSG_ROUTE_REFRESH_MIN_SIZE)
+		&& size < BGP_HEADER_SIZE + bgp_refresh_min_payload(
+			CHECK_FLAG(peer->cap, PEER_CAP_ENHANCED_RR_RCV)))
 	    || (type == BGP_MSG_ROUTE_REFRESH_OLD
-		&& size < BGP_MSG_ROUTE_REFRESH_MIN_SIZE)
+		&& size < BGP_HEADER_SIZE + bgp_refresh_min_payload(
+			CHECK_FLAG(peer->cap, PEER_CAP_ENHANCED_RR_RCV)))
 	    || (type == BGP_MSG_CAPABILITY
 		&& size < BGP_MSG_CAPABILITY_MIN_SIZE)) {
 		if (bgp_debug_neighbor_events(peer)) {

@@ -3,6 +3,15 @@ PYTEST_IGNORE += --ignore=bgpd/
 endif
 BGP_TEST_LDADD = bgpd/libbgp.a $(RFPLDADD) $(ALL_TESTS_LDADD) $(LIBYANG_LIBS) $(UST_LIBS) -lm
 
+if BGPD
+check_PROGRAMS += tests/bgpd/test_refresh_subtypes
+endif
+tests_bgpd_test_refresh_subtypes_CFLAGS = $(TESTS_CFLAGS)
+tests_bgpd_test_refresh_subtypes_CPPFLAGS = $(TESTS_CPPFLAGS)
+tests_bgpd_test_refresh_subtypes_LDADD = $(BGP_TEST_LDADD)
+tests_bgpd_test_refresh_subtypes_SOURCES = tests/bgpd/test_refresh_subtypes.c
+EXTRA_DIST += tests/bgpd/test_refresh_subtypes.py
+
 
 if BGPD
 check_PROGRAMS += tests/bgpd/test_aspath
