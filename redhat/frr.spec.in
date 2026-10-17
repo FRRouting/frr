@@ -223,7 +223,6 @@ BuildRequires:  protobuf-c-devel
 #platform-python-devel is needed for /usr/bin/pathfix.py
 BuildRequires:  platform-python-devel
 %endif
-Requires:       initscripts
 %if %{with_pam}
 BuildRequires:  pam-devel
 %endif
