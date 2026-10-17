@@ -2408,6 +2408,7 @@ static void zebra_evpn_es_flush_local_macs(struct zebra_evpn_es *es,
 	struct zebra_mac *mac;
 	struct listnode	*node;
 	struct listnode *nnode;
+	struct zebra_if *zif = ifp->info;
 
 	for (ALL_LIST_ELEMENTS(es->mac_list, node, nnode, mac)) {
 		if (!CHECK_FLAG(mac->flags, ZEBRA_MAC_LOCAL))
@@ -2421,6 +2422,24 @@ static void zebra_evpn_es_flush_local_macs(struct zebra_evpn_es *es,
 				   mac->zevpn->vni,
 				   &mac->macaddr,
 				   es->esi_str, add ? "add" : "del");
+		zebra_evpn_flush_local_mac(mac, ifp);
+	}
+
+	/* MACs learned before the ES was attached are still linked to the
+	 * access interface rather than the ES. Flush those entries as well so
+	 * the dataplane relearns them with the new ES forwarding information.
+	 */
+	if (!zif->mac_list)
+		return;
+
+	for (ALL_LIST_ELEMENTS(zif->mac_list, node, nnode, mac)) {
+		if (!CHECK_FLAG(mac->flags, ZEBRA_MAC_LOCAL))
+			continue;
+
+		if (IS_ZEBRA_DEBUG_EVPN_MH_MAC)
+			zlog_debug("VNI %u mac %pEA update; local ES %s %s on ifp %s",
+				   mac->zevpn->vni, &mac->macaddr, es->esi_str,
+				   add ? "add" : "del", ifp->name);
 		zebra_evpn_flush_local_mac(mac, ifp);
 	}
 }
