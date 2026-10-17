@@ -1127,6 +1127,40 @@ def stop_router(tgen, router, save_config=True):
     router_list[router].stop()
 
 
+def flush_zstatic_routes(tgen, router):
+    """
+    Delete all RTPROT_ZSTATIC (proto 196) routes left in the kernel after
+    stop_router().  Call this between stop_router() and start_router() to
+    prevent zebra from re-importing them as orphaned RIB entries on restart.
+
+    When FRR daemons are killed, the kernel retains routes installed with
+    RTPROT_ZSTATIC.  On the next start_router(), zebra scans the kernel
+    route table and re-imports every RTPROT_ZSTATIC route it finds as a
+    static entry in its RIB.  Because these orphaned entries have no
+    corresponding northbound (staticd) configuration,
+    reset_config_on_routers() cannot remove them via 'no ip route', and
+    they can interfere with subsequent tests.
+
+    Note: 'ip route flush proto 196' fails on some kernels with
+    'Invalid argument' for non-standard protocol numbers, so routes are
+    deleted individually.
+
+    * `tgen`  : topogen object
+    * `router`: Device under test
+    """
+    r = tgen.routers()[router]
+    for line in r.run("ip route show proto 196").splitlines():
+        if not line or line[0].isspace():
+            continue
+        pfx = line.split()[0]
+        r.run(f"ip route del {pfx} proto 196 2>/dev/null; true")
+    for line in r.run("ip -6 route show proto 196").splitlines():
+        if not line or line[0].isspace():
+            continue
+        pfx = line.split()[0]
+        r.run(f"ip -6 route del {pfx} proto 196 2>/dev/null; true")
+
+
 def start_router(tgen, router):
     """
     Start all FRR daemons on a router.
