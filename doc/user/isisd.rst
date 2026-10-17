@@ -199,6 +199,14 @@ ISIS region
    - level-2-only
      Act as an area router only
 
+   A level-1-2 router advertises the prefixes reachable inside its level-1
+   area in its level-2 LSP (:rfc:`1195` section 1.3), so that level-2 routers
+   can reach them. The prefixes are taken from the level-1 LSPs of the routers
+   that are reachable in the level-1 SPT, with the metric of the path to the
+   advertising router added to the metric of the prefix. Prefixes that carry
+   the up/down bit are not advertised back into level-2 (:rfc:`5302` section
+   2). This requires wide metrics and needs no configuration.
+
 .. _isis-interface:
 
 ISIS interface
