@@ -82,10 +82,13 @@ class Candidates
 		uint64_t id = ++_next_id;
 		assert(id); // TODO: implement an algorithm for unique reusable
 			    // IDs.
+		struct nb_config *config = nb_config_dup(running_config);
+		if (!config)
+			return NULL;
 		struct candidate *c = &_cdb[id];
 		c->id = id;
-		c->config = nb_config_dup(running_config);
 		c->transaction = NULL;
+		c->config = config;
 
 		return c;
 	}
@@ -678,6 +681,10 @@ grpc::Status HandleUnaryEditCandidate(
 	UnaryRpcState<frr::EditCandidateRequest, frr::EditCandidateResponse>
 		*tag)
 {
+	struct nb_config *backup;
+	struct nb_node *nb_node;
+	int ret;
+
 	grpc_debug("%s: entered", __func__);
 
 	uint32_t candidate_id = tag->request.candidate_id();
@@ -688,33 +695,138 @@ grpc::Status HandleUnaryEditCandidate(
 	if (!candidate)
 		return grpc::Status(grpc::StatusCode::NOT_FOUND,
 				    "candidate configuration not found");
+	if (candidate->transaction)
+		return grpc::Status(grpc::StatusCode::FAILED_PRECONDITION,
+				    "candidate is in the middle of a transaction");
 
-	struct nb_config *candidate_tmp = nb_config_dup(candidate->config);
+	/*
+	 * Save a backup for rollback on error. Edit the candidate directly
+	 * using nb_candidate_edit() to unify gRPC and CLI code paths.
+	 */
+	backup = nb_config_dup(candidate->config);
+	if (!backup) {
+		zlog_warn("%s: nb_config_dup failed", __func__);
+		return grpc::Status(grpc::StatusCode::INTERNAL,
+				    "Failed to create backup configuration");
+	}
 
 	auto pvs = tag->request.update();
 	for (const frr::PathValue &pv : pvs) {
-		if (yang_dnode_edit(candidate_tmp->dnode, pv.path(),
-				    pv.value().c_str()) != 0) {
-			nb_config_free(candidate_tmp);
+		/*
+		 * nb_node_find() uses lys_find_path() which handles instance
+		 * paths with key predicates by ignoring them and returning
+		 * the schema node.
+		 */
+		nb_node = nb_node_find(pv.path().c_str());
+		if (!nb_node) {
+			/*
+			 * Rollback: nb_config_replace with preserve_source=false
+			 * transfers backup's dnode to candidate and frees backup.
+			 * Do not use backup after this call.
+			 */
+			zlog_warn("%s: unknown path \"%s\", rolling back", __func__,
+				  pv.path().c_str());
+			nb_config_replace(candidate->config, backup, false);
+			return grpc::Status(grpc::StatusCode::INVALID_ARGUMENT,
+					    "Unknown data path \"" + pv.path() + "\"");
+		}
 
+		/*
+		 * Select operation based on YANG schema node type:
+		 * - NB_OP_CREATE for list entries, leaf-lists, and presence
+		 *   containers (entities that can be instantiated)
+		 * - NB_OP_MODIFY for regular leaves (setting a value)
+		 * Using schema type avoids issues when multiple updates in
+		 * the same request create parent nodes that affect later
+		 * child node existence checks. Both operations use
+		 * lyd_new_path() with LYD_NEW_PATH_UPDATE, so they behave
+		 * as upsert (create if absent, update if present).
+		 */
+		enum nb_operation op;
+		if (nb_operation_is_valid(NB_OP_CREATE, nb_node->snode))
+			op = NB_OP_CREATE;
+		else if (nb_operation_is_valid(NB_OP_MODIFY, nb_node->snode))
+			op = NB_OP_MODIFY;
+		else {
+			/*
+			 * Reject non-modifiable nodes (e.g., list keys) with an
+			 * explicit error rather than silently skipping. gRPC
+			 * clients should not include these paths in updates.
+			 */
+			zlog_warn("%s: cannot update non-modifiable node \"%s\", rolling back",
+				  __func__, pv.path().c_str());
+			nb_config_replace(candidate->config, backup, false);
+			return grpc::Status(grpc::StatusCode::INVALID_ARGUMENT,
+					    "Cannot update non-modifiable node \"" + pv.path() +
+						    "\"");
+		}
+
+		/*
+		 * Pass NULL for empty values (list entries, presence containers).
+		 * This matches CLI behavior where these nodes have no value.
+		 */
+		const char *value = pv.value().empty() ? NULL : pv.value().c_str();
+		ret = nb_candidate_edit(candidate->config, nb_node, op, pv.path().c_str(), value);
+
+		/*
+		 * All errors are failures for updates (including NOT_FOUND).
+		 * This differs from deletes which ignore NOT_FOUND.
+		 */
+		if (ret != NB_OK) {
+			zlog_warn("%s: nb_candidate_edit failed (%d) for \"%s\", rolling back",
+				  __func__, ret, pv.path().c_str());
+			nb_config_replace(candidate->config, backup, false);
 			return grpc::Status(grpc::StatusCode::INVALID_ARGUMENT,
 					    "Failed to update \"" + pv.path() +
-						    "\"");
+						    "\" (err=" + std::to_string(ret) + ")");
 		}
 	}
 
 	pvs = tag->request.delete_();
 	for (const frr::PathValue &pv : pvs) {
-		if (yang_dnode_delete(candidate_tmp->dnode, pv.path()) != 0) {
-			nb_config_free(candidate_tmp);
+		nb_node = nb_node_find(pv.path().c_str());
+		if (!nb_node) {
+			zlog_warn("%s: unknown path \"%s\", rolling back", __func__,
+				  pv.path().c_str());
+			nb_config_replace(candidate->config, backup, false);
+			return grpc::Status(grpc::StatusCode::INVALID_ARGUMENT,
+					    "Unknown data path \"" + pv.path() + "\"");
+		}
+
+		/*
+		 * Reject non-destroyable nodes (e.g., list keys) with an
+		 * explicit error rather than silently skipping.
+		 */
+		if (!nb_operation_is_valid(NB_OP_DESTROY, nb_node->snode)) {
+			zlog_warn("%s: cannot delete non-destroyable node \"%s\", rolling back",
+				  __func__, pv.path().c_str());
+			nb_config_replace(candidate->config, backup, false);
+			return grpc::Status(grpc::StatusCode::INVALID_ARGUMENT,
+					    "Cannot delete non-destroyable node \"" + pv.path() +
+						    "\"");
+		}
+
+		ret = nb_candidate_edit(candidate->config, nb_node, NB_OP_DESTROY,
+					pv.path().c_str(), NULL);
+		/*
+		 * NB_OP_DESTROY returns NB_OK if node doesn't exist,
+		 * so any error here is a real failure.
+		 */
+		if (ret != NB_OK) {
+			zlog_warn("%s: nb_candidate_edit failed (%d) for \"%s\", rolling back",
+				  __func__, ret, pv.path().c_str());
+			nb_config_replace(candidate->config, backup, false);
 			return grpc::Status(grpc::StatusCode::INVALID_ARGUMENT,
 					    "Failed to remove \"" + pv.path() +
-						    "\"");
+						    "\" (err=" + std::to_string(ret) + ")");
 		}
 	}
 
-	// No errors, accept all changes.
-	nb_config_replace(candidate->config, candidate_tmp, false);
+	/*
+	 * Success - free backup explicitly.
+	 * (On error paths, nb_config_replace(..., false) frees backup.)
+	 */
+	nb_config_free(backup);
 	return grpc::Status::OK;
 }
 
