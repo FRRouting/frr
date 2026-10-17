@@ -211,6 +211,27 @@ class NorthboundClient
 		return reply.candidate_id();
 	}
 
+	/* Commit a candidate that is expected to fail validation.
+	 * Asserts that the error message contains 'expected_err'. */
+	void CommitExpectFailure(uint32_t candidate_id, const std::string &expected_err)
+	{
+		frr::CommitRequest request;
+		frr::CommitResponse reply;
+		ClientContext context;
+
+		request.set_candidate_id(candidate_id);
+		request.set_phase(frr::CommitRequest::ALL);
+
+		auto st = stub_->Commit(&context, request, &reply);
+		if (st.ok())
+			throw std::runtime_error(
+				"CommitExpectFailure: commit succeeded unexpectedly");
+		if (st.error_message().find(expected_err) == std::string::npos)
+			throw std::runtime_error(
+				"CommitExpectFailure: wrong error: " + st.error_message() +
+				" (expected to contain: " + expected_err + ")");
+	}
+
 	void DeleteCandidate(uint32_t candidate_id)
 	{
 		frr::DeleteCandidateRequest request;
@@ -474,6 +495,41 @@ void grpc_client_run_test(void)
 
 	std::string ltxreply = client.ListTransactions();
 	// std::cout << "client: pthread received: " << ltxreply << std::endl;
+
+	/*
+	 * Verify that adding more than MPLS_MAX_LABELS (16) label-stack
+	 * entries to a nexthop is rejected at NB_EV_VALIDATE time.
+	 * EditCandidate goes directly to the northbound framework, bypassing
+	 * the VTY change-count limit, so NB_EV_VALIDATE is the active guard.
+	 */
+	std::cout << "Testing MPLS label count validation (NB_EV_VALIDATE)...";
+	cid = client.CreateCandidate();
+
+	/* Base xpath for a gateway nexthop on a new prefix. */
+	const char *nh_xpath_base = "/frr-routing:routing/control-plane-protocols/"
+				    "control-plane-protocol[type='frr-staticd:staticd']"
+				    "[name='staticd'][vrf='default']/frr-staticd:staticd/"
+				    "route-list[prefix='12.0.0.0/24']"
+				    "[afi-safi='frr-routing:ipv4-unicast']/"
+				    "path-list[table-id='0'][nh-type='ip4']"
+				    "[vrf='default'][gateway='192.0.2.1'][interface='(null)']/"
+				    "mpls-label-stack/entry";
+
+	/* Enqueue 17 label-stack entries — one beyond MPLS_MAX_LABELS. */
+	for (int i = 0; i < 17; i++) {
+		char entry_xpath[2048];
+		snprintf(entry_xpath, sizeof(entry_xpath), "%s[id='%d']/label", nh_xpath_base, i);
+		client.EditCandidate(cid, entry_xpath, std::to_string(100 + i));
+	}
+
+	try {
+		client.CommitExpectFailure(cid, "Too many labels");
+	} catch (...) {
+		client.DeleteCandidate(cid);
+		throw;
+	}
+	client.DeleteCandidate(cid);
+	std::cout << "ok" << std::endl;
 }
 
 void *grpc_client_test_start(void *arg)
