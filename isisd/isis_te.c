@@ -51,8 +51,6 @@
 
 DEFINE_MTYPE_STATIC(ISISD, ISIS_MPLS_TE, "ISIS MPLS_TE parameters");
 
-static void isis_mpls_te_circuit_ip_update(struct isis_circuit *circuit);
-
 /*------------------------------------------------------------------------*
  * Following are control functions for MPLS-TE parameters management.
  *------------------------------------------------------------------------*/
@@ -600,7 +598,7 @@ static int isis_mpls_te_adj_ip_disabled(struct isis_adjacency *adj, int family, 
 	return ret;
 }
 
-static void isis_mpls_te_circuit_ip_update(struct isis_circuit *circuit)
+void isis_mpls_te_circuit_ip_update(struct isis_circuit *circuit)
 {
 	struct isis_adjacency *adj;
 

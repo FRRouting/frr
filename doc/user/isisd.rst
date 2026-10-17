@@ -16,11 +16,18 @@ like :abbr:`OSPF`. ISIS is widely used in large networks such as :abbr:`ISP
 Configuring isisd
 =================
 
-There are no *isisd* specific options. Common options can be specified
-(:ref:`common-invocation-options`) to *isisd*. *isisd* needs to acquire
-interface information from *zebra* in order to function. Therefore *zebra* must
-be running before invoking *isisd*. Also, if *zebra* is restarted then *isisd*
-must be too.
+*isisd* accepts all common invocations (:ref:`common-invocation-options`) and
+the following specific options.
+
+.. program:: isisd
+
+.. option:: --dummy_as_loopback
+
+   Treat dummy interfaces as loopback interfaces.
+
+*isisd* needs to acquire interface information from *zebra* in order to
+function. Therefore *zebra* must be running before invoking *isisd*. Also, if
+*zebra* is restarted then *isisd* must be too.
 
 .. include:: config-include.rst
 
@@ -203,6 +210,10 @@ ISIS region
 
 ISIS interface
 ==============
+
+ISIS supports unnumbered interfaces, so interfaces with no IP-Address
+configured. If there is no address on the given interfaces, ISIS searches
+through all the loopback interfaces configured on the node.
 
 .. _ip-router-isis-word:
 
