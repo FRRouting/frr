@@ -68,6 +68,20 @@ const struct frr_yang_module_info frr_bgp_route_map_info = {
 			}
 		},
 		{
+			.xpath = "/frr-route-map:lib/route-map/entry/match-condition/rmap-match-condition/frr-bgp-route-map:aspa-direction",
+			.cbs = {
+				.modify = lib_route_map_entry_match_condition_rmap_match_condition_aspa_direction_modify,
+				.destroy = lib_route_map_entry_match_condition_rmap_match_condition_aspa_direction_destroy,
+			}
+		},
+		{
+			.xpath = "/frr-route-map:lib/route-map/entry/match-condition/rmap-match-condition/frr-bgp-route-map:aspa-state",
+			.cbs = {
+				.modify = lib_route_map_entry_match_condition_rmap_match_condition_aspa_state_modify,
+				.destroy = lib_route_map_entry_match_condition_rmap_match_condition_aspa_state_destroy,
+			}
+		},
+		{
 			.xpath = "/frr-route-map:lib/route-map/entry/match-condition/rmap-match-condition/frr-bgp-route-map:probability",
 			.cbs = {
 				.modify = lib_route_map_entry_match_condition_rmap_match_condition_probability_modify,

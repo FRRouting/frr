@@ -420,6 +420,95 @@ lib_route_map_entry_match_condition_rmap_match_condition_rpki_destroy(
 }
 
 /*
+ * XPath: /frr-route-map:lib/route-map/entry/match-condition/rmap-match-condition/frr-bgp-route-map:aspa-direction
+ *        /frr-route-map:lib/route-map/entry/match-condition/rmap-match-condition/frr-bgp-route-map:aspa-state
+ *
+ * The two leaves arrive as separate northbound changes but describe one
+ * route-map rule, so each modify callback installs the whole rule.  Both are
+ * "mandatory true" in the model, so both are readable here, and
+ * route_map_add_match() makes the second install replace the first.
+ */
+static int bgp_route_match_aspa_install(struct nb_cb_modify_args *args)
+{
+	struct routemap_hook_context *rhc;
+	const char *direction;
+	const char *state;
+	enum rmap_compile_rets ret;
+	char arg[64];
+
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+		break;
+	case NB_EV_APPLY:
+		/* Add configuration. */
+		rhc = nb_running_get_entry(args->dnode, NULL, true);
+		direction = yang_dnode_get_string(args->dnode, "../aspa-direction");
+		state = yang_dnode_get_string(args->dnode, "../aspa-state");
+
+		snprintf(arg, sizeof(arg), "%s %s", direction, state);
+
+		/* Set destroy information. */
+		rhc->rhc_mhook = bgp_route_match_delete;
+		rhc->rhc_rule = "aspa";
+		rhc->rhc_event = RMAP_EVENT_MATCH_DELETED;
+
+		ret = bgp_route_match_add(rhc->rhc_rmi, "aspa", arg, RMAP_EVENT_MATCH_ADDED,
+					  args->errmsg, args->errmsg_len);
+
+		if (ret != RMAP_COMPILE_SUCCESS) {
+			rhc->rhc_mhook = NULL;
+			return NB_ERR_INCONSISTENCY;
+		}
+	}
+
+	return NB_OK;
+}
+
+int lib_route_map_entry_match_condition_rmap_match_condition_aspa_direction_modify(
+	struct nb_cb_modify_args *args)
+{
+	return bgp_route_match_aspa_install(args);
+}
+
+int lib_route_map_entry_match_condition_rmap_match_condition_aspa_direction_destroy(
+	struct nb_cb_destroy_args *args)
+{
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+		break;
+	case NB_EV_APPLY:
+		return lib_route_map_entry_match_destroy(args);
+	}
+
+	return NB_OK;
+}
+
+int lib_route_map_entry_match_condition_rmap_match_condition_aspa_state_modify(
+	struct nb_cb_modify_args *args)
+{
+	return bgp_route_match_aspa_install(args);
+}
+
+int lib_route_map_entry_match_condition_rmap_match_condition_aspa_state_destroy(
+	struct nb_cb_destroy_args *args)
+{
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+		break;
+	case NB_EV_APPLY:
+		return lib_route_map_entry_match_destroy(args);
+	}
+
+	return NB_OK;
+}
+
+/*
  * XPath:
  * /frr-route-map:lib/route-map/entry/match-condition/rmap-match-condition/frr-bgp-route-map:source-protocol
  */
@@ -1481,8 +1570,8 @@ lib_route_map_entry_match_condition_rmap_match_condition_comm_list_finish(
 		argstr = XMALLOC(MTYPE_ROUTE_MAP_COMPILED,
 				 strlen(value) + strlen("exact-match") + 2);
 
-		snprintf(argstr, (strlen(value) + strlen("exact-match") + 2),
-			 "%s exact-match", value);
+		snprintfrr(argstr, (strlen(value) + strlen("exact-match") + 2), "%s exact-match",
+			   value);
 	} else if (any) {
 		argstr = XMALLOC(MTYPE_ROUTE_MAP_COMPILED,
 				 strlen(value) + strlen("any") + 2);

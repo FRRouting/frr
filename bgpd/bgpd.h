@@ -3419,6 +3419,11 @@ DECLARE_HOOK(bgp_rpki_prefix_status,
 	      const struct prefix *prefix),
 	     (peer, attr, prefix));
 DECLARE_HOOK(bgp_rpki_connection_status, (const char *vrf_name), (vrf_name));
+DECLARE_HOOK(bgp_aspa_path_status, (struct peer *peer, struct attr *attr, int direction),
+	     (peer, attr, direction));
+
+#define BGP_ASPA_UPSTREAM   0
+#define BGP_ASPA_DOWNSTREAM 1
 
 void peer_nsf_stop(struct peer *peer);
 
