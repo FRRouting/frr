@@ -510,6 +510,13 @@ void ge_netlink_init(struct zebra_ns *zns)
 		return;
 
 	/*
+	 * Family IDs are global, and the dplane thread may already be using
+	 * the default ns socket that resolving them talks on.
+	 */
+	if (zns->ns_id != NS_DEFAULT)
+		return;
+
+	/*
 	 * Resolves the 'seg6' Generic Netlink family name to the corresponding numeric family identifier.
 	 * This will give us the numeric family identifier required to send 'seg6' commands to the kernel
 	 * over the Generic Netlink socket. 'seg6' commands are used to configure SRv6 internal parameters
@@ -532,8 +539,7 @@ void ge_netlink_init(struct zebra_ns *zns)
 	 * Retrieve the actual SRv6 encap source address from the kernel
 	 * (default namespace) and save it to zebra SRv6 config
 	 */
-	if (zns->ns_id == NS_DEFAULT)
-		netlink_sr_tunsrc_read(zns);
+	netlink_sr_tunsrc_read(zns);
 }
 
 #endif /* HAVE_NETLINK */
