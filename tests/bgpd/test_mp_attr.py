@@ -50,6 +50,9 @@ TestMpAttr.okfail("IPv4-unreach-nlrilen: IPv4 MP Unreach, nlri length overflow")
 TestMpAttr.okfail("IPv4-unreach-VPNv4: IPv4/MPLS-labeled VPN MP Unreach, RD, 3 NLRIs")
 TestMpAttr.okfail("PREFIX-SID: PREFIX-SID Test 1")
 TestMpAttr.okfail(
+    "PREFIX-SID-SRv6-L3-Service-repeated-sid-info: PREFIX-SID accepts repeated SRv6 SID Information Sub-TLVs"
+)
+TestMpAttr.okfail(
     "PREFIX-SID-SRv6-L3-Service-duplicate: PREFIX-SID ignores duplicate SRv6 L3 Service TLVs"
 )
 TestMpAttr.okfail(
