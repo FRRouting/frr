@@ -152,13 +152,13 @@ static int _nexthop_gateway_cmp(const struct nexthop *nh1,
 static int _nexthop_source_cmp(const struct nexthop *nh1,
 			       const struct nexthop *nh2)
 {
-	return nexthop_g_addr_cmp(nh1->type, &nh1->src, &nh2->src);
+	return memcmp(&nh1->src, &nh2->src, sizeof(union g_addr));
 }
 
 static int _nexthop_rmap_source_cmp(const struct nexthop *nh1,
 			       const struct nexthop *nh2)
 {
-	return nexthop_g_addr_cmp(nh1->type, &nh1->rmap_src, &nh2->rmap_src);
+	return memcmp(&nh1->rmap_src, &nh2->rmap_src, sizeof(union g_addr));
 }
 
 static int _nexthop_cmp_no_labels(const struct nexthop *next1,
