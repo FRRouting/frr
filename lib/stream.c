@@ -77,19 +77,6 @@ DEFINE_MTYPE_STATIC(LIB, STREAM_FIFO, "Stream FIFO");
 		STREAM_WARN_OFFSETS(S);                                        \
 	} while (0)
 
-/* XXX: Deprecated macro: do not use */
-#define CHECK_SIZE(S, Z)                                                       \
-	do {                                                                   \
-		if (((S)->endp + (Z)) > (S)->size) {                           \
-			flog_warn(                                             \
-				EC_LIB_STREAM,                                 \
-				"CHECK_SIZE: truncating requested size %lu",   \
-				(unsigned long)(Z));                           \
-			STREAM_WARN_OFFSETS(S);                                \
-			(Z) = (S)->size - (S)->endp;                           \
-		}                                                              \
-	} while (0);
-
 /* Make stream buffer. */
 struct stream *stream_new(size_t size)
 {
@@ -728,10 +715,6 @@ double stream_getd(struct stream *s)
  */
 void stream_put(struct stream *s, const void *src, size_t size)
 {
-
-	/* XXX: CHECK_SIZE has strange semantics. It should be deprecated */
-	CHECK_SIZE(s, size);
-
 	STREAM_VERIFY_SANE(s);
 
 	if (STREAM_WRITEABLE(s) < size) {
@@ -1187,9 +1170,6 @@ ssize_t stream_recvmsg(struct stream *s, int fd, struct msghdr *msgh, int flags,
 /* Write data to buffer. */
 size_t stream_write(struct stream *s, const void *ptr, size_t size)
 {
-
-	CHECK_SIZE(s, size);
-
 	STREAM_VERIFY_SANE(s);
 
 	if (STREAM_WRITEABLE(s) < size) {
