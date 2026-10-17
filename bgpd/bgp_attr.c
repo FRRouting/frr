@@ -197,6 +197,51 @@ static void cluster_unintern(struct cluster_list **cluster)
 	}
 }
 
+/* Prepend cluster_id to cluster list for route reflection */
+void bgp_attr_prepend_cluster_id(struct bgp *bgp, struct attr *attr)
+{
+	struct cluster_list *cluster = bgp_attr_get_cluster(attr);
+	struct in_addr cluster_id;
+	int new_length;
+	struct cluster_list *new_cluster;
+
+	/* Determine our cluster_id */
+	if (CHECK_FLAG(bgp->config, BGP_CONFIG_CLUSTER_ID))
+		cluster_id = bgp->cluster_id;
+	else
+		cluster_id = bgp->router_id;
+
+	/* Calculate new length: existing length + 4 bytes for cluster_id */
+	new_length = cluster ? cluster->length + 4 : 4;
+
+	/* Allocate new cluster list structure */
+	new_cluster = XCALLOC(MTYPE_CLUSTER, sizeof(struct cluster_list));
+	new_cluster->length = new_length;
+	new_cluster->list = XMALLOC(MTYPE_CLUSTER_VAL, new_length);
+
+	/* Prepend our cluster_id */
+	memcpy(new_cluster->list, &cluster_id, sizeof(struct in_addr));
+
+	/* Append existing cluster list if present */
+	if (cluster && cluster->length > 0)
+		memcpy((uint8_t *)new_cluster->list + sizeof(struct in_addr), cluster->list,
+		       cluster->length);
+
+	/* Set the new cluster in attr (will be interned later by bgp_attr_intern) */
+	bgp_attr_set_cluster(attr, new_cluster);
+}
+
+/* Clear route reflection attributes (originator-id and cluster-list) */
+void bgp_attr_clear_reflection(struct attr *attr)
+{
+	if (bgp_attr_exists(attr, BGP_ATTR_ORIGINATOR_ID)) {
+		attr->originator_id.s_addr = INADDR_ANY;
+		bgp_attr_unset(attr, BGP_ATTR_ORIGINATOR_ID);
+	}
+	if (bgp_attr_get_cluster(attr))
+		bgp_attr_set_cluster(attr, NULL);
+}
+
 static void cluster_init(void)
 {
 	cluster_hash = hash_create(cluster_hash_key_make, cluster_hash_cmp,
@@ -6051,54 +6096,28 @@ bgp_size_t bgp_packet_attribute(struct bgp *bgp, struct peer *peer, struct strea
 			   lcom_length(bgp_attr_get_lcommunity(attr)));
 	}
 
-	/* Route Reflector. */
-	if (peer->sort == BGP_PEER_IBGP && from
-	    && from->sort == BGP_PEER_IBGP) {
-		struct cluster_list *cluster = bgp_attr_get_cluster(attr);
-
-		/* Originator ID. */
+	/* Originator ID. */
+	if (bgp_attr_exists(attr, BGP_ATTR_ORIGINATOR_ID)) {
 		stream_putc(s, BGP_ATTR_FLAG_OPTIONAL);
 		stream_putc(s, BGP_ATTR_ORIGINATOR_ID);
 		stream_putc(s, 4);
+		stream_put_in_addr(s, &attr->originator_id);
+	}
 
-		if (bgp_attr_exists(attr, BGP_ATTR_ORIGINATOR_ID))
-			stream_put_in_addr(s, &attr->originator_id);
-		else
-			stream_put_in_addr(s, &from->remote_id);
+	/* Cluster list. */
+	if (bgp_attr_exists(attr, BGP_ATTR_CLUSTER_LIST)) {
+		struct cluster_list *cluster = bgp_attr_get_cluster(attr);
 
-		/* Cluster list. */
-		/* RFC 4271 4.3 says:
-		 * The fourth high-order bit (bit 3) of the Attribute Flags octet
-		 * is the Extended Length bit. It defines whether the Attribute
-		 * Length is one octet (if set to 0) or two octets (if set to 1).
-		 *
-		 * If the Extended Length bit of the Attribute Flags octet is set
-		 * to 0, the third octet of the Path Attribute contains the length
-		 * of the attribute data in octets.
-		 *
-		 * If the Extended Length bit of the Attribute Flags octet is set
-		 * to 1, the third and fourth octets of the path attribute contain
-		 * the length of the attribute data in octets.
-		 */
-		if (cluster && cluster->length + 4 > 255) {
+		if (cluster->length > 255) {
 			stream_putc(s, BGP_ATTR_FLAG_OPTIONAL | BGP_ATTR_FLAG_EXTLEN);
 			stream_putc(s, BGP_ATTR_CLUSTER_LIST);
-			stream_putw(s, cluster->length + 4);
+			stream_putw(s, cluster->length);
 		} else {
 			stream_putc(s, BGP_ATTR_FLAG_OPTIONAL);
 			stream_putc(s, BGP_ATTR_CLUSTER_LIST);
-			stream_putc(s, cluster ? cluster->length + 4 : 4);
+			stream_putc(s, cluster->length);
 		}
-
-		/* If this peer configuration's parent BGP has
-		 * cluster_id. */
-		if (CHECK_FLAG(bgp->config, BGP_CONFIG_CLUSTER_ID))
-			stream_put_in_addr(s, &bgp->cluster_id);
-		else
-			stream_put_in_addr(s, &bgp->router_id);
-
-		if (cluster)
-			stream_put(s, cluster->list, cluster->length);
+		stream_put(s, cluster->list, cluster->length);
 	}
 
 	/* Extended IPv6/Communities attributes. */

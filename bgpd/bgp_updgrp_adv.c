@@ -1038,6 +1038,11 @@ void subgroup_default_originate(struct update_subgroup *subgrp, bool withdraw)
 					if (new_pref < pref) {
 						pref = new_pref;
 						bgp_attr_flush(new_attr);
+						/* Clear reflection attributes -
+						 * default-originate is self-originated,
+						 * not reflected.
+						 */
+						bgp_attr_clear_reflection(tmp_pi.attr);
 						new_attr = bgp_attr_intern(
 							tmp_pi.attr);
 					}
