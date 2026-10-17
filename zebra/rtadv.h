@@ -35,6 +35,61 @@ struct rtadv {
 PREDECL_RBTREE_UNIQ(rtadv_prefixes);
 PREDECL_SORTLIST_UNIQ(pref64_advs);
 
+/*
+ * A prefix being flushed: re-announced with short (normally zero) lifetimes for
+ * a bounded number of RAs, so hosts deprecate the derived SLAAC address now
+ * rather than waiting out AdvValidLifetime (30 days by default).
+ *
+ * The prefix is held by value, not as a struct rtadv_prefix pointer, for two
+ * reasons.  It survives the prefix entry being freed and recreated underneath
+ * us -- frr-reload does exactly that on any lifetime change, and the delete
+ * path frees it outright.  And it lets us flush a prefix that this interface
+ * does not advertise at all, which is the mis-cabling case: a host moved from
+ * one port to another still holds the old port's prefix, so the RA that retires
+ * it has to go out on the new port.
+ */
+struct rtadv_flush {
+	struct prefix_ipv6 prefix;
+
+	/* Lifetimes to advertise for this prefix while the flush is active. */
+	uint32_t AdvValidLifetime;
+	uint32_t AdvPreferredLifetime;
+
+	/* RAs left to send.  Decremented only when one is actually sent. */
+	uint8_t remaining;
+
+	/*
+	 * Wall-clock backstop.  Without it, a prefix deleted mid-flush leaves an
+	 * entry that never counts down (no RA carries it any more), and a much
+	 * later re-add would emit stale zero-lifetime RAs out of nowhere.
+	 */
+	time_t deadline;
+};
+
+#define RTADV_MAX_FLUSH_PREFIXES  16
+#define RTADV_FLUSH_DEADLINE_SECS 120
+
+/*
+ * Spacing between flush RAs.  RFC 4861 6.2.6 requires consecutive multicast
+ * RAs to be at least MIN_DELAY_BETWEEN_RAS apart, so the burst is paced at
+ * that floor rather than any faster.  The first RA goes out inline, so a
+ * burst of N spans (N - 1) periods: three seconds for the default count of
+ * two, six for the three sent on prefix deletion.  That is immaterial next
+ * to the thirty day lifetime the burst exists to cut short.
+ *
+ * It runs on a private timer rather than the fast-retransmit counter, which is
+ * shared with link-up and RA-enable, accounts for only two of the RA transmit
+ * paths, and would both miscount and clobber unrelated convergence.
+ */
+#define RTADV_FLUSH_PERIOD_MS MIN_DELAY_BETWEEN_RAS
+
+/*
+ * RAs sent by an operator-driven flush.  One is enough when it is not lost;
+ * the second covers a single drop, which is the realistic failure for
+ * unacknowledged multicast on an otherwise healthy link.
+ */
+#define RTADV_FLUSH_DEFAULT_COUNT 2
+
 /* Router advertisement parameter.  From RFC4861, RFC6275 and RFC4191. */
 struct rtadvconf {
 	/* A flag indicating whether or not the router sends periodic Router
@@ -136,6 +191,19 @@ struct rtadvconf {
 	   included in the list of advertised prefixes. */
 	struct rtadv_prefixes_head prefixes[1];
 
+	/*
+	 * Lifetimes stamped on the prefixes derived from the addresses
+	 * configured on this interface.  A prefix named by "ipv6 nd prefix"
+	 * carries its own lifetimes and is never stamped from here, so what
+	 * the operator spelled out stays authoritative.
+	 *
+	 * Default: unset, in which case RTADV_VALID_LIFETIME and
+	 * RTADV_PREFERRED_LIFETIME are used.
+	 */
+	uint32_t AdvPrefixValidLifetime;
+	uint32_t AdvPrefixPreferredLifetime;
+	bool AdvPrefixLifetimeSet;
+
 	/* The true/false value to be placed in the "Home agent"
 	   flag field in the Router Advertisement.  See [RFC6275 7.1].
 
@@ -212,6 +280,19 @@ struct rtadvconf {
 #define RTADV_FAST_REXMIT_PERIOD 1 /* 1 sec */
 #define RTADV_NUM_FAST_REXMITS 4   /* Fast Rexmit RA 4 times on certain events \
 				    */
+
+	/* LL pending default-router withdrawal (removed while link was down). */
+	struct in6_addr retract_ll;
+
+	/*
+	 * Prefixes currently being flushed, and the timer driving the burst.
+	 * A fixed array rather than an allocated list: the cap is structural,
+	 * there is nothing to free on interface teardown, and zebra_if is
+	 * XCALLOC'd so this starts out empty for free.
+	 */
+	struct rtadv_flush flush[RTADV_MAX_FLUSH_PREFIXES];
+	uint8_t flush_count;
+	struct event *flush_timer;
 };
 
 struct rtadv_rdnss {
@@ -270,6 +351,16 @@ struct rtadv_prefix {
 	   Information option, in seconds.*/
 	uint32_t AdvPreferredLifetime;
 #define RTADV_PREFERRED_LIFETIME 604800
+
+	/*
+	 * The lifetimes above were named by this prefix's own configuration
+	 * rather than inherited from "ipv6 nd prefix-lifetime" on the
+	 * interface.  The values alone cannot say which, as an inherited pair
+	 * looks the same as a named one.  A pair equal to the RFC 4861 values
+	 * counts as not named: the running config leaves it out, so it would
+	 * be inherited after a reload anyway.
+	 */
+	bool AdvLifetimeSet;
 
 	/* The value to be placed in the Autonomous Flag. */
 	int AdvAutonomousFlag;
@@ -410,6 +501,7 @@ extern void rtadv_if_up(struct zebra_if *zif);
 extern void rtadv_if_fini(struct zebra_if *zif);
 extern void rtadv_add_prefix(struct zebra_if *zif, const struct prefix_ipv6 *p);
 extern void rtadv_delete_prefix(struct zebra_if *zif, const struct prefix *p);
+extern void rtadv_retract_router(struct zebra_if *zif, const struct in6_addr *lladdr);
 
 /* returns created prefix */
 struct rtadv_prefix *rtadv_add_prefix_manual(struct zebra_if *zif,
@@ -417,6 +509,11 @@ struct rtadv_prefix *rtadv_add_prefix_manual(struct zebra_if *zif,
 /* rprefix must be the one returned by rtadv_add_prefix_manual */
 void rtadv_delete_prefix_manual(struct zebra_if *zif,
 				struct rtadv_prefix *rprefix);
+
+/* interface-wide lifetimes for every prefix that names none of its own */
+void rtadv_prefix_lifetime_set(struct interface *ifp, uint32_t valid, uint32_t preferred);
+void rtadv_prefix_lifetime_reset(struct interface *ifp);
+void rtadv_prefix_lifetime_reeval(struct interface *ifp, struct rtadv_prefix *rprefix, bool named);
 
 /* returns created address */
 struct rtadv_rdnss *rtadv_rdnss_set(struct zebra_if *zif,
