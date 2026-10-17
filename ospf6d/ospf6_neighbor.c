@@ -179,6 +179,7 @@ void ospf6_neighbor_delete(struct ospf6_neighbor *on)
 	ospf6_lsdb_delete(on->lsack_list);
 
 	event_cancel(&on->inactivity_timer);
+	event_cancel(&on->inactivity_event);
 
 	event_cancel(&on->last_dbdesc_release_timer);
 
