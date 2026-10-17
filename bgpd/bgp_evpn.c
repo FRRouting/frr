@@ -6607,24 +6607,6 @@ static void evpn_vrf_rt_routes_unmap(struct bgp *bgp_vrf)
 	bgp_evpn_unmap_vrf_from_its_rts(bgp_vrf);
 }
 
-void bgp_evpn_vrf_rt_change_begin(struct bgp *bgp_vrf, bool is_import)
-{
-	if (is_import)
-		evpn_vrf_rt_routes_unmap(bgp_vrf);
-}
-
-void bgp_evpn_vrf_rt_change_end(struct bgp *bgp_vrf, bool is_import)
-{
-	if (is_import) {
-		bgp_evpn_vrf_regenerate_effective_import_rts(bgp_vrf);
-		evpn_vrf_rt_routes_map(bgp_vrf);
-	} else {
-		bgp_evpn_vrf_regenerate_effective_export_rts(bgp_vrf);
-		if (is_l3vni_live(bgp_vrf))
-			bgp_evpn_handle_export_rt_change_for_vrf(bgp_vrf);
-	}
-}
-
 /* Remove a route target from a configured route target list and free it */
 static void cfgd_rt_list_del(struct bgp_evpn_cfgd_rt_slu_head *head,
 			     struct bgp_evpn_cfgd_rt *cfgd_rt)
@@ -6643,29 +6625,68 @@ static void cfgd_rt_list_add(struct bgp_evpn_cfgd_rt_slu_head *head,
 		bgp_evpn_cfgd_rt_free(cfgd_rt);
 }
 
-/*
- * Add one import RT to the VRF without touching the RT-to-VRF mapping or
- * the imported routes. The caller owns that rebuild: it must have called
- * bgp_evpn_vrf_rt_change_begin() before the first RT of the list and must
- * call bgp_evpn_vrf_rt_change_end() after the last one, otherwise the VRF
- * is left with no effective imports.
- *
- * This split exists so a whole RTLIST walks the EVPN table once (one unmap
- * and one map) instead of twice per RT.
+/* Move every RT of cfgd_rts into a configured route target list, leaving
+ * cfgd_rts empty.
  */
-void bgp_evpn_configure_import_rt_for_vrf_deferred(struct bgp *bgp_vrf,
-						   struct bgp_evpn_cfgd_rt *cfgd_rt)
+static void cfgd_rt_list_add_batch(struct bgp_evpn_cfgd_rt_slu_head *head,
+				   struct bgp_evpn_cfgd_rt_slu_head *cfgd_rts)
 {
-	struct bgp_evpn_rt_config *rt_config = bgp_vrf->vrf_route_target_config;
+	struct bgp_evpn_cfgd_rt *cfgd_rt;
 
-	cfgd_rt_list_add(&rt_config->cfgd_import, cfgd_rt);
+	while ((cfgd_rt = bgp_evpn_cfgd_rt_slu_pop(cfgd_rts)))
+		cfgd_rt_list_add(head, cfgd_rt);
+}
+
+/* Remove every RT of cfgd_rts from a configured route target list, then
+ * free cfgd_rts' entries, leaving it empty. RTs not configured are ignored.
+ */
+static void cfgd_rt_list_del_batch(struct bgp_evpn_cfgd_rt_slu_head *head,
+				   struct bgp_evpn_cfgd_rt_slu_head *cfgd_rts)
+{
+	struct bgp_evpn_cfgd_rt *cfgd_rt, *existing;
+
+	while ((cfgd_rt = bgp_evpn_cfgd_rt_slu_pop(cfgd_rts))) {
+		existing = bgp_evpn_cfgd_rt_slu_find(head, cfgd_rt);
+		if (existing)
+			cfgd_rt_list_del(head, existing);
+		bgp_evpn_cfgd_rt_free(cfgd_rt);
+	}
 }
 
 void bgp_evpn_configure_import_rt_for_vrf(struct bgp *bgp_vrf, struct bgp_evpn_cfgd_rt *cfgd_rt)
 {
-	bgp_evpn_vrf_rt_change_begin(bgp_vrf, true);
-	bgp_evpn_configure_import_rt_for_vrf_deferred(bgp_vrf, cfgd_rt);
-	bgp_evpn_vrf_rt_change_end(bgp_vrf, true);
+	struct bgp_evpn_rt_config *rt_config = bgp_vrf->vrf_route_target_config;
+
+	evpn_vrf_rt_routes_unmap(bgp_vrf);
+
+	cfgd_rt_list_add(&rt_config->cfgd_import, cfgd_rt);
+
+	/* This also removes the implicit auto RT, if there was one */
+	bgp_evpn_vrf_regenerate_effective_import_rts(bgp_vrf);
+
+	evpn_vrf_rt_routes_map(bgp_vrf);
+}
+
+/* Add a set of import RTs to the VRF, taking ownership of every entry and
+ * leaving cfgd_rts empty. The VRF's routes are unmapped and remapped once
+ * for the whole set instead of once per RT.
+ */
+void bgp_evpn_configure_import_rts_for_vrf_batch(struct bgp *bgp_vrf,
+						 struct bgp_evpn_cfgd_rt_slu_head *cfgd_rts)
+{
+	struct bgp_evpn_rt_config *rt_config = bgp_vrf->vrf_route_target_config;
+
+	if (!bgp_evpn_cfgd_rt_slu_count(cfgd_rts))
+		return;
+
+	evpn_vrf_rt_routes_unmap(bgp_vrf);
+
+	cfgd_rt_list_add_batch(&rt_config->cfgd_import, cfgd_rts);
+
+	/* This also removes the implicit auto RT, if there was one */
+	bgp_evpn_vrf_regenerate_effective_import_rts(bgp_vrf);
+
+	evpn_vrf_rt_routes_map(bgp_vrf);
 }
 
 void bgp_evpn_configure_import_auto_rt_for_vrf(struct bgp *bgp_vrf,
@@ -6688,23 +6709,48 @@ void bgp_evpn_configure_import_auto_rt_for_vrf(struct bgp *bgp_vrf,
 	evpn_vrf_rt_routes_map(bgp_vrf);
 }
 
-void bgp_evpn_unconfigure_import_rt_for_vrf_deferred(struct bgp *bgp_vrf,
-						     const struct bgp_evpn_cfgd_rt *cfgd_rt)
+void bgp_evpn_unconfigure_import_rt_for_vrf(struct bgp *bgp_vrf,
+					    const struct bgp_evpn_cfgd_rt *cfgd_rt)
 {
 	struct bgp_evpn_rt_config *rt_config = bgp_vrf->vrf_route_target_config;
 	struct bgp_evpn_cfgd_rt *existing;
 
+	evpn_vrf_rt_routes_unmap(bgp_vrf);
+
 	existing = bgp_evpn_cfgd_rt_slu_find(&rt_config->cfgd_import, cfgd_rt);
 	if (existing)
 		cfgd_rt_list_del(&rt_config->cfgd_import, existing);
+
+	/* This also restores the implicit auto RT if the last manual import
+	 * RT was removed
+	 */
+	bgp_evpn_vrf_regenerate_effective_import_rts(bgp_vrf);
+
+	evpn_vrf_rt_routes_map(bgp_vrf);
 }
 
-void bgp_evpn_unconfigure_import_rt_for_vrf(struct bgp *bgp_vrf,
-					    const struct bgp_evpn_cfgd_rt *cfgd_rt)
+/* Remove a set of import RTs from the VRF. Every entry of cfgd_rts is
+ * freed and cfgd_rts is left empty. The VRF's routes are unmapped and
+ * remapped once for the whole set instead of once per RT.
+ */
+void bgp_evpn_unconfigure_import_rts_for_vrf_batch(struct bgp *bgp_vrf,
+						   struct bgp_evpn_cfgd_rt_slu_head *cfgd_rts)
 {
-	bgp_evpn_vrf_rt_change_begin(bgp_vrf, true);
-	bgp_evpn_unconfigure_import_rt_for_vrf_deferred(bgp_vrf, cfgd_rt);
-	bgp_evpn_vrf_rt_change_end(bgp_vrf, true);
+	struct bgp_evpn_rt_config *rt_config = bgp_vrf->vrf_route_target_config;
+
+	if (!bgp_evpn_cfgd_rt_slu_count(cfgd_rts))
+		return;
+
+	evpn_vrf_rt_routes_unmap(bgp_vrf);
+
+	cfgd_rt_list_del_batch(&rt_config->cfgd_import, cfgd_rts);
+
+	/* This also restores the implicit auto RT if the last manual import
+	 * RT was removed
+	 */
+	bgp_evpn_vrf_regenerate_effective_import_rts(bgp_vrf);
+
+	evpn_vrf_rt_routes_map(bgp_vrf);
 }
 
 void bgp_evpn_unconfigure_import_auto_rt_for_vrf(struct bgp *bgp_vrf)
@@ -6723,18 +6769,38 @@ void bgp_evpn_unconfigure_import_auto_rt_for_vrf(struct bgp *bgp_vrf)
 	evpn_vrf_rt_routes_map(bgp_vrf);
 }
 
-void bgp_evpn_configure_export_rt_for_vrf_deferred(struct bgp *bgp_vrf,
-						   struct bgp_evpn_cfgd_rt *cfgd_rt)
+void bgp_evpn_configure_export_rt_for_vrf(struct bgp *bgp_vrf, struct bgp_evpn_cfgd_rt *cfgd_rt)
 {
 	struct bgp_evpn_rt_config *rt_config = bgp_vrf->vrf_route_target_config;
 
 	cfgd_rt_list_add(&rt_config->cfgd_export, cfgd_rt);
+
+	/* This also removes the implicit auto RT, if there was one */
+	bgp_evpn_vrf_regenerate_effective_export_rts(bgp_vrf);
+
+	if (is_l3vni_live(bgp_vrf))
+		bgp_evpn_handle_export_rt_change_for_vrf(bgp_vrf);
 }
 
-void bgp_evpn_configure_export_rt_for_vrf(struct bgp *bgp_vrf, struct bgp_evpn_cfgd_rt *cfgd_rt)
+/* Add a set of export RTs to the VRF, taking ownership of every entry and
+ * leaving cfgd_rts empty. The VRF's routes are re-advertised once for the
+ * whole set instead of once per RT.
+ */
+void bgp_evpn_configure_export_rts_for_vrf_batch(struct bgp *bgp_vrf,
+						 struct bgp_evpn_cfgd_rt_slu_head *cfgd_rts)
 {
-	bgp_evpn_configure_export_rt_for_vrf_deferred(bgp_vrf, cfgd_rt);
-	bgp_evpn_vrf_rt_change_end(bgp_vrf, false);
+	struct bgp_evpn_rt_config *rt_config = bgp_vrf->vrf_route_target_config;
+
+	if (!bgp_evpn_cfgd_rt_slu_count(cfgd_rts))
+		return;
+
+	cfgd_rt_list_add_batch(&rt_config->cfgd_export, cfgd_rts);
+
+	/* This also removes the implicit auto RT, if there was one */
+	bgp_evpn_vrf_regenerate_effective_export_rts(bgp_vrf);
+
+	if (is_l3vni_live(bgp_vrf))
+		bgp_evpn_handle_export_rt_change_for_vrf(bgp_vrf);
 }
 
 void bgp_evpn_configure_export_auto_rt_for_vrf(struct bgp *bgp_vrf,
@@ -6755,8 +6821,8 @@ void bgp_evpn_configure_export_auto_rt_for_vrf(struct bgp *bgp_vrf,
 	bgp_evpn_handle_export_rt_change_for_vrf(bgp_vrf);
 }
 
-void bgp_evpn_unconfigure_export_rt_for_vrf_deferred(struct bgp *bgp_vrf,
-						     const struct bgp_evpn_cfgd_rt *cfgd_rt)
+void bgp_evpn_unconfigure_export_rt_for_vrf(struct bgp *bgp_vrf,
+					    const struct bgp_evpn_cfgd_rt *cfgd_rt)
 {
 	struct bgp_evpn_rt_config *rt_config = bgp_vrf->vrf_route_target_config;
 	struct bgp_evpn_cfgd_rt *existing;
@@ -6764,13 +6830,37 @@ void bgp_evpn_unconfigure_export_rt_for_vrf_deferred(struct bgp *bgp_vrf,
 	existing = bgp_evpn_cfgd_rt_slu_find(&rt_config->cfgd_export, cfgd_rt);
 	if (existing)
 		cfgd_rt_list_del(&rt_config->cfgd_export, existing);
+
+	/* This also restores the implicit auto RT if the last manual export
+	 * RT was removed
+	 */
+	bgp_evpn_vrf_regenerate_effective_export_rts(bgp_vrf);
+
+	if (is_l3vni_live(bgp_vrf))
+		bgp_evpn_handle_export_rt_change_for_vrf(bgp_vrf);
 }
 
-void bgp_evpn_unconfigure_export_rt_for_vrf(struct bgp *bgp_vrf,
-					    const struct bgp_evpn_cfgd_rt *cfgd_rt)
+/* Remove a set of export RTs from the VRF. Every entry of cfgd_rts is
+ * freed and cfgd_rts is left empty. The VRF's routes are re-advertised
+ * once for the whole set instead of once per RT.
+ */
+void bgp_evpn_unconfigure_export_rts_for_vrf_batch(struct bgp *bgp_vrf,
+						   struct bgp_evpn_cfgd_rt_slu_head *cfgd_rts)
 {
-	bgp_evpn_unconfigure_export_rt_for_vrf_deferred(bgp_vrf, cfgd_rt);
-	bgp_evpn_vrf_rt_change_end(bgp_vrf, false);
+	struct bgp_evpn_rt_config *rt_config = bgp_vrf->vrf_route_target_config;
+
+	if (!bgp_evpn_cfgd_rt_slu_count(cfgd_rts))
+		return;
+
+	cfgd_rt_list_del_batch(&rt_config->cfgd_export, cfgd_rts);
+
+	/* This also restores the implicit auto RT if the last manual export
+	 * RT was removed
+	 */
+	bgp_evpn_vrf_regenerate_effective_export_rts(bgp_vrf);
+
+	if (is_l3vni_live(bgp_vrf))
+		bgp_evpn_handle_export_rt_change_for_vrf(bgp_vrf);
 }
 
 void bgp_evpn_unconfigure_export_auto_rt_for_vrf(struct bgp *bgp_vrf)
