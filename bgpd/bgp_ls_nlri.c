@@ -5097,6 +5097,9 @@ static int parse_srv6_endx_sid(struct stream *s, uint16_t length, struct bgp_ls_
 	stream_getc(s); /* Reserved */
 	stream_get(&entry->sid, s, IPV6_MAX_BYTELEN);
 
+	attr->srv6_endx_sid_count++;
+	SET_FLAG(attr->present_tlvs, BGP_LS_ATTR_SRV6_ENDX_SID_BIT);
+
 	/* Sub-TLVs */
 	if (length > BGP_LS_SRV6_ENDX_SID_MIN_SIZE) {
 		uint16_t sub_total = length - BGP_LS_SRV6_ENDX_SID_MIN_SIZE;
@@ -5105,8 +5108,6 @@ static int parse_srv6_endx_sid(struct stream *s, uint16_t length, struct bgp_ls_
 			return -1;
 	}
 
-	attr->srv6_endx_sid_count++;
-	SET_FLAG(attr->present_tlvs, BGP_LS_ATTR_SRV6_ENDX_SID_BIT);
 	return 0;
 }
 
@@ -5146,6 +5147,9 @@ static int parse_isis_srv6_lan_endx_sid(struct stream *s, uint16_t length, struc
 	stream_get(entry->neighbor.sysid, s, 6); /* IS-IS System-ID */
 	stream_get(&entry->sid, s, IPV6_MAX_BYTELEN);
 
+	attr->srv6_lan_endx_sid_count++;
+	SET_FLAG(attr->present_tlvs, BGP_LS_ATTR_SRV6_LAN_ENDX_SID_BIT);
+
 	if (length > BGP_LS_SRV6_LAN_ENDX_SID_ISIS_MIN_SIZE) {
 		uint16_t sub_total = length - BGP_LS_SRV6_LAN_ENDX_SID_ISIS_MIN_SIZE;
 
@@ -5153,8 +5157,6 @@ static int parse_isis_srv6_lan_endx_sid(struct stream *s, uint16_t length, struc
 			return -1;
 	}
 
-	attr->srv6_lan_endx_sid_count++;
-	SET_FLAG(attr->present_tlvs, BGP_LS_ATTR_SRV6_LAN_ENDX_SID_BIT);
 	return 0;
 }
 
@@ -5194,6 +5196,9 @@ static int parse_ospf_srv6_lan_endx_sid(struct stream *s, uint16_t length, struc
 	entry->neighbor.router_id.s_addr = stream_getl(s); /* OSPFv3 Router-ID */
 	stream_get(&entry->sid, s, IPV6_MAX_BYTELEN);
 
+	attr->srv6_lan_endx_sid_count++;
+	SET_FLAG(attr->present_tlvs, BGP_LS_ATTR_SRV6_LAN_ENDX_SID_BIT);
+
 	if (length > BGP_LS_SRV6_LAN_ENDX_SID_OSPF_MIN_SIZE) {
 		uint16_t sub_total = length - BGP_LS_SRV6_LAN_ENDX_SID_OSPF_MIN_SIZE;
 
@@ -5201,8 +5206,6 @@ static int parse_ospf_srv6_lan_endx_sid(struct stream *s, uint16_t length, struc
 			return -1;
 	}
 
-	attr->srv6_lan_endx_sid_count++;
-	SET_FLAG(attr->present_tlvs, BGP_LS_ATTR_SRV6_LAN_ENDX_SID_BIT);
 	return 0;
 }
 
