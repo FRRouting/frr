@@ -14,6 +14,7 @@ Library Facilities (libfrr)
    xrefs
    locking
    hooks
+   l2vpn
    cli
    modules
    scripting
