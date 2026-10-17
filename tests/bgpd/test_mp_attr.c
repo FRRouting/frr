@@ -1083,6 +1083,37 @@ static struct test_segment mp_prefix_sid[] = {
 		.len = 37,
 		.parses = SHOULD_WITHDRAW,
 	},
+	{
+		.name = "PREFIX-SID-SRv6-L3-Service-repeated-sid-info",
+		.desc = "PREFIX-SID accepts repeated SRv6 SID Information Sub-TLVs",
+		.data = {
+			0x05,       /* Type 0x05: SRv6 L3 Service */
+			0x00, 0x31, /* Length */
+			0x00,       /* Reserved */
+			0x01,       /* Sub-TLV type: SID Information */
+			0x00, 0x15, /* Sub-TLV length */
+			0x00,       /* Reserved */
+			0xfc, 0xbb, 0xbb, 0xbb, /* First SID: fcbb:bbbb:1:e000:: */
+			0x00, 0x01, 0xe0, 0x00,
+			0x00, 0x00, 0x00, 0x00,
+			0x00, 0x00, 0x00, 0x00,
+			0x00,       /* SID flags */
+			0x00, 0x40, /* Endpoint behavior */
+			0x00,       /* Reserved */
+			0x01,       /* Repeated Sub-TLV type: SID Information */
+			0x00, 0x15, /* Sub-TLV length */
+			0x00,       /* Reserved */
+			0xfc, 0xbb, 0xbb, 0xbb, /* Second SID: fcbb:bbbb:1:e001:: */
+			0x00, 0x01, 0xe0, 0x01,
+			0x00, 0x00, 0x00, 0x00,
+			0x00, 0x00, 0x00, 0x00,
+			0x00,       /* SID flags */
+			0x00, 0x3e, /* Endpoint behavior */
+			0x00,       /* Reserved */
+		},
+		.len = 52,
+		.parses = SHOULD_PARSE,
+	},
 	{NULL, NULL, { 0 }, 0, 0},
 };
 

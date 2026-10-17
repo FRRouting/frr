@@ -67,3 +67,6 @@ TestMpAttr.okfail(
 TestMpAttr.okfail(
     "PREFIX-SID-SRv6-L3-Service-sid-structure-bad-transposition: PREFIX-SID rejects an SRv6 SID Structure Sub-Sub-TLV with bad transposition"
 )
+TestMpAttr.okfail(
+    "PREFIX-SID-SRv6-L3-Service-repeated-sid-info: PREFIX-SID accepts repeated SRv6 SID Information Sub-TLVs"
+)
