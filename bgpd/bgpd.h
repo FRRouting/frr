@@ -1391,6 +1391,8 @@ struct peer_af {
 	 * Trigger timer for bgp_announce_route().
 	 */
 	struct event *t_announce_route;
+	/* RFC 7313 refresh state and its timeout belong to this AFI/SAFI. */
+	struct event *t_refresh_stalepath;
 
 	afi_t afi;
 	safi_t safi;
@@ -2059,7 +2061,6 @@ struct peer {
 
 	/* Threads. */
 	struct event *t_llgr_stale[AFI_MAX][SAFI_MAX];
-	struct event *t_refresh_stalepath;
 
 	/* Thread flags. */
 	_Atomic uint32_t thread_flags;
@@ -3001,6 +3002,8 @@ extern int bgp_map_afi_safi_int2iana(afi_t afi, safi_t safi,
 extern struct peer_af *peer_af_create(struct peer *peer, afi_t afi, safi_t safi);
 extern struct peer_af *peer_af_find(struct peer *peer, afi_t afi, safi_t safi);
 extern int peer_af_delete(struct peer *peer, afi_t afi, safi_t safi);
+extern bool peer_refresh_stale_timers_cancel(struct peer *peer);
+extern bool peer_refresh_stale_start(struct peer_af *paf);
 
 extern void bgp_shutdown_enable(struct bgp *bgp, const char *msg, bool send_notify);
 extern void bgp_shutdown_disable(struct bgp *bgp);
