@@ -32,7 +32,6 @@
                     "extendedCommunity":{
                         "string":"RT:192.0.2.1:100"
                     },
-                    "originatorId":"192.0.2.1",
                     "remoteLabel":101,
                     "nexthops":[{
                         "ip":"0.0.0.0",
@@ -78,7 +77,6 @@
                     "extendedCommunity":{
                         "string":"RT:192.0.2.1:300"
                     },
-                    "originatorId":"192.0.2.1",
                     "remoteLabel":103,
                     "nexthops":[{
                         "ip":"0.0.0.0",
