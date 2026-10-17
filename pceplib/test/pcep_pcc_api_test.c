@@ -14,7 +14,7 @@
 #endif
 
 #include <assert.h>
-#include <netdb.h> // gethostbyname
+#include <netdb.h> // getaddrinfo
 #include <pthread.h>
 #include <stdlib.h>
 #include <unistd.h>
@@ -77,9 +77,30 @@ void test_initialize_pcc(void)
 void test_connect_pce(void)
 {
 	pcep_configuration *config = create_default_pcep_configuration();
-	struct hostent *host_info = gethostbyname("localhost");
+	struct addrinfo hints = {0};
+	struct addrinfo *result = NULL;
 	struct in_addr dest_address;
-	memcpy(&dest_address, host_info->h_addr, host_info->h_length);
+
+	hints.ai_family = AF_INET;
+	hints.ai_socktype = SOCK_STREAM;
+	hints.ai_flags = AI_ADDRCONFIG;
+
+	if (getaddrinfo("localhost", NULL, &hints, &result) != 0) {
+		destroy_pcep_configuration(config);
+		CU_FAIL("Failed to resolve localhost");
+		return;
+	}
+
+	if (result->ai_family == AF_INET) {
+		struct sockaddr_in *sin = (struct sockaddr_in *)result->ai_addr;
+		dest_address = sin->sin_addr;
+	} else {
+		freeaddrinfo(result);
+		destroy_pcep_configuration(config);
+		CU_FAIL("localhost did not resolve to IPv4");
+		return;
+	}
+	freeaddrinfo(result);
 	mock_socket_comm_info *mock_info = get_mock_socket_comm_info();
 	mock_info->send_message_save_message = true;
 
@@ -150,9 +171,30 @@ void test_connect_pce_ipv6(void)
 void test_connect_pce_with_src_ip(void)
 {
 	pcep_configuration *config = create_default_pcep_configuration();
-	struct hostent *host_info = gethostbyname("localhost");
+	struct addrinfo hints = {0};
+	struct addrinfo *result = NULL;
 	struct in_addr dest_address;
-	memcpy(&dest_address, host_info->h_addr, host_info->h_length);
+
+	hints.ai_family = AF_INET;
+	hints.ai_socktype = SOCK_STREAM;
+	hints.ai_flags = AI_ADDRCONFIG;
+
+	if (getaddrinfo("localhost", NULL, &hints, &result) != 0) {
+		destroy_pcep_configuration(config);
+		CU_FAIL("Failed to resolve localhost");
+		return;
+	}
+
+	if (result->ai_family == AF_INET) {
+		struct sockaddr_in *sin = (struct sockaddr_in *)result->ai_addr;
+		dest_address = sin->sin_addr;
+	} else {
+		freeaddrinfo(result);
+		destroy_pcep_configuration(config);
+		CU_FAIL("localhost did not resolve to IPv4");
+		return;
+	}
+	freeaddrinfo(result);
 	mock_socket_comm_info *mock_info = get_mock_socket_comm_info();
 	mock_info->send_message_save_message = true;
 	config->src_ip.src_ipv4.s_addr = 0x0a0a0102;
@@ -183,9 +225,30 @@ void test_connect_pce_with_src_ip(void)
 void test_disconnect_pce(void)
 {
 	pcep_configuration *config = create_default_pcep_configuration();
-	struct hostent *host_info = gethostbyname("localhost");
+	struct addrinfo hints = {0};
+	struct addrinfo *result = NULL;
 	struct in_addr dest_address;
-	memcpy(&dest_address, host_info->h_addr, host_info->h_length);
+
+	hints.ai_family = AF_INET;
+	hints.ai_socktype = SOCK_STREAM;
+	hints.ai_flags = AI_ADDRCONFIG;
+
+	if (getaddrinfo("localhost", NULL, &hints, &result) != 0) {
+		destroy_pcep_configuration(config);
+		CU_FAIL("Failed to resolve localhost");
+		return;
+	}
+
+	if (result->ai_family == AF_INET) {
+		struct sockaddr_in *sin = (struct sockaddr_in *)result->ai_addr;
+		dest_address = sin->sin_addr;
+	} else {
+		freeaddrinfo(result);
+		destroy_pcep_configuration(config);
+		CU_FAIL("localhost did not resolve to IPv4");
+		return;
+	}
+	freeaddrinfo(result);
 	mock_socket_comm_info *mock_info = get_mock_socket_comm_info();
 	mock_info->send_message_save_message = true;
 
@@ -228,13 +291,35 @@ void test_disconnect_pce(void)
 void test_send_message(void)
 {
 	pcep_configuration *config = create_default_pcep_configuration();
-	struct hostent *host_info = gethostbyname("localhost");
+	struct addrinfo hints = {0};
+	struct addrinfo *result = NULL;
 	struct in_addr dest_address;
+
+	hints.ai_family = AF_INET;
+	hints.ai_socktype = SOCK_STREAM;
+	hints.ai_flags = AI_ADDRCONFIG;
+
+	if (getaddrinfo("localhost", NULL, &hints, &result) != 0) {
+		destroy_pcep_configuration(config);
+		CU_FAIL("Failed to resolve localhost");
+		return;
+	}
+
+	if (result->ai_family == AF_INET) {
+		struct sockaddr_in *sin = (struct sockaddr_in *)result->ai_addr;
+		dest_address = sin->sin_addr;
+	} else {
+		freeaddrinfo(result);
+		destroy_pcep_configuration(config);
+		CU_FAIL("localhost did not resolve to IPv4");
+		return;
+	}
+	freeaddrinfo(result);
 
 	initialize_pcc();
 
-	memcpy(&dest_address, host_info->h_addr, host_info->h_length);
 	pcep_session *session = connect_pce(config, &dest_address);
+
 	verify_socket_comm_times_called(0, 0, 1, 1, 0, 0, 0);
 
 	struct pcep_message *msg = pcep_msg_create_keepalive();
