@@ -1610,6 +1610,186 @@ def cleanup_route_leak_common(tor21, tor22, bordertor11, ip_version, test_route)
     logger.info("Common configuration removed successfully")
 
 
+def _set_ebgp_skip(router, asn, address_family, enabled):
+    command = "advertise {0} unicast skip-evpn-imported".format(address_family)
+    if not enabled:
+        command = "no " + command
+    router.vtysh_multicmd(
+        """
+        configure terminal
+        router bgp {asn} vrf vrf1
+         address-family l2vpn evpn
+          {command}
+         exit-address-family
+        exit
+        """.format(
+            asn=asn, command=command
+        )
+    )
+
+
+def _wait_ebgp_established(router, address_family, require_all=True):
+    summary_key = "ipv4Unicast" if address_family == "ipv4" else "ipv6Unicast"
+
+    def _check():
+        summary = router.vtysh_cmd("show bgp summary json", isjson=True)
+        peers = summary.get(summary_key, {}).get("peers", {})
+        established = [
+            peer for peer in peers.values() if peer.get("state") == "Established"
+        ]
+        if require_all:
+            return bool(peers) and len(established) == len(peers)
+        return bool(established)
+
+    _, result = topotest.run_and_expect(_check, True, count=60, wait=1)
+    assert result, "{0}: {1} expected {2} eBGP peers Established\n{3}\n{4}".format(
+        router.name,
+        address_family,
+        "all" if require_all else "at least one",
+        router.vtysh_cmd("show bgp summary json"),
+        router.run("ip -brief link show"),
+    )
+
+
+@pytest.mark.parametrize("tgen_and_ip_version", ["ipv6"], indirect=True, scope="module")
+def test_skip_evpn_imported_ebgp_runtime_toggle_and_withdrawal(tgen_and_ip_version):
+    """Verify IPv6 eBGP runtime toggling and Type-5 withdrawal cleanup."""
+
+    tgen, _ = tgen_and_ip_version
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    tor21 = tgen.gears["tor-21"]
+    tor22 = tgen.gears["tor-22"]
+    address_family = "ipv6"
+    prefix = "2001:db8:250:21::/64"
+    address = prefix.split("/", 1)[0]
+    route_command = "ipv6 route {0} blackhole".format(prefix)
+
+    try:
+        _set_ebgp_skip(tor21, 650030, address_family, False)
+        _set_ebgp_skip(tor22, 650031, address_family, False)
+        tor21.vtysh_multicmd(
+            "configure terminal\nvrf vrf1\n{0}\nexit\n".format(route_command)
+        )
+
+        def _origin_present():
+            return address in tor21.vtysh_cmd(
+                "show bgp l2vpn evpn route self-originate"
+            )
+
+        _, result = topotest.run_and_expect(_origin_present, True, count=60, wait=1)
+        assert (
+            result
+        ), "tor-21 vrf1 {0}: expected local Type-5 present, actual absent\n{1}".format(
+            prefix, tor21.vtysh_cmd("show bgp l2vpn evpn route self-originate")
+        )
+
+        _set_ebgp_skip(tor21, 650030, address_family, True)
+        _set_ebgp_skip(tor22, 650031, address_family, True)
+        marker = "advertise {0} unicast skip-evpn-imported".format(address_family)
+        for router in (tor21, tor22):
+            running = router.vtysh_cmd("show running-config bgpd")
+            assert (
+                marker in running
+            ), "{0} vrf1: expected {1} in running configuration\n{2}".format(
+                router.name, marker, running
+            )
+
+        tor21.vtysh_multicmd(
+            "configure terminal\nvrf vrf1\nno {0}\nexit\n".format(route_command)
+        )
+
+        def _origin_withdrawn():
+            return address not in tor21.vtysh_cmd(
+                "show bgp l2vpn evpn route self-originate"
+            )
+
+        _, result = topotest.run_and_expect(_origin_withdrawn, True, count=60, wait=1)
+        assert (
+            result
+        ), "tor-21 vrf1 {0}: expected local Type-5 absent, actual present\n{1}".format(
+            prefix, tor21.vtysh_cmd("show bgp l2vpn evpn route self-originate")
+        )
+    finally:
+        tor21.vtysh_multicmd(
+            "configure terminal\nvrf vrf1\nno {0}\nexit\n".format(route_command)
+        )
+        _set_ebgp_skip(tor21, 650030, address_family, False)
+        _set_ebgp_skip(tor22, 650031, address_family, False)
+
+
+@pytest.mark.parametrize("tgen_and_ip_version", ["ipv6"], indirect=True, scope="module")
+def test_skip_evpn_imported_ebgp_clear_and_uplink_failover(tgen_and_ip_version):
+    """Verify IPv6 export and skip state across eBGP failover and clear."""
+
+    tgen, _ = tgen_and_ip_version
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    tor21 = tgen.gears["tor-21"]
+    tor22 = tgen.gears["tor-22"]
+    address_family = "ipv6"
+    expected_routes = {
+        "tor-21": "2001:db8:72:21::/64",
+        "tor-22": "2001:db8:72:22::/64",
+    }
+
+    def check_config_and_local_exports():
+        marker = "advertise {0} unicast skip-evpn-imported".format(address_family)
+        for name, route in expected_routes.items():
+            router = tgen.gears[name]
+            running = router.vtysh_cmd("show running-config bgpd")
+            assert (
+                marker in running
+            ), "{0} vrf1: expected {1} in running configuration\n{2}".format(
+                name, marker, running
+            )
+
+            def local_export_present(router=router, route=route):
+                return route.split("/", 1)[0] in router.vtysh_cmd(
+                    "show bgp l2vpn evpn route self-originate"
+                )
+
+            _, result = topotest.run_and_expect(
+                local_export_present, True, count=60, wait=1
+            )
+            assert result, (
+                "{0} vrf1 {1}: expected local Type-5 present, actual absent\n{2}"
+                "\nBGP summary:\n{3}\nLink state:\n{4}".format(
+                    name,
+                    route,
+                    router.vtysh_cmd("show bgp l2vpn evpn route self-originate"),
+                    router.vtysh_cmd("show bgp summary json"),
+                    router.run("ip -brief link show"),
+                )
+            )
+
+    try:
+        _set_ebgp_skip(tor21, 650030, address_family, True)
+        _set_ebgp_skip(tor22, 650031, address_family, True)
+        _wait_ebgp_established(tor21, address_family)
+        _wait_ebgp_established(tor22, address_family)
+        check_config_and_local_exports()
+
+        tor21.run("ip link set dev swp1 down")
+        _wait_ebgp_established(tor21, address_family, require_all=False)
+        check_config_and_local_exports()
+
+        tor21.vtysh_cmd("clear bgp *")
+        _wait_ebgp_established(tor21, address_family, require_all=False)
+        check_config_and_local_exports()
+
+        tor21.run("ip link set dev swp1 up")
+        _wait_ebgp_established(tor21, address_family)
+        _wait_ebgp_established(tor22, address_family)
+        check_config_and_local_exports()
+    finally:
+        tor21.run("ip link set dev swp1 up 2>/dev/null || true")
+        _set_ebgp_skip(tor21, 650030, address_family, False)
+        _set_ebgp_skip(tor22, 650031, address_family, False)
+
+
 def test_bgp_summary_neighbor_state(tgen_and_ip_version):
     """
     Verify BGP neighbor states are Established based on underlay IP version
