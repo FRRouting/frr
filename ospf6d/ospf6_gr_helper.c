@@ -1243,7 +1243,7 @@ static int ospf6_grace_lsa_show_info(struct vty *vty, struct ospf6_lsa *lsa,
 		zlog_debug("  TLV info:");
 	}
 
-	for (tlvh = lsdesc_start(lsah); sum < length && tlvh;
+	for (tlvh = lsdesc_start(lsah); sum + TLV_HDR_SIZE <= length && tlvh;
 	     tlvh = TLV_HDR_NEXT(tlvh)) {
 		/* Check TLV len */
 		if (sum + TLV_SIZE(tlvh) > length) {
@@ -1277,6 +1277,15 @@ static int ospf6_grace_lsa_show_info(struct vty *vty, struct ospf6_lsa *lsa,
 		case TLV_GRACE_RESTART_REASON_TYPE:
 			grReason = (struct tlv_grace_restart_reason *)tlvh;
 			sum += TLV_SIZE(tlvh);
+			if (grReason->reason >= OSPF6_GR_INVALID_REASON_CODE) {
+				if (vty)
+					vty_out(vty, "%% Invalid Restart reason: %u\n",
+						grReason->reason);
+				else if (IS_DEBUG_OSPF6_GR)
+					zlog_debug("%% Invalid Restart reason: %u",
+						   grReason->reason);
+				return OSPF6_FAILURE;
+			}
 			if (vty) {
 				if (use_json)
 					json_object_string_add(
@@ -1294,6 +1303,7 @@ static int ospf6_grace_lsa_show_info(struct vty *vty, struct ospf6_lsa *lsa,
 			}
 			break;
 		default:
+			sum += TLV_SIZE(tlvh);
 			break;
 		}
 	}
