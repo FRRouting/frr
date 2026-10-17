@@ -618,6 +618,26 @@ static void zebra_neigh_macfdb_update(struct zebra_dplane_ctx *ctx)
 	if (!IS_ZEBRA_IF_BRIDGE_SLAVE(ifp))
 		return;
 
+	/*
+	 * sr6-N interfaces are SRv6 EVPN per-remote-SID encap egress ports.
+	 * Their FDB is programmed exclusively by BGP via the custom sr6
+	 * dataplane (zebra/zebra_sr6.c + netlink_sr6_macfdb_encode), and
+	 * the resulting RTM_NEWNEIGH notification echoes back here.
+	 *
+	 * If we let it through, the dispatch below routes it into
+	 * zebra_vxlan_local_mac_add_update() because IS_ZEBRA_IF_VXLAN(sr6)
+	 * is false - which mis-classifies the BGP-installed remote MAC as
+	 * "local on sr6-0", flips the EVPN MAC table entry to local,
+	 * triggers a duplicate-detect / re-advertise loop, and tears down
+	 * the IPv6 underlay route.
+	 *
+	 * Drop the notification: zebra's per-VNI MAC table is the
+	 * authoritative remote view via BGP->ZAPI, not via netlink echo.
+	 */
+	if (strncmp(ifp->name, "sr6-", strlen("sr6-")) == 0 ||
+	    strncmp(ifp->name, "bum-sr6-", strlen("bum-sr6-")) == 0)
+		return;
+
 	op = dplane_ctx_get_op(ctx);
 	zif = (struct zebra_if *)ifp->info;
 	br_if = zif->brslave_info.br_if;
