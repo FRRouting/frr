@@ -10243,6 +10243,8 @@ static void bgp_process_conn_error(struct event *event)
 
 	/* Dequeue peers from the error list */
 	while (connection != NULL) {
+		bool deferred = false;
+
 		peer = connection->peer;
 
 		if (bgp_debug_neighbor_events(peer))
@@ -10257,17 +10259,46 @@ static void bgp_process_conn_error(struct event *event)
 					   PEER_FLAG_GRACEFUL_RESTART_HELPER))
 			    && CHECK_FLAG(peer->sflags, PEER_STATUS_NSF_MODE)
 			    && !peer->notify.hard_reset) {
-				peer_set_last_reset(peer, PEER_DOWN_NSF_CLOSE_SESSION);
-				SET_FLAG(peer->sflags, PEER_STATUS_NSF_WAIT);
+				size_t queued;
+
+				frr_with_mutex (&connection->io_mtx) {
+					queued = connection->ibuf->count;
+				}
+
+				/*
+				 * This peer uses graceful restart, so its routes will
+				 * be kept as stale. But it may have sent messages
+				 * before closing that we have not processed yet.
+				 * Handle the close only after them, so the routes we
+				 * keep are its latest ones (for example, a withdraw
+				 * sent just before the close is applied).
+				 *
+				 * If one of those messages ends the session (a
+				 * NOTIFICATION we receive, or one we send because a
+				 * message is bad), the code that handles it decides
+				 * whether the routes are kept, as RFC 8538 says: they
+				 * are kept if the N-bit was exchanged and it is not a
+				 * Hard Reset. This close is then not needed.
+				 */
+				if (queued) {
+					bgp_close_after_ibuf(connection, queued);
+					deferred = true;
+				} else {
+					peer_set_last_reset(peer, PEER_DOWN_NSF_CLOSE_SESSION);
+					SET_FLAG(peer->sflags, PEER_STATUS_NSF_WAIT);
+				}
 			} else
 				peer_set_last_reset(peer, PEER_DOWN_CLOSE_SESSION);
 		}
 
-		/* No need for keepalives, if enabled */
-		bgp_keepalives_off(peer->connection);
+		/* The close waits for the queued messages; see bgp_close_after_ibuf(). */
+		if (!deferred) {
+			/* No need for keepalives, if enabled */
+			bgp_keepalives_off(peer->connection);
 
-		/* Drive into state-machine changes */
-		bgp_event_update(connection, connection->connection_errcode);
+			/* Drive into state-machine changes */
+			bgp_event_update(connection, connection->connection_errcode);
+		}
 
 		counter++;
 		if (counter >= bm->peer_conn_errs_dequeue_limit)

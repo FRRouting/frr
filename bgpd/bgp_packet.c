@@ -4094,6 +4094,81 @@ int bgp_capability_receive(struct peer_connection *connection, bgp_size_t size)
 	return bgp_capability_msg_parse(connection, pnt, size);
 }
 
+/*
+ * Called from the close handler, bgp_process_conn_error(), when the peer
+ * closes an Established session that will be kept as a graceful restart, but
+ * messages it sent before closing are still waiting on ibuf.
+ *
+ * The close is not handled yet. bgp_process_packet() processes the messages
+ * first, in the order they arrived and in its normal bounded runs, and then
+ * queues the close again (see bgp_close_if_ibuf_done()). This way the routes
+ * kept as stale are the peer's latest ones: for example, a withdraw sent just
+ * before the close is applied.
+ *
+ * If one of the messages ends the session (for example a NOTIFICATION),
+ * the close is not needed any more.
+ *
+ * Our fd stays open until bgp_stop(), which clears close_pending; until then
+ * bgp_process_writes() sends nothing.
+ */
+void bgp_close_after_ibuf(struct peer_connection *connection, size_t queued)
+{
+	struct peer *peer = connection->peer;
+
+	atomic_store_explicit(&connection->close_pending, true, memory_order_relaxed);
+
+	frrtrace(3, frr_bgp, close_after_ibuf, connection, queued, false);
+
+	if (bgp_debug_neighbor_events(peer))
+		zlog_debug("%s(%s) [Event] Connection closed (error %u, fd %d) with %zu queued message(s); handling the close after them",
+			   peer->host, bgp_peer_get_connection_direction_string(connection),
+			   connection->connection_errcode, connection->fd, queued);
+
+	frr_with_mutex (&bm->peer_connection_mtx) {
+		if (!peer_connection_fifo_member(&bm->connection_fifo, connection))
+			peer_connection_fifo_add_tail(&bm->connection_fifo, connection);
+	}
+	event_add_event(bm->master, bgp_process_packet, NULL, 0, &bm->e_process_packet);
+}
+
+/*
+ * Called by bgp_process_packet() after each message it processes. If the
+ * peer's close is waiting for ibuf and ibuf is now empty, queue the close
+ * again so bgp_process_conn_error() handles it.
+ */
+static void bgp_close_if_ibuf_done(struct peer_connection *connection)
+{
+	struct peer *peer = connection->peer;
+	size_t count;
+
+	if (!atomic_load_explicit(&connection->close_pending, memory_order_relaxed))
+		return;
+
+	frr_with_mutex (&connection->io_mtx) {
+		count = connection->ibuf->count;
+	}
+
+	if (count)
+		return;
+
+	/*
+	 * We are good to queue the close now, but it will be handled later, only
+	 * when bgp_process_conn_error() runs. Until then our fd is still open but
+	 * the peer has gone, so there is a small window where Tx is still
+	 * possible, and it will likely fail. A failed write ends the session as a
+	 * fatal error, without graceful restart, and that can happen before this
+	 * close is handled. So any writes stay blocked until bgp_stop() clears
+	 * close_pending and closes the fd.
+	 */
+	frrtrace(3, frr_bgp, close_after_ibuf, connection, 0, true);
+
+	if (bgp_debug_neighbor_events(peer))
+		zlog_debug("%s(%s) [Event] Queued message(s) processed; handling the close now",
+			   peer->host, bgp_peer_get_connection_direction_string(connection));
+
+	bgp_enqueue_conn_err(peer->bgp, connection, connection->connection_errcode);
+}
+
 /**
  * Processes a peer's input buffer.
  *
@@ -4305,6 +4380,10 @@ void bgp_process_packet(struct event *event)
 
 			continue;
 		}
+
+		/* If a close is waiting for ibuf and it is now empty, handle it. */
+		if (atomic_load_explicit(&connection->close_pending, memory_order_relaxed))
+			bgp_close_if_ibuf_done(connection);
 
 		bool yield = event_should_yield(event);
 		if (curr_connection_processed >= rpkt_quanta_old || yield) {
