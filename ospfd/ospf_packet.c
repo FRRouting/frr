@@ -3015,6 +3015,12 @@ static unsigned ospf_router_lsa_links_examin(struct router_lsa_link *link,
 		linkbytes -= thislinklen;
 		counted_links++;
 	}
+	if (linkbytes) {
+		if (IS_DEBUG_OSPF_PACKET(0, RECV))
+			zlog_debug("%s: %u bytes after link block #%u", __func__,
+				   linkbytes, counted_links);
+		return MSG_NG;
+	}
 	if (counted_links != num_links) {
 		if (IS_DEBUG_OSPF_PACKET(0, RECV))
 			zlog_debug("%s: %u link blocks declared, %u present",

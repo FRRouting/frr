@@ -14,8 +14,37 @@ tests_ospfd_test_ospf_spf_CFLAGS = $(TESTS_CFLAGS)
 tests_ospfd_test_ospf_spf_CPPFLAGS = $(TESTS_CPPFLAGS)
 tests_ospfd_test_ospf_spf_LDADD = $(OSPFD_TEST_LDADD)
 tests_ospfd_test_ospf_spf_SOURCES = tests/ospfd/test_ospf_spf.c tests/ospfd/common.c tests/ospfd/topologies.c
+
+if OSPFD
+check_PROGRAMS += tests/ospfd/test_ospf_opaque_show
+endif
+tests_ospfd_test_ospf_opaque_show_CFLAGS = $(TESTS_CFLAGS)
+tests_ospfd_test_ospf_opaque_show_CPPFLAGS = $(TESTS_CPPFLAGS)
+tests_ospfd_test_ospf_opaque_show_LDADD = $(OSPFD_TEST_LDADD)
+tests_ospfd_test_ospf_opaque_show_SOURCES = tests/ospfd/test_ospf_opaque_show.c
+
+if OSPFD
+check_PROGRAMS += tests/ospfd/test_ospf_grace_lsa
+endif
+tests_ospfd_test_ospf_grace_lsa_CFLAGS = $(TESTS_CFLAGS)
+tests_ospfd_test_ospf_grace_lsa_CPPFLAGS = $(TESTS_CPPFLAGS)
+tests_ospfd_test_ospf_grace_lsa_LDADD = $(OSPFD_TEST_LDADD)
+tests_ospfd_test_ospf_grace_lsa_SOURCES = tests/ospfd/test_ospf_grace_lsa.c
+
 EXTRA_DIST += \
+	tests/ospfd/test_ospf_opaque_show.py \
+	tests/ospfd/test_ospf_grace_lsa.py \
 	tests/ospfd/test_ospf_spf.py \
 	tests/ospfd/test_ospf_spf.in \
 	tests/ospfd/test_ospf_spf.refout \
 	# end
+
+
+if OSPFD
+check_PROGRAMS += tests/ospfd/test_ospf_lsa_examin
+endif
+tests_ospfd_test_ospf_lsa_examin_CFLAGS = $(TESTS_CFLAGS)
+tests_ospfd_test_ospf_lsa_examin_CPPFLAGS = $(TESTS_CPPFLAGS)
+tests_ospfd_test_ospf_lsa_examin_LDADD = $(OSPFD_TEST_LDADD)
+tests_ospfd_test_ospf_lsa_examin_SOURCES = tests/ospfd/test_ospf_lsa_examin.c
+EXTRA_DIST += tests/ospfd/test_ospf_lsa_examin.py
