@@ -515,6 +515,31 @@ int isis_instance_advertise_passive_only_modify(struct nb_cb_modify_args *args)
 }
 
 /*
+ * XPath: /frr-isisd:isis/instance/ipv4-over-ipv6-nexthop
+ */
+int isis_instance_ipv4_over_ipv6_nexthop_modify(struct nb_cb_modify_args *args)
+{
+	struct isis_area *area;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	area = nb_running_get_entry(args->dnode, NULL, true);
+	area->ipv4_over_ipv6_nexthop = yang_dnode_get_bool(args->dnode, NULL);
+
+	/*
+	 * Nexthops are computed locally, so no LSP changes: rerun SPF. An MT
+	 * adjacency's IPv4 topology membership follows on the neighbor's next IIH.
+	 */
+	if (area->is_type & IS_LEVEL_1)
+		isis_spf_schedule(area, IS_LEVEL_1);
+	if (area->is_type & IS_LEVEL_2)
+		isis_spf_schedule(area, IS_LEVEL_2);
+
+	return NB_OK;
+}
+
+/*
  * XPath: /frr-isisd:isis/instance/lsp/timers/level-1/refresh-interval
  */
 int isis_instance_lsp_refresh_interval_level_1_modify(struct nb_cb_modify_args *args)

@@ -199,6 +199,8 @@ struct isis_area {
 	uint32_t overload_on_startup_time;
 	/* advertise prefixes of passive interfaces only? */
 	bool advertise_passive_only;
+	/* route IPv4 over IPv6 link-local nexthops where IPv4 has none? */
+	bool ipv4_over_ipv6_nexthop;
 	/* Are we advertising high metrics? */
 	bool advertise_high_metrics;
 	/* L1/L2 router identifier for inter-area traffic */

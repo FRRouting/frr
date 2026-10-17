@@ -1260,6 +1260,16 @@ module frr-isisd {
           "Advertise prefixes of passive interfaces only";
       }
 
+      leaf ipv4-over-ipv6-nexthop {
+        type boolean;
+        default "false";
+        description
+          "Route IPv4 over circuits that have no usable IPv4 nexthop, using the
+           neighbor's IPv6 link-local address as the nexthop of IPv4 routes.";
+        reference
+          "draft-ietf-intarea-v4-via-v6";
+      }
+
       leaf admin-group-send-zero {
         type boolean;
         default "false";

@@ -802,11 +802,11 @@ static int process_hello(uint8_t pdu_type, struct isis_circuit *circuit,
 		goto out;
 	}
 
-	iih.v4_usable = (fabricd_ip_addrs(circuit)
-			 && iih.tlvs->ipv4_address.count);
-
 	iih.v6_usable =
 		(listcount(circuit->ipv6_link) && iih.tlvs->ipv6_address.count);
+
+	iih.v4_usable = (fabricd_ip_addrs(circuit) && iih.tlvs->ipv4_address.count) ||
+			(isis_circuit_ipv4_over_ipv6(circuit) && iih.v6_usable);
 
 	if (!iih.v4_usable && !iih.v6_usable) {
 		if (IS_DEBUG_ADJ_PACKETS) {
