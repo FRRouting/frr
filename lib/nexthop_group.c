@@ -54,6 +54,10 @@ RB_GENERATE(nhgc_entry_head, nexthop_group_cmd, nhgc_entry,
 
 static struct nhgc_entry_head nhgc_entries;
 
+static void show_nexthop_group_global_helper(struct vty *vty, bool uj);
+static struct json_object *show_nexthop_group_one_helper(struct vty *vty,
+							 struct nexthop_group_cmd *nhgc, bool uj);
+
 static inline int
 nexthop_group_cmd_compare(const struct nexthop_group_cmd *nhgc1,
 			  const struct nexthop_group_cmd *nhgc2)
@@ -717,6 +721,51 @@ DEFPY(no_nexthop_group_resilience,
 	return CMD_SUCCESS;
 }
 
+DEFPY(show_nexthop_group_global,
+      show_nexthop_group_global_cmd,
+      "show nexthop-group global [NHGNAME$name] [json]",
+      SHOW_STR
+      "Nexthop Group\n"
+      "Global Information\n"
+      "Name of the nexthop-group\n"
+      JSON_STR)
+{
+	bool uj = use_json(argc, argv);
+	json_object *json = NULL;
+	json_object *json_nexthop_groups = NULL;
+	json_object *json_group;
+	struct nexthop_group_cmd *nhgc;
+
+	if (!name) {
+		show_nexthop_group_global_helper(vty, uj);
+		return CMD_SUCCESS;
+	}
+
+	nhgc = nhgc_find(name);
+	if (!nhgc) {
+		if (uj)
+			vty_out(vty, "{}\n");
+		else
+			vty_out(vty, "%% Nexthop-group %s not configured\n", name);
+		return CMD_WARNING;
+	}
+
+	if (uj) {
+		json = json_object_new_object();
+		json_nexthop_groups = json_object_new_object();
+		json_object_object_add(json, "nexthopGroups", json_nexthop_groups);
+	}
+
+	json_group = show_nexthop_group_one_helper(vty, nhgc, uj);
+
+	if (uj) {
+		json_object_object_add(json_nexthop_groups, nhgc->name, json_group);
+		vty_json(vty, json);
+	}
+
+	return CMD_SUCCESS;
+}
+
 static void nexthop_group_save_nhop(struct nexthop_group_cmd *nhgc,
 				    const char *nhvrf_name,
 				    const union sockunion *addr,
@@ -1347,6 +1396,72 @@ void nexthop_group_interface_state_change(struct interface *ifp,
 	}
 }
 
+static struct json_object *show_nexthop_group_one_helper(struct vty *vty,
+							 struct nexthop_group_cmd *nhgc, bool uj)
+{
+	struct json_object *json_group = NULL;
+	struct json_object *json_nexthops = NULL;
+	struct json_object *json_nexthop;
+	struct nexthop_hold *nh;
+	struct listnode *node;
+
+	if (!uj) {
+		vty_out(vty, "nexthop-group %s\n", nhgc->name);
+	} else {
+		json_group = json_object_new_object();
+		json_object_string_add(json_group, "name", nhgc->name);
+		json_nexthops = json_object_new_array();
+		json_object_object_add(json_group, "nexthops", json_nexthops);
+	}
+
+	for (ALL_LIST_ELEMENTS_RO(nhgc->nhg_list, node, nh)) {
+		if (!uj) {
+			vty_out(vty, "  ");
+			if (nh->addr)
+				vty_out(vty, "nexthop %pSU", nh->addr);
+			if (nh->intf)
+				vty_out(vty, " %s", nh->intf);
+			if (nh->nhvrf_name)
+				vty_out(vty, " nexthop-vrf %s", nh->nhvrf_name);
+			vty_out(vty, "\n");
+			continue;
+		}
+		json_nexthop = json_object_new_object();
+		if (nh->addr)
+			json_object_string_addf(json_nexthop, "ip", "%pSU", nh->addr);
+		if (nh->intf)
+			json_object_string_add(json_nexthop, "interfaceName", nh->intf);
+		if (nh->nhvrf_name)
+			json_object_string_add(json_nexthop, "targetVrf", nh->nhvrf_name);
+		json_object_array_add(json_nexthops, json_nexthop);
+	}
+
+	return json_group;
+}
+
+static void show_nexthop_group_global_helper(struct vty *vty, bool uj)
+{
+	json_object *json = NULL;
+	json_object *json_nexthop_groups = NULL;
+	json_object *json_group;
+	struct nexthop_group_cmd *nhgc;
+
+	if (uj) {
+		json = json_object_new_object();
+		json_nexthop_groups = json_object_new_object();
+		json_object_object_add(json, "nexthopGroups", json_nexthop_groups);
+	}
+
+	RB_FOREACH (nhgc, nhgc_entry_head, &nhgc_entries) {
+		json_group = show_nexthop_group_one_helper(vty, nhgc, uj);
+		if (uj)
+			json_object_object_add(json_nexthop_groups, nhgc->name, json_group);
+	}
+
+	if (uj)
+		vty_json(vty, json);
+}
+
 static void nhg_name_autocomplete(vector comps, struct cmd_token *token)
 {
 	struct nexthop_group_cmd *nhgc;
@@ -1383,6 +1498,8 @@ void nexthop_group_init(void (*new)(const char *name),
 
 	install_element(NH_GROUP_NODE, &nexthop_group_resilience_cmd);
 	install_element(NH_GROUP_NODE, &no_nexthop_group_resilience_cmd);
+
+	install_element(VIEW_NODE, &show_nexthop_group_global_cmd);
 
 	memset(&nhg_hooks, 0, sizeof(nhg_hooks));
 
