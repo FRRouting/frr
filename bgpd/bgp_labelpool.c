@@ -1009,6 +1009,7 @@ DEFUN(show_bgp_labelpool_inuse, show_bgp_labelpool_inuse_cmd,
 	mpls_label_t label;
 	struct lp_lcb *lcb;
 	void *cursor = NULL;
+	void *key;
 	const struct prefix *p;
 	int rc, count;
 
@@ -1035,10 +1036,9 @@ DEFUN(show_bgp_labelpool_inuse, show_bgp_labelpool_inuse_cmd,
 		vty_out(vty, "Prefix                Label\n");
 		vty_out(vty, "---------------------------\n");
 	}
-	for (rc = skiplist_next(lp->inuse, (void **)&label, (void **)&dest,
-				&cursor);
-	     !rc; rc = skiplist_next(lp->ledger, (void **)&label,
-				     (void **)&dest, &cursor)) {
+	for (rc = skiplist_next(lp->inuse, &key, (void **)&dest, &cursor); !rc;
+	     rc = skiplist_next(lp->inuse, &key, (void **)&dest, &cursor)) {
+		label = (uintptr_t)key;
 		if (skiplist_search(lp->ledger, dest, (void **)&lcb))
 			continue;
 
