@@ -14,6 +14,10 @@ submodule frr-bgp-bmp {
     prefix frr-bt;
   }
 
+  import frr-vrf {
+    prefix frr-vrf;
+  }
+
   include "frr-bgp-common-multiprotocol";
 
   organization
@@ -48,6 +52,13 @@ submodule frr-bgp-bmp {
      THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
      (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
      OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.";
+
+  revision 2026-09-24 {
+    description
+      "Add optional transport VRF for outbound BMP sessions.";
+    reference
+      "FRRouting.";
+  }
 
   revision 2026-07-21 {
     description
@@ -142,6 +153,15 @@ submodule frr-bgp-bmp {
           description
             "Source interface for the outbound BMP connection.
              Maps to: bmp connect ... source-interface IFNAME.";
+        }
+
+        leaf vrf {
+          type frr-vrf:vrf-ref;
+          description
+            "VRF used for the outbound BMP TCP connection (DNS resolution,
+             source-interface lookup and socket binding). This is independent
+             of the BGP instance VRF whose routes/stats are monitored.
+             Maps to: bmp connect ... vrf NAME.";
         }
       }
     }
