@@ -433,6 +433,14 @@ static inline bool vty_is_closed(const struct vty *vty)
 	return (vty->of == NULL && vty->of_saved == NULL);
 }
 
+/* Pseudo-command conveying a cancel request */
+#define VTY_CANCEL_COMMAND "XFRR_cancel_command"
+
+/* Check whether a vty cancel command is present by peeking
+ * at the vty connection.
+ */
+bool vty_check_for_cancel(struct vty *vty);
+
 /*
  * Semi-private APIs for use in mgmtd-vty code
  */
