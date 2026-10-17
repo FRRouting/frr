@@ -432,8 +432,14 @@ void zebra_neigh_dplane_update(struct zebra_dplane_ctx *ctx)
 {
 	enum dplane_op_e op = dplane_ctx_get_op(ctx);
 
+
 	if (op == DPLANE_OP_NEIGH_IP_DELETE || op == DPLANE_OP_NEIGH_IP_INSTALL ||
 	    op == DPLANE_OP_NEIGH_DISCOVER) {
+		if (dplane_ctx_get_status(ctx) != ZEBRA_DPLANE_REQUEST_QUEUED)
+			/* ctx comes from the dataplane pthread in response to a request,
+			 * not from an externally received dataplane notification.
+			 */
+			return;
 		zebra_neigh_ipaddr_update(ctx);
 	} else if (op == DPLANE_OP_NEIGH_INSTALL || op == DPLANE_OP_NEIGH_DELETE ||
 		   op == DPLANE_OP_NEIGH_UPDATE) {
@@ -508,6 +514,12 @@ static void zebra_neigh_ipaddr_update(struct zebra_dplane_ctx *ctx)
 			      &link_layer_ipv4, l2_len);
 
 	if (op == DPLANE_OP_NEIGH_DISCOVER)
+		return;
+
+	/* Clients were notified above. A non-Ethernet LLADDR (e.g. GRE/NHRP)
+	 * cannot be used for the zebra neigh table or EVPN, so stop here.
+	 */
+	if (op == DPLANE_OP_NEIGH_IP_INSTALL && l2_len && l2_len != ETH_ALEN)
 		return;
 
 	/* The neighbor is present on an SVI. From this, we locate the
