@@ -1577,6 +1577,32 @@ lib_interface_zebra_ipv6_router_advertisements_retrans_timer_cli_write(
 	vty_out(vty, " ipv6 nd ra-retrans-interval %u\n", retrans_timer);
 }
 
+DEFPY_YANG (ipv6_nd_multi_access,
+	ipv6_nd_multi_access_cmd,
+	"[no] ipv6 nd multi-access",
+	NO_STR
+	"Interface IPv6 config commands\n"
+	"Neighbor discovery\n"
+	"Learn each router sending Router Advertisements as a neighbor\n")
+{
+	if (no)
+		nb_cli_enqueue_change(vty,
+				      "./frr-zebra:zebra/ipv6-router-advertisements/multi-access",
+				      NB_OP_DESTROY, NULL);
+	else
+		nb_cli_enqueue_change(vty,
+				      "./frr-zebra:zebra/ipv6-router-advertisements/multi-access",
+				      NB_OP_MODIFY, "true");
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+static void lib_interface_zebra_ipv6_router_advertisements_multi_access_cli_write(
+	struct vty *vty, const struct lyd_node *dnode, bool show_defaults)
+{
+	if (yang_dnode_get_bool(dnode, NULL))
+		vty_out(vty, " ipv6 nd multi-access\n");
+}
+
 DEFPY_YANG (ipv6_nd_suppress_ra,
 	ipv6_nd_suppress_ra_cmd,
 	"[no] ipv6 nd suppress-ra",
@@ -3248,6 +3274,10 @@ const struct frr_yang_module_info frr_zebra_cli_info = {
 			.cbs.cli_show = lib_interface_zebra_ipv6_router_advertisements_send_advertisements_cli_write,
 		},
 		{
+			.xpath = "/frr-interface:lib/interface/frr-zebra:zebra/ipv6-router-advertisements/multi-access",
+			.cbs.cli_show = lib_interface_zebra_ipv6_router_advertisements_multi_access_cli_write,
+		},
+		{
 			.xpath = "/frr-interface:lib/interface/frr-zebra:zebra/ipv6-router-advertisements/max-rtr-adv-interval",
 			.cbs.cli_show = lib_interface_zebra_ipv6_router_advertisements_max_rtr_adv_interval_cli_write,
 		},
@@ -3419,6 +3449,7 @@ void zebra_cli_init(void)
 	install_element(INTERFACE_NODE, &ipv6_nd_ra_retrans_interval_cmd);
 	install_element(INTERFACE_NODE, &ipv6_nd_ra_hop_limit_cmd);
 	install_element(INTERFACE_NODE, &ipv6_nd_suppress_ra_cmd);
+	install_element(INTERFACE_NODE, &ipv6_nd_multi_access_cmd);
 	install_element(INTERFACE_NODE, &ipv6_nd_ra_interval_cmd);
 	install_element(INTERFACE_NODE, &ipv6_nd_ra_lifetime_cmd);
 	install_element(INTERFACE_NODE, &ipv6_nd_reachable_time_cmd);
