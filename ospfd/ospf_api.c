@@ -373,6 +373,10 @@ struct msg *msg_read(int fd)
 
 	/* Determine body length. */
 	bodylen = ntohs(hdr.msglen);
+	if (bodylen == 0) {
+		zlog_warn("%s: Message without body", __func__);
+		return NULL;
+	}
 	if (bodylen > (ssize_t)sizeof(buf)) {
 		zlog_warn("%s: Body Length of message greater than what we can read",
 			  __func__);
