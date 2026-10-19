@@ -1107,6 +1107,25 @@ void bgp_cleanup_nexthops(struct bgp *bgp)
  * make_prefix - make a prefix structure from the path (essentially
  * path's node.
  */
+/* Whether an SRv6 SID belongs to a local SRv6 locator */
+static bool bgp_nht_srv6_sid_is_local(struct bgp *bgp, int afi, const struct in6_addr *sid)
+{
+	struct prefix_ipv6 sid_prefix = {
+		.family = AF_INET6,
+		.prefixlen = IPV6_MAX_BITLEN,
+		.prefix = *sid,
+	};
+
+	if (bgp->vpn_policy[afi].tovpn_sid_locator && bgp->vpn_policy[afi].tovpn_sid)
+		return prefix_match(&bgp->vpn_policy[afi].tovpn_sid_locator->prefix, &sid_prefix);
+	if (bgp->tovpn_sid_locator && bgp->tovpn_sid)
+		return prefix_match(&bgp->tovpn_sid_locator->prefix, &sid_prefix);
+	if (bgp->srv6_unicast[afi].sid_locator && bgp->srv6_unicast[afi].sid)
+		return prefix_match(&bgp->srv6_unicast[afi].sid_locator->prefix, &sid_prefix);
+
+	return false;
+}
+
 static bool make_prefix(int afi, struct bgp_path_info *pi, struct prefix *p,
 			struct bgp *bgp_nexthop, struct bgp_path_info *source_pi)
 {
@@ -1120,8 +1139,6 @@ static bool make_prefix(int afi, struct bgp_path_info *pi, struct prefix *p,
 	struct in_addr ipv4;
 	struct peer *peer;
 	struct attr *attr;
-	bool local_sid = false;
-	struct prefix_ipv6 tmp_prefix;
 
 	if (source_pi) {
 		attr = source_pi->attr;
@@ -1158,29 +1175,25 @@ static bool make_prefix(int afi, struct bgp_path_info *pi, struct prefix *p,
 		}
 		break;
 	case AFI_IP6: {
+		struct bgp_attr_srv6_service *srv6_l2service =
+			p_orig->family == AF_EVPN ? bgp_attr_get_srv6_l2service(pi->attr) : NULL;
 		struct bgp_attr_srv6_service *srv6_l3service =
 			bgp_attr_get_srv6_l3service(pi->attr);
 
+		if (srv6_l2service &&
+		    bgp_nht_srv6_sid_is_local(bgp_nexthop, afi, &srv6_l2service->sid))
+			srv6_l2service = NULL;
+		if (srv6_l3service &&
+		    bgp_nht_srv6_sid_is_local(bgp_nexthop, afi, &srv6_l3service->sid))
+			srv6_l3service = NULL;
+
 		p->family = AF_INET6;
-		if (srv6_l3service) {
-			tmp_prefix.family = AF_INET6;
-			tmp_prefix.prefixlen = IPV6_MAX_BITLEN;
-			tmp_prefix.prefix = srv6_l3service->sid;
-			if (bgp_nexthop->vpn_policy[afi].tovpn_sid_locator &&
-			    bgp_nexthop->vpn_policy[afi].tovpn_sid)
-				local_sid = prefix_match(&bgp_nexthop->vpn_policy[afi]
-								  .tovpn_sid_locator->prefix,
-							 &tmp_prefix);
-			else if (bgp_nexthop->tovpn_sid_locator && bgp_nexthop->tovpn_sid)
-				local_sid = prefix_match(&bgp_nexthop->tovpn_sid_locator->prefix,
-							 &tmp_prefix);
-			else if (bgp_nexthop->srv6_unicast[afi].sid_locator &&
-				 bgp_nexthop->srv6_unicast[afi].sid)
-				local_sid = prefix_match(&bgp_nexthop->srv6_unicast[afi]
-								  .sid_locator->prefix,
-							 &tmp_prefix);
-		}
-		if (local_sid == false && srv6_l3service) {
+		if (srv6_l2service) {
+			p->prefixlen = IPV6_MAX_BITLEN;
+			bgp_path_info_srv6_sid_transposed(p_orig, pi, srv6_l2service,
+							  BGP_PREFIX_SID_SRV6_L2_SERVICE,
+							  SAFI_EVPN, &p->u.prefix6);
+		} else if (srv6_l3service) {
 			p->prefixlen = IPV6_MAX_BITLEN;
 			if (srv6_l3service->transposition_len != 0 && BGP_PATH_INFO_NUM_LABELS(pi)) {
 				IPV6_ADDR_COPY(&p->u.prefix6, &srv6_l3service->sid);
