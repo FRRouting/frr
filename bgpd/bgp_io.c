@@ -345,7 +345,6 @@ static uint16_t bgp_write(struct peer_connection *connection)
 	struct stream *s;
 	int update_last_write = 0;
 	unsigned int count;
-	uint32_t uo = 0;
 	uint16_t status = 0;
 	uint32_t wpkt_quanta_old;
 
@@ -445,9 +444,11 @@ static uint16_t bgp_write(struct peer_connection *connection)
 						  memory_order_relaxed);
 			break;
 		case BGP_MSG_UPDATE:
+			atomic_store_explicit(&peer->last_update,
+					      monotime_since(&(struct timeval){ 0 }, NULL),
+					      memory_order_relaxed);
 			atomic_fetch_add_explicit(&peer->update_out, 1,
 						  memory_order_relaxed);
-			uo++;
 			break;
 		case BGP_MSG_NOTIFY:
 			atomic_fetch_add_explicit(&peer->notify_out, 1,
@@ -488,15 +489,6 @@ static uint16_t bgp_write(struct peer_connection *connection)
 
 done : {
 	now = monotime(NULL);
-	/*
-	 * Update last_update if UPDATEs were written.
-	 * Note: that these are only updated at end,
-	 *       not per message (i.e., per loop)
-	 */
-	if (uo)
-		atomic_store_explicit(&peer->last_update, now,
-				      memory_order_relaxed);
-
 	/* If we TXed any flavor of packet */
 	if (update_last_write) {
 		atomic_store_explicit(&peer->last_write, now,
