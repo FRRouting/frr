@@ -149,6 +149,25 @@ def get_vpn_prefix_sids(router, prefix, rd="65001:20"):
     ]
 
 
+def get_bgp_sids_of_locator(router, locator):
+    "Return the SIDs allocated by bgp from locator"
+    output = json.loads(router.vtysh_cmd("show segment-routing srv6 sid json"))
+    return [
+        sid
+        for sid, sid_info in output.items()
+        if sid_info.get("locator") == locator
+        and "bgp" in [c.get("protocol") for c in sid_info.get("clients", [])]
+    ]
+
+
+@retry(retry_timeout=30)
+def check_bgp_sid_of_locator(router, locator, expect_allocated):
+    sids = get_bgp_sids_of_locator(router, locator)
+    if bool(sids) != expect_allocated:
+        return f"SIDs of locator {locator} allocated by bgp: {sids}, expected {expect_allocated}"
+    return True
+
+
 def test_configure_locator_main_and_verify_export():
     step("Configure locator MAIN and verify 2001:db08:1:1 export")
     tgen = get_topogen()
@@ -531,8 +550,9 @@ def test_use_explicit_and_dynamic_sid_from_same_locator():
 
 def test_no_export_vpn_route_map_locator():
     """
-    Unconfigure 'export vpn', then flap 10.0.0.0/24 whose locator NAME is set
-    by the export route-map. Check that 10.0.0.0/24 is not exported to VPN.
+    Unconfigure 'export vpn' in Vrf20, where the export route-map sets the
+    locator NAME for 10.0.0.0/24. Check that bgp releases the SID of locator
+    NAME. Then flap 10.0.0.0/24, and check that it is not exported to VPN.
     """
     tgen = get_topogen()
 
@@ -541,14 +561,26 @@ def test_no_export_vpn_route_map_locator():
 
     r1 = tgen.gears["r1"]
 
+    result = check_bgp_sid_of_locator(r1, "NAME", True)
+    assert result is True, result
+
     r1.vtysh_multicmd(
         """
         configure
         router bgp 65001 vrf Vrf20
         address-family ipv4 unicast
         no export vpn
-        exit-address-family
-        exit
+        """
+    )
+
+    result = check_bgp_sid_of_locator(r1, "NAME", False)
+    output = r1.vtysh_cmd("show segment-routing srv6 sid")
+    logger.info(output)
+    assert result is True, result
+
+    r1.vtysh_multicmd(
+        """
+        configure
         interface eth1
         no ip address 10.0.0.1/24
         """
