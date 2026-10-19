@@ -8,6 +8,10 @@
     "uplink": false,
     "@uplink": {
       "ietf-netconf-with-defaults:default": true
+    },
+    "bridge-port-protection": false,
+    "@bridge-port-protection": {
+      "ietf-netconf-with-defaults:default": true
     }
   }
 }
