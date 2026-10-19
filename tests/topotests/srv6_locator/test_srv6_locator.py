@@ -443,6 +443,109 @@ def test_srv6_locator_status_lifecycle():
     check_srv6_locator_absent(router, locator_name)
 
 
+def test_srv6_sid_format_no_wide_local_id_block():
+    """'no wide-local-id-block' restores the default Wide LIB without crashing zebra."""
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+    router = tgen.gears["r1"]
+
+    # The formats block is only shown in the running config while a locator exists
+    router.vtysh_cmd(
+        """
+        configure terminal
+         segment-routing
+          srv6
+           locators
+            locator loc1
+             prefix fcbb:bbbb:1::/48
+        """
+    )
+
+    for sid_format in ["usid-f3216", "usid-f4816"]:
+        router.vtysh_cmd(
+            """
+            configure terminal
+             segment-routing
+              srv6
+               formats
+                format {}
+                 wide-local-id-block start 100 end 200
+            """.format(
+                sid_format
+            )
+        )
+        output = router.vtysh_cmd("show running-config")
+        assert (
+            "wide-local-id-block start 100 end 200" in output
+        ), "{}: wide-local-id-block was not configured".format(sid_format)
+
+        router.vtysh_cmd(
+            """
+            configure terminal
+             segment-routing
+              srv6
+               formats
+                format {}
+                 no wide-local-id-block
+            """.format(
+                sid_format
+            )
+        )
+        assert router.check_router_running() == ""
+        output = router.vtysh_cmd("show running-config")
+        assert (
+            "wide-local-id-block" not in output
+        ), "{}: wide-local-id-block was not removed".format(sid_format)
+
+
+def test_srv6_sid_format_no_explicit():
+    """'no explicit' restores the default explicit range of uncompressed-f4024."""
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+    router = tgen.gears["r1"]
+
+    # The formats block is only shown in the running config while a locator exists
+    router.vtysh_cmd(
+        """
+        configure terminal
+         segment-routing
+          srv6
+           locators
+            locator loc1
+             prefix fcbb:bbbb:1::/48
+        """
+    )
+
+    router.vtysh_cmd(
+        """
+        configure terminal
+         segment-routing
+          srv6
+           formats
+            format uncompressed-f4024
+             explicit start 65000
+        """
+    )
+    output = router.vtysh_cmd("show running-config")
+    assert "explicit start 65000" in output, "explicit start was not configured"
+
+    router.vtysh_cmd(
+        """
+        configure terminal
+         segment-routing
+          srv6
+           formats
+            format uncompressed-f4024
+             no explicit
+        """
+    )
+    assert router.check_router_running() == ""
+    output = router.vtysh_cmd("show running-config")
+    assert "explicit start 65000" not in output, "explicit start was not removed"
+
+
 if __name__ == "__main__":
     args = ["-s"] + sys.argv[1:]
     sys.exit(pytest.main(args))
