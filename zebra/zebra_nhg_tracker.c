@@ -2233,3 +2233,133 @@ void zebra_nhg_tracker_sweep_all(void)
 {
 	hash_iterate(zrouter.nhgs_id, zebra_nhg_tracker_sweep_entry, NULL);
 }
+
+/* True if tt parks a route for prefix p in VRF vrf_id */
+static bool tracker_table_parks(struct nhg_tracker_table *tt, vrf_id_t vrf_id,
+				const struct prefix *p)
+{
+	struct tracker_vrf_table *vt;
+	struct route_node *trn;
+
+	for (vt = tt->vrf_tables; vt; vt = vt->next)
+		if (vt->vrf_id == vrf_id)
+			break;
+	if (!vt || !vt->table)
+		return false;
+
+	trn = route_node_lookup(vt->table, p);
+	if (!trn)
+		return false;
+	route_unlock_node(trn);
+	return true;
+}
+
+/*
+ * Free tt's table for vrf_id, releasing the RIB nodes it holds.  A flush
+ * paused inside it moves on to the next VRF's table.
+ */
+static bool tracker_vrf_table_drop(struct nhg_event_tracker *tracker, struct nhg_tracker_table *tt,
+				   vrf_id_t vrf_id)
+{
+	struct tracker_vrf_table **pp, *vt;
+	struct route_node *trn;
+	struct route_entry *re;
+
+	for (pp = &tt->vrf_tables; (vt = *pp) != NULL; pp = &vt->next)
+		if (vt->vrf_id == vrf_id)
+			break;
+	if (!vt)
+		return false;
+
+	if (tracker->iter.current_vt == vt) {
+		route_table_iter_cleanup(&tracker->iter.inner);
+		tracker->iter.current_vt = vt->next;
+		if (vt->next)
+			route_table_iter_init(&tracker->iter.inner, vt->next->table);
+	}
+	*pp = vt->next;
+
+	if (vt->table) {
+		for (trn = route_top(vt->table); trn; trn = route_next(trn)) {
+			struct route_node *rib_rn = trn->info;
+
+			if (!rib_rn)
+				continue;
+
+			RNODE_FOREACH_RE (rib_rn, re)
+				UNSET_FLAG(re->status, ROUTE_ENTRY_TRACKER);
+			route_unlock_node(rib_rn);
+			trn->info = NULL;
+			route_unlock_node(trn);
+		}
+		route_table_finish(vt->table);
+	}
+	XFREE(MTYPE_NHG_TRACKER, vt);
+	return true;
+}
+
+static void tracker_vrf_drop_nhe(struct hash_bucket *bucket, void *arg)
+{
+	struct nhg_hash_entry *nhe = bucket->data;
+	vrf_id_t vrf_id = *(vrf_id_t *)arg;
+	struct tracker_prefix_map_entry *entry;
+	struct nhg_event_tracker *tracker;
+
+	if (nhg_event_tracker_list_count(&nhe->tracker_list) == 0)
+		return;
+
+	/* Rows first: the per-VRF tables tell which count each row is in */
+	frr_each_safe (tracker_prefix_map, &nhe->tracker_prefix_map, entry) {
+		struct nhg_tracker_table *tt = NULL;
+
+		if (entry->vrf_id != vrf_id)
+			continue;
+
+		tracker = entry->tracker;
+		if (tracker_table_parks(&tracker->matched_table, vrf_id, &entry->p))
+			tt = &tracker->matched_table;
+		else if (tracker_table_parks(&tracker->unmatched_table, vrf_id, &entry->p))
+			tt = &tracker->unmatched_table;
+		else if (tracker_table_parks(&tracker->deleted_table, vrf_id, &entry->p))
+			tt = &tracker->deleted_table;
+		if (tt && tt->re_count > 0)
+			tt->re_count--;
+
+		tracker_prefix_map_del(&nhe->tracker_prefix_map, entry);
+		XFREE(MTYPE_NHG_TRACKER_PREFIX_MAP, entry);
+	}
+
+	frr_each (nhg_event_tracker_list, &nhe->tracker_list, tracker) {
+		bool dropped = false;
+
+		dropped |= tracker_vrf_table_drop(tracker, &tracker->matched_table, vrf_id);
+		dropped |= tracker_vrf_table_drop(tracker, &tracker->unmatched_table, vrf_id);
+		dropped |= tracker_vrf_table_drop(tracker, &tracker->deleted_table, vrf_id);
+		if (!dropped)
+			continue;
+
+		if (IS_ZEBRA_DEBUG_NHG_TRACKER)
+			zlog_debug("%s: NHG %u tracker %u dropped routes of VRF %u (matched=%u unmatched=%u deleted=%u)",
+				   __func__, nhe->id, tracker->nhg_tracker_id, vrf_id,
+				   tracker->matched_table.re_count,
+				   tracker->unmatched_table.re_count,
+				   tracker->deleted_table.re_count);
+
+		frrtrace(4, frr_zebra, nhg_tracker_phase, "vrf-drop", tracker->nhg_tracker_id,
+			 nhe->id, vrf_id);
+	}
+}
+
+/*
+ * A VRF is being disabled and its RIB tables are freed next, whatever locks
+ * are held on their nodes.  Drop every tracker's parked routes of that VRF so
+ * no tracker keeps pointing into them.
+ */
+void zebra_nhg_tracker_vrf_disable(vrf_id_t vrf_id)
+{
+	/* No tracker alive */
+	if (zrouter.tracker_counters.trackers_allocated == zrouter.tracker_counters.trackers_freed)
+		return;
+
+	hash_iterate(zrouter.nhgs_id, tracker_vrf_drop_nhe, &vrf_id);
+}
