@@ -28,6 +28,7 @@
 #include "zebra/router-id.h"
 #include "zebra/interface.h"
 #include "zebra/zebra_mpls.h"
+#include "zebra/zebra_nhg_tracker.h"
 #include "zebra/zebra_vxlan.h"
 #include "zebra/zebra_netns_notify.h"
 #include "zebra/zebra_routemap.h"
@@ -250,6 +251,12 @@ static int zebra_vrf_disable(struct vrf *vrf)
 	/* If asked to retain routes, there's nothing more to do. */
 	if (CHECK_FLAG(zvrf->flags, ZEBRA_VRF_RETAIN))
 		return 0;
+
+	/*
+	 * Trackers may still park this VRF's routes (e.g. after an interface
+	 * went down); release their RIB nodes before the tables are freed.
+	 */
+	zebra_nhg_tracker_vrf_disable(zvrf_id(zvrf));
 
 	/* Remove all routes. */
 	for (afi = AFI_IP; afi <= AFI_IP6; afi++) {

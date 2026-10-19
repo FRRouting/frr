@@ -291,6 +291,9 @@ extern void zebra_nhg_tracker_free(struct nhg_hash_entry *nhe, struct nhg_event_
 /* Release all tracker-held RIB route_node locks before table teardown. */
 extern void zebra_nhg_tracker_sweep_all(void);
 
+/* Drop trackers' parked routes of a VRF before its RIB tables are freed. */
+extern void zebra_nhg_tracker_vrf_disable(vrf_id_t vrf_id);
+
 /*
  * Two-phase flush batch API.
  * Called from rib_process_result (dplane ack), process_subq_route
