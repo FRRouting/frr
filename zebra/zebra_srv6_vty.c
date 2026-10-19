@@ -1406,6 +1406,14 @@ DEFPY(srv6_sid_format_usid_lib_explicit,
 {
 	VTY_DECLVAR_CONTEXT(srv6_sid_format, format);
 
+	if (start > end) {
+		vty_out(vty,
+			"%% Explicit LIB start (%" PRId64 ") cannot be greater than end (%" PRId64
+			")\n",
+			start, end);
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+
 	format->config.usid.elib_start = start;
 	format->config.usid.elib_end = end;
 
@@ -1456,6 +1464,14 @@ DEFPY(srv6_sid_format_usid_wlib,
       "Specify the end value for the Wide LIB\n")
 {
 	VTY_DECLVAR_CONTEXT(srv6_sid_format, format);
+
+	if (start > end) {
+		vty_out(vty,
+			"%% Wide LIB start (%" PRId64 ") cannot be greater than end (%" PRId64
+			")\n",
+			start, end);
+		return CMD_WARNING_CONFIG_FAILED;
+	}
 
 	format->config.usid.wlib_start = start;
 	format->config.usid.wlib_end = end;
