@@ -39,6 +39,19 @@ DECLARE_HASH(static_srv6_neigh_table, struct static_srv6_if_neigh, item,
 /* Global neighbor cache instance */
 struct static_srv6_neigh_cache *neigh_cache;
 
+static bool is_udt_sid(const struct static_srv6_sid *sid)
+{
+	if (sid->behavior == SRV6_ENDPOINT_BEHAVIOR_END_DT6 ||
+	    sid->behavior == SRV6_ENDPOINT_BEHAVIOR_END_DT6_USID ||
+	    sid->behavior == SRV6_ENDPOINT_BEHAVIOR_END_DT4 ||
+	    sid->behavior == SRV6_ENDPOINT_BEHAVIOR_END_DT4_USID ||
+	    sid->behavior == SRV6_ENDPOINT_BEHAVIOR_END_DT46 ||
+	    sid->behavior == SRV6_ENDPOINT_BEHAVIOR_END_DT46_USID)
+		return true;
+	else
+		return false;
+}
+
 /*
  * Determines if the specified SID needs to be installed or removed
  * due to a state change (up/down) on the provided interface.
@@ -50,14 +63,6 @@ struct static_srv6_neigh_cache *neigh_cache;
  */
 static bool is_sid_update_required(struct interface *ifp, struct static_srv6_sid *sid)
 {
-	/* Check if the SID's behavior is one of the uDT* variants. */
-	bool is_udt = (sid->behavior == SRV6_ENDPOINT_BEHAVIOR_END_DT6 ||
-		       sid->behavior == SRV6_ENDPOINT_BEHAVIOR_END_DT6_USID ||
-		       sid->behavior == SRV6_ENDPOINT_BEHAVIOR_END_DT4 ||
-		       sid->behavior == SRV6_ENDPOINT_BEHAVIOR_END_DT4_USID ||
-		       sid->behavior == SRV6_ENDPOINT_BEHAVIOR_END_DT46 ||
-		       sid->behavior == SRV6_ENDPOINT_BEHAVIOR_END_DT46_USID);
-
 	/* Check if the SID's behavior is one of the uDT4/uDT46 variants. */
 	bool is_udt4_or_udt46 = (sid->behavior == SRV6_ENDPOINT_BEHAVIOR_END_DT4 ||
 				 sid->behavior == SRV6_ENDPOINT_BEHAVIOR_END_DT4_USID ||
@@ -92,7 +97,7 @@ static bool is_sid_update_required(struct interface *ifp, struct static_srv6_sid
 			return true;
 	}
 
-	if (is_udt) {
+	if (is_udt_sid(sid)) {
 		/*
 		 * 3a. SID is uDT*. uDT* SIDs are associated with a VRF interface defined in their attributes.
 		 *     Therefore, an update is needed if the provided interface 'ifp' matches the SID's associated VRF.
@@ -166,6 +171,12 @@ void static_ifp_srv6_sids_update(struct interface *ifp, bool is_up)
 			if (needs_install)
 				static_zebra_srv6_sid_install(sid);
 		} else {
+			if (is_udt_sid(sid) && strmatch(sid->attributes.vrf_name, ifp->name) &&
+			    CHECK_FLAG(sid->flags, STATIC_FLAG_SRV6_SID_VALID)) {
+				static_zebra_release_srv6_sid(sid);
+				UNSET_FLAG(sid->flags, STATIC_FLAG_SRV6_SID_VALID);
+			}
+
 			static_zebra_srv6_sid_uninstall(sid);
 		}
 	}
