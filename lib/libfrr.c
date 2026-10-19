@@ -1260,6 +1260,7 @@ void frr_run(struct event_loop *loop)
 
 void frr_early_fini(void)
 {
+	frr_vty_serv_stop();
 	hook_call(frr_early_fini);
 }
 
