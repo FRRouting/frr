@@ -4753,6 +4753,20 @@ following zebra configuration -
 
 .. clicmd:: evpn mh uplink
 
+Bridge-port protection
+""""""""""""""""""""""
+With EVPN L3 multihoming, a bridge port (sub-interface) of an ES can be
+protected by a backup group of the ES peers, so that traffic for a host
+behind a failed local link is redirected in hardware to another PE on the
+same ES. Protection is enabled per ES, and applies to every bridge port of
+the ES, via the following zebra configuration on the ES interface -
+
+.. clicmd:: evpn mh bridge-port-protection
+
+It requires L3 multihoming (``advertise-all-vni l3vni-neigh``, with bridge
+ports in broadcast domains that have no L2VNI). It has no effect on DF
+election.
+
 Proxy advertisements
 """"""""""""""""""""
 To handle hitless upgrades support for proxy advertisement has been added

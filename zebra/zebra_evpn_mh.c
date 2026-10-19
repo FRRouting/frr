@@ -3236,6 +3236,14 @@ void zebra_evpn_es_bypass_cfg_update(struct zebra_if *zif, bool bypass)
 		zebra_evpn_es_bypass_update(zif->es_info.es, zif->ifp, bypass);
 }
 
+void zebra_evpn_es_bpp_cfg_update(struct zebra_if *zif, bool bpp)
+{
+	if (bpp)
+		SET_FLAG(zif->es_info.flags, ZIF_CFG_ES_FLAG_BPP);
+	else
+		UNSET_FLAG(zif->es_info.flags, ZIF_CFG_ES_FLAG_BPP);
+}
+
 
 /* Only certain types of access ports can be setup as an Ethernet Segment */
 bool zebra_evpn_is_if_es_capable(struct zebra_if *zif)

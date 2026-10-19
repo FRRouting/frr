@@ -2463,6 +2463,13 @@ module frr-zebra {
           description
             "Uplink to the VxLAN core.";
         }
+        leaf bridge-port-protection {
+          type boolean;
+          default "false";
+          description
+            "Protect the bridge ports of this Ethernet Segment with a
+             backup group of ES peers (EVPN L3 multihoming).";
+        }
       }
       container ipv6-router-advertisements {
         if-feature "ipv6-router-advertisements";
