@@ -2899,6 +2899,7 @@ void vpn_leak_to_vrf_withdraw(struct bgp_path_info *path_vpn)
 	struct listnode *mnode, *mnnode;
 	struct bgp_dest *bn;
 	struct bgp_path_info *bpi;
+	const char *debugmsg;
 
 	int debug = BGP_DEBUG(vpn, VPN_LEAK_TO_VRF);
 
@@ -2934,6 +2935,14 @@ void vpn_leak_to_vrf_withdraw(struct bgp_path_info *path_vpn)
 
 	/* Loop over VRFs */
 	for (ALL_LIST_ELEMENTS(bm->bgp, mnode, mnnode, bgp)) {
+		if (!vpn_leak_from_vpn_active(bgp, afi, &debugmsg)) {
+			if (debug)
+				zlog_debug("%s: from %s, skipping: %s",
+					   __func__, bgp->name_pretty,
+					   debugmsg);
+			continue;
+		}
+
 		/* Check for intersection of route targets */
 		if (!ecommunity_include(
 			    bgp->vpn_policy[afi]
