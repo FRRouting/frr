@@ -850,10 +850,19 @@ sed -i 's/ -M rpki//' %{_sysconfdir}/frr/daemons
 
 %changelog
 
-* Wed Jul 15 2026 Jafar Al-Gharaibeh <jafar@atcorp.com> - %{version}
+* Mon Oct 19 2026 Jafar Al-Gharaibeh <jafar@atcorp.com> - %{version}
 
-* Wed Jul 15 2026 Jafar Al-Gharaibeh <jafar@atcorp.com> 10.8.0-dev
-- FRR Development 10.8.0
+* Mon Oct 19 2026 Jafar Al-Gharaibeh <jafar@atcorp.com> 10.8.0-rc1
+- New upstream release candidate FRR 10.8.0-rc1
+- Major highlights:
+-   BGP Unreachability SAFI with Graceful Restart, and Unreachable Prefix Announcements (UPA)
+-   BGP EVPN Type-5 VPN import and export, including SRv6 L3 service
+-   BGP EVPN auto-route-target and wildcard import route targets
+-   BGP shutdown no-notify for HA setups
+-   BFD demand mode
+-   OSPFv2 RFC 7474 compatibility and RFC 4222 adjacency and LSA pacing
+-   Static route SRv6 encap-source
+-   SR policy label and segment binding
 
 * Tue Jul 14 2026 Jafar Al-Gharaibeh <jafar@atcorp.com> 10.7.0
 - New upstream release FRR 10.7.0

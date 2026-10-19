@@ -1,8 +1,17 @@
-frr (10.8.0-dev) UNRELEASED; urgency=medium
+frr (10.8.0~rc1-0) unstable; urgency=medium
 
-  * FRR Development 10.8.0
+  * New upstream release candidate FRR 10.8.0-rc1
+  * Major highlights:
+    - BGP Unreachability SAFI with Graceful Restart, and Unreachable Prefix Announcements (UPA)
+    - BGP EVPN Type-5 VPN import and export, including SRv6 L3 service
+    - BGP EVPN auto-route-target and wildcard import route targets
+    - BGP shutdown no-notify for HA setups
+    - BFD demand mode
+    - OSPFv2 RFC 7474 compatibility and RFC 4222 adjacency and LSA pacing
+    - Static route SRv6 encap-source
+    - SR policy label and segment binding
 
- -- Jafar Al-Gharaibeh <jafar@atcorp.com>  Wed, 15 Jul 2026 02:00:00 -0600
+ -- Jafar Al-Gharaibeh <jafar@atcorp.com>  Mon, 19 Oct 2026 02:00:00 -0400
 
 frr (10.7.0-0) unstable; urgency=medium
 
