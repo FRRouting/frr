@@ -2865,11 +2865,10 @@ bool subgroup_announce_check(struct bgp_dest *dest, struct bgp_path_info *pi,
 	}
 
 	/* If originator-id is not set and the route is to be reflected,
-	   set the originator id */
-	if (ibgp_to_ibgp && (!bgp_attr_exists(attr, BGP_ATTR_ORIGINATOR_ID))) {
-		IPV4_ADDR_COPY(&(attr->originator_id), &(from->remote_id));
-		bgp_attr_set(attr, BGP_ATTR_ORIGINATOR_ID);
-	}
+	 * set the originator id (before route-map so it can be overridden).
+	 */
+	if (ibgp_to_ibgp && !bgp_attr_exists(attr, BGP_ATTR_ORIGINATOR_ID))
+		bgp_attr_set_originator_id(attr, from->remote_id);
 
 	/* Remove MED if its an EBGP peer - will get overwritten by route-maps
 	 */
@@ -3535,6 +3534,15 @@ bool subgroup_announce_check(struct bgp_dest *dest, struct bgp_path_info *pi,
 				zlog_debug("%s: UPA %pFX aggregated %d Router-IDs", peer->host, p,
 					   upa_count);
 		}
+	}
+
+	/* Handle originator-id and cluster-list for route reflection */
+	if (ibgp_to_ibgp) {
+		/* Prepend cluster-id to cluster list */
+		bgp_attr_prepend_cluster_id(bgp, attr);
+	} else {
+		/* Clear originator-id and cluster-list for non-reflected routes */
+		bgp_attr_clear_reflection(attr);
 	}
 
 	return true;
