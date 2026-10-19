@@ -13705,10 +13705,11 @@ static void route_vty_out_detail_es_info(struct vty *vty,
 static void route_vty_out_detail_remote_sid(struct vty *vty, struct bgp_path_info *path,
 					    struct bgp_attr_srv6_service *srv6_service,
 					    uint8_t type, safi_t safi, bool has_pmsi_ir,
-					    json_object *json_path)
+					    bool is_ead_es, json_object *json_path)
 {
 	json_object *json_sid_attr;
 	mpls_label_t label_sid = 0;
+	mpls_label_t esi_label;
 	struct in6_addr sid_transposed = {};
 	uint8_t idx_label;
 
@@ -13726,6 +13727,11 @@ static void route_vty_out_detail_remote_sid(struct vty *vty, struct bgp_path_inf
 	 *   - RFC 9252 §6.5. IP Prefix Route over SRv6 Core
 	 *      - Label1 is associated with the SRv6 Service TLV (implicitly L3)
 	 *
+	 * Usage of ESI label:
+	 *   - RFC 9252 §6.1.1: Ethernet A-D per ES Route over SRv6 Core
+	 *      - the ESI label field of the ESI Label Extended Community is
+	 *        associated with the SRv6 Service TLV (implicitly L2).
+	 *
 	 * Usage of the PMSI Tunnel attribute label:
 	 *   - RFC 9252 §6.3. Inclusive Multicast Ethernet Tag Route over SRv6 Core.
 	 *      - If the PMSI Tunnel Type is "Ingress Replication", the PMSI Tunnel
@@ -13739,8 +13745,11 @@ static void route_vty_out_detail_remote_sid(struct vty *vty, struct bgp_path_inf
 		else
 			idx_label = 0;
 
-		if ((safi == SAFI_EVPN || bgp_path_info_has_valid_label(path)) &&
-		    BGP_PATH_INFO_NUM_LABELS(path) > idx_label)
+		if (is_ead_es) {
+			if (bgp_attr_esi_label(path->attr, &esi_label))
+				label_sid = decode_label(&esi_label);
+		} else if ((safi == SAFI_EVPN || bgp_path_info_has_valid_label(path)) &&
+			   BGP_PATH_INFO_NUM_LABELS(path) > idx_label)
 			label_sid = decode_label(&path->extra->labels->label[idx_label]);
 		else if (has_pmsi_ir)
 			label_sid = decode_label(&path->attr->label);
@@ -13835,6 +13844,10 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp, struct bgp_dest *bn,
 	bool has_pmsi_tunnel = bgp_attr_exists(attr, BGP_ATTR_PMSI_TUNNEL);
 	bool has_pmsi_ir = has_pmsi_tunnel &&
 			   bgp_attr_get_pmsi_tnl_type(attr) == PMSI_TNLTYPE_INGR_REPL;
+	bool is_ead_es = p->family == AF_EVPN &&
+			 ((struct prefix_evpn *)p)->prefix.route_type == BGP_EVPN_AD_ROUTE &&
+			 ((struct prefix_evpn *)p)->prefix.ead_addr.eth_tag ==
+				 BGP_EVPN_AD_ES_ETH_TAG;
 
 	if (json_paths) {
 		json_path = json_object_new_object();
@@ -14755,7 +14768,7 @@ skip_nexthop:
 			}
 			route_vty_out_detail_remote_sid(vty, path, srv6_l2service,
 							BGP_PREFIX_SID_SRV6_L2_SERVICE, safi,
-							has_pmsi_ir, json_prefix_sid);
+							has_pmsi_ir, is_ead_es, json_prefix_sid);
 		}
 		if (srv6_l3service) {
 			if (json_paths) {
@@ -14764,12 +14777,12 @@ skip_nexthop:
 			}
 			route_vty_out_detail_remote_sid(vty, path, srv6_l3service,
 							BGP_PREFIX_SID_SRV6_L3_SERVICE, safi,
-							has_pmsi_ir, json_prefix_sid);
+							has_pmsi_ir, is_ead_es, json_prefix_sid);
 		}
 	} else if (srv6_l3service)
 		route_vty_out_detail_remote_sid(vty, path, srv6_l3service,
 						BGP_PREFIX_SID_SRV6_L3_SERVICE, safi, has_pmsi_ir,
-						json_path);
+						is_ead_es, json_path);
 	else if (bgp_attr_get_srv6_vpn(path->attr)) {
 		if (json_paths)
 			json_object_string_addf(json_path, "remoteSid", "%pI6",
