@@ -8413,8 +8413,13 @@ void bgp_clear_route_all(struct peer *peer)
 	/* We may be able to batch multiple peers' clearing work: check
 	 * and see.
 	 */
-	if (bgp_clearing_batch_add_peer(peer->bgp, peer))
+	if (bgp_clearing_batch_add_peer(peer->bgp, peer)) {
+#ifdef ENABLE_BGP_VNC
+		/* Does not depend on the table walk, VNC still has to know */
+		rfapiProcessPeerDown(peer);
+#endif
 		return;
+	}
 
 	FOREACH_AFI_SAFI (afi, safi)
 		bgp_clear_route(peer, afi, safi);
