@@ -99,3 +99,12 @@ tests_bgpd_test_allowas_rmap_CPPFLAGS = $(TESTS_CPPFLAGS)
 tests_bgpd_test_allowas_rmap_LDADD = $(BGP_TEST_LDADD)
 tests_bgpd_test_allowas_rmap_SOURCES = tests/bgpd/test_allowas_rmap.c
 EXTRA_DIST += tests/bgpd/test_allowas_rmap.py
+
+if BGPD
+check_PROGRAMS += tests/bgpd/test_attr_disposition
+endif
+tests_bgpd_test_attr_disposition_CFLAGS = $(TESTS_CFLAGS)
+tests_bgpd_test_attr_disposition_CPPFLAGS = $(TESTS_CPPFLAGS)
+tests_bgpd_test_attr_disposition_LDADD = $(BGP_TEST_LDADD)
+tests_bgpd_test_attr_disposition_SOURCES = tests/bgpd/test_attr_disposition.c
+EXTRA_DIST += tests/bgpd/test_attr_disposition.py
