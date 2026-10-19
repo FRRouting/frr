@@ -1141,6 +1141,11 @@ extern void static_zebra_release_srv6_sid(struct static_srv6_sid *sid)
 	if (!sid || !CHECK_FLAG(sid->flags, STATIC_FLAG_SRV6_SID_VALID))
 		return;
 
+	if (!sid->locator) {
+		zlog_err("Failed to release SID %pFX: missing locator information", &sid->addr);
+		return;
+	}
+
 	/* convert `srv6_endpoint_behavior_codepoint` to `seg6local_action_t` */
 	switch (sid->behavior) {
 	case SRV6_ENDPOINT_BEHAVIOR_END:
@@ -1380,24 +1385,55 @@ static int static_zebra_process_srv6_locator_delete(ZAPI_CALLBACK_ARGS)
 	return 0;
 }
 
+/*
+ * Configured SIDs can share an address and differ only in prefix length, and
+ * only a SID with a resolved locator can have asked zebra for one.
+ */
+static struct static_srv6_sid *static_zebra_srv6_sid_notify_lookup(const struct in6_addr *sid_addr,
+								   const char *locator_name)
+{
+	struct static_srv6_sid *sid;
+	struct listnode *node;
+
+	for (ALL_LIST_ELEMENTS_RO(srv6_sids, node, sid)) {
+		if (!sid->locator || !IPV6_ADDR_SAME(&sid->addr.prefix, sid_addr))
+			continue;
+
+		if (locator_name[0] != '\0' &&
+		    strncmp(sid->locator->name, locator_name, sizeof(sid->locator->name)) != 0)
+			continue;
+
+		return sid;
+	}
+
+	return NULL;
+}
+
 static int static_zebra_srv6_sid_notify(ZAPI_CALLBACK_ARGS)
 {
 	struct srv6_sid_ctx ctx;
 	struct in6_addr sid_addr;
 	enum zapi_srv6_sid_notify note;
 	uint32_t sid_func;
-	struct listnode *node;
 	char buf[256];
+	char locator_name[SRV6_LOCNAME_SIZE] = {};
 	struct static_srv6_sid *sid = NULL;
+<<<<<<< HEAD
 	char *loc_name;
 	bool found = false;
+=======
+>>>>>>> f47da9d (staticd: fix crash when removing an SRv6 SID on a missing locator)
 
 	if (!srv6_locators)
 		return -1;
 
 	/* Decode the received notification message */
 	if (!zapi_srv6_sid_notify_decode(zclient->ibuf, &ctx, &sid_addr, &sid_func, NULL, &note,
+<<<<<<< HEAD
 					 &loc_name)) {
+=======
+					 locator_name, sizeof(locator_name))) {
+>>>>>>> f47da9d (staticd: fix crash when removing an SRv6 SID on a missing locator)
 		zlog_err("%s : error in msg decode", __func__);
 		return -1;
 	}
@@ -1414,14 +1450,8 @@ static int static_zebra_srv6_sid_notify(ZAPI_CALLBACK_ARGS)
 		DEBUGD(&static_dbg_srv6, "%s: SRv6 SID %pI6 %s ALLOCATED", __func__, &sid_addr,
 		       srv6_sid_ctx2str(buf, sizeof(buf), &ctx));
 
-		for (ALL_LIST_ELEMENTS_RO(srv6_sids, node, sid)) {
-			if (IPV6_ADDR_SAME(&sid->addr.prefix, &sid_addr)) {
-				found = true;
-				break;
-			}
-		}
-
-		if (!found || !sid) {
+		sid = static_zebra_srv6_sid_notify_lookup(&sid_addr, locator_name);
+		if (!sid) {
 			zlog_err("SRv6 SID %pI6 %s: not found", &sid_addr,
 				 srv6_sid_ctx2str(buf, sizeof(buf), &ctx));
 			return 0;
@@ -1444,14 +1474,8 @@ static int static_zebra_srv6_sid_notify(ZAPI_CALLBACK_ARGS)
 		DEBUGD(&static_dbg_srv6, "%s: SRv6 SID %pI6 %s: RELEASED", __func__, &sid_addr,
 		       srv6_sid_ctx2str(buf, sizeof(buf), &ctx));
 
-		for (ALL_LIST_ELEMENTS_RO(srv6_sids, node, sid)) {
-			if (IPV6_ADDR_SAME(&sid->addr.prefix, &sid_addr)) {
-				found = true;
-				break;
-			}
-		}
-
-		if (!found || !sid) {
+		sid = static_zebra_srv6_sid_notify_lookup(&sid_addr, locator_name);
+		if (!sid) {
 			zlog_err("SRv6 SID %pI6 %s: not found", &sid_addr,
 				 srv6_sid_ctx2str(buf, sizeof(buf), &ctx));
 			return 0;
