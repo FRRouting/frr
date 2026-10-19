@@ -344,6 +344,14 @@ EXTRA_DIST += \
 	# end
 
 
+check_PROGRAMS += tests/lib/test_stream_expand
+tests_lib_test_stream_expand_CFLAGS = $(TESTS_CFLAGS)
+tests_lib_test_stream_expand_CPPFLAGS = $(TESTS_CPPFLAGS)
+tests_lib_test_stream_expand_LDADD = $(ALL_TESTS_LDADD)
+tests_lib_test_stream_expand_SOURCES = tests/lib/test_stream_expand.c
+EXTRA_DIST += tests/lib/test_stream_expand.py
+
+
 check_PROGRAMS += tests/lib/test_table
 tests_lib_test_table_CFLAGS = $(TESTS_CFLAGS)
 tests_lib_test_table_CPPFLAGS = $(TESTS_CPPFLAGS)
