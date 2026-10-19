@@ -2681,6 +2681,14 @@ static void process_subq_early_route_add(struct zebra_early_route *ere)
 	if (re->nhe_id > 0) {
 		nhe = zebra_nhg_lookup_id(re->nhe_id);
 
+		/*
+		 * Kernel ids are per netns, our table is not: the nhe of
+		 * another netns with this id is not the nexthop of this
+		 * route, see nhg_ctx_process_new().
+		 */
+		if (nhe && vrf_is_backend_netns() && nhe->vrf_id != re->vrf_id)
+			nhe = NULL;
+
 		if (!nhe) {
 			/*
 			 * We've received from the kernel a nexthop id
@@ -5398,8 +5406,12 @@ static void zebra_nhg_process_kernel_notif(struct zebra_dplane_ctx *ctx)
 		if (label_count)
 			nexthop_add_labels(&nh, ZEBRA_LSP_STATIC, label_count, labels);
 
+		/*
+		 * vrf_id is the one of the namespace the notification comes
+		 * from, VRF_DEFAULT unless vrfs are network namespaces.
+		 */
 		if (nh.type == NEXTHOP_TYPE_BLACKHOLE) {
-			nh.vrf_id = VRF_DEFAULT;
+			nh.vrf_id = vrf_id;
 		} else if (nh.ifindex) {
 			zns = zebra_ns_lookup(dplane_ctx_get_ns_id(ctx));
 			if (zns)
@@ -5409,9 +5421,9 @@ static void zebra_nhg_process_kernel_notif(struct zebra_dplane_ctx *ctx)
 				nh.vrf_id = ifp->vrf->vrf_id;
 			else {
 				flog_warn(EC_ZEBRA_UNKNOWN_INTERFACE,
-					  "%s: Unknown nexthop interface %u received, defaulting to VRF_DEFAULT",
-					  __func__, nh.ifindex);
-				nh.vrf_id = VRF_DEFAULT;
+					  "%s: Unknown nexthop interface %u received, defaulting to VRF %u",
+					  __func__, nh.ifindex, vrf_id);
+				nh.vrf_id = vrf_id;
 			}
 		} else {
 			/* FDB / gateway-only nexthops have no OIF */

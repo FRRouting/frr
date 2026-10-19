@@ -39,6 +39,10 @@ NEIGH_PER_VRF = [
     {"ip": "10.0.0.2", "mac": "aa:bb:cc:dd:ee:04", "ifname": "r1-eth2"},
 ]
 
+# Static route (same prefix and gateway in each VRF) used to check that kernel
+# nexthop groups are installed in the namespace of the VRF
+STATIC_PREFIX = "192.168.0.0/24"
+
 # New neighbors added at test time to verify runtime receipt (10.0.0.3 in each VRF)
 NEIGH_NEW_PER_VRF = [
     {"ip": "10.0.0.3", "mac": "aa:bb:cc:dd:ee:12", "ifname": "r1-eth0"},
@@ -76,7 +80,7 @@ def setup_module(mod):
         r1.net.set_intf_netns(ifname, vrf, up=True)
 
     r1.use_netns_vrf()
-    r1.load_frr_config()
+    r1.load_frr_config(extra_daemons=["staticd"])
     tgen.start_router()
 
     # Wait for each per-VRF interface to be fully up in zebra (in the correct
@@ -247,6 +251,75 @@ def test_new_neighbor_entries_received():
     ), "New neighbor entries per VRF not received in show ip neighbor: {}".format(
         result
     )
+
+
+def _kernel_nhg_in_netns(r1, netns, nhg_id):
+    "Return True if the kernel nexthop id exists in the namespace (None: default)"
+    cmd = "ip nexthop show id {}".format(nhg_id)
+    if netns:
+        cmd = "ip netns exec {} {}".format(netns, cmd)
+    rc, _, _ = r1.net.cmd_status(cmd, warn=False)
+    return rc == 0
+
+
+def _check_kernel_nhg_in_vrf_netns(r1, vrf, ifname, nhg_ids):
+    "Return None when all the nexthop ids and the route are in the VRF's netns."
+    for nhg_id in nhg_ids:
+        if not _kernel_nhg_in_netns(r1, vrf, nhg_id):
+            return "nexthop id {} is not in the {} namespace".format(nhg_id, vrf)
+        if _kernel_nhg_in_netns(r1, None, nhg_id):
+            return "nexthop id {} leaked in the default namespace".format(nhg_id)
+
+    out = r1.run("ip netns exec {} ip route show {}".format(vrf, STATIC_PREFIX))
+    if "nhid {}".format(nhg_ids[0]) not in out:
+        return "route {} of {} does not use nhid {}: {}".format(
+            STATIC_PREFIX, vrf, nhg_ids[0], out
+        )
+
+    out = r1.run("ip netns exec {} ip nexthop show".format(vrf))
+    if "via 10.0.0.2 dev {}".format(ifname) not in out:
+        return "no nexthop via 10.0.0.2 dev {} in {}: {}".format(ifname, vrf, out)
+
+    return None
+
+
+def test_kernel_nhg_per_vrf():
+    "Kernel nexthop groups are installed in the namespace of their VRF."
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    r1 = tgen.gears["r1"]
+
+    nhg_ids = {}
+    for vrf in VRF_NAMES:
+        cmd = "show ip route vrf {} {} json".format(vrf, STATIC_PREFIX)
+        expected = {STATIC_PREFIX: [{"installed": True}]}
+        test_func = partial(topotest.router_json_cmp, r1, cmd, expected)
+        _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
+        assert result is None, "Static route not installed in VRF {}: {}".format(
+            vrf, result
+        )
+
+        nhg_id = r1.vtysh_cmd(cmd, isjson=True)[STATIC_PREFIX][0].get("nexthopGroupId")
+        assert nhg_id, "Static route of VRF {} has no nexthop group".format(vrf)
+
+        # The route uses a group, which depends on the singleton with the gateway
+        nhg = r1.vtysh_cmd("show nexthop-group rib {} json".format(nhg_id), isjson=True)
+        depends = nhg[str(nhg_id)].get("depends") or []
+        assert depends, "Nexthop group {} of VRF {} has no depends".format(nhg_id, vrf)
+        nhg_ids[vrf] = [nhg_id] + depends
+
+    # Nexthop ids are allocated by zebra, they cannot be shared between VRFs
+    all_ids = [i for ids in nhg_ids.values() for i in ids]
+    assert len(set(all_ids)) == len(all_ids), "Nexthop ids reused: {}".format(nhg_ids)
+
+    for i, vrf in enumerate(VRF_NAMES):
+        test_func = partial(
+            _check_kernel_nhg_in_vrf_netns, r1, vrf, "r1-eth{}".format(i), nhg_ids[vrf]
+        )
+        _, result = topotest.run_and_expect(test_func, None, count=15, wait=1)
+        assert result is None, "Kernel nexthop group check failed: {}".format(result)
 
 
 if __name__ == "__main__":
