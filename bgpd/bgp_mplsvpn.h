@@ -112,9 +112,8 @@ static inline bool is_bgp_vrf_mplsvpn(struct bgp *bgp)
 	return false;
 }
 
-static inline int vpn_leak_to_vpn_active(struct bgp *bgp_vrf, afi_t afi,
-					 const char **pmsg,
-					 bool ignore_export_rt_list)
+static inline int vpn_leak_to_vpn_config_active(struct bgp *bgp_vrf, afi_t afi, const char **pmsg,
+						bool ignore_export_rt_list)
 {
 	if (bgp_vrf->inst_type != BGP_INSTANCE_TYPE_VRF
 		&& bgp_vrf->inst_type != BGP_INSTANCE_TYPE_DEFAULT) {
@@ -188,7 +187,11 @@ static inline int vpn_leak_to_vpn_active(struct bgp *bgp_vrf, afi_t afi,
 		SET_FLAG(bgp_vrf->vpn_policy[afi].flags,
 			 BGP_VPN_POLICY_TOVPN_LABEL_MANUAL_REG);
 	}
+	return 1;
+}
 
+static inline int vpn_leak_to_vpn_sid_active(struct bgp *bgp_vrf, afi_t afi, const char **pmsg)
+{
 	/* Is there an export SID that isn't allocated yet? */
 	if ((CHECK_FLAG(bgp_vrf->vpn_policy[afi].flags, BGP_VPN_POLICY_TOVPN_SID_AUTO) ||
 	     CHECK_FLAG(bgp_vrf->vpn_policy[afi].flags, BGP_VPN_POLICY_TOVPN_SID_EXPLICIT) ||
@@ -199,6 +202,13 @@ static inline int vpn_leak_to_vpn_active(struct bgp *bgp_vrf, afi_t afi,
 		return 0;
 	}
 	return 1;
+}
+
+static inline int vpn_leak_to_vpn_active(struct bgp *bgp_vrf, afi_t afi, const char **pmsg,
+					 bool ignore_export_rt_list)
+{
+	return vpn_leak_to_vpn_config_active(bgp_vrf, afi, pmsg, ignore_export_rt_list) &&
+	       vpn_leak_to_vpn_sid_active(bgp_vrf, afi, pmsg);
 }
 
 static inline int vpn_leak_from_vpn_active(struct bgp *bgp_vrf, afi_t afi,
