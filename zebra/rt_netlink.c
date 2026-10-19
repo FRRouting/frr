@@ -139,11 +139,14 @@ static bool add_v4_over_v6_rta_via_attr(struct nlmsghdr *nlmsg, size_t req_size,
 			   addr_num_bytes + sizeof(gw_fam.family));
 }
 
-/* Helper to control use of kernel-level nexthop ids */
+/*
+ * Helper to control use of kernel-level nexthop ids. With netns VRFs the ids
+ * are per namespace: each nhe carries the vrf_id of its namespace (see
+ * zebra_nhe_init()) and is installed through that namespace's socket.
+ */
 static bool kernel_nexthops_supported(void)
 {
-	return (supports_nh && !vrf_is_backend_netns()
-		&& zebra_nhg_kernel_nexthops_enabled());
+	return (supports_nh && zebra_nhg_kernel_nexthops_enabled());
 }
 
 /*
