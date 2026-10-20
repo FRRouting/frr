@@ -326,8 +326,8 @@ static int pim_zebra_vxlan_sg_proc(ZAPI_CALLBACK_ARGS)
 	stream_get(&sg.grp, s, prefixlen);
 
 	if (PIM_DEBUG_ZEBRA)
-		zlog_debug("%s:recv SG %s %pSG", VRF_LOGNAME(pim->vrf),
-			   (cmd == ZEBRA_VXLAN_SG_ADD) ? "add" : "del", &sg);
+		zlog_debug("recv SG %s (%s:%u:%u)%pSG", (cmd == ZEBRA_VXLAN_SG_ADD) ? "add" : "del",
+			   PIM_DEBUG_VRF(pim->vrf), &sg);
 
 	if (cmd == ZEBRA_VXLAN_SG_ADD)
 		pim_vxlan_sg_add(pim, &sg);
@@ -463,8 +463,9 @@ void pim_forward_start(struct pim_ifchannel *ch)
 	uint32_t mask = 0;
 
 	if (PIM_DEBUG_PIM_TRACE)
-		zlog_debug("%s: (S,G)=%pSG oif=%s (%pPA)", __func__, &ch->sg,
-			   ch->interface->name, &up->upstream_addr);
+		zlog_debug("%s: (S,G)=(%s:%u:%u)%pSG oif=%s (%pPA)", __func__,
+			   PIM_DEBUG_VRF(ch->interface->vrf), &ch->sg, ch->interface->name,
+			   &up->upstream_addr);
 
 	if (PIM_IF_FLAG_TEST_PROTO_IGMP(ch->flags))
 		mask = PIM_OIF_FLAG_PROTO_GM;

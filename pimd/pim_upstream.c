@@ -427,8 +427,8 @@ static void on_prune_limit_timer(struct event *t)
 
 	up = EVENT_ARG(t);
 	if (PIM_DEBUG_PIM_J_P)
-		zlog_debug("%s: Prune limit timer expired for upstream (s,g)=%pSG", __func__,
-			   &up->sg);
+		zlog_debug("%s: Prune limit timer expired for upstream (s,g)=(%s:%u:%u)%pSG",
+			   __func__, PIM_DEBUG_VRF(up->pim->vrf), &up->sg);
 }
 
 
@@ -513,8 +513,8 @@ void prune_limit_timer_start(struct pim_upstream *up)
 	event_add_timer(router->master, on_prune_limit_timer, up, router->t_prune_limit,
 			&up->t_prune_limit_timer);
 	if (PIM_DEBUG_PIM_J_P)
-		zlog_debug("%s: Started Prune limit timer (%ds) for upstream (s,g)=%pSG", __func__,
-			   router->t_prune_limit, &up->sg);
+		zlog_debug("%s: Started Prune limit timer (%ds) for upstream (s,g)=(%s:%u:%u)%pSG",
+			   __func__, router->t_prune_limit, PIM_DEBUG_VRF(up->pim->vrf), &up->sg);
 }
 
 bool should_limit_prune(struct pim_upstream *up)
@@ -2178,8 +2178,8 @@ static void pim_upstream_register_probe_timer(struct event *t)
 	if (!up->rpf.source_nexthop.interface ||
 	    !up->rpf.source_nexthop.interface->info) {
 		if (PIM_DEBUG_PIM_REG)
-			zlog_debug("cannot send Null register for %pSG, no path to RP",
-				   &up->sg);
+			zlog_debug("cannot send Null register for (%s:%u:%u)%pSG, no path to RP",
+				   PIM_DEBUG_VRF(up->pim->vrf), &up->sg);
 	} else {
 		up->reg_state = PIM_REG_JOIN_PENDING;
 		if (PIM_DEBUG_PIM_TRACE) {

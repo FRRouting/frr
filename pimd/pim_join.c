@@ -47,11 +47,11 @@ static void recv_join(struct interface *ifp, struct pim_neighbor *neigh, uint16_
 #endif /* PIM_IPV == 6 */
 
 	if (PIM_DEBUG_PIM_J_P)
-		zlog_debug(
-			"%s: join (S,G)=%pSG rpt=%d wc=%d upstream=%pPAs holdtime=%d from %pPA on %s",
-			__func__, sg, !!(source_flags & PIM_RPT_BIT_MASK),
-			!!(source_flags & PIM_WILDCARD_BIT_MASK), &upstream,
-			holdtime, &neigh->source_addr, ifp->name);
+		zlog_debug("%s: join (S,G)=(%s:%u:%u)%pSG rpt=%d wc=%d upstream=%pPAs holdtime=%d from %pPA on %s",
+			   __func__, PIM_DEBUG_VRF(ifp->vrf), sg,
+			   !!(source_flags & PIM_RPT_BIT_MASK),
+			   !!(source_flags & PIM_WILDCARD_BIT_MASK), &upstream, holdtime,
+			   &neigh->source_addr, ifp->name);
 
 	pim_ifp = ifp->info;
 
@@ -75,9 +75,8 @@ static void recv_join(struct interface *ifp, struct pim_neighbor *neigh, uint16_
 		 */
 		if (!CHECK_FLAG(source_flags, PIM_RPT_BIT_MASK)) {
 			if (PIM_DEBUG_PIM_J_P)
-				zlog_debug(
-					"Discarding (*,G)=%pSG join since WC bit is set but RPT bit is unset",
-					sg);
+				zlog_debug("Discarding (*,G)=(%s:%u:%u)%pSG join since WC bit is set but RPT bit is unset",
+					   PIM_DEBUG_VRF(ifp->vrf), sg);
 
 			return;
 		}
@@ -86,8 +85,8 @@ static void recv_join(struct interface *ifp, struct pim_neighbor *neigh, uint16_
 		pim_addr rpf_addr;
 
 		if (!rp) {
-			zlog_warn("%s: Lookup of RP failed for %pSG", __func__,
-				  sg);
+			zlog_warn("%s: Lookup of RP failed for (%s:%u:%u)%pSG", __func__,
+				  PIM_DEBUG_VRF(ifp->vrf), sg);
 			return;
 		}
 
@@ -133,11 +132,10 @@ static void recv_prune(struct interface *ifp, struct pim_neighbor *neigh,
 	struct pim_interface *pim_ifp = NULL;
 
 	if (PIM_DEBUG_PIM_J_P)
-		zlog_debug(
-			"%s: prune (S,G)=%pSG rpt=%d wc=%d upstream=%pPAs holdtime=%d from %pPA on %s",
-			__func__, sg, source_flags & PIM_RPT_BIT_MASK,
-			source_flags & PIM_WILDCARD_BIT_MASK, &upstream,
-			holdtime, &neigh->source_addr, ifp->name);
+		zlog_debug("%s: prune (S,G)=(%s:%u:%u)%pSG rpt=%d wc=%d upstream=%pPAs holdtime=%d from %pPA on %s",
+			   __func__, PIM_DEBUG_VRF(ifp->vrf), sg, source_flags & PIM_RPT_BIT_MASK,
+			   source_flags & PIM_WILDCARD_BIT_MASK, &upstream, holdtime,
+			   &neigh->source_addr, ifp->name);
 
 	pim_ifp = ifp->info;
 
@@ -154,9 +152,8 @@ static void recv_prune(struct interface *ifp, struct pim_neighbor *neigh,
 		 */
 		if (!CHECK_FLAG(source_flags, PIM_RPT_BIT_MASK)) {
 			if (PIM_DEBUG_PIM_J_P)
-				zlog_debug(
-					"Discarding (*,G)=%pSG prune since WC bit is set but RPT bit is unset",
-					sg);
+				zlog_debug("Discarding (*,G)=(%s:%u:%u)%pSG prune since WC bit is set but RPT bit is unset",
+					   PIM_DEBUG_VRF(ifp->vrf), sg);
 
 			return;
 		}
@@ -167,8 +164,8 @@ static void recv_prune(struct interface *ifp, struct pim_neighbor *neigh,
 		 * RP in the message does not match RP(G).
 		 */
 		if (PIM_DEBUG_PIM_J_P)
-			zlog_debug("%s: Prune received with RP(%pPAs) for %pSG",
-				   __func__, &sg->src, sg);
+			zlog_debug("%s: Prune received with RP(%pPAs) for (%s:%u:%u)%pSG",
+				   __func__, &sg->src, PIM_DEBUG_VRF(ifp->vrf), sg);
 
 		sg->src = PIMADDR_ANY;
 	}

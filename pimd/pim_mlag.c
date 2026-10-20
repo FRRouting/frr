@@ -247,14 +247,15 @@ static void pim_mlag_up_peer_add(struct mlag_mroute_add *msg)
 	sg.src.s_addr = htonl(msg->source_ip);
 	sg.grp.s_addr = htonl(msg->group_ip);
 
+	vrf = vrf_lookup_by_name(msg->vrf_name);
+
 	if (PIM_DEBUG_MLAG)
-		zlog_debug("peer MLAG mroute add %s:%pSG cost %d",
-			   msg->vrf_name, &sg, msg->cost_to_rp);
+		zlog_debug("peer MLAG mroute add (%s:%u:%u)%pSG cost %d", PIM_DEBUG_VRF(vrf), &sg,
+			   msg->cost_to_rp);
 
 	/* XXX - this is not correct. we MUST cache updates to avoid losing
 	 * an entry because of race conditions with the peer switch.
 	 */
-	vrf = vrf_lookup_by_name(msg->vrf_name);
 	if  (!vrf) {
 		if (PIM_DEBUG_MLAG)
 			zlog_debug(
@@ -279,9 +280,8 @@ static void pim_mlag_up_peer_add(struct mlag_mroute_add *msg)
 
 		if (!up) {
 			if (PIM_DEBUG_MLAG)
-				zlog_debug(
-					"peer MLAG mroute add failed %s:%pSG",
-					vrf->name, &sg);
+				zlog_debug("peer MLAG mroute add failed (%s:%u:%u)%pSG",
+					   PIM_DEBUG_VRF(vrf), &sg);
 			return;
 		}
 	}
@@ -320,10 +320,11 @@ static void pim_mlag_up_peer_del(struct mlag_mroute_del *msg)
 	sg.src.s_addr = htonl(msg->source_ip);
 	sg.grp.s_addr = htonl(msg->group_ip);
 
-	if (PIM_DEBUG_MLAG)
-		zlog_debug("peer MLAG mroute del %s:%pSG", msg->vrf_name, &sg);
-
 	vrf = vrf_lookup_by_name(msg->vrf_name);
+
+	if (PIM_DEBUG_MLAG)
+		zlog_debug("peer MLAG mroute del (%s:%u:%u)%pSG", PIM_DEBUG_VRF(vrf), &sg);
+
 	if  (!vrf) {
 		if (PIM_DEBUG_MLAG)
 			zlog_debug(
@@ -336,9 +337,8 @@ static void pim_mlag_up_peer_del(struct mlag_mroute_del *msg)
 	up = pim_upstream_find(pim, &sg);
 	if  (!up) {
 		if (PIM_DEBUG_MLAG)
-			zlog_debug(
-				"peer MLAG mroute del skipped %s:%pSG; no up",
-				vrf->name, &sg);
+			zlog_debug("peer MLAG mroute del skipped (%s:%u:%u)%pSG; no up",
+				   PIM_DEBUG_VRF(vrf), &sg);
 		return;
 	}
 
@@ -741,19 +741,18 @@ static void pim_mlag_process_vxlan_update(struct mlag_vxlan *msg)
 static void pim_mlag_process_mroute_add(struct mlag_mroute_add msg)
 {
 	if (PIM_DEBUG_MLAG) {
+		struct vrf *vrf = vrf_lookup_by_name(msg.vrf_name);
 		pim_sgaddr sg;
 
 		sg.grp.s_addr = ntohl(msg.group_ip);
 		sg.src.s_addr = ntohl(msg.source_ip);
 
-		zlog_debug(
-			"%s: msg dump: vrf_name: %s, s.ip: 0x%x, g.ip: 0x%x (%pSG) cost: %u",
-			__func__, msg.vrf_name, msg.source_ip, msg.group_ip,
-			&sg, msg.cost_to_rp);
-		zlog_debug(
-			"(%pSG)owner_id: %d, DR: %d, Dual active: %d, vrf_id: 0x%x intf_name: %s",
-			&sg, msg.owner_id, msg.am_i_dr, msg.am_i_dual_active,
-			msg.vrf_id, msg.intf_name);
+		zlog_debug("%s: msg dump: vrf_name: %s, s.ip: 0x%x, g.ip: 0x%x ((%s:%u:%u)%pSG) cost: %u",
+			   __func__, msg.vrf_name, msg.source_ip, msg.group_ip, PIM_DEBUG_VRF(vrf),
+			   &sg, msg.cost_to_rp);
+		zlog_debug("((%s:%u:%u)%pSG)owner_id: %d, DR: %d, Dual active: %d, vrf_id: 0x%x intf_name: %s",
+			   PIM_DEBUG_VRF(vrf), &sg, msg.owner_id, msg.am_i_dr,
+			   msg.am_i_dual_active, msg.vrf_id, msg.intf_name);
 	}
 
 	if (!(router->mlag_flags & PIM_MLAGF_LOCAL_CONN_UP)) {
@@ -771,16 +770,16 @@ static void pim_mlag_process_mroute_add(struct mlag_mroute_add msg)
 static void pim_mlag_process_mroute_del(struct mlag_mroute_del msg)
 {
 	if (PIM_DEBUG_MLAG) {
+		struct vrf *vrf = vrf_lookup_by_name(msg.vrf_name);
 		pim_sgaddr sg;
 
 		sg.grp.s_addr = ntohl(msg.group_ip);
 		sg.src.s_addr = ntohl(msg.source_ip);
-		zlog_debug(
-			"%s: msg dump: vrf_name: %s, s.ip: 0x%x, g.ip: 0x%x(%pSG)",
-			__func__, msg.vrf_name, msg.source_ip, msg.group_ip,
-			&sg);
-		zlog_debug("(%pSG)owner_id: %d, vrf_id: 0x%x intf_name: %s",
-			   &sg, msg.owner_id, msg.vrf_id, msg.intf_name);
+		zlog_debug("%s: msg dump: vrf_name: %s, s.ip: 0x%x, g.ip: 0x%x((%s:%u:%u)%pSG)",
+			   __func__, msg.vrf_name, msg.source_ip, msg.group_ip, PIM_DEBUG_VRF(vrf),
+			   &sg);
+		zlog_debug("((%s:%u:%u)%pSG)owner_id: %d, vrf_id: 0x%x intf_name: %s",
+			   PIM_DEBUG_VRF(vrf), &sg, msg.owner_id, msg.vrf_id, msg.intf_name);
 	}
 
 	if (!(router->mlag_flags & PIM_MLAGF_LOCAL_CONN_UP)) {

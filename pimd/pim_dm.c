@@ -142,8 +142,8 @@ static void pim_dm_assert_wrongif(struct interface *ifp, pim_sgaddr sg, struct p
 
 	if (ch->upstream != up) {
 		if (PIM_DEBUG_PIM_J_P)
-			zlog_debug("%s: (S,G)=%pSG ifchannel upstream mismatch on %s", __func__,
-				   &sg, ifp->name);
+			zlog_debug("%s: (S,G)=(%s:%u:%u)%pSG ifchannel upstream mismatch on %s",
+				   __func__, PIM_DEBUG_VRF(ifp->vrf), &sg, ifp->name);
 		return;
 	}
 
@@ -181,13 +181,13 @@ void pim_dm_wrongif(struct interface *ifp, pim_sgaddr sg, struct pim_upstream *u
 
 	if (if_is_pointopoint(ifp)) {
 		if (PIM_DEBUG_PIM_J_P)
-			zlog_debug("%s: Dense Mode WRONGVIF on P2P %s, immediate prune (S,G)=%pSG",
-				   __func__, ifp->name, &sg);
+			zlog_debug("%s: Dense Mode WRONGVIF on P2P %s, immediate prune (S,G)=(%s:%u:%u)%pSG",
+				   __func__, ifp->name, PIM_DEBUG_VRF(ifp->vrf), &sg);
 		pim_dm_prune_wrongif(ifp, sg, up);
 	} else {
 		if (PIM_DEBUG_PIM_J_P)
-			zlog_debug("%s: Dense Mode WRONGVIF on LAN %s, starting Assert (S,G)=%pSG",
-				   __func__, ifp->name, &sg);
+			zlog_debug("%s: Dense Mode WRONGVIF on LAN %s, starting Assert (S,G)=(%s:%u:%u)%pSG",
+				   __func__, ifp->name, PIM_DEBUG_VRF(ifp->vrf), &sg);
 		pim_dm_assert_wrongif(ifp, sg, up);
 	}
 }
@@ -220,8 +220,9 @@ void pim_dm_prune_wrongif(struct interface *ifp, pim_sgaddr sg, struct pim_upstr
 		for (ALL_LIST_ELEMENTS_RO(pim_ifp->pim_neighbor_list, neighnode, neigh)) {
 			rpf.source_nexthop.mrib_nexthop_addr = neigh->source_addr;
 			if (PIM_DEBUG_PIM_J_P)
-				zlog_debug("%s: Sending immediate prune for (S,G)=%pSG to neighbor %pPA on interface %s",
-					   __func__, &up->sg, &neigh->source_addr, ifp->name);
+				zlog_debug("%s: Sending immediate prune for (S,G)=(%s:%u:%u)%pSG to neighbor %pPA on interface %s",
+					   __func__, PIM_DEBUG_VRF(ifp->vrf), &up->sg,
+					   &neigh->source_addr, ifp->name);
 			pim_dm_prune_send(rpf, up, 0);
 		}
 		prune_limit_timer_start(up);

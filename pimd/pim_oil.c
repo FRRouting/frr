@@ -130,9 +130,9 @@ struct channel_oil *pim_channel_oil_add(struct pim_instance *pim,
 		pim_upstream_mroute_iif_update(c_oil, __func__);
 
 		if (PIM_DEBUG_MROUTE)
-			zlog_debug(
-				"%s(%s): Existing oil for %pSG Ref Count: %d (Post Increment)",
-				__func__, name, sg, c_oil->oil_ref_count);
+			zlog_debug("%s(%s): Existing oil for (%s:%u:%u)%pSG Ref Count: %d (Post Increment)",
+				   __func__, name, PIM_DEBUG_VRF(pim->vrf), sg,
+				   c_oil->oil_ref_count);
 		return c_oil;
 	}
 
@@ -151,7 +151,8 @@ struct channel_oil *pim_channel_oil_add(struct pim_instance *pim,
 	rb_pim_oil_add(&pim->channel_oil_head, c_oil);
 
 	if (PIM_DEBUG_MROUTE)
-		zlog_debug("%s(%s): c_oil %pSG add", __func__, name, sg);
+		zlog_debug("%s(%s): c_oil (%s:%u:%u)%pSG add", __func__, name,
+			   PIM_DEBUG_VRF(pim->vrf), sg);
 
 	return c_oil;
 }
@@ -199,9 +200,9 @@ struct channel_oil *pim_channel_oil_del(struct channel_oil *c_oil,
 	if (PIM_DEBUG_MROUTE) {
 		pim_sgaddr sg = { .src = c_oil->source, .grp = c_oil->group };
 
-		zlog_debug(
-			"%s(%s): Del oil for %pSG, Ref Count: %d (Predecrement)",
-			__func__, name, &sg, c_oil->oil_ref_count);
+		zlog_debug("%s(%s): Del oil for (%s:%u:%u)%pSG, Ref Count: %d (Predecrement)",
+			   __func__, name, PIM_DEBUG_VRF(c_oil->pim->vrf), &sg,
+			   c_oil->oil_ref_count);
 	}
 	--c_oil->oil_ref_count;
 
