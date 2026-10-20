@@ -70,6 +70,10 @@ DEFAULT_AF = (
 )
 VRF_CTX = ("vrf vrf1",)
 ROUTE_MAP_CTX = ("route-map RM permit 10",)
+BGP_VRF_V4_AF = (
+    "router bgp 4200000102 vrf GREEN",
+    "address-family ipv4 unicast",
+)
 
 
 def _text(blocks):
@@ -526,13 +530,27 @@ def test_vni_rt_is_batched_but_not_packed(reload):
         (DEFAULT_AF, "route-target import 1:1", True),
         (VNI_CTX, "route-target import 1:1", True),
         (("router bgp 1",), "bgp router-id 1.1.1.1", False),
-        (("router bgp 1", "address-family ipv4 unicast"), "network 1.1.1.1/32", False),
+        (("router bgp 1", "address-family ipv4 unicast"), "network 1.1.1.1/32", True),
         ((), "route-target import 1:1", False),
     ],
 )
 def test_delete_via_vtysh_file_gate(reload, ctx_keys, line, expect):
     """Scaled VRF, route-map, RT, and whole-VRF deletes use vtysh -f."""
     assert reload.delete_via_vtysh_file(ctx_keys, line) is expect
+
+
+def test_network_deletes_emit_one_af_stanza(reload):
+    """Originated network unsets share a single BGP AF stanza in the batch file."""
+    entries = [
+        (BGP_VRF_V4_AF, "network 10.0.0.1/32"),
+        (BGP_VRF_V4_AF, "network 10.0.0.2/32"),
+    ]
+    assert reload.delete_via_vtysh_file(*entries[0]) is True
+    lines = _text(reload.emit_grouped_config(entries, True)).splitlines()
+    assert lines.count("router bgp 4200000102 vrf GREEN") == 1
+    assert lines.count(" address-family ipv4 unicast") == 1
+    assert "  no network 10.0.0.1/32" in lines
+    assert "  no network 10.0.0.2/32" in lines
 
 
 def test_mixed_batch_keeps_rtlist_and_other_stanzas(reload):
@@ -631,7 +649,8 @@ def test_single_rt_is_still_one_command(reload):
 
 
 def test_batch_gate_keeps_non_rt_bgp_on_per_line_path(reload):
-    """Only RT lines under router bgp join the vtysh -f batch; other BGP stays per-line."""
+    """Only RT and network lines under router bgp join the vtysh -f batch; other
+    BGP stays per-line."""
     entries = [
         (VRF_AF, "route-target import 1:1"),
         (VRF_AF, "route-target import 1:2"),
