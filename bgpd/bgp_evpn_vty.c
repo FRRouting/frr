@@ -3704,6 +3704,8 @@ static void bgp_evpn_set_unset_resolve_overlay_index(struct bgp *bgp, bool set)
 			NULL);
 		bgp->resolve_overlay_index = false;
 	}
+
+	bgp_evpn_gateway_ip_reevaluate_all();
 }
 
 /*

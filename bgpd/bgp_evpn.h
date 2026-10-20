@@ -220,6 +220,7 @@ extern void bgp_evpn_show_remote_ip_hash(struct hash_bucket *bucket,
 					 void *args);
 extern void bgp_evpn_show_vni_svi_hash(struct hash_bucket *bucket, void *args);
 extern bool bgp_evpn_is_gateway_ip_resolved(struct bgp_nexthop_cache *bnc);
+extern void bgp_evpn_gateway_ip_reevaluate_all(void);
 extern void
 bgp_evpn_handle_resolve_overlay_index_set(struct hash_bucket *bucket,
 					  void *arg);
