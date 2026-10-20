@@ -489,6 +489,33 @@ def test_sid_suppress_locator_vrf20():
     check_rib("r2", "show ipv6 route vrf vrf20 json", "r2/vrf20_rib_one_locator.json")
 
 
+@retry(retry_timeout=30)
+def check_no_bgp_sid_of_locator(router, locator):
+    output = json.loads(router.vtysh_cmd("show segment-routing srv6 sid json"))
+    sids = [
+        sid
+        for sid, sid_info in output.items()
+        if sid_info.get("locator") == locator
+        and "bgp" in [c.get("protocol") for c in sid_info.get("clients", [])]
+    ]
+    if sids:
+        return f"SIDs of locator {locator} still allocated by bgp: {sids}"
+    return True
+
+
+def test_sid_suppress_locator_vrf20_releases_sids():
+    """
+    vrf20 has moved from the locator of the default instance to its own
+    locator loc2, then 'no segment-routing srv6' has been configured in
+    vrf20. Check that bgp no longer has any SID allocated from loc2.
+    """
+    r1 = get_topogen().gears["r1"]
+    result = check_no_bgp_sid_of_locator(r1, "loc2")
+    output = r1.vtysh_cmd("show segment-routing srv6 sid")
+    logger.info(output)
+    assert result is True, result
+
+
 def test_sid_suppress_locator_vrf_default():
     """
     Test that no IPv6 vpn prefixes from R1 can be advertised to R2
@@ -507,6 +534,19 @@ def test_sid_suppress_locator_vrf_default():
 
     # no vpn prefixes from r1 are exported
     check_rib("r1", "show bgp ipv6 vpn json", "r1/vpnv6_rib_unselected.json")
+
+
+def test_sid_suppress_locator_vrf_default_releases_sids():
+    """
+    'no segment-routing srv6' has been configured in the default instance,
+    after vrf20 has used the locator loc1 of the default instance. Check
+    that bgp no longer has any SID allocated from loc1.
+    """
+    r1 = get_topogen().gears["r1"]
+    result = check_no_bgp_sid_of_locator(r1, "loc1")
+    output = r1.vtysh_cmd("show segment-routing srv6 sid")
+    logger.info(output)
+    assert result is True, result
 
 
 def test_sid_suppress_srv6_keeps_srv6_only_default():
