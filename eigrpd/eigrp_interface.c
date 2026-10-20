@@ -289,6 +289,15 @@ struct eigrp_interface *eigrp_if_new(struct eigrp *eigrp, struct interface *ifp,
 
 	ei = XCALLOC(MTYPE_EIGRP_IF, sizeof(struct eigrp_interface));
 
+	/*
+	 * The output queue exists for as long as the instance does.  It used
+	 * to be allocated only when the instance was first brought up, but a
+	 * network statement covering a down interface creates the instance
+	 * without bringing it up, and every teardown path and every goodbye
+	 * hello then dereferenced a NULL queue.
+	 */
+	ei->obuf = eigrp_fifo_new();
+
 	/* Set zebra interface pointer. */
 	ei->ifp = ifp;
 	eigrp_if_refresh_address(ei);
