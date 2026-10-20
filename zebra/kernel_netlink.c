@@ -765,6 +765,10 @@ static int netlink_recv_msg(struct nlsock *nl, struct msghdr *msg)
 		status = recvmsg(nl->sock, msg, 0);
 	} while (status == -1 && errno == EINTR);
 
+	/* unreference the local stack from *msg that is accessed outside the function */
+	msg->msg_iov = NULL;
+	msg->msg_iovlen = 0;
+
 	if (status == -1) {
 		if (errno == EWOULDBLOCK || errno == EAGAIN || errno == EMSGSIZE)
 			return 0;
