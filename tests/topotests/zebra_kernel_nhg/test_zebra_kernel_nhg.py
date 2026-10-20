@@ -47,6 +47,15 @@ def setup_module(mod):
     tgen.start_router()
 
     r1 = tgen.gears["r1"]
+
+    def _check_r1_eth0_address():
+        output = r1.cmd("ip -4 addr show dev r1-eth0")
+        return "inet 192.168.1.1/24" in output
+
+    step("Wait for 192.168.1.1/24 to be installed on r1-eth0")
+    success, _ = topotest.run_and_expect(_check_r1_eth0_address, True, count=30, wait=1)
+    assert success, "192.168.1.1/24 was not installed on r1-eth0"
+
     _install_kernel_nhgs(r1)
 
 
