@@ -320,6 +320,7 @@ int bgp_find_or_add_nexthop(struct bgp *bgp_route, struct bgp *bgp_nexthop, afi_
 	struct bgp_path_info *bpi_ultimate;
 	struct prefix p;
 	uint32_t srte_color = 0;
+	uint32_t metric;
 	int is_bgp_static_route = 0;
 	ifindex_t ifindex = 0;
 
@@ -533,7 +534,11 @@ int bgp_find_or_add_nexthop(struct bgp *bgp_route, struct bgp *bgp_nexthop, afi_
 			/* import does not require any valid MPLS label */
 			SET_FLAG(bnc->flags, BGP_NEXTHOP_ULTIMATE);
 
-		if (CHECK_FLAG(bnc->flags, BGP_NEXTHOP_VALID) && bnc->metric)
+		/* See evaluate_paths() for a gateway IP path. */
+		if (bnc->is_evpn_gwip_nexthop && pi != bpi_ultimate) {
+			metric = CHECK_FLAG(bnc->flags, BGP_NEXTHOP_VALID) ? bnc->metric : 0;
+			bgp_path_info_extra_get(pi)->igpmetric = metric;
+		} else if (CHECK_FLAG(bnc->flags, BGP_NEXTHOP_VALID) && bnc->metric)
 			(bgp_path_info_extra_get(bpi_ultimate))->igpmetric =
 				bnc->metric;
 		else if (bpi_ultimate->extra)
@@ -663,6 +668,32 @@ static void bgp_bnc_mark_nht_important(struct bgp_nexthop_cache *bnc, struct zap
 	bgp_dest_unlock_node(dest);
 }
 
+/*
+ * A nexthop in a tenant VRF that NHT resolves only over the VRF's L3VNI SVI
+ * is a host behind another VTEP (a symmetric IRB host route), whether it is an
+ * EVPN gateway IP or the nexthop of a route learned in the VRF. Charge it more
+ * than a nexthop attached to this VTEP, so a VTEP that has a nexthop locally
+ * prefers it and doesn't send the traffic back across the fabric to a VTEP
+ * that does the same. A VTEP that reaches every nexthop over the L3VNI still
+ * sees equal metrics and keeps ECMP.
+ */
+static uint32_t bgp_nht_l3vni_metric(struct bgp_nexthop_cache *bnc, struct zapi_route *nhr,
+				     bool import_check)
+{
+	int i;
+
+	if (import_check || !nhr->nexthop_num || !bnc->bgp->l3vni || !bnc->bgp->l3vni_svi_ifindex)
+		return nhr->metric;
+
+	for (i = 0; i < nhr->nexthop_num; i++)
+		if (nhr->nexthops[i].ifindex != bnc->bgp->l3vni_svi_ifindex)
+			return nhr->metric;
+
+	if (nhr->metric > UINT32_MAX - BGP_L3VNI_NEXTHOP_METRIC)
+		return UINT32_MAX;
+	return nhr->metric + BGP_L3VNI_NEXTHOP_METRIC;
+}
+
 static void bgp_process_nexthop_update(struct bgp_nexthop_cache *bnc,
 				       struct zapi_route *nhr,
 				       bool import_check)
@@ -673,6 +704,7 @@ static void bgp_process_nexthop_update(struct bgp_nexthop_cache *bnc,
 	struct nexthop *nhlist_tail = NULL;
 	int i;
 	bool evpn_resolved = false;
+	uint32_t metric = bgp_nht_l3vni_metric(bnc, nhr, import_check);
 
 	bnc->last_update = monotime(NULL);
 	bnc->change_flags = 0;
@@ -691,7 +723,7 @@ static void bgp_process_nexthop_update(struct bgp_nexthop_cache *bnc,
 
 	bgp_bnc_mark_nht_important(bnc, nhr);
 
-	if (nhr->metric != bnc->metric)
+	if (metric != bnc->metric)
 		SET_FLAG(bnc->change_flags, BGP_NEXTHOP_METRIC_CHANGED);
 
 	if (nhr->nexthop_num != bnc->nexthop_num)
@@ -722,7 +754,7 @@ static void bgp_process_nexthop_update(struct bgp_nexthop_cache *bnc,
 
 		if (!bnc->is_evpn_gwip_nexthop)
 			SET_FLAG(bnc->flags, BGP_NEXTHOP_VALID);
-		bnc->metric = nhr->metric;
+		bnc->metric = metric;
 		bnc->nexthop_num = nhr->nexthop_num;
 
 		UNSET_FLAG(bnc->flags,
@@ -1449,6 +1481,7 @@ void evaluate_paths(struct bgp_nexthop_cache *bnc)
 	safi_t safi;
 	struct bgp *bgp_path;
 	const struct prefix *p;
+	uint32_t metric;
 
 	if (BGP_DEBUG(nht, NHT)) {
 		char bnc_buf[BNC_FLAG_DUMP_SIZE];
@@ -1587,7 +1620,18 @@ void evaluate_paths(struct bgp_nexthop_cache *bnc)
 		/* Copy the metric to the path. Will be used for bestpath
 		 * computation */
 		bpi_ultimate = bgp_get_imported_bpi_ultimate(path);
-		if (bgp_isvalid_nexthop(bnc) && bnc->metric)
+		if (bnc->is_evpn_gwip_nexthop && path != bpi_ultimate) {
+			/*
+			 * An EVPN route with a gateway IP is resolved through
+			 * the gateway in the VRF that imports it, and another
+			 * VRF may reach the gateway differently. The route it
+			 * was imported from has the metric of its own nexthop.
+			 * So the metric goes on the imported path, which is
+			 * where bestpath takes it from for such a path.
+			 */
+			metric = bgp_isvalid_nexthop(bnc) ? bnc->metric : 0;
+			bgp_path_info_extra_get(path)->igpmetric = metric;
+		} else if (bgp_isvalid_nexthop(bnc) && bnc->metric)
 			(bgp_path_info_extra_get(bpi_ultimate))->igpmetric =
 				bnc->metric;
 		else if (bpi_ultimate->extra)
@@ -1734,6 +1778,27 @@ void bgp_nht_register_nexthops(struct bgp *bgp)
 
 		frr_each (bgp_nexthop_cache, &bgp->nexthop_cache_table[afi],
 			  bnc) {
+			register_zebra_rnh(bnc);
+		}
+	}
+}
+
+/*
+ * The L3VNI of a VRF or its SVI changed. Have zebra send the nexthops of the
+ * VRF again, so that bgp_nht_l3vni_metric() charges those that resolve over
+ * the L3VNI SVI now, and only those.
+ */
+void bgp_nht_l3vni_change(struct bgp *bgp_vrf)
+{
+	struct bgp_nexthop_cache *bnc;
+	afi_t afi;
+
+	for (afi = AFI_IP; afi < AFI_MAX; afi++) {
+		frr_each (bgp_nexthop_cache, &bgp_vrf->nexthop_cache_table[afi], bnc) {
+			if (!CHECK_FLAG(bnc->flags, BGP_NEXTHOP_REGISTERED) || bnc->ifindex_ipv6_ll)
+				continue;
+
+			UNSET_FLAG(bnc->flags, BGP_NEXTHOP_REGISTERED);
 			register_zebra_rnh(bnc);
 		}
 	}

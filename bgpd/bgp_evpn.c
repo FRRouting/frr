@@ -8247,6 +8247,7 @@ int bgp_evpn_local_l3vni_add(vni_t l3vni, vrf_id_t vrf_id, struct ethaddr *svi_r
 	struct listnode *node = NULL;
 	struct bgpevpn *vpn = NULL;
 	as_t as = 0;
+	ifindex_t old_svi_ifindex = 0;
 
 	/* get the EVPN instance - required to get the AS number for VRF
 	 * auto-creatio
@@ -8290,8 +8291,12 @@ int bgp_evpn_local_l3vni_add(vni_t l3vni, vrf_id_t vrf_id, struct ethaddr *svi_r
 	}
 
 	/* associate the vrf with l3vni and related parameters */
+	if (bgp_vrf->l3vni)
+		old_svi_ifindex = bgp_vrf->l3vni_svi_ifindex;
 	bgp_vrf->l3vni = l3vni;
 	bgp_vrf->l3vni_svi_ifindex = svi_ifindex;
+	if (old_svi_ifindex != svi_ifindex)
+		bgp_nht_l3vni_change(bgp_vrf);
 	bgp_vrf->evpn_info->is_anycast_mac = is_anycast_mac;
 
 	/* Update tip_hash of the EVPN underlay BGP instance (bgp_evpn)
@@ -8467,6 +8472,8 @@ int bgp_evpn_local_l3vni_del(vni_t l3vni, vrf_id_t vrf_id)
 	/* Delete the instance if it was autocreated */
 	if (CHECK_FLAG(bgp_vrf->vrf_flags, BGP_VRF_AUTO))
 		bgp_delete(bgp_vrf);
+	else
+		bgp_nht_l3vni_change(bgp_vrf);
 
 	return 0;
 }
