@@ -181,6 +181,105 @@ def test_zebra_noprefix_connected_add():
     assert result, "Connected Route should have been added\n{}".format(_)
 
 
+def _route_protocols(router, prefix):
+    "Return (protocol, metric) of every zebra route for prefix."
+    output = json.loads(router.vtysh_cmd("show ip route {} json".format(prefix)))
+    return [(e["protocol"], e["metric"]) for e in output.get(prefix, [])]
+
+
+def _expect_route_protocols(router, prefix, expected, msg):
+    test_func = partial(_route_protocols, router, prefix)
+    success, result = topotest.run_and_expect(test_func, expected, count=20, wait=1)
+    assert success, "{}: expected {}, got {}".format(msg, expected, result)
+
+
+def _route_nexthops(router, prefix):
+    "Return (protocol, nexthop gateways or interfaces) of every zebra route for prefix."
+    output = json.loads(router.vtysh_cmd("show ip route {} json".format(prefix)))
+    return [
+        (e["protocol"], [n.get("ip", n.get("interfaceName")) for n in e["nexthops"]])
+        for e in output.get(prefix, [])
+    ]
+
+
+def _expect_route_nexthops(router, prefix, expected, msg):
+    test_func = partial(_route_nexthops, router, prefix)
+    success, result = topotest.run_and_expect(test_func, expected, count=20, wait=1)
+    assert success, "{}: expected {}, got {}".format(msg, expected, result)
+
+
+def test_zebra_noprefix_connected_kernel_route_del():
+    "Test that a kernel route made connected for a noprefixroute goes with the kernel route"
+
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    router = tgen.gears["r1"]
+    ifname = "noprefix-del"
+    prefix = "192.168.45.0/24"
+
+    router.run(f"ip link add {ifname} type dummy")
+    router.run(f"ip link set {ifname} up")
+    router.run(f"ip addr add 192.168.45.1/24 dev {ifname} noprefixroute")
+    router.run(f"ip route add {prefix} dev {ifname} metric 100")
+    _expect_route_protocols(
+        router, prefix, [("connected", 100)], "Kernel route should be connected"
+    )
+
+    step("Delete the kernel route")
+    router.run(f"ip route del {prefix} dev {ifname} metric 100")
+    _expect_route_protocols(
+        router, prefix, [], "Route should be gone with the kernel route"
+    )
+
+    step("Delete the last IPv4 address, the kernel flushes the route")
+    router.run(f"ip route add {prefix} dev {ifname} metric 100")
+    _expect_route_protocols(
+        router, prefix, [("connected", 100)], "Kernel route should be connected"
+    )
+    router.run(f"ip addr del 192.168.45.1/24 dev {ifname}")
+    _expect_route_protocols(
+        router, prefix, [], "Route should be gone with the last address"
+    )
+
+    step("An ordinary address that only covers the subnet does not own the route")
+    router.run(f"ip addr add 192.168.45.1/24 dev {ifname} noprefixroute")
+    router.run(f"ip route add {prefix} dev {ifname} metric 100")
+    _expect_route_protocols(
+        router, prefix, [("connected", 100)], "Kernel route should be connected"
+    )
+    router.run(f"ip addr add 192.168.200.1/16 dev {ifname}")
+    router.run(f"ip addr del 192.168.45.1/24 dev {ifname}")
+    router.run(f"ip route del {prefix} dev {ifname} metric 100")
+    _expect_route_protocols(
+        router, prefix, [], "Route should be gone although a /16 address covers it"
+    )
+    router.run(f"ip addr del 192.168.200.1/16 dev {ifname}")
+
+    step("Delete a multipath kernel route")
+    other = "noprefix-del2"
+    router.run(f"ip link add {other} type dummy")
+    router.run(f"ip link set {other} up")
+    router.run(f"ip addr add 192.168.45.1/24 dev {ifname} noprefixroute")
+    router.run(
+        f"ip route add {prefix} metric 100 nexthop dev {ifname} nexthop dev {other}"
+    )
+    _expect_route_nexthops(
+        router,
+        prefix,
+        [("connected", [ifname, other])],
+        "Multipath kernel route should be connected",
+    )
+    router.run(f"ip route del {prefix} metric 100")
+    _expect_route_protocols(
+        router, prefix, [], "Multipath route should be gone with the kernel route"
+    )
+
+    router.run(f"ip link del {other}")
+    router.run(f"ip link del {ifname}")
+
+
 def test_zebra_kernel_route_add():
     "Test that a random kernel route is properly handled as expected"
 
