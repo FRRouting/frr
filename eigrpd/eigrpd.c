@@ -276,6 +276,7 @@ void eigrp_finish_final(struct eigrp *eigrp)
 
 	event_cancel(&eigrp->t_write);
 	event_cancel(&eigrp->t_read);
+	event_cancel(&eigrp->t_distribute);
 	close(eigrp->fd);
 
 	eigrp_interface_hash_fini(&eigrp->eifs);
