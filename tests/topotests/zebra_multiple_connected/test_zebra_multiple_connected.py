@@ -280,6 +280,89 @@ def test_zebra_noprefix_connected_kernel_route_del():
     router.run(f"ip link del {ifname}")
 
 
+def test_zebra_noprefix_connected_kernel_route_first():
+    "Test that a kernel route becomes connected when the noprefixroute address comes after it"
+
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    router = tgen.gears["r1"]
+    ifname = "noprefix-first"
+    prefix = "192.168.46.0/24"
+
+    # No IPv6 link-local, so only our route lands on the early route Q below
+    router.run(f"ip link add {ifname} type dummy")
+    router.run(f"ip link set {ifname} addrgenmode none")
+    router.run(f"ip link set {ifname} up")
+
+    step("Kernel route first, then the noprefixroute address")
+    router.run(f"ip route add {prefix} dev {ifname} metric 100")
+    _expect_route_protocols(router, prefix, [("kernel", 100)], "Kernel route missing")
+    router.run(f"ip addr add 192.168.46.1/24 dev {ifname} noprefixroute")
+    _expect_route_protocols(
+        router, prefix, [("connected", 100)], "Kernel route should be connected"
+    )
+
+    router.run(f"ip route del {prefix} dev {ifname} metric 100")
+    _expect_route_protocols(
+        router, prefix, [], "Route should be gone with the kernel route"
+    )
+
+    step("Same, with the kernel route still on the early route Q")
+    router.run(f"ip addr del 192.168.46.1/24 dev {ifname}")
+    _expect_route_protocols(router, prefix, [], "Route should not be there")
+
+    def _early_route_metaq_is(count):
+        current = _get_early_route_metaq_current(router)
+        return None if current == count else "early route Q has {}".format(current)
+
+    _, result = topotest.run_and_expect(
+        partial(_early_route_metaq_is, 0), None, count=20, wait=1
+    )
+    assert result is None, result
+
+    router.vtysh_cmd("zebra test metaq disable")
+    router.run(f"ip route add {prefix} dev {ifname} metric 100")
+    _, result = topotest.run_and_expect(
+        partial(_early_route_metaq_is, 1), None, count=20, wait=1
+    )
+    assert result is None, result
+    router.run(f"ip addr add 192.168.46.1/24 dev {ifname} noprefixroute")
+    # kernel + local (unicast and multicast): zebra has seen the address
+    _, result = topotest.run_and_expect(
+        partial(_early_route_metaq_is, 3), None, count=20, wait=1
+    )
+    assert result is None, result
+    router.vtysh_cmd("no zebra test metaq disable")
+    _expect_route_protocols(
+        router, prefix, [("connected", 100)], "Queued kernel route should be connected"
+    )
+
+    step("Delete the last IPv4 address, the kernel flushes the route")
+    router.run(f"ip addr del 192.168.46.1/24 dev {ifname}")
+    _expect_route_protocols(
+        router, prefix, [], "Route should be gone with the last address"
+    )
+
+    step("A kernel route with a gateway keeps it when it becomes connected")
+    gateway = "192.168.46.254"
+    router.run(f"ip route add {prefix} via {gateway} dev {ifname} onlink metric 100")
+    _expect_route_nexthops(
+        router, prefix, [("kernel", [gateway])], "Kernel route missing"
+    )
+    router.run(f"ip addr add 192.168.46.1/24 dev {ifname} noprefixroute")
+    _expect_route_nexthops(
+        router, prefix, [("connected", [gateway])], "Gateway should be kept"
+    )
+    router.run(f"ip route del {prefix} via {gateway} dev {ifname} metric 100")
+    _expect_route_protocols(
+        router, prefix, [], "Route should be gone with the kernel route"
+    )
+
+    router.run(f"ip link del {ifname}")
+
+
 def test_zebra_kernel_route_add():
     "Test that a random kernel route is properly handled as expected"
 
