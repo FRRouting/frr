@@ -440,6 +440,7 @@ extern struct attr *bgp_attr_aggregate_intern(
 	struct community *community, struct ecommunity *ecommunity,
 	struct lcommunity *lcommunity, struct bgp_aggregate *aggregate,
 	uint8_t atomic_aggregate, const struct prefix *p);
+extern void bgp_peer_prepend_local_as(struct peer *peer, afi_t afi, safi_t safi, struct attr *attr);
 extern bgp_size_t
 bgp_packet_attribute(struct bgp *bgp, struct peer *peer, struct stream *s, struct attr *attr,
 		     struct bpacket_attr_vec_arr *vecarr, struct prefix *p, afi_t afi, safi_t safi,

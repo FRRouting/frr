@@ -1116,6 +1116,7 @@ void subgroup_default_originate(struct update_subgroup *subgrp, bool withdraw)
 	} else {
 		if (!CHECK_FLAG(subgrp->sflags,
 				SUBGRP_STATUS_DEFAULT_ORIGINATE)) {
+			struct attr attr_copy;
 
 			/* The 'neighbor x.x.x.x default-originate' default will
 			 * act as an
@@ -1148,9 +1149,19 @@ void subgroup_default_originate(struct update_subgroup *subgrp, bool withdraw)
 			    (CHECK_FLAG(peer->flags, PEER_FLAG_GRACEFUL_SHUTDOWN)))
 				bgp_attr_add_gshut_community(new_attr);
 
+			/*
+			 * Prepend local-AS for EBGP. Make a copy first since
+			 * new_attr may be interned (shared) when route-map
+			 * matched, and modifying it in place would corrupt
+			 * the attribute hash.
+			 */
+			bgp_attr_dup_into(&attr_copy, new_attr);
+			bgp_peer_prepend_local_as(peer, afi, safi, &attr_copy);
+
 			SET_FLAG(subgrp->sflags,
 				 SUBGRP_STATUS_DEFAULT_ORIGINATE);
-			subgroup_default_update_packet(subgrp, new_attr, from);
+			subgroup_default_update_packet(subgrp, &attr_copy, from);
+			bgp_attr_flush(&attr_copy);
 		}
 	}
 

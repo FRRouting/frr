@@ -122,7 +122,7 @@ def test_bgp_soo():
                 "show bgp vrf RED ipv4 unicast neighbors 192.168.2.1 advertised-routes json"
             )
         )
-        expected = {"advertisedRoutes": {"172.16.255.1/32": {"path": "65001"}}}
+        expected = {"advertisedRoutes": {"172.16.255.1/32": {"path": "65001 65001"}}}
         return topotest.json_cmp(output, expected)
 
     test_func = functools.partial(_bgp_soo_unconfigured)

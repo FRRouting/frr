@@ -3536,6 +3536,9 @@ bool subgroup_announce_check(struct bgp_dest *dest, struct bgp_path_info *pi,
 		}
 	}
 
+	/* Prepend the local-AS toward EBGP */
+	bgp_peer_prepend_local_as(peer, afi, safi, attr);
+
 	/* Handle originator-id and cluster-list for route reflection */
 	if (ibgp_to_ibgp) {
 		/* Prepend cluster-id to cluster list */
