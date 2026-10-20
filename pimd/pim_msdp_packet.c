@@ -430,7 +430,8 @@ static void pim_msdp_pkt_sa_gen(struct pim_instance *pim,
 
 		if (msdp_peer_sa_filter(mp, sa)) {
 			if (pim_msdp_log_sa_events(pim))
-				zlog_info("MSDP peer %pI4 filter SA out %s", &mp->peer, sa->sg_str);
+				zlog_info("MSDP peer %pI4 filter SA out (%s:%u:%u)%s", &mp->peer,
+					  PIM_DEBUG_VRF(sa->pim->vrf), sa->sg_str);
 
 			mp->acl_out_count++;
 			continue;
@@ -493,7 +494,8 @@ void pim_msdp_pkt_sa_tx_one(struct pim_msdp_sa *sa)
 	for (ALL_LIST_ELEMENTS_RO(sa->pim->msdp.peer_list, node, mp)) {
 		if (msdp_peer_sa_filter(mp, sa)) {
 			if (pim_msdp_log_sa_events(sa->pim))
-				zlog_info("MSDP peer %pI4 filter SA out %s", &mp->peer, sa->sg_str);
+				zlog_info("MSDP peer %pI4 filter SA out (%s:%u:%u)%s", &mp->peer,
+					  PIM_DEBUG_VRF(sa->pim->vrf), sa->sg_str);
 
 			mp->acl_out_count++;
 			continue;

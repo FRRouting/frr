@@ -152,22 +152,25 @@ static void pim_dm_assert_wrongif(struct interface *ifp, pim_sgaddr sg, struct p
 	/* CouldAssert(S,G,I) must be true to initiate Assert (RFC 3973 4.6.4) */
 	if (!PIM_IF_FLAG_TEST_COULD_ASSERT(ch->flags)) {
 		if (PIM_DEBUG_MROUTE)
-			zlog_debug("%s: (S,G)=%s CouldAssert false on %s, skipping assert",
-				   __func__, ch->sg_str, ifp->name);
+			zlog_debug("%s: (S,G)=(%s:%u:%u)%s CouldAssert false on %s, skipping assert",
+				   __func__, PIM_DEBUG_VRF(ch->interface->vrf), ch->sg_str,
+				   ifp->name);
 		return;
 	}
 
 	if (ch->ifassert_state != PIM_IFASSERT_NOINFO) {
 		if (PIM_DEBUG_MROUTE)
-			zlog_debug("%s: (S,G)=%s assert state %d on %s, skipping assert_action_a1",
-				   __func__, ch->sg_str, ch->ifassert_state, ifp->name);
+			zlog_debug("%s: (S,G)=(%s:%u:%u)%s assert state %d on %s, skipping assert_action_a1",
+				   __func__, PIM_DEBUG_VRF(ch->interface->vrf), ch->sg_str,
+				   ch->ifassert_state, ifp->name);
 		return;
 	}
 
 	if (assert_action_a1(ch)) {
 		if (PIM_DEBUG_MROUTE)
-			zlog_debug("%s: (S,G)=%s assert_action_a1 failure on %s", __func__,
-				   ch->sg_str, ifp->name);
+			zlog_debug("%s: (S,G)=(%s:%u:%u)%s assert_action_a1 failure on %s",
+				   __func__, PIM_DEBUG_VRF(ch->interface->vrf), ch->sg_str,
+				   ifp->name);
 	}
 }
 
@@ -288,8 +291,9 @@ void pim_dm_assert_state_changed(struct pim_ifchannel *ch, enum pim_ifassert_sta
 			rpf.source_nexthop.interface = ifp;
 			rpf.source_nexthop.mrib_nexthop_addr = ch->ifassert_winner;
 			if (PIM_DEBUG_PIM_J_P)
-				zlog_debug("%s: (S,G)=%s Assert loser on %s, pruning winner %pPA",
-					   __func__, ch->sg_str, ifp->name, &ch->ifassert_winner);
+				zlog_debug("%s: (S,G)=(%s:%u:%u)%s Assert loser on %s, pruning winner %pPA",
+					   __func__, PIM_DEBUG_VRF(ch->interface->vrf), ch->sg_str,
+					   ifp->name, &ch->ifassert_winner);
 			pim_dm_prune_send(rpf, up, 0);
 		}
 	} else if (new_state == PIM_IFASSERT_NOINFO) {

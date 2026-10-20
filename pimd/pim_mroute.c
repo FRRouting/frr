@@ -539,7 +539,8 @@ int pim_mroute_msg_nocache(int fd, struct interface *ifp, const kernmsg *msg)
 	 * I want to take advantage of the up->sg_str being filled in.
 	 */
 	if (PIM_DEBUG_MROUTE)
-		zlog_debug("%s: Adding a Route %s for WHOLEPKT consumption", __func__, up->sg_str);
+		zlog_debug("%s: Adding a Route (%s:%u:%u)%s for WHOLEPKT consumption", __func__,
+			   PIM_DEBUG_VRF(up->pim->vrf), up->sg_str);
 
 	if (!pim_is_group_filtered(pim_ifp, &sg.grp, &sg.src))
 		pim_register_join(up);
@@ -641,7 +642,8 @@ int pim_mroute_msg_wholepkt(int fd, struct interface *ifp, const char *buf,
 				pim_upstream_update_join_desired(pim_ifp->pim, up);
 
 				if (PIM_DEBUG_MROUTE)
-					zlog_debug("%s: Creating %s upstream on LHR", __func__,
+					zlog_debug("%s: Creating (%s:%u:%u)%s upstream on LHR",
+						   __func__, PIM_DEBUG_VRF(up->pim->vrf),
 						   up->sg_str);
 				return 0;
 			}
@@ -657,8 +659,8 @@ have_up:
 
 	if (!up->rpf.source_nexthop.interface) {
 		if (PIM_DEBUG_PIM_TRACE)
-			zlog_debug("%s: up %s RPF is not present", __func__,
-				   up->sg_str);
+			zlog_debug("%s: up (%s:%u:%u)%s RPF is not present", __func__,
+				   PIM_DEBUG_VRF(up->pim->vrf), up->sg_str);
 		return 0;
 	}
 
@@ -686,9 +688,8 @@ have_up:
 
 		if (!PIM_UPSTREAM_FLAG_TEST_FHR(up->flags)) {
 			if (PIM_DEBUG_PIM_REG)
-				zlog_debug(
-					"%s register forward skipped, not FHR",
-					up->sg_str);
+				zlog_debug("(%s:%u:%u)%s register forward skipped, not FHR",
+					   PIM_DEBUG_VRF(up->pim->vrf), up->sg_str);
 			return 0;
 		}
 
@@ -1100,27 +1101,27 @@ int pim_mroute_msg_wrongvif(int fd, struct interface *ifp, const kernmsg *msg)
 
 	if (ch->ifassert_state != PIM_IFASSERT_NOINFO) {
 		if (PIM_DEBUG_MROUTE) {
-			zlog_debug(
-				"%s: WRONGVIF (S,G)=%s channel is not on Assert NoInfo state for interface %s",
-				__func__, ch->sg_str, ifp->name);
+			zlog_debug("%s: WRONGVIF (S,G)=(%s:%u:%u)%s channel is not on Assert NoInfo state for interface %s",
+				   __func__, PIM_DEBUG_VRF(ch->interface->vrf), ch->sg_str,
+				   ifp->name);
 		}
 		return -4;
 	}
 
 	if (!PIM_IF_FLAG_TEST_COULD_ASSERT(ch->flags)) {
 		if (PIM_DEBUG_MROUTE) {
-			zlog_debug(
-				"%s: WRONGVIF (S,G)=%s interface %s is not downstream for channel",
-				__func__, ch->sg_str, ifp->name);
+			zlog_debug("%s: WRONGVIF (S,G)=(%s:%u:%u)%s interface %s is not downstream for channel",
+				   __func__, PIM_DEBUG_VRF(ch->interface->vrf), ch->sg_str,
+				   ifp->name);
 		}
 		return -5;
 	}
 
 	if (assert_action_a1(ch)) {
 		if (PIM_DEBUG_MROUTE) {
-			zlog_debug(
-				"%s: WRONGVIF (S,G)=%s assert_action_a1 failure on interface %s",
-				__func__, ch->sg_str, ifp->name);
+			zlog_debug("%s: WRONGVIF (S,G)=(%s:%u:%u)%s assert_action_a1 failure on interface %s",
+				   __func__, PIM_DEBUG_VRF(ch->interface->vrf), ch->sg_str,
+				   ifp->name);
 		}
 		return -6;
 	}
@@ -1173,9 +1174,8 @@ int pim_mroute_msg_wrvifwhole(int fd, struct interface *ifp, const char *buf,
 	pim_ifchannel_find(ifp, &sg, &ch, &throwaway);
 	if (ch) {
 		if (PIM_DEBUG_MROUTE)
-			zlog_debug(
-				"WRVIFWHOLE (S,G)=%s found ifchannel on interface %s",
-				ch->sg_str, ifp->name);
+			zlog_debug("WRVIFWHOLE (S,G)=(%s:%u:%u)%s found ifchannel on interface %s",
+				   PIM_DEBUG_VRF(ch->interface->vrf), ch->sg_str, ifp->name);
 		return -1;
 	}
 

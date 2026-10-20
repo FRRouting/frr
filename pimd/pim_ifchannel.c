@@ -122,13 +122,13 @@ void pim_ifchannel_delete(struct pim_ifchannel *origch)
 	up = origch->upstream;
 
 	if (PIM_DEBUG_PIM_TRACE)
-		zlog_debug("%s: ifchannel entry %s(%s) del start", __func__, origch->sg_str,
-			   ifp->name);
+		zlog_debug("%s: ifchannel entry (%s:%u:%u)%s(%s) del start", __func__,
+			   PIM_DEBUG_VRF(origch->interface->vrf), origch->sg_str, ifp->name);
 
 	if (PIM_I_am_DualActive(pim_ifp)) {
 		if (PIM_DEBUG_MLAG)
-			zlog_debug("%s: if-chnanel-%s is deleted from a Dual active Interface",
-				   __func__, origch->sg_str);
+			zlog_debug("%s: if-chnanel-(%s:%u:%u)%s is deleted from a Dual active Interface",
+				   __func__, PIM_DEBUG_VRF(origch->interface->vrf), origch->sg_str);
 		/* Post Delete only if it is the last Dual-active Interface */
 		if (up->dualactive_ifchannel_count == 1) {
 			pim_mlag_up_local_del(pim_ifp->pim, up);
@@ -198,8 +198,9 @@ void pim_ifchannel_delete(struct pim_ifchannel *origch)
 
 	else {
 		if (PIM_DEBUG_PIM_TRACE)
-			zlog_debug("%s: Avoiding deletion of upstream with ref_count %d from ifchannel(%s): %s",
-				   __func__, up->ref_count, ifp->name, origch->sg_str);
+			zlog_debug("%s: Avoiding deletion of upstream with ref_count %d from ifchannel(%s): (%s:%u:%u)%s",
+				   __func__, up->ref_count, ifp->name,
+				   PIM_DEBUG_VRF(origch->interface->vrf), origch->sg_str);
 	}
 
 	origch->upstream = NULL;
@@ -216,8 +217,8 @@ void pim_ifchannel_delete(struct pim_ifchannel *origch)
 	RB_REMOVE(pim_ifchannel_rb, &pim_ifp->ifchannel_rb, origch);
 
 	if (PIM_DEBUG_PIM_TRACE)
-		zlog_debug("%s: ifchannel entry %s(%s) is deleted ", __func__, origch->sg_str,
-			   ifp->name);
+		zlog_debug("%s: ifchannel entry (%s:%u:%u)%s(%s) is deleted ", __func__,
+			   PIM_DEBUG_VRF(origch->interface->vrf), origch->sg_str, ifp->name);
 
 #if PIM_IPV == 6
 	/* Embedded RPs learned via PIM join/connected source are freed here */
@@ -270,8 +271,9 @@ void pim_ifchannel_ifjoin_switch(const char *caller, struct pim_ifchannel *ch,
 	struct pim_ifchannel *child_ch;
 
 	if (PIM_DEBUG_PIM_EVENTS)
-		zlog_debug("PIM_IFCHANNEL(%s): %s is switching from %s to %s", ch->interface->name,
-			   ch->sg_str, pim_ifchannel_ifjoin_name(ch->ifjoin_state, ch->sg_rpt),
+		zlog_debug("PIM_IFCHANNEL(%s): (%s:%u:%u)%s is switching from %s to %s",
+			   ch->interface->name, PIM_DEBUG_VRF(ch->interface->vrf), ch->sg_str,
+			   pim_ifchannel_ifjoin_name(ch->ifjoin_state, ch->sg_rpt),
 			   pim_ifchannel_ifjoin_name(new_state, false));
 
 
@@ -298,11 +300,11 @@ void pim_ifchannel_ifjoin_switch(const char *caller, struct pim_ifchannel *ch,
 						child->channel_oil;
 
 					if (PIM_DEBUG_PIM_TRACE)
-						zlog_debug(
-							"%s %s: Prune(S,G)=%s from %s",
-							__FILE__, __func__,
-							child->sg_str,
-							up->sg_str);
+						zlog_debug("%s %s: Prune(S,G)=(%s:%u:%u)%s from (%s:%u:%u)%s",
+							   __FILE__, __func__,
+							   PIM_DEBUG_VRF(child->pim->vrf),
+							   child->sg_str,
+							   PIM_DEBUG_VRF(up->pim->vrf), up->sg_str);
 					if (!c_oil)
 						continue;
 
@@ -325,11 +327,11 @@ void pim_ifchannel_ifjoin_switch(const char *caller, struct pim_ifchannel *ch,
 					struct pim_ifchannel *child_chrpt;
 
 					if (PIM_DEBUG_PIM_TRACE)
-						zlog_debug(
-							"%s %s: Join(S,G)=%s from %s",
-							__FILE__, __func__,
-							child->sg_str,
-							up->sg_str);
+						zlog_debug("%s %s: Join(S,G)=(%s:%u:%u)%s from (%s:%u:%u)%s",
+							   __FILE__, __func__,
+							   PIM_DEBUG_VRF(child->pim->vrf),
+							   child->sg_str,
+							   PIM_DEBUG_VRF(up->pim->vrf), up->sg_str);
 
 					/* check if the channel can be
 					 * inherited into the SG's OIL
@@ -356,10 +358,10 @@ void pim_ifchannel_ifjoin_switch(const char *caller, struct pim_ifchannel *ch,
 	    || (new_state == PIM_IFJOIN_NOINFO)) {
 
 		if (PIM_DEBUG_PIM_EVENTS) {
-			zlog_debug("PIM_IFCHANNEL_%s: (S,G)=%s on interface %s",
-				   ((new_state == PIM_IFJOIN_NOINFO) ? "DOWN"
-								     : "UP"),
-				   ch->sg_str, ch->interface->name);
+			zlog_debug("PIM_IFCHANNEL_%s: (S,G)=(%s:%u:%u)%s on interface %s",
+				   ((new_state == PIM_IFJOIN_NOINFO) ? "DOWN" : "UP"),
+				   PIM_DEBUG_VRF(ch->interface->vrf), ch->sg_str,
+				   ch->interface->name);
 		}
 
 		/* pim_upstream_update_join_desired looks at up->channel_oil,
@@ -478,10 +480,9 @@ static void ifmembership_set(struct pim_ifchannel *ch,
 		return;
 
 	if (PIM_DEBUG_PIM_EVENTS) {
-		zlog_debug("%s: (S,G)=%s membership now is %s on interface %s",
-			   __func__, ch->sg_str,
-			   membership == PIM_IFMEMBERSHIP_INCLUDE ? "INCLUDE"
-								  : "NOINFO",
+		zlog_debug("%s: (S,G)=(%s:%u:%u)%s membership now is %s on interface %s", __func__,
+			   PIM_DEBUG_VRF(ch->interface->vrf), ch->sg_str,
+			   membership == PIM_IFMEMBERSHIP_INCLUDE ? "INCLUDE" : "NOINFO",
 			   ch->interface->name);
 	}
 
@@ -645,10 +646,9 @@ struct pim_ifchannel *pim_ifchannel_add(struct interface *ifp, pim_sgaddr *sg,
 			pim_mlag_up_local_add(pim_ifp->pim, up);
 		}
 		if (PIM_DEBUG_MLAG)
-			zlog_debug(
-				"%s: New Dual active if-chnanel is added to upstream:%s count:%d, flags:0x%x",
-				__func__, up->sg_str,
-				up->dualactive_ifchannel_count, up->flags);
+			zlog_debug("%s: New Dual active if-chnanel is added to upstream:(%s:%u:%u)%s count:%d, flags:0x%x",
+				   __func__, PIM_DEBUG_VRF(up->pim->vrf), up->sg_str,
+				   up->dualactive_ifchannel_count, up->flags);
 	}
 
 	if (up_flags == PIM_UPSTREAM_FLAG_MASK_SRC_PIM)
@@ -658,8 +658,8 @@ struct pim_ifchannel *pim_ifchannel_add(struct interface *ifp, pim_sgaddr *sg,
 		PIM_IF_FLAG_SET_PROTO_IGMP(ch->flags);
 
 	if (PIM_DEBUG_PIM_TRACE)
-		zlog_debug("%s: ifchannel %s(%s) is created ", __func__,
-			   ch->sg_str, ch->interface->name);
+		zlog_debug("%s: ifchannel (%s:%u:%u)%s(%s) is created ", __func__,
+			   PIM_DEBUG_VRF(ch->interface->vrf), ch->sg_str, ch->interface->name);
 
 	return ch;
 }
@@ -682,8 +682,8 @@ static void on_ifjoin_expiry_timer(struct event *t)
 	ch = EVENT_ARG(t);
 
 	if (PIM_DEBUG_PIM_TRACE)
-		zlog_debug("%s: ifchannel %s expiry timer", __func__,
-			   ch->sg_str);
+		zlog_debug("%s: ifchannel (%s:%u:%u)%s expiry timer", __func__,
+			   PIM_DEBUG_VRF(ch->interface->vrf), ch->sg_str);
 
 	ifjoin_to_noinfo(ch);
 	/* ch may have been deleted */
@@ -780,8 +780,8 @@ static void check_recv_upstream(int is_join, struct interface *recv_ifp,
 
 	if (pim_rpf_addr_is_inaddr_any(&up->rpf)) {
 		/* RPF'(S,G) not found */
-		zlog_warn("%s %s: RPF'%s not found", __FILE__, __func__,
-			  up->sg_str);
+		zlog_warn("%s %s: RPF'(%s:%u:%u)%s not found", __FILE__, __func__,
+			  PIM_DEBUG_VRF(up->pim->vrf), up->sg_str);
 		return;
 	}
 
@@ -789,10 +789,9 @@ static void check_recv_upstream(int is_join, struct interface *recv_ifp,
 
 	/* upstream directed to RPF'(S,G) ? */
 	if (pim_addr_cmp(upstream, rpf_addr)) {
-		zlog_warn(
-			"%s %s: (S,G)=%s upstream=%pPAs not directed to RPF'(S,G)=%pPAs on interface %s",
-			__FILE__, __func__, up->sg_str, &upstream, &rpf_addr,
-			recv_ifp->name);
+		zlog_warn("%s %s: (S,G)=(%s:%u:%u)%s upstream=%pPAs not directed to RPF'(S,G)=%pPAs on interface %s",
+			  __FILE__, __func__, PIM_DEBUG_VRF(up->pim->vrf), up->sg_str, &upstream,
+			  &rpf_addr, recv_ifp->name);
 		return;
 	}
 	/* upstream directed to RPF'(S,G) */
@@ -905,8 +904,8 @@ void pim_ifchannel_join_add(struct interface *ifp, pim_addr neigh_addr,
 	  address of the join message is our primary address.
 	 */
 	if (ch->ifassert_state == PIM_IFASSERT_I_AM_LOSER) {
-		zlog_warn("%s: Assert Loser recv Join%s from %pPA on %s",
-			  __func__, ch->sg_str, &neigh_addr, ifp->name);
+		zlog_warn("%s: Assert Loser recv Join(%s:%u:%u)%s from %pPA on %s", __func__,
+			  PIM_DEBUG_VRF(ch->interface->vrf), ch->sg_str, &neigh_addr, ifp->name);
 
 		assert_action_a5(ch);
 	}
@@ -1232,17 +1231,18 @@ int pim_ifchannel_local_membership_add(struct interface *ifp, pim_sgaddr *sg,
 
 		for (ALL_LIST_ELEMENTS_RO(up->sources, up_node, child)) {
 			if (PIM_DEBUG_EVENTS)
-				zlog_debug("%s %s: IGMP (S,G)=%s(%s) from %s",
-					   __FILE__, __func__, child->sg_str,
-					   ifp->name, up->sg_str);
+				zlog_debug("%s %s: IGMP (S,G)=(%s:%u:%u)%s(%s) from (%s:%u:%u)%s",
+					   __FILE__, __func__, PIM_DEBUG_VRF(child->pim->vrf),
+					   child->sg_str, ifp->name, PIM_DEBUG_VRF(up->pim->vrf),
+					   up->sg_str);
 
 			if (!child->rpf.source_nexthop.interface) {
 				/* when iif unknown, do not inherit */
 				if (PIM_DEBUG_EVENTS)
-					zlog_debug(
-						"Skipped (S,G)=%s(%s) from %s: no iif",
-						child->sg_str, ifp->name,
-						up->sg_str);
+					zlog_debug("Skipped (S,G)=(%s:%u:%u)%s(%s) from (%s:%u:%u)%s: no iif",
+						   PIM_DEBUG_VRF(child->pim->vrf), child->sg_str,
+						   ifp->name, PIM_DEBUG_VRF(up->pim->vrf),
+						   up->sg_str);
 				continue;
 			}
 
@@ -1314,9 +1314,10 @@ void pim_ifchannel_local_membership_del(struct interface *ifp, pim_sgaddr *sg)
 			pim_ifp = ifp->info;
 
 			if (PIM_DEBUG_EVENTS)
-				zlog_debug("%s %s: Prune(S,G)=%s(%s) from %s",
-					   __FILE__, __func__, up->sg_str,
-					   ifp->name, child->sg_str);
+				zlog_debug("%s %s: Prune(S,G)=(%s:%u:%u)%s(%s) from (%s:%u:%u)%s",
+					   __FILE__, __func__, PIM_DEBUG_VRF(up->pim->vrf),
+					   up->sg_str, ifp->name, PIM_DEBUG_VRF(child->pim->vrf),
+					   child->sg_str);
 
 			/*
 			 * If the S,G has no if channel and the c_oil still
@@ -1493,9 +1494,9 @@ void pim_ifchannel_set_star_g_join_state(struct pim_ifchannel *ch, int eom,
 	struct pim_upstream *starup = ch->upstream;
 
 	if (PIM_DEBUG_PIM_TRACE)
-		zlog_debug("%s: %s %s eom: %d join %u", __func__,
-			   pim_ifchannel_ifjoin_name(ch->ifjoin_state, ch->sg_rpt), ch->sg_str,
-			   eom, join);
+		zlog_debug("%s: %s (%s:%u:%u)%s eom: %d join %u", __func__,
+			   pim_ifchannel_ifjoin_name(ch->ifjoin_state, ch->sg_rpt),
+			   PIM_DEBUG_VRF(ch->interface->vrf), ch->sg_str, eom, join);
 	if (!ch->sources)
 		return;
 

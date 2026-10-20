@@ -485,7 +485,8 @@ void pim_forward_stop(struct pim_ifchannel *origch)
 	pim_ifchannel_find(origch->interface, &origch->sg, &ch, &chrpt);
 
 	if (PIM_DEBUG_PIM_TRACE)
-		zlog_debug("%s: (S,G)=%s oif=%s installed: %d", __func__, origch->sg_str,
+		zlog_debug("%s: (S,G)=(%s:%u:%u)%s oif=%s installed: %d", __func__,
+			   PIM_DEBUG_VRF(origch->interface->vrf), origch->sg_str,
 			   origch->interface->name, up->channel_oil->installed);
 
 	/*

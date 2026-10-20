@@ -432,9 +432,9 @@ void pim_upstream_update(struct pim_instance *pim, struct pim_upstream *up)
 	if (!pim_addr_is_any(old_upstream_addr)) {
 		/* Deregister addr with Zebra NHT */
 		if (PIM_DEBUG_PIM_TRACE)
-			zlog_debug(
-				"%s: Deregister upstream %s addr %pPA with Zebra NHT",
-				__func__, up->sg_str, &old_upstream_addr);
+			zlog_debug("%s: Deregister upstream (%s:%u:%u)%s addr %pPA with Zebra NHT",
+				   __func__, PIM_DEBUG_VRF(up->pim->vrf), up->sg_str,
+				   &old_upstream_addr);
 		pim_nht_delete_tracked(pim, old_upstream_addr, up, NULL);
 	}
 

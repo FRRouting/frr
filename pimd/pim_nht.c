@@ -692,8 +692,9 @@ void pim_nht_delete_tracked_upstream(struct pim_instance *pim, pim_addr addr,
 	pnc = hash_lookup(pim->nht_hash, &lookup);
 	if (!pnc) {
 		if (PIM_DEBUG_PIM_NHT)
-			zlog_debug("%s: NHT %pPA(%s) not found for upstream %s; nothing to release",
-				   __func__, &addr, pim->vrf->name, up->sg_str);
+			zlog_debug("%s: NHT %pPA(%s) not found for upstream (%s:%u:%u)%s; nothing to release",
+				   __func__, &addr, pim->vrf->name, PIM_DEBUG_VRF(up->pim->vrf),
+				   up->sg_str);
 		return;
 	}
 
@@ -702,13 +703,14 @@ void pim_nht_delete_tracked_upstream(struct pim_instance *pim, pim_addr addr,
 	 */
 	if (hash_release(pnc->upstream_hash, up)) {
 		if (PIM_DEBUG_PIM_NHT)
-			zlog_debug("%s: released upstream %s from NHT %pPA(%s); remaining upstream count:%ld",
-				   __func__, up->sg_str, &addr, pim->vrf->name,
-				   pnc->upstream_hash->count);
+			zlog_debug("%s: released upstream (%s:%u:%u)%s from NHT %pPA(%s); remaining upstream count:%ld",
+				   __func__, PIM_DEBUG_VRF(up->pim->vrf), up->sg_str, &addr,
+				   pim->vrf->name, pnc->upstream_hash->count);
 		pim_nht_drop_maybe(pim, pnc);
 	} else if (PIM_DEBUG_PIM_NHT) {
-		zlog_debug("%s: upstream %s not in NHT %pPA(%s) bucket; redundant cleanup",
-			   __func__, up->sg_str, &addr, pim->vrf->name);
+		zlog_debug("%s: upstream (%s:%u:%u)%s not in NHT %pPA(%s) bucket; redundant cleanup",
+			   __func__, PIM_DEBUG_VRF(up->pim->vrf), up->sg_str, &addr,
+			   pim->vrf->name);
 	}
 }
 
@@ -1026,13 +1028,11 @@ static int pim_update_upstream_nh_helper(struct hash_bucket *bucket, void *arg)
 	}
 
 	if (PIM_DEBUG_PIM_NHT) {
-		zlog_debug("%s: NHT upstream %s(%s) old ifp %s new ifp %s rpf_result: %d",
-			   __func__, up->sg_str, pim->vrf->name,
-			   old.source_nexthop.interface ? old.source_nexthop
-								  .interface->name
+		zlog_debug("%s: NHT upstream (%s:%u:%u)%s(%s) old ifp %s new ifp %s rpf_result: %d",
+			   __func__, PIM_DEBUG_VRF(up->pim->vrf), up->sg_str, pim->vrf->name,
+			   old.source_nexthop.interface ? old.source_nexthop.interface->name
 							: "Unknown",
-			   up->rpf.source_nexthop.interface ? up->rpf.source_nexthop
-								      .interface->name
+			   up->rpf.source_nexthop.interface ? up->rpf.source_nexthop.interface->name
 							    : "Unknown",
 			   rpf_result);
 	}

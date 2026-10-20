@@ -21,24 +21,24 @@ extern struct zclient *pim_zclient;
 
 /*********************ACtual Data processing *****************************/
 /* TBD: There can be duplicate updates to FIB***/
-#define PIM_MLAG_ADD_OIF_TO_OIL(ch, ch_oil)                                    \
-	do {                                                                   \
-		if (PIM_DEBUG_MLAG)                                            \
-			zlog_debug(                                            \
-				"%s: add Dual-active Interface to %s "         \
-				"to oil:%s",                                   \
-				__func__, ch->interface->name, ch->sg_str);    \
-		pim_channel_update_oif_mute(ch_oil, ch->interface->info);      \
+#define PIM_MLAG_ADD_OIF_TO_OIL(ch, ch_oil)                                                       \
+	do {                                                                                      \
+		if (PIM_DEBUG_MLAG)                                                               \
+			zlog_debug("%s: add Dual-active Interface to %s "                         \
+				   "to oil:(%s:%u:%u)%s",                                         \
+				   __func__, ch->interface->name,                                 \
+				   PIM_DEBUG_VRF(ch->interface->vrf), ch->sg_str);                \
+		pim_channel_update_oif_mute(ch_oil, ch->interface->info);                         \
 	} while (0)
 
-#define PIM_MLAG_DEL_OIF_TO_OIL(ch, ch_oil)                                    \
-	do {                                                                   \
-		if (PIM_DEBUG_MLAG)                                            \
-			zlog_debug(                                            \
-				"%s: del Dual-active Interface to %s "         \
-				"to oil:%s",                                   \
-				__func__, ch->interface->name, ch->sg_str);    \
-		pim_channel_update_oif_mute(ch_oil, ch->interface->info);      \
+#define PIM_MLAG_DEL_OIF_TO_OIL(ch, ch_oil)                                                       \
+	do {                                                                                      \
+		if (PIM_DEBUG_MLAG)                                                               \
+			zlog_debug("%s: del Dual-active Interface to %s "                         \
+				   "to oil:(%s:%u:%u)%s",                                         \
+				   __func__, ch->interface->name,                                 \
+				   PIM_DEBUG_VRF(ch->interface->vrf), ch->sg_str);                \
+		pim_channel_update_oif_mute(ch_oil, ch->interface->info);                         \
 	} while (0)
 
 
@@ -57,8 +57,8 @@ static void pim_mlag_calculate_df_for_ifchannels(struct pim_upstream *up,
 		return;
 
 	if (PIM_DEBUG_MLAG)
-		zlog_debug("%s: Calculating DF for Dual active if-channel%s",
-			   __func__, up->sg_str);
+		zlog_debug("%s: Calculating DF for Dual active if-channel(%s:%u:%u)%s", __func__,
+			   PIM_DEBUG_VRF(up->pim->vrf), up->sg_str);
 
 	for (ALL_LIST_ELEMENTS(up->ifchannels, chnode, chnextnode, ch)) {
 		pim_ifp = (ch->interface) ? ch->interface->info : NULL;
@@ -83,8 +83,8 @@ static void pim_mlag_inherit_mlag_flags(struct pim_upstream *up, bool is_df)
 	struct channel_oil *ch_oil = NULL;
 
 	if (PIM_DEBUG_MLAG)
-		zlog_debug("%s: Updating DF for uptream:%s children", __func__,
-			   up->sg_str);
+		zlog_debug("%s: Updating DF for uptream:(%s:%u:%u)%s children", __func__,
+			   PIM_DEBUG_VRF(up->pim->vrf), up->sg_str);
 
 
 	for (ALL_LIST_ELEMENTS(up->ifchannels, chnode, chnextnode, ch)) {
@@ -94,8 +94,8 @@ static void pim_mlag_inherit_mlag_flags(struct pim_upstream *up, bool is_df)
 
 		for (ALL_LIST_ELEMENTS_RO(up->sources, listnode, child)) {
 			if (PIM_DEBUG_MLAG)
-				zlog_debug("%s: Updating DF for child:%s",
-					   __func__, child->sg_str);
+				zlog_debug("%s: Updating DF for child:(%s:%u:%u)%s", __func__,
+					   PIM_DEBUG_VRF(child->pim->vrf), child->sg_str);
 			ch_oil = (child) ? child->channel_oil : NULL;
 
 			if (!ch_oil)
@@ -120,15 +120,15 @@ bool pim_mlag_up_df_role_update(struct pim_instance *pim,
 
 	if (is_df == old_is_df) {
 		if (PIM_DEBUG_MLAG)
-			zlog_debug(
-				"%s: Ignoring Role update for %s, since no change",
-				__func__, up->sg_str);
+			zlog_debug("%s: Ignoring Role update for (%s:%u:%u)%s, since no change",
+				   __func__, PIM_DEBUG_VRF(up->pim->vrf), up->sg_str);
 		return false;
 	}
 
 	if (PIM_DEBUG_MLAG)
-		zlog_debug("local MLAG mroute %s role changed to %s based on %s",
-				up->sg_str, is_df ? "df" : "non-df", reason);
+		zlog_debug("local MLAG mroute (%s:%u:%u)%s role changed to %s based on %s",
+			   PIM_DEBUG_VRF(up->pim->vrf), up->sg_str, is_df ? "df" : "non-df",
+			   reason);
 
 	if (is_df)
 		PIM_UPSTREAM_FLAG_UNSET_MLAG_NON_DF(up->flags);
@@ -416,8 +416,8 @@ static void pim_mlag_up_local_add_send(struct pim_instance *pim,
 		return;
 
 	if (PIM_DEBUG_MLAG)
-		zlog_debug("local MLAG mroute add %s:%s",
-				vrf->name, up->sg_str);
+		zlog_debug("local MLAG mroute add %s:(%s:%u:%u)%s", vrf->name,
+			   PIM_DEBUG_VRF(up->pim->vrf), up->sg_str);
 
 	++router->mlag_stats.msg.mroute_add_tx;
 
@@ -454,8 +454,8 @@ static void pim_mlag_up_local_del_send(struct pim_instance *pim,
 		return;
 
 	if (PIM_DEBUG_MLAG)
-		zlog_debug("local MLAG mroute del %s:%s",
-				vrf->name, up->sg_str);
+		zlog_debug("local MLAG mroute del %s:(%s:%u:%u)%s", vrf->name,
+			   PIM_DEBUG_VRF(up->pim->vrf), up->sg_str);
 
 	++router->mlag_stats.msg.mroute_del_tx;
 
