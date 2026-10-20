@@ -3757,6 +3757,15 @@ static enum bgp_attr_parse_ret bgp_attr_srv6_service(struct bgp_attr_parser_args
 		size_t start;
 		size_t consumed;
 
+		/* We already processed an SID Information Sub-TLV. RFC 9252 says
+		 * that when multiple instances are present, the ingress PE SHOULD use
+		 * the SID from the first, so ignore this subsequent instance.
+		 */
+		if (bgp_attr_get_srv6_l3service(attr)) {
+			stream_forward_getp(connection->curr, length);
+			return BGP_ATTR_PARSE_PROCEED;
+		}
+
 		if (length < BGP_PREFIX_SID_SRV6_L3_SERVICE_SID_INFO_LENGTH) {
 			flog_err(EC_BGP_ATTR_LEN,
 				 "Malformed SRv6 Service Sub-TLV attribute - declared length %u is less than minimum %d",
@@ -3779,13 +3788,6 @@ static enum bgp_attr_parse_ret bgp_attr_srv6_service(struct bgp_attr_parser_args
 				   __func__, &ipv6_sid, sid_flags, endpoint_behavior);
 
 		/* Configure from Info */
-		if (bgp_attr_get_srv6_l3service(attr)) {
-			flog_err(EC_BGP_ATTRIBUTE_REPEATED,
-				 "Prefix SID SRv6 L3 Service field repeated");
-			return bgp_attr_malformed(
-				args, BGP_NOTIFY_UPDATE_MAL_ATTR, args->total);
-		}
-
 		struct bgp_attr_srv6_l3service *srv6_l3service =
 			XCALLOC(MTYPE_BGP_SRV6_L3SERVICE, sizeof(struct bgp_attr_srv6_l3service));
 
