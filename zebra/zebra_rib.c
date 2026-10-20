@@ -2911,6 +2911,72 @@ static void process_subq_early_route_add(struct zebra_early_route *ere)
 	XFREE(MTYPE_WQ_WRAPPER, ere);
 }
 
+/*
+ * rib_add_multipath() files a kernel route for the subnet of a noprefixroute
+ * address as a connected route.  That route still belongs to the kernel: it
+ * is gone when the kernel deletes it or flushes it, not when an address goes.
+ * The connected routes zebra creates itself (connected_up()) are the ones for
+ * the subnet of an address without noprefixroute on the interface.  Such an
+ * address must have exactly this subnet: one that merely covers it does not
+ * get a connected route for it.
+ */
+static bool rib_route_is_kernel_connected(struct route_node *rn, const struct route_entry *re)
+{
+	const struct prefix *p;
+	struct nexthop *nh = re->nhe->nhg.nexthop;
+	struct interface *ifp;
+	struct connected *c;
+	struct prefix cp;
+
+	if (re->type != ZEBRA_ROUTE_CONNECT || !nh)
+		return false;
+
+	ifp = if_lookup_by_index(nh->ifindex, nh->vrf_id);
+	if (!ifp)
+		return false;
+
+	srcdest_rnode_prefixes(rn, &p, NULL);
+
+	frr_each (if_connected, ifp->connected, c) {
+		if (CHECK_FLAG(c->flags, ZEBRA_IFA_NOPREFIXROUTE))
+			continue;
+
+		prefix_copy(&cp, CONNECTED_PREFIX(c));
+		apply_mask(&cp);
+		if (prefix_same(&cp, p))
+			return false;
+	}
+
+	return true;
+}
+
+/*
+ * The kernel deleted a kernel route that we filed as connected.  Without a
+ * nexthop (a multipath route), match on the metric, as for a kernel route.
+ */
+static struct route_entry *rib_find_kernel_connected(struct route_node *rn,
+						     const struct zebra_early_route *ere,
+						     const struct nexthop *nh)
+{
+	struct route_entry *re;
+
+	if (!ere->fromkernel || ere->re->type != ZEBRA_ROUTE_KERNEL)
+		return NULL;
+
+	RNODE_FOREACH_RE (rn, re) {
+		if (CHECK_FLAG(re->status, ROUTE_ENTRY_REMOVED))
+			continue;
+
+		if (re->metric != ere->re->metric || !rib_route_is_kernel_connected(rn, re))
+			continue;
+
+		if (!nh || re->nhe->nhg.nexthop->ifindex == nh->ifindex)
+			return re;
+	}
+
+	return NULL;
+}
+
 static void process_subq_early_route_delete(struct zebra_early_route *ere)
 {
 	struct route_table *table;
@@ -3019,6 +3085,10 @@ static void process_subq_early_route_delete(struct zebra_early_route *ere)
 		if (same)
 			break;
 	}
+
+	if (!same)
+		same = rib_find_kernel_connected(rn, ere, nh);
+
 	/*
 	 * If same type of route can't be found and this message is from
 	 * kernel.
@@ -3106,7 +3176,7 @@ static void process_subq_early_route_delete(struct zebra_early_route *ere)
 		 * EVPN - the nexthop (and associated MAC) need to be
 		 * uninstalled if no more refs.
 		 */
-		for (ALL_NEXTHOPS(re->nhe->nhg, tmp_nh)) {
+		for (ALL_NEXTHOPS(same->nhe->nhg, tmp_nh)) {
 			if (CHECK_FLAG(tmp_nh->flags, NEXTHOP_FLAG_EVPN)) {
 				struct ipaddr vtep_ip = {};
 
@@ -3126,7 +3196,7 @@ static void process_subq_early_route_delete(struct zebra_early_route *ere)
 		}
 
 		/* Notify dplane if system route changes */
-		if (RIB_SYSTEM_ROUTE(re))
+		if (RIB_SYSTEM_ROUTE(same))
 			dplane_sys_route_del(rn, same);
 
 		rib_delnode(rn, same);
@@ -4768,12 +4838,16 @@ rib_update_handle_kernel_route_down_possibility(struct route_node *rn,
 		struct rib_table_info *rib_table = srcdest_rnode_table_info(rn);
 		const struct prefix *p;
 		const struct prefix_ipv6 *src_p;
+		const struct nexthop *nh = NULL;
 
 		srcdest_rnode_prefixes(rn, &p, (const struct prefix **)&src_p);
 
-		rib_delete(rib_table->afi, rib_table->safi, re->vrf_id,
-			   re->type, re->instance, re->flags, p, src_p, NULL, 0,
-			   re->table, re->metric, re->distance, true);
+		/* Without a nexthop, the first connected route for p would match */
+		if (re->type == ZEBRA_ROUTE_CONNECT)
+			nh = re->nhe->nhg.nexthop;
+
+		rib_delete(rib_table->afi, rib_table->safi, re->vrf_id, re->type, re->instance,
+			   re->flags, p, src_p, nh, 0, re->table, re->metric, re->distance, true);
 	}
 }
 
@@ -4788,7 +4862,8 @@ static void rib_update_route_node(struct route_node *rn, int type,
 	RNODE_FOREACH_RE_SAFE (rn, re, next) {
 		if ((event == RIB_UPDATE_INTERFACE_DOWN ||
 		     event == RIB_UPDATE_KERNEL_LAST_IPV4_ADDRESS_DELETED) &&
-		    type == re->type && type == ZEBRA_ROUTE_KERNEL)
+		    type == ZEBRA_ROUTE_KERNEL &&
+		    (re->type == ZEBRA_ROUTE_KERNEL || rib_route_is_kernel_connected(rn, re)))
 			rib_update_handle_kernel_route_down_possibility(rn, re);
 		else if (type == ZEBRA_ROUTE_ALL || type == re->type) {
 			SET_FLAG(re->status, ROUTE_ENTRY_CHANGED);
