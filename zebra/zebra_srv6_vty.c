@@ -1483,8 +1483,7 @@ DEFPY(no_srv6_sid_format_usid_wlib,
 			SRV6_SID_FORMAT_USID_F3216_WLIB_START;
 		format->config.usid.wlib_end =
 			SRV6_SID_FORMAT_USID_F3216_WLIB_END;
-	}
-	if (strmatch(format->name, SRV6_SID_FORMAT_USID_F4816_NAME)) {
+	} else if (strmatch(format->name, SRV6_SID_FORMAT_USID_F4816_NAME)) {
 		format->config.usid.wlib_start = SRV6_SID_FORMAT_USID_F4816_WLIB_START;
 		format->config.usid.wlib_end = SRV6_SID_FORMAT_USID_F4816_WLIB_END;
 	} else {
@@ -1568,7 +1567,7 @@ DEFPY(no_srv6_sid_format_explicit,
 	VTY_DECLVAR_CONTEXT(srv6_sid_format, format);
 
 	if (strmatch(format->name, SRV6_SID_FORMAT_UNCOMPRESSED_F4024_NAME))
-		format->config.usid.ewlib_start =
+		format->config.uncompressed.explicit_start =
 			SRV6_SID_FORMAT_UNCOMPRESSED_F4024_EXPLICIT_RANGE_START;
 	else
 		assert(0);
