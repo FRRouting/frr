@@ -128,7 +128,8 @@ static void eigrp_update_receive_GR_ask(struct eigrp *eigrp,
 
 	/* iterate over all prefixes which weren't advertised by neighbor */
 	for (ALL_LIST_ELEMENTS_RO(nbr_prefixes, node1, prefix)) {
-		zlog_debug("GR receive: Neighbor not advertised %pFX", &prefix->destination);
+		zlog_debug("GR receive: Neighbor not advertised (%s:%u:%u)%pFX",
+			   EIGRP_DEBUG_VRF(eigrp), &prefix->destination);
 
 		fsm_msg.metrics = prefix->reported_metric;
 		/* set delay to MAX */
@@ -360,8 +361,7 @@ void eigrp_update_receive(struct eigrp *eigrp, struct ip *iph,
 				ne->flags =
 					EIGRP_ROUTE_DESCRIPTOR_SUCCESSOR_FLAG;
 
-				eigrp_prefix_descriptor_add(
-					eigrp->topology_table, pe);
+				eigrp_prefix_descriptor_add(eigrp, pe);
 				eigrp_route_descriptor_add(eigrp, pe, ne);
 				pe->distance = pe->fdistance = pe->rdistance =
 					ne->distance;
