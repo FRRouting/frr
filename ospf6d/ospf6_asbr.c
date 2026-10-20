@@ -3118,13 +3118,13 @@ static void ospf6_aggr_handle_external_info(void *data)
 
 	rt->to_be_processed = true;
 
+	ospf6 = rt->ospf6;
+	assert(ospf6);
+
 	if (IS_OSPF6_DEBUG_ASBR || IS_OSPF6_DEBUG_ORIGINATE(AS_EXTERNAL))
 		zlog_debug("%s: Handle external route for origination/refresh (%pFX)",
 					__func__,
 					&rt->prefix);
-
-	ospf6 = rt->ospf6;
-	assert(ospf6);
 
 	aggr = ospf6_external_aggr_match(ospf6,
 					&rt->prefix);

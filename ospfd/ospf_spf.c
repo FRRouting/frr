@@ -1876,7 +1876,7 @@ static void ospf_spf_calculate_schedule_worker(struct event *event)
 
 	/* Get rid of transit networks and routers we cannot reach anyway. */
 	monotime(&start_time);
-	ospf_prune_unreachable_networks(new_table);
+	ospf_prune_unreachable_networks(ospf, new_table);
 	if (all_rtrs)
 		ospf_prune_unreachable_routers(all_rtrs);
 	ospf_prune_unreachable_routers(new_rtrs);
