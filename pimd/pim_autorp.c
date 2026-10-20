@@ -424,8 +424,8 @@ static void autorp_ma_rp_holdtime(struct event *evt)
 	struct pim_autorp_rp *rp = EVENT_ARG(evt);
 
 	if (PIM_DEBUG_AUTORP)
-		zlog_debug("%s: AutoRP hold time expired, RP removed from mapping agent: addr=%pI4, grp=%pFX, grplist=%s",
-			   __func__, &rp->addr, &rp->grp,
+		zlog_debug("%s: AutoRP hold time expired, RP removed from mapping agent: addr=%pI4, grp=(%s:%u:%u)%pFX, grplist=%s",
+			   __func__, &rp->addr, PIM_DEBUG_VRF(rp->autorp->pim->vrf), &rp->grp,
 			   (strlen(rp->grplist) ? rp->grplist : "NONE"));
 
 	pim_autorp_rp_del(&(rp->autorp->mapping_rp_list), rp);
@@ -514,8 +514,9 @@ static bool autorp_announcement_prescan_ok(struct pim_autorp *autorp, uint8_t rp
 
 			if (!pim_autorp_group_prefix_valid(&grp_pfx)) {
 				if (PIM_DEBUG_AUTORP)
-					zlog_debug("%s: invalid group prefix %pFX for RP %pPA (prescan)",
-						   __func__, &grp_pfx, &pre_rp_addr);
+					zlog_debug("%s: invalid group prefix (%s:%u:%u)%pFX for RP %pPA (prescan)",
+						   __func__, PIM_DEBUG_VRF(autorp->pim->vrf),
+						   &grp_pfx, &pre_rp_addr);
 				return false;
 			}
 		}
@@ -647,16 +648,18 @@ static bool autorp_announcement_apply_mapping_rp(struct pim_autorp *autorp, uint
 
 		if (!pim_autorp_group_prefix_valid(&lgrp->grp)) {
 			if (PIM_DEBUG_AUTORP)
-				zlog_debug("%s: invalid group prefix %pFX for RP %pPA", __func__,
-					   &lgrp->grp, &rp_addr);
+				zlog_debug("%s: invalid group prefix (%s:%u:%u)%pFX for RP %pPA",
+					   __func__, PIM_DEBUG_VRF(autorp->pim->vrf), &lgrp->grp,
+					   &rp_addr);
 			XFREE(MTYPE_PIM_AUTORP_GRPPFIX, lgrp);
 			autorp_announce_abort_parse(autorp, ma_rp, ma_rp_new, &new_grps);
 			return false;
 		}
 
 		if (PIM_DEBUG_AUTORP)
-			zlog_debug("%s: %s%pFX added to candidate RP %pPA", __func__,
-				   (lgrp->negative ? "!" : ""), &lgrp->grp, &rp_addr);
+			zlog_debug("%s: %s(%s:%u:%u)%pFX added to candidate RP %pPA", __func__,
+				   (lgrp->negative ? "!" : ""), PIM_DEBUG_VRF(autorp->pim->vrf),
+				   &lgrp->grp, &rp_addr);
 
 		tgrp = pim_autorp_grppfix_add(&new_grps, lgrp);
 		if (tgrp != NULL) {
@@ -664,8 +667,8 @@ static bool autorp_announcement_apply_mapping_rp(struct pim_autorp *autorp, uint
 			 * allocated group prefix
 			 */
 			if (PIM_DEBUG_AUTORP)
-				zlog_debug("%s: %pFX was duplicated in AutoRP announcement",
-					   __func__, &lgrp->grp);
+				zlog_debug("%s: (%s:%u:%u)%pFX was duplicated in AutoRP announcement",
+					   __func__, PIM_DEBUG_VRF(autorp->pim->vrf), &lgrp->grp);
 			XFREE(MTYPE_PIM_AUTORP_GRPPFIX, lgrp);
 		}
 	}
@@ -778,8 +781,8 @@ static void autorp_cand_rp_holdtime(struct event *evt)
 	struct pim_autorp_rp *rp = EVENT_ARG(evt);
 
 	if (PIM_DEBUG_AUTORP)
-		zlog_debug("%s: AutoRP hold time expired, RP removed: addr=%pI4, grp=%pFX, grplist=%s",
-			   __func__, &rp->addr, &rp->grp,
+		zlog_debug("%s: AutoRP hold time expired, RP removed: addr=%pI4, grp=(%s:%u:%u)%pFX, grplist=%s",
+			   __func__, &rp->addr, PIM_DEBUG_VRF(rp->autorp->pim->vrf), &rp->grp,
 			   (strlen(rp->grplist) ? rp->grplist : "NONE"));
 
 	pim_autorp_rp_del(&(rp->autorp->discovery_rp_list), rp);
@@ -805,8 +808,9 @@ static bool pim_autorp_add_rp(struct pim_autorp *autorp, pim_addr rpaddr, struct
 
 	/* There may not be a path to the RP right now, but that doesn't mean it failed to add the RP */
 	if (ret != PIM_SUCCESS && ret != PIM_RP_NO_PATH) {
-		zlog_warn("%s: Failed to add active RP addr=%pI4, grp=%pFX, grplist=%s", __func__,
-			  &rpaddr, &grp, (listname ? listname : "NONE"));
+		zlog_warn("%s: Failed to add active RP addr=%pI4, grp=(%s:%u:%u)%pFX, grplist=%s",
+			  __func__, &rpaddr, PIM_DEBUG_VRF(autorp->pim->vrf), &grp,
+			  (listname ? listname : "NONE"));
 		return false;
 	}
 
@@ -820,8 +824,9 @@ static bool pim_autorp_add_rp(struct pim_autorp *autorp, pim_addr rpaddr, struct
 		trp = rp;
 		/* Make sure the timer is NULL so the cancel below doesn't mess up */
 		trp->hold_timer = NULL;
-		zlog_info("%s: Added new AutoRP learned RP addr=%pI4, grp=%pFX, grplist=%s",
-			  __func__, &rpaddr, &grp, (listname ? listname : "NONE"));
+		zlog_info("%s: Added new AutoRP learned RP addr=%pI4, grp=(%s:%u:%u)%pFX, grplist=%s",
+			  __func__, &rpaddr, PIM_DEBUG_VRF(autorp->pim->vrf), &grp,
+			  (listname ? listname : "NONE"));
 	}
 
 	/* Cancel any existing timer before restarting it */
@@ -1008,9 +1013,9 @@ static size_t autorp_build_disc_rps(struct pim_autorp *autorp, uint8_t *buf, siz
 			bgrp->negprefix = grp->negative;
 
 			if (PIM_DEBUG_AUTORP)
-				zlog_debug("%s: Add group %s%pFX for RP %pI4 to discovery message",
-					   __func__, (grp->negative ? "!" : ""), &grp->grp,
-					   &rp->addr);
+				zlog_debug("%s: Add group %s(%s:%u:%u)%pFX for RP %pI4 to discovery message",
+					   __func__, (grp->negative ? "!" : ""),
+					   PIM_DEBUG_VRF(autorp->pim->vrf), &grp->grp, &rp->addr);
 		}
 
 		/* Update the size with this RP now that it is packed */
@@ -1317,16 +1322,18 @@ static bool autorp_recv_discovery(struct pim_autorp *autorp, uint8_t rpcnt, uint
 
 			if (!pim_autorp_group_prefix_valid(&grppfix)) {
 				if (PIM_DEBUG_AUTORP)
-					zlog_debug("%s: invalid discovery group prefix %pFX for RP %pPA",
-						   __func__, &grppfix, &rp_addr);
+					zlog_debug("%s: invalid discovery group prefix (%s:%u:%u)%pFX for RP %pPA",
+						   __func__, PIM_DEBUG_VRF(autorp->pim->vrf),
+						   &grppfix, &rp_addr);
 				/* Same as multi-group path: do not abort the whole message */
 				success = false;
 				continue;
 			}
 
 			if (PIM_DEBUG_AUTORP)
-				zlog_debug("%s: Parsing group %s%pFX for RP %pI4", __func__,
-					   (grp->negprefix ? "!" : ""), &grppfix, &rp_addr);
+				zlog_debug("%s: Parsing group %s(%s:%u:%u)%pFX for RP %pI4",
+					   __func__, (grp->negprefix ? "!" : ""),
+					   PIM_DEBUG_VRF(autorp->pim->vrf), &grppfix, &rp_addr);
 
 			if (!pim_autorp_add_rp(autorp, rp_addr, grppfix, NULL, holdtime))
 				success = false;
@@ -1363,8 +1370,10 @@ static bool autorp_recv_discovery(struct pim_autorp *autorp, uint8_t rpcnt, uint
 				grppfix.u.prefix4.s_addr = grp->addr;
 				if (!pim_autorp_group_prefix_valid(&grppfix)) {
 					if (PIM_DEBUG_AUTORP)
-						zlog_debug("%s: invalid discovery group prefix %pFX for RP %pPA",
-							   __func__, &grppfix, &rp_addr);
+						zlog_debug("%s: invalid discovery group prefix (%s:%u:%u)%pFX for RP %pPA",
+							   __func__,
+							   PIM_DEBUG_VRF(autorp->pim->vrf),
+							   &grppfix, &rp_addr);
 					grp_parse_ok = false;
 					break;
 				}
@@ -1385,8 +1394,9 @@ static bool autorp_recv_discovery(struct pim_autorp *autorp, uint8_t rpcnt, uint
 				prefix_list_entry_update_finish(ple);
 
 				if (PIM_DEBUG_AUTORP)
-					zlog_debug("%s: Parsing group %s%pFX for RP %pPA", __func__,
-						   (grp->negprefix ? "!" : ""), &ple->prefix,
+					zlog_debug("%s: Parsing group %s(%s:%u:%u)%pFX for RP %pPA",
+						   __func__, (grp->negprefix ? "!" : ""),
+						   PIM_DEBUG_VRF(autorp->pim->vrf), &ple->prefix,
 						   &rp_addr);
 			}
 			if (!grp_parse_ok) {
@@ -1761,8 +1771,9 @@ static int pim_autorp_new_announcement_rps(struct pim_autorp *autorp, uint8_t *b
 		 * so skip this one
 		 */
 		if (PIM_DEBUG_AUTORP)
-			zlog_debug("%s: Evaluating AutoRP candidate %pI4, group range %pFX, group list %s",
-				   __func__, &rp->addr, &rp->grp, rp->grplist);
+			zlog_debug("%s: Evaluating AutoRP candidate %pI4, group range (%s:%u:%u)%pFX, group list %s",
+				   __func__, &rp->addr, PIM_DEBUG_VRF(autorp->pim->vrf), &rp->grp,
+				   rp->grplist);
 
 		if (pim_addr_is_any(rp->addr) ||
 		    (is_default_prefix(&rp->grp) && strlen(rp->grplist) == 0))
