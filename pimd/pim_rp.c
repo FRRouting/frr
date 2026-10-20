@@ -327,7 +327,9 @@ struct rp_info *pim_rp_find_match_group(struct pim_instance *pim,
  * prefix-list(s) used by these statements we must tickle the upstream state
  * for each group to make them re-lookup who their RP should be.
  *
- * This is a placeholder function for now.
+ * Source registration follows RFC 7761 section 4.4.1: an FHR in Prune
+ * whose RP(G) changed or disappeared goes to Join and cancels the
+ * Register-Stop timer. Encapsulation uses the new RP when one exists.
  */
 void pim_rp_refresh_group_to_rp_mapping(struct pim_instance *pim)
 {
@@ -803,6 +805,8 @@ int pim_rp_del(struct pim_instance *pim, pim_addr rp_addr, struct prefix group,
 		}
 		rp_all->rp.rpf_addr = PIMADDR_ANY;
 		rp_all->i_am_rp = 0;
+
+		pim_rp_refresh_group_to_rp_mapping(pim);
 		return PIM_SUCCESS;
 	}
 

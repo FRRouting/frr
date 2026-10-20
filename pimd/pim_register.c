@@ -37,6 +37,7 @@ struct event *send_test_packet_timer = NULL;
 void pim_register_join(struct pim_upstream *up)
 {
 	struct pim_instance *pim = up->pim;
+	struct pim_rpf *rpg;
 
 	if (pim_is_grp_ssm(pim, up->sg.grp)) {
 		if (PIM_DEBUG_PIM_EVENTS)
@@ -44,6 +45,16 @@ void pim_register_join(struct pim_upstream *up)
 				   up->sg_str);
 		return;
 	}
+
+	/*
+	 * Remember the RP this Join is aimed at. A later mapping change
+	 * compares against it instead of restarting every suppressed (S,G).
+	 */
+	rpg = RP(pim, up->sg.grp);
+	if (rpg && !pim_rpf_addr_is_inaddr_any(rpg))
+		up->reg_rp = rpg->rpf_addr;
+	else
+		up->reg_rp = PIMADDR_ANY;
 
 	pim_channel_add_oif(up->channel_oil, pim->regiface,
 			    PIM_OIF_FLAG_PROTO_PIM, __func__);
@@ -800,6 +811,7 @@ void pim_reg_del_on_couldreg_fail(struct interface *ifp)
 					    PIM_OIF_FLAG_PROTO_PIM, __func__);
 			event_cancel(&up->t_rs_timer);
 			up->reg_state = PIM_REG_NOINFO;
+			up->reg_rp = PIMADDR_ANY;
 			PIM_UPSTREAM_FLAG_UNSET_FHR(up->flags);
 		}
 	}

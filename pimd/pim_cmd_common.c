@@ -1505,10 +1505,12 @@ void pim_show_upstream(struct pim_instance *pim, struct vty *vty,
 			if (up->flags & PIM_UPSTREAM_FLAG_MASK_FHR ||
 			    pim_addr_is_any(up->sg.src)) {
 				struct pim_rpf *rpg;
+				pim_addr rp_addr = PIMADDR_ANY;
 
 				rpg = RP(pim, up->sg.grp);
-				json_object_string_addf(json_row, "rpfAddress",
-							"%pPA", &rpg->rpf_addr);
+				if (rpg)
+					rp_addr = rpg->rpf_addr;
+				json_object_string_addf(json_row, "rpfAddress", "%pPA", &rp_addr);
 			} else {
 				json_object_string_add(json_row, "rpfAddress",
 						       src_str);
