@@ -714,6 +714,10 @@ static void pim_jp_groups_rpt_prune_fill(struct pim_jp_groups *grp, size_t *tgro
 		if (!PIM_UPSTREAM_FLAG_TEST_SEND_SG_RPT_PRUNE(child->flags))
 			continue;
 
+		if (PIM_DEBUG_PIM_J_P)
+			zlog_debug("%s: no room for (S,G,rpt) prune %pSG, not sending it",
+				   __func__, &child->sg);
+
 		PIM_UPSTREAM_FLAG_UNSET_SEND_SG_RPT_PRUNE(child->flags);
 	}
 }
@@ -805,6 +809,7 @@ static size_t pim_jp_groups_fill(struct pim_jp_groups *grp, struct pim_jp_agg_gr
 
 	for (; source_node != NULL; source_node = listnextnode(source_node)) {
 		struct pim_jp_sources *source = listgetdata(source_node);
+		const char *encoding;
 
 		/* All joins are done, the (S,G,rpt) prunes go before any prune */
 		if (upstream && !source->is_join) {
@@ -833,14 +838,22 @@ static size_t pim_jp_groups_fill(struct pim_jp_groups *grp, struct pim_jp_agg_gr
 			struct pim_rpf *rpf = pim_rp_g(pim, source->up->sg.grp);
 
 			bits = PIM_ENCODE_SPARSE_BIT | PIM_ENCODE_WC_BIT | PIM_ENCODE_RPT_BIT;
+			encoding = "(*,G) SWR";
 			stosend = rpf->rpf_addr;
 		} else if (pim_is_grp_dm(source->up->pim, source->up->sg.grp)) {
 			bits = 0; /* all bits should be set to 0 for DM (RFC3973 4.7.4) */
 			stosend = source->up->sg.src;
+			encoding = "(S,G) DM";
 		} else {
 			bits = PIM_ENCODE_SPARSE_BIT;
 			stosend = source->up->sg.src;
+			encoding = "(S,G) S";
 		}
+
+		if (PIM_DEBUG_PIM_J_P)
+			zlog_debug("%s: encode %s %pSG as %s bits=0x%02x addr=%pPA", __func__,
+				   source->is_join ? "join" : "prune", &source->up->sg, encoding,
+				   bits, &stosend);
 
 		pim_msg_addr_encode_source((uint8_t *)&grp->s[tgroups], stosend, bits);
 		tgroups++;
