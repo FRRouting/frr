@@ -115,6 +115,30 @@ def test_bgp_convergence():
     assert result is True, "BGP is not converging"
 
 
+def _wait_r1_prefixes(type, safi, step):
+    """
+    Wait until the routes of R1 match the expected state after a prefix
+    update or withdraw.
+    """
+    tgen = get_topogen()
+
+    for ipver in [4, 6]:
+        if UPDATE_EXPECTED_JSON:
+            continue
+        ref_file = "{}/r1/show-bgp-ipv{}-{}-step{}.json".format(CWD, ipver, type, step)
+        expected = json.loads(open(ref_file).read())
+
+        test_func = partial(
+            topotest.router_json_cmp,
+            tgen.gears["r1"],
+            f"show bgp ipv{ipver} {safi} json",
+            expected,
+        )
+        _, res = topotest.run_and_expect(test_func, None, count=30, wait=1)
+        assertmsg = f"r1: BGP IPv{ipver} convergence failed"
+        assert res is None, assertmsg
+
+
 def _test_prefixes(policy, vrf=None, step=0):
     """
     Setup the BMP  monitor policy, Add and withdraw ipv4/v6 prefixes.
@@ -145,23 +169,7 @@ def _test_prefixes(policy, vrf=None, step=0):
 
         logger.info(f"checking for prefixes {type}")
 
-        for ipver in [4, 6]:
-            if UPDATE_EXPECTED_JSON:
-                continue
-            ref_file = "{}/r1/show-bgp-ipv{}-{}-step{}.json".format(
-                CWD, ipver, type, step
-            )
-            expected = json.loads(open(ref_file).read())
-
-            test_func = partial(
-                topotest.router_json_cmp,
-                tgen.gears["r1"],
-                f"show bgp ipv{ipver} {safi} json",
-                expected,
-            )
-            _, res = topotest.run_and_expect(test_func, None, count=30, wait=1)
-            assertmsg = f"r1: BGP IPv{ipver} convergence failed"
-            assert res is None, assertmsg
+        _wait_r1_prefixes(type, safi, step)
 
         # check
         test_func = partial(
@@ -244,6 +252,70 @@ def test_bmp_bgp_vpn():
     _test_prefixes(LOC_RIB, vrf="vrf1", step=2)
 
 
+def _test_locrib_withdraw(neighbor_cmd):
+    """
+    Add prefixes on R2, apply neighbor_cmd to the R1 sessions that carry
+    them, and check that the BMP server logs their loc-rib withdrawals.
+    """
+    tgen = get_topogen()
+
+    prefixes = ["172.31.0.15/32", "2001::1111/128"]
+    neighbors = ["192.168.0.2", "192:168::2"]
+
+    bgp_configure_prefixes(tgen.gears["r2"], 65502, "unicast", prefixes, update=True)
+    _wait_r1_prefixes("update", "unicast", 1)
+
+    bmp_update_seq(
+        tgen.gears["bmp1"],
+        os.path.join(tgen.logdir, "bmp1", "bmp.log"),
+        bmp_seq_context,
+    )
+
+    tgen.gears["r1"].vtysh_cmd(
+        "configure terminal\nrouter bgp 65501\n"
+        + "\n".join(neighbor_cmd.format(n) for n in neighbors)
+    )
+
+    logger.info(f"checking for loc-rib withdrawals after '{neighbor_cmd}'")
+    test_func = partial(
+        bmp_check_for_prefixes,
+        prefixes,
+        "withdraw",
+        LOC_RIB,
+        1,
+        tgen.gears["bmp1"],
+        os.path.join(tgen.logdir, "bmp1"),
+        tgen.gears["r1"],
+        f"{CWD}/bmp1",
+        UPDATE_EXPECTED_JSON,
+        LOC_RIB,
+        bmp_seq_context,
+    )
+    success, res = topotest.run_and_expect(test_func, None, count=30, wait=1)
+    assert success, "Checking the loc-rib withdrawals has failed ! %s" % res
+
+    return prefixes, neighbors
+
+
+def test_bmp_bgp_unicast_locrib_peer_shutdown():
+    """
+    Check the loc-rib withdrawals of the routes of shut down peers.
+    """
+    tgen = get_topogen()
+
+    prefixes, neighbors = _test_locrib_withdraw("neighbor {} shutdown")
+
+    tgen.gears["r1"].vtysh_cmd(
+        "configure terminal\nrouter bgp 65501\n"
+        + "\n".join(f"no neighbor {n} shutdown" for n in neighbors)
+    )
+    result = verify_bgp_convergence_from_running_config(tgen, dut="r1")
+    assert result is True, "BGP is not converging"
+
+    bgp_configure_prefixes(tgen.gears["r2"], 65502, "unicast", prefixes, update=False)
+    _wait_r1_prefixes("withdraw", "unicast", 1)
+
+
 def test_peer_down():
     """
     Checking for BMP peers down messages
@@ -266,6 +338,19 @@ def test_peer_down():
     )
     success, _ = topotest.run_and_expect(test_func, True, count=30, wait=1)
     assert success, "Checking the updated prefixes has been failed !."
+
+
+def test_bmp_bgp_unicast_locrib_neighbor_delete():
+    """
+    Check the loc-rib withdrawals of the routes of deleted neighbors. The
+    neighbors are not restored, so this test runs last.
+    """
+    tgen = get_topogen()
+
+    result = verify_bgp_convergence_from_running_config(tgen, dut="r1")
+    assert result is True, "BGP is not converging"
+
+    _test_locrib_withdraw("no neighbor {}")
 
 
 if __name__ == "__main__":
