@@ -1,0 +1,8 @@
+# customer_asn,provider_asn[,provider_asn...]
+# 65003 -> 65002 -> 65001 forms a complete customer-to-provider chain.
+65002,65001
+65003,65002
+# 65004 attests a provider that never appears in the test paths, so a hop
+# from 65004 to 65001 is "not provider+" rather than merely unknown.
+65004,65009
+# 65100 deliberately has no record at all: paths through it are unknown.

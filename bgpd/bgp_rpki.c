@@ -23,6 +23,7 @@
 #include "command.h"
 #include "linklist.h"
 #include "memory.h"
+#include "typerb.h"
 #include "frrevent.h"
 #include "filter.h"
 #include "lib_errors.h"
@@ -41,6 +42,10 @@
 #include "bgpd/bgp_errors.h"
 #include "lib/network.h"
 #include "rtrlib/rtrlib.h"
+#ifdef FOUND_ASPA
+#include "rtrlib/aspa/aspa.h"
+#endif
+#include "bgpd/bgp_rpki_compat.h"
 #include "hook.h"
 #include "libfrr.h"
 #include "lib/version.h"
@@ -52,6 +57,9 @@ DEFINE_MTYPE_STATIC(BGPD, BGP_RPKI_CACHE, "BGP RPKI Cache server");
 DEFINE_MTYPE_STATIC(BGPD, BGP_RPKI_CACHE_GROUP, "BGP RPKI Cache server group");
 DEFINE_MTYPE_STATIC(BGPD, BGP_RPKI_RTRLIB, "BGP RPKI RTRLib");
 DEFINE_MTYPE_STATIC(BGPD, BGP_RPKI_REVALIDATE, "BGP RPKI Revalidation");
+#ifdef FOUND_ASPA
+DEFINE_MTYPE_STATIC(BGPD, BGP_RPKI_ASPA, "BGP RPKI ASPA record");
+#endif
 
 #define STR_SEPARATOR 10
 
@@ -74,10 +82,10 @@ struct cache {
 		SSH
 #endif
 	} type;
-	struct tr_socket *tr_socket;
+	struct rtr_tr_socket *tr_socket;
 	union {
-		struct tr_tcp_config *tcp_config;
-		struct tr_ssh_config *ssh_config;
+		struct rtr_tr_tcp_config *tcp_config;
+		struct rtr_tr_ssh_config *ssh_config;
 	} tr_config;
 	struct rtr_socket *rtr_socket;
 	uint8_t preference;
@@ -94,6 +102,66 @@ struct rpki_for_each_record_arg {
 	enum asnotation_mode asnotation;
 };
 
+#ifdef FOUND_ASPA
+PREDECL_RBTREE_UNIQ(rpki_aspa_table);
+
+/*
+ * rtrlib exposes no way to iterate its ASPA table: struct aspa_store_node
+ * lives in aspa_private.h, which rtrlib does not install.  So bgpd keeps its
+ * own copy of the validated set purely so "show rpki aspa" has something to
+ * print.  Validation always goes through rtr_mgr_aspa_validate() and never
+ * consults this.
+ *
+ * Keyed by customer ASN.  An RB-tree rather than a hash so that the show
+ * command iterates in ASN order without having to sort.
+ *
+ * "providers" is the array rtrlib handed the update callback and whose
+ * ownership it transferred to us, so it is released with free_wrapper().
+ */
+struct rpki_aspa_record {
+	struct rpki_aspa_table_item item;
+	uint32_t customer_asn;
+	size_t provider_count;
+	uint32_t *providers;
+};
+
+static int rpki_aspa_cmp(const struct rpki_aspa_record *a, const struct rpki_aspa_record *b);
+
+DECLARE_RBTREE_UNIQ(rpki_aspa_table, struct rpki_aspa_record, item, rpki_aspa_cmp);
+
+PREDECL_DLIST(rpki_aspa_msgq);
+
+/*
+ * One ASPA update on its way from the rtrlib thread to the bgpd thread.
+ *
+ * These are queued in memory rather than pushed through the sync socket the
+ * way ROA records are.  A ROA update that overflows the socket can be
+ * recovered from, because rtrlib's pfx_table can be walked again; the ASPA
+ * table cannot be walked at all, so a dropped update would leave our copy
+ * permanently out of step with rtrlib.  The socket is therefore only a
+ * wakeup, and the queue itself is bounded by memory.
+ */
+struct rpki_aspa_msg {
+	struct rpki_aspa_msgq_item item;
+	uint32_t customer_asn;
+	size_t provider_count;
+	uint32_t *providers;
+	bool added;
+};
+
+DECLARE_DLIST(rpki_aspa_msgq, struct rpki_aspa_msg, item);
+
+/*
+ * Upper bound on updates queued for the bgpd thread.  A full ASPA set is far
+ * smaller than this, so in practice the cap is never reached; it exists only
+ * so that a wedged event loop combined with repeated cache resyncs cannot grow
+ * the queue without limit.  Dropping is a last resort because rtrlib's ASPA
+ * table cannot be iterated, so a dropped update cannot be reconciled later --
+ * hence the table is flagged incomplete rather than silently diverging.
+ */
+#define RPKI_ASPA_QUEUE_MAX 200000
+#endif
+
 struct rpki_vrf {
 	struct rtr_mgr_config *rtr_config;
 	struct list *cache_list;
@@ -106,6 +174,15 @@ struct rpki_vrf {
 	unsigned int retry_interval;
 	int rpki_sync_socket_rtr;
 	int rpki_sync_socket_bgpd;
+#ifdef FOUND_ASPA
+	int rpki_aspa_sync_socket_rtr;
+	int rpki_aspa_sync_socket_bgpd;
+	pthread_mutex_t aspa_queue_mtx;
+	struct rpki_aspa_msgq_head aspa_queue;
+	bool aspa_shadow_incomplete;
+	struct event *t_aspa_revalidate;
+	struct rpki_aspa_table_head aspa_table;
+#endif
 	char *vrfname;
 	struct event *t_rpki_sync;
 
@@ -137,15 +214,15 @@ static int add_ssh_cache(struct rpki_vrf *rpki_vrf, const char *host,
 			 const char *server_pubkey_path,
 			 const uint8_t preference, const char *bindaddr);
 #endif
-static struct rtr_socket *create_rtr_socket(struct tr_socket *tr_socket);
+static struct rtr_socket *create_rtr_socket(struct rtr_tr_socket *tr_socket);
 static struct cache *find_cache(const uint8_t preference,
 				struct list *cache_list);
 static void rpki_delete_all_cache_nodes(struct rpki_vrf *rpki_vrf);
 static int add_tcp_cache(struct rpki_vrf *rpki_vrf, const char *host,
 			 const char *port, const uint8_t preference,
 			 const char *bindaddr);
-static void print_record(const struct pfx_record *record, struct vty *vty,
-			 json_object *json, enum asnotation_mode asnotation);
+static void print_record(const struct rtr_pfx_record *record, struct vty *vty, json_object *json,
+			 enum asnotation_mode asnotation);
 static bool is_synchronized(struct rpki_vrf *rpki_vrf);
 static bool is_running(struct rpki_vrf *rpki_vrf);
 static bool is_stopping(struct rpki_vrf *rpki_vrf);
@@ -157,6 +234,9 @@ static enum route_map_cmd_result_t route_match(void *rule,
 static void *route_match_compile(const char *arg);
 static void revalidate_bgp_node(struct bgp *bgp, struct bgp_dest *dest, afi_t afi, safi_t safi);
 static struct rpki_vrf *get_rpki_vrf(const char *vrfname);
+#ifdef FOUND_ASPA
+static int rpki_aspa_path_status(struct peer *peer, struct attr *attr, int direction);
+#endif
 
 static bool rpki_debug_conf, rpki_debug_term;
 
@@ -186,6 +266,22 @@ static struct cmd_node rpki_vrf_node = {
 static const struct route_map_rule_cmd route_match_rpki_cmd = {
 	"rpki", route_match, route_match_compile, route_match_free};
 
+#ifdef FOUND_ASPA
+struct rmap_aspa {
+	enum rtr_aspa_direction direction;
+	enum aspa_states state;
+};
+
+static enum route_map_cmd_result_t route_match_aspa(void *rule, const struct prefix *prefix,
+						    void *object);
+static void *route_match_aspa_compile(const char *arg);
+static void route_match_aspa_free(void *rule);
+
+static const struct route_map_rule_cmd route_match_aspa_cmd = { "aspa", route_match_aspa,
+								route_match_aspa_compile,
+								route_match_aspa_free };
+#endif
+
 static void *malloc_wrapper(size_t size)
 {
 	return XMALLOC(MTYPE_BGP_RPKI_RTRLIB, size);
@@ -204,24 +300,20 @@ static void free_wrapper(void *ptr)
 static void init_tr_socket(struct cache *cache)
 {
 	if (cache->type == TCP)
-		tr_tcp_init(cache->tr_config.tcp_config,
-			    cache->tr_socket);
+		rtr_tr_tcp_init(cache->tr_config.tcp_config, cache->tr_socket);
 #if defined(FOUND_SSH)
 	else
-		tr_ssh_init(cache->tr_config.ssh_config,
-			    cache->tr_socket);
+		rtr_tr_ssh_init(cache->tr_config.ssh_config, cache->tr_socket);
 #endif
 }
 
 static void free_tr_socket(struct cache *cache)
 {
 	if (cache->type == TCP)
-		tr_tcp_init(cache->tr_config.tcp_config,
-			    cache->tr_socket);
+		rtr_tr_tcp_init(cache->tr_config.tcp_config, cache->tr_socket);
 #if defined(FOUND_SSH)
 	else
-		tr_ssh_init(cache->tr_config.ssh_config,
-			    cache->tr_socket);
+		rtr_tr_ssh_init(cache->tr_config.ssh_config, cache->tr_socket);
 #endif
 }
 
@@ -282,7 +374,7 @@ static void route_match_free(void *rule)
 	XFREE(MTYPE_ROUTE_MAP_COMPILED, rule);
 }
 
-static struct rtr_socket *create_rtr_socket(struct tr_socket *tr_socket)
+static struct rtr_socket *create_rtr_socket(struct rtr_tr_socket *tr_socket)
 {
 	struct rtr_socket *rtr_socket =
 		XMALLOC(MTYPE_BGP_RPKI_CACHE, sizeof(struct rtr_socket));
@@ -314,9 +406,9 @@ static int bgp_rpki_vrf_update(struct vrf *vrf, bool enabled)
 static struct rpki_vrf *find_rpki_vrf_from_ident(const char *ident)
 {
 #if defined(FOUND_SSH)
-	struct tr_ssh_config *ssh_config;
+	struct rtr_tr_ssh_config *ssh_config;
 #endif
-	struct tr_tcp_config *tcp_config;
+	struct rtr_tr_tcp_config *tcp_config;
 	struct listnode *rpki_vrf_nnode;
 	unsigned int cache_port, port;
 	struct listnode *cache_node;
@@ -448,13 +540,13 @@ static void rpki_delete_all_cache_nodes(struct rpki_vrf *rpki_vrf)
 	}
 }
 
-static void print_record(const struct pfx_record *record, struct vty *vty,
-			 json_object *json, enum asnotation_mode asnotation)
+static void print_record(const struct rtr_pfx_record *record, struct vty *vty, json_object *json,
+			 enum asnotation_mode asnotation)
 {
 	char ip[INET6_ADDRSTRLEN];
 	json_object *json_record = NULL;
 
-	lrtr_ip_addr_to_str(&record->prefix, ip, sizeof(ip));
+	rtr_ip_addr_to_str(&record->prefix, ip, sizeof(ip));
 
 	if (!json) {
 		vty_out(vty, "%-40s   %3u - %3u   ", ip, record->min_len,
@@ -473,7 +565,7 @@ static void print_record(const struct pfx_record *record, struct vty *vty,
 	}
 }
 
-static void print_record_by_asn(const struct pfx_record *record, void *data)
+static void print_record_by_asn(const struct rtr_pfx_record *record, void *data)
 {
 	struct rpki_for_each_record_arg *arg = data;
 	struct vty *vty = arg->vty;
@@ -484,7 +576,7 @@ static void print_record_by_asn(const struct pfx_record *record, void *data)
 	}
 }
 
-static void print_record_cb(const struct pfx_record *record, void *data)
+static void print_record_cb(const struct rtr_pfx_record *record, void *data)
 {
 	struct rpki_for_each_record_arg *arg = data;
 	struct vty *vty = arg->vty;
@@ -494,7 +586,7 @@ static void print_record_cb(const struct pfx_record *record, void *data)
 	print_record(record, vty, arg->json, arg->asnotation);
 }
 
-static void count_record_cb(const struct pfx_record *record, void *data)
+static void count_record_cb(const struct rtr_pfx_record *record, void *data)
 {
 	struct rpki_for_each_record_arg *arg = data;
 
@@ -577,12 +669,11 @@ static int bgp_rpki_is_connected(const char *vrf_name)
 	return 0;
 }
 
-static void pfx_record_to_prefix(struct pfx_record *record,
-				 struct prefix *prefix)
+static void pfx_record_to_prefix(struct rtr_pfx_record *record, struct prefix *prefix)
 {
 	prefix->prefixlen = record->min_len;
 
-	if (record->prefix.ver == LRTR_IPV4) {
+	if (record->prefix.ver == RTR_IPV4) {
 		prefix->family = AF_INET;
 		prefix->u.prefix4.s_addr = htonl(record->prefix.u.addr4.addr);
 	} else {
@@ -654,7 +745,7 @@ static void revalidate_single_prefix(struct vrf *vrf, struct prefix prefix, afi_
 static void bgpd_sync_callback(struct event *event)
 {
 	struct prefix prefix;
-	struct pfx_record rec;
+	struct rtr_pfx_record rec;
 	struct rpki_vrf *rpki_vrf = EVENT_ARG(event);
 	struct vrf *vrf = NULL;
 	afi_t afi;
@@ -675,18 +766,18 @@ static void bgpd_sync_callback(struct event *event)
 	if (atomic_load_explicit(&rpki_vrf->rtr_update_overflow, memory_order_seq_cst)) {
 		ssize_t size = 0;
 
-		retval = read(rpki_vrf->rpki_sync_socket_bgpd, &rec, sizeof(struct pfx_record));
+		retval = read(rpki_vrf->rpki_sync_socket_bgpd, &rec, sizeof(struct rtr_pfx_record));
 		while (retval != -1) {
-			if (retval != sizeof(struct pfx_record))
+			if (retval != sizeof(struct rtr_pfx_record))
 				break;
 
 			size += retval;
 			pfx_record_to_prefix(&rec, &prefix);
-			afi = (rec.prefix.ver == LRTR_IPV4) ? AFI_IP : AFI_IP6;
+			afi = (rec.prefix.ver == RTR_IPV4) ? AFI_IP : AFI_IP6;
 			revalidate_single_prefix(vrf, prefix, afi);
 
 			retval = read(rpki_vrf->rpki_sync_socket_bgpd, &rec,
-				      sizeof(struct pfx_record));
+				      sizeof(struct rtr_pfx_record));
 		}
 
 		RPKI_DEBUG("Socket overflow detected (%zu), revalidating affected prefixes", size);
@@ -695,14 +786,14 @@ static void bgpd_sync_callback(struct event *event)
 		return;
 	}
 
-	retval = read(rpki_vrf->rpki_sync_socket_bgpd, &rec, sizeof(struct pfx_record));
-	if (retval != sizeof(struct pfx_record)) {
+	retval = read(rpki_vrf->rpki_sync_socket_bgpd, &rec, sizeof(struct rtr_pfx_record));
+	if (retval != sizeof(struct rtr_pfx_record)) {
 		RPKI_DEBUG("Could not read from rpki_sync_socket_bgpd");
 		return;
 	}
 	pfx_record_to_prefix(&rec, &prefix);
 
-	afi = (rec.prefix.ver == LRTR_IPV4) ? AFI_IP : AFI_IP6;
+	afi = (rec.prefix.ver == RTR_IPV4) ? AFI_IP : AFI_IP6;
 
 	revalidate_single_prefix(vrf, prefix, afi);
 }
@@ -746,9 +837,9 @@ static void revalidate_bgp_node(struct bgp *bgp, struct bgp_dest *bgp_dest, afi_
 	}
 }
 
-static void rpki_update_cb_sync_rtr(struct pfx_table *p __attribute__((unused)),
-				    const struct pfx_record rec,
-				    const bool added __attribute__((unused)))
+static void rpki_update_cb_sync_rtr(struct rtr_pfx_table *p __attribute__((unused)),
+				    const struct rtr_pfx_record rec,
+				    RPKI_PFX_UPDATE_OP_T added __attribute__((unused)))
 {
 	struct rpki_vrf *rpki_vrf;
 	const char *msg;
@@ -779,18 +870,210 @@ static void rpki_update_cb_sync_rtr(struct pfx_table *p __attribute__((unused)),
 				 memory_order_seq_cst))
 		return;
 
-	int retval = write(rpki_vrf->rpki_sync_socket_rtr, &rec,
-			   sizeof(struct pfx_record));
+	int retval = write(rpki_vrf->rpki_sync_socket_rtr, &rec, sizeof(struct rtr_pfx_record));
+
 	if (retval == -1 && (errno == EAGAIN || errno == EWOULDBLOCK))
 		atomic_store_explicit(&rpki_vrf->rtr_update_overflow, 1,
 				      memory_order_seq_cst);
 
-	else if (retval != sizeof(struct pfx_record))
+	else if (retval != sizeof(struct rtr_pfx_record))
 		RPKI_DEBUG("Could not write to rpki_sync_socket_rtr");
 	return;
 err:
 	flog_err(EC_LIB_DEVELOPMENT, "RPKI: %s", msg);
 }
+
+#ifdef FOUND_ASPA
+static void rpki_aspa_msg_free(struct rpki_aspa_msg *msg);
+
+static void rpki_aspa_update_cb_sync_rtr(struct rtr_aspa_table *aspa_table __attribute__((unused)),
+					 const struct rtr_aspa_record record,
+					 const struct rtr_socket *rtr_socket,
+					 const enum rtr_aspa_operation_type op)
+{
+	struct rpki_aspa_msg *msg;
+	struct rpki_vrf *rpki_vrf;
+	bool dropped = false;
+	const char *ident;
+	uint8_t wake = 0;
+
+	if (!rtr_socket || !rtr_socket->tr_socket)
+		goto discard;
+
+	ident = rtr_socket->tr_socket->ident_fp(rtr_socket->tr_socket->socket);
+	if (!ident)
+		goto discard;
+
+	rpki_vrf = find_rpki_vrf_from_ident(ident);
+	if (!rpki_vrf || is_stopping(rpki_vrf))
+		goto discard;
+
+	msg = XCALLOC(MTYPE_BGP_RPKI_ASPA, sizeof(*msg));
+	msg->customer_asn = record.customer_asn;
+	msg->provider_count = record.provider_count;
+	msg->providers = record.provider_asns;
+	msg->added = (op == RTR_ASPA_ADD);
+
+	frr_with_mutex (&rpki_vrf->aspa_queue_mtx) {
+		if (rpki_aspa_msgq_count(&rpki_vrf->aspa_queue) >= RPKI_ASPA_QUEUE_MAX) {
+			rpki_vrf->aspa_shadow_incomplete = true;
+			dropped = true;
+		} else {
+			rpki_aspa_msgq_add_tail(&rpki_vrf->aspa_queue, msg);
+		}
+	}
+
+	if (dropped) {
+		RPKI_DEBUG("ASPA update queue full (%u); 'show rpki aspa' marked incomplete",
+			   RPKI_ASPA_QUEUE_MAX);
+		rpki_aspa_msg_free(msg);
+		return;
+	}
+
+	/*
+	 * Poke the bgpd thread.  A byte already sitting in the socket is just
+	 * as good a wakeup as a new one, so a full socket is not an error
+	 * here: the reader drains the whole queue whenever it runs.
+	 */
+	if (write(rpki_vrf->rpki_aspa_sync_socket_rtr, &wake, sizeof(wake)) < 0 &&
+	    errno != EAGAIN && errno != EWOULDBLOCK)
+		RPKI_DEBUG("Could not poke rpki_aspa_sync_socket_rtr");
+
+	return;
+
+discard:
+	free_wrapper(record.provider_asns);
+}
+
+static void rpki_aspa_msg_free(struct rpki_aspa_msg *msg)
+{
+	free_wrapper(msg->providers);
+	XFREE(MTYPE_BGP_RPKI_ASPA, msg);
+}
+
+static void rpki_aspa_queue_flush(struct rpki_vrf *rpki_vrf)
+{
+	struct rpki_aspa_msg *msg;
+
+	frr_with_mutex (&rpki_vrf->aspa_queue_mtx) {
+		while ((msg = rpki_aspa_msgq_pop(&rpki_vrf->aspa_queue)))
+			rpki_aspa_msg_free(msg);
+
+		rpki_vrf->aspa_shadow_incomplete = false;
+	}
+}
+
+static void rpki_aspa_revalidate_all(struct event *event)
+{
+	struct rpki_vrf *rpki_vrf = EVENT_ARG(event);
+	struct listnode *node, *pnode;
+	struct vrf *vrf = NULL;
+	struct peer *peer;
+	struct bgp *bgp;
+
+	if (rpki_vrf->vrfname) {
+		vrf = vrf_lookup_by_name(rpki_vrf->vrfname);
+		if (!vrf)
+			return;
+	}
+
+	for (ALL_LIST_ELEMENTS_RO(bm->bgp, node, bgp)) {
+		if (!vrf && bgp->vrf_id != VRF_DEFAULT)
+			continue;
+		if (vrf && bgp->vrf_id != vrf->vrf_id)
+			continue;
+
+		for (ALL_LIST_ELEMENTS_RO(bgp->peer, pnode, peer)) {
+			afi_t afi;
+			safi_t safi;
+
+			FOREACH_AFI_SAFI (afi, safi)
+				bgp_soft_reconfig_in(peer, afi, safi);
+		}
+	}
+
+	RPKI_DEBUG("ASPA table changed, scheduled revalidation");
+}
+
+static int rpki_aspa_cmp(const struct rpki_aspa_record *a, const struct rpki_aspa_record *b)
+{
+	return numcmp(a->customer_asn, b->customer_asn);
+}
+
+static void rpki_aspa_record_free(struct rpki_aspa_record *rec)
+{
+	free_wrapper(rec->providers);
+	XFREE(MTYPE_BGP_RPKI_ASPA, rec);
+}
+
+/* Takes ownership of msg->providers. */
+static void rpki_aspa_shadow_update(struct rpki_vrf *rpki_vrf, struct rpki_aspa_msg *msg)
+{
+	struct rpki_aspa_record ref = { .customer_asn = msg->customer_asn };
+	struct rpki_aspa_record *rec;
+
+	rec = rpki_aspa_table_find(&rpki_vrf->aspa_table, &ref);
+
+	if (!msg->added) {
+		if (rec) {
+			rpki_aspa_table_del(&rpki_vrf->aspa_table, rec);
+			rpki_aspa_record_free(rec);
+		}
+		free_wrapper(msg->providers);
+		return;
+	}
+
+	if (!rec) {
+		rec = XCALLOC(MTYPE_BGP_RPKI_ASPA, sizeof(*rec));
+		rec->customer_asn = msg->customer_asn;
+		rpki_aspa_table_add(&rpki_vrf->aspa_table, rec);
+	} else {
+		/* An add for an existing customer ASN replaces it. */
+		free_wrapper(rec->providers);
+	}
+
+	rec->providers = msg->providers;
+	rec->provider_count = msg->provider_count;
+}
+
+static void rpki_aspa_table_flush(struct rpki_vrf *rpki_vrf)
+{
+	struct rpki_aspa_record *rec;
+
+	while ((rec = rpki_aspa_table_pop(&rpki_vrf->aspa_table)))
+		rpki_aspa_record_free(rec);
+}
+
+static void bgpd_aspa_sync_callback(struct event *event)
+{
+	struct rpki_vrf *rpki_vrf = EVENT_ARG(event);
+	struct rpki_aspa_msgq_head queue;
+	struct rpki_aspa_msg *msg;
+	uint8_t wake[64];
+
+	event_add_read(bm->master, bgpd_aspa_sync_callback, rpki_vrf,
+		       rpki_vrf->rpki_aspa_sync_socket_bgpd, NULL);
+
+	/* The socket only carries wakeups; swallow all of them. */
+	while (read(rpki_vrf->rpki_aspa_sync_socket_bgpd, wake, sizeof(wake)) > 0)
+		;
+
+	rpki_aspa_msgq_init(&queue);
+	frr_with_mutex (&rpki_vrf->aspa_queue_mtx) {
+		rpki_aspa_msgq_swap_all(&rpki_vrf->aspa_queue, &queue);
+	}
+
+	while ((msg = rpki_aspa_msgq_pop(&queue))) {
+		rpki_aspa_shadow_update(rpki_vrf, msg);
+		XFREE(MTYPE_BGP_RPKI_ASPA, msg);
+	}
+
+	rpki_aspa_msgq_fini(&queue);
+
+	event_add_timer_msec(bm->master, rpki_aspa_revalidate_all, rpki_vrf, 500,
+			     &rpki_vrf->t_aspa_revalidate);
+}
+#endif
 
 static void rpki_init_sync_socket(struct rpki_vrf *rpki_vrf)
 {
@@ -819,6 +1102,31 @@ static void rpki_init_sync_socket(struct rpki_vrf *rpki_vrf)
 	event_add_read(bm->master, bgpd_sync_callback, rpki_vrf,
 		       rpki_vrf->rpki_sync_socket_bgpd, NULL);
 
+#ifdef FOUND_ASPA
+	/* ASPA records are variable length, so they need their own channel
+	 * rather than sharing one sized for struct rtr_pfx_record.
+	 */
+	if (socketpair(PF_LOCAL, SOCK_DGRAM, 0, fds) != 0) {
+		msg = "could not open rpki aspa sync socketpair";
+		goto err;
+	}
+	rpki_vrf->rpki_aspa_sync_socket_rtr = fds[0];
+	rpki_vrf->rpki_aspa_sync_socket_bgpd = fds[1];
+
+	if (set_nonblocking(rpki_vrf->rpki_aspa_sync_socket_rtr) != 0) {
+		msg = "could not set rpki_aspa_sync_socket_rtr to non blocking";
+		goto err;
+	}
+
+	if (set_nonblocking(rpki_vrf->rpki_aspa_sync_socket_bgpd) != 0) {
+		msg = "could not set rpki_aspa_sync_socket_bgpd to non blocking";
+		goto err;
+	}
+
+	event_add_read(bm->master, bgpd_aspa_sync_callback, rpki_vrf,
+		       rpki_vrf->rpki_aspa_sync_socket_bgpd, NULL);
+#endif
+
 	return;
 
 err:
@@ -839,6 +1147,11 @@ static struct rpki_vrf *bgp_rpki_allocate(const char *vrfname)
 	rpki_vrf->polling_period = POLLING_PERIOD_DEFAULT;
 	rpki_vrf->expire_interval = EXPIRE_INTERVAL_DEFAULT;
 	rpki_vrf->retry_interval = RETRY_INTERVAL_DEFAULT;
+#ifdef FOUND_ASPA
+	rpki_aspa_table_init(&rpki_vrf->aspa_table);
+	rpki_aspa_msgq_init(&rpki_vrf->aspa_queue);
+	pthread_mutex_init(&rpki_vrf->aspa_queue_mtx, NULL);
+#endif
 
 	if (vrfname && !strmatch(vrfname, VRF_DEFAULT_NAME))
 		rpki_vrf->vrfname = XSTRDUP(MTYPE_BGP_RPKI_CACHE, vrfname);
@@ -871,6 +1184,15 @@ static int bgp_rpki_fini(void)
 
 		close(rpki_vrf->rpki_sync_socket_rtr);
 		close(rpki_vrf->rpki_sync_socket_bgpd);
+#ifdef FOUND_ASPA
+		rpki_aspa_queue_flush(rpki_vrf);
+		close(rpki_vrf->rpki_aspa_sync_socket_rtr);
+		close(rpki_vrf->rpki_aspa_sync_socket_bgpd);
+		rpki_aspa_msgq_fini(&rpki_vrf->aspa_queue);
+		pthread_mutex_destroy(&rpki_vrf->aspa_queue_mtx);
+		rpki_aspa_table_flush(rpki_vrf);
+		rpki_aspa_table_fini(&rpki_vrf->aspa_table);
+#endif
 
 		listnode_delete(rpki_vrf_list, rpki_vrf);
 		QOBJ_UNREG(rpki_vrf);
@@ -888,9 +1210,12 @@ static int bgp_rpki_module_init(void)
 {
 	pthread_key_create(&rpki_pthread, NULL);
 
-	lrtr_set_alloc_functions(malloc_wrapper, realloc_wrapper, free_wrapper);
+	rtr_set_alloc_functions(malloc_wrapper, realloc_wrapper, free_wrapper);
 
 	hook_register(bgp_rpki_prefix_status, rpki_validate_prefix);
+#ifdef FOUND_ASPA
+	hook_register(bgp_aspa_path_status, rpki_aspa_path_status);
+#endif
 	hook_register(bgp_rpki_connection_status, bgp_rpki_is_connected);
 	hook_register(frr_late_init, bgp_rpki_init);
 	hook_register(frr_early_fini, bgp_rpki_fini);
@@ -916,6 +1241,30 @@ static void sync_expired(struct event *event)
 	RPKI_DEBUG("rtr_mgr sync is done.");
 
 	rpki_vrf->rtr_is_synced = true;
+}
+
+static int rpki_rtr_mgr_init(struct rpki_vrf *rpki_vrf, struct rtr_mgr_group *groups,
+			     int groups_len)
+{
+#ifdef FOUND_ASPA
+	int ret;
+
+	ret = rtr_mgr_init(&rpki_vrf->rtr_config, groups, groups_len, NULL, NULL, NULL, NULL);
+	if (ret != RTR_SUCCESS)
+		return ret;
+
+	rtr_mgr_add_roa_support(rpki_vrf->rtr_config, rpki_update_cb_sync_rtr);
+	rtr_mgr_add_spki_support(rpki_vrf->rtr_config, NULL);
+	rtr_mgr_add_aspa_support(rpki_vrf->rtr_config, rpki_aspa_update_cb_sync_rtr);
+
+	return rtr_mgr_setup_sockets(rpki_vrf->rtr_config, groups, groups_len,
+				     rpki_vrf->polling_period, rpki_vrf->expire_interval,
+				     rpki_vrf->retry_interval);
+#else
+	return rtr_mgr_init(&rpki_vrf->rtr_config, groups, groups_len, rpki_vrf->polling_period,
+			    rpki_vrf->expire_interval, rpki_vrf->retry_interval,
+			    rpki_update_cb_sync_rtr, NULL, NULL, NULL);
+#endif
 }
 
 static int start(struct rpki_vrf *rpki_vrf)
@@ -950,10 +1299,7 @@ static int start(struct rpki_vrf *rpki_vrf)
 	struct rtr_mgr_group *groups = get_groups(rpki_vrf->cache_list);
 
 	RPKI_DEBUG("Polling period: %d", rpki_vrf->polling_period);
-	ret = rtr_mgr_init(&rpki_vrf->rtr_config, groups, groups_len,
-			   rpki_vrf->polling_period, rpki_vrf->expire_interval,
-			   rpki_vrf->retry_interval, rpki_update_cb_sync_rtr,
-			   NULL, NULL, NULL);
+	ret = rpki_rtr_mgr_init(rpki_vrf, groups, groups_len);
 	if (ret == RTR_ERROR) {
 		RPKI_DEBUG("Init rtr_mgr failed (%s).", vrf->name);
 		return ERROR;
@@ -985,12 +1331,19 @@ static void stop(struct rpki_vrf *rpki_vrf)
 	rpki_vrf->rtr_is_stopping = true;
 	if (is_running(rpki_vrf)) {
 		event_cancel(&rpki_vrf->t_rpki_sync);
+#ifdef FOUND_ASPA
+		event_cancel(&rpki_vrf->t_aspa_revalidate);
+#endif
 
 		for (ALL_LIST_ELEMENTS_RO(rpki_vrf->cache_list, cache_node, cache))
 			frr_pthread_non_controlled_shutdown(cache->rtr_socket->thread_id);
 
 		rtr_mgr_stop(rpki_vrf->rtr_config);
 		rtr_mgr_free(rpki_vrf->rtr_config);
+#ifdef FOUND_ASPA
+		rpki_aspa_queue_flush(rpki_vrf);
+		rpki_aspa_table_flush(rpki_vrf);
+#endif
 		rpki_vrf->rtr_is_running = false;
 	}
 }
@@ -1046,7 +1399,7 @@ static void print_prefix_table_by_asn(struct vty *vty, as_t as,
 		return;
 	}
 
-	struct pfx_table *pfx_table = group->sockets[0]->pfx_table;
+	struct rtr_pfx_table *pfx_table = group->sockets[0]->pfx_table;
 
 	if (!json) {
 		vty_out(vty, "RPKI/RTR prefix table\n");
@@ -1059,10 +1412,10 @@ static void print_prefix_table_by_asn(struct vty *vty, as_t as,
 	}
 
 	arg.prefix_amount = &number_of_ipv4_prefixes;
-	pfx_table_for_each_ipv4_record(pfx_table, print_record_by_asn, &arg);
+	rtr_pfx_table_for_each_ipv4_record(pfx_table, print_record_by_asn, &arg);
 
 	arg.prefix_amount = &number_of_ipv6_prefixes;
-	pfx_table_for_each_ipv6_record(pfx_table, print_record_by_asn, &arg);
+	rtr_pfx_table_for_each_ipv6_record(pfx_table, print_record_by_asn, &arg);
 
 	if (!json) {
 		vty_out(vty, "Number of IPv4 Prefixes: %u\n",
@@ -1107,7 +1460,7 @@ static void print_prefix_table(struct vty *vty, struct rpki_vrf *rpki_vrf,
 		return;
 	}
 
-	struct pfx_table *pfx_table = group->sockets[0]->pfx_table;
+	struct rtr_pfx_table *pfx_table = group->sockets[0]->pfx_table;
 
 	if (!count_only) {
 		if (!json) {
@@ -1123,15 +1476,15 @@ static void print_prefix_table(struct vty *vty, struct rpki_vrf *rpki_vrf,
 
 	arg.prefix_amount = &number_of_ipv4_prefixes;
 	if (count_only)
-		pfx_table_for_each_ipv4_record(pfx_table, count_record_cb, &arg);
+		rtr_pfx_table_for_each_ipv4_record(pfx_table, count_record_cb, &arg);
 	else
-		pfx_table_for_each_ipv4_record(pfx_table, print_record_cb, &arg);
+		rtr_pfx_table_for_each_ipv4_record(pfx_table, print_record_cb, &arg);
 
 	arg.prefix_amount = &number_of_ipv6_prefixes;
 	if (count_only)
-		pfx_table_for_each_ipv6_record(pfx_table, count_record_cb, &arg);
+		rtr_pfx_table_for_each_ipv6_record(pfx_table, count_record_cb, &arg);
 	else
-		pfx_table_for_each_ipv6_record(pfx_table, print_record_cb, &arg);
+		rtr_pfx_table_for_each_ipv6_record(pfx_table, print_record_cb, &arg);
 
 	if (!json) {
 		vty_out(vty, "Number of IPv4 Prefixes: %u\n",
@@ -1154,8 +1507,8 @@ static int rpki_validate_prefix(struct peer *peer, struct attr *attr,
 {
 	struct assegment *as_segment;
 	as_t as_number = 0;
-	struct lrtr_ip_addr ip_addr_prefix;
-	enum pfxv_state result;
+	struct rtr_ip_addr ip_addr_prefix;
+	enum rtr_pfxv_state result;
 	struct bgp *bgp = peer->bgp;
 	struct vrf *vrf;
 	struct rpki_vrf *rpki_vrf;
@@ -1204,12 +1557,12 @@ static int rpki_validate_prefix(struct peer *peer, struct attr *attr,
 	// Get the prefix in requested format
 	switch (prefix->family) {
 	case AF_INET:
-		ip_addr_prefix.ver = LRTR_IPV4;
+		ip_addr_prefix.ver = RTR_IPV4;
 		ip_addr_prefix.u.addr4.addr = ntohl(prefix->u.prefix4.s_addr);
 		break;
 
 	case AF_INET6:
-		ip_addr_prefix.ver = LRTR_IPV6;
+		ip_addr_prefix.ver = RTR_IPV6;
 		ipv6_addr_to_host_byte_order(prefix->u.prefix6.s6_addr32,
 					     ip_addr_prefix.u.addr6.addr);
 		break;
@@ -1219,22 +1572,22 @@ static int rpki_validate_prefix(struct peer *peer, struct attr *attr,
 	}
 
 	// Do the actual validation
-	rtr_mgr_validate(rpki_vrf->rtr_config, as_number, &ip_addr_prefix,
-			 prefix->prefixlen, &result);
+	rtr_mgr_roa_validate(rpki_vrf->rtr_config, as_number, &ip_addr_prefix, prefix->prefixlen,
+			     &result);
 
 	// Print Debug output
 	switch (result) {
-	case BGP_PFXV_STATE_VALID:
+	case RTR_BGP_PFXV_STATE_VALID:
 		RPKI_DEBUG(
 			"Validating Prefix %pFX from asn %u    Result: VALID",
 			prefix, as_number);
 		return RPKI_VALID;
-	case BGP_PFXV_STATE_NOT_FOUND:
+	case RTR_BGP_PFXV_STATE_NOT_FOUND:
 		RPKI_DEBUG(
 			"Validating Prefix %pFX from asn %u    Result: NOT FOUND",
 			prefix, as_number);
 		return RPKI_NOTFOUND;
-	case BGP_PFXV_STATE_INVALID:
+	case RTR_BGP_PFXV_STATE_INVALID:
 		RPKI_DEBUG(
 			"Validating Prefix %pFX from asn %u    Result: INVALID",
 			prefix, as_number);
@@ -1247,6 +1600,167 @@ static int rpki_validate_prefix(struct peer *peer, struct attr *attr,
 	}
 	return RPKI_NOT_BEING_USED;
 }
+
+#ifdef FOUND_ASPA
+/*
+ * Flatten an AS_PATH into the array rtrlib wants: index 0 is the leftmost
+ * (neighbour-side) ASN and index N-1 the origin, with our own ASN absent.  A
+ * received eBGP AS_PATH already has that shape, so segments are copied in
+ * order.
+ *
+ * Confederation segments are skipped: they are internal and not part of the
+ * externally visible path.  An AS_SET makes the path unverifiable, so the
+ * caller is told to give up.  Prepends are left alone -- rtrlib's
+ * aspa_check_hop() treats customer_asn == provider_asn as a provider match.
+ *
+ * Returns the number of ASNs written, or -1 if the path cannot be verified.
+ */
+static int rpki_aspa_flatten_aspath(struct aspath *aspath, uint32_t *buf, size_t buflen)
+{
+	struct assegment *seg;
+	size_t n = 0;
+
+	for (seg = aspath->segments; seg; seg = seg->next) {
+		switch (seg->type) {
+		case AS_SEQUENCE:
+			for (unsigned int i = 0; i < seg->length; i++) {
+				if (n >= buflen)
+					return -1;
+				buf[n++] = seg->as[i];
+			}
+			break;
+		case AS_CONFED_SEQUENCE:
+		case AS_CONFED_SET:
+			break;
+		case AS_SET:
+		default:
+			return -1;
+		}
+	}
+
+	return (int)n;
+}
+
+static enum aspa_states rpki_aspa_validate_path(struct peer *peer, struct attr *attr,
+						enum rtr_aspa_direction dir)
+{
+	enum rtr_aspa_verification_result result;
+	struct rpki_vrf *rpki_vrf;
+	enum aspa_states state;
+	uint32_t *as_path;
+	struct bgp *bgp;
+	struct vrf *vrf;
+	int len;
+
+	if (!peer || !attr)
+		return ASPA_NOT_BEING_USED;
+
+	bgp = peer->bgp;
+	if (!bgp)
+		return ASPA_NOT_BEING_USED;
+
+	vrf = vrf_lookup_by_id(bgp->vrf_id);
+	if (!vrf)
+		return ASPA_NOT_BEING_USED;
+
+	if (vrf->vrf_id == VRF_DEFAULT)
+		rpki_vrf = find_rpki_vrf(NULL);
+	else
+		rpki_vrf = find_rpki_vrf(vrf->name);
+
+	if (!rpki_vrf || !is_synchronized(rpki_vrf))
+		return ASPA_NOT_BEING_USED;
+
+	/* No AS_PATH at all means the route came from iBGP: nothing to verify. */
+	if (!attr->aspath || !attr->aspath->segments || !attr->aspath->count)
+		return ASPA_UNKNOWN;
+
+	as_path = XCALLOC(MTYPE_BGP_RPKI_TEMP, attr->aspath->count * sizeof(uint32_t));
+
+	len = rpki_aspa_flatten_aspath(attr->aspath, as_path, attr->aspath->count);
+	if (len <= 0) {
+		XFREE(MTYPE_BGP_RPKI_TEMP, as_path);
+		return ASPA_UNKNOWN;
+	}
+
+	if (rtr_mgr_aspa_validate(rpki_vrf->rtr_config, as_path, (size_t)len, dir, &result) !=
+	    RTR_ASPA_SUCCESS) {
+		XFREE(MTYPE_BGP_RPKI_TEMP, as_path);
+		return ASPA_NOT_BEING_USED;
+	}
+
+	XFREE(MTYPE_BGP_RPKI_TEMP, as_path);
+
+	switch (result) {
+	case RTR_ASPA_AS_PATH_VALID:
+		state = ASPA_VALID;
+		break;
+	case RTR_ASPA_AS_PATH_INVALID:
+		state = ASPA_INVALID;
+		break;
+	case RTR_ASPA_AS_PATH_UNKNOWN:
+	default:
+		state = ASPA_UNKNOWN;
+		break;
+	}
+
+	RPKI_DEBUG("ASPA validating AS_PATH %s (%s)    Result: %s", attr->aspath->str,
+		   dir == RTR_ASPA_UPSTREAM ? "upstream" : "downstream",
+		   state == ASPA_VALID	   ? "VALID"
+		   : state == ASPA_INVALID ? "INVALID"
+					   : "UNKNOWN");
+
+	return state;
+}
+
+static int rpki_aspa_path_status(struct peer *peer, struct attr *attr, int direction)
+{
+	return rpki_aspa_validate_path(peer, attr,
+				       direction == BGP_ASPA_DOWNSTREAM ? RTR_ASPA_DOWNSTREAM
+									: RTR_ASPA_UPSTREAM);
+}
+
+static enum route_map_cmd_result_t route_match_aspa(void *rule, const struct prefix *prefix,
+						    void *object)
+{
+	struct rmap_aspa *aspa = rule;
+	struct bgp_path_info *path = object;
+
+	if (rpki_aspa_validate_path(path->peer, path->attr, aspa->direction) == aspa->state)
+		return RMAP_MATCH;
+
+	return RMAP_NOMATCH;
+}
+
+static void *route_match_aspa_compile(const char *arg)
+{
+	struct rmap_aspa *aspa;
+	char direction[16];
+	char state[16];
+
+	if (sscanf(arg, "%15s %15s", direction, state) != 2)
+		return NULL;
+
+	aspa = XMALLOC(MTYPE_ROUTE_MAP_COMPILED, sizeof(*aspa));
+
+	aspa->direction = strmatch(direction, "downstream") ? RTR_ASPA_DOWNSTREAM
+							    : RTR_ASPA_UPSTREAM;
+
+	if (strmatch(state, "valid"))
+		aspa->state = ASPA_VALID;
+	else if (strmatch(state, "invalid"))
+		aspa->state = ASPA_INVALID;
+	else
+		aspa->state = ASPA_UNKNOWN;
+
+	return aspa;
+}
+
+static void route_match_aspa_free(void *rule)
+{
+	XFREE(MTYPE_ROUTE_MAP_COMPILED, rule);
+}
+#endif /* FOUND_ASPA */
 
 static int add_cache(struct cache *cache)
 {
@@ -1287,7 +1801,7 @@ static int rpki_create_socket(void *_cache)
 	struct timeval prev_snd_tmout, prev_rcv_tmout, timeout;
 	struct cache *cache = (struct cache *)_cache;
 	struct rpki_vrf *rpki_vrf;
-	struct tr_tcp_config *tcp_config;
+	struct rtr_tr_tcp_config *tcp_config;
 	struct addrinfo *res = NULL;
 	struct addrinfo hints = {};
 	socklen_t optlen;
@@ -1297,7 +1811,7 @@ static int rpki_create_socket(void *_cache)
 	int socket;
 	int ret;
 #if defined(FOUND_SSH)
-	struct tr_ssh_config *ssh_config;
+	struct rtr_tr_ssh_config *ssh_config;
 	char s_port[10];
 #endif
 
@@ -1443,10 +1957,10 @@ static int add_tcp_cache(struct rpki_vrf *rpki_vrf, const char *host,
 			 const char *bindaddr)
 {
 	struct rtr_socket *rtr_socket;
-	struct tr_tcp_config *tcp_config =
-		XCALLOC(MTYPE_BGP_RPKI_CACHE, sizeof(struct tr_tcp_config));
-	struct tr_socket *tr_socket =
-		XMALLOC(MTYPE_BGP_RPKI_CACHE, sizeof(struct tr_socket));
+	struct rtr_tr_tcp_config *tcp_config = XCALLOC(MTYPE_BGP_RPKI_CACHE,
+						       sizeof(struct rtr_tr_tcp_config));
+	struct rtr_tr_socket *tr_socket = XMALLOC(MTYPE_BGP_RPKI_CACHE,
+						  sizeof(struct rtr_tr_socket));
 	struct cache *cache =
 		XMALLOC(MTYPE_BGP_RPKI_CACHE, sizeof(struct cache));
 
@@ -1483,12 +1997,12 @@ static int add_ssh_cache(struct rpki_vrf *rpki_vrf, const char *host,
 			 const char *server_pubkey_path,
 			 const uint8_t preference, const char *bindaddr)
 {
-	struct tr_ssh_config *ssh_config =
-		XCALLOC(MTYPE_BGP_RPKI_CACHE, sizeof(struct tr_ssh_config));
+	struct rtr_tr_ssh_config *ssh_config = XCALLOC(MTYPE_BGP_RPKI_CACHE,
+						       sizeof(struct rtr_tr_ssh_config));
 	struct cache *cache =
 		XMALLOC(MTYPE_BGP_RPKI_CACHE, sizeof(struct cache));
-	struct tr_socket *tr_socket =
-		XMALLOC(MTYPE_BGP_RPKI_CACHE, sizeof(struct tr_socket));
+	struct rtr_tr_socket *tr_socket = XMALLOC(MTYPE_BGP_RPKI_CACHE,
+						  sizeof(struct rtr_tr_socket));
 	struct rtr_socket *rtr_socket;
 
 	ssh_config->port = port;
@@ -1620,9 +2134,9 @@ static int bgp_rpki_write_vrf(struct vty *vty, struct vrf *vrf)
 
 	for (ALL_LIST_ELEMENTS_RO(rpki_vrf->cache_list, cache_node, cache)) {
 		switch (cache->type) {
-			struct tr_tcp_config *tcp_config;
+			struct rtr_tr_tcp_config *tcp_config;
 #if defined(FOUND_SSH)
-			struct tr_ssh_config *ssh_config;
+			struct rtr_tr_ssh_config *ssh_config;
 #endif
 		case TCP:
 			tcp_config = cache->tr_config.tcp_config;
@@ -2184,6 +2698,115 @@ DEFPY (show_rpki_as_number,
 	return CMD_SUCCESS;
 }
 
+#ifdef FOUND_ASPA
+struct rpki_aspa_show_arg {
+	struct vty *vty;
+	json_object *json;
+	as_t as;
+	enum asnotation_mode asnotation;
+	unsigned int count;
+};
+
+static void rpki_aspa_show_record(struct rpki_aspa_record *rec, void *arg)
+{
+	struct rpki_aspa_show_arg *a = arg;
+	json_object *json_rec, *json_providers;
+	char cas[ASN_STRING_MAX_SIZE];
+	char pas[ASN_STRING_MAX_SIZE];
+	size_t i;
+
+	if (a->as && rec->customer_asn != a->as)
+		return;
+
+	a->count++;
+
+	snprintfrr(cas, sizeof(cas), ASN_FORMAT(a->asnotation), (as_t *)&rec->customer_asn);
+
+	if (!a->json) {
+		vty_out(a->vty, "%-14s ", cas);
+
+		for (i = 0; i < rec->provider_count; i++) {
+			snprintfrr(pas, sizeof(pas), ASN_FORMAT(a->asnotation),
+				   (as_t *)&rec->providers[i]);
+			vty_out(a->vty, "%s%s", i ? ", " : "", pas);
+		}
+
+		vty_out(a->vty, "%s\n", rec->provider_count ? "" : "-");
+		return;
+	}
+
+	json_rec = json_object_new_object();
+	json_providers = json_object_new_array();
+
+	for (i = 0; i < rec->provider_count; i++) {
+		snprintfrr(pas, sizeof(pas), ASN_FORMAT(a->asnotation), (as_t *)&rec->providers[i]);
+		json_object_array_add(json_providers, json_object_new_string(pas));
+	}
+	json_object_object_add(json_rec, "providerAsns", json_providers);
+
+	json_object_object_add(a->json, cas, json_rec);
+}
+
+DEFPY (show_rpki_aspa,
+       show_rpki_aspa_cmd,
+       "show rpki aspa [ASNUM$by_asn] [vrf NAME$vrfname] [json$uj]",
+       SHOW_STR
+       RPKI_OUTPUT_STRING
+       "Show ASPA records\n"
+       "AS Number\n"
+       VRF_CMD_HELP_STR
+       JSON_STR)
+{
+	struct rpki_aspa_show_arg arg = {};
+	struct rpki_aspa_record *rec;
+	bool incomplete;
+	struct rpki_vrf *rpki_vrf;
+	json_object *json = NULL;
+	struct bgp *bgp;
+
+	if (uj)
+		json = json_object_new_object();
+
+	rpki_vrf = get_rpki_vrf(vrfname);
+	if (!rpki_vrf) {
+		if (uj)
+			vty_json(vty, json);
+		return CMD_SUCCESS;
+	}
+
+	bgp = bgp_lookup_by_name(rpki_vrf->vrfname);
+
+	arg.vty = vty;
+	arg.json = json;
+	arg.as = by_asn;
+	arg.asnotation = bgp_get_asnotation(bgp);
+
+	frr_with_mutex (&rpki_vrf->aspa_queue_mtx) {
+		incomplete = rpki_vrf->aspa_shadow_incomplete;
+	}
+
+	if (json && incomplete)
+		json_object_boolean_true_add(json, "incomplete");
+	else if (!json && incomplete)
+		vty_out(vty,
+			"%% Updates were dropped; this list may be incomplete. Use \"rpki reset\" to rebuild it.\n");
+
+	if (!json)
+		vty_out(vty, "%-14s %s\n", "Customer ASN", "Provider ASNs");
+
+	/* The tree is keyed by customer ASN, so this is already in ASN order. */
+	frr_each (rpki_aspa_table, &rpki_vrf->aspa_table, rec)
+		rpki_aspa_show_record(rec, &arg);
+
+	if (json)
+		vty_json(vty, json);
+	else if (!arg.count)
+		vty_out(vty, "No ASPA records\n");
+
+	return CMD_SUCCESS;
+}
+#endif /* FOUND_ASPA */
+
 DEFPY (show_rpki_prefix,
        show_rpki_prefix_cmd,
        "show rpki prefix <A.B.C.D/M|X:X::X:X/M> [0$zero|ASNUM$asn] [vrf NAME$vrfname] [json$uj]",
@@ -2222,14 +2845,14 @@ DEFPY (show_rpki_prefix,
 	else
 		as = asn;
 
-	struct lrtr_ip_addr addr;
+	struct rtr_ip_addr addr;
 	char addr_str[INET6_ADDRSTRLEN];
 	size_t addr_len = strchr(prefix_str, '/') - prefix_str;
 
 	memset(addr_str, 0, sizeof(addr_str));
 	memcpy(addr_str, prefix_str, addr_len);
 
-	if (lrtr_ip_str_to_addr(addr_str, &addr) != 0) {
+	if (rtr_ip_str_to_addr(addr_str, &addr) != 0) {
 		if (json) {
 			json_object_string_add(json, "error", "Invalid IP prefix.");
 			vty_json(vty, json);
@@ -2238,13 +2861,12 @@ DEFPY (show_rpki_prefix,
 		return CMD_WARNING;
 	}
 
-	struct pfx_record *matches = NULL;
+	struct rtr_pfx_record *matches = NULL;
 	unsigned int match_count = 0;
-	enum pfxv_state result;
+	enum rtr_pfxv_state result;
 
-	if (pfx_table_validate_r(rpki_vrf->rtr_config->pfx_table, &matches,
-				 &match_count, as, &addr, prefix->prefixlen,
-				 &result) != PFX_SUCCESS) {
+	if (rtr_pfx_table_validate_r(rpki_vrf->rtr_config->pfx_table, &matches, &match_count, as,
+				     &addr, prefix->prefixlen, &result) != RTR_PFX_SUCCESS) {
 		if (json) {
 			json_object_string_add(json, "error", "Prefix lookup failed.");
 			vty_json(vty, json);
@@ -2264,7 +2886,7 @@ DEFPY (show_rpki_prefix,
 
 	asnotation = bgp_get_asnotation(bgp_lookup_by_vrf_id(VRF_DEFAULT));
 	for (size_t i = 0; i < match_count; ++i) {
-		const struct pfx_record *record = &matches[i];
+		const struct rtr_pfx_record *record = &matches[i];
 
 		if (record->max_len >= prefix->prefixlen &&
 		    ((as != 0 && (uint32_t)as == record->asn) || asn == 0)) {
@@ -2462,9 +3084,9 @@ DEFPY (show_rpki_cache_connection,
 	}
 
 	for (ALL_LIST_ELEMENTS_RO(rpki_vrf->cache_list, cache_node, cache)) {
-		struct tr_tcp_config *tcp_config;
+		struct rtr_tr_tcp_config *tcp_config;
 #if defined(FOUND_SSH)
-		struct tr_ssh_config *ssh_config;
+		struct rtr_tr_ssh_config *ssh_config;
 #endif
 		switch (cache->type) {
 		case TCP:
@@ -2713,6 +3335,51 @@ DEFUN_YANG (no_match_rpki,
 	return nb_cli_apply_changes(vty, NULL);
 }
 
+#ifdef FOUND_ASPA
+#define ASPA_OUTPUT_STRING                                                                        \
+	"Control ASPA AS_PATH verification settings\n"                                            \
+	"Route received from a customer, lateral peer or RS-client\n"                             \
+	"Route received from a provider or route server\n"                                        \
+	"AS_PATH is ASPA valid\n"                                                                 \
+	"AS_PATH is ASPA invalid\n"                                                               \
+	"AS_PATH cannot be fully verified\n"
+
+DEFPY_YANG (match_aspa,
+       match_aspa_cmd,
+       "match aspa <upstream|downstream>$direction <valid|invalid|unknown>$state",
+       MATCH_STR
+       ASPA_OUTPUT_STRING)
+{
+	const char *xpath = "./match-condition[condition='frr-bgp-route-map:aspa']";
+	char xpath_value[XPATH_MAXLEN];
+
+	nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
+
+	snprintf(xpath_value, sizeof(xpath_value),
+		 "%s/rmap-match-condition/frr-bgp-route-map:aspa-direction", xpath);
+	nb_cli_enqueue_change(vty, xpath_value, NB_OP_MODIFY, direction);
+
+	snprintf(xpath_value, sizeof(xpath_value),
+		 "%s/rmap-match-condition/frr-bgp-route-map:aspa-state", xpath);
+	nb_cli_enqueue_change(vty, xpath_value, NB_OP_MODIFY, state);
+
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFPY_YANG (no_match_aspa,
+       no_match_aspa_cmd,
+       "no match aspa <upstream|downstream>$direction <valid|invalid|unknown>$state",
+       NO_STR
+       MATCH_STR
+       ASPA_OUTPUT_STRING)
+{
+	const char *xpath = "./match-condition[condition='frr-bgp-route-map:aspa']";
+
+	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
+	return nb_cli_apply_changes(vty, NULL);
+}
+#endif /* FOUND_ASPA */
+
 static void install_cli_commands(void)
 {
 	// TODO: make config write work
@@ -2777,6 +3444,9 @@ static void install_cli_commands(void)
 	install_element(VIEW_NODE, &show_rpki_cache_server_cmd);
 	install_element(VIEW_NODE, &show_rpki_prefix_cmd);
 	install_element(VIEW_NODE, &show_rpki_as_number_cmd);
+#ifdef FOUND_ASPA
+	install_element(VIEW_NODE, &show_rpki_aspa_cmd);
+#endif
 	install_element(VIEW_NODE, &show_rpki_configuration_cmd);
 
 	/* Install debug commands */
@@ -2789,6 +3459,11 @@ static void install_cli_commands(void)
 	route_map_install_match(&route_match_rpki_cmd);
 	install_element(RMAP_NODE, &match_rpki_cmd);
 	install_element(RMAP_NODE, &no_match_rpki_cmd);
+#ifdef FOUND_ASPA
+	route_map_install_match(&route_match_aspa_cmd);
+	install_element(RMAP_NODE, &match_aspa_cmd);
+	install_element(RMAP_NODE, &no_match_aspa_cmd);
+#endif
 }
 
 FRR_MODULE_SETUP(.name = "bgpd_rpki", .version = "0.3.6",
