@@ -4477,6 +4477,43 @@ void rib_meta_queue_early_route_cleanup(const struct prefix *p, afi_t afi, safi_
 	}
 }
 
+/*
+ * rib_add_multipath() decides whether a kernel route is a connected route when
+ * it is queued.  A kernel route for the subnet of a noprefixroute address that
+ * is still on the early route Q was queued before that address was known, so
+ * turn it into the connected route it would have been.
+ */
+void rib_meta_queue_early_route_kernel_to_connected(const struct prefix *p, afi_t afi, safi_t safi,
+						    vrf_id_t vrf_id, uint32_t table,
+						    ifindex_t ifindex)
+{
+	struct listnode *node;
+	struct zebra_early_route *ere;
+	struct nexthop *nh;
+
+	for (ALL_LIST_ELEMENTS_RO(zrouter.mq->subq[META_QUEUE_EARLY_ROUTE], node, ere)) {
+		if (ere->deletion || ere->re->type != ZEBRA_ROUTE_KERNEL)
+			continue;
+
+		if (!prefix_same(&ere->p, p) || ere->afi != afi || ere->safi != safi ||
+		    ere->re->vrf_id != vrf_id || ere->re->table != table)
+			continue;
+
+		nh = ere->re_nhe ? ere->re_nhe->nhg.nexthop : NULL;
+		if (!nh || nh->ifindex != ifindex)
+			continue;
+
+		ere->re->type = ZEBRA_ROUTE_CONNECT;
+
+		if (IS_ZEBRA_DEBUG_RIB_DETAILED) {
+			struct vrf *vrf = vrf_lookup_by_id(vrf_id);
+
+			zlog_debug("Route (%s:%u:%u)%pFX safi %s on early route queue is now connected",
+				   VRF_LOGNAME(vrf), vrf_id, table, p, safi2str(safi));
+		}
+	}
+}
+
 int rib_add_gr_run(afi_t afi, vrf_id_t vrf_id, uint8_t proto, uint8_t instance,
 		   time_t restart_time, time_t update_pending_time, bool stale_client_cleanup)
 {
