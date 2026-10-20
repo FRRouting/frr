@@ -86,6 +86,7 @@ static bool vni_svi_hash_cmp(const void *p1, const void *p2);
 static void bgp_evpn_remote_ip_process_nexthops(struct bgpevpn *vpn, struct ipaddr *addr,
 						bool resolve, bool force);
 static void bgp_evpn_gateway_ip_reevaluate(struct bgpevpn *vpn, const struct prefix_evpn *evp);
+static void bgp_evpn_gateway_ip_vrf_reevaluate(struct bgp *bgp_vrf, const struct prefix *p);
 static void bgp_evpn_remote_ip_hash_link_nexthop(struct hash_bucket *bucket,
 						 void *args);
 static void bgp_evpn_remote_ip_hash_unlink_nexthop(struct hash_bucket *bucket,
@@ -3609,6 +3610,9 @@ static int install_evpn_route_entry_in_vrf(struct bgp *bgp_vrf,
 	/* Perform route selection and update zebra, if required. */
 	bgp_process(bgp_vrf, dest, pi, afi, safi);
 
+	/* The route may be the host route of a gateway IP */
+	bgp_evpn_gateway_ip_vrf_reevaluate(bgp_vrf, pp);
+
 	/* Process for route leaking. */
 	vpn_leak_from_vrf_update(bgp_get_default(), bgp_vrf, pi);
 
@@ -3990,6 +3994,9 @@ int uninstall_evpn_route_entry_in_vrf(struct bgp *bgp_vrf, const struct prefix_e
 
 	/* Perform route selection and update zebra, if required. */
 	bgp_process(bgp_vrf, dest, pi, afi, safi);
+
+	/* The route may be the host route of a gateway IP */
+	bgp_evpn_gateway_ip_vrf_reevaluate(bgp_vrf, pp);
 
 	/* Unlock route node. */
 	bgp_dest_unlock_node(dest);
@@ -9200,13 +9207,78 @@ static bool bgp_evpn_is_ip_known_in_vni(struct bgp *bgp_evpn, struct bgpevpn *vp
 }
 
 /*
+ * Check if the tenant VRF has a host route for the IP that is imported from
+ * an EVPN route: a MAC/IP route, or an IP prefix route that does not carry a
+ * gateway IP itself, so that a gateway IP is never resolved through another
+ * one. This is how a VTEP without an EVI for the host, such as a border leaf
+ * that has only the L3VNI, knows it.
+ */
+static bool bgp_evpn_is_ip_evpn_host_in_vrf(struct bgp *bgp_vrf, const struct ipaddr *addr)
+{
+	struct bgp_path_info *parent_pi;
+	struct bgp_route_evpn *bre;
+	struct bgp_path_info *pi;
+	struct bgp_dest *dest;
+	struct prefix p;
+	bool found = false;
+	afi_t afi;
+
+	memset(&p, 0, sizeof(p));
+
+	if (addr->ipa_type == IPADDR_V4) {
+		afi = AFI_IP;
+		p.family = AF_INET;
+		p.u.prefix4 = addr->ipaddr_v4;
+		p.prefixlen = IPV4_MAX_BITLEN;
+	} else if (addr->ipa_type == IPADDR_V6) {
+		afi = AFI_IP6;
+		p.family = AF_INET6;
+		p.u.prefix6 = addr->ipaddr_v6;
+		p.prefixlen = IPV6_MAX_BITLEN;
+	} else
+		return false;
+
+	if (!bgp_vrf->rib[afi][SAFI_UNICAST])
+		return false;
+
+	dest = bgp_node_lookup(bgp_vrf->rib[afi][SAFI_UNICAST], &p);
+	if (!dest)
+		return false;
+
+	for (pi = bgp_dest_get_bgp_path_info(dest); pi; pi = pi->next) {
+		if (!CHECK_FLAG(pi->flags, BGP_PATH_VALID) ||
+		    CHECK_FLAG(pi->flags, BGP_PATH_REMOVED))
+			continue;
+
+		if (pi->sub_type != BGP_ROUTE_IMPORTED || !pi->extra || !pi->extra->vrfleak ||
+		    !pi->extra->vrfleak->parent)
+			continue;
+
+		parent_pi = pi->extra->vrfleak->parent;
+		if (!is_pi_family_evpn(parent_pi))
+			continue;
+
+		bre = bgp_attr_get_evpn_overlay(parent_pi->attr);
+		if (bre && bre->type == OVERLAY_INDEX_GATEWAY_IP)
+			continue;
+
+		found = true;
+		break;
+	}
+	bgp_dest_unlock_node(dest);
+
+	return found;
+}
+
+/*
  * This function is called for a bgp_nexthop_cache entry when the nexthop is
  * gateway IP overlay index.
  * This function returns true if the gateway IP is a known host, from a remote
  * or a local MAC/IP route, in the EVI the gateway IP is reachable through:
  * - nht resolved it over an L2VNI SVI: the EVI of that SVI;
  * - nht resolved it over the L3VNI SVI of the tenant VRF, i.e. with a
- *   symmetric IRB host route: any EVI of that VRF.
+ *   symmetric IRB host route: any EVI of that VRF, or the host route itself
+ *   when it is imported from EVPN.
  */
 bool bgp_evpn_is_gateway_ip_resolved(struct bgp_nexthop_cache *bnc)
 {
@@ -9260,7 +9332,12 @@ bool bgp_evpn_is_gateway_ip_resolved(struct bgp_nexthop_cache *bnc)
 		if (bgp_evpn_is_ip_known_in_vni(bgp_evpn, vpn, &addr))
 			return true;
 
-	return false;
+	/*
+	 * The VRF may have no EVI that knows the host, or none at all, and
+	 * still get the host route from EVPN: a MAC/IP route of an L2VNI that
+	 * is not configured here, or an IP prefix route for the host.
+	 */
+	return bgp_evpn_is_ip_evpn_host_in_vrf(bnc->bgp, &addr);
 }
 
 /* Find the gateway IP nexthop for an IP address in a tenant VRF */
@@ -9296,25 +9373,13 @@ static struct bgp_nexthop_cache *bgp_evpn_gateway_ip_bnc_find(struct bgp *bgp_vr
 }
 
 /*
- * A MAC/IP route was added to or deleted from the EVI. If its IP is the
- * gateway IP of a nexthop that is L3 reachable, check again whether the
- * gateway IP is resolved: the IP may still (or now) be known from another
- * MAC/IP route, local or remote, or from another EVI.
+ * Check again whether the gateway IP of a nexthop that is L3 reachable is
+ * resolved. If that changed, update the nexthop and return true; the caller
+ * then evaluates its paths.
  */
-static void bgp_evpn_gateway_ip_reevaluate(struct bgpevpn *vpn, const struct prefix_evpn *evp)
+static bool bgp_evpn_gateway_ip_bnc_update(struct bgp_nexthop_cache *bnc)
 {
-	struct bgp_nexthop_cache *bnc;
 	bool resolved;
-
-	if (!evpn_resolve_overlay_index() || !vpn->bgp_vrf)
-		return;
-
-	if (evp->prefix.route_type != BGP_EVPN_MAC_IP_ROUTE || is_evpn_prefix_ipaddr_none(evp))
-		return;
-
-	bnc = bgp_evpn_gateway_ip_bnc_find(vpn->bgp_vrf, &evp->prefix.macip_addr.ip);
-	if (!bnc)
-		return;
 
 	resolved = bgp_evpn_is_gateway_ip_resolved(bnc);
 
@@ -9325,15 +9390,111 @@ static void bgp_evpn_gateway_ip_reevaluate(struct bgpevpn *vpn, const struct pre
 		UNSET_FLAG(bnc->flags, BGP_NEXTHOP_VALID);
 		SET_FLAG(bnc->flags, BGP_NEXTHOP_EVPN_INCOMPLETE);
 	} else
+		return false;
+
+	SET_FLAG(bnc->change_flags, BGP_NEXTHOP_MACIP_CHANGED);
+	return true;
+}
+
+/*
+ * A MAC/IP route was added to or deleted from the EVI. If its IP is the
+ * gateway IP of a nexthop that is L3 reachable, check again whether the
+ * gateway IP is resolved: the IP may still (or now) be known from another
+ * MAC/IP route, local or remote, or from another EVI.
+ */
+static void bgp_evpn_gateway_ip_reevaluate(struct bgpevpn *vpn, const struct prefix_evpn *evp)
+{
+	struct bgp_nexthop_cache *bnc;
+
+	if (!evpn_resolve_overlay_index() || !vpn->bgp_vrf)
+		return;
+
+	if (evp->prefix.route_type != BGP_EVPN_MAC_IP_ROUTE || is_evpn_prefix_ipaddr_none(evp))
+		return;
+
+	bnc = bgp_evpn_gateway_ip_bnc_find(vpn->bgp_vrf, &evp->prefix.macip_addr.ip);
+	if (!bnc || !bgp_evpn_gateway_ip_bnc_update(bnc))
 		return;
 
 	if (BGP_DEBUG(nht, NHT))
 		zlog_debug("%s(%u): vni %u mac/ip change, NH %pFX %s", vpn->bgp_vrf->name_pretty,
 			   vpn->tenant_vrf_id, vpn->vni, &bnc->prefix,
-			   resolved ? "resolved" : "unresolved");
+			   CHECK_FLAG(bnc->flags, BGP_NEXTHOP_VALID) ? "resolved" : "unresolved");
 
-	SET_FLAG(bnc->change_flags, BGP_NEXTHOP_MACIP_CHANGED);
 	evaluate_paths(bnc);
+}
+
+/*
+ * An EVPN route was imported into or unimported from the tenant VRF. If it is
+ * the host route of the gateway IP of a nexthop that is L3 reachable, check
+ * again whether the gateway IP is resolved, see
+ * bgp_evpn_is_ip_evpn_host_in_vrf(). zebra's nexthop update covers most of
+ * these changes, but not one that leaves the route zebra resolves the gateway
+ * with as it was, such as a path added to or removed from a host route that
+ * keeps another one.
+ */
+static void bgp_evpn_gateway_ip_vrf_reevaluate(struct bgp *bgp_vrf, const struct prefix *p)
+{
+	struct bgp_nexthop_cache *bnc;
+	struct ipaddr addr;
+
+	if (!evpn_resolve_overlay_index())
+		return;
+
+	memset(&addr, 0, sizeof(addr));
+
+	if (p->family == AF_INET && p->prefixlen == IPV4_MAX_BITLEN) {
+		SET_IPADDR_V4(&addr);
+		addr.ipaddr_v4 = p->u.prefix4;
+	} else if (p->family == AF_INET6 && p->prefixlen == IPV6_MAX_BITLEN) {
+		SET_IPADDR_V6(&addr);
+		addr.ipaddr_v6 = p->u.prefix6;
+	} else
+		return;
+
+	bnc = bgp_evpn_gateway_ip_bnc_find(bgp_vrf, &addr);
+	if (!bnc || !bgp_evpn_gateway_ip_bnc_update(bnc))
+		return;
+
+	if (BGP_DEBUG(nht, NHT))
+		zlog_debug("%s(%u): host route change, NH %pFX %s", bgp_vrf->name_pretty,
+			   bgp_vrf->vrf_id, &bnc->prefix,
+			   CHECK_FLAG(bnc->flags, BGP_NEXTHOP_VALID) ? "resolved" : "unresolved");
+
+	evaluate_paths(bnc);
+}
+
+/*
+ * Check again whether the gateway IP of every gateway IP nexthop is resolved,
+ * when "enable-resolve-overlay-index" is set or unset. The per-EVI handlers
+ * only reach the gateways their MAC/IP routes know, not those that only the
+ * host route in the VRF knows, see bgp_evpn_is_ip_evpn_host_in_vrf().
+ */
+void bgp_evpn_gateway_ip_reevaluate_all(void)
+{
+	struct bgp_nexthop_cache *bnc;
+	struct listnode *node;
+	struct bgp *bgp;
+	afi_t afi;
+
+	for (ALL_LIST_ELEMENTS_RO(bm->bgp, node, bgp)) {
+		for (afi = AFI_IP; afi <= AFI_IP6; afi++) {
+			frr_each_safe (bgp_nexthop_cache, &bgp->nexthop_cache_table[afi], bnc) {
+				if (!bnc->is_evpn_gwip_nexthop ||
+				    !bgp_evpn_gateway_ip_bnc_update(bnc))
+					continue;
+
+				if (BGP_DEBUG(nht, NHT))
+					zlog_debug("%s(%u): overlay index resolution change, NH %pFX %s",
+						   bgp->name_pretty, bgp->vrf_id, &bnc->prefix,
+						   CHECK_FLAG(bnc->flags, BGP_NEXTHOP_VALID)
+							   ? "resolved"
+							   : "unresolved");
+
+				evaluate_paths(bnc);
+			}
+		}
+	}
 }
 
 /*
@@ -9386,11 +9547,13 @@ static void bgp_evpn_remote_ip_process_nexthops(struct bgpevpn *vpn, struct ipad
 		return;
 
 	/*
-	 * Over the L3VNI SVI, a MAC/IP route in any EVI of the VRF resolves the
-	 * gateway IP: keep it while another EVI still knows the IP.
+	 * Over the L3VNI SVI, a MAC/IP route in any EVI of the VRF, or a host
+	 * route imported from EVPN, resolves the gateway IP: keep it while
+	 * another EVI still knows the IP or the VRF still has that host route.
 	 */
 	if (!resolve && !force && bnc->nexthop->ifindex != vpn->svi_ifindex &&
-	    bgp_evpn_ip_known_in_other_evi(vpn->bgp_vrf, addr, vpn))
+	    (bgp_evpn_ip_known_in_other_evi(vpn->bgp_vrf, addr, vpn) ||
+	     bgp_evpn_is_ip_evpn_host_in_vrf(vpn->bgp_vrf, addr)))
 		return;
 
 	if (BGP_DEBUG(nht, NHT))
