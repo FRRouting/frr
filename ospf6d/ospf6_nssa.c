@@ -843,24 +843,31 @@ static void ospf6_ase_lsa_refresh(struct ospf6 *o)
 
 void ospf6_area_nssa_update(struct ospf6_area *area)
 {
+	uint8_t old_state = area->NSSATranslatorState;
+
 	if (IS_AREA_NSSA(area)) {
 		OSPF6_OPT_CLEAR(area->options, OSPF6_OPT_E);
 		area->ospf6->anyNSSA++;
 		OSPF6_OPT_SET(area->options, OSPF6_OPT_N);
 		area->NSSATranslatorRole = OSPF6_NSSA_ROLE_CANDIDATE;
-	} else if (IS_AREA_ENABLED(area)) {
+	} else {
 		if (IS_OSPF6_DEBUG_ORIGINATE(ROUTER))
 			zlog_debug("Normal area for if %s", area->name);
 		OSPF6_OPT_CLEAR(area->options, OSPF6_OPT_N);
 		OSPF6_OPT_SET(area->options, OSPF6_OPT_E);
 		area->ospf6->anyNSSA--;
 		area->NSSATranslatorState = OSPF6_NSSA_TRANSLATE_DISABLED;
+		if (old_state != OSPF6_NSSA_TRANSLATE_DISABLED) {
+			--area->ospf6->redist_count;
+			ospf6_asbr_status_update(area->ospf6,
+						 area->ospf6->redist_count);
+		}
 	}
 
 	/* Refresh router LSA */
-	if (IS_AREA_NSSA(area)) {
-		OSPF6_ROUTER_LSA_SCHEDULE(area);
+	OSPF6_ROUTER_LSA_SCHEDULE(area);
 
+	if (IS_AREA_NSSA(area)) {
 		/* Flush external LSAs. */
 		ospf6_asbr_remove_externals_from_area(area);
 
