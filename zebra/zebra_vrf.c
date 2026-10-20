@@ -33,6 +33,7 @@
 #include "zebra/zebra_routemap.h"
 #include "zebra/zebra_vrf_clippy.c"
 #include "zebra/table_manager.h"
+#include "zebra/zebra_link_cfg_if.h"
 
 static void zebra_vrf_table_create(struct zebra_vrf *zvrf, afi_t afi,
 				   safi_t safi);
@@ -134,6 +135,9 @@ static int zebra_vrf_enable(struct vrf *vrf)
 		zvrf->zns = zebra_ns_lookup(NS_DEFAULT);
 
 	rtadv_vrf_init(zvrf);
+
+	/* Links configured in this VRF may have been waiting for its namespace */
+	zebra_link_cfg_vrf_enabled();
 
 	/* Inform clients that the VRF is now active. This is an
 	 * add for the clients.
