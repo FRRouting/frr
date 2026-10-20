@@ -1652,6 +1652,13 @@ int bgp_ls_process_linkstate_message(struct stream *s, uint8_t msg_type)
 			   msg_type == LINK_STATE_UPDATE ? "UPDATE" : "SYNC");
 
 	ret = bgp_ls_process_message(bgp, msg);
+
+	/* A successfully processed SYNC message confirms the producer answered
+	 * the initial sync request, so BGP can stop retrying the SYNC request.
+	 */
+	if (ret == 0 && msg->event == LS_MSG_EVENT_SYNC)
+		bgp_ls_sync_cancel(bgp);
+
 	ls_delete_msg(msg);
 
 	return ret;
