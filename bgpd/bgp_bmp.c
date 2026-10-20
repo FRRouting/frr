@@ -43,6 +43,8 @@
 #include "bgpd/bgp_open.h"
 #include "bgpd/bgp_aspath.h"
 
+extern struct zebra_privs_t bgpd_privs;
+
 static void bmp_close(struct bmp *bmp);
 static struct bmp_bgp *bmp_bgp_find(struct bgp *bgp);
 static void bmp_targets_put(struct bmp_targets *bt);
@@ -3078,8 +3080,11 @@ static void bmp_active_thread(struct event *t)
 			vrf_id = VRF_DEFAULT;
 		else
 			vrf_id = ba->targets->bgp->vrf_id;
-		resolver_resolve(&ba->resq, AF_UNSPEC, vrf_id, ba->hostname,
-				 bmp_active_resolved);
+		/* The resolver needs privileges to enter and leave a VRF netns. */
+		frr_with_privs(&bgpd_privs) {
+			resolver_resolve(&ba->resq, AF_UNSPEC, vrf_id,
+					 ba->hostname, bmp_active_resolved);
+		}
 		return;
 	}
 
