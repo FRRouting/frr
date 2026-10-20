@@ -97,7 +97,7 @@ struct ospf6_lsa *ospf6_as_external_lsa_originate(struct ospf6_route *route,
 	}
 
 	if (IS_OSPF6_DEBUG_ASBR || IS_OSPF6_DEBUG_ORIGINATE(AS_EXTERNAL))
-		zlog_debug("Originate AS-External-LSA for %pFX",
+		zlog_debug("Originate AS-External-LSA for (%s:%u:%u)%pFX", OSPF6_DEBUG_VRF(ospf6),
 			   &route->prefix);
 
 	/* prepare buffer */
@@ -278,10 +278,9 @@ void ospf6_asbr_update_route_ecmp_path(struct ospf6_route *old,
 				continue;
 
 			if (IS_OSPF6_DEBUG_EXAMIN(AS_EXTERNAL)) {
-				zlog_debug(
-					"%s: route %pFX cost old %u new %u is not same, replace route",
-					__func__, &old_route->prefix, o_path->cost,
-					route->path.cost);
+				zlog_debug("%s: route (%s:%u:%u)%pFX cost old %u new %u is not same, replace route",
+					   __func__, OSPF6_DEBUG_VRF(ospf6), &old_route->prefix,
+					   o_path->cost, route->path.cost);
 			}
 
 			/* Remove selected current rout path's nh from
@@ -340,11 +339,10 @@ void ospf6_asbr_update_route_ecmp_path(struct ospf6_route *old,
 				}
 			} else {
 				if (IS_OSPF6_DEBUG_EXAMIN(AS_EXTERNAL)) {
-					zlog_debug(
-						"%s: route %pFX old cost %u new cost %u, delete old entry.",
-						__func__, &old_route->prefix,
-						old_route->path.cost,
-						route->path.cost);
+					zlog_debug("%s: route (%s:%u:%u)%pFX old cost %u new cost %u, delete old entry.",
+						   __func__, OSPF6_DEBUG_VRF(ospf6),
+						   &old_route->prefix, old_route->path.cost,
+						   route->path.cost);
 				}
 				if (old == old_route)
 					old = next_route;
@@ -374,11 +372,9 @@ void ospf6_asbr_update_route_ecmp_path(struct ospf6_route *old,
 		    && (old_route->path.u.cost_e2 == route->path.u.cost_e2)) {
 
 			if (IS_OSPF6_DEBUG_EXAMIN(AS_EXTERNAL)) {
-				zlog_debug(
-					"%s: old route %pFX path  cost %u e2 %u",
-					__func__, &old_route->prefix,
-					old_route->path.cost,
-					old_route->path.u.cost_e2);
+				zlog_debug("%s: old route (%s:%u:%u)%pFX path  cost %u e2 %u",
+					   __func__, OSPF6_DEBUG_VRF(ospf6), &old_route->prefix,
+					   old_route->path.cost, old_route->path.u.cost_e2);
 			}
 			route_found = true;
 			/* check if this path exists already in
@@ -407,14 +403,12 @@ void ospf6_asbr_update_route_ecmp_path(struct ospf6_route *old,
 				listnode_add_sort(old_route->paths, ecmp_path);
 
 				if (IS_OSPF6_DEBUG_EXAMIN(AS_EXTERNAL)) {
-					zlog_debug(
-						"%s: route %pFX another path added with nh %u, effective paths %u nh %u",
-						__func__, &route->prefix,
-						listcount(ecmp_path->nh_list),
-						old_route->paths ? listcount(
-							old_route->paths)
-								 : 0,
-						listcount(old_route->nh_list));
+					zlog_debug("%s: route (%s:%u:%u)%pFX another path added with nh %u, effective paths %u nh %u",
+						   __func__, OSPF6_DEBUG_VRF(ospf6),
+						   &route->prefix, listcount(ecmp_path->nh_list),
+						   old_route->paths ? listcount(old_route->paths)
+								    : 0,
+						   listcount(old_route->nh_list));
 				}
 			} else {
 				list_delete_all_node(o_path->nh_list);
@@ -436,10 +430,9 @@ void ospf6_asbr_update_route_ecmp_path(struct ospf6_route *old,
 							ospf6->brouter_table);
 				if (asbr_entry == NULL) {
 					if (IS_OSPF6_DEBUG_EXAMIN(AS_EXTERNAL))
-						zlog_debug(
-							"%s: ls_prfix %pFX asbr_entry not found.",
-							__func__,
-							&old_route->prefix);
+						zlog_debug("%s: ls_prfix (%s:%u:%u)%pFX asbr_entry not found.",
+							   __func__, OSPF6_DEBUG_VRF(ospf6),
+							   &old_route->prefix);
 					continue;
 				}
 				ospf6_route_merge_nexthops(old_route,
@@ -447,15 +440,10 @@ void ospf6_asbr_update_route_ecmp_path(struct ospf6_route *old,
 			}
 
 			if (IS_OSPF6_DEBUG_EXAMIN(AS_EXTERNAL))
-				zlog_debug(
-					"%s: route %pFX with effective paths %u nh %u",
-					__func__, &route->prefix,
-					old_route->paths
-						? listcount(old_route->paths)
-						: 0,
-					old_route->nh_list
-						? listcount(old_route->nh_list)
-						: 0);
+				zlog_debug("%s: route (%s:%u:%u)%pFX with effective paths %u nh %u",
+					   __func__, OSPF6_DEBUG_VRF(ospf6), &route->prefix,
+					   old_route->paths ? listcount(old_route->paths) : 0,
+					   old_route->nh_list ? listcount(old_route->nh_list) : 0);
 
 			/* Update RIB/FIB */
 			if (ospf6->route_table->hook_add)
@@ -549,16 +537,16 @@ void ospf6_asbr_lsa_add(struct ospf6_lsa *lsa)
 	asbr_entry = ospf6_route_lookup(&asbr_id, ospf6->brouter_table);
 	if (asbr_entry == NULL) {
 		if (IS_OSPF6_DEBUG_EXAMIN(AS_EXTERNAL))
-			zlog_debug("ASBR entry not found: %pFX", &asbr_id);
+			zlog_debug("ASBR entry not found: (%s:%u:%u)%pFX", OSPF6_DEBUG_VRF(ospf6),
+				   &asbr_id);
 		return;
 	} else {
 		/* The router advertising external LSA can be ASBR or ABR */
 		if (!CHECK_FLAG(asbr_entry->path.router_bits,
 				OSPF6_ROUTER_BIT_E)) {
 			if (IS_OSPF6_DEBUG_EXAMIN(AS_EXTERNAL))
-				zlog_debug(
-					"External bit reset ASBR route entry : %pFX",
-					&asbr_id);
+				zlog_debug("External bit reset ASBR route entry : (%s:%u:%u)%pFX",
+					   OSPF6_DEBUG_VRF(ospf6), &asbr_id);
 			return;
 		}
 
@@ -572,9 +560,8 @@ void ospf6_asbr_lsa_add(struct ospf6_lsa *lsa)
 		    && (asbr_entry->path.area_id != oa->area_id
 			|| asbr_entry->path.type != OSPF6_PATH_TYPE_INTRA)) {
 			if (IS_OSPF6_DEBUG_EXAMIN(AS_EXTERNAL))
-				zlog_debug(
-					"Intra-area route to NSSA ASBR not found: %pFX",
-					&asbr_id);
+				zlog_debug("Intra-area route to NSSA ASBR not found: (%s:%u:%u)%pFX",
+					   OSPF6_DEBUG_VRF(ospf6), &asbr_id);
 			return;
 		}
 	}
@@ -619,9 +606,8 @@ void ospf6_asbr_lsa_add(struct ospf6_lsa *lsa)
 			if (!ospf6_ase_forward_address_check(
 				    ospf6, &fwd_addr.u.prefix6)) {
 				if (IS_OSPF6_DEBUG_EXAMIN(AS_EXTERNAL))
-					zlog_debug(
-						"Fwd address %pFX is local address",
-						&fwd_addr);
+					zlog_debug("Fwd address (%s:%u:%u)%pFX is local address",
+						   OSPF6_DEBUG_VRF(ospf6), &fwd_addr);
 				return;
 			}
 
@@ -630,9 +616,8 @@ void ospf6_asbr_lsa_add(struct ospf6_lsa *lsa)
 				&fwd_addr, ospf6->route_table);
 			if (asbr_entry == NULL) {
 				if (IS_OSPF6_DEBUG_EXAMIN(AS_EXTERNAL))
-					zlog_debug(
-						"Fwd address not found: %pFX",
-						&fwd_addr);
+					zlog_debug("Fwd address not found: (%s:%u:%u)%pFX",
+						   OSPF6_DEBUG_VRF(ospf6), &fwd_addr);
 				return;
 			}
 		}
@@ -675,13 +660,11 @@ void ospf6_asbr_lsa_add(struct ospf6_lsa *lsa)
 
 
 	if (IS_OSPF6_DEBUG_EXAMIN(AS_EXTERNAL))
-		zlog_debug(
-			"%s: %s %u route add %pFX cost %u(%u) nh %u", __func__,
-			(type == OSPF6_LSTYPE_AS_EXTERNAL) ? "AS-External"
-							   : "NSSA",
-			(route->path.type == OSPF6_PATH_TYPE_EXTERNAL1) ? 1 : 2,
-			&route->prefix, route->path.cost, route->path.u.cost_e2,
-			listcount(route->nh_list));
+		zlog_debug("%s: %s %u route add (%s:%u:%u)%pFX cost %u(%u) nh %u", __func__,
+			   (type == OSPF6_LSTYPE_AS_EXTERNAL) ? "AS-External" : "NSSA",
+			   (route->path.type == OSPF6_PATH_TYPE_EXTERNAL1) ? 1 : 2,
+			   OSPF6_DEBUG_VRF(ospf6), &route->prefix, route->path.cost,
+			   route->path.u.cost_e2, listcount(route->nh_list));
 
 	if (type == OSPF6_LSTYPE_AS_EXTERNAL)
 		old = ospf6_route_lookup(&route->prefix, ospf6->route_table);
@@ -704,10 +687,9 @@ void ospf6_asbr_lsa_add(struct ospf6_lsa *lsa)
 		 * list along with addition of ECMP path.
 		 */
 		if (IS_OSPF6_DEBUG_EXAMIN(AS_EXTERNAL))
-			zlog_debug("%s : old route %pFX cost %u(%u) nh %u",
-				   __func__, &route->prefix, route->path.cost,
-				   route->path.u.cost_e2,
-				   listcount(route->nh_list));
+			zlog_debug("%s : old route (%s:%u:%u)%pFX cost %u(%u) nh %u", __func__,
+				   OSPF6_DEBUG_VRF(ospf6), &route->prefix, route->path.cost,
+				   route->path.u.cost_e2, listcount(route->nh_list));
 		ospf6_asbr_update_route_ecmp_path(old, route, ospf6);
 	}
 }
@@ -799,16 +781,17 @@ void ospf6_asbr_lsa_remove(struct ospf6_lsa *lsa,
 
 	if (route == NULL) {
 		if (debug)
-			zlog_debug("AS-External route %pFX not found", &prefix);
+			zlog_debug("AS-External route (%s:%u:%u)%pFX not found",
+				   OSPF6_DEBUG_VRF(ospf6), &prefix);
 		ospf6_route_delete(route_to_del);
 		return;
 	}
 
 	if (debug)
-		zlog_debug(
-			"%s: Current route %pFX cost %u e2 %u, route to del cost %u e2 %u",
-			__func__, &prefix, route->path.cost, route->path.u.cost_e2,
-			route_to_del->path.cost, route_to_del->path.u.cost_e2);
+		zlog_debug("%s: Current route (%s:%u:%u)%pFX cost %u e2 %u, route to del cost %u e2 %u",
+			   __func__, OSPF6_DEBUG_VRF(ospf6), &prefix, route->path.cost,
+			   route->path.u.cost_e2, route_to_del->path.cost,
+			   route_to_del->path.u.cost_e2);
 
 	for (ospf6_route_lock(route);
 	     route && ospf6_route_is_prefix(&prefix, route); route = nroute) {
@@ -850,21 +833,18 @@ void ospf6_asbr_lsa_remove(struct ospf6_lsa *lsa,
 							      .cost_e2)) {
 					if (IS_OSPF6_DEBUG_EXAMIN(
 						    AS_EXTERNAL)) {
-						zlog_debug(
-							"%s: route %pFX to delete is not same, cost %u del cost %u. skip",
-							__func__, &prefix,
-							route->path.cost,
-							route_to_del->path
-								.cost);
+						zlog_debug("%s: route (%s:%u:%u)%pFX to delete is not same, cost %u del cost %u. skip",
+							   __func__, OSPF6_DEBUG_VRF(ospf6),
+							   &prefix, route->path.cost,
+							   route_to_del->path.cost);
 					}
 					continue;
 				}
 
 				if (debug) {
-					zlog_debug(
-						"%s: route %pFX path found with cost %u nh %u to remove.",
-						__func__, &prefix, route->path.cost,
-						listcount(o_path->nh_list));
+					zlog_debug("%s: route (%s:%u:%u)%pFX path found with cost %u nh %u to remove.",
+						   __func__, OSPF6_DEBUG_VRF(ospf6), &prefix,
+						   route->path.cost, listcount(o_path->nh_list));
 				}
 
 				/* Remove found path's nh_list from
@@ -902,17 +882,14 @@ void ospf6_asbr_lsa_remove(struct ospf6_lsa *lsa,
 				}
 
 				if (debug) {
-					zlog_debug(
-						"%s: AS-External %u route %pFX update paths %u nh %u",
-						__func__,
-						(route->path.type
-						 == OSPF6_PATH_TYPE_EXTERNAL1)
-							? 1
-							: 2,
-						&route->prefix, listcount(route->paths),
-						route->nh_list ? listcount(
-							route->nh_list)
-							       : 0);
+					zlog_debug("%s: AS-External %u route (%s:%u:%u)%pFX update paths %u nh %u",
+						   __func__,
+						   (route->path.type == OSPF6_PATH_TYPE_EXTERNAL1)
+							   ? 1
+							   : 2,
+						   OSPF6_DEBUG_VRF(ospf6), &route->prefix,
+						   listcount(route->paths),
+						   route->nh_list ? listcount(route->nh_list) : 0);
 				}
 
 				if (listcount(route->paths)) {
@@ -966,10 +943,9 @@ void ospf6_asbr_lsa_remove(struct ospf6_lsa *lsa,
 				|| (route->path.u.cost_e2
 				    != route_to_del->path.u.cost_e2))) {
 				if (debug) {
-					zlog_debug(
-						"%s: route %pFX to delete is not same, cost %u del cost %u. skip",
-						__func__, &prefix, route->path.cost,
-						route_to_del->path.cost);
+					zlog_debug("%s: route (%s:%u:%u)%pFX to delete is not same, cost %u del cost %u. skip",
+						   __func__, OSPF6_DEBUG_VRF(ospf6), &prefix,
+						   route->path.cost, route_to_del->path.cost);
 				}
 				continue;
 			}
@@ -981,14 +957,10 @@ void ospf6_asbr_lsa_remove(struct ospf6_lsa *lsa,
 				continue;
 		}
 		if (debug) {
-			zlog_debug(
-				"%s: AS-External %u route remove %pFX cost %u(%u) nh %u",
-				__func__,
-				route->path.type == OSPF6_PATH_TYPE_EXTERNAL1
-					? 1
-					: 2,
-				&route->prefix, route->path.cost, route->path.u.cost_e2,
-				listcount(route->nh_list));
+			zlog_debug("%s: AS-External %u route remove (%s:%u:%u)%pFX cost %u(%u) nh %u",
+				   __func__, route->path.type == OSPF6_PATH_TYPE_EXTERNAL1 ? 1 : 2,
+				   OSPF6_DEBUG_VRF(ospf6), &route->prefix, route->path.cost,
+				   route->path.u.cost_e2, listcount(route->nh_list));
 		}
 		if (type == OSPF6_LSTYPE_TYPE_7)
 			ospf6_route_remove(route, oa->route_table);
@@ -1381,10 +1353,8 @@ ospf6_external_aggr_match(struct ospf6 *ospf6, struct prefix *p)
 
 	if (IS_OSPF6_DEBUG_AGGR) {
 		struct ospf6_external_aggr_rt *ag = node->info;
-		zlog_debug("%s: Matching aggregator found.prefix: %pFX Aggregator %pFX",
-			__func__,
-			p,
-			&ag->p);
+		zlog_debug("%s: Matching aggregator found.prefix: (%s:%u:%u)%pFX Aggregator (%s:%u:%u)%pFX",
+			   __func__, OSPF6_DEBUG_VRF(ospf6), p, OSPF6_DEBUG_VRF(ospf6), &ag->p);
 	}
 
 	route_unlock_node(node);
@@ -1466,10 +1436,9 @@ void ospf6_asbr_redistribute_add(int type, ifindex_t ifindex,
 	memset(&tinfo, 0, sizeof(tinfo));
 
 	if (IS_OSPF6_DEBUG_ASBR)
-		zlog_debug("Redistribute %pFX (%s)", prefix,
-			   type == DEFAULT_ROUTE
-				   ? "default-information-originate"
-				   : ZROUTE_NAME(type));
+		zlog_debug("Redistribute (%s:%u:%u)%pFX (%s)", OSPF6_DEBUG_VRF(ospf6), prefix,
+			   type == DEFAULT_ROUTE ? "default-information-originate"
+						 : ZROUTE_NAME(type));
 
 	/* if route-map was specified but not found, do not advertise */
 	if (ROUTEMAP_NAME(red)) {
@@ -1629,9 +1598,8 @@ ospf6_asbr_summary_remove_lsa_and_route(struct ospf6 *ospf6,
 		return;
 
 	if (IS_OSPF6_DEBUG_AGGR)
-		zlog_debug("%s: Flushing Aggregate route (%pFX)",
-				__func__,
-				&aggr->p);
+		zlog_debug("%s: Flushing Aggregate route ((%s:%u:%u)%pFX)", __func__,
+			   OSPF6_DEBUG_VRF(ospf6), &aggr->p);
 
 	ospf6_asbr_external_lsa_remove_by_id(ospf6, aggr->id);
 
@@ -1660,11 +1628,9 @@ ospf6_unlink_route_from_aggr(struct ospf6 *ospf6,
 			     struct ospf6_route *rt)
 {
 	if (IS_OSPF6_DEBUG_AGGR)
-		zlog_debug("%s: Unlinking external route(%pFX) from aggregator(%pFX), external route count:%ld",
-					__func__,
-					&rt->prefix,
-					&aggr->p,
-					OSPF6_EXTERNAL_RT_COUNT(aggr));
+		zlog_debug("%s: Unlinking external route((%s:%u:%u)%pFX) from aggregator((%s:%u:%u)%pFX), external route count:%ld",
+			   __func__, OSPF6_DEBUG_VRF(ospf6), &rt->prefix, OSPF6_DEBUG_VRF(ospf6),
+			   &aggr->p, OSPF6_EXTERNAL_RT_COUNT(aggr));
 
 	hash_release(aggr->match_extnl_hash, rt);
 	rt->aggr_route = NULL;
@@ -1685,7 +1651,8 @@ void ospf6_asbr_redistribute_remove(int type, ifindex_t ifindex,
 	match = ospf6_route_lookup(prefix, ospf6->external_table);
 	if (match == NULL) {
 		if (IS_OSPF6_DEBUG_ASBR)
-			zlog_debug("No such route %pFX to withdraw", prefix);
+			zlog_debug("No such route (%s:%u:%u)%pFX to withdraw",
+				   OSPF6_DEBUG_VRF(ospf6), prefix);
 		return;
 	}
 
@@ -1694,7 +1661,8 @@ void ospf6_asbr_redistribute_remove(int type, ifindex_t ifindex,
 
 	if (info->type != type) {
 		if (IS_OSPF6_DEBUG_ASBR)
-			zlog_debug("Original protocol mismatch: %pFX", prefix);
+			zlog_debug("Original protocol mismatch: (%s:%u:%u)%pFX",
+				   OSPF6_DEBUG_VRF(ospf6), prefix);
 		return;
 	}
 
@@ -1707,8 +1675,8 @@ void ospf6_asbr_redistribute_remove(int type, ifindex_t ifindex,
 		ospf6_unlink_route_from_aggr(ospf6, match->aggr_route, match);
 
 	if (IS_OSPF6_DEBUG_ASBR)
-		zlog_debug("Removing route from external table %pFX",
-			   prefix);
+		zlog_debug("Removing route from external table (%s:%u:%u)%pFX",
+			   OSPF6_DEBUG_VRF(ospf6), prefix);
 
 	ospf6_route_remove(match, ospf6->external_table);
 	XFREE(MTYPE_OSPF6_EXTERNAL_INFO, info);
@@ -2898,15 +2866,14 @@ static void ospf6_originate_new_aggr_lsa(struct ospf6 *ospf6,
 	struct ospf6_lsa *lsa = NULL;
 
 	if (IS_OSPF6_DEBUG_AGGR)
-		zlog_debug("%s: Originate new aggregate route(%pFX)", __func__,
-			   &aggr->p);
+		zlog_debug("%s: Originate new aggregate route((%s:%u:%u)%pFX)", __func__,
+			   OSPF6_DEBUG_VRF(ospf6), &aggr->p);
 
 	aggr->id = ospf6->external_id++;
 
 	if (IS_OSPF6_DEBUG_AGGR)
-		zlog_debug(
-			"Advertise AS-External Id:%pI4 prefix %pFX metric %u",
-			&prefix_id.u.prefix4, &aggr->p, aggr->metric);
+		zlog_debug("Advertise AS-External Id:%pI4 prefix (%s:%u:%u)%pFX metric %u",
+			   &prefix_id.u.prefix4, OSPF6_DEBUG_VRF(ospf6), &aggr->p, aggr->metric);
 
 	ospf6_summary_add_aggr_route_and_blackhole(ospf6, aggr);
 
@@ -2970,8 +2937,8 @@ ospf6_originate_summary_lsa(struct ospf6 *ospf6,
 	int mtype;
 
 	if (IS_OSPF6_DEBUG_AGGR)
-		zlog_debug("%s: Prepare to originate Summary route(%pFX)",
-			   __func__, &aggr->p);
+		zlog_debug("%s: Prepare to originate Summary route((%s:%u:%u)%pFX)", __func__,
+			   OSPF6_DEBUG_VRF(ospf6), &aggr->p);
 
 	/* This case to handle when the overlapping aggregator address
 	 * is available. Best match will be considered.So need to unlink
@@ -3038,10 +3005,8 @@ ospf6_originate_summary_lsa(struct ospf6 *ospf6,
 	 */
 	if (CHECK_FLAG(aggr->aggrflags, OSPF6_EXTERNAL_AGGRT_ORIGINATED)) {
 		if (!aggr_lsa) {
-			zlog_warn(
-				"%s: Could not refresh/originate %pFX",
-						__func__,
-						&aggr->p);
+			zlog_warn("%s: Could not refresh/originate (%s:%u:%u)%pFX", __func__,
+				  OSPF6_DEBUG_VRF(ospf6), &aggr->p);
 			/* Remove the assert later */
 			assert(aggr_lsa);
 			return;
@@ -3064,13 +3029,9 @@ ospf6_originate_summary_lsa(struct ospf6 *ospf6,
 		    || (mtype != aggr->mtype)) {
 
 			if (IS_OSPF6_DEBUG_AGGR)
-				zlog_debug(
-					"%s: Routetag(old:%d new:%d)/Metric(o:%u,n:%u)/mtype(o:%d n:%d) modified,So refresh the summary route.(%pFX)",
-					__func__, tag, aggr->tag,
-					metric,
-					aggr->metric,
-					mtype, aggr->mtype,
-					&aggr->p);
+				zlog_debug("%s: Routetag(old:%d new:%d)/Metric(o:%u,n:%u)/mtype(o:%d n:%d) modified,So refresh the summary route.((%s:%u:%u)%pFX)",
+					   __func__, tag, aggr->tag, metric, aggr->metric, mtype,
+					   aggr->mtype, OSPF6_DEBUG_VRF(ospf6), &aggr->p);
 
 			aggr_lsa = ospf6_originate_type5_type7_lsas(aggr->route,
 								    ospf6);
@@ -3088,9 +3049,8 @@ ospf6_originate_summary_lsa(struct ospf6 *ospf6,
 	 */
 	if (lsa && prefix_same(&aggr->p, &rt->prefix)) {
 		if (IS_OSPF6_DEBUG_AGGR)
-			zlog_debug(
-				"%s: Route prefix is same as aggr so no need to re-originate LSA(%pFX)",
-				__PRETTY_FUNCTION__, &aggr->p);
+			zlog_debug("%s: Route prefix is same as aggr so no need to re-originate LSA((%s:%u:%u)%pFX)",
+				   __PRETTY_FUNCTION__, OSPF6_DEBUG_VRF(ospf6), &aggr->p);
 
 		aggr->id = info->id;
 		info->id = 0;
@@ -3122,9 +3082,8 @@ static void ospf6_aggr_handle_external_info(void *data)
 	assert(ospf6);
 
 	if (IS_OSPF6_DEBUG_ASBR || IS_OSPF6_DEBUG_ORIGINATE(AS_EXTERNAL))
-		zlog_debug("%s: Handle external route for origination/refresh (%pFX)",
-					__func__,
-					&rt->prefix);
+		zlog_debug("%s: Handle external route for origination/refresh ((%s:%u:%u)%pFX)",
+			   __func__, OSPF6_DEBUG_VRF(ospf6), &rt->prefix);
 
 	aggr = ospf6_external_aggr_match(ospf6,
 					&rt->prefix);
@@ -3161,9 +3120,8 @@ void ospf6_asbr_summary_config_delete(struct ospf6 *ospf6,
 	struct ospf6_external_aggr_rt *aggr = rn->info;
 
 	if (IS_OSPF6_DEBUG_AGGR)
-		zlog_debug("%s: Deleting Aggregate route (%pFX)",
-						__func__,
-						&aggr->p);
+		zlog_debug("%s: Deleting Aggregate route ((%s:%u:%u)%pFX)", __func__,
+			   OSPF6_DEBUG_VRF(ospf6), &aggr->p);
 
 	ospf6_asbr_summary_remove_lsa_and_route(ospf6, aggr);
 
@@ -3187,10 +3145,8 @@ ospf6_handle_external_aggr_modify(struct ospf6 *ospf6,
 		htonl(aggr->id), ospf6->router_id,
 		ospf6->lsdb);
 	if (!lsa) {
-		zlog_warn(
-			"%s: Could not refresh/originate %pFX",
-			__func__,
-			&aggr->p);
+		zlog_warn("%s: Could not refresh/originate (%s:%u:%u)%pFX", __func__,
+			  OSPF6_DEBUG_VRF(ospf6), &aggr->p);
 
 		return OSPF6_FAILURE;
 	}
@@ -3214,14 +3170,10 @@ ospf6_handle_external_aggr_modify(struct ospf6 *ospf6,
 	    || (mtype
 		!= aggr->mtype)) {
 		if (IS_OSPF6_DEBUG_AGGR)
-			zlog_debug(
-			"%s: Changed tag(old:%d new:%d)/metric(o:%u n:%d)/mtype(o:%d n:%d),So refresh the summary route.(%pFX)",
-			__func__, tag,
-			aggr->tag,
-			metric,
-			(unsigned int)rt_aggr->path.cost,
-			mtype, aggr->mtype,
-			&aggr->p);
+			zlog_debug("%s: Changed tag(old:%d new:%d)/metric(o:%u n:%d)/mtype(o:%d n:%d),So refresh the summary route.((%s:%u:%u)%pFX)",
+				   __func__, tag, aggr->tag, metric,
+				   (unsigned int)rt_aggr->path.cost, mtype, aggr->mtype,
+				   OSPF6_DEBUG_VRF(ospf6), &aggr->p);
 
 		(void)ospf6_originate_type5_type7_lsas(
 					aggr->route,
@@ -3289,15 +3241,14 @@ static void ospf6_aggr_unlink_external_info(void *data)
 	rt->to_be_processed = true;
 }
 
-void ospf6_external_aggregator_free(struct ospf6_external_aggr_rt *aggr)
+void ospf6_external_aggregator_free(struct ospf6 *ospf6, struct ospf6_external_aggr_rt *aggr)
 {
 	hash_clean_and_free(&aggr->match_extnl_hash,
 			    ospf6_aggr_unlink_external_info);
 
 	if (IS_OSPF6_DEBUG_AGGR)
-		zlog_debug("%s: Release the aggregator Address(%pFX)",
-						__func__,
-						&aggr->p);
+		zlog_debug("%s: Release the aggregator Address((%s:%u:%u)%pFX)", __func__,
+			   OSPF6_DEBUG_VRF(ospf6), &aggr->p);
 
 	XFREE(MTYPE_OSPF6_EXTERNAL_RT_AGGR, aggr);
 }
@@ -3323,7 +3274,7 @@ ospf6_delete_all_marked_aggregators(struct ospf6 *ospf6)
 			continue;
 		}
 		ospf6_asbr_summary_config_delete(ospf6, rn);
-		ospf6_external_aggregator_free(aggr);
+		ospf6_external_aggregator_free(ospf6, aggr);
 	}
 }
 
@@ -3349,9 +3300,8 @@ static void ospf6_handle_exnl_rt_after_aggr_del(struct ospf6 *ospf6,
 				&lsa->refresh);
 	} else {
 		if (IS_OSPF6_DEBUG_AGGR)
-			zlog_debug("%s: Originate external route(%pFX)",
-				__func__,
-				&rt->prefix);
+			zlog_debug("%s: Originate external route((%s:%u:%u)%pFX)", __func__,
+				   OSPF6_DEBUG_VRF(ospf6), &rt->prefix);
 
 		(void)ospf6_originate_type5_type7_lsas(rt, ospf6);
 	}
@@ -3371,9 +3321,8 @@ static void ospf6_handle_aggregated_exnl_rt(struct ospf6 *ospf6,
 	 */
 	if (prefix_same(&aggr->p, &rt->prefix)) {
 		if (IS_OSPF6_DEBUG_AGGR)
-			zlog_debug("%s: External Route prefix same as Aggregator(%pFX), so don't flush.",
-				__func__,
-				&rt->prefix);
+			zlog_debug("%s: External Route prefix same as Aggregator((%s:%u:%u)%pFX), so don't flush.",
+				   __func__, OSPF6_DEBUG_VRF(ospf6), &rt->prefix);
 
 		return;
 	}
@@ -3582,9 +3531,8 @@ static void ospf6_external_aggr_add(struct ospf6 *ospf6,
 	struct route_node *rn;
 
 	if (IS_OSPF6_DEBUG_AGGR)
-		zlog_debug("%s: Adding Aggregate route to Aggr table (%pFX)",
-					__func__,
-					&aggr->p);
+		zlog_debug("%s: Adding Aggregate route to Aggr table ((%s:%u:%u)%pFX)", __func__,
+			   OSPF6_DEBUG_VRF(ospf6), &aggr->p);
 
 	rn = route_node_get(ospf6->rt_aggr_tbl, &aggr->p);
 	if (rn->info)
@@ -3701,7 +3649,7 @@ int ospf6_external_aggr_config_unset(struct ospf6 *ospf6,
 
 	if (!OSPF6_EXTERNAL_RT_COUNT(aggr)) {
 		ospf6_asbr_summary_config_delete(ospf6, rn);
-		ospf6_external_aggregator_free(aggr);
+		ospf6_external_aggregator_free(ospf6, aggr);
 		return OSPF6_SUCCESS;
 	}
 
@@ -3727,9 +3675,8 @@ void ospf6_handle_external_lsa_origination(struct ospf6 *ospf6,
 		if (aggr) {
 
 			if (IS_OSPF6_DEBUG_AGGR)
-				zlog_debug("%s: Send Aggregate LSA (%pFX)",
-				__func__,
-				&aggr->p);
+				zlog_debug("%s: Send Aggregate LSA ((%s:%u:%u)%pFX)", __func__,
+					   OSPF6_DEBUG_VRF(ospf6), &aggr->p);
 
 			ospf6_originate_summary_lsa(
 				ospf6, aggr, rt);
@@ -3763,8 +3710,8 @@ void ospf6_handle_external_lsa_origination(struct ospf6 *ospf6,
 	rt->path.origin.id = htonl(info->id);
 
 	if (IS_OSPF6_DEBUG_ASBR) {
-		zlog_debug("Advertise new AS-External Id:%pI4 prefix %pFX metric %u",
-			   &prefix_id.u.prefix4, p, rt->path.metric_type);
+		zlog_debug("Advertise new AS-External Id:%pI4 prefix (%s:%u:%u)%pFX metric %u",
+			   &prefix_id.u.prefix4, OSPF6_DEBUG_VRF(ospf6), p, rt->path.metric_type);
 	}
 
 	ospf6_originate_type5_type7_lsas(rt, ospf6);

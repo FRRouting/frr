@@ -77,6 +77,13 @@ const char *ospf6_vrf_id_to_name(vrf_id_t vrf_id)
 	return vrf ? vrf->name : "NIL";
 }
 
+uint32_t ospf6_vrf_id_to_table_id(vrf_id_t vrf_id)
+{
+	struct vrf *vrf = vrf_lookup_by_id(vrf_id);
+
+	return vrf ? vrf->data.l.table_id : 0;
+}
+
 /* Link OSPF instance to VRF. */
 void ospf6_vrf_link(struct ospf6 *ospf6, struct vrf *vrf)
 {
@@ -340,9 +347,8 @@ static void ospf6_top_route_hook_add(struct ospf6_route *route)
 	} else {
 		if (IS_OSPF6_DEBUG_EXAMIN(AS_EXTERNAL)
 		    || IS_OSPF6_DEBUG_BROUTER)
-			zlog_debug(
-				"%s: Route is not GLOBAL or scope is not of TYPE_AREA: %pFX",
-				__func__, &route->prefix);
+			zlog_debug("%s: Route is not GLOBAL or scope is not of TYPE_AREA: (%s:%u:%u)%pFX",
+				   __func__, OSPF6_DEBUG_VRF(route->ospf6), &route->prefix);
 		return;
 	}
 
@@ -368,9 +374,8 @@ static void ospf6_top_route_hook_remove(struct ospf6_route *route)
 	} else {
 		if (IS_OSPF6_DEBUG_EXAMIN(AS_EXTERNAL)
 		    || IS_OSPF6_DEBUG_BROUTER)
-			zlog_debug(
-				"%s: Route is not GLOBAL or scope is not of TYPE_AREA: %pFX",
-				__func__, &route->prefix);
+			zlog_debug("%s: Route is not GLOBAL or scope is not of TYPE_AREA: (%s:%u:%u)%pFX",
+				   __func__, OSPF6_DEBUG_VRF(route->ospf6), &route->prefix);
 		return;
 	}
 
@@ -606,7 +611,7 @@ void ospf6_delete(struct ospf6 **po)
 		if (rn->info) {
 			aggr = rn->info;
 			ospf6_asbr_summary_config_delete(o, rn);
-			ospf6_external_aggregator_free(aggr);
+			ospf6_external_aggregator_free(o, aggr);
 		}
 	route_table_finish(o->rt_aggr_tbl);
 

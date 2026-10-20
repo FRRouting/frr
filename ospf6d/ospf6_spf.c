@@ -327,9 +327,8 @@ static int ospf6_spf_install(struct ospf6_vertex *v,
 		return -1;
 	} else if (route && route->path.cost == v->cost) {
 		if (IS_OSPF6_DEBUG_SPF(PROCESS))
-			zlog_debug(
-				"  another path found to route %pFX lsa %s, merge",
-				&route->prefix, v->lsa->name);
+			zlog_debug("  another path found to route (%s:%u:%u)%pFX lsa %s, merge",
+				   OSPF6_DEBUG_VRF(v->area->ospf6), &route->prefix, v->lsa->name);
 
 		/* merging the parent's nexthop information to the child's
 		 * if the parent is not the root of the tree.
@@ -1152,8 +1151,8 @@ int ospf6_ase_calculate_route(struct ospf6 *ospf6, struct ospf6_lsa *lsa,
 		route = ospf6_route_lookup(&prefix, ospf6->route_table);
 		if (route == NULL) {
 			if (IS_OSPF6_DEBUG_SPF(PROCESS))
-				zlog_debug("%s: no external route %pFX",
-					   __func__, &prefix);
+				zlog_debug("%s: no external route (%s:%u:%u)%pFX", __func__,
+					   OSPF6_DEBUG_VRF(ospf6), &prefix);
 			return 0;
 		}
 
@@ -1169,9 +1168,8 @@ int ospf6_ase_calculate_route(struct ospf6 *ospf6, struct ospf6_lsa *lsa,
 			 || CHECK_FLAG(route->flag, OSPF6_ROUTE_CHANGE)) {
 			if (hook_add) {
 				if (IS_OSPF6_DEBUG_SPF(PROCESS))
-					zlog_debug(
-						"%s: add external route %pFX",
-						__func__, &prefix);
+					zlog_debug("%s: add external route (%s:%u:%u)%pFX",
+						   __func__, OSPF6_DEBUG_VRF(ospf6), &prefix);
 				(*hook_add)(route);
 			}
 		}
@@ -1190,8 +1188,8 @@ int ospf6_ase_calculate_route(struct ospf6 *ospf6, struct ospf6_lsa *lsa,
 		route = ospf6_route_lookup(&prefix, area->route_table);
 		if (route == NULL) {
 			if (IS_OSPF6_DEBUG_SPF(PROCESS))
-				zlog_debug("%s: no route %pFX, area %s",
-					   __func__, &prefix, area->name);
+				zlog_debug("%s: no route (%s:%u:%u)%pFX, area %s", __func__,
+					   OSPF6_DEBUG_VRF(ospf6), &prefix, area->name);
 			return 0;
 		}
 
@@ -1203,16 +1201,16 @@ int ospf6_ase_calculate_route(struct ospf6 *ospf6, struct ospf6_lsa *lsa,
 
 		if (CHECK_FLAG(route->flag, OSPF6_ROUTE_REMOVE)) {
 			if (IS_OSPF6_DEBUG_SPF(PROCESS))
-				zlog_debug("%s : remove route %pFX, area %s",
-					   __func__, &prefix, area->name);
+				zlog_debug("%s : remove route (%s:%u:%u)%pFX, area %s", __func__,
+					   OSPF6_DEBUG_VRF(ospf6), &prefix, area->name);
 			ospf6_route_remove(route, area->route_table);
 		} else if (CHECK_FLAG(route->flag, OSPF6_ROUTE_ADD)
 			   || CHECK_FLAG(route->flag, OSPF6_ROUTE_CHANGE)) {
 			if (hook_add) {
 				if (IS_OSPF6_DEBUG_SPF(PROCESS))
-					zlog_debug(
-						"%s: add nssa route %pFX, area %s",
-						__func__, &prefix, area->name);
+					zlog_debug("%s: add nssa route (%s:%u:%u)%pFX, area %s",
+						   __func__, OSPF6_DEBUG_VRF(ospf6), &prefix,
+						   area->name);
 				(*hook_add)(route);
 			}
 			ospf6_abr_check_translate_nssa(area, lsa);
