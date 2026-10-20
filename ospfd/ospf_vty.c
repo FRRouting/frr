@@ -9361,6 +9361,30 @@ DEFUN_HIDDEN (no_ospf_priority,
 	return no_ip_ospf_priority(self, vty, argc, argv);
 }
 
+/* Refresh each logical interface using its effective per-address parameters. */
+static void ospf_if_retransmit_timer_update(struct interface *ifp)
+{
+	struct route_node *rn, *nn;
+	struct ospf_interface *oi;
+	struct ospf_neighbor *nbr;
+
+	for (rn = route_top(IF_OIFS(ifp)); rn; rn = route_next(rn)) {
+		oi = rn->info;
+		if (!oi)
+			continue;
+
+		for (nn = route_top(oi->nbrs); nn; nn = route_next(nn)) {
+			nbr = nn->info;
+			if (!nbr)
+				continue;
+
+			nbr->v_db_desc = OSPF_IF_PARAM(oi, retransmit_interval);
+			nbr->v_ls_req = OSPF_IF_PARAM(oi, retransmit_interval);
+			nbr->v_ls_rxmt = OSPF_IF_PARAM(oi, retransmit_interval);
+		}
+	}
+}
+
 DEFUN (ip_ospf_retransmit_interval,
        ip_ospf_retransmit_interval_addr_cmd,
        "ip ospf retransmit-interval (1-65535) [A.B.C.D]",
@@ -9393,6 +9417,8 @@ DEFUN (ip_ospf_retransmit_interval,
 
 	SET_IF_PARAM(params, retransmit_interval);
 	params->retransmit_interval = seconds;
+
+	ospf_if_retransmit_timer_update(ifp);
 
 	return CMD_SUCCESS;
 }
@@ -9444,6 +9470,8 @@ DEFUN (no_ip_ospf_retransmit_interval,
 		ospf_free_if_params(ifp, addr);
 		ospf_if_update_params(ifp, addr);
 	}
+
+	ospf_if_retransmit_timer_update(ifp);
 
 	return CMD_SUCCESS;
 }
