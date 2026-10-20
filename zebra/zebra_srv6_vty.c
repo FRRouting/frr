@@ -1549,7 +1549,7 @@ DEFPY(no_srv6_sid_format_explicit,
 	VTY_DECLVAR_CONTEXT(srv6_sid_format, format);
 
 	if (strmatch(format->name, SRV6_SID_FORMAT_UNCOMPRESSED_F4024_NAME))
-		format->config.usid.ewlib_start =
+		format->config.uncompressed.explicit_start =
 			SRV6_SID_FORMAT_UNCOMPRESSED_F4024_EXPLICIT_RANGE_START;
 	else
 		assert(0);
