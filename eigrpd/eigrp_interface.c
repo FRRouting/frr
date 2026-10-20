@@ -331,6 +331,18 @@ static void eigrp_if_delete_one(struct eigrp_interface *ei)
 {
 	struct eigrp *eigrp = ei->eigrp;
 
+	/*
+	 * Every path that frees an instance ends here, and not all of them
+	 * stop it first: process teardown in eigrp_finish_final() frees
+	 * instances without going through eigrp_if_down().  Detach anything
+	 * that still points at the instance -- a hello or distribute-list
+	 * timer left armed would run on freed memory, and so would
+	 * eigrp_write() if the instance were still on the write queue.
+	 */
+	event_cancel(&ei->t_hello);
+	event_cancel(&ei->t_distribute);
+	eigrp_if_stream_unset(ei);
+
 	eigrp_nbr_hash_fini(&ei->nbr_hash_head);
 	eigrp_interface_hash_del(&eigrp->eifs, ei);
 
