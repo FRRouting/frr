@@ -37,6 +37,7 @@
 #include "zebra/zebra_evpn_mh.h"
 #include "zebra/zebra_trace.h"
 #include "zebra/zebra_l2.h"
+#include "zebra/zebra_link_cfg_if.h"
 
 DEFINE_MTYPE_STATIC(ZEBRA, ZINFO, "Zebra Interface Information");
 
@@ -260,6 +261,8 @@ static int if_zebra_delete_hook(struct interface *ifp)
 		zebra_ns_unlink_ifp(ifp);
 
 		XFREE(MTYPE_ZIF_DESC, zebra_if->desc);
+
+		zebra_link_cfg_if_free(ifp);
 
 		event_cancel(&zebra_if->speed_update);
 
@@ -588,6 +591,9 @@ void if_add_update(struct interface *ifp)
 	if_data = ifp->info;
 	assert(if_data);
 
+	/* Configured links/masters may now be creatable or enslavable */
+	zebra_link_cfg_if_added(ifp);
+
 	if (if_data->multicast == IF_ZEBRA_DATA_ON)
 		if_set_flags(ifp, IFF_MULTICAST);
 	else if (if_data->multicast == IF_ZEBRA_DATA_OFF)
@@ -820,6 +826,9 @@ void if_delete_update(struct interface **pifp)
 		       sizeof(struct zebra_l2info_brslave));
 		zebra_evpn_mac_ifp_del(ifp);
 	}
+
+	/* Configured links that vanished are re-evaluated (and re-created) */
+	zebra_link_cfg_if_deleted(ifp);
 
 	if (!ifp->configured) {
 		if (IS_ZEBRA_DEBUG_KERNEL)

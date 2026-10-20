@@ -882,52 +882,60 @@ static int netlink_parse_error(const struct nlsock *nl, struct nlmsghdr *h,
 	 * Deal with errors that occur because of races in link handling
 	 * or types are not supported in kernel.
 	 */
-	if (expected) {
-		if (IS_ZEBRA_DEBUG_KERNEL)
-			zlog_debug("%s: error: %s type=%s(%u), seq=%u, pid=%u", nl->name,
-				   safe_strerror(-errnum),
-				   nl_msg_type_to_str_sock(msg_type, nl->proto), msg_type,
-				   err->msg.nlmsg_seq, err->msg.nlmsg_pid);
-		/*
+	if (is_cmd && ((msg_type == RTM_DELROUTE && (-errnum == ENODEV || -errnum == ESRCH)) ||
+		       (msg_type == RTM_NEWROUTE && (-errnum == ENETDOWN || -errnum == EEXIST)) ||
+		       (msg_type == RTM_DELNEXTHOP && (-errnum == ENOENT || -errnum == ESRCH)) ||
+		       ((msg_type == RTM_NEWTUNNEL || msg_type == RTM_DELTUNNEL ||
+			 msg_type == RTM_GETTUNNEL) &&
+			(-errnum == EOPNOTSUPP)) ||
+		       (msg_type == RTM_NEWLINK && -errnum == EEXIST) ||
+		       (msg_type == RTM_DELLINK && -errnum == ENODEV))) {
+		if (expected) {
+			if (IS_ZEBRA_DEBUG_KERNEL)
+				zlog_debug("%s: error: %s type=%s(%u), seq=%u, pid=%u", nl->name,
+					   safe_strerror(-errnum),
+					   nl_msg_type_to_str_sock(msg_type, nl->proto), msg_type,
+					   err->msg.nlmsg_seq, err->msg.nlmsg_pid);
+			/*
 		 * Route, nexthop, and tunnel races can be dropped. An ethtool
 		 * speed query must still fail the read: a zero return leaves
 		 * the speed unset, and the caller then stores 0 and schedules
 		 * another query. netlink_get_interface_speed() maps a negative
 		 * return plus EOPNOTSUPP/ENODEV to INTERFACE_SPEED_ERROR_READ.
 		 */
-		if (nl->proto == NETLINK_GENERIC && msg_type == genl_family_ethtool())
-			return -1;
-		return 0;
-	}
+			if (nl->proto == NETLINK_GENERIC && msg_type == genl_family_ethtool())
+				return -1;
+			return 0;
+		}
 
-	/*
+		/*
 	 * We see RTM_DELNEIGH when shutting down an interface with an IPv4
 	 * link-local.  The kernel should have already deleted the neighbor so
 	 * do not log these as an error.
 	 */
-	if (msg_type == RTM_DELNEIGH
-	    || (is_cmd && msg_type == RTM_NEWROUTE
-		&& (-errnum == ESRCH || -errnum == ENETUNREACH))) {
-		/*
+		if (msg_type == RTM_DELNEIGH || (is_cmd && msg_type == RTM_NEWROUTE &&
+						 (-errnum == ESRCH || -errnum == ENETUNREACH))) {
+			/*
 		 * This is known to happen in some situations, don't log as
 		 * error.
 		 */
-		if (IS_ZEBRA_DEBUG_KERNEL)
-			zlog_debug("%s error: %s, type=%s(%u), seq=%u, pid=%u", nl->name,
-				   safe_strerror(-errnum),
-				   nl_msg_type_to_str_sock(msg_type, nl->proto), msg_type,
-				   err->msg.nlmsg_seq, err->msg.nlmsg_pid);
-	} else {
-		if ((msg_type != RTM_GETNEXTHOP && msg_type != RTM_GETVLAN) ||
-		    !startup)
-			flog_err(EC_ZEBRA_UNEXPECTED_MESSAGE,
-				 "%s error: %s, type=%s(%u), seq=%u, pid=%u", nl->name,
-				 safe_strerror(-errnum),
-				 nl_msg_type_to_str_sock(msg_type, nl->proto), msg_type,
-				 err->msg.nlmsg_seq, err->msg.nlmsg_pid);
+			if (IS_ZEBRA_DEBUG_KERNEL)
+				zlog_debug("%s error: %s, type=%s(%u), seq=%u, pid=%u", nl->name,
+					   safe_strerror(-errnum),
+					   nl_msg_type_to_str_sock(msg_type, nl->proto), msg_type,
+					   err->msg.nlmsg_seq, err->msg.nlmsg_pid);
+		} else {
+			if ((msg_type != RTM_GETNEXTHOP && msg_type != RTM_GETVLAN) || !startup)
+				flog_err(EC_ZEBRA_UNEXPECTED_MESSAGE,
+					 "%s error: %s, type=%s(%u), seq=%u, pid=%u", nl->name,
+					 safe_strerror(-errnum),
+					 nl_msg_type_to_str_sock(msg_type, nl->proto), msg_type,
+					 err->msg.nlmsg_seq, err->msg.nlmsg_pid);
+		}
+
+		return -1;
 	}
 
-	return -1;
 }
 
 /*
@@ -1513,6 +1521,11 @@ static enum netlink_msg_status nl_put_msg(struct nl_batch *bth,
 
 	case DPLANE_OP_GRE_SET:
 		return netlink_put_gre_set_msg(bth, ctx);
+
+	case DPLANE_OP_LINK_CREATE:
+	case DPLANE_OP_LINK_DELETE:
+	case DPLANE_OP_LINK_MASTER_SET:
+		return netlink_put_link_msg(bth, ctx);
 
 	case DPLANE_OP_INTF_ADDR_ADD:
 	case DPLANE_OP_INTF_ADDR_DEL:
