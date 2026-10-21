@@ -282,6 +282,19 @@ jobs:
           fi
           echo "ADD_DOCKER_ENV: ${ADD_DOCKER_ENV}"
 
+          # Turn off app armor profiles for the daemons.
+          if command -v apparmor_parser >/dev/null 2>&1; then
+            for f in /etc/apparmor.d/*; do
+              [ -f "${f}" ] || continue
+              if sudo grep -qE '(/usr/lib/frr|/frr/|bgpd|zebra)' "${f}" 2>/dev/null; then
+                echo "Unloading host AppArmor profile: ${f}"
+                sudo apparmor_parser -R "${f}" || true
+              fi
+            done
+            sudo aa-status 2>/dev/null | grep -E 'bgpd|ospfd|zebra|isisd|ripd|pimd|bfdd' \
+              || echo "no FRR AppArmor profiles remain loaded"
+          fi
+
           # Determine the pytest modules to re-run, skipping known xfails.
           # Note that analyze.py outputs "N: Status : nodeid", where nodeid
           # is "directory/file.py::test"; extract and sort the filenames.
