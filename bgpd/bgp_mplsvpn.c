@@ -880,8 +880,11 @@ void ensure_vrf_tovpn_sid_per_af(struct bgp *bgp_vpn, struct bgp *bgp_vrf,
 	} else if (is_tovpn_sid_explicit) {
 		tovpn_sid = *(bgp_vrf->vpn_policy[afi].tovpn_sid_explicit);
 		ctx.alloc_mode = SRV6_SID_ALLOC_MODE_EXPLICIT;
-	} else
+	} else {
 		ctx.alloc_mode = SRV6_SID_ALLOC_MODE_DYNAMIC;
+		/* a route-map locator context of this locator has the same SID context */
+		bgp_srv6_per_locator_cache_flush(bgp_vpn, bgp_vrf, afi, locator_bgp->name);
+	}
 
 	ctx.vrf_id = bgp_vrf->vrf_id;
 	ctx.behavior = afi == AFI_IP ? ZEBRA_SEG6_LOCAL_ACTION_END_DT4

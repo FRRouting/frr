@@ -742,6 +742,29 @@ void bgp_srv6_per_locator_cache_reset(struct bgp *bgp, afi_t afi)
 	}
 }
 
+/*
+ * Withdraw and detach the paths of the route-map locator context of
+ * locator_name, and release its SID: the VRF is about to request its SID
+ * with the same SID context, and must not get the SID of this context.
+ */
+void bgp_srv6_per_locator_cache_flush(struct bgp *bgp_vpn, struct bgp *bgp_vrf, afi_t afi,
+				      const char *locator_name)
+{
+	struct bgp_srv6_per_locator_cache *bslc;
+	struct bgp_path_info *path;
+
+	bslc = bgp_srv6_per_locator_find(&bgp_vrf->srv6_locators_per_routemap[afi], locator_name);
+	if (!bslc)
+		return;
+
+	while ((path = LIST_FIRST(&(bslc->paths)))) {
+		vpn_leak_from_vrf_withdraw(bgp_vpn, bgp_vrf, path);
+		bgp_srv6_per_locator_unlink_and_free(path, false);
+	}
+	bgp_srv6_per_locator_cache_delete_tovpn_sid(bslc);
+	bgp_srv6_per_locator_free(bslc);
+}
+
 static void show_bgp_srv6_locators_per_routemap_afi(struct vty *vty, afi_t afi, struct bgp *bgp,
 						    bool detail, json_object *json_list)
 {
