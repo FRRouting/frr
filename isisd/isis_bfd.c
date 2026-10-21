@@ -95,7 +95,7 @@ static void bfd_handle_adj_up(struct isis_adjacency *adj)
 	} else if (circuit->ip_router && adj->ipv4_address_count) {
 		family = AF_INET;
 		dst_ip.ipv4 = adj->ipv4_addresses[0];
-		local_ips = fabricd_ip_addrs(adj->circuit);
+		local_ips = isis_circuit_ip_addrs(adj->circuit);
 		if (!local_ips || list_isempty(local_ips)) {
 			if (IS_DEBUG_BFD)
 				zlog_debug(
