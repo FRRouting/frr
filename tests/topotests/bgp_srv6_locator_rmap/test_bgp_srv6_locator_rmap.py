@@ -733,3 +733,122 @@ def test_no_export_vpn_route_map_locator_without_vrf_sid():
 
     result = check_vpn_prefixes_exported(True)
     assert result is True, result
+
+
+def test_withdraw_route_map_locator_path_after_update_without_vrf_sid():
+    """
+    Vrf20 has 'sid vpn export auto' but no locator, so its SID can not be
+    allocated. Export the connected prefixes with route-map rmap_export:
+    metric 20 is denied, metric 30 is permitted without locator, other
+    metrics get locator NAME. The metric is set by the redistribute route-map
+    rmap_redist, whose changes update the paths of Vrf20 without withdrawing
+    them. Check that 10.0.0.0/24 is withdrawn from VPN when its update is
+    denied by the export route-map, then when its update no longer gets a
+    locator from the export route-map.
+    """
+    tgen = get_topogen()
+
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    r1 = tgen.gears["r1"]
+    prefix = "10.0.0.0/24"
+
+    r1.vtysh_multicmd(
+        """
+        configure
+        route-map rmap_redist permit 10
+        exit
+        route-map rmap_export deny 10
+        match metric 20
+        exit
+        route-map rmap_export permit 20
+        match metric 30
+        exit
+        route-map rmap_export permit 30
+        set segment-routing srv6 locator NAME
+        exit
+        router bgp 65001 vrf Vrf20
+        address-family ipv4 unicast
+        redistribute connected route-map rmap_redist
+        route-map vpn export rmap_export
+        """
+    )
+
+    @retry(retry_timeout=30)
+    def check_vpn_prefix_exported(expect_exported):
+        sids = get_vpn_prefix_sids(r1, prefix)
+        if not expect_exported:
+            if sids:
+                return f"{prefix} still exported to VPN: {sids}"
+            return True
+        if not sids or not all(sid.startswith("2001:db09:1:2:") for sid in sids):
+            return f"{prefix} not exported with a SID of locator NAME: {sids}"
+        return True
+
+    result = check_vpn_prefix_exported(True)
+    assert result is True, result
+
+    r1.vtysh_multicmd(
+        """
+        configure
+        route-map rmap_redist permit 10
+        set metric 20
+        """
+    )
+
+    denied = check_vpn_prefix_exported(False)
+    output = r1.vtysh_cmd(f"show bgp ipv4 vpn {prefix}")
+    logger.info(output)
+    output = r1.vtysh_cmd("show segment-routing srv6 sid")
+    logger.info(output)
+
+    r1.vtysh_multicmd(
+        """
+        configure
+        route-map rmap_redist permit 10
+        no set metric
+        """
+    )
+
+    exported = check_vpn_prefix_exported(True)
+
+    r1.vtysh_multicmd(
+        """
+        configure
+        route-map rmap_redist permit 10
+        set metric 30
+        """
+    )
+
+    no_locator = check_vpn_prefix_exported(False)
+    output = r1.vtysh_cmd(f"show bgp ipv4 vpn {prefix}")
+    logger.info(output)
+    output = r1.vtysh_cmd("show segment-routing srv6 sid")
+    logger.info(output)
+
+    r1.vtysh_multicmd(
+        """
+        configure
+        router bgp 65001 vrf Vrf20
+        address-family ipv4 unicast
+        no redistribute connected
+        redistribute connected
+        route-map vpn export rmap_locator
+        exit-address-family
+        exit
+        no route-map rmap_redist
+        no route-map rmap_export
+        """
+    )
+
+    @retry(retry_timeout=30)
+    def check_name_used_by_two_paths():
+        return check_locator_count(r1, "Vrf20", "NAME", 2) or True
+
+    restored = check_name_used_by_two_paths()
+
+    assert denied is True, denied
+    assert exported is True, exported
+    assert no_locator is True, no_locator
+    assert restored is True, restored
