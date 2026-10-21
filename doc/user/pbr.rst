@@ -409,6 +409,66 @@ causes the policy to be installed into the kernel.
 
    .. seealso:: :ref:`pbr-details`
 
+.. _pbr-traffic-class:
+
+Traffic Class Model
+===================
+
+pbrd classifies packets into 8 traffic classes, 0 to 7, with ``set
+traffic-class``.  These global commands shape the model:
+
+.. clicmd:: pbr traffic-class default (0-7)
+
+   The class of traffic no policy classifies (default 0).  It is used by
+   the QoS stages that follow classification.
+
+.. clicmd:: pbr traffic-class mark-mask HEX
+
+   The ``skb->mark`` bits that carry the class next to ``skb->priority``:
+   three contiguous bits, or 0 to turn the mark carrier off.  The default
+   is ``0x00070000``.  The class is written as ``class << n`` where ``n``
+   is the lowest set bit of the mask.  Pick bits no firewall or VRF
+   configuration uses.  In a pbr-map that classifies, a ``match mark``
+   value inside the mask makes the sequence invalid.
+
+.. clicmd:: pbr traffic-class (0-7) name WORD
+
+   Name shown for a class.  The defaults follow IEEE 802.1Q: best-effort,
+   background, spare, excellent-effort, controlled-load, video, voice,
+   network-control.
+
+.. clicmd:: show pbr traffic-class [json]
+
+   Show the model: classes, names, default and the mark carrier.
+
+zebra shows what it installed with :clicmd:`show pbr rule` (classifier
+state per rule) and ``show zebra tc [interface IFNAME] [json]`` (clsact
+qdiscs and filters with their owner and installed/failed state).
+
+An example that marks EF and AF41 traffic on ``swp1`` without changing
+forwarding:
+
+.. code-block:: frr
+
+   pbr-map QOS-IN seq 10
+    match dscp 46
+    set traffic-class 6
+   pbr-map QOS-IN seq 20
+    match dscp 34
+    set traffic-class 4
+   !
+   interface swp1
+    pbr-policy QOS-IN
+
+which zebra realises as::
+
+   tc qdisc add dev swp1 clsact
+   tc filter add dev swp1 ingress pref 80 protocol ip   flower ip_tos 0xb8/0xfc \
+      action skbedit priority 6 mark 0x60000/0x70000 pipe
+   tc filter add dev swp1 ingress pref 81 protocol ipv6 flower ip_tos 0xb8/0xfc \
+      action skbedit priority 6 mark 0x60000/0x70000 pipe
+   (and pref 160 / 161 for seq 20)
+
 
 .. _pbr-debugs:
 
