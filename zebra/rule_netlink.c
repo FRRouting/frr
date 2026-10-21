@@ -178,11 +178,14 @@ static ssize_t netlink_oldrule_msg_encoder(struct zebra_dplane_ctx *ctx,
 }
 
 /*
- * Identify valid rule actions for netlink - other actions can't be installed
+ * Identify valid rule actions for netlink - other actions can't be installed.
+ * The traffic class is realised by a tc classifier (zebra_pbr_tc.c), not by
+ * the FIB rule, so it does not stop the rule from being installed.  A
+ * classify-only rule (traffic class, no table) has no FIB rule at all.
  */
 static bool nl_rule_valid_action(uint32_t action)
 {
-	if (action == PBR_ACTION_TABLE)
+	if ((action & ~PBR_ACTION_TRAFFIC_CLASS) == PBR_ACTION_TABLE)
 		return true;
 	else
 		return false;
@@ -196,6 +199,7 @@ netlink_put_rule_update_msg(struct nl_batch *bth, struct zebra_dplane_ctx *ctx)
 	enum dplane_op_e op;
 	enum netlink_msg_status ret;
 	struct pbr_rule rule = {};
+	struct pbr_rule old_rule = {};
 
 	op = dplane_ctx_get_op(ctx);
 	if (!(op == DPLANE_OP_RULE_ADD || op == DPLANE_OP_RULE_UPDATE
@@ -211,11 +215,18 @@ netlink_put_rule_update_msg(struct nl_batch *bth, struct zebra_dplane_ctx *ctx)
 	 * netlink cannot install. Some of the rule attributes are not
 	 * available in netlink: only try to install valid actions.
 	 */
-	dplane_ctx_rule_get(ctx, &rule, NULL);
+	dplane_ctx_rule_get(ctx, &rule, &old_rule);
 	if (!nl_rule_valid_action(rule.action.flags)) {
 		if (IS_ZEBRA_DEBUG_KERNEL)
 			zlog_debug("%s: skip invalid action %#x", __func__,
 				   rule.action.flags);
+		/*
+		 * An update can drop the FIB part of a rule, e.g. a sequence
+		 * that loses its nexthop but keeps classifying: the old FIB
+		 * rule must still be removed.
+		 */
+		if (op == DPLANE_OP_RULE_UPDATE && nl_rule_valid_action(old_rule.action.flags))
+			return netlink_batch_add_msg(bth, ctx, netlink_oldrule_msg_encoder, false);
 		return 0;
 	}
 
@@ -225,8 +236,13 @@ netlink_put_rule_update_msg(struct nl_batch *bth, struct zebra_dplane_ctx *ctx)
 	 * Delete the old one.
 	 *
 	 * Don't care about this result right?
+	 *
+	 * Only if the old rule was installed at all: a rule without a valid
+	 * action (e.g. a classify-only rule gaining a nexthop) has no FIB rule,
+	 * and its delete (table 0 matches any table) would remove the rule
+	 * just added.
 	 */
-	if (op == DPLANE_OP_RULE_UPDATE)
+	if (op == DPLANE_OP_RULE_UPDATE && nl_rule_valid_action(old_rule.action.flags))
 		netlink_batch_add_msg(bth, ctx, netlink_oldrule_msg_encoder,
 				      true);
 
