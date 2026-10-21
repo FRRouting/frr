@@ -3383,6 +3383,7 @@ static void bgp_zebra_connected(struct zclient *zclient)
 		/* a restarted zebra has lost the SIDs of BGP: get them again */
 		vpn_leak_zebra_vrf_sids_forget(bgp);
 		bgp_srv6_unicast_sids_forget(bgp);
+		bgp_srv6_per_locator_cache_forget_sids(bgp);
 		if (bgp_srv6_locator_is_configured(bgp))
 			bgp_zebra_srv6_manager_get_locator(bgp->srv6_locator_name);
 

@@ -641,6 +641,33 @@ void bgp_srv6_per_locator_cache_delete_tovpn_sid(struct bgp_srv6_per_locator_cac
 	}
 }
 
+/*
+ * A restarted zebra has lost the SIDs of the route-map locator contexts and
+ * their local SIDs: forget them without releasing them, and request the
+ * locators again, so that the SIDs are allocated and installed again.
+ */
+void bgp_srv6_per_locator_cache_forget_sids(struct bgp *bgp)
+{
+	struct bgp_srv6_per_locator_cache *bslc;
+	afi_t afi;
+
+	for (afi = AFI_IP; afi <= AFI_IP6; afi++) {
+		frr_each (bgp_srv6_per_locator_cache, &bgp->srv6_locators_per_routemap[afi], bslc) {
+			if (bslc->sid_policy.tovpn_sid) {
+				sid_unregister(bgp_get_default(), bslc->sid_policy.tovpn_sid);
+				XFREE(MTYPE_BGP_SRV6_SID, bslc->sid_policy.tovpn_sid);
+			}
+			XFREE(MTYPE_BGP_SRV6_SID, bslc->sid_policy.tovpn_zebra_sid_last_sent);
+			bslc->sid_policy.tovpn_sid_transpose_label = 0;
+			bslc->sid_policy.tovpn_zebra_sid_alloc_mode_last_sent =
+				SRV6_SID_ALLOC_MODE_UNSPEC;
+			srv6_locator_free(bslc->sid_policy.tovpn_sid_locator);
+			bslc->sid_policy.tovpn_sid_locator = NULL;
+			bgp_zebra_srv6_manager_get_locator(bslc->locator_name);
+		}
+	}
+}
+
 struct bgp_srv6_per_locator_cache *
 bgp_srv6_per_locator_new(struct bgp_srv6_per_locator_cache_head *tree, const char *locator_name)
 {
