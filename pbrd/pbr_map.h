@@ -139,6 +139,9 @@ struct pbr_map_sequence {
 #define PBR_MAP_UNDEFINED_QUEUE_ID 0
 	uint32_t action_queue_id;
 
+	/* valid when PBR_ACTION_TRAFFIC_CLASS is set in action_bm */
+	uint8_t action_traffic_class;
+
 	enum pbr_forwarding_type forwarding_type;
 
 	/*
@@ -192,6 +195,11 @@ struct pbr_map_sequence {
 #define PBR_MAP_INVALID_EMPTY            (1 << 4)
 #define PBR_MAP_INVALID_VRF              (1 << 5)
 #define PBR_MAP_INVALID_SET_STRIP_VLAN (1 << 6)
+/* (1 << 7) is "Deleting Sequence" in pbr_map_reason_str[] */
+#define PBR_MAP_INVALID_TC_WITH_QUEUE_ID (1 << 8)  /* traffic-class + queue-id */
+#define PBR_MAP_INVALID_TC_FWMARK	 (1 << 9)  /* traffic-class + match mark */
+#define PBR_MAP_INVALID_TC_PORT_NO_PROTO (1 << 10) /* port match w/o tcp/udp/sctp */
+#define PBR_MAP_INVALID_TC_MARK_OVERLAP	 (1 << 11) /* match mark in TC mark-mask */
 	uint64_t reason;
 
 	QOBJ_FIELDS;
@@ -230,6 +238,9 @@ extern void pbr_map_init(void);
 
 extern bool pbr_map_check_valid(const char *name);
 
+/* traffic-class set and no forwarding action */
+extern bool pbrms_is_classify_only(const struct pbr_map_sequence *pbrms);
+
 /**
  * Re-check the pbr map for validity.
  *
@@ -253,6 +264,8 @@ extern void pbr_map_policy_delete(struct pbr_map *pbrm,
 				  struct pbr_map_interface *pmi);
 
 extern void pbr_map_sequence_delete(struct pbr_map_sequence *pbrms);
+/* Remove the sequence from the dataplane while its config still encodes */
+extern void pbr_map_sequence_uninstall(struct pbr_map_sequence *pbrms);
 
 extern void pbr_map_check_vrf_nh_group_change(const char *nh_group,
 					      struct pbr_vrf *pbr_vrf,
