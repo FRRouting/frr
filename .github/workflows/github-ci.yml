@@ -212,6 +212,12 @@ jobs:
           sudo modprobe vrf || true
           sudo modprobe mpls-iptunnel
           sudo modprobe mpls-router
+          # Ubuntu 26.04 loads AppArmor profiles for most FRR daemons and for
+          # tshark. They confine the same binaries inside the container too:
+          # the daemons are denied topotest paths (logs, /var/lib/frr, gcov)
+          # and dumpcap under tshark captures nothing. Unload those profiles.
+          AA_PROFILES=$(grep -lsE -d skip '^profile [^ ]* /usr/(lib/frr/|bin/tshark )' /etc/apparmor.d/* || true)
+          if [ -n "${AA_PROFILES}" ]; then sudo apparmor_parser -R ${AA_PROFILES}; fi
           docker load --input /tmp/frr-${{ matrix.cfg.platform }}.tar
 
           ADD_DOCKER_ENV=""
