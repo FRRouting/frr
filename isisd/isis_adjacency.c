@@ -310,6 +310,23 @@ void isis_log_adj_change(struct isis_adjacency *adj,
 		adj_level2string(adj->level), adj_state2string(old_state),
 		adj_state2string(new_state), reason ? reason : "unspecified");
 }
+
+/* A p2p adjacency came up on a level: count it and describe our database. */
+static void p2p_level_up(struct isis_circuit *circuit, int level)
+{
+	circuit->upadjcount[level - 1]++;
+	event_add_timer(master, level == IS_LEVEL_1 ? send_l1_csnp : send_l2_csnp, circuit, 0,
+			&circuit->t_send_csnp[level - 1]);
+}
+
+/* A p2p adjacency is no longer up on a level. */
+static void p2p_level_down(struct isis_circuit *circuit, int level)
+{
+	circuit->upadjcount[level - 1]--;
+	if (circuit->upadjcount[level - 1] == 0)
+		isis_tx_queue_clean(circuit->tx_queue);
+}
+
 void isis_adj_state_change(struct isis_adjacency **padj,
 			   enum isis_adj_state new_state, const char *reason)
 {
@@ -397,29 +414,15 @@ void isis_adj_state_change(struct isis_adjacency **padj,
 			if ((adj->level & level) == 0)
 				continue;
 			if (new_state == ISIS_ADJ_UP) {
-				circuit->upadjcount[level - 1]++;
+				p2p_level_up(circuit, level);
 
 				/* update counter & timers for debugging
 				 * purposes */
 				adj->last_flap = time(NULL);
 				adj->flaps++;
-
-				if (level == IS_LEVEL_1) {
-					event_add_timer(
-						master, send_l1_csnp, circuit,
-						0, &circuit->t_send_csnp[0]);
-				} else {
-					event_add_timer(
-						master, send_l2_csnp, circuit,
-						0, &circuit->t_send_csnp[1]);
-				}
 			} else {
-				if (old_state == ISIS_ADJ_UP) {
-					circuit->upadjcount[level - 1]--;
-					if (circuit->upadjcount[level - 1] == 0)
-						isis_tx_queue_clean(
-							circuit->tx_queue);
-				}
+				if (old_state == ISIS_ADJ_UP)
+					p2p_level_down(circuit, level);
 
 				if (new_state == ISIS_ADJ_DOWN) {
 					if (adj->circuit->u.p2p.neighbor == adj)
@@ -440,6 +443,25 @@ void isis_adj_state_change(struct isis_adjacency **padj,
 	}
 }
 
+
+/*
+ * Change the levels of a p2p adjacency. Up adjacencies are counted per level
+ * on state changes, so an up one moves from the counts of the levels it
+ * leaves to those of the levels it enters.
+ */
+void isis_adj_p2p_level_set(struct isis_adjacency *adj, int level)
+{
+	if (adj->adj_state == ISIS_ADJ_UP) {
+		for (int l = IS_LEVEL_1; l <= IS_LEVEL_2; l++) {
+			if ((adj->level & l) && !(level & l))
+				p2p_level_down(adj->circuit, l);
+			else if (!(adj->level & l) && (level & l))
+				p2p_level_up(adj->circuit, l);
+		}
+	}
+
+	adj->level = level;
+}
 
 void isis_adj_print(struct isis_adjacency *adj)
 {
