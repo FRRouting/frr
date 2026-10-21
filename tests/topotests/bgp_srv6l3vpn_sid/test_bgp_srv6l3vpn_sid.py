@@ -35,7 +35,12 @@ sys.path.append(os.path.join(CWD, "../"))
 from lib import topotest
 from lib.topogen import Topogen, TopoRouter, get_topogen
 from lib.topolog import logger
-from lib.common_config import required_linux_kernel_version, retry
+from lib.common_config import (
+    kill_router_daemons,
+    required_linux_kernel_version,
+    retry,
+    start_router_daemons,
+)
 from lib.checkping import check_ping
 
 
@@ -1247,6 +1252,111 @@ def test_sid_configure_r2_listener_with_route_map_import_drop_srv6_and_mpls():
     assert (
         success is True
     ), "path 2001:8::/64 on vrf20 present for srv6, not present for MPLS: not found on r2"
+
+
+def test_sid_zebra_restart():
+    """
+    Restart zebra on r1 while bgpd keeps running. The stopped zebra has lost
+    the SIDs allocated by bgp for the VRFs, and their local SIDs: bgp must
+    withdraw the VPN paths exported with these SIDs while zebra is stopped,
+    and allocate its SIDs again once zebra is started again. Check that r2
+    has no VPN path with a SID from r1 while zebra is stopped, that zebra
+    has again a SID allocated by bgp for each context that had one before
+    the restart, and that its local SID is installed.
+    """
+    tgen = get_topogen()
+
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    r1 = tgen.gears["r1"]
+
+    def get_bgp_sids_per_context():
+        output = json.loads(r1.vtysh_cmd("show segment-routing srv6 sid json"))
+        sids = {}
+        for sid, sid_info in output.items():
+            clients = [c.get("protocol") for c in sid_info.get("clients", [])]
+            if "bgp" not in clients:
+                continue
+            context = (
+                sid_info.get("context", {}).get("vrfName"),
+                sid_info.get("behavior"),
+            )
+            sids[context] = sid
+        return sids
+
+    contexts = get_bgp_sids_per_context()
+    assert contexts, "no SID allocated by bgp before the zebra restart"
+    output = r1.vtysh_cmd("show segment-routing srv6 sid")
+    logger.info(output)
+
+    def get_r2_vpn_sids_from_r1():
+        received = []
+        for afi in ("ipv4", "ipv6"):
+            output = json.loads(
+                tgen.gears["r2"].vtysh_cmd(f"show bgp {afi} vpn detail json")
+            )
+            rds = output.get("routes", {}).get("routeDistinguishers", {})
+            for rd, prefixes in rds.items():
+                for prefix, paths in prefixes.items():
+                    for path in paths:
+                        if path.get("peer", {}).get("peerId") != "2001::1":
+                            continue
+                        sid = path.get("remoteTransposedSid", path.get("remoteSid"))
+                        if sid:
+                            received.append((rd, prefix, sid))
+        return received
+
+    kill_router_daemons(tgen, "r1", ["zebra"])
+
+    @retry(retry_timeout=60)
+    def check_r2_has_no_sid_from_r1():
+        received = get_r2_vpn_sids_from_r1()
+        if received:
+            rd, prefix, sid = received[0]
+            return f"r2 still uses SID {sid} from r1 for {rd} {prefix}"
+        return True
+
+    result = check_r2_has_no_sid_from_r1()
+    output = tgen.gears["r2"].vtysh_cmd("show bgp ipv6 vpn")
+    logger.info(output)
+    assert result is True, result
+
+    start_router_daemons(tgen, "r1", ["zebra"])
+
+    @retry(retry_timeout=60)
+    def check_bgp_sids_allocated_again():
+        sids = get_bgp_sids_per_context()
+        for context in contexts:
+            if context not in sids:
+                return f"no SID allocated by bgp for {context}"
+            sid = sids[context]
+            output = json.loads(r1.vtysh_cmd(f"show ipv6 route {sid}/128 json"))
+            routes = output.get(f"{sid}/128", [])
+            if not any(route.get("installed") for route in routes):
+                return f"local SID {sid} of {context} not installed"
+        return True
+
+    result = check_bgp_sids_allocated_again()
+    output = r1.vtysh_cmd("show segment-routing srv6 sid")
+    logger.info(output)
+    assert result is True, result
+
+    @retry(retry_timeout=60)
+    def check_r2_uses_sids_allocated_again():
+        sids = set(get_bgp_sids_per_context().values())
+        received = get_r2_vpn_sids_from_r1()
+        if not received:
+            return "r2 has no VPN path with a SID from r1"
+        for rd, prefix, sid in received:
+            if sid not in sids:
+                return f"r2 uses SID {sid} for {rd} {prefix}, not allocated on r1"
+        return True
+
+    result = check_r2_uses_sids_allocated_again()
+    output = tgen.gears["r2"].vtysh_cmd("show bgp ipv6 vpn")
+    logger.info(output)
+    assert result is True, result
 
 
 if __name__ == "__main__":
