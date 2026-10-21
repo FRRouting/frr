@@ -8,7 +8,12 @@ import sys
 import pytest
 from lib import topotest
 from lib.topogen import Topogen, TopoRouter, get_topogen
-from lib.common_config import retry, step
+from lib.common_config import (
+    kill_router_daemons,
+    retry,
+    start_router_daemons,
+    step,
+)
 import functools
 from lib.topolog import logger
 import json
@@ -1119,6 +1124,54 @@ def test_route_map_locator_localsid_uninstall():
 
     assert result is True, result
     assert restored is True, restored
+
+
+def test_zebra_restart_route_map_locator_sid():
+    """
+    Locator NAME is set by entries 1 and 2 of rmap_locator. Restart zebra
+    while bgpd keeps running: zebra loses the SID of locator NAME allocated
+    for Vrf20 and its local SID. Check that bgp allocates a SID of locator
+    NAME again, and that the local SID of locator NAME is installed again.
+    """
+    tgen = get_topogen()
+
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    r1 = tgen.gears["r1"]
+
+    result = check_bgp_sid_of_locator(r1, "NAME", True)
+    assert result is True, result
+
+    kill_router_daemons(tgen, "r1", ["zebra"])
+    start_router_daemons(tgen, "r1", ["zebra"])
+
+    # frr.conf is applied again when zebra starts: entry 2 sets NAME2 there
+    r1.vtysh_multicmd(
+        """
+        configure
+        route-map rmap_locator permit 2
+        set segment-routing srv6 locator NAME
+        """
+    )
+
+    @retry(retry_timeout=60)
+    def check_name_sid_restored():
+        if not get_bgp_sids_of_locator(r1, "NAME"):
+            return "no SID of locator NAME allocated by bgp"
+        output = json.loads(r1.vtysh_cmd("show bgp vrf Vrf20 locator-routemap json"))
+        sids = [e.get("sid") for e in output if e.get("locatorName") == "NAME"]
+        if not sids or not sids[0]:
+            return "locator NAME has no SID"
+        output = json.loads(r1.vtysh_cmd(f"show ipv6 route {sids[0]}/128 json"))
+        if f"{sids[0]}/128" not in output:
+            return f"local SID {sids[0]} of locator NAME not installed"
+        return check_locator_count(r1, "Vrf20", "NAME", 2) or True
+
+    result = check_name_sid_restored()
+    output = r1.vtysh_cmd("show segment-routing srv6 sid")
+    logger.info(output)
+    assert result is True, result
 
 
 def test_delete_vrf_instance_releases_locator_sid():
