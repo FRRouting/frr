@@ -6317,7 +6317,7 @@ DEFUN (no_neighbor_set_peer_group,
 	int idx_peer = 2;
 	int idx_word = 4;
 	int ret;
-	struct peer *peer;
+	struct peer *peer, *other;
 	struct peer_group *group;
 
 	peer = peer_lookup_vty(vty, argv[idx_peer]->arg);
@@ -6333,8 +6333,13 @@ DEFUN (no_neighbor_set_peer_group,
 	if (CHECK_FLAG(peer->flags, PEER_FLAG_CAPABILITY_ENHE))
 		bgp_zebra_terminate_radv(peer->bgp, peer);
 
+	other = peer->doppelganger;
 	peer_notify_unconfig(peer->connection);
 	ret = peer_delete(peer);
+	if (other && other->connection->status != Deleted) {
+		peer_notify_unconfig(other->connection);
+		peer_delete(other);
+	}
 
 	/*
 	 * if need stop listening
