@@ -2562,9 +2562,28 @@ static void ospf_ls_upd(struct ospf *ospf, struct ip *iph,
 				} else {
 					/* ospf_lsa_refresh() increments the sequence number as it
 					 * re-originates, which lands it one past the received one.
+					 *
+					 * A received instance at MaxSequenceNumber must not be
+					 * adopted: re-originating one past it wraps our own
+					 * sequence number to InitialSequenceNumber, and
+					 * ospf_lsa_install() then prematurely ages our own LSA
+					 * (RFC 2328 Section 14.1).  A forged MaxSeq instance
+					 * would flush the router's own LSA and keep its
+					 * re-origination suppressed domain-wide until MaxAge
+					 * removal (CVE-2017-3224).  Fight back with the next
+					 * sequence number in the normal range instead and drop
+					 * the received instance here.
 					 */
-					current->data->ls_seqnum = lsa->data->ls_seqnum;
-					ospf_lsa_checksum(current->data);
+					if (lsa->data->ls_seqnum ==
+					    htonl(OSPF_MAX_SEQUENCE_NUMBER)) {
+						if (IS_DEBUG_OSPF(lsa, LSA))
+							zlog_debug("%s: Link State Update[%s]: refusing to adopt MaxSequenceNumber from received instance",
+								   __func__,
+								   dump_lsa_key(lsa));
+					} else {
+						current->data->ls_seqnum = lsa->data->ls_seqnum;
+						ospf_lsa_checksum(current->data);
+					}
 					ospf_lsa_refresh(oi->ospf, current);
 					DISCARD_LSA(lsa, 10);
 					continue;
