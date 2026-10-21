@@ -255,6 +255,7 @@ void zebra_router_terminate(void)
 	hash_clean_and_free(&zrouter.filter_hash, (void (*)(void *)) zebra_tc_filter_free);
 	hash_clean_and_free(&zrouter.qdisc_hash, (void (*)(void *)) zebra_tc_qdisc_free);
 	hash_clean_and_free(&zrouter.class_hash, (void (*)(void *)) zebra_tc_class_free);
+	zebra_tc_clsact_terminate();
 
 #ifdef HAVE_SCRIPTING
 	zebra_script_destroy();
@@ -330,6 +331,7 @@ void zebra_router_init(bool asic_offload, bool notify_on_ack, bool v6_with_v4_ne
 	zrouter.filter_hash = hash_create_size(8, zebra_tc_filter_hash_key,
 					       zebra_tc_filter_hash_equal,
 					       "TC (filter) Hash");
+	zebra_tc_clsact_init();
 
 	zrouter.zav.asic_offloaded = asic_offload;
 	zrouter.zav.notify_on_ack = notify_on_ack;
