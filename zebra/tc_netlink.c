@@ -12,6 +12,7 @@
 #include <linux/rtnetlink.h>
 #include <linux/pkt_cls.h>
 #include <linux/pkt_sched.h>
+#include <linux/tc_act/tc_skbedit.h>
 #include <netinet/if_ether.h>
 #include <sys/socket.h>
 
@@ -31,11 +32,37 @@
 #include "zebra/zebra_tc.h"
 #include "zebra/zebra_trace.h"
 #include "lib/netlink_parser.h"
+#include "lib/darr.h"
 
 #define TC_FREQ_DEFAULT (100)
 
 /* some magic number */
 #define TC_MINOR_NOCLASS (0xffffu)
+
+#ifndef TC_H_CLSACT
+#define TC_H_CLSACT TC_H_INGRESS
+#endif
+#ifndef TC_H_MIN_INGRESS
+#define TC_H_MIN_INGRESS 0xFFF2U
+#endif
+#ifndef TC_H_MIN_EGRESS
+#define TC_H_MIN_EGRESS 0xFFF3U
+#endif
+
+/* tcm_parent for a filter attached at @attach */
+static uint32_t tc_filter_parent(enum tc_filter_attach attach)
+{
+	switch (attach) {
+	case TC_ATTACH_INGRESS:
+		return TC_H_MAKE(TC_H_CLSACT, TC_H_MIN_INGRESS);
+	case TC_ATTACH_EGRESS:
+		return TC_H_MAKE(TC_H_CLSACT, TC_H_MIN_EGRESS);
+	case TC_ATTACH_ROOT:
+		break;
+	}
+
+	return TC_H_MAKE(TC_QDISC_MAJOR_ZEBRA, 0);
+}
 
 #define TIME_UNITS_PER_SEC (1000000)
 #define xmittime(r, s) (TIME_UNITS_PER_SEC * ((double)(s) / (double)(r)))
@@ -173,8 +200,6 @@ static ssize_t netlink_qdisc_msg_encode(int cmd, struct zebra_dplane_ctx *ctx,
 	req->n.nlmsg_len = NLMSG_LENGTH(sizeof(struct tcmsg));
 	req->n.nlmsg_flags = NLM_F_CREATE | NLM_F_REQUEST;
 
-	req->n.nlmsg_flags |= NLM_F_REPLACE;
-
 	req->n.nlmsg_type = cmd;
 
 	req->n.nlmsg_pid = nl->snl.nl_pid;
@@ -184,6 +209,27 @@ static ssize_t netlink_qdisc_msg_encode(int cmd, struct zebra_dplane_ctx *ctx,
 	req->t.tcm_info = 0;
 	req->t.tcm_handle = 0;
 	req->t.tcm_parent = TC_H_ROOT;
+
+	/*
+	 * clsact: fixed parent and handle, no options.  Never replace a clsact
+	 * that is already there: it may hold someone else's filters.
+	 */
+	if (dplane_ctx_tc_qdisc_get_kind(ctx) == TC_QDISC_CLSACT) {
+		req->t.tcm_parent = TC_H_CLSACT;
+		req->t.tcm_handle = TC_H_MAKE(TC_H_CLSACT, 0);
+
+		if (cmd == RTM_NEWQDISC) {
+			req->n.nlmsg_flags |= NLM_F_EXCL;
+			kind_str = dplane_ctx_tc_qdisc_get_kind_str(ctx);
+			if (!nl_attr_put(&req->n, datalen, TCA_KIND, kind_str,
+					 strlen(kind_str) + 1))
+				return 0;
+		}
+
+		return NLMSG_ALIGN(req->n.nlmsg_len);
+	}
+
+	req->n.nlmsg_flags |= NLM_F_REPLACE;
 
 	if (cmd == RTM_NEWQDISC) {
 		req->t.tcm_handle = TC_H_MAKE(TC_QDISC_MAJOR_ZEBRA, 0);
@@ -359,6 +405,59 @@ static int netlink_tfilter_flower_port_type(uint8_t ip_proto, bool src)
 		return -1;
 }
 
+/*
+ * Encode a TCA_FLOWER_ACT list holding one skbedit action:
+ *   priority (skb->priority) and/or masked mark, then continue (pipe).
+ * The action carries ZEBRA_TC_ACT_COOKIE so that zebra can recognise its
+ * own filters in the kernel at startup.
+ */
+static int netlink_tfilter_put_skbedit(struct nlmsghdr *n, size_t datalen,
+				       struct zebra_dplane_ctx *ctx)
+{
+	const struct tc_action_skbedit *se = dplane_ctx_tc_filter_get_skbedit(ctx);
+	struct tc_skbedit parms = {};
+	struct rtattr *acts, *act, *opts;
+
+	acts = nl_attr_nest(n, datalen, TCA_FLOWER_ACT);
+	if (!acts)
+		return 0;
+
+	/* actions are numbered from 1 */
+	act = nl_attr_nest(n, datalen, 1);
+	if (!act)
+		return 0;
+
+	if (!nl_attr_put(n, datalen, TCA_ACT_KIND, "skbedit", strlen("skbedit") + 1))
+		return 0;
+
+	if (!nl_attr_put(n, datalen, TCA_ACT_COOKIE, ZEBRA_TC_ACT_COOKIE, ZEBRA_TC_ACT_COOKIE_LEN))
+		return 0;
+
+	opts = nl_attr_nest(n, datalen, TCA_ACT_OPTIONS);
+	if (!opts)
+		return 0;
+
+	parms.action = TC_ACT_PIPE;
+	if (!nl_attr_put(n, datalen, TCA_SKBEDIT_PARMS, &parms, sizeof(parms)))
+		return 0;
+
+	if (se->set_priority && !nl_attr_put32(n, datalen, TCA_SKBEDIT_PRIORITY, se->priority))
+		return 0;
+
+	if (se->set_mark) {
+		if (!nl_attr_put32(n, datalen, TCA_SKBEDIT_MARK, se->mark))
+			return 0;
+		if (!nl_attr_put32(n, datalen, TCA_SKBEDIT_MASK, se->mark_mask))
+			return 0;
+	}
+
+	nl_attr_nest_end(n, opts);
+	nl_attr_nest_end(n, act);
+	nl_attr_nest_end(n, acts);
+
+	return 1;
+}
+
 static int netlink_tfilter_flower_put_options(struct nlmsghdr *n, size_t datalen,
 					      struct zebra_dplane_ctx *ctx)
 {
@@ -473,15 +572,39 @@ static int netlink_tfilter_flower_put_options(struct nlmsghdr *n, size_t datalen
 			return 0;
 	}
 
-	classid = TC_H_MAKE(TC_QDISC_MAJOR_ZEBRA,
-			    dplane_ctx_tc_filter_get_classid(ctx));
-	if (!nl_attr_put32(n, datalen, TCA_FLOWER_CLASSID, classid))
-		return 0;
+	if (filter_bm & TC_FLOWER_VLAN_ID) {
+		if (!nl_attr_put16(n, datalen, TCA_FLOWER_KEY_VLAN_ID,
+				   dplane_ctx_tc_filter_get_vlan_id(ctx)))
+			return 0;
+	}
+
+	if (filter_bm & TC_FLOWER_VLAN_PRIO) {
+		if (!nl_attr_put8(n, datalen, TCA_FLOWER_KEY_VLAN_PRIO,
+				  dplane_ctx_tc_filter_get_vlan_prio(ctx)))
+			return 0;
+	}
+
+	if (filter_bm & TC_FLOWER_VLAN_ETH_TYPE) {
+		if (!nl_attr_put16(n, datalen, TCA_FLOWER_KEY_VLAN_ETH_TYPE,
+				   htons(dplane_ctx_tc_filter_get_vlan_eth_type(ctx))))
+			return 0;
+	}
+
+	if (dplane_ctx_tc_filter_has_action(ctx)) {
+		if (netlink_tfilter_put_skbedit(n, datalen, ctx) <= 0)
+			return 0;
+	} else {
+		classid = TC_H_MAKE(TC_QDISC_MAJOR_ZEBRA, dplane_ctx_tc_filter_get_classid(ctx));
+		if (!nl_attr_put32(n, datalen, TCA_FLOWER_CLASSID, classid))
+			return 0;
+	}
 
 	if (!nl_attr_put32(n, datalen, TCA_FLOWER_FLAGS, flags))
 		return 0;
 
-	if (!nl_attr_put16(n, datalen, TCA_FLOWER_KEY_ETH_TYPE, protocol))
+	/* ETH_P_ALL: match any ethertype, so no key */
+	if (dplane_ctx_tc_filter_get_eth_proto(ctx) != ETH_P_ALL &&
+	    !nl_attr_put16(n, datalen, TCA_FLOWER_KEY_ETH_TYPE, protocol))
 		return 0;
 
 	return 1;
@@ -536,7 +659,7 @@ static ssize_t netlink_tfilter_msg_encode(int cmd, struct zebra_dplane_ctx *ctx,
 
 	req->t.tcm_info = TC_H_MAKE(priority << 16, protocol);
 	req->t.tcm_handle = dplane_ctx_tc_filter_get_handle(ctx);
-	req->t.tcm_parent = TC_H_MAKE(TC_QDISC_MAJOR_ZEBRA, 0);
+	req->t.tcm_parent = tc_filter_parent(dplane_ctx_tc_filter_get_attach(ctx));
 
 	kind_str = dplane_ctx_tc_filter_get_kind_str(ctx);
 
@@ -672,8 +795,7 @@ netlink_put_tc_filter_update_msg(struct nl_batch *bth,
 		 * TFILTER may have refs to TCLASS.
 		 */
 
-		(void)netlink_batch_add_msg(
-			bth, ctx, netlink_deltfilter_msg_encoder, false);
+		(void)netlink_batch_add_msg(bth, ctx, netlink_deltfilter_msg_encoder, true);
 		ret = netlink_batch_add_msg(
 			bth, ctx, netlink_newtfilter_msg_encoder, false);
 	} else if (op == DPLANE_OP_TC_FILTER_DELETE) {
@@ -705,6 +827,156 @@ static int netlink_request_qdiscs(struct nlsock *nl, int family, int type)
 	return netlink_request(nl, &req);
 }
 
+/*
+ * Startup cleanup of filters left behind by a previous zebra.
+ *
+ * zebra-derived filters (PBR traffic-class) live on clsact hooks, whose
+ * qdisc handle is fixed, so ownership is recognised per filter: the
+ * handle has TC_FILTER_HANDLE_ZEBRA set and the action carries
+ * ZEBRA_TC_ACT_COOKIE.  The qdisc dump collects the clsact interfaces,
+ * each clsact hook is then dumped and matching filters are deleted.  This
+ * runs in the dataplane pthread before any client can add filters.
+ * Both collections grow as needed (darr), so nothing is left behind on
+ * systems with many ports or classifiers.
+ */
+
+struct tc_startup_filter {
+	ifindex_t ifindex;
+	uint32_t parent;
+	uint32_t info;
+	uint32_t handle;
+};
+
+struct tc_startup_scan {
+	ifindex_t *clsact_ifs;		  /* darr */
+	struct tc_startup_filter *filters; /* darr */
+};
+
+static void tc_startup_note_clsact(void *arg, ifindex_t ifindex)
+{
+	struct tc_startup_scan *scan = arg;
+
+	darr_push(scan->clsact_ifs, ifindex);
+}
+
+static bool tc_filter_has_zebra_cookie(struct rtattr *options)
+{
+	struct rtattr *fopts[TCA_FLOWER_MAX + 1];
+	struct rtattr *acts[TCA_ACT_MAX_PRIO + 1];
+
+	netlink_parse_rtattr_nested(fopts, TCA_FLOWER_MAX, options);
+	if (!fopts[TCA_FLOWER_ACT])
+		return false;
+
+	netlink_parse_rtattr_nested(acts, TCA_ACT_MAX_PRIO, fopts[TCA_FLOWER_ACT]);
+	for (int i = 1; i <= TCA_ACT_MAX_PRIO; i++) {
+		struct rtattr *act[TCA_ACT_MAX + 1];
+
+		if (!acts[i])
+			continue;
+
+		netlink_parse_rtattr_nested(act, TCA_ACT_MAX, acts[i]);
+		if (act[TCA_ACT_COOKIE] &&
+		    RTA_PAYLOAD(act[TCA_ACT_COOKIE]) == ZEBRA_TC_ACT_COOKIE_LEN &&
+		    memcmp(RTA_DATA(act[TCA_ACT_COOKIE]), ZEBRA_TC_ACT_COOKIE,
+			   ZEBRA_TC_ACT_COOKIE_LEN) == 0)
+			return true;
+	}
+
+	return false;
+}
+
+static int tc_startup_filter_cb(struct nlmsghdr *h, ns_id_t ns_id, int startup, void *arg)
+{
+	struct tc_startup_scan *scan = arg;
+	struct tc_startup_filter f;
+	struct rtattr *tb[TCA_MAX + 1];
+	struct tcmsg *tcm;
+	int len;
+
+	if (h->nlmsg_type != RTM_NEWTFILTER)
+		return 0;
+
+	len = h->nlmsg_len - NLMSG_LENGTH(sizeof(struct tcmsg));
+	if (len < 0)
+		return -1;
+
+	tcm = NLMSG_DATA(h);
+	netlink_parse_rtattr(tb, TCA_MAX, TCA_RTA(tcm), len);
+
+	/* handle 0 is the classifier instance itself, not a filter */
+	if (!(tcm->tcm_handle & TC_FILTER_HANDLE_ZEBRA))
+		return 0;
+	if (!tb[TCA_KIND] || strcmp(RTA_DATA(tb[TCA_KIND]), "flower") != 0)
+		return 0;
+	if (!tb[TCA_OPTIONS] || !tc_filter_has_zebra_cookie(tb[TCA_OPTIONS]))
+		return 0;
+
+	f.ifindex = tcm->tcm_ifindex;
+	f.parent = tcm->tcm_parent;
+	f.info = tcm->tcm_info;
+	f.handle = tcm->tcm_handle;
+	darr_push(scan->filters, f);
+
+	return 0;
+}
+
+static void tc_startup_flush_filters(struct nlsock *nl, const struct zebra_dplane_info *dp_info,
+				     struct tc_startup_scan *scan)
+{
+	static const uint32_t hooks[] = {
+		TC_H_MAKE(TC_H_CLSACT, TC_H_MIN_INGRESS),
+		TC_H_MAKE(TC_H_CLSACT, TC_H_MIN_EGRESS),
+	};
+	struct {
+		struct nlmsghdr n;
+		struct tcmsg t;
+		char buf[64];
+	} req;
+
+	for (unsigned int i = 0; i < darr_len(scan->clsact_ifs); i++) {
+		for (unsigned int j = 0; j < array_size(hooks); j++) {
+			memset(&req, 0, sizeof(req));
+			req.n.nlmsg_type = RTM_GETTFILTER;
+			req.n.nlmsg_flags = NLM_F_REQUEST | NLM_F_DUMP;
+			req.n.nlmsg_len = NLMSG_LENGTH(sizeof(struct tcmsg));
+			req.t.tcm_family = AF_UNSPEC;
+			req.t.tcm_ifindex = scan->clsact_ifs[i];
+			req.t.tcm_parent = hooks[j];
+
+			if (netlink_request(nl, &req) < 0)
+				continue;
+			netlink_parse_info(tc_startup_filter_cb, nl, dp_info, 0, true, scan, NULL);
+		}
+	}
+
+	for (unsigned int i = 0; i < darr_len(scan->filters); i++) {
+		struct tc_startup_filter *f = &scan->filters[i];
+
+		if (IS_ZEBRA_DEBUG_KERNEL || IS_ZEBRA_DEBUG_TC)
+			zlog_debug("%s: removing leftover zebra tc filter ifindex %d parent %x pref %u handle 0x%08x",
+				   __func__, f->ifindex, f->parent, TC_H_MAJ(f->info) >> 16,
+				   f->handle);
+
+		memset(&req, 0, sizeof(req));
+		req.n.nlmsg_type = RTM_DELTFILTER;
+		req.n.nlmsg_flags = NLM_F_REQUEST | NLM_F_ACK;
+		req.n.nlmsg_len = NLMSG_LENGTH(sizeof(struct tcmsg));
+		req.t.tcm_family = AF_UNSPEC;
+		req.t.tcm_ifindex = f->ifindex;
+		req.t.tcm_parent = f->parent;
+		req.t.tcm_info = f->info;
+		req.t.tcm_handle = f->handle;
+		nl_attr_put(&req.n, sizeof(req), TCA_KIND, "flower", strlen("flower") + 1);
+
+		if (netlink_request(nl, &req) < 0)
+			continue;
+		netlink_parse_info(netlink_talk_filter, nl, dp_info, 0, true, NULL, NULL);
+	}
+
+	darr_free(scan->filters);
+}
+
 int netlink_qdisc_change(struct nlmsghdr *h, ns_id_t ns_id, int startup, void *arg)
 {
 	struct tcmsg *tcm;
@@ -729,6 +1001,10 @@ int netlink_qdisc_change(struct nlmsghdr *h, ns_id_t ns_id, int startup, void *a
 
 	if (RTA_DATA(tb[TCA_KIND]))
 		kind = tc_qdisc_str2kind((const char *)RTA_DATA(tb[TCA_KIND]));
+
+	/* Startup read: remember interfaces with a clsact qdisc (see below) */
+	if (arg && startup && kind == TC_QDISC_CLSACT && h->nlmsg_type == RTM_NEWQDISC)
+		tc_startup_note_clsact(arg, tcm->tcm_ifindex);
 
 	enum dplane_tc_qdisc_notify_e notify_type = (h->nlmsg_type == RTM_NEWQDISC)
 							    ? DPLANE_TC_QDISC_NOTIFY_NEW
@@ -821,8 +1097,15 @@ void kernel_read_tc_qdisc(struct zebra_dplane_ctx *ctx)
 	}
 
 	ret = netlink_request_qdiscs(nl, AF_UNSPEC, RTM_GETQDISC);
-	if (ret >= 0)
-		netlink_parse_info(netlink_qdisc_change, nl, dp_info, 0, true, NULL, NULL);
+	if (ret >= 0) {
+		struct tc_startup_scan *scan = XCALLOC(MTYPE_TMP, sizeof(*scan));
+
+		netlink_parse_info(netlink_qdisc_change, nl, dp_info, 0, true, scan, NULL);
+		if (darr_len(scan->clsact_ifs))
+			tc_startup_flush_filters(nl, dp_info, scan);
+		darr_free(scan->clsact_ifs);
+		XFREE(MTYPE_TMP, scan);
+	}
 
 	dplane_ctx_set_status(ctx, ZEBRA_DPLANE_REQUEST_SUCCESS);
 

@@ -5584,6 +5584,7 @@ static void rib_process_dplane_results(struct event *event)
 			case DPLANE_OP_TC_FILTER_ADD:
 			case DPLANE_OP_TC_FILTER_DELETE:
 			case DPLANE_OP_TC_FILTER_UPDATE:
+				zebra_tc_dplane_result(ctx);
 				break;
 
 			case DPLANE_OP_TC_QDISC_NOTIFY:

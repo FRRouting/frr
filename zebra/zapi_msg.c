@@ -3504,6 +3504,13 @@ static inline void zread_tc_qdisc(ZAPI_HANDLER_ARGS)
 		STREAM_GETL(s, qdisc.qdisc.ifindex);
 		STREAM_GETL(s, qdisc.qdisc.kind);
 
+		/* clsact is managed by zebra itself (reference counted) */
+		if (qdisc.qdisc.kind == TC_QDISC_CLSACT) {
+			zlog_warn("%s: client %s cannot manage clsact qdiscs, ignored", __func__,
+				  zebra_route_string(client->proto));
+			continue;
+		}
+
 		if (hdr->command == ZEBRA_TC_QDISC_INSTALL)
 			zebra_tc_qdisc_install(&qdisc);
 		else
