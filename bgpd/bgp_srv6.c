@@ -839,8 +839,11 @@ DEFPY(show_bgp_srv6_locator_per_routemap, show_bgp_srv6_locator_per_routemap_cmd
 	} else
 		bgp = bgp_get_default();
 
-	if (!bgp)
+	if (!bgp) {
+		if (use_json(argc, argv))
+			vty_out(vty, "{}\n");
 		return CMD_SUCCESS;
+	}
 
 	if (argv_find(argv, argc, "detail", &idx))
 		detail = true;
