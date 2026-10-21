@@ -15,6 +15,7 @@
 #include "bgpd/bgp_debug.h"
 #include "bgpd/bgp_mplsvpn.h"
 #include "bgpd/bgp_srv6.h"
+#include "bgpd/bgp_zebra.h"
 #include "bgpd/bgpd.h"
 
 #include "bgpd/bgp_srv6_clippy.c"
@@ -22,8 +23,6 @@
 DEFINE_MTYPE_STATIC(BGPD, SRV6_LOCATOR_EXTRA, "BGP SRv6 Extra locator");
 DEFINE_MTYPE_STATIC(BGPD, SRV6_PER_LOCATOR_CACHE, "BGP SRv6 per locator cache");
 DEFINE_MTYPE_STATIC(BGPD, BGP_SRV6_LOCATOR, "BGP SRv6 locator");
-
-extern struct zclient *bgp_zclient;
 
 static bool bgp_srv6_unicast_dt46_needs_sid_request(struct bgp *bgp, afi_t afi)
 {
