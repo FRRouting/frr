@@ -148,6 +148,7 @@ struct isis_circuit {
 #define ISIS_CIRCUIT_IF_DOWN_FROM_Z    0x02
 	uint8_t flags;
 	bool disable_threeway_adj;
+	bool unnumbered; /* Borrow loopback IPv4 address if unnumbered */
 	struct {
 		bool enabled;
 		char *profile;
@@ -219,6 +220,8 @@ void isis_circuit_stream(struct isis_circuit *circuit, struct stream **stream);
 
 void isis_circuit_af_set(struct isis_circuit *circuit, bool ip_router, bool ipv6_router);
 ferr_r isis_circuit_passive_set(struct isis_circuit *circuit, bool passive);
+void isis_circuit_unnumbered_set(struct isis_circuit *circuit, bool unnumbered);
+bool isis_circuit_unnumbered(const struct isis_circuit *circuit);
 void isis_circuit_is_type_set(struct isis_circuit *circuit, int is_type);
 void isis_circuit_circ_type_set(struct isis_circuit *circuit, int circ_type);
 
@@ -234,6 +237,8 @@ int isis_circuit_mt_enabled_set(struct isis_circuit *circuit, uint16_t mtid, boo
 
 /* Reset ISIS hello timer and send immediate hello */
 void isis_reset_hello_timer(struct isis_circuit *circuit);
+
+struct list *isis_circuit_ip_addrs(struct isis_circuit *circuit);
 
 #ifdef FABRICD
 DECLARE_HOOK(isis_circuit_config_write,

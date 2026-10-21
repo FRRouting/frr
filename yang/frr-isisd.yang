@@ -786,6 +786,15 @@ module frr-isisd {
         "Container for the password of this IS interface.";
     }
 
+    leaf unnumbered {
+      type boolean;
+      default "false";
+      description
+        "Use an IPv4 address of a loopback interface in the same area
+         when this interface has no IPv4 address, and install IPv4
+         nexthops outside of the interface subnets as on-link.";
+    }
+
     leaf disable-three-way-handshake {
       type boolean;
       default "false";
