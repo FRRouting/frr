@@ -37,7 +37,11 @@ import functools
 CWD = os.path.dirname(os.path.realpath(__file__))
 sys.path.append(os.path.join(CWD, "../"))
 
-from lib.common_config import retry
+from lib.common_config import (
+    kill_router_daemons,
+    retry,
+    start_router_daemons,
+)
 from lib import topotest
 from lib.topogen import Topogen, get_topogen
 from lib.topolog import logger
@@ -1145,6 +1149,61 @@ def test_bgp_srv6_no_locator():
     res = check_route(tgen.gears["r2"], "show ipv6 route fd00:200::/64 json",
                       "fd00:200::/64", r1_ipv6_unicast_sid)
     assert res is True, res
+
+
+def test_bgp_srv6_zebra_restart():
+    """
+    Restart zebra on r1 while bgpd keeps running. The restarted zebra has lost
+    the SRv6 unicast SIDs allocated by bgp, and their local SIDs: the restart
+    must force bgp to allocate its SIDs again. Check that zebra has again a
+    SID allocated by bgp for each context that had one before the restart,
+    and that its local SID is installed.
+    """
+    tgen = get_topogen()
+
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    r1 = tgen.gears["r1"]
+
+    def get_bgp_sids_per_context():
+        output = json.loads(r1.vtysh_cmd("show segment-routing srv6 sid json"))
+        sids = {}
+        for sid, sid_info in output.items():
+            clients = [c.get("protocol") for c in sid_info.get("clients", [])]
+            if "bgp" not in clients:
+                continue
+            context = (
+                sid_info.get("context", {}).get("vrfName"),
+                sid_info.get("behavior"),
+            )
+            sids[context] = sid
+        return sids
+
+    contexts = get_bgp_sids_per_context()
+    assert contexts, "no SID allocated by bgp before the zebra restart"
+    output = r1.vtysh_cmd("show segment-routing srv6 sid")
+    logger.info(output)
+
+    kill_router_daemons(tgen, "r1", ["zebra"])
+    start_router_daemons(tgen, "r1", ["zebra"])
+
+    @retry(retry_timeout=60)
+    def check_bgp_sids_allocated_again():
+        sids = get_bgp_sids_per_context()
+        for context in contexts:
+            if context not in sids:
+                return f"no SID allocated by bgp for {context}"
+            sid = sids[context]
+            output = json.loads(r1.vtysh_cmd(f"show ipv6 route {sid}/128 json"))
+            if f"{sid}/128" not in output:
+                return f"local SID {sid} of {context} not installed"
+        return True
+
+    result = check_bgp_sids_allocated_again()
+    output = r1.vtysh_cmd("show segment-routing srv6 sid")
+    logger.info(output)
+    assert result is True, result
 
 
 def teardown_module(mod):
