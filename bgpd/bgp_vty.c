@@ -10464,6 +10464,9 @@ DEFPY(neighbor_encap_srv6,
 		return ret;
 	}
 
+	if (peergroup_af_flag_check(peer, afi, safi, flag))
+		return CMD_SUCCESS;
+
 	if (peergroup_af_flag_check(peer, afi, safi, PEER_FLAG_CONFIG_ENCAPSULATION_SRV6) ||
 	    peergroup_af_flag_check(peer, afi, safi, PEER_FLAG_CONFIG_ENCAPSULATION_SRV6_RELAX)) {
 		vty_out(vty, "%% Peer is already configured, unset it first.\n");
