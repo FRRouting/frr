@@ -1101,6 +1101,39 @@ void delete_vrf_tovpn_sid_per_vrf(struct bgp *bgp_vpn, struct bgp *bgp_vrf)
 	bgp_vrf->tovpn_sid_locator = NULL;
 }
 
+/*
+ * A restarted zebra has lost the SIDs of the VRF and their local SIDs: forget
+ * them without releasing them, so that they are requested again once the
+ * locator is received.
+ */
+void vpn_leak_zebra_vrf_sids_forget(struct bgp *bgp_vrf)
+{
+	struct bgp *bgp_vpn = bgp_get_default();
+	afi_t afi;
+
+	for (afi = AFI_IP; afi <= AFI_IP6; afi++) {
+		if (bgp_vrf->vpn_policy[afi].tovpn_sid) {
+			if (bgp_vpn)
+				sid_unregister(bgp_vpn, bgp_vrf->vpn_policy[afi].tovpn_sid);
+			XFREE(MTYPE_BGP_SRV6_SID, bgp_vrf->vpn_policy[afi].tovpn_sid);
+		}
+		XFREE(MTYPE_BGP_SRV6_SID, bgp_vrf->vpn_policy[afi].tovpn_zebra_vrf_sid_last_sent);
+		bgp_vrf->vpn_policy[afi].tovpn_sid_transpose_label = 0;
+		srv6_locator_free(bgp_vrf->vpn_policy[afi].tovpn_sid_locator);
+		bgp_vrf->vpn_policy[afi].tovpn_sid_locator = NULL;
+	}
+
+	if (bgp_vrf->tovpn_sid) {
+		if (bgp_vpn)
+			sid_unregister(bgp_vpn, bgp_vrf->tovpn_sid);
+		XFREE(MTYPE_BGP_SRV6_SID, bgp_vrf->tovpn_sid);
+	}
+	XFREE(MTYPE_BGP_SRV6_SID, bgp_vrf->tovpn_zebra_vrf_sid_last_sent);
+	bgp_vrf->tovpn_sid_transpose_label = 0;
+	srv6_locator_free(bgp_vrf->tovpn_sid_locator);
+	bgp_vrf->tovpn_sid_locator = NULL;
+}
+
 void delete_vrf_tovpn_sid(struct bgp *bgp_vpn, struct bgp *bgp_vrf, afi_t afi)
 {
 	delete_vrf_tovpn_sid_per_af(bgp_vpn, bgp_vrf, afi);
