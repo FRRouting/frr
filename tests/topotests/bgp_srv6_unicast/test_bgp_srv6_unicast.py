@@ -37,7 +37,11 @@ import functools
 CWD = os.path.dirname(os.path.realpath(__file__))
 sys.path.append(os.path.join(CWD, "../"))
 
-from lib.common_config import retry
+from lib.common_config import (
+    kill_router_daemons,
+    retry,
+    start_router_daemons,
+)
 from lib import topotest
 from lib.topogen import Topogen, get_topogen
 from lib.topolog import logger
@@ -1177,6 +1181,38 @@ def test_bgp_srv6_no_locator():
     res = check_route(tgen.gears["r2"], "show ipv6 route fd00:200::/64 json",
                       "fd00:200::/64", r1_ipv6_unicast_sid)
     assert res is True, res
+
+
+def test_bgp_srv6_locator_reapply_zebra_down():
+    """
+    Stop zebra on r1, and apply again 'locator default' in the BGP instance,
+    which already uses it, as when the configuration file is loaded again
+    while bgpd is not connected to zebra. The command must be accepted
+    without error. Then start zebra again.
+    """
+    tgen = get_topogen()
+
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    r1 = tgen.gears["r1"]
+
+    kill_router_daemons(tgen, "r1", ["zebra"])
+
+    output = r1.vtysh_multicmd(
+        """
+        router bgp 65001
+         segment-routing srv6
+          locator default
+        """,
+        pretty_output=False,
+        daemon="bgpd",
+    )
+    logger.info(output)
+
+    start_router_daemons(tgen, "r1", ["zebra"])
+
+    assert "Failure" not in output, output
 
 
 def teardown_module(mod):
