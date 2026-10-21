@@ -731,10 +731,8 @@ struct list *fabricd_ip_addrs(struct isis_circuit *circuit)
 		if (c->circ_type != CIRCUIT_T_LOOPBACK)
 			continue;
 
-		if (!listcount(c->ip_addrs))
-			return NULL;
-
-		return c->ip_addrs;
+		if (listcount(c->ip_addrs))
+			return c->ip_addrs;
 	}
 
 	return NULL;
