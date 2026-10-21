@@ -1257,6 +1257,91 @@ def test_bgp_srv6_no_locator():
     assert res is True, res
 
 
+def test_bgp_srv6_zebra_restart():
+    """
+    Restart zebra on r1 while bgpd keeps running. The stopped zebra has lost
+    the SRv6 unicast SIDs allocated by bgp, and their local SIDs: bgp must
+    stop advertising the unicast prefixes with these SIDs while zebra is
+    stopped, and allocate its SIDs again once zebra is started again. Check
+    that the prefixes are withdrawn from r3 (encapsulation-srv6) and have no
+    SID on r2 (encapsulation-srv6-relax) while zebra is stopped, that zebra
+    has again a SID allocated by bgp for each context that had one before
+    the restart, and that its local SID is installed.
+    """
+    tgen = get_topogen()
+
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    r1 = tgen.gears["r1"]
+
+    def get_bgp_sids_per_context():
+        output = json.loads(r1.vtysh_cmd("show segment-routing srv6 sid json"))
+        sids = {}
+        for sid, sid_info in output.items():
+            clients = [c.get("protocol") for c in sid_info.get("clients", [])]
+            if "bgp" not in clients:
+                continue
+            context = (
+                sid_info.get("context", {}).get("vrfName"),
+                sid_info.get("behavior"),
+            )
+            sids[context] = sid
+        return sids
+
+    contexts = get_bgp_sids_per_context()
+    assert contexts, "no SID allocated by bgp before the zebra restart"
+    output = r1.vtysh_cmd("show segment-routing srv6 sid")
+    logger.info(output)
+
+    kill_router_daemons(tgen, "r1", ["zebra"])
+
+    for cmd, prefix in (
+        ("show ip route 10.0.0.1/32 json", "10.0.0.1/32"),
+        ("show ipv6 route fd00:200::/64 json", "fd00:200::/64"),
+    ):
+        logger.info("Check %s is withdrawn from r3 while zebra is stopped" % prefix)
+        res = check_route(tgen.gears["r3"], cmd, prefix, "", expect_installed=False)
+        assert res is True, res
+        logger.info("Check %s has no SID on r2 while zebra is stopped" % prefix)
+        res = check_route(tgen.gears["r2"], cmd, prefix, "")
+        assert res is True, res
+
+    start_router_daemons(tgen, "r1", ["zebra"])
+
+    @retry(retry_timeout=60)
+    def check_bgp_sids_allocated_again():
+        sids = get_bgp_sids_per_context()
+        for context in contexts:
+            if context not in sids:
+                return f"no SID allocated by bgp for {context}"
+            sid = sids[context]
+            output = json.loads(r1.vtysh_cmd(f"show ipv6 route {sid}/128 json"))
+            routes = output.get(f"{sid}/128", [])
+            if not any(route.get("installed") for route in routes):
+                return f"local SID {sid} of {context} not installed"
+        return True
+
+    result = check_bgp_sids_allocated_again()
+    output = r1.vtysh_cmd("show segment-routing srv6 sid")
+    logger.info(output)
+    assert result is True, result
+
+    for afi, cmd, prefix in (
+        ("AFI_IP", "show ip route 10.0.0.1/32 json", "10.0.0.1/32"),
+        ("AFI_IP6", "show ipv6 route fd00:200::/64 json", "fd00:200::/64"),
+    ):
+        res = get_unicast_sid(afi)
+        assert res is True, res
+        for peer in ("r2", "r3"):
+            logger.info(
+                "Check %s with SID %s is installed on %s"
+                % (prefix, r1_unicast_sid, peer)
+            )
+            res = check_route(tgen.gears[peer], cmd, prefix, r1_unicast_sid)
+            assert res is True, res
+
+
 def test_bgp_srv6_locator_reapply_zebra_down():
     """
     Stop zebra on r1, and apply again 'locator default' in the BGP instance,
