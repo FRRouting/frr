@@ -996,7 +996,9 @@ def test_vrf_locator_same_as_route_map_locator():
     Configure locator NAME on Vrf20 too, which has 'sid vpn export auto'.
     The SID of Vrf20 and the SID of the route-map locator context use the same
     zebra SID context. Check that the SID used to export 10.0.0.0/24 stays
-    allocated by bgp in zebra, and that its local SID stays installed.
+    allocated by bgp in zebra, and that its local SID stays installed. Check
+    in the bgpd log that the SID of locator NAME is not released once
+    allocated to Vrf20.
     """
     tgen = get_topogen()
 
@@ -1004,6 +1006,10 @@ def test_vrf_locator_same_as_route_map_locator():
         pytest.skip(tgen.errors)
 
     r1 = tgen.gears["r1"]
+    bgpd_log = os.path.join(tgen.logdir, "r1", "bgpd.log")
+
+    with open(bgpd_log) as f:
+        log_start = len(f.readlines())
 
     r1.vtysh_multicmd(
         """
@@ -1029,11 +1035,25 @@ def test_vrf_locator_same_as_route_map_locator():
             return f"local SID {sid} of 10.0.0.0/24 not installed"
         return True
 
+    def check_name_sid_not_released_after_allocation():
+        with open(bgpd_log) as f:
+            lines = f.readlines()[log_start:]
+        allocated = False
+        for line in lines:
+            if "SRv6 SID 2001:db09:1:2:" not in line or "End.DT4" not in line:
+                continue
+            if line.rstrip().endswith(": ALLOCATED"):
+                allocated = True
+            elif line.rstrip().endswith(": RELEASED") and allocated:
+                return f"SID of locator NAME released once allocated: {line.strip()}"
+        return True
+
     result = check_exported_sid_in_zebra()
     output = r1.vtysh_cmd("show segment-routing srv6 sid")
     logger.info(output)
     output = r1.vtysh_cmd("show bgp ipv4 vpn 10.0.0.0/24")
     logger.info(output)
+    not_released = check_name_sid_not_released_after_allocation()
 
     r1.vtysh_multicmd(
         """
@@ -1051,6 +1071,7 @@ def test_vrf_locator_same_as_route_map_locator():
     restored = check_name_used_by_two_paths()
 
     assert result is True, result
+    assert not_released is True, not_released
     assert restored is True, restored
 
 
