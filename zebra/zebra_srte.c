@@ -12,6 +12,7 @@
 #include "zebra/zebra_mpls.h"
 #include "zebra/zebra_rnh.h"
 #include "zebra/zapi_msg.h"
+#include "zebra/zebra_router.h"
 
 DEFINE_MTYPE_STATIC(ZEBRA, ZEBRA_SR_POLICY, "SR Policy");
 
@@ -91,6 +92,9 @@ static int zebra_sr_policy_notify_update_client(struct zebra_sr_policy *policy,
 	uint8_t num;
 	struct zapi_nexthop znh;
 	int ret;
+
+	if (!policy->lsp)
+		return 0;
 
 	/* Get output stream. */
 	s = stream_new(ZEBRA_MAX_PACKET_SIZ);
@@ -310,7 +314,7 @@ int zebra_sr_policy_bsid_install(struct zebra_sr_policy *policy)
 	struct zapi_srte_tunnel *zt = &policy->segment_list;
 	struct zebra_nhlfe *nhlfe;
 
-	if (zt->local_label == MPLS_LABEL_NONE)
+	if (zt->local_label == MPLS_LABEL_NONE || !policy->lsp)
 		return 0;
 
 	frr_each_safe (nhlfe_list, &policy->lsp->nhlfe_list, nhlfe) {
@@ -359,6 +363,38 @@ void zebra_sr_policy_bsid_uninstall(struct zebra_sr_policy *policy,
 	struct zapi_srte_tunnel *zt = &policy->segment_list;
 
 	mpls_lsp_uninstall_all_vrf(policy->zvrf, zt->type, old_bsid);
+}
+
+static struct event *t_sr_policy_revalidate;
+
+/* Revalidate the policies whose LSP was freed, from the event loop. */
+static void zebra_sr_policy_revalidate(struct event *thread)
+{
+	struct zebra_sr_policy *policy, *policy_temp;
+
+	RB_FOREACH_SAFE (policy, zebra_sr_policy_instance_head, &zebra_sr_policy_instances,
+			 policy_temp) {
+		if (policy->status == ZEBRA_SR_POLICY_UP && !policy->lsp)
+			zebra_sr_policy_validate(policy, NULL);
+	}
+}
+
+/* The LSP is about to be freed: drop any SR policy pointer to it. */
+void zebra_sr_policy_lsp_freed(const struct zebra_lsp *lsp)
+{
+	struct zebra_sr_policy *policy;
+	bool found = false;
+
+	RB_FOREACH (policy, zebra_sr_policy_instance_head, &zebra_sr_policy_instances) {
+		if (policy->lsp != lsp)
+			continue;
+		policy->lsp = NULL;
+		found = true;
+	}
+
+	if (found)
+		event_add_event(zrouter.master, zebra_sr_policy_revalidate, NULL, 0,
+				&t_sr_policy_revalidate);
 }
 
 int zebra_sr_policy_label_update(mpls_label_t label,
