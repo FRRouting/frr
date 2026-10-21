@@ -54,6 +54,7 @@
 #include "zebra/rtadv.h"
 #include "zebra/zebra_neigh.h"
 #include "zebra/zebra_ptm.h"
+#include "zebra/zebra_tc.h"
 
 /* context to manage dumps in multiple tables or vrfs */
 struct route_show_ctx {
@@ -3734,6 +3735,41 @@ DEFUN (show_pbr_iptable,
 	return CMD_SUCCESS;
 }
 
+DEFPY (show_zebra_tc,
+       show_zebra_tc_cmd,
+       "show zebra tc [interface IFNAME$ifname] [json$json]",
+       SHOW_STR
+       ZEBRA_STR
+       "Traffic control objects installed by zebra\n"
+       INTERFACE_STR
+       IFNAME_STR
+       JSON_STR)
+{
+	ifindex_t ifindex = IFINDEX_INTERNAL;
+	json_object *j = NULL;
+
+	if (ifname) {
+		struct interface *ifp;
+
+		ifp = if_lookup_by_name_per_ns(zebra_ns_lookup(NS_DEFAULT), ifname);
+		if (!ifp) {
+			vty_out(vty, "%% Interface %s not found\n", ifname);
+			return CMD_WARNING;
+		}
+		ifindex = ifp->ifindex;
+	}
+
+	if (json)
+		j = json_object_new_object();
+
+	zebra_tc_show(vty, ifindex, j);
+
+	if (j)
+		vty_json(vty, j);
+
+	return CMD_SUCCESS;
+}
+
 /* policy routing contexts */
 DEFPY (show_pbr_rule,
        show_pbr_rule_cmd,
@@ -4412,6 +4448,7 @@ void zebra_vty_init(void)
 	install_element(VIEW_NODE, &show_pbr_ipset_cmd);
 	install_element(VIEW_NODE, &show_pbr_iptable_cmd);
 	install_element(VIEW_NODE, &show_pbr_rule_cmd);
+	install_element(VIEW_NODE, &show_zebra_tc_cmd);
 	install_element(CONFIG_NODE, &pbr_nexthop_resolve_cmd);
 	install_element(VIEW_NODE, &show_route_zebra_dump_cmd);
 

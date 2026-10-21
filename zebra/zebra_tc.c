@@ -11,20 +11,28 @@
 #include <hash.h>
 #include <memory.h>
 #include <hook.h>
+#include <typesafe.h>
+
+#include <vty.h>
+#include <json.h>
 
 #include "zebra/zebra_router.h"
 #include "zebra/zebra_dplane.h"
 #include "zebra/zebra_tc.h"
+#include "zebra/zebra_ns.h"
+#include "zebra/interface.h"
 #include "zebra/debug.h"
 
 DEFINE_MTYPE_STATIC(ZEBRA, TC_QDISC, "TC queue discipline");
 DEFINE_MTYPE_STATIC(ZEBRA, TC_CLASS, "TC class");
 DEFINE_MTYPE_STATIC(ZEBRA, TC_FILTER, "TC filter");
+DEFINE_MTYPE_STATIC(ZEBRA, TC_CLSACT, "TC clsact reference");
 
 const struct message tc_qdisc_kinds[] = {
-	{TC_QDISC_HTB, "htb"},
-	{TC_QDISC_NOQUEUE, "noqueue"},
-	{0},
+	{ TC_QDISC_HTB, "htb" },
+	{ TC_QDISC_NOQUEUE, "noqueue" },
+	{ TC_QDISC_CLSACT, "clsact" },
+	{ 0 },
 };
 
 const struct message tc_filter_kinds[] = {
@@ -342,7 +350,7 @@ uint32_t zebra_tc_filter_hash_key(const void *arg)
 
 	filter = arg;
 
-	key = jhash_2words(filter->filter.ifindex, filter->filter.handle, 0);
+	key = jhash_3words(filter->filter.ifindex, filter->filter.handle, filter->filter.attach, 0);
 
 	return key;
 }
@@ -360,7 +368,22 @@ bool zebra_tc_filter_hash_equal(const void *arg1, const void *arg2)
 	if (f1->filter.handle != f2->filter.handle)
 		return false;
 
+	if (f1->filter.attach != f2->filter.attach)
+		return false;
+
 	return true;
+}
+
+struct zebra_tc_filter *zebra_tc_filter_lookup(ifindex_t ifindex, uint32_t handle,
+					       enum tc_filter_attach attach)
+{
+	struct zebra_tc_filter lookup = {};
+
+	lookup.filter.ifindex = ifindex;
+	lookup.filter.handle = handle;
+	lookup.filter.attach = attach;
+
+	return hash_lookup(zrouter.filter_hash, &lookup);
 }
 
 void zebra_tc_filter_free(struct zebra_tc_filter *filter)
@@ -421,12 +444,30 @@ void zebra_tc_filter_add(struct zebra_tc_filter *filter)
 	struct zebra_tc_filter *new;
 
 	found = hash_lookup(zrouter.filter_hash, filter);
-	new = hash_get(zrouter.filter_hash, filter, tc_filter_alloc_intern);
+	if (found) {
+		/* Replace the stored copy with the new contents */
+		found->filter = filter->filter;
+		found->sock = filter->sock;
+		found->owner = filter->owner;
+		new = found;
+	} else {
+		new = hash_get(zrouter.filter_hash, filter, tc_filter_alloc_intern);
+	}
+	new->status = ZEBRA_TC_STATUS_QUEUED;
 
 	if (found)
 		(void)dplane_tc_filter_update(new);
 	else
 		(void)dplane_tc_filter_add(new);
+}
+
+void zebra_tc_filter_forget(struct zebra_tc_filter *filter)
+{
+	if (IS_ZEBRA_DEBUG_TC)
+		zlog_debug("%s: forget tc filter ifindex %d priority %u handle %08x", __func__,
+			   filter->filter.ifindex, filter->filter.priority, filter->filter.handle);
+
+	tc_filter_release(filter, true);
 }
 
 void zebra_tc_filter_delete(struct zebra_tc_filter *filter)
@@ -443,6 +484,422 @@ void zebra_tc_filter_delete(struct zebra_tc_filter *filter)
 	if (tc_filter_release(filter, true))
 		zlog_debug("%s: tc filter being deleted we know nothing about",
 			   __func__);
+}
+
+/*
+ * clsact qdisc bookkeeping.
+ *
+ * A clsact qdisc has a fixed handle (ffff:), so unlike zebra's htb root
+ * qdisc it cannot be marked as zebra's by its handle.  Instead zebra
+ * tracks, per interface, whether the kernel already has a clsact qdisc
+ * (from the startup dump and RTNLGRP_TC notifications) and whether zebra
+ * itself created the one in use.  Only a zebra-created clsact is removed
+ * when the last zebra filter on the interface goes away.
+ */
+PREDECL_HASH(tc_clsact_htab);
+
+struct zebra_tc_clsact {
+	struct tc_clsact_htab_item htab_item;
+
+	ifindex_t ifindex;
+	uint32_t refcnt;     /* zebra filters attached to ingress/egress */
+	bool owned;	     /* zebra created the qdisc */
+	bool kernel_present; /* the kernel reported a clsact qdisc */
+};
+
+static int tc_clsact_htab_cmp(const struct zebra_tc_clsact *a, const struct zebra_tc_clsact *b)
+{
+	return numcmp(a->ifindex, b->ifindex);
+}
+
+static uint32_t tc_clsact_htab_hash(const struct zebra_tc_clsact *c)
+{
+	return jhash_1word(c->ifindex, 0);
+}
+
+DECLARE_HASH(tc_clsact_htab, struct zebra_tc_clsact, htab_item, tc_clsact_htab_cmp,
+	     tc_clsact_htab_hash);
+
+static struct tc_clsact_htab_head tc_clsact_table[1];
+
+static struct zebra_tc_clsact *tc_clsact_get(ifindex_t ifindex, bool create)
+{
+	struct zebra_tc_clsact lookup = { .ifindex = ifindex };
+	struct zebra_tc_clsact *c;
+
+	c = tc_clsact_htab_find(tc_clsact_table, &lookup);
+	if (c || !create)
+		return c;
+
+	c = XCALLOC(MTYPE_TC_CLSACT, sizeof(*c));
+	c->ifindex = ifindex;
+	tc_clsact_htab_add(tc_clsact_table, c);
+
+	return c;
+}
+
+static void tc_clsact_maybe_release(struct zebra_tc_clsact *c)
+{
+	if (c->refcnt || c->kernel_present)
+		return;
+
+	tc_clsact_htab_del(tc_clsact_table, c);
+	XFREE(MTYPE_TC_CLSACT, c);
+}
+
+static void tc_clsact_qdisc_op(ifindex_t ifindex, bool install)
+{
+	struct zebra_tc_qdisc qdisc = {};
+
+	qdisc.qdisc.ifindex = ifindex;
+	qdisc.qdisc.kind = TC_QDISC_CLSACT;
+
+	if (install)
+		(void)dplane_tc_qdisc_install(&qdisc);
+	else
+		(void)dplane_tc_qdisc_uninstall(&qdisc);
+}
+
+static void tc_clsact_kernel_update(ifindex_t ifindex, bool present)
+{
+	struct zebra_tc_clsact *c = tc_clsact_get(ifindex, present);
+
+	if (!c)
+		return;
+
+	if (!present && c->refcnt && c->kernel_present)
+		zlog_warn("%s: clsact qdisc on ifindex %d was removed outside zebra; %u zebra filter(s) on it are gone",
+			  __func__, ifindex, c->refcnt);
+
+	c->kernel_present = present;
+	if (!present)
+		c->owned = false;
+
+	tc_clsact_maybe_release(c);
+}
+
+void zebra_tc_clsact_ref(ifindex_t ifindex)
+{
+	struct zebra_tc_clsact *c = tc_clsact_get(ifindex, true);
+
+	if (c->refcnt++ > 0)
+		return;
+
+	if (c->kernel_present && !c->owned) {
+		if (IS_ZEBRA_DEBUG_TC)
+			zlog_debug("%s: ifindex %d already has a clsact qdisc, using it", __func__,
+				   ifindex);
+		return;
+	}
+
+	if (IS_ZEBRA_DEBUG_TC)
+		zlog_debug("%s: install clsact qdisc on ifindex %d", __func__, ifindex);
+
+	c->owned = true;
+	tc_clsact_qdisc_op(ifindex, true);
+}
+
+void zebra_tc_clsact_unref(ifindex_t ifindex, bool ifp_gone)
+{
+	struct zebra_tc_clsact *c = tc_clsact_get(ifindex, false);
+
+	if (!c || !c->refcnt)
+		return;
+
+	if (--c->refcnt > 0)
+		return;
+
+	if (c->owned) {
+		if (!ifp_gone) {
+			if (IS_ZEBRA_DEBUG_TC)
+				zlog_debug("%s: remove clsact qdisc from ifindex %d", __func__,
+					   ifindex);
+			tc_clsact_qdisc_op(ifindex, false);
+		}
+		/* We know it is gone; don't wait for the notification */
+		c->owned = false;
+		c->kernel_present = false;
+	}
+
+	tc_clsact_maybe_release(c);
+}
+
+void zebra_tc_clsact_init(void)
+{
+	tc_clsact_htab_init(tc_clsact_table);
+}
+
+void zebra_tc_clsact_terminate(void)
+{
+	struct zebra_tc_clsact *c;
+
+	while ((c = tc_clsact_htab_pop(tc_clsact_table)))
+		XFREE(MTYPE_TC_CLSACT, c);
+	tc_clsact_htab_fini(tc_clsact_table);
+}
+
+const char *zebra_tc_status2str(enum zebra_tc_status status)
+{
+	switch (status) {
+	case ZEBRA_TC_STATUS_QUEUED:
+		return "queued";
+	case ZEBRA_TC_STATUS_INSTALLED:
+		return "installed";
+	case ZEBRA_TC_STATUS_FAILED:
+		return "failed";
+	}
+
+	return "unknown";
+}
+
+/*
+ * Results of TC dataplane operations.  Only filter results are kept: they
+ * are what `show zebra tc` reports per filter.
+ */
+void zebra_tc_dplane_result(struct zebra_dplane_ctx *ctx)
+{
+	enum dplane_op_e op = dplane_ctx_get_op(ctx);
+	enum zebra_dplane_result res = dplane_ctx_get_status(ctx);
+	struct zebra_tc_filter *f;
+
+	if (res != ZEBRA_DPLANE_REQUEST_SUCCESS)
+		zlog_warn("%s: %s failed on ifindex %d (%s)", __func__, dplane_op2str(op),
+			  dplane_ctx_get_ifindex(ctx), dplane_res2str(res));
+
+	if (op != DPLANE_OP_TC_FILTER_ADD && op != DPLANE_OP_TC_FILTER_UPDATE)
+		return;
+
+	f = zebra_tc_filter_lookup(dplane_ctx_get_ifindex(ctx),
+				   dplane_ctx_tc_filter_get_handle(ctx),
+				   dplane_ctx_tc_filter_get_attach(ctx));
+	if (f)
+		f->status = (res == ZEBRA_DPLANE_REQUEST_SUCCESS) ? ZEBRA_TC_STATUS_INSTALLED
+								  : ZEBRA_TC_STATUS_FAILED;
+}
+
+static const char *tc_attach2str(enum tc_filter_attach attach)
+{
+	switch (attach) {
+	case TC_ATTACH_ROOT:
+		return "root";
+	case TC_ATTACH_INGRESS:
+		return "ingress";
+	case TC_ATTACH_EGRESS:
+		return "egress";
+	}
+
+	return "unknown";
+}
+
+static const char *tc_ifname(ifindex_t ifindex)
+{
+	struct interface *ifp;
+
+	ifp = if_lookup_by_index_per_ns(zebra_ns_lookup(NS_DEFAULT), ifindex);
+
+	return ifp ? ifp->name : "unknown";
+}
+
+struct tc_show_ctx {
+	struct vty *vty;
+	ifindex_t ifindex;
+	json_object *json;
+};
+
+static void tc_show_flower(struct vty *vty, json_object *jf, const struct tc_filter *f)
+{
+	const struct tc_flower *fl = &f->u.flower;
+
+	if (fl->filter_bm & TC_FLOWER_VLAN_ID) {
+		if (jf)
+			json_object_int_add(jf, "vlanId", fl->vlan_id);
+		else
+			vty_out(vty, " vlan_id %u", fl->vlan_id);
+	}
+	if (fl->filter_bm & TC_FLOWER_VLAN_PRIO) {
+		if (jf)
+			json_object_int_add(jf, "vlanPrio", fl->vlan_prio);
+		else
+			vty_out(vty, " vlan_prio %u", fl->vlan_prio);
+	}
+	if (fl->filter_bm & TC_FLOWER_VLAN_ETH_TYPE) {
+		if (jf)
+			json_object_int_add(jf, "vlanEthType", fl->vlan_eth_type);
+		else
+			vty_out(vty, " vlan_ethtype 0x%04x", fl->vlan_eth_type);
+	}
+	if (fl->filter_bm & TC_FLOWER_IP_PROTOCOL) {
+		if (jf)
+			json_object_int_add(jf, "ipProto", fl->ip_proto);
+		else
+			vty_out(vty, " ip_proto %u", fl->ip_proto);
+	}
+	if (fl->filter_bm & TC_FLOWER_SRC_IP) {
+		if (jf)
+			json_object_string_addf(jf, "srcIp", "%pFX", &fl->src_ip);
+		else
+			vty_out(vty, " src_ip %pFX", &fl->src_ip);
+	}
+	if (fl->filter_bm & TC_FLOWER_DST_IP) {
+		if (jf)
+			json_object_string_addf(jf, "dstIp", "%pFX", &fl->dst_ip);
+		else
+			vty_out(vty, " dst_ip %pFX", &fl->dst_ip);
+	}
+	if (fl->filter_bm & TC_FLOWER_SRC_PORT) {
+		if (jf) {
+			json_object_int_add(jf, "srcPortMin", fl->src_port_min);
+			json_object_int_add(jf, "srcPortMax", fl->src_port_max);
+		} else
+			vty_out(vty, " src_port %u-%u", fl->src_port_min, fl->src_port_max);
+	}
+	if (fl->filter_bm & TC_FLOWER_DST_PORT) {
+		if (jf) {
+			json_object_int_add(jf, "dstPortMin", fl->dst_port_min);
+			json_object_int_add(jf, "dstPortMax", fl->dst_port_max);
+		} else
+			vty_out(vty, " dst_port %u-%u", fl->dst_port_min, fl->dst_port_max);
+	}
+	if (fl->filter_bm & TC_FLOWER_DSFIELD) {
+		if (jf) {
+			json_object_int_add(jf, "ipTos", fl->dsfield);
+			json_object_int_add(jf, "ipTosMask", fl->dsfield_mask);
+		} else
+			vty_out(vty, " ip_tos 0x%02x/0x%02x", fl->dsfield, fl->dsfield_mask);
+	}
+}
+
+static int tc_show_filter_walker(struct hash_bucket *b, void *data)
+{
+	struct tc_show_ctx *sc = data;
+	struct zebra_tc_filter *zf = b->data;
+	const struct tc_filter *f = &zf->filter;
+	struct vty *vty = sc->vty;
+	json_object *jf = NULL;
+
+	if (sc->ifindex != IFINDEX_INTERNAL && f->ifindex != sc->ifindex)
+		return HASHWALK_CONTINUE;
+
+	if (sc->json) {
+		jf = json_object_new_object();
+		json_object_string_add(jf, "interface", tc_ifname(f->ifindex));
+		json_object_int_add(jf, "ifindex", f->ifindex);
+		json_object_string_add(jf, "attach", tc_attach2str(f->attach));
+		json_object_int_add(jf, "pref", f->priority);
+		json_object_int_add(jf, "protocol", f->protocol);
+		json_object_string_addf(jf, "handle", "0x%08x", f->handle);
+		json_object_string_add(jf, "kind", tc_filter_kind2str(f->kind));
+		json_object_string_add(jf, "owner",
+				       zf->owner == ZEBRA_TC_OWNER_PBR ? "pbr" : "zapi");
+		json_object_string_add(jf, "status", zebra_tc_status2str(zf->status));
+	} else {
+		vty_out(vty, "  %s %s pref %u protocol 0x%04x handle 0x%08x %s owner %s [%s]\n",
+			tc_ifname(f->ifindex), tc_attach2str(f->attach), f->priority, f->protocol,
+			f->handle, tc_filter_kind2str(f->kind),
+			zf->owner == ZEBRA_TC_OWNER_PBR ? "pbr" : "zapi",
+			zebra_tc_status2str(zf->status));
+		vty_out(vty, "    match:");
+	}
+
+	if (f->kind == TC_FILTER_FLOWER)
+		tc_show_flower(vty, jf, f);
+
+	if (f->has_action) {
+		if (jf) {
+			json_object *ja = json_object_new_object();
+
+			json_object_string_add(ja, "kind", "skbedit");
+			if (f->skbedit.set_priority)
+				json_object_int_add(ja, "priority", f->skbedit.priority);
+			if (f->skbedit.set_mark) {
+				json_object_string_addf(ja, "mark", "0x%x", f->skbedit.mark);
+				json_object_string_addf(ja, "markMask", "0x%x",
+							f->skbedit.mark_mask);
+			}
+			json_object_object_add(jf, "action", ja);
+		} else {
+			vty_out(vty, "\n    action: skbedit");
+			if (f->skbedit.set_priority)
+				vty_out(vty, " priority %u", f->skbedit.priority);
+			if (f->skbedit.set_mark)
+				vty_out(vty, " mark 0x%x/0x%x", f->skbedit.mark,
+					f->skbedit.mark_mask);
+		}
+	} else if (f->kind == TC_FILTER_FLOWER) {
+		if (jf)
+			json_object_string_addf(jf, "classid", "%x:%x", TC_QDISC_MAJOR_ZEBRA >> 16,
+						f->u.flower.classid);
+		else
+			vty_out(vty, "\n    classid %x:%x", TC_QDISC_MAJOR_ZEBRA >> 16,
+				f->u.flower.classid);
+	}
+
+	if (jf)
+		json_object_array_add(sc->json, jf);
+	else
+		vty_out(vty, "\n");
+
+	return HASHWALK_CONTINUE;
+}
+
+static int tc_show_qdisc_walker(struct hash_bucket *b, void *data)
+{
+	struct tc_show_ctx *sc = data;
+	struct zebra_tc_qdisc *q = b->data;
+
+	if (sc->ifindex != IFINDEX_INTERNAL && q->qdisc.ifindex != sc->ifindex)
+		return HASHWALK_CONTINUE;
+
+	vty_out(sc->vty, "  %s root %s handle %x:\n", tc_ifname(q->qdisc.ifindex),
+		tc_qdisc_kind2str(q->qdisc.kind), TC_QDISC_MAJOR_ZEBRA >> 16);
+
+	return HASHWALK_CONTINUE;
+}
+
+static void tc_show_clsact(struct tc_show_ctx *sc, const struct zebra_tc_clsact *c)
+{
+	json_object *jc;
+
+	if (sc->ifindex != IFINDEX_INTERNAL && c->ifindex != sc->ifindex)
+		return;
+
+	if (sc->json) {
+		jc = json_object_new_object();
+		json_object_string_add(jc, "interface", tc_ifname(c->ifindex));
+		json_object_int_add(jc, "ifindex", c->ifindex);
+		json_object_int_add(jc, "filters", c->refcnt);
+		json_object_string_add(jc, "owner", c->owned ? "zebra" : "external");
+		json_object_array_add(sc->json, jc);
+	} else
+		vty_out(sc->vty, "  %s clsact filters %u owner %s\n", tc_ifname(c->ifindex),
+			c->refcnt, c->owned ? "zebra" : "external");
+}
+
+void zebra_tc_show(struct vty *vty, ifindex_t ifindex, json_object *json)
+{
+	struct tc_show_ctx sc = { .vty = vty, .ifindex = ifindex };
+	struct zebra_tc_clsact *c;
+	json_object *jq = NULL, *jf = NULL;
+
+	if (json) {
+		jq = json_object_new_array();
+		jf = json_object_new_array();
+		sc.json = jq;
+		frr_each (tc_clsact_htab, tc_clsact_table, c)
+			tc_show_clsact(&sc, c);
+		sc.json = jf;
+		hash_walk(zrouter.filter_hash, tc_show_filter_walker, &sc);
+		json_object_object_add(json, "clsact", jq);
+		json_object_object_add(json, "filters", jf);
+		return;
+	}
+
+	vty_out(vty, "Qdiscs:\n");
+	hash_walk(zrouter.qdisc_hash, tc_show_qdisc_walker, &sc);
+	frr_each (tc_clsact_htab, tc_clsact_table, c)
+		tc_show_clsact(&sc, c);
+	vty_out(vty, "Filters:\n");
+	hash_walk(zrouter.filter_hash, tc_show_filter_walker, &sc);
 }
 
 /*
@@ -465,6 +922,12 @@ void zebra_tc_qdisc_handle_notify(struct zebra_dplane_ctx *ctx)
 		zlog_debug("%s: %s ifindex %d major 0x%x kind %s startup %d", __func__,
 			   notify_type == DPLANE_TC_QDISC_NOTIFY_NEW ? "new" : "del", ifindex,
 			   major, tc_qdisc_kind2str(kind), startup);
+
+	/* Track which interfaces already have a clsact qdisc */
+	if (kind == TC_QDISC_CLSACT) {
+		tc_clsact_kernel_update(ifindex, notify_type == DPLANE_TC_QDISC_NOTIFY_NEW);
+		return;
+	}
 
 	/*
 	 * Only act on new-qdisc notifications observed during the
