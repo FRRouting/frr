@@ -39,6 +39,7 @@
 #include "isisd/isis_misc.h"
 #include "isisd/isis_constants.h"
 #include "isisd/isis_adjacency.h"
+#include "isisd/isis_bfd.h"
 #include "isisd/isis_dr.h"
 #include "isisd/isisd.h"
 #include "isisd/isis_csm.h"
@@ -1509,6 +1510,30 @@ ferr_r isis_circuit_passive_set(struct isis_circuit *circuit, bool passive)
 	return ferr_ok();
 }
 
+bool isis_circuit_unnumbered(const struct isis_circuit *circuit)
+{
+	/* OpenFabric always runs unnumbered, isisd only if configured. */
+	return fabricd || circuit->unnumbered;
+}
+
+void isis_circuit_unnumbered_set(struct isis_circuit *circuit, bool unnumbered)
+{
+	if (circuit->unnumbered == unnumbered)
+		return;
+
+	circuit->unnumbered = unnumbered;
+
+	/*
+	 * Only unnumbered circuits are affected, but the borrowed address
+	 * changes our hellos, the usable adjacency address families and the
+	 * ONLINK flag of nexthops through this circuit.
+	 */
+	if (circuit->state == C_STATE_UP && circuit->ip_router && !circuit->is_passive)
+		isis_reset_hello_timer(circuit);
+	isis_circuit_ip_addr_change_update(circuit);
+	isis_bfd_circuit_cmd(circuit);
+}
+
 ferr_r isis_circuit_metric_set(struct isis_circuit *circuit, int level,
 			       int metric)
 {
@@ -1722,6 +1747,33 @@ void isis_reset_hello_timer(struct isis_circuit *circuit)
 		send_hello_sched(circuit, 0, isis_jitter(circuit->hello_interval[0], IIH_JITTER));
 	}
 }
+
+/*
+ * Return all IP-Addresses defined on this circuit. If there are no
+ * addresses defined and the circuit is configured as unnumbered, search
+ * for other addresses on the loopback interface.
+ */
+struct list *isis_circuit_ip_addrs(struct isis_circuit *circuit)
+{
+	if (listcount(circuit->ip_addrs))
+		return circuit->ip_addrs;
+
+	if (!circuit->area || !isis_circuit_unnumbered(circuit))
+		return NULL;
+
+	struct isis_circuit *c;
+
+	frr_each (isis_circuit_list, &circuit->area->circuit_list, c) {
+		if (c->circ_type != CIRCUIT_T_LOOPBACK)
+			continue;
+
+		if (listcount(c->ip_addrs))
+			return c->ip_addrs;
+	}
+
+	return NULL;
+}
+
 
 void isis_circuit_init(void)
 {

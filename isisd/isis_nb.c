@@ -1113,6 +1113,13 @@ const struct frr_yang_module_info frr_isisd_info = {
 			},
 		},
 		{
+			.xpath = "/frr-interface:lib/interface/frr-isisd:isis/unnumbered",
+			.cbs = {
+				.cli_show = cli_show_ip_isis_unnumbered,
+				.modify = lib_interface_isis_unnumbered_modify,
+			},
+		},
+		{
 			.xpath = "/frr-interface:lib/interface/frr-isisd:isis/password",
 			.cbs = {
 				.cli_show = cli_show_ip_isis_password,

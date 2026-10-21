@@ -3950,6 +3950,22 @@ int lib_interface_isis_passive_modify(struct nb_cb_modify_args *args)
 }
 
 /*
+ * XPath: /frr-interface:lib/interface/frr-isisd:isis/unnumbered
+ */
+int lib_interface_isis_unnumbered_modify(struct nb_cb_modify_args *args)
+{
+	struct isis_circuit *circuit;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	circuit = nb_running_get_entry(args->dnode, NULL, true);
+	isis_circuit_unnumbered_set(circuit, yang_dnode_get_bool(args->dnode, NULL));
+
+	return NB_OK;
+}
+
+/*
  * XPath: /frr-interface:lib/interface/frr-isisd:isis/password
  */
 int lib_interface_isis_password_create(struct nb_cb_create_args *args)
