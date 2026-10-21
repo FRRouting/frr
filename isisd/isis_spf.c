@@ -790,6 +790,21 @@ static void process_N(struct isis_spftree *spftree, enum vertextype vtype, void 
 
 #ifndef FABRICD
 /*
+ * Whether a flex-algo computation prunes this link of the LSP: its router does
+ * not participate, or the link fails the definition's constraints. A
+ * pseudonode advertises neither, so a LAN is pruned by its routers' links to
+ * the pseudonode only.
+ */
+static bool spf_flex_algo_prune_link(struct isis_spftree *spftree, struct isis_lsp *lsp,
+				     struct isis_extended_reach *reach, bool participates)
+{
+	if (!flex_algo_id_valid(spftree->algorithm) || LSP_PSEUDO_ID(lsp->hdr.lsp_id))
+		return false;
+
+	return !participates || isis_flex_algo_constraint_drop(spftree, lsp, reach);
+}
+
+/*
  * Whether the router of this LSP participates in the flex-algo. Finding it
  * takes a scan of the LSP's fragments, so it is done once per LSP.
  */
@@ -904,10 +919,7 @@ lspfragloop:
 				if (!pseudo_lsp && !memcmp(er->id, null_sysid, ISIS_SYS_ID_LEN))
 					continue;
 #ifndef FABRICD
-
-				if (flex_algo_id_valid(spftree->algorithm) &&
-				    (!fa_participates ||
-				     isis_flex_algo_constraint_drop(spftree, lsp, er)))
+				if (spf_flex_algo_prune_link(spftree, lsp, er, fa_participates))
 					continue;
 #endif /* ifndef FABRICD */
 
@@ -1482,13 +1494,7 @@ static void spf_adj_list_parse_lsp_frag(struct isis_spftree *spftree,
 			for (struct isis_extended_reach *reach = (struct isis_extended_reach *)head;
 			     reach; reach = reach->next) {
 #ifndef FABRICD
-				/*
-				 * cutting out adjacency by flex-algo link
-				 * affinity attribute
-				 */
-				if (flex_algo_id_valid(spftree->algorithm) &&
-				    (!fa_participates ||
-				     isis_flex_algo_constraint_drop(spftree, lsp, reach)))
+				if (spf_flex_algo_prune_link(spftree, lsp, reach, fa_participates))
 					continue;
 #endif /* ifndef FABRICD */
 
