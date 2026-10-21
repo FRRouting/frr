@@ -295,6 +295,13 @@ void ospf_lsa_discard(struct ospf_lsa *lsa)
 {
 	if (!CHECK_FLAG(lsa->flags, OSPF_LSA_DISCARD)) {
 		SET_FLAG(lsa->flags, OSPF_LSA_DISCARD);
+		if (event_is_scheduled(lsa->t_fightback)) {
+			/* Drop the pending fight-back refresh and the reference
+			 * the timer holds, so a flushed LSA is never refreshed
+			 * and the reference is not leaked. */
+			event_cancel(&lsa->t_fightback);
+			ospf_lsa_unlock(&lsa);
+		}
 		ospf_lsa_unlock(&lsa);
 	}
 }
@@ -4206,6 +4213,72 @@ struct ospf_lsa *ospf_lsa_refresh(struct ospf *ospf, struct ospf_lsa *lsa)
 		break;
 	}
 	return new;
+}
+
+/* Fight-back refresh timer.  RFC 2328 Section 13.4 requires a router
+ * that receives a newer instance of its own LSA to re-originate it with
+ * a sequence number one past the received one, but Section 12.4 still
+ * bounds successive originations of the same LSA by MinLSInterval.  The
+ * refresh is delayed until MinLSInterval has elapsed since the last
+ * origination so that a stream of forged self-originated LSAs cannot
+ * turn the fight-back into an unbounded refresh/flooding storm.
+ */
+static void ospf_lsa_fightback_timer(struct event *t)
+{
+	struct ospf_lsa *lsa = EVENT_ARG(t);
+	struct ospf *ospf;
+
+	if (CHECK_FLAG(lsa->flags, OSPF_LSA_DISCARD) || !IS_LSA_SELF(lsa) || IS_LSA_MAXAGE(lsa))
+		goto out;
+
+	ospf = lsa->area ? lsa->area->ospf : ospf_lookup_by_vrf_id(lsa->vrf_id);
+	if (ospf == NULL)
+		goto out;
+
+	/* Refresh only if nothing else has advanced the sequence number
+	 * past the received instance in the meantime. */
+	if ((int32_t)(ntohl(lsa->fightback_seqnum) - ntohl(lsa->data->ls_seqnum)) > 0) {
+		lsa->data->ls_seqnum = lsa->fightback_seqnum;
+		ospf_lsa_checksum(lsa->data);
+		ospf_lsa_refresh(ospf, lsa);
+	}
+out:
+	ospf_lsa_unlock(&lsa);
+}
+
+/* Schedule the Section 13.4 fight-back refresh of a self-originated LSA
+ * whose database copy has seqnum @seqnum, paced by MinLSInterval.  When
+ * the interval has already elapsed the refresh happens immediately;
+ * otherwise a one-shot timer coalesces further received instances into
+ * a single pending refresh that advances one past the newest seqnum.
+ */
+void ospf_lsa_fightback_schedule(struct ospf *ospf, struct ospf_lsa *lsa, uint32_t seqnum)
+{
+	int delay;
+
+	if (event_is_scheduled(lsa->t_fightback)) {
+		/* A refresh is already pending; remember the newest sequence
+		 * number to advance past when it fires. */
+		if ((int32_t)(ntohl(seqnum) - ntohl(lsa->fightback_seqnum)) > 0)
+			lsa->fightback_seqnum = seqnum;
+		return;
+	}
+
+	delay = ospf_lsa_refresh_delay(ospf, lsa);
+	if (delay == 0) {
+		/* MinLSInterval already satisfied: refresh immediately. */
+		lsa->data->ls_seqnum = seqnum;
+		ospf_lsa_checksum(lsa->data);
+		ospf_lsa_refresh(ospf, lsa);
+		return;
+	}
+
+	lsa->fightback_seqnum = seqnum;
+	ospf_lsa_lock(lsa);
+	if (IS_DEBUG_OSPF(lsa, LSA_GENERATE))
+		zlog_debug("LSA[Type%d:%pI4]: fight-back refresh delayed %d milliseconds",
+			   lsa->data->type, &lsa->data->id, delay);
+	event_add_timer_msec(master, ospf_lsa_fightback_timer, lsa, delay, &lsa->t_fightback);
 }
 
 void ospf_refresher_register_lsa(struct ospf *ospf, struct ospf_lsa *lsa)
