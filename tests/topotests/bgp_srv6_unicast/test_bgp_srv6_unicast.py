@@ -193,6 +193,38 @@ def test_bgp_srv6_encap():
 
 
 
+def test_bgp_srv6_neighbor_encapsulation_reapply():
+    """
+    Apply again the 'neighbor encapsulation-srv6' and 'neighbor
+    encapsulation-srv6-relax' configuration of r1, as when the configuration
+    file is loaded again. The commands must be accepted without error.
+    """
+    tgen = get_topogen()
+
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    r1 = tgen.gears["r1"]
+
+    output = r1.vtysh_multicmd(
+        """
+        router bgp 65001
+         address-family ipv4 unicast
+          neighbor fd00:0:0:3::2 encapsulation-srv6
+          neighbor fd00:0:0:2::2 encapsulation-srv6-relax
+         exit-address-family
+         address-family ipv6 unicast
+          neighbor fd00:0:0:2::2 encapsulation-srv6-relax
+          neighbor fd00:0:0:3::2 encapsulation-srv6
+         exit-address-family
+        """,
+        pretty_output=False,
+        daemon="bgpd",
+    )
+    logger.info(output)
+    assert "Failure" not in output, output
+
+
 def test_bgp_srv6_update1():
     """
     Configure a static prefix 10.0.0.2/32 on R2:
