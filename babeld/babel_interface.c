@@ -636,8 +636,7 @@ static int interface_recalculate(struct interface *ifp)
 	       CHECK_FLAG(babel_ifp->flags, BABEL_IF_WIRED) ? "wired" : "wireless",
 	       babel_ifp->cost, babel_ifp->channel, babel_ifp->ipv4 ? ", IPv4" : "");
 
-	if (rc > 0)
-		send_update(ifp, 0, NULL, 0);
+	send_update(ifp, 0, NULL, 0);
 
 	return 1;
 }
