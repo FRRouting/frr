@@ -3189,10 +3189,18 @@ void bgp_fsm_nht_update(struct peer_connection *connection, struct peer *peer,
 	}
 }
 
+/* Select before bgp_stop() cancels the timer.  RFC 4271, Connect/Event 18. */
+static enum bgp_fsm_status
+bgp_connect_closed_next_state(const struct peer_connection *connection)
+{
+	return event_is_scheduled(connection->t_delayopen) ? Active : Idle;
+}
+
 /* Finite State Machine structure */
 static const struct {
 	enum bgp_fsm_state_progress (*func)(struct peer_connection *);
 	enum bgp_fsm_status next_state;
+	enum bgp_fsm_status (*next_state_selector)(const struct peer_connection *connection);
 } FSM[BGP_STATUS_MAX - 1][BGP_EVENTS_MAX - 1] = {
 	{
 		/* Idle state: In Idle state, all events other than BGP_Start is
@@ -3222,7 +3230,8 @@ static const struct {
 		{bgp_connect_success, OpenSent}, /* TCP_connection_open */
 		{bgp_connect_success_w_delayopen,
 		 Connect},		    /* TCP_connection_open_w_delay */
-		{bgp_stop, Active},	    /* TCP_connection_closed        */
+		{bgp_stop, Idle,
+		 bgp_connect_closed_next_state}, /* TCP_connection_closed */
 		{bgp_connect_fail, Active}, /* TCP_connection_open_failed   */
 		{bgp_connect_fail, Idle},   /* TCP_fatal_error              */
 		{bgp_reconnect, Connect},   /* ConnectRetry_timer_expired   */
@@ -3386,6 +3395,8 @@ int bgp_event_update(struct peer_connection *connection,
 
 	/* Logging this event. */
 	next = FSM[connection->status - 1][event - 1].next_state;
+	if (FSM[connection->status - 1][event - 1].next_state_selector)
+		next = FSM[connection->status - 1][event - 1].next_state_selector(connection);
 
 	if (connection->status != next)
 		frrtrace(2, frr_bgp, fsm_event, peer, event, connection->status, next,
