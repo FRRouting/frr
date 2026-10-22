@@ -1885,15 +1885,23 @@ static struct bgp_evpn_es_frag *bgp_evpn_es_frag_new(struct bgp_evpn_es *es)
 {
 	struct bgp_evpn_es_frag *es_frag;
 	char buf[BGP_EVPN_PREFIX_RD_LEN];
+	struct in_addr router_id = {};
 	struct bgp *bgp;
 
 	es_frag = XCALLOC(MTYPE_BGP_EVPN_ES_FRAG, sizeof(*es_frag));
 	bf_assign_index(bm->rd_idspace, es_frag->rd_id);
 	es_frag->prd.family = AF_UNSPEC;
 	es_frag->prd.prefixlen = 64;
+	/*
+	 * There is no EVPN instance while the default is a hidden
+	 * tombstone; fall back to the default's router-id for the RD.
+	 */
 	bgp = bgp_get_evpn();
-	snprintfrr(buf, sizeof(buf), "%pI4:%hu", &bgp->router_id,
-		   es_frag->rd_id);
+	if (!bgp)
+		bgp = bgp_get_default();
+	if (bgp)
+		router_id = bgp->router_id;
+	snprintfrr(buf, sizeof(buf), "%pI4:%hu", &router_id, es_frag->rd_id);
 	(void)str2prefix_rd(buf, &es_frag->prd);
 
 	/* EVIs that are advertised using the info in this fragment */
@@ -1972,7 +1980,14 @@ static void bgp_evpn_es_frag_evi_del(struct bgp_evpn_es_evi *es_evi,
 	 * the fragment
 	 */
 	if (send_ead_del_if_empty && !listcount(es_frag->es_evi_frag_list)) {
+		/*
+		 * The EAD-ES route lives in the instance that owns the ES
+		 * route table. That is still the right one when there is no
+		 * EVPN instance, i.e. the default is a hidden tombstone.
+		 */
 		bgp = bgp_get_evpn();
+		if (!bgp && es->route_table)
+			bgp = es->route_table->bgp;
 
 		if (BGP_DEBUG(evpn_mh, EVPN_MH_ES))
 			zlog_debug("es %s frag %u ead-es route delete",
@@ -1980,7 +1995,8 @@ static void bgp_evpn_es_frag_evi_del(struct bgp_evpn_es_evi *es_evi,
 		build_evpn_type1_prefix(&p, BGP_EVPN_AD_ES_ETH_TAG, &es->esi,
 					es->originator_ip);
 		p.prefix.ead_addr.frag_id = es_frag->rd_id;
-		bgp_evpn_mh_route_delete(bgp, es, NULL, es_frag, &p);
+		if (bgp)
+			bgp_evpn_mh_route_delete(bgp, es, NULL, es_frag, &p);
 	}
 
 	/* We don't attempt to coalesce frags that may not be full. Instead we
@@ -2238,8 +2254,19 @@ static void bgp_evpn_mac_update_on_es_oper_chg(struct bgp_evpn_es *es)
 		zlog_debug("update paths linked to es %s on oper chg",
 			   es->esi_str);
 
+	/*
+	 * There is no EVPN instance while the default instance is a hidden
+	 * tombstone ("no router bgp" with a non-empty MPLS-VPN RIB), but
+	 * zebra still delivers ES events to it through the VRF lookup and
+	 * its VNIs and paths are intact: update them on the instance that
+	 * owns the ES route table, or the type-2 attributes stay stale
+	 * across the revival.
+	 */
 	bgp = bgp_get_evpn();
-	assert(bgp != NULL);
+	if (!bgp && es->route_table)
+		bgp = es->route_table->bgp;
+	if (!bgp)
+		return;
 
 	for (ALL_LIST_ELEMENTS_RO(es->macip_evi_path_list, node, es_info)) {
 		pi = es_info->pi;
@@ -3903,7 +3930,15 @@ bgp_evpn_local_es_evi_do_del(struct bgp_evpn_es_evi *es_evi)
 				es_evi->es->esi_str,
 				es_evi->vpn->vni);
 
+	/*
+	 * The EAD routes live in the instance that owns the ES route table.
+	 * That is still the right one when there is no EVPN instance, i.e.
+	 * the default is a hidden tombstone; skipping the withdrawal would
+	 * leave the EAD-EVI route behind.
+	 */
 	bgp = bgp_get_evpn();
+	if (!bgp && es->route_table)
+		bgp = es->route_table->bgp;
 
 	/* remove the es_evi from the es_frag before sending the update */
 	bgp_evpn_es_frag_evi_del(es_evi, true);

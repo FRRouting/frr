@@ -4307,6 +4307,14 @@ void bgp_set_evpn(struct bgp *bgp)
 	/* Increase the reference count on this new VRF */
 	if (bm->bgp_evpn)
 		bgp_lock(bm->bgp_evpn);
+
+	/*
+	 * VNIs learnt while there was no EVPN instance are still queued for
+	 * remote route installation; resume processing them.
+	 */
+	if (bm->bgp_evpn && !bm->terminating && zebra_l2_vni_count(&bm->zebra_l2_vni_head))
+		event_add_timer_msec(bm->master, bgp_zebra_process_remote_routes_for_l2vni, NULL,
+				     20, &bm->t_bgp_zebra_l2_vni);
 }
 
 /* Returns the BGP instance where EVPN is enabled, if any */
