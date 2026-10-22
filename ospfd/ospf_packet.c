@@ -1818,9 +1818,9 @@ static void ospf_db_desc(struct ip *iph, struct ospf_header *ospfh,
 			 && ntohl(dd->dd_seqnum) == nbr->dd_seqnum
 			 && IPV4_ADDR_CMP(&nbr->router_id, &oi->ospf->router_id)
 				    < 0) {
-			zlog_info(
-				"Packet[DD]: Neighbor %pI4 Negotiation done (Master).",
-				&nbr->router_id);
+			if (CHECK_FLAG(oi->ospf->config, OSPF_LOG_ADJACENCY_DETAIL))
+				zlog_info("Packet[DD]: Neighbor %pI4 Negotiation done (Master).",
+					  &nbr->router_id);
 			/* Reset I, leaving MS */
 			UNSET_FLAG(nbr->dd_flags, OSPF_DD_FLAG_I);
 		} else {
@@ -1881,6 +1881,8 @@ static void ospf_db_desc(struct ip *iph, struct ospf_header *ospfh,
 		/* Check Master/Slave bit mismatch */
 		if (IS_SET_DD_MS(dd->flags)
 		    != IS_SET_DD_MS(nbr->last_recv.flags)) {
+			if (ospf_nsm_reset_suppressed(nbr))
+				break;
 			flog_warn(EC_OSPF_PACKET,
 				  "Packet[DD]: Neighbor %pI4 MS-bit mismatch.",
 				  &nbr->router_id);
@@ -1894,6 +1896,8 @@ static void ospf_db_desc(struct ip *iph, struct ospf_header *ospfh,
 
 		/* Check initialize bit is set. */
 		if (IS_SET_DD_I(dd->flags)) {
+			if (ospf_nsm_reset_suppressed(nbr))
+				break;
 			if (IS_DEBUG_OSPF_PACKET(OSPF_MSG_DB_DESC - 1, RECV))
 				zlog_debug("Packet[DD]: Neighbor %pI4 I-bit set.", &nbr->router_id);
 			OSPF_NSM_EVENT_SCHEDULE(nbr, NSM_SeqNumberMismatch);
@@ -1902,6 +1906,8 @@ static void ospf_db_desc(struct ip *iph, struct ospf_header *ospfh,
 
 		/* Check DD Options. */
 		if (dd->options != nbr->options) {
+			if (ospf_nsm_reset_suppressed(nbr))
+				break;
 			flog_warn(EC_OSPF_PACKET,
 				  "Packet[DD]: Neighbor %pI4 options mismatch.",
 				  &nbr->router_id);
@@ -1914,6 +1920,8 @@ static void ospf_db_desc(struct ip *iph, struct ospf_header *ospfh,
 		     && ntohl(dd->dd_seqnum) != nbr->dd_seqnum)
 		    || (!IS_SET_DD_MS(nbr->dd_flags)
 			&& ntohl(dd->dd_seqnum) != nbr->dd_seqnum + 1)) {
+			if (ospf_nsm_reset_suppressed(nbr))
+				break;
 			flog_warn(
 				EC_OSPF_PACKET,
 				"Packet[DD]: Neighbor %pI4 sequence number mismatch.",
@@ -1961,6 +1969,8 @@ static void ospf_db_desc(struct ip *iph, struct ospf_header *ospfh,
 			}
 		}
 
+		if (ospf_nsm_reset_suppressed(nbr))
+			break;
 		OSPF_NSM_EVENT_SCHEDULE(nbr, NSM_SeqNumberMismatch);
 		break;
 	default:
@@ -2615,6 +2625,13 @@ static void ospf_ls_upd(struct ospf *ospf, struct ip *iph,
 		   Link State Update packet. */
 
 		if (ospf_ls_request_lookup(nbr, lsa)) {
+			if (ospf_nsm_reset_suppressed(nbr)) {
+				/* Clean list of LSAs. */
+				ospf_upd_list_clean(lsas);
+				/* this lsa is not on lsas list already. */
+				ospf_lsa_discard(lsa);
+				return;
+			}
 			OSPF_NSM_EVENT_SCHEDULE(nbr, NSM_BadLSReq);
 			flog_warn(
 				EC_OSPF_PACKET,
