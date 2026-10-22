@@ -4402,6 +4402,13 @@ int bgp_lookup_by_as_name_type(struct bgp **bgp_val, as_t *as, const char *as_pr
 					UNSET_FLAG(bgp->flags,
 						   BGP_FLAG_INSTANCE_HIDDEN);
 					UNSET_FLAG(bgp->flags, BGP_FLAG_DELETE_IN_PROGRESS);
+					/*
+					 * The tombstone kept its VNIs, and
+					 * their automatic route targets
+					 * embed the old AS. Re-derive them
+					 * for the new one.
+					 */
+					bgp_evpn_handle_autort_change(bgp);
 				} else {
 					bgp->as = *as;
 					if (force_config == false)
