@@ -85,6 +85,7 @@ extern void delete_vrf_tovpn_sid(struct bgp *vpn, struct bgp *vrf, afi_t afi);
 extern void delete_vrf_tovpn_sid_per_af(struct bgp *vpn, struct bgp *vrf,
 					afi_t afi);
 extern void delete_vrf_tovpn_sid_per_vrf(struct bgp *vpn, struct bgp *vrf);
+extern void vpn_leak_zebra_vrf_sids_forget(struct bgp *bgp_vrf);
 extern void ensure_vrf_tovpn_sid_per_af(struct bgp *vpn, struct bgp *vrf,
 					afi_t afi);
 extern void ensure_vrf_tovpn_sid_per_vrf(struct bgp *vpn, struct bgp *vrf);
