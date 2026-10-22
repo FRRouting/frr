@@ -1476,8 +1476,9 @@ static void add_mac_mobility_to_attr(uint32_t seq_num, struct attr *attr)
 	int sub_type = 0;
 	struct ecommunity *ecomm = bgp_attr_get_ecommunity(attr);
 
-	/* Build MM */
-	encode_mac_mobility_extcomm(0, seq_num, &eval);
+	/* MM carries the sticky flag and the seq in one community (RFC 7432 7.7) */
+	encode_mac_mobility_extcomm(!!CHECK_FLAG(attr->evpn_flags, ATTR_EVPN_FLAG_STICKY), seq_num,
+				    &eval);
 
 	/* Find current MM ecommunity */
 	ecom_val_ptr = NULL;
