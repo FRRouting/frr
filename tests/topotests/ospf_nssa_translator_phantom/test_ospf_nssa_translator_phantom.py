@@ -196,10 +196,11 @@ def _phantom(node, rid):
     return _find_lsa(data, rid, rid)
 
 
-def _translator_elected(node="r2"):
+def _translator_elected(node="r2", always=False):
     data = get_topogen().gears[node].vtysh_cmd("show ip ospf json", isjson=True)
     area = data.get("areas", {}).get(NSSA_AREA, {})
-    return area.get("nssaTranslatorElected") is True
+    key = "nssaTranslatorAlways" if always else "nssaTranslatorElected"
+    return area.get(key) is True
 
 
 def _observer_route(prefix):
@@ -628,9 +629,9 @@ def test_reachable_translator_election():
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
 
-    def expect(node, elected):
+    def expect(node, elected, always=False):
         def check():
-            actual = _translator_elected(node)
+            actual = _translator_elected(node, always=always)
             if actual != elected:
                 return "{} translator_elected={} expected={}".format(
                     node, actual, elected
@@ -668,7 +669,7 @@ def test_reachable_translator_election():
         " ip ospf dead-interval 4\n"
         "end"
     )
-    expect("r4", True)
+    expect("r4", True, always=True)
     expect("r3", False)
     expect("r2", False)
 
