@@ -363,6 +363,11 @@ struct ospf_interface {
 	struct event *t_ls_ack_direct;	 /* event */
 	struct event *t_ls_upd_event;	 /* event */
 	struct event *t_opaque_lsa_self; /* Type-9 Opaque-LSAs */
+	/* Pending coalesced ISM NeighborChange election, held off until
+	 * MinLSInterval after the previous DR election. */
+	struct event *t_nbr_change;	 /* event */
+	/* Monotonic time of the last DR election run on this interface. */
+	struct timeval last_dr_election;
 
 	/* RFC4222/R5 : Per-interface adjacency pacing */
 	struct ospf_adj_pacing adj_pacing;
