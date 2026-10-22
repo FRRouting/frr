@@ -6965,64 +6965,49 @@ DEFUN (show_bgp_vrf_l3vni_info,
 	return CMD_SUCCESS;
 }
 
-static void vrf_rt_import_change_start(struct bgp *bgp, bool *import_started)
-{
-	if (*import_started)
-		return;
-
-	bgp_evpn_vrf_rt_change_begin(bgp, true);
-	*import_started = true;
-}
-
-/* Add a manual route target to the VRF (L3VNI) configuration. Takes
- * ownership of cfgd_rt on success. "both" is an alias for import plus
- * export. Mutations are deferred so the caller can rebuild once per list.
+/* Queue a manual route target for addition to the VRF (L3VNI)
+ * configuration. Takes ownership of cfgd_rt on success. "both" is an
+ * alias for import plus export. An RT queued by an earlier entry of the
+ * same list counts as configured.
  */
 static int vrf_rt_add(struct bgp *bgp, struct bgp_evpn_cfgd_rt *cfgd_rt,
-		      enum bgp_evpn_rt_direction rt_direction, bool *import_started,
-		      bool *export_started)
+		      enum bgp_evpn_rt_direction rt_direction,
+		      struct bgp_evpn_cfgd_rt_slu_head *import_rts,
+		      struct bgp_evpn_cfgd_rt_slu_head *export_rts)
 {
 	struct bgp_evpn_rt_config *rt_config = bgp->vrf_route_target_config;
 	bool have_import, have_export;
 
+	have_import = bgp_evpn_cfgd_rt_slu_find(&rt_config->cfgd_import, cfgd_rt) ||
+		      bgp_evpn_cfgd_rt_slu_find(import_rts, cfgd_rt);
+	have_export = bgp_evpn_cfgd_rt_slu_find(&rt_config->cfgd_export, cfgd_rt) ||
+		      bgp_evpn_cfgd_rt_slu_find(export_rts, cfgd_rt);
+
 	/* Do nothing if we already have this route-target */
 	switch (rt_direction) {
 	case RT_TYPE_IMPORT:
-		if (bgp_evpn_cfgd_rt_slu_find(&rt_config->cfgd_import, cfgd_rt))
+		if (have_import)
 			return -1;
 
-		vrf_rt_import_change_start(bgp, import_started);
-		bgp_evpn_configure_import_rt_for_vrf_deferred(bgp, cfgd_rt);
+		bgp_evpn_cfgd_rt_slu_add(import_rts, cfgd_rt);
 		break;
 	case RT_TYPE_EXPORT:
-		if (bgp_evpn_cfgd_rt_slu_find(&rt_config->cfgd_export, cfgd_rt))
+		if (have_export)
 			return -1;
 
-		bgp_evpn_configure_export_rt_for_vrf_deferred(bgp, cfgd_rt);
-		/* Export begin() is a no-op; only end() re-advertises. */
-		*export_started = true;
+		bgp_evpn_cfgd_rt_slu_add(export_rts, cfgd_rt);
 		break;
 	case RT_TYPE_BOTH:
-		have_import = !!bgp_evpn_cfgd_rt_slu_find(&rt_config->cfgd_import, cfgd_rt);
-		have_export = !!bgp_evpn_cfgd_rt_slu_find(&rt_config->cfgd_export, cfgd_rt);
-
 		if (have_import && have_export)
 			return -1;
 
-		if (!have_import) {
-			vrf_rt_import_change_start(bgp, import_started);
-			if (!have_export) {
-				bgp_evpn_configure_import_rt_for_vrf_deferred(bgp, cfgd_rt);
-				bgp_evpn_configure_export_rt_for_vrf_deferred(bgp,
-									      bgp_evpn_cfgd_rt_dup(
-										      cfgd_rt));
-				*export_started = true;
-			} else {
-				bgp_evpn_configure_import_rt_for_vrf_deferred(bgp, cfgd_rt);
-			}
+		if (!have_import && !have_export) {
+			bgp_evpn_cfgd_rt_slu_add(import_rts, cfgd_rt);
+			bgp_evpn_cfgd_rt_slu_add(export_rts, bgp_evpn_cfgd_rt_dup(cfgd_rt));
+		} else if (!have_import) {
+			bgp_evpn_cfgd_rt_slu_add(import_rts, cfgd_rt);
 		} else {
-			bgp_evpn_configure_export_rt_for_vrf_deferred(bgp, cfgd_rt);
-			*export_started = true;
+			bgp_evpn_cfgd_rt_slu_add(export_rts, cfgd_rt);
 		}
 		break;
 	default:
@@ -7032,48 +7017,49 @@ static int vrf_rt_add(struct bgp *bgp, struct bgp_evpn_cfgd_rt *cfgd_rt,
 	return 0;
 }
 
-/* Remove a manual route target from the VRF (L3VNI) configuration.
- * The caller keeps ownership of cfgd_rt. "both" removes whichever of
- * the two directions is configured.
+/* Queue a manual route target for removal from the VRF (L3VNI)
+ * configuration. Takes ownership of cfgd_rt on success. "both" removes
+ * whichever of the two directions is configured. An RT queued by an
+ * earlier entry of the same list counts as no longer configured.
  */
-static int vrf_rt_del(struct bgp *bgp, const struct bgp_evpn_cfgd_rt *cfgd_rt,
-		      enum bgp_evpn_rt_direction rt_direction, bool *import_started,
-		      bool *export_started)
+static int vrf_rt_del(struct bgp *bgp, struct bgp_evpn_cfgd_rt *cfgd_rt,
+		      enum bgp_evpn_rt_direction rt_direction,
+		      struct bgp_evpn_cfgd_rt_slu_head *import_rts,
+		      struct bgp_evpn_cfgd_rt_slu_head *export_rts)
 {
 	struct bgp_evpn_rt_config *rt_config = bgp->vrf_route_target_config;
 	bool have_import, have_export;
 
+	have_import = bgp_evpn_cfgd_rt_slu_find(&rt_config->cfgd_import, cfgd_rt) &&
+		      !bgp_evpn_cfgd_rt_slu_find(import_rts, cfgd_rt);
+	have_export = bgp_evpn_cfgd_rt_slu_find(&rt_config->cfgd_export, cfgd_rt) &&
+		      !bgp_evpn_cfgd_rt_slu_find(export_rts, cfgd_rt);
+
 	/* Verify we already have this route-target */
 	switch (rt_direction) {
 	case RT_TYPE_IMPORT:
-		if (!bgp_evpn_cfgd_rt_slu_find(&rt_config->cfgd_import, cfgd_rt))
+		if (!have_import)
 			return -1;
 
-		vrf_rt_import_change_start(bgp, import_started);
-		bgp_evpn_unconfigure_import_rt_for_vrf_deferred(bgp, cfgd_rt);
+		bgp_evpn_cfgd_rt_slu_add(import_rts, cfgd_rt);
 		break;
 	case RT_TYPE_EXPORT:
-		if (!bgp_evpn_cfgd_rt_slu_find(&rt_config->cfgd_export, cfgd_rt))
+		if (!have_export)
 			return -1;
 
-		bgp_evpn_unconfigure_export_rt_for_vrf_deferred(bgp, cfgd_rt);
-		/* Export begin() is a no-op; only end() re-advertises. */
-		*export_started = true;
+		bgp_evpn_cfgd_rt_slu_add(export_rts, cfgd_rt);
 		break;
 	case RT_TYPE_BOTH:
-		have_import = !!bgp_evpn_cfgd_rt_slu_find(&rt_config->cfgd_import, cfgd_rt);
-		have_export = !!bgp_evpn_cfgd_rt_slu_find(&rt_config->cfgd_export, cfgd_rt);
-
 		if (!have_import && !have_export)
 			return -1;
 
-		if (have_import) {
-			vrf_rt_import_change_start(bgp, import_started);
-			bgp_evpn_unconfigure_import_rt_for_vrf_deferred(bgp, cfgd_rt);
-		}
-		if (have_export) {
-			bgp_evpn_unconfigure_export_rt_for_vrf_deferred(bgp, cfgd_rt);
-			*export_started = true;
+		if (have_import && have_export) {
+			bgp_evpn_cfgd_rt_slu_add(import_rts, cfgd_rt);
+			bgp_evpn_cfgd_rt_slu_add(export_rts, bgp_evpn_cfgd_rt_dup(cfgd_rt));
+		} else if (have_import) {
+			bgp_evpn_cfgd_rt_slu_add(import_rts, cfgd_rt);
+		} else {
+			bgp_evpn_cfgd_rt_slu_add(export_rts, cfgd_rt);
 		}
 		break;
 	default:
@@ -7262,10 +7248,11 @@ static int vrf_process_rtlist_internal(struct bgp *bgp, struct vty *vty, struct 
 				       int n_rts, struct bgp_evpn_cfgd_rt **cfgd_rts, bool is_add,
 				       enum bgp_evpn_rt_direction rt_direction)
 {
+	struct bgp_evpn_cfgd_rt_slu_head import_rts, export_rts;
 	int ret = CMD_SUCCESS;
-	/* True once at least one RT mutated that direction; end() then rebuilds once. */
-	bool import_started = false;
-	bool export_started = false;
+
+	bgp_evpn_cfgd_rt_slu_init(&import_rts);
+	bgp_evpn_cfgd_rt_slu_init(&export_rts);
 
 	for (int i = 0; i < n_rts; i++) {
 		struct bgp_evpn_cfgd_rt *cfgd_rt = cfgd_rts[i];
@@ -7273,8 +7260,7 @@ static int vrf_process_rtlist_internal(struct bgp *bgp, struct vty *vty, struct 
 		cfgd_rts[i] = NULL;
 
 		if (is_add) {
-			if (vrf_rt_add(bgp, cfgd_rt, rt_direction, &import_started,
-				       &export_started) != 0) {
+			if (vrf_rt_add(bgp, cfgd_rt, rt_direction, &import_rts, &export_rts) != 0) {
 				vty_out(vty,
 					"%% RT specified already configured for this VRF: %s\n",
 					rt_argv[i]->arg);
@@ -7283,22 +7269,29 @@ static int vrf_process_rtlist_internal(struct bgp *bgp, struct vty *vty, struct 
 			}
 
 		} else {
-			if (vrf_rt_del(bgp, cfgd_rt, rt_direction, &import_started,
-				       &export_started) != 0) {
+			if (vrf_rt_del(bgp, cfgd_rt, rt_direction, &import_rts, &export_rts) != 0) {
 				vty_out(vty,
 					"%% RT specified does not match configuration for this VRF: %s\n",
 					rt_argv[i]->arg);
+				bgp_evpn_cfgd_rt_free(cfgd_rt);
 				ret = CMD_WARNING;
 			}
-
-			bgp_evpn_cfgd_rt_free(cfgd_rt);
 		}
 	}
 
-	if (import_started)
-		bgp_evpn_vrf_rt_change_end(bgp, true);
-	if (export_started)
-		bgp_evpn_vrf_rt_change_end(bgp, false);
+	/* Hand each direction's RTs to EVPN as one set, so the VRF's routes
+	 * are rebuilt once per direction instead of once per RT.
+	 */
+	if (is_add) {
+		bgp_evpn_configure_import_rts_for_vrf_batch(bgp, &import_rts);
+		bgp_evpn_configure_export_rts_for_vrf_batch(bgp, &export_rts);
+	} else {
+		bgp_evpn_unconfigure_import_rts_for_vrf_batch(bgp, &import_rts);
+		bgp_evpn_unconfigure_export_rts_for_vrf_batch(bgp, &export_rts);
+	}
+
+	bgp_evpn_cfgd_rt_slu_fini(&import_rts);
+	bgp_evpn_cfgd_rt_slu_fini(&export_rts);
 
 	return ret;
 }
