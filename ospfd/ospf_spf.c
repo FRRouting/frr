@@ -611,6 +611,43 @@ static int ospf_lsa_has_link(struct lsa_header *w, struct lsa_header *v)
 }
 
 /*
+ * RFC2328 16.1 (2): look up the network-LSA whose Link State ID is the
+ * transit link's Link ID.  The LSDB is keyed by (Link State ID,
+ * Advertising Router), so several network-LSA copies can share the same
+ * Link State ID (e.g. an unflushed copy from a former DR with a different
+ * Router ID, or a forged duplicate).  Section 16.1 validates each router's
+ * link against the LSA that lists the router as attached, so select the
+ * first copy that is not MaxAge and that links back to V's router-LSA,
+ * instead of unconditionally taking the first copy in Advertising Router
+ * order.
+ */
+static struct ospf_lsa *ospf_network_lsa_lookup(struct ospf_area *area, struct in_addr id,
+						struct lsa_header *v)
+{
+	struct ospf_lsa *lsa;
+	struct route_node *rn;
+
+	for (rn = route_top(NETWORK_LSDB(area)); rn; rn = route_next(rn)) {
+		lsa = rn->info;
+		if (!lsa)
+			continue;
+		if (!IPV4_ADDR_SAME(&lsa->data->id, &id))
+			continue;
+		if (IS_LSA_MAXAGE(lsa) || ospf_lsa_has_link(lsa->data, v) < 0) {
+			if (IS_DEBUG_OSPF_EVENT)
+				zlog_debug("Network LSA %pI4 adv %pI4 not used for the transit link: %s",
+					   &id, &lsa->data->adv_router,
+					   IS_LSA_MAXAGE(lsa) ? "MaxAge"
+							      : "no link back to the router");
+			continue;
+		}
+		route_unlock_node(rn);
+		return lsa;
+	}
+	return NULL;
+}
+
+/*
  * Find the next link after prev_link from v to w.  If prev_link is
  * NULL, return the first link from v to w.  Ignore stub and virtual links;
  * these link types will never be returned.
@@ -1387,11 +1424,8 @@ static void ospf_spf_next(struct vertex *v, struct ospf_area *area,
 				break;
 			case LSA_LINK_TYPE_TRANSIT:
 				if (IS_DEBUG_OSPF_EVENT)
-					zlog_debug(
-						"Looking up Network LSA, ID: %pI4",
-						&l->link_id);
-				w_lsa = ospf_lsa_lookup_by_id(
-					area, OSPF_NETWORK_LSA, l->link_id);
+					zlog_debug("Looking up Network LSA, ID: %pI4", &l->link_id);
+				w_lsa = ospf_network_lsa_lookup(area, l->link_id, v->lsa);
 				if (w_lsa && IS_DEBUG_OSPF_EVENT)
 					zlog_debug("found the LSA");
 				break;
