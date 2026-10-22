@@ -345,7 +345,8 @@ static int ospf_abr_nssa_am_elected(struct ospf_area *area)
 			continue;
 
 		/* RFC 3101 Section 3.1: the election only considers NSSA
-		 * border routers reachable over the NSSA */
+		 * border routers reachable over the NSSA
+		 */
 		p.family = AF_INET;
 		p.prefixlen = IPV4_MAX_BITLEN;
 		p.prefix = lsa->data->id;

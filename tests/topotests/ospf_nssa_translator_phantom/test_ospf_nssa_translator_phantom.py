@@ -19,7 +19,7 @@ a higher router ID, or B-bit plus Nt) and make every real ABR believe it
 lost the election.  All 7-to-5 translation then stopped and the NSSA's
 external prefixes disappeared from the backbone.
 
-Topology (mirrors the original reproducer):
+The initial topology mirrors the original reproducer:
 
             area 0.0.0.1 (NSSA)              area 0.0.0.0
    r1 (ASBR) -------------- r2 (ABR) -------------------- r3 (observer)
@@ -35,7 +35,9 @@ The test:
      B-bit+Nt with a lower RID) and asserts the election, the existing
      Type-5, the observer route and the translation of a new prefix all
      survive,
-  4. flushes the phantoms and verifies full recovery.
+  4. flushes the phantoms and verifies full recovery,
+  5. makes r3 a reachable high-RID ABR, then enables r4 as a reachable
+     lower-RID Nt ABR and checks both normal election outcomes.
 """
 
 import os
@@ -97,14 +99,17 @@ print("sent=1")
 
 def build_topo(tgen):
     "Build function"
-    for r in ("r1", "r2", "r3"):
+    for r in ("r1", "r2", "r3", "r4"):
         tgen.add_router(r)
     switch = tgen.add_switch("s1")
     switch.add_link(tgen.gears["r1"], nodeif="r1-eth0")
     switch.add_link(tgen.gears["r2"], nodeif="r2-eth0")
+    switch.add_link(tgen.gears["r3"], nodeif="r3-eth1")
+    switch.add_link(tgen.gears["r4"], nodeif="r4-eth0")
     switch = tgen.add_switch("s2")
     switch.add_link(tgen.gears["r2"], nodeif="r2-eth1")
     switch.add_link(tgen.gears["r3"], nodeif="r3-eth0")
+    switch.add_link(tgen.gears["r4"], nodeif="r4-eth1")
 
 
 def setup_module(mod):
@@ -191,8 +196,8 @@ def _phantom(node, rid):
     return _find_lsa(data, rid, rid)
 
 
-def _translator_elected():
-    data = get_topogen().gears["r2"].vtysh_cmd("show ip ospf json", isjson=True)
+def _translator_elected(node="r2"):
+    data = get_topogen().gears[node].vtysh_cmd("show ip ospf json", isjson=True)
     area = data.get("areas", {}).get(NSSA_AREA, {})
     return area.get("nssaTranslatorElected") is True
 
@@ -615,6 +620,57 @@ def test_recovery_and_convergence():
     # The original prefix is still translated and routed.
     assert _active(_type5("r2")) and _active(_type5("r3"))
     assert _observer_route(TARGET_PREFIX)
+
+
+def test_reachable_translator_election():
+    "Reachable ABRs still win by router ID, then by the Nt bit."
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    def expect(node, elected):
+        def check():
+            actual = _translator_elected(node)
+            if actual != elected:
+                return "{} translator_elected={} expected={}".format(
+                    node, actual, elected
+                )
+            return None
+
+        _, result = topotest.run_and_expect(check, None, count=60, wait=1)
+        assert result is None, "election did not converge: {}".format(result)
+
+    tgen.gears["r3"].vtysh_cmd(
+        "configure terminal\n"
+        "interface r3-eth1\n"
+        " ip address 10.209.9.3/24\n"
+        " ip ospf area 0.0.0.1\n"
+        " ip ospf hello-interval 1\n"
+        " ip ospf dead-interval 4\n"
+        "router ospf\n"
+        " area 0.0.0.1 nssa translate-candidate\n"
+        "end"
+    )
+    expect("r3", True)
+    expect("r2", False)
+
+    tgen.gears["r4"].vtysh_cmd(
+        "configure terminal\n"
+        "interface r4-eth0\n"
+        " ip address 10.209.9.4/24\n"
+        " ip ospf area 0.0.0.1\n"
+        " ip ospf hello-interval 1\n"
+        " ip ospf dead-interval 4\n"
+        "interface r4-eth1\n"
+        " ip address 10.209.90.4/24\n"
+        " ip ospf area 0.0.0.0\n"
+        " ip ospf hello-interval 1\n"
+        " ip ospf dead-interval 4\n"
+        "end"
+    )
+    expect("r4", True)
+    expect("r3", False)
+    expect("r2", False)
 
 
 if __name__ == "__main__":
