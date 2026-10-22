@@ -417,10 +417,10 @@ void bgp_timer_set(struct peer_connection *connection)
 			event_cancel(&connection->t_connect);
 		} else {
 			if (event_is_scheduled(connection->t_delayopen))
-				BGP_TIMER_ON(connection->t_connect,
-					     bgp_connect_timer,
-					     (peer->v_delayopen +
-					      peer->v_connect));
+				BGP_TIMER_ON(
+					connection->t_connect, bgp_connect_timer,
+					(event_timer_remain_second(connection->t_delayopen) +
+					 peer->v_connect));
 			else
 				BGP_TIMER_ON(connection->t_connect,
 					     bgp_connect_timer, peer->v_connect);
@@ -3222,7 +3222,7 @@ static const struct {
 		{bgp_connect_success, OpenSent}, /* TCP_connection_open */
 		{bgp_connect_success_w_delayopen,
 		 Connect},		    /* TCP_connection_open_w_delay */
-		{bgp_stop, Idle},	    /* TCP_connection_closed        */
+		{bgp_stop, Active},	    /* TCP_connection_closed        */
 		{bgp_connect_fail, Active}, /* TCP_connection_open_failed   */
 		{bgp_connect_fail, Idle},   /* TCP_fatal_error              */
 		{bgp_reconnect, Connect},   /* ConnectRetry_timer_expired   */
@@ -3386,12 +3386,6 @@ int bgp_event_update(struct peer_connection *connection,
 
 	/* Logging this event. */
 	next = FSM[connection->status - 1][event - 1].next_state;
-	/* RFC 4271: a failed connection with DelayOpen running retries from
-	 * Active. Test the timer before bgp_stop() cancels it.
-	 */
-	if (connection->status == Connect && event == TCP_connection_closed &&
-	    event_is_scheduled(connection->t_delayopen))
-		next = Active;
 
 	if (connection->status != next)
 		frrtrace(2, frr_bgp, fsm_event, peer, event, connection->status, next,
