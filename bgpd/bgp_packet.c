@@ -1870,8 +1870,8 @@ static int bgp_open_receive(struct peer_connection *connection, bgp_size_t size)
 		XFREE(MTYPE_BGP_SOFT_VERSION, peer->soft_version);
 
 	/* Extended Optional Parameters Length for BGP OPEN Message */
-	if (optlen == BGP_OPEN_NON_EXT_OPT_LEN
-	    || CHECK_FLAG(peer->flags, PEER_FLAG_EXTENDED_OPT_PARAMS)) {
+	UNSET_FLAG(peer->sflags, PEER_STATUS_EXT_OPT_PARAMS_LENGTH);
+	if (optlen) {
 		uint8_t opttype;
 
 		if (STREAM_READABLE(connection->curr) < 1) {
@@ -1900,10 +1900,9 @@ static int bgp_open_receive(struct peer_connection *connection, bgp_size_t size)
 				 PEER_STATUS_EXT_OPT_PARAMS_LENGTH);
 		} else {
 			/* RFC 9072: the extended format is in use only when the
-			 * Non-Ext OP Type octet is 255. A one-octet length of
-			 * 255 with any other type is a regular (non-extended)
-			 * OPEN message carrying exactly 255 octets of Optional
-			 * Parameters, and the octet we just read is the Type
+			 * Non-Ext OP Type octet is 255. A non-zero one-octet
+			 * length with any other type is a regular (non-extended)
+			 * OPEN message, and the octet we just read is the Type
 			 * field of the first Optional Parameter (type 255 is
 			 * reserved and never a bona fide parameter type). Rewind
 			 * so it is parsed as part of the Optional Parameters
