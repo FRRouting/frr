@@ -31,6 +31,7 @@
 #include "ospfd/ospf_bfd.h"
 #include "ospfd/ospf_gr.h"
 #include "ospfd/ospf_quicknbr.h"
+#include "ospfd/ospf_errors.h"
 
 /* Fill in the the 'key' as appropriate to retrieve the entry for nbr
  * from the ospf_interface's nbrs table. Indexed by interface address
@@ -536,6 +537,26 @@ struct ospf_neighbor *ospf_nbr_get(struct ospf_interface *oi,
 		if (OSPF_IF_NON_BROADCAST(nbr->oi) && nbr->state == NSM_Attempt) {
 			nbr->src = iph->ip_src;
 			memcpy(&nbr->address, p, sizeof(struct prefix));
+		}
+
+		/* A Hello from the address of a neighbor whose router ID was
+		 * already established, but carrying a different router ID,
+		 * means the neighbor's identity changed underneath the
+		 * adjacency: either the neighbor renumbered, or the Hello is
+		 * spoofed.  The neighbor structure - FSM state, database
+		 * summary, link state request and retransmission lists -
+		 * belongs to the old identity and must not be relabeled.
+		 * Tear the stale neighbor down; the new identity
+		 * re-establishes from scratch with its next Hello. */
+		if (nbr != oi->nbr_self && nbr->router_id.s_addr != INADDR_ANY
+		    && !IPV4_ADDR_SAME(&nbr->router_id, &ospfh->router_id)) {
+			flog_warn(EC_OSPF_PACKET,
+				  "Nbr %pI4, NbrIP %pI4 (%s) on %s: router ID changed to %pI4, tearing down stale neighbor",
+				  &nbr->router_id, &nbr->src,
+				  ospf_get_name(oi->ospf), IF_NAME(oi),
+				  &ospfh->router_id);
+			OSPF_NSM_EVENT_EXECUTE(nbr, NSM_KillNbr);
+			return NULL;
 		}
 	} else {
 		rn->info = nbr = ospf_nbr_add(oi, ospfh, p);
