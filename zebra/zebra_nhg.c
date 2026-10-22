@@ -3305,7 +3305,14 @@ static bool zebra_nhg_nexthop_compare(const struct nexthop *nhop,
 			continue;
 		}
 
-		if (nexthop_same(nhop, old_nhop)) {
+		/*
+		 * nexthop_same() ignores flags, but the hashed ones (ONLINK)
+		 * change what is installed in the kernel, so the old nhg
+		 * must not be reused when they differ.
+		 */
+		if (nexthop_same(nhop, old_nhop) &&
+		    (nhop->flags & NEXTHOP_FLAGS_HASHED) ==
+			    (old_nhop->flags & NEXTHOP_FLAGS_HASHED)) {
 			struct nexthop *new_recursive, *old_recursive;
 
 			if (IS_ZEBRA_DEBUG_NHG_DETAIL)
