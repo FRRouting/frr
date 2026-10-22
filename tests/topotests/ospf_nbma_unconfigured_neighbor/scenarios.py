@@ -207,6 +207,73 @@ def observe_absence(tgen, scenario, router_id, source_ip, duration):
     return seen
 
 
+DISCOVERED_STATES = ("2-Way", "ExStart", "Exchange", "Loading", "Full")
+
+
+def wait_discovered(tgen, scenario, timeout=10):
+    """Wait until the unconfigured host source shows up in the receiver's
+    neighbor table in a post-Init state; return the entry."""
+    receiver = tgen.gears[scenario["receiver"]]
+
+    def discovered():
+        entry = neighbor_entry(receiver, scenario["host_rid"], scenario["host_ip"])
+        if entry and entry.get("converged") in DISCOVERED_STATES:
+            return entry
+        return None
+
+    return wait_until(discovered, timeout=timeout)
+
+
+def static_neighbor_lines(running):
+    """Static ``neighbor`` lines in a running-configuration dump."""
+    return [
+        line.strip()
+        for line in running.splitlines()
+        if line.strip().startswith("neighbor ")
+    ]
+
+
+def remove_static_neighbor(tgen, scenario):
+    """Drop the receiver's static neighbor configuration at runtime."""
+    receiver = tgen.gears[scenario["receiver"]]
+    receiver.vtysh_cmd(
+        "configure terminal\nrouter ospf\nno neighbor %s\nend\n" % scenario["peer_ip"]
+    )
+    lines = static_neighbor_lines(receiver.vtysh_cmd("show running-config"))
+    assert lines == [], "%s: static neighbor still configured after removal: %s" % (
+        receiver.name,
+        lines,
+    )
+
+
+def restore_static_neighbor(tgen, scenario):
+    """Re-add the receiver's static neighbor configuration at runtime."""
+    receiver = tgen.gears[scenario["receiver"]]
+    receiver.vtysh_cmd(
+        "configure terminal\nrouter ospf\n%s\nend\n"
+        % scenario["expected_neighbor_line"]
+    )
+    lines = static_neighbor_lines(receiver.vtysh_cmd("show running-config"))
+    assert lines == [
+        scenario["expected_neighbor_line"]
+    ], "%s: static neighbor not restored: %s" % (receiver.name, lines)
+
+
+def inject_host_hello(tgen, cwd, scenario, label, count):
+    """Two-way Hellos from the unconfigured host source."""
+    return inject(
+        tgen,
+        cwd,
+        scenario,
+        label,
+        "hello",
+        scenario["host_ip"],
+        scenario["host_rid"],
+        [scenario["receiver_rid"]],
+        count=count,
+    )
+
+
 def check_baseline(tgen, scenario):
     receiver = tgen.gears[scenario["receiver"]]
 
@@ -215,11 +282,7 @@ def check_baseline(tgen, scenario):
     ), ("%s: configured peer did not reach Full in both directions" % receiver.name)
 
     running = receiver.vtysh_cmd("show running-config")
-    neighbor_lines = [
-        line.strip()
-        for line in running.splitlines()
-        if line.strip().startswith("neighbor ")
-    ]
+    neighbor_lines = static_neighbor_lines(running)
     assert neighbor_lines == [
         scenario["expected_neighbor_line"]
     ], "%s: expected exactly one static neighbor line, got %s" % (

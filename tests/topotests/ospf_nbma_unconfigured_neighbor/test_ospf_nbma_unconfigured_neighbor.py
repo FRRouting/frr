@@ -67,16 +67,30 @@ Test plan
 5. test_legitimate_source_control
    A two-way Hello carrying the configured peer's own address and
    router ID (injected from the host's namespace) still refreshes the
-   established Full neighbor: the fix must only fire on the
-   neighbor-creation path, never on configured sources.
+   established Full neighbor: the fix must only fire on unconfigured
+   sources, never on configured ones.
 6. test_unconfigured_source_rejected
    Three valid two-way Hellos from the unconfigured source must not
    create a neighbor: the rogue router ID never appears in the neighbor
-   table, the refusal is logged ("not a configured neighbor"), the
-   packets are still counted in helloIn, and the configured peer stays
-   Full.  Before the fix the same injection walked the rogue into
-   ExStart and the test fails with that signature.
-7. test_final_convergence
+   table, the refusal is logged (rate-limited "Unknown Neighbor"
+   warning), the packets are still counted in helloIn, and the
+   configured peer stays Full.  Before the fix the same injection
+   walked the rogue into ExStart and the test fails with that
+   signature.
+7. test_empty_list_dynamic_discovery
+   With the static neighbor removed at runtime the same unconfigured
+   source IS dynamically discovered (neighbor appears in the table):
+   an empty static list must keep dynamic discovery working.  The
+   static neighbor is then restored and the configured adjacency must
+   come back Full.
+8. test_static_config_revokes_dynamic_neighbor
+   A neighbor discovered dynamically while the static list was empty
+   must be revoked once a different static neighbor is configured, even
+   though it keeps sending valid two-way Hellos: the entry leaves the
+   neighbor table within the dead interval and the drops are logged.
+   Before the source check covered the existing-neighbor path the
+   rogue kept its adjacency and the test fails with that signature.
+9. test_final_convergence
    The configured adjacency Full and the daemons alive at the end.
 """
 
@@ -93,14 +107,20 @@ sys.path.append(os.path.join(CWD, "../"))
 sys.path.insert(0, CWD)
 
 from scenarios import (  # pylint: disable=wrong-import-position
+    ADJACENCY_TIMEOUT,
     CONTROL_DURATION,
     ROGUE_OBSERVE_SECONDS,
     SCENARIO_NBMA,
     check_baseline,
     inject,
+    inject_host_hello,
     neighbor_entry,
     observe_absence,
     peer_full,
+    remove_static_neighbor,
+    restore_static_neighbor,
+    wait_discovered,
+    wait_until,
 )
 
 pytestmark = [pytest.mark.ospfd]
@@ -250,10 +270,69 @@ def test_unconfigured_source_rejected():
         "table despite the pinned static neighbor list: %s"
         % (SCENARIO["host_ip"], SCENARIO["host_rid"], seen)
     )
-    assert "not a configured neighbor" in phase["log"], (
+    assert "Unknown Neighbor" in phase["log"], (
         "refusal of the unconfigured source was not logged: %s" % phase["log"][-2000:]
     )
     assert peer_full(tgen, SCENARIO), "configured peer disturbed by the rogue injection"
+
+
+def test_empty_list_dynamic_discovery():
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+    remove_static_neighbor(tgen, SCENARIO)
+    phase = inject_host_hello(tgen, CWD, SCENARIO, "nbma_empty_list_hello", count=3)
+    assert phase["hello_in_delta"] >= 3, (
+        "empty-list Hellos captured on the wire but receipt not verified "
+        "(hello_in_delta=%d)" % phase["hello_in_delta"]
+    )
+    entry = wait_discovered(tgen, SCENARIO)
+    assert entry is not None, (
+        "unconfigured source %s was not dynamically discovered while the "
+        "static neighbor list was empty" % SCENARIO["host_ip"]
+    )
+    restore_static_neighbor(tgen, SCENARIO)
+    assert wait_until(
+        lambda: peer_full(tgen, SCENARIO), timeout=ADJACENCY_TIMEOUT, interval=1
+    ), "configured peer did not come back Full after restoring the static neighbor"
+
+
+def test_static_config_revokes_dynamic_neighbor():
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+    receiver = tgen.gears[SCENARIO["receiver"]]
+
+    # A neighbor discovered dynamically while the static list is empty.
+    remove_static_neighbor(tgen, SCENARIO)
+    inject_host_hello(tgen, CWD, SCENARIO, "nbma_empty_list_pre", count=3)
+    assert (
+        wait_discovered(tgen, SCENARIO) is not None
+    ), "rogue neighbor not discovered with an empty static list"
+
+    # Pinning a different static neighbor must revoke the dynamic one even
+    # though it keeps sending valid two-way Hellos.
+    restore_static_neighbor(tgen, SCENARIO)
+    phase = inject_host_hello(tgen, CWD, SCENARIO, "nbma_hello_after_static", count=12)
+    assert phase["hello_in_delta"] >= 12, (
+        "post-configuration Hellos captured on the wire but receipt not "
+        "verified (hello_in_delta=%d)" % phase["hello_in_delta"]
+    )
+    assert wait_until(
+        lambda: neighbor_entry(receiver, SCENARIO["host_rid"], SCENARIO["host_ip"])
+        is None,
+        timeout=15,
+    ), "dynamic neighbor %s survived the pinned static neighbor list: %s" % (
+        SCENARIO["host_ip"],
+        neighbor_entry(receiver, SCENARIO["host_rid"], SCENARIO["host_ip"]),
+    )
+    assert "Unknown Neighbor" in phase["log"], (
+        "revocation of the unconfigured source was not logged: %s"
+        % phase["log"][-2000:]
+    )
+    assert wait_until(
+        lambda: peer_full(tgen, SCENARIO), timeout=ADJACENCY_TIMEOUT, interval=1
+    ), "configured peer did not come back Full after restoring the static neighbor"
 
 
 def test_final_convergence():
