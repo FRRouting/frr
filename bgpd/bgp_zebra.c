@@ -3396,6 +3396,8 @@ static void bgp_zebra_disconnected(struct zclient *zclient)
 	for (ALL_LIST_ELEMENTS_RO(bm->bgp, node, bgp)) {
 		/* zebra has lost the SIDs of BGP */
 		vpn_leak_zebra_vrf_sids_forget(bgp);
+		if (bgp->vrf_id == VRF_DEFAULT)
+			bgp_srv6_unicast_sids_forget(bgp);
 
 		/* the locators may have changed when zebra is started again */
 		srv6_locator_free(bgp->srv6_locator);
