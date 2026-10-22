@@ -414,10 +414,62 @@ static int ism_neighbor_change(struct ospf_interface *oi)
 	return ospf_dr_election(oi);
 }
 
+/* Milliseconds until the next ISM NeighborChange election may run.
+ *
+ * Two bounds apply, both from RFC 2328 Section 12.4 (MinLSInterval).
+ * Per interface, an election waits MinLSInterval after the previous
+ * one.  And since every election whose result changes re-originates
+ * the area's router-LSA -- shared by all interfaces of the area -- and
+ * this interface's network-LSA, the election must also wait until
+ * those LSAs are past MinLSInterval since their own origination;
+ * ospf_lsa_refresh_delay() returns that remainder.  Taking the
+ * maximum keeps successive originations of the same LSA
+ * MinLSInterval apart even when several interfaces of one area elect
+ * in turn, or when a pending election was armed before another path
+ * refreshed the LSA.
+ */
+static long ospf_ism_neighbor_change_delay(struct ospf_interface *oi)
+{
+	int64_t window = (int64_t)oi->ospf->min_ls_interval * 1000LL;
+	int64_t elapsed;
+	long delay = 0;
+
+	elapsed = monotime_since(&oi->last_dr_election, NULL);
+	if (elapsed < window)
+		delay = (long)((window - elapsed + 999) / 1000);
+
+	if (oi->area->router_lsa_self != NULL) {
+		int lsa_delay = ospf_lsa_refresh_delay(oi->ospf, oi->area->router_lsa_self);
+
+		if (lsa_delay > delay)
+			delay = lsa_delay;
+	}
+
+	if (oi->network_lsa_self != NULL) {
+		int lsa_delay = ospf_lsa_refresh_delay(oi->ospf, oi->network_lsa_self);
+
+		if (lsa_delay > delay)
+			delay = lsa_delay;
+	}
+
+	return delay;
+}
+
 /* Timer callback for a coalesced ISM NeighborChange election. */
 static void ospf_ism_neighbor_change_timer(struct event *event)
 {
 	struct ospf_interface *oi = EVENT_ARG(event);
+	long delay = ospf_ism_neighbor_change_delay(oi);
+
+	/* Another path ran an election or re-originated a shared LSA
+	 * after this timer was armed; hold the election for the rest of
+	 * the window instead of firing on the stale deadline.
+	 */
+	if (delay > 0) {
+		event_add_timer_msec(master, ospf_ism_neighbor_change_timer, oi, delay,
+				     &oi->t_nbr_change);
+		return;
+	}
 
 	OSPF_ISM_EVENT_EXECUTE(oi, ISM_NeighborChange);
 }
@@ -443,8 +495,7 @@ static void ospf_ism_neighbor_change_timer(struct event *event)
 void ospf_ism_neighbor_change_throttle(struct ospf_interface *oi)
 {
 	uint32_t window = oi->ospf->min_ls_interval;
-	int64_t elapsed;
-	long delay = 0;
+	long delay;
 
 	if (window == 0) {
 		OSPF_ISM_EVENT_SCHEDULE(oi, ISM_NeighborChange);
@@ -455,9 +506,7 @@ void ospf_ism_neighbor_change_throttle(struct ospf_interface *oi)
 	if (event_is_scheduled(oi->t_nbr_change))
 		return;
 
-	elapsed = monotime_since(&oi->last_dr_election, NULL);
-	if (elapsed < (int64_t)window * 1000LL)
-		delay = (long)(((int64_t)window * 1000LL - elapsed + 999) / 1000);
+	delay = ospf_ism_neighbor_change_delay(oi);
 
 	if (delay == 0) {
 		event_add_event(master, ospf_ism_event, oi, ISM_NeighborChange, &oi->t_nbr_change);

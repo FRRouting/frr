@@ -29,8 +29,11 @@ the configured MinLSInterval.
 The fix coalesces repeated ISM_NeighborChange events per interface:
 the first event after a quiet period still runs immediately, further
 events within the same MinLSInterval window collapse into one pending
-election, and any pending election fires at most MinLSInterval after
-the previous one.  Legitimate DR/BDR/priority changes therefore still
+election, and the pending election fires once the previous election
+and the router/network-LSAs it re-originates are all past
+MinLSInterval -- the deadline is recomputed when the timer fires, so
+an election run by another path in the meantime also pushes the
+pending one out.  Legitimate DR/BDR/priority changes therefore still
 take effect within one MinLSInterval (asserted here), while a hostile
 burst produces a bounded number of elections and LSA re-originations
 that respect MinLSInterval.
@@ -72,11 +75,11 @@ Test plan
      legitimate changes beyond one MinLSInterval.
 5. test_election_churn_rate_limited
      Bursts of 16 Hellos flipping the DR, BDR and priority fields at
-     20 packets/s: elections, AdjOK events, state changes and LSA
-     re-originations are bounded, and successive router-LSA
-     re-originations respect MinLSInterval.  Before the fix every
-     packet triggered an election and the router-LSA was refreshed at
-     packet rate, far below MinLSInterval.
+     20 packets/s: elections, AdjOK events, state changes and
+     router/network-LSA events are bounded, and successive router-LSA
+     and network-LSA re-originations respect MinLSInterval.  Before
+     the fix every packet triggered an election and the router-LSA was
+     refreshed at packet rate, far below MinLSInterval.
 6. test_final_full_convergence
      r1 is DR again, the adjacency is Full, daemons alive, pcaps
      present.
@@ -390,6 +393,30 @@ def _router_refresh_intervals_ms(text):
     ]
 
 
+def _network_lsa_times(text):
+    times = []
+    for line in text.splitlines():
+        if "Originate network-LSA" not in line and not line.strip().endswith(
+            "]: network-LSA refresh"
+        ):
+            continue
+        match = LOG_TS.match(line)
+        if not match:
+            continue
+        stamp = _parse_log_ts(match.group(1))
+        if stamp is not None:
+            times.append(stamp)
+    return times
+
+
+def _network_lsa_intervals_ms(text):
+    times = _network_lsa_times(text)
+    return [
+        round((later - earlier).total_seconds() * 1000, 3)
+        for earlier, later in zip(times, times[1:])
+    ]
+
+
 def _wait_roles(r1, r1_dr=True, timeout=30):
     def check():
         iface = _interface_info(r1)
@@ -537,6 +564,7 @@ def _churn_phase(r1, r2, kind, variants):
     )
     events = _count_events(phase["log"])
     intervals = _router_refresh_intervals_ms(phase["log"])
+    network_intervals = _network_lsa_intervals_ms(phase["log"])
     _restore_and_settle(r1, r2)
     return {
         "label": label,
@@ -544,6 +572,7 @@ def _churn_phase(r1, r2, kind, variants):
         "hello_in_delta": phase["hello_in_delta"],
         "events": events,
         "router_refresh_intervals_ms": intervals,
+        "network_lsa_intervals_ms": network_intervals,
     }
 
 
@@ -582,7 +611,13 @@ def test_election_churn_rate_limited():
                 "%s: valid Hello receipt not verified (hello_in_delta=%d sent=%d)"
                 % (kind, result["hello_in_delta"], result["sent"])
             )
-        for key in ("elections", "adjok", "state_changes", "router_refresh"):
+        for key in (
+            "elections",
+            "adjok",
+            "state_changes",
+            "router_refresh",
+            "network_events",
+        ):
             if events[key] > MAX_ELECTIONS_PER_BURST:
                 failures.append(
                     "%s: %s=%d exceeds the coalescing bound %d"
@@ -597,6 +632,16 @@ def test_election_churn_rate_limited():
             failures.append(
                 "%s: router-LSA re-originated below MinLSInterval (%dms): %s"
                 % (kind, MIN_LS_INTERVAL_MS, below)
+            )
+        network_below = [
+            interval
+            for interval in result["network_lsa_intervals_ms"]
+            if interval < MIN_LS_INTERVAL_MS - MIN_LS_SLACK_MS
+        ]
+        if network_below:
+            failures.append(
+                "%s: network-LSA re-originated below MinLSInterval (%dms): %s"
+                % (kind, MIN_LS_INTERVAL_MS, network_below)
             )
     assert not failures, "election churn was not rate limited: %s" % failures
     assert _ospfd_pid(r1), "ospfd died during the churn phases"

@@ -1445,7 +1445,8 @@ static void ospf_hello(struct ip *iph, struct ospf_header *ospfh,
 		/* A field change raises ISM_NeighborChange; repeated events are
 		 * coalesced per interface so a stream of forged Hello field
 		 * flips cannot force an election (with its AdjOK events and
-		 * self-originated LSA re-origination) per packet. */
+		 * self-originated LSA re-origination) per packet.
+		 */
 		if ((IPV4_ADDR_SAME(&nbr->address.u.prefix4, &hello->d_router)
 		     && IPV4_ADDR_CMP(&nbr->address.u.prefix4, &nbr->d_router))
 		    || (IPV4_ADDR_CMP(&nbr->address.u.prefix4, &hello->d_router)
