@@ -2681,6 +2681,9 @@ struct zebra_early_route {
 	bool deletion;
 	bool fromkernel;
 	bool replace;
+	/* Make kernel routes for p via ifindex connected, see rib_kernel_to_connected() */
+	bool kernel_to_connected;
+	ifindex_t ifindex;
 };
 
 static void early_route_memory_free(struct zebra_early_route *ere)
@@ -3216,6 +3219,85 @@ static void process_subq_early_route_delete(struct zebra_early_route *ere)
 }
 
 /*
+ * A kernel route on rn via ifindex that rib_add_multipath() would have filed
+ * as connected.  It does not for a route on a kernel nexthop object (nhid),
+ * which then stays a kernel route and follows the object.
+ */
+static struct route_entry *rib_find_kernel_to_connect(struct route_node *rn, ifindex_t ifindex)
+{
+	struct route_entry *re;
+
+	RNODE_FOREACH_RE (rn, re) {
+		if (CHECK_FLAG(re->status, ROUTE_ENTRY_REMOVED) || re->type != ZEBRA_ROUTE_KERNEL)
+			continue;
+
+		if (CHECK_FLAG(re->nhe->flags, NEXTHOP_GROUP_RECEIVED_FROM_EXTERNAL))
+			continue;
+
+		if (re->nhe->nhg.nexthop && re->nhe->nhg.nexthop->ifindex == ifindex)
+			return re;
+	}
+
+	return NULL;
+}
+
+/*
+ * Turn the kernel routes for ere->p via ere->ifindex into the connected routes
+ * rib_add_multipath() would have made of them, had the noprefixroute address
+ * been known when they came.  This runs in queue order, after every kernel
+ * update that came before the address, so the RIB is up to date here.  Delete
+ * and add right away: queued, they would run after kernel updates that came
+ * after the address, and a kernel delete among those would still find the
+ * kernel route.
+ */
+static void process_subq_early_route_kernel_to_connected(struct zebra_early_route *ere)
+{
+	struct route_table *table;
+	struct route_node *rn = NULL;
+	struct route_entry *re;
+	struct zebra_early_route *add;
+	struct nhg_hash_entry nhe;
+
+	table = zebra_vrf_lookup_table_with_table_id(ere->afi, ere->safi, ere->re->vrf_id,
+						     ere->re->table);
+	if (table)
+		rn = srcdest_rnode_lookup(table, &ere->p, NULL);
+	if (!rn) {
+		early_route_memory_free(ere);
+		return;
+	}
+
+	/* Search again after each add, which can free deleted routes on rn */
+	while ((re = rib_find_kernel_to_connect(rn, ere->ifindex))) {
+		/* Keep the kernel's nexthops, as rib_add_multipath() does */
+		zebra_nhe_init(&nhe, ere->afi, re->nhe->nhg.nexthop);
+		nhe.nhg.nexthop = re->nhe->nhg.nexthop;
+		SET_FLAG(nhe.flags, NEXTHOP_GROUP_INITIAL_DELAY_INSTALL);
+
+		add = XCALLOC(MTYPE_WQ_WRAPPER, sizeof(*add));
+		add->afi = ere->afi;
+		add->safi = ere->safi;
+		add->p = ere->p;
+		add->re = zebra_rib_route_entry_new(re->vrf_id, ZEBRA_ROUTE_CONNECT, re->instance,
+						    ere->re->flags, 0, re->table, re->metric,
+						    re->mtu, re->distance, re->tag);
+		add->re_nhe = zebra_nhe_copy(&nhe, 0);
+		if (add->re_nhe->nhg.nexthop && !add->re_nhe->nhg.nexthop->next &&
+		    add->re_nhe->afi == AFI_UNSPEC)
+			add->re_nhe->afi = ere->afi;
+
+		/* Remove the kernel route as process_subq_early_route_delete() does */
+		dplane_sys_route_del(rn, re);
+		rib_delnode(rn, re);
+
+		process_subq_early_route_add(add);
+	}
+
+	route_unlock_node(rn);
+	early_route_memory_free(ere);
+}
+
+/*
  * When FRR receives a route we need to match the route up to
  * nexthop groups.  That we also may have just received
  * place the data on this queue so that this work of finding
@@ -3226,7 +3308,9 @@ static void process_subq_early_route(struct listnode *lnode)
 {
 	struct zebra_early_route *ere = listgetdata(lnode);
 
-	if (ere->deletion)
+	if (ere->kernel_to_connected)
+		process_subq_early_route_kernel_to_connected(ere);
+	else if (ere->deletion)
 		process_subq_early_route_delete(ere);
 	else
 		process_subq_early_route_add(ere);
@@ -4442,7 +4526,10 @@ static int rib_meta_queue_early_route_add(struct meta_queue *mq, void *data)
 
 		zlog_debug("Route (%s:%u:%u)%pFX safi %s (%s) queued for processing into sub-queue %s mq size %u",
 			   VRF_LOGNAME(vrf), ere->re->vrf_id, ere->re->table, &ere->p,
-			   safi2str(ere->safi), ere->deletion ? "delete" : "add",
+			   safi2str(ere->safi),
+			   ere->kernel_to_connected ? "kernel to connected"
+			   : ere->deletion	    ? "delete"
+						    : "add",
 			   subqueue2str(META_QUEUE_EARLY_ROUTE), zrouter.mq->size);
 	}
 
@@ -4483,6 +4570,31 @@ void rib_meta_queue_early_route_cleanup(const struct prefix *p, afi_t afi, safi_
 			early_route_memory_free(ere);
 		}
 	}
+}
+
+/*
+ * rib_add_multipath() makes a kernel route for the subnet of a noprefixroute
+ * address on the same interface a connected route, but only if it knows the
+ * address when it reads the route.  Kernel routes for p via ifindex that came
+ * before the address are still kernel routes, in the RIB or on the early route
+ * Q.  Queue their conversion behind them, so that it sees every kernel update
+ * that came before the address, and none that came after.
+ */
+void rib_kernel_to_connected(afi_t afi, const struct prefix *p, vrf_id_t vrf_id, uint32_t table,
+			     ifindex_t ifindex, uint32_t flags)
+{
+	struct zebra_early_route *ere;
+
+	ere = XCALLOC(MTYPE_WQ_WRAPPER, sizeof(*ere));
+	ere->afi = afi;
+	ere->safi = SAFI_UNICAST;
+	ere->p = *p;
+	ere->re = zebra_rib_route_entry_new(vrf_id, ZEBRA_ROUTE_CONNECT, 0, flags, 0, table, 0, 0,
+					    0, 0);
+	ere->kernel_to_connected = true;
+	ere->ifindex = ifindex;
+
+	mq_add_handler(ere, rib_meta_queue_early_route_add);
 }
 
 int rib_add_gr_run(afi_t afi, vrf_id_t vrf_id, uint8_t proto, uint8_t instance,

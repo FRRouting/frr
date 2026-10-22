@@ -363,6 +363,14 @@ void connected_up(struct interface *ifp, struct connected *ifc)
 		connected_remove_kernel_for_connected(afi, SAFI_MULTICAST, zvrf, &p, &nh);
 		rib_add(afi, SAFI_MULTICAST, zvrf->vrf->vrf_id, ZEBRA_ROUTE_CONNECT, 0, flags, &p,
 			NULL, &nh, 0, zvrf->table_id, metric, 0, 0, 0, false, true);
+	} else {
+		/*
+		 * We add no connected route for a noprefixroute address: whoever
+		 * added it adds the subnet route instead.  Make that kernel route
+		 * the connected route if it came before the address.
+		 */
+		rib_kernel_to_connected(afi, &p, zvrf->vrf->vrf_id, zvrf->table_id, ifp->ifindex,
+					flags);
 	}
 
 	if (install_local) {
