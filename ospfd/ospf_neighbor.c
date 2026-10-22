@@ -542,7 +542,7 @@ struct ospf_neighbor *ospf_nbr_get(struct ospf_interface *oi,
 		bool configured = false;
 
 		for (ALL_LIST_ELEMENTS_RO(oi->nbr_nbma, node, nbr_nbma))
-			if (IPV4_ADDR_SAME(&nbr_nbma->addr, &iph->ip_src)) {
+			if (IPV4_ADDR_SAME(&nbr_nbma->addr, &key.u.prefix4)) {
 				configured = true;
 				break;
 			}
