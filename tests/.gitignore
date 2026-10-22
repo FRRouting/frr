@@ -49,6 +49,7 @@ frr_northbound*
 /lib/test_idalloc
 /lib/test_link_state
 /lib/test_memory
+/lib/test_mgmt_msg
 /lib/test_network_address
 /lib/test_nexthop
 /lib/test_nexthop_iter
@@ -76,6 +77,7 @@ frr_northbound*
 /lib/test_xref
 /lib/test_zlog
 /lib/test_zmq
+/ospfd/test_ospf_asbr_summary
 /ospf6d/test_lsdb
 /ospf6d/test_lsdb_clippy.c
 /zebra/test_lm_plugin
