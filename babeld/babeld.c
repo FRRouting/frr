@@ -202,6 +202,7 @@ static void babel_init_routing_process(struct event *event)
 	myseqno = CHECK_FLAG(frr_weak_random(), 0xFFFF);
 	babel_get_myid();
 	babel_load_state_file();
+	babel_routing_process->init_done = true;
 	debugf(BABEL_DEBUG_COMMON, "My ID is : %s.", format_eui64(myid));
 	babel_initial_noise();
 	babel_main_loop(event); /* this function self-add to the t_update event */
@@ -490,6 +491,31 @@ static void babel_set_timer(struct timeval *timeout)
 	event_cancel(&(babel_routing_process->t_update));
 	event_add_timer_msec(master, babel_main_loop, NULL, msecs,
 			     &babel_routing_process->t_update);
+}
+
+/* Wake the main loop immediately.  The main loop only re-arms its own timer at
+ * the end of each pass, using the timeouts that existed at that time.  When a
+ * per-interface timer (e.g. a freshly enabled interface's hello/update timeout)
+ * is set outside the loop, it would otherwise not take effect until the
+ * previously scheduled, possibly far-future, wakeup.  Call this to reschedule
+ * the loop to run now so those timers are honoured promptly.
+ */
+void babel_schedule_now(void)
+{
+	struct timeval now = { 0, 0 };
+
+	/* babel_init_routing_process() runs on the same t_update event with a
+	 * 200 ms delay.  Rescheduling before it has run would either cancel it
+	 * outright or start the loop with myid/myseqno still unset, so every
+	 * self-originated Update would carry an all-zero router-id and be
+	 * dropped by peers.  The init starts the main loop itself once done,
+	 * which then honours the new interface's timers, so skipping the early
+	 * reschedule is safe.
+	 */
+	if (babel_routing_process == NULL || !babel_routing_process->init_done)
+		return;
+
+	babel_set_timer(&now);
 }
 
 void schedule_neighbours_check(int msecs, int override)
