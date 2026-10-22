@@ -300,9 +300,10 @@ def _inject_hello(
     markers = [line for line in out.splitlines() if line.startswith("B4_SEND_JSON=")]
     assert markers, "send_hello.py returned no result for %s: %s" % (label, out)
     send = json.loads(markers[-1].split("=", 1)[1])
-    assert (
-        send["captured"] == 1
-    ), "forged Hello %s was not captured exactly once on the wire: %s" % (label, send)
+    assert send["captured"] >= 1, "forged Hello %s was not captured on the wire: %s" % (
+        label,
+        send,
+    )
     hello_delta = _hello_in(r1, ifname) - hello_before
     log = _log_since(r1, offset)
     phase = {

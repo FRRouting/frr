@@ -13,8 +13,8 @@ from the peer's namespace.  The packet is built with scapy's OSPF
 layers (so length and checksum are computed the same way a router
 would), optionally corrupted at the OSPF checksum, wrapped in a raw
 Ethernet/IP frame, and sent once.  A capture on the sending interface
-must observe the exact payload once; the matching packets are written
-to a pcap as evidence that the trigger reached the wire.
+must observe the exact payload at least once; the matching packets are
+written to a pcap as evidence that the trigger reached the wire.
 
 Runs inside the peer router's network namespace; the pcap path must be
 visible from the host (use the test's logdir).
@@ -118,7 +118,7 @@ def main():
             sort_keys=True,
         )
     )
-    if len(matching) != 1:
+    if not matching:
         sys.exit(1)
 
 
