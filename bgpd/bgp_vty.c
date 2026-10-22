@@ -15898,8 +15898,7 @@ static void bgp_show_peer_afi(struct vty *vty, struct peer *p, afi_t afi,
 		else
 			json_object_free(json_af);
 
-		snprintf(orf_pfx_name, sizeof(orf_pfx_name), "%s.%d.%d",
-			 p->host, afi, safi);
+		peer_orf_plist_name(p, afi, safi, orf_pfx_name, sizeof(orf_pfx_name));
 		orf_pfx_count = prefix_bgp_show_prefix_list(
 			NULL, afi, orf_pfx_name, use_json);
 
@@ -16223,8 +16222,7 @@ static void bgp_show_peer_afi(struct vty *vty, struct peer *p, afi_t afi,
 				PEER_CAP_ORF_PREFIX_RM_RCV, use_json, NULL);
 		}
 
-		snprintf(orf_pfx_name, sizeof(orf_pfx_name), "%s.%d.%d",
-			 p->host, afi, safi);
+		peer_orf_plist_name(p, afi, safi, orf_pfx_name, sizeof(orf_pfx_name));
 		orf_pfx_count = prefix_bgp_show_prefix_list(
 			NULL, afi, orf_pfx_name, use_json);
 
@@ -19052,7 +19050,7 @@ DEFPY (show_bgp_neighbor_orf_prefix_list,
 	if (!peer)
 		return CMD_WARNING;
 
-	snprintf(orf_name, sizeof(orf_name), "%s.%d.%d", peer->host, afi, safi);
+	peer_orf_plist_name(peer, afi, safi, orf_name, sizeof(orf_name));
 	if (!prefix_bgp_show_prefix_list(NULL, afi, orf_name, use_json)) {
 		if (use_json)
 			vty_out(vty, "{}\n");

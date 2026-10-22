@@ -13,6 +13,8 @@ frr_northbound*
 /bgpd/test_ecommunity
 /bgpd/test_mp_attr
 /bgpd/test_mpath
+/bgpd/test_orf_defer
+/bgpd/test_orf_instance
 /bgpd/test_packet
 /bgpd/test_peer_attr
 /isisd/test_fuzz_isis_tlv
