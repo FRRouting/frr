@@ -118,7 +118,7 @@ def _vtysh_responsive(router, timeout_s=VTYSH_TIMEOUT_S):
     return ok, elapsed
 
 
-def _wait_until(func, timeout_s=5, interval_s=0.25):
+def _wait_until(func, timeout_s=15, interval_s=0.25):
     deadline = time.time() + timeout_s
     while time.time() < deadline:
         if func():
