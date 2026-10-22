@@ -114,7 +114,6 @@ static void route_table_free(struct route_table *rt)
 	if (rt->unique_mode) {
 		while ((node = rn_tree_pop(&rt->tree)) != NULL) {
 			node->lock = 0; /* to cause assert if unlocked after this */
-			rn_hash_node_del(&rt->hash, node);
 			route_node_free(rt, node);
 			rt->count--;
 		}
@@ -236,7 +235,7 @@ struct route_node *route_node_match(struct route_table *table,
 		prefix_copy(&rn.p, pu.p);
 		apply_mask(&rn.p);
 
-		matched = rn_hash_node_find(&table->hash, &rn);
+		matched = rn_tree_find(&table->tree, &rn);
 		if (matched && matched->info == NULL)
 			matched = NULL;
 
@@ -272,7 +271,10 @@ struct route_node *route_node_lookup(struct route_table *table,
 	prefix_copy(&rn.p, pu.p);
 	apply_mask(&rn.p);
 
-	node = rn_hash_node_find(&table->hash, &rn);
+	if (table->unique_mode)
+		node = rn_tree_find(&table->tree, &rn);
+	else
+		node = rn_hash_node_find(&table->hash, &rn);
 	return (node && node->info) ? route_lock_node(node) : NULL;
 }
 
@@ -284,7 +286,10 @@ struct route_node *route_node_lookup_maynull(struct route_table *table,
 	prefix_copy(&rn.p, pu.p);
 	apply_mask(&rn.p);
 
-	node = rn_hash_node_find(&table->hash, &rn);
+	if (table->unique_mode)
+		node = rn_tree_find(&table->tree, &rn);
+	else
+		node = rn_hash_node_find(&table->hash, &rn);
 	return node ? route_lock_node(node) : NULL;
 }
 
@@ -310,25 +315,32 @@ struct route_node *route_node_get(struct route_table *table,
 	uint16_t prefixlen = p->prefixlen;
 	const uint8_t *prefix = &p->u.prefix;
 
+	/* For unique-mode, just add an entry directly */
+	if (table->unique_mode) {
+		node = rn_tree_find(&table->tree, &search);
+		if (node && node->info) {
+			if (p->family == AF_FLOWSPEC)
+				prefix_flowspec_ptr_free(p);
+			return route_lock_node(node);
+		}
+
+		new = route_node_new(table);
+		prefix_copy(&new->p, p);
+		new->p.family = p->family;
+		new->table = table;
+
+		/* Add to rbtree, skip the hashtable */
+		rn_tree_add(&table->tree, new);
+
+		goto done;
+	}
+
+	/* LPM matching table starts here, with a hash lookup */
 	node = rn_hash_node_find(&table->hash, &search);
 	if (node && node->info) {
 		if (p->family == AF_FLOWSPEC)
 			prefix_flowspec_ptr_free(p);
 		return route_lock_node(node);
-	}
-
-	/* For unique-mode, just add an entry directly */
-	if (table->unique_mode) {
-		new = route_node_new(table);
-		prefix_copy(&new->p, p);
-		new->p.family = p->family;
-		new->table = table;
-		rn_hash_node_add(&table->hash, new);
-
-		/* Add to rbtree also */
-		rn_tree_add(&table->tree, new);
-
-		goto done;
 	}
 
 	match = NULL;
@@ -420,10 +432,10 @@ void route_node_delete(struct route_node *node)
 	} else
 		node->table->top = child;
 
+	rn_hash_node_del(&node->table->hash, node);
+
 skip_tree:
 	node->table->count--;
-
-	rn_hash_node_del(&node->table->hash, node);
 
 	/* WARNING: FRAGILE CODE!
 	 * route_node_free may have the side effect of free'ing the entire
