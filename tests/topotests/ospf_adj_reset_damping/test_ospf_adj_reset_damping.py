@@ -46,8 +46,10 @@ Test plan
      Four Full-paced triggers (one per re-formed adjacency).  The first
      reset must happen (the RFC 2328 transition is preserved); repeats
      inside the hold-down window must be suppressed, bounding exchange
-     restarts, db_sum rebuilds and negotiation logs.  Unpatched ospfd
-     resets once per input and fails these tests.
+     restarts, db_sum rebuilds and negotiation logs.  The reset bound
+     is derived from the measured injection times, so runner speed
+     alone cannot invalidate the assertions; unpatched ospfd resets
+     once per input and fails these tests.
 """
 
 import json
@@ -88,15 +90,22 @@ DD_BASE_SEQ = 0x42500000
 BURST_COUNT = 4
 # Re-negotiation after a one-sided reset takes one RetransmitInterval
 # (~5s): the slave misses the master's first initial DBD and the master
-# retransmits.  The tail must cover it so the db_sum rebuild is observed.
+# retransmits.  The first trigger's tail must cover it so the db_sum
+# rebuild is observed.
 CAPTURE_TAIL = 6.0
+# Follow-up trigger phases use a short tail: only a reset produces
+# renegotiation traffic worth capturing, and the first trigger always
+# resets.  Keeping the tail short keeps the next injection inside the
+# hold-down window even on slow runners.
+TRIGGER_FOLLOWUP_TAIL = 1.5
 PACKET_SPACING = 0.2
 RECOVERY_WAIT_SECONDS = 15
 POLL_INTERVAL = 0.05
-# The fix damps repeats of the mandated reset for a hold-down window;
-# a correctly damped burst of BURST_COUNT Full-paced triggers must stay
-# well below one reset per input.
-MAX_RESETS_PER_BURST = 2
+# Reset hold-down window; must match OSPF_NSM_RESET_HOLDDOWN_USEC in
+# ospfd/ospf_nsm.c.  The per-burst reset bound is computed from the
+# measured injection times against this window, so the bound adapts to
+# the runner's actual timing instead of assuming a fixed phase spacing.
+RESET_HOLD_DOWN_SECONDS = 10
 
 
 def build_topo(tgen):
@@ -457,6 +466,7 @@ def run_phase(
         "after": after,
         "recovered_full": recovered,
         "cycles": capture_cycles(capture, events),
+        "inject_times": [capture["epoch"] + item["time"] for item in capture["sent"]],
         "log": metrics,
         "traffic_delta": {
             key: after_traffic[key] - before_traffic[key]
@@ -487,14 +497,34 @@ def no_reset(phase):
 
 def run_trigger_sequence(tgen, name, packets):
     phases = []
-    for packet in packets:
+    for index, packet in enumerate(packets):
         label = packet["fields"]["label"]
-        phases.append(run_phase(tgen, "%s_%s" % (name, label), [packet]))
+        tail = CAPTURE_TAIL if index == 0 else TRIGGER_FOLLOWUP_TAIL
+        phases.append(run_phase(tgen, "%s_%s" % (name, label), [packet], tail=tail))
     return phases
+
+
+def damped_reset_allowance(phases):
+    """Resets a correctly damped ospfd may produce for these injections.
+
+    Simulate the per-neighbor hold-down: an input resets only when it
+    lands at least RESET_HOLD_DOWN_SECONDS after the previous reset.
+    Injection times double as reset times; the scheduled event executes
+    within milliseconds of the packet.
+    """
+    times = sorted(t for phase in phases for t in phase["inject_times"])
+    allowance = 0
+    last_reset = None
+    for inject_time in times:
+        if last_reset is None or inject_time - last_reset >= RESET_HOLD_DOWN_SECONDS:
+            allowance += 1
+            last_reset = inject_time
+    return allowance
 
 
 def check_damped_burst(phases, event_name, reset_key):
     resets = sum(phase["log"][reset_key] for phase in phases)
+    allowance = damped_reset_allowance(phases)
     master_logs = sum(phase["log"]["negotiation_master"] for phase in phases)
     summary_dd = sum(
         cycle["target_summary_dd_packets"]
@@ -503,9 +533,11 @@ def check_damped_burst(phases, event_name, reset_key):
     )
     injected = [cycle for phase in phases for cycle in phase["cycles"]]
     logger.info(
-        "%s burst: resets=%d negotiation_master_logs=%d summary_dd=%d suppressed=%d",
+        "%s burst: resets=%d allowance=%d negotiation_master=%d "
+        "summary_dd=%d suppressed=%d",
         event_name,
         resets,
+        allowance,
         master_logs,
         summary_dd,
         sum(phase["log"]["reset_suppressed"] for phase in phases),
@@ -516,17 +548,17 @@ def check_damped_burst(phases, event_name, reset_key):
     assert phases[0]["log"][reset_key] >= 1, (
         "the first %s trigger must still reset Full -> ExStart (RFC 2328)" % event_name
     )
-    assert (
-        resets <= MAX_RESETS_PER_BURST
-    ), "%s resets not damped: %d resets for %d Full-paced inputs (limit %d)" % (
-        event_name,
-        resets,
-        len(phases),
-        MAX_RESETS_PER_BURST,
+    assert allowance < len(phases), (
+        "no trigger landed inside the %ds hold-down window; "
+        "the runner is too slow to verify damping" % RESET_HOLD_DOWN_SECONDS
     )
-    assert master_logs <= MAX_RESETS_PER_BURST, (
-        "unthrottled negotiation logs: %d 'Negotiation done (Master).' for %d inputs"
-        % (master_logs, len(phases))
+    assert resets <= allowance, (
+        "%s resets not damped: %d resets for %d Full-paced inputs "
+        "(damped allowance %d)" % (event_name, resets, len(phases), allowance)
+    )
+    assert master_logs <= resets, (
+        "unthrottled negotiation logs: %d 'Negotiation done (Master).' "
+        "for %d resets" % (master_logs, resets)
     )
     assert summary_dd >= 1, "db_sum was never rebuilt after the reset"
     assert all(
@@ -663,7 +695,7 @@ def test_bad_lsreq_resets_damped():
     # The reset hold-down is per-neighbor and shared by both event types;
     # wait it out so the first BadLSReq exercises the RFC 2328 transition
     # instead of being damped as a repeat of the DD burst.
-    time.sleep(11)
+    time.sleep(RESET_HOLD_DOWN_SECONDS + 1)
     phases = run_trigger_sequence(
         tgen,
         "bad_lsreq",

@@ -1510,6 +1510,8 @@ static void ospf_db_desc_proc(struct stream *s, struct ospf_interface *oi,
 
 		/* Unknown LS type. */
 		if (lsah->type < OSPF_MIN_LSA || lsah->type >= OSPF_MAX_LSA) {
+			if (ospf_nsm_reset_suppressed(nbr))
+				return;
 			flog_warn(EC_OSPF_PACKET,
 				  "Packet [DD:RECV]: Unknown LS type %d.",
 				  lsah->type);
@@ -1519,6 +1521,8 @@ static void ospf_db_desc_proc(struct stream *s, struct ospf_interface *oi,
 
 		if (IS_OPAQUE_LSA(lsah->type)
 		    && !CHECK_FLAG(nbr->options, OSPF_OPTION_O)) {
+			if (ospf_nsm_reset_suppressed(nbr))
+				return;
 			flog_warn(EC_OSPF_PACKET,
 				  "LSA[Type%d:%pI4] from %pI4: Opaque capability mismatch?",
 				  lsah->type, &lsah->id, &lsah->adv_router);
@@ -1533,6 +1537,8 @@ static void ospf_db_desc_proc(struct stream *s, struct ospf_interface *oi,
 			   but
 			   allow if from NSSA. */
 			if (oi->area->external_routing == OSPF_AREA_STUB) {
+				if (ospf_nsm_reset_suppressed(nbr))
+					return;
 				flog_warn(
 					EC_OSPF_PACKET,
 					"Packet [DD:RECV]: LSA[Type%d:%pI4] from %s area.",
