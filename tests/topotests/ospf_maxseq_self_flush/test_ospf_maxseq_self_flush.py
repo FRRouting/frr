@@ -45,7 +45,10 @@ Test plan
    the victim router-LSA with a normal-range sequence number, r2 has the
    route to 198.51.100.1/32.
 2. Control: 5 samples without trigger must stay stable.
-3. Trigger: inject the forged MaxSeq router-LSA from r2.
+3. Trigger: inject the forged MaxSeq router-LSA from r2, with a witness
+   that the victim processed it: the self-originated branch re-originates
+   the victim LSA on receipt, so the victim sequence number must move off
+   the baseline value, and fixed ospfd logs the refusal.
 4. Observation for 85s (~60s MaxAge window plus margin): the victim LSA
    must never reach MaxSequenceNumber or MaxAge on either router, the
    forged copy must never be installed on r2, the route must stay present,
@@ -79,6 +82,7 @@ MAXAGE = 3600
 BASELINE_TIMEOUT = 90
 CONTROL_SAMPLES = 5
 POST_TRIGGER_TIMEOUT = 85
+WITNESS_TIMEOUT = 10
 DENSE_SAMPLE_SECONDS = 5
 DENSE_INTERVAL = 0.25
 SAMPLE_INTERVAL = 1.0
@@ -168,12 +172,12 @@ def _sample(victim, peer):
     }
 
 
-def _log_has_premature_aging(tgen, router_name):
+def _log_contains(tgen, router_name, needle):
     log_path = os.path.join(tgen.logdir, router_name, "ospfd.log")
     if not os.path.exists(log_path):
         return False
     with open(log_path, errors="replace") as fp:
-        return any("Premature Aging" in line for line in fp)
+        return any(needle in line for line in fp)
 
 
 def test_ospf_maxseq_self_flush():
@@ -245,6 +249,30 @@ def test_ospf_maxseq_self_flush():
     )
     logger.info("trigger: %s", out.strip())
 
+    # Witness that the forged packet was actually processed by the victim:
+    # the self-originated branch re-originates the victim LSA on receipt,
+    # so its sequence number must move off the baseline value.  Without
+    # this the checks below pass vacuously whenever the packet is dropped.
+    deadline = time.monotonic() + WITNESS_TIMEOUT
+    witnessed = None
+    while time.monotonic() < deadline:
+        witnessed = _victim_lsa(victim)
+        if witnessed is not None and witnessed[0] != baseline["victim"][0]:
+            break
+        time.sleep(DENSE_INTERVAL)
+    assert witnessed is not None and witnessed[0] != baseline["victim"][0], (
+        "forged MaxSeq LSA never reached the victim: sequence number still 0x%x after %ds"
+        % (
+            baseline["victim"][0],
+            WITNESS_TIMEOUT,
+        )
+    )
+    logger.info(
+        "witness: victim sequence number moved 0x%x -> 0x%x",
+        baseline["victim"][0],
+        witnessed[0],
+    )
+
     trigger_mono = time.monotonic()
     self_flush_violations = []
     poison_violations = []
@@ -285,7 +313,7 @@ def test_ospf_maxseq_self_flush():
             time.sleep(SAMPLE_INTERVAL)
 
     pids_after = {VICTIM: _ospfd_pid(victim), PEER: _ospfd_pid(peer)}
-    victim_flushed = _log_has_premature_aging(tgen, VICTIM)
+    victim_flushed = _log_contains(tgen, VICTIM, "Premature Aging")
 
     assert not self_flush_violations, (
         "victim router-LSA was flushed by a forged MaxSeq instance "
@@ -310,6 +338,14 @@ def test_ospf_maxseq_self_flush():
         "final LSDB state abnormal: %s" % final_sample
     )
     assert final_sample["peer_route"], "route to %s missing at the end" % TARGET_PREFIX
+
+    # On a fixed ospfd the refusal branch logs its decision; this proves
+    # the forged instance reached the patched code path.  An unpatched
+    # ospfd has no such log and already failed the assertions above.
+    assert _log_contains(tgen, VICTIM, "refusing to adopt MaxSequenceNumber"), (
+        "victim never logged 'refusing to adopt MaxSequenceNumber': the "
+        "forged MaxSeq LSA did not reach the patched branch"
+    )
 
     _neighbor_state(victim)
     victim.expect_ospfv2_neighbor(PEER_RID)
