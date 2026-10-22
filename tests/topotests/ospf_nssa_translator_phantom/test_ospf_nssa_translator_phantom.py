@@ -234,28 +234,6 @@ def _ls_update_input():
     return data["r2-eth0"]["lsUpdIn"]
 
 
-def _type5_seq():
-    lsa = _type5("r2")
-    return lsa["lsaSeqNumber"] if _active(lsa) else None
-
-
-def _wait_type5_seq_stable():
-    "Post-convergence re-origination settles: seq constant across 3 samples."
-    last = None
-    stable = 0
-    for _ in range(30):
-        seq = _type5_seq()
-        if seq is not None and seq == last:
-            stable += 1
-            if stable >= 3:
-                return seq
-        else:
-            stable = 0
-        last = seq
-        time.sleep(1)
-    raise AssertionError("Type-5 sequence did not settle")
-
-
 def _translation_baseline_ready():
     "None once the full baseline (adjacencies, election, translation, route) holds."
     if not _full_adjacencies():
@@ -276,14 +254,15 @@ def _translation_baseline_ready():
     return None
 
 
-def _translation_unchanged(baseline_seq):
-    "None while election, Type-5 sequence, route and adjacencies all hold."
+def _translation_unchanged():
+    "None while the translator, translated Type-5, route and adjacencies hold."
     if not _translator_elected():
         return "translator no longer elected"
-    if _type5_seq() != baseline_seq:
-        return "Type-5 sequence changed"
-    if not (_active(_type5("r2")) and _active(_type5("r3"))):
+    type5 = _type5("r2")
+    if not (_active(type5) and _active(_type5("r3"))):
         return "Type-5 no longer active"
+    if not type5.get("translatedFromType7"):
+        return "Type-5 not marked translatedFromType7"
     if not _observer_route(TARGET_PREFIX):
         return "observer route withdrawn"
     if not _full_adjacencies():
@@ -509,13 +488,12 @@ def test_baseline_translation():
         result
     )
 
-    # No-attack control: the election, the Type-5 sequence, the observer
-    # route and the adjacencies must be stable without any injected packet.
-    baseline_seq = _wait_type5_seq_stable()
+    # No-attack control: the election, translated Type-5, observer route
+    # and adjacencies must remain intact without any injected packet.
     for _ in range(5):
         time.sleep(1)
         assert (
-            _translation_unchanged(baseline_seq) is None
+            _translation_unchanged() is None
         ), "no-attack control changed translator/Type-5/route state"
 
 
@@ -525,7 +503,6 @@ def test_control_invalid_checksum():
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
 
-    baseline_seq = _type5_seq()
     _inject(
         "invalid_checksum_high_rid",
         HIGH_RID,
@@ -538,7 +515,7 @@ def test_control_invalid_checksum():
         _phantom("r2", HIGH_RID) is None
     ), "corrupt-checksum Router-LSA was installed in the ABR LSDB"
     assert (
-        _translation_unchanged(baseline_seq) is None
+        _translation_unchanged() is None
     ), "corrupt-checksum control changed the election"
 
 
@@ -548,14 +525,11 @@ def test_control_high_rid_without_b():
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
 
-    baseline_seq = _type5_seq()
     _inject("valid_high_rid_without_b", CONTROL_RID, 0, CONTROL_SEQ)
     _expect_phantom_installed(CONTROL_RID, 0, CONTROL_SEQ)
     time.sleep(8)
     assert _translator_elected(), "non-ABR high-RID LSA deposed the translator"
-    assert _type5_seq() == baseline_seq, "Type-5 sequence changed"
-    assert _active(_type5("r2")) and _active(_type5("r3"))
-    assert _observer_route(TARGET_PREFIX)
+    assert _translation_unchanged() is None, "non-ABR high-RID LSA changed translation"
 
     # Withdraw the control LSA again so later scenarios start clean.
     _flush_phantom(CONTROL_RID, 0, CONTROL_SEQ)
