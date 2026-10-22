@@ -298,7 +298,8 @@ void ospf_lsa_discard(struct ospf_lsa *lsa)
 		if (event_is_scheduled(lsa->t_fightback)) {
 			/* Drop the pending fight-back refresh and the reference
 			 * the timer holds, so a flushed LSA is never refreshed
-			 * and the reference is not leaked. */
+			 * and the reference is not leaked.
+			 */
 			event_cancel(&lsa->t_fightback);
 			ospf_lsa_unlock(&lsa);
 		}
@@ -4146,6 +4147,16 @@ struct ospf_lsa *ospf_lsa_refresh(struct ospf *ospf, struct ospf_lsa *lsa)
 	assert(IS_LSA_SELF(lsa));
 	assert(lsa->lock > 0);
 
+	/* Carry a pending fight-back into an ordinary refresh.  Otherwise
+	 * replacing the database copy would cancel the timer and leave the
+	 * received, newer instance unanswered.
+	 */
+	if (event_is_scheduled(lsa->t_fightback) &&
+	    (int)ntohl(lsa->data->ls_seqnum) < (int)ntohl(lsa->fightback_seqnum)) {
+		lsa->data->ls_seqnum = lsa->fightback_seqnum;
+		ospf_lsa_checksum(lsa->data);
+	}
+
 	switch (lsa->data->type) {
 	/* Router and Network LSAs are processed differently. */
 	case OSPF_ROUTER_LSA:
@@ -4235,9 +4246,11 @@ static void ospf_lsa_fightback_timer(struct event *t)
 	if (ospf == NULL)
 		goto out;
 
-	/* Refresh only if nothing else has advanced the sequence number
-	 * past the received instance in the meantime. */
-	if ((int32_t)(ntohl(lsa->fightback_seqnum) - ntohl(lsa->data->ls_seqnum)) > 0) {
+	/* Refresh while the pending instance is at least as new as the
+	 * database copy.  Equality is required too: the received instance
+	 * may have won the checksum comparison at the same sequence number.
+	 */
+	if ((int)ntohl(lsa->data->ls_seqnum) <= (int)ntohl(lsa->fightback_seqnum)) {
 		lsa->data->ls_seqnum = lsa->fightback_seqnum;
 		ospf_lsa_checksum(lsa->data);
 		ospf_lsa_refresh(ospf, lsa);
@@ -4258,8 +4271,9 @@ void ospf_lsa_fightback_schedule(struct ospf *ospf, struct ospf_lsa *lsa, uint32
 
 	if (event_is_scheduled(lsa->t_fightback)) {
 		/* A refresh is already pending; remember the newest sequence
-		 * number to advance past when it fires. */
-		if ((int32_t)(ntohl(seqnum) - ntohl(lsa->fightback_seqnum)) > 0)
+		 * number to advance past when it fires.
+		 */
+		if ((int)ntohl(seqnum) > (int)ntohl(lsa->fightback_seqnum))
 			lsa->fightback_seqnum = seqnum;
 		return;
 	}

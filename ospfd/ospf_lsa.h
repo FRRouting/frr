@@ -102,7 +102,8 @@ struct ospf_lsa {
 	int refresh_list;
 
 	/* Pending fight-back refresh (RFC 2328 Section 13.4), paced by
-	 * MinLSInterval.  The timer holds an LSA reference while scheduled. */
+	 * MinLSInterval.  The timer holds an LSA reference while scheduled.
+	 */
 	struct event *t_fightback;
 	uint32_t fightback_seqnum;
 
