@@ -6295,6 +6295,9 @@ DEFUN (neighbor_set_peer_group,
 
 	ret = peer_group_bind(bgp, &su, peer, group, &as);
 
+	if (ret == 0 && group->conf->as_type != AS_UNSPECIFIED)
+		bgp_need_listening(bgp, vty);
+
 	return bgp_vty_return(vty, ret);
 }
 

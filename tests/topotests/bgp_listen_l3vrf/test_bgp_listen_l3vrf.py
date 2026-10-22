@@ -303,6 +303,66 @@ def test_add_vrf():
     assertmsg = "BGP port related to r1-cust listening when listen range is removed"
     assert res is None, assertmsg
 
+    step("configure neighbor with peer-group in vrf r1-cust")
+
+    r1.vtysh_cmd(
+        """
+        configure terminal
+         router bgp 64600 vrf r1-cust
+          neighbor 192.0.2.3 peer-group rlisten
+        """
+    )
+
+    test_func = functools.partial(check_port_179_open, "r1-cust")
+    _, res = topotest.run_and_expect(test_func, "r1-cust", count=30, wait=1)
+    assertmsg = "BGP port related to r1-cust not listening when a neighbor is set with peer-group"
+    assert res == "r1-cust", assertmsg
+
+    step("remove neighbor with peer-group in vrf r1-cust")
+
+    r1.vtysh_cmd(
+        """
+        configure terminal
+         router bgp 64600 vrf r1-cust
+          no neighbor 192.0.2.3
+        """
+    )
+
+    test_func = functools.partial(check_port_179_open, "r1-cust")
+    _, res = topotest.run_and_expect(test_func, None, count=30, wait=1)
+    assertmsg = "BGP port related to r1-cust listening when neighbor is removed"
+    assert res is None, assertmsg
+
+    step("configure neighbor with peer-group without remote-as in vrf r1-cust")
+
+    r1.vtysh_cmd(
+        """
+        configure terminal
+         router bgp 64600 vrf r1-cust
+          neighbor nopgas peer-group
+          neighbor 192.0.2.3 peer-group nopgas
+        """
+    )
+
+    test_func = functools.partial(check_port_179_open, "r1-cust")
+    _, res = topotest.run_and_expect(test_func, None, count=30, wait=1)
+    assertmsg = (
+        "BGP port related to r1-cust listening when neighbor is bound "
+        "to peer-group without remote-as"
+    )
+    assert res is None, assertmsg
+
+    step("cleanup neighbor and peer-group without remote-as")
+
+    r1.vtysh_cmd(
+        """
+        configure terminal
+         router bgp 64600 vrf r1-cust
+          no neighbor 192.0.2.3
+          no neighbor nopgas peer-group
+        """
+    )
+
     step("remove bgp on vrf default")
 
     test_func = functools.partial(check_port_179_open, "default")
