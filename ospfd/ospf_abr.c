@@ -327,9 +327,15 @@ static int ospf_abr_nssa_am_elected(struct ospf_area *area)
 	struct in_addr *best = NULL;
 
 	LSDB_LOOP (ROUTER_LSDB(area), rn, lsa) {
+		struct prefix_ipv4 p;
+
 		/* sanity checks */
 		if (!lsa || (lsa->data->type != OSPF_ROUTER_LSA)
 		    || IS_LSA_SELF(lsa))
+			continue;
+
+		/* ignore MaxAge LSAs pending removal */
+		if (IS_LSA_MAXAGE(lsa))
 			continue;
 
 		rlsa = (struct router_lsa *)lsa->data;
@@ -337,6 +343,19 @@ static int ospf_abr_nssa_am_elected(struct ospf_area *area)
 		/* ignore non-ABR routers */
 		if (!IS_ROUTER_LSA_BORDER(rlsa))
 			continue;
+
+		/* RFC 3101 Section 3.1: the election only considers NSSA
+		 * border routers reachable over the NSSA */
+		p.family = AF_INET;
+		p.prefixlen = IPV4_MAX_BITLEN;
+		p.prefix = lsa->data->id;
+		apply_mask_ipv4(&p);
+		if (ospf_find_asbr_route_through_area(area->ospf->new_rtrs, &p, area) == NULL) {
+			if (IS_DEBUG_OSPF_NSSA)
+				zlog_debug("%s: router %pI4 is not reachable over area %pI4, skipping",
+					   __func__, &lsa->data->id, &area->area_id);
+			continue;
+		}
 
 		/* Router has Nt flag - always translate */
 		if (IS_ROUTER_LSA_NT(rlsa)) {
