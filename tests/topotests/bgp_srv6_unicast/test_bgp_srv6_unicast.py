@@ -39,8 +39,10 @@ sys.path.append(os.path.join(CWD, "../"))
 
 from lib.common_config import (
     create_interface_in_kernel,
+    kill_router_daemons,
     retry,
     shutdown_bringup_interface_in_kernel,
+    start_router_daemons,
 )
 from lib import topotest
 from lib.topogen import Topogen, get_topogen
@@ -1321,6 +1323,42 @@ def test_bgp_srv6_vrf_instance_delete():
     assert config == sid_export_config, (
         "'sid export' configuration changed: %s" % config
     )
+
+
+def test_bgp_srv6_locator_zebra_restart():
+    """
+    Stop zebra on r1 while bgpd keeps running: bgp must forget the 'default'
+    locator, which may no longer exist when zebra is started again. Then
+    start zebra again, and check that bgp gets the locator again.
+    """
+    tgen = get_topogen()
+
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    r1 = tgen.gears["r1"]
+
+    @retry(retry_timeout=30)
+    def check_bgp_locator_prefix(expect_present):
+        output = r1.vtysh_cmd("show bgp segment-routing srv6")
+        if ("prefix: 2001:db8:1:1::/64" in output) != expect_present:
+            return f"unexpected locator prefix in:\n{output}"
+        return True
+
+    result = check_bgp_locator_prefix(True)
+    assert result is True, result
+
+    kill_router_daemons(tgen, "r1", ["zebra"])
+
+    output = r1.vtysh_cmd("show bgp segment-routing srv6")
+    logger.info(output)
+    result = check_bgp_locator_prefix(False)
+    assert result is True, result
+
+    start_router_daemons(tgen, "r1", ["zebra"])
+
+    result = check_bgp_locator_prefix(True)
+    assert result is True, result
 
 
 def teardown_module(mod):
