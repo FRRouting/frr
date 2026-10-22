@@ -538,6 +538,26 @@ struct ospf_neighbor *ospf_nbr_get(struct ospf_interface *oi,
 			memcpy(&nbr->address, p, sizeof(struct prefix));
 		}
 	} else {
+		/*
+		 * On a non-broadcast interface with statically configured
+		 * neighbors, the configuration is the set of acceptable
+		 * sources: never create a neighbor for any other source.
+		 */
+		if (OSPF_IF_NON_BROADCAST(oi) && !list_isempty(oi->nbr_nbma)) {
+			struct ospf_nbr_nbma *nbr_nbma;
+			struct listnode *node;
+			bool configured = false;
+
+			for (ALL_LIST_ELEMENTS_RO(oi->nbr_nbma, node, nbr_nbma))
+				if (IPV4_ADDR_SAME(&nbr_nbma->addr, &iph->ip_src)) {
+					configured = true;
+					break;
+				}
+			if (!configured) {
+				route_unlock_node(rn);
+				return NULL;
+			}
+		}
 		rn->info = nbr = ospf_nbr_add(oi, ospfh, p);
 	}
 

@@ -1357,8 +1357,16 @@ static void ospf_hello(struct ip *iph, struct ospf_header *ospfh,
 	/* get neighbour struct */
 	nbr = ospf_nbr_get(oi, ospfh, iph, &p);
 
-	/* neighbour must be valid, ospf_nbr_get creates if none existed */
-	assert(nbr);
+	/*
+	 * ospf_nbr_get() refuses to create a neighbor for a source that
+	 * is not statically configured on a non-broadcast interface.
+	 */
+	if (nbr == NULL) {
+		flog_warn(EC_OSPF_PACKET,
+			  "Packet %pI4 [Hello:RECV]: source %pI4 is not a configured neighbor on non-broadcast interface %s, dropping.",
+			  &ospfh->router_id, &srcaddr, IF_NAME(oi));
+		return;
+	}
 
 	old_state = nbr->state;
 
