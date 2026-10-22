@@ -430,13 +430,9 @@ static int process_p2p_hello(struct iih_info *iih)
 	if (adj) {
 		if (adj->adj_state == ISIS_ADJ_UP && changed) {
 			/*
-			 * The neighbor may have replaced an address it only
-			 * borrowed from its loopback with the one it finally
-			 * learned for this link. The TE neighbor address
-			 * subTLVs are recomputed from the adjacency IP
-			 * enabled/disabled hooks only, which do not fire when
-			 * an address is merely replaced, so refresh them
-			 * before re-originating our LSP.
+			 * IPv6 neighbor address replacements do not fire the
+			 * adjacency IP enabled/disabled hooks. Refresh the TE
+			 * neighbor address subTLVs before re-originating our LSP.
 			 */
 			isis_mpls_te_circuit_ip_update(adj->circuit);
 			lsp_regenerate_schedule(
