@@ -1358,7 +1358,8 @@ static void ospf_hello(struct ip *iph, struct ospf_header *ospfh,
 	nbr = ospf_nbr_get(oi, ospfh, iph, &p);
 
 	/* ospf_nbr_get returns NULL when it tore the neighbor down after
-	 * a router ID change; the Hello is then dropped. */
+	 * a router ID change; the Hello is then dropped.
+	 */
 	if (!nbr)
 		return;
 

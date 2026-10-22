@@ -547,7 +547,8 @@ struct ospf_neighbor *ospf_nbr_get(struct ospf_interface *oi,
 		 * summary, link state request and retransmission lists -
 		 * belongs to the old identity and must not be relabeled.
 		 * Tear the stale neighbor down; the new identity
-		 * re-establishes from scratch with its next Hello. */
+		 * re-establishes from scratch with its next Hello.
+		 */
 		if (nbr != oi->nbr_self && nbr->router_id.s_addr != INADDR_ANY
 		    && !IPV4_ADDR_SAME(&nbr->router_id, &ospfh->router_id)) {
 			flog_warn(EC_OSPF_PACKET,
