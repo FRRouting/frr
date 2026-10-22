@@ -118,6 +118,30 @@ def check_backend_xpath_registry(r1, repath):
     return None
 
 
+@retry(retry_timeout=30, initial_wait=0.5)
+def check_backend_client_connected(r1, client="mgmtd-testc", min_msgs_sent=2):
+    """Check that a BE client is connected to mgmtd and mgmtd has sent it msgs.
+
+    Parses `show mgmt backend-adapter all` and verifies that `client` is
+    listed and that mgmtd's `Msg-Sent` count for it is more than 1.
+    """
+    output = r1.cmd_raises('vtysh -c "show mgmt backend-adapter all"')
+
+    # Each adapter's section begins with a "Client:" line
+    for section in re.split(r"(?m)^\s*(?=Client:)", output):
+        m = re.match(r"Client:\s+(\S+)", section)
+        if not m or m.group(1) != client:
+            continue
+        m = re.search(r"Msg-Sent:\s+(\d+)", section)
+        if not m:
+            return f"no Msg-Sent found for client {client}"
+        nsent = int(m.group(1))
+        if nsent < min_msgs_sent:
+            return f"client {client} Msg-Sent is {nsent}, expected > 1"
+        return None
+    return f"client {client} not connected (not in backend-adapter output)"
+
+
 def check_running_datastore_unlocked(r1):
     output = r1.cmd_raises('vtysh -c "show mgmt datastore all"')
     m = re.search(r"DS: running.*?Locked:\s+(True|False)", output, re.DOTALL)
@@ -186,6 +210,7 @@ def test_backend_datastore_update(tgen):
             "/frr-interface:lib/interface",
         ]
     )
+    check_backend_client_connected(r1)
 
     try:
         wait_op_json(p.stdout, "SYNC", "/frr-interface:lib/interface", None)
@@ -225,6 +250,7 @@ def test_backend_datastore_add_delete(tgen):
             "/frr-vrf:lib/vrf",
         ]
     )
+    check_backend_client_connected(r1)
     check_backend_xpath_registry(r1, r"/frr-vrf:lib/vrf:.*mgmtd-testc.*")
 
     r1.cmd_raises('vtysh -c "conf t" -c "int foobar"')
@@ -294,6 +320,7 @@ def test_backend_datastore_router_id(tgen):
             "/frr-vrf:lib/vrf/frr-zebra:zebra/ipv6-router-id",
         ]
     )
+    check_backend_client_connected(r1)
 
     js4_init = '{"frr-vrf:lib":{"vrf":[{"name":"default","frr-zebra:zebra":{"router-id":"1.1.1.1"}}]}}'
     js4_chg = '{"frr-vrf:lib":{"vrf":[{"name":"default","frr-zebra:zebra":{"router-id":"1.2.3.4"}}]}}'
@@ -416,6 +443,7 @@ def test_datastore_backend_filters(tgen):
                 "/frr-interface:lib/interface",
             ]
         )
+        check_backend_client_connected(r1)
         selectors = [
             "/frr-interface:lib/interface",
             "/frr-interface:lib/interface/state",
