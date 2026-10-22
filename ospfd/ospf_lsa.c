@@ -936,6 +936,7 @@ static struct ospf_lsa *ospf_router_lsa_refresh(struct ospf_lsa *lsa)
 
 	/* Sanity check. */
 	assert(lsa->data);
+	assert(area);
 
 	/* Delete LSA from neighbor retransmit-list. */
 	ospf_ls_retransmit_delete_nbr_area(area, lsa);
@@ -1173,6 +1174,7 @@ static struct ospf_lsa *ospf_network_lsa_refresh(struct ospf_lsa *lsa)
 	struct ospf_interface *oi;
 
 	assert(lsa->data);
+	assert(area);
 
 	/* Retrieve the oi for the network LSA */
 	oi = ospf_if_lookup_by_local_addr(area->ospf, NULL, lsa->data->id);
@@ -1281,6 +1283,8 @@ static struct ospf_lsa *ospf_summary_lsa_new(struct ospf_area *area,
 	struct ospf_lsa *new;
 	struct lsa_header *lsah;
 	int length;
+
+	assert(area);
 
 	if (id.s_addr == 0xffffffff) {
 		/* Maybe Link State ID not available. */
@@ -1615,6 +1619,7 @@ static struct ospf_lsa *ospf_summary_asbr_lsa_refresh(struct ospf *ospf,
 
 	/* Sanity check. */
 	assert(lsa->data);
+	assert(lsa->area);
 
 	if (lsa->area->fr_info.indication_lsa_self &&
 	    (lsa->area->fr_info.indication_lsa_self == lsa))
