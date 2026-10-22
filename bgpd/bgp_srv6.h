@@ -52,6 +52,7 @@ void bgp_srv6_unicast_sid_withdraw(struct bgp *bgp, afi_t afi);
 void bgp_srv6_unicast_sid_withdraw_dt46(struct bgp *bgp, afi_t afi);
 void bgp_srv6_unicast_sid_update(struct bgp *bgp, afi_t afi);
 void bgp_srv6_unicast_delete(struct bgp *bgp, afi_t afi);
+void bgp_srv6_unicast_sids_forget(struct bgp *bgp);
 void bgp_srv6_unicast_sid_endpoint(struct bgp *bgp, afi_t afi,
 				   struct interface *ifp, bool install);
 void bgp_srv6_unicast_unregister_route(struct bgp_dest *dest);
