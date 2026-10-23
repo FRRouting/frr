@@ -102,6 +102,7 @@ struct neighbour *find_neighbour(const unsigned char *address, struct interface 
 int update_neighbour(struct neighbour *neigh, int hello, int hello_interval)
 {
 	int missed_hellos;
+	int late = 0;
 	int rc = 0;
 
 	if (hello < 0) {
@@ -136,6 +137,7 @@ int update_neighbour(struct neighbour *neigh, int hello, int hello_interval)
 					neigh->hello_seqno = hello;
 					hello = -1;
 					missed_hellos = 0;
+					late = 1;
 				}
 				rc = 1;
 			}
@@ -145,6 +147,14 @@ int update_neighbour(struct neighbour *neigh, int hello, int hello_interval)
 		neigh->hello_time = babel_now;
 		neigh->hello_interval = hello_interval;
 	}
+
+	if (late)
+		/*
+		 * The late hello is ignored: reach is unchanged, so the
+		 * association feedback below would only repeat work already
+		 * done when reach first took its current value.
+		 */
+		return rc;
 
 	if (missed_hellos > 0) {
 		neigh->reach >>= missed_hellos;
