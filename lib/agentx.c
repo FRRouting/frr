@@ -24,6 +24,7 @@
 #include "libfrr.h"
 #include "xref.h"
 #include "lib/libagentx.h"
+#include "lib/debug.h"
 
 XREF_SETUP();
 
@@ -42,6 +43,11 @@ static struct event *timeout_thr = NULL;
 static struct list *events = NULL;
 
 static void agentx_events_update(void);
+
+static inline bool agentx_debug(void)
+{
+	return DEBUG_MODE_CHECK(&agentx_dbg, DEBUG_MODE_ALL);
+}
 
 static void agentx_timeout(struct event *t)
 {
@@ -130,6 +136,7 @@ static void agentx_events_update(void)
 		if (thr_fd == fd) {
 			struct listnode *nextln = listnextnode(ln);
 			if (!netsnmp_large_fd_is_set(fd, &lfds)) {
+				DEBUGD(&agentx_dbg, "AgentX: stop polling fd %d", fd);
 				event_cancel(thr);
 				XFREE(MTYPE_TMP, thr);
 				list_delete_node(events, ln);
@@ -150,6 +157,7 @@ static void agentx_events_update(void)
 			newthr = XCALLOC(MTYPE_TMP, sizeof(struct event *));
 			newln = listnode_add_before(events, ln, newthr);
 			event_add_read(agentx_tm, agentx_read, newln, fd, newthr);
+			DEBUGD(&agentx_dbg, "AgentX: start polling fd %d", fd);
 		}
 	}
 
@@ -158,6 +166,8 @@ static void agentx_events_update(void)
 	while (ln) {
 		struct listnode *nextln = listnextnode(ln);
 		thr = listgetdata(ln);
+		DEBUGD(&agentx_dbg, "AgentX: stop polling fd %d",
+		       (thr && *thr) ? EVENT_FD(*thr) : -1);
 		event_cancel(thr);
 		XFREE(MTYPE_TMP, thr);
 		list_delete_node(events, ln);
@@ -171,7 +181,12 @@ static int agentx_log_callback(int major, int minor, void *serverarg,
 			       void *clientarg)
 {
 	struct snmp_log_message *slm = (struct snmp_log_message *)serverarg;
-	char *msg = XSTRDUP(MTYPE_TMP, slm->msg);
+	char *msg;
+
+	if (slm->priority == LOG_DEBUG && !agentx_debug())
+		return SNMP_ERR_NOERROR;
+
+	msg = XSTRDUP(MTYPE_TMP, slm->msg);
 	if (msg)
 		msg[strlen(msg) - 1] = '\0';
 	switch (slm->priority) {
@@ -208,6 +223,7 @@ static int agentx_log_callback(int major, int minor, void *serverarg,
 static int agentx_cli_on(void)
 {
 	if (!agentx_enabled) {
+		DEBUGD(&agentx_dbg, "AgentX: enable subagent, connecting to master agent");
 		init_snmp(FRR_SMUX_NAME);
 		events = list_new();
 		agentx_events_update();
@@ -232,6 +248,7 @@ static int agentx_master_up_cb(int majorID, int minorID, void *serverarg, void *
 		return SNMP_ERR_NOERROR;
 
 	agentx_connected = true;
+	DEBUGD(&agentx_dbg, "AgentX: master agent session up");
 	return SNMP_ERR_NOERROR;
 }
 
@@ -241,6 +258,7 @@ static int agentx_master_down_cb(int majorID, int minorID, void *serverarg, void
 		return SNMP_ERR_NOERROR;
 
 	agentx_connected = false;
+	DEBUGD(&agentx_dbg, "AgentX: master agent session down");
 	return SNMP_ERR_NOERROR;
 }
 
@@ -282,6 +300,7 @@ void smux_init(struct event_loop *tm)
 void smux_agentx_enable(void)
 {
 	if (!agentx_enabled) {
+		DEBUGD(&agentx_dbg, "AgentX: enable subagent, connecting to master agent");
 		init_snmp(FRR_SMUX_NAME);
 		events = list_new();
 		agentx_events_update();

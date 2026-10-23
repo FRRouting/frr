@@ -7,8 +7,11 @@
 
 #include "lib/hook.h"
 
+struct debug;
+
 extern void libagentx_init(void);
 extern bool agentx_enabled;
+extern struct debug agentx_dbg;
 
 DECLARE_HOOK(agentx_cli_enabled, (), ());
 DECLARE_HOOK(agentx_cli_disabled, (), ());
