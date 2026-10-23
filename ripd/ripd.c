@@ -60,6 +60,7 @@ DEFINE_MTYPE_STATIC(RIPD, RIP_DISTANCE, "RIP distance");
 static void rip_output_process(struct connected *, struct sockaddr_in *, int,
 			       uint8_t);
 static void rip_triggered_update(struct event *);
+static void rip_clear_changed_flag(struct rip *rip);
 static int rip_update_jitter(unsigned long);
 static void rip_distance_table_node_cleanup(struct route_table *table,
 					    struct route_node *node);
@@ -2540,6 +2541,15 @@ static void rip_update(struct event *t)
 
 	/* Process update output. */
 	rip_update_process(rip, rip_all_route);
+
+	/*
+	 * The full table update above has already advertised every changed
+	 * route (subject to the same output filters as a triggered update),
+	 * so the per-route change flags must be cleared here as well;
+	 * otherwise the next triggered update re-advertises routes that
+	 * were already sent.
+	 */
+	rip_clear_changed_flag(rip);
 
 	/* Triggered updates may be suppressed if a regular update is due by
 	   the time the triggered update would be sent. */
