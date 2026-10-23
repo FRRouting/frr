@@ -108,6 +108,49 @@ def test_bgp_bfd_session():
     assert result is None, "Can't see BFD session created"
 
 
+def test_bgp_bfd_peer_timers_in_running_config():
+    "Per-peer BFD timers are written back to running-config."
+    tgen = get_topogen()
+
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    r1 = tgen.gears["r1"]
+
+    def _neighbor_bfd_lines():
+        return [
+            line.strip()
+            for line in r1.vtysh_cmd("show running-config bgpd").splitlines()
+            if line.strip().startswith("neighbor 192.168.1.2 bfd")
+        ]
+
+    def _expect_lines(expected):
+        def _check():
+            lines = _neighbor_bfd_lines()
+            return None if lines == expected else lines
+
+        _, result = topotest.run_and_expect(_check, None, count=30, wait=1)
+        assert result is None, "running-config has {}, expected {}".format(
+            result, expected
+        )
+
+    step("Set non-default BFD timers on 192.168.1.2")
+    r1.vtysh_cmd("""
+        configure terminal
+         router bgp 65000
+          neighbor 192.168.1.2 bfd 4 400 500
+        """)
+    _expect_lines(["neighbor 192.168.1.2 bfd 4 400 500"])
+
+    step("Set the default BFD timers back on 192.168.1.2")
+    r1.vtysh_cmd("""
+        configure terminal
+         router bgp 65000
+          neighbor 192.168.1.2 bfd 3 300 300
+        """)
+    _expect_lines(["neighbor 192.168.1.2 bfd"])
+
+
 def test_memory_leak():
     "Run the memory leak test and report results."
     tgen = get_topogen()
