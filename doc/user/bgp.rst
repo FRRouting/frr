@@ -6792,13 +6792,29 @@ routes with primary paths and backup paths, allowing the forwarding plane to
 perform immediate failover when a primary path fails, without waiting for BGP
 convergence.
 
-.. clicmd:: install backup-path
+.. clicmd:: install backup-path [ecmp] [tunnel-only]
 
    Enable backup path for fast failover. When this command is configured, BGP will
    identify backup paths and send them to the forwarding plane.
    During normal operation, traffic flows only through primary paths.
    When a primary path fails, the forwarding plane can immediately switch to the
    backup path while BGP recalculates the best path in the background.
+
+   With ``ecmp``, the backup set may contain multiple equal-cost paths,
+   bounded by the address-family ``maximum-paths`` configuration.
+
+   With ``tunnel-only``, only paths whose nexthops are resolved over tunnels
+   are eligible as backups: paths that carry their own encapsulation (an
+   SRv6-VPN SID, a VPN/labeled-unicast label stack, or an EVPN-imported
+   route), or paths whose nexthop resolution consists entirely of
+   tunnel legs (an MPLS label stack, an SRv6 SID list, a VXLAN
+   encapsulation, or egress over a GRE/VXLAN-type interface). This is
+   useful when a plain-IP backup toward another device could be routed
+   back over the failed primary link; an encapsulating backup is
+   loop-safe. Without the keyword, regular (plain-IP) nexthops remain
+   eligible as backups exactly as before. Eligibility is re-evaluated as
+   nexthop resolution changes. The verdict for a given nexthop can be
+   inspected with ``show bgp nexthop`` (``Tunnel-resolved:`` line).
 
    This configuration is available per address-family and must be configured
    within the address-family submode.

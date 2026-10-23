@@ -3528,7 +3528,8 @@ static void bgp_route_select_timer_expire(struct event *event)
 
 
 static bool is_path_valid_candidate_for_backup(struct bgp *bgp, struct bgp_path_info *pi,
-					       struct bgp_path_info *new_best)
+					       struct bgp_path_info *new_best, afi_t afi,
+					       safi_t safi)
 {
 	if (BGP_PATH_HOLDDOWN(pi))
 		return false;
@@ -3542,6 +3543,19 @@ static bool is_path_valid_candidate_for_backup(struct bgp *bgp, struct bgp_path_
 
 	if (CHECK_FLAG(pi->flags, BGP_PATH_MULTIPATH))
 		return false;
+
+	/* With "install backup-path ... tunnel-only", only a path whose
+	 * nexthop is resolved over a tunnel can protect the route: once
+	 * engaged, a plain-IP backup toward another device may be routed
+	 * straight back over the failed primary.
+	 */
+	if (CHECK_FLAG(bgp->af_flags[afi][safi], BGP_CONFIG_BACKUP_PATH_TUNNEL_ONLY) &&
+	    !bgp_path_backup_is_tunnel_resolved(pi)) {
+		if (bgp_debug_bestpath(pi->net))
+			zlog_debug("%pBD(%s): backup candidate from peer %s rejected: nexthop not tunnel-resolved",
+				   pi->net, bgp->name_pretty, pi->peer ? pi->peer->host : "NONE");
+		return false;
+	}
 
 	return true;
 }
@@ -3630,7 +3644,7 @@ static void bgp_compute_backup_path(struct bgp *bgp, struct bgp_path_info *new_b
 		}
 
 		/* Check if this is a valid backup candidate */
-		if (!is_path_valid_candidate_for_backup(bgp, pi, new_best)) {
+		if (!is_path_valid_candidate_for_backup(bgp, pi, new_best, afi, safi)) {
 			if (was_backup)
 				backup_changed = true;
 			continue;
@@ -14593,10 +14607,18 @@ skip_nexthop:
 
 	if (CHECK_FLAG(path->flags, BGP_PATH_BACKUP) &&
 	    CHECK_FLAG(bgp->af_flags[afi][safi], BGP_CONFIG_BACKUP_PATH)) {
-		if (json_paths)
+		bool tunnel_only = CHECK_FLAG(bgp->af_flags[afi][safi],
+					      BGP_CONFIG_BACKUP_PATH_TUNNEL_ONLY);
+
+		if (json_paths) {
 			json_object_boolean_true_add(json_path, "backup");
-		else
-			vty_out(vty, ", backup");
+			if (tunnel_only)
+				json_object_boolean_true_add(json_path,
+							     "tunnelResolved");
+		} else {
+			vty_out(vty, tunnel_only ? ", backup (tunnel-resolved)"
+						 : ", backup");
+		}
 	}
 
 	// Mark the bestpath(s)

@@ -5578,14 +5578,17 @@ DEFUN(no_bgp_fast_convergence, no_bgp_fast_convergence_cmd,
 
 /* When enabled, BGP installs backup paths so the FIB can fast-fail over
  * without waiting for BGP convergence. With "ecmp" the backup set may
- * contain multiple equal-cost paths bounded by maximum-paths.
+ * contain multiple equal-cost paths bounded by maximum-paths. With
+ * "tunnel-only" only paths whose nexthops are resolved over tunnels
+ * (MPLS, SRv6, VXLAN, tunnel interfaces) are eligible as backups.
  */
 DEFPY(af_install_backup_path, af_install_backup_path_cmd,
-      "[no] install backup-path [ecmp$ecmp]",
+      "[no] install backup-path [ecmp$ecmp] [tunnel-only$tunnel_only]",
       NO_STR
       "Install backup path for fast failover\n"
       "Backup path\n"
-      "Allow multiple equal-cost backup paths\n")
+      "Allow multiple equal-cost backup paths\n"
+      "Only select backup paths whose nexthops are resolved over tunnels\n")
 {
 	VTY_DECLVAR_CONTEXT(bgp, bgp);
 	afi_t afi = bgp_node_afi(vty);
@@ -5594,6 +5597,7 @@ DEFPY(af_install_backup_path, af_install_backup_path_cmd,
 	if (no) {
 		UNSET_FLAG(bgp->af_flags[afi][safi], BGP_CONFIG_BACKUP_PATH);
 		UNSET_FLAG(bgp->af_flags[afi][safi], BGP_CONFIG_BACKUP_PATH_ECMP);
+		UNSET_FLAG(bgp->af_flags[afi][safi], BGP_CONFIG_BACKUP_PATH_TUNNEL_ONLY);
 		bgp_schedule_backup_path_flush(bgp, afi, safi);
 	} else {
 		SET_FLAG(bgp->af_flags[afi][safi], BGP_CONFIG_BACKUP_PATH);
@@ -5601,6 +5605,10 @@ DEFPY(af_install_backup_path, af_install_backup_path_cmd,
 			SET_FLAG(bgp->af_flags[afi][safi], BGP_CONFIG_BACKUP_PATH_ECMP);
 		else
 			UNSET_FLAG(bgp->af_flags[afi][safi], BGP_CONFIG_BACKUP_PATH_ECMP);
+		if (tunnel_only)
+			SET_FLAG(bgp->af_flags[afi][safi], BGP_CONFIG_BACKUP_PATH_TUNNEL_ONLY);
+		else
+			UNSET_FLAG(bgp->af_flags[afi][safi], BGP_CONFIG_BACKUP_PATH_TUNNEL_ONLY);
 	}
 
 	bgp_recalculate_afi_safi_bestpaths(bgp, afi, safi);
@@ -22272,12 +22280,13 @@ static void bgp_config_write_family(struct vty *vty, struct bgp *bgp, afi_t afi,
 		bgp_config_write_damp(vty, bgp, afi, safi);
 
 	/* BGP backup path. */
-	if (CHECK_FLAG(bgp->af_flags[afi][safi], BGP_CONFIG_BACKUP_PATH)) {
-		if (CHECK_FLAG(bgp->af_flags[afi][safi], BGP_CONFIG_BACKUP_PATH_ECMP))
-			vty_out(vty, "  install backup-path ecmp\n");
-		else
-			vty_out(vty, "  install backup-path\n");
-	}
+	if (CHECK_FLAG(bgp->af_flags[afi][safi], BGP_CONFIG_BACKUP_PATH))
+		vty_out(vty, "  install backup-path%s%s\n",
+			CHECK_FLAG(bgp->af_flags[afi][safi], BGP_CONFIG_BACKUP_PATH_ECMP) ? " ecmp"
+											  : "",
+			CHECK_FLAG(bgp->af_flags[afi][safi], BGP_CONFIG_BACKUP_PATH_TUNNEL_ONLY)
+				? " tunnel-only"
+				: "");
 
 	for (ALL_LIST_ELEMENTS_RO(bgp->group, node, group))
 		if (group->conf->damp[afi][safi])

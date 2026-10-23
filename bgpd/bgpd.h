@@ -842,9 +842,10 @@ struct bgp {
 #define BGP_L2VPN_EVPN_ADV_IPV4_VPN (1 << 14)
 #define BGP_L2VPN_EVPN_ADV_IPV6_VPN (1 << 15)
 /* per-AF backup-path flags (ipv4/ipv6 unicast) */
-#define BGP_CONFIG_BACKUP_PATH	     (1 << 16)
-#define BGP_CONFIG_BACKUP_PATH_ECMP  (1 << 17)
-#define BGP_CONFIG_BACKUP_PATH_FLUSH (1 << 18)
+#define BGP_CONFIG_BACKUP_PATH		   (1 << 16)
+#define BGP_CONFIG_BACKUP_PATH_ECMP	   (1 << 17)
+#define BGP_CONFIG_BACKUP_PATH_FLUSH	   (1 << 18)
+#define BGP_CONFIG_BACKUP_PATH_TUNNEL_ONLY (1 << 19)
 
 	/* BGP per AF peer count */
 	uint32_t af_peer_count[AFI_MAX][SAFI_MAX];
