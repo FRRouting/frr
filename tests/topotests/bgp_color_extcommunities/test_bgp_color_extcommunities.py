@@ -121,6 +121,54 @@ def test_bgp_color_extended_communities():
     ), "10.10.10.0/24 ext community is correctly not installed, but SHOULD be"
 
 
+def test_bgp_color_extcommunity_list_config_roundtrip():
+    "running-config output for a color extcommunity-list must be re-enterable"
+    tgen = get_topogen()
+
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    r1 = tgen.gears["r1"]
+
+    r1.vtysh_cmd(
+        """
+        configure terminal
+         bgp extcommunity-list standard COLOR1 permit color 00:100
+         bgp extcommunity-list standard COLOR2 permit color 11:55555
+        """
+    )
+
+    def _generated_line(name):
+        for line in r1.vtysh_cmd("show running-config").splitlines():
+            if line.startswith("bgp extcommunity-list standard {} ".format(name)):
+                return line.strip()
+        return None
+
+    for name, value in (("COLOR1", "00:100"), ("COLOR2", "11:55555")):
+        line = _generated_line(name)
+        assert line is not None, "{} missing from running-config".format(name)
+        assert "permit color {}".format(value) in line, (
+            "{} rendered as {!r}, expected a re-parseable 'color {}'".format(
+                name, line, value
+            )
+        )
+
+    # Feed the generated lines back in under new names; they must parse.
+    for name in ("COLOR1", "COLOR2"):
+        line = _generated_line(name)
+        reentered = line.replace(
+            "standard {} ".format(name), "standard RT_{} ".format(name)
+        )
+        output = r1.vtysh_cmd("configure terminal\n{}".format(reentered))
+        assert "Malformed" not in output, "re-entering {!r} failed: {}".format(
+            reentered, output
+        )
+
+        assert _generated_line("RT_{}".format(name)) == reentered, (
+            "round-trip of {} is not idempotent".format(name)
+        )
+
+
 if __name__ == "__main__":
     args = ["-s"] + sys.argv[1:]
     sys.exit(pytest.main(args))
