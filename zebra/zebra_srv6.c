@@ -2807,6 +2807,17 @@ static int srv6_manager_release_sid_internal(struct zserv *client, struct srv6_s
 
 	block = locator->sid_block;
 
+	/*
+	 * A locator whose prefix was removed has no parent block anymore, and
+	 * all its SIDs were already freed along with it: nothing to release.
+	 */
+	if (!block) {
+		if (IS_ZEBRA_DEBUG_SRV6)
+			zlog_debug("%s: SRv6 locator '%s' has no prefix, no SID to release",
+				   __func__, locator_name);
+		return 0;
+	}
+
 	/* Lookup Zebra SID context and release it */
 	frr_each_safe (zebra_srv6_sid_ctx_list, &block->sids, zctx)
 		if (memcmp(&zctx->ctx, ctx, sizeof(struct srv6_sid_ctx)) == 0) {
