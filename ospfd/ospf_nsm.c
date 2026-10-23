@@ -1121,10 +1121,6 @@ static void nsm_change_state(struct ospf_neighbor *nbr, int state)
 		ospf_db_desc_send(nbr);
 	}
 
-	/* clear cryptographic sequence number */
-	if (state == NSM_Down)
-		nbr->crypt_seqnum = 0;
-
 	if (nbr->bfd_session)
 		ospf_bfd_trigger_event(nbr, old_state, state);
 

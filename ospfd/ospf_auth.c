@@ -71,6 +71,58 @@ static bool ospf_auth_seq_strict(struct ospf_interface *oi)
 	return CHECK_FLAG(oi->ospf->config, OSPF_RFC7474_COMPATIBLE);
 }
 
+/*
+ * Look up the persistent anti-replay mark for the neighbor this packet
+ * claims to come from, keyed exactly like the neighbor table (Router ID
+ * on point-to-point and virtual links, source address otherwise).  The
+ * mark outlives the neighbor structure: tearing an adjacency down must
+ * not silently reopen the window to replayed packets.  Marks are dropped
+ * when the OSPF interface is deleted.
+ */
+static uint32_t *ospf_auth_seqnum_mark(struct ospf_interface *oi, struct ip *iph,
+				       struct ospf_header *ospfh, bool create)
+{
+	struct prefix_ipv4 p;
+	struct route_node *rn;
+
+	memset(&p, 0, sizeof(p));
+	p.family = AF_INET;
+	p.prefixlen = IPV4_MAX_BITLEN;
+	if (oi->type == OSPF_IFTYPE_VIRTUALLINK || oi->type == OSPF_IFTYPE_POINTOPOINT)
+		p.prefix = ospfh->router_id;
+	else
+		p.prefix = iph->ip_src;
+
+	if (create) {
+		rn = route_node_get(oi->crypt_seqnums, (struct prefix *)&p);
+		if (rn->info == NULL)
+			rn->info = XCALLOC(MTYPE_OSPF_CRYPT_SEQNUM, sizeof(uint32_t));
+		else
+			route_unlock_node(rn);
+		return rn->info;
+	}
+
+	rn = route_node_lookup(oi->crypt_seqnums, (struct prefix *)&p);
+	if (rn == NULL)
+		return NULL;
+	route_unlock_node(rn);
+	return rn->info;
+}
+
+/*
+ * Highest sequence number accepted so far for this neighbor: the live
+ * neighbor's window when one exists, raised to the persistent mark left
+ * by any previous incarnation of the same neighbor.
+ */
+static uint32_t ospf_auth_seqnum_stored(struct ospf_neighbor *nbr, const uint32_t *mark)
+{
+	uint32_t stored = nbr ? ntohl(nbr->crypt_seqnum) : 0;
+
+	if (mark && ntohl(*mark) > stored)
+		stored = ntohl(*mark);
+	return stored;
+}
+
 static int ospf_check_sum(struct ospf_header *ospfh)
 {
 	uint32_t ret;
@@ -171,6 +223,7 @@ static int ospf_auth_check_hmac_sha_digest(struct ospf_interface *oi,
 {
 	unsigned char digest[KEYCHAIN_MAX_HASH_SIZE];
 	struct ospf_neighbor *nbr;
+	uint32_t *mark;
 	uint16_t length = ntohs(ospfh->length);
 	uint16_t hash_length = keychain_get_hash_len(key->hash_algo);
 #ifdef CRYPTO_OPENSSL
@@ -194,9 +247,10 @@ static int ospf_auth_check_hmac_sha_digest(struct ospf_interface *oi,
 #endif
 	/* check crypto seqnum. */
 	nbr = ospf_nbr_lookup(oi, iph, ospfh);
+	mark = ospf_auth_seqnum_mark(oi, iph, ospfh, false);
 
-	if (nbr) {
-		uint32_t nbr_seq = ntohl(nbr->crypt_seqnum);
+	if (nbr || mark) {
+		uint32_t nbr_seq = ospf_auth_seqnum_stored(nbr, mark);
 		uint32_t pkt_seq = ntohl(ospfh->u.crypt.crypt_seqnum);
 		bool strict = ospf_auth_seq_strict(oi);
 
@@ -227,6 +281,7 @@ static int ospf_auth_check_hmac_sha_digest(struct ospf_interface *oi,
 	}
 	if (nbr)
 		nbr->crypt_seqnum = ospfh->u.crypt.crypt_seqnum;
+	*ospf_auth_seqnum_mark(oi, iph, ospfh, true) = ospfh->u.crypt.crypt_seqnum;
 	return 1;
 }
 
@@ -242,6 +297,7 @@ static int ospf_auth_check_md5_digest(struct ospf_interface *oi,
 	unsigned char digest[OSPF_AUTH_MD5_SIZE];
 	struct ospf_neighbor *nbr;
 	struct crypt_key *ck = NULL;
+	uint32_t *mark;
 	uint16_t length = ntohs(ospfh->length);
 
 	if (length < sizeof(struct ospf_header)) {/* for coverity's sake */
@@ -264,9 +320,10 @@ static int ospf_auth_check_md5_digest(struct ospf_interface *oi,
 	}
 	/* check crypto seqnum. */
 	nbr = ospf_nbr_lookup(oi, iph, ospfh);
+	mark = ospf_auth_seqnum_mark(oi, iph, ospfh, false);
 
-	if (nbr) {
-		uint32_t nbr_seq = ntohl(nbr->crypt_seqnum);
+	if (nbr || mark) {
+		uint32_t nbr_seq = ospf_auth_seqnum_stored(nbr, mark);
 		uint32_t pkt_seq = ntohl(ospfh->u.crypt.crypt_seqnum);
 		bool strict = ospf_auth_seq_strict(oi);
 
@@ -313,6 +370,7 @@ static int ospf_auth_check_md5_digest(struct ospf_interface *oi,
 	/* save neighbor's crypt_seqnum */
 	if (nbr)
 		nbr->crypt_seqnum = ospfh->u.crypt.crypt_seqnum;
+	*ospf_auth_seqnum_mark(oi, iph, ospfh, true) = ospfh->u.crypt.crypt_seqnum;
 	return 1;
 }
 
