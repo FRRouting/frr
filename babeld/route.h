@@ -83,7 +83,7 @@ struct babel_route *find_best_route(const unsigned char *prefix, unsigned char p
 struct babel_route *install_best_route(const unsigned char prefix[16], unsigned char plen);
 void update_neighbour_metric(struct neighbour *neigh, int change);
 void update_interface_metric(struct interface *ifp);
-void update_route_metric(struct babel_route *route);
+int update_route_metric(struct babel_route *route);
 struct babel_route *update_route(const unsigned char *id, const unsigned char *prefix,
 				 unsigned char plen, unsigned short seqno,
 				 unsigned short refmetric, unsigned short interval,

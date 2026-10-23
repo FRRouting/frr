@@ -655,7 +655,14 @@ struct babel_route *find_best_route(const unsigned char *prefix, unsigned char p
 	return route;
 }
 
-void update_route_metric(struct babel_route *route)
+/*
+ * Update the metric of a route.  Returns 1 if the route changed in a way
+ * that may have reordered its slot (route_changed() was called), 0
+ * otherwise.  Callers iterating a slot must rescan it when 1 is returned:
+ * route_changed() may install a better route and move it to the head of
+ * the slot, which invalidates any iterator already positioned inside it.
+ */
+int update_route_metric(struct babel_route *route)
 {
 	int oldmetric = route_metric(route);
 	int old_smoothed_metric = route_smoothed_metric(route);
@@ -664,8 +671,10 @@ void update_route_metric(struct babel_route *route)
 		if (route->refmetric < INFINITY) {
 			route->seqno = seqno_plus(route->src->seqno, 1);
 			retract_route(route);
-			if (oldmetric < INFINITY)
+			if (oldmetric < INFINITY) {
 				route_changed(route, route->src, oldmetric);
+				return 1;
+			}
 		}
 	} else {
 		struct neighbour *neigh = route->neigh;
@@ -674,9 +683,12 @@ void update_route_metric(struct babel_route *route)
 		change_route_metric(route, route->refmetric, neighbour_cost(route->neigh),
 				    add_metric);
 		if (route_metric(route) != oldmetric ||
-		    route_smoothed_metric(route) != old_smoothed_metric)
+		    route_smoothed_metric(route) != old_smoothed_metric) {
 			route_changed(route, route->src, oldmetric);
+			return 1;
+		}
 	}
+	return 0;
 }
 
 /* Called whenever a neighbour's cost changes, to update the metric of
@@ -686,13 +698,16 @@ void update_neighbour_metric(struct neighbour *neigh, int changed)
 	if (changed) {
 		int i;
 
-		for (i = 0; i < route_slots; i++) {
+		i = 0;
+		while (i < route_slots) {
 			struct babel_route *r = routes[i];
 			while (r) {
-				if (r->neigh == neigh)
-					update_route_metric(r);
+				if (r->neigh == neigh && update_route_metric(r))
+					goto again;
 				r = r->next;
 			}
+			i++;
+		again:;
 		}
 	}
 }
@@ -701,13 +716,16 @@ void update_interface_metric(struct interface *ifp)
 {
 	int i;
 
-	for (i = 0; i < route_slots; i++) {
+	i = 0;
+	while (i < route_slots) {
 		struct babel_route *r = routes[i];
 		while (r) {
-			if (r->neigh->ifp == ifp)
-				update_route_metric(r);
+			if (r->neigh->ifp == ifp && update_route_metric(r))
+				goto again;
 			r = r->next;
 		}
+		i++;
+	again:;
 	}
 }
 
@@ -914,19 +932,32 @@ void retract_neighbour_routes(struct neighbour *neigh)
 {
 	int i;
 
-	for (i = 0; i < route_slots; i++) {
+	i = 0;
+	while (i < route_slots) {
 		struct babel_route *r = routes[i];
 		while (r) {
 			if (r->neigh == neigh) {
 				if (r->refmetric != INFINITY) {
 					unsigned short oldmetric = route_metric(r);
 					retract_route(r);
-					if (oldmetric != INFINITY)
+					if (oldmetric != INFINITY) {
 						route_changed(r, r->src, oldmetric);
+						/*
+						 * route_changed() may have
+						 * installed a better route and
+						 * moved it to the head of this
+						 * slot; rescan the slot so
+						 * that no route through this
+						 * neighbour is skipped.
+						 */
+						goto again;
+					}
 				}
 			}
 			r = r->next;
 		}
+		i++;
+	again:;
 	}
 }
 
@@ -1055,7 +1086,12 @@ void expire_routes(void)
 				goto again;
 			}
 
-			update_route_metric(r);
+			if (update_route_metric(r))
+				/*
+				 * The route changed and the slot may have
+				 * been reordered; rescan it.
+				 */
+				goto again;
 
 			if (route_expired(r)) {
 				flush_route(r);
