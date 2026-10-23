@@ -82,6 +82,9 @@ struct ospf_if_params {
 	/* MTU mismatch check (see RFC2328, chap 10.6) */
 	DECLARE_IF_PARAM(uint8_t, mtu_ignore);
 
+	/* RFC 7474 strict sequence number check override */
+	DECLARE_IF_PARAM(uint8_t, rfc7474_compat);
+
 	/* Fast-Hellos */
 	DECLARE_IF_PARAM(uint8_t, fast_hello);
 
