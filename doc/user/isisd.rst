@@ -289,7 +289,8 @@ sessions.
    IPv4 address, ISIS borrows one from a loopback interface that is part of the
    same area and advertises it in its hellos. IPv4 nexthops through this
    interface that are not covered by any of its subnets are installed as
-   on-link. Disabled by default.
+   on-link. Disabled by default. It cannot be combined with
+   :clicmd:`isis ipv4-over-ipv6-nexthop` on the same interface.
 
 .. clicmd:: isis password [clear | md5] <password>
 
@@ -320,7 +321,8 @@ sessions.
    neighbor's IPv6 link-local address, which becomes the nexthop of the IPv4
    routes installed through it (as with BGP and :rfc:`8950`). Adjacencies
    with usable IPv4 addressing keep IPv4 nexthops, so the option can be
-   enabled on some interfaces and not others.
+   enabled on some interfaces and not others. It cannot be combined with
+   :clicmd:`isis unnumbered` on the same interface.
 
    The kernel must support IPv4 routes with IPv6 nexthops (Linux 5.2 or
    later). Nothing in IS-IS tells a neighbor whether this is enabled, so

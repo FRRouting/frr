@@ -804,6 +804,10 @@ module frr-isisd {
 
     leaf ipv4-over-ipv6-nexthop {
       type boolean;
+      must ". = 'false' or ../unnumbered = 'false'" {
+        error-message
+          "Can't route IPv4 over IPv6 link-local nexthops and enable unnumbered in the same interface.";
+      }
       default "false";
       description
         "Route IPv4 over this interface when it has no usable IPv4 nexthop,
