@@ -876,6 +876,90 @@ def test_evpn_mac_vni_all_json_nummacs():
             pe1.run("bridge fdb del {} dev PE1-eth0 master static".format(mac))
 
 
+def _evpn_mac_in_vni(pe, vni, mac):
+    "Whether mac appears in the VNI's MAC table"
+    output = pe.vtysh_cmd("show evpn mac vni {} json".format(vni), isjson=True)
+    return mac in (output or {}).get("macs", {})
+
+
+def test_evpn_unmapped_vlan_mac_not_in_other_vni():
+    """
+    A MAC on a vlan with no VNI must not be attributed to another vlan's VNI.
+
+    Build a vlan-aware bridge where vxlan1001 maps vlan 1001 to L2 VNI 1001
+    and vlan 1002 has no vxlan device, so it has no VNI. The existing bridges
+    are not usable here: br101 is not vlan-aware and VNI 999 on br999 is an
+    L3 VNI.
+
+    zebra_evpn_map_vlan() finds no VNI for vlan 1002 in the bridge's vlan
+    table and used to fall through to a walk of every interface. That walk
+    resolves the VNI with zebra_vxlan_if_access_vlan_vni_find(), which takes
+    no vlan id, so vlan 1002 resolved to VNI 1001 and its MACs were installed
+    in VNI 1001.
+    """
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    pe1 = tgen.gears["PE1"]
+
+    unmapped_mac = "02:00:00:00:03:ea"
+    mapped_mac = "02:00:00:00:03:e9"
+
+    pe1.run("ip link add name brmap type bridge stp_state 0 vlan_filtering 1")
+    pe1.run("ip link set dev brmap up")
+    pe1.run(
+        "ip link add vxlan1001 type vxlan id 1001 dstport 4789 local 10.10.10.10 nolearning"
+    )
+    pe1.run("ip link set dev vxlan1001 master brmap")
+    pe1.run("ip link set up dev vxlan1001")
+    pe1.run("bridge vlan add vid 1001 dev brmap self")
+    pe1.run("bridge vlan add vid 1002 dev brmap self")
+    pe1.run("bridge vlan del vid 1 dev vxlan1001")
+    pe1.run("bridge vlan add vid 1001 dev vxlan1001 pvid untagged")
+
+    # access port trunking the vlan mapped to VNI 1001 and an unmapped vlan
+    pe1.run("ip link add accmap type dummy")
+    pe1.run("ip link set dev accmap master brmap")
+    pe1.run("ip link set dev accmap up")
+    pe1.run("bridge vlan del vid 1 dev accmap")
+    pe1.run("bridge vlan add vid 1001 dev accmap")
+    pe1.run("bridge vlan add vid 1002 dev accmap")
+
+    try:
+        test_func = partial(
+            topotest.router_json_cmp,
+            pe1,
+            "show evpn vni 1001 json",
+            {"vni": 1001, "type": "L2"},
+        )
+        _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
+        assert result is None, "PE1: L2 VNI 1001 did not come up: {}".format(result)
+
+        # The unmapped vlan's MAC is added first, so once the mapped vlan's
+        # MAC shows up zebra has necessarily processed both fdb notifications.
+        pe1.run(
+            "bridge fdb add {} dev accmap master static vlan 1002".format(unmapped_mac)
+        )
+        pe1.run(
+            "bridge fdb add {} dev accmap master static vlan 1001".format(mapped_mac)
+        )
+
+        test_func = partial(_evpn_mac_in_vni, pe1, 1001, mapped_mac)
+        _, result = topotest.run_and_expect(test_func, True, count=30, wait=1)
+        assert result, "PE1 did not learn {} on vlan 1001 into VNI 1001".format(
+            mapped_mac
+        )
+
+        assert not _evpn_mac_in_vni(
+            pe1, 1001, unmapped_mac
+        ), "PE1 installed {} from unmapped vlan 1002 into VNI 1001".format(unmapped_mac)
+    finally:
+        pe1.run("ip link del accmap")
+        pe1.run("ip link del vxlan1001")
+        pe1.run("ip link del brmap")
+
+
 def test_remote_neigh_uninstall_on_vxlan_down():
     "Ensure remote neighs are removed when VxLAN if is down"
     tgen = get_topogen()

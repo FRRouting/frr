@@ -2437,6 +2437,12 @@ static struct zebra_l3vni *zl3vni_from_svi(struct interface *ifp,
 		vni_id = zebra_l2_bridge_if_vni_find(br_zif, in_param.vid);
 		if (vni_id)
 			return zl3vni_lookup(vni_id);
+
+		/* Don't need to search in this case. The walk below resolves
+		 * the VNI with zebra_vxlan_if_access_vlan_vni_find(), which
+		 * takes no VLAN id and is only valid for vlan-unaware bridges.
+		 */
+		return NULL;
 	}
 
 	/* See if this interface (or interface plus VLAN Id) maps to a VxLAN */
