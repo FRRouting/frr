@@ -880,6 +880,43 @@ void isis_adj_print_vty(struct isis_adjacency *adj, struct vty *vty,
 	return;
 }
 
+/*
+ * Maximum number of adjacencies (any state) a broadcast circuit can
+ * hold.  Every adjacency's SNPA is carried in the LAN Neighbours TLV of
+ * the LAN IIH (see isis_adj_build_neigh_list() below), and the IIH must
+ * fit into one PDU of isis_circuit_pdu_size() bytes - PDUs are not
+ * fragmented.  If the adjacency table outgrows the PDU, send_hello()
+ * fails to pack it and the whole IIH is dropped, cutting off every
+ * neighbour on the circuit.
+ *
+ * Budget accounting: 27 bytes of LAN IIH header, 6 bytes per SNPA plus
+ * one 2-byte TLV header per 42 entries (the TLV length is 8 bits), and
+ * a fixed reserve for the other TLVs send_hello() may add (area
+ * addresses, protocols supported, authentication, IP addresses, MT
+ * router info) so the IIH still fits when optional TLVs are present.
+ */
+size_t isis_lan_neigh_capacity(struct isis_circuit *circuit)
+{
+	const size_t header = 27;
+	const size_t other_tlvs = 256;
+	size_t budget, cap;
+
+	if (circuit->circ_type != CIRCUIT_T_BROADCAST)
+		return 0;
+
+	/* Guard the ISO_MTU(mtu - LLC_LEN) underflow on tiny MTUs. */
+	if (circuit->interface->mtu <= LLC_LEN + header + other_tlvs)
+		return 0;
+	budget = isis_circuit_pdu_size(circuit);
+	budget -= header + other_tlvs;
+
+	cap = budget / 6;
+	while (cap && cap * 6 + 2 * ((cap + 41) / 42) > budget)
+		cap--;
+
+	return cap;
+}
+
 void isis_adj_build_neigh_list(struct list *adjdb, struct list *list)
 {
 	struct isis_adjacency *adj;

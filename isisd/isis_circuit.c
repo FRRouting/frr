@@ -1030,6 +1030,8 @@ void isis_circuit_print_json(struct isis_circuit *circuit,
 			if (!circuit->is_passive) {
 				json_object_int_add(level_json, "active-neighbors",
 						    circuit->upadjcount[level - 1]);
+				json_object_int_add(level_json, "iih-adjacencies-refused",
+						    circuit->iih_adjacencies_refused[level - 1]);
 				json_object_int_add(level_json, "hello-interval",
 						    circuit->hello_interval[level - 1]);
 				hold_json = json_object_new_object();

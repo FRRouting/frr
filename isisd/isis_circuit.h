@@ -144,6 +144,10 @@ struct isis_circuit {
 	struct list *ipv6_link;	      /* our link local IPv6 addresses */
 	struct list *ipv6_non_link;   /* our non-link local IPv6 addresses */
 	uint16_t upadjcount[ISIS_LEVELS];
+	/* Adjacency creations refused because the LAN Neighbours TLV
+	 * cannot outgrow the IIH MTU (broadcast circuits only).
+	 */
+	uint64_t iih_adjacencies_refused[ISIS_LEVELS];
 #define ISIS_CIRCUIT_FLAPPED_AFTER_SPF 0x01
 #define ISIS_CIRCUIT_IF_DOWN_FROM_Z    0x02
 	uint8_t flags;

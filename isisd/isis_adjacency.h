@@ -118,6 +118,7 @@ const struct isis_adjacency *isis_adj_find(const struct isis_area *area,
 					   int level, const uint8_t *sysid);
 struct isis_adjacency *isis_new_adj(const uint8_t *id, const uint8_t *snpa,
 				    int level, struct isis_circuit *circuit);
+size_t isis_lan_neigh_capacity(struct isis_circuit *circuit);
 void isis_delete_adj(void *adj);
 void isis_adj_process_threeway(struct isis_adjacency **padj,
 			       struct isis_threeway_adj *tw_adj,

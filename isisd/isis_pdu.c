@@ -476,6 +476,31 @@ static int process_lan_hello(struct iih_info *iih)
 	if ((adj == NULL) || (memcmp(adj->snpa, iih->ssnpa, ETH_ALEN))
 	    || (adj->level != iih->level)) {
 		if (!adj) {
+			/*
+			 * Refuse new adjacencies once the LAN Neighbours TLV
+			 * cannot outgrow the IIH MTU: every adjacency (Up or
+			 * Initializing) is advertised there, and a PDU that
+			 * does not fit makes send_hello() drop the whole IIH,
+			 * cutting off the existing neighbours.
+			 */
+			if (listcount(iih->circuit->u.bc.adjdb[iih->level - 1])
+			    >= isis_lan_neigh_capacity(iih->circuit)) {
+				uint64_t refused;
+
+				refused = ++iih->circuit->iih_adjacencies_refused
+						  [iih->level - 1];
+				/* Throttle: an attacker controls the IIH rate,
+				 * so log the first refusal and every 1000th.
+				 */
+				if (refused == 1 || refused % 1000 == 0)
+					flog_warn(EC_ISIS_PACKET,
+						  "ISIS-Adj (%s): L%d adjacency from %pSY on %s refused: LAN Neighbours TLV full (IIH MTU %zu)",
+						  iih->circuit->area->area_tag,
+						  iih->level, iih->sys_id,
+						  iih->circuit->interface->name,
+						  isis_circuit_pdu_size(iih->circuit));
+				return ISIS_OK;
+			}
 			/* Do as in 8.4.2.5 */
 			adj = isis_new_adj(iih->sys_id, iih->ssnpa, iih->level,
 					   iih->circuit);
@@ -2030,8 +2055,13 @@ int send_hello(struct isis_circuit *circuit, int level)
 
 	if (isis_pack_tlvs(tlvs, circuit->snd_stream, len_pointer,
 			   should_pad_hello, false)) {
+		flog_warn(EC_ISIS_PACKET,
+			  "ISIS-Adj (%s): L%d IIH on %s exceeds the interface MTU (%zu bytes); not sent",
+			  circuit->area->area_tag, level,
+			  circuit->interface->name,
+			  isis_circuit_pdu_size(circuit));
 		isis_free_tlvs(tlvs);
-		return ISIS_WARNING; /* XXX: Maybe Log TLV structure? */
+		return ISIS_WARNING;
 	}
 
 	if (IS_DEBUG_ADJ_PACKETS) {
