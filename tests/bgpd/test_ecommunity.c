@@ -120,12 +120,99 @@ static void parse_test(struct test_segment *t)
 }
 
 
+/* Color extended-community formatting.
+ *
+ * COMMUNITY_LIST and ROUTE_MAP render config that has to parse again, so both
+ * must emit "color CC:VALUE"; DISPLAY stays human-readable as "Color:CC:VALUE".
+ * The CO field is two binary digits, hence 11 == 3.
+ */
+static struct color_segment {
+	const char *name;
+	const char *str;     /* input, extcommunity-list syntax */
+	const char *reparse; /* expected COMMUNITY_LIST and ROUTE_MAP output */
+	const char *display; /* expected DISPLAY output */
+} color_segments[] = {
+	{"color-format", "color 00:100", "color 00:100", "Color:00:100"},
+	{"color-format-co", "color 11:55555", "color 11:55555",
+	 "Color:11:55555"},
+	{"color-format-max", "color 11:4294967295", "color 11:4294967295",
+	 "Color:11:4294967295"},
+	{NULL, NULL, NULL, NULL}};
+
+static int check_format(const char *what, struct ecommunity *ecom, int format,
+			const char *shouldbe)
+{
+	char *str = ecommunity_ecom2str(ecom, format, 0);
+	int fails = 0;
+
+	printf("  %-14s %s\n", what, str ? str : "NULL");
+	if (!str || strcmp(str, shouldbe)) {
+		printf("shouldbe: %s\n", shouldbe);
+		fails++;
+	}
+	XFREE(MTYPE_ECOMMUNITY_STR, str);
+
+	return fails;
+}
+
+static void color_test(struct color_segment *t)
+{
+	struct ecommunity *ecom, *etmp;
+	char *str1, *str2;
+	int fails = 0;
+
+	printf("%s: %s\n", t->name, t->str);
+
+	ecom = ecommunity_str2com(t->str, 0, 1);
+	if (!ecom) {
+		printf("shouldbe: %s\nparse returned NULL\n", t->reparse);
+		failed++;
+		printf("failed\n\n");
+		return;
+	}
+
+	fails += check_format("COMMUNITY_LIST", ecom,
+			      ECOMMUNITY_FORMAT_COMMUNITY_LIST, t->reparse);
+	fails += check_format("ROUTE_MAP", ecom, ECOMMUNITY_FORMAT_ROUTE_MAP,
+			      t->reparse);
+	fails += check_format("DISPLAY", ecom, ECOMMUNITY_FORMAT_DISPLAY,
+			      t->display);
+
+	/* the re-parseable form must survive a round trip */
+	str1 = ecommunity_ecom2str(ecom, ECOMMUNITY_FORMAT_COMMUNITY_LIST, 0);
+	etmp = str1 ? ecommunity_str2com(str1, 0, 1) : NULL;
+	if (etmp)
+		str2 = ecommunity_ecom2str(etmp,
+					   ECOMMUNITY_FORMAT_COMMUNITY_LIST, 0);
+	else
+		str2 = NULL;
+
+	if (!str2 || strcmp(str1, str2)) {
+		printf("dogfood: in %s\n"
+		       "    in->out %s\n",
+		       str1 ? str1 : "NULL", str2 ? str2 : "NULL");
+		fails++;
+	}
+
+	ecommunity_free(&etmp);
+	ecommunity_free(&ecom);
+	XFREE(MTYPE_ECOMMUNITY_STR, str1);
+	XFREE(MTYPE_ECOMMUNITY_STR, str2);
+
+	failed += fails;
+	printf(fails ? "failed\n\n" : "OK\n\n");
+}
+
 int main(void)
 {
 	int i = 0;
 	ecommunity_init();
 	while (test_segments[i].name)
 		parse_test(&test_segments[i++]);
+
+	i = 0;
+	while (color_segments[i].name)
+		color_test(&color_segments[i++]);
 
 	printf("failures: %d\n", failed);
 	// printf ("aspath count: %ld\n", aspath_count());
