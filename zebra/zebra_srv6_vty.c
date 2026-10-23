@@ -746,11 +746,7 @@ static void unset_srv6_encap_source_address(void)
 	dplane_srv6_encap_srcaddr_set(&in6addr_any, NS_DEFAULT);
 }
 
-DEFUN (no_srv6,
-       no_srv6_cmd,
-       "no srv6",
-       NO_STR
-       "Segment Routing SRv6\n")
+static void zebra_srv6_locators_delete_all(void)
 {
 	struct zebra_srv6 *srv6 = zebra_srv6_get_default();
 	struct srv6_locator *locator;
@@ -779,6 +775,15 @@ DEFUN (no_srv6,
 
 		zebra_srv6_locator_delete(locator);
 	}
+}
+
+DEFUN (no_srv6,
+       no_srv6_cmd,
+       "no srv6",
+       NO_STR
+       "Segment Routing SRv6\n")
+{
+	zebra_srv6_locators_delete_all();
 
 	unset_srv6_encap_source_address();
 
