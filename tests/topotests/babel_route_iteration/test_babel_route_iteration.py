@@ -314,10 +314,10 @@ def test_neighbour_metric_update_covers_all_routes():
     _, result = topotest.run_and_expect(check, None, count=10, wait=0.5)
     assert result is None, "metrics not updated after IHU: {}".format(result)
 
-    # zebra must not keep the stale metric.
+    # zebra must carry the selected route's updated metric.
     metric = _zebra_metric(r1, P_I)
-    assert metric is None or metric != M_B, (
-        "zebra kept stale metric after IHU: metric {}".format(metric)
+    assert metric == M_A1, "zebra metric after IHU is {} instead of {}".format(
+        metric, M_A1
     )
 
 
@@ -351,6 +351,28 @@ def test_specific_retraction_still_works():
     assert any(r["installed"] and r["metric"] < INFINITY for r in routes), (
         "control route lost after specific retraction"
     )
+
+
+def test_retraction_zebra_failure_returns_to_event_loop():
+    "A failed zebra metric update must not trap babeld in a slot rescan."
+
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    r1 = tgen.gears["r1"]
+    prefix = "10.99.4.0/24"
+    _setup_pair("10.99.4.0", 24)
+
+    r1.killDaemons(["zebra"])
+    time.sleep(2)
+    _send(["wildcard"])
+
+    out = r1.cmd_raises("timeout 10 vtysh -d babeld -c 'show babel route'")
+    routes = [
+        line for line in out.splitlines() if line.strip().startswith(prefix + " ")
+    ]
+    assert any(" metric 200 " in line for line in routes), routes
 
 
 if __name__ == "__main__":

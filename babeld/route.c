@@ -468,11 +468,12 @@ static void change_route_metric(struct babel_route *route, unsigned refmetric, u
 	}
 }
 
-static void retract_route(struct babel_route *route)
+static int retract_route(struct babel_route *route)
 {
 	/* We cannot simply remove the route from the kernel, as that might
        cause a routing loop -- see RFC 6126 Sections 2.8 and 3.5.5. */
 	change_route_metric(route, INFINITY, INFINITY, 0);
+	return route->refmetric == INFINITY;
 }
 
 int route_feasible(struct babel_route *route)
@@ -670,8 +671,7 @@ int update_route_metric(struct babel_route *route)
 	if (route_expired(route)) {
 		if (route->refmetric < INFINITY) {
 			route->seqno = seqno_plus(route->src->seqno, 1);
-			retract_route(route);
-			if (oldmetric < INFINITY) {
+			if (retract_route(route) && oldmetric < INFINITY) {
 				route_changed(route, route->src, oldmetric);
 				return 1;
 			}
@@ -939,8 +939,7 @@ void retract_neighbour_routes(struct neighbour *neigh)
 			if (r->neigh == neigh) {
 				if (r->refmetric != INFINITY) {
 					unsigned short oldmetric = route_metric(r);
-					retract_route(r);
-					if (oldmetric != INFINITY) {
+					if (retract_route(r) && oldmetric != INFINITY) {
 						route_changed(r, r->src, oldmetric);
 						/*
 						 * route_changed() may have
