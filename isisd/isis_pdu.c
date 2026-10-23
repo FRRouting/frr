@@ -473,18 +473,31 @@ static int process_lan_hello(struct iih_info *iih)
 	struct isis_adjacency *adj;
 	adj = isis_adj_lookup(iih->sys_id,
 			      iih->circuit->u.bc.adjdb[iih->level - 1]);
-	if ((adj == NULL) || (memcmp(adj->snpa, iih->ssnpa, ETH_ALEN))
-	    || (adj->level != iih->level)) {
+	if (adj && memcmp(adj->snpa, iih->ssnpa, ETH_ALEN)) {
+		/*
+		 * ISO 10589 8.4.1.4 identifies an existing LAN adjacency by
+		 * its (system-id, SNPA) pair.  An IIH arriving from a
+		 * different SNPA belongs to a different adjacency (8.4.1.5)
+		 * and must not silently rewrite the recorded SNPA or reset
+		 * the state of this one; the recorded adjacency is left to
+		 * expire by its holding timer if the neighbour is really
+		 * gone.
+		 */
+		if (IS_DEBUG_ADJ_PACKETS) {
+			zlog_debug(
+				"ISIS-Adj (%s): Rcvd L%d LAN IIH from %pSY on %s with SNPA %pSY, but adjacency SNPA is %pSY - discard",
+				iih->circuit->area->area_tag, iih->level,
+				iih->sys_id, iih->circuit->interface->name,
+				iih->ssnpa, adj->snpa);
+		}
+		return ISIS_WARNING;
+	}
+	if ((adj == NULL) || (adj->level != iih->level)) {
 		if (!adj) {
 			/* Do as in 8.4.2.5 */
 			adj = isis_new_adj(iih->sys_id, iih->ssnpa, iih->level,
 					   iih->circuit);
 		} else {
-			if (iih->ssnpa) {
-				memcpy(adj->snpa, iih->ssnpa, 6);
-			} else {
-				memset(adj->snpa, ' ', 6);
-			}
 			adj->level = iih->level;
 		}
 		isis_adj_state_change(&adj, ISIS_ADJ_INITIALIZING, NULL);
