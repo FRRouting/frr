@@ -24,6 +24,7 @@
 #define ECOMMUNITY_ENCODE_OPAQUE            0x03
 #define ECOMMUNITY_ENCODE_EVPN              0x06
 #define ECOMMUNITY_ENCODE_REDIRECT_IP_NH    0x08 /* Flow Spec */
+#define ECOMMUNITY_ENCODE_MUP		    0x0c
 /* Generic Transitive Experimental */
 #define ECOMMUNITY_ENCODE_TRANS_EXP         0x80
 
@@ -118,6 +119,17 @@
  */
 #define BGP_UPA_EXTCOM_WARN_THRESHOLD 100
 #define BGP_UPA_EXTCOM_MAX_LIMIT      200
+
+/* Sub-Types for ECOMMUNITY_ENCODE_MUP (draft 3.2): a Direct or Interwork
+ * Segment identifier in the 2-octet AS, IPv4 address, or 4-octet AS value
+ * format of RFC 4360/RFC 5668.
+ */
+#define ECOMMUNITY_MUP_SUBTYPE_DIRECT_SEG_AS2	 0x00
+#define ECOMMUNITY_MUP_SUBTYPE_DIRECT_SEG_IP	 0x01
+#define ECOMMUNITY_MUP_SUBTYPE_DIRECT_SEG_AS4	 0x02
+#define ECOMMUNITY_MUP_SUBTYPE_INTERWORK_SEG_AS2 0x03
+#define ECOMMUNITY_MUP_SUBTYPE_INTERWORK_SEG_IP	 0x04
+#define ECOMMUNITY_MUP_SUBTYPE_INTERWORK_SEG_AS4 0x05
 
 /* Extended communities attribute string format.  */
 #define ECOMMUNITY_FORMAT_ROUTE_MAP            0
