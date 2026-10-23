@@ -17,6 +17,7 @@ test_evpn_mh.py: Testing EVPN multihoming
 import os
 import sys
 import subprocess
+import time
 from functools import partial
 
 import pytest
@@ -1271,6 +1272,159 @@ def test_evpn_svi_mac_withdraw_on_svi_del():
     finally:
         # Restore the SVI, including the vlan1000-v0 VRR macvlan.
         config_svi(origin, svi_ips.get(origin_name))
+
+
+@pytest.mark.parametrize(
+    "transition",
+    ["attach", "detach", "replace", "bypass-on", "bypass-off"],
+)
+def test_evpn_mac_es_transition(transition):
+    """Flush only affected MACs, withdraw them, then relearn with the new ESI.
+
+    Dynamic FDB injection makes learning deterministic without periodic traffic
+    hiding a missed withdrawal. Unique ESIs prevent peer sync from reintroducing
+    the test MACs while we check the empty state.
+    """
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    dut = tgen.gears["torm11"]
+    remote = tgen.gears["torm21"]
+    port = "hostbond1"
+    macs = ["02:00:00:fe:01:{:02x}".format(i) for i in range(1, 4)]
+    other_mac = "02:00:00:fe:02:01"
+    remote_mac = "02:00:00:fe:03:01"
+    # Type-3 ESI: system MAC followed by the three-byte local ES ID.
+    esi1 = "03:44:38:39:ff:ff:01:00:00:65"
+    esi2 = "03:44:38:39:ff:ff:01:00:00:66"
+
+    def configure(*commands):
+        dut.vtysh_cmd(
+            "configure terminal\ninterface {}\n{}".format(port, "\n".join(commands))
+        )
+
+    def learn(router, interface, mac):
+        router.cmd_raises(
+            "bridge fdb replace {} dev {} vlan 1000 master dynamic".format(
+                mac, interface
+            )
+        )
+
+    def mac_state(router, mac, kind, esi="", interface=""):
+        state = router.vtysh_cmd(
+            "show evpn mac vni 1000 mac {} json".format(mac), isjson=True
+        )
+        if kind is None:
+            return (
+                None if mac not in state else "{} still present: {}".format(mac, state)
+            )
+        info = state.get(mac, {})
+        if (
+            info.get("type") == kind
+            and info.get("esi", "") == esi
+            and (kind != "local" or info.get("intf") == interface)
+        ):
+            return None
+        return "{}: unexpected MAC state {}".format(router.name, state)
+
+    def wait(check):
+        _, result = topotest.run_and_expect(check, None, count=30, wait=1)
+        assert result is None, result
+
+    def check_targets(kind, esi=""):
+        for mac in macs:
+            wait(partial(mac_state, dut, mac, kind, esi, port))
+            wait(partial(mac_state, remote, mac, "remote" if kind else None, esi))
+
+    def check_unrelated():
+        wait(
+            partial(
+                mac_state, dut, other_mac, "local", host_es_map["hostd12"], "hostbond2"
+            )
+        )
+        wait(partial(mac_state, dut, remote_mac, "remote", host_es_map["hostd22"]))
+
+    def fdb_absent():
+        entries = json.loads(dut.cmd_raises("bridge -j fdb show dev {}".format(port)))
+        remaining = [entry for entry in entries if entry.get("mac") in macs]
+        return "FDB entries not flushed: {}".format(remaining) if remaining else None
+
+    initial_esi = "" if transition in ("attach", "bypass-off") else esi1
+    final_esi = {
+        "attach": esi1,
+        "detach": "",
+        "replace": esi2,
+        "bypass-on": "",
+        "bypass-off": esi1,
+    }[transition]
+    command = {
+        "attach": "evpn mh es-id 101",
+        "detach": "no evpn mh es-id",
+        "replace": "evpn mh es-id 102",
+        "bypass-on": "evpn mh bypass",
+        "bypass-off": "no evpn mh bypass",
+    }[transition]
+    ageing_times = [
+        (
+            router,
+            json.loads(router.cmd_raises("ip -j -d link show dev bridge"))[0][
+                "linkinfo"
+            ]["info_data"]["ageing_time"],
+        )
+        for router in (dut, remote)
+    ]
+
+    try:
+        # The topology's 1800 clock ticks allow ageing after 18 seconds, less
+        # than our convergence timeout. Do not mistake natural expiry for an
+        # ES-triggered flush (the unfixed implementation must fail this test).
+        # Keep normal dynamic learning, with expiry well beyond the test window.
+        for router, _ in ageing_times:
+            router.cmd_raises("ip link set dev bridge type bridge ageing_time 60000")
+        configure("no evpn mh bypass", "no evpn mh es-id")
+        if transition != "attach":
+            configure("evpn mh es-id 101")
+        if transition == "bypass-off":
+            configure("evpn mh bypass")
+
+        learn(dut, "hostbond2", other_mac)
+        learn(remote, "hostbond2", remote_mac)
+        for mac in macs:
+            learn(dut, port, mac)
+        check_targets("local", initial_esi)
+        check_unrelated()
+
+        configure(command)
+        wait(fdb_absent)
+        check_targets(None)
+        check_unrelated()
+
+        for mac in macs:
+            learn(dut, port, mac)
+        check_targets("local", final_esi)
+        check_unrelated()
+
+        # An identical configuration must leave the freshly learned MACs alone.
+        configure(command)
+        for _ in range(3):
+            # Observe a quiet interval so a queued dataplane deletion cannot
+            # hide behind the first successful control-plane snapshot.
+            time.sleep(1)
+            check_targets("local", final_esi)
+            check_unrelated()
+    finally:
+        for mac in macs:
+            dut.run("bridge fdb del {} dev {} vlan 1000 master".format(mac, port))
+        dut.run("bridge fdb del {} dev hostbond2 vlan 1000 master".format(other_mac))
+        remote.run(
+            "bridge fdb del {} dev hostbond2 vlan 1000 master".format(remote_mac)
+        )
+        configure("no evpn mh bypass", "evpn mh es-id 1")
+        for router, ageing_time in ageing_times:
+            router.cmd_raises(
+                "ip link set dev bridge type bridge ageing_time {}".format(ageing_time)
+            )
 
 
 def check_type4_route(dut, esi, originator, expected, self_orig=False):
