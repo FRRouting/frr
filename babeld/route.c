@@ -781,7 +781,8 @@ struct babel_route *update_route(const unsigned char *router_id, const unsigned 
 		}
 
 		route->src = retain_source(src);
-		if ((feasible || keep_unfeasible) && refmetric < INFINITY)
+		if ((feasible || keep_unfeasible || !route->installed) &&
+		    refmetric < INFINITY)
 			route->time = babel_now.tv_sec;
 		route->seqno = seqno;
 
