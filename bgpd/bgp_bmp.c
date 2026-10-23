@@ -1272,8 +1272,13 @@ static struct stream *bmp_update(const struct prefix *p, struct prefix_rd *prd,
 	total_attr_len = bgp_packet_attribute(NULL, peer, s, attr, &vecarr, NULL, afi, safi, peer,
 					      NULL, NULL, 0, 0, 0, 0, NULL, NULL, true);
 
-	/* peer_cap_enhe & add-path removed */
-	if (afi == AFI_IP && safi == SAFI_UNICAST)
+	/*
+	 * With extended next-hop negotiated (RFC 8950), bgp_packet_attribute()
+	 * leaves out the legacy NEXT_HOP attribute, so IPv4 unicast must be
+	 * encoded in MP_REACH_NLRI with its IPv6 next hop, as
+	 * subgroup_update_packet() does. Add-path is not handled here.
+	 */
+	if (afi == AFI_IP && safi == SAFI_UNICAST && !peer_cap_enhe(peer, afi, safi))
 		stream_put_prefix(s, p);
 	else {
 		size_t p1 = stream_get_endp(s);
