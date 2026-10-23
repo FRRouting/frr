@@ -326,6 +326,17 @@ static int vty_mgmt_handle_error_reply(struct mgmt_fe_client *client, uintptr_t 
 
 	vty_out(vty, "%% %s (for %s, client %s)\n", errstr, vty->mgmt_req_pending_cmd, cname);
 
+	//"MESSAGE_COMMCFG_REQ" need extra unlock when validate failed by mgmtd:
+	//avoid assert(!vty->mgmt_locked_candidate_ds) at next vty_mgmt_send_config_data.
+	//TODO: if a command(with vty->node chg) failed, vty->node rollback also required (seems difficult).
+	//      o/w vtysh and mgmtd will be inconsistent. need an "end" command aligns them.
+	if ((!vty->pending_allowed) && strmatch(vty->mgmt_req_pending_cmd, "MESSAGE_COMMCFG_REQ")) {
+		if (vty->mgmt_locked_running_ds)
+			vty_mgmt_unlock_running_inline(vty);
+		if (vty->mgmt_locked_candidate_ds)
+			vty_mgmt_unlock_candidate_inline(vty);
+	}
+
 	vty_mgmt_resume_response(vty, error ? CMD_WARNING : CMD_SUCCESS);
 
 	return 0;
