@@ -61,7 +61,9 @@ Scenarios
 
 import json
 import os
+import shutil
 import sys
+import tempfile
 import time
 
 import pytest
@@ -70,13 +72,13 @@ CWD = os.path.dirname(os.path.realpath(__file__))
 sys.path.append(os.path.join(CWD, "../"))
 
 # pylint: disable=C0413
-from lib.topogen import Topogen, TopoRouter, get_topogen
+from lib.topogen import Topogen, get_topogen
 from lib.topolog import logger
 
 
 pytestmark = [pytest.mark.isisd]
 
-RUNTIME = "/tmp/isis-srv6-locator-state"
+RUNTIME = None
 TARGET_SYSID = "0000.0000.0001"
 FAKE_SYSID = "0000.0000.0002"
 LOCATOR_A = "2001:db8:100::/64"
@@ -95,50 +97,69 @@ def build_topo(tgen):
 
 def setup_module(mod):
     "Sets up the pytest environment"
-    tgen = Topogen(build_topo, mod.__name__)
-    tgen.start_topology()
+    # pylint: disable=W0603
+    global RUNTIME
+    RUNTIME = tempfile.mkdtemp(prefix="isis-srv6-locator-state-")
+    peer_started = False
+    try:
+        tgen = Topogen(build_topo, mod.__name__)
+        tgen.start_topology()
 
-    r1 = tgen.gears["r1"]
-    r1.load_config(TopoRouter.RD_ZEBRA, os.path.join(CWD, "r1/zebra.conf"))
-    r1.load_config(TopoRouter.RD_ISIS, os.path.join(CWD, "r1/isisd.conf"))
+        r1 = tgen.gears["r1"]
+        r1.load_frr_config(os.path.join(CWD, "r1/frr.conf"))
 
-    tgen.start_router()
+        tgen.start_router()
 
-    os.makedirs(os.path.join(RUNTIME, "spool"), exist_ok=True)
-    cfg = {
-        "iface": "r2-eth0",
-        "target_sysid": TARGET_SYSID.replace(".", ""),
-        "fake_sysid": FAKE_SYSID.replace(".", ""),
-        "stop_file": os.path.join(RUNTIME, "peer.stop"),
-        "spool_dir": os.path.join(RUNTIME, "spool"),
-        "events_path": os.path.join(RUNTIME, "peer_events.jsonl"),
-        "template_path": os.path.join(RUNTIME, "peer_iih_template.hex"),
-    }
-    with open(os.path.join(RUNTIME, "peer_input.json"), "w") as fp:
-        json.dump(cfg, fp)
-    for stale in (cfg["stop_file"], cfg["events_path"], cfg["template_path"],
-                  os.path.join(RUNTIME, "peer.out")):
-        if os.path.exists(stale):
-            os.remove(stale)
-    for stale in os.listdir(os.path.join(RUNTIME, "spool")):
-        os.remove(os.path.join(RUNTIME, "spool", stale))
-    r2 = tgen.gears["r2"]
-    r2.cmd("ip link set r2-eth0 up")
-    r2.cmd(
-        "nohup python3 {}/peer_helper.py {} > {} 2>&1 &".format(
-            CWD, os.path.join(RUNTIME, "peer_input.json"),
-            os.path.join(RUNTIME, "peer.out")
+        spool = os.path.join(RUNTIME, "spool")
+        os.makedirs(spool)
+        cfg = {
+            "iface": "r2-eth0",
+            "target_sysid": TARGET_SYSID.replace(".", ""),
+            "fake_sysid": FAKE_SYSID.replace(".", ""),
+            "stop_file": os.path.join(RUNTIME, "peer.stop"),
+            "spool_dir": spool,
+            "events_path": os.path.join(RUNTIME, "peer_events.jsonl"),
+            "template_path": os.path.join(RUNTIME, "peer_iih_template.hex"),
+        }
+        with open(os.path.join(RUNTIME, "peer_input.json"), "w") as fp:
+            json.dump(cfg, fp)
+        r2 = tgen.gears["r2"]
+        r2.cmd("ip link set r2-eth0 up")
+        r2.cmd(
+            "nohup python3 {}/peer_helper.py {} > {} 2>&1 &".format(
+                CWD, os.path.join(RUNTIME, "peer_input.json"),
+                os.path.join(RUNTIME, "peer.out")
+            )
         )
-    )
+        peer_started = True
+    except Exception:
+        if peer_started:
+            _stop_peer(tgen)
+        shutil.rmtree(RUNTIME, ignore_errors=True)
+        raise
+
+
+def _stop_peer(tgen):
+    "Signal the fake peer to exit and wait until its process is gone."
+    with open(os.path.join(RUNTIME, "peer.stop"), "w") as fp:
+        fp.write("stop\n")
+    r2 = tgen.gears["r2"]
+    deadline = time.monotonic() + 10
+    while time.monotonic() < deadline:
+        if not r2.cmd("pgrep -f '[p]eer_helper.py'").strip():
+            return
+        time.sleep(0.5)
+    r2.cmd("pkill -f '[p]eer_helper.py'")
 
 
 def teardown_module():
     "Teardown the pytest environment"
     tgen = get_topogen()
-    with open(os.path.join(RUNTIME, "peer.stop"), "w") as fp:
-        fp.write("stop\n")
-    time.sleep(2)
-    tgen.stop_topology()
+    try:
+        _stop_peer(tgen)
+        shutil.rmtree(RUNTIME)
+    finally:
+        tgen.stop_topology()
 
 
 def peer_ready():
