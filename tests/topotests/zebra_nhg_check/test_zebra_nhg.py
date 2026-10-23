@@ -20,6 +20,7 @@ import re
 import sys
 import pytest
 import json
+from time import sleep
 
 from lib.common_config import (
     kill_router_daemons,
@@ -333,6 +334,11 @@ def test_bgp_shutdown_some_links():
     # First check that all BGP routes are using the same nexthop group
     def check_nhg_consistency():
         nonlocal first_nhg
+        # The goal is to ensure we are re-using the same NHG ID.
+        # Reset per attempt so a transient split during route churn
+        # (multiple NHGs co-existing before convergence) doesn't latch a
+        # stale NHG ID on first_nhg that later mismatches every retry.
+        first_nhg = None
         output = net["r2"].cmd('vtysh -c "show ip route bgp json"')
         try:
             nhg_data = json.loads(output)
