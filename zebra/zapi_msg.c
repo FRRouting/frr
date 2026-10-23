@@ -623,7 +623,7 @@ int zsend_redistribute_route(int cmd, struct zserv *client, const struct route_n
 	SET_FLAG(api.message, ZAPI_MESSAGE_MTU);
 	api.mtu = re->mtu;
 
-	struct stream *s = stream_new_expandable(ZEBRA_MAX_PACKET_SIZ);
+	struct stream *s = stream_new_expandable(ZEBRA_SMALL_PACKET_SIZE);
 
 	/* Encode route and send. */
 	if (zapi_route_encode(cmd, s, &api) < 0) {
