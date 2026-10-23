@@ -30,6 +30,7 @@ AS 65001                 RID 1.1.1.2
 import os
 import sys
 import json
+import time
 import pytest
 import functools
 
@@ -438,6 +439,111 @@ def test_bgp_med_based_selection():
     assert med_values.get("192.16.4.4") < med_values.get(
         "192.16.3.3"
     ), "R4's MED should be lower than R3's"
+
+
+def test_unchanged_maximum_paths_skips_bestpath_recalculation():
+    """Verify repeated maximum-paths commands do not process routes again."""
+    tgen = get_topogen()
+
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    r1 = tgen.gears["r1"]
+    prefix = "192.168.199.0/24"
+
+    for router, neighbor in (
+        (tgen.gears["r3"], "192.16.3.1"),
+        (tgen.gears["r4"], "192.16.4.1"),
+    ):
+        router.vtysh_cmd(
+            """
+configure terminal
+ router bgp {}
+  address-family ipv4 unicast
+   neighbor {} activate
+""".format(
+                "65003" if router.name == "r3" else "65024", neighbor
+            )
+        )
+
+    assert _converge_bgp(
+        r1, ["192.16.2.2", "192.16.3.3", "192.16.4.4"]
+    ), "BGP did not converge on r1"
+
+    def prefix_is_present():
+        output = json.loads(
+            r1.vtysh_cmd("show bgp ipv4 unicast {} json".format(prefix))
+        )
+        return None if output.get("pathCount") == 3 else output
+
+    _, result = topotest.run_and_expect(prefix_is_present, None, count=60, wait=1)
+    assert result is None, "{} did not receive three paths".format(prefix)
+
+    r1.vtysh_cmd(
+        """
+configure terminal
+ debug bgp bestpath {}
+""".format(
+            prefix
+        )
+    )
+
+    def bestpath_run_count():
+        return r1.net.getLog("log", "bgpd").count(prefix)
+
+    def configure_and_expect_recalculation(command):
+        count = bestpath_run_count()
+        r1.vtysh_cmd(
+            """
+configure terminal
+ router bgp 65001
+  address-family ipv4 unicast
+   {}
+""".format(
+                command
+            )
+        )
+        time.sleep(1)
+        msg = "{} did not recalculate bestpaths".format(command)
+        assert bestpath_run_count() > count, msg
+
+    def configure_and_expect_no_recalculation(command):
+        count = bestpath_run_count()
+        r1.vtysh_cmd(
+            """
+configure terminal
+ router bgp 65001
+  address-family ipv4 unicast
+   {}
+""".format(
+                command
+            )
+        )
+        time.sleep(1)
+        msg = "{} unexpectedly recalculated bestpaths".format(command)
+        assert bestpath_run_count() == count, msg
+
+    commands = [
+        "maximum-paths 2",
+        "maximum-paths ibgp 2",
+        "maximum-paths ibgp 2 equal-cluster-length",
+    ]
+    try:
+        for command in commands:
+            configure_and_expect_recalculation(command)
+            configure_and_expect_no_recalculation(command)
+        for command in ("no maximum-paths", "no maximum-paths ibgp"):
+            configure_and_expect_recalculation(command)
+            configure_and_expect_no_recalculation(command)
+    finally:
+        r1.vtysh_cmd(
+            """
+configure terminal
+ no debug bgp bestpath {}
+""".format(
+                prefix
+            )
+        )
 
 
 if __name__ == "__main__":

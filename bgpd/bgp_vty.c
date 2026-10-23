@@ -2371,9 +2371,22 @@ static int bgp_maxpaths_config_vty(struct vty *vty, int peer_type,
 				maxpaths, multipath_num);
 			return CMD_WARNING_CONFIG_FAILED;
 		}
+	} else {
+		maxpaths = multipath_num;
+		options = false;
+	}
+
+	if ((peer_type == BGP_PEER_EBGP &&
+	     bgp->maxpaths[afi][safi].maxpaths_ebgp == maxpaths) ||
+	    (peer_type == BGP_PEER_IBGP &&
+	     bgp->maxpaths[afi][safi].maxpaths_ibgp == maxpaths &&
+	     bgp->maxpaths[afi][safi].same_clusterlen == (bool)options))
+		return CMD_SUCCESS;
+
+	if (set)
 		ret = bgp_maximum_paths_set(bgp, afi, safi, peer_type, maxpaths,
 					    options);
-	} else
+	else
 		ret = bgp_maximum_paths_unset(bgp, afi, safi, peer_type);
 
 	if (ret < 0) {
