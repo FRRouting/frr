@@ -3422,6 +3422,23 @@ static int unpack_item_oldstyle_ip_reach(uint16_t mtid, uint8_t len, struct stre
 	struct in_addr mask;
 
 	stream_get(&mask, s, 4);
+
+	/* RFC 1195 section 3.10 encodes the mask as part of the reachability
+	 * information, but a prefix can only represent a contiguous mask.
+	 * ip_masklen() counts leading one bits only, so keeping the entry
+	 * would silently fold it into a different prefix.  Skip the entry;
+	 * the remaining entries of the TLV stay valid.
+	 */
+	struct in_addr contiguous;
+
+	masklen2ip(ip_masklen(mask), &contiguous);
+	if (contiguous.s_addr != mask.s_addr) {
+		zlog_warn("ISIS-TLV: %pI4 has non-contiguous netmask %pI4, skipping reach entry",
+			  &rv->prefix.prefix, &mask);
+		sbuf_push(log, indent, "Non-contiguous netmask, skipping reach entry\n");
+		XFREE(MTYPE_ISIS_TLV, rv);
+		return 0;
+	}
 	rv->prefix.prefixlen = ip_masklen(mask);
 
 	format_item_oldstyle_ip_reach(mtid, (struct isis_item *)rv, log, NULL, indent + 2);
