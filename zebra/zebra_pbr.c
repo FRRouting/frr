@@ -159,6 +159,7 @@ void zebra_pbr_rules_free(void *arg)
 
 	rule = (struct zebra_pbr_rule *)arg;
 
+	zebra_pbr_tc_rule_uninstall(rule);
 	(void)dplane_pbr_rule_delete(rule);
 	XFREE(MTYPE_PBR_RULE, rule);
 }
@@ -583,6 +584,8 @@ void zebra_pbr_show_rule_unit(struct zebra_pbr_rule *rule, struct vty *vty)
 	if (CHECK_FLAG(pa->flags, PBR_ACTION_VLAN_STRIP_INNER_ANY))
 		vty_out(vty, "  Action: Strip VLAN ID\n");
 
+	zebra_pbr_tc_show(vty, rule);
+
 	vty_out(vty, "  Tableid: %u\n", prule->action.table);
 	if (zaction->afi == AFI_IP)
 		vty_out(vty, "  Action: nh: %pI4 intf: %s\n",
@@ -733,6 +736,8 @@ void zebra_pbr_add_rule(struct zebra_pbr_rule *rule)
 		new = hash_get(zrouter.rules_hash, rule, pbr_rule_alloc_intern);
 		/* expand the action if needed */
 		zebra_pbr_expand_rule(new);
+		/* classifier: update in place, drop what is no longer needed */
+		zebra_pbr_tc_rule_install(new, found);
 		/* update dataplane */
 		(void)dplane_pbr_rule_update(found, new);
 		/* release the old hash data */
@@ -749,6 +754,7 @@ void zebra_pbr_add_rule(struct zebra_pbr_rule *rule)
 		new = hash_get(zrouter.rules_hash, rule, pbr_rule_alloc_intern);
 		/* expand the action if needed */
 		zebra_pbr_expand_rule(new);
+		zebra_pbr_tc_rule_install(new, NULL);
 		(void)dplane_pbr_rule_add(new);
 	}
 
@@ -756,10 +762,17 @@ void zebra_pbr_add_rule(struct zebra_pbr_rule *rule)
 
 void zebra_pbr_del_rule(struct zebra_pbr_rule *rule)
 {
+	struct zebra_pbr_rule *found;
+
 	if (IS_ZEBRA_DEBUG_PBR)
 		zlog_debug("%s: seq: %d, prior: %d, unique: %d, ifname: %s",
 			   __func__, rule->rule.seq, rule->rule.priority,
 			   rule->rule.unique, rule->rule.ifname);
+
+	/* the classifier state lives in the stored rule */
+	found = pbr_rule_lookup_unique(rule);
+	if (found)
+		zebra_pbr_tc_rule_uninstall(found);
 
 	(void)dplane_pbr_rule_delete(rule);
 
@@ -835,6 +848,7 @@ static void zebra_pbr_cleanup_rules(struct hash_bucket *b, void *data)
 	int *sock = data;
 
 	if (rule->sock == *sock) {
+		zebra_pbr_tc_rule_uninstall(rule);
 		(void)dplane_pbr_rule_delete(rule);
 		pbr_rule_free(rule, true);
 	}

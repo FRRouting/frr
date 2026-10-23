@@ -26,6 +26,7 @@
 #include "pbrd/pbr_zebra.h"
 #include "pbrd/pbr_vty.h"
 #include "pbrd/pbr_debug.h"
+#include "pbrd/pbr_tc.h"
 #include "pbrd/pbr_vty_clippy.c"
 
 /* clang-format off */
@@ -970,6 +971,113 @@ check:
 }
 
 
+/* clang-format off */
+DEFPY  (pbr_map_action_traffic_class,
+	pbr_map_action_traffic_class_cmd,
+	"[no] set traffic-class ![(0-7)$tc]",
+	NO_STR
+	"Set the rest of the command\n"
+	"Classify matching packets into a traffic class\n"
+	"Traffic class (0 lowest .. 7 highest)\n")
+{
+	/* clang-format on */
+	struct pbr_map_sequence *pbrms = VTY_GET_CONTEXT(pbr_map_sequence);
+
+	if (!pbrms)
+		return CMD_WARNING_CONFIG_FAILED;
+
+	if (no) {
+		if (!CHECK_FLAG(pbrms->action_bm, PBR_ACTION_TRAFFIC_CLASS))
+			return CMD_SUCCESS;
+		/*
+		 * Without the traffic class a classify-only sequence has no
+		 * forwarding action and can no longer be encoded, so remove
+		 * it while it still can be.
+		 */
+		if (pbrms_is_classify_only(pbrms))
+			pbr_map_sequence_uninstall(pbrms);
+		UNSET_FLAG(pbrms->action_bm, PBR_ACTION_TRAFFIC_CLASS);
+		pbrms->action_traffic_class = 0;
+		goto check;
+	}
+
+	if (CHECK_FLAG(pbrms->action_bm, PBR_ACTION_TRAFFIC_CLASS) &&
+	    pbrms->action_traffic_class == tc)
+		return CMD_SUCCESS;
+
+	pbrms->action_traffic_class = tc;
+	SET_FLAG(pbrms->action_bm, PBR_ACTION_TRAFFIC_CLASS);
+
+check:
+	pbr_map_check(pbrms, true);
+	return CMD_SUCCESS;
+}
+
+/***********************************************************************
+ *		Traffic class model (global)
+ ***********************************************************************/
+
+/* clang-format off */
+DEFPY  (pbr_tc_default,
+	pbr_tc_default_cmd,
+	"[no] pbr traffic-class default ![(0-7)$tc]",
+	NO_STR
+	PBR_STR
+	"Traffic class model\n"
+	"Traffic class of unclassified traffic\n"
+	"Traffic class\n")
+{
+	/* clang-format on */
+	pbr_tc_set_default(no ? PBR_TC_DEFAULT : tc);
+	return CMD_SUCCESS;
+}
+
+/* clang-format off */
+DEFPY  (pbr_tc_mark_mask,
+	pbr_tc_mark_mask_cmd,
+	"[no] pbr traffic-class mark-mask ![HEX$mask]",
+	NO_STR
+	PBR_STR
+	"Traffic class model\n"
+	"skb->mark bits that also carry the traffic class (3 contiguous bits, 0 = off)\n"
+	"Mask, e.g. 0x00070000\n")
+{
+	/* clang-format on */
+	unsigned long val;
+	char *end;
+
+	if (no) {
+		pbr_tc_set_mark_mask(PBR_TC_MARK_MASK_DFLT);
+		return CMD_SUCCESS;
+	}
+
+	errno = 0;
+	val = strtoul(mask, &end, 16);
+	if (errno || *end != '\0' || val > UINT32_MAX || !pbr_tc_mark_mask_valid((uint32_t)val)) {
+		vty_out(vty, "%% Mark mask must be 0 or 3 contiguous bits, e.g. 0x00070000\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+
+	pbr_tc_set_mark_mask((uint32_t)val);
+	return CMD_SUCCESS;
+}
+
+/* clang-format off */
+DEFPY  (pbr_tc_name_set,
+	pbr_tc_name_set_cmd,
+	"[no] pbr traffic-class (0-7)$tc name ![WORD$name]",
+	NO_STR
+	PBR_STR
+	"Traffic class model\n"
+	"Traffic class\n"
+	"Name used in show output\n"
+	"Name\n")
+{
+	/* clang-format on */
+	pbr_tc_set_name(tc, no ? NULL : name);
+	return CMD_SUCCESS;
+}
+
 /***********************************************************************
  *		pbrms/rule Action Set L2 Fields
  ***********************************************************************/
@@ -1514,7 +1622,7 @@ pbrms_nexthop_group_write_individual_nexthop(
 static void vty_show_pbrms(struct vty *vty,
 			   const struct pbr_map_sequence *pbrms, bool detail)
 {
-	char rbuf[64];
+	char rbuf[256];
 
 	if (pbrms->reason)
 		pbr_map_reason_string(pbrms->reason, rbuf, sizeof(rbuf));
@@ -1603,10 +1711,17 @@ static void vty_show_pbrms(struct vty *vty,
 		vty_out(vty, "        Set Queue ID: %u\n",
 			pbrms->action_queue_id);
 
+	if (CHECK_FLAG(pbrms->action_bm, PBR_ACTION_TRAFFIC_CLASS))
+		vty_out(vty, "        Set Traffic Class: %u (%s)\n", pbrms->action_traffic_class,
+			pbr_tc_name(pbrms->action_traffic_class));
+
 
 	switch (pbrms->forwarding_type) {
 	case PBR_FT_UNSPEC:
-		vty_out(vty, "        Nexthop-Group: Unknown Installed: no\n");
+		if (pbrms_is_classify_only(pbrms))
+			vty_out(vty, "        Classify only (forwarding unchanged)\n");
+		else
+			vty_out(vty, "        Nexthop-Group: Unknown Installed: no\n");
 		break;
 	case PBR_FT_VRF_UNCHANGED:
 		vty_out(vty, "        VRF Unchanged (use interface vrf)\n");
@@ -1657,7 +1772,7 @@ static void vty_json_pbrms(json_object *j, struct vty *vty,
 	json_object *jpbrm, *nexthop_group;
 	char *nhg_name = pbrms->nhgrp_name ? pbrms->nhgrp_name
 					   : pbrms->internal_nhg_name;
-	char rbuf[64];
+	char rbuf[256];
 
 	jpbrm = json_object_new_object();
 
@@ -1783,6 +1898,14 @@ static void vty_json_pbrms(json_object *j, struct vty *vty,
 		json_object_int_add(jpbrm, "actionSetQueueId",
 				    pbrms->action_queue_id);
 
+	/* QoS */
+	if (CHECK_FLAG(pbrms->action_bm, PBR_ACTION_TRAFFIC_CLASS)) {
+		json_object_int_add(jpbrm, "actionSetTrafficClass", pbrms->action_traffic_class);
+		json_object_string_add(jpbrm, "actionSetTrafficClassName",
+				       pbr_tc_name(pbrms->action_traffic_class));
+	}
+	json_object_boolean_add(jpbrm, "classifyOnly", pbrms_is_classify_only(pbrms));
+
 	json_object_array_add(j, jpbrm);
 }
 
@@ -1815,6 +1938,45 @@ static void vty_json_pbr_map(json_object *j, struct vty *vty,
 		vty_json_pbrms(jpbrms, vty, pbrms);
 
 	json_object_object_add(j, "policies", jpbrms);
+}
+
+/* clang-format off */
+DEFPY (show_pbr_traffic_class,
+	show_pbr_traffic_class_cmd,
+	"show pbr traffic-class [json$json]",
+	SHOW_STR
+	PBR_STR
+	"Traffic class model\n"
+	JSON_STR)
+{
+	/* clang-format on */
+	if (json) {
+		json_object *j = json_object_new_object();
+		json_object *jn = json_object_new_array();
+
+		json_object_int_add(j, "count", PBR_TC_COUNT);
+		json_object_int_add(j, "default", pbr_tc.default_tc);
+		json_object_string_add(j, "carrier",
+				       pbr_tc.mark_mask ? "priority+mark" : "priority");
+		json_object_string_addf(j, "markMask", "0x%08x", pbr_tc.mark_mask);
+		for (int i = 0; i < PBR_TC_COUNT; i++)
+			json_object_array_add(jn, json_object_new_string(pbr_tc_name(i)));
+		json_object_object_add(j, "names", jn);
+		vty_json(vty, j);
+		return CMD_SUCCESS;
+	}
+
+	vty_out(vty, "Traffic classes: %d, default %u\n", PBR_TC_COUNT, pbr_tc.default_tc);
+	if (pbr_tc.mark_mask)
+		vty_out(vty, "Carrier: skb->priority = TC, skb->mark = TC << %d (mask 0x%08x)\n",
+			__builtin_ctz(pbr_tc.mark_mask), pbr_tc.mark_mask);
+	else
+		vty_out(vty, "Carrier: skb->priority = TC (mark carrier off)\n");
+	for (int i = 0; i < PBR_TC_COUNT; i++)
+		vty_out(vty, "  TC %d  %-18s mark 0x%08x\n", i, pbr_tc_name(i),
+			pbr_tc_mark(i, pbr_tc.mark_mask));
+
+	return CMD_SUCCESS;
 }
 
 DEFPY (show_pbr_map,
@@ -2113,6 +2275,8 @@ static int pbr_vty_map_config_write_sequence(struct vty *vty,
 	/* meta */
 	if (CHECK_FLAG(pbrms->action_bm, PBR_ACTION_QUEUE_ID))
 		vty_out(vty, " set queue-id %d\n", pbrms->action_queue_id);
+	if (CHECK_FLAG(pbrms->action_bm, PBR_ACTION_TRAFFIC_CLASS))
+		vty_out(vty, " set traffic-class %u\n", pbrms->action_traffic_class);
 
 	switch (pbrms->forwarding_type) {
 	case PBR_FT_UNSPEC:
@@ -2146,6 +2310,7 @@ static int pbr_vty_map_config_write(struct vty *vty)
 
 	pbr_nht_write_table_range(vty);
 	pbr_nht_write_rule_range(vty);
+	pbr_tc_config_write(vty);
 
 	RB_FOREACH(pbrm, pbr_map_entry_head, &pbr_maps) {
 		struct pbr_map_sequence *pbrms;
@@ -2198,6 +2363,9 @@ void pbr_vty_init(void)
 	install_element(CONFIG_NODE, &no_pbr_map_cmd);
 	install_element(CONFIG_NODE, &pbr_set_table_range_cmd);
 	install_element(CONFIG_NODE, &no_pbr_set_table_range_cmd);
+	install_element(CONFIG_NODE, &pbr_tc_default_cmd);
+	install_element(CONFIG_NODE, &pbr_tc_mark_mask_cmd);
+	install_element(CONFIG_NODE, &pbr_tc_name_set_cmd);
 	install_element(INTERFACE_NODE, &pbr_policy_cmd);
 
 	install_element(PBRMAP_NODE, &pbr_map_match_ip_proto_cmd);
@@ -2213,6 +2381,7 @@ void pbr_vty_init(void)
 	install_element(PBRMAP_NODE, &pbr_map_match_mark_cmd);
 
 	install_element(PBRMAP_NODE, &pbr_map_action_queue_id_cmd);
+	install_element(PBRMAP_NODE, &pbr_map_action_traffic_class_cmd);
 	install_element(PBRMAP_NODE, &pbr_map_action_strip_vlan_cmd);
 	install_element(PBRMAP_NODE, &pbr_map_action_vlan_id_cmd);
 	install_element(PBRMAP_NODE, &pbr_map_action_pcp_cmd);
@@ -2231,6 +2400,7 @@ void pbr_vty_init(void)
 	install_element(PBRMAP_NODE, &no_pbr_map_vrf_cmd);
 	install_element(VIEW_NODE, &show_pbr_cmd);
 	install_element(VIEW_NODE, &show_pbr_map_cmd);
+	install_element(VIEW_NODE, &show_pbr_traffic_class_cmd);
 	install_element(VIEW_NODE, &show_pbr_interface_cmd);
 	install_element(VIEW_NODE, &show_pbr_nexthop_group_cmd);
 }

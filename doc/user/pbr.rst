@@ -185,6 +185,40 @@ specified in the rule are also applied to the packet.
    packet mangling,
    so this field will be ignored unless another dataplane provider is used.
 
+.. clicmd:: set traffic-class (0-7)
+
+   Action:
+   classify matching packets into traffic class 0 (lowest) to 7 (highest).
+   Later QoS stages (egress queue mapping and scheduling) act on the class.
+
+   On the Linux kernel dataplane zebra installs, on the ingress hook of
+   the interface the pbr-map is applied to, a ``tc flower`` filter with a
+   ``skbedit`` action that sets ``skb->priority`` to the class and, unless
+   the mark mask is 0, writes the class into the ``skb->mark`` bits
+   selected by ``pbr traffic-class mark-mask``.  The mark is needed because
+   routed IPv4 forwarding rewrites ``skb->priority`` from the TOS byte.
+   Because the filter runs before bridging, classification also works on
+   bridge ports, where FIB rules never match.
+
+   A sequence that has ``set traffic-class`` and no ``set nexthop``,
+   ``set nexthop-group`` or ``set vrf`` is *classify only*: it is valid
+   without a nexthop, leaves forwarding unchanged and installs no FIB
+   rule.  A sequence that has both installs the FIB rule as before and the
+   classifier.
+
+   Each sequence becomes one filter per frame shape it can match, with
+   filter preference ``seq * 8 + n``: untagged IPv4 and IPv6, and, on
+   bridge ports or when a VLAN match is given, 802.1Q-tagged frames.
+
+   ``set traffic-class`` cannot be combined with ``set queue-id`` or
+   ``match mark``, and ``match src-port`` / ``match dst-port`` need
+   ``match ip-protocol`` tcp, udp or sctp.
+
+   The classifier needs the Linux kernel dataplane (tc).  On other
+   platforms the action is accepted, a FIB rule is still installed when the
+   sequence also forwards, and :clicmd:`show pbr rule` reports the
+   classifier as ``unsupported``.
+
 .. clicmd:: set pcp (0-7)
 
    Action:
@@ -374,6 +408,66 @@ causes the policy to be installed into the kernel.
    range, so this range should be configured before adding nexthop groups.
 
    .. seealso:: :ref:`pbr-details`
+
+.. _pbr-traffic-class:
+
+Traffic Class Model
+===================
+
+pbrd classifies packets into 8 traffic classes, 0 to 7, with ``set
+traffic-class``.  These global commands shape the model:
+
+.. clicmd:: pbr traffic-class default (0-7)
+
+   The class of traffic no policy classifies (default 0).  It is used by
+   the QoS stages that follow classification.
+
+.. clicmd:: pbr traffic-class mark-mask HEX
+
+   The ``skb->mark`` bits that carry the class next to ``skb->priority``:
+   three contiguous bits, or 0 to turn the mark carrier off.  The default
+   is ``0x00070000``.  The class is written as ``class << n`` where ``n``
+   is the lowest set bit of the mask.  Pick bits no firewall or VRF
+   configuration uses.  In a pbr-map that classifies, a ``match mark``
+   value inside the mask makes the sequence invalid.
+
+.. clicmd:: pbr traffic-class (0-7) name WORD
+
+   Name shown for a class.  The defaults follow IEEE 802.1Q: best-effort,
+   background, spare, excellent-effort, controlled-load, video, voice,
+   network-control.
+
+.. clicmd:: show pbr traffic-class [json]
+
+   Show the model: classes, names, default and the mark carrier.
+
+zebra shows what it installed with :clicmd:`show pbr rule` (classifier
+state per rule) and ``show zebra tc [interface IFNAME] [json]`` (clsact
+qdiscs and filters with their owner and installed/failed state).
+
+An example that marks EF and AF41 traffic on ``swp1`` without changing
+forwarding:
+
+.. code-block:: frr
+
+   pbr-map QOS-IN seq 10
+    match dscp 46
+    set traffic-class 6
+   pbr-map QOS-IN seq 20
+    match dscp 34
+    set traffic-class 4
+   !
+   interface swp1
+    pbr-policy QOS-IN
+
+which zebra realises as::
+
+   tc qdisc add dev swp1 clsact
+   tc filter add dev swp1 ingress pref 80 protocol ip   flower ip_tos 0xb8/0xfc \
+      action skbedit priority 6 mark 0x60000/0x70000 pipe
+   tc filter add dev swp1 ingress pref 81 protocol ipv6 flower ip_tos 0xb8/0xfc \
+      action skbedit priority 6 mark 0x60000/0x70000 pipe
+   (and pref 160 / 161 for seq 20)
 
 
 .. _pbr-debugs:

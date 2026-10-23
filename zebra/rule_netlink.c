@@ -178,11 +178,14 @@ static ssize_t netlink_oldrule_msg_encoder(struct zebra_dplane_ctx *ctx,
 }
 
 /*
- * Identify valid rule actions for netlink - other actions can't be installed
+ * Identify valid rule actions for netlink - other actions can't be installed.
+ * The traffic class is realised by a tc classifier (zebra_pbr_tc.c), not by
+ * the FIB rule, so it does not stop the rule from being installed.  A
+ * classify-only rule (traffic class, no table) has no FIB rule at all.
  */
 static bool nl_rule_valid_action(uint32_t action)
 {
-	if (action == PBR_ACTION_TABLE)
+	if ((action & ~PBR_ACTION_TRAFFIC_CLASS) == PBR_ACTION_TABLE)
 		return true;
 	else
 		return false;

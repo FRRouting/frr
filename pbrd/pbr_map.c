@@ -27,6 +27,7 @@
 #include "pbr_memory.h"
 #include "pbr_debug.h"
 #include "pbr_vrf.h"
+#include "pbr_tc.h"
 
 DEFINE_MTYPE_STATIC(PBRD, PBR_MAP, "PBR Map");
 DEFINE_MTYPE_STATIC(PBRD, PBR_MAP_SEQNO, "PBR Map Sequence");
@@ -165,10 +166,24 @@ static void pbr_map_pbrms_uninstall(struct pbr_map_sequence *pbrms)
 	pbr_map_pbrms_update_common(pbrms, false, false);
 }
 
+void pbr_map_sequence_uninstall(struct pbr_map_sequence *pbrms)
+{
+	pbr_map_pbrms_uninstall(pbrms);
+}
+
 static const char *const pbr_map_reason_str[] = {
-	"Invalid NH-group",	"Invalid NH",	 "No Nexthops",
-	"Both NH and NH-Group",    "Invalid Src or Dst", "Invalid VRF",
-	"Both VLAN Set and Strip", "Deleting Sequence",
+	"Invalid NH-group",
+	"Invalid NH",
+	"No Nexthops",
+	"Both NH and NH-Group",
+	"Invalid Src or Dst",
+	"Invalid VRF",
+	"Both VLAN Set and Strip",
+	"Deleting Sequence",
+	"Traffic-class with Queue-id",
+	"Traffic-class with Match Mark",
+	"Port Match needs IP Protocol TCP/UDP/SCTP",
+	"Match Mark overlaps Traffic-class Mark-mask",
 };
 
 void pbr_map_reason_string(unsigned int reason, char *buf, int size)
@@ -558,9 +573,26 @@ struct pbr_map_sequence *pbrms_get(const char *name, uint32_t seqno)
 	return pbrms;
 }
 
+bool pbrms_is_classify_only(const struct pbr_map_sequence *pbrms)
+{
+	if (!CHECK_FLAG(pbrms->action_bm, PBR_ACTION_TRAFFIC_CLASS))
+		return false;
+
+	return !pbrms->vrf_unchanged && !pbrms->vrf_lookup && !pbrms->nhg && !pbrms->nhgrp_name;
+}
+
 static void
 pbr_map_sequence_check_nexthops_valid(struct pbr_map_sequence *pbrms)
 {
+	/*
+	 * A classify-only sequence changes no forwarding, so it needs no
+	 * nexthop: it is installed as a classifier only.
+	 */
+	if (pbrms_is_classify_only(pbrms)) {
+		pbrms->nhs_installed = true;
+		return;
+	}
+
 	/* Check if any are present first */
 	if (!pbrms->vrf_unchanged && !pbrms->vrf_lookup && !pbrms->nhg
 	    && !pbrms->nhgrp_name) {
@@ -638,7 +670,8 @@ static void pbr_map_sequence_check_not_empty(struct pbr_map_sequence *pbrms)
 			PBR_ACTION_VLAN_ID |
 			PBR_ACTION_VLAN_STRIP_INNER_ANY |
 
-			PBR_ACTION_QUEUE_ID
+			PBR_ACTION_QUEUE_ID |
+			PBR_ACTION_TRAFFIC_CLASS
 		))
 	) {
 		pbrms->reason |= PBR_MAP_INVALID_EMPTY;
@@ -662,6 +695,52 @@ static void pbr_map_sequence_check_vlan_actions(struct pbr_map_sequence *pbrms)
 }
 
 
+static bool pbr_map_uses_traffic_class(const struct pbr_map *pbrm)
+{
+	const struct pbr_map_sequence *seq;
+	struct listnode *node;
+
+	for (ALL_LIST_ELEMENTS_RO(pbrm->seqnumbers, node, seq))
+		if (CHECK_FLAG(seq->action_bm, PBR_ACTION_TRAFFIC_CLASS))
+			return true;
+
+	return false;
+}
+
+static bool pbr_tc_port_proto_ok(uint8_t ip_proto)
+{
+	return ip_proto == IPPROTO_TCP || ip_proto == IPPROTO_UDP || ip_proto == IPPROTO_SCTP;
+}
+
+static void pbr_map_sequence_check_traffic_class(struct pbr_map_sequence *pbrms)
+{
+	/*
+	 * In a map that classifies, a match mark whose value lands in the TC
+	 * mark bits would also see the bits the classifier sets.  Maps that
+	 * don't use traffic-class are not affected.
+	 */
+	if (CHECK_FLAG(pbrms->filter_bm, PBR_FILTER_FWMARK) && (pbrms->mark & pbr_tc.mark_mask) &&
+	    pbr_map_uses_traffic_class(pbrms->parent))
+		pbrms->reason |= PBR_MAP_INVALID_TC_MARK_OVERLAP;
+
+	if (!CHECK_FLAG(pbrms->action_bm, PBR_ACTION_TRAFFIC_CLASS))
+		return;
+
+	/* queue-id keeps its opaque hardware meaning; one or the other */
+	if (CHECK_FLAG(pbrms->action_bm, PBR_ACTION_QUEUE_ID))
+		pbrms->reason |= PBR_MAP_INVALID_TC_WITH_QUEUE_ID;
+
+	/* the classifier (tc flower) has no fwmark key */
+	if (CHECK_FLAG(pbrms->filter_bm, PBR_FILTER_FWMARK))
+		pbrms->reason |= PBR_MAP_INVALID_TC_FWMARK;
+
+	/* flower matches L4 ports only together with the L4 protocol */
+	if (CHECK_FLAG(pbrms->filter_bm, PBR_FILTER_SRC_PORT | PBR_FILTER_DST_PORT) &&
+	    (!CHECK_FLAG(pbrms->filter_bm, PBR_FILTER_IP_PROTOCOL) ||
+	     !pbr_tc_port_proto_ok(pbrms->ip_proto)))
+		pbrms->reason |= PBR_MAP_INVALID_TC_PORT_NO_PROTO;
+}
+
 /*
  * Checks to see if we think that the pbmrs is valid.  If we think
  * the config is valid return true.
@@ -671,6 +750,7 @@ static void pbr_map_sequence_check_valid(struct pbr_map_sequence *pbrms)
 	pbr_map_sequence_check_nexthops_valid(pbrms);
 	pbr_map_sequence_check_vlan_actions(pbrms);
 	pbr_map_sequence_check_not_empty(pbrms);
+	pbr_map_sequence_check_traffic_class(pbrms);
 }
 
 static bool pbr_map_check_valid_internal(struct pbr_map *pbrm)
