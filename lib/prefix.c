@@ -366,7 +366,7 @@ void prefix_copy(union prefixptr udest, union prefixconstptr usrc)
 	}
 }
 
-bool evpn_addr_same(const struct evpn_addr *e1, const struct evpn_addr *e2)
+static bool evpn_addr_same(const struct evpn_addr *e1, const struct evpn_addr *e2)
 {
 	if (e1->route_type != e2->route_type)
 		return false;
