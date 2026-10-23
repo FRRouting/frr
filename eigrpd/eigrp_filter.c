@@ -125,17 +125,15 @@ void eigrp_distribute_update(struct distribute_ctx *ctx,
 	if (ifp == NULL)
 		return;
 
-	/*struct eigrp_if_info * info = ifp->info;
-	ei = info->eigrp_interface;*/
-	struct eigrp_interface *ei2;
-	/* Find proper interface */
-	frr_each (eigrp_interface_hash, &e->eifs, ei2) {
-		if (strcmp(ei2->ifp->name, ifp->name) == 0) {
-			ei = ei2;
-			break;
-		}
-	}
-	assert(ei != NULL);
+	/*
+	 * A distribute-list can name an interface EIGRP is not running on --
+	 * one no network statement covers, or one whose instance has since
+	 * gone away.  There is nothing to attach the filter to, so leave it
+	 * stored in the distribute context and do nothing here.
+	 */
+	ei = eigrp_if_lookup(e, ifp);
+	if (ei == NULL)
+		return;
 
 	/* Access-list for interface in */
 	if (dist->list[DISTRIBUTE_V4_IN]) {

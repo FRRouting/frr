@@ -289,6 +289,15 @@ struct eigrp_interface *eigrp_if_new(struct eigrp *eigrp, struct interface *ifp,
 
 	ei = XCALLOC(MTYPE_EIGRP_IF, sizeof(struct eigrp_interface));
 
+	/*
+	 * The output queue exists for as long as the instance does.  It used
+	 * to be allocated only when the instance was first brought up, but a
+	 * network statement covering a down interface creates the instance
+	 * without bringing it up, and every teardown path and every goodbye
+	 * hello then dereferenced a NULL queue.
+	 */
+	ei->obuf = eigrp_fifo_new();
+
 	/* Set zebra interface pointer. */
 	ei->ifp = ifp;
 	eigrp_if_refresh_address(ei);
@@ -330,6 +339,18 @@ struct eigrp_interface *eigrp_if_new(struct eigrp *eigrp, struct interface *ifp,
 static void eigrp_if_delete_one(struct eigrp_interface *ei)
 {
 	struct eigrp *eigrp = ei->eigrp;
+
+	/*
+	 * Every path that frees an instance ends here, and not all of them
+	 * stop it first: process teardown in eigrp_finish_final() frees
+	 * instances without going through eigrp_if_down().  Detach anything
+	 * that still points at the instance -- a hello or distribute-list
+	 * timer left armed would run on freed memory, and so would
+	 * eigrp_write() if the instance were still on the write queue.
+	 */
+	event_cancel(&ei->t_hello);
+	event_cancel(&ei->t_distribute);
+	eigrp_if_stream_unset(ei);
 
 	eigrp_nbr_hash_fini(&ei->nbr_hash_head);
 	eigrp_interface_hash_del(&eigrp->eifs, ei);
