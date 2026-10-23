@@ -28,6 +28,7 @@ sys.path.append(os.path.join(CWD, "../"))
 # pylint: disable=C0413
 # Import topogen and topotest helpers
 from lib import topotest
+from lib.checkping import check_ping
 from lib.bgp import get_bgp_summary_json, verify_bgp_rib
 from lib.common_config import (
     apply_raw_config,
@@ -157,11 +158,6 @@ def _test_evpn_ping_router(
     """
     internal function to check ping between r1 and r2
     """
-    if pingrouter.name == "r1":
-        command = "ip netns exec vrf-{0} ping".format(source_vrf)
-    else:
-        command = "ping -I vrf-{0}".format(source_vrf)
-
     dst_router_id = dst_router.name[1:]
     dst_ips = []
 
@@ -176,19 +172,21 @@ def _test_evpn_ping_router(
                 pingrouter.name, dst_router.name, source_vrf, dst_vrf, ip
             )
         )
-        output = pingrouter.run("{0} {1} -f -c 1000".format(command, ip))
-        logger.info(output)
-        if "1000 packets transmitted, 1000 received" not in output:
-            assertmsg = "expected ping from {0}(vrf-{2}) to {1}(vrf-{3}, {4}) should be ok".format(
+        # check_ping auto-detects whether vrf-X is a netns (r1) or a real
+        # VRF device (r2) and retries until a ping succeeds.
+        check_ping(
+            pingrouter.name,
+            ip,
+            True,
+            count=30,
+            wait=3,
+            vrf="vrf-{}".format(source_vrf),
+        )
+        logger.info(
+            "Check Ping from {0}(vrf-{2}) to {1}(vrf-{3}, {4}) OK".format(
                 pingrouter.name, dst_router.name, source_vrf, dst_vrf, ip
             )
-            assert 0, assertmsg
-        else:
-            logger.info(
-                "Check Ping from {0}(vrf-{2}) to {1}(vrf-{3}, {4}) OK".format(
-                    pingrouter.name, dst_router.name, source_vrf, dst_vrf, ip
-                )
-            )
+        )
 
 
 def test_protocols_convergence():
