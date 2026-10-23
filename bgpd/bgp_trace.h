@@ -901,6 +901,24 @@ TRACEPOINT_LOGLEVEL(frr_bgp, fsm_event, TRACE_INFO)
 
 TRACEPOINT_EVENT(
 	frr_bgp,
+	close_after_ibuf,
+	TP_ARGS(struct peer_connection *, connection, uint32_t, queued, bool, resumed),
+	TP_FIELDS(
+		ctf_string(peer, PEER_HOSTNAME(connection->peer))
+		ctf_string(dir, bgp_peer_get_connection_direction_string(connection))
+		ctf_integer(int, fd, connection->fd)
+		ctf_integer(enum bgp_fsm_status, status, connection->status)
+		ctf_integer(uint16_t, conn_errcode, connection->connection_errcode)
+		ctf_integer(uint32_t, queued, queued)
+		ctf_integer(bool, resumed, resumed)
+		ctf_integer(uint32_t, vrf_id, connection->peer->bgp->vrf_id)
+	)
+)
+
+TRACEPOINT_LOGLEVEL(frr_bgp, close_after_ibuf, TRACE_INFO)
+
+TRACEPOINT_EVENT(
+	frr_bgp,
 	bgp_err_str,
 	TP_ARGS(char *, peer_host,
 	  uint64_t, peer_flags,
