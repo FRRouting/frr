@@ -116,6 +116,14 @@ struct isis_circuit {
 	enum isis_hello_padding pad_hellos; /* type of Hello PDUs padding */
 	char ext_domain;		    /* externalDomain   (boolean) */
 	int lsp_regenerate_pending[ISIS_LEVELS];
+	/*
+	 * Sequence number exhaustion restart (7.3.16.1): the pseudonode LSP
+	 * of this circuit was purged with the maximum sequence number and
+	 * must not be re-originated until this circuit's t_lsp_seqno_restart
+	 * has fired.
+	 */
+	struct event *t_lsp_seqno_restart[ISIS_LEVELS];
+	bool pseudo_lsp_seqno_restart_pending[ISIS_LEVELS];
 	uint64_t lsp_error_counter;
 
 	/*

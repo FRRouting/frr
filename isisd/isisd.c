@@ -619,6 +619,8 @@ void isis_area_destroy(struct isis_area *area)
 	event_cancel(&area->t_tick);
 	event_cancel(&area->t_lsp_refresh[0]);
 	event_cancel(&area->t_lsp_refresh[1]);
+	event_cancel(&area->t_lsp_seqno_restart[0]);
+	event_cancel(&area->t_lsp_seqno_restart[1]);
 	event_cancel(&area->t_rlfa_rib_update);
 
 	event_cancel_event(master, area);
@@ -3165,6 +3167,7 @@ static void area_resign_level(struct isis_area *area, int level)
 	struct listnode *node;
 	struct isis_flex_algo_data *data;
 #endif /* ifndef FABRICD */
+	struct isis_circuit *circuit;
 
 	isis_area_invalidate_routes(area, level);
 	isis_area_verify_routes(area);
@@ -3202,6 +3205,17 @@ static void area_resign_level(struct isis_area *area, int level)
 		area->area_tag, level);
 	event_cancel(&area->t_lsp_refresh[level - 1]);
 	area->lsp_regenerate_pending[level - 1] = 0;
+
+	/*
+	 * The exhausted-LSP restart wait is over for this level: the LSP
+	 * database it referred to is gone.
+	 */
+	event_cancel(&area->t_lsp_seqno_restart[level - 1]);
+	area->lsp_seqno_restart_pending[level - 1] = false;
+	frr_each (isis_circuit_list, &area->circuit_list, circuit) {
+		event_cancel(&circuit->t_lsp_seqno_restart[level - 1]);
+		circuit->pseudo_lsp_seqno_restart_pending[level - 1] = false;
+	}
 }
 
 void isis_area_is_type_set(struct isis_area *area, int is_type)

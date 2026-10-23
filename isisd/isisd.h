@@ -167,6 +167,20 @@ struct isis_area {
 	 */
 	int lsp_regenerate_pending[ISIS_LEVELS];
 
+	/*
+	 * Sequence number exhaustion restart (7.3.16.1): when an own LSP's
+	 * sequence number space is exhausted, the LSP is purged with the
+	 * maximum sequence number and a restart timer re-originates it with
+	 * sequence number 1 after MaxAge + ZeroAgeLifetime.  Each waiting
+	 * object has its own timer, so objects exhausted at different times
+	 * restart at their own boundaries: t_lsp_seqno_restart and
+	 * lsp_seqno_restart_pending cover fragment 0 of the own LSP chain,
+	 * while a pseudonode LSP uses t_lsp_seqno_restart and
+	 * pseudo_lsp_seqno_restart_pending of its circuit.
+	 */
+	struct event *t_lsp_seqno_restart[ISIS_LEVELS];
+	bool lsp_seqno_restart_pending[ISIS_LEVELS];
+
 	bool bfd_signalled_down;
 	bool bfd_force_spf_refresh;
 

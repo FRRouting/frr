@@ -52,8 +52,11 @@
 DEFINE_MTYPE_STATIC(ISISD, ISIS_LSP, "ISIS LSP");
 
 static void lsp_refresh(struct event *event);
+static void lsp_seqno_restart(struct event *event);
+static void lsp_seqno_restart_pseudo(struct event *event);
 static void lsp_l1_refresh_pseudo(struct event *event);
 static void lsp_l2_refresh_pseudo(struct event *event);
+static void lsp_purge(struct isis_lsp *lsp, int level, const uint8_t *sender);
 
 static void lsp_destroy(struct isis_lsp *lsp);
 
@@ -324,14 +327,74 @@ void lsp_inc_seqno(struct isis_lsp *lsp, uint32_t seqno)
 	else
 		newseq = seqno + 1;
 
-#ifndef FABRICD
 	/* check for overflow */
 	if (newseq < lsp->hdr.seqno) {
+		struct isis_area *area = lsp->area;
+		int level = lsp->level;
+
+#ifndef FABRICD
 		/* send northbound notification */
 		lsp->area->lsp_exceeded_max_counter++;
 		isis_notif_lsp_exceed_max(lsp->area, lsp->hdr.lsp_id);
-	}
 #endif /* ifndef FABRICD */
+
+		/*
+		 * 7.3.16.1: the sequence number space is exhausted.  Do not
+		 * wrap to 0, which is reserved to be less than any generated
+		 * LSP and would lose every later comparison; purge the LSP
+		 * with the maximum sequence number and re-originate it with
+		 * sequence number 1 after MaxAge + ZeroAgeLifetime, when every
+		 * copy of the exhausted LSP has expired.
+		 */
+		if (IS_DEBUG_UPDATE_PACKETS)
+			zlog_debug(
+				"ISIS-Upd (%s): LSP %pLS seqno space exhausted, purging",
+				area->area_tag, lsp->hdr.lsp_id);
+		lsp->hdr.seqno = UINT32_MAX;
+		lsp_purge(lsp, level, NULL);
+		isis_spf_schedule(area, level);
+		isis_te_lsp_event(lsp, LSP_INC);
+
+		/*
+		 * Record which LSP is waiting for the restart: fragment 0 of
+		 * the own LSP chain, or the pseudonode LSP of the circuit
+		 * named by the pseudonode ID.  Each waiting object gets its
+		 * own timer for MaxAge + ZeroAgeLifetime, so objects
+		 * exhausted at different times are re-originated at their own
+		 * boundaries.
+		 */
+		if (LSP_PSEUDO_ID(lsp->hdr.lsp_id)) {
+			struct isis_circuit *circuit;
+
+			frr_each (isis_circuit_list, &area->circuit_list,
+				  circuit) {
+				if (circuit->circ_type == CIRCUIT_T_BROADCAST
+				    && circuit->circuit_id
+					       == LSP_PSEUDO_ID(lsp->hdr.lsp_id)) {
+					circuit->pseudo_lsp_seqno_restart_pending[level - 1] =
+						true;
+					if (!event_is_scheduled(
+						    circuit->t_lsp_seqno_restart[level - 1]))
+						event_add_timer(
+							master, lsp_seqno_restart_pseudo,
+							&circuit->level_arg[level - 1],
+							area->max_lsp_lifetime[level - 1]
+								+ ZERO_AGE_LIFETIME,
+							&circuit->t_lsp_seqno_restart[level - 1]);
+					break;
+				}
+			}
+		} else {
+			area->lsp_seqno_restart_pending[level - 1] = true;
+			if (!event_is_scheduled(area->t_lsp_seqno_restart[level - 1]))
+				event_add_timer(master, lsp_seqno_restart,
+						&area->lsp_refresh_arg[level - 1],
+						area->max_lsp_lifetime[level - 1]
+							+ ZERO_AGE_LIFETIME,
+						&area->t_lsp_seqno_restart[level - 1]);
+		}
+		return;
+	}
 
 	lsp->hdr.seqno = newseq;
 
@@ -1620,6 +1683,53 @@ static int lsp_regenerate(struct isis_area *area, int level)
 }
 
 /*
+ * Re-originate own LSPs whose sequence number space was exhausted
+ * (7.3.16.1).  The LSPs were purged with sequence number SequenceModulus-1;
+ * once MaxAge + ZeroAgeLifetime have elapsed, every copy of the exhausted
+ * LSPs has expired and it is safe to start again with sequence number 1.
+ * Each waiting object has its own timer, so this callback only restarts
+ * fragment 0 of the own LSP chain; lsp_seqno_restart_pseudo restarts the
+ * pseudonode LSP of a circuit at its own boundary.
+ */
+static void lsp_seqno_restart(struct event *event)
+{
+	struct lsp_refresh_arg *arg = EVENT_ARG(event);
+	struct isis_area *area = arg->area;
+	int level = arg->level;
+
+	assert(area);
+
+	area->t_lsp_seqno_restart[level - 1] = NULL;
+
+	if ((area->is_type & level) == 0)
+		return;
+
+	if (!area->lsp_seqno_restart_pending[level - 1])
+		return;
+	area->lsp_seqno_restart_pending[level - 1] = false;
+	lsp_generate(area, level);
+}
+
+static void lsp_seqno_restart_pseudo(struct event *event)
+{
+	struct isis_circuit_arg *arg = EVENT_ARG(event);
+	struct isis_circuit *circuit = arg->circuit;
+	int level = arg->level;
+
+	assert(circuit);
+
+	circuit->t_lsp_seqno_restart[level - 1] = NULL;
+
+	if ((circuit->area->is_type & level) == 0)
+		return;
+
+	if (!circuit->pseudo_lsp_seqno_restart_pending[level - 1])
+		return;
+	circuit->pseudo_lsp_seqno_restart_pending[level - 1] = false;
+	lsp_generate_pseudo(circuit, level);
+}
+
+/*
  * Something has changed or periodic refresh -> regenerate LSP
  */
 static void lsp_refresh(struct event *event)
@@ -1638,6 +1748,17 @@ static void lsp_refresh(struct event *event)
 	area->lsp_regenerate_pending[level - 1] = 0;
 
 	if ((area->is_type & level) == 0)
+		return;
+
+	/*
+	 * While an exhausted own LSP waits to be re-originated with sequence
+	 * number 1, regenerating it would resurrect it with the exhausted
+	 * (maximum) sequence number; leave it purged until the restart timer
+	 * fires.  lsp_generate() re-arms this refresh timer.  A pseudonode
+	 * LSP waiting for its own restart does not set this flag and must
+	 * not block the refresh of the fragment 0 chain.
+	 */
+	if (area->lsp_seqno_restart_pending[level - 1])
 		return;
 
 	/*
@@ -1887,6 +2008,15 @@ int lsp_generate_pseudo(struct isis_circuit *circuit, int level)
 	    || (circuit->u.bc.is_dr[level - 1] == 0))
 		return ISIS_ERROR;
 
+	/*
+	 * While an exhausted pseudonode LSP waits to be re-originated with
+	 * sequence number 1 (7.3.16.1), do not re-create or regenerate it;
+	 * lsp_seqno_restart_pseudo() re-originates it once MaxAge +
+	 * ZeroAgeLifetime have elapsed.
+	 */
+	if (circuit->pseudo_lsp_seqno_restart_pending[level - 1])
+		return ISIS_OK;
+
 	memcpy(lsp_id, circuit->isis->sysid, ISIS_SYS_ID_LEN);
 	LSP_FRAGMENT(lsp_id) = 0;
 	LSP_PSEUDO_ID(lsp_id) = circuit->circuit_id;
@@ -1947,6 +2077,16 @@ static int lsp_regenerate_pseudo(struct isis_circuit *circuit, int level)
 	    || (circuit->circ_type != CIRCUIT_T_BROADCAST)
 	    || (circuit->u.bc.is_dr[level - 1] == 0))
 		return ISIS_ERROR;
+
+	/*
+	 * While an exhausted pseudonode LSP waits to be re-originated with
+	 * sequence number 1 (7.3.16.1), regenerating it would resurrect it
+	 * with the exhausted (maximum) sequence number; leave it purged
+	 * until the restart timer fires.  lsp_generate_pseudo() re-arms the
+	 * refresh timer.
+	 */
+	if (circuit->pseudo_lsp_seqno_restart_pending[level - 1])
+		return ISIS_OK;
 
 	memcpy(lsp_id, circuit->isis->sysid, ISIS_SYS_ID_LEN);
 	LSP_PSEUDO_ID(lsp_id) = circuit->circuit_id;
@@ -2232,6 +2372,18 @@ void lsp_tick(struct event *event)
 void lsp_purge_pseudo(uint8_t *id, struct isis_circuit *circuit, int level)
 {
 	struct isis_lsp *lsp;
+
+	/*
+	 * While an exhausted own pseudonode LSP waits for its seqno-1
+	 * restart (7.3.16.1), it is already purged.  Purging it again - e.g.
+	 * on DR resignation when the LAN adjacencies go away during the wait -
+	 * would only reset its age_out and let the purge outlive the restart
+	 * timer, so the restart would purge again instead of re-originating
+	 * with sequence number 1.
+	 */
+	if (circuit->pseudo_lsp_seqno_restart_pending[level - 1]
+	    && !memcmp(id, circuit->isis->sysid, ISIS_SYS_ID_LEN))
+		return;
 
 	lsp = lsp_search(&circuit->area->lspdb[level - 1], id);
 	if (!lsp)

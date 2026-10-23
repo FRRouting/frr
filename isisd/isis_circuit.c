@@ -909,6 +909,10 @@ void isis_circuit_down(struct isis_circuit *circuit)
 	event_cancel(&circuit->t_send_psnp[0]);
 	event_cancel(&circuit->t_send_psnp[1]);
 	event_cancel(&circuit->t_read);
+	event_cancel(&circuit->t_lsp_seqno_restart[0]);
+	event_cancel(&circuit->t_lsp_seqno_restart[1]);
+	circuit->pseudo_lsp_seqno_restart_pending[0] = false;
+	circuit->pseudo_lsp_seqno_restart_pending[1] = false;
 
 	if (circuit->tx_queue) {
 		isis_tx_queue_free(circuit->tx_queue);
