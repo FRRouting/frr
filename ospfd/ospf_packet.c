@@ -2937,6 +2937,24 @@ ospf_associate_packet_vl(struct ospf *ospf, struct interface *ifp,
 
 		if (OSPF_AREA_SAME(&vl_area, &rcv_oi->area)
 		    && IPV4_ADDR_SAME(&vl_data->vl_peer, &ospfh->router_id)) {
+			/*
+			 * RFC 2328 Section 15: the virtual neighbor's IP
+			 * address is calculated from the routing table entry
+			 * for the other endpoint (i.e. from its Router-LSA in
+			 * the transit area), and OSPF packets sent over the
+			 * virtual link use that address.  Only associate a
+			 * packet coming from the address the peer is known to
+			 * use; the peer's Router ID alone is public knowledge
+			 * and can be spoofed from any routed source.
+			 */
+			if (!IPV4_ADDR_SAME(&vl_data->peer_addr, &iph->ip_src)) {
+				if (IS_DEBUG_OSPF_EVENT)
+					zlog_debug(
+						"packet source %pI4 does not match virtual peer address %pI4, not associating",
+						&iph->ip_src,
+						&vl_data->peer_addr);
+				return NULL;
+			}
 			if (IS_DEBUG_OSPF_EVENT)
 				zlog_debug("associating packet with %s",
 					   IF_NAME(vl_data->vl_oi));
