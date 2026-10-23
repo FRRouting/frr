@@ -33,6 +33,7 @@ struct isis_flex_algo_alloc_arg {
 
 void *isis_flex_algo_data_alloc(void *arg);
 void isis_flex_algo_data_free(void *data);
+void isis_flex_algos_spftrees_init(struct isis_area *area);
 
 struct isis_router_cap_fad *
 isis_flex_algo_elected(int algorithm, const struct isis_area *area);
