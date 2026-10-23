@@ -1167,7 +1167,9 @@ static struct in_addr *rlfa_pq_node_rtr_id(struct isis_spftree *spftree,
 	if (!lsp)
 		return NULL;
 
-	if (lsp->tlvs->router_cap->router_id.s_addr == INADDR_ANY)
+	/* The Router Capability TLV is optional (RFC 7981). */
+	if (!lsp->tlvs || !lsp->tlvs->router_cap ||
+	    lsp->tlvs->router_cap->router_id.s_addr == INADDR_ANY)
 		return NULL;
 
 	return &lsp->tlvs->router_cap->router_id;
