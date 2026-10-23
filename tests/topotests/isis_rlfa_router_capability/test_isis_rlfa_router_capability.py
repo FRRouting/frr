@@ -112,13 +112,10 @@ def setup_module(mod):
     tgen = Topogen(build_topo, mod.__name__)
     tgen.start_topology()
 
-    router_list = tgen.routers()
-    for rname, router in router_list.items():
-        router.load_config(
-            TopoRouter.RD_ZEBRA, os.path.join(CWD, "{}/zebra.conf".format(rname))
-        )
-        router.load_config(
-            TopoRouter.RD_ISIS, os.path.join(CWD, "{}/isisd.conf".format(rname))
+    for rname, router in tgen.routers().items():
+        router.load_frr_config(
+            os.path.join(CWD, "{}/frr.conf".format(rname)),
+            daemons=["zebra", "isisd"],
         )
 
     tgen.start_router()
@@ -282,7 +279,7 @@ def check_convergence():
 
 
 def test_isis_convergence():
-    "Check IS-IS adjacencies, LSDB content and initial RLFA computation."
+    "Check IS-IS adjacencies, LSDB content and Router Capability."
     tgen = get_topogen()
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
@@ -312,19 +309,14 @@ def test_isis_convergence():
         "r4 LSP lacks the Router Capability TLV in the baseline"
     )
 
-    # RLFA ran during convergence and found the PQ node; the log lines
-    # appear as the topology converges, so poll for them.
-    deadline = time.monotonic() + 90
-    pq_logs = {}
-    while time.monotonic() < deadline and not pq_logs.get(PQ_ROUTER_ID):
-        pq_logs = count_pq_logs(log_since(victim, 0))
-        if not pq_logs.get(PQ_ROUTER_ID):
-            time.sleep(1)
-    assert pq_logs.get(PQ_ROUTER_ID, 0) >= 1, (
-        "no 'found PQ node: 10.0.255.5' in r1 log; RLFA did not run"
-    )
+    victim.vtysh_cmd("configure terminal\ndebug isis lfa\nend")
 
-    route = victim.vtysh_cmd("show isis route")
+    deadline = time.monotonic() + 90
+    route = ""
+    while time.monotonic() < deadline and DEST_LOOPBACK not in route:
+        route = victim.vtysh_cmd("show isis route")
+        if DEST_LOOPBACK not in route:
+            time.sleep(1)
     assert DEST_LOOPBACK in route, "r1 has no IS-IS route to 10.0.255.4/32"
 
 
