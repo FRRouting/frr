@@ -399,6 +399,36 @@ def test_ping():
     check_ping("rt1", "fc00:0:9::1", True, 10, 1)
 
 
+def test_usid_lib_ranges():
+    """Verify uSID LIB ranges reject a start greater than the end."""
+    tgen = get_topogen()
+
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    router = tgen.gears["rt1"]
+    format_context = """configure terminal
+segment-routing
+srv6
+formats
+format usid-f3216
+"""
+
+    output = router.vtysh_cmd(
+        format_context + "local-id-block explicit start 201 end 200\n"
+    )
+    assert "Explicit LIB start (201) cannot be greater than end (200)" in output
+
+    output = router.vtysh_cmd(
+        format_context + "wide-local-id-block start 401 end 400\n"
+    )
+    assert "Wide LIB start (401) cannot be greater than end (400)" in output
+
+    output = router.vtysh_cmd("write terminal")
+    assert "local-id-block explicit start 201 end 200" not in output
+    assert "wide-local-id-block start 401 end 400" not in output
+
+
 # Memory leak test template
 def test_memory_leak():
     "Run the memory leak test and report results."
