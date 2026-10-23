@@ -31,4 +31,6 @@ extern int bgp_evpn_cli_parse_type(int *type, struct cmd_token **argv,
 extern int bgp_evpn_show_all_routes(struct vty *vty, struct bgp *bgp, int type,
 				    bool use_json, int detail);
 
+extern int evpn_show_all_routes_core(struct vty *vty, struct show_bgp *args);
+
 #endif /* _QUAGGA_BGP_EVPN_VTY_H */
