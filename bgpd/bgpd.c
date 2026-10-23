@@ -8286,6 +8286,22 @@ int peer_prefix_list_unset(struct peer *peer, afi_t afi, safi_t safi,
 	return 0;
 }
 
+/*
+ * True if this peer's inbound route-map depends on the changed prefix-list and
+ * the route-map delay timer is enabled.
+ */
+static bool peer_inbound_rmap_with_delay_timer_depends_on_plist(
+	struct peer *peer, afi_t afi, safi_t safi, struct prefix_list *plist)
+{
+	struct bgp_filter *filter = &peer->filter[afi][safi];
+
+	if (!bm->rmap_update_timer || !filter->map[RMAP_IN].name)
+		return false;
+
+	return route_map_depends_on(RMAP_EVENT_PLIST_ADDED, prefix_list_name(plist),
+				    filter->map[RMAP_IN].name);
+}
+
 /* Update prefix-list list. */
 static void peer_prefix_list_update(struct prefix_list *plist)
 {
@@ -8336,6 +8352,13 @@ static void peer_prefix_list_update(struct prefix_list *plist)
 					peer_clear_soft(
 						peer, afi, safi,
 						BGP_CLEAR_SOFT_IN_ORF_PREFIX);
+				else if (plist && prefix_list_afi(plist) == afi &&
+					 filter->plist[FILTER_IN].name &&
+					 strmatch(filter->plist[FILTER_IN].name,
+						  prefix_list_name(plist)) &&
+						 !peer_inbound_rmap_with_delay_timer_depends_on_plist(
+							 peer, afi, safi, plist))
+					peer_on_policy_change(peer, afi, safi, 0);
 			}
 		}
 		for (ALL_LIST_ELEMENTS(bgp->group, node, nnode, group)) {
