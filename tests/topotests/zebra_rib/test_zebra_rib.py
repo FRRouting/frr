@@ -673,6 +673,53 @@ def test_allow_external_route_update_kernel_delete_behavior():
     r1.run("ip route del {} via {} dev r1-eth0 || true".format(prefix, nexthop))
 
 
+def test_route_map_src_nexthop_interface():
+    "Test that route-map 'set src' applies to an interface-only nexthop"
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip("Skipped because of previous test failure")
+
+    r1 = tgen.gears["r1"]
+    r1.vtysh_cmd(
+        """
+        conf
+        no ip protocol static route-map static
+        ip route 10.10.10.1/32 r1-eth0
+        ip route 10.10.10.2/32 r1-eth0
+        """
+    )
+
+    # make sure we wait a little to spot the bug if present
+    sleep(1)
+
+    r1.vtysh_cmd(
+        """
+        conf
+        ip protocol static route-map static
+        """
+    )
+
+    def check_fib_src_installed(router, cmd, expected):
+        output = json.loads(router.cmd(cmd))
+        return topotest.json_cmp(output, expected)
+
+    json_file = "{}/r1/fib_v4_rmap_set_src.json".format(CWD)
+    expected = json.loads(open(json_file).read())
+    test_func = partial(check_fib_src_installed, r1, "ip -j route show", expected)
+
+    logger.info("Test that route-map 'set src' applies to an interface-only nexthop")
+    _, result = topotest.run_and_expect(test_func, None, count=20, wait=1)
+    assert result is None, "Failed"
+
+    r1.vtysh_cmd(
+        """
+        conf
+        no ip route 10.10.10.1/32 r1-eth0
+        no ip route 10.10.10.2/32 r1-eth0
+        """
+    )
+
+
 def test_protodown():
     "Run protodown basic functionality test and report results."
     pdown = False

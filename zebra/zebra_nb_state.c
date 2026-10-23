@@ -862,6 +862,7 @@ lib_vrf_zebra_ribs_rib_route_route_entry_nexthop_group_nexthop_lookup_entry(
 	for (ALL_NEXTHOPS(nhe->nhg, nexthop)) {
 		nexthop_lookup.weight = nexthop->weight;
 		nexthop_lookup.src = nexthop->src;
+		nexthop_lookup.rmap_src = nexthop->rmap_src;
 		if (nexthop_same_no_labels(&nexthop_lookup, nexthop))
 			return nexthop;
 	}
