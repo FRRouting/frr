@@ -1530,8 +1530,8 @@ static int process_snp(uint8_t pdu_type, struct isis_circuit *circuit,
 			   */
 			else if (cmp == LSP_OLDER) {
 				ISIS_CLEAR_FLAG(lsp->SSNflags, circuit);
-				isis_tx_queue_add(circuit->tx_queue, lsp,
-						  TX_LSP_NORMAL);
+				isis_tx_queue_add_if_absent(circuit->tx_queue,
+							    lsp, TX_LSP_NORMAL);
 			}
 			/* 7.3.15.2 b) 4) if it is newer, set SSN and clear SRM
 			   on p2p */
@@ -1612,7 +1612,8 @@ static int process_snp(uint8_t pdu_type, struct isis_circuit *circuit,
 
 		/* on remaining LSPs we set SRM (neighbor knew not of) */
 		for (ALL_LIST_ELEMENTS_RO(lsp_list, node, lsp)) {
-			isis_tx_queue_add(circuit->tx_queue, lsp, TX_LSP_NORMAL);
+			isis_tx_queue_add_if_absent(circuit->tx_queue, lsp,
+						    TX_LSP_NORMAL);
 			resync_needed = true;
 		}
 
