@@ -448,12 +448,14 @@ static void zebra_neigh_ipaddr_update(struct zebra_dplane_ctx *ctx)
 	ns_id_t ns_id;
 	int32_t ndm_ifindex;
 	struct interface *ifp;
+	struct interface *svi_ifp;
 	struct zebra_if *zif;
+	struct zebra_if *zsvi_if;
 	uint16_t ndm_state;
 	uint32_t ndm_family;
 	int l2_len;
 	union sockunion link_layer_ipv4;
-	struct interface *link_if;
+	struct interface *link_if = NULL;
 	struct ethaddr mac;
 	bool is_own;
 	bool is_router;
@@ -510,6 +512,28 @@ static void zebra_neigh_ipaddr_update(struct zebra_dplane_ctx *ctx)
 	if (op == DPLANE_OP_NEIGH_DISCOVER)
 		return;
 
+	/* First preprocess MACVLAN case: just set svi_ifp to linked interface if
+	 * it is MACVLAN
+	 */
+	if (IS_ZEBRA_IF_MACVLAN(ifp)) {
+		svi_ifp = if_lookup_by_index_per_ns(zebra_ns_lookup(ns_id), zif->link_ifindex);
+		if (svi_ifp && svi_ifp->info) {
+			zsvi_if = (struct zebra_if *)svi_ifp->info;
+			if (IS_ZEBRA_DEBUG_KERNEL)
+				zlog_debug("    Neighbor Entry received on MACVLAN %s, processing on SVI %s",
+					   ifp->name, svi_ifp->name);
+		} else {
+			svi_ifp = NULL;
+			zsvi_if = NULL;
+			if (IS_ZEBRA_DEBUG_KERNEL)
+				zlog_debug("    Neighbor Entry received on MACVLAN %s, but linked interface not found, ignoring",
+					   ifp->name);
+		}
+	} else {
+		svi_ifp = ifp;
+		zsvi_if = zif;
+	}
+
 	/* The neighbor is present on an SVI. From this, we locate the
 	 * underlying
 	 * bridge because we're only interested in neighbors on a VxLAN bridge.
@@ -521,17 +545,19 @@ static void zebra_neigh_ipaddr_update(struct zebra_dplane_ctx *ctx)
 	 * interface
 	 * itself
 	 */
-	if (IS_ZEBRA_IF_VLAN(ifp)) {
-		link_if = if_lookup_by_index_per_ns(zebra_ns_lookup(ns_id), zif->link_ifindex);
-		if (!link_if)
-			return;
-	} else if (IS_ZEBRA_IF_BRIDGE(ifp))
-		link_if = ifp;
-	else {
-		link_if = NULL;
-		if (IS_ZEBRA_DEBUG_KERNEL)
-			zlog_debug(
-				"    Neighbor Entry received is not on a VLAN or a BRIDGE, ignoring");
+	if (svi_ifp) {
+		if (IS_ZEBRA_IF_VLAN(svi_ifp)) {
+			link_if = if_lookup_by_index_per_ns(zebra_ns_lookup(ns_id),
+							    zsvi_if->link_ifindex);
+			if (!link_if)
+				return;
+		} else if (IS_ZEBRA_IF_BRIDGE(svi_ifp))
+			link_if = svi_ifp;
+		else {
+			if (IS_ZEBRA_DEBUG_KERNEL)
+				zlog_debug(
+					"    Neighbor Entry received is not on a VLAN or a BRIDGE, ignoring");
+		}
 	}
 
 	if (op == DPLANE_OP_NEIGH_IP_INSTALL) {
@@ -555,7 +581,7 @@ static void zebra_neigh_ipaddr_update(struct zebra_dplane_ctx *ctx)
 				zebra_neigh_add(ns_id, ifp, &ip, &mac, ndm_state);
 
 			if (link_if)
-				zebra_vxlan_handle_kernel_neigh_update(ifp, link_if, &ip, &mac,
+				zebra_vxlan_handle_kernel_neigh_update(svi_ifp, link_if, &ip, &mac,
 								       ndm_state, is_own, is_router,
 								       local_inactive, dp_static);
 			return;
@@ -563,7 +589,7 @@ static void zebra_neigh_ipaddr_update(struct zebra_dplane_ctx *ctx)
 
 		zebra_neigh_del(ns_id, ifp, &ip);
 		if (link_if)
-			zebra_vxlan_handle_kernel_neigh_del(ifp, link_if, &ip);
+			zebra_vxlan_handle_kernel_neigh_del(svi_ifp, link_if, &ip);
 		return;
 	}
 
@@ -577,7 +603,7 @@ static void zebra_neigh_ipaddr_update(struct zebra_dplane_ctx *ctx)
 	 */
 	zebra_neigh_del(ns_id, ifp, &ip);
 	if (link_if)
-		zebra_vxlan_handle_kernel_neigh_del(ifp, link_if, &ip);
+		zebra_vxlan_handle_kernel_neigh_del(svi_ifp, link_if, &ip);
 }
 
 static void zebra_neigh_macfdb_update(struct zebra_dplane_ctx *ctx)
