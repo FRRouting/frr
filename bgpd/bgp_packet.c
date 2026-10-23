@@ -476,8 +476,16 @@ void bgp_generate_updgrp_packets(struct event *event)
 	 * let's stop adding to the outq if we are
 	 * already at the limit.
 	 */
-	if (connection->obuf->count >= bm->outq_limit) {
-		bgp_write_proceed_actions(connection);
+	bool outq_full;
+
+	frr_with_mutex (&connection->io_mtx) {
+		outq_full = CHECK_FLAG(connection->thread_flags, PEER_THREAD_WRITES_PAUSED) ||
+			    connection->obuf->count >= bm->outq_limit;
+		if (outq_full)
+			SET_FLAG(connection->thread_flags, PEER_THREAD_WRITES_PAUSED);
+	}
+
+	if (outq_full) {
 		UNSET_FLAG(peer->sflags, PEER_STATUS_COND_ADV_PENDING);
 		return;
 	}
