@@ -113,6 +113,8 @@ struct iih_info {
 
 	struct isis_tlvs *tlvs;
 	int calculated_type;
+	const char *raw_pdu;
+	size_t raw_pdu_len;
 };
 
 static int process_p2p_hello(struct iih_info *iih)
@@ -476,7 +478,28 @@ static int process_lan_hello(struct iih_info *iih)
 	if ((adj == NULL) || (memcmp(adj->snpa, iih->ssnpa, ETH_ALEN))
 	    || (adj->level != iih->level)) {
 		if (!adj) {
-			/* Do as in 8.4.2.5 */
+			/*
+			 * Do as in 8.4.2.5, but bound the adjacency count:
+			 * each distinct system ID would otherwise pin an
+			 * adjacency (object, expire timer, and a linear-scan
+			 * entry for later IIHs) without limit.  With the
+			 * adjacency database full the new adjacency is
+			 * ignored as in 8.4.2; established adjacencies keep
+			 * refreshing and rejected system IDs can be admitted
+			 * again once slots free up on holdtime expiry, so
+			 * the cap only bites way beyond any real LAN segment.
+			 */
+			if (listcount(iih->circuit->u.bc.adjdb[iih->level - 1])
+			    >= ISIS_MAX_LAN_ADJACENCIES) {
+				iih->circuit->adjacencies_dropped
+					[iih->level - 1]++;
+#ifndef FABRICD
+				isis_notif_reject_adjacency(
+					iih->circuit, "LAN adjacency table full",
+					iih->raw_pdu, iih->raw_pdu_len);
+#endif /* ifndef FABRICD */
+				return ISIS_WARNING;
+			}
 			adj = isis_new_adj(iih->sys_id, iih->ssnpa, iih->level,
 					   iih->circuit);
 		} else {
@@ -673,7 +696,12 @@ static int process_hello(uint8_t pdu_type, struct isis_circuit *circuit,
 	}
 
 	struct iih_info iih = {
-		.circuit = circuit, .ssnpa = ssnpa, .level = level};
+		.circuit = circuit,
+		.ssnpa = ssnpa,
+		.level = level,
+		.raw_pdu = raw_pdu,
+		.raw_pdu_len = pdu_end - pdu_start,
+	};
 
 	/* Generic IIH Header */
 	iih.circ_type = stream_getc(circuit->rcv_stream) & 0x03;
