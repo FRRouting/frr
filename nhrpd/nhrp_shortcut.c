@@ -579,7 +579,7 @@ static void nhrp_shortcut_purge_prefix(struct nhrp_shortcut *s, void *ctx)
 {
 	struct purge_ctx *pctx = ctx;
 
-	if (prefix_match(pctx->p, s->p))
+	if (prefix_contains(pctx->p, s->p))
 		nhrp_shortcut_purge(s, pctx->deleted || !s->cache);
 }
 
