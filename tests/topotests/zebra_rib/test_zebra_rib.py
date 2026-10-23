@@ -713,6 +713,101 @@ def test_protodown():
     assert pdown is False, "Interface r1-eth0-macvlan not set protodown off"
 
 
+def test_zebra_kernel_route_relearn():
+    """
+    Test kernel routes added while zebra is still starting up.
+
+    A route created in that interval is delivered twice: once as an
+    RTM_NEWROUTE event on the socket kernel_init() subscribes to, and again in
+    the RTM_GETROUTE dump reply that route_read() parses once interface and
+    address discovery has completed.  Neither delivery carries NLM_F_REPLACE,
+    so the second one was treated as a distinct route and kept as a second RIB
+    entry.  The kernel only ever sends one delete, which frees one of the two,
+    so every route caught in the window leaves a selected and installed entry
+    behind with nothing in the FIB under it.
+
+    Installing the routes one at a time keeps the install running for long
+    enough to span zebra's whole startup, so the window does not have to be
+    timed.  Once the kernel has no route left in the range, neither may zebra.
+    """
+    logger.info("Test kernel routes relearned during zebra startup")
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip("Skipped because of previous test failure")
+
+    r1 = tgen.gears["r1"]
+    count = 10000
+    gateway = "192.168.210.2"
+    done = "/tmp/{}-relearn.done".format(r1.name)
+
+    def route_cmd(action):
+        "One ip invocation per route, as an operator script would do it."
+        return (
+            "rm -f {}; ("
+            "for i in $(seq 0 {}); do "
+            "ip route {} 10.0.$((i / 256)).$((i % 256))/32 via {} dev r1-eth0; "
+            "done; touch {}) >/dev/null 2>&1 &".format(
+                done, count - 1, action, gateway, done
+            )
+        )
+
+    def install_finished():
+        return r1.run("test -f {} && echo done".format(done)).strip()
+
+    def kernel_entries():
+        "Kernel-learned RIB entries zebra holds under 10.0.0.0/16."
+        output = r1.vtysh_cmd("show ip route json", isjson=True)
+        return sum(
+            1
+            for prefix, entries in output.items()
+            if prefix.startswith("10.0.")
+            for entry in entries
+            if entry.get("protocol") == "kernel"
+        )
+
+    def kernel_routes():
+        "Routes the kernel holds under 10.0.0.0/16."
+        output = r1.run("ip -4 route list root 10.0.0.0/16")
+        return len([line for line in output.splitlines() if line.strip()])
+
+    step("Start installing {} kernel routes, then start zebra".format(count))
+    r1.killDaemons(["zebra"])
+    r1.run(route_cmd("add"))
+    r1.startDaemons(["zebra"])
+
+    _, result = topotest.run_and_expect(install_finished, "done", count=300, wait=1)
+    assert result == "done", "the route install did not finish"
+
+    routes = kernel_routes()
+    assert routes == count, "the kernel holds {} of {} routes".format(routes, count)
+
+    step("Every kernel route must be one RIB entry, not two")
+    _, entries = topotest.run_and_expect(kernel_entries, count, count=120, wait=1)
+    assertmsg = '"r1" holds {} kernel entries for {} kernel routes'.format(
+        entries, routes
+    )
+    assert entries == count, assertmsg
+
+    step("Remove every route, zebra must be left with none of them")
+    r1.run(route_cmd("del"))
+
+    _, result = topotest.run_and_expect(install_finished, "done", count=300, wait=1)
+    assert result == "done", "the route removal did not finish"
+
+    routes = kernel_routes()
+    assert routes == 0, "the kernel still holds {} routes".format(routes)
+
+    _, entries = topotest.run_and_expect(kernel_entries, 0, count=120, wait=1)
+    assertmsg = (
+        '"r1" kept {} kernel entries after the kernel deleted every route'.format(
+            entries
+        )
+    )
+    assert entries == 0, assertmsg
+
+    r1.run("rm -f {}".format(done))
+
+
 def test_memory_leak():
     "Run the memory leak test and report results."
     tgen = get_topogen()
