@@ -3058,6 +3058,17 @@ int bgp_mp_reach_parse(struct bgp_attr_parser_args *args,
 		return BGP_ATTR_PARSE_ERROR_NOTIFYPLS;
 	}
 
+	if (afi == AFI_IP6 &&
+	    (safi == SAFI_UNICAST || safi == SAFI_MULTICAST || safi == SAFI_LABELED_UNICAST) &&
+	    attr->mp_nexthop_len != BGP_ATTR_NHLEN_IPV6_GLOBAL &&
+	    attr->mp_nexthop_len != BGP_ATTR_NHLEN_IPV6_GLOBAL_AND_LL) {
+		flog_err(EC_BGP_ATTR_LEN,
+			 "%s: %s sent next-hop length %u invalid for %s in MP_REACH_NLRI",
+			 __func__, peer->host, attr->mp_nexthop_len,
+			 get_afi_safi_str(afi, safi, false));
+		return BGP_ATTR_PARSE_ERROR_NOTIFYPLS;
+	}
+
 	/* Nexthop length check. */
 	switch (attr->mp_nexthop_len) {
 	case 0:
