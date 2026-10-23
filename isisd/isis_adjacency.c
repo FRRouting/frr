@@ -949,11 +949,23 @@ int isis_adj_usage2levels(enum isis_adj_usage usage)
 }
 
 /*
+ * Whether IPv4 may be routed over this circuit using IPv6 link-local nexthops
+ * (as BGP does with RFC 8950): the circuit enables it and IS-IS runs both
+ * address families on it. IPv6 is required locally because only then do our
+ * hellos carry the link-local address the neighbor needs for the reverse
+ * direction; without it the link would be used for IPv4 one way only.
+ */
+bool isis_circuit_ipv4_over_ipv6(const struct isis_circuit *circuit)
+{
+	return circuit->ipv4_over_ipv6_nexthop && circuit->ip_router && circuit->ipv6_router;
+}
+
+/*
  * Compute (fresh, never cached) whether this adjacency currently has a
  * usable IPv4/IPv6 nexthop: the local circuit must have an address in
  * that address family, and the neighbor must have advertised one too.
  */
-bool isis_adj_ipv4_usable(const struct isis_adjacency *adj)
+bool isis_adj_ipv4_native_usable(const struct isis_adjacency *adj)
 {
 	struct isis_circuit *circuit = adj->circuit;
 
@@ -961,6 +973,21 @@ bool isis_adj_ipv4_usable(const struct isis_adjacency *adj)
 		return false;
 
 	return (fabricd_ip_addrs(circuit) && adj->ipv4_address_count);
+}
+
+/*
+ * IPv4 is usable natively, or, failing that, through the neighbor's IPv6
+ * link-local address when the circuit allows IPv4 over IPv6 nexthops.
+ */
+bool isis_adj_ipv4_usable(const struct isis_adjacency *adj)
+{
+	struct isis_circuit *circuit = adj->circuit;
+
+	if (isis_adj_ipv4_native_usable(adj))
+		return true;
+
+	return circuit && isis_circuit_ipv4_over_ipv6(circuit) && listcount(circuit->ipv6_link) &&
+	       adj->ll_ipv6_count;
 }
 
 bool isis_adj_ipv6_usable(const struct isis_adjacency *adj)
