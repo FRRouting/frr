@@ -1763,7 +1763,16 @@ struct srv6_locator *bgp_srv6_locator_lookup(struct bgp *bgp_vrf, struct bgp *bg
 	return NULL;
 }
 
-/* Allocate new peer object, implicitly locked.  */
+char *bgp_srv6_locator_name_lookup(struct bgp *bgp_vrf, struct bgp *bgp)
+{
+	if (bgp_vrf && bgp_vrf->srv6_locator_name[0] != '\0')
+		return bgp_vrf->srv6_locator_name;
+	if (bgp && bgp->srv6_locator_name[0] != '\0')
+		return bgp->srv6_locator_name;
+	return NULL;
+}
+
+/* Allocate new peer object, implicitely locked.  */
 struct peer *peer_new(struct bgp *bgp, union sockunion *su, enum connection_direction dir)
 {
 	afi_t afi;
@@ -4151,9 +4160,11 @@ peer_init:
 			 BGP_VPNVX_RETAIN_ROUTE_TARGET_ALL);
 	}
 
-	for (afi = AFI_IP; afi < AFI_MAX; afi++)
+	for (afi = AFI_IP; afi < AFI_MAX; afi++) {
 		bgp_label_per_nexthop_cache_init(
 			&bgp->mpls_labels_per_nexthop[afi]);
+		bgp_srv6_per_locator_cache_init(&bgp->srv6_locators_per_routemap[afi]);
+	}
 
 	bgp_mplsvpn_nh_label_bind_cache_init(&bgp->mplsvpn_nh_label_bind);
 
@@ -4711,6 +4722,9 @@ int bgp_delete(struct bgp *bgp)
 
 		vpn_leak_zebra_vrf_sid_withdraw(bgp, afi);
 
+		/* route-map locator SIDs, while vrf_id is still set */
+		bgp_srv6_per_locator_cache_reset(bgp, afi);
+
 		/* SRv6 unicast */
 		bgp_srv6_unicast_delete(bgp_default, afi);
 	}
@@ -5086,6 +5100,9 @@ void bgp_free(struct bgp *bgp)
 			route_map_counter_decrement(rmap->map);
 		}
 	}
+
+	for (afi = AFI_IP; afi < AFI_MAX; afi++)
+		bgp_srv6_per_locator_cache_reset(bgp, afi);
 
 	bgp_scan_finish(bgp);
 	bgp_address_destroy(bgp);
@@ -9592,6 +9609,7 @@ void bgp_master_init(struct event_loop *master, const int buffer_size,
 	bm->stalepath_time = BGP_DEFAULT_STALEPATH_TIME;
 	bm->select_defer_time = BGP_DEFAULT_SELECT_DEFERRAL_TIME;
 	bm->rib_stale_time = BGP_DEFAULT_RIB_STALE_TIME;
+	bgp_srv6_locators_init(&bm->srv6_locators);
 
 	bm->peer_clearing_batch_id = 1;
 	/* TODO -- make these configurable */
@@ -9871,6 +9889,7 @@ void bgp_init(unsigned short instance)
 	bgp_lp_vty_init();
 
 	bgp_label_per_nexthop_init();
+	bgp_srv6_locator_per_routemap_init();
 	bgp_mplsvpn_nexthop_init();
 
 	cmd_variable_handler_register(bgp_viewvrf_var_handlers);
@@ -9910,6 +9929,8 @@ void bgp_terminate(void)
 
 	if (bm->listen_sockets)
 		list_delete(&bm->listen_sockets);
+
+	bgp_srv6_locators_finish();
 
 	event_cancel(&bm->t_rmap_update);
 	event_cancel(&bm->t_bgp_sync_label_manager);

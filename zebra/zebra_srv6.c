@@ -887,7 +887,8 @@ static void zebra_srv6_sid_entry_delete_all(struct zebra_srv6_sid *sid)
 
 struct zebra_srv6_sid_entry *zebra_srv6_sid_entry_add(struct zebra_srv6_sid *sid,
 						      const char *locator_name,
-						      struct in6_addr *sid_value, bool is_localonly)
+						      struct in6_addr *sid_value,
+						      bool is_localonly, bool *created)
 {
 	struct zebra_srv6_sid_entry *entry;
 	struct srv6_locator *locator;
@@ -897,8 +898,11 @@ struct zebra_srv6_sid_entry *zebra_srv6_sid_entry_add(struct zebra_srv6_sid *sid
 		return NULL;
 
 	entry = zebra_srv6_sid_entry_lookup(sid, locator_name, is_localonly);
-	if (entry)
+	if (entry) {
+		if (created)
+			*created = false;
 		return entry;
+	}
 
 	entry = zebra_srv6_sid_entry_alloc();
 	entry->locator = locator;
@@ -906,7 +910,8 @@ struct zebra_srv6_sid_entry *zebra_srv6_sid_entry_add(struct zebra_srv6_sid *sid
 	entry->is_localonly = is_localonly;
 	zebra_srv6_sid_client_list_init(&entry->clients_list);
 	zebra_srv6_sid_entry_list_add_tail(&sid->entries, entry);
-
+	if (created)
+		*created = true;
 	return entry;
 }
 
@@ -1858,6 +1863,7 @@ static int get_srv6_sid_explicit(struct zebra_srv6_sid **sid, struct srv6_sid_ct
 	struct srv6_locator *loc = locator;
 	struct zebra_srv6_sid_block *block = NULL;
 	char buf[256];
+	bool created = false;
 
 	if (!ctx || !sid_value)
 		return -1;
@@ -1882,14 +1888,16 @@ static int get_srv6_sid_explicit(struct zebra_srv6_sid **sid, struct srv6_sid_ct
 		 * return the existing SID
 		 */
 		if (zctx->sid->func == sid_func && zctx->sid->wide_func == sid_func_wide) {
-			if (IS_ZEBRA_DEBUG_SRV6)
-				zlog_debug("%s: returning existing SRv6 SID %pI6 ctx %s", __func__,
-					   sid_value, srv6_sid_ctx2str(buf, sizeof(buf), ctx));
-
 			frrtrace(3, frr_zebra, get_srv6_sid_explicit,
 				 srv6_sid_ctx2str(buf, sizeof(buf), ctx), sid_value, 1);
 			*sid = zctx->sid;
-			zebra_srv6_sid_entry_add(*sid, locator->name, sid_value, is_localonly);
+			zebra_srv6_sid_entry_add(*sid, locator->name, sid_value, is_localonly,
+						 &created);
+
+			if (IS_ZEBRA_DEBUG_SRV6)
+				zlog_debug("%s: returning %s SRv6 SID %pI6 ctx %s, locator %s",
+					   __func__, created ? "new" : "existing", sid_value,
+					   srv6_sid_ctx2str(buf, sizeof(buf), ctx), locator->name);
 			return 0;
 		}
 
@@ -1953,7 +1961,7 @@ static int get_srv6_sid_explicit(struct zebra_srv6_sid **sid, struct srv6_sid_ct
 		zebra_srv6_sid_ctx_list_add_tail(&block->sids, zctx);
 	}
 
-	zebra_srv6_sid_entry_add(*sid, locator->name, sid_value, is_localonly);
+	zebra_srv6_sid_entry_add(*sid, locator->name, sid_value, is_localonly, NULL);
 
 	if (IS_ZEBRA_DEBUG_SRV6) {
 		if ((*sid)->wide_func == 0)
@@ -1994,6 +2002,7 @@ static int get_srv6_sid_dynamic(struct zebra_srv6_sid **sid, struct srv6_sid_ctx
 	struct in6_addr sid_value;
 	uint32_t sid_func = 0;
 	char buf[256];
+	bool created = false;
 
 	if (!ctx || !zebra_srv6_locator_is_alloc_ready(locator))
 		return -1;
@@ -2015,9 +2024,15 @@ static int get_srv6_sid_dynamic(struct zebra_srv6_sid **sid, struct srv6_sid_ctx
 			zebra_srv6_sid_compose(&sid_value, locator, zctx->sid->func,
 					       zctx->sid->wide_func, is_localonly);
 		}
-		zebra_srv6_sid_entry_add(zctx->sid, locator->name, &sid_value, is_localonly);
+		zebra_srv6_sid_entry_add(zctx->sid, locator->name, &sid_value, is_localonly,
+					 &created);
 
 		*sid = zctx->sid;
+
+		if (created && IS_ZEBRA_DEBUG_SRV6)
+			zlog_debug("%s: returning %s SRv6 SID %pI6 ctx %s, locator %s", __func__,
+				   created ? "new" : "existing", &sid_value,
+				   srv6_sid_ctx2str(buf, sizeof(buf), ctx), locator->name);
 		return 0;
 	}
 
@@ -2058,11 +2073,12 @@ static int get_srv6_sid_dynamic(struct zebra_srv6_sid **sid, struct srv6_sid_ctx
 	zctx->sid = *sid;
 	zebra_srv6_sid_ctx_list_add_tail(&block->sids, zctx);
 
-	zebra_srv6_sid_entry_add(*sid, locator->name, &sid_value, is_localonly);
+	zebra_srv6_sid_entry_add(*sid, locator->name, &sid_value, is_localonly, NULL);
 
 	if (IS_ZEBRA_DEBUG_SRV6)
-		zlog_debug("%s: allocated new dynamic SRv6 SID %u for context %s", __func__,
-			   (*sid)->func, srv6_sid_ctx2str(buf, sizeof(buf), ctx));
+		zlog_debug("%s: allocated new dynamic SRv6 SID %u (value %pI6), for context %s, locator %s",
+			   __func__, (*sid)->func, &sid_value,
+			   srv6_sid_ctx2str(buf, sizeof(buf), ctx), locator->name);
 
 	return 1;
 }
@@ -2099,9 +2115,10 @@ int get_srv6_sid(struct zebra_srv6_sid **sid, struct srv6_sid_ctx *ctx, struct i
 			    : SRV6_SID_ALLOC_MODE_DYNAMIC;
 
 	if (IS_ZEBRA_DEBUG_SRV6)
-		zlog_debug("%s: received SRv6 SID alloc request: SID ctx %s (%pI6), mode=%s",
-			   __func__, srv6_sid_ctx2str(buf, sizeof(buf), ctx),
-			   sid_value, srv6_sid_alloc_mode2str(alloc_mode));
+		zlog_debug("%s: received SRv6 SID alloc request: SID ctx %s (%pI6), mode=%s, locator %s",
+			   __func__, srv6_sid_ctx2str(buf, sizeof(buf), ctx), sid_value,
+			   srv6_sid_alloc_mode2str(alloc_mode),
+			   locator_name ? locator_name : "<none>");
 
 	frrtrace(3, frr_zebra, get_srv6_sid, srv6_sid_ctx2str(buf, sizeof(buf), ctx), sid_value,
 		 locator_name);
@@ -2817,6 +2834,7 @@ static int srv6_manager_release_sid_internal(struct zserv *client, struct srv6_s
 	struct in6_addr sid_value = {};
 	struct zebra_srv6_sid_block *block = NULL;
 	struct zebra_srv6_sid_entry *entry = NULL;
+	bool found = false;
 
 	if (IS_ZEBRA_DEBUG_SRV6)
 		zlog_debug("%s: releasing SRv6 SID associated with ctx %s",
@@ -2854,6 +2872,7 @@ static int srv6_manager_release_sid_internal(struct zserv *client, struct srv6_s
 	/* Lookup Zebra SID context and release it */
 	frr_each_safe (zebra_srv6_sid_ctx_list, &block->sids, zctx)
 		if (memcmp(&zctx->ctx, ctx, sizeof(struct srv6_sid_ctx)) == 0) {
+			found = true;
 			if (zctx->sid) {
 				entry = zebra_srv6_sid_entry_lookup(zctx->sid, locator->name,
 								    is_localonly);
@@ -2867,7 +2886,7 @@ static int srv6_manager_release_sid_internal(struct zserv *client, struct srv6_s
 			break;
 		}
 
-	if (IS_ZEBRA_DEBUG_SRV6)
+	if (!found && IS_ZEBRA_DEBUG_SRV6)
 		zlog_debug("%s: no SID associated with ctx %s", __func__,
 			   srv6_sid_ctx2str(buf, sizeof(buf), ctx));
 

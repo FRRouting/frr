@@ -1,0 +1,105 @@
+{
+    "vrfId": 0,
+    "vrfName": "default",
+    "routerId": "2.2.2.2",
+    "defaultLocPrf": 100,
+    "localAS": 65002,
+    "routes": {
+        "routeDistinguishers": {
+            "65001:20": {
+                "10.0.0.0/24": [
+                    {
+                        "aspath": {
+                            "string": "65001"
+                        },
+                        "origin": "incomplete",
+                        "metric": 0,
+                        "valid": true,
+                        "bestpath": {
+                            "overall": true,
+                            "selectionReason": "First path received"
+                        },
+                        "remoteLabel": 16,
+                        "remoteTransposedSid": "2001:db08:1:1:1::",
+                        "nexthops": [
+                            {
+                                "ip": "0.0.0.0",
+                                "hostname": "r1",
+                                "afi": "ipv4",
+                                "metric": 0,
+                                "accessible": true,
+                                "used": true
+                            }
+                        ],
+                        "peer": {
+                            "peerId": "2001:db8:12::1",
+                            "routerId": "1.1.1.1"
+                        }
+                    }
+                ],
+                "192.168.1.0/24": [
+                    {
+                        "aspath": {
+                            "string": "65001"
+                        },
+                        "origin": "incomplete",
+                        "metric": 0,
+                        "valid": true,
+                        "bestpath": {
+                            "overall": true,
+                            "selectionReason": "First path received"
+                        },
+                        "remoteLabel": 16,
+                        "remoteTransposedSid": "2001:db09:1:2:1::",
+                        "nexthops": [
+                            {
+                                "ip": "0.0.0.0",
+                                "hostname": "r1",
+                                "afi": "ipv4",
+                                "metric": 0,
+                                "accessible": true,
+                                "used": true
+                            }
+                        ],
+                        "peer": {
+                            "peerId": "2001:db8:12::1",
+                            "routerId": "1.1.1.1"
+                        }
+                    }
+                ],
+                "192.168.200.0/24": [
+                    {
+                        "aspath": {
+                            "string": "65001"
+                        },
+                        "origin": "incomplete",
+                        "metric": 0,
+                        "valid": true,
+                        "bestpath": {
+                            "overall": true,
+                            "selectionReason": "First path received"
+                        },
+                        "remoteLabel": 16,
+                        "remoteTransposedSid": "2001:db08:1:1:1::",
+                        "nexthops": [
+                            {
+                                "ip": "0.0.0.0",
+                                "hostname": "r1",
+                                "afi": "ipv4",
+                                "metric": 0,
+                                "accessible": true,
+                                "used": true
+                            }
+                        ],
+                        "peer": {
+                            "peerId": "2001:db8:12::1",
+                            "routerId": "1.1.1.1"
+                        }
+                    }
+                ]
+            }
+        }
+    },
+    "totalRoutes": 4,
+    "totalPaths": 4
+}

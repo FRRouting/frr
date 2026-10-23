@@ -21,6 +21,7 @@
 PREDECL_LIST(zebra_announce);
 PREDECL_LIST(zebra_l2_vni);
 PREDECL_HASH(bgp_upa_prefix_hash);
+PREDECL_RBTREE_UNIQ(bgp_srv6_locators);
 
 enum bgp_bp_install_type {
 	BGP_BP_INSTALL_ROUTE,
@@ -266,6 +267,9 @@ struct bgp_master {
 	/* Limit the number of clearing dests we'll process per callback */
 	uint32_t peer_clearing_batch_max_dests;
 
+	/* All SRv6 locators, sorted by name. */
+	struct bgp_srv6_locators_head srv6_locators;
+
 	QOBJ_FIELDS;
 };
 DECLARE_QOBJ_TYPE(bgp_master);
@@ -299,6 +303,7 @@ struct srv6_policy {
 	struct in6_addr *sid;
 	struct srv6_locator *sid_locator;
 	struct in6_addr *zebra_sid_last_sent;
+	enum srv6_sid_alloc_mode zebra_sid_alloc_mode_last_sent;
 	char *rmap_name;
 	uint32_t flags;
 #define SRV6_POLICY_FLAG_BEHAVIOR_DT46 (1 << 0)
@@ -330,9 +335,8 @@ struct vpn_policy {
 #define BGP_VPN_POLICY_TOVPN_SID_EXPLICIT     (1 << 6)
 /* Is this RD value set by the cli? */
 #define BGP_VPN_POLICY_TOVPN_RD_CLI_SET       (1 << 7)
-#define BGP_VPN_POLICY_TOVPN_SID_FUNC_WIDE    (1 << 8)
 /* Is this RT value set by the cli? */
-#define BGP_VPN_POLICY_TOVPN_RT_CLI_SET (1 << 9)
+#define BGP_VPN_POLICY_TOVPN_RT_CLI_SET (1 << 8)
 
 	/*
 	 * If we are importing another vrf into us keep a list of
@@ -355,6 +359,7 @@ struct vpn_policy {
 	struct srv6_locator *tovpn_sid_locator;
 	uint32_t tovpn_sid_transpose_label;
 	struct in6_addr *tovpn_zebra_vrf_sid_last_sent;
+	enum srv6_sid_alloc_mode tovpn_zebra_vrf_sid_alloc_mode_last_sent;
 };
 
 /*
@@ -515,6 +520,9 @@ struct as_confed {
 
 struct bgp_mplsvpn_nh_label_bind_cache;
 PREDECL_RBTREE_UNIQ(bgp_mplsvpn_nh_label_bind_cache);
+
+struct bgp_srv6_per_locator_cache;
+PREDECL_RBTREE_UNIQ(bgp_srv6_per_locator_cache);
 
 /* List of peers that have connection errors in the io pthread */
 PREDECL_DLIST(bgp_peer_conn_errlist);
@@ -848,6 +856,9 @@ struct bgp {
 	/* Tree for next-hop lookup cache. */
 	struct bgp_nexthop_cache_head nexthop_cache_table[AFI_MAX];
 
+	/* Tree for srv6 locator context per BGP/AFI */
+	struct bgp_srv6_per_locator_cache_head srv6_locators_per_routemap[AFI_MAX];
+
 	/* Tree for import-check */
 	struct bgp_nexthop_cache_head import_check_table[AFI_MAX];
 
@@ -1071,7 +1082,6 @@ struct bgp {
 /* per-VRF toVPN SID */
 #define BGP_VRF_TOVPN_SID_AUTO              (1 << 7)
 #define BGP_VRF_TOVPN_SID_EXPLICIT	    (1 << 8)
-#define BGP_VRF_TOVPN_SID_FUNC_WIDE	    (1 << 9)
 
 	/* unique ID for auto derivation of RD for this vrf */
 	uint16_t vrf_rd_id;
@@ -1138,6 +1148,7 @@ struct bgp {
 	struct srv6_locator *tovpn_sid_locator;
 	uint32_t tovpn_sid_transpose_label;
 	struct in6_addr *tovpn_zebra_vrf_sid_last_sent;
+	enum srv6_sid_alloc_mode tovpn_zebra_vrf_sid_alloc_mode_last_sent;
 	bool srv6_only;
 
 	/* BGP L3 service IPv4/v6 SRv6 backend */
@@ -3461,6 +3472,7 @@ void bgp_clearing_batch_end_event_start(struct bgp *bgp);
 
 bool bgp_srv6_locator_is_configured(struct bgp *bgp);
 struct srv6_locator *bgp_srv6_locator_lookup(struct bgp *bgp_vrf, struct bgp *bgp);
+char *bgp_srv6_locator_name_lookup(struct bgp *bgp_vrf, struct bgp *bgp);
 
 #ifdef _FRR_ATTRIBUTE_PRINTFRR
 /* clang-format off */

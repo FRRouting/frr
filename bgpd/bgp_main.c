@@ -32,6 +32,7 @@
 #include "bgpd/bgp_attr.h"
 #include "bgpd/bgp_route.h"
 #include "bgpd/bgp_mplsvpn.h"
+#include "bgpd/bgp_srv6.h"
 #include "bgpd/bgp_aspath.h"
 #include "bgpd/bgp_dump.h"
 #include "bgpd/bgp_route.h"
@@ -332,6 +333,7 @@ static int bgp_vrf_enable(struct vrf *vrf)
 static int bgp_vrf_disable(struct vrf *vrf)
 {
 	struct bgp *bgp;
+	afi_t afi;
 
 	if (vrf->vrf_id == VRF_DEFAULT)
 		return 0;
@@ -352,6 +354,10 @@ static int bgp_vrf_disable(struct vrf *vrf)
 				   bgp_get_default(), bgp);
 		vpn_leak_prechange(BGP_VPN_POLICY_DIR_FROMVPN, AFI_IP6,
 				   bgp_get_default(), bgp);
+
+		/* route-map locator SIDs, while vrf_id is still set */
+		for (afi = AFI_IP; afi < AFI_MAX; afi++)
+			bgp_srv6_per_locator_cache_reset(bgp, afi);
 
 		bgp_handle_socket(bgp, vrf, VRF_UNKNOWN, false);
 		/* We have instance configured, unlink from VRF and make it

@@ -8,14 +8,21 @@
 #include <zebra.h>
 
 #include "log.h"
+#include "vty.h"
 #include "zclient.h"
 
+#include "bgpd/bgp_memory.h"
 #include "bgpd/bgp_debug.h"
 #include "bgpd/bgp_mplsvpn.h"
 #include "bgpd/bgp_srv6.h"
+#include "bgpd/bgp_zebra.h"
 #include "bgpd/bgpd.h"
 
-extern struct zclient *bgp_zclient;
+#include "bgpd/bgp_srv6_clippy.c"
+
+DEFINE_MTYPE_STATIC(BGPD, SRV6_LOCATOR_EXTRA, "BGP SRv6 Extra locator");
+DEFINE_MTYPE_STATIC(BGPD, SRV6_PER_LOCATOR_CACHE, "BGP SRv6 per locator cache");
+DEFINE_MTYPE_STATIC(BGPD, BGP_SRV6_LOCATOR, "BGP SRv6 locator");
 
 static bool bgp_srv6_unicast_dt46_needs_sid_request(struct bgp *bgp, afi_t afi)
 {
@@ -51,6 +58,8 @@ static bool bgp_srv6_unicast_dt46_needs_sid_request(struct bgp *bgp, afi_t afi)
 		bgp->srv6_unicast[afi].zebra_sid_last_sent = XCALLOC(MTYPE_BGP_SRV6_SID,
 								     sizeof(struct in6_addr));
 		*bgp->srv6_unicast[afi].zebra_sid_last_sent = *bgp->srv6_unicast[afi].sid;
+		bgp->srv6_unicast[afi].zebra_sid_alloc_mode_last_sent =
+			bgp->srv6_unicast[other_afi].zebra_sid_alloc_mode_last_sent;
 
 		return false;
 	}
@@ -84,6 +93,7 @@ void bgp_srv6_unicast_sid_withdraw_dt46(struct bgp *bgp, afi_t afi)
 		if (bgp->srv6_unicast[afi].sid_locator) {
 			ctx.behavior = ZEBRA_SEG6_LOCAL_ACTION_END_DT46;
 			ctx.vrf_id = bgp->vrf_id;
+			ctx.alloc_mode = bgp->srv6_unicast[afi].zebra_sid_alloc_mode_last_sent;
 			bgp_zebra_release_srv6_sid(&ctx, bgp->srv6_unicast[afi].sid_locator->name);
 		}
 		if (bgp->srv6_unicast[afi].sid)
@@ -143,9 +153,13 @@ void bgp_srv6_unicast_ensure_afi_sid(struct bgp *bgp, afi_t afi)
 				 __func__, bgp->name_pretty, afi2str(afi));
 			return;
 		}
+		ctx.alloc_mode = SRV6_SID_ALLOC_MODE_EXPLICIT;
 	} else if (unicast_sid_explicit) {
 		unicast_sid = *(bgp->srv6_unicast[afi].sid_explicit);
-	} else if (!unicast_sid_auto) {
+		ctx.alloc_mode = SRV6_SID_ALLOC_MODE_EXPLICIT;
+	} else if (unicast_sid_auto) {
+		ctx.alloc_mode = SRV6_SID_ALLOC_MODE_DYNAMIC;
+	} else {
 		zlog_err("%s: neither index, auto, nor explicit mode is selected.",  __func__);
 		return;
 	}
@@ -155,7 +169,9 @@ void bgp_srv6_unicast_ensure_afi_sid(struct bgp *bgp, afi_t afi)
 	if (!bgp_zebra_request_srv6_sid(&ctx, &unicast_sid, locator_bgp->name, &sid_func)) {
 		zlog_err("%s: failed to request sid for bgp %s: afi %s", __func__,
 			 bgp->name_pretty, afi2str(afi));
+		return;
 	}
+	bgp->srv6_unicast[afi].zebra_sid_alloc_mode_last_sent = ctx.alloc_mode;
 }
 
 void bgp_srv6_unicast_sid_endpoint(struct bgp *bgp, afi_t afi,
@@ -225,7 +241,28 @@ void bgp_srv6_unicast_sid_withdraw(struct bgp *bgp, afi_t afi)
 
 	ctx.behavior = bgp_srv6_unicast_action(bgp, afi);
 	ctx.vrf_id = bgp->vrf_id;
+	ctx.alloc_mode = bgp->srv6_unicast[afi].zebra_sid_alloc_mode_last_sent;
 	bgp_zebra_release_srv6_sid(&ctx, bgp->srv6_unicast[afi].sid_locator->name);
+}
+
+/*
+ * A restarted zebra has lost the SRv6 unicast SIDs and their local SIDs: forget
+ * them without releasing them, so that they are requested again once the
+ * locator is received.
+ */
+void bgp_srv6_unicast_sids_forget(struct bgp *bgp)
+{
+	afi_t afi;
+
+	for (afi = AFI_IP; afi <= AFI_IP6; afi++) {
+		if (bgp->srv6_unicast[afi].sid) {
+			sid_unregister(bgp, bgp->srv6_unicast[afi].sid);
+			XFREE(MTYPE_BGP_SRV6_SID, bgp->srv6_unicast[afi].sid);
+		}
+		XFREE(MTYPE_BGP_SRV6_SID, bgp->srv6_unicast[afi].zebra_sid_last_sent);
+		srv6_locator_free(bgp->srv6_unicast[afi].sid_locator);
+		bgp->srv6_unicast[afi].sid_locator = NULL;
+	}
 }
 
 void bgp_srv6_unicast_delete(struct bgp *bgp, afi_t afi)
@@ -263,6 +300,8 @@ void bgp_srv6_unicast_delete(struct bgp *bgp, afi_t afi)
 
 		ctx.vrf_id = bgp->vrf_id;
 		ctx.behavior = bgp_srv6_unicast_action(bgp, afi);
+		ctx.alloc_mode = bgp->srv6_unicast[afi].zebra_sid_alloc_mode_last_sent;
+
 		bgp_zebra_release_srv6_sid(&ctx, bgp->srv6_unicast[afi].sid_locator->name);
 
 		sid_unregister(bgp, bgp->srv6_unicast[afi].sid);
@@ -342,6 +381,7 @@ void bgp_srv6_unicast_register_route(struct bgp *bgp, afi_t afi, struct bgp_dest
 			prep_for_rmap_apply(&info, &extra, dest, bpi, bgp->peer_self, NULL,
 					    &attr_tmp);
 			ret = route_map_apply(rmap, p, &info);
+			cleanup_after_rmap_apply(&info);
 			bgp_attr_flush(&attr_tmp);
 
 			if (ret == RMAP_DENYMATCH) {
@@ -444,4 +484,541 @@ void bgp_srv6_unicast_withdraw(struct bgp *bgp, afi_t afi)
 		    peergroup_af_flag_check(peer, afi, safi, PEER_FLAG_CONFIG_ENCAPSULATION_SRV6))
 			bgp_announce_route(peer, afi, safi, true);
 	}
+}
+
+int bgp_srv6_locators_cmp(const struct bgp_srv6_locator_entry *a,
+			  const struct bgp_srv6_locator_entry *b)
+{
+	return strncmp(a->locator->name, b->locator->name, SRV6_LOCNAME_SIZE);
+}
+
+static struct bgp_srv6_locator_entry *bgp_srv6_locator_entry_find(const char *name)
+{
+	struct srv6_locator loc = {};
+	struct bgp_srv6_locator_entry key = { .locator = &loc };
+
+	strlcpy(loc.name, name, sizeof(loc.name));
+
+	return bgp_srv6_locators_find(&bm->srv6_locators, &key);
+}
+
+/**
+ * Return the SRv6 locator by name
+ *
+ * @param name Locator name
+ * @return srv6_locator
+ */
+struct srv6_locator *bgp_srv6_locator_lookup_all_by_name(const char *name)
+{
+	struct bgp_srv6_locator_entry *entry;
+
+	entry = bgp_srv6_locator_entry_find(name);
+
+	return entry ? entry->locator : NULL;
+}
+
+void bgp_srv6_locator_store(const struct srv6_locator *loc)
+{
+	struct bgp_srv6_locator_entry *entry;
+
+	entry = bgp_srv6_locator_entry_find(loc->name);
+	if (!entry) {
+		entry = XCALLOC(MTYPE_BGP_SRV6_LOCATOR, sizeof(*entry));
+		entry->locator = srv6_locator_alloc(loc->name);
+		bgp_srv6_locators_add(&bm->srv6_locators, entry);
+	}
+	srv6_locator_copy(entry->locator, loc);
+}
+
+static void bgp_srv6_locator_entry_free(struct bgp_srv6_locator_entry *entry)
+{
+	srv6_locator_free(entry->locator);
+	XFREE(MTYPE_BGP_SRV6_LOCATOR, entry);
+}
+
+void bgp_srv6_locator_remove(const char *name)
+{
+	struct bgp_srv6_locator_entry *entry;
+
+	entry = bgp_srv6_locator_entry_find(name);
+	if (!entry)
+		return;
+	bgp_srv6_locators_del(&bm->srv6_locators, entry);
+	bgp_srv6_locator_entry_free(entry);
+}
+
+void bgp_srv6_locators_finish(void)
+{
+	struct bgp_srv6_locator_entry *entry;
+
+	while ((entry = bgp_srv6_locators_pop(&bm->srv6_locators)))
+		bgp_srv6_locator_entry_free(entry);
+	bgp_srv6_locators_fini(&bm->srv6_locators);
+}
+
+void bgp_srv6_path_locator_extra_free(struct bgp_path_info_extra *extra)
+{
+	if (!extra)
+		return;
+	XFREE(MTYPE_SRV6_LOCATOR_EXTRA, extra->srv6_locator);
+}
+
+void bgp_srv6_path_locator_extra_alloc(struct bgp_path_info_extra *extra, char *locator)
+{
+	extra->srv6_locator = XSTRDUP(MTYPE_SRV6_LOCATOR_EXTRA, locator);
+}
+
+static void bgp_srv6_per_locator_free(struct bgp_srv6_per_locator_cache *bslc)
+{
+	if (!bslc)
+		return;
+
+	assert(bslc->tree);
+
+	bslc = bgp_srv6_per_locator_cache_del(bslc->tree, bslc);
+	if (bslc)
+		XFREE(MTYPE_SRV6_PER_LOCATOR_CACHE, bslc);
+}
+
+/* code derived from vpn_leak_zebra_vrf_sid_withdraw_per_af() */
+static void bgp_srv6_per_locator_cache_vrf_sid_withdraw(struct bgp_srv6_per_locator_cache *bslc)
+{
+	struct seg6local_context ctx = {};
+	struct interface *ifp;
+
+	if (!bslc->sid_policy.tovpn_zebra_sid_last_sent)
+		return;
+
+	ifp = if_get_vrf_loopback(bslc->bgp->vrf_id);
+	if (ifp) {
+		if (bslc->sid_policy.tovpn_sid_locator) {
+			ctx.block_len = bslc->sid_policy.tovpn_sid_locator->block_bits_length;
+			ctx.node_len = bslc->sid_policy.tovpn_sid_locator->node_bits_length;
+			ctx.function_len = bslc->sid_policy.tovpn_sid_locator->function_bits_length;
+			ctx.argument_len = bslc->sid_policy.tovpn_sid_locator->argument_bits_length;
+		}
+		zclient_send_localsid(bgp_zclient, ZEBRA_ROUTE_DELETE,
+				      bslc->sid_policy.tovpn_zebra_sid_last_sent, IPV6_MAX_BITLEN,
+				      ifp->ifindex, ZEBRA_SEG6_LOCAL_ACTION_UNSPEC, &ctx);
+	}
+	XFREE(MTYPE_BGP_SRV6_SID, bslc->sid_policy.tovpn_zebra_sid_last_sent);
+}
+
+/* code derived from ensure_vrf_tovpn_sid(), applied to auto mode only */
+void bgp_srv6_per_locator_cache_delete_tovpn_sid(struct bgp_srv6_per_locator_cache *bslc)
+{
+	int debug = BGP_DEBUG(vpn, VPN_LEAK_FROM_VRF);
+	struct srv6_sid_ctx ctx = {};
+
+	if (debug)
+		zlog_debug("%s: try to remove SID for vrf %s: afi %s locator %s, mode %s",
+			   __func__, bslc->bgp->name_pretty, afi2str(bslc->afi), bslc->locator_name,
+			   srv6_sid_alloc_mode2str(
+				   bslc->sid_policy.tovpn_zebra_sid_alloc_mode_last_sent));
+
+	bgp_srv6_per_locator_cache_vrf_sid_withdraw(bslc);
+
+	if (bslc->sid_policy.tovpn_sid) {
+		ctx.vrf_id = bslc->bgp->vrf_id;
+		ctx.behavior = bslc->afi == AFI_IP ? ZEBRA_SEG6_LOCAL_ACTION_END_DT4
+						   : ZEBRA_SEG6_LOCAL_ACTION_END_DT6;
+		ctx.alloc_mode = bslc->sid_policy.tovpn_zebra_sid_alloc_mode_last_sent;
+		bgp_zebra_release_srv6_sid(&ctx, bslc->locator_name);
+		sid_unregister(bgp_get_default(), bslc->sid_policy.tovpn_sid);
+		XFREE(MTYPE_BGP_SRV6_SID, bslc->sid_policy.tovpn_sid);
+	}
+	bslc->sid_policy.tovpn_sid = NULL;
+	bslc->sid_policy.tovpn_sid_transpose_label = 0;
+	bslc->sid_policy.tovpn_zebra_sid_alloc_mode_last_sent = SRV6_SID_ALLOC_MODE_UNSPEC;
+	srv6_locator_free(bslc->sid_policy.tovpn_sid_locator);
+	bslc->sid_policy.tovpn_sid_locator = NULL;
+
+	if (bslc->bgp->vrf_id == VRF_UNKNOWN) {
+		if (debug)
+			zlog_debug("%s: vrf %s: vrf_id not set, can't set zebra vrf sid", __func__,
+				   bslc->bgp->name_pretty);
+	}
+}
+
+/*
+ * A restarted zebra has lost the SIDs of the route-map locator contexts and
+ * their local SIDs: forget them without releasing them, and request the
+ * locators again, so that the SIDs are allocated and installed again.
+ */
+void bgp_srv6_per_locator_cache_forget_sids(struct bgp *bgp)
+{
+	struct bgp_srv6_per_locator_cache *bslc;
+	afi_t afi;
+
+	for (afi = AFI_IP; afi <= AFI_IP6; afi++) {
+		frr_each (bgp_srv6_per_locator_cache, &bgp->srv6_locators_per_routemap[afi], bslc) {
+			if (bslc->sid_policy.tovpn_sid) {
+				sid_unregister(bgp_get_default(), bslc->sid_policy.tovpn_sid);
+				XFREE(MTYPE_BGP_SRV6_SID, bslc->sid_policy.tovpn_sid);
+			}
+			XFREE(MTYPE_BGP_SRV6_SID, bslc->sid_policy.tovpn_zebra_sid_last_sent);
+			bslc->sid_policy.tovpn_sid_transpose_label = 0;
+			bslc->sid_policy.tovpn_zebra_sid_alloc_mode_last_sent =
+				SRV6_SID_ALLOC_MODE_UNSPEC;
+			srv6_locator_free(bslc->sid_policy.tovpn_sid_locator);
+			bslc->sid_policy.tovpn_sid_locator = NULL;
+			bgp_zebra_srv6_manager_get_locator(bslc->locator_name);
+		}
+	}
+}
+
+struct bgp_srv6_per_locator_cache *
+bgp_srv6_per_locator_new(struct bgp_srv6_per_locator_cache_head *tree, const char *locator_name)
+{
+	struct bgp_srv6_per_locator_cache *bslc;
+
+	bslc = XCALLOC(MTYPE_SRV6_PER_LOCATOR_CACHE, sizeof(struct bgp_srv6_per_locator_cache));
+	bslc->tree = tree;
+	strlcpy(bslc->locator_name, locator_name, sizeof(bslc->locator_name));
+	LIST_INIT(&(bslc->paths));
+	bgp_srv6_per_locator_cache_add(tree, bslc);
+
+	return bslc;
+}
+
+int bgp_srv6_per_locator_cache_cmp(const struct bgp_srv6_per_locator_cache *a,
+				   const struct bgp_srv6_per_locator_cache *b)
+{
+	return strncmp(a->locator_name, b->locator_name, sizeof(a->locator_name));
+}
+
+struct bgp_srv6_per_locator_cache *
+bgp_srv6_per_locator_find(struct bgp_srv6_per_locator_cache_head *tree, const char *locator_name)
+{
+	struct bgp_srv6_per_locator_cache bslc = {};
+
+	assert(tree);
+
+	strlcpy(bslc.locator_name, locator_name, sizeof(bslc.locator_name));
+
+	return bgp_srv6_per_locator_cache_find(tree, &bslc);
+}
+
+/* detach locator when bgp path is removed */
+static void bgp_srv6_per_locator_unlink_and_free(struct bgp_path_info *pi, bool free_bslc)
+{
+	struct bgp_srv6_per_locator_cache *bslc;
+
+	bslc = pi->srv6_vpn.bslc;
+	if (!bslc)
+		return;
+
+	LIST_REMOVE(pi, srv6_vpn.srv6_locator_thread);
+	bslc->path_count--;
+	pi->srv6_vpn.bslc = NULL;
+
+	if (free_bslc && LIST_EMPTY(&(bslc->paths))) {
+		bgp_srv6_per_locator_cache_delete_tovpn_sid(bslc);
+		bgp_srv6_per_locator_free(bslc);
+	}
+}
+
+void bgp_srv6_per_locator_unlink(struct bgp_path_info *pi)
+{
+	bgp_srv6_per_locator_unlink_and_free(pi, true);
+}
+
+/* Reset and free all BGP nexthop cache */
+void bgp_srv6_per_locator_cache_reset(struct bgp *bgp, afi_t afi)
+{
+	struct bgp_srv6_per_locator_cache *bslc;
+	struct bgp_srv6_per_locator_cache_head *tree;
+
+	tree = &bgp->srv6_locators_per_routemap[afi];
+
+	while (bgp_srv6_per_locator_cache_count(tree) > 0) {
+		bslc = bgp_srv6_per_locator_cache_first(tree);
+
+		while (!LIST_EMPTY(&(bslc->paths)))
+			bgp_srv6_per_locator_unlink_and_free(LIST_FIRST(&(bslc->paths)), false);
+		bgp_srv6_per_locator_cache_delete_tovpn_sid(bslc);
+		bgp_srv6_per_locator_free(bslc);
+	}
+}
+
+/*
+ * Withdraw and detach the paths of the route-map locator context of
+ * locator_name, and release its SID: the VRF is about to request its SID
+ * with the same SID context, and must not get the SID of this context.
+ */
+void bgp_srv6_per_locator_cache_flush(struct bgp *bgp_vpn, struct bgp *bgp_vrf, afi_t afi,
+				      const char *locator_name)
+{
+	struct bgp_srv6_per_locator_cache *bslc;
+	struct bgp_path_info *path;
+
+	bslc = bgp_srv6_per_locator_find(&bgp_vrf->srv6_locators_per_routemap[afi], locator_name);
+	if (!bslc)
+		return;
+
+	while ((path = LIST_FIRST(&(bslc->paths)))) {
+		vpn_leak_from_vrf_withdraw(bgp_vpn, bgp_vrf, path);
+		bgp_srv6_per_locator_unlink_and_free(path, false);
+	}
+	bgp_srv6_per_locator_cache_delete_tovpn_sid(bslc);
+	bgp_srv6_per_locator_free(bslc);
+}
+
+static void show_bgp_srv6_locators_per_routemap_afi(struct vty *vty, afi_t afi, struct bgp *bgp,
+						    bool detail, json_object *json_list)
+{
+	struct bgp_srv6_per_locator_cache_head *tree;
+	struct bgp_srv6_per_locator_cache *iter;
+	struct srv6_locator *locator;
+	safi_t safi;
+	char buf[PREFIX2STR_BUFFER];
+	struct bgp_dest *dest;
+	struct bgp_path_info *path;
+	struct bgp *bgp_path;
+	struct bgp_table *table;
+	json_object *json;
+	json_object *json_path_list, *json_path_entry;
+
+	if (json_list == NULL)
+		vty_out(vty, "Current BGP SRv6 locator per route-map for %s, %s\n", afi2str(afi),
+			bgp->name_pretty);
+
+	tree = &bgp->srv6_locators_per_routemap[afi];
+	frr_each (bgp_srv6_per_locator_cache, tree, iter) {
+		if (json_list) {
+			json = json_object_new_object();
+
+			json_object_string_add(json, "afi", afi2str(afi));
+			json_object_string_add(json, "locatorName", iter->locator_name);
+			locator = bgp_srv6_locator_lookup_all_by_name(iter->locator_name);
+			if (locator)
+				json_object_string_addf(json, "locatorPrefix", "%pFX",
+							&locator->prefix);
+			json_object_int_add(json, "pathCount", iter->path_count);
+			json_object_string_add(json, "lastUpdate",
+					       time_to_string_json(iter->last_update, buf));
+			if (iter->sid_policy.tovpn_sid) {
+				json_object_string_addf(json, "sid", "%pI6",
+							iter->sid_policy.tovpn_sid);
+				json_object_int_add(json, "label",
+						    iter->sid_policy.tovpn_sid_transpose_label);
+			}
+			json_object_array_add(json_list, json);
+
+			if (!detail)
+				continue;
+
+			json_path_list = json_object_new_array();
+
+			LIST_FOREACH (path, &(iter->paths), srv6_vpn.srv6_locator_thread) {
+				dest = path->net;
+				table = bgp_dest_table(dest);
+				assert(dest && table);
+				afi = family2afi(bgp_dest_get_prefix(dest)->family);
+				safi = table->safi;
+				bgp_path = table->bgp;
+				json_path_entry = json_object_new_object();
+				json_object_string_add(json_path_entry, "afi", afi2str(afi));
+				json_object_string_add(json_path_entry, "safi", safi2str(safi));
+				json_object_string_addf(json_path_entry, "prefix", "%pBD", dest);
+				json_object_string_add(json_path_entry, "bgpName",
+						       bgp_path->name_pretty);
+				json_object_string_addf(json_path_entry, "flags", "%08x",
+							path->flags);
+				if (dest->pdest)
+					json_object_string_addf(json_path_entry,
+								"route-distinguisher",
+								BGP_RD_AS_FORMAT(bgp->asnotation),
+								(struct prefix_rd *)
+									bgp_dest_get_prefix(
+										dest->pdest));
+				json_object_array_add(json_path_list, json_path_entry);
+			}
+			json_object_object_add(json, "pathList", json_path_list);
+			continue;
+		}
+
+		vty_out(vty, " %s, #paths %u\n", iter->locator_name, iter->path_count);
+		vty_out(vty, "  Last update: %s\n", time_to_string_json(iter->last_update, buf));
+		if (iter->sid_policy.tovpn_sid)
+			vty_out(vty, "  SID %pI6, label %u\n", iter->sid_policy.tovpn_sid,
+				iter->sid_policy.tovpn_sid_transpose_label);
+		if (!detail)
+			continue;
+		vty_out(vty, "  Paths:\n");
+		LIST_FOREACH (path, &(iter->paths), srv6_vpn.srv6_locator_thread) {
+			dest = path->net;
+			table = bgp_dest_table(dest);
+			assert(dest && table);
+			afi = family2afi(bgp_dest_get_prefix(dest)->family);
+			safi = table->safi;
+			bgp_path = table->bgp;
+
+			if (dest->pdest) {
+				vty_out(vty, "    %d/%d %pBD RD ", afi, safi, dest);
+
+				vty_out(vty, BGP_RD_AS_FORMAT(bgp->asnotation),
+					(struct prefix_rd *)bgp_dest_get_prefix(dest->pdest));
+				vty_out(vty, " %s flags 0x%x\n", bgp_path->name_pretty,
+					path->flags);
+			} else
+				vty_out(vty, "    %d/%d %pBD %s flags 0x%x\n", afi, safi, dest,
+					bgp_path->name_pretty, path->flags);
+		}
+	}
+}
+
+DEFPY(show_bgp_srv6_locator_per_routemap, show_bgp_srv6_locator_per_routemap_cmd,
+      "show bgp [vrf VRFNAME] locator-routemap [detail] [json]",
+      SHOW_STR BGP_STR VRF_CMD_HELP_STR
+      "BGP locator from route-map table\n"
+      "Show detailed information\n"
+      JSON_STR)
+{
+	int idx = 0;
+	char *vrf = NULL;
+	struct bgp *bgp;
+	bool detail = false;
+	int afi;
+	struct json_object *json_list = NULL;
+
+	if (argv_find(argv, argc, "vrf", &idx)) {
+		vrf = argv[++idx]->arg;
+		bgp = bgp_lookup_by_name(vrf);
+	} else
+		bgp = bgp_get_default();
+
+	if (!bgp) {
+		if (use_json(argc, argv))
+			vty_out(vty, "{}\n");
+		return CMD_SUCCESS;
+	}
+
+	if (argv_find(argv, argc, "detail", &idx))
+		detail = true;
+
+	if (use_json(argc, argv))
+		json_list = json_object_new_array();
+
+	for (afi = AFI_IP; afi <= AFI_IP6; afi++)
+		show_bgp_srv6_locators_per_routemap_afi(vty, afi, bgp, detail, json_list);
+
+	if (json_list)
+		vty_json(vty, json_list);
+
+	return CMD_SUCCESS;
+}
+
+void bgp_srv6_locator_per_routemap_init(void)
+{
+	install_element(VIEW_NODE, &show_bgp_srv6_locator_per_routemap_cmd);
+}
+
+/* code derived from ensure_vrf_tovpn_sid(), applied to auto mode only */
+void bgp_srv6_per_locator_cache_ensure_tovpn_sid(struct bgp_srv6_per_locator_cache *bslc)
+{
+	int debug = BGP_DEBUG(vpn, VPN_LEAK_FROM_VRF);
+	struct in6_addr tovpn_sid = {};
+	struct srv6_sid_ctx ctx = {};
+	uint32_t sid_func;
+	struct srv6_locator *locator;
+
+	if (!bslc)
+		return;
+
+	/* auto mode is always configured.
+	 * XXX when allocation mode are extended, more controls will be added here
+	 */
+	if (bslc->sid_policy.tovpn_sid)
+		return;
+	if (bslc->bgp->vrf_id == VRF_UNKNOWN) {
+		if (debug)
+			zlog_debug("%s: vrf %s: vrf_id not set, can't set zebra vrf SRv6 SID",
+				   __func__, bslc->bgp->name_pretty);
+		return;
+	}
+	locator = bgp_srv6_locator_lookup_all_by_name(bslc->locator_name);
+	if (!bslc->sid_policy.tovpn_sid_locator && locator) {
+		bslc->sid_policy.tovpn_sid_locator = srv6_locator_alloc(bslc->locator_name);
+		srv6_locator_copy(bslc->sid_policy.tovpn_sid_locator, locator);
+	}
+	if (!bslc->sid_policy.tovpn_sid_locator)
+		return;
+	ctx.vrf_id = bslc->bgp->vrf_id;
+	ctx.behavior = bslc->afi == AFI_IP ? ZEBRA_SEG6_LOCAL_ACTION_END_DT4
+					   : ZEBRA_SEG6_LOCAL_ACTION_END_DT6;
+	ctx.alloc_mode = SRV6_SID_ALLOC_MODE_DYNAMIC;
+	if (!bgp_zebra_request_srv6_sid(&ctx, &tovpn_sid, bslc->sid_policy.tovpn_sid_locator->name,
+					&sid_func)) {
+		zlog_err("%s: failed to request sid for vrf %s: afi %s locator %s", __func__,
+			 bslc->bgp->name_pretty, afi2str(bslc->afi),
+			 bslc->sid_policy.tovpn_sid_locator->name);
+		return;
+	}
+	bslc->sid_policy.tovpn_zebra_sid_alloc_mode_last_sent = ctx.alloc_mode;
+	if (debug)
+		zlog_debug("%s: allocating new SID for vrf %s: afi %s, locator %s", __func__,
+			   bslc->bgp->name_pretty, afi2str(bslc->afi),
+			   bslc->sid_policy.tovpn_sid_locator->name);
+}
+
+void bgp_srv6_per_locator_cache_vrf_sid_update(struct bgp_srv6_per_locator_cache *bslc)
+{
+	int debug = BGP_DEBUG(vpn, VPN_LEAK_LABEL);
+	enum seg6local_action_t act;
+	struct seg6local_context ctx = {};
+	struct in6_addr *tovpn_sid;
+	struct in6_addr *tovpn_sid_ls = NULL;
+	struct vrf *vrf;
+	struct interface *ifp;
+	struct bgp *bgp;
+	afi_t afi;
+
+	if (!bslc)
+		return;
+
+	tovpn_sid = bslc->sid_policy.tovpn_sid;
+	if (!bslc->sid_policy.tovpn_sid)
+		return;
+	if (sid_same(bslc->sid_policy.tovpn_sid, bslc->sid_policy.tovpn_zebra_sid_last_sent))
+		return;
+	bgp = bslc->bgp;
+	afi = bslc->afi;
+	if (bgp->vrf_id == VRF_UNKNOWN) {
+		if (debug)
+			zlog_debug("%s: vrf %s: afi %s: vrf_id not set, can't set zebra vrf label",
+				   __func__, bgp->name_pretty, afi2str(afi));
+		return;
+	}
+
+	if (debug)
+		zlog_debug("%s: vrf %s: afi %s: setting sid %pI6 for vrf id %d", __func__,
+			   bgp->name_pretty, afi2str(afi), tovpn_sid, bgp->vrf_id);
+
+	vrf = vrf_lookup_by_id(bgp->vrf_id);
+	if (!vrf)
+		return;
+
+	ifp = if_get_vrf_loopback(bgp->vrf_id);
+	if (!ifp)
+		return;
+
+	if (bslc->sid_policy.tovpn_sid_locator) {
+		ctx.block_len = bslc->sid_policy.tovpn_sid_locator->block_bits_length;
+		ctx.node_len = bslc->sid_policy.tovpn_sid_locator->node_bits_length;
+		ctx.function_len = bslc->sid_policy.tovpn_sid_locator->function_bits_length;
+		ctx.argument_len = bslc->sid_policy.tovpn_sid_locator->argument_bits_length;
+		if (CHECK_FLAG(bslc->sid_policy.tovpn_sid_locator->flags, SRV6_LOCATOR_USID))
+			SET_SRV6_FLV_OP(ctx.flv.flv_ops, ZEBRA_SEG6_LOCAL_FLV_OP_NEXT_CSID);
+	}
+	ctx.table = vrf->data.l.table_id;
+	act = afi == AFI_IP ? ZEBRA_SEG6_LOCAL_ACTION_END_DT4 : ZEBRA_SEG6_LOCAL_ACTION_END_DT6;
+	/* remove the local SID of the previous SID, if any */
+	bgp_srv6_per_locator_cache_vrf_sid_withdraw(bslc);
+	zclient_send_localsid(bgp_zclient, ZEBRA_ROUTE_ADD, tovpn_sid, IPV6_MAX_BITLEN,
+			      ifp->ifindex, act, &ctx);
+
+	tovpn_sid_ls = XCALLOC(MTYPE_BGP_SRV6_SID, sizeof(struct in6_addr));
+	*tovpn_sid_ls = *tovpn_sid;
+	bslc->sid_policy.tovpn_zebra_sid_last_sent = tovpn_sid_ls;
 }

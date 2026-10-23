@@ -304,6 +304,8 @@ struct bgp_path_info_extra {
 	 * the Color Extended Community via bgp_path_info_get_srte_color()).
 	 */
 	uint32_t srte_color;
+	/* For srv6 locator modified by route-map */
+	char *srv6_locator;
 };
 
 struct bgp_mplsvpn_label_nh {
@@ -320,6 +322,14 @@ struct bgp_mplsvpn_nh_label_bind {
 
 	/* Back pointer to the bgp mplsvpn nexthop label bind structure */
 	struct bgp_mplsvpn_nh_label_bind_cache *nh_label_bind_cache;
+};
+
+struct bgp_srv6_locator_path {
+	/* List of paths sharing the locator */
+	LIST_ENTRY(bgp_path_info) srv6_locator_thread;
+
+	/* Back pointer to the BGP srv6 locator context per bgp/afi context */
+	struct bgp_srv6_per_locator_cache *bslc;
 };
 
 struct bgp_path_info {
@@ -424,6 +434,8 @@ struct bgp_path_info {
 		struct bgp_mplsvpn_label_nh blnc;
 		struct bgp_mplsvpn_nh_label_bind bmnc;
 	} mplsvpn;
+
+	struct bgp_srv6_locator_path srv6_vpn;
 };
 
 /* Structure used in BGP path selection */
@@ -744,10 +756,14 @@ static inline void prep_for_rmap_apply(struct bgp_path_info *dst_pi,
 		dst_pi->flags = src_pi->flags;
 		dst_pi->type = src_pi->type;
 		dst_pi->sub_type = src_pi->sub_type;
-		if (src_pi->extra)
+		if (src_pi->extra) {
 			memcpy(dst_pie, src_pi->extra, sizeof(struct bgp_path_info_extra));
+			dst_pie->srv6_locator = NULL;
+		}
 	}
 }
+
+extern void cleanup_after_rmap_apply(struct bgp_path_info *pi);
 
 static inline void bgp_path_info_extra_propagate(struct bgp_path_info *dst_bpi,
 						 const struct bgp_path_info *src_bpi)
