@@ -317,7 +317,17 @@ All underlay links use IPv6 /126 subnets from fd00:10:254::/32
 
 ## Test Cases
 
-**Note:** All tests are parametrized to run with both IPv4 and IPv6 underlay configurations.
+### `skip-evpn-imported` eBGP Feature Tests
+- **`test_skip_evpn_imported_ebgp_runtime_toggle_and_withdrawal[ipv6]`** -
+  On `tor-21` and `tor-22`, toggles
+  `advertise ipv6 unicast skip-evpn-imported` in `vrf1`. It verifies a local
+  IPv6 Type-5 route is present, enables the option on both ToRs, then withdraws
+  the route and confirms its local Type-5 origin is removed.
+
+- **`test_skip_evpn_imported_ebgp_clear_and_uplink_failover[ipv6]`** -
+  Enables IPv6 suppression on both ToRs and checks eBGP peer state and each
+  ToR's local IPv6 Type-5 export. It repeats the checks after taking `tor-21`'s
+  `swp1` down, clearing BGP, and restoring the uplink.
 
 ### Protocol Convergence Tests
 1. **test_bgp_summary_neighbor_state()** - Verify BGP sessions are established (ipv4Unicast/ipv6Unicast based on underlay)
