@@ -73,9 +73,7 @@ def _r1_has_received_prefixes():
     r1 = get_topogen().gears["r1"]
     output = json.loads(r1.vtysh_cmd("show bgp ipv4 neighbors 10.255.0.2 json"))
     afi = (
-        output.get("10.255.0.2", {})
-        .get("addressFamilyInfo", {})
-        .get("ipv4Unicast", {})
+        output.get("10.255.0.2", {}).get("addressFamilyInfo", {}).get("ipv4Unicast", {})
     )
     if afi.get("acceptedPrefixCounter", 0) < 100000:
         return {"acceptedPrefixCounter": afi.get("acceptedPrefixCounter")}
