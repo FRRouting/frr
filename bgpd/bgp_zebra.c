@@ -3404,6 +3404,26 @@ void bgp_zebra_process_remote_routes_for_l2vni(struct event *e)
 				     20, &bm->t_bgp_zebra_l2_vni);
 }
 
+/*
+ * The instance an EVPN message from zebra for vrf_id is meant for: none
+ * when there is no instance, or when it is a hidden instance ("no router
+ * bgp" with a non-empty MPLS-VPN RIB). bgp_delete() dropped the EVPN state
+ * of the hidden instance and told zebra to stop advertising for it, but
+ * bgp_zebra_instance_deregister() is skipped for a hidden instance and the
+ * VRF lookup still resolves to it: zebra keeps delivering the ES and ES-EVI
+ * deletes that answer the disable, ES oper changes and whatever the default
+ * VRF produces while hidden. Ignore all of it; zebra replays the VNIs, ESs
+ * and L3VNIs once advertise-all-vni is configured again.
+ */
+static struct bgp *bgp_zebra_evpn_instance(vrf_id_t vrf_id)
+{
+	struct bgp *bgp = bgp_lookup_by_vrf_id(vrf_id);
+
+	if (!bgp || IS_BGP_INSTANCE_HIDDEN(bgp))
+		return NULL;
+	return bgp;
+}
+
 static int bgp_zebra_process_local_es_add(ZAPI_CALLBACK_ARGS)
 {
 	esi_t esi;
@@ -3415,7 +3435,7 @@ static int bgp_zebra_process_local_es_add(ZAPI_CALLBACK_ARGS)
 	uint8_t bypass;
 	uint16_t df_pref;
 
-	bgp = bgp_lookup_by_vrf_id(vrf_id);
+	bgp = bgp_zebra_evpn_instance(vrf_id);
 	if (!bgp)
 		return 0;
 
@@ -3452,7 +3472,7 @@ static int bgp_zebra_process_local_es_del(ZAPI_CALLBACK_ARGS)
 	char buf[ESI_STR_LEN];
 
 	memset(&esi, 0, sizeof(esi_t));
-	bgp = bgp_lookup_by_vrf_id(vrf_id);
+	bgp = bgp_zebra_evpn_instance(vrf_id);
 	if (!bgp)
 		return 0;
 
@@ -3478,7 +3498,7 @@ static int bgp_zebra_process_local_es_evi(ZAPI_CALLBACK_ARGS)
 	struct stream *s;
 	char buf[ESI_STR_LEN];
 
-	bgp = bgp_lookup_by_vrf_id(vrf_id);
+	bgp = bgp_zebra_evpn_instance(vrf_id);
 	if (!bgp)
 		return 0;
 
@@ -3513,6 +3533,14 @@ static int bgp_zebra_process_local_l3vni(ZAPI_CALLBACK_ARGS)
 	struct stream *s;
 	ifindex_t svi_ifindex;
 	bool is_anycast_mac = false;
+	struct bgp *bgp;
+
+	/* bgp_evpn_local_l3vni_add() creates the VRF instance when there is
+	 * none yet, so only a hidden instance is turned away here.
+	 */
+	bgp = bgp_lookup_by_vrf_id(vrf_id);
+	if (bgp && IS_BGP_INSTANCE_HIDDEN(bgp))
+		return 0;
 
 	memset(&svi_rmac, 0, sizeof(svi_rmac));
 	memset(&originator_ip, 0, sizeof(originator_ip));
@@ -3578,7 +3606,7 @@ static int bgp_zebra_process_local_vni(ZAPI_CALLBACK_ARGS)
 		stream_get(&svi_ifindex, s, sizeof(ifindex_t));
 	}
 
-	bgp = bgp_lookup_by_vrf_id(vrf_id);
+	bgp = bgp_zebra_evpn_instance(vrf_id);
 	if (!bgp)
 		return 0;
 
@@ -3657,7 +3685,7 @@ static int bgp_zebra_process_local_macip(ZAPI_CALLBACK_ARGS)
 		memset(&esi, 0, sizeof(esi_t));
 	}
 
-	bgp = bgp_lookup_by_vrf_id(vrf_id);
+	bgp = bgp_zebra_evpn_instance(vrf_id);
 	if (!bgp)
 		return 0;
 
@@ -3692,7 +3720,7 @@ static int bgp_zebra_process_local_ip_prefix(ZAPI_CALLBACK_ARGS)
 	s = zclient->ibuf;
 	stream_get(&p, s, sizeof(struct prefix));
 
-	bgp_vrf = bgp_lookup_by_vrf_id(vrf_id);
+	bgp_vrf = bgp_zebra_evpn_instance(vrf_id);
 	if (!bgp_vrf)
 		return 0;
 
