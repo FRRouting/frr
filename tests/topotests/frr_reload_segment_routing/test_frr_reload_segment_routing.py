@@ -163,6 +163,27 @@ exit
     """,
             "expected_to": "",
         },
+        {
+            "from": """
+segment-routing
+ srv6
+  locators
+   locator MAIN
+    prefix fcbb:bbbb:1::/48
+    format usid-f3216
+   exit
+  exit
+ exit
+exit
+    """,
+            "to": """
+segment-routing
+ srv6
+ exit
+exit
+    """,
+            "expected_to": "",
+        },
     ]
 
     for tc in test_cases:
