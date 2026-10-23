@@ -261,6 +261,34 @@ int pcep_main_event_initiate_candidate(struct path *path)
 		 * freed after the error message is sent.
 		 */
 		pcep_ctrl_send_error(pcep_g->fpt, path->pcc_id, error);
+	} else if (ret == ERROR_23_1) {
+		/* RFC 8281: a duplicate symbolic path name requires the PCC
+		 * to send a PCErr message (Error-type=23, Error-value=1).
+		 */
+		struct pcep_error *error;
+
+		error = XCALLOC(MTYPE_PCEP, sizeof(*error));
+		error->path = path;
+		error->error_type = PCEP_ERRT_BAD_PARAMETER_VALUE;
+		error->error_value = PCEP_ERRV_SYMBOLIC_PATH_NAME_IN_USE;
+
+		/* Error will free the path object after message is sent. */
+		pcep_ctrl_send_error(pcep_g->fpt, path->pcc_id, error);
+	} else if (ret == ERROR_24_2) {
+		/* The path was refused because its segment list name is
+		 * already taken (by a configured segment list, or by a
+		 * name stored truncated to the same value).  There is no
+		 * RFC value that defines this internal error.
+		 */
+		struct pcep_error *error;
+
+		error = XCALLOC(MTYPE_PCEP, sizeof(*error));
+		error->path = path;
+		error->error_type = PCEP_ERRT_LSP_INSTANTIATE_ERROR;
+		error->error_value = PCEP_ERRV_INTERNAL_ERROR;
+
+		/* Error will free the path object after message is sent. */
+		pcep_ctrl_send_error(pcep_g->fpt, path->pcc_id, error);
 	} else {
 		if (ret != PATH_NB_ERR && path->srp_id != 0)
 			notify_status(path, ret == PATH_NB_NO_CHANGE);
@@ -278,6 +306,21 @@ int pcep_main_event_update_candidate(struct path *path)
 	int ret = 0;
 
 	ret = path_pcep_config_update_path(path);
+	if (ret == ERROR_24_2) {
+		/* The update was refused because the segment list name it
+		 * needs is already taken; either through PCEP or CLI.
+		 */
+		struct pcep_error *error;
+
+		error = XCALLOC(MTYPE_PCEP, sizeof(*error));
+		error->path = path;
+		error->error_type = PCEP_ERRT_LSP_INSTANTIATE_ERROR;
+		error->error_value = PCEP_ERRV_INTERNAL_ERROR;
+
+		/* Error will free the path object after message is sent. */
+		pcep_ctrl_send_error(pcep_g->fpt, path->pcc_id, error);
+		return ret;
+	}
 	if (ret != PATH_NB_ERR && path->srp_id != 0)
 		notify_status(path, ret == PATH_NB_NO_CHANGE);
 	/* Same ownership as the initiate case: the parsed path is ours. */
@@ -364,7 +407,7 @@ static int pcep_module_late_init(struct event_loop *tm)
 int pcep_module_finish(void)
 {
 	pcep_ctrl_finalize(&pcep_g->fpt);
-	pcep_lib_finalize();
+	pcep_ctrl_finalize_main_events();
 
 	for (int i = 0; i < MAX_PCC; i++)
 		if (pcep_g->pce_opts_cli[i] != NULL)
