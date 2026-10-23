@@ -4926,6 +4926,29 @@ int bgp_delete(struct bgp *bgp)
 		}
 	}
 
+	if (bm->bgp_evpn == bgp && IS_BGP_INSTANCE_HIDDEN(bgp) && !bm->terminating) {
+		/*
+		 * The instance is kept as a hidden instance and
+		 * bgp_zebra_instance_deregister() is skipped for it: tell
+		 * zebra to stop advertising SVI MAC-IPs and VNIs for it
+		 * (zebra drops the SVI MAC-IP message once EVPN is disabled,
+		 * so it goes first) and delete and withdraw the local routes
+		 * of every VNI as "no advertise-all-vni" does.
+		 * bgp_cleanup_routes() leaves the global EVPN RIB of a hidden
+		 * instance alone and the per-VNI tables are drained below, so
+		 * this is the last point where the local type-2 and type-3
+		 * routes can still be found; left behind, the revived
+		 * instance would advertise them.
+		 */
+		if (bgp->evpn_info->advertise_svi_macip)
+			bgp_zebra_advertise_svi_macip(bgp, 0, 0);
+		if (bgp->advertise_all_vni) {
+			bgp->advertise_all_vni = 0;
+			bgp_zebra_advertise_all_vni(bgp, 0);
+		}
+		bgp_evpn_cleanup_on_disable(bgp);
+	}
+
 	if (bm->bgp_evpn == bgp) {
 		/*
 		 * Reap all paths from per-VNI route tables BEFORE the global
@@ -4944,7 +4967,30 @@ int bgp_delete(struct bgp *bgp)
 
 	bgp_cleanup_routes(bgp);
 
-	if (bm->bgp_evpn == bgp) {
+	if (bm->bgp_evpn == bgp && IS_BGP_INSTANCE_HIDDEN(bgp) && !bm->terminating) {
+		/*
+		 * The instance is kept as a hidden instance so that
+		 * "router bgp <AS>" can revive it, and the hidden path of
+		 * bgp_create() does not run bgp_evpn_init() again. Tear the
+		 * VNIs, the local ESs and the route-target state down as a
+		 * real delete does, which also drops the bgp_lock each L2VNI
+		 * holds on this instance, and initialise the EVPN state again
+		 * right away: the EVPN configuration held by the containers
+		 * (VNIs, route targets, MAC-VRF SoO, flooding, the configured
+		 * RD, bgp_evpn_cleanup() frees vrf_prd_pretty) is gone and
+		 * the revived instance starts from their defaults. Leaving the
+		 * state torn down left the revived instance with
+		 * vnihash == NULL and the next "show running-config" crashed
+		 * in bgp_config_write_evpn_info(). Zebra replays the VNIs and
+		 * ESs once advertise-all-vni is configured again.
+		 */
+		bgp_evpn_cleanup(bgp);
+		bgp_evpn_es_instance_del_cleanup(bgp);
+		bgp_evpn_nh_finish(bgp);
+		UNSET_FLAG(bgp->vrf_flags, BGP_VRF_RD_CFGD);
+		bgp_evpn_derive_auto_rd_for_vrf(bgp);
+		bgp_evpn_init(bgp);
+	} else if (bm->bgp_evpn == bgp) {
 		/*
 		 * Release EVPN VNI bgp_lock references so the subsequent
 		 * bgp_unlock() can drive refcount to zero and trigger
