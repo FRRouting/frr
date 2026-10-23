@@ -874,15 +874,14 @@ static void lsp_build_internal_reach_ipv4(struct isis_lsp *lsp,
 	struct sr_prefix_cfg *pcfgs[SR_ALGORITHM_COUNT] = {NULL};
 
 	if (area->oldmetric) {
-		lsp_debug(
-			"ISIS (%s): Adding old-style IP reachability for %pFX",
-			area->area_tag, ipv4);
+		lsp_debug("ISIS (%s): Adding old-style IP reachability for (%s:%u:%u)%pFX",
+			  area->area_tag, ISIS_DEBUG_VRF(area->isis), ipv4);
 		isis_tlvs_add_oldstyle_ip_reach(lsp->tlvs, ipv4, metric);
 	}
 
 	if (area->newmetric) {
-		lsp_debug("ISIS (%s): Adding te-style IP reachability for %pFX",
-			  area->area_tag, ipv4);
+		lsp_debug("ISIS (%s): Adding te-style IP reachability for (%s:%u:%u)%pFX",
+			  area->area_tag, ISIS_DEBUG_VRF(area->isis), ipv4);
 
 		if (area->srdb.enabled)
 			for (int i = 0; i < SR_ALGORITHM_COUNT; i++) {
@@ -907,8 +906,8 @@ static void lsp_build_internal_reach_ipv6(struct isis_lsp *lsp,
 {
 	struct sr_prefix_cfg *pcfgs[SR_ALGORITHM_COUNT] = {NULL};
 
-	lsp_debug("ISIS (%s): Adding IPv6 reachability for %pFX",
-		  area->area_tag, ipv6);
+	lsp_debug("ISIS (%s): Adding IPv6 reachability for (%s:%u:%u)%pFX", area->area_tag,
+		  ISIS_DEBUG_VRF(area->isis), ipv6);
 
 	if (area->srdb.enabled)
 		for (int i = 0; i < SR_ALGORITHM_COUNT; i++) {

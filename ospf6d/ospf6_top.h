@@ -254,6 +254,21 @@ struct ospf6 *ospf6_lookup_by_vrf_id(vrf_id_t vrf_id);
 struct ospf6 *ospf6_lookup_by_vrf_name(const char *name);
 void ospf6_reinstall_routes(struct ospf6 *ospf6);
 const char *ospf6_vrf_id_to_name(vrf_id_t vrf_id);
+uint32_t ospf6_vrf_id_to_table_id(vrf_id_t vrf_id);
+
+/*
+ * Arguments for the "(%s:%u:%u)" vrf name, vrf id, table id prefix
+ * used in front of a prefix in debugs.  For example:
+ *
+ *   zlog_debug("route (%s:%u:%u)%pFX", OSPF6_DEBUG_VRF(ospf6), p);
+ *
+ * Note that the argument is evaluated more than once.
+ */
+#define OSPF6_DEBUG_VRF(ospf6) OSPF6_DEBUG_VRF_ID((ospf6)->vrf_id)
+
+/* Same as above, but for when only the vrf id is available. */
+#define OSPF6_DEBUG_VRF_ID(vrf_id)                                                                \
+	ospf6_vrf_id_to_name(vrf_id), (vrf_id), ospf6_vrf_id_to_table_id(vrf_id)
 void ospf6_vrf_init(void);
 bool ospf6_is_valid_summary_addr(struct vty *vty, struct prefix *p);
 

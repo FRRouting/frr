@@ -56,19 +56,17 @@ static void pim_rpf_cost_change(struct pim_instance *pim,
 
 	new_cost = pim_up_mlag_local_cost(up);
 	if (PIM_DEBUG_MLAG)
-		zlog_debug(
-			"%s: Cost_to_rp of upstream-%s changed to:%u, from:%u",
-			__func__, up->sg_str, new_cost, old_cost);
+		zlog_debug("%s: Cost_to_rp of upstream-(%s:%u:%u)%s changed to:%u, from:%u",
+			   __func__, PIM_DEBUG_VRF(up->pim->vrf), up->sg_str, new_cost, old_cost);
 
 	if (old_cost == new_cost)
 		return;
 
 	/* Cost changed, it might Impact MLAG DF election, update */
 	if (PIM_DEBUG_MLAG)
-		zlog_debug(
-			"%s: Cost_to_rp of upstream-%s changed to:%u",
-			__func__, up->sg_str,
-			rpf->source_nexthop.mrib_route_metric);
+		zlog_debug("%s: Cost_to_rp of upstream-(%s:%u:%u)%s changed to:%u", __func__,
+			   PIM_DEBUG_VRF(up->pim->vrf), up->sg_str,
+			   rpf->source_nexthop.mrib_route_metric);
 
 	if (pim_up_mlag_is_local(up))
 		pim_mlag_up_local_add(pim, up);
@@ -89,8 +87,8 @@ enum pim_rpf_result pim_rpf_update(struct pim_instance *pim, struct pim_upstream
 		return PIM_RPF_OK;
 
 	if (pim_addr_is_any(up->upstream_addr)) {
-		zlog_debug("%s(%s): RP is not configured yet for %s",
-			__func__, caller, up->sg_str);
+		zlog_debug("%s(%s): RP is not configured yet for (%s:%u:%u)%s", __func__, caller,
+			   PIM_DEBUG_VRF(up->pim->vrf), up->sg_str);
 		return PIM_RPF_OK;
 	}
 
@@ -121,8 +119,8 @@ enum pim_rpf_result pim_rpf_update(struct pim_instance *pim, struct pim_upstream
 
 	if (pim_rpf_addr_is_inaddr_any(rpf) && PIM_DEBUG_ZEBRA) {
 		/* RPF'(S,G) not found */
-		zlog_debug("%s(%s): RPF'%s not found: won't send join upstream",
-			   __func__, caller, up->sg_str);
+		zlog_debug("%s(%s): RPF'(%s:%u:%u)%s not found: won't send join upstream",
+			   __func__, caller, PIM_DEBUG_VRF(up->pim->vrf), up->sg_str);
 		/* warning only */
 	}
 
@@ -131,8 +129,8 @@ enum pim_rpf_result pim_rpf_update(struct pim_instance *pim, struct pim_upstream
 		struct pim_neighbor *nbr;
 
 		if (PIM_DEBUG_ZEBRA) {
-			zlog_debug("%s(%s): (S,G)=%s RPF_interface(S) changed from %s to %s",
-				   __func__, caller, up->sg_str,
+			zlog_debug("%s(%s): (S,G)=(%s:%u:%u)%s RPF_interface(S) changed from %s to %s",
+				   __func__, caller, PIM_DEBUG_VRF(up->pim->vrf), up->sg_str,
 				   saved.source_nexthop.interface ? saved.source_nexthop.interface->name
 								  : "<oldif?>",
 				   rpf->source_nexthop.interface ? rpf->source_nexthop.interface->name
@@ -153,8 +151,8 @@ enum pim_rpf_result pim_rpf_update(struct pim_instance *pim, struct pim_upstream
 	if (nexthop_mismatch(&rpf->source_nexthop, &saved.source_nexthop)) {
 
 		if (PIM_DEBUG_ZEBRA)
-			zlog_debug("%s(%s): (S,G)=%s source nexthop now is: interface=%s address=%pPAs pref=%d metric=%d",
-				   __func__, caller, up->sg_str,
+			zlog_debug("%s(%s): (S,G)=(%s:%u:%u)%s source nexthop now is: interface=%s address=%pPAs pref=%d metric=%d",
+				   __func__, caller, PIM_DEBUG_VRF(up->pim->vrf), up->sg_str,
 				   rpf->source_nexthop.interface ? rpf->source_nexthop.interface->name
 								 : "<ifname?>",
 				   &rpf->source_nexthop.mrib_nexthop_addr,
@@ -176,10 +174,9 @@ enum pim_rpf_result pim_rpf_update(struct pim_instance *pim, struct pim_upstream
 	}
 
 	if (PIM_DEBUG_MLAG)
-		zlog_debug(
-			"%s(%s): Cost_to_rp of upstream-%s changed to:%u",
-			__func__, caller, up->sg_str,
-			rpf->source_nexthop.mrib_route_metric);
+		zlog_debug("%s(%s): Cost_to_rp of upstream-(%s:%u:%u)%s changed to:%u", __func__,
+			   caller, PIM_DEBUG_VRF(up->pim->vrf), up->sg_str,
+			   rpf->source_nexthop.mrib_route_metric);
 
 	pim_rpf_cost_change(pim, up, saved_mrib_route_metric);
 
@@ -271,8 +268,8 @@ static pim_addr pim_rpf_find_rpf_addr(struct pim_upstream *up)
 	pim_addr rpf_addr;
 
 	if (!up->rpf.source_nexthop.interface) {
-		zlog_warn("%s: missing RPF interface for upstream (S,G)=%s",
-			  __func__, up->sg_str);
+		zlog_warn("%s: missing RPF interface for upstream (S,G)=(%s:%u:%u)%s", __func__,
+			  PIM_DEBUG_VRF(up->pim->vrf), up->sg_str);
 
 		return PIMADDR_ANY;
 	}

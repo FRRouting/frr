@@ -109,9 +109,11 @@ static int isis_zebra_if_address_add(ZAPI_CALLBACK_ARGS)
 
 #ifdef EXTREME_DEBUG
 	if (c->address->family == AF_INET)
-		zlog_debug("connected IP address %pFX", c->address);
+		zlog_debug("connected IP address (%s:%u:%u)%pFX", ISIS_DEBUG_VRF_ID(vrf_id),
+			   c->address);
 	if (c->address->family == AF_INET6)
-		zlog_debug("connected IPv6 address %pFX", c->address);
+		zlog_debug("connected IPv6 address (%s:%u:%u)%pFX", ISIS_DEBUG_VRF_ID(vrf_id),
+			   c->address);
 #endif /* EXTREME_DEBUG */
 
 	if (if_is_operative(c->ifp)) {
@@ -138,9 +140,11 @@ static int isis_zebra_if_address_del(ZAPI_CALLBACK_ARGS)
 
 #ifdef EXTREME_DEBUG
 	if (c->address->family == AF_INET)
-		zlog_debug("disconnected IP address %pFX", c->address);
+		zlog_debug("disconnected IP address (%s:%u:%u)%pFX", ISIS_DEBUG_VRF_ID(vrf_id),
+			   c->address);
 	if (c->address->family == AF_INET6)
-		zlog_debug("disconnected IPv6 address %pFX", c->address);
+		zlog_debug("disconnected IPv6 address (%s:%u:%u)%pFX", ISIS_DEBUG_VRF_ID(vrf_id),
+			   c->address);
 #endif /* EXTREME_DEBUG */
 
 	if (if_is_operative(c->ifp)) {
@@ -364,8 +368,8 @@ void isis_zebra_prefix_sid_install(struct isis_area *area,
 	struct zapi_labels zl;
 	int count = 0;
 
-	sr_debug("ISIS-Sr (%s): update label %u for prefix %pFX algorithm %u",
-		 area->area_tag, psid->label, prefix, psid->algorithm);
+	sr_debug("ISIS-Sr (%s): update label %u for prefix (%s:%u:%u)%pFX algorithm %u",
+		 area->area_tag, psid->label, ISIS_DEBUG_VRF(area->isis), prefix, psid->algorithm);
 
 	/* Prepare message. */
 	memset(&zl, 0, sizeof(zl));
@@ -379,9 +383,8 @@ void isis_zebra_prefix_sid_install(struct isis_area *area,
 
 		ifp = if_lookup_by_name("lo", VRF_DEFAULT);
 		if (!ifp) {
-			zlog_warn(
-				"%s: couldn't install Prefix-SID %pFX: loopback interface not found",
-				__func__, prefix);
+			zlog_warn("%s: couldn't install Prefix-SID (%s:%u:%u)%pFX: loopback interface not found",
+				  __func__, ISIS_DEBUG_VRF(area->isis), prefix);
 			return;
 		}
 
@@ -431,8 +434,8 @@ void isis_zebra_prefix_sid_uninstall(struct isis_area *area,
 {
 	struct zapi_labels zl;
 
-	sr_debug("ISIS-Sr (%s): delete label %u for prefix %pFX algorithm %u",
-		 area->area_tag, psid->label, prefix, psid->algorithm);
+	sr_debug("ISIS-Sr (%s): delete label %u for prefix (%s:%u:%u)%pFX algorithm %u",
+		 area->area_tag, psid->label, ISIS_DEBUG_VRF(area->isis), prefix, psid->algorithm);
 
 	/* Prepare message. */
 	memset(&zl, 0, sizeof(zl));
@@ -587,8 +590,8 @@ int isis_zebra_rlfa_register(struct isis_spftree *spftree, struct rlfa *rlfa)
 	zr.destination = rlfa->prefix;
 	zr.pq_address = rlfa->pq_address;
 
-	zlog_debug("ISIS-LFA: registering RLFA %pFX@%pI4 with LDP",
-		   &rlfa->prefix, &rlfa->pq_address);
+	zlog_debug("ISIS-LFA: registering RLFA (%s:%u:%u)%pFX@%pI4 with LDP",
+		   ISIS_DEBUG_VRF(area->isis), &rlfa->prefix, &rlfa->pq_address);
 
 	ret = zclient_send_opaque_unicast(isis_zclient, LDP_RLFA_REGISTER,
 					  ZEBRA_ROUTE_LDP, 0, 0,
@@ -1270,8 +1273,8 @@ static int isis_zebra_process_srv6_locator_internal(struct srv6_locator *locator
 	if (!isis || !locator)
 		return -1;
 
-	zlog_info("%s: Received SRv6 locator %s %pFX, loc-block-len=%u, loc-node-len=%u func-len=%u, arg-len=%u",
-		  __func__, locator->name, &locator->prefix,
+	zlog_info("%s: Received SRv6 locator %s (%s:%u:%u)%pFX, loc-block-len=%u, loc-node-len=%u func-len=%u, arg-len=%u",
+		  __func__, locator->name, ISIS_DEBUG_VRF(isis), &locator->prefix,
 		  locator->block_bits_length, locator->node_bits_length,
 		  locator->function_bits_length, locator->argument_bits_length);
 
@@ -1289,8 +1292,8 @@ static int isis_zebra_process_srv6_locator_internal(struct srv6_locator *locator
 			continue;
 		}
 
-		sr_debug("SRv6 locator (locator %s, prefix %pFX) set for IS-IS area %s",
-			 locator->name, &locator->prefix, area->area_tag);
+		sr_debug("SRv6 locator (locator %s, prefix (%s:%u:%u)%pFX) set for IS-IS area %s",
+			 locator->name, ISIS_DEBUG_VRF(isis), &locator->prefix, area->area_tag);
 
 		if (area->srv6db.srv6_locator)
 			srv6_locator_free(area->srv6db.srv6_locator);
@@ -1349,12 +1352,10 @@ static int isis_zebra_process_srv6_locator_delete(ZAPI_CALLBACK_ARGS)
 	if (zapi_srv6_locator_decode(zclient->ibuf, &loc) < 0)
 		return -1;
 
-	sr_debug(
-		"SRv6 locator deleted in zebra: name %s, "
-		"prefix %pFX, block_len %u, node_len %u, func_len %u, arg_len %u",
-		loc.name, &loc.prefix, loc.block_bits_length,
-		loc.node_bits_length, loc.function_bits_length,
-		loc.argument_bits_length);
+	sr_debug("SRv6 locator deleted in zebra: name %s, "
+		 "prefix (%s:%u:%u)%pFX, block_len %u, node_len %u, func_len %u, arg_len %u",
+		 loc.name, ISIS_DEBUG_VRF(isis), &loc.prefix, loc.block_bits_length,
+		 loc.node_bits_length, loc.function_bits_length, loc.argument_bits_length);
 
 	/* Walk through all areas of the ISIS instance */
 	frr_each (isis_area_list, &isis->area_list, area) {

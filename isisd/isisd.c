@@ -164,6 +164,20 @@ struct isis *isis_lookup_by_vrfid(vrf_id_t vrf_id)
 	return NULL;
 }
 
+const char *isis_vrf_id_to_name(vrf_id_t vrf_id)
+{
+	struct vrf *vrf = vrf_lookup_by_id(vrf_id);
+
+	return vrf ? vrf->name : "NIL";
+}
+
+uint32_t isis_vrf_id_to_table_id(vrf_id_t vrf_id)
+{
+	struct vrf *vrf = vrf_lookup_by_id(vrf_id);
+
+	return vrf ? vrf->data.l.table_id : 0;
+}
+
 struct isis *isis_lookup_by_vrfname(const char *vrfname)
 {
 	struct isis *isis;

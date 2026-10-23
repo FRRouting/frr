@@ -342,7 +342,8 @@ struct sr_prefix_cfg *isis_sr_cfg_prefix_add(struct isis_area *area, const struc
 	struct sr_prefix_cfg *pcfg;
 	struct interface *ifp;
 
-	sr_debug("ISIS-Sr (%s): Add local prefix %pFX", area->area_tag, prefix);
+	sr_debug("ISIS-Sr (%s): Add local prefix (%s:%u:%u)%pFX", area->area_tag,
+		 ISIS_DEBUG_VRF(area->isis), prefix);
 
 	pcfg = XCALLOC(MTYPE_ISIS_SR_INFO, sizeof(*pcfg));
 	pcfg->prefix = *prefix;
@@ -375,7 +376,8 @@ void isis_sr_cfg_prefix_del(struct sr_prefix_cfg *pcfg)
 {
 	struct isis_area *area = pcfg->area;
 
-	sr_debug("ISIS-Sr (%s): Delete local Prefix-SID %pFX %s %u", area->area_tag, &pcfg->prefix,
+	sr_debug("ISIS-Sr (%s): Delete local Prefix-SID (%s:%u:%u)%pFX %s %u", area->area_tag,
+		 ISIS_DEBUG_VRF(area->isis), &pcfg->prefix,
 		 pcfg->sid_type == SR_SID_VALUE_TYPE_INDEX ? "index" : "label", pcfg->sid);
 
 	srdb_prefix_cfg_del(&area->srdb.config.prefix_sids, pcfg);

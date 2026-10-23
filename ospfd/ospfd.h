@@ -806,6 +806,21 @@ extern void ospf_vrf_terminate(void);
 extern void ospf_vrf_link(struct ospf *ospf, struct vrf *vrf);
 extern void ospf_vrf_unlink(struct ospf *ospf, struct vrf *vrf);
 const char *ospf_vrf_id_to_name(vrf_id_t vrf_id);
+uint32_t ospf_vrf_id_to_table_id(vrf_id_t vrf_id);
+
+/*
+ * Arguments for the "(%s:%u:%u)" vrf name, vrf id, table id prefix
+ * used in front of a prefix in debugs.  For example:
+ *
+ *   zlog_debug("route (%s:%u:%u)%pFX", OSPF_DEBUG_VRF(ospf), p);
+ *
+ * Note that the argument is evaluated more than once.
+ */
+#define OSPF_DEBUG_VRF(ospf) OSPF_DEBUG_VRF_ID((ospf)->vrf_id)
+
+/* Same as above, but for when only the vrf id is available. */
+#define OSPF_DEBUG_VRF_ID(vrf_id)                                                                 \
+	ospf_vrf_id_to_name(vrf_id), (vrf_id), ospf_vrf_id_to_table_id(vrf_id)
 int ospf_area_nssa_no_summary_set(struct ospf *ospf, struct in_addr area_id);
 
 const char *ospf_get_name(const struct ospf *ospf);

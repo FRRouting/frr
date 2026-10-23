@@ -244,10 +244,9 @@ static struct ospf6_lsa *ospf6_lsa_translated_nssa_new(struct ospf6_area *area,
 	if (range && !prefix_same(&prefix, &range->prefix)
 	    && !CHECK_FLAG(range->flag, OSPF6_ROUTE_REMOVE)) {
 		if (IS_OSPF6_DEBUG_NSSA)
-			zlog_debug(
-				"%s: LSA %s suppressed by range %pFX of area %s",
-				__func__, type7->name, &range->prefix,
-				area->name);
+			zlog_debug("%s: LSA %s suppressed by range (%s:%u:%u)%pFX of area %s",
+				   __func__, type7->name, OSPF6_DEBUG_VRF(area->ospf6),
+				   &range->prefix, area->name);
 		return NULL;
 	}
 
@@ -469,10 +468,10 @@ static void ospf6_abr_translate_nssa(struct ospf6_area *area,
 		} else {
 			if (!CHECK_FLAG(match->flag, OSPF6_ROUTE_REMOVE)) {
 				if (IS_OSPF6_DEBUG_NSSA)
-					zlog_debug(
-						"%s: LSA Id %pI4 suppressed by range %pFX of area %s",
-						__func__, &lsa->header->id,
-						&match->prefix, area->name);
+					zlog_debug("%s: LSA Id %pI4 suppressed by range (%s:%u:%u)%pFX of area %s",
+						   __func__, &lsa->header->id,
+						   OSPF6_DEBUG_VRF(area->ospf6), &match->prefix,
+						   area->name);
 				/* LSA will be suppressed by area-range command,
 				 * no need to refresh
 				 */
@@ -989,7 +988,8 @@ void ospf6_nssa_lsa_originate(struct ospf6_route *route,
 	caddr_t p;
 
 	if (IS_OSPF6_DEBUG_ASBR || IS_OSPF6_DEBUG_ORIGINATE(AS_EXTERNAL))
-		zlog_debug("Originate NSSA-LSA for %pFX", &route->prefix);
+		zlog_debug("Originate NSSA-LSA for (%s:%u:%u)%pFX", OSPF6_DEBUG_VRF(area->ospf6),
+			   &route->prefix);
 
 	/* prepare buffer */
 	memset(buffer, 0, sizeof(buffer));

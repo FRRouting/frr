@@ -444,10 +444,10 @@ static void pim_g2rp_timer_start(struct bsm_rpinfo *bsrp, int hold_time)
 	}
 	event_cancel(&bsrp->g2rp_timer);
 	if (PIM_DEBUG_BSM)
-		zlog_debug(
-			"%s : starting g2rp timer for grp: %pFX - rp: %pPAs with timeout  %d secs(Actual Hold time : %d secs)",
-			__func__, &bsrp->bsgrp_node->group, &bsrp->rp_address,
-			hold_time, bsrp->rp_holdtime);
+		zlog_debug("%s : starting g2rp timer for grp: (%s:%u:%u)%pFX - rp: %pPAs with timeout  %d secs(Actual Hold time : %d secs)",
+			   __func__, PIM_DEBUG_VRF(bsrp->bsgrp_node->scope->pim->vrf),
+			   &bsrp->bsgrp_node->group, &bsrp->rp_address, hold_time,
+			   bsrp->rp_holdtime);
 
 	event_add_timer(router->master, pim_on_g2rp_timer, bsrp, hold_time,
 			&bsrp->g2rp_timer);
@@ -465,9 +465,9 @@ static void pim_g2rp_timer_stop(struct bsm_rpinfo *bsrp)
 		return;
 
 	if (PIM_DEBUG_BSM)
-		zlog_debug("%s : stopping g2rp timer for grp: %pFX - rp: %pPAs",
-			   __func__, &bsrp->bsgrp_node->group,
-			   &bsrp->rp_address);
+		zlog_debug("%s : stopping g2rp timer for grp: (%s:%u:%u)%pFX - rp: %pPAs",
+			   __func__, PIM_DEBUG_VRF(bsrp->bsgrp_node->scope->pim->vrf),
+			   &bsrp->bsgrp_node->group, &bsrp->rp_address);
 
 	event_cancel(&bsrp->g2rp_timer);
 }
@@ -1323,8 +1323,9 @@ static bool pim_install_bsm_grp_rp(struct pim_instance *pim,
 
 	if (pim_bsm_scope_cannot_add_rp(scope, grpnode)) {
 		if (PIM_DEBUG_BSM)
-			zlog_debug("%s: dropping BSM RP entry for group %pFX (limit %u reached)",
-				   __func__, &grpnode->group, PIM_BSM_MAX_RP_ENTRIES);
+			zlog_debug("%s: dropping BSM RP entry for group (%s:%u:%u)%pFX (limit %u reached)",
+				   __func__, PIM_DEBUG_VRF(pim->vrf), &grpnode->group,
+				   PIM_BSM_MAX_RP_ENTRIES);
 		return false;
 	}
 
@@ -1476,8 +1477,9 @@ bool pim_bsm_parse_install_g2rp(struct bsm_scope *scope, uint8_t *buf,
 				size_t skip_rp;
 
 				if (PIM_DEBUG_BSM)
-					zlog_debug("%s: cannot create new group node %pFX, RP limit %u reached",
-						   __func__, &group, PIM_BSM_MAX_RP_ENTRIES);
+					zlog_debug("%s: cannot create new group node (%s:%u:%u)%pFX, RP limit %u reached",
+						   __func__, PIM_DEBUG_VRF(scope->pim->vrf),
+						   &group, PIM_BSM_MAX_RP_ENTRIES);
 				skip_rp = sizeof(struct bsmmsg_rpinfo) *
 					  (size_t)grpinfo.frag_rp_count;
 				if (offset > buflen || (size_t)(buflen - offset) < skip_rp)

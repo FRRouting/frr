@@ -600,9 +600,9 @@ int pim_zlookup_sg_statistics(struct channel_oil *c_oil)
 	if (PIM_DEBUG_ZEBRA) {
 		more.src = c_oil->source;
 		more.grp = c_oil->group;
-		zlog_debug("Sending Request for New Channel Oil Information%pSG VIIF %d(%s:%s)",
-			   &more, c_oil->iif.index, ifp ? ifp->name : "Unknown",
-			   c_oil->pim->vrf->name);
+		zlog_debug("Sending Request for New Channel Oil Information(%s:%u:%u)%pSG VIIF %d(%s:%s)",
+			   PIM_DEBUG_VRF(c_oil->pim->vrf), &more, c_oil->iif.index,
+			   ifp ? ifp->name : "Unknown", c_oil->pim->vrf->name);
 	}
 
 	if (!ifp)
@@ -654,10 +654,9 @@ int pim_zlookup_sg_statistics(struct channel_oil *c_oil)
 	more.grp = c_oil->group;
 	if (pim_sgaddr_cmp(sg, more)) {
 		if (PIM_DEBUG_ZEBRA)
-			flog_err(
-				EC_LIB_ZAPI_MISSMATCH,
-				"%s: Received wrong %pSG(%s) information requested",
-				__func__, &more, c_oil->pim->vrf->name);
+			flog_err(EC_LIB_ZAPI_MISSMATCH,
+				 "%s: Received wrong (%s:%u:%u)%pSG information requested",
+				 __func__, PIM_DEBUG_VRF(c_oil->pim->vrf), &more);
 		zclient_lookup_failed(pim_zlookup);
 		return -3;
 	}

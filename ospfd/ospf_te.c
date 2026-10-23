@@ -1857,9 +1857,9 @@ static void ospf_te_update_subnet(struct ls_ted *ted, struct ls_vertex *vertex,
 		subnet = ls_subnet_add(ted, ls_pref);
 	}
 
-	ote_debug("    |- %s subnet %pFX with metric %d",
-		  subnet->status == NEW ? "Add" : "Update", &subnet->key,
-		  ls_pref->metric);
+	ote_debug("    |- %s subnet (%s:%u:%u)%pFX with metric %d",
+		  subnet->status == NEW ? "Add" : "Update", OSPF_DEBUG_VRF_ID(VRF_DEFAULT),
+		  &subnet->key, ls_pref->metric);
 
 	/* Export Link State Subnet */
 	ospf_te_export(LS_MSG_TYPE_PREFIX, subnet);
@@ -1882,7 +1882,8 @@ static void ospf_te_delete_subnet(struct ls_ted *ted, struct in_addr addr)
 	p.family = AF_INET;
 	p.prefixlen = IPV4_MAX_BITLEN;
 	p.u.prefix4 = addr;
-	ote_debug("  |- Delete Subnet info. for Prefix %pFX", &p);
+	ote_debug("  |- Delete Subnet info. for Prefix (%s:%u:%u)%pFX",
+		  OSPF_DEBUG_VRF_ID(VRF_DEFAULT), &p);
 	subnet = ls_find_subnet(ted, &p);
 
 	/* Remove subnet if found */
@@ -2893,8 +2894,8 @@ static int ospf_te_parse_ext_pref(struct ls_ted *ted, struct ospf_lsa *lsa)
 		subnet = ls_subnet_add(ted, ls_pref);
 	}
 
-	ote_debug("  |- Process Extended Prefix LSA %pI4 for subnet %pFX",
-		  &lsa->data->id, &pref);
+	ote_debug("  |- Process Extended Prefix LSA %pI4 for subnet (%s:%u:%u)%pFX",
+		  &lsa->data->id, OSPF_DEBUG_VRF_ID(VRF_DEFAULT), &pref);
 
 	/*
 	 * Check Extended Prefix TLV size against LSA size
@@ -2938,9 +2939,9 @@ static int ospf_te_parse_ext_pref(struct ls_ted *ted, struct ospf_lsa *lsa)
 
 	/* Export Subnet if needed */
 	if (subnet->status == NEW || subnet->status == UPDATE) {
-		ote_debug("  |- %s SID %d to subnet %pFX",
-			  subnet->status == NEW ? "Add" : "Update",
-			  ls_pref->sr.sid, &ls_pref->pref);
+		ote_debug("  |- %s SID %d to subnet (%s:%u:%u)%pFX",
+			  subnet->status == NEW ? "Add" : "Update", ls_pref->sr.sid,
+			  OSPF_DEBUG_VRF_ID(VRF_DEFAULT), &ls_pref->pref);
 
 		ospf_te_export(LS_MSG_TYPE_PREFIX, subnet);
 		subnet->status = SYNC;
@@ -2996,8 +2997,8 @@ static int ospf_te_delete_ext_pref(struct ls_ted *ted, struct ospf_lsa *lsa)
 	if (!subnet)
 		return -1;
 
-	ote_debug("  |- Delete SID %d to subnet %pFX", subnet->ls_pref->sr.sid,
-		  &subnet->ls_pref->pref);
+	ote_debug("  |- Delete SID %d to subnet (%s:%u:%u)%pFX", subnet->ls_pref->sr.sid,
+		  OSPF_DEBUG_VRF_ID(VRF_DEFAULT), &subnet->ls_pref->pref);
 
 	/* Remove Segment Routing information */
 	ls_pref = subnet->ls_pref;

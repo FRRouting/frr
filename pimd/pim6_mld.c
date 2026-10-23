@@ -59,9 +59,9 @@ static void gm_sg_timer_start(struct gm_if *gm_ifp, struct gm_sg *sg,
 		&pkt_src->sin6_addr
 #define log_pkt_dst(msg)                                                       \
 	"[MLD %s:%s %pI6] " msg, gm_ifp->ifp->vrf->name, gm_ifp->ifp->name, pkt_dst
-#define log_sg(sg, msg)                                                        \
-	"[MLD %s:%s %pSG] " msg, sg->iface->ifp->vrf->name,                    \
-		sg->iface->ifp->name, &sg->sgaddr
+#define log_sg(sg, msg)                                                                           \
+	"[MLD %s (%s:%u:%u)%pSG] " msg, sg->iface->ifp->name, PIM_DEBUG_VRF(sg->iface->ifp->vrf), \
+		&sg->sgaddr
 
 /* clang-format off */
 static const pim_addr gm_all_hosts = {
@@ -519,12 +519,12 @@ static void gm_sg_update(struct gm_sg *sg, bool has_expired)
 		sg->tib_joined = tib_sg_gm_join(gm_ifp->pim, sg->sgaddr,
 						gm_ifp->ifp, &sg->oil);
 		if (!sg->tib_joined)
-			zlog_warn(
-				"MLD join for %pSG%%%s not propagated into TIB",
-				&sg->sgaddr, gm_ifp->ifp->name);
-		else
-			zlog_info(log_ifp("%pSG%%%s TIB joined"), &sg->sgaddr,
+			zlog_warn("MLD join for (%s:%u:%u)%pSG%%%s not propagated into TIB",
+				  PIM_DEBUG_VRF(sg->iface->pim->vrf), &sg->sgaddr,
 				  gm_ifp->ifp->name);
+		else
+			zlog_info(log_ifp("(%s:%u:%u)%pSG%%%s TIB joined"),
+				  PIM_DEBUG_VRF(gm_ifp->ifp->vrf), &sg->sgaddr, gm_ifp->ifp->name);
 
 	} else if (sg->tib_joined && !new_join) {
 		tib_sg_gm_prune(gm_ifp->pim, sg->sgaddr, gm_ifp->ifp, &sg->oil);

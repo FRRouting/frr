@@ -261,6 +261,18 @@ void pim_vrf_terminate(void);
 
 extern struct pim_router *router;
 
+/*
+ * Arguments for the "(%s:%u:%u)" vrf name, vrf id, table id prefix
+ * used in front of a prefix or (S,G) in debugs.  For example:
+ *
+ *   zlog_debug("route (%s:%u:%u)%pSG", PIM_DEBUG_VRF(pim->vrf), &sg);
+ *
+ * Note that the argument is evaluated more than once.
+ */
+#define PIM_DEBUG_VRF(vrf)                                                                        \
+	(vrf) ? (vrf)->name : "Unknown", (vrf) ? (vrf)->vrf_id : VRF_UNKNOWN,                     \
+		(vrf) ? (vrf)->data.l.table_id : 0
+
 struct pim_instance *pim_get_pim_instance(vrf_id_t vrf_id);
 void pim_vrf_shutdown(struct pim_instance *pim, bool shutdown);
 

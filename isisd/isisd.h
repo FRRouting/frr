@@ -302,6 +302,22 @@ void isis_vrf_link(struct isis *isis, struct vrf *vrf);
 void isis_vrf_unlink(struct isis *isis, struct vrf *vrf);
 struct isis *isis_lookup_by_vrfid(vrf_id_t vrf_id);
 struct isis *isis_lookup_by_vrfname(const char *vrfname);
+const char *isis_vrf_id_to_name(vrf_id_t vrf_id);
+uint32_t isis_vrf_id_to_table_id(vrf_id_t vrf_id);
+
+/*
+ * Arguments for the "(%s:%u:%u)" vrf name, vrf id, table id prefix
+ * used in front of a prefix in debugs.  For example:
+ *
+ *   zlog_debug("route (%s:%u:%u)%pFX", ISIS_DEBUG_VRF(isis), p);
+ *
+ * Note that the argument is evaluated more than once.
+ */
+#define ISIS_DEBUG_VRF(isis) ISIS_DEBUG_VRF_ID((isis)->vrf_id)
+
+/* Same as above, but for when only the vrf id is available. */
+#define ISIS_DEBUG_VRF_ID(vrf_id)                                                                 \
+	isis_vrf_id_to_name(vrf_id), (vrf_id), isis_vrf_id_to_table_id(vrf_id)
 struct isis *isis_lookup_by_sysid(const uint8_t *sysid);
 
 void isis_init(void);

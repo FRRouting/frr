@@ -102,7 +102,8 @@ int pim_macro_ch_lost_assert(const struct pim_ifchannel *ch)
 
 	ifp = ch->interface;
 	if (!ifp) {
-		zlog_warn("%s: (S,G)=%s: null interface", __func__, ch->sg_str);
+		zlog_warn("%s: (S,G)=(%s:%u:%u)%s: null interface", __func__,
+			  "UNKNOWN", VRF_UNKNOWN, 0, ch->sg_str);
 		return 0; /* false */
 	}
 
@@ -112,8 +113,8 @@ int pim_macro_ch_lost_assert(const struct pim_ifchannel *ch)
 
 	pim_ifp = ifp->info;
 	if (!pim_ifp) {
-		zlog_warn("%s: (S,G)=%s: multicast not enabled on interface %s",
-			  __func__, ch->sg_str, ifp->name);
+		zlog_warn("%s: (S,G)=(%s:%u:%u)%s: multicast not enabled on interface %s",
+			  __func__, PIM_DEBUG_VRF(ch->interface->vrf), ch->sg_str, ifp->name);
 		return 0; /* false */
 	}
 
@@ -149,8 +150,8 @@ int pim_macro_chisin_pim_include(const struct pim_ifchannel *ch)
 	bool mlag_active = false;
 
 	if (!pim_ifp) {
-		zlog_warn("%s: (S,G)=%s: multicast not enabled on interface %s",
-			  __func__, ch->sg_str, ch->interface->name);
+		zlog_warn("%s: (S,G)=(%s:%u:%u)%s: multicast not enabled on interface %s", __func__,
+			  PIM_DEBUG_VRF(ch->interface->vrf), ch->sg_str, ch->interface->name);
 		return 0; /* false */
 	}
 
@@ -223,7 +224,8 @@ int pim_macro_ch_could_assert_eval(const struct pim_ifchannel *ch)
 
 	ifp = ch->interface;
 	if (!ifp) {
-		zlog_warn("%s: (S,G)=%s: null interface", __func__, ch->sg_str);
+		zlog_warn("%s: (S,G)=(%s:%u:%u)%s: null interface", __func__,
+			  "UNKNOWN", VRF_UNKNOWN, 0, ch->sg_str);
 		return 0; /* false */
 	}
 
@@ -390,14 +392,15 @@ int pim_macro_assert_tracking_desired_eval(const struct pim_ifchannel *ch)
 
 	ifp = ch->interface;
 	if (!ifp) {
-		zlog_warn("%s: (S,G)=%s: null interface", __func__, ch->sg_str);
+		zlog_warn("%s: (S,G)=(%s:%u:%u)%s: null interface", __func__,
+			  "UNKOWN", VRF_UNKNOWN, 0, ch->sg_str);
 		return 0; /* false */
 	}
 
 	pim_ifp = ifp->info;
 	if (!pim_ifp) {
-		zlog_warn("%s: (S,G)=%s: multicast not enabled on interface %s",
-			  __func__, ch->sg_str, ch->interface->name);
+		zlog_warn("%s: (S,G)=(%s:%u:%u)%s: multicast not enabled on interface %s", __func__,
+			  PIM_DEBUG_VRF(ch->interface->vrf), ch->sg_str, ch->interface->name);
 		return 0; /* false */
 	}
 

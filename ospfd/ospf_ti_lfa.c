@@ -1002,10 +1002,9 @@ void ospf_ti_lfa_insert_backup_paths(struct ospf_area *area,
 				continue;
 
 			if (IS_DEBUG_OSPF_TI_LFA)
-				zlog_debug(
-					"%s: attempting to insert backup path for prefix %pFX, router id %pI4 and nexthop %pI4.",
-					__func__, &rn->p, &path->adv_router,
-					&path->nexthop);
+				zlog_debug("%s: attempting to insert backup path for prefix (%s:%u:%u)%pFX, router id %pI4 and nexthop %pI4.",
+					   __func__, OSPF_DEBUG_VRF(area->ospf), &rn->p,
+					   &path->adv_router, &path->nexthop);
 
 			p_space = ospf_ti_lfa_get_p_space_by_path(area, path);
 			if (!p_space) {
@@ -1059,18 +1058,14 @@ void ospf_ti_lfa_insert_backup_paths(struct ospf_area *area,
 					path->srni.backup_label_stack->label,
 					label_buf, MPLS_LABEL_STRLEN, 0, true);
 				if (IS_DEBUG_OSPF_TI_LFA)
-					zlog_debug(
-						"%s: inserted backup path %s for prefix %pFX, router id %pI4 and nexthop %pI4.",
-						__func__, label_buf, &rn->p,
-						&path->adv_router,
-						&path->nexthop);
+					zlog_debug("%s: inserted backup path %s for prefix (%s:%u:%u)%pFX, router id %pI4 and nexthop %pI4.",
+						   __func__, label_buf, OSPF_DEBUG_VRF(area->ospf),
+						   &rn->p, &path->adv_router, &path->nexthop);
 			} else {
 				if (IS_DEBUG_OSPF_TI_LFA)
-					zlog_debug(
-						"%s: inserted NO backup path for prefix %pFX, router id %pI4 and nexthop %pI4.",
-						__func__, &rn->p,
-						&path->adv_router,
-						&path->nexthop);
+					zlog_debug("%s: inserted NO backup path for prefix (%s:%u:%u)%pFX, router id %pI4 and nexthop %pI4.",
+						   __func__, OSPF_DEBUG_VRF(area->ospf), &rn->p,
+						   &path->adv_router, &path->nexthop);
 			}
 		}
 	}

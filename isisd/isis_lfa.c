@@ -601,8 +601,9 @@ static int tilfa_build_repair_list(struct isis_spftree *spftree_pc, struct isis_
 
 		sid_index = vertex->N.ip.sr.sid.value;
 		if (IS_DEBUG_LFA)
-			zlog_debug("ISIS-LFA: pushing Prefix-SID to %pFX (index %u)",
-				   &vertex->N.ip.p.dest, sid_index);
+			zlog_debug("ISIS-LFA: pushing Prefix-SID to (%s:%u:%u)%pFX (index %u)",
+				   ISIS_DEBUG_VRF(spftree_pc->area->isis), &vertex->N.ip.p.dest,
+				   sid_index);
 		sid_dest.type = TILFA_SID_PREFIX;
 		sid_dest.value.index.value = sid_index;
 		sid_dest.value.index.remote = true;
@@ -1473,20 +1474,22 @@ void isis_rlfa_process_ldp_response(struct zapi_rlfa_response *response)
 
 	rlfa = rlfa_lookup(spftree, &response->destination);
 	if (!rlfa) {
-		zlog_warn("ISIS-LFA: couldn't find Remote-LFA %pFX received from LDP",
-			  &response->destination);
+		zlog_warn("ISIS-LFA: couldn't find Remote-LFA (%s:%u:%u)%pFX received from LDP",
+			  ISIS_DEBUG_VRF(isis), &response->destination);
 		return;
 	}
 
 	if (response->pq_label != MPLS_INVALID_LABEL) {
 		if (IS_DEBUG_LFA)
-			zlog_debug("ISIS-LFA: activating/updating RLFA for %pFX", &rlfa->prefix);
+			zlog_debug("ISIS-LFA: activating/updating RLFA for (%s:%u:%u)%pFX",
+				   ISIS_DEBUG_VRF(isis), &rlfa->prefix);
 
 		if (isis_rlfa_activate(spftree, rlfa, response) != 0)
 			isis_rlfa_deactivate(spftree, rlfa);
 	} else {
 		if (IS_DEBUG_LFA)
-			zlog_debug("ISIS-LFA: deactivating RLFA for %pFX", &rlfa->prefix);
+			zlog_debug("ISIS-LFA: deactivating RLFA for (%s:%u:%u)%pFX",
+				   ISIS_DEBUG_VRF(isis), &rlfa->prefix);
 
 		isis_rlfa_deactivate(spftree, rlfa);
 	}

@@ -146,8 +146,8 @@ void pim_jp_agg_remove_group(struct list *group, struct pim_upstream *up,
 
 	if (nbr) {
 		if (PIM_DEBUG_TRACE)
-			zlog_debug("up %s remove from nbr %s/%pPAs jp-agg-list",
-				   up->sg_str, nbr->interface->name,
+			zlog_debug("up (%s:%u:%u)%s remove from nbr %s/%pPAs jp-agg-list",
+				   PIM_DEBUG_VRF(up->pim->vrf), up->sg_str, nbr->interface->name,
 				   &nbr->source_addr);
 	}
 
@@ -225,8 +225,8 @@ void pim_jp_agg_upstream_verification(struct pim_upstream *up, bool ignore)
 
 	if (!up->rpf.source_nexthop.interface) {
 		if (PIM_DEBUG_PIM_TRACE)
-			zlog_debug("%s: up %s RPF is not present", __func__,
-				   up->sg_str);
+			zlog_debug("%s: up (%s:%u:%u)%s RPF is not present", __func__,
+				   PIM_DEBUG_VRF(up->pim->vrf), up->sg_str);
 		return;
 	}
 
@@ -283,10 +283,9 @@ void pim_jp_agg_add_group(struct list *group, struct pim_upstream *up,
 
 	if (nbr) {
 		if (PIM_DEBUG_TRACE)
-			zlog_debug("up %s add to nbr %s/%pPAs jp-agg-list",
-				   up->sg_str,
-				   up->rpf.source_nexthop.interface->name,
-				   &nbr->source_addr);
+			zlog_debug("up (%s:%u:%u)%s add to nbr %s/%pPAs jp-agg-list",
+				   PIM_DEBUG_VRF(up->pim->vrf), up->sg_str,
+				   up->rpf.source_nexthop.interface->name, &nbr->source_addr);
 	}
 
 	if (!js) {

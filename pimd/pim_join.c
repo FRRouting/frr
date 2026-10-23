@@ -47,11 +47,11 @@ static void recv_join(struct interface *ifp, struct pim_neighbor *neigh, uint16_
 #endif /* PIM_IPV == 6 */
 
 	if (PIM_DEBUG_PIM_J_P)
-		zlog_debug(
-			"%s: join (S,G)=%pSG rpt=%d wc=%d upstream=%pPAs holdtime=%d from %pPA on %s",
-			__func__, sg, !!(source_flags & PIM_RPT_BIT_MASK),
-			!!(source_flags & PIM_WILDCARD_BIT_MASK), &upstream,
-			holdtime, &neigh->source_addr, ifp->name);
+		zlog_debug("%s: join (S,G)=(%s:%u:%u)%pSG rpt=%d wc=%d upstream=%pPAs holdtime=%d from %pPA on %s",
+			   __func__, PIM_DEBUG_VRF(ifp->vrf), sg,
+			   !!(source_flags & PIM_RPT_BIT_MASK),
+			   !!(source_flags & PIM_WILDCARD_BIT_MASK), &upstream, holdtime,
+			   &neigh->source_addr, ifp->name);
 
 	pim_ifp = ifp->info;
 
@@ -75,9 +75,8 @@ static void recv_join(struct interface *ifp, struct pim_neighbor *neigh, uint16_
 		 */
 		if (!CHECK_FLAG(source_flags, PIM_RPT_BIT_MASK)) {
 			if (PIM_DEBUG_PIM_J_P)
-				zlog_debug(
-					"Discarding (*,G)=%pSG join since WC bit is set but RPT bit is unset",
-					sg);
+				zlog_debug("Discarding (*,G)=(%s:%u:%u)%pSG join since WC bit is set but RPT bit is unset",
+					   PIM_DEBUG_VRF(ifp->vrf), sg);
 
 			return;
 		}
@@ -86,8 +85,8 @@ static void recv_join(struct interface *ifp, struct pim_neighbor *neigh, uint16_
 		pim_addr rpf_addr;
 
 		if (!rp) {
-			zlog_warn("%s: Lookup of RP failed for %pSG", __func__,
-				  sg);
+			zlog_warn("%s: Lookup of RP failed for (%s:%u:%u)%pSG", __func__,
+				  PIM_DEBUG_VRF(ifp->vrf), sg);
 			return;
 		}
 
@@ -133,11 +132,10 @@ static void recv_prune(struct interface *ifp, struct pim_neighbor *neigh,
 	struct pim_interface *pim_ifp = NULL;
 
 	if (PIM_DEBUG_PIM_J_P)
-		zlog_debug(
-			"%s: prune (S,G)=%pSG rpt=%d wc=%d upstream=%pPAs holdtime=%d from %pPA on %s",
-			__func__, sg, source_flags & PIM_RPT_BIT_MASK,
-			source_flags & PIM_WILDCARD_BIT_MASK, &upstream,
-			holdtime, &neigh->source_addr, ifp->name);
+		zlog_debug("%s: prune (S,G)=(%s:%u:%u)%pSG rpt=%d wc=%d upstream=%pPAs holdtime=%d from %pPA on %s",
+			   __func__, PIM_DEBUG_VRF(ifp->vrf), sg, source_flags & PIM_RPT_BIT_MASK,
+			   source_flags & PIM_WILDCARD_BIT_MASK, &upstream, holdtime,
+			   &neigh->source_addr, ifp->name);
 
 	pim_ifp = ifp->info;
 
@@ -154,9 +152,8 @@ static void recv_prune(struct interface *ifp, struct pim_neighbor *neigh,
 		 */
 		if (!CHECK_FLAG(source_flags, PIM_RPT_BIT_MASK)) {
 			if (PIM_DEBUG_PIM_J_P)
-				zlog_debug(
-					"Discarding (*,G)=%pSG prune since WC bit is set but RPT bit is unset",
-					sg);
+				zlog_debug("Discarding (*,G)=(%s:%u:%u)%pSG prune since WC bit is set but RPT bit is unset",
+					   PIM_DEBUG_VRF(ifp->vrf), sg);
 
 			return;
 		}
@@ -167,8 +164,8 @@ static void recv_prune(struct interface *ifp, struct pim_neighbor *neigh,
 		 * RP in the message does not match RP(G).
 		 */
 		if (PIM_DEBUG_PIM_J_P)
-			zlog_debug("%s: Prune received with RP(%pPAs) for %pSG",
-				   __func__, &sg->src, sg);
+			zlog_debug("%s: Prune received with RP(%pPAs) for (%s:%u:%u)%pSG",
+				   __func__, &sg->src, PIM_DEBUG_VRF(ifp->vrf), sg);
 
 		sg->src = PIMADDR_ANY;
 	}
@@ -382,9 +379,9 @@ int pim_joinprune_recv(struct interface *ifp, struct pim_neighbor *neigh,
 				struct pim_upstream *up = sg_ch->upstream;
 				if (up) {
 					if (PIM_DEBUG_PIM_TRACE)
-						zlog_debug(
-							"%s: SGRpt flag is set, del inherit oif from up %s",
-							__func__, up->sg_str);
+						zlog_debug("%s: SGRpt flag is set, del inherit oif from up (%s:%u:%u)%s",
+							   __func__, PIM_DEBUG_VRF(up->pim->vrf),
+							   up->sg_str);
 					pim_channel_del_inherited_oif(
 						up->channel_oil,
 						starg_ch->interface,
@@ -575,8 +572,8 @@ static void pim_jp_groups_source_set_prune(struct list *sources)
 
 	upstream = js->up;
 	if (PIM_DEBUG_PIM_PACKETS)
-		zlog_debug("%s: Considering (%s) children for (S,G,rpt) prune", __func__,
-			   upstream->sg_str);
+		zlog_debug("%s: Considering ((%s:%u:%u)%s) children for (S,G,rpt) prune", __func__,
+			   PIM_DEBUG_VRF(upstream->pim->vrf), upstream->sg_str);
 
 	for (ALL_LIST_ELEMENTS_RO(upstream->sources, node, child)) {
 		/*
@@ -602,8 +599,8 @@ static void pim_jp_groups_source_set_prune(struct list *sources)
 		if (PIM_UPSTREAM_FLAG_TEST_SRC_VXLAN_ORIG(child->flags) &&
 		    listcount(child->ifchannels) == 0) {
 			if (PIM_DEBUG_PIM_PACKETS)
-				zlog_debug("%s: %s Vxlan originated S,G route with no ifchannels, not adding prune to compound message",
-					   __func__, child->sg_str);
+				zlog_debug("%s: (%s:%u:%u)%s Vxlan originated S,G route with no ifchannels, not adding prune to compound message",
+					   __func__, PIM_DEBUG_VRF(child->pim->vrf), child->sg_str);
 		} else if (!PIM_UPSTREAM_FLAG_TEST_USE_RPT(child->flags)) {
 			/* If we are using SPT and the SPT and RPT IIFs
 			 * are different we can prune the source off
@@ -616,11 +613,15 @@ static void pim_jp_groups_source_set_prune(struct list *sources)
 			    !pim_rpf_is_same(&upstream->rpf, &child->rpf)) {
 				PIM_UPSTREAM_FLAG_SET_SEND_SG_RPT_PRUNE(child->flags);
 				if (PIM_DEBUG_PIM_PACKETS)
-					zlog_debug("%s: SPT Bit and RPF'(%s) != RPF'(S,G): Add Prune (%s,rpt) to compound message",
-						   __func__, upstream->sg_str, child->sg_str);
+					zlog_debug("%s: SPT Bit and RPF'((%s:%u:%u)%s) != RPF'(S,G): Add Prune ((%s:%u:%u)%s,rpt) to compound message",
+						   __func__, PIM_DEBUG_VRF(upstream->pim->vrf),
+						   upstream->sg_str,
+						   PIM_DEBUG_VRF(child->pim->vrf), child->sg_str);
 			} else if (PIM_DEBUG_PIM_PACKETS)
-				zlog_debug("%s: SPT Bit and RPF'(%s) == RPF'(S,G): Not adding Prune for (%s,rpt)",
-					   __func__, upstream->sg_str, child->sg_str);
+				zlog_debug("%s: SPT Bit and RPF'((%s:%u:%u)%s) == RPF'(S,G): Not adding Prune for ((%s:%u:%u)%s,rpt)",
+					   __func__, PIM_DEBUG_VRF(upstream->pim->vrf),
+					   upstream->sg_str, PIM_DEBUG_VRF(child->pim->vrf),
+					   child->sg_str);
 		} else if (pim_upstream_empty_inherited_olist(child)) {
 			/* S is supposed to be forwarded along the RPT
 			 * but it's inherited OIL is empty. So just
@@ -628,11 +629,12 @@ static void pim_jp_groups_source_set_prune(struct list *sources)
 			 */
 			PIM_UPSTREAM_FLAG_SET_SEND_SG_RPT_PRUNE(child->flags);
 			if (PIM_DEBUG_PIM_PACKETS)
-				zlog_debug("%s: inherited_olist(%s,rpt) is NULL, Add Prune to compound message",
-					   __func__, child->sg_str);
+				zlog_debug("%s: inherited_olist((%s:%u:%u)%s,rpt) is NULL, Add Prune to compound message",
+					   __func__, PIM_DEBUG_VRF(child->pim->vrf), child->sg_str);
 		} else if (PIM_DEBUG_PIM_PACKETS)
-			zlog_debug("%s: Do not add Prune %s to compound message %s", __func__,
-				   child->sg_str, upstream->sg_str);
+			zlog_debug("%s: Do not add Prune (%s:%u:%u)%s to compound message (%s:%u:%u)%s",
+				   __func__, PIM_DEBUG_VRF(child->pim->vrf), child->sg_str,
+				   PIM_DEBUG_VRF(upstream->pim->vrf), upstream->sg_str);
 	}
 }
 

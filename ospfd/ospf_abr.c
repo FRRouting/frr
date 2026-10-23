@@ -743,8 +743,8 @@ void ospf_abr_announce_network_to_area(struct prefix_ipv4 *p, uint32_t cost,
 
 			if (!lsa) {
 				flog_warn(EC_OSPF_LSA_MISSING,
-					  "%s: Could not refresh %pFX to %pI4",
-					  __func__, (struct prefix *)p,
+					  "%s: Could not refresh (%s:%u:%u)%pFX to %pI4", __func__,
+					  OSPF_DEBUG_VRF(area->ospf), (struct prefix *)p,
 					  &area->area_id);
 				return;
 			}
@@ -760,9 +760,8 @@ void ospf_abr_announce_network_to_area(struct prefix_ipv4 *p, uint32_t cost,
 
 		if (!lsa) {
 			flog_warn(EC_OSPF_LSA_MISSING,
-				  "%s: Could not originate %pFX to %pi4",
-				  __func__, (struct prefix *)p,
-				  &area->area_id);
+				  "%s: Could not originate (%s:%u:%u)%pFX to %pi4", __func__,
+				  OSPF_DEBUG_VRF(area->ospf), (struct prefix *)p, &area->area_id);
 			return;
 		}
 
@@ -865,17 +864,15 @@ static void ospf_abr_announce_network(struct ospf *ospf, struct prefix_ipv4 *p,
 
 		if (!ospf_abr_should_accept(p, area)) {
 			if (IS_DEBUG_OSPF_EVENT)
-				zlog_debug(
-					"%s: prefix %pFX was denied by import-list",
-					__func__, p);
+				zlog_debug("%s: prefix (%s:%u:%u)%pFX was denied by import-list",
+					   __func__, OSPF_DEBUG_VRF(area->ospf), p);
 			continue;
 		}
 
 		if (!ospf_abr_plist_in_check(area, or, p)) {
 			if (IS_DEBUG_OSPF_EVENT)
-				zlog_debug(
-					"%s: prefix %pFX was denied by prefix-list",
-					__func__, p);
+				zlog_debug("%s: prefix (%s:%u:%u)%pFX was denied by prefix-list",
+					   __func__, OSPF_DEBUG_VRF(area->ospf), p);
 			continue;
 		}
 
@@ -890,9 +887,8 @@ static void ospf_abr_announce_network(struct ospf *ospf, struct prefix_ipv4 *p,
 
 		if (or->path_type == OSPF_PATH_INTER_AREA) {
 			if (IS_DEBUG_OSPF_EVENT)
-				zlog_debug(
-					"%s: this is inter-area route to %pFX",
-					__func__, p);
+				zlog_debug("%s: this is inter-area route to (%s:%u:%u)%pFX",
+					   __func__, OSPF_DEBUG_VRF(area->ospf), p);
 
 			if (!OSPF_IS_AREA_BACKBONE(area))
 				ospf_abr_announce_network_to_area(p, or->cost,
@@ -901,9 +897,8 @@ static void ospf_abr_announce_network(struct ospf *ospf, struct prefix_ipv4 *p,
 
 		if (or->path_type == OSPF_PATH_INTRA_AREA) {
 			if (IS_DEBUG_OSPF_EVENT)
-				zlog_debug(
-					"%s: this is intra-area route to %pFX",
-					__func__, p);
+				zlog_debug("%s: this is intra-area route to (%s:%u:%u)%pFX",
+					   __func__, OSPF_DEBUG_VRF(area->ospf), p);
 			if ((range = ospf_area_range_match(
 				     or_area, or_area->ranges, p)) &&
 			    !ospf_area_is_transit(area))
@@ -998,8 +993,8 @@ static void ospf_abr_process_network_rt(struct ospf *ospf,
 		}
 
 		if (IS_DEBUG_OSPF_EVENT)
-			zlog_debug("%s: this is a route to %pFX", __func__,
-				   &rn->p);
+			zlog_debug("%s: this is a route to (%s:%u:%u)%pFX", __func__,
+				   OSPF_DEBUG_VRF(ospf), &rn->p);
 		if (or->path_type >= OSPF_PATH_TYPE1_EXTERNAL) {
 			if (IS_DEBUG_OSPF_EVENT)
 				zlog_debug(
@@ -1115,8 +1110,8 @@ static void ospf_abr_announce_rtr_to_area(struct prefix_ipv4 *p, uint32_t cost,
 			lsa = ospf_summary_asbr_lsa_originate(p, cost, area);
 		if (!lsa) {
 			flog_warn(EC_OSPF_LSA_MISSING,
-				  "%s: Could not refresh/originate %pFX to %pI4",
-				  __func__, (struct prefix *)p,
+				  "%s: Could not refresh/originate (%s:%u:%u)%pFX to %pI4",
+				  __func__, OSPF_DEBUG_VRF(area->ospf), (struct prefix *)p,
 				  &area->area_id);
 			return;
 		}
@@ -1420,8 +1415,8 @@ static void ospf_abr_announce_aggregates(struct ospf *ospf)
 				p.prefixlen = range->masklen;
 
 				if (IS_DEBUG_OSPF_EVENT)
-					zlog_debug("%s: this is range: %pFX",
-						   __func__, &p);
+					zlog_debug("%s: this is range: (%s:%u:%u)%pFX", __func__,
+						   OSPF_DEBUG_VRF(ospf), &p);
 
 				if (CHECK_FLAG(range->flags,
 					       OSPF_AREA_RANGE_SUBSTITUTE)) {
@@ -1504,8 +1499,8 @@ static void ospf_abr_send_nssa_aggregates(struct ospf *ospf)
 			p.prefixlen = range->masklen;
 
 			if (IS_DEBUG_OSPF_NSSA)
-				zlog_debug("%s: this is range: %pFX", __func__,
-					   &p);
+				zlog_debug("%s: this is range: (%s:%u:%u)%pFX", __func__,
+					   OSPF_DEBUG_VRF(ospf), &p);
 
 			if (ospf_area_range_active(range)
 			    && CHECK_FLAG(range->flags,

@@ -60,7 +60,8 @@ static void ospf_ia_network_route(struct ospf *ospf, struct route_table *rt,
 	struct ospf_route * or ;
 
 	if (IS_DEBUG_OSPF_EVENT)
-		zlog_debug("%s: processing summary route to %pFX", __func__, p);
+		zlog_debug("%s: processing summary route to (%s:%u:%u)%pFX", __func__,
+			   OSPF_DEBUG_VRF(ospf), p);
 
 	/* Find a route to the same dest */
 	if ((rn1 = route_node_lookup(rt, (struct prefix *)p))) {
@@ -96,7 +97,8 @@ static void ospf_ia_network_route(struct ospf *ospf, struct route_table *rt,
 	}	 /*if (rn1)*/
 	else {    /* no route */
 		if (IS_DEBUG_OSPF_EVENT)
-			zlog_debug("%s: add new route to %pFX", __func__, p);
+			zlog_debug("%s: add new route to (%s:%u:%u)%pFX", __func__,
+				   OSPF_DEBUG_VRF(ospf), p);
 		ospf_route_add(rt, p, new_or, abr_or);
 	}
 }
@@ -111,7 +113,7 @@ static void ospf_ia_router_route(struct ospf *ospf, struct route_table *rtrs,
 	int ret;
 
 	if (IS_DEBUG_OSPF_EVENT)
-		zlog_debug("%s: considering %pFX", __func__, p);
+		zlog_debug("%s: considering (%s:%u:%u)%pFX", __func__, OSPF_DEBUG_VRF(ospf), p);
 
 	/* Find a route to the same dest */
 	rn = route_node_get(rtrs, (struct prefix *)p);

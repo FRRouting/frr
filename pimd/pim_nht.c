@@ -238,9 +238,9 @@ static void pim_sendmsg_zebra_rnh(struct pim_instance *pim, struct zclient *zcli
 			"sendmsg_nexthop: zclient_send_message() failed registering MRIB tracking");
 
 	if (PIM_DEBUG_PIM_NHT)
-		zlog_debug("%s: MRIB NHT %sregistered addr %pFX(%s) with Zebra ret:%d ", __func__,
-			   (command == ZEBRA_NEXTHOP_REGISTER) ? " " : "de", &p, pim->vrf->name,
-			   ret);
+		zlog_debug("%s: MRIB NHT %sregistered addr (%s:%u:%u)%pFX with Zebra ret:%d ",
+			   __func__, (command == ZEBRA_NEXTHOP_REGISTER) ? " " : "de",
+			   PIM_DEBUG_VRF(pim->vrf), &p, ret);
 
 	/* Also register to track nexthops from the URIB */
 	ret = zclient_send_rnh(zclient, command, &p, SAFI_UNICAST, false, false, pim->vrf->vrf_id);
@@ -249,9 +249,9 @@ static void pim_sendmsg_zebra_rnh(struct pim_instance *pim, struct zclient *zcli
 			"sendmsg_nexthop: zclient_send_message() failed registering URIB tracking");
 
 	if (PIM_DEBUG_PIM_NHT)
-		zlog_debug("%s: URIB NHT %sregistered addr %pFX(%s) with Zebra ret:%d ", __func__,
-			   (command == ZEBRA_NEXTHOP_REGISTER) ? " " : "de", &p, pim->vrf->name,
-			   ret);
+		zlog_debug("%s: URIB NHT %sregistered addr (%s:%u:%u)%pFX with Zebra ret:%d ",
+			   __func__, (command == ZEBRA_NEXTHOP_REGISTER) ? " " : "de",
+			   PIM_DEBUG_VRF(pim->vrf), &p, ret);
 
 	return;
 }
@@ -692,8 +692,9 @@ void pim_nht_delete_tracked_upstream(struct pim_instance *pim, pim_addr addr,
 	pnc = hash_lookup(pim->nht_hash, &lookup);
 	if (!pnc) {
 		if (PIM_DEBUG_PIM_NHT)
-			zlog_debug("%s: NHT %pPA(%s) not found for upstream %s; nothing to release",
-				   __func__, &addr, pim->vrf->name, up->sg_str);
+			zlog_debug("%s: NHT %pPA(%s) not found for upstream (%s:%u:%u)%s; nothing to release",
+				   __func__, &addr, pim->vrf->name, PIM_DEBUG_VRF(up->pim->vrf),
+				   up->sg_str);
 		return;
 	}
 
@@ -702,13 +703,14 @@ void pim_nht_delete_tracked_upstream(struct pim_instance *pim, pim_addr addr,
 	 */
 	if (hash_release(pnc->upstream_hash, up)) {
 		if (PIM_DEBUG_PIM_NHT)
-			zlog_debug("%s: released upstream %s from NHT %pPA(%s); remaining upstream count:%ld",
-				   __func__, up->sg_str, &addr, pim->vrf->name,
-				   pnc->upstream_hash->count);
+			zlog_debug("%s: released upstream (%s:%u:%u)%s from NHT %pPA(%s); remaining upstream count:%ld",
+				   __func__, PIM_DEBUG_VRF(up->pim->vrf), up->sg_str, &addr,
+				   pim->vrf->name, pnc->upstream_hash->count);
 		pim_nht_drop_maybe(pim, pnc);
 	} else if (PIM_DEBUG_PIM_NHT) {
-		zlog_debug("%s: upstream %s not in NHT %pPA(%s) bucket; redundant cleanup",
-			   __func__, up->sg_str, &addr, pim->vrf->name);
+		zlog_debug("%s: upstream (%s:%u:%u)%s not in NHT %pPA(%s) bucket; redundant cleanup",
+			   __func__, PIM_DEBUG_VRF(up->pim->vrf), up->sg_str, &addr,
+			   pim->vrf->name);
 	}
 }
 
@@ -1026,13 +1028,11 @@ static int pim_update_upstream_nh_helper(struct hash_bucket *bucket, void *arg)
 	}
 
 	if (PIM_DEBUG_PIM_NHT) {
-		zlog_debug("%s: NHT upstream %s(%s) old ifp %s new ifp %s rpf_result: %d",
-			   __func__, up->sg_str, pim->vrf->name,
-			   old.source_nexthop.interface ? old.source_nexthop
-								  .interface->name
+		zlog_debug("%s: NHT upstream (%s:%u:%u)%s(%s) old ifp %s new ifp %s rpf_result: %d",
+			   __func__, PIM_DEBUG_VRF(up->pim->vrf), up->sg_str, pim->vrf->name,
+			   old.source_nexthop.interface ? old.source_nexthop.interface->name
 							: "Unknown",
-			   up->rpf.source_nexthop.interface ? up->rpf.source_nexthop
-								      .interface->name
+			   up->rpf.source_nexthop.interface ? up->rpf.source_nexthop.interface->name
 							    : "Unknown",
 			   rpf_result);
 	}
@@ -1937,8 +1937,8 @@ void pim_nexthop_update(struct vrf *vrf, struct prefix *match, struct zapi_route
 #else
 			pim_addr nhaddr = nexthop->gate.ipv6;
 #endif
-			zlog_debug("%s: NHT addr %pFX(%s) %d-nhop via %pPA(%s) type %d distance:%u metric:%u ",
-				   __func__, match, pim->vrf->name, i + 1, &nhaddr, ifp->name,
+			zlog_debug("%s: NHT addr (%s:%u:%u)%pFX %d-nhop via %pPA(%s) type %d distance:%u metric:%u ",
+				   __func__, PIM_DEBUG_VRF(vrf), match, i + 1, &nhaddr, ifp->name,
 				   nexthop->type, nhr->distance, nhr->metric);
 		}
 
@@ -1982,9 +1982,10 @@ void pim_nexthop_update(struct vrf *vrf, struct prefix *match, struct zapi_route
 	}
 
 	if (PIM_DEBUG_PIM_NHT)
-		zlog_debug("%s: NHT Update for %pFX(%s) num_nh %d num_pim_nh %d vrf:%u up %ld rp %d",
-			   __func__, match, pim->vrf->name, nhr->nexthop_num, pnc_rib->nexthop_num,
-			   vrf->vrf_id, pnc->upstream_hash->count, listcount(pnc->rp_list));
+		zlog_debug("%s: NHT Update for (%s:%u:%u)%pFX num_nh %d num_pim_nh %d vrf:%u up %ld rp %d",
+			   __func__, PIM_DEBUG_VRF(vrf), match, nhr->nexthop_num,
+			   pnc_rib->nexthop_num, vrf->vrf_id, pnc->upstream_hash->count,
+			   listcount(pnc->rp_list));
 
 	pim_rpf_set_refresh_time(pim);
 
