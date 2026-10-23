@@ -550,7 +550,16 @@ void bgp_bfd_peer_config_write(struct vty *vty, struct peer *peer, const char *a
 	     && peer->bfd_config->manual)
 	    || CHECK_FLAG(peer->sflags, PEER_STATUS_GROUP)) {
 #if HAVE_BFDD > 0
-		vty_out(vty, " neighbor %s bfd\n", addr);
+		if (peer->bfd_config->detection_multiplier ==
+			    BFD_DEF_DETECT_MULT &&
+		    peer->bfd_config->min_rx == BFD_DEF_MIN_RX &&
+		    peer->bfd_config->min_tx == BFD_DEF_MIN_TX)
+			vty_out(vty, " neighbor %s bfd\n", addr);
+		else
+			vty_out(vty, " neighbor %s bfd %d %d %d\n", addr,
+				peer->bfd_config->detection_multiplier,
+				peer->bfd_config->min_rx,
+				peer->bfd_config->min_tx);
 #else
 		vty_out(vty, " neighbor %s bfd %d %d %d\n", addr,
 			peer->bfd_config->detection_multiplier,
