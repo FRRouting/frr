@@ -13,11 +13,20 @@
 #define _ZEBRA_ISIS_LSP_H
 
 #include "lib/typesafe.h"
+#include "if.h"
 #include "isisd/isis_pdu.h"
 
 PREDECL_RBTREE_UNIQ(lspdb);
 
 struct isis;
+
+/* How a deferred fight-back is propagated when its timer fires. */
+enum isis_fight_back_kind {
+	FIGHT_BACK_NONE = 0,
+	FIGHT_BACK_UNICAST, /* send to every circuit that requested it */
+	FIGHT_BACK_SCOPED,  /* fabricd circuit-scoped update, no flooding */
+	FIGHT_BACK_FLOOD,   /* flood on all circuits */
+};
 /* Structure for isis_lsp, this structure will only support the fixed
  * System ID (Currently 6) (at least for now). In order to support more
  * We will have to split the header into two parts, and for readability
@@ -46,6 +55,18 @@ struct isis_lsp {
 	struct list *flooding_neighbors[TX_LSP_CIRCUIT_SCOPED + 1];
 	char *flooding_interface;
 	bool flooding_circuit_scoped;
+
+	/*
+	 * Deferred fight-back state, rate limited by lsp_gen_interval.
+	 * fight_back_kind == FIGHT_BACK_NONE means no fight-back pending.
+	 * fight_back_ifindex collects the circuits that requested this LSP
+	 * by PSNP while a unicast fight-back is pending, so that each of
+	 * them gets the deferred response.
+	 */
+	uint32_t fight_back_seqno;
+	enum isis_fight_back_kind fight_back_kind;
+	uint8_t fight_back_ifcount;
+	ifindex_t fight_back_ifindex[ISIS_MAX_CIRCUITS];
 };
 
 extern int lspdb_compare(const struct isis_lsp *a, const struct isis_lsp *b);
@@ -109,6 +130,9 @@ void lsp_update(struct isis_lsp *lsp, struct isis_lsp_hdr *hdr,
 		struct isis_tlvs *tlvs, struct stream *stream,
 		struct isis_area *area, int level, bool confusion);
 void lsp_inc_seqno(struct isis_lsp *lsp, uint32_t seqno);
+void lsp_fight_back_schedule(struct isis_lsp *lsp, uint32_t seqno,
+			     enum isis_fight_back_kind kind,
+			     ifindex_t ifindex);
 void lspid_print(uint8_t *lsp_id, char *dest, size_t dest_len, char dynhost,
 		 char frag, struct isis *isis);
 void lsp_print_common(struct isis_lsp *lsp, struct vty *vty,
