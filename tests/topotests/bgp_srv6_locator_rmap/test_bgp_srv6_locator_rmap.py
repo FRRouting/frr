@@ -909,7 +909,8 @@ def test_withdraw_route_map_locator_path_after_update_without_vrf_sid():
 def test_delete_vrf_instance_releases_locator_sid():
     """
     Remove the Vrf20 BGP instance, whose prefixes use the SID of locator NAME
-    set by the export route-map. Check that zebra no longer has any SID
+    set by the export route-map: two connected prefixes, and 172.31.1.0/24
+    received from c11 over BGP. Check that zebra no longer has any SID
     allocated by bgp for Vrf20.
     """
     tgen = get_topogen()
@@ -919,8 +920,30 @@ def test_delete_vrf_instance_releases_locator_sid():
 
     r1 = tgen.gears["r1"]
 
-    result = check_locator_count(r1, "Vrf20", "NAME", 2)
-    assert result is None, result
+    r1.vtysh_multicmd(
+        """
+        configure
+        ip prefix-list plist_192x seq 10 permit 172.31.1.0/24
+        interface eth3 vrf Vrf20
+        ip address 172.16.200.1/24
+        exit
+        router bgp 65001 vrf Vrf20
+        no bgp ebgp-requires-policy
+        neighbor 172.16.200.2 remote-as 65011
+        address-family ipv4 unicast
+        neighbor 172.16.200.2 activate
+        """
+    )
+
+    @retry(retry_timeout=60)
+    def check_ce_prefix_uses_name():
+        result = check_locator_count(r1, "Vrf20", "NAME", 3)
+        return True if result is None else result
+
+    result = check_ce_prefix_uses_name()
+    output = r1.vtysh_cmd("show bgp vrf Vrf20 locator-routemap detail")
+    logger.info(output)
+    assert result is True, result
 
     r1.vtysh_cmd("conf t\nno router bgp 65001 vrf Vrf20")
 
@@ -938,4 +961,14 @@ def test_delete_vrf_instance_releases_locator_sid():
     result = check_no_bgp_sid_for_vrf20()
     output = r1.vtysh_cmd("show segment-routing srv6 sid")
     logger.info(output)
+
+    r1.vtysh_multicmd(
+        """
+        configure
+        no ip prefix-list plist_192x seq 10 permit 172.31.1.0/24
+        interface eth3 vrf Vrf20
+        no ip address 172.16.200.1/24
+        """
+    )
+
     assert result is True, result
