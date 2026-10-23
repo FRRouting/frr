@@ -176,6 +176,7 @@ lib_libfrr_la_SOURCES += lib/db.c
 endif
 
 clippy_scan += \
+	lib/libagentx.c \
 	lib/affinitymap_cli.c \
 	lib/host_cli.c \
 	lib/if.c \
