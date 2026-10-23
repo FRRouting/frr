@@ -31,6 +31,7 @@
 #include "ospfd/ospf_bfd.h"
 #include "ospfd/ospf_gr.h"
 #include "ospfd/ospf_quicknbr.h"
+#include "ospfd/ospf_errors.h"
 
 /* Fill in the the 'key' as appropriate to retrieve the entry for nbr
  * from the ospf_interface's nbrs table. Indexed by interface address
@@ -244,6 +245,9 @@ void ospf_nbr_delete(struct ospf_neighbor *nbr)
 	 */
 	if (IS_QUICKNBR(nbr) && oi->num_q_nbrs > 0)
 		oi->num_q_nbrs--;
+
+	if (nbr != oi->nbr_self && oi->nbr_count > 0)
+		oi->nbr_count--;
 
 	/* Free ospf_neighbor structure. */
 	ospf_nbr_free(nbr);
@@ -474,6 +478,20 @@ static struct ospf_neighbor *ospf_nbr_add(struct ospf_interface *oi,
 {
 	struct ospf_neighbor *nbr;
 
+	/*
+	 * Refuse new packet-driven neighbors once the table is full; the
+	 * count drops again on inactivity-timer deletion, after which new
+	 * identities are admitted again.
+	 */
+	if (oi->nbr_count >= oi->ospf->nbr_limit) {
+		oi->nbrs_dropped++;
+		if (ospf_limit_warn(&oi->t_nbr_limit_warn))
+			flog_warn(EC_OSPF_PACKET,
+				  "NSM[%s]: neighbor table full (%u), dropping new neighbor %pI4",
+				  IF_NAME(oi), oi->nbr_count, &p->u.prefix4);
+		return NULL;
+	}
+
 	nbr = ospf_nbr_new(oi);
 	nbr->state = NSM_Down;
 	nbr->src = p->u.prefix4;
@@ -507,6 +525,8 @@ static struct ospf_neighbor *ospf_nbr_add(struct ospf_interface *oi,
 		zlog_debug("NSM[%s:%pI4]: start", IF_NAME(oi),
 			   &nbr->router_id);
 
+	oi->nbr_count++;
+
 	return nbr;
 }
 
@@ -539,6 +559,11 @@ struct ospf_neighbor *ospf_nbr_get(struct ospf_interface *oi,
 		}
 	} else {
 		rn->info = nbr = ospf_nbr_add(oi, ospfh, p);
+		if (nbr == NULL) {
+			/* neighbor table full; drop counted on the interface */
+			route_unlock_node(rn);
+			return NULL;
+		}
 	}
 
 	nbr->router_id = ospfh->router_id;
@@ -585,6 +610,10 @@ struct ospf_neighbor *ospf_qnbr_get(struct ospf_interface *oi, struct in_addr *s
 	 */
 	ospfh.auth_type = htons(OSPF_AUTH_NULL);
 	nbr = ospf_nbr_add(oi, &ospfh, &p);
+	if (nbr == NULL) {
+		route_unlock_node(rn);
+		return NULL;
+	}
 
 	/* Copy the priority from our own configuration. As well as the DR/BDR elections and
 	 * supported options

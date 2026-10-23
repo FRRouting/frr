@@ -8,6 +8,7 @@
 #define _ZEBRA_OSPF_LSA_H
 
 #include "stream.h"
+#include "monotime.h"
 
 /* OSPF LSA Default metric values */
 #define DEFAULT_DEFAULT_METRIC 20
@@ -232,6 +233,24 @@ enum lsid_status { LSID_AVAILABLE = 0, LSID_CHANGE, LSID_NOT_AVAILABLE };
 
 #define OSPF_FR_CONFIG(o, a)                                                   \
 	(o->fr_configured || ((a != NULL) ? a->fr_info.configured : 0))
+
+/*
+ * Rate-limit for repeated resource-limit warnings: at most one warning
+ * per OSPF_LIMIT_WARN_INTERVAL microseconds per scope.
+ */
+#define OSPF_LIMIT_WARN_INTERVAL (60LL * 1000000LL)
+
+static inline bool ospf_limit_warn(struct timeval *last_warn)
+{
+	if (timerisset(last_warn)) {
+		int64_t since = monotime_since(last_warn, NULL);
+
+		if (since >= 0 && since < OSPF_LIMIT_WARN_INTERVAL)
+			return false;
+	}
+	monotime(last_warn);
+	return true;
+}
 
 /* Prototypes. */
 /* XXX: Eek, time functions, similar are in lib/thread.c */

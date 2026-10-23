@@ -32,6 +32,7 @@
 #include "ospfd/ospf_route.h"
 #include "ospfd/ospf_zebra.h"
 #include "ospfd/ospf_dump.h"
+#include "ospfd/ospf_errors.h"
 
 /** @brief Function to refresh type-5 and type-7 DNA
  *	   LSAs when we receive an indication LSA.
@@ -1085,6 +1086,21 @@ void ospf_ls_request_add(struct ospf_neighbor *nbr, struct ospf_lsa *lsa)
 			   ospf_ls_request_count(nbr),
 			   &nbr->router_id,
 			   ospf_get_name(nbr->oi->ospf), dump_lsa_key(lsa));
+
+	/*
+	 * Bound the request list: a rogue DD master can otherwise stream
+	 * unbounded LSA headers.  The caller still owns (and discards) its
+	 * reference to lsa.
+	 */
+	if (ospf_ls_request_count(nbr) >= nbr->oi->ospf->ls_request_limit) {
+		nbr->ls_req_dropped++;
+		if (ospf_limit_warn(&nbr->t_ls_req_limit_warn))
+			flog_warn(EC_OSPF_PACKET,
+				  "RqstL full (%lu), NBR(%pI4(%s)), dropping request LSA[%s]",
+				  ospf_ls_request_count(nbr), &nbr->router_id,
+				  ospf_get_name(nbr->oi->ospf), dump_lsa_key(lsa));
+		return;
+	}
 
 	ospf_lsdb_add(&nbr->ls_req, lsa);
 }

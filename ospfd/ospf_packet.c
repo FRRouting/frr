@@ -1357,8 +1357,12 @@ static void ospf_hello(struct ip *iph, struct ospf_header *ospfh,
 	/* get neighbour struct */
 	nbr = ospf_nbr_get(oi, ospfh, iph, &p);
 
-	/* neighbour must be valid, ospf_nbr_get creates if none existed */
-	assert(nbr);
+	/*
+	 * ospf_nbr_get returns NULL when the neighbor table is full;
+	 * the drop is counted on the interface.
+	 */
+	if (nbr == NULL)
+		return;
 
 	old_state = nbr->state;
 
