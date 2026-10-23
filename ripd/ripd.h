@@ -120,6 +120,13 @@ struct rip {
 	/* RIP routing information base. */
 	struct route_table *table;
 
+	/* Route nodes flagged RIP_RTF_CHANGED, collected for the triggered
+	 * update round in progress.  The list borrows the route_node
+	 * pointers; it is only set while rip_triggered_update() runs and is
+	 * NULL between rounds.
+	 */
+	struct list *changed_routes;
+
 	/* RIP static neighbors. */
 	struct route_table *neighbor;
 
