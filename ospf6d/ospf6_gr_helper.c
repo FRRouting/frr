@@ -1223,6 +1223,7 @@ static int ospf6_grace_lsa_show_info(struct vty *vty, struct ospf6_lsa *lsa,
 	struct tlv_header *tlvh = NULL;
 	struct tlv_grace_period *gracePeriod;
 	struct tlv_grace_restart_reason *grReason;
+	const char *reason;
 	uint16_t length = 0;
 	int sum = 0;
 
@@ -1239,11 +1240,11 @@ static int ospf6_grace_lsa_show_info(struct vty *vty, struct ospf6_lsa *lsa,
 	if (vty) {
 		if (!use_json)
 			vty_out(vty, "TLV info:\n");
-	} else {
+	} else if (IS_DEBUG_OSPF6_GR) {
 		zlog_debug("  TLV info:");
 	}
 
-	for (tlvh = lsdesc_start(lsah); sum < length && tlvh;
+	for (tlvh = lsdesc_start(lsah); sum + TLV_HDR_SIZE <= length && tlvh;
 	     tlvh = TLV_HDR_NEXT(tlvh)) {
 		/* Check TLV len */
 		if (sum + TLV_SIZE(tlvh) > length) {
@@ -1269,7 +1270,7 @@ static int ospf6_grace_lsa_show_info(struct vty *vty, struct ospf6_lsa *lsa,
 				else
 					vty_out(vty, "   Grace period:%d\n",
 						ntohl(gracePeriod->interval));
-			} else {
+			} else if (IS_DEBUG_OSPF6_GR) {
 				zlog_debug("    Grace period:%d",
 					   ntohl(gracePeriod->interval));
 			}
@@ -1277,23 +1278,21 @@ static int ospf6_grace_lsa_show_info(struct vty *vty, struct ospf6_lsa *lsa,
 		case TLV_GRACE_RESTART_REASON_TYPE:
 			grReason = (struct tlv_grace_restart_reason *)tlvh;
 			sum += TLV_SIZE(tlvh);
+			if (grReason->reason < OSPF6_GR_INVALID_REASON_CODE)
+				reason = ospf6_restart_reason_desc[grReason->reason];
+			else
+				reason = "Invalid";
 			if (vty) {
 				if (use_json)
-					json_object_string_add(
-						json, "restartReason",
-						ospf6_restart_reason_desc
-							[grReason->reason]);
+					json_object_string_add(json, "restartReason", reason);
 				else
-					vty_out(vty, "   Restart reason:%s\n",
-						ospf6_restart_reason_desc
-							[grReason->reason]);
-			} else {
-				zlog_debug("    Restart reason:%s",
-					   ospf6_restart_reason_desc
-						   [grReason->reason]);
+					vty_out(vty, "   Restart reason:%s\n", reason);
+			} else if (IS_DEBUG_OSPF6_GR) {
+				zlog_debug("    Restart reason:%s", reason);
 			}
 			break;
 		default:
+			sum += TLV_SIZE(tlvh);
 			break;
 		}
 	}
