@@ -302,14 +302,19 @@ static int static_route_nb_run(struct vty *vty, struct static_route_args *args)
 						      NB_OP_MODIFY, "null");
 			}
 		}
-		if ((type == STATIC_IFNAME || type == STATIC_IPV4_GATEWAY ||
-		     type == STATIC_IPV6_GATEWAY || type == STATIC_IPV4_GATEWAY_IFNAME ||
-		     type == STATIC_IPV6_GATEWAY_IFNAME) &&
-		    args->weight) {
+		if (type == STATIC_IFNAME || type == STATIC_IPV4_GATEWAY ||
+		    type == STATIC_IPV6_GATEWAY || type == STATIC_IPV4_GATEWAY_IFNAME ||
+		    type == STATIC_IPV6_GATEWAY_IFNAME) {
 			strlcpy(ab_xpath, xpath_nexthop, sizeof(ab_xpath));
 			strlcat(ab_xpath, FRR_STATIC_ROUTE_NH_WEIGHT_XPATH, sizeof(ab_xpath));
 
-			nb_cli_enqueue_change(vty, ab_xpath, NB_OP_MODIFY, args->weight);
+			/* An existing path-list entry is modified, not recreated, so
+			 * omitted attributes must be removed explicitly.
+			 */
+			if (args->weight)
+				nb_cli_enqueue_change(vty, ab_xpath, NB_OP_MODIFY, args->weight);
+			else if (yang_dnode_exists(vty->candidate_config->dnode, ab_xpath))
+				nb_cli_enqueue_change(vty, ab_xpath, NB_OP_DESTROY, NULL);
 		}
 		if (type == STATIC_IPV4_GATEWAY_IFNAME
 		    || type == STATIC_IPV6_GATEWAY_IFNAME) {
@@ -335,6 +340,8 @@ static int static_route_nb_run(struct vty *vty, struct static_route_args *args)
 				nb_cli_enqueue_change(vty, ab_xpath,
 						      NB_OP_MODIFY,
 						      args->color);
+			else if (yang_dnode_exists(vty->candidate_config->dnode, ab_xpath))
+				nb_cli_enqueue_change(vty, ab_xpath, NB_OP_DESTROY, NULL);
 		}
 		if (args->label) {
 			/* copy of label string (start) */
@@ -469,6 +476,14 @@ static int static_route_nb_run(struct vty *vty, struct static_route_args *args)
 			} else if (yang_dnode_get(vty->candidate_config->dnode, xpath_bfd)) {
 				nb_cli_enqueue_change(vty, xpath_bfd, NB_OP_DESTROY, NULL);
 			}
+		} else {
+			char xpath_bfd[XPATH_MAXLEN];
+
+			/* Re-entering the route without "bfd" stops monitoring it. */
+			strlcpy(xpath_bfd, xpath_nexthop, sizeof(xpath_bfd));
+			strlcat(xpath_bfd, "/frr-staticd:bfd-monitoring", sizeof(xpath_bfd));
+			if (yang_dnode_exists(vty->candidate_config->dnode, xpath_bfd))
+				nb_cli_enqueue_change(vty, xpath_bfd, NB_OP_DESTROY, NULL);
 		}
 
 		ret = nb_cli_apply_changes(vty, "%s", xpath_prefix);
