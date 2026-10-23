@@ -21,6 +21,7 @@ import ipaddress
 import json
 import os
 import sys
+import time
 import pytest
 
 from lib import topotest
@@ -194,6 +195,16 @@ def _r1_bgp_table_empty():
     return None
 
 
+def _wait_for_r1_convergence(r1):
+    test_func = functools.partial(_bgp_neighbor_established, r1, "10.255.0.2")
+    _, result = topotest.run_and_expect(test_func, None, count=60, wait=1)
+    assert result is None, f"r1 neighbor not Established: {result}"
+
+    test_func = functools.partial(_r1_has_received_prefixes)
+    _, result = topotest.run_and_expect(test_func, None, count=240, wait=1)
+    assert result is None, f"r1 did not receive 100k routes from r2: {result}"
+
+
 def test_ebgp_loopback_convergence():
     "Validate eBGP session and received prefixes from r2"
     tgen = get_topogen()
@@ -216,9 +227,7 @@ def test_ebgp_loopback_convergence():
     _build_static_routes_config(routes_cfg)
     r2.cmd(f"vtysh -f {routes_cfg}")
 
-    test_func = functools.partial(_r1_has_received_prefixes)
-    _, result = topotest.run_and_expect(test_func, None, count=240, wait=1)
-    assert result is None, f"r1 did not receive 100k routes from r2: {result}"
+    _wait_for_r1_convergence(r1)
 
 
 def test_link_down_clears_routes():
@@ -246,6 +255,38 @@ def test_link_down_clears_routes():
     assert result is None, f"r1 still has BGP routes: {result}"
 
     r1.cmd("ip link set r1-eth0 up")
+
+
+def test_delete_bgp_during_batch_clearing():
+    "Delete the BGP instance while a batch clearing walk is still pending"
+    tgen = get_topogen()
+
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    r1 = tgen.gears["r1"]
+
+    # "clear bgp *" starts the batched walk from a 100 ms timer, and the walk
+    # over 100k routes lasts only a few tens of ms. Try several delays so that
+    # at least one delete lands while the next chunk of the walk is scheduled.
+    for delay in [0.10, 0.11, 0.12]:
+        _wait_for_r1_convergence(r1)
+
+        # The first sleep lets vtysh start up, so that "delay" is the gap
+        # bgpd sees between the two commands.
+        output = r1.cmd(
+            f'(sleep 1; echo "clear bgp *"; sleep {delay}; '
+            'echo "configure terminal"; echo "no router bgp 65001") | vtysh'
+        )
+        assert "%" not in output, f"vtysh reported an error: {output}"
+
+        # Give the cancelled resume event time to fire if it was left queued.
+        time.sleep(1)
+        assert (
+            r1.check_router_running() == ""
+        ), f"bgpd died after instance delete, delay {delay}"
+
+        r1.cmd(f"vtysh -f {os.path.join(CWD, 'r1/frr.conf')}")
 
 
 if __name__ == "__main__":
