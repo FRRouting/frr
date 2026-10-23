@@ -204,7 +204,11 @@ int nhrp_neighbor_operation(ZAPI_CALLBACK_ARGS)
 	} else {
 		state = (cmd == ZEBRA_NEIGH_ADDED) ? ndm_state
 						   : ZEBRA_NEIGH_STATE_FAILED;
-		nhrp_cache_set_used(c, state == ZEBRA_NEIGH_STATE_REACHABLE);
+		/* The kernel delays and probes a neighbor only when it is
+		 * used, these states do not mean that the entry is unused.
+		 */
+		if (state != ZEBRA_NEIGH_STATE_DELAY && state != ZEBRA_NEIGH_STATE_PROBE)
+			nhrp_cache_set_used(c, state == ZEBRA_NEIGH_STATE_REACHABLE);
 	}
 	return 0;
 }
