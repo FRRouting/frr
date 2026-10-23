@@ -276,6 +276,24 @@ def test_received_count():
     assert success, "labeled-unicast accepted prefixes is null"
 
 
+def test_labelpool_instance_delete():
+    "Deleting a bgp instance that holds label pool entries must not crash bgpd"
+
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    r1 = tgen.gears["R1"]
+
+    r1.vtysh_cmd("configure terminal\nno router bgp 1\nend")
+
+    r1.vtysh_cmd("show bgp labelpool requests")
+    r1.vtysh_cmd("show bgp labelpool ledger")
+
+    ledger = json.loads(r1.vtysh_cmd("show bgp labelpool ledger json"))
+    assert ledger == {}, "label pool ledger not cleared: {}".format(ledger)
+
+
 def test_memory_leak():
     "Run the memory leak test and report results."
     tgen = get_topogen()
