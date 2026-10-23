@@ -49,7 +49,10 @@ static void clear_rip_route(struct rip *rip)
 			break;
 		}
 
-		if (rinfo) {
+		frr_each_safe (rip_info_list, list, rinfo) {
+			if (!rip_route_rte(rinfo))
+				continue;
+
 			event_cancel(&rinfo->t_timeout);
 			event_cancel(&rinfo->t_garbage_collect);
 			rip_info_list_del(list, rinfo);
