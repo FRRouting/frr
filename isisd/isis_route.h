@@ -20,6 +20,7 @@ struct isis_nexthop {
 	ifindex_t ifindex;
 	int family;
 	union g_addr ip;
+	bool onlink;
 	uint8_t sysid[ISIS_SYS_ID_LEN];
 	struct isis_sr_psid_info sr;
 	struct mpls_label_stack *label_stack;
