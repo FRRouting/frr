@@ -9,6 +9,7 @@
 #include "lib/json.h"
 
 #include "stream.h"
+#include "frrevent.h"
 #include "bgpd/bgpd.h"
 #include "bgpd/bgp_aspath.h"
 #include "bgpd/bgp_ls.h"
@@ -25,9 +26,49 @@
 
 DEFINE_MTYPE_STATIC(BGPD, BGP_LS, "BGP-LS instance");
 
+#define BGP_LS_SYNC_RETRY_DELAY 5
+
 static int bgp_ls_refresh_bgp_link_endx_attrs(struct bgp *bgp, struct peer *peer);
 static struct bgp_ls_nlri *bgp_ls_lookup_bgp_prefix_nlri(struct bgp *bgp, const struct prefix *p,
 							 enum bgp_ls_bgp_route_type route_type);
+static void bgp_ls_sync_timer(struct event *event);
+
+static int bgp_ls_request_sync(struct bgp *bgp)
+{
+	int ret;
+
+	if (!bgp_ls_is_registered(bgp))
+		return -1;
+
+	ret = ls_request_sync(bgp_zclient);
+	if (ret == -1)
+		zlog_warn("BGP-LS: Failed to request Link State database sync");
+
+	event_add_timer(bm->master, bgp_ls_sync_timer, bgp->ls_info, BGP_LS_SYNC_RETRY_DELAY,
+			&bgp->ls_info->t_link_state_sync);
+	return ret;
+}
+
+static void bgp_ls_sync_timer(struct event *event)
+{
+	struct bgp_ls *ls = EVENT_ARG(event);
+
+	if (!ls || !ls->bgp || !bgp_ls_is_registered(ls->bgp))
+		return;
+
+	if (BGP_DEBUG(linkstate, LINKSTATE))
+		zlog_debug("BGP-LS: Retrying initial Link State database sync");
+
+	bgp_ls_request_sync(ls->bgp);
+}
+
+void bgp_ls_sync_cancel(struct bgp *bgp)
+{
+	if (!bgp->ls_info || !bgp->ls_info->t_link_state_sync)
+		return;
+
+	event_cancel(&bgp->ls_info->t_link_state_sync);
+}
 
 void bgp_ls_handle_srv6_localsid_update(struct bgp *bgp, const struct prefix *p, afi_t afi,
 					uint8_t type, unsigned short instance,
@@ -945,12 +986,9 @@ bool bgp_ls_register(struct bgp *bgp)
 		return false;
 	}
 
-	if (ls_request_sync(bgp_zclient) == -1)
-		zlog_warn("BGP-LS: Failed to request initial Link State database sync");
-	else
-		zlog_info("BGP-LS: Requested initial Link State database sync");
-
 	bgp->ls_info->registered_ls_db = true;
+	if (bgp_ls_request_sync(bgp) == 0)
+		zlog_info("BGP-LS: Requested initial Link State database sync");
 
 	zlog_info("BGP-LS: Registered with Link State database for BGP instance %s",
 		  bgp->name_pretty);
@@ -966,6 +1004,8 @@ bool bgp_ls_unregister(struct bgp *bgp)
 {
 	if (!bgp->ls_info)
 		return false;
+
+	bgp_ls_sync_cancel(bgp);
 
 	/* Not registered */
 	if (!bgp_ls_is_registered(bgp))
