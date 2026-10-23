@@ -54,6 +54,32 @@ def check_srv6_static_sids(router, expected_file, exact=False):
     assert result is None, "Failed"
 
 
+def _check_srv6_locators(router, expected_names):
+    output = json.loads(router.vtysh_cmd("show segment-routing srv6 locator json"))
+    names = sorted(locator["name"] for locator in output["locators"])
+    return topotest.json_cmp(names, sorted(expected_names), exact=True)
+
+
+def check_srv6_locators(router, expected_names):
+    func = functools.partial(_check_srv6_locators, router, expected_names)
+    _, result = topotest.run_and_expect(func, None, count=15, wait=1)
+    assert result is None, "Failed"
+
+
+def _check_srv6_static_sid_installed(router, sid):
+    output = json.loads(router.vtysh_cmd("show ipv6 route static json"))
+    routes = output.get(sid, [])
+    if any(route.get("installed") for route in routes):
+        return None
+    return "Static SID {} is not installed".format(sid)
+
+
+def check_srv6_static_sid_installed(router, sid):
+    func = functools.partial(_check_srv6_static_sid_installed, router, sid)
+    _, result = topotest.run_and_expect(func, None, count=15, wait=1)
+    assert result is None, result
+
+
 def setup_module(mod):
     # This topotest sets net.vrf.strict_mode during setup. That sysctl is
     # available only after the VRF module is loaded; if the module is not loaded,
@@ -773,6 +799,88 @@ def test_srv6_static_sids_same_address_missing_locator():
 
     logger.info("Verify the other SIDs are unaffected")
     check_srv6_static_sids(router, "expected_srv6_sids.json")
+
+
+def test_srv6_no_locators():
+    """Remove all configured SRv6 locators with one command."""
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+    router = tgen.gears["r1"]
+
+    check_srv6_static_sids(router, "expected_srv6_sids.json")
+
+    # Add a second locator.
+    router.vtysh_cmd(
+        """
+        configure terminal
+         segment-routing
+          srv6
+           locators
+            locator SECOND
+             prefix fcbb:bbbb:2::/48
+             format usid-f3216
+        """
+    )
+    router.vtysh_cmd(
+        """
+        configure terminal
+         segment-routing
+          srv6
+           static-sids
+            sid fcbb:bbbb:2::/48 locator SECOND behavior uN
+        """
+    )
+
+    check_srv6_locators(router, ["MAIN", "SECOND"])
+    check_srv6_static_sid_installed(router, "fcbb:bbbb:2::/48")
+
+    router.vtysh_cmd(
+        """
+        configure terminal
+         segment-routing
+          srv6
+           no locators
+        """
+    )
+
+    check_srv6_locators(router, [])
+    check_srv6_static_sids(router, "expected_srv6_sids_delete_all.json", exact=True)
+
+
+def test_srv6_static_sids_readd_locator():
+    """Verify static SIDs are allocated after re-adding a locator."""
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+    router = tgen.gears["r1"]
+
+    logger.info("Re-add locator MAIN")
+    router.vtysh_cmd(
+        """
+        configure terminal
+         segment-routing
+          srv6
+           locators
+            locator MAIN
+             prefix fcbb:bbbb:1::/48
+             format usid-f3216
+        """
+    )
+    router.vtysh_cmd(
+        """
+        configure terminal
+         segment-routing
+          srv6
+           locators
+            locator SECOND
+             prefix fcbb:bbbb:2::/48
+             format usid-f3216
+        """
+    )
+
+    check_srv6_static_sids(router, "expected_srv6_sids.json")
+    check_srv6_static_sid_installed(router, "fcbb:bbbb:2::/48")
 
 
 if __name__ == "__main__":
