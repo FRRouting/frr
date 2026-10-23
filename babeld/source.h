@@ -15,7 +15,12 @@ struct source {
 	unsigned char plen;
 	unsigned short seqno;
 	unsigned short metric;
-	unsigned short route_count;
+	/*
+	 * Number of routes retaining this source.  A remote peer can attach
+	 * one route per distinct next-hop to a single source, so this must
+	 * not be narrower than the route table can grow.
+	 */
+	unsigned int route_count;
 	time_t time;
 };
 
