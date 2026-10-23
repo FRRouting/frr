@@ -327,6 +327,19 @@ int ospf_ase_calculate_route(struct ospf *ospf, struct ospf_lsa *lsa)
 			return 0;
 		}
 
+		/* The matching entry must be an intra-area or inter-area
+		 * path.  A discard route installed for an area range is not
+		 * one: it has no paths, so using it as X would advertise an
+		 * external route with no nexthops.
+		 */
+		if (asbr_route->type == OSPF_DESTINATION_DISCARD) {
+			if (IS_DEBUG_OSPF(lsa, LSA))
+				zlog_debug(
+					"Route[External]: Forwarding address resolves to a discard route");
+			route_unlock_node(rn);
+			return 0;
+		}
+
 		route_unlock_node(rn);
 	}
 
