@@ -1232,7 +1232,7 @@ static int bgp_peer_clear(struct peer *peer, afi_t afi, safi_t safi,
 			if (!peer->afc[tmp_afi][tmp_safi])
 				continue;
 
-			if (stype == BGP_CLEAR_SOFT_NONE)
+			if (stype == BGP_CLEAR_HARD)
 				ret = peer_clear(peer, nnode);
 			else
 				ret = peer_clear_soft(peer, tmp_afi, tmp_safi,
@@ -1252,7 +1252,7 @@ static int bgp_peer_clear(struct peer *peer, afi_t afi, safi_t safi,
 				SET_FLAG(paf->subgroup->sflags,
 					 SUBGRP_STATUS_FORCE_UPDATES);
 
-			if (stype == BGP_CLEAR_SOFT_NONE)
+			if (stype == BGP_CLEAR_HARD)
 				ret = peer_clear(peer, nnode);
 			else
 				ret = peer_clear_soft(peer, afi,
@@ -1268,7 +1268,7 @@ static int bgp_peer_clear(struct peer *peer, afi_t afi, safi_t safi,
 			SET_FLAG(paf->subgroup->sflags,
 				 SUBGRP_STATUS_FORCE_UPDATES);
 
-		if (stype == BGP_CLEAR_SOFT_NONE)
+		if (stype == BGP_CLEAR_HARD)
 			ret = peer_clear(peer, nnode);
 		else
 			ret = peer_clear_soft(peer, afi, safi, stype);
@@ -1323,7 +1323,7 @@ static int bgp_clear(struct vty *vty, struct bgp *bgp, afi_t afi, safi_t safi,
 		}
 
 		/* This is to apply read-only mode on this clear. */
-		if (stype == BGP_CLEAR_SOFT_NONE) {
+		if (stype == BGP_CLEAR_HARD) {
 			bgp->update_delay_over = 0;
 			event_cancel(&bgp->t_advertisement_delay);
 			bgp->advertisement_delay_started = 0;
@@ -12361,7 +12361,7 @@ DEFUN(clear_ip_bgp_all, clear_ip_bgp_all_cmd,
 	} else if (argv_find(argv, argc, "capabilities", &idx)) {
 		clr_type = BGP_CLEAR_CAPABILITIES;
 	} else
-		clr_type = BGP_CLEAR_SOFT_NONE;
+		clr_type = BGP_CLEAR_HARD;
 
 	return bgp_clear_vty(vty, vrf, afi, safi, clr_sort, clr_type, clr_arg);
 }
