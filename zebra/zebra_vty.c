@@ -44,6 +44,7 @@
 #include "zebra/zebra_pbr.h"
 #include "zebra/zebra_nhg.h"
 #include "zebra/zebra_evpn_mh.h"
+#include "zebra/zebra_evpn_bpp.h"
 #include "zebra/interface.h"
 #include "northbound_cli.h"
 #include "zebra/zebra_nb.h"
@@ -3041,6 +3042,19 @@ DEFPY(show_evpn_es_peer, show_evpn_es_peer_cmd,
 	return CMD_SUCCESS;
 }
 
+DEFPY(show_evpn_mh_bpp, show_evpn_mh_bpp_cmd,
+      "show evpn mh bridge-port-protection [json$json]",
+      SHOW_STR
+      "EVPN\n"
+      "Multihoming\n"
+      "Bridge-port protection entries\n"
+      JSON_STR)
+{
+	zebra_evpn_bpp_show(vty, !!json);
+
+	return CMD_SUCCESS;
+}
+
 DEFPY(show_evpn_es_evi,
       show_evpn_es_evi_cmd,
       "show evpn es-evi [vni (1-16777215)$vni] [detail$detail] [json$json]",
@@ -4375,6 +4389,7 @@ void zebra_vty_init(void)
 	install_element(VIEW_NODE, &show_evpn_l2_nh_cmd);
 	install_element(VIEW_NODE, &show_evpn_es_cmd);
 	install_element(VIEW_NODE, &show_evpn_es_peer_cmd);
+	install_element(VIEW_NODE, &show_evpn_mh_bpp_cmd);
 	install_element(VIEW_NODE, &show_evpn_es_evi_cmd);
 	install_element(VIEW_NODE, &show_evpn_access_vlan_cmd);
 	install_element(VIEW_NODE, &show_evpn_rmac_vni_mac_cmd);

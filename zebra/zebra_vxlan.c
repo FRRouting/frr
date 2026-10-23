@@ -40,6 +40,7 @@
 #include "zebra/zebra_evpn_neigh.h"
 #include "zebra/zebra_neigh.h"
 #include "zebra/zebra_evpn_mh.h"
+#include "zebra/zebra_evpn_bpp.h"
 #include "zebra/zebra_evpn_vxlan.h"
 #include "zebra/zebra_dplane.h"
 #include "zebra/zebra_router.h"
@@ -2230,6 +2231,8 @@ static struct zebra_l3vni *zl3vni_add(vni_t vni, vrf_id_t vrf_id)
 	/* Create hash table for neighbors */
 	zebra_neigh_db_init(zl3vni->nh_table);
 
+	zebra_evpn_bpp_re_eval_schedule();
+
 	return zl3vni;
 }
 
@@ -2239,6 +2242,8 @@ static struct zebra_l3vni *zl3vni_add(vni_t vni, vrf_id_t vrf_id)
 static int zl3vni_del(struct zebra_l3vni *zl3vni)
 {
 	struct zebra_l3vni *tmp_zl3vni;
+
+	zebra_evpn_bpp_re_eval_schedule();
 
 	/* free the list of l2vnis */
 	list_delete(&zl3vni->l2vnis);
@@ -2602,6 +2607,8 @@ void zebra_vxlan_process_l3vni_oper_up(struct zebra_l3vni *zl3vni)
 	evpn_zvrf = zebra_vrf_get_evpn();
 	if (evpn_zvrf && evpn_zvrf->advertise_l3vni_neigh)
 		zebra_vxlan_l3vni_neigh_replay();
+
+	zebra_evpn_bpp_re_eval_schedule();
 }
 
 void zebra_vxlan_process_l3vni_oper_down(struct zebra_l3vni *zl3vni)
@@ -2625,6 +2632,8 @@ void zebra_vxlan_process_l3vni_oper_down(struct zebra_l3vni *zl3vni)
 	zevpn = zebra_evpn_l3_neigh_sync_lookup(zl3vni->vni);
 	if (zevpn)
 		zebra_evpn_l3vni_neigh_flush(zevpn);
+
+	zebra_evpn_bpp_re_eval_schedule();
 }
 
 static void zevpn_add_to_l3vni_list(struct hash_bucket *bucket, void *ctxt)
@@ -6415,6 +6424,8 @@ void zebra_vxlan_advertise_all_vni(ZAPI_HANDLER_ARGS)
 	}
 
 l3vni_neigh_sync:
+	zebra_evpn_bpp_re_eval_schedule();
+
 	/* Idempotent while enabled, so a bgpd (GR) reconnect that re-sends the
 	 * message also restores the L3VNI ES base EVPN and replays the
 	 * pure-L3 RT-2s for hosts learned before the token turned on.
