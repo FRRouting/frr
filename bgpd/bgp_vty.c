@@ -10464,6 +10464,9 @@ DEFPY(neighbor_encap_srv6,
 		return ret;
 	}
 
+	if (peergroup_af_flag_check(peer, afi, safi, flag))
+		return CMD_SUCCESS;
+
 	if (peergroup_af_flag_check(peer, afi, safi, PEER_FLAG_CONFIG_ENCAPSULATION_SRV6) ||
 	    peergroup_af_flag_check(peer, afi, safi, PEER_FLAG_CONFIG_ENCAPSULATION_SRV6_RELAX)) {
 		vty_out(vty, "%% Peer is already configured, unset it first.\n");
@@ -12045,8 +12048,9 @@ DEFPY (bgp_srv6_locator,
 	VTY_DECLVAR_CONTEXT(bgp, bgp);
 	int ret;
 
-	if (strlen(bgp->srv6_locator_name) > 0
-	    && strcmp(name, bgp->srv6_locator_name) != 0) {
+	if (strlen(bgp->srv6_locator_name) > 0) {
+		if (strcmp(name, bgp->srv6_locator_name) == 0)
+			return CMD_SUCCESS;
 		vty_out(vty, "srv6 locator is already configured\n");
 		return CMD_WARNING_CONFIG_FAILED;
 	}
