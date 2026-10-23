@@ -11,3 +11,4 @@ for i in range(6):
 for i in range(11):
     TestTable.onesimple("Verifying successor")
 TestTable.onesimple("Verified pausing")
+TestTable.onesimple("Verified flowspec byte-prefix")

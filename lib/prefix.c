@@ -212,7 +212,8 @@ int prefix_match(union prefixconstptr unet, union prefixconstptr upfx)
 		    p->u.prefix_flowspec.family)
 			return 0;
 
-		if (n->u.prefix_flowspec.prefixlen >
+		/* FlowSpec NLRIs are opaque keys; byte-prefix NLRIs are distinct routes. */
+		if (n->u.prefix_flowspec.prefixlen !=
 		    p->u.prefix_flowspec.prefixlen)
 			return 0;
 
@@ -482,7 +483,8 @@ int prefix_cmp(union prefixconstptr up1, union prefixconstptr up2)
 
 		if (p1->u.prefix_flowspec.family !=
 		    p2->u.prefix_flowspec.family)
-			return 1;
+			return numcmp(p1->u.prefix_flowspec.family,
+				      p2->u.prefix_flowspec.family);
 
 		if (p1->u.prefix_flowspec.prefixlen !=
 		    p2->u.prefix_flowspec.prefixlen)
