@@ -50,25 +50,38 @@ int babel_route_add(struct zapi_route *api)
 int babel_route_delete(struct zapi_route *api)
 {
 	unsigned char uchar_prefix[16];
+	unsigned char plen;
 	struct xroute *xroute = NULL;
 
 	switch (api->prefix.family) {
 	case AF_INET:
 		inaddr_to_uchar(uchar_prefix, &api->prefix.u.prefix4);
-		xroute = find_xroute(uchar_prefix, api->prefix.prefixlen + 96);
-		if (xroute != NULL) {
+		plen = api->prefix.prefixlen + 96;
+		xroute = find_xroute(uchar_prefix, plen);
+		if (xroute != NULL)
 			debugf(BABEL_DEBUG_ROUTE, "Removing ipv4 route (from zebra).");
-			flush_xroute(xroute);
-		}
 		break;
 	case AF_INET6:
 		in6addr_to_uchar(uchar_prefix, &api->prefix.u.prefix6);
-		xroute = find_xroute(uchar_prefix, api->prefix.prefixlen);
-		if (xroute != NULL) {
+		plen = api->prefix.prefixlen;
+		xroute = find_xroute(uchar_prefix, plen);
+		if (xroute != NULL)
 			debugf(BABEL_DEBUG_ROUTE, "Removing ipv6 route (from zebra).");
-			flush_xroute(xroute);
-		}
 		break;
+	}
+
+	if (xroute != NULL) {
+		flush_xroute(xroute);
+		/*
+		 * The xroute was advertised in place of the Babel routes for
+		 * this prefix, and the best of those was uninstalled when the
+		 * xroute was added.  With the xroute gone, reinstall it and
+		 * advertise its metric; if no feasible route is left, the
+		 * update goes out as a retraction so neighbours drop the prefix
+		 * instead of holding it until the hold time expires.
+		 */
+		if (install_best_route(uchar_prefix, plen) == NULL)
+			send_update(NULL, 0, uchar_prefix, plen);
 	}
 
 	return 0;

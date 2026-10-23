@@ -910,6 +910,19 @@ install:
 		send_update(NULL, 1, route->src->prefix, route->src->plen);
 }
 
+/*
+ * Install the best feasible route for a prefix, if there is one.  Returns
+ * the route, or NULL when no feasible route exists.
+ */
+struct babel_route *install_best_route(const unsigned char prefix[16], unsigned char plen)
+{
+	struct babel_route *route = find_best_route(prefix, plen, 1, NULL);
+
+	if (route)
+		consider_route(route);
+	return route;
+}
+
 void retract_neighbour_routes(struct neighbour *neigh)
 {
 	int i;
