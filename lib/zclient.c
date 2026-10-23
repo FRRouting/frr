@@ -3113,6 +3113,7 @@ static void zebra_interface_if_set_value(struct stream *s,
 	if (ifp->hw_addr_len)
 		STREAM_GET(ifp->hw_addr, s,
 			   MIN(ifp->hw_addr_len, INTERFACE_HWADDR_MAX));
+	STREAM_GETC(s, ifp->nbr_multi_access);
 
 	/* Read Traffic Engineering status */
 	link_params_status = stream_getc(s);
@@ -3357,11 +3358,17 @@ zebra_interface_nbr_address_read(int type, struct stream *s, vrf_id_t vrf_id)
 	STREAM_GETC(s, p.prefixlen);
 
 	if (type == ZEBRA_INTERFACE_NBR_ADDRESS_ADD) {
-		/* Currently only supporting P2P links, so any new RA source
-		   address is
-		   considered as the replacement of the previously learnt
-		   Link-Local address. */
-		if (!(ifc = listnode_head(ifp->nbr_connected))) {
+		/*
+		 * On P2P links any new RA source address is considered as
+		 * the replacement of the previously learnt Link-Local
+		 * address.  With "ipv6 nd multi-access" zebra reports every
+		 * RA source: keep one entry per address.
+		 */
+		if (ifp->nbr_multi_access)
+			ifc = nbr_connected_check(ifp, &p);
+		else
+			ifc = listnode_head(ifp->nbr_connected);
+		if (!ifc) {
 			ifc = nbr_connected_new();
 			ifc->address = prefix_new();
 			ifc->ifp = ifp;

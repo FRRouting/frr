@@ -1490,6 +1490,8 @@ static void peer_free(struct peer *peer)
 		work_queue_free_and_null(&peer->clear_node_queue);
 
 	XFREE(MTYPE_PEER_CONF_IF, peer->conf_if);
+	peer_nbr_conn_bad_clear(peer);
+	nbr_conn_bad_fini(&peer->nbr_conn_bad);
 
 	XFREE(MTYPE_BGP_SOFT_VERSION, peer->soft_version);
 
@@ -1790,6 +1792,7 @@ struct peer *peer_new(struct bgp *bgp, union sockunion *su, enum connection_dire
 	peer->max_packet_size = BGP_STANDARD_MESSAGE_MAX_PACKET_SIZE;
 	peer->last_reset = PEER_DOWN_NONE;
 	peer->down_last_reset = PEER_DOWN_NONE;
+	nbr_conn_bad_init(&peer->nbr_conn_bad);
 
 	/* Set default flags. */
 	FOREACH_AFI_SAFI (afi, safi) {
@@ -2007,25 +2010,187 @@ static int bgp_peer_conf_if_to_su_update_v4(struct peer_connection *connection,
 	return 0;
 }
 
+static struct nbr_conn_bad_entry *peer_nbr_conn_bad_lookup(struct peer *peer,
+							   const struct in6_addr *addr)
+{
+	struct nbr_conn_bad_entry *bad;
+
+	frr_each (nbr_conn_bad, &peer->nbr_conn_bad, bad)
+		if (IPV6_ADDR_SAME(&bad->addr, addr))
+			return bad;
+
+	return NULL;
+}
+
+/*
+ * Multi-access segments: remember the nbr_connected addresses that sent an
+ * OPEN with an ASN this peer's remote-as rejects (we sent Bad Peer AS).
+ * Those speakers are not this peer, so the round-robin skips them and,
+ * because the peer never targets them, their connections are not accepted.
+ */
+void peer_nbr_conn_bad_add(struct peer *peer, const struct in6_addr *addr)
+{
+	struct nbr_conn_bad_entry *bad;
+
+	if (peer_nbr_conn_bad_lookup(peer, addr))
+		return;
+
+	bad = XCALLOC(MTYPE_BGP_NBR_CONN_BAD, sizeof(*bad));
+	bad->addr = *addr;
+	nbr_conn_bad_add_tail(&peer->nbr_conn_bad, bad);
+
+	if (bgp_debug_neighbor_events(peer))
+		zlog_debug("%s [RR] %pI6 sent Bad Peer AS, skipping it (%zu skipped)", peer->host,
+			   addr, nbr_conn_bad_count(&peer->nbr_conn_bad));
+}
+
+static struct peer *peer_lookup_nbr_conn_multi_bgp(struct bgp *bgp, const union sockunion *su,
+						   uint32_t *idx)
+{
+	struct listnode *node, *nnode, *nbr_node;
+	struct nbr_connected *ifc_nbr;
+	struct peer *peer;
+
+	for (ALL_LIST_ELEMENTS(bgp->peer, node, nnode, peer)) {
+		if (!peer_is_config_node(peer) || !peer_nbr_conn_multi(peer) ||
+		    peer->ifp->ifindex != (ifindex_t)su->sin6.sin6_scope_id)
+			continue;
+		/* Between attempts, and peering over IPv6 link-local */
+		if ((peer->connection->status != Idle && peer->connection->status != Active) ||
+		    sockunion_family(&peer->connection->su) != AF_INET6)
+			continue;
+		if (peer_nbr_conn_bad_lookup(peer, &su->sin6.sin6_addr))
+			continue;
+
+		*idx = 0;
+		for (ALL_LIST_ELEMENTS_RO(peer->ifp->nbr_connected, nbr_node, ifc_nbr)) {
+			if (IPV6_ADDR_SAME(&ifc_nbr->address->u.prefix6, &su->sin6.sin6_addr))
+				return peer;
+			(*idx)++;
+		}
+	}
+
+	return NULL;
+}
+
+/*
+ * Multi-access: a connection from one of an unnumbered peer's neighbors
+ * other than the one it is trying.  Find a peer that is between attempts
+ * (Idle or Active) and for which the neighbor has not sent Bad Peer AS, so
+ * a neighbor that connects first (typically the ToR) does not wait for the
+ * search.  The OPEN exchange still checks remote-as.  idx is the
+ * neighbor's position in nbr_connected, for peer_nbr_conn_retarget() once
+ * the connection is accepted.  bgp is NULL when the socket gives no
+ * instance.
+ */
+struct peer *peer_lookup_nbr_conn_multi(struct bgp *bgp, const union sockunion *su, uint32_t *idx)
+{
+	struct listnode *node, *nnode;
+	struct peer *peer;
+
+	if (sockunion_family(su) != AF_INET6 || !IN6_IS_ADDR_LINKLOCAL(&su->sin6.sin6_addr))
+		return NULL;
+
+	if (bgp)
+		return peer_lookup_nbr_conn_multi_bgp(bgp, su, idx);
+
+	for (ALL_LIST_ELEMENTS(bm->bgp, node, nnode, bgp)) {
+		peer = peer_lookup_nbr_conn_multi_bgp(bgp, su, idx);
+		if (peer)
+			return peer;
+	}
+
+	return NULL;
+}
+
+/* Point the peer at nbr_connected entry idx (an accepted connection's) */
+void peer_nbr_conn_retarget(struct peer *peer, uint32_t idx)
+{
+	peer->nbr_conn_idx = idx;
+	bgp_peer_conf_if_to_su_update(peer->connection);
+
+	if (bgp_debug_neighbor_events(peer))
+		zlog_debug("%s [RR] accepted connection from neighbor %pSU (idx=%u)", peer->host,
+			   &peer->connection->su, idx);
+}
+
+void peer_nbr_conn_bad_del(struct peer *peer, const struct in6_addr *addr)
+{
+	struct nbr_conn_bad_entry *bad = peer_nbr_conn_bad_lookup(peer, addr);
+
+	if (!bad)
+		return;
+
+	nbr_conn_bad_del(&peer->nbr_conn_bad, bad);
+	XFREE(MTYPE_BGP_NBR_CONN_BAD, bad);
+}
+
+void peer_nbr_conn_bad_clear(struct peer *peer)
+{
+	struct nbr_conn_bad_entry *bad;
+
+	while ((bad = nbr_conn_bad_pop(&peer->nbr_conn_bad)))
+		XFREE(MTYPE_BGP_NBR_CONN_BAD, bad);
+}
+
 static bool bgp_peer_conf_if_to_su_update_v6(struct peer_connection *connection,
 					     struct interface *ifp)
 {
+	struct peer *peer = connection->peer;
 	struct nbr_connected *ifc_nbr;
+	struct listnode *node;
+	uint32_t count, idx, i;
 
 	/* Have we learnt the peer's IPv6 link-local address? */
-	if (ifp->nbr_connected
-	    && (ifc_nbr = listnode_head(ifp->nbr_connected))) {
-		connection->su.sa.sa_family = AF_INET6;
-		memcpy(&connection->su.sin6.sin6_addr,
-		       &ifc_nbr->address->u.prefix, sizeof(struct in6_addr));
-#ifdef SIN6_LEN
-		connection->su.sin6.sin6_len = sizeof(struct sockaddr_in6);
-#endif
-		connection->su.sin6.sin6_scope_id = ifp->ifindex;
-		return true;
+	if (!ifp->nbr_connected)
+		return false;
+
+	count = listcount(ifp->nbr_connected);
+	if (count == 0)
+		return false;
+
+	/*
+	 * On multi-access segments the list may contain multiple RA
+	 * sources.  Use the peer's nbr_conn_idx to select which entry
+	 * to try (round-robin on failure).  On PTP links count == 1
+	 * and idx is always 0, identical to the old listnode_head().
+	 */
+	idx = peer->nbr_conn_idx % count;
+	node = listhead(ifp->nbr_connected);
+	for (i = 0; i < idx; i++)
+		node = listnextnode(node);
+
+	/*
+	 * Skip entries that already sent Bad Peer AS.  If every entry has,
+	 * forget them and search all of them again: a remote ASN or this
+	 * peer's remote-as may have changed since.
+	 */
+	for (i = 0; i < count; i++) {
+		ifc_nbr = listgetdata(node);
+		if (!peer_nbr_conn_bad_lookup(peer, &ifc_nbr->address->u.prefix6))
+			break;
+		node = listnextnode(node) ?: listhead(ifp->nbr_connected);
+	}
+	peer->nbr_conn_skipped = false;
+	if (i == count) {
+		if (bgp_debug_neighbor_events(peer))
+			zlog_debug("%s [RR] all %u entries sent Bad Peer AS, searching all again",
+				   peer->host, count);
+		peer_nbr_conn_bad_clear(peer);
+		ifc_nbr = listgetdata(node); /* back at idx after the full lap */
+	} else if (i) {
+		peer->nbr_conn_idx += i;
+		peer->nbr_conn_skipped = true;
 	}
 
-	return false;
+	connection->su.sa.sa_family = AF_INET6;
+	memcpy(&connection->su.sin6.sin6_addr, &ifc_nbr->address->u.prefix,
+	       sizeof(struct in6_addr));
+#ifdef SIN6_LEN
+	connection->su.sin6.sin6_len = sizeof(struct sockaddr_in6);
+#endif
+	connection->su.sin6.sin6_scope_id = ifp->ifindex;
+	return true;
 }
 
 /*
@@ -2350,6 +2515,9 @@ void peer_as_change(struct peer *peer, as_t as, enum peer_asn_type as_type,
 	enum bgp_peer_sort newtype;
 	bool old_multihop = PEER_IS_MULTIHOP(peer);
 	int old_ttl = peer->ttl;
+
+	/* Bad Peer AS verdicts were against the old remote-as */
+	peer_nbr_conn_bad_clear(peer);
 
 	peer->as = as;
 	if (as_type == AS_SPECIFIED && as_str) {

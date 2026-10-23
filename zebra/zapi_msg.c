@@ -84,6 +84,7 @@ static void zserv_encode_interface(struct stream *s, struct interface *ifp)
 	stream_putl(s, ifp->hw_addr_len);
 	if (ifp->hw_addr_len)
 		stream_put(s, ifp->hw_addr, ifp->hw_addr_len);
+	stream_putc(s, zif->rtadv.MultiAccess);
 
 	/* Then, Traffic Engineering parameters if any */
 	if (HAS_LINK_PARAMS(ifp) && IS_LINK_PARAMS_SET(ifp->link_params)) {
@@ -440,6 +441,7 @@ int zsend_interface_addresses(struct zserv *client, struct interface *ifp)
 /* Add new nbr connected IPv6 address */
 void nbr_connected_add_ipv6(struct interface *ifp, struct in6_addr *address)
 {
+	struct zebra_if *zif = ifp->info;
 	struct nbr_connected *ifc;
 	struct prefix p;
 
@@ -447,7 +449,12 @@ void nbr_connected_add_ipv6(struct interface *ifp, struct in6_addr *address)
 	IPV6_ADDR_COPY(&p.u.prefix6, address);
 	p.prefixlen = IPV6_MAX_BITLEN;
 
-	ifc = listnode_head(ifp->nbr_connected);
+	/*
+	 * Point-to-point (the default): one neighbor, and a new RA source
+	 * replaces it.  With "ipv6 nd multi-access" every RA source is its
+	 * own entry; 169.254.0.1 still maps to the first one only.
+	 */
+	ifc = zif->rtadv.MultiAccess ? NULL : listnode_head(ifp->nbr_connected);
 	if (!ifc) {
 		/* new addition */
 		ifc = nbr_connected_new();
@@ -460,7 +467,39 @@ void nbr_connected_add_ipv6(struct interface *ifp, struct in6_addr *address)
 
 	zebra_interface_nbr_address_add_update(ifp, ifc);
 
-	if_nbr_ipv6ll_to_ipv4ll_neigh_update(ifp, address, 1);
+	if (ifc == listnode_head(ifp->nbr_connected))
+		if_nbr_ipv6ll_to_ipv4ll_neigh_update(ifp, address, 1);
+}
+
+/*
+ * "ipv6 nd multi-access" changed.  Leaving multi-access keeps only the
+ * first neighbor learnt, as on a point-to-point interface.  Daemons learn
+ * the mode from the interface update.
+ */
+void nbr_connected_multi_access_set(struct interface *ifp, bool multi_access)
+{
+	struct zebra_if *zif = ifp->info;
+	struct nbr_connected *ifc, *first;
+	struct listnode *node, *nnode;
+
+	if (zif->rtadv.MultiAccess == multi_access)
+		return;
+
+	zif->rtadv.MultiAccess = multi_access;
+
+	if (!multi_access) {
+		first = listnode_head(ifp->nbr_connected);
+		for (ALL_LIST_ELEMENTS(ifp->nbr_connected, node, nnode, ifc)) {
+			if (ifc == first)
+				continue;
+			listnode_delete(ifp->nbr_connected, ifc);
+			zebra_interface_nbr_address_delete_update(ifp, ifc);
+			nbr_connected_free(ifc);
+		}
+	}
+
+	if (if_is_operative(ifp))
+		zebra_interface_up_update(ifp);
 }
 
 void nbr_connected_delete_ipv6(struct interface *ifp, struct in6_addr *address)

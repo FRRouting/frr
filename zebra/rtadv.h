@@ -212,6 +212,13 @@ struct rtadvconf {
 #define RTADV_FAST_REXMIT_PERIOD 1 /* 1 sec */
 #define RTADV_NUM_FAST_REXMITS 4   /* Fast Rexmit RA 4 times on certain events \
 				    */
+
+	/*
+	 * Learn each router sending RAs as its own neighbor (RFC 5549 on
+	 * multi-access segments) instead of replacing the one neighbor.
+	 * Default: false
+	 */
+	bool MultiAccess;
 };
 
 struct rtadv_rdnss {
