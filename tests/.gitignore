@@ -7,6 +7,7 @@ frr_northbound*
 /bgpd/test_allowas_rmap
 /bgpd/test_aspath
 /bgpd/test_attr_parse
+/bgpd/test_bgp_ls_attr
 /bgpd/test_bgp_table
 /bgpd/test_capability
 /bgpd/test_community
