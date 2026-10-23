@@ -504,6 +504,23 @@ def test_sid_suppress_locator_vrf_default():
     check_rib("r1", "show bgp ipv6 vpn json", "r1/vpnv6_rib_unselected.json")
 
 
+def test_sid_suppress_srv6_keeps_srv6_only_default():
+    """
+    Test that 'no segment-routing srv6' does not leave 'no srv6-only'
+    in the BGP instances of R1
+    """
+    output = (
+        get_topogen().gears["r1"].vtysh_cmd("show running-config bgpd", raises=True)
+    )
+    for instance in ("router bgp 1\n", "router bgp 1 vrf vrf20\n"):
+        assert instance in output, "'{}' not found in r1 configuration:\n{}".format(
+            instance.strip(), output
+        )
+    assert (
+        "no srv6-only" not in output
+    ), "'no srv6-only' found in r1 configuration:\n{}".format(output)
+
+
 def test_sid_add_locator_vrf_10():
     """
     Test that IPv6 vpn prefixes for VRF10 can be advertised to R2 with SRv6 SID
