@@ -359,7 +359,23 @@ bool ecommunity_cmp(const void *arg1, const void *arg2)
 			  ecom1->unit_size) == 0);
 }
 
-static void ecommunity_color_str(char *buf, size_t bufsz, uint8_t *ptr)
+/* Unlike rt/soo, no caller emits a "color" keyword ahead of the value, so
+ * the re-parseable formats have to carry it themselves.
+ */
+static const char *ecommunity_color_prefix(int format)
+{
+	switch (format) {
+	case ECOMMUNITY_FORMAT_COMMUNITY_LIST:
+	case ECOMMUNITY_FORMAT_ROUTE_MAP:
+		return "color ";
+	case ECOMMUNITY_FORMAT_DISPLAY:
+	default:
+		return "Color:";
+	}
+}
+
+static void ecommunity_color_str(char *buf, size_t bufsz, uint8_t *ptr,
+				 int format)
 {
 	/*
 	 *  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
@@ -378,7 +394,8 @@ static void ecommunity_color_str(char *buf, size_t bufsz, uint8_t *ptr)
 
 	memcpy(&colorid, ptr + 2, 4);
 	colorid = ntohl(colorid);
-	snprintf(buf, bufsz, "Color:%d%d:%d", (color_type & 0x2) >> 1, color_type & 0x1, colorid);
+	snprintfrr(buf, bufsz, "%s%d%d:%u", ecommunity_color_prefix(format),
+		   (color_type & 0x2) >> 1, color_type & 0x1, colorid);
 }
 
 /* Initialize Extended Comminities related hash. */
@@ -1260,7 +1277,21 @@ static char *_ecommunity_ecom2str(struct ecommunity *ecom, int format, int filte
 					sizeof(encbuf));
 			} else if (*pnt == ECOMMUNITY_COLOR) {
 				ecommunity_color_str(encbuf, sizeof(encbuf),
+<<<<<<< HEAD
 						     pnt);
+=======
+						     pnt, format);
+			} else if (*pnt == ECOMMUNITY_OPAQUE_SUBTYPE_UPA) {
+				struct in_addr rid = {};
+				uint8_t flags = data[BGP_UPA_EXTCOM_OFF_FLAGS];
+				const char *dbit_str = CHECK_FLAG(flags, BGP_UPA_FLAG_DROP)
+							       ? "drop"
+							       : "no-drop";
+
+				memcpy(&rid.s_addr, data + BGP_UPA_EXTCOM_OFF_ROUTER_ID,
+				       sizeof(rid.s_addr));
+				snprintfrr(encbuf, sizeof(encbuf), "upa:%pI4:%s", &rid, dbit_str);
+>>>>>>> bd33f1c (bgpd: make color extcommunity config output re-enterable)
 			} else {
 				unk_ecom = true;
 			}
