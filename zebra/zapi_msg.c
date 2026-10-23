@@ -309,10 +309,11 @@ int zsend_interface_address(int cmd, struct zserv *client,
 
 	/* Destination. */
 	p = ifc->destination;
-	if (p)
+	if (p) {
 		stream_put(s, &p->u.prefix, blen);
-	else
-		stream_put(s, NULL, blen);
+		stream_putc(s, p->prefixlen);
+	} else
+		stream_put(s, NULL, blen + 1);
 
 	/* Write packet size. */
 	stream_putw_at(s, 0, stream_get_endp(s));
