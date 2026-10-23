@@ -50,7 +50,7 @@ extern "C" {
  * the string returned in parser_log.
  */
 
-#define SBUF_DEFAULT_SIZE 8192
+#define SBUF_DEFAULT_SIZE 131072
 
 struct sbuf {
 	bool fixed;
