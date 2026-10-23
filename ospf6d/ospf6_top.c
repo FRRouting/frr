@@ -290,7 +290,7 @@ static void ospf6_top_lsdb_hook_add(struct ospf6_lsa *lsa)
 {
 	switch (ntohs(lsa->header->type)) {
 	case OSPF6_LSTYPE_AS_EXTERNAL:
-		ospf6_asbr_lsa_add(lsa);
+		ospf6_asbr_lsa_add(lsa, NULL);
 		break;
 
 	default:
