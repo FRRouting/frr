@@ -828,20 +828,42 @@ static void ospf6_acknowledge_lsa(struct ospf6_lsa *lsa, int ismore_recent,
 		ospf6_acknowledge_lsa_allother(lsa, ismore_recent, from);
 }
 
-/* RFC2328 section 13 (4):
-   if MaxAge LSA and if we have no instance, and no neighbor
-   is in states Exchange or Loading
-   returns 1 if match this case, else returns 0 */
-static int ospf6_is_maxage_lsa_drop(struct ospf6_lsa *lsa,
-				    struct ospf6_neighbor *from)
+/*
+ * RFC2328 section 13 (4):
+ * returns true if at least one neighbor is in states Exchange or Loading,
+ * else returns false
+ */
+static bool ospf6_neighbor_exchanging(struct ospf6 *process)
 {
 	struct ospf6_neighbor *on;
 	struct ospf6_interface *oi;
 	struct ospf6_area *oa;
-	struct ospf6 *process = NULL;
 	struct listnode *i, *j, *k;
-	int count = 0;
 
+	for (ALL_LIST_ELEMENTS_RO(process->area_list, i, oa))
+		for (ALL_LIST_ELEMENTS_RO(oa->if_list, j, oi))
+			for (ALL_LIST_ELEMENTS_RO(oi->neighbor_list, k, on))
+				if (on->state == OSPF6_NEIGHBOR_EXCHANGE
+				    || on->state == OSPF6_NEIGHBOR_LOADING)
+					return true;
+
+	return false;
+}
+
+/*
+ * RFC2328 section 13 (4):
+ * if MaxAge LSA and if we have no instance, and no neighbor
+ * is in states Exchange or Loading
+ * returns 1 if match this case, else returns 0.
+ * *nbr_exchanging caches the neighbor-state scan for the packet being
+ * processed (-1 = not computed yet): neighbor states cannot change while
+ * the packet is processed, so the scan runs at most once per packet
+ * instead of once per LSA.
+ */
+static int ospf6_is_maxage_lsa_drop(struct ospf6_lsa *lsa,
+				    struct ospf6_neighbor *from,
+				    int *nbr_exchanging)
+{
 	if (!OSPF6_LSA_IS_MAXAGE(lsa))
 		return 0;
 
@@ -849,18 +871,11 @@ static int ospf6_is_maxage_lsa_drop(struct ospf6_lsa *lsa,
 			      lsa->header->adv_router, lsa->lsdb))
 		return 0;
 
-	process = from->ospf6_if->area->ospf6;
+	if (*nbr_exchanging < 0)
+		*nbr_exchanging = ospf6_neighbor_exchanging(
+			from->ospf6_if->area->ospf6);
 
-	for (ALL_LIST_ELEMENTS_RO(process->area_list, i, oa))
-		for (ALL_LIST_ELEMENTS_RO(oa->if_list, j, oi))
-			for (ALL_LIST_ELEMENTS_RO(oi->neighbor_list, k, on))
-				if (on->state == OSPF6_NEIGHBOR_EXCHANGE
-				    || on->state == OSPF6_NEIGHBOR_LOADING)
-					count++;
-
-	if (count == 0)
-		return 1;
-	return 0;
+	return *nbr_exchanging ? 0 : 1;
 }
 
 static bool ospf6_lsa_check_min_arrival(struct ospf6_lsa *lsa,
@@ -887,7 +902,8 @@ static bool ospf6_lsa_check_min_arrival(struct ospf6_lsa *lsa,
 
 /* RFC2328 section 13 The Flooding Procedure */
 void ospf6_receive_lsa(struct ospf6_neighbor *from,
-		       struct ospf6_lsa_header *lsa_header)
+		       struct ospf6_lsa_header *lsa_header,
+		       int *nbr_exchanging)
 {
 	struct ospf6_lsa *new = NULL, *old = NULL, *rem = NULL;
 	int ismore_recent;
@@ -964,7 +980,7 @@ void ospf6_receive_lsa(struct ospf6_neighbor *from,
 
 	/* (4) if MaxAge LSA and if we have no instance, and no neighbor
 	       is in states Exchange or Loading */
-	if (ospf6_is_maxage_lsa_drop(new, from)) {
+	if (ospf6_is_maxage_lsa_drop(new, from, nbr_exchanging)) {
 		/* log */
 		if (is_debug)
 			zlog_debug(
