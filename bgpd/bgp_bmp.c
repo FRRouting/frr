@@ -1027,12 +1027,40 @@ static int bmp_peer_backward(struct peer *peer)
 	return 0;
 }
 
+/* write one EoR route monitoring message (pre-built update in s) for peer */
+static void bmp_eor_write(struct bmp *bmp, struct stream *s, struct peer *peer, afi_t afi,
+			  uint8_t flags, uint8_t peer_type_flag)
+{
+	struct bgp *bgp = peer->bgp;
+	struct stream *s2;
+	uint64_t peer_distinguisher = 0;
+
+	/* skip this message if peer distinguisher is not available */
+	if (bmp_get_peer_distinguisher(bgp, afi, peer_type_flag, &peer_distinguisher)) {
+		zlog_warn("skipping bmp message for reason: can't get peer distinguisher");
+		return;
+	}
+
+	s2 = stream_new(BGP_MAX_PACKET_SIZE);
+
+	bmp_common_hdr(s2, BMP_VERSION_3, BMP_TYPE_ROUTE_MONITORING);
+
+	bmp_per_peer_hdr(s2, bgp, peer, flags, peer_type_flag, peer_distinguisher, NULL);
+
+	stream_putl_at(s2, BMP_LENGTH_POS, stream_get_endp(s) + stream_get_endp(s2));
+
+	bmp->cnt_update++;
+	pullwr_write_stream(bmp->pullwr, s2);
+	pullwr_write_stream(bmp->pullwr, s);
+	stream_free(s2);
+}
+
 static void bmp_eor(struct bmp *bmp, afi_t afi, safi_t safi, uint8_t flags, uint8_t peer_type_flag,
 		    struct bgp *bgp)
 {
 	struct peer *peer;
 	struct listnode *node;
-	struct stream *s, *s2;
+	struct stream *s;
 	iana_afi_t pkt_afi = IANA_AFI_IPV4;
 	iana_safi_t pkt_safi = IANA_SAFI_UNICAST;
 
@@ -1064,32 +1092,18 @@ static void bmp_eor(struct bmp *bmp, afi_t afi, safi_t safi, uint8_t flags, uint
 
 	bgp_packet_set_size(s);
 
+	/* Loc-RIB is a single instance: one EoR, not one per negotiated peer */
+	if (peer_type_flag == BMP_PEER_TYPE_LOC_RIB_INSTANCE) {
+		bmp_eor_write(bmp, s, bgp->peer_self, afi, flags, peer_type_flag);
+		stream_free(s);
+		return;
+	}
+
 	for (ALL_LIST_ELEMENTS_RO(bgp->peer, node, peer)) {
 		if (!peer->afc_nego[afi][safi])
 			continue;
 
-		uint64_t peer_distinguisher = 0;
-		/* skip this message if peer distinguisher is not available */
-		if (bmp_get_peer_distinguisher(peer->bgp, afi, peer_type_flag, &peer_distinguisher)) {
-			zlog_warn(
-				"skipping bmp message for reason: can't get peer distinguisher");
-			continue;
-		}
-
-		s2 = stream_new(BGP_MAX_PACKET_SIZE);
-
-		bmp_common_hdr(s2, BMP_VERSION_3,
-				BMP_TYPE_ROUTE_MONITORING);
-
-		bmp_per_peer_hdr(s2, bgp, peer, flags, peer_type_flag, peer_distinguisher, NULL);
-
-		stream_putl_at(s2, BMP_LENGTH_POS,
-				stream_get_endp(s) + stream_get_endp(s2));
-
-		bmp->cnt_update++;
-		pullwr_write_stream(bmp->pullwr, s2);
-		pullwr_write_stream(bmp->pullwr, s);
-		stream_free(s2);
+		bmp_eor_write(bmp, s, peer, afi, flags, peer_type_flag);
 	}
 	stream_free(s);
 }
