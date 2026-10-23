@@ -1906,14 +1906,12 @@ static uint16_t show_vty_link_info(struct vty *vty, struct tlv_header *ext,
 	json_object *jadj = NULL, *obj = NULL;
 
 	/* Verify that TLV length is valid against remaining buffer size */
-	if (length > buf_size) {
+	if (length < EXT_TLV_LINK_SIZE || TLV_SIZE(ext) > buf_size) {
 		/* Add security check for vty_out. If vty is not available, dump info via zlog. */
 		if (vty != NULL) {
-			vty_out(vty, "  Extended Link TLV size %d exceeds buffer size. Abort!\n",
-				length);
+			vty_out(vty, "  Wrong Extended Link TLV size %d. Abort!\n", length);
 		} else {
-			zlog_debug("  Extended Link TLV size %d exceeds buffer size. Abort!",
-				   length);
+			zlog_debug("  Wrong Extended Link TLV size %d. Abort!", length);
 		}
 		return buf_size;
 	}
@@ -1947,6 +1945,15 @@ static uint16_t show_vty_link_info(struct vty *vty, struct tlv_header *ext,
 	tlvh = (struct tlv_header *)((char *)(ext) + TLV_HDR_SIZE
 				     + EXT_TLV_LINK_SIZE);
 	for (; sum < length && tlvh; tlvh = TLV_HDR_NEXT(tlvh)) {
+		if (TLV_HDR_SIZE + ntohs(tlvh->length) > (size_t)(length - sum)) {
+			if (vty != NULL)
+				vty_out(vty, "  Sub-TLV size %d exceeds parent TLV. Abort!\n",
+					ntohs(tlvh->length));
+			else
+				zlog_debug("  Sub-TLV size %d exceeds parent TLV. Abort!",
+					   ntohs(tlvh->length));
+			return buf_size;
+		}
 		switch (ntohs(tlvh->type)) {
 		case EXT_SUBTLV_ADJ_SID:
 			if (json) {
@@ -2069,13 +2076,11 @@ static uint16_t show_vty_pref_info(struct vty *vty, struct tlv_header *ext,
 	json_object *jsid = NULL;
 
 	/* Verify that TLV length is valid against remaining buffer size */
-	if (length > buf_size) {
+	if (length < EXT_TLV_PREFIX_SIZE || TLV_SIZE(ext) > buf_size) {
 		if (vty != NULL) {
-			vty_out(vty, "  Extended Link TLV size %d exceeds buffer size. Abort!\n",
-				length);
+			vty_out(vty, "  Wrong Extended Prefix TLV size %d. Abort!\n", length);
 		} else {
-			zlog_debug("  Extended Link TLV size %d exceeds buffer size. Abort!",
-				   length);
+			zlog_debug("  Wrong Extended Prefix TLV size %d. Abort!", length);
 		}
 		return buf_size;
 	}
@@ -2109,6 +2114,15 @@ static uint16_t show_vty_pref_info(struct vty *vty, struct tlv_header *ext,
 	tlvh = (struct tlv_header *)((char *)(ext) + TLV_HDR_SIZE
 				     + EXT_TLV_PREFIX_SIZE);
 	for (; sum < length && tlvh; tlvh = TLV_HDR_NEXT(tlvh)) {
+		if (TLV_HDR_SIZE + ntohs(tlvh->length) > (size_t)(length - sum)) {
+			if (vty != NULL)
+				vty_out(vty, "  Sub-TLV size %d exceeds parent TLV. Abort!\n",
+					ntohs(tlvh->length));
+			else
+				zlog_debug("  Sub-TLV size %d exceeds parent TLV. Abort!",
+					   ntohs(tlvh->length));
+			return buf_size;
+		}
 		switch (ntohs(tlvh->type)) {
 		case EXT_SUBTLV_PREFIX_SID:
 			sum += show_vty_ext_pref_pref_sid(vty, tlvh, jsid);
