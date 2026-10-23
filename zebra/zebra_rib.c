@@ -1294,6 +1294,9 @@ static struct route_entry *rib_choose_best(struct route_entry *current,
 	return current;
 }
 
+static bool rib_compare_routes(const struct route_entry *re1, const struct route_entry *re2,
+			       bool replace);
+
 /* Core function for processing routing information base. */
 static void rib_process(struct route_node *rn)
 {
@@ -1509,15 +1512,36 @@ static void rib_process(struct route_node *rn)
 			 * let's us track nhgs to re's so when we have an
 			 * interface down event, we cannot just mark the
 			 * route entries as no longer installed.  We can
-			 * make do for the moment with Kernel/Connected/Local
+			 * make do for the moment with Kernel/Connected
 			 * routes because we know if we have a removal/addition
-			 * of one of those route types, we had a very very
-			 * quick interface flap and zebra was unable to
-			 * finish up processing the down event before
-			 * new up events have come in.
+			 * of the same one of those route types, we had an
+			 * extremely quick interface flap and zebra was unable
+			 * to finish up processing the down event before new up
+			 * events have come in.  Multiple system routes can
+			 * share a prefix; matching on type alone would fire on
+			 * normal failover to another connected route.
+			 * rib_compare_routes() limits this to the same route
+			 * re-added after the flap, but for KERNEL it only
+			 * checks type/instance/metric, not the nexthop, so a
+			 * normal failover to a different kernel route with
+			 * the same metric would still match. Require the
+			 * nexthops to be unchanged as well, which is true for
+			 * the same route reappearing but not for a failover.
+			 *
+			 * Local routes are excluded here: rib_install_kernel()
+			 * and rib_uninstall_kernel() return immediately for
+			 * ZEBRA_ROUTE_LOCAL without queuing a dplane request,
+			 * so rib_process_result() -- the only place that
+			 * sends the forced NHT notification and clears this
+			 * flag -- never runs for a local-only flap, leaving
+			 * the flag set with no notification ever sent.
 			 */
 			if (new_selected && CHECK_FLAG(old_selected->status, ROUTE_ENTRY_REMOVED) &&
-			    RSYSTEM_ROUTE(old_selected->type))
+			    RSYSTEM_ROUTE(old_selected->type) &&
+			    old_selected->type != ZEBRA_ROUTE_LOCAL &&
+			    rib_compare_routes(old_selected, new_selected, true) &&
+			    nexthop_group_equal_no_recurse(&old_selected->nhe->nhg,
+							   &new_selected->nhe->nhg))
 				SET_FLAG(new_selected->status, ROUTE_ENTRY_SEND_NHT_REMOVAL);
 
 			/*
@@ -2237,8 +2261,7 @@ static void rib_process_result(struct zebra_dplane_ctx *ctx)
 		} else {
 			if (re)
 				SET_FLAG(re->status, ROUTE_ENTRY_FAILED);
-			zsend_route_notify_owner_ctx(ctx,
-						     ZAPI_ROUTE_REMOVE_FAIL);
+			zsend_route_notify_owner_ctx(ctx, ZAPI_ROUTE_REMOVE_FAIL);
 
 			zlog_warn("(%s:%u:%u)%pRN: Route Deletion failure",
 				  VRF_LOGNAME(vrf), dplane_ctx_get_vrf(ctx),
