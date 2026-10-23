@@ -11,6 +11,7 @@
 #include <net-snmp/net-snmp-includes.h>
 #include <net-snmp/agent/net-snmp-agent-includes.h>
 #include <net-snmp/agent/snmp_vars.h>
+#include <net-snmp/agent/agent_callbacks.h>
 #include <net-snmp/library/large_fd_set.h>
 
 #include "command.h"
@@ -29,6 +30,12 @@ XREF_SETUP();
 DEFINE_HOOK(agentx_enabled, (), ());
 
 //bool agentx_enabled = false;
+
+/* True between AgentX master-session open and transport disconnect.
+ * In this net-snmp, SNMPD_CALLBACK_INDEX_START / INDEX_STOP are fired
+ * only from agentx/subagent.c for that session, not for MIB index walks.
+ */
+static bool agentx_connected;
 
 static struct event_loop *agentx_tm;
 static struct event *timeout_thr = NULL;
@@ -218,9 +225,29 @@ static int agentx_cli_off(void)
 	return 0;
 }
 
+static int agentx_master_up_cb(int majorID, int minorID, void *serverarg, void *clientarg)
+{
+	/* A repeated START for the session that is already up changes nothing. */
+	if (agentx_connected)
+		return SNMP_ERR_NOERROR;
+
+	agentx_connected = true;
+	return SNMP_ERR_NOERROR;
+}
+
+static int agentx_master_down_cb(int majorID, int minorID, void *serverarg, void *clientarg)
+{
+	if (!agentx_connected)
+		return SNMP_ERR_NOERROR;
+
+	agentx_connected = false;
+	return SNMP_ERR_NOERROR;
+}
+
 static int smux_disable(void)
 {
 	agentx_enabled = false;
+	agentx_connected = false;
 
 	return 0;
 }
@@ -242,6 +269,11 @@ void smux_init(struct event_loop *tm)
 	snmp_enable_calllog();
 	snmp_register_callback(SNMP_CALLBACK_LIBRARY, SNMP_CALLBACK_LOGGING,
 			       agentx_log_callback, NULL);
+	/* Master-session up/down. Registered before init_snmp() opens it. */
+	snmp_register_callback(SNMP_CALLBACK_APPLICATION, SNMPD_CALLBACK_INDEX_START,
+			       agentx_master_up_cb, NULL);
+	snmp_register_callback(SNMP_CALLBACK_APPLICATION, SNMPD_CALLBACK_INDEX_STOP,
+			       agentx_master_down_cb, NULL);
 	init_agent(FRR_SMUX_NAME);
 
 	hook_register(frr_early_fini, smux_disable);
