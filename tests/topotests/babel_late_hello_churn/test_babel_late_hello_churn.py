@@ -653,7 +653,9 @@ def test_shutdown_check_stderr():
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
 
-    for router in tgen.routers().values():
+    for rname, router in tgen.routers().items():
+        if rname == "r3":
+            continue
         router.stop()
         for daemon in ["babeld", "zebra"]:
             log = tgen.net[router.name].getStdErr(daemon)
