@@ -290,12 +290,19 @@ static void put_lsp_hdr(struct isis_lsp *lsp, size_t *len_pointer, bool keep)
 	}
 }
 
+static struct isis_passwd *lsp_passwd(struct isis_lsp *lsp)
+{
+	return (lsp->level == IS_LEVEL_1) ? &lsp->area->area_passwd : &lsp->area->domain_passwd;
+}
+
+/*
+ * Our LSPs stay in our database even when the key chain has no key to sign
+ * them with: they are then sent unauthenticated, for neighbors that validate
+ * to discard.
+ */
 static void lsp_add_auth(struct isis_lsp *lsp)
 {
-	struct isis_passwd *passwd;
-	passwd = (lsp->level == IS_LEVEL_1) ? &lsp->area->area_passwd
-					    : &lsp->area->domain_passwd;
-	isis_tlvs_add_auth(lsp->tlvs, passwd);
+	isis_tlvs_add_auth(lsp->tlvs, lsp_passwd(lsp));
 }
 
 static void lsp_pack_pdu(struct isis_lsp *lsp)
@@ -1417,6 +1424,11 @@ static void lsp_build(struct isis_lsp *lsp, struct isis_area *area)
 	lsp_adjust_stream(lsp);
 	lsp_pack_pdu(lsp);
 	size_t tlv_space = STREAM_WRITEABLE(lsp->pdu) - LLC_LEN;
+	/* A refresh re-signs the fragments with the key valid then, whose
+	 * digest may be longer: leave room for the longest.
+	 */
+	if (lsp_passwd(lsp)->type == ISIS_PASSWD_TYPE_CRYPTO_AUTH)
+		tlv_space -= ISIS_CRYPTO_AUTH_TLV_MAX_LEN - isis_tlvs_auth_len(lsp->tlvs);
 	lsp_clear_data(lsp);
 
 	struct list *fragments = isis_fragment_tlvs(tlvs, tlv_space);
