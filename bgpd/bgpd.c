@@ -9796,9 +9796,7 @@ static int peer_unshut_after_cfg(struct bgp *bgp)
 		afi_t afi;
 		safi_t safi;
 
-		FOREACH_AFI_SAFI_NSF (afi, safi) {
-			if (!bgp_gr_supported_for_afi_safi(afi, safi))
-				continue;
+		FOREACH_AFI_SAFI_GR (afi, safi) {
 			/* Inform zebra */
 			bgp_zebra_update(bgp, afi, safi, ZEBRA_CLIENT_ROUTE_UPDATE_PENDING);
 			bgp_zebra_update(bgp, afi, safi, ZEBRA_CLIENT_ROUTE_UPDATE_COMPLETE);

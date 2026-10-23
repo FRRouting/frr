@@ -3398,6 +3398,12 @@ static inline bool bgp_gr_supported_for_afi_safi(afi_t afi, safi_t safi)
 	return false;
 }
 
+/* Iterate only the AFI/SAFIs for which GR restarter behavior is supported.
+ */
+#define FOREACH_AFI_SAFI_GR(afi, safi)                                                            \
+	FOREACH_AFI_SAFI_NSF (afi, safi)                                                          \
+		if (bgp_gr_supported_for_afi_safi(afi, safi))
+
 /* For benefit of rfapi */
 extern struct peer *peer_new(struct bgp *bgp, union sockunion *su, enum connection_direction dir);
 
