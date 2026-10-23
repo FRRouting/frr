@@ -2411,6 +2411,7 @@ static int bgp_update_receive(struct peer_connection *connection, bgp_size_t siz
 	uint8_t *end;
 	struct stream *s;
 	struct attr attr;
+	uint8_t mp_nexthop_len;
 	bgp_size_t attribute_len;
 	bgp_size_t update_len;
 	bgp_size_t withdraw_len;
@@ -2591,9 +2592,14 @@ static int bgp_update_receive(struct peer_connection *connection, bgp_size_t siz
 
 		switch (i) {
 		case NLRI_UPDATE:
+			/* Classic IPv4 NLRI uses NEXT_HOP, not the MP_REACH_NLRI next hop. */
+			mp_nexthop_len = attr.mp_nexthop_len;
+			attr.mp_nexthop_len = 0;
+			nlri_ret = bgp_nlri_parse(peer, NLRI_ATTR_ARG, &nlris[i], 0);
+			attr.mp_nexthop_len = mp_nexthop_len;
+			break;
 		case NLRI_MP_UPDATE:
-			nlri_ret = bgp_nlri_parse(peer, NLRI_ATTR_ARG,
-						  &nlris[i], 0);
+			nlri_ret = bgp_nlri_parse(peer, NLRI_ATTR_ARG, &nlris[i], 0);
 			break;
 		case NLRI_WITHDRAW:
 		case NLRI_MP_WITHDRAW:
