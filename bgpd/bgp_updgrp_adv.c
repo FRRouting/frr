@@ -942,6 +942,43 @@ void subgroup_announce_route(struct update_subgroup *subgrp)
 		UNSET_FLAG(subgrp->sflags, SUBGRP_STATUS_FORCE_UPDATES);
 }
 
+/* Count the matching rules (and calls) in a route-map */
+static int route_map_match_rules(struct route_map *rmap)
+{
+	int count = 0;
+	struct route_map_rule *rule;
+	struct route_map_index *index;
+
+	for (index = rmap->head; index; index = index->next) {
+		/* Count match clauses */
+		for (rule = index->match_list.head; rule; rule = rule->next)
+			count++;
+		/* A "call" to another map may have conditions */
+		if (index->nextrm)
+			count++;
+	}
+
+	return count;
+}
+
+/* Perform the "set" operations in a route-map without "match" config */
+static route_map_result_t bgp_route_map_setting_only(struct bgp *bgp, struct route_map *rmap,
+						     uint8_t rmap_type, const struct prefix *p,
+						     struct attr *attr)
+{
+	struct bgp_path_info rmap_path = { 0 };
+	route_map_result_t ret;
+
+	rmap_path.attr = attr;
+	rmap_path.peer = bgp->peer_self;
+
+	SET_FLAG(bgp->peer_self->rmap_type, rmap_type);
+	ret = route_map_apply(rmap, p, &rmap_path);
+	bgp->peer_self->rmap_type = 0;
+
+	return ret;
+}
+
 void subgroup_default_originate(struct update_subgroup *subgrp, bool withdraw)
 {
 	struct bgp *bgp;
@@ -961,6 +998,8 @@ void subgroup_default_originate(struct update_subgroup *subgrp, bool withdraw)
 	safi_t safi_rib;
 	int pref = 65536;
 	int new_pref = 0;
+	int match_rules;
+	struct route_map *rmap;
 
 	if (!subgrp)
 		return;
@@ -1006,7 +1045,24 @@ void subgroup_default_originate(struct update_subgroup *subgrp, bool withdraw)
 		attr.mp_nexthop_len = IPV4_MAX_BYTELEN;
 	}
 
+	rmap = peer->default_rmap[afi][safi].map;
+
 	if (peer->default_rmap[afi][safi].name) {
+		if (!rmap || !rmap->head) {
+			/*
+			 * Route-map is configured but undefined or empty.
+			 * Treat as implicit deny - withdraw the default.
+			 */
+			if (!withdraw &&
+			    !CHECK_FLAG(subgrp->sflags, SUBGRP_STATUS_DEFAULT_ORIGINATE))
+				SET_FLAG(subgrp->sflags, SUBGRP_STATUS_DEFAULT_ORIGINATE);
+			withdraw = true;
+		}
+	}
+
+	match_rules = rmap ? route_map_match_rules(rmap) : 0;
+
+	if (rmap && match_rules != 0) {
 		struct bgp_path_info tmp_pi = {0};
 
 		tmp_pi.peer = bgp->peer_self;
@@ -1144,11 +1200,6 @@ void subgroup_default_originate(struct update_subgroup *subgrp, bool withdraw)
 				bgp_dest_unlock_node(dest);
 			}
 
-			/* Advertise the default route */
-			if (bgp_in_graceful_shutdown(bgp) ||
-			    (CHECK_FLAG(peer->flags, PEER_FLAG_GRACEFUL_SHUTDOWN)))
-				bgp_attr_add_gshut_community(new_attr);
-
 			/*
 			 * Prepend local-AS for EBGP. Make a copy first since
 			 * new_attr may be interned (shared) when route-map
@@ -1156,6 +1207,39 @@ void subgroup_default_originate(struct update_subgroup *subgrp, bool withdraw)
 			 * the attribute hash.
 			 */
 			bgp_attr_dup_into(&attr_copy, new_attr);
+
+			/* Apply set-only route-map to attr_copy (not new_attr)
+			 * to avoid memory leak - attr_copy will be flushed.
+			 */
+			if (rmap && match_rules == 0) {
+				if (bgp_route_map_setting_only(bgp, rmap, PEER_RMAP_TYPE_DEFAULT,
+							       &p, &attr_copy) == RMAP_DENYMATCH) {
+					/*
+					 * Route-map denied - withdraw default.
+					 * The flag may have been cleared by callers,
+					 * so withdraw unconditionally. This may send
+					 * an unnecessary withdraw, but a deny-only
+					 * route-map is not a practical scenario.
+					 */
+					bgp_attr_flush(&attr_copy);
+					aspath_unintern(&aspath);
+					subgroup_default_withdraw_packet(subgrp);
+					UNSET_FLAG(subgrp->sflags, SUBGRP_STATUS_DEFAULT_ORIGINATE);
+					return;
+				}
+				/* Clear reflection attributes - default-originate
+				 * is self-originated, not reflected.
+				 */
+				bgp_attr_clear_reflection(&attr_copy);
+			}
+
+			/* Add gshut community after set-only so route-map
+			 * cannot overwrite the shutdown signal.
+			 */
+			if (bgp_in_graceful_shutdown(bgp) ||
+			    (CHECK_FLAG(peer->flags, PEER_FLAG_GRACEFUL_SHUTDOWN)))
+				bgp_attr_add_gshut_community(&attr_copy);
+
 			bgp_peer_prepend_local_as(peer, afi, safi, &attr_copy);
 
 			SET_FLAG(subgrp->sflags,
