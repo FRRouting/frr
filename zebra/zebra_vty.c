@@ -60,7 +60,12 @@ struct route_show_ctx {
 	bool multi;       /* dump multiple tables or vrf */
 	bool header_done; /* common header already displayed */
 	bool brief;	  /* brief json output */
+	int cancel_counter;
+	bool cancelled; /* Command was cancelled */
 };
+
+/* Check for cancellation during long-running show commands */
+#define ZEBRA_SHOW_CANCEL_COUNT 1000
 
 static int do_show_ip_route(struct vty *vty, const char *vrf_name, afi_t afi, safi_t safi,
 			    bool use_fib, bool use_json, route_tag_t tag,
@@ -882,6 +887,17 @@ static void do_show_route_helper(struct vty *vty, struct zebra_vrf *zvrf,
 	for (rn = route_top(table); rn; rn = srcdest_route_next(rn)) {
 		dest = rib_dest_from_rnode(rn);
 
+		/* Periodically check for a cancel signal */
+		if (ctx->cancel_counter++ > ZEBRA_SHOW_CANCEL_COUNT) {
+			if (vty_check_for_cancel(vty)) {
+				route_unlock_node(rn);
+				ctx->cancelled = true;
+				break;
+			}
+
+			ctx->cancel_counter = 0;
+		}
+
 		if (longer_prefix_p && !prefix_match(longer_prefix_p, &rn->p))
 			continue;
 
@@ -992,6 +1008,9 @@ static void do_show_ip_route_all(struct vty *vty, struct zebra_vrf *zvrf, afi_t 
 				 longer_prefix_p, supernets_only, type, ospf_instance_id,
 				 zrt->tableid, show_ng, show_nhg_summary, ecmp_gt, ecmp_lt,
 				 ecmp_eq, ecmp_count, failed_only, ctx);
+
+		if (ctx->cancelled)
+			break;
 	}
 
 	if (use_json)
@@ -1865,6 +1884,9 @@ DEFPY (show_route,
 							 table, false, true, !!ecmp_gt, !!ecmp_lt,
 							 !!ecmp_eq, ecmp_count ? ecmp_count : 0,
 							 !!failed, &ctx);
+
+				if (ctx.cancelled)
+					break;
 			}
 			if (json)
 				vty_json_close(vty, first_vrf_json);
@@ -1919,6 +1941,10 @@ DEFPY (show_route,
 						 tag, prefix_str ? prefix : NULL, !!supernets_only,
 						 type, ospf_instance_id, table, !!ng, false, false,
 						 false, false, 0, !!failed, &ctx);
+
+
+			if (ctx.cancelled)
+				break;
 		}
 		if (json)
 			vty_json_close(vty, first_vrf_json);
