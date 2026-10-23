@@ -72,6 +72,8 @@ zebra_zebra_SOURCES = \
 	zebra/zebra_gr.c \
 	zebra/zebra_l2.c \
 	zebra/zebra_l2_bridge_if.c \
+	zebra/zebra_link_cfg.c \
+	zebra/zebra_link_netlink.c \
 	zebra/zebra_evpn.c \
 	zebra/zebra_evpn_mac.c \
 	zebra/zebra_evpn_neigh.c \
@@ -196,6 +198,9 @@ nobase_pkginclude_HEADERS += \
 	zebra/zebra_evpn_mh.h \
 	zebra/zebra_neigh.h \
 	zebra/zebra_l2_bridge_if.h \
+	zebra/zebra_link_cfg.h \
+	zebra/zebra_link_cfg_if.h \
+	zebra/zebra_link_netlink.h \
 	zebra/zebra_vxlan_if.h \
 	zebra/zserv.h \
 	# end

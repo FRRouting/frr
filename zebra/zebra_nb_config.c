@@ -32,6 +32,8 @@
 #include "zebra/table_manager.h"
 #include "zebra/ipforward.h"
 #include "zebra/zebra_nhg.h"
+#include "zebra/zebra_link_cfg_if.h"
+#include "zebra/zebra_link_netlink.h"
 
 /*
  * XPath: /frr-zebra:zebra/ip-forwarding
@@ -1376,6 +1378,245 @@ int lib_interface_zebra_bandwidth_destroy(struct nb_cb_destroy_args *args)
 		zebra_interface_up_update(ifp);
 
 	return NB_OK;
+}
+
+/*
+ * The interface list key is the kernel name, except with the netns backend,
+ * where it is "<vrf>:<name>".  Return the kernel name.
+ */
+static const char *link_cfg_ifname(const char *key)
+{
+	const char *delim;
+
+	if (!vrf_is_backend_netns())
+		return key;
+
+	delim = strchr(key, ':');
+	return delim ? delim + 1 : key;
+}
+
+/*
+ * XPath: /frr-interface:lib/interface/frr-zebra:zebra/master
+ */
+int lib_interface_zebra_master_modify(struct nb_cb_modify_args *args)
+{
+	struct interface *ifp;
+	const char *master;
+
+	if (args->event == NB_EV_VALIDATE) {
+		master = yang_dnode_get_string(args->dnode, NULL);
+		if (strcmp(master, link_cfg_ifname(yang_dnode_get_string(args->dnode,
+									 "../../name"))) == 0) {
+			snprintfrr(args->errmsg, args->errmsg_len,
+				   "An interface cannot be its own master");
+			return NB_ERR_VALIDATION;
+		}
+		return NB_OK;
+	}
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	ifp = nb_running_get_entry(args->dnode, NULL, true);
+	zebra_link_cfg_set_master(ifp, yang_dnode_get_string(args->dnode, NULL));
+
+	return NB_OK;
+}
+
+int lib_interface_zebra_master_destroy(struct nb_cb_destroy_args *args)
+{
+	struct interface *ifp;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	ifp = nb_running_get_entry(args->dnode, NULL, true);
+	zebra_link_cfg_unset_master(ifp);
+
+	return NB_OK;
+}
+
+/*
+ * XPath: /frr-interface:lib/interface/frr-zebra:zebra/link-type/<kind>
+ *
+ * Every kind (bridge, veth, vlan, gre, dummy, and future ones) shares these
+ * callbacks.  Create/modify of the individual leaves are no-ops: the whole
+ * container is evaluated once per transaction in apply_finish, so leaves that
+ * depend on one another (gre local/dev/remote) are always seen consistently.
+ */
+static int link_type_validate(const struct lyd_node *kind_dnode, char *errmsg, size_t errmsg_len);
+
+int lib_interface_zebra_link_type_create(struct nb_cb_create_args *args)
+{
+	if (args->event == NB_EV_VALIDATE)
+		return link_type_validate(args->dnode, args->errmsg, args->errmsg_len);
+	return NB_OK;
+}
+
+int lib_interface_zebra_link_type_param_modify(struct nb_cb_modify_args *args)
+{
+	/* The checks look at the whole link-type/<kind> container */
+	if (args->event == NB_EV_VALIDATE)
+		return link_type_validate(lyd_parent(args->dnode), args->errmsg, args->errmsg_len);
+	return NB_OK;
+}
+
+int lib_interface_zebra_link_type_param_destroy(struct nb_cb_destroy_args *args)
+{
+	return NB_OK;
+}
+
+/* Build link parameters from a link-type/<kind> container. */
+static bool link_type_params_from_dnode(const struct lyd_node *dnode, struct zebra_link_params *p)
+{
+	const char *kind = dnode->schema->name;
+	const char *str;
+
+	memset(p, 0, sizeof(*p));
+
+	if (strmatch(kind, "bridge")) {
+		p->kind = ZEBRA_LINK_BRIDGE;
+	} else if (strmatch(kind, "dummy")) {
+		p->kind = ZEBRA_LINK_DUMMY;
+	} else if (strmatch(kind, "veth")) {
+		p->kind = ZEBRA_LINK_VETH;
+		strlcpy(p->u.veth.peer_name, yang_dnode_get_string(dnode, "peer-name"),
+			sizeof(p->u.veth.peer_name));
+	} else if (strmatch(kind, "vlan")) {
+		p->kind = ZEBRA_LINK_VLAN;
+		strlcpy(p->u.vlan.parent, yang_dnode_get_string(dnode, "parent"),
+			sizeof(p->u.vlan.parent));
+		p->u.vlan.vid = yang_dnode_get_uint16(dnode, "id");
+		/* dot1q is the default encapsulation */
+		p->u.vlan.encap = ZEBRA_LINK_VLAN_DOT1Q;
+		if (yang_dnode_exists(dnode, "encapsulation") &&
+		    strmatch(yang_dnode_get_string(dnode, "encapsulation"), "q-in-q"))
+			p->u.vlan.encap = ZEBRA_LINK_VLAN_QINQ;
+	} else if (strmatch(kind, "gre")) {
+		struct zebra_link_gre *g = &p->u.gre;
+
+		p->kind = ZEBRA_LINK_GRE;
+
+		if (yang_dnode_exists(dnode, "local")) {
+			g->has_local = true;
+			yang_dnode_get_ipv4(&g->local, dnode, "local");
+		}
+		if (yang_dnode_exists(dnode, "dev"))
+			strlcpy(g->dev, yang_dnode_get_string(dnode, "dev"), sizeof(g->dev));
+
+		/* remote is "any" or an address; "any" sends no remote at all */
+		str = yang_dnode_get_string(dnode, "remote");
+		if (!strmatch(str, "any")) {
+			if (inet_pton(AF_INET, str, &g->remote) != 1)
+				return false;
+			g->has_remote = true;
+		}
+
+		if (yang_dnode_exists(dnode, "key")) {
+			g->has_key = true;
+			g->key = yang_dnode_get_uint32(dnode, "key");
+		}
+		if (yang_dnode_exists(dnode, "ttl")) {
+			g->has_ttl = true;
+			g->ttl = yang_dnode_get_uint8(dnode, "ttl");
+		}
+		if (yang_dnode_exists(dnode, "tos")) {
+			g->has_tos = true;
+			g->tos = yang_dnode_get_uint8(dnode, "tos");
+		}
+	} else {
+		return false;
+	}
+
+	return true;
+}
+
+/*
+ * Reject a link-type that could never be created (veth peer named like the
+ * interface, gre without local or dev, VLAN id out of range, ...) while the
+ * request is validated, so the client gets the error instead of a log line.
+ */
+static int link_type_validate(const struct lyd_node *kind_dnode, char *errmsg, size_t errmsg_len)
+{
+	struct zebra_link_params params;
+	const char *ifname, *err;
+
+	if (!kind_dnode)
+		return NB_OK;
+
+	if (!link_type_params_from_dnode(kind_dnode, &params)) {
+		snprintfrr(errmsg, errmsg_len, "invalid link-type configuration");
+		return NB_ERR_VALIDATION;
+	}
+
+	/* link-type/<kind> -> link-type -> zebra -> interface */
+	ifname = link_cfg_ifname(yang_dnode_get_string(kind_dnode, "../../../name"));
+	err = zebra_link_params_validate(ifname, &params);
+	if (err) {
+		snprintfrr(errmsg, errmsg_len, "link-type %s on %s: %s",
+			   zebra_link_kind2str(params.kind), ifname, err);
+		return NB_ERR_VALIDATION;
+	}
+
+	return NB_OK;
+}
+
+/* Does the candidate/running configuration have any link-type kind besides
+ * 'dnode'?  A CLI replace destroys the old kind and creates the new one in
+ * the same transaction, in either order.
+ */
+static bool link_type_kind_matches(const struct zebra_link_params *cur,
+				   const struct lyd_node *dnode)
+{
+	const char *kind = dnode->schema->name;
+
+	return strmatch(kind, zebra_link_kind2str(cur->kind));
+}
+
+int lib_interface_zebra_link_type_destroy(struct nb_cb_destroy_args *args)
+{
+	const struct zebra_link_params *cur;
+	struct interface *ifp;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	ifp = nb_running_get_entry(args->dnode, NULL, true);
+
+	/*
+	 * Only act if this kind is still the active one.  When a different
+	 * kind replaces it in the same transaction and has already been
+	 * applied, there is nothing left to remove.
+	 */
+	cur = zebra_link_cfg_get_link(ifp);
+	if (cur && link_type_kind_matches(cur, args->dnode))
+		zebra_link_cfg_unset_link(ifp);
+
+	return NB_OK;
+}
+
+void lib_interface_zebra_link_type_apply_finish(struct nb_cb_apply_finish_args *args)
+{
+	struct zebra_link_params params;
+	struct interface *ifp;
+	const char *err;
+
+	ifp = nb_running_get_entry(args->dnode, NULL, true);
+
+	if (!link_type_params_from_dnode(args->dnode, &params)) {
+		zlog_warn("%s: invalid link-type configuration for %s", __func__, ifp->name);
+		return;
+	}
+
+	err = zebra_link_params_validate(ifp->name, &params);
+	if (err) {
+		/* The CLI rejects these up front; this covers other front ends */
+		zlog_warn("%s: link-type %s on %s not applied: %s", __func__,
+			  zebra_link_kind2str(params.kind), ifp->name, err);
+		return;
+	}
+
+	zebra_link_cfg_set_link(ifp, &params);
 }
 
 /*
