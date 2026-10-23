@@ -132,6 +132,15 @@ static struct isis_router_cap_fad *_isis_flex_algo_elected(int algorithm,
 		if (lsp->own_lsp && fad)
 			continue;
 
+		/* A zero sequence number or zero remaining lifetime marks an
+		 * LSP that is not valid protocol state: the SPF ignores such
+		 * LSPs, and a purged copy only sits in the database during the
+		 * zero-age window.  Its definition must not take part in the
+		 * election.
+		 */
+		if (lsp->hdr.seqno == 0 || lsp->hdr.rem_lifetime == 0)
+			continue;
+
 		fa = lsp->tlvs->router_cap->fads[algorithm];
 
 		if (!fa)
