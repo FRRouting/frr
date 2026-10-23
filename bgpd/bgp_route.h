@@ -923,6 +923,10 @@ extern struct bgp_path_info_extra *
 bgp_path_info_extra_get(struct bgp_path_info *path);
 extern struct bgp_path_info_extra *bgp_evpn_path_info_extra_get(struct bgp_path_info *path);
 extern bool bgp_path_info_has_valid_label(const struct bgp_path_info *path);
+struct bgp_attr_srv6_service;
+extern void bgp_path_info_srv6_sid_transposed(const struct prefix *p, struct bgp_path_info *pi,
+					      struct bgp_attr_srv6_service *srv6_service,
+					      uint8_t type, safi_t safi, struct in6_addr *sid);
 extern void bgp_path_info_set_flag(struct bgp_dest *dest,
 				   struct bgp_path_info *path, uint32_t flag);
 extern void bgp_path_info_unset_flag(struct bgp_dest *dest,
