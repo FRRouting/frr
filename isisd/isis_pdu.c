@@ -505,7 +505,13 @@ static int process_lan_hello(struct iih_info *iih)
 				       ? iih->circuit->u.bc.l1_desig_is
 				       : iih->circuit->u.bc.l2_desig_is;
 
-		if (memcmp(dis, iih->dis, ISIS_SYS_ID_LEN + 1)) {
+		/*
+		 * Only accept a designated IS that is an adjacency on this
+		 * circuit.  The LAN ID field is unauthenticated; a bogus
+		 * record would later be purged by isis_dr_commence().
+		 */
+		if (isis_adj_lookup(iih->dis, iih->circuit->u.bc.adjdb[iih->level - 1])
+		    && memcmp(dis, iih->dis, ISIS_SYS_ID_LEN + 1)) {
 			event_add_event(master, isis_event_dis_status_change,
 					iih->circuit, 0, NULL);
 			memcpy(dis, iih->dis, ISIS_SYS_ID_LEN + 1);
