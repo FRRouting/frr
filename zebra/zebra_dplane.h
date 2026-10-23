@@ -43,6 +43,8 @@ struct zebra_dplane_info {
 	int sock;
 	int seq;
 	bool is_cmd;
+	/* Generation of 'sock' when this info was captured. */
+	uint32_t sock_gen;
 #endif
 };
 
@@ -58,9 +60,11 @@ zebra_dplane_info_from_zns(struct zebra_dplane_info *zns_info,
 	if (is_cmd) {
 		zns_info->sock = zns->netlink_cmd.sock;
 		zns_info->seq = zns->netlink_cmd.seq;
+		zns_info->sock_gen = zns->netlink_cmd.gen;
 	} else {
 		zns_info->sock = zns->netlink_dplane_in.sock;
 		zns_info->seq = zns->netlink_dplane_in.seq;
+		zns_info->sock_gen = zns->netlink_dplane_in.gen;
 	}
 #endif /* NETLINK */
 }

@@ -153,16 +153,16 @@ int netlink_netconf_change(struct nlmsghdr *h, ns_id_t ns_id, int startup, void 
  * Request info from the host OS. This only sends the request; any replies
  * are processed asynchronously.
  */
-int netlink_request_netconf(int sockfd)
+int netlink_request_netconf(const struct zebra_dplane_info *info)
 {
-	struct nlsock *nls;
+	struct nlsock *nls NLSOCK_AUTO = NULL;
 	struct {
 		struct nlmsghdr n;
 		struct netconfmsg ncm;
 		char buf[1024];
 	} req = {};
 
-	nls = kernel_netlink_nlsock_lookup(sockfd);
+	nls = kernel_netlink_nlsock_hold(info);
 
 	if (IS_ZEBRA_DEBUG_KERNEL)
 		zlog_debug("%s: nlsock %s", __func__, nls ? nls->name : "NULL");
