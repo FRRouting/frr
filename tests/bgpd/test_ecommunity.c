@@ -119,6 +119,69 @@ static void parse_test(struct test_segment *t)
 	ecommunity_unintern(&ecom);
 }
 
+/*
+ * Link-bandwidth display: a rate that is not a whole number of Gbps / Mbps
+ * must keep its fraction. The IPv4 values are raw (not IEEE floating point)
+ * bytes per second; 187500000 is 1.5 Gbps and 312500 is 2.5 Mbps.
+ */
+static struct lb_segment {
+	const char *name;
+	const char *desc;
+	bool ipv6;
+	const uint8_t data[IPV6_ECOMMUNITY_SIZE];
+	int len;
+	const char *shouldbe;
+} lb_segments[] = {
+	{ "lb-gbps",
+	  "LB 65000, 1.5 Gbps",
+	  false,
+	  { ECOMMUNITY_ENCODE_AS, ECOMMUNITY_LINK_BANDWIDTH, 0xfd, 0xe8, 0x0b, 0x2d, 0x05, 0xe0 },
+	  ECOMMUNITY_SIZE,
+	  "LB:65000:187500000 (1.500 Gbps)" },
+	{ "lb-mbps",
+	  "LB 65000, 2.5 Mbps",
+	  false,
+	  { ECOMMUNITY_ENCODE_AS, ECOMMUNITY_LINK_BANDWIDTH, 0xfd, 0xe8, 0x00, 0x04, 0xc4, 0xb4 },
+	  ECOMMUNITY_SIZE,
+	  "LB:65000:312500 (2.500 Mbps)" },
+	{ "lb-ipv6-gbps",
+	  "extended LB 65000, 1.5 Gbps",
+	  true,
+	  { ECOMMUNITY_ENCODE_AS4, ECOMMUNITY_EXTENDED_LINK_BANDWIDTH, 0x00, 0x00, /* reserved */
+	    0x00, 0x00, 0x00, 0x00, 0x0b, 0x2d, 0x05, 0xe0,			   /* bandwidth */
+	    0x00, 0x00, 0xfd, 0xe8 },						   /* AS */
+	  IPV6_ECOMMUNITY_SIZE,
+	  "LB:65000:187500000 (1.500 Gbps)" },
+	{ NULL, NULL, false, { 0 }, 0, NULL }
+};
+
+static void lb_display_test(struct lb_segment *t)
+{
+	struct ecommunity *ecom;
+	char *str = NULL;
+
+	printf("%s: %s\n", t->name, t->desc);
+
+	if (t->ipv6)
+		ecom = ecommunity_parse_ipv6((uint8_t *)t->data, t->len);
+	else
+		ecom = ecommunity_parse((uint8_t *)t->data, t->len, true);
+	if (ecom)
+		str = ecommunity_ecom2str(ecom, ECOMMUNITY_FORMAT_DISPLAY, 0);
+
+	printf("got: %s\n", str ? str : "NULL");
+	if (!str || strcmp(str, t->shouldbe)) {
+		failed++;
+		printf("shouldbe: %s\nfailed\n\n", t->shouldbe);
+	} else {
+		printf("OK\n\n");
+	}
+
+	XFREE(MTYPE_ECOMMUNITY_STR, str);
+	if (ecom)
+		ecommunity_unintern(&ecom);
+}
+
 
 int main(void)
 {
@@ -126,6 +189,8 @@ int main(void)
 	ecommunity_init();
 	while (test_segments[i].name)
 		parse_test(&test_segments[i++]);
+	for (i = 0; lb_segments[i].name; i++)
+		lb_display_test(&lb_segments[i]);
 
 	printf("failures: %d\n", failed);
 	// printf ("aspath count: %ld\n", aspath_count());
