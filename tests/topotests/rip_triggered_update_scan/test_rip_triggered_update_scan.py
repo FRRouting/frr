@@ -441,23 +441,29 @@ def test_triggered_update_multi_route_merge():
             "r3 did not drop {} after withdrawal".format(TARGET2)
         )
 
-        # Each changed route is visited exactly once across the rounds
-        # that follow (a route's flag clears at its round's end),
-        # however r1's merge timer groups them: at least the two route
-        # changes (8 lines) in total, and no single round may scan the
-        # full table.
+        # Check every triggered round that follows, not just the last
+        # one: each round must stay scan-bounded, and the two route
+        # changes must ride in a single merged round.  Per-route rounds
+        # (one route each, 4 mask-check lines) would also satisfy a
+        # cross-round total of 8, so require one round to visit both
+        # changed routes (>= 8 lines; the dummy withdrawal rides along
+        # in the same round).
         lines = ripd_log_lines(marker)
-        total = sum(1 for l in lines if MASK_CHECK in l)
-        assert total >= 8, (
-            "changes for 2 distinct routes visited only {} mask-check "
-            "lines in total".format(total)
-        )
-        last_started_at = max(i for i, l in enumerate(lines)
-                              if TRIGGERED in l)
-        scan, _ = triggered_round_scan_lines(marker + last_started_at)
-        assert scan <= SCAN_LINE_LIMIT, (
-            "merged round for 2 changed routes scanned the full table: "
-            "{} mask-check lines (limit {})".format(scan, SCAN_LINE_LIMIT)
+        starts = [i for i, l in enumerate(lines) if TRIGGERED in l]
+        assert starts, "no triggered update logged on r1"
+        merged = 0
+        for start in starts:
+            scan, _ = triggered_round_scan_lines(marker + start)
+            assert scan <= SCAN_LINE_LIMIT, (
+                "triggered round for 2 changed routes scanned the full "
+                "table: {} mask-check lines (limit {})".format(
+                    scan, SCAN_LINE_LIMIT
+                )
+            )
+            merged = max(merged, scan)
+        assert merged >= 8, (
+            "no single triggered round scanned both changed routes; "
+            "largest round logged {} mask-check lines".format(merged)
         )
     finally:
         # Withdraw the second route again (a no-op when the test
@@ -678,5 +684,5 @@ def test_triggered_update_instance_teardown():
 
 
 if __name__ == "__main__":
-    args = ["-s{}".format(CWD)] + sys.argv[1:]
+    args = ["-s", CWD] + sys.argv[1:]
     sys.exit(pytest.main(args))

@@ -55,6 +55,7 @@ DEFINE_MTYPE_STATIC(RIPD, RIP_VRF_NAME, "RIP VRF name");
 DEFINE_MTYPE_STATIC(RIPD, RIP_INFO, "RIP route info");
 DEFINE_MTYPE(RIPD, RIP_INFO_LIST, "RIP route info list");
 DEFINE_MTYPE_STATIC(RIPD, RIP_DISTANCE, "RIP distance");
+DEFINE_MTYPE_STATIC(RIPD, RIP_CHANGED_ROUTE, "RIP changed route");
 
 /* Prototypes. */
 static void rip_output_process(struct connected *, struct sockaddr_in *, int,
@@ -2079,7 +2080,7 @@ void rip_output_process(struct connected *ifc, struct sockaddr_in *to,
 	int rtemax;
 	int subnetted = 0;
 	struct rip_info_list_head *list = NULL;
-	struct listnode *changed_node = NULL;
+	struct rip_changed_route *changed = NULL;
 
 	/* Logging output event. */
 	if (IS_RIP_DEBUG_EVENT) {
@@ -2143,16 +2144,17 @@ void rip_output_process(struct connected *ifc, struct sockaddr_in *to,
 	 * RIPv1 mask rules below apply per route exactly as before.
 	 */
 	if (route_type == rip_changed_route)
-		changed_node = listhead(rip->changed_routes);
+		changed = changed_route_list_first(&rip->changed_routes);
 	else
 		rp = route_top(rip->table);
 
 	for (;;) {
 		if (route_type == rip_changed_route) {
-			if (changed_node == NULL)
+			if (changed == NULL)
 				break;
-			rp = listgetdata(changed_node);
-			changed_node = changed_node->next;
+			rp = changed->node;
+			changed = changed_route_list_next(&rip->changed_routes,
+							  changed);
 		} else {
 			if (rp == NULL)
 				break;
@@ -2602,36 +2604,40 @@ static void rip_triggered_interval(struct event *t)
 }
 
 /* Collect the routes to advertise in one triggered update round: every
- * route node whose first rinfo is flagged RIP_RTF_CHANGED.  The list
- * borrows the route_node pointers and is only valid while the round runs:
+ * route node whose first rinfo is flagged RIP_RTF_CHANGED.  The entries
+ * borrow the route_node pointers and are only valid while the round runs:
  * ripd handles events serially, so the table cannot change between the
- * collection and the last output point.  The caller frees the list (the
- * nodes stay owned by the table) when the round is done.
+ * collection and the last output point.  The caller frees the entries
+ * (the nodes stay owned by the table) when the round is done.
  */
-static struct list *rip_changed_route_nodes(struct rip *rip)
+static void rip_changed_route_nodes(struct rip *rip)
 {
-	struct list *changed;
 	struct route_node *rp;
 	struct rip_info_list_head *list;
 	struct rip_info *rinfo;
+	struct rip_changed_route *changed;
 
-	changed = list_new();
 	for (rp = route_top(rip->table); rp; rp = route_next(rp)) {
 		list = rp->info;
 		if (list == NULL)
 			continue;
 
 		rinfo = rip_info_list_first(list);
-		if (rinfo && CHECK_FLAG(rinfo->flags, RIP_RTF_CHANGED))
-			listnode_add(changed, rp);
+		if (rinfo && CHECK_FLAG(rinfo->flags, RIP_RTF_CHANGED)) {
+			changed = XCALLOC(MTYPE_RIP_CHANGED_ROUTE,
+					  sizeof(*changed));
+			changed->node = rp;
+			changed_route_list_add_tail(&rip->changed_routes,
+						    changed);
+		}
 	}
-	return changed;
 }
 
 /* Execute triggered update. */
 static void rip_triggered_update(struct event *t)
 {
 	struct rip *rip = EVENT_ARG(t);
+	struct rip_changed_route *changed;
 	int interval;
 
 	/* Cancel interval timer. */
@@ -2644,9 +2650,11 @@ static void rip_triggered_update(struct event *t)
 
 	/* Split Horizon processing is done when generating triggered
 	   updates as well as normal updates (see section 2.6). */
-	rip->changed_routes = rip_changed_route_nodes(rip);
+	rip_changed_route_nodes(rip);
 	rip_update_process(rip, rip_changed_route);
-	list_delete(&rip->changed_routes);
+	while ((changed = changed_route_list_pop(&rip->changed_routes)) !=
+	       NULL)
+		XFREE(MTYPE_RIP_CHANGED_ROUTE, changed);
 
 	/* Once all of the triggered updates have been generated, the route
 	   change flags should be cleared. */
@@ -2784,6 +2792,7 @@ struct rip *rip_create(const char *vrf_name, struct vrf *vrf, int socket)
 	route_table_set_info(rip->table, rip);
 	rip->neighbor = route_table_init();
 	rip_peer_list_init(&rip->peer_list);
+	changed_route_list_init(&rip->changed_routes);
 	rip->distance_table = route_table_init();
 	rip->distance_table->cleanup = rip_distance_table_node_cleanup;
 	rip->enable_interface = vector_init(1);
