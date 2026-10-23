@@ -106,15 +106,20 @@ static void route_table_free(struct route_table *rt)
 {
 	struct route_node *tmp_node;
 	struct route_node *node;
+	uint32_t idx = 0;
 
 	if (rt == NULL)
 		return;
+
+	/* Clear the hashtable */
+	do {
+		node = rn_hash_node_pop_all(&rt->hash, &idx);
+	} while (node != NULL);
 
 	/* Handling for non-LPM tables, where there is no 'tree' */
 	if (rt->unique_mode) {
 		while ((node = rn_tree_pop(&rt->tree)) != NULL) {
 			node->lock = 0; /* to cause assert if unlocked after this */
-			rn_hash_node_del(&rt->hash, node);
 			route_node_free(rt, node);
 			rt->count--;
 		}
@@ -145,7 +150,6 @@ static void route_table_free(struct route_table *rt)
 		tmp_node->table->count--;
 		tmp_node->lock =
 			0; /* to cause assert if unlocked after this */
-		rn_hash_node_del(&rt->hash, tmp_node);
 		route_node_free(rt, tmp_node);
 
 		if (node != NULL) {
