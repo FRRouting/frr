@@ -258,9 +258,12 @@ def test_mark_mask():
         if not f:
             return "no filter"
         a = skbedit(f)
-        # TC 4 << 8
-        if int(str(a.get("mark")), 0) != 0x400 or int(str(a.get("mask")), 0) != 0x700:
-            return "mark {} mask {}".format(a.get("mark"), a.get("mask"))
+        # TC 4 << 8.  iproute2 prints the mark as a decimal number and the
+        # mask as hex without a "0x" prefix ("700"), so parse them apart.
+        mark = int(str(a.get("mark")), 0)
+        mask = int(str(a.get("mask")), 16)
+        if mark != 0x400 or mask != 0x700:
+            return "mark {:#x} mask {:#x}".format(mark, mask)
         return None
 
     _, result = topotest.run_and_expect(_check, None, count=30, wait=1)
