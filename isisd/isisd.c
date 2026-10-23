@@ -1291,18 +1291,60 @@ static int id_to_sysid(struct isis *isis, const char *id, uint8_t *sysid)
 	return 0;
 }
 
+/*
+ * One circuits entry per adjacency, so that the several neighbors of a LAN
+ * each get one; a circuit without an adjacency gets an entry of its own.
+ */
+static void isis_neighbor_circuit_json(struct json_object *circuits_json,
+				       struct isis_circuit *circuit, struct isis_adjacency *adj,
+				       char detail)
+{
+	struct json_object *circuit_json = json_object_new_object();
+
+	json_object_int_add(circuit_json, "circuit", circuit->circuit_id);
+	if (adj)
+		isis_adj_print_json(adj, circuit_json, detail);
+	json_object_array_add(circuits_json, circuit_json);
+}
+
+/* The entries of a circuit: its adjacencies, those with sysid if id is set */
+static void isis_neighbor_circuit_adjs_json(struct json_object *circuits_json,
+					    struct isis_circuit *circuit, const char *id,
+					    char detail, uint8_t *sysid)
+{
+	struct isis_adjacency *adj;
+	struct listnode *node;
+	bool listed = false;
+
+	if (circuit->circ_type == CIRCUIT_T_BROADCAST) {
+		for (int i = 0; i < 2; i++) {
+			for (ALL_LIST_ELEMENTS_RO(circuit->u.bc.adjdb[i], node, adj)) {
+				if (id && memcmp(adj->sysid, sysid, ISIS_SYS_ID_LEN))
+					continue;
+				isis_neighbor_circuit_json(circuits_json, circuit, adj, detail);
+				listed = true;
+			}
+		}
+	} else if (circuit->circ_type == CIRCUIT_T_P2P && circuit->u.p2p.neighbor) {
+		adj = circuit->u.p2p.neighbor;
+		if (!id || !memcmp(adj->sysid, sysid, ISIS_SYS_ID_LEN)) {
+			isis_neighbor_circuit_json(circuits_json, circuit, adj, detail);
+			listed = true;
+		}
+	}
+
+	if (!listed)
+		isis_neighbor_circuit_json(circuits_json, circuit, NULL, detail);
+}
+
 static void isis_neighbor_common_json(struct json_object *json, const char *id,
 				      char detail, struct isis *isis,
 				      uint8_t *sysid)
 {
-	struct listnode *node;
 	struct isis_area *area;
 	struct isis_circuit *circuit;
-	struct list *adjdb;
-	struct isis_adjacency *adj;
 	struct json_object *areas_json, *area_json;
-	struct json_object *circuits_json, *circuit_json;
-	int i;
+	struct json_object *circuits_json;
 
 	areas_json = json_object_new_array();
 	json_object_object_add(json, "areas", areas_json);
@@ -1313,36 +1355,8 @@ static void isis_neighbor_common_json(struct json_object *json, const char *id,
 						      : "null");
 		circuits_json = json_object_new_array();
 		json_object_object_add(area_json, "circuits", circuits_json);
-		frr_each (isis_circuit_list, &area->circuit_list, circuit) {
-			circuit_json = json_object_new_object();
-			json_object_int_add(circuit_json, "circuit",
-					    circuit->circuit_id);
-			if (circuit->circ_type == CIRCUIT_T_BROADCAST) {
-				for (i = 0; i < 2; i++) {
-					adjdb = circuit->u.bc.adjdb[i];
-					if (adjdb && adjdb->count) {
-						for (ALL_LIST_ELEMENTS_RO(
-							     adjdb, node, adj))
-							if (!id ||
-							    !memcmp(adj->sysid,
-								    sysid,
-								    ISIS_SYS_ID_LEN))
-								isis_adj_print_json(
-									adj,
-									circuit_json,
-									detail);
-					}
-				}
-			} else if (circuit->circ_type == CIRCUIT_T_P2P &&
-				   circuit->u.p2p.neighbor) {
-				adj = circuit->u.p2p.neighbor;
-				if (!id ||
-				    !memcmp(adj->sysid, sysid, ISIS_SYS_ID_LEN))
-					isis_adj_print_json(adj, circuit_json,
-							    detail);
-			}
-			json_object_array_add(circuits_json, circuit_json);
-		}
+		frr_each (isis_circuit_list, &area->circuit_list, circuit)
+			isis_neighbor_circuit_adjs_json(circuits_json, circuit, id, detail, sysid);
 		json_object_array_add(areas_json, area_json);
 	}
 }
