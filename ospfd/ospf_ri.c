@@ -1204,7 +1204,7 @@ static int ospf_router_info_lsa_update(struct ospf_lsa *lsa)
 
 #define check_tlv_size(size, msg)                                                                           \
 	do {                                                                                                \
-		if (ntohs(tlvh->length) > size) {                                                           \
+		if (ntohs(tlvh->length) > size || TLV_BODY_SIZE(tlvh) < size) {                             \
 			if (vty != NULL)                                                                    \
 				vty_out(vty,                                                                \
 					"  Wrong %s TLV size: %d(expected %d). Skip subsequent TLVs!\n",    \
@@ -1242,8 +1242,12 @@ static uint16_t show_vty_pce_subtlv_address(struct vty *vty,
 {
 	struct ri_pce_subtlv_address *top =
 		(struct ri_pce_subtlv_address *)tlvh;
+	uint16_t type = 0;
 
-	if (ntohs(top->address.type) == PCE_ADDRESS_IPV4) {
+	if (ntohs(tlvh->length) >= sizeof(top->address.type))
+		type = ntohs(top->address.type);
+
+	if (type == PCE_ADDRESS_IPV4) {
 		check_tlv_size(PCE_ADDRESS_IPV4_SIZE, "PCE Address");
 		if (vty != NULL)
 			if (!json)
@@ -1256,7 +1260,7 @@ static uint16_t show_vty_pce_subtlv_address(struct vty *vty,
 		else
 			zlog_debug("    PCE Address: %pI4",
 				   &top->address.value);
-	} else if (ntohs(top->address.type) == PCE_ADDRESS_IPV6) {
+	} else if (type == PCE_ADDRESS_IPV6) {
 		check_tlv_size(PCE_ADDRESS_IPV6_SIZE, "PCE Address");
 		if (vty != NULL)
 			if (!json)
@@ -1270,11 +1274,9 @@ static uint16_t show_vty_pce_subtlv_address(struct vty *vty,
 			zlog_debug("    PCE Address: unsupported IPv6");
 	} else {
 		if (vty != NULL)
-			vty_out(vty, "  Wrong PCE Address type: 0x%x\n",
-				ntohs(top->address.type));
+			vty_out(vty, "  Wrong PCE Address type: 0x%x\n", type);
 		else
-			zlog_debug("    Wrong PCE Address type: 0x%x",
-				   ntohs(top->address.type));
+			zlog_debug("    Wrong PCE Address type: 0x%x", type);
 	}
 
 	return TLV_SIZE(tlvh);
@@ -1449,21 +1451,21 @@ static uint16_t show_vty_unknown_tlv(struct vty *vty, struct tlv_header *tlvh,
 }
 
 static uint16_t show_vty_pce_info(struct vty *vty, struct tlv_header *ri,
-				  size_t buf_size, json_object *json)
+				  json_object *json)
 {
 	struct tlv_header *tlvh;
-	uint16_t length = ntohs(ri->length);
+	uint16_t length = TLV_BODY_SIZE(ri);
 	uint16_t sum = 0;
 
-	/* Verify that TLV length is valid against remaining buffer size */
-	if (length > buf_size) {
-		vty_out(vty,
-			"  PCE Info TLV size %d exceeds buffer size. Abort!\n",
-			length);
-		return buf_size;
-	}
-
-	for (tlvh = ri; sum < length; tlvh = TLV_HDR_NEXT(tlvh)) {
+	/* The PCE TLV fits in the LSA: walk its sub-TLVs within it */
+	for (tlvh = TLV_DATA(ri); sum < length; tlvh = TLV_HDR_NEXT(tlvh)) {
+		if (!tlv_fits(tlvh, length - sum)) {
+			if (vty != NULL)
+				vty_out(vty, "  PCE sub-TLV exceeds PCE TLV size. Abort!\n");
+			else
+				zlog_debug("  PCE sub-TLV exceeds PCE TLV size. Abort!");
+			break;
+		}
 		switch (ntohs(tlvh->type)) {
 		case RI_PCE_SUBTLV_ADDRESS:
 			sum += show_vty_pce_subtlv_address(vty, tlvh, json);
@@ -1486,7 +1488,7 @@ static uint16_t show_vty_pce_info(struct vty *vty, struct tlv_header *ri,
 			break;
 		}
 	}
-	return sum;
+	return TLV_SIZE(ri);
 }
 
 /* Display Segment Routing Algorithm TLV information */
@@ -1664,14 +1666,14 @@ static void ospf_router_info_show_info(struct vty *vty,
 
 	for (tlvh = TLV_HDR_TOP(lsah); sum < length && tlvh;
 	     tlvh = TLV_HDR_NEXT(tlvh)) {
+		if (!tlv_fits(tlvh, length - sum))
+			break;
 		switch (ntohs(tlvh->type)) {
 		case RI_TLV_CAPABILITIES:
 			sum += show_vty_router_cap(vty, tlvh, jri);
 			break;
 		case RI_TLV_PCE:
-			tlvh++;
-			sum += TLV_HDR_SIZE;
-			sum += show_vty_pce_info(vty, tlvh, length - sum, jpce);
+			sum += show_vty_pce_info(vty, tlvh, jpce);
 			break;
 		case RI_SR_TLV_SR_ALGORITHM:
 			sum += show_vty_sr_algorithm(vty, tlvh, jsr);
@@ -1685,7 +1687,7 @@ static void ospf_router_info_show_info(struct vty *vty,
 			break;
 
 		default:
-			sum += show_vty_unknown_tlv(vty, tlvh, length, jri);
+			sum += show_vty_unknown_tlv(vty, tlvh, length - sum, jri);
 			break;
 		}
 	}

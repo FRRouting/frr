@@ -3464,7 +3464,7 @@ static void ospf_te_init_ted(struct ls_ted *ted, struct ospf *ospf)
  *------------------------------------------------------------------------*/
 #define check_tlv_size(size, msg)                                                                           \
 	do {                                                                                                \
-		if (ntohs(tlvh->length) > size) {                                                           \
+		if (ntohs(tlvh->length) > size || TLV_BODY_SIZE(tlvh) < size) {                             \
 			if (vty != NULL)                                                                    \
 				vty_out(vty,                                                                \
 					"  Wrong %s TLV size: %d(expected %d). Skip subsequent TLVs!\n",    \
@@ -4238,6 +4238,8 @@ static uint16_t ospf_mpls_te_show_link_subtlv(struct vty *vty,
 	uint16_t sum = subtotal;
 
 	for (tlvh = tlvh0; sum < total; tlvh = TLV_HDR_NEXT(tlvh)) {
+		if (!tlv_fits(tlvh, total - sum))
+			return total;
 		switch (ntohs(tlvh->type)) {
 		case TE_LINK_SUBTLV_LINK_TYPE:
 			sum += show_vty_link_subtlv_link_type(vty, tlvh, json);
@@ -4340,6 +4342,8 @@ static void ospf_mpls_te_show_info(struct vty *vty, struct json_object *json,
 
 		next = NULL;
 		sub = total - sum;
+		if (!tlv_fits(tlvh, sub))
+			break;
 		switch (ntohs(tlvh->type)) {
 		case TE_TLV_ROUTER_ADDR:
 			if (json) {

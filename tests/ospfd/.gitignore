@@ -1,3 +1,6 @@
 /*_afl/*
+test_ospf_lsa_examin
 test_ospf_spf
+test_ospf_opaque_show
+test_ospf_grace_lsa
 core
