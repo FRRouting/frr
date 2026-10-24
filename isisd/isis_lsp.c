@@ -887,7 +887,7 @@ static void lsp_build_internal_reach_ipv4(struct isis_lsp *lsp,
 			for (int i = 0; i < SR_ALGORITHM_COUNT; i++) {
 #ifndef FABRICD
 				if (flex_algo_id_valid(i) &&
-				    !isis_flex_algo_elected_supported(i, area))
+				    !isis_flex_algo_elected_supported(i, area, lsp->level))
 					continue;
 #endif /* ifndef FABRICD */
 				pcfgs[i] =
@@ -913,7 +913,7 @@ static void lsp_build_internal_reach_ipv6(struct isis_lsp *lsp,
 		for (int i = 0; i < SR_ALGORITHM_COUNT; i++) {
 #ifndef FABRICD
 			if (flex_algo_id_valid(i) &&
-			    !isis_flex_algo_elected_supported(i, area))
+			    !isis_flex_algo_elected_supported(i, area, lsp->level))
 				continue;
 #endif /* ifndef FABRICD */
 			pcfgs[i] = isis_sr_cfg_prefix_find(area, ipv6, i);
@@ -956,8 +956,7 @@ static void lsp_build_ext_reach_ipv4(struct isis_lsp *lsp,
 				for (int i = 0; i < SR_ALGORITHM_COUNT; i++) {
 #ifndef FABRICD
 					if (flex_algo_id_valid(i) &&
-					    !isis_flex_algo_elected_supported(
-						    i, area))
+					    !isis_flex_algo_elected_supported(i, area, lsp->level))
 						continue;
 #endif /* ifndef FABRICD */
 					pcfgs[i] = isis_sr_cfg_prefix_find(
@@ -1000,8 +999,7 @@ static void lsp_build_ext_reach_ipv6(struct isis_lsp *lsp,
 				for (int i = 0; i < SR_ALGORITHM_COUNT; i++) {
 #ifndef FABRICD
 					if (flex_algo_id_valid(i) &&
-					    !isis_flex_algo_elected_supported(
-						    i, area))
+					    !isis_flex_algo_elected_supported(i, area, lsp->level))
 						continue;
 #endif /* ifndef FABRICD */
 					pcfgs[i] = isis_sr_cfg_prefix_find(
@@ -1130,6 +1128,7 @@ static void lsp_build(struct isis_lsp *lsp, struct isis_area *area)
 		struct isis_router_cap *rcap;
 #ifndef FABRICD
 		struct isis_router_cap_fad *rcap_fad;
+		struct isis_flex_algo_data *fa_data;
 		struct flex_algo *fa;
 #endif /* ifndef FABRICD */
 
@@ -1174,12 +1173,13 @@ static void lsp_build(struct isis_lsp *lsp, struct isis_area *area)
 				else
 					rcap_fad = NULL;
 
-				if (!isis_flex_algo_elected_supported_local_fad(
-					    fa->algorithm, area, &rcap_fad)) {
-					fa->state = false;
+				fa_data = fa->data;
+				fa_data->state[lsp->level - 1] =
+					isis_flex_algo_elected_supported_local_fad(fa->algorithm,
+										   area, lsp->level,
+										   &rcap_fad);
+				if (!fa_data->state[lsp->level - 1])
 					continue;
-				}
-				fa->state = true;
 				lsp_debug("ISIS (%s):   SR Algorithm %u",
 					  area->area_tag, fa->algorithm);
 				rcap->algo[fa->algorithm] = fa->algorithm;

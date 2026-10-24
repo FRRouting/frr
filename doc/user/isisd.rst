@@ -497,8 +497,8 @@ have the following characteristics:
 
 A subset of routers advertises the Flex-Algo Definitions (FAD) to the other
 routers within an area. In order to use a common set of FADs, each router runs a
-FAD election process for each locally configured algorithm, using the following
-rules:
+FAD election process for each locally configured algorithm and each level, among
+the FADs flooded in that level, using the following rules:
 
 - If a locally configured FAD is not advertised to the area, the router does not
 	participate in the particular flex algorithm.
