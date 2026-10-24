@@ -223,6 +223,57 @@ done:
 	route_unlock_node(rn);
 }
 
+/*
+ * A noprefixroute address gets no connected route from us; whoever added the
+ * address is expected to add the subnet route instead.  When that kernel route
+ * arrives after the address, rib_add_multipath() makes it a connected route.
+ * When it arrived first it is still a kernel route, either in the RIB or on the
+ * early route Q, so make it the connected route now.  Keep the kernel's
+ * nexthops, as rib_add_multipath() does.
+ */
+static void connected_kernel_to_connected(afi_t afi, struct zebra_vrf *zvrf, struct prefix *p,
+					  ifindex_t ifindex, uint32_t flags)
+{
+	struct route_table *table;
+	struct route_node *rn;
+	struct route_entry *re, *newre;
+	struct nexthop *rtnh;
+	struct nexthop_group *ng;
+
+	rib_meta_queue_early_route_kernel_to_connected(p, afi, SAFI_UNICAST, zvrf->vrf->vrf_id,
+						       zvrf->table_id, ifindex);
+
+	table = zebra_vrf_table(afi, SAFI_UNICAST, zvrf->vrf->vrf_id);
+	if (!table)
+		return;
+
+	rn = srcdest_rnode_lookup(table, p, NULL);
+	if (!rn)
+		return;
+
+	RNODE_FOREACH_RE (rn, re) {
+		if (CHECK_FLAG(re->status, ROUTE_ENTRY_REMOVED) || re->type != ZEBRA_ROUTE_KERNEL)
+			continue;
+
+		rtnh = re->nhe->nhg.nexthop;
+		if (!rtnh || rtnh->ifindex != ifindex)
+			continue;
+
+		newre = zebra_rib_route_entry_new(re->vrf_id, ZEBRA_ROUTE_CONNECT, re->instance,
+						  flags, 0, re->table, re->metric, re->mtu,
+						  re->distance, re->tag);
+		ng = nexthop_group_new();
+		copy_nexthops(&ng->nexthop, re->nhe->nhg.nexthop, NULL);
+
+		rib_delete(afi, SAFI_UNICAST, re->vrf_id, ZEBRA_ROUTE_KERNEL, re->instance,
+			   re->flags, p, NULL, rtnh, 0, re->table, re->metric, re->distance, false);
+		rib_add_multipath(afi, SAFI_UNICAST, p, NULL, newre, ng, false, false);
+		nexthop_group_delete(&ng);
+	}
+
+	route_unlock_node(rn);
+}
+
 /* Called from if_up(). */
 void connected_up(struct interface *ifp, struct connected *ifc)
 {
@@ -363,6 +414,8 @@ void connected_up(struct interface *ifp, struct connected *ifc)
 		connected_remove_kernel_for_connected(afi, SAFI_MULTICAST, zvrf, &p, &nh);
 		rib_add(afi, SAFI_MULTICAST, zvrf->vrf->vrf_id, ZEBRA_ROUTE_CONNECT, 0, flags, &p,
 			NULL, &nh, 0, zvrf->table_id, metric, 0, 0, 0, false, true);
+	} else {
+		connected_kernel_to_connected(afi, zvrf, &p, ifp->ifindex, flags);
 	}
 
 	if (install_local) {
