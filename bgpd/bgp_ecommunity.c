@@ -1053,13 +1053,13 @@ static int ecommunity_lb_str(char *buf, size_t bufsz, const uint8_t *pnt,
 
 	if (bw >= ONE_GBPS_BYTES)
 		snprintf(bps_buf, sizeof(bps_buf), "%.3f Gbps",
-			 (float)(bw / ONE_GBPS_BYTES));
+			 (float)bw / (float)ONE_GBPS_BYTES);
 	else if (bw >= ONE_MBPS_BYTES)
 		snprintf(bps_buf, sizeof(bps_buf), "%.3f Mbps",
-			 (float)(bw / ONE_MBPS_BYTES));
+			 (float)bw / (float)ONE_MBPS_BYTES);
 	else if (bw >= ONE_KBPS_BYTES)
 		snprintf(bps_buf, sizeof(bps_buf), "%.3f Kbps",
-			 (float)(bw / ONE_KBPS_BYTES));
+			 (float)bw / (float)ONE_KBPS_BYTES);
 	else
 		snprintfrr(bps_buf, sizeof(bps_buf), "%" PRIu64 " bps", bw * 8);
 
@@ -1084,13 +1084,13 @@ static int ipv6_ecommunity_lb_str(char *buf, size_t bufsz, const uint8_t *pnt,
 
 	if (bw >= ONE_GBPS_BYTES)
 		snprintf(bps_buf, sizeof(bps_buf), "%.3f Gbps",
-			 (float)(bw / ONE_GBPS_BYTES));
+			 (float)bw / (float)ONE_GBPS_BYTES);
 	else if (bw >= ONE_MBPS_BYTES)
 		snprintf(bps_buf, sizeof(bps_buf), "%.3f Mbps",
-			 (float)(bw / ONE_MBPS_BYTES));
+			 (float)bw / (float)ONE_MBPS_BYTES);
 	else if (bw >= ONE_KBPS_BYTES)
 		snprintf(bps_buf, sizeof(bps_buf), "%.3f Kbps",
-			 (float)(bw / ONE_KBPS_BYTES));
+			 (float)bw / (float)ONE_KBPS_BYTES);
 	else
 		snprintfrr(bps_buf, sizeof(bps_buf), "%" PRIu64 " bps", bw * 8);
 
