@@ -46,6 +46,14 @@ isis_spftree_new(struct isis_area *area, struct lspdb_head *lspdb,
 struct isis_vertex *isis_spf_prefix_sid_lookup(struct isis_spftree *spftree,
 					       struct isis_prefix_sid *psid);
 void isis_spf_invalidate_routes(struct isis_spftree *tree);
+/* A prefix that a level-1-2 router advertises into level-2 */
+struct isis_spf_leaked_prefix {
+	uint32_t metric;
+	bool external;
+};
+
+void isis_spf_leak_table_fill(struct isis_spftree *spftree, struct route_table *table);
+void isis_spf_leak_table_free(struct route_table *table);
 void isis_spf_verify_routes(struct isis_area *area, struct isis_spftree **trees,
 			    int tree);
 void isis_spf_switchover_routes(struct isis_area *area,

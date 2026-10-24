@@ -690,8 +690,14 @@ static void isis_spf_add_local(struct isis_spftree *spftree, enum vertextype vty
 	return;
 }
 
+/*
+ * @noleak: the prefix must not be advertised into level-2 by a level-1-2 router
+ * (it carries the up/down bit, or it is the default route we synthesize from
+ * the attached bit).
+ */
 static void process_N(struct isis_spftree *spftree, enum vertextype vtype, void *id, uint32_t dist,
-		      uint16_t depth, struct isis_prefix_sid *psid, struct isis_vertex *parent)
+		      uint16_t depth, struct isis_prefix_sid *psid, struct isis_vertex *parent,
+		      bool noleak)
 {
 	struct isis_vertex *vertex;
 #ifdef EXTREME_DEBUG
@@ -766,6 +772,8 @@ static void process_N(struct isis_spftree *spftree, enum vertextype vtype, void 
 				remove_excess_adjs(vertex->Adj_N);
 			if (listnode_lookup(vertex->parents, parent) == NULL)
 				listnode_add(vertex->parents, parent);
+			if (!noleak)
+				UNSET_FLAG(vertex->flags, F_ISIS_VERTEX_NOLEAK);
 			return;
 		} else if (vertex->d_N < dist) {
 			return;
@@ -784,8 +792,9 @@ static void process_N(struct isis_spftree *spftree, enum vertextype vtype, void 
 			   (parent ? print_sys_hostname(parent->N.id) : "null"));
 #endif /* EXTREME_DEBUG */
 
-	isis_spf_add2tent(spftree, vtype, id, dist, depth, NULL, psid, parent);
-	return;
+	vertex = isis_spf_add2tent(spftree, vtype, id, dist, depth, NULL, psid, parent);
+	if (vertex && noleak)
+		SET_FLAG(vertex->flags, F_ISIS_VERTEX_NOLEAK);
 }
 
 /*
@@ -865,7 +874,7 @@ lspfragloop:
 				process_N(spftree,
 					  LSP_PSEUDO_ID(r->id) ? VTYPE_PSEUDO_IS
 							       : VTYPE_NONPSEUDO_IS,
-					  (void *)r->id, dist, depth + 1, NULL, parent);
+					  (void *)r->id, dist, depth + 1, NULL, parent, false);
 			}
 		}
 
@@ -913,7 +922,7 @@ lspfragloop:
 				process_N(spftree,
 					  LSP_PSEUDO_ID(er->id) ? VTYPE_PSEUDO_TE_IS
 								: VTYPE_NONPSEUDO_TE_IS,
-					  (void *)er->id, dist, depth + 1, NULL, parent);
+					  (void *)er->id, dist, depth + 1, NULL, parent, false);
 			}
 		}
 	}
@@ -934,7 +943,8 @@ lspfragloop:
 				dist = cost + r->metric;
 				ip_info.dest.u.prefix4 = r->prefix.prefix;
 				ip_info.dest.prefixlen = r->prefix.prefixlen;
-				process_N(spftree, vtype, &ip_info, dist, depth + 1, NULL, parent);
+				process_N(spftree, vtype, &ip_info, dist, depth + 1, NULL, parent,
+					  false);
 			}
 		}
 	}
@@ -980,7 +990,7 @@ lspfragloop:
 
 					has_valid_psid = true;
 					process_N(spftree, VTYPE_IPREACH_TE, &ip_info, dist,
-						  depth + 1, psid, parent);
+						  depth + 1, psid, parent, r->down);
 					/*
 					 * Stop the Prefix-SID iteration since
 					 * we only support the SPF algorithm for
@@ -991,7 +1001,7 @@ lspfragloop:
 			}
 			if (!has_valid_psid)
 				process_N(spftree, VTYPE_IPREACH_TE, &ip_info, dist, depth + 1,
-					  NULL, parent);
+					  NULL, parent, r->down);
 		}
 	}
 
@@ -1046,7 +1056,7 @@ lspfragloop:
 
 					has_valid_psid = true;
 					process_N(spftree, vtype, &ip_info, dist, depth + 1, psid,
-						  parent);
+						  parent, r->down);
 					/*
 					 * Stop the Prefix-SID iteration since
 					 * we only support the SPF algorithm for
@@ -1056,7 +1066,8 @@ lspfragloop:
 				}
 			}
 			if (!has_valid_psid)
-				process_N(spftree, vtype, &ip_info, dist, depth + 1, NULL, parent);
+				process_N(spftree, vtype, &ip_info, dist, depth + 1, NULL, parent,
+					  r->down);
 		}
 
 		/* Process SRv6 Locator TLVs */
@@ -1095,7 +1106,8 @@ lspfragloop:
 			/* SRv6 locator not present in Prefix Reachability TLV,
 			 * let's process it */
 			if (!loc_is_in_ipv6_reach)
-				process_N(spftree, vtype, &ip_info, dist, depth + 1, NULL, parent);
+				process_N(spftree, vtype, &ip_info, dist, depth + 1, NULL, parent,
+					  false);
 		}
 	}
 
@@ -1121,7 +1133,7 @@ end:
 			ip_info.dest.family = AF_INET6;
 			vtype = VTYPE_IP6REACH_INTERNAL;
 		}
-		process_N(spftree, vtype, &ip_info, cost, depth + 1, NULL, parent);
+		process_N(spftree, vtype, &ip_info, cost, depth + 1, NULL, parent, true);
 	}
 
 	if (fragnode == NULL)
@@ -1902,6 +1914,75 @@ static void isis_run_spf_with_protection(struct isis_area *area, struct isis_spf
 		isis_spf_run_lfa(area, spftree);
 }
 
+/*
+ * Add to @table, a route table, the prefixes of the SPT that a router advertises
+ * into level-2: the prefixes learned from other routers, with the metric of the
+ * path to them. The prefixes of this router are skipped (they are already in its
+ * own LSPs), and so are prefixes that must not be leaked (see process_N()). The
+ * route nodes hold a struct isis_spf_leaked_prefix, release them with
+ * isis_spf_leak_table_free().
+ */
+void isis_spf_leak_table_fill(struct isis_spftree *spftree, struct route_table *table)
+{
+	struct isis_vertex *vertex;
+	struct listnode *node, *pnode;
+	struct isis_vertex *parent;
+
+	for (ALL_QUEUE_ELEMENTS_RO(&spftree->paths, node, vertex)) {
+		struct route_node *rn;
+		struct isis_spf_leaked_prefix *lp;
+		bool local = false;
+		bool wrapped = false;
+
+		/* Only wide metric IPv4 prefixes and IPv6 prefixes are leaked */
+		if (vertex->type != VTYPE_IPREACH_TE && vertex->type != VTYPE_IP6REACH_INTERNAL &&
+		    vertex->type != VTYPE_IP6REACH_EXTERNAL)
+			continue;
+		if (CHECK_FLAG(vertex->flags, F_ISIS_VERTEX_NOLEAK) || vertex->N.ip.p.src.prefixlen)
+			continue;
+
+		/*
+		 * The path to a prefix cannot be shorter than the path to the router that
+		 * advertises it: if it is, the sum of the distance and the metric of the
+		 * prefix overflowed in the SPF, so ignore the prefix.
+		 */
+		for (ALL_LIST_ELEMENTS_RO(vertex->parents, pnode, parent)) {
+			if (!memcmp(parent->N.id, spftree->sysid, ISIS_SYS_ID_LEN))
+				local = true;
+			if (vertex->d_N < parent->d_N)
+				wrapped = true;
+		}
+		if (local || wrapped)
+			continue;
+
+		rn = route_node_get(table, &vertex->N.ip.p.dest);
+		lp = rn->info;
+		if (lp) {
+			route_unlock_node(rn);
+			if (vertex->d_N >= lp->metric)
+				continue;
+		} else {
+			lp = XCALLOC(MTYPE_TMP, sizeof(*lp));
+			rn->info = lp;
+		}
+
+		lp->metric = vertex->d_N;
+		lp->external = vertex->type == VTYPE_IP6REACH_EXTERNAL;
+	}
+}
+
+/* Free a table filled by isis_spf_leak_table_fill() */
+void isis_spf_leak_table_free(struct route_table *table)
+{
+	for (struct route_node *rn = route_top(table); rn; rn = route_next(rn)) {
+		if (!rn->info)
+			continue;
+		XFREE(MTYPE_TMP, rn->info);
+		route_unlock_node(rn);
+	}
+	route_table_finish(table);
+}
+
 void isis_spf_verify_routes(struct isis_area *area, struct isis_spftree **trees, int tree)
 {
 	if (area->is_type == IS_LEVEL_1) {
@@ -1997,6 +2078,10 @@ static void isis_run_spf_cb(struct event *event)
 		area->spf_run_count[level - 1]++;
 
 	isis_area_verify_routes(area);
+
+	/* level-1 reachability may have changed, refresh what is leaked into level-2 */
+	if (level == IS_LEVEL_1)
+		lsp_leak_l1_to_l2_check(area);
 
 	/* walk all circuits and reset any spf specific flags */
 	frr_each (isis_circuit_list, &area->circuit_list, circuit)

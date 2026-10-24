@@ -401,6 +401,7 @@ struct isis_area *isis_area_create(const char *area_tag, const char *vrf_name)
 		yang_get_default_enum("/frr-isisd:isis/instance/metric-style");
 	area->oldmetric = default_style == ISIS_WIDE_METRIC ? 0 : 1;
 	area->newmetric = default_style == ISIS_NARROW_METRIC ? 0 : 1;
+	area->leak_l1_to_l2 = false;
 	area->lsp_frag_threshold = 90; /* not currently configurable */
 	area->lsp_mtu =
 		yang_get_default_uint16("/frr-isisd:isis/instance/lsp/mtu");
@@ -425,6 +426,7 @@ struct isis_area *isis_area_create(const char *area_tag, const char *vrf_name)
 	area->dynhostname = 1;
 	area->oldmetric = 0;
 	area->newmetric = 1;
+	area->leak_l1_to_l2 = false;
 	area->lsp_frag_threshold = 90;
 	area->lsp_mtu = DEFAULT_LSP_MTU;
 	area->lfa_load_sharing[0] = true;

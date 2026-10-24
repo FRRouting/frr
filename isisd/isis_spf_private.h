@@ -66,6 +66,7 @@ struct isis_vertex {
 	uint8_t flags;
 };
 #define F_ISIS_VERTEX_LFA_PROTECTED 0x01
+#define F_ISIS_VERTEX_NOLEAK	    0x02 /* not to be leaked into level-2 */
 
 /* Vertex Queue and associated functions */
 
