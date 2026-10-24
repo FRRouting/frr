@@ -2425,9 +2425,8 @@ struct bgp_nlri {
 #define	BGP_MSG_UPDATE		                 2
 #define	BGP_MSG_NOTIFY		                 3
 #define	BGP_MSG_KEEPALIVE	                 4
-#define BGP_MSG_ROUTE_REFRESH_NEW                5
-#define BGP_MSG_CAPABILITY                       6
-#define BGP_MSG_ROUTE_REFRESH_OLD              128
+#define BGP_MSG_ROUTE_REFRESH			 5
+#define BGP_MSG_CAPABILITY			 6
 
 /* BGP open optional parameter.  */
 #define BGP_OPEN_OPT_CAP                         2
