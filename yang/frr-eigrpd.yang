@@ -78,6 +78,13 @@ module frr-eigrpd {
     description "Administrative domain identification for a network";
   }
 
+  feature openeigrp {
+    description
+      "Enable extended EIGRP configuration implemented by OpenEIGRP.
+       The FRR legacy eigrpd does not enable this feature and retains
+       its original callback requirements and classic configuration.";
+  }
+
   typedef eigrp-redistribution-protocol {
     type enumeration {
       enum connected;
@@ -140,6 +147,7 @@ module frr-eigrpd {
    * preserves independent patch detection during FRR installation.
    */
   augment "/eigrpd/named/address-family" {
+    if-feature openeigrp;
     list af-interface {
       key "interface";
       description "Interface or default interface template configuration";
@@ -314,6 +322,7 @@ module frr-eigrpd {
       }
 
       leaf event-log-size {
+        if-feature openeigrp;
         type uint32;
         description "Maximum number of EIGRP diagnostic events retained";
       }
@@ -456,6 +465,7 @@ module frr-eigrpd {
      * multiple IPv4/IPv6 address-family contexts.
      */
     list named {
+      if-feature openeigrp;
       key "name";
       description "EIGRP named-mode parent process";
 
@@ -584,6 +594,7 @@ module frr-eigrpd {
    * reversible as named-mode coverage grows.
    */
   augment "/eigrpd/named/address-family" {
+    if-feature openeigrp;
     leaf router-id {
       type inet:ipv4-address;
       description "Router identification for this address-family context";
@@ -673,6 +684,7 @@ module frr-eigrpd {
    * those targets are implemented incrementally.
    */
   augment "/eigrpd/named/address-family" {
+    if-feature openeigrp;
     container topology {
       presence "Configure the EIGRP base topology";
       description "Base topology configuration for this named address family";
