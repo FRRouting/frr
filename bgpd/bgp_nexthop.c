@@ -825,6 +825,9 @@ static void bgp_show_bgp_path_info_flags(uint32_t flags, json_object *json)
 				CHECK_FLAG(flags, BGP_PATH_MULTIPATH));
 	json_object_boolean_add(json_flags, "multipathChanged",
 				CHECK_FLAG(flags, BGP_PATH_MULTIPATH_CHG));
+	json_object_boolean_add(json_flags, "backup", CHECK_FLAG(flags, BGP_PATH_BACKUP));
+	json_object_boolean_add(json_flags, "backupChanged",
+				CHECK_FLAG(flags, BGP_PATH_BACKUP_CHG));
 	json_object_boolean_add(json_flags, "ribAttributeChanged",
 				CHECK_FLAG(flags, BGP_PATH_RIB_ATTR_CHG));
 	json_object_boolean_add(json_flags, "nexthopSelf",
@@ -1059,6 +1062,10 @@ static void bgp_show_nexthop(struct vty *vty, struct bgp *bgp, struct bgp_nextho
 	}
 	inet_ntop(bnc->prefix.family, &bnc->prefix.u.prefix, buf, sizeof(buf));
 	if (CHECK_FLAG(bnc->flags, BGP_NEXTHOP_VALID)) {
+		const char *tunnel_kind = NULL;
+		bool tunnel_resolved =
+			bgp_nht_bnc_is_tunnel_resolved(bnc, &tunnel_kind);
+
 		if (uj) {
 			json_object_boolean_true_add(json_nexthop, "valid");
 			json_object_boolean_true_add(json_nexthop, "complete");
@@ -1074,6 +1081,12 @@ static void bgp_show_nexthop(struct vty *vty, struct bgp *bgp, struct bgp_nextho
 							     "isEvpnGatewayIp");
 			json_object_string_addf(json_nexthop, "resolvedPrefix", "%pFX",
 						&bnc->resolved_prefix);
+			json_object_boolean_add(json_nexthop, "tunnelResolved",
+						tunnel_resolved);
+			if (tunnel_resolved)
+				json_object_string_add(json_nexthop,
+						       "tunnelKind",
+						       tunnel_kind);
 		} else {
 			vty_out(vty, " %s valid [IGP metric %d], #paths %d",
 				buf, bnc->metric, bnc->path_count);
@@ -1084,6 +1097,11 @@ static void bgp_show_nexthop(struct vty *vty, struct bgp *bgp, struct bgp_nextho
 			vty_out(vty, "\n  Resolved prefix %pFX",
 				&bnc->resolved_prefix);
 			vty_out(vty, "\n");
+			if (tunnel_resolved)
+				vty_out(vty, "  Tunnel-resolved: yes (%s)\n",
+					tunnel_kind);
+			else
+				vty_out(vty, "  Tunnel-resolved: no\n");
 		}
 		bgp_show_nexthops_detail(vty, bgp, bnc, json_nexthop);
 	} else if (CHECK_FLAG(bnc->flags, BGP_NEXTHOP_EVPN_INCOMPLETE)) {
