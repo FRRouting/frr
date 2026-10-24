@@ -4323,6 +4323,14 @@ void bgp_set_evpn(struct bgp *bgp)
 	/* Increase the reference count on this new VRF */
 	if (bm->bgp_evpn)
 		bgp_lock(bm->bgp_evpn);
+
+	/*
+	 * VNIs learnt while there was no EVPN instance are still queued for
+	 * remote route installation; resume processing them.
+	 */
+	if (bm->bgp_evpn && !bm->terminating && zebra_l2_vni_count(&bm->zebra_l2_vni_head))
+		event_add_timer_msec(bm->master, bgp_zebra_process_remote_routes_for_l2vni, NULL,
+				     20, &bm->t_bgp_zebra_l2_vni);
 }
 
 /* Returns the BGP instance where EVPN is enabled, if any */
@@ -4410,6 +4418,13 @@ int bgp_lookup_by_as_name_type(struct bgp **bgp_val, as_t *as, const char *as_pr
 					UNSET_FLAG(bgp->flags,
 						   BGP_FLAG_INSTANCE_HIDDEN);
 					UNSET_FLAG(bgp->flags, BGP_FLAG_DELETE_IN_PROGRESS);
+					/*
+					 * The tombstone kept its VNIs, and
+					 * their automatic route targets
+					 * embed the old AS. Re-derive them
+					 * for the new one.
+					 */
+					bgp_evpn_handle_autort_change(bgp);
 				} else {
 					bgp->as = *as;
 					if (force_config == false)
@@ -4643,6 +4658,7 @@ int bgp_delete(struct bgp *bgp)
 	int i;
 	uint32_t vni_count;
 	struct bgpevpn *vpn = NULL;
+	bool evpn_teardown;
 	struct graceful_restart_info *gr_info;
 	struct bgp *bgp_default = bgp_get_default();
 	struct bgp_clearing_info *cinfo;
@@ -4660,6 +4676,19 @@ int bgp_delete(struct bgp *bgp)
 		    zebra_announce_count(&bm->zebra_announce_early_head);
 	bgp_delete_zebra_announce_queue(&bm->zebra_announce_early_head, bgp);
 	bgp_delete_zebra_announce_queue(&bm->zebra_announce_head, bgp);
+
+	/*
+	 * A hidden tombstone that is still around at daemon shutdown is not
+	 * the EVPN instance any more (bm->bgp_evpn was cleared when it was
+	 * hidden) but still holds the VNIs of the former one, and their
+	 * local paths reference peer_self, so the instance can never be
+	 * freed unless they are drained. Make it the EVPN instance again so
+	 * that the owner teardown below, starting with the L2VNI FIFO pop,
+	 * runs on it; the ES code resolves the instance via bgp_get_evpn().
+	 */
+	if (bm->terminating && IS_BGP_INSTANCE_HIDDEN(bgp) && !bm->bgp_evpn && bgp->vnihash &&
+	    hashcount(bgp->vnihash))
+		bgp_set_evpn(bgp);
 
 	/*
 	 * Pop all VPNs yet to be processed for remote routes install if the
@@ -4791,6 +4820,19 @@ int bgp_delete(struct bgp *bgp)
 		SET_FLAG(bgp->flags, BGP_FLAG_INSTANCE_HIDDEN);
 	}
 
+	/*
+	 * The EVPN-owner teardown below (ES route tables, per-VNI paths,
+	 * VNI hash, import RTs, evpn_info) must not run on a hidden
+	 * tombstone: the instance is kept so that "router bgp <AS>" can
+	 * revive it, and the hidden path of bgp_create() does not re-run
+	 * bgp_evpn_init(). Tearing the EVPN state down while keeping the
+	 * instance leaves NULL pointers behind, and the next
+	 * "show running-config" on the revived instance crashes in
+	 * bgp_config_write_evpn_info(). At shutdown the tombstone was made
+	 * the EVPN instance again above, so it is torn down like any owner.
+	 */
+	evpn_teardown = bm->bgp_evpn == bgp && (!IS_BGP_INSTANCE_HIDDEN(bgp) || bm->terminating);
+
 	if (BGP_DEBUG(zebra, ZEBRA)) {
 		if (bgp->inst_type == BGP_INSTANCE_TYPE_DEFAULT)
 			zlog_debug("Deleting Default VRF");
@@ -4838,7 +4880,7 @@ int bgp_delete(struct bgp *bgp)
 		} while (connection != NULL);
 	}
 
-	if (bm->bgp_evpn == bgp) {
+	if (evpn_teardown) {
 		/*
 		 * Clean ES route tables before peer and route teardown starts.
 		 * This avoids ES-linked local MAC-IP updates from running after
@@ -4909,7 +4951,7 @@ int bgp_delete(struct bgp *bgp)
 		}
 	}
 
-	if (bm->bgp_evpn == bgp) {
+	if (evpn_teardown) {
 		/*
 		 * Reap all paths from per-VNI route tables BEFORE the global
 		 * EVPN RIB is finalized by bgp_cleanup_routes() below.
@@ -4927,7 +4969,7 @@ int bgp_delete(struct bgp *bgp)
 
 	bgp_cleanup_routes(bgp);
 
-	if (bm->bgp_evpn == bgp) {
+	if (evpn_teardown) {
 		/*
 		 * Release EVPN VNI bgp_lock references so the subsequent
 		 * bgp_unlock() can drive refcount to zero and trigger

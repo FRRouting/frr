@@ -3392,8 +3392,14 @@ void bgp_zebra_process_remote_routes_for_l2vni(struct event *e)
 	/*
 	 * If we have learnt and retained remote routes (VTEPs, MACs)
 	 * for this VNI, install them.
+	 *
+	 * Without an EVPN instance (the default is a hidden tombstone)
+	 * nothing can be processed: leave the VNIs queued instead of
+	 * retrying every 20 ms, bgp_set_evpn() reschedules us when an
+	 * instance shows up again.
 	 */
-	install_uninstall_routes_for_vni(NULL, NULL, true);
+	if (install_uninstall_routes_for_vni(NULL, NULL, true) < 0)
+		return;
 
 	/*
 	 * If there are VNIs still pending to be processed, schedule them
