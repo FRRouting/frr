@@ -3932,5 +3932,15 @@ void bgp_event_stop_with_notify(struct event *event)
 {
 	struct peer_connection *connection = EVENT_ARG(event);
 
-	bgp_stop_with_notify(connection, BGP_NOTIFY_SEND_HOLD_ERR, 0);
+	/*
+	 * Drive the teardown through the FSM rather than stopping the peer
+	 * inline.  bgp_notify_send() -> bgp_write_notify() queues a BGP_Stop
+	 * (or TCP_fatal_error, if the stuck send queue rejects the write); the
+	 * FSM then advances the state and re-arms the ConnectRetry timer like
+	 * every other stop.  Calling bgp_stop() directly here (as
+	 * bgp_stop_with_notify() does) runs event_cancel_event_ready(), which
+	 * cancels that queued event, so the state is never advanced and the peer
+	 * is left stuck in Established with fd == -1 -- a zombie session.
+	 */
+	bgp_notify_send(connection, BGP_NOTIFY_SEND_HOLD_ERR, 0);
 }
