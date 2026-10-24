@@ -268,41 +268,44 @@ def test_backup_mpls_resolved_leg():
 
     r1 = tgen.gears["r1"]
 
+    # Order-independent: don't rely on a previous test leaving tunnel-only set.
+    _r1_af_config(r1, ["install backup-path tunnel-only"])
+
     step("Replace the seg6 static route with a labeled static route")
     r1.vtysh_cmd(
         "configure terminal\nno {}\n{}\nend".format(SEG6_ROUTE, MPLS_ROUTE)
     )
+    try:
+        step("The MPLS-resolved path via R4 is the backup under tunnel-only")
+        _expect_backup_state(
+            r1,
+            {TUNNEL_BACKUP_NH: True},
+            "an MPLS label stack on the resolved leg should qualify as a tunnel",
+        )
 
-    step("The MPLS-resolved path via R4 is the backup under tunnel-only")
-    _expect_backup_state(
-        r1,
-        {TUNNEL_BACKUP_NH: True},
-        "an MPLS label stack on the resolved leg should qualify as a tunnel",
-    )
+        step("show bgp nexthop reports the mpls tunnel kind")
 
-    step("show bgp nexthop reports the mpls tunnel kind")
+        def _check_mpls_kind():
+            output = json.loads(r1.vtysh_cmd("show bgp nexthop json"))
+            nh = output.get("ipv4", {}).get(TUNNEL_BACKUP_NH, {})
+            if nh.get("tunnelResolved") is not True:
+                return "tunnelResolved not true for {}: {}".format(
+                    TUNNEL_BACKUP_NH, nh
+                )
+            if nh.get("tunnelKind") != "mpls":
+                return "tunnelKind {} != mpls for {}".format(
+                    nh.get("tunnelKind"), TUNNEL_BACKUP_NH
+                )
+            return None
 
-    def _check_mpls_kind():
-        output = json.loads(r1.vtysh_cmd("show bgp nexthop json"))
-        nh = output.get("ipv4", {}).get(TUNNEL_BACKUP_NH, {})
-        if nh.get("tunnelResolved") is not True:
-            return "tunnelResolved not true for {}: {}".format(
-                TUNNEL_BACKUP_NH, nh
-            )
-        if nh.get("tunnelKind") != "mpls":
-            return "tunnelKind {} != mpls for {}".format(
-                nh.get("tunnelKind"), TUNNEL_BACKUP_NH
-            )
-        return None
-
-    test_func = functools.partial(_check_mpls_kind)
-    success, result = topotest.run_and_expect(test_func, None, count=60, wait=1)
-    assert success, "mpls tunnel kind not reported: {}".format(result)
-
-    step("Restore the seg6 static route")
-    r1.vtysh_cmd(
-        "configure terminal\nno {}\n{}\nend".format(MPLS_ROUTE, SEG6_ROUTE)
-    )
+        test_func = functools.partial(_check_mpls_kind)
+        success, result = topotest.run_and_expect(test_func, None, count=60, wait=1)
+        assert success, "mpls tunnel kind not reported: {}".format(result)
+    finally:
+        step("Restore the seg6 static route")
+        r1.vtysh_cmd(
+            "configure terminal\nno {}\n{}\nend".format(MPLS_ROUTE, SEG6_ROUTE)
+        )
     _expect_backup_state(
         r1,
         {TUNNEL_BACKUP_NH: True},
@@ -318,6 +321,9 @@ def test_backup_gre_interface_leg():
 
     r1 = tgen.gears["r1"]
 
+    # Order-independent: don't rely on a previous test leaving tunnel-only set.
+    _r1_af_config(r1, ["install backup-path tunnel-only"])
+
     step("Create a GRE tunnel interface on r1")
     out = r1.run(
         "ip tunnel add gre1 mode gre local 10.16.4.1 remote 10.16.4.4 ttl 64"
@@ -326,42 +332,43 @@ def test_backup_gre_interface_leg():
         pytest.skip("GRE tunnels not supported by this kernel: {}".format(out))
     r1.run("ip link set gre1 up")
 
-    step("Route the backup nexthop out of the GRE interface")
-    r1.vtysh_cmd(
-        "configure terminal\nno {}\n{}\nend".format(SEG6_ROUTE, GRE_ROUTE)
-    )
+    try:
+        step("Route the backup nexthop out of the GRE interface")
+        r1.vtysh_cmd(
+            "configure terminal\nno {}\n{}\nend".format(SEG6_ROUTE, GRE_ROUTE)
+        )
 
-    step("The GRE-resolved path via R4 is the backup under tunnel-only")
-    _expect_backup_state(
-        r1,
-        {TUNNEL_BACKUP_NH: True},
-        "a GRE egress interface on the resolved leg should qualify as a tunnel",
-    )
+        step("The GRE-resolved path via R4 is the backup under tunnel-only")
+        _expect_backup_state(
+            r1,
+            {TUNNEL_BACKUP_NH: True},
+            "a GRE egress interface on the resolved leg should qualify as a tunnel",
+        )
 
-    step("show bgp nexthop reports the tunnel-if kind")
+        step("show bgp nexthop reports the tunnel-if kind")
 
-    def _check_gre_kind():
-        output = json.loads(r1.vtysh_cmd("show bgp nexthop json"))
-        nh = output.get("ipv4", {}).get(TUNNEL_BACKUP_NH, {})
-        if nh.get("tunnelResolved") is not True:
-            return "tunnelResolved not true for {}: {}".format(
-                TUNNEL_BACKUP_NH, nh
-            )
-        if nh.get("tunnelKind") != "tunnel-if":
-            return "tunnelKind {} != tunnel-if for {}".format(
-                nh.get("tunnelKind"), TUNNEL_BACKUP_NH
-            )
-        return None
+        def _check_gre_kind():
+            output = json.loads(r1.vtysh_cmd("show bgp nexthop json"))
+            nh = output.get("ipv4", {}).get(TUNNEL_BACKUP_NH, {})
+            if nh.get("tunnelResolved") is not True:
+                return "tunnelResolved not true for {}: {}".format(
+                    TUNNEL_BACKUP_NH, nh
+                )
+            if nh.get("tunnelKind") != "tunnel-if":
+                return "tunnelKind {} != tunnel-if for {}".format(
+                    nh.get("tunnelKind"), TUNNEL_BACKUP_NH
+                )
+            return None
 
-    test_func = functools.partial(_check_gre_kind)
-    success, result = topotest.run_and_expect(test_func, None, count=60, wait=1)
-    assert success, "tunnel-if kind not reported: {}".format(result)
-
-    step("Restore the seg6 static route and remove the GRE interface")
-    r1.vtysh_cmd(
-        "configure terminal\nno {}\n{}\nend".format(GRE_ROUTE, SEG6_ROUTE)
-    )
-    r1.run("ip link del gre1")
+        test_func = functools.partial(_check_gre_kind)
+        success, result = topotest.run_and_expect(test_func, None, count=60, wait=1)
+        assert success, "tunnel-if kind not reported: {}".format(result)
+    finally:
+        step("Restore the seg6 static route and remove the GRE interface")
+        r1.vtysh_cmd(
+            "configure terminal\nno {}\n{}\nend".format(GRE_ROUTE, SEG6_ROUTE)
+        )
+        r1.run("ip link del gre1")
     _expect_backup_state(
         r1,
         {TUNNEL_BACKUP_NH: True},
