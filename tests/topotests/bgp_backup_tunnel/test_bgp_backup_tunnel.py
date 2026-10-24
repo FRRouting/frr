@@ -237,6 +237,9 @@ def test_backup_follows_resolution_changes():
 
     r1 = tgen.gears["r1"]
 
+    # Order-independent: don't rely on a previous test leaving tunnel-only set.
+    _r1_af_config(r1, ["install backup-path tunnel-only"])
+
     step("Replace the seg6 static route with a plain static route")
     r1.vtysh_cmd(
         "configure terminal\nno {}\n{}\nend".format(SEG6_ROUTE, PLAIN_ROUTE)
