@@ -528,6 +528,74 @@ def test_show_bgp_rd_json_output():
     json.loads(r1.vtysh_cmd(f"show bgp ipv4 vpn rd {list(rds)[0]} json"))
 
 
+def test_vrf_route_leak_donna_delete_eva_instance():
+    logger.info("Delete EVA's BGP instance and ensure that DONNA keeps importing")
+    tgen = get_topogen()
+    # Don't run this test if we have any failure.
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    r1 = tgen.gears["r1"]
+    r1.vtysh_cmd(
+        """
+configure
+no router bgp 65500 vrf EVA
+"""
+    )
+
+    # EVA's prefixes leave DONNA, the prefix imported from the default VRF stays.
+    expect = {
+        "routes": {
+            "10.0.1.0/24": None,
+            "10.0.3.0/24": None,
+            "10.0.4.0/24": [{"valid": True, "nhVrfName": "default"}],
+        }
+    }
+
+    test_func = partial(
+        topotest.router_json_cmp, r1, "show bgp vrf DONNA ipv4 unicast json", expect
+    )
+    result, diff = topotest.run_and_expect(test_func, None, count=15, wait=1)
+    assert result, "BGP VRF DONNA check failed:\n{}".format(diff)
+
+
+def test_vrf_route_leak_donna_unimport_deleted_eva():
+    logger.info("Unimport EVA once its BGP instance is gone, other imports must stay")
+    tgen = get_topogen()
+    # Don't run this test if we have any failure.
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    r1 = tgen.gears["r1"]
+    r1.vtysh_cmd(
+        """
+configure
+router bgp 65500 vrf DONNA
+ address-family ipv4 unicast
+  no import vrf EVA
+"""
+    )
+
+    # Removing an import withdraws every prefix DONNA imported before it
+    # re-imports the ones the remaining "import vrf" statements still select.
+    # The withdrawn prefixes leave the table a moment after the command
+    # returns, so wait for that before checking that the prefix imported from
+    # the default VRF is still there.
+    topotest.sleep(5, "Waiting for the unimport to be processed")
+
+    expect = {
+        "routes": {
+            "10.0.4.0/24": [{"valid": True, "nhVrfName": "default"}],
+        }
+    }
+
+    test_func = partial(
+        topotest.router_json_cmp, r1, "show bgp vrf DONNA ipv4 unicast json", expect
+    )
+    result, diff = topotest.run_and_expect(test_func, None, count=15, wait=1)
+    assert result, "BGP VRF DONNA check failed:\n{}".format(diff)
+
+
 def test_memory_leak():
     "Run the memory leak test and report results."
     tgen = get_topogen()
