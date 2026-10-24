@@ -41,7 +41,7 @@ digraph climodes {
 		LDP_NODE -> LDP_IPV6_NODE [ label="address-family ipv6" ];
 		LDP_IPV4_NODE -> LDP_IPV4_IFACE_NODE [ label="interface IFNAME" ];
 		LDP_IPV6_NODE -> LDP_IPV6_IFACE_NODE [ label="interface IFNAME" ];
-		LDP_NODE -> LDP_L2VPN_NODE [ label="address-family l2vpn WORD type vpls" ];
+		LDP_NODE -> L2VPN_NODE [ label="address-family l2vpn WORD type vpls" ];
 		LDP_NODE -> LDP_PSEUDOWIRE_NODE [ label="member pseudowire IFNAME" ];
 	}
 	CONFIG_NODE -> OSPF_NODE [ label="router ospf [(1-65535)] [vrf NAME]" ];
