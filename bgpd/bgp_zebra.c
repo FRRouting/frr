@@ -813,9 +813,14 @@ bool bgp_zebra_nexthop_set(union sockunion *local, union sockunion *remote,
 
 	/* Handle peerings via loopbacks. For instance, peer between
 	 * 127.0.0.1 and 127.0.0.2. In short, allow peering with self
-	 * via 127.0.0.0/8.
+	 * via 127.0.0.0/8. Only do this for real loopback addresses, any
+	 * other address that is not resolvable yet must fail below.
 	 */
-	if (!ifp && cmd_allow_reserved_ranges_get())
+	if (!ifp && cmd_allow_reserved_ranges_get() &&
+	    ((local->sa.sa_family == AF_INET &&
+	      IPV4_NET127(ntohl(local->sin.sin_addr.s_addr))) ||
+	     (local->sa.sa_family == AF_INET6 &&
+	      IN6_IS_ADDR_LOOPBACK(&local->sin6.sin6_addr))))
 		ifp = if_get_vrf_loopback(peer->bgp->vrf_id);
 
 	if (!ifp) {
