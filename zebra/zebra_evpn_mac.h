@@ -102,6 +102,29 @@ struct zebra_mac {
 		struct ipaddr r_vtep_ip;
 	} fwd_info;
 
+	/* SRv6 SID for this remote MAC (RFC 9252 L2 service) */
+	struct in6_addr srv6_sid;
+	bool has_srv6_sid;
+
+	/* sr6 interface ifindex used as the bridge FDB outgoing port.
+	 * Created by zebra_sr6_get_or_create() and reference-counted.
+	 * NOTE: 0 while the netdev's create is still in flight (async), so it
+	 * must NOT be used as the "do we hold a reference?" test - use
+	 * sr6_ref_held for that.  This field is refreshed from the sr6 entry
+	 * once the ifindex resolves.
+	 */
+	ifindex_t sr6_ifindex;
+
+	/* True once this MAC holds exactly one reference on the sr6 entry for
+	 * its current srv6_sid.  Tracked separately from sr6_ifindex because
+	 * that ifindex is 0 during the async create window; gating acquisition
+	 * on sr6_ifindex == 0 made repeated installs (e.g. the reinstall sweep
+	 * in zebra_srv6_evi_realize) re-acquire and inflate the sr6 refcount,
+	 * so a single release on a peer SID change could never delete the old
+	 * interface.  Keying acquire/release off this flag keeps it at one ref.
+	 */
+	bool sr6_ref_held;
+
 	/* Local or remote ES */
 	struct zebra_evpn_es *es;
 	/* memory used to link the mac to the es */
@@ -228,6 +251,7 @@ int zebra_evpn_rem_mac_uninstall(struct zebra_evpn *zevi, struct zebra_mac *mac,
 				 bool force);
 int zebra_evpn_rem_mac_install(struct zebra_evpn *zevi, struct zebra_mac *mac,
 			       bool was_static);
+void zebra_evpn_rem_srv6_macs_reinstall(struct zebra_evpn *zevi);
 void zebra_evpn_deref_ip2mac(struct zebra_evpn *zevi, struct zebra_mac *mac);
 struct zebra_mac *zebra_evpn_mac_lookup(struct zebra_evpn *zevi,
 					const struct ethaddr *mac);
@@ -271,7 +295,8 @@ void zebra_evpn_print_dad_mac_hash_detail(struct hash_bucket *bucket,
 					  void *ctxt);
 int zebra_evpn_mac_remote_macip_add(struct zebra_evpn *zevpn, struct zebra_vrf *zvrf,
 				    const struct ethaddr *macaddr, struct ipaddr *vtep_ip,
-				    uint8_t flags, uint32_t seq, const esi_t *esi);
+				    uint8_t flags, uint32_t seq, const esi_t *esi,
+				    const struct in6_addr *srv6_sid);
 
 int zebra_evpn_add_update_local_mac(struct zebra_vrf *zvrf,
 				    struct zebra_evpn *zevpn,
