@@ -5580,7 +5580,7 @@ DEFUN(no_bgp_fast_convergence, no_bgp_fast_convergence_cmd,
  * without waiting for BGP convergence. With "ecmp" the backup set may
  * contain multiple equal-cost paths bounded by maximum-paths. With
  * "tunnel-only" only paths whose nexthops are resolved over tunnels
- * (MPLS, SRv6, VXLAN, tunnel interfaces) are eligible as backups.
+ * (MPLS, SRv6, GRE/VXLAN-type interfaces) are eligible as backups.
  */
 DEFPY(af_install_backup_path, af_install_backup_path_cmd,
       "[no] install backup-path [ecmp$ecmp] [tunnel-only$tunnel_only]",

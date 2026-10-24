@@ -14607,17 +14607,16 @@ skip_nexthop:
 
 	if (CHECK_FLAG(path->flags, BGP_PATH_BACKUP) &&
 	    CHECK_FLAG(bgp->af_flags[afi][safi], BGP_CONFIG_BACKUP_PATH)) {
-		bool tunnel_only = CHECK_FLAG(bgp->af_flags[afi][safi],
-					      BGP_CONFIG_BACKUP_PATH_TUNNEL_ONLY);
+		/* Report the path, not the knob: a backup selected before a
+		 * config change can linger until the recompute finishes.
+		 */
+		bool tunneled = bgp_path_backup_is_tunnel_resolved(path);
 
 		if (json_paths) {
 			json_object_boolean_true_add(json_path, "backup");
-			if (tunnel_only)
-				json_object_boolean_true_add(json_path,
-							     "tunnelResolved");
+			json_object_boolean_add(json_path, "tunnelResolved", tunneled);
 		} else {
-			vty_out(vty, tunnel_only ? ", backup (tunnel-resolved)"
-						 : ", backup");
+			vty_out(vty, tunneled ? ", backup (tunnel-resolved)" : ", backup");
 		}
 	}
 

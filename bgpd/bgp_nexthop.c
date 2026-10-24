@@ -1047,11 +1047,11 @@ static void bgp_show_nexthop(struct vty *vty, struct bgp *bgp, struct bgp_nextho
 			vty_out(vty, "\n  Resolved prefix %pFX",
 				&bnc->resolved_prefix);
 			vty_out(vty, "\n");
+			/* Affirmative only, like the surrounding flags; the
+			 * JSON output carries the explicit false.
+			 */
 			if (tunnel_resolved)
-				vty_out(vty, "  Tunnel-resolved: yes (%s)\n",
-					tunnel_kind);
-			else
-				vty_out(vty, "  Tunnel-resolved: no\n");
+				vty_out(vty, "  Tunnel-resolved: yes (%s)\n", tunnel_kind);
 		}
 		bgp_show_nexthops_detail(vty, bgp, bnc, json_nexthop);
 	} else if (CHECK_FLAG(bnc->flags, BGP_NEXTHOP_EVPN_INCOMPLETE)) {
