@@ -1739,12 +1739,10 @@ static void bgp_peer_send_gr_capability(struct stream *s, struct peer_connection
 	 * only when GR config is present
 	 */
 	if (CHECK_FLAG(peer->flags, PEER_FLAG_GRACEFUL_RESTART)) {
-		FOREACH_AFI_SAFI (afi, safi) {
+		FOREACH_AFI_SAFI_GR (afi, safi) {
 			bool f_bit = false;
 
 			if (!peer->afc[afi][safi])
-				continue;
-			if (!bgp_gr_supported_for_afi_safi(afi, safi))
 				continue;
 
 			/* Convert AFI, SAFI to values for
