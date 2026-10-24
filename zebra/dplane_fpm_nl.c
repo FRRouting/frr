@@ -1122,6 +1122,9 @@ static int fpm_nl_enqueue(struct fpm_nl_ctx *fnc, struct zebra_dplane_ctx *ctx)
 	case DPLANE_OP_TC_QDISC_READ:
 	case DPLANE_OP_TC_QDISC_NOTIFY:
 	case DPLANE_OP_TUNNEL_NOTIFY:
+	case DPLANE_OP_EVPN_MH_UPLINK_ADD:
+	case DPLANE_OP_EVPN_MH_UPLINK_DELETE:
+	case DPLANE_OP_EVPN_MH_ES_DELETE:
 		break;
 
 	}

@@ -1718,6 +1718,9 @@ void kernel_update_multi(struct dplane_ctx_list_head *ctx_list)
 		case DPLANE_OP_TC_QDISC_READ:
 		case DPLANE_OP_TC_QDISC_NOTIFY:
 		case DPLANE_OP_TUNNEL_NOTIFY:
+		case DPLANE_OP_EVPN_MH_UPLINK_ADD:
+		case DPLANE_OP_EVPN_MH_UPLINK_DELETE:
+		case DPLANE_OP_EVPN_MH_ES_DELETE:
 			flog_err(EC_ZEBRA_DPLANE_OP_UNHANDLED, "Unhandled dplane data for %s",
 				 dplane_op2str(dplane_ctx_get_op(ctx)));
 			res = ZEBRA_DPLANE_REQUEST_FAILURE;

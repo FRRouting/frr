@@ -762,6 +762,11 @@ static struct zebra_dplane_globals {
 	_Atomic uint32_t dg_srv6_encap_srcaddr_set_in;
 	_Atomic uint32_t dg_srv6_encap_srcaddr_set_errors;
 
+	_Atomic uint32_t dg_evpn_mh_uplink_update_in;
+	_Atomic uint32_t dg_evpn_mh_uplink_update_errors;
+	_Atomic uint32_t dg_evpn_mh_es_update_in;
+	_Atomic uint32_t dg_evpn_mh_es_update_errors;
+
 	/* Dataplane pthread */
 	struct frr_pthread *dg_pthread;
 
@@ -1000,6 +1005,9 @@ static void dplane_ctx_free_internal(struct zebra_dplane_ctx *ctx)
 	case DPLANE_OP_RULE_UPDATE:
 	case DPLANE_OP_NEIGH_DISCOVER:
 	case DPLANE_OP_BR_PORT_UPDATE:
+	case DPLANE_OP_EVPN_MH_UPLINK_ADD:
+	case DPLANE_OP_EVPN_MH_UPLINK_DELETE:
+	case DPLANE_OP_EVPN_MH_ES_DELETE:
 	case DPLANE_OP_NEIGH_IP_INSTALL:
 	case DPLANE_OP_NEIGH_IP_DELETE:
 	case DPLANE_OP_NONE:
@@ -1370,6 +1378,12 @@ const char *dplane_op2str(enum dplane_op_e op)
 		return "TC_QDISC_NOTIFY";
 	case DPLANE_OP_TUNNEL_NOTIFY:
 		return "TUNNEL_NOTIFY";
+	case DPLANE_OP_EVPN_MH_UPLINK_ADD:
+		return "DPLANE_OP_EVPN_MH_UPLINK_ADD";
+	case DPLANE_OP_EVPN_MH_UPLINK_DELETE:
+		return "DPLANE_OP_EVPN_MH_UPLINK_DELETE";
+	case DPLANE_OP_EVPN_MH_ES_DELETE:
+		return "DPLANE_OP_EVPN_MH_ES_DELETE";
 	}
 
 	return "UNKNOWN";
@@ -5991,6 +6005,74 @@ enum zebra_dplane_result dplane_br_port_update(const struct interface *ifp, bool
 	return result;
 }
 
+/*
+ * Enqueue EVPN MH Uplink/ES update
+ */
+static enum zebra_dplane_result dplane_evpn_mh_common_update(enum dplane_op_e op,
+						      const struct interface *ifp,
+						      _Atomic uint32_t *pin,
+						      _Atomic uint32_t *perrors
+)
+{
+	enum zebra_dplane_result result = ZEBRA_DPLANE_REQUEST_FAILURE;
+	int ret;
+	struct zebra_dplane_ctx *ctx = NULL;
+	struct zebra_ns *zns;
+
+	if (IS_ZEBRA_DEBUG_DPLANE_DETAIL || IS_ZEBRA_DEBUG_EVPN_MH_SPH) {
+		zlog_debug(
+			"%s: op %s ifindex %d ifp %s",
+			__func__, dplane_op2str(op), ifp->ifindex, ifp->name);
+	}
+
+	ctx = dplane_ctx_alloc();
+
+	ctx->zd_op = op;
+	ctx->zd_status = ZEBRA_DPLANE_REQUEST_SUCCESS;
+	ctx->zd_vrf_id = ifp->vrf->vrf_id;
+
+	zns = zebra_ns_lookup(ifp->vrf->vrf_id);
+	dplane_ctx_ns_init(ctx, zns, false);
+
+	ctx->zd_ifindex = ifp->ifindex;
+	strlcpy(ctx->zd_ifname, ifp->name, sizeof(ctx->zd_ifname));
+
+	/* Enqueue for processing on the dplane pthread */
+	ret = dplane_update_enqueue(ctx);
+
+	/* Increment counter */
+	atomic_fetch_add_explicit(pin, 1,
+				  memory_order_relaxed);
+
+	if (ret == AOK) {
+		result = ZEBRA_DPLANE_REQUEST_QUEUED;
+	} else {
+		/* Error counter */
+		atomic_fetch_add_explicit(perrors, 1,
+					  memory_order_relaxed);
+		dplane_ctx_free(&ctx);
+	}
+
+	return result;
+}
+enum zebra_dplane_result dplane_evpn_mh_uplink_update(enum dplane_op_e op,
+						      const struct interface *ifp)
+{
+	return dplane_evpn_mh_common_update(
+		op, ifp,
+		&zdplane_info.dg_evpn_mh_uplink_update_in,
+		&zdplane_info.dg_evpn_mh_uplink_update_errors);
+}
+enum zebra_dplane_result dplane_evpn_mh_es_update(enum dplane_op_e op,
+						  const struct interface *ifp)
+{
+	return dplane_evpn_mh_common_update(
+		op, ifp,
+		&zdplane_info.dg_evpn_mh_es_update_in,
+		&zdplane_info.dg_evpn_mh_es_update_errors);
+}
+
+
 enum zebra_dplane_result
 dplane_intf_mpls_modify_state(const struct interface *ifp, bool set)
 {
@@ -7873,6 +7955,9 @@ static void kernel_dplane_log_detail(struct zebra_dplane_ctx *ctx)
 	case DPLANE_OP_ROUTE_NOTIFY:
 	case DPLANE_OP_LSP_NOTIFY:
 	case DPLANE_OP_BR_PORT_UPDATE:
+	case DPLANE_OP_EVPN_MH_UPLINK_ADD:
+	case DPLANE_OP_EVPN_MH_UPLINK_DELETE:
+	case DPLANE_OP_EVPN_MH_ES_DELETE:
 
 	case DPLANE_OP_NONE:
 		break;
@@ -8178,6 +8263,9 @@ static void kernel_dplane_handle_result(struct zebra_dplane_ctx *ctx)
 	case DPLANE_OP_ROUTE_NOTIFY:
 	case DPLANE_OP_LSP_NOTIFY:
 	case DPLANE_OP_BR_PORT_UPDATE:
+	case DPLANE_OP_EVPN_MH_UPLINK_ADD:
+	case DPLANE_OP_EVPN_MH_UPLINK_DELETE:
+	case DPLANE_OP_EVPN_MH_ES_DELETE:
 		break;
 
 	/* TODO -- error counters for incoming events? */

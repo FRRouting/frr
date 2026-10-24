@@ -74,6 +74,11 @@ RUN apt update -y && apt upgrade -y && \
         strace \
         tcpdump \
       && \
+    # eBPF compilation requirements
+    apt-get install -y \
+        clang \
+        llvm \
+      && \
     download-mibs && \
     wget --tries=5 --waitretry=10 --retry-connrefused https://raw.githubusercontent.com/FRRouting/frr-mibs/main/iana/IANA-IPPM-METRICS-REGISTRY-MIB -O /usr/share/snmp/mibs/iana/IANA-IPPM-METRICS-REGISTRY-MIB && \
     wget --tries=5 --waitretry=10 --retry-connrefused https://raw.githubusercontent.com/FRRouting/frr-mibs/main/ietf/SNMPv2-PDU -O /usr/share/snmp/mibs/ietf/SNMPv2-PDU && \
@@ -116,6 +121,33 @@ RUN echo "" >> /etc/security/limits.conf; \
 
 # Copy run scripts to facilitate users wanting to run the tests
 COPY docker/inner /opt/topotests
+
+# libbpf: we need at least 1.3 for TCX in Split Horizon Filter
+RUN mkdir /tmp/compile-libbpf \
+    && cd /tmp/compile-libbpf \
+    && wget --tries=5 --waitretry=10 --retry-connrefused https://github.com/libbpf/libbpf/archive/refs/tags/v1.8.0.tar.gz \
+    && tar -xvf v1.8.0.tar.gz \
+    && cd libbpf-1.8.0/src \
+    && LIBDIR=/usr/lib/x86_64-linux-gnu make \
+    && LIBDIR=/usr/lib/x86_64-linux-gnu make install \
+    && cd / \
+    && rm -rf /tmp/compile-libbpf \
+    ;
+
+
+# bpftool: the one from linux-tools-common doesn't work for me
+RUN mkdir /tmp/compile-bpftool \
+    && cd /tmp/compile-bpftool \
+    && wget --tries=5 --waitretry=10 --retry-connrefused https://github.com/libbpf/bpftool/releases/download/v7.7.0/bpftool-libbpf-v7.7.0-sources.tar.gz \
+    && tar -xvf bpftool-libbpf-v7.7.0-sources.tar.gz \
+    && cd bpftool-libbpf-v7.7.0-sources/src \
+    && make \
+    && prefix=/usr make install \
+    && rm -rf /tmp/compile-bpftool \
+    && cd / \
+    ;
+
+RUN ln -sv /usr/include/x86_64-linux-gnu/asm/ /usr/include/asm
 
 ENV PATH "$PATH:/opt/topotests"
 
