@@ -295,6 +295,12 @@ sessions.
    (:rfc:`5310`); ``strict-rfc5310`` derives the HMAC key from them as
    section 3.3 of :rfc:`5310` does. See :ref:`isis-authentication`.
 
+.. clicmd:: isis extended-sequence-number <send|verify>
+
+   Add an Extended Sequence Number (:rfc:`7602`) to the IIHs and SNPs sent on
+   the interface, and with ``verify`` also discard those received without a
+   newer one. See :ref:`isis-esn`.
+
 .. clicmd:: isis priority (0-127) [level-1 | level-2]
 
    Set priority for Designated Router election, globally, for the area
@@ -420,6 +426,7 @@ only with the ``rfc-5310`` keyword of its authentication commands.
    interface eth0
     ip router isis 1
     isis password key-chain isis
+    isis extended-sequence-number verify
    exit
    !
    router isis 1
@@ -427,6 +434,45 @@ only with the ``rfc-5310`` keyword of its authentication commands.
     area-password key-chain isis authenticate snp validate
     domain-password key-chain isis authenticate snp validate
    exit
+
+.. _isis-esn:
+
+Extended Sequence Numbers
+-------------------------
+
+Authentication does not stop a captured hello or SNP from being sent again.
+With :clicmd:`isis extended-sequence-number <send|verify>`, the IIHs and SNPs
+sent on an interface carry an Extended Sequence Number (:rfc:`7602`): a
+64-bit session number and a 32-bit packet number, counted for the whole area so
+that they keep increasing however interfaces come and go. With ``verify``, the
+IIHs and SNPs received on the interface without exactly one well-formed one, or
+with one not greater than the last one accepted from the same neighbor for the
+same PDU type, are discarded. The number is only worth checking in a PDU that
+cannot be tampered with, so ``verify`` applies to the IIHs of an interface
+authenticated with HMAC-MD5 or a key chain, and to the SNPs of a level that
+validates them that way (``authenticate snp validate``); the others are
+accepted without their number being checked or remembered. LSPs never carry
+one: their own sequence numbers already defeat replay.
+
+Enable ``send`` on all the routers of a link before ``verify`` on any of
+them, and disable ``verify`` on all of them before ``send``: a router that
+verifies discards the PDUs of a neighbor that does not send the number. The
+mode applies to both levels of a LAN.
+
+When isisd starts sending numbers, the session number of an area becomes the
+current time, or one more than the last one, kept in the isisd state file
+(:file:`isisd.json` in the FRR state directory), whichever is greater
+(Appendix A of :rfc:`7602`): a restarted router keeps numbering above what its
+neighbors have seen as long as either its clock or that file survives.
+
+The last numbers accepted from a neighbor are kept with the interface, not
+with the adjacency, so that a replayed hello cannot bring back an adjacency
+with a neighbor that went away; they are forgotten when the interface goes
+down. A router that lost both its state file and its clock has its PDUs
+discarded until then.
+
+:clicmd:`show isis interface detail` shows the mode, the session number, and
+the PDUs discarded without a valid Extended Sequence Number or as replayed.
 
 .. _showing-isis-information:
 
