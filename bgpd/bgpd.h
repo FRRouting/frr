@@ -2592,9 +2592,9 @@ struct bgp_nlri {
 /* Max Buffer size for BGP Send Community */
 #define BGP_SEND_COMMUNITY_STR_SIZE 30
 
-/* Flag for peer_clear_soft().  */
+/* Type of 'clear bgp' operation. */
 enum bgp_clear_type {
-	BGP_CLEAR_SOFT_NONE,
+	BGP_CLEAR_HARD,
 	BGP_CLEAR_SOFT_OUT,
 	BGP_CLEAR_SOFT_IN,
 	BGP_CLEAR_SOFT_BOTH,
