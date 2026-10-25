@@ -2,14 +2,16 @@
 # SPDX-License-Identifier: ISC
 
 """
-Test IS-IS generic cryptographic authentication with key chains (RFC 5310).
+Test IS-IS generic cryptographic authentication with key chains (RFC 5310)
+and Extended Sequence Numbers (RFC 7602).
 
     r1 --(p2p)-- r2 --(LAN)-- r3
                        |
                        +----- r4
 
-Every router is level-1-2 and authenticates its hellos with the "hello" key
-chain, level-1 LSPs and SNPs with "area" and level-2 ones with "domain".
+Every router is level-1-2, authenticates its hellos with the "hello" key
+chain, level-1 LSPs and SNPs with "area" and level-2 ones with "domain", and
+verifies Extended Sequence Numbers on every link.
 """
 
 import functools
@@ -26,7 +28,7 @@ sys.path.append(os.path.join(CWD, "../"))
 
 # pylint: disable=C0413
 from lib import topotest
-from lib.common_config import step
+from lib.common_config import kill_router_daemons, start_router_daemons, step
 from lib.topogen import Topogen, get_topogen
 
 pytestmark = [pytest.mark.isisd]
@@ -46,7 +48,11 @@ KEY_STRINGS = {
     "domain": "domain-key-1-longer-than-a-sha-256-hash",
 }
 
+# The IS-IS PDU follows the 802.3 header and the LLC in a frame
+PDU_OFFSET = 14 + 3
+
 # PDU types (ISO 10589)
+L2_LAN_IIH = 16
 P2P_IIH = 17
 L2_CSNP = 25
 
@@ -205,6 +211,17 @@ def _check_same_seqno(lsp_id, level, router, owner):
     return None
 
 
+def _esn(router, ifname):
+    """The Extended Sequence Number state of an interface"""
+    output = json.loads(router.vtysh_cmd("show isis interface {} json".format(ifname)))
+    for area in output["areas"]:
+        for circuit in area["circuits"]:
+            iface = circuit.get("interface", {})
+            if iface.get("name") == ifname:
+                return iface.get("extended-sequence-number")
+    return None
+
+
 def _skip_on_failure():
     tgen = get_topogen()
     if tgen.routers_have_failure():
@@ -227,6 +244,11 @@ def test_lsps_signed():
         for level in (1, 2):
             _wait(_check_lsp_key_ids, tgen.gears[name], level, 1)
 
+    step("No LSP carries an Extended Sequence Number")
+    for level in (1, 2):
+        for lsp_id, lsp in _lsps(tgen.gears["r4"], level).items():
+            assert "extendedSequenceNumber" not in lsp, (lsp_id, lsp)
+
 
 def test_running_config():
     _skip_on_failure()
@@ -235,6 +257,7 @@ def test_running_config():
     config = r2.vtysh_cmd("show running-config").splitlines()
     for line in (
         " isis password key-chain hello",
+        " isis extended-sequence-number verify",
         " area-password key-chain area authenticate snp validate",
         " domain-password key-chain domain authenticate snp validate",
     ):
@@ -399,6 +422,323 @@ def _capture(sender, sender_if, receiver, receiver_if, pdu_type, timeout=15):
             CWD, receiver_if, _mac(sender, sender_if), pdu_type, timeout
         )
     ).strip()
+
+
+def _inject(sender, sender_if, receiver, receiver_if, pdu_type, args, marker):
+    """
+    Run pdu_replay.py args on sender, and check that receiver gets the frame
+    it sends, which contains marker: a test that the frame changes nothing
+    proves nothing otherwise.
+    """
+    seen = "{}/injected".format(receiver.gearlogdir)
+    receiver.cmd(
+        "python3 {}/pdu_replay.py capture {} {} {} 10 {} > {} 2> {}.err < /dev/null &".format(
+            CWD, receiver_if, _mac(sender, sender_if), pdu_type, marker, seen, seen
+        )
+    )
+    time.sleep(1)  # for the capture socket to be bound
+    sender.cmd("python3 {}/pdu_replay.py {}".format(CWD, args))
+
+    # Only the frame itself, never an error message, proves that it arrived.
+    def check():
+        if marker.lower() in receiver.cmd("cat " + seen):
+            return None
+        return "injected PDU not received: {}".format(
+            receiver.cmd("cat {}.err".format(seen))
+        )
+
+    _wait(check, count=10)
+
+
+def _replay(sender, sender_if, receiver, receiver_if, pdu_type):
+    """Capture a PDU of sender at receiver, then send it again."""
+    frame = _capture(sender, sender_if, receiver, receiver_if, pdu_type)
+    assert frame, "no PDU of type {} from {}".format(pdu_type, sender.name)
+    _inject(
+        sender,
+        sender_if,
+        receiver,
+        receiver_if,
+        pdu_type,
+        "send {} {}".format(sender_if, frame),
+        frame,
+    )
+
+
+def _check_replay_drops(router, ifname, drops):
+    esn = _esn(router, ifname)
+    if esn["replay-drops"] != drops:
+        return "{} {}: {} replayed PDUs dropped, expected {}".format(
+            router.name, ifname, esn["replay-drops"], drops
+        )
+    return None
+
+
+def test_esn_replayed_p2p_iih():
+    _skip_on_failure()
+    tgen = get_topogen()
+    r1, r2 = tgen.gears["r1"], tgen.gears["r2"]
+
+    step("A replayed p2p IIH from r1 is dropped by r2, which keeps the adjacency")
+    drops = _esn(r2, "r2-eth0")["replay-drops"]
+    _replay(r1, "r1-eth0", r2, "r2-eth0", P2P_IIH)
+    _wait(_check_replay_drops, r2, "r2-eth0", drops + 1)
+    assert _check_adjacency(r2, "r2-eth0", "r1", True) is None
+
+
+def test_esn_replayed_lan_iih():
+    _skip_on_failure()
+    tgen = get_topogen()
+    r2, r3, r4 = tgen.gears["r2"], tgen.gears["r3"], tgen.gears["r4"]
+
+    step("A replayed level-2 LAN IIH from r3 is dropped by r2 and r4")
+    drops2 = _esn(r2, "r2-eth1")["replay-drops"]
+    drops4 = _esn(r4, "r4-eth0")["replay-drops"]
+    _replay(r3, "r3-eth0", r2, "r2-eth1", L2_LAN_IIH)
+    _wait(_check_replay_drops, r2, "r2-eth1", drops2 + 1)
+    _wait(_check_replay_drops, r4, "r4-eth0", drops4 + 1)
+
+
+def test_esn_replayed_csnp():
+    _skip_on_failure()
+    tgen = get_topogen()
+    r1, r2 = tgen.gears["r1"], tgen.gears["r2"]
+
+    step("A replayed level-2 CSNP from r1 is dropped by r2")
+    drops = _esn(r2, "r2-eth0")["replay-drops"]
+    _replay(r1, "r1-eth0", r2, "r2-eth0", L2_CSNP)
+    _wait(_check_replay_drops, r2, "r2-eth0", drops + 1)
+
+
+def test_esn_send_only_accepts_replay():
+    _skip_on_failure()
+    tgen = get_topogen()
+    r1, r2 = tgen.gears["r1"], tgen.gears["r2"]
+
+    step("Sending without verifying, r2 accepts the same replay")
+    drops = _esn(r2, "r2-eth0")["replay-drops"]
+    _configure(r2, "interface r2-eth0", "isis extended-sequence-number send")
+    _replay(r1, "r1-eth0", r2, "r2-eth0", P2P_IIH)
+    time.sleep(2)
+    assert _esn(r2, "r2-eth0")["replay-drops"] == drops
+    _configure(r2, "interface r2-eth0", "isis extended-sequence-number verify")
+    assert _check_adjacency(r2, "r2-eth0", "r1", True) is None
+
+
+def test_esn_forged_iih():
+    _skip_on_failure()
+    tgen = get_topogen()
+    r1, r2 = tgen.gears["r1"], tgen.gears["r2"]
+    frame = _capture(r1, "r1-eth0", r2, "r2-eth0", P2P_IIH)
+    assert frame, "no IIH from r1"
+
+    def forge(tlv):
+        r1.cmd(
+            "python3 {}/pdu_replay.py forge r1-eth0 {} {} {}".format(
+                CWD, frame, KEY_STRINGS["hello"], tlv
+            )
+        )
+
+    step("Re-signed with an unknown TLV added, r1's IIH is authentic, and replayed")
+    esn = _esn(r2, "r2-eth0")
+    forge("fa00")
+    _wait(_check_replay_drops, r2, "r2-eth0", esn["replay-drops"] + 1)
+    assert _esn(r2, "r2-eth0")["missing-drops"] == esn["missing-drops"]
+
+    step("Re-signed with a second ESN TLV, or an empty one, it is invalid")
+    forge("0b0c" + "00" * 7 + "7f" + "ff" * 4)
+    forge("0b00")
+    time.sleep(2)
+    assert _esn(r2, "r2-eth0")["missing-drops"] == esn["missing-drops"] + 2
+    assert _esn(r2, "r2-eth0")["replay-drops"] == esn["replay-drops"] + 1
+    assert _check_adjacency(r2, "r2-eth0", "r1", True) is None
+
+
+def _rewrite_esn(
+    sender, sender_if, receiver, receiver_if, frame, session=2**64 - 1, packet=2**32 - 1
+):
+    """Send a captured PDU again with another ESN, the highest by default."""
+    _inject(
+        sender,
+        sender_if,
+        receiver,
+        receiver_if,
+        int(frame[2 * PDU_OFFSET + 8 : 2 * PDU_OFFSET + 10], 16) & 0x1F,
+        "rewrite-esn {} {} {} {}".format(sender_if, frame, session, packet),
+        "0b0c{:016x}{:08x}".format(session, packet),
+    )
+
+
+def test_esn_unvalidated_snp():
+    _skip_on_failure()
+    tgen = get_topogen()
+    r1, r2 = tgen.gears["r1"], tgen.gears["r2"]
+
+    step("r2 stops validating level-2 SNPs, which anyone can then forge")
+    _configure(
+        r2,
+        "router isis 1",
+        "domain-password key-chain domain authenticate snp send-only",
+    )
+    frame = _capture(r1, "r1-eth0", r2, "r2-eth0", L2_CSNP)
+    assert frame, "no CSNP from r1"
+    esn = _esn(r2, "r2-eth0")
+
+    step("A CSNP of r1 with the highest ESN does not make r2 drop the next ones")
+    _rewrite_esn(r1, "r1-eth0", r2, "r2-eth0", frame)
+    time.sleep(25)  # r1 sends a CSNP every 10s
+    assert _esn(r2, "r2-eth0") == esn
+
+    step("Nor does it remember that ESN once it validates SNPs again")
+    # Right after a CSNP of r1, so that no other one comes before validating
+    frame = _capture(r1, "r1-eth0", r2, "r2-eth0", L2_CSNP)
+    _rewrite_esn(r1, "r1-eth0", r2, "r2-eth0", frame)
+    _configure(
+        r2,
+        "router isis 1",
+        "domain-password key-chain domain authenticate snp validate",
+    )
+    time.sleep(25)
+    assert _esn(r2, "r2-eth0") == esn
+    _check_baseline()
+
+
+def test_esn_cleartext_iih():
+    _skip_on_failure()
+    tgen = get_topogen()
+    r1, r2 = tgen.gears["r1"], tgen.gears["r2"]
+
+    step("r1 and r2 authenticate their hellos with a clear-text password")
+    for router, ifname in ((r1, "r1-eth0"), (r2, "r2-eth0")):
+        _configure(router, "interface " + ifname, "isis password clear hello-clear")
+    _check_baseline()
+    frame = _capture(r1, "r1-eth0", r2, "r2-eth0", P2P_IIH)
+    assert frame, "no IIH from r1"
+    esn, flaps = _esn(r2, "r2-eth0"), _flaps(r2)
+
+    step(
+        "An IIH of r1 with the highest ESN, password intact, does not block the next ones"
+    )
+    _rewrite_esn(r1, "r1-eth0", r2, "r2-eth0", frame)
+    time.sleep(6)  # twice the holding time
+    assert _check_adjacency(r2, "r2-eth0", "r1", True) is None
+    assert _esn(r2, "r2-eth0") == esn
+    assert _flaps(r2) == flaps
+
+    step("Nor is an IIH with an invalid ESN dropped: its ESN is not checked at all")
+    _rewrite_esn(r1, "r1-eth0", r2, "r2-eth0", frame, session=0)
+    time.sleep(2)
+    assert _esn(r2, "r2-eth0") == esn
+
+    for router, ifname in ((r1, "r1-eth0"), (r2, "r2-eth0")):
+        _configure(router, "interface " + ifname, "isis password key-chain hello")
+    _check_baseline()
+
+
+def test_esn_missing():
+    _skip_on_failure()
+    tgen = get_topogen()
+    r1, r2 = tgen.gears["r1"], tgen.gears["r2"]
+
+    step("r1 stops sending ESNs: r2 verifies them, so it drops r1's IIHs")
+    drops = _esn(r2, "r2-eth0")["missing-drops"]
+    _configure(r1, "interface r1-eth0", "no isis extended-sequence-number")
+    _wait(_check_adjacency, r2, "r2-eth0", "r1", False)
+    assert _esn(r2, "r2-eth0")["missing-drops"] > drops
+
+    step("r1 sends them again without verifying: the adjacency comes back")
+    _configure(r1, "interface r1-eth0", "isis extended-sequence-number send")
+    _wait(_check_adjacency, r2, "r2-eth0", "r1", True)
+    _configure(r1, "interface r1-eth0", "isis extended-sequence-number verify")
+    _check_baseline()
+
+
+def test_esn_circuit_restart():
+    _skip_on_failure()
+    tgen = get_topogen()
+    r1, r2 = tgen.gears["r1"], tgen.gears["r2"]
+
+    step("r1 restarts IS-IS on its link before r2's adjacency expires")
+    drops = _esn(r2, "r2-eth0")["replay-drops"]
+    _configure(
+        r1,
+        "interface r1-eth0",
+        "no ip router isis 1",
+        "ip router isis 1",
+        "isis network point-to-point",
+        "isis hello-interval 1",
+        "isis hello-multiplier 3",
+        "isis password key-chain hello",
+        "isis extended-sequence-number verify",
+    )
+
+    step("r2 takes r1's hellos as new, not as replayed: the numbers kept increasing")
+    _check_baseline()
+    assert _esn(r2, "r2-eth0")["replay-drops"] == drops
+
+
+def _restart_isisd(router):
+    tgen = get_topogen()
+    kill_router_daemons(tgen, router.name, ["isisd"])
+    start_router_daemons(tgen, router.name, ["isisd"])
+
+
+def test_esn_replay_after_adjacency_loss():
+    _skip_on_failure()
+    tgen = get_topogen()
+    r1, r2 = tgen.gears["r1"], tgen.gears["r2"]
+    frame = _capture(r1, "r1-eth0", r2, "r2-eth0", P2P_IIH)
+    assert frame, "no IIH from r1"
+
+    step("r1's isisd stops, and r2's adjacency with r1 times out")
+    kill_router_daemons(tgen, "r1", ["isisd"])
+    _wait(_check_adjacency, r2, "r2-eth0", "r1", False)
+    drops = _esn(r2, "r2-eth0")["replay-drops"]
+
+    step("A captured IIH of r1 does not bring it back: r2 still knows r1's ESNs")
+    _inject(r1, "r1-eth0", r2, "r2-eth0", P2P_IIH, "send r1-eth0 " + frame, frame)
+    _wait(_check_replay_drops, r2, "r2-eth0", drops + 1)
+    assert _check_adjacency(r2, "r2-eth0", "r1", False) is None
+
+    step("r1's isisd starts again, in a new session that r2 accepts")
+    start_router_daemons(tgen, "r1", ["isisd"])
+    _check_baseline()
+
+
+def test_esn_session_across_restarts():
+    _skip_on_failure()
+    tgen = get_topogen()
+    r1 = tgen.gears["r1"]
+
+    step("The Extended Session Sequence Number grows with every isisd start")
+    session = _esn(r1, "r1-eth0")["session"]
+    _restart_isisd(r1)
+    _check_baseline()
+    assert _esn(r1, "r1-eth0")["session"] > session
+
+    step("Without the state file, the clock keeps it growing")
+    session = _esn(r1, "r1-eth0")["session"]
+    r1.cmd("rm -f /var/lib/frr/isisd.json")
+    _restart_isisd(r1)
+    _check_baseline()
+    assert _esn(r1, "r1-eth0")["session"] > session
+
+    step("A session in the state file ahead of the clock is continued")
+    session = int(time.time()) + 10**9
+    kill_router_daemons(tgen, "r1", ["isisd"])
+    # Replace the file isisd wrote rather than write into it, which
+    # fs.protected_regular refuses even to root in a sticky directory; isisd
+    # must own the new one to replace it in turn.
+    r1.cmd_raises(
+        "echo '{}' > /var/lib/frr/isisd.json.new"
+        " && chown frr:frr /var/lib/frr/isisd.json.new"
+        " && mv -f /var/lib/frr/isisd.json.new /var/lib/frr/isisd.json".format(
+            json.dumps({"extended-session-sequence-numbers": {"1": session}})
+        )
+    )
+    start_router_daemons(tgen, "r1", ["isisd"])
+    _check_baseline()
+    assert _esn(r1, "r1-eth0")["session"] == session + 1
 
 
 def test_key_rollover_on_schedule():
