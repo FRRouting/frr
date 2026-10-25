@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 /*
- * RFC 5310 generic cryptographic authentication.
+ * RFC 5310 generic cryptographic authentication and the RFC 7602 Extended
+ * Sequence Number TLV.
  *
  * The expected digests were computed independently with Python's hmac
  * module: HMAC over the PDU with the digest set to Apad (0x878FE1F3...) and,
@@ -347,6 +348,79 @@ static void test_send_key(void)
 	printf("send lifetime changes: ok\n");
 }
 
+static struct isis_tlvs *unpack(const uint8_t *data, size_t len)
+{
+	struct stream *s = stream_new(len);
+	struct isis_tlvs *tlvs;
+	const char *log;
+
+	stream_put(s, data, len);
+	assert(!isis_unpack_tlvs(STREAM_READABLE(s), s, &tlvs, &log));
+	stream_free(s);
+	return tlvs;
+}
+
+static void test_esn(void)
+{
+	/* two ESN TLVs */
+	static const uint8_t two[] = {
+		0x0b, 0x0c, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0x00, 0x00, 0x00, 0x05,
+		0x0b, 0x0c, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x03, 0x00, 0x00, 0x00, 0x01,
+	};
+	/* one with a wrong length */
+	static const uint8_t bad[] = {
+		0x0b, 0x0b, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0x00, 0x00, 0x00,
+	};
+	/* a valid one and an empty one, in both orders */
+	/* clang-format off */
+	static const uint8_t valid_empty[] = {
+		0x0b, 0x0c, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0x00, 0x00, 0x00, 0x05,
+		0x0b, 0x00,
+	};
+	static const uint8_t empty_valid[] = {
+		0x0b, 0x00,
+		0x0b, 0x0c, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0x00, 0x00, 0x00, 0x05,
+	};
+	/* clang-format on */
+	struct isis_tlvs *tlvs = isis_alloc_tlvs();
+	struct stream *s = stream_new(64);
+	const char *log;
+
+	isis_tlvs_set_esn(tlvs, 0x0102030405060708ULL, 0x0a0b0c0d);
+	assert(!isis_pack_tlvs(tlvs, s, (size_t)-1, false, false));
+	isis_free_tlvs(tlvs);
+
+	static const uint8_t want[] = {
+		0x0b, 0x0c, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x0a, 0x0b, 0x0c, 0x0d,
+	};
+	assert(stream_get_endp(s) == sizeof(want));
+	assert(!memcmp(STREAM_DATA(s), want, sizeof(want)));
+
+	stream_set_getp(s, 0);
+	assert(!isis_unpack_tlvs(STREAM_READABLE(s), s, &tlvs, &log));
+	assert(tlvs->esn && tlvs->esn->essn == 0x0102030405060708ULL &&
+	       tlvs->esn->psn == 0x0a0b0c0d && !tlvs->esn->invalid);
+	isis_free_tlvs(tlvs);
+	stream_free(s);
+
+	tlvs = unpack(two, sizeof(two));
+	assert(tlvs->esn && tlvs->esn->invalid);
+	isis_free_tlvs(tlvs);
+
+	tlvs = unpack(bad, sizeof(bad));
+	assert(tlvs->esn && tlvs->esn->invalid);
+	isis_free_tlvs(tlvs);
+
+	tlvs = unpack(valid_empty, sizeof(valid_empty));
+	assert(tlvs->esn && tlvs->esn->invalid);
+	isis_free_tlvs(tlvs);
+
+	tlvs = unpack(empty_valid, sizeof(empty_valid));
+	assert(tlvs->esn && tlvs->esn->invalid);
+	isis_free_tlvs(tlvs);
+	printf("extended sequence number TLV: ok\n");
+}
+
 int main(int argc, char **argv)
 {
 	keychain_init_new(true);
@@ -358,6 +432,7 @@ int main(int argc, char **argv)
 	test_truncated_key_id();
 	test_digest_length();
 	test_send_key();
+	test_esn();
 
 	keychain_terminate();
 	isis_tlvs_terminate();
