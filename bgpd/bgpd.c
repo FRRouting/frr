@@ -10171,7 +10171,7 @@ void bgp_clearing_batch_completed(struct bgp_clearing_info *cinfo)
 			   cinfo->total_counter);
 
 	/* Ensure event is not scheduled */
-	event_cancel_event(bm->master, &cinfo->t_sched);
+	event_cancel(&cinfo->t_sched);
 
 	/* Remove all peers and un-ref */
 	while ((peer = bgp_clearing_hash_pop_all(&cinfo->peers, &idx)) != NULL)
