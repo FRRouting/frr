@@ -785,9 +785,12 @@ static int netlink_route_read_unicast_ctx(struct nlmsghdr *h, ns_id_t ns_id,
 	uint32_t nhg_id = 0;
 	void *dest = NULL;
 	void *gate = NULL;
-	int gate_len;
+	size_t gate_len = 0;
 	void *prefsrc = NULL; /* IPv4 preferred source host address */
-	int prefsrc_len;
+	size_t prefsrc_len = 0;
+	size_t dest_len = 0;
+	size_t src_len = 0;
+	size_t addr_len;
 	void *src = NULL;     /* IPv6 srcdest   source prefix */
 	enum blackhole_type bh_type = BLACKHOLE_UNSPEC;
 	afi_t afi = AFI_IP;
@@ -877,15 +880,40 @@ static int netlink_route_read_unicast_ctx(struct nlmsghdr *h, ns_id_t ns_id,
 	if (tb[RTA_OIF])
 		index = *(int *)RTA_DATA(tb[RTA_OIF]);
 
-	if (tb[RTA_DST])
-		dest = RTA_DATA(tb[RTA_DST]);
-	else
-		dest = anyaddr;
+	/*
+	 * Resolve the route's family to the length every one of its address
+	 * attributes must carry.  The kernel always sends them that way; the
+	 * same parser also runs on messages read back from an FPM peer, which
+	 * cannot be trusted to, so the lengths are checked below before
+	 * anything is copied out of them.
+	 */
+	if (rtm->rtm_family == AF_INET)
+		addr_len = IPV4_MAX_BYTELEN;
+	else if (rtm->rtm_family == AF_INET6)
+		addr_len = IPV6_MAX_BYTELEN;
+	else {
+		/* We only handle the AFs we handle... */
+		if (IS_ZEBRA_DEBUG_KERNEL)
+			zlog_debug("%s: unknown address-family %u", __func__, rtm->rtm_family);
+		ret = -1;
+		goto done;
+	}
 
-	if (tb[RTA_SRC])
+	if (tb[RTA_DST]) {
+		dest = RTA_DATA(tb[RTA_DST]);
+		dest_len = RTA_PAYLOAD(tb[RTA_DST]);
+	} else {
+		dest = anyaddr;
+		dest_len = addr_len;
+	}
+
+	if (tb[RTA_SRC]) {
 		src = RTA_DATA(tb[RTA_SRC]);
-	else
+		src_len = RTA_PAYLOAD(tb[RTA_SRC]);
+	} else {
 		src = anyaddr;
+		src_len = addr_len;
+	}
 
 	if (tb[RTA_PREFSRC]) {
 		prefsrc = RTA_DATA(tb[RTA_PREFSRC]);
@@ -916,6 +944,22 @@ static int netlink_route_read_unicast_ctx(struct nlmsghdr *h, ns_id_t ns_id,
 
 		if (mxrta[RTAX_MTU])
 			mtu = *(uint32_t *)RTA_DATA(mxrta[RTAX_MTU]);
+	}
+
+	/*
+	 * Every address attribute must carry exactly one address of the
+	 * route's family.  dest and src were defaulted to the family length
+	 * above when absent, so only the optional prefsrc and gateway need
+	 * guarding against a missing attribute here.
+	 */
+	if (dest_len != addr_len || src_len != addr_len || (prefsrc && prefsrc_len != addr_len) ||
+	    (gate && gate_len != addr_len)) {
+		flog_err(EC_ZEBRA_NETLINK_LENGTH_ERROR,
+			 "%s: %s message with family %u carries an address attribute of invalid length (dst %zu src %zu prefsrc %zu gateway %zu, expected %zu)",
+			 __func__, nl_msg_type_to_str(h->nlmsg_type), rtm->rtm_family, dest_len,
+			 src_len, prefsrc_len, gate_len, addr_len);
+		ret = -1;
+		goto done;
 	}
 
 	if (rtm->rtm_family == AF_INET) {
@@ -962,13 +1006,6 @@ static int netlink_route_read_unicast_ctx(struct nlmsghdr *h, ns_id_t ns_id,
 		}
 		memcpy(&src_p.u.prefix6, src, 16);
 		src_p.prefixlen = rtm->rtm_src_len;
-	} else {
-		/* We only handle the AFs we handle... */
-		if (IS_ZEBRA_DEBUG_KERNEL)
-			zlog_debug("%s: unknown address-family %u", __func__,
-				   rtm->rtm_family);
-		ret = -1;
-		goto done;
 	}
 
 	/*
@@ -1034,10 +1071,10 @@ static int netlink_route_read_unicast_ctx(struct nlmsghdr *h, ns_id_t ns_id,
 
 		if (afi == AFI_IP) {
 			SET_IPADDR_V4(&addr);
-			memcpy(&addr.ipaddr_v4, prefsrc, prefsrc_len);
+			memcpy(&addr.ipaddr_v4, prefsrc, sizeof(addr.ipaddr_v4));
 		} else {
 			SET_IPADDR_V6(&addr);
-			memcpy(&addr.ipaddr_v6, prefsrc, prefsrc_len);
+			memcpy(&addr.ipaddr_v6, prefsrc, sizeof(addr.ipaddr_v6));
 		}
 
 		dplane_ctx_set_route_prefsrc(ctx, &addr);
@@ -1051,10 +1088,10 @@ static int netlink_route_read_unicast_ctx(struct nlmsghdr *h, ns_id_t ns_id,
 
 		if (afi == AFI_IP) {
 			SET_IPADDR_V4(&addr);
-			memcpy(&addr.ipaddr_v4, gate, gate_len);
+			memcpy(&addr.ipaddr_v4, gate, sizeof(addr.ipaddr_v4));
 		} else {
 			SET_IPADDR_V6(&addr);
-			memcpy(&addr.ipaddr_v6, gate, gate_len);
+			memcpy(&addr.ipaddr_v6, gate, sizeof(addr.ipaddr_v6));
 		}
 
 		dplane_ctx_set_route_gw(ctx, &addr);
