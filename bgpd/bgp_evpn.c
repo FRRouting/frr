@@ -868,8 +868,13 @@ bool is_route_injectable_into_evpn_non_supp(struct bgp *bgp_vrf, afi_t afi, safi
 		if (BGP_DEBUG(vpn, VPN_LEAK_FROM_VRF) || BGP_DEBUG(vpn, VPN_LEAK_TO_VRF))
 			zlog_debug("vrf %s: skip EVPN re-export of EVPN-derived prefix %pFX",
 				   bgp_vrf->name_pretty, bgp_dest_get_prefix(pi->net));
+		SET_FLAG(pi->flags, BGP_PATH_EVPN_TYPE5_SKIP_IMPORTED);
 		return false;
 	}
+
+	/* Not suppressed - clear any stale mark */
+	if (CHECK_FLAG(pi->flags, BGP_PATH_EVPN_TYPE5_SKIP_IMPORTED))
+		UNSET_FLAG(pi->flags, BGP_PATH_EVPN_TYPE5_SKIP_IMPORTED);
 
 	if (safi == SAFI_MPLS_VPN) {
 		if (pi->peer != bgp_vrf->peer_self)
@@ -6508,6 +6513,7 @@ void bgp_evpn_withdraw_imported_type5_leaked_routes(struct bgp *bgp_vrf, afi_t a
 					   addpath_id);
 			bgp_evpn_withdraw_type5_route(bgp_vrf, src_pi, bgp_dest_get_prefix(dest),
 						      afi, SAFI_UNICAST, addpath_id);
+			SET_FLAG(src_pi->flags, BGP_PATH_EVPN_TYPE5_SKIP_IMPORTED);
 		}
 	}
 }

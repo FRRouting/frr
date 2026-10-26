@@ -396,6 +396,8 @@ struct bgp_path_info {
 #define BGP_PATH_UPA                                                                              \
 	(1 << 22) /* Route has UPA marking (locally originated or received with UPA ExtCom) */
 #define BGP_PATH_UPA_DROP (1 << 23) /* UPA route has D-bit set (drop/blackhole) */
+/* Type-5 export was suppressed by skip-evpn-imported. */
+#define BGP_PATH_EVPN_TYPE5_SKIP_IMPORTED (1 << 24)
 
 	/* BGP route type.  This can be static, RIP, OSPF, BGP etc.  */
 	uint8_t type;

@@ -4716,6 +4716,123 @@ DEFPY (no_bgp_evpn_advertise_type5,
 	return CMD_SUCCESS;
 }
 
+DEFPY (show_bgp_vrf_unicast_skip_evpn_imported,
+       show_bgp_vrf_unicast_skip_evpn_imported_cmd,
+       "show bgp vrf VRFNAME$vrf_name <ipv4|ipv6>$afi_str unicast "
+       "<A.B.C.D/M|X:X::X:X/M>$prefix skip-evpn-imported [json$json]",
+       SHOW_STR
+       BGP_STR
+       "VRF\n"
+       "VRF name\n"
+       BGP_AFI_HELP_STR
+       "Unicast\n"
+       "IPv4 prefix\n"
+       "IPv6 prefix\n"
+       "Display paths suppressed by skip-evpn-imported\n"
+       JSON_STR)
+{
+	struct bgp *bgp_vrf;
+	struct bgp_table *table;
+	struct bgp_dest *dest;
+	struct bgp_path_info *pi;
+	json_object *json_out;
+	json_object *json_paths = NULL;
+	afi_t afi = strmatch(afi_str, "ipv4") ? AFI_IP : AFI_IP6;
+	unsigned int count = 0;
+	bool use_json = !!json;
+
+	if (family2afi(prefix->family) != afi) {
+		if (use_json)
+			vty_json_empty(vty, NULL);
+		else
+			vty_out(vty, "%% Invalid %s prefix\n", afi_str);
+		return CMD_WARNING;
+	}
+
+	bgp_vrf = strmatch(vrf_name, VRF_DEFAULT_NAME)
+			  ? bgp_get_default()
+			  : bgp_lookup_by_name(vrf_name);
+	if (!bgp_vrf || IS_BGP_INSTANCE_HIDDEN(bgp_vrf)) {
+		if (use_json)
+			vty_json_empty(vty, NULL);
+		else
+			vty_out(vty, "%% Specified BGP instance not found\n");
+		return CMD_WARNING;
+	}
+
+	/* If the feature knob itself is not enabled, nothing is suppressed by it. */
+	if (!CHECK_FLAG(bgp_vrf->af_flags[AFI_L2VPN][SAFI_EVPN],
+			afi == AFI_IP ? BGP_L2VPN_EVPN_SUPPRESS_IPV4_IMPORT_FROM_EVPN
+				      : BGP_L2VPN_EVPN_SUPPRESS_IPV6_IMPORT_FROM_EVPN))
+		goto not_suppressed;
+
+	table = bgp_vrf->rib[afi][SAFI_UNICAST];
+	if (!table)
+		goto not_suppressed;
+
+	/* Look up the exact prefix */
+	dest = bgp_node_lookup(table, prefix);
+	if (!dest || !bgp_dest_has_bgp_path_info_data(dest)) {
+		if (dest)
+			bgp_dest_unlock_node(dest);
+		if (use_json)
+			vty_json_empty(vty, NULL);
+		else
+			vty_out(vty, "%% Network not in table\n");
+		return CMD_SUCCESS;
+	}
+
+	for (pi = bgp_dest_get_bgp_path_info(dest); pi; pi = pi->next) {
+		if (!CHECK_FLAG(pi->flags, BGP_PATH_EVPN_TYPE5_SKIP_IMPORTED) ||
+		    CHECK_FLAG(pi->flags, BGP_PATH_REMOVED))
+			continue;
+
+		/* Allocate the array only once a path matches, so the no-match
+		 * case below has nothing to release.
+		 */
+		if (!count) {
+			if (use_json) {
+				json_paths = json_object_new_array();
+			} else {
+				vty_out(vty,
+					"EVPN Type-5 export suppressed by skip-evpn-imported\n\n");
+				route_vty_out_detail_header(vty, bgp_vrf, dest,
+							    bgp_dest_get_prefix(dest), NULL, afi,
+							    SAFI_UNICAST, NULL, false, false);
+			}
+		}
+		route_vty_out_detail(vty, bgp_vrf, dest,
+				     bgp_dest_get_prefix(dest), pi, afi, SAFI_UNICAST,
+				     RPKI_NOT_BEING_USED, json_paths, NULL, 0);
+		count++;
+	}
+
+	bgp_dest_unlock_node(dest);
+
+	if (!count)
+		goto not_suppressed;
+
+	if (use_json) {
+		json_out = json_object_new_object();
+		json_object_string_addf(json_out, "prefix", "%pFX", prefix);
+		json_object_int_add(json_out, "pathCount", count);
+		json_object_object_add(json_out, "paths", json_paths);
+		return vty_json(vty, json_out);
+	}
+
+	vty_out(vty, "\nDisplayed %u suppressed path%s\n", count,
+		count == 1 ? "" : "s");
+	return CMD_SUCCESS;
+
+not_suppressed:
+	if (use_json)
+		vty_json_empty(vty, NULL);
+	else
+		vty_out(vty,
+			"No paths for this prefix are suppressed by skip-evpn-imported\n");
+	return CMD_SUCCESS;
+}
+
 DEFPY (bgp_evpn_use_es_l3nhg,
        bgp_evpn_use_es_l3nhg_cmd,
        "[no$no] use-es-l3nhg",
@@ -8376,6 +8493,8 @@ void bgp_ethernetvpn_init(void)
 			&show_bgp_l2vpn_evpn_route_mac_ip_global_es_cmd);
 	install_element(VIEW_NODE, &show_bgp_l2vpn_evpn_import_rt_cmd);
 	install_element(VIEW_NODE, &show_bgp_l2vpn_evpn_vrf_import_rt_cmd);
+	install_element(VIEW_NODE,
+			&show_bgp_vrf_unicast_skip_evpn_imported_cmd);
 
 	/* "show bgp vni" commands. */
 	install_element(VIEW_NODE, &show_bgp_vni_all_cmd);
