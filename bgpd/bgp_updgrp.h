@@ -80,6 +80,11 @@ typedef struct {
 #define BPKT_ATTRVEC_FLAGS_RMAP_IPV6_LNH_CHANGED  (1 << 6)
 #define BPKT_ATTRVEC_FLAGS_RMAP_VPNV4_NH_CHANGED  (1 << 7)
 #define BPKT_ATTRVEC_FLAGS_RMAP_VPNV6_GNH_CHANGED (1 << 8)
+/*
+ * The route carries an SRv6 L3 service SID, so its nexthop stays one of this
+ * router's IPv6 addresses (RFC 9252 section 5).
+ */
+#define BPKT_ATTRVEC_FLAGS_SRV6_L3VPN (1 << 9)
 
 typedef struct bpacket_attr_vec_arr {
 	bpacket_attr_vec entries[BGP_ATTR_VEC_MAX];
