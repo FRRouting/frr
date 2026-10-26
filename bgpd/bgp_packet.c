@@ -2812,8 +2812,11 @@ static void bgp_orf_plist_update(struct peer *peer, afi_t afi, safi_t safi,
 		UPDGRP_PEER(PAF_UPDGRP(paf))->orf_plist[afi][safi] = plist;
 }
 
-/* Returns false if the BoRR or EoRR is ignored */
-static bool bgp_route_refresh_marker_receive(struct peer_connection *connection, afi_t afi,
+/*
+ * BoRR and EoRR only mark where the peer starts and stops re-sending its
+ * routes to us. They ask nothing of us, so nothing is announced back.
+ */
+static void bgp_route_refresh_marker_receive(struct peer_connection *connection, afi_t afi,
 					     safi_t safi, uint8_t subtype)
 {
 	struct peer *peer = connection->peer;
@@ -2831,14 +2834,14 @@ static bool bgp_route_refresh_marker_receive(struct peer_connection *connection,
 			if (bgp_debug_neighbor_events(peer))
 				zlog_debug("%pBP rcvd route-refresh (BoRR) for %s/%s before EoR",
 					   peer, afi2str(afi), safi2str(safi));
-			return false;
+			return;
 		}
 
 		if (event_is_scheduled(peer->t_refresh_stalepath)) {
 			if (bgp_debug_neighbor_events(peer))
 				zlog_debug("%pBP rcvd route-refresh (BoRR) for %s/%s, whereas BoRR already received",
 					   peer, afi2str(afi), safi2str(safi));
-			return false;
+			return;
 		}
 
 		SET_FLAG(peer->af_sflags[afi][safi], PEER_STATUS_BORR_RECEIVED);
@@ -2865,7 +2868,7 @@ static bool bgp_route_refresh_marker_receive(struct peer_connection *connection,
 			flog_err(EC_BGP_ROUTE_REFRESH_INVALID,
 				 "%pBP rcvd route-refresh (EoRR) for %s/%s, whereas no BoRR received",
 				 peer, afi2str(afi), safi2str(safi));
-			return false;
+			return;
 		}
 
 		event_cancel(&peer->t_refresh_stalepath);
@@ -2879,8 +2882,6 @@ static bool bgp_route_refresh_marker_receive(struct peer_connection *connection,
 
 		bgp_clear_stale_route(peer, afi, safi);
 	}
-
-	return true;
 }
 
 >>>>>>> 4e813ed (bgpd: move BoRR and EoRR handling into its own function)
@@ -3167,6 +3168,11 @@ static int bgp_route_refresh_receive(struct peer_connection *connection, bgp_siz
 			return BGP_PACKET_NOOP;
 	}
 
+	if (subtype == BGP_ROUTE_REFRESH_BORR || subtype == BGP_ROUTE_REFRESH_EORR) {
+		bgp_route_refresh_marker_receive(connection, afi, safi, subtype);
+		return BGP_PACKET_NOOP;
+	}
+
 	/* First update is deferred until ORF or ROUTE-REFRESH is received */
 	if (CHECK_FLAG(peer->af_sflags[afi][safi],
 		       PEER_STATUS_ORF_WAIT_REFRESH))
@@ -3197,12 +3203,6 @@ static int bgp_route_refresh_receive(struct peer_connection *connection, bgp_siz
 			       SUBGRP_STATUS_DEFAULT_ORIGINATE))
 			UNSET_FLAG(paf->subgroup->sflags,
 				   SUBGRP_STATUS_DEFAULT_ORIGINATE);
-	}
-
-	if (subtype == BGP_ROUTE_REFRESH_BORR || subtype == BGP_ROUTE_REFRESH_EORR) {
-		if (bgp_route_refresh_marker_receive(connection, afi, safi, subtype))
-			bgp_announce_route(peer, afi, safi, force_update);
-		return BGP_PACKET_NOOP;
 	}
 
 	if (bgp_debug_neighbor_events(peer))
