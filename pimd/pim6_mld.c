@@ -1913,7 +1913,6 @@ out_free:
 static void gm_send_query(struct gm_if *gm_ifp, pim_addr grp,
 			  const pim_addr *srcs, size_t n_srcs, bool s_bit)
 {
-	struct pim_interface *pim_ifp = gm_ifp->ifp->info;
 	struct sockaddr_in6 dstaddr = {
 		.sin6_family = AF_INET6,
 		.sin6_scope_id = gm_ifp->ifp->ifindex,
@@ -1932,9 +1931,9 @@ static void gm_send_query(struct gm_if *gm_ifp, pim_addr grp,
 		},
 		/* clang-format on */
 	};
+	/* Same source as IPV6_PKTINFO below */
 	struct ipv6_ph ph6 = {
-		.src = pim_ifp->ll_lowest,
-		.ulpl = htonl(sizeof(query)),
+		.src = gm_ifp->cur_ll_lowest,
 		.next_hdr = IPPROTO_ICMPV6,
 	};
 	union {
@@ -1952,7 +1951,6 @@ static void gm_send_query(struct gm_if *gm_ifp, pim_addr grp,
 
 	if (if_is_loopback(gm_ifp->ifp)) {
 		/* Linux is a bit odd with multicast on loopback */
-		ph6.src = in6addr_loopback;
 		dstaddr.sin6_addr = in6addr_loopback;
 	} else if (pim_addr_is_any(grp))
 		dstaddr.sin6_addr = gm_all_hosts;
@@ -1987,12 +1985,16 @@ static void gm_send_query(struct gm_if *gm_ifp, pim_addr grp,
 		iov_len = 3;
 	}
 
+	expect_ret = iov[1].iov_len;
+	if (iov_len == 3)
+		expect_ret += iov[2].iov_len;
+
+	ph6.ulpl = htonl(expect_ret);
 	query.hdr.icmp6_cksum = in_cksumv(iov, iov_len);
 
 	if (PIM_DEBUG_GM_PACKETS)
-		zlog_debug(
-			log_ifp("MLD query %pPA -> %pI6 (grp=%pPA, %zu srcs)"),
-			&pim_ifp->ll_lowest, &dstaddr.sin6_addr, &grp, n_srcs);
+		zlog_debug(log_ifp("MLD query %pPA -> %pI6 (grp=%pPA, %zu srcs)"),
+			   &gm_ifp->cur_ll_lowest, &dstaddr.sin6_addr, &grp, n_srcs);
 
 	mh->msg_name = &dstaddr;
 	mh->msg_namelen = sizeof(dstaddr);
@@ -2022,10 +2024,6 @@ static void gm_send_query(struct gm_if *gm_ifp, pim_addr grp,
 	pktinfo = (struct in6_pktinfo *)CMSG_DATA(cmh);
 	pktinfo->ipi6_ifindex = gm_ifp->ifp->ifindex;
 	pktinfo->ipi6_addr = gm_ifp->cur_ll_lowest;
-
-	expect_ret = iov[1].iov_len;
-	if (iov_len == 3)
-		expect_ret += iov[2].iov_len;
 
 	frr_with_privs (&pimd_privs) {
 		ret = sendmsg(gm_ifp->pim->gm_socket, mh, 0);
