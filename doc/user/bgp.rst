@@ -2987,11 +2987,31 @@ The following commands can be used in route maps:
 
 .. clicmd:: set comm-list WORD delete
 
+<<<<<<< HEAD
    This command remove communities value from BGP communities attribute.  The
    ``word`` is community list name. When BGP route's communities value matches
    to the community list ``word``, the communities value is removed. When all
    of communities value is removed eventually, the BGP update's communities
    attribute is completely removed.
+=======
+.. clicmd:: set comm-list <delete|add|replace> WORD
+
+   This command modifies the BGP communities attribute using a specified 
+   standard community list name (``WORD``). 
+   The following operations are available:
+
+   * ``delete``: Removes communities from the BGP communities attribute that 
+                 match the specified community list.
+   * ``add``: Appends the communities defined in the community list to the 
+              existing BGP communities attribute of the route.
+   * ``replace``: Overwrites the existing BGP communities attribute entirely 
+                  with the communities defined in the community list.
+
+.. clicmd:: set large-comm-list delete <LCOMMUNITY_LIST_NAME>
+
+   Set BGP large community list for deletion.
+
+>>>>>>> c2c610f (doc: fix duplicate clicmd warnings)
 
 .. _bgp-communities-example:
 
@@ -3197,6 +3217,35 @@ BGP Extended Communities in Route Map
    equal than the defined limit. Setting extended community-limit to 0 will
    only match BGP updates with no extended community.
 
+<<<<<<< HEAD
+=======
+.. clicmd:: set extended-comm-list delete <EXTCOMMUNITY_LIST_NAME>
+   :daemon: bgp
+
+   Remove extended communities from the route that match ``permit`` entries in
+   the named extcommunity-list. Both standard and expanded lists are
+   supported. Other extended communities on the route are left unchanged.
+   See :ref:`bgp-extended-community-lists`.
+
+   Example using a standard list to strip one Route Target:
+
+   .. code-block:: frr
+
+      bgp extcommunity-list standard STRIP-RT permit rt 65001:200
+      !
+      route-map RMAP permit 10
+       set extended-comm-list delete STRIP-RT
+
+   Example using an expanded list to strip a range of Route Targets:
+
+   .. code-block:: frr
+
+      bgp extcommunity-list expanded STRIP-RT permit 65001:(2[0-4][0-9]|250)
+      !
+      route-map RMAP permit 10
+       set extended-comm-list delete STRIP-RT
+
+>>>>>>> c2c610f (doc: fix duplicate clicmd warnings)
 .. clicmd:: set extcommunity none
 
    This command resets the extended community value in BGP updates. If the attribute is
