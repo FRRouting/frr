@@ -3678,10 +3678,43 @@ static void evpn_set_advertise_all_vni(struct bgp *bgp)
  */
 static void evpn_unset_advertise_all_vni(struct bgp *bgp)
 {
+	struct bgp *bgp_evpn;
+	struct bgp *bgp_vrf;
+	struct listnode *node;
+	struct listnode *nnode;
+
+	/* Not the instance advertising VNIs: nothing to disable (an instance
+	 * that owns EVPN keeps doing so, and so do the L3VNIs of its VRFs).
+	 */
+	if (!bgp->advertise_all_vni)
+		return;
+
 	bgp->advertise_all_vni = 0;
-	bgp_set_evpn(bgp_get_default());
 	bgp_zebra_advertise_all_vni(bgp, bgp->advertise_all_vni);
+	/* The VNI and ES cleanup (ES-EVI and EAD routes among others)
+	 * resolves the EVPN instance with bgp_get_evpn(): this instance
+	 * still is it until the cleanup is done.
+	 */
 	bgp_evpn_cleanup_on_disable(bgp);
+	/* Zebra answers the disable with the deletes of all L3VNIs, and
+	 * processing them needs the EVPN instance too (the routes imported
+	 * into the VRF, its tunnel IP and its import route-target mappings
+	 * live on it): delete them now, while this instance still is it.
+	 * Zebra replays the L3VNIs on the next advertise-all-vni.
+	 */
+	for (ALL_LIST_ELEMENTS(bm->bgp, node, nnode, bgp_vrf))
+		if (bgp_vrf != bgp && bgp_vrf->l3vni)
+			bgp_evpn_local_l3vni_del(bgp_vrf->l3vni, bgp_vrf->vrf_id);
+	if (bgp->l3vni)
+		bgp_evpn_local_l3vni_del(bgp->l3vni, bgp->vrf_id);
+	bgp_evpn = bgp_get_evpn_fallback();
+	if (!bgp_evpn)
+		/* zebra answers the disable with the deletes of the local
+		 * ESs, which can not be processed without an EVPN instance:
+		 * delete them now, routes withdrawn.
+		 */
+		bgp_evpn_es_instance_local_es_del(bgp);
+	bgp_set_evpn(bgp_evpn);
 }
 
 /* Set resolve overlay index flag */
