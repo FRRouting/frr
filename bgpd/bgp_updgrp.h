@@ -413,6 +413,8 @@ extern void subgroup_default_update_packet(struct update_subgroup *subgrp,
 					   struct attr *attr,
 					   struct peer *from);
 extern void subgroup_default_withdraw_packet(struct update_subgroup *subgrp);
+extern void subgroup_table_default_withdraw_packet(struct update_subgroup *subgrp,
+						   uint32_t addpath_tx_id);
 
 /* bgp_updgrp_adv.c */
 extern struct bgp_advertise *
@@ -429,8 +431,9 @@ extern void update_group_show_packet_queue(struct bgp *bgp, afi_t afi,
 extern void subgroup_announce_route(struct update_subgroup *subgrp);
 extern void subgroup_announce_all(struct update_subgroup *subgrp);
 
-extern void subgroup_default_originate(struct update_subgroup *subgrp,
-				       bool withdraw);
+extern void subgroup_default_originate(struct update_subgroup *subgrp);
+extern void subgroup_default_originate_config(struct update_subgroup *subgrp);
+extern void subgroup_default_originate_unconfig(struct update_subgroup *subgrp);
 extern void group_announce_route(struct bgp *bgp, afi_t afi, safi_t safi,
 				 struct bgp_dest *dest,
 				 struct bgp_path_info *pi);

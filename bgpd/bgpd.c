@@ -6771,11 +6771,16 @@ int peer_default_originate_set(struct peer *peer, afi_t afi, safi_t safi,
 
 	/* Check if handling a regular peer. */
 	if (!CHECK_FLAG(peer->sflags, PEER_STATUS_GROUP)) {
-		/* Update peer route announcements. */
+		/*
+		 * Originate the synthesized default.  Since default-originate
+		 * affects update-group membership, the adjust call may move the
+		 * peer to a new subgroup, leaving queued work behind.  A full
+		 * table walk via bgp_announce_route() rebuilds any lost work.
+		 */
 		if (peer_established(peer->connection) &&
 		    peer->afc_nego[afi][safi]) {
 			update_group_adjust_peer(peer_af_find(peer, afi, safi));
-			bgp_default_originate(peer, afi, safi, false);
+			bgp_default_originate_config(peer, afi, safi);
 			bgp_announce_route(peer, afi, safi, false);
 		}
 
@@ -6817,12 +6822,14 @@ int peer_default_originate_set(struct peer *peer, afi_t afi, safi_t safi,
 			route_map_counter_increment(route_map);
 		}
 
-		/* Update peer route announcements. */
+		/*
+		 * Originate the synthesized default and rebuild any queued
+		 * work lost due to update-group membership change.
+		 */
 		if (peer_established(member->connection) &&
 		    member->afc_nego[afi][safi]) {
-			update_group_adjust_peer(
-				peer_af_find(member, afi, safi));
-			bgp_default_originate(member, afi, safi, false);
+			update_group_adjust_peer(peer_af_find(member, afi, safi));
+			bgp_default_originate_config(member, afi, safi);
 			bgp_announce_route(member, afi, safi, false);
 		}
 	}
@@ -6861,13 +6868,22 @@ int peer_default_originate_unset(struct peer *peer, afi_t afi, safi_t safi)
 		peer->default_rmap[afi][safi].map = NULL;
 	}
 
-	/* Check if handling a regular peer. */
+	/*
+	 * Check if handling a regular peer.  Since default-originate affects
+	 * update-group membership, the adjust call may move the peer to a new
+	 * subgroup, leaving queued work behind.  A full table walk via
+	 * bgp_announce_route() rebuilds any lost work.
+	 */
 	if (!CHECK_FLAG(peer->sflags, PEER_STATUS_GROUP)) {
-		/* Update peer route announcements. */
 		if (peer_established(peer->connection) &&
 		    peer->afc_nego[afi][safi]) {
 			update_group_adjust_peer(peer_af_find(peer, afi, safi));
-			bgp_default_originate(peer, afi, safi, true);
+			if (CHECK_FLAG(peer->af_flags[afi][safi], PEER_FLAG_DEFAULT_ORIGINATE))
+				/* Inherited from peer-group, re-originate */
+				bgp_default_originate_config(peer, afi, safi);
+			else
+				/* Fully removed, withdraw and advertise table */
+				bgp_default_originate_unconfig(peer, afi, safi);
 			bgp_announce_route(peer, afi, safi, false);
 		}
 
@@ -6902,11 +6918,14 @@ int peer_default_originate_unset(struct peer *peer, afi_t afi, safi_t safi)
 		member->default_rmap[afi][safi].name = NULL;
 		member->default_rmap[afi][safi].map = NULL;
 
-		/* Update peer route announcements. */
+		/*
+		 * Withdraw synthesized default and rebuild any queued work
+		 * lost due to update-group membership change.
+		 */
 		if (peer_established(member->connection) &&
 		    member->afc_nego[afi][safi]) {
 			update_group_adjust_peer(peer_af_find(member, afi, safi));
-			bgp_default_originate(member, afi, safi, true);
+			bgp_default_originate_unconfig(member, afi, safi);
 			bgp_announce_route(member, afi, safi, false);
 		}
 	}

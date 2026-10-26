@@ -7302,12 +7302,28 @@ void bgp_withdraw(struct peer *peer, const struct prefix *p,
 	return;
 }
 
-void bgp_default_originate(struct peer *peer, afi_t afi, safi_t safi,
-			   bool withdraw)
+void bgp_default_originate(struct peer *peer, afi_t afi, safi_t safi)
 {
 	struct update_subgroup *subgrp;
+
 	subgrp = peer_subgroup(peer, afi, safi);
-	subgroup_default_originate(subgrp, withdraw);
+	subgroup_default_originate(subgrp);
+}
+
+void bgp_default_originate_config(struct peer *peer, afi_t afi, safi_t safi)
+{
+	struct update_subgroup *subgrp;
+
+	subgrp = peer_subgroup(peer, afi, safi);
+	subgroup_default_originate_config(subgrp);
+}
+
+void bgp_default_originate_unconfig(struct peer *peer, afi_t afi, safi_t safi)
+{
+	struct update_subgroup *subgrp;
+
+	subgrp = peer_subgroup(peer, afi, safi);
+	subgroup_default_originate_unconfig(subgrp);
 }
 
 
