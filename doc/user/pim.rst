@@ -319,6 +319,7 @@ PIM Routers
    fallback to a second lookup.
 
 .. clicmd:: shutdown
+   :daemon: pim
 
    Disable the PIM instance while retaining all configuration and remove
    all state.
