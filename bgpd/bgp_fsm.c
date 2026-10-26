@@ -359,6 +359,27 @@ static struct peer *peer_xfer_conn(struct peer *from_peer)
 	return (peer);
 }
 
+static void bgp_refresh_stalepath_timers_stop(struct peer_connection *connection)
+{
+	struct peer *peer = connection->peer;
+	struct peer_af *paf;
+	afi_t afi;
+	safi_t safi;
+
+	FOREACH_AFI_SAFI (afi, safi) {
+		paf = peer_af_find(peer, afi, safi);
+		if (!paf || !event_is_scheduled(paf->t_refresh_stalepath))
+			continue;
+
+		event_cancel(&paf->t_refresh_stalepath);
+
+		if (bgp_debug_neighbor_events(peer))
+			zlog_debug("%pBP route-refresh stalepath timer for %s/%s stopped for %s",
+				   peer, afi2str(afi), safi2str(safi),
+				   bgp_peer_get_connection_direction_string(connection));
+	}
+}
+
 /* Hook function called after bgp event is occered.  And vty's
    neighbor command invoke this function after making neighbor
    structure. */
@@ -502,7 +523,7 @@ void bgp_timer_set(struct peer_connection *connection)
 		}
 
 		event_cancel(&connection->t_pmax_restart);
-		event_cancel(&peer->t_refresh_stalepath);
+		bgp_refresh_stalepath_timers_stop(connection);
 		fallthrough;
 	case Clearing:
 		event_cancel(&connection->t_start);
@@ -2263,15 +2284,7 @@ enum bgp_fsm_state_progress bgp_stop(struct peer_connection *connection)
 				peer->nsf[afi][safi] = 0;
 		}
 
-		/* Stop route-refresh stalepath timer */
-		if (event_is_scheduled(peer->t_refresh_stalepath)) {
-			event_cancel(&peer->t_refresh_stalepath);
-
-			if (bgp_debug_neighbor_events(peer))
-				zlog_debug("%pBP route-refresh restart stalepath timer stopped for %s",
-					   peer,
-					   bgp_peer_get_connection_direction_string(connection));
-		}
+		bgp_refresh_stalepath_timers_stop(connection);
 
 		/* set last reset time */
 		peer->resettime = peer->uptime = monotime(NULL);
