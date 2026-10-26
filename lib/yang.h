@@ -21,15 +21,18 @@
 extern "C" {
 #endif
 
-#if (LY_VERSION_MAJOR >= 4)
+/* libyang 4.2.0+ */
+#ifdef LYD_PRINT_SIBLINGS
 #define LYD_PRINT_WITHSIBLINGS LYD_PRINT_SIBLINGS
 #endif
 
-#if (LY_VERSION_MAJOR >= 5)
+/* libyang 4.7.0+ */
+#ifdef LYD_PARSE_LYB_SKIP_MODULE_CHECK
 #define LYD_PARSE_LYB_SKIP_CTX_CHECK LYD_PARSE_LYB_SKIP_MODULE_CHECK
 #endif
 
-#if (LY_VERSION_MAJOR >= 6)
+/* libyang 6.3.0+ */
+#ifdef LYA_COUNT
 #define LY_ARRAY_COUNT LYA_COUNT
 #endif
 
