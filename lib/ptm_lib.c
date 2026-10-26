@@ -303,6 +303,12 @@ static int _ptm_lib_read_ptm_socket(int fd, char *buf, int len)
 	int retries = 0, rc;
 	int bytes_read = 0;
 
+	/* a negative length would be handed to recv() as a huge size_t */
+	if (len < 0) {
+		errno = EBADMSG;
+		return -1;
+	}
+
 	while (bytes_read != len) {
 		rc = recv(fd, (void *)(buf + bytes_read), (len - bytes_read),
 			  MSG_DONTWAIT);
@@ -358,11 +364,11 @@ int ptm_lib_process_msg(ptm_lib_handle_t *hdl, int fd, char *inbuf, int inlen,
 		 * it
 		 */
 		if (len == PTMLIB_MSG_HDR_LEN) {
-			len += _ptm_lib_read_ptm_socket(
-				fd, (inbuf + PTMLIB_MSG_HDR_LEN),
-				inlen - PTMLIB_MSG_HDR_LEN);
-			if (len <= 0)
-				return (len);
+			/* keep one byte free for the NUL terminator */
+			rc = _ptm_lib_read_ptm_socket(fd, inbuf + len, inlen - len - 1);
+			if (rc < 0)
+				return rc;
+			len += rc;
 		}
 
 		inbuf[len] = '\0';
@@ -381,9 +387,17 @@ int ptm_lib_process_msg(ptm_lib_handle_t *hdl, int fd, char *inbuf, int inlen,
 		ptm_lib_append_msg(hdl, p_ctxt, "cmd", PTMLIB_CMD_GET_STATUS);
 
 	} else {
-
-		if (msglen > inlen) {
-			DLOG("msglen [%d] > inlen [%d]\n", msglen, inlen);
+		/*
+		 * msglen comes straight off the wire and is the length of the
+		 * body, which is read over the header at offset 0. A negative
+		 * value would be passed to recv() as a huge size_t, zero is
+		 * an empty message, and msglen == inlen leaves no room for the
+		 * NUL terminator written below. The stream is out of sync
+		 * after a bad header, so let the caller drop the connection.
+		 */
+		if (msglen <= 0 || msglen >= inlen) {
+			ERRLOG("invalid msglen [%d], inlen [%d]\n", msglen, inlen);
+			errno = EBADMSG;
 			return -1;
 		}
 
