@@ -324,6 +324,29 @@ struct rp_info *pim_rp_find_match_group(struct pim_instance *pim,
 }
 
 /*
+ * Return the all multicast (224.0.0.0/4 or ff00::/8) pseudo-RP: it always
+ * exists in the RP table, even when unconfigured (RP address is any), and it
+ * must not be confused with a prefix-list RP matching the same range.
+ */
+struct rp_info *pim_rp_get_root(struct pim_instance *pim)
+{
+	struct route_node *rn;
+	struct rp_info *rpi;
+	struct prefix g;
+
+	/* Can happen during shutdown, like in pim_rp_find_match_group. */
+	if (!pim->rp_table)
+		return NULL;
+
+	pim_get_all_mcast_group(&g);
+	rn = route_node_lookup(pim->rp_table, &g);
+	assertf(rn, "cannot find the all multicast pseudo-RP");
+	rpi = rn->info;
+	route_unlock_node(rn);
+	return rpi;
+}
+
+/*
  * When the user makes "ip pim rp" configuration changes or if they change the
  * prefix-list(s) used by these statements we must tickle the upstream state
  * for each group to make them re-lookup who their RP should be.
@@ -464,7 +487,6 @@ int pim_rp_new(struct pim_instance *pim, pim_addr rp_addr, struct prefix group,
 	int result = 0;
 	struct rp_info *rp_info;
 	struct rp_info *rp_all;
-	struct prefix group_all;
 	struct listnode *node, *nnode;
 	struct rp_info *tmp_rp_info;
 	char buffer[BUFSIZ];
@@ -520,8 +542,7 @@ int pim_rp_new(struct pim_instance *pim, pim_addr rp_addr, struct prefix group,
 
 		rp_info->plist = XSTRDUP(MTYPE_PIM_FILTER_NAME, plist);
 	} else {
-		pim_get_all_mcast_group(&group_all);
-		rp_all = pim_rp_find_match_group(pim, &group_all);
+		rp_all = pim_rp_get_root(pim);
 
 		/*
 		 * Barf if group is a non-multicast subnet
@@ -608,9 +629,14 @@ int pim_rp_new(struct pim_instance *pim, pim_addr rp_addr, struct prefix group,
 		}
 
 		/*
-		 * Barf if this group is already covered by some other RP
+		 * Barf if this group is already covered by some other RP. The
+		 * 224.0.0.0/4 pseudo-RP covers its range, even when a
+		 * prefix-list RP matches it too.
 		 */
-		tmp_rp_info = pim_rp_find_match_group(pim, &rp_info->group);
+		if (prefix_same(&rp_info->group, &rp_all->group))
+			tmp_rp_info = rp_all;
+		else
+			tmp_rp_info = pim_rp_find_match_group(pim, &rp_info->group);
 
 		if (tmp_rp_info) {
 			if (tmp_rp_info->plist) {
@@ -719,7 +745,6 @@ void pim_rp_del_config(struct pim_instance *pim, pim_addr rp_addr,
 int pim_rp_del(struct pim_instance *pim, pim_addr rp_addr, struct prefix group,
 	       const char *plist, enum rp_source rp_src_flag)
 {
-	struct prefix g_all;
 	struct rp_info *rp_info;
 	struct rp_info *rp_all;
 	pim_addr nht_p;
@@ -779,8 +804,7 @@ int pim_rp_del(struct pim_instance *pim, pim_addr rp_addr, struct prefix group,
 			   &nht_p);
 	pim_nht_delete_tracked(pim, nht_p, NULL, rp_info);
 
-	pim_get_all_mcast_group(&g_all);
-	rp_all = pim_rp_find_match_group(pim, &g_all);
+	rp_all = pim_rp_get_root(pim);
 
 	if (rp_all == rp_info) {
 		frr_each (rb_pim_upstream, &pim->upstream_head, up) {
