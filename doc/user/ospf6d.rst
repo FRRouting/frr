@@ -114,6 +114,7 @@ Configuration Commands
    is 20.
 
 .. clicmd:: shutdown
+   :daemon: ospf6d
 
    Disables the OSPF instance. This command is useful when it's desired
    to disable the OSPF instance while retaining its configuration,
