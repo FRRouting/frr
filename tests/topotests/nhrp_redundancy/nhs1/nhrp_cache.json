@@ -11,7 +11,6 @@
             "claimed_nbma": "192.168.2.4",
             "used": false,
             "timeout": true,
-            "auth": false,
             "identity": ""
         },
         "172.16.1.1": {
@@ -22,7 +21,6 @@
             "claimed_nbma": "192.168.1.1",
             "used": false,
             "timeout": false,
-            "auth": false,
             "identity": "-"
         },
         "172.16.1.5": {
@@ -33,7 +31,6 @@
             "claimed_nbma": "192.168.2.5",
             "used": false,
             "timeout": true,
-            "auth": false,
             "identity": ""
         }
     }
