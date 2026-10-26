@@ -5233,6 +5233,29 @@ void bgp_evpn_es_cleanup_routes(struct bgp *bgp)
  * have been freed. An ES kept alive by remote references has its route
  * table re-bound when it is made local again under a new instance.
  */
+/* Delete the local ESs of an instance that stops advertising VNIs while no
+ * other instance can take EVPN over: zebra answers the disable with the
+ * deletes of these ESs, but they can not be processed without an EVPN
+ * instance. Do here what the deletes would do, the ES and EAD-ES routes
+ * are withdrawn from the peers of the instance, which stay up.
+ */
+void bgp_evpn_es_instance_local_es_del(struct bgp *bgp)
+{
+	struct bgp_evpn_es *es;
+	struct bgp_evpn_es *es_next;
+
+	if (!bgp_mh_info)
+		return;
+
+	RB_FOREACH_SAFE (es, bgp_es_rb_head, &bgp_mh_info->es_rb_tree, es_next) {
+		if (!CHECK_FLAG(es->flags, BGP_EVPNES_LOCAL) || !es->route_table ||
+		    es->route_table->bgp != bgp)
+			continue;
+
+		bgp_evpn_local_es_do_del(bgp, es);
+	}
+}
+
 void bgp_evpn_es_instance_del_cleanup(struct bgp *bgp)
 {
 	struct bgp_evpn_es *es;

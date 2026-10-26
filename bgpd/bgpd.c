@@ -4260,6 +4260,23 @@ struct bgp *bgp_get_default(void)
 	return NULL;
 }
 
+/*
+ * The instance EVPN falls back to when the VRF instance that owns it stops
+ * owning it: the default instance, unless it is a hidden instance. The
+ * hidden instance carries BGP_FLAG_DELETE_IN_PROGRESS and has no EVPN state, so
+ * handing EVPN to it would leave every L3VNI delete refused until the
+ * default is revived; bgp_create() makes the revived default the EVPN
+ * instance when nothing else owns it.
+ */
+struct bgp *bgp_get_evpn_fallback(void)
+{
+	struct bgp *bgp = bgp_get_default();
+
+	if (bgp && IS_BGP_INSTANCE_HIDDEN(bgp))
+		return NULL;
+	return bgp;
+}
+
 /* Lookup BGP entry. */
 struct bgp *bgp_lookup(as_t as, const char *name)
 {
@@ -4999,7 +5016,7 @@ int bgp_delete(struct bgp *bgp)
 		if (bgp->inst_type == BGP_INSTANCE_TYPE_DEFAULT)
 			bgp_set_evpn(NULL);
 		else
-			bgp_set_evpn(bgp_get_default());
+			bgp_set_evpn(bgp_get_evpn_fallback());
 	}
 
 	if (!IS_BGP_INSTANCE_HIDDEN(bgp) || bm->terminating) {
