@@ -4736,6 +4736,20 @@ rib_update_handle_kernel_route_down_possibility(struct route_node *rn,
 		}
 
 		/*
+		 * With the VRF-lite backend if_lookup_by_index() ignores the
+		 * vrf_id and finds the interface in any VRF.  If the interface
+		 * has been moved to a different VRF than the nexthop's, the
+		 * kernel has flushed the route (silently, with no route delete
+		 * notification), so the nexthop is not alive no matter what the
+		 * interface state is now.  This matters because the evaluation
+		 * is run from an event, by which time a quick down/up cycle
+		 * (as the kernel does when enslaving to a VRF) may already
+		 * have completed.
+		 */
+		if (ifp->vrf->vrf_id != nexthop->vrf_id)
+			continue;
+
+		/*
 		 * Kernel deletes IPv4 routes from interface when last IPv4 address is deleted
 		 * It is not important whether nexthop is reachable after address
 		 * is deleted - route is deleted only after last address deletion.
