@@ -14464,6 +14464,27 @@ static void bgp_show_summary_instance_header(struct vty *vty, struct bgp *bgp, j
 	}
 }
 
+static unsigned long bgp_show_summary_rib_count(struct bgp *bgp, afi_t afi, safi_t safi)
+{
+	struct bgp_table *table = bgp->rib[afi][safi];
+	struct bgp_dest *rd_dest;
+	unsigned long count = 0;
+
+	if (safi != SAFI_EVPN)
+		return bgp_table_count(table);
+
+	/* Global EVPN prefixes are stored in per-RD tables. */
+	for (rd_dest = bgp_table_top(table); rd_dest; rd_dest = bgp_route_next(rd_dest)) {
+		struct bgp_table *rd_table;
+
+		rd_table = bgp_dest_get_bgp_table_info(rd_dest);
+		if (rd_table)
+			count += bgp_table_count(rd_table);
+	}
+
+	return count;
+}
+
 static int bgp_show_summary(struct vty *vty, struct bgp *bgp, int afi, int safi,
 			    struct peer *fpeer, enum peer_asn_type as_type,
 			    as_t as, uint16_t show_flags)
@@ -14626,7 +14647,7 @@ static int bgp_show_summary(struct vty *vty, struct bgp *bgp, int afi, int safi,
 					json, "tableVersion",
 					bgp_table_version(bgp->rib[afi][safi]));
 
-				ents = bgp_table_count(bgp->rib[afi][safi]);
+				ents = bgp_show_summary_rib_count(bgp, afi, safi);
 				json_object_int_add(json, "ribCount", ents);
 				json_object_int_add(
 					json, "ribMemory",
@@ -14666,8 +14687,7 @@ static int bgp_show_summary(struct vty *vty, struct bgp *bgp, int afi, int safi,
 						bgp_table_version(
 							bgp->rib[afi][safi]));
 
-					ents = bgp_table_count(
-						bgp->rib[afi][safi]);
+					ents = bgp_show_summary_rib_count(bgp, afi, safi);
 					vty_out(vty,
 						"RIB entries %ld, using %s of memory\n",
 						ents,
