@@ -3912,6 +3912,28 @@ address-family:
    the current unicast VRF to VPN. If left unspecified, the nexthop will be set
    to 0.0.0.0 or 0:0::0:0 (self).
 
+   When this router announces IPv6 VPN or IPv6 labeled-unicast routes with
+   itself as the nexthop over an IPv4 BGP session, it sends the IPv4-mapped
+   IPv6 address ``::ffff:A.B.C.D`` of the session's local IPv4 address, as
+   :rfc:`4659` and :rfc:`4798` specify for IPv6 routes carried over IPv4 MPLS
+   LSPs. Routes carrying an SRv6 SID keep an IPv6 nexthop. To announce a
+   global IPv6 nexthop instead, for example over IPv6 MPLS LSPs, set it with
+   an outbound route-map:
+
+   .. code-block:: frr
+
+      route-map VPNV6-NH permit 10
+       set ipv6 next-hop global 2001:db8:ff::1
+      exit
+      !
+      router bgp 65000
+       address-family ipv6 vpn
+        neighbor 192.0.2.2 route-map VPNV6-NH out
+       exit-address-family
+      exit
+
+   For 6PE, apply the route-map under ``address-family ipv6 labeled-unicast``.
+
 .. clicmd:: route-map vpn import|export MAP
 
    Specifies an optional route-map to be applied to routes imported or exported
