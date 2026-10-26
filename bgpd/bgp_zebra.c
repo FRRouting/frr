@@ -4169,6 +4169,8 @@ static void bgp_zebra_srv6_sid_notify_locator(struct srv6_sid_ctx *ctx,
 						srv6_locator_alloc(locator_bgp->name);
 					srv6_locator_copy(bgp_vrf->srv6_unicast[AFI_IP].sid_locator,
 							  locator_bgp);
+					bgp_vrf->srv6_unicast[AFI_IP].zebra_sid_alloc_mode_last_sent =
+						ctx->alloc_mode;
 
 					dt46_ip_changed = true;
 				}
@@ -4198,6 +4200,8 @@ static void bgp_zebra_srv6_sid_notify_locator(struct srv6_sid_ctx *ctx,
 						srv6_locator_alloc(locator_bgp->name);
 					srv6_locator_copy(bgp_vrf->srv6_unicast[AFI_IP6].sid_locator,
 							  locator_bgp);
+					bgp_vrf->srv6_unicast[AFI_IP6]
+						.zebra_sid_alloc_mode_last_sent = ctx->alloc_mode;
 
 					dt46_ip6_changed = true;
 				}
