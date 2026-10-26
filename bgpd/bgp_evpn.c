@@ -5883,6 +5883,12 @@ static void cleanup_vni_on_disable(struct hash_bucket *bucket, struct bgp *bgp)
 	/* Remove EVPN routes and schedule for processing. */
 	delete_routes_for_vni(bgp, vpn);
 
+	/* Tunnel is no longer active.
+	 * Delete VTEP-IP from EVPN underlay's tip_hash.
+	 */
+	if (is_vni_live(vpn))
+		bgp_tip_del(bgp, &vpn->originator_ip);
+
 	/* Clear "live" flag and see if hash needs to be freed. */
 	UNSET_FLAG(vpn->flags, VNI_FLAG_LIVE);
 	/* Pop items from bgp_zebra_announce FIFO for any VPN routes pending*/
