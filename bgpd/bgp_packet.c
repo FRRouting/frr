@@ -1172,7 +1172,7 @@ void bgp_route_refresh_send(struct peer_connection *connection, afi_t afi, safi_
 
 	s = stream_new(peer->max_packet_size);
 
-	bgp_packet_set_marker(s, BGP_MSG_ROUTE_REFRESH_NEW);
+	bgp_packet_set_marker(s, BGP_MSG_ROUTE_REFRESH);
 
 	/* Encode Route Refresh message. */
 	stream_putw(s, pkt_afi);
@@ -2867,9 +2867,7 @@ static int bgp_route_refresh_receive(struct peer_connection *connection, bgp_siz
 		flog_err(EC_BGP_INVALID_STATUS,
 			 "%s [Error] Route refresh packet received under status %s", peer->host,
 			 lookup_msg(bgp_status_msg, connection->status, NULL));
-		/* BGP_MSG_ROUTE_REFRESH_NEW or _OLD, as received */
-		bgp_notify_send_fsm_error(connection,
-					  stream_getc_from(connection->curr, BGP_MARKER_SIZE + 2));
+		bgp_notify_send_fsm_error(connection, BGP_MSG_ROUTE_REFRESH);
 		return BGP_Stop;
 	}
 
@@ -4272,8 +4270,7 @@ void bgp_process_packet(struct event *event)
 					 __func__, peer->host,
 					 bgp_peer_get_connection_direction_string(connection));
 			break;
-		case BGP_MSG_ROUTE_REFRESH_NEW:
-		case BGP_MSG_ROUTE_REFRESH_OLD:
+		case BGP_MSG_ROUTE_REFRESH:
 			frrtrace(2, frr_bgp, refresh_process, peer, size);
 			atomic_fetch_add_explicit(&peer->refresh_in, 1,
 						  memory_order_relaxed);
