@@ -6255,10 +6255,8 @@ static int peer_af_flag_modify(struct peer *peer, afi_t afi, safi_t safi,
 					 * dynamic capability is enabled and we
 					 * are changing the ORF prefix flags.
 					 */
-					if ((CHECK_FLAG(peer->cap,
-							PEER_CAP_DYNAMIC_RCV) &&
-					     CHECK_FLAG(peer->cap,
-							PEER_CAP_DYNAMIC_ADV)) &&
+					if ((CHECK_FLAG(member->cap, PEER_CAP_DYNAMIC_RCV) &&
+					     CHECK_FLAG(member->cap, PEER_CAP_DYNAMIC_ADV)) &&
 					    (flag == PEER_FLAG_ORF_PREFIX_RM ||
 					     flag == PEER_FLAG_ORF_PREFIX_SM))
 						action.type = peer_change_none;
