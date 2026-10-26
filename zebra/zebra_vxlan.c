@@ -5174,10 +5174,9 @@ void zebra_vxlan_remote_vtep_del(vrf_id_t vrf_id, vni_t vni, struct ipaddr *vtep
 	if (!if_is_operative(ifp) || !zif->brslave_info.br_if)
 		return;
 
-	/* If the remote VTEP does not exist, there's nothing more to
-	 * do.
-	 * Otherwise, uninstall any remote MACs pointing to this VTEP
-	 * and then, the VTEP entry itself and remove it.
+	/* If the remote VTEP does not exist, there's nothing more to do.
+	 * Otherwise, withdraw IMET flood state (uninstall HREP, disable flood)
+	 * but keep the entry for MAC/neigh references.
 	 */
 	zvtep = zebra_evpn_vtep_find(zevpn, vtep_ip);
 	if (!zvtep)
@@ -5186,7 +5185,11 @@ void zebra_vxlan_remote_vtep_del(vrf_id_t vrf_id, vni_t vni, struct ipaddr *vtep
 	zvtep->gr_refresh_time = monotime(NULL);
 
 	zebra_evpn_vtep_uninstall(zevpn, vtep_ip);
-	zebra_evpn_vtep_del(zevpn, zvtep);
+	zvtep->flood_control = VXLAN_FLOOD_DISABLED;
+
+	if (IS_ZEBRA_DEBUG_VXLAN)
+		zlog_debug("Remote VTEP %pIA VNI %u flood disabled (IMET withdrawn)",
+			   vtep_ip, vni);
 }
 
 /*
