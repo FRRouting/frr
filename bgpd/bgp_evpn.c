@@ -8431,16 +8431,15 @@ int bgp_evpn_local_l3vni_del(vni_t l3vni, vrf_id_t vrf_id)
 		return -1;
 	}
 
+	/* The EVPN instance may be gone already (it was deleted or stopped
+	 * advertising VNIs, which is what makes zebra delete the L3VNIs):
+	 * the VRF instance still has to drop its own L3VNI state, or it can
+	 * not be deleted afterwards ("Please unconfigure l3vni").
+	 */
 	bgp_evpn = bgp_get_evpn();
-	if (!bgp_evpn) {
+	if (bgp_evpn && CHECK_FLAG(bgp_evpn->flags, BGP_FLAG_DELETE_IN_PROGRESS)) {
 		flog_err(EC_BGP_NO_DFLT,
-			 "Cannot process L3VNI %u Del - Could not find EVPN BGP instance", l3vni);
-		return -1;
-	}
-
-	if (CHECK_FLAG(bgp_evpn->flags, BGP_FLAG_DELETE_IN_PROGRESS)) {
-		flog_err(EC_BGP_NO_DFLT,
-			 "Cannot process L3VNI %u ADD - EVPN BGP instance is shutting down", l3vni);
+			 "Cannot process L3VNI %u Del - EVPN BGP instance is shutting down", l3vni);
 		return -1;
 	}
 
@@ -8457,7 +8456,8 @@ int bgp_evpn_local_l3vni_del(vni_t l3vni, vrf_id_t vrf_id)
 	/* Tunnel is no longer active.
 	 * Delete VTEP-IP from EVPN underlay's tip_hash.
 	 */
-	bgp_tip_del(bgp_evpn, &bgp_vrf->originator_ip);
+	if (bgp_evpn)
+		bgp_tip_del(bgp_evpn, &bgp_vrf->originator_ip);
 
 	/* remove the l3vni from vrf instance */
 	bgp_vrf->l3vni = 0;
@@ -8481,7 +8481,8 @@ int bgp_evpn_local_l3vni_del(vni_t l3vni, vrf_id_t vrf_id)
 	if (!CHECK_FLAG(bgp_vrf->vrf_flags, BGP_VRF_L3VNI_PREFIX_ROUTES_ONLY)) {
 		for (ALL_LIST_ELEMENTS_RO(bgp_vrf->l2vnis, node, vpn)) {
 			UNSET_FLAG(vpn->flags, VNI_FLAG_USE_TWO_LABELS);
-			update_routes_for_vni(bgp_evpn, vpn);
+			if (bgp_evpn)
+				update_routes_for_vni(bgp_evpn, vpn);
 		}
 	}
 
