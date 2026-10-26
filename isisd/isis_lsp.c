@@ -1136,6 +1136,8 @@ static void lsp_build(struct isis_lsp *lsp, struct isis_area *area)
 		rcap = isis_tlvs_init_router_capability(lsp->tlvs);
 
 		rcap->router_id.s_addr = area->isis->router_id;
+		if (area->newmetric && IS_MPLS_TE(area->mta))
+			rcap->te_router_id_ipv6 = area->mta->router_id_ipv6;
 
 #ifndef FABRICD
 		/* Set flex-algo definitions */

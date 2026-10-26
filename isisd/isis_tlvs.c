@@ -4717,7 +4717,9 @@ static void format_tlv_router_cap_json(const struct isis_router_cap *router_cap,
 	json_object_string_add(cap_json, "id", addrbuf);
 	json_object_boolean_add(cap_json, "flagD", !!(router_cap->flags & ISIS_ROUTER_CAP_FLAG_D));
 	json_object_boolean_add(cap_json, "flagS", !!(router_cap->flags & ISIS_ROUTER_CAP_FLAG_S));
-
+	if (!IN6_IS_ADDR_UNSPECIFIED(&router_cap->te_router_id_ipv6))
+		json_object_string_addf(cap_json, "ipv6TeRouterId", "%pI6",
+					&router_cap->te_router_id_ipv6);
 
 	/* Segment Routing Global Block as per RFC8667 section #3.1 */
 	if (router_cap->srgb.range_size != 0) {
@@ -4777,6 +4779,10 @@ static void format_tlv_router_cap(const struct isis_router_cap *router_cap, stru
 	sbuf_push(buf, indent, " %s , D:%c, S:%c\n", addrbuf,
 		  router_cap->flags & ISIS_ROUTER_CAP_FLAG_D ? '1' : '0',
 		  router_cap->flags & ISIS_ROUTER_CAP_FLAG_S ? '1' : '0');
+
+	if (!IN6_IS_ADDR_UNSPECIFIED(&router_cap->te_router_id_ipv6))
+		sbuf_push(buf, indent, "  IPv6 TE Router ID: %pI6\n",
+			  &router_cap->te_router_id_ipv6);
 
 	/* Segment Routing Global Block as per RFC8667 section #3.1 */
 	if (router_cap->srgb.range_size != 0)
@@ -4934,10 +4940,14 @@ static size_t isis_router_cap_subtlv_size(size_t *tlv_len, size_t hdr_len, size_
 static size_t isis_router_cap_tlv_size(const struct isis_router_cap *router_cap)
 {
 	size_t hdr_len = ISIS_ROUTER_CAP_SIZE;
-	size_t tlv_len = hdr_len;
+	size_t tlv_len;
 	size_t sz;
 	int nb_algo, nb_msd;
 	bool sr_algo_subtlv_present = false;
+
+	if (!IN6_IS_ADDR_UNSPECIFIED(&router_cap->te_router_id_ipv6))
+		hdr_len += ISIS_SUBTLV_HDR_SIZE + IPV6_MAX_BYTELEN;
+	tlv_len = hdr_len;
 
 	if ((router_cap->srgb.range_size != 0) && (router_cap->srgb.lower_bound != 0)) {
 		tlv_len += 2 + ISIS_SUBTLV_SID_LABEL_RANGE_SIZE;
@@ -4997,6 +5007,13 @@ static void pack_tlv_router_cap_header(const struct isis_router_cap *router_cap,
 {
 	stream_put_ipv4(s, router_cap->router_id.s_addr);
 	stream_putc(s, router_cap->flags);
+
+	/* RFC 7981 section #3: mandatory with a Router ID of 0.0.0.0 */
+	if (!IN6_IS_ADDR_UNSPECIFIED(&router_cap->te_router_id_ipv6)) {
+		stream_putc(s, ISIS_SUBTLV_IPV6_TE_ROUTER_ID);
+		stream_putc(s, IPV6_MAX_BYTELEN);
+		stream_put(s, &router_cap->te_router_id_ipv6, IPV6_MAX_BYTELEN);
+	}
 }
 
 /*
@@ -5226,6 +5243,25 @@ static int pack_tlv_router_cap(const struct isis_router_cap *router_cap, struct 
 	return 0;
 }
 
+static bool router_cap_has_ipv6_te_router_id(struct stream *s, uint8_t subtlv_len)
+{
+	size_t pos = stream_get_getp(s);
+	uint8_t type, length;
+
+	while (subtlv_len >= ISIS_SUBTLV_HDR_SIZE) {
+		type = stream_getc_from(s, pos);
+		length = stream_getc_from(s, pos + 1);
+		if (length > subtlv_len - ISIS_SUBTLV_HDR_SIZE)
+			return false;
+		if (type == ISIS_SUBTLV_IPV6_TE_ROUTER_ID && length == IPV6_MAX_BYTELEN)
+			return true;
+		pos += ISIS_SUBTLV_HDR_SIZE + length;
+		subtlv_len -= ISIS_SUBTLV_HDR_SIZE + length;
+	}
+
+	return false;
+}
+
 static int unpack_tlv_router_cap(enum isis_tlv_context context, uint8_t tlv_type, uint8_t tlv_len,
 				 struct stream *s, struct sbuf *log, void *dest, int indent)
 {
@@ -5236,11 +5272,26 @@ static int unpack_tlv_router_cap(enum isis_tlv_context context, uint8_t tlv_type
 	uint8_t subtlv_len;
 	uint8_t size;
 	int num_msd;
+	struct in_addr router_id;
+	uint8_t flags;
 
 	sbuf_push(log, indent, "Unpacking Router Capability TLV...\n");
 	if (tlv_len < ISIS_ROUTER_CAP_SIZE) {
 		sbuf_push(log, indent, "WARNING: Unexpected TLV size\n");
 		stream_forward_getp(s, tlv_len);
+		return 0;
+	}
+
+	/* Get Router ID and Flags */
+	router_id.s_addr = stream_get_ipv4(s);
+	flags = stream_getc(s);
+	subtlv_len = tlv_len - ISIS_ROUTER_CAP_SIZE;
+
+	/* RFC 7981 section #3 */
+	if (router_id.s_addr == INADDR_ANY && !router_cap_has_ipv6_te_router_id(s, subtlv_len)) {
+		sbuf_push(log, indent,
+			  "WARNING: Router ID 0.0.0.0 without IPv6 TE Router ID sub-TLV, ignoring TLV\n");
+		stream_forward_getp(s, subtlv_len);
 		return 0;
 	}
 
@@ -5253,13 +5304,10 @@ static int unpack_tlv_router_cap(enum isis_tlv_context context, uint8_t tlv_type
 	}
 
 	rcap = tlvs->router_cap;
-
-	/* Get Router ID and Flags */
-	rcap->router_id.s_addr = stream_get_ipv4(s);
-	rcap->flags = stream_getc(s);
+	rcap->router_id = router_id;
+	rcap->flags = flags;
 
 	/* Parse remaining part of the TLV if present */
-	subtlv_len = tlv_len - ISIS_ROUTER_CAP_SIZE;
 	while (subtlv_len >= ISIS_SUBTLV_HDR_SIZE) {
 #ifndef FABRICD
 		struct isis_router_cap_fad *fad;
@@ -5278,6 +5326,13 @@ static int unpack_tlv_router_cap(enum isis_tlv_context context, uint8_t tlv_type
 		}
 
 		switch (type) {
+		case ISIS_SUBTLV_IPV6_TE_ROUTER_ID:
+			if (length != IPV6_MAX_BYTELEN) {
+				stream_forward_getp(s, length);
+				break;
+			}
+			stream_get(&rcap->te_router_id_ipv6, s, IPV6_MAX_BYTELEN);
+			break;
 		case ISIS_SUBTLV_SID_LABEL_RANGE:
 			/* Check that SRGB is correctly formatted */
 			if (length < SUBTLV_RANGE_LABEL_SIZE || length > SUBTLV_RANGE_INDEX_SIZE) {
