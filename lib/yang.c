@@ -886,9 +886,9 @@ static void ly_zlog_cb(LY_LOG_LEVEL level, const char *msg, const char *data_pat
 		zlog(priority, "libyang: %s (%s)", msg, data_path);
 #if (LY_VERSION_MAJOR >= 3)
 	else if (schema_path)
-		zlog(priority, "libyang %s (%s)\n", msg, schema_path);
+		zlog(priority, "libyang: %s (%s)", msg, schema_path);
 	else if (line)
-		zlog(priority, "libyang %s (line %" PRIu64 ")\n", msg, line);
+		zlog(priority, "libyang: %s (line %" PRIu64 ")", msg, line);
 #endif
 	else
 		zlog(priority, "libyang: %s", msg);
