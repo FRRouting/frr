@@ -1392,6 +1392,15 @@ struct peer_af {
 	 */
 	struct event *t_announce_route;
 
+<<<<<<< HEAD
+=======
+	/* Long-lived Graceful Restart "Long-lived Stale Time" timer */
+	struct event *t_llgr_stale;
+
+	/* Runs from a received BoRR until the matching EoRR */
+	struct event *t_refresh_stalepath;
+
+>>>>>>> 5d40769 (bgpd: keep the route-refresh stale-path timer per address family)
 	afi_t afi;
 	safi_t safi;
 	int afid;
@@ -2057,10 +2066,13 @@ struct peer {
 	_Atomic uint32_t v_pmax_restart;
 	_Atomic uint32_t v_gr_restart;
 
+<<<<<<< HEAD
 	/* Threads. */
 	struct event *t_llgr_stale[AFI_MAX][SAFI_MAX];
 	struct event *t_refresh_stalepath;
 
+=======
+>>>>>>> 5d40769 (bgpd: keep the route-refresh stale-path timer per address family)
 	/* Thread flags. */
 	_Atomic uint32_t thread_flags;
 #define PEER_THREAD_KEEPALIVES_ON (1U << 0)
