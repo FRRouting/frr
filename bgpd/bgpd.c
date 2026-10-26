@@ -9302,6 +9302,7 @@ int peer_ttl_security_hops_set(struct peer *peer, int gtsm_hops)
 int peer_ttl_security_hops_unset(struct peer *peer)
 {
 	struct peer_group *group;
+	struct peer *member;
 	struct listnode *node, *nnode;
 	int ret = 0;
 
@@ -9338,24 +9339,26 @@ int peer_ttl_security_hops_unset(struct peer *peer)
 		}
 	} else {
 		group = peer->group;
-		for (ALL_LIST_ELEMENTS(group->peer, node, nnode, peer)) {
-			peer->gtsm_hops = BGP_GTSM_HOPS_DISABLED;
-			if (peer->sort == BGP_PEER_EBGP)
-				ret = peer_ebgp_multihop_unset(peer, false);
-			else {
-				if (peer->connection->fd >= 0)
-					sockopt_minttl(peer->connection->su.sa
-							       .sa_family,
-						       peer->connection->fd, 0);
+		for (ALL_LIST_ELEMENTS(group->peer, node, nnode, member)) {
+			member->gtsm_hops = BGP_GTSM_HOPS_DISABLED;
+			if (member->sort == BGP_PEER_EBGP) {
+				int member_ret = peer_ebgp_multihop_unset(member, false);
 
-				if ((peer->connection->status < Established) &&
-				    peer->doppelganger &&
-				    (peer->doppelganger->connection->fd >= 0))
-					sockopt_minttl(peer->connection->su.sa
-							       .sa_family,
-						       peer->doppelganger
-							       ->connection->fd,
-						       0);
+				/* Remember a failure on any member, but do not
+				 * let a later success overwrite it.
+				 */
+				if (member_ret != BGP_SUCCESS && ret == BGP_SUCCESS)
+					ret = member_ret;
+			} else {
+				if (member->connection->fd >= 0)
+					sockopt_minttl(member->connection->su.sa.sa_family,
+						       member->connection->fd, 0);
+
+				if ((member->connection->status < Established) &&
+				    member->doppelganger &&
+				    (member->doppelganger->connection->fd >= 0))
+					sockopt_minttl(member->connection->su.sa.sa_family,
+						       member->doppelganger->connection->fd, 0);
 			}
 		}
 	}
