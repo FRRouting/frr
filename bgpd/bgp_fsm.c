@@ -1811,13 +1811,7 @@ static void bgp_gr_evaluate_mix_peer_type(struct bgp *bgp)
 
 	bgp->gr_multihop_peer_exists = false;
 
-	FOREACH_AFI_SAFI_NSF (afi, safi) {
-		/*
-		 * GR is not supported for this afi-safi
-		 */
-		if (!bgp_gr_supported_for_afi_safi(afi, safi))
-			continue;
-
+	FOREACH_AFI_SAFI_GR (afi, safi) {
 		for (ALL_LIST_ELEMENTS(bgp->peer, node, nnode, peer)) {
 			/*
 			 * If this is not a config node or
@@ -1913,10 +1907,7 @@ void bgp_gr_start_all_deferral_timers(struct bgp *bgp)
 	afi_t afi;
 	safi_t safi;
 
-	FOREACH_AFI_SAFI_NSF (afi, safi) {
-		if (!bgp_gr_supported_for_afi_safi(afi, safi))
-			continue;
-
+	FOREACH_AFI_SAFI_GR (afi, safi) {
 		gr_info = &(bgp->gr_info[afi][safi]);
 		if (!event_is_scheduled(gr_info->t_select_deferral))
 			bgp_start_deferral_timer(bgp, afi, safi, gr_info);
@@ -2038,10 +2029,7 @@ static bool gr_path_select_deferral_applicable(struct bgp *bgp)
 	if (!event_is_scheduled(bgp->t_startup) && !bgp_in_graceful_restart())
 		return false;
 
-	FOREACH_AFI_SAFI_NSF (afi, safi) {
-		if (!bgp_gr_supported_for_afi_safi(afi, safi))
-			continue;
-
+	FOREACH_AFI_SAFI_GR (afi, safi) {
 		if (!BGP_GR_SELECT_DEFER_DONE(bgp, afi, safi))
 			return true;
 	}
