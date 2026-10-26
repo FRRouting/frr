@@ -6068,6 +6068,7 @@ static int peer_af_flag_modify(struct peer *peer, afi_t afi, safi_t safi,
 	struct peer *member;
 	struct listnode *node, *nnode;
 	struct peer_flag_action action;
+	enum peer_change_type member_action_type;
 	enum bgp_peer_sort ptype;
 
 	memset(&action, 0, sizeof(struct peer_flag_action));
@@ -6254,15 +6255,18 @@ static int peer_af_flag_modify(struct peer *peer, afi_t afi, safi_t safi,
 					/* We should not reset the session if
 					 * dynamic capability is enabled and we
 					 * are changing the ORF prefix flags.
+					 * Use a per-member type so that one
+					 * member does not change the action
+					 * applied to the remaining members.
 					 */
+					member_action_type = action.type;
 					if ((CHECK_FLAG(member->cap, PEER_CAP_DYNAMIC_RCV) &&
 					     CHECK_FLAG(member->cap, PEER_CAP_DYNAMIC_ADV)) &&
 					    (flag == PEER_FLAG_ORF_PREFIX_RM ||
 					     flag == PEER_FLAG_ORF_PREFIX_SM))
-						action.type = peer_change_none;
+						member_action_type = peer_change_none;
 
-					peer_change_action(member, afi, safi,
-							   action.type);
+					peer_change_action(member, afi, safi, member_action_type);
 				}
 			}
 		}
