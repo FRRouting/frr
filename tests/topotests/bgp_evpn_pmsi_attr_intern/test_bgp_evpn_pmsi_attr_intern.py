@@ -72,6 +72,7 @@ This bug is verifiable by inspecting zebra's per-VNI per-remote-VTEP
 flood mode, which is directly derived from the PMSI value bgpd retained.
 """
 
+import json
 import os
 import sys
 from functools import partial
@@ -256,8 +257,21 @@ def _contains_pmsi(value):
     return False
 
 
+def _imet_hrep_entry(router, present):
+    output = router.run("bridge -j fdb show dev vxlan-101")
+    try:
+        entries = json.loads(output)
+    except json.JSONDecodeError:
+        return f"Invalid bridge FDB JSON: {output}"
+    found = any(
+        entry.get("mac") == "00:00:00:00:00:00" and entry.get("dst") == "10.0.0.2"
+        for entry in entries
+    )
+    return None if found == present else f"HREP present={found}, expected={present}"
+
+
 def test_same_imet_update_disables_her():
-    "A PMSI-only update on the same IMET RD and NLRI must reach zebra."
+    "A same-route PMSI update must change flood mode and kernel HREP."
     tgen = get_topogen()
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
@@ -265,6 +279,10 @@ def test_same_imet_update_disables_her():
     r1 = tgen.gears["r1"]
     r2 = tgen.gears["r2"]
     _check_flood_her("r1")
+    check = partial(_imet_hrep_entry, r1, True)
+    _, result = topotest.run_and_expect(check, None, count=20, wait=1)
+    assert result is None, f"Initial IMET did not install HREP: {result}"
+
     initial = _remote_imet_routes(r1)
     assert initial and all(_contains_pmsi(paths) for paths in initial.values())
 
@@ -296,6 +314,10 @@ def test_same_imet_update_disables_her():
         check = partial(_imet_flood_mode, r1, "-")
         _, result = topotest.run_and_expect(check, None, count=30, wait=1)
         assert result is None, f"PMSI-only update did not disable flooding: {result}"
+
+        check = partial(_imet_hrep_entry, r1, False)
+        _, result = topotest.run_and_expect(check, None, count=20, wait=1)
+        assert result is None, f"HREP entry survived PMSI removal: {result}"
     finally:
         r1.vtysh_cmd(
             """
@@ -308,6 +330,9 @@ def test_same_imet_update_disables_her():
         r2.vtysh_cmd("clear bgp l2vpn evpn 10.0.0.1 soft out")
 
     _check_flood_her("r1")
+    check = partial(_imet_hrep_entry, r1, True)
+    _, result = topotest.run_and_expect(check, None, count=20, wait=1)
+    assert result is None, f"Restored PMSI did not reinstall HREP: {result}"
 
 
 def test_memory_leak():
