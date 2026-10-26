@@ -5260,11 +5260,12 @@ void zebra_vxlan_remote_vtep_add(vrf_id_t vrf_id, vni_t vni, struct ipaddr *vtep
 		 * the flood mode has changed
 		 */
 		if (zvtep->flood_control != flood_control) {
-			if (zvtep->flood_control == VXLAN_FLOOD_DISABLED)
-				/* old mode was head-end-replication but
-				 * is no longer; get rid of the HER fdb
-				 * entry installed before
-				 */
+			/*
+			 * Uninstall only when leaving HER; that is when a
+			 * HREP FDB entry may exist. Previously this checked
+			 * for DISABLED, leaving stale HREP on HER -> DISABLED.
+			 */
+			if (zvtep->flood_control == VXLAN_FLOOD_HEAD_END_REPL)
 				zebra_evpn_vtep_uninstall(zevpn, vtep_ip);
 			zvtep->flood_control = flood_control;
 			zebra_evpn_vtep_install(zevpn, zvtep);
