@@ -549,7 +549,7 @@ def test_bgp_evpn_rt5_addpath_transitions():
         conf
         router bgp 64001 vrf vrf100
          address-family l2vpn evpn
-          advertise ipv4 unicast
+          no advertise ipv4 unicast gateway-ip
     """
     )
 
