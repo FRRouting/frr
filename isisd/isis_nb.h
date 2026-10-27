@@ -252,6 +252,7 @@ int lib_interface_isis_priority_level_1_modify(struct nb_cb_modify_args *args);
 int lib_interface_isis_priority_level_2_modify(struct nb_cb_modify_args *args);
 int lib_interface_isis_network_type_modify(struct nb_cb_modify_args *args);
 int lib_interface_isis_passive_modify(struct nb_cb_modify_args *args);
+int lib_interface_isis_unnumbered_modify(struct nb_cb_modify_args *args);
 int lib_interface_isis_password_create(struct nb_cb_create_args *args);
 int lib_interface_isis_password_destroy(struct nb_cb_destroy_args *args);
 int lib_interface_isis_password_password_modify(struct nb_cb_modify_args *args);
@@ -464,6 +465,7 @@ void cli_show_isis_frr_lfa_load_sharing(struct vty *vty, const struct lyd_node *
 void cli_show_isis_frr_remote_lfa_plist(struct vty *vty, const struct lyd_node *dnode,
 					bool show_defaults);
 void cli_show_ip_isis_passive(struct vty *vty, const struct lyd_node *dnode, bool show_defaults);
+void cli_show_ip_isis_unnumbered(struct vty *vty, const struct lyd_node *dnode, bool show_defaults);
 void cli_show_ip_isis_password(struct vty *vty, const struct lyd_node *dnode, bool show_defaults);
 void cli_show_ip_isis_metric(struct vty *vty, const struct lyd_node *dnode, bool show_defaults);
 void cli_show_ip_isis_hello_interval(struct vty *vty, const struct lyd_node *dnode,

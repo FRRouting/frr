@@ -88,6 +88,7 @@ static struct isis_nexthop *isis_nexthop_dup(const struct isis_nexthop *const or
 	struct isis_nexthop *nexthop;
 
 	nexthop = isis_nexthop_create(orig->family, &orig->ip, orig->ifindex);
+	nexthop->onlink = orig->onlink;
 	memcpy(nexthop->sysid, orig->sysid, ISIS_SYS_ID_LEN);
 	nexthop->sr = orig->sr;
 	nexthop->label_stack = label_stack_dup(orig->label_stack);
@@ -156,6 +157,34 @@ static struct isis_nexthop *nexthoplookup(struct list *nexthops, int family, uni
 	return NULL;
 }
 
+/*
+ * Whether the kernel needs ONLINK to accept an IPv4 gateway: the circuit is
+ * configured as unnumbered and the neighbor address is not covered by any
+ * connected prefix of the circuit. This is the case on unnumbered interfaces
+ * (the neighbor advertises a borrowed loopback address) and on links where
+ * both ends sit on different subnets, over which RFC 1195 section 4.4 still
+ * requires IP forwarding.
+ */
+static bool isis_nexthop_ipv4_onlink(const struct isis_circuit *circuit, struct in_addr addr)
+{
+	struct prefix_ipv4 *ipv4;
+	struct listnode *node;
+	struct prefix p = {
+		.family = AF_INET,
+		.prefixlen = IPV4_MAX_BITLEN,
+		.u.prefix4 = addr,
+	};
+
+	if (!isis_circuit_unnumbered(circuit))
+		return false;
+
+	for (ALL_LIST_ELEMENTS_RO(circuit->ip_addrs, node, ipv4))
+		if (prefix_match((struct prefix *)ipv4, &p))
+			return false;
+
+	return true;
+}
+
 void adjinfo2nexthop(int family, struct list *nexthops, struct isis_adjacency *adj,
 		     struct isis_sr_psid_info *sr, struct mpls_label_stack *label_stack)
 {
@@ -171,6 +200,12 @@ void adjinfo2nexthop(int family, struct list *nexthops, struct isis_adjacency *a
 					   adj->circuit->interface->ifindex)) {
 				nh = isis_nexthop_create(AF_INET, &ip,
 							 adj->circuit->interface->ifindex);
+				/*
+				 * Recomputed on every SPF run, so that address
+				 * changes on the circuit update ONLINK even when
+				 * the neighbor's nexthop address stays the same.
+				 */
+				nh->onlink = isis_nexthop_ipv4_onlink(adj->circuit, ip.ipv4);
 				memcpy(nh->sysid, adj->sysid, sizeof(nh->sysid));
 				if (sr)
 					nh->sr = *sr;
@@ -389,6 +424,11 @@ static int isis_route_info_same(struct isis_route_info *new, struct isis_route_i
 		if (!old_nh) {
 			if (buf)
 				snprintf(buf, buf_size, "new nhop"); /* TODO: print nhop */
+			return 0;
+		}
+		if (new_nh->onlink != old_nh->onlink) {
+			if (buf)
+				snprintfrr(buf, buf_size, "nhop onlink");
 			return 0;
 		}
 		if (!isis_sr_psid_info_same(&new_nh->sr, &old_nh->sr)) {

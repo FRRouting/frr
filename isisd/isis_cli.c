@@ -2334,6 +2334,29 @@ void cli_show_ip_isis_passive(struct vty *vty, const struct lyd_node *dnode, boo
 }
 
 /*
+ * XPath: /frr-interface:lib/interface/frr-isisd:isis/unnumbered
+ */
+DEFPY_YANG(isis_unnumbered, isis_unnumbered_cmd, "[no] isis unnumbered",
+	   NO_STR
+	   "IS-IS routing protocol\n"
+	   "Borrow a loopback IPv4 address if the interface has none\n")
+{
+	if (no)
+		nb_cli_enqueue_change(vty, "./frr-isisd:isis/unnumbered", NB_OP_DESTROY, NULL);
+	else
+		nb_cli_enqueue_change(vty, "./frr-isisd:isis/unnumbered", NB_OP_MODIFY, "true");
+
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+void cli_show_ip_isis_unnumbered(struct vty *vty, const struct lyd_node *dnode, bool show_defaults)
+{
+	if (!yang_dnode_get_bool(dnode, NULL))
+		vty_out(vty, " no");
+	vty_out(vty, " isis unnumbered\n");
+}
+
+/*
  * XPath: /frr-interface:lib/interface/frr-isisd:isis/password
  */
 
@@ -3747,6 +3770,7 @@ void isis_cli_init(void)
 	install_element(ISIS_SRV6_NODE_MSD_NODE, &isis_srv6_node_msd_max_end_d_cmd);
 
 	install_element(INTERFACE_NODE, &isis_passive_cmd);
+	install_element(INTERFACE_NODE, &isis_unnumbered_cmd);
 
 	install_element(INTERFACE_NODE, &isis_passwd_cmd);
 	install_element(INTERFACE_NODE, &no_isis_passwd_cmd);

@@ -7438,11 +7438,17 @@ DEFINE_HOOK(isis_adj_ip_disabled_hook,
 static void tlvs_ipv4_addresses_to_adj(struct isis_tlvs *tlvs, struct isis_adjacency *adj,
 				       bool *changed)
 {
-	bool ipv4_enabled = false;
+	struct isis_ipv4_address *first = (struct isis_ipv4_address *)tlvs->ipv4_address.head;
+	bool ipv4_enabled = first && (!adj->ipv4_address_count ||
+				      !IPV4_ADDR_SAME(&adj->ipv4_addresses[0], &first->addr));
 
-	if (adj->ipv4_address_count == 0 && tlvs->ipv4_address.count > 0)
-		ipv4_enabled = true;
-	else if (adj->ipv4_address_count > 0 && tlvs->ipv4_address.count == 0)
+	/*
+	 * Adj-SIDs and TE use the first advertised address as their nexthop.
+	 * Replacing it (e.g. with a borrowed loopback address) must withdraw
+	 * the old state before updating the address list, then recreate it
+	 * through the enabled hook below. Secondary changes need no refresh.
+	 */
+	if (adj->ipv4_address_count && (!first || ipv4_enabled))
 		hook_call(isis_adj_ip_disabled_hook, adj, AF_INET, false);
 
 	if (adj->ipv4_address_count != tlvs->ipv4_address.count) {
@@ -7458,14 +7464,10 @@ static void tlvs_ipv4_addresses_to_adj(struct isis_tlvs *tlvs, struct isis_adjac
 			memset(&adj->ipv4_addresses[oc], 0, sizeof(adj->ipv4_addresses[oc]));
 	}
 
-	struct isis_ipv4_address *addr = NULL;
-	for (unsigned int i = 0; i < tlvs->ipv4_address.count; i++) {
-		if (!addr)
-			addr = (struct isis_ipv4_address *)tlvs->ipv4_address.head;
-		else
-			addr = addr->next;
-
-		if (!memcmp(&adj->ipv4_addresses[i], &addr->addr, sizeof(addr->addr)))
+	unsigned int i = 0;
+	for (struct isis_ipv4_address *addr = first; addr && i < adj->ipv4_address_count;
+	     addr = addr->next, i++) {
+		if (IPV4_ADDR_SAME(&adj->ipv4_addresses[i], &addr->addr))
 			continue;
 
 		*changed = true;
