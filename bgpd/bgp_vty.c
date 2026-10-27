@@ -1216,6 +1216,7 @@ static int bgp_peer_clear(struct peer *peer, afi_t afi, safi_t safi,
 {
 	int ret = 0;
 	struct peer_af *paf;
+	bool force = stype == BGP_CLEAR_SOFT_OUT || stype == BGP_CLEAR_SOFT_BOTH;
 
 	/* if afi/.safi not specified, spin thru all of them */
 	if ((afi == AFI_UNSPEC) && (safi == SAFI_UNSPEC)) {
@@ -1228,7 +1229,7 @@ static int bgp_peer_clear(struct peer *peer, afi_t afi, safi_t safi,
 			if (!paf)
 				continue;
 
-			if (paf && paf->subgroup)
+			if (force && paf && paf->subgroup)
 				SET_FLAG(paf->subgroup->sflags,
 					 SUBGRP_STATUS_FORCE_UPDATES);
 
@@ -1253,7 +1254,7 @@ static int bgp_peer_clear(struct peer *peer, afi_t afi, safi_t safi,
 				continue;
 
 			paf = peer_af_find(peer, afi, tmp_safi);
-			if (paf && paf->subgroup)
+			if (force && paf && paf->subgroup)
 				SET_FLAG(paf->subgroup->sflags,
 					 SUBGRP_STATUS_FORCE_UPDATES);
 
@@ -1269,7 +1270,7 @@ static int bgp_peer_clear(struct peer *peer, afi_t afi, safi_t safi,
 			return 1;
 
 		paf = peer_af_find(peer, afi, safi);
-		if (paf && paf->subgroup)
+		if (force && paf && paf->subgroup)
 			SET_FLAG(paf->subgroup->sflags,
 				 SUBGRP_STATUS_FORCE_UPDATES);
 
