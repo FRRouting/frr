@@ -1202,8 +1202,15 @@ static int fpm_lsp_send_cb(struct hash_bucket *bucket, void *arg)
 	dplane_ctx_lsp_init(fla->ctx, DPLANE_OP_LSP_INSTALL, lsp);
 
 	if (fpm_nl_enqueue(fla->fnc, fla->ctx) == -1) {
+		if (IS_ZEBRA_DEBUG_FPM)
+			zlog_debug("%s: FPM buffer full; rescheduling LSP walk",
+				   __func__);
 		fla->complete = false;
 		return HASHWALK_ABORT;
+	}
+	if (dplane_ctx_get_status(fla->ctx) == ZEBRA_DPLANE_REQUEST_FAILURE) {
+		zlog_err("%s: LSP refresh enqueue failed", __func__);
+		return HASHWALK_CONTINUE;
 	}
 
 	/* Mark entry as sent */
@@ -1261,8 +1268,15 @@ static int fpm_nhg_send_cb(struct hash_bucket *bucket, void *arg)
 	dplane_ctx_nexthop_init(fna->ctx, DPLANE_OP_NH_INSTALL, nhe);
 	if (fpm_nl_enqueue(fna->fnc, fna->ctx) == -1) {
 		/* Our buffers are full, lets give it some cycles. */
+		if (IS_ZEBRA_DEBUG_FPM)
+			zlog_debug("%s: FPM buffer full; rescheduling NHG walk",
+				   __func__);
 		fna->complete = false;
 		return HASHWALK_ABORT;
+	}
+	if (dplane_ctx_get_status(fna->ctx) == ZEBRA_DPLANE_REQUEST_FAILURE) {
+		zlog_err("%s: NHG refresh enqueue failed", __func__);
+		return HASHWALK_CONTINUE;
 	}
 
 	/* Mark group as sent, so it doesn't get sent again. */
@@ -1329,12 +1343,20 @@ static void fpm_rib_send(struct event *t)
 			dplane_ctx_route_init(ctx, DPLANE_OP_ROUTE_INSTALL, rn,
 					      dest->selected_fib);
 			if (fpm_nl_enqueue(fnc, ctx) == -1) {
+				if (IS_ZEBRA_DEBUG_FPM)
+					zlog_debug("%s: FPM buffer full; rescheduling RIB walk",
+						   __func__);
 				/* Free the temporary allocated context. */
 				dplane_ctx_fini(&ctx);
 
 				event_add_timer(zrouter.master, fpm_rib_send,
 						fnc, 1, &fnc->t_ribwalk);
 				return;
+			}
+			if (dplane_ctx_get_status(ctx) ==
+			    ZEBRA_DPLANE_REQUEST_FAILURE) {
+				zlog_err("%s: RIB refresh enqueue failed", __func__);
+				continue;
 			}
 
 			/* Mark as sent. */
@@ -1389,9 +1411,18 @@ static void fpm_enqueue_rmac_table(struct hash_bucket *bucket, void *arg)
 			&zrmac->macaddr, vni->vni, &zrmac->fwd_info.r_vtep_ip, sticky, 0 /*nhg*/,
 			0 /*update_flags*/);
 	if (fpm_nl_enqueue(fra->fnc, fra->ctx) == -1) {
+		if (IS_ZEBRA_DEBUG_FPM)
+			zlog_debug("%s: FPM buffer full; rescheduling RMAC walk",
+				   __func__);
 		event_add_timer(zrouter.master, fpm_rmac_send, fra->fnc, 1,
 				&fra->fnc->t_rmacwalk);
 		fra->complete = false;
+		return;
+	}
+
+	if (dplane_ctx_get_status(fra->ctx) == ZEBRA_DPLANE_REQUEST_FAILURE) {
+		zlog_err("%s: RMAC refresh enqueue failed", __func__);
+		return;
 	}
 }
 
