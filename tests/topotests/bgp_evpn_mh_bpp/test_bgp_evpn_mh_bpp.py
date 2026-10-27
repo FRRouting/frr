@@ -622,6 +622,80 @@ def test_bpp_show():
     _expect_json(tor1, cmd + " member json", {}, "no protected ES")
 
 
+def _expect_log(tgen, router, text):
+    path = os.path.join(tgen.logdir, router.name, "zebra.log")
+
+    def _check():
+        with open(path) as f:
+            return None if text in f.read() else "'%s' not in %s" % (text, path)
+
+    _, result = topotest.run_and_expect(_check, None, count=30, wait=1)
+    assert result is None, result
+
+
+def _set_l3vni_neigh(router, enable):
+    router.vtysh_cmd(
+        "configure terminal\nrouter bgp 65001\naddress-family l2vpn evpn\n"
+        "%sadvertise-all-vni l3vni-neigh" % ("" if enable else "no ")
+    )
+
+
+def test_bpp_debug():
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    tor1 = tgen.gears["tor1"]
+    cmd = "show evpn mh bridge-port-protection json"
+    zebra_on = "Zebra EVPN-MH protection debugging is on"
+    bgp_on = "BGP EVPN-MH protection debugging is on"
+
+    tor1.vtysh_cmd(
+        "configure terminal\ndebug zebra evpn mh protection\n"
+        "debug bgp evpn mh protection"
+    )
+    output = tor1.vtysh_cmd("show debugging")
+    assert zebra_on in output and bgp_on in output, output
+    output = tor1.vtysh_cmd("show running-config")
+    for line in ("debug zebra evpn mh protection", "debug bgp evpn mh protection"):
+        assert line in output, "'%s' not in running-config" % line
+
+    _set_bpp(tor1, True)
+    _expect_log(tgen, tor1, "bridge-port protection %s vlan 10 add: no eligible peer" % ES_IF)
+    _expect_json(
+        tor1, cmd, {ES_IF: {"vlans": {"10": {"lastEvent": "created"}}}}, "created"
+    )
+
+    _set_l3vni_neigh(tor1, False)
+    _expect_log(
+        tgen,
+        tor1,
+        "bridge-port protection %s vlan 10: no eligible peer -> l3vni-neigh off" % ES_IF,
+    )
+    _expect_json(
+        tor1,
+        cmd,
+        {ES_IF: {"vlans": {"10": {"lastEvent": "reasons changed"}}}},
+        "reasons changed",
+    )
+    _set_l3vni_neigh(tor1, True)
+    _expect_log(
+        tgen,
+        tor1,
+        "bridge-port protection %s vlan 10: l3vni-neigh off -> no eligible peer" % ES_IF,
+    )
+
+    _set_bpp(tor1, False)
+    _expect_log(tgen, tor1, "bridge-port protection %s vlan 10 del" % ES_IF)
+
+    tor1.vtysh_cmd(
+        "configure terminal\nno debug zebra evpn mh protection\n"
+        "no debug bgp evpn mh protection"
+    )
+    output = tor1.vtysh_cmd("show debugging")
+    assert zebra_on not in output and bgp_on not in output, output
+
+
 def test_memory_leak():
     tgen = get_topogen()
     if not tgen.is_memleak_enabled():
