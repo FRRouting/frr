@@ -1379,11 +1379,11 @@ as_t peek_for_as4_capability(struct peer_connection *connection, uint16_t length
 
 		/*
 		 * Check the length and fetch the opt_length
-		 * If the peer is BGP_OPEN_EXT_OPT_PARAMS_CAPABLE(peer)
+		 * If the peer sent the extended format (RFC 9072)
 		 * then we do a getw which is 2 bytes.  So we need to
 		 * ensure that we can read that as well
 		 */
-		if (BGP_OPEN_EXT_OPT_PARAMS_CAPABLE(peer)) {
+		if (CHECK_FLAG(peer->sflags, PEER_STATUS_EXT_OPT_PARAMS_LENGTH)) {
 			if (stream_get_getp(s) + 2 > end)
 				goto end;
 
@@ -1503,7 +1503,7 @@ int bgp_open_option_parse(struct peer_connection *connection, uint16_t length, i
 		 * Check the length of the stream to ensure that
 		 * FRR can properly read the opt_length. Then read it
 		 */
-		if (BGP_OPEN_EXT_OPT_PARAMS_CAPABLE(peer)) {
+		if (CHECK_FLAG(peer->sflags, PEER_STATUS_EXT_OPT_PARAMS_LENGTH)) {
 			if (STREAM_READABLE(s) < 2) {
 				zlog_err("%s Option length error", peer->host);
 				bgp_notify_send(connection, BGP_NOTIFY_OPEN_ERR,
@@ -1739,12 +1739,10 @@ static void bgp_peer_send_gr_capability(struct stream *s, struct peer_connection
 	 * only when GR config is present
 	 */
 	if (CHECK_FLAG(peer->flags, PEER_FLAG_GRACEFUL_RESTART)) {
-		FOREACH_AFI_SAFI (afi, safi) {
+		FOREACH_AFI_SAFI_GR (afi, safi) {
 			bool f_bit = false;
 
 			if (!peer->afc[afi][safi])
-				continue;
-			if (!bgp_gr_supported_for_afi_safi(afi, safi))
 				continue;
 
 			/* Convert AFI, SAFI to values for

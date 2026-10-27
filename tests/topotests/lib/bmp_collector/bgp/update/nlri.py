@@ -38,6 +38,9 @@ def dissect_nlri(nlri_data, afi, safi):
         return NlriIPv4Vpn.parse(nlri_data)
     elif addr_family == AF.IPv6_UNICAST:
         return NlriIPv6Unicast.parse(nlri_data)
+    elif addr_family == AF.IPv4_UNICAST:
+        # IPv4 unicast with an IPv6 next hop (RFC 8950)
+        return NlriIPv4Unicast.parse(nlri_data)
 
     return {"ip_prefix": "Unknown"}
 

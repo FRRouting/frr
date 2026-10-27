@@ -22,6 +22,7 @@
 #include "lib/vrf.h"
 #include "lib/keychain.h"
 #include "lib/bfd.h"
+#include "bfdd/bfd_timer.h"
 
 #ifdef BFD_DEBUG
 #define BFDD_JSON_CONV_OPTIONS (JSON_C_TO_STRING_PRETTY)

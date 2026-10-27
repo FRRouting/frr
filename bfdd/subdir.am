@@ -38,6 +38,7 @@ clippy_scan += \
 noinst_HEADERS += \
 	bfdd/bfdd_nb.h \
 	bfdd/bfd.h \
+	bfdd/bfd_timer.h \
 	bfdd/bfd_trace.h \
 	# end
 

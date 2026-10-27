@@ -38,7 +38,8 @@ void ospf_external_route_remove(struct ospf *ospf, struct prefix_ipv4 *p)
 	rn = route_node_lookup(ospf->old_external_route, (struct prefix *)p);
 	if (rn)
 		if ((or = rn->info)) {
-			zlog_info("Route[%pFX]: external path deleted", p);
+			zlog_info("Route[(%s:%u:%u)%pFX]: external path deleted",
+				  OSPF_DEBUG_VRF(ospf), p);
 
 			/* Remove route from zebra. */
 			if (or->type == OSPF_DESTINATION_NETWORK)
@@ -53,7 +54,7 @@ void ospf_external_route_remove(struct ospf *ospf, struct prefix_ipv4 *p)
 			return;
 		}
 
-	zlog_info("Route[%pFX]: no such external path", p);
+	zlog_info("Route[(%s:%u:%u)%pFX]: no such external path", OSPF_DEBUG_VRF(ospf), p);
 }
 
 /* Add an External info for AS-external-LSA. */
@@ -121,10 +122,9 @@ ospf_external_info_add(struct ospf *ospf, uint8_t type, unsigned short instance,
 		}
 
 		if (IS_DEBUG_OSPF(lsa, LSA_GENERATE))
-			zlog_debug(
-				"Redistribute[%s][%d][%u]: %pFX discarding old info with NH %pI4.",
-				ospf_redist_string(type), instance,
-				ospf->vrf_id, &p, &nexthop.s_addr);
+			zlog_debug("Redistribute[%s][%d][%u]: (%s:%u:%u)%pFX discarding old info with NH %pI4.",
+				   ospf_redist_string(type), instance, ospf->vrf_id,
+				   OSPF_DEBUG_VRF(ospf), &p, &nexthop.s_addr);
 		ospf_external_info_free(rn->info);
 	}
 
@@ -145,10 +145,9 @@ ospf_external_info_add(struct ospf *ospf, uint8_t type, unsigned short instance,
 		rn->info = new;
 
 	if (IS_DEBUG_OSPF(lsa, LSA_GENERATE)) {
-		zlog_debug(
-			"Redistribute[%s][%u]: %pFX external info created, with NH %pI4, metric:%u",
-			ospf_redist_string(type), ospf->vrf_id, &p,
-			&nexthop.s_addr, metric);
+		zlog_debug("Redistribute[%s][%u]: (%s:%u:%u)%pFX external info created, with NH %pI4, metric:%u",
+			   ospf_redist_string(type), ospf->vrf_id, OSPF_DEBUG_VRF(ospf), &p,
+			   &nexthop.s_addr, metric);
 	}
 	return new;
 }

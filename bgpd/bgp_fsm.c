@@ -1811,13 +1811,7 @@ static void bgp_gr_evaluate_mix_peer_type(struct bgp *bgp)
 
 	bgp->gr_multihop_peer_exists = false;
 
-	FOREACH_AFI_SAFI_NSF (afi, safi) {
-		/*
-		 * GR is not supported for this afi-safi
-		 */
-		if (!bgp_gr_supported_for_afi_safi(afi, safi))
-			continue;
-
+	FOREACH_AFI_SAFI_GR (afi, safi) {
 		for (ALL_LIST_ELEMENTS(bgp->peer, node, nnode, peer)) {
 			/*
 			 * If this is not a config node or
@@ -1913,10 +1907,7 @@ void bgp_gr_start_all_deferral_timers(struct bgp *bgp)
 	afi_t afi;
 	safi_t safi;
 
-	FOREACH_AFI_SAFI_NSF (afi, safi) {
-		if (!bgp_gr_supported_for_afi_safi(afi, safi))
-			continue;
-
+	FOREACH_AFI_SAFI_GR (afi, safi) {
 		gr_info = &(bgp->gr_info[afi][safi]);
 		if (!event_is_scheduled(gr_info->t_select_deferral))
 			bgp_start_deferral_timer(bgp, afi, safi, gr_info);
@@ -2038,10 +2029,7 @@ static bool gr_path_select_deferral_applicable(struct bgp *bgp)
 	if (!event_is_scheduled(bgp->t_startup) && !bgp_in_graceful_restart())
 		return false;
 
-	FOREACH_AFI_SAFI_NSF (afi, safi) {
-		if (!bgp_gr_supported_for_afi_safi(afi, safi))
-			continue;
-
+	FOREACH_AFI_SAFI_GR (afi, safi) {
 		if (!BGP_GR_SELECT_DEFER_DONE(bgp, afi, safi))
 			return true;
 	}
@@ -2373,8 +2361,7 @@ enum bgp_fsm_state_progress bgp_stop(struct peer_connection *connection)
 		if ((connection->status == OpenConfirm) ||
 		    peer_established(connection)) {
 			/* ORF received prefix-filter pnt */
-			snprintf(orf_name, sizeof(orf_name), "%s.%d.%d",
-				 peer->host, afi, safi);
+			peer_orf_plist_name(peer, afi, safi, orf_name, sizeof(orf_name));
 			prefix_bgp_orf_remove_all(afi, orf_name);
 		}
 	}
@@ -3933,5 +3920,15 @@ void bgp_event_stop_with_notify(struct event *event)
 {
 	struct peer_connection *connection = EVENT_ARG(event);
 
-	bgp_stop_with_notify(connection, BGP_NOTIFY_SEND_HOLD_ERR, 0);
+	/*
+	 * Drive the teardown through the FSM rather than stopping the peer
+	 * inline.  bgp_notify_send() -> bgp_write_notify() queues a BGP_Stop
+	 * (or TCP_fatal_error, if the stuck send queue rejects the write); the
+	 * FSM then advances the state and re-arms the ConnectRetry timer like
+	 * every other stop.  Calling bgp_stop() directly here (as
+	 * bgp_stop_with_notify() does) runs event_cancel_event_ready(), which
+	 * cancels that queued event, so the state is never advanced and the peer
+	 * is left stuck in Established with fd == -1 -- a zombie session.
+	 */
+	bgp_notify_send(connection, BGP_NOTIFY_SEND_HOLD_ERR, 0);
 }

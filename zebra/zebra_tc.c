@@ -113,7 +113,7 @@ tc_qdisc_lookup_ifindex(struct zebra_tc_qdisc *qdisc)
 
 	lookup.ifindex = qdisc->qdisc.ifindex;
 	lookup.qdisc = NULL;
-	hash_walk(zrouter.rules_hash, &tc_qdisc_lookup_ifindex_walker, &lookup);
+	hash_walk(zrouter.qdisc_hash, &tc_qdisc_lookup_ifindex_walker, &lookup);
 
 	return lookup.qdisc;
 }

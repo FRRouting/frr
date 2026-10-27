@@ -268,8 +268,8 @@ struct isis_vertex_adj *isis_vertex_adj_add(struct isis_spftree *spftree,
 	vadj->sadj = sadj;
 	if (spftree->area->srdb.enabled && psid) {
 		if (vertex->N.ip.sr.present && vertex->N.ip.sr.sid.value != psid->value)
-			zlog_warn("ISIS-SPF: ignoring different Prefix-SID for route %pFX",
-				  &vertex->N.ip.p.dest);
+			zlog_warn("ISIS-SPF: ignoring different Prefix-SID for route (%s:%u:%u)%pFX",
+				  ISIS_DEBUG_VRF(spftree->area->isis), &vertex->N.ip.p.dest);
 		else {
 			vadj->sr.sid = *psid;
 			vadj->sr.label = sr_prefix_out_label(spftree->lspdb,
@@ -590,8 +590,10 @@ static struct isis_vertex *isis_spf_add2tent(struct isis_spftree *spftree, enum 
 		vertex_psid = isis_spf_prefix_sid_lookup(spftree, psid);
 		if (vertex_psid && !prefix_same(&vertex_psid->N.ip.p.dest, &vertex->N.ip.p.dest)) {
 			flog_warn(EC_ISIS_SID_COLLISION,
-				  "ISIS-Sr (%s): collision detected, prefixes %pFX and %pFX share the same SID %s (%u)",
-				  area->area_tag, &vertex->N.ip.p.dest, &vertex_psid->N.ip.p.dest,
+				  "ISIS-Sr (%s): collision detected, prefixes (%s:%u:%u)%pFX and (%s:%u:%u)%pFX share the same SID %s (%u)",
+				  area->area_tag, ISIS_DEBUG_VRF(spftree->area->isis),
+				  &vertex->N.ip.p.dest, ISIS_DEBUG_VRF(spftree->area->isis),
+				  &vertex_psid->N.ip.p.dest,
 				  CHECK_FLAG(psid->flags, ISIS_PREFIX_SID_VALUE) ? "label"
 										 : "index",
 				  psid->value);
@@ -1684,9 +1686,10 @@ static void spf_path_process(struct isis_spftree *spftree, struct isis_vertex *v
 						  vertex->Adj_N, allow_ecmp, area, route_table);
 
 #ifdef EXTREME_DEBUG
-			zlog_debug("ISIS-SPF: A:%hhu create route pfx %pFX dist %d, sr.algo %d, table %p, rv %p",
-				   spftree->algorithm, &vertex->N.ip.p.dest, vertex->d_N,
-				   vertex->N.ip.sr.algorithm, route_table, ri);
+			zlog_debug("ISIS-SPF: A:%hhu create route pfx (%s:%u:%u)%pFX dist %d, sr.algo %d, table %p, rv %p",
+				   spftree->algorithm, ISIS_DEBUG_VRF(spftree->area->isis),
+				   &vertex->N.ip.p.dest, vertex->d_N, vertex->N.ip.sr.algorithm,
+				   route_table, ri);
 #endif /* EXTREME_DEBUG */
 		} else if (IS_DEBUG_SPF_EVENTS)
 			zlog_debug("ISIS-SPF: no adjacencies, do not install route for %s depth %d dist %d",

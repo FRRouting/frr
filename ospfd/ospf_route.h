@@ -150,7 +150,7 @@ extern void ospf_route_add(struct route_table *rt, struct prefix_ipv4 *p,
 			   struct ospf_route *new_or, struct ospf_route *over);
 
 extern void ospf_route_subst_nexthops(struct ospf_route *to, struct list *from);
-extern void ospf_prune_unreachable_networks(struct route_table *rt);
+extern void ospf_prune_unreachable_networks(struct ospf *ospf, struct route_table *rt);
 extern void ospf_prune_unreachable_routers(struct route_table *rtrs);
 extern int ospf_add_discard_route(struct ospf *ospf, struct route_table *rt, struct ospf_area *area,
 				  struct prefix_ipv4 *p, bool check_subtree);

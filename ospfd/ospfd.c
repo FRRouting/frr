@@ -2431,6 +2431,13 @@ const char *ospf_vrf_id_to_name(vrf_id_t vrf_id)
 	return vrf ? vrf->name : "NIL";
 }
 
+uint32_t ospf_vrf_id_to_table_id(vrf_id_t vrf_id)
+{
+	struct vrf *vrf = vrf_lookup_by_id(vrf_id);
+
+	return vrf ? vrf->data.l.table_id : 0;
+}
+
 const char *ospf_get_name(const struct ospf *ospf)
 {
 	if (ospf->name)

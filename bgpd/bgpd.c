@@ -2889,6 +2889,22 @@ static int peer_activate_af(struct peer *peer, afi_t afi, safi_t safi)
 	return 0;
 }
 
+/*
+ * Name of the prefix-list holding the ORF the peer sent us for afi/safi.
+ * All BGP instances share one table of ORF prefix-lists, so the name must
+ * identify the instance as well as the peer: peers with the same address
+ * in different instances would otherwise share one list, and either one
+ * could delete it under the other. The default instance keeps the plain
+ * "<host>.<afi>.<safi>"; other instances append "_<instance>".
+ */
+void peer_orf_plist_name(const struct peer *peer, afi_t afi, safi_t safi, char *buf, size_t size)
+{
+	if (peer->bgp->name)
+		snprintfrr(buf, size, "%s.%d.%d_%s", peer->host, afi, safi, peer->bgp->name);
+	else
+		snprintfrr(buf, size, "%s.%d.%d", peer->host, afi, safi);
+}
+
 /* Activate the peer or peer group for specified AFI and SAFI.  */
 int peer_activate(struct peer *peer, afi_t afi, safi_t safi)
 {
@@ -9780,9 +9796,7 @@ static int peer_unshut_after_cfg(struct bgp *bgp)
 		afi_t afi;
 		safi_t safi;
 
-		FOREACH_AFI_SAFI_NSF (afi, safi) {
-			if (!bgp_gr_supported_for_afi_safi(afi, safi))
-				continue;
+		FOREACH_AFI_SAFI_GR (afi, safi) {
 			/* Inform zebra */
 			bgp_zebra_update(bgp, afi, safi, ZEBRA_CLIENT_ROUTE_UPDATE_PENDING);
 			bgp_zebra_update(bgp, afi, safi, ZEBRA_CLIENT_ROUTE_UPDATE_COMPLETE);
@@ -10175,7 +10189,7 @@ void bgp_clearing_batch_completed(struct bgp_clearing_info *cinfo)
 			   cinfo->total_counter);
 
 	/* Ensure event is not scheduled */
-	event_cancel_event(bm->master, &cinfo->t_sched);
+	event_cancel(&cinfo->t_sched);
 
 	/* Remove all peers and un-ref */
 	while ((peer = bgp_clearing_hash_pop_all(&cinfo->peers, &idx)) != NULL)

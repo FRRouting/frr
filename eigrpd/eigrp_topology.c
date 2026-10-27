@@ -114,16 +114,15 @@ void eigrp_topology_free(struct eigrp *eigrp, struct route_table *table)
 /*
  * Adding topology node to topology table
  */
-void eigrp_prefix_descriptor_add(struct route_table *topology,
-				 struct eigrp_prefix_descriptor *pe)
+void eigrp_prefix_descriptor_add(struct eigrp *eigrp, struct eigrp_prefix_descriptor *pe)
 {
 	struct route_node *rn;
 
-	rn = route_node_get(topology, &pe->destination);
+	rn = route_node_get(eigrp->topology_table, &pe->destination);
 	if (rn->info) {
 		if (IS_DEBUG_EIGRP_EVENT)
-			zlog_debug("%s: %pFX Should we have found this entry in the topo table?",
-				   __func__, &pe->destination);
+			zlog_debug("%s: (%s:%u:%u)%pFX Should we have found this entry in the topo table?",
+				   __func__, EIGRP_DEBUG_VRF(eigrp), &pe->destination);
 		route_unlock_node(rn);
 	}
 

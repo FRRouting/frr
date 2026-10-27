@@ -151,6 +151,16 @@ BMP data feed configuration
 The following commands configure what BMP messages are sent on sessions
 associated with a particular ``bmp targets``:
 
+.. clicmd:: bmp initiation <sysDescr|sysName> LINE...
+
+   Set the string sent in the sysDescr or sysName Information TLV of the BMP
+   Initiation message (:rfc:`7854` section 4.3).  By default, sysDescr is the
+   FRR version and sysName is the hostname.  The RFC requires these values to
+   be equal to the sysDescr and sysName MIB-II objects; this command allows to
+   send the values configured in the SNMP agent.  As for these objects
+   (:rfc:`1213`), the string is limited to 255 characters.  Changes do not
+   affect currently established sessions.
+
 .. clicmd:: bmp stats [interval (100-86400000)]
 
    Send BMP Statistics (counter) messages at the specified interval (in

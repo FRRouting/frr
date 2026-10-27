@@ -231,12 +231,27 @@ def igmpv3_start_traffic_capture(tgen):
     pcap_file = os.path.join(tgen.logdir, "h1/dump.pcap")
     pid_file = os.path.join(tgen.logdir, "h1/tshark.pid")
     h1 = tgen.gears["h1"]
+
+    # A leftover pcap would satisfy the wait before this tshark is capturing.
+    if os.path.exists(pcap_file):
+        os.remove(pcap_file)
+
     cmd = (
         f"(tshark -n -s 9200 -Q -i h1-eth0 -f 'igmp' -w {pcap_file} > /dev/null 2>&1 & "
         f"echo $! > {pid_file})"
     )
     h1.run(cmd)
-    time.sleep(2)
+
+    def pcap_created():
+        # tshark writes the pcap header once the capture is open.
+        if os.path.isfile(pcap_file) and os.path.getsize(pcap_file) > 0:
+            return None
+        return f"tshark has not created {pcap_file}"
+
+    success, result = topotest.run_and_expect(pcap_created, None, count=30, wait=1)
+    assert success, (
+        f"tshark did not create {pcap_file} before IGMP reports: {result}"
+    )
 
 
 def igmpv3_wait_for_expiration(tgen):

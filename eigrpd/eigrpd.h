@@ -64,6 +64,22 @@ extern void eigrp_finish_final(struct eigrp *eigrp);
 extern void eigrp_finish(struct eigrp *eigrp);
 extern struct eigrp *eigrp_get(uint16_t as, vrf_id_t vrf_id);
 extern struct eigrp *eigrp_lookup(vrf_id_t vrf_id);
+extern const char *eigrp_vrf_id_to_name(vrf_id_t vrf_id);
+extern uint32_t eigrp_vrf_id_to_table_id(vrf_id_t vrf_id);
+
+/*
+ * Arguments for the "(%s:%u:%u)" vrf name, vrf id, table id prefix
+ * used in front of a prefix in debugs.  For example:
+ *
+ *   zlog_debug("route (%s:%u:%u)%pFX", EIGRP_DEBUG_VRF(eigrp), p);
+ *
+ * Note that the argument is evaluated more than once.
+ */
+#define EIGRP_DEBUG_VRF(eigrp) EIGRP_DEBUG_VRF_ID((eigrp)->vrf_id)
+
+/* Same as above, but for when only the vrf id is available. */
+#define EIGRP_DEBUG_VRF_ID(vrf_id)                                                                \
+	eigrp_vrf_id_to_name((vrf_id)), (vrf_id), eigrp_vrf_id_to_table_id((vrf_id))
 extern void eigrp_router_id_update(struct eigrp *eigrp);
 
 extern int eigrp_master_hash_cmp(const struct eigrp *a, const struct eigrp *b);

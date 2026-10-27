@@ -63,6 +63,26 @@ tests_bgpd_test_mp_attr_SOURCES = tests/bgpd/test_mp_attr.c
 EXTRA_DIST += tests/bgpd/test_mp_attr.py
 
 if BGPD
+check_PROGRAMS += tests/bgpd/test_orf_defer
+endif
+tests_bgpd_test_orf_defer_CFLAGS = $(TESTS_CFLAGS)
+tests_bgpd_test_orf_defer_CPPFLAGS = $(TESTS_CPPFLAGS)
+tests_bgpd_test_orf_defer_LDADD = $(BGP_TEST_LDADD)
+tests_bgpd_test_orf_defer_SOURCES = tests/bgpd/test_orf_defer.c
+EXTRA_DIST += tests/bgpd/test_orf_defer.py
+
+
+if BGPD
+check_PROGRAMS += tests/bgpd/test_orf_instance
+endif
+tests_bgpd_test_orf_instance_CFLAGS = $(TESTS_CFLAGS)
+tests_bgpd_test_orf_instance_CPPFLAGS = $(TESTS_CPPFLAGS)
+tests_bgpd_test_orf_instance_LDADD = $(BGP_TEST_LDADD)
+tests_bgpd_test_orf_instance_SOURCES = tests/bgpd/test_orf_instance.c
+EXTRA_DIST += tests/bgpd/test_orf_instance.py
+
+
+if BGPD
 check_PROGRAMS += tests/bgpd/test_packet
 endif
 tests_bgpd_test_packet_CFLAGS = $(TESTS_CFLAGS)
@@ -99,3 +119,12 @@ tests_bgpd_test_allowas_rmap_CPPFLAGS = $(TESTS_CPPFLAGS)
 tests_bgpd_test_allowas_rmap_LDADD = $(BGP_TEST_LDADD)
 tests_bgpd_test_allowas_rmap_SOURCES = tests/bgpd/test_allowas_rmap.c
 EXTRA_DIST += tests/bgpd/test_allowas_rmap.py
+
+if BGPD
+check_PROGRAMS += tests/bgpd/test_unencodable_withdraw
+endif
+tests_bgpd_test_unencodable_withdraw_CFLAGS = $(TESTS_CFLAGS)
+tests_bgpd_test_unencodable_withdraw_CPPFLAGS = $(TESTS_CPPFLAGS)
+tests_bgpd_test_unencodable_withdraw_LDADD = $(BGP_TEST_LDADD)
+tests_bgpd_test_unencodable_withdraw_SOURCES = tests/bgpd/test_unencodable_withdraw.c
+EXTRA_DIST += tests/bgpd/test_unencodable_withdraw.py

@@ -1460,6 +1460,96 @@ def test_evpn_mh_bgp_instance_delete_readd():
     assert dut.check_router_running() == "", "torm11 daemons are not running"
 
 
+def test_evpn_mh_skip_evpn_imported_smoke():
+    """Verify skip-evpn-imported coexists with EVPN-MH forwarding state."""
+
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    # This topology is L2 EVPN-MH and has no tenant L3VNI.  Use the default
+    # BGP EVPN context for the CLI coexistence check, while the MH assertions
+    # validate the existing ES control plane and dataplane behavior.
+    tors = (tgen.gears["torm11"], tgen.gears["torm12"])
+    asns = {"torm11": 65002, "torm12": 65003}
+    peers = {"torm11": ("leaf1", "leaf2"), "torm12": ("leaf1", "leaf2")}
+    command = "advertise ipv4 unicast skip-evpn-imported"
+
+    def configure_skip(node, enabled):
+        state = command if enabled else "no " + command
+        node.vtysh_cmd(
+            "configure terminal\n"
+            "router bgp {asn}\n"
+            " address-family l2vpn evpn\n"
+            "  {state}\n"
+            " exit-address-family\n"
+            "end".format(asn=asns[node.name], state=state)
+        )
+
+    try:
+        for tor in tors:
+            configure_skip(tor, True)
+            running = tor.vtysh_cmd("show running-config bgpd")
+            assert (
+                command in running
+            ), "{0}: expected {1} in running configuration\n{2}".format(
+                tor.name, command, running
+            )
+
+        for tor in tors:
+
+            def evpn_peers_established(tor=tor):
+                output = tor.vtysh_cmd("show bgp l2vpn evpn summary")
+                bad_states = ("Active", "Connect", "Idle", "OpenSent", "OpenConfirm")
+                return (
+                    None
+                    if all(peer in output for peer in peers[tor.name])
+                    and not any(state in output for state in bad_states)
+                    else output
+                )
+
+            _, result = topotest.run_and_expect(
+                evpn_peers_established, None, count=20, wait=3
+            )
+            assert (
+                result is None
+            ), "{0}: expected EVPN peers {1} established\n{2}".format(
+                tor.name, peers[tor.name], result
+            )
+
+            def mh_state_present(tor=tor):
+                output = tor.vtysh_cmd("show evpn es detail")
+                return None if "ESI" in output else output
+
+            _, result = topotest.run_and_expect(
+                mh_state_present, None, count=20, wait=3
+            )
+            assert result is None, "{0}: expected ESI state present\n{1}".format(
+                tor.name, result
+            )
+
+        remote_esi = host_es_map["hostd21"]
+        ping_anycast_gw(tgen)
+        for tor in tors:
+            # Remote ES control-plane state is verified in bgpd, using the
+            # same checker as the existing MH tests (including its VTEP list).
+            test_fn = partial(check_one_es, tor, remote_esi, [])
+            _, result = topotest.run_and_expect(test_fn, None, count=20, wait=3)
+            assert result is None, (
+                "{0}: expected remote EVPN-MH ESI {1} and its VTEPs; "
+                "actual={2}\nBGP ES state:\n{3}\nZebra ES state:\n{4}".format(
+                    tor.name,
+                    remote_esi,
+                    result,
+                    tor.vtysh_cmd("show bgp l2vpn evpn es detail json"),
+                    tor.vtysh_cmd("show evpn es detail"),
+                )
+            )
+    finally:
+        for tor in tors:
+            configure_skip(tor, False)
+
+
 if __name__ == "__main__":
     args = ["-s"] + sys.argv[1:]
     sys.exit(pytest.main(args))

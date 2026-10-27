@@ -168,8 +168,8 @@ static int eigrp_interface_address_add(ZAPI_CALLBACK_ARGS)
 		return 0;
 
 	if (IS_DEBUG_EIGRP(zebra, ZEBRA_INTERFACE))
-		zlog_debug("Zebra: interface %s address add %pFX", c->ifp->name,
-			   c->address);
+		zlog_debug("Zebra: interface %s address add (%s:%u:%u)%pFX", c->ifp->name,
+			   EIGRP_DEBUG_VRF_ID(vrf_id), c->address);
 
 	eigrp_if_update(c->ifp);
 
@@ -189,8 +189,8 @@ static int eigrp_interface_address_delete(ZAPI_CALLBACK_ARGS)
 		return 0;
 
 	if (IS_DEBUG_EIGRP(zebra, ZEBRA_INTERFACE))
-		zlog_debug("Zebra: interface %s address delete %pFX",
-			   c->ifp->name, c->address);
+		zlog_debug("Zebra: interface %s address delete (%s:%u:%u)%pFX", c->ifp->name,
+			   EIGRP_DEBUG_VRF_ID(vrf_id), c->address);
 
 	ifp = c->ifp;
 
@@ -274,7 +274,7 @@ void eigrp_zebra_route_add(struct eigrp *eigrp, struct prefix *p,
 	api.nexthop_num = count;
 
 	if (IS_DEBUG_EIGRP(zebra, ZEBRA_REDISTRIBUTE)) {
-		zlog_debug("Zebra: Route add %pFX", p);
+		zlog_debug("Zebra: Route add (%s:%u:%u)%pFX", EIGRP_DEBUG_VRF(eigrp), p);
 	}
 
 	zclient_route_send(ZEBRA_ROUTE_ADD, eigrp_zclient, &api);
@@ -295,7 +295,7 @@ void eigrp_zebra_route_delete(struct eigrp *eigrp, struct prefix *p)
 	zclient_route_send(ZEBRA_ROUTE_DELETE, eigrp_zclient, &api);
 
 	if (IS_DEBUG_EIGRP(zebra, ZEBRA_REDISTRIBUTE))
-		zlog_debug("Zebra: Route del %pFX", p);
+		zlog_debug("Zebra: Route del (%s:%u:%u)%pFX", EIGRP_DEBUG_VRF(eigrp), p);
 
 	return;
 }

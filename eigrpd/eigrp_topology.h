@@ -27,8 +27,7 @@ extern void eigrp_topology_init(struct route_table *table);
 extern struct eigrp_prefix_descriptor *eigrp_prefix_descriptor_new(void);
 extern struct eigrp_route_descriptor *eigrp_route_descriptor_new(void);
 extern void eigrp_topology_free(struct eigrp *eigrp, struct route_table *table);
-extern void eigrp_prefix_descriptor_add(struct route_table *table,
-					struct eigrp_prefix_descriptor *pe);
+extern void eigrp_prefix_descriptor_add(struct eigrp *eigrp, struct eigrp_prefix_descriptor *pe);
 extern struct eigrp_route_descriptor *
 eigrp_route_descriptor_lookup_ei(struct eigrp_prefix_descriptor *node,
 				 struct eigrp_neighbor *adv_router,

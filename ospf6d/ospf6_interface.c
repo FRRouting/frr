@@ -483,10 +483,9 @@ void ospf6_interface_connected_route_update(struct interface *ifp)
 			ret = prefix_list_apply(plist, (void *)c->address);
 			if (ret == PREFIX_DENY) {
 				if (IS_OSPF6_DEBUG_INTERFACE)
-					zlog_debug("%pFX on %s filtered by prefix-list %s ",
-						   c->address,
-						   oi->interface->name,
-						   oi->plist_name);
+					zlog_debug("(%s:%u:%u)%pFX on %s filtered by prefix-list %s ",
+						   OSPF6_DEBUG_VRF(oi->area->ospf6), c->address,
+						   oi->interface->name, oi->plist_name);
 				continue;
 			}
 		}

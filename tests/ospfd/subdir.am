@@ -10,6 +10,7 @@ noinst_HEADERS += \
 if OSPFD
 check_PROGRAMS += tests/ospfd/test_ospf_spf
 check_PROGRAMS += tests/ospfd/test_ospf_asbr_summary
+check_PROGRAMS += tests/ospfd/test_ospf_adj_pacing
 endif
 tests_ospfd_test_ospf_spf_CFLAGS = $(TESTS_CFLAGS)
 tests_ospfd_test_ospf_spf_CPPFLAGS = $(TESTS_CPPFLAGS)
@@ -21,7 +22,12 @@ tests_ospfd_test_ospf_asbr_summary_LDADD = $(OSPFD_TEST_LDADD)
 tests_ospfd_test_ospf_asbr_summary_SOURCES = \
 	tests/ospfd/test_ospf_asbr_summary.c \
 	# end
+tests_ospfd_test_ospf_adj_pacing_CFLAGS = $(TESTS_CFLAGS)
+tests_ospfd_test_ospf_adj_pacing_CPPFLAGS = $(TESTS_CPPFLAGS)
+tests_ospfd_test_ospf_adj_pacing_LDADD = $(OSPFD_TEST_LDADD)
+tests_ospfd_test_ospf_adj_pacing_SOURCES = tests/ospfd/test_ospf_adj_pacing.c
 EXTRA_DIST += \
+	tests/ospfd/test_ospf_adj_pacing.py \
 	tests/ospfd/test_ospf_spf.py \
 	tests/ospfd/test_ospf_spf.in \
 	tests/ospfd/test_ospf_spf.refout \

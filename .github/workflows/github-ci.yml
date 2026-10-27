@@ -257,16 +257,29 @@ jobs:
           # Retry loop for apt-get update in case of transient mirror failures
           APT_RETRIES=3
           for i in $(seq 1 ${APT_RETRIES}); do sudo apt-get update -y && break || sleep 10; done
+          # Some kernels (azure 7.0 on 24.04 and 26.04) have no
+          # linux-modules-extra package; vrf and mpls are in linux-modules.
+          MODPKGS="linux-modules-${MODPKGVER}"
+          if apt-cache show linux-modules-extra-${MODPKGVER} >/dev/null 2>&1; then
+            MODPKGS+=" linux-modules-extra-azure linux-modules-extra-${MODPKGVER}"
+          fi
+          echo "MODPKGS: ${MODPKGS}"
           # Retry install as well; mirrors can fail between update and install.
           install_ok=0
           for i in $(seq 1 ${APT_RETRIES}); do
-            sudo apt-get install -y linux-modules-extra-azure linux-modules-${MODPKGVER} linux-modules-extra-${MODPKGVER} python3-xmltodict && install_ok=1 && break || sleep 10
+            sudo apt-get install -y ${MODPKGS} python3-xmltodict && install_ok=1 && break || sleep 10
           done
           [ "${install_ok}" -eq 1 ] || { echo "ERROR: apt-get install failed after ${APT_RETRIES} attempts" >&2; exit 1; }
           # Github is running old kernels but installing newer packages :(
           sudo modprobe vrf || true
           sudo modprobe mpls-iptunnel
           sudo modprobe mpls-router
+          # Ubuntu 26.04 loads AppArmor profiles for most FRR daemons and for
+          # tshark. They confine the same binaries inside the container too:
+          # the daemons are denied topotest paths (logs, /var/lib/frr, gcov)
+          # and dumpcap under tshark captures nothing. Unload those profiles.
+          AA_PROFILES=$(grep -lsE -d skip '^profile [^ ]* /usr/(lib/frr/|bin/tshark )' /etc/apparmor.d/* || true)
+          if [ -n "${AA_PROFILES}" ]; then sudo apparmor_parser -R ${AA_PROFILES}; fi
           docker load --input /tmp/frr-${{ matrix.cfg.platform }}.tar
 
           ADD_DOCKER_ENV=""
@@ -275,14 +288,12 @@ jobs:
           fi
           echo "ADD_DOCKER_ENV: ${ADD_DOCKER_ENV}"
 
-          # analyze.py lists "N: Status : nodeid" so -t can select by number.
-          # Reruns want the module. A bare node id is "file.py::test", and
-          # cut -f1 -d: used to stop at that first colon. Strip the ordinal
-          # and status, then do the same cut. -S fe skips known xfails.
+          # Determine the pytest modules to re-run, skipping known xfails.
+          # Note that analyze.py outputs "N: Status : nodeid", where nodeid
+          # is "directory/file.py::test"; extract and sort the filenames.
           failed_pytest_modules() {
             ./tests/topotests/analyze.py -S fe -r "$1" \
-              | sed -E 's/^[0-9]+:[[:space:]]+[^:]+:[[:space:]]+//' \
-              | cut -f1 -d: \
+              | cut -f3 -d: \
               | sort -u
           }
 

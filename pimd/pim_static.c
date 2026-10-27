@@ -440,13 +440,14 @@ int pim_static_nocache_resolve(struct pim_instance *pim, struct interface *ifp, 
 
 	if (pim_mroute_add(&s_route->c_oil, __func__)) {
 		if (PIM_DEBUG_MROUTE)
-			zlog_debug("%s: failed to reinstall static mroute %pSG on %s", __func__,
-				   sg, ifp->name);
+			zlog_debug("%s: failed to reinstall static mroute (%s:%u:%u)%pSG on %s",
+				   __func__, PIM_DEBUG_VRF(pim->vrf), sg, ifp->name);
 		return -1;
 	}
 
 	if (PIM_DEBUG_MROUTE)
-		zlog_debug("%s: reinstalled static mroute %pSG on %s", __func__, sg, ifp->name);
+		zlog_debug("%s: reinstalled static mroute (%s:%u:%u)%pSG on %s", __func__,
+			   PIM_DEBUG_VRF(pim->vrf), sg, ifp->name);
 
 	return 0;
 }

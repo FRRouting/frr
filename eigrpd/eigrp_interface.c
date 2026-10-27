@@ -611,7 +611,7 @@ static void eigrp_connected_advertise(struct eigrp_connected *ec,
 		pe->state = EIGRP_FSM_STATE_PASSIVE;
 		pe->fdistance = eigrp_calculate_metrics(eigrp, metric);
 		pe->req_action |= EIGRP_FSM_NEED_UPDATE;
-		eigrp_prefix_descriptor_add(eigrp->topology_table, pe);
+		eigrp_prefix_descriptor_add(eigrp, pe);
 		listnode_add(eigrp->topology_changes_internalIPV4, pe);
 
 		eigrp_route_descriptor_add(eigrp, pe, ne);

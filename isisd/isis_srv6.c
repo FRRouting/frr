@@ -198,8 +198,9 @@ bool isis_srv6_locator_unset(struct isis_area *area)
 
 	/* Delete chunks */
 	for (ALL_LIST_ELEMENTS(area->srv6db.srv6_locator_chunks, node, nnode, chunk)) {
-		sr_debug("Releasing chunk of locator %s (prefix %pFX) for IS-IS area %s",
-			 area->srv6db.config.srv6_locator_name, &chunk->prefix, area->area_tag);
+		sr_debug("Releasing chunk of locator %s (prefix (%s:%u:%u)%pFX) for IS-IS area %s",
+			 area->srv6db.config.srv6_locator_name, ISIS_DEBUG_VRF(area->isis),
+			 &chunk->prefix, area->area_tag);
 
 		listnode_delete(area->srv6db.srv6_locator_chunks, chunk);
 		srv6_locator_chunk_free(&chunk);

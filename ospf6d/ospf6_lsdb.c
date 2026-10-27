@@ -205,7 +205,8 @@ struct ospf6_lsa *ospf6_find_external_lsa(struct ospf6 *ospf6, struct prefix *p)
 	match = ospf6_route_lookup(p, ospf6->external_table);
 	if (match == NULL) {
 		if (IS_OSPF6_DEBUG_ASBR)
-			zlog_debug("No such route %pFX to withdraw", p);
+			zlog_debug("No such route (%s:%u:%u)%pFX to withdraw",
+				   OSPF6_DEBUG_VRF(ospf6), p);
 
 		return NULL;
 	}

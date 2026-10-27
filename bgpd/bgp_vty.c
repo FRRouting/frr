@@ -1232,7 +1232,7 @@ static int bgp_peer_clear(struct peer *peer, afi_t afi, safi_t safi,
 			if (!peer->afc[tmp_afi][tmp_safi])
 				continue;
 
-			if (stype == BGP_CLEAR_SOFT_NONE)
+			if (stype == BGP_CLEAR_HARD)
 				ret = peer_clear(peer, nnode);
 			else
 				ret = peer_clear_soft(peer, tmp_afi, tmp_safi,
@@ -1252,7 +1252,7 @@ static int bgp_peer_clear(struct peer *peer, afi_t afi, safi_t safi,
 				SET_FLAG(paf->subgroup->sflags,
 					 SUBGRP_STATUS_FORCE_UPDATES);
 
-			if (stype == BGP_CLEAR_SOFT_NONE)
+			if (stype == BGP_CLEAR_HARD)
 				ret = peer_clear(peer, nnode);
 			else
 				ret = peer_clear_soft(peer, afi,
@@ -1268,7 +1268,7 @@ static int bgp_peer_clear(struct peer *peer, afi_t afi, safi_t safi,
 			SET_FLAG(paf->subgroup->sflags,
 				 SUBGRP_STATUS_FORCE_UPDATES);
 
-		if (stype == BGP_CLEAR_SOFT_NONE)
+		if (stype == BGP_CLEAR_HARD)
 			ret = peer_clear(peer, nnode);
 		else
 			ret = peer_clear_soft(peer, afi, safi, stype);
@@ -1286,10 +1286,17 @@ static int bgp_clear(struct vty *vty, struct bgp *bgp, afi_t afi, safi_t safi,
 	bool found = false;
 	struct peer *peer;
 	bool afi_safi_unspec = false;
+	bool use_batch = false;
 
 	VTY_BGP_GR_DEFINE_LOOP_VARIABLE;
 
 	afi_safi_unspec = ((afi == AFI_UNSPEC) && (safi == SAFI_UNSPEC));
+
+	/*
+	 * A hard clear resets the whole session whatever address family is
+	 * given, the family only selects the peers, so it can be batched too.
+	 */
+	use_batch = afi_safi_unspec || (stype == BGP_CLEAR_SOFT_NONE);
 
 	/* Clear all neighbors. */
 	/*
@@ -1298,7 +1305,7 @@ static int bgp_clear(struct vty *vty, struct bgp *bgp, afi_t afi, safi_t safi,
 	 * doppelganger
 	 */
 	if (sort == clear_all) {
-		if (afi_safi_unspec)
+		if (use_batch)
 			bgp_clearing_batch_begin(bgp);
 		for (ALL_LIST_ELEMENTS(bgp->peer, node, nnode, peer)) {
 
@@ -1323,14 +1330,14 @@ static int bgp_clear(struct vty *vty, struct bgp *bgp, afi_t afi, safi_t safi,
 		}
 
 		/* This is to apply read-only mode on this clear. */
-		if (stype == BGP_CLEAR_SOFT_NONE) {
+		if (stype == BGP_CLEAR_HARD) {
 			bgp->update_delay_over = 0;
 			event_cancel(&bgp->t_advertisement_delay);
 			bgp->advertisement_delay_started = 0;
 			bgp->advertisement_delay_over = 0;
 		}
 
-		if (afi_safi_unspec)
+		if (use_batch)
 			bgp_clearing_batch_end_event_start(bgp);
 		return CMD_SUCCESS;
 	}
@@ -1388,7 +1395,7 @@ static int bgp_clear(struct vty *vty, struct bgp *bgp, afi_t afi, safi_t safi,
 			return CMD_WARNING;
 		}
 
-		if (afi_safi_unspec)
+		if (use_batch)
 			bgp_clearing_batch_begin(bgp);
 		for (ALL_LIST_ELEMENTS(group->peer, node, nnode, peer)) {
 			ret = bgp_peer_clear(peer, afi, safi, &nnode, stype);
@@ -1398,7 +1405,7 @@ static int bgp_clear(struct vty *vty, struct bgp *bgp, afi_t afi, safi_t safi,
 			else
 				found = true;
 		}
-		if (afi_safi_unspec)
+		if (use_batch)
 			bgp_clearing_batch_end_event_start(bgp);
 
 		if (!found)
@@ -1411,7 +1418,7 @@ static int bgp_clear(struct vty *vty, struct bgp *bgp, afi_t afi, safi_t safi,
 
 	/* Clear all external (eBGP) neighbors. */
 	if (sort == clear_external) {
-		if (afi_safi_unspec)
+		if (use_batch)
 			bgp_clearing_batch_begin(bgp);
 		for (ALL_LIST_ELEMENTS(bgp->peer, node, nnode, peer)) {
 			if (peer->sort == BGP_PEER_IBGP)
@@ -1437,7 +1444,7 @@ static int bgp_clear(struct vty *vty, struct bgp *bgp, afi_t afi, safi_t safi,
 			   && bgp->present_zebra_gr_state == ZEBRA_GR_ENABLE) {
 			bgp_zebra_send_capabilities(bgp, true);
 		}
-		if (afi_safi_unspec)
+		if (use_batch)
 			bgp_clearing_batch_end_event_start(bgp);
 		if (!found)
 			vty_out(vty,
@@ -1456,7 +1463,7 @@ static int bgp_clear(struct vty *vty, struct bgp *bgp, afi_t afi, safi_t safi,
 			return CMD_WARNING;
 		}
 
-		if (afi_safi_unspec)
+		if (use_batch)
 			bgp_clearing_batch_begin(bgp);
 		for (ALL_LIST_ELEMENTS(bgp->peer, node, nnode, peer)) {
 			if (peer->as != as)
@@ -1483,7 +1490,7 @@ static int bgp_clear(struct vty *vty, struct bgp *bgp, afi_t afi, safi_t safi,
 			bgp_zebra_send_capabilities(bgp, true);
 		}
 
-		if (afi_safi_unspec)
+		if (use_batch)
 			bgp_clearing_batch_end_event_start(bgp);
 		if (!found)
 			vty_out(vty,
@@ -6295,6 +6302,9 @@ DEFUN (neighbor_set_peer_group,
 
 	ret = peer_group_bind(bgp, &su, peer, group, &as);
 
+	if (ret == 0 && group->conf->as_type != AS_UNSPECIFIED)
+		bgp_need_listening(bgp, vty);
+
 	return bgp_vty_return(vty, ret);
 }
 
@@ -6317,7 +6327,7 @@ DEFUN (no_neighbor_set_peer_group,
 	int idx_peer = 2;
 	int idx_word = 4;
 	int ret;
-	struct peer *peer;
+	struct peer *peer, *other;
 	struct peer_group *group;
 
 	peer = peer_lookup_vty(vty, argv[idx_peer]->arg);
@@ -6333,8 +6343,13 @@ DEFUN (no_neighbor_set_peer_group,
 	if (CHECK_FLAG(peer->flags, PEER_FLAG_CAPABILITY_ENHE))
 		bgp_zebra_terminate_radv(peer->bgp, peer);
 
+	other = peer->doppelganger;
 	peer_notify_unconfig(peer->connection);
 	ret = peer_delete(peer);
+	if (other && other->connection->status != Deleted) {
+		peer_notify_unconfig(other->connection);
+		peer_delete(other);
+	}
 
 	/*
 	 * if need stop listening
@@ -12353,7 +12368,7 @@ DEFUN(clear_ip_bgp_all, clear_ip_bgp_all_cmd,
 	} else if (argv_find(argv, argc, "capabilities", &idx)) {
 		clr_type = BGP_CLEAR_CAPABILITIES;
 	} else
-		clr_type = BGP_CLEAR_SOFT_NONE;
+		clr_type = BGP_CLEAR_HARD;
 
 	return bgp_clear_vty(vty, vrf, afi, safi, clr_sort, clr_type, clr_arg);
 }
@@ -15893,8 +15908,7 @@ static void bgp_show_peer_afi(struct vty *vty, struct peer *p, afi_t afi,
 		else
 			json_object_free(json_af);
 
-		snprintf(orf_pfx_name, sizeof(orf_pfx_name), "%s.%d.%d",
-			 p->host, afi, safi);
+		peer_orf_plist_name(p, afi, safi, orf_pfx_name, sizeof(orf_pfx_name));
 		orf_pfx_count = prefix_bgp_show_prefix_list(
 			NULL, afi, orf_pfx_name, use_json);
 
@@ -16218,8 +16232,7 @@ static void bgp_show_peer_afi(struct vty *vty, struct peer *p, afi_t afi,
 				PEER_CAP_ORF_PREFIX_RM_RCV, use_json, NULL);
 		}
 
-		snprintf(orf_pfx_name, sizeof(orf_pfx_name), "%s.%d.%d",
-			 p->host, afi, safi);
+		peer_orf_plist_name(p, afi, safi, orf_pfx_name, sizeof(orf_pfx_name));
 		orf_pfx_count = prefix_bgp_show_prefix_list(
 			NULL, afi, orf_pfx_name, use_json);
 
@@ -19047,7 +19060,7 @@ DEFPY (show_bgp_neighbor_orf_prefix_list,
 	if (!peer)
 		return CMD_WARNING;
 
-	snprintf(orf_name, sizeof(orf_name), "%s.%d.%d", peer->host, afi, safi);
+	peer_orf_plist_name(peer, afi, safi, orf_name, sizeof(orf_name));
 	if (!prefix_bgp_show_prefix_list(NULL, afi, orf_name, use_json)) {
 		if (use_json)
 			vty_out(vty, "{}\n");

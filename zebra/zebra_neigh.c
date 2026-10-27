@@ -210,19 +210,24 @@ void zebra_neigh_del_all(struct interface *ifp)
 {
 	struct zebra_neigh_ent *n, *next;
 	struct zebra_ns *zns = zebra_ns_lookup(ifp->vrf->vrf_id);
+	struct zebra_neigh_ent lookup = {};
 
 	if (IS_ZEBRA_DEBUG_NEIGH)
 		zlog_debug("zebra neigh delete all for interface %s/%d",
 			   ifp->name, ifp->ifindex);
 
-	RB_FOREACH_SAFE (n, zebra_neigh_rb_head, &zneigh_info->neigh_rb_tree, next) {
-		if (zns->ns_id != n->ns_id)
-			continue;
+	/* The tree is ordered on ns_id then ifindex, so this interface's
+	 * entries are contiguous. Seek to the first one and stop at the end of
+	 * the run rather than walking the whole tree.
+	 */
+	lookup.ns_id = zns->ns_id;
+	lookup.ifindex = ifp->ifindex;
 
-		if (n->ifindex == ifp->ifindex) {
-			/* Free the neighbor directly instead of looking it up again */
-			zebra_neigh_free(n);
-		}
+	for (n = RB_NFIND(zebra_neigh_rb_head, &zneigh_info->neigh_rb_tree, &lookup);
+	     n && n->ns_id == zns->ns_id && n->ifindex == ifp->ifindex; n = next) {
+		/* zebra_neigh_free() may remove n from the tree */
+		next = RB_NEXT(zebra_neigh_rb_head, n);
+		zebra_neigh_free(n);
 	}
 }
 

@@ -300,6 +300,20 @@ void eigrp_finish_final(struct eigrp *eigrp)
 }
 
 /*Look for existing eigrp process*/
+const char *eigrp_vrf_id_to_name(vrf_id_t vrf_id)
+{
+	struct vrf *vrf = vrf_lookup_by_id(vrf_id);
+
+	return vrf ? vrf->name : "NIL";
+}
+
+uint32_t eigrp_vrf_id_to_table_id(vrf_id_t vrf_id)
+{
+	struct vrf *vrf = vrf_lookup_by_id(vrf_id);
+
+	return vrf ? vrf->data.l.table_id : 0;
+}
+
 struct eigrp *eigrp_lookup(vrf_id_t vrf_id)
 {
 	struct eigrp *eigrp, lookup;

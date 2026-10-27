@@ -173,10 +173,9 @@ void eigrp_reply_receive(struct eigrp *eigrp, struct ip *iph,
 		 * Destination must exists
 		 */
 		if (!dest) {
-			flog_err(
-				EC_EIGRP_PACKET,
-				"%s: Received prefix %pFX which we do not know about",
-				__func__, &dest_addr);
+			flog_err(EC_EIGRP_PACKET,
+				 "%s: Received prefix (%s:%u:%u)%pFX which we do not know about",
+				 __func__, EIGRP_DEBUG_VRF(eigrp), &dest_addr);
 			eigrp_IPv4_InternalTLV_free(tlv);
 			continue;
 		}

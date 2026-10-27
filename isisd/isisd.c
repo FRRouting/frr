@@ -164,6 +164,20 @@ struct isis *isis_lookup_by_vrfid(vrf_id_t vrf_id)
 	return NULL;
 }
 
+const char *isis_vrf_id_to_name(vrf_id_t vrf_id)
+{
+	struct vrf *vrf = vrf_lookup_by_id(vrf_id);
+
+	return vrf ? vrf->name : "NIL";
+}
+
+uint32_t isis_vrf_id_to_table_id(vrf_id_t vrf_id)
+{
+	struct vrf *vrf = vrf_lookup_by_id(vrf_id);
+
+	return vrf ? vrf->data.l.table_id : 0;
+}
+
 struct isis *isis_lookup_by_vrfname(const char *vrfname)
 {
 	struct isis *isis;
@@ -3155,6 +3169,15 @@ void isis_area_switchover_routes(struct isis_area *area, int family,
 
 	isis_spf_switchover_routes(area, area->spftree[tree], family,
 				   nexthop_ip, ifindex, level);
+
+	/*
+	 * IPv4 routes may use the same IPv6 link-local nexthop. Not gated on the
+	 * circuit's option: routes computed before it was disabled can still hold it.
+	 * A NULL nexthop (interface down) is already covered by the AF_INET call.
+	 */
+	if (family == AF_INET6 && nexthop_ip && IN6_IS_ADDR_LINKLOCAL(&nexthop_ip->ipv6))
+		isis_spf_switchover_routes(area, area->spftree[SPFTREE_IPV4], family, nexthop_ip,
+					   ifindex, level);
 }
 
 

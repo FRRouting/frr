@@ -1172,7 +1172,7 @@ void bgp_route_refresh_send(struct peer_connection *connection, afi_t afi, safi_
 
 	s = stream_new(peer->max_packet_size);
 
-	bgp_packet_set_marker(s, BGP_MSG_ROUTE_REFRESH_NEW);
+	bgp_packet_set_marker(s, BGP_MSG_ROUTE_REFRESH);
 
 	/* Encode Route Refresh message. */
 	stream_putw(s, pkt_afi);
@@ -1886,8 +1886,8 @@ static int bgp_open_receive(struct peer_connection *connection, bgp_size_t size)
 		XFREE(MTYPE_BGP_SOFT_VERSION, peer->soft_version);
 
 	/* Extended Optional Parameters Length for BGP OPEN Message */
-	if (optlen == BGP_OPEN_NON_EXT_OPT_LEN
-	    || CHECK_FLAG(peer->flags, PEER_FLAG_EXTENDED_OPT_PARAMS)) {
+	UNSET_FLAG(peer->sflags, PEER_STATUS_EXT_OPT_PARAMS_LENGTH);
+	if (optlen) {
 		uint8_t opttype;
 
 		if (STREAM_READABLE(connection->curr) < 1) {
@@ -1916,10 +1916,9 @@ static int bgp_open_receive(struct peer_connection *connection, bgp_size_t size)
 				 PEER_STATUS_EXT_OPT_PARAMS_LENGTH);
 		} else {
 			/* RFC 9072: the extended format is in use only when the
-			 * Non-Ext OP Type octet is 255. A one-octet length of
-			 * 255 with any other type is a regular (non-extended)
-			 * OPEN message carrying exactly 255 octets of Optional
-			 * Parameters, and the octet we just read is the Type
+			 * Non-Ext OP Type octet is 255. A non-zero one-octet
+			 * length with any other type is a regular (non-extended)
+			 * OPEN message, and the octet we just read is the Type
 			 * field of the first Optional Parameter (type 255 is
 			 * reserved and never a bona fide parameter type). Rewind
 			 * so it is parsed as part of the Optional Parameters
@@ -2412,6 +2411,7 @@ static int bgp_update_receive(struct peer_connection *connection, bgp_size_t siz
 	uint8_t *end;
 	struct stream *s;
 	struct attr attr;
+	uint8_t mp_nexthop_len;
 	bgp_size_t attribute_len;
 	bgp_size_t update_len;
 	bgp_size_t withdraw_len;
@@ -2592,9 +2592,14 @@ static int bgp_update_receive(struct peer_connection *connection, bgp_size_t siz
 
 		switch (i) {
 		case NLRI_UPDATE:
+			/* Classic IPv4 NLRI uses NEXT_HOP, not the MP_REACH_NLRI next hop. */
+			mp_nexthop_len = attr.mp_nexthop_len;
+			attr.mp_nexthop_len = 0;
+			nlri_ret = bgp_nlri_parse(peer, NLRI_ATTR_ARG, &nlris[i], 0);
+			attr.mp_nexthop_len = mp_nexthop_len;
+			break;
 		case NLRI_MP_UPDATE:
-			nlri_ret = bgp_nlri_parse(peer, NLRI_ATTR_ARG,
-						  &nlris[i], 0);
+			nlri_ret = bgp_nlri_parse(peer, NLRI_ATTR_ARG, &nlris[i], 0);
 			break;
 		case NLRI_WITHDRAW:
 		case NLRI_MP_WITHDRAW:
@@ -2805,6 +2810,27 @@ static int bgp_notify_receive(struct peer_connection *connection, bgp_size_t siz
 	return Receive_NOTIFICATION_message;
 }
 
+/*
+ * Point the peer at its received ORF prefix-list (NULL once it has been
+ * deleted). A peer sending ORF to us is placed into a dedicated update-group
+ * at session establishment (isolated by peer address), and
+ * subgroup_announce_check() reads the filter from the conf peer, so set it
+ * there too. Both must change together: the prefix-list can be freed while
+ * parsing (Remove-All, a malformed entry, removing its last entry), and a
+ * REFRESH_DEFER request returns before any later point could update them.
+ */
+static void bgp_orf_plist_update(struct peer *peer, afi_t afi, safi_t safi,
+				 struct prefix_list *plist)
+{
+	struct peer_af *paf;
+
+	peer->orf_plist[afi][safi] = plist;
+
+	paf = peer_af_find(peer, afi, safi);
+	if (paf && paf->subgroup)
+		UPDGRP_PEER(PAF_UPDGRP(paf))->orf_plist[afi][safi] = plist;
+}
+
 /**
  * Process BGP ROUTEREFRESH message for peer.
  *
@@ -2841,9 +2867,7 @@ static int bgp_route_refresh_receive(struct peer_connection *connection, bgp_siz
 		flog_err(EC_BGP_INVALID_STATUS,
 			 "%s [Error] Route refresh packet received under status %s", peer->host,
 			 lookup_msg(bgp_status_msg, connection->status, NULL));
-		/* BGP_MSG_ROUTE_REFRESH_NEW or _OLD, as received */
-		bgp_notify_send_fsm_error(connection,
-					  stream_getc_from(connection->curr, BGP_MARKER_SIZE + 2));
+		bgp_notify_send_fsm_error(connection, BGP_MSG_ROUTE_REFRESH);
 		return BGP_Stop;
 	}
 
@@ -2954,8 +2978,7 @@ static int bgp_route_refresh_receive(struct peer_connection *connection, bgp_siz
 				}
 
 				/* ORF prefix-list name */
-				snprintf(name, sizeof(name), "%s.%d.%d",
-					 peer->host, afi, safi);
+				peer_orf_plist_name(peer, afi, safi, name, sizeof(name));
 
 				/* we're going to read at least 1 byte of common
 				 * ORF header,
@@ -2969,14 +2992,7 @@ static int bgp_route_refresh_receive(struct peer_connection *connection, bgp_siz
 							"%pBP rcvd Remove-All pfxlist ORF request",
 							peer);
 					prefix_bgp_orf_remove_all(afi, name);
-					peer->orf_plist[afi][safi] = NULL;
-
-					/* Propagate to conf peer for REFRESH_DEFER case */
-					paf = peer_af_find(peer, afi, safi);
-					if (paf && paf->subgroup)
-						UPDGRP_PEER(PAF_UPDGRP(paf))->orf_plist[afi][safi] =
-							NULL;
-
+					bgp_orf_plist_update(peer, afi, safi, NULL);
 					break;
 				}
 
@@ -3075,8 +3091,8 @@ static int bgp_route_refresh_receive(struct peer_connection *connection, bgp_siz
 					}
 				}
 
-				peer->orf_plist[afi][safi] =
-					prefix_bgp_orf_lookup(afi, name);
+				bgp_orf_plist_update(peer, afi, safi,
+						     prefix_bgp_orf_lookup(afi, name));
 			}
 			stream_forward_getp(s, orf_len);
 		}
@@ -3097,14 +3113,6 @@ static int bgp_route_refresh_receive(struct peer_connection *connection, bgp_siz
 
 	paf = peer_af_find(peer, afi, safi);
 	if (paf && paf->subgroup) {
-		/*
-		 * A peer sending ORF to us is placed into a dedicated update-group
-		 * at session establishment (isolated by peer address).
-		 * Propagate the updated orf_plist directly to the conf peer
-		 * so that subgroup_announce_check() sees the new filter.
-		 */
-		UPDGRP_PEER(PAF_UPDGRP(paf))->orf_plist[afi][safi] = peer->orf_plist[afi][safi];
-
 		/* Avoid suppressing duplicate routes later
 		 * when processing in subgroup_announce_table().
 		 */
@@ -4262,8 +4270,7 @@ void bgp_process_packet(struct event *event)
 					 __func__, peer->host,
 					 bgp_peer_get_connection_direction_string(connection));
 			break;
-		case BGP_MSG_ROUTE_REFRESH_NEW:
-		case BGP_MSG_ROUTE_REFRESH_OLD:
+		case BGP_MSG_ROUTE_REFRESH:
 			frrtrace(2, frr_bgp, refresh_process, peer, size);
 			atomic_fetch_add_explicit(&peer->refresh_in, 1,
 						  memory_order_relaxed);

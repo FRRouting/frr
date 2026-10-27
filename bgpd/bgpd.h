@@ -2425,9 +2425,8 @@ struct bgp_nlri {
 #define	BGP_MSG_UPDATE		                 2
 #define	BGP_MSG_NOTIFY		                 3
 #define	BGP_MSG_KEEPALIVE	                 4
-#define BGP_MSG_ROUTE_REFRESH_NEW                5
-#define BGP_MSG_CAPABILITY                       6
-#define BGP_MSG_ROUTE_REFRESH_OLD              128
+#define BGP_MSG_ROUTE_REFRESH			 5
+#define BGP_MSG_CAPABILITY			 6
 
 /* BGP open optional parameter.  */
 #define BGP_OPEN_OPT_CAP                         2
@@ -2592,9 +2591,9 @@ struct bgp_nlri {
 /* Max Buffer size for BGP Send Community */
 #define BGP_SEND_COMMUNITY_STR_SIZE 30
 
-/* Flag for peer_clear_soft().  */
+/* Type of 'clear bgp' operation. */
 enum bgp_clear_type {
-	BGP_CLEAR_SOFT_NONE,
+	BGP_CLEAR_HARD,
 	BGP_CLEAR_SOFT_OUT,
 	BGP_CLEAR_SOFT_IN,
 	BGP_CLEAR_SOFT_BOTH,
@@ -2850,6 +2849,8 @@ extern void bgp_zebra_suppress_fib_pending_config_retry(void);
 
 extern int peer_activate(struct peer *peer, afi_t afi, safi_t safi);
 extern int peer_deactivate(struct peer *peer, afi_t afi, safi_t safi);
+extern void peer_orf_plist_name(const struct peer *peer, afi_t afi, safi_t safi, char *buf,
+				size_t size);
 
 extern int peer_group_bind(struct bgp *bgp, union sockunion *su, struct peer *peer,
 			   struct peer_group *group, as_t *as);
@@ -3395,6 +3396,12 @@ static inline bool bgp_gr_supported_for_afi_safi(afi_t afi, safi_t safi)
 		return true;
 	return false;
 }
+
+/* Iterate only the AFI/SAFIs for which GR restarter behavior is supported.
+ */
+#define FOREACH_AFI_SAFI_GR(afi, safi)                                                            \
+	FOREACH_AFI_SAFI_NSF (afi, safi)                                                          \
+		if (bgp_gr_supported_for_afi_safi(afi, safi))
 
 /* For benefit of rfapi */
 extern struct peer *peer_new(struct bgp *bgp, union sockunion *su, enum connection_direction dir);
