@@ -1088,7 +1088,7 @@ int peer_af_delete(struct peer *peer, afi_t afi, safi_t safi)
 	bgp_soft_reconfig_table_task_cancel(bgp, bgp->rib[afi][safi], peer);
 
 	bgp_stop_announce_route_timer(af);
-	event_cancel(&peer->t_llgr_stale[afi][safi]);
+	event_cancel(&af->t_llgr_stale);
 
 	if (PAF_SUBGRP(af)) {
 		if (BGP_DEBUG(update_groups, UPDATE_GROUPS))
@@ -3121,13 +3121,16 @@ void peer_nsf_stop(struct peer *peer)
 {
 	afi_t afi;
 	safi_t safi;
+	struct peer_af *paf;
 
 	UNSET_FLAG(peer->sflags, PEER_STATUS_NSF_WAIT);
 	UNSET_FLAG(peer->sflags, PEER_STATUS_NSF_MODE);
 
 	FOREACH_AFI_SAFI_NSF (afi, safi) {
 		peer->nsf[afi][safi] = 0;
-		event_cancel(&peer->t_llgr_stale[afi][safi]);
+		paf = peer_af_find(peer, afi, safi);
+		if (paf)
+			event_cancel(&paf->t_llgr_stale);
 	}
 
 	if (event_is_scheduled(peer->connection->t_gr_restart)) {

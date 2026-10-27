@@ -1392,6 +1392,9 @@ struct peer_af {
 	 */
 	struct event *t_announce_route;
 
+	/* Long-lived Graceful Restart "Long-lived Stale Time" timer */
+	struct event *t_llgr_stale;
+
 	afi_t afi;
 	safi_t safi;
 	int afid;
@@ -2058,7 +2061,6 @@ struct peer {
 	_Atomic uint32_t v_gr_restart;
 
 	/* Threads. */
-	struct event *t_llgr_stale[AFI_MAX][SAFI_MAX];
 	struct event *t_refresh_stalepath;
 
 	/* Thread flags. */

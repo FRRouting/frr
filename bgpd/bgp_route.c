@@ -13781,6 +13781,7 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp, struct bgp_dest *bn,
 	int first = 0;
 	struct listnode *node, *nnode;
 	struct peer *peer;
+	struct peer_af *paf;
 	bool addpath_capable;
 	int has_adj;
 	unsigned int first_as;
@@ -14919,12 +14920,10 @@ skip_nexthop:
 				gr_remaining);
 	}
 
-	if (event_is_scheduled(path->peer->t_llgr_stale[afi][safi]) &&
-	    bgp_attr_get_community(attr) &&
-	    community_include(bgp_attr_get_community(attr),
-			      COMMUNITY_LLGR_STALE)) {
-		unsigned long llgr_remaining = event_timer_remain_second(
-			path->peer->t_llgr_stale[afi][safi]);
+	paf = peer_af_find(path->peer, afi, safi);
+	if (paf && event_is_scheduled(paf->t_llgr_stale) && bgp_attr_get_community(attr) &&
+	    community_include(bgp_attr_get_community(attr), COMMUNITY_LLGR_STALE)) {
+		unsigned long llgr_remaining = event_timer_remain_second(paf->t_llgr_stale);
 
 		if (json_paths) {
 			json_object_int_add(json_path, "llgrSecondsRemaining",
