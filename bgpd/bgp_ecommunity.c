@@ -359,7 +359,23 @@ bool ecommunity_cmp(const void *arg1, const void *arg2)
 			  ecom1->unit_size) == 0);
 }
 
-static void ecommunity_color_str(char *buf, size_t bufsz, uint8_t *ptr)
+/* Unlike rt/soo, no caller emits a "color" keyword ahead of the value, so
+ * the re-parseable formats have to carry it themselves.
+ */
+static const char *ecommunity_color_prefix(int format)
+{
+	switch (format) {
+	case ECOMMUNITY_FORMAT_COMMUNITY_LIST:
+	case ECOMMUNITY_FORMAT_ROUTE_MAP:
+		return "color ";
+	case ECOMMUNITY_FORMAT_DISPLAY:
+	default:
+		return "Color:";
+	}
+}
+
+static void ecommunity_color_str(char *buf, size_t bufsz, uint8_t *ptr,
+				 int format)
 {
 	/*
 	 *  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
@@ -378,7 +394,8 @@ static void ecommunity_color_str(char *buf, size_t bufsz, uint8_t *ptr)
 
 	memcpy(&colorid, ptr + 2, 4);
 	colorid = ntohl(colorid);
-	snprintf(buf, bufsz, "Color:%d%d:%d", (color_type & 0x2) >> 1, color_type & 0x1, colorid);
+	snprintfrr(buf, bufsz, "%s%d%d:%u", ecommunity_color_prefix(format),
+		   (color_type & 0x2) >> 1, color_type & 0x1, colorid);
 }
 
 /* Initialize Extended Comminities related hash. */
@@ -1259,7 +1276,7 @@ static char *_ecommunity_ecom2str(struct ecommunity *ecom, int format, int filte
 					sizeof(encbuf));
 			} else if (*pnt == ECOMMUNITY_COLOR) {
 				ecommunity_color_str(encbuf, sizeof(encbuf),
-						     pnt);
+						     pnt, format);
 			} else {
 				unk_ecom = true;
 			}
