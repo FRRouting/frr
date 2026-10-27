@@ -777,7 +777,7 @@ int pim_rp_del(struct pim_instance *pim, pim_addr rp_addr, struct prefix group,
 	 * present for the same group in BSM RP table, then install the dynamic
 	 * RP for the group node into the main rp table
 	 */
-	if (rp_src_flag == RP_SRC_STATIC) {
+	if (rp_src_flag == RP_SRC_STATIC && !was_plist) {
 		bsgrp = pim_bsm_get_bsgrp_node(&pim->global_scope, &group);
 
 		if (bsgrp) {
