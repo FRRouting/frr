@@ -911,6 +911,121 @@ def test_withdraw_route_map_locator_path_after_update_without_vrf_sid():
     assert restored is True, restored
 
 
+def test_route_map_locator_path_update_to_missing_locator():
+    """
+    Export the connected prefixes with route-map rmap_export: metric 40 gets
+    locator NAME3, which does not exist in zebra, other metrics get locator
+    NAME. The metric is set by the redistribute route-map rmap_redist, whose
+    changes update the paths of Vrf20 without withdrawing them. Check that
+    10.0.0.0/24 is withdrawn from VPN when its update gets locator NAME3,
+    instead of keeping the SID of locator NAME, as the SID of Vrf20 is not
+    allocated. Then unconfigure 'sid vpn export auto' in Vrf20, and check
+    that 10.0.0.0/24 is exported with label 3 and without SID.
+    """
+    tgen = get_topogen()
+
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    r1 = tgen.gears["r1"]
+    prefix = "10.0.0.0/24"
+
+    r1.vtysh_multicmd(
+        """
+        configure
+        route-map rmap_redist permit 10
+        exit
+        route-map rmap_export permit 10
+        match metric 40
+        set segment-routing srv6 locator NAME3
+        exit
+        route-map rmap_export permit 20
+        set segment-routing srv6 locator NAME
+        exit
+        router bgp 65001 vrf Vrf20
+        address-family ipv4 unicast
+        redistribute connected route-map rmap_redist
+        route-map vpn export rmap_export
+        """
+    )
+
+    @retry(retry_timeout=30)
+    def check_vpn_prefix_exported(expected):
+        output = json.loads(r1.vtysh_cmd("show bgp ipv4 vpn detail json"))
+        rds = output.get("routes", {}).get("routeDistinguishers", {})
+        paths = rds.get("65001:20", {}).get(prefix, [])
+        if expected == "withdrawn":
+            if paths:
+                return f"{prefix} still exported to VPN: {paths}"
+            return True
+        if not paths:
+            return f"{prefix} not exported to VPN"
+        for path in paths:
+            sid = path.get("remoteTransposedSid", path.get("remoteSid"))
+            if expected == "sid":
+                if not sid or not sid.startswith("2001:db09:1:2:"):
+                    return f"{prefix} not exported with a SID of locator NAME: {path}"
+            elif sid or path.get("remoteLabel") != 3:
+                return f"{prefix} not exported with label 3 only: {path}"
+        return True
+
+    result = check_vpn_prefix_exported("sid")
+    assert result is True, result
+
+    r1.vtysh_multicmd(
+        """
+        configure
+        route-map rmap_redist permit 10
+        set metric 40
+        """
+    )
+
+    missing_locator = check_vpn_prefix_exported("withdrawn")
+    output = r1.vtysh_cmd(f"show bgp ipv4 vpn {prefix}")
+    logger.info(output)
+    output = r1.vtysh_cmd("show bgp vrf Vrf20 locator-routemap detail")
+    logger.info(output)
+
+    r1.vtysh_multicmd(
+        """
+        configure
+        router bgp 65001 vrf Vrf20
+        address-family ipv4 unicast
+        no sid vpn export auto
+        """
+    )
+
+    label_3 = check_vpn_prefix_exported("label 3")
+    output = r1.vtysh_cmd(f"show bgp ipv4 vpn {prefix}")
+    logger.info(output)
+
+    r1.vtysh_multicmd(
+        """
+        configure
+        router bgp 65001 vrf Vrf20
+        address-family ipv4 unicast
+        sid vpn export auto
+        no redistribute connected
+        redistribute connected
+        route-map vpn export rmap_locator
+        exit-address-family
+        exit
+        no route-map rmap_redist
+        no route-map rmap_export
+        """
+    )
+
+    @retry(retry_timeout=30)
+    def check_name_used_by_two_paths():
+        return check_locator_count(r1, "Vrf20", "NAME", 2) or True
+
+    restored = check_name_used_by_two_paths()
+
+    assert missing_locator is True, missing_locator
+    assert label_3 is True, label_3
+    assert restored is True, restored
+
+
 def test_mpls_srv6_coexistence_withdraw_unavailable_locator():
     """
     MPLS and SRv6 coexistence: with 'label vpn export auto' in Vrf20, entry 3
