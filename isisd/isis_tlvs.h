@@ -294,6 +294,9 @@ struct isis_router_cap {
 	struct in_addr router_id;
 	uint8_t flags;
 
+	/* RFC 9346 section #3.5.2 */
+	struct in6_addr te_router_id_ipv6;
+
 	/* RFC 8667 section #3 */
 	struct isis_sr_block srgb;
 	struct isis_sr_block srlb;
@@ -531,6 +534,9 @@ enum isis_tlv_type {
 
 	/* RFC 8491 */
 	ISIS_SUBTLV_NODE_MSD = 23,
+
+	/* RFC 9346 */
+	ISIS_SUBTLV_IPV6_TE_ROUTER_ID = 12,
 
 	/* RFC 5316 */
 	ISIS_SUBTLV_RAS = 24,
