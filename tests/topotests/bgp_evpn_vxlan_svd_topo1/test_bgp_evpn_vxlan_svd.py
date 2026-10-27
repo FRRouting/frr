@@ -91,7 +91,7 @@ def build_topo(tgen):
     switch.add_link(tgen.gears["host2"])
 
 
-def setup_pe_router(tgen, pe_name, tunnel_local_ip, svi_ip, intf):
+def setup_pe_router(tgen, pe_name, tunnel_local_ip, svi_ip, intf, tunnel_local_ip6=None):
     pe = tgen.gears[pe_name]
 
     # configure vlan aware bridge
@@ -169,6 +169,35 @@ def setup_pe_router(tgen, pe_name, tunnel_local_ip, svi_ip, intf):
         pe.run("bridge vlan add dev vxlan0 vid 300")
         pe.run("bridge vlan add dev vxlan0 vid 300 tunnel_info id 300")
 
+    # add a second, IPv6-local SVD vxlan device and a vrf whose local
+    # L3VNI (600) lives on it, so that routes redistributed from this
+    # vrf are advertised over EVPN with a native (non-mapped) IPv6
+    # nexthop. This is used to test DVNI with an IPv6 VTEP: the
+    # importing PE (PE1) will install the route via its own (IPv4) SVD
+    # vxlan0 interface, but with an "encap ip6" LWT tunnel pointing at
+    # this IPv6 VTEP.
+    if tunnel_local_ip6:
+        pe.run("ip link add vrf-blue6 type vrf table 2600")
+        pe.run("ip link set dev vrf-blue6 up")
+
+        pe.run(
+            "ip link add dev vxlan1 type vxlan dstport 4789 local {0} nolearning external".format(
+                tunnel_local_ip6
+            )
+        )
+        pe.run("ip link set dev vxlan1 master bridge")
+        pe.run("bridge link set dev vxlan1 vlan_tunnel on")
+        pe.run("bridge link set dev vxlan1 neigh_suppress on")
+        pe.run("bridge link set dev vxlan1 learning off")
+        pe.run("ip link set up dev vxlan1")
+
+        pe.run("ip link add link bridge name vlan600 type vlan id 600 protocol 802.1q")
+        pe.run("ip link set dev vlan600 master vrf-blue6")
+        pe.run("ip link set dev vlan600 up")
+        pe.run("bridge vlan add vid 600 dev bridge self")
+        pe.run("bridge vlan add dev vxlan1 vid 600")
+        pe.run("bridge vlan add dev vxlan1 vid 600 tunnel_info id 600")
+
 
 def setup_p_router(tgen, p_name):
     p1 = tgen.gears[p_name]
@@ -189,7 +218,14 @@ def setup_module(mod):
     tgen.start_topology()
 
     setup_pe_router(tgen, "PE1", "10.10.10.10", "10.10.1.1/24", "eth0")
-    setup_pe_router(tgen, "PE2", "10.30.30.30", "10.10.1.3/24", "eth1")
+    setup_pe_router(
+        tgen,
+        "PE2",
+        "10.30.30.30",
+        "10.10.1.3/24",
+        "eth1",
+        tunnel_local_ip6="2001:db8:1::30",
+    )
     setup_p_router(tgen, "P1")
 
     # This is a sample of configuration loading.
@@ -470,18 +506,147 @@ def test_ip_pe2_learn():
     # tgen.mininet_cli()
 
 
-def show_dvni_route(pe, vni, prefix, vrf):
-    output = pe.vtysh_cmd("show ip route vrf {} {}".format(vrf, prefix))
+def check_dvni_route_frr(pe, vni, prefix, vrf, vtep_ip):
+    """
+    Verify the D-VNI route is present in FRR's RIB (zebra) with the
+    downstream VNI correctly encoded as an MPLS-EVPN "label" on the
+    nexthop pointing at the remote VTEP over the SVD vxlan0 interface.
+    """
+    expected = {
+        prefix: [
+            {
+                "nexthops": [
+                    {
+                        "ip": vtep_ip,
+                        "afi": "ipv4",
+                        "interfaceName": "vxlan0",
+                        "onLink": True,
+                        "labels": [vni],
+                    }
+                ]
+            }
+        ]
+    }
 
-    if str(vni) not in output:
-        return output
+    output = pe.vtysh_cmd("show ip route vrf {} {} json".format(vrf, prefix), isjson=True)
 
-    output = pe.run("ip route show vrf {} {}".format(vrf, prefix))
+    return topotest.json_cmp(output, expected)
 
-    if str(vni) not in output:
-        return output
+
+def get_kernel_route_nexthop(route):
+    """
+    Return the dict holding the "dev", "gateway"/"via", "flags" and
+    "encap" fields for a route returned by `ip -j route show`.
+
+    Depending on how zebra installed the route (e.g. via a shared
+    kernel nexthop object/"nhid"), iproute2 may print these fields
+    directly on the route object, or nested inside a "nexthops" list.
+    """
+    nexthops = route.get("nexthops")
+    if nexthops:
+        return nexthops[0]
+
+    return route
+
+
+def get_kernel_route_encap(route):
+    """
+    Normalize the LWT encap fields of an `ip -j route show` route entry
+    across iproute2 versions.
+
+    Newer iproute2 nests the encap fields under an "encap" object with
+    an "encap_type" key, e.g.:
+        {"encap": {"encap_type": "ip", "id": 300, "dst": "...", ...}}
+
+    Older iproute2 (e.g. 5.15, as shipped with Ubuntu 22.04 and used by
+    the FRR topotests docker image) flattens the encap fields onto the
+    route object itself and uses "encap" for just the type string, e.g.:
+        {"encap": "ip", "id": 300, "dst": "...", ...}
+    Note this flat form re-uses the "dst" key for the encap destination,
+    which collides with (and, after JSON parsing, overwrites) the
+    route's own prefix "dst" key.
+
+    Returns a normalized dict with at least an "encap_type" key, or None
+    if the route has no encap information.
+    """
+    encap = route.get("encap")
+
+    if isinstance(encap, dict):
+        return encap
+
+    if isinstance(encap, str):
+        flat = {"encap_type": encap}
+        for key in ("id", "src", "dst", "ttl", "tos", "hoplimit", "tc", "csum"):
+            if key in route:
+                flat[key] = route[key]
+        return flat
 
     return None
+
+
+def check_dvni_route_kernel(pe, vni, prefix, vrf, vtep_ip):
+    """
+    Verify the D-VNI route is present in the kernel with a VXLAN
+    lightweight tunnel (LWT) encap that carries the correct downstream
+    VNI and points at the remote VTEP, i.e. the equivalent of:
+
+      <prefix> encap ip id <vni> src 0.0.0.0 dst <vtep_ip> ttl 0 tos 0 \
+          via <vtep_ip> dev vxlan0 onlink
+    """
+    output = pe.run("ip -j route show vrf {} {}".format(vrf, prefix))
+
+    try:
+        routes = json.loads(output)
+    except ValueError:
+        return "{}: could not parse 'ip -j route show' output: {}".format(pe.name, output)
+
+    if not routes:
+        return "{}: no kernel route found for {} in vrf {}".format(pe.name, prefix, vrf)
+
+    route = routes[0]
+    nexthop = get_kernel_route_nexthop(route)
+
+    if nexthop.get("dev") != "vxlan0":
+        return "{}: kernel route {} not using vxlan0 dev: {}".format(pe.name, prefix, route)
+
+    if nexthop.get("gateway") != vtep_ip:
+        return "{}: kernel route {} gateway is not {}: {}".format(
+            pe.name, prefix, vtep_ip, route
+        )
+
+    if "onlink" not in nexthop.get("flags", []):
+        return "{}: kernel route {} is missing onlink flag: {}".format(pe.name, prefix, route)
+
+    encap = get_kernel_route_encap(nexthop)
+    if not encap:
+        return "{}: kernel route {} has no encap information: {}".format(
+            pe.name, prefix, route
+        )
+
+    if encap.get("encap_type") != "ip":
+        return "{}: kernel route {} encap type is not 'ip': {}".format(
+            pe.name, prefix, encap
+        )
+
+    if encap.get("id") != vni:
+        return "{}: kernel route {} encap vni {} does not match expected {}: {}".format(
+            pe.name, prefix, encap.get("id"), vni, encap
+        )
+
+    if encap.get("dst") != vtep_ip:
+        return "{}: kernel route {} encap dst is not {}: {}".format(
+            pe.name, prefix, vtep_ip, encap
+        )
+
+    return None
+
+
+def check_dvni_route(pe, vni, prefix, vrf, vtep_ip):
+    result = check_dvni_route_frr(pe, vni, prefix, vrf, vtep_ip)
+    if result is not None:
+        return result
+
+    return check_dvni_route_kernel(pe, vni, prefix, vrf, vtep_ip)
 
 
 def test_dvni():
@@ -495,9 +660,134 @@ def test_dvni():
     pe1 = tgen.gears["PE1"]
 
     prefix = "4.4.4.1/32"
-    test_func = partial(show_dvni_route, pe1, 300, prefix, "vrf-red")
+    vtep_ip = "10.30.30.30"
+    test_func = partial(check_dvni_route, pe1, 300, prefix, "vrf-red", vtep_ip)
     _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
-    assertmsg = '"{}" DVNI route {} not found'.format(pe1.name, prefix)
+    assertmsg = '"{}" DVNI route {} incorrect: {}'.format(pe1.name, prefix, result)
+    assert result is None, assertmsg
+    # tgen.mininet_cli()
+
+
+def check_dvni_route_frr_v6(pe, vni, prefix, vrf, vtep_ip6):
+    """
+    Verify the D-VNI route is present in FRR's RIB (zebra) with the
+    downstream VNI correctly encoded as an MPLS-EVPN "label" on the
+    nexthop pointing at the remote IPv6 VTEP over the SVD vxlan0
+    interface.
+    """
+    expected = {
+        prefix: [
+            {
+                "nexthops": [
+                    {
+                        "ip": vtep_ip6,
+                        "afi": "ipv6",
+                        "interfaceName": "vxlan0",
+                        "onLink": True,
+                        "labels": [vni],
+                    }
+                ]
+            }
+        ]
+    }
+
+    output = pe.vtysh_cmd("show ipv6 route vrf {} {} json".format(vrf, prefix), isjson=True)
+
+    return topotest.json_cmp(output, expected)
+
+
+def check_dvni_route_kernel_v6(pe, vni, prefix, vrf, vtep_ip6):
+    """
+    Verify the D-VNI route is present in the kernel with a VXLAN
+    lightweight tunnel (LWT) "ip6" encap that carries the correct
+    downstream VNI, points at the remote IPv6 VTEP, and has the UDP
+    checksum flag set, i.e. the equivalent of:
+
+      <prefix> encap ip6 id <vni> src :: dst <vtep_ip6> hoplimit 0 tc 0 \
+          csum via inet6 <vtep_ip6> dev vxlan0 onlink
+
+    The checksum flag is mandatory here: RFC 8200 requires a non-zero
+    UDP checksum for IPv6 unless explicitly disabled, so the kernel
+    must be told to compute it (see IP_TUNNEL_CSUM_BIT).
+    """
+    output = pe.run("ip -6 -j route show vrf {} {}".format(vrf, prefix))
+
+    try:
+        routes = json.loads(output)
+    except ValueError:
+        return "{}: could not parse 'ip -6 -j route show' output: {}".format(pe.name, output)
+
+    if not routes:
+        return "{}: no kernel route found for {} in vrf {}".format(pe.name, prefix, vrf)
+
+    route = routes[0]
+    nexthop = get_kernel_route_nexthop(route)
+
+    if nexthop.get("dev") != "vxlan0":
+        return "{}: kernel route {} not using vxlan0 dev: {}".format(pe.name, prefix, route)
+
+    via = nexthop.get("via")
+    gateway = via.get("host") if isinstance(via, dict) else nexthop.get("gateway")
+    if gateway != vtep_ip6:
+        return "{}: kernel route {} gateway is not {}: {}".format(
+            pe.name, prefix, vtep_ip6, route
+        )
+
+    if "onlink" not in nexthop.get("flags", []):
+        return "{}: kernel route {} is missing onlink flag: {}".format(pe.name, prefix, route)
+
+    encap = get_kernel_route_encap(nexthop)
+    if not encap:
+        return "{}: kernel route {} has no encap information: {}".format(
+            pe.name, prefix, route
+        )
+
+    if encap.get("encap_type") != "ip6":
+        return "{}: kernel route {} encap type is not 'ip6': {}".format(
+            pe.name, prefix, encap
+        )
+
+    if encap.get("id") != vni:
+        return "{}: kernel route {} encap vni {} does not match expected {}: {}".format(
+            pe.name, prefix, encap.get("id"), vni, encap
+        )
+
+    if encap.get("dst") != vtep_ip6:
+        return "{}: kernel route {} encap dst is not {}: {}".format(
+            pe.name, prefix, vtep_ip6, encap
+        )
+
+    if not encap.get("csum"):
+        return "{}: kernel route {} is missing the UDP checksum (csum) flag: {}".format(
+            pe.name, prefix, encap
+        )
+
+    return None
+
+
+def check_dvni_route_v6(pe, vni, prefix, vrf, vtep_ip6):
+    result = check_dvni_route_frr_v6(pe, vni, prefix, vrf, vtep_ip6)
+    if result is not None:
+        return result
+
+    return check_dvni_route_kernel_v6(pe, vni, prefix, vrf, vtep_ip6)
+
+
+def test_dvni_v6():
+    "test Downstream VNI with an IPv6 VTEP works as expected importing into PE1"
+
+    tgen = get_topogen()
+    # Don't run this test if we have any failure.
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    pe1 = tgen.gears["PE1"]
+
+    prefix = "2001:db8:4:4::1/128"
+    vtep_ip6 = "2001:db8:1::30"
+    test_func = partial(check_dvni_route_v6, pe1, 600, prefix, "vrf-red", vtep_ip6)
+    _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
+    assertmsg = '"{}" DVNI route {} incorrect: {}'.format(pe1.name, prefix, result)
     assert result is None, assertmsg
     # tgen.mininet_cli()
 
