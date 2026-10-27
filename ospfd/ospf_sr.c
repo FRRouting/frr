@@ -1159,6 +1159,12 @@ static struct sr_prefix *get_ext_prefix_sid(struct tlv_header *tlvh,
 				XFREE(MTYPE_OSPF_SR_PARAMS, srp);
 				return NULL;
 			}
+			if (pref->pref_length > IPV4_MAX_BITLEN) {
+				zlog_warn("SR : Invalid Extended Prefix length %u",
+					  pref->pref_length);
+				XFREE(MTYPE_OSPF_SR_PARAMS, srp);
+				return NULL;
+			}
 			srp->type = PREF_SID;
 			srp->flags = psid->flags;
 			if (CHECK_FLAG(psid->flags, EXT_SUBTLV_PREFIX_SID_VFLG))
