@@ -640,6 +640,9 @@ struct igmp_proxy_ds_ctx {
 	json_object *json_arr;
 };
 
+static bool igmp_ifp_mroute_forwarding(struct interface *ifp, pim_addr src, pim_addr grp);
+static bool igmp_configured_source_forwarding(struct interface *ifp, pim_addr src, pim_addr grp);
+
 static void igmp_proxy_ds_cb(struct interface *ifp, void *arg)
 {
 	struct igmp_proxy_ds_ctx *ctx = arg;
@@ -677,10 +680,10 @@ static void igmp_show_interface_join(struct pim_instance *pim, struct vty *vty,
 				       vrf_id_to_name(pim->vrf->vrf_id));
 	} else if (show_downstream) {
 		vty_out(vty,
-			"Interface        Address         Source          Group           Socket Uptime   Downstream\n");
+			"Interface        Address         Source          Group           Socket Uptime   Fwd Mroute Downstream\n");
 	} else {
 		vty_out(vty,
-			"Interface        Address         Source          Group           Socket Uptime  \n");
+			"Interface        Address         Source          Group           Socket Uptime   Fwd Mroute\n");
 	}
 
 	FOR_ALL_INTERFACES (pim->vrf, ifp) {
@@ -703,12 +706,17 @@ static void igmp_show_interface_join(struct pim_instance *pim, struct vty *vty,
 			char uptime[10];
 			struct igmp_proxy_ds_ctx ds = {};
 			pim_sgaddr sg;
+			bool fwd;
+			bool mroute;
 
 			if (ij->join_type != join_type &&
 			    ij->join_type != GM_JOIN_BOTH)
 				continue;
 
 			pim_time_uptime(uptime, sizeof(uptime), now - ij->sock_creation);
+			fwd = igmp_configured_source_forwarding(ifp, ij->source_addr,
+								ij->group_addr);
+			mroute = igmp_ifp_mroute_forwarding(ifp, ij->source_addr, ij->group_addr);
 
 			if (show_downstream) {
 				sg.src = ij->source_addr;
@@ -746,18 +754,22 @@ static void igmp_show_interface_join(struct pim_instance *pim, struct vty *vty,
 						    ij->sock_fd);
 				json_object_string_add(json_grp, "upTime",
 						       uptime);
+				json_object_boolean_add(json_grp, "forwarded", fwd);
+				json_object_boolean_add(json_grp, "mroute", mroute);
 				if (show_downstream)
 					json_object_object_add(json_grp, "downstreamInterfaces",
 							       ds.json_arr);
 				json_object_array_add(json_grp_arr, json_grp);
 			} else if (show_downstream) {
-				vty_out(vty, "%-16s %-15pI4s %-15pI4s %-15pI4s %6d %8s %s\n",
+				vty_out(vty,
+					"%-16s %-15pI4s %-15pI4s %-15pI4s %6d %8s %3s %-6s %s\n",
 					ifp->name, &pri_addr, &ij->source_addr, &ij->group_addr,
-					ij->sock_fd, uptime, ds.count ? ds.text : "-");
+					ij->sock_fd, uptime, fwd ? "Y" : "N", mroute ? "Y" : "N",
+					ds.count ? ds.text : "-");
 			} else {
-				vty_out(vty, "%-16s %-15pI4s %-15pI4s %-15pI4s %6d %8s\n",
+				vty_out(vty, "%-16s %-15pI4s %-15pI4s %-15pI4s %6d %8s %3s %-6s\n",
 					ifp->name, &pri_addr, &ij->source_addr, &ij->group_addr,
-					ij->sock_fd, uptime);
+					ij->sock_fd, uptime, fwd ? "Y" : "N", mroute ? "Y" : "N");
 			}
 		} /* for (pim_ifp->gm_join_list) */
 
@@ -782,7 +794,7 @@ static void igmp_show_interface_static_group(struct pim_instance *pim,
 				       vrf_id_to_name(pim->vrf->vrf_id));
 	} else {
 		vty_out(vty,
-			"Interface        Address         Source          Group\n");
+			"Interface        Address         Source          Group           Fwd Mroute\n");
 	}
 
 	FOR_ALL_INTERFACES (pim->vrf, ifp) {
@@ -802,6 +814,14 @@ static void igmp_show_interface_static_group(struct pim_instance *pim,
 		pri_addr = pim_find_primary_addr(ifp);
 
 		for (ALL_LIST_ELEMENTS_RO(pim_ifp->static_group_list, node, stgrp)) {
+			bool fwd;
+			bool mroute;
+
+			fwd = igmp_configured_source_forwarding(ifp, stgrp->source_addr,
+								stgrp->group_addr);
+			mroute = igmp_ifp_mroute_forwarding(ifp, stgrp->source_addr,
+							    stgrp->group_addr);
+
 			if (uj) {
 				json_object_object_get_ex(json, ifp->name,
 							  &json_iface);
@@ -826,10 +846,13 @@ static void igmp_show_interface_static_group(struct pim_instance *pim,
 							&stgrp->group_addr);
 				json_object_string_addf(json_grp, "primaryAddr", "%pI4s",
 							&pri_addr);
+				json_object_boolean_add(json_grp, "forwarded", fwd);
+				json_object_boolean_add(json_grp, "mroute", mroute);
 				json_object_array_add(json_grp_arr, json_grp);
 			} else {
-				vty_out(vty, "%-16s %-15pI4s %-15pI4s %-15pI4s\n", ifp->name,
-					&pri_addr, &stgrp->source_addr, &stgrp->group_addr);
+				vty_out(vty, "%-16s %-15pI4s %-15pI4s %-15pI4s %3s %-6s\n",
+					ifp->name, &pri_addr, &stgrp->source_addr,
+					&stgrp->group_addr, fwd ? "Y" : "N", mroute ? "Y" : "N");
 			}
 		} /* for (pim_ifp->static_group_list) */
 
@@ -983,8 +1006,175 @@ static void igmp_show_statistics(struct pim_instance *pim, struct vty *vty,
 	}
 }
 
+/*
+ * Fwd is the IGMP state machine. Mroute is whether show ip mroute lists this
+ * interface as an output. An installed (S,G), PIM oil or static mroute, is
+ * authoritative. Otherwise a specific source is covered by an installed (*,G).
+ */
+static bool igmp_oil_lists_interface(struct interface *ifp, struct channel_oil *c_oil)
+{
+	struct pim_interface *pim_ifp;
+	struct channel_oif *oif;
+
+	if (!c_oil || !c_oil->installed)
+		return false;
+
+	pim_ifp = ifp->info;
+	if (!pim_ifp || pim_ifp->mroute_vif_index < 0)
+		return false;
+
+	oif = channel_oil_oif_find(c_oil, pim_ifp->mroute_vif_index);
+	if (!oif || channel_oif_no_forward(oif))
+		return false;
+
+	if (c_oil->iif.index == oif->index && !pim_mroute_allow_iif_in_oil(c_oil, oif->index))
+		return false;
+
+	return true;
+}
+
+/* installed is set when an installed static (S,G) exists, even if it does not list ifp. */
+static bool igmp_static_sg_lists(struct pim_instance *pim, struct interface *ifp, pim_addr src,
+				 pim_addr grp, bool *installed)
+{
+	struct listnode *node;
+	struct static_route *s_route;
+
+	*installed = false;
+	if (!pim->static_routes)
+		return false;
+
+	for (ALL_LIST_ELEMENTS_RO(pim->static_routes, node, s_route)) {
+		if (!s_route->c_oil.installed)
+			continue;
+		if (pim_addr_cmp(s_route->group, grp) || pim_addr_cmp(s_route->source, src))
+			continue;
+
+		*installed = true;
+		if (igmp_oil_lists_interface(ifp, &s_route->c_oil))
+			return true;
+	}
+
+	return false;
+}
+
+static bool igmp_static_group_lists(struct pim_instance *pim, struct interface *ifp, pim_addr grp)
+{
+	struct listnode *node;
+	struct static_route *s_route;
+
+	if (!pim->static_routes)
+		return false;
+
+	for (ALL_LIST_ELEMENTS_RO(pim->static_routes, node, s_route)) {
+		if (!s_route->c_oil.installed || pim_addr_cmp(s_route->group, grp))
+			continue;
+		if (igmp_oil_lists_interface(ifp, &s_route->c_oil))
+			return true;
+	}
+
+	return false;
+}
+
+static bool igmp_ifp_mroute_forwarding(struct interface *ifp, pim_addr src, pim_addr grp)
+{
+	struct pim_interface *pim_ifp = ifp->info;
+	struct channel_oil *c_oil;
+	pim_sgaddr sg;
+	bool sg_installed = false;
+	bool static_installed = false;
+
+	if (!pim_ifp || !pim_ifp->pim)
+		return false;
+
+	memset(&sg, 0, sizeof(sg));
+	sg.src = src;
+	sg.grp = grp;
+	c_oil = pim_find_channel_oil(pim_ifp->pim, &sg);
+	if (c_oil && c_oil->installed) {
+		sg_installed = true;
+		if (igmp_oil_lists_interface(ifp, c_oil))
+			return true;
+	}
+
+	if (igmp_static_sg_lists(pim_ifp->pim, ifp, src, grp, &static_installed))
+		return true;
+	sg_installed = sg_installed || static_installed;
+
+	if (pim_addr_is_any(src) || sg_installed)
+		return false;
+
+	sg.src = PIMADDR_ANY;
+	c_oil = pim_find_channel_oil(pim_ifp->pim, &sg);
+	if (c_oil && c_oil->installed && igmp_oil_lists_interface(ifp, c_oil))
+		return true;
+
+	return igmp_static_sg_lists(pim_ifp->pim, ifp, PIMADDR_ANY, grp, &static_installed);
+}
+
+static bool igmp_ifp_mroute_forwarding_group(struct interface *ifp, pim_addr grp)
+{
+	struct pim_interface *pim_ifp = ifp->info;
+	struct channel_oil lookup = {};
+	struct channel_oil *c_oil;
+
+	if (!pim_ifp || !pim_ifp->pim)
+		return false;
+
+	lookup.group = grp;
+	c_oil = rb_pim_oil_find_gteq(&pim_ifp->pim->channel_oil_head, &lookup);
+	while (c_oil && !pim_addr_cmp(c_oil->group, grp)) {
+		if (igmp_oil_lists_interface(ifp, c_oil))
+			return true;
+		c_oil = rb_pim_oil_next(&pim_ifp->pim->channel_oil_head, c_oil);
+	}
+
+	return igmp_static_group_lists(pim_ifp->pim, ifp, grp);
+}
+
+static bool igmp_group_source_forwarding(struct gm_group *grp)
+{
+	struct listnode *node;
+	struct gm_source *src;
+
+	if (!grp->group_source_list)
+		return false;
+
+	for (ALL_LIST_ELEMENTS_RO(grp->group_source_list, node, src)) {
+		if (IGMP_SOURCE_TEST_FORWARDING(src->source_flags))
+			return true;
+	}
+
+	return false;
+}
+
+/* IGMP forwarding flag for a configured (S,G), when a learned source exists. */
+static bool igmp_configured_source_forwarding(struct interface *ifp, pim_addr src, pim_addr grp)
+{
+	struct pim_interface *pim_ifp = ifp->info;
+	struct listnode *node;
+	struct gm_group *group;
+	struct gm_source *source;
+
+	if (!pim_ifp || !pim_ifp->gm_group_list)
+		return false;
+
+	for (ALL_LIST_ELEMENTS_RO(pim_ifp->gm_group_list, node, group)) {
+		if (pim_addr_cmp(group->group_addr, grp))
+			continue;
+
+		source = igmp_find_source_by_addr(group, src);
+		if (!source)
+			return false;
+
+		return IGMP_SOURCE_TEST_FORWARDING(source->source_flags);
+	}
+
+	return false;
+}
+
 static void igmp_source_json_helper(struct gm_source *src, json_object *json_sources, char *mmss,
-				    char *uptime)
+				    char *uptime, bool mroute)
 {
 	json_object *json_source = NULL;
 
@@ -996,6 +1186,7 @@ static void igmp_source_json_helper(struct gm_source *src, json_object *json_sou
 	json_object_string_add(json_source, "timer", mmss);
 	json_object_boolean_add(json_source, "forwarded",
 				IGMP_SOURCE_TEST_FORWARDING(src->source_flags));
+	json_object_boolean_add(json_source, "mroute", mroute);
 	json_object_string_add(json_source, "uptime", uptime);
 	json_object_array_add(json_sources, json_source);
 }
@@ -1009,9 +1200,13 @@ static void igmp_group_print(struct interface *ifp, struct vty *vty, bool uj,
 	json_object *json_groups = NULL;
 	char hhmmss[PIM_TIME_STRLEN];
 	char uptime[PIM_TIME_STRLEN];
+	bool group_fwd;
+	bool group_mroute;
 
 	pim_time_timer_to_hhmmss(hhmmss, sizeof(hhmmss), grp->t_group_timer);
 	pim_time_uptime(uptime, sizeof(uptime), now - grp->group_creation);
+	group_fwd = igmp_group_source_forwarding(grp);
+	group_mroute = igmp_ifp_mroute_forwarding_group(ifp, grp->group_addr);
 
 	if (uj) {
 		json_object_object_get_ex(json, ifp->name, &json_iface);
@@ -1051,6 +1246,8 @@ static void igmp_group_print(struct interface *ifp, struct vty *vty, bool uj,
 			json_object_int_add(json_group, "version",
 					    grp->igmp_version);
 			json_object_string_add(json_group, "uptime", uptime);
+			json_object_boolean_add(json_group, "forwarded", group_fwd);
+			json_object_boolean_add(json_group, "mroute", group_mroute);
 			json_object_array_add(json_groups, json_group);
 
 			if (detail) {
@@ -1076,8 +1273,10 @@ static void igmp_group_print(struct interface *ifp, struct vty *vty, bool uj,
 						src_uptime, sizeof(src_uptime),
 						now - src->source_creation);
 
-					igmp_source_json_helper(src, json_sources, mmss,
-								src_uptime);
+					igmp_source_json_helper(
+						src, json_sources, mmss, src_uptime,
+						igmp_ifp_mroute_forwarding(ifp, src->source_addr,
+									   grp->group_addr));
 				}
 			}
 		}
@@ -1087,21 +1286,29 @@ static void igmp_group_print(struct interface *ifp, struct vty *vty, bool uj,
 			struct gm_source *src;
 
 			for (ALL_LIST_ELEMENTS_RO(grp->group_source_list, srcnode, src)) {
-				vty_out(vty, "%-16s %-15pI4s %4s %8s %-15pI4s %d %8s\n", ifp->name,
-					&grp->group_addr,
+				bool src_fwd;
+				bool src_mroute;
+
+				src_fwd = IGMP_SOURCE_TEST_FORWARDING(src->source_flags);
+				src_mroute = igmp_ifp_mroute_forwarding(ifp, src->source_addr,
+									grp->group_addr);
+				vty_out(vty, "%-16s %-15pI4s %4s %8s %-15pI4s %d %8s %3s %-6s\n",
+					ifp->name, &grp->group_addr,
 					grp->igmp_version == 3
 						? (grp->group_filtermode_isexcl ? "EXCL" : "INCL")
 						: "----",
-					hhmmss, &src->source_addr, grp->igmp_version, uptime);
+					hhmmss, &src->source_addr, grp->igmp_version, uptime,
+					src_fwd ? "Y" : "N", src_mroute ? "Y" : "N");
 			}
 			return;
 		}
 
-		vty_out(vty, "%-16s %-15pI4s %4s %8s %4d %d %8s\n", ifp->name, &grp->group_addr,
+		vty_out(vty, "%-16s %-15pI4s %4s %8s %4d %d %8s %3s %-6s\n", ifp->name,
+			&grp->group_addr,
 			grp->igmp_version == 3 ? (grp->group_filtermode_isexcl ? "EXCL" : "INCL")
 					       : "----",
 			hhmmss, grp->group_source_list ? listcount(grp->group_source_list) : 0,
-			grp->igmp_version, uptime);
+			grp->igmp_version, uptime, group_fwd ? "Y" : "N", group_mroute ? "Y" : "N");
 	}
 }
 
@@ -1133,10 +1340,10 @@ static void igmp_show_groups_interface_single(struct pim_instance *pim,
 
 		if (!detail)
 			vty_out(vty,
-				"Interface        Group           Mode Timer    Srcs V Uptime\n");
+				"Interface        Group           Mode Timer    Srcs V Uptime   Fwd Mroute\n");
 		else
 			vty_out(vty,
-				"Interface        Group           Mode Timer    Source          V Uptime\n");
+				"Interface        Group           Mode Timer    Source          V Uptime   Fwd Mroute\n");
 	}
 
 	ifp = if_lookup_by_name(ifname, pim->vrf->vrf_id);
@@ -1207,10 +1414,10 @@ static void igmp_show_groups(struct pim_instance *pim, struct vty *vty, bool uj,
 			pim->gm_watermark_limit);
 		if (!detail)
 			vty_out(vty,
-				"Interface        Group           Mode Timer    Srcs V Uptime\n");
+				"Interface        Group           Mode Timer    Srcs V Uptime   Fwd Mroute\n");
 		else
 			vty_out(vty,
-				"Interface        Group           Mode Timer    Source          V Uptime\n");
+				"Interface        Group           Mode Timer    Source          V Uptime   Fwd Mroute\n");
 	}
 
 	/* scan interfaces */
@@ -1342,11 +1549,19 @@ static void igmp_sources_print(struct interface *ifp, char *group_str,
 
 		json_object_object_get_ex(json_group, "sources", &json_sources);
 		if (json_sources)
-			igmp_source_json_helper(src, json_sources, mmss, uptime);
+			igmp_source_json_helper(src, json_sources, mmss, uptime,
+						igmp_ifp_mroute_forwarding(ifp, src->source_addr,
+									   src->source_group
+										   ->group_addr));
 	} else {
-		vty_out(vty, "%-16s %-15s %-15pI4s %5s %3s %8s\n", ifp->name, group_str,
+		bool mroute;
+
+		mroute = igmp_ifp_mroute_forwarding(ifp, src->source_addr,
+						    src->source_group->group_addr);
+		vty_out(vty, "%-16s %-15s %-15pI4s %5s %3s %-6s %8s\n", ifp->name, group_str,
 			&src->source_addr, mmss,
-			IGMP_SOURCE_TEST_FORWARDING(src->source_flags) ? "Y" : "N", uptime);
+			IGMP_SOURCE_TEST_FORWARDING(src->source_flags) ? "Y" : "N",
+			mroute ? "Y" : "N", uptime);
 	}
 }
 
@@ -1369,7 +1584,7 @@ static void igmp_show_sources_interface_single(struct pim_instance *pim,
 			return;
 	} else {
 		vty_out(vty,
-			"Interface        Group           Source          Timer Fwd Uptime  \n");
+			"Interface        Group           Source          Timer Fwd Mroute Uptime\n");
 	}
 
 	ifp = if_lookup_by_name(ifname, pim->vrf->vrf_id);
@@ -1461,7 +1676,7 @@ static void igmp_show_sources(struct pim_instance *pim, struct vty *vty,
 			return;
 	} else {
 		vty_out(vty,
-			"Interface        Group           Source          Timer Fwd Uptime\n");
+			"Interface        Group           Source          Timer Fwd Mroute Uptime\n");
 	}
 
 	/* scan interfaces */
