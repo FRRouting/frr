@@ -890,11 +890,15 @@ will cause great confusion.
 
 .. clicmd:: show ip igmp [vrf NAME] join [json]
 
-   Display IGMP static join information.
+   Display ``ip igmp join-group`` entries. ``show ip igmp join-group`` is the
+   same command. Each row has ``Fwd`` and ``Mroute`` columns. See
+   :ref:`igmp-fwd-mroute`.
 
 .. clicmd:: show ip igmp [vrf NAME] groups [INTERFACE [GROUP]] [detail] [json]
 
-   Display IGMP groups information.
+   Display learned IGMP groups. Each row has ``Fwd`` and ``Mroute`` columns.
+   Without ``detail``, those columns summarize the group on that interface.
+   ``detail`` prints one row per source. See :ref:`igmp-fwd-mroute`.
 
 .. clicmd:: show ip igmp groups retransmissions
 
@@ -902,11 +906,21 @@ will cause great confusion.
 
 .. clicmd:: show ip igmp [vrf NAME] proxy [json]
 
-   Display IGMP proxy join information.
+   Display IGMP proxy joins. Each row has the same ``Fwd`` and ``Mroute``
+   columns as ``show ip igmp join``. See :ref:`igmp-fwd-mroute`.
 
-.. clicmd:: show ip igmp [vrf NAME] sources [json]
+.. clicmd:: show ip igmp [vrf NAME] sources [INTERFACE [GROUP]] [json]
 
-   Display IGMP sources information.
+   Display learned IGMP sources, one row per source, with ``Fwd`` and
+   ``Mroute`` columns. See :ref:`igmp-fwd-mroute`.
+
+.. clicmd:: show ip igmp [vrf NAME] static-group [json]
+
+   Display ``ip igmp static-group`` entries. Each row has ``Fwd`` and
+   ``Mroute`` columns. A static group does not create an IGMP source, so
+   ``Fwd`` stays ``N`` unless a host on that interface has also joined.
+   ``Mroute Y`` means the interface is an installed mroute output. See
+   :ref:`igmp-fwd-mroute`.
 
 .. clicmd:: show ip igmp sources retransmissions
 
@@ -922,17 +936,20 @@ will cause great confusion.
 
 .. clicmd:: show ip mroute [vrf NAME] [A.B.C.D [A.B.C.D]] [fill] [json]
 
-   Display information about installed into the kernel S,G mroutes.  If
-   one address is specified we assume it is the Group we are interested
-   in displaying data on.  If the second address is specified then it is
-   Source Group.  The keyword `fill` says to fill in all assumed data
-   for test/data gathering purposes.
+   Display mroutes installed in the kernel. One address selects that group.
+   Two addresses select a source and then that group. The keyword ``fill``
+   fills in assumed data for test and data gathering.
+   Output lists the interfaces that forward matching packets. This is the
+   same fact as ``Mroute Y`` on the IGMP show commands. A ``(*,G)`` row does
+   not name a sender. See :ref:`igmp-fwd-mroute`.
 
 .. clicmd:: show ip mroute [vrf NAME] count [json]
 
-   Display information about installed into the kernel S,G mroutes and in
-   addition display data about packet flow for the mroutes for a specific
-   VRF.
+   Display installed mroutes and their packet counters for a VRF. ``LastUsed``
+   is seconds since the kernel last forwarded a packet on that entry.
+   ``Packets``, ``Bytes``, and ``WrongIf`` count up from the last
+   ``clear ip mroute count``. This is how to tell that packets are flowing.
+   See :ref:`igmp-fwd-mroute`.
 
 .. clicmd:: show ip mroute vrf all count [json]
 
@@ -1125,6 +1142,102 @@ will cause great confusion.
 .. seealso::
 
    :ref:`pim-multicast-rib`
+
+.. _igmp-fwd-mroute:
+
+IGMP forwarding and installed mroutes
+-------------------------------------
+
+``show ip igmp sources``, ``show ip igmp groups``, ``show ip igmp join``,
+``show ip igmp join-group``, ``show ip igmp proxy``, and
+``show ip igmp static-group`` print ``Fwd`` and ``Mroute`` for each row.
+JSON uses the booleans ``forwarded`` and ``mroute``.
+
+``Fwd`` is the IGMP forwarding flag for that source. It becomes ``Y`` only
+after that join is installed into PIM. A learned group can still show
+``Fwd N`` when this router is not DR or PIM is not enabled on the interface.
+``ip igmp static-group`` does not create an IGMP source, so ``Fwd`` stays
+``N`` unless a host on that interface has also joined.
+``ip igmp join-group`` opens a local socket and usually produces a real report,
+so ``Fwd`` follows that learned source.
+
+``Mroute`` is ``Y`` when ``show ip mroute`` would list this interface as an
+output of an installed kernel mroute. Source ``*`` is checked against
+``(*,G)``. A specific source uses an installed ``(S,G)`` when one exists, and
+otherwise the covering ``(*,G)``. ``Mroute Y`` means matching packets that
+arrive on that entry's incoming interface are forwarded out this interface. It
+does not mean a sender is active.
+
+Without ``detail``, ``show ip igmp groups`` summarizes the interface: ``Fwd``
+is ``Y`` if any learned source is forwarding, and ``Mroute`` is ``Y`` if any
+installed mroute for the group lists the interface. ``detail`` and
+``show ip igmp sources`` are one row per source.
+
+.. list-table:: Fwd and Mroute
+   :header-rows: 1
+   :widths: 8 12 80
+
+   * - Fwd
+     - Mroute
+     - Meaning
+   * - Y
+     - Y
+     - IGMP accepted the join, and this interface is an output on the
+       installed mroute. This is a normal host join once the path toward the
+       RP or the source exists.
+   * - Y
+     - N
+     - IGMP accepted the join, but ``show ip mroute`` does not list this
+       interface. The incoming interface is not resolved yet, or the output
+       is muted, an assert loser, or omitted because it is the incoming
+       interface.
+   * - N
+     - Y
+     - IGMP has no forwarding flag for this (S,G), and the interface is still
+       an installed mroute output. This is the normal static group. It is also
+       a PIM or inherited output with no local IGMP source flag.
+   * - N
+     - N
+     - IGMP is not forwarding this (S,G), and this interface is not an
+       installed mroute output. The join was refused, or a static group never
+       made it into the mroute.
+
+Only ``Mroute Y`` forwards packets out that interface when traffic arrives.
+``Fwd`` records the IGMP decision and does not by itself forward packets.
+
+To follow one receiver until packets are known to be flowing:
+
+#. Find the receiver.
+
+   - A host report is in ``show ip igmp groups`` and ``show ip igmp sources``.
+   - ``ip igmp join-group`` is in ``show ip igmp join``.
+   - ``ip igmp static-group`` is in ``show ip igmp static-group``.
+
+#. Read ``Fwd`` and ``Mroute`` on that row. Use ``groups ... detail`` or
+   ``show ip igmp sources`` when the group summary is not specific enough.
+
+#. When ``Mroute`` is ``N``, this interface is not an installed output.
+   ``show ip pim interface`` shows whether PIM is enabled and whether this
+   router is DR. A join is refused when PIM is disabled or this router is not
+   DR, which leaves ``Fwd`` at ``N`` and keeps the interface out of the
+   mroute. ``show ip mroute GROUP`` shows whether an entry exists. An input of
+   ``<iif?>`` means the path toward the RP or the source is unresolved, so the
+   kernel mroute is not installed.
+
+#. When ``Mroute`` is ``Y``, confirm that interface under Output in
+   ``show ip mroute GROUP``. A ``(*,G)`` row is the RP tree and does not name
+   a sender. A sender appears as ``(S,G)`` once traffic arrives, or
+   immediately for an SSM join. The input should be a real interface. Flag
+   ``C`` means a local receiver. Flag ``T`` means the SPT bit is set.
+
+#. Confirm packets with ``show ip mroute count``. ``clear ip mroute count``
+   zeroes the displayed packet, byte, and wrong-interface counters. After
+   traffic, run ``show ip mroute count`` again and read the ``(S,G)`` row once
+   that entry exists. The live counters move there from ``(*,G)``. A rising
+   ``Packets`` count and a small ``LastUsed`` mean the kernel has forwarded
+   packets on that mroute. ``LastUsed`` is seconds since the last forwarded
+   packet. A rising ``WrongIf`` count means packets arrived on an interface
+   other than Input and were not forwarded by that entry.
 
 
 PIM Debug Commands
