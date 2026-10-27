@@ -2255,8 +2255,24 @@ void vpn_leak_from_vrf_update(struct bgp *to_bgp,	     /* to */
 							    debug, &label,
 							    ret == RMAP_PERMITMATCH ? &rmap_bpi
 										    : NULL);
+		} else if (label_val == MPLS_LABEL_NONE) {
+			if (is_srv6_vpn_afi_enabled(from_bgp, afi) ||
+			    is_srv6_vpn_vrf_enabled(from_bgp)) {
+				if (debug)
+					zlog_debug("%s: %s skipping: no SID for locator %s",
+						   __func__, from_bgp->name_pretty,
+						   bslc->locator_name);
+				vpn_leak_from_vrf_withdraw(to_bgp, from_bgp, path_vrf);
+			} else
+				/* import-vrf */
+				_vpn_leak_from_vrf_update_leak_attr(&static_attr, to_bgp, from_bgp,
+								    afi, safi, path_vrf,
+								    nexthop_self_flag, debug,
+								    &label,
+								    ret == RMAP_PERMITMATCH
+									    ? &rmap_bpi
+									    : NULL);
 		}
-		/* if locator not found or SID not allocated, then no srv6 exportation */
 	} else if (vpn_leak_from_vrf_fill_srv6(&static_attr, from_bgp, afi, &label))
 
 		/* SRv6 */
