@@ -14,9 +14,9 @@
                 },
                 "paths":[{
                     "aspath":{
-                        "string":"Local",
-                        "segments":[],
-                        "length":0
+                        "string":"65500",
+                        "segments":[{"type":"as-sequence","list":[65500]}],
+                        "length":1
                     },
                     "nhVrfName":"vrf1",
                     "announceNexthopSelf":true,
@@ -32,7 +32,6 @@
                     "extendedCommunity":{
                         "string":"RT:192.0.2.1:100"
                     },
-                    "originatorId":"192.0.2.1",
                     "remoteLabel":101,
                     "nexthops":[{
                         "ip":"0.0.0.0",
@@ -60,9 +59,9 @@
                 },
                 "paths":[{
                     "aspath":{
-                        "string":"Local",
-                        "segments":[],
-                        "length":0
+                        "string":"65500",
+                        "segments":[{"type":"as-sequence","list":[65500]}],
+                        "length":1
                     },
                     "nhVrfName":"vrf3",
                     "announceNexthopSelf":true,
@@ -78,7 +77,6 @@
                     "extendedCommunity":{
                         "string":"RT:192.0.2.1:300"
                     },
-                    "originatorId":"192.0.2.1",
                     "remoteLabel":103,
                     "nexthops":[{
                         "ip":"0.0.0.0",

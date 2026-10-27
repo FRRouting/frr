@@ -907,7 +907,7 @@ int bgp_unreach_info_add(struct bgp *bgp, afi_t afi, struct bgp_unreach_nlri *nl
 				   bgp->name_pretty, &nlri->prefix);
 		/* Initialize attributes (no TLV data in attr) */
 		if (attr) {
-			attr_new = *attr;
+			bgp_attr_dup_into(&attr_new, attr);
 		} else {
 			/* Set default attributes for locally originated route */
 			bgp_attr_default_set(&attr_new, bgp, BGP_ORIGIN_INCOMPLETE);
@@ -1074,7 +1074,7 @@ static void bgp_unreach_path_detail_json(json_object *json_path,
 
 		if (comm) {
 			if (!comm->json)
-				community_str(comm, true, true);
+				community_str(comm, true);
 			json_object_lock(comm->json);
 			json_object_object_add(json_path, "community",
 					       comm->json);

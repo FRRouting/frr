@@ -1232,7 +1232,7 @@ static int bgp_peer_clear(struct peer *peer, afi_t afi, safi_t safi,
 			if (!peer->afc[tmp_afi][tmp_safi])
 				continue;
 
-			if (stype == BGP_CLEAR_SOFT_NONE)
+			if (stype == BGP_CLEAR_HARD)
 				ret = peer_clear(peer, nnode);
 			else
 				ret = peer_clear_soft(peer, tmp_afi, tmp_safi,
@@ -1252,7 +1252,7 @@ static int bgp_peer_clear(struct peer *peer, afi_t afi, safi_t safi,
 				SET_FLAG(paf->subgroup->sflags,
 					 SUBGRP_STATUS_FORCE_UPDATES);
 
-			if (stype == BGP_CLEAR_SOFT_NONE)
+			if (stype == BGP_CLEAR_HARD)
 				ret = peer_clear(peer, nnode);
 			else
 				ret = peer_clear_soft(peer, afi,
@@ -1268,7 +1268,7 @@ static int bgp_peer_clear(struct peer *peer, afi_t afi, safi_t safi,
 			SET_FLAG(paf->subgroup->sflags,
 				 SUBGRP_STATUS_FORCE_UPDATES);
 
-		if (stype == BGP_CLEAR_SOFT_NONE)
+		if (stype == BGP_CLEAR_HARD)
 			ret = peer_clear(peer, nnode);
 		else
 			ret = peer_clear_soft(peer, afi, safi, stype);
@@ -1286,10 +1286,17 @@ static int bgp_clear(struct vty *vty, struct bgp *bgp, afi_t afi, safi_t safi,
 	bool found = false;
 	struct peer *peer;
 	bool afi_safi_unspec = false;
+	bool use_batch = false;
 
 	VTY_BGP_GR_DEFINE_LOOP_VARIABLE;
 
 	afi_safi_unspec = ((afi == AFI_UNSPEC) && (safi == SAFI_UNSPEC));
+
+	/*
+	 * A hard clear resets the whole session whatever address family is
+	 * given, the family only selects the peers, so it can be batched too.
+	 */
+	use_batch = afi_safi_unspec || (stype == BGP_CLEAR_HARD);
 
 	/* Clear all neighbors. */
 	/*
@@ -1298,7 +1305,7 @@ static int bgp_clear(struct vty *vty, struct bgp *bgp, afi_t afi, safi_t safi,
 	 * doppelganger
 	 */
 	if (sort == clear_all) {
-		if (afi_safi_unspec)
+		if (use_batch)
 			bgp_clearing_batch_begin(bgp);
 		for (ALL_LIST_ELEMENTS(bgp->peer, node, nnode, peer)) {
 
@@ -1323,14 +1330,14 @@ static int bgp_clear(struct vty *vty, struct bgp *bgp, afi_t afi, safi_t safi,
 		}
 
 		/* This is to apply read-only mode on this clear. */
-		if (stype == BGP_CLEAR_SOFT_NONE) {
+		if (stype == BGP_CLEAR_HARD) {
 			bgp->update_delay_over = 0;
 			event_cancel(&bgp->t_advertisement_delay);
 			bgp->advertisement_delay_started = 0;
 			bgp->advertisement_delay_over = 0;
 		}
 
-		if (afi_safi_unspec)
+		if (use_batch)
 			bgp_clearing_batch_end_event_start(bgp);
 		return CMD_SUCCESS;
 	}
@@ -1388,7 +1395,7 @@ static int bgp_clear(struct vty *vty, struct bgp *bgp, afi_t afi, safi_t safi,
 			return CMD_WARNING;
 		}
 
-		if (afi_safi_unspec)
+		if (use_batch)
 			bgp_clearing_batch_begin(bgp);
 		for (ALL_LIST_ELEMENTS(group->peer, node, nnode, peer)) {
 			ret = bgp_peer_clear(peer, afi, safi, &nnode, stype);
@@ -1398,7 +1405,7 @@ static int bgp_clear(struct vty *vty, struct bgp *bgp, afi_t afi, safi_t safi,
 			else
 				found = true;
 		}
-		if (afi_safi_unspec)
+		if (use_batch)
 			bgp_clearing_batch_end_event_start(bgp);
 
 		if (!found)
@@ -1411,7 +1418,7 @@ static int bgp_clear(struct vty *vty, struct bgp *bgp, afi_t afi, safi_t safi,
 
 	/* Clear all external (eBGP) neighbors. */
 	if (sort == clear_external) {
-		if (afi_safi_unspec)
+		if (use_batch)
 			bgp_clearing_batch_begin(bgp);
 		for (ALL_LIST_ELEMENTS(bgp->peer, node, nnode, peer)) {
 			if (peer->sort == BGP_PEER_IBGP)
@@ -1437,7 +1444,7 @@ static int bgp_clear(struct vty *vty, struct bgp *bgp, afi_t afi, safi_t safi,
 			   && bgp->present_zebra_gr_state == ZEBRA_GR_ENABLE) {
 			bgp_zebra_send_capabilities(bgp, true);
 		}
-		if (afi_safi_unspec)
+		if (use_batch)
 			bgp_clearing_batch_end_event_start(bgp);
 		if (!found)
 			vty_out(vty,
@@ -1456,7 +1463,7 @@ static int bgp_clear(struct vty *vty, struct bgp *bgp, afi_t afi, safi_t safi,
 			return CMD_WARNING;
 		}
 
-		if (afi_safi_unspec)
+		if (use_batch)
 			bgp_clearing_batch_begin(bgp);
 		for (ALL_LIST_ELEMENTS(bgp->peer, node, nnode, peer)) {
 			if (peer->as != as)
@@ -1483,7 +1490,7 @@ static int bgp_clear(struct vty *vty, struct bgp *bgp, afi_t afi, safi_t safi,
 			bgp_zebra_send_capabilities(bgp, true);
 		}
 
-		if (afi_safi_unspec)
+		if (use_batch)
 			bgp_clearing_batch_end_event_start(bgp);
 		if (!found)
 			vty_out(vty,
@@ -6335,6 +6342,9 @@ DEFUN (neighbor_set_peer_group,
 
 	ret = peer_group_bind(bgp, &su, peer, group, &as);
 
+	if (ret == 0 && group->conf->as_type != AS_UNSPECIFIED)
+		bgp_need_listening(bgp, vty);
+
 	return bgp_vty_return(vty, ret);
 }
 
@@ -6357,7 +6367,7 @@ DEFUN (no_neighbor_set_peer_group,
 	int idx_peer = 2;
 	int idx_word = 4;
 	int ret;
-	struct peer *peer;
+	struct peer *peer, *other;
 	struct peer_group *group;
 
 	peer = peer_lookup_vty(vty, argv[idx_peer]->arg);
@@ -6373,8 +6383,13 @@ DEFUN (no_neighbor_set_peer_group,
 	if (CHECK_FLAG(peer->flags, PEER_FLAG_CAPABILITY_ENHE))
 		bgp_zebra_terminate_radv(peer->bgp, peer);
 
+	other = peer->doppelganger;
 	peer_notify_unconfig(peer->connection);
 	ret = peer_delete(peer);
+	if (other && other->connection->status != Deleted) {
+		peer_notify_unconfig(other->connection);
+		peer_delete(other);
+	}
 
 	/*
 	 * if need stop listening
@@ -12077,8 +12092,10 @@ DEFPY (bgp_srv6_locator,
 	VTY_DECLVAR_CONTEXT(bgp, bgp);
 	int ret;
 
-	if (strlen(bgp->srv6_locator_name) > 0
-	    && strcmp(name, bgp->srv6_locator_name) != 0) {
+	if (strlen(bgp->srv6_locator_name) > 0) {
+		if (strcmp(name, bgp->srv6_locator_name) == 0)
+			return CMD_SUCCESS;
+
 		vty_out(vty, "srv6 locator is already configured\n");
 		return CMD_WARNING_CONFIG_FAILED;
 	}
@@ -12393,7 +12410,7 @@ DEFUN(clear_ip_bgp_all, clear_ip_bgp_all_cmd,
 	} else if (argv_find(argv, argc, "capabilities", &idx)) {
 		clr_type = BGP_CLEAR_CAPABILITIES;
 	} else
-		clr_type = BGP_CLEAR_SOFT_NONE;
+		clr_type = BGP_CLEAR_HARD;
 
 	return bgp_clear_vty(vty, vrf, afi, safi, clr_sort, clr_type, clr_arg);
 }
@@ -13826,13 +13843,13 @@ static void bgp_show_aggregate_one(struct vty *vty, const struct prefix *p,
 					       aggregate->suppress_map_name);
 		if (aggregate->community)
 			json_object_string_add(json_aggr, "community",
-					       community_str(aggregate->community, false, false));
+					       community_str(aggregate->community, false));
 		if (aggregate->ecommunity)
 			json_object_string_add(json_aggr, "extendedCommunity",
 					       ecommunity_str(aggregate->ecommunity));
 		if (aggregate->lcommunity)
 			json_object_string_add(json_aggr, "largeCommunity",
-					       lcommunity_str(aggregate->lcommunity, false, false));
+					       lcommunity_str(aggregate->lcommunity, false));
 		if (aggregate->aspath)
 			json_object_string_add(json_aggr, "asPath",
 					       aspath_print(aggregate->aspath));
@@ -13862,13 +13879,13 @@ static void bgp_show_aggregate_one(struct vty *vty, const struct prefix *p,
 			vty_out(vty, "  Suppress-map: %s\n", aggregate->suppress_map_name);
 		if (aggregate->community)
 			vty_out(vty, "  Community: %s\n",
-				community_str(aggregate->community, false, false));
+				community_str(aggregate->community, false));
 		if (aggregate->ecommunity)
 			vty_out(vty, "  Extended community: %s\n",
 				ecommunity_str(aggregate->ecommunity));
 		if (aggregate->lcommunity)
 			vty_out(vty, "  Large community: %s\n",
-				lcommunity_str(aggregate->lcommunity, false, false));
+				lcommunity_str(aggregate->lcommunity, false));
 		if (aggregate->aspath)
 			vty_out(vty, "  AS path: %s\n", aspath_print(aggregate->aspath));
 	}
@@ -15933,8 +15950,7 @@ static void bgp_show_peer_afi(struct vty *vty, struct peer *p, afi_t afi,
 		else
 			json_object_free(json_af);
 
-		snprintf(orf_pfx_name, sizeof(orf_pfx_name), "%s.%d.%d",
-			 p->host, afi, safi);
+		peer_orf_plist_name(p, afi, safi, orf_pfx_name, sizeof(orf_pfx_name));
 		orf_pfx_count = prefix_bgp_show_prefix_list(
 			NULL, afi, orf_pfx_name, use_json);
 
@@ -16258,8 +16274,7 @@ static void bgp_show_peer_afi(struct vty *vty, struct peer *p, afi_t afi,
 				PEER_CAP_ORF_PREFIX_RM_RCV, use_json, NULL);
 		}
 
-		snprintf(orf_pfx_name, sizeof(orf_pfx_name), "%s.%d.%d",
-			 p->host, afi, safi);
+		peer_orf_plist_name(p, afi, safi, orf_pfx_name, sizeof(orf_pfx_name));
 		orf_pfx_count = prefix_bgp_show_prefix_list(
 			NULL, afi, orf_pfx_name, use_json);
 
@@ -19087,7 +19102,7 @@ DEFPY (show_bgp_neighbor_orf_prefix_list,
 	if (!peer)
 		return CMD_WARNING;
 
-	snprintf(orf_name, sizeof(orf_name), "%s.%d.%d", peer->host, afi, safi);
+	peer_orf_plist_name(peer, afi, safi, orf_name, sizeof(orf_name));
 	if (!prefix_bgp_show_prefix_list(NULL, afi, orf_name, use_json)) {
 		if (use_json)
 			vty_out(vty, "{}\n");
@@ -19125,8 +19140,7 @@ static void community_show_all_iterator(struct hash_bucket *bucket,
 	struct community *com;
 
 	com = (struct community *)bucket->data;
-	vty_out(vty, "[%p] (%ld) %s\n", (void *)com, com->refcnt,
-		community_str(com, false, false));
+	vty_out(vty, "[%p] (%ld) %s\n", (void *)com, com->refcnt, community_str(com, false));
 }
 
 /* Show BGP's community internal data. */
@@ -19154,8 +19168,7 @@ static void lcommunity_show_all_iterator(struct hash_bucket *bucket,
 	struct lcommunity *lcom;
 
 	lcom = (struct lcommunity *)bucket->data;
-	vty_out(vty, "[%p] (%ld) %s\n", (void *)lcom, lcom->refcnt,
-		lcommunity_str(lcom, false, false));
+	vty_out(vty, "[%p] (%ld) %s\n", (void *)lcom, lcom->refcnt, lcommunity_str(lcom, false));
 }
 
 /* Show BGP's community internal data. */
@@ -19964,6 +19977,8 @@ DEFUN (bgp_redistribute_ipv4,
 	VTY_DECLVAR_CONTEXT(bgp, bgp);
 	int idx_protocol = 1;
 	uint8_t type;
+	struct bgp_redist *red;
+	bool changed;
 
 	type = proto_redistnum(AFI_IP, argv[idx_protocol]->text);
 	if (type == ZEBRA_ROUTE_ERROR) {
@@ -19971,8 +19986,10 @@ DEFUN (bgp_redistribute_ipv4,
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 
-	bgp_redist_add(bgp, AFI_IP, type, 0);
-	return bgp_redistribute_set(bgp, AFI_IP, type, 0, false);
+	red = bgp_redist_add(bgp, AFI_IP, type, 0);
+	changed = bgp_redistribute_rmap_unset(red);
+	changed |= bgp_redistribute_metric_unset(bgp, red, AFI_IP, type);
+	return bgp_redistribute_set(bgp, AFI_IP, type, 0, changed);
 }
 
 ALIAS_HIDDEN(
@@ -20004,8 +20021,8 @@ DEFUN (bgp_redistribute_ipv4_rmap,
 	}
 
 	red = bgp_redist_add(bgp, AFI_IP, type, 0);
-	changed =
-		bgp_redistribute_rmap_set(red, argv[idx_word]->arg, route_map);
+	changed = bgp_redistribute_metric_unset(bgp, red, AFI_IP, type);
+	changed |= bgp_redistribute_rmap_set(red, argv[idx_word]->arg, route_map);
 	return bgp_redistribute_set(bgp, AFI_IP, type, 0, changed);
 }
 
@@ -20040,7 +20057,8 @@ DEFUN (bgp_redistribute_ipv4_metric,
 	metric = strtoul(argv[idx_number]->arg, NULL, 10);
 
 	red = bgp_redist_add(bgp, AFI_IP, type, 0);
-	changed = bgp_redistribute_metric_set(bgp, red, AFI_IP, type, metric);
+	changed = bgp_redistribute_rmap_unset(red);
+	changed |= bgp_redistribute_metric_set(bgp, red, AFI_IP, type, metric);
 	return bgp_redistribute_set(bgp, AFI_IP, type, 0, changed);
 }
 
@@ -20157,6 +20175,8 @@ DEFUN (bgp_redistribute_ipv4_ospf,
 	int idx_number = 2;
 	unsigned short instance;
 	unsigned short protocol;
+	struct bgp_redist *red;
+	bool changed;
 
 	instance = strtoul(argv[idx_number]->arg, NULL, 10);
 
@@ -20177,8 +20197,10 @@ DEFUN (bgp_redistribute_ipv4_ospf,
 			protocol = ZEBRA_ROUTE_TABLE;
 	}
 
-	bgp_redist_add(bgp, AFI_IP, protocol, instance);
-	return bgp_redistribute_set(bgp, AFI_IP, protocol, instance, false);
+	red = bgp_redist_add(bgp, AFI_IP, protocol, instance);
+	changed = bgp_redistribute_rmap_unset(red);
+	changed |= bgp_redistribute_metric_unset(bgp, red, AFI_IP, protocol);
+	return bgp_redistribute_set(bgp, AFI_IP, protocol, instance, changed);
 }
 
 ALIAS_HIDDEN(bgp_redistribute_ipv4_ospf, bgp_redistribute_ipv4_ospf_hidden_cmd,
@@ -20231,8 +20253,8 @@ DEFUN (bgp_redistribute_ipv4_ospf_rmap,
 	}
 
 	red = bgp_redist_add(bgp, AFI_IP, protocol, instance);
-	changed =
-		bgp_redistribute_rmap_set(red, argv[idx_word]->arg, route_map);
+	changed = bgp_redistribute_metric_unset(bgp, red, AFI_IP, protocol);
+	changed |= bgp_redistribute_rmap_set(red, argv[idx_word]->arg, route_map);
 	return bgp_redistribute_set(bgp, AFI_IP, protocol, instance, changed);
 }
 
@@ -20290,8 +20312,8 @@ DEFUN (bgp_redistribute_ipv4_ospf_metric,
 	metric = strtoul(argv[idx_number_2]->arg, NULL, 10);
 
 	red = bgp_redist_add(bgp, AFI_IP, protocol, instance);
-	changed = bgp_redistribute_metric_set(bgp, red, AFI_IP, protocol,
-						metric);
+	changed = bgp_redistribute_rmap_unset(red);
+	changed |= bgp_redistribute_metric_set(bgp, red, AFI_IP, protocol, metric);
 	return bgp_redistribute_set(bgp, AFI_IP, protocol, instance, changed);
 }
 
@@ -20545,6 +20567,8 @@ DEFUN (bgp_redistribute_ipv6,
 	VTY_DECLVAR_CONTEXT(bgp, bgp);
 	int idx_protocol = 1;
 	uint8_t type;
+	struct bgp_redist *red;
+	bool changed;
 
 	type = proto_redistnum(AFI_IP6, argv[idx_protocol]->text);
 	if (type == ZEBRA_ROUTE_ERROR) {
@@ -20552,8 +20576,10 @@ DEFUN (bgp_redistribute_ipv6,
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 
-	bgp_redist_add(bgp, AFI_IP6, type, 0);
-	return bgp_redistribute_set(bgp, AFI_IP6, type, 0, false);
+	red = bgp_redist_add(bgp, AFI_IP6, type, 0);
+	changed = bgp_redistribute_rmap_unset(red);
+	changed |= bgp_redistribute_metric_unset(bgp, red, AFI_IP6, type);
+	return bgp_redistribute_set(bgp, AFI_IP6, type, 0, changed);
 }
 
 DEFUN (bgp_redistribute_ipv6_rmap,
@@ -20580,8 +20606,8 @@ DEFUN (bgp_redistribute_ipv6_rmap,
 	}
 
 	red = bgp_redist_add(bgp, AFI_IP6, type, 0);
-	changed =
-		bgp_redistribute_rmap_set(red, argv[idx_word]->arg, route_map);
+	changed = bgp_redistribute_metric_unset(bgp, red, AFI_IP6, type);
+	changed |= bgp_redistribute_rmap_set(red, argv[idx_word]->arg, route_map);
 	return bgp_redistribute_set(bgp, AFI_IP6, type, 0, changed);
 }
 
@@ -20609,7 +20635,8 @@ DEFUN (bgp_redistribute_ipv6_metric,
 	metric = strtoul(argv[idx_number]->arg, NULL, 10);
 
 	red = bgp_redist_add(bgp, AFI_IP6, type, 0);
-	changed = bgp_redistribute_metric_set(bgp, red, AFI_IP6, type, metric);
+	changed = bgp_redistribute_rmap_unset(red);
+	changed |= bgp_redistribute_metric_set(bgp, red, AFI_IP6, type, metric);
 	return bgp_redistribute_set(bgp, AFI_IP6, type, 0, changed);
 }
 
@@ -20746,8 +20773,7 @@ DEFUN (bgp_redistribute_ipv6_metric_rmap,
 	metric = strtoul(argv[idx_number]->arg, NULL, 10);
 
 	red = bgp_redist_add(bgp, AFI_IP6, type, 0);
-	changed = bgp_redistribute_metric_set(bgp, red, AFI_IP6, SAFI_UNICAST,
-						metric);
+	changed = bgp_redistribute_metric_set(bgp, red, AFI_IP6, type, metric);
 	changed |=
 		bgp_redistribute_rmap_set(red, argv[idx_word]->arg, route_map);
 	return bgp_redistribute_set(bgp, AFI_IP6, type, 0, changed);
@@ -25542,7 +25568,7 @@ ALIAS(no_community_list_standard_all, no_bgp_community_list_standard_all_list_cm
 /*community-list expanded */
 DEFUN (community_list_expanded_all,
        bgp_community_list_expanded_all_cmd,
-       "bgp community-list <(100-500)|expanded COMMUNITY_LIST_NAME> [seq (0-4294967295)] <deny|permit> AA:NN...",
+       "bgp community-list <(100-500)|expanded COMMUNITY_LIST_NAME> [seq (0-4294967295)] <deny|permit> LINE...",
        BGP_STR
        COMMUNITY_LIST_STR
        "Community list number (expanded)\n"
@@ -25552,7 +25578,7 @@ DEFUN (community_list_expanded_all,
        "Sequence number\n"
        "Specify community to reject\n"
        "Specify community to accept\n"
-       COMMUNITY_VAL_STR)
+       "An ordered list as a regular-expression\n")
 {
 	char *cl_name_or_number = NULL;
 	char *seq = NULL;
@@ -25570,7 +25596,7 @@ DEFUN (community_list_expanded_all,
 	cl_name_or_number = argv[idx]->arg;
 	direct = argv_find(argv, argc, "permit", &idx) ? COMMUNITY_PERMIT
 						       : COMMUNITY_DENY;
-	argv_find(argv, argc, "AA:NN", &idx);
+	argv_find(argv, argc, "LINE", &idx);
 	char *str = argv_concat(argv, argc, idx);
 
 	assert(str);
@@ -25590,7 +25616,7 @@ DEFUN (community_list_expanded_all,
 
 DEFUN (no_community_list_expanded_all,
        no_bgp_community_list_expanded_all_cmd,
-       "no bgp community-list <(100-500)|expanded COMMUNITY_LIST_NAME> [seq (0-4294967295)] <deny|permit> AA:NN...",
+       "no bgp community-list <(100-500)|expanded COMMUNITY_LIST_NAME> [seq (0-4294967295)] <deny|permit> LINE...",
        NO_STR
        BGP_STR
        COMMUNITY_LIST_STR
@@ -25601,7 +25627,7 @@ DEFUN (no_community_list_expanded_all,
        "Sequence number\n"
        "Specify community to reject\n"
        "Specify community to accept\n"
-       COMMUNITY_VAL_STR)
+       "An ordered list as a regular-expression\n")
 {
 	char *cl_name_or_number = NULL;
 	char *seq = NULL;
@@ -25623,7 +25649,7 @@ DEFUN (no_community_list_expanded_all,
 				 : COMMUNITY_DENY;
 
 		idx = 0;
-		argv_find(argv, argc, "AA:NN", &idx);
+		argv_find(argv, argc, "LINE", &idx);
 		str = argv_concat(argv, argc, idx);
 	}
 
@@ -25654,9 +25680,9 @@ static const char *community_list_config_str(struct community_entry *entry)
 	const char *str;
 
 	if (entry->style == COMMUNITY_LIST_STANDARD)
-		str = community_str(entry->u.com, false, false);
+		str = community_str(entry->u.com, false);
 	else if (entry->style == LARGE_COMMUNITY_LIST_STANDARD)
-		str = lcommunity_str(entry->u.lcom, false, false);
+		str = lcommunity_str(entry->u.lcom, false);
 	else
 		str = entry->config;
 

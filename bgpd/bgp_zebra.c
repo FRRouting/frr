@@ -55,6 +55,7 @@
 #include "bgpd/bgp_trace.h"
 #include "bgpd/bgp_community.h"
 #include "bgpd/bgp_lcommunity.h"
+#include "bgpd/bgp_community_alias.h"
 #include "bgpd/bgp_srv6.h"
 #include "bgpd/bgp_ls.h"
 #include "bgpd/bgp_ls_ted.h"
@@ -1429,7 +1430,13 @@ static void bgp_zebra_announce_parse_nexthop(struct bgp_path_info *info, const s
 		num_labels = BGP_PATH_INFO_NUM_LABELS(mpinfo);
 		labels = num_labels ? mpinfo->extra->labels->label : NULL;
 
-		if (num_labels && (is_evpn || bgp_is_valid_label(&labels[0]))) {
+		/*
+		 * The label of a path imported from EVPN is a VNI, which only
+		 * goes with an EVPN nexthop. A gateway IP overlay index nexthop
+		 * has no label: zebra resolves it through the route to the
+		 * gateway, which brings its own encapsulation if it needs one.
+		 */
+		if (num_labels && (is_evpn || (!is_parent_evpn && bgp_is_valid_label(&labels[0])))) {
 			enum lsp_types_t nh_label_type = ZEBRA_LSP_NONE;
 
 			if (is_evpn) {
@@ -1829,6 +1836,15 @@ enum zclient_send_status bgp_zebra_announce_actual(struct bgp_dest *dest,
 					 table->safi, &nhg_id, &metric, &tag, &allow_recursion,
 					 do_wt_ecmp);
 
+	/*
+	 * No usable nexthop is left (e.g. the table-map denied every path).
+	 * Withdraw the route instead of sending an ADD without nexthops:
+	 * zebra rejects such an ADD, logs a warning and keeps the previously
+	 * installed route, which then stays stale in the RIB/FIB.
+	 */
+	if (!valid_nh_count && !nhg_id)
+		return bgp_zebra_withdraw_actual(dest, info, bgp);
+
 	if (do_wt_ecmp == BGP_WECMP_BEHAVIOR_USE_RECURSIVE_VALUE)
 		SET_FLAG(api.flags, ZEBRA_FLAG_USE_RECURSIVE_WEIGHT);
 
@@ -1840,15 +1856,21 @@ enum zclient_send_status bgp_zebra_announce_actual(struct bgp_dest *dest,
 		strlcpy(bzo.aspath, info->attr->aspath->str,
 			sizeof(bzo.aspath));
 
-		if (bgp_attr_exists(info->attr, BGP_ATTR_COMMUNITIES))
-			strlcpy(bzo.community,
-				bgp_attr_get_community(info->attr)->str,
-				sizeof(bzo.community));
+		if (bgp_attr_exists(info->attr, BGP_ATTR_COMMUNITIES)) {
+			char *str =
+				bgp_community2alias_str(bgp_attr_get_community(info->attr)->str);
 
-		if (bgp_attr_exists(info->attr, BGP_ATTR_LARGE_COMMUNITIES))
-			strlcpy(bzo.lcommunity,
-				bgp_attr_get_lcommunity(info->attr)->str,
-				sizeof(bzo.lcommunity));
+			strlcpy(bzo.community, str, sizeof(bzo.community));
+			XFREE(MTYPE_TMP, str);
+		}
+
+		if (bgp_attr_exists(info->attr, BGP_ATTR_LARGE_COMMUNITIES)) {
+			char *str =
+				bgp_community2alias_str(bgp_attr_get_lcommunity(info->attr)->str);
+
+			strlcpy(bzo.lcommunity, str, sizeof(bzo.lcommunity));
+			XFREE(MTYPE_TMP, str);
+		}
 
 		strlcpy(bzo.selection_reason, reason,
 			sizeof(bzo.selection_reason));
@@ -2080,11 +2102,14 @@ static void bgp_handle_route_announcements_to_zebra(struct event *e)
 				dest);
 		}
 
-		if (BGP_DEBUG(zebra, ZEBRA))
-			zlog_debug("BGP %s%s route %pBD(%s) with dest %p and flags 0x%x to zebra",
+		if (BGP_DEBUG(zebra, ZEBRA)) {
+			struct bgp_debug_vrf dv = bgp_debug_vrf_get(table->bgp);
+
+			zlog_debug("BGP %s%s route (%s:%u:%u)%pBD with dest %p and flags 0x%x to zebra",
 				   install ? "announcing" : "withdrawing",
-				   is_evpn ? " evpn" : " ", dest,
-				   table->bgp->name_pretty, dest, dest->flags);
+				   is_evpn ? " evpn" : " ", dv.name, dv.id, dv.table_id, dest,
+				   dest, dest->flags);
+		}
 
 		if (install) {
 			if (is_evpn)
@@ -2507,18 +2532,37 @@ bool bgp_redistribute_rmap_set(struct bgp_redist *red, const char *name,
 	return true;
 }
 
-/* Redistribute with metric specification.  */
-bool bgp_redistribute_metric_set(struct bgp *bgp, struct bgp_redist *red,
-				 afi_t afi, int type, uint32_t metric)
+/* Unset redistribute route-map configuration. */
+bool bgp_redistribute_rmap_unset(struct bgp_redist *red)
+{
+	if (!red->rmap.name)
+		return false;
+
+	XFREE(MTYPE_ROUTE_MAP_NAME, red->rmap.name);
+	route_map_counter_decrement(red->rmap.map);
+	red->rmap.map = NULL;
+
+	return true;
+}
+
+/* Core function to set or unset redistribution metric. */
+static bool bgp_redistribute_metric_set_core(struct bgp *bgp, struct bgp_redist *red, afi_t afi,
+					     int type, uint32_t metric, bool set)
 {
 	struct bgp_dest *dest;
 	struct bgp_path_info *pi;
 
-	if (red->redist_metric_flag && red->redist_metric == metric)
-		return false;
-
-	red->redist_metric_flag = 1;
-	red->redist_metric = metric;
+	if (set) {
+		if (red->redist_metric_flag && red->redist_metric == metric)
+			return false;
+		red->redist_metric_flag = 1;
+		red->redist_metric = metric;
+	} else {
+		if (!red->redist_metric_flag)
+			return false;
+		red->redist_metric_flag = 0;
+		red->redist_metric = 0;
+	}
 
 	for (dest = bgp_table_top(bgp->rib[afi][SAFI_UNICAST]); dest;
 	     dest = bgp_route_next(dest)) {
@@ -2543,6 +2587,19 @@ bool bgp_redistribute_metric_set(struct bgp *bgp, struct bgp_redist *red,
 	}
 
 	return true;
+}
+
+/* Set redistribution metric. */
+bool bgp_redistribute_metric_set(struct bgp *bgp, struct bgp_redist *red, afi_t afi, int type,
+				 uint32_t metric)
+{
+	return bgp_redistribute_metric_set_core(bgp, red, afi, type, metric, true);
+}
+
+/* Unset redistribution metric. */
+bool bgp_redistribute_metric_unset(struct bgp *bgp, struct bgp_redist *red, afi_t afi, int type)
+{
+	return bgp_redistribute_metric_set_core(bgp, red, afi, type, 0, false);
 }
 
 /* Unset redistribution.  */
@@ -3220,6 +3277,11 @@ static int bgp_zebra_route_notify_owner(int command, struct zclient *zclient,
 	struct bgp_dest *dest BGP_DEST_AUTOUNLOCK = NULL;
 	struct bgp *bgp;
 	struct bgp_path_info *pi, *new_select;
+	struct bgp_debug_vrf dv = {
+		.name = "Unknown",
+		.id = VRF_UNKNOWN,
+		.table_id = 0,
+	};
 
 	if (!zapi_route_notify_decode(zclient->ibuf, &p, &table_id, &note,
 				      &afi, &safi)) {
@@ -3247,6 +3309,8 @@ static int bgp_zebra_route_notify_owner(int command, struct zclient *zclient,
 	}
 
 	frrtrace(3, frr_bgp, bgp_zebra_route_notify_owner, note, dest, &p);
+	if (BGP_DEBUG(zebra, ZEBRA))
+		dv = bgp_dest_debug_vrf(dest);
 	switch (note) {
 	case ZAPI_ROUTE_INSTALLED:
 		new_select = NULL;
@@ -3255,7 +3319,8 @@ static int bgp_zebra_route_notify_owner(int command, struct zclient *zclient,
 		UNSET_FLAG(dest->flags, BGP_NODE_FIB_INSTALL_PENDING);
 		SET_FLAG(dest->flags, BGP_NODE_FIB_INSTALLED);
 		if (BGP_DEBUG(zebra, ZEBRA))
-			zlog_debug("route %pBD : INSTALLED", dest);
+			zlog_debug("route (%s:%u:%u)%pBD : INSTALLED", dv.name, dv.id,
+				   dv.table_id, dest);
 		/* Find the best route */
 		for (pi = dest->info; pi; pi = pi->next) {
 			if (CHECK_FLAG(pi->flags, BGP_PATH_SELECTED))
@@ -3283,13 +3348,14 @@ static int bgp_zebra_route_notify_owner(int command, struct zclient *zclient,
 		 */
 		UNSET_FLAG(dest->flags, BGP_NODE_FIB_INSTALLED);
 		if (BGP_DEBUG(zebra, ZEBRA))
-			zlog_debug("route %pBD: Removed from Fib", dest);
+			zlog_debug("route (%s:%u:%u)%pBD: Removed from Fib", dv.name, dv.id,
+				   dv.table_id, dest);
 		break;
 	case ZAPI_ROUTE_FAIL_INSTALL:
 		new_select = NULL;
 		if (BGP_DEBUG(zebra, ZEBRA))
-			zlog_debug("route: %pBD Failed to Install into Fib",
-				   dest);
+			zlog_debug("route: (%s:%u:%u)%pBD Failed to Install into Fib", dv.name,
+				   dv.id, dv.table_id, dest);
 		bgp_dest_decrement_gr_fib_install_pending_count(dest);
 		UNSET_FLAG(dest->flags, BGP_NODE_FIB_INSTALL_PENDING);
 		UNSET_FLAG(dest->flags, BGP_NODE_FIB_INSTALLED);
@@ -3303,8 +3369,8 @@ static int bgp_zebra_route_notify_owner(int command, struct zclient *zclient,
 		break;
 	case ZAPI_ROUTE_BETTER_ADMIN_WON:
 		if (BGP_DEBUG(zebra, ZEBRA))
-			zlog_debug("route: %pBD removed due to better admin won",
-				   dest);
+			zlog_debug("route: (%s:%u:%u)%pBD removed due to better admin won",
+				   dv.name, dv.id, dv.table_id, dest);
 		new_select = NULL;
 		bgp_dest_decrement_gr_fib_install_pending_count(dest);
 		UNSET_FLAG(dest->flags, BGP_NODE_FIB_INSTALL_PENDING);

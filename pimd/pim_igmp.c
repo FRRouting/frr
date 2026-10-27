@@ -94,26 +94,23 @@ static void igmp_source_forward_reevaluate_one(struct pim_instance *pim,
 		if (pim_addr_is_any(source->source_addr)) {
 			if (is_grp_ssm) {
 				if (PIM_DEBUG_PIM_EVENTS)
-					zlog_debug(
-						"local membership del for %pSG as G is now SSM",
-						&sg);
+					zlog_debug("local membership del for (%s:%u:%u)%pSG as G is now SSM",
+						   PIM_DEBUG_VRF(pim->vrf), &sg);
 				igmp_source_forward_stop(source);
 			}
 		} else {
 			if (!is_grp_ssm) {
 				if (PIM_DEBUG_PIM_EVENTS)
-					zlog_debug(
-						"local membership del for %pSG as G is now ASM",
-						&sg);
+					zlog_debug("local membership del for (%s:%u:%u)%pSG as G is now ASM",
+						   PIM_DEBUG_VRF(pim->vrf), &sg);
 				igmp_source_forward_stop(source);
 			}
 		}
 	} else {
 		if (!pim_addr_is_any(source->source_addr) && (is_grp_ssm)) {
 			if (PIM_DEBUG_PIM_EVENTS)
-				zlog_debug(
-					"local membership add for %pSG as G is now SSM",
-					&sg);
+				zlog_debug("local membership add for (%s:%u:%u)%pSG as G is now SSM",
+					   PIM_DEBUG_VRF(pim->vrf), &sg);
 			igmp_source_forward_start(pim, source);
 		}
 	}
@@ -182,8 +179,8 @@ void igmp_source_forward_start(struct pim_instance *pim,
 	sg.grp = source->source_group->group_addr;
 
 	if (PIM_DEBUG_GM_TRACE) {
-		zlog_debug("%s: (S,G)=%pSG oif=%s fwd=%d", __func__, &sg,
-			   source->source_group->interface->name,
+		zlog_debug("%s: (S,G)=(%s:%u:%u)%pSG oif=%s fwd=%d", __func__,
+			   PIM_DEBUG_VRF(pim->vrf), &sg, source->source_group->interface->name,
 			   IGMP_SOURCE_TEST_FORWARDING(source->source_flags));
 	}
 
@@ -193,9 +190,8 @@ void igmp_source_forward_start(struct pim_instance *pim,
 	 */
 	if ((!pim_is_grp_ssm(pim, source->source_group->group_addr)) &&
 	    !pim_addr_is_any(source->source_addr)) {
-		zlog_warn(
-			"%s: (S,G)=%pSG ASM range having source address, not allowed to create PIM state",
-			__func__, &sg);
+		zlog_warn("%s: (S,G)=(%s:%u:%u)%pSG ASM range having source address, not allowed to create PIM state",
+			  __func__, PIM_DEBUG_VRF(pim->vrf), &sg);
 		return;
 	}
 
@@ -227,7 +223,8 @@ void igmp_source_forward_stop(struct gm_source *source)
 	sg.grp = source->source_group->group_addr;
 
 	if (PIM_DEBUG_GM_TRACE) {
-		zlog_debug("%s: (S,G)=%pSG oif=%s fwd=%d", __func__, &sg,
+		zlog_debug("%s: (S,G)=(%s:%u:%u)%pSG oif=%s fwd=%d", __func__,
+			   PIM_DEBUG_VRF(source->source_group->interface->vrf), &sg,
 			   source->source_group->interface->name,
 			   IGMP_SOURCE_TEST_FORWARDING(source->source_flags));
 	}
@@ -737,7 +734,7 @@ static bool ip_check_hopopts_ra(const uint8_t *options, size_t options_len)
 		return false;
 	if (options[1] != 4)
 		return false;
-	if (options[2] != 0 && options[3] != 0)
+	if (options[2] != 0 || options[3] != 0)
 		return false;
 
 	return true;

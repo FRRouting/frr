@@ -47,11 +47,11 @@ static void recv_join(struct interface *ifp, struct pim_neighbor *neigh, uint16_
 #endif /* PIM_IPV == 6 */
 
 	if (PIM_DEBUG_PIM_J_P)
-		zlog_debug(
-			"%s: join (S,G)=%pSG rpt=%d wc=%d upstream=%pPAs holdtime=%d from %pPA on %s",
-			__func__, sg, !!(source_flags & PIM_RPT_BIT_MASK),
-			!!(source_flags & PIM_WILDCARD_BIT_MASK), &upstream,
-			holdtime, &neigh->source_addr, ifp->name);
+		zlog_debug("%s: join (S,G)=(%s:%u:%u)%pSG rpt=%d wc=%d upstream=%pPAs holdtime=%d from %pPA on %s",
+			   __func__, PIM_DEBUG_VRF(ifp->vrf), sg,
+			   !!(source_flags & PIM_RPT_BIT_MASK),
+			   !!(source_flags & PIM_WILDCARD_BIT_MASK), &upstream, holdtime,
+			   &neigh->source_addr, ifp->name);
 
 	pim_ifp = ifp->info;
 
@@ -75,9 +75,8 @@ static void recv_join(struct interface *ifp, struct pim_neighbor *neigh, uint16_
 		 */
 		if (!CHECK_FLAG(source_flags, PIM_RPT_BIT_MASK)) {
 			if (PIM_DEBUG_PIM_J_P)
-				zlog_debug(
-					"Discarding (*,G)=%pSG join since WC bit is set but RPT bit is unset",
-					sg);
+				zlog_debug("Discarding (*,G)=(%s:%u:%u)%pSG join since WC bit is set but RPT bit is unset",
+					   PIM_DEBUG_VRF(ifp->vrf), sg);
 
 			return;
 		}
@@ -86,8 +85,8 @@ static void recv_join(struct interface *ifp, struct pim_neighbor *neigh, uint16_
 		pim_addr rpf_addr;
 
 		if (!rp) {
-			zlog_warn("%s: Lookup of RP failed for %pSG", __func__,
-				  sg);
+			zlog_warn("%s: Lookup of RP failed for (%s:%u:%u)%pSG", __func__,
+				  PIM_DEBUG_VRF(ifp->vrf), sg);
 			return;
 		}
 
@@ -133,11 +132,10 @@ static void recv_prune(struct interface *ifp, struct pim_neighbor *neigh,
 	struct pim_interface *pim_ifp = NULL;
 
 	if (PIM_DEBUG_PIM_J_P)
-		zlog_debug(
-			"%s: prune (S,G)=%pSG rpt=%d wc=%d upstream=%pPAs holdtime=%d from %pPA on %s",
-			__func__, sg, source_flags & PIM_RPT_BIT_MASK,
-			source_flags & PIM_WILDCARD_BIT_MASK, &upstream,
-			holdtime, &neigh->source_addr, ifp->name);
+		zlog_debug("%s: prune (S,G)=(%s:%u:%u)%pSG rpt=%d wc=%d upstream=%pPAs holdtime=%d from %pPA on %s",
+			   __func__, PIM_DEBUG_VRF(ifp->vrf), sg, source_flags & PIM_RPT_BIT_MASK,
+			   source_flags & PIM_WILDCARD_BIT_MASK, &upstream, holdtime,
+			   &neigh->source_addr, ifp->name);
 
 	pim_ifp = ifp->info;
 
@@ -154,9 +152,8 @@ static void recv_prune(struct interface *ifp, struct pim_neighbor *neigh,
 		 */
 		if (!CHECK_FLAG(source_flags, PIM_RPT_BIT_MASK)) {
 			if (PIM_DEBUG_PIM_J_P)
-				zlog_debug(
-					"Discarding (*,G)=%pSG prune since WC bit is set but RPT bit is unset",
-					sg);
+				zlog_debug("Discarding (*,G)=(%s:%u:%u)%pSG prune since WC bit is set but RPT bit is unset",
+					   PIM_DEBUG_VRF(ifp->vrf), sg);
 
 			return;
 		}
@@ -167,8 +164,8 @@ static void recv_prune(struct interface *ifp, struct pim_neighbor *neigh,
 		 * RP in the message does not match RP(G).
 		 */
 		if (PIM_DEBUG_PIM_J_P)
-			zlog_debug("%s: Prune received with RP(%pPAs) for %pSG",
-				   __func__, &sg->src, sg);
+			zlog_debug("%s: Prune received with RP(%pPAs) for (%s:%u:%u)%pSG",
+				   __func__, &sg->src, PIM_DEBUG_VRF(ifp->vrf), sg);
 
 		sg->src = PIMADDR_ANY;
 	}
@@ -382,9 +379,9 @@ int pim_joinprune_recv(struct interface *ifp, struct pim_neighbor *neigh,
 				struct pim_upstream *up = sg_ch->upstream;
 				if (up) {
 					if (PIM_DEBUG_PIM_TRACE)
-						zlog_debug(
-							"%s: SGRpt flag is set, del inherit oif from up %s",
-							__func__, up->sg_str);
+						zlog_debug("%s: SGRpt flag is set, del inherit oif from up (%s:%u:%u)%s",
+							   __func__, PIM_DEBUG_VRF(up->pim->vrf),
+							   up->sg_str);
 					pim_channel_del_inherited_oif(
 						up->channel_oil,
 						starg_ch->interface,
@@ -575,8 +572,8 @@ static void pim_jp_groups_source_set_prune(struct list *sources)
 
 	upstream = js->up;
 	if (PIM_DEBUG_PIM_PACKETS)
-		zlog_debug("%s: Considering (%s) children for (S,G,rpt) prune", __func__,
-			   upstream->sg_str);
+		zlog_debug("%s: Considering ((%s:%u:%u)%s) children for (S,G,rpt) prune", __func__,
+			   PIM_DEBUG_VRF(upstream->pim->vrf), upstream->sg_str);
 
 	for (ALL_LIST_ELEMENTS_RO(upstream->sources, node, child)) {
 		/*
@@ -602,8 +599,8 @@ static void pim_jp_groups_source_set_prune(struct list *sources)
 		if (PIM_UPSTREAM_FLAG_TEST_SRC_VXLAN_ORIG(child->flags) &&
 		    listcount(child->ifchannels) == 0) {
 			if (PIM_DEBUG_PIM_PACKETS)
-				zlog_debug("%s: %s Vxlan originated S,G route with no ifchannels, not adding prune to compound message",
-					   __func__, child->sg_str);
+				zlog_debug("%s: (%s:%u:%u)%s Vxlan originated S,G route with no ifchannels, not adding prune to compound message",
+					   __func__, PIM_DEBUG_VRF(child->pim->vrf), child->sg_str);
 		} else if (!PIM_UPSTREAM_FLAG_TEST_USE_RPT(child->flags)) {
 			/* If we are using SPT and the SPT and RPT IIFs
 			 * are different we can prune the source off
@@ -616,11 +613,15 @@ static void pim_jp_groups_source_set_prune(struct list *sources)
 			    !pim_rpf_is_same(&upstream->rpf, &child->rpf)) {
 				PIM_UPSTREAM_FLAG_SET_SEND_SG_RPT_PRUNE(child->flags);
 				if (PIM_DEBUG_PIM_PACKETS)
-					zlog_debug("%s: SPT Bit and RPF'(%s) != RPF'(S,G): Add Prune (%s,rpt) to compound message",
-						   __func__, upstream->sg_str, child->sg_str);
+					zlog_debug("%s: SPT Bit and RPF'((%s:%u:%u)%s) != RPF'(S,G): Add Prune ((%s:%u:%u)%s,rpt) to compound message",
+						   __func__, PIM_DEBUG_VRF(upstream->pim->vrf),
+						   upstream->sg_str,
+						   PIM_DEBUG_VRF(child->pim->vrf), child->sg_str);
 			} else if (PIM_DEBUG_PIM_PACKETS)
-				zlog_debug("%s: SPT Bit and RPF'(%s) == RPF'(S,G): Not adding Prune for (%s,rpt)",
-					   __func__, upstream->sg_str, child->sg_str);
+				zlog_debug("%s: SPT Bit and RPF'((%s:%u:%u)%s) == RPF'(S,G): Not adding Prune for ((%s:%u:%u)%s,rpt)",
+					   __func__, PIM_DEBUG_VRF(upstream->pim->vrf),
+					   upstream->sg_str, PIM_DEBUG_VRF(child->pim->vrf),
+					   child->sg_str);
 		} else if (pim_upstream_empty_inherited_olist(child)) {
 			/* S is supposed to be forwarded along the RPT
 			 * but it's inherited OIL is empty. So just
@@ -628,49 +629,99 @@ static void pim_jp_groups_source_set_prune(struct list *sources)
 			 */
 			PIM_UPSTREAM_FLAG_SET_SEND_SG_RPT_PRUNE(child->flags);
 			if (PIM_DEBUG_PIM_PACKETS)
-				zlog_debug("%s: inherited_olist(%s,rpt) is NULL, Add Prune to compound message",
-					   __func__, child->sg_str);
+				zlog_debug("%s: inherited_olist((%s:%u:%u)%s,rpt) is NULL, Add Prune to compound message",
+					   __func__, PIM_DEBUG_VRF(child->pim->vrf), child->sg_str);
 		} else if (PIM_DEBUG_PIM_PACKETS)
-			zlog_debug("%s: Do not add Prune %s to compound message %s", __func__,
-				   child->sg_str, upstream->sg_str);
+			zlog_debug("%s: Do not add Prune (%s:%u:%u)%s to compound message (%s:%u:%u)%s",
+				   __func__, PIM_DEBUG_VRF(child->pim->vrf), child->sg_str,
+				   PIM_DEBUG_VRF(upstream->pim->vrf), upstream->sg_str);
 	}
 }
 
-/* Auxiliary function to write the source child data. This is meant to be
- * used by the function `pim_jp_groups_fill`.
- *
- * Returns `true` when buffer is full otherwise `false`.
- */
-static bool pim_jp_groups_source_child_fill(struct pim_jp_groups *grp, size_t *tgroups,
-					    size_t *bytes_written, size_t *bytes_left,
-					    struct listnode *source_node,
-					    struct listnode *child_node,
-					    struct listnode **last_source,
-					    struct listnode **last_child)
+/* Count the (S,G,rpt) prunes of the `upstream` (*,G) waiting to be sent. */
+static size_t pim_jp_groups_rpt_prune_count(struct pim_upstream *upstream)
 {
-	for (; child_node != NULL; child_node = listnextnode(child_node)) {
-		struct pim_upstream *child = listgetdata(child_node);
+	struct listnode *node;
+	struct pim_upstream *child;
+	size_t count = 0;
 
+	for (ALL_LIST_ELEMENTS_RO(upstream->sources, node, child))
+		if (PIM_UPSTREAM_FLAG_TEST_SEND_SG_RPT_PRUNE(child->flags))
+			count++;
+
+	return count;
+}
+
+/*
+ * Encode one (S,G,rpt) prune. The caller must have made sure there is room
+ * for it.
+ */
+static void pim_jp_groups_rpt_prune_encode(struct pim_jp_groups *grp, size_t *tgroups,
+					   size_t *bytes_written, size_t *bytes_left,
+					   struct pim_upstream *child)
+{
+	*bytes_written += sizeof(pim_encoded_source);
+	*bytes_left -= sizeof(pim_encoded_source);
+
+	if (PIM_DEBUG_PIM_J_P)
+		zlog_debug("%s: encode prune %pSG as (S,G,rpt) bits=0x%02x addr=%pPA", __func__,
+			   &child->sg, PIM_ENCODE_SPARSE_BIT | PIM_ENCODE_RPT_BIT, &child->sg.src);
+
+	pim_msg_addr_encode_source((uint8_t *)&grp->s[*tgroups], child->sg.src,
+				   PIM_ENCODE_SPARSE_BIT | PIM_ENCODE_RPT_BIT);
+	*tgroups += 1;
+	PIM_UPSTREAM_FLAG_UNSET_SEND_SG_RPT_PRUNE(child->flags);
+	grp->prunes++;
+}
+
+/*
+ * Auxiliary function to write the (S,G,rpt) prunes of a (*,G) join. This is
+ * meant to be used by the function `pim_jp_groups_fill`.
+ *
+ * RFC 7761 section 4.9.5.2: the (S,G,rpt) prunes MUST be sent in the same
+ * message as the (*,G) join and MUST NOT be split in multiple messages. If
+ * there are `pending` prunes but room for only `limit` of them, only the
+ * numerically smallest `limit` prunes are sent and the others are dropped.
+ */
+static void pim_jp_groups_rpt_prune_fill(struct pim_jp_groups *grp, size_t *tgroups,
+					 size_t *bytes_written, size_t *bytes_left,
+					 struct pim_upstream *upstream, size_t pending,
+					 size_t limit)
+{
+	struct listnode *node;
+	struct pim_upstream *child, *smallest;
+
+	if (pending <= limit) {
+		for (ALL_LIST_ELEMENTS_RO(upstream->sources, node, child))
+			if (PIM_UPSTREAM_FLAG_TEST_SEND_SG_RPT_PRUNE(child->flags))
+				pim_jp_groups_rpt_prune_encode(grp, tgroups, bytes_written,
+							       bytes_left, child);
+		return;
+	}
+
+	for (; limit > 0; limit--) {
+		smallest = NULL;
+		for (ALL_LIST_ELEMENTS_RO(upstream->sources, node, child)) {
+			if (!PIM_UPSTREAM_FLAG_TEST_SEND_SG_RPT_PRUNE(child->flags))
+				continue;
+			if (!smallest || pim_addr_cmp(child->sg.src, smallest->sg.src) < 0)
+				smallest = child;
+		}
+
+		pim_jp_groups_rpt_prune_encode(grp, tgroups, bytes_written, bytes_left, smallest);
+	}
+
+	/* No room for the rest, ignore them */
+	for (ALL_LIST_ELEMENTS_RO(upstream->sources, node, child)) {
 		if (!PIM_UPSTREAM_FLAG_TEST_SEND_SG_RPT_PRUNE(child->flags))
 			continue;
 
-		if (*bytes_left < sizeof(pim_encoded_source)) {
-			*last_source = source_node;
-			*last_child = child_node;
-			return true;
-		}
+		if (PIM_DEBUG_PIM_J_P)
+			zlog_debug("%s: no room for (S,G,rpt) prune %pSG, not sending it",
+				   __func__, &child->sg);
 
-		*bytes_written += sizeof(pim_encoded_source);
-		*bytes_left -= sizeof(pim_encoded_source);
-
-		pim_msg_addr_encode_source((uint8_t *)&grp->s[*tgroups], child->sg.src,
-					   PIM_ENCODE_SPARSE_BIT | PIM_ENCODE_RPT_BIT);
-		*tgroups += 1;
 		PIM_UPSTREAM_FLAG_UNSET_SEND_SG_RPT_PRUNE(child->flags);
-		grp->prunes++;
 	}
-
-	return false;
 }
 
 /*
@@ -679,22 +730,29 @@ static bool pim_jp_groups_source_child_fill(struct pim_jp_groups *grp, size_t *t
  * the function `pim_joinprune_send`.
  *
  * If the amount of sources exceed the current packet limit, then this
- * function also returns `last_source` and/or `last_child`.
+ * function also returns `last_source`, the source where the next group
+ * record must continue.
  *
- * When this function returns `last_child` but not `last_source` it means we
- * finished iterating over source list but not over upstream source list.
+ * `empty_packet` tells whether the packet holds no other group yet. A (*,G)
+ * join and its (S,G,rpt) prunes must share a group record, so if they don't
+ * fit in the space left this function writes nothing (returns 0) and the
+ * caller starts a new packet. Only when that doesn't help (`empty_packet`)
+ * are the (S,G,rpt) prunes that don't fit dropped.
  *
  * **NOTE** Don't forget to converge `grp->joins` and `grp->prunes` to
  * network byte order before sending.
  */
 static size_t pim_jp_groups_fill(struct pim_jp_groups *grp, struct pim_jp_agg_group *sgs,
-				 size_t bytes_left, struct listnode **last_source,
-				 struct listnode **last_child)
+				 size_t bytes_left, bool empty_packet,
+				 struct listnode **last_source)
 {
-	struct listnode *source_node, *child_node;
+	struct listnode *source_node;
+	struct pim_jp_sources *head;
 	struct pim_upstream *upstream = NULL;
 	size_t bytes_written = 0;
 	size_t tgroups = 0;
+	size_t rpt_pending = 0;
+	size_t rpt_reserved = 0;
 	uint8_t bits;
 	pim_addr stosend;
 
@@ -717,32 +775,60 @@ static size_t pim_jp_groups_fill(struct pim_jp_groups *grp, struct pim_jp_agg_gr
 	/*
 	 * Get pointer to last source we stopped.
 	 *
-	 * When group sources are done `last_child` is set, but
-	 * `last_source` is NULL.
+	 * When group sources are done `last_source` is NULL.
 	 */
-	if (*last_source != NULL || *last_child != NULL)
+	if (*last_source != NULL)
 		source_node = *last_source;
 	else
 		source_node = listhead(sgs->sources);
 
-	/* Finish previously remaining upstream child sources */
-	if (*last_child != NULL) {
-		child_node = *last_child;
+	/*
+	 * Sources are sorted joins first with the (*,G) join at the head.
+	 * The (S,G,rpt) prunes of a (*,G) join must be encoded after every
+	 * join in the group, since the receiver splits the source list by
+	 * the joined/pruned counters, and in the same record as the (*,G)
+	 * join. They are only pending while that record is being filled.
+	 */
+	head = listnode_head(sgs->sources);
+	if (source_node == listhead(sgs->sources) && head && head->is_join &&
+	    pim_addr_is_any(head->up->sg.src) && head->up->sources)
+		upstream = head->up;
 
-		if (pim_jp_groups_source_child_fill(grp, &tgroups, &bytes_written, &bytes_left,
-						    source_node, child_node, last_source,
-						    last_child))
-			return bytes_written;
+	if (upstream) {
+		rpt_pending = pim_jp_groups_rpt_prune_count(upstream);
+		if (rpt_pending) {
+			size_t slots = bytes_left / sizeof(pim_encoded_source);
+
+			/* (*,G) join and prunes don't fit, try a new packet */
+			if (!empty_packet && slots < rpt_pending + 1)
+				return 0;
+
+			/* Room for the (*,G) join comes first */
+			rpt_reserved = MIN(rpt_pending, slots - 1);
+		} else
+			upstream = NULL;
 	}
 
 	for (; source_node != NULL; source_node = listnextnode(source_node)) {
 		struct pim_jp_sources *source = listgetdata(source_node);
+		const char *encoding;
 
-		upstream = NULL;
+		/* All joins are done, the (S,G,rpt) prunes go before any prune */
+		if (upstream && !source->is_join) {
+			pim_jp_groups_rpt_prune_fill(grp, &tgroups, &bytes_written, &bytes_left,
+						     upstream, rpt_pending, rpt_reserved);
+			upstream = NULL;
+			rpt_reserved = 0;
+		}
 
-		if (bytes_left < sizeof(pim_encoded_source)) {
+		/* Keep room for the (S,G,rpt) prunes still to be written */
+		if (bytes_left < sizeof(pim_encoded_source) * (1 + rpt_reserved)) {
+			if (upstream)
+				pim_jp_groups_rpt_prune_fill(grp, &tgroups, &bytes_written,
+							     &bytes_left, upstream, rpt_pending,
+							     rpt_reserved);
+
 			*last_source = source_node;
-			*last_child = NULL;
 			return bytes_written;
 		}
 
@@ -754,17 +840,22 @@ static size_t pim_jp_groups_fill(struct pim_jp_groups *grp, struct pim_jp_agg_gr
 			struct pim_rpf *rpf = pim_rp_g(pim, source->up->sg.grp);
 
 			bits = PIM_ENCODE_SPARSE_BIT | PIM_ENCODE_WC_BIT | PIM_ENCODE_RPT_BIT;
+			encoding = "(*,G) SWR";
 			stosend = rpf->rpf_addr;
-			/* Only Send SGRpt in case of *,G Join */
-			if (source->is_join)
-				upstream = source->up;
 		} else if (pim_is_grp_dm(source->up->pim, source->up->sg.grp)) {
 			bits = 0; /* all bits should be set to 0 for DM (RFC3973 4.7.4) */
 			stosend = source->up->sg.src;
+			encoding = "(S,G) DM";
 		} else {
 			bits = PIM_ENCODE_SPARSE_BIT;
 			stosend = source->up->sg.src;
+			encoding = "(S,G) S";
 		}
+
+		if (PIM_DEBUG_PIM_J_P)
+			zlog_debug("%s: encode %s %pSG as %s bits=0x%02x addr=%pPA", __func__,
+				   source->is_join ? "join" : "prune", &source->up->sg, encoding,
+				   bits, &stosend);
 
 		pim_msg_addr_encode_source((uint8_t *)&grp->s[tgroups], stosend, bits);
 		tgroups++;
@@ -773,25 +864,14 @@ static size_t pim_jp_groups_fill(struct pim_jp_groups *grp, struct pim_jp_agg_gr
 			grp->joins++;
 		else
 			grp->prunes++;
-
-		/* We found upstream sources, start this function over */
-		if (upstream && listhead(upstream->sources)) {
-			child_node = listhead(upstream->sources);
-
-			/*
-			 * Pass the next source so that on overflow
-			 * `*last_source` records where to resume — the
-			 * current source has already been encoded.
-			 */
-			if (pim_jp_groups_source_child_fill(grp, &tgroups, &bytes_written,
-							    &bytes_left, listnextnode(source_node),
-							    child_node, last_source, last_child))
-				return bytes_written;
-		}
 	}
 
+	/* Group had only joins, the (S,G,rpt) prunes go last */
+	if (upstream)
+		pim_jp_groups_rpt_prune_fill(grp, &tgroups, &bytes_written, &bytes_left, upstream,
+					     rpt_pending, rpt_reserved);
+
 	*last_source = NULL;
-	*last_child = NULL;
 
 	return bytes_written;
 }
@@ -892,7 +972,7 @@ static void pim_jp_flush_packet(struct interface *ifp, uint8_t pim_msg_type, voi
 static int pim_jp_send(struct pim_rpf *rpf, struct list *groups, uint8_t pim_msg_type,
 		       uint16_t holdtime)
 {
-	struct listnode *node, *last_source, *last_child;
+	struct listnode *node, *last_source;
 	struct pim_jp_agg_group *group;
 	struct pim_interface *pim_ifp;
 	struct pim_jp_groups *grp;
@@ -969,7 +1049,6 @@ static int pim_jp_send(struct pim_rpf *rpf, struct list *groups, uint8_t pim_msg
 
 		/* Initialize source iterators */
 		last_source = NULL;
-		last_child = NULL;
 
 		/* Set RPT prune in eligible sources */
 		pim_jp_groups_source_set_prune(group->sources);
@@ -998,8 +1077,8 @@ pim_start_message:
 		 * nothing was written so we can't bump the
 		 * `msg->num_groups`.
 		 */
-		group_written = pim_jp_groups_fill(grp, group, packet_left, &last_source,
-						   &last_child);
+		group_written = pim_jp_groups_fill(grp, group, packet_left, msg->num_groups == 0,
+						   &last_source);
 		/*
 		 * When `pim_jp_groups_fill` returns 0 it means there
 		 * were no more space in the buffer, so flush the
@@ -1031,7 +1110,7 @@ pim_start_message:
 		grp->prunes = htons(grp->prunes);
 
 		/* We filled the buffer with the group, lets flush */
-		if (last_source || last_child) {
+		if (last_source) {
 			pim_jp_flush_packet(ifp, pim_msg_type, pim_msg, packet_size);
 
 			/* Repeat loop but don't go to the next group */
@@ -1040,7 +1119,7 @@ pim_start_message:
 		}
 
 		/*
-		 * `last_source` and `last_child` are NULL so we
+		 * `last_source` is NULL so we
 		 * exhausted all sources in this group, before we go to
 		 * the next one check if we need flushing the packet.
 		 *

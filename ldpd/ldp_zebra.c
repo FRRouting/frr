@@ -53,6 +53,18 @@ ifp2kif(struct interface *ifp, struct kif *kif)
 		memcpy(kif->mac, ifp->hw_addr, ETH_ALEN);
 }
 
+/*
+ * LDP only operates in the default VRF; interfaces belonging to an
+ * L3VRF are not part of the LDP-enabled topology and must be ignored.
+ */
+static bool
+ldp_ifp_is_l3vrf(struct interface *ifp)
+{
+	if (ifp->vrf)
+		return ifp->vrf->vrf_id != VRF_DEFAULT;
+	return true;
+}
+
 static void
 ifc2kaddr(struct interface *ifp, struct connected *ifc, struct kaddr *ka)
 {
@@ -374,6 +386,9 @@ ldp_ifp_create(struct interface *ifp)
 {
 	struct kif		 kif;
 
+	if (ldp_ifp_is_l3vrf(ifp))
+		return 0;
+
 	debug_zebra_in("interface add %s index %d mtu %d", ifp->name,
 	    ifp->ifindex, ifp->mtu);
 
@@ -387,6 +402,9 @@ static int
 ldp_ifp_destroy(struct interface *ifp)
 {
 	struct kif		 kif;
+
+	if (ldp_ifp_is_l3vrf(ifp))
+		return 0;
 
 	debug_zebra_in("interface delete %s index %d mtu %d", ifp->name,
 	    ifp->ifindex, ifp->mtu);
@@ -403,6 +421,9 @@ ldp_interface_status_change(struct interface *ifp)
 	struct connected	*ifc;
 	struct kif		 kif;
 	struct kaddr		 ka;
+
+	if (ldp_ifp_is_l3vrf(ifp))
+		return 0;
 
 	debug_zebra_in("interface %s state update", ifp->name);
 
@@ -446,6 +467,9 @@ ldp_interface_address_add(ZAPI_CALLBACK_ARGS)
 		return (0);
 
 	ifp = ifc->ifp;
+	if (ldp_ifp_is_l3vrf(ifp))
+		return (0);
+
 	ifc2kaddr(ifp, ifc, &ka);
 
 	/* Filter invalid addresses.  */
@@ -474,6 +498,11 @@ ldp_interface_address_delete(ZAPI_CALLBACK_ARGS)
 		return (0);
 
 	ifp = ifc->ifp;
+	if (ldp_ifp_is_l3vrf(ifp)) {
+		connected_free(&ifc);
+		return 0;
+	}
+
 	ifc2kaddr(ifp, ifc, &ka);
 	connected_free(&ifc);
 

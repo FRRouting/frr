@@ -315,8 +315,13 @@ void isis_redist_add(struct isis *isis, int type, struct prefix *p,
 	int level;
 	struct isis_redist *redist;
 
-	zlog_debug("%s: New route %pFX from %s: distance %d.", __func__, p,
-		   zebra_route_string(type), distance);
+	/* DEFAULT_ROUTE is not a zebra route type: isis_redist_delete() re-adds a
+	 * removed default under it for "default-information originate always".
+	 */
+	zlog_debug("%s: New route (%s:%u:%u)%pFX from %s: distance %d.", __func__,
+		   ISIS_DEBUG_VRF(isis), p,
+		   type == DEFAULT_ROUTE ? "default-information" : zebra_route_string(type),
+		   distance);
 
 	if (!ei_table) {
 		zlog_warn("%s: External information table not initialized.",
@@ -380,7 +385,7 @@ void isis_redist_delete(struct isis *isis, int type, struct prefix *p,
 	int level;
 	struct isis_redist *redist;
 
-	zlog_debug("%s: Removing route %pFX from %s.", __func__, p,
+	zlog_debug("%s: Removing route (%s:%u:%u)%pFX from %s.", __func__, ISIS_DEBUG_VRF(isis), p,
 		   zebra_route_string(type));
 
 	if (!ei_table) {
@@ -391,16 +396,15 @@ void isis_redist_delete(struct isis *isis, int type, struct prefix *p,
 
 	ei_node = srcdest_rnode_lookup(ei_table, p, src_p);
 	if (!ei_node || !ei_node->info) {
-		zlog_warn(
-			"%s: Got a delete for %s route %pFX, but that route was never added.",
-			__func__, zebra_route_string(type), p);
+		zlog_warn("%s: Got a delete for %s route (%s:%u:%u)%pFX, but that route was never added.",
+			  __func__, zebra_route_string(type), ISIS_DEBUG_VRF(isis), p);
 		if (ei_node)
 			route_unlock_node(ei_node);
 		return;
 	}
 	if (!isis_redist_info_matches(ei_node->info, type, table)) {
-		zlog_debug("%s: Ignoring delete for replaced %s route %pFX table %u.", __func__,
-			   zebra_route_string(type), p, table);
+		zlog_debug("%s: Ignoring delete for replaced %s route (%s:%u:%u)%pFX table %u.",
+			   __func__, zebra_route_string(type), ISIS_DEBUG_VRF(isis), p, table);
 		route_unlock_node(ei_node);
 		return;
 	}

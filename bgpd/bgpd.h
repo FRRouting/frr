@@ -2430,9 +2430,8 @@ struct bgp_nlri {
 #define	BGP_MSG_UPDATE		                 2
 #define	BGP_MSG_NOTIFY		                 3
 #define	BGP_MSG_KEEPALIVE	                 4
-#define BGP_MSG_ROUTE_REFRESH_NEW                5
-#define BGP_MSG_CAPABILITY                       6
-#define BGP_MSG_ROUTE_REFRESH_OLD              128
+#define BGP_MSG_ROUTE_REFRESH			 5
+#define BGP_MSG_CAPABILITY			 6
 
 /* BGP open optional parameter.  */
 #define BGP_OPEN_OPT_CAP                         2
@@ -2597,9 +2596,9 @@ struct bgp_nlri {
 /* Max Buffer size for BGP Send Community */
 #define BGP_SEND_COMMUNITY_STR_SIZE 30
 
-/* Flag for peer_clear_soft().  */
+/* Type of 'clear bgp' operation. */
 enum bgp_clear_type {
-	BGP_CLEAR_SOFT_NONE,
+	BGP_CLEAR_HARD,
 	BGP_CLEAR_SOFT_OUT,
 	BGP_CLEAR_SOFT_IN,
 	BGP_CLEAR_SOFT_BOTH,
@@ -2855,6 +2854,8 @@ extern void bgp_zebra_suppress_fib_pending_config_retry(void);
 
 extern int peer_activate(struct peer *peer, afi_t afi, safi_t safi);
 extern int peer_deactivate(struct peer *peer, afi_t afi, safi_t safi);
+extern void peer_orf_plist_name(const struct peer *peer, afi_t afi, safi_t safi, char *buf,
+				size_t size);
 
 extern int peer_group_bind(struct bgp *bgp, union sockunion *su, struct peer *peer,
 			   struct peer_group *group, as_t *as);
@@ -3401,6 +3402,12 @@ static inline bool bgp_gr_supported_for_afi_safi(afi_t afi, safi_t safi)
 	return false;
 }
 
+/* Iterate only the AFI/SAFIs for which GR restarter behavior is supported.
+ */
+#define FOREACH_AFI_SAFI_GR(afi, safi)                                                            \
+	FOREACH_AFI_SAFI_NSF (afi, safi)                                                          \
+		if (bgp_gr_supported_for_afi_safi(afi, safi))
+
 /* For benefit of rfapi */
 extern struct peer *peer_new(struct bgp *bgp, union sockunion *su, enum connection_direction dir);
 
@@ -3413,7 +3420,7 @@ extern int bgp_lookup_by_as_name_type(struct bgp **bgp_val, as_t *as, const char
 /* Hooks */
 DECLARE_HOOK(bgp_vrf_status_changed, (struct bgp *bgp, struct interface *ifp),
 	     (bgp, ifp));
-DECLARE_HOOK(peer_status_changed, (struct peer *peer), (peer));
+DECLARE_HOOK(peer_status_changed, (struct peer_connection *connection), (connection));
 DECLARE_HOOK(bgp_snmp_init_stats, (struct bgp *bgp), (bgp));
 DECLARE_HOOK(bgp_snmp_update_last_changed, (struct bgp *bgp), (bgp));
 DECLARE_HOOK(bgp_snmp_update_stats,
@@ -3424,6 +3431,11 @@ DECLARE_HOOK(bgp_rpki_prefix_status,
 	      const struct prefix *prefix),
 	     (peer, attr, prefix));
 DECLARE_HOOK(bgp_rpki_connection_status, (const char *vrf_name), (vrf_name));
+DECLARE_HOOK(bgp_aspa_path_status, (struct peer *peer, struct attr *attr, int direction),
+	     (peer, attr, direction));
+
+#define BGP_ASPA_UPSTREAM   0
+#define BGP_ASPA_DOWNSTREAM 1
 
 void peer_nsf_stop(struct peer *peer);
 

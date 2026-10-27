@@ -161,8 +161,7 @@ struct lcommunity *lcommunity_merge(struct lcommunity *lcom1,
 	return lcom1;
 }
 
-static void set_lcommunity_string(struct lcommunity *lcom, bool make_json,
-				  bool translate_alias)
+static void set_lcommunity_string(struct lcommunity *lcom, bool make_json)
 {
 	int i;
 	int len;
@@ -194,8 +193,7 @@ static void set_lcommunity_string(struct lcommunity *lcom, bool make_json,
 					       json_lcommunity_list);
 		}
 
-		lcom->str = str_buf;
-		return;
+		goto out;
 	}
 
 	/* 1 space + lcom->size lcom strings + null terminator */
@@ -224,8 +222,7 @@ static void set_lcommunity_string(struct lcommunity *lcom, bool make_json,
 		 * then we need to realloc the memory associated
 		 * with the string so that it can fit
 		 */
-		const char *com2alias =
-			translate_alias ? bgp_community2alias(lcsb) : lcsb;
+		const char *com2alias = make_json ? bgp_community2alias(lcsb) : lcsb;
 		size_t individual_len = strlen(com2alias);
 		if (individual_len + len > str_buf_sz) {
 			str_buf_sz = individual_len + len + 1;
@@ -248,7 +245,11 @@ static void set_lcommunity_string(struct lcommunity *lcom, bool make_json,
 				       json_lcommunity_list);
 	}
 
-	lcom->str = str_buf;
+out:
+	if (!lcom->str && !make_json)
+		lcom->str = str_buf;
+	else
+		XFREE(MTYPE_LCOMMUNITY_STR, str_buf);
 }
 
 /* Intern Large Communities Attribute.  */
@@ -266,7 +267,7 @@ struct lcommunity *lcommunity_intern(struct lcommunity *lcom)
 	find->refcnt++;
 
 	if (!find->str)
-		set_lcommunity_string(find, false, true);
+		set_lcommunity_string(find, false);
 
 	return find;
 }
@@ -293,17 +294,15 @@ void lcommunity_unintern(struct lcommunity **lcom)
 }
 
 /* Return string representation of lcommunities attribute. */
-char *lcommunity_str(struct lcommunity *lcom, bool make_json,
-		     bool translate_alias)
+char *lcommunity_str(struct lcommunity *lcom, bool make_json)
 {
 	if (!lcom)
 		return NULL;
 
-	if (make_json && !lcom->json && lcom->str)
-		XFREE(MTYPE_LCOMMUNITY_STR, lcom->str);
-
 	if (!lcom->str)
-		set_lcommunity_string(lcom, make_json, translate_alias);
+		set_lcommunity_string(lcom, false);
+	if (make_json && !lcom->json)
+		set_lcommunity_string(lcom, true);
 
 	return lcom->str;
 }

@@ -504,7 +504,8 @@ uint32_t ospf_ext_schedule_prefix_index(struct interface *ifp, uint32_t index,
 		return rc;
 
 	if (p != NULL) {
-		osr_debug("EXT (%s): Schedule new prefix %pFX with index %u on interface %s", __func__, p, index, ifp->name);
+		osr_debug("EXT (%s): Schedule new prefix (%s:%u:%u)%pFX with index %u on interface %s",
+			  __func__, OSPF_DEBUG_VRF_ID(ifp->vrf->vrf_id), p, index, ifp->name);
 
 		/* Set first Extended Prefix then the Prefix SID information */
 		set_ext_prefix(exti, OSPF_PATH_INTRA_AREA, EXT_TLV_PREF_NFLG,

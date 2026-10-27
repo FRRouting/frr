@@ -46,7 +46,7 @@
 #include "bgpd/bgp_ls.h"
 
 DEFINE_HOOK(peer_backward_transition, (struct peer * peer), (peer));
-DEFINE_HOOK(peer_status_changed, (struct peer * peer), (peer));
+DEFINE_HOOK(peer_status_changed, (struct peer_connection * connection), (connection));
 DEFINE_HOOK(bgp_rpki_connection_status, (const char *vrf_name), (vrf_name));
 
 bool bgp_rpki_cache_connected(struct bgp *bgp)
@@ -951,6 +951,15 @@ void bgp_start_tier2_deferral_timer(struct bgp *bgp, afi_t afi, safi_t safi)
 	event_add_timer(bm->master, bgp_graceful_deferral_timer_expire, thread_info,
 			bgp->select_defer_time, &gr_info->t_select_deferral_tier2);
 
+	/*
+	 * This stage is open again. A previous cycle can leave
+	 * select_defer_over_tier2 set, which makes
+	 * BGP_GR_SELECT_DEFER_DONE() true as soon as directly connected
+	 * peers finish and sends UPDATE_COMPLETE before the multihop
+	 * End-of-RIB.
+	 */
+	gr_info->select_defer_over_tier2 = false;
+	gr_info->route_sync_tier2 = false;
 	gr_info->select_defer_tier2_required = true;
 
 	if (BGP_DEBUG(graceful_restart, GRACEFUL_RESTART))
@@ -1802,13 +1811,7 @@ static void bgp_gr_evaluate_mix_peer_type(struct bgp *bgp)
 
 	bgp->gr_multihop_peer_exists = false;
 
-	FOREACH_AFI_SAFI_NSF (afi, safi) {
-		/*
-		 * GR is not supported for this afi-safi
-		 */
-		if (!bgp_gr_supported_for_afi_safi(afi, safi))
-			continue;
-
+	FOREACH_AFI_SAFI_GR (afi, safi) {
 		for (ALL_LIST_ELEMENTS(bgp->peer, node, nnode, peer)) {
 			/*
 			 * If this is not a config node or
@@ -1842,6 +1845,32 @@ static void bgp_start_deferral_timer(struct bgp *bgp, afi_t afi, safi_t safi,
 				     struct graceful_restart_info *gr_info)
 {
 	struct afi_safi_info *thread_info;
+
+	/*
+	 * Arming this timer opens a selection-deferral cycle. The first
+	 * cycle leaves select_defer_over set, so a later End-of-RIB skips
+	 * bgp_gr_check_path_select() and routes stay unsorted until this
+	 * timer expires. route_sync* must be cleared too, or zebra never
+	 * gets the matching UPDATE_COMPLETE.
+	 *
+	 * A previous cycle can also leave the tier-2 timer running, with
+	 * select_defer_over_tier2 and select_defer_tier2_required still
+	 * set. That callback carries no cycle id, so it would mark this
+	 * cycle complete and zebra would get UPDATE_COMPLETE before the
+	 * new multihop End-of-RIB. Cancel the timer and drop its flags.
+	 */
+	if (event_is_scheduled(gr_info->t_select_deferral_tier2)) {
+		void *info = EVENT_ARG(gr_info->t_select_deferral_tier2);
+
+		XFREE(MTYPE_TMP, info);
+	}
+	event_cancel(&gr_info->t_select_deferral_tier2);
+
+	gr_info->select_defer_over = false;
+	gr_info->select_defer_over_tier2 = false;
+	gr_info->select_defer_tier2_required = false;
+	gr_info->route_sync = false;
+	gr_info->route_sync_tier2 = false;
 
 	/* Start the timer */
 	thread_info = XMALLOC(MTYPE_TMP, sizeof(struct afi_safi_info));
@@ -1878,10 +1907,7 @@ void bgp_gr_start_all_deferral_timers(struct bgp *bgp)
 	afi_t afi;
 	safi_t safi;
 
-	FOREACH_AFI_SAFI_NSF (afi, safi) {
-		if (!bgp_gr_supported_for_afi_safi(afi, safi))
-			continue;
-
+	FOREACH_AFI_SAFI_GR (afi, safi) {
 		gr_info = &(bgp->gr_info[afi][safi]);
 		if (!event_is_scheduled(gr_info->t_select_deferral))
 			bgp_start_deferral_timer(bgp, afi, safi, gr_info);
@@ -2003,10 +2029,7 @@ static bool gr_path_select_deferral_applicable(struct bgp *bgp)
 	if (!event_is_scheduled(bgp->t_startup) && !bgp_in_graceful_restart())
 		return false;
 
-	FOREACH_AFI_SAFI_NSF (afi, safi) {
-		if (!bgp_gr_supported_for_afi_safi(afi, safi))
-			continue;
-
+	FOREACH_AFI_SAFI_GR (afi, safi) {
 		if (!BGP_GR_SELECT_DEFER_DONE(bgp, afi, safi))
 			return true;
 	}
@@ -2103,11 +2126,10 @@ void bgp_fsm_change_status(struct peer_connection *connection,
 	/* Save event that caused status change. */
 	peer->last_major_event = peer->cur_event;
 
+	hook_call(peer_status_changed, connection);
+
 	if (status == Established)
 		connection->dir = ESTABLISHED;
-
-	/* Operations after status change */
-	hook_call(peer_status_changed, peer);
 
 	/* If max-med processing is applicable, do the necessary. */
 	if (status == Established) {
@@ -2339,8 +2361,7 @@ enum bgp_fsm_state_progress bgp_stop(struct peer_connection *connection)
 		if ((connection->status == OpenConfirm) ||
 		    peer_established(connection)) {
 			/* ORF received prefix-filter pnt */
-			snprintf(orf_name, sizeof(orf_name), "%s.%d.%d",
-				 peer->host, afi, safi);
+			peer_orf_plist_name(peer, afi, safi, orf_name, sizeof(orf_name));
 			prefix_bgp_orf_remove_all(afi, orf_name);
 		}
 	}
@@ -2397,15 +2418,9 @@ bgp_stop_with_error(struct peer_connection *connection)
 }
 
 
-/* something went wrong, send notify and tear down */
-enum bgp_fsm_state_progress
-bgp_stop_with_notify(struct peer_connection *connection, uint8_t code,
-		     uint8_t sub_code)
+static enum bgp_fsm_state_progress bgp_stop_without_notify(struct peer_connection *connection)
 {
 	struct peer *peer = connection->peer;
-
-	/* Send notify to remote peer */
-	bgp_notify_send(connection, code, sub_code);
 
 	if (peer_dynamic_neighbor_no_nsf(peer)) {
 		if (bgp_debug_neighbor_events(peer))
@@ -2420,6 +2435,14 @@ bgp_stop_with_notify(struct peer_connection *connection, uint8_t code,
 	peer->v_start = BGP_INIT_START_TIMER;
 
 	return bgp_stop(connection);
+}
+
+enum bgp_fsm_state_progress bgp_stop_with_notify(struct peer_connection *connection, uint8_t code,
+						 uint8_t sub_code)
+{
+	bgp_notify_send(connection, code, sub_code);
+
+	return bgp_stop_without_notify(connection);
 }
 
 /**
@@ -2805,19 +2828,63 @@ bgp_fsm_open(struct peer_connection *connection)
 	return BGP_FSM_SUCCESS;
 }
 
+/*
+ * The type of the received message that raised the event.  Returns false for
+ * an event that was not raised by a received message.
+ */
+static bool bgp_fsm_event_msg_type(enum bgp_fsm_events event, uint8_t *type)
+{
+	switch (event) {
+	case Receive_OPEN_message:
+		*type = BGP_MSG_OPEN;
+		return true;
+	case Receive_KEEPALIVE_message:
+		*type = BGP_MSG_KEEPALIVE;
+		return true;
+	case Receive_UPDATE_message:
+		*type = BGP_MSG_UPDATE;
+		return true;
+	case Receive_NOTIFICATION_message:
+		*type = BGP_MSG_NOTIFY;
+		return true;
+	case BGP_Start:
+	case BGP_Stop:
+	case TCP_connection_open:
+	case TCP_connection_open_w_delay:
+	case TCP_connection_closed:
+	case TCP_connection_open_failed:
+	case TCP_fatal_error:
+	case ConnectRetry_timer_expired:
+	case Hold_Timer_expired:
+	case KeepAlive_timer_expired:
+	case DelayOpen_timer_expired:
+	case Clearing_Completed:
+	case BGP_EVENTS_MAX:
+		break;
+	}
+
+	return false;
+}
+
 /* FSM error, unexpected event.  This is error of BGP connection. So cut the
    peer and change to Idle status. */
 static enum bgp_fsm_state_progress
 bgp_fsm_event_error(struct peer_connection *connection)
 {
 	struct peer *peer = connection->peer;
+	uint8_t type;
 
 	flog_err(EC_BGP_FSM, "%s [FSM] unexpected packet received in state %s",
 		 peer->host,
 		 lookup_msg(bgp_status_msg, connection->status, NULL));
 
-	return bgp_stop_with_notify(connection, BGP_NOTIFY_FSM_ERR,
-				    bgp_fsm_error_subcode(connection->status));
+	if (!bgp_fsm_event_msg_type(peer->cur_event, &type))
+		return bgp_stop_with_notify(connection, BGP_NOTIFY_FSM_ERR,
+					    bgp_fsm_error_subcode(connection->status));
+
+	bgp_notify_send_fsm_error(connection, type);
+
+	return bgp_stop_without_notify(connection);
 }
 
 /* Hold timer expire.  This is error of BGP connection. So cut the
@@ -3853,5 +3920,15 @@ void bgp_event_stop_with_notify(struct event *event)
 {
 	struct peer_connection *connection = EVENT_ARG(event);
 
-	bgp_stop_with_notify(connection, BGP_NOTIFY_SEND_HOLD_ERR, 0);
+	/*
+	 * Drive the teardown through the FSM rather than stopping the peer
+	 * inline.  bgp_notify_send() -> bgp_write_notify() queues a BGP_Stop
+	 * (or TCP_fatal_error, if the stuck send queue rejects the write); the
+	 * FSM then advances the state and re-arms the ConnectRetry timer like
+	 * every other stop.  Calling bgp_stop() directly here (as
+	 * bgp_stop_with_notify() does) runs event_cancel_event_ready(), which
+	 * cancels that queued event, so the state is never advanced and the peer
+	 * is left stuck in Established with fd == -1 -- a zombie session.
+	 */
+	bgp_notify_send(connection, BGP_NOTIFY_SEND_HOLD_ERR, 0);
 }

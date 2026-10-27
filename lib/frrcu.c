@@ -111,6 +111,7 @@ static struct rcu_thread rcu_thread_main;
 static struct rcu_thread rcu_thread_rcu;
 
 static pthread_t rcu_pthread;
+static pthread_mutex_t rcu_start_mtx = PTHREAD_MUTEX_INITIALIZER;
 static pthread_key_t rcu_thread_key;
 static bool rcu_active;
 
@@ -158,10 +159,14 @@ struct rcu_thread *rcu_thread_new(void *arg)
 	struct rcu_thread *rt, *cur = arg;
 
 	/* Ensure the sweeper exists so deferred frees from thread teardown
-	 * (and any RCU use on the new thread) actually complete.
+	 * (and any RCU use on the new thread) actually complete.  External
+	 * threads may register concurrently, so serialize the check + start,
+	 * otherwise more than one sweeper gets started.
 	 */
+	pthread_mutex_lock(&rcu_start_mtx);
 	if (!rcu_active)
 		rcu_start();
+	pthread_mutex_unlock(&rcu_start_mtx);
 
 	/* new thread always starts with rcu_read_lock held at depth 1, and
 	 * holding the same epoch as the parent (this makes it possible to
@@ -447,6 +452,9 @@ static void rcu_watchdog(struct rcu_thread *rt)
 #endif
 }
 
+/* current position in rcu_main() */
+static seqlock_ctr_t rcu_tail_pos;
+
 static void *rcu_main(void *arg)
 {
 	struct rcu_thread *rt;
@@ -455,6 +463,8 @@ static void *rcu_main(void *arg)
 	struct timespec maxwait;
 
 	seqlock_val_t rcuval = SEQLOCK_STARTVAL;
+
+	atomic_init(&rcu_tail_pos, rcuval);
 
 	pthread_setspecific(rcu_thread_key, &rcu_thread_rcu);
 
@@ -486,6 +496,7 @@ static void *rcu_main(void *arg)
 		}
 
 		rcuval += SEQLOCK_INCR;
+		atomic_store_explicit(&rcu_tail_pos, rcuval, memory_order_release);
 	}
 
 	/* rcu_shutdown can only be called singlethreaded, and it does a
@@ -579,6 +590,7 @@ struct rcu_local_state rcu_local_state(void)
 	 */
 	struct rcu_local_state ret;
 
+	ret.seq_tail = atomic_load_explicit(&rcu_tail_pos, memory_order_acquire);
 	ret.seq_local = seqlock_cur(&rcu_self()->rcu);
 	ret.seq_head = seqlock_cur(&rcu_seq);
 	return ret;

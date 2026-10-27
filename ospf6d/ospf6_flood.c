@@ -90,11 +90,19 @@ void ospf6_lsa_originate(struct ospf6 *ospf6, struct ospf6_lsa *lsa)
 	/* find previous LSA */
 	old = ospf6_lsdb_lookup(lsa->header->type, lsa->header->id,
 				lsa->header->adv_router, lsa->lsdb);
+	lsdb_self = ospf6_get_scoped_lsdb_self(lsa);
 
-	/* if the new LSA does not differ from previous,
-	   suppress this update of the LSA */
-	if (old && !OSPF6_LSA_IS_DIFFER(lsa, old)
-	    && !ospf6->gr_info.finishing_restart) {
+	/*
+	 * If the new LSA does not differ from the previous one, suppress this
+	 * update of the LSA, but only if we own the previous one (it is in the
+	 * LSDB for self-originated LSAs). Otherwise nothing would refresh it
+	 * and it would be flushed once it reaches MaxAge, e.g. a
+	 * self-originated LSA learned back from the helpers during a graceful
+	 * restart.
+	 */
+	if (old && !OSPF6_LSA_IS_DIFFER(lsa, old) && !ospf6->gr_info.finishing_restart &&
+	    ospf6_lsdb_lookup(lsa->header->type, lsa->header->id, lsa->header->adv_router,
+			      lsdb_self)) {
 		if (IS_OSPF6_DEBUG_ORIGINATE_TYPE(lsa->header->type))
 			zlog_debug("Suppress updating LSA: %s", lsa->name);
 		ospf6_lsa_delete(lsa);
@@ -102,7 +110,6 @@ void ospf6_lsa_originate(struct ospf6 *ospf6, struct ospf6_lsa *lsa)
 	}
 
 	/* store it in the LSDB for self-originated LSAs */
-	lsdb_self = ospf6_get_scoped_lsdb_self(lsa);
 	ospf6_lsdb_add(ospf6_lsa_copy(lsa), lsdb_self);
 
 	event_cancel(&lsa->refresh);

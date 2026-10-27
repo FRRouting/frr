@@ -526,8 +526,8 @@ void eigrp_read(struct event *event)
 		ifp = c->ifp;
 	}
 
-	/* associate packet with eigrp interface */
-	ei = eigrp_if_lookup_by_ifp(ifp);
+	/* associate packet with this process's interface instance */
+	ei = eigrp_if_lookup(eigrp, ifp);
 
 	/* eigrp_verify_header() relies on a valid "ei" and thus can be called
 	   only
@@ -538,9 +538,13 @@ void eigrp_read(struct event *event)
 	if (!ei)
 		return;
 
-	/* Self-originated packet should be discarded silently. */
-	if (eigrp_if_lookup_by_local_addr(eigrp, ifp, srcaddr) ||
-	    (IPV4_ADDR_SAME(&srcaddr, &ei->address.u.prefix4))) {
+	/*
+	 * Self-originated packet should be discarded silently.
+	 * eigrp_if_lookup_by_local_addr() tests every address on the
+	 * interface, so the address this instance happens to speak from
+	 * needs no separate check.
+	 */
+	if (eigrp_if_lookup_by_local_addr(eigrp, ifp, srcaddr)) {
 		if (IS_DEBUG_EIGRP_TRANSMIT(0, RECV))
 			zlog_debug(
 				"eigrp_read[%pI4]: Dropping self-originated packet",
@@ -959,18 +963,25 @@ static int eigrp_verify_header(struct stream *ibuf, struct eigrp_interface *ei,
 static int eigrp_check_network_mask(struct eigrp_interface *ei,
 				    struct in_addr ip_src)
 {
-	struct in_addr mask, me, him;
+	struct eigrp_connected *ec;
+	struct listnode *node;
+	struct prefix src;
 
 	if (ei->type == EIGRP_IFTYPE_POINTOPOINT)
 		return 1;
 
-	masklen2ip(ei->address.prefixlen, &mask);
+	memset(&src, 0, sizeof(src));
+	src.family = AF_INET;
+	src.prefixlen = IPV4_MAX_BITLEN;
+	src.u.prefix4 = ip_src;
 
-	me.s_addr = ei->address.u.prefix4.s_addr & mask.s_addr;
-	him.s_addr = ip_src.s_addr & mask.s_addr;
-
-	if (IPV4_ADDR_SAME(&me, &him))
-		return 1;
+	/*
+	 * A neighbour has to sit in a subnet this interface speaks for -- any
+	 * of them, now that it can speak for more than one.
+	 */
+	for (ALL_LIST_ELEMENTS_RO(ei->connected, node, ec))
+		if (prefix_match(&ec->address, &src))
+			return 1;
 
 	return 0;
 }

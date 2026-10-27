@@ -43,11 +43,14 @@
 #include "bgpd/bgp_open.h"
 #include "bgpd/bgp_aspath.h"
 
+extern struct zebra_privs_t bgpd_privs;
+
 static void bmp_close(struct bmp *bmp);
 static struct bmp_bgp *bmp_bgp_find(struct bgp *bgp);
 static void bmp_targets_put(struct bmp_targets *bt);
-static struct bmp_bgp_peer *bmp_bgp_peer_find(uint64_t peerid);
+static struct bmp_bgp_peer *bmp_bgp_peer_find(struct peer *peer);
 static struct bmp_bgp_peer *bmp_bgp_peer_get(struct peer *peer);
+static bool bmp_bgp_peer_addr_in_use(struct peer *peer);
 static void bmp_active_disconnected(struct bmp_active *ba);
 static void bmp_active_put(struct bmp_active *ba);
 static int bmp_route_update_bgpbmp(struct bmp_targets *bt, afi_t afi, safi_t safi,
@@ -66,6 +69,7 @@ DEFINE_MTYPE_STATIC(BMP, BMP_TARGETSNAME, "BMP targets name");
 DEFINE_MTYPE_STATIC(BMP, BMP_LISTENER,	"BMP listener");
 DEFINE_MTYPE_STATIC(BMP, BMP_ACTIVE,	"BMP active connection config");
 DEFINE_MTYPE_STATIC(BMP, BMP_ACLNAME,	"BMP access-list name");
+DEFINE_MTYPE_STATIC(BMP, BMP_INITIATION, "BMP initiation information");
 DEFINE_MTYPE_STATIC(BMP, BMP_QUEUE,	"BMP update queue item");
 DEFINE_MTYPE_STATIC(BMP, BMP,		"BMP instance state");
 DEFINE_MTYPE_STATIC(BMP, BMP_MIRRORQ,	"BMP route mirroring buffer");
@@ -96,16 +100,17 @@ struct bmp_bgph_head bmp_bgph;
 static int bmp_bgp_peer_cmp(const struct bmp_bgp_peer *a,
 		const struct bmp_bgp_peer *b)
 {
-	if (a->peerid < b->peerid)
+	if (a->vrf_id < b->vrf_id)
 		return -1;
-	if (a->peerid > b->peerid)
+	if (a->vrf_id > b->vrf_id)
 		return 1;
-	return 0;
+
+	return sockunion_cmp(&a->remote, &b->remote);
 }
 
 static uint32_t bmp_bgp_peer_hash(const struct bmp_bgp_peer *e)
 {
-	return e->peerid;
+	return jhash_1word(sockunion_hash(&e->remote), e->vrf_id);
 }
 
 DECLARE_HASH(bmp_peerh, struct bmp_bgp_peer, bpi,
@@ -386,10 +391,19 @@ static void bmp_per_peer_hdr(struct stream *s, struct bgp *bgp,
 	}
 }
 
+#define BMP_INIT_INFO_TYPE_SYSDESCR 1
+#define BMP_INIT_INFO_TYPE_SYSNAME  2
+/* RFC 1213: sysDescr and sysName are DisplayString (SIZE (0..255)) */
+#define BMP_INIT_INFO_SYS_MAX_LEN 255
+
 static void bmp_put_info_tlv(struct stream *s, uint16_t type,
 		const char *string)
 {
 	int len = strlen (string);
+
+	if ((type == BMP_INIT_INFO_TYPE_SYSDESCR || type == BMP_INIT_INFO_TYPE_SYSNAME) &&
+	    len > BMP_INIT_INFO_SYS_MAX_LEN)
+		len = BMP_INIT_INFO_SYS_MAX_LEN;
 	stream_putw(s, type);
 	stream_putw(s, len);
 	stream_put(s, string, len);
@@ -416,16 +430,16 @@ static void bmp_put_vrftablename_info_tlv(struct stream *s, struct peer *peer)
 
 static int bmp_send_initiation(struct bmp *bmp)
 {
+	struct bmp_targets *bt = bmp->targets;
 	int len;
 	struct stream *s = stream_new(BGP_MAX_PACKET_SIZE);
 
 	bmp_common_hdr(s, BMP_VERSION_3, BMP_TYPE_INITIATION);
 
-#define BMP_INIT_INFO_TYPE_SYSDESCR 1
-#define BMP_INIT_INFO_TYPE_SYSNAME  2
 	bmp_put_info_tlv(s, BMP_INIT_INFO_TYPE_SYSDESCR,
-			 FRR_FULL_NAME " " FRR_VER_SHORT);
-	bmp_put_info_tlv(s, BMP_INIT_INFO_TYPE_SYSNAME, cmd_hostname_get());
+			 bt->sysdescr ? bt->sysdescr : FRR_FULL_NAME " " FRR_VER_SHORT);
+	bmp_put_info_tlv(s, BMP_INIT_INFO_TYPE_SYSNAME,
+			 bt->sysname ? bt->sysname : cmd_hostname_get());
 
 	len = stream_get_endp(s);
 	stream_putl_at(s, BMP_LENGTH_POS, len); /* message length is set. */
@@ -455,6 +469,101 @@ static void bmp_notify_put(struct stream *s, struct bgp_notify *nfy)
 
 	stream_putw_at(s, len_pos, stream_get_endp(s) - len_pos
 			+ sizeof(marker));
+}
+
+static struct bmp_saved_open *bmp_open_slot(struct bmp_saved_open *opens,
+					    enum connection_direction dir)
+{
+	switch (dir) {
+	case UNKNOWN:
+	case CONNECTION_INCOMING:
+	case CONNECTION_OUTGOING:
+		return &opens[dir];
+	case ESTABLISHED:
+		assert(!"DEV ESCAPE: Established should not be used as a direction to store an open message");
+		return NULL;
+	}
+
+	assert(!"DEV ESCAPE: Unknown connection direction received");
+	return NULL;
+}
+
+static void bmp_open_clear(struct bmp_saved_open *msg)
+{
+	if (!msg)
+		return;
+
+	XFREE(MTYPE_BMP_OPEN, msg->data);
+	msg->len = 0;
+}
+
+static void bmp_open_save(struct bmp_saved_open *msg, struct stream *packet, size_t size)
+{
+	bmp_open_clear(msg);
+	msg->len = size;
+	msg->data = XMALLOC(MTYPE_BMP_OPEN, size);
+	memcpy(msg->data, packet->data, size);
+}
+
+static void bmp_bgp_peer_clear_opens(struct bmp_bgp_peer *bbpeer)
+{
+	int i;
+
+	for (i = 0; i < BMP_PEER_OPEN_MAX; i++) {
+		bmp_open_clear(&bbpeer->open_rx[i]);
+		bmp_open_clear(&bbpeer->open_tx[i]);
+	}
+	bbpeer->established_dir = UNKNOWN;
+}
+
+/*
+ * Drop the OPENs for the session that just went down. Another direction may
+ * already hold OPENs for a connection that is still coming up.
+ */
+static void bmp_bgp_peer_clear_established(struct bmp_bgp_peer *bbpeer)
+{
+	enum connection_direction dir = bbpeer->established_dir;
+
+	bmp_open_clear(bmp_open_slot(bbpeer->open_rx, dir));
+	bmp_open_clear(bmp_open_slot(bbpeer->open_tx, dir));
+	bbpeer->established_dir = UNKNOWN;
+}
+
+static void bmp_open_save_dir(struct bmp_saved_open *opens, struct peer *peer,
+			      struct peer_connection *connection, struct stream *packet,
+			      size_t size, const char *which)
+{
+	struct bmp_saved_open *msg = bmp_open_slot(opens, connection->dir);
+
+	if (!msg) {
+		zlog_warn("bmp: not saving %s OPEN for peer %s (%s)", which, peer->host,
+			  bgp_peer_get_connection_direction_string(connection));
+		return;
+	}
+
+	bmp_open_save(msg, packet, size);
+}
+
+/*
+ * Direction whose saved OPENs belong in a Peer Up for this peer.
+ * Loc-RIB uses the unknown slot. A session that is already Established
+ * reports ESTABLISHED, so use the direction recorded when it came up.
+ */
+static enum connection_direction bmp_peer_open_dir(struct peer *peer, bool is_locrib,
+						   struct bmp_bgp_peer *bbpeer)
+{
+	enum connection_direction dir;
+
+	if (is_locrib)
+		return UNKNOWN;
+
+	dir = bgp_peer_get_connection_direction(peer->connection);
+	if (dir == ESTABLISHED && bbpeer)
+		return bbpeer->established_dir;
+	if (dir == ESTABLISHED)
+		return UNKNOWN;
+
+	return dir;
 }
 
 /* send peer up/down for peer based on down boolean value
@@ -538,24 +647,32 @@ static struct stream *bmp_peerstate(struct peer *peer, bool down)
 			0x00, 0x13, 0x01,
 		};
 
-		bbpeer = bmp_bgp_peer_find(peer->qobj_node.nid);
+		enum connection_direction dir;
+		struct bmp_saved_open *tx = NULL, *rx = NULL;
 
-		if (bbpeer && bbpeer->open_tx) {
-			if (is_locrib)
-				/* update bgp id each time peer up LOC-RIB message is to be sent */
-				bmp_bgp_peer_vrf(bbpeer, peer->bgp);
-			stream_put(s, bbpeer->open_tx, bbpeer->open_tx_len);
-		} else {
-			stream_put(s, dummy_open, sizeof(dummy_open));
-			zlog_warn("bmp: missing TX OPEN message for peer %s",
-				  peer->host);
+		bbpeer = bmp_bgp_peer_find(peer);
+		if (is_locrib && bbpeer && bbpeer->open_tx[UNKNOWN].data) {
+			/* update bgp id each time peer up LOC-RIB message is to be sent */
+			bmp_bgp_peer_vrf(bbpeer, peer->bgp);
 		}
-		if (bbpeer && bbpeer->open_rx)
-			stream_put(s, bbpeer->open_rx, bbpeer->open_rx_len);
+
+		dir = bmp_peer_open_dir(peer, is_locrib, bbpeer);
+		if (bbpeer) {
+			tx = bmp_open_slot(bbpeer->open_tx, dir);
+			rx = bmp_open_slot(bbpeer->open_rx, dir);
+		}
+
+		if (tx && tx->data)
+			stream_put(s, tx->data, tx->len);
 		else {
 			stream_put(s, dummy_open, sizeof(dummy_open));
-			zlog_warn("bmp: missing RX OPEN message for peer %s",
-				  peer->host);
+			zlog_warn("bmp: missing TX OPEN message for peer %s", peer->host);
+		}
+		if (rx && rx->data)
+			stream_put(s, rx->data, rx->len);
+		else {
+			stream_put(s, dummy_open, sizeof(dummy_open));
+			zlog_warn("bmp: missing RX OPEN message for peer %s", peer->host);
 		}
 
 		if (peer->desc)
@@ -796,9 +913,10 @@ static void bmp_mirror_cull(struct bmp_bgp *bmpbgp)
 	}
 }
 
-static int bmp_mirror_packet(struct peer *peer, uint8_t type, bgp_size_t size,
-		struct stream *packet)
+static int bmp_mirror_packet(struct peer_connection *connection, uint8_t type, bgp_size_t size,
+			     struct stream *packet)
 {
+	struct peer *peer = connection->peer;
 	struct bmp_bgp *bmpbgp;
 	struct timeval tv;
 	struct bmp_targets *bt;
@@ -813,11 +931,9 @@ static int bmp_mirror_packet(struct peer *peer, uint8_t type, bgp_size_t size,
 	if (type == BGP_MSG_OPEN) {
 		struct bmp_bgp_peer *bbpeer = bmp_bgp_peer_get(peer);
 
-		XFREE(MTYPE_BMP_OPEN, bbpeer->open_rx);
-
-		bbpeer->open_rx_len = size;
-		bbpeer->open_rx = XMALLOC(MTYPE_BMP_OPEN, size);
-		memcpy(bbpeer->open_rx, packet->data, size);
+		if (bbpeer)
+			bmp_open_save_dir(bbpeer->open_rx, peer, connection, packet, size,
+					  "received");
 	}
 
 	/*
@@ -957,20 +1073,20 @@ out:
 	return written;
 }
 
-static int bmp_outgoing_packet(struct peer *peer, uint8_t type, bgp_size_t size,
-		struct stream *packet)
+static int bmp_outgoing_packet(struct peer_connection *connection, uint8_t type, bgp_size_t size,
+			       struct stream *packet)
 {
-	if (type == BGP_MSG_OPEN) {
-		frrtrace(2, frr_bgp, bmp_update_saved_open, peer, packet);
+	struct peer *peer = connection->peer;
+	struct bmp_bgp_peer *bbpeer;
 
-		struct bmp_bgp_peer *bbpeer = bmp_bgp_peer_get(peer);
+	if (type != BGP_MSG_OPEN || !peer)
+		return 0;
 
-		XFREE(MTYPE_BMP_OPEN, bbpeer->open_tx);
+	frrtrace(2, frr_bgp, bmp_update_saved_open, peer, packet);
 
-		bbpeer->open_tx_len = size;
-		bbpeer->open_tx = XMALLOC(MTYPE_BMP_OPEN, size);
-		memcpy(bbpeer->open_tx, packet->data, size);
-	}
+	bbpeer = bmp_bgp_peer_get(peer);
+	if (bbpeer)
+		bmp_open_save_dir(bbpeer->open_tx, peer, connection, packet, size, "sent");
 	return 0;
 }
 
@@ -1090,44 +1206,43 @@ static void bmp_adj_in_release(struct bmp_targets *bt, afi_t afi, safi_t safi)
 	}
 }
 
-static int bmp_peer_status_changed(struct peer *peer)
+static int bmp_peer_status_changed(struct peer_connection *connection)
 {
-	struct bmp_bgp_peer *bbpeer, *bbdopp;
+	struct peer *peer = connection->peer;
+	struct bmp_bgp_peer *bbpeer;
+	enum connection_direction dir;
 
 	frrtrace(1, frr_bgp, bmp_peer_status_changed, peer);
 
-	if (peer->connection->status == Deleted) {
-		bbpeer = bmp_bgp_peer_find(peer->qobj_node.nid);
-		if (bbpeer) {
-			XFREE(MTYPE_BMP_OPEN, bbpeer->open_rx);
-			XFREE(MTYPE_BMP_OPEN, bbpeer->open_tx);
+	if (connection->status == Deleted) {
+		if (connection->peer != peer)
+			return 0;
+
+		bbpeer = bmp_bgp_peer_find(peer);
+		/* Incoming and outgoing sockets for one neighbor share this
+		 * entry. Drop it only when the last of those peers is gone.
+		 */
+		if (bbpeer && !bmp_bgp_peer_addr_in_use(peer)) {
+			bmp_bgp_peer_clear_opens(bbpeer);
 			bmp_peerh_del(&bmp_peerh, bbpeer);
 			XFREE(MTYPE_BMP_PEER, bbpeer);
 		}
 		return 0;
 	}
 
-	/* Check if this peer just went to Established */
-	if ((peer->connection->ostatus != OpenConfirm) ||
-	    !(peer_established(peer->connection)))
+	/* Check if this connection just went to Established */
+	if (connection->ostatus != OpenConfirm || !peer_established(connection))
 		return 0;
 
-	if (peer->doppelganger &&
-	    (peer->doppelganger->connection->status != Deleted)) {
+	/* OPENs were stored under the direction of the socket that carried
+	 * them. Remember which socket won so later Peer Up notifications can
+	 * find them after dir becomes ESTABLISHED.
+	 */
+	dir = bgp_peer_get_connection_direction(connection);
+	if (dir == CONNECTION_INCOMING || dir == CONNECTION_OUTGOING) {
 		bbpeer = bmp_bgp_peer_get(peer);
-		bbdopp = bmp_bgp_peer_find(peer->doppelganger->qobj_node.nid);
-		if (bbdopp) {
-			XFREE(MTYPE_BMP_OPEN, bbpeer->open_tx);
-			XFREE(MTYPE_BMP_OPEN, bbpeer->open_rx);
-
-			bbpeer->open_tx = bbdopp->open_tx;
-			bbpeer->open_tx_len = bbdopp->open_tx_len;
-			bbpeer->open_rx = bbdopp->open_rx;
-			bbpeer->open_rx_len = bbdopp->open_rx_len;
-
-			bmp_peerh_del(&bmp_peerh, bbdopp);
-			XFREE(MTYPE_BMP_PEER, bbdopp);
-		}
+		if (bbpeer)
+			bbpeer->established_dir = dir;
 	}
 
 	bmp_send_all_bgp(peer, false);
@@ -1140,16 +1255,40 @@ static int bmp_peer_backward(struct peer *peer)
 
 	frrtrace(1, frr_bgp, bmp_peer_backward_transition, peer);
 
-	bbpeer = bmp_bgp_peer_find(peer->qobj_node.nid);
-	if (bbpeer) {
-		XFREE(MTYPE_BMP_OPEN, bbpeer->open_tx);
-		bbpeer->open_tx_len = 0;
-		XFREE(MTYPE_BMP_OPEN, bbpeer->open_rx);
-		bbpeer->open_rx_len = 0;
-	}
+	bbpeer = bmp_bgp_peer_find(peer);
+	if (bbpeer)
+		bmp_bgp_peer_clear_established(bbpeer);
 
 	bmp_send_all_bgp(peer, true);
 	return 0;
+}
+
+/* write one EoR route monitoring message (pre-built update in s) for peer */
+static void bmp_eor_write(struct bmp *bmp, struct stream *s, struct peer *peer, afi_t afi,
+			  uint8_t flags, uint8_t peer_type_flag)
+{
+	struct bgp *bgp = peer->bgp;
+	struct stream *s2;
+	uint64_t peer_distinguisher = 0;
+
+	/* skip this message if peer distinguisher is not available */
+	if (bmp_get_peer_distinguisher(bgp, afi, peer_type_flag, &peer_distinguisher)) {
+		zlog_warn("skipping bmp message for reason: can't get peer distinguisher");
+		return;
+	}
+
+	s2 = stream_new(BGP_MAX_PACKET_SIZE);
+
+	bmp_common_hdr(s2, BMP_VERSION_3, BMP_TYPE_ROUTE_MONITORING);
+
+	bmp_per_peer_hdr(s2, bgp, peer, flags, peer_type_flag, peer_distinguisher, NULL);
+
+	stream_putl_at(s2, BMP_LENGTH_POS, stream_get_endp(s) + stream_get_endp(s2));
+
+	bmp->cnt_update++;
+	pullwr_write_stream(bmp->pullwr, s2);
+	pullwr_write_stream(bmp->pullwr, s);
+	stream_free(s2);
 }
 
 static void bmp_eor(struct bmp *bmp, afi_t afi, safi_t safi, uint8_t flags, uint8_t peer_type_flag,
@@ -1157,7 +1296,7 @@ static void bmp_eor(struct bmp *bmp, afi_t afi, safi_t safi, uint8_t flags, uint
 {
 	struct peer *peer;
 	struct listnode *node;
-	struct stream *s, *s2;
+	struct stream *s;
 	iana_afi_t pkt_afi = IANA_AFI_IPV4;
 	iana_safi_t pkt_safi = IANA_SAFI_UNICAST;
 
@@ -1189,32 +1328,18 @@ static void bmp_eor(struct bmp *bmp, afi_t afi, safi_t safi, uint8_t flags, uint
 
 	bgp_packet_set_size(s);
 
+	/* Loc-RIB is a single instance: one EoR, not one per negotiated peer */
+	if (peer_type_flag == BMP_PEER_TYPE_LOC_RIB_INSTANCE) {
+		bmp_eor_write(bmp, s, bgp->peer_self, afi, flags, peer_type_flag);
+		stream_free(s);
+		return;
+	}
+
 	for (ALL_LIST_ELEMENTS_RO(bgp->peer, node, peer)) {
 		if (!peer->afc_nego[afi][safi])
 			continue;
 
-		uint64_t peer_distinguisher = 0;
-		/* skip this message if peer distinguisher is not available */
-		if (bmp_get_peer_distinguisher(peer->bgp, afi, peer_type_flag, &peer_distinguisher)) {
-			zlog_warn(
-				"skipping bmp message for reason: can't get peer distinguisher");
-			continue;
-		}
-
-		s2 = stream_new(BGP_MAX_PACKET_SIZE);
-
-		bmp_common_hdr(s2, BMP_VERSION_3,
-				BMP_TYPE_ROUTE_MONITORING);
-
-		bmp_per_peer_hdr(s2, bgp, peer, flags, peer_type_flag, peer_distinguisher, NULL);
-
-		stream_putl_at(s2, BMP_LENGTH_POS,
-				stream_get_endp(s) + stream_get_endp(s2));
-
-		bmp->cnt_update++;
-		pullwr_write_stream(bmp->pullwr, s2);
-		pullwr_write_stream(bmp->pullwr, s);
-		stream_free(s2);
+		bmp_eor_write(bmp, s, peer, afi, flags, peer_type_flag);
 	}
 	stream_free(s);
 }
@@ -1258,8 +1383,13 @@ static struct stream *bmp_update(const struct prefix *p, struct prefix_rd *prd,
 	total_attr_len = bgp_packet_attribute(NULL, peer, s, attr, &vecarr, NULL, afi, safi, peer,
 					      NULL, NULL, 0, 0, 0, 0, NULL, NULL, true);
 
-	/* peer_cap_enhe & add-path removed */
-	if (afi == AFI_IP && safi == SAFI_UNICAST)
+	/*
+	 * With extended next-hop negotiated (RFC 8950), bgp_packet_attribute()
+	 * leaves out the legacy NEXT_HOP attribute, so IPv4 unicast must be
+	 * encoded in MP_REACH_NLRI with its IPv6 next hop, as
+	 * subgroup_update_packet() does. Add-path is not handled here.
+	 */
+	if (afi == AFI_IP && safi == SAFI_UNICAST && !peer_cap_enhe(peer, afi, safi))
 		stream_put_prefix(s, p);
 	else {
 		size_t p1 = stream_get_endp(s);
@@ -1794,11 +1924,6 @@ static bool bmp_wrqueue_locrib(struct bmp *bmp, struct pullwr *pullwr)
 		 */
 		goto out;
 	}
-	if (peer != peer->bgp->peer_self && !peer_established(peer->connection)) {
-		/* peer is neither self, nor established
-		 */
-		goto out;
-	}
 
 	bool is_vpn = (bqe->afi == AFI_L2VPN && bqe->safi == SAFI_EVPN) ||
 		      (bqe->safi == SAFI_MPLS_VPN);
@@ -1810,20 +1935,16 @@ static bool bmp_wrqueue_locrib(struct bmp *bmp, struct pullwr *pullwr)
 	struct bgp_path_info *bpi;
 
 	for (bpi = bgp_dest_get_bgp_path_info(bn); bpi; bpi = bpi->next) {
-		if (!CHECK_FLAG(bpi->flags, BGP_PATH_SELECTED))
-			continue;
-		if (bpi->peer == peer)
+		if (CHECK_FLAG(bpi->flags, BGP_PATH_SELECTED))
 			break;
 	}
 
 	bpi_num_labels = BGP_PATH_INFO_NUM_LABELS(bpi);
 
-	bmp_monitor(bmp, peer, 0, BMP_PEER_TYPE_LOC_RIB_INSTANCE, &bqe->p, prd,
+	bmp_monitor(bmp, bpi ? bpi->peer : peer, 0, BMP_PEER_TYPE_LOC_RIB_INSTANCE, &bqe->p, prd,
 		    bpi ? bpi->attr : NULL, bpi, afi, safi,
-		    bpi && bpi->extra ? bpi->extra->bgp_rib_uptime
-				      : (time_t)(-1L),
-		    bpi_num_labels ? bpi->extra->labels->label : NULL,
-		    bpi_num_labels);
+		    bpi && bpi->extra ? bpi->extra->bgp_rib_uptime : (time_t)(-1L),
+		    bpi_num_labels ? bpi->extra->labels->label : NULL, bpi_num_labels);
 	written = true;
 
 out:
@@ -2408,24 +2529,13 @@ static void bmp_bgp_peer_vrf(struct bmp_bgp_peer *bbpeer, struct bgp *bgp)
 
 	s = bgp_open_make(peer->connection, send_holdtime, local_as, &peer->local_id);
 	open_len = stream_get_endp(s);
-
-	bbpeer->open_rx_len = open_len;
-	if (bbpeer->open_rx)
-		XFREE(MTYPE_BMP_OPEN, bbpeer->open_rx);
-	bbpeer->open_rx = XMALLOC(MTYPE_BMP_OPEN, open_len);
-	memcpy(bbpeer->open_rx, s->data, open_len);
-
+	bmp_open_save(&bbpeer->open_rx[UNKNOWN], s, open_len);
 	stream_free(s);
 
 	/* rfc9069#section-5.2 : Received OPEN Message: Repeat of the same sent OPEN message */
 	s = bgp_open_make(peer->connection, send_holdtime, local_as, &peer->local_id);
 	open_len = stream_get_endp(s);
-	bbpeer->open_tx_len = open_len;
-	if (bbpeer->open_tx)
-		XFREE(MTYPE_BMP_OPEN, bbpeer->open_tx);
-	bbpeer->open_tx = XMALLOC(MTYPE_BMP_OPEN, open_len);
-	memcpy(bbpeer->open_tx, s->data, open_len);
-
+	bmp_open_save(&bbpeer->open_tx[UNKNOWN], s, open_len);
 	stream_free(s);
 }
 
@@ -2459,12 +2569,12 @@ bool bmp_bgp_update_vrf_status(enum bmp_vrf_state *vrf_state, struct bgp *bgp,
 		peer = bgp->peer_self;
 		if (*vrf_state == vrf_state_up) {
 			bbpeer = bmp_bgp_peer_get(peer);
-			bmp_bgp_peer_vrf(bbpeer, bgp);
+			if (bbpeer)
+				bmp_bgp_peer_vrf(bbpeer, bgp);
 		} else {
-			bbpeer = bmp_bgp_peer_find(peer->qobj_node.nid);
+			bbpeer = bmp_bgp_peer_find(peer);
 			if (bbpeer) {
-				XFREE(MTYPE_BMP_OPEN, bbpeer->open_tx);
-				XFREE(MTYPE_BMP_OPEN, bbpeer->open_rx);
+				bmp_bgp_peer_clear_opens(bbpeer);
 				bmp_peerh_del(&bmp_peerh, bbpeer);
 				XFREE(MTYPE_BMP_PEER, bbpeer);
 			}
@@ -2474,25 +2584,115 @@ bool bmp_bgp_update_vrf_status(enum bmp_vrf_state *vrf_state, struct bgp *bgp,
 	return changed;
 }
 
-static struct bmp_bgp_peer *bmp_bgp_peer_find(uint64_t peerid)
+/* Copy the neighbor address and leave the port zero. The port is not a
+ * BMP peer discriminator: incoming and outgoing sockets differ only there.
+ */
+static void bmp_remote_addr(union sockunion *dst, const union sockunion *src)
 {
-	struct bmp_bgp_peer dummy = { .peerid = peerid };
+	memset(dst, 0, sizeof(*dst));
+	if (!src)
+		return;
+
+	switch (src->sa.sa_family) {
+	case AF_INET:
+		dst->sa.sa_family = AF_INET;
+		dst->sin.sin_addr = src->sin.sin_addr;
+		break;
+	case AF_INET6:
+		dst->sa.sa_family = AF_INET6;
+		dst->sin6.sin6_addr = src->sin6.sin6_addr;
+		dst->sin6.sin6_scope_id = src->sin6.sin6_scope_id;
+		break;
+	default:
+		break;
+	}
+}
+
+/* Key is the BGP instance's vrf_id plus the neighbor address in su_remote,
+ * without the port. Loc-RIB has no su_remote, so its address stays zero.
+ * Returns false when a real neighbor has no su_remote yet.
+ */
+static bool bmp_bgp_peer_set_key(struct bmp_bgp_peer *bbpeer, struct peer *peer)
+{
+	memset(bbpeer, 0, sizeof(*bbpeer));
+	bbpeer->vrf_id = peer->bgp->vrf_id;
+
+	if (peer->bgp->peer_self == peer)
+		return true;
+
+	if (!peer->connection->su_remote)
+		return false;
+
+	bmp_remote_addr(&bbpeer->remote, peer->connection->su_remote);
+
+	return true;
+}
+
+static struct bmp_bgp_peer *bmp_bgp_peer_find(struct peer *peer)
+{
+	struct bmp_bgp_peer dummy;
+
+	if (!bmp_bgp_peer_set_key(&dummy, peer))
+		return NULL;
+
 	return bmp_peerh_find(&bmp_peerh, &dummy);
 }
 
 static struct bmp_bgp_peer *bmp_bgp_peer_get(struct peer *peer)
 {
-	struct bmp_bgp_peer *bbpeer;
+	struct bmp_bgp_peer *bbpeer, dummy;
 
-	bbpeer = bmp_bgp_peer_find(peer->qobj_node.nid);
+	if (!bmp_bgp_peer_set_key(&dummy, peer))
+		return NULL;
+
+	bbpeer = bmp_peerh_find(&bmp_peerh, &dummy);
 	if (bbpeer)
 		return bbpeer;
 
 	bbpeer = XCALLOC(MTYPE_BMP_PEER, sizeof(*bbpeer));
-	bbpeer->peerid = peer->qobj_node.nid;
+	bbpeer->vrf_id = dummy.vrf_id;
+	bbpeer->remote = dummy.remote;
 	bmp_peerh_add(&bmp_peerh, bbpeer);
 
 	return bbpeer;
+}
+
+/* True when some other still-live peer in this VRF has the same neighbor
+ * address. Dual TCP connections (the config peer and its doppelganger)
+ * share one bmp_bgp_peer and must not free it while either remains.
+ */
+static bool bmp_bgp_peer_addr_in_use(struct peer *peer)
+{
+	struct listnode *bnode, *node;
+	struct bgp *bgp;
+	struct peer *other;
+	union sockunion want, got;
+
+	if (peer->bgp->peer_self == peer)
+		return false;
+
+	if (!peer->connection->su_remote)
+		return false;
+
+	bmp_remote_addr(&want, peer->connection->su_remote);
+	for (ALL_LIST_ELEMENTS_RO(bm->bgp, bnode, bgp)) {
+		if (bgp->vrf_id != peer->bgp->vrf_id)
+			continue;
+
+		for (ALL_LIST_ELEMENTS_RO(bgp->peer, node, other)) {
+			if (other == peer || !other->connection ||
+			    other->connection->status == Deleted)
+				continue;
+			if (!other->connection->su_remote)
+				continue;
+
+			bmp_remote_addr(&got, other->connection->su_remote);
+			if (sockunion_cmp(&want, &got) == 0)
+				return true;
+		}
+	}
+
+	return false;
 }
 
 static struct bmp_targets *bmp_targets_find1(struct bgp *bgp, const char *name)
@@ -2586,6 +2786,8 @@ static void bmp_targets_put(struct bmp_targets *bt)
 
 	XFREE(MTYPE_BMP_ACLNAME, bt->acl_name);
 	XFREE(MTYPE_BMP_ACLNAME, bt->acl6_name);
+	XFREE(MTYPE_BMP_INITIATION, bt->sysdescr);
+	XFREE(MTYPE_BMP_INITIATION, bt->sysname);
 	bmp_session_fini(&bt->sessions);
 
 	XFREE(MTYPE_BMP_TARGETSNAME, bt->name);
@@ -2909,8 +3111,11 @@ static void bmp_active_thread(struct event *t)
 			vrf_id = VRF_DEFAULT;
 		else
 			vrf_id = ba->targets->bgp->vrf_id;
-		resolver_resolve(&ba->resq, AF_UNSPEC, vrf_id, ba->hostname,
-				 bmp_active_resolved);
+		/* The resolver needs privileges to enter and leave a VRF netns. */
+		frr_with_privs(&bgpd_privs) {
+			resolver_resolve(&ba->resq, AF_UNSPEC, vrf_id,
+					 ba->hostname, bmp_active_resolved);
+		}
 		return;
 	}
 
@@ -3238,6 +3443,69 @@ DEFPY(bmp_acl,
 
 	return CMD_SUCCESS;
 }
+
+DEFPY(bmp_initiation_cfg,
+      bmp_initiation_cmd,
+      "bmp initiation <sysDescr|sysName>$info LINE...",
+      BMP_STR
+      "BMP Initiation message\n"
+      "System description, by default the FRR version\n"
+      "System name, by default the hostname\n"
+      "String to send\n")
+{
+	VTY_DECLVAR_CONTEXT_SUB(bmp_targets, bt);
+	char **what;
+	int idx = 0;
+	char *str;
+
+	if (!strcmp(info, "sysDescr"))
+		what = &bt->sysdescr;
+	else
+		what = &bt->sysname;
+
+	argv_find(argv, argc, "LINE", &idx);
+	str = argv_concat(argv, argc, idx);
+	if (strlen(str) > BMP_INIT_INFO_SYS_MAX_LEN) {
+		vty_out(vty, "%% %s length should be at most %d chars\n", info,
+			BMP_INIT_INFO_SYS_MAX_LEN);
+		XFREE(MTYPE_TMP, str);
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+	XFREE(MTYPE_BMP_INITIATION, *what);
+	*what = XSTRDUP(MTYPE_BMP_INITIATION, str);
+	XFREE(MTYPE_TMP, str);
+
+	return CMD_SUCCESS;
+}
+
+DEFPY(no_bmp_initiation_cfg,
+      no_bmp_initiation_cmd,
+      "no bmp initiation <sysDescr|sysName>$info",
+      NO_STR
+      BMP_STR
+      "BMP Initiation message\n"
+      "System description, by default the FRR version\n"
+      "System name, by default the hostname\n")
+{
+	VTY_DECLVAR_CONTEXT_SUB(bmp_targets, bt);
+
+	if (!strcmp(info, "sysDescr"))
+		XFREE(MTYPE_BMP_INITIATION, bt->sysdescr);
+	else
+		XFREE(MTYPE_BMP_INITIATION, bt->sysname);
+
+	return CMD_SUCCESS;
+}
+
+ALIAS(no_bmp_initiation_cfg,
+      no_bmp_initiation_line_cmd,
+      "no bmp initiation <sysDescr|sysName>$info LINE...",
+      NO_STR
+      BMP_STR
+      "BMP Initiation message\n"
+      "System description, by default the FRR version\n"
+      "System name, by default the hostname\n"
+      "String to send\n")
 
 DEFPY(bmp_stats_cfg,
       bmp_stats_cmd,
@@ -3571,6 +3839,10 @@ static int bmp_config_write(struct bgp *bgp, struct vty *vty)
 			vty_out(vty, "  ipv6 access-list %s\n", bt->acl6_name);
 		if (bt->acl_name)
 			vty_out(vty, "  ip access-list %s\n", bt->acl_name);
+		if (bt->sysdescr)
+			vty_out(vty, "  bmp initiation sysDescr %s\n", bt->sysdescr);
+		if (bt->sysname)
+			vty_out(vty, "  bmp initiation sysName %s\n", bt->sysname);
 
 		if (!bt->stats_send_experimental)
 			vty_out(vty, "  no bmp stats send-experimental\n");
@@ -3634,6 +3906,9 @@ static int bgp_bmp_init(struct event_loop *tm)
 	install_element(BMP_NODE, &no_bmp_listener_cmd);
 	install_element(BMP_NODE, &bmp_connect_cmd);
 	install_element(BMP_NODE, &bmp_acl_cmd);
+	install_element(BMP_NODE, &bmp_initiation_cmd);
+	install_element(BMP_NODE, &no_bmp_initiation_cmd);
+	install_element(BMP_NODE, &no_bmp_initiation_line_cmd);
 	install_element(BMP_NODE, &bmp_stats_send_experimental_cmd);
 	install_element(BMP_NODE, &bmp_stats_cmd);
 	install_element(BMP_NODE, &bmp_monitor_cmd);
@@ -3690,7 +3965,11 @@ static int bmp_route_update_bgpbmp(struct bmp_targets *bt, afi_t afi, safi_t saf
 {
 	bool is_withdraw = old_route && !new_route;
 	struct bgp_path_info *updated_route = is_withdraw ? old_route : new_route;
-	struct peer *peer = updated_route->peer;
+	/* The Loc-RIB holds one path per prefix, so its queue items are keyed
+	 * by the instance and not by a peer that can go down or be deleted
+	 * before the queue is written.
+	 */
+	struct peer *peer = updated_route->peer->bgp->peer_self;
 	struct bmp *bmp;
 	struct bmp_queue_entry *last_item;
 

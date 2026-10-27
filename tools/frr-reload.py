@@ -36,7 +36,10 @@ log = logging.getLogger(__name__)
 
 
 class VtyshException(Exception):
-    pass
+    def __init__(self, *args, **kwargs):
+        super(VtyshException, self).__init__(*args)
+        self.stderr = kwargs.get("stderr", None)
+        self.stdout = kwargs.get("stdout", None)
 
 
 class Vtysh(object):
@@ -146,7 +149,9 @@ class Vtysh(object):
                 sys.stderr.flush()
             raise VtyshException(
                 "vtysh (exec file) exited with status %d:\n%s"
-                % (child.returncode, combined)
+                % (child.returncode, combined),
+                stderr=err,
+                stdout=out,
             )
         # Success: stdout is the CLI session, stderr is vtysh warnings
         # (reconnect). Piping would otherwise drop both.
@@ -1533,6 +1538,48 @@ def ignore_delete_re_add_lines(lines_to_add, lines_to_del):
     lines_to_add_to_del = []
     lines_to_del_to_del = []
 
+    def evpn_advertise_options(advertise_line):
+        if not advertise_line:
+            return None
+
+        words = advertise_line.split()
+        # bgpd accepts the unicast and vpn SAFIs here and rejects the rest, so
+        # no other SAFI can reach a running configuration. The vpn form takes
+        # only a route-map; gateway-ip and skip-evpn-imported are unicast only.
+        if len(words) < 3 or words[:3] not in (
+            ["advertise", "ipv4", "unicast"],
+            ["advertise", "ipv6", "unicast"],
+            ["advertise", "ipv4", "vpn"],
+            ["advertise", "ipv6", "vpn"],
+        ):
+            return None
+
+        # The word after route-map is a name and may match an option keyword.
+        gateway_ip = False
+        route_map = None
+        skip_evpn_imported = False
+        i = 3
+        while i < len(words):
+            if words[i] == "route-map":
+                if i + 1 < len(words):
+                    route_map = words[i + 1]
+                i += 2
+                continue
+            if words[i] == "gateway-ip":
+                gateway_ip = True
+            elif words[i] == "skip-evpn-imported":
+                skip_evpn_imported = True
+            i += 1
+
+        return {
+            "base": " ".join(words[:3]),
+            "gateway_ip": gateway_ip,
+            "route_map": route_map,
+            "skip_evpn_imported": skip_evpn_imported,
+        }
+
+    evpn_option_deletes = []
+
     index = -1
     for ctx_keys, line in lines_to_del:
         deleted = False
@@ -1800,6 +1847,90 @@ def ignore_delete_re_add_lines(lines_to_add, lines_to_del):
                 if found_table_map:
                     lines_to_del_to_del.append((ctx_keys, line))
 
+            evpn_options = evpn_advertise_options(line)
+            if evpn_options:
+                desired_advertise = None
+                for add_ctx_keys, add_line in lines_to_add:
+                    if add_ctx_keys != ctx_keys:
+                        continue
+                    add_options = evpn_advertise_options(add_line)
+                    if add_options and add_options["base"] == evpn_options["base"]:
+                        desired_advertise = (add_ctx_keys, add_line, add_options)
+                        break
+
+                if desired_advertise:
+                    add_ctx_keys, add_line, add_options = desired_advertise
+                    # Each parsed command records its base command, overlay
+                    # index, route-map, and skip option. For example, changing
+                    # "advertise ipv4 unicast route-map map1 skip-evpn-imported"
+                    # to "advertise ipv4 unicast skip-evpn-imported" produces:
+                    # evpn_options = {"base": "advertise ipv4 unicast",
+                    #                 "gateway_ip": False, "route_map": "map1",
+                    #                 "skip_evpn_imported": True}
+                    # add_options = {"base": "advertise ipv4 unicast",
+                    #                "gateway_ip": False, "route_map": None,
+                    #                "skip_evpn_imported": True}
+                    route_map_removed = (
+                        evpn_options["route_map"] and not add_options["route_map"]
+                    )
+                    skip_removed = (
+                        evpn_options["skip_evpn_imported"]
+                        and not add_options["skip_evpn_imported"]
+                    )
+                    route_map_added_or_changed = add_options["route_map"] and (
+                        add_options["route_map"] != evpn_options["route_map"]
+                    )
+                    skip_added = (
+                        add_options["skip_evpn_imported"]
+                        and not evpn_options["skip_evpn_imported"]
+                    )
+                    gateway_ip_removed = (
+                        evpn_options["gateway_ip"] and not add_options["gateway_ip"]
+                    )
+                    gateway_ip_added = (
+                        add_options["gateway_ip"] and not evpn_options["gateway_ip"]
+                    )
+
+                    # gateway-ip, route-map and skip-evpn-imported are updated
+                    # independently. Do not turn an option change into a bare
+                    # "no advertise", because that disables Type-5 export
+                    # before the replacement command can apply the requested
+                    # option state.
+                    lines_to_del_to_del.append((ctx_keys, line))
+
+                    # If route-map is deleted, add its no form.
+                    if route_map_removed:
+                        evpn_option_deletes.append(
+                            (
+                                ctx_keys,
+                                "%s route-map %s"
+                                % (evpn_options["base"], evpn_options["route_map"]),
+                            )
+                        )
+                    # If skip-evpn-imported is deleted, add its no form.
+                    if skip_removed:
+                        evpn_option_deletes.append(
+                            (ctx_keys, "%s skip-evpn-imported" % evpn_options["base"])
+                        )
+
+                    # If gateway-ip is deleted, add its no form.
+                    if gateway_ip_removed:
+                        evpn_option_deletes.append(
+                            (ctx_keys, "%s gateway-ip" % evpn_options["base"])
+                        )
+
+                    # Removes the desired positive command from lines_to_add.
+                    if (
+                        not route_map_added_or_changed
+                        and not skip_added
+                        and not gateway_ip_added
+                    ):
+                        lines_to_add_to_del.append((add_ctx_keys, add_line))
+                else:
+                    # When the whole command is removed, render the bare
+                    # "no advertise <afi> <safi>" to disable Type-5 export.
+                    lines_to_del[index] = (ctx_keys, evpn_options["base"])
+
         # More old-to-new config handling. ip import-table no longer accepts
         # distance, but we honor the old syntax. But 'show running' shows only
         # the new syntax. This causes an unnecessary 'no import-table' followed
@@ -2008,6 +2139,8 @@ def ignore_delete_re_add_lines(lines_to_add, lines_to_del):
                     if found_add_line:
                         lines_to_del_to_del.append((ctx_keys, line))
                         lines_to_add_to_del.append((tmp_ctx_keys, line))
+
+    lines_to_del.extend(evpn_option_deletes)
 
     for ctx_keys, line in lines_to_del_to_del:
         try:
@@ -2447,8 +2580,9 @@ def delete_via_vtysh_file(ctx_keys, line):
     Per-line deletes each trigger a full mgmtd commit. At scale that blows
     past systemd's ExecReload TimeoutSec (e.g. hundreds of L3VNI unsets under
     "vrf NAME", thousands of EVPN "route-target import" unsets under
-    "router bgp ... vrf ...", or a thousand "route-map" unsets). Batching
-    keeps one commit for the whole set.
+    "router bgp ... vrf ...", tens of thousands of originated "network"
+    prefixes under a BGP address-family, or a thousand "route-map" unsets).
+    Batching keeps one commit for the whole set.
     """
     if not ctx_keys:
         return False
@@ -2481,6 +2615,9 @@ def delete_via_vtysh_file(ctx_keys, line):
     if ctx_keys[0].startswith("router bgp") and line.lstrip().startswith(
         "route-target "
     ):
+        return True
+    # Batch-delete complete [no] network commands
+    if ctx_keys[0].startswith("router bgp") and line.lstrip().startswith("network "):
         return True
 
     return False
@@ -2792,8 +2929,17 @@ def delete_line_with_vtysh(vtysh, ctx_keys, line):
     reload.
     """
     cmd = lines_to_config(ctx_keys, line, True)
-    original_cmd = cmd
     vrf_ctx_del = is_vrf_context_delete(ctx_keys, line)
+
+    # Create a copy of list `cmd` instead of pointing to `cmd`, because
+    # it will be modified later in the loop below.
+    original_cmd = list(cmd)
+
+    # `lines_to_config()` closes every context it opens with "exit", so the
+    # command to trim is the last line that is not an "exit".
+    cmd_index = len(cmd) - 1
+    while cmd_index > 0 and cmd[cmd_index].strip() == "exit":
+        cmd_index -= 1
 
     while True:
         try:
@@ -2825,21 +2971,140 @@ def delete_line_with_vtysh(vtysh, ctx_keys, line):
             # - Split that last entry by whitespace and drop the last word
             log.error("Failed to execute %s", " ".join(cmd))
             log.error("%s", e)
-            last_arg = cmd[-1].split(" ")
+            no_line = cmd[cmd_index]
+            indent = no_line[: len(no_line) - len(no_line.lstrip())]
+            words = no_line.split()
 
-            if len(last_arg) <= 2:
+            if len(words) <= 2:
                 log.error(
                     '"%s" we failed to remove this command',
                     " -- ".join(original_cmd),
                 )
                 return False
 
-            new_last_arg = last_arg[0:-1]
-            cmd[-1] = " ".join(new_last_arg)
+            cmd[cmd_index] = indent + " ".join(words[:-1])
         else:
             # Success is not logged here: lines_to_del is logged upfront before
             # deletes run (see reload path), matching ADD's avoid-double-log.
             return True
+
+
+def get_failed_line_nums(stderr):
+    """
+    Extract the line numbers vtysh -f reported as failed from its stderr.
+
+    Example stderr:
+      line 7: % Unknown command[4]: ...
+      line 11: Failure to communicate[13] to bgpd, line: ...
+    """
+    failed_line_nums = set()
+    for line in (stderr or "").split("\n"):
+        match = re.match(r"^line (\d+):", line)
+        if match:
+            failed_line_nums.add(int(match.group(1)))
+    return failed_line_nums
+
+
+def get_early_exit_line_num(stderr):
+    """
+    Return the line where vtysh -f stopped reading the file, or None.
+
+    When vtysh rejects the line that enters a context, it stays at the config
+    node, and the "exit" closing that context leaves the file:
+      line 5: Warning[4]...: early exit from config file
+    """
+    line_nums = [
+        int(match.group(1))
+        for match in re.finditer(
+            r"^line (\d+):.*early exit from config file", stderr or "", re.M
+        )
+    ]
+    return min(line_nums) if line_nums else None
+
+
+def exec_delete_lines(vtysh, rundir, entries):
+    """
+    Apply line deletes as one "vtysh -f" file instead of one "vtysh -c" call
+    per line, keeping the original order. Each delete is followed by a "!"
+    line.
+
+    On failure, only the entries whose file lines vtysh reported as failed are
+    retried through delete_line_with_vtysh(), which trims trailing words until
+    a "picky" no is accepted. If vtysh failed without naming a line (e.g. the
+    commit at the end of the file was rejected and rolled back), every entry
+    is retried that way. If vtysh stopped reading the file early (a rejected
+    context line), the entries it never read are applied again as a new file.
+
+    Returns True on success, False if any line could not be removed.
+    """
+    entries = [(ctx_keys, line) for ctx_keys, line in entries if line != "!"]
+    if not entries:
+        return True
+
+    random_string = "".join(
+        random.SystemRandom().choice(string.ascii_uppercase + string.digits)
+        for _ in range(6)
+    )
+    filename = rundir + "/reload-del-%s.txt" % random_string
+
+    # (first line, last line) of each entry in the file, 1-based
+    entry_lines = []
+    file_lines = []
+    for ctx_keys, line in entries:
+        cmd = lines_to_config(ctx_keys, line, True)
+        entry_lines.append((len(file_lines) + 1, len(file_lines) + len(cmd)))
+        file_lines.extend(cmd)
+        file_lines.append("!")
+
+    log.info("%s content\n%s" % (filename, pformat(file_lines)))
+
+    # Flush log before vtysh.exec_file() so content is preserved if crash occurs
+    for handler in log.handlers:
+        handler.flush()
+
+    with open(filename, "w") as fh:
+        for line in file_lines:
+            fh.write(line + "\n")
+
+    try:
+        vtysh.exec_file(filename)
+        return True
+    except VtyshException as e:
+        failed_line_nums = get_failed_line_nums(e.stderr)
+        early_exit_line_num = get_early_exit_line_num(e.stderr)
+        commit_failed = "% Configuration failed." in (e.stdout or "")
+        log.info("Failed to execute deletion script due to\n%s" % (e,))
+    finally:
+        try:
+            os.unlink(filename)
+        except OSError:
+            pass
+
+    unread = []
+    if failed_line_nums and not commit_failed:
+        retry = [
+            entry
+            for entry, (first, last) in zip(entries, entry_lines)
+            if any(first <= num <= last for num in failed_line_nums)
+        ]
+        if early_exit_line_num is not None:
+            unread = [
+                entry
+                for entry, (first, _) in zip(entries, entry_lines)
+                if first > early_exit_line_num
+            ]
+    else:
+        retry = entries
+
+    exec_success = True
+    for ctx_keys, line in retry:
+        if not delete_line_with_vtysh(vtysh, ctx_keys, line):
+            exec_success = False
+    if unread:
+        log.info("vtysh stopped at line %d, applying the rest" % early_exit_line_num)
+        if not exec_delete_lines(vtysh, rundir, unread):
+            exec_success = False
+    return exec_success
 
 
 if __name__ == "__main__":
@@ -3201,15 +3466,19 @@ if __name__ == "__main__":
                 # as a single "vtysh -f" batch (below) to avoid the per-line
                 # "vtysh -c" timeouts seen at scale (e.g. hundreds of L3VNI
                 # unsets under "vrf NAME", thousands of EVPN route-target
-                # unsets under "router bgp ... vrf ...", or a thousand
-                # "route-map" unsets). The rest stay in lines_to_del
-                # and go through the per-line delete path.
+                # unsets under "router bgp ... vrf ...", tens of thousands of
+                # originated "network" prefixes under a BGP address-family, or
+                # a thousand "route-map" unsets). The rest stay in
+                # lines_to_del and go through the per-line delete path.
                 # old way:
                 #   vtysh -c 'configure' -c 'vrf vrf1' -c ' no vni 4001' -c 'exit'
                 #   vtysh -c 'configure' -c 'vrf vrf2' -c ' no vni 4002' -c 'exit'
                 #   vtysh -c 'configure' -c 'router bgp 1 vrf vrf_shared1' \
                 #        -c 'address-family l2vpn evpn' \
                 #        -c ' no route-target import 1:1' -c 'exit' -c 'exit'
+                #   vtysh -c 'configure' -c 'router bgp 1 vrf GREEN' \
+                #        -c 'address-family ipv4 unicast' \
+                #        -c ' no network 10.0.0.1/32' -c 'exit' -c 'exit'
                 #   vtysh -c 'configure' -c 'no route-map rmap1 permit 10'
                 #   vtysh -c 'configure' -c 'route-map rmap2 permit 10' \
                 #        -c ' no set metric 10'
@@ -3228,6 +3497,13 @@ if __name__ == "__main__":
                 #      address-family l2vpn evpn
                 #       no route-target import 1:1 1:2
                 #       no route-target export 2:1
+                #      exit
+                #     exit
+                #
+                #     router bgp 1 vrf GREEN
+                #      address-family ipv4 unicast
+                #       no network 10.0.0.1/32
+                #       no network 10.0.0.2/32
                 #      exit
                 #     exit
                 #
@@ -3277,14 +3553,12 @@ if __name__ == "__main__":
                             if not delete_line_with_vtysh(vtysh, ctx_keys, line):
                                 reload_ok = False
 
-                # Apply the remaining (non-batched) deletes per line.
-                # This includes "router bgp ... vrf NAME", which
-                # delete_move_lines() pushes to the end of lines_to_del.
-                for ctx_keys, line in lines_to_del:
-                    if line == "!":
-                        continue
-                    if not delete_line_with_vtysh(vtysh, ctx_keys, line):
-                        reload_ok = False
+                # Apply the remaining deletes as one ordered vtysh -f file,
+                # retrying only the lines vtysh rejected per line (see
+                # exec_delete_lines). This includes "router bgp ... vrf NAME",
+                # which delete_move_lines() pushes to the end of lines_to_del.
+                if not exec_delete_lines(vtysh, args.rundir, lines_to_del):
+                    reload_ok = False
 
                 # "no vrf NAME" last, as its own vtysh -f file. A refused
                 # "no vrf" is one transaction and must not roll back the

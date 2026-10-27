@@ -229,9 +229,12 @@ static int group_announce_route_walkcb(struct update_group *updgrp, void *arg)
 	peer = UPDGRP_PEER(updgrp);
 	addpath_capable = bgp_addpath_encode_tx(peer, afi, safi);
 
-	if (BGP_DEBUG(update, UPDATE_OUT))
-		zlog_debug("%s: afi=%s, safi=%s, p=%pBD", __func__,
-			   afi2str(afi), safi2str(safi), ctx->dest);
+	if (BGP_DEBUG(update, UPDATE_OUT)) {
+		struct bgp_debug_vrf dv = bgp_dest_debug_vrf(ctx->dest);
+
+		zlog_debug("%s: afi=%s, safi=%s, p=(%s:%u:%u)%pBD", __func__, afi2str(afi),
+			   safi2str(safi), dv.name, dv.id, dv.table_id, ctx->dest);
+	}
 
 	UPDGRP_FOREACH_SUBGRP (updgrp, subgrp) {
 		/* An update-group that uses addpath */
@@ -552,6 +555,11 @@ bool bgp_adj_out_set_subgroup(struct bgp_dest *dest,
 	struct bgp *bgp;
 	struct attr *attr_new;
 	bool debug;
+	struct bgp_debug_vrf dv = {
+		.name = "Unknown",
+		.id = VRF_UNKNOWN,
+		.table_id = 0,
+	};
 
 	peer = SUBGRP_PEER(subgrp);
 	afi = SUBGRP_AFI(subgrp);
@@ -562,6 +570,8 @@ bool bgp_adj_out_set_subgroup(struct bgp_dest *dest,
 		return false;
 
 	debug = BGP_DEBUG(update, UPDATE_OUT);
+	if (debug)
+		dv = bgp_dest_debug_vrf(dest);
 
 	/* Look for adjacency information. */
 	adj = adj_lookup(
@@ -603,8 +613,9 @@ bool bgp_adj_out_set_subgroup(struct bgp_dest *dest,
 
 			bgp_dump_attr(attr_new, attr_str, sizeof(attr_str));
 
-			zlog_debug("%s suppress UPDATE %pBD w/ attr: %s, afi=%s, safi=%s",
-				   peer->host, dest, attr_str, afi2str(afi), safi2str(safi));
+			zlog_debug("%s suppress UPDATE (%s:%u:%u)%pBD w/ attr: %s, afi=%s, safi=%s",
+				   peer->host, dv.name, dv.id, dv.table_id, dest, attr_str,
+				   afi2str(afi), safi2str(safi));
 		}
 
 		/*
@@ -614,8 +625,9 @@ bool bgp_adj_out_set_subgroup(struct bgp_dest *dest,
 		 */
 		if (adj->adv && (attr_new == adj->attr)) {
 			if (debug) {
-				zlog_debug("%s delete queued UPDATE %pBD, afi=%s, safi=%s",
-					   peer->host, dest, afi2str(afi), safi2str(safi));
+				zlog_debug("%s delete queued UPDATE (%s:%u:%u)%pBD, afi=%s, safi=%s",
+					   peer->host, dv.name, dv.id, dv.table_id, dest,
+					   afi2str(afi), safi2str(safi));
 			}
 
 			bgp_advertise_clean_subgroup(subgrp, adj);
@@ -663,8 +675,8 @@ bool bgp_adj_out_set_subgroup(struct bgp_dest *dest,
 	bgp_advertise_add(adv->baa, adv);
 
 	if (debug) {
-		zlog_debug("%s queue UPDATE %pBD, afi=%s, safi=%s", peer->host, dest, afi2str(afi),
-			   safi2str(safi));
+		zlog_debug("%s queue UPDATE (%s:%u:%u)%pBD, afi=%s, safi=%s", peer->host, dv.name,
+			   dv.id, dv.table_id, dest, afi2str(afi), safi2str(safi));
 	}
 
 	/*
@@ -748,12 +760,15 @@ void bgp_adj_out_unset_subgroup(struct bgp_dest *dest, struct update_subgroup *s
 			bgp_adv_fifo_add_tail(&subgrp->sync->withdraw, adv);
 
 			if (BGP_DEBUG(update, UPDATE_OUT)) {
+				struct bgp_debug_vrf dv = bgp_dest_debug_vrf(dest);
+
 				peer = SUBGRP_PEER(subgrp);
 				afi = SUBGRP_AFI(subgrp);
 				safi = SUBGRP_SAFI(subgrp);
 
-				zlog_debug("%s queue UPDATE (withdraw) %pBD, afi=%s, safi=%s",
-					   peer->host, dest, afi2str(afi), safi2str(safi));
+				zlog_debug("%s queue UPDATE (withdraw) (%s:%u:%u)%pBD, afi=%s, safi=%s",
+					   peer->host, dv.name, dv.id, dv.table_id, dest,
+					   afi2str(afi), safi2str(safi));
 			}
 		} else {
 			/* Free allocated information.  */
@@ -1022,6 +1037,10 @@ void subgroup_default_originate(struct update_subgroup *subgrp, bool withdraw)
 					if (new_pref < pref) {
 						pref = new_pref;
 						bgp_attr_flush(new_attr);
+						/* Clear reflection attributes - default-originate
+						 * is self-originated, not reflected.
+						 */
+						bgp_attr_clear_reflection(tmp_pi.attr);
 						new_attr = bgp_attr_intern(
 							tmp_pi.attr);
 					}
@@ -1096,6 +1115,7 @@ void subgroup_default_originate(struct update_subgroup *subgrp, bool withdraw)
 	} else {
 		if (!CHECK_FLAG(subgrp->sflags,
 				SUBGRP_STATUS_DEFAULT_ORIGINATE)) {
+			struct attr attr_copy;
 
 			/* The 'neighbor x.x.x.x default-originate' default will
 			 * act as an
@@ -1128,9 +1148,19 @@ void subgroup_default_originate(struct update_subgroup *subgrp, bool withdraw)
 			    (CHECK_FLAG(peer->flags, PEER_FLAG_GRACEFUL_SHUTDOWN)))
 				bgp_attr_add_gshut_community(new_attr);
 
+			/*
+			 * Prepend local-AS for EBGP. Make a copy first since
+			 * new_attr may be interned (shared) when route-map
+			 * matched, and modifying it in place would corrupt
+			 * the attribute hash.
+			 */
+			bgp_attr_dup_into(&attr_copy, new_attr);
+			bgp_peer_prepend_local_as(peer, afi, safi, &attr_copy);
+
 			SET_FLAG(subgrp->sflags,
 				 SUBGRP_STATUS_DEFAULT_ORIGINATE);
-			subgroup_default_update_packet(subgrp, new_attr, from);
+			subgroup_default_update_packet(subgrp, &attr_copy, from);
+			bgp_attr_flush(&attr_copy);
 		}
 	}
 

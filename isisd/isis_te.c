@@ -1260,10 +1260,12 @@ static int lsp_to_subnet_cb(const struct prefix *prefix, uint32_t metric, bool e
 		return LSP_ITER_CONTINUE;
 
 	if (args->srv6_locator)
-		te_debug("  |- Process SRv6 Locator %pFX", prefix);
+		te_debug("  |- Process SRv6 Locator (%s:%u:%u)%pFX",
+			 ISIS_DEBUG_VRF_ID(VRF_DEFAULT), prefix);
 	else
-		te_debug("  |- Process Extended %s Reachability %pFX",
-			 prefix->family == AF_INET ? "IP" : "IPv6", prefix);
+		te_debug("  |- Process Extended %s Reachability (%s:%u:%u)%pFX",
+			 prefix->family == AF_INET ? "IP" : "IPv6", ISIS_DEBUG_VRF_ID(VRF_DEFAULT),
+			 prefix);
 
 	vertex = args->vertex;
 
@@ -1321,10 +1323,13 @@ static int lsp_to_subnet_cb(const struct prefix *prefix, uint32_t metric, bool e
 				subnet->status = DELETE;
 				isis_te_export(LS_MSG_TYPE_PREFIX, subnet);
 			}
-			te_debug("   |- Remove subnet with prefix %pFX", &subnet->key);
+			te_debug("   |- Remove subnet with prefix (%s:%u:%u)%pFX",
+				 ISIS_DEBUG_VRF_ID(VRF_DEFAULT), &subnet->key);
 			ls_subnet_del_all(args->ted, subnet);
 		}
-		te_debug("   |- Adjust prefix %pFX with local address to: %pFX", prefix, &p);
+		te_debug("   |- Adjust prefix (%s:%u:%u)%pFX with local address to: (%s:%u:%u)%pFX",
+			 ISIS_DEBUG_VRF_ID(VRF_DEFAULT), prefix, ISIS_DEBUG_VRF_ID(VRF_DEFAULT),
+			 &p);
 	}
 
 	/* Search existing Subnet in TED ... */
@@ -1339,8 +1344,8 @@ static int lsp_to_subnet_cb(const struct prefix *prefix, uint32_t metric, bool e
 	}
 	ls_pref = subnet->ls_pref;
 
-	te_debug("   |- %s Subnet from prefix %pFX", subnet->status == NEW ? "Create" : "Found",
-		 &p);
+	te_debug("   |- %s Subnet from prefix (%s:%u:%u)%pFX",
+		 subnet->status == NEW ? "Create" : "Found", ISIS_DEBUG_VRF_ID(VRF_DEFAULT), &p);
 
 	/* Update Metric */
 	if (!CHECK_FLAG(ls_pref->flags, LS_PREF_METRIC) || (ls_pref->metric != metric)) {

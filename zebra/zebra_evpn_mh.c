@@ -4134,16 +4134,23 @@ void zebra_evpn_proc_remote_nh(ZAPI_HANDLER_ARGS)
 
 	if (hdr->command == ZEBRA_EVPN_REMOTE_NH_ADD) {
 		stream_get(&rmac, s, sizeof(rmac));
-		if (IS_ZEBRA_DEBUG_EVPN_MH_ES)
-			zlog_debug(
-				"evpn remote nh %d %pIA rmac %pEA add pfx %pFX",
-				vrf_id, &nh, &rmac, &dummy_prefix);
+		if (IS_ZEBRA_DEBUG_EVPN_MH_ES) {
+			struct zebra_vrf *nh_zvrf = zebra_vrf_lookup_by_id(vrf_id);
+
+			zlog_debug("evpn remote nh %pIA rmac %pEA add (%s:%u:%u)%pFX", &nh, &rmac,
+				   zvrf_name(nh_zvrf), vrf_id, nh_zvrf ? nh_zvrf->table_id : 0,
+				   &dummy_prefix);
+		}
 		zebra_rib_queue_evpn_route_add(vrf_id, &rmac, &nh,
 					       (struct prefix *)&dummy_prefix);
 	} else {
-		if (IS_ZEBRA_DEBUG_EVPN_MH_ES)
-			zlog_debug("evpn remote nh %d %pIA del pfx %pFX",
-				   vrf_id, &nh, &dummy_prefix);
+		if (IS_ZEBRA_DEBUG_EVPN_MH_ES) {
+			struct zebra_vrf *nh_zvrf = zebra_vrf_lookup_by_id(vrf_id);
+
+			zlog_debug("evpn remote nh %pIA del (%s:%u:%u)%pFX", &nh,
+				   zvrf_name(nh_zvrf), vrf_id, nh_zvrf ? nh_zvrf->table_id : 0,
+				   &dummy_prefix);
+		}
 		zebra_rib_queue_evpn_route_del(vrf_id, &nh,
 					       (struct prefix *)&dummy_prefix);
 	}

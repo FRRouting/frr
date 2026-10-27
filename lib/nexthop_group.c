@@ -568,16 +568,16 @@ static int nhgl_cmp(struct nexthop_hold *nh1, struct nexthop_hold *nh2)
 
 static void nhgl_delete(struct nexthop_hold *nh)
 {
-	XFREE(MTYPE_TMP, nh->intf);
+	XFREE(MTYPE_NEXTHOP_GROUP, nh->intf);
 
-	XFREE(MTYPE_TMP, nh->nhvrf_name);
+	XFREE(MTYPE_NEXTHOP_GROUP, nh->nhvrf_name);
 
 	if (nh->addr)
 		sockunion_free(nh->addr);
 
-	XFREE(MTYPE_TMP, nh->labels);
+	XFREE(MTYPE_NEXTHOP_GROUP, nh->labels);
 
-	XFREE(MTYPE_TMP, nh);
+	XFREE(MTYPE_NEXTHOP_GROUP, nh);
 }
 
 static struct nexthop_group_cmd *nhgc_get(const char *name)
@@ -586,7 +586,7 @@ static struct nexthop_group_cmd *nhgc_get(const char *name)
 
 	nhgc = nhgc_find(name);
 	if (!nhgc) {
-		nhgc = XCALLOC(MTYPE_TMP, sizeof(*nhgc));
+		nhgc = XCALLOC(MTYPE_NEXTHOP_GROUP, sizeof(*nhgc));
 		strlcpy(nhgc->name, name, sizeof(nhgc->name));
 
 		QOBJ_REG(nhgc, nexthop_group_cmd);
@@ -615,7 +615,7 @@ static void nhgc_delete(struct nexthop_group_cmd *nhgc)
 	list_delete(&nhgc->nhg_list);
 
 	QOBJ_UNREG(nhgc);
-	XFREE(MTYPE_TMP, nhgc);
+	XFREE(MTYPE_NEXTHOP_GROUP, nhgc);
 }
 
 DEFINE_QOBJ_TYPE(nexthop_group_cmd);
@@ -726,23 +726,23 @@ static void nexthop_group_save_nhop(struct nexthop_group_cmd *nhgc,
 {
 	struct nexthop_hold *nh;
 
-	nh = XCALLOC(MTYPE_TMP, sizeof(*nh));
+	nh = XCALLOC(MTYPE_NEXTHOP_GROUP, sizeof(*nh));
 
 	if (nhvrf_name)
-		nh->nhvrf_name = XSTRDUP(MTYPE_TMP, nhvrf_name);
+		nh->nhvrf_name = XSTRDUP(MTYPE_NEXTHOP_GROUP, nhvrf_name);
 	if (intf)
-		nh->intf = XSTRDUP(MTYPE_TMP, intf);
+		nh->intf = XSTRDUP(MTYPE_NEXTHOP_GROUP, intf);
 	if (addr)
 		nh->addr = sockunion_dup(addr);
 	if (labels)
-		nh->labels = XSTRDUP(MTYPE_TMP, labels);
+		nh->labels = XSTRDUP(MTYPE_NEXTHOP_GROUP, labels);
 
 	nh->onlink = onlink;
 
 	nh->weight = weight;
 
 	if (backup_str)
-		nh->backup_str = XSTRDUP(MTYPE_TMP, backup_str);
+		nh->backup_str = XSTRDUP(MTYPE_NEXTHOP_GROUP, backup_str);
 
 	listnode_add_sort(nhgc->nhg_list, nh);
 }

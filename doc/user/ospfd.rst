@@ -352,6 +352,7 @@ To start OSPF process you have to specify the OSPF router.
    This feature is enabled by default.
 
 .. clicmd:: shutdown
+   :daemon: ospfd
 
    Disables the OSPF instance. This command is useful when it's desired
    to disable the OSPF instance while retaining its configuration,

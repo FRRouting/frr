@@ -148,6 +148,8 @@ struct isis_circuit {
 #define ISIS_CIRCUIT_IF_DOWN_FROM_Z    0x02
 	uint8_t flags;
 	bool disable_threeway_adj;
+	/* route IPv4 over IPv6 link-local nexthops where IPv4 has none? */
+	bool ipv4_over_ipv6_nexthop;
 	struct {
 		bool enabled;
 		char *profile;

@@ -428,7 +428,8 @@ void ospf_intra_add_router(struct route_table *rt, struct vertex *v,
 	apply_mask_ipv4(&p);
 
 	if (IS_DEBUG_OSPF_EVENT)
-		zlog_debug("%s: talking about %pFX", __func__, &p);
+		zlog_debug("%s: talking about (%s:%u:%u)%pFX", __func__,
+			   OSPF_DEBUG_VRF(area->ospf), &p);
 
 	rn = route_node_get(rt, (struct prefix *)&p);
 
@@ -555,7 +556,8 @@ void ospf_intra_add_stub(struct route_table *rt, struct router_lsa_link *link,
 	apply_mask_ipv4(&p);
 
 	if (IS_DEBUG_OSPF_EVENT)
-		zlog_debug("%s: processing route to %pFX", __func__, &p);
+		zlog_debug("%s: processing route to (%s:%u:%u)%pFX", __func__,
+			   OSPF_DEBUG_VRF(area->ospf), &p);
 
 	/* (1) Calculate the distance D of stub network from the root.  D is
 	   equal to the distance from the root to the router vertex
@@ -967,7 +969,7 @@ void ospf_route_add(struct route_table *rt, struct prefix_ipv4 *p,
 	rn->info = new_or;
 }
 
-void ospf_prune_unreachable_networks(struct route_table *rt)
+void ospf_prune_unreachable_networks(struct ospf *ospf, struct route_table *rt)
 {
 	struct route_node *rn, *next;
 	struct ospf_route * or ;
@@ -981,8 +983,8 @@ void ospf_prune_unreachable_networks(struct route_table *rt)
 			or = rn->info;
 			if (listcount(or->paths) == 0) {
 				if (IS_DEBUG_OSPF_EVENT)
-					zlog_debug("Pruning route to %pFX",
-						   &rn->p);
+					zlog_debug("Pruning route to (%s:%u:%u)%pFX",
+						   OSPF_DEBUG_VRF(ospf), &rn->p);
 
 				ospf_route_free(or);
 				rn->info = NULL;
@@ -1079,7 +1081,7 @@ int ospf_add_discard_route(struct ospf *ospf, struct route_table *rt,
 	}
 
 	if (IS_DEBUG_OSPF_EVENT)
-		zlog_debug("%s: adding %pFX", __func__, p);
+		zlog_debug("%s: adding (%s:%u:%u)%pFX", __func__, OSPF_DEBUG_VRF(ospf), p);
 
 	new_or = ospf_route_new();
 	new_or->type = OSPF_DESTINATION_DISCARD;
@@ -1105,7 +1107,7 @@ void ospf_delete_discard_route(struct ospf *ospf, struct route_table *rt,
 	struct ospf_route *or;
 
 	if (IS_DEBUG_OSPF_EVENT)
-		zlog_debug("%s: deleting %pFX", __func__, p);
+		zlog_debug("%s: deleting (%s:%u:%u)%pFX", __func__, OSPF_DEBUG_VRF(ospf), p);
 
 	rn = route_node_lookup(rt, (struct prefix *)p);
 

@@ -46,19 +46,16 @@ void pim_ifassert_winner_set(struct pim_ifchannel *ch,
 
 	if (PIM_DEBUG_PIM_EVENTS) {
 		if (ch->ifassert_state != new_state) {
-			zlog_debug(
-				"%s: (S,G)=%s assert state changed from %s to %s on interface %s",
-				__func__, ch->sg_str,
-				pim_ifchannel_ifassert_name(ch->ifassert_state),
-				pim_ifchannel_ifassert_name(new_state),
-				ch->interface->name);
+			zlog_debug("%s: (S,G)=(%s:%u:%u)%s assert state changed from %s to %s on interface %s",
+				   __func__, PIM_DEBUG_VRF(ch->interface->vrf), ch->sg_str,
+				   pim_ifchannel_ifassert_name(ch->ifassert_state),
+				   pim_ifchannel_ifassert_name(new_state), ch->interface->name);
 		}
 
 		if (winner_changed)
-			zlog_debug(
-				"%s: (S,G)=%s assert winner changed from %pPAs to %pPAs on interface %s",
-				__func__, ch->sg_str, &ch->ifassert_winner,
-				&winner, ch->interface->name);
+			zlog_debug("%s: (S,G)=(%s:%u:%u)%s assert winner changed from %pPAs to %pPAs on interface %s",
+				   __func__, PIM_DEBUG_VRF(ch->interface->vrf), ch->sg_str,
+				   &ch->ifassert_winner, &winner, ch->interface->name);
 	} /* PIM_DEBUG_PIM_EVENTS */
 
 	ch->ifassert_state = new_state;
@@ -131,10 +128,9 @@ static void if_could_assert_do_a1(const char *caller, struct pim_ifchannel *ch)
 {
 	if (PIM_IF_FLAG_TEST_COULD_ASSERT(ch->flags)) {
 		if (assert_action_a1(ch)) {
-			zlog_warn(
-				"%s: %s: (S,G)=%s assert_action_a1 failure on interface %s",
-				__func__, caller, ch->sg_str,
-				ch->interface->name);
+			zlog_warn("%s: %s: (S,G)=(%s:%u:%u)%s assert_action_a1 failure on interface %s",
+				  __func__, caller, PIM_DEBUG_VRF(ch->interface->vrf), ch->sg_str,
+				  ch->interface->name);
 			/* log warning only */
 		}
 	}
@@ -206,9 +202,9 @@ static int dispatch_assert(struct interface *ifp, pim_addr source_addr,
 		}
 		break;
 	default: {
-		zlog_warn(
-			"%s: (S,G)=%s invalid assert state %d on interface %s",
-			__func__, ch->sg_str, ch->ifassert_state, ifp->name);
+		zlog_warn("%s: (S,G)=(%s:%u:%u)%s invalid assert state %d on interface %s",
+			  __func__, PIM_DEBUG_VRF(ch->interface->vrf), ch->sg_str,
+			  ch->ifassert_state, ifp->name);
 	}
 		return -2;
 	}
@@ -422,16 +418,16 @@ static int pim_assert_do(struct pim_ifchannel *ch,
 	ifp = ch->interface;
 	if (!ifp) {
 		if (PIM_DEBUG_PIM_TRACE)
-			zlog_debug("%s: channel%s has no associated interface!",
-				   __func__, ch->sg_str);
+			zlog_debug("%s: channel(%s:%u:%u)%s has no associated interface!",
+				   __func__, "UNKNOWN", VRF_UNKNOWN, 0, ch->sg_str);
 		return -1;
 	}
 	pim_ifp = ifp->info;
 	if (!pim_ifp) {
 		if (PIM_DEBUG_PIM_TRACE)
-			zlog_debug(
-				"%s: channel %s pim not enabled on interface: %s",
-				__func__, ch->sg_str, ifp->name);
+			zlog_debug("%s: channel (%s:%u:%u)%s pim not enabled on interface: %s",
+				   __func__, PIM_DEBUG_VRF(ch->interface->vrf), ch->sg_str,
+				   ifp->name);
 		return -1;
 	}
 
@@ -458,8 +454,8 @@ static int pim_assert_do(struct pim_ifchannel *ch,
 	pim_hello_require(ifp);
 
 	if (PIM_DEBUG_PIM_TRACE) {
-		zlog_debug("%s: to %s: (S,G)=%s pref=%u metric=%u rpt_bit=%u",
-			   __func__, ifp->name, ch->sg_str,
+		zlog_debug("%s: to %s: (S,G)=(%s:%u:%u)%s pref=%u metric=%u rpt_bit=%u", __func__,
+			   ifp->name, PIM_DEBUG_VRF(ch->interface->vrf), ch->sg_str,
 			   metric.metric_preference, metric.route_metric,
 			   PIM_FORCE_BOOLEAN(metric.rpt_bit_flag));
 	}
@@ -510,8 +506,8 @@ static void on_assert_timer(struct event *t)
 	ifp = ch->interface;
 
 	if (PIM_DEBUG_PIM_TRACE) {
-		zlog_debug("%s: (S,G)=%s timer expired on interface %s",
-			   __func__, ch->sg_str, ifp->name);
+		zlog_debug("%s: (S,G)=(%s:%u:%u)%s timer expired on interface %s", __func__,
+			   PIM_DEBUG_VRF(ch->interface->vrf), ch->sg_str, ifp->name);
 	}
 
 	switch (ch->ifassert_state) {
@@ -523,10 +519,9 @@ static void on_assert_timer(struct event *t)
 		break;
 	case PIM_IFASSERT_NOINFO: {
 		if (PIM_DEBUG_PIM_EVENTS)
-			zlog_warn(
-				"%s: (S,G)=%s invalid assert state %d on interface %s",
-				__func__, ch->sg_str, ch->ifassert_state,
-				ifp->name);
+			zlog_warn("%s: (S,G)=(%s:%u:%u)%s invalid assert state %d on interface %s",
+				  __func__, PIM_DEBUG_VRF(ch->interface->vrf), ch->sg_str,
+				  ch->ifassert_state, ifp->name);
 	}
 	}
 }
@@ -535,9 +530,9 @@ static void assert_timer_off(struct pim_ifchannel *ch)
 {
 	if (PIM_DEBUG_PIM_TRACE) {
 		if (event_is_scheduled(ch->t_ifassert_timer)) {
-			zlog_debug(
-				"%s: (S,G)=%s cancelling timer on interface %s",
-				__func__, ch->sg_str, ch->interface->name);
+			zlog_debug("%s: (S,G)=(%s:%u:%u)%s cancelling timer on interface %s",
+				   __func__, PIM_DEBUG_VRF(ch->interface->vrf), ch->sg_str,
+				   ch->interface->name);
 		}
 	}
 	event_cancel(&ch->t_ifassert_timer);
@@ -548,8 +543,9 @@ static void pim_assert_timer_set(struct pim_ifchannel *ch, int interval)
 	assert_timer_off(ch);
 
 	if (PIM_DEBUG_PIM_TRACE) {
-		zlog_debug("%s: (S,G)=%s starting %ums timer on interface %s", __func__,
-			   ch->sg_str, interval, ch->interface->name);
+		zlog_debug("%s: (S,G)=(%s:%u:%u)%s starting %ums timer on interface %s", __func__,
+			   PIM_DEBUG_VRF(ch->interface->vrf), ch->sg_str, interval,
+			   ch->interface->name);
 	}
 
 	event_add_timer(router->master, on_assert_timer, ch, interval,
@@ -585,8 +581,8 @@ int assert_action_a1(struct pim_ifchannel *ch)
 
 	pim_ifp = ifp->info;
 	if (!pim_ifp) {
-		zlog_warn("%s: (S,G)=%s multicast not enabled on interface %s",
-			  __func__, ch->sg_str, ifp->name);
+		zlog_warn("%s: (S,G)=(%s:%u:%u)%s multicast not enabled on interface %s", __func__,
+			  PIM_DEBUG_VRF(ch->interface->vrf), ch->sg_str, ifp->name);
 		return -1; /* must return since pim_ifp is used below */
 	}
 
@@ -597,17 +593,15 @@ int assert_action_a1(struct pim_ifchannel *ch)
 					    pim_ifp->primary_address));
 
 	if (assert_action_a3(ch)) {
-		zlog_warn(
-			"%s: (S,G)=%s assert_action_a3 failure on interface %s",
-			__func__, ch->sg_str, ifp->name);
+		zlog_warn("%s: (S,G)=(%s:%u:%u)%s assert_action_a3 failure on interface %s",
+			  __func__, PIM_DEBUG_VRF(ch->interface->vrf), ch->sg_str, ifp->name);
 		/* warning only */
 	}
 
 	if (ch->ifassert_state != PIM_IFASSERT_I_AM_WINNER) {
 		if (PIM_DEBUG_PIM_EVENTS)
-			zlog_warn(
-				"%s: channel%s not in expected PIM_IFASSERT_I_AM_WINNER state",
-				__func__, ch->sg_str);
+			zlog_warn("%s: channel(%s:%u:%u)%s not in expected PIM_IFASSERT_I_AM_WINNER state",
+				  __func__, PIM_DEBUG_VRF(ch->interface->vrf), ch->sg_str);
 	}
 
 	return 0;
@@ -634,9 +628,8 @@ static void assert_action_a2(struct pim_ifchannel *ch,
 
 	if (ch->ifassert_state != PIM_IFASSERT_I_AM_LOSER) {
 		if (PIM_DEBUG_PIM_EVENTS)
-			zlog_warn(
-				"%s: channel%s not in expected PIM_IFASSERT_I_AM_LOSER state",
-				__func__, ch->sg_str);
+			zlog_warn("%s: channel(%s:%u:%u)%s not in expected PIM_IFASSERT_I_AM_LOSER state",
+				  __func__, PIM_DEBUG_VRF(ch->interface->vrf), ch->sg_str);
 	}
 }
 
@@ -652,17 +645,16 @@ static int assert_action_a3(struct pim_ifchannel *ch)
 {
 	if (ch->ifassert_state != PIM_IFASSERT_I_AM_WINNER) {
 		if (PIM_DEBUG_PIM_EVENTS)
-			zlog_warn(
-				"%s: channel%s expected to be in PIM_IFASSERT_I_AM_WINNER state",
-				__func__, ch->sg_str);
+			zlog_warn("%s: channel(%s:%u:%u)%s expected to be in PIM_IFASSERT_I_AM_WINNER state",
+				  __func__, PIM_DEBUG_VRF(ch->interface->vrf), ch->sg_str);
 		return -1;
 	}
 
 	pim_assert_timer_reset(ch);
 
 	if (pim_assert_send(ch)) {
-		zlog_warn("%s: (S,G)=%s failure sending assert on interface %s",
-			  __func__, ch->sg_str, ch->interface->name);
+		zlog_warn("%s: (S,G)=(%s:%u:%u)%s failure sending assert on interface %s", __func__,
+			  PIM_DEBUG_VRF(ch->interface->vrf), ch->sg_str, ch->interface->name);
 		return -1;
 	}
 
@@ -682,8 +674,8 @@ static int assert_action_a3(struct pim_ifchannel *ch)
 void assert_action_a4(struct pim_ifchannel *ch)
 {
 	if (pim_assert_cancel(ch)) {
-		zlog_warn("%s: failure sending AssertCancel%s on interface %s",
-			  __func__, ch->sg_str, ch->interface->name);
+		zlog_warn("%s: failure sending AssertCancel(%s:%u:%u)%s on interface %s", __func__,
+			  PIM_DEBUG_VRF(ch->interface->vrf), ch->sg_str, ch->interface->name);
 		/* log warning only */
 	}
 
@@ -691,9 +683,8 @@ void assert_action_a4(struct pim_ifchannel *ch)
 
 	if (ch->ifassert_state != PIM_IFASSERT_NOINFO) {
 		if (PIM_DEBUG_PIM_EVENTS)
-			zlog_warn(
-				"%s: channel%s not in PIM_IFASSERT_NOINFO state as expected",
-				__func__, ch->sg_str);
+			zlog_warn("%s: channel(%s:%u:%u)%s not in PIM_IFASSERT_NOINFO state as expected",
+				  __func__, PIM_DEBUG_VRF(ch->interface->vrf), ch->sg_str);
 	}
 }
 
@@ -710,9 +701,8 @@ void assert_action_a5(struct pim_ifchannel *ch)
 	reset_ifassert_state(ch);
 	if (ch->ifassert_state != PIM_IFASSERT_NOINFO) {
 		if (PIM_DEBUG_PIM_EVENTS)
-			zlog_warn(
-				"%s: channel%s not in PIM_IFSSERT_NOINFO state as expected",
-				__func__, ch->sg_str);
+			zlog_warn("%s: channel(%s:%u:%u)%s not in PIM_IFSSERT_NOINFO state as expected",
+				  __func__, PIM_DEBUG_VRF(ch->interface->vrf), ch->sg_str);
 	}
 }
 
@@ -742,8 +732,7 @@ static void assert_action_a6(struct pim_ifchannel *ch,
 
 	if (ch->ifassert_state != PIM_IFASSERT_I_AM_LOSER) {
 		if (PIM_DEBUG_PIM_EVENTS)
-			zlog_warn(
-				"%s: channel%s not in PIM_IFASSERT_I_AM_LOSER state as expected",
-				__func__, ch->sg_str);
+			zlog_warn("%s: channel(%s:%u:%u)%s not in PIM_IFASSERT_I_AM_LOSER state as expected",
+				  __func__, PIM_DEBUG_VRF(ch->interface->vrf), ch->sg_str);
 	}
 }

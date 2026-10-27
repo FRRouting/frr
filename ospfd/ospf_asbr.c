@@ -38,7 +38,8 @@ void ospf_external_route_remove(struct ospf *ospf, struct prefix_ipv4 *p)
 	rn = route_node_lookup(ospf->old_external_route, (struct prefix *)p);
 	if (rn)
 		if ((or = rn->info)) {
-			zlog_info("Route[%pFX]: external path deleted", p);
+			zlog_info("Route[(%s:%u:%u)%pFX]: external path deleted",
+				  OSPF_DEBUG_VRF(ospf), p);
 
 			/* Remove route from zebra. */
 			if (or->type == OSPF_DESTINATION_NETWORK)
@@ -53,7 +54,7 @@ void ospf_external_route_remove(struct ospf *ospf, struct prefix_ipv4 *p)
 			return;
 		}
 
-	zlog_info("Route[%pFX]: no such external path", p);
+	zlog_info("Route[(%s:%u:%u)%pFX]: no such external path", OSPF_DEBUG_VRF(ospf), p);
 }
 
 /* Add an External info for AS-external-LSA. */
@@ -74,6 +75,10 @@ struct external_info *ospf_external_info_new(struct ospf *ospf, uint8_t type,
 
 static void ospf_external_info_free(struct external_info *ei)
 {
+	/* Aggregators hold references to, but do not own, external info. */
+	if (ei)
+		ospf_unlink_ei_from_aggr(ei->ospf, ei);
+
 	XFREE(MTYPE_OSPF_EXTERNAL_INFO, ei);
 }
 
@@ -117,11 +122,10 @@ ospf_external_info_add(struct ospf *ospf, uint8_t type, unsigned short instance,
 		}
 
 		if (IS_DEBUG_OSPF(lsa, LSA_GENERATE))
-			zlog_debug(
-				"Redistribute[%s][%d][%u]: %pFX discarding old info with NH %pI4.",
-				ospf_redist_string(type), instance,
-				ospf->vrf_id, &p, &nexthop.s_addr);
-		XFREE(MTYPE_OSPF_EXTERNAL_INFO, rn->info);
+			zlog_debug("Redistribute[%s][%d][%u]: (%s:%u:%u)%pFX discarding old info with NH %pI4.",
+				   ospf_redist_string(type), instance, ospf->vrf_id,
+				   OSPF_DEBUG_VRF(ospf), &p, &nexthop.s_addr);
+		ospf_external_info_free(rn->info);
 	}
 
 	/* Create new External info instance. */
@@ -141,10 +145,9 @@ ospf_external_info_add(struct ospf *ospf, uint8_t type, unsigned short instance,
 		rn->info = new;
 
 	if (IS_DEBUG_OSPF(lsa, LSA_GENERATE)) {
-		zlog_debug(
-			"Redistribute[%s][%u]: %pFX external info created, with NH %pI4, metric:%u",
-			ospf_redist_string(type), ospf->vrf_id, &p,
-			&nexthop.s_addr, metric);
+		zlog_debug("Redistribute[%s][%u]: (%s:%u:%u)%pFX external info created, with NH %pI4, metric:%u",
+			   ospf_redist_string(type), ospf->vrf_id, OSPF_DEBUG_VRF(ospf), &p,
+			   &nexthop.s_addr, metric);
 	}
 	return new;
 }
@@ -442,7 +445,7 @@ void ospf_redistribute_withdraw(struct ospf *ospf, uint8_t type,
 		aggr = ei->aggr_route;
 
 		if (aggr)
-			ospf_unlink_ei_from_aggr(ospf, aggr, ei);
+			ospf_unlink_ei_from_aggr(ospf, ei);
 		else if (ospf_external_info_find_lsa(ospf, &ei->p))
 			ospf_external_lsa_flush(ospf, type, &ei->p,
 						ei->ifindex /*, ei->nexthop */);
@@ -645,10 +648,14 @@ struct ospf_external_aggr_rt *ospf_external_aggr_match(struct ospf *ospf,
 	return NULL;
 }
 
-void ospf_unlink_ei_from_aggr(struct ospf *ospf,
-			      struct ospf_external_aggr_rt *aggr,
-			      struct external_info *ei)
+void ospf_unlink_ei_from_aggr(struct ospf *ospf, struct external_info *ei)
 {
+	/* The best match may have changed before the aggregation timer runs. */
+	struct ospf_external_aggr_rt *aggr = ei->aggr_route;
+
+	if (!aggr)
+		return;
+
 	if (IS_DEBUG_OSPF(lsa, EXTNL_LSA_AGGR))
 		zlog_debug(
 			"%s: Unlinking external route(%pI4/%d) from aggregator(%pI4/%d), external route count:%ld",
@@ -696,7 +703,6 @@ struct ospf_lsa *ospf_originate_summary_lsa(struct ospf *ospf,
 	struct ospf_lsa *lsa;
 	struct external_info ei_aggr;
 	struct as_external_lsa *asel;
-	struct ospf_external_aggr_rt *old_aggr;
 	route_tag_t tag = 0;
 
 	if (IS_DEBUG_OSPF(lsa, EXTNL_LSA_AGGR))
@@ -707,12 +713,8 @@ struct ospf_lsa *ospf_originate_summary_lsa(struct ospf *ospf,
 	 * is available. Best match will be considered. So need to unlink
 	 * from old aggregator and link to the new aggr.
 	 */
-	if (ei->aggr_route) {
-		if (ei->aggr_route != aggr) {
-			old_aggr = ei->aggr_route;
-			ospf_unlink_ei_from_aggr(ospf, old_aggr, ei);
-		}
-	}
+	if (ei->aggr_route != aggr)
+		ospf_unlink_ei_from_aggr(ospf, ei);
 
 	/* Add the external route to hash table */
 	ospf_link_ei_to_aggr(aggr, ei);

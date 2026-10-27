@@ -237,6 +237,10 @@ rc_SCRIPTS = \
 	# end
 endif
 
+DISTCLEANFILES += frr.pc tools/frr.pc
+tools_pkgconfigdir = @pkgconfigdir@
+tools_pkgconfig_DATA = frr.pc
+
 EXTRA_DIST += \
 	aclocal.m4 \
 	README.md \

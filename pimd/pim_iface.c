@@ -616,11 +616,9 @@ void pim_if_addr_add(struct connected *ifc)
 		return;
 
 	if (PIM_DEBUG_ZEBRA)
-		zlog_debug("%s: %s ifindex=%d connected IP address %pFX %s",
-			   __func__, ifp->name, ifp->ifindex, ifc->address,
-			   CHECK_FLAG(ifc->flags, ZEBRA_IFA_SECONDARY)
-				   ? "secondary"
-				   : "primary");
+		zlog_debug("%s: %s ifindex=%d connected IP address (%s:%u:%u)%pFX %s", __func__,
+			   ifp->name, ifp->ifindex, PIM_DEBUG_VRF(ifc->ifp->vrf), ifc->address,
+			   CHECK_FLAG(ifc->flags, ZEBRA_IFA_SECONDARY) ? "secondary" : "primary");
 #if PIM_IPV != 4
 	if (IN6_IS_ADDR_LINKLOCAL(&ifc->address->u.prefix6) ||
 	    IN6_IS_ADDR_LOOPBACK(&ifc->address->u.prefix6)) {
@@ -793,11 +791,9 @@ void pim_if_addr_del(struct connected *ifc, int force_prim_as_any)
 	assert(ifp);
 
 	if (PIM_DEBUG_ZEBRA)
-		zlog_debug("%s: %s ifindex=%d disconnected IP address %pFX %s",
-			   __func__, ifp->name, ifp->ifindex, ifc->address,
-			   CHECK_FLAG(ifc->flags, ZEBRA_IFA_SECONDARY)
-				   ? "secondary"
-				   : "primary");
+		zlog_debug("%s: %s ifindex=%d disconnected IP address (%s:%u:%u)%pFX %s", __func__,
+			   ifp->name, ifp->ifindex, PIM_DEBUG_VRF(ifc->ifp->vrf), ifc->address,
+			   CHECK_FLAG(ifc->flags, ZEBRA_IFA_SECONDARY) ? "secondary" : "primary");
 
 #if PIM_IPV == 6
 	struct pim_interface *pim_ifp = ifc->ifp->info;

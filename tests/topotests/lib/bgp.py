@@ -4822,6 +4822,54 @@ def verify_tcp_mss(tgen, dut, neighbour, configured_tcp_mss, vrf=None):
             return "TCP-MSS Mismatch"
 
 
+def get_bgp_summary_json(router, afi, safi, vrf=None):
+    """
+    Return JSON from `show bgp [vrf NAME] <afi> <safi> summary json`.
+
+    `afi` and `safi` are the CLI words. L2VPN EVPN is
+    `get_bgp_summary_json(router, "l2vpn", "evpn")`, which runs
+    `show bgp l2vpn evpn summary json`. IPv4 unicast is
+    `get_bgp_summary_json(router, "ipv4", "unicast")`.
+
+    A specific address family is a flat object: `as`, `routerId`, `vrfName`,
+    and `peers`. An empty family returns {}.
+
+    Parameters
+    ----------
+    router : router
+        Device under test. Must provide `vtysh_cmd`.
+    afi : str
+        Address family, for example ``l2vpn``, ``ipv4``, or ``ipv6``.
+    safi : str
+        Subsequent address family, for example ``evpn`` or ``unicast``.
+    vrf : str, optional
+        VRF name. Omit it for the default BGP instance.
+
+    Returns
+    -------
+    dict
+        Parsed JSON, or {} when the command returns no object.
+    """
+    vrf_arg = f"vrf {vrf} " if vrf else ""
+    cmd = f"show bgp {vrf_arg}{afi} {safi} summary json"
+    output = router.vtysh_cmd(cmd, isjson=True)
+    if not isinstance(output, dict):
+        logger.error(
+            "%s: no JSON from '%s' (got %s)",
+            getattr(router, "name", router),
+            cmd,
+            type(output).__name__,
+        )
+        return {}
+    logger.debug(
+        "%s: %s has %s peers",
+        getattr(router, "name", router),
+        f"{afi} {safi}",
+        len(output.get("peers") or {}),
+    )
+    return output
+
+
 def get_dut_as_number(tgen, dut):
     """
     API to get the Autonomous Number of the given DUT

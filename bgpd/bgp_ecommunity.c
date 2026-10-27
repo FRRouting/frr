@@ -422,7 +422,23 @@ bool ecommunity_cmp(const void *arg1, const void *arg2)
 			  ecom1->unit_size) == 0);
 }
 
-static void ecommunity_color_str(char *buf, size_t bufsz, uint8_t *ptr)
+/* Unlike rt/soo, no caller emits a "color" keyword ahead of the value, so
+ * the re-parseable formats have to carry it themselves.
+ */
+static const char *ecommunity_color_prefix(int format)
+{
+	switch (format) {
+	case ECOMMUNITY_FORMAT_COMMUNITY_LIST:
+	case ECOMMUNITY_FORMAT_ROUTE_MAP:
+		return "color ";
+	case ECOMMUNITY_FORMAT_DISPLAY:
+	default:
+		return "Color:";
+	}
+}
+
+static void ecommunity_color_str(char *buf, size_t bufsz, uint8_t *ptr,
+				 int format)
 {
 	/*
 	 *  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
@@ -441,7 +457,8 @@ static void ecommunity_color_str(char *buf, size_t bufsz, uint8_t *ptr)
 
 	memcpy(&colorid, ptr + 2, 4);
 	colorid = ntohl(colorid);
-	snprintf(buf, bufsz, "Color:%d%d:%d", (color_type & 0x2) >> 1, color_type & 0x1, colorid);
+	snprintfrr(buf, bufsz, "%s%d%d:%u", ecommunity_color_prefix(format),
+		   (color_type & 0x2) >> 1, color_type & 0x1, colorid);
 }
 
 /* Initialize Extended Comminities related hash. */
@@ -1138,13 +1155,13 @@ static int ecommunity_lb_str(char *buf, size_t bufsz, const uint8_t *pnt,
 
 	if (bw >= ONE_GBPS_BYTES)
 		snprintf(bps_buf, sizeof(bps_buf), "%.3f Gbps",
-			 (float)(bw / ONE_GBPS_BYTES));
+			 (float)bw / (float)ONE_GBPS_BYTES);
 	else if (bw >= ONE_MBPS_BYTES)
 		snprintf(bps_buf, sizeof(bps_buf), "%.3f Mbps",
-			 (float)(bw / ONE_MBPS_BYTES));
+			 (float)bw / (float)ONE_MBPS_BYTES);
 	else if (bw >= ONE_KBPS_BYTES)
 		snprintf(bps_buf, sizeof(bps_buf), "%.3f Kbps",
-			 (float)(bw / ONE_KBPS_BYTES));
+			 (float)bw / (float)ONE_KBPS_BYTES);
 	else
 		snprintfrr(bps_buf, sizeof(bps_buf), "%" PRIu64 " bps", bw * 8);
 
@@ -1169,13 +1186,13 @@ static int ipv6_ecommunity_lb_str(char *buf, size_t bufsz, const uint8_t *pnt,
 
 	if (bw >= ONE_GBPS_BYTES)
 		snprintf(bps_buf, sizeof(bps_buf), "%.3f Gbps",
-			 (float)(bw / ONE_GBPS_BYTES));
+			 (float)bw / (float)ONE_GBPS_BYTES);
 	else if (bw >= ONE_MBPS_BYTES)
 		snprintf(bps_buf, sizeof(bps_buf), "%.3f Mbps",
-			 (float)(bw / ONE_MBPS_BYTES));
+			 (float)bw / (float)ONE_MBPS_BYTES);
 	else if (bw >= ONE_KBPS_BYTES)
 		snprintf(bps_buf, sizeof(bps_buf), "%.3f Kbps",
-			 (float)(bw / ONE_KBPS_BYTES));
+			 (float)bw / (float)ONE_KBPS_BYTES);
 	else
 		snprintfrr(bps_buf, sizeof(bps_buf), "%" PRIu64 " bps", bw * 8);
 
@@ -1350,7 +1367,7 @@ static char *_ecommunity_ecom2str(struct ecommunity *ecom, int format, int filte
 					sizeof(encbuf));
 			} else if (*pnt == ECOMMUNITY_COLOR) {
 				ecommunity_color_str(encbuf, sizeof(encbuf),
-						     pnt);
+						     pnt, format);
 			} else if (*pnt == ECOMMUNITY_OPAQUE_SUBTYPE_UPA) {
 				struct in_addr rid = {};
 				uint8_t flags = data[BGP_UPA_EXTCOM_OFF_FLAGS];

@@ -239,7 +239,7 @@ static bool ospf_adj_pacing_allow(struct ospf_interface *oi)
 }
 
 /* RFC4222/R5: Remove a neighbor from the per-interface pacing queue. */
-static void ospf_adj_pacing_remove(struct ospf_neighbor *nbr)
+void ospf_adj_pacing_remove(struct ospf_neighbor *nbr)
 {
 	struct ospf_interface *oi = nbr->oi;
 
@@ -526,10 +526,6 @@ static int ospf_db_summary_add(struct ospf_neighbor *nbr, struct ospf_lsa *lsa)
 	default:
 		break;
 	}
-
-	/* Stay away from any Local Translated Type-7 LSAs */
-	if (CHECK_FLAG(lsa->flags, OSPF_LSA_LOCAL_XLT))
-		return 0;
 
 	if (IS_LSA_MAXAGE(lsa))
 		ospf_ls_retransmit_add(nbr, lsa);

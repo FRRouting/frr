@@ -84,22 +84,30 @@ struct isis_sr_block *isis_sr_find_srgb(struct lspdb_head *lspdb, const uint8_t 
 	struct isis_lsp *lsp0, *lsp;
 
 	lsp0 = isis_root_system_lsp(lspdb, sysid);
-	if (!lsp0)
+	if (!lsp0) {
+		sr_debug("%s: LSP not found for node %pSY", __func__, sysid);
 		return NULL;
-
+	}
 	if (lsp0->tlvs && lsp0->tlvs->router_cap && lsp0->tlvs->router_cap->srgb.range_size)
 		return &lsp0->tlvs->router_cap->srgb;
 
-	if (!lsp0->lspu.frags)
+	if (!lsp0->lspu.frags) {
+		sr_debug("%s: no LSP fragments found for node %pSY", __func__, sysid);
 		return NULL;
+	}
 
 	for (ALL_LIST_ELEMENTS_RO(lsp0->lspu.frags, node, lsp)) {
 		if (!lsp->tlvs || !lsp->tlvs->router_cap ||
-		    lsp->tlvs->router_cap->srgb.range_size == 0)
+		    lsp->tlvs->router_cap->srgb.range_size == 0) {
+			if (lsp->tlvs && lsp->tlvs->router_cap)
+				sr_debug("%s: Router capability found with SRGB range size of 0 for node %pSY",
+					 __func__, sysid);
 			continue;
+		}
 
 		return &lsp->tlvs->router_cap->srgb;
 	}
+	sr_debug("%s: No Router capability found for node %pSY", __func__, sysid);
 
 	return NULL;
 }
@@ -181,16 +189,21 @@ mpls_label_t sr_prefix_out_label(struct lspdb_head *lspdb, int family, struct is
 
 	/* Check that SID index falls inside the SRGB */
 	nh_srgb = isis_sr_find_srgb(lspdb, nh_sysid);
-	if (!nh_srgb)
+	if (!nh_srgb) {
+		zlog_warn("%s(): no SRGB received for %pSY", __func__, nh_sysid);
 		return MPLS_INVALID_LABEL;
+	}
 
 	/*
 	 * Check if the nexthop can handle SR-MPLS encapsulated IPv4 or
 	 * IPv6 packets.
 	 */
 	if ((family == AF_INET && !IS_SR_IPV4(nh_srgb)) ||
-	    (family == AF_INET6 && !IS_SR_IPV6(nh_srgb)))
+	    (family == AF_INET6 && !IS_SR_IPV6(nh_srgb))) {
+		zlog_warn("%s(): SRGB received for %pSY, but IPv%d disabled", __func__, nh_sysid,
+			  family == AF_INET ? 4 : 6);
 		return MPLS_INVALID_LABEL;
+	}
 
 	if (psid->value >= nh_srgb->range_size) {
 		flog_warn(EC_ISIS_SID_OVERFLOW, "%s: SID index %u falls outside remote SRGB range",
@@ -342,7 +355,8 @@ struct sr_prefix_cfg *isis_sr_cfg_prefix_add(struct isis_area *area, const struc
 	struct sr_prefix_cfg *pcfg;
 	struct interface *ifp;
 
-	sr_debug("ISIS-Sr (%s): Add local prefix %pFX", area->area_tag, prefix);
+	sr_debug("ISIS-Sr (%s): Add local prefix (%s:%u:%u)%pFX", area->area_tag,
+		 ISIS_DEBUG_VRF(area->isis), prefix);
 
 	pcfg = XCALLOC(MTYPE_ISIS_SR_INFO, sizeof(*pcfg));
 	pcfg->prefix = *prefix;
@@ -375,7 +389,8 @@ void isis_sr_cfg_prefix_del(struct sr_prefix_cfg *pcfg)
 {
 	struct isis_area *area = pcfg->area;
 
-	sr_debug("ISIS-Sr (%s): Delete local Prefix-SID %pFX %s %u", area->area_tag, &pcfg->prefix,
+	sr_debug("ISIS-Sr (%s): Delete local Prefix-SID (%s:%u:%u)%pFX %s %u", area->area_tag,
+		 ISIS_DEBUG_VRF(area->isis), &pcfg->prefix,
 		 pcfg->sid_type == SR_SID_VALUE_TYPE_INDEX ? "index" : "label", pcfg->sid);
 
 	srdb_prefix_cfg_del(&area->srdb.config.prefix_sids, pcfg);

@@ -319,6 +319,7 @@ PIM Routers
    fallback to a second lookup.
 
 .. clicmd:: shutdown
+   :daemon: pim
 
    Disable the PIM instance while retaining all configuration and remove
    all state.
@@ -1146,6 +1147,10 @@ the config was written out.
 .. clicmd:: debug mroute
 
    This turns on debugging for PIM interaction with kernel MFC cache.
+
+.. clicmd:: debug mroute detail
+
+   This turns on detailed debugging for PIM interaction with kernel MFC cache.
 
 .. clicmd:: debug pim events
 

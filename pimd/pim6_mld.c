@@ -59,9 +59,9 @@ static void gm_sg_timer_start(struct gm_if *gm_ifp, struct gm_sg *sg,
 		&pkt_src->sin6_addr
 #define log_pkt_dst(msg)                                                       \
 	"[MLD %s:%s %pI6] " msg, gm_ifp->ifp->vrf->name, gm_ifp->ifp->name, pkt_dst
-#define log_sg(sg, msg)                                                        \
-	"[MLD %s:%s %pSG] " msg, sg->iface->ifp->vrf->name,                    \
-		sg->iface->ifp->name, &sg->sgaddr
+#define log_sg(sg, msg)                                                                           \
+	"[MLD %s (%s:%u:%u)%pSG] " msg, sg->iface->ifp->name, PIM_DEBUG_VRF(sg->iface->ifp->vrf), \
+		&sg->sgaddr
 
 /* clang-format off */
 static const pim_addr gm_all_hosts = {
@@ -519,12 +519,12 @@ static void gm_sg_update(struct gm_sg *sg, bool has_expired)
 		sg->tib_joined = tib_sg_gm_join(gm_ifp->pim, sg->sgaddr,
 						gm_ifp->ifp, &sg->oil);
 		if (!sg->tib_joined)
-			zlog_warn(
-				"MLD join for %pSG%%%s not propagated into TIB",
-				&sg->sgaddr, gm_ifp->ifp->name);
-		else
-			zlog_info(log_ifp("%pSG%%%s TIB joined"), &sg->sgaddr,
+			zlog_warn("MLD join for (%s:%u:%u)%pSG%%%s not propagated into TIB",
+				  PIM_DEBUG_VRF(sg->iface->pim->vrf), &sg->sgaddr,
 				  gm_ifp->ifp->name);
+		else
+			zlog_info(log_ifp("(%s:%u:%u)%pSG%%%s TIB joined"),
+				  PIM_DEBUG_VRF(gm_ifp->ifp->vrf), &sg->sgaddr, gm_ifp->ifp->name);
 
 	} else if (sg->tib_joined && !new_join) {
 		tib_sg_gm_prune(gm_ifp->pim, sg->sgaddr, gm_ifp->ifp, &sg->oil);
@@ -715,7 +715,7 @@ static void gm_handle_v2_pass1(struct gm_packet_state *pkt,
 	struct gm_subscriber *subscriber = pkt->subscriber;
 	struct gm_sg *grp;
 	struct gm_packet_sg *old_grp = NULL;
-	struct gm_packet_sg *item;
+	struct gm_packet_sg *item = NULL;
 	size_t j;
 	bool is_excl = false;
 
@@ -740,7 +740,10 @@ static void gm_handle_v2_pass1(struct gm_packet_state *pkt,
 		}
 
 		item = gm_packet_sg_setup(pkt, grp, is_excl, false);
-		item->n_exclude = n_src;
+		/* n_exclude counts the source items actually appended below,
+		 * which can be fewer than n_src if a source is refused
+		 */
+		item->n_exclude = 0;
 
 		/* [EXCL_INCL_SG_NOTE] referenced below
 		 *
@@ -813,6 +816,8 @@ static void gm_handle_v2_pass1(struct gm_packet_state *pkt,
 		}
 
 		gm_packet_sg_setup(pkt, sg, is_excl, true);
+		if (is_excl)
+			item->n_exclude++;
 	}
 }
 

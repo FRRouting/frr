@@ -1418,14 +1418,31 @@ static int zl3vni_rmac_uninstall(struct zebra_l3vni *zl3vni,
 		return -1;
 }
 
+/*
+ * Build the VTEP address stored on the RMAC forwarding entry.
+ * Callers use this when the L3VNI local VTEP is IPv4.
+ *
+ * ::ffff:0:0/96 is rewritten to IPv4. A native IPv6 address is
+ * copied unchanged; copying its last 32 bits would turn
+ * 2001:db8::10 into 0.0.0.16. An IPv4 address is copied as IPv4.
+ */
 static void vtep_to_v4(const struct ipaddr *vtep_ip, struct ipaddr *ipv4_vtep)
 {
-	memset(ipv4_vtep, 0, sizeof(struct ipaddr));
+	memset(ipv4_vtep, 0, sizeof(*ipv4_vtep));
+
+	if (IS_IPADDR_V6(vtep_ip)) {
+		if (IS_MAPPED_IPV6(&vtep_ip->ipaddr_v6)) {
+			ipv4_vtep->ipa_type = IPADDR_V4;
+			ipv4_mapped_ipv6_to_ipv4(&vtep_ip->ipaddr_v6, &ipv4_vtep->ipaddr_v4);
+		} else {
+			*ipv4_vtep = *vtep_ip;
+		}
+
+		return;
+	}
+
 	ipv4_vtep->ipa_type = IPADDR_V4;
-	if (vtep_ip->ipa_type == IPADDR_V6)
-		ipv4_mapped_ipv6_to_ipv4(&vtep_ip->ipaddr_v6, &ipv4_vtep->ipaddr_v4);
-	else
-		memcpy(&ipv4_vtep->ipaddr_v4, &vtep_ip->ipaddr_v4, sizeof(struct in_addr));
+	ipv4_vtep->ipaddr_v4 = vtep_ip->ipaddr_v4;
 }
 
 /* handle rmac add */
@@ -1437,11 +1454,10 @@ static int zl3vni_remote_rmac_add(struct zebra_l3vni *zl3vni,
 	struct ipaddr *vtep = NULL;
 	struct ipaddr ip_vtep;
 
-	/* L3VNI local VTEP-IP is v4 then map to v4 remote vtep,
-	 * if local VTEP-IP is v6 then use as is.
-	 * if the remote vtep is a ipv4 mapped ipv6 address convert it to ipv4
-	 * address. Rmac is programmed against the ipv4 vtep because we only
-	 * support ipv4 tunnels in the h/w right now
+	/*
+	 * Local VTEP is IPv4: rewrite only an IPv4-mapped remote.
+	 * A native IPv6 remote is kept. Any remote is kept when the
+	 * local VTEP is not IPv4.
 	 */
 	if (IS_IPADDR_V4(&zl3vni->local_vtep_ip))
 		vtep_to_v4(vtep_ip, &ip_vtep);
@@ -1798,6 +1814,7 @@ static void zl3vni_check_del_rmac(struct zebra_l3vni *zl3vni, const struct ethad
 				  const struct ipaddr *vtep_ip)
 {
 	struct zebra_mac *zrmac = NULL;
+	struct ipaddr ip_vtep;
 
 	zrmac = zl3vni_rmac_lookup(zl3vni, &old_rmac);
 	if (!zrmac) {
@@ -1806,6 +1823,17 @@ static void zl3vni_check_del_rmac(struct zebra_l3vni *zl3vni, const struct ethad
 				   &old_rmac);
 		return;
 	}
+
+	/* nh_list stores each VTEP in the form it was received, so one VTEP can
+	 * appear under both its IPv4 and v4-mapped IPv6 address. fwd_info is
+	 * always held converted, because the dplane consumes it as-is, so every
+	 * comparison below has to be made on converted values.
+	 */
+	if (IS_IPADDR_V4(&zl3vni->local_vtep_ip))
+		vtep_to_v4(vtep_ip, &ip_vtep);
+	else
+		ip_vtep = *vtep_ip;
+
 	if (listcount(zrmac->nh_list)) {
 		struct ipaddr *curr_vtep = NULL;
 		struct listnode *node = NULL, *nnode = NULL;
@@ -1815,16 +1843,50 @@ static void zl3vni_check_del_rmac(struct zebra_l3vni *zl3vni, const struct ethad
 				break;
 		}
 		if (node) {
+			bool was_programmed;
+
+			/* Only the VTEP we are actually forwarding to needs
+			 * re-pointing. Moving off any other one would change
+			 * forwarding for no reason.
+			 */
+			was_programmed = ipaddr_is_same(&zrmac->fwd_info.r_vtep_ip, &ip_vtep);
+
 			l3vni_rmac_nh_free(curr_vtep);
 			list_delete_node(zrmac->nh_list, node);
 			/* Get the first node in the list */
 			node = listhead(zrmac->nh_list);
 			/* Update the forward reference vtep IP to first node in list */
-			if (node) {
+			if (node && was_programmed) {
+				struct ipaddr new_vtep;
+
 				curr_vtep = listgetdata(node);
-				if (IS_ZEBRA_DEBUG_VXLAN)
-					zlog_debug("Updating VTEP IP %pIA", curr_vtep);
-				zrmac->fwd_info.r_vtep_ip = *curr_vtep;
+
+				if (IS_IPADDR_V4(&zl3vni->local_vtep_ip))
+					vtep_to_v4(curr_vtep, &new_vtep);
+				else
+					new_vtep = *curr_vtep;
+
+				/* If the survivor is the same VTEP under its
+				 * other address form, the dplane already has it
+				 * and there is nothing to program.
+				 */
+				if (!ipaddr_is_same(&zrmac->fwd_info.r_vtep_ip, &new_vtep)) {
+					if (IS_ZEBRA_DEBUG_VXLAN)
+						zlog_debug("Updating VTEP IP %pIA", &new_vtep);
+
+					zrmac->fwd_info.r_vtep_ip = new_vtep;
+
+					frrtrace(4, frr_zebra, l3vni_remote_vtep_nh_upd,
+						 zl3vni->vni, vtep_ip, &zrmac->fwd_info.r_vtep_ip,
+						 zrmac->macaddr);
+
+					/* Send RMAC for FPM processing */
+					hook_call(zebra_rmac_update, zrmac, zl3vni, false,
+						  "RMAC changed");
+
+					/* install rmac in kernel */
+					zl3vni_rmac_install(zl3vni, zrmac);
+				}
 			}
 		}
 		if (IS_ZEBRA_DEBUG_VXLAN) {
@@ -1840,6 +1902,13 @@ static void zl3vni_check_del_rmac(struct zebra_l3vni *zl3vni, const struct ethad
 				   zl3vni->vni, &old_rmac, vtep_ip);
 		/* Uninstall from kernel and rmac table */
 		zl3vni_rmac_uninstall(zl3vni, zrmac);
+
+		/* Send RMAC for FPM processing */
+		hook_call(zebra_rmac_update, zrmac, zl3vni, true, "RMAC deleted");
+
+		frrtrace(4, frr_zebra, l3vni_remote_rmac, 2, zl3vni->vni, &ip_vtep,
+			 &zrmac->macaddr);
+
 		zl3vni_rmac_del(zl3vni, zrmac);
 	}
 }
@@ -1857,9 +1926,13 @@ static int zl3vni_remote_nh_add(struct zebra_l3vni *zl3vni,
 	if (!nh) {
 		nh = zl3vni_nh_add(zl3vni, vtep_ip, rmac);
 		if (!nh) {
-			if (IS_ZEBRA_DEBUG_VXLAN)
-				zlog_debug("Failed to add NH %pIA as Neigh (RMAC %pEA L3-VNI %u prefix %pFX)",
-					   vtep_ip, rmac, zl3vni->vni, host_prefix);
+			if (IS_ZEBRA_DEBUG_VXLAN) {
+				struct zebra_vrf *zvrf = zebra_vrf_lookup_by_id(zl3vni->vrf_id);
+
+				zlog_debug("Failed to add NH %pIA as Neigh (RMAC %pEA L3-VNI %u (%s:%u:%u)%pFX)",
+					   vtep_ip, rmac, zl3vni->vni, zvrf_name(zvrf),
+					   zl3vni->vrf_id, zvrf ? zvrf->table_id : 0, host_prefix);
+			}
 			return -1;
 		}
 
@@ -1891,11 +1964,13 @@ static int zl3vni_remote_nh_add(struct zebra_l3vni *zl3vni,
 			  "L3VNI %u: VTEP %pIA changed RMAC (old %pEA, new %pEA) for prefix %pFX; if this VTEP serves multiple L3VNIs/VRFs, the per-VTEP kernel neighbor entry can only hold one RMAC and traffic for other VRF(s) may be blackholed. Use a single shared system MAC per VTEP.",
 			  zl3vni->vni, vtep_ip, &nh->emac, rmac, host_prefix);
 
-		if (IS_ZEBRA_DEBUG_VXLAN)
-			zlog_debug(
-				"L3VNI %u RMAC change(%pEA --> %pEA) for nexthop %pIA, prefix %pFX",
-				zl3vni->vni, &nh->emac, rmac, vtep_ip,
-				host_prefix);
+		if (IS_ZEBRA_DEBUG_VXLAN) {
+			struct zebra_vrf *zvrf = zebra_vrf_lookup_by_id(zl3vni->vrf_id);
+
+			zlog_debug("L3VNI %u RMAC change(%pEA --> %pEA) for nexthop %pIA, (%s:%u:%u)%pFX",
+				   zl3vni->vni, &nh->emac, rmac, vtep_ip, zvrf_name(zvrf),
+				   zl3vni->vrf_id, zvrf ? zvrf->table_id : 0, host_prefix);
+		}
 
 		frrtrace(5, frr_zebra, remote_nh_add_rmac_change, zl3vni->vni, &nh->emac, rmac,
 			 vtep_ip, nh->refcnt);
@@ -1946,9 +2021,13 @@ static int svd_remote_nh_add(struct zebra_l3vni *zl3vni,
 	if (!nh) {
 		nh = svd_nh_add(vtep_ip, rmac);
 		if (!nh) {
-			if (IS_ZEBRA_DEBUG_VXLAN)
-				zlog_debug("Failed to add NH %pIA as SVD Neigh (RMAC %pEA prefix %pFX)",
-					   vtep_ip, rmac, host_prefix);
+			if (IS_ZEBRA_DEBUG_VXLAN) {
+				struct zebra_vrf *zvrf = zebra_vrf_lookup_by_id(zl3vni->vrf_id);
+
+				zlog_debug("Failed to add NH %pIA as SVD Neigh (RMAC %pEA (%s:%u:%u)%pFX)",
+					   vtep_ip, rmac, zvrf_name(zvrf), zl3vni->vrf_id,
+					   zvrf ? zvrf->table_id : 0, host_prefix);
+			}
 			return -1;
 		}
 
@@ -1967,10 +2046,13 @@ static int svd_remote_nh_add(struct zebra_l3vni *zl3vni,
 			  "SVD L3VNI %u: VTEP %pIA advertised conflicting RMAC (old %pEA, new %pEA) for prefix %pFX; per-VTEP neighbor table can only store one RMAC, cross-VRF routed traffic may be blackholed. Use a single shared system MAC per VTEP.",
 			  zl3vni->vni, vtep_ip, &nh->emac, rmac, host_prefix);
 
-		if (IS_ZEBRA_DEBUG_VXLAN)
-			zlog_debug("SVD RMAC change(%pEA --> %pEA) for nexthop %pIA, prefix %pFX refcnt %u",
-				   &nh->emac, rmac, vtep_ip, host_prefix,
-				   nh->refcnt);
+		if (IS_ZEBRA_DEBUG_VXLAN) {
+			struct zebra_vrf *zvrf = zebra_vrf_lookup_by_id(zl3vni->vrf_id);
+
+			zlog_debug("SVD RMAC change(%pEA --> %pEA) for nexthop %pIA, (%s:%u:%u)%pFX refcnt %u",
+				   &nh->emac, rmac, vtep_ip, zvrf_name(zvrf), zl3vni->vrf_id,
+				   zvrf ? zvrf->table_id : 0, host_prefix, nh->refcnt);
+		}
 
 		frrtrace(5, frr_zebra, remote_nh_add_rmac_change, zl3vni->vni, &nh->emac, rmac,
 			 vtep_ip, nh->refcnt);
@@ -2355,6 +2437,12 @@ static struct zebra_l3vni *zl3vni_from_svi(struct interface *ifp,
 		vni_id = zebra_l2_bridge_if_vni_find(br_zif, in_param.vid);
 		if (vni_id)
 			return zl3vni_lookup(vni_id);
+
+		/* Don't need to search in this case. The walk below resolves
+		 * the VNI with zebra_vxlan_if_access_vlan_vni_find(), which
+		 * takes no VLAN id and is only valid for vlan-unaware bridges.
+		 */
+		return NULL;
 	}
 
 	/* See if this interface (or interface plus VLAN Id) maps to a VxLAN */
@@ -2744,9 +2832,11 @@ static void zl3vni_del_nh_hash_entry(struct l3vni_walk_ctx *wctx, struct zebra_n
 	zl3vni_nh_del(zl3vni, n);
 }
 
-/* re-add remote rmac if needed */
-static int zebra_vxlan_readd_remote_rmac(struct zebra_l3vni *zl3vni,
-					 struct ethaddr *rmac)
+/*
+ * 1 when the router-MAC was queued for install, 0 when zebra has no
+ * such MAC, -1 when the install could not be queued.
+ */
+static int zebra_vxlan_readd_remote_rmac(struct zebra_l3vni *zl3vni, struct ethaddr *rmac)
 {
 	struct zebra_mac *zrmac = NULL;
 
@@ -2754,12 +2844,101 @@ static int zebra_vxlan_readd_remote_rmac(struct zebra_l3vni *zl3vni,
 	if (!zrmac)
 		return 0;
 
-	if (IS_ZEBRA_DEBUG_VXLAN)
-		zlog_debug("Del remote RMAC %pEA L3VNI %u - readd",
-			   rmac, zl3vni->vni);
+	if (zl3vni_rmac_install(zl3vni, zrmac) != 0)
+		return -1;
 
-	zl3vni_rmac_install(zl3vni, zrmac);
-	return 0;
+	return 1;
+}
+
+/* Reinstall this MAC only when the VNI is an L3VNI on this vxlan port. */
+static void rmac_reinstall_on_vni(struct interface *ifp, struct zebra_if *zif, struct ethaddr *mac,
+				  vlanid_t vid, vni_t vni)
+{
+	struct zebra_l3vni *zl3vni;
+	struct zebra_vxlan_vni *vnip;
+	int rc;
+
+	zl3vni = zl3vni_lookup(vni);
+	if (!zl3vni || zl3vni->vxlan_if != ifp)
+		return;
+
+	/*
+	 * Install reads this entry for the access VLAN. Skip when the
+	 * kernel no longer has it, or this delete is for another VLAN.
+	 */
+	vnip = zebra_vxlan_if_vni_find(zif, vni);
+	if (!vnip)
+		return;
+
+	if (vid && vnip->access_vlan != vid)
+		return;
+
+	rc = zebra_vxlan_readd_remote_rmac(zl3vni, mac);
+
+	/*
+	 * One line per router-MAC. Build it only while vxlan debug is on.
+	 * rc is 1 when queued, 0 when absent, -1 when install failed.
+	 */
+	if (IS_ZEBRA_DEBUG_VXLAN)
+		zlog_debug("%s: if %s mac %pEA vrf %s vni %u vlan %u reason bridge-fdb-del rc %d",
+			   __func__, ifp->name, mac, vrf_id_to_name(zl3vni->vrf_id), zl3vni->vni,
+			   vid, rc);
+}
+
+/*
+ * Bridge-row delete. Reinstall the router-MAC if zebra still has it.
+ * One dplane install restores the bridge entry the flush removed.
+ */
+void zebra_vxlan_check_readd_rmac(struct interface *ifp, struct ethaddr *mac, vlanid_t vid,
+				  vni_t vni)
+{
+	struct zebra_if *zif;
+	struct interface *br_if;
+	struct zebra_if *br_zif;
+	struct zebra_l2_bridge_if *br;
+	struct zebra_l3vni *zl3vni;
+	vni_t l3vni;
+
+	if (!ifp || !ifp->info || !mac)
+		return;
+
+	zif = ifp->info;
+
+	/* One-VNI device, or the message already carried a VNI. */
+	if (vni) {
+		rmac_reinstall_on_vni(ifp, zif, mac, vid, vni);
+		return;
+	}
+
+	/*
+	 * Shared vxlan device. The delete names a VLAN. The bridge VLAN
+	 * hash holds the VNI for that VLAN, so this is one lookup.
+	 */
+	if (!vid || IS_ZEBRA_VXLAN_IF_VNI(zif))
+		return;
+
+	br_if = zif->brslave_info.br_if;
+	if (!br_if || !br_if->info || !IS_ZEBRA_IF_BRIDGE(br_if))
+		return;
+
+	br_zif = br_if->info;
+	br = BRIDGE_FROM_ZEBRA_IF(br_zif);
+	if (!br->vlan_table)
+		return;
+
+	l3vni = zebra_l2_bridge_if_vni_find(br_zif, vid);
+	if (!l3vni)
+		return;
+
+	/*
+	 * The bridge VLAN can name an L2 VNI. Only an L3VNI on this
+	 * vxlan port has a router-MAC to reinstall.
+	 */
+	zl3vni = zl3vni_lookup(l3vni);
+	if (!zl3vni || zl3vni->vxlan_if != ifp)
+		return;
+
+	rmac_reinstall_on_vni(ifp, zif, mac, vid, l3vni);
 }
 
 /* Public functions */

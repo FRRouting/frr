@@ -2889,6 +2889,22 @@ static int peer_activate_af(struct peer *peer, afi_t afi, safi_t safi)
 	return 0;
 }
 
+/*
+ * Name of the prefix-list holding the ORF the peer sent us for afi/safi.
+ * All BGP instances share one table of ORF prefix-lists, so the name must
+ * identify the instance as well as the peer: peers with the same address
+ * in different instances would otherwise share one list, and either one
+ * could delete it under the other. The default instance keeps the plain
+ * "<host>.<afi>.<safi>"; other instances append "_<instance>".
+ */
+void peer_orf_plist_name(const struct peer *peer, afi_t afi, safi_t safi, char *buf, size_t size)
+{
+	if (peer->bgp->name)
+		snprintfrr(buf, size, "%s.%d.%d_%s", peer->host, afi, safi, peer->bgp->name);
+	else
+		snprintfrr(buf, size, "%s.%d.%d", peer->host, afi, safi);
+}
+
 /* Activate the peer or peer group for specified AFI and SAFI.  */
 int peer_activate(struct peer *peer, afi_t afi, safi_t safi)
 {
@@ -4928,6 +4944,10 @@ int bgp_delete(struct bgp *bgp)
 		 * tables are empty) and then frees the bgpevpn structs.
 		 */
 		bgp_evpn_cleanup(bgp);
+
+		/* Shutdown releases ESs from bgp_evpn_mh_finish() instead */
+		if (!bm->terminating)
+			bgp_evpn_es_instance_del_cleanup(bgp);
 	}
 
 	for (afi = 0; afi < AFI_MAX; ++afi) {
@@ -9776,9 +9796,7 @@ static int peer_unshut_after_cfg(struct bgp *bgp)
 		afi_t afi;
 		safi_t safi;
 
-		FOREACH_AFI_SAFI_NSF (afi, safi) {
-			if (!bgp_gr_supported_for_afi_safi(afi, safi))
-				continue;
+		FOREACH_AFI_SAFI_GR (afi, safi) {
 			/* Inform zebra */
 			bgp_zebra_update(bgp, afi, safi, ZEBRA_CLIENT_ROUTE_UPDATE_PENDING);
 			bgp_zebra_update(bgp, afi, safi, ZEBRA_CLIENT_ROUTE_UPDATE_COMPLETE);
@@ -9903,13 +9921,37 @@ void bgp_terminate(void)
 #endif
 }
 
+/*
+ * First member of peer-group @name. A NULL @bgp means "vrf all": search every
+ * instance, as the other peer lookups do, and skip groups that have no members
+ * so that an empty group of the same name does not hide a populated one.
+ */
+static struct peer *peer_group_lookup_member(struct bgp *bgp, const char *name)
+{
+	struct peer_group *group;
+	struct listnode *node;
+	struct peer *peer;
+
+	if (bgp) {
+		group = peer_group_lookup(bgp, name);
+		return group ? listnode_head(group->peer) : NULL;
+	}
+
+	for (ALL_LIST_ELEMENTS_RO(bm->bgp, node, bgp)) {
+		peer = peer_group_lookup_member(bgp, name);
+		if (peer)
+			return peer;
+	}
+
+	return NULL;
+}
+
 struct peer *peer_lookup_in_view(struct vty *vty, struct bgp *bgp,
 				 const char *ip_str, bool use_json)
 {
 	int ret;
 	struct peer *peer;
 	union sockunion su;
-	struct peer_group *group;
 
 	/* Get peer sockunion. */
 	ret = str2sockunion(ip_str, &su);
@@ -9918,11 +9960,8 @@ struct peer *peer_lookup_in_view(struct vty *vty, struct bgp *bgp,
 		if (!peer) {
 			peer = peer_lookup_by_hostname(bgp, ip_str);
 
-			if (!peer) {
-				group = peer_group_lookup(bgp, ip_str);
-				if (group)
-					peer = listnode_head(group->peer);
-			}
+			if (!peer)
+				peer = peer_group_lookup_member(bgp, ip_str);
 
 			if (!peer) {
 				if (use_json) {
@@ -10150,7 +10189,7 @@ void bgp_clearing_batch_completed(struct bgp_clearing_info *cinfo)
 			   cinfo->total_counter);
 
 	/* Ensure event is not scheduled */
-	event_cancel_event(bm->master, &cinfo->t_sched);
+	event_cancel(&cinfo->t_sched);
 
 	/* Remove all peers and un-ref */
 	while ((peer = bgp_clearing_hash_pop_all(&cinfo->peers, &idx)) != NULL)

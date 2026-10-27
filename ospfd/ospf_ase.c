@@ -377,8 +377,8 @@ int ospf_ase_calculate_route(struct ospf *ospf, struct ospf_lsa *lsa)
 
 	if (!rn || (or = rn->info) == NULL) {
 		if (IS_DEBUG_OSPF(lsa, LSA))
-			zlog_debug("Route[External]: Adding a new route %pFX with paths %u",
-				   &p, listcount(asbr_route->paths));
+			zlog_debug("Route[External]: Adding a new route (%s:%u:%u)%pFX with paths %u",
+				   OSPF_DEBUG_VRF(ospf), &p, listcount(asbr_route->paths));
 
 		ospf_route_add(ospf->new_external_route, &p, new, asbr_route);
 

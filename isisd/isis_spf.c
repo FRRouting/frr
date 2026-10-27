@@ -268,8 +268,8 @@ struct isis_vertex_adj *isis_vertex_adj_add(struct isis_spftree *spftree,
 	vadj->sadj = sadj;
 	if (spftree->area->srdb.enabled && psid) {
 		if (vertex->N.ip.sr.present && vertex->N.ip.sr.sid.value != psid->value)
-			zlog_warn("ISIS-SPF: ignoring different Prefix-SID for route %pFX",
-				  &vertex->N.ip.p.dest);
+			zlog_warn("ISIS-SPF: ignoring different Prefix-SID for route (%s:%u:%u)%pFX",
+				  ISIS_DEBUG_VRF(spftree->area->isis), &vertex->N.ip.p.dest);
 		else {
 			vadj->sr.sid = *psid;
 			vadj->sr.label = sr_prefix_out_label(spftree->lspdb,
@@ -590,8 +590,10 @@ static struct isis_vertex *isis_spf_add2tent(struct isis_spftree *spftree, enum 
 		vertex_psid = isis_spf_prefix_sid_lookup(spftree, psid);
 		if (vertex_psid && !prefix_same(&vertex_psid->N.ip.p.dest, &vertex->N.ip.p.dest)) {
 			flog_warn(EC_ISIS_SID_COLLISION,
-				  "ISIS-Sr (%s): collision detected, prefixes %pFX and %pFX share the same SID %s (%u)",
-				  area->area_tag, &vertex->N.ip.p.dest, &vertex_psid->N.ip.p.dest,
+				  "ISIS-Sr (%s): collision detected, prefixes (%s:%u:%u)%pFX and (%s:%u:%u)%pFX share the same SID %s (%u)",
+				  area->area_tag, ISIS_DEBUG_VRF(spftree->area->isis),
+				  &vertex->N.ip.p.dest, ISIS_DEBUG_VRF(spftree->area->isis),
+				  &vertex_psid->N.ip.p.dest,
 				  CHECK_FLAG(psid->flags, ISIS_PREFIX_SID_VALUE) ? "label"
 										 : "index",
 				  psid->value);
@@ -892,6 +894,18 @@ lspfragloop:
 				     isis_flex_algo_constraint_drop(spftree, lsp, er)))
 					continue;
 #endif /* ifndef FABRICD */
+
+				/*
+				 * RFC 5305 section 3: a link advertised with the
+				 * maximum link metric (2^24 - 1) MUST NOT be
+				 * considered during the normal SPF computation.
+				 *
+				 * The hop-count metric (OpenFabric) does not use
+				 * the advertised metric, so keep those links.
+				 */
+				if (!CHECK_FLAG(spftree->flags, F_SPFTREE_HOPCOUNT_METRIC) &&
+				    er->metric == MAX_WIDE_LINK_METRIC)
+					continue;
 
 				dist = cost + (CHECK_FLAG(spftree->flags, F_SPFTREE_HOPCOUNT_METRIC)
 						       ? 1
@@ -1260,6 +1274,15 @@ static int spf_adj_find_reverse_metric_cb(const uint8_t *id, uint32_t metric, bo
 	if (memcmp(id, args->id_self, ISIS_SYS_ID_LEN))
 		return LSP_ITER_CONTINUE;
 
+	/*
+	 * RFC 5305 section 3: a link advertised with the maximum wide metric
+	 * is not usable in the direction used by the reverse SPF.  There can
+	 * be several parallel links to the same neighbor, so keep looking for
+	 * a usable one.
+	 */
+	if (!oldmetric && metric == MAX_WIDE_LINK_METRIC)
+		return LSP_ITER_CONTINUE;
+
 	args->reverse_metric = metric;
 
 	return LSP_ITER_STOP;
@@ -1307,11 +1330,15 @@ static void spf_adj_get_reverse_metrics(struct isis_spftree *spftree)
 		isis_lsp_iterate_is_reach(lsp_adj, spftree->mtid, spf_adj_find_reverse_metric_cb,
 					  &args);
 		if (args.reverse_metric == UINT32_MAX) {
-			/* Delete one-way adjacency. */
+			/*
+			 * Delete one-way adjacency or an adjacency whose
+			 * reverse metric is the maximum wide metric.
+			 */
 			listnode_delete(spftree->sadj_list, sadj);
 			isis_spf_adj_free(sadj);
 			continue;
 		}
+
 		sadj->metric = args.reverse_metric;
 	}
 }
@@ -1352,6 +1379,23 @@ static void spf_adj_list_parse_tlv(struct isis_spftree *spftree, struct spf_adj_
 	if ((oldmetric && sadj->metric == ISIS_NARROW_METRIC_INFINITY) ||
 	    (!oldmetric && sadj->metric == ISIS_WIDE_METRIC_INFINITY))
 		SET_FLAG(flags, F_ISIS_SPF_ADJ_METRIC_INFINITY);
+
+	/*
+	 * RFC 5305 section 3: a link advertised with the maximum link metric
+	 * (2^24 - 1) MUST NOT be considered during the normal SPF computation.
+	 * Ignore the local circuit and the neighbor entries using that value.
+	 *
+	 * The reverse SPF uses the reverse metric, which is applied later in
+	 * spf_adj_get_reverse_metrics(), so leave that case to it.  The
+	 * hop-count metric (OpenFabric) does not use the advertised metric.
+	 */
+	if (!oldmetric && (spftree->type != SPF_TYPE_REVERSE || LSP_PSEUDO_ID(id)) &&
+	    !CHECK_FLAG(spftree->flags, F_SPFTREE_HOPCOUNT_METRIC) &&
+	    sadj->metric == MAX_WIDE_LINK_METRIC) {
+		XFREE(MTYPE_ISIS_SPF_ADJ, sadj);
+		return;
+	}
+
 	sadj->lsp = lsp;
 	sadj->subtlvs = subtlvs;
 	sadj->flags = flags;
@@ -1642,9 +1686,10 @@ static void spf_path_process(struct isis_spftree *spftree, struct isis_vertex *v
 						  vertex->Adj_N, allow_ecmp, area, route_table);
 
 #ifdef EXTREME_DEBUG
-			zlog_debug("ISIS-SPF: A:%hhu create route pfx %pFX dist %d, sr.algo %d, table %p, rv %p",
-				   spftree->algorithm, &vertex->N.ip.p.dest, vertex->d_N,
-				   vertex->N.ip.sr.algorithm, route_table, ri);
+			zlog_debug("ISIS-SPF: A:%hhu create route pfx (%s:%u:%u)%pFX dist %d, sr.algo %d, table %p, rv %p",
+				   spftree->algorithm, ISIS_DEBUG_VRF(spftree->area->isis),
+				   &vertex->N.ip.p.dest, vertex->d_N, vertex->N.ip.sr.algorithm,
+				   route_table, ri);
 #endif /* EXTREME_DEBUG */
 		} else if (IS_DEBUG_SPF_EVENTS)
 			zlog_debug("ISIS-SPF: no adjacencies, do not install route for %s depth %d dist %d",

@@ -667,11 +667,24 @@ def host_send_mldv1_packet(host, source, group, router_alert=True):
     tgen.gears[host].run(command)
 
 
-def host_send_mldv2_packet(host, source, group, router_alert=True):
+def host_link_local_address(host):
+    "Returns the link-local address of the host's eth0."
+    tgen = get_topogen()
+    addr_out = json.loads(tgen.gears[host].run(f"ip -j addr show dev {host}-eth0"))
+    for address in addr_out[0]["addr_info"]:
+        if address["family"] == "inet6" and address["scope"] == "link":
+            return address["local"]
+
+    assert False, "failed to find link-local address"
+
+
+def host_send_mldv2_packet(host, source, group, router_alert=True, sources=()):
     "Sends packet using specified script from host."
     command = f"python3 {CWD}/../lib/packet/mld/mld_v2.py"
     command += f" --src_ip={source} --iface={host}-eth0"
     command += f" --maddr={group} --rtype=2"
+    for src in sources:
+        command += f" --source={src}"
     if router_alert:
         command += f" --enable_router_alert"
 
@@ -699,17 +712,7 @@ def test_mld_router_alert():
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
 
-    addr_out = json.loads(tgen.gears["h1"].run("ip -j addr show dev h1-eth0"))
-    source = None
-    for address in addr_out[0]["addr_info"]:
-        if address["family"] != "inet6":
-            continue
-        if address["scope"] != "link":
-            continue
-
-        source = address["local"]
-        break
-    assert source is not None, "failed to find link-local address"
+    source = host_link_local_address("h1")
 
     #
     # Test that without require-router-alert we learn MLD groups
@@ -772,6 +775,56 @@ def test_mld_router_alert():
         configure terminal
         interface r1-eth2
          no ipv6 mld require-router-alert
+    """
+    )
+
+
+def test_mld_exclude_source_limit():
+    "Test MLDv2 EXCLUDE records with more sources than max-sources allows."
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    tgen.gears["r1"].vtysh_cmd(
+        """
+        configure terminal
+        interface r1-eth2
+         ipv6 mld max-sources 2
+        exit
+    """
+    )
+
+    # The *,G entry counts against max-sources, so only the first of the
+    # three sources is accepted. The second report replaces the first one's
+    # EXCLUDE state.
+    source = host_link_local_address("h1")
+    group = "ff05::200"
+    sources = ["2001:db8:1::200", "2001:db8:1::201", "2001:db8:1::202"]
+    host_send_mldv2_packet("h1", source, group, sources=sources)
+    host_send_mldv2_packet("h1", source, group, sources=sources)
+
+    def expect_mld_exclude_entries():
+        mld_joins = tgen.gears["r1"].vtysh_cmd(
+            "show ipv6 mld joins json", isjson=True
+        )
+        try:
+            return len(mld_joins["default"]["r1-eth2"][group].keys())
+        except KeyError:
+            return 0
+
+    logger.info(f"Waiting for r1 to learn {group} in interface r1-eth2")
+    rv, _ = topotest.run_and_expect(expect_mld_exclude_entries, 2, count=10, wait=2)
+    assert rv, "failed to learn EXCLUDE group with one source under max-sources"
+    assert not tgen.routers_have_failure(), tgen.errors
+
+    # Cleanup
+    tgen.gears["r1"].vtysh_cmd(
+        """
+        configure terminal
+        interface r1-eth2
+         no ipv6 mld max-sources 2
+        exit
+        clear ipv6 mld interfaces
     """
     )
 

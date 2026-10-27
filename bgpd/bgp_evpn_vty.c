@@ -14,6 +14,7 @@
 #include "stream.h"
 
 #include "bgpd/bgpd.h"
+#include "bgpd/bgp_debug.h"
 #include "bgpd/bgp_table.h"
 #include "bgpd/bgp_attr.h"
 #include "bgpd/bgp_route.h"
@@ -4373,40 +4374,37 @@ static uint16_t bgp_evpn_suppress_import_from_evpn_flag(afi_t afi)
 	return 0;
 }
 
-static int bgp_evpn_set_suppress_import_from_evpn(struct bgp *bgp_vrf, afi_t afi, safi_t safi,
-						  bool set)
+/* Clear EVPN-import Type-5 export suppression. */
+static int bgp_evpn_clear_suppress_import_from_evpn(struct bgp *bgp_vrf, afi_t afi, safi_t safi)
 {
 	uint16_t flag = bgp_evpn_suppress_import_from_evpn_flag(afi);
-	bool already_set;
-	bool was_advertising;
 
 	if (!flag)
 		return CMD_WARNING;
 
-	already_set = CHECK_FLAG(bgp_vrf->af_flags[AFI_L2VPN][SAFI_EVPN], flag);
-	if (already_set == set)
+	if (!CHECK_FLAG(bgp_vrf->af_flags[AFI_L2VPN][SAFI_EVPN], flag))
 		return CMD_SUCCESS;
 
-	was_advertising = advertise_type5_routes_bestpath(bgp_vrf, afi, safi) ||
-			  advertise_type5_routes_multipath(bgp_vrf, afi, safi);
-	if (was_advertising)
-		bgp_evpn_withdraw_local_type5_routes(bgp_vrf, afi, safi);
+	if (BGP_DEBUG(vpn, VPN_LEAK_FROM_VRF) || BGP_DEBUG(vpn, VPN_LEAK_TO_VRF))
+		zlog_debug("vrf %s: disable skip-evpn-imported for afi %s; advertising %u",
+			   bgp_vrf->name_pretty, afi2str(afi),
+			   advertise_type5_routes_bestpath(bgp_vrf, afi, safi) ||
+				   advertise_type5_routes_multipath(bgp_vrf, afi, safi));
 
-	if (set)
-		SET_FLAG(bgp_vrf->af_flags[AFI_L2VPN][SAFI_EVPN], flag);
-	else
-		UNSET_FLAG(bgp_vrf->af_flags[AFI_L2VPN][SAFI_EVPN], flag);
+	UNSET_FLAG(bgp_vrf->af_flags[AFI_L2VPN][SAFI_EVPN], flag);
 
-	if (was_advertising)
+	/* Re-originate paths that were suppressed. */
+	if (advertise_type5_routes_bestpath(bgp_vrf, afi, safi) ||
+	    advertise_type5_routes_multipath(bgp_vrf, afi, safi))
 		bgp_evpn_advertise_type5_routes(bgp_vrf, afi, safi);
 
 	return CMD_SUCCESS;
 }
 
-DEFUN (bgp_evpn_advertise_type5,
+DEFPY (bgp_evpn_advertise_type5,
        bgp_evpn_advertise_type5_cmd,
        "advertise " BGP_AFI_CMD_STR "" BGP_SAFI_CMD_STR
-       " [gateway-ip] [route-map RMAP_NAME] [skip-evpn-imported]",
+       " [gateway-ip] [route-map RMAP_NAME$rmap_name] [skip-evpn-imported$skip_evpn_imported]",
        "Advertise prefix routes\n"
        BGP_AFI_HELP_STR
        BGP_SAFI_HELP_STR
@@ -4418,11 +4416,8 @@ DEFUN (bgp_evpn_advertise_type5,
 	struct bgp *bgp_vrf = VTY_GET_CONTEXT(bgp); /* bgp vrf instance */
 	int idx_afi = 0;
 	int idx_safi = 0;
-	int idx_rmap = 0;
-	int idx_suppress = 0;
 	afi_t afi = 0;
 	safi_t safi = 0;
-	int ret = 0;
 	int rmap_changed = 0;
 	enum overlay_index_type oly = OVERLAY_INDEX_TYPE_NONE;
 	int idx_oly = 0;
@@ -4431,8 +4426,8 @@ DEFUN (bgp_evpn_advertise_type5,
 	uint16_t suppress_flag;
 	bool has_flag_oi_none, has_flag_oi_gw_ip;
 	bool was_advertising;
-	bool suppress_requested = false;
-	bool suppress_changed = false;
+	bool skip_evpn_imported_newly_enabled = false;
+	int debug = BGP_DEBUG(vpn, VPN_LEAK_FROM_VRF) || BGP_DEBUG(vpn, VPN_LEAK_TO_VRF);
 
 	if (!bgp_vrf)
 		return CMD_WARNING;
@@ -4441,17 +4436,11 @@ DEFUN (bgp_evpn_advertise_type5,
 	argv_find_and_parse_safi(argv, argc, &idx_safi, &safi);
 	argv_find_and_parse_oly_idx(argv, argc, &idx_oly, &oly);
 
-	ret = argv_find(argv, argc, "route-map", &idx_rmap);
-	suppress_requested = argv_find(argv, argc, "skip-evpn-imported", &idx_suppress);
-	if (ret) {
+	if (rmap_name) {
 		if (!bgp_vrf->adv_cmd_rmap[afi][safi].name)
 			rmap_changed = 1;
-		else if (strcmp(argv[idx_rmap + 1]->arg,
-				bgp_vrf->adv_cmd_rmap[afi][safi].name)
-			 != 0)
+		else if (strcmp(rmap_name, bgp_vrf->adv_cmd_rmap[afi][safi].name) != 0)
 			rmap_changed = 1;
-	} else if (bgp_vrf->adv_cmd_rmap[afi][safi].name) {
-		rmap_changed = 1;
 	}
 
 	if (!(afi == AFI_IP || afi == AFI_IP6)) {
@@ -4476,7 +4465,7 @@ DEFUN (bgp_evpn_advertise_type5,
 		return CMD_WARNING;
 	}
 
-	if (safi == SAFI_MPLS_VPN && suppress_requested) {
+	if (safi == SAFI_MPLS_VPN && skip_evpn_imported) {
 		vty_out(vty, "%% skip-evpn-imported is only supported for unicast SAFI\n");
 		return CMD_WARNING;
 	}
@@ -4502,38 +4491,50 @@ DEFUN (bgp_evpn_advertise_type5,
 	has_flag_oi_none = CHECK_FLAG(bgp_vrf->af_flags[AFI_L2VPN][SAFI_EVPN], flag_oi_none);
 	has_flag_oi_gw_ip = CHECK_FLAG(bgp_vrf->af_flags[AFI_L2VPN][SAFI_EVPN], flag_oi_gw_ip);
 	was_advertising = has_flag_oi_none || has_flag_oi_gw_ip;
-	suppress_changed = safi == SAFI_UNICAST &&
-			   !!CHECK_FLAG(bgp_vrf->af_flags[AFI_L2VPN][SAFI_EVPN], suppress_flag) !=
-				   suppress_requested;
+	skip_evpn_imported_newly_enabled = skip_evpn_imported &&
+					   !CHECK_FLAG(bgp_vrf->af_flags[AFI_L2VPN][SAFI_EVPN],
+						       suppress_flag);
 
-	if (!has_flag_oi_none && !has_flag_oi_gw_ip) {
-		if (oly == OVERLAY_INDEX_GATEWAY_IP)
-			adv_flag_changed = true;
-	} else if (!has_flag_oi_none && oly == OVERLAY_INDEX_TYPE_NONE)
-		adv_flag_changed = true;
-	else if (!has_flag_oi_gw_ip && oly == OVERLAY_INDEX_GATEWAY_IP)
-		adv_flag_changed = true;
-	else if (!rmap_changed && !suppress_changed) {
-		/* Command is issued with the same option (no overlay index
-		 * or gateway-ip) which was already configured. So nothing to
-		 * do. However, route-map and skip-evpn-imported have
-		 * not been modified.
-		 * Return an error
-		 */
-		return CMD_WARNING;
+	/* Omitting gateway-ip leaves the overlay index as configured, so the
+	 * mode only ever moves to gateway-ip here. Use
+	 * "no advertise <afi> unicast gateway-ip" to drop back to no overlay
+	 * index.
+	 */
+	adv_flag_changed = oly == OVERLAY_INDEX_GATEWAY_IP && !has_flag_oi_gw_ip;
+
+	if (was_advertising && !adv_flag_changed && !rmap_changed &&
+	    !skip_evpn_imported_newly_enabled) {
+		/* The supplied options are already configured. */
+		return CMD_SUCCESS;
 	}
 
-	if (was_advertising && (rmap_changed || adv_flag_changed || suppress_changed)) {
+	if (debug)
+		zlog_debug("%s: vrf %s afi %s safi %s overlay-index %d route-map %u rmap-changed %u advertise-flag-changed %u skip-newly-enabled %u skip-requested %u was-advertising %u oi-none %u oi-gateway-ip %u",
+			   __func__, bgp_vrf->name_pretty, afi2str(afi), safi2str(safi), oly,
+			   !!rmap_name, rmap_changed, adv_flag_changed,
+			   skip_evpn_imported_newly_enabled, !!skip_evpn_imported, was_advertising,
+			   has_flag_oi_none, has_flag_oi_gw_ip);
+
+	if (was_advertising && (rmap_changed || adv_flag_changed)) {
 		/* If either of these are changed, then FRR needs to withdraw
 		 * already advertised type5 routes. This needs to be done
 		 * before actually changing the flags, for proper addpath
 		 * handling in the withdraw logic.
 		 */
-		if (suppress_changed)
-			bgp_evpn_withdraw_local_type5_routes(bgp_vrf, afi, safi);
-		else
-			bgp_evpn_withdraw_type5_routes(bgp_vrf, afi, safi);
+		bgp_evpn_withdraw_type5_routes(bgp_vrf, afi, safi);
 	}
+
+	/* Enabling skip-evpn-imported drains exactly the EVPN-derived Type-5
+	 * routes, instead of withdrawing everything this VRF advertises and
+	 * re-originating the remainder. Omitting the option leaves it as
+	 * configured, so it is only ever set here.
+	 */
+	if (skip_evpn_imported_newly_enabled) {
+		if (was_advertising)
+			bgp_evpn_withdraw_imported_type5_leaked_routes(bgp_vrf, afi);
+		SET_FLAG(bgp_vrf->af_flags[AFI_L2VPN][SAFI_EVPN], suppress_flag);
+	}
+
 	if (rmap_changed && bgp_vrf->adv_cmd_rmap[afi][safi].name) {
 		XFREE(MTYPE_ROUTE_MAP_NAME, bgp_vrf->adv_cmd_rmap[afi][safi].name);
 		route_map_counter_decrement(bgp_vrf->adv_cmd_rmap[afi][safi].map);
@@ -4541,30 +4542,15 @@ DEFUN (bgp_evpn_advertise_type5,
 		bgp_vrf->adv_cmd_rmap[afi][safi].map = NULL;
 	}
 
-	if (!has_flag_oi_none && !has_flag_oi_gw_ip) {
-		/* this is the case for first time ever configuration
-		 * adv ipv4 unicast is enabled for the first time. So no
-		 * need to reset any flag
-		 */
-		if (oly == OVERLAY_INDEX_TYPE_NONE)
-			SET_FLAG(bgp_vrf->af_flags[AFI_L2VPN][SAFI_EVPN], flag_oi_none);
-		else if (oly == OVERLAY_INDEX_GATEWAY_IP)
-			SET_FLAG(bgp_vrf->af_flags[AFI_L2VPN][SAFI_EVPN], flag_oi_gw_ip);
-	} else if (oly == OVERLAY_INDEX_TYPE_NONE && !has_flag_oi_none) {
-		/* This is modify case from gateway-ip to no overlay index */
-		UNSET_FLAG(bgp_vrf->af_flags[AFI_L2VPN][SAFI_EVPN], flag_oi_gw_ip);
-		SET_FLAG(bgp_vrf->af_flags[AFI_L2VPN][SAFI_EVPN], flag_oi_none);
-	} else if (oly == OVERLAY_INDEX_GATEWAY_IP && !has_flag_oi_gw_ip) {
+	if (adv_flag_changed) {
 		/* This is modify case from no overlay index to gateway-ip */
 		UNSET_FLAG(bgp_vrf->af_flags[AFI_L2VPN][SAFI_EVPN], flag_oi_none);
 		SET_FLAG(bgp_vrf->af_flags[AFI_L2VPN][SAFI_EVPN], flag_oi_gw_ip);
-	}
-
-	if (safi == SAFI_UNICAST) {
-		if (suppress_requested)
-			SET_FLAG(bgp_vrf->af_flags[AFI_L2VPN][SAFI_EVPN], suppress_flag);
-		else
-			UNSET_FLAG(bgp_vrf->af_flags[AFI_L2VPN][SAFI_EVPN], suppress_flag);
+	} else if (!was_advertising) {
+		/* Type-5 export is enabled for the first time, without an
+		 * overlay index. So no need to reset any flag.
+		 */
+		SET_FLAG(bgp_vrf->af_flags[AFI_L2VPN][SAFI_EVPN], flag_oi_none);
 	}
 
 	if (adv_flag_changed)
@@ -4572,38 +4558,44 @@ DEFUN (bgp_evpn_advertise_type5,
 		bgp_addpath_type_changed(bgp_vrf);
 
 	/* set the route-map for advertise command */
-	if (ret && argv[idx_rmap + 1]->arg) {
+	if (rmap_name) {
 		/* Only allocate/update if the route-map name is different */
 		if (!bgp_vrf->adv_cmd_rmap[afi][safi].name ||
-		    strcmp(bgp_vrf->adv_cmd_rmap[afi][safi].name, argv[idx_rmap + 1]->arg) != 0) {
+		    strcmp(bgp_vrf->adv_cmd_rmap[afi][safi].name, rmap_name) != 0) {
 			if (bgp_vrf->adv_cmd_rmap[afi][safi].name) {
 				XFREE(MTYPE_ROUTE_MAP_NAME, bgp_vrf->adv_cmd_rmap[afi][safi].name);
 				route_map_counter_decrement(bgp_vrf->adv_cmd_rmap[afi][safi].map);
 			}
 			bgp_vrf->adv_cmd_rmap[afi][safi].name = XSTRDUP(MTYPE_ROUTE_MAP_NAME,
-									argv[idx_rmap + 1]->arg);
-			bgp_vrf->adv_cmd_rmap[afi][safi].map =
-				route_map_lookup_by_name(argv[idx_rmap + 1]->arg);
+									rmap_name);
+			bgp_vrf->adv_cmd_rmap[afi][safi].map = route_map_lookup_by_name(rmap_name);
 			route_map_counter_increment(bgp_vrf->adv_cmd_rmap[afi][safi].map);
 		}
 	}
 
-	/* advertise type-5 routes */
-	if (advertise_type5_routes_bestpath(bgp_vrf, afi, safi) ||
-	    advertise_type5_routes_multipath(bgp_vrf, afi, safi))
+	/* Run the advertise walk after first enabling Type-5 export, changing
+	 * the route-map, or changing the overlay-index mode. Enabling
+	 * skip-evpn-imported only withdraws EVPN-derived Type-5 routes.
+	 */
+	if ((advertise_type5_routes_bestpath(bgp_vrf, afi, safi) ||
+	     advertise_type5_routes_multipath(bgp_vrf, afi, safi)) &&
+	    (!was_advertising || rmap_changed || adv_flag_changed))
 		bgp_evpn_advertise_type5_routes(bgp_vrf, afi, safi);
 	return CMD_SUCCESS;
 }
 
-DEFUN (no_bgp_evpn_advertise_type5,
+DEFPY (no_bgp_evpn_advertise_type5,
        no_bgp_evpn_advertise_type5_cmd,
-       "no advertise " BGP_AFI_CMD_STR "" BGP_SAFI_CMD_STR " [route-map WORD]",
+       "no advertise " BGP_AFI_CMD_STR "" BGP_SAFI_CMD_STR
+       " [gateway-ip$gateway_ip] [route-map RMAP_NAME$rmap_name] [skip-evpn-imported$skip_evpn_imported]",
        NO_STR
        "Advertise prefix routes\n"
        BGP_AFI_HELP_STR
        BGP_SAFI_HELP_STR
+       "advertise gateway IP overlay index\n"
        "route-map for filtering specific routes\n"
-       "Name of the route map\n")
+       "Name of the route map\n"
+       "Do not advertise routes imported from EVPN as Type-5 routes\n")
 {
 	struct bgp *bgp_vrf = VTY_GET_CONTEXT(bgp); /* bgp vrf instance */
 	int idx_afi = 0;
@@ -4631,6 +4623,16 @@ DEFUN (no_bgp_evpn_advertise_type5,
 		return CMD_WARNING;
 	}
 
+	if (safi == SAFI_MPLS_VPN && skip_evpn_imported) {
+		vty_out(vty, "%% skip-evpn-imported is only supported for unicast SAFI\n");
+		return CMD_WARNING;
+	}
+
+	if (safi == SAFI_MPLS_VPN && gateway_ip) {
+		vty_out(vty, "%% gateway-ip overlay index is only supported for unicast SAFI\n");
+		return CMD_WARNING;
+	}
+
 	if (safi == SAFI_UNICAST) {
 		if (afi == AFI_IP) {
 			flag_oi_none = BGP_L2VPN_EVPN_ADV_IPV4_UNICAST;
@@ -4650,6 +4652,43 @@ DEFUN (no_bgp_evpn_advertise_type5,
 	has_flag_oi_none = CHECK_FLAG(bgp_vrf->af_flags[AFI_L2VPN][SAFI_EVPN], flag_oi_none);
 	has_flag_oi_gw_ip = CHECK_FLAG(bgp_vrf->af_flags[AFI_L2VPN][SAFI_EVPN], flag_oi_gw_ip);
 
+	/* Remove the named advertise options and keep Type-5 export enabled. */
+	if (skip_evpn_imported || rmap_name || gateway_ip) {
+		if (skip_evpn_imported)
+			bgp_evpn_clear_suppress_import_from_evpn(bgp_vrf, afi, safi);
+
+		if (rmap_name && bgp_vrf->adv_cmd_rmap[afi][safi].name &&
+		    strcmp(bgp_vrf->adv_cmd_rmap[afi][safi].name, rmap_name) == 0) {
+			bgp_evpn_withdraw_type5_routes(bgp_vrf, afi, safi);
+			XFREE(MTYPE_ROUTE_MAP_NAME, bgp_vrf->adv_cmd_rmap[afi][safi].name);
+			route_map_counter_decrement(bgp_vrf->adv_cmd_rmap[afi][safi].map);
+			bgp_vrf->adv_cmd_rmap[afi][safi].name = NULL;
+			bgp_vrf->adv_cmd_rmap[afi][safi].map = NULL;
+
+			/* Re-advertise without the removed route-map when Type-5
+			 * export remains enabled in normal or gateway-IP
+			 * overlay-index mode.
+			 */
+			if (has_flag_oi_none || has_flag_oi_gw_ip)
+				bgp_evpn_advertise_type5_routes(bgp_vrf, afi, safi);
+		}
+
+		if (gateway_ip && has_flag_oi_gw_ip) {
+			/* Drop back to no overlay index. Type-5 export stays
+			 * enabled, so the routes are re-originated without a
+			 * gateway IP.
+			 */
+			bgp_evpn_withdraw_type5_routes(bgp_vrf, afi, safi);
+			UNSET_FLAG(bgp_vrf->af_flags[AFI_L2VPN][SAFI_EVPN], flag_oi_gw_ip);
+			SET_FLAG(bgp_vrf->af_flags[AFI_L2VPN][SAFI_EVPN], flag_oi_none);
+			/* Cleanup addpath IDs allocated for the overlay index */
+			bgp_addpath_type_changed(bgp_vrf);
+			bgp_evpn_advertise_type5_routes(bgp_vrf, afi, safi);
+		}
+
+		return CMD_SUCCESS;
+	}
+
 	/* if we are not advertising ipv4/ipv6 prefix as type-5, nothing to do */
 	if (has_flag_oi_none || has_flag_oi_gw_ip) {
 		bgp_evpn_withdraw_type5_routes(bgp_vrf, afi, safi);
@@ -4661,6 +4700,10 @@ DEFUN (no_bgp_evpn_advertise_type5,
 		if (has_flag_oi_gw_ip)
 			bgp_addpath_type_changed(bgp_vrf);
 	}
+
+	/* Type-5 export is disabled entirely, so clear skip-evpn-imported
+	 * along with all other advertise options.
+	 */
 	if (safi == SAFI_UNICAST)
 		UNSET_FLAG(bgp_vrf->af_flags[AFI_L2VPN][SAFI_EVPN], suppress_flag);
 
@@ -4675,39 +4718,121 @@ DEFUN (no_bgp_evpn_advertise_type5,
 	return CMD_SUCCESS;
 }
 
-DEFUN (no_bgp_evpn_advertise_type5_suppress_import_from_evpn,
-       no_bgp_evpn_advertise_type5_suppress_import_from_evpn_cmd,
-       "no advertise " BGP_AFI_CMD_STR "" BGP_SAFI_CMD_STR
-       " skip-evpn-imported",
-       NO_STR
-       "Advertise prefix routes\n"
+DEFPY (show_bgp_vrf_unicast_skip_evpn_imported,
+       show_bgp_vrf_unicast_skip_evpn_imported_cmd,
+       "show bgp vrf VRFNAME$vrf_name <ipv4|ipv6>$afi_str unicast "
+       "<A.B.C.D/M|X:X::X:X/M>$prefix skip-evpn-imported [json$json]",
+       SHOW_STR
+       BGP_STR
+       "VRF\n"
+       "VRF name\n"
        BGP_AFI_HELP_STR
-       BGP_SAFI_HELP_STR
-       "Do not advertise routes imported from EVPN as Type-5 routes\n")
+       "Unicast\n"
+       "IPv4 prefix\n"
+       "IPv6 prefix\n"
+       "Display paths suppressed by skip-evpn-imported\n"
+       JSON_STR)
 {
-	struct bgp *bgp_vrf = VTY_GET_CONTEXT(bgp); /* bgp vrf instance */
-	int idx_afi = 0;
-	int idx_safi = 0;
-	afi_t afi = 0;
-	safi_t safi = 0;
+	struct bgp *bgp_vrf;
+	struct bgp_table *table;
+	struct bgp_dest *dest;
+	struct bgp_path_info *pi;
+	json_object *json_out;
+	json_object *json_paths = NULL;
+	afi_t afi = strmatch(afi_str, "ipv4") ? AFI_IP : AFI_IP6;
+	unsigned int count = 0;
+	bool use_json = !!json;
 
-	if (!bgp_vrf)
-		return CMD_WARNING;
-
-	argv_find_and_parse_afi(argv, argc, &idx_afi, &afi);
-	argv_find_and_parse_safi(argv, argc, &idx_safi, &safi);
-
-	if (!(afi == AFI_IP || afi == AFI_IP6)) {
-		vty_out(vty, "%% Only ipv4 or ipv6 address families are supported\n");
-		return CMD_WARNING;
-	}
-
-	if (safi != SAFI_UNICAST) {
-		vty_out(vty, "%% Only ipv4 unicast or ipv6 unicast are supported\n");
+	if (family2afi(prefix->family) != afi) {
+		if (use_json)
+			vty_json_empty(vty, NULL);
+		else
+			vty_out(vty, "%% Invalid %s prefix\n", afi_str);
 		return CMD_WARNING;
 	}
 
-	return bgp_evpn_set_suppress_import_from_evpn(bgp_vrf, afi, safi, false);
+	bgp_vrf = strmatch(vrf_name, VRF_DEFAULT_NAME)
+			  ? bgp_get_default()
+			  : bgp_lookup_by_name(vrf_name);
+	if (!bgp_vrf || IS_BGP_INSTANCE_HIDDEN(bgp_vrf)) {
+		if (use_json)
+			vty_json_empty(vty, NULL);
+		else
+			vty_out(vty, "%% Specified BGP instance not found\n");
+		return CMD_WARNING;
+	}
+
+	/* If the feature knob itself is not enabled, nothing is suppressed by it. */
+	if (!CHECK_FLAG(bgp_vrf->af_flags[AFI_L2VPN][SAFI_EVPN],
+			afi == AFI_IP ? BGP_L2VPN_EVPN_SUPPRESS_IPV4_IMPORT_FROM_EVPN
+				      : BGP_L2VPN_EVPN_SUPPRESS_IPV6_IMPORT_FROM_EVPN))
+		goto not_suppressed;
+
+	table = bgp_vrf->rib[afi][SAFI_UNICAST];
+	if (!table)
+		goto not_suppressed;
+
+	/* Look up the exact prefix */
+	dest = bgp_node_lookup(table, prefix);
+	if (!dest || !bgp_dest_has_bgp_path_info_data(dest)) {
+		if (dest)
+			bgp_dest_unlock_node(dest);
+		if (use_json)
+			vty_json_empty(vty, NULL);
+		else
+			vty_out(vty, "%% Network not in table\n");
+		return CMD_SUCCESS;
+	}
+
+	for (pi = bgp_dest_get_bgp_path_info(dest); pi; pi = pi->next) {
+		if (!CHECK_FLAG(pi->flags, BGP_PATH_EVPN_TYPE5_SKIP_IMPORTED) ||
+		    CHECK_FLAG(pi->flags, BGP_PATH_REMOVED))
+			continue;
+
+		/* Allocate the array only once a path matches, so the no-match
+		 * case below has nothing to release.
+		 */
+		if (!count) {
+			if (use_json) {
+				json_paths = json_object_new_array();
+			} else {
+				vty_out(vty,
+					"EVPN Type-5 export suppressed by skip-evpn-imported\n\n");
+				route_vty_out_detail_header(vty, bgp_vrf, dest,
+							    bgp_dest_get_prefix(dest), NULL, afi,
+							    SAFI_UNICAST, NULL, false, false);
+			}
+		}
+		route_vty_out_detail(vty, bgp_vrf, dest,
+				     bgp_dest_get_prefix(dest), pi, afi, SAFI_UNICAST,
+				     RPKI_NOT_BEING_USED, json_paths, NULL, 0);
+		count++;
+	}
+
+	bgp_dest_unlock_node(dest);
+
+	if (!count)
+		goto not_suppressed;
+
+	if (use_json) {
+		json_out = json_object_new_object();
+		json_object_string_addf(json_out, "prefix", "%pFX", prefix);
+		json_object_int_add(json_out, "pathCount", count);
+		json_object_object_add(json_out, "paths", json_paths);
+		return vty_json(vty, json_out);
+	}
+
+	vty_out(vty, "\nDisplayed %u suppressed path%s\n", count,
+		count == 1 ? "" : "s");
+	return CMD_SUCCESS;
+
+not_suppressed:
+	if (use_json)
+		vty_json_empty(vty, NULL);
+	else
+		vty_out(vty,
+			"No paths for this prefix are suppressed by skip-evpn-imported\n");
+	return CMD_SUCCESS;
 }
 
 DEFPY (bgp_evpn_use_es_l3nhg,
@@ -6967,64 +7092,49 @@ DEFUN (show_bgp_vrf_l3vni_info,
 	return CMD_SUCCESS;
 }
 
-static void vrf_rt_import_change_start(struct bgp *bgp, bool *import_started)
-{
-	if (*import_started)
-		return;
-
-	bgp_evpn_vrf_rt_change_begin(bgp, true);
-	*import_started = true;
-}
-
-/* Add a manual route target to the VRF (L3VNI) configuration. Takes
- * ownership of cfgd_rt on success. "both" is an alias for import plus
- * export. Mutations are deferred so the caller can rebuild once per list.
+/* Queue a manual route target for addition to the VRF (L3VNI)
+ * configuration. Takes ownership of cfgd_rt on success. "both" is an
+ * alias for import plus export. An RT queued by an earlier entry of the
+ * same list counts as configured.
  */
 static int vrf_rt_add(struct bgp *bgp, struct bgp_evpn_cfgd_rt *cfgd_rt,
-		      enum bgp_evpn_rt_direction rt_direction, bool *import_started,
-		      bool *export_started)
+		      enum bgp_evpn_rt_direction rt_direction,
+		      struct bgp_evpn_cfgd_rt_slu_head *import_rts,
+		      struct bgp_evpn_cfgd_rt_slu_head *export_rts)
 {
 	struct bgp_evpn_rt_config *rt_config = bgp->vrf_route_target_config;
 	bool have_import, have_export;
 
+	have_import = bgp_evpn_cfgd_rt_slu_find(&rt_config->cfgd_import, cfgd_rt) ||
+		      bgp_evpn_cfgd_rt_slu_find(import_rts, cfgd_rt);
+	have_export = bgp_evpn_cfgd_rt_slu_find(&rt_config->cfgd_export, cfgd_rt) ||
+		      bgp_evpn_cfgd_rt_slu_find(export_rts, cfgd_rt);
+
 	/* Do nothing if we already have this route-target */
 	switch (rt_direction) {
 	case RT_TYPE_IMPORT:
-		if (bgp_evpn_cfgd_rt_slu_find(&rt_config->cfgd_import, cfgd_rt))
+		if (have_import)
 			return -1;
 
-		vrf_rt_import_change_start(bgp, import_started);
-		bgp_evpn_configure_import_rt_for_vrf_deferred(bgp, cfgd_rt);
+		bgp_evpn_cfgd_rt_slu_add(import_rts, cfgd_rt);
 		break;
 	case RT_TYPE_EXPORT:
-		if (bgp_evpn_cfgd_rt_slu_find(&rt_config->cfgd_export, cfgd_rt))
+		if (have_export)
 			return -1;
 
-		bgp_evpn_configure_export_rt_for_vrf_deferred(bgp, cfgd_rt);
-		/* Export begin() is a no-op; only end() re-advertises. */
-		*export_started = true;
+		bgp_evpn_cfgd_rt_slu_add(export_rts, cfgd_rt);
 		break;
 	case RT_TYPE_BOTH:
-		have_import = !!bgp_evpn_cfgd_rt_slu_find(&rt_config->cfgd_import, cfgd_rt);
-		have_export = !!bgp_evpn_cfgd_rt_slu_find(&rt_config->cfgd_export, cfgd_rt);
-
 		if (have_import && have_export)
 			return -1;
 
-		if (!have_import) {
-			vrf_rt_import_change_start(bgp, import_started);
-			if (!have_export) {
-				bgp_evpn_configure_import_rt_for_vrf_deferred(bgp, cfgd_rt);
-				bgp_evpn_configure_export_rt_for_vrf_deferred(bgp,
-									      bgp_evpn_cfgd_rt_dup(
-										      cfgd_rt));
-				*export_started = true;
-			} else {
-				bgp_evpn_configure_import_rt_for_vrf_deferred(bgp, cfgd_rt);
-			}
+		if (!have_import && !have_export) {
+			bgp_evpn_cfgd_rt_slu_add(import_rts, cfgd_rt);
+			bgp_evpn_cfgd_rt_slu_add(export_rts, bgp_evpn_cfgd_rt_dup(cfgd_rt));
+		} else if (!have_import) {
+			bgp_evpn_cfgd_rt_slu_add(import_rts, cfgd_rt);
 		} else {
-			bgp_evpn_configure_export_rt_for_vrf_deferred(bgp, cfgd_rt);
-			*export_started = true;
+			bgp_evpn_cfgd_rt_slu_add(export_rts, cfgd_rt);
 		}
 		break;
 	default:
@@ -7034,48 +7144,49 @@ static int vrf_rt_add(struct bgp *bgp, struct bgp_evpn_cfgd_rt *cfgd_rt,
 	return 0;
 }
 
-/* Remove a manual route target from the VRF (L3VNI) configuration.
- * The caller keeps ownership of cfgd_rt. "both" removes whichever of
- * the two directions is configured.
+/* Queue a manual route target for removal from the VRF (L3VNI)
+ * configuration. Takes ownership of cfgd_rt on success. "both" removes
+ * whichever of the two directions is configured. An RT queued by an
+ * earlier entry of the same list counts as no longer configured.
  */
-static int vrf_rt_del(struct bgp *bgp, const struct bgp_evpn_cfgd_rt *cfgd_rt,
-		      enum bgp_evpn_rt_direction rt_direction, bool *import_started,
-		      bool *export_started)
+static int vrf_rt_del(struct bgp *bgp, struct bgp_evpn_cfgd_rt *cfgd_rt,
+		      enum bgp_evpn_rt_direction rt_direction,
+		      struct bgp_evpn_cfgd_rt_slu_head *import_rts,
+		      struct bgp_evpn_cfgd_rt_slu_head *export_rts)
 {
 	struct bgp_evpn_rt_config *rt_config = bgp->vrf_route_target_config;
 	bool have_import, have_export;
 
+	have_import = bgp_evpn_cfgd_rt_slu_find(&rt_config->cfgd_import, cfgd_rt) &&
+		      !bgp_evpn_cfgd_rt_slu_find(import_rts, cfgd_rt);
+	have_export = bgp_evpn_cfgd_rt_slu_find(&rt_config->cfgd_export, cfgd_rt) &&
+		      !bgp_evpn_cfgd_rt_slu_find(export_rts, cfgd_rt);
+
 	/* Verify we already have this route-target */
 	switch (rt_direction) {
 	case RT_TYPE_IMPORT:
-		if (!bgp_evpn_cfgd_rt_slu_find(&rt_config->cfgd_import, cfgd_rt))
+		if (!have_import)
 			return -1;
 
-		vrf_rt_import_change_start(bgp, import_started);
-		bgp_evpn_unconfigure_import_rt_for_vrf_deferred(bgp, cfgd_rt);
+		bgp_evpn_cfgd_rt_slu_add(import_rts, cfgd_rt);
 		break;
 	case RT_TYPE_EXPORT:
-		if (!bgp_evpn_cfgd_rt_slu_find(&rt_config->cfgd_export, cfgd_rt))
+		if (!have_export)
 			return -1;
 
-		bgp_evpn_unconfigure_export_rt_for_vrf_deferred(bgp, cfgd_rt);
-		/* Export begin() is a no-op; only end() re-advertises. */
-		*export_started = true;
+		bgp_evpn_cfgd_rt_slu_add(export_rts, cfgd_rt);
 		break;
 	case RT_TYPE_BOTH:
-		have_import = !!bgp_evpn_cfgd_rt_slu_find(&rt_config->cfgd_import, cfgd_rt);
-		have_export = !!bgp_evpn_cfgd_rt_slu_find(&rt_config->cfgd_export, cfgd_rt);
-
 		if (!have_import && !have_export)
 			return -1;
 
-		if (have_import) {
-			vrf_rt_import_change_start(bgp, import_started);
-			bgp_evpn_unconfigure_import_rt_for_vrf_deferred(bgp, cfgd_rt);
-		}
-		if (have_export) {
-			bgp_evpn_unconfigure_export_rt_for_vrf_deferred(bgp, cfgd_rt);
-			*export_started = true;
+		if (have_import && have_export) {
+			bgp_evpn_cfgd_rt_slu_add(import_rts, cfgd_rt);
+			bgp_evpn_cfgd_rt_slu_add(export_rts, bgp_evpn_cfgd_rt_dup(cfgd_rt));
+		} else if (have_import) {
+			bgp_evpn_cfgd_rt_slu_add(import_rts, cfgd_rt);
+		} else {
+			bgp_evpn_cfgd_rt_slu_add(export_rts, cfgd_rt);
 		}
 		break;
 	default:
@@ -7264,10 +7375,11 @@ static int vrf_process_rtlist_internal(struct bgp *bgp, struct vty *vty, struct 
 				       int n_rts, struct bgp_evpn_cfgd_rt **cfgd_rts, bool is_add,
 				       enum bgp_evpn_rt_direction rt_direction)
 {
+	struct bgp_evpn_cfgd_rt_slu_head import_rts, export_rts;
 	int ret = CMD_SUCCESS;
-	/* True once at least one RT mutated that direction; end() then rebuilds once. */
-	bool import_started = false;
-	bool export_started = false;
+
+	bgp_evpn_cfgd_rt_slu_init(&import_rts);
+	bgp_evpn_cfgd_rt_slu_init(&export_rts);
 
 	for (int i = 0; i < n_rts; i++) {
 		struct bgp_evpn_cfgd_rt *cfgd_rt = cfgd_rts[i];
@@ -7275,8 +7387,7 @@ static int vrf_process_rtlist_internal(struct bgp *bgp, struct vty *vty, struct 
 		cfgd_rts[i] = NULL;
 
 		if (is_add) {
-			if (vrf_rt_add(bgp, cfgd_rt, rt_direction, &import_started,
-				       &export_started) != 0) {
+			if (vrf_rt_add(bgp, cfgd_rt, rt_direction, &import_rts, &export_rts) != 0) {
 				vty_out(vty,
 					"%% RT specified already configured for this VRF: %s\n",
 					rt_argv[i]->arg);
@@ -7285,22 +7396,29 @@ static int vrf_process_rtlist_internal(struct bgp *bgp, struct vty *vty, struct 
 			}
 
 		} else {
-			if (vrf_rt_del(bgp, cfgd_rt, rt_direction, &import_started,
-				       &export_started) != 0) {
+			if (vrf_rt_del(bgp, cfgd_rt, rt_direction, &import_rts, &export_rts) != 0) {
 				vty_out(vty,
 					"%% RT specified does not match configuration for this VRF: %s\n",
 					rt_argv[i]->arg);
+				bgp_evpn_cfgd_rt_free(cfgd_rt);
 				ret = CMD_WARNING;
 			}
-
-			bgp_evpn_cfgd_rt_free(cfgd_rt);
 		}
 	}
 
-	if (import_started)
-		bgp_evpn_vrf_rt_change_end(bgp, true);
-	if (export_started)
-		bgp_evpn_vrf_rt_change_end(bgp, false);
+	/* Hand each direction's RTs to EVPN as one set, so the VRF's routes
+	 * are rebuilt once per direction instead of once per RT.
+	 */
+	if (is_add) {
+		bgp_evpn_configure_import_rts_for_vrf_batch(bgp, &import_rts);
+		bgp_evpn_configure_export_rts_for_vrf_batch(bgp, &export_rts);
+	} else {
+		bgp_evpn_unconfigure_import_rts_for_vrf_batch(bgp, &import_rts);
+		bgp_evpn_unconfigure_export_rts_for_vrf_batch(bgp, &export_rts);
+	}
+
+	bgp_evpn_cfgd_rt_slu_fini(&import_rts);
+	bgp_evpn_cfgd_rt_slu_fini(&export_rts);
 
 	return ret;
 }
@@ -8335,7 +8453,6 @@ void bgp_ethernetvpn_init(void)
 	install_element(BGP_EVPN_NODE, &no_macvrf_soo_global_cmd);
 	install_element(BGP_EVPN_NODE, &bgp_evpn_advertise_type5_cmd);
 	install_element(BGP_EVPN_NODE, &no_bgp_evpn_advertise_type5_cmd);
-	install_element(BGP_EVPN_NODE, &no_bgp_evpn_advertise_type5_suppress_import_from_evpn_cmd);
 	install_element(BGP_EVPN_NODE, &bgp_evpn_default_originate_cmd);
 	install_element(BGP_EVPN_NODE, &no_bgp_evpn_default_originate_cmd);
 	install_element(BGP_EVPN_NODE, &dup_addr_detection_cmd);
@@ -8378,6 +8495,8 @@ void bgp_ethernetvpn_init(void)
 			&show_bgp_l2vpn_evpn_route_mac_ip_global_es_cmd);
 	install_element(VIEW_NODE, &show_bgp_l2vpn_evpn_import_rt_cmd);
 	install_element(VIEW_NODE, &show_bgp_l2vpn_evpn_vrf_import_rt_cmd);
+	install_element(VIEW_NODE,
+			&show_bgp_vrf_unicast_skip_evpn_imported_cmd);
 
 	/* "show bgp vni" commands. */
 	install_element(VIEW_NODE, &show_bgp_vni_all_cmd);

@@ -819,10 +819,10 @@ static int bfdd_interface_address_update(ZAPI_CALLBACK_ARGS)
 		return 0;
 
 	if (bglobal.debug_zebra)
-		zlog_debug("zclient: %s local address %pFX (VRF %u)",
-			   cmd == ZEBRA_INTERFACE_ADDRESS_ADD ? "add"
-							      : "delete",
-			   ifc->address, vrf_id);
+		zlog_debug("zclient: %s local address (%s:%u:%u)%pFX",
+			   cmd == ZEBRA_INTERFACE_ADDRESS_ADD ? "add" : "delete",
+			   ifc->ifp->vrf->name, vrf_id, ifc->ifp->vrf->data.l.table_id,
+			   ifc->address);
 
 	frrtrace(6, frr_bfd, zebra_address_event, cmd == ZEBRA_INTERFACE_ADDRESS_ADD ? 1 : 2,
 		 ifc->address->family, ifc->ifp->ifindex, vrf_id,

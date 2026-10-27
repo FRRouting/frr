@@ -1512,12 +1512,9 @@ void bfd_recv_cb(struct event *t)
 	 *
 	 * RFC 5880, Section 6.8.4.
 	 */
-	if (bfd->cur_timers.required_min_rx > bfd->remote_timers.desired_min_tx)
-		bfd->detect_TO = bfd->remote_detect_mult
-				 * bfd->cur_timers.required_min_rx;
-	else
-		bfd->detect_TO = bfd->remote_detect_mult
-				 * bfd->remote_timers.desired_min_tx;
+	bfd->detect_TO = bfd_detection_timeout_us(bfd->remote_detect_mult,
+						  bfd->cur_timers.required_min_rx,
+						  bfd->remote_timers.desired_min_tx);
 
 	/*
 	 * Apply new receive timer immediately, unless demand mode is
@@ -2306,6 +2303,12 @@ int bp_echov6_socket(const struct vrf *vrf)
 
 	bp_set_ipv6opts(s);
 	bp_bind_ipv6(s, BFD_DEF_ECHO_PORT);
+
+	/* As the control sockets and the IPv4 echo header. */
+	if (bp_set_tosv6(s, BFD_TOS_VAL) != 0) {
+		close(s);
+		return -1;
+	}
 
 	return s;
 }

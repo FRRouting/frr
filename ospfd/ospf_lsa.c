@@ -2632,9 +2632,8 @@ void ospf_nssa_lsa_flush(struct ospf *ospf, struct prefix_ipv4 *p)
 
 			if (!lsa) {
 				if (IS_DEBUG_OSPF(lsa, LSA_FLOODING))
-					zlog_debug(
-						"LSA: There is no such AS-NSSA-LSA %pFX in LSDB",
-						p);
+					zlog_debug("LSA: There is no such AS-NSSA-LSA (%s:%u:%u)%pFX in LSDB",
+						   OSPF_DEBUG_VRF(ospf), p);
 				continue;
 			}
 			ospf_ls_retransmit_delete_nbr_area(area, lsa);
@@ -2654,14 +2653,13 @@ void ospf_external_lsa_flush(struct ospf *ospf, uint8_t type,
 	struct ospf_lsa *lsa;
 
 	if (IS_DEBUG_OSPF(lsa, LSA_FLOODING))
-		zlog_debug("LSA: Flushing AS-external-LSA %pFX", p);
+		zlog_debug("LSA: Flushing AS-external-LSA (%s:%u:%u)%pFX", OSPF_DEBUG_VRF(ospf), p);
 
 	/* First lookup LSA from LSDB. */
 	if (!(lsa = ospf_external_info_find_lsa(ospf, p))) {
 		if (IS_DEBUG_OSPF(lsa, LSA_FLOODING))
-			zlog_debug(
-				"LSA: There is no such AS-external-LSA %pFX in LSDB",
-				p);
+			zlog_debug("LSA: There is no such AS-external-LSA (%s:%u:%u)%pFX in LSDB",
+				   OSPF_DEBUG_VRF(ospf), p);
 		/*
 		 * No Type-5 LSA found. This happens when the router is a pure
 		 * NSSA ASBR: ospf_external_lsa_originate() discards the Type-5
@@ -2754,12 +2752,13 @@ void ospf_external_lsa_refresh_type(struct ospf *ospf, uint8_t type, uint8_t ins
 		if (aggr) {
 			/* Check the AS-external-LSA should be originated. */
 			if (!ospf_redistribute_check(ospf, ei, NULL)) {
-				ospf_unlink_ei_from_aggr(ospf, aggr, ei);
+				ospf_unlink_ei_from_aggr(ospf, ei);
 				continue;
 			}
 
 			if (IS_DEBUG_OSPF(lsa, EXTNL_LSA_AGGR))
-				zlog_debug("%s: Send Aggreate LSA (%pFX)", __func__, &aggr->p);
+				zlog_debug("%s: Send Aggreate LSA ((%s:%u:%u)%pFX)", __func__,
+					   OSPF_DEBUG_VRF(ospf), &aggr->p);
 
 			ospf_originate_summary_lsa(ospf, aggr, ei);
 
@@ -4006,9 +4005,8 @@ enum lsid_status ospf_lsa_unique_id(struct ospf *ospf, struct ospf_lsdb *lsdb,
 		 */
 		if (ip_masklen(al->mask) == p->prefixlen) {
 			if (IS_DEBUG_OSPF(lsa, LSA_GENERATE))
-				zlog_debug(
-					"%s: Can't get Link State ID for %pFX",
-					__func__, p);
+				zlog_debug("%s: Can't get Link State ID for (%s:%u:%u)%pFX",
+					   __func__, OSPF_DEBUG_VRF(ospf), p);
 			/*	  id.s_addr = 0; */
 			id->s_addr = 0xffffffff;
 			return LSID_NOT_AVAILABLE;
@@ -4029,9 +4027,8 @@ enum lsid_status ospf_lsa_unique_id(struct ospf *ospf, struct ospf_lsdb *lsdb,
 						     ospf->router_id);
 			if (lsa) {
 				if (IS_DEBUG_OSPF(lsa, LSA_GENERATE))
-					zlog_debug(
-						"%s: Can't get Link State ID for %pFX",
-						__func__, p);
+					zlog_debug("%s: Can't get Link State ID for (%s:%u:%u)%pFX",
+						   __func__, OSPF_DEBUG_VRF(ospf), p);
 				id->s_addr = 0xffffffff;
 				return LSID_NOT_AVAILABLE;
 			}
@@ -4055,9 +4052,8 @@ enum lsid_status ospf_lsa_unique_id(struct ospf *ospf, struct ospf_lsdb *lsdb,
 						     ospf->router_id);
 			if (lsa && (ip_masklen(al->mask) != IPV4_MAX_BITLEN)) {
 				if (IS_DEBUG_OSPF(lsa, LSA_GENERATE))
-					zlog_debug(
-						"%s: Can't get Link State ID for %pFX",
-						__func__, p);
+					zlog_debug("%s: Can't get Link State ID for (%s:%u:%u)%pFX",
+						   __func__, OSPF_DEBUG_VRF(ospf), p);
 				id->s_addr = 0xffffffff;
 				return LSID_NOT_AVAILABLE;
 			}

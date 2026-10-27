@@ -334,9 +334,9 @@ void isis_circuit_add_addr(struct isis_circuit *circuit,
 
 #ifdef EXTREME_DEBUG
 		if (IS_DEBUG_EVENTS)
-			zlog_debug("Added IP address %pFX to circuit %s",
-				   connected->address,
-				   circuit->interface->name);
+			zlog_debug("Added IP address (%s:%u:%u)%pFX to circuit %s",
+				   ISIS_DEBUG_VRF_ID(circuit->interface->vrf->vrf_id),
+				   connected->address, circuit->interface->name);
 #endif /* EXTREME_DEBUG */
 	}
 	if (connected->address->family == AF_INET6) {
@@ -372,9 +372,9 @@ void isis_circuit_add_addr(struct isis_circuit *circuit,
 
 #ifdef EXTREME_DEBUG
 		if (IS_DEBUG_EVENTS)
-			zlog_debug("Added IPv6 address %pFX to circuit %s",
-				   connected->address,
-				   circuit->interface->name);
+			zlog_debug("Added IPv6 address (%s:%u:%u)%pFX to circuit %s",
+				   ISIS_DEBUG_VRF_ID(circuit->interface->vrf->vrf_id),
+				   connected->address, circuit->interface->name);
 #endif /* EXTREME_DEBUG */
 	}
 
@@ -406,14 +406,15 @@ void isis_circuit_del_addr(struct isis_circuit *circuit,
 			prefix_ipv4_free(&ip);
 			isis_circuit_ip_addr_change_update(circuit);
 		} else {
-			zlog_warn(
-				"Nonexistent ip address %pFX removal attempt from circuit %s",
-				connected->address, circuit->interface->name);
+			zlog_warn("Nonexistent ip address (%s:%u:%u)%pFX removal attempt from circuit %s",
+				  ISIS_DEBUG_VRF_ID(circuit->interface->vrf->vrf_id),
+				  connected->address, circuit->interface->name);
 			zlog_warn("Current ip addresses on %s:",
 				  circuit->interface->name);
 			for (ALL_LIST_ELEMENTS_RO(circuit->ip_addrs, node,
 						  ip)) {
-				zlog_warn("  %pFX", ip);
+				zlog_warn("  (%s:%u:%u)%pFX",
+					  ISIS_DEBUG_VRF_ID(circuit->interface->vrf->vrf_id), ip);
 			}
 			zlog_warn("End of addresses");
 		}
@@ -452,18 +453,22 @@ void isis_circuit_del_addr(struct isis_circuit *circuit,
 		}
 
 		if (!found) {
-			zlog_warn(
-				"Nonexistent ip address %pFX removal attempt from circuit %s",
-				connected->address, circuit->interface->name);
+			zlog_warn("Nonexistent ip address (%s:%u:%u)%pFX removal attempt from circuit %s",
+				  ISIS_DEBUG_VRF_ID(circuit->interface->vrf->vrf_id),
+				  connected->address, circuit->interface->name);
 			zlog_warn("Current ip addresses on %s:",
 				  circuit->interface->name);
 			for (ALL_LIST_ELEMENTS_RO(circuit->ipv6_link, node,
 						  ip6))
-				zlog_warn("  %pFX", (struct prefix *)ip6);
+				zlog_warn("  (%s:%u:%u)%pFX",
+					  ISIS_DEBUG_VRF_ID(circuit->interface->vrf->vrf_id),
+					  (struct prefix *)ip6);
 			zlog_warn(" -----");
 			for (ALL_LIST_ELEMENTS_RO(circuit->ipv6_non_link, node,
 						  ip6))
-				zlog_warn("  %pFX", (struct prefix *)ip6);
+				zlog_warn("  (%s:%u:%u)%pFX",
+					  ISIS_DEBUG_VRF_ID(circuit->interface->vrf->vrf_id),
+					  (struct prefix *)ip6);
 			zlog_warn("End of addresses");
 		} else
 			isis_circuit_ip_addr_change_update(circuit);

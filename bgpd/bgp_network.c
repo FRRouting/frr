@@ -776,8 +776,10 @@ static char *bgp_get_bound_name(struct peer_connection *connection)
 	 * then let's use that interfaces name as the bind point.  This will prevent
 	 * 'fun' situations with DAD not fully saying an address is usable and causing
 	 * some random source address to be choosen.
+	 * Skip link-local neighbors: they match every interface.
 	 */
-	if (connection->su.sa.sa_family == AF_INET6) {
+	if (connection->su.sa.sa_family == AF_INET6 &&
+	    !IN6_IS_ADDR_LINKLOCAL(&connection->su.sin6.sin6_addr)) {
 		c = if_lookup_address(&connection->su.sin6.sin6_addr, connection->su.sa.sa_family,
 				      peer->bgp->vrf_id);
 		if (c)

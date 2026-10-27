@@ -565,7 +565,10 @@ def test_msdp_log_events():
         peer_ok = re.search(
             "MSDP peer 192.168.1.2 state changed to established", r1_log
         )
-        sa_ok = re.search(r"MSDP SA \(192.168.10.100\,229.1.2.3\) created", r1_log)
+        sa_ok = re.search(
+            r"MSDP SA \(\S+:\d+:\d+\)\(192\.168\.10\.100,229\.1\.2\.3\) created",
+            r1_log,
+        )
         return peer_ok is not None and sa_ok is not None
 
     _, result = topotest.run_and_expect(check_msdp_log_messages, True, count=30, wait=1)

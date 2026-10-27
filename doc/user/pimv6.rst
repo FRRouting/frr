@@ -159,12 +159,12 @@ PIMv6 Router
    convergence at scale. This command is not VRF-aware, using it in VRF
    context will actually assign to the default VRF instead.
 
-.. clicmd:: ip pim assert-interval (1000-86400000)
+.. clicmd:: ipv6 pim assert-interval (1000-86400000)
 
    Modify the PIM assert interval in milliseconds on this interface
    (defaults to 18000).
 
-.. clicmd:: ip pim assert-override-interval (1000-86400000)
+.. clicmd:: ipv6 pim assert-override-interval (1000-86400000)
 
    Modify the PIM assert override interval in milliseconds on this
    interface (defaults to 3000).
@@ -205,6 +205,7 @@ PIMv6 Router
    never do SM over. This command is VRF-aware.
 
 .. clicmd:: join-filter route-map RMAP_NAME
+   :daemon: pimv6
 
    Specify a route-map name to use for filtering incoming PIM joins.
 
@@ -229,6 +230,7 @@ PIMv6 Router
    well known SSM multicast group which ssmping just have joined.
 
 .. clicmd:: shutdown
+   :daemon: pimv6
 
    Disable the PIM instance while retaining all configuration and remove
    all state.

@@ -96,14 +96,9 @@ static int pim_zebra_if_address_add(ZAPI_CALLBACK_ARGS)
 	p = c->address;
 
 	if (PIM_DEBUG_ZEBRA) {
-		zlog_debug("%s: %s(%s) connected IP address %pFX flags %u %s",
-			   __func__, c->ifp->name,
-			   (pim_ifp ? VRF_LOGNAME(pim_ifp->pim->vrf)
-				    : "Unknown"),
-			   p, c->flags,
-			   CHECK_FLAG(c->flags, ZEBRA_IFA_SECONDARY)
-				   ? "secondary"
-				   : "primary");
+		zlog_debug("%s: %s connected IP address (%s:%u:%u)%pFX flags %u %s", __func__,
+			   c->ifp->name, PIM_DEBUG_VRF(c->ifp->vrf), p, c->flags,
+			   CHECK_FLAG(c->flags, ZEBRA_IFA_SECONDARY) ? "secondary" : "primary");
 
 #ifdef PIM_DEBUG_IFADDR_DUMP
 		dump_if_address(c->ifp);
@@ -120,9 +115,8 @@ static int pim_zebra_if_address_add(ZAPI_CALLBACK_ARGS)
 
 		if (pim_addr_cmp(primary_addr, addr)) {
 			if (PIM_DEBUG_ZEBRA)
-				zlog_warn(
-					"%s: %s : forcing secondary flag on %pFX",
-					__func__, c->ifp->name, p);
+				zlog_warn("%s: %s : forcing secondary flag on (%s:%u:%u)%pFX",
+					  __func__, c->ifp->name, PIM_DEBUG_VRF(c->ifp->vrf), p);
 			SET_FLAG(c->flags, ZEBRA_IFA_SECONDARY);
 		}
 	}
@@ -186,12 +180,9 @@ static int pim_zebra_if_address_del(ZAPI_CALLBACK_ARGS)
 	p = c->address;
 
 	if (PIM_DEBUG_ZEBRA) {
-		zlog_debug(
-			"%s: %s(%s) disconnected IP address %pFX flags %u %s",
-			__func__, c->ifp->name, VRF_LOGNAME(vrf), p, c->flags,
-			CHECK_FLAG(c->flags, ZEBRA_IFA_SECONDARY)
-				? "secondary"
-				: "primary");
+		zlog_debug("%s: %s disconnected IP address (%s:%u:%u)%pFX flags %u %s", __func__,
+			   c->ifp->name, PIM_DEBUG_VRF(c->ifp->vrf), p, c->flags,
+			   CHECK_FLAG(c->flags, ZEBRA_IFA_SECONDARY) ? "secondary" : "primary");
 #ifdef PIM_DEBUG_IFADDR_DUMP
 		dump_if_address(c->ifp);
 #endif
@@ -335,8 +326,8 @@ static int pim_zebra_vxlan_sg_proc(ZAPI_CALLBACK_ARGS)
 	stream_get(&sg.grp, s, prefixlen);
 
 	if (PIM_DEBUG_ZEBRA)
-		zlog_debug("%s:recv SG %s %pSG", VRF_LOGNAME(pim->vrf),
-			   (cmd == ZEBRA_VXLAN_SG_ADD) ? "add" : "del", &sg);
+		zlog_debug("recv SG %s (%s:%u:%u)%pSG", (cmd == ZEBRA_VXLAN_SG_ADD) ? "add" : "del",
+			   PIM_DEBUG_VRF(pim->vrf), &sg);
 
 	if (cmd == ZEBRA_VXLAN_SG_ADD)
 		pim_vxlan_sg_add(pim, &sg);
@@ -472,8 +463,9 @@ void pim_forward_start(struct pim_ifchannel *ch)
 	uint32_t mask = 0;
 
 	if (PIM_DEBUG_PIM_TRACE)
-		zlog_debug("%s: (S,G)=%pSG oif=%s (%pPA)", __func__, &ch->sg,
-			   ch->interface->name, &up->upstream_addr);
+		zlog_debug("%s: (S,G)=(%s:%u:%u)%pSG oif=%s (%pPA)", __func__,
+			   PIM_DEBUG_VRF(ch->interface->vrf), &ch->sg, ch->interface->name,
+			   &up->upstream_addr);
 
 	if (PIM_IF_FLAG_TEST_PROTO_IGMP(ch->flags))
 		mask = PIM_OIF_FLAG_PROTO_GM;
@@ -493,7 +485,8 @@ void pim_forward_stop(struct pim_ifchannel *origch)
 	pim_ifchannel_find(origch->interface, &origch->sg, &ch, &chrpt);
 
 	if (PIM_DEBUG_PIM_TRACE)
-		zlog_debug("%s: (S,G)=%s oif=%s installed: %d", __func__, origch->sg_str,
+		zlog_debug("%s: (S,G)=(%s:%u:%u)%s oif=%s installed: %d", __func__,
+			   PIM_DEBUG_VRF(origch->interface->vrf), origch->sg_str,
 			   origch->interface->name, up->channel_oil->installed);
 
 	/*

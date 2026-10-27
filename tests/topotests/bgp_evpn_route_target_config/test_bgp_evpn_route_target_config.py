@@ -19,6 +19,9 @@ Test the EVPN route-target configuration features:
 - manual route targets replacing the auto route target per direction
   (add-if-no-manual default), and the split/merge behavior of
   "route-target both <RT>" and its no-forms,
+- adding and removing several manual route targets with one RTLIST
+  command on an L3VNI VRF, including repeated and already configured
+  entries,
 - canonical ordering of the effective import route-target list,
 - cleanup of the wildcard auto import RT when the L3VNI is detached,
 - the deprecated "route-target <dir> auto"/"autort rfc8365-compatible"
@@ -365,12 +368,14 @@ def test_l3vni_import_auto_disable():
 
     r2 = tgen.gears["r2"]
 
-    r2.vtysh_cmd("""
+    r2.vtysh_cmd(
+        """
 configure terminal
 router bgp 65002 vrf vrf-101
  address-family l2vpn evpn
   auto-route-target import add-never
-""")
+"""
+    )
 
     # The auto import RT must be gone ...
     test_func = partial(_check_vni_rt_absent, r2, 101, "importRts", "*:101")
@@ -400,12 +405,14 @@ router bgp 65002 vrf vrf-101
     ), "r2: 'auto-route-target import add-never' not in running config"
 
     # Re-enable the auto import RT; the type-5 route must come back.
-    r2.vtysh_cmd("""
+    r2.vtysh_cmd(
+        """
 configure terminal
 router bgp 65002 vrf vrf-101
  address-family l2vpn evpn
   no auto-route-target import add-never
-""")
+"""
+    )
 
     test_func = _check_vni_rts(r2, 101, "L3", ["*:101"], ["65002:101"])
     _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
@@ -431,14 +438,16 @@ def test_l2vni_wildcard_import():
 
     # Keep the auto import RT (explicitly) next to the manual wildcard
     # RT so that VNI 201 routes are still imported.
-    r2.vtysh_cmd("""
+    r2.vtysh_cmd(
+        """
 configure terminal
 router bgp 65002
  address-family l2vpn evpn
   vni 201
    auto-route-target import add-always
    route-target import *:202
-""")
+"""
+    )
 
     # The wildcard RT must show up in the import RTs of the VNI next to
     # the retained auto RT (both displayed as wildcards, like they
@@ -501,13 +510,15 @@ def test_l2vni_both_alias():
 
     r2 = tgen.gears["r2"]
 
-    r2.vtysh_cmd("""
+    r2.vtysh_cmd(
+        """
 configure terminal
 router bgp 65002
  address-family l2vpn evpn
   vni 201
    route-target both 65099:99
-""")
+"""
+    )
 
     expected = {"vni": "201", "importRts": ["65099:99"], "exportRts": ["65099:99"]}
     test_func = partial(
@@ -545,13 +556,15 @@ def test_l2vni_no_import_on_both_keeps_export():
 
     r2 = tgen.gears["r2"]
 
-    r2.vtysh_cmd("""
+    r2.vtysh_cmd(
+        """
 configure terminal
 router bgp 65002
  address-family l2vpn evpn
   vni 201
    no route-target import 65099:99
-""")
+"""
+    )
 
     # The RT must stay active for export only ...
     expected = {"vni": "201", "exportRts": ["65099:99"]}
@@ -580,13 +593,15 @@ router bgp 65002
 
     # Removing the remaining export direction must restore the auto
     # export RT (65099:99 was the only configured export RT).
-    r2.vtysh_cmd("""
+    r2.vtysh_cmd(
+        """
 configure terminal
 router bgp 65002
  address-family l2vpn evpn
   vni 201
    no route-target export 65099:99
-""")
+"""
+    )
 
     test_func = partial(_check_vni_rt_list, r2, 201, "exportRts", ["65002:201"])
     _expect(test_func, "r2: auto export RT not restored on VNI 201")
@@ -604,14 +619,16 @@ def test_l2vni_no_both_removes_split_import_export():
 
     r1 = tgen.gears["r1"]
 
-    r1.vtysh_cmd("""
+    r1.vtysh_cmd(
+        """
 configure terminal
 router bgp 65001
  address-family l2vpn evpn
   vni 201
    route-target import 65098:98
    route-target export 65098:98
-""")
+"""
+    )
 
     # The RTs replace the auto RTs in both directions.
     test_func = partial(_check_vni_rt_list, r1, 201, "importRts", ["65098:98"])
@@ -628,13 +645,15 @@ router bgp 65001
         "route-target both 65098:98" not in running
     ), "r1: split import/export RTs unexpectedly merged into a 'both' line"
 
-    r1.vtysh_cmd("""
+    r1.vtysh_cmd(
+        """
 configure terminal
 router bgp 65001
  address-family l2vpn evpn
   vni 201
    no route-target both 65098:98
-""")
+"""
+    )
 
     # Both directions must be gone and the auto RTs restored.
     test_func = partial(_check_vni_rt_list, r1, 201, "importRts", ["*:201"])
@@ -667,13 +686,15 @@ def test_l2vni_manual_import_replaces_auto():
         "r1: r2's IMET route not imported into VNI 201 via the auto RTs",
     )
 
-    r1.vtysh_cmd("""
+    r1.vtysh_cmd(
+        """
 configure terminal
 router bgp 65001
  address-family l2vpn evpn
   vni 201
    route-target import 65530:1
-""")
+"""
+    )
 
     # The manual import RT must be the only import RT; the export
     # side must keep its auto RT.
@@ -687,13 +708,15 @@ router bgp 65001
     test_func = partial(_check_vni_route_absent, r1, 201, R2_IMET_PREFIX)
     _expect(test_func, "r1: r2's IMET route still imported without a matching RT")
 
-    r1.vtysh_cmd("""
+    r1.vtysh_cmd(
+        """
 configure terminal
 router bgp 65001
  address-family l2vpn evpn
   vni 201
    no route-target import 65530:1
-""")
+"""
+    )
 
     test_func = partial(_check_vni_rt_list, r1, 201, "importRts", ["*:201"])
     _expect(test_func, "r1: auto import RT not restored on VNI 201")
@@ -718,7 +741,8 @@ def test_l2vni_import_rt_ordering():
 
     r1 = tgen.gears["r1"]
 
-    r1.vtysh_cmd("""
+    r1.vtysh_cmd(
+        """
 configure terminal
 router bgp 65001
  address-family l2vpn evpn
@@ -728,13 +752,15 @@ router bgp 65001
    route-target import 65002:5
    route-target import *:300
    route-target import 65100:2
-""")
+"""
+    )
 
     expected = ["*:300", "65002:5", "65100:2", "65100:10", "192.0.2.1:7"]
     test_func = partial(_check_vni_rt_list, r1, 201, "importRts", expected)
     _expect(test_func, "r1: import RTs of VNI 201 not in canonical order")
 
-    r1.vtysh_cmd("""
+    r1.vtysh_cmd(
+        """
 configure terminal
 router bgp 65001
  address-family l2vpn evpn
@@ -744,7 +770,8 @@ router bgp 65001
    no route-target import 65002:5
    no route-target import *:300
    no route-target import 65100:2
-""")
+"""
+    )
 
     test_func = partial(_check_vni_rt_list, r1, 201, "importRts", ["*:201"])
     _expect(test_func, "r1: auto import RT not restored on VNI 201")
@@ -775,13 +802,15 @@ def test_l2vni_auto_disable():
         "r2: r1's IMET route not imported into VNI 201 via the auto RT",
     )
 
-    r2.vtysh_cmd("""
+    r2.vtysh_cmd(
+        """
 configure terminal
 router bgp 65002
  address-family l2vpn evpn
   vni 201
    auto-route-target import add-never
-""")
+"""
+    )
 
     # Only the manual wildcard import RT remains.
     test_func = partial(_check_vni_rt_list, r2, 201, "importRts", ["*:202"])
@@ -802,13 +831,15 @@ router bgp 65002
     ), "r2: 'auto-route-target import add-never' not in running config of VNI 201"
 
     # Back to the explicitly configured auto import RT.
-    r2.vtysh_cmd("""
+    r2.vtysh_cmd(
+        """
 configure terminal
 router bgp 65002
  address-family l2vpn evpn
   vni 201
    auto-route-target import add-always
-""")
+"""
+    )
 
     test_func = partial(_check_vni_rt_list, r2, 201, "importRts", ["*:201", "*:202"])
     _expect(test_func, "r2: auto import RT not re-enabled on VNI 201")
@@ -822,13 +853,15 @@ router bgp 65002
 
     # Now the export direction: r2 stops exporting VNI 201 routes, so
     # r1 must unimport r2's IMET route.
-    r2.vtysh_cmd("""
+    r2.vtysh_cmd(
+        """
 configure terminal
 router bgp 65002
  address-family l2vpn evpn
   vni 201
    auto-route-target export add-never
-""")
+"""
+    )
 
     test_func = partial(_check_vni_rt_list, r2, 201, "exportRts", [])
     _expect(test_func, "r2: auto export RT not disabled on VNI 201")
@@ -836,13 +869,15 @@ router bgp 65002
     test_func = partial(_check_vni_route_absent, r1, 201, R2_IMET_PREFIX)
     _expect(test_func, "r1: r2's IMET route still imported with r2's export disabled")
 
-    r2.vtysh_cmd("""
+    r2.vtysh_cmd(
+        """
 configure terminal
 router bgp 65002
  address-family l2vpn evpn
   vni 201
    no auto-route-target export add-never
-""")
+"""
+    )
 
     test_func = partial(_check_vni_rt_list, r2, 201, "exportRts", ["65002:201"])
     _expect(test_func, "r2: auto export RT not re-enabled on VNI 201")
@@ -866,12 +901,14 @@ def test_l3vni_export_auto_disable():
     r1 = tgen.gears["r1"]
     r2 = tgen.gears["r2"]
 
-    r1.vtysh_cmd("""
+    r1.vtysh_cmd(
+        """
 configure terminal
 router bgp 65001 vrf vrf-101
  address-family l2vpn evpn
   auto-route-target export add-never
-""")
+"""
+    )
 
     test_func = partial(_check_vni_rt_absent, r1, 101, "exportRts", "65001:101")
     _expect(test_func, "r1: auto export RT not disabled on the L3VNI")
@@ -895,12 +932,14 @@ router bgp 65001 vrf vrf-101
     test_func = partial(_check_vrf_route_absent, r2, "10.0.101.1/32")
     _expect(test_func, "r2: r1's type-5 route still imported with r1's export disabled")
 
-    r1.vtysh_cmd("""
+    r1.vtysh_cmd(
+        """
 configure terminal
 router bgp 65001 vrf vrf-101
  address-family l2vpn evpn
   no auto-route-target export add-never
-""")
+"""
+    )
 
     _expect(
         _check_vrf_route_present(r2, "10.0.101.1/32"),
@@ -923,12 +962,14 @@ def test_l3vni_both_auto_disable_with_manual_wildcard():
     r1 = tgen.gears["r1"]
     r2 = tgen.gears["r2"]
 
-    r2.vtysh_cmd("""
+    r2.vtysh_cmd(
+        """
 configure terminal
 router bgp 65002 vrf vrf-101
  address-family l2vpn evpn
   auto-route-target both add-never
-""")
+"""
+    )
 
     test_func = partial(_check_vni_rt_absent, r2, 101, "importRts", "*:101")
     _expect(test_func, "r2: auto import RT not disabled on the L3VNI")
@@ -956,12 +997,14 @@ router bgp 65002 vrf vrf-101
 
     # A manual wildcard import RT next to the disabled auto RTs must
     # resume the import direction only.
-    r2.vtysh_cmd("""
+    r2.vtysh_cmd(
+        """
 configure terminal
 router bgp 65002 vrf vrf-101
  address-family l2vpn evpn
   route-target import *:101
-""")
+"""
+    )
 
     _expect(
         _check_vrf_route_present(r2, "10.0.101.1/32"),
@@ -973,13 +1016,15 @@ router bgp 65002 vrf vrf-101
     )
 
     # Cleanup: back to full auto in both directions.
-    r2.vtysh_cmd("""
+    r2.vtysh_cmd(
+        """
 configure terminal
 router bgp 65002 vrf vrf-101
  address-family l2vpn evpn
   no route-target import *:101
   no auto-route-target both add-never
-""")
+"""
+    )
 
     _expect(
         _check_vrf_route_present(r2, "10.0.101.1/32"),
@@ -1013,11 +1058,13 @@ def test_l3vni_removal_cleans_vrf_import_rt():
     )
     _expect(test_func, "r2: wildcard auto import RT missing for vrf-101")
 
-    r2.vtysh_cmd("""
+    r2.vtysh_cmd(
+        """
 configure terminal
 vrf vrf-101
  no vni 101
-""")
+"""
+    )
 
     # Neither the wildcard nor the fully-qualified form of the auto
     # import RT may linger in the VRF import RT table.
@@ -1033,11 +1080,13 @@ vrf vrf-101
     test_func = partial(_check_vrf_route_absent, r2, "10.0.101.1/32")
     _expect(test_func, "r2: r1's type-5 route still imported without an L3VNI")
 
-    r2.vtysh_cmd("""
+    r2.vtysh_cmd(
+        """
 configure terminal
 vrf vrf-101
  vni 101
-""")
+"""
+    )
 
     expected = {"*:101": {"rt": "*:101"}}
     test_func = partial(
@@ -1068,12 +1117,14 @@ def test_deprecated_aliases_and_add_if_no_manual():
     r2 = tgen.gears["r2"]
 
     # The deprecated alias is accepted but prints a deprecation hint ...
-    out = r2.vtysh_cmd("""
+    out = r2.vtysh_cmd(
+        """
 configure terminal
 router bgp 65002 vrf vrf-101
  address-family l2vpn evpn
   route-target import auto
-""")
+"""
+    )
     assert (
         'is deprecated, use "auto-route-target import add-always"' in out
     ), "r2: deprecated 'route-target import auto' did not warn"
@@ -1088,25 +1139,169 @@ router bgp 65002 vrf vrf-101
     ), "r2: deprecated 'route-target import auto' unexpectedly written back verbatim"
 
     # The explicit default add-if-no-manual round-trips too.
-    r2.vtysh_cmd("""
+    r2.vtysh_cmd(
+        """
 configure terminal
 router bgp 65002 vrf vrf-101
  address-family l2vpn evpn
   auto-route-target export add-if-no-manual
-""")
+"""
+    )
     running = r2.vtysh_cmd("show running-config", isjson=False)
     assert (
         "auto-route-target export add-if-no-manual" in running
     ), "r2: 'auto-route-target export add-if-no-manual' not in running config"
 
     # Cleanup: back to the implicit default in both directions.
-    r2.vtysh_cmd("""
+    r2.vtysh_cmd(
+        """
 configure terminal
 router bgp 65002 vrf vrf-101
  address-family l2vpn evpn
   no auto-route-target import add-always
   no auto-route-target export add-if-no-manual
-""")
+"""
+    )
+
+
+def test_l3vni_rtlist():
+    """
+    Add and remove several manual RTs with one RTLIST command on r2's
+    L3VNI VRF. Entries already configured, or repeated within the same
+    list, warn while the remaining entries still apply. Route import
+    and export follow the resulting RT set in both directions, and
+    "route-target both" with a split import/export state only adds or
+    removes the missing or present direction.
+    """
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    r1 = tgen.gears["r1"]
+    r2 = tgen.gears["r2"]
+
+    # A list that does not match r1's export RT replaces the auto import
+    # RT. The repeated entry warns once.
+    out = r2.vtysh_cmd(
+        """
+configure terminal
+router bgp 65002 vrf vrf-101
+ address-family l2vpn evpn
+  route-target import 65001:998 65001:999 65001:999
+"""
+    )
+    assert (
+        out.count("RT specified already configured for this VRF: 65001:999") == 1
+    ), "r2: repeated RT in an import list did not warn exactly once"
+
+    test_func = partial(
+        _check_vni_rt_list, r2, 101, "importRts", ["65001:998", "65001:999"]
+    )
+    _expect(test_func, "r2: import RTs of the L3VNI not set from the RT list")
+    test_func = partial(_check_vrf_route_absent, r2, "10.0.101.1/32")
+    _expect(test_func, "r2: r1's type-5 route still imported without a matching RT")
+
+    # Mixed list: the already configured entry warns, the new one applies.
+    out = r2.vtysh_cmd(
+        """
+configure terminal
+router bgp 65002 vrf vrf-101
+ address-family l2vpn evpn
+  route-target import 65001:101 65001:998
+"""
+    )
+    assert (
+        "RT specified already configured for this VRF: 65001:998" in out
+    ), "r2: already configured RT in an import list did not warn"
+
+    test_func = partial(
+        _check_vni_rt_list,
+        r2,
+        101,
+        "importRts",
+        ["65001:101", "65001:998", "65001:999"],
+    )
+    _expect(test_func, "r2: new RT of a mixed import list not applied")
+    _expect(
+        _check_vrf_route_present(r2, "10.0.101.1/32"),
+        "r2: r1's type-5 route not imported via the added RT",
+    )
+
+    # Removing all of them in one list restores the auto import RT. The
+    # repeated entry no longer matches the configuration and warns once.
+    out = r2.vtysh_cmd(
+        """
+configure terminal
+router bgp 65002 vrf vrf-101
+ address-family l2vpn evpn
+  no route-target import 65001:101 65001:998 65001:999 65001:999
+"""
+    )
+    assert (
+        out.count("RT specified does not match configuration for this VRF: 65001:999")
+        == 1
+    ), "r2: repeated RT in a removal list did not warn exactly once"
+
+    test_func = partial(_check_vni_rt_list, r2, 101, "importRts", ["*:101"])
+    _expect(test_func, "r2: auto import RT not restored after removing the RT list")
+    _expect(
+        _check_vrf_route_present(r2, "10.0.101.1/32"),
+        "r2: r1's type-5 route not imported via the restored auto RT",
+    )
+
+    # "both" on top of a split state: 65002:7 only lacks the import
+    # direction, 65002:8 lacks both. No entry warns.
+    out = r2.vtysh_cmd(
+        """
+configure terminal
+router bgp 65002 vrf vrf-101
+ address-family l2vpn evpn
+  route-target export 65002:7
+  route-target both 65002:7 65002:8
+"""
+    )
+    assert "RT specified" not in out, "r2: 'route-target both' on a split state warned"
+
+    test_func = partial(
+        _check_vni_rt_list, r2, 101, "importRts", ["65002:7", "65002:8"]
+    )
+    _expect(test_func, "r2: import RTs of the L3VNI not set by 'route-target both'")
+    test_func = partial(
+        _check_vni_rt_list, r2, 101, "exportRts", ["65002:7", "65002:8"]
+    )
+    _expect(test_func, "r2: export RTs of the L3VNI not set by 'route-target both'")
+    test_func = partial(_check_vrf_route_absent, r2, "10.0.101.1/32")
+    _expect(test_func, "r2: r1's type-5 route still imported without a matching RT")
+    test_func = partial(_check_vrf_route_absent, r1, "10.0.101.2/32")
+    _expect(test_func, "r1: r2's type-5 route still imported after r2's export change")
+
+    # Removing them restores both auto RTs and route exchange. The
+    # repeated entry warns once.
+    out = r2.vtysh_cmd(
+        """
+configure terminal
+router bgp 65002 vrf vrf-101
+ address-family l2vpn evpn
+  no route-target both 65002:7 65002:8 65002:8
+"""
+    )
+    assert (
+        out.count("RT specified does not match configuration for this VRF: 65002:8")
+        == 1
+    ), "r2: repeated RT in a 'no route-target both' list did not warn exactly once"
+
+    test_func = partial(_check_vni_rt_list, r2, 101, "importRts", ["*:101"])
+    _expect(test_func, "r2: auto import RT not restored after 'no route-target both'")
+    test_func = partial(_check_vni_rt_list, r2, 101, "exportRts", ["65002:101"])
+    _expect(test_func, "r2: auto export RT not restored after 'no route-target both'")
+    _expect(
+        _check_vrf_route_present(r2, "10.0.101.1/32"),
+        "r2: r1's type-5 route not re-imported after 'no route-target both'",
+    )
+    _expect(
+        _check_vrf_route_present(r1, "10.0.101.2/32"),
+        "r1: r2's type-5 route not re-imported after 'no route-target both'",
+    )
 
 
 def test_memory_leak():

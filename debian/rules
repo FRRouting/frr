@@ -62,6 +62,7 @@ override_dh_auto_configure:
 		--sbindir=/usr/lib/frr \
 		--with-vtysh-pager=/usr/bin/pager \
 		--libdir=/usr/lib/$(DEB_HOST_MULTIARCH)/frr \
+		--with-pkgconfigdir=/usr/lib/$(DEB_HOST_MULTIARCH)/pkgconfig \
 		--with-moduledir=/usr/lib/$(DEB_HOST_MULTIARCH)/frr/modules \
 		LIBTOOLFLAGS="-rpath /usr/lib/$(DEB_HOST_MULTIARCH)/frr" \
 		--disable-dependency-tracking \

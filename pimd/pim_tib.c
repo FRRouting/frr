@@ -52,13 +52,13 @@ tib_sg_oil_setup(struct pim_instance *pim, pim_sgaddr sg, struct interface *oif)
 		input_iface_vif_index = pim_nht_lookup_ecmp_if_vif_index(pim, vif_source, &grp);
 
 	if (PIM_DEBUG_ZEBRA)
-		zlog_debug("%s: NHT %pSG vif_source %pPAs vif_index:%d",
-			   __func__, &sg, &vif_source, input_iface_vif_index);
+		zlog_debug("%s: NHT (%s:%u:%u)%pSG vif_source %pPAs vif_index:%d", __func__,
+			   PIM_DEBUG_VRF(pim->vrf), &sg, &vif_source, input_iface_vif_index);
 
 	if (input_iface_vif_index < 1) {
 		if (PIM_DEBUG_GM_TRACE)
-			zlog_debug("%s %s: could not find vif index of interface with NH to RP for %pSG",
-				   __FILE__, __func__, &sg);
+			zlog_debug("%s %s: could not find vif index of interface with NH to RP for (%s:%u:%u)%pSG",
+				   __FILE__, __func__, PIM_DEBUG_VRF(pim->vrf), &sg);
 
 		return pim_channel_oil_add(pim, &sg, __func__);
 	}
@@ -71,10 +71,9 @@ tib_sg_oil_setup(struct pim_instance *pim, pim_sgaddr sg, struct interface *oif)
 	 */
 	if ((input_iface_vif_index == pim_oif->mroute_vif_index) && !(PIM_I_am_DR(pim_oif))) {
 		if (PIM_DEBUG_GM_TRACE)
-			zlog_debug(
-				"%s: ignoring request for looped MFC entry (S,G)=%pSG: oif=%s vif_index=%d",
-				__func__, &sg, oif->name,
-				input_iface_vif_index);
+			zlog_debug("%s: ignoring request for looped MFC entry (S,G)=(%s:%u:%u)%pSG: oif=%s vif_index=%d",
+				   __func__, PIM_DEBUG_VRF(pim->vrf), &sg, oif->name,
+				   input_iface_vif_index);
 
 		return NULL;
 	}
@@ -256,8 +255,9 @@ static void tib_sg_proxy_prune_uncovered_sources(struct pim_instance *pim, pim_a
 			continue;
 
 		if (PIM_DEBUG_GM_TRACE)
-			zlog_debug("%s: prune uncovered proxy %pSG on %s after (*,G) leave on %s",
-				   __func__, &check, proxy_ifp->name, leave_oif->name);
+			zlog_debug("%s: prune uncovered proxy (%s:%u:%u)%pSG on %s after (*,G) leave on %s",
+				   __func__, PIM_DEBUG_VRF(pim->vrf), &check, proxy_ifp->name,
+				   leave_oif->name);
 
 		pim_if_gm_join_del(proxy_ifp, group, ij->source_addr, GM_JOIN_PROXY);
 	}
@@ -326,8 +326,9 @@ void tib_sg_proxy_join_prune_check(struct pim_instance *pim, pim_sgaddr sg,
 				pim_if_gm_join_add(ifp, sg.grp, sg.src, GM_JOIN_PROXY);
 			} else if (tib_sg_downstream_receivers_remain(pim, sg, oif, ifp)) {
 				if (PIM_DEBUG_GM_TRACE)
-					zlog_debug("%s: skip proxy prune for %pSG after leave on %s; other unfiltered receivers remain for %s",
-						   __func__, &sg, oif->name, ifp->name);
+					zlog_debug("%s: skip proxy prune for (%s:%u:%u)%pSG after leave on %s; other unfiltered receivers remain for %s",
+						   __func__, PIM_DEBUG_VRF(pim->vrf), &sg,
+						   oif->name, ifp->name);
 			} else {
 				pim_if_gm_join_del(ifp, sg.grp, sg.src, GM_JOIN_PROXY);
 				/*
@@ -405,9 +406,8 @@ bool tib_sg_gm_join(struct pim_instance *pim, pim_sgaddr sg,
 		}
 	} else {
 		if (PIM_DEBUG_GM_TRACE)
-			zlog_debug(
-				"%s: %pSG was received on %s interface but we are not DR for that interface",
-				__func__, &sg, oif->name);
+			zlog_debug("%s: (%s:%u:%u)%pSG was received on %s interface but we are not DR for that interface",
+				   __func__, PIM_DEBUG_VRF(pim->vrf), &sg, oif->name);
 
 		return false;
 	}
@@ -417,9 +417,8 @@ bool tib_sg_gm_join(struct pim_instance *pim, pim_sgaddr sg,
 	 */
 	if (!pim_ifchannel_local_membership_add(oif, &sg, false /*is_vxlan*/)) {
 		if (PIM_DEBUG_MROUTE)
-			zlog_warn(
-				"%s: Failure to add local membership for %pSG",
-				__func__, &sg);
+			zlog_warn("%s: Failure to add local membership for (%s:%u:%u)%pSG",
+				  __func__, PIM_DEBUG_VRF(pim->vrf), &sg);
 
 		pim_channel_del_oif(*oilp, oif, PIM_OIF_FLAG_PROTO_GM,
 				    __func__);

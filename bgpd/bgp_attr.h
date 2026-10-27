@@ -7,6 +7,7 @@
 #define _QUAGGA_BGP_ATTR_H
 
 #include "mpls.h"
+#include "typesafe.h"
 #include "bgp_attr_evpn.h"
 #include "bgpd/bgp_encap_types.h"
 #include "bgpd/bgp_attr_srv6.h"
@@ -143,8 +144,8 @@ struct attr_extra {
 	/* EVPN overlay index */
 	struct bgp_route_evpn *evpn_overlay;
 
-	/* AIGP Metric */
-	uint64_t aigp_metric;
+	/* AIGP TLVs */
+	struct bgp_aigp_tlvs *aigp_tlvs;
 
 	/* For BGP-LS Attribute (RFC 9552) */
 	struct bgp_ls_attr *ls_attr;
@@ -163,6 +164,9 @@ struct attr_extra {
 
 	/* RFC 9234 */
 	uint32_t otc;
+
+	/* Attributes received with the Partial bit set (RFC 4271 section 5). */
+	uint64_t partial_attrs;
 
 	/* IPv6 Extended Communities attribute. */
 	struct ecommunity *ipv6_ecommunity;
@@ -366,6 +370,18 @@ struct cluster_list {
 	struct in_addr *list;
 };
 
+/* AIGP TLVs (RFC 7311 section 3). Only the first one (metric[0]) is used,
+ * the others are passed along unchanged.
+ */
+PREDECL_HASH(bgp_aigp_tlvs_hash);
+
+struct bgp_aigp_tlvs {
+	struct bgp_aigp_tlvs_hash_item item;
+	unsigned long refcnt;
+	uint16_t count;
+	uint64_t metric[];
+};
+
 /* Unknown transit attribute. */
 struct transit {
 	unsigned long refcnt;
@@ -424,6 +440,7 @@ extern struct attr *bgp_attr_aggregate_intern(
 	struct community *community, struct ecommunity *ecommunity,
 	struct lcommunity *lcommunity, struct bgp_aggregate *aggregate,
 	uint8_t atomic_aggregate, const struct prefix *p);
+extern void bgp_peer_prepend_local_as(struct peer *peer, afi_t afi, safi_t safi, struct attr *attr);
 extern bgp_size_t
 bgp_packet_attribute(struct bgp *bgp, struct peer *peer, struct stream *s, struct attr *attr,
 		     struct bpacket_attr_vec_arr *vecarr, struct prefix *p, afi_t afi, safi_t safi,
@@ -448,6 +465,8 @@ extern enum bgp_attr_parse_ret bgp_attr_ignore(struct peer *peer, uint8_t type);
 /* Cluster list prototypes. */
 extern bool cluster_loop_check(struct cluster_list *cluster,
 			       struct in_addr originator);
+extern void bgp_attr_prepend_cluster_id(struct bgp *bgp, struct attr *attr);
+extern void bgp_attr_clear_reflection(struct attr *attr);
 
 /* Below exported for unit-test purposes only */
 struct bgp_attr_parser_args {
@@ -694,38 +713,39 @@ static inline void bgp_attr_set_nhc(struct attr *attr, struct bgp_nhc *bnc)
 #define AIGP_TRANSMIT_ALLOWED(peer)                                                               \
 	(CHECK_FLAG((peer)->flags, PEER_FLAG_AIGP) || ((peer)->sort != BGP_PEER_EBGP))
 
-static inline uint64_t bgp_attr_get_aigp_metric(const struct attr *attr)
+static inline struct bgp_aigp_tlvs *bgp_attr_get_aigp_tlvs(const struct attr *attr)
 {
-	return attr->extra ? attr->extra->aigp_metric : 0;
+	return attr->extra ? attr->extra->aigp_tlvs : NULL;
 }
 
-static inline void bgp_attr_unset_aigp_metric(struct attr *attr)
+static inline void bgp_attr_set_aigp_tlvs(struct attr *attr, struct bgp_aigp_tlvs *tlvs)
 {
-	if (!bgp_attr_exists(attr, BGP_ATTR_AIGP))
-		return;
+	struct bgp_aigp_tlvs *old = bgp_attr_get_aigp_tlvs(attr);
 
-	if (attr->extra) {
-		attr->extra->aigp_metric = 0;
+	if (tlvs && !old) {
+		bgp_attr_extra_get(attr)->aigp_tlvs = tlvs;
+	} else if (tlvs && old) {
+		attr->extra->aigp_tlvs = tlvs; /* replace; refcnt unchanged */
+	} else if (!tlvs && old) {
+		attr->extra->aigp_tlvs = NULL;
 		bgp_attr_extra_put(attr);
 	}
 
-	bgp_attr_unset(attr, BGP_ATTR_AIGP);
-}
-
-static inline void bgp_attr_set_aigp_metric(struct attr *attr, uint64_t aigp)
-{
-	if (aigp == 0) {
-		bgp_attr_unset_aigp_metric(attr);
-		return;
-	}
-
-	if (!bgp_attr_exists(attr, BGP_ATTR_AIGP) || !attr->extra)
-		bgp_attr_extra_get(attr)->aigp_metric = aigp;
+	if (tlvs)
+		bgp_attr_set(attr, BGP_ATTR_AIGP);
 	else
-		attr->extra->aigp_metric = aigp;
-
-	bgp_attr_set(attr, BGP_ATTR_AIGP);
+		bgp_attr_unset(attr, BGP_ATTR_AIGP);
 }
+
+static inline uint64_t bgp_attr_get_aigp_metric(const struct attr *attr)
+{
+	struct bgp_aigp_tlvs *tlvs = bgp_attr_get_aigp_tlvs(attr);
+
+	return tlvs ? tlvs->metric[0] : 0;
+}
+
+extern void bgp_attr_set_aigp_metric(struct attr *attr, uint64_t aigp);
+extern void bgp_attr_unset_aigp_metric(struct attr *attr);
 
 static inline uint64_t bgp_aigp_metric_total(struct bgp_path_info *bpi)
 {
@@ -758,6 +778,21 @@ static inline void bgp_attr_set_cluster(struct attr *attr,
 		bgp_attr_set(attr, BGP_ATTR_CLUSTER_LIST);
 	else
 		bgp_attr_unset(attr, BGP_ATTR_CLUSTER_LIST);
+}
+
+static inline struct in_addr bgp_attr_get_originator_id(const struct attr *attr)
+{
+	return attr->originator_id;
+}
+
+static inline void bgp_attr_set_originator_id(struct attr *attr, struct in_addr originator_id)
+{
+	attr->originator_id = originator_id;
+
+	if (originator_id.s_addr != INADDR_ANY)
+		bgp_attr_set(attr, BGP_ATTR_ORIGINATOR_ID);
+	else
+		bgp_attr_unset(attr, BGP_ATTR_ORIGINATOR_ID);
 }
 
 static inline struct bgp_route_evpn *
@@ -825,6 +860,35 @@ static inline void bgp_attr_set_otc(struct attr *attr, uint32_t otc)
 		bgp_attr_extra_put(attr);
 		bgp_attr_unset(attr, BGP_ATTR_OTC);
 	}
+}
+
+static inline uint64_t bgp_attr_get_partial_attrs(const struct attr *attr)
+{
+	return attr->extra ? attr->extra->partial_attrs : 0;
+}
+
+static inline void bgp_attr_set_partial_attrs(struct attr *attr, uint64_t partial_attrs)
+{
+	uint64_t old = bgp_attr_get_partial_attrs(attr);
+
+	if (partial_attrs && !old) {
+		bgp_attr_extra_get(attr)->partial_attrs = partial_attrs;
+	} else if (partial_attrs && old) {
+		attr->extra->partial_attrs = partial_attrs; /* replace; refcnt unchanged */
+	} else if (!partial_attrs && old) {
+		attr->extra->partial_attrs = 0;
+		bgp_attr_extra_put(attr);
+	}
+}
+
+static inline uint8_t bgp_attr_partial(const struct attr *attr, uint8_t type)
+{
+	if (type < 1 || type > 64)
+		return 0;
+
+	return CHECK_FLAG(bgp_attr_get_partial_attrs(attr), 1ULL << (type - 1))
+		       ? BGP_ATTR_FLAG_PARTIAL
+		       : 0;
 }
 
 static inline struct bgp_attr_srv6_vpn *bgp_attr_get_srv6_vpn(const struct attr *attr)

@@ -7,6 +7,8 @@
 
 #include <zebra.h>
 #include <grpcpp/grpcpp.h>
+#include <grpcpp/health_check_service_interface.h>
+#include <grpcpp/ext/health_check_service_server_builder_option.h>
 #include "grpc/frr-northbound.grpc.pb.h"
 
 #include "log.h"
@@ -25,6 +27,7 @@
 #include <string>
 
 #define GRPC_DEFAULT_PORT 50051
+#define GRPC_HEALTH_SERVICE_NAME "gRPC-handler"
 
 
 // ------------------------------------------------------
@@ -1036,8 +1039,7 @@ grpc::Status HandleUnaryExecute(
 				    "Unknown data path");
 
 	// Create input data tree.
-	err = yang_new_path2(NULL, ly_native_ctx, xpath, NULL, 0, (LYD_ANYDATA_VALUETYPE)0, 0,
-			     NULL, &input_tree);
+	err = yang_new_path2(NULL, ly_native_ctx, xpath, NULL, 0, 0, NULL, &input_tree);
 	if (err != LY_SUCCESS) {
 		return grpc::Status(grpc::StatusCode::INVALID_ARGUMENT,
 				    "Invalid data path");
@@ -1065,8 +1067,7 @@ grpc::Status HandleUnaryExecute(
 	}
 
 	// Create output data tree.
-	err = yang_new_path2(NULL, ly_native_ctx, xpath, NULL, 0, (LYD_ANYDATA_VALUETYPE)0, 0,
-			     NULL, &output_tree);
+	err = yang_new_path2(NULL, ly_native_ctx, xpath, NULL, 0, 0, NULL, &output_tree);
 	if (err != LY_SUCCESS) {
 		lyd_free_tree(input_tree);
 		return grpc::Status(grpc::StatusCode::INVALID_ARGUMENT,
@@ -1130,6 +1131,7 @@ struct grpc_pthread_attr {
 
 // Capture these objects so we can try to shut down cleanly
 static pthread_mutex_t s_server_lock = PTHREAD_MUTEX_INITIALIZER;
+static pthread_cond_t s_server_cond = PTHREAD_COND_INITIALIZER;
 static grpc::Server *s_server;
 static grpc::ServerCompletionQueue *s_cq;
 
@@ -1151,21 +1153,42 @@ static void *grpc_pthread_start(void *arg)
 	builder.RegisterService(&service);
 	builder.AddChannelArgument(
 		GRPC_ARG_HTTP2_MIN_RECV_PING_INTERVAL_WITHOUT_DATA_MS, 5000);
+
+	/*
+	 * Enable health check service for handler readiness signaling.
+	 *
+	 * Race condition: gRPC binds the listening port during BuildAndStart()
+	 * before handler registration. Clients connecting during handler
+	 * registration can trigger segfaults due to concurrent access between
+	 * gRPC I/O threads (processing incoming requests) and FRR's grpc_pthread
+	 * (registering handlers) on shared data structures.
+	 *
+	 * This allows clients to check if RPC handlers are registered before
+	 * sending requests, avoiding crashes from the race condition.
+	 *
+	 * Clients should query health status of service "gRPC-handler".
+	 * Only send gRPC requests when status is SERVING:
+	 *
+	 *   - SERVING: handlers registered, safe to send requests
+	 *   - NOT_SERVING: handlers not yet registered, wait and retry
+	 *   - SERVICE_UNKNOWN: service not registered yet (brief window
+	 *     between BuildAndStart and first SetServingStatus), wait and retry
+	 *   - NOT_FOUND/UNIMPLEMENTED: health check not supported, server
+	 *     may be an older version without health check
+	 */
+	grpc::EnableDefaultHealthCheckService(true);
+
 	std::unique_ptr<grpc::ServerCompletionQueue> cq =
 		builder.AddCompletionQueue();
 	std::unique_ptr<grpc::Server> server = builder.BuildAndStart();
 	void *tag;
 	bool ok;
 
-	pthread_mutex_lock(&s_server_lock); // Make coverity happy
-	if (grpc_state == GRPC_STATE_SHUTDOWN) {
+	if (!server) {
 		unsigned int n = 0;
 
-		pthread_mutex_unlock(&s_server_lock);
-		if (server)
-			server->Shutdown();
-		if (cq)
-			cq->Shutdown();
+		flog_err(EC_LIB_GRPC_INIT, "%s: gRPC server failed to start on %s", __func__,
+			 server_address.str().c_str());
 		/*
 		 * BuildAndStart() may already have posted library
 		 * events. Drain them before unique_ptr dtors run;
@@ -1173,17 +1196,32 @@ static void *grpc_pthread_start(void *arg)
 		 * is empty. REQUEST_NEWRPC*() has not run, so these
 		 * tags are not RpcStateBase.
 		 */
+		if (cq)
+			cq->Shutdown();
 		while (cq && cq->Next(&tag, &ok))
 			n++;
+		if (n > 0)
+			grpc_debug("%s: early shutdown, drained %u CQ events", __func__, n);
 
-		grpc_debug("%s: early shutdown, drained %u CQ events",
-			   __func__, n);
+		pthread_mutex_lock(&s_server_lock);
+		grpc_state = GRPC_STATE_SHUTDOWN;
+		pthread_cond_signal(&s_server_cond);
+		pthread_mutex_unlock(&s_server_lock);
 		return NULL;
 	}
 
+	pthread_mutex_lock(&s_server_lock);
 	s_server = server.get();
 	s_cq = cq.get();
 	grpc_state = GRPC_STATE_RUNNING;
+	pthread_cond_signal(&s_server_cond);
+
+	/* Set health to NOT_SERVING while registering handlers */
+	grpc::HealthCheckServiceInterface *health_service = server->GetHealthCheckService();
+	if (health_service) {
+		health_service->SetServingStatus(GRPC_HEALTH_SERVICE_NAME, false);
+		grpc_debug("%s: health check set to NOT_SERVING", __func__);
+	}
 
 	/* Schedule unary RPC handlers */
 	REQUEST_NEWRPC(GetCapabilities, NULL);
@@ -1201,6 +1239,12 @@ static void *grpc_pthread_start(void *arg)
 	/* Schedule streaming RPC handlers */
 	REQUEST_NEWRPC_STREAMING(Get);
 	REQUEST_NEWRPC_STREAMING(ListTransactions);
+
+	/* All handlers registered - set health check to SERVING */
+	if (health_service) {
+		health_service->SetServingStatus(GRPC_HEALTH_SERVICE_NAME, true);
+		grpc_debug("%s: health check set to SERVING", __func__);
+	}
 
 	zlog_notice("gRPC server listening on %s",
 		    server_address.str().c_str());
@@ -1274,6 +1318,22 @@ static int frr_grpc_init(uint port)
 			 __func__, safe_strerror(errno));
 		return -1;
 	}
+
+	/*
+	 * Wait for the gRPC server to initialize. The thread sets
+	 * grpc_state to GRPC_STATE_RUNNING on success, or to
+	 * GRPC_STATE_SHUTDOWN on failure, and signals the condition.
+	 */
+	pthread_mutex_lock(&s_server_lock);
+	while (grpc_state == GRPC_STATE_INIT)
+		pthread_cond_wait(&s_server_cond, &s_server_lock);
+
+	if (grpc_state != GRPC_STATE_RUNNING) {
+		flog_err(EC_LIB_GRPC_INIT, "%s: gRPC server failed to start", __func__);
+		pthread_mutex_unlock(&s_server_lock);
+		return -1;
+	}
+	pthread_mutex_unlock(&s_server_lock);
 
 	return 0;
 }
@@ -1349,6 +1409,7 @@ static void frr_grpc_module_very_late_init(struct event *event)
 
 error:
 	flog_err(EC_LIB_GRPC_INIT, "failed to initialize the gRPC module");
+	raise(SIGTERM);
 }
 
 static int frr_grpc_module_late_init(struct event_loop *tm)

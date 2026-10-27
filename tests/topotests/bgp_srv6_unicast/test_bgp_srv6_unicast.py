@@ -1022,6 +1022,80 @@ def check_no_unicast_sid(afi):
     return True
 
 
+def test_bgp_srv6_locator_reapply():
+    """Reapplying the current BGP SRv6 locator must not send route updates."""
+    tgen = get_topogen()
+    r1 = tgen.gears["r1"]
+    r3 = tgen.gears["r3"]
+
+    # Ensure both unicast AFs have active SRv6 routes to observe.
+    r1.vtysh_multicmd(
+        """
+        configure
+        router bgp 65001
+        address-family ipv4 unicast
+        network 10.0.0.1/32
+        sid export auto
+        exit-address-family
+        address-family ipv6 unicast
+        network fd00:200::/64
+        sid export auto
+        """
+    )
+
+    res = get_unicast_sid("AFI_IP")
+    assert res is True, res
+    ipv4_sid = r1_unicast_sid
+
+    res = get_unicast_sid("AFI_IP6")
+    assert res is True, res
+    ipv6_sid = r1_unicast_sid
+
+    res = check_route(r3, "show ip route 10.0.0.1/32 json", "10.0.0.1/32", ipv4_sid)
+    assert res is True, res
+    res = check_route(r3, "show ipv6 route fd00:200::/64 json", "fd00:200::/64", ipv6_sid)
+    assert res is True, res
+
+    table_versions_before = {
+        afi: r1.vtysh_cmd("show bgp %s unicast json" % afi, isjson=True)[
+            "tableVersion"
+        ]
+        for afi in ("ipv4", "ipv6")
+    }
+
+    # Re-enter the BGP SRv6 node and reapply the configured locator.
+    r1.vtysh_multicmd(
+        """
+        configure
+        router bgp 65001
+        segment-routing srv6
+        locator default
+        """
+    )
+
+    table_versions_after = {
+        afi: r1.vtysh_cmd("show bgp %s unicast json" % afi, isjson=True)[
+            "tableVersion"
+        ]
+        for afi in ("ipv4", "ipv6")
+    }
+    assert table_versions_after == table_versions_before, (
+        "Reapplying the configured SRv6 locator changed BGP table versions: "
+        "before=%s after=%s" % (table_versions_before, table_versions_after)
+    )
+
+    res = get_unicast_sid("AFI_IP")
+    assert res is True, res
+    assert r1_unicast_sid == ipv4_sid, "IPv4 unicast SID changed after locator reapply"
+    res = get_unicast_sid("AFI_IP6")
+    assert res is True, res
+    assert r1_unicast_sid == ipv6_sid, "IPv6 unicast SID changed after locator reapply"
+
+    res = check_route(r3, "show ip route 10.0.0.1/32 json", "10.0.0.1/32", ipv4_sid)
+    assert res is True, res
+    res = check_route(r3, "show ipv6 route fd00:200::/64 json", "fd00:200::/64", ipv6_sid)
+    assert res is True, res
+
 def test_bgp_srv6_no_locator():
     """
     Delete the SRv6 locator on R1 with 'no locator default' and verify that:

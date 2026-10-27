@@ -2040,6 +2040,17 @@ void zebra_nhg_increment_ref(struct nhg_hash_entry *nhe)
 		event_cancel(&nhe->timer);
 		nhe->refcnt--;
 		UNSET_FLAG(nhe->flags, NEXTHOP_GROUP_KEEP_AROUND);
+		/*
+		 * This group is being resurrected from KEEP_AROUND.
+		 * zebra_nhg_decrement_ref() returned early when it parked the
+		 * group, so it never propagated a decrement to the members in
+		 * nhg_depends; they still hold the reference taken by this
+		 * group.  Incrementing them again here would leak one reference
+		 * per member on every keep_around -> resurrect cycle, leaving
+		 * those members installed forever.  Return early to stay
+		 * symmetric with zebra_nhg_decrement_ref().
+		 */
+		return;
 	}
 
 	if (!zebra_nhg_depends_is_empty(nhe))
@@ -2710,8 +2721,9 @@ static int nexthop_active(struct nexthop *nexthop, struct nhg_hash_entry *nhe,
 		if (is_default_prefix(&rn->p)
 		    && !rnh_resolve_via_default(zvrf, p.family)) {
 			if (IS_ZEBRA_DEBUG_RIB_DETAILED)
-				zlog_debug("        :%s: %pFX Resolved against default route",
-					   __func__, &p);
+				zlog_debug("        :%s: (%s:%u:%u)%pFX Resolved against default route",
+					   __func__, zvrf_name(zvrf), nexthop->vrf_id,
+					   zvrf->table_id, &p);
 			return 0;
 		}
 
@@ -2861,16 +2873,18 @@ done_with_match:
 			} else {
 				if (IS_ZEBRA_DEBUG_RIB_DETAILED)
 					zlog_debug(
-						"        %s: Recursion failed to find while looking at %pRN",
-						__func__, rn);
+						"        %s: Recursion failed to find while looking at (%s:%u:%u)%pRN",
+						__func__, zvrf_name(zvrf), nexthop->vrf_id,
+						zvrf->table_id, rn);
 				goto continue_up_tree;
 			}
 
 			return 1;
 		} else if (IS_ZEBRA_DEBUG_RIB_DETAILED) {
 			zlog_debug(
-				"        %s: Route Type %s has not turned on recursion %pRN failed to match",
-				__func__, zebra_route_string(type), rn);
+				"        %s: Route Type %s has not turned on recursion (%s:%u:%u)%pRN failed to match",
+				__func__, zebra_route_string(type), zvrf_name(zvrf),
+				nexthop->vrf_id, zvrf->table_id, rn);
 			if (type == ZEBRA_ROUTE_BGP
 			    && !CHECK_FLAG(flags, ZEBRA_FLAG_IBGP))
 				zlog_debug(
@@ -3037,8 +3051,8 @@ skip_check:
 	if (ret == RMAP_DENYMATCH) {
 		if (IS_ZEBRA_DEBUG_RIB) {
 			zlog_debug(
-				"%u:%pRN: Filtering out with NH %pNHv due to route map",
-				re->vrf_id, rn, nexthop);
+				"(%s:%u:%u)%pRN: Filtering out with NH %pNHv due to route map",
+				zvrf_name(zvrf), re->vrf_id, re->table, rn, nexthop);
 		}
 		UNSET_FLAG(nexthop->flags, NEXTHOP_FLAG_ACTIVE);
 	}
@@ -3295,18 +3309,31 @@ static bool zebra_nhg_nexthop_compare(const struct nexthop *nhop,
 				      const struct route_node *rn)
 {
 	bool same = true;
+	const char *vrf_name = "Unknown";
+	vrf_id_t vrf_id = VRF_UNKNOWN;
+	uint32_t table_id = 0;
+
+	if (IS_ZEBRA_DEBUG_NHG_DETAIL) {
+		struct rib_table_info *info =
+			srcdest_rnode_table_info((struct route_node *)rn);
+
+		vrf_name = info ? zvrf_name(info->zvrf) : "Unknown";
+		vrf_id = info ? zvrf_id(info->zvrf) : VRF_UNKNOWN;
+		table_id = info ? info->table_id : 0;
+	}
 
 	while (nhop && old_nhop) {
 		if (IS_ZEBRA_DEBUG_NHG_DETAIL)
-			zlog_debug("%s: %pRN Comparing %pNHvv(%u) ACTIVE: %d to old: %pNHvv(%u) ACTIVE: %d nexthop same: %d",
-				   __func__, rn, nhop, nhop->flags,
+			zlog_debug("%s: (%s:%u:%u)%pRN Comparing %pNHvv(%u) ACTIVE: %d to old: %pNHvv(%u) ACTIVE: %d nexthop same: %d",
+				   __func__, vrf_name, vrf_id, table_id, rn, nhop,
+				   nhop->flags,
 				   CHECK_FLAG(nhop->flags, NEXTHOP_FLAG_ACTIVE), old_nhop,
 				   old_nhop->flags, CHECK_FLAG(old_nhop->flags, NEXTHOP_FLAG_ACTIVE),
 				   nexthop_same_no_ifindex(nhop, old_nhop));
 		if (!CHECK_FLAG(old_nhop->flags, NEXTHOP_FLAG_ACTIVE)) {
 			if (IS_ZEBRA_DEBUG_NHG_DETAIL)
-				zlog_debug("%s: %pRN Old is not active going to the next one",
-					   __func__, rn);
+				zlog_debug("%s: (%s:%u:%u)%pRN Old is not active going to the next one",
+					   __func__, vrf_name, vrf_id, table_id, rn);
 
 			/*
 			 * If the new nexthop is not active and the old nexthop is also not active,
@@ -3315,8 +3342,8 @@ static bool zebra_nhg_nexthop_compare(const struct nexthop *nhop,
 			if (!CHECK_FLAG(nhop->flags, NEXTHOP_FLAG_ACTIVE) &&
 			    nexthop_same_no_ifindex(nhop, old_nhop)) {
 				if (IS_ZEBRA_DEBUG_NHG_DETAIL)
-					zlog_debug("%s: %pRN new is not active going to the next one",
-						   __func__, rn);
+					zlog_debug("%s: (%s:%u:%u)%pRN new is not active going to the next one",
+						   __func__, vrf_name, vrf_id, table_id, rn);
 				nhop = nhop->next;
 			}
 			old_nhop = old_nhop->next;
@@ -3327,8 +3354,8 @@ static bool zebra_nhg_nexthop_compare(const struct nexthop *nhop,
 			struct nexthop *new_recursive, *old_recursive;
 
 			if (IS_ZEBRA_DEBUG_NHG_DETAIL)
-				zlog_debug("%s: %pRN New and old are same, continuing search",
-					   __func__, rn);
+				zlog_debug("%s: (%s:%u:%u)%pRN New and old are same, continuing search",
+					   __func__, vrf_name, vrf_id, table_id, rn);
 
 			new_recursive = nhop->resolved;
 			old_recursive = old_nhop->resolved;
@@ -3364,8 +3391,8 @@ static bool zebra_nhg_nexthop_compare(const struct nexthop *nhop,
 			old_nhop = old_nhop->next;
 		} else {
 			if (IS_ZEBRA_DEBUG_NHG_DETAIL)
-				zlog_debug("%s:%pRN They are not the same, stopping using new nexthop entry",
-					   __func__, rn);
+				zlog_debug("%s: (%s:%u:%u)%pRN They are not the same, stopping using new nexthop entry",
+					   __func__, vrf_name, vrf_id, table_id, rn);
 			same = false;
 			break;
 		}
@@ -3399,13 +3426,16 @@ static struct nhg_hash_entry *zebra_nhg_rib_compare_old_nhe(
 		char straddr[PREFIX_STRLEN];
 
 		prefix2str(&rn->p, straddr, sizeof(straddr));
-		zlog_debug("%s: %pRN new id: %u old id: %u", __func__, rn,
-			   new_nhe->id, old_nhe->id);
-		zlog_debug("%s: %pRN NEW", __func__, rn);
+		zlog_debug("%s: (%s:%u:%u)%pRN new id: %u old id: %u", __func__,
+			   VRF_LOGNAME(vrf), re->vrf_id, re->table, rn, new_nhe->id,
+			   old_nhe->id);
+		zlog_debug("%s: (%s:%u:%u)%pRN NEW", __func__, VRF_LOGNAME(vrf),
+			   re->vrf_id, re->table, rn);
 		for (ALL_NEXTHOPS(new_nhe->nhg, nhop))
 			route_entry_dump_nh(re, straddr, vrf, nhop);
 
-		zlog_debug("%s: %pRN OLD", __func__, rn);
+		zlog_debug("%s: (%s:%u:%u)%pRN OLD", __func__, VRF_LOGNAME(vrf),
+			   re->vrf_id, re->table, rn);
 		for (ALL_NEXTHOPS(old_nhe->nhg, nhop))
 			route_entry_dump_nh(re, straddr, vrf, nhop);
 	}
@@ -3434,9 +3464,9 @@ static struct nhg_hash_entry *zebra_nhg_rib_compare_old_nhe(
 	}
 
 	if (IS_ZEBRA_DEBUG_NHG_DETAIL)
-		zlog_debug("%s:%pRN They are %sthe same, using the %s nhg entry",
-			   __func__, rn, same ? "" : "not ",
-			   same ? "old" : "new");
+		zlog_debug("%s: (%s:%u:%u)%pRN They are %sthe same, using the %s nhg entry",
+			   __func__, VRF_LOGNAME(vrf), re->vrf_id, re->table, rn,
+			   same ? "" : "not ", same ? "old" : "new");
 
 	if (same)
 		return old_nhe;
@@ -4367,6 +4397,14 @@ void zebra_interface_nhg_reinstall(struct interface *ifp)
 		 */
 		if (CHECK_FLAG(rb_node_dep->nhe->flags, NEXTHOP_GROUP_INITIAL_DELAY_INSTALL))
 			continue;
+
+		/*
+		 * Skip NHGs whose nexthop belongs to a different VRF than the
+		 * interface's current VRF.
+		 */
+		if (rb_node_dep->nhe->nhg.nexthop->vrf_id != ifp->vrf->vrf_id)
+			continue;
+
 		/*
 		 * The nexthop associated with this was set as !ACTIVE
 		 * so we need to turn it back to active when we get to

@@ -130,9 +130,9 @@ struct channel_oil *pim_channel_oil_add(struct pim_instance *pim,
 		pim_upstream_mroute_iif_update(c_oil, __func__);
 
 		if (PIM_DEBUG_MROUTE)
-			zlog_debug(
-				"%s(%s): Existing oil for %pSG Ref Count: %d (Post Increment)",
-				__func__, name, sg, c_oil->oil_ref_count);
+			zlog_debug("%s(%s): Existing oil for (%s:%u:%u)%pSG Ref Count: %d (Post Increment)",
+				   __func__, name, PIM_DEBUG_VRF(pim->vrf), sg,
+				   c_oil->oil_ref_count);
 		return c_oil;
 	}
 
@@ -151,7 +151,8 @@ struct channel_oil *pim_channel_oil_add(struct pim_instance *pim,
 	rb_pim_oil_add(&pim->channel_oil_head, c_oil);
 
 	if (PIM_DEBUG_MROUTE)
-		zlog_debug("%s(%s): c_oil %pSG add", __func__, name, sg);
+		zlog_debug("%s(%s): c_oil (%s:%u:%u)%pSG add", __func__, name,
+			   PIM_DEBUG_VRF(pim->vrf), sg);
 
 	return c_oil;
 }
@@ -166,18 +167,30 @@ void pim_clear_nocache_state(struct pim_interface *pim_ifp)
 	struct channel_oil *c_oil;
 
 	frr_each_safe (rb_pim_oil, &pim_ifp->pim->channel_oil_head, c_oil) {
+		struct pim_upstream *up = c_oil->up;
 
-		if ((!c_oil->up) ||
-		    !(PIM_UPSTREAM_FLAG_TEST_SRC_NOCACHE(c_oil->up->flags)))
+		if ((!up) || !(PIM_UPSTREAM_FLAG_TEST_SRC_NOCACHE(up->flags)))
 			continue;
 
 		if (c_oil->iif.index != pim_ifp->mroute_vif_index)
 			continue;
 
-		event_cancel(&c_oil->up->t_ka_timer);
-		PIM_UPSTREAM_FLAG_UNSET_SRC_NOCACHE(c_oil->up->flags);
-		PIM_UPSTREAM_FLAG_UNSET_SRC_STREAM(c_oil->up->flags);
-		pim_upstream_del(pim_ifp->pim, c_oil->up, __func__);
+		event_cancel(&up->t_ka_timer);
+
+		/* So we release reference for each owner flag exactly.
+		 * SRC_STREAM is only present when the creator took a
+		 * reference for it, so it must be tested rather than
+		 * cleared unconditionally.
+		 */
+		if (PIM_UPSTREAM_FLAG_TEST_SRC_STREAM(up->flags)) {
+			PIM_UPSTREAM_FLAG_UNSET_SRC_STREAM(up->flags);
+			up = pim_upstream_del(pim_ifp->pim, up, __func__);
+		}
+
+		if (up && PIM_UPSTREAM_FLAG_TEST_SRC_NOCACHE(up->flags)) {
+			PIM_UPSTREAM_FLAG_UNSET_SRC_NOCACHE(up->flags);
+			pim_upstream_del(pim_ifp->pim, up, __func__);
+		}
 	}
 }
 
@@ -187,9 +200,9 @@ struct channel_oil *pim_channel_oil_del(struct channel_oil *c_oil,
 	if (PIM_DEBUG_MROUTE) {
 		pim_sgaddr sg = { .src = c_oil->source, .grp = c_oil->group };
 
-		zlog_debug(
-			"%s(%s): Del oil for %pSG, Ref Count: %d (Predecrement)",
-			__func__, name, &sg, c_oil->oil_ref_count);
+		zlog_debug("%s(%s): Del oil for (%s:%u:%u)%pSG, Ref Count: %d (Predecrement)",
+			   __func__, name, PIM_DEBUG_VRF(c_oil->pim->vrf), &sg,
+			   c_oil->oil_ref_count);
 	}
 	--c_oil->oil_ref_count;
 

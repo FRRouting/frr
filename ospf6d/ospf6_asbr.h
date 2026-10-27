@@ -156,7 +156,7 @@ int ospf6_external_aggr_config_unset(struct ospf6 *ospf6,
 void ospf6_handle_external_lsa_origination(struct ospf6 *ospf6,
 					       struct ospf6_route *rt,
 					       struct prefix *p);
-void ospf6_external_aggregator_free(struct ospf6_external_aggr_rt *aggr);
+void ospf6_external_aggregator_free(struct ospf6 *ospf6, struct ospf6_external_aggr_rt *aggr);
 void ospf6_unset_all_aggr_flag(struct ospf6 *ospf6);
 void ospf6_fill_aggr_route_details(struct ospf6 *ospf6,
 				   struct ospf6_external_aggr_rt *aggr);

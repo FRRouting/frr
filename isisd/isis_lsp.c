@@ -784,7 +784,7 @@ void lsp_print_detail(struct isis_lsp *lsp, struct vty *vty,
 			isis_format_tlvs(lsp->tlvs, json);
 		}
 	} else {
-		lsp_print_vty(lsp, vty, dynhost, isis);
+		lsp_print_vty(lsp, vty, false, isis);
 		if (lsp->tlvs)
 			vty_multiline(vty, "  ", "%s",
 				      isis_format_tlvs(lsp->tlvs, NULL));
@@ -874,15 +874,14 @@ static void lsp_build_internal_reach_ipv4(struct isis_lsp *lsp,
 	struct sr_prefix_cfg *pcfgs[SR_ALGORITHM_COUNT] = {NULL};
 
 	if (area->oldmetric) {
-		lsp_debug(
-			"ISIS (%s): Adding old-style IP reachability for %pFX",
-			area->area_tag, ipv4);
+		lsp_debug("ISIS (%s): Adding old-style IP reachability for (%s:%u:%u)%pFX",
+			  area->area_tag, ISIS_DEBUG_VRF(area->isis), ipv4);
 		isis_tlvs_add_oldstyle_ip_reach(lsp->tlvs, ipv4, metric);
 	}
 
 	if (area->newmetric) {
-		lsp_debug("ISIS (%s): Adding te-style IP reachability for %pFX",
-			  area->area_tag, ipv4);
+		lsp_debug("ISIS (%s): Adding te-style IP reachability for (%s:%u:%u)%pFX",
+			  area->area_tag, ISIS_DEBUG_VRF(area->isis), ipv4);
 
 		if (area->srdb.enabled)
 			for (int i = 0; i < SR_ALGORITHM_COUNT; i++) {
@@ -907,8 +906,8 @@ static void lsp_build_internal_reach_ipv6(struct isis_lsp *lsp,
 {
 	struct sr_prefix_cfg *pcfgs[SR_ALGORITHM_COUNT] = {NULL};
 
-	lsp_debug("ISIS (%s): Adding IPv6 reachability for %pFX",
-		  area->area_tag, ipv6);
+	lsp_debug("ISIS (%s): Adding IPv6 reachability for (%s:%u:%u)%pFX", area->area_tag,
+		  ISIS_DEBUG_VRF(area->isis), ipv6);
 
 	if (area->srdb.enabled)
 		for (int i = 0; i < SR_ALGORITHM_COUNT; i++) {
@@ -1061,6 +1060,8 @@ static void lsp_build(struct isis_lsp *lsp, struct isis_area *area)
 	int level = lsp->level;
 	struct listnode *node;
 	struct isis_lsp *frag;
+	uint32_t router_id = 0;
+	bool router_capability_authorized = false;
 
 	lsp_clear_data(lsp);
 	for (ALL_LIST_ELEMENTS_RO(lsp->lspu.frags, node, frag))
@@ -1127,7 +1128,28 @@ static void lsp_build(struct isis_lsp *lsp, struct isis_area *area)
 	}
 
 	/* Add Router Capability TLV. */
-	if (area->isis->router_id != 0) {
+	if (area->newmetric && IS_MPLS_TE(area->mta) && area->mta->router_id.s_addr != INADDR_ANY) {
+		/* RFC7981: The Router ID SHOULD be identical to the value advertised
+		 * in the Traffic Engineering Router ID TLV (134)
+		 */
+		router_id = area->mta->router_id.s_addr;
+		router_capability_authorized = true;
+	} else if (area->isis->router_id != 0) {
+		/* RFC7981: If no Traffic Engineering Router ID is assigned, the Router ID
+		 * SHOULD be identical to an IP Interface Address [RFC1195]
+		 * advertised by the originating IS.
+		 */
+		router_id = area->isis->router_id;
+		router_capability_authorized = true;
+	} else if (area->newmetric && IS_MPLS_TE(area->mta) &&
+		   !IN6_IS_ADDR_UNSPECIFIED(&area->mta->router_id_ipv6))
+		/* RFC7981: If the originating node does not support IPv4, then the
+		 * reserved value 0.0.0.0 MUST be used in the Router ID field,
+		 * and the IPv6 TE Router ID sub-TLV [RFC5316] MUST be present in the TLV.
+		 */
+		router_capability_authorized = true;
+
+	if (router_capability_authorized) {
 		struct isis_router_cap *rcap;
 #ifndef FABRICD
 		struct isis_router_cap_fad *rcap_fad;
@@ -1136,7 +1158,9 @@ static void lsp_build(struct isis_lsp *lsp, struct isis_area *area)
 
 		rcap = isis_tlvs_init_router_capability(lsp->tlvs);
 
-		rcap->router_id.s_addr = area->isis->router_id;
+		rcap->router_id.s_addr = router_id;
+		if (area->newmetric && IS_MPLS_TE(area->mta))
+			rcap->te_router_id_ipv6 = area->mta->router_id_ipv6;
 
 #ifndef FABRICD
 		/* Set flex-algo definitions */
@@ -1254,24 +1278,31 @@ static void lsp_build(struct isis_lsp *lsp, struct isis_area *area)
 	 * into LSP. TE router ID will be the same if MPLS-TE
 	 * is not activate or MPLS-TE router-id not specified
 	 */
-	if (area->isis->router_id != 0) {
-		struct in_addr id = {.s_addr = area->isis->router_id};
-		lsp_debug("ISIS (%s): Adding router ID %pI4 as IPv4 tlv.",
-			  area->area_tag, &id);
-		isis_tlvs_add_ipv4_address(lsp->tlvs, &id);
+	if (router_capability_authorized) {
+		if (area->isis->router_id != 0) {
+			lsp_debug("ISIS (%s): Adding router ID %pI4 as IPv4 tlv.", area->area_tag,
+				  (struct in_addr *)&router_id);
+			isis_tlvs_add_ipv4_address(lsp->tlvs, (struct in_addr *)&router_id);
+		}
 
 		/* If new style TLV's are in use, add TE router ID TLV
 		 * Check if MPLS-TE is activate and mpls-te router-id set
 		 * otherwise add exactly same data as for IPv4 address
 		 */
 		if (area->newmetric) {
-			if (IS_MPLS_TE(area->mta)
-			    && area->mta->router_id.s_addr != INADDR_ANY)
-				id.s_addr = area->mta->router_id.s_addr;
-			lsp_debug(
-				"ISIS (%s): Adding router ID also as TE router ID tlv.",
-				area->area_tag);
-			isis_tlvs_set_te_router_id(lsp->tlvs, &id);
+			if (IS_MPLS_TE(area->mta) && router_id != 0 &&
+			    area->isis->router_id == router_id &&
+			    area->mta->router_id.s_addr != INADDR_ANY)
+				/* RFC7981: The Router ID SHOULD be identical to the value advertised
+				 * in the Traffic Engineering Router ID TLV (134)
+				 * update router-id of the TE
+				 */
+				router_id = area->mta->router_id.s_addr;
+			if (router_id != 0) {
+				lsp_debug("ISIS (%s): Adding router ID as TE router ID %pI4 tlv.",
+					  area->area_tag, (struct in_addr *)&router_id);
+				isis_tlvs_set_te_router_id(lsp->tlvs, (struct in_addr *)&router_id);
+			}
 		}
 	} else {
 		lsp_debug("ISIS (%s): Router ID is unset. Not adding tlv.",

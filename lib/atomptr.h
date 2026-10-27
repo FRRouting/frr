@@ -23,8 +23,8 @@
  * atomlist_item in a struct with "packed" attribute.  (it'll break
  * immediately and consistently.) -- don't do that.
  *
- * ATOMPTR_USER is currently unused (and available for atomic hash or skiplist
- * implementations.)
+ * ATOMPTR_USER is used by the atomhash code to distinguish hash array items
+ * from real ones.  Elsewhere, it's unused.
  */
 
 /* atomic_atomptr_t may look a bit odd, it's for the sake of C++ compat */

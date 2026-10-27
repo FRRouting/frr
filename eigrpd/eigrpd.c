@@ -271,7 +271,7 @@ void eigrp_finish_final(struct eigrp *eigrp)
 		 * The instance is going away, not the interface, so drop the
 		 * running state but leave the interface configuration alone.
 		 */
-		eigrp_if_free_all(ei->ifp);
+		eigrp_if_free_process(eigrp, ei->ifp);
 	}
 
 	event_cancel(&eigrp->t_write);
@@ -300,6 +300,20 @@ void eigrp_finish_final(struct eigrp *eigrp)
 }
 
 /*Look for existing eigrp process*/
+const char *eigrp_vrf_id_to_name(vrf_id_t vrf_id)
+{
+	struct vrf *vrf = vrf_lookup_by_id(vrf_id);
+
+	return vrf ? vrf->name : "NIL";
+}
+
+uint32_t eigrp_vrf_id_to_table_id(vrf_id_t vrf_id)
+{
+	struct vrf *vrf = vrf_lookup_by_id(vrf_id);
+
+	return vrf ? vrf->data.l.table_id : 0;
+}
+
 struct eigrp *eigrp_lookup(vrf_id_t vrf_id)
 {
 	struct eigrp *eigrp, lookup;

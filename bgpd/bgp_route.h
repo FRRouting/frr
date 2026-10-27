@@ -20,6 +20,21 @@ struct bgp_nexthop_cache;
 struct bgp_route_evpn;
 struct bgp_unreach_nlri;
 
+/*
+ * VRF name, id, and kernel table id for debug output of the form
+ * (%s:%u:%u)%pBD. Call only from a debug path: resolving the VRF walks
+ * the VRF hash. BGP views have no VRF; the printable instance name is
+ * used and the table id is 0.
+ */
+struct bgp_debug_vrf {
+	const char *name;
+	vrf_id_t id;
+	uint32_t table_id;
+};
+
+extern struct bgp_debug_vrf bgp_debug_vrf_get(struct bgp *bgp);
+extern struct bgp_debug_vrf bgp_dest_debug_vrf(struct bgp_dest *dest);
+
 enum bgp_show_type {
 	bgp_show_type_normal,
 	bgp_show_type_regexp,
@@ -49,6 +64,7 @@ enum bgp_show_type {
 	bgp_show_type_damp_neighbor,
 	bgp_show_type_detail,
 	bgp_show_type_rpki,
+	bgp_show_type_aspa,
 	bgp_show_type_prefix_version,
 	bgp_show_type_self_originated,
 };
@@ -60,6 +76,10 @@ enum bgp_show_adj_route_type {
 	bgp_show_adj_route_bestpath,
 };
 
+struct bgp_aspa_show_filter {
+	int direction;
+	enum aspa_states state;
+};
 
 #define BGP_SHOW_SCODE_HEADER                                                                     \
 	"Status codes:  s suppressed, d damped, "                                                 \
@@ -376,13 +396,15 @@ struct bgp_path_info {
 #define BGP_PATH_UPA                                                                              \
 	(1 << 22) /* Route has UPA marking (locally originated or received with UPA ExtCom) */
 #define BGP_PATH_UPA_DROP (1 << 23) /* UPA route has D-bit set (drop/blackhole) */
+/* Type-5 export was suppressed by skip-evpn-imported. */
+#define BGP_PATH_EVPN_TYPE5_SKIP_IMPORTED (1 << 24)
 /*
  * BGP_PATH_BACKUP is set on a path that is selected as a backup path.
  * The backup path is chosen from paths that are not part of the multipath
  * set.
  */
-#define BGP_PATH_BACKUP	    (1 << 24)
-#define BGP_PATH_BACKUP_CHG (1 << 25)
+#define BGP_PATH_BACKUP	    (1 << 25)
+#define BGP_PATH_BACKUP_CHG (1 << 26)
 
 	/* BGP route type.  This can be static, RIP, OSPF, BGP etc.  */
 	uint8_t type;

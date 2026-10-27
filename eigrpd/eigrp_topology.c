@@ -114,16 +114,15 @@ void eigrp_topology_free(struct eigrp *eigrp, struct route_table *table)
 /*
  * Adding topology node to topology table
  */
-void eigrp_prefix_descriptor_add(struct route_table *topology,
-				 struct eigrp_prefix_descriptor *pe)
+void eigrp_prefix_descriptor_add(struct eigrp *eigrp, struct eigrp_prefix_descriptor *pe)
 {
 	struct route_node *rn;
 
-	rn = route_node_get(topology, &pe->destination);
+	rn = route_node_get(eigrp->topology_table, &pe->destination);
 	if (rn->info) {
 		if (IS_DEBUG_EIGRP_EVENT)
-			zlog_debug("%s: %pFX Should we have found this entry in the topo table?",
-				   __func__, &pe->destination);
+			zlog_debug("%s: (%s:%u:%u)%pFX Should we have found this entry in the topo table?",
+				   __func__, EIGRP_DEBUG_VRF(eigrp), &pe->destination);
 		route_unlock_node(rn);
 	}
 
@@ -133,6 +132,30 @@ void eigrp_prefix_descriptor_add(struct route_table *topology,
 /*
  * Adding topology entry to topology node
  */
+/*
+ * Find the descriptor a given source contributes to this prefix.
+ *
+ * A descriptor is identified by where the route came from: the advertising
+ * neighbour and the interface instance it arrived on or is connected to.
+ * The neighbour alone is not enough for connected routes -- they all carry
+ * eigrp->neighbor_self, so two interfaces in one subnet would be
+ * indistinguishable.
+ */
+struct eigrp_route_descriptor *
+eigrp_route_descriptor_lookup_ei(struct eigrp_prefix_descriptor *node,
+				 struct eigrp_neighbor *adv_router,
+				 struct eigrp_interface *ei)
+{
+	struct eigrp_route_descriptor *entry;
+	struct listnode *node2;
+
+	for (ALL_LIST_ELEMENTS_RO(node->entries, node2, entry))
+		if (entry->adv_router == adv_router && entry->ei == ei)
+			return entry;
+
+	return NULL;
+}
+
 void eigrp_route_descriptor_add(struct eigrp *eigrp,
 				struct eigrp_prefix_descriptor *node,
 				struct eigrp_route_descriptor *entry)

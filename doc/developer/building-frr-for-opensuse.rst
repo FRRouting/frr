@@ -55,7 +55,7 @@ Install FRR configuration files
 
         In some platforms like raspberry for performance reasons
         some directories are in file systems (/var/run, ...) mounted with tempfs 
-        so will disapear after every reboot.
+        so will disappear after every reboot.
         In frr the /var/run/frr is used to store pid files for every daemon.
 
 Tweak sysctls

@@ -160,6 +160,23 @@ tests_lib_test_atomlist_SOURCES = tests/lib/test_atomlist.c
 EXTRA_DIST += tests/lib/test_atomlist.py
 
 
+# test_atomhash is built twice, once in "fast" mode to catch barrier issues,
+# once in "slow" mode to catch consistency issues
+
+check_PROGRAMS += tests/lib/test_atomhash_fast
+tests_lib_test_atomhash_fast_CFLAGS = $(TESTS_CFLAGS)
+tests_lib_test_atomhash_fast_CPPFLAGS = $(TESTS_CPPFLAGS)
+tests_lib_test_atomhash_fast_LDADD = $(ALL_TESTS_LDADD) -lm
+tests_lib_test_atomhash_fast_SOURCES = tests/lib/test_atomhash.c tests/helpers/c/prng.c
+
+
+check_PROGRAMS += tests/lib/test_atomhash_slow
+tests_lib_test_atomhash_slow_CFLAGS = $(TESTS_CFLAGS)
+tests_lib_test_atomhash_slow_CPPFLAGS = $(TESTS_CPPFLAGS) -DTEST_HIJACK_ATOMICS
+tests_lib_test_atomhash_slow_LDADD = $(ALL_TESTS_LDADD) -lm
+tests_lib_test_atomhash_slow_SOURCES = tests/lib/test_atomhash.c tests/helpers/c/prng.c
+
+
 check_PROGRAMS += tests/lib/test_buffer
 tests_lib_test_buffer_CFLAGS = $(TESTS_CFLAGS)
 tests_lib_test_buffer_CPPFLAGS = $(TESTS_CPPFLAGS)
@@ -371,6 +388,14 @@ EXTRA_DIST += \
 	# end
 
 
+check_PROGRAMS += tests/lib/test_stream_expand
+tests_lib_test_stream_expand_CFLAGS = $(TESTS_CFLAGS)
+tests_lib_test_stream_expand_CPPFLAGS = $(TESTS_CPPFLAGS)
+tests_lib_test_stream_expand_LDADD = $(ALL_TESTS_LDADD)
+tests_lib_test_stream_expand_SOURCES = tests/lib/test_stream_expand.c
+EXTRA_DIST += tests/lib/test_stream_expand.py
+
+
 check_PROGRAMS += tests/lib/test_table
 tests_lib_test_table_CFLAGS = $(TESTS_CFLAGS)
 tests_lib_test_table_CPPFLAGS = $(TESTS_CPPFLAGS)
@@ -436,3 +461,10 @@ tests_lib_test_zlog_CPPFLAGS = $(TESTS_CPPFLAGS)
 tests_lib_test_zlog_LDADD = $(ALL_TESTS_LDADD)
 tests_lib_test_zlog_SOURCES = tests/lib/test_zlog.c
 EXTRA_DIST += tests/lib/test_zlog.py
+
+check_PROGRAMS += tests/lib/test_bfd_timer
+tests_lib_test_bfd_timer_CFLAGS = $(TESTS_CFLAGS)
+tests_lib_test_bfd_timer_CPPFLAGS = $(TESTS_CPPFLAGS)
+tests_lib_test_bfd_timer_LDADD = $(ALL_TESTS_LDADD)
+tests_lib_test_bfd_timer_SOURCES = tests/lib/test_bfd_timer.c
+EXTRA_DIST += tests/lib/test_bfd_timer.py

@@ -2054,20 +2054,6 @@ PKG_CHECK_MODULES([LIBYANG], [libyang >= 2.1.128], , [
 AC_MSG_ERROR([m4_normalize([libyang >= 2.1.128 is required, and was not found on your system.
 Please consult doc/developer/building-libyang.rst for instructions on installing or building libyang.])])])
 
-LIBYANG_MAJOR=$(pkg-config --modversion libyang | cut -f1 -d.)
-if test "$LIBYANG_MAJOR" -ge 4 && test "$LIBYANG_MAJOR" -lt 5; then
-  dnl NOTE: binary encoding (LYD_LYB) is no longer supported in v4,
-  dnl so v3 may be more efficient for certain use cases
-  AC_MSG_WARN([m4_normalize([
-    Libyang v4 is supported; however libyang v3 or v5+ is suggested. Libyang
-    v4 changed its binary encoding (LYD_LYB) format to a very restricted
-    subset of users which does not include FRR. This mean FRR will always use
-    JSON or XML even when passing intermediate results internally. This restriction
-    was reverted in v5.
-    ])
-  ])
-fi
-
 ac_cflags_save="$CFLAGS"
 CFLAGS="$CFLAGS $LIBYANG_CFLAGS"
 AC_CHECK_MEMBER([struct lyd_node.priv], [], [
@@ -2081,7 +2067,7 @@ AC_CHECK_LIB([yang],[lyd_find_xpath3],[],[AC_MSG_ERROR([m4_normalize([
 libyang missing lyd_find_xpath3])])])
 dnl -- don't add lyd_new_list3 to this list unless bug is fixed upstream
 dnl -- https://github.com/CESNET/libyang/issues/2149
-AC_CHECK_FUNCS([ly_strerrcode ly_strvecode lyd_trim_xpath])
+AC_CHECK_FUNCS([ly_yang_module_dir lyd_trim_xpath])
 
 CFLAGS="$ac_cflags_save"
 
@@ -2244,13 +2230,48 @@ fi
 dnl ------------------------------------------
 dnl Check whether rtrlib was build with ssh support
 dnl ------------------------------------------
+dnl These probes #include <rtrlib/rtrlib.h> and link against librtr, so they
+dnl need the flags pkg-config gave us. Without them the tests fail to compile
+dnl and silently report "no" whenever rtrlib lives outside the default include
+dnl path.
+rtrlib_probe_CFLAGS_save="$CFLAGS"
+rtrlib_probe_LIBS_save="$LIBS"
+CFLAGS="$CFLAGS $RTRLIB_CFLAGS"
+LIBS="$LIBS $RTRLIB_LIBS"
+
+dnl rtrlib prefixed its whole public API with "rtr_" after 0.8.0, so the SSH
+dnl config struct goes by two names depending on the version. Try both.
 AC_MSG_CHECKING([whether the RTR Library is compiled with SSH])
 AC_LINK_IFELSE([AC_LANG_PROGRAM([[#include "rtrlib/rtrlib.h"]],
-			[[struct tr_ssh_config config;]])],
+			[[struct rtr_tr_ssh_config config;]])],
 	[AC_MSG_RESULT([yes])
 	AC_DEFINE([FOUND_SSH], [1], [found_ssh])],
+	[AC_LINK_IFELSE([AC_LANG_PROGRAM([[#include "rtrlib/rtrlib.h"]],
+			[[struct tr_ssh_config config;]])],
+		[AC_MSG_RESULT([yes])
+		AC_DEFINE([FOUND_SSH], [1], [found_ssh])],
+		AC_MSG_RESULT([no])
+	)]
+)
+
+dnl ------------------------------------------
+dnl Check whether rtrlib supports ASPA
+dnl
+dnl rtrlib did not bump its version when ASPA landed, nor when it renamed its
+dnl public API in the same unreleased window, so pkg-config cannot tell the two
+dnl apart. Probe for the symbol instead.
+dnl ------------------------------------------
+AC_MSG_CHECKING([whether the RTR Library supports ASPA])
+AC_LINK_IFELSE([AC_LANG_PROGRAM([[#include "rtrlib/rtrlib.h"
+				  #include "rtrlib/aspa/aspa.h"]],
+			[[rtr_mgr_add_aspa_support(NULL, NULL);]])],
+	[AC_MSG_RESULT([yes])
+	AC_DEFINE([FOUND_ASPA], [1], [found_aspa])],
 	AC_MSG_RESULT([no])
 )
+
+CFLAGS="$rtrlib_probe_CFLAGS_save"
+LIBS="$rtrlib_probe_LIBS_save"
 
 dnl ---------------
 dnl dlopen & dlinfo
@@ -2846,7 +2867,7 @@ AC_CONFIG_FILES([tools/frrinit.sh], [chmod +x tools/frrinit.sh])
 AC_CONFIG_FILES([tools/frrcommon.sh])
 AC_CONFIG_FILES([tools/frr.service])
 AC_CONFIG_FILES([tools/frr@.service])
-AC_CONFIG_FILES([tools/frr.pc])
+AC_CONFIG_FILES([frr.pc], [ln -sf ../frr.pc tools/frr.pc])
 
 # dnl write out a ccls file with our compile configuration
 # dnl have to add -Wno-unused-function otherwise foobar_cmd_magic causes

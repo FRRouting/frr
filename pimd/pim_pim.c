@@ -667,6 +667,13 @@ static int pim_msg_send_frame(int fd, char *buf, size_t len,
 		size_t offset = ntohs(ip->ip_off);
 		int ret;
 
+		/* Too small to fragment further */
+		if (newlen1 < hdrsize) {
+			zlog_warn("%s: cannot fragment %zu byte packet to %pSU on %s", __func__,
+				  len, dst, ifname);
+			return -1;
+		}
+
 		ip->ip_len = htons(sendlen);
 		ip->ip_off = htons(offset | IP_MF);
 

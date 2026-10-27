@@ -780,6 +780,7 @@ socklen_t sockaddr_len(struct sockaddr *sa);
 
 /* ldpd.c */
 void ldp_write_handler(struct event *event);
+ssize_t ldp_imsg_read(struct imsgbuf *ibuf);
 void main_imsg_compose_ldpe(int type, pid_t pid, void *data, uint16_t datalen);
 void main_imsg_compose_lde(int type, pid_t pid, void *data, uint16_t datalen);
 int main_imsg_compose_both(enum imsg_type type, void *buf, uint16_t len);

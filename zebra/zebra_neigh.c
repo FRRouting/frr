@@ -210,19 +210,24 @@ void zebra_neigh_del_all(struct interface *ifp)
 {
 	struct zebra_neigh_ent *n, *next;
 	struct zebra_ns *zns = zebra_ns_lookup(ifp->vrf->vrf_id);
+	struct zebra_neigh_ent lookup = {};
 
 	if (IS_ZEBRA_DEBUG_NEIGH)
 		zlog_debug("zebra neigh delete all for interface %s/%d",
 			   ifp->name, ifp->ifindex);
 
-	RB_FOREACH_SAFE (n, zebra_neigh_rb_head, &zneigh_info->neigh_rb_tree, next) {
-		if (zns->ns_id != n->ns_id)
-			continue;
+	/* The tree is ordered on ns_id then ifindex, so this interface's
+	 * entries are contiguous. Seek to the first one and stop at the end of
+	 * the run rather than walking the whole tree.
+	 */
+	lookup.ns_id = zns->ns_id;
+	lookup.ifindex = ifp->ifindex;
 
-		if (n->ifindex == ifp->ifindex) {
-			/* Free the neighbor directly instead of looking it up again */
-			zebra_neigh_free(n);
-		}
+	for (n = RB_NFIND(zebra_neigh_rb_head, &zneigh_info->neigh_rb_tree, &lookup);
+	     n && n->ns_id == zns->ns_id && n->ifindex == ifp->ifindex; n = next) {
+		/* zebra_neigh_free() may remove n from the tree */
+		next = RB_NEXT(zebra_neigh_rb_head, n);
+		zebra_neigh_free(n);
 	}
 }
 
@@ -432,8 +437,14 @@ void zebra_neigh_dplane_update(struct zebra_dplane_ctx *ctx)
 {
 	enum dplane_op_e op = dplane_ctx_get_op(ctx);
 
+
 	if (op == DPLANE_OP_NEIGH_IP_DELETE || op == DPLANE_OP_NEIGH_IP_INSTALL ||
 	    op == DPLANE_OP_NEIGH_DISCOVER) {
+		if (dplane_ctx_get_status(ctx) != ZEBRA_DPLANE_REQUEST_QUEUED)
+			/* ctx comes from the dataplane pthread in response to a request,
+			 * not from an externally received dataplane notification.
+			 */
+			return;
 		zebra_neigh_ipaddr_update(ctx);
 	} else if (op == DPLANE_OP_NEIGH_INSTALL || op == DPLANE_OP_NEIGH_DELETE ||
 		   op == DPLANE_OP_NEIGH_UPDATE) {
@@ -508,6 +519,12 @@ static void zebra_neigh_ipaddr_update(struct zebra_dplane_ctx *ctx)
 			      &link_layer_ipv4, l2_len);
 
 	if (op == DPLANE_OP_NEIGH_DISCOVER)
+		return;
+
+	/* Clients were notified above. A non-Ethernet LLADDR (e.g. GRE/NHRP)
+	 * cannot be used for the zebra neigh table or EVPN, so stop here.
+	 */
+	if (op == DPLANE_OP_NEIGH_IP_INSTALL && l2_len && l2_len != ETH_ALEN)
 		return;
 
 	/* The neighbor is present on an SVI. From this, we locate the
@@ -742,8 +759,16 @@ static void zebra_neigh_macfdb_update(struct zebra_dplane_ctx *ctx)
 		return;
 	}
 
-	if (IS_ZEBRA_IF_VXLAN(ifp))
+	/*
+	 * Bridge-row delete on a vxlan port. Put the router-MAC back
+	 * if zebra still has it. Remote host and local MH MACs stay
+	 * ignored: this notification has no VTEP, and it must not be
+	 * treated as a local MAC delete.
+	 */
+	if (IS_ZEBRA_IF_VXLAN(ifp)) {
+		zebra_vxlan_check_readd_rmac(ifp, &mac, vid, vni);
 		return;
+	}
 
 	zebra_vxlan_local_mac_del(ifp, br_if, &mac, vid);
 }
