@@ -171,7 +171,8 @@ static int pim_rp_prefix_list_used(struct pim_instance *pim, const char *plist)
 
 /*
  * Given an RP's address, return the RP's rp_info that is an exact match for
- * 'group'
+ * 'group'. Prefix-list RPs are skipped: their group is 224.0.0.0/4 too, but
+ * they are looked up by prefix-list (`pim_rp_find_prefix_list`).
  */
 static struct rp_info *pim_rp_find_exact(struct pim_instance *pim, pim_addr rp,
 					 const struct prefix *group)
@@ -180,7 +181,7 @@ static struct rp_info *pim_rp_find_exact(struct pim_instance *pim, pim_addr rp,
 	struct rp_info *rp_info;
 
 	for (ALL_LIST_ELEMENTS_RO(pim->rp_list, node, rp_info)) {
-		if ((!pim_addr_cmp(rp, rp_info->rp.rpf_addr)) &&
+		if (!rp_info->plist && !pim_addr_cmp(rp, rp_info->rp.rpf_addr) &&
 		    prefix_same(&rp_info->group, group))
 			return rp_info;
 	}
@@ -573,6 +574,10 @@ int pim_rp_new(struct pim_instance *pim, pim_addr rp_addr, struct prefix group,
 			rp_all->rp.rpf_addr = rp_info->rp.rpf_addr;
 			rp_all->rp_src = rp_src_flag;
 			XFREE(MTYPE_PIM_RP, rp_info);
+
+			/* Keep the RP list sorted by address. */
+			listnode_delete(pim->rp_list, rp_all);
+			listnode_add_sort(pim->rp_list, rp_all);
 
 			/* Register addr with Zebra NHT */
 			nht_p = rp_all->rp.rpf_addr;
