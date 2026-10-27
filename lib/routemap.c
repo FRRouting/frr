@@ -2802,7 +2802,6 @@ route_map_apply_end:
 
 	if (map) {
 		if (unlikely(CHECK_FLAG(rmap_debug, DEBUG_ROUTEMAP_TIMING))) {
-			GETRUSAGE(&mbefore);
 			GETRUSAGE(&mafter);
 			event_consumed_time(&mafter, &mbefore, &cputime);
 			map->cputime += cputime;
