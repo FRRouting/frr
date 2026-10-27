@@ -12,6 +12,7 @@
 #include "lib/jhash.h"
 #include "lib/json.h"
 #include "lib/memory.h"
+#include "lib/monotime.h"
 #include "lib/printfrr.h"
 #include "lib/typesafe.h"
 #include "lib/vrf.h"
@@ -29,6 +30,11 @@ DEFINE_MTYPE_STATIC(ZEBRA, ZEVPN_BPP, "EVPN-MH bridge-port protection entry");
 
 enum zebra_evpn_bpp_state {
 	ZEBRA_EVPN_BPP_PENDING,
+};
+
+enum zebra_evpn_bpp_event {
+	ZEBRA_EVPN_BPP_EV_CREATED,
+	ZEBRA_EVPN_BPP_EV_REASONS,
 };
 
 /* Why an entry is not ready; an entry is ready when none is set. */
@@ -71,6 +77,9 @@ struct zebra_evpn_bpp {
 	enum zebra_evpn_bpp_state state;
 	uint32_t pending_flags;
 
+	enum zebra_evpn_bpp_event last_event;
+	time_t last_event_time;
+
 	struct zebra_evpn_bpp_hash_item hash_item;
 };
 
@@ -101,6 +110,17 @@ static const char *zebra_evpn_bpp_state_str(enum zebra_evpn_bpp_state state)
 	switch (state) {
 	case ZEBRA_EVPN_BPP_PENDING:
 		return "PENDING";
+	}
+	return "unknown";
+}
+
+static const char *zebra_evpn_bpp_event_str(enum zebra_evpn_bpp_event event)
+{
+	switch (event) {
+	case ZEBRA_EVPN_BPP_EV_CREATED:
+		return "created";
+	case ZEBRA_EVPN_BPP_EV_REASONS:
+		return "reasons changed";
 	}
 	return "unknown";
 }
@@ -148,7 +168,7 @@ static bool zebra_evpn_bpp_zif_has_l2vni(struct zebra_if *zif, struct interface 
 	return false;
 }
 
-static void zebra_evpn_bpp_eval(struct zebra_evpn_bpp *e)
+static void zebra_evpn_bpp_eval(struct zebra_evpn_bpp *e, bool created)
 {
 	struct zebra_if *zif = e->zif;
 	struct interface *br_if = zif->brslave_info.br_if;
@@ -189,14 +209,26 @@ static void zebra_evpn_bpp_eval(struct zebra_evpn_bpp *e)
 	if (!evpn_zvrf || !evpn_zvrf->advertise_l3vni_neigh)
 		SET_FLAG(flags, ZEBRA_EVPN_BPP_L3MH_OFF);
 
-	if (flags == e->pending_flags)
-		return;
+	if (created) {
+		if (IS_ZEBRA_DEBUG_EVPN_MH_PROT)
+			zlog_debug("bridge-port protection %s vlan %u add: %s", zif->ifp->name,
+				   e->vid,
+				   zebra_evpn_bpp_reasons_str(flags, new_buf, sizeof(new_buf)));
+		e->last_event = ZEBRA_EVPN_BPP_EV_CREATED;
+	} else {
+		if (flags == e->pending_flags)
+			return;
+		if (IS_ZEBRA_DEBUG_EVPN_MH_PROT)
+			zlog_debug("bridge-port protection %s vlan %u: %s -> %s", zif->ifp->name,
+				   e->vid,
+				   zebra_evpn_bpp_reasons_str(e->pending_flags, old_buf,
+							      sizeof(old_buf)),
+				   zebra_evpn_bpp_reasons_str(flags, new_buf, sizeof(new_buf)));
+		e->last_event = ZEBRA_EVPN_BPP_EV_REASONS;
+	}
 
-	if (IS_ZEBRA_DEBUG_EVPN_MH_ES)
-		zlog_debug("bridge-port protection %s vlan %u: %s -> %s", zif->ifp->name, e->vid,
-			   zebra_evpn_bpp_reasons_str(e->pending_flags, old_buf, sizeof(old_buf)),
-			   zebra_evpn_bpp_reasons_str(flags, new_buf, sizeof(new_buf)));
 	e->pending_flags = flags;
+	e->last_event_time = monotime(NULL);
 }
 
 static struct zebra_evpn_bpp *zebra_evpn_bpp_find(struct zebra_if *zif, vlanid_t vid)
@@ -215,17 +247,14 @@ static struct zebra_evpn_bpp *zebra_evpn_bpp_new(struct zebra_if *zif, vlanid_t 
 	e->vid = vid;
 	e->vrf_id = VRF_UNKNOWN;
 	e->state = ZEBRA_EVPN_BPP_PENDING;
-	e->pending_flags = ZEBRA_EVPN_BPP_NO_LOCAL_ES;
 	zebra_evpn_bpp_hash_add(&bpp_hash, e);
 
-	if (IS_ZEBRA_DEBUG_EVPN_MH_ES)
-		zlog_debug("bridge-port protection %s vlan %u add", zif->ifp->name, vid);
 	return e;
 }
 
 static void zebra_evpn_bpp_free(struct zebra_evpn_bpp *e)
 {
-	if (IS_ZEBRA_DEBUG_EVPN_MH_ES)
+	if (IS_ZEBRA_DEBUG_EVPN_MH_PROT)
 		zlog_debug("bridge-port protection %s vlan %u del", e->zif->ifp->name, e->vid);
 
 	zebra_evpn_bpp_hash_del(&bpp_hash, e);
@@ -258,9 +287,11 @@ void zebra_evpn_bpp_if_update(struct zebra_if *zif)
 	bf_for_each_set_bit(zif->vlan_bitmap, vid, IF_VLAN_BITMAP_MAX)
 	{
 		e = zebra_evpn_bpp_find(zif, vid);
-		if (!e)
-			e = zebra_evpn_bpp_new(zif, vid);
-		zebra_evpn_bpp_eval(e);
+		if (e) {
+			zebra_evpn_bpp_eval(e, false);
+			continue;
+		}
+		zebra_evpn_bpp_eval(zebra_evpn_bpp_new(zif, vid), true);
 	}
 }
 
@@ -282,7 +313,7 @@ static void zebra_evpn_bpp_re_eval_all(struct event *event)
 	struct zebra_evpn_bpp *e;
 
 	frr_each (zebra_evpn_bpp_hash, &bpp_hash, e)
-		zebra_evpn_bpp_eval(e);
+		zebra_evpn_bpp_eval(e, false);
 }
 
 void zebra_evpn_bpp_re_eval_schedule(void)
@@ -336,6 +367,7 @@ static void zebra_evpn_bpp_show_entry_detail(struct vty *vty, const struct zebra
 	struct zebra_evpn_es *es = e->zif->es_info.es;
 	char l3vni_str[16] = "-";
 	char reasons[128];
+	char age[32];
 
 	if (e->l3vni)
 		snprintfrr(l3vni_str, sizeof(l3vni_str), "%u", e->l3vni);
@@ -348,7 +380,9 @@ static void zebra_evpn_bpp_show_entry_detail(struct vty *vty, const struct zebra
 		e->pending_flags ? "no" : "yes");
 	vty_out(vty, "  Reasons: %s\n",
 		zebra_evpn_bpp_reasons_str(e->pending_flags, reasons, sizeof(reasons)));
-	vty_out(vty, "  Members: %u\n\n", zebra_evpn_bpp_member_count(es));
+	vty_out(vty, "  Members: %u\n", zebra_evpn_bpp_member_count(es));
+	vty_out(vty, "  Last event: %s, %s ago\n\n", zebra_evpn_bpp_event_str(e->last_event),
+		frrtime_to_interval(monotime(NULL) - e->last_event_time, age, sizeof(age)));
 }
 
 static void zebra_evpn_bpp_json_entry(json_object *json_vlans, const struct zebra_evpn_bpp *e,
@@ -357,6 +391,7 @@ static void zebra_evpn_bpp_json_entry(json_object *json_vlans, const struct zebr
 	json_object *json_vlan = json_object_new_object();
 	json_object *json_reasons = json_object_new_array();
 	char vid_str[8];
+	char age[32];
 	size_t i;
 
 	if (e->vrf_id != VRF_UNKNOWN)
@@ -377,6 +412,11 @@ static void zebra_evpn_bpp_json_entry(json_object *json_vlans, const struct zebr
 	if (detail)
 		json_object_int_add(json_vlan, "memberCount",
 				    zebra_evpn_bpp_member_count(e->zif->es_info.es));
+
+	json_object_string_add(json_vlan, "lastEvent", zebra_evpn_bpp_event_str(e->last_event));
+	json_object_string_add(json_vlan, "lastEventTime",
+			       frrtime_to_interval(monotime(NULL) - e->last_event_time, age,
+						   sizeof(age)));
 
 	snprintfrr(vid_str, sizeof(vid_str), "%u", e->vid);
 	json_object_object_add(json_vlans, vid_str, json_vlan);
