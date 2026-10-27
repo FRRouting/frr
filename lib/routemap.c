@@ -2608,8 +2608,10 @@ route_map_result_t route_map_apply_ext(struct route_map *map,
 
 	map->applied++;
 
-	GETRUSAGE(&mbefore);
-	ibefore = mbefore;
+	if (unlikely(CHECK_FLAG(rmap_debug, DEBUG_ROUTEMAP_TIMING))) {
+		GETRUSAGE(&mbefore);
+		ibefore = mbefore;
+	}
 
 	if (prefix->family != AF_INET && prefix->family != AF_INET6) {
 		/* LPM tries are IPv4/IPv6-only; non-IP families (AF_EVPN,
@@ -2626,10 +2628,12 @@ route_map_result_t route_map_apply_ext(struct route_map *map,
 	if (index) {
 		index->applied++;
 
-		GETRUSAGE(&iafter);
-		event_consumed_time(&iafter, &ibefore, &cputime);
-		index->cputime += cputime;
-		ibefore = iafter;
+		if (unlikely(CHECK_FLAG(rmap_debug, DEBUG_ROUTEMAP_TIMING))) {
+			GETRUSAGE(&iafter);
+			event_consumed_time(&iafter, &ibefore, &cputime);
+			index->cputime += cputime;
+			ibefore = iafter;
+		}
 
 		if (unlikely(CHECK_FLAG(rmap_debug, DEBUG_ROUTEMAP)))
 			zlog_debug(
@@ -2775,10 +2779,12 @@ route_map_result_t route_map_apply_ext(struct route_map *map,
 				goto route_map_apply_end;
 			}
 		}
-		GETRUSAGE(&iafter);
-		event_consumed_time(&iafter, &ibefore, &cputime);
-		index->cputime += cputime;
-		ibefore = iafter;
+		if (unlikely(CHECK_FLAG(rmap_debug, DEBUG_ROUTEMAP_TIMING))) {
+			GETRUSAGE(&iafter);
+			event_consumed_time(&iafter, &ibefore, &cputime);
+			index->cputime += cputime;
+			ibefore = iafter;
+		}
 	}
 
 route_map_apply_end:
@@ -2795,10 +2801,12 @@ route_map_apply_end:
 	}
 
 	if (map) {
-		GETRUSAGE(&mbefore);
-		GETRUSAGE(&mafter);
-		event_consumed_time(&mafter, &mbefore, &cputime);
-		map->cputime += cputime;
+		if (unlikely(CHECK_FLAG(rmap_debug, DEBUG_ROUTEMAP_TIMING))) {
+			GETRUSAGE(&mbefore);
+			GETRUSAGE(&mafter);
+			event_consumed_time(&mafter, &mbefore, &cputime);
+			map->cputime += cputime;
+		}
 	}
 
 	return (ret);
@@ -3224,6 +3232,22 @@ DEFPY_NOSH (rmap_show_unused,
 	return vty_show_unused_route_map(vty, uj);
 }
 
+DEFPY (debug_rmap_timing,
+       debug_rmap_timing_cmd,
+       "[no] debug route-map timing",
+       NO_STR
+       DEBUG_STR
+       "DEBUG option set for route-maps\n"
+       "Grab timings associated with the route-maps\n")
+{
+	if (no)
+		UNSET_FLAG(rmap_debug, DEBUG_ROUTEMAP_TIMING);
+	else
+		SET_FLAG(rmap_debug, DEBUG_ROUTEMAP_TIMING);
+
+	return CMD_SUCCESS;
+}
+
 DEFPY (debug_rmap,
        debug_rmap_cmd,
        "debug route-map [detail]$detail",
@@ -3487,6 +3511,7 @@ void route_map_init_new(bool in_backend)
 	/* Install route map commands. */
 	install_element(CONFIG_NODE, &debug_rmap_cmd);
 	install_element(CONFIG_NODE, &no_debug_rmap_cmd);
+	install_element(CONFIG_NODE, &debug_rmap_timing_cmd);
 
 	/* Install show command */
 	install_element(ENABLE_NODE, &rmap_clear_counters_cmd);
@@ -3496,6 +3521,7 @@ void route_map_init_new(bool in_backend)
 
 	install_element(ENABLE_NODE, &debug_rmap_cmd);
 	install_element(ENABLE_NODE, &no_debug_rmap_cmd);
+	install_element(ENABLE_NODE, &debug_rmap_timing_cmd);
 
 	install_element(ENABLE_NODE, &show_route_map_pfx_tbl_cmd);
 }
