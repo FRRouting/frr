@@ -978,6 +978,8 @@ int pim_rp_change(struct pim_instance *pim, pim_addr new_rp_addr,
 	if (upstream_updated)
 		pim_zebra_update_all_interfaces(pim);
 
+	pim_rp_check_interfaces(pim, rp_info);
+
 	/* Register new RP addr with Zebra NHT */
 	nht_p = rp_info->rp.rpf_addr;
 	if (PIM_DEBUG_PIM_NHT_RP)
@@ -986,15 +988,12 @@ int pim_rp_change(struct pim_instance *pim, pim_addr new_rp_addr,
 
 	pim_nht_find_or_track(pim, nht_p, NULL, rp_info, NULL);
 	if (!pim_nht_lookup_ecmp(pim, &rp_info->rp.source_nexthop, nht_p, &rp_info->group, true,
-				 NULL)) {
-		route_unlock_node(rn);
-		return PIM_RP_NO_PATH;
-	}
-
-	pim_rp_check_interfaces(pim, rp_info);
+				 NULL))
+		result = PIM_RP_NO_PATH;
 
 	route_unlock_node(rn);
 
+	/* The RP changed even if it is unreachable. */
 	pim_rp_refresh_group_to_rp_mapping(pim);
 
 	return result;
