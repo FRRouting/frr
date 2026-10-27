@@ -4767,12 +4767,19 @@ It requires L3 multihoming (``advertise-all-vni l3vni-neigh``, with VLANs
 in broadcast domains that have no L2VNI). It has no effect on DF
 election.
 
-.. clicmd:: show evpn mh bridge-port-protection [json]
+.. clicmd:: show evpn mh bridge-port-protection [interface IFNAME] [detail] [json]
 
    Display one protection entry per VLAN of each protected ES interface,
-   with its IP-VRF and L3VNI. An entry is ready when its ES, IP-VRF, L3VNI
-   and L3 multihoming mode are all present; otherwise every missing one is
-   listed as a reason.
+   with its IP-VRF, L3VNI and backup group. An entry is ready when its ES,
+   IP-VRF, L3VNI and L3 multihoming mode are all present; otherwise every
+   missing one is listed as a reason. ``interface`` limits the output to one
+   ES interface; ``detail`` adds the number of backup members.
+
+.. clicmd:: show evpn mh bridge-port-protection member [ESI] [json]
+
+   Display each protected ES: its interface, backup group, VLAN count, the
+   IP-VRFs of its ready VLANs, and its backup members (peer VTEP and router
+   MAC).
 
 Proxy advertisements
 """"""""""""""""""""

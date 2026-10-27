@@ -305,6 +305,17 @@ static int zebra_evpn_bpp_show_cmp(const void *p1, const void *p2)
 	return numcmp(e1->vid, e2->vid);
 }
 
+static const char *zebra_evpn_bpp_vrf_str(const struct zebra_evpn_bpp *e)
+{
+	return e->vrf_id != VRF_UNKNOWN ? vrf_id_to_name(e->vrf_id) : "-";
+}
+
+/* No peer table yet: an ES has no Members. */
+static uint32_t zebra_evpn_bpp_member_count(const struct zebra_evpn_es *es)
+{
+	return 0;
+}
+
 static void zebra_evpn_bpp_show_entry(struct vty *vty, const struct zebra_evpn_bpp *e)
 {
 	struct zebra_evpn_es *es = e->zif->es_info.es;
@@ -314,13 +325,34 @@ static void zebra_evpn_bpp_show_entry(struct vty *vty, const struct zebra_evpn_b
 	if (e->l3vni)
 		snprintfrr(l3vni_str, sizeof(l3vni_str), "%u", e->l3vni);
 
-	vty_out(vty, "%-16s %-5u %-30s %-16s %-8s %-8s %s\n", e->zif->ifp->name, e->vid,
-		es ? es->esi_str : "-", e->vrf_id != VRF_UNKNOWN ? vrf_id_to_name(e->vrf_id) : "-",
-		l3vni_str, zebra_evpn_bpp_state_str(e->state),
+	vty_out(vty, "%-16s %-5u %-30s %-16s %-8s %-10s %-8s %s\n", e->zif->ifp->name, e->vid,
+		es ? es->esi_str : "-", zebra_evpn_bpp_vrf_str(e), l3vni_str, "-",
+		zebra_evpn_bpp_state_str(e->state),
 		zebra_evpn_bpp_reasons_str(e->pending_flags, reasons, sizeof(reasons)));
 }
 
-static void zebra_evpn_bpp_json_entry(json_object *json_vlans, const struct zebra_evpn_bpp *e)
+static void zebra_evpn_bpp_show_entry_detail(struct vty *vty, const struct zebra_evpn_bpp *e)
+{
+	struct zebra_evpn_es *es = e->zif->es_info.es;
+	char l3vni_str[16] = "-";
+	char reasons[128];
+
+	if (e->l3vni)
+		snprintfrr(l3vni_str, sizeof(l3vni_str), "%u", e->l3vni);
+
+	vty_out(vty, "Interface: %s  VLAN: %u\n", e->zif->ifp->name, e->vid);
+	vty_out(vty, "  ESI: %s\n", es ? es->esi_str : "-");
+	vty_out(vty, "  VRF: %s  L3VNI: %s\n", zebra_evpn_bpp_vrf_str(e), l3vni_str);
+	vty_out(vty, "  Group: -\n");
+	vty_out(vty, "  State: %s  Ready: %s\n", zebra_evpn_bpp_state_str(e->state),
+		e->pending_flags ? "no" : "yes");
+	vty_out(vty, "  Reasons: %s\n",
+		zebra_evpn_bpp_reasons_str(e->pending_flags, reasons, sizeof(reasons)));
+	vty_out(vty, "  Members: %u\n\n", zebra_evpn_bpp_member_count(es));
+}
+
+static void zebra_evpn_bpp_json_entry(json_object *json_vlans, const struct zebra_evpn_bpp *e,
+				      bool detail)
 {
 	json_object *json_vlan = json_object_new_object();
 	json_object *json_reasons = json_object_new_array();
@@ -342,11 +374,34 @@ static void zebra_evpn_bpp_json_entry(json_object *json_vlans, const struct zebr
 	}
 	json_object_object_add(json_vlan, "reasons", json_reasons);
 
+	if (detail)
+		json_object_int_add(json_vlan, "memberCount",
+				    zebra_evpn_bpp_member_count(e->zif->es_info.es));
+
 	snprintfrr(vid_str, sizeof(vid_str), "%u", e->vid);
 	json_object_object_add(json_vlans, vid_str, json_vlan);
 }
 
-void zebra_evpn_bpp_show(struct vty *vty, bool uj)
+/* All entries sorted by interface name, then VLAN; the caller frees it. */
+static struct zebra_evpn_bpp **zebra_evpn_bpp_sorted(size_t *count)
+{
+	struct zebra_evpn_bpp **sorted;
+	struct zebra_evpn_bpp *e;
+	size_t i = 0;
+
+	*count = bpp_inited ? zebra_evpn_bpp_hash_count(&bpp_hash) : 0;
+	if (!*count)
+		return NULL;
+
+	sorted = XCALLOC(MTYPE_TMP, *count * sizeof(*sorted));
+	frr_each (zebra_evpn_bpp_hash, &bpp_hash, e)
+		sorted[i++] = e;
+	qsort(sorted, *count, sizeof(*sorted), zebra_evpn_bpp_show_cmp);
+
+	return sorted;
+}
+
+void zebra_evpn_bpp_show(struct vty *vty, const char *ifname, bool detail, bool uj)
 {
 	json_object *json = NULL;
 	json_object *json_if = NULL;
@@ -354,31 +409,31 @@ void zebra_evpn_bpp_show(struct vty *vty, bool uj)
 	struct zebra_evpn_bpp **sorted;
 	struct zebra_evpn_bpp *e;
 	const struct zebra_if *prev_zif = NULL;
+	bool header = false;
 	size_t count;
-	size_t i = 0;
+	size_t i;
 
 	if (uj)
 		json = json_object_new_object();
 
-	count = bpp_inited ? zebra_evpn_bpp_hash_count(&bpp_hash) : 0;
-	if (!count) {
-		if (uj)
-			vty_json(vty, json);
-		return;
-	}
-
-	sorted = XCALLOC(MTYPE_TMP, count * sizeof(*sorted));
-	frr_each (zebra_evpn_bpp_hash, &bpp_hash, e)
-		sorted[i++] = e;
-	qsort(sorted, count, sizeof(*sorted), zebra_evpn_bpp_show_cmp);
-
-	if (!uj)
-		vty_out(vty, "%-16s %-5s %-30s %-16s %-8s %-8s %s\n", "Interface", "VLAN", "ESI",
-			"VRF", "L3VNI", "State", "Reasons");
+	sorted = zebra_evpn_bpp_sorted(&count);
 
 	for (i = 0; i < count; i++) {
 		e = sorted[i];
+		if (ifname && strcmp(ifname, e->zif->ifp->name))
+			continue;
+
 		if (!uj) {
+			if (detail) {
+				zebra_evpn_bpp_show_entry_detail(vty, e);
+				continue;
+			}
+			if (!header) {
+				vty_out(vty, "%-16s %-5s %-30s %-16s %-8s %-10s %-8s %s\n",
+					"Interface", "VLAN", "ESI", "VRF", "L3VNI", "Group",
+					"State", "Reasons");
+				header = true;
+			}
 			zebra_evpn_bpp_show_entry(vty, e);
 			continue;
 		}
@@ -394,7 +449,92 @@ void zebra_evpn_bpp_show(struct vty *vty, bool uj)
 			json_object_object_add(json, e->zif->ifp->name, json_if);
 			prev_zif = e->zif;
 		}
-		zebra_evpn_bpp_json_entry(json_vlans, e);
+		zebra_evpn_bpp_json_entry(json_vlans, e, detail);
+	}
+
+	XFREE(MTYPE_TMP, sorted);
+
+	if (uj)
+		vty_json(vty, json);
+}
+
+/* Show the protected ES of entries[0..count), all on the same bond. */
+static void zebra_evpn_bpp_show_member_es(struct vty *vty, json_object *json,
+					  struct zebra_evpn_bpp **entries, size_t count)
+{
+	struct zebra_if *zif = entries[0]->zif;
+	struct zebra_evpn_es *es = zif->es_info.es;
+	json_object *json_es = NULL;
+	json_object *json_vrfs = NULL;
+	vrf_id_t *vrfs;
+	char vrfs_str[256] = "";
+	size_t nvrfs = 0;
+	size_t i, j;
+
+	/* Distinct VRFs of the ready entries, in VLAN order. */
+	vrfs = XCALLOC(MTYPE_TMP, count * sizeof(*vrfs));
+	for (i = 0; i < count; i++) {
+		if (entries[i]->pending_flags)
+			continue;
+		for (j = 0; j < nvrfs; j++)
+			if (vrfs[j] == entries[i]->vrf_id)
+				break;
+		if (j == nvrfs)
+			vrfs[nvrfs++] = entries[i]->vrf_id;
+	}
+
+	if (json) {
+		json_es = json_object_new_object();
+		json_object_string_add(json_es, "interface", zif->ifp->name);
+		json_object_string_add(json_es, "state",
+				       zebra_evpn_bpp_state_str(entries[0]->state));
+		json_object_int_add(json_es, "vlanCount", count);
+		json_vrfs = json_object_new_array();
+		for (i = 0; i < nvrfs; i++)
+			json_array_string_add(json_vrfs, vrf_id_to_name(vrfs[i]));
+		json_object_object_add(json_es, "readyVrfs", json_vrfs);
+		json_object_object_add(json_es, "members", json_object_new_array());
+		json_object_object_add(json, es->esi_str, json_es);
+	} else {
+		for (i = 0; i < nvrfs; i++) {
+			if (i)
+				strlcat(vrfs_str, ", ", sizeof(vrfs_str));
+			strlcat(vrfs_str, vrf_id_to_name(vrfs[i]), sizeof(vrfs_str));
+		}
+		vty_out(vty, "ESI %s  Interface %s  Group -  State %s\n", es->esi_str,
+			zif->ifp->name, zebra_evpn_bpp_state_str(entries[0]->state));
+		vty_out(vty, "  VLANs: %zu   VRFs: %s\n", count, nvrfs ? vrfs_str : "-");
+		vty_out(vty, "  %-11s %-15s %-7s %s\n", "NH-ID", "VTEP", "Family", "RMAC");
+		vty_out(vty, "\n");
+	}
+
+	XFREE(MTYPE_TMP, vrfs);
+}
+
+void zebra_evpn_bpp_show_member(struct vty *vty, const esi_t *esi, bool uj)
+{
+	json_object *json = NULL;
+	struct zebra_evpn_bpp **sorted;
+	struct zebra_evpn_es *es;
+	size_t count;
+	size_t i, j;
+
+	if (uj)
+		json = json_object_new_object();
+
+	sorted = zebra_evpn_bpp_sorted(&count);
+
+	for (i = 0; i < count; i = j) {
+		for (j = i + 1; j < count && sorted[j]->zif == sorted[i]->zif; j++)
+			;
+
+		es = sorted[i]->zif->es_info.es;
+		if (!es)
+			continue;
+		if (esi && memcmp(&es->esi, esi, sizeof(*esi)))
+			continue;
+
+		zebra_evpn_bpp_show_member_es(vty, json, &sorted[i], j - i);
 	}
 
 	XFREE(MTYPE_TMP, sorted);

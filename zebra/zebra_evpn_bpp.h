@@ -10,6 +10,8 @@
 
 #include <stdbool.h>
 
+#include "lib/prefix.h"
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -36,7 +38,11 @@ extern void zebra_evpn_bpp_if_del(struct zebra_if *zif);
  */
 extern void zebra_evpn_bpp_re_eval_schedule(void);
 
-extern void zebra_evpn_bpp_show(struct vty *vty, bool uj);
+/* One row per entry; ifname (may be NULL) filters on the ES bond. */
+extern void zebra_evpn_bpp_show(struct vty *vty, const char *ifname, bool detail, bool uj);
+
+/* One block per protected ES; esi (may be NULL) filters on the ES. */
+extern void zebra_evpn_bpp_show_member(struct vty *vty, const esi_t *esi, bool uj);
 
 #ifdef __cplusplus
 }

@@ -536,6 +536,92 @@ def test_bpp_link_state():
     _expect_entries(tor1, {}, "protection removed")
 
 
+def _set_bpp_if(router, ifname, enable):
+    router.vtysh_cmd(
+        "configure terminal\ninterface %s\n%sevpn mh bridge-port-protection"
+        % (ifname, "" if enable else "no ")
+    )
+
+
+def _expect_json(router, cmd, expected, msg):
+    def _check():
+        output = json.loads(router.vtysh_cmd(cmd))
+        if expected == {}:
+            return None if output == {} else output
+        return topotest.json_cmp(output, expected)
+
+    _, result = topotest.run_and_expect(_check, None, count=30, wait=1)
+    assert result is None, "%s: %s" % (msg, result)
+
+
+def _member_es(ifname):
+    return {
+        "interface": ifname,
+        "state": "PENDING",
+        "vlanCount": len(ES_VLANS),
+        "readyVrfs": ["__ordered__", "vrf-a", "vrf-b"],
+        "members": ["__ordered__"],
+    }
+
+
+def test_bpp_show():
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    tor1 = tgen.gears["tor1"]
+    cmd = "show evpn mh bridge-port-protection"
+
+    for bond, _, _ in HOST_ES.values():
+        _set_bpp_if(tor1, bond, True)
+
+    with open(os.path.join(CWD, "tor1/show_bpp_pending.json")) as f:
+        pending = json.load(f)
+    _expect_json(tor1, cmd + " json", pending, "all entries")
+
+    _expect_json(
+        tor1,
+        cmd + " interface hostbond2 json",
+        {"hostbond1": None, "hostbond2": pending["hostbond2"]},
+        "interface filter",
+    )
+
+    detail = {"hostbond1": {"vlans": {str(v): {"memberCount": 0} for v in ES_VLANS}}}
+    _expect_json(tor1, cmd + " interface hostbond1 detail json", detail, "detail")
+
+    _expect_json(
+        tor1,
+        cmd + " member json",
+        {ES1_ID: _member_es("hostbond1"), ES2_ID: _member_es("hostbond2")},
+        "member view",
+    )
+    _expect_json(
+        tor1,
+        cmd + " member %s json" % ES1_ID,
+        {ES1_ID: _member_es("hostbond1"), ES2_ID: None},
+        "member ESI filter",
+    )
+
+    output = tor1.vtysh_cmd(cmd)
+    for text in ("Group", "hostbond1", "hostbond2", "no eligible peer"):
+        assert text in output, "'%s' missing from:\n%s" % (text, output)
+    output = tor1.vtysh_cmd(cmd + " member")
+    for text in ("ESI %s" % ES1_ID, "VRFs: vrf-a, vrf-b", "NH-ID"):
+        assert text in output, "'%s' missing from:\n%s" % (text, output)
+
+    _set_bpp_if(tor1, "hostbond2", False)
+    _expect_json(
+        tor1,
+        cmd + " member json",
+        {ES1_ID: _member_es("hostbond1"), ES2_ID: None},
+        "unprotected ES not in member view",
+    )
+
+    _set_bpp_if(tor1, ES_IF, False)
+    _expect_json(tor1, cmd + " json", {}, "protection removed")
+    _expect_json(tor1, cmd + " member json", {}, "no protected ES")
+
+
 def test_memory_leak():
     tgen = get_topogen()
     if not tgen.is_memleak_enabled():
