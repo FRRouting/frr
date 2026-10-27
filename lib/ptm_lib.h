@@ -5,6 +5,8 @@
 #ifndef __PTM_LIB_H__
 #define __PTM_LIB_H__
 
+#include <stddef.h>
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -44,6 +46,7 @@ typedef struct ptm_lib_handle_s {
 } ptm_lib_handle_t;
 
 /* Prototypes */
+<<<<<<< HEAD
 int ptm_lib_process_msg(ptm_lib_handle_t *, int, char *, int, void *);
 ptm_lib_handle_t *ptm_lib_register(char *, ptm_cmd_cb, ptm_notify_cb,
 				   ptm_response_cb);
@@ -53,6 +56,18 @@ int ptm_lib_init_msg(ptm_lib_handle_t *, int, int, void *, void **);
 int ptm_lib_append_msg(ptm_lib_handle_t *, void *, const char *, const char *);
 int ptm_lib_complete_msg(ptm_lib_handle_t *, void *, char *, int *);
 int ptm_lib_cleanup_msg(ptm_lib_handle_t *, void *);
+=======
+int ptm_lib_process_msg(ptm_lib_handle_t *hdl, int fd, char *inbuf, int inlen, void *ctxt);
+ptm_lib_handle_t *ptm_lib_register(char *client_name, ptm_cmd_cb cmd_cb, ptm_notify_cb notify_cb,
+				   ptm_response_cb response_cb);
+void ptm_lib_deregister(ptm_lib_handle_t *hdl);
+int ptm_lib_find_key_in_msg(void *ctxt, const char *key, char *val, size_t val_len);
+int ptm_lib_init_msg(ptm_lib_handle_t *hdl, int msgType, int msgLen, void *in_ctxt,
+		     void **out_ctxt);
+int ptm_lib_append_msg(ptm_lib_handle_t *hdl, void *ctxt, const char *key, const char *value);
+int ptm_lib_complete_msg(ptm_lib_handle_t *hdl, void *ctxt, char *buf, int *len);
+int ptm_lib_cleanup_msg(ptm_lib_handle_t *hdl, void *ctxt);
+>>>>>>> 64dc0d7 (lib, zebra: bound ptm_lib_find_key_in_msg copies to the caller's buffer)
 
 #ifdef __cplusplus
 }
