@@ -124,6 +124,8 @@ char *csv_field_iter(csv_record_t *rec, csv_field_t **fld)
 	if (!rec)
 		return NULL;
 	*fld = TAILQ_FIRST(&(rec->fields));
+	if (!*fld)
+		return NULL;
 	return ((*fld)->field);
 }
 
