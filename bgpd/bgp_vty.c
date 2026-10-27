@@ -1296,7 +1296,7 @@ static int bgp_clear(struct vty *vty, struct bgp *bgp, afi_t afi, safi_t safi,
 	 * A hard clear resets the whole session whatever address family is
 	 * given, the family only selects the peers, so it can be batched too.
 	 */
-	use_batch = afi_safi_unspec || (stype == BGP_CLEAR_SOFT_NONE);
+	use_batch = afi_safi_unspec || (stype == BGP_CLEAR_HARD);
 
 	/* Clear all neighbors. */
 	/*
