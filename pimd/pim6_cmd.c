@@ -2513,7 +2513,7 @@ DEFPY (show_ipv6_multicast_count_vrf_all,
 
 DEFPY (show_ipv6_mroute,
        show_ipv6_mroute_cmd,
-       "show ipv6 mroute [vrf NAME] [X:X::X:X$s_or_g [X:X::X:X$g]] [fill$fill] [json$json]",
+       "show ipv6 mroute [vrf NAME] [X:X::X:X$s_or_g [X:X::X:X$g]] [fill$fill] [detail$detail] [json$json]",
        SHOW_STR
        IPV6_STR
        MROUTE_STR
@@ -2521,22 +2521,24 @@ DEFPY (show_ipv6_mroute,
        "The Source or Group\n"
        "The Group\n"
        "Fill in Assumed data\n"
+       "Origin of each output interface\n"
        JSON_STR)
 {
-	return pim_show_mroute_helper(vrf, vty, s_or_g, g, !!fill, !!json);
+	return pim_show_mroute_helper(vrf, vty, s_or_g, g, !!fill, !!detail, !!json);
 }
 
 DEFPY (show_ipv6_mroute_vrf_all,
        show_ipv6_mroute_vrf_all_cmd,
-       "show ipv6 mroute vrf all [fill$fill] [json$json]",
+       "show ipv6 mroute vrf all [fill$fill] [detail$detail] [json$json]",
        SHOW_STR
        IPV6_STR
        MROUTE_STR
        VRF_CMD_HELP_STR
        "Fill in Assumed data\n"
+       "Origin of each output interface\n"
        JSON_STR)
 {
-	return pim_show_mroute_vrf_all_helper(vty, !!fill, !!json);
+	return pim_show_mroute_vrf_all_helper(vty, !!fill, !!detail, !!json);
 }
 
 DEFPY (show_ipv6_mroute_count,

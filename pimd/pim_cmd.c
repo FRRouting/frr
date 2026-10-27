@@ -3402,7 +3402,7 @@ DEFPY (show_ip_multicast_count_vrf_all,
 
 DEFPY (show_ip_mroute,
        show_ip_mroute_cmd,
-       "show ip mroute [vrf NAME] [A.B.C.D$s_or_g [A.B.C.D$g]] [fill$fill] [json$json]",
+       "show ip mroute [vrf NAME] [A.B.C.D$s_or_g [A.B.C.D$g]] [fill$fill] [detail$detail] [json$json]",
        SHOW_STR
        IP_STR
        MROUTE_STR
@@ -3410,22 +3410,24 @@ DEFPY (show_ip_mroute,
        "The Source or Group\n"
        "The Group\n"
        "Fill in Assumed data\n"
+       "Origin of each output interface\n"
        JSON_STR)
 {
-	return pim_show_mroute_helper(vrf, vty, s_or_g, g, !!fill, !!json);
+	return pim_show_mroute_helper(vrf, vty, s_or_g, g, !!fill, !!detail, !!json);
 }
 
 DEFPY (show_ip_mroute_vrf_all,
        show_ip_mroute_vrf_all_cmd,
-       "show ip mroute vrf all [fill$fill] [json$json]",
+       "show ip mroute vrf all [fill$fill] [detail$detail] [json$json]",
        SHOW_STR
        IP_STR
        MROUTE_STR
        VRF_CMD_HELP_STR
        "Fill in Assumed data\n"
+       "Origin of each output interface\n"
        JSON_STR)
 {
-	return pim_show_mroute_vrf_all_helper(vty, !!fill, !!json);
+	return pim_show_mroute_vrf_all_helper(vty, !!fill, !!detail, !!json);
 }
 
 DEFPY (clear_ip_mroute_count,
