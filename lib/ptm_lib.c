@@ -107,7 +107,7 @@ static int _ptm_lib_decode_header(csv_t *csv, int *msglen, int *version,
 		return -1;
 	}
 	/* remove leading spaces */
-	for (i = j = 0; i < csv_field_len(fld); i++) {
+	for (i = j = 0; i < csv_field_len(fld) && j < PTMLIB_MAXNAMELEN - 1; i++) {
 		if (!isspace((unsigned char)hdr[i])) {
 			client_name[j] = hdr[i];
 			j++;
@@ -351,16 +351,22 @@ int ptm_lib_process_msg(ptm_lib_handle_t *hdl, int fd, char *inbuf, int inlen,
 			void *arg)
 {
 	int rc, len;
-	char client_name[32];
+	char client_name[PTMLIB_MAXNAMELEN];
+	char header[PTMLIB_MSG_HDR_LEN + 1] = { 0 };
 	int cmd_id = 0, type = 0, ver = 0, msglen = 0;
 	csv_t *csv;
 	ptm_lib_msg_ctxt_t *p_ctxt = NULL;
+
+	if (!hdl || !inbuf || inlen <= PTMLIB_MSG_HDR_LEN)
+		return -1;
 
 	len = _ptm_lib_read_ptm_socket(fd, inbuf, PTMLIB_MSG_HDR_LEN);
 	if (len <= 0)
 		return (len);
 
-	csv = csv_init(NULL, inbuf, PTMLIB_MSG_HDR_LEN);
+	/* Decode only the bytes belonging to this header. */
+	memcpy(header, inbuf, len);
+	csv = csv_init(NULL, header, len);
 
 	if (!csv) {
 		DLOG("Cannot allocate csv for hdr\n");
