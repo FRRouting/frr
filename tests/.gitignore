@@ -52,6 +52,7 @@ frr_northbound*
 /lib/test_plist
 /lib/test_prefix2str
 /lib/test_printfrr
+/lib/test_ptm_lib
 /lib/test_privs
 /lib/test_rcu
 /lib/test_resolver
