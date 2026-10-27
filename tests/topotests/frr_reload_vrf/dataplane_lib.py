@@ -166,15 +166,15 @@ def plumb_pe(node, num_vrfs, num_mcast_vrfs):
         vrf = vrf_name(v)
         cmds += [
             "ip link add {} type vrf table {}".format(vrf, vrf_table(v)),
-            "ip link set dev {} up".format(vrf),
+            ("up", vrf),
             "ip link add brl3{} type bridge".format(v),
             "ip link set dev brl3{} master {}".format(v, vrf),
-            "ip link set dev brl3{} up".format(v),
+            ("up", "brl3{}".format(v)),
             "ip link add vxl3{} type vxlan id {} dstport 4789 local {} nolearning".format(
                 v, l3vni(v), lo
             ),
             "ip link set dev vxl3{} master brl3{}".format(v, v),
-            "ip link set dev vxl3{} up".format(v),
+            ("up", "vxl3{}".format(v)),
             # Enslave the tenant access iface to the vrf and bring it up. Its
             # IPv4 address is assigned via the zebra config (interface stanza),
             # NOT here: a raw "ip addr add" on a munet-managed veth does not
@@ -183,18 +183,14 @@ def plumb_pe(node, num_vrfs, num_mcast_vrfs):
             # with. Dummy interfaces (loop-rp) are unaffected but are handled the
             # same way for consistency.
             "ip link set dev {}-eth{} master {}".format(node, access_ifidx(v), vrf),
-            "ip link set dev {}-eth{} up".format(node, access_ifidx(v)),
+            ("up", "{}-eth{}".format(node, access_ifidx(v))),
         ]
         if node == MCAST_PE and v <= num_mcast_vrfs:
             rxidx = rx_ifidx(num_vrfs, v)
             cmds += [
-                # RP loopback in the vrf (address via zebra config)
-                "ip link add loop-rp{} type dummy".format(v),
-                "ip link set dev loop-rp{} master {}".format(v, vrf),
-                "ip link set dev loop-rp{} up".format(v),
                 # receiver access iface in the vrf (address via zebra config)
                 "ip link set dev {}-eth{} master {}".format(node, rxidx, vrf),
-                "ip link set dev {}-eth{} up".format(node, rxidx),
+                ("up", "{}-eth{}".format(node, rxidx)),
             ]
     return cmds
 
@@ -202,9 +198,8 @@ def plumb_pe(node, num_vrfs, num_mcast_vrfs):
 def plumb_host(node, pe, v, rx=False):
     gw = rx_gw(v) if rx else tenant_gw(pe, v)
     ip = rx_host(v) if rx else tenant_host(pe, v)
-    return [
-        "ip addr add {}/24 dev {}-eth0".format(ip, node),
-        "ip link set dev {}-eth0 up".format(node),
+    return "{}/24".format(ip), [
+        ("up", "{}-eth0".format(node)),
         "ip route add default via {}".format(gw),
     ]
 

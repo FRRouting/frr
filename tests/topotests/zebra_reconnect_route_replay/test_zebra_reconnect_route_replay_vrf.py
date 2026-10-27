@@ -84,6 +84,9 @@ _udp_l3mdev_original = None
 
 
 def setup_module(module):
+    if not topotest.platform_has_vrf():
+        pytest.skip("platform does not support VRF")
+
     global _udp_l3mdev_original
 
     tgen = Topogen(build_topo, module.__name__)

@@ -17,5 +17,4 @@ bridge vlan add vid 60 dev vxlan3109 pvid untagged
 
 ip link add link br3109 name vlan60 type vlan id 60
 ip link set dev vlan60 master vrf-blue
-ip addr add 10.99.99.1/24 dev vlan60
 ip link set dev vlan60 up

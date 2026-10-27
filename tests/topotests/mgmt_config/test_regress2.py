@@ -17,8 +17,14 @@ import pytest
 from lib.common_config import step
 from lib.topogen import Topogen
 from munet.watchlog import WatchLog
+from lib.topotest import platform_has_vrf
 
 pytestmark = [pytest.mark.staticd, pytest.mark.mgmtd]
+
+
+def setup_module(module):
+    if not platform_has_vrf():
+        pytest.skip("platform does not support VRF")
 
 
 @pytest.fixture(scope="module")

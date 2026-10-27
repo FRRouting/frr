@@ -33,6 +33,10 @@ from lib.evpn import (
     evpn_check_bgp_imet,
 )
 from lib.topogen import Topogen, TopoRouter, get_topogen
+from lib.common_config import (
+    create_address_on_interface,
+    shutdown_bringup_interface_in_kernel,
+)
 from lib.topolog import logger
 
 # Required to instantiate the topology builder class.
@@ -77,6 +81,12 @@ def build_topo(tgen):
 
 def setup_module(mod):
     "Sets up the pytest environment"
+    if not topotest.platform_has_vrf():
+        pytest.skip("platform does not support VRF")
+
+    if not topotest.platform_has_evpn():
+        pytest.skip("platform does not support EVPN")
+
     # This function initiates the topology build with Topogen...
     tgen = Topogen(build_topo, mod.__name__)
     # ... and here it calls Mininet initialization functions.
@@ -88,64 +98,64 @@ def setup_module(mod):
 
     # set up PE bridges with the EVPN member interfaces facing the CE hosts
     pe1.run("ip link add name br101 type bridge stp_state 0")
-    pe1.run("ip addr add 10.10.1.1/24 dev br101")
-    pe1.run("ip link set dev br101 up")
+    create_address_on_interface(pe1.tgen, pe1.name, "br101", "10.10.1.1/24")
+    shutdown_bringup_interface_in_kernel(pe1.tgen, pe1.name, "br101", True)
     pe1.run(
         "ip link add vxlan101 type vxlan id 101 dstport 4789 local 10.10.10.10 nolearning"
     )
     pe1.run("ip link set dev vxlan101 master br101")
-    pe1.run("ip link set up dev vxlan101")
+    shutdown_bringup_interface_in_kernel(pe1.tgen, pe1.name, "vxlan101", True)
     pe1.run("ip link set dev PE1-eth0 master br101")
 
     pe2.run("ip link add name br101 type bridge stp_state 0")
-    pe2.run("ip addr add 10.10.1.3/24 dev br101")
-    pe2.run("ip link set dev br101 up")
+    create_address_on_interface(pe2.tgen, pe2.name, "br101", "10.10.1.3/24")
+    shutdown_bringup_interface_in_kernel(pe2.tgen, pe2.name, "br101", True)
     pe2.run(
         "ip link add vxlan101 type vxlan id 101 dstport 4789 local 10.30.30.30 nolearning"
     )
     pe2.run("ip link set dev vxlan101 master br101")
-    pe2.run("ip link set up dev vxlan101")
+    shutdown_bringup_interface_in_kernel(pe2.tgen, pe2.name, "vxlan101", True)
     pe2.run("ip link set dev PE2-eth1 master br101")
     p1.run("sysctl -w net.ipv4.ip_forward=1")
 
     # Setup L3 VNI 999 with VLAN interface for testing fix 3ad2a782e6
     # PE1
     pe1.run("ip link add vrf-blue type vrf table 1000")
-    pe1.run("ip link set vrf-blue up")
+    shutdown_bringup_interface_in_kernel(pe1.tgen, pe1.name, "vrf-blue", True)
     pe1.run("ip link add name br999 type bridge stp_state 0 vlan_filtering 1")
-    pe1.run("ip link set dev br999 up")
+    shutdown_bringup_interface_in_kernel(pe1.tgen, pe1.name, "br999", True)
     pe1.run(
         "ip link add vxlan999 type vxlan id 999 dstport 4789 local 10.10.10.10 nolearning"
     )
     pe1.run("ip link set dev vxlan999 master br999")
-    pe1.run("ip link set up dev vxlan999")
+    shutdown_bringup_interface_in_kernel(pe1.tgen, pe1.name, "vxlan999", True)
     # Set VLAN 999 as access VLAN on the bridge
     pe1.run("bridge vlan add vid 999 dev br999 self")
     pe1.run("bridge vlan del vid 1 dev vxlan999")
     pe1.run("bridge vlan add vid 999 dev vxlan999 pvid untagged")
     pe1.run("ip link add link br999 name vlan999 type vlan id 999")
     pe1.run("ip link set dev vlan999 master vrf-blue")
-    pe1.run("ip addr add 10.99.99.1/24 dev vlan999")
-    pe1.run("ip link set dev vlan999 up")
+    create_address_on_interface(pe1.tgen, pe1.name, "vlan999", "10.99.99.1/24")
+    shutdown_bringup_interface_in_kernel(pe1.tgen, pe1.name, "vlan999", True)
 
     # PE2
     pe2.run("ip link add vrf-blue type vrf table 1000")
-    pe2.run("ip link set vrf-blue up")
+    shutdown_bringup_interface_in_kernel(pe2.tgen, pe2.name, "vrf-blue", True)
     pe2.run("ip link add name br999 type bridge stp_state 0 vlan_filtering 1")
-    pe2.run("ip link set dev br999 up")
+    shutdown_bringup_interface_in_kernel(pe2.tgen, pe2.name, "br999", True)
     pe2.run(
         "ip link add vxlan999 type vxlan id 999 dstport 4789 local 10.30.30.30 nolearning"
     )
     pe2.run("ip link set dev vxlan999 master br999")
-    pe2.run("ip link set up dev vxlan999")
+    shutdown_bringup_interface_in_kernel(pe2.tgen, pe2.name, "vxlan999", True)
     # Set VLAN 999 as access VLAN on the bridge
     pe2.run("bridge vlan add vid 999 dev br999 self")
     pe2.run("bridge vlan del vid 1 dev vxlan999")
     pe2.run("bridge vlan add vid 999 dev vxlan999 pvid untagged")
     pe2.run("ip link add link br999 name vlan999 type vlan id 999")
     pe2.run("ip link set dev vlan999 master vrf-blue")
-    pe2.run("ip addr add 10.99.99.3/24 dev vlan999")
-    pe2.run("ip link set dev vlan999 up")
+    create_address_on_interface(pe2.tgen, pe2.name, "vlan999", "10.99.99.3/24")
+    shutdown_bringup_interface_in_kernel(pe2.tgen, pe2.name, "vlan999", True)
 
     # This is a sample of configuration loading.
     router_list = tgen.routers()

@@ -42,6 +42,7 @@ from lib.common_config import (
     create_static_routes,
     check_router_status,
 )
+from lib.topotest import platform_has_vrf
 
 pytestmark = [pytest.mark.bgpd, pytest.mark.staticd]
 
@@ -84,6 +85,8 @@ def setup_module(mod):
 
     * `mod`: module name
     """
+    if not platform_has_vrf():
+        pytest.skip("platform does not support VRF")
 
     # Required linux kernel version for this suite to run.
     result = required_linux_kernel_version("4.15")

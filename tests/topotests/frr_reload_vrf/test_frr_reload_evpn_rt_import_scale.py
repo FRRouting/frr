@@ -40,7 +40,12 @@ CWD = os.path.dirname(os.path.realpath(__file__))
 sys.path.append(os.path.join(CWD, ".."))
 
 from lib import topotest
-from lib.common_config import required_linux_kernel_version, step
+from lib.common_config import (
+    create_address_on_interface,
+    required_linux_kernel_version,
+    shutdown_bringup_interface_in_kernel,
+    step,
+)
 from lib.evpn import (
     EVPN_SCALE_RT_ASNS,
     EVPN_SCALE_RT_PER_ASN,
@@ -87,6 +92,14 @@ PREFIXES = [
     "{}/32".format(ipaddress.IPv4Address(int(ipaddress.IPv4Address(PREFIX_NET)) + i))
     for i in range(PREFIX_COUNT)
 ]
+
+
+def setup_module(module):
+    if not topotest.platform_has_vrf():
+        pytest.skip("platform does not support VRF")
+
+    if not topotest.platform_has_evpn():
+        pytest.skip("platform does not support EVPN")
 
 
 def test_scale_rt_helpers():
@@ -223,8 +236,15 @@ def tgen(request):
 
     for name, ip in (("pe1", PE1_IP), ("pe2", PE2_IP)):
         router = tg.gears[name]
-        router.cmd_raises("ip addr add {}/24 dev {}-eth0".format(ip, name))
-        router.cmd_raises("ip link set dev {}-eth0 up".format(name))
+        create_address_on_interface(
+            tg, name, "{}-eth0".format(name), "{}/24".format(ip)
+        )
+        shutdown_bringup_interface_in_kernel(
+            router.tgen,
+            router.name,
+            f"{name}-eth0",
+            True,
+        )
         evpn_plumb_l3vni(router, VRF, VRF_TABLE, L3VNI, ip)
 
     for name, lines in (("pe1", pe1_config()), ("pe2", pe2_config(False))):

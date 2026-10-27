@@ -28,6 +28,7 @@ sys.path.append(os.path.join(CWD, "../"))
 
 from lib import topotest
 from lib.topogen import Topogen, TopoRouter, get_topogen
+from lib.common_config import shutdown_bringup_interface_in_kernel
 
 
 def build_topo(tgen):
@@ -53,6 +54,9 @@ def build_topo(tgen):
 
 
 def setup_module(module):
+    if not topotest.platform_has_evpn():
+        pytest.skip("platform does not support EVPN")
+
     tgen = Topogen(build_topo, module.__name__)
     tgen.start_topology()
 
@@ -65,7 +69,7 @@ def setup_module(module):
         tor.run("ip link add dev bridge type bridge stp_state 0")
         tor.run("ip link set dev bridge type bridge vlan_filtering 1")
         tor.run("ip link set dev bridge type bridge mcast_snooping 0")
-        tor.run("ip link set dev bridge up")
+        shutdown_bringup_interface_in_kernel(tor.tgen, tor.name, "bridge", True)
         tor.run("/sbin/bridge vlan add vid 1001 dev bridge self")
         tor.run("/sbin/bridge vlan add vid 1002 dev bridge self")
         tor.run("/sbin/bridge vlan add vid 1003 dev bridge self")
@@ -73,7 +77,7 @@ def setup_module(module):
         # Create bond interface for ES
         tor.run("ip link add dev hostbond1 type bond mode 802.3ad")
         tor.run("ip link set dev hostbond1 type bond ad_actor_system 44:38:39:ff:ff:01")
-        tor.run("ip link set dev hostbond1 up")
+        shutdown_bringup_interface_in_kernel(tor.tgen, tor.name, "hostbond1", True)
 
         # Add bond to bridge with VLANs
         tor.run("ip link set dev hostbond1 master bridge")
@@ -87,7 +91,7 @@ def setup_module(module):
             tor.run(
                 f"ip link add dev vx-{vni} type vxlan id {vni} dstport 4789 local {tor_ip} nolearning"
             )
-            tor.run(f"ip link set dev vx-{vni} up")
+            shutdown_bringup_interface_in_kernel(tor.tgen, tor.name, f"vx-{vni}", True)
             tor.run(f"ip link set dev vx-{vni} master bridge")
             tor.run(f"/sbin/bridge link set dev vx-{vni} neigh_suppress on")
             tor.run(f"/sbin/bridge link set dev vx-{vni} learning off")

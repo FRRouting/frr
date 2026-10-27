@@ -19,7 +19,10 @@ sys.path.append(os.path.join(CWD, "../"))
 # Import topogen and topotest helpers
 from lib import topotest
 from lib.topogen import Topogen, TopoRouter, get_topogen
-from lib.common_config import required_linux_kernel_version
+from lib.common_config import (
+    required_linux_kernel_version,
+    shutdown_bringup_interface_in_kernel,
+)
 from lib.checkping import check_ping
 
 pytestmark = [pytest.mark.bgpd, pytest.mark.staticd]
@@ -48,6 +51,9 @@ def build_topo(tgen):
 
 
 def setup_module(mod):
+    if not topotest.platform_has_vrf():
+        pytest.skip("platform does not support VRF")
+
     result = required_linux_kernel_version("5.15")
     if result is not True:
         pytest.skip("Kernel requirements are not met")
@@ -75,25 +81,55 @@ def setup_module(mod):
 
     tgen.gears["r1"].run("sysctl net.vrf.strict_mode=1")
     tgen.gears["r1"].run("ip link add vrf10 type vrf table 10")
-    tgen.gears["r1"].run("ip link set vrf10 up")
+    shutdown_bringup_interface_in_kernel(
+        tgen.gears['r1'].tgen,
+        tgen.gears['r1'].name,
+        "vrf10",
+        True,
+    )
     tgen.gears["r1"].run("ip link add vrf20 type vrf table 20")
-    tgen.gears["r1"].run("ip link set vrf20 up")
+    shutdown_bringup_interface_in_kernel(
+        tgen.gears['r1'].tgen,
+        tgen.gears['r1'].name,
+        "vrf20",
+        True,
+    )
     tgen.gears["r1"].run("ip link set eth2 master vrf10")
     tgen.gears["r1"].run("ip link set eth3 master vrf20")
 
     tgen.gears["r2"].run("sysctl net.vrf.strict_mode=1")
     tgen.gears["r2"].run("ip link add vrf10 type vrf table 10")
-    tgen.gears["r2"].run("ip link set vrf10 up")
+    shutdown_bringup_interface_in_kernel(
+        tgen.gears['r2'].tgen,
+        tgen.gears['r2'].name,
+        "vrf10",
+        True,
+    )
     tgen.gears["r2"].run("ip link add vrf20 type vrf table 20")
-    tgen.gears["r2"].run("ip link set vrf20 up")
+    shutdown_bringup_interface_in_kernel(
+        tgen.gears['r2'].tgen,
+        tgen.gears['r2'].name,
+        "vrf20",
+        True,
+    )
     tgen.gears["r2"].run("ip link set eth1 master vrf10")
     tgen.gears["r2"].run("ip link set eth2 master vrf20")
 
     tgen.gears["r3"].run("sysctl net.vrf.strict_mode=1")
     tgen.gears["r3"].run("ip link add vrf10 type vrf table 10")
-    tgen.gears["r3"].run("ip link set vrf10 up")
+    shutdown_bringup_interface_in_kernel(
+        tgen.gears['r3'].tgen,
+        tgen.gears['r3'].name,
+        "vrf10",
+        True,
+    )
     tgen.gears["r3"].run("ip link add vrf20 type vrf table 20")
-    tgen.gears["r3"].run("ip link set vrf20 up")
+    shutdown_bringup_interface_in_kernel(
+        tgen.gears['r3'].tgen,
+        tgen.gears['r3'].name,
+        "vrf20",
+        True,
+    )
     tgen.gears["r3"].run("ip link set eth1 master vrf10")
     tgen.gears["r3"].run("ip link set eth2 master vrf20")
 

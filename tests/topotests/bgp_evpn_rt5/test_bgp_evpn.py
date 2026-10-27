@@ -32,8 +32,10 @@ from lib.checkping import check_ping
 from lib.bgp import get_bgp_summary_json, verify_bgp_rib
 from lib.common_config import (
     apply_raw_config,
+    create_interface_in_kernel,
     required_iproute2_version,
     required_linux_kernel_version,
+    shutdown_bringup_interface_in_kernel,
 )
 from lib.topogen import Topogen, TopoRouter, get_topogen
 from lib.topolog import logger
@@ -67,6 +69,11 @@ def build_topo(tgen):
 
 def setup_module(mod):
     "Sets up the pytest environment"
+    if not topotest.platform_has_vrf():
+        pytest.skip("platform does not support VRF")
+
+    if not topotest.platform_has_evpn():
+        pytest.skip("platform does not support EVPN")
 
     tgen = Topogen(build_topo, mod.__name__)
     tgen.start_topology()
@@ -86,9 +93,9 @@ def setup_module(mod):
     for vrf in (101, 102):
         ns = "vrf-{}".format(vrf)
         r1.add_netns(ns)
+        create_interface_in_kernel(tgen, "r1", "loop{}".format(vrf))
         r1.cmd_raises(
             """
-ip link add loop{0} type dummy
 ip link add vxlan-{0} type vxlan id {0} dstport 4789 dev eth-rr local 192.168.1.1
 """.format(
                 vrf
@@ -109,20 +116,32 @@ ip -n vrf-{0} link set vxlan-{0} up
         )
 
         tgen.gears["r2"].cmd(
+            "ip link add vrf-{0} type vrf table {0}".format(vrf)
+        )
+        shutdown_bringup_interface_in_kernel(
+            tgen, "r2", "vrf-{}".format(vrf), True
+        )
+        create_interface_in_kernel(
+            tgen, "r2", "loop{}".format(vrf), vrf="vrf-{}".format(vrf)
+        )
+        tgen.gears["r2"].cmd(
             """
-ip link add vrf-{0} type vrf table {0}
-ip link set dev vrf-{0} up
-ip link add loop{0} type dummy
-ip link set dev loop{0} master vrf-{0}
-ip link set dev loop{0} up
 ip link add bridge-{0} up address {1} type bridge stp_state 0
 ip link set bridge-{0} master vrf-{0}
-ip link set dev bridge-{0} up
+""".format(
+                vrf, _create_rmac(2, vrf)
+            )
+        )
+        shutdown_bringup_interface_in_kernel(
+            tgen, "r2", "bridge-{}".format(vrf), True
+        )
+        tgen.gears["r2"].cmd(
+            """
 ip link add vxlan-{0} type vxlan id {0} dstport 4789 dev eth-rr local 192.168.2.2
 ip link set dev vxlan-{0} master bridge-{0}
 ip link set vxlan-{0} up type bridge_slave learning off flood off mcast_flood off
 """.format(
-                vrf, _create_rmac(2, vrf)
+                vrf
             )
         )
 
