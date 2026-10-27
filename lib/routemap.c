@@ -3290,8 +3290,13 @@ static struct cmd_node rmap_debug_node = {
 
 void route_map_show_debug(struct vty *vty)
 {
-	if (CHECK_FLAG(rmap_debug, DEBUG_ROUTEMAP))
+	if (CHECK_FLAG(rmap_debug, DEBUG_ROUTEMAP_DETAIL))
+		vty_out(vty, "debug route-map detail\n");
+	else if (CHECK_FLAG(rmap_debug, DEBUG_ROUTEMAP))
 		vty_out(vty, "debug route-map\n");
+
+	if (CHECK_FLAG(rmap_debug, DEBUG_ROUTEMAP_TIMING))
+		vty_out(vty, "debug route-map timing\n");
 }
 
 /* Configuration write function. */
