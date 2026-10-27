@@ -145,8 +145,8 @@ void pim_cmd_show_ip_multicast_helper(struct pim_instance *pim,
 				      struct vty *vty);
 void show_multicast_interfaces(struct pim_instance *pim, struct vty *vty,
 			       json_object *json);
-void show_mroute(struct pim_instance *pim, struct vty *vty, pim_sgaddr *sg,
-		 bool fill, json_object *json);
+void show_mroute(struct pim_instance *pim, struct vty *vty, pim_sgaddr *sg, bool fill, bool detail,
+		 json_object *json);
 void show_mroute_count(struct pim_instance *pim, struct vty *vty,
 		       json_object *json);
 void show_mroute_summary(struct pim_instance *pim, struct vty *vty,
@@ -189,9 +189,9 @@ int pim_show_multicast_vrf_all_helper(struct vty *vty);
 int pim_show_multicast_count_helper(const char *vrf, struct vty *vty,
 				    bool json);
 int pim_show_multicast_count_vrf_all_helper(struct vty *vty, bool json);
-int pim_show_mroute_helper(const char *vrf, struct vty *vty, pim_addr s_or_g,
-			   pim_addr g, bool fill, bool json);
-int pim_show_mroute_vrf_all_helper(struct vty *vty, bool fill, bool json);
+int pim_show_mroute_helper(const char *vrf, struct vty *vty, pim_addr s_or_g, pim_addr g,
+			   bool fill, bool detail, bool json);
+int pim_show_mroute_vrf_all_helper(struct vty *vty, bool fill, bool detail, bool json);
 int pim_show_mroute_count_helper(const char *vrf, struct vty *vty, bool json);
 int pim_show_mroute_count_vrf_all_helper(struct vty *vty, bool json);
 int pim_show_mroute_summary_helper(const char *vrf, struct vty *vty, bool json);
