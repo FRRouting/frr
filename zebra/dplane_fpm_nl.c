@@ -1206,6 +1206,9 @@ static int fpm_lsp_send_cb(struct hash_bucket *bucket, void *arg)
 		return HASHWALK_ABORT;
 	}
 
+	if (dplane_ctx_get_status(fla->ctx) == ZEBRA_DPLANE_REQUEST_FAILURE)
+		return HASHWALK_CONTINUE;
+
 	/* Mark entry as sent */
 	SET_FLAG(lsp->flags, LSP_FLAG_FPM);
 	return HASHWALK_CONTINUE;
@@ -1264,6 +1267,9 @@ static int fpm_nhg_send_cb(struct hash_bucket *bucket, void *arg)
 		fna->complete = false;
 		return HASHWALK_ABORT;
 	}
+
+	if (dplane_ctx_get_status(fna->ctx) == ZEBRA_DPLANE_REQUEST_FAILURE)
+		return HASHWALK_CONTINUE;
 
 	/* Mark group as sent, so it doesn't get sent again. */
 	SET_FLAG(nhe->flags, NEXTHOP_GROUP_FPM);
@@ -1336,6 +1342,9 @@ static void fpm_rib_send(struct event *t)
 						fnc, 1, &fnc->t_ribwalk);
 				return;
 			}
+
+			if (dplane_ctx_get_status(ctx) == ZEBRA_DPLANE_REQUEST_FAILURE)
+				continue;
 
 			/* Mark as sent. */
 			SET_FLAG(dest->flags, RIB_DEST_UPDATE_FPM);
