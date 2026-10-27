@@ -775,6 +775,7 @@ void pim_bsm_clear(struct pim_instance *pim)
 		if (rp_all == rp_info) {
 			rp_all->rp.rpf_addr = PIMADDR_ANY;
 			rp_all->i_am_rp = 0;
+			pim_nht_rp_del(rp_all);
 		} else {
 			/* Delete the rp_info from rp-list */
 			listnode_delete(pim->rp_list, rp_info);
