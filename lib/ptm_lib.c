@@ -266,13 +266,20 @@ int ptm_lib_complete_msg(ptm_lib_handle_t *hdl, void *ctxt, char *buf, int *len)
 	return 0;
 }
 
-int ptm_lib_find_key_in_msg(void *ctxt, const char *key, char *val)
+int ptm_lib_find_key_in_msg(void *ctxt, const char *key, char *val, size_t val_len)
 {
 	ptm_lib_msg_ctxt_t *p_ctxt = ctxt;
-	csv_t *csv = p_ctxt->csv;
+	csv_t *csv;
 	csv_record_t *hrec, *drec;
 	csv_field_t *hfld, *dfld;
 	char *hstr, *dstr;
+	size_t key_len, copy_len;
+
+	if (!p_ctxt || !key || !val || !val_len)
+		return -1;
+
+	csv = p_ctxt->csv;
+	key_len = strlen(key);
 
 	/**
 	 * skip over ptm hdr if present
@@ -291,10 +298,24 @@ int ptm_lib_find_key_in_msg(void *ctxt, const char *key, char *val)
 	    dstr = csv_field_iter(drec, &dfld);
 	     (hstr && dstr); hstr = csv_field_iter_next(&hfld),
 	    dstr = csv_field_iter_next(&dfld)) {
-		if (!strncmp(hstr, key, csv_field_len(hfld))) {
-			snprintf(val, csv_field_len(dfld) + 1, "%s", dstr);
-			return 0;
-		}
+		/*
+		 * The header field is not NUL terminated on its own, so
+		 * require an exact length match: a shorter or empty header
+		 * field must not match a longer key.
+		 */
+		if ((size_t)csv_field_len(hfld) != key_len || strncmp(hstr, key, key_len))
+			continue;
+
+		/*
+		 * The data field length comes from the peer. Never let it
+		 * drive the copy past the caller's buffer.
+		 */
+		copy_len = csv_field_len(dfld);
+		if (copy_len > val_len - 1)
+			copy_len = val_len - 1;
+		memcpy(val, dstr, copy_len);
+		val[copy_len] = '\0';
+		return 0;
 	}
 
 	return -1;
