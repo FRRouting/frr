@@ -934,14 +934,15 @@ will cause great confusion.
 
    Display various information about the interfaces used in this PIM instance.
 
-.. clicmd:: show ip mroute [vrf NAME] [A.B.C.D [A.B.C.D]] [fill] [json]
+.. clicmd:: show ip mroute [vrf NAME] [A.B.C.D [A.B.C.D]] [fill] [detail] [json]
 
    Display mroutes installed in the kernel. One address selects that group.
    Two addresses select a source and then that group. The keyword ``fill``
    fills in assumed data for test and data gathering.
    Output lists the interfaces that forward matching packets. This is the
-   same fact as ``Mroute Y`` on the IGMP show commands. A ``(*,G)`` row does
-   not name a sender. See :ref:`igmp-fwd-mroute`.
+   same fact as ``Mroute Y`` on the IGMP show commands. ``detail`` adds an
+   ``Origin`` column that says why that interface is a receiver. A ``(*,G)``
+   row does not name a sender. See :ref:`igmp-fwd-mroute`.
 
 .. clicmd:: show ip mroute [vrf NAME] count [json]
 
@@ -1225,7 +1226,14 @@ To follow one receiver until packets are known to be flowing:
    kernel mroute is not installed.
 
 #. When ``Mroute`` is ``Y``, confirm that interface under Output in
-   ``show ip mroute GROUP``. A ``(*,G)`` row is the RP tree and does not name
+   ``show ip mroute GROUP``. ``show ip mroute GROUP detail`` adds
+   ``Origin``, which is why that output is a receiver. ``H`` is a host
+   report, ``L`` is a local ``ip igmp join-group``, ``S`` is
+   ``ip igmp static-group``, and ``P`` is a PIM join. ``*`` means the output
+   was inherited from ``(*,G)``. ``R`` is the register tunnel (``pimreg``).
+   ``D`` is dense mode
+   and ``V`` is VxLAN. One interface can show more than one letter, for
+   example ``*S`` or ``LH``. A ``(*,G)`` row is the RP tree and does not name
    a sender. A sender appears as ``(S,G)`` once traffic arrives, or
    immediately for an SSM join. The input should be a real interface. Flag
    ``C`` means a local receiver. Flag ``T`` means the SPT bit is set.
