@@ -12309,6 +12309,45 @@ static int bgp_clear_prefix(struct vty *vty, const char *view_name,
 	return CMD_SUCCESS;
 }
 
+#ifdef DEV_BUILD
+static struct bgp *bgp_test_instance(struct vty *vty, const char *vrf_name)
+{
+	struct bgp *bgp;
+
+	if (vrf_name && !strmatch(vrf_name, VRF_DEFAULT_NAME))
+		bgp = bgp_lookup_by_name(vrf_name);
+	else
+		bgp = bgp_get_default();
+
+	if (!bgp)
+		vty_out(vty, "%% BGP instance not found\n");
+
+	return bgp;
+}
+
+DEFPY_HIDDEN(bgp_test_metaq_plug, bgp_test_metaq_plug_cmd,
+	     "[no] bgp [vrf NAME$vrf_name] test metaq disable",
+	     NO_STR
+	     BGP_STR
+	     VRF_CMD_HELP_STR
+	     "Test command\n"
+	     "Meta queue\n"
+	     "Plug the meta queue (prevent best path processing)\n")
+{
+	struct bgp *bgp = bgp_test_instance(vty, vrf_name);
+
+	if (!bgp)
+		return CMD_WARNING;
+
+	if (no)
+		bgp_meta_queue_unplug(bgp);
+	else
+		bgp_meta_queue_plug(bgp);
+
+	return CMD_SUCCESS;
+}
+#endif
+
 /* one clear bgp command to rule them all */
 DEFUN(clear_ip_bgp_all, clear_ip_bgp_all_cmd,
       "clear [ip] bgp [<view|vrf> VIEWVRFNAME] [<ipv4|ipv6|l2vpn> [<unicast|multicast|vpn|labeled-unicast|flowspec|evpn|unreachability>]] <*|A.B.C.D$neighbor|X:X::X:X$neighbor|WORD$neighbor|ASNUM|external|peer-group PGNAME> [<soft [<in|out>]|in [prefix-filter]|out|message-stats|capabilities>]",
@@ -25216,6 +25255,11 @@ void bgp_vty_init(void)
 	/* BGP retain all route-target */
 	install_element(BGP_VPNV4_NODE, &bgp_retain_route_target_cmd);
 	install_element(BGP_VPNV6_NODE, &bgp_retain_route_target_cmd);
+
+#ifdef DEV_BUILD
+	/* "bgp test" commands */
+	install_element(ENABLE_NODE, &bgp_test_metaq_plug_cmd);
+#endif
 
 	/* "clear ip bgp commands" */
 	install_element(ENABLE_NODE, &clear_ip_bgp_all_cmd);
