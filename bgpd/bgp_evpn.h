@@ -39,49 +39,14 @@ static inline int is_evpn_enabled(void)
 	return bgp ? EVPN_ENABLED(bgp) : 0;
 }
 
-static inline int advertise_type5_routes_bestpath(const struct bgp *bgp_vrf, afi_t afi, safi_t safi)
-{
-	uint16_t flags = bgp_vrf->af_flags[AFI_L2VPN][SAFI_EVPN];
-
-	if (safi == SAFI_MPLS_VPN) {
-		if (afi == AFI_IP && CHECK_FLAG(flags, BGP_L2VPN_EVPN_ADV_IPV4_VPN))
-			return 1;
-
-		if (afi == AFI_IP6 && CHECK_FLAG(flags, BGP_L2VPN_EVPN_ADV_IPV6_VPN))
-			return 1;
-
-		return 0;
-	}
-
-	if (!bgp_vrf->l3vni)
-		return 0;
-
-	if (afi == AFI_IP && CHECK_FLAG(flags, BGP_L2VPN_EVPN_ADV_IPV4_UNICAST))
-		return 1;
-	if (afi == AFI_IP6 && CHECK_FLAG(flags, BGP_L2VPN_EVPN_ADV_IPV6_UNICAST))
-		return 1;
-
-	return 0;
-}
-
-static inline int advertise_type5_routes_multipath(const struct bgp *bgp_vrf, afi_t afi,
-						   safi_t safi)
-{
-	uint16_t flags = bgp_vrf->af_flags[AFI_L2VPN][SAFI_EVPN];
-
-	if (safi == SAFI_MPLS_VPN)
-		return 0;
-
-	if (!bgp_vrf->l3vni)
-		return 0;
-
-	if (afi == AFI_IP && CHECK_FLAG(flags, BGP_L2VPN_EVPN_ADV_IPV4_UNICAST_GW_IP))
-		return 1;
-	if (afi == AFI_IP6 && CHECK_FLAG(flags, BGP_L2VPN_EVPN_ADV_IPV6_UNICAST_GW_IP))
-		return 1;
-
-	return 0;
-}
+/*
+ * Whether this VRF has any live encapsulation to originate Type-5 routes
+ * over -- either a VXLAN L3VNI or an SRv6 DT46 SID.  Defined in bgp_evpn.c
+ * (not here) since checking the SRv6 case requires bgp_evpn_private.h,
+ * which is intentionally not included from this public header.
+ */
+extern int advertise_type5_routes_bestpath(const struct bgp *bgp_vrf, afi_t afi, safi_t safi);
+extern int advertise_type5_routes_multipath(const struct bgp *bgp_vrf, afi_t afi, safi_t safi);
 
 static inline bool bgp_evpn_suppress_import_from_evpn(struct bgp *bgp_vrf, afi_t afi)
 {
