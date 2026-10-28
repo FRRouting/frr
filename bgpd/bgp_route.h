@@ -323,6 +323,7 @@ struct bgp_mplsvpn_nh_label_bind {
 	struct bgp_mplsvpn_nh_label_bind_cache *nh_label_bind_cache;
 };
 
+/* clang-format off */
 struct bgp_path_info {
 	/* For linked list. */
 	struct bgp_path_info *next;
@@ -428,6 +429,7 @@ struct bgp_path_info {
 		struct bgp_mplsvpn_nh_label_bind bmnc;
 	} mplsvpn;
 };
+/* clang-format on */
 
 /* Structure used in BGP path selection */
 struct bgp_path_info_pair {
