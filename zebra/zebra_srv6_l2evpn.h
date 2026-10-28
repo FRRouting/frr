@@ -187,6 +187,8 @@ struct zebra_srv6_evi {
 	 */
 	struct in6_addr local_decap_sid;
 
+	vrf_id_t vrf_id; /* tenant VRF (VRF_DEFAULT = unset) */
+
 
 	/*
 	 * The VLAN the bridge device's own self-PVID was last bound to (see the
@@ -245,6 +247,7 @@ extern void zebra_srv6_evi_set_bridge(struct zebra_srv6_evi *evi, const char *br
 extern void zebra_srv6_l2evpn_bridge_resolve(struct interface *ifp);
 extern void zebra_srv6_l2evpn_bridge_unresolve(struct interface *ifp);
 extern int zebra_srv6_evi_set_service(struct zebra_srv6_evi *evi, enum zevpn_l2_service svc);
+extern void zebra_srv6_evi_set_vrf(struct zebra_srv6_evi *evi, vrf_id_t vrf_id);
 
 /*
  * Materialize the per-EVI zebra_evpn (SRv6 backend) and announce to BGP.
