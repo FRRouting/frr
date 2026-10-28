@@ -189,6 +189,13 @@ struct zebra_srv6_evi {
 
 	vrf_id_t vrf_id; /* tenant VRF (VRF_DEFAULT = unset) */
 
+	/*
+	 * Bridge ifindex the kernel FDB/neighbor-table rescan (in realize())
+	 * last ran against.  realize() can run many times per second; the
+	 * rescan only needs to happen once after the bridge actually changes.
+	 * 0 means "never rescanned yet for the current bridge".
+	 */
+	ifindex_t kernel_state_rescan_bridge_ifindex;
 
 	/*
 	 * The VLAN the bridge device's own self-PVID was last bound to (see the
@@ -285,6 +292,9 @@ extern vni_t zebra_srv6_evi_vni_by_bridge_vlan(const struct interface *br_if, vl
 extern void zebra_srv6_evi_set_encap_mode(struct zebra_srv6_evi *evi, uint8_t mode);
 /* Configured encap mode of the EVI bound to @bridge_ifindex; FULL if none. */
 extern uint8_t zebra_srv6_evi_encap_mode_by_bridge(ifindex_t bridge_ifindex);
+
+/* Find the SRv6 EVI whose bridge_if matches br_if; NULL if none. */
+extern struct zebra_srv6_evi *zebra_srv6_evi_find_by_bridge(const struct interface *br_if);
 
 extern const char *zevpn_l2_service2str(enum zevpn_l2_service svc);
 extern int zevpn_l2_service_str2enum(const char *s, enum zevpn_l2_service *out);

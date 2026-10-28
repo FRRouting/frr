@@ -32,6 +32,8 @@
 #include "zebra/zebra_vxlan_if.h"
 #include "zebra/zebra_vxlan.h"
 #include "zebra/zapi_msg.h"
+#include "zebra/zebra_evpn.h"
+#include "zebra/zebra_srv6_l2evpn.h"
 
 DEFINE_MTYPE_STATIC(ZEBRA, ZNEIGH_INFO, "Zebra neigh table");
 DEFINE_MTYPE_STATIC(ZEBRA, ZNEIGH_ENT, "Zebra neigh entry");
@@ -696,18 +698,23 @@ static void zebra_neigh_macfdb_update(struct zebra_dplane_ctx *ctx)
 	 * so perform an implicit delete of any local entry (if it exists).
 	 */
 	if (op == DPLANE_OP_NEIGH_INSTALL) {
-		/* Drop "permanent" entries. */
+		/* Drop "permanent" entries, except for SRv6 EVIs where static
+		 * (NUD_PERMANENT) bridge FDB entries are the intended mechanism
+		 * for MAC injection when bridge learning is disabled.
+		 */
 		if (!vni_mcast_grp && (ndm_state & ZEBRA_NUD_PERMANENT)) {
-			/*
-			 * If zebra started gracefully and if this is a HREP
-			 * entry, then restore it.
-			 */
-			if (zrouter.graceful_restart && is_zero_mac(&mac))
-				zebra_vxlan_stale_hrep_add(*vtep_ip, vni);
+			struct zebra_evpn *zevpn_tmp = zebra_evpn_map_vlan(ifp, br_if, vid);
 
-			if (IS_ZEBRA_DEBUG_KERNEL)
-				zlog_debug("        Dropping entry because of ZEBRA_NUD_PERMANENT");
-			return;
+			if (!zevpn_tmp || zevpn_tmp->dp_ops != &zevpn_dp_ops_srv6) {
+				if (zrouter.graceful_restart && is_zero_mac(&mac))
+					zebra_vxlan_stale_hrep_add(*vtep_ip, vni);
+				if (IS_ZEBRA_DEBUG_KERNEL)
+					zlog_debug(
+						"        Dropping entry because of ZEBRA_NUD_PERMANENT");
+				return;
+			}
+			/* SRv6 EVI: treat static entries as always active */
+			local_inactive = false;
 		}
 
 		/*

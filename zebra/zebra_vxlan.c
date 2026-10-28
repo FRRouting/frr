@@ -4659,7 +4659,11 @@ int zebra_vxlan_handle_kernel_neigh_del(struct interface *ifp,
 		return 0;
 	}
 
-	if (!zevpn->vxlan_if) {
+	/* An SRv6 EVI has no vxlan device; its local neighbors are tracked like
+	 * those of a VXLAN EVI (see the neighbor add above), so a delete must
+	 * withdraw the host's MAC+IP route too.
+	 */
+	if (!zevpn->vxlan_if && zevpn->dp_ops != &zevpn_dp_ops_srv6) {
 		if (IS_ZEBRA_DEBUG_VXLAN)
 			zlog_debug("VNI %u hash %p doesn't have intf upon local neighbor DEL",
 				   zevpn->vni, zevpn);
@@ -4705,6 +4709,12 @@ int zebra_vxlan_handle_kernel_neigh_update(struct interface *ifp, struct interfa
 	zevpn = zebra_evpn_from_svi(ifp, link_if);
 	if (!zevpn)
 		return 0;
+
+	/* For SRv6 EVIs, bridge learning may be disabled; treat all local
+	 * neighbors as active so MAC+IP Type-2 routes are advertised.
+	 */
+	if (zevpn->dp_ops == &zevpn_dp_ops_srv6)
+		local_inactive = false;
 
 	if (IS_ZEBRA_DEBUG_VXLAN || IS_ZEBRA_DEBUG_EVPN_MH_NEIGH)
 		zlog_debug("Add/Update neighbor %pIA MAC %pEA intf %s(%u) state 0x%x %s%s%s%s-> L2-VNI %u",
@@ -5246,6 +5256,12 @@ int zebra_vxlan_local_mac_add_update(struct interface *ifp,
 		return -1;
 	}
 
+	/* For SRv6 EVIs, bridge learning may be disabled; treat all local MACs
+	 * as active so they are advertised via EVPN regardless of FDB state.
+	 */
+	if (zevpn->dp_ops == &zevpn_dp_ops_srv6)
+		local_inactive = false;
+
 	zvrf = zebra_vrf_get_evpn();
 	return zebra_evpn_add_update_local_mac(zvrf, zevpn, ifp, macaddr, vid,
 					       sticky, local_inactive,
@@ -5783,6 +5799,10 @@ int zebra_vxlan_add_del_gw_macip(struct interface *ifp, const struct prefix *p,
 		return 0;
 
 	if (!zevpn->vxlan_if) {
+		/* SRv6 EVIs have no vxlan_if: the bridge is the SVI. */
+		if (zevpn->dp_ops == &zevpn_dp_ops_srv6)
+			return zebra_srv6_evpn_gw_macip_addr_event(ifp, zevpn, p, add);
+
 		if (IS_ZEBRA_DEBUG_VXLAN)
 			zlog_debug("VNI %u hash %p doesn't have intf upon MACVLAN up", zevpn->vni,
 				   zevpn);
@@ -6558,8 +6578,12 @@ void zebra_vxlan_advertise_gw_macip(ZAPI_HANDLER_ARGS)
 			return;
 
 		ifp = zevpn->vxlan_if;
-		if (!ifp)
+		if (!ifp) {
+			/* SRv6 EVIs have no vxlan_if: the bridge is the SVI. */
+			if (zevpn->dp_ops == &zevpn_dp_ops_srv6)
+				zebra_srv6_evpn_gw_macip_apply(zevpn);
 			return;
+		}
 
 		zif = ifp->info;
 
