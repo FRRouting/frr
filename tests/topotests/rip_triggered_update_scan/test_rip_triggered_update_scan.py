@@ -169,9 +169,9 @@ def toggle_dummy(add):
     )
 
 
-def r3_route_metric(prefix):
-    r3 = get_topogen().gears["r3"]
-    routes = route_json(r3, "show ip route json")
+def route_metric(prefix, node="r3"):
+    router = get_topogen().gears[node]
+    routes = route_json(router, "show ip route json")
     if routes is None:
         return None
     route = routes.get(prefix)
@@ -181,7 +181,7 @@ def r3_route_metric(prefix):
 
 
 def r3_target_metric():
-    return r3_route_metric(TARGET)
+    return route_metric(TARGET)
 
 
 def r1_target_nexthops():
@@ -221,21 +221,48 @@ def route_json(router, command):
 
 
 def settle_changed_flags():
-    """Flush changed flags left over from startup redistribution so the
-    measured rounds only carry their own changes.  Any triggered update
-    clears the whole changed set.  The dummy route is first removed so
-    the re-add below is always a real change (a no-op config change
-    sends no update), and the toggles are spaced so r2 actually
-    advertises the added route before it is withdrawn again (a route
-    added and deleted within one r2 update only ever reaches r1 as
-    metric 16, which r1 ignores for a new route)."""
+    """Flush startup changes and wait for each dummy transition on r3.
+
+    An unrelated pending round can satisfy a log-only wait before r1 has
+    learned the dummy. Waiting for r3 proves the corresponding update was
+    processed and forwarded before reversing it.
+    """
     toggle_dummy(False)
-    marker = ripd_log_marker()
-    toggle_dummy(True)
-    wait_triggered_round(marker)
-    marker = ripd_log_marker()
-    toggle_dummy(False)
-    wait_triggered_round(marker)
+    _, result = topotest.run_and_expect(
+        lambda: route_metric(DUMMY, node="r1") in (None, 16),
+        True, count=30, wait=1
+    )
+    assert result is True, "previous dummy route still reachable on r1"
+    for add in (True, False):
+        marker = ripd_log_marker()
+        toggle_dummy(add)
+        if add:
+            # After r1 instance teardown, r3 may retain an old dummy.
+            # Require fresh learning and output processing on r1 first.
+            _, result = topotest.run_and_expect(
+                functools.partial(route_metric, DUMMY, node="r1"),
+                2, count=30, wait=1,
+            )
+            assert result == 2, "r1 did not learn the dummy route"
+            _, result = topotest.run_and_expect(
+                lambda: any(
+                    "{}, {} considered for output".format(MASK_CHECK, DUMMY) in line
+                    for line in ripd_log_lines(marker)
+                ),
+                True, count=30, wait=1,
+            )
+            assert result is True, "r1 did not process the dummy for output"
+        if add:
+            expected = R3_METRIC2
+            check = functools.partial(route_metric, DUMMY)
+        else:
+            expected = True
+            check = lambda: route_metric(DUMMY) in (None, 16)
+        _, result = topotest.run_and_expect(check, expected, count=30, wait=1)
+        assert result == expected, "dummy {} did not reach r3".format(
+            "addition" if add else "withdrawal"
+        )
+        wait_triggered_round(marker)
 
 
 def wait_r3_metric(offset):
@@ -369,6 +396,21 @@ def test_triggered_update_output_filter():
     )
     marker = ripd_log_marker()
     flap_target(2)
+    # A previous dummy withdrawal may still be pending; it must not
+    # acknowledge this target metric change before r2 advertises it.
+    _, result = topotest.run_and_expect(
+        functools.partial(route_metric, TARGET, node="r1"),
+        R3_METRIC[2] - 1, count=30, wait=1,
+    )
+    assert result == R3_METRIC[2] - 1, "r1 did not process the target metric change"
+    _, result = topotest.run_and_expect(
+        lambda: any(
+            "{}, {} considered for output".format(MASK_CHECK, TARGET) in line
+            for line in ripd_log_lines(marker)
+        ),
+        True, count=30, wait=1,
+    )
+    assert result is True, "r1 did not process the changed target for output"
     wait_triggered_round(marker)
     assert r3_target_metric() == R3_METRIC[1], (
         "r3 metric changed although the changed route is filtered on r1"
@@ -403,7 +445,7 @@ def test_triggered_update_multi_route_merge():
     second_route_config()
     try:
         _, result = topotest.run_and_expect(
-            functools.partial(r3_route_metric, TARGET2), R3_METRIC2,
+            functools.partial(route_metric, TARGET2), R3_METRIC2,
             count=40, wait=1,
         )
         assert result == R3_METRIC2, (
@@ -441,23 +483,29 @@ def test_triggered_update_multi_route_merge():
             "r3 did not drop {} after withdrawal".format(TARGET2)
         )
 
-        # Each changed route is visited exactly once across the rounds
-        # that follow (a route's flag clears at its round's end),
-        # however r1's merge timer groups them: at least the two route
-        # changes (8 lines) in total, and no single round may scan the
-        # full table.
+        # Check every triggered round that follows, not just the last
+        # one: each round must stay scan-bounded, and the two route
+        # changes must ride in a single merged round.  Per-route rounds
+        # (one route each, 4 mask-check lines) would also satisfy a
+        # cross-round total of 8, so require one round to visit both
+        # changed routes (>= 8 lines; the dummy withdrawal rides along
+        # in the same round).
         lines = ripd_log_lines(marker)
-        total = sum(1 for l in lines if MASK_CHECK in l)
-        assert total >= 8, (
-            "changes for 2 distinct routes visited only {} mask-check "
-            "lines in total".format(total)
-        )
-        last_started_at = max(i for i, l in enumerate(lines)
-                              if TRIGGERED in l)
-        scan, _ = triggered_round_scan_lines(marker + last_started_at)
-        assert scan <= SCAN_LINE_LIMIT, (
-            "merged round for 2 changed routes scanned the full table: "
-            "{} mask-check lines (limit {})".format(scan, SCAN_LINE_LIMIT)
+        starts = [i for i, l in enumerate(lines) if TRIGGERED in l]
+        assert starts, "no triggered update logged on r1"
+        merged = 0
+        for start in starts:
+            scan, _ = triggered_round_scan_lines(marker + start)
+            assert scan <= SCAN_LINE_LIMIT, (
+                "triggered round for 2 changed routes scanned the full "
+                "table: {} mask-check lines (limit {})".format(
+                    scan, SCAN_LINE_LIMIT
+                )
+            )
+            merged = max(merged, scan)
+        assert merged >= 8, (
+            "no single triggered round scanned both changed routes; "
+            "largest round logged {} mask-check lines".format(merged)
         )
     finally:
         # Withdraw the second route again (a no-op when the test
@@ -678,5 +726,5 @@ def test_triggered_update_instance_teardown():
 
 
 if __name__ == "__main__":
-    args = ["-s{}".format(CWD)] + sys.argv[1:]
+    args = ["-s", CWD] + sys.argv[1:]
     sys.exit(pytest.main(args))
