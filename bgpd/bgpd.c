@@ -1089,6 +1089,7 @@ int peer_af_delete(struct peer *peer, afi_t afi, safi_t safi)
 
 	bgp_stop_announce_route_timer(af);
 	event_cancel(&af->t_refresh_stalepath);
+	UNSET_FLAG(peer->af_sflags[afi][safi], PEER_STATUS_ENHANCED_REFRESH);
 	event_cancel(&af->t_llgr_stale);
 
 	if (PAF_SUBGRP(af)) {
