@@ -14,7 +14,7 @@
         "timer":"*",
         "sourcesCount":1,
         "version":2,
-        "uptime":"*"
+        "uptime":"*","forwarded":true,"mroute":true
       }
     ]
   }
