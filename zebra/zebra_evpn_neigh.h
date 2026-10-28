@@ -123,6 +123,19 @@ struct zebra_neigh {
 	 * This field is used to do GR stale entry cleanup
 	 */
 	uint64_t gr_refresh_time;
+
+	/*
+	 * Reaps a LOCAL+INACTIVE entry left behind when its MAC moved to
+	 * remote (zebra_evpn_process_neigh_on_remote_mac_add()), if nothing
+	 * has reclaimed it - via a fresh local relearn
+	 * (zebra_evpn_local_neigh_update()) or a remote MACIP add for the
+	 * same IP (zebra_evpn_neigh_remote_macip_add()) - within the grace
+	 * period. Deliberately decoupled from those synchronous update
+	 * paths: reaping inline in any of them races against the other, in
+	 * either order, since the MAC-only and MAC+IP routes for the same
+	 * move can arrive as separate, closely-spaced BGP updates.
+	 */
+	struct event *orphan_reap_timer;
 };
 
 static inline bool zebra_neigh_cmp(const struct zebra_neigh *n1, const struct zebra_neigh *n2)

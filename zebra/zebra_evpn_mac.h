@@ -81,6 +81,12 @@ struct zebra_mac {
 #define ZEBRA_MAC_LOCAL_INACTIVE 0x800
 /* The MAC entry was created because of advertise_svi_mac */
 #define ZEBRA_MAC_SVI 0x1000
+/*
+ * SRv6 EVI: a MAC-only Type-2 route owns this remote MAC, as opposed to a MAC
+ * that exists only because of a MAC+IP route.  A MAC+IP withdrawal must leave a
+ * MAC-owned entry alone.
+ */
+#define ZEBRA_MAC_SRV6_MAC_ONLY 0x2000
 
 #define ZEBRA_MAC_ALL_LOCAL_FLAGS (ZEBRA_MAC_LOCAL | ZEBRA_MAC_LOCAL_INACTIVE)
 #define ZEBRA_MAC_ALL_PEER_FLAGS                                               \

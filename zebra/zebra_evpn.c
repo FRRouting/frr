@@ -1834,18 +1834,31 @@ void zebra_evpn_rem_macip_add(vni_t vni, const struct ethaddr *macaddr, uint16_t
 	if (!zvrf)
 		return;
 
-	/* SRv6 EVIs: IRB/neigh not yet supported (design §8) — treat MAC-IP
-	 * routes as MAC-only so the neigh path (which assumes vxlan_if) is not
-	 * exercised.  The MAC still installs via the SRv6 backend.
-	 */
-	if (!ipa_len || zevpn->dp_ops == &zevpn_dp_ops_srv6) {
-		/* MAC update */
+	if (!ipa_len) {
+		/* MAC-only update */
 		zebra_evpn_mac_remote_macip_add(zevpn, zvrf, macaddr, vtep_ip, flags, seq, esi,
 						srv6_sid);
-	} else {
-		/* MAC-IP update
-		 * Add auto MAC if it doesn't exist.
+
+		/*
+		 * Record that a MAC-only route owns this MAC, so a later MAC+IP
+		 * withdrawal does not take it away (see rem_macip_del()).
 		 */
+		if (zevpn->dp_ops == &zevpn_dp_ops_srv6) {
+			mac = zebra_evpn_mac_lookup(zevpn, macaddr);
+			if (mac && CHECK_FLAG(mac->flags, ZEBRA_MAC_REMOTE))
+				SET_FLAG(mac->flags, ZEBRA_MAC_SRV6_MAC_ONLY);
+		}
+	} else {
+		/* MAC-IP update. For an SRv6 EVI install the MAC first (with its
+		 * SRv6 SID if present), then the neighbor entry on the
+		 * SVI/bridge. A VXLAN EVI keeps its existing behavior: the MAC
+		 * is only created as an auto MAC below, owned by the neighbor,
+		 * so it goes away with the neighbor.
+		 */
+		if (zevpn->dp_ops == &zevpn_dp_ops_srv6)
+			zebra_evpn_mac_remote_macip_add(zevpn, zvrf, macaddr, vtep_ip, flags,
+							seq, esi, srv6_sid);
+
 		mac = zebra_evpn_mac_lookup(zevpn, macaddr);
 		if (!mac) {
 			mac = zebra_evpn_mac_add_auto(zevpn, macaddr);
@@ -1890,14 +1903,53 @@ void zebra_evpn_rem_macip_del(vni_t vni, const struct ethaddr *macaddr, uint16_t
 	}
 
 	/*
-	 * SRv6 EVI (no vxlan device): handle the remote MAC withdraw here.  The
-	 * VXLAN path below early-returns on a NULL vxlan_if, so without this the
-	 * remote MAC is never deleted and its peer-facing sr6 leaks (the sr6
-	 * reference is returned by zebra_evpn_mac_del's terminal release path).
-	 * SRv6 L2 EVPN carries MAC-only Type-2 (no IP/neigh).
+	 * SRv6 EVI (no vxlan device): handle the remote MAC/neigh withdraw here.
+	 * The VXLAN path below early-returns on a NULL vxlan_if, so without this
+	 * the remote MAC is never deleted and its peer-facing sr6 leaks (the
+	 * sr6 reference is returned by zebra_evpn_mac_del's terminal release
+	 * path). SRv6 L2 EVPN Type-2 routes can carry a host IP (symmetric IRB),
+	 * so the neigh must be uninstalled first - otherwise it keeps a
+	 * reference on the MAC (remote_neigh_count() stays non-zero) and the
+	 * MAC/sr6 FDB entry is never uninstalled either.
 	 */
 	if (zevpn->dp_ops == &zevpn_dp_ops_srv6) {
 		mac = zebra_evpn_mac_lookup(zevpn, macaddr);
+
+		/*
+		 * MAC+IP withdrawal: remove the neighbor, but leave the MAC alone
+		 * while a MAC-only route owns it.  BGP does not resend that
+		 * unchanged route when only the IP goes away, so deleting the MAC
+		 * here would break the host's remaining L2 traffic.  A MAC that
+		 * only existed because of this neighbor (an auto MAC) is already
+		 * dropped by zebra_evpn_neigh_remote_uninstall(), as in the VXLAN
+		 * path.  A MAC installed by the MAC+IP route itself, with no
+		 * MAC-only route behind it, is removed here once its last neighbor
+		 * is gone, so it does not stay in the FDB.
+		 */
+		if (ipa_len) {
+			n = zebra_evpn_neigh_lookup(zevpn, ipaddr);
+			if (n && mac && CHECK_FLAG(n->flags, ZEBRA_NEIGH_REMOTE)) {
+				zvrf = zebra_vrf_get_evpn();
+				if (zvrf)
+					zebra_evpn_neigh_remote_uninstall(zevpn, zvrf, n, mac,
+									  ipaddr);
+
+				/* The uninstall can free an auto MAC; look it up again. */
+				mac = zebra_evpn_mac_lookup(zevpn, macaddr);
+				if (mac && CHECK_FLAG(mac->flags, ZEBRA_MAC_REMOTE) &&
+				    !CHECK_FLAG(mac->flags, ZEBRA_MAC_SRV6_MAC_ONLY) &&
+				    list_isempty(mac->neigh_list))
+					zebra_evpn_rem_mac_del(zevpn, mac);
+			}
+			return;
+		}
+
+		/*
+		 * MAC-only withdrawal.  If neighbors still reference the MAC it
+		 * is kept as an auto MAC and removed when the last one goes.
+		 */
+		if (mac)
+			UNSET_FLAG(mac->flags, ZEBRA_MAC_SRV6_MAC_ONLY);
 		if (mac && CHECK_FLAG(mac->flags, ZEBRA_MAC_REMOTE))
 			zebra_evpn_rem_mac_del(zevpn, mac);
 		return;
