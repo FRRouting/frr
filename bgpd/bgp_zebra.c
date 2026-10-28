@@ -4069,6 +4069,9 @@ static void bgp_zebra_srv6_sid_notify_locator(struct srv6_sid_ctx *ctx,
 			label = *sid_func
 				<< (BGP_PREFIX_SID_SRV6_MAX_FUNCTION_LENGTH_FOR_LABEL - func_len);
 
+		if (bslc && sid_same(bslc->sid_policy.tovpn_sid, sid_addr))
+			return;
+
 		/* Un-export VPN to VRF route
 		 * If BGP VRF configured with SRv6, or a route-map is configured
 		 * TODO: use finer granularity to flush only the necessary, if locator_rmap only
@@ -4488,6 +4491,9 @@ static int bgp_zebra_srv6_sid_notify(ZAPI_CALLBACK_ARGS)
 				   bgp_vrf->name_pretty, __func__, loc_name);
 		goto end_sid_notify;
 	}
+
+	if (locator_rmap && note != ZAPI_SRV6_SID_FAIL_RELEASE)
+		bslc->allocation_in_progress = false;
 
 	switch (note) {
 	case ZAPI_SRV6_SID_FAIL_ALLOC:
