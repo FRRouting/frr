@@ -130,6 +130,22 @@ static int srv6_dp_mac_install(struct zebra_evpn *zevpn, struct zebra_mac *mac, 
 	}
 
 	/*
+	 * Still no resolved oif: the sr6 netdev is genuinely still mid-create
+	 * (async-create window). dplane_rem_mac_add() below only takes the
+	 * correctly-built sticky/permanent netlink_sr6_macfdb_encode() path
+	 * when sr6_ifindex != 0 - with it still 0 here, mac_update_common()
+	 * would fall back to the generic FDB encoder with ifp == br_ifp (both
+	 * zevpn->bridge_if), i.e. a bridge-self-referencing FDB entry without
+	 * NTF_STICKY, which the kernel rejects outright ("bridge: FDB entry
+	 * towards bridge must be permanent") - and unlike a deferred install,
+	 * that failure is never retried. Bail out here instead: zebra_sr6_if_add()
+	 * re-realizes the EVI once the netdev's ifindex is known, which re-enters
+	 * this function with a resolved sr6_ifindex.
+	 */
+	if (mac->sr6_ifindex == 0)
+		return 0;
+
+	/*
 	 * Program the bridge FDB entry with the sr6 (End.DT2U) interface as the
 	 * egress, VLAN-scoped by zevpn->vid.  We pass the
 	 * EVI bridge as the ctx interface (for vrf/ns); the kernel provider
@@ -184,8 +200,9 @@ static int srv6_dp_flood(struct zebra_evpn *zevpn, void *arg)
 
 static struct interface *srv6_dp_bridge(struct zebra_evpn *zevpn)
 {
-	/* TODO(phase3): return the EVI's vlan-aware bridge_if. */
-	return NULL;
+	struct zebra_srv6_evi *evi = zebra_srv6_evi_lookup(zevpn->vni);
+
+	return evi ? evi->bridge_if : NULL;
 }
 
 const struct zevpn_dp_ops zevpn_dp_ops_srv6 = {
