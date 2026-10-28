@@ -506,6 +506,105 @@ def test_same_sid_distinct_bridge():
     _, res = topotest.run_and_expect(_bad, None, count=30, wait=1)
     assert res is None, "same-SID distinct-bridge (comment-5) failed:\n%s" % res
 
+
+# (5e) Reachability of the originating PE.  The BGP session to r2 runs over the
+#      connected link, but r2's SRv6 locator is reached through a static route.
+#      Withdrawing that route leaves the session up and the BGP nexthop
+#      reachable, yet the remote SIDs unreachable: the remote paths must become
+#      invalid and the remote MAC must leave the bridge FDB, and both must come
+#      back when the locator route returns.
+@sr6_required
+def test_remote_locator_unreachable_withdraws_paths():
+    tgen = get_topogen()
+    r1 = tgen.gears["r1"]
+    mac = tgen.gears["host2"].run("cat /sys/class/net/eth0/address").strip().lower()
+    route = "ipv6 route fcbb:bbbb:2::/48 2001:db8:20::2"
+
+    def _in_fdb():
+        return mac in r1.run("bridge fdb show dev sr6-10").lower()
+
+    def _expect_fdb(present, what):
+        def _chk():
+            return None if _in_fdb() == present else what
+        _, res = topotest.run_and_expect(_chk, None, count=30, wait=1)
+        return res
+
+    def _session_up():
+        out = json.loads(r1.vtysh_cmd("show bgp l2vpn evpn summary json"))
+        return out["peers"]["2001:db8:20::2"]["state"] == "Established"
+
+    # Make sure the remote MAC is known first (r2 originates it as a Type-2).
+    tgen.gears["host2"].run("ping -c2 -W1 192.0.2.1")
+    res = _expect_fdb(True, "remote MAC %s not in the FDB before the test" % mac)
+    assert res is None, res
+
+    try:
+        r1.vtysh_cmd("configure terminal\nno %s\n" % route)
+        assert _session_up(), "the BGP session must stay up in this test"
+        res = _expect_fdb(False, "remote MAC %s still in the FDB although the "
+                          "remote locator is unreachable" % mac)
+        assert res is None, res
+        assert _session_up(), "the BGP session dropped"
+    finally:
+        r1.vtysh_cmd("configure terminal\n%s\n" % route)
+
+    tgen.gears["host2"].run("ping -c2 -W1 192.0.2.1")
+    res = _expect_fdb(True, "remote MAC %s did not return after the locator "
+                      "route was restored" % mac)
+    assert res is None, res
+
+
+# (5f) A bridge named in an EVI before it exists must be bound when it appears:
+#      the configured name is kept (and written back to the running config), and
+#      creating the bridge later brings the EVI up with its own SIDs.
+LATE_EVI = 99
+LATE_BR = "br-late"
+LATE_VID = 99
+
+def _evi_row(r1, evi):
+    """The EVI's row in 'show bgp segment-routing srv6 evpn' (None if absent)."""
+    for ln in r1.vtysh_cmd("show bgp segment-routing srv6 evpn").splitlines():
+        toks = ln.split()
+        if toks and toks[0] == str(evi):
+            return ln
+    return None
+
+def test_evi_late_bridge_binds():
+    r1 = get_topogen().gears["r1"]
+    r1.run("ip link del %s" % LATE_BR)
+
+    r1.vtysh_cmd("configure terminal\nsegment-routing\n srv6\n  l2-evpn\n"
+                 "   evi %d locator MAIN bridge %s\n"
+                 "    service-type vlan-based\n     vlan %d\n   exit\n"
+                 % (LATE_EVI, LATE_BR, LATE_VID))
+
+    # The bridge does not exist yet: its name must still be remembered.
+    cfg = r1.vtysh_cmd("show running-config")
+    assert "evi %d locator MAIN bridge %s" % (LATE_EVI, LATE_BR) in cfg, \
+        "configured bridge name lost while the bridge does not exist:\n%s" % cfg
+    assert _evi_row(r1, LATE_EVI) is None, "EVI got SIDs without its bridge"
+
+    # Create the bridge: the EVI must come up and allocate its SIDs.
+    r1.run("ip link add %s type bridge vlan_filtering 1" % LATE_BR)
+    r1.run("ip link set %s up" % LATE_BR)
+    r1.run("bridge vlan add dev %s vid %d self" % (LATE_BR, LATE_VID))
+
+    def _bound():
+        row = _evi_row(r1, LATE_EVI)
+        if row is None:
+            return "EVI %d not listed" % LATE_EVI
+        if "fcbb:bbbb:1:" not in row or "<unallocated>" in row:
+            return "EVI %d has no SIDs yet: %s" % (LATE_EVI, row)
+        return None
+
+    _, res = topotest.run_and_expect(_bound, None, count=30, wait=1)
+
+    # Clean up first, so a failure above does not leak into the teardown test.
+    r1.vtysh_cmd("configure terminal\nsegment-routing\n srv6\n  l2-evpn\n"
+                 "   no evi %d\n" % LATE_EVI)
+    r1.run("ip link del %s" % LATE_BR)
+    assert res is None, "EVI did not come up after its bridge appeared: %s" % res
+
 # (6) teardown, stays LAST: removing the VLAN->EVI bindings releases the per-EVI
 #     End.DT2U / End.DT2M service SIDs (replaces the old 'no sid vpn export').
 def test_evi_unbind_releases_l2_sids():
