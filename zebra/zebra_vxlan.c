@@ -4687,6 +4687,12 @@ int zebra_vxlan_handle_kernel_neigh_update(struct interface *ifp, struct interfa
 	if (!zevpn)
 		return 0;
 
+	/* For SRv6 EVIs, bridge learning may be disabled; treat all local
+	 * neighbors as active so MAC+IP Type-2 routes are advertised.
+	 */
+	if (zevpn->dp_ops == &zevpn_dp_ops_srv6)
+		local_inactive = false;
+
 	if (IS_ZEBRA_DEBUG_VXLAN || IS_ZEBRA_DEBUG_EVPN_MH_NEIGH)
 		zlog_debug("Add/Update neighbor %pIA MAC %pEA intf %s(%u) state 0x%x %s%s%s%s-> L2-VNI %u",
 			   ip, macaddr, ifp->name, ifp->ifindex, state,
@@ -5226,6 +5232,12 @@ int zebra_vxlan_local_mac_add_update(struct interface *ifp,
 				zevpn->vni, zevpn);
 		return -1;
 	}
+
+	/* For SRv6 EVIs, bridge learning may be disabled; treat all local MACs
+	 * as active so they are advertised via EVPN regardless of FDB state.
+	 */
+	if (zevpn->dp_ops == &zevpn_dp_ops_srv6)
+		local_inactive = false;
 
 	zvrf = zebra_vrf_get_evpn();
 	return zebra_evpn_add_update_local_mac(zvrf, zevpn, ifp, macaddr, vid,

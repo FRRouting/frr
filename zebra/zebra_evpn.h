@@ -94,8 +94,15 @@ static inline struct interface *zevpn_map_to_svi(struct zebra_evpn *zevpn, bool 
 	struct zebra_vxlan_vni *vni;
 
 	ifp = zevpn->vxlan_if;
-	if (!ifp)
+	if (!ifp) {
+		/* SRv6 EVI: the bridge itself is the SVI (no vxlan device). */
+		if (zevpn->bridge_if) {
+			if (check_oper_state && !if_is_operative(zevpn->bridge_if))
+				return NULL;
+			return zevpn->bridge_if;
+		}
 		return NULL;
+	}
 	zif = ifp->info;
 	if (!zif)
 		return NULL;
@@ -136,6 +143,7 @@ int zebra_evpn_advertise_subnet(struct zebra_evpn *zevpn, struct interface *ifp,
 				int advertise);
 int zebra_evpn_gw_macip_add(struct interface *ifp, struct zebra_evpn *zevpn,
 			    struct ethaddr *macaddr, struct ipaddr *ip);
+int zebra_srv6_evpn_gw_macip_add(struct interface *bridge_if, struct zebra_evpn *zevpn);
 int zebra_evpn_gw_macip_del(struct interface *ifp, struct zebra_evpn *zevpn,
 			    struct ipaddr *ip);
 void zebra_evpn_gw_macip_del_for_evpn_hash(struct hash_bucket *bucket,
