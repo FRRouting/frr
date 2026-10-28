@@ -18,6 +18,7 @@ extern "C" {
 
 struct vty;
 struct zebra_if;
+struct zebra_evpn_es;
 
 /*
  * A protection entry is kept per (ES bond, VLAN) while the bond has
@@ -37,6 +38,12 @@ extern void zebra_evpn_bpp_if_del(struct zebra_if *zif);
  * SVI, VRF, L3VNI or the l3vni-neigh setting.
  */
 extern void zebra_evpn_bpp_re_eval_schedule(void);
+
+/* The ES became known to BGP or not; sync its L3VNI ES-EVIs. */
+extern void zebra_evpn_bpp_es_update(struct zebra_evpn_es *es);
+
+/* Replay (add) or withdraw (del) the L3VNI ES-EVIs sent for the ES. */
+extern void zebra_evpn_bpp_es_send_all(struct zebra_evpn_es *es, bool add);
 
 /* One row per entry; ifname (may be NULL) filters on the ES bond. */
 extern void zebra_evpn_bpp_show(struct vty *vty, const char *ifname, bool detail, bool uj);
