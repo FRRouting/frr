@@ -886,23 +886,43 @@ will cause great confusion.
 
 .. clicmd:: show ip igmp interface
 
-   Display IGMP interface information.
+   Display IGMP interface information. The per-interface view includes
+   ``Last Sent``, the age of the last query this router transmitted, or
+   ``never``. JSON field: ``lastQuerySent``. See :ref:`igmp-report-query`.
 
 .. clicmd:: show ip igmp [vrf NAME] join [json]
 
    Display ``ip igmp join-group`` entries. ``show ip igmp join-group`` is the
-   same command. Each row has ``Fwd`` and ``Mroute`` columns. See
-   :ref:`igmp-fwd-mroute`.
+   same command. The same groups also appear in ``show ip igmp groups``.
+   Each row has ``Fwd`` and ``Mroute`` columns. See :ref:`igmp-fwd-mroute`.
 
 .. clicmd:: show ip igmp [vrf NAME] groups [INTERFACE [GROUP]] [detail] [json]
 
-   Display learned IGMP groups. Each row has ``Fwd`` and ``Mroute`` columns.
-   Without ``detail``, those columns summarize the group on that interface.
-   ``detail`` prints one row per source. See :ref:`igmp-fwd-mroute`.
+   Display IGMP group membership. Learned groups, ``ip igmp static-group``,
+   and ``ip igmp join-group`` are in this table. Each row has ``Fwd`` and
+   ``MRT`` columns. Without ``detail``, those columns summarize the group
+   on that interface. ``detail`` prints one row per source. A configured
+   source stays on that list when a report for the group names a different
+   source. The same rows carry ``Query``, ``LastReporter``, and, with
+   ``detail``, ``LastReport``.
+   ``Flags`` is the IGMP part of mroute ``Origin``. ``H`` is a forwarding
+   IGMP source, ``L`` is ``ip igmp join-group``, and ``S`` is
+   ``ip igmp static-group``. Letters are combined in that order, for
+   example ``LH`` or ``HS``. Without ``detail`` the column is the OR for
+   the group. ``detail`` prints it per source, and a ``(*,G)`` join or
+   static-group covers every source of that group. JSON key ``flags``.
+   A static group with no host report does not expire: ``Timer`` is
+   ``stopped``, ``LastReporter`` is ``0.0.0.0``, and ``Flags`` is ``S``.
+   A join-group that has sent its local report is the learned row.
+   ``LastReporter`` is this router's address on the interface, and
+   ``Flags`` is ``LH`` once that source is forwarding.
+   See :ref:`igmp-fwd-mroute` and :ref:`igmp-report-query`.
 
 .. clicmd:: show ip igmp groups retransmissions
 
-   Display IGMP group retransmission information.
+   Display IGMP group retransmission information. This is the same group
+   ``Query`` count as ``show ip igmp groups``, plus the retransmit timer.
+   See :ref:`igmp-report-query`.
 
 .. clicmd:: show ip igmp [vrf NAME] proxy [json]
 
@@ -911,24 +931,29 @@ will cause great confusion.
 
 .. clicmd:: show ip igmp [vrf NAME] sources [INTERFACE [GROUP]] [json]
 
-   Display learned IGMP sources, one row per source, with ``Fwd`` and
-   ``Mroute`` columns. See :ref:`igmp-fwd-mroute`.
+   Display learned IGMP sources, one row per source, with ``Fwd``,
+   ``Mroute``, and ``Query`` columns. See :ref:`igmp-fwd-mroute` and
+   :ref:`igmp-report-query`.
 
 .. clicmd:: show ip igmp [vrf NAME] static-group [json]
 
-   Display ``ip igmp static-group`` entries. Each row has ``Fwd`` and
-   ``Mroute`` columns. A static group does not create an IGMP source, so
-   ``Fwd`` stays ``N`` unless a host on that interface has also joined.
-   ``Mroute Y`` means the interface is an installed mroute output. See
-   :ref:`igmp-fwd-mroute`.
+   Display ``ip igmp static-group`` entries. The same groups are included
+   in ``show ip igmp groups``. Each row has ``Fwd`` and ``Mroute`` columns.
+   A static group does not create an IGMP source, so ``Fwd`` stays ``N``
+   unless a host on that interface has also joined. ``Mroute Y`` means the
+   interface is an installed mroute output. See :ref:`igmp-fwd-mroute`.
 
 .. clicmd:: show ip igmp sources retransmissions
 
-   Display IGMP source retransmission information.
+   Display IGMP source retransmission information. This is the same per-source
+   ``Query`` count as ``show ip igmp sources``. See :ref:`igmp-report-query`.
 
 .. clicmd:: show ip igmp statistics
 
-   Display IGMP statistics information.
+   Display IGMP statistics. Received queries, reports, and leaves are
+   counters. ``general queries sent`` and ``group queries sent`` count queries
+   this router transmitted. The age of the last one is ``Last Sent`` on
+   ``show ip igmp interface``. See :ref:`igmp-report-query`.
 
 .. clicmd:: show ip multicast
 
@@ -1211,13 +1236,25 @@ To follow one receiver until packets are known to be flowing:
 #. Find the receiver.
 
    - A host report is in ``show ip igmp groups`` and ``show ip igmp sources``.
-   - ``ip igmp join-group`` is in ``show ip igmp join``.
-   - ``ip igmp static-group`` is in ``show ip igmp static-group``.
+     ``LastReporter`` is the host that sent the last membership report.
+   - ``ip igmp join-group`` is in ``show ip igmp join`` and in
+     ``show ip igmp groups``. Once the local socket has reported,
+     ``LastReporter`` is this router's address on that interface.
+   - ``ip igmp static-group`` is in ``show ip igmp static-group`` and in
+     ``show ip igmp groups``. With no host report, ``Timer`` is ``stopped``
+     and ``LastReporter`` is ``0.0.0.0``.
 
-#. Read ``Fwd`` and ``Mroute`` on that row. Use ``groups ... detail`` or
-   ``show ip igmp sources`` when the group summary is not specific enough.
+   ``Flags`` on the groups row keeps ``L`` or ``S`` after a report makes
+   that row a learned group. ``H`` is a forwarding IGMP source, including
+   the report a local join sends, so a join-group alone is ``LH``. It is
+   absent while that source is not forwarding. A static group with no
+   report is ``S``. ``detail`` splits the same letters per source.
 
-#. When ``Mroute`` is ``N``, this interface is not an installed output.
+#. Read ``Fwd``, ``MRT``, and ``Flags`` on that row. Use
+   ``groups ... detail`` or ``show ip igmp sources`` when the group
+   summary is not specific enough.
+
+#. When ``MRT`` is ``N``, this interface is not an installed output.
    ``show ip pim interface`` shows whether PIM is enabled and whether this
    router is DR. A join is refused when PIM is disabled or this router is not
    DR, which leaves ``Fwd`` at ``N`` and keeps the interface out of the
@@ -1225,12 +1262,14 @@ To follow one receiver until packets are known to be flowing:
    ``<iif?>`` means the path toward the RP or the source is unresolved, so the
    kernel mroute is not installed.
 
-#. When ``Mroute`` is ``Y``, confirm that interface under Output in
+#. When ``MRT`` is ``Y``, confirm that interface under Output in
    ``show ip mroute GROUP``. ``show ip mroute GROUP detail`` adds
    ``Origin``, which is why that output is a receiver. ``H`` is a host
    report, ``L`` is a local ``ip igmp join-group``, ``S`` is
-   ``ip igmp static-group``, and ``P`` is a PIM join. ``*`` means the output
-   was inherited from ``(*,G)``. ``R`` is the register tunnel (``pimreg``).
+   ``ip igmp static-group``, and ``P`` is a PIM join. The same ``H``,
+   ``L``, and ``S`` letters are the ``Flags`` column on
+   ``show ip igmp groups``. ``*`` means the output was inherited from
+   ``(*,G)``. ``R`` is the register tunnel (``pimreg``).
    ``D`` is dense mode
    and ``V`` is VxLAN. One interface can show more than one letter, for
    example ``*S`` or ``LH``. A ``(*,G)`` row is the RP tree and does not name
@@ -1246,6 +1285,48 @@ To follow one receiver until packets are known to be flowing:
    packets on that mroute. ``LastUsed`` is seconds since the last forwarded
    packet. A rising ``WrongIf`` count means packets arrived on an interface
    other than Input and were not forwarded by that entry.
+
+.. _igmp-report-query:
+
+IGMP reporters and queries
+--------------------------
+
+``LastReporter``, ``Query``, and ``Last Sent`` answer who last asked for a
+group, whether this router still owes that group a specific query, and
+whether the querier has transmitted one. They are not a packet log.
+``debug igmp packets`` prints the messages themselves. A host report is not
+answered with another report. The router records the membership and, when it
+is the querier, sends queries.
+
+``show ip igmp groups`` prints ``LastReporter`` for each learned group. That
+is the source address of the last membership report: an unsolicited join, or
+a report sent in answer to a query. ``detail`` also prints ``LastReport``,
+the age of that report. JSON keys are ``lastReporter`` and ``lastReport``.
+For a learned group, both are omitted until a report has been accepted.
+A leave, an empty IGMPv3 change-to-include, or a block does not replace
+``LastReporter``.
+A change-to-include that lists sources is recorded like any other join.
+``ip igmp static-group`` is in this table even though it does not come
+from a host. With no report, ``LastReporter`` is ``0.0.0.0`` and the timer
+is ``stopped``. ``ip igmp join-group`` is here too. After the local socket
+reports, ``LastReporter`` is this router's address on that interface.
+
+``Query`` is how many specific queries are still waiting to be sent. Without
+``detail``, ``show ip igmp groups`` counts the group-specific query started
+after a leave. ``detail`` and ``show ip igmp sources`` count the
+group-and-source-specific query for that source. The JSON key on both the
+group and the source is ``queryRetransmit``. ``0`` means nothing is waiting.
+``show ip igmp groups retransmissions`` and ``show ip igmp sources
+retransmissions`` show the same counters with the retransmit timer.
+
+``show ip igmp interface IFNAME`` prints ``Last Sent`` in the querier block.
+That is the age of the last general or group query this router transmitted on
+the interface, or ``never``. The JSON key ``lastQuerySent`` is omitted until
+a query has been sent. ``show ip igmp statistics`` counts those sends
+(``general queries sent`` and ``group queries sent``) without naming the
+group. After a leave, ``Query`` greater than ``0`` is the confirmation query
+still in flight. ``LastReporter`` remains the host that last reported
+membership.
 
 
 PIM Debug Commands
