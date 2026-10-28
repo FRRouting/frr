@@ -20,11 +20,14 @@ r1-eth0 has an ASM static-group and an ASM join-group. With the RP local,
 to pin the new fields:
 
   static-group  forwarded false, mroute true, origin S
+                groups timer stopped, lastReporter 0.0.0.0, flags S
   join-group    forwarded true,  mroute true, origin LH
-                (the join socket also produces a learned report)
+                groups flags LH (the join socket also produces a learned report)
   pimreg        origin R
+  join-group    lastReporter is r1-eth0's address, queryRetransmit 0
+  querier       lastQuerySent once the startup query is transmitted
 
-Static groups stay out of show ip igmp groups. Inheritance (*), PIM (P),
+Inheritance (*), PIM (P),
 dense (D) and VxLAN (V) need a second router or a tunnel, so they are not
 produced here.
 """
@@ -82,13 +85,12 @@ def teardown_module(mod):
     get_topogen().stop_topology()
 
 
-def _yn(text, group):
-    """Fwd and Mroute are the last two columns on these IGMP tables."""
+def _cols(text, group):
+    """Whitespace columns of the row that contains group."""
     for line in text.splitlines():
-        if group in line.split():
-            parts = line.split()
-            if len(parts) >= 2:
-                return parts[-2], parts[-1]
+        parts = line.split()
+        if group in parts:
+            return parts
     return None
 
 
@@ -134,7 +136,20 @@ def test_igmp_forwarded_and_mroute():
                     "group": JOIN_GROUP,
                     "forwarded": True,
                     "mroute": True,
-                }
+                    "flags": "LH",
+                    "queryRetransmit": 0,
+                    "lastReporter": "10.1.1.1",
+                    "lastReport": "*",
+                },
+                {
+                    "group": STATIC_GROUP,
+                    "timer": "stopped",
+                    "forwarded": False,
+                    "mroute": True,
+                    "flags": "S",
+                    "queryRetransmit": 0,
+                    "lastReporter": "0.0.0.0",
+                },
             ]
         }
     }
@@ -145,14 +160,37 @@ def test_igmp_forwarded_and_mroute():
                     "group": JOIN_GROUP,
                     "forwarded": True,
                     "mroute": True,
+                    "flags": "LH",
+                    "queryRetransmit": 0,
+                    "lastReporter": "10.1.1.1",
+                    "lastReport": "*",
                     "sources": [
                         {
                             "source": "*",
                             "forwarded": True,
                             "mroute": True,
+                            "flags": "LH",
+                            "queryRetransmit": 0,
                         }
                     ],
-                }
+                },
+                {
+                    "group": STATIC_GROUP,
+                    "timer": "stopped",
+                    "forwarded": False,
+                    "mroute": True,
+                    "flags": "S",
+                    "lastReporter": "0.0.0.0",
+                    "sources": [
+                        {
+                            "source": "*",
+                            "forwarded": False,
+                            "mroute": True,
+                            "flags": "S",
+                            "queryRetransmit": 0,
+                        }
+                    ],
+                },
             ]
         }
     }
@@ -160,11 +198,15 @@ def test_igmp_forwarded_and_mroute():
         RECV_IF: {
             JOIN_GROUP: {
                 "group": JOIN_GROUP,
+                "queryRetransmit": 0,
+                "lastReporter": "10.1.1.1",
+                "lastReport": "*",
                 "sources": [
                     {
                         "source": "*",
                         "forwarded": True,
                         "mroute": True,
+                        "queryRetransmit": 0,
                     }
                 ],
             }
@@ -194,34 +236,73 @@ def test_igmp_forwarded_and_mroute():
         if diff is not None:
             return diff
 
-        groups = r1.vtysh_cmd("show ip igmp groups json", isjson=True)
-        if STATIC_GROUP in str(groups):
-            return "static group {} showed up in show ip igmp groups: {}".format(
-                STATIC_GROUP, groups
-            )
-
         static_text = r1.vtysh_cmd("show ip igmp static-group")
         join_text = r1.vtysh_cmd("show ip igmp join")
         groups_text = r1.vtysh_cmd("show ip igmp groups")
+        detail_text = r1.vtysh_cmd("show ip igmp groups detail")
         sources_text = r1.vtysh_cmd("show ip igmp sources")
         if "Fwd Mroute" not in static_text:
             return "static-group text has no Fwd/Mroute header:\n{}".format(static_text)
         if "Fwd Mroute" not in join_text:
             return "join text has no Fwd/Mroute header:\n{}".format(join_text)
-        if "Fwd Mroute" not in groups_text:
-            return "groups text has no Fwd/Mroute header:\n{}".format(groups_text)
-        if "Fwd Mroute" not in sources_text:
-            return "sources text has no Fwd/Mroute header:\n{}".format(sources_text)
-        if _yn(static_text, STATIC_GROUP) != ("N", "Y"):
-            return "static-group text flags are not N Y:\n{}".format(static_text)
-        if _yn(join_text, JOIN_GROUP) != ("Y", "Y"):
-            return "join text flags are not Y Y:\n{}".format(join_text)
-        if _yn(groups_text, JOIN_GROUP) != ("Y", "Y"):
-            return "groups text flags are not Y Y:\n{}".format(groups_text)
-        if STATIC_GROUP in groups_text:
-            return "static group {} showed up in show ip igmp groups:\n{}".format(
-                STATIC_GROUP, groups_text
+        if "Fwd MRT" not in groups_text:
+            return "groups text has no Fwd/MRT header:\n{}".format(groups_text)
+        if "Fwd Mroute" not in sources_text or "Query" not in sources_text:
+            return "sources text has no Fwd/Mroute/Query header:\n{}".format(
+                sources_text
             )
+        if "MRT Flags Query" not in groups_text:
+            return "groups text has no Flags header:\n{}".format(groups_text)
+        legend = "Flags: H - host report, L - local join, S - static-group"
+        if legend not in groups_text:
+            return "groups text has no Flags legend:\n{}".format(groups_text)
+        if "MRT Flags Query" not in detail_text or "LastReport" not in detail_text:
+            return "groups detail text has no Flags/LastReport:\n{}".format(detail_text)
+        static_cols = _cols(static_text, STATIC_GROUP)
+        join_cols = _cols(join_text, JOIN_GROUP)
+        static_group_cols = _cols(groups_text, STATIC_GROUP)
+        group_cols = _cols(groups_text, JOIN_GROUP)
+        detail_cols = _cols(detail_text, JOIN_GROUP)
+        static_detail = _cols(detail_text, STATIC_GROUP)
+        source_cols = _cols(sources_text, JOIN_GROUP)
+        if not static_cols or tuple(static_cols[-2:]) != ("N", "Y"):
+            return "static-group text flags are not N Y:\n{}".format(static_text)
+        if not join_cols or tuple(join_cols[-2:]) != ("Y", "Y"):
+            return "join text flags are not Y Y:\n{}".format(join_text)
+        # groups row ends Fwd, Mroute, Flags, Query, LastReporter
+        if (
+            not group_cols
+            or tuple(group_cols[-5:-3]) != ("Y", "Y")
+            or group_cols[-3] != "LH"
+            or group_cols[-1] != "10.1.1.1"
+        ):
+            return "groups text flags or last reporter:\n{}".format(groups_text)
+        if (
+            not static_group_cols
+            or tuple(static_group_cols[-5:-3]) != ("N", "Y")
+            or static_group_cols[-3] != "S"
+            or static_group_cols[-1] != "0.0.0.0"
+            or "stopped" not in static_group_cols
+        ):
+            return "static group is not a stopped groups row:\n{}".format(groups_text)
+        # detail row ends Fwd, Mroute, Flags, Query, LastReporter, LastReport
+        if not detail_cols or detail_cols[-4] != "LH" or detail_cols[-2] != "10.1.1.1":
+            return "groups detail flags or last reporter:\n{}".format(detail_text)
+        if not static_detail or static_detail[-4] != "S":
+            return "static groups detail flags:\n{}".format(detail_text)
+        # sources row ends Query, Uptime
+        if not source_cols or source_cols[-2] != "0":
+            return "sources text query count:\n{}".format(sources_text)
+        iface = r1.vtysh_cmd("show ip igmp interface {}".format(RECV_IF))
+        if "Last Sent   : never" in iface or "Last Sent" not in iface:
+            return "querier has not sent a query:\n{}".format(iface)
+        diff = topotest.router_json_cmp(
+            r1,
+            "show ip igmp interface json",
+            {RECV_IF: {"lastQuerySent": "*"}},
+        )
+        if diff is not None:
+            return diff
         return None
 
     _, result = topotest.run_and_expect(_check, None, count=90, wait=1)
