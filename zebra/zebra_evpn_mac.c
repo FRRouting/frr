@@ -2414,6 +2414,7 @@ int zebra_evpn_add_update_local_mac(struct zebra_vrf *zvrf,
 	/* Check if we need to create or update or it is a NO-OP. */
 	if (!mac)
 		mac = zebra_evpn_mac_lookup(zevpn, macaddr);
+
 	if (!mac) {
 		if (IS_ZEBRA_DEBUG_VXLAN || IS_ZEBRA_DEBUG_EVPN_MH_MAC)
 			zlog_debug("ADD %sMAC %pEA intf %s(%u) VID %u -> VNI %u%s",

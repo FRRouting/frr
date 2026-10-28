@@ -31,8 +31,20 @@
 #include "zebra/zebra_evpn_mh.h"
 #include "zebra/zebra_evpn_neigh.h"
 #include "zebra/zebra_evpn_mac.h"
+#include "zebra/zebra_srv6_l2evpn.h"
 
 DEFINE_MTYPE_STATIC(ZEBRA, NEIGH, "EVI Neighbor");
+
+/* Return the zebra_vrf for a zevpn, working for both VxLAN and SRv6 EVIs.
+ * VxLAN EVIs store the vrf via vxlan_if; SRv6 EVIs have no vxlan_if so we
+ * fall back to the global EVPN VRF.
+ */
+static inline struct zebra_vrf *zebra_evpn_get_zvrf(struct zebra_evpn *zevpn)
+{
+	if (zevpn->vxlan_if && zevpn->vxlan_if->vrf)
+		return (struct zebra_vrf *)zevpn->vxlan_if->vrf->info;
+	return zebra_vrf_get_evpn();
+}
 
 int neigh_list_cmp(void *p1, void *p2)
 {
@@ -912,7 +924,7 @@ void zebra_evpn_process_neigh_on_local_mac_change(struct zebra_evpn *zevpn,
 	struct listnode *node = NULL;
 	struct zebra_vrf *zvrf = NULL;
 
-	zvrf = zevpn->vxlan_if->vrf->info;
+	zvrf = zebra_evpn_get_zvrf(zevpn);
 
 	if (IS_ZEBRA_DEBUG_VXLAN)
 		zlog_debug("Processing neighbors on local MAC %pEA %s, VNI %u",
@@ -1286,11 +1298,33 @@ int zebra_evpn_local_neigh_update(struct zebra_evpn *zevpn,
 		}
 	}
 
-	zvrf = zevpn->vxlan_if->vrf->info;
+	/*
+	 * SRv6 L2 EVPN: a PE advertises a host MAC+IP Type-2 only once the
+	 * neighbor's MAC is a known *local* MAC.  The SVI neighbor event that
+	 * brought us here is reliably delivered, but the matching local MAC
+	 * from the SW-bridge FDB may not be: the EVI-realize FDB rescan is
+	 * one-shot, and an ongoing SW-bridge learn can be missed or race the
+	 * neighbor (learned before its MAC).  While the neighbor's MAC is
+	 * still an AUTO placeholder, kick a bridge FDB re-read so the real
+	 * local MAC is (re-)learned; that converts the AUTO MAC to local and
+	 * activates this neighbor for advertisement.  Driven by the recurring
+	 * neighbor events, this retries until the MAC lands, and is
+	 * self-limiting: once the MAC is local the AUTO flag is gone and this
+	 * is skipped.
+	 */
+	if (zevpn->dp_ops == &zevpn_dp_ops_srv6 && zevpn->bridge_if &&
+	    CHECK_FLAG(zmac->flags, ZEBRA_MAC_AUTO)) {
+		struct zebra_ns *zns = zebra_ns_lookup(NS_DEFAULT);
+
+		if (zns)
+			dplane_fdb_read_for_bridge(zns, zevpn->bridge_if, zevpn->bridge_if,
+						   zevpn->vid);
+	}
+
+	zvrf = zebra_evpn_get_zvrf(zevpn);
 	if (!zvrf) {
 		if (IS_ZEBRA_DEBUG_VXLAN)
-			zlog_debug("        Unable to find vrf for: %d",
-				   zevpn->vxlan_if->vrf->vrf_id);
+			zlog_debug("        Unable to find vrf for VNI %u", zevpn->vni);
 		return -1;
 	}
 
@@ -2339,7 +2373,7 @@ int zebra_evpn_neigh_del_ip(struct zebra_evpn *zevpn, const struct ipaddr *ip)
 		return 0;
 	}
 
-	zvrf = zevpn->vxlan_if->vrf->info;
+	zvrf = zebra_evpn_get_zvrf(zevpn);
 	if (!zvrf) {
 		zlog_debug("%s: VNI %u vrf lookup failed.", __func__,
 			   zevpn->vni);
