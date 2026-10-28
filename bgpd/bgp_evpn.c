@@ -92,6 +92,54 @@ static void bgp_evpn_remote_ip_hash_link_nexthop(struct hash_bucket *bucket,
 static void bgp_evpn_remote_ip_hash_unlink_nexthop(struct hash_bucket *bucket,
 						   void *args);
 
+/*
+ * Whether this VRF has any live encapsulation to originate Type-5 routes
+ * over.  Moved here (out of bgp_evpn.h) since the SRv6 check requires
+ * bgp_evpn_private.h, which the public header intentionally doesn't include.
+ */
+int advertise_type5_routes_bestpath(const struct bgp *bgp_vrf, afi_t afi, safi_t safi)
+{
+	uint16_t flags = bgp_vrf->af_flags[AFI_L2VPN][SAFI_EVPN];
+
+	if (safi == SAFI_MPLS_VPN) {
+		if (afi == AFI_IP && CHECK_FLAG(flags, BGP_L2VPN_EVPN_ADV_IPV4_VPN))
+			return 1;
+
+		if (afi == AFI_IP6 && CHECK_FLAG(flags, BGP_L2VPN_EVPN_ADV_IPV6_VPN))
+			return 1;
+
+		return 0;
+	}
+
+	if (!bgp_vrf->l3vni && !is_srv6_vrf_live((struct bgp *)bgp_vrf))
+		return 0;
+
+	if (afi == AFI_IP && CHECK_FLAG(flags, BGP_L2VPN_EVPN_ADV_IPV4_UNICAST))
+		return 1;
+	if (afi == AFI_IP6 && CHECK_FLAG(flags, BGP_L2VPN_EVPN_ADV_IPV6_UNICAST))
+		return 1;
+
+	return 0;
+}
+
+int advertise_type5_routes_multipath(const struct bgp *bgp_vrf, afi_t afi, safi_t safi)
+{
+	uint16_t flags = bgp_vrf->af_flags[AFI_L2VPN][SAFI_EVPN];
+
+	if (safi == SAFI_MPLS_VPN)
+		return 0;
+
+	if (!bgp_vrf->l3vni && !is_srv6_vrf_live((struct bgp *)bgp_vrf))
+		return 0;
+
+	if (afi == AFI_IP && CHECK_FLAG(flags, BGP_L2VPN_EVPN_ADV_IPV4_UNICAST_GW_IP))
+		return 1;
+	if (afi == AFI_IP6 && CHECK_FLAG(flags, BGP_L2VPN_EVPN_ADV_IPV6_UNICAST_GW_IP))
+		return 1;
+
+	return 0;
+}
+
 static struct ipaddr zero_vtep_ip = {
 	.ipa_type = IPADDR_V4,
 	.ip = {
@@ -1416,8 +1464,17 @@ static void build_evpn_type5_route_extcomm(struct bgp *bgp_vrf, struct attr *att
 	} else
 		ecom = ecommunity_new();
 
-	/* Encap */
-	if (tnl_type == BGP_ENCAP_TYPE_VXLAN) {
+	/* Encap. Only for VXLAN-encapsulated VRFs - an SRv6-backed VRF's
+	 * actual encapsulation is signalled by the Prefix-SID L3 Service
+	 * TLV (attached by the caller), not this community. Tagging an
+	 * SRv6 Type-5 route VXLAN here contradicts that TLV - a receiver
+	 * that trusts the encap community (e.g. Cisco IOS-XR CEF) gets a
+	 * contradictory signal and can fail to resolve the route into a
+	 * forwarding adjacency. Mirrors the equivalent fix already applied
+	 * to the Type-2/Type-3 builder, build_evpn_route_extcomm(), which
+	 * guards on !is_vpn_srv6(vpn) for the same reason.
+	 */
+	if (tnl_type == BGP_ENCAP_TYPE_VXLAN && !is_srv6_vrf_live(bgp_vrf)) {
 		encode_encap_extcomm(tnl_type, &eval_tmp);
 		ecommunity_append_val_unchecked(ecom, &eval_tmp);
 		attr->encap_tunneltype = tnl_type;
@@ -2040,7 +2097,8 @@ static int update_evpn_type5_route_entry(struct bgp *bgp_evpn, struct bgp *bgp_v
 					 safi_t safi, struct bgp_dest *dest,
 					 struct bgp_path_info *originator, struct attr *attr,
 					 int *route_changed, struct bgp_path_info **entry,
-					 uint32_t addpath_id)
+					 uint32_t addpath_id, bool use_transpose_label,
+					 mpls_label_t transpose_label)
 {
 	struct attr *attr_new = NULL;
 	struct bgp_path_info *pi = NULL;
@@ -2092,10 +2150,21 @@ static int update_evpn_type5_route_entry(struct bgp *bgp_evpn, struct bgp *bgp_v
 		if (local_pi)
 			SET_FLAG(pi->flags, BGP_PATH_MULTIPATH);
 
-		/* Type-5 routes advertise the L3-VNI */
+		/* Type-5 routes advertise the L3-VNI, except when the SRv6
+		 * L3 Service SID attached above uses the RFC 9252 §4
+		 * transposition scheme (compressed locator, small function) -
+		 * in that case the label field must carry the transposed
+		 * function value instead, so a receiver applying the
+		 * transposition (per the attribute's Transposition
+		 * Length/Offset) can reconstruct the full SID.
+		 */
 		bgp_evpn_path_info_extra_get(pi);
 		pi->extra->evpn->type5_originator = originator;
-		if (originator && is_pi_family_vpn(originator)) {
+		if (use_transpose_label) {
+			encode_label(transpose_label, &bgp_labels.label[0]);
+			bgp_set_valid_label(&bgp_labels.label[0]);
+			bgp_labels.num_labels = 1;
+		} else if (originator && is_pi_family_vpn(originator)) {
 			if (BGP_PATH_INFO_NUM_LABELS(originator)) {
 				bgp_labels.label[0] = originator->extra->labels->label[0];
 				bgp_labels.num_labels = 1;
@@ -2174,6 +2243,8 @@ static int update_evpn_type5_route(struct bgp *bgp_vrf, struct bgp_path_info *or
 	struct ipaddr vtep_ip;
 	struct prefix_rd *prd = &bgp_vrf->vrf_prd;
 	bgp_encap_types tnl_type = BGP_ENCAP_TYPE_VXLAN;
+	bool use_transpose_label = false;
+	mpls_label_t transpose_label = MPLS_LABEL_IMPLICIT_NULL;
 
 	bgp_evpn = bgp_get_evpn();
 	if (!bgp_evpn)
@@ -2195,6 +2266,23 @@ static int update_evpn_type5_route(struct bgp *bgp_vrf, struct bgp_path_info *or
 	 * use anycast-IP as nexthop and anycast RMAC.
 	 */
 	bgp_evpn_fill_rmac_nh_to_attr(bgp_vrf, &attr, evp, &vtep_ip);
+
+	/*
+	 * SRv6 mode with no valid originator yet (peer not Established when
+	 * this Type-5 route was triggered) - don't advertise with the
+	 * unspecified address as nexthop; RFC 9136 3.2 requires the
+	 * opposite. bgp_evpn_handle_peer_established() re-triggers this via
+	 * bgp_evpn_advertise_type5_routes() once a valid originator becomes
+	 * available. Scoped to SRv6 only - is_srv6_vrf_live() is false for
+	 * every VXLAN VRF, so this is unreachable for the VXLAN path.
+	 */
+	if (is_srv6_vrf_live(bgp_vrf) && ipaddr_is_zero(&vtep_ip)) {
+		if (bgp_debug_zebra(NULL))
+			zlog_debug("SRv6 L2 EVPN: no valid originator yet for VRF %s type-5 route %pFX, deferring advertisement",
+				   vrf_id_to_name(bgp_vrf->vrf_id), evp);
+		bgp_attr_flush(&attr);
+		return 0;
+	}
 
 	if (bgp_debug_zebra(NULL))
 		zlog_debug("VRF %s type-5 route evp %pFX RMAC %pEA nexthop %pI4 mp_nexthop %pI6 orig vtep %pIA",
@@ -2239,6 +2327,84 @@ static int update_evpn_type5_route(struct bgp *bgp_vrf, struct bgp_path_info *or
 		}
 	}
 
+	/* SRv6 VRF SID: attach to Type-5 route so the remote PE can perform
+	 * L3 lookup after SRv6 decap. Mirrors vpn_leak_from_vrf_fill_srv6()
+	 * (bgp_mplsvpn.c): when the locator's function fits in the label
+	 * (RFC 9252 §4 transposition scheme, e.g. a compressed F3216
+	 * locator), send only the locator prefix as the SID, carry the
+	 * function in the NLRI label, and set real Transposition
+	 * Length/Offset - some receivers (e.g. IOS-XR CEF) require this to
+	 * resolve the SID into a forwarding adjacency, rejecting the
+	 * fully-explicit-SID form this used to always send. Otherwise fall
+	 * back to the fully-explicit SID with transposition_len=0.
+	 *
+	 * Prefer the per-AFI SID (End.DT4/End.DT6, "sid vpn export auto"
+	 * under address-family ipv4/ipv6 unicast) matching this route's
+	 * src_afi; fall back to the shared per-VRF SID (End.DT46, "sid vpn
+	 * per-vrf export auto") when no per-AFI SID is configured. Without
+	 * this, a per-AFI IPv6 route would incorrectly get tagged with the
+	 * IPv4-only End.DT4 SID.
+	 */
+	if (!bgp_attr_get_srv6_l3service(&attr) && bgp_vrf->vpn_policy[src_afi].tovpn_sid_locator &&
+	    bgp_vrf->vpn_policy[src_afi].tovpn_sid) {
+		struct srv6_locator *loc = bgp_vrf->vpn_policy[src_afi].tovpn_sid_locator;
+
+		struct bgp_attr_srv6_service *l3s = XCALLOC(MTYPE_BGP_SRV6_SERVICE,
+							    sizeof(struct bgp_attr_srv6_service));
+		l3s->sid_flags = 0x00;
+		l3s->endpoint_behavior = src_afi == AFI_IP
+						 ? (CHECK_FLAG(loc->flags, SRV6_LOCATOR_USID)
+							    ? SRV6_ENDPOINT_BEHAVIOR_END_DT4_USID
+							    : SRV6_ENDPOINT_BEHAVIOR_END_DT4)
+						 : (CHECK_FLAG(loc->flags, SRV6_LOCATOR_USID)
+							    ? SRV6_ENDPOINT_BEHAVIOR_END_DT6_USID
+							    : SRV6_ENDPOINT_BEHAVIOR_END_DT6);
+		l3s->loc_block_len = loc->block_bits_length;
+		l3s->loc_node_len = loc->node_bits_length;
+		l3s->func_len = loc->function_bits_length;
+		l3s->arg_len = loc->argument_bits_length;
+		if (l3s->func_len <= BGP_PREFIX_SID_SRV6_MAX_FUNCTION_LENGTH_FOR_LABEL &&
+		    bgp_vrf->l3vni == 0) {
+			l3s->transposition_len = loc->function_bits_length;
+			l3s->transposition_offset = loc->block_bits_length + loc->node_bits_length;
+			IPV6_ADDR_COPY(&l3s->sid, &loc->prefix.prefix);
+			use_transpose_label = true;
+			transpose_label = bgp_vrf->vpn_policy[src_afi].tovpn_sid_transpose_label;
+		} else {
+			l3s->transposition_len = 0;
+			l3s->transposition_offset = 0;
+			IPV6_ADDR_COPY(&l3s->sid, bgp_vrf->vpn_policy[src_afi].tovpn_sid);
+		}
+		bgp_attr_set_srv6_l3service(&attr, l3s);
+	} else if (!bgp_attr_get_srv6_l3service(&attr) && bgp_vrf->tovpn_sid_locator &&
+		   bgp_vrf->tovpn_sid) {
+		struct srv6_locator *loc = bgp_vrf->tovpn_sid_locator;
+
+		struct bgp_attr_srv6_service *l3s = XCALLOC(MTYPE_BGP_SRV6_SERVICE,
+							    sizeof(struct bgp_attr_srv6_service));
+		l3s->sid_flags = 0x00;
+		l3s->endpoint_behavior = CHECK_FLAG(loc->flags, SRV6_LOCATOR_USID)
+						 ? SRV6_ENDPOINT_BEHAVIOR_END_DT46_USID
+						 : SRV6_ENDPOINT_BEHAVIOR_END_DT46;
+		l3s->loc_block_len = loc->block_bits_length;
+		l3s->loc_node_len = loc->node_bits_length;
+		l3s->func_len = loc->function_bits_length;
+		l3s->arg_len = loc->argument_bits_length;
+		if (l3s->func_len <= BGP_PREFIX_SID_SRV6_MAX_FUNCTION_LENGTH_FOR_LABEL &&
+		    bgp_vrf->l3vni == 0) {
+			l3s->transposition_len = loc->function_bits_length;
+			l3s->transposition_offset = loc->block_bits_length + loc->node_bits_length;
+			IPV6_ADDR_COPY(&l3s->sid, &loc->prefix.prefix);
+			use_transpose_label = true;
+			transpose_label = bgp_vrf->tovpn_sid_transpose_label;
+		} else {
+			l3s->transposition_len = 0;
+			l3s->transposition_offset = 0;
+			IPV6_ADDR_COPY(&l3s->sid, bgp_vrf->tovpn_sid);
+		}
+		bgp_attr_set_srv6_l3service(&attr, l3s);
+	}
+
 	/* Setup RT and encap extended community */
 	build_evpn_type5_route_extcomm(bgp_vrf, &attr, tnl_type);
 
@@ -2248,7 +2414,8 @@ static int update_evpn_type5_route(struct bgp *bgp_vrf, struct bgp_path_info *or
 
 	/* create or update the route entry within the route node */
 	update_evpn_type5_route_entry(bgp_evpn, bgp_vrf, afi, safi, dest, originator, &attr,
-				      &route_changed, &pi, addpath_id);
+				      &route_changed, &pi, addpath_id, use_transpose_label,
+				      transpose_label);
 
 	/* schedule for processing and unlock node */
 	if (route_changed) {
@@ -6195,6 +6362,30 @@ static int process_type5_route(struct peer *peer, afi_t afi, safi_t safi,
 	memset(&label, 0, sizeof(label));
 	memcpy(&label, pfx, BGP_LABEL_BYTES);
 
+	/* Mark this label valid the same way bgp_nlri_get_labels() does
+	 * immediately after its own memcpy of the wire label bytes (see
+	 * bgp_label.c). Without this bgp_is_valid_label() reads false for
+	 * every Type-5 route further down the pipeline - notably in
+	 * bgp_zebra.c's SRv6 nexthop-building loop, where it gates the
+	 * transpose_sid() call that reconstructs a per-VRF SRv6 SID from
+	 * this field's transposition bits. For an SRv6-backed Type-5 route
+	 * this field carries a transposition-encoded function value rather
+	 * than a traditional MPLS label, but it still needs the same
+	 * "valid" marker bit to be treated as usable downstream. Our own
+	 * VRF-import path (leak_update() in bgp_mplsvpn.c) happens to
+	 * re-mark every label unconditionally when leaking a route into a
+	 * VRF, which masks this gap for that specific import path - but
+	 * bgp_create_evpn_bgp_path_info()'s simpler intern-only path does
+	 * not, so which import route a given deployment takes determines
+	 * whether this bites. Fixing it at the source makes every
+	 * downstream consumer correct regardless.
+	 */
+	/* Only for SRv6 routes: a VXLAN Type-5 route's label is a VNI and must
+	 * stay as received.
+	 */
+	if (attr && bgp_attr_get_srv6_l3service(attr))
+		bgp_set_valid_label(&label);
+
 	/*
 	 * If in future, we are required to access additional fields,
 	 * we MUST increment pfx by BGP_LABEL_BYTES in before reading the next
@@ -6219,10 +6410,18 @@ static int process_type5_route(struct peer *peer, afi_t afi, safi_t safi,
 		if (is_zero_mac(&attr->rmac) &&
 		    !bgp_evpn_is_esi_valid(&evpn->eth_s_id) &&
 		    ipaddr_is_zero(&evpn->gw_ip) && label == 0) {
-			flog_err(EC_BGP_EVPN_ROUTE_INVALID,
-				 "%s - Rx EVPN Type-5 ESI, gateway-IP, RMAC and label all zero",
-				 peer->host);
-			is_valid_update = false;
+			/* SRv6: L3 SID in extended community is valid without
+			 * label/RMAC/ESI/GW-IP
+			 */
+			bool has_srv6_sid =
+				bgp_attr_get_srv6_l3service(attr) &&
+				!IN6_IS_ADDR_UNSPECIFIED(&bgp_attr_get_srv6_l3service(attr)->sid);
+			if (!has_srv6_sid) {
+				flog_err(EC_BGP_EVPN_ROUTE_INVALID,
+					 "%s - Rx EVPN Type-5 ESI, gateway-IP, RMAC and label all zero",
+					 peer->host);
+				is_valid_update = false;
+			}
 		}
 
 		if (is_mcast_mac(&attr->rmac) || is_bcast_mac(&attr->rmac))
@@ -10330,18 +10529,32 @@ void bgp_evpn_fill_rmac_nh_to_attr(struct bgp *bgp_vrf, struct attr *attr, struc
 	 * use anycast-IP as nexthop and anycast RMAC.
 	 */
 	if (!bgp_vrf->evpn_info->advertise_pip || (!bgp_vrf->evpn_info->is_anycast_mac)) {
+		struct ipaddr originator = bgp_vrf->originator_ip;
+
+		/*
+		 * bgp_vrf->originator_ip is only ever populated from zebra's
+		 * VXLAN L3VNI notification (ZEBRA_L3VNI_ADD), which a pure-SRv6
+		 * VRF never receives, so it stays unset forever. Fall back to a
+		 * local IPv6 BGP session address (same pattern used for SRv6
+		 * L2VNI EVPN routes) rather than advertise an all-zero nexthop,
+		 * which would violate RFC 9136 3.2 (BGP MUST NOT install an
+		 * RT-5 whose next hop has no underlay route).
+		 */
+		if (ipaddr_is_zero(&originator) && is_srv6_vrf_live(bgp_vrf))
+			bgp_evpn_srv6_local_originator(bgp_get_evpn(), &originator);
+
 		memcpy(&attr->rmac, &bgp_vrf->rmac, ETH_ALEN);
-		if (IS_IPADDR_V4(&bgp_vrf->originator_ip)) {
-			attr->nexthop = bgp_vrf->originator_ip.ipaddr_v4;
-			attr->mp_nexthop_global_in = bgp_vrf->originator_ip.ipaddr_v4;
+		if (IS_IPADDR_V4(&originator)) {
+			attr->nexthop = originator.ipaddr_v4;
+			attr->mp_nexthop_global_in = originator.ipaddr_v4;
 			attr->mp_nexthop_len = BGP_ATTR_NHLEN_IPV4;
 			bgp_attr_set(attr, BGP_ATTR_NEXT_HOP);
 		} else {
-			IPV6_ADDR_COPY(&attr->mp_nexthop_global, &bgp_vrf->originator_ip.ipaddr_v6);
+			IPV6_ADDR_COPY(&attr->mp_nexthop_global, &originator.ipaddr_v6);
 			attr->mp_nexthop_len = BGP_ATTR_NHLEN_IPV6_GLOBAL;
 		}
 		if (vtep_ip)
-			*vtep_ip = bgp_vrf->originator_ip;
+			*vtep_ip = originator;
 	} else {
 		/* copy sys rmac */
 		memcpy(&attr->rmac, &bgp_vrf->evpn_info->pip_rmac, ETH_ALEN);

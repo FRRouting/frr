@@ -6031,6 +6031,32 @@ void bgp_update_check_valid_flags(struct bgp *bgp, struct peer *peer, struct bgp
 	afi_t nh_afi;
 	struct bgp_path_info *bpi_ultimate = NULL;
 
+	/*
+	 * SRv6 EVPN IRB routes carry an IPv4 router-id as their BGP nexthop
+	 * (mp_nexthop_len == 4) which is typically not in the underlay routing
+	 * table.  Registering it with NHT would immediately trigger a "nexthop
+	 * unresolved" callback that un-sets BGP_PATH_VALID and withdraws the
+	 * route from VNIs/VRFs before the route can be used.
+	 *
+	 * For SRv6 EVPN, reachability is validated by the IPv6 IGP (IS-IS)
+	 * carrying the remote SRv6 locator.  BGP session liveness covers the
+	 * withdrawal case: if the underlay fails the EBGP session drops and
+	 * all peer routes are purged via the normal peer-down path.
+	 *
+	 * Skip NHT registration for these routes and mark them valid directly
+	 * so that no NHT callback can silently undo their validity.
+	 */
+	if (safi == SAFI_EVPN && bgp_evpn_is_prefix_nht_supported(p) && pi->attr &&
+	    ((bgp_attr_get_srv6_l3service(pi->attr) &&
+	      !IN6_IS_ADDR_UNSPECIFIED(&bgp_attr_get_srv6_l3service(pi->attr)->sid)) ||
+	     (bgp_attr_get_srv6_l2service(pi->attr) &&
+	      !IN6_IS_ADDR_UNSPECIFIED(&bgp_attr_get_srv6_l2service(pi->attr)->sid)))) {
+		if (accept_own)
+			bgp_path_info_set_flag(dest, pi, BGP_PATH_ACCEPT_OWN);
+		bgp_path_info_set_flag(dest, pi, BGP_PATH_VALID);
+		return;
+	}
+
 	if (((afi == AFI_IP || afi == AFI_IP6) &&
 	     (safi == SAFI_UNICAST || safi == SAFI_LABELED_UNICAST ||
 	      (safi == SAFI_MPLS_VPN && pi->sub_type != BGP_ROUTE_IMPORTED))) ||
@@ -14866,6 +14892,63 @@ skip_nexthop:
 			vty_out(vty, ", sid structure=[%u %u %u %u %u %u]", l2srv->loc_block_len,
 				l2srv->loc_node_len, l2srv->func_len, l2srv->arg_len,
 				l2srv->transposition_len, l2srv->transposition_offset);
+			vty_out(vty, "\n");
+		}
+	}
+
+	/* Remote SID for EVPN L3 Service (IRB -- carried alongside L2 SID) */
+	if (bgp_attr_get_srv6_l3service(path->attr) && safi == SAFI_EVPN) {
+		struct bgp_attr_srv6_service *l3srv = bgp_attr_get_srv6_l3service(path->attr);
+		struct in6_addr l3_sid_effective;
+		uint8_t nlbl = BGP_PATH_INFO_NUM_LABELS(path);
+		mpls_label_t l3_label = 0;
+		bool transposed = false;
+
+		/* Under the RFC 9252 §4 transposition scheme the advertised SID
+		 * carries only the locator and the function travels in the
+		 * route's last label slot (label[1] for Type-2, whose label[0]
+		 * is the mandatory L2/EVI label). Reconstruct it so the
+		 * effective SID - the one actually programmed into the
+		 * dataplane - is visible rather than just the bare locator.
+		 */
+		IPV6_ADDR_COPY(&l3_sid_effective, &l3srv->sid);
+		if (l3srv->transposition_len && nlbl &&
+		    bgp_is_valid_label(&path->extra->labels->label[nlbl - 1])) {
+			l3_label = decode_label(&path->extra->labels->label[nlbl - 1]);
+			transpose_sid(&l3_sid_effective, l3_label, l3srv->transposition_offset,
+				      l3srv->transposition_len,
+				      BGP_PREFIX_SID_SRV6_MAX_FUNCTION_LENGTH_FOR_LABEL);
+			transposed = true;
+		}
+
+		if (json_paths) {
+			json_object *json_sid_attr;
+
+			json_object_string_addf(json_path, "remoteL3Sid", "%pI6", &l3srv->sid);
+			json_sid_attr = json_object_new_object();
+			json_object_object_add(json_path, "remoteL3SidStructure", json_sid_attr);
+			json_object_int_add(json_sid_attr, "locatorBlockLen", l3srv->loc_block_len);
+			json_object_int_add(json_sid_attr, "locatorNodeLen", l3srv->loc_node_len);
+			json_object_int_add(json_sid_attr, "functionLen", l3srv->func_len);
+			json_object_int_add(json_sid_attr, "argumentLen", l3srv->arg_len);
+			json_object_int_add(json_sid_attr, "transpositionLen",
+					    l3srv->transposition_len);
+			json_object_int_add(json_sid_attr, "transpositionOffset",
+					    l3srv->transposition_offset);
+			if (transposed) {
+				json_object_string_addf(json_path, "remoteL3TransposedSid", "%pI6",
+							&l3_sid_effective);
+				json_object_int_add(json_path, "remoteL3SidTransposedLabel",
+						    l3_label);
+			}
+		} else {
+			vty_out(vty, "      Remote L3 SID: %pI6", &l3srv->sid);
+			vty_out(vty, ", sid structure=[%u %u %u %u %u %u]", l3srv->loc_block_len,
+				l3srv->loc_node_len, l3srv->func_len, l3srv->arg_len,
+				l3srv->transposition_len, l3srv->transposition_offset);
+			if (transposed)
+				vty_out(vty, ", transposed SID: %pI6 (from label %u)",
+					&l3_sid_effective, l3_label);
 			vty_out(vty, "\n");
 		}
 	}
