@@ -5,6 +5,8 @@
 #ifndef __PTM_LIB_H__
 #define __PTM_LIB_H__
 
+#include <stddef.h>
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -48,7 +50,7 @@ int ptm_lib_process_msg(ptm_lib_handle_t *hdl, int fd, char *inbuf, int inlen, v
 ptm_lib_handle_t *ptm_lib_register(char *client_name, ptm_cmd_cb cmd_cb, ptm_notify_cb notify_cb,
 				   ptm_response_cb response_cb);
 void ptm_lib_deregister(ptm_lib_handle_t *hdl);
-int ptm_lib_find_key_in_msg(void *ctxt, const char *key, char *val);
+int ptm_lib_find_key_in_msg(void *ctxt, const char *key, char *val, size_t val_len);
 int ptm_lib_init_msg(ptm_lib_handle_t *hdl, int msgType, int msgLen, void *in_ctxt,
 		     void **out_ctxt);
 int ptm_lib_append_msg(ptm_lib_handle_t *hdl, void *ctxt, const char *key, const char *value);
