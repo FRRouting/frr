@@ -238,6 +238,7 @@ extern void bgp_evpn_init(struct bgp *bgp);
 extern int bgp_evpn_get_type5_prefixlen(const struct prefix *pfx);
 extern bool bgp_evpn_is_prefix_nht_supported(const struct prefix *pfx);
 extern void update_advertise_vrf_routes(struct bgp *bgp_vrf);
+extern void bgp_evpn_handle_export_rt_change_for_vrf(struct bgp *bgp_vrf);
 extern void bgp_evpn_show_remote_ip_hash(struct hash_bucket *bucket,
 					 void *args);
 extern void bgp_evpn_show_vni_svi_hash(struct hash_bucket *bucket, void *args);
@@ -287,6 +288,8 @@ int uninstall_evpn_route_entry_in_vrf(struct bgp *bgp_vrf, const struct prefix_e
 				      struct bgp_path_info *parent_pi);
 extern void bgp_zebra_evpn_pop_items_from_announce_fifo(struct bgpevpn *vpn);
 extern int install_uninstall_routes_for_vni(struct bgp *bgp, struct bgpevpn *vpn, bool install);
+extern void bgp_evpn_install_routes_in_vrf(struct bgp *bgp_vrf);
+extern void bgp_evpn_link_l2vnis_to_vrf(struct bgp *bgp_vrf);
 extern void bgp_evpn_fill_rmac_nh_to_attr(struct bgp *bgp_vrf, struct attr *attr,
 					  struct prefix_evpn *evp, struct ipaddr *vtep_ip);
 #endif /* _QUAGGA_BGP_EVPN_H */

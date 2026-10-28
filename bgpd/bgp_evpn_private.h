@@ -607,6 +607,9 @@ static inline void bgpevpn_unlink_from_l3vni(struct bgpevpn *vpn)
 	vpn->bgp_vrf = NULL;
 }
 
+/* Forward declaration - full definition further down this file. */
+static inline bool is_srv6_vrf_live(struct bgp *bgp_vrf);
+
 static inline void bgpevpn_link_to_l3vni(struct bgpevpn *vpn)
 {
 	struct bgp *bgp_vrf = NULL;
@@ -620,17 +623,29 @@ static inline void bgpevpn_link_to_l3vni(struct bgpevpn *vpn)
 	if (!bgp_vrf)
 		return;
 
-	/* or if there is no l3vni */
+	/* SRv6 path: VRF has an SRv6 SID to leak with - either the shared
+	 * per-VRF DT46 SID or a per-AFI DT4/DT6 SID (no l3vni needed either
+	 * way). Both L2 (DT2U) and L3 (DT4/DT6) SIDs are advertised in
+	 * Type-2 routes for symmetric IRB per RFC 9252 §5.1. Previously only
+	 * checked bgp_vrf->tovpn_sid (DT46), so a per-AFI-only VRF never got
+	 * linked here at all - vpn->bgp_vrf stayed NULL and Type-2 routes
+	 * never got an L3 SID attached.
+	 */
+	if (is_srv6_vrf_live(bgp_vrf)) {
+		vpn->bgp_vrf = bgp_lock(bgp_vrf);
+		listnode_add_sort(bgp_vrf->l2vnis, vpn);
+		SET_FLAG(vpn->flags, VNI_FLAG_USE_TWO_LABELS);
+		bgp_evpn_es_evi_vrf_ref(vpn);
+		return;
+	}
+
+	/* VxLAN/MPLS path: requires l3vni */
 	if (!bgp_vrf->l3vni)
 		return;
 
-	/* associate the vpn to the bgp_vrf instance */
 	vpn->bgp_vrf = bgp_lock(bgp_vrf);
 	listnode_add_sort(bgp_vrf->l2vnis, vpn);
 
-	/*
-	 * check if we are advertising two labels for this vpn
-	 */
 	if (!CHECK_FLAG(bgp_vrf->vrf_flags, BGP_VRF_L3VNI_PREFIX_ROUTES_ONLY))
 		SET_FLAG(vpn->flags, VNI_FLAG_USE_TWO_LABELS);
 
@@ -650,6 +665,21 @@ static inline int is_vni_live(struct bgpevpn *vpn)
 static inline int is_l3vni_live(struct bgp *bgp_vrf)
 {
 	return (bgp_vrf->l3vni && bgp_vrf->l3vni_svi_ifindex);
+}
+
+/* True when a VRF has an SRv6 SID to leak with - either the shared
+ * End.DT46 SID ("sid vpn per-vrf export auto") or a per-AFI End.DT4/
+ * End.DT6 SID ("sid vpn export auto" under address-family ipv4/ipv6
+ * unicast) - the SRv6 equivalent of is_l3vni_live() for VxLAN. Use
+ * wherever l3vni guards block SRv6 VRFs. Without the per-AFI check, a
+ * VRF using only per-AFI SID export was never treated as SRv6-live,
+ * so callers gating on this (e.g. update_advertise_vrf_routes()) never
+ * originated EVPN Type-5 routes for it at all.
+ */
+static inline bool is_srv6_vrf_live(struct bgp *bgp_vrf)
+{
+	return bgp_vrf->tovpn_sid != NULL || bgp_vrf->vpn_policy[AFI_IP].tovpn_sid != NULL ||
+	       bgp_vrf->vpn_policy[AFI_IP6].tovpn_sid != NULL;
 }
 
 static inline int is_rd_configured(struct bgpevpn *vpn)

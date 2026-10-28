@@ -4376,6 +4376,21 @@ static int bgp_zebra_srv6_sid_notify(ZAPI_CALLBACK_ARGS)
 				srv6_locator_copy(bgp_vrf->vpn_policy[AFI_IP6].tovpn_sid_locator,
 						  locator_bgp);
 				bgp_vrf->vpn_policy[AFI_IP6].tovpn_sid_transpose_label = label;
+
+				/* Link any L2 VNIs whose tenant VRF is this VRF so
+				 * Type-2 routes carry the L3 SID too (symmetric IRB).
+				 */
+				bgp_evpn_link_l2vnis_to_vrf(bgp_vrf);
+
+				/* Register VRF import RTs so incoming Type-2/5 routes
+				 * can be matched and imported into this VRF.
+				 */
+				bgp_evpn_map_vrf_to_its_rts(bgp_vrf);
+
+				/* Import remote routes that match this VRF's RTs now
+				 * that the SRv6 VRF is live.
+				 */
+				bgp_evpn_install_routes_in_vrf(bgp_vrf);
 			} else if (is_srv6_unicast_enabled(bgp_vrf, AFI_IP6)) {
 				srv6_locator_free(bgp_vrf->srv6_unicast[AFI_IP6].sid_locator);
 				sid_unregister(bgp, bgp_vrf->srv6_unicast[AFI_IP6].sid);
@@ -4403,6 +4418,21 @@ static int bgp_zebra_srv6_sid_notify(ZAPI_CALLBACK_ARGS)
 				srv6_locator_copy(bgp_vrf->vpn_policy[AFI_IP].tovpn_sid_locator,
 						  locator_bgp);
 				bgp_vrf->vpn_policy[AFI_IP].tovpn_sid_transpose_label = label;
+
+				/* Link any L2 VNIs whose tenant VRF is this VRF so
+				 * Type-2 routes carry the L3 SID too (symmetric IRB).
+				 */
+				bgp_evpn_link_l2vnis_to_vrf(bgp_vrf);
+
+				/* Register VRF import RTs so incoming Type-2/5 routes
+				 * can be matched and imported into this VRF.
+				 */
+				bgp_evpn_map_vrf_to_its_rts(bgp_vrf);
+
+				/* Import remote routes that match this VRF's RTs now
+				 * that the SRv6 VRF is live.
+				 */
+				bgp_evpn_install_routes_in_vrf(bgp_vrf);
 			} else if (is_srv6_unicast_enabled(bgp_vrf, AFI_IP)) {
 				srv6_locator_free(bgp_vrf->srv6_unicast[AFI_IP].sid_locator);
 				sid_unregister(bgp, bgp_vrf->srv6_unicast[AFI_IP].sid);
@@ -4428,6 +4458,42 @@ static int bgp_zebra_srv6_sid_notify(ZAPI_CALLBACK_ARGS)
 				bgp_vrf->tovpn_sid_locator = srv6_locator_alloc(locator_bgp->name);
 				srv6_locator_copy(bgp_vrf->tovpn_sid_locator, locator_bgp);
 				bgp_vrf->tovpn_sid_transpose_label = label;
+
+				/* Install End.DT46 seg6local route in the kernel so
+				 * the local PE decapsulates SRv6 packets into VRF.
+				 */
+				vpn_leak_zebra_vrf_sid_update_per_vrf(bgp_vrf);
+
+				/* Link any L2 VNIs whose tenant VRF is this VRF so
+				 * Type-2 routes carry both L2 and L3 SIDs.
+				 */
+				bgp_evpn_link_l2vnis_to_vrf(bgp_vrf);
+
+				/* Re-advertise this VRF's Type-5 routes AND the
+				 * Type-2 (MAC+IP) routes of its linked L2 EVIs
+				 * with the now-live End.DT46 SID + L3 export RT.
+				 * Using the combined handler (not Type-5 alone)
+				 * is what fixes zebra-restart recovery: after a
+				 * restart the local MAC+IP Type-2 routes can be
+				 * re-originated before this SID notify makes the
+				 * VRF SRv6-live, so they come back carrying only
+				 * the L2 EVI RT and miss the L3 VRF RT - the
+				 * remote PE then never imports them into the
+				 * tenant VRF.  Re-originating the Type-2 routes
+				 * here re-attaches the L3 RT once the VRF is
+				 * live.
+				 */
+				bgp_evpn_handle_export_rt_change_for_vrf(bgp_vrf);
+
+				/* Register VRF import RTs so incoming Type-2/5 routes
+				 * can be matched and imported into this VRF.
+				 */
+				bgp_evpn_map_vrf_to_its_rts(bgp_vrf);
+
+				/* Import remote routes that match this VRF's RTs now
+				 * that the SRv6 VRF is live.
+				 */
+				bgp_evpn_install_routes_in_vrf(bgp_vrf);
 			}
 
 			/* Update DT46 unicast state only when at least one AFI SID changed. */

@@ -12259,21 +12259,66 @@ void bgp_show_srv6_evpn_instance(struct vty *vty, struct bgp *bgp)
 
 	vty_out(vty, "  L2VPN/EVPN SIDs:\n");
 
-	/* VPN (Type-5 DT4/DT6) - show whichever L3 AFI actually has a SID.
-	 * Falls back to "<unallocated>" when no L3VPN is configured.
+	/* VPN (Type-5 DT4/DT6) - per-VRF SID ('sid vpn per-vrf export auto')
+	 * is stored in bgp->tovpn_sid and takes precedence over per-AFI
+	 * vpn_policy SIDs. When per-AFI SID export ('sid vpn export auto'
+	 * under address-family ipv4/ipv6 unicast) is used instead, each AFI
+	 * can hold its own distinct SID - show both DT4 and DT6 on their own
+	 * lines rather than picking one (previously this always preferred
+	 * AFI_IP6 when both were present, silently hiding the DT4 SID).
+	 * Falls back to "<unallocated>" when no L3VPN SID is configured at
+	 * all.
 	 */
 	{
-		struct vpn_policy *vp_v4 = &bgp->vpn_policy[AFI_IP];
-		struct vpn_policy *vp_v6 = &bgp->vpn_policy[AFI_IP6];
-		struct vpn_policy *vp_l3 = vp_v6->tovpn_sid ? vp_v6 : vp_v4;
+		if (bgp->tovpn_sid) {
+			show_srv6_evpn_render_class(vty, "VPN (Type-5 DT4/DT6):", bgp->tovpn_sid,
+						    bgp->tovpn_sid_index, bgp->tovpn_sid_explicit,
+						    bgp->tovpn_sid_locator,
+						    CHECK_FLAG(bgp->vrf_flags,
+							       BGP_VRF_TOVPN_SID_AUTO),
+						    CHECK_FLAG(bgp->vrf_flags,
+							       BGP_VRF_TOVPN_SID_EXPLICIT),
+						    NULL, NULL);
+		} else {
+			struct vpn_policy *vp_v4 = &bgp->vpn_policy[AFI_IP];
+			struct vpn_policy *vp_v6 = &bgp->vpn_policy[AFI_IP6];
+			bool v4_present =
+				vp_v4->tovpn_sid ||
+				CHECK_FLAG(vp_v4->flags, BGP_VPN_POLICY_TOVPN_SID_AUTO) ||
+				CHECK_FLAG(vp_v4->flags, BGP_VPN_POLICY_TOVPN_SID_EXPLICIT) ||
+				vp_v4->tovpn_sid_index;
+			bool v6_present =
+				vp_v6->tovpn_sid ||
+				CHECK_FLAG(vp_v6->flags, BGP_VPN_POLICY_TOVPN_SID_AUTO) ||
+				CHECK_FLAG(vp_v6->flags, BGP_VPN_POLICY_TOVPN_SID_EXPLICIT) ||
+				vp_v6->tovpn_sid_index;
 
-		show_srv6_evpn_render_class(vty, "VPN (Type-5 DT4/DT6):", vp_l3->tovpn_sid,
-					    vp_l3->tovpn_sid_index, vp_l3->tovpn_sid_explicit,
-					    vp_l3->tovpn_sid_locator,
-					    CHECK_FLAG(vp_l3->flags, BGP_VPN_POLICY_TOVPN_SID_AUTO),
-					    CHECK_FLAG(vp_l3->flags,
-						       BGP_VPN_POLICY_TOVPN_SID_EXPLICIT),
-					    NULL, NULL);
+			if (v4_present)
+				show_srv6_evpn_render_class(vty,
+							    "VPN (Type-5 DT4):", vp_v4->tovpn_sid,
+							    vp_v4->tovpn_sid_index,
+							    vp_v4->tovpn_sid_explicit,
+							    vp_v4->tovpn_sid_locator,
+							    CHECK_FLAG(vp_v4->flags,
+								       BGP_VPN_POLICY_TOVPN_SID_AUTO),
+							    CHECK_FLAG(vp_v4->flags,
+								       BGP_VPN_POLICY_TOVPN_SID_EXPLICIT),
+							    NULL, NULL);
+			if (v6_present)
+				show_srv6_evpn_render_class(vty,
+							    "VPN (Type-5 DT6):", vp_v6->tovpn_sid,
+							    vp_v6->tovpn_sid_index,
+							    vp_v6->tovpn_sid_explicit,
+							    vp_v6->tovpn_sid_locator,
+							    CHECK_FLAG(vp_v6->flags,
+								       BGP_VPN_POLICY_TOVPN_SID_AUTO),
+							    CHECK_FLAG(vp_v6->flags,
+								       BGP_VPN_POLICY_TOVPN_SID_EXPLICIT),
+							    NULL, NULL);
+			if (!v4_present && !v6_present)
+				show_srv6_evpn_render_class(vty, "VPN (Type-5 DT4/DT6):", NULL, 0,
+							    NULL, NULL, false, false, NULL, NULL);
+		}
 	}
 
 	/*
