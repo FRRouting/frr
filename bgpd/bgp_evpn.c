@@ -5133,6 +5133,11 @@ static int install_routes_for_vrf(struct bgp *bgp_vrf)
 	return install_uninstall_routes_for_vrf(bgp_vrf, true);
 }
 
+void bgp_evpn_install_routes_in_vrf(struct bgp *bgp_vrf)
+{
+	install_routes_for_vrf(bgp_vrf);
+}
+
 /*
  * Install any existing remote routes applicable for this VNI into its
  * routing table. This is invoked when a VNI becomes "live" or its Import
@@ -5633,8 +5638,8 @@ void update_advertise_vrf_routes(struct bgp *bgp_vrf)
 	if (advertise_type5_routes_bestpath(bgp_vrf, AFI_IP6, SAFI_MPLS_VPN))
 		bgp_evpn_advertise_type5_routes(bgp_vrf, AFI_IP6, SAFI_MPLS_VPN);
 
-	if (!is_l3vni_live(bgp_vrf))
-		return; /* Nothing to do if no l3vni */
+	if (!is_l3vni_live(bgp_vrf) && !is_srv6_vrf_live(bgp_vrf))
+		return; /* Nothing to do if no l3vni and no SRv6 DT46 SID */
 
 	/* update all ipv4 routes */
 	if (advertise_type5_routes_bestpath(bgp_vrf, AFI_IP, SAFI_UNICAST) ||
@@ -6815,7 +6820,7 @@ void bgp_evpn_l2vni_regenerate_effective_export_rts(struct bgp *bgp, struct bgpe
 	}
 }
 
-static void bgp_evpn_handle_export_rt_change_for_vrf(struct bgp *bgp_vrf)
+void bgp_evpn_handle_export_rt_change_for_vrf(struct bgp *bgp_vrf)
 {
 	struct bgp *bgp_evpn = NULL;
 	struct listnode *node = NULL;
@@ -6829,6 +6834,52 @@ static void bgp_evpn_handle_export_rt_change_for_vrf(struct bgp *bgp_vrf)
 	update_advertise_vrf_routes(bgp_vrf);
 
 	/* update all type-2 routes */
+	for (ALL_LIST_ELEMENTS_RO(bgp_vrf->l2vnis, node, vpn))
+		update_routes_for_vni(bgp_evpn, vpn);
+}
+
+/*
+ * An SRv6 SID of the VRF has been released (unconfigured, or its locator went
+ * away). Peers must not keep routes that point at a service which no longer
+ * exists: withdraw the VRF's Type-5 routes when no SID is left, and
+ * re-originate the Type-2 routes of its linked EVIs without the L3 SID.
+ * While another SID is still in place, just re-originate with what is left.
+ * No effect on VXLAN VRFs.
+ */
+void bgp_evpn_srv6_vrf_sid_removed(struct bgp *bgp_vrf)
+{
+	struct bgp *bgp_evpn = bgp_get_evpn();
+	struct listnode *node;
+	struct bgpevpn *vpn;
+	afi_t afi;
+
+	if (!bgp_evpn || bgp_vrf->l3vni || !bgp_vrf->l2vnis ||
+	    CHECK_FLAG(bgp_vrf->flags, BGP_FLAG_DELETE_IN_PROGRESS))
+		return;
+
+	if (is_srv6_vrf_live(bgp_vrf)) {
+		bgp_evpn_handle_export_rt_change_for_vrf(bgp_vrf);
+		return;
+	}
+
+	/* delete_withdraw_vrf_routes() cannot be used here: it only acts while
+	 * the VRF has a live encapsulation, which is exactly what just went
+	 * away. Go by the advertise configuration instead.
+	 */
+	for (afi = AFI_IP; afi <= AFI_IP6; afi++) {
+		uint16_t flags = bgp_vrf->af_flags[AFI_L2VPN][SAFI_EVPN];
+		uint16_t uni = afi == AFI_IP ? (BGP_L2VPN_EVPN_ADV_IPV4_UNICAST |
+						BGP_L2VPN_EVPN_ADV_IPV4_UNICAST_GW_IP)
+					     : (BGP_L2VPN_EVPN_ADV_IPV6_UNICAST |
+						BGP_L2VPN_EVPN_ADV_IPV6_UNICAST_GW_IP);
+
+		if (evpn_default_originate_set(bgp_vrf, afi, SAFI_UNICAST))
+			bgp_evpn_install_uninstall_default_route(bgp_vrf, afi, SAFI_UNICAST, NULL,
+								 false);
+		if (flags & uni)
+			bgp_evpn_withdraw_type5_routes(bgp_vrf, afi, SAFI_UNICAST);
+	}
+
 	for (ALL_LIST_ELEMENTS_RO(bgp_vrf->l2vnis, node, vpn))
 		update_routes_for_vni(bgp_evpn, vpn);
 }
@@ -7147,8 +7198,10 @@ void bgp_evpn_advertise_type5_routes(struct bgp *bgp_vrf, afi_t afi,
 
 static void evpn_vrf_rt_routes_map(struct bgp *bgp_vrf)
 {
-	/* map VRFs to its RTs and install routes matching this new RT */
-	if (is_l3vni_live(bgp_vrf)) {
+	/* map VRFs to its RTs and install routes matching this new RT.
+	 * Works for both VxLAN (l3vni) and SRv6 (tovpn_sid) VRFs.
+	 */
+	if (is_l3vni_live(bgp_vrf) || is_srv6_vrf_live(bgp_vrf)) {
 		bgp_evpn_map_vrf_to_its_rts(bgp_vrf);
 		install_routes_for_vrf(bgp_vrf);
 	}
@@ -7157,7 +7210,7 @@ static void evpn_vrf_rt_routes_map(struct bgp *bgp_vrf)
 static void evpn_vrf_rt_routes_unmap(struct bgp *bgp_vrf)
 {
 	/* uninstall routes from vrf */
-	if (is_l3vni_live(bgp_vrf))
+	if (is_l3vni_live(bgp_vrf) || is_srv6_vrf_live(bgp_vrf))
 		uninstall_routes_for_vrf(bgp_vrf);
 
 	/* Cleanup the RT to VRF mapping */
@@ -7309,7 +7362,8 @@ void bgp_evpn_configure_export_rts_for_vrf_batch(struct bgp *bgp_vrf,
 	/* This also removes the implicit auto RT, if there was one */
 	bgp_evpn_vrf_regenerate_effective_export_rts(bgp_vrf);
 
-	if (is_l3vni_live(bgp_vrf))
+	/* Works for both VxLAN (l3vni) and SRv6 (tovpn_sid) VRFs. */
+	if (is_l3vni_live(bgp_vrf) || is_srv6_vrf_live(bgp_vrf))
 		bgp_evpn_handle_export_rt_change_for_vrf(bgp_vrf);
 }
 
@@ -7350,7 +7404,8 @@ void bgp_evpn_unconfigure_export_rts_for_vrf_batch(struct bgp *bgp_vrf,
 	 */
 	bgp_evpn_vrf_regenerate_effective_export_rts(bgp_vrf);
 
-	if (is_l3vni_live(bgp_vrf))
+	/* Works for both VxLAN (l3vni) and SRv6 (tovpn_sid) VRFs. */
+	if (is_l3vni_live(bgp_vrf) || is_srv6_vrf_live(bgp_vrf))
 		bgp_evpn_handle_export_rt_change_for_vrf(bgp_vrf);
 }
 
@@ -8830,13 +8885,50 @@ static void link_l2vni_hash_to_l3vni(struct hash_bucket *bucket,
 				     struct bgp *bgp_vrf)
 {
 	struct bgpevpn *vpn = (struct bgpevpn *)bucket->data;
-	struct bgp *bgp_evpn = NULL;
+	struct bgp *bgp_evpn;
+	bool was_linked;
 
 	bgp_evpn = bgp_get_evpn();
 	assert(bgp_evpn);
 
-	if (vpn->tenant_vrf_id == bgp_vrf->vrf_id)
-		bgpevpn_link_to_l3vni(vpn);
+	if (vpn->tenant_vrf_id != bgp_vrf->vrf_id)
+		return;
+
+	was_linked = (vpn->bgp_vrf != NULL);
+	bgpevpn_link_to_l3vni(vpn);
+
+	/* Zebra may have replayed existing local neighbors to bgpd before the
+	 * DT46 SID arrived, causing Type-2 routes to be built without the L3
+	 * SID. Now that the VNI is freshly linked (was_linked == false),
+	 * re-advertise all Type-2 routes so they carry the DT46 SID.
+	 *
+	 * VNI_FLAG_USE_TWO_LABELS is only ever set via the classic VXLAN
+	 * L3VNI path (see bgp_evpn_is_macip_with_l3vni()'s own comment) - it
+	 * is never set for an SRv6 EVI, so gating solely on it made this
+	 * self-heal dead code for every SRv6 symmetric-IRB EVI. Also check
+	 * is_srv6_vrf_live(bgp_vrf), which is what bgpevpn_link_to_l3vni()
+	 * actually keys off for the SRv6 case.
+	 */
+	if (!was_linked &&
+	    (CHECK_FLAG(vpn->flags, VNI_FLAG_USE_TWO_LABELS) || is_srv6_vrf_live(bgp_vrf)) &&
+	    is_vni_live(vpn))
+		update_all_type2_routes(bgp_evpn, vpn);
+}
+
+/* Re-link all L2 VNIs whose tenant VRF matches bgp_vrf to that VRF.
+ * Called after bgp_vrf->tovpn_sid is set so that VNIs that arrived before
+ * the DT46 SID (and therefore skipped the SRv6 link path) get a second
+ * chance to set vpn->bgp_vrf and VNI_FLAG_USE_TWO_LABELS.
+ */
+void bgp_evpn_link_l2vnis_to_vrf(struct bgp *bgp_vrf)
+{
+	struct bgp *bgp_evpn = bgp_get_evpn();
+
+	if (!bgp_evpn || !bgp_evpn->vnihash)
+		return;
+
+	hash_iterate(bgp_evpn->vnihash,
+		     (void (*)(struct hash_bucket *, void *))link_l2vni_hash_to_l3vni, bgp_vrf);
 }
 
 int bgp_evpn_local_l3vni_add(vni_t l3vni, vrf_id_t vrf_id, struct ethaddr *svi_rmac,
