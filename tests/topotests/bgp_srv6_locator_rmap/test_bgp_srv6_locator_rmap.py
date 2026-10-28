@@ -1026,6 +1026,80 @@ def test_route_map_locator_path_update_to_missing_locator():
     assert restored is True, restored
 
 
+def test_route_map_locator_sid_valid_with_default_instance_locator():
+    """
+    Configure locator MAIN in the default instance and unconfigure 'sid vpn
+    export auto' in Vrf20, so that Vrf20 has no SID. Check that 10.0.0.0/24
+    and 192.168.1.0/24, whose locator NAME is set by the export route-map,
+    are exported with a SID of locator NAME and that their VPN paths are
+    valid.
+    """
+    tgen = get_topogen()
+
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    r1 = tgen.gears["r1"]
+    prefixes = ("10.0.0.0/24", "192.168.1.0/24")
+
+    r1.vtysh_multicmd(
+        """
+        configure
+        router bgp 65001
+        segment-routing srv6
+        locator MAIN
+        exit
+        exit
+        router bgp 65001 vrf Vrf20
+        address-family ipv4 unicast
+        no sid vpn export auto
+        """
+    )
+
+    @retry(retry_timeout=30)
+    def check_vpn_paths_valid_with_name_sid():
+        output = json.loads(r1.vtysh_cmd("show bgp ipv4 vpn detail json"))
+        rds = output.get("routes", {}).get("routeDistinguishers", {})
+        for prefix in prefixes:
+            paths = rds.get("65001:20", {}).get(prefix, [])
+            if not paths:
+                return f"{prefix} not exported to VPN"
+            for path in paths:
+                sid = path.get("remoteTransposedSid", path.get("remoteSid", ""))
+                if not sid.startswith("2001:db09:1:2:"):
+                    return f"{prefix} not exported with a SID of locator NAME: {path}"
+                if not path.get("valid"):
+                    return f"{prefix} VPN path with a SID of locator NAME is not valid: {path}"
+        return True
+
+    valid = check_vpn_paths_valid_with_name_sid()
+    output = r1.vtysh_cmd("show bgp ipv4 vpn 10.0.0.0/24")
+    logger.info(output)
+
+    r1.vtysh_multicmd(
+        """
+        configure
+        router bgp 65001
+        segment-routing srv6
+        no locator MAIN
+        exit
+        exit
+        router bgp 65001 vrf Vrf20
+        address-family ipv4 unicast
+        sid vpn export auto
+        """
+    )
+
+    @retry(retry_timeout=30)
+    def check_name_used_by_two_paths():
+        return check_locator_count(r1, "Vrf20", "NAME", 2) or True
+
+    restored = check_name_used_by_two_paths()
+
+    assert valid is True, valid
+    assert restored is True, restored
+
+
 def test_mpls_srv6_coexistence_withdraw_unavailable_locator():
     """
     MPLS and SRv6 coexistence: with 'label vpn export auto' in Vrf20, entry 3
