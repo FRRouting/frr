@@ -674,9 +674,21 @@ static void netlink_parse_extended_ack(struct nlmsghdr *h, int proto, bool expec
 		if (expected) {
 			if (IS_ZEBRA_DEBUG_KERNEL)
 				zlog_debug("Extended %s: %s", is_err ? "Error" : "Warning", msg);
-		} else if (is_err)
+		} else if (is_err) {
 			flog_err(EC_ZEBRA_NETLINK_EXTENDED_ERROR, "Extended Error: %s", msg);
-		else
+			/*
+			 * A seg6local End.DT4/DT6/DT46 route install (used by
+			 * SRv6 L2 EVPN IRB to decap into a tenant VRF) is rejected
+			 * by the kernel with this exact message when
+			 * net.vrf.strict_mode=0 (the Linux default). Once rejected
+			 * the route stays failed permanently - zebra does not retry
+			 * - so surface the actual remediation instead of leaving
+			 * this as an opaque kernel string.
+			 */
+			if (strstr(msg, "Strict mode for VRF is disabled"))
+				flog_err(EC_ZEBRA_NETLINK_EXTENDED_ERROR,
+					 "The route above will stay rejected until this is fixed and the SRv6 VRF SID is re-provisioned (e.g. toggle 'sid vpn per-vrf export auto'). Fix: run 'sysctl -w net.vrf.strict_mode=1' (and persist it in /etc/sysctl.d/) before provisioning any SRv6 L2 EVPN tenant VRF.");
+		} else
 			flog_warn(EC_ZEBRA_NETLINK_EXTENDED_WARNING,
 				  "Extended Warning: %s", msg);
 	}
