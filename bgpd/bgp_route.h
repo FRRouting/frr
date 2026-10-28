@@ -1147,6 +1147,8 @@ extern int bgp_path_info_cmp(struct bgp *bgp, struct bgp_path_info *new,
 	bgp_path_info_add_with_caller(__func__, (A), (B))
 #define bgp_path_info_free(B) bgp_path_info_free_with_caller(__func__, (B))
 extern void bgp_meta_queue_free(struct meta_queue *mq);
+extern void bgp_meta_queue_plug(struct bgp *bgp);
+extern void bgp_meta_queue_unplug(struct bgp *bgp);
 extern int early_route_process(struct bgp *bgp, struct bgp_dest *dest);
 extern int other_route_process(struct bgp *bgp, struct bgp_dest *dest);
 extern int eoiu_marker_process(struct bgp *bgp, struct bgp_dest *dest);

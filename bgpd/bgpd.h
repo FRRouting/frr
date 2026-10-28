@@ -1112,6 +1112,9 @@ struct bgp {
 	/* Process Queue for handling routes */
 	struct work_queue *process_queue;
 
+	/* Plugged by bgp_meta_queue_plug(), independent of update-delay */
+	bool meta_queue_plugged;
+
 	/* Meta Queue Information */
 	struct meta_queue *mq;
 
