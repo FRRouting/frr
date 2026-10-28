@@ -426,6 +426,14 @@ static void zebra_srv6_evi_unrealize(struct zebra_srv6_evi *evi)
 	if (bridge_ifindex)
 		zebra_sr6_release_all_on_bridge(bridge_ifindex);
 
+	/*
+	 * The realized state is gone, so the bridge's self-PVID is no longer
+	 * bound: apply it again when the VLAN comes back, even on the same
+	 * bridge.
+	 */
+	evi->self_pvid_bound_vid = 0;
+	evi->self_pvid_bound_ifindex = 0;
+
 	/* The dedicated local decap sr6 was just released above.  Clear both
 	 * the cached oif and the held-SID marker so a later re-add of this EVI
 	 * starts clean (and never tries to release a stale SID).
@@ -1143,6 +1151,54 @@ void zebra_srv6_evi_realize(struct zebra_srv6_evi *evi)
 	 */
 	if (zevpn->vid)
 		zebra_sr6_bind_vlan_on_bridge(evi->bridge_if->ifindex, zevpn->vid);
+
+	/*
+	 * The bridge device's OWN self-VLAN/PVID must also match the EVI's
+	 * VLAN, distinct from the per-port bind above. When VRF-routed IRB
+	 * traffic is delivered directly to this bridge device (VRF route
+	 * resolves to a local, directly-connected subnet on this bridge),
+	 * the kernel's br_dev_xmit() has no ingress port to derive a VLAN
+	 * from and falls back to the bridge's own default self-PVID (VLAN
+	 * 1) for its FDB lookup. Since every real FDB entry on a
+	 * vlan-filtering bridge is tagged with the EVI's actual VLAN, that
+	 * mismatched lookup key misses unconditionally -- regardless of
+	 * whether the destination MAC is genuinely known -- and falls back
+	 * to flooding, which leaks the packet out the fabric-facing BUM
+	 * port to every other PE even though it was already correctly
+	 * routed to this one. Setting the bridge's own self-PVID to the
+	 * EVI's VLAN here closes that gap the same way the per-port bind
+	 * above already does for the tunnel ports.
+	 *
+	 * Gate on self_pvid_bound_vid (mirrors kernel_state_rescan_bridge_ifindex
+	 * below): realize() runs on every remote MAC install, not just on an
+	 * actual VLAN change, and re-issuing this RTM_SETLINK on every one of
+	 * those redundant passes races the kernel's bridge VLAN reprogramming
+	 * against the remote-MAC FDB add already in flight on the same dplane
+	 * FIFO for the very MAC that triggered this realize() pass -
+	 * intermittently dropping that install. Re-apply only when the vid
+	 * actually changes (or on the first realize); no-op for vlan-bundle
+	 * (vid 0).
+	 */
+	if (zevpn->vid && (evi->self_pvid_bound_vid != zevpn->vid ||
+			   evi->self_pvid_bound_ifindex != evi->bridge_if->ifindex)) {
+		dplane_sr6_bridge_vlan_add(evi->bridge_if->ifindex, zevpn->vid,
+					   true /* untagged */, true /* pvid */, true /* self */);
+		/*
+		 * Setting VLAN 400 as the new self-PVID demotes the bridge's
+		 * default VLAN 1 from PVID, but leaves it registered as a
+		 * second, still-untagged self-membership. With two untagged
+		 * VLAN contexts on the bridge's own self-entry, a locally
+		 * generated broadcast (e.g. this EVI's anycast IRB gateway
+		 * answering its own ARP request) gets delivered to the local
+		 * stack once per VLAN - a spurious duplicate reply. Strip
+		 * the stale VLAN 1 self-membership alongside binding VLAN
+		 * 400, mirroring the per-port cleanup above.
+		 */
+		if (zevpn->vid != 1)
+			dplane_sr6_bridge_vlan_del(evi->bridge_if->ifindex, 1, true /* self */);
+		evi->self_pvid_bound_vid = zevpn->vid;
+		evi->self_pvid_bound_ifindex = evi->bridge_if->ifindex;
+	}
 
 	/*
 	 * Re-program remote SRv6 MAC FDB entries now that the egress sr6 ports

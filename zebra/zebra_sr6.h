@@ -70,6 +70,14 @@ struct zebra_sr6 {
 	 * live remote encap).  It only supplies the l2dev ifindex for decap.
 	 */
 	bool local_decap;
+
+	/*
+	 * Set once this port's leftover default-PVID (VLAN 1) membership has
+	 * been stripped after binding it to the EVI VLAN. Guards
+	 * zebra_sr6_bind_vlan_on_bridge() (called on every realize()) against
+	 * re-issuing a redundant bridge-vlan-del for a port already cleaned up.
+	 */
+	bool default_vlan_stripped;
 };
 
 /*
