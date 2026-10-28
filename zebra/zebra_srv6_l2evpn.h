@@ -169,6 +169,16 @@ struct zebra_srv6_evi {
 	 */
 	struct in6_addr local_decap_sid;
 
+
+	/*
+	 * The VLAN the bridge device's own self-PVID was last bound to (see the
+	 * self-PVID bind in realize()).  Re-issuing the self-PVID RTM_SETLINK on
+	 * every redundant realize() races the kernel's bridge VLAN reprogramming
+	 * against in-flight FDB adds, intermittently dropping an install.  0 =
+	 * not yet bound for the current vid.
+	 */
+	vlanid_t self_pvid_bound_vid;
+
 	/* Operator-owned sr6 (End.DT2U) / bum-sr6 (End.DT2M) interfaces for this
 	 * EVI's bridge, discovered by name prefix; 0 until discovered.
 	 */

@@ -139,8 +139,8 @@ void zebra_srv6_vpws_apply_mtu(uint32_t mtu)
 
 	frr_each (vpws_htab, vpws_hash, v)
 		if (v->sr6_ifindex && v->remote_present)
-			dplane_sr6_program(v->sr6_ifindex, &v->peer_sid, mtu,
-					    v->l2_encap_mode);
+			dplane_sr6_program(v->sr6_ifindex, &v->peer_sid, mtu, v->l2_encap_mode,
+					   false);
 }
 
 /* ---------- peer-SID underlay /128 flush ----------
@@ -328,9 +328,9 @@ void zebra_srv6_vpws_if_add(struct interface *ifp)
 			 * with the instance's configured l2-encap-mode.
 			 */
 			dplane_sr6_program(ifp->ifindex, &v->peer_sid,
-					    zebra_sr6_get_mtu() ? zebra_sr6_get_mtu()
-								 : ZEBRA_SR6_DEFAULT_MTU,
-					    v->l2_encap_mode);
+					   zebra_sr6_get_mtu() ? zebra_sr6_get_mtu()
+							       : ZEBRA_SR6_DEFAULT_MTU,
+					   v->l2_encap_mode, false);
 			zlog_debug("VPWS %s: sr6 %s added (ifindex=%u), programmed", v->name,
 				   sr6name, ifp->ifindex);
 			continue;
@@ -425,9 +425,9 @@ int zebra_srv6_vpws_local_del(const char *instance_name)
 		struct in6_addr any = {};
 
 		dplane_sr6_program(v->sr6_ifindex, &any,
-				    zebra_sr6_get_mtu() ? zebra_sr6_get_mtu()
-							 : ZEBRA_SR6_DEFAULT_MTU,
-				    v->l2_encap_mode);
+				   zebra_sr6_get_mtu() ? zebra_sr6_get_mtu()
+						       : ZEBRA_SR6_DEFAULT_MTU,
+				   v->l2_encap_mode, false);
 		v->sr6_ifindex = 0;
 	}
 	/*
@@ -514,8 +514,8 @@ int zebra_srv6_vpws_remote_add(const struct zapi_vpws_remote *api)
 	 */
 	v->sr6_pending = false;
 	dplane_sr6_program(v->sr6_ifindex, &v->peer_sid,
-			    zebra_sr6_get_mtu() ? zebra_sr6_get_mtu() : ZEBRA_SR6_DEFAULT_MTU,
-			    v->l2_encap_mode);
+			   zebra_sr6_get_mtu() ? zebra_sr6_get_mtu() : ZEBRA_SR6_DEFAULT_MTU,
+			   v->l2_encap_mode, false);
 	zlog_debug("VPWS %s: sr6 %s (ifindex=%u) programmed with peer SID %pI6", v->name, ifname,
 		   v->sr6_ifindex, &v->peer_sid);
 
@@ -533,9 +533,9 @@ int zebra_srv6_vpws_remote_del(const char *instance_name)
 		struct in6_addr any = {};
 
 		dplane_sr6_program(v->sr6_ifindex, &any,
-				    zebra_sr6_get_mtu() ? zebra_sr6_get_mtu()
-							 : ZEBRA_SR6_DEFAULT_MTU,
-				    v->l2_encap_mode);
+				   zebra_sr6_get_mtu() ? zebra_sr6_get_mtu()
+						       : ZEBRA_SR6_DEFAULT_MTU,
+				   v->l2_encap_mode, false);
 	}
 	/* Remove the peer-SID underlay /128 before clearing the stored SID. */
 	vpws_flush_underlay_sid(&v->peer_sid);

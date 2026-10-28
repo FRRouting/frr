@@ -1000,6 +1000,7 @@ enum {
 	IFLA_SR6_SRH,	     /* struct ipv6_sr_hdr + segment array (RFC 8754) */
 	IFLA_SR6_FIB_TABLE,  /* u32, optional */
 	IFLA_SR6_ENCAP_MODE, /* u8 enum sr6_encap_mode, REQUIRED */
+	IFLA_SR6_PROXY,	     /* flag, optional - suppress ARP/ND flood (BUM only) */
 	__IFLA_SR6_MAX,
 };
 #define IFLA_SR6_MAX (__IFLA_SR6_MAX - 1)
@@ -1202,6 +1203,7 @@ static ssize_t netlink_link_update_msg_encoder(struct zebra_dplane_ctx *ctx, voi
 	} else if (op == DPLANE_OP_BRIDGE_VLAN_ADD) {
 		struct rtattr *afspec;
 		struct bridge_vlan_info vinfo = {};
+		uint16_t bridge_flags = dplane_ctx_get_br_self(ctx) ? BRIDGE_FLAGS_SELF : 0;
 
 		req->n.nlmsg_type = RTM_SETLINK;
 		req->ifi.ifi_family = AF_BRIDGE;
@@ -1209,11 +1211,49 @@ static ssize_t netlink_link_update_msg_encoder(struct zebra_dplane_ctx *ctx, voi
 		afspec = nl_attr_nest(&req->n, buflen, IFLA_AF_SPEC);
 		if (!afspec)
 			return 0;
+		/*
+		 * A request targeting the bridge device itself (rather than one
+		 * of its ports) has no "master" to apply a port-vlan-table
+		 * change to; the kernel's br_afspec() falls into that
+		 * master-oriented branch by default and rejects the request
+		 * with EOPNOTSUPP unless IFLA_BRIDGE_FLAGS/BRIDGE_FLAGS_SELF is
+		 * present, matching what the "bridge vlan add dev BR vid V
+		 * self ..." CLI command sends.
+		 */
+		if (dplane_ctx_get_br_self(ctx) &&
+		    !nl_attr_put(&req->n, buflen, IFLA_BRIDGE_FLAGS, &bridge_flags,
+				 sizeof(bridge_flags)))
+			return 0;
 		vinfo.vid = dplane_ctx_get_br_vid(ctx);
 		if (dplane_ctx_get_br_untagged(ctx))
 			vinfo.flags |= BRIDGE_VLAN_INFO_UNTAGGED;
 		if (dplane_ctx_get_br_pvid(ctx))
 			vinfo.flags |= BRIDGE_VLAN_INFO_PVID;
+		if (!nl_attr_put(&req->n, buflen, IFLA_BRIDGE_VLAN_INFO, &vinfo, sizeof(vinfo)))
+			return 0;
+		nl_attr_nest_end(&req->n, afspec);
+	} else if (op == DPLANE_OP_BRIDGE_VLAN_DEL) {
+		struct rtattr *afspec;
+		struct bridge_vlan_info vinfo = {};
+		uint16_t bridge_flags = dplane_ctx_get_br_self(ctx) ? BRIDGE_FLAGS_SELF : 0;
+
+		/*
+		 * Removes a stale vlan membership (e.g. the default VLAN 1 left
+		 * behind after binding a port/self-entry to the EVI's actual VLAN).
+		 * Same AF_BRIDGE/IFLA_AF_SPEC/IFLA_BRIDGE_VLAN_INFO shape as the add
+		 * above, but RTM_DELLINK - matching what "bridge vlan del ..." sends.
+		 */
+		req->n.nlmsg_type = RTM_DELLINK;
+		req->ifi.ifi_family = AF_BRIDGE;
+		req->ifi.ifi_index = dplane_ctx_get_ifindex(ctx);
+		afspec = nl_attr_nest(&req->n, buflen, IFLA_AF_SPEC);
+		if (!afspec)
+			return 0;
+		if (dplane_ctx_get_br_self(ctx) &&
+		    !nl_attr_put(&req->n, buflen, IFLA_BRIDGE_FLAGS, &bridge_flags,
+				 sizeof(bridge_flags)))
+			return 0;
+		vinfo.vid = dplane_ctx_get_br_vid(ctx);
 		if (!nl_attr_put(&req->n, buflen, IFLA_BRIDGE_VLAN_INFO, &vinfo, sizeof(vinfo)))
 			return 0;
 		nl_attr_nest_end(&req->n, afspec);
@@ -1251,6 +1291,17 @@ static ssize_t netlink_link_update_msg_encoder(struct zebra_dplane_ctx *ctx, voi
 		if (!nl_attr_put(&req->n, buflen, IFLA_SR6_SRH, srh_buf, sizeof(srh_buf)))
 			return 0;
 		if (!nl_attr_put8(&req->n, buflen, IFLA_SR6_ENCAP_MODE, kmode))
+			return 0;
+		/*
+		 * Ask the kernel to suppress ARP/ND flooding through this sr6
+		 * (BUM-only; see dplane_sr6_program()).  Operator-owned netdevs
+		 * are not created by FRR, so proxy mode is programmed here on the
+		 * sr6 SID changelink rather than at create time.  A kernel that
+		 * predates IFLA_SR6_PROXY simply ignores the unknown IFLA_INFO_DATA
+		 * attribute, so this is safe to send once sr6_proxy says to.
+		 */
+		if (dplane_ctx_get_sr6_proxy(ctx) &&
+		    !nl_attr_put(&req->n, buflen, IFLA_SR6_PROXY, NULL, 0))
 			return 0;
 		nl_attr_nest_end(&req->n, infodata);
 		nl_attr_nest_end(&req->n, linkinfo);

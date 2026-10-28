@@ -242,6 +242,7 @@ enum dplane_op_e {
 	 */
 	DPLANE_OP_BRPORT_FLAGS,
 	DPLANE_OP_BRIDGE_VLAN_ADD,
+	DPLANE_OP_BRIDGE_VLAN_DEL,
 	DPLANE_OP_SR6_UPDATE_SID,
 	DPLANE_OP_SR6_SET_MTU,
 
@@ -1117,18 +1118,28 @@ enum zebra_dplane_result dplane_intf_speed_get(const struct interface *ifp);
  */
 enum zebra_dplane_result dplane_sr6_brport_flags(ifindex_t ifindex, bool is_bum);
 enum zebra_dplane_result dplane_sr6_bridge_vlan_add(ifindex_t ifindex, vlanid_t vid, bool untagged,
-						    bool pvid);
+						    bool pvid, bool self);
+/*
+ * Remove a stale bridge-vlan membership (e.g. the default VLAN 1 a port or
+ * the bridge's own self-entry inherits at creation, left behind once the
+ * EVI's actual VLAN has been bound via dplane_sr6_bridge_vlan_add() above).
+ */
+enum zebra_dplane_result dplane_sr6_bridge_vlan_del(ifindex_t ifindex, vlanid_t vid, bool self);
 enum zebra_dplane_result dplane_sr6_update_sid(ifindex_t ifindex, const struct in6_addr *sid);
 enum zebra_dplane_result dplane_sr6_program(ifindex_t ifindex, const struct in6_addr *sid,
-					    uint32_t mtu, uint8_t mode);
+					    uint32_t mtu, uint8_t mode, bool is_bum);
 void dplane_ctx_set_sr6_sid(struct zebra_dplane_ctx *ctx, const struct in6_addr *sid);
 const struct in6_addr *dplane_ctx_get_sr6_sid(const struct zebra_dplane_ctx *ctx);
+void dplane_ctx_set_sr6_proxy(struct zebra_dplane_ctx *ctx, bool proxy);
+bool dplane_ctx_get_sr6_proxy(const struct zebra_dplane_ctx *ctx);
 void dplane_ctx_set_br_is_bum(struct zebra_dplane_ctx *ctx, bool is_bum);
 bool dplane_ctx_get_br_is_bum(const struct zebra_dplane_ctx *ctx);
-void dplane_ctx_set_br_vlan(struct zebra_dplane_ctx *ctx, vlanid_t vid, bool untagged, bool pvid);
+void dplane_ctx_set_br_vlan(struct zebra_dplane_ctx *ctx, vlanid_t vid, bool untagged, bool pvid,
+			    bool self);
 vlanid_t dplane_ctx_get_br_vid(const struct zebra_dplane_ctx *ctx);
 bool dplane_ctx_get_br_untagged(const struct zebra_dplane_ctx *ctx);
 bool dplane_ctx_get_br_pvid(const struct zebra_dplane_ctx *ctx);
+bool dplane_ctx_get_br_self(const struct zebra_dplane_ctx *ctx);
 
 /*
  * Enqueue tc link changes for the dataplane.

@@ -1106,6 +1106,7 @@ static int fpm_nl_enqueue(struct fpm_nl_ctx *fnc, struct zebra_dplane_ctx *ctx)
 	case DPLANE_OP_INTF_DELETE:
 	case DPLANE_OP_BRPORT_FLAGS:
 	case DPLANE_OP_BRIDGE_VLAN_ADD:
+	case DPLANE_OP_BRIDGE_VLAN_DEL:
 	case DPLANE_OP_SR6_UPDATE_SID:
 	case DPLANE_OP_SR6_SET_MTU:
 	case DPLANE_OP_INTF_SPEED_GET:

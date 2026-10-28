@@ -25,6 +25,7 @@
 #include "zebra/zebra_srv6_l2evpn.h"
 #include "zebra/zebra_srv6_vpws.h"
 #include "zebra/zebra_dplane.h"
+#include "zebra/zebra_ns.h"
 
 DEFINE_MTYPE_STATIC(ZEBRA, ZEBRA_SR6, "Zebra SRv6 SR-L2 interface");
 
@@ -131,8 +132,8 @@ void zebra_sr6_set_mtu(uint32_t mtu)
 			if (sr6->ifindex <= 0 || sr6->local_decap)
 				continue;
 			dplane_sr6_program(sr6->ifindex, &sr6->sid, apply,
-					    zebra_srv6_evi_encap_mode_by_bridge(
-						    sr6->bridge_ifindex));
+					   zebra_srv6_evi_encap_mode_by_bridge(sr6->bridge_ifindex),
+					   sr6->is_bum);
 		}
 
 	/*
@@ -260,9 +261,9 @@ static void sr6_program_if(struct zebra_sr6 *entry)
 	if (entry->local_decap)
 		return;
 	dplane_sr6_program(entry->ifindex, &entry->sid,
-			    zebra_sr6_get_mtu() ? zebra_sr6_get_mtu()
-						 : ZEBRA_SR6_DEFAULT_MTU,
-			    zebra_srv6_evi_encap_mode_by_bridge(entry->bridge_ifindex));
+			   zebra_sr6_get_mtu() ? zebra_sr6_get_mtu() : ZEBRA_SR6_DEFAULT_MTU,
+			   zebra_srv6_evi_encap_mode_by_bridge(entry->bridge_ifindex),
+			   entry->is_bum);
 }
 
 /*
@@ -318,14 +319,34 @@ static struct zebra_sr6 *sr6_get_or_create(const struct in6_addr *sid, ifindex_t
 	key.sid = *sid;
 	entry = sr6_htab_find(sr6_table, &key);
 	if (entry) {
-		entry->refcnt++;
-		if (entry->ifindex == 0) {
-			entry->ifindex = zebra_sr6_discover_on_bridge(bridge_ifindex, is_bum,
-								 entry->ifname);
-			if (entry->ifindex)
-				sr6_program_if(entry);
+		/*
+		 * entry->ifindex may point at a device that was deleted out
+		 * from under us (externally, or by anything that doesn't go
+		 * through this table's own delete path) without the entry being
+		 * removed. Returning it as-is would hand callers a dead ifindex
+		 * forever - the SID-keyed lookup has no other signal that would
+		 * ever notice. Detect that here and drop the stale entry so the
+		 * caller proceeds to a genuine recreate below, instead of
+		 * caching a permanently broken l2dev reference.
+		 */
+		if (entry->ifindex != 0 &&
+		    !if_lookup_by_index_per_ns(zebra_ns_lookup(NS_DEFAULT), entry->ifindex)) {
+			if (IS_ZEBRA_DEBUG_VXLAN)
+				zlog_debug("%s: %s (ifindex %u) for SID %pI6 no longer exists; recreating",
+					   __func__, entry->ifname, entry->ifindex, sid);
+			sr6_htab_del(sr6_table, entry);
+			XFREE(MTYPE_ZEBRA_SR6, entry);
+		} else {
+			entry->refcnt++;
+			if (entry->ifindex == 0) {
+				entry->ifindex = zebra_sr6_discover_on_bridge(bridge_ifindex,
+									      is_bum,
+									      entry->ifname);
+				if (entry->ifindex)
+					sr6_program_if(entry);
+			}
+			return entry;
 		}
-		return entry;
 	}
 
 	/*
@@ -443,9 +464,23 @@ void zebra_sr6_bind_vlan_on_bridge(ifindex_t bridge_ifindex, vlanid_t vid)
 		return;
 
 	frr_each (sr6_htab, sr6_table, entry)
-		if (entry->bridge_ifindex == bridge_ifindex)
+		if (entry->bridge_ifindex == bridge_ifindex) {
 			dplane_sr6_bridge_vlan_add(entry->ifindex, vid, false /* untagged */,
-						    false /* pvid */);
+						   false /* pvid */, false /* self */);
+			/*
+			 * Strip the port's leftover default VLAN 1 membership
+			 * the same way zebra_sr6_if_add() does for the
+			 * common case; this repair path exists precisely for
+			 * ports that skipped that initial bind (see comment
+			 * above), so it must also do the cleanup. Guarded so
+			 * repeated realize() passes don't re-issue this once
+			 * done.
+			 */
+			if (!entry->default_vlan_stripped && vid != 1) {
+				dplane_sr6_bridge_vlan_del(entry->ifindex, 1, false /* self */);
+				entry->default_vlan_stripped = true;
+			}
+		}
 }
 
 /*
@@ -567,9 +602,9 @@ struct zebra_sr6 *zebra_sr6_update_sid(const struct in6_addr *old_sid,
 	 * FULL default and silently undo `l2-encap-mode reduced`).
 	 */
 	dplane_sr6_program(entry->ifindex, new_sid,
-			    zebra_sr6_get_mtu() ? zebra_sr6_get_mtu()
-						 : ZEBRA_SR6_DEFAULT_MTU,
-			    zebra_srv6_evi_encap_mode_by_bridge(entry->bridge_ifindex));
+			   zebra_sr6_get_mtu() ? zebra_sr6_get_mtu() : ZEBRA_SR6_DEFAULT_MTU,
+			   zebra_srv6_evi_encap_mode_by_bridge(entry->bridge_ifindex),
+			   entry->is_bum);
 
 	/* Re-key the hash entry: remove under old SID, reinsert under new. */
 	sr6_htab_del(sr6_table, entry);
@@ -596,9 +631,8 @@ static void sr6_reset_if(ifindex_t ifindex, ifindex_t bridge_ifindex)
 	if (ifindex == 0)
 		return;
 	dplane_sr6_program(ifindex, &any,
-			    zebra_sr6_get_mtu() ? zebra_sr6_get_mtu()
-						 : ZEBRA_SR6_DEFAULT_MTU,
-			    zebra_srv6_evi_encap_mode_by_bridge(bridge_ifindex));
+			   zebra_sr6_get_mtu() ? zebra_sr6_get_mtu() : ZEBRA_SR6_DEFAULT_MTU,
+			   zebra_srv6_evi_encap_mode_by_bridge(bridge_ifindex), false);
 }
 
 /*

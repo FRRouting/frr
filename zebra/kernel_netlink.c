@@ -1541,6 +1541,7 @@ static enum netlink_msg_status nl_put_msg(struct nl_batch *bth,
 
 	case DPLANE_OP_BRPORT_FLAGS:
 	case DPLANE_OP_BRIDGE_VLAN_ADD:
+	case DPLANE_OP_BRIDGE_VLAN_DEL:
 	case DPLANE_OP_SR6_UPDATE_SID:
 	case DPLANE_OP_SR6_SET_MTU:
 		return netlink_put_link_update_msg(bth, ctx);
