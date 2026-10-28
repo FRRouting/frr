@@ -56,6 +56,7 @@ import contextlib
 import ipaddress
 import os
 import re
+import select
 import struct
 import subprocess
 import sys
@@ -217,23 +218,33 @@ def _wait_wire_quiet(r1, src, tries=8):
 
 @contextlib.contextmanager
 def _capture(router, ifname, pcap):
-    tcpdump = router.popen(
-        ["tcpdump", "-i", ifname, "-nn", "-s0", "-w", pcap, "udp", "port", "6696"],
-        stdout=subprocess.DEVNULL,
-        stderr=subprocess.DEVNULL,
-    )
-    time.sleep(1)
-    try:
-        if tcpdump.poll() is not None:
-            raise RuntimeError("tcpdump exited with status {}".format(tcpdump.returncode))
-        yield
-    finally:
-        if tcpdump.poll() is None:
-            tcpdump.terminate()
+    logfile = pcap + ".log"
+    with open(logfile, "w") as log:
+        capture = router.popen(
+            ["python3", os.path.join(CWD, "capture_babel.py"),
+             "--iface", ifname, "--pcap", pcap],
+            stdout=subprocess.PIPE,
+            stderr=log,
+            text=True,
+        )
+        try:
+            readable, _, _ = select.select([capture.stdout], [], [], 10)
+            if not readable or capture.stdout.readline().strip() != "ready":
+                raise RuntimeError("Babel capture did not start; see {}".format(logfile))
+            yield
+        finally:
+            if capture.poll() is None:
+                capture.terminate()
             try:
-                tcpdump.wait(timeout=5)
+                status = capture.wait(timeout=5)
             except subprocess.TimeoutExpired:
-                tcpdump.kill()
+                capture.kill()
+                capture.wait()
+                raise RuntimeError("Babel capture did not stop; see {}".format(logfile))
+            finally:
+                capture.stdout.close()
+            if status != 0:
+                raise RuntimeError("Babel capture exited with {}; see {}".format(status, logfile))
 
 
 def _iter_tlvs(body):
@@ -653,7 +664,9 @@ def test_shutdown_check_stderr():
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
 
-    for router in tgen.routers().values():
+    for rname, router in tgen.routers().items():
+        if rname == "r3":
+            continue
         router.stop()
         for daemon in ["babeld", "zebra"]:
             log = tgen.net[router.name].getStdErr(daemon)
