@@ -1024,6 +1024,7 @@ void ensure_vrf_tovpn_sid(struct bgp *bgp_vpn, struct bgp *bgp_vrf, afi_t afi)
 void delete_vrf_tovpn_sid_per_af(struct bgp *bgp_vpn, struct bgp *bgp_vrf,
 				 afi_t afi)
 {
+	bool sid_freed = false;
 	int debug = BGP_DEBUG(vpn, VPN_LEAK_FROM_VRF);
 	uint32_t tovpn_sid_index = 0;
 	bool tovpn_sid_auto = false;
@@ -1060,6 +1061,7 @@ void delete_vrf_tovpn_sid_per_af(struct bgp *bgp_vpn, struct bgp *bgp_vrf,
 
 		sid_unregister(bgp_vpn, bgp_vrf->vpn_policy[afi].tovpn_sid);
 		XFREE(MTYPE_BGP_SRV6_SID, bgp_vrf->vpn_policy[afi].tovpn_sid);
+		sid_freed = true;
 	}
 
 	if (bgp_vrf->vpn_policy[afi].tovpn_sid_explicit)
@@ -1069,6 +1071,9 @@ void delete_vrf_tovpn_sid_per_af(struct bgp *bgp_vpn, struct bgp *bgp_vrf,
 
 	srv6_locator_free(bgp_vrf->vpn_policy[afi].tovpn_sid_locator);
 	bgp_vrf->vpn_policy[afi].tovpn_sid_locator = NULL;
+
+	if (sid_freed)
+		bgp_evpn_srv6_vrf_sid_removed(bgp_vrf);
 }
 
 /*
@@ -1212,6 +1217,7 @@ void bgp_evpn_srv6_uninstall_local_decap(struct bgp *bgp, struct bgpevpn *vpn, b
 
 void delete_vrf_tovpn_sid_per_vrf(struct bgp *bgp_vpn, struct bgp *bgp_vrf)
 {
+	bool sid_freed = false;
 	int debug = BGP_DEBUG(vpn, VPN_LEAK_FROM_VRF);
 	uint32_t tovpn_sid_index = 0;
 	bool tovpn_sid_auto = false;
@@ -1246,6 +1252,7 @@ void delete_vrf_tovpn_sid_per_vrf(struct bgp *bgp_vpn, struct bgp *bgp_vrf)
 
 		sid_unregister(bgp_vpn, bgp_vrf->tovpn_sid);
 		XFREE(MTYPE_BGP_SRV6_SID, bgp_vrf->tovpn_sid);
+		sid_freed = true;
 	}
 	if (bgp_vrf->tovpn_sid_explicit) {
 		XFREE(MTYPE_BGP_SRV6_SID, bgp_vrf->tovpn_sid_explicit);
@@ -1254,6 +1261,9 @@ void delete_vrf_tovpn_sid_per_vrf(struct bgp *bgp_vpn, struct bgp *bgp_vrf)
 
 	srv6_locator_free(bgp_vrf->tovpn_sid_locator);
 	bgp_vrf->tovpn_sid_locator = NULL;
+
+	if (sid_freed)
+		bgp_evpn_srv6_vrf_sid_removed(bgp_vrf);
 }
 
 /*
