@@ -6284,6 +6284,16 @@ static int isis_mt_item_list_cmp(const struct isis_item_list *a, const struct is
 RB_PROTOTYPE(isis_mt_item_list, isis_item_list, mt_tree, isis_mt_item_list_cmp);
 RB_GENERATE(isis_mt_item_list, isis_item_list, mt_tree, isis_mt_item_list_cmp);
 
+struct isis_item_list *isis_mt_items_first(struct isis_mt_item_list *m)
+{
+	return RB_MIN(isis_mt_item_list, m);
+}
+
+struct isis_item_list *isis_mt_items_next(struct isis_item_list *l)
+{
+	return RB_NEXT(isis_mt_item_list, l);
+}
+
 struct isis_item_list *isis_get_mt_items(struct isis_mt_item_list *m, uint16_t mtid)
 {
 	struct isis_item_list *rv;
