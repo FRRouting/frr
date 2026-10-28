@@ -2260,6 +2260,39 @@ int zebra_evpn_mac_remote_macip_add(struct zebra_evpn *zevpn, struct zebra_vrf *
 						   sizeof(mac_buf)));
 			}
 
+			/*
+			 * The kernel bridge learned this MAC dynamically on
+			 * mac->ifp before it moved. Nothing below tells the
+			 * kernel to forget that entry - it just sits there
+			 * until the bridge's own ageing timer (default 300s)
+			 * expires it, so the dataplane keeps a stale local
+			 * FDB entry alongside the new remote one for up to
+			 * five minutes after a MAC mobility event, even
+			 * though zebra and BGP have already fully converged
+			 * on "remote". Flush it proactively instead of
+			 * waiting on ageing. Only for SRv6 EVIs; the other EVIs
+			 * keep their existing behaviour.
+			 */
+			if (zevpn->dp_ops == &zevpn_dp_ops_srv6 && mac->ifp) {
+				struct interface *br_ifp;
+				vlanid_t vid;
+
+				if (zevpn->vxlan_if) {
+					struct zebra_if *zif = zevpn->vxlan_if->info;
+					struct zebra_vxlan_vni *vni;
+
+					br_ifp = zif->brslave_info.br_if;
+					vni = zebra_vxlan_if_vni_find(zif, zevpn->vni);
+					vid = vni ? vni->access_vlan : 0;
+				} else {
+					br_ifp = zevpn->bridge_if;
+					vid = zevpn->vid;
+				}
+
+				if (br_ifp)
+					dplane_local_mac_del(mac->ifp, br_ifp, vid, macaddr);
+			}
+
 			zebra_evpn_mac_clear_sync_info(mac);
 			zebra_evpn_mac_send_del_to_client(zevpn->vni, macaddr,
 							  mac->flags, false);
