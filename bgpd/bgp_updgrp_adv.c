@@ -98,86 +98,89 @@ subgrp_announce_addpath_best_selected(struct bgp_dest *dest,
 	afi_t afi = SUBGRP_AFI(subgrp);
 	safi_t safi = SUBGRP_SAFI(subgrp);
 	struct peer *peer = SUBGRP_PEER(subgrp);
-	enum bgp_path_selection_reason reason;
-	char pfx_buf[PREFIX2STR_BUFFER] = {};
-	int paths_eq = 0;
-	struct list *list = list_new();
 	struct bgp_path_info *pi = NULL;
+	struct bgp_path_info *best = NULL;
 	uint16_t paths_count = 0;
 	uint16_t paths_limit = peer->addpath_paths_limit[afi][safi].receive;
 
-	if (peer->addpath_type[afi][safi] == BGP_ADDPATH_BEST_SELECTED) {
-		paths_limit =
-			paths_limit
-				? MIN(paths_limit,
-				      peer->addpath_best_selected[afi][safi])
-				: peer->addpath_best_selected[afi][safi];
+	for (pi = bgp_dest_get_bgp_path_info(dest); pi; pi = pi->next) {
+		if (CHECK_FLAG(pi->flags, BGP_PATH_SELECTED)) {
+			best = pi;
+			break;
+		}
+	}
 
-		while (paths_count++ < paths_limit) {
+	if (best && subgroup_process_announce_selected(subgrp, best, dest, afi, safi,
+						       bgp_addpath_id_for_peer(peer, afi, safi,
+									       &best->tx_addpath)))
+		paths_count++;
+
+	if (peer->addpath_type[afi][safi] == BGP_ADDPATH_BEST_SELECTED) {
+		enum bgp_path_selection_reason reason;
+		char pfx_buf[PREFIX2STR_BUFFER] = {};
+		int paths_eq = 0;
+		struct list *list = list_new();
+		uint16_t selected_limit = peer->addpath_best_selected[afi][safi];
+		uint16_t selected_count = 0;
+		uint16_t remaining = paths_limit ? paths_limit - paths_count : selected_limit;
+
+		/* Pick N next best paths excluding the bestpath */
+		while (listcount(list) < selected_limit && selected_count < remaining) {
 			struct bgp_path_info *exist = NULL;
 
-			for (pi = bgp_dest_get_bgp_path_info(dest); pi;
-			     pi = pi->next) {
-				if (listnode_lookup(list, pi))
+			for (pi = bgp_dest_get_bgp_path_info(dest); pi; pi = pi->next) {
+				if (pi == best || listnode_lookup(list, pi))
 					continue;
 
-				if (CHECK_FLAG(pi->flags, BGP_PATH_SELECTED))
-					continue;
-
-				if (bgp_path_info_cmp(peer->bgp, pi, exist,
-						      &paths_eq, NULL, 0,
-						      pfx_buf, afi, safi,
-						      &reason))
+				if (bgp_path_info_cmp(peer->bgp, pi, exist, &paths_eq, NULL, 0,
+						      pfx_buf, afi, safi, &reason))
 					exist = pi;
 			}
 
-			if (exist)
-				listnode_add(list, exist);
+			if (!exist)
+				break;
+
+			listnode_add(list, exist);
+
+			if (subgroup_process_announce_selected(
+				    subgrp, exist, dest, afi, safi,
+				    bgp_addpath_id_for_peer(peer, afi, safi, &exist->tx_addpath)))
+				selected_count++;
 		}
+
+		for (pi = bgp_dest_get_bgp_path_info(dest); pi; pi = pi->next) {
+			if (pi == best || listnode_lookup(list, pi))
+				continue;
+
+			subgroup_process_announce_selected(subgrp, NULL, dest, afi, safi,
+							   bgp_addpath_id_for_peer(peer, afi, safi,
+										   &pi->tx_addpath));
+		}
+
+		list_delete(&list);
+		return;
 	}
 
 	for (pi = bgp_dest_get_bgp_path_info(dest); pi; pi = pi->next) {
 		uint32_t id = bgp_addpath_id_for_peer(peer, afi, safi,
 						      &pi->tx_addpath);
 
-		if (peer->addpath_type[afi][safi] ==
-		    BGP_ADDPATH_BEST_SELECTED) {
-			if (listnode_lookup(list, pi))
-				subgroup_process_announce_selected(
-					subgrp, pi, dest, afi, safi, id);
-			else {
-				if (CHECK_FLAG(pi->flags, BGP_PATH_SELECTED))
-					continue;
+		if (pi == best)
+			continue;
 
-				subgroup_process_announce_selected(
-					subgrp, NULL, dest, afi, safi, id);
-			}
+		/* No Paths-Limit involved */
+		if (!paths_limit) {
+			subgroup_process_announce_selected(subgrp, pi, dest, afi, safi, id);
+			continue;
+		}
+
+		if (paths_count < paths_limit) {
+			if (subgroup_process_announce_selected(subgrp, pi, dest, afi, safi, id))
+				paths_count++;
 		} else {
-			/* No Paths-Limit involved */
-			if (!paths_limit) {
-				subgroup_process_announce_selected(subgrp, pi,
-								   dest, afi,
-								   safi, id);
-				continue;
-			}
-
-			/* If we have Paths-Limit capability, we MUST
-			 * not send more than the number of paths expected
-			 * by the peer.
-			 */
-			if (paths_count++ < paths_limit)
-				subgroup_process_announce_selected(subgrp, pi,
-								   dest, afi,
-								   safi, id);
-			else
-				subgroup_process_announce_selected(subgrp, NULL,
-								   dest, afi,
-								   safi, id);
+			subgroup_process_announce_selected(subgrp, NULL, dest, afi, safi, id);
 		}
 	}
-
-	if (list)
-		list_delete(&list);
 }
 
 static void subgrp_withdraw_stale_addpath(struct updwalk_context *ctx,
@@ -250,16 +253,6 @@ static int group_announce_route_walkcb(struct update_group *updgrp, void *arg)
 
 			subgrp_withdraw_stale_addpath(ctx, subgrp);
 			subgrp_announce_addpath_best_selected(ctx->dest, subgrp);
-
-			/* Process the bestpath last so the
-			 * "show [ip] bgp neighbor x.x.x.x advertised" output shows
-			 * the attributes from the bestpath.
-			 */
-			if (ctx->pi)
-				subgroup_process_announce_selected(
-					subgrp, ctx->pi, ctx->dest, afi, safi,
-					bgp_addpath_id_for_peer(peer, afi, safi,
-								&ctx->pi->tx_addpath));
 		} else {
 			/* Send withdrawals without waiting for coalesting timer
 			 * to expire.
@@ -842,9 +835,10 @@ void subgroup_announce_table(struct update_subgroup *subgrp,
 	SET_FLAG(subgrp->sflags, SUBGRP_STATUS_TABLE_REPARSING);
 
 	for (dest = bgp_table_top(table); dest; dest = bgp_route_next(dest)) {
-
-		if (addpath_capable)
+		if (addpath_capable) {
 			subgrp_announce_addpath_best_selected(dest, subgrp);
+			continue;
+		}
 
 		for (ri = bgp_dest_get_bgp_path_info(dest); ri; ri = ri->next) {
 

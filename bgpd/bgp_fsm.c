@@ -2346,6 +2346,7 @@ enum bgp_fsm_state_progress bgp_stop(struct peer_connection *connection)
 
 		/* peer address family capability flags*/
 		peer->af_cap[afi][safi] = 0;
+		peer->addpath_paths_limit[afi][safi].receive = 0;
 
 		/* peer address family status flags*/
 		/* Don't clear WAIT_EOR */

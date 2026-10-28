@@ -4050,18 +4050,18 @@ void bgp_best_selection(struct bgp *bgp, struct bgp_dest *dest,
 
 /*
  * A new route/change in bestpath of an existing route. Evaluate the path
- * for advertisement to the subgroup.
+ * for advertisement to the subgroup. Returns true if the path is advertised.
  */
-void subgroup_process_announce_selected(struct update_subgroup *subgrp,
-					struct bgp_path_info *selected,
-					struct bgp_dest *dest, afi_t afi,
-					safi_t safi, uint32_t addpath_tx_id)
+bool subgroup_process_announce_selected(struct update_subgroup *subgrp,
+					struct bgp_path_info *selected, struct bgp_dest *dest,
+					afi_t afi, safi_t safi, uint32_t addpath_tx_id)
 {
 	const struct prefix *p;
 	struct peer *onlypeer, *peer;
 	struct attr attr = { 0 }, *pattr = &attr;
 	struct bgp *bgp;
 	bool advertise;
+	bool announced = false;
 
 	p = bgp_dest_get_prefix(dest);
 	bgp = SUBGRP_INST(subgrp);
@@ -4075,7 +4075,7 @@ void subgroup_process_announce_selected(struct update_subgroup *subgrp,
 	/* First update is deferred until ORF or ROUTE-REFRESH is received */
 	if (onlypeer && CHECK_FLAG(onlypeer->af_sflags[afi][safi],
 				   PEER_STATUS_ORF_WAIT_REFRESH))
-		return;
+		return false;
 
 	memset(&attr, 0, sizeof(attr));
 	/* It's initialized in bgp_announce_check() */
@@ -4101,6 +4101,8 @@ void subgroup_process_announce_selected(struct update_subgroup *subgrp,
 								      selected))
 						bgp_attr_flush(pattr);
 
+					announced = true;
+
 					/* Remove paths from Adj-RIB-Out if it's not a best (selected) path.
 					 * Why should we keep Adj-RIB-Out with stale paths?
 					 */
@@ -4124,8 +4126,10 @@ void subgroup_process_announce_selected(struct update_subgroup *subgrp,
 					bgp_adj_out_unset_subgroup(dest, subgrp, addpath_tx_id);
 					bgp_attr_flush(pattr);
 				}
-			} else
+			} else {
 				bgp_attr_flush(pattr);
+				announced = true;
+			}
 		} else {
 			bgp_adj_out_unset_subgroup(dest, subgrp, addpath_tx_id);
 			bgp_attr_flush(pattr);
@@ -4136,6 +4140,8 @@ void subgroup_process_announce_selected(struct update_subgroup *subgrp,
 	else {
 		bgp_adj_out_unset_subgroup(dest, subgrp, addpath_tx_id);
 	}
+
+	return announced;
 }
 
 /*
