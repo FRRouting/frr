@@ -25,10 +25,9 @@ static void on_trace(const char *label, struct interface *ifp,
 		zlog_debug("%s: from %pI4s on %s", label, &from, ifp->name);
 }
 
-void igmp_v2_send_query(struct gm_group *group, int fd, const char *ifname,
-			char *query_buf, struct in_addr dst_addr,
-			struct in_addr group_addr,
-			int query_max_response_time_dsec)
+int igmp_v2_send_query(struct gm_group *group, int fd, const char *ifname, char *query_buf,
+		       struct in_addr dst_addr, struct in_addr group_addr,
+		       int query_max_response_time_dsec)
 {
 	ssize_t msg_size = 8;
 	uint8_t max_resp_code;
@@ -73,8 +72,10 @@ void igmp_v2_send_query(struct gm_group *group, int fd, const char *ifname,
 			zlog_warn("Send IGMPv2 QUERY failed due to %pI4s on %s: group=%pI4s msg_size=%zd: sent=%zd",
 				  &dst_addr, ifname, &group_addr, msg_size, sent);
 		}
-		return;
+		return -1;
 	}
+
+	return 0;
 }
 
 int igmp_v2_recv_report(struct gm_sock *igmp, struct in_addr from, struct in_addr to,
