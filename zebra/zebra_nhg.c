@@ -2547,6 +2547,14 @@ static int nexthop_active(struct nexthop *nexthop, struct nhg_hash_entry *nhe,
 		break;
 	case NEXTHOP_TYPE_IPV6:
 		afi = AFI_IP6;
+
+		/*
+		 * A link-local address is only meaningful on a given link;
+		 * every interface owns a connected fe80::/64, so resolving
+		 * it via the RIB would pick an arbitrary interface.
+		 */
+		if (IN6_IS_ADDR_LINKLOCAL(&nexthop->gate.ipv6))
+			return 0;
 		break;
 
 	case NEXTHOP_TYPE_BLACKHOLE:
