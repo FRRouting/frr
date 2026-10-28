@@ -8577,7 +8577,7 @@ void bgp_reimport_evpn_routes_upon_martian_change(
 }
 
 /* Find the VRF bgp instance that owns a given L3VNI. */
-static struct bgp *bgp_evpn_l3vni_to_bgp_vrf(vni_t l3vni)
+struct bgp *bgp_evpn_l3vni_to_bgp_vrf(vni_t l3vni)
 {
 	struct listnode *node;
 	struct bgp *bgp_vrf;
@@ -9111,6 +9111,9 @@ int bgp_evpn_local_l3vni_add(vni_t l3vni, vrf_id_t vrf_id, struct ethaddr *svi_r
 	 * vrf */
 	install_routes_for_vrf(bgp_vrf);
 
+	/* bind ES-VRFs waiting on this L3VNI */
+	bgp_evpn_es_l3evi_vrf_update(bgp_vrf, true);
+
 	return 0;
 }
 
@@ -9159,6 +9162,9 @@ int bgp_evpn_local_l3vni_del(vni_t l3vni, vrf_id_t vrf_id)
 	 * Delete VTEP-IP from EVPN underlay's tip_hash.
 	 */
 	bgp_tip_del(bgp_evpn, &bgp_vrf->originator_ip);
+
+	/* L3VNI ES-EVIs go back to pending */
+	bgp_evpn_es_l3evi_vrf_update(bgp_vrf, false);
 
 	/* remove the l3vni from vrf instance */
 	bgp_vrf->l3vni = 0;
@@ -9592,6 +9598,7 @@ void bgp_evpn_init(struct bgp *bgp)
 
 void bgp_evpn_vrf_delete(struct bgp *bgp_vrf)
 {
+	bgp_evpn_es_l3evi_vrf_update(bgp_vrf, false);
 	bgp_evpn_unmap_vrf_from_its_rts(bgp_vrf);
 	bgp_evpn_nh_finish(bgp_vrf);
 }

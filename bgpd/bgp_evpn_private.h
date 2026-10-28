@@ -1040,6 +1040,7 @@ extern struct bgpevpn *bgp_evpn_new(struct bgp *bgp, vni_t vni,
 		ifindex_t svi_ifindex);
 extern void bgp_evpn_free(struct bgp *bgp, struct bgpevpn *vpn);
 extern bool bgp_evpn_lookup_l3vni_l2vni_table(vni_t vni);
+extern struct bgp *bgp_evpn_l3vni_to_bgp_vrf(vni_t l3vni);
 extern int update_routes_for_vni(struct bgp *bgp, struct bgpevpn *vpn);
 extern struct bgp_path_info *delete_evpn_route_entry(struct bgp *bgp, afi_t afi, safi_t safi,
 						     struct bgp_dest *dest,
