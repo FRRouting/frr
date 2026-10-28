@@ -9786,12 +9786,25 @@ static int peer_unshut_after_cfg(struct bgp *bgp)
 	 * then send the UPDATE_PENDING and UPDATE_COMPLETE to zebra.
 	 */
 	if (all_peers_are_admin_down) {
-		if (BGP_DEBUG(graceful_restart, GRACEFUL_RESTART))
-			zlog_debug("GR %s: All peers in %s are ADMIN down. Sending update_pending and complete to zebra",
-				   __func__, bgp->name_pretty);
+		struct bgp *bgp_evpn = bgp_get_evpn();
 
 		/* Send GR capability to zebra for this VRF */
 		bgp_zebra_send_capabilities(bgp, false);
+
+		/*
+		 * Routes may still be imported into this VRF from the EVPN
+		 * instance, so its route sync cannot be complete before the
+		 * EVPN deferred path selection is.
+		 */
+		if (bgp_evpn && bgp_evpn != bgp &&
+		    BGP_GR_SELECT_DEFERRAL_TIMER_IS_RUNNING(bgp_evpn, AFI_L2VPN, SAFI_EVPN)) {
+			bgp_gr_vrf_wait_for_evpn(bgp);
+			return 0;
+		}
+
+		if (BGP_DEBUG(graceful_restart, GRACEFUL_RESTART))
+			zlog_debug("GR %s: All peers in %s are ADMIN down. Sending update_pending and complete to zebra",
+				   __func__, bgp->name_pretty);
 
 		afi_t afi;
 		safi_t safi;

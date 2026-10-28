@@ -818,6 +818,12 @@ struct bgp {
 	/* Is deferred path selection still not complete? */
 	bool gr_route_sync_pending;
 
+	/*
+	 * Peerless tenant VRF whose route sync completes only after the
+	 * EVPN instance finishes its deferred path selection.
+	 */
+	bool gr_wait_for_evpn;
+
 	/* BGP Per AF flags */
 	uint16_t af_flags[AFI_MAX][SAFI_MAX];
 #define BGP_CONFIG_DAMPENING				(1 << 0)
