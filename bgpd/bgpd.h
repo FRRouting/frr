@@ -823,6 +823,8 @@ struct bgp {
 	 * EVPN instance finishes its deferred path selection.
 	 */
 	bool gr_wait_for_evpn;
+	/* An early route sync completion was blocked while waiting */
+	bool gr_wait_for_evpn_blocked;
 
 	/* BGP Per AF flags */
 	uint16_t af_flags[AFI_MAX][SAFI_MAX];

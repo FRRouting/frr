@@ -4723,9 +4723,17 @@ void bgp_process_gr_deferral_complete(struct bgp *bgp, afi_t afi, safi_t safi)
 {
 	bool route_sync_pending = false;
 
-	/* Reached once per route withdraw, so do not log here */
-	if (bgp->gr_wait_for_evpn)
+	if (bgp->gr_wait_for_evpn) {
+		/* Reached for every route withdraw, report only the first */
+		if (!bgp->gr_wait_for_evpn_blocked) {
+			bgp->gr_wait_for_evpn_blocked = true;
+			frrtrace(3, frr_bgp, gr_vrf_complete_blocked, bgp->name_pretty, afi, safi);
+			if (BGP_DEBUG(graceful_restart, GRACEFUL_RESTART))
+				zlog_debug("%s: Route sync for %s held until EVPN deferred path selection completes",
+					   bgp->name_pretty, get_afi_safi_str(afi, safi, false));
+		}
 		return;
+	}
 
 	bgp_send_delayed_eor(bgp);
 
@@ -4943,12 +4951,18 @@ void bgp_gr_vrf_wait_for_evpn(struct bgp *bgp_vrf)
 
 			bgp_vrf->gr_info[afi][safi].af_enabled = true;
 			bgp_vrf->gr_info[afi][safi].select_defer_over = true;
-			bgp_zebra_update(bgp_vrf, afi, safi, ZEBRA_CLIENT_ROUTE_UPDATE_PENDING);
+			if (bgp_zebra_update(bgp_vrf, afi, safi,
+					     ZEBRA_CLIENT_ROUTE_UPDATE_PENDING) != BGP_GR_SUCCESS)
+				flog_warn(EC_BGP_ZEBRA_SEND,
+					  "%s: Failed to send GR route update pending for %s to zebra",
+					  bgp_vrf->name_pretty, get_afi_safi_str(afi, safi, false));
 		}
 	}
 
 	bgp_vrf->gr_route_sync_pending = true;
 	bgp_vrf->gr_wait_for_evpn = true;
+
+	frrtrace(3, frr_bgp, gr_vrf_wait_for_evpn, bgp_vrf->name_pretty, bgp_vrf->vrf_id, true);
 
 	if (BGP_DEBUG(graceful_restart, GRACEFUL_RESTART))
 		zlog_debug("%s: Route sync waits for EVPN deferred path selection",
@@ -4978,14 +4992,30 @@ static void bgp_gr_evpn_complete_waiting_vrfs(void)
 				safi_t safi = bgp_gr_vrf_safis[si];
 				struct graceful_restart_info *gr_info = &bgp_vrf->gr_info[afi][safi];
 
-				if (!gr_info->af_enabled || gr_info->route_sync_tier2 ||
-				    gr_info->t_route_select)
+				if (!gr_info->af_enabled)
 					continue;
+
+				if (gr_info->route_sync_tier2) {
+					frrtrace(5, frr_bgp, gr_evpn_vrf_release, bgp_vrf->name_pretty,
+						 afi, safi, gr_info->gr_deferred, 4);
+					zlog_warn("%s: GR route sync for %s completed before EVPN deferred path selection",
+						  bgp_vrf->name_pretty, get_afi_safi_str(afi, safi, false));
+					continue;
+				}
+
+				if (gr_info->t_route_select) {
+					frrtrace(5, frr_bgp, gr_evpn_vrf_release, bgp_vrf->name_pretty,
+						 afi, safi, gr_info->gr_deferred, 3);
+					continue;
+				}
 
 				if (BGP_DEBUG(graceful_restart, GRACEFUL_RESTART))
 					zlog_debug("%s: EVPN route sync done, %u deferred routes left for %s",
 						   bgp_vrf->name_pretty, gr_info->gr_deferred,
 						   get_afi_safi_str(afi, safi, false));
+
+				frrtrace(5, frr_bgp, gr_evpn_vrf_release, bgp_vrf->name_pretty, afi, safi,
+					 gr_info->gr_deferred, gr_info->gr_deferred ? 2 : 1);
 
 				if (gr_info->gr_deferred)
 					bgp_gr_start_route_select_timer(bgp_vrf, afi, safi);
@@ -5070,6 +5100,9 @@ static inline void bgp_evpn_handle_deferred_bestpath_for_vrfs(void)
 			if (!pending_sent)
 				bgp_zebra_update(bgp_vrf, tmp_afi, tmp_safi,
 						 ZEBRA_CLIENT_ROUTE_UPDATE_PENDING);
+			else
+				frrtrace(3, frr_bgp, gr_vrf_pending_skip, bgp_vrf->name_pretty, tmp_afi,
+					 tmp_safi);
 			bgp_vrf->gr_info[tmp_afi][tmp_safi].select_defer_over = true;
 
 			/*

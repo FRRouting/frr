@@ -9802,6 +9802,14 @@ static int peer_unshut_after_cfg(struct bgp *bgp)
 			return 0;
 		}
 
+		if (bgp_evpn && bgp_evpn != bgp) {
+			frrtrace(3, frr_bgp, gr_vrf_wait_for_evpn, bgp->name_pretty, bgp->vrf_id,
+				 false);
+			if (BGP_DEBUG(graceful_restart, GRACEFUL_RESTART))
+				zlog_debug("GR %s: %s does not wait for EVPN, L2VPN EVPN select deferral is not running in %s",
+					   __func__, bgp->name_pretty, bgp_evpn->name_pretty);
+		}
+
 		if (BGP_DEBUG(graceful_restart, GRACEFUL_RESTART))
 			zlog_debug("GR %s: All peers in %s are ADMIN down. Sending update_pending and complete to zebra",
 				   __func__, bgp->name_pretty);
