@@ -631,6 +631,7 @@ void bgp_srv6_per_locator_cache_delete_tovpn_sid(struct bgp_srv6_per_locator_cac
 	bslc->sid_policy.tovpn_sid_transpose_label = 0;
 	srv6_locator_free(bslc->sid_policy.tovpn_sid_locator);
 	bslc->sid_policy.tovpn_sid_locator = NULL;
+	bslc->allocation_in_progress = false;
 
 	if (bslc->bgp->vrf_id == VRF_UNKNOWN) {
 		if (debug)
@@ -670,6 +671,7 @@ void bgp_srv6_per_locator_cache_forget_sids(struct bgp *bgp)
 			bslc->sid_policy.tovpn_sid_transpose_label = 0;
 			srv6_locator_free(bslc->sid_policy.tovpn_sid_locator);
 			bslc->sid_policy.tovpn_sid_locator = NULL;
+			bslc->allocation_in_progress = false;
 		}
 	}
 }
@@ -943,7 +945,7 @@ void bgp_srv6_per_locator_cache_ensure_tovpn_sid(struct bgp_srv6_per_locator_cac
 	/* auto mode is always configured.
 	 * XXX when allocation mode are extended, more controls will be added here
 	 */
-	if (bslc->sid_policy.tovpn_sid)
+	if (bslc->sid_policy.tovpn_sid || bslc->allocation_in_progress)
 		return;
 	if (bslc->bgp->vrf_id == VRF_UNKNOWN) {
 		if (debug)
@@ -968,6 +970,7 @@ void bgp_srv6_per_locator_cache_ensure_tovpn_sid(struct bgp_srv6_per_locator_cac
 			 bslc->sid_policy.tovpn_sid_locator->name);
 		return;
 	}
+	bslc->allocation_in_progress = true;
 	if (debug)
 		zlog_debug("%s: allocating new SID for vrf %s: afi %s, locator %s", __func__,
 			   bslc->bgp->name_pretty, afi2str(bslc->afi),
