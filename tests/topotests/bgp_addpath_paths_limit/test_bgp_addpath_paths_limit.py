@@ -338,6 +338,74 @@ def test_bgp_addpath_paths_limit_best_selected_filtered():
     assert result is None, "r1 did not receive the two best paths: {}".format(result)
 
 
+def test_bgp_addpath_paths_limit_dynamic_capability():
+    """
+    Paths-Limit changed via dynamic capability must be honored without reset.
+    """
+    tgen = get_topogen()
+
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    r2 = tgen.gears["r2"]
+    r7 = tgen.gears["r7"]
+
+    def _set_paths_limit(limit):
+        if limit:
+            cmd = "neighbor 192.168.7.2 addpath-rx-paths-limit {}".format(limit)
+        else:
+            cmd = "no neighbor 192.168.7.2 addpath-rx-paths-limit"
+
+        r7.vtysh_cmd(
+            """
+        configure terminal
+         router bgp 65007
+          address-family ipv4 unicast
+           {}
+        """.format(
+                cmd
+            )
+        )
+
+    def _bgp_check_paths_limit(limit, aspaths):
+        output = json.loads(r2.vtysh_cmd("show bgp neighbor 192.168.7.7 json"))
+        expected = {
+            "192.168.7.7": {
+                "bgpState": "Established",
+                "neighborCapabilities": {
+                    "dynamic": "advertisedAndReceived",
+                    "pathsLimit": {"ipv4Unicast": {"receivedPathsLimit": limit}},
+                },
+                "messageStats": {
+                    "notificationsRecv": 0,
+                    "notificationsSent": 0,
+                },
+            }
+        }
+        result = topotest.json_cmp(output, expected)
+        if result is not None:
+            return result
+
+        return _bgp_check_received_aspaths(r7, aspaths)
+
+    r2.vtysh_cmd("clear bgp 192.168.7.7 message-stats")
+
+    steps = [
+        (1, ["65002 65006"]),
+        (0, ["65002 65006", "65002 65005", "65002 65004", "65002 65003"]),
+        (3, ["65002 65006", "65002 65005", "65002 65004"]),
+    ]
+
+    for limit, aspaths in steps:
+        _set_paths_limit(limit)
+
+        test_func = functools.partial(_bgp_check_paths_limit, limit, aspaths)
+        _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
+        assert result is None, "Dynamic Paths-Limit {} is not honored: {}".format(
+            limit, result
+        )
+
+
 if __name__ == "__main__":
     args = ["-s"] + sys.argv[1:]
     sys.exit(pytest.main(args))

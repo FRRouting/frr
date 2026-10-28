@@ -3321,12 +3321,17 @@ ignore:
 			data += CAPABILITY_CODE_PATHS_LIMIT_LEN;
 		}
 	} else {
-		FOREACH_AFI_SAFI (afi, safi)
+		FOREACH_AFI_SAFI (afi, safi) {
 			UNSET_FLAG(peer->af_cap[afi][safi],
 				   PEER_CAP_PATHS_LIMIT_AF_RCV);
+			peer->addpath_paths_limit[afi][safi].receive = 0;
+		}
 
 		UNSET_FLAG(peer->cap, PEER_CAP_PATHS_LIMIT_RCV);
 	}
+
+	update_group_adjust_peer_afs(peer);
+	bgp_announce_route_all(peer);
 }
 
 static void bgp_dynamic_capability_enhe(uint8_t *pnt, int action, struct capability_header *hdr,
