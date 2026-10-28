@@ -50,6 +50,7 @@ sys.path.append(os.path.join(CWD, "../"))
 
 # pylint: disable=C0413
 from lib import topotest
+from lib.common_config import kill_router_daemons, start_router_daemons
 from lib.topogen import Topogen, get_topogen
 
 pytestmark = [pytest.mark.bgpd, pytest.mark.evpn]
@@ -116,6 +117,27 @@ def build_topo(tgen):
             sw.add_link(tgen.gears[host])
 
 
+def add_l3vni_dataplane(tor, vrf, table, l3vni):
+    lo = tor_lo(tor.name)
+    tor.run("ip link add %s type vrf table %d" % (vrf, table))
+    tor.run("ip link set dev %s up" % vrf)
+
+    tor.run(
+        "ip link add vni%d type vxlan id %d dstport 4789 local %s nolearning"
+        % (l3vni, l3vni, lo)
+    )
+    tor.run("ip link set dev vni%d master br_default" % l3vni)
+    tor.run("/sbin/bridge link set dev vni%d learning off" % l3vni)
+    tor.run("/sbin/bridge vlan del vid 1 dev vni%d" % l3vni)
+    tor.run("/sbin/bridge vlan add vid %d dev vni%d pvid untagged" % (l3vni, l3vni))
+    tor.run("ip link set dev vni%d up" % l3vni)
+
+    tor.run("/sbin/bridge vlan add vid %d dev br_default self" % l3vni)
+    tor.run("ip link add link br_default name vlan%d type vlan id %d" % (l3vni, l3vni))
+    tor.run("ip link set dev vlan%d master %s" % (l3vni, vrf))
+    tor.run("ip link set dev vlan%d up" % l3vni)
+
+
 def config_tor_dataplane(tor):
     lo = tor_lo(tor.name)
     tor.run("ip addr add %s/32 dev lo" % lo)
@@ -125,27 +147,7 @@ def config_tor_dataplane(tor):
     tor.run("ip link set dev br_default up")
 
     for vrf, (table, l3vni) in VRFS.items():
-        tor.run("ip link add %s type vrf table %d" % (vrf, table))
-        tor.run("ip link set dev %s up" % vrf)
-
-        tor.run(
-            "ip link add vni%d type vxlan id %d dstport 4789 local %s nolearning"
-            % (l3vni, l3vni, lo)
-        )
-        tor.run("ip link set dev vni%d master br_default" % l3vni)
-        tor.run("/sbin/bridge link set dev vni%d learning off" % l3vni)
-        tor.run("/sbin/bridge vlan del vid 1 dev vni%d" % l3vni)
-        tor.run(
-            "/sbin/bridge vlan add vid %d dev vni%d pvid untagged" % (l3vni, l3vni)
-        )
-        tor.run("ip link set dev vni%d up" % l3vni)
-
-        tor.run("/sbin/bridge vlan add vid %d dev br_default self" % l3vni)
-        tor.run(
-            "ip link add link br_default name vlan%d type vlan id %d" % (l3vni, l3vni)
-        )
-        tor.run("ip link set dev vlan%d master %s" % (l3vni, vrf))
-        tor.run("ip link set dev vlan%d up" % l3vni)
+        add_l3vni_dataplane(tor, vrf, table, l3vni)
 
     # No-L2VNI access BDs, with the same anycast gateway on every tor.
     for vid, (vrf, gw) in ACCESS_VLANS.items():
@@ -560,6 +562,7 @@ def _member_es(ifname):
         "state": "PENDING",
         "vlanCount": len(ES_VLANS),
         "readyVrfs": ["__ordered__", "vrf-a", "vrf-b"],
+        "esEviL3vnis": ["__ordered__", 4001, 4002],
         "members": ["__ordered__"],
     }
 
@@ -606,7 +609,12 @@ def test_bpp_show():
     for text in ("Group", "hostbond1", "hostbond2", "no eligible peer"):
         assert text in output, "'%s' missing from:\n%s" % (text, output)
     output = tor1.vtysh_cmd(cmd + " member")
-    for text in ("ESI %s" % ES1_ID, "VRFs: vrf-a, vrf-b", "NH-ID"):
+    for text in (
+        "ESI %s" % ES1_ID,
+        "VRFs: vrf-a, vrf-b",
+        "ES-EVI L3VNIs: 4001, 4002",
+        "NH-ID",
+    ):
         assert text in output, "'%s' missing from:\n%s" % (text, output)
 
     _set_bpp_if(tor1, "hostbond2", False)
@@ -694,6 +702,369 @@ def test_bpp_debug():
     )
     output = tor1.vtysh_cmd("show debugging")
     assert zebra_on not in output and bgp_on not in output, output
+
+
+def _es_vrfs(router, esi):
+    """BGP ES-VRFs of an ES, keyed by VRF name ("VRF <name>" in the output)."""
+    output = json.loads(router.vtysh_cmd("show bgp l2vpn evpn es-vrf json"))
+    return {
+        e["vrf"].split()[-1]: e for e in output if e.get("esi") == esi
+    }
+
+
+def _l3mh_es_vrf(l3_ref_cnt=1):
+    return {
+        "flags": ["l3mh"],
+        "ipv4NHG": 0,
+        "ipv6NHG": 0,
+        "refCount": 0,
+        "l3RefCount": l3_ref_cnt,
+    }
+
+
+def _expect_es_vrfs(router, esi, expected, msg):
+    """expected maps VRF -> partial ES-VRF; the VRF set must match."""
+
+    def _check():
+        es_vrfs = _es_vrfs(router, esi)
+        if sorted(es_vrfs) != sorted(expected):
+            return "VRFs %s, want %s" % (sorted(es_vrfs), sorted(expected))
+        return topotest.json_cmp(es_vrfs, expected)
+
+    _, result = topotest.run_and_expect(_check, None, count=30, wait=1)
+    assert result is None, "%s: %s" % (msg, result)
+
+
+def _expect_es_evi_l3vnis(router, l3vnis, msg):
+    expected = {ES1_ID: {"esEviL3vnis": l3vnis}} if l3vnis is not None else {}
+    _expect_json(
+        router,
+        "show evpn mh bridge-port-protection member json",
+        expected,
+        msg,
+    )
+
+
+ES1_L3MH_VRFS = {"vrf-a": _l3mh_es_vrf(), "vrf-b": _l3mh_es_vrf()}
+
+
+def test_bpp_es_vrf_assoc():
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    tor1 = tgen.gears["tor1"]
+
+    _expect_es_vrfs(tor1, ES1_ID, {}, "no ES-VRF without protection")
+
+    _set_bpp(tor1, True)
+    _expect_es_evi_l3vnis(tor1, ["__ordered__", 4001, 4002], "ES-EVIs sent")
+    _expect_es_vrfs(tor1, ES1_ID, ES1_L3MH_VRFS, "ES-1 associated with both IP-VRFs")
+    _expect_es_vrfs(tor1, ES2_ID, {}, "unprotected ES-2 not associated")
+
+    # A second VLAN in vrf-a does not add a reference.
+    tor1.run("/sbin/bridge vlan add vid 30 dev %s" % ES_IF)
+    _expect_entries(
+        tor1, {ES_IF: {"vlans": _ready_vlans((30,))}}, "VLAN 30 entry ready"
+    )
+    _expect_es_vrfs(tor1, ES1_ID, ES1_L3MH_VRFS, "one ES-EVI per IP-VRF")
+
+    # vrf-a stays associated through VLAN 30.
+    tor1.run("/sbin/bridge vlan del vid 10 dev %s" % ES_IF)
+    _expect_es_vrfs(tor1, ES1_ID, ES1_L3MH_VRFS, "vrf-a kept by VLAN 30")
+
+    tor1.run("/sbin/bridge vlan del vid 30 dev %s" % ES_IF)
+    _expect_es_evi_l3vnis(tor1, ["__ordered__", 4002], "vrf-a ES-EVI withdrawn")
+    _expect_es_vrfs(
+        tor1, ES1_ID, {"vrf-b": _l3mh_es_vrf()}, "last vrf-a VLAN removed"
+    )
+
+    tor1.run("/sbin/bridge vlan add vid 10 dev %s" % ES_IF)
+    _expect_es_vrfs(tor1, ES1_ID, ES1_L3MH_VRFS, "VLAN 10 restored")
+
+    _set_bpp(tor1, False)
+    _expect_es_evi_l3vnis(tor1, None, "no ES-EVI after protection removed")
+    _expect_es_vrfs(tor1, ES1_ID, {}, "ES-VRFs released")
+
+
+def test_bpp_l3mh_gate():
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    tor1 = tgen.gears["tor1"]
+
+    _set_bpp(tor1, True)
+    _expect_es_vrfs(tor1, ES1_ID, ES1_L3MH_VRFS, "initial state")
+
+    _set_l3vni_neigh(tor1, False)
+    _expect_es_evi_l3vnis(tor1, ["__ordered__"], "ES-EVIs withdrawn")
+    _expect_es_vrfs(tor1, ES1_ID, {}, "l3vni-neigh off")
+
+    _set_l3vni_neigh(tor1, True)
+    _expect_es_vrfs(tor1, ES1_ID, ES1_L3MH_VRFS, "l3vni-neigh on")
+
+    _set_bpp(tor1, False)
+    _expect_es_vrfs(tor1, ES1_ID, {}, "protection removed")
+
+
+L2VNI = 1020
+L2VNI_VLAN = 20
+
+
+def _add_l2vni(router):
+    lo = tor_lo(router.name)
+    router.run(
+        "ip link add vni%d type vxlan id %d dstport 4789 local %s nolearning"
+        % (L2VNI, L2VNI, lo)
+    )
+    router.run("ip link set dev vni%d master br_default" % L2VNI)
+    router.run("/sbin/bridge link set dev vni%d learning off" % L2VNI)
+    router.run("/sbin/bridge vlan del vid 1 dev vni%d" % L2VNI)
+    router.run(
+        "/sbin/bridge vlan add vid %d dev vni%d pvid untagged" % (L2VNI_VLAN, L2VNI)
+    )
+    router.run("ip link set dev vni%d up" % L2VNI)
+
+
+def _del_l2vni(router):
+    router.run("ip link del dev vni%d" % L2VNI)
+
+
+def _expect_l2_es_evi(router, esi, present, msg):
+    def _check():
+        output = json.loads(
+            router.vtysh_cmd("show bgp l2vpn evpn es-evi vni %d json" % L2VNI)
+        )
+        found = any(
+            e.get("esi") == esi and "local" in e.get("type", []) for e in output or []
+        )
+        if found != present:
+            return "ES-EVI %s vni %d %s" % (
+                esi,
+                L2VNI,
+                "missing" if present else "present",
+            )
+        return None
+
+    _, result = topotest.run_and_expect(_check, None, count=30, wait=1)
+    assert result is None, "%s: %s" % (msg, result)
+
+
+def test_bpp_l3mh_bd_gets_l2vni():
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    tor1 = tgen.gears["tor1"]
+
+    _set_bpp(tor1, True)
+    _expect_es_vrfs(tor1, ES1_ID, ES1_L3MH_VRFS, "initial state")
+
+    # VLAN 20 gets an L2VNI: every entry of ES-1 is pending and its L3VNI
+    # ES-EVIs are withdrawn; both ESs get the L2VNI ES-EVI as before.
+    _add_l2vni(tor1)
+    _expect_entries(
+        tor1,
+        {
+            ES_IF: {
+                "vlans": {
+                    "10": _pending(["ES has an L2VNI"]),
+                    "20": _pending(["L2VNI on BD"]),
+                }
+            }
+        },
+        "L2VNI on VLAN 20",
+    )
+    _expect_es_evi_l3vnis(tor1, ["__ordered__"], "L3VNI ES-EVIs withdrawn")
+    for esi in (ES1_ID, ES2_ID):
+        _expect_l2_es_evi(tor1, esi, True, "L2VNI ES-EVI")
+        _expect_es_vrfs(
+            tor1,
+            esi,
+            {"vrf-b": {"refCount": 1, "l3RefCount": 0}},
+            "L2VNI ES-VRF",
+        )
+
+    _del_l2vni(tor1)
+    _expect_es_vrfs(tor1, ES1_ID, ES1_L3MH_VRFS, "L2VNI removed")
+    _expect_es_vrfs(tor1, ES2_ID, {}, "ES-2 L2VNI ES-VRF released")
+
+    _set_bpp(tor1, False)
+    _expect_es_vrfs(tor1, ES1_ID, {}, "protection removed")
+
+
+def test_bpp_es_evi_l2vni_unchanged():
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    tor1 = tgen.gears["tor1"]
+
+    # Without protection, an L2VNI ES-EVI and its ES-VRF are unchanged.
+    _add_l2vni(tor1)
+    _expect_l2_es_evi(tor1, ES2_ID, True, "L2VNI ES-EVI")
+    _expect_es_vrfs(
+        tor1,
+        ES2_ID,
+        {"vrf-b": {"refCount": 1, "l3RefCount": 0}},
+        "L2VNI ES-VRF",
+    )
+    nhg = _es_vrfs(tor1, ES2_ID)["vrf-b"]["ipv4NHG"]
+    assert nhg, "L2VNI ES-VRF has no L3 NHG"
+
+    _del_l2vni(tor1)
+    _expect_l2_es_evi(tor1, ES2_ID, False, "L2VNI ES-EVI removed")
+    _expect_es_vrfs(tor1, ES2_ID, {}, "L2VNI ES-VRF released")
+
+
+def test_bpp_es_evi_bgpd_restart():
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    tor1 = tgen.gears["tor1"]
+
+    _set_bpp(tor1, True)
+    _expect_es_vrfs(tor1, ES1_ID, ES1_L3MH_VRFS, "initial state")
+
+    # zebra replays the L3VNI ES-EVIs to the new bgpd, whatever the
+    # order of the L3VNI and ES-EVI messages.
+    kill_router_daemons(tgen, "tor1", ["bgpd"])
+    start_router_daemons(tgen, "tor1", ["bgpd"])
+    _expect_es_vrfs(tor1, ES1_ID, ES1_L3MH_VRFS, "after bgpd restart")
+
+    _set_bpp(tor1, False)
+    _expect_es_vrfs(tor1, ES1_ID, {}, "protection removed")
+
+
+# bgpd hidden test commands inject ES-EVIs in a chosen order.
+ES9_ID = "03:44:38:39:ff:ff:09:00:00:09"
+VRF_C, VRF_C_TABLE, VRF_C_L3VNI = "vrf-c", 1003, 4003
+
+
+def _evpn_cmd(router, cmd):
+    return router.vtysh_cmd(
+        "configure terminal\nrouter bgp 65001\naddress-family l2vpn evpn\n" + cmd
+    )
+
+
+def _expect_bgpd_log(tgen, router, text):
+    path = os.path.join(tgen.logdir, router.name, "bgpd.log")
+
+    def _check():
+        with open(path) as f:
+            return None if text in f.read() else "'%s' not in %s" % (text, path)
+
+    _, result = topotest.run_and_expect(_check, None, count=30, wait=1)
+    assert result is None, result
+
+
+def _set_bgp_prot_debug(router, enable):
+    router.vtysh_cmd(
+        "configure terminal\n%sdebug bgp evpn mh protection" % ("" if enable else "no ")
+    )
+
+
+def test_bpp_es_evi_pending_es():
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    tor1 = tgen.gears["tor1"]
+    _set_bgp_prot_debug(tor1, True)
+
+    # L3VNI ES-EVI before the ES: kept pending, applied on local ES add.
+    _evpn_cmd(tor1, "test es %s vni %d" % (ES9_ID, VRFS["vrf-a"][1]))
+    _expect_bgpd_log(
+        tgen, tor1, "es %s l3vni %d pending: no local ES" % (ES9_ID, VRFS["vrf-a"][1])
+    )
+    _expect_es_vrfs(tor1, ES9_ID, {}, "no ES yet")
+
+    _evpn_cmd(tor1, "test es %s" % ES9_ID)
+    _expect_es_vrfs(tor1, ES9_ID, {"vrf-a": _l3mh_es_vrf()}, "ES added")
+
+    # The local ES delete releases its L3VNI ES-EVIs.
+    _evpn_cmd(tor1, "no test es %s" % ES9_ID)
+    _expect_es_vrfs(tor1, ES9_ID, {}, "ES deleted")
+    _evpn_cmd(tor1, "test es %s" % ES9_ID)
+    _expect_es_vrfs(tor1, ES9_ID, {}, "nothing left pending")
+    _evpn_cmd(tor1, "no test es %s" % ES9_ID)
+
+    _set_bgp_prot_debug(tor1, False)
+
+
+def _add_vrf_c(router):
+    add_l3vni_dataplane(router, VRF_C, VRF_C_TABLE, VRF_C_L3VNI)
+    router.vtysh_cmd(
+        "configure terminal\nvrf %s\nvni %d\nexit-vrf" % (VRF_C, VRF_C_L3VNI)
+    )
+
+
+def _del_vrf_c_l3vni(router):
+    router.vtysh_cmd(
+        "configure terminal\nvrf %s\nno vni %d\nexit-vrf" % (VRF_C, VRF_C_L3VNI)
+    )
+
+
+def _del_vrf_c(router):
+    _del_vrf_c_l3vni(router)
+    router.run("ip link del dev vlan%d" % VRF_C_L3VNI)
+    router.run("ip link del dev vni%d" % VRF_C_L3VNI)
+    router.run("ip link del dev %s" % VRF_C)
+
+
+def test_bpp_es_evi_l3vni_order():
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    tor1 = tgen.gears["tor1"]
+    _set_bgp_prot_debug(tor1, True)
+
+    # L3VNI ES-EVI before bgpd knows the L3VNI: pending, applied on L3VNI add.
+    _evpn_cmd(tor1, "test es %s vni %d" % (ES1_ID, VRF_C_L3VNI))
+    _expect_bgpd_log(
+        tgen, tor1, "es %s l3vni %d pending: no BGP VRF" % (ES1_ID, VRF_C_L3VNI)
+    )
+    _expect_es_vrfs(tor1, ES1_ID, {}, "L3VNI unknown")
+
+    _add_vrf_c(tor1)
+    _expect_es_vrfs(tor1, ES1_ID, {VRF_C: _l3mh_es_vrf()}, "L3VNI added")
+
+    # L3VNI removed: back to pending; re-added: applied again.
+    _del_vrf_c_l3vni(tor1)
+    _expect_es_vrfs(tor1, ES1_ID, {}, "L3VNI removed")
+    tor1.vtysh_cmd(
+        "configure terminal\nvrf %s\nvni %d\nexit-vrf" % (VRF_C, VRF_C_L3VNI)
+    )
+    _expect_es_vrfs(tor1, ES1_ID, {VRF_C: _l3mh_es_vrf()}, "L3VNI re-added")
+
+    _evpn_cmd(tor1, "no test es %s vni %d" % (ES1_ID, VRF_C_L3VNI))
+    _expect_es_vrfs(tor1, ES1_ID, {}, "ES-EVI deleted")
+
+    _del_vrf_c(tor1)
+    _set_bgp_prot_debug(tor1, False)
+
+
+def test_bpp_es_evi_unknown_vni_rejected():
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    tor1 = tgen.gears["tor1"]
+
+    # Without l3vni-neigh an unknown VNI is rejected as before, not kept.
+    _set_l3vni_neigh(tor1, False)
+    for esi in (ES1_ID, ES9_ID):
+        output = _evpn_cmd(tor1, "test es %s vni %d" % (esi, VRFS["vrf-a"][1]))
+        assert "Failed to ref ES VNI" in output, output
+
+    _set_l3vni_neigh(tor1, True)
+    _evpn_cmd(tor1, "test es %s" % ES9_ID)
+    _expect_es_vrfs(tor1, ES1_ID, {}, "ES-1 nothing kept")
+    _expect_es_vrfs(tor1, ES9_ID, {}, "ES-9 nothing kept")
+    _evpn_cmd(tor1, "no test es %s" % ES9_ID)
 
 
 def test_memory_leak():
