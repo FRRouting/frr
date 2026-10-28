@@ -188,6 +188,8 @@ struct bgp_evpn_es_vrf {
  * there is a valid L3-VNI associated with the VRF
  */
 #define BGP_EVPNES_VRF_NHG_ACTIVE (1 << 0)
+/* Referenced by a bridge-port protection L3VNI ES-EVI */
+#define BGP_EVPNES_VRF_L3MH (1 << 1)
 
 	/* memory used for adding the es_vrf to
 	 * es_vrf->bgp_vrf->es_vrf_rb_tree
@@ -202,6 +204,24 @@ struct bgp_evpn_es_vrf {
 
 	/* Number of ES-EVI entries associated with this ES-VRF */
 	uint32_t ref_cnt;
+
+	/* Number of L3VNI ES-EVIs referencing this ES-VRF. An ES-VRF with
+	 * only L3VNI references has no L3 NHG.
+	 */
+	uint32_t l3_ref_cnt;
+};
+
+/* Local ES to IP-VRF association received from zebra as an ES-EVI with
+ * an L3VNI (bridge-port protection). es_vrf is NULL while the ES or the
+ * BGP VRF owning the L3VNI is not known yet.
+ */
+struct bgp_evpn_es_l3evi {
+	esi_t esi;
+	vni_t l3vni;
+	struct bgp_evpn_es_vrf *es_vrf;
+
+	/* memory used for adding to bgp_mh_info->l3evi_list */
+	struct listnode listnode;
 };
 
 /* ES per-EVI info
@@ -300,6 +320,8 @@ struct bgp_evpn_mh_info {
 	struct list *local_es_list;
 	/* List of ESs with pending/periodic processing */
 	struct list *pend_es_list;
+	/* List of local L3VNI ES-EVIs (struct bgp_evpn_es_l3evi) */
+	struct list *l3evi_list;
 	/* periodic timer for running background consistency checks */
 	struct event *t_cons_check;
 
@@ -452,6 +474,7 @@ extern bool bgp_evpn_path_es_use_nhg(struct bgp *bgp_vrf,
 extern void bgp_evpn_es_vrf_show(struct vty *vty, bool uj,
 				 struct bgp_evpn_es *es);
 extern void bgp_evpn_es_vrf_show_esi(struct vty *vty, esi_t *esi, bool uj);
+extern void bgp_evpn_es_l3evi_vrf_update(struct bgp *bgp_vrf, bool add);
 extern void bgp_evpn_switch_ead_evi_rx(void);
 extern bool bgp_evpn_es_add_l3_attrs_ok(esi_t *esi);
 extern void bgp_evpn_es_vrf_use_nhg(struct bgp *bgp_vrf, esi_t *esi,

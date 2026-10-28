@@ -130,6 +130,8 @@ static void bgp_evpn_run_consistency_checks(struct event *t);
 static void bgp_evpn_path_nh_info_free(struct bgp_path_evpn_nh_info *nh_info);
 static void bgp_evpn_path_nh_unlink(struct bgp_path_evpn_nh_info *nh_info);
 static void bgp_evpn_es_vrf_delete(struct bgp_evpn_es_vrf *es_vrf);
+static void bgp_evpn_local_es_l3evi_del_all(struct bgp_evpn_es *es);
+static void bgp_evpn_local_es_l3evi_bind_all(struct bgp_evpn_es *es);
 static struct bgp_evpn_es_evi *bgp_evpn_es_evi_free_internal(struct bgp_evpn_es_evi *es_evi,
 							     bool force);
 static struct bgp_evpn_es_evi *bgp_evpn_es_evi_free(struct bgp_evpn_es_evi *es_evi);
@@ -2492,6 +2494,9 @@ static void bgp_evpn_local_es_do_del(struct bgp *bgp, struct bgp_evpn_es *es)
 		bgp_evpn_local_es_evi_do_del(es_evi);
 	}
 
+	/* release the L3VNI ES-EVIs associated with the ES */
+	bgp_evpn_local_es_l3evi_del_all(es);
+
 	/* Clear local info associated with the ES and free it up if there is
 	 * no remote reference
 	 */
@@ -2596,6 +2601,8 @@ int bgp_evpn_local_es_add(struct bgp *bgp, esi_t *esi, struct ipaddr originator_
 		bgp_evpn_local_es_up(bgp, es, regen_esr);
 	else
 		bgp_evpn_local_es_down(bgp, es);
+
+	bgp_evpn_local_es_l3evi_bind_all(es);
 
 	return 0;
 }
@@ -3159,8 +3166,12 @@ static void bgp_evpn_l3nhg_update_on_vtep_chg(struct bgp_evpn_es *es)
 	if (BGP_DEBUG(evpn_mh, EVPN_MH_ES))
 		zlog_debug("es %s nhg update on vtep chg", es->esi_str);
 
-	for (ALL_LIST_ELEMENTS_RO(es->es_vrf_list, es_vrf_node, es_vrf))
+	for (ALL_LIST_ELEMENTS_RO(es->es_vrf_list, es_vrf_node, es_vrf)) {
+		/* no L3 NHG on an ES-VRF referenced only by L3VNI ES-EVIs */
+		if (!es_vrf->ref_cnt)
+			continue;
 		bgp_evpn_l3nhg_activate(es_vrf, true /* update */);
+	}
 }
 
 /* compare ES-IDs for the ES-VRF RB tree maintained per-VRF */
@@ -3189,7 +3200,7 @@ static struct bgp_evpn_es_vrf *bgp_evpn_es_vrf_find(struct bgp_evpn_es *es,
 	return RB_FIND(bgp_es_vrf_rb_head, &bgp_vrf->es_vrf_rb_tree, &es_vrf);
 }
 
-/* allocate a new ES-VRF and setup L3NHG for it */
+/* allocate a new ES-VRF; the L3NHG is setup on the first ES-EVI reference */
 static struct bgp_evpn_es_vrf *bgp_evpn_es_vrf_create(struct bgp_evpn_es *es,
 						      struct bgp *bgp_vrf)
 {
@@ -3209,21 +3220,44 @@ static struct bgp_evpn_es_vrf *bgp_evpn_es_vrf_create(struct bgp_evpn_es *es,
 	listnode_init(&es_vrf->es_listnode, es_vrf);
 	listnode_add(es->es_vrf_list, &es_vrf->es_listnode);
 
-	/* setup the L3 NHG id for the ES */
+	return es_vrf;
+}
+
+/* setup the L3 NHG for the ES-VRF */
+static void bgp_evpn_es_vrf_nhg_setup(struct bgp_evpn_es_vrf *es_vrf)
+{
+	struct bgp_evpn_es *es = es_vrf->es;
+
 	es_vrf->nhg_id = bgp_nhg_id_alloc();
 	es_vrf->v6_nhg_id = bgp_nhg_id_alloc();
 
 	if (BGP_DEBUG(evpn_mh, EVPN_MH_ES))
 		zlog_debug("es %s vrf %u nhg %u v6_nhg %d create", es->esi_str,
-			   bgp_vrf->vrf_id, es_vrf->nhg_id, es_vrf->v6_nhg_id);
+			   es_vrf->bgp_vrf->vrf_id, es_vrf->nhg_id, es_vrf->v6_nhg_id);
 	bgp_evpn_l3nhg_activate(es_vrf, false /* update */);
 
 	/* update paths in the VRF that may already be associated with
 	 * this destination ES
 	 */
 	bgp_evpn_es_path_update_on_es_vrf_chg(es_vrf, "es-vrf-create");
+}
 
-	return es_vrf;
+/* Last L2VNI ES-EVI gone but L3VNI ES-EVIs remain: free the NHG, keep the ES-VRF */
+static void bgp_evpn_es_vrf_nhg_release(struct bgp_evpn_es_vrf *es_vrf)
+{
+	if (BGP_DEBUG(evpn_mh, EVPN_MH_ES))
+		zlog_debug("es %s vrf %u nhg %u release", es_vrf->es->esi_str,
+			   es_vrf->bgp_vrf->vrf_id, es_vrf->nhg_id);
+
+	bgp_evpn_l3nhg_deactivate(es_vrf);
+	if (es_vrf->nhg_id)
+		bgp_nhg_id_free(es_vrf->nhg_id);
+	es_vrf->nhg_id = 0;
+	if (es_vrf->v6_nhg_id)
+		bgp_nhg_id_free(es_vrf->v6_nhg_id);
+	es_vrf->v6_nhg_id = 0;
+
+	bgp_evpn_es_path_update_on_es_vrf_chg(es_vrf, "es-vrf-nhg-release");
 }
 
 /* remove the L3-NHG associated with the ES-VRF and free it */
@@ -3231,10 +3265,18 @@ static void bgp_evpn_es_vrf_delete(struct bgp_evpn_es_vrf *es_vrf)
 {
 	struct bgp_evpn_es *es = es_vrf->es;
 	struct bgp *bgp_vrf = es_vrf->bgp_vrf;
+	struct bgp_evpn_es_l3evi *l3evi;
+	struct listnode *node;
 
 	if (BGP_DEBUG(evpn_mh, EVPN_MH_ES))
 		zlog_debug("es %s vrf %u nhg %u delete", es->esi_str,
 			   bgp_vrf->vrf_id, es_vrf->nhg_id);
+
+	/* L3VNI ES-EVIs still referencing this ES-VRF go back to pending */
+	if (es_vrf->l3_ref_cnt)
+		for (ALL_LIST_ELEMENTS_RO(bgp_mh_info->l3evi_list, node, l3evi))
+			if (l3evi->es_vrf == es_vrf)
+				l3evi->es_vrf = NULL;
 
 	/* Remove the NHG resources */
 	bgp_evpn_l3nhg_deactivate(es_vrf);
@@ -3276,7 +3318,12 @@ void bgp_evpn_es_vrf_deref(struct bgp_evpn_es_evi *es_evi)
 	if (es_vrf->ref_cnt > 0)
 		--es_vrf->ref_cnt;
 
-	if (!es_vrf->ref_cnt)
+	if (es_vrf->ref_cnt)
+		return;
+
+	if (es_vrf->l3_ref_cnt)
+		bgp_evpn_es_vrf_nhg_release(es_vrf);
+	else
 		bgp_evpn_es_vrf_delete(es_vrf);
 }
 
@@ -3309,7 +3356,8 @@ void bgp_evpn_es_vrf_ref(struct bgp_evpn_es_evi *es_evi, struct bgp *bgp_vrf)
 		es_vrf = bgp_evpn_es_vrf_create(es, bgp_vrf);
 
 	es_evi->es_vrf = es_vrf;
-	++es_vrf->ref_cnt;
+	if (++es_vrf->ref_cnt == 1)
+		bgp_evpn_es_vrf_nhg_setup(es_vrf);
 
 	if (BGP_DEBUG(evpn_mh, EVPN_MH_ES))
 		zlog_debug("es-vrf %s vrf %u evi ref_cnt incremented to %d", es_vrf->es->esi_str,
@@ -3378,6 +3426,10 @@ void bgp_evpn_es_vrf_use_nhg(struct bgp *bgp_vrf, esi_t *esi, bool *use_l3nhg,
 
 	es_vrf = bgp_evpn_es_vrf_find(es, bgp_vrf);
 	if (!es_vrf)
+		return;
+
+	/* no L3 NHG on an ES-VRF referenced only by L3VNI ES-EVIs */
+	if (!es_vrf->ref_cnt)
 		return;
 
 	*use_l3nhg = true;
@@ -3482,26 +3534,31 @@ static void bgp_evpn_es_vrf_show_entry(struct vty *vty,
 		json_object_string_add(json, "esi", es->esi_str);
 		json_object_string_add(json, "vrf", bgp_vrf->name_pretty);
 
-		if (CHECK_FLAG(es_vrf->flags, (BGP_EVPNES_VRF_NHG_ACTIVE))) {
+		if (CHECK_FLAG(es_vrf->flags, (BGP_EVPNES_VRF_NHG_ACTIVE | BGP_EVPNES_VRF_L3MH))) {
 			json_types = json_object_new_array();
 			if (CHECK_FLAG(es_vrf->flags, BGP_EVPNES_VRF_NHG_ACTIVE))
 				json_array_string_add(json_types, "active");
+			if (CHECK_FLAG(es_vrf->flags, BGP_EVPNES_VRF_L3MH))
+				json_array_string_add(json_types, "l3mh");
 			json_object_object_add(json, "flags", json_types);
 		}
 
 		json_object_int_add(json, "ipv4NHG", es_vrf->nhg_id);
 		json_object_int_add(json, "ipv6NHG", es_vrf->v6_nhg_id);
 		json_object_int_add(json, "refCount", es_vrf->ref_cnt);
+		json_object_int_add(json, "l3RefCount", es_vrf->l3_ref_cnt);
 	} else {
 		char flags_str[4];
 
 		flags_str[0] = '\0';
 		if (CHECK_FLAG(es_vrf->flags, BGP_EVPNES_VRF_NHG_ACTIVE))
 			strlcat(flags_str, "A", sizeof(flags_str));
+		if (CHECK_FLAG(es_vrf->flags, BGP_EVPNES_VRF_L3MH))
+			strlcat(flags_str, "L", sizeof(flags_str));
 
-		vty_out(vty, "%-30s %-15s %-5s %-8u %-8u %u\n", es->esi_str,
-			bgp_vrf->name_pretty, flags_str, es_vrf->nhg_id,
-			es_vrf->v6_nhg_id, es_vrf->ref_cnt);
+		vty_out(vty, "%-30s %-15s %-5s %-8u %-8u %-8u %u\n", es->esi_str,
+			bgp_vrf->name_pretty, flags_str, es_vrf->nhg_id, es_vrf->v6_nhg_id,
+			es_vrf->ref_cnt, es_vrf->l3_ref_cnt);
 	}
 }
 
@@ -3532,9 +3589,9 @@ void bgp_evpn_es_vrf_show(struct vty *vty, bool uj, struct bgp_evpn_es *es)
 		/* create an array of ESs */
 		json_array = json_object_new_array();
 	} else {
-		vty_out(vty, "ES-VRF Flags: A Active\n");
-		vty_out(vty, "%-30s %-15s %-5s %-8s %-8s %s\n", "ESI", "VRF",
-			"Flags", "IPv4-NHG", "IPv6-NHG", "Ref");
+		vty_out(vty, "ES-VRF Flags: A Active, L L3MH\n");
+		vty_out(vty, "%-30s %-15s %-5s %-8s %-8s %-8s %s\n", "ESI", "VRF", "Flags",
+			"IPv4-NHG", "IPv6-NHG", "Ref", "L3Ref");
 	}
 
 	if (es) {
@@ -3945,12 +4002,164 @@ bgp_evpn_local_es_evi_do_del(struct bgp_evpn_es_evi *es_evi)
 	return bgp_evpn_es_evi_local_info_clear(es_evi);
 }
 
+/* L3VNI ES-EVIs: ES to IP-VRF association for bridge-port protection */
+static struct bgp_evpn_es_l3evi *bgp_evpn_es_l3evi_find(const esi_t *esi, vni_t l3vni)
+{
+	struct bgp_evpn_es_l3evi *l3evi;
+	struct listnode *node;
+
+	for (ALL_LIST_ELEMENTS_RO(bgp_mh_info->l3evi_list, node, l3evi))
+		if (l3evi->l3vni == l3vni && !memcmp(&l3evi->esi, esi, sizeof(esi_t)))
+			return l3evi;
+
+	return NULL;
+}
+
+/* reference the ES-VRF if the local ES and the BGP VRF owning the L3VNI exist */
+static void bgp_evpn_es_l3evi_bind(struct bgp_evpn_es_l3evi *l3evi)
+{
+	struct bgp_evpn_es *es;
+	struct bgp *bgp_vrf;
+	struct bgp_evpn_es_vrf *es_vrf;
+	char buf[ESI_STR_LEN];
+
+	if (l3evi->es_vrf)
+		return;
+
+	es = bgp_evpn_es_find(&l3evi->esi);
+	if (es && !bgp_evpn_is_es_local(es))
+		es = NULL;
+	bgp_vrf = bgp_evpn_l3vni_to_bgp_vrf(l3evi->l3vni);
+	if (!es || !bgp_vrf) {
+		if (BGP_DEBUG(evpn_mh, EVPN_MH_PROT))
+			zlog_debug("es %s l3vni %u pending: %s",
+				   esi_to_str(&l3evi->esi, buf, sizeof(buf)), l3evi->l3vni,
+				   !es ? "no local ES" : "no BGP VRF");
+		return;
+	}
+
+	es_vrf = bgp_evpn_es_vrf_find(es, bgp_vrf);
+	if (!es_vrf)
+		es_vrf = bgp_evpn_es_vrf_create(es, bgp_vrf);
+
+	l3evi->es_vrf = es_vrf;
+	++es_vrf->l3_ref_cnt;
+	SET_FLAG(es_vrf->flags, BGP_EVPNES_VRF_L3MH);
+
+	if (BGP_DEBUG(evpn_mh, EVPN_MH_PROT))
+		zlog_debug("es %s l3vni %u vrf %s ref, l3 ref_cnt %u", es->esi_str, l3evi->l3vni,
+			   bgp_vrf->name_pretty, es_vrf->l3_ref_cnt);
+}
+
+static void bgp_evpn_es_l3evi_unbind(struct bgp_evpn_es_l3evi *l3evi)
+{
+	struct bgp_evpn_es_vrf *es_vrf = l3evi->es_vrf;
+
+	if (!es_vrf)
+		return;
+
+	if (BGP_DEBUG(evpn_mh, EVPN_MH_PROT))
+		zlog_debug("es %s l3vni %u vrf %s de-ref", es_vrf->es->esi_str, l3evi->l3vni,
+			   es_vrf->bgp_vrf->name_pretty);
+
+	l3evi->es_vrf = NULL;
+	if (es_vrf->l3_ref_cnt > 0)
+		--es_vrf->l3_ref_cnt;
+	if (es_vrf->l3_ref_cnt)
+		return;
+
+	UNSET_FLAG(es_vrf->flags, BGP_EVPNES_VRF_L3MH);
+	if (!es_vrf->ref_cnt)
+		bgp_evpn_es_vrf_delete(es_vrf);
+}
+
+static void bgp_evpn_es_l3evi_free(struct bgp_evpn_es_l3evi *l3evi)
+{
+	bgp_evpn_es_l3evi_unbind(l3evi);
+	list_delete_node(bgp_mh_info->l3evi_list, &l3evi->listnode);
+	XFREE(MTYPE_BGP_EVPN_ES_L3EVI, l3evi);
+}
+
+static int bgp_evpn_local_es_l3evi_add(const esi_t *esi, vni_t l3vni)
+{
+	struct bgp_evpn_es_l3evi *l3evi;
+	char buf[ESI_STR_LEN];
+
+	if (BGP_DEBUG(evpn_mh, EVPN_MH_PROT))
+		zlog_debug("add local es %s l3vni %u", esi_to_str(esi, buf, sizeof(buf)), l3vni);
+
+	l3evi = bgp_evpn_es_l3evi_find(esi, l3vni);
+	if (!l3evi) {
+		l3evi = XCALLOC(MTYPE_BGP_EVPN_ES_L3EVI, sizeof(*l3evi));
+		memcpy(&l3evi->esi, esi, sizeof(esi_t));
+		l3evi->l3vni = l3vni;
+		listnode_init(&l3evi->listnode, l3evi);
+		listnode_add(bgp_mh_info->l3evi_list, &l3evi->listnode);
+	}
+
+	bgp_evpn_es_l3evi_bind(l3evi);
+	return 0;
+}
+
+/* release the L3VNI ES-EVIs of a local ES being deleted */
+static void bgp_evpn_local_es_l3evi_del_all(struct bgp_evpn_es *es)
+{
+	struct bgp_evpn_es_l3evi *l3evi;
+	struct listnode *node, *next;
+
+	for (ALL_LIST_ELEMENTS(bgp_mh_info->l3evi_list, node, next, l3evi))
+		if (!memcmp(&l3evi->esi, &es->esi, sizeof(esi_t)))
+			bgp_evpn_es_l3evi_free(l3evi);
+}
+
+/* bind the L3VNI ES-EVIs received before the local ES */
+static void bgp_evpn_local_es_l3evi_bind_all(struct bgp_evpn_es *es)
+{
+	struct bgp_evpn_es_l3evi *l3evi;
+	struct listnode *node;
+
+	for (ALL_LIST_ELEMENTS_RO(bgp_mh_info->l3evi_list, node, l3evi))
+		if (!memcmp(&l3evi->esi, &es->esi, sizeof(esi_t)))
+			bgp_evpn_es_l3evi_bind(l3evi);
+}
+
+/* The L3VNI of a BGP VRF was added (bind pending L3VNI ES-EVIs) or is
+ * going away (move its L3VNI ES-EVIs back to pending)
+ */
+void bgp_evpn_es_l3evi_vrf_update(struct bgp *bgp_vrf, bool add)
+{
+	struct bgp_evpn_es_l3evi *l3evi;
+	struct listnode *node;
+
+	if (!bgp_mh_info)
+		return;
+
+	for (ALL_LIST_ELEMENTS_RO(bgp_mh_info->l3evi_list, node, l3evi)) {
+		if (add) {
+			if (bgp_vrf->l3vni && l3evi->l3vni == bgp_vrf->l3vni)
+				bgp_evpn_es_l3evi_bind(l3evi);
+		} else if (l3evi->es_vrf && l3evi->es_vrf->bgp_vrf == bgp_vrf) {
+			bgp_evpn_es_l3evi_unbind(l3evi);
+		}
+	}
+}
+
 int bgp_evpn_local_es_evi_del(struct bgp *bgp, esi_t *esi, vni_t vni)
 {
 	struct bgpevpn *vpn;
 	struct bgp_evpn_es *es;
 	struct bgp_evpn_es_evi *es_evi;
+	struct bgp_evpn_es_l3evi *l3evi;
 	char buf[ESI_STR_LEN];
+
+	l3evi = bgp_evpn_es_l3evi_find(esi, vni);
+	if (l3evi) {
+		if (BGP_DEBUG(evpn_mh, EVPN_MH_PROT))
+			zlog_debug("del local es %s l3vni %u", esi_to_str(esi, buf, sizeof(buf)),
+				   vni);
+		bgp_evpn_es_l3evi_free(l3evi);
+		return 0;
+	}
 
 	es = bgp_evpn_es_find(esi);
 	if (!es) {
@@ -3993,6 +4202,13 @@ int bgp_evpn_local_es_evi_add(struct bgp *bgp, esi_t *esi, vni_t vni)
 	struct bgp_evpn_es_evi *es_evi;
 	char buf[ESI_STR_LEN];
 
+	vpn = bgp_evpn_lookup_vni(bgp, vni);
+	/* Unknown VNI is an L3VNI ES-EVI while l3vni-neigh is set; it stays
+	 * pending until the local ES and the BGP VRF owning the L3VNI exist.
+	 */
+	if (!vpn && bgp->advertise_l3vni_neigh)
+		return bgp_evpn_local_es_l3evi_add(esi, vni);
+
 	es = bgp_evpn_es_find(esi);
 	if (!es) {
 		flog_err(
@@ -4003,7 +4219,6 @@ int bgp_evpn_local_es_evi_add(struct bgp *bgp, esi_t *esi, vni_t vni)
 		return -1;
 	}
 
-	vpn = bgp_evpn_lookup_vni(bgp, vni);
 	if (!vpn) {
 		flog_err(
 				EC_BGP_ES_CREATE,
@@ -5215,6 +5430,9 @@ void bgp_evpn_mh_init(void)
 	/* list of ESs with pending processing */
 	bgp_mh_info->pend_es_list = list_new();
 	listset_app_node_mem(bgp_mh_info->pend_es_list);
+	/* L3VNI ES-EVIs */
+	bgp_mh_info->l3evi_list = list_new();
+	listset_app_node_mem(bgp_mh_info->l3evi_list);
 
 	bgp_mh_info->enable_ead_evi_rx = BGP_EVPN_MH_EAD_EVI_RX_DEF;
 	bgp_mh_info->enable_ead_evi_tx = BGP_EVPN_MH_EAD_EVI_TX_DEF;
@@ -5273,6 +5491,7 @@ void bgp_evpn_es_instance_del_cleanup(struct bgp *bgp)
 			if (CHECK_FLAG(es_vtep->flags, BGP_EVPNES_VTEP_ESR))
 				bgp_evpn_es_vtep_do_del(bgp, es_vtep, true);
 
+		bgp_evpn_local_es_l3evi_del_all(es);
 		bgp_evpn_es_local_info_clear(es, false);
 	}
 }
@@ -5281,9 +5500,14 @@ void bgp_evpn_mh_finish(void)
 {
 	struct bgp_evpn_es *es;
 	struct bgp_evpn_es *es_next;
+	struct bgp_evpn_es_l3evi *l3evi;
+	struct listnode *l3_node, *l3_next;
 
 	if (BGP_DEBUG(evpn_mh, EVPN_MH_RT))
 		zlog_debug("evpn mh finish");
+
+	for (ALL_LIST_ELEMENTS(bgp_mh_info->l3evi_list, l3_node, l3_next, l3evi))
+		bgp_evpn_es_l3evi_free(l3evi);
 
 	/* Force cleanup of all ES structures including ES-EVI and ES-VRF.
 	 * During shutdown, normal cleanup may fail due to guard conditions
@@ -5320,6 +5544,7 @@ void bgp_evpn_mh_finish(void)
 	event_cancel(&bgp_mh_info->t_cons_check);
 	list_delete(&bgp_mh_info->local_es_list);
 	list_delete(&bgp_mh_info->pend_es_list);
+	list_delete(&bgp_mh_info->l3evi_list);
 	list_delete(&bgp_mh_info->ead_es_export_rtl);
 
 	XFREE(MTYPE_BGP_EVPN_MH_INFO, bgp_mh_info);
