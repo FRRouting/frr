@@ -3709,7 +3709,26 @@ static int bgp_zebra_process_local_vni(ZAPI_CALLBACK_ARGS)
 	 * the EVPN VTEP/originator IP.
 	 */
 	if (cmd == ZEBRA_VNI_ADD && ipaddr_is_zero(&vtep_ip)) {
-		ipaddr_set_v4(&vtep_ip, bgp->router_id);
+		if (!have_srv6 || !bgp_evpn_srv6_local_originator(bgp, &vtep_ip)) {
+			/*
+			 * No established underlay peer yet (or not SRv6): fall
+			 * back to the IPv4 router-id, same as before. For SRv6
+			 * this is a known-temporary placeholder - it lets the
+			 * local MAC/IP dest get created now (so it exists to be
+			 * refreshed later), and bgp_evpn_handle_peer_established()
+			 * corrects vpn->originator_ip and re-advertises with a
+			 * real nexthop once a peer establishes. Suppressing
+			 * route creation entirely here (rather than falling
+			 * back) was tried and reverted: it left nothing for the
+			 * self-heal to find, since update_all_type2_routes()
+			 * only refreshes MAC/IP entries that already exist in
+			 * vpn->mac_table/ip_table, not ones never created.
+			 */
+			if (have_srv6)
+				zlog_warn("SRv6 L2 EVPN: no local IPv6 BGP session found for VNI %u; falling back to IPv4 router-id as originator, until one establishes",
+					  vni);
+			ipaddr_set_v4(&vtep_ip, bgp->router_id);
+		}
 		if (BGP_DEBUG(zebra, ZEBRA))
 			zlog_debug("Rx VNI add with unspecified VTEP IP, using router-id %pIA",
 				   &vtep_ip);
@@ -5280,6 +5299,7 @@ void bgp_zebra_init(struct event_loop *master, unsigned short instance)
 	hook_register_prio(if_up, 0, bgp_ifp_up);
 	hook_register_prio(if_down, 0, bgp_ifp_down);
 	hook_register_prio(if_unreal, 0, bgp_ifp_destroy);
+	hook_register(peer_established, bgp_evpn_handle_peer_established);
 
 	/* Set default values. */
 	bgp_zclient = zclient_new(master, &zclient_options_default, bgp_handlers,

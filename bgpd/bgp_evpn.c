@@ -94,6 +94,7 @@ static void bgp_evpn_remote_ip_hash_link_nexthop(struct hash_bucket *bucket,
 						 void *args);
 static void bgp_evpn_remote_ip_hash_unlink_nexthop(struct hash_bucket *bucket,
 						   void *args);
+static void update_advertise_vni_routes(struct bgp *bgp, struct bgpevpn *vpn);
 
 /*
  * Whether this VRF has any live encapsulation to originate Type-5 routes
@@ -4093,6 +4094,87 @@ static void update_routes_for_vni_hash(struct hash_bucket *bucket,
 }
 
 /*
+ * Called (via hash_iterate over bgp_evpn->vnihash) from
+ * bgp_evpn_handle_peer_established() for every SRv6 L2VNI whose
+ * originator was left as the IPv4 router-id (or unset) at VNI-add time
+ * because no underlay peer had established yet - see the zero-vtep_ip
+ * handling in bgp_zebra_process_local_vni(). A correctly-derived SRv6
+ * originator is always IPv6, so any IPv4 value here is definitionally
+ * the temporary fallback, not a legitimate one. Re-derives the originator
+ * now that a peer is up, then re-triggers Type-1/2/3 route origination
+ * for it. A no-op for VNIs whose originator is already IPv6 (i.e.
+ * already valid).
+ */
+
+/*
+ * Same class of startup race as the originator fixup below, for the RD
+ * instead: bgp_evpn_derive_auto_rd() can run before bgp->router_id is set
+ * (zebra can realize this EVI and notify bgpd before bgpd finishes applying
+ * its own "bgp router-id" config line), producing an AS-based RD (see
+ * bgp_evpn_derive_auto_rd()'s fallback) instead of the intended
+ * router-id-based one. bgp_router_id_set()'s own hook is supposed to fix
+ * this up when the router-id is actually set, but its IPV4_ADDR_SAME
+ * early-return can defeat that on some restarts, leaving the fallback RD
+ * stuck permanently even once a real router-id is available.
+ * Peer-Established is a late, reliable point by which router-id should
+ * have long since settled, so use it as a second chance: if this VNI's RD
+ * is still auto (not user-configured) and still AS-based while router-id
+ * is now valid, re-derive and re-advertise. A no-op once the RD is already
+ * router-id-based.
+ */
+static void bgp_evpn_srv6_refresh_vni_rd(struct bgp *bgp, struct bgpevpn *vpn)
+{
+	if (!is_rd_configured(vpn) && bgp->router_id.s_addr != INADDR_ANY) {
+		uint16_t rd_type = decode_rd_type(vpn->prd.val);
+
+		if (rd_type == RD_TYPE_AS || rd_type == RD_TYPE_AS4) {
+			bgp_evpn_derive_auto_rd(bgp, vpn);
+			update_advertise_vni_routes(bgp, vpn);
+		}
+	}
+}
+
+/*
+ * Same startup race, same second-chance-on-Established fix, but for the
+ * VRF-level RD (bgp_vrf->vrf_prd) used by Type-5 routes instead of the
+ * per-VNI RD used by Type-2/3. bgp_evpn_handle_peer_established()'s Type-5
+ * re-trigger block re-advertises Type-5 routes on every peer-Established,
+ * but without this it re-sends them with whatever RD is already stuck on
+ * the VRF - it never fixes the RD itself, unlike the Type-2 path above.
+ */
+static void bgp_evpn_srv6_refresh_vrf_rd(struct bgp *bgp_vrf)
+{
+	if (!is_vrf_rd_configured(bgp_vrf) && bgp_vrf->router_id.s_addr != INADDR_ANY) {
+		uint16_t rd_type = decode_rd_type(bgp_vrf->vrf_prd.val);
+
+		if (rd_type == RD_TYPE_AS || rd_type == RD_TYPE_AS4)
+			bgp_evpn_derive_auto_rd_for_vrf(bgp_vrf);
+	}
+}
+
+static void bgp_evpn_srv6_refresh_vni_originator_hash(struct hash_bucket *bucket, struct bgp *bgp)
+{
+	struct bgpevpn *vpn;
+	struct ipaddr originator;
+
+	if (!bucket)
+		return;
+
+	vpn = (struct bgpevpn *)bucket->data;
+
+	bgp_evpn_srv6_refresh_vni_rd(bgp, vpn);
+
+	if (IS_IPADDR_V6(&vpn->originator_ip))
+		return;
+
+	if (!bgp_evpn_srv6_local_originator(bgp, &originator))
+		return;
+
+	vpn->originator_ip = originator;
+	update_routes_for_vni(bgp, vpn);
+}
+
+/*
  * Delete (and withdraw) local routes for specified VNI from the global
  * table and per-VNI table. After this, remove all other routes from
  * the per-VNI table. Invoked upon the VNI being deleted or EVPN
@@ -7886,7 +7968,71 @@ void bgp_evpn_handle_router_id_update(struct bgp *bgp, int withdraw)
 			     (void (*)(struct hash_bucket *,
 				       void *))update_router_id_vni,
 			     bgp);
+
+		/* Re-originate VPWS EAD-EVI routes: vpws_build_prefix() bakes
+		 * bgp->router_id into the NLRI once, at origination time. If a
+		 * VPWS SID became ready before the router-id was learned, the
+		 * route is stuck advertising 0.0.0.0 forever since nothing else
+		 * re-triggers it. Withdraw and re-advertise with the current
+		 * router-id now that it has (re)changed.
+		 */
+		bgp_evpn_vpws_reorigin_all(bgp);
 	}
+}
+
+/*
+ * Self-heal for the SRv6 EVPN nexthop bootstrap race: at startup (or any
+ * bgpd restart), Type-5/Type-2/3 route origination for an SRv6 VRF/VNI can
+ * fire before its underlay BGP session reaches Established, so the "find a
+ * local IPv6 session address" fallback (bgp_evpn_srv6_local_originator())
+ * finds nothing and origination is deferred (see the suppress-if-invalid
+ * checks in update_evpn_type5_route()/update_evpn_route()). This hook,
+ * called every time any peer transitions to Established, re-derives the
+ * originator and re-triggers origination for anything still deferred.
+ *
+ * Scoped cheaply before doing any RIB/VNI walk: only peers of the main
+ * EVPN instance are ever candidates for the fallback's peer-address search
+ * (it always searches bgp_get_evpn()'s peer list, never a VRF instance's
+ * own - which is empty in typical configs anyway), and only an
+ * IPv6-locally-addressed peer could ever be what that search picks.
+ */
+int bgp_evpn_handle_peer_established(struct peer *peer)
+{
+	struct bgp *bgp_evpn;
+	struct listnode *node;
+	struct bgp *bgp_vrf;
+
+	bgp_evpn = bgp_get_evpn();
+	if (!bgp_evpn || peer->bgp != bgp_evpn)
+		return 0;
+
+	if (!peer->connection->su_local || peer->connection->su_local->sa.sa_family != AF_INET6)
+		return 0;
+
+	/* Type-5: re-trigger for every SRv6-live VRF instance. A no-op if
+	 * the nexthop was already correct (attrhash_cmp short-circuits).
+	 * Re-derive the VRF-level RD first - otherwise a still-stuck RD from
+	 * the startup race just gets re-sent unchanged (see
+	 * bgp_evpn_srv6_refresh_vrf_rd()).
+	 */
+	for (ALL_LIST_ELEMENTS_RO(bm->bgp, node, bgp_vrf)) {
+		if (bgp_vrf->inst_type != BGP_INSTANCE_TYPE_VRF || !is_srv6_vrf_live(bgp_vrf))
+			continue;
+		bgp_evpn_srv6_refresh_vrf_rd(bgp_vrf);
+		bgp_evpn_advertise_type5_routes(bgp_vrf, AFI_IP, SAFI_UNICAST);
+		bgp_evpn_advertise_type5_routes(bgp_vrf, AFI_IP6, SAFI_UNICAST);
+	}
+
+	/* Type-2/3: refresh any L2VNI whose originator was left deferred at
+	 * VNI-add time, then re-trigger origination for it.
+	 */
+	if (bgp_evpn->vnihash)
+		hash_iterate(bgp_evpn->vnihash,
+			     (void (*)(struct hash_bucket *,
+				       void *))bgp_evpn_srv6_refresh_vni_originator_hash,
+			     bgp_evpn);
+
+	return 0;
 }
 
 /*
@@ -8668,15 +8814,53 @@ void bgp_evpn_derive_auto_rt_export(struct bgp *bgp, struct bgpevpn *vpn)
  */
 void bgp_evpn_derive_auto_rd_for_vrf(struct bgp *bgp)
 {
+	char buf[BGP_EVPN_PREFIX_RD_LEN];
+
 	if (is_vrf_rd_configured(bgp))
 		return;
 
-	form_auto_rd(bgp->router_id, bgp->vrf_rd_id, &bgp->vrf_prd);
+	/* Same router-id dependency (and the same reason to avoid it) as
+	 * bgp_evpn_derive_auto_rd() above - fall back to an AS-number RD
+	 * rather than baking in an unconfigured 0.0.0.0 router-id.
+	 */
+	if (bgp->router_id.s_addr == INADDR_ANY) {
+		bgp->vrf_prd.family = AF_UNSPEC;
+		bgp->vrf_prd.prefixlen = 64;
+		snprintfrr(buf, sizeof(buf), "%u:%hu", bgp->as, bgp->vrf_rd_id);
+		(void)str2prefix_rd(buf, &bgp->vrf_prd);
+	} else
+		form_auto_rd(bgp->router_id, bgp->vrf_rd_id, &bgp->vrf_prd);
 }
 
 /*
  * Derive RD automatically for VNI using passed information - it
  * is of the form RouterId:unique-id-for-vni.
+ *
+ * On a classic VXLAN EVPN router the router-id is virtually always already
+ * valid by the time any VNI can exist: it auto-derives from an IPv4
+ * loopback address, which is a plain kernel interface property synced from
+ * zebra to bgpd at connection time - long before any VNI-specific
+ * processing, and completely independent of bgpd's own config-file line
+ * ordering. An all-IPv6 SRv6 L2 EVPN router has no such early, non-config
+ * source for an IPv4 router-id: the only source is the explicit
+ * "bgp router-id X" config line, applied as bgpd sequentially parses its
+ * own config. zebra has no such dependency and can realize an EVI (whose
+ * bridge/interfaces already exist from prior provisioning) and notify bgpd
+ * over the already-open zclient socket before bgpd reaches that line,
+ * permanently baking router-id 0.0.0.0 into this VNI's RD - even though
+ * bgp_evpn_handle_router_id_update() will fix EVERY OTHER already-created
+ * VNI's RD once the config line is processed, this one's self-heal can be
+ * defeated by bgp_router_id_set()'s IPV4_ADDR_SAME early-return on a
+ * restart that re-hits the identical race.
+ *
+ * Root-cause fix, matching how VXLAN avoids this rather than racing to win
+ * it: don't require an IPv4 router-id for the RD's administrator subfield
+ * in the first place. Fall back to an AS-number RD (RFC 4364 Type 0/2,
+ * "ASN:vni" - str2prefix_rd() already auto-selects 2- vs 4-byte AS
+ * encoding) whenever the router-id is still the unconfigured default. This
+ * still self-heals to the IPv4-based RD once a real router-id is set,
+ * exactly as before - it only replaces the confusing, effectively-blackholed
+ * "0.0.0.0:N" RD with an always-valid one for that window.
  */
 void bgp_evpn_derive_auto_rd(struct bgp *bgp, struct bgpevpn *vpn)
 {
@@ -8684,7 +8868,10 @@ void bgp_evpn_derive_auto_rd(struct bgp *bgp, struct bgpevpn *vpn)
 
 	vpn->prd.family = AF_UNSPEC;
 	vpn->prd.prefixlen = 64;
-	snprintfrr(buf, sizeof(buf), "%pI4:%hu", &bgp->router_id, vpn->rd_id);
+	if (bgp->router_id.s_addr == INADDR_ANY)
+		snprintfrr(buf, sizeof(buf), "%u:%hu", bgp->as, vpn->rd_id);
+	else
+		snprintfrr(buf, sizeof(buf), "%pI4:%hu", &bgp->router_id, vpn->rd_id);
 	(void)str2prefix_rd(buf, &vpn->prd);
 	if (vpn->prd_pretty)
 		XFREE(MTYPE_BGP_NAME, vpn->prd_pretty);

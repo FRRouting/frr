@@ -142,6 +142,7 @@ extern void bgp_evpn_advertise_type5_routes(struct bgp *bgp_vrf, afi_t afi,
 					    safi_t safi);
 extern void bgp_evpn_vrf_delete(struct bgp *bgp_vrf);
 extern void bgp_evpn_handle_router_id_update(struct bgp *bgp, int withdraw);
+extern int bgp_evpn_handle_peer_established(struct peer *peer);
 /* Per-EVI End.DT2U/End.DT2M SID table for `show bgp segment-routing srv6
  * evpn` (defined in bgp_evpn_vty.c; needs private bgpevpn internals).
  */
