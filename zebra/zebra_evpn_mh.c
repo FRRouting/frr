@@ -2391,10 +2391,14 @@ static void zebra_evpn_es_re_eval_send_to_client(struct zebra_evpn_es *es,
 	if (old_ready == new_ready)
 		return;
 
-	if (new_ready)
+	if (new_ready) {
 		zebra_evpn_es_send_add_to_client(es);
-	else
+		zebra_evpn_bpp_es_update(es);
+	} else {
+		zebra_evpn_bpp_es_send_all(es, false);
 		zebra_evpn_es_send_del_to_client(es);
+		zebra_evpn_bpp_es_update(es);
+	}
 
 	/* re-eval associated EVIs */
 	if (es_evi_re_reval) {
@@ -2435,6 +2439,7 @@ void zebra_evpn_es_send_all_to_client(bool add)
 						es, es_evi->zevpn,
 						false /* add */);
 			}
+			zebra_evpn_bpp_es_send_all(es, add);
 			if (!add)
 				zebra_evpn_es_send_del_to_client(es);
 		}
@@ -2797,8 +2802,10 @@ static void zebra_evpn_local_es_del(struct zebra_evpn_es **esp)
 		zebra_evpn_local_es_evi_do_del(es_evi);
 
 	/* send a del if the ES had been sent to BGP earlier */
-	if (es->flags & ZEBRA_EVPNES_READY_FOR_BGP)
+	if (es->flags & ZEBRA_EVPNES_READY_FOR_BGP) {
+		zebra_evpn_bpp_es_send_all(es, false);
 		zebra_evpn_es_send_del_to_client(es);
+	}
 
 	zebra_evpn_es_local_info_clear(esp);
 }
