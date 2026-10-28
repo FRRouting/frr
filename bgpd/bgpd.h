@@ -702,6 +702,10 @@ struct bgp {
 	uint8_t update_delay_over;
 	uint8_t main_zebra_update_hold;
 	uint8_t main_peers_update_hold;
+#ifdef DEV_BUILD
+	/* No UPDATEs are built for any peer while set */
+	bool updates_plugged;
+#endif
 	uint16_t v_update_delay;
 	uint16_t v_establish_wait;
 	char update_delay_begin_time[64];
@@ -2011,6 +2015,11 @@ struct peer {
 		char *name;
 		struct route_map *map;
 	} default_rmap[AFI_MAX][SAFI_MAX];
+
+#ifdef DEV_BUILD
+	/* No UPDATEs are built for this peer while set */
+	bool updates_plugged;
+#endif
 
 	/* Peer status flags. */
 	uint16_t sflags;

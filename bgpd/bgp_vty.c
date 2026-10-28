@@ -12314,6 +12314,39 @@ DEFPY_HIDDEN(bgp_test_metaq_plug, bgp_test_metaq_plug_cmd,
 	return CMD_SUCCESS;
 }
 
+#ifdef DEV_BUILD
+DEFPY_HIDDEN(bgp_test_updates_plug, bgp_test_updates_plug_cmd,
+	     "[no] bgp [vrf NAME$vrf_name] test updates disable [neighbor <A.B.C.D|X:X::X:X|WORD>$neighbor]",
+	     NO_STR
+	     BGP_STR
+	     VRF_CMD_HELP_STR
+	     "Test command\n"
+	     "Outgoing UPDATE messages\n"
+	     "Plug outgoing UPDATE messages (prevent sending)\n"
+	     NEIGHBOR_STR
+	     NEIGHBOR_ADDR_STR2)
+{
+	struct bgp *bgp = bgp_test_instance(vty, vrf_name);
+	struct peer *peer = NULL;
+
+	if (!bgp)
+		return CMD_WARNING;
+
+	if (neighbor) {
+		peer = peer_lookup_in_view(vty, bgp, neighbor, false);
+		if (!peer)
+			return CMD_WARNING;
+	}
+
+	if (no)
+		bgp_updates_unplug(bgp, peer);
+	else
+		bgp_updates_plug(bgp, peer);
+
+	return CMD_SUCCESS;
+}
+#endif
+
 /* one clear bgp command to rule them all */
 DEFUN(clear_ip_bgp_all, clear_ip_bgp_all_cmd,
       "clear [ip] bgp [<view|vrf> VIEWVRFNAME] [<ipv4|ipv6|l2vpn> [<unicast|multicast|vpn|labeled-unicast|flowspec|evpn|unreachability>]] <*|A.B.C.D$neighbor|X:X::X:X$neighbor|WORD$neighbor|ASNUM|external|peer-group PGNAME> [<soft [<in|out>]|in [prefix-filter]|out|message-stats|capabilities>]",
@@ -25149,6 +25182,9 @@ void bgp_vty_init(void)
 
 	/* "bgp test" commands */
 	install_element(ENABLE_NODE, &bgp_test_metaq_plug_cmd);
+#ifdef DEV_BUILD
+	install_element(ENABLE_NODE, &bgp_test_updates_plug_cmd);
+#endif
 
 	/* "clear ip bgp commands" */
 	install_element(ENABLE_NODE, &clear_ip_bgp_all_cmd);

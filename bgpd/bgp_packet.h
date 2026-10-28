@@ -75,6 +75,10 @@ extern int bgp_packet_set_marker(struct stream *s, uint8_t type);
 extern void bgp_packet_set_size(struct stream *s);
 
 extern void bgp_generate_updgrp_packets(struct event *event);
+#ifdef DEV_BUILD
+extern void bgp_updates_plug(struct bgp *bgp, struct peer *peer);
+extern void bgp_updates_unplug(struct bgp *bgp, struct peer *peer);
+#endif
 extern void bgp_process_packet(struct event *event);
 
 extern void bgp_send_delayed_eor(struct bgp *bgp);
