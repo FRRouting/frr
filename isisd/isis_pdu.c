@@ -1293,9 +1293,6 @@ dontcheckadj:
 		/* 7.3.15.1 e) 2) LSP equal to the one in db */
 		else if (comp == LSP_EQUAL) {
 			isis_tx_queue_del(circuit->tx_queue, lsp);
-			lsp_update(lsp, &hdr, tlvs, circuit->rcv_stream,
-				   circuit->area, level, false);
-			tlvs = NULL;
 			if (circuit->circ_type != CIRCUIT_T_BROADCAST)
 				ISIS_SET_FLAG(lsp->SSNflags, circuit);
 		}
