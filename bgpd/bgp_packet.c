@@ -2966,6 +2966,23 @@ static int bgp_route_refresh_receive(struct peer_connection *connection, bgp_siz
 		return BGP_PACKET_NOOP;
 	}
 
+	/*
+	 * The RFC 7313 subtypes and their error handling apply only once the
+	 * peer has sent the Enhanced Route Refresh capability. Otherwise the
+	 * octet is the RFC 2918 Reserved field, which the receiver ignores.
+	 */
+	if (!CHECK_FLAG(peer->cap, PEER_CAP_ENHANCED_RR_RCV)) {
+		subtype = BGP_ROUTE_REFRESH_NORMAL;
+	} else if (subtype > BGP_ROUTE_REFRESH_EORR) {
+		/* When the BGP speaker receives a ROUTE-REFRESH message
+		 * with a "Message Subtype" field other than 0, 1, or 2,
+		 * it MUST ignore the received ROUTE-REFRESH message.
+		 */
+		zlog_info("%s Enhanced Route Refresh invalid subtype %u - ignored", peer->host,
+			  subtype);
+		return BGP_PACKET_NOOP;
+	}
+
 	if (size != BGP_MSG_ROUTE_REFRESH_MIN_SIZE - BGP_HEADER_SIZE) {
 		uint8_t *end;
 		uint8_t when_to_refresh;
@@ -2973,16 +2990,6 @@ static int bgp_route_refresh_receive(struct peer_connection *connection, bgp_siz
 		uint16_t orf_len;
 
 		if (subtype) {
-			/* When the BGP speaker receives a ROUTE-REFRESH message
-			 * with a "Message Subtype" field other than 0, 1, or 2,
-			 * it MUST ignore the received ROUTE-REFRESH message.
-			 */
-			if (subtype > 2) {
-				zlog_info("%s Enhanced Route Refresh invalid subtype %u - ignored",
-					  peer->host, subtype);
-				return BGP_PACKET_NOOP;
-			}
-
 			/* If the length, excluding the fixed-size message
 			 * header, of the received ROUTE-REFRESH message with
 			 * Message Subtype 1 and 2 is not 4, then the BGP
