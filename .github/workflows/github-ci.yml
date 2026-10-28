@@ -81,7 +81,7 @@ jobs:
             attempt=1
             max_attempts=8
             while [ "${attempt}" -le "${max_attempts}" ]; do
-              wget --tries=1 --timeout=30 --retry-connrefused "${src_url}" -O "${dest_path}.tmp" && mv "${dest_path}.tmp" "${dest_path}" && return 0
+              wget --no-check-certificate --tries=1 --timeout=30 --retry-connrefused "${src_url}" -O "${dest_path}.tmp" && mv "${dest_path}.tmp" "${dest_path}" && return 0
               rm -f "${dest_path}.tmp"
               sleep_time=$((attempt * 5))
               echo "Retrying cache fetch (${attempt}/${max_attempts}) for ${cache_name} in ${sleep_time}s" >&2

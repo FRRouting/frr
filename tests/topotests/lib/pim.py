@@ -4262,7 +4262,7 @@ class McastTesterHelper(HostApplicationHelper):
             send_to_addrs = [send_to_addrs]
 
         for send_to in send_to_addrs:
-            self.run(host, ["--send=0.7", send_to, bind_intf])
+            self.run(host, ["--send=0.001", send_to, bind_intf])
 
         return True
 
