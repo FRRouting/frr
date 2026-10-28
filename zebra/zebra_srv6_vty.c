@@ -2006,8 +2006,21 @@ DEFPY_NOSH (srv6_l2evpn_evi,
 	if (locator)
 		zebra_srv6_evi_set_locator(evi, locator);
 	if (bridge) {
-		struct interface *ifp = if_lookup_by_name(bridge, VRF_DEFAULT);
+		struct interface *ifp;
+		struct vrf *vrf_iter;
 
+		/* br100 may be in a non-default VRF (netns-based setup);
+		 * search all VRFs so the lookup works regardless.
+		 */
+		ifp = if_lookup_by_name(bridge, VRF_DEFAULT);
+		if (!ifp)
+			RB_FOREACH (vrf_iter, vrf_id_head, &vrfs_by_id) {
+				ifp = if_lookup_by_name(bridge, vrf_iter->vrf_id);
+				if (ifp)
+					break;
+			}
+		if (!ifp)
+			vty_out(vty, "%% bridge interface '%s' not found\n", bridge);
 		zebra_srv6_evi_set_bridge(evi, ifp);
 	}
 	VTY_PUSH_CONTEXT(SRV6_L2EVPN_EVI_NODE, evi);
@@ -2128,6 +2141,36 @@ DEFPY (no_srv6_evi_vlan,
 	return CMD_SUCCESS;
 }
 
+DEFPY (srv6_evi_vrf,
+       srv6_evi_vrf_cmd,
+       "vrf WORD$vrfname",
+       "Associate EVI with a tenant VRF\n"
+       "VRF name\n")
+{
+	VTY_DECLVAR_CONTEXT(zebra_srv6_evi, evi);
+	struct vrf *vrf;
+
+	vrf = vrf_lookup_by_name(vrfname);
+	if (!vrf) {
+		vty_out(vty, "%% VRF '%s' not found\n", vrfname);
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+	zebra_srv6_evi_set_vrf(evi, vrf->vrf_id);
+	return CMD_SUCCESS;
+}
+
+DEFPY (no_srv6_evi_vrf,
+       no_srv6_evi_vrf_cmd,
+       "no vrf [WORD]",
+       NO_STR
+       "Remove tenant VRF association\n"
+       "VRF name\n")
+{
+	VTY_DECLVAR_CONTEXT(zebra_srv6_evi, evi);
+
+	zebra_srv6_evi_set_vrf(evi, VRF_DEFAULT);
+	return CMD_SUCCESS;
+}
 void zebra_srv6_vty_init(void)
 {
 	/* Install nodes and its default commands */
@@ -2174,6 +2217,8 @@ void zebra_srv6_vty_init(void)
 	install_element(SRV6_L2EVPN_EVI_NODE, &no_srv6_evi_l2_encap_mode_cmd);
 	install_element(SRV6_L2EVPN_EVI_NODE, &srv6_evi_vlan_cmd);
 	install_element(SRV6_L2EVPN_EVI_NODE, &no_srv6_evi_vlan_cmd);
+	install_element(SRV6_L2EVPN_EVI_NODE, &srv6_evi_vrf_cmd);
+	install_element(SRV6_L2EVPN_EVI_NODE, &no_srv6_evi_vrf_cmd);
 	install_element(SRV6_LOCS_NODE, &srv6_locator_cmd);
 	install_element(SRV6_LOCS_NODE, &no_srv6_locator_cmd);
 	install_element(SRV6_SID_FORMATS_NODE, &srv6_sid_format_f3216_usid_cmd);

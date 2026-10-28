@@ -34,6 +34,7 @@
 #include "zebra/zebra_srv6.h"
 
 #include "lib/srv6.h"
+#include "lib/vrf.h"
 
 DEFINE_MTYPE_STATIC(ZEBRA, ZEBRA_SRV6_EVI, "SRv6 L2 EVPN EVI");
 DEFINE_MTYPE_STATIC(ZEBRA, ZEBRA_SRV6_EVI_BD, "SRv6 L2 EVPN EVI member BD");
@@ -576,6 +577,17 @@ void zebra_srv6_evi_set_bridge(struct zebra_srv6_evi *evi, struct interface *bri
 	zebra_srv6_evi_realize(evi);
 }
 
+void zebra_srv6_evi_set_vrf(struct zebra_srv6_evi *evi, vrf_id_t vrf_id)
+{
+	if (!evi)
+		return;
+	if (evi->vrf_id == vrf_id)
+		return;
+	evi->vrf_id = vrf_id;
+	/* Re-realize so the VNI_ADD to bgpd carries the updated tenant_vrf_id. */
+	zebra_srv6_evi_realize(evi);
+}
+
 int zebra_srv6_evi_set_service(struct zebra_srv6_evi *evi, enum zevpn_l2_service svc)
 {
 	struct zebra_srv6_evi_bd *bd;
@@ -774,6 +786,40 @@ void zebra_srv6_l2evpn_realize_on_bridge(ifindex_t bridge_ifindex)
 			zebra_srv6_evi_realize(evi);
 }
 
+/*
+ * Interface-add notification from if_add_update() (see interface.c), mirroring
+ * zebra_srv6_vpws_if_add().  The operator may create the EVI's bridge AFTER the
+ * EVI is configured, or zebra may parse its config before the kernel interface
+ * dump arrives; in either case the `evi ... bridge <br>` command resolved
+ * bridge_if to NULL and realize() bailed ("not enough config yet").  Nothing
+ * else rebinds it: realize_on_bridge() matches EVIs by evi->bridge_if->ifindex,
+ * which is NULL for exactly these EVIs, so they would stay unrealized (no
+ * per-EVI DT2U/DT2M SID, no Type-2/Type-3, no L2 dataplane) until a full config
+ * re-apply.  When the named bridge finally appears, bind it and realize.
+ */
+void zebra_srv6_evi_if_add(struct interface *ifp)
+{
+	struct zebra_srv6_evi *evi;
+
+	if (!srv6_evi_inited || !ifp || ifp->ifindex == 0)
+		return;
+
+	frr_each_safe (srv6_evi_htab, srv6_evi_table, evi) {
+		if (evi->bridge_if)
+			continue; /* already bound */
+		if (evi->bridge_ifname[0] == '\0')
+			continue;
+		if (strncmp(evi->bridge_ifname, ifp->name, sizeof(evi->bridge_ifname)) != 0)
+			continue;
+
+		evi->bridge_if = ifp;
+		if (IS_ZEBRA_DEBUG_VXLAN)
+			zlog_debug("%s: EVI %u bridge %s (ifindex %u) appeared, realizing",
+				   __func__, evi->vni, ifp->name, ifp->ifindex);
+		zebra_srv6_evi_realize(evi);
+	}
+}
+
 void zebra_srv6_evi_realize(struct zebra_srv6_evi *evi)
 {
 	struct zebra_evpn *zevpn;
@@ -804,6 +850,11 @@ void zebra_srv6_evi_realize(struct zebra_srv6_evi *evi)
 	 */
 	zevpn->dp_ops = &zevpn_dp_ops_srv6;
 	zevpn->bridge_if = evi->bridge_if;
+	/* Propagate tenant VRF so bgpd's VNI_ADD carries the correct
+	 * tenant_vrf_id for symmetric IRB (bgpevpn_link_to_l3vni).
+	 */
+	if (evi->vrf_id != VRF_DEFAULT)
+		zevpn->vrf_id = evi->vrf_id;
 
 	/*
 	 * Allocate this EVI's own End.DT2U/End.DT2M service SIDs from its
@@ -908,6 +959,27 @@ void zebra_srv6_evi_realize(struct zebra_srv6_evi *evi)
 	 * own SID → loop.  The peer-keyed bum-sr6 remains the only flood port.
 	 * Keyed by the EVI's own DT2U SID (distinct from any remote SID).
 	 */
+	/*
+	 * Self-heal a stale decap oif: if the sr6 device backing it was ever
+	 * deleted out from under us (e.g. externally, or by anything else that
+	 * doesn't go through zebra_sr6_release()), local_decap_oif keeps
+	 * pointing at a now-nonexistent ifindex forever - "have_decap" below
+	 * keys off local_decap_sid, not the ifindex, so it would see the SID
+	 * as already held and never notice, leaving the EVI stuck advertising
+	 * a route to a dead interface (l2dev <unknown>, inactive) until an
+	 * operator removes and re-adds the whole EVI. Detect that here and
+	 * release + clear local_decap_sid so "!have_decap" below recreates it
+	 * on its own, same as any other sid_changed trigger already does.
+	 */
+	if (!IN6_IS_ADDR_UNSPECIFIED(&evi->local_decap_sid) && evi->local_decap_oif != 0 &&
+	    !if_lookup_by_index_per_ns(zebra_ns_lookup(NS_DEFAULT), evi->local_decap_oif)) {
+		zlog_warn("%s: EVI %u: local decap oif %u no longer exists; will recreate",
+			  __func__, evi->vni, evi->local_decap_oif);
+		zebra_sr6_release(&evi->local_decap_sid);
+		memset(&evi->local_decap_sid, 0, sizeof(evi->local_decap_sid));
+		evi->local_decap_oif = 0;
+	}
+
 	if (evi->dt2u_sid_valid) {
 		bool have_decap = !IN6_IS_ADDR_UNSPECIFIED(&evi->local_decap_sid);
 		bool sid_changed = have_decap &&
@@ -1363,9 +1435,26 @@ int zebra_srv6_l2evpn_config_write(struct vty *vty)
 				zebra_sr6_encap_mode2str(evi->l2_encap_mode));
 		frr_each (evi_bds, &evi->bds, bd)
 			vty_out(vty, "    vlan %u\n", bd->vid);
-		vty_out(vty, "   exit\n");
+		if (evi->vrf_id != VRF_DEFAULT)
+			vty_out(vty, "    vrf %s\n", vrf_id_to_name(evi->vrf_id));
+		/*
+		 * Close with "!", not "exit" - "exit" is a generic command
+		 * available at virtually every vty node (including the
+		 * top-level CONFIG_NODE). In a shared/integrated frr.conf, a
+		 * foreign daemon (bgpd, isisd) that doesn't recognize this
+		 * EVI block's enclosing commands stays parked at CONFIG_NODE
+		 * while skipping each unrecognized line; the bare "exit" then
+		 * matches CONFIG_NODE's own exit command, which pops out of
+		 * config mode entirely and aborts the rest of the file read
+		 * for that daemon (see vty_config_node_exit() in lib/vty.c).
+		 * "!" is always a no-op comment, so it's silently skipped by
+		 * every daemon regardless of node state - matching the
+		 * existing convention used by the sibling locators/locator
+		 * blocks in this same file.
+		 */
+		vty_out(vty, "   !\n");
 	}
-	vty_out(vty, "  exit\n");
+	vty_out(vty, "  !\n");
 	return 0;
 }
 

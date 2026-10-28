@@ -36,6 +36,7 @@
 #include "zebra/zebra_errors.h"
 #include "zebra/zebra_evpn_mh.h"
 #include "zebra/zebra_srv6_vpws.h"
+#include "zebra/zebra_srv6_l2evpn.h"
 #include "zebra/zebra_sr6.h"
 #include "zebra/zebra_trace.h"
 #include "zebra/zebra_l2.h"
@@ -606,6 +607,11 @@ void if_add_update(struct interface *ifp)
 	 */
 	zebra_srv6_vpws_if_add(ifp);
 	zebra_sr6_if_add(ifp);
+	/*
+	 * SRv6 L2 EVPN: bind + realize any EVI whose `bridge <br>` was configured
+	 * before this bridge interface existed (resolved to NULL at config time).
+	 */
+	zebra_srv6_evi_if_add(ifp);
 
 	if (IS_ZEBRA_IF_DUMMY(ifp))
 		SET_FLAG(ifp->status, ZEBRA_INTERFACE_DUMMY);
