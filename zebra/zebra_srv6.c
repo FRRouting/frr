@@ -628,7 +628,11 @@ zebra_srv6_sid_block_alloc(struct srv6_sid_format *format,
 		block->u.uncompressed.func_released = list_new();
 		block->u.uncompressed.func_released->del =
 			delete_zebra_srv6_sid_func;
+
 		block->u.uncompressed.first_available_func = 1;
+
+		zebra_srv6_evi_func_list_init(&block->u.uncompressed.evi_func_released);
+		block->u.uncompressed.first_available_evi_func = SRV6_SID_NOFORMAT_EVI_FUNC_BASE;
 	}
 
 	return block;
@@ -667,6 +671,12 @@ void zebra_srv6_sid_block_free(struct zebra_srv6_sid_block *block)
 	} else {
 		list_delete(&block->u.uncompressed.func_allocated);
 		list_delete(&block->u.uncompressed.func_released);
+		struct zebra_srv6_evi_func *evi_func;
+
+		while ((evi_func = zebra_srv6_evi_func_list_pop(
+				&block->u.uncompressed.evi_func_released)))
+			XFREE(MTYPE_ZEBRA_SRV6_SID_FUNC, evi_func);
+		zebra_srv6_evi_func_list_fini(&block->u.uncompressed.evi_func_released);
 	}
 
 	XFREE(MTYPE_ZEBRA_SRV6_SID_BLOCK, block);
@@ -1777,6 +1787,20 @@ static bool alloc_srv6_sid_func_explicit(struct zebra_srv6_sid_block *block,
 			assert(0);
 		}
 	} else {
+		/*
+		 * The window reserved for per-EVI services is handed out by a
+		 * separate allocator that does not use "func_allocated", so an
+		 * explicit SID there would collide with an EVI's End.DT2U/DT2M.
+		 */
+		if (sid_func >= SRV6_SID_NOFORMAT_EVI_FUNC_BASE &&
+		    sid_func < SRV6_SID_NOFORMAT_EVI_FUNC_END) {
+			flog_err(EC_ZEBRA_SRV6_INVALID_REQUEST,
+				 "%s: invalid SM request arguments: SID function %u is in the range reserved for per-EVI services (%u - %u)",
+				 __func__, sid_func, SRV6_SID_NOFORMAT_EVI_FUNC_BASE,
+				 SRV6_SID_NOFORMAT_EVI_FUNC_END - 1);
+			return false;
+		}
+
 		/* Ensure that the SID function has not already been taken */
 
 		for (ALL_LIST_ELEMENTS_RO(block->u.uncompressed.func_allocated,
@@ -1809,15 +1833,54 @@ static bool alloc_srv6_sid_func_explicit(struct zebra_srv6_sid_block *block,
 }
 
 /**
+ * True for SRv6 behaviors that represent a per-EVI service of an SRv6 L2
+ * EVPN EVI (End.DT2U/DT2M), as opposed to VRF-level services
+ * (End.DT4/DT6/DT46) and everything else. Used to route dynamic allocation
+ * for no-named-format locators into a reserved range, so a VRF-level SID
+ * request (from bgpd) and a per-EVI SID request (zebra-internal) can never
+ * race for the same function number. See SRV6_SID_NOFORMAT_EVI_FUNC_BASE.
+ */
+static bool is_evi_level_srv6_behavior(enum seg6local_action_t behavior)
+{
+	switch (behavior) {
+	case ZEBRA_SEG6_LOCAL_ACTION_END_DT2U:
+	case ZEBRA_SEG6_LOCAL_ACTION_END_DT2M:
+		return true;
+	case ZEBRA_SEG6_LOCAL_ACTION_UNSPEC:
+	case ZEBRA_SEG6_LOCAL_ACTION_END:
+	case ZEBRA_SEG6_LOCAL_ACTION_END_X:
+	case ZEBRA_SEG6_LOCAL_ACTION_END_T:
+	case ZEBRA_SEG6_LOCAL_ACTION_END_DX2:
+	case ZEBRA_SEG6_LOCAL_ACTION_END_DX6:
+	case ZEBRA_SEG6_LOCAL_ACTION_END_DX4:
+	case ZEBRA_SEG6_LOCAL_ACTION_END_B6:
+	case ZEBRA_SEG6_LOCAL_ACTION_END_B6_ENCAP:
+	case ZEBRA_SEG6_LOCAL_ACTION_END_BM:
+	case ZEBRA_SEG6_LOCAL_ACTION_END_S:
+	case ZEBRA_SEG6_LOCAL_ACTION_END_AS:
+	case ZEBRA_SEG6_LOCAL_ACTION_END_AM:
+	case ZEBRA_SEG6_LOCAL_ACTION_END_BPF:
+	case ZEBRA_SEG6_LOCAL_ACTION_END_DT4:
+	case ZEBRA_SEG6_LOCAL_ACTION_END_DT6:
+	case ZEBRA_SEG6_LOCAL_ACTION_END_DT46:
+	default:
+		return false;
+	}
+}
+
+/**
  * Allocate a dynamic SID function (i.e. any available SID function value) from a given SID block.
  *
  * @param block SRv6 SID block from which the SID function has to be allocated
  * @param sid_func SID function allocated
+ * @param is_evi_level Whether this request is for a per-EVI service
+ *                     (End.DT2U/DT2M). Only affects no-named-format
+ *                     locators - see is_evi_level_srv6_behavior().
  *
  * @return true on success, false otherwise
  */
-static bool alloc_srv6_sid_func_dynamic(struct zebra_srv6_sid_block *block,
-					uint32_t *sid_func)
+static bool alloc_srv6_sid_func_dynamic(struct zebra_srv6_sid_block *block, uint32_t *sid_func,
+					bool is_evi_level)
 {
 	struct srv6_sid_format *format;
 	uint32_t *sid_func_ptr = NULL;
@@ -1932,6 +1995,31 @@ static bool alloc_srv6_sid_func_dynamic(struct zebra_srv6_sid_block *block,
 				 __func__, format->type);
 			assert(0);
 		}
+	} else if (is_evi_level) {
+		/*
+		 * Per-EVI service (End.DT2U/DT2M): allocate from the reserved
+		 * range so it can never collide with a VRF-level SID,
+		 * regardless of which one zebra happens to process first at
+		 * boot.
+		 */
+		struct zebra_srv6_evi_func *evi_func =
+			zebra_srv6_evi_func_list_pop(&block->u.uncompressed.evi_func_released);
+
+		if (evi_func) {
+			*sid_func = evi_func->func;
+			XFREE(MTYPE_ZEBRA_SRV6_SID_FUNC, evi_func);
+		} else {
+			*sid_func = block->u.uncompressed.first_available_evi_func;
+			block->u.uncompressed.first_available_evi_func++;
+		}
+
+		if (*sid_func >= SRV6_SID_NOFORMAT_EVI_FUNC_END) {
+			zlog_warn("%s: per-EVI SRv6 SID reserved range depleted (block %pFX)",
+				  __func__, &block->prefix);
+			return false;
+		}
+
+		block->u.uncompressed.num_func_allocated++;
 	} else {
 		/*
 		 * First, let's check if there are any SID functions that were previously
@@ -1955,6 +2043,12 @@ static bool alloc_srv6_sid_func_dynamic(struct zebra_srv6_sid_block *block,
 			 */
 			*sid_func = block->u.uncompressed.first_available_func;
 			block->u.uncompressed.first_available_func++;
+
+			/* Skip the window reserved for per-EVI services. */
+			if (block->u.uncompressed.first_available_func ==
+			    SRV6_SID_NOFORMAT_EVI_FUNC_BASE)
+				block->u.uncompressed.first_available_func =
+					SRV6_SID_NOFORMAT_EVI_FUNC_END;
 		}
 
 		/* Increase the counter of SID functions allocated */
@@ -2164,8 +2258,13 @@ static int get_srv6_sid_dynamic(struct zebra_srv6_sid **sid, struct srv6_sid_ctx
 		/* uN SID is allocated from the GIB range */
 		sid_value = locator->prefix.prefix;
 	} else {
-		/* Allocate a dynamic SID function for the SID */
-		if (!alloc_srv6_sid_func_dynamic(block, &sid_func)) {
+		/* Allocate a dynamic SID function for the SID. The per-EVI window
+		 * is only used when the locator's function field can hold it.
+		 */
+		bool evi_range = is_evi_level_srv6_behavior(ctx->behavior) && !format &&
+				 locator->function_bits_length >= SRV6_SID_NOFORMAT_EVI_FUNC_BITS;
+
+		if (!alloc_srv6_sid_func_dynamic(block, &sid_func, evi_range)) {
 			flog_err(EC_ZEBRA_SRV6_ALLOCATION_FAIL,
 				 "%s: invalid SM request arguments: failed to allocate SID function %u from block %pFX",
 				 __func__, sid_func, &block->prefix);
@@ -2453,10 +2552,12 @@ static bool release_srv6_sid_func_explicit(struct zebra_srv6_sid_block *block,
  *
  * @param block Parent SRv6 SID block of the SID function that has to be released
  * @param sid_func SID function to be released
+ * @param is_evi_level Whether sid_func came from the per-EVI reserved
+ *                     range - see alloc_srv6_sid_func_dynamic().
  * @return 0 on success, -1 otherwise
  */
-static int release_srv6_sid_func_dynamic(struct zebra_srv6_sid_block *block,
-					 uint32_t sid_func)
+static int release_srv6_sid_func_dynamic(struct zebra_srv6_sid_block *block, uint32_t sid_func,
+					 bool is_evi_level)
 {
 	struct srv6_sid_format *format;
 	struct listnode *node, *nnode;
@@ -2585,6 +2686,39 @@ static int release_srv6_sid_func_dynamic(struct zebra_srv6_sid_block *block,
 			listnode_add_head(block->u.uncompressed.func_released,
 					  sid_func_ptr);
 		}
+	} else if (!format && is_evi_level) {
+		/* Per-EVI reserved range - mirrors the general-pool logic
+		 * below, against first_available_evi_func/evi_func_released
+		 * instead. See alloc_srv6_sid_func_dynamic().
+		 */
+		struct zebra_srv6_evi_func *evi_func;
+
+		if (sid_func == block->u.uncompressed.first_available_evi_func - 1) {
+			block->u.uncompressed.first_available_evi_func -= 1;
+
+			bool found;
+
+			do {
+				found = false;
+				frr_each_safe (zebra_srv6_evi_func_list,
+					       &block->u.uncompressed.evi_func_released, evi_func)
+					if (evi_func->func ==
+					    block->u.uncompressed.first_available_evi_func - 1) {
+						zebra_srv6_evi_func_list_del(&block->u.uncompressed
+										      .evi_func_released,
+									     evi_func);
+						XFREE(MTYPE_ZEBRA_SRV6_SID_FUNC, evi_func);
+						block->u.uncompressed.first_available_evi_func -= 1;
+						found = true;
+						break;
+					}
+			} while (found);
+		} else {
+			evi_func = XCALLOC(MTYPE_ZEBRA_SRV6_SID_FUNC, sizeof(*evi_func));
+			evi_func->func = sid_func;
+			zebra_srv6_evi_func_list_add_head(&block->u.uncompressed.evi_func_released,
+							  evi_func);
+		}
 	} else if (!format) {
 		if (sid_func == block->u.uncompressed.first_available_func - 1) {
 			/*
@@ -2649,7 +2783,10 @@ static void release_srv6_sid_func(const struct zebra_srv6_sid_ctx *zctx)
 						       zctx->sid->wide_func);
 		else if (zctx->sid->alloc_mode == SRV6_SID_ALLOC_MODE_DYNAMIC)
 			/* Release SRv6 SID function */
-			release_srv6_sid_func_dynamic(zctx->sid->block, zctx->sid->func);
+			release_srv6_sid_func_dynamic(zctx->sid->block, zctx->sid->func,
+						      zctx->sid->func >= SRV6_SID_NOFORMAT_EVI_FUNC_BASE &&
+							      zctx->sid->func <
+								      SRV6_SID_NOFORMAT_EVI_FUNC_END);
 		else
 			/* We should never arrive here */
 			assert(0);
