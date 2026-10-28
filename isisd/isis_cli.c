@@ -49,8 +49,13 @@ DEFPY_YANG_NOSH(router_isis, router_isis_cmd,
 	nb_cli_enqueue_change(vty, ".", NB_OP_CREATE, NULL);
 
 	ret = nb_cli_apply_changes(vty, "%s", base_xpath);
-	if (ret == CMD_SUCCESS)
+	if (ret == CMD_SUCCESS) {
 		VTY_PUSH_XPATH(ISIS_NODE, base_xpath);
+		/* lib/zclient.h: zapi_rlfa_igp.isis.area_tag is 32 bytes, including NUL. */
+		if (strlen(tag) > 31)
+			vty_out(vty,
+				"Warning: IS-IS area tags longer than 31 bytes are truncated in remote LFA messages and may prevent remote LFA from working.\n");
+	}
 
 	return ret;
 }
