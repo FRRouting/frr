@@ -48,6 +48,7 @@ was the filter and not a broken RIP session.
 """
 
 import os
+import select
 import struct
 import subprocess
 import sys
@@ -191,43 +192,46 @@ def _expect_withdraw(router, prefix, what):
 
 
 def _start_capture(tgen, router, ifname, name):
-    "Start tcpdump on IFNAME inside ROUTER's namespace; return (proc, log, pcap)."
     pcap = os.path.join(tgen.logdir, name + ".pcap")
-    log = open(os.path.join(tgen.logdir, name + ".tcpdump.log"), "w")
-    proc = router.net.popen(
-        [
-            "tcpdump",
-            "-i",
-            ifname,
-            "-nn",
-            "-s0",
-            "-w",
-            pcap,
-            "udp",
-            "port",
-            str(RIP_PORT),
-        ],
-        stdout=log,
-        stderr=subprocess.STDOUT,
+    logfile = pcap + ".log"
+    log = open(logfile, "w")
+    proc = router.popen(
+        ["python3", os.path.join(CWD, "capture_rip.py"),
+         "--iface", ifname, "--pcap", pcap],
+        stdout=subprocess.PIPE,
+        stderr=log,
+        text=True,
     )
-    time.sleep(1)
-    if proc.poll() is not None:
-        raise RuntimeError(
-            "tcpdump on {} exited early with {}".format(ifname, proc.returncode)
-        )
+    ready = False
+    try:
+        readable, _, _ = select.select([proc.stdout], [], [], 10)
+        if not readable or proc.stdout.readline().strip() != "ready":
+            raise RuntimeError("RIP capture did not start; see {}".format(logfile))
+        ready = True
+    finally:
+        if not ready:
+            _stop_capture(proc, log)
     return proc, log, pcap
 
 
 def _stop_capture(proc, log):
-    "Terminate the tcpdump started by _start_capture and close its log."
-    if proc is not None:
+    if proc is None:
+        if log is not None:
+            log.close()
+        return
+    if proc.poll() is None:
         proc.terminate()
-        try:
-            proc.wait(timeout=5)
-        except subprocess.TimeoutExpired:
-            proc.kill()
-    if log is not None:
+    try:
+        status = proc.wait(timeout=5)
+    except subprocess.TimeoutExpired:
+        proc.kill()
+        proc.wait()
+        raise RuntimeError("RIP capture did not stop; see {}".format(log.name))
+    finally:
+        proc.stdout.close()
         log.close()
+    if status != 0:
+        raise RuntimeError("RIP capture exited with {}; see {}".format(status, log.name))
 
 
 def _parse_rip_pcap(path):

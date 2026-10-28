@@ -2193,7 +2193,7 @@ void rip_output_process(struct connected *ifc, struct sockaddr_in *to,
 			 * skip it.
 			 */
 			if (!CHECK_FLAG(rinfo->flags,
-					RIP_RTF_POLICY_ADVERTISED))
+					RIP_RTF_OUTBOUND_ADVERTISED))
 				continue;
 			poison = true;
 		}
@@ -2269,14 +2269,14 @@ void rip_output_process(struct connected *ifc, struct sockaddr_in *to,
 						"RIP %pFX is filtered by route-map out",
 						p);
 				if (!CHECK_FLAG(rinfo->flags,
-						RIP_RTF_POLICY_ADVERTISED))
+						RIP_RTF_OUTBOUND_ADVERTISED))
 					continue;
 				poison = true;
 			}
 		}
 
-		/* Apply redistribute route map - poison or skip, if deny */
-		if (!poison && rip->redist[rinfo->type].route_map.name &&
+		/* Apply redistribute route map - continue, if deny */
+		if (rip->redist[rinfo->type].route_map.name &&
 		    rinfo->sub_type != RIP_ROUTE_INTERFACE) {
 			ret = route_map_apply(
 				rip->redist[rinfo->type].route_map.map,
@@ -2287,10 +2287,7 @@ void rip_output_process(struct connected *ifc, struct sockaddr_in *to,
 					zlog_debug(
 						"%pFX is filtered by route-map",
 						p);
-				if (!CHECK_FLAG(rinfo->flags,
-						RIP_RTF_POLICY_ADVERTISED))
-					continue;
-				poison = true;
+				continue;
 			}
 		}
 
@@ -2363,9 +2360,9 @@ void rip_output_process(struct connected *ifc, struct sockaddr_in *to,
 		 */
 		if (poison) {
 			rinfo->metric_out = RIP_METRIC_INFINITY;
-			UNSET_FLAG(rinfo->flags, RIP_RTF_POLICY_ADVERTISED);
+			UNSET_FLAG(rinfo->flags, RIP_RTF_OUTBOUND_ADVERTISED);
 		} else
-			SET_FLAG(rinfo->flags, RIP_RTF_POLICY_ADVERTISED);
+			SET_FLAG(rinfo->flags, RIP_RTF_OUTBOUND_ADVERTISED);
 
 		/* Prepare preamble, auth headers, if needs be */
 		if (num == 0) {
