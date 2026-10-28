@@ -179,6 +179,165 @@ def test_bgp_pathcount_json():
     ), "pathCount in JSON output doesn't match expected value for r7"
 
 
+def _bgp_received_aspaths(router):
+    output = json.loads(router.vtysh_cmd("show bgp ipv4 unicast 172.16.16.254/32 json"))
+
+    return sorted(path["aspath"]["string"] for path in output.get("paths", []))
+
+
+def _bgp_check_received_aspaths(router, expected):
+    received = _bgp_received_aspaths(router)
+    if received != sorted(expected):
+        return "Expected {}, got {}".format(sorted(expected), received)
+
+    return None
+
+
+def test_bgp_addpath_paths_limit_filtered_paths():
+    """
+    Filtered paths must not be counted against Paths-Limit.
+    """
+    tgen = get_topogen()
+
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    r1 = tgen.gears["r1"]
+    r2 = tgen.gears["r2"]
+
+    r2.vtysh_cmd(
+        """
+    configure terminal
+     bgp as-path access-list r1-out seq 5 deny ^6500[56]$
+     bgp as-path access-list r1-out seq 10 permit .*
+     router bgp 65002
+      address-family ipv4 unicast
+       neighbor 192.168.1.1 filter-list r1-out out
+    """
+    )
+
+    test_func = functools.partial(
+        _bgp_check_received_aspaths, r1, ["65002 65004", "65002 65003"]
+    )
+    _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
+    assert result is None, "Filtered paths are counted against Paths-Limit: {}".format(
+        result
+    )
+
+    r2.vtysh_cmd(
+        """
+    configure terminal
+     router bgp 65002
+      address-family ipv4 unicast
+       no neighbor 192.168.1.1 filter-list r1-out out
+     no bgp as-path access-list r1-out
+    """
+    )
+
+    test_func = functools.partial(
+        _bgp_check_received_aspaths, r1, ["65002 65006", "65002 65005"]
+    )
+    _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
+    assert result is None, "r1 did not receive the two best paths: {}".format(result)
+
+
+def test_bgp_addpath_paths_limit_best_selected():
+    """
+    Bestpath must be included into Paths-Limit with addpath-tx-best-selected.
+    """
+    tgen = get_topogen()
+
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    r2 = tgen.gears["r2"]
+    r7 = tgen.gears["r7"]
+
+    r2.vtysh_cmd(
+        """
+    configure terminal
+     router bgp 65002
+      address-family ipv4 unicast
+       neighbor 192.168.7.7 addpath-tx-best-selected 3
+    """
+    )
+
+    test_func = functools.partial(
+        _bgp_check_received_aspaths,
+        r7,
+        ["65002 65006", "65002 65005", "65002 65004"],
+    )
+    _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
+    assert result is None, "Bestpath is not included into Paths-Limit: {}".format(
+        result
+    )
+
+    r2.vtysh_cmd(
+        """
+    configure terminal
+     router bgp 65002
+      address-family ipv4 unicast
+       neighbor 192.168.7.7 addpath-tx-all-paths
+    """
+    )
+
+    test_func = functools.partial(
+        _bgp_check_received_aspaths,
+        r7,
+        ["65002 65006", "65002 65005", "65002 65004"],
+    )
+    _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
+    assert result is None, "r7 did not receive the three best paths: {}".format(result)
+
+
+def test_bgp_addpath_paths_limit_best_selected_filtered():
+    """
+    Filtered candidate must not consume Paths-Limit with addpath-tx-best-selected.
+    """
+    tgen = get_topogen()
+
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    r1 = tgen.gears["r1"]
+    r2 = tgen.gears["r2"]
+
+    r2.vtysh_cmd(
+        """
+    configure terminal
+     bgp as-path access-list r1-out seq 5 deny ^65005$
+     bgp as-path access-list r1-out seq 10 permit .*
+     router bgp 65002
+      address-family ipv4 unicast
+       neighbor 192.168.1.1 addpath-tx-best-selected 3
+       neighbor 192.168.1.1 filter-list r1-out out
+    """
+    )
+
+    test_func = functools.partial(
+        _bgp_check_received_aspaths, r1, ["65002 65006", "65002 65004"]
+    )
+    _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
+    assert result is None, "Filtered candidate consumed Paths-Limit: {}".format(result)
+
+    r2.vtysh_cmd(
+        """
+    configure terminal
+     router bgp 65002
+      address-family ipv4 unicast
+       no neighbor 192.168.1.1 filter-list r1-out out
+       neighbor 192.168.1.1 addpath-tx-all-paths
+     no bgp as-path access-list r1-out
+    """
+    )
+
+    test_func = functools.partial(
+        _bgp_check_received_aspaths, r1, ["65002 65006", "65002 65005"]
+    )
+    _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
+    assert result is None, "r1 did not receive the two best paths: {}".format(result)
+
+
 if __name__ == "__main__":
     args = ["-s"] + sys.argv[1:]
     sys.exit(pytest.main(args))

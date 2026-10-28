@@ -1046,10 +1046,9 @@ extern void route_vty_out_overlay(struct vty *vty, const struct prefix *p,
 
 extern void bgp_notify_conditional_adv_scanner(struct update_subgroup *subgrp);
 
-extern void subgroup_process_announce_selected(struct update_subgroup *subgrp,
+extern bool subgroup_process_announce_selected(struct update_subgroup *subgrp,
 					       struct bgp_path_info *selected,
-					       struct bgp_dest *dest, afi_t afi,
-					       safi_t safi,
+					       struct bgp_dest *dest, afi_t afi, safi_t safi,
 					       uint32_t addpath_tx_id);
 
 extern bool subgroup_announce_check(struct bgp_dest *dest,
