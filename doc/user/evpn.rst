@@ -1322,6 +1322,44 @@ BGP commands (under ``router bgp`` / ``address-family l2vpn evpn``):
    Leave the ``vpws-instance`` sub-mode and return to
    ``address-family l2vpn evpn``.
 
+Symmetric IRB over SRv6
+-----------------------
+
+An EVI bound to a VRF (``vrf VRF`` under the ``evi``) routes between bridge
+domains with symmetric IRB. Each Type-2 route carries both the per-EVI
+``End.DT2U`` SID and the per-VRF ``End.DT46`` SID, and ``advertise ipv4|ipv6
+unicast`` in the VRF's ``address-family l2vpn evpn`` originates the VRF's
+prefixes as Type-5 routes carrying the same ``End.DT46`` SID.
+
+Remote Type-2 host routes are imported into the VRF by the ``route-target
+import`` of the VRF's ``address-family l2vpn evpn``. Remote Type-5 routes that
+carry an SRv6 L3 service TLV are handled as VPN routes: they are installed in
+the VPN RIB and reach the VRF through the VPN-to-VRF leak. Enable the leak in
+each address-family with ``import vpn`` and the same route target, otherwise
+only the host routes are installed in the VRF and a remote subnet, or a remote
+SVI address, is unreachable.
+
+.. code-block:: frr
+
+   router bgp 65001 vrf VRF-A
+    sid vpn per-vrf export auto
+    address-family ipv4 unicast
+     redistribute connected
+     import vpn
+     rt vpn import 65001:200
+    exit-address-family
+    address-family ipv6 unicast
+     redistribute connected
+     import vpn
+     rt vpn import 65001:200
+    exit-address-family
+    address-family l2vpn evpn
+     advertise ipv4 unicast
+     advertise ipv6 unicast
+     route-target import 65001:200
+     route-target export 65001:200
+    exit-address-family
+
 Displaying SRv6 L2 EVPN information
 -----------------------------------
 
