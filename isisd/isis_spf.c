@@ -788,6 +788,18 @@ static void process_N(struct isis_spftree *spftree, enum vertextype vtype, void 
 	return;
 }
 
+#ifndef FABRICD
+/*
+ * Whether the router of this LSP participates in the flex-algo. Finding it
+ * takes a scan of the LSP's fragments, so it is done once per LSP.
+ */
+static bool spf_flex_algo_participates(struct isis_spftree *spftree, struct isis_lsp *lsp)
+{
+	return flex_algo_id_valid(spftree->algorithm) &&
+	       sr_algorithm_participated(lsp, spftree->algorithm);
+}
+#endif /* ifndef FABRICD */
+
 /*
  * C.2.6 Step 1
  */
@@ -829,6 +841,10 @@ static int isis_spf_process_lsp(struct isis_spftree *spftree, struct isis_lsp *l
 			    (spftree->mtid == ISIS_MT_IPV4_UNICAST &&
 			     !ISIS_MASK_LSP_OL_BIT(lsp->hdr.lsp_bits)) ||
 			    (mt_router_info && !mt_router_info->overload));
+
+#ifndef FABRICD
+	bool fa_participates = spf_flex_algo_participates(spftree, lsp);
+#endif /* ifndef FABRICD */
 
 lspfragloop:
 	if (!lsp->tlvs)
@@ -890,7 +906,7 @@ lspfragloop:
 #ifndef FABRICD
 
 				if (flex_algo_id_valid(spftree->algorithm) &&
-				    (!sr_algorithm_participated(lsp, spftree->algorithm) ||
+				    (!fa_participates ||
 				     isis_flex_algo_constraint_drop(spftree, lsp, er)))
 					continue;
 #endif /* ifndef FABRICD */
@@ -972,7 +988,7 @@ lspfragloop:
 
 #ifndef FABRICD
 					if (flex_algo_id_valid(spftree->algorithm) &&
-					    (!sr_algorithm_participated(lsp, spftree->algorithm) ||
+					    (!fa_participates ||
 					     !isis_flex_algo_elected_supported(spftree->algorithm,
 									       spftree->area)))
 						continue;
@@ -1038,7 +1054,7 @@ lspfragloop:
 
 #ifndef FABRICD
 					if (flex_algo_id_valid(spftree->algorithm) &&
-					    (!sr_algorithm_participated(lsp, spftree->algorithm) ||
+					    (!fa_participates ||
 					     !isis_flex_algo_elected_supported(spftree->algorithm,
 									       spftree->area)))
 						continue;
@@ -1434,13 +1450,12 @@ static void spf_adj_list_parse_tlv(struct isis_spftree *spftree, struct spf_adj_
 		spf_adj_list_parse_lsp(spftree, adj_list, lsp, id, metric);
 }
 
-static void spf_adj_list_parse_lsp(struct isis_spftree *spftree,
-				   struct spf_adj_list_head *adj_list, struct isis_lsp *lsp,
-				   const uint8_t *pseudo_nodeid, uint32_t pseudo_metric)
+static void spf_adj_list_parse_lsp_frag(struct isis_spftree *spftree,
+					struct spf_adj_list_head *adj_list, struct isis_lsp *lsp,
+					const uint8_t *pseudo_nodeid, uint32_t pseudo_metric,
+					bool fa_participates)
 {
 	bool pseudo_lsp = LSP_PSEUDO_ID(lsp->hdr.lsp_id);
-	struct isis_lsp *frag;
-	struct listnode *node;
 	struct isis_item *head;
 	struct isis_item_list *te_neighs;
 
@@ -1472,7 +1487,7 @@ static void spf_adj_list_parse_lsp(struct isis_spftree *spftree,
 				 * affinity attribute
 				 */
 				if (flex_algo_id_valid(spftree->algorithm) &&
-				    (!sr_algorithm_participated(lsp, spftree->algorithm) ||
+				    (!fa_participates ||
 				     isis_flex_algo_constraint_drop(spftree, lsp, reach)))
 					continue;
 #endif /* ifndef FABRICD */
@@ -1483,6 +1498,25 @@ static void spf_adj_list_parse_lsp(struct isis_spftree *spftree,
 			}
 		}
 	}
+}
+
+static void spf_adj_list_parse_lsp(struct isis_spftree *spftree,
+				   struct spf_adj_list_head *adj_list, struct isis_lsp *lsp,
+				   const uint8_t *pseudo_nodeid, uint32_t pseudo_metric)
+{
+	bool fa_participates = false;
+	struct isis_lsp *frag;
+	struct listnode *node;
+
+	if (lsp->hdr.seqno == 0 || lsp->hdr.rem_lifetime == 0)
+		return;
+
+#ifndef FABRICD
+	fa_participates = spf_flex_algo_participates(spftree, lsp);
+#endif /* ifndef FABRICD */
+
+	spf_adj_list_parse_lsp_frag(spftree, adj_list, lsp, pseudo_nodeid, pseudo_metric,
+				    fa_participates);
 
 	if (LSP_FRAGMENT(lsp->hdr.lsp_id))
 		return;
@@ -1492,7 +1526,8 @@ static void spf_adj_list_parse_lsp(struct isis_spftree *spftree,
 		if (!frag->tlvs)
 			continue;
 
-		spf_adj_list_parse_lsp(spftree, adj_list, frag, pseudo_nodeid, pseudo_metric);
+		spf_adj_list_parse_lsp_frag(spftree, adj_list, frag, pseudo_nodeid, pseudo_metric,
+					    fa_participates);
 	}
 }
 
