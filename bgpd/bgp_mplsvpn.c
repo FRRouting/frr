@@ -1186,6 +1186,7 @@ static bool leak_update_nexthop_valid(struct bgp *to_bgp, struct bgp_dest *bn,
 				      const struct prefix *p, int debug)
 {
 	struct bgp_path_info *bpi_ultimate;
+	struct bgp_srv6_per_locator_cache *bslc = source_bpi->srv6_vpn.bslc;
 	struct bgp *bgp_nexthop;
 	struct bgp_table *table;
 	struct interface *ifp;
@@ -1252,11 +1253,12 @@ static bool leak_update_nexthop_valid(struct bgp *to_bgp, struct bgp_dest *bn,
 	 * the SID allocation. If the sid is not allocated, the rib
 	 * will be invalid.
 	 * If the SID per VRF is not available, also consider the rib as
-	 * invalid.
+	 * invalid, unless the path uses the SID of its route-map locator.
 	 */
 	if ((bgp_srv6_locator_is_configured(to_bgp) ||
 	     bgp_srv6_locator_is_configured(bgp_nexthop)) &&
-	    nh_valid)
+	    nh_valid &&
+	    !(bslc && bslc->sid_policy.tovpn_sid && bgp_attr_get_srv6_l3service(bpi->attr)))
 		nh_valid = is_pi_srv6_valid(bpi, bgp_nexthop, afi, safi);
 
 	if (debug) {
