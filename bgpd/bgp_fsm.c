@@ -366,6 +366,7 @@ void bgp_timer_set(struct peer_connection *connection)
 {
 	afi_t afi;
 	safi_t safi;
+	struct peer_af *paf;
 	struct peer *peer = connection->peer;
 
 	switch (connection->status) {
@@ -494,8 +495,11 @@ void bgp_timer_set(struct peer_connection *connection)
 		event_cancel(&connection->t_gr_restart);
 		event_cancel(&connection->t_gr_stale);
 
-		FOREACH_AFI_SAFI (afi, safi)
-			event_cancel(&peer->t_llgr_stale[afi][safi]);
+		FOREACH_AFI_SAFI (afi, safi) {
+			paf = peer_af_find(peer, afi, safi);
+			if (paf)
+				event_cancel(&paf->t_llgr_stale);
+		}
 
 		event_cancel(&connection->t_pmax_restart);
 		event_cancel(&peer->t_refresh_stalepath);
@@ -858,9 +862,8 @@ static void bgp_graceful_restart_timer_expire(struct event *event)
 			bgp_set_llgr_stale(peer, afi, safi);
 			bgp_clear_stale_route(peer, afi, safi);
 
-			event_add_timer(bm->master, bgp_llgr_stale_timer_expire,
-					paf, peer->llgr[afi][safi].stale_time,
-					&peer->t_llgr_stale[afi][safi]);
+			event_add_timer(bm->master, bgp_llgr_stale_timer_expire, paf,
+					peer->llgr[afi][safi].stale_time, &paf->t_llgr_stale);
 
 			for (ALL_LIST_ELEMENTS(peer->bgp->peer, node, nnode,
 					       tmp_peer))
@@ -877,6 +880,7 @@ static void bgp_graceful_stale_timer_expire(struct event *event)
 {
 	struct peer_connection *connection = EVENT_ARG(event);
 	struct peer *peer = connection->peer;
+	struct peer_af *paf;
 	afi_t afi;
 	safi_t safi;
 
@@ -888,7 +892,7 @@ static void bgp_graceful_stale_timer_expire(struct event *event)
 	 * RFC 9494 §4.3: for LLGR-negotiated AFI/SAFI, retention is bounded
 	 * by the Long-Lived Stale Time, not stalepath-time. Skip the delete
 	 * if LLGR retention is (or will be) active for this AFI/SAFI:
-	 *   - t_llgr_stale[afi][safi] scheduled: the LLGR window is already
+	 *   - paf->t_llgr_stale scheduled: the LLGR window is already
 	 *     running; t_gr_restart has fired but didn't cancel t_gr_stale
 	 *     (bgp_graceful_restart_timer_off() bails when any AFI/SAFI is
 	 *     in PEER_STATUS_LLGR_WAIT).
@@ -904,7 +908,8 @@ static void bgp_graceful_stale_timer_expire(struct event *event)
 		if (!peer->nsf[afi][safi])
 			continue;
 
-		if (event_is_scheduled(peer->t_llgr_stale[afi][safi]) ||
+		paf = peer_af_find(peer, afi, safi);
+		if ((paf && event_is_scheduled(paf->t_llgr_stale)) ||
 		    (peer->llgr[afi][safi].stale_time &&
 		     event_is_scheduled(connection->t_gr_restart))) {
 			if (bgp_debug_neighbor_events(peer))
@@ -3010,6 +3015,7 @@ bgp_establish(struct peer_connection *connection)
 {
 	afi_t afi;
 	safi_t safi;
+	struct peer_af *paf;
 	enum bgp_fsm_state_progress ret = BGP_FSM_SUCCESS;
 	struct peer *other;
 	struct peer *peer = connection->peer;
@@ -3093,8 +3099,9 @@ bgp_establish(struct peer_connection *connection)
 	 * Stop Long-lived Graceful Restart timers.
 	 */
 	FOREACH_AFI_SAFI (afi, safi) {
-		if (event_is_scheduled(peer->t_llgr_stale[afi][safi])) {
-			event_cancel(&peer->t_llgr_stale[afi][safi]);
+		paf = peer_af_find(peer, afi, safi);
+		if (paf && event_is_scheduled(paf->t_llgr_stale)) {
+			event_cancel(&paf->t_llgr_stale);
 			if (bgp_debug_neighbor_events(peer))
 				zlog_debug("%pBP Long-lived stale timer stopped for afi/safi: %d/%d for %s",
 					   peer, afi, safi,
