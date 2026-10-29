@@ -238,6 +238,8 @@ typedef enum {
 	ZEBRA_TC_FILTER_DELETE,
 	ZEBRA_OPAQUE_NOTIFY,
 	ZEBRA_SRV6_SID_NOTIFY,
+	ZEBRA_EVPN_BPP_PEER_ADD,
+	ZEBRA_EVPN_BPP_PEER_DEL,
 } zebra_message_types_t;
 /* Zebra message types. Please update the corresponding
  * command_types array with any changes!
@@ -882,6 +884,21 @@ extern char *zclient_evpn_dump_macip_flags(uint8_t flags, char *buf,
  * Type-4 route can participate in DF election.
  */
 #define ZAPI_ES_VTEP_FLAG_ESR_RXED (1 << 0)
+
+/* ZEBRA_EVPN_BPP_PEER_ADD/DEL: L3 only in this release */
+#define ZAPI_EVPN_BPP_PEER_L2 0
+#define ZAPI_EVPN_BPP_PEER_L3 1
+
+struct zapi_evpn_bpp_peer {
+	esi_t esi;
+	uint8_t type;
+	struct ipaddr vtep;
+	struct ethaddr rmac; /* ADD only */
+};
+
+extern int zapi_evpn_bpp_peer_encode(struct stream *s, const struct zapi_evpn_bpp_peer *peer,
+				     bool add);
+extern int zapi_evpn_bpp_peer_decode(struct stream *s, struct zapi_evpn_bpp_peer *peer, bool add);
 
 enum zebra_neigh_state { ZEBRA_NEIGH_INACTIVE = 0, ZEBRA_NEIGH_ACTIVE = 1 };
 
