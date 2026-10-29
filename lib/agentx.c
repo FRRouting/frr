@@ -40,12 +40,13 @@ DEFINE_MTYPE_STATIC(LIB, AGENTX_TRAP, "AgentX pending SNMP notification");
 
 //bool agentx_enabled = false;
 
-/* True between AgentX master-session open and transport disconnect.
- * In this net-snmp, SNMPD_CALLBACK_INDEX_START / INDEX_STOP are fired
- * only from agentx/subagent.c for that session, not for MIB index walks.
+/*
+ * Master session is open. INDEX_START sets this, INDEX_STOP clears it.
+ * In this net-snmp those fire only for that session, not MIB walks.
+ * show agentx status copies the flag and does not probe the socket.
  */
 static bool agentx_connected;
-/* Session passed to SNMPD_CALLBACK_INDEX_START. Cleared on disconnect. */
+/* Session from INDEX_START. Cleared on disconnect. Its socket is the one show reads. */
 static netsnmp_session *agentx_master_sess;
 
 static struct event_loop *agentx_tm;
@@ -476,6 +477,59 @@ static int agentx_master_sock(void)
 	return transport->sock;
 }
 
+/*
+ * Same lookup as agentx_master_sock(), without clearing a stale session.
+ * "show agentx status" must not change drain state.
+ */
+static int agentx_master_sock_peek(void)
+{
+	void *sessp;
+	netsnmp_transport *transport;
+
+	if (!agentx_master_sess)
+		return -1;
+
+	sessp = snmp_sess_pointer(agentx_master_sess);
+	if (!sessp)
+		return -1;
+
+	transport = snmp_sess_transport(sessp);
+	if (!transport || transport->sock < 0)
+		return -1;
+
+	return transport->sock;
+}
+
+/*
+ * After send_v2trap() the notification is freed, so this backlog is
+ * bytes, not a trap count. TIOCOUTQ on a Unix socket is data written
+ * and not yet read by snmpd, including per-buffer kernel overhead. On
+ * a TCP AgentX socket it is bytes not yet acknowledged, which snmpd
+ * may already have received. SO_SNDBUF is the live cap. A failed call
+ * leaves the valid flag clear.
+ */
+static void agentx_read_sendbuf(int fd, struct agentx_cli_status *status)
+{
+#ifdef TIOCOUTQ
+	int queued = 0;
+	int sndbuf = 0;
+	socklen_t optlen = sizeof(sndbuf);
+
+	if (ioctl(fd, TIOCOUTQ, &queued) == 0 && queued >= 0) {
+		status->send_queued = queued;
+		status->send_queued_valid = true;
+	}
+
+	if (getsockopt(fd, SOL_SOCKET, SO_SNDBUF, &sndbuf, &optlen) == 0 && sndbuf > 0) {
+		status->send_maximum = sndbuf;
+		status->send_maximum_valid = true;
+	}
+#else
+	(void)fd;
+	(void)status;
+#endif
+}
+
 static bool agentx_master_writable(void)
 {
 	struct pollfd pfd;
@@ -640,6 +694,7 @@ static void agentx_trap_flush(struct event *t)
 		agentx_trap_schedule(AGENTX_TRAP_Q_INTERVAL_MS);
 }
 
+/* INDEX_START: master session opened. show agentx status reports up. */
 static int agentx_master_up_cb(int majorID, int minorID, void *serverarg, void *clientarg)
 {
 	agentx_master_sess = serverarg;
@@ -653,6 +708,7 @@ static int agentx_master_up_cb(int majorID, int minorID, void *serverarg, void *
 	return SNMP_ERR_NOERROR;
 }
 
+/* INDEX_STOP: that transport dropped. show agentx status reports down. */
 static int agentx_master_down_cb(int majorID, int minorID, void *serverarg, void *clientarg)
 {
 	agentx_master_sess = NULL;
@@ -680,12 +736,45 @@ bool smux_enabled(void)
 	return agentx_enabled;
 }
 
+/*
+ * pending and dropped are the daemon queue. connected copies
+ * agentx_connected. Read the socket only while that is set.
+ */
+static int agentx_cli_show_cb(struct agentx_cli_status *status)
+{
+	int fd;
+
+	assert(status);
+
+	status->enabled = agentx_enabled;
+	status->connected = agentx_connected;
+	status->pending = trap_q_len;
+	status->dropped = trap_q_dropped;
+	status->send_queued_valid = false;
+	status->send_maximum_valid = false;
+	status->socket_fd_valid = false;
+
+	if (!agentx_connected)
+		return 0;
+
+	fd = agentx_master_sock_peek();
+	if (fd < 0)
+		return 0;
+
+	status->socket_fd = fd;
+	status->socket_fd_valid = true;
+	agentx_read_sendbuf(fd, status);
+
+	return 0;
+}
+
 void smux_init(struct event_loop *tm)
 {
 	agentx_tm = tm;
 
 	hook_register(agentx_cli_enabled, agentx_cli_on);
 	hook_register(agentx_cli_disabled, agentx_cli_off);
+	hook_register(agentx_cli_show, agentx_cli_show_cb);
 
 	netsnmp_enable_subagent();
 	snmp_disable_log();
