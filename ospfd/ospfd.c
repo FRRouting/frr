@@ -729,7 +729,9 @@ static void ospf_finish_final(struct ospf *ospf)
 
 	ospf_opaque_type11_lsa_term(ospf);
 
-	ospf_opaque_finish();
+	/* SR, TE and RI exist only in the default VRF */
+	if (ospf->vrf_id == VRF_DEFAULT)
+		ospf_opaque_finish();
 
 	if (!ospf->gr_info.prepare_in_progress)
 		ospf_flush_self_originated_lsas_now(ospf);
