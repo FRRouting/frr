@@ -1067,6 +1067,386 @@ def test_bpp_es_evi_unknown_vni_rejected():
     _evpn_cmd(tor1, "no test es %s" % ES9_ID)
 
 
+ETH_TAG_ES = 4294967295
+EAD_EVI_ET = 0
+
+
+def _vrf_rt(router, vrf):
+    return "%d:%d" % (65000 + TORS.index(router.name) + 1, VRFS[vrf][1])
+
+
+def _path_dicts(paths):
+    for path in paths or []:
+        if isinstance(path, list):
+            for inner in path:
+                if isinstance(inner, dict):
+                    yield inner
+        elif isinstance(path, dict):
+            yield path
+
+
+def _path_nexthop(path):
+    nh = path.get("nexthop") or path.get("ip")
+    if nh:
+        return nh
+    for hop in path.get("nexthops") or []:
+        if isinstance(hop, dict) and hop.get("ip"):
+            return hop["ip"]
+    return None
+
+
+def _known_l3vnis():
+    vnis = set(v[1] for v in VRFS.values())
+    vnis.add(VRF_C_L3VNI)
+    return vnis
+
+
+def _route_vni(route):
+    vni = route.get("vni")
+    if vni not in (None, "0", 0, "0"):
+        return int(vni)
+    known = _known_l3vnis()
+    for tok in (route.get("extcomm") or "").split():
+        if tok.startswith("RT:") and tok.count(":") >= 2:
+            try:
+                val = int(tok.rsplit(":", 1)[1])
+            except ValueError:
+                continue
+            if val in known:
+                return val
+    return None
+
+
+def _ead_routes(router):
+    """Local type-1 routes: list of {rd, eth_tag, esi, extcomm, vni}."""
+    output = json.loads(
+        router.vtysh_cmd("show bgp l2vpn evpn route type 1 self-originate json") or "{}"
+    )
+    routes = []
+    local_nh = tor_lo(router.name)
+
+    def _walk(obj, rd=None):
+        if not isinstance(obj, dict):
+            return
+        prefix = obj.get("prefix")
+        paths = obj.get("paths")
+        if isinstance(prefix, str) and prefix.startswith("[1]:[") and paths:
+            try:
+                eth_tag = int(prefix.split("[1]:[")[1].split("]")[0])
+            except (IndexError, ValueError):
+                eth_tag = None
+            esi = None
+            parts = prefix.split("]:[")
+            if len(parts) >= 3:
+                esi = parts[2].rstrip("]")
+            for path in _path_dicts(paths):
+                nh = _path_nexthop(path)
+                if nh and nh != local_nh:
+                    continue
+                ext = (path.get("extendedCommunity") or {}).get("string", "")
+                rec = {
+                    "rd": rd,
+                    "eth_tag": eth_tag,
+                    "esi": esi,
+                    "prefix": prefix,
+                    "extcomm": ext,
+                    "vni": path.get("vni"),
+                    "nexthop": nh,
+                }
+                rec["vni"] = _route_vni(rec)
+                routes.append(rec)
+            return
+        rd_here = obj.get("rd", rd)
+        for key, val in obj.items():
+            if isinstance(key, str) and key.startswith("[1]:[") and isinstance(val, dict):
+                val = dict(val, prefix=val.get("prefix") or key)
+            _walk(val, rd_here if isinstance(rd_here, str) else rd)
+
+    _walk(output)
+    return routes
+
+
+def _ead_evi(router, esi=ES1_ID):
+    return [r for r in _ead_routes(router) if r["eth_tag"] == EAD_EVI_ET and r["esi"] == esi]
+
+
+def _ead_es(router, esi=ES1_ID):
+    return [r for r in _ead_routes(router) if r["eth_tag"] == ETH_TAG_ES and r["esi"] == esi]
+
+
+def _expect_ipad(router, msg, evi_vrfs=None, es_rts=None, evi_absent=False, es_absent=False):
+    def _check():
+        evi = _ead_evi(router)
+        esr = _ead_es(router)
+        if evi_absent and evi:
+            return "per-EVI present: %s" % evi
+        if es_absent and esr:
+            return "per-ES present: %s" % esr
+        if evi_vrfs is not None:
+            vnis = sorted(r["vni"] for r in evi if r.get("vni") is not None)
+            want = sorted(VRFS[v][1] for v in evi_vrfs)
+            if vnis != want:
+                return "per-EVI VNIs %s, want %s (%s)" % (vnis, want, evi)
+            for r in evi:
+                ext = r["extcomm"] or ""
+                if "Rmac:" not in ext:
+                    return "per-EVI missing Router's MAC: %s" % r
+                if "L2:" not in ext or "P" not in ext:
+                    return "per-EVI missing L2 P=1: %s" % r
+                if "ET:8" not in ext:
+                    return "per-EVI missing VXLAN encap: %s" % r
+        if es_rts is not None:
+            union = " ".join(r["extcomm"] or "" for r in esr)
+            missing = [rt for rt in es_rts if "RT:%s" % rt not in union]
+            if missing:
+                return "per-ES missing RTs %s in %s" % (missing, esr)
+            if not esr:
+                return "no per-ES route"
+        return None
+
+    _, result = topotest.run_and_expect(_check, None, count=30, wait=1)
+    assert result is None, "%s: %s" % (msg, result)
+
+
+def _clear_ipad(router):
+    _set_bpp_if(router, ES_IF, False)
+    _expect_ipad(router, "IP A-D withdrawn", evi_absent=True, es_absent=True)
+
+
+def test_bpp_ipad_tx():
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    tor1 = tgen.gears["tor1"]
+    rts = (_vrf_rt(tor1, "vrf-a"), _vrf_rt(tor1, "vrf-b"))
+
+    _expect_ipad(tor1, "no IP A-D without protection", evi_absent=True, es_absent=True)
+
+    _set_bpp(tor1, True)
+    _expect_ipad(tor1, "protected ES", evi_vrfs=("vrf-a", "vrf-b"), es_rts=rts)
+    _clear_ipad(tor1)
+
+
+def test_bpp_ipad_tx_per_es_frag():
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    tor1 = tgen.gears["tor1"]
+    rts = (_vrf_rt(tor1, "vrf-a"), _vrf_rt(tor1, "vrf-b"))
+
+    tor1.vtysh_cmd(
+        "configure terminal\nrouter bgp 65001\naddress-family l2vpn evpn\n"
+        "ead-es-frag evi-limit 1"
+    )
+    _set_bpp(tor1, True)
+
+    def _check_frags():
+        esr = _ead_es(tor1)
+        if len(esr) < 2:
+            return "want >= 2 per-ES fragments, got %s" % esr
+        rds = set(r["rd"] for r in esr)
+        if len(rds) < 2:
+            return "fragments share RD: %s" % esr
+        union = " ".join(r["extcomm"] or "" for r in esr)
+        for rt in rts:
+            if "RT:%s" % rt not in union:
+                return "union missing RT:%s in %s" % (rt, esr)
+        return None
+
+    _, result = topotest.run_and_expect(_check_frags, None, count=30, wait=1)
+    assert result is None, "fragments: %s" % result
+
+    tor1.vtysh_cmd(
+        "configure terminal\nrouter bgp 65001\naddress-family l2vpn evpn\n"
+        "ead-es-route-target export 65001:1"
+    )
+
+    def _check_ead_rt():
+        esr = _ead_es(tor1)
+        union = " ".join(r["extcomm"] or "" for r in esr)
+        missing = [rt for rt in rts + ("65001:1",) if "RT:%s" % rt not in union]
+        if missing:
+            return "missing %s in %s" % (missing, esr)
+        return None
+
+    _, result = topotest.run_and_expect(_check_ead_rt, None, count=30, wait=1)
+    assert result is None, "ead-es-route-target: %s" % result
+
+    tor1.vtysh_cmd(
+        "configure terminal\nrouter bgp 65001\naddress-family l2vpn evpn\n"
+        "no ead-es-route-target export 65001:1\nno ead-es-frag evi-limit 1"
+    )
+    _clear_ipad(tor1)
+
+
+def test_bpp_ipad_tx_no_l3mh():
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    tor1 = tgen.gears["tor1"]
+
+    _expect_ipad(tor1, "unprotected", evi_absent=True, es_absent=True)
+
+    _set_bpp(tor1, True)
+    _set_l3vni_neigh(tor1, False)
+    _expect_ipad(tor1, "l3vni-neigh off", evi_absent=True, es_absent=True)
+    _set_l3vni_neigh(tor1, True)
+    _clear_ipad(tor1)
+
+
+def test_bpp_ipad_tx_withdraw():
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    tor2 = tgen.gears["tor2"]
+    rts = (_vrf_rt(tor2, "vrf-a"), _vrf_rt(tor2, "vrf-b"))
+
+    _set_bpp_if(tor2, ES_IF, True)
+    _expect_ipad(tor2, "tor2 initial", evi_vrfs=("vrf-a", "vrf-b"), es_rts=rts)
+
+    tor2.run("/sbin/bridge vlan del vid 20 dev %s" % ES_IF)
+    _expect_ipad(tor2, "vrf-b VLAN gone", evi_vrfs=("vrf-a",), es_rts=(rts[0],))
+
+    tor2.run("ip link set %s down" % ES_IF)
+
+    def _check_es_down():
+        if _ead_es(tor2):
+            return "per-ES still present"
+        evi = _ead_evi(tor2)
+        vnis = sorted(r["vni"] for r in evi if r.get("vni") is not None)
+        if vnis != [4001]:
+            return "per-EVI VNIs %s, want [4001]" % vnis
+        return None
+
+    _, result = topotest.run_and_expect(_check_es_down, None, count=30, wait=1)
+    assert result is None, "ES down: %s" % result
+
+    tor2.run("ip link set %s up" % ES_IF)
+    tor2.run("/sbin/bridge vlan add vid 20 dev %s" % ES_IF)
+    _expect_ipad(tor2, "tor2 restored", evi_vrfs=("vrf-a", "vrf-b"), es_rts=rts)
+    _clear_ipad(tor2)
+
+
+def test_bpp_ipad_tx_svi_oper():
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    tor1 = tgen.gears["tor1"]
+    rts = (_vrf_rt(tor1, "vrf-a"), _vrf_rt(tor1, "vrf-b"))
+    _set_bpp(tor1, True)
+    _expect_ipad(tor1, "before SVI down", evi_vrfs=("vrf-a", "vrf-b"), es_rts=rts)
+
+    before = [(r["prefix"], r["extcomm"], r["vni"]) for r in _ead_routes(tor1)]
+    tor1.run("ip link set vlan20 down")
+    _expect_ipad(tor1, "SVI down", evi_vrfs=("vrf-a", "vrf-b"), es_rts=rts)
+    after = [(r["prefix"], r["extcomm"], r["vni"]) for r in _ead_routes(tor1)]
+    assert after == before, "SVI down changed type-1: %s -> %s" % (before, after)
+
+    tor1.run("ip link set vlan20 up")
+    _expect_ipad(tor1, "SVI up", evi_vrfs=("vrf-a", "vrf-b"), es_rts=rts)
+    _clear_ipad(tor1)
+
+
+def test_bpp_ipad_tx_local_es_down():
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    tor1 = tgen.gears["tor1"]
+    rts = (_vrf_rt(tor1, "vrf-a"), _vrf_rt(tor1, "vrf-b"))
+    _set_bpp(tor1, True)
+    _expect_ipad(tor1, "before ES down", evi_vrfs=("vrf-a", "vrf-b"), es_rts=rts)
+
+    tor1.run("ip link set %s down" % ES_IF)
+
+    def _check():
+        if _ead_es(tor1):
+            return "per-ES still present"
+        evi = _ead_evi(tor1)
+        vnis = sorted(r["vni"] for r in evi if r.get("vni") is not None)
+        if vnis != [4001, 4002]:
+            return "per-EVI VNIs %s" % vnis
+        return None
+
+    _, result = topotest.run_and_expect(_check, None, count=30, wait=1)
+    assert result is None, "local ES down: %s" % result
+
+    tor1.run("ip link set %s up" % ES_IF)
+    _expect_ipad(tor1, "ES restored", evi_vrfs=("vrf-a", "vrf-b"), es_rts=rts)
+    _clear_ipad(tor1)
+
+
+def test_bpp_ipad_tx_rt_change():
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    tor1 = tgen.gears["tor1"]
+    _set_bpp(tor1, True)
+    new_rt = "65001:9999"
+
+    tor1.vtysh_cmd(
+        "configure terminal\nrouter bgp 65001 vrf vrf-a\naddress-family l2vpn evpn\n"
+        "route-target export %s" % new_rt
+    )
+
+    def _check():
+        evi = _ead_evi(tor1)
+        hit = [r for r in evi if "RT:%s" % new_rt in (r["extcomm"] or "")]
+        if not hit:
+            return "per-EVI missing %s: %s" % (new_rt, evi)
+        union = " ".join(r["extcomm"] or "" for r in _ead_es(tor1))
+        if "RT:%s" % new_rt not in union:
+            return "per-ES missing %s: %s" % (new_rt, union)
+        return None
+
+    _, result = topotest.run_and_expect(_check, None, count=30, wait=1)
+    assert result is None, "RT change: %s" % result
+
+    tor1.vtysh_cmd(
+        "configure terminal\nrouter bgp 65001 vrf vrf-a\naddress-family l2vpn evpn\n"
+        "no route-target export %s" % new_rt
+    )
+    _clear_ipad(tor1)
+
+
+def test_bpp_ipad_tx_rmac_change():
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    tor1 = tgen.gears["tor1"]
+    _set_bpp(tor1, True)
+    _expect_ipad(tor1, "before RMAC change", evi_vrfs=("vrf-a", "vrf-b"))
+
+    evi = [r for r in _ead_evi(tor1) if r.get("vni") == 4001]
+    assert evi, "no vrf-a per-EVI"
+    old_ext = evi[0]["extcomm"]
+    new_mac = "44:38:39:00:00:99"
+    old_mac = tor1.run("cat /sys/class/net/vlan4001/address").strip()
+    tor1.run("ip link set vlan4001 address %s" % new_mac)
+
+    def _check():
+        cur = [r for r in _ead_evi(tor1) if r.get("vni") == 4001]
+        if not cur:
+            return "no vrf-a per-EVI"
+        ext = cur[0]["extcomm"] or ""
+        if "Rmac:%s" % new_mac not in ext:
+            return "RMAC not updated (%s -> %s): %s" % (old_ext, new_mac, ext)
+        return None
+
+    _, result = topotest.run_and_expect(_check, None, count=30, wait=1)
+    assert result is None, "RMAC change: %s" % result
+
+    tor1.run("ip link set vlan4001 address %s" % old_mac)
+    _clear_ipad(tor1)
+
+
 def test_memory_leak():
     tgen = get_topogen()
     if not tgen.is_memleak_enabled():
