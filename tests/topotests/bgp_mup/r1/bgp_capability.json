@@ -1,0 +1,14 @@
+{
+	"2001:db8::2": {
+		"neighborCapabilities": {
+			"multiprotocolExtensions": {
+				"ipv4Mup": {
+					"advertisedAndReceived": true
+				},
+				"ipv6Mup": {
+					"advertisedAndReceived": true
+				}
+			}
+		}
+	}
+}
