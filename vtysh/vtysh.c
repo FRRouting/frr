@@ -3182,6 +3182,80 @@ static int show_per_daemon(struct vty *vty, struct cmd_token **argv, int argc,
 }
 #pragma GCC diagnostic pop
 
+/*
+ * Daemons that call libagentx_init(). The daemon command is NOSH; this
+ * wrapper is the one vtysh installs, so each daemon's JSON stays one value.
+ */
+#define VTYSH_AGENTX_SHOW                                                                         \
+	(VTYSH_ZEBRA | VTYSH_RIPD | VTYSH_OSPFD | VTYSH_OSPF6D | VTYSH_LDPD | VTYSH_BGPD |        \
+	 VTYSH_ISISD | VTYSH_EIGRPD | VTYSH_FABRICD)
+
+static void vtysh_show_agentx_send(struct vty *vty, struct cmd_token **argv,
+				   int argc, bool as_json)
+{
+	unsigned int i;
+	bool first = true;
+	bool is_connected;
+	char *line;
+	const struct vtysh_client *client;
+
+	/*
+	 * VIEW_NODE rejects the "do" shortcut. do_prepend() adds it only
+	 * when this session is in some other node.
+	 */
+	line = do_prepend(vty, argv, argc);
+
+	if (as_json)
+		vty_out(vty, "{");
+
+	for (i = 0; i < array_size(vtysh_client); i++) {
+		client = &vtysh_client[i];
+		is_connected = true;
+
+		if (!(client->flag & VTYSH_AGENTX_SHOW))
+			continue;
+
+		for (; client; client = client->next) {
+			if (client->fd < 0)
+				is_connected = false;
+		}
+
+		if (!is_connected)
+			continue;
+
+		if (as_json) {
+			if (!first)
+				vty_out(vty, ",");
+			vty_out(vty, "\"%s\":", vtysh_client[i].name);
+		} else {
+			vty_out(vty, "AgentX status for %s:\n", vtysh_client[i].name);
+		}
+
+		first = false;
+		vtysh_client_execute_name(vtysh_client[i].name, line);
+
+		if (!as_json)
+			vty_out(vty, "\n");
+	}
+
+	if (as_json)
+		vty_out(vty, "}\n");
+
+	XFREE(MTYPE_TMP, line);
+}
+
+DEFPY(vtysh_show_agentx, vtysh_show_agentx_cmd,
+      "show agentx status [json$json]",
+      SHOW_STR
+      "SNMP AgentX subagent\n"
+      "AgentX subagent status\n"
+      JSON_STR)
+{
+	vtysh_show_agentx_send(vty, argv, argc, !!json);
+
+	return CMD_SUCCESS;
+}
+
 static int show_one_daemon(struct vty *vty, struct cmd_token **argv, int argc,
 			   const char *name)
 {
@@ -5911,6 +5985,8 @@ void vtysh_init_vty(void)
 	install_element(ENABLE_NODE, &vtysh_show_running_config_cmd);
 	install_element(ENABLE_NODE, &vtysh_copy_running_config_cmd);
 	install_element(ENABLE_NODE, &vtysh_copy_to_running_cmd);
+
+	install_element(VIEW_NODE, &vtysh_show_agentx_cmd);
 
 	install_element(ENABLE_NODE, &show_route_map_cmd);
 	install_element(ENABLE_NODE, &show_route_map_unused_cmd);

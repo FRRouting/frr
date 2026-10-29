@@ -90,6 +90,34 @@ debug agentx
     assert "SNMP AgentX debugging is on" in debugs, "debug agentx not reported"
 
 
+def test_agentx_show():
+    tgen = get_topogen()
+    r2 = tgen.gears["r2"]
+
+    output = json.loads(r2.vtysh_cmd("show agentx status json"))
+    bgpd = output["bgpd"]
+    assert bgpd["moduleLoaded"] is True
+    assert bgpd["enabled"] is True
+    assert isinstance(bgpd["connected"], bool)
+    assert bgpd["pendingNotifications"] >= 0
+    assert bgpd["droppedNotifications"] >= 0
+    if bgpd["connected"]:
+        assert bgpd["socketFd"] >= 0
+        assert bgpd["socketSendMaximum"] > 0
+        assert bgpd["socketSendQueued"] >= 0
+    else:
+        assert "socketFd" not in bgpd
+        assert "socketSendMaximum" not in bgpd
+        assert "socketSendQueued" not in bgpd
+
+    assert output["zebra"]["moduleLoaded"] is False
+
+    text = r2.vtysh_cmd("show agentx status")
+    assert "AgentX status for bgpd:" in text
+    assert "Pending notifications:" in text
+    assert "Dropped notifications:" in text
+
+
 def test_bgp_open_notification_change_configuration():
     tgen = get_topogen()
 
