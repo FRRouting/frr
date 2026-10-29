@@ -49,12 +49,13 @@ import time
 
 import pytest
 from scapy.contrib.ospf import OSPF_Hdr
-from scapy.utils import rdpcap
 
 from lib.scapy_capture import start_capture, stop_capture
 from lib.topogen import Topogen, get_topogen
 from lib.topolog import logger
 
+from scapy.all import sendp
+from lib.scapy_utils import AsyncSnifferNetNS, ScapyNetNS
 
 CWD = os.path.dirname(os.path.realpath(__file__))
 sys.path.append(os.path.join(CWD, "../"))
@@ -117,17 +118,30 @@ def _vtysh_responsive(router, timeout_s=VTYSH_TIMEOUT_S):
     return ok, elapsed
 
 
-def _count_dd_from(pcap_path, router_id):
-    if not os.path.exists(pcap_path) or os.path.getsize(pcap_path) < 24:
-        return 0
+def _count_dd_from(sniffer, router_id):
     n = 0
-    for pkt in rdpcap(pcap_path):
+    for pkt in sniffer.results if sniffer.results else []:
         if not pkt.haslayer(OSPF_Hdr):
             continue
         hdr = pkt[OSPF_Hdr]
         if hdr.type == OSPF_MSG_DB_DESC and str(hdr.src) == router_id:
             n += 1
     return n
+
+
+def _flood_dd(sniffer, gear, iface, src_rid, count):
+    dds = []
+    for pkt in sniffer.results:
+        if not pkt.haslayer(OSPF_Hdr):
+            continue
+        hdr = pkt[OSPF_Hdr]
+        if hdr.type == OSPF_MSG_DB_DESC and str(hdr.src) == src_rid:
+            dds.append(pkt)
+
+    assert len(dds) != 0, "no DD packets from router-id %s" % (src_rid)
+
+    with ScapyNetNS(gear):
+        sendp([dds[-1]] * count, iface=iface, verbose=False)
 
 
 def test_adjacency_full():
@@ -147,40 +161,47 @@ def test_dd_dup_flood_slave_resend_paced():
     r2 = tgen.gears["r2"]
     _expect_full(tgen)
 
-    # Shared rundir is visible to pytest and to both routers; /tmp in the
-    # namespace is not a reliable place to rdpcap from the host.
-    capture = os.path.join(tgen.logdir, "exch.pcap")
-    cap_pid = start_capture(r1, "eth1", capture, "ip proto 89")
-    # Retrigger DD while leaving eth1 up.  Shutdown/no-shutdown takes the
-    # p2p peer down and kills in-netns sniffers (tcpdump/tshark/scapy).
-    r2.vtysh_cmd("clear ip ospf process")
-    _expect_full(tgen)
-    stop_capture(r1, cap_pid, capture)
-    n_master_dd = _count_dd_from(capture, R2_RID)
+    sniffer = AsyncSnifferNetNS(
+        r1,
+        wait_on_start=True,
+        filter="ip proto 89",
+        iface="eth1",
+    )
+    sniffer.start()
+    try:
+        # Retrigger DD while leaving eth1 up.  Shutdown/no-shutdown takes the
+        # p2p peer down and kills in-netns sniffers (tcpdump/tshark/scapy).
+        r2.vtysh_cmd("clear ip ospf process")
+        _expect_full(tgen)
+    finally:
+        sniffer.stop(ignore_stopped=True)
+
+    n_master_dd = _count_dd_from(sniffer, R2_RID)
     assert n_master_dd > 0, "capture has no DD packets from master %s" % R2_RID
     logger.info("captured %d master DD packet(s) for replay", n_master_dd)
 
-    txpcap = os.path.join(tgen.logdir, "r1tx.pcap")
-    tx_pid = start_capture(r1, "eth1", txpcap, "ip proto 89 and src 10.0.0.1")
-
-    flood_cmd = (
-        "python3 %s/flood_dd.py --pcap %s --iface eth1 "
-        "--src-rid %s --count %d" % (CWD, capture, R2_RID, FLOOD_COUNT)
+    sniffer_tx = AsyncSnifferNetNS(
+        r1,
+        wait_on_start=True,
+        filter="ip proto 89 and src 10.0.0.1",
+        iface="eth1",
     )
-    logger.info("flooding %d duplicate DDs from r2", FLOOD_COUNT)
-    t0 = time.time()
-    r2.cmd_raises(flood_cmd)
-    flood_s = time.time() - t0
-    logger.info("flood finished in %.2fs", flood_s)
-
-    stop_capture(r1, tx_pid, txpcap)
+    sniffer_tx.start()
+    try:
+        logger.info("flooding %d duplicate DDs from r2", FLOOD_COUNT)
+        t0 = time.time()
+        _flood_dd(sniffer, r2, "eth1", R2_RID, FLOOD_COUNT)
+        flood_s = time.time() - t0
+        logger.info("flood finished in %.2fs", flood_s)
+    finally:
+        sniffer_tx.stop(ignore_stopped=True)
 
     assert _ospfd_alive(r1), "ospfd on r1 died during DD duplicate flood"
     ok, elapsed = _vtysh_responsive(r1)
     assert ok, "vtysh on r1 did not return within %ss after DD flood" % VTYSH_TIMEOUT_S
     logger.info("vtysh responded in %.2fs after flood", elapsed)
 
-    slave_dd_tx = _count_dd_from(txpcap, R1_RID)
+    slave_dd_tx = _count_dd_from(sniffer_tx, R1_RID)
     logger.info(
         "r1 transmitted %d DD packet(s) during flood of %d duplicates",
         slave_dd_tx,

@@ -6,6 +6,7 @@
 # Copyright (c) 2026 ATCorp
 # Jafar Al-Gharaibeh
 #
+# DEPRECATED: use lib/scapy_utils.py instead
 """Capture packets on a router interface to a pcap file with scapy.
 
 Run as a script inside a router namespace, it sniffs until SIGINT/SIGTERM
