@@ -17,7 +17,7 @@ EVPN bridge-port protection (L3 multihoming).
               +--------+         +--------+
              /   |   |   \      /   |   |   \
         +------+ +------+ +------+ +------+
-        | tor1 | | tor2 | | tor3 | | tor4 |       VTEPs, L3VNI only
+        | tor1 | | tor2 | | tor3 | | tor4 |       VTEPs (tor3 is IPv6)
         +------+ +------+ +------+ +------+
            |  \     |  \     |  \     |  \
            |   \    |   \    |   \    |   \
@@ -90,7 +90,16 @@ WAIT_STEP = 1
 
 
 def tor_lo(tor):
+    """IPv4 loopback / underlay / BGP router-id."""
     return "10.0.0.%d" % (TORS.index(tor) + 1)
+
+
+def tor_vtep(tor):
+    """EVPN VTEP / originator IP. tor3 is IPv6; the others are IPv4."""
+    n = TORS.index(tor) + 1
+    if tor == "tor3":
+        return "2001:db8::%d" % n
+    return tor_lo(tor)
 
 
 def link_subnet(spine, tor):
@@ -141,7 +150,13 @@ def add_l3vni_dataplane(tor, vrf, table, l3vni):
 
 def config_tor_dataplane(tor):
     lo = tor_lo(tor.name)
+    vtep = tor_vtep(tor.name)
     tor.run("ip addr add %s/32 dev lo" % lo)
+    if vtep != lo:
+        tor.run("sysctl -w net.ipv6.conf.all.disable_ipv6=0")
+        tor.run("sysctl -w net.ipv6.conf.lo.disable_ipv6=0")
+        tor.run("ip link set lo up")
+        tor.run("ip -6 addr add %s/128 dev lo" % vtep)
 
     tor.run("ip link add dev br_default type bridge stp_state 0")
     tor.run("ip link set dev br_default type bridge vlan_filtering 1")
@@ -198,9 +213,18 @@ def config_host(host):
         host.run("ip link set dev bond0.%d up" % vid)
 
 
+def _enable_ipv6(router):
+    router.run("sysctl -w net.ipv6.conf.all.disable_ipv6=0")
+    router.run("sysctl -w net.ipv6.conf.default.disable_ipv6=0")
+    router.run("sysctl -w net.ipv6.conf.all.forwarding=1")
+
+
 def setup_module(module):
     tgen = Topogen(build_topo, module.__name__)
     tgen.start_topology()
+
+    for name in SPINES + TORS:
+        _enable_ipv6(tgen.gears[name])
 
     for name in TORS:
         config_tor_dataplane(tgen.gears[name])
@@ -220,7 +244,7 @@ def teardown_module(_mod):
 
 def _bgp_peers_up(router, afi, peers):
     output = json.loads(router.vtysh_cmd("show bgp %s summary json" % afi))
-    for key in ("ipv4Unicast", "l2VpnEvpn"):
+    for key in ("ipv4Unicast", "ipv6Unicast", "l2VpnEvpn"):
         if key in output:
             output = output[key]
             break
@@ -394,6 +418,32 @@ def _ready_vlans(vlans):
         }
         for vid in vlans
     }
+
+
+def _active_vlans(vlans):
+    return {
+        str(vid): {
+            "vrf": ACCESS_VLANS[vid][0],
+            "l3vni": VRFS[ACCESS_VLANS[vid][0]][1],
+            "state": "ACTIVE",
+            "ready": True,
+            "reasons": ["__ordered__"],
+        }
+        for vid in vlans
+    }
+
+
+def _member(vtep, rmac=None, family=None):
+    if family is None:
+        family = "ipv6" if ":" in vtep else "ipv4"
+    rec = {"vtep": vtep, "family": family, "type": "L3"}
+    if rmac is not None:
+        rec["rmac"] = rmac
+    return rec
+
+
+def _members(*vteps):
+    return ["__ordered__"] + [_member(v) for v in sorted(vteps)]
 
 
 def _pending(reasons, **kwargs):
@@ -1124,7 +1174,7 @@ def _ead_routes(router):
         router.vtysh_cmd("show bgp l2vpn evpn route type 1 self-originate json") or "{}"
     )
     routes = []
-    local_nh = tor_lo(router.name)
+    local_nhs = {tor_lo(router.name), tor_vtep(router.name)}
 
     def _walk(obj, rd=None):
         if not isinstance(obj, dict):
@@ -1142,7 +1192,7 @@ def _ead_routes(router):
                 esi = parts[2].rstrip("]")
             for path in _path_dicts(paths):
                 nh = _path_nexthop(path)
-                if nh and nh != local_nh:
+                if nh and nh not in local_nhs:
                     continue
                 ext = (path.get("extendedCommunity") or {}).get("string", "")
                 rec = {
@@ -1227,6 +1277,30 @@ def test_bpp_ip_ead_tx():
     _set_bpp(tor1, True)
     _expect_ip_ead(tor1, "protected ES", evi_vrfs=("vrf-a", "vrf-b"), es_rts=rts)
     _clear_ip_ead(tor1)
+
+
+def test_bpp_ip_ead_tx_ipv6():
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    tor3 = tgen.gears["tor3"]
+    vtep = tor_vtep("tor3")
+    rts = (_vrf_rt(tor3, "vrf-a"), _vrf_rt(tor3, "vrf-b"))
+
+    _set_bpp(tor3, True)
+    _expect_ip_ead(tor3, "IPv6 VTEP", evi_vrfs=("vrf-a", "vrf-b"), es_rts=rts)
+
+    def _check_nh():
+        evi = _ead_evi(tor3)
+        nhs = sorted(set(r.get("nexthop") for r in evi if r.get("nexthop")))
+        if nhs != [vtep]:
+            return "per-EVI nexthops %s, want [%s]" % (nhs, vtep)
+        return None
+
+    _, result = topotest.run_and_expect(_check_nh, None, count=30, wait=1)
+    assert result is None, result
+    _clear_ip_ead(tor3)
 
 
 def test_bpp_ip_ead_tx_per_es_frag():
@@ -1526,7 +1600,7 @@ def test_bpp_ip_ead_rx_classify():
     tor1 = tgen.gears["tor1"]
     tor2 = tgen.gears["tor2"]
     tor3 = tgen.gears["tor3"]
-    peers = (tor_lo("tor2"), tor_lo("tor3"))
+    peers = (tor_lo("tor2"), tor_vtep("tor3"))
 
     _set_bpp_if(tor2, ES_IF, True)
     _set_bpp_if(tor3, ES_IF, True)
@@ -1535,8 +1609,8 @@ def test_bpp_ip_ead_rx_classify():
 
     for vrf in VRFS:
         _set_vrf_auto_rt(tor2, vrf, False)
-    _expect_ip_ead_rx(tor1, ES1_ID, "vrf-a", (tor_lo("tor3"),), "tor2 RTs removed")
-    _expect_ip_ead_rx(tor1, ES1_ID, "vrf-b", (tor_lo("tor3"),), "tor2 RTs removed")
+    _expect_ip_ead_rx(tor1, ES1_ID, "vrf-a", (tor_vtep("tor3"),), "tor2 RTs removed")
+    _expect_ip_ead_rx(tor1, ES1_ID, "vrf-b", (tor_vtep("tor3"),), "tor2 RTs removed")
 
     for vrf in VRFS:
         _set_vrf_auto_rt(tor2, vrf, True)
@@ -1690,7 +1764,7 @@ def test_bpp_ip_ead_rx_protection_off():
     tor1 = tgen.gears["tor1"]
     tor2 = tgen.gears["tor2"]
     tor3 = tgen.gears["tor3"]
-    peers = (tor_lo("tor2"), tor_lo("tor3"))
+    peers = (tor_lo("tor2"), tor_vtep("tor3"))
 
     _set_bpp(tor1, True)
     _set_bpp_if(tor2, ES_IF, True)
@@ -1944,7 +2018,7 @@ def test_bpp_eligibility():
     tor1 = tgen.gears["tor1"]
     tor2 = tgen.gears["tor2"]
     tor3 = tgen.gears["tor3"]
-    peers = (tor_lo("tor2"), tor_lo("tor3"))
+    peers = (tor_lo("tor2"), tor_vtep("tor3"))
 
     _set_prot_debug(tor1, True)
     snap = _log_text(tgen, tor1, "zebra")
@@ -1973,7 +2047,7 @@ def test_bpp_eligibility_all_vrfs():
     tor1 = tgen.gears["tor1"]
     tor2 = tgen.gears["tor2"]
     tor3 = tgen.gears["tor3"]
-    lo3 = tor_lo("tor3")
+    lo3 = tor_vtep("tor3")
 
     _set_vrf_auto_rt(tor3, "vrf-b", False)
     _set_prot_debug(tor1, True)
@@ -2253,6 +2327,7 @@ def test_bpp_rt4_only():
     tor1 = tgen.gears["tor1"]
     lo2 = tor_lo("tor2")
 
+    _expect_no_ip_ead_rx(tor1, ES1_ID, "no leftover IP A-D")
     _set_prot_debug(tor1, True)
     snap = _log_text(tgen, tor1, "zebra")
     _set_bpp(tor1, True)
@@ -2449,7 +2524,7 @@ def test_bpp_vrf_leaves_ready_set():
     tor1 = tgen.gears["tor1"]
     tor2 = tgen.gears["tor2"]
     tor3 = tgen.gears["tor3"]
-    lo3 = tor_lo("tor3")
+    lo3 = tor_vtep("tor3")
 
     _set_vrf_auto_rt(tor3, "vrf-b", False)
     _set_prot_debug(tor1, True)
@@ -2467,6 +2542,312 @@ def test_bpp_vrf_leaves_ready_set():
     _clear_ip_ead(tor2)
     _clear_ip_ead(tor3)
     _set_prot_debug(tor1, False)
+
+
+def _expect_members(router, esi, vteps, msg, bound=True, state=None):
+    if state is None:
+        state = "ACTIVE" if bound else "PENDING"
+    expected = {
+        esi: {
+            "interface": ES_IF,
+            "state": state,
+            "bound": bound,
+            "members": _members(*vteps) if vteps else ["__ordered__"],
+        }
+    }
+    _expect_json(
+        router, "show evpn mh bridge-port-protection member json", expected, msg
+    )
+
+
+def test_bpp_fanout():
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    tor1 = tgen.gears["tor1"]
+    tor2 = tgen.gears["tor2"]
+    lo2 = tor_lo("tor2")
+
+    _set_prot_debug(tor1, True)
+    _set_bpp_if(tor2, ES_IF, True)
+    _set_bpp(tor1, True)
+    _expect_eligible(tor1, ES1_ID, (lo2,), "tor2 eligible")
+    _expect_entries(
+        tor1,
+        {ES_IF: {"esi": ES1_ID, "bound": True, "vlans": _active_vlans(ES_VLANS)}},
+        "VRF-A and VRF-B ACTIVE",
+    )
+    _expect_members(tor1, ES1_ID, (lo2,), "one Group, bond bound")
+
+    snap = _log_text(tgen, tor1, "zebra")
+    tor1.run("/sbin/bridge vlan add vid 30 dev %s" % ES_IF)
+    _expect_entries(
+        tor1,
+        {ES_IF: {"vlans": _active_vlans(ES_VLANS + (30,))}},
+        "new VRF-A VLAN ACTIVE",
+    )
+    _expect_no_new_bpp_peer(tgen, tor1, snap, "no bgpd message for extra VLAN", esi=ES1_ID)
+
+    tor1.run("/sbin/bridge vlan del vid 30 dev %s" % ES_IF)
+    _set_bpp(tor1, False)
+    _clear_ip_ead(tor2)
+    _set_prot_debug(tor1, False)
+
+
+def test_bpp_pending_vlan():
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    tor1 = tgen.gears["tor1"]
+    tor2 = tgen.gears["tor2"]
+
+    _set_bpp_if(tor2, ES_IF, True)
+    _set_bpp(tor1, True)
+    _expect_entries(
+        tor1,
+        {ES_IF: {"bound": True, "vlans": _active_vlans(ES_VLANS)}},
+        "both VLANs ACTIVE",
+    )
+
+    tor1.run("ip link set dev vlan20 nomaster")
+    _expect_entries(
+        tor1,
+        {
+            ES_IF: {
+                "bound": True,
+                "vlans": {
+                    "10": _active_vlans((10,))["10"],
+                    "20": _pending(["IP-VRF has no L3VNI"], vrf="default", l3vni=None),
+                },
+            }
+        },
+        "VRF-B PENDING, VRF-A ACTIVE, bond bound",
+    )
+    _expect_members(tor1, ES1_ID, (tor_lo("tor2"),), "bond still bound")
+
+    tor1.run("ip link set dev vlan20 master vrf-b")
+    tor1.run("ip link set dev vlan20 up")
+    _expect_entries(
+        tor1, {ES_IF: {"vlans": _active_vlans(ES_VLANS)}}, "VRF-B restored"
+    )
+
+    _set_bpp(tor1, False)
+    _clear_ip_ead(tor2)
+
+
+def test_bpp_show_member():
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    tor1 = tgen.gears["tor1"]
+    tor2 = tgen.gears["tor2"]
+    tor3 = tgen.gears["tor3"]
+    lo2, lo3 = tor_lo("tor2"), tor_vtep("tor3")
+    macs2 = {_if_mac(tor2, "vlan4001"), _if_mac(tor2, "vlan4002")}
+    macs3 = {_if_mac(tor3, "vlan4001"), _if_mac(tor3, "vlan4002")}
+
+    _set_bpp_if(tor2, ES_IF, True)
+    _set_bpp_if(tor3, ES_IF, True)
+    _set_bpp(tor1, True)
+    _expect_members(tor1, ES1_ID, (lo2, lo3), "tor2 and tor3 in member view")
+
+    output = json.loads(tor1.vtysh_cmd("show evpn mh bridge-port-protection member json"))
+    members = {m["vtep"]: m for m in output[ES1_ID]["members"]}
+    assert members[lo2]["rmac"] in macs2, members[lo2]
+    assert members[lo3]["rmac"] in macs3, members[lo3]
+    assert members[lo2]["family"] == "ipv4"
+    assert members[lo3]["family"] == "ipv6"
+
+    _set_vrf_auto_rt(tor3, "vrf-b", False)
+    _expect_members(tor1, ES1_ID, (lo2,), "peer missing VRF-B absent")
+    _set_vrf_auto_rt(tor3, "vrf-b", True)
+
+    _set_bpp(tor1, False)
+    _clear_ip_ead(tor2)
+    _clear_ip_ead(tor3)
+
+
+def test_bpp_group_all_vrfs():
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    tor1 = tgen.gears["tor1"]
+    tor2 = tgen.gears["tor2"]
+    tor3 = tgen.gears["tor3"]
+    lo2, lo3 = tor_lo("tor2"), tor_vtep("tor3")
+
+    _set_vrf_auto_rt(tor3, "vrf-b", False)
+    _set_bpp_if(tor2, ES_IF, True)
+    _set_bpp_if(tor3, ES_IF, True)
+    _set_bpp(tor1, True)
+    _expect_members(tor1, ES1_ID, (lo2,), "Group is tor2 only")
+
+    _set_vrf_auto_rt(tor3, "vrf-b", True)
+    _expect_members(tor1, ES1_ID, (lo2, lo3), "tor3 joins after VRF-B per-EVI")
+
+    _set_bpp(tor1, False)
+    _clear_ip_ead(tor2)
+    _clear_ip_ead(tor3)
+
+
+def test_bpp_vrf_no_per_evi():
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    tor1 = tgen.gears["tor1"]
+    tor2 = tgen.gears["tor2"]
+    tor3 = tgen.gears["tor3"]
+
+    _set_vrf_auto_rt(tor2, "vrf-b", False)
+    _set_vrf_auto_rt(tor3, "vrf-b", False)
+    _set_bpp_if(tor2, ES_IF, True)
+    _set_bpp_if(tor3, ES_IF, True)
+    _set_bpp(tor1, True)
+    _expect_entries(
+        tor1,
+        {ES_IF: {"bound": False, "vlans": _ready_vlans(ES_VLANS)}},
+        "Group empty, all PENDING",
+    )
+    _expect_members(tor1, ES1_ID, (), "no Members", bound=False)
+
+    _set_bpp(tor1, False)
+    _clear_ip_ead(tor2)
+    _clear_ip_ead(tor3)
+    _set_vrf_auto_rt(tor2, "vrf-b", True)
+    _set_vrf_auto_rt(tor3, "vrf-b", True)
+
+
+def test_bpp_unprotected_l3mh_es():
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    tor1 = tgen.gears["tor1"]
+    tor2 = tgen.gears["tor2"]
+
+    _expect_es_evi_l3vnis(tor1, None, "no L3VNI ES-EVI without protection")
+    _expect_es_vrfs(tor1, ES1_ID, {}, "no ES-VRF without protection")
+    _expect_ip_ead(tor1, "no IP A-D without protection", evi_absent=True, es_absent=True)
+    _expect_json(tor1, "show evpn mh bridge-port-protection member json", {}, "no Group")
+
+    _set_bpp_if(tor2, ES_IF, True)
+    _set_bpp(tor1, True)
+    _expect_es_evi_l3vnis(tor1, ["__ordered__", 4001, 4002], "L3VNI ES-EVIs sent")
+    _expect_entries(
+        tor1, {ES_IF: {"bound": True, "vlans": _active_vlans(ES_VLANS)}}, "ports ACTIVE"
+    )
+
+    _set_bpp(tor1, False)
+    _clear_ip_ead(tor2)
+
+
+def test_bpp_member_rmac():
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    tor1 = tgen.gears["tor1"]
+    tor2 = tgen.gears["tor2"]
+    lo2 = tor_lo("tor2")
+    mac = "02:02:00:00:00:22"
+    old1, old2 = _if_mac(tor2, "vlan4001"), _if_mac(tor2, "vlan4002")
+
+    tor2.run("ip link set vlan4001 address %s" % mac)
+    tor2.run("ip link set vlan4002 address %s" % mac)
+    _set_bpp_if(tor2, ES_IF, True)
+    _set_bpp(tor1, True)
+    _expect_members(tor1, ES1_ID, (lo2,), "member present")
+    output = json.loads(tor1.vtysh_cmd("show evpn mh bridge-port-protection member json"))
+    assert output[ES1_ID]["members"][0]["rmac"] == mac, output
+
+    asn = 65002
+    tor2.vtysh_cmd(
+        "configure terminal\nrouter bgp %d vrf vrf-a\naddress-family l2vpn evpn\n"
+        "no advertise ipv4 unicast" % asn
+    )
+    _expect_json(
+        tor1,
+        "show evpn mh bridge-port-protection member json",
+        {ES1_ID: {"members": [{"vtep": lo2, "rmac": mac}]}},
+        "RT-5 withdraw does not change Member RMAC",
+    )
+    tor2.vtysh_cmd(
+        "configure terminal\nrouter bgp %d vrf vrf-a\naddress-family l2vpn evpn\n"
+        "advertise ipv4 unicast" % asn
+    )
+
+    tor2.run("ip link set vlan4001 address %s" % old1)
+    tor2.run("ip link set vlan4002 address %s" % old2)
+    _set_bpp(tor1, False)
+    _clear_ip_ead(tor2)
+
+
+def test_bpp_ipv6_vtep():
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    tor1 = tgen.gears["tor1"]
+    tor3 = tgen.gears["tor3"]
+    vtep = tor_vtep("tor3")
+
+    _set_bpp_if(tor3, ES_IF, True)
+    _set_bpp(tor1, True)
+    _expect_json(
+        tor1,
+        "show evpn mh bridge-port-protection member json",
+        {ES1_ID: {"members": [{"vtep": vtep, "family": "ipv6", "type": "L3"}]}},
+        "tor3 IPv6 Member",
+    )
+    _expect_ip_ead_rx(tor1, ES1_ID, "vrf-a", (vtep,), "IPv6 IP A-D classified")
+    _expect_eligible(tor1, ES1_ID, (vtep,), "IPv6 VTEP eligible")
+
+    _set_bpp(tor1, False)
+    _clear_ip_ead(tor3)
+
+
+def test_bpp_dual_family_same_peer():
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    tor1 = tgen.gears["tor1"]
+    tor2 = tgen.gears["tor2"]
+    tor3 = tgen.gears["tor3"]
+    lo2, lo3 = tor_lo("tor2"), tor_vtep("tor3")
+
+    _set_bpp_if(tor2, ES_IF, True)
+    _set_bpp_if(tor3, ES_IF, True)
+    _set_bpp(tor1, True)
+    _expect_members(tor1, ES1_ID, (lo2, lo3), "IPv4 and IPv6 Members")
+    _expect_json(
+        tor1,
+        "show evpn mh bridge-port-protection member json",
+        {
+            ES1_ID: {
+                "members": [
+                    {"vtep": lo2, "family": "ipv4"},
+                    {"vtep": lo3, "family": "ipv6"},
+                ]
+            }
+        },
+        "both families present",
+    )
+
+    _clear_ip_ead(tor3)
+    _expect_members(tor1, ES1_ID, (lo2,), "removing IPv6 keeps IPv4")
+
+    _set_bpp_if(tor3, ES_IF, True)
+    _clear_ip_ead(tor2)
+    _expect_members(tor1, ES1_ID, (lo3,), "removing IPv4 keeps IPv6")
+
+    _set_bpp(tor1, False)
+    _clear_ip_ead(tor3)
 
 
 def test_memory_leak():
