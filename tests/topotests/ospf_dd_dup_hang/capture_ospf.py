@@ -6,6 +6,7 @@
 # Copyright (c) 2026 ATCorp
 # Jafar Al-Gharaibeh
 #
+# DEPRECATED: use lib/scapy_utils.py instead
 """Sniff packets to a pcap until SIGINT/SIGTERM.
 
 Used by test_ospf_dd_dup_hang.py so the test does not depend on tcpdump,
