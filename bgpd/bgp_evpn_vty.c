@@ -2721,7 +2721,7 @@ static void evpn_show_route_vni_macip(struct vty *vty, struct bgp *bgp,
 	 * MAC is per-path, we have to walk the path_info's and look for it
 	 * first here.
 	 */
-	if (ip && mac) {
+	if (ip && !IS_IPADDR_NONE(ip) && mac) {
 		for (pi = bgp_dest_get_bgp_path_info(dest); pi; pi = pi->next) {
 			if (memcmp(mac, evpn_type2_path_info_get_mac(pi),
 				   sizeof(*mac)) == 0)
@@ -2749,9 +2749,8 @@ static void evpn_show_route_vni_macip(struct vty *vty, struct bgp *bgp,
 		json_object *json_path = NULL;
 
 		/* skip non-matching MACs */
-		if (ip && mac &&
-		    memcmp(mac, evpn_type2_path_info_get_mac(pi),
-			   sizeof(*mac)) != 0)
+		if (ip && !IS_IPADDR_NONE(ip) && mac &&
+		    memcmp(mac, evpn_type2_path_info_get_mac(pi), sizeof(*mac)) != 0)
 			continue;
 
 		if (json)
