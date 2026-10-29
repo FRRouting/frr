@@ -261,4 +261,14 @@ Here is the syntax for using AgentX:
    Once enabled, it can't be unconfigured. Only removing from the daemons file
    the keyword ``agentx`` takes an effect.
 
+.. clicmd:: debug agentx
+
+   Log AgentX subagent activity: the connection to the master agent going up
+   and down, and the file descriptors polled for it. Net-SNMP's own debug
+   messages are also only logged while this is enabled.
+
+   The command is available in every daemon that supports ``agentx``,
+   including bgpd. When given in configuration mode it is saved to the
+   configuration; in enable mode it lasts until the daemon restarts.
+
 .. include:: snmptrap.rst
