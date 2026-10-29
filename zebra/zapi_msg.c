@@ -4230,6 +4230,8 @@ void (*const zserv_handlers[])(ZAPI_HANDLER_ARGS) = {
 	[ZEBRA_TC_CLASS_DELETE] = zread_tc_class,
 	[ZEBRA_TC_FILTER_ADD] = zread_tc_filter,
 	[ZEBRA_TC_FILTER_DELETE] = zread_tc_filter,
+	[ZEBRA_EVPN_BPP_PEER_ADD] = zebra_evpn_proc_bpp_peer,
+	[ZEBRA_EVPN_BPP_PEER_DEL] = zebra_evpn_proc_bpp_peer,
 };
 
 /*
