@@ -22,6 +22,7 @@
 
 #include "zebra/debug.h"
 #include "zebra/interface.h"
+#include "zebra/zebra_ns.h"
 #include "zebra/zebra_router.h"
 #include "zebra/zebra_vrf.h"
 #include "zebra/zebra_vxlan_private.h"
@@ -220,6 +221,40 @@ static bool zebra_evpn_bpp_zif_has_l2vni(struct zebra_if *zif, struct interface 
 	return false;
 }
 
+/* acc_bd->vlan_zif is cleared while the SVI is oper-down. The SVI still
+ * owns the VRF/L3VNI mapping, so look it up even when it is not up.
+ */
+struct zebra_evpn_bpp_svi_ctx {
+	vlanid_t vid;
+	struct interface *br_if;
+	struct interface *svi;
+};
+
+static int zebra_evpn_bpp_svi_walk(struct interface *ifp, void *arg)
+{
+	struct zebra_evpn_bpp_svi_ctx *ctx = arg;
+	struct zebra_if *zif;
+
+	zif = ifp->info;
+	if (!zif || zif->zif_type != ZEBRA_IF_VLAN || zif->link != ctx->br_if)
+		return NS_WALK_CONTINUE;
+	if (zif->l2info.vl.vid == ctx->vid) {
+		ctx->svi = ifp;
+		return NS_WALK_STOP;
+	}
+	return NS_WALK_CONTINUE;
+}
+
+static struct interface *zebra_evpn_bpp_svi_find(vlanid_t vid, struct interface *br_if)
+{
+	struct zebra_evpn_bpp_svi_ctx ctx = { .vid = vid, .br_if = br_if };
+
+	if (!br_if)
+		return NULL;
+	zebra_ns_ifp_walk_all(zebra_evpn_bpp_svi_walk, &ctx);
+	return ctx.svi;
+}
+
 static void zebra_evpn_bpp_eval(struct zebra_evpn_bpp *e, bool created)
 {
 	struct zebra_if *zif = e->zif;
@@ -239,6 +274,8 @@ static void zebra_evpn_bpp_eval(struct zebra_evpn_bpp *e, bool created)
 		acc_bd = zebra_evpn_acc_vl_find(e->vid, br_if);
 	if (acc_bd && acc_bd->vlan_zif)
 		svi = acc_bd->vlan_zif->ifp;
+	if (!svi)
+		svi = zebra_evpn_bpp_svi_find(e->vid, br_if);
 	if (svi && svi->vrf) {
 		e->vrf_id = svi->vrf->vrf_id;
 		zl3vni = zl3vni_from_vrf(e->vrf_id);
@@ -392,7 +429,8 @@ static struct zebra_evpn_bpp_evi *zebra_evpn_bpp_evi_find(struct zebra_evpn_bpp_
 	return zebra_evpn_bpp_evi_list_find(&bif->evis, &key);
 }
 
-/* Send an ES-EVI per IP-VRF with a ready entry and withdraw the others.
+/* Send an ES-EVI per IP-VRF that still has an L3VNI on the ES. SVI and
+ * L3VNI oper-down are not inputs (the entry is PENDING, the ES-EVI stays).
  * Nothing is sent for an ES that BGP does not know; BGP drops its
  * ES-EVIs with the ES.
  */
@@ -407,7 +445,7 @@ static void zebra_evpn_bpp_evi_sync(struct zebra_evpn_bpp_if *bif)
 		evi->keep = false;
 
 	frr_each (zebra_evpn_bpp_hash, &bif->entries, e) {
-		if (e->pending_flags || !e->l3vni || !es_ready)
+		if ((e->pending_flags & ~ZEBRA_EVPN_BPP_L3VNI_DOWN) || !e->l3vni || !es_ready)
 			continue;
 
 		evi = zebra_evpn_bpp_evi_find(bif, &es->esi, e->l3vni);
