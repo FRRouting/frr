@@ -56,13 +56,13 @@ DEFINE_MTYPE_STATIC(BGPD, BGP_EVPN_EFFECTIVE_WILDCARD_RT,
 		    "BGP EVPN Effective Wildcard Route Target");
 DEFINE_MTYPE_STATIC(BGPD, BGP_EVPN_EFFECTIVE_FQ_RT,
 		    "BGP EVPN Effective Fully Qualified Route Target");
-DEFINE_MTYPE_STATIC(BGPD, BGP_EVPN_L2VNI_FQ_IRT_NODE,
-		    "BGP EVPN L2VNI Fully Qualified Import Route Target");
-DEFINE_MTYPE_STATIC(BGPD, BGP_EVPN_L2VNI_WILDCARD_IRT_NODE,
+DEFINE_MTYPE_STATIC(BGPD, BGP_EVPN_L2VNI_EXACT_MATCH_IMPORT_RT_NODE,
+		    "BGP EVPN L2VNI Exact Match Import Route Target");
+DEFINE_MTYPE_STATIC(BGPD, BGP_EVPN_L2VNI_WILDCARD_IMPORT_RT_NODE,
 		    "BGP EVPN L2VNI Wildcard Import Route Target");
-DEFINE_MTYPE_STATIC(BGPD, BGP_EVPN_VRF_FQ_IRT_NODE,
-		    "BGP EVPN VRF Fully Qualified Import Route Target");
-DEFINE_MTYPE_STATIC(BGPD, BGP_EVPN_VRF_WILDCARD_IRT_NODE,
+DEFINE_MTYPE_STATIC(BGPD, BGP_EVPN_VRF_EXACT_MATCH_IMPORT_RT_NODE,
+		    "BGP EVPN VRF Exact Match Import Route Target");
+DEFINE_MTYPE_STATIC(BGPD, BGP_EVPN_VRF_WILDCARD_IMPORT_RT_NODE,
 		    "BGP EVPN VRF Wildcard Import Route Target");
 
 /*
@@ -577,226 +577,237 @@ int vni_list_cmp(void *p1, void *p2)
 /*
  * Comparison and hash key functions for the vrf import rt hashes
  */
-int bgp_evpn_vrf_fq_irt_cmp(const struct bgp_evpn_vrf_fq_irt_node *irt1,
-			    const struct bgp_evpn_vrf_fq_irt_node *irt2)
+int bgp_evpn_vrf_exact_match_import_rt_cmp(
+	const struct bgp_evpn_vrf_exact_match_import_rt_node *import_rt1,
+	const struct bgp_evpn_vrf_exact_match_import_rt_node *import_rt2)
 {
-	return memcmp(irt1->rt.val, irt2->rt.val, ECOMMUNITY_SIZE);
+	return memcmp(import_rt1->rt.val, import_rt2->rt.val, ECOMMUNITY_SIZE);
 }
 
-uint32_t bgp_evpn_vrf_fq_irt_hash(const struct bgp_evpn_vrf_fq_irt_node *irt)
+uint32_t bgp_evpn_vrf_exact_match_import_rt_hash(
+	const struct bgp_evpn_vrf_exact_match_import_rt_node *import_rt)
 {
-	return jhash(irt->rt.val, ECOMMUNITY_SIZE, 0x5abc1234);
+	return jhash(import_rt->rt.val, ECOMMUNITY_SIZE, 0x5abc1234);
 }
 
-int bgp_evpn_vrf_wildcard_irt_cmp(const struct bgp_evpn_vrf_wildcard_irt_node *irt1,
-				  const struct bgp_evpn_vrf_wildcard_irt_node *irt2)
+int bgp_evpn_vrf_wildcard_import_rt_cmp(
+	const struct bgp_evpn_vrf_wildcard_import_rt_node *import_rt1,
+	const struct bgp_evpn_vrf_wildcard_import_rt_node *import_rt2)
 {
-	if (irt1->local_admin_nbo != irt2->local_admin_nbo)
-		return irt1->local_admin_nbo < irt2->local_admin_nbo ? -1 : 1;
+	if (import_rt1->local_admin_nbo != import_rt2->local_admin_nbo)
+		return import_rt1->local_admin_nbo < import_rt2->local_admin_nbo ? -1 : 1;
 
 	return 0;
 }
 
-uint32_t bgp_evpn_vrf_wildcard_irt_hash(const struct bgp_evpn_vrf_wildcard_irt_node *irt)
+uint32_t bgp_evpn_vrf_wildcard_import_rt_hash(
+	const struct bgp_evpn_vrf_wildcard_import_rt_node *import_rt)
 {
-	return jhash_1word(irt->local_admin_nbo, 0x5abc1234);
+	return jhash_1word(import_rt->local_admin_nbo, 0x5abc1234);
 }
 
 /*
  * Create a new fully qualified vrf import rt node in the evpn instance
  */
-static struct bgp_evpn_vrf_fq_irt_node *
-bgp_evpn_vrf_fq_irt_node_new(struct bgp *bgp_evpn, const struct ecommunity_val *rt)
+static struct bgp_evpn_vrf_exact_match_import_rt_node *
+bgp_evpn_vrf_exact_match_import_rt_node_new(struct bgp *bgp_evpn, const struct ecommunity_val *rt)
 {
-	struct bgp_evpn_vrf_fq_irt_node *irt;
+	struct bgp_evpn_vrf_exact_match_import_rt_node *import_rt;
 
-	irt = XCALLOC(MTYPE_BGP_EVPN_VRF_FQ_IRT_NODE, sizeof(struct bgp_evpn_vrf_fq_irt_node));
+	import_rt = XCALLOC(MTYPE_BGP_EVPN_VRF_EXACT_MATCH_IMPORT_RT_NODE,
+			    sizeof(struct bgp_evpn_vrf_exact_match_import_rt_node));
 
-	memcpy(&irt->rt, rt, ECOMMUNITY_SIZE);
-	irt->vrfs = list_new();
+	memcpy(&import_rt->rt, rt, ECOMMUNITY_SIZE);
+	import_rt->vrfs = list_new();
 
-	bgp_evpn_vrf_fq_irt_add(&bgp_evpn->vrf_fq_irt_nodes, irt);
+	bgp_evpn_vrf_exact_match_import_rt_add(&bgp_evpn->vrf_exact_match_import_rt_nodes, import_rt);
 
-	return irt;
+	return import_rt;
 }
 
 /*
  * Free a fully qualified vrf import rt node
  */
-static void bgp_evpn_vrf_fq_irt_node_free(struct bgp *bgp_evpn,
-					  struct bgp_evpn_vrf_fq_irt_node *irt)
+static void bgp_evpn_vrf_exact_match_import_rt_node_free(struct bgp *bgp_evpn,
+					  struct bgp_evpn_vrf_exact_match_import_rt_node *import_rt)
 {
-	bgp_evpn_vrf_fq_irt_del(&bgp_evpn->vrf_fq_irt_nodes, irt);
-	list_delete(&irt->vrfs);
-	XFREE(MTYPE_BGP_EVPN_VRF_FQ_IRT_NODE, irt);
+	bgp_evpn_vrf_exact_match_import_rt_del(&bgp_evpn->vrf_exact_match_import_rt_nodes, import_rt);
+	list_delete(&import_rt->vrfs);
+	XFREE(MTYPE_BGP_EVPN_VRF_EXACT_MATCH_IMPORT_RT_NODE, import_rt);
 }
 
 /*
  * Lookup a fully qualified vrf import rt node by exact RT value
  */
-static struct bgp_evpn_vrf_fq_irt_node *
-bgp_evpn_lookup_vrf_fq_irt_node(struct bgp *bgp_evpn, const struct ecommunity_val *rt)
+static struct bgp_evpn_vrf_exact_match_import_rt_node *
+bgp_evpn_lookup_vrf_exact_match_import_rt(struct bgp *bgp_evpn, const struct ecommunity_val *rt)
 {
-	struct bgp_evpn_vrf_fq_irt_node tmp = {};
+	struct bgp_evpn_vrf_exact_match_import_rt_node tmp = {};
 
 	memcpy(&tmp.rt, rt, ECOMMUNITY_SIZE);
 
-	return bgp_evpn_vrf_fq_irt_find(&bgp_evpn->vrf_fq_irt_nodes, &tmp);
+	return bgp_evpn_vrf_exact_match_import_rt_find(&bgp_evpn->vrf_exact_match_import_rt_nodes, &tmp);
 }
 
 /*
  * Create a new wildcard vrf import rt node in the evpn instance
  */
-static struct bgp_evpn_vrf_wildcard_irt_node *
-bgp_evpn_vrf_wildcard_irt_node_new(struct bgp *bgp_evpn, uint32_t local_admin_nbo)
+static struct bgp_evpn_vrf_wildcard_import_rt_node *
+bgp_evpn_vrf_wildcard_import_rt_node_new(struct bgp *bgp_evpn, uint32_t local_admin_nbo)
 {
-	struct bgp_evpn_vrf_wildcard_irt_node *irt;
+	struct bgp_evpn_vrf_wildcard_import_rt_node *import_rt;
 
-	irt = XCALLOC(MTYPE_BGP_EVPN_VRF_WILDCARD_IRT_NODE,
-		      sizeof(struct bgp_evpn_vrf_wildcard_irt_node));
+	import_rt = XCALLOC(MTYPE_BGP_EVPN_VRF_WILDCARD_IMPORT_RT_NODE,
+		      sizeof(struct bgp_evpn_vrf_wildcard_import_rt_node));
 
-	irt->local_admin_nbo = local_admin_nbo;
-	irt->vrfs = list_new();
+	import_rt->local_admin_nbo = local_admin_nbo;
+	import_rt->vrfs = list_new();
 
-	bgp_evpn_vrf_wildcard_irt_add(&bgp_evpn->vrf_wildcard_irt_nodes, irt);
+	bgp_evpn_vrf_wildcard_import_rt_add(&bgp_evpn->vrf_wildcard_import_rt_nodes, import_rt);
 
-	return irt;
+	return import_rt;
 }
 
 /*
  * Free a wildcard vrf import rt node
  */
-static void bgp_evpn_vrf_wildcard_irt_node_free(struct bgp *bgp_evpn,
-						struct bgp_evpn_vrf_wildcard_irt_node *irt)
+static void bgp_evpn_vrf_wildcard_import_rt_node_free(struct bgp *bgp_evpn,
+						struct bgp_evpn_vrf_wildcard_import_rt_node *import_rt)
 {
-	bgp_evpn_vrf_wildcard_irt_del(&bgp_evpn->vrf_wildcard_irt_nodes, irt);
-	list_delete(&irt->vrfs);
-	XFREE(MTYPE_BGP_EVPN_VRF_WILDCARD_IRT_NODE, irt);
+	bgp_evpn_vrf_wildcard_import_rt_del(&bgp_evpn->vrf_wildcard_import_rt_nodes, import_rt);
+	list_delete(&import_rt->vrfs);
+	XFREE(MTYPE_BGP_EVPN_VRF_WILDCARD_IMPORT_RT_NODE, import_rt);
 }
 
 /*
  * Lookup a wildcard vrf import rt node by local admin value
  */
-static struct bgp_evpn_vrf_wildcard_irt_node *
-bgp_evpn_lookup_vrf_wildcard_irt_node(struct bgp *bgp_evpn, uint32_t local_admin_nbo)
+static struct bgp_evpn_vrf_wildcard_import_rt_node *
+bgp_evpn_lookup_vrf_wildcard_import_rt(struct bgp *bgp_evpn, uint32_t local_admin_nbo)
 {
-	struct bgp_evpn_vrf_wildcard_irt_node tmp = {};
+	struct bgp_evpn_vrf_wildcard_import_rt_node tmp = {};
 
 	tmp.local_admin_nbo = local_admin_nbo;
 
-	return bgp_evpn_vrf_wildcard_irt_find(&bgp_evpn->vrf_wildcard_irt_nodes, &tmp);
+	return bgp_evpn_vrf_wildcard_import_rt_find(&bgp_evpn->vrf_wildcard_import_rt_nodes, &tmp);
 }
 
 /*
  * Comparison and hash key functions for the l2vni import rt tables
  */
-int bgp_evpn_l2vni_fq_irt_cmp(const struct bgp_evpn_l2vni_fq_irt_node *irt1,
-			      const struct bgp_evpn_l2vni_fq_irt_node *irt2)
+int bgp_evpn_l2vni_exact_match_import_rt_cmp(
+	const struct bgp_evpn_l2vni_exact_match_import_rt_node *import_rt1,
+	const struct bgp_evpn_l2vni_exact_match_import_rt_node *import_rt2)
 {
-	return memcmp(irt1->rt.val, irt2->rt.val, ECOMMUNITY_SIZE);
+	return memcmp(import_rt1->rt.val, import_rt2->rt.val, ECOMMUNITY_SIZE);
 }
 
-uint32_t bgp_evpn_l2vni_fq_irt_hash(const struct bgp_evpn_l2vni_fq_irt_node *irt)
+uint32_t bgp_evpn_l2vni_exact_match_import_rt_hash(
+	const struct bgp_evpn_l2vni_exact_match_import_rt_node *import_rt)
 {
-	return jhash(irt->rt.val, ECOMMUNITY_SIZE, 0xdeadbeef);
+	return jhash(import_rt->rt.val, ECOMMUNITY_SIZE, 0xdeadbeef);
 }
 
-int bgp_evpn_l2vni_wildcard_irt_cmp(const struct bgp_evpn_l2vni_wildcard_irt_node *irt1,
-				    const struct bgp_evpn_l2vni_wildcard_irt_node *irt2)
+int bgp_evpn_l2vni_wildcard_import_rt_cmp(
+	const struct bgp_evpn_l2vni_wildcard_import_rt_node *import_rt1,
+	const struct bgp_evpn_l2vni_wildcard_import_rt_node *import_rt2)
 {
-	if (irt1->local_admin_nbo != irt2->local_admin_nbo)
-		return irt1->local_admin_nbo < irt2->local_admin_nbo ? -1 : 1;
+	if (import_rt1->local_admin_nbo != import_rt2->local_admin_nbo)
+		return import_rt1->local_admin_nbo < import_rt2->local_admin_nbo ? -1 : 1;
 
 	return 0;
 }
 
-uint32_t bgp_evpn_l2vni_wildcard_irt_hash(const struct bgp_evpn_l2vni_wildcard_irt_node *irt)
+uint32_t bgp_evpn_l2vni_wildcard_import_rt_hash(
+	const struct bgp_evpn_l2vni_wildcard_import_rt_node *import_rt)
 {
-	return jhash_1word(irt->local_admin_nbo, 0xdeadbeef);
+	return jhash_1word(import_rt->local_admin_nbo, 0xdeadbeef);
 }
 
 /*
  * Create a new fully qualified l2vni import rt node
  */
-static struct bgp_evpn_l2vni_fq_irt_node *
-bgp_evpn_l2vni_fq_irt_node_new(struct bgp *bgp, const struct ecommunity_val *rt)
+static struct bgp_evpn_l2vni_exact_match_import_rt_node *
+bgp_evpn_l2vni_exact_match_import_rt_node_new(struct bgp *bgp, const struct ecommunity_val *rt)
 {
-	struct bgp_evpn_l2vni_fq_irt_node *irt;
+	struct bgp_evpn_l2vni_exact_match_import_rt_node *import_rt;
 
-	irt = XCALLOC(MTYPE_BGP_EVPN_L2VNI_FQ_IRT_NODE, sizeof(struct bgp_evpn_l2vni_fq_irt_node));
+	import_rt = XCALLOC(MTYPE_BGP_EVPN_L2VNI_EXACT_MATCH_IMPORT_RT_NODE,
+			    sizeof(struct bgp_evpn_l2vni_exact_match_import_rt_node));
 
-	memcpy(&irt->rt, rt, ECOMMUNITY_SIZE);
-	irt->vnis = list_new();
+	memcpy(&import_rt->rt, rt, ECOMMUNITY_SIZE);
+	import_rt->vnis = list_new();
 
-	bgp_evpn_l2vni_fq_irt_add(&bgp->l2vni_fq_irt_nodes, irt);
+	bgp_evpn_l2vni_exact_match_import_rt_add(&bgp->l2vni_exact_match_import_rt_nodes, import_rt);
 
-	return irt;
+	return import_rt;
 }
 
 /*
  * Free a fully qualified l2vni import rt node
  */
-static void bgp_evpn_l2vni_fq_irt_node_free(struct bgp *bgp, struct bgp_evpn_l2vni_fq_irt_node *irt)
+static void bgp_evpn_l2vni_exact_match_import_rt_node_free(
+	struct bgp *bgp, struct bgp_evpn_l2vni_exact_match_import_rt_node *import_rt)
 {
-	bgp_evpn_l2vni_fq_irt_del(&bgp->l2vni_fq_irt_nodes, irt);
-	list_delete(&irt->vnis);
-	XFREE(MTYPE_BGP_EVPN_L2VNI_FQ_IRT_NODE, irt);
+	bgp_evpn_l2vni_exact_match_import_rt_del(&bgp->l2vni_exact_match_import_rt_nodes, import_rt);
+	list_delete(&import_rt->vnis);
+	XFREE(MTYPE_BGP_EVPN_L2VNI_EXACT_MATCH_IMPORT_RT_NODE, import_rt);
 }
 
 /*
  * Lookup a fully qualified l2vni import rt node by exact RT value
  */
-static struct bgp_evpn_l2vni_fq_irt_node *
-bgp_evpn_lookup_l2vni_fq_irt_node(struct bgp *bgp, const struct ecommunity_val *rt)
+static struct bgp_evpn_l2vni_exact_match_import_rt_node *
+bgp_evpn_lookup_l2vni_exact_match_import_rt(struct bgp *bgp, const struct ecommunity_val *rt)
 {
-	struct bgp_evpn_l2vni_fq_irt_node tmp = {};
+	struct bgp_evpn_l2vni_exact_match_import_rt_node tmp = {};
 
 	memcpy(&tmp.rt, rt, ECOMMUNITY_SIZE);
 
-	return bgp_evpn_l2vni_fq_irt_find(&bgp->l2vni_fq_irt_nodes, &tmp);
+	return bgp_evpn_l2vni_exact_match_import_rt_find(&bgp->l2vni_exact_match_import_rt_nodes, &tmp);
 }
 
 /*
  * Create a new wildcard l2vni import rt node
  */
-static struct bgp_evpn_l2vni_wildcard_irt_node *
-bgp_evpn_l2vni_wildcard_irt_node_new(struct bgp *bgp, uint32_t local_admin_nbo)
+static struct bgp_evpn_l2vni_wildcard_import_rt_node *
+bgp_evpn_l2vni_wildcard_import_rt_node_new(struct bgp *bgp, uint32_t local_admin_nbo)
 {
-	struct bgp_evpn_l2vni_wildcard_irt_node *irt;
+	struct bgp_evpn_l2vni_wildcard_import_rt_node *import_rt;
 
-	irt = XCALLOC(MTYPE_BGP_EVPN_L2VNI_WILDCARD_IRT_NODE,
-		      sizeof(struct bgp_evpn_l2vni_wildcard_irt_node));
+	import_rt = XCALLOC(MTYPE_BGP_EVPN_L2VNI_WILDCARD_IMPORT_RT_NODE,
+		      sizeof(struct bgp_evpn_l2vni_wildcard_import_rt_node));
 
-	irt->local_admin_nbo = local_admin_nbo;
-	irt->vnis = list_new();
+	import_rt->local_admin_nbo = local_admin_nbo;
+	import_rt->vnis = list_new();
 
-	bgp_evpn_l2vni_wildcard_irt_add(&bgp->l2vni_wildcard_irt_nodes, irt);
+	bgp_evpn_l2vni_wildcard_import_rt_add(&bgp->l2vni_wildcard_import_rt_nodes, import_rt);
 
-	return irt;
+	return import_rt;
 }
 
 /*
  * Free a wildcard l2vni import rt node
  */
-static void bgp_evpn_l2vni_wildcard_irt_node_free(struct bgp *bgp,
-						  struct bgp_evpn_l2vni_wildcard_irt_node *irt)
+static void bgp_evpn_l2vni_wildcard_import_rt_node_free(struct bgp *bgp,
+						  struct bgp_evpn_l2vni_wildcard_import_rt_node *import_rt)
 {
-	bgp_evpn_l2vni_wildcard_irt_del(&bgp->l2vni_wildcard_irt_nodes, irt);
-	list_delete(&irt->vnis);
-	XFREE(MTYPE_BGP_EVPN_L2VNI_WILDCARD_IRT_NODE, irt);
+	bgp_evpn_l2vni_wildcard_import_rt_del(&bgp->l2vni_wildcard_import_rt_nodes, import_rt);
+	list_delete(&import_rt->vnis);
+	XFREE(MTYPE_BGP_EVPN_L2VNI_WILDCARD_IMPORT_RT_NODE, import_rt);
 }
 
 /*
  * Lookup a wildcard l2vni import rt node by local admin value
  */
-static struct bgp_evpn_l2vni_wildcard_irt_node *
-bgp_evpn_lookup_l2vni_wildcard_irt_node(struct bgp *bgp, uint32_t local_admin_nbo)
+static struct bgp_evpn_l2vni_wildcard_import_rt_node *
+bgp_evpn_lookup_l2vni_wildcard_import_rt(struct bgp *bgp, uint32_t local_admin_nbo)
 {
-	struct bgp_evpn_l2vni_wildcard_irt_node tmp = {};
+	struct bgp_evpn_l2vni_wildcard_import_rt_node tmp = {};
 
 	tmp.local_admin_nbo = local_admin_nbo;
 
-	return bgp_evpn_l2vni_wildcard_irt_find(&bgp->l2vni_wildcard_irt_nodes, &tmp);
+	return bgp_evpn_l2vni_wildcard_import_rt_find(&bgp->l2vni_wildcard_import_rt_nodes, &tmp);
 }
 
 /*
@@ -4237,8 +4248,8 @@ static int is_route_matching_for_vrf(struct bgp *bgp_vrf, struct bgp_path_info *
 		uint8_t type, sub_type;
 		struct ecommunity_val *eval;
 		uint32_t local_admin_nbo;
-		struct bgp_evpn_vrf_fq_irt_node *fq_irt;
-		struct bgp_evpn_vrf_wildcard_irt_node *wildcard_irt;
+		struct bgp_evpn_vrf_exact_match_import_rt_node *exact_match_import_rt;
+		struct bgp_evpn_vrf_wildcard_import_rt_node *wildcard_import_rt;
 
 		/* Only deal with RTs */
 		pnt = (ecom->val + (i * ecom->unit_size));
@@ -4249,8 +4260,8 @@ static int is_route_matching_for_vrf(struct bgp *bgp_vrf, struct bgp_path_info *
 			continue;
 
 		/* See if this RT matches specified VNIs import RTs */
-		fq_irt = bgp_evpn_lookup_vrf_fq_irt_node(bgp_evpn, eval);
-		if (fq_irt && listnode_lookup(fq_irt->vrfs, bgp_vrf))
+		exact_match_import_rt = bgp_evpn_lookup_vrf_exact_match_import_rt(bgp_evpn, eval);
+		if (exact_match_import_rt && listnode_lookup(exact_match_import_rt->vrfs, bgp_vrf))
 			return 1;
 
 		/* Also check for a wildcard (non-exact) match, on the
@@ -4258,9 +4269,9 @@ static int is_route_matching_for_vrf(struct bgp *bgp_vrf, struct bgp_path_info *
 		 * VNI as the RT for EBGP peering too.
 		 */
 		if (bgp_evpn_wildcard_rt_local_admin_from_eval(type, eval, &local_admin_nbo)) {
-			wildcard_irt = bgp_evpn_lookup_vrf_wildcard_irt_node(bgp_evpn,
+			wildcard_import_rt = bgp_evpn_lookup_vrf_wildcard_import_rt(bgp_evpn,
 									     local_admin_nbo);
-			if (wildcard_irt && listnode_lookup(wildcard_irt->vrfs, bgp_vrf))
+			if (wildcard_import_rt && listnode_lookup(wildcard_import_rt->vrfs, bgp_vrf))
 				return 1;
 		}
 	}
@@ -4304,8 +4315,8 @@ static int is_route_matching_for_vni(struct bgp *bgp, struct bgpevpn *vpn, struc
 		uint8_t type, sub_type;
 		struct ecommunity_val *eval;
 		uint32_t local_admin_nbo;
-		struct bgp_evpn_l2vni_fq_irt_node *fq_irt;
-		struct bgp_evpn_l2vni_wildcard_irt_node *wildcard_irt;
+		struct bgp_evpn_l2vni_exact_match_import_rt_node *exact_match_import_rt;
+		struct bgp_evpn_l2vni_wildcard_import_rt_node *wildcard_import_rt;
 
 		/* Only deal with RTs */
 		pnt = (ecom->val + (i * ecom->unit_size));
@@ -4316,8 +4327,8 @@ static int is_route_matching_for_vni(struct bgp *bgp, struct bgpevpn *vpn, struc
 			continue;
 
 		/* See if this RT matches specified VNIs import RTs */
-		fq_irt = bgp_evpn_lookup_l2vni_fq_irt_node(bgp, eval);
-		if (fq_irt && listnode_lookup(fq_irt->vnis, vpn))
+		exact_match_import_rt = bgp_evpn_lookup_l2vni_exact_match_import_rt(bgp, eval);
+		if (exact_match_import_rt && listnode_lookup(exact_match_import_rt->vnis, vpn))
 			return 1;
 
 		/* Also check for a wildcard (non-exact) match, on the
@@ -4325,9 +4336,9 @@ static int is_route_matching_for_vni(struct bgp *bgp, struct bgpevpn *vpn, struc
 		 * VNI as the RT for EBGP peering too.
 		 */
 		if (bgp_evpn_wildcard_rt_local_admin_from_eval(type, eval, &local_admin_nbo)) {
-			wildcard_irt = bgp_evpn_lookup_l2vni_wildcard_irt_node(bgp,
+			wildcard_import_rt = bgp_evpn_lookup_l2vni_wildcard_import_rt(bgp,
 									       local_admin_nbo);
-			if (wildcard_irt && listnode_lookup(wildcard_irt->vnis, vpn))
+			if (wildcard_import_rt && listnode_lookup(wildcard_import_rt->vnis, vpn))
 				return 1;
 		}
 	}
@@ -4528,17 +4539,28 @@ static int install_uninstall_routes_for_vrf(struct bgp *bgp_vrf, bool install)
 				(const struct prefix_evpn *)bgp_dest_get_prefix(
 					dest);
 
-			/* if not mac-ip route skip this route */
+			/* if not mac-ip, prefix, or IP A-D skip this route */
 			if (!(evp->prefix.route_type == BGP_EVPN_MAC_IP_ROUTE ||
-			      evp->prefix.route_type == BGP_EVPN_IP_PREFIX_ROUTE))
+			      evp->prefix.route_type == BGP_EVPN_IP_PREFIX_ROUTE ||
+			      evp->prefix.route_type == BGP_EVPN_AD_ROUTE))
 				continue;
 
-			/* if not a mac+ip route skip this route */
-			if (!(is_evpn_prefix_ipaddr_v4(evp) || is_evpn_prefix_ipaddr_v6(evp)))
+			if (evp->prefix.route_type != BGP_EVPN_AD_ROUTE &&
+			    !(is_evpn_prefix_ipaddr_v4(evp) || is_evpn_prefix_ipaddr_v6(evp)))
 				continue;
 
 			for (pi = bgp_dest_get_bgp_path_info(dest); pi;
 			     pi = pi->next) {
+				if (evp->prefix.route_type == BGP_EVPN_AD_ROUTE) {
+					if (CHECK_FLAG(pi->flags, BGP_PATH_VALID) &&
+					    pi->type == ZEBRA_ROUTE_BGP &&
+					    pi->sub_type == BGP_ROUTE_NORMAL &&
+					    is_route_matching_for_vrf(bgp_vrf, pi))
+						bgp_evpn_ip_ead_process(bgp_vrf,
+								       (struct prefix_evpn *)evp,
+								       pi, install);
+					continue;
+				}
 				ret = bgp_evpn_route_entry_install_if_vrf_match(bgp_vrf, pi,
 										install);
 				if (ret) {
@@ -5227,11 +5249,11 @@ static int bgp_evpn_install_uninstall_table(struct bgp *bgp, afi_t afi, safi_t s
 		struct ecommunity_val *eval;
 		uint32_t local_admin_nbo;
 		/* import rts for l2vni */
-		struct bgp_evpn_l2vni_fq_irt_node *fq_irt;
-		struct bgp_evpn_l2vni_wildcard_irt_node *wildcard_irt;
+		struct bgp_evpn_l2vni_exact_match_import_rt_node *exact_match_import_rt;
+		struct bgp_evpn_l2vni_wildcard_import_rt_node *wildcard_import_rt;
 		/* import rts for l3vni */
-		struct bgp_evpn_vrf_fq_irt_node *vrf_fq_irt;
-		struct bgp_evpn_vrf_wildcard_irt_node *vrf_wildcard_irt;
+		struct bgp_evpn_vrf_exact_match_import_rt_node *vrf_exact_match_import_rt;
+		struct bgp_evpn_vrf_wildcard_import_rt_node *vrf_wildcard_import_rt;
 		struct bgp_evpn_es *es;
 
 		/* Only deal with RTs */
@@ -5258,31 +5280,38 @@ static int bgp_evpn_install_uninstall_table(struct bgp *bgp, afi_t afi, safi_t s
 		    evp->prefix.route_type == BGP_EVPN_AD_ROUTE ||
 		    evp->prefix.route_type == BGP_EVPN_IP_PREFIX_ROUTE) {
 			if (evp->prefix.route_type != BGP_EVPN_IP_PREFIX_ROUTE) {
-				fq_irt = (in_vni_rt && !pure_l3)
-						 ? bgp_evpn_lookup_l2vni_fq_irt_node(bgp, eval)
+				exact_match_import_rt = (in_vni_rt && !pure_l3)
+						 ? bgp_evpn_lookup_l2vni_exact_match_import_rt(bgp, eval)
 						 : NULL;
-				if (fq_irt)
+				if (exact_match_import_rt)
 					install_uninstall_route_in_vnis(bgp, afi, safi, evp, pi,
-									fq_irt->vnis, import);
+								exact_match_import_rt->vnis, import);
 			}
 
-			if (evp->prefix.route_type != BGP_EVPN_AD_ROUTE &&
-			    evp->prefix.route_type != BGP_EVPN_IMET_ROUTE) {
+			if (evp->prefix.route_type == BGP_EVPN_AD_ROUTE) {
+				vrf_exact_match_import_rt =
+					in_vrf_rt ? bgp_evpn_lookup_vrf_exact_match_import_rt(bgp_get_evpn(),
+										    eval)
+						  : NULL;
+				if (vrf_exact_match_import_rt)
+					bgp_evpn_ip_ead_install_uninstall(
+						evp, pi, vrf_exact_match_import_rt->vrfs, import);
+			} else if (evp->prefix.route_type != BGP_EVPN_IMET_ROUTE) {
 				/* The VRF import RT tables live on the EVPN
 				 * instance, which is not necessarily the
 				 * owner of the table this route sits in.
 				 */
-				vrf_fq_irt =
-					in_vrf_rt ? bgp_evpn_lookup_vrf_fq_irt_node(bgp_get_evpn(),
-										    eval)
+				vrf_exact_match_import_rt =
+					in_vrf_rt ? bgp_evpn_lookup_vrf_exact_match_import_rt(bgp_get_evpn(),
+									    eval)
 						  : NULL;
-				if (vrf_fq_irt && pure_l3)
+				if (vrf_exact_match_import_rt && pure_l3)
 					bgp_evpn_l3vni_neigh_install_uninstall(evp, pi,
-									       vrf_fq_irt->vrfs,
+									       vrf_exact_match_import_rt->vrfs,
 									       import, sync_gen);
-				else if (vrf_fq_irt)
+				else if (vrf_exact_match_import_rt)
 					install_uninstall_route_in_vrfs(bgp, afi, safi, evp, pi,
-									vrf_fq_irt->vrfs, import);
+									vrf_exact_match_import_rt->vrfs, import);
 			}
 
 			/* Also check for a wildcard (non-exact) match, on
@@ -5290,30 +5319,35 @@ static int bgp_evpn_install_uninstall_table(struct bgp *bgp, afi_t afi, safi_t s
 			 * facilitate using VNI as the RT for EBGP peering
 			 * too.
 			 */
-			wildcard_irt = NULL;
-			vrf_wildcard_irt = NULL;
+			wildcard_import_rt = NULL;
+			vrf_wildcard_import_rt = NULL;
 			if (bgp_evpn_wildcard_rt_local_admin_from_eval(type, eval,
 								       &local_admin_nbo)) {
 				if (in_vni_rt && !pure_l3)
-					wildcard_irt =
-						bgp_evpn_lookup_l2vni_wildcard_irt_node(bgp,
+					wildcard_import_rt =
+						bgp_evpn_lookup_l2vni_wildcard_import_rt(bgp,
 											local_admin_nbo);
 				if (in_vrf_rt)
-					vrf_wildcard_irt =
-						bgp_evpn_lookup_vrf_wildcard_irt_node(bgp_get_evpn(),
-										      local_admin_nbo);
+					vrf_wildcard_import_rt =
+						bgp_evpn_lookup_vrf_wildcard_import_rt(bgp_get_evpn(),
+									      local_admin_nbo);
 			}
 
-			if (wildcard_irt)
+			if (wildcard_import_rt)
 				install_uninstall_route_in_vnis(bgp, afi, safi, evp, pi,
-								wildcard_irt->vnis, import);
-			if (vrf_wildcard_irt && pure_l3)
+								wildcard_import_rt->vnis, import);
+			if (evp->prefix.route_type == BGP_EVPN_AD_ROUTE) {
+				if (vrf_wildcard_import_rt)
+					bgp_evpn_ip_ead_install_uninstall(evp, pi,
+									 vrf_wildcard_import_rt->vrfs,
+									 import);
+			} else if (vrf_wildcard_import_rt && pure_l3)
 				bgp_evpn_l3vni_neigh_install_uninstall(evp, pi,
-								       vrf_wildcard_irt->vrfs,
+								       vrf_wildcard_import_rt->vrfs,
 								       import, sync_gen);
-			else if (vrf_wildcard_irt)
+			else if (vrf_wildcard_import_rt)
 				install_uninstall_route_in_vrfs(bgp, afi, safi, evp, pi,
-								vrf_wildcard_irt->vrfs, import);
+								vrf_wildcard_import_rt->vrfs, import);
 		}
 
 		/* es route is imported into the es table */
@@ -6676,7 +6710,7 @@ static void bgp_evpn_handle_export_rt_change_for_vrf(struct bgp *bgp_vrf)
 		update_routes_for_vni(bgp_evpn, vpn);
 
 	/* refresh IP A-D per-EVI and per-ES RTs */
-	bgp_evpn_es_vrf_ipad_update(bgp_vrf);
+	bgp_evpn_es_vrf_ip_ead_update(bgp_vrf);
 }
 
 /*
@@ -7423,10 +7457,10 @@ void bgp_evpn_handle_vrf_rd_change(struct bgp *bgp_vrf, int withdraw)
 {
 	if (withdraw) {
 		delete_withdraw_vrf_routes(bgp_vrf);
-		bgp_evpn_es_vrf_ipad_withdraw(bgp_vrf);
+		bgp_evpn_es_vrf_ip_ead_withdraw(bgp_vrf);
 	} else {
 		update_advertise_vrf_routes(bgp_vrf);
-		bgp_evpn_es_vrf_ipad_update(bgp_vrf);
+		bgp_evpn_es_vrf_ip_ead_update(bgp_vrf);
 	}
 }
 
@@ -7876,8 +7910,8 @@ void bgp_evpn_map_vrf_to_its_rts(struct bgp *bgp_vrf)
 	struct bgp *bgp_evpn;
 	struct bgp_evpn_effective_wildcard_rt *wildcard_rt;
 	struct bgp_evpn_effective_fq_rt *fq_rt;
-	struct bgp_evpn_vrf_wildcard_irt_node *wildcard_irt;
-	struct bgp_evpn_vrf_fq_irt_node *fq_irt;
+	struct bgp_evpn_vrf_wildcard_import_rt_node *wildcard_import_rt;
+	struct bgp_evpn_vrf_exact_match_import_rt_node *exact_match_import_rt;
 
 	bgp_evpn = bgp_get_evpn();
 	if (!bgp_evpn) {
@@ -7890,30 +7924,33 @@ void bgp_evpn_map_vrf_to_its_rts(struct bgp *bgp_vrf)
 		/* Wildcard route targets are matched on the local admin
 		 * value alone.
 		 */
-		wildcard_irt = bgp_evpn_lookup_vrf_wildcard_irt_node(bgp_evpn,
+		wildcard_import_rt = bgp_evpn_lookup_vrf_wildcard_import_rt(bgp_evpn,
 								     wildcard_rt->local_admin_nbo);
-		if (wildcard_irt && listnode_lookup(wildcard_irt->vrfs, bgp_vrf))
+		if (wildcard_import_rt && listnode_lookup(wildcard_import_rt->vrfs, bgp_vrf))
 			continue; /* Already mapped. */
 
-		if (!wildcard_irt)
-			wildcard_irt =
-				bgp_evpn_vrf_wildcard_irt_node_new(bgp_evpn,
+		if (!wildcard_import_rt)
+			wildcard_import_rt =
+				bgp_evpn_vrf_wildcard_import_rt_node_new(bgp_evpn,
 								   wildcard_rt->local_admin_nbo);
 
 		/* Add VRF to the list for this RT. */
-		listnode_add(wildcard_irt->vrfs, bgp_vrf);
+		listnode_add(wildcard_import_rt->vrfs, bgp_vrf);
 	}
 
 	frr_each (bgp_evpn_effective_fq_rt_slu, &bgp_vrf->effective_fq_import_rts, fq_rt) {
-		fq_irt = bgp_evpn_lookup_vrf_fq_irt_node(bgp_evpn, &fq_rt->ecom_val);
-		if (fq_irt && listnode_lookup(fq_irt->vrfs, bgp_vrf))
+		exact_match_import_rt =
+			bgp_evpn_lookup_vrf_exact_match_import_rt(bgp_evpn, &fq_rt->ecom_val);
+		if (exact_match_import_rt && listnode_lookup(exact_match_import_rt->vrfs, bgp_vrf))
 			continue; /* Already mapped. */
 
-		if (!fq_irt)
-			fq_irt = bgp_evpn_vrf_fq_irt_node_new(bgp_evpn, &fq_rt->ecom_val);
+		if (!exact_match_import_rt)
+			exact_match_import_rt =
+				bgp_evpn_vrf_exact_match_import_rt_node_new(bgp_evpn,
+									   &fq_rt->ecom_val);
 
 		/* Add VRF to the list for this RT. */
-		listnode_add(fq_irt->vrfs, bgp_vrf);
+		listnode_add(exact_match_import_rt->vrfs, bgp_vrf);
 	}
 }
 
@@ -7926,8 +7963,8 @@ void bgp_evpn_unmap_vrf_from_its_rts(struct bgp *bgp_vrf)
 	struct bgp *bgp_evpn;
 	struct bgp_evpn_effective_wildcard_rt *wildcard_rt;
 	struct bgp_evpn_effective_fq_rt *fq_rt;
-	struct bgp_evpn_vrf_wildcard_irt_node *wildcard_irt;
-	struct bgp_evpn_vrf_fq_irt_node *fq_irt;
+	struct bgp_evpn_vrf_wildcard_import_rt_node *wildcard_import_rt;
+	struct bgp_evpn_vrf_exact_match_import_rt_node *exact_match_import_rt;
 
 	bgp_evpn = bgp_get_evpn();
 	if (!bgp_evpn) {
@@ -7940,28 +7977,30 @@ void bgp_evpn_unmap_vrf_from_its_rts(struct bgp *bgp_vrf)
 		/* Wildcard route targets are matched on the local admin
 		 * value alone.
 		 */
-		wildcard_irt = bgp_evpn_lookup_vrf_wildcard_irt_node(bgp_evpn,
+		wildcard_import_rt = bgp_evpn_lookup_vrf_wildcard_import_rt(bgp_evpn,
 								     wildcard_rt->local_admin_nbo);
-		if (!wildcard_irt)
+		if (!wildcard_import_rt)
 			continue; /* Not mapped */
 
 		/* Delete VRF from list for this RT. */
-		listnode_delete(wildcard_irt->vrfs, bgp_vrf);
+		listnode_delete(wildcard_import_rt->vrfs, bgp_vrf);
 
-		if (!listnode_head(wildcard_irt->vrfs))
-			bgp_evpn_vrf_wildcard_irt_node_free(bgp_evpn, wildcard_irt);
+		if (!listnode_head(wildcard_import_rt->vrfs))
+			bgp_evpn_vrf_wildcard_import_rt_node_free(bgp_evpn, wildcard_import_rt);
 	}
 
 	frr_each (bgp_evpn_effective_fq_rt_slu, &bgp_vrf->effective_fq_import_rts, fq_rt) {
-		fq_irt = bgp_evpn_lookup_vrf_fq_irt_node(bgp_evpn, &fq_rt->ecom_val);
-		if (!fq_irt)
+		exact_match_import_rt =
+			bgp_evpn_lookup_vrf_exact_match_import_rt(bgp_evpn, &fq_rt->ecom_val);
+		if (!exact_match_import_rt)
 			continue; /* Not mapped */
 
 		/* Delete VRF from list for this RT. */
-		listnode_delete(fq_irt->vrfs, bgp_vrf);
+		listnode_delete(exact_match_import_rt->vrfs, bgp_vrf);
 
-		if (!listnode_head(fq_irt->vrfs))
-			bgp_evpn_vrf_fq_irt_node_free(bgp_evpn, fq_irt);
+		if (!listnode_head(exact_match_import_rt->vrfs))
+			bgp_evpn_vrf_exact_match_import_rt_node_free(bgp_evpn,
+								    exact_match_import_rt);
 	}
 }
 
@@ -7973,8 +8012,8 @@ void bgp_evpn_map_vni_to_its_rts(struct bgp *bgp, struct bgpevpn *vpn)
 {
 	struct bgp_evpn_effective_wildcard_rt *wildcard_rt;
 	struct bgp_evpn_effective_fq_rt *fq_rt;
-	struct bgp_evpn_l2vni_wildcard_irt_node *wildcard_irt;
-	struct bgp_evpn_l2vni_fq_irt_node *fq_irt;
+	struct bgp_evpn_l2vni_wildcard_import_rt_node *wildcard_import_rt;
+	struct bgp_evpn_l2vni_exact_match_import_rt_node *exact_match_import_rt;
 
 	frr_each (bgp_evpn_effective_wildcard_rt_slu, &vpn->effective_wildcard_import_rts,
 		  wildcard_rt) {
@@ -7982,30 +8021,33 @@ void bgp_evpn_map_vni_to_its_rts(struct bgp *bgp, struct bgpevpn *vpn)
 		 * value alone. This is to facilitate using VNI as the RT
 		 * for EBGP peering too.
 		 */
-		wildcard_irt =
-			bgp_evpn_lookup_l2vni_wildcard_irt_node(bgp, wildcard_rt->local_admin_nbo);
-		if (wildcard_irt && listnode_lookup(wildcard_irt->vnis, vpn))
+		wildcard_import_rt =
+			bgp_evpn_lookup_l2vni_wildcard_import_rt(bgp, wildcard_rt->local_admin_nbo);
+		if (wildcard_import_rt && listnode_lookup(wildcard_import_rt->vnis, vpn))
 			continue; /* Already mapped. */
 
-		if (!wildcard_irt)
-			wildcard_irt =
-				bgp_evpn_l2vni_wildcard_irt_node_new(bgp,
+		if (!wildcard_import_rt)
+			wildcard_import_rt =
+				bgp_evpn_l2vni_wildcard_import_rt_node_new(bgp,
 								     wildcard_rt->local_admin_nbo);
 
 		/* Add VNI to the hash list for this RT. */
-		listnode_add(wildcard_irt->vnis, vpn);
+		listnode_add(wildcard_import_rt->vnis, vpn);
 	}
 
 	frr_each (bgp_evpn_effective_fq_rt_slu, &vpn->effective_fq_import_rts, fq_rt) {
-		fq_irt = bgp_evpn_lookup_l2vni_fq_irt_node(bgp, &fq_rt->ecom_val);
-		if (fq_irt && listnode_lookup(fq_irt->vnis, vpn))
+		exact_match_import_rt =
+			bgp_evpn_lookup_l2vni_exact_match_import_rt(bgp, &fq_rt->ecom_val);
+		if (exact_match_import_rt && listnode_lookup(exact_match_import_rt->vnis, vpn))
 			continue; /* Already mapped. */
 
-		if (!fq_irt)
-			fq_irt = bgp_evpn_l2vni_fq_irt_node_new(bgp, &fq_rt->ecom_val);
+		if (!exact_match_import_rt)
+			exact_match_import_rt =
+				bgp_evpn_l2vni_exact_match_import_rt_node_new(bgp,
+									     &fq_rt->ecom_val);
 
 		/* Add VNI to the hash list for this RT. */
-		listnode_add(fq_irt->vnis, vpn);
+		listnode_add(exact_match_import_rt->vnis, vpn);
 	}
 }
 
@@ -8017,36 +8059,38 @@ void bgp_evpn_unmap_vni_from_its_rts(struct bgp *bgp, struct bgpevpn *vpn)
 {
 	struct bgp_evpn_effective_wildcard_rt *wildcard_rt;
 	struct bgp_evpn_effective_fq_rt *fq_rt;
-	struct bgp_evpn_l2vni_wildcard_irt_node *wildcard_irt;
-	struct bgp_evpn_l2vni_fq_irt_node *fq_irt;
+	struct bgp_evpn_l2vni_wildcard_import_rt_node *wildcard_import_rt;
+	struct bgp_evpn_l2vni_exact_match_import_rt_node *exact_match_import_rt;
 
 	frr_each (bgp_evpn_effective_wildcard_rt_slu, &vpn->effective_wildcard_import_rts,
 		  wildcard_rt) {
 		/* Wildcard route targets are matched on the local admin
 		 * value alone.
 		 */
-		wildcard_irt =
-			bgp_evpn_lookup_l2vni_wildcard_irt_node(bgp, wildcard_rt->local_admin_nbo);
-		if (!wildcard_irt)
+		wildcard_import_rt =
+			bgp_evpn_lookup_l2vni_wildcard_import_rt(bgp, wildcard_rt->local_admin_nbo);
+		if (!wildcard_import_rt)
 			continue; /* Not mapped */
 
 		/* Delete VNI from list for this RT. */
-		listnode_delete(wildcard_irt->vnis, vpn);
+		listnode_delete(wildcard_import_rt->vnis, vpn);
 
-		if (!listnode_head(wildcard_irt->vnis))
-			bgp_evpn_l2vni_wildcard_irt_node_free(bgp, wildcard_irt);
+		if (!listnode_head(wildcard_import_rt->vnis))
+			bgp_evpn_l2vni_wildcard_import_rt_node_free(bgp, wildcard_import_rt);
 	}
 
 	frr_each (bgp_evpn_effective_fq_rt_slu, &vpn->effective_fq_import_rts, fq_rt) {
-		fq_irt = bgp_evpn_lookup_l2vni_fq_irt_node(bgp, &fq_rt->ecom_val);
-		if (!fq_irt)
+		exact_match_import_rt =
+			bgp_evpn_lookup_l2vni_exact_match_import_rt(bgp, &fq_rt->ecom_val);
+		if (!exact_match_import_rt)
 			continue; /* Not mapped */
 
 		/* Delete VNI from list for this RT. */
-		listnode_delete(fq_irt->vnis, vpn);
+		listnode_delete(exact_match_import_rt->vnis, vpn);
 
-		if (!listnode_head(fq_irt->vnis))
-			bgp_evpn_l2vni_fq_irt_node_free(bgp, fq_irt);
+		if (!listnode_head(exact_match_import_rt->vnis))
+			bgp_evpn_l2vni_exact_match_import_rt_node_free(bgp,
+								      exact_match_import_rt);
 	}
 }
 
@@ -9120,7 +9164,7 @@ int bgp_evpn_local_l3vni_add(vni_t l3vni, vrf_id_t vrf_id, struct ethaddr *svi_r
 	bgp_evpn_es_l3evi_vrf_update(bgp_vrf, true);
 
 	/* RMAC / L3VNI / RD change: refresh IP A-D per-EVI */
-	bgp_evpn_es_vrf_ipad_update(bgp_vrf);
+	bgp_evpn_es_vrf_ip_ead_update(bgp_vrf);
 
 	return 0;
 }
@@ -9487,10 +9531,10 @@ void bgp_evpn_cleanup_on_disable(struct bgp *bgp)
  */
 void bgp_evpn_cleanup(struct bgp *bgp)
 {
-	struct bgp_evpn_l2vni_fq_irt_node *l2vni_fq_irt;
-	struct bgp_evpn_l2vni_wildcard_irt_node *l2vni_wildcard_irt;
-	struct bgp_evpn_vrf_fq_irt_node *vrf_fq_irt;
-	struct bgp_evpn_vrf_wildcard_irt_node *vrf_wildcard_irt;
+	struct bgp_evpn_l2vni_exact_match_import_rt_node *l2vni_exact_match_import_rt;
+	struct bgp_evpn_l2vni_wildcard_import_rt_node *l2vni_wildcard_import_rt;
+	struct bgp_evpn_vrf_exact_match_import_rt_node *vrf_exact_match_import_rt;
+	struct bgp_evpn_vrf_wildcard_import_rt_node *vrf_wildcard_import_rt;
 
 	/* Guard against double-call during termination */
 	if (!bgp->vnihash)
@@ -9498,30 +9542,33 @@ void bgp_evpn_cleanup(struct bgp *bgp)
 
 	hash_iterate(bgp->vnihash, (void (*)(struct hash_bucket *, void *))free_vni_entry, bgp);
 
-	while ((l2vni_fq_irt = bgp_evpn_l2vni_fq_irt_pop(&bgp->l2vni_fq_irt_nodes))) {
-		list_delete(&l2vni_fq_irt->vnis);
-		XFREE(MTYPE_BGP_EVPN_L2VNI_FQ_IRT_NODE, l2vni_fq_irt);
+	while ((l2vni_exact_match_import_rt = bgp_evpn_l2vni_exact_match_import_rt_pop(
+			&bgp->l2vni_exact_match_import_rt_nodes))) {
+		list_delete(&l2vni_exact_match_import_rt->vnis);
+		XFREE(MTYPE_BGP_EVPN_L2VNI_EXACT_MATCH_IMPORT_RT_NODE, l2vni_exact_match_import_rt);
 	}
-	bgp_evpn_l2vni_fq_irt_fini(&bgp->l2vni_fq_irt_nodes);
+	bgp_evpn_l2vni_exact_match_import_rt_fini(&bgp->l2vni_exact_match_import_rt_nodes);
 
-	while ((l2vni_wildcard_irt =
-			bgp_evpn_l2vni_wildcard_irt_pop(&bgp->l2vni_wildcard_irt_nodes))) {
-		list_delete(&l2vni_wildcard_irt->vnis);
-		XFREE(MTYPE_BGP_EVPN_L2VNI_WILDCARD_IRT_NODE, l2vni_wildcard_irt);
+	while ((l2vni_wildcard_import_rt =
+			bgp_evpn_l2vni_wildcard_import_rt_pop(&bgp->l2vni_wildcard_import_rt_nodes))) {
+		list_delete(&l2vni_wildcard_import_rt->vnis);
+		XFREE(MTYPE_BGP_EVPN_L2VNI_WILDCARD_IMPORT_RT_NODE, l2vni_wildcard_import_rt);
 	}
-	bgp_evpn_l2vni_wildcard_irt_fini(&bgp->l2vni_wildcard_irt_nodes);
+	bgp_evpn_l2vni_wildcard_import_rt_fini(&bgp->l2vni_wildcard_import_rt_nodes);
 
-	while ((vrf_fq_irt = bgp_evpn_vrf_fq_irt_pop(&bgp->vrf_fq_irt_nodes))) {
-		list_delete(&vrf_fq_irt->vrfs);
-		XFREE(MTYPE_BGP_EVPN_VRF_FQ_IRT_NODE, vrf_fq_irt);
+	while ((vrf_exact_match_import_rt = bgp_evpn_vrf_exact_match_import_rt_pop(
+			&bgp->vrf_exact_match_import_rt_nodes))) {
+		list_delete(&vrf_exact_match_import_rt->vrfs);
+		XFREE(MTYPE_BGP_EVPN_VRF_EXACT_MATCH_IMPORT_RT_NODE, vrf_exact_match_import_rt);
 	}
-	bgp_evpn_vrf_fq_irt_fini(&bgp->vrf_fq_irt_nodes);
+	bgp_evpn_vrf_exact_match_import_rt_fini(&bgp->vrf_exact_match_import_rt_nodes);
 
-	while ((vrf_wildcard_irt = bgp_evpn_vrf_wildcard_irt_pop(&bgp->vrf_wildcard_irt_nodes))) {
-		list_delete(&vrf_wildcard_irt->vrfs);
-		XFREE(MTYPE_BGP_EVPN_VRF_WILDCARD_IRT_NODE, vrf_wildcard_irt);
+	while ((vrf_wildcard_import_rt = bgp_evpn_vrf_wildcard_import_rt_pop(
+			&bgp->vrf_wildcard_import_rt_nodes))) {
+		list_delete(&vrf_wildcard_import_rt->vrfs);
+		XFREE(MTYPE_BGP_EVPN_VRF_WILDCARD_IMPORT_RT_NODE, vrf_wildcard_import_rt);
 	}
-	bgp_evpn_vrf_wildcard_irt_fini(&bgp->vrf_wildcard_irt_nodes);
+	bgp_evpn_vrf_wildcard_import_rt_fini(&bgp->vrf_wildcard_import_rt_nodes);
 
 	hash_clean_and_free(&bgp->vni_svi_hash, (void (*)(void *))hash_evpn_free);
 
@@ -9563,10 +9610,10 @@ void bgp_evpn_init(struct bgp *bgp)
 	bgp->vnihash = hash_create(vni_hash_key_make, vni_hash_cmp, "BGP VNI Hash");
 	bgp->vni_svi_hash = hash_create(vni_svi_hash_key_make, vni_svi_hash_cmp,
 					"BGP VNI hash based on SVI ifindex");
-	bgp_evpn_l2vni_fq_irt_init(&bgp->l2vni_fq_irt_nodes);
-	bgp_evpn_l2vni_wildcard_irt_init(&bgp->l2vni_wildcard_irt_nodes);
-	bgp_evpn_vrf_fq_irt_init(&bgp->vrf_fq_irt_nodes);
-	bgp_evpn_vrf_wildcard_irt_init(&bgp->vrf_wildcard_irt_nodes);
+	bgp_evpn_l2vni_exact_match_import_rt_init(&bgp->l2vni_exact_match_import_rt_nodes);
+	bgp_evpn_l2vni_wildcard_import_rt_init(&bgp->l2vni_wildcard_import_rt_nodes);
+	bgp_evpn_vrf_exact_match_import_rt_init(&bgp->vrf_exact_match_import_rt_nodes);
+	bgp_evpn_vrf_wildcard_import_rt_init(&bgp->vrf_wildcard_import_rt_nodes);
 	bgp->vrf_route_target_config = bgp_evpn_rt_config_new();
 	bgp_evpn_effective_wildcard_rt_slu_init(&bgp->effective_wildcard_import_rts);
 	bgp_evpn_effective_fq_rt_slu_init(&bgp->effective_fq_import_rts);

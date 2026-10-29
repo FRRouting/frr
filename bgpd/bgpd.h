@@ -589,10 +589,10 @@ PREDECL_SORTLIST_UNIQ(bgp_evpn_effective_wildcard_rt_slu);
 PREDECL_SORTLIST_UNIQ(bgp_evpn_effective_fq_rt_slu);
 
 /* EVPN import route-target hash tables (see bgp_evpn_private.h) */
-PREDECL_HASH(bgp_evpn_l2vni_fq_irt);
-PREDECL_HASH(bgp_evpn_l2vni_wildcard_irt);
-PREDECL_HASH(bgp_evpn_vrf_fq_irt);
-PREDECL_HASH(bgp_evpn_vrf_wildcard_irt);
+PREDECL_HASH(bgp_evpn_l2vni_exact_match_import_rt);
+PREDECL_HASH(bgp_evpn_l2vni_wildcard_import_rt);
+PREDECL_HASH(bgp_evpn_vrf_exact_match_import_rt);
+PREDECL_HASH(bgp_evpn_vrf_wildcard_import_rt);
 
 /* BGP instance structure.  */
 struct bgp {
@@ -1017,6 +1017,11 @@ struct bgp {
 	 */
 	uint32_t l3vni_neigh_sync_walk;
 
+	/* Per-route stamp so each matching VRF's IP A-D is classified once
+	 * across all of its import RTs.
+	 */
+	uint32_t ip_ead_walk;
+
 	/* draft-ietf-idr-deprecate-as-set-confed-set
 	 * Reject aspaths with AS_SET and/or AS_CONFED_SET.
 	 */
@@ -1033,15 +1038,13 @@ struct bgp {
 	 */
 	enum vxlan_flood_control vxlan_flood_ctrl;
 
-	/* Hash tables of fully qualified and wildcard import RTs to VNIs */
-	struct bgp_evpn_l2vni_fq_irt_head l2vni_fq_irt_nodes;
-	struct bgp_evpn_l2vni_wildcard_irt_head l2vni_wildcard_irt_nodes;
+	/* Hash tables of exact-match and wildcard import RTs to VNIs */
+	struct bgp_evpn_l2vni_exact_match_import_rt_head l2vni_exact_match_import_rt_nodes;
+	struct bgp_evpn_l2vni_wildcard_import_rt_head l2vni_wildcard_import_rt_nodes;
 
-	/* Hash tables of fully qualified and wildcard VRF import RTs to
-	 * VRFs
-	 */
-	struct bgp_evpn_vrf_fq_irt_head vrf_fq_irt_nodes;
-	struct bgp_evpn_vrf_wildcard_irt_head vrf_wildcard_irt_nodes;
+	/* Hash tables of exact-match and wildcard VRF import RTs to VRFs */
+	struct bgp_evpn_vrf_exact_match_import_rt_head vrf_exact_match_import_rt_nodes;
+	struct bgp_evpn_vrf_wildcard_import_rt_head vrf_wildcard_import_rt_nodes;
 
 	/* L3-VNI corresponding to this vrf */
 	vni_t l3vni;

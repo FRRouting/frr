@@ -16,6 +16,7 @@
 #include "lib/typesafe.h"
 
 PREDECL_DLIST(bgp_evpn_es_vrf_frag);
+PREDECL_DLIST(bgp_evpn_es_vrf_vtep_list);
 
 #define BGP_EVPN_AD_ES_ETH_TAG 0xffffffff
 #define BGP_EVPN_AD_EVI_ETH_TAG 0
@@ -222,8 +223,29 @@ struct bgp_evpn_es_vrf {
 	/* Local IP A-D per-EVI (type-1) for this (ES, IP-VRF) */
 	struct bgp_table *route_table;
 	/* RD used when the route was exported to the global table */
-	struct prefix_rd ipad_prd;
-	bool ipad_prd_set;
+	struct prefix_rd ip_ead_prd;
+	bool ip_ead_prd_set;
+
+	/* Remote IP A-D state, one entry per peer VTEP */
+	struct bgp_evpn_es_vrf_vtep_list_head es_vrf_vtep_list;
+	uint32_t ip_ead_drop_label;
+	uint32_t ip_ead_drop_rmac;
+};
+
+/* Peer VTEP that advertised IP A-D (type-1) matching this IP-VRF */
+struct bgp_evpn_es_vrf_vtep {
+	struct bgp_evpn_es_vrf *es_vrf;
+	struct ipaddr vtep_ip;
+
+	uint32_t flags;
+#define BGP_EVPN_ES_VRF_VTEP_IP_EAD_EVI (1 << 0)
+#define BGP_EVPN_ES_VRF_VTEP_IP_EAD_ES  (1 << 1)
+
+	uint32_t evi_ref;
+	uint32_t es_ref;
+	struct ethaddr rmac;
+
+	struct bgp_evpn_es_vrf_vtep_list_item es_vrf_item;
 };
 
 /* Local ES to IP-VRF association received from zebra as an ES-EVI with
@@ -445,8 +467,14 @@ extern int bgp_evpn_mh_route_update(struct bgp *bgp, struct bgp_evpn_es *es,
 				    struct bgp_dest *dest, struct attr *attr,
 				    struct bgp_path_info **ri,
 				    int *route_changed);
-extern void bgp_evpn_es_vrf_ipad_update(struct bgp *bgp_vrf);
-extern void bgp_evpn_es_vrf_ipad_withdraw(struct bgp *bgp_vrf);
+extern void bgp_evpn_es_vrf_ip_ead_update(struct bgp *bgp_vrf);
+extern void bgp_evpn_es_vrf_ip_ead_withdraw(struct bgp *bgp_vrf);
+extern void bgp_evpn_ip_ead_install_uninstall(struct prefix_evpn *evp, struct bgp_path_info *pi,
+					     struct list *vrfs, int import);
+extern void bgp_evpn_ip_ead_process(struct bgp *bgp_vrf, struct prefix_evpn *evp,
+				   struct bgp_path_info *pi, int import);
+extern void bgp_evpn_ip_ead_reimport(void);
+extern void bgp_evpn_ip_ead_flush_all(void);
 int bgp_evpn_type1_route_process(struct peer *peer, afi_t afi, safi_t safi,
 		struct attr *attr, uint8_t *pfx, int psize,
 		uint32_t addpath_id);

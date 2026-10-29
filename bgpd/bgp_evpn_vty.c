@@ -154,29 +154,30 @@ static void display_import_rt_vrfs(struct vty *vty, struct list *vrfs, const cha
 /* Display one fully-qualified VRF (L3VNI) import route-target and the VRFs
  * importing routes that match it.
  */
-static void display_vrf_import_rt(struct vty *vty, struct bgp_evpn_vrf_fq_irt_node *irt,
+static void display_vrf_import_rt(struct vty *vty,
+				  struct bgp_evpn_vrf_exact_match_import_rt_node *import_rt,
 				  json_object *json)
 {
 	char rt_buf[RT_ADDRSTRLEN];
 
-	if (!evpn_format_rt(&irt->rt, rt_buf, sizeof(rt_buf)))
+	if (!evpn_format_rt(&import_rt->rt, rt_buf, sizeof(rt_buf)))
 		return;
 
-	display_import_rt_vrfs(vty, irt->vrfs, rt_buf, json);
+	display_import_rt_vrfs(vty, import_rt->vrfs, rt_buf, json);
 }
 
 /* Display one wildcard VRF (L3VNI) import route-target (matched on local-admin
  * only) and the VRFs importing routes that match it.
  */
 static void display_vrf_wildcard_import_rt(struct vty *vty,
-					   struct bgp_evpn_vrf_wildcard_irt_node *irt,
+					   struct bgp_evpn_vrf_wildcard_import_rt_node *import_rt,
 					   json_object *json)
 {
 	char rt_buf[RT_ADDRSTRLEN];
 
-	bgp_evpn_format_wildcard_rt_local_admin(rt_buf, sizeof(rt_buf), irt->local_admin_nbo);
+	bgp_evpn_format_wildcard_rt_local_admin(rt_buf, sizeof(rt_buf), import_rt->local_admin_nbo);
 
-	display_import_rt_vrfs(vty, irt->vrfs, rt_buf, json);
+	display_import_rt_vrfs(vty, import_rt->vrfs, rt_buf, json);
 }
 
 /* Display the list of VNIs importing routes matching one route-target,
@@ -215,29 +216,30 @@ static void display_import_rt_l2vnis(struct vty *vty, struct list *vnis, const c
 /* Display one fully-qualified L2VNI import route-target and the VNIs importing
  * routes that match it.
  */
-static void display_l2vni_import_rt(struct vty *vty, struct bgp_evpn_l2vni_fq_irt_node *irt,
+static void display_l2vni_import_rt(struct vty *vty,
+				    struct bgp_evpn_l2vni_exact_match_import_rt_node *import_rt,
 				    json_object *json)
 {
 	char rt_buf[RT_ADDRSTRLEN];
 
-	if (!evpn_format_rt(&irt->rt, rt_buf, sizeof(rt_buf)))
+	if (!evpn_format_rt(&import_rt->rt, rt_buf, sizeof(rt_buf)))
 		return;
 
-	display_import_rt_l2vnis(vty, irt->vnis, rt_buf, json);
+	display_import_rt_l2vnis(vty, import_rt->vnis, rt_buf, json);
 }
 
 /* Display one wildcard L2VNI import route-target (matched on local-admin only)
  * and the VNIs importing routes that match it.
  */
 static void display_l2vni_wildcard_import_rt(struct vty *vty,
-					     struct bgp_evpn_l2vni_wildcard_irt_node *irt,
+					     struct bgp_evpn_l2vni_wildcard_import_rt_node *import_rt,
 					     json_object *json)
 {
 	char rt_buf[RT_ADDRSTRLEN];
 
-	bgp_evpn_format_wildcard_rt_local_admin(rt_buf, sizeof(rt_buf), irt->local_admin_nbo);
+	bgp_evpn_format_wildcard_rt_local_admin(rt_buf, sizeof(rt_buf), import_rt->local_admin_nbo);
 
-	display_import_rt_l2vnis(vty, irt->vnis, rt_buf, json);
+	display_import_rt_l2vnis(vty, import_rt->vnis, rt_buf, json);
 }
 
 static void bgp_evpn_show_route_rd_header(struct vty *vty,
@@ -2353,15 +2355,17 @@ static void evpn_delete_vni(struct bgp *bgp, struct bgpevpn *vpn)
  */
 static void evpn_show_vrf_import_rts(struct vty *vty, struct bgp *bgp_evpn, json_object *json)
 {
-	struct bgp_evpn_vrf_fq_irt_node *fq_irt;
-	struct bgp_evpn_vrf_wildcard_irt_node *wildcard_irt;
+	struct bgp_evpn_vrf_exact_match_import_rt_node *exact_match_import_rt;
+	struct bgp_evpn_vrf_wildcard_import_rt_node *wildcard_import_rt;
 
 	/* Wildcard import RTs are shown before the fully-qualified ones. */
-	frr_each (bgp_evpn_vrf_wildcard_irt, &bgp_evpn->vrf_wildcard_irt_nodes, wildcard_irt)
-		display_vrf_wildcard_import_rt(vty, wildcard_irt, json);
+	frr_each (bgp_evpn_vrf_wildcard_import_rt, &bgp_evpn->vrf_wildcard_import_rt_nodes,
+		  wildcard_import_rt)
+		display_vrf_wildcard_import_rt(vty, wildcard_import_rt, json);
 
-	frr_each (bgp_evpn_vrf_fq_irt, &bgp_evpn->vrf_fq_irt_nodes, fq_irt)
-		display_vrf_import_rt(vty, fq_irt, json);
+	frr_each (bgp_evpn_vrf_exact_match_import_rt, &bgp_evpn->vrf_exact_match_import_rt_nodes,
+		  exact_match_import_rt)
+		display_vrf_import_rt(vty, exact_match_import_rt, json);
 }
 
 /*
@@ -2369,15 +2373,17 @@ static void evpn_show_vrf_import_rts(struct vty *vty, struct bgp *bgp_evpn, json
  */
 static void evpn_show_l2vni_import_rts(struct vty *vty, struct bgp *bgp, json_object *json)
 {
-	struct bgp_evpn_l2vni_fq_irt_node *fq_irt;
-	struct bgp_evpn_l2vni_wildcard_irt_node *wildcard_irt;
+	struct bgp_evpn_l2vni_exact_match_import_rt_node *exact_match_import_rt;
+	struct bgp_evpn_l2vni_wildcard_import_rt_node *wildcard_import_rt;
 
 	/* Wildcard import RTs are shown before the fully-qualified ones. */
-	frr_each (bgp_evpn_l2vni_wildcard_irt, &bgp->l2vni_wildcard_irt_nodes, wildcard_irt)
-		display_l2vni_wildcard_import_rt(vty, wildcard_irt, json);
+	frr_each (bgp_evpn_l2vni_wildcard_import_rt, &bgp->l2vni_wildcard_import_rt_nodes,
+		  wildcard_import_rt)
+		display_l2vni_wildcard_import_rt(vty, wildcard_import_rt, json);
 
-	frr_each (bgp_evpn_l2vni_fq_irt, &bgp->l2vni_fq_irt_nodes, fq_irt)
-		display_l2vni_import_rt(vty, fq_irt, json);
+	frr_each (bgp_evpn_l2vni_exact_match_import_rt, &bgp->l2vni_exact_match_import_rt_nodes,
+		  exact_match_import_rt)
+		display_l2vni_import_rt(vty, exact_match_import_rt, json);
 }
 
 /*
@@ -3676,6 +3682,7 @@ static void evpn_unset_advertise_subnet(struct bgp *bgp, struct bgpevpn *vpn)
 static void evpn_set_advertise_all_vni(struct bgp *bgp, bool l3vni_neigh)
 {
 	bool reimport = l3vni_neigh && !bgp->advertise_l3vni_neigh;
+	bool flush_ip_ead = !l3vni_neigh && bgp->advertise_l3vni_neigh;
 
 	bgp->advertise_all_vni = 1;
 	bgp->advertise_l3vni_neigh = l3vni_neigh;
@@ -3683,8 +3690,11 @@ static void evpn_set_advertise_all_vni(struct bgp *bgp, bool l3vni_neigh)
 	bgp_zebra_advertise_all_vni(bgp, bgp->advertise_all_vni);
 
 	/* After the zapi enable so zebra accepts the synced neighbors. */
-	if (reimport)
+	if (reimport) {
 		bgp_evpn_l3vni_neigh_reimport(NULL);
+		bgp_evpn_ip_ead_reimport();
+	} else if (flush_ip_ead)
+		bgp_evpn_ip_ead_flush_all();
 }
 
 /*
@@ -5257,12 +5267,15 @@ DEFPY(show_bgp_l2vpn_evpn_es,
 }
 
 DEFPY(show_bgp_l2vpn_evpn_es_vrf, show_bgp_l2vpn_evpn_es_vrf_cmd,
-      "show bgp l2vpn evpn es-vrf [NAME$esi_str] [json$uj]",
+      "show bgp l2vpn evpn es-vrf [NAME$esi_str] [detail$detail] [json$uj]",
       SHOW_STR BGP_STR L2VPN_HELP_STR EVPN_HELP_STR
       "Ethernet Segment\n"
-      "ES ID\n" JSON_STR)
+      "ES ID\n"
+      "Detailed information\n" JSON_STR)
 {
 	esi_t esi;
+
+	(void)detail;
 
 	if (esi_str) {
 		if (!str_to_esi(esi_str, &esi)) {
