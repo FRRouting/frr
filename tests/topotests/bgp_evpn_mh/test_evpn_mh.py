@@ -16,7 +16,6 @@ test_evpn_mh.py: Testing EVPN multihoming
 
 import os
 import sys
-import subprocess
 from functools import partial
 
 import pytest
@@ -34,6 +33,7 @@ sys.path.append(os.path.join(CWD, "../"))
 # Import topogen and topotest helpers
 from lib import topotest
 from lib.common_config import kill_router_daemons, start_router_daemons
+from lib.evpn import evpn_trigger_arp_scapy
 
 # Required to instantiate the topology builder class.
 from lib.topogen import Topogen, TopoRouter, get_topogen
@@ -758,25 +758,12 @@ def test_evpn_ead_update():
 def ping_anycast_gw(tgen):
     # ping the anycast gw from the local and remote hosts to populate
     # the mac address on the PEs
-    python3_path = tgen.net.get_exec_path(["python3", "python"])
-    script_path = os.path.abspath(os.path.join(CWD, "../lib/scapy_sendpkt.py"))
     intf = "torbond"
     ipaddr = "45.0.0.1"
-    ping_cmd = [
-        python3_path,
-        script_path,
-        "--imports=Ether,ARP",
-        "--interface=" + intf,
-        'Ether(dst="ff:ff:ff:ff:ff:ff")/ARP(pdst="{}")'.format(ipaddr),
-    ]
-    for name in ("hostd11", "hostd21", "hostd12", "hostd22"):
-        host = tgen.net.hosts[name]
-        _, stdout, _ = host.cmd_status(ping_cmd, warn=False, stderr=subprocess.STDOUT)
-        stdout = stdout.strip()
-        if stdout:
-            host.logger.debug(
-                "%s: arping on %s for %s returned: %s", name, intf, ipaddr, stdout
-            )
+    hosts = ("hostd11", "hostd21", "hostd12", "hostd22")
+
+    host_gateways = dict.fromkeys(hosts, ipaddr)
+    evpn_trigger_arp_scapy(tgen, host_gateways, interface=intf)
 
 
 def check_mac(dut, vni, mac, m_type, esi, intf, ping_gw=False, tgen=None):
