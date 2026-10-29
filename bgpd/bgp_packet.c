@@ -1833,6 +1833,7 @@ static int bgp_open_receive(struct peer_connection *connection, bgp_size_t size)
 	uint8_t notify_data_remote_as4[4];
 	uint8_t notify_data_remote_id[4];
 	uint8_t notify_data_holdtime[2];
+	uint16_t length = size + BGP_HEADER_SIZE;
 
 	/*
 	 * RFC 8654: the Extended Message capability never applies to OPEN.
@@ -1843,8 +1844,10 @@ static int bgp_open_receive(struct peer_connection *connection, bgp_size_t size)
 	if (size > BGP_STANDARD_MESSAGE_MAX_PACKET_SIZE - BGP_HEADER_SIZE) {
 		flog_err(EC_BGP_PKT_OPEN,
 			 "%s: OPEN message size (%u bytes) exceeds the standard maximum",
-			 peer->host, (unsigned int)(size + BGP_HEADER_SIZE));
-		bgp_notify_send(connection, BGP_NOTIFY_HEADER_ERR, BGP_NOTIFY_HEADER_BAD_MESLEN);
+			 peer->host, length);
+		length = htons(length);
+		bgp_notify_send_with_data(connection, BGP_NOTIFY_HEADER_ERR,
+					  BGP_NOTIFY_HEADER_BAD_MESLEN, (uint8_t *)&length, 2);
 		return BGP_Stop;
 	}
 
@@ -1852,7 +1855,9 @@ static int bgp_open_receive(struct peer_connection *connection, bgp_size_t size)
 	if (STREAM_READABLE(connection->curr) < BGP_OPEN_BODY_MIN_SIZE) {
 		flog_err(EC_BGP_PKT_OPEN, "%s: OPEN message too short (%zu bytes, need %u)",
 			 peer->host, STREAM_READABLE(connection->curr), BGP_OPEN_BODY_MIN_SIZE);
-		bgp_notify_send(connection, BGP_NOTIFY_HEADER_ERR, BGP_NOTIFY_HEADER_BAD_MESLEN);
+		length = htons(length);
+		bgp_notify_send_with_data(connection, BGP_NOTIFY_HEADER_ERR,
+					  BGP_NOTIFY_HEADER_BAD_MESLEN, (uint8_t *)&length, 2);
 		return BGP_Stop;
 	}
 
@@ -2282,6 +2287,7 @@ static int bgp_open_receive(struct peer_connection *connection, bgp_size_t size)
 static int bgp_keepalive_receive(struct peer_connection *connection, bgp_size_t size)
 {
 	struct peer *peer = connection->peer;
+	uint16_t length = size + BGP_HEADER_SIZE;
 
 	/*
 	 * RFC 8654: the Extended Message capability never applies to KEEPALIVE,
@@ -2291,8 +2297,10 @@ static int bgp_keepalive_receive(struct peer_connection *connection, bgp_size_t 
 	if (size > BGP_STANDARD_MESSAGE_MAX_PACKET_SIZE - BGP_HEADER_SIZE) {
 		flog_err(EC_BGP_KEEP_RCV,
 			 "%s: KEEPALIVE message size (%u bytes) exceeds the standard maximum",
-			 peer->host, (unsigned int)(size + BGP_HEADER_SIZE));
-		bgp_notify_send(connection, BGP_NOTIFY_HEADER_ERR, BGP_NOTIFY_HEADER_BAD_MESLEN);
+			 peer->host, length);
+		length = htons(length);
+		bgp_notify_send_with_data(connection, BGP_NOTIFY_HEADER_ERR,
+					  BGP_NOTIFY_HEADER_BAD_MESLEN, (uint8_t *)&length, 2);
 		return BGP_Stop;
 	}
 
