@@ -54,6 +54,7 @@ bool vtysh_add_timestamp;
 
 static bool stderr_tty;
 static bool stderr_stdout_same;
+bool vtysh_cancel_p;
 
 /* Some utility functions for working on vtysh-specific vty tasks */
 
@@ -192,13 +193,33 @@ static ssize_t vtysh_client_receive(struct vtysh_client *vclient, char *buf,
 	};
 	struct cmsghdr *cmh = CMSG_FIRSTHDR(&mh);
 	ssize_t ret;
+	bool found_sig;
+	struct pollfd pfds[2] = {};
 
 	cmh->cmsg_level = SOL_SOCKET;
 	cmh->cmsg_type = SCM_RIGHTS;
 	cmh->cmsg_len = CMSG_LEN(sizeof(int));
 	memset(CMSG_DATA(cmh), -1, sizeof(int));
 
+	pfds[0].fd = vclient->fd;
+	pfds[0].events = POLLIN;
+
 	do {
+		/* We poll with a timer here so that we have a chance to check for
+		 * cancellation (via SIGINT)
+		 */
+		ret = poll(pfds, 1, 200 /* msecs */);
+		if (ret <= 0) {
+			/* Check for cancel/SIGINT */
+			found_sig = frr_sigevent_check_sig(SIGINT);
+			if (vtysh_cancel_p || found_sig) {
+				ret = 0;
+				break;
+			} else {
+				continue;
+			}
+		}
+
 		ret = recvmsg(vclient->fd, &mh, 0);
 		if (ret >= 0 || (errno != EINTR && errno != EAGAIN))
 			break;
@@ -250,8 +271,13 @@ static int vtysh_client_run(struct vtysh_client *vclient, const char *line,
 	size_t bufsz = sizeof(stackbuf);
 	char *bufvalid, *end = NULL;
 	char terminator[3] = {0, 0, 0};
+	bool notified = false;
+	bool found_sig;
 
-	/* vclinet was previously active, try to reconnect */
+	/* Reset the global cancel flag */
+	vtysh_cancel_p = false;
+
+	/* vclient was previously active, try to reconnect */
 	if (vclient->fd == VTYSH_WAS_ACTIVE) {
 		ret = vtysh_reconnect(vclient);
 		if (ret < 0)
@@ -280,6 +306,27 @@ static int vtysh_client_run(struct vtysh_client *vclient, const char *line,
 
 		nread = vtysh_client_receive(
 			vclient, bufvalid, buf + bufsz - bufvalid - 1, pass_fd);
+
+		/* Check for pending ctrl-C event that might interrupt/cancel
+		 * the running command.
+		 */
+		found_sig = frr_sigevent_check_sig(SIGINT);
+		if (vtysh_cancel_p || found_sig) {
+			/* Notify the client, using the pseudo-command string */
+			if (!notified) {
+				ret = write(vclient->fd, VTY_CANCEL_COMMAND,
+					    sizeof(VTY_CANCEL_COMMAND));
+				(void)ret; /* clang-SA */
+				notified = true;
+			}
+
+			/* Reset cancel boolean */
+			vtysh_cancel_p = false;
+
+			/* Don't treat empty read as a fatal error in this case */
+			if (nread == 0)
+				continue;
+		}
 
 		if (nread <= 0) {
 			if (gvty->of)

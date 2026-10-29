@@ -77,6 +77,32 @@ bool frr_sigevent_check(sigset_t *setp)
 	return ret;
 }
 
+/*
+ * Allow an application to test whether a specific signal has been
+ * seen (and not handled). This doesn't block any signals,
+ * so there can be races...
+ */
+bool frr_sigevent_check_sig(int signum)
+{
+	const struct frr_signal_t *sig;
+	bool ret = false;
+	int i;
+
+	if (sigmaster.caught > 0) {
+		for (i = 0; i < sigmaster.sigc; i++) {
+			sig = &(sigmaster.signals[i]);
+
+			if (sig->signal == signum) {
+				if (sig->caught > 0)
+					ret = true;
+				break;
+			}
+		}
+	}
+
+	return ret;
+}
+
 /* check if signals have been caught and run appropriate handlers */
 int frr_sigevent_process(void)
 {

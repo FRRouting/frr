@@ -249,6 +249,14 @@ struct cmd_node {
 #define CMD_NO_LEVEL_UP 15
 #define CMD_ERR_NO_DAEMON 16
 
+/* Flags that can be OR-ed in with a return code */
+
+/* Don't send a status/response back to the sending vtysh process */
+#define CMD_RET_FLAG_NO_RESPONSE 0x0100
+
+/* Mask off optional return-code modifier flags */
+#define CMD_RETCODE_MASK 0x00FF
+
 /* Argc max counts. */
 #define CMD_ARGC_MAX   256
 
