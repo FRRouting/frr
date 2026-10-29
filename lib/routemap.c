@@ -3121,6 +3121,30 @@ void route_map_upd8_dependency(route_map_event_t type, const char *arg,
 	}
 }
 
+/*
+ * Answers whether `rmap_name' depends on `dep_name', using the same lookup
+ * route_map_notify_dependencies() does.
+ */
+bool route_map_depends_on(route_map_event_t event, const char *dep_name, const char *rmap_name)
+{
+	struct route_map_dep_data tmp_dep_data = { .rname = (char *)rmap_name };
+	struct route_map_dep *dep;
+	struct hash *upd8_hash;
+
+	if (!dep_name || !rmap_name)
+		return false;
+
+	upd8_hash = route_map_get_dep_hash(event);
+	if (!upd8_hash)
+		return false;
+
+	dep = hash_lookup(upd8_hash, (void *)dep_name);
+	if (!dep)
+		return false;
+
+	return hash_lookup(dep->dep_rmap_hash, &tmp_dep_data) != NULL;
+}
+
 void route_map_notify_dependencies(const char *affected_name,
 				   route_map_event_t event)
 {

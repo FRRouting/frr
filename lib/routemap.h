@@ -552,6 +552,8 @@ extern void
 route_map_notify_pentry_dependencies(const char *affected_name,
 				     struct prefix_list_entry *pentry,
 				     route_map_event_t event);
+extern bool route_map_depends_on(route_map_event_t event, const char *dep_name,
+				 const char *rmap_name);
 extern int generic_match_add(struct route_map_index *index,
 			     const char *command, const char *arg,
 			     route_map_event_t type,
