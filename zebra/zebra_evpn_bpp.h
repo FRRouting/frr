@@ -19,6 +19,7 @@ extern "C" {
 struct vty;
 struct zebra_if;
 struct zebra_evpn_es;
+struct zapi_evpn_bpp_peer;
 
 /*
  * A protection entry is kept per (ES bond, VLAN) while the bond has
@@ -50,6 +51,11 @@ extern void zebra_evpn_bpp_show(struct vty *vty, const char *ifname, bool detail
 
 /* One block per protected ES; esi (may be NULL) filters on the ES. */
 extern void zebra_evpn_bpp_show_member(struct vty *vty, const esi_t *esi, bool uj);
+
+/* Install or remove a Member from the ES Group. zebra does not re-check
+ * eligibility or RMAC; bgpd is the only sender of BPP_PEER.
+ */
+extern void zebra_evpn_bpp_peer_update(const struct zapi_evpn_bpp_peer *peer, bool add);
 
 #ifdef __cplusplus
 }

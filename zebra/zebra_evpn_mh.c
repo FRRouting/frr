@@ -3021,6 +3021,8 @@ void zebra_evpn_proc_bpp_peer(ZAPI_HANDLER_ARGS)
 			zlog_debug("bpp peer del esi %s type L3 vtep %pIA",
 				   esi_to_str(&peer.esi, esi_buf, sizeof(esi_buf)), &peer.vtep);
 	}
+
+	zebra_evpn_bpp_peer_update(&peer, add);
 }
 
 void zebra_evpn_es_mac_deref_entry(struct zebra_mac *mac)
