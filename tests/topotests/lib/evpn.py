@@ -1979,30 +1979,19 @@ def evpn_trigger_arp_scapy(tgen, host_gateways, interface="swp1"):
     Notes
     -----
     - Requires Scapy to be installed on the system
-    - Uses the scapy_sendpkt.py helper script from lib/
+    - Uses the ScapyNetNS context manager from lib/scapy_utils.py
     - More powerful than arping for custom packet crafting
     - Better for anycast gateway testing where specific MAC addresses are needed
     """
-    import os
-    import subprocess
-
-    # Get path to scapy_sendpkt.py script
-    lib_dir = os.path.dirname(os.path.abspath(__file__))
-    script_path = os.path.join(lib_dir, "scapy_sendpkt.py")
-
-    if not os.path.exists(script_path):
-        logger.error(f"scapy_sendpkt.py not found at {script_path}")
-        return
-
-    # Get python3 executable path
-    python3_path = tgen.net.get_exec_path(["python3", "python"])
+    from scapy.all import Ether, ARP, srp, Scapy_Exception
+    from lib.scapy_utils import ScapyNetNS
 
     for hostname, gateway_ip in host_gateways.items():
         if hostname not in tgen.gears:
             logger.info(f"{hostname}: Router not found, skipping ARP trigger")
             continue
 
-        host = tgen.net.hosts[hostname]
+        host = tgen.gears[hostname]
         logger.info(
             f"{hostname}: Sending ARP request to {gateway_ip} on {interface} using Scapy"
         )
@@ -2010,24 +1999,19 @@ def evpn_trigger_arp_scapy(tgen, host_gateways, interface="swp1"):
         # Craft ARP packet using Scapy
         # Ether(dst="ff:ff:ff:ff:ff:ff") = broadcast Ethernet frame
         # ARP(pdst="<gateway_ip>") = ARP request for gateway IP
-        ping_cmd = [
-            python3_path,
-            script_path,
-            "--imports=Ether,ARP",
-            "--interface=" + interface,
-            f'Ether(dst="ff:ff:ff:ff:ff:ff")/ARP(pdst="{gateway_ip}")',
-        ]
+        send_pkt = Ether(dst="ff:ff:ff:ff:ff:ff") / ARP(pdst=gateway_ip)
 
         try:
-            _, stdout, _ = host.cmd_status(
-                ping_cmd, warn=False, stderr=subprocess.STDOUT
-            )
-            stdout = stdout.strip()
-            if stdout:
+            with ScapyNetNS(host):
+                ans, unans = srp(send_pkt, iface=interface, timeout=2.0, verbose=False)
+            out = ""
+            for pkt in ans:
+                out += pkt.answer.show(dump=True)
+            if out:
                 logger.debug(
-                    f"{hostname}: Scapy ARP on {interface} for {gateway_ip} returned: {stdout}"
+                    f"{hostname}: Scapy ARP on {interface} for {gateway_ip} returned: {out}"
                 )
-        except Exception as e:
+        except Scapy_Exception as e:
             logger.warning(
                 f"{hostname}: Failed to send ARP via Scapy to {gateway_ip}: {e}"
             )

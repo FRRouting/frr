@@ -6,6 +6,7 @@
 # Copyright (c) 2026 ATCorp
 # Jafar Al-Gharaibeh
 #
+# DEPRECATED: use lib/scapy_utils.py instead
 """Replay the last captured OSPF Database Description packet in a burst.
 
 Used by test_ospf_dd_dup_hang.py to simulate a master that retransmits the
