@@ -1174,7 +1174,7 @@ def _ead_es(router, esi=ES1_ID):
     return [r for r in _ead_routes(router) if r["eth_tag"] == ETH_TAG_ES and r["esi"] == esi]
 
 
-def _expect_ipad(router, msg, evi_vrfs=None, es_rts=None, evi_absent=False, es_absent=False):
+def _expect_ip_ead(router, msg, evi_vrfs=None, es_rts=None, evi_absent=False, es_absent=False):
     def _check():
         evi = _ead_evi(router)
         esr = _ead_es(router)
@@ -1208,12 +1208,12 @@ def _expect_ipad(router, msg, evi_vrfs=None, es_rts=None, evi_absent=False, es_a
     assert result is None, "%s: %s" % (msg, result)
 
 
-def _clear_ipad(router):
+def _clear_ip_ead(router):
     _set_bpp_if(router, ES_IF, False)
-    _expect_ipad(router, "IP A-D withdrawn", evi_absent=True, es_absent=True)
+    _expect_ip_ead(router, "IP A-D withdrawn", evi_absent=True, es_absent=True)
 
 
-def test_bpp_ipad_tx():
+def test_bpp_ip_ead_tx():
     tgen = get_topogen()
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
@@ -1221,14 +1221,14 @@ def test_bpp_ipad_tx():
     tor1 = tgen.gears["tor1"]
     rts = (_vrf_rt(tor1, "vrf-a"), _vrf_rt(tor1, "vrf-b"))
 
-    _expect_ipad(tor1, "no IP A-D without protection", evi_absent=True, es_absent=True)
+    _expect_ip_ead(tor1, "no IP A-D without protection", evi_absent=True, es_absent=True)
 
     _set_bpp(tor1, True)
-    _expect_ipad(tor1, "protected ES", evi_vrfs=("vrf-a", "vrf-b"), es_rts=rts)
-    _clear_ipad(tor1)
+    _expect_ip_ead(tor1, "protected ES", evi_vrfs=("vrf-a", "vrf-b"), es_rts=rts)
+    _clear_ip_ead(tor1)
 
 
-def test_bpp_ipad_tx_per_es_frag():
+def test_bpp_ip_ead_tx_per_es_frag():
     tgen = get_topogen()
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
@@ -1278,26 +1278,26 @@ def test_bpp_ipad_tx_per_es_frag():
         "configure terminal\nrouter bgp 65001\naddress-family l2vpn evpn\n"
         "no ead-es-route-target export 65001:1\nno ead-es-frag evi-limit 1"
     )
-    _clear_ipad(tor1)
+    _clear_ip_ead(tor1)
 
 
-def test_bpp_ipad_tx_no_l3mh():
+def test_bpp_ip_ead_tx_no_l3mh():
     tgen = get_topogen()
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
 
     tor1 = tgen.gears["tor1"]
 
-    _expect_ipad(tor1, "unprotected", evi_absent=True, es_absent=True)
+    _expect_ip_ead(tor1, "unprotected", evi_absent=True, es_absent=True)
 
     _set_bpp(tor1, True)
     _set_l3vni_neigh(tor1, False)
-    _expect_ipad(tor1, "l3vni-neigh off", evi_absent=True, es_absent=True)
+    _expect_ip_ead(tor1, "l3vni-neigh off", evi_absent=True, es_absent=True)
     _set_l3vni_neigh(tor1, True)
-    _clear_ipad(tor1)
+    _clear_ip_ead(tor1)
 
 
-def test_bpp_ipad_tx_withdraw():
+def test_bpp_ip_ead_tx_withdraw():
     tgen = get_topogen()
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
@@ -1306,10 +1306,10 @@ def test_bpp_ipad_tx_withdraw():
     rts = (_vrf_rt(tor2, "vrf-a"), _vrf_rt(tor2, "vrf-b"))
 
     _set_bpp_if(tor2, ES_IF, True)
-    _expect_ipad(tor2, "tor2 initial", evi_vrfs=("vrf-a", "vrf-b"), es_rts=rts)
+    _expect_ip_ead(tor2, "tor2 initial", evi_vrfs=("vrf-a", "vrf-b"), es_rts=rts)
 
     tor2.run("/sbin/bridge vlan del vid 20 dev %s" % ES_IF)
-    _expect_ipad(tor2, "vrf-b VLAN gone", evi_vrfs=("vrf-a",), es_rts=(rts[0],))
+    _expect_ip_ead(tor2, "vrf-b VLAN gone", evi_vrfs=("vrf-a",), es_rts=(rts[0],))
 
     tor2.run("ip link set %s down" % ES_IF)
 
@@ -1327,11 +1327,11 @@ def test_bpp_ipad_tx_withdraw():
 
     tor2.run("ip link set %s up" % ES_IF)
     tor2.run("/sbin/bridge vlan add vid 20 dev %s" % ES_IF)
-    _expect_ipad(tor2, "tor2 restored", evi_vrfs=("vrf-a", "vrf-b"), es_rts=rts)
-    _clear_ipad(tor2)
+    _expect_ip_ead(tor2, "tor2 restored", evi_vrfs=("vrf-a", "vrf-b"), es_rts=rts)
+    _clear_ip_ead(tor2)
 
 
-def test_bpp_ipad_tx_svi_oper():
+def test_bpp_ip_ead_tx_svi_oper():
     tgen = get_topogen()
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
@@ -1339,20 +1339,20 @@ def test_bpp_ipad_tx_svi_oper():
     tor1 = tgen.gears["tor1"]
     rts = (_vrf_rt(tor1, "vrf-a"), _vrf_rt(tor1, "vrf-b"))
     _set_bpp(tor1, True)
-    _expect_ipad(tor1, "before SVI down", evi_vrfs=("vrf-a", "vrf-b"), es_rts=rts)
+    _expect_ip_ead(tor1, "before SVI down", evi_vrfs=("vrf-a", "vrf-b"), es_rts=rts)
 
     before = [(r["prefix"], r["extcomm"], r["vni"]) for r in _ead_routes(tor1)]
     tor1.run("ip link set vlan20 down")
-    _expect_ipad(tor1, "SVI down", evi_vrfs=("vrf-a", "vrf-b"), es_rts=rts)
+    _expect_ip_ead(tor1, "SVI down", evi_vrfs=("vrf-a", "vrf-b"), es_rts=rts)
     after = [(r["prefix"], r["extcomm"], r["vni"]) for r in _ead_routes(tor1)]
     assert after == before, "SVI down changed type-1: %s -> %s" % (before, after)
 
     tor1.run("ip link set vlan20 up")
-    _expect_ipad(tor1, "SVI up", evi_vrfs=("vrf-a", "vrf-b"), es_rts=rts)
-    _clear_ipad(tor1)
+    _expect_ip_ead(tor1, "SVI up", evi_vrfs=("vrf-a", "vrf-b"), es_rts=rts)
+    _clear_ip_ead(tor1)
 
 
-def test_bpp_ipad_tx_local_es_down():
+def test_bpp_ip_ead_tx_local_es_down():
     tgen = get_topogen()
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
@@ -1360,7 +1360,7 @@ def test_bpp_ipad_tx_local_es_down():
     tor1 = tgen.gears["tor1"]
     rts = (_vrf_rt(tor1, "vrf-a"), _vrf_rt(tor1, "vrf-b"))
     _set_bpp(tor1, True)
-    _expect_ipad(tor1, "before ES down", evi_vrfs=("vrf-a", "vrf-b"), es_rts=rts)
+    _expect_ip_ead(tor1, "before ES down", evi_vrfs=("vrf-a", "vrf-b"), es_rts=rts)
 
     tor1.run("ip link set %s down" % ES_IF)
 
@@ -1377,11 +1377,11 @@ def test_bpp_ipad_tx_local_es_down():
     assert result is None, "local ES down: %s" % result
 
     tor1.run("ip link set %s up" % ES_IF)
-    _expect_ipad(tor1, "ES restored", evi_vrfs=("vrf-a", "vrf-b"), es_rts=rts)
-    _clear_ipad(tor1)
+    _expect_ip_ead(tor1, "ES restored", evi_vrfs=("vrf-a", "vrf-b"), es_rts=rts)
+    _clear_ip_ead(tor1)
 
 
-def test_bpp_ipad_tx_rt_change():
+def test_bpp_ip_ead_tx_rt_change():
     tgen = get_topogen()
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
@@ -1412,17 +1412,17 @@ def test_bpp_ipad_tx_rt_change():
         "configure terminal\nrouter bgp 65001 vrf vrf-a\naddress-family l2vpn evpn\n"
         "no route-target export %s" % new_rt
     )
-    _clear_ipad(tor1)
+    _clear_ip_ead(tor1)
 
 
-def test_bpp_ipad_tx_rmac_change():
+def test_bpp_ip_ead_tx_rmac_change():
     tgen = get_topogen()
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
 
     tor1 = tgen.gears["tor1"]
     _set_bpp(tor1, True)
-    _expect_ipad(tor1, "before RMAC change", evi_vrfs=("vrf-a", "vrf-b"))
+    _expect_ip_ead(tor1, "before RMAC change", evi_vrfs=("vrf-a", "vrf-b"))
 
     evi = [r for r in _ead_evi(tor1) if r.get("vni") == 4001]
     assert evi, "no vrf-a per-EVI"
@@ -1444,7 +1444,316 @@ def test_bpp_ipad_tx_rmac_change():
     assert result is None, "RMAC change: %s" % result
 
     tor1.run("ip link set vlan4001 address %s" % old_mac)
-    _clear_ipad(tor1)
+    _clear_ip_ead(tor1)
+
+
+def _evpn_nbrs(router):
+    t = TORS.index(router.name) + 1
+    return ["192.168.%d%d.1" % (s, t) for s in (1, 2)]
+
+
+def _es_vrf_vteps(router, esi, vrf):
+    entry = _es_vrfs(router, esi).get(vrf, {})
+    return {v.get("vtep"): v for v in entry.get("vteps") or []}, entry
+
+
+def _expect_ip_ead_rx(router, esi, vrf, vtep_ips, msg, evi=True, es=True):
+    want = sorted(vtep_ips)
+
+    def _check():
+        vteps, _ = _es_vrf_vteps(router, esi, vrf)
+        got = sorted(ip for ip, rec in vteps.items() if rec.get("ip_ead_per_evi") or rec.get("ip_ead_per_es"))
+        if sorted(vteps) != want and got != want:
+            return "vteps %s, want %s" % (sorted(vteps), want)
+        for ip in want:
+            rec = vteps.get(ip)
+            if rec is None:
+                return "missing %s" % ip
+            if bool(rec.get("ip_ead_per_evi")) != evi:
+                return "%s ip_ead_per_evi=%s want %s (%s)" % (
+                    ip,
+                    rec.get("ip_ead_per_evi"),
+                    evi,
+                    rec,
+                )
+            if bool(rec.get("ip_ead_per_es")) != es:
+                return "%s ip_ead_per_es=%s want %s (%s)" % (
+                    ip,
+                    rec.get("ip_ead_per_es"),
+                    es,
+                    rec,
+                )
+            if evi and not rec.get("rmac"):
+                return "%s missing rmac: %s" % (ip, rec)
+        return None
+
+    _, result = topotest.run_and_expect(_check, None, count=30, wait=1)
+    assert result is None, "%s: %s" % (msg, result)
+
+
+def _expect_no_ip_ead_rx(router, esi, msg, vrfs=None):
+    vrfs = vrfs or list(VRFS)
+
+    def _check():
+        for vrf in vrfs:
+            vteps, _ = _es_vrf_vteps(router, esi, vrf)
+            if vteps:
+                return "%s %s vteps %s" % (esi, vrf, vteps)
+        return None
+
+    _, result = topotest.run_and_expect(_check, None, count=30, wait=1)
+    assert result is None, "%s: %s" % (msg, result)
+
+
+def _set_vrf_auto_rt(router, vrf, enable):
+    asn = 65000 + TORS.index(router.name) + 1
+    if enable:
+        cmd = "no auto-route-target both add-never"
+    else:
+        cmd = "auto-route-target both add-never"
+    router.vtysh_cmd(
+        "configure terminal\nrouter bgp %d vrf %s\naddress-family l2vpn evpn\n%s"
+        % (asn, vrf, cmd)
+    )
+
+
+def test_bpp_ip_ead_rx_classify():
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    tor1 = tgen.gears["tor1"]
+    tor2 = tgen.gears["tor2"]
+    tor3 = tgen.gears["tor3"]
+    peers = (tor_lo("tor2"), tor_lo("tor3"))
+
+    _set_bpp_if(tor2, ES_IF, True)
+    _set_bpp_if(tor3, ES_IF, True)
+    for vrf in VRFS:
+        _expect_ip_ead_rx(tor1, ES1_ID, vrf, peers, "tor2/tor3 classified in %s" % vrf)
+
+    for vrf in VRFS:
+        _set_vrf_auto_rt(tor2, vrf, False)
+    _expect_ip_ead_rx(tor1, ES1_ID, "vrf-a", (tor_lo("tor3"),), "tor2 RTs removed")
+    _expect_ip_ead_rx(tor1, ES1_ID, "vrf-b", (tor_lo("tor3"),), "tor2 RTs removed")
+
+    for vrf in VRFS:
+        _set_vrf_auto_rt(tor2, vrf, True)
+    _expect_ip_ead_rx(tor1, ES1_ID, "vrf-a", peers, "tor2 RTs restored")
+
+    _clear_ip_ead(tor2)
+    _clear_ip_ead(tor3)
+    _expect_no_ip_ead_rx(tor1, ES1_ID, "remotes withdrawn")
+
+
+def test_bpp_ip_ead_rx_mac_scope_only():
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    tor1 = tgen.gears["tor1"]
+    tor2 = tgen.gears["tor2"]
+
+    _set_bpp_if(tor2, ES_IF, True)
+    _expect_ip_ead_rx(tor1, ES1_ID, "vrf-a", (tor_lo("tor2"),), "ES-1 IP A-D")
+    _expect_no_ip_ead_rx(tor1, ES2_ID, "ES-2 has no IP A-D")
+    _clear_ip_ead(tor2)
+    _expect_no_ip_ead_rx(tor1, ES1_ID, "cleaned")
+
+
+def test_bpp_ip_ead_rx_label_mismatch():
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    tor1 = tgen.gears["tor1"]
+    tor2 = tgen.gears["tor2"]
+    lo = tor_lo("tor2")
+
+    _add_vrf_c(tor1)
+    tor1.vtysh_cmd(
+        "configure terminal\nrouter bgp 65001 vrf %s\naddress-family l2vpn evpn\n"
+        "route-target import 65002:4001" % VRF_C
+    )
+    _set_bpp(tor1, True)
+    _set_bpp_if(tor2, ES_IF, True)
+    _expect_ip_ead_rx(tor1, ES1_ID, "vrf-a", (lo,), "vrf-a still matches")
+
+    def _check():
+        vteps, entry = _es_vrf_vteps(tor1, ES1_ID, VRF_C)
+        rec = vteps.get(lo, {})
+        if rec.get("ip_ead_per_evi"):
+            return "per-EVI set on %s: %s" % (VRF_C, rec)
+        if not rec.get("ip_ead_per_es"):
+            return "per-ES not set on %s: %s" % (VRF_C, rec)
+        if not entry.get("dropLabelMismatch"):
+            return "dropLabelMismatch not incremented: %s" % entry
+        return None
+
+    _, result = topotest.run_and_expect(_check, None, count=30, wait=1)
+    assert result is None, "label mismatch: %s" % result
+
+    _clear_ip_ead(tor2)
+    _set_bpp(tor1, False)
+    tor1.vtysh_cmd(
+        "configure terminal\nrouter bgp 65001 vrf %s\naddress-family l2vpn evpn\n"
+        "no route-target import 65002:4001" % VRF_C
+    )
+    _del_vrf_c(tor1)
+    _expect_no_ip_ead_rx(tor1, ES1_ID, "cleaned")
+
+
+def test_bpp_ip_ead_rx_no_rmac_ec():
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    tor1 = tgen.gears["tor1"]
+    tor2 = tgen.gears["tor2"]
+    lo = tor_lo("tor2")
+    asn = 65002
+
+    _set_bpp(tor1, True)
+    _set_bpp_if(tor2, ES_IF, True)
+    _expect_ip_ead_rx(tor1, ES1_ID, "vrf-a", (lo,), "with rmac")
+
+    nbrs = _evpn_nbrs(tor2)
+    rmap = (
+        "bgp extcommunity-list expanded STRIP-RMAC permit Rmac:.*\n"
+        "route-map NO-RMAC permit 10\n"
+        " match evpn route-type ead\n"
+        " set extended-comm-list STRIP-RMAC delete\n"
+        "route-map NO-RMAC permit 20\n"
+    )
+    nbr_cfg = "".join(
+        "router bgp %d\naddress-family l2vpn evpn\nneighbor %s route-map NO-RMAC out\n"
+        % (asn, n)
+        for n in nbrs
+    )
+    tor2.vtysh_cmd("configure terminal\n%s%s" % (rmap, nbr_cfg))
+
+    def _check():
+        vteps, entry = _es_vrf_vteps(tor1, ES1_ID, "vrf-a")
+        rec = vteps.get(lo, {})
+        if rec.get("ip_ead_per_evi"):
+            return "per-EVI still set: %s" % rec
+        if not rec.get("ip_ead_per_es"):
+            return "per-ES cleared: %s" % rec
+        if not entry.get("dropNoRmac"):
+            return "dropNoRmac not incremented: %s" % entry
+        return None
+
+    _, result = topotest.run_and_expect(_check, None, count=30, wait=1)
+    assert result is None, "no rmac: %s" % result
+
+    nbr_del = "".join(
+        "router bgp %d\naddress-family l2vpn evpn\nno neighbor %s route-map NO-RMAC out\n"
+        % (asn, n)
+        for n in nbrs
+    )
+    tor2.vtysh_cmd(
+        "configure terminal\n%sno route-map NO-RMAC\nno bgp extcommunity-list expanded STRIP-RMAC\n"
+        % nbr_del
+    )
+    _expect_ip_ead_rx(tor1, ES1_ID, "vrf-a", (lo,), "rmac restored")
+    _clear_ip_ead(tor2)
+    _set_bpp(tor1, False)
+    _expect_no_ip_ead_rx(tor1, ES1_ID, "cleaned")
+
+
+def test_bpp_ip_ead_rx_knob_off():
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    tor1 = tgen.gears["tor1"]
+    tor2 = tgen.gears["tor2"]
+
+    _set_bpp_if(tor2, ES_IF, True)
+    _expect_ip_ead_rx(tor1, ES1_ID, "vrf-a", (tor_lo("tor2"),), "before knob off")
+
+    _set_l3vni_neigh(tor1, False)
+    _expect_no_ip_ead_rx(tor1, ES1_ID, "l3vni-neigh off")
+
+    _set_l3vni_neigh(tor1, True)
+    _expect_ip_ead_rx(tor1, ES1_ID, "vrf-a", (tor_lo("tor2"),), "l3vni-neigh restored")
+    _clear_ip_ead(tor2)
+    _expect_no_ip_ead_rx(tor1, ES1_ID, "cleaned")
+
+
+def test_bpp_ip_ead_rx_protection_off():
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    tor1 = tgen.gears["tor1"]
+    tor2 = tgen.gears["tor2"]
+    tor3 = tgen.gears["tor3"]
+    peers = (tor_lo("tor2"), tor_lo("tor3"))
+
+    _set_bpp(tor1, True)
+    _set_bpp_if(tor2, ES_IF, True)
+    _set_bpp_if(tor3, ES_IF, True)
+    _expect_ip_ead_rx(tor1, ES1_ID, "vrf-a", peers, "with protection")
+
+    _set_bpp(tor1, False)
+    _expect_ip_ead_rx(tor1, ES1_ID, "vrf-a", peers, "protection off, RX kept")
+    _expect_ip_ead_rx(tor1, ES1_ID, "vrf-b", peers, "protection off, RX kept")
+
+    _set_bpp(tor1, True)
+    _expect_ip_ead_rx(tor1, ES1_ID, "vrf-a", peers, "protection back, no reprocess")
+    _set_bpp(tor1, False)
+    _clear_ip_ead(tor2)
+    _clear_ip_ead(tor3)
+    _expect_no_ip_ead_rx(tor1, ES1_ID, "cleaned")
+
+
+def test_bpp_ip_ead_rx_remote_only_es():
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    tor1 = tgen.gears["tor1"]
+    tor2 = tgen.gears["tor2"]
+
+    tor1.vtysh_cmd("configure terminal\ninterface hostbond2\nno evpn mh es-id")
+    _set_bpp_if(tor2, "hostbond2", True)
+    _expect_ip_ead_rx(tor1, ES2_ID, "vrf-a", (tor_lo("tor2"),), "remote-only ES-2")
+    _expect_ip_ead_rx(tor1, ES2_ID, "vrf-b", (tor_lo("tor2"),), "remote-only ES-2")
+
+    _set_bpp_if(tor2, "hostbond2", False)
+    tor1.vtysh_cmd("configure terminal\ninterface hostbond2\nevpn mh es-id 2")
+    _expect_no_ip_ead_rx(tor1, ES2_ID, "cleaned")
+
+
+def test_bpp_neigh_sync_coexist():
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    tor1 = tgen.gears["tor1"]
+    host = tgen.gears["hostd1"]
+    vid = ES_VLANS[0]
+    gw = ACCESS_VLANS[vid][1].split("/")[0]
+    ip = "%s.%d" % (gw.rsplit(".", 1)[0], HOST_ID["hostd1"])
+
+    _set_bpp(tor1, True)
+    host.run("ping -c 3 -W 1 %s" % gw)
+
+    def _check():
+        synced = []
+        for name in TORS:
+            for line in tgen.gears[name].run("ip neigh show dev vlan%d" % vid).splitlines():
+                if line.split()[:1] == [ip] and "extern_learn" in line:
+                    synced.append(name)
+        if synced:
+            return None
+        return "no tor synced %s" % ip
+
+    _, result = topotest.run_and_expect(_check, None, count=40, wait=1)
+    assert result is None, result
+
+    _set_bpp(tor1, False)
 
 
 def test_memory_leak():
