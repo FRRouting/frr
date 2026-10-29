@@ -673,7 +673,7 @@ static const char *ecommunity_gettoken(const char *str, void *eval_ptr,
 	int separator = 0;
 	const char *p = str;
 	char *endptr;
-	struct in_addr ip;
+	struct in_addr ip = {};
 	struct in6_addr ip6;
 	as_t as = 0;
 	uint32_t val = 0;
@@ -906,6 +906,16 @@ static const char *ecommunity_gettoken(const char *str, void *eval_ptr,
 
 	/* Low digit part must be there. */
 	if (!digit && (!separator || !val_color_set))
+		goto error;
+
+	/* Only Color may be specified without the ':' separator, everything
+	 * else is in ASN:NN or A.B.C.D:NN format.
+	 */
+	if (sub_type != ECOMMUNITY_COLOR && (!separator || !digit))
+		goto error;
+
+	/* Node Target is always A.B.C.D:0, the low-order part is reserved */
+	if (sub_type == ECOMMUNITY_NODE_TARGET && (ecomm_type != ECOMMUNITY_ENCODE_IP || val != 0))
 		goto error;
 
 	if (ecomm_type != ECOMMUNITY_ENCODE_IP) {
