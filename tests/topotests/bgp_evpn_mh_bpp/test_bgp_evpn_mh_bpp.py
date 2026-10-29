@@ -41,6 +41,7 @@ tor1, on hostbond1.
 import os
 import sys
 import json
+import time
 from functools import partial
 
 import pytest
@@ -1754,6 +1755,718 @@ def test_bpp_neigh_sync_coexist():
     assert result is None, result
 
     _set_bpp(tor1, False)
+
+
+def _set_prot_debug(router, enable):
+    pfx = "" if enable else "no "
+    router.vtysh_cmd(
+        "configure terminal\n%sdebug zebra evpn mh protection\n"
+        "%sdebug bgp evpn mh protection" % (pfx, pfx)
+    )
+
+
+def _log_text(tgen, router, daemon):
+    with open(os.path.join(tgen.logdir, router.name, daemon + ".log")) as f:
+        return f.read()
+
+
+def _bpp_peer_lines(text, esi=None, action=None):
+    lines = []
+    for line in text.splitlines():
+        if "bpp peer " not in line:
+            continue
+        if esi and esi not in line:
+            continue
+        if action and "bpp peer %s " % action not in line:
+            continue
+        lines.append(line)
+    return lines
+
+
+def _expect_bpp_peer(tgen, router, esi, vtep_ip, action, msg, rmac=None, after=""):
+    def _check():
+        text = _log_text(tgen, router, "zebra")
+        if after and text.startswith(after):
+            text = text[len(after) :]
+        hit = [ln for ln in _bpp_peer_lines(text, esi, action) if vtep_ip in ln]
+        if not hit:
+            return "no %s for %s %s" % (action, vtep_ip, _bpp_peer_lines(text, esi))
+        if rmac and action == "add" and not any("rmac %s" % rmac in ln for ln in hit):
+            return "rmac %s not in %s" % (rmac, hit)
+        return None
+
+    _, result = topotest.run_and_expect(_check, None, count=30, wait=1)
+    assert result is None, "%s: %s" % (msg, result)
+
+
+def _expect_no_new_bpp_peer(tgen, router, after, msg, esi=None, delay=5):
+    time.sleep(delay)
+    text = _log_text(tgen, router, "zebra")
+    new = text[len(after) :] if after and text.startswith(after) else text
+    lines = _bpp_peer_lines(new, esi)
+    assert not lines, "%s: unexpected %s" % (msg, lines)
+
+
+def _expect_eligible(router, esi, vtep_ips, msg, eligible=True, missing=None):
+    want = list(vtep_ips) if isinstance(vtep_ips, (list, tuple)) else [vtep_ips]
+
+    def _check():
+        found = {}
+        for vrf in VRFS:
+            vteps, _ = _es_vrf_vteps(router, esi, vrf)
+            found.update(vteps)
+        for ip in want:
+            rec = found.get(ip)
+            if eligible:
+                if rec is None:
+                    return "missing %s" % ip
+                if not rec.get("eligible"):
+                    return "%s not eligible: %s" % (ip, rec)
+                if not rec.get("active"):
+                    return "%s not active in a ready vrf: %s" % (ip, rec)
+            elif rec and rec.get("eligible"):
+                return "%s still eligible: %s" % (ip, rec)
+            if missing is not None and rec is not None:
+                got = sorted(rec.get("missingVrfs") or [])
+                if got != sorted(missing):
+                    return "%s missingVrfs %s want %s" % (ip, got, missing)
+        return None
+
+    _, result = topotest.run_and_expect(_check, None, count=30, wait=1)
+    assert result is None, "%s: %s" % (msg, result)
+
+
+def _set_rt4_filter(router, enable):
+    asn = 65000 + TORS.index(router.name) + 1
+    nbrs = _evpn_nbrs(router)
+    if enable:
+        rmap = (
+            "route-map DENY-ESR deny 10\n"
+            " match evpn route-type es\n"
+            "route-map DENY-ESR permit 20\n"
+        )
+        nbr = "".join(
+            "router bgp %d\naddress-family l2vpn evpn\nneighbor %s route-map DENY-ESR out\n"
+            % (asn, n)
+            for n in nbrs
+        )
+        router.vtysh_cmd("configure terminal\n%s%s" % (rmap, nbr))
+    else:
+        nbr = "".join(
+            "router bgp %d\naddress-family l2vpn evpn\nno neighbor %s route-map DENY-ESR out\n"
+            % (asn, n)
+            for n in nbrs
+        )
+        router.vtysh_cmd("configure terminal\n%sno route-map DENY-ESR\n" % nbr)
+
+
+def _if_mac(router, ifname):
+    return router.run("cat /sys/class/net/%s/address" % ifname).strip()
+
+
+def _add_vrf_c_vlan(router, vid=40):
+    asn = 65000 + TORS.index(router.name) + 1
+    _add_vrf_c(router)
+    router.vtysh_cmd(
+        "configure terminal\nrouter bgp %d vrf %s\nbgp router-id %s\n"
+        "address-family ipv4 unicast\nredistribute connected\n"
+        "address-family l2vpn evpn\nadvertise ipv4 unicast\n"
+        % (asn, VRF_C, tor_lo(router.name))
+    )
+    router.run("/sbin/bridge vlan add vid %d dev br_default self" % vid)
+    router.run("ip link add link br_default name vlan%d type vlan id %d" % (vid, vid))
+    router.run("ip link set dev vlan%d master %s" % (vid, VRF_C))
+    router.run("ip link set dev vlan%d up" % vid)
+    router.run("/sbin/bridge vlan add vid %d dev %s" % (vid, ES_IF))
+
+
+def _del_vrf_c_vlan(router, vid=40):
+    asn = 65000 + TORS.index(router.name) + 1
+    router.run("/sbin/bridge vlan del vid %d dev %s" % (vid, ES_IF))
+    router.run("ip link del dev vlan%d" % vid)
+    router.vtysh_cmd("configure terminal\nno router bgp %d vrf %s\n" % (asn, VRF_C))
+    _del_vrf_c(router)
+
+
+def test_bpp_zapi():
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    tor1 = tgen.gears["tor1"]
+    tor2 = tgen.gears["tor2"]
+    lo2 = tor_lo("tor2")
+
+    _set_prot_debug(tor1, True)
+    _set_bpp_if(tor2, ES_IF, True)
+    _set_bpp(tor1, True)
+    _expect_eligible(tor1, ES1_ID, (lo2,), "tor2 eligible")
+    _expect_bpp_peer(tgen, tor1, ES1_ID, lo2, "add", "ADD logged")
+
+    before = json.loads(tor1.vtysh_cmd("show bgp l2vpn evpn es json"))
+    assert any(e.get("esi") == ES1_ID for e in (before if isinstance(before, list) else before.get("es", [])))
+
+    _set_bpp(tor1, False)
+    _expect_bpp_peer(tgen, tor1, ES1_ID, lo2, "del", "DEL logged")
+    _clear_ip_ead(tor2)
+    _set_prot_debug(tor1, False)
+
+
+def test_bpp_l2_untouched():
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    tor1 = tgen.gears["tor1"]
+    tor2 = tgen.gears["tor2"]
+    before_es = tor1.vtysh_cmd("show evpn es %s json" % ES2_ID)
+    before_nh = tor1.run("ip -j nexthop show")
+    _set_prot_debug(tor1, True)
+    snap = _log_text(tgen, tor1, "zebra")
+    _set_bpp_if(tor2, ES_IF, True)
+    _set_bpp(tor1, True)
+    _expect_eligible(tor1, ES1_ID, (tor_lo("tor2"),), "ES-1 eligible")
+    _expect_no_new_bpp_peer(tgen, tor1, snap, "no ES-2 BPP_PEER", esi=ES2_ID, delay=3)
+    after_es = tor1.vtysh_cmd("show evpn es %s json" % ES2_ID)
+    after_nh = tor1.run("ip -j nexthop show")
+    assert json.loads(before_es) == json.loads(after_es), "ES-2 changed"
+    assert json.loads(before_nh) == json.loads(after_nh), "nexthop table changed"
+    _set_bpp(tor1, False)
+    _clear_ip_ead(tor2)
+    _set_prot_debug(tor1, False)
+
+
+def test_bpp_eligibility():
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    tor1 = tgen.gears["tor1"]
+    tor2 = tgen.gears["tor2"]
+    tor3 = tgen.gears["tor3"]
+    peers = (tor_lo("tor2"), tor_lo("tor3"))
+
+    _set_prot_debug(tor1, True)
+    snap = _log_text(tgen, tor1, "zebra")
+    _set_bpp_if(tor2, ES_IF, True)
+    _set_bpp_if(tor3, ES_IF, True)
+    _set_bpp(tor1, True)
+    _expect_eligible(tor1, ES1_ID, peers, "tor2 and tor3 eligible")
+    for lo in peers:
+        _expect_bpp_peer(tgen, tor1, ES1_ID, lo, "add", "one ADD", after=snap)
+    text = _log_text(tgen, tor1, "zebra")
+    new = text[len(snap) :] if text.startswith(snap) else text
+    for lo in peers:
+        adds = [ln for ln in _bpp_peer_lines(new, ES1_ID, "add") if lo in ln]
+        assert len(adds) == 1, "want 1 ADD for %s, got %s" % (lo, adds)
+    _set_bpp(tor1, False)
+    _clear_ip_ead(tor2)
+    _clear_ip_ead(tor3)
+    _set_prot_debug(tor1, False)
+
+
+def test_bpp_eligibility_all_vrfs():
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    tor1 = tgen.gears["tor1"]
+    tor2 = tgen.gears["tor2"]
+    tor3 = tgen.gears["tor3"]
+    lo3 = tor_lo("tor3")
+
+    _set_vrf_auto_rt(tor3, "vrf-b", False)
+    _set_prot_debug(tor1, True)
+    _set_bpp_if(tor2, ES_IF, True)
+    _set_bpp_if(tor3, ES_IF, True)
+    _set_bpp(tor1, True)
+    _expect_eligible(tor1, ES1_ID, (tor_lo("tor2"),), "tor2 eligible")
+    _expect_eligible(tor1, ES1_ID, (lo3,), "tor3 missing vrf-b", eligible=False, missing=["vrf-b"])
+    snap = _log_text(tgen, tor1, "zebra")
+    _set_vrf_auto_rt(tor3, "vrf-b", True)
+    _expect_eligible(tor1, ES1_ID, (lo3,), "tor3 eligible after vrf-b")
+    _expect_bpp_peer(tgen, tor1, ES1_ID, lo3, "add", "tor3 ADD", after=snap)
+    _set_bpp(tor1, False)
+    _clear_ip_ead(tor2)
+    _clear_ip_ead(tor3)
+    _set_prot_debug(tor1, False)
+
+
+def test_bpp_new_local_vrf():
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    tor1 = tgen.gears["tor1"]
+    tor2 = tgen.gears["tor2"]
+    lo2 = tor_lo("tor2")
+
+    _set_prot_debug(tor1, True)
+    _set_bpp_if(tor2, ES_IF, True)
+    _set_bpp(tor1, True)
+    _expect_eligible(tor1, ES1_ID, (lo2,), "before vrf-c")
+    snap = _log_text(tgen, tor1, "zebra")
+    _add_vrf_c_vlan(tor1)
+    _expect_eligible(tor1, ES1_ID, (lo2,), "vrf-c ready, peer missing it", eligible=False)
+    _expect_bpp_peer(tgen, tor1, ES1_ID, lo2, "del", "DEL without vrf-c", after=snap)
+    snap = _log_text(tgen, tor1, "zebra")
+    _add_vrf_c_vlan(tor2)
+    _expect_eligible(tor1, ES1_ID, (lo2,), "vrf-c on peer")
+    _expect_bpp_peer(tgen, tor1, ES1_ID, lo2, "add", "ADD after vrf-c", after=snap)
+    _set_bpp(tor1, False)
+    _del_vrf_c_vlan(tor1)
+    _del_vrf_c_vlan(tor2)
+    _clear_ip_ead(tor2)
+    _set_prot_debug(tor1, False)
+
+
+def test_bpp_single_resolver():
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    tor1 = tgen.gears["tor1"]
+    tor2 = tgen.gears["tor2"]
+    lo2 = tor_lo("tor2")
+
+    _set_prot_debug(tor1, True)
+    _set_bpp_if(tor2, ES_IF, True)
+    _set_bpp(tor1, True)
+    _expect_eligible(tor1, ES1_ID, (lo2,), "eligible")
+    snap_z = _log_text(tgen, tor1, "zebra")
+    snap_b = _log_text(tgen, tor1, "bgpd")
+    _set_bpp_if(tor2, ES_IF, False)
+    _expect_eligible(tor1, ES1_ID, (lo2,), "withdrawn", eligible=False)
+    _set_bpp_if(tor2, ES_IF, True)
+    _expect_eligible(tor1, ES1_ID, (lo2,), "restored")
+    znew = _log_text(tgen, tor1, "zebra")[len(snap_z) :]
+    bnew = _log_text(tgen, tor1, "bgpd")[len(snap_b) :]
+    z_send = _bpp_peer_lines(znew, ES1_ID)
+    b_send = [ln for ln in bnew.splitlines() if "bpp-peer " in ln and lo2 in ln]
+    assert z_send, "zebra saw no BPP_PEER on churn"
+    assert b_send, "resolver logged no BPP_PEER on churn"
+    assert len(z_send) == len(b_send), "zebra %s vs resolver %s" % (z_send, b_send)
+    _set_bpp(tor1, False)
+    _clear_ip_ead(tor2)
+    _set_prot_debug(tor1, False)
+
+
+def test_bpp_rmac_common_multi_vrf():
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    tor1 = tgen.gears["tor1"]
+    tor2 = tgen.gears["tor2"]
+    lo2 = tor_lo("tor2")
+    mac = "44:38:39:00:11:22"
+    old1, old2 = _if_mac(tor2, "vlan4001"), _if_mac(tor2, "vlan4002")
+    tor2.run("ip link set vlan4001 address %s" % mac)
+    tor2.run("ip link set vlan4002 address %s" % mac)
+
+    _set_prot_debug(tor1, True)
+    snap = _log_text(tgen, tor1, "zebra")
+    _set_bpp_if(tor2, ES_IF, True)
+    _set_bpp(tor1, True)
+    _expect_eligible(tor1, ES1_ID, (lo2,), "same rmac")
+    _expect_bpp_peer(tgen, tor1, ES1_ID, lo2, "add", "one ADD with common rmac", rmac=mac, after=snap)
+    tor2.run("ip link set vlan4001 address %s" % old1)
+    tor2.run("ip link set vlan4002 address %s" % old2)
+    _set_bpp(tor1, False)
+    _clear_ip_ead(tor2)
+    _set_prot_debug(tor1, False)
+
+
+def test_bpp_rmac_latest():
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    tor1 = tgen.gears["tor1"]
+    tor2 = tgen.gears["tor2"]
+    lo2 = tor_lo("tor2")
+    mac_a, mac_b = "44:38:39:00:11:01", "44:38:39:00:11:02"
+    old1, old2 = _if_mac(tor2, "vlan4001"), _if_mac(tor2, "vlan4002")
+    tor2.run("ip link set vlan4001 address %s" % mac_a)
+    tor2.run("ip link set vlan4002 address %s" % mac_a)
+
+    _set_prot_debug(tor1, True)
+    _set_bpp_if(tor2, ES_IF, True)
+    _set_bpp(tor1, True)
+    _expect_eligible(tor1, ES1_ID, (lo2,), "common rmac")
+    snap = _log_text(tgen, tor1, "zebra")
+    tor2.run("ip link set vlan4002 address %s" % mac_b)
+    _expect_bpp_peer(tgen, tor1, ES1_ID, lo2, "add", "latest rmac", rmac=mac_b, after=snap)
+    text = _log_text(tgen, tor1, "zebra")[len(snap) :]
+    assert not _bpp_peer_lines(text, ES1_ID, "del"), text
+    tor2.run("ip link set vlan4001 address %s" % old1)
+    tor2.run("ip link set vlan4002 address %s" % old2)
+    _set_bpp(tor1, False)
+    _clear_ip_ead(tor2)
+    _set_prot_debug(tor1, False)
+
+
+def test_bpp_rmac_change():
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    tor1 = tgen.gears["tor1"]
+    tor2 = tgen.gears["tor2"]
+    lo2 = tor_lo("tor2")
+    new_mac = "44:38:39:00:00:99"
+    old1, old2 = _if_mac(tor2, "vlan4001"), _if_mac(tor2, "vlan4002")
+
+    _set_prot_debug(tor1, True)
+    _set_bpp_if(tor2, ES_IF, True)
+    _set_bpp(tor1, True)
+    _expect_eligible(tor1, ES1_ID, (lo2,), "before rmac change")
+    snap = _log_text(tgen, tor1, "zebra")
+    tor2.run("ip link set vlan4001 address %s" % new_mac)
+    _expect_bpp_peer(tgen, tor1, ES1_ID, lo2, "add", "first rmac update", rmac=new_mac, after=snap)
+    snap2 = _log_text(tgen, tor1, "zebra")
+    tor2.run("ip link set vlan4002 address %s" % new_mac)
+    _expect_no_new_bpp_peer(tgen, tor1, snap2, "second vrf same rmac", delay=5)
+    tor2.run("ip link set vlan4001 address %s" % old1)
+    tor2.run("ip link set vlan4002 address %s" % old2)
+    _set_bpp(tor1, False)
+    _clear_ip_ead(tor2)
+    _set_prot_debug(tor1, False)
+
+
+def test_bpp_eligibility_order():
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    tor1 = tgen.gears["tor1"]
+    tor2 = tgen.gears["tor2"]
+    lo2 = tor_lo("tor2")
+    asn = 65002
+    nbrs = _evpn_nbrs(tor2)
+    rmap = (
+        "bgp extcommunity-list expanded STRIP-RMAC permit Rmac:.*\n"
+        "route-map NO-RMAC permit 10\n"
+        " match evpn route-type ead\n"
+        " set extended-comm-list STRIP-RMAC delete\n"
+        "route-map NO-RMAC permit 20\n"
+    )
+    nbr_cfg = "".join(
+        "router bgp %d\naddress-family l2vpn evpn\nneighbor %s route-map NO-RMAC out\n"
+        % (asn, n)
+        for n in nbrs
+    )
+
+    _set_prot_debug(tor1, True)
+    tor2.vtysh_cmd("configure terminal\n%s%s" % (rmap, nbr_cfg))
+    _set_bpp_if(tor2, ES_IF, True)
+    _set_bpp(tor1, True)
+    _expect_eligible(tor1, ES1_ID, (lo2,), "per-ES only", eligible=False)
+    snap = _log_text(tgen, tor1, "zebra")
+    tor2.vtysh_cmd(
+        "configure terminal\n"
+        + "".join(
+            "router bgp %d\naddress-family l2vpn evpn\nno neighbor %s route-map NO-RMAC out\n"
+            % (asn, n)
+            for n in nbrs
+        )
+        + "no route-map NO-RMAC\n"
+    )
+    _expect_eligible(tor1, ES1_ID, (lo2,), "both routes")
+    _expect_bpp_peer(tgen, tor1, ES1_ID, lo2, "add", "ADD once both exist", after=snap)
+    _set_bpp(tor1, False)
+    _clear_ip_ead(tor2)
+    _set_prot_debug(tor1, False)
+
+
+def test_bpp_rt4_initial_admission():
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    tor1 = tgen.gears["tor1"]
+    tor2 = tgen.gears["tor2"]
+    lo2 = tor_lo("tor2")
+
+    _set_rt4_filter(tor2, True)
+    _set_prot_debug(tor1, True)
+    _set_bpp_if(tor2, ES_IF, True)
+    _set_bpp(tor1, True)
+    _expect_eligible(tor1, ES1_ID, (lo2,), "eligible without rt4")
+    _expect_bpp_peer(tgen, tor1, ES1_ID, lo2, "add", "ADD without rt4")
+    _expect_bgpd_log(tgen, tor1, "eligible without type-4")
+    _set_bpp(tor1, False)
+    _clear_ip_ead(tor2)
+    _set_rt4_filter(tor2, False)
+    _set_prot_debug(tor1, False)
+
+
+def test_bpp_rt4_late_arrival():
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    tor1 = tgen.gears["tor1"]
+    tor2 = tgen.gears["tor2"]
+    lo2 = tor_lo("tor2")
+
+    _set_rt4_filter(tor2, True)
+    _set_prot_debug(tor1, True)
+    _set_bpp_if(tor2, ES_IF, True)
+    _set_bpp(tor1, True)
+    _expect_eligible(tor1, ES1_ID, (lo2,), "eligible")
+    snap = _log_text(tgen, tor1, "zebra")
+    _set_rt4_filter(tor2, False)
+    _expect_no_new_bpp_peer(tgen, tor1, snap, "rt4 late arrival", esi=ES1_ID)
+    _set_bpp(tor1, False)
+    _clear_ip_ead(tor2)
+    _set_prot_debug(tor1, False)
+
+
+def test_bpp_rt4_withdraw():
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    tor1 = tgen.gears["tor1"]
+    tor2 = tgen.gears["tor2"]
+    lo2 = tor_lo("tor2")
+
+    _set_prot_debug(tor1, True)
+    _set_bpp_if(tor2, ES_IF, True)
+    _set_bpp(tor1, True)
+    _expect_eligible(tor1, ES1_ID, (lo2,), "with rt4")
+    snap = _log_text(tgen, tor1, "zebra")
+    _set_rt4_filter(tor2, True)
+    _expect_no_new_bpp_peer(tgen, tor1, snap, "rt4 withdraw", esi=ES1_ID)
+    _set_bpp(tor1, False)
+    _clear_ip_ead(tor2)
+    _set_rt4_filter(tor2, False)
+    _set_prot_debug(tor1, False)
+
+
+def test_bpp_rt4_only():
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    tor1 = tgen.gears["tor1"]
+    lo2 = tor_lo("tor2")
+
+    _set_prot_debug(tor1, True)
+    snap = _log_text(tgen, tor1, "zebra")
+    _set_bpp(tor1, True)
+    _expect_eligible(tor1, ES1_ID, (lo2,), "rt4 only", eligible=False)
+    _expect_no_new_bpp_peer(tgen, tor1, snap, "no ADD for rt4-only", esi=ES1_ID, delay=5)
+    _expect_bgpd_log(tgen, tor1, "type-4 without ip-ead coverage")
+    _set_bpp(tor1, False)
+    _set_prot_debug(tor1, False)
+
+
+def test_bpp_host_route_no_effect():
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    tor1 = tgen.gears["tor1"]
+    tor2 = tgen.gears["tor2"]
+    host = tgen.gears["hostd1"]
+    lo2 = tor_lo("tor2")
+    gw = ACCESS_VLANS[ES_VLANS[0]][1].split("/")[0]
+
+    _set_prot_debug(tor1, True)
+    _set_bpp_if(tor2, ES_IF, True)
+    _set_bpp(tor1, True)
+    _expect_eligible(tor1, ES1_ID, (lo2,), "before ping")
+    snap = _log_text(tgen, tor1, "zebra")
+    host.run("ping -c 3 -W 1 %s" % gw)
+    _expect_no_new_bpp_peer(tgen, tor1, snap, "host route no zapi", esi=ES1_ID)
+    _set_bpp(tor1, False)
+    _clear_ip_ead(tor2)
+    _set_prot_debug(tor1, False)
+
+
+def test_bpp_other_esi():
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    tor1 = tgen.gears["tor1"]
+    tor2 = tgen.gears["tor2"]
+    lo4 = tor_lo("tor4")
+
+    _set_prot_debug(tor1, True)
+    snap = _log_text(tgen, tor1, "zebra")
+    _set_bpp_if(tor2, ES_IF, True)
+    _set_bpp(tor1, True)
+    _expect_eligible(tor1, ES1_ID, (tor_lo("tor2"),), "tor2 eligible")
+    _expect_eligible(tor1, ES1_ID, (lo4,), "tor4 never eligible", eligible=False)
+    text = _log_text(tgen, tor1, "zebra")[len(snap) :]
+    assert not [ln for ln in _bpp_peer_lines(text, ES1_ID) if lo4 in ln], text
+    _set_bpp(tor1, False)
+    _clear_ip_ead(tor2)
+    _set_prot_debug(tor1, False)
+
+
+def test_bpp_non_l3mh_es():
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    tor1 = tgen.gears["tor1"]
+    tor2 = tgen.gears["tor2"]
+
+    _set_prot_debug(tor1, True)
+    snap = _log_text(tgen, tor1, "zebra")
+    _set_bpp_if(tor2, ES_IF, True)
+    _set_bpp(tor1, True)
+    _expect_eligible(tor1, ES1_ID, (tor_lo("tor2"),), "ES-1")
+    _expect_no_new_bpp_peer(tgen, tor1, snap, "no BPP_PEER for ES-2", esi=ES2_ID, delay=3)
+    _set_bpp(tor1, False)
+    _clear_ip_ead(tor2)
+    _set_prot_debug(tor1, False)
+
+
+def test_bpp_ineligible_rx():
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    tor1 = tgen.gears["tor1"]
+    tor2 = tgen.gears["tor2"]
+    lo2 = tor_lo("tor2")
+    asn = 65002
+    nbrs = _evpn_nbrs(tor2)
+    rmap = (
+        "bgp extcommunity-list expanded STRIP-RMAC permit Rmac:.*\n"
+        "route-map NO-RMAC permit 10\n"
+        " match evpn route-type ead\n"
+        " set extended-comm-list STRIP-RMAC delete\n"
+        "route-map NO-RMAC permit 20\n"
+    )
+    nbr_cfg = "".join(
+        "router bgp %d\naddress-family l2vpn evpn\nneighbor %s route-map NO-RMAC out\n"
+        % (asn, n)
+        for n in nbrs
+    )
+
+    _set_prot_debug(tor1, True)
+    tor2.vtysh_cmd("configure terminal\n%s%s" % (rmap, nbr_cfg))
+    snap = _log_text(tgen, tor1, "zebra")
+    _set_bpp_if(tor2, ES_IF, True)
+    _set_bpp(tor1, True)
+    _expect_eligible(tor1, ES1_ID, (lo2,), "no rmac, not eligible", eligible=False)
+    _expect_no_new_bpp_peer(tgen, tor1, snap, "no ADD without rmac", esi=ES1_ID)
+    tor2.vtysh_cmd(
+        "configure terminal\n"
+        + "".join(
+            "router bgp %d\naddress-family l2vpn evpn\nno neighbor %s route-map NO-RMAC out\n"
+            % (asn, n)
+            for n in nbrs
+        )
+        + "no route-map NO-RMAC\n"
+    )
+    _set_bpp(tor1, False)
+    _clear_ip_ead(tor2)
+    _set_prot_debug(tor1, False)
+
+
+def test_bpp_knob_off_del():
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    tor1 = tgen.gears["tor1"]
+    tor2 = tgen.gears["tor2"]
+    lo2 = tor_lo("tor2")
+
+    _set_prot_debug(tor1, True)
+    _set_bpp_if(tor2, ES_IF, True)
+    _set_bpp(tor1, True)
+    _expect_eligible(tor1, ES1_ID, (lo2,), "before knob off")
+    snap = _log_text(tgen, tor1, "zebra")
+    _set_l3vni_neigh(tor1, False)
+    _expect_bpp_peer(tgen, tor1, ES1_ID, lo2, "del", "DEL on l3vni-neigh off", after=snap)
+    snap = _log_text(tgen, tor1, "zebra")
+    _set_l3vni_neigh(tor1, True)
+    _expect_eligible(tor1, ES1_ID, (lo2,), "knob restored")
+    _expect_bpp_peer(tgen, tor1, ES1_ID, lo2, "add", "ADD on restore", after=snap)
+    _set_bpp(tor1, False)
+    _clear_ip_ead(tor2)
+    _set_prot_debug(tor1, False)
+
+
+def test_bpp_protection_off_del():
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    tor1 = tgen.gears["tor1"]
+    tor2 = tgen.gears["tor2"]
+    lo2 = tor_lo("tor2")
+
+    _set_prot_debug(tor1, True)
+    _set_bpp_if(tor2, ES_IF, True)
+    _set_bpp(tor1, True)
+    _expect_eligible(tor1, ES1_ID, (lo2,), "protected")
+    snap = _log_text(tgen, tor1, "zebra")
+    _set_bpp(tor1, False)
+    _expect_ip_ead_rx(tor1, ES1_ID, "vrf-a", (lo2,), "rx kept")
+    _expect_bpp_peer(tgen, tor1, ES1_ID, lo2, "del", "DEL on protection off", after=snap)
+    snap = _log_text(tgen, tor1, "zebra")
+    _set_bpp(tor1, True)
+    _expect_eligible(tor1, ES1_ID, (lo2,), "protection back")
+    _expect_bpp_peer(tgen, tor1, ES1_ID, lo2, "add", "ADD on re-enable", after=snap)
+    _set_bpp(tor1, False)
+    _clear_ip_ead(tor2)
+    _set_prot_debug(tor1, False)
+
+
+def test_bpp_remote_only_es_no_send():
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    tor1 = tgen.gears["tor1"]
+    tor2 = tgen.gears["tor2"]
+
+    _set_prot_debug(tor1, True)
+    tor1.vtysh_cmd("configure terminal\ninterface hostbond2\nno evpn mh es-id")
+    snap = _log_text(tgen, tor1, "zebra")
+    _set_bpp_if(tor2, "hostbond2", True)
+    _expect_ip_ead_rx(tor1, ES2_ID, "vrf-a", (tor_lo("tor2"),), "remote-only rx")
+    _expect_no_new_bpp_peer(tgen, tor1, snap, "no BPP_PEER for remote-only", esi=ES2_ID)
+    _set_bpp_if(tor2, "hostbond2", False)
+    tor1.vtysh_cmd("configure terminal\ninterface hostbond2\nevpn mh es-id 2")
+    _set_prot_debug(tor1, False)
+
+
+def test_bpp_vrf_leaves_ready_set():
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    tor1 = tgen.gears["tor1"]
+    tor2 = tgen.gears["tor2"]
+    tor3 = tgen.gears["tor3"]
+    lo3 = tor_lo("tor3")
+
+    _set_vrf_auto_rt(tor3, "vrf-b", False)
+    _set_prot_debug(tor1, True)
+    _set_bpp_if(tor2, ES_IF, True)
+    _set_bpp_if(tor3, ES_IF, True)
+    _set_bpp(tor1, True)
+    _expect_eligible(tor1, ES1_ID, (lo3,), "missing vrf-b", eligible=False, missing=["vrf-b"])
+    snap = _log_text(tgen, tor1, "zebra")
+    tor1.run("/sbin/bridge vlan del vid 20 dev %s" % ES_IF)
+    _expect_eligible(tor1, ES1_ID, (lo3,), "vrf-b left ready set")
+    _expect_bpp_peer(tgen, tor1, ES1_ID, lo3, "add", "ADD after vrf-b left", after=snap)
+    tor1.run("/sbin/bridge vlan add vid 20 dev %s" % ES_IF)
+    _set_vrf_auto_rt(tor3, "vrf-b", True)
+    _set_bpp(tor1, False)
+    _clear_ip_ead(tor2)
+    _clear_ip_ead(tor3)
+    _set_prot_debug(tor1, False)
 
 
 def test_memory_leak():
