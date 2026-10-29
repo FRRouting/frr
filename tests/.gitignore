@@ -18,6 +18,7 @@ frr_northbound*
 /bgpd/test_orf_instance
 /bgpd/test_packet
 /bgpd/test_peer_attr
+/bgpd/test_unencodable_withdraw
 /isisd/test_fuzz_isis_tlv
 /isisd/test_fuzz_isis_tlv_tests.h
 /isisd/test_isis_lspdb
@@ -37,6 +38,7 @@ frr_northbound*
 /lib/test_atomhash_fast
 /lib/test_atomhash_slow
 /lib/test_atomlist
+/lib/test_bfd_timer
 /lib/test_buffer
 /lib/test_checksum
 /lib/test_frrscript
@@ -68,6 +70,7 @@ frr_northbound*
 /lib/test_sig
 /lib/test_skiplist
 /lib/test_srcdest_table
+/lib/test_srv6_sid_notify
 /lib/test_stream
 /lib/test_stream_expand
 /lib/test_table
@@ -82,4 +85,5 @@ frr_northbound*
 /ospfd/test_ospf_asbr_summary
 /ospf6d/test_lsdb
 /ospf6d/test_lsdb_clippy.c
+/pimd/test_pim_jp_encode
 /zebra/test_lm_plugin
