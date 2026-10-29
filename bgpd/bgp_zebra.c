@@ -3480,33 +3480,33 @@ static int bgp_zebra_process_local_es_del(ZAPI_CALLBACK_ARGS)
 
 static int bgp_zebra_process_local_es_evi(ZAPI_CALLBACK_ARGS)
 {
-	esi_t esi;
-	vni_t vni;
+	struct zapi_evpn_local_es_evi evi;
 	struct bgp *bgp;
-	struct stream *s;
 	char buf[ESI_STR_LEN];
 
 	bgp = bgp_lookup_by_vrf_id(vrf_id);
 	if (!bgp)
 		return 0;
 
-	s = zclient->ibuf;
-	stream_get(&esi, s, sizeof(esi_t));
-	vni = stream_getl(s);
+	if (zapi_evpn_local_es_evi_decode(zclient->ibuf, &evi) < 0) {
+		if (BGP_DEBUG(zebra, ZEBRA))
+			zlog_debug("Malformed local ES-EVI %s message",
+				   cmd == ZEBRA_LOCAL_ES_EVI_ADD ? "add" : "del");
+		return -1;
+	}
 
 	if (BGP_DEBUG(zebra, ZEBRA))
-		zlog_debug("Rx %s ESI %s VNI %u",
-			   (cmd == ZEBRA_VNI_ADD) ? "add" : "del",
-			   esi_to_str(&esi, buf, sizeof(buf)), vni);
+		zlog_debug("Rx %s ESI %s VNI %u", cmd == ZEBRA_LOCAL_ES_EVI_ADD ? "add" : "del",
+			   esi_to_str(&evi.esi, buf, sizeof(buf)), evi.l3vni);
 
 	if (cmd == ZEBRA_LOCAL_ES_EVI_ADD) {
-		frrtrace(2, frr_bgp, evpn_mh_local_es_evi_add_zrecv, &esi, vni);
+		frrtrace(2, frr_bgp, evpn_mh_local_es_evi_add_zrecv, &evi.esi, evi.l3vni);
 
-		bgp_evpn_local_es_evi_add(bgp, &esi, vni);
+		bgp_evpn_local_es_evi_add(bgp, &evi.esi, evi.l3vni);
 	} else {
-		frrtrace(2, frr_bgp, evpn_mh_local_es_evi_del_zrecv, &esi, vni);
+		frrtrace(2, frr_bgp, evpn_mh_local_es_evi_del_zrecv, &evi.esi, evi.l3vni);
 
-		bgp_evpn_local_es_evi_del(bgp, &esi, vni);
+		bgp_evpn_local_es_evi_del(bgp, &evi.esi, evi.l3vni);
 	}
 
 	return 0;
