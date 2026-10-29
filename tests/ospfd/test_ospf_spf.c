@@ -15,6 +15,9 @@
 #include "ospfd/ospfd.h"
 #include "ospfd/ospf_asbr.h"
 #include "ospfd/ospf_lsa.h"
+#include "ospfd/ospf_lsdb.h"
+#include "ospfd/ospf_opaque.h"
+#include "ospfd/ospf_gr.h"
 #include "ospfd/ospf_route.h"
 #include "ospfd/ospf_spf.h"
 #include "ospfd/ospf_ti_lfa.h"
@@ -48,6 +51,39 @@ static struct ospf *test_init(struct ospf_test_node *root)
 	ospf->ti_lfa_enabled = true;
 
 	return ospf;
+}
+
+static void test_finish(struct ospf *ospf)
+{
+	ospf_area_check_free(ospf, ospf->backbone->area_id);
+
+	event_cancel(&ospf->t_maxage_walker);
+	event_cancel(&ospf->t_lsa_refresher);
+
+	ospf_opaque_type11_lsa_term(ospf);
+	ospf_gr_helper_instance_stop(ospf);
+
+	ospf_lsdb_delete_all(ospf->lsdb);
+	ospf_lsdb_free(ospf->lsdb);
+
+	route_table_finish(ospf->networks);
+	route_table_finish(ospf->nbr_nbma);
+	route_table_finish(ospf->new_external_route);
+	route_table_finish(ospf->old_external_route);
+	route_table_finish(ospf->external_lsas);
+	route_table_finish(ospf->maxage_lsa);
+	route_table_finish(ospf->distance_table);
+	route_table_finish(ospf->rt_aggr_tbl);
+
+	list_delete(&ospf->oiflist);
+	list_delete(&ospf->vlinks);
+	list_delete(&ospf->areas);
+	list_delete(&ospf->oi_write_q);
+	stream_free(ospf->ibuf);
+
+	QOBJ_UNREG(ospf);
+	XFREE(MTYPE_OSPF_TOP, ospf->name);
+	XFREE(MTYPE_OSPF_TOP, ospf);
 }
 
 static void test_run_spf(struct vty *vty, struct ospf *ospf,
@@ -135,6 +171,13 @@ static void test_run_spf(struct vty *vty, struct ospf *ospf,
 			"\n\nFinal Routing Table including backup paths:\n\n");
 
 	print_route_table(vty, new_table);
+
+	ospf_route_table_free(new_table);
+	ospf_rtrs_free(new_rtrs);
+	ospf_rtrs_free(all_rtrs);
+	ospf_spf_cleanup(area->spf, area->spf_vertex_list);
+	area->spf = NULL;
+	area->spf_vertex_list = NULL;
 }
 
 static int test_run(struct vty *vty, struct ospf_topology *topology,
@@ -148,6 +191,7 @@ static int test_run(struct vty *vty, struct ospf_topology *topology,
 	/* Inject LSAs into the OSPF backbone according to the topology */
 	if (topology_load(vty, topology, root, ospf)) {
 		vty_out(vty, "%% Failed to load topology\n");
+		test_finish(ospf);
 		return CMD_WARNING;
 	}
 
@@ -157,6 +201,8 @@ static int test_run(struct vty *vty, struct ospf_topology *topology,
 	}
 
 	test_run_spf(vty, ospf, protection_type, verbose);
+
+	test_finish(ospf);
 
 	return 0;
 }

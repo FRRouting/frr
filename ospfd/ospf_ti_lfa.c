@@ -37,6 +37,31 @@ static void ospf_rt_cleanup(struct route_table *rt, struct route_node *rn)
 		ospf_route_free(rn->info);
 }
 
+static void ospf_ti_lfa_free_p_space(struct p_space *p_space)
+{
+	struct q_space *q_space;
+
+	while ((q_space = q_spaces_pop(p_space->q_spaces))) {
+		ospf_spf_cleanup(q_space->root, q_space->vertex_list);
+
+		if (q_space->pc_path)
+			list_delete(&q_space->pc_path);
+
+		XFREE(MTYPE_OSPF_Q_SPACE, q_space->p_node_info);
+		XFREE(MTYPE_OSPF_Q_SPACE, q_space->q_node_info);
+		XFREE(MTYPE_OSPF_Q_SPACE, q_space->label_stack);
+		XFREE(MTYPE_OSPF_Q_SPACE, q_space);
+	}
+
+	ospf_spf_cleanup(p_space->root, p_space->vertex_list);
+	ospf_spf_cleanup(p_space->pc_spf, p_space->pc_vertex_list);
+	XFREE(MTYPE_OSPF_P_SPACE, p_space->protected_resource);
+
+	q_spaces_fini(p_space->q_spaces);
+	XFREE(MTYPE_OSPF_Q_SPACE, p_space->q_spaces);
+	XFREE(MTYPE_OSPF_P_SPACE, p_space);
+}
+
 void ospf_print_protected_resource(
 	struct protected_resource *protected_resource, char *buf)
 {
@@ -240,7 +265,7 @@ static struct list *ospf_ti_lfa_cut_out_pc_path(struct list *pc_vertex_list,
 	return inner_pc_path;
 }
 
-static void ospf_ti_lfa_generate_inner_label_stack(
+static struct p_space *ospf_ti_lfa_generate_inner_label_stack(
 	struct ospf_area *area, struct p_space *p_space,
 	struct q_space *q_space,
 	struct ospf_ti_lfa_inner_backup_path_info *inner_backup_path_info)
@@ -302,7 +327,7 @@ static void ospf_ti_lfa_generate_inner_label_stack(
 							    end_vertex);
 		inner_backup_path_info->p_node_info.nexthop =
 			vertex_parent->nexthop->router;
-		return;
+		return NULL;
 	}
 
 	inner_pc_path = ospf_ti_lfa_cut_out_pc_path(p_space->pc_vertex_list,
@@ -331,7 +356,7 @@ static void ospf_ti_lfa_generate_inner_label_stack(
 
 	/* There's just one P and Q space */
 	inner_p_space = p_spaces_pop(area->p_spaces);
-	inner_q_space = q_spaces_pop(inner_p_space->q_spaces);
+	inner_q_space = q_spaces_first(inner_p_space->q_spaces);
 
 	/* Copy over inner backup path information from the inner q_space */
 
@@ -350,6 +375,10 @@ static void ospf_ti_lfa_generate_inner_label_stack(
 		inner_backup_path_info->p_node_info.nexthop =
 			vertex_parent->nexthop->router;
 	} else {
+		inner_backup_path_info->label_stack =
+			XCALLOC(MTYPE_OSPF_Q_SPACE,
+				sizeof(struct mpls_label_stack) +
+					MPLS_MAX_LABELS * sizeof(mpls_label_t));
 		memcpy(inner_backup_path_info->label_stack,
 		       inner_q_space->label_stack,
 		       sizeof(struct mpls_label_stack)
@@ -381,6 +410,9 @@ static void ospf_ti_lfa_generate_inner_label_stack(
 	area->p_spaces = p_spaces_orig;
 
 	route_table_finish(new_table);
+	list_delete(&inner_pc_path);
+
+	return inner_p_space;
 }
 
 static void ospf_ti_lfa_generate_label_stack(struct ospf_area *area,
@@ -391,6 +423,7 @@ static void ospf_ti_lfa_generate_label_stack(struct ospf_area *area,
 	mpls_label_t labels[MPLS_MAX_LABELS];
 	struct vertex *pc_node;
 	struct ospf_ti_lfa_inner_backup_path_info inner_backup_path_info;
+	struct p_space *inner_p_space;
 
 	if (IS_DEBUG_OSPF_TI_LFA)
 		zlog_debug(
@@ -504,12 +537,8 @@ static void ospf_ti_lfa_generate_label_stack(struct ospf_area *area,
 		 * After having found the inner label stack it is stitched
 		 * together with the outer labels.
 		 */
-		inner_backup_path_info.label_stack = XCALLOC(
-			MTYPE_OSPF_PATH,
-			sizeof(struct mpls_label_stack)
-				+ sizeof(mpls_label_t) * MPLS_MAX_LABELS);
-		ospf_ti_lfa_generate_inner_label_stack(area, p_space, q_space,
-						       &inner_backup_path_info);
+		inner_p_space = ospf_ti_lfa_generate_inner_label_stack(
+			area, p_space, q_space, &inner_backup_path_info);
 
 		/*
 		 * First stitch together the outer P node label with the inner
@@ -591,6 +620,13 @@ static void ospf_ti_lfa_generate_label_stack(struct ospf_area *area,
 		 * Note that there's also the case where the inner and outer Q
 		 * node are the same, but then there's nothing to do!
 		 */
+
+		if (inner_p_space) {
+			/* The protected resource belongs to the outer P space */
+			inner_p_space->protected_resource = NULL;
+			ospf_ti_lfa_free_p_space(inner_p_space);
+		}
+		XFREE(MTYPE_OSPF_Q_SPACE, inner_backup_path_info.label_stack);
 	}
 }
 
@@ -879,18 +915,20 @@ void ospf_ti_lfa_generate_p_spaces(struct ospf_area *area,
 		/* First comes node protection */
 		if (protection_type == OSPF_TI_LFA_NODE_PROTECTION) {
 			if (l->m[0].type == LSA_LINK_TYPE_POINTOPOINT) {
-				protected_resource = XCALLOC(
-					MTYPE_OSPF_P_SPACE,
-					sizeof(struct protected_resource));
-				protected_resource->type = protection_type;
-				protected_resource->router_id = l->link_id;
-				child = ospf_spf_vertex_find(
-					protected_resource->router_id,
-					root->children);
-				if (child)
+				child = ospf_spf_vertex_find(l->link_id,
+							     root->children);
+				if (child) {
+					protected_resource = XCALLOC(
+						MTYPE_OSPF_P_SPACE,
+						sizeof(struct protected_resource));
+					protected_resource->type =
+						protection_type;
+					protected_resource->router_id =
+						l->link_id;
 					ospf_ti_lfa_generate_p_space(
 						area, child, protected_resource,
 						true, NULL);
+				}
 			}
 
 			continue;
@@ -1079,29 +1117,9 @@ void ospf_ti_lfa_insert_backup_paths(struct ospf_area *area,
 void ospf_ti_lfa_free_p_spaces(struct ospf_area *area)
 {
 	struct p_space *p_space;
-	struct q_space *q_space;
 
-	while ((p_space = p_spaces_pop(area->p_spaces))) {
-		while ((q_space = q_spaces_pop(p_space->q_spaces))) {
-			ospf_spf_cleanup(q_space->root, q_space->vertex_list);
-
-			if (q_space->pc_path)
-				list_delete(&q_space->pc_path);
-
-			XFREE(MTYPE_OSPF_Q_SPACE, q_space->p_node_info);
-			XFREE(MTYPE_OSPF_Q_SPACE, q_space->q_node_info);
-			XFREE(MTYPE_OSPF_Q_SPACE, q_space->label_stack);
-			XFREE(MTYPE_OSPF_Q_SPACE, q_space);
-		}
-
-		ospf_spf_cleanup(p_space->root, p_space->vertex_list);
-		ospf_spf_cleanup(p_space->pc_spf, p_space->pc_vertex_list);
-		XFREE(MTYPE_OSPF_P_SPACE, p_space->protected_resource);
-
-		q_spaces_fini(p_space->q_spaces);
-		XFREE(MTYPE_OSPF_Q_SPACE, p_space->q_spaces);
-		XFREE(MTYPE_OSPF_P_SPACE, p_space);
-	}
+	while ((p_space = p_spaces_pop(area->p_spaces)))
+		ospf_ti_lfa_free_p_space(p_space);
 
 	p_spaces_fini(area->p_spaces);
 	XFREE(MTYPE_OSPF_P_SPACE, area->p_spaces);
