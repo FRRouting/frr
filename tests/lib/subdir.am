@@ -273,6 +273,13 @@ tests_lib_test_printfrr_LDADD = $(ALL_TESTS_LDADD)
 tests_lib_test_printfrr_SOURCES = tests/lib/test_printfrr.c
 EXTRA_DIST += tests/lib/test_printfrr.py
 
+check_PROGRAMS += tests/lib/test_ptm_lib
+tests_lib_test_ptm_lib_CFLAGS = $(TESTS_CFLAGS)
+tests_lib_test_ptm_lib_CPPFLAGS = $(TESTS_CPPFLAGS)
+tests_lib_test_ptm_lib_LDADD = $(ALL_TESTS_LDADD)
+tests_lib_test_ptm_lib_SOURCES = tests/lib/test_ptm_lib.c
+EXTRA_DIST += tests/lib/test_ptm_lib.py
+
 
 check_PROGRAMS += tests/lib/test_privs
 tests_lib_test_privs_CFLAGS = $(TESTS_CFLAGS)
