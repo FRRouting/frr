@@ -5275,17 +5275,14 @@ DEFPY(show_bgp_l2vpn_evpn_es_vrf, show_bgp_l2vpn_evpn_es_vrf_cmd,
 {
 	esi_t esi;
 
-	(void)detail;
-
 	if (esi_str) {
 		if (!str_to_esi(esi_str, &esi)) {
 			vty_out(vty, "%% Malformed ESI\n");
 			return CMD_WARNING;
 		}
-		bgp_evpn_es_vrf_show_esi(vty, &esi, uj);
+		bgp_evpn_es_vrf_show_esi(vty, &esi, uj, !!detail);
 	} else {
-
-		bgp_evpn_es_vrf_show(vty, uj, NULL);
+		bgp_evpn_es_vrf_show(vty, uj, NULL, !!detail);
 	}
 
 	return CMD_SUCCESS;

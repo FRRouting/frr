@@ -9655,6 +9655,7 @@ void bgp_evpn_init(struct bgp *bgp)
 void bgp_evpn_vrf_delete(struct bgp *bgp_vrf)
 {
 	bgp_evpn_es_l3evi_vrf_update(bgp_vrf, false);
+	bgp_evpn_vrf_es_cleanup(bgp_vrf);
 	bgp_evpn_unmap_vrf_from_its_rts(bgp_vrf);
 	bgp_evpn_nh_finish(bgp_vrf);
 }

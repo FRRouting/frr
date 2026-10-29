@@ -17,6 +17,7 @@
 
 PREDECL_DLIST(bgp_evpn_es_vrf_frag);
 PREDECL_DLIST(bgp_evpn_es_vrf_vtep_list);
+PREDECL_DLIST(bgp_evpn_es_l3_vtep_list);
 
 #define BGP_EVPN_AD_ES_ETH_TAG 0xffffffff
 #define BGP_EVPN_AD_EVI_ETH_TAG 0
@@ -119,6 +120,9 @@ struct bgp_evpn_es {
 
 	/* List of ES-VRFs associated with this ES */
 	struct list *es_vrf_list;
+
+	/* Eligible L3 backup peers, one per (ESI, VTEP) */
+	struct bgp_evpn_es_l3_vtep_list_head l3_vtep_list;
 
 	/* List of MAC-IP VNI paths using this ES as destination -
 	 * element is bgp_path_info_extra->es_info
@@ -246,6 +250,24 @@ struct bgp_evpn_es_vrf_vtep {
 	struct ethaddr rmac;
 
 	struct bgp_evpn_es_vrf_vtep_list_item es_vrf_item;
+};
+
+/* Per-(ESI, VTEP) L3 eligibility sent to zebra as ZEBRA_EVPN_BPP_PEER_* */
+struct bgp_evpn_es_l3_vtep {
+	struct bgp_evpn_es *es;
+	struct ipaddr vtep_ip;
+
+	uint32_t flags;
+#define BGP_EVPN_ES_L3_VTEP_SENT (1 << 0)
+
+	struct ethaddr rmac;
+	struct ethaddr sent_rmac;
+	uint8_t warn_state;
+#define BGP_EVPN_ES_L3_VTEP_WARN_NONE	      0
+#define BGP_EVPN_ES_L3_VTEP_WARN_ELIGIBLE_NO_RT4 1
+#define BGP_EVPN_ES_L3_VTEP_WARN_RT4_NO_IP_EAD	 2
+
+	struct bgp_evpn_es_l3_vtep_list_item es_item;
 };
 
 /* Local ES to IP-VRF association received from zebra as an ES-EVI with
@@ -507,6 +529,7 @@ void bgp_evpn_es_evi_show_vni(struct vty *vty, vni_t vni,
 void bgp_evpn_es_evi_show(struct vty *vty, bool uj, bool detail);
 struct bgp_evpn_es *bgp_evpn_es_find(const esi_t *esi);
 extern void bgp_evpn_vrf_es_init(struct bgp *bgp_vrf);
+extern void bgp_evpn_vrf_es_cleanup(struct bgp *bgp_vrf);
 extern bool bgp_evpn_is_esi_local_and_non_bypass(esi_t *esi);
 extern void bgp_evpn_es_vrf_deref(struct bgp_evpn_es_evi *es_evi);
 extern void bgp_evpn_es_vrf_ref(struct bgp_evpn_es_evi *es_evi,
@@ -516,9 +539,8 @@ extern void bgp_evpn_path_es_link(struct bgp_path_info *pi, vni_t vni,
 				  esi_t *esi);
 extern bool bgp_evpn_path_es_use_nhg(struct bgp *bgp_vrf,
 				     struct bgp_path_info *pi, uint32_t *nhg_p);
-extern void bgp_evpn_es_vrf_show(struct vty *vty, bool uj,
-				 struct bgp_evpn_es *es);
-extern void bgp_evpn_es_vrf_show_esi(struct vty *vty, esi_t *esi, bool uj);
+extern void bgp_evpn_es_vrf_show(struct vty *vty, bool uj, struct bgp_evpn_es *es, bool detail);
+extern void bgp_evpn_es_vrf_show_esi(struct vty *vty, esi_t *esi, bool uj, bool detail);
 extern void bgp_evpn_es_l3evi_vrf_update(struct bgp *bgp_vrf, bool add);
 extern void bgp_evpn_switch_ead_evi_rx(void);
 extern bool bgp_evpn_es_add_l3_attrs_ok(esi_t *esi);

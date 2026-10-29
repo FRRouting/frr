@@ -2833,6 +2833,43 @@ int bgp_zebra_advertise_all_vni(struct bgp *bgp, int advertise)
 	return zclient_send_message(bgp_zclient);
 }
 
+enum zclient_send_status bgp_zebra_send_bpp_peer(const esi_t *esi, const struct ipaddr *vtep,
+						 const struct ethaddr *rmac, bool add)
+{
+	struct bgp *bgp;
+	struct stream *s;
+	struct zapi_evpn_bpp_peer peer = {};
+	char esi_buf[ESI_STR_LEN];
+
+	if (!bgp_zclient || bgp_zclient->sock < 0)
+		return ZCLIENT_SEND_SUCCESS;
+
+	bgp = bgp_get_evpn();
+	if (!bgp || !IS_BGP_INST_KNOWN_TO_ZEBRA(bgp))
+		return ZCLIENT_SEND_SUCCESS;
+
+	memcpy(&peer.esi, esi, sizeof(esi_t));
+	peer.type = ZAPI_EVPN_BPP_PEER_L3;
+	peer.vtep = *vtep;
+	if (add && rmac)
+		memcpy(&peer.rmac, rmac, ETH_ALEN);
+
+	s = bgp_zclient->obuf;
+	stream_reset(s);
+	zclient_create_header(s, add ? ZEBRA_EVPN_BPP_PEER_ADD : ZEBRA_EVPN_BPP_PEER_DEL,
+			      bgp->vrf_id);
+	if (zapi_evpn_bpp_peer_encode(s, &peer, add)) {
+		if (BGP_DEBUG(evpn_mh, EVPN_MH_PROT))
+			zlog_debug("es %s vtep %pIA bpp-peer %s encode failed",
+				   esi_to_str(esi, esi_buf, sizeof(esi_buf)), vtep,
+				   add ? "add" : "del");
+		return ZCLIENT_SEND_FAILURE;
+	}
+	stream_putw_at(s, 0, stream_get_endp(s));
+
+	return zclient_send_message(bgp_zclient);
+}
+
 int bgp_zebra_dup_addr_detection(struct bgp *bgp)
 {
 	struct stream *s;
