@@ -3259,27 +3259,40 @@ static void free_item_extended_reach(struct isis_item *i)
 	XFREE(MTYPE_ISIS_TLV, item);
 }
 
+/* The largest LSP ("lsp-mtu"): no item can be packed into a longer one. */
+#define ISIS_LSP_MAX_SIZE 4352
+
 static int pack_item_extended_reach(struct isis_item *i, struct stream *s, size_t *min_len)
 {
 	struct isis_extended_reach *r = (struct isis_extended_reach *)i;
-	size_t len;
-	size_t len_pos;
+	struct stream *scratch;
+	size_t len_pos, len, size;
 
-	if (STREAM_WRITEABLE(s) < 11 + ISIS_SUBTLV_MAX_SIZE) {
-		*min_len = 11 + ISIS_SUBTLV_MAX_SIZE;
+	/*
+	 * The sub-TLV packers do not check for room, and their output has no
+	 * fixed bound: pack into room for the largest LSP, then require room
+	 * for the item's actual size only.
+	 */
+	scratch = stream_new(ISIS_LSP_MAX_SIZE);
+	stream_put(scratch, r->id, sizeof(r->id));
+	stream_put3(scratch, r->metric);
+	len_pos = stream_get_endp(scratch);
+	/* Real length will be adjust after adding subTLVs */
+	stream_putc(scratch, 11);
+	if (r->subtlvs)
+		pack_item_ext_subtlvs(r->subtlvs, scratch, min_len);
+	/* Adjust length */
+	len = stream_get_endp(scratch) - len_pos - 1;
+	stream_putc_at(scratch, len_pos, len);
+
+	size = stream_get_endp(scratch);
+	if (STREAM_WRITEABLE(s) < size) {
+		*min_len = size;
+		stream_free(scratch);
 		return 1;
 	}
-
-	stream_put(s, r->id, sizeof(r->id));
-	stream_put3(s, r->metric);
-	len_pos = stream_get_endp(s);
-	/* Real length will be adjust after adding subTLVs */
-	stream_putc(s, 11);
-	if (r->subtlvs)
-		pack_item_ext_subtlvs(r->subtlvs, s, min_len);
-	/* Adjust length */
-	len = stream_get_endp(s) - len_pos - 1;
-	stream_putc_at(s, len_pos, len);
+	stream_put(s, STREAM_DATA(scratch), size);
+	stream_free(scratch);
 	return 0;
 }
 
@@ -6044,11 +6057,13 @@ static int pack_items_(uint16_t mtid, enum isis_tlv_context context, enum isis_t
 	struct isis_item *item = NULL;
 	int rv;
 	size_t min_len = 0;
+	size_t tlv_start, hdr_len = 0;
 
 	if (!items->head)
 		return 0;
 
 top:
+	tlv_start = stream_get_endp(s);
 	if (STREAM_WRITEABLE(s) < 2)
 		goto too_long;
 
@@ -6075,6 +6090,7 @@ top:
 			goto too_long;
 		stream_putc(s, 0); /* Virtual flag is set to 0 */
 	}
+	hdr_len = stream_get_endp(s) - tlv_start;
 
 	last_len = len = 0;
 	for (item = item ? item : items->head; item; item = item->next) {
@@ -6128,7 +6144,8 @@ too_long:
 	if (!fragment_tlvs)
 		return 1;
 	stream_reset(s);
-	if (STREAM_WRITEABLE(s) < min_len)
+	/* A fresh fragment must take the TLV header too, or it will not fit either. */
+	if (STREAM_WRITEABLE(s) < hdr_len + min_len)
 		return 1;
 	*fragment_tlvs = new_fragment(new_fragment_arg);
 	goto top;
