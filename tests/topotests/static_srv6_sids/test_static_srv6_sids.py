@@ -865,6 +865,113 @@ def test_srv6_static_sid_vrf_recreation():
     check_srv6_static_sids(router, "expected_srv6_sids.json")
 
 
+WIDE_LIB_SID_PREFIX = "fcbb:cccc:1:1f4::/64"
+WIDE_LIB_SID_REJECTED = "function 500 is outside ELIB"
+
+
+def _check_wide_lib_sid_rejected(router):
+    status = router.check_router_running()
+    if status:
+        return status
+
+    # The route is also absent before zebra answers, so wait for the
+    # rejection itself rather than for the route to be missing
+    zebra_log = os.path.join(router.logdir, router.name, "zebra.log")
+    if not os.path.isfile(zebra_log):
+        return "zebra log {} not found".format(zebra_log)
+    with open(zebra_log) as f:
+        if WIDE_LIB_SID_REJECTED not in f.read():
+            return "zebra has not rejected SID function 500 yet"
+
+    output = json.loads(router.vtysh_cmd("show ipv6 route static json"))
+    result = topotest.json_cmp(output, {WIDE_LIB_SID_PREFIX: None})
+    if result is not None:
+        return "show ipv6 route static: {}".format(result)
+
+    return None
+
+
+def test_srv6_static_sids_explicit_wide_lib_below_wlib_start():
+    """
+    Configure an Explicit Wide LIB that starts below the Wide LIB, then ask
+    for a uA SID whose function falls in the gap between the two.
+
+    The Wide LIB is an array indexed by the function's offset from the Wide
+    LIB start, and the explicit allocation path used to check the requested
+    function against the Explicit Wide LIB bounds alone. A function below
+    the Wide LIB start wrapped the unsigned offset, and zebra faulted
+    reading far past the end of the array.
+    """
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+    router = tgen.gears["r1"]
+
+    logger.info("Configure a Wide LIB that does not start at zero")
+    router.vtysh_cmd(
+        """
+        configure terminal
+         segment-routing
+          srv6
+           formats
+            format usid-f3216
+             wide-local-id-block start 1000 end 1010
+             wide-local-id-block explicit start 0
+        """
+    )
+
+    router.vtysh_cmd(
+        """
+        configure terminal
+         segment-routing
+          srv6
+           locators
+            locator WIDE
+             prefix fcbb:cccc:1::/48
+             format usid-f3216
+        """
+    )
+
+    # A uA SID is only requested once the peer is confirmed on the egress
+    check_ping("r1", "2001::2", True, 10, 1)
+
+    logger.info("Request a uA SID with function 500, below the Wide LIB start")
+    router.vtysh_cmd(
+        """
+        configure terminal
+         segment-routing
+          srv6
+           static-sids
+            sid fcbb:cccc:1:1f4::/64 locator WIDE behavior uA interface r1-eth0
+        """
+    )
+
+    func = functools.partial(_check_wide_lib_sid_rejected, router)
+    _, result = topotest.run_and_expect(func, None, count=30, wait=1)
+    assert result is None, result
+
+    router.vtysh_cmd(
+        """
+        configure terminal
+         segment-routing
+          srv6
+           static-sids
+            no sid fcbb:cccc:1:1f4::/64
+           !
+           locators
+            no locator WIDE
+           !
+           formats
+            format usid-f3216
+             no wide-local-id-block explicit
+             no wide-local-id-block
+        """
+    )
+
+    logger.info("Verify the other SIDs are unaffected")
+    check_srv6_static_sids(router, "expected_srv6_sids.json")
+
+
 if __name__ == "__main__":
     args = ["-s"] + sys.argv[1:]
     sys.exit(pytest.main(args))
