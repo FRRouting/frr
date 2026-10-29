@@ -13,6 +13,9 @@
 #include "bgpd.h"
 #include "bgp_evpn.h"
 #include "bgp_evpn_private.h"
+#include "lib/typesafe.h"
+
+PREDECL_DLIST(bgp_evpn_es_vrf_frag);
 
 #define BGP_EVPN_AD_ES_ETH_TAG 0xffffffff
 #define BGP_EVPN_AD_EVI_ETH_TAG 0
@@ -46,6 +49,8 @@ struct bgp_evpn_es_frag {
 
 	/* List of ES-EVIs associated with this fragment */
 	struct list *es_evi_frag_list;
+	/* L3MH ES-VRFs advertised in this fragment */
+	struct bgp_evpn_es_vrf_frag_head es_vrf_frag_list;
 };
 
 /* Ethernet Segment entry -
@@ -209,6 +214,16 @@ struct bgp_evpn_es_vrf {
 	 * only L3VNI references has no L3 NHG.
 	 */
 	uint32_t l3_ref_cnt;
+
+	/* EAD-per-ES fragment this L3MH ES-VRF occupies, if any */
+	struct bgp_evpn_es_frag *es_frag;
+	struct bgp_evpn_es_vrf_frag_item es_frag_item;
+
+	/* Local IP A-D per-EVI (type-1) for this (ES, IP-VRF) */
+	struct bgp_table *route_table;
+	/* RD used when the route was exported to the global table */
+	struct prefix_rd ipad_prd;
+	bool ipad_prd_set;
 };
 
 /* Local ES to IP-VRF association received from zebra as an ES-EVI with
@@ -426,10 +441,12 @@ extern int bgp_evpn_es_route_install_uninstall(struct bgp *bgp,
 extern void update_type1_routes_for_evi(struct bgp *bgp, struct bgpevpn *vpn);
 extern int delete_global_ead_evi_routes(struct bgp *bgp, struct bgpevpn *vpn);
 extern int bgp_evpn_mh_route_update(struct bgp *bgp, struct bgp_evpn_es *es,
-				    struct bgpevpn *vpn, afi_t afi, safi_t safi,
+				    struct bgpevpn *vpn, vni_t vni, afi_t afi, safi_t safi,
 				    struct bgp_dest *dest, struct attr *attr,
 				    struct bgp_path_info **ri,
 				    int *route_changed);
+extern void bgp_evpn_es_vrf_ipad_update(struct bgp *bgp_vrf);
+extern void bgp_evpn_es_vrf_ipad_withdraw(struct bgp *bgp_vrf);
 int bgp_evpn_type1_route_process(struct peer *peer, afi_t afi, safi_t safi,
 		struct attr *attr, uint8_t *pfx, int psize,
 		uint32_t addpath_id);

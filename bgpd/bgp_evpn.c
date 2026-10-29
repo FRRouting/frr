@@ -5599,7 +5599,7 @@ static void update_advertise_vni_route(struct bgp *bgp, struct bgpevpn *vpn,
 		int route_changed = 0;
 
 		es = bgp_evpn_es_find(&evp->prefix.ead_addr.esi);
-		bgp_evpn_mh_route_update(bgp, es, vpn, afi, safi, global_dest,
+		bgp_evpn_mh_route_update(bgp, es, vpn, 0, afi, safi, global_dest,
 					 attr, &global_pi, &route_changed);
 	}
 
@@ -6674,6 +6674,9 @@ static void bgp_evpn_handle_export_rt_change_for_vrf(struct bgp *bgp_vrf)
 	/* update all type-2 routes */
 	for (ALL_LIST_ELEMENTS_RO(bgp_vrf->l2vnis, node, vpn))
 		update_routes_for_vni(bgp_evpn, vpn);
+
+	/* refresh IP A-D per-EVI and per-ES RTs */
+	bgp_evpn_es_vrf_ipad_update(bgp_vrf);
 }
 
 /*
@@ -7418,10 +7421,13 @@ int bgp_evpn_handle_export_rt_change(struct bgp *bgp, struct bgpevpn *vpn)
 
 void bgp_evpn_handle_vrf_rd_change(struct bgp *bgp_vrf, int withdraw)
 {
-	if (withdraw)
+	if (withdraw) {
 		delete_withdraw_vrf_routes(bgp_vrf);
-	else
+		bgp_evpn_es_vrf_ipad_withdraw(bgp_vrf);
+	} else {
 		update_advertise_vrf_routes(bgp_vrf);
+		bgp_evpn_es_vrf_ipad_update(bgp_vrf);
+	}
 }
 
 /*
@@ -9113,6 +9119,9 @@ int bgp_evpn_local_l3vni_add(vni_t l3vni, vrf_id_t vrf_id, struct ethaddr *svi_r
 	/* bind ES-VRFs waiting on this L3VNI */
 	bgp_evpn_es_l3evi_vrf_update(bgp_vrf, true);
 
+	/* RMAC / L3VNI / RD change: refresh IP A-D per-EVI */
+	bgp_evpn_es_vrf_ipad_update(bgp_vrf);
+
 	return 0;
 }
 
@@ -9162,8 +9171,9 @@ int bgp_evpn_local_l3vni_del(vni_t l3vni, vrf_id_t vrf_id)
 	 */
 	bgp_tip_del(bgp_evpn, &bgp_vrf->originator_ip);
 
-	/* L3VNI ES-EVIs go back to pending */
-	bgp_evpn_es_l3evi_vrf_update(bgp_vrf, false);
+	/* L3VNI oper-down is not an ES-EVI withdraw. Keep L3MH ES-VRFs
+	 * bound so IP A-D per-EVI stays until the ES-EVI itself is deleted.
+	 */
 
 	/* remove the l3vni from vrf instance */
 	bgp_vrf->l3vni = 0;

@@ -641,6 +641,21 @@ static inline void encode_rmac_extcomm(struct ecommunity_val *eval,
 	memcpy(&eval->val[2], rmac, ETH_ALEN);
 }
 
+/* RFC 8214 Layer-2 Attributes Extended Community. P=1 is all-active. */
+static inline void encode_l2_attr_extcomm(struct ecommunity_val *eval, uint16_t flags,
+					  uint16_t l2_mtu)
+{
+	uint16_t tmp;
+
+	memset(eval, 0, sizeof(*eval));
+	eval->val[0] = ECOMMUNITY_ENCODE_EVPN;
+	eval->val[1] = ECOMMUNITY_EVPN_SUBTYPE_LAYER2_ATTR;
+	tmp = htons(flags);
+	memcpy(&eval->val[2], &tmp, sizeof(tmp));
+	tmp = htons(l2_mtu);
+	memcpy(&eval->val[4], &tmp, sizeof(tmp));
+}
+
 static inline void encode_default_gw_extcomm(struct ecommunity_val *eval)
 {
 	memset(eval, 0, sizeof(*eval));
