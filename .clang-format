@@ -235,4 +235,5 @@ WhitespaceSensitiveMacros:
   - "ALIAS_HIDDEN"
   - "ALIAS_YANG"
   - "ALIAS_DEPRECATED"
+  - "frrscript_call"
 ...

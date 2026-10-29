@@ -64,6 +64,13 @@ void lua_pushprefix(lua_State *L, const struct prefix *prefix)
 	lua_setfield(L, -2, "length");
 	lua_pushinteger(L, prefix->family);
 	lua_setfield(L, -2, "family");
+
+	if (prefix->family == AF_EVPN) {
+		const struct prefix_evpn *evp = (const struct prefix_evpn *)prefix;
+
+		lua_pushinteger(L, evp->prefix.route_type);
+		lua_setfield(L, -2, "route_type");
+	}
 }
 
 void lua_decode_prefix(lua_State *L, int idx, struct prefix *prefix)

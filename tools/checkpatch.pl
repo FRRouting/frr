@@ -598,6 +598,7 @@ our $typeOtherOSTypedefs = qr{(?x:
 )};
 our $typeKernelTypedefs = qr{(?x:
 	(?:__)?(?:u|s|be|le)(?:8|16|32|64)|
+	lua_State|
 	atomic_t
 )};
 our $typeTypedefs = qr{(?x:
