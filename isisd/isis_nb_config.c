@@ -4024,6 +4024,36 @@ int lib_interface_isis_disable_three_way_handshake_modify(struct nb_cb_modify_ar
 	return NB_OK;
 }
 
+/*
+ * XPath:
+ * /frr-interface:lib/interface/frr-isisd:isis/ipv4-over-ipv6-nexthop
+ */
+int lib_interface_isis_ipv4_over_ipv6_nexthop_modify(struct nb_cb_modify_args *args)
+{
+	struct isis_circuit *circuit;
+	struct isis_area *area;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	circuit = nb_running_get_entry(args->dnode, NULL, true);
+	circuit->ipv4_over_ipv6_nexthop = yang_dnode_get_bool(args->dnode, NULL);
+
+	/*
+	 * Nexthops are computed locally, so no LSP changes: rerun SPF. An MT
+	 * adjacency's IPv4 topology membership follows on the neighbor's next IIH.
+	 */
+	area = circuit->area;
+	if (!area)
+		return NB_OK;
+	if (area->is_type & IS_LEVEL_1)
+		isis_spf_schedule(area, IS_LEVEL_1);
+	if (area->is_type & IS_LEVEL_2)
+		isis_spf_schedule(area, IS_LEVEL_2);
+
+	return NB_OK;
+}
+
 static int lib_interface_isis_multi_topology_common(enum nb_event event,
 						    const struct lyd_node *dnode, char *errmsg,
 						    size_t errmsg_len, uint16_t mtid)

@@ -234,7 +234,7 @@ static int process_p2p_hello(struct iih_info *iih)
 					   iih->calculated_type, iih->circuit);
 
 		} else {
-			adj->level = iih->calculated_type;
+			isis_adj_p2p_level_set(adj, iih->calculated_type);
 		}
 		iih->circuit->u.p2p.neighbor = adj;
 		/* Build lsp with the new neighbor entry when a new
@@ -802,8 +802,9 @@ static int process_hello(uint8_t pdu_type, struct isis_circuit *circuit,
 		goto out;
 	}
 
-	iih.v4_usable = (fabricd_ip_addrs(circuit)
-			 && iih.tlvs->ipv4_address.count);
+	iih.v4_usable = (fabricd_ip_addrs(circuit) && iih.tlvs->ipv4_address.count) ||
+			(isis_circuit_ipv4_over_ipv6(circuit) && listcount(circuit->ipv6_link) &&
+			 iih.tlvs->ipv6_address.count);
 
 	iih.v6_usable =
 		(listcount(circuit->ipv6_link) && iih.tlvs->ipv6_address.count);

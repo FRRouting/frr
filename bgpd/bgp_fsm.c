@@ -366,6 +366,7 @@ void bgp_timer_set(struct peer_connection *connection)
 {
 	afi_t afi;
 	safi_t safi;
+	struct peer_af *paf;
 	struct peer *peer = connection->peer;
 
 	switch (connection->status) {
@@ -494,8 +495,11 @@ void bgp_timer_set(struct peer_connection *connection)
 		event_cancel(&connection->t_gr_restart);
 		event_cancel(&connection->t_gr_stale);
 
-		FOREACH_AFI_SAFI (afi, safi)
-			event_cancel(&peer->t_llgr_stale[afi][safi]);
+		FOREACH_AFI_SAFI (afi, safi) {
+			paf = peer_af_find(peer, afi, safi);
+			if (paf)
+				event_cancel(&paf->t_llgr_stale);
+		}
 
 		event_cancel(&connection->t_pmax_restart);
 		event_cancel(&peer->t_refresh_stalepath);
@@ -858,9 +862,8 @@ static void bgp_graceful_restart_timer_expire(struct event *event)
 			bgp_set_llgr_stale(peer, afi, safi);
 			bgp_clear_stale_route(peer, afi, safi);
 
-			event_add_timer(bm->master, bgp_llgr_stale_timer_expire,
-					paf, peer->llgr[afi][safi].stale_time,
-					&peer->t_llgr_stale[afi][safi]);
+			event_add_timer(bm->master, bgp_llgr_stale_timer_expire, paf,
+					peer->llgr[afi][safi].stale_time, &paf->t_llgr_stale);
 
 			for (ALL_LIST_ELEMENTS(peer->bgp->peer, node, nnode,
 					       tmp_peer))
@@ -877,6 +880,7 @@ static void bgp_graceful_stale_timer_expire(struct event *event)
 {
 	struct peer_connection *connection = EVENT_ARG(event);
 	struct peer *peer = connection->peer;
+	struct peer_af *paf;
 	afi_t afi;
 	safi_t safi;
 
@@ -888,7 +892,7 @@ static void bgp_graceful_stale_timer_expire(struct event *event)
 	 * RFC 9494 §4.3: for LLGR-negotiated AFI/SAFI, retention is bounded
 	 * by the Long-Lived Stale Time, not stalepath-time. Skip the delete
 	 * if LLGR retention is (or will be) active for this AFI/SAFI:
-	 *   - t_llgr_stale[afi][safi] scheduled: the LLGR window is already
+	 *   - paf->t_llgr_stale scheduled: the LLGR window is already
 	 *     running; t_gr_restart has fired but didn't cancel t_gr_stale
 	 *     (bgp_graceful_restart_timer_off() bails when any AFI/SAFI is
 	 *     in PEER_STATUS_LLGR_WAIT).
@@ -904,7 +908,8 @@ static void bgp_graceful_stale_timer_expire(struct event *event)
 		if (!peer->nsf[afi][safi])
 			continue;
 
-		if (event_is_scheduled(peer->t_llgr_stale[afi][safi]) ||
+		paf = peer_af_find(peer, afi, safi);
+		if ((paf && event_is_scheduled(paf->t_llgr_stale)) ||
 		    (peer->llgr[afi][safi].stale_time &&
 		     event_is_scheduled(connection->t_gr_restart))) {
 			if (bgp_debug_neighbor_events(peer))
@@ -1811,13 +1816,7 @@ static void bgp_gr_evaluate_mix_peer_type(struct bgp *bgp)
 
 	bgp->gr_multihop_peer_exists = false;
 
-	FOREACH_AFI_SAFI_NSF (afi, safi) {
-		/*
-		 * GR is not supported for this afi-safi
-		 */
-		if (!bgp_gr_supported_for_afi_safi(afi, safi))
-			continue;
-
+	FOREACH_AFI_SAFI_GR (afi, safi) {
 		for (ALL_LIST_ELEMENTS(bgp->peer, node, nnode, peer)) {
 			/*
 			 * If this is not a config node or
@@ -1913,10 +1912,7 @@ void bgp_gr_start_all_deferral_timers(struct bgp *bgp)
 	afi_t afi;
 	safi_t safi;
 
-	FOREACH_AFI_SAFI_NSF (afi, safi) {
-		if (!bgp_gr_supported_for_afi_safi(afi, safi))
-			continue;
-
+	FOREACH_AFI_SAFI_GR (afi, safi) {
 		gr_info = &(bgp->gr_info[afi][safi]);
 		if (!event_is_scheduled(gr_info->t_select_deferral))
 			bgp_start_deferral_timer(bgp, afi, safi, gr_info);
@@ -2038,10 +2034,7 @@ static bool gr_path_select_deferral_applicable(struct bgp *bgp)
 	if (!event_is_scheduled(bgp->t_startup) && !bgp_in_graceful_restart())
 		return false;
 
-	FOREACH_AFI_SAFI_NSF (afi, safi) {
-		if (!bgp_gr_supported_for_afi_safi(afi, safi))
-			continue;
-
+	FOREACH_AFI_SAFI_GR (afi, safi) {
 		if (!BGP_GR_SELECT_DEFER_DONE(bgp, afi, safi))
 			return true;
 	}
@@ -2358,6 +2351,7 @@ enum bgp_fsm_state_progress bgp_stop(struct peer_connection *connection)
 
 		/* peer address family capability flags*/
 		peer->af_cap[afi][safi] = 0;
+		peer->addpath_paths_limit[afi][safi].receive = 0;
 
 		/* peer address family status flags*/
 		/* Don't clear WAIT_EOR */
@@ -3021,6 +3015,7 @@ bgp_establish(struct peer_connection *connection)
 {
 	afi_t afi;
 	safi_t safi;
+	struct peer_af *paf;
 	enum bgp_fsm_state_progress ret = BGP_FSM_SUCCESS;
 	struct peer *other;
 	struct peer *peer = connection->peer;
@@ -3104,8 +3099,9 @@ bgp_establish(struct peer_connection *connection)
 	 * Stop Long-lived Graceful Restart timers.
 	 */
 	FOREACH_AFI_SAFI (afi, safi) {
-		if (event_is_scheduled(peer->t_llgr_stale[afi][safi])) {
-			event_cancel(&peer->t_llgr_stale[afi][safi]);
+		paf = peer_af_find(peer, afi, safi);
+		if (paf && event_is_scheduled(paf->t_llgr_stale)) {
+			event_cancel(&paf->t_llgr_stale);
 			if (bgp_debug_neighbor_events(peer))
 				zlog_debug("%pBP Long-lived stale timer stopped for afi/safi: %d/%d for %s",
 					   peer, afi, safi,
@@ -3932,5 +3928,15 @@ void bgp_event_stop_with_notify(struct event *event)
 {
 	struct peer_connection *connection = EVENT_ARG(event);
 
-	bgp_stop_with_notify(connection, BGP_NOTIFY_SEND_HOLD_ERR, 0);
+	/*
+	 * Drive the teardown through the FSM rather than stopping the peer
+	 * inline.  bgp_notify_send() -> bgp_write_notify() queues a BGP_Stop
+	 * (or TCP_fatal_error, if the stuck send queue rejects the write); the
+	 * FSM then advances the state and re-arms the ConnectRetry timer like
+	 * every other stop.  Calling bgp_stop() directly here (as
+	 * bgp_stop_with_notify() does) runs event_cancel_event_ready(), which
+	 * cancels that queued event, so the state is never advanced and the peer
+	 * is left stuck in Established with fd == -1 -- a zombie session.
+	 */
+	bgp_notify_send(connection, BGP_NOTIFY_SEND_HOLD_ERR, 0);
 }

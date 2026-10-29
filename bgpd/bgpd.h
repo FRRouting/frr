@@ -1392,6 +1392,9 @@ struct peer_af {
 	 */
 	struct event *t_announce_route;
 
+	/* Long-lived Graceful Restart "Long-lived Stale Time" timer */
+	struct event *t_llgr_stale;
+
 	afi_t afi;
 	safi_t safi;
 	int afid;
@@ -2058,7 +2061,6 @@ struct peer {
 	_Atomic uint32_t v_gr_restart;
 
 	/* Threads. */
-	struct event *t_llgr_stale[AFI_MAX][SAFI_MAX];
 	struct event *t_refresh_stalepath;
 
 	/* Thread flags. */
@@ -2425,9 +2427,8 @@ struct bgp_nlri {
 #define	BGP_MSG_UPDATE		                 2
 #define	BGP_MSG_NOTIFY		                 3
 #define	BGP_MSG_KEEPALIVE	                 4
-#define BGP_MSG_ROUTE_REFRESH_NEW                5
-#define BGP_MSG_CAPABILITY                       6
-#define BGP_MSG_ROUTE_REFRESH_OLD              128
+#define BGP_MSG_ROUTE_REFRESH			 5
+#define BGP_MSG_CAPABILITY			 6
 
 /* BGP open optional parameter.  */
 #define BGP_OPEN_OPT_CAP                         2
@@ -2592,9 +2593,9 @@ struct bgp_nlri {
 /* Max Buffer size for BGP Send Community */
 #define BGP_SEND_COMMUNITY_STR_SIZE 30
 
-/* Flag for peer_clear_soft().  */
+/* Type of 'clear bgp' operation. */
 enum bgp_clear_type {
-	BGP_CLEAR_SOFT_NONE,
+	BGP_CLEAR_HARD,
 	BGP_CLEAR_SOFT_OUT,
 	BGP_CLEAR_SOFT_IN,
 	BGP_CLEAR_SOFT_BOTH,
@@ -3397,6 +3398,12 @@ static inline bool bgp_gr_supported_for_afi_safi(afi_t afi, safi_t safi)
 		return true;
 	return false;
 }
+
+/* Iterate only the AFI/SAFIs for which GR restarter behavior is supported.
+ */
+#define FOREACH_AFI_SAFI_GR(afi, safi)                                                            \
+	FOREACH_AFI_SAFI_NSF (afi, safi)                                                          \
+		if (bgp_gr_supported_for_afi_safi(afi, safi))
 
 /* For benefit of rfapi */
 extern struct peer *peer_new(struct bgp *bgp, union sockunion *su, enum connection_direction dir);

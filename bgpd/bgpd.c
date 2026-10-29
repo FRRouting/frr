@@ -1088,7 +1088,7 @@ int peer_af_delete(struct peer *peer, afi_t afi, safi_t safi)
 	bgp_soft_reconfig_table_task_cancel(bgp, bgp->rib[afi][safi], peer);
 
 	bgp_stop_announce_route_timer(af);
-	event_cancel(&peer->t_llgr_stale[afi][safi]);
+	event_cancel(&af->t_llgr_stale);
 
 	if (PAF_SUBGRP(af)) {
 		if (BGP_DEBUG(update_groups, UPDATE_GROUPS))
@@ -3121,13 +3121,16 @@ void peer_nsf_stop(struct peer *peer)
 {
 	afi_t afi;
 	safi_t safi;
+	struct peer_af *paf;
 
 	UNSET_FLAG(peer->sflags, PEER_STATUS_NSF_WAIT);
 	UNSET_FLAG(peer->sflags, PEER_STATUS_NSF_MODE);
 
 	FOREACH_AFI_SAFI_NSF (afi, safi) {
 		peer->nsf[afi][safi] = 0;
-		event_cancel(&peer->t_llgr_stale[afi][safi]);
+		paf = peer_af_find(peer, afi, safi);
+		if (paf)
+			event_cancel(&paf->t_llgr_stale);
 	}
 
 	if (event_is_scheduled(peer->connection->t_gr_restart)) {
@@ -8286,6 +8289,22 @@ int peer_prefix_list_unset(struct peer *peer, afi_t afi, safi_t safi,
 	return 0;
 }
 
+/*
+ * True if this peer's inbound route-map depends on the changed prefix-list and
+ * the route-map delay timer is enabled.
+ */
+static bool peer_inbound_rmap_with_delay_timer_depends_on_plist(
+	struct peer *peer, afi_t afi, safi_t safi, struct prefix_list *plist)
+{
+	struct bgp_filter *filter = &peer->filter[afi][safi];
+
+	if (!bm->rmap_update_timer || !filter->map[RMAP_IN].name)
+		return false;
+
+	return route_map_depends_on(RMAP_EVENT_PLIST_ADDED, prefix_list_name(plist),
+				    filter->map[RMAP_IN].name);
+}
+
 /* Update prefix-list list. */
 static void peer_prefix_list_update(struct prefix_list *plist)
 {
@@ -8336,6 +8355,13 @@ static void peer_prefix_list_update(struct prefix_list *plist)
 					peer_clear_soft(
 						peer, afi, safi,
 						BGP_CLEAR_SOFT_IN_ORF_PREFIX);
+				else if (plist && prefix_list_afi(plist) == afi &&
+					 filter->plist[FILTER_IN].name &&
+					 strmatch(filter->plist[FILTER_IN].name,
+						  prefix_list_name(plist)) &&
+						 !peer_inbound_rmap_with_delay_timer_depends_on_plist(
+							 peer, afi, safi, plist))
+					peer_on_policy_change(peer, afi, safi, 0);
 			}
 		}
 		for (ALL_LIST_ELEMENTS(bgp->group, node, nnode, group)) {
@@ -9796,9 +9822,7 @@ static int peer_unshut_after_cfg(struct bgp *bgp)
 		afi_t afi;
 		safi_t safi;
 
-		FOREACH_AFI_SAFI_NSF (afi, safi) {
-			if (!bgp_gr_supported_for_afi_safi(afi, safi))
-				continue;
+		FOREACH_AFI_SAFI_GR (afi, safi) {
 			/* Inform zebra */
 			bgp_zebra_update(bgp, afi, safi, ZEBRA_CLIENT_ROUTE_UPDATE_PENDING);
 			bgp_zebra_update(bgp, afi, safi, ZEBRA_CLIENT_ROUTE_UPDATE_COMPLETE);
@@ -10191,7 +10215,7 @@ void bgp_clearing_batch_completed(struct bgp_clearing_info *cinfo)
 			   cinfo->total_counter);
 
 	/* Ensure event is not scheduled */
-	event_cancel_event(bm->master, &cinfo->t_sched);
+	event_cancel(&cinfo->t_sched);
 
 	/* Remove all peers and un-ref */
 	while ((peer = bgp_clearing_hash_pop_all(&cinfo->peers, &idx)) != NULL)

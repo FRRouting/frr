@@ -4050,18 +4050,18 @@ void bgp_best_selection(struct bgp *bgp, struct bgp_dest *dest,
 
 /*
  * A new route/change in bestpath of an existing route. Evaluate the path
- * for advertisement to the subgroup.
+ * for advertisement to the subgroup. Returns true if the path is advertised.
  */
-void subgroup_process_announce_selected(struct update_subgroup *subgrp,
-					struct bgp_path_info *selected,
-					struct bgp_dest *dest, afi_t afi,
-					safi_t safi, uint32_t addpath_tx_id)
+bool subgroup_process_announce_selected(struct update_subgroup *subgrp,
+					struct bgp_path_info *selected, struct bgp_dest *dest,
+					afi_t afi, safi_t safi, uint32_t addpath_tx_id)
 {
 	const struct prefix *p;
 	struct peer *onlypeer, *peer;
 	struct attr attr = { 0 }, *pattr = &attr;
 	struct bgp *bgp;
 	bool advertise;
+	bool announced = false;
 
 	p = bgp_dest_get_prefix(dest);
 	bgp = SUBGRP_INST(subgrp);
@@ -4075,7 +4075,7 @@ void subgroup_process_announce_selected(struct update_subgroup *subgrp,
 	/* First update is deferred until ORF or ROUTE-REFRESH is received */
 	if (onlypeer && CHECK_FLAG(onlypeer->af_sflags[afi][safi],
 				   PEER_STATUS_ORF_WAIT_REFRESH))
-		return;
+		return false;
 
 	memset(&attr, 0, sizeof(attr));
 	/* It's initialized in bgp_announce_check() */
@@ -4101,6 +4101,8 @@ void subgroup_process_announce_selected(struct update_subgroup *subgrp,
 								      selected))
 						bgp_attr_flush(pattr);
 
+					announced = true;
+
 					/* Remove paths from Adj-RIB-Out if it's not a best (selected) path.
 					 * Why should we keep Adj-RIB-Out with stale paths?
 					 */
@@ -4124,8 +4126,10 @@ void subgroup_process_announce_selected(struct update_subgroup *subgrp,
 					bgp_adj_out_unset_subgroup(dest, subgrp, addpath_tx_id);
 					bgp_attr_flush(pattr);
 				}
-			} else
+			} else {
 				bgp_attr_flush(pattr);
+				announced = true;
+			}
 		} else {
 			bgp_adj_out_unset_subgroup(dest, subgrp, addpath_tx_id);
 			bgp_attr_flush(pattr);
@@ -4136,6 +4140,8 @@ void subgroup_process_announce_selected(struct update_subgroup *subgrp,
 	else {
 		bgp_adj_out_unset_subgroup(dest, subgrp, addpath_tx_id);
 	}
+
+	return announced;
 }
 
 /*
@@ -8295,6 +8301,10 @@ static int clear_batch_rib_helper(struct bgp_clearing_info *cinfo)
 			} else {
 				/* Process "inner" table for these SAFIs */
 				outer_table = cinfo->bgp->rib[afi][safi];
+				if (!outer_table) {
+					UNSET_FLAG(cinfo->flags, BGP_CLEARING_INFO_FLAG_RESUME);
+					continue;
+				}
 
 				/* Begin or resume iteration in "outer" table */
 				dest = clearing_dest_helper(outer_table, cinfo, false);
@@ -8417,8 +8427,13 @@ void bgp_clear_route_all(struct peer *peer)
 	/* We may be able to batch multiple peers' clearing work: check
 	 * and see.
 	 */
-	if (bgp_clearing_batch_add_peer(peer->bgp, peer))
+	if (bgp_clearing_batch_add_peer(peer->bgp, peer)) {
+#ifdef ENABLE_BGP_VNC
+		/* Does not depend on the table walk, VNC still has to know */
+		rfapiProcessPeerDown(peer);
+#endif
 		return;
+	}
 
 	FOREACH_AFI_SAFI (afi, safi)
 		bgp_clear_route(peer, afi, safi);
@@ -13766,6 +13781,7 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp, struct bgp_dest *bn,
 	int first = 0;
 	struct listnode *node, *nnode;
 	struct peer *peer;
+	struct peer_af *paf;
 	bool addpath_capable;
 	int has_adj;
 	unsigned int first_as;
@@ -14904,12 +14920,10 @@ skip_nexthop:
 				gr_remaining);
 	}
 
-	if (event_is_scheduled(path->peer->t_llgr_stale[afi][safi]) &&
-	    bgp_attr_get_community(attr) &&
-	    community_include(bgp_attr_get_community(attr),
-			      COMMUNITY_LLGR_STALE)) {
-		unsigned long llgr_remaining = event_timer_remain_second(
-			path->peer->t_llgr_stale[afi][safi]);
+	paf = peer_af_find(path->peer, afi, safi);
+	if (paf && event_is_scheduled(paf->t_llgr_stale) && bgp_attr_get_community(attr) &&
+	    community_include(bgp_attr_get_community(attr), COMMUNITY_LLGR_STALE)) {
+		unsigned long llgr_remaining = event_timer_remain_second(paf->t_llgr_stale);
 
 		if (json_paths) {
 			json_object_int_add(json_path, "llgrSecondsRemaining",

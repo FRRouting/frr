@@ -396,6 +396,8 @@ struct bgp_path_info {
 #define BGP_PATH_UPA                                                                              \
 	(1 << 22) /* Route has UPA marking (locally originated or received with UPA ExtCom) */
 #define BGP_PATH_UPA_DROP (1 << 23) /* UPA route has D-bit set (drop/blackhole) */
+/* Type-5 export was suppressed by skip-evpn-imported. */
+#define BGP_PATH_EVPN_TYPE5_SKIP_IMPORTED (1 << 24)
 
 	/* BGP route type.  This can be static, RIP, OSPF, BGP etc.  */
 	uint8_t type;
@@ -1046,10 +1048,9 @@ extern void route_vty_out_overlay(struct vty *vty, const struct prefix *p,
 
 extern void bgp_notify_conditional_adv_scanner(struct update_subgroup *subgrp);
 
-extern void subgroup_process_announce_selected(struct update_subgroup *subgrp,
+extern bool subgroup_process_announce_selected(struct update_subgroup *subgrp,
 					       struct bgp_path_info *selected,
-					       struct bgp_dest *dest, afi_t afi,
-					       safi_t safi,
+					       struct bgp_dest *dest, afi_t afi, safi_t safi,
 					       uint32_t addpath_tx_id);
 
 extern bool subgroup_announce_check(struct bgp_dest *dest,

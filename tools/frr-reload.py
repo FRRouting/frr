@@ -1538,6 +1538,48 @@ def ignore_delete_re_add_lines(lines_to_add, lines_to_del):
     lines_to_add_to_del = []
     lines_to_del_to_del = []
 
+    def evpn_advertise_options(advertise_line):
+        if not advertise_line:
+            return None
+
+        words = advertise_line.split()
+        # bgpd accepts the unicast and vpn SAFIs here and rejects the rest, so
+        # no other SAFI can reach a running configuration. The vpn form takes
+        # only a route-map; gateway-ip and skip-evpn-imported are unicast only.
+        if len(words) < 3 or words[:3] not in (
+            ["advertise", "ipv4", "unicast"],
+            ["advertise", "ipv6", "unicast"],
+            ["advertise", "ipv4", "vpn"],
+            ["advertise", "ipv6", "vpn"],
+        ):
+            return None
+
+        # The word after route-map is a name and may match an option keyword.
+        gateway_ip = False
+        route_map = None
+        skip_evpn_imported = False
+        i = 3
+        while i < len(words):
+            if words[i] == "route-map":
+                if i + 1 < len(words):
+                    route_map = words[i + 1]
+                i += 2
+                continue
+            if words[i] == "gateway-ip":
+                gateway_ip = True
+            elif words[i] == "skip-evpn-imported":
+                skip_evpn_imported = True
+            i += 1
+
+        return {
+            "base": " ".join(words[:3]),
+            "gateway_ip": gateway_ip,
+            "route_map": route_map,
+            "skip_evpn_imported": skip_evpn_imported,
+        }
+
+    evpn_option_deletes = []
+
     index = -1
     for ctx_keys, line in lines_to_del:
         deleted = False
@@ -1805,6 +1847,90 @@ def ignore_delete_re_add_lines(lines_to_add, lines_to_del):
                 if found_table_map:
                     lines_to_del_to_del.append((ctx_keys, line))
 
+            evpn_options = evpn_advertise_options(line)
+            if evpn_options:
+                desired_advertise = None
+                for add_ctx_keys, add_line in lines_to_add:
+                    if add_ctx_keys != ctx_keys:
+                        continue
+                    add_options = evpn_advertise_options(add_line)
+                    if add_options and add_options["base"] == evpn_options["base"]:
+                        desired_advertise = (add_ctx_keys, add_line, add_options)
+                        break
+
+                if desired_advertise:
+                    add_ctx_keys, add_line, add_options = desired_advertise
+                    # Each parsed command records its base command, overlay
+                    # index, route-map, and skip option. For example, changing
+                    # "advertise ipv4 unicast route-map map1 skip-evpn-imported"
+                    # to "advertise ipv4 unicast skip-evpn-imported" produces:
+                    # evpn_options = {"base": "advertise ipv4 unicast",
+                    #                 "gateway_ip": False, "route_map": "map1",
+                    #                 "skip_evpn_imported": True}
+                    # add_options = {"base": "advertise ipv4 unicast",
+                    #                "gateway_ip": False, "route_map": None,
+                    #                "skip_evpn_imported": True}
+                    route_map_removed = (
+                        evpn_options["route_map"] and not add_options["route_map"]
+                    )
+                    skip_removed = (
+                        evpn_options["skip_evpn_imported"]
+                        and not add_options["skip_evpn_imported"]
+                    )
+                    route_map_added_or_changed = add_options["route_map"] and (
+                        add_options["route_map"] != evpn_options["route_map"]
+                    )
+                    skip_added = (
+                        add_options["skip_evpn_imported"]
+                        and not evpn_options["skip_evpn_imported"]
+                    )
+                    gateway_ip_removed = (
+                        evpn_options["gateway_ip"] and not add_options["gateway_ip"]
+                    )
+                    gateway_ip_added = (
+                        add_options["gateway_ip"] and not evpn_options["gateway_ip"]
+                    )
+
+                    # gateway-ip, route-map and skip-evpn-imported are updated
+                    # independently. Do not turn an option change into a bare
+                    # "no advertise", because that disables Type-5 export
+                    # before the replacement command can apply the requested
+                    # option state.
+                    lines_to_del_to_del.append((ctx_keys, line))
+
+                    # If route-map is deleted, add its no form.
+                    if route_map_removed:
+                        evpn_option_deletes.append(
+                            (
+                                ctx_keys,
+                                "%s route-map %s"
+                                % (evpn_options["base"], evpn_options["route_map"]),
+                            )
+                        )
+                    # If skip-evpn-imported is deleted, add its no form.
+                    if skip_removed:
+                        evpn_option_deletes.append(
+                            (ctx_keys, "%s skip-evpn-imported" % evpn_options["base"])
+                        )
+
+                    # If gateway-ip is deleted, add its no form.
+                    if gateway_ip_removed:
+                        evpn_option_deletes.append(
+                            (ctx_keys, "%s gateway-ip" % evpn_options["base"])
+                        )
+
+                    # Removes the desired positive command from lines_to_add.
+                    if (
+                        not route_map_added_or_changed
+                        and not skip_added
+                        and not gateway_ip_added
+                    ):
+                        lines_to_add_to_del.append((add_ctx_keys, add_line))
+                else:
+                    # When the whole command is removed, render the bare
+                    # "no advertise <afi> <safi>" to disable Type-5 export.
+                    lines_to_del[index] = (ctx_keys, evpn_options["base"])
+
         # More old-to-new config handling. ip import-table no longer accepts
         # distance, but we honor the old syntax. But 'show running' shows only
         # the new syntax. This causes an unnecessary 'no import-table' followed
@@ -1835,7 +1961,6 @@ def ignore_delete_re_add_lines(lines_to_add, lines_to_del):
             ctx_keys[0],
         )
         if re_acl_pfxlst:
-            found = False
             tmpline = (
                 re_acl_pfxlst.group(1)
                 + re_acl_pfxlst.group(2)
@@ -1847,14 +1972,7 @@ def ignore_delete_re_add_lines(lines_to_add, lines_to_del):
                 if ctx[0][0] == tmpline:
                     lines_to_del_to_del.append((ctx_keys, None))
                     lines_to_add_to_del.append(((tmpline,), None))
-                    found = True
-            # If prefix-lists or access-lists are being deleted and not added
-            # (see comment above), add command with 'no' to lines_to_add and
-            # remove from lines_to_del to improve scaling performance.
-            if found is False:
-                add_cmd = ("no " + ctx_keys[0],)
-                lines_to_add.append((add_cmd, None))
-                lines_to_del_to_del.append((ctx_keys, None))
+                    break
 
         # bgp community-list, large-community-list, extcommunity-list can be
         # specified without a seq number. However, the running config always
@@ -1868,7 +1986,6 @@ def ignore_delete_re_add_lines(lines_to_add, lines_to_del):
             ctx_keys[0],
         )
         if re_bgp_lists:
-            found = False
             tmpline = (
                 re_bgp_lists.group(1)
                 + re_bgp_lists.group(2)
@@ -1881,11 +1998,7 @@ def ignore_delete_re_add_lines(lines_to_add, lines_to_del):
                 if ctx[0][0] == tmpline:
                     lines_to_del_to_del.append((ctx_keys, None))
                     lines_to_add_to_del.append(((tmpline,), None))
-                    found = True
-            if found is False:
-                add_cmd = ("no " + ctx_keys[0],)
-                lines_to_add.append((add_cmd, None))
-                lines_to_del_to_del.append((ctx_keys, None))
+                    break
 
         # bgp as-path access-list can be specified without a seq number.
         # However, the running config always
@@ -1897,7 +2010,6 @@ def ignore_delete_re_add_lines(lines_to_add, lines_to_del):
             ctx_keys[0],
         )
         if re_bgp_as_path:
-            found = False
             tmpline = (
                 re_bgp_as_path.group(1)
                 + re_bgp_as_path.group(2)
@@ -1910,11 +2022,7 @@ def ignore_delete_re_add_lines(lines_to_add, lines_to_del):
                 if ctx[0][0] == tmpline:
                     lines_to_del_to_del.append((ctx_keys, None))
                     lines_to_add_to_del.append(((tmpline,), None))
-                    found = True
-            if found is False:
-                add_cmd = ("no " + ctx_keys[0],)
-                lines_to_add.append((add_cmd, None))
-                lines_to_del_to_del.append((ctx_keys, None))
+                    break
 
         if (
             len(ctx_keys) == 3
@@ -2013,6 +2121,8 @@ def ignore_delete_re_add_lines(lines_to_add, lines_to_del):
                     if found_add_line:
                         lines_to_del_to_del.append((ctx_keys, line))
                         lines_to_add_to_del.append((tmp_ctx_keys, line))
+
+    lines_to_del.extend(evpn_option_deletes)
 
     for ctx_keys, line in lines_to_del_to_del:
         try:
@@ -2207,15 +2317,10 @@ def compare_context_objects(newconf, running):
                 for line in running_ctx.lines:
                     lines_to_del.append((running_ctx_keys, line))
 
-            # Some commands can happen at higher counts that make
-            # doing vtysh -c inefficient (and can time out.)  For
-            # these commands, instead of adding them to lines_to_del,
-            # add the "no " version to lines_to_add.
             elif running_ctx_keys[0].startswith("ip route") or running_ctx_keys[
                 0
             ].startswith("ipv6 route"):
-                add_cmd = ("no " + running_ctx_keys[0],)
-                lines_to_add.append((add_cmd, None))
+                lines_to_del.append((running_ctx_keys, None))
 
             # if this an interface sub-subcontext in an address-family block in ldpd and
             # we are already deleting the whole context, then ignore this

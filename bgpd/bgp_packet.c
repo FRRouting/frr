@@ -1172,7 +1172,7 @@ void bgp_route_refresh_send(struct peer_connection *connection, afi_t afi, safi_
 
 	s = stream_new(peer->max_packet_size);
 
-	bgp_packet_set_marker(s, BGP_MSG_ROUTE_REFRESH_NEW);
+	bgp_packet_set_marker(s, BGP_MSG_ROUTE_REFRESH);
 
 	/* Encode Route Refresh message. */
 	stream_putw(s, pkt_afi);
@@ -1833,6 +1833,7 @@ static int bgp_open_receive(struct peer_connection *connection, bgp_size_t size)
 	uint8_t notify_data_remote_as4[4];
 	uint8_t notify_data_remote_id[4];
 	uint8_t notify_data_holdtime[2];
+	uint16_t length = size + BGP_HEADER_SIZE;
 
 	/*
 	 * RFC 8654: the Extended Message capability never applies to OPEN.
@@ -1843,8 +1844,10 @@ static int bgp_open_receive(struct peer_connection *connection, bgp_size_t size)
 	if (size > BGP_STANDARD_MESSAGE_MAX_PACKET_SIZE - BGP_HEADER_SIZE) {
 		flog_err(EC_BGP_PKT_OPEN,
 			 "%s: OPEN message size (%u bytes) exceeds the standard maximum",
-			 peer->host, (unsigned int)(size + BGP_HEADER_SIZE));
-		bgp_notify_send(connection, BGP_NOTIFY_HEADER_ERR, BGP_NOTIFY_HEADER_BAD_MESLEN);
+			 peer->host, length);
+		length = htons(length);
+		bgp_notify_send_with_data(connection, BGP_NOTIFY_HEADER_ERR,
+					  BGP_NOTIFY_HEADER_BAD_MESLEN, (uint8_t *)&length, 2);
 		return BGP_Stop;
 	}
 
@@ -1852,7 +1855,9 @@ static int bgp_open_receive(struct peer_connection *connection, bgp_size_t size)
 	if (STREAM_READABLE(connection->curr) < BGP_OPEN_BODY_MIN_SIZE) {
 		flog_err(EC_BGP_PKT_OPEN, "%s: OPEN message too short (%zu bytes, need %u)",
 			 peer->host, STREAM_READABLE(connection->curr), BGP_OPEN_BODY_MIN_SIZE);
-		bgp_notify_send(connection, BGP_NOTIFY_HEADER_ERR, BGP_NOTIFY_HEADER_BAD_MESLEN);
+		length = htons(length);
+		bgp_notify_send_with_data(connection, BGP_NOTIFY_HEADER_ERR,
+					  BGP_NOTIFY_HEADER_BAD_MESLEN, (uint8_t *)&length, 2);
 		return BGP_Stop;
 	}
 
@@ -2282,6 +2287,7 @@ static int bgp_open_receive(struct peer_connection *connection, bgp_size_t size)
 static int bgp_keepalive_receive(struct peer_connection *connection, bgp_size_t size)
 {
 	struct peer *peer = connection->peer;
+	uint16_t length = size + BGP_HEADER_SIZE;
 
 	/*
 	 * RFC 8654: the Extended Message capability never applies to KEEPALIVE,
@@ -2291,8 +2297,10 @@ static int bgp_keepalive_receive(struct peer_connection *connection, bgp_size_t 
 	if (size > BGP_STANDARD_MESSAGE_MAX_PACKET_SIZE - BGP_HEADER_SIZE) {
 		flog_err(EC_BGP_KEEP_RCV,
 			 "%s: KEEPALIVE message size (%u bytes) exceeds the standard maximum",
-			 peer->host, (unsigned int)(size + BGP_HEADER_SIZE));
-		bgp_notify_send(connection, BGP_NOTIFY_HEADER_ERR, BGP_NOTIFY_HEADER_BAD_MESLEN);
+			 peer->host, length);
+		length = htons(length);
+		bgp_notify_send_with_data(connection, BGP_NOTIFY_HEADER_ERR,
+					  BGP_NOTIFY_HEADER_BAD_MESLEN, (uint8_t *)&length, 2);
 		return BGP_Stop;
 	}
 
@@ -2867,9 +2875,7 @@ static int bgp_route_refresh_receive(struct peer_connection *connection, bgp_siz
 		flog_err(EC_BGP_INVALID_STATUS,
 			 "%s [Error] Route refresh packet received under status %s", peer->host,
 			 lookup_msg(bgp_status_msg, connection->status, NULL));
-		/* BGP_MSG_ROUTE_REFRESH_NEW or _OLD, as received */
-		bgp_notify_send_fsm_error(connection,
-					  stream_getc_from(connection->curr, BGP_MARKER_SIZE + 2));
+		bgp_notify_send_fsm_error(connection, BGP_MSG_ROUTE_REFRESH);
 		return BGP_Stop;
 	}
 
@@ -3323,12 +3329,17 @@ ignore:
 			data += CAPABILITY_CODE_PATHS_LIMIT_LEN;
 		}
 	} else {
-		FOREACH_AFI_SAFI (afi, safi)
+		FOREACH_AFI_SAFI (afi, safi) {
 			UNSET_FLAG(peer->af_cap[afi][safi],
 				   PEER_CAP_PATHS_LIMIT_AF_RCV);
+			peer->addpath_paths_limit[afi][safi].receive = 0;
+		}
 
 		UNSET_FLAG(peer->cap, PEER_CAP_PATHS_LIMIT_RCV);
 	}
+
+	update_group_adjust_peer_afs(peer);
+	bgp_announce_route_all(peer);
 }
 
 static void bgp_dynamic_capability_enhe(uint8_t *pnt, int action, struct capability_header *hdr,
@@ -4272,8 +4283,7 @@ void bgp_process_packet(struct event *event)
 					 __func__, peer->host,
 					 bgp_peer_get_connection_direction_string(connection));
 			break;
-		case BGP_MSG_ROUTE_REFRESH_NEW:
-		case BGP_MSG_ROUTE_REFRESH_OLD:
+		case BGP_MSG_ROUTE_REFRESH:
 			frrtrace(2, frr_bgp, refresh_process, peer, size);
 			atomic_fetch_add_explicit(&peer->refresh_in, 1,
 						  memory_order_relaxed);

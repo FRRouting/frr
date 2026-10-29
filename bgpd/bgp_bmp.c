@@ -69,6 +69,7 @@ DEFINE_MTYPE_STATIC(BMP, BMP_TARGETSNAME, "BMP targets name");
 DEFINE_MTYPE_STATIC(BMP, BMP_LISTENER,	"BMP listener");
 DEFINE_MTYPE_STATIC(BMP, BMP_ACTIVE,	"BMP active connection config");
 DEFINE_MTYPE_STATIC(BMP, BMP_ACLNAME,	"BMP access-list name");
+DEFINE_MTYPE_STATIC(BMP, BMP_INITIATION, "BMP initiation information");
 DEFINE_MTYPE_STATIC(BMP, BMP_QUEUE,	"BMP update queue item");
 DEFINE_MTYPE_STATIC(BMP, BMP,		"BMP instance state");
 DEFINE_MTYPE_STATIC(BMP, BMP_MIRRORQ,	"BMP route mirroring buffer");
@@ -390,10 +391,19 @@ static void bmp_per_peer_hdr(struct stream *s, struct bgp *bgp,
 	}
 }
 
+#define BMP_INIT_INFO_TYPE_SYSDESCR 1
+#define BMP_INIT_INFO_TYPE_SYSNAME  2
+/* RFC 1213: sysDescr and sysName are DisplayString (SIZE (0..255)) */
+#define BMP_INIT_INFO_SYS_MAX_LEN 255
+
 static void bmp_put_info_tlv(struct stream *s, uint16_t type,
 		const char *string)
 {
 	int len = strlen (string);
+
+	if ((type == BMP_INIT_INFO_TYPE_SYSDESCR || type == BMP_INIT_INFO_TYPE_SYSNAME) &&
+	    len > BMP_INIT_INFO_SYS_MAX_LEN)
+		len = BMP_INIT_INFO_SYS_MAX_LEN;
 	stream_putw(s, type);
 	stream_putw(s, len);
 	stream_put(s, string, len);
@@ -420,16 +430,16 @@ static void bmp_put_vrftablename_info_tlv(struct stream *s, struct peer *peer)
 
 static int bmp_send_initiation(struct bmp *bmp)
 {
+	struct bmp_targets *bt = bmp->targets;
 	int len;
 	struct stream *s = stream_new(BGP_MAX_PACKET_SIZE);
 
 	bmp_common_hdr(s, BMP_VERSION_3, BMP_TYPE_INITIATION);
 
-#define BMP_INIT_INFO_TYPE_SYSDESCR 1
-#define BMP_INIT_INFO_TYPE_SYSNAME  2
 	bmp_put_info_tlv(s, BMP_INIT_INFO_TYPE_SYSDESCR,
-			 FRR_FULL_NAME " " FRR_VER_SHORT);
-	bmp_put_info_tlv(s, BMP_INIT_INFO_TYPE_SYSNAME, cmd_hostname_get());
+			 bt->sysdescr ? bt->sysdescr : FRR_FULL_NAME " " FRR_VER_SHORT);
+	bmp_put_info_tlv(s, BMP_INIT_INFO_TYPE_SYSNAME,
+			 bt->sysname ? bt->sysname : cmd_hostname_get());
 
 	len = stream_get_endp(s);
 	stream_putl_at(s, BMP_LENGTH_POS, len); /* message length is set. */
@@ -1373,8 +1383,13 @@ static struct stream *bmp_update(const struct prefix *p, struct prefix_rd *prd,
 	total_attr_len = bgp_packet_attribute(NULL, peer, s, attr, &vecarr, NULL, afi, safi, peer,
 					      NULL, NULL, 0, 0, 0, 0, NULL, NULL, true);
 
-	/* peer_cap_enhe & add-path removed */
-	if (afi == AFI_IP && safi == SAFI_UNICAST)
+	/*
+	 * With extended next-hop negotiated (RFC 8950), bgp_packet_attribute()
+	 * leaves out the legacy NEXT_HOP attribute, so IPv4 unicast must be
+	 * encoded in MP_REACH_NLRI with its IPv6 next hop, as
+	 * subgroup_update_packet() does. Add-path is not handled here.
+	 */
+	if (afi == AFI_IP && safi == SAFI_UNICAST && !peer_cap_enhe(peer, afi, safi))
 		stream_put_prefix(s, p);
 	else {
 		size_t p1 = stream_get_endp(s);
@@ -2771,6 +2786,8 @@ static void bmp_targets_put(struct bmp_targets *bt)
 
 	XFREE(MTYPE_BMP_ACLNAME, bt->acl_name);
 	XFREE(MTYPE_BMP_ACLNAME, bt->acl6_name);
+	XFREE(MTYPE_BMP_INITIATION, bt->sysdescr);
+	XFREE(MTYPE_BMP_INITIATION, bt->sysname);
 	bmp_session_fini(&bt->sessions);
 
 	XFREE(MTYPE_BMP_TARGETSNAME, bt->name);
@@ -3427,6 +3444,69 @@ DEFPY(bmp_acl,
 	return CMD_SUCCESS;
 }
 
+DEFPY(bmp_initiation_cfg,
+      bmp_initiation_cmd,
+      "bmp initiation <sysDescr|sysName>$info LINE...",
+      BMP_STR
+      "BMP Initiation message\n"
+      "System description, by default the FRR version\n"
+      "System name, by default the hostname\n"
+      "String to send\n")
+{
+	VTY_DECLVAR_CONTEXT_SUB(bmp_targets, bt);
+	char **what;
+	int idx = 0;
+	char *str;
+
+	if (!strcmp(info, "sysDescr"))
+		what = &bt->sysdescr;
+	else
+		what = &bt->sysname;
+
+	argv_find(argv, argc, "LINE", &idx);
+	str = argv_concat(argv, argc, idx);
+	if (strlen(str) > BMP_INIT_INFO_SYS_MAX_LEN) {
+		vty_out(vty, "%% %s length should be at most %d chars\n", info,
+			BMP_INIT_INFO_SYS_MAX_LEN);
+		XFREE(MTYPE_TMP, str);
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+	XFREE(MTYPE_BMP_INITIATION, *what);
+	*what = XSTRDUP(MTYPE_BMP_INITIATION, str);
+	XFREE(MTYPE_TMP, str);
+
+	return CMD_SUCCESS;
+}
+
+DEFPY(no_bmp_initiation_cfg,
+      no_bmp_initiation_cmd,
+      "no bmp initiation <sysDescr|sysName>$info",
+      NO_STR
+      BMP_STR
+      "BMP Initiation message\n"
+      "System description, by default the FRR version\n"
+      "System name, by default the hostname\n")
+{
+	VTY_DECLVAR_CONTEXT_SUB(bmp_targets, bt);
+
+	if (!strcmp(info, "sysDescr"))
+		XFREE(MTYPE_BMP_INITIATION, bt->sysdescr);
+	else
+		XFREE(MTYPE_BMP_INITIATION, bt->sysname);
+
+	return CMD_SUCCESS;
+}
+
+ALIAS(no_bmp_initiation_cfg,
+      no_bmp_initiation_line_cmd,
+      "no bmp initiation <sysDescr|sysName>$info LINE...",
+      NO_STR
+      BMP_STR
+      "BMP Initiation message\n"
+      "System description, by default the FRR version\n"
+      "System name, by default the hostname\n"
+      "String to send\n")
+
 DEFPY(bmp_stats_cfg,
       bmp_stats_cmd,
       "[no] bmp stats [interval (100-86400000)]",
@@ -3759,6 +3839,10 @@ static int bmp_config_write(struct bgp *bgp, struct vty *vty)
 			vty_out(vty, "  ipv6 access-list %s\n", bt->acl6_name);
 		if (bt->acl_name)
 			vty_out(vty, "  ip access-list %s\n", bt->acl_name);
+		if (bt->sysdescr)
+			vty_out(vty, "  bmp initiation sysDescr %s\n", bt->sysdescr);
+		if (bt->sysname)
+			vty_out(vty, "  bmp initiation sysName %s\n", bt->sysname);
 
 		if (!bt->stats_send_experimental)
 			vty_out(vty, "  no bmp stats send-experimental\n");
@@ -3822,6 +3906,9 @@ static int bgp_bmp_init(struct event_loop *tm)
 	install_element(BMP_NODE, &no_bmp_listener_cmd);
 	install_element(BMP_NODE, &bmp_connect_cmd);
 	install_element(BMP_NODE, &bmp_acl_cmd);
+	install_element(BMP_NODE, &bmp_initiation_cmd);
+	install_element(BMP_NODE, &no_bmp_initiation_cmd);
+	install_element(BMP_NODE, &no_bmp_initiation_line_cmd);
 	install_element(BMP_NODE, &bmp_stats_send_experimental_cmd);
 	install_element(BMP_NODE, &bmp_stats_cmd);
 	install_element(BMP_NODE, &bmp_monitor_cmd);

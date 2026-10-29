@@ -310,6 +310,23 @@ void isis_log_adj_change(struct isis_adjacency *adj,
 		adj_level2string(adj->level), adj_state2string(old_state),
 		adj_state2string(new_state), reason ? reason : "unspecified");
 }
+
+/* A p2p adjacency came up on a level: count it and describe our database. */
+static void p2p_level_up(struct isis_circuit *circuit, int level)
+{
+	circuit->upadjcount[level - 1]++;
+	event_add_timer(master, level == IS_LEVEL_1 ? send_l1_csnp : send_l2_csnp, circuit, 0,
+			&circuit->t_send_csnp[level - 1]);
+}
+
+/* A p2p adjacency is no longer up on a level. */
+static void p2p_level_down(struct isis_circuit *circuit, int level)
+{
+	circuit->upadjcount[level - 1]--;
+	if (circuit->upadjcount[level - 1] == 0)
+		isis_tx_queue_clean(circuit->tx_queue);
+}
+
 void isis_adj_state_change(struct isis_adjacency **padj,
 			   enum isis_adj_state new_state, const char *reason)
 {
@@ -397,7 +414,7 @@ void isis_adj_state_change(struct isis_adjacency **padj,
 			if ((adj->level & level) == 0)
 				continue;
 			if (new_state == ISIS_ADJ_UP) {
-				circuit->upadjcount[level - 1]++;
+				p2p_level_up(circuit, level);
 
 				/* update counter & timers for debugging
 				 * purposes */
@@ -421,12 +438,8 @@ void isis_adj_state_change(struct isis_adjacency **padj,
 						0, &circuit->t_send_csnp[1]);
 				}
 			} else {
-				if (old_state == ISIS_ADJ_UP) {
-					circuit->upadjcount[level - 1]--;
-					if (circuit->upadjcount[level - 1] == 0)
-						isis_tx_queue_clean(
-							circuit->tx_queue);
-				}
+				if (old_state == ISIS_ADJ_UP)
+					p2p_level_down(circuit, level);
 
 				if (new_state == ISIS_ADJ_DOWN) {
 					if (adj->circuit->u.p2p.neighbor == adj)
@@ -447,6 +460,25 @@ void isis_adj_state_change(struct isis_adjacency **padj,
 	}
 }
 
+
+/*
+ * Change the levels of a p2p adjacency. Up adjacencies are counted per level
+ * on state changes, so an up one moves from the counts of the levels it
+ * leaves to those of the levels it enters.
+ */
+void isis_adj_p2p_level_set(struct isis_adjacency *adj, int level)
+{
+	if (adj->adj_state == ISIS_ADJ_UP) {
+		for (int l = IS_LEVEL_1; l <= IS_LEVEL_2; l++) {
+			if ((adj->level & l) && !(level & l))
+				p2p_level_down(adj->circuit, l);
+			else if (!(adj->level & l) && (level & l))
+				p2p_level_up(adj->circuit, l);
+		}
+	}
+
+	adj->level = level;
+}
 
 void isis_adj_print(struct isis_adjacency *adj)
 {
@@ -956,11 +988,23 @@ int isis_adj_usage2levels(enum isis_adj_usage usage)
 }
 
 /*
+ * Whether IPv4 may be routed over this circuit using IPv6 link-local nexthops
+ * (as BGP does with RFC 8950): the circuit enables it and IS-IS runs both
+ * address families on it. IPv6 is required locally because only then do our
+ * hellos carry the link-local address the neighbor needs for the reverse
+ * direction; without it the link would be used for IPv4 one way only.
+ */
+bool isis_circuit_ipv4_over_ipv6(const struct isis_circuit *circuit)
+{
+	return circuit->ipv4_over_ipv6_nexthop && circuit->ip_router && circuit->ipv6_router;
+}
+
+/*
  * Compute (fresh, never cached) whether this adjacency currently has a
  * usable IPv4/IPv6 nexthop: the local circuit must have an address in
  * that address family, and the neighbor must have advertised one too.
  */
-bool isis_adj_ipv4_usable(const struct isis_adjacency *adj)
+bool isis_adj_ipv4_native_usable(const struct isis_adjacency *adj)
 {
 	struct isis_circuit *circuit = adj->circuit;
 
@@ -968,6 +1012,21 @@ bool isis_adj_ipv4_usable(const struct isis_adjacency *adj)
 		return false;
 
 	return (fabricd_ip_addrs(circuit) && adj->ipv4_address_count);
+}
+
+/*
+ * IPv4 is usable natively, or, failing that, through the neighbor's IPv6
+ * link-local address when the circuit allows IPv4 over IPv6 nexthops.
+ */
+bool isis_adj_ipv4_usable(const struct isis_adjacency *adj)
+{
+	struct isis_circuit *circuit = adj->circuit;
+
+	if (isis_adj_ipv4_native_usable(adj))
+		return true;
+
+	return circuit && isis_circuit_ipv4_over_ipv6(circuit) && listcount(circuit->ipv6_link) &&
+	       adj->ll_ipv6_count;
 }
 
 bool isis_adj_ipv6_usable(const struct isis_adjacency *adj)

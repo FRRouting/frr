@@ -3259,27 +3259,40 @@ static void free_item_extended_reach(struct isis_item *i)
 	XFREE(MTYPE_ISIS_TLV, item);
 }
 
+/* The largest LSP ("lsp-mtu"): no item can be packed into a longer one. */
+#define ISIS_LSP_MAX_SIZE 4352
+
 static int pack_item_extended_reach(struct isis_item *i, struct stream *s, size_t *min_len)
 {
 	struct isis_extended_reach *r = (struct isis_extended_reach *)i;
-	size_t len;
-	size_t len_pos;
+	struct stream *scratch;
+	size_t len_pos, len, size;
 
-	if (STREAM_WRITEABLE(s) < 11 + ISIS_SUBTLV_MAX_SIZE) {
-		*min_len = 11 + ISIS_SUBTLV_MAX_SIZE;
+	/*
+	 * The sub-TLV packers do not check for room, and their output has no
+	 * fixed bound: pack into room for the largest LSP, then require room
+	 * for the item's actual size only.
+	 */
+	scratch = stream_new(ISIS_LSP_MAX_SIZE);
+	stream_put(scratch, r->id, sizeof(r->id));
+	stream_put3(scratch, r->metric);
+	len_pos = stream_get_endp(scratch);
+	/* Real length will be adjust after adding subTLVs */
+	stream_putc(scratch, 11);
+	if (r->subtlvs)
+		pack_item_ext_subtlvs(r->subtlvs, scratch, min_len);
+	/* Adjust length */
+	len = stream_get_endp(scratch) - len_pos - 1;
+	stream_putc_at(scratch, len_pos, len);
+
+	size = stream_get_endp(scratch);
+	if (STREAM_WRITEABLE(s) < size) {
+		*min_len = size;
+		stream_free(scratch);
 		return 1;
 	}
-
-	stream_put(s, r->id, sizeof(r->id));
-	stream_put3(s, r->metric);
-	len_pos = stream_get_endp(s);
-	/* Real length will be adjust after adding subTLVs */
-	stream_putc(s, 11);
-	if (r->subtlvs)
-		pack_item_ext_subtlvs(r->subtlvs, s, min_len);
-	/* Adjust length */
-	len = stream_get_endp(s) - len_pos - 1;
-	stream_putc_at(s, len_pos, len);
+	stream_put(s, STREAM_DATA(scratch), size);
+	stream_free(scratch);
 	return 0;
 }
 
@@ -4717,7 +4730,9 @@ static void format_tlv_router_cap_json(const struct isis_router_cap *router_cap,
 	json_object_string_add(cap_json, "id", addrbuf);
 	json_object_boolean_add(cap_json, "flagD", !!(router_cap->flags & ISIS_ROUTER_CAP_FLAG_D));
 	json_object_boolean_add(cap_json, "flagS", !!(router_cap->flags & ISIS_ROUTER_CAP_FLAG_S));
-
+	if (!IN6_IS_ADDR_UNSPECIFIED(&router_cap->te_router_id_ipv6))
+		json_object_string_addf(cap_json, "ipv6TeRouterId", "%pI6",
+					&router_cap->te_router_id_ipv6);
 
 	/* Segment Routing Global Block as per RFC8667 section #3.1 */
 	if (router_cap->srgb.range_size != 0) {
@@ -4777,6 +4792,10 @@ static void format_tlv_router_cap(const struct isis_router_cap *router_cap, stru
 	sbuf_push(buf, indent, " %s , D:%c, S:%c\n", addrbuf,
 		  router_cap->flags & ISIS_ROUTER_CAP_FLAG_D ? '1' : '0',
 		  router_cap->flags & ISIS_ROUTER_CAP_FLAG_S ? '1' : '0');
+
+	if (!IN6_IS_ADDR_UNSPECIFIED(&router_cap->te_router_id_ipv6))
+		sbuf_push(buf, indent, "  IPv6 TE Router ID: %pI6\n",
+			  &router_cap->te_router_id_ipv6);
 
 	/* Segment Routing Global Block as per RFC8667 section #3.1 */
 	if (router_cap->srgb.range_size != 0)
@@ -4909,67 +4928,136 @@ static size_t isis_router_cap_fad_sub_tlv_len(const struct isis_router_cap_fad *
 }
 #endif /* ifndef FABRICD */
 
+static int isis_router_cap_srv6_msd_count(const struct isis_router_cap *router_cap)
+{
+	return !!router_cap->srv6_msd.max_seg_left_msd + !!router_cap->srv6_msd.max_end_pop_msd +
+	       !!router_cap->srv6_msd.max_h_encaps_msd + !!router_cap->srv6_msd.max_end_d_msd;
+}
+
+/*
+ * Size of a sub-TLV of subtlv_sz bytes added to the Router Capability TLV of
+ * tlv_len bytes, including a new Router Capability TLV with a header of
+ * hdr_len bytes when the sub-TLV does not fit in the current one.
+ */
+static size_t isis_router_cap_subtlv_size(size_t *tlv_len, size_t hdr_len, size_t subtlv_sz)
+{
+	if (*tlv_len + subtlv_sz <= UINT8_MAX) {
+		*tlv_len += subtlv_sz;
+		return subtlv_sz;
+	}
+
+	*tlv_len = hdr_len + subtlv_sz;
+	return 2 + hdr_len + subtlv_sz;
+}
+
 static size_t isis_router_cap_tlv_size(const struct isis_router_cap *router_cap)
 {
-	size_t sz = 2 + ISIS_ROUTER_CAP_SIZE;
-#ifndef FABRICD
-	size_t fad_sz;
-#endif /* ifndef FABRICD */
+	size_t hdr_len = ISIS_ROUTER_CAP_SIZE;
+	size_t tlv_len;
+	size_t sz;
 	int nb_algo, nb_msd;
+	bool sr_algo_subtlv_present = false;
+
+	if (!IN6_IS_ADDR_UNSPECIFIED(&router_cap->te_router_id_ipv6))
+		hdr_len += ISIS_SUBTLV_HDR_SIZE + IPV6_MAX_BYTELEN;
+	tlv_len = hdr_len;
 
 	if ((router_cap->srgb.range_size != 0) && (router_cap->srgb.lower_bound != 0)) {
-		sz += 2 + ISIS_SUBTLV_SID_LABEL_RANGE_SIZE;
-		sz += 2 + ISIS_SUBTLV_SID_LABEL_SIZE;
+		tlv_len += 2 + ISIS_SUBTLV_SID_LABEL_RANGE_SIZE;
+		tlv_len += 2 + ISIS_SUBTLV_SID_LABEL_SIZE;
 
 		nb_algo = isis_tlvs_sr_algo_count(router_cap);
-		if (nb_algo != 0)
-			sz += 2 + nb_algo;
+		if (nb_algo != 0) {
+			tlv_len += 2 + nb_algo;
+			sr_algo_subtlv_present = true;
+		}
 
 		if ((router_cap->srlb.range_size != 0) && (router_cap->srlb.lower_bound != 0)) {
-			sz += 2 + ISIS_SUBTLV_SID_LABEL_RANGE_SIZE;
-			sz += 2 + ISIS_SUBTLV_SID_LABEL_SIZE;
+			tlv_len += 2 + ISIS_SUBTLV_SID_LABEL_RANGE_SIZE;
+			tlv_len += 2 + ISIS_SUBTLV_SID_LABEL_SIZE;
 		}
 
 		if (router_cap->msd != 0)
-			sz += 2 + ISIS_SUBTLV_NODE_MSD_SIZE;
+			tlv_len += 2 + ISIS_SUBTLV_NODE_MSD_SIZE;
 	}
+	sz = 2 + tlv_len;
 
 #ifndef FABRICD
 	for (int i = 0; i < SR_ALGORITHM_COUNT; i++) {
 		if (!router_cap->fads[i])
 			continue;
-		fad_sz = 2 + isis_router_cap_fad_sub_tlv_len(router_cap->fads[i]);
-		if (((sz + fad_sz) % 256) < (sz % 256))
-			sz += 2 + ISIS_ROUTER_CAP_SIZE + fad_sz;
-		else
-			sz += fad_sz;
+		sz += isis_router_cap_subtlv_size(&tlv_len, hdr_len,
+						  2 + isis_router_cap_fad_sub_tlv_len(
+							      router_cap->fads[i]));
 	}
 #endif /* ifndef FABRICD */
 
 	if (router_cap->srv6_cap.is_srv6_capable) {
-		sz += ISIS_SUBTLV_TYPE_FIELD_SIZE + ISIS_SUBTLV_LENGTH_FIELD_SIZE +
-		      ISIS_SUBTLV_SRV6_CAPABILITIES_SIZE;
+		sz += isis_router_cap_subtlv_size(&tlv_len, hdr_len,
+						  ISIS_SUBTLV_TYPE_FIELD_SIZE +
+							  ISIS_SUBTLV_LENGTH_FIELD_SIZE +
+							  ISIS_SUBTLV_SRV6_CAPABILITIES_SIZE);
 
 		nb_algo = isis_tlvs_sr_algo_count(router_cap);
-		if (nb_algo != 0)
-			sz += ISIS_SUBTLV_TYPE_FIELD_SIZE + ISIS_SUBTLV_LENGTH_FIELD_SIZE + nb_algo;
+		if (nb_algo != 0 && !sr_algo_subtlv_present)
+			sz += isis_router_cap_subtlv_size(&tlv_len, hdr_len,
+							  ISIS_SUBTLV_TYPE_FIELD_SIZE +
+								  ISIS_SUBTLV_LENGTH_FIELD_SIZE + nb_algo);
 
-		nb_msd = router_cap->srv6_msd.max_seg_left_msd +
-			 router_cap->srv6_msd.max_end_pop_msd +
-			 router_cap->srv6_msd.max_h_encaps_msd + router_cap->srv6_msd.max_end_d_msd;
+		nb_msd = isis_router_cap_srv6_msd_count(router_cap);
 		if (nb_msd != 0)
-			sz += ISIS_SUBTLV_TYPE_FIELD_SIZE + ISIS_SUBTLV_LENGTH_FIELD_SIZE +
-			      (ISIS_SUBTLV_NODE_MSD_TYPE_SIZE + ISIS_SUBTLV_NODE_MSD_VALUE_SIZE) *
-				      nb_msd;
+			sz += isis_router_cap_subtlv_size(
+				&tlv_len, hdr_len,
+				ISIS_SUBTLV_TYPE_FIELD_SIZE + ISIS_SUBTLV_LENGTH_FIELD_SIZE +
+					(ISIS_SUBTLV_NODE_MSD_TYPE_SIZE + ISIS_SUBTLV_NODE_MSD_VALUE_SIZE) *
+						nb_msd);
 	}
 
 	return sz;
+}
+
+static void pack_tlv_router_cap_header(const struct isis_router_cap *router_cap, struct stream *s)
+{
+	stream_put_ipv4(s, router_cap->router_id.s_addr);
+	stream_putc(s, router_cap->flags);
+
+	/* RFC 7981 section #3: mandatory with a Router ID of 0.0.0.0 */
+	if (!IN6_IS_ADDR_UNSPECIFIED(&router_cap->te_router_id_ipv6)) {
+		stream_putc(s, ISIS_SUBTLV_IPV6_TE_ROUTER_ID);
+		stream_putc(s, IPV6_MAX_BYTELEN);
+		stream_put(s, &router_cap->te_router_id_ipv6, IPV6_MAX_BYTELEN);
+	}
+}
+
+/*
+ * Return the position of the length of the Router Capability TLV to which a
+ * sub-TLV of subtlv_sz bytes is added: the current one at len_pos, or a new
+ * one when the sub-TLV does not fit in the current one.
+ */
+static size_t pack_tlv_router_cap_room(const struct isis_router_cap *router_cap,
+				       struct stream *s, size_t len_pos, size_t subtlv_sz)
+{
+	size_t tlv_len = stream_get_endp(s) - len_pos - 1;
+
+	if (tlv_len + subtlv_sz <= UINT8_MAX)
+		return len_pos;
+
+	stream_putc_at(s, len_pos, tlv_len);
+
+	/* Add Router Capability TLV 242 with Router ID and Flags */
+	stream_putc(s, ISIS_TLV_ROUTER_CAPABILITY);
+	len_pos = stream_get_endp(s);
+	stream_putc(s, 0); /* Real length will be adjusted later */
+	pack_tlv_router_cap_header(router_cap, s);
+
+	return len_pos;
 }
 
 static int pack_tlv_router_cap(const struct isis_router_cap *router_cap, struct stream *s)
 {
 	size_t tlv_len, len_pos;
 	uint8_t nb_algo;
+	int nb_msd;
 	size_t subtlv_len, subtlv_len_pos;
 	bool sr_algo_subtlv_present = false;
 
@@ -4983,8 +5071,7 @@ static int pack_tlv_router_cap(const struct isis_router_cap *router_cap, struct 
 	stream_putc(s, ISIS_TLV_ROUTER_CAPABILITY);
 	len_pos = stream_get_endp(s);
 	stream_putc(s, 0); /* Real length will be adjusted later */
-	stream_put_ipv4(s, router_cap->router_id.s_addr);
-	stream_putc(s, router_cap->flags);
+	pack_tlv_router_cap_header(router_cap, s);
 
 	/* Add SRGB if set as per RFC8667 section #3.1 */
 	if ((router_cap->srgb.range_size != 0) && (router_cap->srgb.lower_bound != 0)) {
@@ -5041,23 +5128,7 @@ static int pack_tlv_router_cap(const struct isis_router_cap *router_cap, struct 
 			continue;
 
 		subtlv_len = isis_router_cap_fad_sub_tlv_len(fad);
-
-		if ((stream_get_endp(s) - len_pos - 1) > 250) {
-			/* Adjust TLV length which depends on subTLVs presence
-			 */
-			tlv_len = stream_get_endp(s) - len_pos - 1;
-			stream_putc_at(s, len_pos, tlv_len);
-
-			/* Add Router Capability TLV 242 with Router ID and
-			 * Flags
-			 */
-			stream_putc(s, ISIS_TLV_ROUTER_CAPABILITY);
-			/* Real length will be adjusted later */
-			len_pos = stream_get_endp(s);
-			stream_putc(s, 0);
-			stream_put_ipv4(s, router_cap->router_id.s_addr);
-			stream_putc(s, router_cap->flags);
-		}
+		len_pos = pack_tlv_router_cap_room(router_cap, s, len_pos, 2 + subtlv_len);
 
 		stream_putc(s, ISIS_SUBTLV_FAD);
 		stream_putc(s, subtlv_len); /* length will be filled later */
@@ -5104,6 +5175,10 @@ static int pack_tlv_router_cap(const struct isis_router_cap *router_cap, struct 
 
 	/* Add SRv6 capabilities if set as per RFC 9352 section #2 */
 	if (router_cap->srv6_cap.is_srv6_capable) {
+		len_pos = pack_tlv_router_cap_room(router_cap, s, len_pos,
+						   ISIS_SUBTLV_TYPE_FIELD_SIZE +
+							   ISIS_SUBTLV_LENGTH_FIELD_SIZE +
+							   ISIS_SUBTLV_SRV6_CAPABILITIES_SIZE);
 		stream_putc(s, ISIS_SUBTLV_SRV6_CAPABILITIES);
 		stream_putc(s, ISIS_SUBTLV_SRV6_CAPABILITIES_SIZE);
 		stream_putw(s, router_cap->srv6_cap.flags);
@@ -5116,6 +5191,10 @@ static int pack_tlv_router_cap(const struct isis_router_cap *router_cap, struct 
 		if (!sr_algo_subtlv_present) {
 			nb_algo = isis_tlvs_sr_algo_count(router_cap);
 			if (nb_algo > 0) {
+				len_pos = pack_tlv_router_cap_room(router_cap, s, len_pos,
+								   ISIS_SUBTLV_TYPE_FIELD_SIZE +
+									   ISIS_SUBTLV_LENGTH_FIELD_SIZE +
+									   nb_algo);
 				stream_putc(s, ISIS_SUBTLV_ALGORITHM);
 				stream_putc(s, nb_algo);
 				for (int i = 0; i < SR_ALGORITHM_COUNT; i++)
@@ -5125,10 +5204,13 @@ static int pack_tlv_router_cap(const struct isis_router_cap *router_cap, struct 
 		}
 
 		/* And finish with MSDs if set as per RFC 9352 section #4 */
-		if (router_cap->srv6_msd.max_seg_left_msd + router_cap->srv6_msd.max_end_pop_msd +
-			    router_cap->srv6_msd.max_h_encaps_msd +
-			    router_cap->srv6_msd.max_end_d_msd !=
-		    0) {
+		nb_msd = isis_router_cap_srv6_msd_count(router_cap);
+		if (nb_msd != 0) {
+			len_pos = pack_tlv_router_cap_room(
+				router_cap, s, len_pos,
+				ISIS_SUBTLV_TYPE_FIELD_SIZE + ISIS_SUBTLV_LENGTH_FIELD_SIZE +
+					(ISIS_SUBTLV_NODE_MSD_TYPE_SIZE + ISIS_SUBTLV_NODE_MSD_VALUE_SIZE) *
+						nb_msd);
 			stream_putc(s, ISIS_SUBTLV_NODE_MSD);
 
 			subtlv_len_pos = stream_get_endp(s);
@@ -5174,6 +5256,25 @@ static int pack_tlv_router_cap(const struct isis_router_cap *router_cap, struct 
 	return 0;
 }
 
+static bool router_cap_has_ipv6_te_router_id(struct stream *s, uint8_t subtlv_len)
+{
+	size_t pos = stream_get_getp(s);
+	uint8_t type, length;
+
+	while (subtlv_len >= ISIS_SUBTLV_HDR_SIZE) {
+		type = stream_getc_from(s, pos);
+		length = stream_getc_from(s, pos + 1);
+		if (length > subtlv_len - ISIS_SUBTLV_HDR_SIZE)
+			return false;
+		if (type == ISIS_SUBTLV_IPV6_TE_ROUTER_ID && length == IPV6_MAX_BYTELEN)
+			return true;
+		pos += ISIS_SUBTLV_HDR_SIZE + length;
+		subtlv_len -= ISIS_SUBTLV_HDR_SIZE + length;
+	}
+
+	return false;
+}
+
 static int unpack_tlv_router_cap(enum isis_tlv_context context, uint8_t tlv_type, uint8_t tlv_len,
 				 struct stream *s, struct sbuf *log, void *dest, int indent)
 {
@@ -5184,11 +5285,26 @@ static int unpack_tlv_router_cap(enum isis_tlv_context context, uint8_t tlv_type
 	uint8_t subtlv_len;
 	uint8_t size;
 	int num_msd;
+	struct in_addr router_id;
+	uint8_t flags;
 
 	sbuf_push(log, indent, "Unpacking Router Capability TLV...\n");
 	if (tlv_len < ISIS_ROUTER_CAP_SIZE) {
 		sbuf_push(log, indent, "WARNING: Unexpected TLV size\n");
 		stream_forward_getp(s, tlv_len);
+		return 0;
+	}
+
+	/* Get Router ID and Flags */
+	router_id.s_addr = stream_get_ipv4(s);
+	flags = stream_getc(s);
+	subtlv_len = tlv_len - ISIS_ROUTER_CAP_SIZE;
+
+	/* RFC 7981 section #3 */
+	if (router_id.s_addr == INADDR_ANY && !router_cap_has_ipv6_te_router_id(s, subtlv_len)) {
+		sbuf_push(log, indent,
+			  "WARNING: Router ID 0.0.0.0 without IPv6 TE Router ID sub-TLV, ignoring TLV\n");
+		stream_forward_getp(s, subtlv_len);
 		return 0;
 	}
 
@@ -5201,13 +5317,10 @@ static int unpack_tlv_router_cap(enum isis_tlv_context context, uint8_t tlv_type
 	}
 
 	rcap = tlvs->router_cap;
-
-	/* Get Router ID and Flags */
-	rcap->router_id.s_addr = stream_get_ipv4(s);
-	rcap->flags = stream_getc(s);
+	rcap->router_id = router_id;
+	rcap->flags = flags;
 
 	/* Parse remaining part of the TLV if present */
-	subtlv_len = tlv_len - ISIS_ROUTER_CAP_SIZE;
 	while (subtlv_len >= ISIS_SUBTLV_HDR_SIZE) {
 #ifndef FABRICD
 		struct isis_router_cap_fad *fad;
@@ -5226,6 +5339,13 @@ static int unpack_tlv_router_cap(enum isis_tlv_context context, uint8_t tlv_type
 		}
 
 		switch (type) {
+		case ISIS_SUBTLV_IPV6_TE_ROUTER_ID:
+			if (length != IPV6_MAX_BYTELEN) {
+				stream_forward_getp(s, length);
+				break;
+			}
+			stream_get(&rcap->te_router_id_ipv6, s, IPV6_MAX_BYTELEN);
+			break;
 		case ISIS_SUBTLV_SID_LABEL_RANGE:
 			/* Check that SRGB is correctly formatted */
 			if (length < SUBTLV_RANGE_LABEL_SIZE || length > SUBTLV_RANGE_INDEX_SIZE) {
@@ -5937,11 +6057,13 @@ static int pack_items_(uint16_t mtid, enum isis_tlv_context context, enum isis_t
 	struct isis_item *item = NULL;
 	int rv;
 	size_t min_len = 0;
+	size_t tlv_start, hdr_len = 0;
 
 	if (!items->head)
 		return 0;
 
 top:
+	tlv_start = stream_get_endp(s);
 	if (STREAM_WRITEABLE(s) < 2)
 		goto too_long;
 
@@ -5968,6 +6090,7 @@ top:
 			goto too_long;
 		stream_putc(s, 0); /* Virtual flag is set to 0 */
 	}
+	hdr_len = stream_get_endp(s) - tlv_start;
 
 	last_len = len = 0;
 	for (item = item ? item : items->head; item; item = item->next) {
@@ -6021,7 +6144,8 @@ too_long:
 	if (!fragment_tlvs)
 		return 1;
 	stream_reset(s);
-	if (STREAM_WRITEABLE(s) < min_len)
+	/* A fresh fragment must take the TLV header too, or it will not fit either. */
+	if (STREAM_WRITEABLE(s) < hdr_len + min_len)
 		return 1;
 	*fragment_tlvs = new_fragment(new_fragment_arg);
 	goto top;

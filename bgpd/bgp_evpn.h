@@ -154,7 +154,7 @@ extern void bgp_evpn_withdraw_type5_route(struct bgp *bgp_vrf,
 					  uint32_t addpath_id);
 extern void bgp_evpn_withdraw_type5_routes(struct bgp *bgp_vrf, afi_t afi,
 					   safi_t safi);
-extern void bgp_evpn_withdraw_local_type5_routes(struct bgp *bgp_vrf, afi_t afi, safi_t safi);
+extern void bgp_evpn_withdraw_imported_type5_leaked_routes(struct bgp *bgp_vrf, afi_t afi);
 extern void bgp_evpn_advertise_type5_routes(struct bgp *bgp_vrf, afi_t afi,
 					    safi_t safi);
 extern void bgp_evpn_vrf_delete(struct bgp *bgp_vrf);

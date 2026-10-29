@@ -62,13 +62,12 @@ void bgp_writes_on(struct peer_connection *connection)
 
 void bgp_writes_off(struct peer_connection *connection)
 {
-	struct peer *peer = connection->peer;
 	struct frr_pthread *fpt = bgp_pth_io;
 	struct stream *s;
 
 	assert(fpt->running);
 
-	UNSET_FLAG(peer->connection->thread_flags, PEER_THREAD_WRITES_ON);
+	UNSET_FLAG(connection->thread_flags, PEER_THREAD_WRITES_ON);
 
 	/* Clear out the write fifo */
 	frr_with_mutex (&connection->io_mtx) {
@@ -470,8 +469,7 @@ static uint16_t bgp_write(struct peer_connection *connection)
 			atomic_fetch_add_explicit(&peer->keepalive_out, 1,
 						  memory_order_relaxed);
 			break;
-		case BGP_MSG_ROUTE_REFRESH_NEW:
-		case BGP_MSG_ROUTE_REFRESH_OLD:
+		case BGP_MSG_ROUTE_REFRESH:
 			atomic_fetch_add_explicit(&peer->refresh_out, 1,
 						  memory_order_relaxed);
 			break;
@@ -620,11 +618,9 @@ static bool validate_header(struct peer_connection *connection)
 	size = ntohs(size);
 
 	/* BGP type check. */
-	if (type != BGP_MSG_OPEN && type != BGP_MSG_UPDATE
-	    && type != BGP_MSG_NOTIFY && type != BGP_MSG_KEEPALIVE
-	    && type != BGP_MSG_ROUTE_REFRESH_NEW
-	    && type != BGP_MSG_ROUTE_REFRESH_OLD
-	    && type != BGP_MSG_CAPABILITY) {
+	if (type != BGP_MSG_OPEN && type != BGP_MSG_UPDATE && type != BGP_MSG_NOTIFY &&
+	    type != BGP_MSG_KEEPALIVE && type != BGP_MSG_ROUTE_REFRESH &&
+	    type != BGP_MSG_CAPABILITY) {
 		if (bgp_debug_neighbor_events(peer))
 			zlog_debug("%s unknown message type 0x%02x", peer->host,
 				   type);
@@ -635,23 +631,16 @@ static bool validate_header(struct peer_connection *connection)
 	}
 
 	/* Minimum packet length check. */
-	if ((size < BGP_HEADER_SIZE) || (size > peer->max_packet_size)
-	    || (type == BGP_MSG_OPEN && size < BGP_MSG_OPEN_MIN_SIZE)
-	    || (type == BGP_MSG_UPDATE && size < BGP_MSG_UPDATE_MIN_SIZE)
-	    || (type == BGP_MSG_NOTIFY && size < BGP_MSG_NOTIFY_MIN_SIZE)
-	    || (type == BGP_MSG_KEEPALIVE && size != BGP_MSG_KEEPALIVE_MIN_SIZE)
-	    || (type == BGP_MSG_ROUTE_REFRESH_NEW
-		&& size < BGP_MSG_ROUTE_REFRESH_MIN_SIZE)
-	    || (type == BGP_MSG_ROUTE_REFRESH_OLD
-		&& size < BGP_MSG_ROUTE_REFRESH_MIN_SIZE)
-	    || (type == BGP_MSG_CAPABILITY
-		&& size < BGP_MSG_CAPABILITY_MIN_SIZE)) {
-		if (bgp_debug_neighbor_events(peer)) {
-			zlog_debug("%s bad message length - %d for %s",
-				   peer->host, size,
-				   type == 128 ? "ROUTE-REFRESH"
-					       : bgp_type_str[(int)type]);
-		}
+	if ((size < BGP_HEADER_SIZE) || (size > peer->max_packet_size) ||
+	    (type == BGP_MSG_OPEN && size < BGP_MSG_OPEN_MIN_SIZE) ||
+	    (type == BGP_MSG_UPDATE && size < BGP_MSG_UPDATE_MIN_SIZE) ||
+	    (type == BGP_MSG_NOTIFY && size < BGP_MSG_NOTIFY_MIN_SIZE) ||
+	    (type == BGP_MSG_KEEPALIVE && size != BGP_MSG_KEEPALIVE_MIN_SIZE) ||
+	    (type == BGP_MSG_ROUTE_REFRESH && size < BGP_MSG_ROUTE_REFRESH_MIN_SIZE) ||
+	    (type == BGP_MSG_CAPABILITY && size < BGP_MSG_CAPABILITY_MIN_SIZE)) {
+		if (bgp_debug_neighbor_events(peer))
+			zlog_debug("%s bad message length - %d for %s", peer->host, size,
+				   bgp_type_str[(int)type]);
 
 		uint16_t nsize = htons(size);
 

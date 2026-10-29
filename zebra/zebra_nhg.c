@@ -2015,6 +2015,17 @@ void zebra_nhg_increment_ref(struct nhg_hash_entry *nhe)
 		event_cancel(&nhe->timer);
 		nhe->refcnt--;
 		UNSET_FLAG(nhe->flags, NEXTHOP_GROUP_KEEP_AROUND);
+		/*
+		 * This group is being resurrected from KEEP_AROUND.
+		 * zebra_nhg_decrement_ref() returned early when it parked the
+		 * group, so it never propagated a decrement to the members in
+		 * nhg_depends; they still hold the reference taken by this
+		 * group.  Incrementing them again here would leak one reference
+		 * per member on every keep_around -> resurrect cycle, leaving
+		 * those members installed forever.  Return early to stay
+		 * symmetric with zebra_nhg_decrement_ref().
+		 */
+		return;
 	}
 
 	if (!zebra_nhg_depends_is_empty(nhe))
@@ -4352,6 +4363,14 @@ void zebra_interface_nhg_reinstall(struct interface *ifp)
 		 */
 		if (CHECK_FLAG(rb_node_dep->nhe->flags, NEXTHOP_GROUP_INITIAL_DELAY_INSTALL))
 			continue;
+
+		/*
+		 * Skip NHGs whose nexthop belongs to a different VRF than the
+		 * interface's current VRF.
+		 */
+		if (rb_node_dep->nhe->nhg.nexthop->vrf_id != ifp->vrf->vrf_id)
+			continue;
+
 		/*
 		 * The nexthop associated with this was set as !ACTIVE
 		 * so we need to turn it back to active when we get to
