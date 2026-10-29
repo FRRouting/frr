@@ -76,6 +76,7 @@ def setup_module(mod):
 
 def teardown_module(mod):
     tgen = get_topogen()
+    app_helper.cleanup()
     tgen.stop_topology()
 
 
