@@ -1961,7 +1961,6 @@ def ignore_delete_re_add_lines(lines_to_add, lines_to_del):
             ctx_keys[0],
         )
         if re_acl_pfxlst:
-            found = False
             tmpline = (
                 re_acl_pfxlst.group(1)
                 + re_acl_pfxlst.group(2)
@@ -1973,14 +1972,7 @@ def ignore_delete_re_add_lines(lines_to_add, lines_to_del):
                 if ctx[0][0] == tmpline:
                     lines_to_del_to_del.append((ctx_keys, None))
                     lines_to_add_to_del.append(((tmpline,), None))
-                    found = True
-            # If prefix-lists or access-lists are being deleted and not added
-            # (see comment above), add command with 'no' to lines_to_add and
-            # remove from lines_to_del to improve scaling performance.
-            if found is False:
-                add_cmd = ("no " + ctx_keys[0],)
-                lines_to_add.append((add_cmd, None))
-                lines_to_del_to_del.append((ctx_keys, None))
+                    break
 
         # bgp community-list, large-community-list, extcommunity-list can be
         # specified without a seq number. However, the running config always
@@ -1994,7 +1986,6 @@ def ignore_delete_re_add_lines(lines_to_add, lines_to_del):
             ctx_keys[0],
         )
         if re_bgp_lists:
-            found = False
             tmpline = (
                 re_bgp_lists.group(1)
                 + re_bgp_lists.group(2)
@@ -2007,11 +1998,7 @@ def ignore_delete_re_add_lines(lines_to_add, lines_to_del):
                 if ctx[0][0] == tmpline:
                     lines_to_del_to_del.append((ctx_keys, None))
                     lines_to_add_to_del.append(((tmpline,), None))
-                    found = True
-            if found is False:
-                add_cmd = ("no " + ctx_keys[0],)
-                lines_to_add.append((add_cmd, None))
-                lines_to_del_to_del.append((ctx_keys, None))
+                    break
 
         # bgp as-path access-list can be specified without a seq number.
         # However, the running config always
@@ -2023,7 +2010,6 @@ def ignore_delete_re_add_lines(lines_to_add, lines_to_del):
             ctx_keys[0],
         )
         if re_bgp_as_path:
-            found = False
             tmpline = (
                 re_bgp_as_path.group(1)
                 + re_bgp_as_path.group(2)
@@ -2036,11 +2022,7 @@ def ignore_delete_re_add_lines(lines_to_add, lines_to_del):
                 if ctx[0][0] == tmpline:
                     lines_to_del_to_del.append((ctx_keys, None))
                     lines_to_add_to_del.append(((tmpline,), None))
-                    found = True
-            if found is False:
-                add_cmd = ("no " + ctx_keys[0],)
-                lines_to_add.append((add_cmd, None))
-                lines_to_del_to_del.append((ctx_keys, None))
+                    break
 
         if (
             len(ctx_keys) == 3
@@ -2335,15 +2317,10 @@ def compare_context_objects(newconf, running):
                 for line in running_ctx.lines:
                     lines_to_del.append((running_ctx_keys, line))
 
-            # Some commands can happen at higher counts that make
-            # doing vtysh -c inefficient (and can time out.)  For
-            # these commands, instead of adding them to lines_to_del,
-            # add the "no " version to lines_to_add.
             elif running_ctx_keys[0].startswith("ip route") or running_ctx_keys[
                 0
             ].startswith("ipv6 route"):
-                add_cmd = ("no " + running_ctx_keys[0],)
-                lines_to_add.append((add_cmd, None))
+                lines_to_del.append((running_ctx_keys, None))
 
             # if this an interface sub-subcontext in an address-family block in ldpd and
             # we are already deleting the whole context, then ignore this

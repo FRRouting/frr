@@ -43,6 +43,17 @@ is accepted.
 6. Run a deletion file where vtysh rejects a context line. vtysh then leaves
    the file at that context's "exit", so the deletes after it must still be
    applied.
+
+Additional tests for exec_delete_lines() and lines_to_del handling:
+
+7. Test deletion of ip/ipv6 static routes via exec_delete_lines().
+8. Test deletion of bgp community-list, large-community-list, extcommunity-list,
+   and as-path access-list (all with seq numbers) via exec_delete_lines().
+9. End-to-end frr-reload.py --reload test for static routes, prefix-lists,
+   and access-lists to verify the full flow from compare_context_objects()
+   through ignore_delete_re_add_lines() to exec_delete_lines().
+10. Test that entries with seq numbers in running config correctly match
+    entries without seq numbers in the target config (no spurious changes).
 """
 
 import difflib
@@ -58,7 +69,12 @@ sys.path.append(os.path.join(CWD, "../"))
 from lib import topotest
 from lib.topogen import Topogen, get_topogen
 
-pytestmark = [pytest.mark.ospfd, pytest.mark.ospf6d]
+pytestmark = [
+    pytest.mark.ospfd,
+    pytest.mark.ospf6d,
+    pytest.mark.bgpd,
+    pytest.mark.staticd,
+]
 
 ORIGINAL_CONF = os.path.join(CWD, "r1/frr.conf")
 NEW_CONF = os.path.join(CWD, "r1/frr-new.conf")
@@ -336,6 +352,301 @@ EOF""",
     running = r1.vtysh_cmd("show running-config")
     for prefix_list in prefix_lists:
         assert prefix_list not in running, f"{prefix_list!r} was not deleted"
+
+
+def test_static_route_deletion():
+    """
+    Static route deletions must go through exec_delete_lines successfully.
+
+    This tests the code path where ip/ipv6 route deletions are kept in
+    lines_to_del (processed via exec_delete_lines with vtysh -f) rather
+    than being moved to lines_to_add with a "no " prefix.
+    """
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    r1 = tgen.gears["r1"]
+    frrdir = tgen.config.get(tgen.CONFIG_SECTION, "frrdir")
+
+    static_routes = (
+        "ip route 192.0.2.0/24 Null0",
+        "ip route 198.51.100.0/24 Null0",
+        "ipv6 route 2001:db8:1::/48 Null0",
+        "ipv6 route 2001:db8:2::/48 Null0",
+    )
+    r1.vtysh_multicmd("configure\n" + "\n".join(static_routes) + "\n")
+    running = r1.vtysh_cmd("show running-config")
+    for route in static_routes:
+        assert route in running, f"{route!r} not in running config"
+
+    entries = [((route,), None) for route in static_routes]
+    rc, out, err = r1.net.cmd_status(
+        f"""python3 - <<'EOF'
+import importlib.util
+
+spec = importlib.util.spec_from_file_location(
+    "frr_reload", "{frrdir}/frr-reload.py"
+)
+reload = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(reload)
+ok = reload.exec_delete_lines(reload.Vtysh(), "/var/run/frr", {entries!r})
+print("exec_delete_lines returned", ok)
+EOF""",
+        warn=False,
+    )
+    assert rc == 0, f"running exec_delete_lines failed:\n{out}\n{err}"
+    assert "exec_delete_lines returned True" in out, out
+
+    running = r1.vtysh_cmd("show running-config")
+    for route in static_routes:
+        assert route not in running, f"{route!r} was not deleted"
+
+
+def test_bgp_community_list_deletion():
+    """
+    BGP community-list deletions with seq numbers must be handled correctly.
+
+    The running config always includes seq numbers, but user config may omit
+    them. When deleting (not re-adding), the delete must go through
+    exec_delete_lines successfully.
+    """
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    r1 = tgen.gears["r1"]
+    frrdir = tgen.config.get(tgen.CONFIG_SECTION, "frrdir")
+
+    community_lists = (
+        "bgp community-list standard CLIST1 seq 5 permit 65000:100",
+        "bgp community-list standard CLIST1 seq 10 permit 65000:200",
+        "bgp large-community-list standard LCLIST1 seq 5 permit 65000:1:1",
+        "bgp large-community-list standard LCLIST1 seq 10 permit 65000:1:2",
+        "bgp extcommunity-list standard ECLIST1 seq 5 permit rt 65000:100",
+        "bgp extcommunity-list standard ECLIST1 seq 10 permit rt 65000:200",
+    )
+    r1.vtysh_multicmd("configure\n" + "\n".join(community_lists) + "\n")
+    running = r1.vtysh_cmd("show running-config")
+    for clist in community_lists:
+        assert clist in running, f"{clist!r} not in running config"
+
+    entries = [((clist,), None) for clist in community_lists]
+    rc, out, err = r1.net.cmd_status(
+        f"""python3 - <<'EOF'
+import importlib.util
+
+spec = importlib.util.spec_from_file_location(
+    "frr_reload", "{frrdir}/frr-reload.py"
+)
+reload = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(reload)
+ok = reload.exec_delete_lines(reload.Vtysh(), "/var/run/frr", {entries!r})
+print("exec_delete_lines returned", ok)
+EOF""",
+        warn=False,
+    )
+    assert rc == 0, f"running exec_delete_lines failed:\n{out}\n{err}"
+    assert "exec_delete_lines returned True" in out, out
+
+    running = r1.vtysh_cmd("show running-config")
+    for clist in community_lists:
+        assert clist not in running, f"{clist!r} was not deleted"
+
+
+def test_bgp_aspath_access_list_deletion():
+    """
+    BGP as-path access-list deletions with seq numbers must be handled correctly.
+
+    The running config always includes seq numbers. When deleting (not re-adding),
+    the delete must go through exec_delete_lines successfully.
+    """
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    r1 = tgen.gears["r1"]
+    frrdir = tgen.config.get(tgen.CONFIG_SECTION, "frrdir")
+
+    aspath_lists = (
+        "bgp as-path access-list ASPATH1 seq 5 permit ^65000$",
+        "bgp as-path access-list ASPATH1 seq 10 permit ^65001_",
+        "bgp as-path access-list ASPATH2 seq 5 deny .*",
+    )
+    r1.vtysh_multicmd("configure\n" + "\n".join(aspath_lists) + "\n")
+    running = r1.vtysh_cmd("show running-config")
+    for aslist in aspath_lists:
+        assert aslist in running, f"{aslist!r} not in running config"
+
+    entries = [((aslist,), None) for aslist in aspath_lists]
+    rc, out, err = r1.net.cmd_status(
+        f"""python3 - <<'EOF'
+import importlib.util
+
+spec = importlib.util.spec_from_file_location(
+    "frr_reload", "{frrdir}/frr-reload.py"
+)
+reload = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(reload)
+ok = reload.exec_delete_lines(reload.Vtysh(), "/var/run/frr", {entries!r})
+print("exec_delete_lines returned", ok)
+EOF""",
+        warn=False,
+    )
+    assert rc == 0, f"running exec_delete_lines failed:\n{out}\n{err}"
+    assert "exec_delete_lines returned True" in out, out
+
+    running = r1.vtysh_cmd("show running-config")
+    for aslist in aspath_lists:
+        assert aslist not in running, f"{aslist!r} was not deleted"
+
+
+def test_frr_reload_static_route_prefix_and_access_list():
+    """
+    End-to-end test: frr-reload.py --reload removes static routes, prefix-lists,
+    and access-lists.
+
+    This tests the full flow from compare_context_objects() through
+    ignore_delete_re_add_lines() to exec_delete_lines() for:
+    - ip/ipv6 static routes (compare_context_objects change)
+    - ip/ipv6 prefix-lists with seq numbers (ignore_delete_re_add_lines change)
+    - ip/ipv6 access-lists with seq numbers (ignore_delete_re_add_lines change)
+    """
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    r1 = tgen.gears["r1"]
+
+    # Add static routes, prefix-lists, and access-lists to running config
+    extra_config = """
+configure
+ip route 203.0.113.0/24 Null0
+ipv6 route 2001:db8:ffff::/48 Null0
+ip prefix-list PL-TEST seq 5 permit 10.10.0.0/16
+ip prefix-list PL-TEST seq 10 permit 10.20.0.0/16
+ipv6 prefix-list PL6-TEST seq 5 permit 2001:db8:1000::/48
+access-list ACL1 seq 5 permit 10.0.0.0/8
+access-list ACL1 seq 10 deny any
+ipv6 access-list ACL6 seq 5 permit 2001:db8::/32
+"""
+    r1.vtysh_multicmd(extra_config)
+
+    running = r1.vtysh_cmd("show running-config")
+    assert "ip route 203.0.113.0/24 Null0" in running
+    assert "ipv6 route 2001:db8:ffff::/48 Null0" in running
+    assert "ip prefix-list PL-TEST seq 5 permit 10.10.0.0/16" in running
+    assert "ipv6 prefix-list PL6-TEST seq 5 permit 2001:db8:1000::/48" in running
+    assert "access-list ACL1 seq 5 permit 10.0.0.0/8" in running
+    assert "ipv6 access-list ACL6 seq 5 permit 2001:db8::/32" in running
+
+    # Reload with original config (without these entries) - they should be deleted
+    frr_reload(r1, ORIGINAL_CONF)
+
+    running = r1.vtysh_cmd("show running-config")
+    assert "ip route 203.0.113.0/24" not in running, "static route not deleted"
+    assert "ipv6 route 2001:db8:ffff::" not in running, "ipv6 static route not deleted"
+    assert "ip prefix-list PL-TEST" not in running, "ip prefix-list not deleted"
+    assert "ipv6 prefix-list PL6-TEST" not in running, "ipv6 prefix-list not deleted"
+    assert "access-list ACL1" not in running, "access-list not deleted"
+    assert "ipv6 access-list ACL6" not in running, "ipv6 access-list not deleted"
+
+    # Verify frr-reload --test shows no remaining changes
+    delta = frr_reload(r1, ORIGINAL_CONF, mode="--test")
+    for line in delta.splitlines():
+        if line.startswith(("+", "-")) and not any(
+            line.startswith(ign) for ign in IGNORED_DELTA
+        ):
+            assert False, f"Unexpected delta after reload: {line}"
+
+
+def test_frr_reload_seq_number_matching():
+    """
+    Test that entries with seq numbers in running config match entries without
+    seq numbers in the target config.
+
+    The running config always includes seq numbers for prefix-lists, access-lists,
+    and community-lists. When the target config has the same entries without seq
+    numbers, frr-reload should recognize them as identical and make no changes.
+    """
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    r1 = tgen.gears["r1"]
+    frrdir = tgen.config.get(tgen.CONFIG_SECTION, "frrdir")
+
+    # Add config entries (running config will include seq numbers)
+    extra_config = """
+configure
+ip prefix-list PL-SEQ permit 10.10.0.0/16
+ip prefix-list PL-SEQ permit 10.20.0.0/16
+ipv6 prefix-list PL6-SEQ permit 2001:db8:1000::/48
+access-list ACL-SEQ permit 172.16.0.0/12
+ipv6 access-list ACL6-SEQ permit 2001:db8:2000::/48
+bgp community-list standard CL-SEQ permit 65000:100
+bgp large-community-list standard LCL-SEQ permit 65000:1:100
+bgp extcommunity-list standard ECL-SEQ permit rt 65000:100
+bgp as-path access-list ASPL-SEQ permit ^65000$
+"""
+    r1.vtysh_multicmd(extra_config)
+
+    # Verify running config has seq numbers
+    running = r1.vtysh_cmd("show running-config")
+    assert "ip prefix-list PL-SEQ seq 5 permit 10.10.0.0/16" in running
+    assert "ip prefix-list PL-SEQ seq 10 permit 10.20.0.0/16" in running
+    assert "access-list ACL-SEQ seq 5 permit 172.16.0.0/12" in running
+    assert "bgp community-list standard CL-SEQ seq 5 permit 65000:100" in running
+
+    # Create target config file with same entries but WITHOUT seq numbers
+    target_conf = os.path.join(tgen.logdir, "r1", "target-seq-match.conf")
+    os.makedirs(os.path.dirname(target_conf), exist_ok=True)
+
+    # Read original config and append entries without seq numbers
+    with open(ORIGINAL_CONF) as f:
+        base_config = f.read().rstrip()
+
+    target_lines = (
+        base_config
+        + """
+!
+ip prefix-list PL-SEQ permit 10.10.0.0/16
+ip prefix-list PL-SEQ permit 10.20.0.0/16
+ipv6 prefix-list PL6-SEQ permit 2001:db8:1000::/48
+access-list ACL-SEQ permit 172.16.0.0/12
+ipv6 access-list ACL6-SEQ permit 2001:db8:2000::/48
+bgp community-list standard CL-SEQ permit 65000:100
+bgp large-community-list standard LCL-SEQ permit 65000:1:100
+bgp extcommunity-list standard ECL-SEQ permit rt 65000:100
+bgp as-path access-list ASPL-SEQ permit ^65000$
+!
+"""
+    )
+    with open(target_conf, "w") as f:
+        f.write(target_lines)
+
+    # frr-reload --test should show no changes for these entries
+    # (seq numbers in running match no-seq in target)
+    delta = frr_reload(r1, target_conf, mode="--test")
+
+    # Should not see any prefix-list/access-list/community-list changes
+    # in the "Lines To Delete" or "Lines To Add" output
+    assert "PL-SEQ" not in delta, f"Unexpected delta for PL-SEQ:\n{delta}"
+    assert "ACL-SEQ" not in delta, f"Unexpected delta for ACL-SEQ:\n{delta}"
+    assert "CL-SEQ" not in delta, f"Unexpected delta for CL-SEQ:\n{delta}"
+    assert "LCL-SEQ" not in delta, f"Unexpected delta for LCL-SEQ:\n{delta}"
+    assert "ECL-SEQ" not in delta, f"Unexpected delta for ECL-SEQ:\n{delta}"
+    assert "ASPL-SEQ" not in delta, f"Unexpected delta for ASPL-SEQ:\n{delta}"
+
+    # Entries should still be present after reload
+    frr_reload(r1, target_conf)
+    running = r1.vtysh_cmd("show running-config")
+    assert "ip prefix-list PL-SEQ seq 5 permit 10.10.0.0/16" in running
+    assert "access-list ACL-SEQ seq 5 permit 172.16.0.0/12" in running
+    assert "bgp community-list standard CL-SEQ seq 5 permit 65000:100" in running
+
+    # Clean up: reload with original config to remove test entries
+    frr_reload(r1, ORIGINAL_CONF)
 
 
 def test_memory_leak():
