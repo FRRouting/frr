@@ -28,6 +28,7 @@
 #include "zebra/rt.h"
 #include "zebra/rt_netlink.h"
 #include "zebra/if_netlink.h"
+#include "lib_errors.h"
 #include "zebra/zebra_errors.h"
 #include "zebra/zebra_l2.h"
 #include "zebra/zebra_l2_bridge_if.h"
@@ -2995,6 +2996,31 @@ void zebra_evpn_proc_remote_es(ZAPI_HANDLER_ARGS)
 
 stream_failure:
 	return;
+}
+
+void zebra_evpn_proc_bpp_peer(ZAPI_HANDLER_ARGS)
+{
+	struct zapi_evpn_bpp_peer peer = {};
+	bool add = (hdr->command == ZEBRA_EVPN_BPP_PEER_ADD);
+	char esi_buf[ESI_STR_LEN];
+
+	if (zapi_evpn_bpp_peer_decode(msg, &peer, add)) {
+		flog_err(EC_LIB_ZAPI_ENCODE, "invalid EVPN BPP peer %s message",
+			 add ? "ADD" : "DEL");
+		if (zmh_info)
+			zmh_info->bpp_peer_bad_msg++;
+		return;
+	}
+
+	if (IS_ZEBRA_DEBUG_EVPN_MH_PROT) {
+		if (add)
+			zlog_debug("bpp peer add esi %s type L3 vtep %pIA rmac %pEA",
+				   esi_to_str(&peer.esi, esi_buf, sizeof(esi_buf)), &peer.vtep,
+				   &peer.rmac);
+		else
+			zlog_debug("bpp peer del esi %s type L3 vtep %pIA",
+				   esi_to_str(&peer.esi, esi_buf, sizeof(esi_buf)), &peer.vtep);
+	}
 }
 
 void zebra_evpn_es_mac_deref_entry(struct zebra_mac *mac)

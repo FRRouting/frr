@@ -324,6 +324,9 @@ struct zebra_evpn_mh_info {
 	/* List of ES peer VTEPs (zebra_evpn_mh_vtep) - peers on local ESs */
 	struct mh_vtep_list_head mh_vtep_list;
 
+	/* Rejected ZEBRA_EVPN_BPP_PEER_ADD/DEL messages */
+	uint32_t bpp_peer_bad_msg;
+
 	/* XXX - re-visit the default hold timer value */
 	int mac_hold_time;
 #define ZEBRA_EVPN_MH_MAC_HOLD_TIME_DEF (18 * 60)
@@ -436,6 +439,7 @@ extern void zebra_evpn_es_show_esi(struct vty *vty, bool uj, esi_t *esi);
 extern void zebra_evpn_mh_vtep_show(struct vty *vty, bool uj);
 extern void zebra_evpn_update_all_es(struct zebra_evpn *zevpn);
 extern void zebra_evpn_proc_remote_es(ZAPI_HANDLER_ARGS);
+extern void zebra_evpn_proc_bpp_peer(ZAPI_HANDLER_ARGS);
 int zebra_evpn_remote_es_add(const esi_t *esi, struct ipaddr *vtep_ip, bool esr_rxed,
 			     uint8_t df_alg, uint16_t df_pref);
 int zebra_evpn_remote_es_del(const esi_t *esi, struct ipaddr *vtep_ip);
