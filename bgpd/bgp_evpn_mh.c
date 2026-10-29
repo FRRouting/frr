@@ -1096,7 +1096,7 @@ static int bgp_evpn_type1_route_update(struct bgp *bgp, struct bgp_evpn_es *es,
 
 	/* Build path-attribute for this route. */
 	bgp_attr_default_set(&attr, bgp, BGP_ORIGIN_IGP);
-	bgp_evpn_vtep_ip_to_attr_nh(&es->originator_ip, &attr);
+	bgp_evpn_vtep_ip_to_attr_nh(&p->prefix.ead_addr.ip, &attr);
 
 
 	if (vpn) {
@@ -1210,6 +1210,33 @@ static void bgp_evpn_ip_ead_evi_extcomm_build(struct bgp *bgp_vrf, struct attr *
 	bgp_attr_set_ecommunity(attr, ecom);
 }
 
+/* Originator used on IP A-D (per-EVI and per-ES). Prefer a global IPv6
+ * address on the default VRF loopback so a PE can advertise an IPv6 VTEP
+ * without changing the VXLAN local (Type-4) address. Skip ::1 / link-local.
+ */
+static void bgp_evpn_es_ip_ead_originator(const struct bgp_evpn_es *es, struct ipaddr *ip)
+{
+	struct interface *ifp;
+	struct connected *ifc;
+	struct prefix *cp;
+
+	ifp = if_get_vrf_loopback(VRF_DEFAULT);
+	if (ifp) {
+		frr_each (if_connected, ifp->connected, ifc) {
+			cp = ifc->address;
+			if (cp->family != AF_INET6)
+				continue;
+			if (IN6_IS_ADDR_LINKLOCAL(&cp->u.prefix6) ||
+			    IN6_IS_ADDR_LOOPBACK(&cp->u.prefix6) ||
+			    IN6_IS_ADDR_UNSPECIFIED(&cp->u.prefix6))
+				continue;
+			ipaddr_set_v6(ip, &cp->u.prefix6);
+			return;
+		}
+	}
+	*ip = es->originator_ip;
+}
+
 static bool bgp_evpn_ip_ead_evi_should_originate(struct bgp_evpn_es_vrf *es_vrf)
 {
 	struct bgp *bgp_evpn;
@@ -1229,6 +1256,7 @@ static void bgp_evpn_ip_ead_evi_route_update(struct bgp_evpn_es_vrf *es_vrf)
 	struct bgp_evpn_es *es = es_vrf->es;
 	struct bgp *bgp_vrf = es_vrf->bgp_vrf;
 	struct prefix_evpn p;
+	struct ipaddr orig;
 	struct attr attr = {};
 	struct attr *attr_new;
 	struct bgp_dest *dest;
@@ -1256,10 +1284,11 @@ static void bgp_evpn_ip_ead_evi_route_update(struct bgp_evpn_es_vrf *es_vrf)
 	if (!es_vrf->route_table)
 		es_vrf->route_table = bgp_table_init(bgp, AFI_L2VPN, SAFI_EVPN);
 
-	build_evpn_type1_prefix(&p, BGP_EVPN_AD_EVI_ETH_TAG, &es->esi, es->originator_ip);
+	bgp_evpn_es_ip_ead_originator(es, &orig);
+	build_evpn_type1_prefix(&p, BGP_EVPN_AD_EVI_ETH_TAG, &es->esi, orig);
 
 	bgp_attr_default_set(&attr, bgp, BGP_ORIGIN_IGP);
-	bgp_evpn_vtep_ip_to_attr_nh(&es->originator_ip, &attr);
+	bgp_evpn_vtep_ip_to_attr_nh(&orig, &attr);
 	vni2label(bgp_vrf->l3vni, &(attr.label));
 	if (!bgp_vrf->evpn_info->advertise_pip || !bgp_vrf->evpn_info->is_anycast_mac)
 		memcpy(&attr.rmac, &bgp_vrf->rmac, ETH_ALEN);
@@ -1304,6 +1333,7 @@ static void bgp_evpn_ip_ead_evi_route_delete(struct bgp_evpn_es_vrf *es_vrf)
 	struct bgp *bgp;
 	struct bgp_evpn_es *es = es_vrf->es;
 	struct prefix_evpn p;
+	struct ipaddr orig;
 	struct bgp_dest *dest = NULL;
 	struct bgp_dest *global_dest;
 	struct bgp_path_info *pi;
@@ -1312,7 +1342,8 @@ static void bgp_evpn_ip_ead_evi_route_delete(struct bgp_evpn_es_vrf *es_vrf)
 	safi_t safi = SAFI_EVPN;
 
 	bgp = bgp_get_evpn();
-	build_evpn_type1_prefix(&p, BGP_EVPN_AD_EVI_ETH_TAG, &es->esi, es->originator_ip);
+	bgp_evpn_es_ip_ead_originator(es, &orig);
+	build_evpn_type1_prefix(&p, BGP_EVPN_AD_EVI_ETH_TAG, &es->esi, orig);
 
 	if (es_vrf->route_table)
 		dest = bgp_node_lookup(es_vrf->route_table, (struct prefix *)&p);
@@ -1358,9 +1389,10 @@ static void bgp_evpn_ead_es_route_update(struct bgp *bgp,
 	struct listnode *node;
 	struct bgp_evpn_es_frag *es_frag;
 	struct prefix_evpn p;
+	struct ipaddr orig;
 
-	build_evpn_type1_prefix(&p, BGP_EVPN_AD_ES_ETH_TAG, &es->esi,
-				es->originator_ip);
+	bgp_evpn_es_ip_ead_originator(es, &orig);
+	build_evpn_type1_prefix(&p, BGP_EVPN_AD_ES_ETH_TAG, &es->esi, orig);
 	for (ALL_LIST_ELEMENTS_RO(es->es_frag_list, node, es_frag)) {
 		if (!listcount(es_frag->es_evi_frag_list) &&
 		    !bgp_evpn_es_vrf_frag_count(&es_frag->es_vrf_frag_list))
@@ -1419,9 +1451,10 @@ static void bgp_evpn_ead_es_route_delete(struct bgp *bgp,
 	struct listnode *node;
 	struct bgp_evpn_es_frag *es_frag;
 	struct prefix_evpn p;
+	struct ipaddr orig;
 
-	build_evpn_type1_prefix(&p, BGP_EVPN_AD_ES_ETH_TAG, &es->esi,
-				es->originator_ip);
+	bgp_evpn_es_ip_ead_originator(es, &orig);
+	build_evpn_type1_prefix(&p, BGP_EVPN_AD_ES_ETH_TAG, &es->esi, orig);
 	for (ALL_LIST_ELEMENTS_RO(es->es_frag_list, node, es_frag)) {
 		p.prefix.ead_addr.frag_id = es_frag->rd_id;
 		bgp_evpn_mh_route_delete(bgp, es, NULL, es_frag, &p);
@@ -2173,6 +2206,7 @@ static void bgp_evpn_es_frag_evi_del(struct bgp_evpn_es_evi *es_evi,
 {
 	struct bgp_evpn_es_frag *es_frag = es_evi->es_frag;
 	struct prefix_evpn p;
+	struct ipaddr orig;
 	struct bgp_evpn_es *es;
 	struct bgp *bgp;
 
@@ -2197,8 +2231,8 @@ static void bgp_evpn_es_frag_evi_del(struct bgp_evpn_es_evi *es_evi,
 		if (BGP_DEBUG(evpn_mh, EVPN_MH_ES))
 			zlog_debug("es %s frag %u ead-es route delete",
 				   es->esi_str, es_frag->rd_id);
-		build_evpn_type1_prefix(&p, BGP_EVPN_AD_ES_ETH_TAG, &es->esi,
-					es->originator_ip);
+		bgp_evpn_es_ip_ead_originator(es, &orig);
+		build_evpn_type1_prefix(&p, BGP_EVPN_AD_ES_ETH_TAG, &es->esi, orig);
 		p.prefix.ead_addr.frag_id = es_frag->rd_id;
 		bgp_evpn_mh_route_delete(bgp, es, NULL, es_frag, &p);
 	}
@@ -2248,6 +2282,7 @@ static void bgp_evpn_es_frag_vrf_del(struct bgp_evpn_es_vrf *es_vrf, bool send_e
 {
 	struct bgp_evpn_es_frag *es_frag = es_vrf->es_frag;
 	struct prefix_evpn p;
+	struct ipaddr orig;
 	struct bgp_evpn_es *es;
 	struct bgp *bgp;
 
@@ -2268,8 +2303,8 @@ static void bgp_evpn_es_frag_vrf_del(struct bgp_evpn_es_vrf *es_vrf, bool send_e
 			if (BGP_DEBUG(evpn_mh, EVPN_MH_ES))
 				zlog_debug("es %s frag %u ead-es route delete", es->esi_str,
 					   es_frag->rd_id);
-			build_evpn_type1_prefix(&p, BGP_EVPN_AD_ES_ETH_TAG, &es->esi,
-						es->originator_ip);
+			bgp_evpn_es_ip_ead_originator(es, &orig);
+			build_evpn_type1_prefix(&p, BGP_EVPN_AD_ES_ETH_TAG, &es->esi, orig);
 			p.prefix.ead_addr.frag_id = es_frag->rd_id;
 			bgp_evpn_mh_route_delete(bgp, es, NULL, es_frag, &p);
 		}
@@ -4170,6 +4205,26 @@ static void bgp_evpn_ip_ead_es_deref(struct bgp_evpn_es_vrf_vtep *vtep)
 	bgp_evpn_es_vrf_vtep_try_free(vtep);
 }
 
+/* True if this VTEP is ours: the EVPN instance originator, or a local ES. */
+static bool bgp_evpn_ip_ead_vtep_is_local(struct bgp *bgp_evpn, const struct ipaddr *vtep)
+{
+	struct listnode *node;
+	struct bgp_evpn_es *es;
+
+	if (!vtep || ipaddr_is_zero(vtep))
+		return true;
+	if (bgp_evpn && !ipaddr_cmp(vtep, &bgp_evpn->originator_ip))
+		return true;
+	if (!bgp_mh_info)
+		return false;
+
+	for (ALL_LIST_ELEMENTS_RO(bgp_mh_info->local_es_list, node, es)) {
+		if (!ipaddr_cmp(vtep, &es->originator_ip))
+			return true;
+	}
+	return false;
+}
+
 void bgp_evpn_ip_ead_process(struct bgp *bgp_vrf, struct prefix_evpn *evp,
 			    struct bgp_path_info *pi, int import)
 {
@@ -4199,7 +4254,7 @@ void bgp_evpn_ip_ead_process(struct bgp *bgp_vrf, struct prefix_evpn *evp,
 		return;
 
 	bgp_evpn_mh_fill_vtep_ip_from_pi(pi, &vtep_ip);
-	if (ipaddr_is_zero(&vtep_ip) || !ipaddr_cmp(&vtep_ip, &bgp_evpn->originator_ip))
+	if (bgp_evpn_ip_ead_vtep_is_local(bgp_evpn, &vtep_ip))
 		return;
 
 	eth_tag = evp->prefix.ead_addr.eth_tag;
