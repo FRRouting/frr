@@ -1170,9 +1170,10 @@ static void lsp_build(struct isis_lsp *lsp, struct isis_area *area)
 				continue;
 			lsp_debug("ISIS (%s):   Flex-Algo Definition %u",
 				  area->area_tag, fa->algorithm);
-			isis_tlvs_set_router_capability_fad(lsp->tlvs, fa,
-							    fa->algorithm,
-							    area->isis->sysid);
+			if (!isis_tlvs_set_router_capability_fad(lsp->tlvs, fa, fa->algorithm,
+								 area->isis->sysid))
+				zlog_warn("ISIS (%s): Flex-Algo %u definition too large to advertise, not used",
+					  area->area_tag, fa->algorithm);
 		}
 #endif /* ifndef FABRICD */
 
