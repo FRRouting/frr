@@ -82,7 +82,7 @@ struct bgp_label_per_nexthop_cache {
 	struct nexthop *nh;
 
 	/* list of path_vrfs using it */
-	LIST_HEAD(path_lists, bgp_path_info) paths;
+	LIST_HEAD(path_lists, bgp_path_info_extra) paths;
 
 	time_t last_update;
 
