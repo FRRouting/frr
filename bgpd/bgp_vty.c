@@ -5201,6 +5201,28 @@ static void bgp_may_stop_listening(struct bgp *bgp, struct vty *vty)
 	UNSET_FLAG(bgp->flags, BGP_FLAG_VRF_MAY_LISTEN);
 }
 
+static void bgp_listen_range_warn(struct vty *vty, const struct peer_group *group,
+				  const struct prefix *range)
+{
+	if (range->prefixlen || group->conf->password)
+		return;
+
+	vty_out(vty,
+		"%% Listen range %pFX of peer-group %s accepts connections from any address without a password\n",
+		range, group->name);
+}
+
+static void bgp_listen_range_warn_group(struct vty *vty, const struct peer_group *group)
+{
+	struct listnode *node;
+	struct prefix *range;
+	afi_t afi;
+
+	for (afi = AFI_IP; afi < AFI_MAX; afi++)
+		for (ALL_LIST_ELEMENTS_RO(group->listen_range[afi], node, range))
+			bgp_listen_range_warn(vty, group, range);
+}
+
 DEFUN (bgp_listen_range,
        bgp_listen_range_cmd,
        "bgp listen range <A.B.C.D/M|X:X::X:X/M> peer-group PGNAME",
@@ -5271,6 +5293,9 @@ DEFUN (bgp_listen_range,
 	bgp_need_listening(bgp, vty);
 
 	ret = peer_group_listen_range_add(group, &range);
+	if (!ret && !bgp_config_inprocess())
+		bgp_listen_range_warn(vty, group, &range);
+
 	return bgp_vty_return(vty, ret);
 }
 
@@ -6200,6 +6225,10 @@ DEFUN (no_neighbor_password,
 		return CMD_WARNING_CONFIG_FAILED;
 
 	ret = peer_password_unset(peer);
+	if (!ret && peer->group && CHECK_FLAG(peer->sflags, PEER_STATUS_GROUP) &&
+	    !bgp_config_inprocess())
+		bgp_listen_range_warn_group(vty, peer->group);
+
 	return bgp_vty_return(vty, ret);
 }
 

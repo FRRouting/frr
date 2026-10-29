@@ -1960,6 +1960,10 @@ Defining Peers
    Accept connections from any peers in the specified prefix. Configuration
    from the specified peer-group is used to configure these peers.
 
+   A warning is displayed if ``0.0.0.0/0`` or ``::/0`` is used without a
+   password configured for the peer-group, because anyone can then establish
+   a BGP session.
+
 .. note::
 
    When using BGP listen ranges, if the associated peer group has TCP MD5
