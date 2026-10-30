@@ -3953,7 +3953,7 @@ static void early_route_meta_queue_free(struct meta_queue *mq, struct list *l,
 			continue;
 
 		if (proto != ZEBRA_ROUTE_ALL &&
-		    (proto != ere->re->type && instance != ere->re->instance))
+		    (proto != ere->re->type || instance != ere->re->instance))
 			continue;
 
 		early_route_memory_free(ere);
