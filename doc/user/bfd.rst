@@ -897,6 +897,10 @@ the message is treated as supporting none of them. The features are:
   daemon sends. Without it a session configured with an authentication key
   chain stays in the BFD daemon.
 
+* ``BFDDP_CAP_AUTH_RFC_SHA1``: computes keyed SHA1 as RFC 5880 Section 6.7.4
+  describes for keys flagged ``BFDDP_AUTH_KEY_RFC_SHA1``. Without it a
+  session whose key chain holds a ``sha-1`` key stays in the BFD daemon.
+
 BFD daemon will also keep record of data plane communication statistics with
 the command :clicmd:`show bfd distributed`.
 

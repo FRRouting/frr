@@ -758,10 +758,17 @@ static void bfd_dplane_read(struct event *t)
 /* The capabilities a data plane must have declared to run this session. */
 static uint64_t bfd_dplane_session_needs(const struct bfd_session *bs)
 {
+	struct listnode *node;
+	struct key *key;
 	uint64_t needs = 0;
 
-	if (bs->kc)
-		needs |= BFDDP_CAP_SESSION_AUTH;
+	if (!bs->kc)
+		return needs;
+
+	needs |= BFDDP_CAP_SESSION_AUTH;
+	for (ALL_LIST_ELEMENTS_RO(bs->kc->key, node, key))
+		if (key->hash_algo == KEYCHAIN_ALGO_SHA1)
+			needs |= BFDDP_CAP_AUTH_RFC_SHA1;
 
 	return needs;
 }
@@ -1602,6 +1609,8 @@ static int bfd_dplane_send_session_auth(const struct bfd_session *bs)
 			}
 
 			keys[count].type = type;
+			if (key->hash_algo == KEYCHAIN_ALGO_SHA1)
+				keys[count].flags = BFDDP_AUTH_KEY_RFC_SHA1;
 			keys[count].key_id = (uint8_t)key->index;
 			keys[count].key_len = (uint8_t)keylen;
 			keys[count].send.start = htobe64((uint64_t)key->send.start);
