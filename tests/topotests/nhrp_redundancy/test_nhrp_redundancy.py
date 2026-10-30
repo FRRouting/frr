@@ -184,6 +184,53 @@ def router_nhrp_json_cmp(router, cmd, expected):
     return result
 
 
+# nhrpd log lines of interest for the shortcut establishment
+NHRP_LOG_PATTERN = (
+    "Traffic|Shortcut|Resolution|10\\.4\\.4\\.7|10\\.5\\.5\\.5|172\\.16\\.1\\.1:"
+    "|if-route|Deleting cache|purged|TEST-START"
+)
+
+
+def nhrp_debug_dump():
+    """
+    Return the NHRP state of nhc1, nhc2 and nhs2 and their nhrpd logs since
+    the start of test_redundancy_shortcut_backup, to debug a failure on CI.
+    """
+    tgen = get_topogen()
+    dump = [f"=== NHRP debug dump at {tgen.gears['nhc2'].cmd('date +%T.%N').strip()}"]
+
+    for rname in ("nhc1", "nhc2", "nhs2"):
+        router = tgen.gears[rname]
+        for cmd in (
+            "show ip nhrp shortcut",
+            "show ip nhrp cache",
+            "show ip route",
+        ):
+            dump.append(f"### {rname}: {cmd}\n{router.vtysh_cmd(cmd)}")
+
+    for rname, cmd in (
+        ("nhc1", "ip route get 10.5.5.5; ip neigh show dev nhc1-gre0"),
+        ("nhc2", "ip route get 10.4.4.7; ip neigh show dev nhc2-gre0"),
+        ("nhs2", "ip route get 10.4.4.7; ip route get 10.5.5.5"),
+        ("host", "pgrep -a ping"),
+        (
+            "nhs2",
+            "ip -s link show nhs2-gre0; iptables -L FORWARD -v -n -x; sleep 5; "
+            "ip -s link show nhs2-gre0; iptables -L FORWARD -v -n -x",
+        ),
+    ):
+        dump.append(f"### {rname}: {cmd}\n{tgen.gears[rname].cmd(cmd)}")
+
+    for rname in ("nhc1", "nhc2", "nhs2"):
+        cmd = (
+            "awk '/TEST-START: .*test_redundancy_shortcut_backup/ {p=1} p' nhrpd.log"
+            f" | grep -E '{NHRP_LOG_PATTERN}' | grep -v 'vty\\[' | tail -n 200"
+        )
+        dump.append(f"### {rname}: nhrpd.log\n{tgen.gears[rname].cmd(cmd)}")
+
+    return "\n".join(dump)
+
+
 def ping_test(source_router, target_ip, count=1000, description=""):
     """
     Test ping connectivity between routers, allowing up to 90% packet loss.
@@ -461,6 +508,9 @@ def test_redundancy_shortcut_backup():
         _, result = topotest.run_and_expect(test_func, None, count=40, wait=0.5)
 
         assertmsg = '"{}" "show ip nhrp cache" output mismatches'.format(router.name)
+        if result is not None:
+            logger.error(nhrp_debug_dump())
+            assertmsg = f"{assertmsg} (see the NHRP debug dump in the captured log)"
         assert result is None, assertmsg
 
     logger.info("Check NHRP IPV4 routes on servers and clients")
