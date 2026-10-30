@@ -9,6 +9,7 @@
 #include "lib/json.h"
 
 #include "stream.h"
+#include "zclient.h"
 #include "bgpd/bgpd.h"
 #include "bgpd/bgp_aspath.h"
 #include "bgpd/bgp_ls.h"
@@ -28,6 +29,21 @@ DEFINE_MTYPE_STATIC(BGPD, BGP_LS, "BGP-LS instance");
 static int bgp_ls_refresh_bgp_link_endx_attrs(struct bgp *bgp, struct peer *peer);
 static struct bgp_ls_nlri *bgp_ls_lookup_bgp_prefix_nlri(struct bgp *bgp, const struct prefix *p,
 							 enum bgp_ls_bgp_route_type route_type);
+
+/* Request a TED sync from the currently registered link-state producers. */
+void bgp_ls_request_sync(struct bgp *bgp)
+{
+	enum zclient_send_status ret;
+
+	if (!bgp_ls_is_registered(bgp))
+		return;
+
+	ret = ls_request_sync(bgp_zclient);
+	if (ret == ZCLIENT_SEND_FAILURE)
+		zlog_warn("BGP-LS: Failed to request Link State database sync");
+	else
+		zlog_info("BGP-LS: Requested initial Link State database sync");
+}
 
 void bgp_ls_handle_srv6_localsid_update(struct bgp *bgp, const struct prefix *p, afi_t afi,
 					uint8_t type, unsigned short instance,
@@ -945,12 +961,14 @@ bool bgp_ls_register(struct bgp *bgp)
 		return false;
 	}
 
-	if (ls_request_sync(bgp_zclient) == -1)
-		zlog_warn("BGP-LS: Failed to request initial Link State database sync");
-	else
-		zlog_info("BGP-LS: Requested initial Link State database sync");
-
 	bgp->ls_info->registered_ls_db = true;
+	if (zclient_opaque_request_notify(bgp_zclient, LINK_STATE_SYNC) == ZCLIENT_SEND_FAILURE) {
+		zlog_err("BGP-LS: Failed to register for Link State producer notifications");
+		bgp->ls_info->registered_ls_db = false;
+		if (ls_unregister(bgp_zclient, false) == ZCLIENT_SEND_FAILURE)
+			zlog_err("BGP-LS: Failed to unregister from Link State database");
+		return false;
+	}
 
 	zlog_info("BGP-LS: Registered with Link State database for BGP instance %s",
 		  bgp->name_pretty);
@@ -970,6 +988,9 @@ bool bgp_ls_unregister(struct bgp *bgp)
 	/* Not registered */
 	if (!bgp_ls_is_registered(bgp))
 		return true;
+
+	if (zclient_opaque_drop_notify(bgp_zclient, LINK_STATE_SYNC) == ZCLIENT_SEND_FAILURE)
+		zlog_err("BGP-LS: Failed to unregister Link State producer notifications");
 
 	/*
 	 * Clear the local registration flag *before* the zebra call.
