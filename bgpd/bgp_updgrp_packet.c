@@ -1330,6 +1330,92 @@ void subgroup_default_update_packet(struct update_subgroup *subgrp,
 	}
 }
 
+/*
+ * Withdraw a table route for the default prefix (0.0.0.0/0 or ::/0).
+ * This is used when default-originate is being configured to withdraw
+ * any previously advertised table route before sending the synthesized
+ * default. The packet is added directly to the bpacket queue to ensure
+ * proper ordering regardless of queue limits.
+ */
+void subgroup_table_default_withdraw_packet(struct update_subgroup *subgrp, uint32_t addpath_tx_id)
+{
+	struct peer *peer;
+	struct stream *s;
+	struct prefix p;
+	unsigned long attrlen_pos = 0;
+	unsigned long cp;
+	bgp_size_t unfeasible_len;
+	bgp_size_t total_attr_len = 0;
+	size_t mp_start = 0;
+	size_t mplen_pos = 0;
+	afi_t afi;
+	safi_t safi;
+	bool addpath_capable = false;
+
+	if (DISABLE_BGP_ANNOUNCE)
+		return;
+
+	peer = SUBGRP_PEER(subgrp);
+	afi = SUBGRP_AFI(subgrp);
+	safi = SUBGRP_SAFI(subgrp);
+	addpath_capable = bgp_addpath_encode_tx(peer, afi, safi);
+
+	memset(&p, 0, sizeof(p));
+	p.family = afi2family(afi);
+	p.prefixlen = 0;
+
+	if (bgp_debug_update(NULL, &p, subgrp->update_group, 0)) {
+		if (addpath_capable)
+			zlog_debug("u%" PRIu64 ":s%" PRIu64
+				   " send UPDATE %pFX with addpath ID %u -- unreachable (table route)",
+				   (SUBGRP_UPDGRP(subgrp))->id, subgrp->id, &p, addpath_tx_id);
+		else
+			zlog_debug("u%" PRIu64 ":s%" PRIu64
+				   " send UPDATE %pFX -- unreachable (table route)",
+				   (SUBGRP_UPDGRP(subgrp))->id, subgrp->id, &p);
+	}
+
+	s = stream_new(peer->max_packet_size);
+
+	/* Make BGP update packet. */
+	bgp_packet_set_marker(s, BGP_MSG_UPDATE);
+
+	/* Unfeasible Routes Length. */
+	cp = stream_get_endp(s);
+	stream_putw(s, 0);
+
+	/* Withdrawn Routes. */
+	if (p.family == AF_INET && safi == SAFI_UNICAST && !peer_cap_enhe(peer, afi, safi)) {
+		bgp_attr_stream_put_prefix_addpath(s, &p, addpath_capable, addpath_tx_id);
+
+		unfeasible_len = stream_get_endp(s) - cp - 2;
+
+		/* Set unfeasible len.  */
+		stream_putw_at(s, cp, unfeasible_len);
+
+		/* Set total path attribute length. */
+		stream_putw(s, 0);
+	} else {
+		attrlen_pos = stream_get_endp(s);
+		stream_putw(s, 0);
+		mp_start = stream_get_endp(s);
+		mplen_pos = bgp_packet_mpunreach_start(s, afi, safi);
+		bgp_packet_mpunreach_prefix(s, &p, afi, safi, NULL, NULL, 0, addpath_capable,
+					    addpath_tx_id, NULL, NULL);
+
+		/* Set the mp_unreach attr's length */
+		bgp_packet_mpunreach_end(s, mplen_pos);
+
+		/* Set total path attribute length. */
+		total_attr_len = stream_get_endp(s) - mp_start;
+		stream_putw_at(s, attrlen_pos, total_attr_len);
+	}
+
+	bgp_packet_set_size(s);
+
+	(void)bpacket_queue_add(SUBGRP_PKTQ(subgrp), s, NULL);
+}
+
 void subgroup_default_withdraw_packet(struct update_subgroup *subgrp)
 {
 	struct peer *peer;

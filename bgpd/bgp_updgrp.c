@@ -1786,24 +1786,17 @@ static int updgrp_policy_update_walkcb(struct update_group *updgrp, void *arg)
 			frrtrace(5, frr_bgp, upd_announce_route_on_policy_change, 1, updgrp->id,
 				 subgrp->id, ctx->policy_name, ctx->policy_type);
 
-			if (route_map_lookup_by_name(ctx->policy_name)) {
-				/*
-				 * When there is change in routemap, this flow
-				 * is triggered. the routemap is still present
-				 * in lib, hence its a update flow. The flag
-				 * needs to be unset.
-				 */
-				UNSET_FLAG(subgrp->sflags,
-					   SUBGRP_STATUS_DEFAULT_ORIGINATE);
-				subgroup_default_originate(subgrp, false);
-			} else {
-				/*
-				 * This is a explicit withdraw, since the
-				 * routemap is not present in routemap lib. need
-				 * to pass `true` for withdraw arg.
-				 */
-				subgroup_default_originate(subgrp, true);
-			}
+			/*
+			 * Re-evaluate default-originate regardless of whether
+			 * the route-map is still present.  If it was deleted,
+			 * subgroup_default_originate() detects the missing map
+			 * and withdraws the default route.
+			 *
+			 * Clear the flag to force re-announcement with
+			 * potentially updated attributes from the route-map.
+			 */
+			UNSET_FLAG(subgrp->sflags, SUBGRP_STATUS_DEFAULT_ORIGINATE);
+			subgroup_default_originate(subgrp);
 		}
 		update_subgroup_set_needs_refresh(subgrp, 0);
 	}
@@ -2210,13 +2203,11 @@ update_group_default_originate_route_map_walkcb(struct update_group *updgrp,
 
 		if (peer->default_rmap[afi][safi].name) {
 			/*
-			 * When there is change in routemap this flow will
-			 * be triggered. We need to unset the Flag to ensure
-			 * the update flow gets triggered.
+			 * Clear the flag to force re-announcement with
+			 * potentially updated attributes from the route-map.
 			 */
-			UNSET_FLAG(subgrp->sflags,
-				   SUBGRP_STATUS_DEFAULT_ORIGINATE);
-			subgroup_default_originate(subgrp, false);
+			UNSET_FLAG(subgrp->sflags, SUBGRP_STATUS_DEFAULT_ORIGINATE);
+			subgroup_default_originate(subgrp);
 		}
 	}
 

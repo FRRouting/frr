@@ -883,8 +883,9 @@ extern void bgp_announce_route(struct peer *peer, afi_t afi, safi_t safi,
 			       bool force);
 extern void bgp_stop_announce_route_timer(struct peer_af *paf);
 extern void bgp_announce_route_all(struct peer *peer);
-extern void bgp_default_originate(struct peer *peer, afi_t afi, safi_t safi,
-				  bool withdraw);
+extern void bgp_default_originate(struct peer *peer, afi_t afi, safi_t safi);
+extern void bgp_default_originate_config(struct peer *peer, afi_t afi, safi_t safi);
+extern void bgp_default_originate_unconfig(struct peer *peer, afi_t afi, safi_t safi);
 extern void bgp_soft_reconfig_table_task_cancel(const struct bgp *bgp,
 						const struct bgp_table *table,
 						const struct peer *peer);
