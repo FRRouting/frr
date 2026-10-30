@@ -307,6 +307,23 @@ void bfd_profile_remove(struct bfd_session *bs)
 	bfd_profile_remove_reference(bs);
 }
 
+void bfd_profile_apply_client(struct bfd_session *bs)
+{
+	const char *profname = ptm_bfd_client_profile(bs);
+
+	if (profname)
+		bfd_profile_apply(profname, bs);
+	else
+		bfd_profile_remove(bs);
+}
+
+void bfd_session_unconfigure(struct bfd_session *bs)
+{
+	bs->peer_profile = bs->client_peer_profile;
+	UNSET_FLAG(bs->flags, BFD_SESS_FLAG_CONFIG_PROFILE);
+	bfd_profile_apply_client(bs);
+}
+
 void gen_bfd_key(struct bfd_key *key, struct sockaddr_any *peer, struct sockaddr_any *local,
 		 bool mhop, const char *ifname, const char *vrfname, const char *bfdname)
 {
@@ -1148,6 +1165,7 @@ struct bfd_session *bfd_session_new(enum bfd_mode_type mode)
 
 	/* Set peer session defaults. */
 	bfd_profile_set_default(&bs->peer_profile);
+	bfd_profile_set_default(&bs->client_peer_profile);
 
 	bs->timers.desired_min_tx = BFD_DEFDESIREDMINTX;
 	bs->timers.required_min_rx = BFD_DEFREQUIREDMINRX;
@@ -1238,6 +1256,37 @@ static void _bfd_session_update(struct bfd_session *bs,
 	 */
 	if (bpc->bpc_has_profile)
 		bfd_profile_apply(bpc->bpc_profile, bs);
+}
+
+void bfd_session_save_client_config(struct bfd_session *bs, const struct bfd_peer_cfg *bpc)
+{
+	struct bfd_profile *bp = &bs->client_peer_profile;
+
+	/* The peer settings _bfd_session_update() applies. */
+	bfd_profile_set_default(bp);
+
+	if (bpc->bpc_has_txinterval)
+		bp->min_tx = bpc->bpc_txinterval * 1000;
+
+	if (bpc->bpc_has_recvinterval)
+		bp->min_rx = bpc->bpc_recvinterval * 1000;
+
+	if (bpc->bpc_has_detectmultiplier)
+		bp->detection_multiplier = bpc->bpc_detectmultiplier;
+
+	if (bpc->bpc_has_echorecvinterval)
+		bp->min_echo_rx = bpc->bpc_echorecvinterval * 1000;
+
+	if (bpc->bpc_has_echotxinterval)
+		bp->min_echo_tx = bpc->bpc_echotxinterval * 1000;
+
+	if (bpc->bpc_has_minimum_ttl)
+		bp->minimum_ttl = bpc->bpc_minimum_ttl;
+
+	bp->echo_mode = bpc->bpc_echo;
+	bp->admin_shutdown = bpc->bpc_shutdown;
+	strlcpy(bp->auth_config.key_chain_name, bpc->auth_config.key_chain_name,
+		sizeof(bp->auth_config.key_chain_name));
 }
 
 int bfd_session_update(struct bfd_session *bs, struct bfd_peer_cfg *bpc)
@@ -1352,6 +1401,7 @@ struct bfd_session *ptm_bfd_sess_new(struct bfd_peer_cfg *bpc)
 
 	/* Apply other configurations. */
 	_bfd_session_update(bfd, bpc);
+	bfd_session_save_client_config(bfd, bpc);
 
 	return bfd;
 }
@@ -2585,9 +2635,14 @@ static void _bfd_session_remove_manual(struct hash_bucket *hb,
 	bs->refcount--;
 	UNSET_FLAG(bs->flags, BFD_SESS_FLAG_CONFIG);
 
-	/* Don't delete sessions still in use. */
-	if (bs->refcount != 0)
+	/*
+	 * Don't delete sessions still in use, but drop what the `peer` node
+	 * configured.
+	 */
+	if (bs->refcount != 0) {
+		bfd_session_unconfigure(bs);
 		return;
+	}
 
 	bfd_session_free(bs);
 }
