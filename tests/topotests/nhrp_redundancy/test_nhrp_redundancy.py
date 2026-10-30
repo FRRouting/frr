@@ -409,15 +409,18 @@ def test_redundancy_shortcut():
     PING_PID = None
 
     logger.info("check the shortcut disappears because of no traffic")
-    json_file = "{}/{}/nhrp_shortcut_absent.json".format(CWD, nhc1.name)
-    expected = json.loads(open(json_file).read())
-    test_func = partial(
-        router_nhrp_json_cmp, nhc1, "show ip nhrp shortcut json", expected
-    )
-    _, result = topotest.run_and_expect(test_func, None, count=60, wait=1)
 
-    assertmsg = '"{}" "show ip nhrp shortcut" output mismatches'.format(nhc1.name)
-    assert result is None, assertmsg
+    expected = {"attr": {"entriesCount": 0}}
+
+    for rname in ("nhc1", "nhc2"):
+        router = tgen.gears[rname]
+        test_func = partial(
+            router_nhrp_json_cmp, router, "show ip nhrp shortcut json", expected
+        )
+        _, result = topotest.run_and_expect(test_func, None, count=60, wait=1)
+
+        assertmsg = '"{}" "show ip nhrp shortcut" output mismatches'.format(rname)
+        assert result is None, assertmsg
 
 
 def test_redundancy_shortcut_backup():
@@ -518,8 +521,7 @@ def test_redundancy_shortcut_backup():
     assertmsg = '"{}" "show ip route nhrp" output mismatches'.format(nhc1.name)
     assert result is None, assertmsg
 
-    json_file = "{}/{}/nhrp_shortcut_absent.json".format(CWD, nhc1.name)
-    expected = json.loads(open(json_file).read())
+    expected = {"attr": {"entriesCount": 0}}
     test_func = partial(
         router_nhrp_json_cmp, nhc1, "show ip nhrp shortcut json", expected
     )
