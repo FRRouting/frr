@@ -948,6 +948,10 @@ void zebra_srv6_locator_add(struct srv6_locator *locator)
 	 * not degrade the overall performance of FRRouting.
 	 */
 	frr_each (zserv_client_list, &zrouter.client_list, client) {
+		/* Do not send unsolicited messages to synchronous clients. */
+		if (client->synchronous)
+			continue;
+
 		zsend_zebra_srv6_locator_add(client, locator);
 	}
 }
@@ -969,6 +973,10 @@ void zebra_srv6_locator_delete(struct srv6_locator *locator)
 	 * owner of each chunk.
 	 */
 	frr_each (zserv_client_list, &zrouter.client_list, client) {
+		/* Do not send unsolicited messages to synchronous clients. */
+		if (client->synchronous)
+			continue;
+
 		zsend_zebra_srv6_locator_delete(client, locator);
 	}
 
@@ -1009,6 +1017,10 @@ void zebra_notify_srv6_locator_add(struct srv6_locator *locator)
 	 * not degrade the overall performance of FRRouting.
 	 */
 	frr_each (zserv_client_list, &zrouter.client_list, client) {
+		/* Do not send unsolicited messages to synchronous clients. */
+		if (client->synchronous)
+			continue;
+
 		zsend_zebra_srv6_locator_add(client, locator);
 	}
 }
@@ -1029,6 +1041,10 @@ void zebra_notify_srv6_locator_delete(struct srv6_locator *locator)
 	 * owner of each chunk.
 	 */
 	frr_each (zserv_client_list, &zrouter.client_list, client) {
+		/* Do not send unsolicited messages to synchronous clients. */
+		if (client->synchronous)
+			continue;
+
 		zsend_zebra_srv6_locator_delete(client, locator);
 	}
 }
