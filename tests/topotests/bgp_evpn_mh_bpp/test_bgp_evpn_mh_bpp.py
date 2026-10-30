@@ -2316,6 +2316,7 @@ def test_bpp_rt4_withdraw():
     _set_bpp(tor1, False)
     _clear_ip_ead(tor2)
     _set_rt4_filter(tor2, False)
+    _expect_no_ip_ead_rx(tor1, ES1_ID, "tor2 IP A-D gone")
     _set_prot_debug(tor1, False)
 
 
@@ -2325,8 +2326,10 @@ def test_bpp_rt4_only():
         pytest.skip(tgen.errors)
 
     tor1 = tgen.gears["tor1"]
+    tor2 = tgen.gears["tor2"]
     lo2 = tor_lo("tor2")
 
+    _clear_ip_ead(tor2)
     _expect_no_ip_ead_rx(tor1, ES1_ID, "no leftover IP A-D")
     _set_prot_debug(tor1, True)
     snap = _log_text(tgen, tor1, "zebra")
