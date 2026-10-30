@@ -637,6 +637,7 @@ enum bfd_auth_type map_keychain_algo_to_bfd_auth_type(enum keychain_hash_algo kc
 {
 	switch (kc_algo) {
 	case KEYCHAIN_ALGO_HMAC_SHA1:
+	case KEYCHAIN_ALGO_SHA1:
 		return meticulous ? BFD_AUTH_TYPE_METICULOUS_KEYED_SHA1 : BFD_AUTH_TYPE_KEYED_SHA1;
 	case KEYCHAIN_ALGO_NULL:
 	case KEYCHAIN_ALGO_CLEARTEXT:
@@ -645,7 +646,6 @@ enum bfd_auth_type map_keychain_algo_to_bfd_auth_type(enum keychain_hash_algo kc
 	case KEYCHAIN_ALGO_HMAC_SHA256:
 	case KEYCHAIN_ALGO_HMAC_SHA384:
 	case KEYCHAIN_ALGO_HMAC_SHA512:
-	case KEYCHAIN_ALGO_SHA1:
 	case KEYCHAIN_ALGO_MAX:
 	default:
 		return BFD_AUTH_TYPE_RESERVED;
@@ -675,10 +675,10 @@ struct key *bfd_keychain_key_find_active(const struct keychain *keychain, bool m
 	for (ALL_LIST_ELEMENTS_RO(keychain->key, node, key)) {
 		size_t keylen, maxlen;
 
-		if (meticulous && key->hash_algo != KEYCHAIN_ALGO_HMAC_SHA1)
+		if (meticulous && !bfd_auth_algo_is_sha1(key->hash_algo))
 			continue;
 		if (key->hash_algo != KEYCHAIN_ALGO_CLEARTEXT &&
-		    key->hash_algo != KEYCHAIN_ALGO_HMAC_SHA1)
+		    !bfd_auth_algo_is_sha1(key->hash_algo))
 			continue;
 		if (!key->string)
 			continue;
@@ -689,9 +689,8 @@ struct key *bfd_keychain_key_find_active(const struct keychain *keychain, bool m
 		 * is 28 bytes whatever the key length, so the longer key does
 		 * not grow the packet.
 		 */
-		maxlen = key->hash_algo == KEYCHAIN_ALGO_HMAC_SHA1
-				 ? BFD_AUTH_SHA1_KEY_MAX_LEN
-				 : BFD_AUTH_SIMPLE_PASSWD_MAX_LEN;
+		maxlen = bfd_auth_algo_is_sha1(key->hash_algo) ? BFD_AUTH_SHA1_KEY_MAX_LEN
+							       : BFD_AUTH_SIMPLE_PASSWD_MAX_LEN;
 		keylen = strlen(key->string);
 		if (keylen < BFD_AUTH_SIMPLE_PASSWD_MIN_LEN || keylen > maxlen)
 			continue;
