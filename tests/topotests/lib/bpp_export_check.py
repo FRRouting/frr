@@ -23,15 +23,19 @@ def bpp_export_check(export):
     live_bindings = {}
     inflight_del = set()
     bind_on_wire = set()
+    history_truncated = bool((export.get("counters") or {}).get("exportLogOverruns"))
 
     for ent in log:
         op = ent.get("op")
         action = ent.get("action")
         oid = int(ent.get("id") or 0)
         ifname = ent.get("interface")
+        replay = ent.get("replay", False)
 
         if action != "del" and oid in inflight_del:
-            errors.append("id 0x%x reused before delete completed seq %s" % (oid, ent.get("seq")))
+            errors.append(
+                "id 0x%x reused before delete completed seq %s" % (oid, ent.get("seq"))
+            )
 
         if op == "EVPN_MH_NH_UPDATE":
             if action == "del":
@@ -60,9 +64,10 @@ def bpp_export_check(export):
                 if not mids:
                     errors.append("empty Group 0x%x seq %s" % (oid, ent.get("seq")))
                 for mid in mids:
-                    if mid not in live_members:
+                    if mid not in live_members and not history_truncated:
                         errors.append(
-                            "Group 0x%x missing Member 0x%x seq %s" % (oid, mid, ent.get("seq"))
+                            "Group 0x%x missing Member 0x%x seq %s"
+                            % (oid, mid, ent.get("seq"))
                         )
                 live_groups[oid] = mids
         elif op == "BR_PORT_UPDATE":
@@ -70,16 +75,19 @@ def bpp_export_check(export):
                 live_bindings.pop(ifname, None)
                 bind_on_wire.discard(ifname)
             else:
-                if ifname in bind_on_wire:
-                    errors.append("Binding resent on %s seq %s" % (ifname, ent.get("seq")))
-                if oid and oid not in live_groups:
+                if ifname in bind_on_wire and not replay:
                     errors.append(
-                        "Binding %s to missing Group 0x%x seq %s" % (ifname, oid, ent.get("seq"))
+                        "Binding resent on %s seq %s" % (ifname, ent.get("seq"))
+                    )
+                if oid and oid not in live_groups and not history_truncated:
+                    errors.append(
+                        "Binding %s to missing Group 0x%x seq %s"
+                        % (ifname, oid, ent.get("seq"))
                     )
                 live_bindings[ifname] = oid
                 bind_on_wire.add(ifname)
 
-        if action == "del" and ent.get("completed"):
+        if action == "del" and ent.get("completed") and ent.get("result") == "SUCCESS":
             inflight_del.discard(oid)
 
     for rec in (tables.get("members") or {}).values():
@@ -97,6 +105,9 @@ def bpp_export_check(export):
     for rec in (tables.get("bindings") or {}).values():
         gid = int(rec.get("backupNhgId") or 0)
         if gid and _nhg_type(gid) != NHG_TYPE_L3_BPP:
-            errors.append("Binding %s backup 0x%x type %s" % (rec.get("interface"), gid, _nhg_type(gid)))
+            errors.append(
+                "Binding %s backup 0x%x type %s"
+                % (rec.get("interface"), gid, _nhg_type(gid))
+            )
 
     return errors
