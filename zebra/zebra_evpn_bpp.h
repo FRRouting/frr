@@ -47,6 +47,9 @@ extern void zebra_evpn_bpp_es_update(struct zebra_evpn_es *es);
 /* Replay (add) or withdraw (del) the L3VNI ES-EVIs sent for the ES. */
 extern void zebra_evpn_bpp_es_send_all(struct zebra_evpn_es *es, bool add);
 
+/* Withdraw the Binding, Group and Members before local ES state is cleared. */
+extern void zebra_evpn_bpp_es_clear(struct zebra_evpn_es *es);
+
 /* One row per entry; ifname (may be NULL) filters on the ES bond. */
 extern void zebra_evpn_bpp_show(struct vty *vty, const char *ifname, bool detail, bool uj);
 
@@ -70,8 +73,19 @@ extern void zebra_evpn_bpp_dplane_result(struct zebra_dplane_ctx *ctx);
 /* Last state sent and the enqueue ring. */
 extern void zebra_evpn_bpp_show_export(struct vty *vty, bool uj);
 
-/* Re-enqueue Members, Groups, Bindings, then REPLAY_DONE. */
+/* Retry pending deletes, then replay Members, Groups, Bindings and REPLAY_DONE. */
 extern void zebra_evpn_bpp_replay(void);
+
+#ifdef DEV_BUILD
+enum zebra_evpn_bpp_test_object {
+	ZEBRA_EVPN_BPP_TEST_MEMBER,
+	ZEBRA_EVPN_BPP_TEST_GROUP,
+	ZEBRA_EVPN_BPP_TEST_BINDING,
+};
+
+/* Fail the next matching protection completion for a topotest. */
+extern void zebra_evpn_bpp_test_fail_next(enum zebra_evpn_bpp_test_object object, bool is_del);
+#endif
 
 #ifdef __cplusplus
 }

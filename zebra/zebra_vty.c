@@ -3087,6 +3087,35 @@ DEFPY_HIDDEN(clear_evpn_mh_bpp_replay, clear_evpn_mh_bpp_replay_cmd,
 	return CMD_SUCCESS;
 }
 
+#ifdef DEV_BUILD
+DEFPY_HIDDEN(test_evpn_mh_bpp_fail_next,
+	     test_evpn_mh_bpp_fail_next_cmd,
+	     "test zebra evpn mh bridge-port-protection fail-next <member$member|group$group|binding$binding> <add|delete$delete>",
+	     "Test code\n"
+	     ZEBRA_STR
+	     "EVPN\n"
+	     "Multihoming\n"
+	     "Bridge-port protection\n"
+	     "Fail the next matching protection completion\n"
+	     "Protection Member\n"
+	     "Protection Group\n"
+	     "Protection Binding\n"
+	     "Object creation or replacement\n"
+	     "Object deletion\n")
+{
+	enum zebra_evpn_bpp_test_object test_object;
+
+	if (member)
+		test_object = ZEBRA_EVPN_BPP_TEST_MEMBER;
+	else if (group)
+		test_object = ZEBRA_EVPN_BPP_TEST_GROUP;
+	else
+		test_object = ZEBRA_EVPN_BPP_TEST_BINDING;
+	zebra_evpn_bpp_test_fail_next(test_object, !!delete);
+	return CMD_SUCCESS;
+}
+#endif
+
 DEFPY(show_evpn_mh_bpp_member, show_evpn_mh_bpp_member_cmd,
       "show evpn mh bridge-port-protection member [NAME$esi_str] [json$json]",
       SHOW_STR
@@ -4446,6 +4475,9 @@ void zebra_vty_init(void)
 	install_element(VIEW_NODE, &show_evpn_mh_bpp_member_cmd);
 	install_element(VIEW_NODE, &show_evpn_mh_bpp_export_cmd);
 	install_element(ENABLE_NODE, &clear_evpn_mh_bpp_replay_cmd);
+#ifdef DEV_BUILD
+	install_element(ENABLE_NODE, &test_evpn_mh_bpp_fail_next_cmd);
+#endif
 	install_element(VIEW_NODE, &show_evpn_es_evi_cmd);
 	install_element(VIEW_NODE, &show_evpn_access_vlan_cmd);
 	install_element(VIEW_NODE, &show_evpn_rmac_vni_mac_cmd);

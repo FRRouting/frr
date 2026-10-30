@@ -3224,6 +3224,32 @@ def _expect_export_clean(
     assert result is None, "%s: %s" % (msg, result)
 
 
+def _export_marker(router):
+    log = _export(router).get("log") or []
+    return max((int(ent.get("seq") or 0) for ent in log), default=0)
+
+
+def _export_events(router, after):
+    return [
+        (ent.get("op"), ent.get("action"))
+        for ent in (_export(router).get("log") or [])
+        if int(ent.get("seq") or 0) > after
+        and ent.get("op")
+        in ("EVPN_MH_NH_UPDATE", "EVPN_MH_NHG_UPDATE", "BR_PORT_UPDATE")
+    ]
+
+
+def _expect_export_events(router, after, expected, msg):
+    def _check():
+        events = _export_events(router, after)
+        return None if events == expected else events
+
+    _, result = topotest.run_and_expect(
+        _check, None, count=WAIT_COUNT, wait=WAIT_STEP
+    )
+    assert result is None, "%s: %s" % (msg, result)
+
+
 def test_bpp_dplane_emit():
     tgen = get_topogen()
     if tgen.routers_have_failure():
@@ -3258,6 +3284,170 @@ def test_bpp_dplane_emit():
     _expect_export_clean(
         tor1, "cleanup", members=0, groups=0, bindings=0, released=True
     )
+
+
+def test_bpp_peer_join_leave():
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    tor1 = tgen.gears["tor1"]
+    tor2 = tgen.gears["tor2"]
+    tor3 = tgen.gears["tor3"]
+    lo2, lo3 = tor_lo("tor2"), tor_vtep("tor3")
+
+    _set_bpp_if(tor2, ES_IF, True)
+    _set_bpp(tor1, True)
+    _expect_export_clean(tor1, "initial peer", members=1)
+
+    marker = _export_marker(tor1)
+    _set_bpp_if(tor3, ES_IF, True)
+    _expect_members(tor1, ES1_ID, (lo2, lo3), "peer joined")
+    _expect_export_clean(tor1, "peer join export", members=2)
+    _expect_export_events(
+        tor1,
+        marker,
+        [
+            ("EVPN_MH_NH_UPDATE", "add"),
+            ("EVPN_MH_NHG_UPDATE", "add"),
+        ],
+        "Member then Group on peer join",
+    )
+
+    marker = _export_marker(tor1)
+    _set_bpp_if(tor3, ES_IF, False)
+    _expect_members(tor1, ES1_ID, (lo2,), "peer left")
+    _expect_export_clean(tor1, "peer leave export", members=1)
+    _expect_export_events(
+        tor1,
+        marker,
+        [
+            ("EVPN_MH_NHG_UPDATE", "add"),
+            ("EVPN_MH_NH_UPDATE", "del"),
+        ],
+        "Group then Member on peer leave",
+    )
+
+    _set_bpp(tor1, False)
+    _clear_ip_ead(tor2)
+    _expect_export_clean(
+        tor1, "cleanup", members=0, groups=0, bindings=0, released=True
+    )
+
+
+def test_bpp_last_peer():
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    tor1 = tgen.gears["tor1"]
+    tor2 = tgen.gears["tor2"]
+
+    _set_bpp_if(tor2, ES_IF, True)
+    _set_bpp(tor1, True)
+    _expect_export_clean(tor1, "initial peer", members=1)
+
+    marker = _export_marker(tor1)
+    _set_bpp_if(tor2, ES_IF, False)
+    _expect_members(tor1, ES1_ID, (), "last peer left", bound=False)
+    _expect_export_clean(
+        tor1,
+        "last peer export",
+        members=0,
+        groups=0,
+        bindings=0,
+        released=True,
+    )
+    _expect_export_events(
+        tor1,
+        marker,
+        [
+            ("BR_PORT_UPDATE", "del"),
+            ("EVPN_MH_NHG_UPDATE", "del"),
+            ("EVPN_MH_NH_UPDATE", "del"),
+        ],
+        "Binding, Group, Member on last peer",
+    )
+
+    _set_bpp(tor1, False)
+
+
+def test_bpp_disable():
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    tor1 = tgen.gears["tor1"]
+    tor2 = tgen.gears["tor2"]
+    tor3 = tgen.gears["tor3"]
+
+    _set_bpp_if(tor2, ES_IF, True)
+    _set_bpp_if(tor3, ES_IF, True)
+    _set_bpp(tor1, True)
+    _expect_export_clean(tor1, "protected", members=2)
+
+    marker = _export_marker(tor1)
+    _set_bpp(tor1, False)
+    _expect_export_clean(
+        tor1,
+        "disabled",
+        members=0,
+        groups=0,
+        bindings=0,
+        released=True,
+    )
+    _expect_export_events(
+        tor1,
+        marker,
+        [
+            ("BR_PORT_UPDATE", "del"),
+            ("EVPN_MH_NHG_UPDATE", "del"),
+            ("EVPN_MH_NH_UPDATE", "del"),
+            ("EVPN_MH_NH_UPDATE", "del"),
+        ],
+        "Binding, Group, Members on disable",
+    )
+
+    _clear_ip_ead(tor2)
+    _clear_ip_ead(tor3)
+
+
+def test_bpp_es_delete():
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    tor1 = tgen.gears["tor1"]
+    tor2 = tgen.gears["tor2"]
+
+    _set_bpp_if(tor2, ES_IF, True)
+    _set_bpp(tor1, True)
+    _expect_export_clean(tor1, "protected", members=1)
+
+    marker = _export_marker(tor1)
+    tor1.vtysh_cmd("configure terminal\ninterface %s\nno evpn mh es-id" % ES_IF)
+    _expect_export_clean(
+        tor1,
+        "ES deleted",
+        members=0,
+        groups=0,
+        bindings=0,
+        released=True,
+    )
+    _expect_export_events(
+        tor1,
+        marker,
+        [
+            ("BR_PORT_UPDATE", "del"),
+            ("EVPN_MH_NHG_UPDATE", "del"),
+            ("EVPN_MH_NH_UPDATE", "del"),
+        ],
+        "Binding, Group, Member on ES delete",
+    )
+
+    tor1.vtysh_cmd("configure terminal\ninterface %s\nevpn mh es-id 1" % ES_IF)
+    _set_bpp(tor1, False)
+    _clear_ip_ead(tor2)
 
 
 def test_bpp_fpm_kernel_disjoint():
