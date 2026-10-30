@@ -645,6 +645,7 @@ enum bfd_auth_type map_keychain_algo_to_bfd_auth_type(enum keychain_hash_algo kc
 	case KEYCHAIN_ALGO_HMAC_SHA256:
 	case KEYCHAIN_ALGO_HMAC_SHA384:
 	case KEYCHAIN_ALGO_HMAC_SHA512:
+	case KEYCHAIN_ALGO_SHA1:
 	case KEYCHAIN_ALGO_MAX:
 	default:
 		return BFD_AUTH_TYPE_RESERVED;
