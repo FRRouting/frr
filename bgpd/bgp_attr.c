@@ -503,6 +503,32 @@ static void stream_put_bgp_aigp_tlv_metric(struct stream *s, uint64_t aigp)
 	stream_putq(s, aigp);
 }
 
+<<<<<<< HEAD
+=======
+static void bgp_packet_aigp_attribute(struct stream *s, uint8_t flags, const struct attr *attr)
+{
+	struct bgp_aigp_tlvs *tlvs = bgp_attr_get_aigp_tlvs(attr);
+	size_t len;
+
+	if (!tlvs || !tlvs->count)
+		return;
+
+	len = BGP_AIGP_TLV_METRIC_LEN * tlvs->count;
+	if (len > 255)
+		SET_FLAG(flags, BGP_ATTR_FLAG_EXTLEN);
+
+	stream_putc(s, flags);
+	stream_putc(s, BGP_ATTR_AIGP);
+	if (CHECK_FLAG(flags, BGP_ATTR_FLAG_EXTLEN))
+		stream_putw(s, len);
+	else
+		stream_putc(s, len);
+
+	for (uint16_t i = 0; i < tlvs->count; i++)
+		stream_put_bgp_aigp_tlv_metric(s, tlvs->metric[i]);
+}
+
+>>>>>>> f12ac5a (bgpd: Do not encode AIGP attribute without TLVs)
 /* Put NLRI with optional label and optional addpath*/
 int bgp_attr_stream_put_labeled_prefix(struct stream *s, const struct prefix *p,
 				       mpls_label_t *labels, uint8_t num_labels,
