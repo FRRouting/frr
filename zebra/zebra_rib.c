@@ -50,6 +50,7 @@
 #include "zebra/zebra_dplane.h"
 #include "zebra/zebra_trace.h"
 #include "zebra/zebra_evpn_mh.h"
+#include "zebra/zebra_evpn_bpp.h"
 #include "zebra/zebra_neigh.h"
 #include "zebra/zebra_script.h"
 #include "zebra/zebra_tc.h"
@@ -5553,6 +5554,12 @@ static void rib_process_dplane_results(struct event *event)
 				zebra_evpn_l2_nh_dplane_result(ctx);
 				break;
 
+			case DPLANE_OP_EVPN_MH_NH_UPDATE:
+			case DPLANE_OP_EVPN_MH_NHG_UPDATE:
+			case DPLANE_OP_EVPN_MH_REPLAY_DONE:
+				zebra_evpn_bpp_dplane_result(ctx);
+				break;
+
 			case DPLANE_OP_RULE_ADD:
 			case DPLANE_OP_RULE_DELETE:
 			case DPLANE_OP_RULE_UPDATE:
@@ -5601,6 +5608,8 @@ static void rib_process_dplane_results(struct event *event)
 			case DPLANE_OP_VTEP_ADD:
 			case DPLANE_OP_VTEP_DELETE:
 			case DPLANE_OP_BR_PORT_UPDATE:
+				zebra_evpn_bpp_dplane_result(ctx);
+				break;
 			case DPLANE_OP_NEIGH_TABLE_UPDATE:
 			case DPLANE_OP_GRE_SET:
 			case DPLANE_OP_SRV6_ENCAP_SRCADDR_SET:

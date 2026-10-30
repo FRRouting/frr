@@ -51,6 +51,7 @@ sys.path.append(os.path.join(CWD, "../"))
 
 # pylint: disable=C0413
 from lib import topotest
+from lib.bpp_export_check import bpp_export_check
 from lib.common_config import kill_router_daemons, start_router_daemons
 from lib.topogen import Topogen, get_topogen
 
@@ -3174,6 +3175,214 @@ def test_bpp_id_no_reuse():
 
     _set_bpp(tor1, False)
     _clear_ip_ead(tor2)
+
+
+def _export(router):
+    out = router.vtysh_cmd("show evpn mh bridge-port-protection export json")
+    return json.loads(out) if out and out.strip() else {}
+
+
+def _expect_export_clean(
+    router, msg, members=None, groups=1, bindings=1, esi=None, released=False
+):
+    def _check():
+        out = _export(router)
+        errs = bpp_export_check(out)
+        if errs:
+            return errs
+        tables = out.get("tables") or {}
+        mem = tables.get("members") or {}
+        grp = tables.get("groups") or {}
+        bind = tables.get("bindings") or {}
+        if members is not None and len(mem) != members:
+            return "members %s want %s" % (list(mem), members)
+        if groups is not None and len(grp) != groups:
+            return "groups %s want %s" % (list(grp), groups)
+        if bindings is not None and len(bind) != bindings:
+            return "bindings %s want %s" % (list(bind), bindings)
+        if esi:
+            if not any(g.get("esi") == esi for g in grp.values()):
+                return "no Group ESI %s in %s" % (esi, grp)
+        log = out.get("log") or []
+        pending = [e for e in log if not e.get("completed")]
+        if pending:
+            return "incomplete %s" % pending
+        failed = [e for e in log if e.get("completed") and e.get("result") not in (None, "SUCCESS")]
+        if failed:
+            return "failed %s" % failed
+        if released:
+            counters = out.get("counters") or {}
+            live = counters.get("membersLive")
+            pending_del = counters.get("pendingDeletes")
+            if live:
+                return "membersLive %s" % live
+            if pending_del:
+                return "pendingDeletes %s" % pending_del
+        return None
+
+    _, result = topotest.run_and_expect(_check, None, count=WAIT_COUNT, wait=WAIT_STEP)
+    assert result is None, "%s: %s" % (msg, result)
+
+
+def test_bpp_dplane_emit():
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    tor1 = tgen.gears["tor1"]
+    tor2 = tgen.gears["tor2"]
+    tor3 = tgen.gears["tor3"]
+    lo2, lo3 = tor_lo("tor2"), tor_vtep("tor3")
+
+    _set_bpp_if(tor2, ES_IF, True)
+    _set_bpp_if(tor3, ES_IF, True)
+    _set_bpp(tor1, True)
+    _expect_members(tor1, ES1_ID, (lo2, lo3), "members present")
+    _expect_export_clean(tor1, "export tables", members=2, groups=1, bindings=1, esi=ES1_ID)
+
+    out = _export(tor1)
+    bind = (out.get("tables") or {}).get("bindings") or {}
+    assert ES_IF in bind, bind
+    assert bind[ES_IF].get("esi") == ES1_ID, bind
+    kernel = _kernel_nh_ids(tor1)
+    exp_ids = set()
+    for rec in ((out.get("tables") or {}).get("members") or {}).values():
+        exp_ids.add(int(rec["nhId"]))
+    for rec in ((out.get("tables") or {}).get("groups") or {}).values():
+        exp_ids.add(int(rec["nhgId"]))
+    assert exp_ids.isdisjoint(kernel), exp_ids & kernel
+
+    _set_bpp(tor1, False)
+    _clear_ip_ead(tor2)
+    _clear_ip_ead(tor3)
+    _expect_export_clean(
+        tor1, "cleanup", members=0, groups=0, bindings=0, released=True
+    )
+
+
+def test_bpp_fpm_kernel_disjoint():
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    tor1 = tgen.gears["tor1"]
+    tor2 = tgen.gears["tor2"]
+    lo2 = tor_lo("tor2")
+
+    _set_bpp_if(tor2, ES_IF, True)
+    _set_bpp(tor1, True)
+    _expect_members(tor1, ES1_ID, (lo2,), "member present")
+    _expect_export_clean(tor1, "typed IDs", members=1, groups=1, bindings=1)
+
+    out = _export(tor1)
+    tables = out.get("tables") or {}
+    for rec in (tables.get("members") or {}).values():
+        assert _nhg_type(rec["nhId"]) == NHG_TYPE_L3_BPP_NH, rec
+    for rec in (tables.get("groups") or {}).values():
+        assert _nhg_type(rec["nhgId"]) == NHG_TYPE_L3_BPP, rec
+    kernel = _kernel_nh_ids(tor1)
+    for rec in list((tables.get("members") or {}).values()) + list(
+        (tables.get("groups") or {}).values()
+    ):
+        nid = int(rec.get("nhId") or rec.get("nhgId"))
+        assert nid not in kernel, hex(nid)
+
+    _set_bpp(tor1, False)
+    _clear_ip_ead(tor2)
+    _expect_export_clean(
+        tor1, "cleanup", members=0, groups=0, bindings=0, released=True
+    )
+
+
+def test_bpp_l2_br_port_unchanged():
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    tor1 = tgen.gears["tor1"]
+    tor2 = tgen.gears["tor2"]
+    lo2 = tor_lo("tor2")
+
+    _set_bpp_if(tor2, ES_IF, True)
+    _set_bpp(tor1, True)
+    _expect_members(tor1, ES1_ID, (lo2,), "member present")
+    _expect_export_clean(tor1, "hostbond1 Binding", bindings=1)
+
+    out = _export(tor1)
+    bind = (out.get("tables") or {}).get("bindings") or {}
+    assert list(bind) == [ES_IF], bind
+    l2_nhg = _es_nhg_id(tor1, ES2_ID)
+    assert _nhg_type(l2_nhg) == NHG_TYPE_L2, hex(l2_nhg)
+
+    _set_bpp(tor1, False)
+    _clear_ip_ead(tor2)
+    _expect_export_clean(
+        tor1, "cleanup", members=0, groups=0, bindings=0, released=True
+    )
+
+
+def test_bpp_l2vni_on_bd_binding():
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    tor1 = tgen.gears["tor1"]
+    tor2 = tgen.gears["tor2"]
+    lo2 = tor_lo("tor2")
+
+    _set_bpp_if(tor2, ES_IF, True)
+    _set_bpp(tor1, True)
+    _expect_members(tor1, ES1_ID, (lo2,), "member present")
+    _expect_export_clean(tor1, "protection Binding", bindings=1)
+
+    _add_l2vni(tor1)
+    _expect_export_clean(tor1, "L2VNI withdraws protection", members=0, groups=0, bindings=0)
+    assert bpp_export_check(_export(tor1)) == []
+
+    _del_l2vni(tor1)
+    _expect_members(tor1, ES1_ID, (lo2,), "protection back")
+    _expect_export_clean(tor1, "protection Binding restored", bindings=1)
+    assert bpp_export_check(_export(tor1)) == []
+
+    _set_bpp(tor1, False)
+    _clear_ip_ead(tor2)
+    _expect_export_clean(
+        tor1, "cleanup", members=0, groups=0, bindings=0, released=True
+    )
+
+
+def test_bpp_export_status():
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    tor1 = tgen.gears["tor1"]
+    tor2 = tgen.gears["tor2"]
+    lo2 = tor_lo("tor2")
+
+    _set_bpp_if(tor2, ES_IF, True)
+    _set_bpp(tor1, True)
+    _expect_members(tor1, ES1_ID, (lo2,), "member present")
+
+    def _check():
+        out = json.loads(tor1.vtysh_cmd("show evpn mh bridge-port-protection json"))
+        vlans = (out.get(ES_IF) or {}).get("vlans") or {}
+        for vid in ("10", "20"):
+            rec = vlans.get(vid) or {}
+            if rec.get("state") == "ACTIVE" and rec.get("exportStatus") != "acked":
+                return rec
+        if not vlans:
+            return out
+        return None
+
+    _, result = topotest.run_and_expect(_check, None, count=WAIT_COUNT, wait=WAIT_STEP)
+    assert result is None, "ACTIVE entries not acked: %s" % result
+
+    _set_bpp(tor1, False)
+    _clear_ip_ead(tor2)
+    _expect_export_clean(
+        tor1, "cleanup", members=0, groups=0, bindings=0, released=True
+    )
 
 
 def test_memory_leak():

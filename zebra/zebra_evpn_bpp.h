@@ -20,6 +20,7 @@ struct vty;
 struct zebra_if;
 struct zebra_evpn_es;
 struct zapi_evpn_bpp_peer;
+struct zebra_dplane_ctx;
 
 /*
  * A protection entry is kept per (ES bond, VLAN) while the bond has
@@ -56,6 +57,21 @@ extern void zebra_evpn_bpp_show_member(struct vty *vty, const esi_t *esi, bool u
  * eligibility or RMAC; bgpd is the only sender of BPP_PEER.
  */
 extern void zebra_evpn_bpp_peer_update(const struct zapi_evpn_bpp_peer *peer, bool add);
+
+/* Bound while ≥ 1 entry is ready and the Group has ≥ 1 Member. */
+extern bool zebra_evpn_bpp_es_bound(const struct zebra_evpn_es *es);
+
+/* Record a protection Binding enqueue; is_del clears the export table. */
+extern void zebra_evpn_bpp_export_br_port(struct zebra_evpn_es *es, bool is_del);
+
+/* Complete an export-log entry when the dplane result arrives. */
+extern void zebra_evpn_bpp_dplane_result(struct zebra_dplane_ctx *ctx);
+
+/* Last state sent and the enqueue ring. */
+extern void zebra_evpn_bpp_show_export(struct vty *vty, bool uj);
+
+/* Re-enqueue Members, Groups, Bindings, then REPLAY_DONE. */
+extern void zebra_evpn_bpp_replay(void);
 
 #ifdef __cplusplus
 }

@@ -43,6 +43,7 @@
 #include "zebra/zebra_evpn_mh.h"
 #include "zebra/zebra_neigh.h"
 #include "zebra/zebra_evpn_bpp.h"
+#include "zebra/zebra_dplane.h"
 #include "zebra/zebra_nhg.h"
 
 DEFINE_MTYPE_STATIC(ZEBRA, ZACC_BD, "Access Broadcast Domain");
@@ -2015,6 +2016,11 @@ static bool zebra_evpn_es_br_port_dplane_clear(struct zebra_evpn_es *es)
 	if (IS_ZEBRA_DEBUG_EVPN_MH_ES)
 		zlog_debug("es %s br-port dplane clear", es->esi_str);
 
+	if (es->bpp_backup_nhg_id) {
+		es->bpp_backup_nhg_id = 0;
+		zebra_evpn_bpp_export_br_port(es, true);
+	}
+
 	memset(&sph_filters, 0, sizeof(sph_filters));
 	dplane_br_port_update(es->zif->ifp, false /* non_df */, 0, sph_filters,
 			      0 /* backup_nhg_id */);
@@ -2048,6 +2054,28 @@ static bool zebra_evpn_es_br_port_dplane_update(struct zebra_evpn_es *es,
 	if (!(es->flags & ZEBRA_EVPNES_BR_PORT))
 		return false;
 
+	if (zebra_evpn_bpp_es_bound(es) && es->l3_nhg_id) {
+		if (es->bpp_backup_nhg_id == es->l3_nhg_id)
+			return true;
+		if (IS_ZEBRA_DEBUG_EVPN_MH_ES || IS_ZEBRA_DEBUG_EVPN_MH_PROT)
+			zlog_debug("es %s br-port protection Binding by %s nhg 0x%x", es->esi_str,
+				   caller, es->l3_nhg_id);
+		memset(&sph_filters, 0, sizeof(sph_filters));
+		dplane_br_port_update(es->zif->ifp, false /* non_df */, 0, sph_filters,
+				      es->l3_nhg_id);
+		zebra_evpn_bpp_export_br_port(es, false);
+		es->bpp_backup_nhg_id = es->l3_nhg_id;
+		return true;
+	}
+
+	if (es->bpp_backup_nhg_id) {
+		if (IS_ZEBRA_DEBUG_EVPN_MH_ES || IS_ZEBRA_DEBUG_EVPN_MH_PROT)
+			zlog_debug("es %s br-port protection Binding clear by %s", es->esi_str,
+				   caller);
+		es->bpp_backup_nhg_id = 0;
+		zebra_evpn_bpp_export_br_port(es, true);
+	}
+
 	if (IS_ZEBRA_DEBUG_EVPN_MH_ES)
 		zlog_debug("es %s br-port dplane update by %s", es->esi_str,
 			   caller);
@@ -2080,6 +2108,12 @@ static bool zebra_evpn_es_br_port_dplane_update(struct zebra_evpn_es *es,
 			      sph_filter_cnt, sph_filters, backup_nhg_id);
 
 	return true;
+}
+
+void zebra_evpn_es_br_port_update(struct zebra_evpn_es *es)
+{
+	if (es)
+		zebra_evpn_es_br_port_dplane_update(es, __func__);
 }
 
 /* returns TRUE if dplane entry was updated */

@@ -3058,6 +3058,33 @@ DEFPY(show_evpn_mh_bpp, show_evpn_mh_bpp_cmd,
 	return CMD_SUCCESS;
 }
 
+DEFPY(show_evpn_mh_bpp_export, show_evpn_mh_bpp_export_cmd,
+      "show evpn mh bridge-port-protection export [json$json]",
+      SHOW_STR
+      "EVPN\n"
+      "Multihoming\n"
+      "Bridge-port protection entries\n"
+      "Exported Members, Groups and Bindings\n"
+      JSON_STR)
+{
+	zebra_evpn_bpp_show_export(vty, !!json);
+
+	return CMD_SUCCESS;
+}
+
+DEFPY_HIDDEN(clear_evpn_mh_bpp_replay, clear_evpn_mh_bpp_replay_cmd,
+	     "clear evpn mh bridge-port-protection replay",
+	     CLEAR_STR
+	     "EVPN\n"
+	     "Multihoming\n"
+	     "Bridge-port protection entries\n"
+	     "Re-enqueue exported objects and REPLAY_DONE\n")
+{
+	zebra_evpn_bpp_replay();
+
+	return CMD_SUCCESS;
+}
+
 DEFPY(show_evpn_mh_bpp_member, show_evpn_mh_bpp_member_cmd,
       "show evpn mh bridge-port-protection member [NAME$esi_str] [json$json]",
       SHOW_STR
@@ -4415,6 +4442,8 @@ void zebra_vty_init(void)
 	install_element(VIEW_NODE, &show_evpn_es_peer_cmd);
 	install_element(VIEW_NODE, &show_evpn_mh_bpp_cmd);
 	install_element(VIEW_NODE, &show_evpn_mh_bpp_member_cmd);
+	install_element(VIEW_NODE, &show_evpn_mh_bpp_export_cmd);
+	install_element(ENABLE_NODE, &clear_evpn_mh_bpp_replay_cmd);
 	install_element(VIEW_NODE, &show_evpn_es_evi_cmd);
 	install_element(VIEW_NODE, &show_evpn_access_vlan_cmd);
 	install_element(VIEW_NODE, &show_evpn_rmac_vni_mac_cmd);

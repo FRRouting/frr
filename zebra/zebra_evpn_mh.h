@@ -80,6 +80,9 @@ struct zebra_evpn_es {
 	/* Protection Group id (L3 Members, FPM only) */
 	uint32_t l3_nhg_id;
 
+	/* Protection Binding currently on the wire (0 if none) */
+	uint32_t bpp_backup_nhg_id;
+
 	/* Preference config for BUM-DF election. Sent to BGP and
 	 * advertised via the ESR
 	 */
@@ -511,6 +514,7 @@ extern void zebra_evpn_mh_json(json_object *json);
 extern uint32_t zebra_evpn_mh_nhid_alloc(enum nhg_type type);
 extern void zebra_evpn_mh_nhid_free(uint32_t nh_id);
 extern void zebra_evpn_mh_id_channel_violation(uint32_t id, const char *op);
+extern void zebra_evpn_es_br_port_update(struct zebra_evpn_es *es);
 extern bool zebra_evpn_nhg_is_local_es(uint32_t nhg_id,
 				       struct zebra_evpn_es **local_es);
 extern int zebra_evpn_mh_redirect_off(struct vty *vty, bool redirect_off);
