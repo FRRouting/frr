@@ -71,7 +71,7 @@ sys.path.append(os.path.join(CWD, "../"))
 
 # pylint: disable=C0413
 from lib import topotest
-from lib.topogen import Topogen, TopoRouter, get_topogen
+from lib.topogen import Topogen, get_topogen
 from lib.topolog import logger
 
 PREFIX_CONTROL = "10.1.1.0/24"
@@ -112,12 +112,7 @@ def setup_module(module):
     tgen.start_topology()
 
     for rname, router in tgen.routers().items():
-        router.load_config(
-            TopoRouter.RD_ZEBRA, os.path.join(CWD, "{}/zebra.conf".format(rname))
-        )
-        router.load_config(
-            TopoRouter.RD_BABEL, os.path.join(CWD, "{}/babeld.conf".format(rname))
-        )
+        router.load_frr_config(os.path.join(CWD, rname, "frr.conf"))
 
     tgen.start_router()
 
