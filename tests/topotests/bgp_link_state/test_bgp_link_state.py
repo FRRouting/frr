@@ -35,11 +35,13 @@ Topology:
 - rr: BGP-LS Consumer (receives BGP-LS routes and builds TED)
 """
 
+import functools
+import json
 import os
 import sys
-import json
+import time
+
 import pytest
-import functools
 
 # pylint: disable=C0413
 # Import topogen and topotest helpers
@@ -972,6 +974,96 @@ def test_bgp_ls_peer_reactivate():
     )
     _, result = topotest.run_and_expect(test_func, None, count=60, wait=1)
     assert result is None, '"rr" did not receive BGP-LS routes after r2 peer reactivation'
+
+
+def test_bgp_ls_sync_on_isis_producer_registration():
+    """Test that BGP syncs its TED when IS-IS export starts later."""
+    tgen = get_topogen()
+
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    logger.info(
+        "Checking BGP-LS TED sync when IS-IS MPLS-TE export is enabled late"
+    )
+
+    r2 = tgen.gears["r2"]
+    consumer = tgen.gears["rr"]
+
+    # Drop the existing BGP-LS consumer registration and clear its routes.
+    r2.vtysh_cmd(
+        "configure terminal\n"
+        "router bgp 65000\n"
+        "address-family link-state link-state\n"
+        "no neighbor 10.0.3.4 activate"
+    )
+    test_func = functools.partial(check_bgp_ls_empty, r2)
+    _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
+    assert result is None, (
+        '"r2" BGP-LS routes not cleared before producer notification test'
+    )
+
+    test_func = functools.partial(check_bgp_ls_empty, consumer)
+    _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
+    assert result is None, (
+        '"rr" BGP-LS routes not cleared before producer notification test'
+    )
+
+    # Reactivate the consumer while the IS-IS producer is unavailable. BGP
+    # should request a sync when Zebra notifies it that IS-IS registers later.
+    r2.vtysh_cmd(
+        "configure terminal\n"
+        "router isis 1\n"
+        "no mpls-te export\n"
+        "router bgp 65000\n"
+        "address-family link-state link-state\n"
+        "neighbor 10.0.3.4 activate"
+    )
+
+    test_func = functools.partial(check_bgp_ls_empty, r2)
+    _, result = topotest.run_and_expect(test_func, None, count=10, wait=1)
+    assert result is None, '"r2" unexpectedly received TED data without IS-IS export'
+
+    # Give Zebra time to register BGP's producer notification request before
+    # enabling the IS-IS producer below.
+    time.sleep(7)
+    test_func = functools.partial(check_bgp_ls_empty, r2)
+    _, result = topotest.run_and_expect(test_func, None, count=5, wait=1)
+    assert result is None, '"r2" received TED data before IS-IS export was enabled'
+
+    r2.vtysh_cmd(
+        "configure terminal\n"
+        "router isis 1\n"
+        "mpls-te export"
+    )
+
+    # The producer-registration notification must trigger a sync of the full
+    # pre-existing IS-IS TED, not just later changes to it.
+    reffile = os.path.join(CWD, "r2/bgp_ls_nlri.json")
+    expected = json.loads(open(reffile).read())
+    test_func = functools.partial(
+        topotest.router_json_cmp,
+        r2,
+        "show bgp link-state link-state json",
+        expected,
+    )
+    _, result = topotest.run_and_expect(test_func, None, count=60, wait=1)
+    assert result is None, (
+        '"r2" did not receive the full IS-IS TED after export was enabled'
+    )
+
+    reffile = os.path.join(CWD, "rr/bgp_ls_nlri.json")
+    expected = json.loads(open(reffile).read())
+    test_func = functools.partial(
+        topotest.router_json_cmp,
+        consumer,
+        "show bgp link-state link-state json",
+        expected,
+    )
+    _, result = topotest.run_and_expect(test_func, None, count=60, wait=1)
+    assert result is None, (
+        '"rr" did not receive the full IS-IS TED after export was enabled'
+    )
 
 
 def test_memory_leak():
