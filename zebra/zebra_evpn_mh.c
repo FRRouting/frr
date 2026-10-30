@@ -2870,6 +2870,7 @@ static void zebra_evpn_local_es_del(struct zebra_evpn_es **esp)
 		zebra_evpn_es_send_del_to_client(es);
 	}
 
+	zebra_evpn_bpp_es_clear(es);
 	zebra_evpn_es_local_info_clear(esp);
 }
 

@@ -47,6 +47,9 @@ extern void zebra_evpn_bpp_es_update(struct zebra_evpn_es *es);
 /* Replay (add) or withdraw (del) the L3VNI ES-EVIs sent for the ES. */
 extern void zebra_evpn_bpp_es_send_all(struct zebra_evpn_es *es, bool add);
 
+/* Withdraw the Binding, Group and Members before local ES state is cleared. */
+extern void zebra_evpn_bpp_es_clear(struct zebra_evpn_es *es);
+
 /* One row per entry; ifname (may be NULL) filters on the ES bond. */
 extern void zebra_evpn_bpp_show(struct vty *vty, const char *ifname, bool detail, bool uj);
 

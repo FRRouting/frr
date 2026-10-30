@@ -42,8 +42,10 @@ DEFINE_MTYPE_STATIC(ZEBRA, ZEVPN_BPP_NH, "EVPN-MH bridge-port protection member"
 DEFINE_MTYPE_STATIC(ZEBRA, ZEVPN_BPP_XLOG, "EVPN-MH bridge-port protection export");
 
 enum zebra_evpn_bpp_state {
+	ZEBRA_EVPN_BPP_DISABLED,
 	ZEBRA_EVPN_BPP_PENDING,
 	ZEBRA_EVPN_BPP_ACTIVE,
+	ZEBRA_EVPN_BPP_WITHDRAWING,
 };
 
 enum zebra_evpn_bpp_event {
@@ -232,6 +234,7 @@ struct zebra_evpn_bpp_if {
 	struct zebra_evpn_bpp_hash_head entries;
 	struct zebra_evpn_bpp_evi_list_head evis;
 	struct zebra_evpn_bpp_peer_hash_head peers;
+	enum zebra_evpn_bpp_state lifecycle_state;
 	bool group_exported;
 	enum zebra_evpn_bpp_xstatus export_status;
 
@@ -367,12 +370,29 @@ static const char *zebra_evpn_bpp_xstatus_str(enum zebra_evpn_bpp_xstatus st);
 static const char *zebra_evpn_bpp_state_str(enum zebra_evpn_bpp_state state)
 {
 	switch (state) {
+	case ZEBRA_EVPN_BPP_DISABLED:
+		return "DISABLED";
 	case ZEBRA_EVPN_BPP_PENDING:
 		return "PENDING";
 	case ZEBRA_EVPN_BPP_ACTIVE:
 		return "ACTIVE";
+	case ZEBRA_EVPN_BPP_WITHDRAWING:
+		return "WITHDRAWING";
 	}
 	return "unknown";
+}
+
+static void zebra_evpn_bpp_lifecycle_set(struct zebra_evpn_bpp_if *bif,
+					 enum zebra_evpn_bpp_state state)
+{
+	if (bif->lifecycle_state == state)
+		return;
+
+	if (IS_ZEBRA_DEBUG_EVPN_MH_PROT)
+		zlog_debug("bridge-port protection %s lifecycle %s -> %s", bif->zif->ifp->name,
+			   zebra_evpn_bpp_state_str(bif->lifecycle_state),
+			   zebra_evpn_bpp_state_str(state));
+	bif->lifecycle_state = state;
 }
 
 static const char *zebra_evpn_bpp_event_str(enum zebra_evpn_bpp_event event)
@@ -669,6 +689,7 @@ static struct zebra_evpn_bpp_if *zebra_evpn_bpp_if_new(struct zebra_if *zif)
 	zebra_evpn_bpp_peer_hash_init(&bif->peers);
 	zebra_evpn_bpp_if_hash_add(&bpp_if_hash, bif);
 	zebra_evpn_bpp_group_id_ensure(zif->es_info.es);
+	zebra_evpn_bpp_lifecycle_set(bif, ZEBRA_EVPN_BPP_PENDING);
 
 	return bif;
 }
@@ -1030,13 +1051,19 @@ static void zebra_evpn_bpp_export_sync(struct zebra_evpn_bpp_if *bif)
 			zebra_evpn_es_br_port_update(es);
 		if (bif->export_status == ZEBRA_EVPN_BPP_X_NONE)
 			bif->export_status = ZEBRA_EVPN_BPP_X_SENT;
+		zebra_evpn_bpp_lifecycle_set(bif, ZEBRA_EVPN_BPP_ACTIVE);
 	} else {
+		if (was_bound || bif->group_exported)
+			zebra_evpn_bpp_lifecycle_set(bif, ZEBRA_EVPN_BPP_WITHDRAWING);
 		if (was_bound && es)
 			zebra_evpn_es_br_port_update(es);
 		if (bif->group_exported)
 			zebra_evpn_bpp_group_enqueue(es, bif, true);
 		zebra_evpn_bpp_member_dels();
 		bif->export_status = ZEBRA_EVPN_BPP_X_NONE;
+		zebra_evpn_bpp_lifecycle_set(bif, zebra_evpn_bpp_hash_count(&bif->entries)
+							  ? ZEBRA_EVPN_BPP_PENDING
+							  : ZEBRA_EVPN_BPP_DISABLED);
 	}
 }
 
@@ -1187,6 +1214,22 @@ void zebra_evpn_bpp_es_send_all(struct zebra_evpn_es *es, bool add)
 		if (!memcmp(&evi->esi, &es->esi, sizeof(esi_t)))
 			zebra_evpn_bpp_evi_send(bif, evi, add);
 	}
+}
+
+void zebra_evpn_bpp_es_clear(struct zebra_evpn_es *es)
+{
+	struct zebra_evpn_bpp_if *bif;
+
+	if (!bpp_inited || !es || !es->zif)
+		return;
+
+	bif = zebra_evpn_bpp_if_find(es->zif);
+	if (!bif)
+		return;
+
+	zebra_evpn_bpp_peer_flush(bif);
+	zebra_evpn_bpp_apply_state(bif);
+	zebra_evpn_bpp_group_id_release(es);
 }
 
 void zebra_evpn_bpp_if_update(struct zebra_if *zif)
@@ -1661,7 +1704,7 @@ static void zebra_evpn_bpp_show_member_es(struct vty *vty, json_object *json,
 			vrfs[nvrfs++] = entries[i]->vrf_id;
 	}
 
-	state_str = zebra_evpn_bpp_if_bound(bif) ? "ACTIVE" : "PENDING";
+	state_str = zebra_evpn_bpp_state_str(bif->lifecycle_state);
 	peers = zebra_evpn_bpp_peers_sorted(bif, &npeers);
 
 	if (json) {
