@@ -84,6 +84,7 @@ extern int bgp_nlri_parse_ls(struct peer *peer, struct attr *attr, struct bgp_nl
 /* BGP-LS registration with link-state database */
 extern bool bgp_ls_register(struct bgp *bgp);
 extern bool bgp_ls_unregister(struct bgp *bgp);
+extern void bgp_ls_request_sync(struct bgp *bgp);
 extern bool bgp_ls_is_registered(struct bgp *bgp);
 
 /* BGP-LS NLRI lookup helpers */
