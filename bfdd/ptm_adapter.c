@@ -724,8 +724,9 @@ static void bfdd_sessions_disable_interface(struct interface *ifp)
 			continue;
 		}
 
-		bfd_session_disable(bs);
+		/* The interface is already out of the ifindex lookup. */
 		bs->ifp = NULL;
+		bfd_session_disable(bs);
 	}
 }
 
