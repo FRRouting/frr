@@ -33,6 +33,7 @@ from lib.topolog import logger
 # Required to instantiate the topology builder class.
 
 pytestmark = [pytest.mark.bfdd, pytest.mark.bgpd]
+TEST_VRF_DELETED = False
 
 
 def build_topo(tgen):
@@ -51,6 +52,12 @@ def build_topo(tgen):
     switch = tgen.add_switch("s3")
     switch.add_link(tgen.gears["r2"])
     switch.add_link(tgen.gears["r4"])
+
+    # Reuse the BFD peer addresses in the default VRF. The separate link
+    # lets the VRF and default-VRF sessions be up at the same time.
+    switch = tgen.add_switch("s4")
+    switch.add_link(tgen.gears["r1"])
+    switch.add_link(tgen.gears["r2"])
 
 
 def setup_module(mod):
@@ -107,10 +114,14 @@ def teardown_module(_mod):
     router_list = tgen.routers()
     for rname, router in router_list.items():
         if rname == "r2":
-            router.net.reset_intf_netns(rname + "-eth2")
-            router.net.reset_intf_netns(rname + "-eth1")
-        router.net.reset_intf_netns(rname + "-eth0")
-        router.net.delete_netns("{}-bfd-cust1".format(rname))
+            if not TEST_VRF_DELETED:
+                router.net.reset_intf_netns(rname + "-eth2")
+                router.net.reset_intf_netns(rname + "-eth1")
+                router.net.reset_intf_netns(rname + "-eth0")
+                router.net.delete_netns("{}-bfd-cust1".format(rname))
+        else:
+            router.net.reset_intf_netns(rname + "-eth0")
+            router.net.delete_netns("{}-bfd-cust1".format(rname))
     tgen.stop_topology()
 
 
@@ -250,6 +261,67 @@ def test_bgp_fast_reconvergence():
         _, res = topotest.run_and_expect(test_func, None, count=16, wait=1)
         assertmsg = "{}: bgp did not converge".format(router.name)
         assert res is None, assertmsg
+
+
+def test_vrf_disable_does_not_affect_same_peer_in_default_vrf():
+    """A user-VRF down notification must not reset an identical default peer."""
+    global TEST_VRF_DELETED
+
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    r2 = tgen.gears["r2"]
+    topotest.interface_set_status(
+        r2, "r2-eth0", ifaceaction=True, vrf_name="r2-bfd-cust1"
+    )
+
+    def bgp_established(command):
+        neighbor = r2.vtysh_cmd(command, isjson=True).get("192.168.0.1", {})
+        if neighbor.get("bgpState") != "Established":
+            return "BGP neighbor is not established: {}".format(neighbor)
+        if neighbor.get("peerBfdInfo", {}).get("status") != "Up":
+            return "BFD peer is not up: {}".format(neighbor.get("peerBfdInfo"))
+        return None
+
+    default_peer = "show bgp neighbors 192.168.0.1 json"
+    vrf_peer = "show bgp vrf r2-bfd-cust1 neighbors 192.168.0.1 json"
+    _, result = topotest.run_and_expect(
+        lambda: bgp_established(default_peer), None, count=30, wait=1
+    )
+    assert result is None, "default-VRF BGP neighbor did not establish"
+    _, result = topotest.run_and_expect(
+        lambda: bgp_established(vrf_peer), None, count=30, wait=1
+    )
+    assert result is None, "user-VRF BGP neighbor did not establish"
+
+    default_neighbor = r2.vtysh_cmd(default_peer, isjson=True).get("192.168.0.1", {})
+    dropped_baseline = default_neighbor.get("connectionsDropped", 0)
+
+    # Removing the VRF generates a BFD down notification for this peer. The
+    # default-VRF peer has the same source and destination addresses, so the
+    # notification must retain its VRF context.
+    r2.net.delete_netns("r2-bfd-cust1")
+    TEST_VRF_DELETED = True
+
+    def vrf_bfd_down():
+        peers = r2.vtysh_cmd("show bfd peers json", isjson=True)
+        for peer in peers:
+            if peer.get("peer") == "192.168.0.1" and peer.get("vrf") == "r2-bfd-cust1":
+                if peer.get("status") == "up":
+                    return "user-VRF BFD peer is still up"
+                return None
+        return None
+
+    _, result = topotest.run_and_expect(vrf_bfd_down, None, count=30, wait=1)
+    assert result is None, "bfdd did not process user-VRF removal: {}".format(result)
+
+    default_neighbor = r2.vtysh_cmd(default_peer, isjson=True).get("192.168.0.1", {})
+    dropped = default_neighbor.get("connectionsDropped", 0)
+    assert dropped == dropped_baseline, (
+        "user-VRF BFD down notification reset the default-VRF BGP peer: "
+        "connectionsDropped changed from {} to {}".format(dropped_baseline, dropped)
+    )
 
 
 def test_memory_leak():
