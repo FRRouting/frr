@@ -7760,6 +7760,29 @@ DEFPY_YANG (no_set_ecommunity_nt,
 	return nb_cli_apply_changes(vty, NULL);
 }
 
+/* Check a color against the color-list YANG type: [CO:]COLOR */
+static bool set_ecommunity_color_valid(const char *color)
+{
+	unsigned long long value;
+	char *endptr;
+
+	if (strlen(color) > 3 && color[2] == ':') {
+		if ((color[0] != '0' && color[0] != '1') || (color[1] != '0' && color[1] != '1'))
+			return false;
+		color += 3;
+	}
+
+	if (color[0] < '1' || color[0] > '9')
+		return false;
+
+	errno = 0;
+	value = strtoull(color, &endptr, 10);
+	if (*endptr != '\0' || errno || value > UINT32_MAX)
+		return false;
+
+	return true;
+}
+
 DEFPY_YANG(set_ecommunity_color, set_ecommunity_color_cmd,
 	   "set extcommunity color RTLIST...",
 	   SET_STR
@@ -7773,6 +7796,13 @@ DEFPY_YANG(set_ecommunity_color, set_ecommunity_color_cmd,
 	const char *xpath =
 		"./set-action[action='frr-bgp-route-map:set-extcommunity-color']";
 	char xpath_value[XPATH_MAXLEN];
+
+	for (int i = idx_color; i < argc; i++) {
+		if (!set_ecommunity_color_valid(argv[i]->arg)) {
+			vty_out(vty, "%% Malformed color extended community %s\n", argv[i]->arg);
+			return CMD_WARNING_CONFIG_FAILED;
+		}
+	}
 
 	nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
 
