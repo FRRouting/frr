@@ -366,6 +366,7 @@ def test_redundancy_shortcut():
     assertmsg = '"{}" JSON output mismatches'.format(nhc1.name)
     assert result is None, assertmsg
 
+<<<<<<< HEAD
     # check the shortcut disappears because of no traffic
     json_file = "{}/{}/nhrp_shortcut_absent.json".format(CWD, nhc1.name)
     expected = json.loads(open(json_file).read())
@@ -379,6 +380,32 @@ def test_redundancy_shortcut():
 
     assertmsg = '"{}" JSON output mismatches'.format(nhc1.name)
     assert result is None, assertmsg
+=======
+    logger.info("Testing NHRP shortcuts are stable for 30s")
+    end = time.time() + 30
+    while time.time() < end:
+        result = test_func()
+        assertmsg = f"NHRP shortcut output changed during stability check: {result}"
+        assert result is None, assertmsg
+        time.sleep(0.5)
+
+    host.cmd(f"kill {PING_PID}")
+    PING_PID = None
+
+    logger.info("check the shortcut disappears because of no traffic")
+
+    expected = {"attr": {"entriesCount": 0}}
+
+    for rname in ("nhc1", "nhc2"):
+        router = tgen.gears[rname]
+        test_func = partial(
+            router_nhrp_json_cmp, router, "show ip nhrp shortcut json", expected
+        )
+        _, result = topotest.run_and_expect(test_func, None, count=60, wait=1)
+
+        assertmsg = '"{}" "show ip nhrp shortcut" output mismatches'.format(rname)
+        assert result is None, assertmsg
+>>>>>>> 70b3dcd (tests: nhrp_redundancy, check nhc2 shortcut removal)
 
 
 def test_redundancy_shortcut_backup():
@@ -488,8 +515,7 @@ def test_redundancy_shortcut_backup():
     assertmsg = '"{}" JSON output mismatches'.format(nhc1.name)
     assert result is None, assertmsg
 
-    json_file = "{}/{}/nhrp_shortcut_absent.json".format(CWD, nhc1.name)
-    expected = json.loads(open(json_file).read())
+    expected = {"attr": {"entriesCount": 0}}
     test_func = partial(
         topotest.router_json_cmp, nhc1, "show ip nhrp shortcut json", expected
     )
