@@ -23,6 +23,10 @@
 struct ptm_client_notification {
 	struct bfd_session *pcn_bs;
 	struct ptm_client *pcn_pc;
+	/* Profile the client registered the session with, empty if none. */
+	char pcn_profile[BFD_PROFILE_NAME_LEN];
+	/* Order of the registration that set the profile. */
+	uint64_t pcn_seq;
 
 	TAILQ_ENTRY(ptm_client_notification) pcn_entry;
 };
@@ -38,6 +42,8 @@ TAILQ_HEAD(pcqueue, ptm_client);
 
 static struct pcqueue pcqueue;
 static struct zclient *bfd_zclient;
+/* Number of client registrations, to order their profiles. */
+static uint64_t pcn_seq;
 
 
 /*
@@ -477,6 +483,7 @@ stream_failure:
 
 static void bfdd_dest_register(struct stream *msg, vrf_id_t vrf_id)
 {
+	struct ptm_client_notification *pcn;
 	struct ptm_client *pc;
 	struct bfd_session *bs;
 	struct bfd_peer_cfg bpc;
@@ -508,13 +515,31 @@ static void bfdd_dest_register(struct stream *msg, vrf_id_t vrf_id)
 		 * BFD daemon (this code) on the other hand only supports
 		 * changing peer configuration manually (through `peer` node)
 		 * or via profiles.
+		 *
+		 * A profile configured in the `peer` node takes precedence.
 		 */
-		if (bpc.bpc_has_profile)
+		if (bpc.bpc_has_profile && !CHECK_FLAG(bs->flags, BFD_SESS_FLAG_CONFIG_PROFILE))
 			bfd_profile_apply(bpc.bpc_profile, bs);
+
+		/*
+		 * The session has no client yet, because a `peer` node
+		 * created it or its clients all left: save the peer settings
+		 * of this one, as ptm_bfd_sess_new() would have.
+		 */
+		if (bs->refcount == (CHECK_FLAG(bs->flags, BFD_SESS_FLAG_CONFIG) ? 1 : 0))
+			bfd_session_save_client_config(bs, &bpc);
 	}
 
 	/* Create client peer notification register. */
-	pcn_new(pc, bs);
+	pcn = pcn_new(pc, bs);
+
+	/*
+	 * Remember the client's profile, to give it back to the session
+	 * when the `peer` node configuration goes away.
+	 */
+	strlcpy(pcn->pcn_profile, bpc.bpc_has_profile ? bpc.bpc_profile : "",
+		sizeof(pcn->pcn_profile));
+	pcn->pcn_seq = ++pcn_seq;
 
 	ptm_bfd_notify(bs, bs->ses_state);
 }
@@ -996,6 +1021,27 @@ static struct ptm_client_notification *pcn_lookup(struct ptm_client *pc,
 	}
 
 	return pcn;
+}
+
+const char *ptm_bfd_client_profile(const struct bfd_session *bs)
+{
+	struct ptm_client_notification *pcn, *last = NULL;
+	struct ptm_client *pc;
+
+	/*
+	 * The lists are ordered by first registration, not by the last one:
+	 * compare the registrations.
+	 */
+	TAILQ_FOREACH (pc, &pcqueue, pc_entry) {
+		TAILQ_FOREACH (pcn, &pc->pc_pcnqueue, pcn_entry) {
+			if (pcn->pcn_bs != bs || !pcn->pcn_profile[0])
+				continue;
+			if (last == NULL || pcn->pcn_seq > last->pcn_seq)
+				last = pcn;
+		}
+	}
+
+	return last ? last->pcn_profile : NULL;
 }
 
 static void pcn_free(struct ptm_client_notification *pcn)
