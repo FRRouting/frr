@@ -112,7 +112,9 @@ def test_fragmented_lsp():
 
     step("Fragment r2's LSP so that its prefix SIDs leave fragment zero")
     runs = _spf_runs(r1)
-    r2.vtysh_cmd("configure terminal\nrouter isis TEST\nlsp-mtu 260")
+    # r2's whole LSP is 248 bytes; at 180 its largest item, the LAN's
+    # extended IS reachability with its TE sub-TLVs, still fits a fragment.
+    r2.vtysh_cmd("configure terminal\nrouter isis TEST\nlsp-mtu 180")
 
     def _fragmented():
         lsp = r1.vtysh_cmd("show isis database detail r2.00-00")
