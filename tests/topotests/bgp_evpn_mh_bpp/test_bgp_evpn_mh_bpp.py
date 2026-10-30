@@ -2850,6 +2850,329 @@ def test_bpp_dual_family_same_peer():
     _clear_ip_ead(tor3)
 
 
+NHG_TYPE_L2_NH = 1
+NHG_TYPE_L2 = 2
+NHG_TYPE_L3_BPP_NH = 4
+NHG_TYPE_L3_BPP = 8
+
+
+def _nhg_type(nhid):
+    return (int(nhid) >> 28) & 0xF
+
+
+def _member_view(router, esi=None):
+    out = json.loads(router.vtysh_cmd("show evpn mh bridge-port-protection member json"))
+    if esi is None:
+        return out
+    return out.get(esi, {})
+
+
+def _bpp_ids(router, esi):
+    es = _member_view(router, esi)
+    ids = set()
+    gid = es.get("groupId")
+    if gid:
+        ids.add(int(gid))
+    for member in es.get("members", []):
+        nhid = member.get("nhId")
+        if nhid:
+            ids.add(int(nhid))
+    return ids
+
+
+def _l2_nh_by_vtep(router):
+    out = json.loads(router.vtysh_cmd("show evpn l2-nh json"))
+    if isinstance(out, dict):
+        out = out.get("nexthops", out.get("l2Nexthops", []))
+    return {nh["vtep"]: int(nh["nhId"]) for nh in out or []}
+
+
+def _es_nhg_id(router, esi):
+    out = json.loads(router.vtysh_cmd("show evpn es %s json" % esi))
+    if isinstance(out, list):
+        out = out[0] if out else {}
+    return int(out.get("nexthopGroup", 0))
+
+
+def _kernel_nh_ids(router):
+    raw = router.run("ip -j nexthop show")
+    if not raw or not raw.strip():
+        return set()
+    return {int(nh["id"]) for nh in json.loads(raw) if "id" in nh}
+
+
+def _id_errors(router, esi):
+    return int(_member_view(router, esi).get("idChannelErrors", 0))
+
+
+def test_bpp_id_disjoint():
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    tor1 = tgen.gears["tor1"]
+    tor2 = tgen.gears["tor2"]
+    lo2 = tor_lo("tor2")
+
+    _set_bpp_if(tor2, ES_IF, True)
+    _set_bpp(tor1, True)
+    _expect_members(tor1, ES1_ID, (lo2,), "member present")
+
+    bpp = _bpp_ids(tor1, ES1_ID)
+    kernel = _kernel_nh_ids(tor1)
+    assert bpp, "no protection IDs"
+    assert bpp.isdisjoint(kernel), "protection IDs overlap kernel: %s & %s" % (
+        bpp,
+        bpp & kernel,
+    )
+    es = _member_view(tor1, ES1_ID)
+    assert _nhg_type(es["groupId"]) == NHG_TYPE_L3_BPP, es
+    assert es["groupIdChannel"] == "fpm", es
+    for member in es["members"]:
+        assert _nhg_type(member["nhId"]) == NHG_TYPE_L3_BPP_NH, member
+        assert member["nhIdChannel"] == "fpm", member
+    assert _id_errors(tor1, ES1_ID) == 0
+
+    _set_bpp(tor1, False)
+    _clear_ip_ead(tor2)
+
+
+def test_bpp_id_disjoint_same_vtep():
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    tor1 = tgen.gears["tor1"]
+    tor2 = tgen.gears["tor2"]
+    lo2 = tor_lo("tor2")
+
+    _set_bpp_if(tor2, ES_IF, True)
+    _set_bpp(tor1, True)
+    _expect_members(tor1, ES1_ID, (lo2,), "L3 member")
+
+    l3_id = _member_view(tor1, ES1_ID)["members"][0]["nhId"]
+    l2_nhg = _es_nhg_id(tor1, ES1_ID)
+    l2_id = _l2_nh_by_vtep(tor1).get(lo2)
+    assert _nhg_type(l3_id) == NHG_TYPE_L3_BPP_NH, hex(l3_id)
+    assert _nhg_type(l2_nhg) == NHG_TYPE_L2, hex(l2_nhg)
+    assert l3_id != l2_nhg, "Member ID equals L2 NHG %s" % l3_id
+    if l2_id is not None:
+        assert l3_id != l2_id, "L2 NH and L3 Member share id %s" % l3_id
+        assert _nhg_type(l2_id) == NHG_TYPE_L2_NH, hex(l2_id)
+
+    _set_bpp(tor1, False)
+    _clear_ip_ead(tor2)
+
+
+def test_bpp_member_shared():
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    tor1 = tgen.gears["tor1"]
+    tor2 = tgen.gears["tor2"]
+    lo2 = tor_lo("tor2")
+
+    _set_bpp_if(tor2, ES_IF, True)
+    _set_bpp_if(tor2, "hostbond2", True)
+    _set_bpp_if(tor1, "hostbond2", True)
+    _set_bpp(tor1, True)
+    _expect_members(tor1, ES1_ID, (lo2,), "ES-1 member")
+    _expect_json(
+        tor1,
+        "show evpn mh bridge-port-protection member json",
+        {ES2_ID: {"interface": "hostbond2", "members": [{"vtep": lo2}]}},
+        "ES-2 member",
+    )
+
+    id1 = _member_view(tor1, ES1_ID)["members"][0]["nhId"]
+    id2 = _member_view(tor1, ES2_ID)["members"][0]["nhId"]
+    assert id1 == id2, "Member IDs %s vs %s" % (id1, id2)
+
+    _set_bpp_if(tor2, "hostbond2", False)
+    _expect_members(tor1, ES1_ID, (lo2,), "ES-1 keeps Member")
+    _expect_json(
+        tor1,
+        "show evpn mh bridge-port-protection member json",
+        {ES2_ID: {"members": ["__ordered__"]}},
+        "ES-2 Member gone",
+    )
+    assert _member_view(tor1, ES1_ID)["members"][0]["nhId"] == id1
+
+    _set_bpp_if(tor2, ES_IF, False)
+    _expect_members(tor1, ES1_ID, (), "Member deleted after last Group", bound=False)
+
+    _set_bpp_if(tor1, "hostbond2", False)
+    _set_bpp(tor1, False)
+    _clear_ip_ead(tor2)
+
+
+def test_bpp_group_per_es_same_peers():
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    tor1 = tgen.gears["tor1"]
+    tor2 = tgen.gears["tor2"]
+    lo2 = tor_lo("tor2")
+
+    _set_bpp_if(tor2, ES_IF, True)
+    _set_bpp_if(tor2, "hostbond2", True)
+    _set_bpp_if(tor1, "hostbond2", True)
+    _set_bpp(tor1, True)
+    _expect_members(tor1, ES1_ID, (lo2,), "ES-1")
+    _expect_json(
+        tor1,
+        "show evpn mh bridge-port-protection member json",
+        {ES2_ID: {"members": [{"vtep": lo2}]}},
+        "ES-2",
+    )
+
+    es1 = _member_view(tor1, ES1_ID)
+    es2 = _member_view(tor1, ES2_ID)
+    assert es1["groupId"] != es2["groupId"], es1
+    assert es1["members"][0]["nhId"] == es2["members"][0]["nhId"]
+    gid1 = es1["groupId"]
+
+    _set_bpp_if(tor2, "hostbond2", False)
+    _expect_members(tor1, ES1_ID, (lo2,), "ES-1 unchanged")
+    assert _member_view(tor1, ES1_ID)["groupId"] == gid1
+    _expect_json(
+        tor1,
+        "show evpn mh bridge-port-protection member json",
+        {ES2_ID: {"members": ["__ordered__"]}},
+        "ES-2 emptied",
+    )
+
+    _set_bpp_if(tor1, "hostbond2", False)
+    _set_bpp(tor1, False)
+    _clear_ip_ead(tor2)
+
+
+def test_bpp_id_disjoint_churn():
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    tor1 = tgen.gears["tor1"]
+    tor2 = tgen.gears["tor2"]
+    tor3 = tgen.gears["tor3"]
+    lo2, lo3 = tor_lo("tor2"), tor_vtep("tor3")
+
+    _set_bpp_if(tor2, ES_IF, True)
+    _set_bpp_if(tor3, ES_IF, True)
+    _set_bpp(tor1, True)
+    _expect_members(tor1, ES1_ID, (lo2, lo3), "both Members")
+    _clear_ip_ead(tor3)
+    _expect_members(tor1, ES1_ID, (lo2,), "tor3 gone")
+    _set_bpp_if(tor3, ES_IF, True)
+    _expect_members(tor1, ES1_ID, (lo2, lo3), "tor3 back")
+
+    bpp = _bpp_ids(tor1, ES1_ID)
+    kernel = _kernel_nh_ids(tor1)
+    assert bpp.isdisjoint(kernel), bpp & kernel
+    assert _id_errors(tor1, ES1_ID) == 0
+
+    _set_bpp(tor1, False)
+    _clear_ip_ead(tor2)
+    _clear_ip_ead(tor3)
+
+
+def test_bpp_group_separate_from_l2_nhg():
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    tor1 = tgen.gears["tor1"]
+    tor2 = tgen.gears["tor2"]
+    lo2 = tor_lo("tor2")
+
+    _set_bpp_if(tor2, ES_IF, True)
+    _set_bpp(tor1, True)
+    _expect_members(tor1, ES1_ID, (lo2,), "member present")
+
+    l2_nhg = _es_nhg_id(tor1, ES1_ID)
+    es = _member_view(tor1, ES1_ID)
+    assert es["groupId"] != l2_nhg, es
+    assert _nhg_type(l2_nhg) == NHG_TYPE_L2, hex(l2_nhg)
+    l2_nhs = set(_l2_nh_by_vtep(tor1).values())
+    for member in es["members"]:
+        assert member["nhId"] not in l2_nhs, member
+
+    _set_bpp(tor1, False)
+    _clear_ip_ead(tor2)
+
+
+def test_bpp_ids_stable():
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    tor1 = tgen.gears["tor1"]
+    tor2 = tgen.gears["tor2"]
+    tor3 = tgen.gears["tor3"]
+    lo2 = tor_lo("tor2")
+    mac = "02:02:00:00:00:22"
+    old1, old2 = _if_mac(tor2, "vlan4001"), _if_mac(tor2, "vlan4002")
+
+    _set_bpp_if(tor2, ES_IF, True)
+    _set_bpp(tor1, True)
+    _expect_members(tor1, ES1_ID, (lo2,), "initial")
+    before = _member_view(tor1, ES1_ID)
+    gid, nid = before["groupId"], before["members"][0]["nhId"]
+
+    tor2.run("ip link set vlan4001 address %s" % mac)
+    tor2.run("ip link set vlan4002 address %s" % mac)
+    _expect_json(
+        tor1,
+        "show evpn mh bridge-port-protection member json",
+        {ES1_ID: {"members": [{"vtep": lo2, "rmac": mac, "nhId": nid}]}},
+        "RMAC change keeps Member ID",
+    )
+    assert _member_view(tor1, ES1_ID)["groupId"] == gid
+
+    _set_bpp_if(tor3, ES_IF, True)
+    _expect_members(tor1, ES1_ID, (lo2, tor_vtep("tor3")), "tor3 joins")
+    after = _member_view(tor1, ES1_ID)
+    assert after["groupId"] == gid
+    assert any(m["nhId"] == nid and m["vtep"] == lo2 for m in after["members"])
+
+    tor2.run("ip link set vlan4001 address %s" % old1)
+    tor2.run("ip link set vlan4002 address %s" % old2)
+    _set_bpp(tor1, False)
+    _clear_ip_ead(tor2)
+    _clear_ip_ead(tor3)
+
+
+def test_bpp_id_no_reuse():
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    tor1 = tgen.gears["tor1"]
+    tor2 = tgen.gears["tor2"]
+    lo2 = tor_lo("tor2")
+
+    _set_bpp_if(tor2, ES_IF, True)
+    _set_bpp(tor1, True)
+    _expect_members(tor1, ES1_ID, (lo2,), "member present")
+    old = _member_view(tor1, ES1_ID)["members"][0]["nhId"]
+
+    _set_bpp_if(tor2, ES_IF, False)
+    _expect_members(tor1, ES1_ID, (), "Member deleted", bound=False)
+    members = _member_view(tor1, ES1_ID).get("members", [])
+    assert all(m.get("nhId") != old for m in members), members
+
+    _set_bpp_if(tor2, ES_IF, True)
+    _expect_members(tor1, ES1_ID, (lo2,), "member back")
+    ids = [m["nhId"] for m in _member_view(tor1, ES1_ID)["members"]]
+    assert len(ids) == len(set(ids)), ids
+    assert _id_errors(tor1, ES1_ID) == 0
+
+    _set_bpp(tor1, False)
+    _clear_ip_ead(tor2)
+
+
 def test_memory_leak():
     tgen = get_topogen()
     if not tgen.is_memleak_enabled():
