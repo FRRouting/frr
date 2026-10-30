@@ -18,6 +18,7 @@
 PREDECL_DLIST(bgp_evpn_es_vrf_frag);
 PREDECL_DLIST(bgp_evpn_es_vrf_vtep_list);
 PREDECL_DLIST(bgp_evpn_es_l3_vtep_list);
+PREDECL_DLIST(bgp_evpn_es_l3evi_list);
 
 #define BGP_EVPN_AD_ES_ETH_TAG 0xffffffff
 #define BGP_EVPN_AD_EVI_ETH_TAG 0
@@ -280,7 +281,7 @@ struct bgp_evpn_es_l3evi {
 	struct bgp_evpn_es_vrf *es_vrf;
 
 	/* memory used for adding to bgp_mh_info->l3evi_list */
-	struct listnode listnode;
+	struct bgp_evpn_es_l3evi_list_item list_item;
 };
 
 /* ES per-EVI info
@@ -380,7 +381,7 @@ struct bgp_evpn_mh_info {
 	/* List of ESs with pending/periodic processing */
 	struct list *pend_es_list;
 	/* List of local L3VNI ES-EVIs (struct bgp_evpn_es_l3evi) */
-	struct list *l3evi_list;
+	struct bgp_evpn_es_l3evi_list_head l3evi_list;
 	/* periodic timer for running background consistency checks */
 	struct event *t_cons_check;
 
