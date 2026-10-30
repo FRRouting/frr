@@ -292,6 +292,7 @@ struct zebra_evpn_bpp_export_log {
 	uint32_t seq;
 	enum dplane_op_e op;
 	bool is_del;
+	bool replay;
 	bool completed;
 	enum zebra_dplane_result result;
 	time_t time;
@@ -2238,6 +2239,8 @@ void zebra_evpn_bpp_show_export(struct vty *vty, bool uj)
 		json_object_string_add(je, "op", dplane_op2str(ent->op));
 		json_object_string_add(je, "action", ent->is_del ? "del" : "add");
 		json_object_int_add(je, "id", ent->id);
+		if (ent->replay)
+			json_object_boolean_add(je, "replay", true);
 		if (ent->ifname[0])
 			json_object_string_add(je, "interface", ent->ifname);
 		if (!ipaddr_is_zero(&ent->vtep)) {
