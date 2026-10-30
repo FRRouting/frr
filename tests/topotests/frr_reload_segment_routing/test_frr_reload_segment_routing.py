@@ -192,16 +192,16 @@ exit
         r1.cmd_raises(f"echo '{clean_config}{tc['from']}' > frr-from.conf")
         r1.cmd_raises(f"{frrreload} frr-from.conf")
         running_config = r1.cmd_raises("vtysh -c 'write terminal no-header'")
-        assert sanitize_config(tc["from"]) == sanitize_config(running_config), (
-            "running configuration does not contain expected"
-        )
+        assert sanitize_config(tc["from"]) == sanitize_config(
+            running_config
+        ), "running configuration does not contain expected"
 
         r1.cmd_raises(f"echo '{clean_config}{tc['to']}' > frr-to.conf")
         r1.cmd_raises(f"{frrreload} frr-to.conf")
         running_config = r1.cmd_raises("vtysh -c 'write terminal no-header'")
-        assert sanitize_config(tc["expected_to"]) == sanitize_config(running_config), (
-            "running configuration does not equal expected"
-        )
+        assert sanitize_config(tc["expected_to"]) == sanitize_config(
+            running_config
+        ), "running configuration does not equal expected"
 
         r1.cmd_raises(f"{frrreload} frr-clean.conf")
 
