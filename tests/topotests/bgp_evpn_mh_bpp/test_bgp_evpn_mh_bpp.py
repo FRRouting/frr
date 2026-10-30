@@ -3275,6 +3275,103 @@ def _local_forwarding_state(router):
     }
 
 
+def _replay_forwarding_state(router):
+    state = _local_forwarding_state(router)
+    state["es"] = json.loads(
+        router.vtysh_cmd("show evpn es %s json" % ES1_ID) or "{}"
+    )
+    state["fdb"] = json.loads(
+        router.run("bridge -j fdb show br br_default") or "[]"
+    )
+    return state
+
+
+def _dplane_primary_counters(router):
+    output = router.vtysh_cmd("show zebra dplane detailed")
+    labels = ("Route updates", "EVPN MAC updates", "EVPN neigh updates")
+    counters = {}
+    for line in output.splitlines():
+        for label in labels:
+            if line.startswith(label + ":"):
+                counters[label] = int(line.rsplit(None, 1)[-1])
+    assert set(counters) == set(labels), output
+    return counters
+
+
+def _replay_events(router, after):
+    return [
+        ent
+        for ent in (_export(router).get("log") or [])
+        if int(ent.get("seq") or 0) > after
+    ]
+
+
+def _expect_replay(router, after, tables, msg):
+    members = tables.get("members") or {}
+    groups = tables.get("groups") or {}
+    bindings = tables.get("bindings") or {}
+    expected_ops = (
+        ["EVPN_MH_NH_UPDATE"] * len(members)
+        + ["EVPN_MH_NHG_UPDATE"] * len(groups)
+        + ["BR_PORT_UPDATE"] * len(bindings)
+        + ["EVPN_MH_REPLAY_DONE"]
+    )
+
+    def _check():
+        events = _replay_events(router, after)
+        if [ent.get("op") for ent in events] != expected_ops:
+            return events
+        if any(
+            not ent.get("replay")
+            or ent.get("action") != "add"
+            or not ent.get("completed")
+            or ent.get("result") != "SUCCESS"
+            for ent in events
+        ):
+            return events
+        member_end = len(members)
+        group_end = member_end + len(groups)
+        binding_end = group_end + len(bindings)
+        if {ent.get("id") for ent in events[:member_end]} != {
+            rec.get("nhId") for rec in members.values()
+        }:
+            return events
+        if {ent.get("id") for ent in events[member_end:group_end]} != {
+            rec.get("nhgId") for rec in groups.values()
+        }:
+            return events
+        replay_groups = {
+            ent.get("id"): sorted(ent.get("memberIds") or [])
+            for ent in events[member_end:group_end]
+        }
+        table_groups = {
+            rec.get("nhgId"): sorted(
+                member.get("nhId") for member in rec.get("members", [])
+            )
+            for rec in groups.values()
+        }
+        if replay_groups != table_groups:
+            return events
+        if {ent.get("interface") for ent in events[group_end:binding_end]} != set(
+            bindings
+        ):
+            return events
+        if {
+            ent.get("interface"): ent.get("id")
+            for ent in events[group_end:binding_end]
+        } != {
+            ifname: rec.get("backupNhgId") for ifname, rec in bindings.items()
+        }:
+            return events
+        return None
+
+    _, result = topotest.run_and_expect(
+        _check, None, count=WAIT_COUNT, wait=WAIT_STEP
+    )
+    assert result is None, "%s: %s" % (msg, result)
+    return _replay_events(router, after)
+
+
 def test_bpp_dplane_emit():
     tgen = get_topogen()
     if tgen.routers_have_failure():
@@ -3710,6 +3807,109 @@ def test_bpp_local_link_down():
     _expect_export_clean(tor1, "link up export unchanged", members=1)
     assert _local_forwarding_state(tor1) == before
     _expect_export_events(tor1, marker, [], "link up has no export")
+
+    _set_bpp(tor1, False)
+    _clear_ip_ead(tor2)
+
+
+def test_bpp_replay():
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    tor1 = tgen.gears["tor1"]
+    tor2 = tgen.gears["tor2"]
+    tor3 = tgen.gears["tor3"]
+
+    _set_bpp_if(tor2, ES_IF, True)
+    _set_bpp_if(tor3, ES_IF, True)
+    _set_bpp(tor1, True)
+    _expect_export_clean(tor1, "before replay", members=2)
+    before = _replay_forwarding_state(tor1)
+    counters = _dplane_primary_counters(tor1)
+
+    marker = _export_marker(tor1)
+    tor1.vtysh_cmd("clear evpn mh bridge-port-protection replay")
+    _expect_replay(tor1, marker, before["export"], "full replay")
+
+    assert _replay_forwarding_state(tor1) == before
+    assert _dplane_primary_counters(tor1) == counters
+    _expect_export_clean(tor1, "after replay", members=2)
+
+    _set_bpp(tor1, False)
+    _clear_ip_ead(tor2)
+    _clear_ip_ead(tor3)
+
+
+def test_bpp_replay_empty():
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    tor1 = tgen.gears["tor1"]
+    _expect_export_clean(
+        tor1, "empty before replay", members=0, groups=0, bindings=0, released=True
+    )
+
+    marker = _export_marker(tor1)
+    tor1.vtysh_cmd("clear evpn mh bridge-port-protection replay")
+    events = _expect_replay(tor1, marker, {}, "empty replay")
+    assert [ent.get("op") for ent in events] == ["EVPN_MH_REPLAY_DONE"]
+
+
+def test_bpp_replay_idempotent():
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    tor1 = tgen.gears["tor1"]
+    tor2 = tgen.gears["tor2"]
+
+    _set_bpp_if(tor2, ES_IF, True)
+    _set_bpp(tor1, True)
+    _expect_export_clean(tor1, "before repeated replay", members=1)
+    tables = _export(tor1).get("tables") or {}
+
+    for attempt in range(2):
+        marker = _export_marker(tor1)
+        tor1.vtysh_cmd("clear evpn mh bridge-port-protection replay")
+        _expect_replay(tor1, marker, tables, "replay %d" % (attempt + 1))
+        assert (_export(tor1).get("tables") or {}) == tables
+        _expect_export_clean(tor1, "after replay %d" % (attempt + 1), members=1)
+
+    _set_bpp(tor1, False)
+    _clear_ip_ead(tor2)
+
+
+def test_bpp_config_reload():
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    tor1 = tgen.gears["tor1"]
+    tor2 = tgen.gears["tor2"]
+
+    _set_bpp_if(tor2, ES_IF, True)
+    _set_bpp(tor1, True)
+    _expect_export_clean(tor1, "before config reload", members=1)
+    before = _export(tor1).get("tables") or {}
+    before_groups = set((before.get("groups") or {}))
+
+    tor1.vtysh_cmd("write memory")
+    marker = _export_marker(tor1)
+    rc, stdout, stderr = tor1.net.cmd_status(
+        "/usr/lib/frr/frr-reload.py --reload /etc/frr/frr.conf", warn=False
+    )
+    assert rc == 0, "frr-reload.py failed: %s%s" % (stdout, stderr)
+    assert _replay_events(tor1, marker) == []
+    assert (_export(tor1).get("tables") or {}) == before
+
+    kill_router_daemons(tgen, "tor1", ["zebra"], save_config=False)
+    start_router_daemons(tgen, "tor1", ["zebra"])
+    _expect_export_clean(tor1, "after zebra restart", members=1, esi=ES1_ID)
+    after = _export(tor1).get("tables") or {}
+    after_groups = set((after.get("groups") or {}))
+    assert after_groups.isdisjoint(before_groups), (before_groups, after_groups)
 
     _set_bpp(tor1, False)
     _clear_ip_ead(tor2)

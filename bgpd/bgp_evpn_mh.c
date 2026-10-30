@@ -4161,6 +4161,22 @@ static void bgp_evpn_es_l3_vtep_re_eval_all(struct bgp_evpn_es *es)
 		bgp_evpn_es_l3_vtep_re_eval(es, &l3_vtep->vtep_ip);
 }
 
+void bgp_evpn_mh_bpp_replay(void)
+{
+	struct bgp_evpn_es_l3_vtep *l3_vtep;
+	struct listnode *node;
+	struct bgp_evpn_es *es;
+
+	if (!bgp_mh_info)
+		return;
+
+	for (ALL_LIST_ELEMENTS_RO(bgp_mh_info->local_es_list, node, es))
+		frr_each (bgp_evpn_es_l3_vtep_list, &es->l3_vtep_list, l3_vtep)
+			if (CHECK_FLAG(l3_vtep->flags, BGP_EVPN_ES_L3_VTEP_SENT))
+				bgp_zebra_send_bpp_peer(&es->esi, &l3_vtep->vtep_ip,
+							&l3_vtep->sent_rmac, true);
+}
+
 static void bgp_evpn_es_vrf_vtep_flush(struct bgp_evpn_es_vrf *es_vrf)
 {
 	struct bgp_evpn_es_vrf_vtep *vtep;

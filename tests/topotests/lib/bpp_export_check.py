@@ -29,6 +29,7 @@ def bpp_export_check(export):
         action = ent.get("action")
         oid = int(ent.get("id") or 0)
         ifname = ent.get("interface")
+        replay = ent.get("replay", False)
 
         if action != "del" and oid in inflight_del:
             errors.append("id 0x%x reused before delete completed seq %s" % (oid, ent.get("seq")))
@@ -70,7 +71,7 @@ def bpp_export_check(export):
                 live_bindings.pop(ifname, None)
                 bind_on_wire.discard(ifname)
             else:
-                if ifname in bind_on_wire:
+                if ifname in bind_on_wire and not replay:
                     errors.append("Binding resent on %s seq %s" % (ifname, ent.get("seq")))
                 if oid and oid not in live_groups:
                     errors.append(

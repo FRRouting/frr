@@ -3424,6 +3424,8 @@ static void bgp_zebra_connected(struct zclient *zclient)
 		BGP_GR_ROUTER_DETECT_AND_SEND_CAPABILITY_TO_ZEBRA(bgp, bgp->peer);
 	}
 
+	bgp_evpn_mh_bpp_replay();
+
 	/* Retry the deferred suppress-fib-pending configuration */
 	bgp_zebra_suppress_fib_pending_config_retry();
 

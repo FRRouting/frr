@@ -288,6 +288,7 @@ struct zebra_evpn_bpp_xlog {
 	uint32_t seq;
 	enum dplane_op_e op;
 	bool is_del;
+	bool replay;
 	bool completed;
 	enum zebra_dplane_result result;
 	time_t time;
@@ -1905,26 +1906,47 @@ void zebra_evpn_bpp_replay(void)
 	struct zebra_evpn_bpp_xtab_nh *nh;
 	struct zebra_evpn_bpp_xtab_nhg *nhg;
 	struct zebra_evpn_bpp_xtab_bind *bind;
+	struct zebra_evpn_bpp_xlog *ent;
 	struct zebra_evpn_es *es;
 	struct ipaddr sph_filters[ES_VTEP_MAX_CNT];
+	uint32_t i;
 
 	if (!bpp_inited)
 		return;
 
 	memset(sph_filters, 0, sizeof(sph_filters));
-	frr_each (zebra_evpn_bpp_xtab_nh_hash, &bpp_xtab_nh, nh)
+	frr_each (zebra_evpn_bpp_xtab_nh_hash, &bpp_xtab_nh, nh) {
 		dplane_evpn_mh_nh_update(false, nh->nh_id, nh->type, &nh->vtep, &nh->rmac);
-	frr_each (zebra_evpn_bpp_xtab_nhg_hash, &bpp_xtab_nhg, nhg)
+		ent = zebra_evpn_bpp_xlog_push(DPLANE_OP_EVPN_MH_NH_UPDATE, false, nh->nh_id);
+		ent->replay = true;
+		ent->type = nh->type;
+		ent->vtep = nh->vtep;
+		ent->rmac = nh->rmac;
+	}
+	frr_each (zebra_evpn_bpp_xtab_nhg_hash, &bpp_xtab_nhg, nhg) {
 		dplane_evpn_mh_nhg_update(false, nhg->nhg_id, &nhg->esi, nhg->member_count,
 					  nhg->members);
+		ent = zebra_evpn_bpp_xlog_push(DPLANE_OP_EVPN_MH_NHG_UPDATE, false, nhg->nhg_id);
+		ent->replay = true;
+		memcpy(&ent->esi, &nhg->esi, sizeof(esi_t));
+		ent->member_count = nhg->member_count;
+		for (i = 0; i < nhg->member_count && i < ZEBRA_EVPN_BPP_EXPORT_LOG_MEMBERS; i++)
+			ent->member_ids[i] = nhg->members[i].nh_id;
+	}
 	frr_each (zebra_evpn_bpp_xtab_bind_hash, &bpp_xtab_bind, bind) {
 		es = zebra_evpn_es_find(&bind->esi);
 		if (!es || !es->zif || !es->zif->ifp)
 			continue;
 		dplane_br_port_update(es->zif->ifp, false, 0, sph_filters, bind->backup_nhg_id);
+		ent = zebra_evpn_bpp_xlog_push(DPLANE_OP_BR_PORT_UPDATE, false,
+					       bind->backup_nhg_id);
+		ent->replay = true;
+		strlcpy(ent->ifname, bind->ifname, sizeof(ent->ifname));
+		memcpy(&ent->esi, &bind->esi, sizeof(esi_t));
 	}
 	dplane_evpn_mh_replay_done();
-	zebra_evpn_bpp_xlog_push(DPLANE_OP_EVPN_MH_REPLAY_DONE, false, 0);
+	ent = zebra_evpn_bpp_xlog_push(DPLANE_OP_EVPN_MH_REPLAY_DONE, false, 0);
+	ent->replay = true;
 }
 
 static json_object *zebra_evpn_bpp_json_xtab_member(const struct dplane_evpn_mh_member *m)
@@ -2022,6 +2044,8 @@ void zebra_evpn_bpp_show_export(struct vty *vty, bool uj)
 		json_object_string_add(je, "op", dplane_op2str(ent->op));
 		json_object_string_add(je, "action", ent->is_del ? "del" : "add");
 		json_object_int_add(je, "id", ent->id);
+		if (ent->replay)
+			json_object_boolean_add(je, "replay", true);
 		if (ent->ifname[0])
 			json_object_string_add(je, "interface", ent->ifname);
 		if (!ipaddr_is_zero(&ent->vtep)) {
