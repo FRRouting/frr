@@ -828,11 +828,14 @@ static const char *ecommunity_gettoken(const char *str, void *eval_ptr,
 			ecomm_type = ECOMMUNITY_ENCODE_AS4;
 		else if (type == ECOMMUNITY_COLOR) {
 			ecomm_type = ECOMMUNITY_ENCODE_OPAQUE;
+<<<<<<< HEAD
 			sub_type = ECOMMUNITY_COLOR;
 			if (val_color) {
+=======
+			/* A color without CO bits is encoded with CO bits 00 */
+			if (val_color)
+>>>>>>> 3e89615 (bgpd: restore extcommunity color CO bit 00)
 				val = val_color;
-				as = 1;
-			}
 		} else if (as > 0)
 			ecomm_type = ECOMMUNITY_ENCODE_AS;
 	}
