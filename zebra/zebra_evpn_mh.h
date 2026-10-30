@@ -74,8 +74,11 @@ struct zebra_evpn_es {
 	/* list of zebra_mac entries using this ES as destination */
 	struct list *mac_list;
 
-	/* Nexthop group id */
+	/* Nexthop group id (L2 ES NHG, kernel) */
 	uint32_t nhg_id;
+
+	/* Protection Group id (L3 Members, FPM only) */
+	uint32_t l3_nhg_id;
 
 	/* Preference config for BUM-DF election. Sent to BGP and
 	 * advertised via the ESR
@@ -326,6 +329,8 @@ struct zebra_evpn_mh_info {
 
 	/* Rejected ZEBRA_EVPN_BPP_PEER_ADD/DEL messages */
 	uint32_t bpp_peer_bad_msg;
+	/* ID used on the wrong channel (kernel vs FPM); must stay 0 */
+	uint32_t bpp_id_err;
 
 	/* XXX - re-visit the default hold timer value */
 	int mac_hold_time;
@@ -363,8 +368,32 @@ static inline bool zebra_evpn_mac_is_es_local(struct zebra_mac *mac)
 /* Returns true if the id is of L2-NHG or L2-NH type */
 static inline bool zebra_evpn_mh_is_fdb_nh(uint32_t id)
 {
-	return ((id & EVPN_NHG_ID_TYPE_BIT) ||
-			(id & EVPN_NH_ID_TYPE_BIT));
+	uint32_t type = NHG_ID_TYPE(id);
+
+	return type == NHG_TYPE_L2 || type == NHG_TYPE_L2_NH;
+}
+
+static inline bool zebra_evpn_mh_id_is_l3_bpp(uint32_t id)
+{
+	uint32_t type = NHG_ID_TYPE(id);
+
+	return type == NHG_TYPE_L3_BPP || type == NHG_TYPE_L3_BPP_NH;
+}
+
+static inline const char *zebra_evpn_mh_id_channel(uint32_t id)
+{
+	switch (NHG_ID_TYPE(id)) {
+	case NHG_TYPE_L2:
+	case NHG_TYPE_L2_NH:
+		return "kernel";
+	case NHG_TYPE_L3_BPP:
+	case NHG_TYPE_L3_BPP_NH:
+		return "fpm";
+	case NHG_TYPE_L3:
+		return "l3";
+	}
+
+	return "none";
 }
 
 static inline bool
@@ -479,6 +508,9 @@ extern bool zebra_evpn_is_es_bond(struct interface *ifp);
 extern bool zebra_evpn_is_es_bond_member(struct interface *ifp);
 extern void zebra_evpn_mh_print(struct vty *vty);
 extern void zebra_evpn_mh_json(json_object *json);
+extern uint32_t zebra_evpn_mh_nhid_alloc(enum nhg_type type);
+extern void zebra_evpn_mh_nhid_free(uint32_t nh_id);
+extern void zebra_evpn_mh_id_channel_violation(uint32_t id, const char *op);
 extern bool zebra_evpn_nhg_is_local_es(uint32_t nhg_id,
 				       struct zebra_evpn_es **local_es);
 extern int zebra_evpn_mh_redirect_off(struct vty *vty, bool redirect_off);

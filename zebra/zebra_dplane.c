@@ -20,6 +20,8 @@
 #include "zebra/netconf_netlink.h"
 #include "zebra/zebra_router.h"
 #include "zebra/zebra_dplane.h"
+#include "zebra/zebra_errors.h"
+#include "zebra/zebra_evpn_mh.h"
 #include "zebra/zebra_vxlan_private.h"
 #include "zebra/zebra_mpls.h"
 #include "zebra/rt.h"
@@ -5687,6 +5689,12 @@ static enum zebra_dplane_result fdb_nh_update_common(enum dplane_op_e op, uint32
 	zvrf = zebra_vrf_get_evpn();
 	zns = zvrf ? zvrf->zns : zebra_ns_lookup(NS_DEFAULT);
 	dplane_ctx_ns_init(ctx, zns, false);
+
+	if (id && !zebra_evpn_mh_is_fdb_nh(id)) {
+		zebra_evpn_mh_id_channel_violation(id, "kernel FDB NH");
+		dplane_ctx_free(&ctx);
+		return ZEBRA_DPLANE_REQUEST_FAILURE;
+	}
 
 	ctx->u.fdb_nh.id = id;
 	if (vtep_ip)

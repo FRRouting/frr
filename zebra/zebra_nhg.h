@@ -180,12 +180,19 @@ struct nhg_hash_entry {
 #define NEXTHOP_GROUP_STALE_FDB (1 << 11)
 };
 
-/* Upper 4 bits of the NHG are reserved for indicating the NHG type */
+/* Upper 4 bits of the NHG are reserved for indicating the NHG type.
+ * Values match the shared FPM header (FPM_NHG_TYPE_*). Assign 4 and 8
+ * explicitly; do not append sequential values.
+ */
 #define NHG_ID_TYPE_POS 28
+#define NHG_ID_TYPE_MASK (0xfu << NHG_ID_TYPE_POS)
+#define NHG_ID_TYPE(id)	 (((uint32_t)(id) & NHG_ID_TYPE_MASK) >> NHG_ID_TYPE_POS)
 enum nhg_type {
 	NHG_TYPE_L3 = 0,
-	NHG_TYPE_L2_NH, /* NHs in a L2 NHG used as a MAC/FDB dest */
-	NHG_TYPE_L2,    /* L2 NHG used as a MAC/FDB dest */
+	NHG_TYPE_L2_NH = 1,	/* NHs in a L2 NHG used as a MAC/FDB dest */
+	NHG_TYPE_L2 = 2,	/* L2 NHG used as a MAC/FDB dest */
+	NHG_TYPE_L3_BPP_NH = 4, /* protection Member; FPM only */
+	NHG_TYPE_L3_BPP = 8,	/* protection Group; FPM only */
 };
 
 /* Was this one we created, either this session or previously? */

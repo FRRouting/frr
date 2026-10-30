@@ -1355,23 +1355,49 @@ void zebra_evpn_if_cleanup(struct zebra_if *zif)
  *   A L2 NH entry is programmed in the kernel for every ES-VTEP entry. This
  * NH is then added to the L2-ECMP-NHG associated with the ES.
  */
-static uint32_t zebra_evpn_nhid_alloc(struct zebra_evpn_es *es)
+uint32_t zebra_evpn_mh_nhid_alloc(enum nhg_type type)
 {
 	uint32_t id;
-	uint32_t nh_id;
+
+	if (!zmh_info)
+		return 0;
 
 	bf_assign_index(zmh_info->nh_id_bitmap, id);
-
 	if (!id)
 		return 0;
 
+	return id | ((uint32_t)type << NHG_ID_TYPE_POS);
+}
+
+void zebra_evpn_mh_nhid_free(uint32_t nh_id)
+{
+	uint32_t id = nh_id & EVPN_NH_ID_VAL_MASK;
+
+	if (!id || !zmh_info)
+		return;
+
+	bf_release_index(zmh_info->nh_id_bitmap, id);
+}
+
+void zebra_evpn_mh_id_channel_violation(uint32_t id, const char *op)
+{
+	flog_err(EC_ZEBRA_BAD_NHG_MESSAGE, "EVPN-MH ID 0x%x type %u channel %s refused on %s", id,
+		 NHG_ID_TYPE(id), zebra_evpn_mh_id_channel(id), op);
+	if (zmh_info)
+		zmh_info->bpp_id_err++;
+}
+
+static uint32_t zebra_evpn_nhid_alloc(struct zebra_evpn_es *es)
+{
+	uint32_t nh_id;
+
+	nh_id = zebra_evpn_mh_nhid_alloc(es ? NHG_TYPE_L2 : NHG_TYPE_L2_NH);
+	if (!nh_id)
+		return 0;
+
 	if (es) {
-		nh_id = id | EVPN_NHG_ID_TYPE_BIT;
-		/* Add to NHG hash */
 		es->nhg_id = nh_id;
 		(void)hash_get(zmh_info->nhg_table, es, hash_alloc_intern);
-	} else {
-		nh_id = id | EVPN_NH_ID_TYPE_BIT;
 	}
 
 	return nh_id;
@@ -1379,9 +1405,7 @@ static uint32_t zebra_evpn_nhid_alloc(struct zebra_evpn_es *es)
 
 static void zebra_evpn_nhid_free(uint32_t nh_id, struct zebra_evpn_es *es)
 {
-	uint32_t id = (nh_id & EVPN_NH_ID_VAL_MASK);
-
-	if (!id)
+	if (!nh_id)
 		return;
 
 	if (es) {
@@ -1389,7 +1413,7 @@ static void zebra_evpn_nhid_free(uint32_t nh_id, struct zebra_evpn_es *es)
 		es->nhg_id = 0;
 	}
 
-	bf_release_index(zmh_info->nh_id_bitmap, id);
+	zebra_evpn_mh_nhid_free(nh_id);
 }
 
 /* Reserve bitmap index for a stale FDB NH/NHG read from kernel at startup,
@@ -2293,6 +2317,10 @@ static void zebra_evpn_es_free(struct zebra_evpn_es **esp)
 		dplane_nh_fdb_del(es->nhg_id);
 	}
 	zebra_evpn_nhid_free(es->nhg_id, es);
+	if (es->l3_nhg_id) {
+		zebra_evpn_mh_nhid_free(es->l3_nhg_id);
+		es->l3_nhg_id = 0;
+	}
 
 	/* cleanup resources maintained against the ES */
 	list_delete(&es->es_evi_list);

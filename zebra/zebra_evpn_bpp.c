@@ -24,6 +24,7 @@
 
 #include "zebra/debug.h"
 #include "zebra/interface.h"
+#include "zebra/zebra_errors.h"
 #include "zebra/zebra_ns.h"
 #include "zebra/zebra_router.h"
 #include "zebra/zebra_vrf.h"
@@ -36,6 +37,7 @@ DEFINE_MTYPE_STATIC(ZEBRA, ZEVPN_BPP, "EVPN-MH bridge-port protection entry");
 DEFINE_MTYPE_STATIC(ZEBRA, ZEVPN_BPP_EVI, "EVPN-MH bridge-port protection ES-EVI");
 DEFINE_MTYPE_STATIC(ZEBRA, ZEVPN_BPP_IF, "EVPN-MH bridge-port protection interface");
 DEFINE_MTYPE_STATIC(ZEBRA, ZEVPN_BPP_PEER, "EVPN-MH bridge-port protection peer");
+DEFINE_MTYPE_STATIC(ZEBRA, ZEVPN_BPP_NH, "EVPN-MH bridge-port protection member");
 
 enum zebra_evpn_bpp_state {
 	ZEBRA_EVPN_BPP_PENDING,
@@ -74,6 +76,7 @@ static const struct {
 PREDECL_HASH(zebra_evpn_bpp_hash);
 PREDECL_SORTLIST_UNIQ(zebra_evpn_bpp_evi_list);
 PREDECL_HASH(zebra_evpn_bpp_peer_hash);
+PREDECL_HASH(zebra_evpn_bpp_nh_hash);
 PREDECL_HASH(zebra_evpn_bpp_if_hash);
 
 /* Entry of an ES bond for one VLAN; key is the VLAN */
@@ -139,8 +142,19 @@ struct zebra_evpn_bpp_peer {
 	uint8_t type;
 	struct ipaddr vtep;
 	struct ethaddr rmac;
+	uint32_t nh_id;
 
 	struct zebra_evpn_bpp_peer_hash_item item;
+};
+
+/* Shared Member: one ID per (type, VTEP), referenced by every Group. */
+struct zebra_evpn_bpp_nh {
+	uint8_t type;
+	struct ipaddr vtep;
+	uint32_t nh_id;
+	uint32_t ref_cnt;
+
+	struct zebra_evpn_bpp_nh_hash_item item;
 };
 
 static int zebra_evpn_bpp_peer_cmp(const struct zebra_evpn_bpp_peer *p1,
@@ -161,6 +175,25 @@ static uint32_t zebra_evpn_bpp_peer_hash_key(const struct zebra_evpn_bpp_peer *p
 
 DECLARE_HASH(zebra_evpn_bpp_peer_hash, struct zebra_evpn_bpp_peer, item, zebra_evpn_bpp_peer_cmp,
 	     zebra_evpn_bpp_peer_hash_key);
+
+static int zebra_evpn_bpp_nh_cmp(const struct zebra_evpn_bpp_nh *n1,
+				 const struct zebra_evpn_bpp_nh *n2)
+{
+	int ret;
+
+	ret = numcmp(n1->type, n2->type);
+	if (ret)
+		return ret;
+	return ipaddr_cmp(&n1->vtep, &n2->vtep);
+}
+
+static uint32_t zebra_evpn_bpp_nh_hash_key(const struct zebra_evpn_bpp_nh *nh)
+{
+	return jhash_1word(nh->type, ipaddr_hash(&nh->vtep));
+}
+
+DECLARE_HASH(zebra_evpn_bpp_nh_hash, struct zebra_evpn_bpp_nh, item, zebra_evpn_bpp_nh_cmp,
+	     zebra_evpn_bpp_nh_hash_key);
 
 /* Protection state of an ES bond: its entries and the ES-EVIs sent for it.
  * Keyed by zif; the ifindex is cleared before the interface cleanup runs.
@@ -189,6 +222,7 @@ DECLARE_HASH(zebra_evpn_bpp_if_hash, struct zebra_evpn_bpp_if, item, zebra_evpn_
 	     zebra_evpn_bpp_if_hash_key);
 
 static struct zebra_evpn_bpp_if_hash_head bpp_if_hash;
+static struct zebra_evpn_bpp_nh_hash_head bpp_nh_hash;
 static bool bpp_inited;
 static struct event *bpp_re_eval_ev;
 
@@ -394,6 +428,90 @@ static struct zebra_evpn_bpp_if *zebra_evpn_bpp_if_find(struct zebra_if *zif)
 	return zebra_evpn_bpp_if_hash_find(&bpp_if_hash, &key);
 }
 
+static void zebra_evpn_bpp_group_id_ensure(struct zebra_evpn_es *es)
+{
+	if (!es || es->l3_nhg_id)
+		return;
+
+	es->l3_nhg_id = zebra_evpn_mh_nhid_alloc(NHG_TYPE_L3_BPP);
+	if (!es->l3_nhg_id)
+		flog_err(EC_ZEBRA_TM_EXHAUSTED_IDS,
+			 "bridge-port protection group id alloc failed for es %s", es->esi_str);
+	else if (zebra_evpn_mh_is_fdb_nh(es->l3_nhg_id)) {
+		zebra_evpn_mh_id_channel_violation(es->l3_nhg_id, "protection Group alloc");
+		zebra_evpn_mh_nhid_free(es->l3_nhg_id);
+		es->l3_nhg_id = 0;
+	}
+}
+
+static void zebra_evpn_bpp_group_id_release(struct zebra_evpn_es *es)
+{
+	if (!es || !es->l3_nhg_id)
+		return;
+
+	zebra_evpn_mh_nhid_free(es->l3_nhg_id);
+	es->l3_nhg_id = 0;
+}
+
+static uint32_t zebra_evpn_bpp_nh_ref(uint8_t type, const struct ipaddr *vtep)
+{
+	struct zebra_evpn_bpp_nh key = { .type = type, .vtep = *vtep };
+	struct zebra_evpn_bpp_nh *nh;
+
+	nh = zebra_evpn_bpp_nh_hash_find(&bpp_nh_hash, &key);
+	if (!nh) {
+		nh = XCALLOC(MTYPE_ZEVPN_BPP_NH, sizeof(*nh));
+		nh->type = type;
+		nh->vtep = *vtep;
+		nh->nh_id = zebra_evpn_mh_nhid_alloc(NHG_TYPE_L3_BPP_NH);
+		if (!nh->nh_id) {
+			flog_err(EC_ZEBRA_TM_EXHAUSTED_IDS,
+				 "bridge-port protection member id alloc failed for vtep %pIA",
+				 vtep);
+			XFREE(MTYPE_ZEVPN_BPP_NH, nh);
+			return 0;
+		}
+		if (zebra_evpn_mh_is_fdb_nh(nh->nh_id)) {
+			zebra_evpn_mh_id_channel_violation(nh->nh_id, "protection Member alloc");
+			zebra_evpn_mh_nhid_free(nh->nh_id);
+			XFREE(MTYPE_ZEVPN_BPP_NH, nh);
+			return 0;
+		}
+		zebra_evpn_bpp_nh_hash_add(&bpp_nh_hash, nh);
+	}
+
+	nh->ref_cnt++;
+	return nh->nh_id;
+}
+
+static void zebra_evpn_bpp_nh_deref(uint8_t type, const struct ipaddr *vtep)
+{
+	struct zebra_evpn_bpp_nh key = { .type = type, .vtep = *vtep };
+	struct zebra_evpn_bpp_nh *nh;
+
+	nh = zebra_evpn_bpp_nh_hash_find(&bpp_nh_hash, &key);
+	if (!nh)
+		return;
+
+	if (nh->ref_cnt)
+		nh->ref_cnt--;
+	if (nh->ref_cnt)
+		return;
+
+	zebra_evpn_bpp_nh_hash_del(&bpp_nh_hash, nh);
+	zebra_evpn_mh_nhid_free(nh->nh_id);
+	XFREE(MTYPE_ZEVPN_BPP_NH, nh);
+}
+
+static void zebra_evpn_bpp_peer_unlink(struct zebra_evpn_bpp_peer *peer)
+{
+	if (!peer->nh_id)
+		return;
+
+	zebra_evpn_bpp_nh_deref(peer->type, &peer->vtep);
+	peer->nh_id = 0;
+}
+
 static struct zebra_evpn_bpp_if *zebra_evpn_bpp_if_new(struct zebra_if *zif)
 {
 	struct zebra_evpn_bpp_if *bif;
@@ -404,6 +522,7 @@ static struct zebra_evpn_bpp_if *zebra_evpn_bpp_if_new(struct zebra_if *zif)
 	zebra_evpn_bpp_evi_list_init(&bif->evis);
 	zebra_evpn_bpp_peer_hash_init(&bif->peers);
 	zebra_evpn_bpp_if_hash_add(&bpp_if_hash, bif);
+	zebra_evpn_bpp_group_id_ensure(zif->es_info.es);
 
 	return bif;
 }
@@ -413,14 +532,19 @@ static void zebra_evpn_bpp_peer_flush(struct zebra_evpn_bpp_if *bif)
 {
 	struct zebra_evpn_bpp_peer *peer;
 
-	while ((peer = zebra_evpn_bpp_peer_hash_pop(&bif->peers)))
+	while ((peer = zebra_evpn_bpp_peer_hash_pop(&bif->peers))) {
+		zebra_evpn_bpp_peer_unlink(peer);
 		XFREE(MTYPE_ZEVPN_BPP_PEER, peer);
+	}
 }
 
 static void zebra_evpn_bpp_if_free(struct zebra_evpn_bpp_if *bif)
 {
+	struct zebra_evpn_es *es = bif->zif->es_info.es;
+
 	zebra_evpn_bpp_if_hash_del(&bpp_if_hash, bif);
 	zebra_evpn_bpp_peer_flush(bif);
+	zebra_evpn_bpp_group_id_release(es);
 	zebra_evpn_bpp_hash_fini(&bif->entries);
 	zebra_evpn_bpp_evi_list_fini(&bif->evis);
 	zebra_evpn_bpp_peer_hash_fini(&bif->peers);
@@ -606,8 +730,10 @@ void zebra_evpn_bpp_es_update(struct zebra_evpn_es *es)
 		return;
 
 	bif = zebra_evpn_bpp_if_find(es->zif);
-	if (bif)
+	if (bif) {
+		zebra_evpn_bpp_group_id_ensure(es);
 		zebra_evpn_bpp_evi_sync(bif);
+	}
 }
 
 void zebra_evpn_bpp_es_send_all(struct zebra_evpn_es *es, bool add)
@@ -650,6 +776,8 @@ void zebra_evpn_bpp_if_update(struct zebra_if *zif)
 
 	if (!protect)
 		zebra_evpn_bpp_peer_flush(bif);
+	else
+		zebra_evpn_bpp_group_id_ensure(zif->es_info.es);
 
 	frr_each_safe (zebra_evpn_bpp_hash, &bif->entries, e) {
 		if (protect && bf_test_index(zif->vlan_bitmap, e->vid))
@@ -749,6 +877,14 @@ void zebra_evpn_bpp_peer_update(const struct zapi_evpn_bpp_peer *zpeer, bool add
 	if (!bif)
 		return;
 
+	if (zpeer->type != ZAPI_EVPN_BPP_PEER_L3) {
+		flog_err(EC_ZEBRA_BAD_NHG_MESSAGE,
+			 "bridge-port protection member type %u is not L3", zpeer->type);
+		if (zmh_info)
+			zmh_info->bpp_id_err++;
+		return;
+	}
+
 	key.type = zpeer->type;
 	key.vtep = zpeer->vtep;
 	peer = zebra_evpn_bpp_peer_hash_find(&bif->peers, &key);
@@ -760,10 +896,13 @@ void zebra_evpn_bpp_peer_update(const struct zapi_evpn_bpp_peer *zpeer, bool add
 			zlog_debug("bridge-port protection %s member del vtep %pIA",
 				   es->zif->ifp->name, &peer->vtep);
 		zebra_evpn_bpp_peer_hash_del(&bif->peers, peer);
+		zebra_evpn_bpp_peer_unlink(peer);
 		XFREE(MTYPE_ZEVPN_BPP_PEER, peer);
 		zebra_evpn_bpp_apply_state(bif);
 		return;
 	}
+
+	zebra_evpn_bpp_group_id_ensure(es);
 
 	if (peer) {
 		if (!memcmp(&peer->rmac, &zpeer->rmac, ETH_ALEN))
@@ -779,6 +918,11 @@ void zebra_evpn_bpp_peer_update(const struct zapi_evpn_bpp_peer *zpeer, bool add
 	peer->type = zpeer->type;
 	peer->vtep = zpeer->vtep;
 	memcpy(&peer->rmac, &zpeer->rmac, ETH_ALEN);
+	peer->nh_id = zebra_evpn_bpp_nh_ref(peer->type, &peer->vtep);
+	if (!peer->nh_id) {
+		XFREE(MTYPE_ZEVPN_BPP_PEER, peer);
+		return;
+	}
 	zebra_evpn_bpp_peer_hash_add(&bif->peers, peer);
 
 	if (IS_ZEBRA_DEBUG_EVPN_MH_PROT)
@@ -789,17 +933,41 @@ void zebra_evpn_bpp_peer_update(const struct zapi_evpn_bpp_peer *zpeer, bool add
 	zebra_evpn_bpp_apply_state(bif);
 }
 
+static const char *zebra_evpn_bpp_id_str(uint32_t id, char *buf, size_t buflen)
+{
+	if (!id) {
+		strlcpy(buf, "-", buflen);
+		return buf;
+	}
+	snprintfrr(buf, buflen, "0x%x", id);
+	return buf;
+}
+
+static void zebra_evpn_bpp_json_id(json_object *json, const char *key, uint32_t id)
+{
+	char type_key[32];
+	char ch_key[32];
+
+	json_object_int_add(json, key, id);
+	snprintfrr(type_key, sizeof(type_key), "%sType", key);
+	snprintfrr(ch_key, sizeof(ch_key), "%sChannel", key);
+	json_object_int_add(json, type_key, NHG_ID_TYPE(id));
+	json_object_string_add(json, ch_key, zebra_evpn_mh_id_channel(id));
+}
+
 static void zebra_evpn_bpp_show_entry(struct vty *vty, const struct zebra_evpn_bpp *e)
 {
 	struct zebra_evpn_es *es = e->zif->es_info.es;
 	char l3vni_str[16] = "-";
+	char group_str[16];
 	char reasons[128];
 
 	if (e->l3vni)
 		snprintfrr(l3vni_str, sizeof(l3vni_str), "%u", e->l3vni);
+	zebra_evpn_bpp_id_str(es ? es->l3_nhg_id : 0, group_str, sizeof(group_str));
 
 	vty_out(vty, "%-16s %-5u %-30s %-16s %-8s %-10s %-8s %s\n", e->zif->ifp->name, e->vid,
-		es ? es->esi_str : "-", zebra_evpn_bpp_vrf_str(e), l3vni_str, "-",
+		es ? es->esi_str : "-", zebra_evpn_bpp_vrf_str(e), l3vni_str, group_str,
 		zebra_evpn_bpp_state_str(e->state),
 		zebra_evpn_bpp_reasons_str(e, reasons, sizeof(reasons)));
 }
@@ -808,16 +976,20 @@ static void zebra_evpn_bpp_show_entry_detail(struct vty *vty, const struct zebra
 {
 	struct zebra_evpn_es *es = e->zif->es_info.es;
 	char l3vni_str[16] = "-";
+	char group_str[16];
 	char reasons[128];
 	char age[32];
 
 	if (e->l3vni)
 		snprintfrr(l3vni_str, sizeof(l3vni_str), "%u", e->l3vni);
+	zebra_evpn_bpp_id_str(es ? es->l3_nhg_id : 0, group_str, sizeof(group_str));
 
 	vty_out(vty, "Interface: %s  VLAN: %u\n", e->zif->ifp->name, e->vid);
 	vty_out(vty, "  ESI: %s\n", es ? es->esi_str : "-");
 	vty_out(vty, "  VRF: %s  L3VNI: %s\n", zebra_evpn_bpp_vrf_str(e), l3vni_str);
-	vty_out(vty, "  Group: -\n");
+	vty_out(vty, "  Group: %s type %u channel %s\n", group_str,
+		es && es->l3_nhg_id ? NHG_ID_TYPE(es->l3_nhg_id) : 0,
+		es && es->l3_nhg_id ? zebra_evpn_mh_id_channel(es->l3_nhg_id) : "-");
 	vty_out(vty, "  State: %s  Ready: %s\n", zebra_evpn_bpp_state_str(e->state),
 		e->pending_flags ? "no" : "yes");
 	vty_out(vty, "  Reasons: %s\n", zebra_evpn_bpp_reasons_str(e, reasons, sizeof(reasons)));
@@ -938,6 +1110,10 @@ void zebra_evpn_bpp_show(struct vty *vty, const char *ifname, bool detail, bool 
 			json_object_boolean_add(json_if, "bound", zebra_evpn_bpp_if_bound(bif));
 			json_object_int_add(json_if, "memberCount",
 					    zebra_evpn_bpp_member_count(bif));
+			if (es && es->l3_nhg_id)
+				zebra_evpn_bpp_json_id(json_if, "groupId", es->l3_nhg_id);
+			json_object_int_add(json_if, "idChannelErrors",
+					    zmh_info ? zmh_info->bpp_id_err : 0);
 			json_vlans = json_object_new_object();
 			json_object_object_add(json_if, "vlans", json_vlans);
 			json_object_object_add(json, e->zif->ifp->name, json_if);
@@ -994,6 +1170,8 @@ static json_object *zebra_evpn_bpp_json_member(const struct zebra_evpn_bpp_peer 
 	json_object_string_add(json_m, "family", zebra_evpn_bpp_family_str(&peer->vtep));
 	json_object_string_add(json_m, "rmac", mac_buf);
 	json_object_string_add(json_m, "type", zebra_evpn_bpp_type_str(peer->type));
+	if (peer->nh_id)
+		zebra_evpn_bpp_json_id(json_m, "nhId", peer->nh_id);
 	return json_m;
 }
 
@@ -1040,6 +1218,10 @@ static void zebra_evpn_bpp_show_member_es(struct vty *vty, json_object *json,
 		json_object_string_add(json_es, "state", state_str);
 		json_object_boolean_add(json_es, "bound", zebra_evpn_bpp_if_bound(bif));
 		json_object_int_add(json_es, "vlanCount", count);
+		if (es->l3_nhg_id)
+			zebra_evpn_bpp_json_id(json_es, "groupId", es->l3_nhg_id);
+		json_object_int_add(json_es, "idChannelErrors",
+				    zmh_info ? zmh_info->bpp_id_err : 0);
 		json_vrfs = json_object_new_array();
 		for (i = 0; i < nvrfs; i++)
 			json_array_string_add(json_vrfs, vrf_id_to_name(vrfs[i]));
@@ -1067,8 +1249,9 @@ static void zebra_evpn_bpp_show_member_es(struct vty *vty, json_object *json,
 				snprintfrr(vni_str, sizeof(vni_str), "%u", evi->l3vni);
 				strlcat(evis_str, vni_str, sizeof(evis_str));
 			}
-		vty_out(vty, "ESI %s  Interface %s  Group -  State %s\n", es->esi_str,
-			zif->ifp->name, state_str);
+		vty_out(vty, "ESI %s  Interface %s  Group %s  State %s\n", es->esi_str,
+			zif->ifp->name,
+			zebra_evpn_bpp_id_str(es->l3_nhg_id, vni_str, sizeof(vni_str)), state_str);
 		vty_out(vty, "  VLANs: %zu   VRFs: %s\n", count, nvrfs ? vrfs_str : "-");
 		vty_out(vty, "  ES-EVI L3VNIs: %s\n", evis_str[0] ? evis_str : "-");
 		vty_out(vty, "  %-11s %-40s %-7s %s\n", "NH-ID", "VTEP", "Family", "RMAC");
@@ -1076,8 +1259,10 @@ static void zebra_evpn_bpp_show_member_es(struct vty *vty, json_object *json,
 			char vtep_buf[IPADDR_STRING_SIZE];
 
 			ipaddr2str(&peers[i]->vtep, vtep_buf, sizeof(vtep_buf));
-			vty_out(vty, "  %-11s %-40s %-7s %pEA\n", "-", vtep_buf,
-				zebra_evpn_bpp_family_str(&peers[i]->vtep), &peers[i]->rmac);
+			vty_out(vty, "  %-11s %-40s %-7s %pEA\n",
+				zebra_evpn_bpp_id_str(peers[i]->nh_id, vni_str, sizeof(vni_str)),
+				vtep_buf, zebra_evpn_bpp_family_str(&peers[i]->vtep),
+				&peers[i]->rmac);
 		}
 		vty_out(vty, "\n");
 	}
@@ -1121,6 +1306,7 @@ void zebra_evpn_bpp_show_member(struct vty *vty, const esi_t *esi, bool uj)
 void zebra_evpn_bpp_init(void)
 {
 	zebra_evpn_bpp_if_hash_init(&bpp_if_hash);
+	zebra_evpn_bpp_nh_hash_init(&bpp_nh_hash);
 	bpp_inited = true;
 }
 
@@ -1142,5 +1328,6 @@ void zebra_evpn_bpp_terminate(void)
 		zebra_evpn_bpp_if_free(bif);
 	}
 	zebra_evpn_bpp_if_hash_fini(&bpp_if_hash);
+	zebra_evpn_bpp_nh_hash_fini(&bpp_nh_hash);
 	bpp_inited = false;
 }
