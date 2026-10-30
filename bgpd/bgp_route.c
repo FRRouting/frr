@@ -9623,7 +9623,10 @@ void bgp_static_delete(struct bgp *bgp)
 					assert(rm);
 				}
 
-				bgp_table_unlock(table);
+				bgp_table_finish(&table);
+				bgp_dest_set_bgp_table_info(dest, NULL);
+				dest = bgp_dest_unlock_node(dest);
+				assert(dest);
 			} else {
 				bgp_static = bgp_dest_get_bgp_static_info(dest);
 				bgp_static_withdraw(bgp,
