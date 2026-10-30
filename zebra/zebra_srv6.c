@@ -1530,7 +1530,11 @@ static bool alloc_srv6_sid_func_explicit(struct zebra_srv6_sid_block *block,
 			uint32_t elib_end = format->config.usid.elib_end;
 			uint32_t wlib_start = format->config.usid.wlib_start;
 			uint32_t wlib_end = format->config.usid.wlib_end;
-			uint32_t ewlib_start = format->config.usid.ewlib_start;
+			/*
+			 * The Wide LIB is indexed relative to wlib_start, so the EWLIB
+			 * range must not start below it
+			 */
+			uint32_t ewlib_start = MAX(format->config.usid.ewlib_start, wlib_start);
 			uint32_t ewlib_end = wlib_end;
 			uint32_t *sid_wide_func_ptr = NULL;
 
@@ -2187,7 +2191,11 @@ static bool release_srv6_sid_func_explicit(struct zebra_srv6_sid_block *block,
 			uint32_t elib_start = format->config.usid.elib_start;
 			uint32_t elib_end = format->config.usid.elib_end;
 			uint32_t wlib_start = format->config.usid.wlib_start;
-			uint32_t ewlib_start = format->config.usid.ewlib_start;
+			/*
+			 * The Wide LIB is indexed relative to wlib_start, so the EWLIB
+			 * range must not start below it
+			 */
+			uint32_t ewlib_start = MAX(format->config.usid.ewlib_start, wlib_start);
 			uint32_t ewlib_end = format->config.usid.wlib_end;
 			uint32_t *sid_wide_func_ptr = NULL;
 
