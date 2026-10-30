@@ -649,8 +649,12 @@ static void stream_put_bgp_aigp_tlv_metric(struct stream *s, uint64_t aigp)
 static void bgp_packet_aigp_attribute(struct stream *s, uint8_t flags, const struct attr *attr)
 {
 	struct bgp_aigp_tlvs *tlvs = bgp_attr_get_aigp_tlvs(attr);
-	size_t len = BGP_AIGP_TLV_METRIC_LEN * tlvs->count;
+	size_t len;
 
+	if (!tlvs || !tlvs->count)
+		return;
+
+	len = BGP_AIGP_TLV_METRIC_LEN * tlvs->count;
 	if (len > 255)
 		SET_FLAG(flags, BGP_ATTR_FLAG_EXTLEN);
 
