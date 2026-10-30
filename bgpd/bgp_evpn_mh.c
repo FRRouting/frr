@@ -4203,7 +4203,6 @@ static void bgp_evpn_ip_ead_evi_deref(struct bgp_evpn_es_vrf_vtep *vtep)
 		UNSET_FLAG(vtep->flags, BGP_EVPN_ES_VRF_VTEP_IP_EAD_EVI);
 		memset(&vtep->rmac, 0, sizeof(vtep->rmac));
 	}
-	bgp_evpn_es_vrf_vtep_try_free(vtep);
 }
 
 static void bgp_evpn_ip_ead_es_ref(struct bgp_evpn_es_vrf_vtep *vtep)
@@ -4218,7 +4217,6 @@ static void bgp_evpn_ip_ead_es_deref(struct bgp_evpn_es_vrf_vtep *vtep)
 		return;
 	if (--vtep->es_ref == 0)
 		UNSET_FLAG(vtep->flags, BGP_EVPN_ES_VRF_VTEP_IP_EAD_ES);
-	bgp_evpn_es_vrf_vtep_try_free(vtep);
 }
 
 /* True if this VTEP is ours: the EVPN instance originator, or a local ES. */
@@ -4293,6 +4291,7 @@ void bgp_evpn_ip_ead_process(struct bgp *bgp_vrf, struct prefix_evpn *evp,
 		else
 			bgp_evpn_ip_ead_es_deref(vtep);
 		bgp_evpn_es_l3_vtep_re_eval(es, &vtep_ip);
+		bgp_evpn_es_vrf_vtep_try_free(vtep);
 		return;
 	}
 

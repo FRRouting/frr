@@ -3372,6 +3372,169 @@ def _expect_replay(router, after, tables, msg):
     return _replay_events(router, after)
 
 
+SCALE_VRFS = (
+    ("vrf-a", 1001, 4001),
+    ("vrf-b", 1002, 4002),
+    ("vrf-c", 1003, 4003),
+    ("vrf-d", 1004, 4004),
+)
+SCALE_ES_COUNT = 8
+
+
+def _scale_es_name(index):
+    return "bpp%d" % index
+
+
+def _scale_es_id(index):
+    return "03:44:38:39:aa:00:%02x:00:00:%02x" % (index, index)
+
+
+def _scale_es_mac(index):
+    return "44:38:39:aa:00:%02x" % index
+
+
+def _scale_vid(index, vrf_index):
+    return 100 + ((index - 1) * len(SCALE_VRFS)) + vrf_index
+
+
+def _scale_vrf_add(router, vrf, table, l3vni):
+    asn = 65000 + TORS.index(router.name) + 1
+
+    add_l3vni_dataplane(router, vrf, table, l3vni)
+    router.vtysh_cmd(
+        "configure terminal\nvrf %s\nvni %d\nexit-vrf\n"
+        "router bgp %d vrf %s\nbgp router-id %s\n"
+        "address-family ipv4 unicast\nredistribute connected\n"
+        "address-family l2vpn evpn\nadvertise ipv4 unicast"
+        % (vrf, l3vni, asn, vrf, tor_lo(router.name))
+    )
+
+
+def _scale_vrf_del(router, vrf, l3vni):
+    asn = 65000 + TORS.index(router.name) + 1
+
+    router.vtysh_cmd(
+        "configure terminal\nno router bgp %d vrf %s\n"
+        "vrf %s\nno vni %d\nexit-vrf\nno vrf %s"
+        % (asn, vrf, vrf, l3vni, vrf)
+    )
+    router.run("ip link del dev vlan%d" % l3vni)
+    router.run("ip link del dev vni%d" % l3vni)
+    router.run("ip link del dev %s" % vrf)
+    router.run("/sbin/bridge vlan del vid %d dev br_default self" % l3vni)
+
+
+def _scale_dataplane_add(router):
+    for vrf, table, l3vni in SCALE_VRFS[2:]:
+        _scale_vrf_add(router, vrf, table, l3vni)
+
+    for index in range(1, SCALE_ES_COUNT + 1):
+        bond = _scale_es_name(index)
+        peer = "%sp" % bond
+        far = "%sq" % bond
+
+        router.run("ip link add dev %s type bond mode active-backup" % bond)
+        router.run("ip link set dev %s address %s" % (bond, _scale_es_mac(index)))
+        router.run("ip link add dev %s type veth peer name %s" % (peer, far))
+        router.run("ip link set dev %s master %s" % (peer, bond))
+        router.run("ip link set dev %s up" % far)
+        router.run("ip link set dev %s up" % peer)
+        router.run("ip link set dev %s up" % bond)
+        router.run("ip link set dev %s master br_default" % bond)
+        router.run("/sbin/bridge vlan del vid 1 dev %s" % bond)
+
+        for vrf_index, (vrf, _, _) in enumerate(SCALE_VRFS, 1):
+            vid = _scale_vid(index, vrf_index)
+            router.run("/sbin/bridge vlan add vid %d dev br_default self" % vid)
+            router.run(
+                "ip link add link br_default name vlan%d type vlan id %d"
+                % (vid, vid)
+            )
+            router.run("ip link set dev vlan%d master %s" % (vid, vrf))
+            router.run("ip link set dev vlan%d up" % vid)
+            router.run("/sbin/bridge vlan add vid %d dev %s" % (vid, bond))
+
+    config = ["configure terminal"]
+    for index in range(1, SCALE_ES_COUNT + 1):
+        config.extend(
+            (
+                "interface %s" % _scale_es_name(index),
+                "evpn mh es-id %d" % index,
+                "evpn mh es-sys-mac %s" % _scale_es_mac(index),
+                "evpn mh bridge-port-protection",
+            )
+        )
+    router.vtysh_cmd("\n".join(config))
+
+
+def _scale_dataplane_del(router):
+    config = ["configure terminal"]
+    for index in range(1, SCALE_ES_COUNT + 1):
+        config.extend(
+            (
+                "interface %s" % _scale_es_name(index),
+                "no evpn mh bridge-port-protection",
+                "no evpn mh es-id",
+            )
+        )
+    router.vtysh_cmd("\n".join(config))
+
+    for index in range(1, SCALE_ES_COUNT + 1):
+        bond = _scale_es_name(index)
+        for vrf_index in range(1, len(SCALE_VRFS) + 1):
+            vid = _scale_vid(index, vrf_index)
+            router.run("ip link del dev vlan%d" % vid)
+            router.run("/sbin/bridge vlan del vid %d dev br_default self" % vid)
+        router.run("ip link del dev %s" % bond)
+        router.run("ip link del dev %sp" % bond)
+        router.vtysh_cmd("configure terminal\nno interface %s" % bond)
+
+    for vrf, _, l3vni in reversed(SCALE_VRFS[2:]):
+        _scale_vrf_del(router, vrf, l3vni)
+
+
+def _expect_scale_export(router, peers, msg):
+    esis = {_scale_es_id(index) for index in range(1, SCALE_ES_COUNT + 1)}
+
+    def _check():
+        output = _export(router)
+        errors = bpp_export_check(output)
+        if errors:
+            return errors
+        tables = output.get("tables") or {}
+        members = tables.get("members") or {}
+        groups = tables.get("groups") or {}
+        bindings = tables.get("bindings") or {}
+        if len(members) != len(peers):
+            return "member VTEPs %s want %s" % (
+                {member.get("vtep") for member in members.values()},
+                set(peers),
+            )
+        if len(groups) != SCALE_ES_COUNT:
+            return "groups %d want %d" % (len(groups), SCALE_ES_COUNT)
+        if len(bindings) != SCALE_ES_COUNT:
+            return "bindings %d want %d" % (len(bindings), SCALE_ES_COUNT)
+        if {group.get("esi") for group in groups.values()} != esis:
+            return "Group ESIs %s want %s" % (
+                {group.get("esi") for group in groups.values()},
+                esis,
+            )
+        for group in groups.values():
+            got = {member.get("vtep") for member in group.get("members", [])}
+            if got != set(peers):
+                return "Group %s peers %s want %s" % (
+                    group.get("esi"),
+                    got,
+                    set(peers),
+                )
+        return None
+
+    _, result = topotest.run_and_expect(
+        _check, None, count=WAIT_COUNT, wait=WAIT_STEP
+    )
+    assert result is None, "%s: %s" % (msg, result)
+
+
 def test_bpp_dplane_emit():
     tgen = get_topogen()
     if tgen.routers_have_failure():
@@ -3913,6 +4076,94 @@ def test_bpp_config_reload():
 
     _set_bpp(tor1, False)
     _clear_ip_ead(tor2)
+
+
+def test_bpp_scale():
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    tor1 = tgen.gears["tor1"]
+    peers = tuple(tor_vtep(name) for name in TORS if name != "tor1")
+
+    try:
+        for name in TORS:
+            _scale_dataplane_add(tgen.gears[name])
+
+        expected = {}
+        for index in range(1, SCALE_ES_COUNT + 1):
+            vlans = {}
+            for vrf_index, (vrf, _, l3vni) in enumerate(SCALE_VRFS, 1):
+                vlans[str(_scale_vid(index, vrf_index))] = {
+                    "vrf": vrf,
+                    "l3vni": l3vni,
+                    "state": "ACTIVE",
+                    "ready": True,
+                    "reasons": ["__ordered__"],
+                }
+            expected[_scale_es_name(index)] = {
+                "esi": _scale_es_id(index),
+                "bound": True,
+                "vlans": vlans,
+            }
+
+        _expect_entries(tor1, expected, "32 protected VLANs across 8 ESes")
+        _expect_scale_export(tor1, peers, "8 Groups with 3 peers")
+        before = _export(tor1)
+        binding_adds = (before.get("counters") or {}).get("bindingAdd")
+        bindings = (before.get("tables") or {}).get("bindings")
+
+        marker = _export_marker(tor1)
+        config = ["configure terminal"]
+        for index in range(1, SCALE_ES_COUNT + 1):
+            config.extend(
+                (
+                    "interface %s" % _scale_es_name(index),
+                    "no evpn mh bridge-port-protection",
+                )
+            )
+        tgen.gears["tor4"].vtysh_cmd("\n".join(config))
+
+        remaining = tuple(tor_vtep(name) for name in ("tor2", "tor3"))
+        _expect_scale_export(tor1, remaining, "peer churn withdrawal")
+        after = _export(tor1)
+        assert (after.get("tables") or {}).get("bindings") == bindings
+        assert (after.get("counters") or {}).get("bindingAdd") == binding_adds
+        assert not any(
+            op == "BR_PORT_UPDATE" for op, _ in _export_events(tor1, marker)
+        )
+
+        marker = _export_marker(tor1)
+        config = ["configure terminal"]
+        for index in range(1, SCALE_ES_COUNT + 1):
+            config.extend(
+                (
+                    "interface %s" % _scale_es_name(index),
+                    "evpn mh bridge-port-protection",
+                )
+            )
+        tgen.gears["tor4"].vtysh_cmd("\n".join(config))
+
+        _expect_scale_export(tor1, peers, "peer churn restoration")
+        after = _export(tor1)
+        assert (after.get("tables") or {}).get("bindings") == bindings
+        assert (after.get("counters") or {}).get("bindingAdd") == binding_adds
+        assert not any(
+            op == "BR_PORT_UPDATE" for op, _ in _export_events(tor1, marker)
+        )
+    finally:
+        for name in TORS:
+            _scale_dataplane_del(tgen.gears[name])
+
+    _expect_entries(tor1, {}, "scale entries removed")
+    _expect_export_clean(
+        tor1,
+        "scale exports removed",
+        members=0,
+        groups=0,
+        bindings=0,
+        released=True,
+    )
 
 
 def test_bpp_fpm_kernel_disjoint():
