@@ -534,7 +534,8 @@ struct stream *bpacket_reformat_for_peer(struct bpacket *pkt,
 			}
 		}
 
-		if (IS_MAPPED_IPV6(&peer->nexthop.v6_global)) {
+		if (IS_MAPPED_IPV6(&peer->nexthop.v6_global) &&
+		    !peer_af_flag_check(peer, paf->afi, paf->safi, PEER_FLAG_NEXTHOP_UNCHANGED)) {
 			mod_v6nhg = &peer->nexthop.v6_global;
 			gnh_modified = 1;
 		}

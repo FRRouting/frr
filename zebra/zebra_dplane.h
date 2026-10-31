@@ -234,6 +234,11 @@ enum dplane_op_e {
 	/* EVPN-MH FDB (L2) nexthop update */
 	DPLANE_OP_NH_FDB_INSTALL,
 	DPLANE_OP_NH_FDB_DELETE,
+
+	/* EVPN-MH protection Member / Group / replay (FPM only) */
+	DPLANE_OP_EVPN_MH_NH_UPDATE,
+	DPLANE_OP_EVPN_MH_NHG_UPDATE,
+	DPLANE_OP_EVPN_MH_REPLAY_DONE,
 };
 
 /* Operational status of Bridge Ports */
@@ -723,6 +728,27 @@ const struct ipaddr *dplane_ctx_get_fdb_nh_vtep_ip(const struct zebra_dplane_ctx
 const struct nh_grp *dplane_ctx_get_fdb_nh_grp(const struct zebra_dplane_ctx *ctx);
 uint16_t dplane_ctx_get_fdb_nh_grp_count(const struct zebra_dplane_ctx *ctx);
 
+/* Protection Group Member list; FPM frame cap from the shared header. */
+#define EVPN_MH_NHG_MAX_MEMBERS 510
+
+struct dplane_evpn_mh_member {
+	uint32_t nh_id;
+	uint8_t type;
+	struct ipaddr vtep;
+	struct ethaddr rmac;
+};
+
+bool dplane_ctx_get_evpn_mh_is_del(const struct zebra_dplane_ctx *ctx);
+uint32_t dplane_ctx_get_evpn_mh_nh_id(const struct zebra_dplane_ctx *ctx);
+uint8_t dplane_ctx_get_evpn_mh_nh_type(const struct zebra_dplane_ctx *ctx);
+const struct ipaddr *dplane_ctx_get_evpn_mh_vtep(const struct zebra_dplane_ctx *ctx);
+const struct ethaddr *dplane_ctx_get_evpn_mh_rmac(const struct zebra_dplane_ctx *ctx);
+uint32_t dplane_ctx_get_evpn_mh_nhg_id(const struct zebra_dplane_ctx *ctx);
+const esi_t *dplane_ctx_get_evpn_mh_esi(const struct zebra_dplane_ctx *ctx);
+uint32_t dplane_ctx_get_evpn_mh_member_count(const struct zebra_dplane_ctx *ctx);
+const struct dplane_evpn_mh_member *
+dplane_ctx_get_evpn_mh_members(const struct zebra_dplane_ctx *ctx);
+
 /* Accessors for LSP information */
 
 /* Init the internal LSP data struct - necessary before adding to it.
@@ -1181,6 +1207,18 @@ enum zebra_dplane_result dplane_nhg_fdb_add(uint32_t nhg_id, uint32_t nh_cnt,
 					    const struct nh_grp *nh_ids);
 /* Deletes are id-only and shared by the single-nexthop and group cases. */
 enum zebra_dplane_result dplane_nh_fdb_del(uint32_t id);
+
+/*
+ * Enqueue EVPN-MH protection Member / Group / replay-done operations.
+ * Kernel and dplane_fpm_nl ignore them; dplane_fpm_sonic encodes them.
+ */
+enum zebra_dplane_result dplane_evpn_mh_nh_update(bool is_del, uint32_t nh_id, uint8_t type,
+						  const struct ipaddr *vtep,
+						  const struct ethaddr *rmac);
+enum zebra_dplane_result dplane_evpn_mh_nhg_update(bool is_del, uint32_t nhg_id, const esi_t *esi,
+						   uint32_t member_count,
+						   const struct dplane_evpn_mh_member *members);
+enum zebra_dplane_result dplane_evpn_mh_replay_done(void);
 
 /*
  * Enqueue evpn neighbor updates for the dataplane.

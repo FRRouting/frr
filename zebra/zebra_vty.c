@@ -44,6 +44,7 @@
 #include "zebra/zebra_pbr.h"
 #include "zebra/zebra_nhg.h"
 #include "zebra/zebra_evpn_mh.h"
+#include "zebra/zebra_evpn_bpp.h"
 #include "zebra/interface.h"
 #include "northbound_cli.h"
 #include "zebra/zebra_nb.h"
@@ -3041,6 +3042,70 @@ DEFPY(show_evpn_es_peer, show_evpn_es_peer_cmd,
 	return CMD_SUCCESS;
 }
 
+DEFPY(show_evpn_mh_bpp, show_evpn_mh_bpp_cmd,
+      "show evpn mh bridge-port-protection [interface IFNAME$ifname] [detail$detail] [json$json]",
+      SHOW_STR
+      "EVPN\n"
+      "Multihoming\n"
+      "Bridge-port protection entries\n"
+      "Interface\n"
+      "ES interface name\n"
+      "Detailed information\n"
+      JSON_STR)
+{
+	zebra_evpn_bpp_show(vty, ifname, !!detail, !!json);
+
+	return CMD_SUCCESS;
+}
+
+DEFPY(show_evpn_mh_bpp_export, show_evpn_mh_bpp_export_cmd,
+      "show evpn mh bridge-port-protection export [json$json]",
+      SHOW_STR
+      "EVPN\n"
+      "Multihoming\n"
+      "Bridge-port protection entries\n"
+      "Exported Members, Groups and Bindings\n"
+      JSON_STR)
+{
+	zebra_evpn_bpp_show_export(vty, !!json);
+
+	return CMD_SUCCESS;
+}
+
+DEFPY_HIDDEN(clear_evpn_mh_bpp_replay, clear_evpn_mh_bpp_replay_cmd,
+	     "clear evpn mh bridge-port-protection replay",
+	     CLEAR_STR
+	     "EVPN\n"
+	     "Multihoming\n"
+	     "Bridge-port protection entries\n"
+	     "Re-enqueue exported objects and REPLAY_DONE\n")
+{
+	zebra_evpn_bpp_replay();
+
+	return CMD_SUCCESS;
+}
+
+DEFPY(show_evpn_mh_bpp_member, show_evpn_mh_bpp_member_cmd,
+      "show evpn mh bridge-port-protection member [NAME$esi_str] [json$json]",
+      SHOW_STR
+      "EVPN\n"
+      "Multihoming\n"
+      "Bridge-port protection entries\n"
+      "Protected ES and their backup Members\n"
+      "ES ID\n"
+      JSON_STR)
+{
+	esi_t esi;
+
+	if (esi_str && !str_to_esi(esi_str, &esi)) {
+		vty_out(vty, "%% Malformed ESI\n");
+		return CMD_WARNING;
+	}
+	zebra_evpn_bpp_show_member(vty, esi_str ? &esi : NULL, !!json);
+
+	return CMD_SUCCESS;
+}
+
 DEFPY(show_evpn_es_evi,
       show_evpn_es_evi_cmd,
       "show evpn es-evi [vni (1-16777215)$vni] [detail$detail] [json$json]",
@@ -4375,6 +4440,10 @@ void zebra_vty_init(void)
 	install_element(VIEW_NODE, &show_evpn_l2_nh_cmd);
 	install_element(VIEW_NODE, &show_evpn_es_cmd);
 	install_element(VIEW_NODE, &show_evpn_es_peer_cmd);
+	install_element(VIEW_NODE, &show_evpn_mh_bpp_cmd);
+	install_element(VIEW_NODE, &show_evpn_mh_bpp_member_cmd);
+	install_element(VIEW_NODE, &show_evpn_mh_bpp_export_cmd);
+	install_element(ENABLE_NODE, &clear_evpn_mh_bpp_replay_cmd);
 	install_element(VIEW_NODE, &show_evpn_es_evi_cmd);
 	install_element(VIEW_NODE, &show_evpn_access_vlan_cmd);
 	install_element(VIEW_NODE, &show_evpn_rmac_vni_mac_cmd);
