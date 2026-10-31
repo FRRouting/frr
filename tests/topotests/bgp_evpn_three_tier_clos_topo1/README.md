@@ -377,8 +377,34 @@ peer checks.
     - Removes the password and confirms the dynamic neighbor re-establishes
     - Validates the fix for stale per-peer TCP MD5 entry on the listen socket
 
+### Downstream VNI Import Tests
+A downstream VNI is an EVPN Type-5 whose VNI is not the hub VRF's L3VNI.
+`tor-21` originates it on the existing SVD (`vxlan48`). `bordertor-11`
+imports `*:VNI` into `vrf1` (L3VNI 104001). `tor-21`'s ASN does not fit in a
+2-octet route target with a 24-bit VNI, so the import is a wildcard and
+`auto-route-target import add-always` is required. Both tests remove the
+VRFs, routes, and VLAN they add before the next test runs.
+
+14. **test_import_vrf_preserves_dvni_label()** - Keep a downstream VNI across `import vrf` when the destination also has an L3VNI
+    - IPv4 underlay only
+    - `tor-21` originates `203.0.120.0/24` with VNI 900000 (VLAN 900) in `tenant_dvni`
+    - `bordertor-11` imports it into `vrf1`, then leaks it into `vrf2` (L3VNI 104002)
+    - The hub and destination keep label and kernel encap 900000 on `vxlan48`
+    - A non-EVPN blackhole, `203.0.121.0/24`, leaked on the same path stays unlabeled
+
+15. **test_import_vrf_leaked_dvni_without_dest_l3vni()** - Install a leaked downstream VNI when the destination VRF has no L3VNI
+    - Runs for both the IPv4 and IPv6 underlay
+    - `tor-21` originates `203.0.130.0/24` and `2001:db8:130::/64` with VNI 900001 (VLAN 901) in `tenant_nol3`
+    - `bordertor-11` imports both into `vrf1`, then leaks them into `vrf_nol3`, which is created with no VNI
+    - VNI 900001 is not configured on `bordertor-11`, so zebra borrows `vrf1`'s SVD instead of a destination L3VNI
+    - Each prefix is checked in order: BGP unicast RIB, zebra label 900001 on `vxlan48` toward `tor-21`'s VTEP, then kernel encap 900001
+    - An IPv6 route whose underlay VTEP is IPv4 matches zebra's IPv4-mapped form `::ffff:a.b.c.d`
+    - Labels 104001 and 104002 must not appear
+    - Non-EVPN blackholes `203.0.131.0/24` and `2001:db8:131::/64` stay unlabeled and have no kernel VXLAN id
+    - Uses `evpn_verify_imported_route()`, `evpn_verify_bgp_vrf_l3vni()`, and `evpn_verify_bgp_vrf_absent()` from `lib/evpn.py`
+
 ### Memory and Cleanup
-14. **test_memory_leak()** - Memory leak detection
+16. **test_memory_leak()** - Memory leak detection
 
 ## Generic EVPN Library Functions
 
@@ -436,6 +462,30 @@ This test utilizes generic, reusable EVPN helper functions located in `tests/top
     - Triggers ARP/NDP requests from hosts using Scapy
     - Populates MAC address tables for EVPN Type-2 route advertisement
 
+### Imported and Leaked Route Verification
+12. **`evpn_verify_bgp_vrf_l3vni(router, vrf, expected_l3vni)`**
+    - Reads `show bgp vrfs {vrf} json`
+    - `expected_l3vni` is `0` when the VRF must not have an L3VNI
+
+13. **`evpn_verify_bgp_vrf_absent(router, vrf)`**
+    - Returns success once `vrf` is gone from `show bgp vrfs`
+
+14. **`evpn_verify_vrf_route_labels(router, vrf, route, expected_labels, expected_interface, forbidden_labels)`**
+    - Checks the selected zebra VRF route from `show ip/ipv6 route vrf {vrf} {route} json`
+    - An empty `expected_labels` requires an unlabeled nexthop
+
+15. **`evpn_verify_vrf_route_nexthops(router, vrf, route, expected_ips, forbidden_labels)`**
+    - Checks nexthop addresses on that zebra route
+    - An IPv4 VTEP matches zebra's IPv4-mapped IPv6 form `::ffff:a.b.c.d`
+
+16. **`evpn_verify_kernel_encap_vni(router, vrf, route, expected_vni, expected_dev)`**
+    - Walks `ip -4/-6 -j route show` to the nexthop id, then `ip -j nexthop get id`
+    - `expected_vni=None` requires no VXLAN encapsulation id
+
+17. **`evpn_verify_imported_route(...)`**
+    - Runs the BGP unicast, zebra label, optional nexthop, and kernel encap checks in that order
+    - Returns the first miss so `topotest.run_and_expect()` can wait for the whole stack
+
 **Benefits:**
 - ✅ Reusable across all EVPN topotests
 - ✅ Consistent error messages and logging
@@ -465,6 +515,7 @@ This test utilizes generic, reusable EVPN helper functions located in `tests/top
   coverage on bordertor-11 for present and absent Type-5 prefixes
 - **Dynamic BGP Neighbor:** ext-21 tests `bgp listen range` in VRF RED (IPv4 only)
 - **Symmetric IRB:** Inter-subnet routing with L3VNI encapsulation
+- **Downstream VNI import:** A Type-5 whose VNI is not the hub L3VNI keeps that VNI on `vxlan48` when leaked, including into a VRF that has no L3VNI
 - **Multi-tenancy:** Separate VRFs (vrf1, vrf2) with independent routing tables
 - **Head-end Replication (HREP):** BUM traffic handling via HREP entries
 - **Router MAC (RMAC):** Inter-VNI routing MAC learning
