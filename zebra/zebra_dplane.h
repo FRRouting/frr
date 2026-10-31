@@ -43,6 +43,8 @@ struct zebra_dplane_info {
 	int sock;
 	int seq;
 	bool is_cmd;
+	/* Netlink port ID captured for message encoding. */
+	uint32_t nlmsg_pid;
 #endif
 };
 
@@ -58,9 +60,11 @@ zebra_dplane_info_from_zns(struct zebra_dplane_info *zns_info,
 	if (is_cmd) {
 		zns_info->sock = zns->netlink_cmd.sock;
 		zns_info->seq = zns->netlink_cmd.seq;
+		zns_info->nlmsg_pid = zns->netlink_cmd.snl.nl_pid;
 	} else {
 		zns_info->sock = zns->netlink_dplane_in.sock;
 		zns_info->seq = zns->netlink_dplane_in.seq;
+		zns_info->nlmsg_pid = zns->netlink_dplane_in.snl.nl_pid;
 	}
 #endif /* NETLINK */
 }
@@ -1012,6 +1016,8 @@ void dplane_ctx_set_netconf_linkdown(struct zebra_dplane_ctx *ctx,
 const struct zebra_dplane_info *dplane_ctx_get_ns(
 	const struct zebra_dplane_ctx *ctx);
 int dplane_ctx_get_ns_sock(const struct zebra_dplane_ctx *ctx);
+/* Netlink port ID captured when the context was initialized. */
+uint32_t dplane_ctx_get_nl_pid(const struct zebra_dplane_ctx *ctx);
 
 /* Indicates zebra shutdown/exit is in progress. Some operations may be
  * simplified or skipped during shutdown processing.
