@@ -266,12 +266,28 @@ const struct frr_yang_module_info frr_isisd_info = {
 			.xpath = "/frr-isisd:isis/instance/area-password/password",
 			.cbs = {
 				.modify = isis_instance_area_password_password_modify,
+				.destroy = isis_instance_area_password_password_destroy,
 			},
 		},
 		{
 			.xpath = "/frr-isisd:isis/instance/area-password/password-type",
 			.cbs = {
 				.modify = isis_instance_area_password_password_type_modify,
+				.destroy = isis_instance_area_password_password_type_destroy,
+			},
+		},
+		{
+			.xpath = "/frr-isisd:isis/instance/area-password/key-chain",
+			.cbs = {
+				.modify = isis_instance_area_password_key_chain_modify,
+				.destroy = isis_instance_area_password_key_chain_destroy,
+			},
+		},
+		{
+			.xpath = "/frr-isisd:isis/instance/area-password/strict-rfc5310",
+			.cbs = {
+				.modify = isis_instance_area_password_strict_rfc5310_modify,
+				.destroy = isis_instance_area_password_strict_rfc5310_destroy,
 			},
 		},
 		{
@@ -293,12 +309,28 @@ const struct frr_yang_module_info frr_isisd_info = {
 			.xpath = "/frr-isisd:isis/instance/domain-password/password",
 			.cbs = {
 				.modify = isis_instance_domain_password_password_modify,
+				.destroy = isis_instance_domain_password_password_destroy,
 			},
 		},
 		{
 			.xpath = "/frr-isisd:isis/instance/domain-password/password-type",
 			.cbs = {
 				.modify = isis_instance_domain_password_password_type_modify,
+				.destroy = isis_instance_domain_password_password_type_destroy,
+			},
+		},
+		{
+			.xpath = "/frr-isisd:isis/instance/domain-password/key-chain",
+			.cbs = {
+				.modify = isis_instance_domain_password_key_chain_modify,
+				.destroy = isis_instance_domain_password_key_chain_destroy,
+			},
+		},
+		{
+			.xpath = "/frr-isisd:isis/instance/domain-password/strict-rfc5310",
+			.cbs = {
+				.modify = isis_instance_domain_password_strict_rfc5310_modify,
+				.destroy = isis_instance_domain_password_strict_rfc5310_destroy,
 			},
 		},
 		{
@@ -1115,6 +1147,7 @@ const struct frr_yang_module_info frr_isisd_info = {
 		{
 			.xpath = "/frr-interface:lib/interface/frr-isisd:isis/password",
 			.cbs = {
+				.apply_finish = lib_interface_isis_password_apply_finish,
 				.cli_show = cli_show_ip_isis_password,
 				.create = lib_interface_isis_password_create,
 				.destroy = lib_interface_isis_password_destroy,
@@ -1124,12 +1157,28 @@ const struct frr_yang_module_info frr_isisd_info = {
 			.xpath = "/frr-interface:lib/interface/frr-isisd:isis/password/password",
 			.cbs = {
 				.modify = lib_interface_isis_password_password_modify,
+				.destroy = lib_interface_isis_password_password_destroy,
 			},
 		},
 		{
 			.xpath = "/frr-interface:lib/interface/frr-isisd:isis/password/password-type",
 			.cbs = {
 				.modify = lib_interface_isis_password_password_type_modify,
+				.destroy = lib_interface_isis_password_password_type_destroy,
+			},
+		},
+		{
+			.xpath = "/frr-interface:lib/interface/frr-isisd:isis/password/key-chain",
+			.cbs = {
+				.modify = lib_interface_isis_password_key_chain_modify,
+				.destroy = lib_interface_isis_password_key_chain_destroy,
+			},
+		},
+		{
+			.xpath = "/frr-interface:lib/interface/frr-isisd:isis/password/strict-rfc5310",
+			.cbs = {
+				.modify = lib_interface_isis_password_strict_rfc5310_modify,
+				.destroy = lib_interface_isis_password_strict_rfc5310_destroy,
 			},
 		},
 		{

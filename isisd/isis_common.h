@@ -16,6 +16,7 @@ struct isis_passwd {
 	uint8_t len;
 #define ISIS_PASSWD_TYPE_UNUSED   0
 #define ISIS_PASSWD_TYPE_CLEARTXT 1
+#define ISIS_PASSWD_TYPE_CRYPTO_AUTH 3 /* RFC 5310 */
 #define ISIS_PASSWD_TYPE_HMAC_MD5 54
 #define ISIS_PASSWD_TYPE_PRIVATE  255
 	uint8_t type;
@@ -23,7 +24,10 @@ struct isis_passwd {
 #define SNP_AUTH_SEND   0x01
 #define SNP_AUTH_RECV   0x02
 	uint8_t snp_auth;
+	/* The password, or for ISIS_PASSWD_TYPE_CRYPTO_AUTH the key chain name */
 	uint8_t passwd[255];
+	/* ISIS_PASSWD_TYPE_CRYPTO_AUTH: hash keys as RFC 5310 section 3.3 does */
+	bool strict_rfc5310;
 };
 
 /*
