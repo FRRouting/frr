@@ -1201,6 +1201,26 @@ struct bgp_dest *bgp_evpn_vni_node_lookup(const struct bgpevpn *vpn,
 	return bgp_evpn_vni_ip_node_lookup(vpn->ip_table, p, parent_pi);
 }
 
+/* True if this EVPN path is a pure-L3 (no-L2VNI) neighbor-sync RT-2: exactly
+ * two labels with an Explicit NULL in the first slot and the L3VNI in the
+ * second. The MAC+IP prefix itself is checked by the caller.
+ */
+static bool bgp_evpn_is_pure_l3_macip(struct bgp_path_info *pi)
+{
+	if (BGP_PATH_INFO_NUM_LABELS(pi) != 2)
+		return false;
+
+	if (label2vni(&pi->extra->labels->label[0]) != MPLS_LABEL_IPV4_EXPLICIT_NULL)
+		return false;
+
+	/* The second label must carry a non-zero L3VNI; reject a zero/absent
+	 * value so an out-of-spec two-label RT-2 is not mistaken for a pure-L3
+	 * neighbor-sync route. The VRF-specific L3VNI match is enforced at
+	 * install time.
+	 */
+	return label2vni(&pi->extra->labels->label[1]) != 0;
+}
+
 /*
  * Add (update) or delete MACIP from zebra.
  */
@@ -1274,6 +1294,8 @@ static enum zclient_send_status bgp_zebra_send_remote_macip(
 		stream_put(s, esi, sizeof(esi_t));
 	}
 
+	stream_putl(s, p->prefix.macip_addr.eth_tag); /* ETAG (VLAN) */
+
 	stream_putw_at(s, 0, stream_get_endp(s));
 
 	if (bgp_debug_zebra(NULL)) {
@@ -1293,6 +1315,69 @@ static enum zclient_send_status bgp_zebra_send_remote_macip(
 
 	frrtrace(5, frr_bgp, evpn_mac_ip_zsend, add, vpn, p, remote_vtep_ip,
 		 esi);
+
+	return zclient_send_message(bgp_zclient);
+}
+
+/* Program or withdraw a pure-L3 (no-L2VNI) neighbor-sync MAC/IP in zebra.
+ * There is no bgpevpn for an L3VNI, so the entry is keyed by L3VNI and the
+ * local ES becomes the aliased nexthop; zebra installs the host neighbor.
+ */
+static enum zclient_send_status bgp_evpn_l3vni_neigh_zsend(struct bgp *bgp_evpn, vni_t l3vni,
+							   const struct prefix_evpn *p, esi_t *esi,
+							   uint32_t seq, bool router, bool add)
+{
+	struct stream *s;
+	uint16_t ipa_len;
+	uint8_t flags = ZEBRA_MACIP_TYPE_L3_NEIGH_SYNC;
+	static struct ipaddr zero_nh = { .ipa_type = IPADDR_V4, .ipaddr_v4 = { INADDR_ANY } };
+
+	if (!bgp_zclient || bgp_zclient->sock < 0)
+		return ZCLIENT_SEND_SUCCESS;
+
+	if (!IS_BGP_INST_KNOWN_TO_ZEBRA(bgp_evpn))
+		return ZCLIENT_SEND_SUCCESS;
+
+	s = bgp_zclient->obuf;
+	stream_reset(s);
+
+	zclient_create_header(s, add ? ZEBRA_REMOTE_MACIP_ADD : ZEBRA_REMOTE_MACIP_DEL,
+			      bgp_evpn->vrf_id);
+	stream_putl(s, l3vni);
+
+	stream_put(s, &p->prefix.macip_addr.mac.octet, ETH_ALEN);
+
+	if (is_evpn_prefix_ipaddr_none(p))
+		stream_putw(s, 0);
+	else {
+		ipa_len = is_evpn_prefix_ipaddr_v4(p) ? IPV4_MAX_BYTELEN : IPV6_MAX_BYTELEN;
+		stream_putw(s, ipa_len);
+		stream_put(s, &p->prefix.macip_addr.ip.ip.addr, ipa_len);
+	}
+
+	/* The local ES is the nexthop, so the VTEP-IP is taped out. */
+	stream_put_ipaddr(s, &zero_nh);
+
+	if (add) {
+		if (router)
+			SET_FLAG(flags, ZEBRA_MACIP_TYPE_ROUTER_FLAG);
+		stream_putc(s, flags);
+		stream_putl(s, seq);
+		stream_put(s, esi, sizeof(esi_t));
+	}
+
+	stream_putl(s, p->prefix.macip_addr.eth_tag);
+
+	stream_putw_at(s, 0, stream_get_endp(s));
+
+	if (bgp_debug_zebra(NULL)) {
+		char esi_buf[ESI_STR_LEN];
+
+		esi_to_str(esi, esi_buf, sizeof(esi_buf));
+		zlog_debug("Tx %s L3-neigh-sync L3VNI %u MAC %pEA IP %pIA seq %u esi %s",
+			   add ? "ADD" : "DEL", l3vni, &p->prefix.macip_addr.mac,
+			   &p->prefix.macip_addr.ip, seq, esi_buf);
+	}
 
 	return zclient_send_message(bgp_zclient);
 }
@@ -4191,9 +4276,18 @@ static int is_route_matching_for_vni(struct bgp *bgp, struct bgpevpn *vpn, struc
 {
 	struct attr *attr = pi->attr;
 	struct ecommunity *ecom;
+	const struct prefix_evpn *evp = (const struct prefix_evpn *)bgp_dest_get_prefix(pi->net);
 	uint32_t i;
 
 	assert(attr);
+
+	/* Pure-L3 RT-2s never go into an L2VNI; matches
+	 * bgp_evpn_install_uninstall_table().
+	 */
+	if (evp->prefix.route_type == BGP_EVPN_MAC_IP_ROUTE && !is_evpn_prefix_ipaddr_none(evp) &&
+	    bgp_evpn_is_pure_l3_macip(pi))
+		return 0;
+
 	/* Route should have valid RT to be even considered. */
 	if (!bgp_attr_exists(attr, BGP_ATTR_EXT_COMMUNITIES))
 		return 0;
@@ -4364,6 +4458,12 @@ int bgp_evpn_route_entry_install_if_vrf_match(struct bgp *bgp_vrf,
 	      pi->sub_type == BGP_ROUTE_NORMAL))
 		return 0;
 
+	/* Pure-L3 RT-2s program synced neighbors, never VRF routes; matches
+	 * bgp_evpn_install_uninstall_table().
+	 */
+	if (evp->prefix.route_type == BGP_EVPN_MAC_IP_ROUTE && bgp_evpn_is_pure_l3_macip(pi))
+		return 0;
+
 	if (is_route_matching_for_vrf(bgp_vrf, pi)) {
 		if (bgp_evpn_route_rmac_self_check(bgp_vrf, evp, pi))
 			return 0;
@@ -4394,6 +4494,8 @@ int bgp_evpn_route_entry_install_if_vrf_match(struct bgp *bgp_vrf,
  * Install or uninstall mac-ip routes are appropriate for this
  * particular VRF.
  */
+static void bgp_evpn_l3vni_neigh_unimport_vrf(struct bgp *bgp_vrf);
+
 static int install_uninstall_routes_for_vrf(struct bgp *bgp_vrf, bool install)
 {
 	afi_t afi;
@@ -4447,6 +4549,12 @@ static int install_uninstall_routes_for_vrf(struct bgp *bgp_vrf, bool install)
 			}
 		}
 	}
+
+	/* The walk skips pure-L3 RT-2s; their synced neighbors follow the RTs too. */
+	if (install)
+		bgp_evpn_l3vni_neigh_reimport(bgp_vrf);
+	else
+		bgp_evpn_l3vni_neigh_unimport_vrf(bgp_vrf);
 
 	return 0;
 }
@@ -4897,9 +5005,159 @@ static int install_uninstall_type5_route_in_vpn_rib(struct bgp *bgp, struct pref
 	return 0;
 }
 
-/*
- * Install or uninstall route for appropriate VNIs/ESIs.
+/* A received pure-L3 (no-L2VNI) RT-2 syncs a host neighbor onto the ES peers.
+ * For each VRF that imports the route, program the neighbor into that VRF's own
+ * L3VNI when the route's ESI is a local ES and the operator opted in via
+ * advertise-all-vni l3vni-neigh; otherwise withdraw it. The knob gates only the add:
+ * a route that goes away or turns non-local must be cleared even once the
+ * operator has disabled the feature. (Bulk teardown on knob disable is done
+ * in zebra, alongside the locally-originated neighbors.)
+ *
+ * walk_gen is a per-route stamp: it dedupes VRFs reached through several RTs
+ * (e.g. an exact and a wildcard match) without an O(n^2) membership scan.
  */
+static bool bgp_evpn_l3vni_neigh_path_backs(struct bgp *bgp_vrf, const struct prefix_evpn *evp,
+					    struct bgp_path_info *tmp_pi)
+{
+	if (CHECK_FLAG(tmp_pi->flags, BGP_PATH_REMOVED))
+		return false;
+	if (!(CHECK_FLAG(tmp_pi->flags, BGP_PATH_VALID) && tmp_pi->type == ZEBRA_ROUTE_BGP &&
+	      tmp_pi->sub_type == BGP_ROUTE_NORMAL))
+		return false;
+	if (!bgp_evpn_attr_is_local_es(tmp_pi->attr))
+		return false;
+	if (!bgp_evpn_is_pure_l3_macip(tmp_pi))
+		return false;
+	/* Same rule as the install path: the path must name THIS VRF's L3VNI. */
+	if (label2vni(&tmp_pi->extra->labels->label[1]) != bgp_vrf->l3vni)
+		return false;
+	if (bgp_evpn_route_matches_macvrf_soo(tmp_pi, evp))
+		return false;
+	if (!is_route_matching_for_vrf(bgp_vrf, tmp_pi))
+		return false;
+	return true;
+}
+
+/* The zebra sync neighbor is keyed by (VRF/L3VNI, MAC, IP, ETAG) -- NOT by RD.
+ * Before withdrawing it for one path, confirm no OTHER importable pure-L3 path,
+ * under ANY RD, still backs the same key for this VRF. Scanning only the
+ * current RD-scoped destination (pi->net) would miss a valid route learned
+ * under a different RD and drop a neighbor that is still owned.
+ */
+static struct bgp_path_info *
+bgp_evpn_l3vni_neigh_other_installing_path(struct bgp *bgp_vrf, const struct prefix_evpn *evp,
+					   struct bgp_path_info *pi)
+{
+	struct bgp *bgp_evpn = bgp_get_evpn();
+	struct bgp_dest *rd_dest, *dest;
+	struct bgp_table *table;
+	struct bgp_path_info *tmp_pi;
+
+	if (!bgp_evpn)
+		return NULL;
+
+	for (rd_dest = bgp_table_top(bgp_evpn->rib[AFI_L2VPN][SAFI_EVPN]); rd_dest;
+	     rd_dest = bgp_route_next(rd_dest)) {
+		table = bgp_dest_get_bgp_table_info(rd_dest);
+		if (!table)
+			continue;
+
+		/* Same (MAC, IP, ETAG) NLRI under this RD, if any. */
+		dest = bgp_node_lookup(table, (const struct prefix *)evp);
+		if (!dest)
+			continue;
+
+		for (tmp_pi = bgp_dest_get_bgp_path_info(dest); tmp_pi; tmp_pi = tmp_pi->next) {
+			if (tmp_pi == pi)
+				continue;
+			if (bgp_evpn_l3vni_neigh_path_backs(bgp_vrf, evp, tmp_pi)) {
+				bgp_dest_unlock_node(dest);
+				bgp_dest_unlock_node(rd_dest);
+				return tmp_pi;
+			}
+		}
+		bgp_dest_unlock_node(dest);
+	}
+
+	return NULL;
+}
+
+static void bgp_evpn_l3vni_neigh_install_uninstall(struct prefix_evpn *evp,
+						   struct bgp_path_info *pi, struct list *vrfs,
+						   int install, uint32_t walk_gen)
+{
+	struct bgp *bgp_evpn = bgp_get_evpn();
+	struct bgp *bgp_vrf;
+	struct listnode *node, *nnode;
+	vni_t route_l3vni;
+	bool gates_on;
+	bool add;
+
+	if (!bgp_evpn)
+		return;
+
+	/* An ADD is authorized only while EVPN and its l3vni-neigh token are
+	 * on. A DEL (add == false) always flows so state still clears.
+	 */
+	gates_on = EVPN_ENABLED(bgp_evpn) && bgp_evpn->advertise_l3vni_neigh &&
+		   !(is_evpn_prefix_ipaddr_v6(evp) &&
+		     IN6_IS_ADDR_LINKLOCAL(&evp->prefix.macip_addr.ip.ipaddr_v6));
+	add = install && gates_on && bgp_evpn_attr_is_local_es(pi->attr);
+
+	/* Second label of a pure-L3 RT-2 carries the originator's L3VNI. */
+	route_l3vni = label2vni(&pi->extra->labels->label[1]);
+
+	for (ALL_LIST_ELEMENTS(vrfs, node, nnode, bgp_vrf)) {
+		struct bgp_path_info *src = pi;
+		bool vrf_add;
+
+		if (!bgp_vrf->l3vni)
+			continue;
+		if (bgp_vrf->l3vni_neigh_sync_walk == walk_gen)
+			continue;
+		bgp_vrf->l3vni_neigh_sync_walk = walk_gen;
+
+		/* Install only when the RT-2's second label names THIS VRF's
+		 * L3VNI; a route that matched by IP-VRF RT but carries a
+		 * different or invalid L3VNI must not program a neighbor (a DEL
+		 * still flows to clear any stale state).
+		 */
+		vrf_add = add && route_l3vni == bgp_vrf->l3vni;
+
+		/* One path's unimport must not withdraw the aggregate zebra
+		 * sync while another equivalent path (e.g. via another spine)
+		 * still backs the same (MAC, IP, ETAG) route. Zebra holds the
+		 * last ADD's ESI and R-bit, so re-send the surviving path's.
+		 */
+		if (!vrf_add) {
+			struct bgp_path_info *other;
+
+			other = bgp_evpn_l3vni_neigh_other_installing_path(bgp_vrf, evp, pi);
+			if (other) {
+				if (!gates_on)
+					continue;
+				/* Same ESI and R-bit: nothing to refresh, and a
+				 * re-ADD would override a newer key for this IP.
+				 */
+				if (!memcmp(bgp_evpn_attr_get_esi(other->attr),
+					    bgp_evpn_attr_get_esi(pi->attr), sizeof(esi_t)) &&
+				    CHECK_FLAG(other->attr->evpn_flags, ATTR_EVPN_FLAG_ROUTER) ==
+					    CHECK_FLAG(pi->attr->evpn_flags, ATTR_EVPN_FLAG_ROUTER))
+					continue;
+				src = other;
+				vrf_add = true;
+			}
+		}
+
+		bgp_evpn_l3vni_neigh_zsend(bgp_evpn, bgp_vrf->l3vni, evp,
+					   bgp_evpn_attr_get_esi(src->attr), 0,
+					   is_evpn_prefix_ipaddr_v6(evp) &&
+						   CHECK_FLAG(src->attr->evpn_flags,
+							      ATTR_EVPN_FLAG_ROUTER),
+					   vrf_add);
+	}
+}
+
 static int bgp_evpn_install_uninstall_table(struct bgp *bgp, afi_t afi, safi_t safi,
 					    const struct prefix *p, struct bgp_path_info *pi,
 					    int import, bool in_vni_rt, bool in_vrf_rt)
@@ -4909,6 +5167,8 @@ static int bgp_evpn_install_uninstall_table(struct bgp *bgp, afi_t afi, safi_t s
 	struct ecommunity *ecom;
 	uint32_t i;
 	struct prefix_evpn ad_evp;
+	bool pure_l3;
+	uint32_t sync_gen = 0;
 
 	assert(attr);
 
@@ -4942,6 +5202,22 @@ static int bgp_evpn_install_uninstall_table(struct bgp *bgp, afi_t afi, safi_t s
 
 	if (bgp_evpn_type5_route_is_vpn(evp, pi))
 		return install_uninstall_type5_route_in_vpn_rib(bgp, evp, pi, import);
+
+	/* A pure-L3 (no-L2VNI) neighbor-sync RT-2 carries no MAC/FDB state and
+	 * no host route: when a VRF import RT matches it programs a synced
+	 * neighbor in zebra rather than a VNI/VRF route.
+	 */
+	pure_l3 = evp->prefix.route_type == BGP_EVPN_MAC_IP_ROUTE &&
+		  !is_evpn_prefix_ipaddr_none(evp) && bgp_evpn_is_pure_l3_macip(pi);
+
+	if (pure_l3) {
+		static uint32_t sync_walk;
+
+		/* Advance the per-route stamp, skipping 0 (the unset value). */
+		if (++sync_walk == 0)
+			sync_walk = 1;
+		sync_gen = sync_walk;
+	}
 
 	/* An EVPN route belongs to a VNI or a VRF or an ESI based on the RTs
 	 * attached to the route */
@@ -4982,8 +5258,9 @@ static int bgp_evpn_install_uninstall_table(struct bgp *bgp, afi_t afi, safi_t s
 		    evp->prefix.route_type == BGP_EVPN_AD_ROUTE ||
 		    evp->prefix.route_type == BGP_EVPN_IP_PREFIX_ROUTE) {
 			if (evp->prefix.route_type != BGP_EVPN_IP_PREFIX_ROUTE) {
-				fq_irt = in_vni_rt ? bgp_evpn_lookup_l2vni_fq_irt_node(bgp, eval)
-						   : NULL;
+				fq_irt = (in_vni_rt && !pure_l3)
+						 ? bgp_evpn_lookup_l2vni_fq_irt_node(bgp, eval)
+						 : NULL;
 				if (fq_irt)
 					install_uninstall_route_in_vnis(bgp, afi, safi, evp, pi,
 									fq_irt->vnis, import);
@@ -4999,7 +5276,11 @@ static int bgp_evpn_install_uninstall_table(struct bgp *bgp, afi_t afi, safi_t s
 					in_vrf_rt ? bgp_evpn_lookup_vrf_fq_irt_node(bgp_get_evpn(),
 										    eval)
 						  : NULL;
-				if (vrf_fq_irt)
+				if (vrf_fq_irt && pure_l3)
+					bgp_evpn_l3vni_neigh_install_uninstall(evp, pi,
+									       vrf_fq_irt->vrfs,
+									       import, sync_gen);
+				else if (vrf_fq_irt)
 					install_uninstall_route_in_vrfs(bgp, afi, safi, evp, pi,
 									vrf_fq_irt->vrfs, import);
 			}
@@ -5013,7 +5294,7 @@ static int bgp_evpn_install_uninstall_table(struct bgp *bgp, afi_t afi, safi_t s
 			vrf_wildcard_irt = NULL;
 			if (bgp_evpn_wildcard_rt_local_admin_from_eval(type, eval,
 								       &local_admin_nbo)) {
-				if (in_vni_rt)
+				if (in_vni_rt && !pure_l3)
 					wildcard_irt =
 						bgp_evpn_lookup_l2vni_wildcard_irt_node(bgp,
 											local_admin_nbo);
@@ -5026,7 +5307,11 @@ static int bgp_evpn_install_uninstall_table(struct bgp *bgp, afi_t afi, safi_t s
 			if (wildcard_irt)
 				install_uninstall_route_in_vnis(bgp, afi, safi, evp, pi,
 								wildcard_irt->vnis, import);
-			if (vrf_wildcard_irt)
+			if (vrf_wildcard_irt && pure_l3)
+				bgp_evpn_l3vni_neigh_install_uninstall(evp, pi,
+								       vrf_wildcard_irt->vrfs,
+								       import, sync_gen);
+			else if (vrf_wildcard_irt)
 				install_uninstall_route_in_vrfs(bgp, afi, safi, evp, pi,
 								vrf_wildcard_irt->vrfs, import);
 		}
@@ -5069,6 +5354,72 @@ void bgp_evpn_import_type2_route(struct bgp_path_info *pi, int import)
 				     &pi->net->rn->p, pi, import);
 }
 
+/* Re-send the pure-L3 RT-2s (all, or only those for bgp_vrf's L3VNI) to zebra.
+ * zebra flushes their synced neighbors when l3vni-neigh is turned off or the
+ * L3VNI goes down, and no route change brings them back. Only RT-2s with a
+ * local ESI program a synced neighbor, so walk the local ESs' path lists.
+ */
+void bgp_evpn_l3vni_neigh_reimport(struct bgp *bgp_vrf)
+{
+	struct bgp *bgp_evpn = bgp_get_evpn();
+	struct listnode *es_node, *node;
+	struct bgp_evpn_es *es;
+	struct bgp_path_es_info *es_info;
+	struct bgp_path_info *pi;
+
+	if (!bgp_evpn || !bgp_evpn->advertise_l3vni_neigh)
+		return;
+	if (bgp_vrf && !bgp_vrf->l3vni)
+		return;
+
+	for (ALL_LIST_ELEMENTS_RO(bgp_mh_info->local_es_list, es_node, es)) {
+		for (ALL_LIST_ELEMENTS_RO(es->macip_global_path_list, node, es_info)) {
+			pi = es_info->pi;
+			if (!CHECK_FLAG(pi->flags, BGP_PATH_VALID) || pi->type != ZEBRA_ROUTE_BGP ||
+			    pi->sub_type != BGP_ROUTE_NORMAL || !bgp_evpn_is_pure_l3_macip(pi))
+				continue;
+			if (bgp_vrf && label2vni(&pi->extra->labels->label[1]) != bgp_vrf->l3vni)
+				continue;
+
+			bgp_evpn_import_type2_route(pi, 1);
+		}
+	}
+}
+
+/* Withdraw from zebra the synced neighbors this VRF imports. Called while the
+ * VRF's import RTs are still mapped; other VRFs' L3VNIs are left alone.
+ */
+static void bgp_evpn_l3vni_neigh_unimport_vrf(struct bgp *bgp_vrf)
+{
+	struct bgp *bgp_evpn = bgp_get_evpn();
+	struct listnode *es_node, *node;
+	struct bgp_evpn_es *es;
+	struct bgp_path_es_info *es_info;
+	struct bgp_path_info *pi;
+
+	if (!bgp_evpn || !bgp_vrf->l3vni)
+		return;
+
+	for (ALL_LIST_ELEMENTS_RO(bgp_mh_info->local_es_list, es_node, es)) {
+		for (ALL_LIST_ELEMENTS_RO(es->macip_global_path_list, node, es_info)) {
+			pi = es_info->pi;
+			if (!CHECK_FLAG(pi->flags, BGP_PATH_VALID) || pi->type != ZEBRA_ROUTE_BGP ||
+			    pi->sub_type != BGP_ROUTE_NORMAL || !bgp_evpn_is_pure_l3_macip(pi))
+				continue;
+			if (label2vni(&pi->extra->labels->label[1]) != bgp_vrf->l3vni)
+				continue;
+			if (!is_route_matching_for_vrf(bgp_vrf, pi))
+				continue;
+
+			bgp_evpn_l3vni_neigh_zsend(bgp_evpn, bgp_vrf->l3vni,
+						   (const struct prefix_evpn *)bgp_dest_get_prefix(
+							   pi->net),
+						   bgp_evpn_attr_get_esi(pi->attr), 0, false,
+						   false);
+		}
+	}
+}
+
 /*
  * delete and withdraw all ipv4 and ipv6 routes in the vrf table as type-5
  * routes
@@ -5106,6 +5457,8 @@ static void delete_withdraw_vrf_routes(struct bgp *bgp_vrf)
  * update and advertise all ipv4 and ipv6 routes in thr vrf table as type-5
  * routes
  */
+static void bgp_evpn_l3vni_local_macip_walk(struct bgp *bgp_vrf, bool withdraw);
+
 void update_advertise_vrf_routes(struct bgp *bgp_vrf)
 {
 	struct bgp *bgp_evpn = NULL; /* EVPN bgp instance */
@@ -5122,6 +5475,9 @@ void update_advertise_vrf_routes(struct bgp *bgp_vrf)
 
 	if (!is_l3vni_live(bgp_vrf))
 		return; /* Nothing to do if no l3vni */
+
+	/* Local pure-L3 RT-2s carry the VRF's RD and export RTs too. */
+	bgp_evpn_l3vni_local_macip_walk(bgp_vrf, false);
 
 	/* update all ipv4 routes */
 	if (advertise_type5_routes_bestpath(bgp_vrf, AFI_IP, SAFI_UNICAST) ||
@@ -8219,11 +8575,295 @@ void bgp_reimport_evpn_routes_upon_martian_change(
 	}
 }
 
+/* Find the VRF bgp instance that owns a given L3VNI. */
+static struct bgp *bgp_evpn_l3vni_to_bgp_vrf(vni_t l3vni)
+{
+	struct listnode *node;
+	struct bgp *bgp_vrf;
+
+	if (!l3vni)
+		return NULL;
+
+	for (ALL_LIST_ELEMENTS_RO(bm->bgp, node, bgp_vrf))
+		if (bgp_vrf->l3vni == l3vni)
+			return bgp_vrf;
+
+	return NULL;
+}
+
+/* Create or update the local pure-L3 (no-L2VNI) MAC/IP route entry in the
+ * global EVPN RIB. The route is stamped with label[0]=0 (Explicit NULL) and
+ * label[1]=L3VNI so a receiver recognizes it as a neighbor-sync RT-2.
+ */
+static int update_evpn_l3vni_macip_route_entry(struct bgp *bgp_evpn, struct bgp *bgp_vrf,
+					       struct bgp_dest *dest, struct attr *attr,
+					       int *route_changed, struct bgp_path_info **entry)
+{
+	struct attr *attr_new = NULL;
+	struct bgp_path_info *pi = NULL;
+	struct bgp_path_info *local_pi = NULL;
+	struct bgp_labels bgp_labels = {};
+	struct aspath *new_aspath;
+	struct attr static_attr = {};
+
+	*route_changed = 0;
+
+	for (local_pi = bgp_dest_get_bgp_path_info(dest); local_pi; local_pi = local_pi->next)
+		if (bgp_evpn_is_path_local(bgp_evpn, local_pi))
+			break;
+
+	/* label[0]=0 (Explicit NULL) is the pure-L3 wire signal; label[1] is
+	 * the VRF's L3VNI.
+	 */
+	vni2label(MPLS_LABEL_IPV4_EXPLICIT_NULL, &bgp_labels.label[0]);
+	vni2label(bgp_vrf->l3vni, &bgp_labels.label[1]);
+	bgp_labels.num_labels = 2;
+
+	bgp_attr_dup_into(&static_attr, attr);
+
+	/* If the ASNs differ, prepend the source VRF's AS. */
+	if (bgp_vrf->as != bgp_evpn->as) {
+		new_aspath = aspath_dup(static_attr.aspath);
+		new_aspath = aspath_add_seq(new_aspath, bgp_vrf->as);
+		static_attr.aspath = new_aspath;
+	}
+
+	/* Interned, so an unchanged re-ADD compares equal and is not re-sent. */
+	attr_new = bgp_attr_intern(&static_attr);
+	bgp_attr_flush(&static_attr);
+
+	if (!local_pi) {
+		*route_changed = 1;
+
+		pi = info_make(ZEBRA_ROUTE_BGP, BGP_ROUTE_STATIC, 0, bgp_evpn->peer_self, attr_new,
+			       dest);
+		SET_FLAG(pi->flags, BGP_PATH_VALID);
+		bgp_evpn_path_info_extra_get(pi);
+		pi->extra->labels = bgp_labels_intern(&bgp_labels);
+		bgp_path_info_add(dest, pi);
+		*entry = pi;
+	} else {
+		if (CHECK_FLAG(local_pi->flags, BGP_PATH_REMOVED) || local_pi->attr != attr_new) {
+			*route_changed = 1;
+
+			bgp_path_info_set_flag(dest, local_pi, BGP_PATH_ATTR_CHANGED);
+			if (CHECK_FLAG(local_pi->flags, BGP_PATH_REMOVED))
+				bgp_path_info_restore(dest, local_pi);
+			bgp_attr_unintern(&local_pi->attr);
+			local_pi->attr = attr_new;
+			local_pi->uptime = monotime(NULL);
+		} else {
+			bgp_attr_unintern(&attr_new);
+		}
+		if (!bgp_path_info_labels_same(local_pi, &bgp_labels.label[0],
+					       bgp_labels.num_labels)) {
+			bgp_labels_unintern(&local_pi->extra->labels);
+			local_pi->extra->labels = bgp_labels_intern(&bgp_labels);
+			*route_changed = 1;
+		}
+		*entry = local_pi;
+	}
+
+	bgp_attr_extra_discard(&static_attr);
+	return 0;
+}
+
+/*
+ * Handle add of a local pure-L3 (no-L2VNI multihoming) neighbor-sync MAC/IP.
+ * There is no bgpevpn for the L3VNI, so the RT-2 is originated directly into
+ * the global EVPN RIB under the VRF's RD, sourcing identity (RD, RTs, RMAC,
+ * nexthop) from the VRF EVPN instance -- mirroring type-5 origination.
+ */
+static int bgp_evpn_local_l3vni_macip_add(vni_t l3vni, struct ethaddr *mac, struct ipaddr *ip,
+					  esi_t *esi, uint32_t eth_tag, uint32_t seq, bool router)
+{
+	struct bgp *bgp_evpn = bgp_get_evpn();
+	struct bgp *bgp_vrf = bgp_evpn_l3vni_to_bgp_vrf(l3vni);
+	struct prefix_evpn p;
+	struct attr attr = {};
+	struct bgp_dest *dest;
+	struct bgp_path_info *pi = NULL;
+	struct ipaddr vtep_ip = {};
+	int route_changed = 0;
+
+	if (!bgp_evpn || !bgp_vrf)
+		return -1;
+
+	build_evpn_type2_prefix(&p, mac, ip);
+	p.prefix.macip_addr.eth_tag = eth_tag;
+
+	/* Build the path attribute sourced from the VRF EVPN instance. */
+	bgp_attr_default_set(&attr, bgp_vrf, BGP_ORIGIN_IGP);
+	bgp_evpn_fill_rmac_nh_to_attr(bgp_vrf, &attr, &p, &vtep_ip);
+
+	if (esi && bgp_evpn_is_esi_valid(esi)) {
+		memcpy(&attr.esi, esi, sizeof(esi_t));
+		if (bgp_evpn_is_esi_local_and_non_bypass(esi))
+			SET_FLAG(attr.es_flags, ATTR_ES_IS_LOCAL);
+	}
+
+	/* Encap + IP-VRF (L3) RTs + Router MAC, exactly as for type-5. */
+	build_evpn_type5_route_extcomm(bgp_vrf, &attr, BGP_ENCAP_TYPE_VXLAN);
+
+	if (router) {
+		struct ecommunity_val eval;
+
+		SET_FLAG(attr.evpn_flags, ATTR_EVPN_FLAG_ROUTER);
+		encode_na_flag_extcomm(&eval, true, false);
+		ecommunity_add_val(bgp_attr_get_ecommunity(&attr), &eval, true, true);
+	}
+
+	if (bgp_debug_zebra(NULL))
+		zlog_debug("VRF %s L3VNI %u pure-L3 RT-2 evp %pFX RMAC %pEA nexthop %pIA ETAG %u",
+			   vrf_id_to_name(bgp_vrf->vrf_id), l3vni, &p, &attr.rmac, &vtep_ip,
+			   eth_tag);
+
+	dest = bgp_evpn_global_node_get(bgp_evpn->rib[AFI_L2VPN][SAFI_EVPN], AFI_L2VPN, SAFI_EVPN,
+					&p, &bgp_vrf->vrf_prd, NULL);
+	assert(dest);
+
+	update_evpn_l3vni_macip_route_entry(bgp_evpn, bgp_vrf, dest, &attr, &route_changed, &pi);
+
+	if (route_changed)
+		bgp_process(bgp_evpn, dest, pi, AFI_L2VPN, SAFI_EVPN);
+
+	bgp_dest_unlock_node(dest);
+	aspath_unintern(&attr.aspath);
+
+	return 0;
+}
+
+/* Handle withdraw of a local pure-L3 neighbor-sync MAC/IP. The DEL wire format
+ * carries no flag, so the route is located by its L3VNI RD in the global RIB.
+ */
+static int bgp_evpn_local_l3vni_macip_del(vni_t l3vni, struct ethaddr *mac, struct ipaddr *ip,
+					  uint32_t eth_tag)
+{
+	struct bgp *bgp_evpn = bgp_get_evpn();
+	struct bgp *bgp_vrf = bgp_evpn_l3vni_to_bgp_vrf(l3vni);
+	struct prefix_evpn p;
+	struct bgp_dest *dest;
+	struct bgp_path_info *pi = NULL;
+
+	if (!bgp_evpn || !bgp_vrf)
+		return -1;
+
+	build_evpn_type2_prefix(&p, mac, ip);
+	p.prefix.macip_addr.eth_tag = eth_tag;
+
+	dest = bgp_evpn_global_node_lookup(bgp_evpn->rib[AFI_L2VPN][SAFI_EVPN], SAFI_EVPN, &p,
+					   &bgp_vrf->vrf_prd, NULL);
+	if (!dest)
+		return 0;
+
+	for (pi = bgp_dest_get_bgp_path_info(dest); pi; pi = pi->next)
+		if (bgp_evpn_is_path_local(bgp_evpn, pi))
+			break;
+
+	if (pi) {
+		bgp_path_info_mark_for_delete(dest, pi);
+		bgp_process(bgp_evpn, dest, pi, AFI_L2VPN, SAFI_EVPN);
+	}
+
+	bgp_dest_unlock_node(dest);
+
+	return 0;
+}
+
+PREDECL_DLIST(l3vni_local_macips);
+
+struct l3vni_local_macip {
+	struct l3vni_local_macips_item item;
+	struct bgp_dest *dest;
+	struct bgp_path_info *pi;
+	bool old_rd;
+};
+
+DECLARE_DLIST(l3vni_local_macips, struct l3vni_local_macip, item);
+
+/* Withdraw this VRF's local pure-L3 RT-2s, or re-originate them with its
+ * current RD, export RTs, RMAC and nexthop and withdraw any copy left under a
+ * previous RD.
+ */
+static void bgp_evpn_l3vni_local_macip_walk(struct bgp *bgp_vrf, bool withdraw)
+{
+	struct bgp *bgp_evpn = bgp_get_evpn();
+	struct bgp_dest *rd_dest, *dest;
+	struct bgp_table *table;
+	struct bgp_path_info *pi;
+	struct l3vni_local_macips_head found;
+	struct l3vni_local_macip *e;
+
+	if (!bgp_evpn || !bgp_vrf->l3vni)
+		return;
+
+	/* Collect first: re-originating under a new RD adds nodes to the table. */
+	l3vni_local_macips_init(&found);
+	for (rd_dest = bgp_table_top(bgp_evpn->rib[AFI_L2VPN][SAFI_EVPN]); rd_dest;
+	     rd_dest = bgp_route_next(rd_dest)) {
+		const struct prefix_rd *prd =
+			(const struct prefix_rd *)bgp_dest_get_prefix(rd_dest);
+
+		table = bgp_dest_get_bgp_table_info(rd_dest);
+		if (!table)
+			continue;
+
+		for (dest = bgp_table_top(table); dest; dest = bgp_route_next(dest)) {
+			const struct prefix_evpn *evp =
+				(const struct prefix_evpn *)bgp_dest_get_prefix(dest);
+
+			if (evp->prefix.route_type != BGP_EVPN_MAC_IP_ROUTE ||
+			    is_evpn_prefix_ipaddr_none(evp))
+				continue;
+
+			for (pi = bgp_dest_get_bgp_path_info(dest); pi; pi = pi->next) {
+				if (CHECK_FLAG(pi->flags, BGP_PATH_REMOVED) ||
+				    !bgp_evpn_is_path_local(bgp_evpn, pi) ||
+				    BGP_PATH_INFO_NUM_LABELS(pi) != 2 ||
+				    label2vni(&pi->extra->labels->label[0]) !=
+					    MPLS_LABEL_IPV4_EXPLICIT_NULL ||
+				    label2vni(&pi->extra->labels->label[1]) != bgp_vrf->l3vni)
+					continue;
+
+				e = XCALLOC(MTYPE_TMP, sizeof(*e));
+				e->dest = bgp_dest_lock_node(dest);
+				e->pi = pi;
+				e->old_rd = memcmp(prd->val, bgp_vrf->vrf_prd.val,
+						   sizeof(prd->val)) != 0;
+				l3vni_local_macips_add_tail(&found, e);
+				break;
+			}
+		}
+	}
+
+	while ((e = l3vni_local_macips_pop(&found))) {
+		struct prefix_evpn evp;
+		esi_t esi;
+
+		prefix_copy((struct prefix *)&evp, bgp_dest_get_prefix(e->dest));
+		memcpy(&esi, bgp_evpn_attr_get_esi(e->pi->attr), sizeof(esi));
+
+		if (withdraw || e->old_rd) {
+			bgp_path_info_mark_for_delete(e->dest, e->pi);
+			bgp_process(bgp_evpn, e->dest, e->pi, AFI_L2VPN, SAFI_EVPN);
+		}
+		if (!withdraw)
+			bgp_evpn_local_l3vni_macip_add(bgp_vrf->l3vni, &evp.prefix.macip_addr.mac,
+						       &evp.prefix.macip_addr.ip, &esi,
+						       evp.prefix.macip_addr.eth_tag, 0,
+						       CHECK_FLAG(e->pi->attr->evpn_flags,
+								  ATTR_EVPN_FLAG_ROUTER));
+		bgp_dest_unlock_node(e->dest);
+		XFREE(MTYPE_TMP, e);
+	}
+	l3vni_local_macips_fini(&found);
+}
+
 /*
  * Handle del of a local MACIP.
  */
-int bgp_evpn_local_macip_del(struct bgp *bgp, vni_t vni, struct ethaddr *mac,
-			     struct ipaddr *ip, int state)
+int bgp_evpn_local_macip_del(struct bgp *bgp, vni_t vni, struct ethaddr *mac, struct ipaddr *ip,
+			     int state, uint32_t eth_tag)
 {
 	struct bgpevpn *vpn;
 	struct prefix_evpn p;
@@ -8232,6 +8872,12 @@ int bgp_evpn_local_macip_del(struct bgp *bgp, vni_t vni, struct ethaddr *mac,
 	/* Lookup VNI hash - should exist. */
 	vpn = bgp_evpn_lookup_vni(bgp, vni);
 	if (!vpn || !is_vni_live(vpn)) {
+		/* No L2VNI: a pure-L3 (no-L2VNI multihoming) neighbor-sync
+		 * MAC/IP is withdrawn by its L3VNI RD in the global RIB.
+		 */
+		if (bgp_evpn_l3vni_to_bgp_vrf(vni))
+			return bgp_evpn_local_l3vni_macip_del(vni, mac, ip, eth_tag);
+
 		flog_warn(EC_BGP_EVPN_VPN_VNI,
 			  "%u: VNI hash entry for VNI %u %s at MACIP DEL",
 			  bgp->vrf_id, vni, vpn ? "not live" : "not found");
@@ -8239,6 +8885,7 @@ int bgp_evpn_local_macip_del(struct bgp *bgp, vni_t vni, struct ethaddr *mac,
 	}
 
 	build_evpn_type2_prefix(&p, mac, ip);
+	p.prefix.macip_addr.eth_tag = eth_tag;
 	if (state == ZEBRA_NEIGH_ACTIVE) {
 		/* Remove EVPN type-2 route and schedule for processing. */
 		delete_evpn_route(bgp, vpn, &p);
@@ -8257,8 +8904,8 @@ int bgp_evpn_local_macip_del(struct bgp *bgp, vni_t vni, struct ethaddr *mac,
 /*
  * Handle add of a local MACIP.
  */
-int bgp_evpn_local_macip_add(struct bgp *bgp, vni_t vni, struct ethaddr *mac,
-		struct ipaddr *ip, uint8_t flags, uint32_t seq, esi_t *esi)
+int bgp_evpn_local_macip_add(struct bgp *bgp, vni_t vni, struct ethaddr *mac, struct ipaddr *ip,
+			     uint8_t flags, uint32_t seq, esi_t *esi, uint32_t eth_tag)
 {
 	struct bgpevpn *vpn;
 	struct prefix_evpn p;
@@ -8266,6 +8913,18 @@ int bgp_evpn_local_macip_add(struct bgp *bgp, vni_t vni, struct ethaddr *mac,
 	/* Lookup VNI hash - should exist. */
 	vpn = bgp_evpn_lookup_vni(bgp, vni);
 	if (!vpn || !is_vni_live(vpn)) {
+		/* No L2VNI for this VNI: it may be a pure-L3 (no-L2VNI
+		 * multihoming) neighbor sync originated on the VRF's L3VNI.
+		 */
+		if (CHECK_FLAG(flags, ZEBRA_MACIP_TYPE_L3_NEIGH_SYNC)) {
+			/* A pure-L3 RT-2 must carry a non-zero ESI. */
+			if (!esi || !bgp_evpn_is_esi_valid(esi))
+				return bgp_evpn_local_l3vni_macip_del(vni, mac, ip, eth_tag);
+			return bgp_evpn_local_l3vni_macip_add(vni, mac, ip, esi, eth_tag, seq,
+							      CHECK_FLAG(flags,
+									 ZEBRA_MACIP_TYPE_ROUTER_FLAG));
+		}
+
 		flog_warn(EC_BGP_EVPN_VPN_VNI,
 			  "%u: VNI hash entry for VNI %u %s at MACIP ADD",
 			  bgp->vrf_id, vni, vpn ? "not live" : "not found");
@@ -8274,6 +8933,7 @@ int bgp_evpn_local_macip_add(struct bgp *bgp, vni_t vni, struct ethaddr *mac,
 
 	/* Create EVPN type-2 route and schedule for processing. */
 	build_evpn_type2_prefix(&p, mac, ip);
+	p.prefix.macip_addr.eth_tag = eth_tag;
 	if (update_evpn_route(bgp, vpn, &p, flags, seq, esi)) {
 		flog_err(
 			EC_BGP_EVPN_ROUTE_CREATE,
@@ -8490,6 +9150,9 @@ int bgp_evpn_local_l3vni_del(vni_t l3vni, vrf_id_t vrf_id)
 
 	/* delete/withdraw all type-5 routes */
 	delete_withdraw_vrf_routes(bgp_vrf);
+
+	/* zebra's per-host deletes arrive after this, when l3vni no longer maps here. */
+	bgp_evpn_l3vni_local_macip_walk(bgp_vrf, true);
 
 	/* Tunnel is no longer active.
 	 * Delete VTEP-IP from EVPN underlay's tip_hash.

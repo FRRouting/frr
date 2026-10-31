@@ -6134,6 +6134,7 @@ void bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 	const char *reason;
 	char pfx_buf[BGP_PRD_PATH_STRLEN];
 	bool force_evpn_import = false, force_evpn_export = false;
+	bool evpn_unimported = false;
 	safi_t orig_safi = safi;
 	struct bgp_labels bgp_labels = {};
 	struct bgp_path_info_extra rmap_extra = {};
@@ -6790,10 +6791,11 @@ void bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 						 ecommunity_str(bgp_attr_get_ecommunity(pi->attr)),
 						 ecommunity_str(bgp_attr_get_ecommunity(attr_new)));
 
-					if (safi == SAFI_EVPN)
+					if (safi == SAFI_EVPN) {
 						bgp_evpn_unimport_route(
 							bgp, afi, safi, p, pi);
-					else /* SAFI_MPLS_VPN */
+						evpn_unimported = true;
+					} else /* SAFI_MPLS_VPN */
 						vpn_leak_to_vrf_withdraw(pi);
 				}
 				/* evpn update with new nexthop: unimport route with old VTEP entry.*/
@@ -6803,7 +6805,23 @@ void bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 					 !bgp_attr_nexthop_same(pi->attr, attr_new, afi)) {
 					bgp_evpn_unimport_route(bgp, afi, safi, p, pi);
 				}
+			} else if (safi == SAFI_EVPN &&
+				   bgp_attr_exists(pi->attr, BGP_ATTR_EXT_COMMUNITIES)) {
+				/* No RT left: the import below cannot undo the old one. */
+				bgp_evpn_unimport_route(bgp, afi, safi, p, pi);
+				evpn_unimported = true;
 			}
+		}
+
+		/* The labels select the MAC/IP route's import (L2VNI or pure-L3
+		 * L3VNI): unimport under the old ones, re-import under the new.
+		 */
+		if (safi == SAFI_EVPN && p->u.prefix_evpn.route_type == BGP_EVPN_MAC_IP_ROUTE &&
+		    bgp_labels.num_labels &&
+		    !bgp_path_info_labels_same(pi, &bgp_labels.label[0], bgp_labels.num_labels)) {
+			if (!evpn_unimported)
+				bgp_evpn_unimport_route(bgp, afi, safi, p, pi);
+			force_evpn_import = true;
 		}
 
 		/* Update to new attribute.  */
@@ -6934,7 +6952,7 @@ void bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 			 * has only valid paths and path refcount maintained in
 			 * EVPN nexthop is decremented appropriately.
 			 */
-			else if (!CHECK_FLAG(pi->flags, BGP_PATH_VALID)) {
+			else if (!CHECK_FLAG(pi->flags, BGP_PATH_VALID) && !evpn_unimported) {
 				if (unlikely(BGP_DEBUG(nht, NHT)))
 					zlog_debug("%s unimport EVPN %pFX as pi %p is not VALID",
 						   __func__, p, pi);
