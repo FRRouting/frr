@@ -946,8 +946,18 @@ void parse_packet(const unsigned char *from, struct interface *ifp, const unsign
 			DO_NTOHS(seqno, message + 4);
 			rc = network_prefix(message[2], message[3], 0, message + 16, NULL,
 					    len - 14, prefix);
-			if (rc <= 0)
+			if (rc < 0)
 				goto fail;
+			if (message[2] == 0) {
+				/* AE=0 is forbidden by RFC 8966 s4.6.11.  A zero
+				 * return from network_prefix() is otherwise a
+				 * successful parse of a zero-length (default)
+				 * prefix, not an error.
+				 */
+				debugf(BABEL_DEBUG_COMMON,
+				       "Received request with invalid AE 0. Ignoring.");
+				goto done;
+			}
 			plen = message[3] + (message[2] == 1 ? 96 : 0);
 			debugf(BABEL_DEBUG_COMMON,
 			       "Received request (%d) for %s from %s on %s (%s, %d).", message[6],
