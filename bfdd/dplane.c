@@ -785,6 +785,8 @@ static void _bfd_session_register_dplane(struct hash_bucket *hb, void *arg)
 {
 	struct bfd_session *bs = hb->data;
 	struct bfd_dplane_ctx *bdc = arg;
+	struct interface *ifp;
+	struct vrf *vrf;
 
 	if (bs->bdc != NULL)
 		return;
@@ -793,8 +795,19 @@ static void _bfd_session_register_dplane(struct hash_bucket *hb, void *arg)
 	if (!bfd_dplane_can_run(bdc, bs))
 		return;
 
+	ifp = bs->ifp;
+	vrf = bs->vrf;
+
 	/* Disable software session. */
 	bfd_session_disable(bs);
+
+	/*
+	 * Disabling forgets the interface and VRF the session was enabled
+	 * with, but the data plane needs the interface to know where the
+	 * session runs. Neither changed by moving the session.
+	 */
+	bs->ifp = ifp;
+	bs->vrf = vrf;
 
 	/* Move session to data plane. */
 	if (_bfd_dplane_add_session(bdc, bs) != 0) {
