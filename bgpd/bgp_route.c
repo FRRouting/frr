@@ -13702,50 +13702,110 @@ static void route_vty_out_detail_es_info(struct vty *vty,
 	}
 }
 
-static void route_vty_out_detail_remote_sid(struct vty *vty, struct bgp_path_info *path,
-					    struct bgp_attr_srv6_l3service *srv6_l3service,
-					    json_object *json_path)
+/*
+ * Get the SID of the SRv6 Service TLV of a path, with its transposed bits
+ * set from the label that carries them.
+ */
+void bgp_path_info_srv6_sid_transposed(const struct prefix *p, struct bgp_path_info *pi,
+				       struct bgp_attr_srv6_service *srv6_service, uint8_t type,
+				       safi_t safi, struct in6_addr *sid)
+{
+	mpls_label_t label_sid = 0;
+	mpls_label_t esi_label;
+	uint8_t idx_label;
+	bool is_ead_es = p->family == AF_EVPN &&
+			 ((struct prefix_evpn *)p)->prefix.route_type == BGP_EVPN_AD_ROUTE &&
+			 ((struct prefix_evpn *)p)->prefix.ead_addr.eth_tag ==
+				 BGP_EVPN_AD_ES_ETH_TAG;
+	bool has_pmsi_ir = bgp_attr_exists(pi->attr, BGP_ATTR_PMSI_TUNNEL) &&
+			   bgp_attr_get_pmsi_tnl_type(pi->attr) == PMSI_TNLTYPE_INGR_REPL;
+
+	/* In the context of SRv6:
+	 *
+	 * Usage of NLRI labels:
+	 *  - SAFI VPN: Only one label associated with the SRv6 Service TLV (implicitly L3)
+	 *
+	 *  - SAFI EVPN: one or two labels
+	 *
+	 *   - RFC 9252 §6.2: MAC/IP Advertisement Route over SRv6 Core
+	 *      - Label1 is associated with the SRv6 L2 Service TLV
+	 *      - Label2 is associated with the SRv6 L3 Service TLV (optional)
+	 *
+	 *   - RFC 9252 §6.5. IP Prefix Route over SRv6 Core
+	 *      - Label1 is associated with the SRv6 Service TLV (implicitly L3)
+	 *
+	 * Usage of ESI label:
+	 *   - RFC 9252 §6.1.1: Ethernet A-D per ES Route over SRv6 Core
+	 *      - the ESI label field of the ESI Label Extended Community is
+	 *        associated with the SRv6 Service TLV (implicitly L2).
+	 *
+	 * Usage of the PMSI Tunnel attribute label:
+	 *   - RFC 9252 §6.3. Inclusive Multicast Ethernet Tag Route over SRv6 Core.
+	 *      - If the PMSI Tunnel Type is "Ingress Replication", the PMSI Tunnel
+	 *        attribute label is associated with the SRv6 Service TLV (implicitly L2).
+	 *      - Otherwise, no label is used.
+	 */
+	if (type == BGP_PREFIX_SID_SRV6_L3_SERVICE && bgp_attr_get_srv6_l2service(pi->attr))
+		idx_label = 1;
+	else
+		idx_label = 0;
+
+	if (is_ead_es) {
+		if (bgp_attr_esi_label(pi->attr, &esi_label))
+			label_sid = decode_label(&esi_label);
+	} else if ((safi == SAFI_EVPN || bgp_path_info_has_valid_label(pi)) &&
+		   BGP_PATH_INFO_NUM_LABELS(pi) > idx_label)
+		label_sid = decode_label(&pi->extra->labels->label[idx_label]);
+	else if (has_pmsi_ir)
+		label_sid = decode_label(&pi->attr->label);
+
+	if (label_sid < MPLS_LABEL_UNRESERVED_MIN)
+		label_sid = 0;
+
+	IPV6_ADDR_COPY(sid, &srv6_service->sid);
+	transpose_sid(sid, label_sid, srv6_service->transposition_offset,
+		      srv6_service->transposition_len,
+		      BGP_PREFIX_SID_SRV6_MAX_FUNCTION_LENGTH_FOR_LABEL);
+}
+
+static void route_vty_out_detail_remote_sid(struct vty *vty, const struct prefix *p,
+					    struct bgp_path_info *path,
+					    struct bgp_attr_srv6_service *srv6_service,
+					    uint8_t type, safi_t safi, json_object *json_path)
 {
 	json_object *json_sid_attr;
-	mpls_label_t label_sid = 0;
-	struct in6_addr sid_transposed = {};
+	struct in6_addr sid_transposed;
 
 	if (json_path) {
-		if (bgp_path_info_has_valid_label(path) && path->extra->labels->num_labels == 1 &&
-		    (decode_label(&path->extra->labels->label[0]) >= MPLS_LABEL_UNRESERVED_MIN))
-			label_sid = decode_label(&path->extra->labels->label[0]);
-
-		json_object_string_addf(json_path, "remoteSid", "%pI6", &srv6_l3service->sid);
-		IPV6_ADDR_COPY(&sid_transposed, &srv6_l3service->sid);
-		transpose_sid(&sid_transposed, label_sid, srv6_l3service->transposition_offset,
-			      srv6_l3service->transposition_len,
-			      BGP_PREFIX_SID_SRV6_MAX_FUNCTION_LENGTH_FOR_LABEL);
+		json_object_string_addf(json_path, "remoteSid", "%pI6", &srv6_service->sid);
+		bgp_path_info_srv6_sid_transposed(p, path, srv6_service, type, safi,
+						  &sid_transposed);
 		json_object_string_addf(json_path, "remoteTransposedSid", "%pI6", &sid_transposed);
 		json_object_string_add(json_path, "endpointBehavior",
 				       srv6_endpoint_behavior_codepoint2str(
-					       srv6_l3service->endpoint_behavior));
-		json_object_string_add(json_path, "prefixSidType", "l3");
+					       srv6_service->endpoint_behavior));
+		json_object_string_add(json_path, "prefixSidType",
+				       type == BGP_PREFIX_SID_SRV6_L3_SERVICE ? "l3" : "l2");
 
 		json_sid_attr = json_object_new_object();
 		json_object_object_add(json_path, "remoteSidStructure", json_sid_attr);
-		json_object_int_add(json_sid_attr, "locatorBlockLen",
-				    srv6_l3service->loc_block_len);
-		json_object_int_add(json_sid_attr, "locatorNodeLen", srv6_l3service->loc_node_len);
-		json_object_int_add(json_sid_attr, "functionLen", srv6_l3service->func_len);
-		json_object_int_add(json_sid_attr, "argumentLen", srv6_l3service->arg_len);
+		json_object_int_add(json_sid_attr, "locatorBlockLen", srv6_service->loc_block_len);
+		json_object_int_add(json_sid_attr, "locatorNodeLen", srv6_service->loc_node_len);
+		json_object_int_add(json_sid_attr, "functionLen", srv6_service->func_len);
+		json_object_int_add(json_sid_attr, "argumentLen", srv6_service->arg_len);
 		json_object_int_add(json_sid_attr, "transpositionLen",
-				    srv6_l3service->transposition_len);
+				    srv6_service->transposition_len);
 		json_object_int_add(json_sid_attr, "transpositionOffset",
-				    srv6_l3service->transposition_offset);
+				    srv6_service->transposition_offset);
 		return;
 	}
 
-	vty_out(vty, "      Remote SID: %pI6", &srv6_l3service->sid);
+	vty_out(vty, "      Remote SID: %pI6", &srv6_service->sid);
 	vty_out(vty, ", %s, sid structure=[%u %u %u %u %u %u]\n",
-		srv6_endpoint_behavior_codepoint2str(srv6_l3service->endpoint_behavior),
-		srv6_l3service->loc_block_len, srv6_l3service->loc_node_len,
-		srv6_l3service->func_len, srv6_l3service->arg_len,
-		srv6_l3service->transposition_len, srv6_l3service->transposition_offset);
+		srv6_endpoint_behavior_codepoint2str(srv6_service->endpoint_behavior),
+		srv6_service->loc_block_len, srv6_service->loc_node_len, srv6_service->func_len,
+		srv6_service->arg_len, srv6_service->transposition_len,
+		srv6_service->transposition_offset);
 }
 
 void route_vty_out_detail(struct vty *vty, struct bgp *bgp, struct bgp_dest *bn,
@@ -13796,7 +13856,9 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp, struct bgp_dest *bn,
 	struct bgp_route_evpn *bre = bgp_attr_get_evpn_overlay(attr);
 	bool ll_nexthop_only = attr->mp_nexthop_len == BGP_ATTR_NHLEN_IPV6_GLOBAL &&
 			       PEER_HAS_LINK_LOCAL_CAPABILITY(path->peer);
-	struct bgp_attr_srv6_l3service *srv6_l3service = bgp_attr_get_srv6_l3service(path->attr);
+	struct bgp_attr_srv6_service *srv6_l2service = bgp_attr_get_srv6_l2service(path->attr);
+	struct bgp_attr_srv6_service *srv6_l3service = bgp_attr_get_srv6_l3service(path->attr);
+	bool has_srv6_service = srv6_l2service || srv6_l3service;
 
 	if (json_paths) {
 		json_path = json_object_new_object();
@@ -13805,7 +13867,7 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp, struct bgp_dest *bn,
 	}
 
 	if (BGP_PATH_INFO_NUM_LABELS(path)) {
-		if (srv6_l3service)
+		if (has_srv6_service)
 			mpls_labels2str(path->extra->labels->label, path->extra->labels->num_labels,
 					NULL, evpn_label_buf, sizeof(evpn_label_buf));
 		else
@@ -13820,10 +13882,11 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp, struct bgp_dest *bn,
 
 		if (evpn_label_buf[0]) {
 			if (json_paths)
-				json_object_string_add(json_path, srv6_l3service ? "label" : "vni",
+				json_object_string_add(json_path,
+						       has_srv6_service ? "label" : "vni",
 						       evpn_label_buf);
 			else
-				vty_out(vty, " %s %s", srv6_l3service ? "Label" : "VNI",
+				vty_out(vty, " %s %s", has_srv6_service ? "Label" : "VNI",
 					evpn_label_buf);
 		}
 	}
@@ -13863,8 +13926,8 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp, struct bgp_dest *bn,
 								pdest));
 					if (safi != SAFI_EVPN)
 						json_object_string_add(json_path,
-								       srv6_l3service ? "label"
-										      : "vni",
+								       has_srv6_service ? "label"
+											: "vni",
 								       evpn_label_buf);
 				} else {
 					vty_out(vty, "  Imported from ");
@@ -13875,7 +13938,7 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp, struct bgp_dest *bn,
 								pdest));
 					vty_out(vty, ":%pFX, %s %s",
 						(struct prefix_evpn *)bgp_dest_get_prefix(dest),
-						srv6_l3service ? "Label" : "VNI", evpn_label_buf);
+						has_srv6_service ? "Label" : "VNI", evpn_label_buf);
 				}
 				if (CHECK_FLAG(attr->es_flags, ATTR_ES_L3_NHG) &&
 				    !json_paths) {
@@ -14704,17 +14767,32 @@ skip_nexthop:
 
 	/* Remote SID */
 	if (safi == SAFI_EVPN) {
-		if (srv6_l3service) {
+		if (json_paths && (srv6_l2service || srv6_l3service)) {
+			json_prefix_sids = json_object_new_array();
+			json_object_object_add(json_path, "prefixSids", json_prefix_sids);
+		}
+
+		if (srv6_l2service) {
 			if (json_paths) {
-				json_prefix_sids = json_object_new_array();
-				json_object_object_add(json_path, "prefixSids", json_prefix_sids);
 				json_prefix_sid = json_object_new_object();
 				json_object_array_add(json_prefix_sids, json_prefix_sid);
 			}
-			route_vty_out_detail_remote_sid(vty, path, srv6_l3service, json_prefix_sid);
+			route_vty_out_detail_remote_sid(vty, p, path, srv6_l2service,
+							BGP_PREFIX_SID_SRV6_L2_SERVICE, safi,
+							json_prefix_sid);
+		}
+		if (srv6_l3service) {
+			if (json_paths) {
+				json_prefix_sid = json_object_new_object();
+				json_object_array_add(json_prefix_sids, json_prefix_sid);
+			}
+			route_vty_out_detail_remote_sid(vty, p, path, srv6_l3service,
+							BGP_PREFIX_SID_SRV6_L3_SERVICE, safi,
+							json_prefix_sid);
 		}
 	} else if (srv6_l3service)
-		route_vty_out_detail_remote_sid(vty, path, srv6_l3service, json_path);
+		route_vty_out_detail_remote_sid(vty, p, path, srv6_l3service,
+						BGP_PREFIX_SID_SRV6_L3_SERVICE, safi, json_path);
 	else if (bgp_attr_get_srv6_vpn(path->attr)) {
 		if (json_paths)
 			json_object_string_addf(json_path, "remoteSid", "%pI6",
@@ -14873,7 +14951,8 @@ skip_nexthop:
 			json_pmsi = json_object_new_object();
 			json_object_string_add(json_pmsi, "tunnelType", msgstr);
 			json_object_int_add(json_pmsi, "label",
-					    label2vni(&attr->label));
+					    has_srv6_service ? decode_label(&attr->label)
+							     : label2vni(&attr->label));
 
 			if (bgp_attr_get_pmsi_tnl_type(attr) == PMSI_TNLTYPE_INGR_REPL) {
 				const struct in6_addr *tunn_id = bgp_attr_get_tunn_id(attr);
@@ -14892,16 +14971,22 @@ skip_nexthop:
 
 			if (IS_MAPPED_IPV6(tunn_id)) {
 				vty_out(vty, "      PMSI Tunnel Type: %s, label: %d ID:%pI4\n",
-					msgstr, label2vni(&attr->label),
+					msgstr,
+					has_srv6_service ? decode_label(&attr->label)
+							 : label2vni(&attr->label),
 					(in_addr_t *)&tunn_id->s6_addr32[3]);
 			} else {
 				vty_out(vty, "      PMSI Tunnel Type: %s, label: %d ID:%pI6\n",
-					msgstr, label2vni(&attr->label), tunn_id);
+					msgstr,
+					has_srv6_service ? decode_label(&attr->label)
+							 : label2vni(&attr->label),
+					tunn_id);
 			}
 		} else {
 			/* Label only */
 			vty_out(vty, "      PMSI Tunnel Type: %s, label: %d\n", msgstr,
-				label2vni(&attr->label));
+				has_srv6_service ? decode_label(&attr->label)
+						 : label2vni(&attr->label));
 		}
 	}
 
@@ -15860,7 +15945,7 @@ void route_vty_out_detail_header(struct vty *vty, struct bgp *bgp,
 	int no_peer = 0;
 	int first = 1;
 	int has_valid_label = 0;
-	struct bgp_attr_srv6_l3service *srv6_l3service;
+	struct bgp_attr_srv6_service *srv6_l3service;
 	mpls_label_t label = 0;
 	json_object *json_adv_to = NULL;
 	uint32_t ttl = 0;

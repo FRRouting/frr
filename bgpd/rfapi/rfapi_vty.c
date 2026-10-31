@@ -422,7 +422,7 @@ void rfapi_vty_out_vncinfo(struct vty *vty, const struct prefix *p,
 	}
 
 	{
-		struct bgp_attr_srv6_l3service *srv6_l3service =
+		struct bgp_attr_srv6_service *srv6_l3service =
 			bgp_attr_get_srv6_l3service(bpi->attr);
 
 		if (srv6_l3service || bgp_attr_get_srv6_vpn(bpi->attr)) {
