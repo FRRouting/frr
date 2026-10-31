@@ -75,7 +75,8 @@ def _setup_unaware(pe, name):
     for vni in VNIS:
         pe.cmd_raises(f"ip link add br{vni} type bridge stp_state 0")
         pe.cmd_raises(
-            f"ip link add vxlan{vni} type vxlan id {vni} dstport 4789 local {VTEP[name]} nolearning"
+            f"ip link add vxlan{vni} type vxlan id {vni} dstport 4789 "
+            f"local {VTEP[name]} nolearning"
         )
         pe.cmd_raises(f"ip link set dev vxlan{vni} master br{vni}")
         pe.cmd_raises(f"bridge link set dev vxlan{vni} neigh_suppress on learning off")
@@ -100,7 +101,8 @@ def _setup_aware(pe, name):
     _setup_vlan_aware_bridge(pe, name)
     for vni, vid in VNIS.items():
         pe.cmd_raises(
-            f"ip link add vxlan{vni} type vxlan id {vni} dstport 4789 local {VTEP[name]} nolearning"
+            f"ip link add vxlan{vni} type vxlan id {vni} dstport 4789 "
+            f"local {VTEP[name]} nolearning"
         )
         pe.cmd_raises(f"ip link set dev vxlan{vni} master br0")
         pe.cmd_raises(f"bridge vlan del vid 1 dev vxlan{vni}")
@@ -112,7 +114,8 @@ def _setup_aware(pe, name):
 def _setup_svd(pe, name):
     _setup_vlan_aware_bridge(pe, name)
     pe.cmd_raises(
-        f"ip link add vxlan0 type vxlan dstport 4789 local {VTEP[name]} nolearning external"
+        f"ip link add vxlan0 type vxlan dstport 4789 "
+        f"local {VTEP[name]} nolearning external"
     )
     pe.cmd_raises("ip link set dev vxlan0 master br0")
     pe.cmd_raises(
@@ -210,7 +213,11 @@ def vxlan_entries(pe, vni, vtep):
 
 def _bridge_local_entry(pe, port):
     fdb = get_topogen().gears[pe].cmd(f"bridge fdb show dev {port}")
-    return [l for l in fdb.splitlines() if l.startswith(MAC) and "master" in l]
+    return [
+        entry
+        for entry in fdb.splitlines()
+        if entry.startswith(MAC) and "master" in entry
+    ]
 
 
 SENTINEL_MAC = "02:00:00:00:ff:01"
@@ -239,7 +246,7 @@ class FdbMonitor:
 
     def _sentinel_seen(self):
         with open(self.path) as f:
-            if any(l.startswith(SENTINEL_MAC) for l in f):
+            if any(line.startswith(SENTINEL_MAC) for line in f):
                 return True
         net = get_topogen().net[self.pe]
         net.cmd(f"bridge fdb del {SENTINEL_MAC} dev dmon master static")
@@ -264,18 +271,18 @@ def assert_only_vxlan_entry_deleted(
     lines = mon.stop()
     svd = " src_vni 100" if MODE == "svd" else ""
     want = f"Deleted {MAC} dev {vxlan_dev(100)} dst {VTEP['PE2']}{svd} self"
-    assert any(l.startswith(want) for l in lines), f"'{want}' not seen: {lines}"
-    deleted = [l for l in lines if l.startswith(f"Deleted {MAC} dev {port} ")]
+    assert any(line.startswith(want) for line in lines), f"'{want}' not seen: {lines}"
+    deleted = [line for line in lines if line.startswith(f"Deleted {MAC} dev {port} ")]
     assert not deleted, f"bridge's local entry on {pe} {port} deleted: {deleted}"
     assert _bridge_local_entry(pe, port), f"no bridge entry for {MAC} on {pe} {port}"
     if vni200_untouched:
         dev200 = vxlan_dev(200)
         svd200 = " src_vni 200" if MODE == "svd" else ""
         gone = [
-            l
-            for l in lines
-            if l.startswith(f"Deleted {MAC} dev {dev200} ")
-            and (MODE != "svd" or svd200 in l or "vlan 20" in l)
+            line
+            for line in lines
+            if line.startswith(f"Deleted {MAC} dev {dev200} ")
+            and (MODE != "svd" or svd200 in line or "vlan 20" in line)
         ]
         assert not gone, f"VNI 200 entry of {MAC} deleted: {gone}"
 

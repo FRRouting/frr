@@ -4766,8 +4766,9 @@ int zebra_vxlan_dp_network_mac_add(struct interface *ifp, struct interface *br_i
 
 		if (mac && CHECK_FLAG(mac->flags, ZEBRA_MAC_LOCAL)) {
 			if (IS_ZEBRA_DEBUG_VXLAN)
-				zlog_debug("dpAdd own remote MAC %pEA VTEP %pIA VNI %u for a local MAC - leftover, removing it",
-					   macaddr, vtep_ip, vni);
+				zlog_debug(
+					"dpAdd own remote MAC %pEA VTEP %pIA VNI %u for a local MAC - leftover, removing it",
+					macaddr, vtep_ip, vni);
 			zebra_evpn_rem_mac_net_entry_del(zevpn, macaddr, vtep_ip);
 			return 0;
 		}

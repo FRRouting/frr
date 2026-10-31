@@ -6,8 +6,9 @@
 # A MAC that moves to the other PE and back: VLAN-unaware bridges.
 #
 # The MAC moves make-before-break to PE2 and back (see
-# common_bgp_evpn_mac_move_back.py for the topology and why), with a VLAN-unaware bridge and a vxlan device
-# per VNI; the vxlan ports have learning off and neigh_suppress on.
+# common_bgp_evpn_mac_move_back.py for the topology and why), with a
+# VLAN-unaware bridge and a vxlan device per VNI; the vxlan ports have
+# learning off and neigh_suppress on.
 #
 # 1. After the move back, PE1 holds the MAC as local and the vxlan device holds
 #    no entry for it to PE2.
@@ -32,9 +33,9 @@ CWD = os.path.dirname(os.path.realpath(__file__))
 sys.path.append(os.path.join(CWD, "../"))
 
 # pylint: disable=C0413
-from lib.topogen import get_topogen
+from lib.topogen import get_topogen  # noqa: E402
 
-from .common_bgp_evpn_mac_move_back import (
+from .common_bgp_evpn_mac_move_back import (  # noqa: E402
     setup,
     step_fdb_reread_keeps_local_mac,
     step_leftover_across_restart,

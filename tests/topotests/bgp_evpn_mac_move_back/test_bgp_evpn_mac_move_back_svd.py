@@ -6,9 +6,10 @@
 # A MAC that moves to the other PE and back: a single vxlan device (SVD).
 #
 # The MAC moves make-before-break to PE2 and back (see
-# common_bgp_evpn_mac_move_back.py for the topology and why), with one VLAN-aware bridge and a single vxlan
-# device carrying both VNIs (vlan_tunnel); the entries of the two VNIs share
-# one vxlan FDB and differ only in their source VNI.
+# common_bgp_evpn_mac_move_back.py for the topology and why), with one
+# VLAN-aware bridge and a single vxlan device carrying both VNIs (vlan_tunnel);
+# the entries of the two VNIs share one vxlan FDB and differ only in their
+# source VNI.
 #
 # 1. After the move back, PE1 holds the MAC as local and the vxlan device holds
 #    no entry for it to PE2.
@@ -33,9 +34,9 @@ CWD = os.path.dirname(os.path.realpath(__file__))
 sys.path.append(os.path.join(CWD, "../"))
 
 # pylint: disable=C0413
-from lib.topogen import get_topogen
+from lib.topogen import get_topogen  # noqa: E402
 
-from .common_bgp_evpn_mac_move_back import (
+from .common_bgp_evpn_mac_move_back import (  # noqa: E402
     setup,
     step_fdb_reread_keeps_local_mac,
     step_leftover_across_restart,
