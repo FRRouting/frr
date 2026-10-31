@@ -86,7 +86,9 @@ PIM Routers
    to be sent to. This command statically configures an RP. All routers in
    the PIM network must agree on these values. The first IP address is the
    RP's address and the second value is the matching prefix of group ranges
-   covered. This command is VRF-aware.
+   covered. A group range can only have one static RP: configuring another
+   RP for the group range of a configured RP is rejected. This command is
+   VRF-aware.
 
 .. clicmd:: no autorp discovery
 
