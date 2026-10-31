@@ -12,6 +12,7 @@
 #include "lib/nexthop.h"
 #include "lib/nexthop_group.h"
 #include "lib/pbr.h"
+#include "lib/tc.h"
 #include "lib/vlan.h"
 #include "zebra/zebra_ns.h"
 #include "zebra/rib.h"
@@ -631,6 +632,12 @@ uint8_t dplane_ctx_tc_filter_get_dsfield(const struct zebra_dplane_ctx *ctx);
 uint8_t
 dplane_ctx_tc_filter_get_dsfield_mask(const struct zebra_dplane_ctx *ctx);
 uint32_t dplane_ctx_tc_filter_get_classid(const struct zebra_dplane_ctx *ctx);
+uint16_t dplane_ctx_tc_filter_get_vlan_id(const struct zebra_dplane_ctx *ctx);
+uint8_t dplane_ctx_tc_filter_get_vlan_prio(const struct zebra_dplane_ctx *ctx);
+uint16_t dplane_ctx_tc_filter_get_vlan_eth_type(const struct zebra_dplane_ctx *ctx);
+enum tc_filter_attach dplane_ctx_tc_filter_get_attach(const struct zebra_dplane_ctx *ctx);
+bool dplane_ctx_tc_filter_has_action(const struct zebra_dplane_ctx *ctx);
+const struct tc_action_skbedit *dplane_ctx_tc_filter_get_skbedit(const struct zebra_dplane_ctx *ctx);
 
 int dplane_ctx_tc_qdisc_notify_get_kind(const struct zebra_dplane_ctx *ctx);
 ifindex_t dplane_ctx_tc_qdisc_notify_get_ifindex(const struct zebra_dplane_ctx *ctx);
