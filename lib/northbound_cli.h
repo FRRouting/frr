@@ -50,6 +50,22 @@ extern void nb_cli_enqueue_change(struct vty *vty, const char *xpath,
 				  const char *value);
 
 /*
+ * Same as 'nb_cli_enqueue_change', this avoids extra string concatenation when
+ * the CLI needs to operate on multiple leaves under the same XPath.
+ *
+ * xpath_base
+ *     Base XPath (absolute or relative) common to all target leaves. The final
+ *     XPath is formed by appending 'suffix' to this base.
+ *
+ * suffix
+ *     leaf‑specific suffix that is appended to 'xpath_base' to form the
+ *     complete XPath of the configuration option being edited.
+ *     separator '/' is optional.
+ */
+extern void nb_cli_enqueue_change_f(struct vty *vty, const char *xpath_base,
+		const char *suffix, enum nb_operation operation, const char *value);
+
+/*
  * Apply enqueued changes to the candidate configuration, do not batch,
  * and apply any pending commits along with the currently enqueued.
  *
