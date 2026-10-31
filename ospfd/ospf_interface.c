@@ -1343,12 +1343,23 @@ static int ospf_vl_set_params(struct ospf_area *area,
 	struct ospf_interface *oi;
 	const struct router_link *rlnk;
 	bool found_p;
+	uint32_t cost;
 
 	voi = vl_data->vl_oi;
 
-	if (voi->output_cost != v->distance) {
+	/*
+	 * The virtual link cost is the transit area path cost (RFC 2328,
+	 * Section 15), which can exceed the 16-bit Router-LSA link metric.
+	 * Advertise the largest metric rather than letting the cost be
+	 * truncated: 65536 would become 0, which the backbone SPF cannot
+	 * handle, and 65537 would become 1.
+	 */
+	cost = v->distance;
+	if (cost > OSPF_OUTPUT_COST_INFINITE)
+		cost = OSPF_OUTPUT_COST_INFINITE;
 
-		voi->output_cost = v->distance;
+	if (voi->output_cost != cost) {
+		voi->output_cost = cost;
 		changed = 1;
 	}
 
