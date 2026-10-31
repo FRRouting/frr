@@ -18354,6 +18354,27 @@ static void bgp_show_peer(struct vty *vty, struct peer *p, uint16_t sh_flags, bo
 		vty_out(vty, "  Connections established %d; dropped %d\n",
 			p->established, p->dropped);
 
+	/* Multi-access: RA sources skipped because they sent Bad Peer AS */
+	if (nbr_conn_bad_count(&p->nbr_conn_bad)) {
+		struct nbr_conn_bad_entry *bad;
+		json_object *json_bad = NULL;
+
+		if (use_json)
+			json_bad = json_object_new_array();
+		else
+			vty_out(vty, "  Skipped neighbors (Bad Peer AS):");
+		frr_each (nbr_conn_bad, &p->nbr_conn_bad, bad) {
+			if (use_json)
+				json_array_string_addf(json_bad, "%pI6", &bad->addr);
+			else
+				vty_out(vty, " %pI6", &bad->addr);
+		}
+		if (use_json)
+			json_object_object_add(json_neigh, "badPeerAsNeighbors", json_bad);
+		else
+			vty_out(vty, "\n");
+	}
+
 	if (p->last_reset == PEER_DOWN_NONE) {
 		if (use_json)
 			json_object_string_add(json_neigh, "lastReset",

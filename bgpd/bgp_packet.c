@@ -921,6 +921,27 @@ static uint8_t bgp_cease_to_reset_cause[] = {
 #define CEASE_CAUSES (sizeof(bgp_cease_to_reset_cause) / sizeof(bgp_cease_to_reset_cause[0]))
 
 /*
+ * Multi-access round-robin: Bad Peer AS in either direction means the
+ * speaker at this link-local is not this unnumbered peer.  Remember the
+ * address on the configured peer (an accepted connection runs on a
+ * doppelganger) so the round-robin skips it.
+ */
+static void bgp_nbr_conn_bad_peer_as(struct peer_connection *connection)
+{
+	struct peer *peer = connection->peer;
+	struct peer *conf_peer = peer_is_config_node(peer) ? peer : peer->doppelganger;
+
+	if (!conf_peer || !peer_nbr_conn_multi(conf_peer))
+		return;
+
+	if (sockunion_family(&connection->su) != AF_INET6 ||
+	    !IN6_IS_ADDR_LINKLOCAL(&connection->su.sin6.sin6_addr))
+		return;
+
+	peer_nbr_conn_bad_add(conf_peer, &connection->su.sin6.sin6_addr);
+}
+
+/*
  * Creates a BGP Notify and appends it to the peer's output queue.
  *
  * This function attempts to write the packet from the thread it is called
@@ -1050,6 +1071,19 @@ static void bgp_notify_send_internal(struct peer_connection *connection,
 			XFREE(MTYPE_BGP_NOTIFICATION, bgp_notify.data);
 			bgp_notify.length = 0;
 		}
+	}
+
+	/*
+	 * Flag Bad Peer AS for multi-access round-robin (cleared in
+	 * bgp_stop).  Set it here rather than after the write: when both
+	 * same-ASN speakers reject each other, the write often fails on a
+	 * connection the other side has already reset.  Only main-thread
+	 * callers (use_curr) send Bad Peer AS.
+	 */
+	if (use_curr && code == BGP_NOTIFY_OPEN_ERR && sub_code == BGP_NOTIFY_OPEN_BAD_PEER_AS) {
+		if (peer_nbr_conn_multi(peer))
+			peer->sent_bad_peer_as = true;
+		bgp_nbr_conn_bad_peer_as(connection);
 	}
 
 	/* peer reset cause */
@@ -2790,6 +2824,13 @@ static int bgp_notify_receive(struct peer_connection *connection, bgp_size_t siz
 	if (inner.code == BGP_NOTIFY_OPEN_ERR &&
 	    inner.subcode == BGP_NOTIFY_OPEN_UNSUP_PARAM)
 		UNSET_FLAG(peer->sflags, PEER_STATUS_CAPABILITY_OPEN);
+
+	/* The remote rejected our AS: not this unnumbered peer (unless
+	 * dual-as, where the next OPEN uses the other AS).
+	 */
+	if (inner.code == BGP_NOTIFY_OPEN_ERR && inner.subcode == BGP_NOTIFY_OPEN_BAD_PEER_AS &&
+	    !CHECK_FLAG(peer->flags, PEER_FLAG_DUAL_AS))
+		bgp_nbr_conn_bad_peer_as(connection);
 
 	/* Resend the next OPEN message with a global AS number if we received
 	 * a `Bad Peer AS` notification. This is only valid if `dual-as` is
