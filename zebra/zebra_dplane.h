@@ -687,6 +687,11 @@ dplane_ctx_get_backup_ng(const struct zebra_dplane_ctx *ctx);
 const struct nexthop_group *
 dplane_ctx_get_old_backup_ng(const struct zebra_dplane_ctx *ctx);
 
+/* True when the backup pool is engaged only on all-primaries-down
+ * (PIC-Local route-level semantic). False for per-NH protection.
+ */
+bool dplane_ctx_get_backup_all_primaries_down(const struct zebra_dplane_ctx *ctx);
+
 /* Setters/accessors for nexthop information */
 void dplane_ctx_set_nhe_id(struct zebra_dplane_ctx *ctx, uint32_t id);
 void dplane_ctx_set_nhe_afi(struct zebra_dplane_ctx *ctx, afi_t afi);

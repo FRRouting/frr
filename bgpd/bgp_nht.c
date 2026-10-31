@@ -30,6 +30,7 @@
 #include "bgpd/bgp_zebra.h"
 #include "bgpd/bgp_flowspec_util.h"
 #include "bgpd/bgp_evpn.h"
+#include "bgpd/bgp_label.h"
 #include "bgpd/bgp_rd.h"
 #include "bgpd/bgp_mplsvpn.h"
 #include "bgpd/bgp_ecommunity.h"
@@ -163,6 +164,151 @@ static bool bgp_isvalid_nexthop_for_l3vpn(struct bgp_nexthop_cache *bnc,
 		nh_valid = false;
 
 	return nh_valid;
+}
+
+/* How one resolved leg of a nexthop tunnels traffic, if at all. Kept as a
+ * bitmask so a multi-leg verdict can name a single kind or "mixed".
+ */
+enum bgp_nh_tunnel_kind {
+	BGP_NH_TUNNEL_NONE = 0,
+	BGP_NH_TUNNEL_MPLS = 1 << 0,
+	BGP_NH_TUNNEL_SRV6 = 1 << 1,
+	BGP_NH_TUNNEL_IFACE = 1 << 2,
+};
+
+static enum bgp_nh_tunnel_kind bgp_nh_leg_tunnel_kind(struct bgp_nexthop_cache *bnc,
+						      const struct nexthop *nexthop)
+{
+	struct interface *ifp;
+
+	if (nexthop->nh_label && nexthop->nh_label->num_labels) {
+		uint8_t i;
+
+		/* Null labels do not tunnel: implicit-null is skipped when
+		 * zebra builds the installed stack (PHP), and explicit-null
+		 * is popped by the directly connected next hop, which then
+		 * forwards by IP lookup - the loop case tunnel-only exists
+		 * to exclude. Same rule as the path-level label check. (Raw
+		 * comparisons: legs carry plain label values, not LSEs.)
+		 */
+		for (i = 0; i < nexthop->nh_label->num_labels; i++)
+			if (!MPLS_LABEL_IS_NULL(nexthop->nh_label->label[i]))
+				return BGP_NH_TUNNEL_MPLS;
+	}
+
+	if (nexthop->nh_srv6 && nexthop->nh_srv6->seg6_segs &&
+	    nexthop->nh_srv6->seg6_segs->num_segs)
+		return BGP_NH_TUNNEL_SRV6;
+
+	if (nexthop->type == NEXTHOP_TYPE_BLACKHOLE)
+		return BGP_NH_TUNNEL_NONE;
+
+	ifp = if_lookup_by_index(bnc->ifindex_ipv6_ll ? bnc->ifindex_ipv6_ll : nexthop->ifindex,
+				 bnc->bgp->vrf_id);
+	if (ifp && (ifp->zif_type == ZEBRA_IF_GRE || ifp->zif_type == ZEBRA_IF_IP6GRE ||
+		    ifp->zif_type == ZEBRA_IF_GRETAP || ifp->zif_type == ZEBRA_IF_IP6GRETAP ||
+		    ifp->zif_type == ZEBRA_IF_VXLAN))
+		return BGP_NH_TUNNEL_IFACE;
+
+	return BGP_NH_TUNNEL_NONE;
+}
+
+/*
+ * Whether a bnc's resolution tunnels traffic: true iff the bnc is valid and
+ * EVERY resolved leg carries an encapsulation (MPLS label stack, SRv6 SID
+ * list) or egresses a tunnel-type interface. All-legs on purpose, unlike
+ * BGP_NEXTHOP_LABELED_VALID's any-leg semantics: with one plain leg in an
+ * ECMP resolution, part of the traffic would go out unencapsulated.
+ *
+ * When kind is non-NULL it is set to a short name of the tunnel flavor
+ * ("mpls", "srv6", "tunnel-if", or "mixed"), or "none".
+ */
+bool bgp_nht_bnc_is_tunnel_resolved(struct bgp_nexthop_cache *bnc, const char **kind)
+{
+	unsigned int kinds = 0;
+	struct nexthop *nexthop;
+
+	if (kind)
+		*kind = "none";
+
+	if (!bnc || !CHECK_FLAG(bnc->flags, BGP_NEXTHOP_VALID) || !bnc->nexthop_num ||
+	    !bnc->nexthop)
+		return false;
+
+	for (nexthop = bnc->nexthop; nexthop; nexthop = nexthop->next) {
+		enum bgp_nh_tunnel_kind k = bgp_nh_leg_tunnel_kind(bnc, nexthop);
+
+		if (k == BGP_NH_TUNNEL_NONE)
+			return false;
+		kinds |= k;
+	}
+
+	if (kind) {
+		switch (kinds) {
+		case BGP_NH_TUNNEL_MPLS:
+			*kind = "mpls";
+			break;
+		case BGP_NH_TUNNEL_SRV6:
+			*kind = "srv6";
+			break;
+		case BGP_NH_TUNNEL_IFACE:
+			*kind = "tunnel-if";
+			break;
+		default:
+			*kind = "mixed";
+			break;
+		}
+	}
+
+	return true;
+}
+
+/*
+ * Whether a path is usable as a tunnel-resolved backup ("install
+ * backup-path ... tunnel-only"). A path that carries its own encapsulation
+ * — an SRv6 service SID from the BGP Prefix-SID attribute (RFC 9252), a
+ * valid VPN/LU label stack, or an EVPN-imported route (VNI + router MAC) —
+ * is a tunnel by construction, so plain nexthop reachability suffices. Any
+ * other path qualifies only if every resolved leg of its nexthop tunnels
+ * (see bgp_nht_bnc_is_tunnel_resolved()).
+ */
+bool bgp_path_backup_is_tunnel_resolved(struct bgp_path_info *pi)
+{
+	struct bgp_attr_srv6_l3service *srv6_l3service = bgp_attr_get_srv6_l3service(pi->attr);
+	struct bgp_attr_srv6_vpn *srv6_vpn = bgp_attr_get_srv6_vpn(pi->attr);
+
+	/* Tunnel by SID only under the full announce-side install condition
+	 * (bgp_zebra.c): the SID is attached to a non-EVPN nexthop whose
+	 * label[0] is a valid label, and the nexthop is skipped outright when
+	 * a transposition's label is below the unreserved range. A SID the
+	 * installer will not program leaves the nexthop plain IP (or not
+	 * installed at all), so such a path only qualifies through the
+	 * checks below.
+	 */
+	if (((srv6_l3service && !sid_zero_ipv6(&srv6_l3service->sid)) ||
+	     (srv6_vpn && !sid_zero_ipv6(&srv6_vpn->sid))) &&
+	    !IS_PATH_IMPORTED_FROM_EVPN_TABLE(pi) && BGP_PATH_INFO_NUM_LABELS(pi) &&
+	    bgp_is_valid_label(&pi->extra->labels->label[0]) &&
+	    !(srv6_l3service && srv6_l3service->transposition_len != 0 &&
+	      decode_label(&pi->extra->labels->label[0]) < MPLS_LABEL_UNRESERVED_MIN))
+		return pi->nexthop && bgp_isvalid_nexthop(pi->nexthop);
+
+	if (BGP_PATH_INFO_NUM_LABELS(pi) && bgp_is_valid_label(&pi->extra->labels->label[0])) {
+		uint32_t label = decode_label(&pi->extra->labels->label[0]);
+
+		/* A null label encodes to no label push (PHP, or a pop at
+		 * the receiver): the path forwards as plain IP and is not a
+		 * tunnel by construction. It can still qualify through its
+		 * resolved legs below.
+		 */
+		if (!MPLS_LABEL_IS_NULL(label))
+			return pi->nexthop && bgp_isvalid_nexthop(pi->nexthop);
+	}
+
+	if (IS_PATH_IMPORTED_FROM_EVPN_TABLE(pi))
+		return pi->nexthop && bgp_isvalid_nexthop(pi->nexthop);
+
+	return bgp_nht_bnc_is_tunnel_resolved(pi->nexthop, NULL);
 }
 
 static void bgp_unlink_nexthop_check(struct bgp_nexthop_cache *bnc)
