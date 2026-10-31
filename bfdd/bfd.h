@@ -946,7 +946,7 @@ int bfd_dplane_update_session_counters(struct bfd_session *bs);
 void bfd_dplane_show_counters(struct vty *vty);
 
 /*sbfd relfector*/
-struct sbfd_reflector *sbfd_reflector_new(const uint32_t discr, struct in6_addr *sip);
+void sbfd_reflector_new(const uint32_t discr, struct in6_addr *sip);
 void sbfd_reflector_free(const uint32_t discr);
 void sbfd_reflector_flush(void);
 
