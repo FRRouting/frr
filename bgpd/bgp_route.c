@@ -4717,9 +4717,23 @@ void bgp_process_main_one(struct bgp *bgp, struct bgp_dest *dest, afi_t afi, saf
 	return;
 }
 
+static void bgp_gr_evpn_complete_waiting_vrfs(void);
+
 void bgp_process_gr_deferral_complete(struct bgp *bgp, afi_t afi, safi_t safi)
 {
 	bool route_sync_pending = false;
+
+	if (bgp->gr_wait_for_evpn) {
+		/* Reached for every route withdraw, report only the first */
+		if (!bgp->gr_wait_for_evpn_blocked) {
+			bgp->gr_wait_for_evpn_blocked = true;
+			frrtrace(3, frr_bgp, gr_vrf_complete_blocked, bgp->name_pretty, afi, safi);
+			if (BGP_DEBUG(graceful_restart, GRACEFUL_RESTART))
+				zlog_debug("%s: Route sync for %s held until EVPN deferred path selection completes",
+					   bgp->name_pretty, get_afi_safi_str(afi, safi, false));
+		}
+		return;
+	}
 
 	bgp_send_delayed_eor(bgp);
 
@@ -4733,6 +4747,9 @@ void bgp_process_gr_deferral_complete(struct bgp *bgp, afi_t afi, safi_t safi)
 	if (!bgp->gr_info[afi][safi].route_sync_tier2 && BGP_GR_SELECT_DEFER_DONE(bgp, afi, safi)) {
 		bgp_zebra_update(bgp, afi, safi, ZEBRA_CLIENT_ROUTE_UPDATE_COMPLETE);
 		bgp->gr_info[afi][safi].route_sync_tier2 = true;
+
+		if (afi == AFI_L2VPN && safi == SAFI_EVPN && bgp == bgp_get_evpn())
+			bgp_gr_evpn_complete_waiting_vrfs();
 	}
 
 	bgp->gr_info[afi][safi].route_sync = true;
@@ -4914,6 +4931,101 @@ static inline void bgp_gr_start_route_select_timer(struct bgp *bgp, afi_t afi, s
 			BGP_ROUTE_SELECT_DELAY, &bgp->gr_info[afi][safi].t_route_select);
 }
 
+static const safi_t bgp_gr_vrf_safis[] = { SAFI_UNICAST, SAFI_UNREACH };
+
+/*
+ * A tenant VRF without peers gets its routes only by importing them from
+ * the EVPN instance, which defers path selection while it restarts. Mark
+ * route sync pending for the VRF and leave it open until the EVPN instance
+ * completes, so zebra does not consider the VRF synced before the imported
+ * routes are installed.
+ */
+void bgp_gr_vrf_wait_for_evpn(struct bgp *bgp_vrf)
+{
+	afi_t afi;
+	size_t si;
+
+	for (afi = AFI_IP; afi <= AFI_IP6; afi++) {
+		for (si = 0; si < array_size(bgp_gr_vrf_safis); si++) {
+			safi_t safi = bgp_gr_vrf_safis[si];
+
+			bgp_vrf->gr_info[afi][safi].af_enabled = true;
+			bgp_vrf->gr_info[afi][safi].select_defer_over = true;
+			if (bgp_zebra_update(bgp_vrf, afi, safi,
+					     ZEBRA_CLIENT_ROUTE_UPDATE_PENDING) != BGP_GR_SUCCESS)
+				flog_warn(EC_BGP_ZEBRA_SEND,
+					  "%s: Failed to send GR route update pending for %s to zebra",
+					  bgp_vrf->name_pretty, get_afi_safi_str(afi, safi, false));
+		}
+	}
+
+	bgp_vrf->gr_route_sync_pending = true;
+	bgp_vrf->gr_wait_for_evpn = true;
+
+	frrtrace(3, frr_bgp, gr_vrf_wait_for_evpn, bgp_vrf->name_pretty, bgp_vrf->vrf_id, true);
+
+	if (BGP_DEBUG(graceful_restart, GRACEFUL_RESTART))
+		zlog_debug("%s: Route sync waits for EVPN deferred path selection",
+			   bgp_vrf->name_pretty);
+}
+
+/*
+ * The EVPN instance has completed route sync. Complete every AFI/SAFI of
+ * the tenant VRFs waiting on it that has no deferred routes left. AFI/SAFIs
+ * with deferred routes complete once their own path selection is done.
+ */
+static void bgp_gr_evpn_complete_waiting_vrfs(void)
+{
+	struct listnode *node, *nnode;
+	struct bgp *bgp_vrf;
+	afi_t afi;
+	size_t si;
+
+	for (ALL_LIST_ELEMENTS(bm->bgp, node, nnode, bgp_vrf)) {
+		if (!bgp_vrf->gr_wait_for_evpn)
+			continue;
+
+		bgp_vrf->gr_wait_for_evpn = false;
+
+		for (afi = AFI_IP; afi <= AFI_IP6; afi++) {
+			for (si = 0; si < array_size(bgp_gr_vrf_safis); si++) {
+				safi_t safi = bgp_gr_vrf_safis[si];
+				struct graceful_restart_info *gr_info = &bgp_vrf->gr_info[afi][safi];
+
+				if (!gr_info->af_enabled)
+					continue;
+
+				if (gr_info->route_sync_tier2) {
+					frrtrace(5, frr_bgp, gr_evpn_vrf_release, bgp_vrf->name_pretty,
+						 afi, safi, gr_info->gr_deferred, 4);
+					zlog_warn("%s: GR route sync for %s completed before EVPN deferred path selection",
+						  bgp_vrf->name_pretty, get_afi_safi_str(afi, safi, false));
+					continue;
+				}
+
+				if (gr_info->t_route_select) {
+					frrtrace(5, frr_bgp, gr_evpn_vrf_release, bgp_vrf->name_pretty,
+						 afi, safi, gr_info->gr_deferred, 3);
+					continue;
+				}
+
+				if (BGP_DEBUG(graceful_restart, GRACEFUL_RESTART))
+					zlog_debug("%s: EVPN route sync done, %u deferred routes left for %s",
+						   bgp_vrf->name_pretty, gr_info->gr_deferred,
+						   get_afi_safi_str(afi, safi, false));
+
+				frrtrace(5, frr_bgp, gr_evpn_vrf_release, bgp_vrf->name_pretty, afi, safi,
+					 gr_info->gr_deferred, gr_info->gr_deferred ? 2 : 1);
+
+				if (gr_info->gr_deferred)
+					bgp_gr_start_route_select_timer(bgp_vrf, afi, safi);
+				else
+					bgp_process_gr_deferral_complete(bgp_vrf, afi, safi);
+			}
+		}
+	}
+}
+
 /*
  * Trigger deferred bestpath calculation for IPv4 and IPv6
  * unicast tables in non-default VRFs by starting the route-select
@@ -4925,6 +5037,8 @@ static inline void bgp_evpn_handle_deferred_bestpath_for_vrfs(void)
 	struct bgp *bgp_vrf;
 	afi_t tmp_afi = AFI_UNSPEC;
 	safi_t tmp_safi = SAFI_UNICAST;
+	struct graceful_restart_info *gr_info;
+	bool pending_sent;
 
 	for (ALL_LIST_ELEMENTS_RO(bm->bgp, node, bgp_vrf)) {
 		/* NO-OP for default/global VRF */
@@ -4975,11 +5089,20 @@ static inline void bgp_evpn_handle_deferred_bestpath_for_vrfs(void)
 			 * Sending UPDATE_PENDING here makes sense to tell zebra
 			 * that the non default VRF is a work in progress and is
 			 * yet to go through the deferred path selection.
+			 * Skip it if an UPDATE_PENDING sent earlier is still
+			 * waiting for its UPDATE_COMPLETE.
 			 */
+			gr_info = &bgp_vrf->gr_info[tmp_afi][tmp_safi];
+			pending_sent = gr_info->af_enabled && !gr_info->route_sync_tier2;
+
 			bgp_vrf->gr_route_sync_pending = true;
-			bgp_vrf->gr_info[tmp_afi][tmp_safi].af_enabled = true;
-			bgp_zebra_update(bgp_vrf, tmp_afi, tmp_safi,
-					 ZEBRA_CLIENT_ROUTE_UPDATE_PENDING);
+			gr_info->af_enabled = true;
+			if (!pending_sent)
+				bgp_zebra_update(bgp_vrf, tmp_afi, tmp_safi,
+						 ZEBRA_CLIENT_ROUTE_UPDATE_PENDING);
+			else
+				frrtrace(3, frr_bgp, gr_vrf_pending_skip, bgp_vrf->name_pretty, tmp_afi,
+					 tmp_safi);
 			bgp_vrf->gr_info[tmp_afi][tmp_safi].select_defer_over = true;
 
 			/*
