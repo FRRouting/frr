@@ -261,6 +261,14 @@ void eigrp_finish_final(struct eigrp *eigrp)
 	struct eigrp_interface *ei;
 	struct eigrp_neighbor *nbr;
 
+	/*
+	 * Instances are freed one interface at a time, so a neighbour deleted
+	 * on a later interface would run DUAL over routes still pointing at
+	 * an instance freed earlier in this loop.  The whole topology goes
+	 * away below anyway, so there is nothing for DUAL to decide.
+	 */
+	eigrp->finishing = true;
+
 	while (eigrp_interface_hash_count(&eigrp->eifs)) {
 		ei = eigrp_interface_hash_first(&eigrp->eifs);
 		while (eigrp_nbr_hash_count(&ei->nbr_hash_head)) {
@@ -276,6 +284,7 @@ void eigrp_finish_final(struct eigrp *eigrp)
 
 	event_cancel(&eigrp->t_write);
 	event_cancel(&eigrp->t_read);
+	event_cancel(&eigrp->t_distribute);
 	close(eigrp->fd);
 
 	eigrp_interface_hash_fini(&eigrp->eifs);
