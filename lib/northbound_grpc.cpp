@@ -20,6 +20,7 @@
 #include "northbound.h"
 #include "northbound_db.h"
 #include "frr_pthread.h"
+#include "hook.h"
 
 #include <iostream>
 #include <sstream>
@@ -44,6 +45,8 @@ static bool nb_dbg_client_grpc = 0;
 static struct event_loop *main_master;
 
 static struct frr_pthread *fpt;
+
+static grpc::HealthCheckServiceInterface *s_health_service;
 
 static enum grpc_state {
 	GRPC_STATE_INIT,
@@ -1135,6 +1138,15 @@ static pthread_cond_t s_server_cond = PTHREAD_COND_INITIALIZER;
 static grpc::Server *s_server;
 static grpc::ServerCompletionQueue *s_cq;
 
+/*
+ * Event callback to notify daemons that gRPC server is ready.
+ * Runs on main thread to avoid races with daemon data structures.
+ */
+static void grpc_server_ready_event(struct event *event)
+{
+	nb_grpc_notify_server_ready();
+}
+
 static void *grpc_pthread_start(void *arg)
 {
 	struct frr_pthread *fpt = static_cast<frr_pthread *>(arg);
@@ -1217,9 +1229,9 @@ static void *grpc_pthread_start(void *arg)
 	pthread_cond_signal(&s_server_cond);
 
 	/* Set health to NOT_SERVING while registering handlers */
-	grpc::HealthCheckServiceInterface *health_service = server->GetHealthCheckService();
-	if (health_service) {
-		health_service->SetServingStatus(GRPC_HEALTH_SERVICE_NAME, false);
+	s_health_service = server->GetHealthCheckService();
+	if (s_health_service) {
+		s_health_service->SetServingStatus(GRPC_HEALTH_SERVICE_NAME, false);
 		grpc_debug("%s: health check set to NOT_SERVING", __func__);
 	}
 
@@ -1241,9 +1253,15 @@ static void *grpc_pthread_start(void *arg)
 	REQUEST_NEWRPC_STREAMING(ListTransactions);
 
 	/* All handlers registered - set health check to SERVING */
-	if (health_service) {
-		health_service->SetServingStatus(GRPC_HEALTH_SERVICE_NAME, true);
+	if (s_health_service) {
+		s_health_service->SetServingStatus(GRPC_HEALTH_SERVICE_NAME, true);
 		grpc_debug("%s: health check set to SERVING", __func__);
+
+		/*
+		 * Notify daemons that gRPC is ready. Schedule on main
+		 * thread to avoid race with daemon data structures.
+		 */
+		event_add_event(main_master, grpc_server_ready_event, NULL, 0, NULL);
 	}
 
 	zlog_notice("gRPC server listening on %s",
@@ -1420,9 +1438,29 @@ static int frr_grpc_module_late_init(struct event_loop *tm)
 	return 0;
 }
 
+/*
+ * C-callable API to set health status for a service.
+ * This allows daemons to signal readiness for specific instances
+ * (e.g., "bgp-default", "bgp-vrf1") so gRPC clients can wait
+ * before sending commands.
+ */
+static void grpc_set_health_status_impl(const char *service, bool serving)
+{
+	if (!s_health_service) {
+		grpc_debug("%s: health service not available", __func__);
+		return;
+	}
+
+	s_health_service->SetServingStatus(service, serving);
+	grpc_debug("%s: %s = %s", __func__, service, serving ? "SERVING" : "NOT_SERVING");
+}
+
 static int frr_grpc_module_init(void)
 {
 	hook_register(frr_late_init, frr_grpc_module_late_init);
+
+	/* Register health check callback so daemons can set instance status */
+	nb_grpc_set_health_status_cb = grpc_set_health_status_impl;
 
 	return 0;
 }

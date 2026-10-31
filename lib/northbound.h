@@ -2001,6 +2001,36 @@ extern void nb_notif_terminate(void);
  */
 extern void nb_notif_cancel_walk(void);
 
+/*
+ * gRPC health check API - set serving status for a named service.
+ * Used by daemons to signal instance readiness (e.g., "bgp-default").
+ * Only available when gRPC module is loaded; no-op otherwise.
+ *
+ * The gRPC module registers its implementation via the function pointer.
+ */
+typedef void (*nb_grpc_set_health_status_func)(const char *service, bool serving);
+extern nb_grpc_set_health_status_func nb_grpc_set_health_status_cb;
+
+static inline void nb_grpc_set_health_status(const char *service, bool serving)
+{
+	if (nb_grpc_set_health_status_cb)
+		nb_grpc_set_health_status_cb(service, serving);
+}
+
+/*
+ * Hook called when gRPC server is ready (health service available).
+ * Daemons can register callbacks to set health status for instances
+ * that were created before gRPC started (e.g., during config loading).
+ */
+DECLARE_HOOK(nb_grpc_server_ready, (), ());
+
+/*
+ * Notify that gRPC server is ready - calls the nb_grpc_server_ready hook.
+ * This wrapper exists because hook_call() generates a static function,
+ * so it must be called from the same file containing DEFINE_HOOK.
+ */
+extern void nb_grpc_notify_server_ready(void);
+
 #ifdef __cplusplus
 }
 #endif
