@@ -228,6 +228,28 @@ void bgp_srv6_unicast_sid_withdraw(struct bgp *bgp, afi_t afi)
 	bgp_zebra_release_srv6_sid(&ctx, bgp->srv6_unicast[afi].sid_locator->name);
 }
 
+/*
+ * A stopped zebra has lost the SRv6 unicast SIDs and their local SIDs: stop
+ * advertising the unicast prefixes with them, and forget them without
+ * releasing them, so that they are requested again once the locator is
+ * received.
+ */
+void bgp_srv6_unicast_sids_forget(struct bgp *bgp)
+{
+	afi_t afi;
+
+	for (afi = AFI_IP; afi <= AFI_IP6; afi++) {
+		if (bgp->srv6_unicast[afi].sid) {
+			bgp_srv6_unicast_withdraw(bgp, afi);
+			sid_unregister(bgp, bgp->srv6_unicast[afi].sid);
+			XFREE(MTYPE_BGP_SRV6_SID, bgp->srv6_unicast[afi].sid);
+		}
+		XFREE(MTYPE_BGP_SRV6_SID, bgp->srv6_unicast[afi].zebra_sid_last_sent);
+		srv6_locator_free(bgp->srv6_unicast[afi].sid_locator);
+		bgp->srv6_unicast[afi].sid_locator = NULL;
+	}
+}
+
 void bgp_srv6_unicast_delete(struct bgp *bgp, afi_t afi)
 {
 	struct interface *ifp;

@@ -353,6 +353,9 @@ struct zclient {
 	/* Thread to write buffered data to zebra. */
 	struct event *t_write;
 
+	/* Thread to notify the daemon that the connection to zebra is lost. */
+	struct event *t_disconnected;
+
 	/* Redistribute information. */
 	uint8_t redist_default; /* clients protocol */
 	unsigned short instance;
@@ -364,6 +367,7 @@ struct zclient {
 
 	/* Pointer to the callback functions. */
 	void (*zebra_connected)(struct zclient *);
+	void (*zebra_disconnected)(struct zclient *client);
 	void (*zebra_capabilities)(struct zclient_capabilities *cap);
 
 	/*
