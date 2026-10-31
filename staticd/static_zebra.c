@@ -1439,7 +1439,7 @@ static int static_zebra_srv6_sid_notify(ZAPI_CALLBACK_ARGS)
 
 	/* Decode the received notification message */
 	if (!zapi_srv6_sid_notify_decode(zclient->ibuf, &ctx, &sid_addr, &sid_func, NULL, &note,
-					 locator_name, sizeof(locator_name))) {
+					 locator_name, sizeof(locator_name), NULL)) {
 		zlog_err("%s : error in msg decode", __func__);
 		return -1;
 	}
