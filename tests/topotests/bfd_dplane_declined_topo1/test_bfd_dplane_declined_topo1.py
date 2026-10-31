@@ -20,6 +20,11 @@ it. The other stays with the data plane, and r2's packets for it, which
 now reach bfdd too, must leave it alone. When the data plane goes away,
 bfdd stops listening again.
 
+A data plane that comes back declaring authentication takes the session
+again, with the interface bfdd learned from r2's packets since the
+session has none configured. It keeps that interface when another
+interface comes up.
+
 The listener stands in for the data plane. It runs no BFD state machine,
 it records what it was sent.
 """
@@ -80,6 +85,9 @@ def setup_module(mod):
 
 
 def teardown_module(_mod):
+    pid = _listener_pid()
+    if pid is not None:
+        get_topogen().gears["r1"].run("kill {}".format(pid))
     get_topogen().stop_topology()
 
 
@@ -215,6 +223,45 @@ def test_no_data_plane_no_listening():
     r1.run("kill {}".format(_listener_pid()))
 
     _expect(_bfd_ports, [], "bfdd listening with no data plane")
+
+
+def _interfaces():
+    "lid -> (ifindex, ifname) the listener holds."
+    return {
+        int(m.group(1)): (int(m.group(2)), m.group(3))
+        for m in re.finditer(
+            r"^  interface: lid (\d+) ifindex (\d+) ifname (\S+)$",
+            _listener_dump(),
+            re.M,
+        )
+    }
+
+
+def test_learned_interface_kept():
+    "A session without an interface keeps the one learned from its peer."
+    _skip_on_failure()
+
+    r1 = get_topogen().gears["r1"]
+    dump_file = os.path.join(r1.gearlogdir, "bfd_dplane.data")
+    # The daemon keeps no inherited output open, or run() waits on it.
+    r1.run(
+        "{} -d -c 0x1 -p {} -z {} </dev/null >/dev/null 2>&1".format(
+            os.path.join(r1.net.daemondir, "bfd_dplane_listener"),
+            DPLANE_PORT,
+            dump_file,
+        )
+    )
+
+    lid = _lid(AUTH_PEER)
+    ifindex = int(r1.run("ip -o link show r1-eth0").split(":")[0])
+    want = (ifindex, "r1-eth0")
+    _expect(lambda: _interfaces().get(lid), want, "the session back in the data plane")
+
+    r1.run("ip link add dum0 type dummy && ip link set dum0 up")
+    r1.vtysh_cmd("configure terminal\ninterface dum0\nip address 10.0.5.1/24")
+    # Give bfdd the interface and address events.
+    topotest.sleep(2)
+    assert _interfaces().get(lid) == want, "the session lost its interface"
 
 
 def test_memory_leak():
