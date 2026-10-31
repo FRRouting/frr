@@ -234,6 +234,11 @@ enum dplane_op_e {
 	/* EVPN-MH FDB (L2) nexthop update */
 	DPLANE_OP_NH_FDB_INSTALL,
 	DPLANE_OP_NH_FDB_DELETE,
+
+	/* EVPN-MH uplink and Ethernet Segment update */
+	DPLANE_OP_EVPN_MH_UPLINK_ADD,
+	DPLANE_OP_EVPN_MH_UPLINK_DELETE,
+	DPLANE_OP_EVPN_MH_ES_DELETE,
 };
 
 /* Operational status of Bridge Ports */
@@ -1042,6 +1047,14 @@ enum zebra_dplane_result dplane_br_port_update(const struct interface *ifp, bool
 					       uint32_t sph_filter_cnt,
 					       const struct ipaddr *sph_filters,
 					       uint32_t backup_nhg_id);
+
+/*
+ * Enqueue EVPN MH Uplink/ES update
+ */
+enum zebra_dplane_result dplane_evpn_mh_uplink_update(enum dplane_op_e op,
+						      const struct interface *ifp);
+enum zebra_dplane_result dplane_evpn_mh_es_update(enum dplane_op_e op,
+						  const struct interface *ifp);
 
 /* Forward ref of nhg_hash_entry */
 struct nhg_hash_entry;

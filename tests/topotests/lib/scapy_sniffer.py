@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: ISC
 #
-# capture_ospf.py
+# scappy_sniffer.py
 #
 # Copyright (c) 2026 ATCorp
 # Jafar Al-Gharaibeh
@@ -34,7 +34,7 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--iface", required=True)
     parser.add_argument("--pcap", required=True)
-    parser.add_argument("--filter", default="ip proto 89")
+    parser.add_argument("--filter", default="")
     parser.add_argument("--ready-file", default="")
     args = parser.parse_args()
 
