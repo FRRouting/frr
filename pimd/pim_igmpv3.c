@@ -1058,8 +1058,8 @@ struct igmp_v3_query_ctx {
 	int s_flag;
 };
 
-static int group_retransmit_sources(struct gm_group *group,
-				    int send_with_sflag_set)
+static int group_retransmit_sources(struct gm_group *group, int send_with_sflag_set,
+				    bool marked_only)
 {
 	struct pim_interface *pim_ifp;
 	long lmqc;      /* Last Member Query Count */
@@ -1110,6 +1110,13 @@ static int group_retransmit_sources(struct gm_group *group,
 	for (ALL_LIST_ELEMENTS_RO(group->group_source_list, src_node, src)) {
 		/* Source has retransmission state? */
 		if (src->source_query_retransmit_count < 1)
+			continue;
+
+		/*
+		 * A report sends only the sources it just marked. Other
+		 * sources stay on the LMQI timer instead of losing a count.
+		 */
+		if (marked_only && !IGMP_SOURCE_TEST_SEND(src->source_flags))
 			continue;
 
 		s_idx = (igmp_source_timer_remain_msec(src) > lmqt_msec);
@@ -1180,6 +1187,12 @@ static void igmp_group_retransmit(struct event *t)
 			   group->interface->name);
 	}
 
+	/*
+	 * Arm before the send. A full source walk can outlast LMQI, and
+	 * arming afterwards makes each gap LMQI plus that walk.
+	 */
+	group_retransmit_timer_on(group);
+
 	/* Retransmit group-specific queries? (RFC3376: 6.6.3.1) */
 	if (group->group_specific_query_retransmit_count > 0) {
 
@@ -1203,17 +1216,12 @@ static void igmp_group_retransmit(struct event *t)
 	}
 
 	/* Retransmit group-and-source-specific queries (RFC3376: 6.6.3.2) */
-	num_retransmit_sources_left =
-		group_retransmit_sources(group, send_with_sflag_set);
+	num_retransmit_sources_left = group_retransmit_sources(group, send_with_sflag_set, false);
 
-	/*
-	  Keep group retransmit timer running if there is any retransmit
-	  counter pending
-	*/
-	if ((num_retransmit_sources_left > 0)
-	    || (group->group_specific_query_retransmit_count > 0)) {
-		group_retransmit_timer_on(group);
-	}
+	/* Cancel the timer armed above once every retransmit counter is done. */
+	if ((num_retransmit_sources_left <= 0) &&
+	    (group->group_specific_query_retransmit_count <= 0))
+		event_cancel(&group->t_group_query_retransmit_timer);
 }
 
 /*
@@ -1272,12 +1280,12 @@ static void group_query_send(struct gm_group *group)
 	/* reset retransmission counter */
 	group->group_specific_query_retransmit_count = lmqc;
 
+	/* Arm before the send so the first gap stays LMQI. */
+	group_retransmit_timer_on(group);
+
 	/* immediately send group specific query (decrease retransmit counter by
 	 * 1)*/
 	group_retransmit_group(group);
-
-	/* make sure group retransmit timer is running */
-	group_retransmit_timer_on(group);
 }
 
 /*
@@ -1322,11 +1330,12 @@ static void source_query_send_by_flag(struct gm_group *group,
 		}
 	}
 
-	/* send group-and-source specific queries */
-	group_retransmit_sources(group, 1 /* send_with_sflag_set=true */);
-
-	/* make sure group retransmit timer is running */
+	/*
+	 * Arm before the send. The source timer is LMQC * LMQI from here;
+	 * starting LMQI after the walk expires it short of [LMQC] queries.
+	 */
 	group_retransmit_timer_on(group);
+	group_retransmit_sources(group, 1 /* send_with_sflag_set=true */, true);
 }
 
 static void block_excl(struct gm_group *group, int num_sources,
