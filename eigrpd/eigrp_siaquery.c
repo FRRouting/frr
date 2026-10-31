@@ -80,7 +80,7 @@ void eigrp_siaquery_receive(struct eigrp *eigrp, struct ip *iph,
 				break;
 			}
 
-			dest_addr.family = AFI_IP;
+			dest_addr.family = AF_INET;
 			dest_addr.u.prefix4 = tlv->destination;
 			dest_addr.prefixlen = tlv->prefix_length;
 			struct eigrp_prefix_descriptor *dest =
