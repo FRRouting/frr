@@ -31,6 +31,8 @@
 #include "lib/sockopt.h"
 #include "frr_pthread.h"
 #include "bitfield.h"
+#include "northbound.h"
+#include "hook.h"
 
 #include "bgpd/bgpd.h"
 #include "bgpd/bgp_table.h"
@@ -4389,6 +4391,23 @@ int bgp_handle_socket(struct bgp *bgp, struct vrf *vrf, vrf_id_t old_vrf_id,
 		return bgp_check_main_socket(create, bgp);
 }
 
+/*
+ * Format gRPC health service name for a BGP instance.
+ * Views use "bgp-view-<name>" to avoid collision with VRF instances.
+ * Returns allocated string that caller must free with XFREE(MTYPE_TMP, ...).
+ */
+static char *bgp_health_service_name(enum bgp_instance_type inst_type, const char *name)
+{
+	char *buf;
+
+	if (inst_type == BGP_INSTANCE_TYPE_VIEW)
+		buf = asprintfrr(MTYPE_TMP, "bgp-view-%s", name);
+	else
+		buf = asprintfrr(MTYPE_TMP, "bgp-%s", name ? name : "default");
+
+	return buf;
+}
+
 int bgp_lookup_by_as_name_type(struct bgp **bgp_val, as_t *as, const char *as_pretty,
 			       enum asnotation_mode asnotation, const char *name,
 			       enum bgp_instance_type inst_type, bool force_config)
@@ -4397,6 +4416,7 @@ int bgp_lookup_by_as_name_type(struct bgp **bgp_val, as_t *as, const char *as_pr
 	struct peer *peer = NULL;
 	struct listnode *node, *nnode;
 	bool hidden = false;
+	char *health_service;
 
 	/* Multiple instance check. */
 	if (name)
@@ -4417,6 +4437,11 @@ int bgp_lookup_by_as_name_type(struct bgp **bgp_val, as_t *as, const char *as_pr
 					UNSET_FLAG(bgp->flags,
 						   BGP_FLAG_INSTANCE_HIDDEN);
 					UNSET_FLAG(bgp->flags, BGP_FLAG_DELETE_IN_PROGRESS);
+
+					/* Instance is now configured - signal readiness */
+					health_service = bgp_health_service_name(inst_type, name);
+					nb_grpc_set_health_status(health_service, true);
+					XFREE(MTYPE_TMP, health_service);
 				} else {
 					bgp->as = *as;
 					if (force_config == false)
@@ -4456,6 +4481,7 @@ int bgp_get(struct bgp **bgp_val, as_t *as, const char *name,
 	struct bgp *bgp;
 	struct vrf *vrf = NULL;
 	int ret = 0;
+	char *health_service;
 
 	ret = bgp_lookup_by_as_name_type(bgp_val, as, as_pretty, asnotation, name, inst_type, false);
 	if (ret || *bgp_val)
@@ -4503,6 +4529,11 @@ int bgp_get(struct bgp **bgp_val, as_t *as, const char *name,
 				   __func__, bgp->name_pretty);
 		bgp_zebra_instance_register(bgp);
 	}
+
+	/* Signal gRPC clients that this BGP instance is ready */
+	health_service = bgp_health_service_name(inst_type, name);
+	nb_grpc_set_health_status(health_service, true);
+	XFREE(MTYPE_TMP, health_service);
 
 	return BGP_CREATED;
 }
@@ -4656,8 +4687,14 @@ int bgp_delete(struct bgp *bgp)
 	struct peer_connection *connection;
 	uint32_t b_ann_cnt = 0, b_l2_cnt = 0;
 	uint32_t a_ann_cnt = 0, a_l2_cnt = 0;
+	char *health_service;
 
 	assert(bgp);
+
+	/* Signal gRPC clients that this BGP instance is no longer available */
+	health_service = bgp_health_service_name(bgp->inst_type, bgp->name);
+	nb_grpc_set_health_status(health_service, false);
+	XFREE(MTYPE_TMP, health_service);
 
 	/*
 	 * Iterate the pending dest list and remove all the dest pertaining to
@@ -9839,9 +9876,32 @@ static int peer_unshut_after_cfg(struct bgp *bgp)
 	return 0;
 }
 
+/*
+ * Called when gRPC server is ready. Set health status for all
+ * BGP instances that were created before gRPC started.
+ */
+static int bgp_grpc_server_ready(void)
+{
+	struct bgp *bgp;
+	struct listnode *node;
+	char *health_service;
+
+	for (ALL_LIST_ELEMENTS_RO(bm->bgp, node, bgp)) {
+		/* Skip hidden instances - they are not yet configured */
+		if (IS_BGP_INSTANCE_HIDDEN(bgp))
+			continue;
+		health_service = bgp_health_service_name(bgp->inst_type, bgp->name);
+		nb_grpc_set_health_status(health_service, true);
+		XFREE(MTYPE_TMP, health_service);
+	}
+
+	return 0;
+}
+
 void bgp_init(unsigned short instance)
 {
 	hook_register(bgp_config_end, peer_unshut_after_cfg);
+	hook_register(nb_grpc_server_ready, bgp_grpc_server_ready);
 
 	/* allocates some vital data structures used by peer commands in
 	 * vty_init */
