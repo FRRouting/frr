@@ -42,6 +42,8 @@ struct zebra_dplane_info {
 #if defined(HAVE_NETLINK)
 	int sock;
 	int seq;
+	/* Netlink port ID captured for message encoding. */
+	uint32_t nlmsg_pid;
 	bool is_cmd;
 #endif
 };
@@ -58,9 +60,11 @@ zebra_dplane_info_from_zns(struct zebra_dplane_info *zns_info,
 	if (is_cmd) {
 		zns_info->sock = zns->netlink_cmd.sock;
 		zns_info->seq = zns->netlink_cmd.seq;
+		zns_info->nlmsg_pid = zns->netlink_cmd.snl.nl_pid;
 	} else {
 		zns_info->sock = zns->netlink_dplane_in.sock;
 		zns_info->seq = zns->netlink_dplane_in.seq;
+		zns_info->nlmsg_pid = zns->netlink_dplane_in.snl.nl_pid;
 	}
 #endif /* NETLINK */
 }
