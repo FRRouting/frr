@@ -2398,7 +2398,6 @@ ssize_t netlink_route_multipath_msg_encode(int cmd, struct zebra_dplane_ctx *ctx
 	union g_addr src;
 	const struct prefix *p, *src_p;
 	uint32_t table_id;
-	struct nlsock *nl;
 	route_tag_t tag = 0;
 
 	struct {
@@ -2412,8 +2411,6 @@ ssize_t netlink_route_multipath_msg_encode(int cmd, struct zebra_dplane_ctx *ctx
 
 	if (datalen < sizeof(*req))
 		return 0;
-
-	nl = kernel_netlink_nlsock_lookup(dplane_ctx_get_ns_sock(ctx));
 
 	memset(req, 0, sizeof(*req));
 
@@ -2429,7 +2426,7 @@ ssize_t netlink_route_multipath_msg_encode(int cmd, struct zebra_dplane_ctx *ctx
 
 	req->n.nlmsg_type = cmd;
 
-	req->n.nlmsg_pid = nl->snl.nl_pid;
+	req->n.nlmsg_pid = dplane_ctx_get_ns(ctx)->nlmsg_pid;
 
 	req->r.rtm_family = p->family;
 	req->r.rtm_dst_len = p->prefixlen;
@@ -2990,8 +2987,6 @@ ssize_t netlink_nexthop_msg_encode(uint16_t cmd,
 	int type = dplane_ctx_get_nhe_type(ctx);
 	struct rtattr *nest;
 	uint16_t encap;
-	struct nlsock *nl =
-		kernel_netlink_nlsock_lookup(dplane_ctx_get_ns_sock(ctx));
 
 	if (!id) {
 		flog_err(
@@ -3043,7 +3038,7 @@ ssize_t netlink_nexthop_msg_encode(uint16_t cmd,
 		req->n.nlmsg_flags |= NLM_F_REPLACE;
 
 	req->n.nlmsg_type = cmd;
-	req->n.nlmsg_pid = nl->snl.nl_pid;
+	req->n.nlmsg_pid = dplane_ctx_get_ns(ctx)->nlmsg_pid;
 
 	req->nhm.nh_family = AF_UNSPEC;
 	/* TODO: Scope? */
@@ -4248,9 +4243,9 @@ static int netlink_macfdb_read_mcast_for_vni(struct nlsock *nl,
 void kernel_read_macfdb(struct zebra_dplane_ctx *ctx)
 {
 	const struct zebra_dplane_info *dp_info = dplane_ctx_get_ns(ctx);
-	struct nlsock *nl;
+	struct nlsock *nl NLSOCK_AUTO = NULL;
 
-	nl = kernel_netlink_nlsock_lookup(dplane_ctx_get_ns_sock(ctx));
+	nl = kernel_netlink_nlsock_hold(dplane_ctx_get_ns(ctx));
 	if (!nl) {
 		dplane_ctx_set_status(ctx, ZEBRA_DPLANE_REQUEST_FAILURE);
 		return;
@@ -4612,11 +4607,11 @@ void kernel_read_neigh(struct zebra_dplane_ctx *ctx)
 {
 	const struct zebra_dplane_info *dp_info = dplane_ctx_get_ns(ctx);
 	const struct ipaddr *ip;
-	struct nlsock *nl;
+	struct nlsock *nl NLSOCK_AUTO = NULL;
 	ifindex_t ifindex;
 	int ret;
 
-	nl = kernel_netlink_nlsock_lookup(dplane_ctx_get_ns_sock(ctx));
+	nl = kernel_netlink_nlsock_hold(dplane_ctx_get_ns(ctx));
 	if (!nl) {
 		dplane_ctx_set_status(ctx, ZEBRA_DPLANE_REQUEST_FAILURE);
 		return;
@@ -4864,9 +4859,7 @@ ssize_t netlink_mpls_multipath_msg_encode(int cmd, struct zebra_dplane_ctx *ctx,
 	unsigned int nexthop_num;
 	const char *routedesc;
 	int route_type;
-	struct prefix p = {0};
-	struct nlsock *nl =
-		kernel_netlink_nlsock_lookup(dplane_ctx_get_ns_sock(ctx));
+	struct prefix p = { 0 };
 
 	struct {
 		struct nlmsghdr n;
@@ -4909,7 +4902,7 @@ ssize_t netlink_mpls_multipath_msg_encode(int cmd, struct zebra_dplane_ctx *ctx,
 	req->n.nlmsg_len = NLMSG_LENGTH(sizeof(struct rtmsg));
 	req->n.nlmsg_flags = NLM_F_CREATE | NLM_F_REQUEST;
 	req->n.nlmsg_type = cmd;
-	req->n.nlmsg_pid = nl->snl.nl_pid;
+	req->n.nlmsg_pid = dplane_ctx_get_ns(ctx)->nlmsg_pid;
 
 	req->r.rtm_family = AF_MPLS;
 	req->r.rtm_table = rt_table_main_id;

@@ -165,7 +165,7 @@ int genl_resolve_family(const char *family)
 ssize_t netlink_sr_tunsrc_set_msg_encode(int cmd, struct zebra_dplane_ctx *ctx,
 					 void *buf, size_t buflen)
 {
-	struct nlsock *nl;
+	struct nlsock *nl NLSOCK_AUTO = NULL;
 	const struct in6_addr *tunsrc_addr;
 	struct genl_request *req = buf;
 
@@ -182,7 +182,9 @@ ssize_t netlink_sr_tunsrc_set_msg_encode(int cmd, struct zebra_dplane_ctx *ctx,
 	if (buflen < sizeof(*req))
 		return 0;
 
-	nl = kernel_netlink_nlsock_lookup(dplane_ctx_get_ns_sock(ctx));
+	nl = kernel_netlink_nlsock_hold(dplane_ctx_get_ns(ctx));
+	if (!nl)
+		return -1;
 
 	memset(req, 0, sizeof(*req));
 
@@ -244,17 +246,20 @@ enum netlink_msg_status
 netlink_put_sr_tunsrc_set_msg(struct nl_batch *bth, struct zebra_dplane_ctx *ctx)
 {
 	enum dplane_op_e op;
-	struct zebra_ns *zns;
 	struct genl_request req = { 0 };
+	/* Pins the ns, and so its generic netlink socket, for the talk. */
+	struct nlsock *nl NLSOCK_AUTO = kernel_netlink_nlsock_hold(dplane_ctx_get_ns(ctx));
 
 	op = dplane_ctx_get_op(ctx);
 	assert(op == DPLANE_OP_SRV6_ENCAP_SRCADDR_SET);
 
-	netlink_sr_tunsrc_set_msg_encoder(ctx, &req, sizeof(req));
+	if (!nl)
+		return FRR_NETLINK_ERROR;
 
-	zns = zebra_ns_lookup(dplane_ctx_get_ns_sock(ctx));
+	if (netlink_sr_tunsrc_set_msg_encoder(ctx, &req, sizeof(req)) <= 0)
+		return FRR_NETLINK_ERROR;
 
-	return ge_netlink_talk(netlink_talk_filter, &req.n, zns, false, NULL, NULL);
+	return ge_netlink_talk(netlink_talk_filter, &req.n, nl->zns, false, NULL, NULL);
 }
 
 /**
@@ -355,6 +360,7 @@ int netlink_sr_tunsrc_read(struct zebra_ns *zns)
 	dp_info.is_cmd = true;
 	dp_info.sock = zns->ge_netlink_cmd.sock;
 	dp_info.seq = zns->ge_netlink_cmd.seq;
+	dp_info.sock_gen = zns->ge_netlink_cmd.gen;
 
 	/* Get SR tunsrc. */
 	ret = netlink_request_sr_tunsrc(zns);
@@ -504,6 +510,13 @@ void ge_netlink_init(struct zebra_ns *zns)
 		return;
 
 	/*
+	 * Family IDs are global, and the dplane thread may already be using
+	 * the default ns socket that resolving them talks on.
+	 */
+	if (zns->ns_id != NS_DEFAULT)
+		return;
+
+	/*
 	 * Resolves the 'seg6' Generic Netlink family name to the corresponding numeric family identifier.
 	 * This will give us the numeric family identifier required to send 'seg6' commands to the kernel
 	 * over the Generic Netlink socket. 'seg6' commands are used to configure SRv6 internal parameters
@@ -526,8 +539,7 @@ void ge_netlink_init(struct zebra_ns *zns)
 	 * Retrieve the actual SRv6 encap source address from the kernel
 	 * (default namespace) and save it to zebra SRv6 config
 	 */
-	if (zns->ns_id == NS_DEFAULT)
-		netlink_sr_tunsrc_read(zns);
+	netlink_sr_tunsrc_read(zns);
 }
 
 #endif /* HAVE_NETLINK */
