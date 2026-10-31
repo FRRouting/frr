@@ -1256,6 +1256,7 @@ static void show_bgp_nexthop_label_afi(struct vty *vty, afi_t afi,
 	char labelstr[MPLS_LABEL_STRLEN];
 	struct bgp_dest *dest;
 	struct bgp_path_info *path;
+	struct bgp_path_info_extra *extra;
 	struct bgp *bgp_path;
 	struct bgp_table *table;
 
@@ -1282,8 +1283,9 @@ static void show_bgp_nexthop_label_afi(struct vty *vty, afi_t afi,
 		if (!detail)
 			continue;
 		vty_out(vty, "  Paths:\n");
-		LIST_FOREACH (path, &(iter->paths),
-			      mplsvpn.blnc.label_nh_thread) {
+
+		LIST_FOREACH (extra, &(iter->paths), mplsvpn.blnc.label_nh_thread) {
+			path = extra->path;
 			dest = path->net;
 			table = bgp_dest_table(dest);
 			assert(dest && table);
