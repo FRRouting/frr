@@ -420,6 +420,23 @@ void isis_adj_state_change(struct isis_adjacency **padj,
 				 * purposes */
 				adj->last_flap = time(NULL);
 				adj->flaps++;
+
+				/* RFC 5303 section 1: each side sends a CSNP
+				 * once the adjacency is up. The periodic CSNP
+				 * timer is normally armed, and
+				 * event_add_timer() would keep it, so cancel
+				 * it first.
+				 */
+				event_cancel(&circuit->t_send_csnp[level - 1]);
+				if (level == IS_LEVEL_1) {
+					event_add_timer(
+						master, send_l1_csnp, circuit,
+						0, &circuit->t_send_csnp[0]);
+				} else {
+					event_add_timer(
+						master, send_l2_csnp, circuit,
+						0, &circuit->t_send_csnp[1]);
+				}
 			} else {
 				if (old_state == ISIS_ADJ_UP)
 					p2p_level_down(circuit, level);
