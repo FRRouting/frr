@@ -126,19 +126,45 @@ static void ospf_ase_complete_direct_routes(struct ospf_route *ro,
 }
 
 static int ospf_ase_forward_address_check(struct ospf *ospf,
-					  struct in_addr fwd_addr)
+					  struct in_addr fwd_addr,
+					  struct route_table *fwd_cache)
 {
 	struct listnode *ifn;
 	struct ospf_interface *oi;
+	struct route_node *rn;
+	struct prefix p;
+	int ret = 1;
+
+	if (fwd_cache) {
+		p.family = AF_INET;
+		p.prefixlen = IPV4_MAX_BITLEN;
+		p.u.prefix4 = fwd_addr;
+		rn = route_node_lookup(fwd_cache, &p);
+		if (rn) {
+			ret = (int)((uintptr_t)rn->info - 1);
+			route_unlock_node(rn);
+			return ret;
+		}
+	}
 
 	for (ALL_LIST_ELEMENTS_RO(ospf->oiflist, ifn, oi))
 		if (if_is_operative(oi->ifp))
 			if (oi->type != OSPF_IFTYPE_VIRTUALLINK)
 				if (IPV4_ADDR_SAME(&oi->address->u.prefix4,
-						   &fwd_addr))
-					return 0;
+						   &fwd_addr)) {
+					ret = 0;
+					break;
+				}
 
-	return 1;
+	if (fwd_cache) {
+		rn = route_node_get(fwd_cache, &p);
+		if (rn->info == NULL)
+			rn->info = (void *)(uintptr_t)(ret + 1);
+		else
+			route_unlock_node(rn);
+	}
+
+	return ret;
 }
 
 static struct ospf_route *
@@ -184,7 +210,8 @@ ospf_ase_calculate_new_route(struct ospf_lsa *lsa,
 
 #define OSPF_ASE_CALC_INTERVAL 1
 
-int ospf_ase_calculate_route(struct ospf *ospf, struct ospf_lsa *lsa)
+int ospf_ase_calculate_route(struct ospf *ospf, struct ospf_lsa *lsa,
+			     struct route_table *fwd_cache)
 {
 	uint32_t metric;
 	struct as_external_lsa *al;
@@ -305,7 +332,8 @@ int ospf_ase_calculate_route(struct ospf *ospf, struct ospf_lsa *lsa)
 		   routing table entry must specify an intra-area or inter-area
 		   path; if no such path exists, do nothing with the LSA and
 		   consider the next in the list. */
-		if (!ospf_ase_forward_address_check(ospf, al->e[0].fwd_addr)) {
+		if (!ospf_ase_forward_address_check(ospf, al->e[0].fwd_addr,
+						    fwd_cache)) {
 			if (IS_DEBUG_OSPF(lsa, LSA))
 				zlog_debug(
 					"Route[External]: Forwarding address is our router address");
@@ -565,6 +593,7 @@ static void ospf_ase_calculate_timer(struct event *t)
 	struct route_node *rn;
 	struct listnode *node;
 	struct ospf_area *area;
+	struct route_table *fwd_cache;
 	struct timeval start_time, stop_time;
 
 	ospf = EVENT_ARG(t);
@@ -574,9 +603,16 @@ static void ospf_ase_calculate_timer(struct event *t)
 
 		monotime(&start_time);
 
+		/* The forwarding-address locality check reads oiflist, which
+		 * cannot change while this pass runs.  Cache the verdict per
+		 * address so that a batch of external LSAs carrying the same
+		 * forwarding address does not re-scan the interface list.
+		 */
+		fwd_cache = route_table_init();
+
 		/* Calculate external route for each AS-external-LSA */
 		LSDB_LOOP (EXTERNAL_LSDB(ospf), rn, lsa)
-			ospf_ase_calculate_route(ospf, lsa);
+			ospf_ase_calculate_route(ospf, lsa, fwd_cache);
 
 		/*  This version simple adds to the table all NSSA areas  */
 		if (ospf->anyNSSA)
@@ -588,11 +624,14 @@ static void ospf_ase_calculate_timer(struct event *t)
 				if (area->external_routing == OSPF_AREA_NSSA)
 					LSDB_LOOP (NSSA_LSDB(area), rn, lsa)
 						ospf_ase_calculate_route(ospf,
-									 lsa);
+									 lsa,
+									 fwd_cache);
 			}
 		/* kevinm: And add the NSSA routes in ospf_top */
 		LSDB_LOOP (NSSA_LSDB(ospf), rn, lsa)
-			ospf_ase_calculate_route(ospf, lsa);
+			ospf_ase_calculate_route(ospf, lsa, fwd_cache);
+
+		route_table_finish(fwd_cache);
 
 		/* Compare old and new external routing table and install the
 		   difference info zebra/kernel */
@@ -750,7 +789,7 @@ void ospf_ase_incremental_update(struct ospf *ospf, struct ospf_lsa *lsa)
 	route_unlock_node(rn);
 
 	for (ALL_LIST_ELEMENTS_RO(lsas, node, lsa))
-		ospf_ase_calculate_route(ospf, lsa);
+		ospf_ase_calculate_route(ospf, lsa, NULL);
 
 	/* prepare temporary old routing table for compare */
 	tmp_old = route_table_init();
