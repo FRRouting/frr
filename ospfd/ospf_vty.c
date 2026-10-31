@@ -2945,6 +2945,82 @@ DEFUN (no_ospf_max_multipath,
 	return CMD_SUCCESS;
 }
 
+/* OSPF resource limit config support */
+DEFUN (ospf_neighbor_limit,
+       ospf_neighbor_limit_cmd,
+       "neighbor-limit " CMD_RANGE_STR(1, 65535),
+       "Limit the number of OSPF neighbors per interface\n"
+       "Maximum number of neighbors per interface\n")
+{
+	VTY_DECLVAR_INSTANCE_CONTEXT(ospf, ospf);
+
+	ospf->nbr_limit = strtoul(argv[1]->arg, NULL, 10);
+	return CMD_SUCCESS;
+}
+
+DEFUN (no_ospf_neighbor_limit,
+       no_ospf_neighbor_limit_cmd,
+       "no neighbor-limit [" CMD_RANGE_STR(1, 65535)"]",
+       NO_STR
+       "Limit the number of OSPF neighbors per interface\n"
+       "Maximum number of neighbors per interface\n")
+{
+	VTY_DECLVAR_INSTANCE_CONTEXT(ospf, ospf);
+
+	ospf->nbr_limit = OSPF_NBR_LIMIT_DEFAULT;
+	return CMD_SUCCESS;
+}
+
+DEFUN (ospf_max_lsa,
+       ospf_max_lsa_cmd,
+       "max-lsa " CMD_RANGE_STR(1, 10000000),
+       "Limit the number of LSAs in each link state database (per area and AS scope)\n"
+       "Maximum number of LSAs\n")
+{
+	VTY_DECLVAR_INSTANCE_CONTEXT(ospf, ospf);
+
+	ospf->max_lsa = strtoul(argv[1]->arg, NULL, 10);
+	return CMD_SUCCESS;
+}
+
+DEFUN (no_ospf_max_lsa,
+       no_ospf_max_lsa_cmd,
+       "no max-lsa [" CMD_RANGE_STR(1, 10000000)"]",
+       NO_STR
+       "Limit the number of LSAs in each link state database (per area and AS scope)\n"
+       "Maximum number of LSAs\n")
+{
+	VTY_DECLVAR_INSTANCE_CONTEXT(ospf, ospf);
+
+	ospf->max_lsa = OSPF_MAX_LSA_DEFAULT;
+	return CMD_SUCCESS;
+}
+
+DEFUN (ospf_ls_request_limit,
+       ospf_ls_request_limit_cmd,
+       "ls-request-limit " CMD_RANGE_STR(1, 65535),
+       "Limit the number of entries in each neighbor's Link State Request list\n"
+       "Maximum number of request list entries\n")
+{
+	VTY_DECLVAR_INSTANCE_CONTEXT(ospf, ospf);
+
+	ospf->ls_request_limit = strtoul(argv[1]->arg, NULL, 10);
+	return CMD_SUCCESS;
+}
+
+DEFUN (no_ospf_ls_request_limit,
+       no_ospf_ls_request_limit_cmd,
+       "no ls-request-limit [" CMD_RANGE_STR(1, 65535)"]",
+       NO_STR
+       "Limit the number of entries in each neighbor's Link State Request list\n"
+       "Maximum number of request list entries\n")
+{
+	VTY_DECLVAR_INSTANCE_CONTEXT(ospf, ospf);
+
+	ospf->ls_request_limit = OSPF_LS_REQUEST_LIMIT_DEFAULT;
+	return CMD_SUCCESS;
+}
+
 static const char *const ospf_abr_type_descr_str[] = {
 	"Unknown", "Standard (RFC2328)", "Alternative IBM",
 	"Alternative Cisco", "Alternative Shortcut"
@@ -3496,6 +3572,13 @@ static int show_ip_ospf_common(struct vty *vty, struct ospf *ospf,
 		json_object_int_add(json_vrf, "maximumPaths",
 				    ospf->max_multipath);
 
+		/* show resource limits */
+		json_object_int_add(json_vrf, "neighborLimit", ospf->nbr_limit);
+		json_object_int_add(json_vrf, "maxLsa", ospf->max_lsa);
+		json_object_int_add(json_vrf, "lsRequestLimit",
+				    ospf->ls_request_limit);
+		json_object_int_add(json_vrf, "lsasDropped", ospf->lsas_dropped);
+
 		/* show administrative distance */
 		json_object_int_add(json_vrf, "preference",
 				    ospf->distance_all
@@ -3526,6 +3609,18 @@ static int show_ip_ospf_common(struct vty *vty, struct ospf *ospf,
 		/* show max multipath */
 		vty_out(vty, " Maximum multiple paths(ECMP) supported %d\n",
 			ospf->max_multipath);
+
+		/* show resource limits */
+		vty_out(vty, " Maximum number of neighbors per interface %u\n",
+			ospf->nbr_limit);
+		vty_out(vty, " Maximum number of LSAs %u\n", ospf->max_lsa);
+		vty_out(vty,
+			" Maximum Link State Request list size %u\n",
+			ospf->ls_request_limit);
+		if (ospf->lsas_dropped)
+			vty_out(vty,
+				" LSAs dropped due to a full database %" PRIu64 "\n",
+				ospf->lsas_dropped);
 
 		if (ospf->forwarding_address_self)
 			vty_out(vty, " Forwarding address is set to self for external LSAs\n");
@@ -4565,11 +4660,18 @@ static void show_ip_ospf_interface_sub(struct vty *vty, struct ospf *ospf,
 			json_object_int_add(json_interface_sub,
 					    "nbrAdjacentCount",
 					    ospf_nbr_count(oi, NSM_Full));
-		} else
+			json_object_int_add(json_interface_sub, "neighborsDropped",
+					    oi->nbrs_dropped);
+		} else {
 			vty_out(vty,
 				"  Neighbor Count is %d, Adjacent neighbor count is %d\n",
 				ospf_nbr_count(oi, 0),
 				ospf_nbr_count(oi, NSM_Full));
+			if (oi->nbrs_dropped)
+				vty_out(vty,
+					"  Neighbor Count dropped due to a full table %" PRIu64 "\n",
+					oi->nbrs_dropped);
+		}
 
 		/* RFC4222 DSCP display */
 		params = IF_DEF_PARAMS(ifp);
@@ -5222,6 +5324,9 @@ static void show_ip_ospf_neighbour_brief(struct vty *vty,
 		json_object_int_add(json_neighbor,
 				    "linkStateRequestListCounter",
 				    ospf_ls_request_count(nbr));
+		json_object_int_add(json_neighbor,
+				    "linkStateRequestListDropped",
+				    nbr->ls_req_dropped);
 		json_object_int_add(json_neighbor, "databaseSummaryListCounter",
 				    ospf_db_summary_count(nbr));
 
@@ -6030,12 +6135,18 @@ static void show_ip_ospf_neighbor_detail_sub(struct vty *vty,
 			ospf_db_summary_count(nbr));
 
 	/* Show Link State Request list. */
-	if (use_json)
+	if (use_json) {
 		json_object_int_add(json_neigh, "linkStateRequestListCounter",
 				    ospf_ls_request_count(nbr));
-	else
+		json_object_int_add(json_neigh, "linkStateRequestListDropped",
+				    nbr->ls_req_dropped);
+	} else {
 		vty_out(vty, "    Link State Request List %ld\n",
 			ospf_ls_request_count(nbr));
+		if (nbr->ls_req_dropped)
+			vty_out(vty, "    Link State Request List dropped %" PRIu64 "\n",
+				nbr->ls_req_dropped);
+	}
 
 	/* Show Link State Retransmission list. */
 	if (use_json)
@@ -13903,6 +14014,15 @@ static int ospf_config_write_one(struct vty *vty, struct ospf *ospf)
 	if (ospf->max_multipath != MULTIPATH_NUM)
 		vty_out(vty, " maximum-paths %d\n", ospf->max_multipath);
 
+	if (ospf->nbr_limit != OSPF_NBR_LIMIT_DEFAULT)
+		vty_out(vty, " neighbor-limit %u\n", ospf->nbr_limit);
+
+	if (ospf->max_lsa != OSPF_MAX_LSA_DEFAULT)
+		vty_out(vty, " max-lsa %u\n", ospf->max_lsa);
+
+	if (ospf->ls_request_limit != OSPF_LS_REQUEST_LIMIT_DEFAULT)
+		vty_out(vty, " ls-request-limit %u\n", ospf->ls_request_limit);
+
 	/* Max-metric router-lsa print */
 	config_write_stub_router(vty, ospf);
 
@@ -14755,6 +14875,14 @@ void ospf_vty_init(void)
 	/* Max path configurations */
 	install_element(OSPF_NODE, &ospf_max_multipath_cmd);
 	install_element(OSPF_NODE, &no_ospf_max_multipath_cmd);
+
+	/* Resource limit configurations */
+	install_element(OSPF_NODE, &ospf_neighbor_limit_cmd);
+	install_element(OSPF_NODE, &no_ospf_neighbor_limit_cmd);
+	install_element(OSPF_NODE, &ospf_max_lsa_cmd);
+	install_element(OSPF_NODE, &no_ospf_max_lsa_cmd);
+	install_element(OSPF_NODE, &ospf_ls_request_limit_cmd);
+	install_element(OSPF_NODE, &no_ospf_ls_request_limit_cmd);
 
 	vrf_cmd_init(NULL);
 

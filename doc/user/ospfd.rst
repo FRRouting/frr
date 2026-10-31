@@ -383,6 +383,34 @@ To start OSPF process you have to specify the OSPF router.
    a specific destination. The upper limit may differ if you change the value
    of MULTIPATH_NUM during compilation. The default is MULTIPATH_NUM (64).
 
+.. clicmd:: neighbor-limit (1-65535)
+   :daemon: ospfd
+
+   Limit the number of OSPF neighbors kept on each interface of this
+   instance.  Hello packets from previously unseen sources are dropped
+   while the interface's neighbor table is full; the drops are counted
+   in the ``neighborsDropped`` counter of ``show ip ospf interface
+   json``.  Freed slots (for example after the dead interval expires)
+   are offered to new neighbors again.  The default is 1024.
+
+.. clicmd:: max-lsa (1-10000000)
+   :daemon: ospfd
+
+   Limit the number of LSAs in each link state database of this
+   instance (each area's LSDB and the AS-scope LSDB are limited
+   separately).  A received LSA whose key is not yet present is dropped
+   while the database is full; self-originated LSAs are always
+   accepted.  The drops are counted in the ``lsasDropped`` counter of
+   ``show ip ospf json``.  The default is 100000.
+
+.. clicmd:: ls-request-limit (1-65535)
+   :daemon: ospfd
+
+   Limit the number of entries in each neighbor's Link State Request
+   list.  Requests received while the list is full are dropped and
+   counted in the ``linkStateRequestListDropped`` counter of ``show ip
+   ospf neighbor json``.  The default is 4096.
+
 .. clicmd:: write-multiplier (1-100)
    :daemon: ospfd
 
