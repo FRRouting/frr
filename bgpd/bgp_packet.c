@@ -1634,10 +1634,7 @@ void bgp_capability_send(struct peer_connection *connection, afi_t afi, safi_t s
 
 			bgp_map_afi_safi_int2iana(afi, safi, &pkt_afi, &pkt_safi);
 
-			if (CHECK_FLAG(peer->flags, PEER_FLAG_CAPABILITY_ENHE) &&
-			    connection->su.sa.sa_family == AF_INET6 && afi == AFI_IP &&
-			    (safi == SAFI_UNICAST || safi == SAFI_MPLS_VPN ||
-			     safi == SAFI_LABELED_UNICAST)) {
+			if (bgp_connection_enhe_af_adv(connection, afi, safi)) {
 				stream_putc(s, action);
 				stream_putc(s, CAPABILITY_CODE_ENHE);
 				stream_putc(s, CAPABILITY_CODE_ENHE_LEN);
@@ -4054,6 +4051,7 @@ static int bgp_capability_msg_parse(struct peer_connection *connection, uint8_t 
 				peer->afc_recv[afi][safi] = 1;
 				if (peer->afc[afi][safi]) {
 					peer->afc_nego[afi][safi] = 1;
+					update_group_adjust_peer(peer_af_find(peer, afi, safi));
 					bgp_announce_route(peer, afi, safi,
 							   false);
 				}
@@ -4061,9 +4059,22 @@ static int bgp_capability_msg_parse(struct peer_connection *connection, uint8_t 
 				peer->afc_recv[afi][safi] = 0;
 				peer->afc_nego[afi][safi] = 0;
 
-				if (peer_active_nego(peer))
+				if (peer_active_nego(peer)) {
+					struct peer_af *paf = peer_af_find(peer, afi, safi);
+
+					/*
+					 * Leave the update-group, so that the
+					 * Adj-RIB-Out is flushed and the routes
+					 * are re-announced if this AFI/SAFI is
+					 * negotiated again later.
+					 */
+					if (paf) {
+						bgp_stop_announce_route_timer(paf);
+						update_subgroup_remove_peer(PAF_SUBGRP(paf), paf);
+					}
+
 					bgp_clear_route(peer, afi, safi);
-				else
+				} else
 					goto done;
 			}
 			break;

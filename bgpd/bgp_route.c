@@ -7768,8 +7768,16 @@ static void bgp_clear_node_complete(struct work_queue *wq)
 {
 	struct peer *peer = wq->spec.data;
 
-	/* Tickle FSM to start moving again */
-	BGP_EVENT_ADD(peer->connection, Clearing_Completed);
+	/*
+	 * Tickle FSM to start moving again.
+	 *
+	 * If the session is still Established, this was a per-AFI/SAFI
+	 * clearing (e.g. the AFI/SAFI was deactivated using Dynamic
+	 * Capability) and the FSM is not waiting for this event. Sending
+	 * Clearing_Completed in Established state would tear down the session.
+	 */
+	if (!peer_established(peer->connection))
+		BGP_EVENT_ADD(peer->connection, Clearing_Completed);
 
 	peer_unlock(peer); /* bgp_clear_route */
 }
