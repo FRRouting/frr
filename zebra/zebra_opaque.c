@@ -423,6 +423,10 @@ static int dispatch_opq_messages(struct stream_fifo *msg_fifo)
 
 		/* Send a copy of the message to all registered clients */
 		for (client = reg->clients; client; client = client->next) {
+			/* Only clients registered to receive opaque messages should get them */
+			if (!CHECK_FLAG(client->flags, OPQ_CLIENT_FLAG_RECV))
+				continue;
+
 			dup = NULL;
 
 			if (CHECK_FLAG(info.flags, ZAPI_OPAQUE_FLAG_UNICAST)) {
