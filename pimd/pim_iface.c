@@ -52,7 +52,6 @@
 static void pim_if_gm_join_del_all(struct interface *ifp);
 static void pim_if_static_group_del_all(struct interface *ifp);
 static void pim_if_gm_join_replay(struct interface *ifp);
-static void pim_if_static_group_replay(struct interface *ifp);
 
 static int gm_join_sock(const char *ifname, ifindex_t ifindex,
 			pim_addr group_addr, pim_addr source_addr,
@@ -1521,23 +1520,65 @@ static void pim_if_gm_join_replay(struct interface *ifp)
 	}
 }
 
-static bool static_group_activate(struct interface *ifp, struct static_group *stgrp)
+/*
+ * Drop the channel-oil reference taken by a failed tib_sg_gm_join().
+ * That call publishes *oilp before the OIF and local membership exist.
+ * Keeping the pointer makes replay treat the group as installed.
+ */
+static void static_group_oil_drop(struct pim_instance *pim, struct static_group *stgrp,
+				  pim_sgaddr *sg)
+{
+	struct channel_oil *live;
+
+	if (!stgrp->oilp)
+		return;
+
+	live = pim_find_channel_oil(pim, sg);
+	if (live == stgrp->oilp)
+		pim_channel_oil_del(live, __func__);
+
+	stgrp->oilp = NULL;
+}
+
+/*
+ * oilp is already held. Put the GM OIF and INCLUDE membership back.
+ * pim_channel_add_oif() returns -3 when this protocol already owns the OIF.
+ */
+static bool static_group_reassert(struct interface *ifp, struct static_group *stgrp)
 {
 	struct pim_interface *pim_ifp = ifp->info;
+	struct pim_ifchannel *ch = NULL;
+	struct pim_ifchannel *chrpt = NULL;
+	struct channel_oif *coif;
 	pim_sgaddr sg;
+	int result;
 
-	if (!pim_ifp || pim_ifp->mroute_vif_index < 0)
+	if (!pim_ifp)
 		return false;
-
-	if (stgrp->oilp)
-		return true;
 
 	memset(&sg, 0, sizeof(sg));
 	sg.src = stgrp->source_addr;
 	sg.grp = stgrp->group_addr;
 
-	if (!tib_sg_gm_join(pim_ifp->pim, sg, ifp, &(stgrp->oilp))) {
-		zlog_warn("%s: activation failed for static group (S,G)=(%pPA,%pPA) on interface %s",
+	/*
+	 * Already forwarding. Address and vif replays hit this on every
+	 * connected address; don't walk child (S,G)s again.
+	 */
+	pim_ifchannel_find(ifp, &sg, &ch, &chrpt);
+	coif = channel_oil_oif_find(stgrp->oilp, pim_ifp->mroute_vif_index);
+	if (ch && ch->local_ifmembership == PIM_IFMEMBERSHIP_INCLUDE && coif &&
+	    CHECK_FLAG(coif->flags, PIM_OIF_FLAG_PROTO_GM))
+		return true;
+
+	result = pim_channel_add_oif(stgrp->oilp, ifp, PIM_OIF_FLAG_PROTO_GM, __func__);
+	if (result && result != -3) {
+		zlog_warn("%s: add_oif failed (%d) for static group (S,G)=(%pPA,%pPA) on interface %s",
+			  __func__, result, &stgrp->source_addr, &stgrp->group_addr, ifp->name);
+		return false;
+	}
+
+	if (!pim_ifchannel_local_membership_add(ifp, &sg, false /*is_vxlan*/)) {
+		zlog_warn("%s: local membership failed for static group (S,G)=(%pPA,%pPA) on interface %s",
 			  __func__, &stgrp->source_addr, &stgrp->group_addr, ifp->name);
 		return false;
 	}
@@ -1545,7 +1586,58 @@ static bool static_group_activate(struct interface *ifp, struct static_group *st
 	return true;
 }
 
-static void pim_if_static_group_replay(struct interface *ifp)
+static bool static_group_activate(struct interface *ifp, struct static_group *stgrp)
+{
+	struct pim_interface *pim_ifp = ifp->info;
+	pim_sgaddr sg;
+
+	/*
+	 * Startup config applies "ip igmp static-group" before "ip pim".
+	 * tib_sg_gm_join() would store an oil pointer and then fail in
+	 * pim_ifchannel_local_membership_add(). Defer that local join until
+	 * PIM, a vif, and DR status are ready.
+	 *
+	 * The upstream proxy report does not wait. An IGMP-only downstream,
+	 * or a non-DR, still has to request the group. tib_sg_gm_join()
+	 * sends that report before it installs an OIF.
+	 */
+	if (!pim_ifp || !pim_ifp->pim || pim_ifp->mroute_vif_index < 0)
+		return false;
+
+	memset(&sg, 0, sizeof(sg));
+	sg.src = stgrp->source_addr;
+	sg.grp = stgrp->group_addr;
+
+	if (!pim_ifp->pim_enable) {
+		tib_sg_proxy_join_prune_check(pim_ifp->pim, sg, ifp, true);
+		return false;
+	}
+
+	/*
+	 * A held oil is a previous successful join. Re-assert it: membership
+	 * refresh clears INCLUDE and would otherwise delete the ifchannel
+	 * and its mroute OIF while this pointer still looks active.
+	 */
+	if (stgrp->oilp)
+		return static_group_reassert(ifp, stgrp);
+
+	/* Non-DR does not install a new GM OIF. Retried from DR election. */
+	if (!(PIM_I_am_DR(pim_ifp) || PIM_I_am_DualActive(pim_ifp))) {
+		tib_sg_proxy_join_prune_check(pim_ifp->pim, sg, ifp, true);
+		return false;
+	}
+
+	if (!tib_sg_gm_join(pim_ifp->pim, sg, ifp, &(stgrp->oilp))) {
+		zlog_warn("%s: activation failed for static group (S,G)=(%pPA,%pPA) on interface %s",
+			  __func__, &stgrp->source_addr, &stgrp->group_addr, ifp->name);
+		static_group_oil_drop(pim_ifp->pim, stgrp, &sg);
+		return false;
+	}
+
+	return true;
+}
+
+void pim_if_static_group_replay(struct interface *ifp)
 {
 	struct pim_interface *pim_ifp = ifp->info;
 	struct listnode *node;
@@ -1557,10 +1649,8 @@ static void pim_if_static_group_replay(struct interface *ifp)
 	if (pim_ifp->mroute_vif_index < 0)
 		return;
 
-	for (ALL_LIST_ELEMENTS_RO(pim_ifp->static_group_list, node, stgrp)) {
-		if (!stgrp->oilp)
-			static_group_activate(ifp, stgrp);
-	}
+	for (ALL_LIST_ELEMENTS_RO(pim_ifp->static_group_list, node, stgrp))
+		static_group_activate(ifp, stgrp);
 }
 
 static struct static_group *static_group_new(struct interface *ifp,

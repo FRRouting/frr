@@ -70,7 +70,8 @@ MACRO_REQUIRE_SEMICOLON()
  * The function pim_if_membership_refresh() fetches all IGMPv3 local
  * membership information into PIM. It is intended to be called
  * whenever PIM is enabled on the interface in order to collect missed
- * local membership information.
+ * local membership information. Static groups are replayed too: startup
+ * config usually commits "ip igmp static-group" before "ip pim".
  */
 static void pim_if_membership_refresh(struct interface *ifp)
 {
@@ -153,6 +154,14 @@ static void pim_if_membership_refresh(struct interface *ifp)
 		}
 	}
 #endif
+
+	/*
+	 * Put static-group membership back before delete_on_noinfo().
+	 * membership_clear() marked every ifchannel NOINFO, including one
+	 * this refresh's caller just installed. Groups still NOINFO are
+	 * deleted below, which also pulls their OIF out of the mroute.
+	 */
+	pim_if_static_group_replay(ifp);
 
 	/*
 	 * Finally delete every PIM (S,G) entry lacking all state info
