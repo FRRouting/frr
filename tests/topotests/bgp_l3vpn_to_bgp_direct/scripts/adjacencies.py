@@ -1,8 +1,9 @@
+from lib.checkping import check_ping
 from lib.lutil import luCommand
 
-luCommand("ce1", "ping 192.168.1.1 -c 1", " 0. packet loss", "pass", "CE->PE ping")
-luCommand("ce2", "ping 192.168.1.1 -c 1", " 0. packet loss", "pass", "CE->PE ping")
-luCommand("ce3", "ping 192.168.1.1 -c 1", " 0. packet loss", "pass", "CE->PE ping")
+check_ping("ce1", "192.168.1.1", True, 10, 1)
+check_ping("ce2", "192.168.1.1", True, 10, 1)
+check_ping("ce3", "192.168.1.1", True, 10, 1)
 luCommand("ce1", 'vtysh -c "show bgp summary"', " 00:0", "wait", "Adjacencies up", 180)
 luCommand("ce2", 'vtysh -c "show bgp summary"', " 00:0", "wait", "Adjacencies up", 180)
 luCommand("ce3", 'vtysh -c "show bgp summary"', " 00:0", "wait", "Adjacencies up", 180)
@@ -14,9 +15,7 @@ luCommand(
     "OSPF Route has Arrived",
     60,
 )
-luCommand(
-    "r1", "ping 2.2.2.2 -c 1", " 0. packet loss", "wait", "PE->P2 (loopback) ping", 60
-)
+check_ping("r1", "2.2.2.2", True, 60, 1)
 luCommand(
     "r3",
     'vtysh -c "show ip route ospf"',
@@ -25,9 +24,7 @@ luCommand(
     "OSPF Route has Arrived",
     60,
 )
-luCommand(
-    "r3", "ping 2.2.2.2 -c 1", " 0. packet loss", "wait", "PE->P2 (loopback) ping", 60
-)
+check_ping("r3", "2.2.2.2", True, 60, 1)
 
 luCommand(
     "r4",
@@ -37,9 +34,7 @@ luCommand(
     "OSPF Route has Arrived",
     60,
 )
-luCommand(
-    "r4", "ping 2.2.2.2 -c 1", " 0. packet loss", "wait", "PE->P2 (loopback) ping", 60
-)
+check_ping("r4", "2.2.2.2", True, 60, 1)
 luCommand(
     "r2",
     'vtysh -c "show bgp summary"',
@@ -78,12 +73,6 @@ luCommand(
     "pass",
     "All adjacencies up",
 )
-luCommand(
-    "r1", "ping 3.3.3.3 -c 1", " 0. packet loss", "wait", "PE->PE3 (loopback) ping"
-)
-luCommand(
-    "r1", "ping 4.4.4.4 -c 1", " 0. packet loss", "wait", "PE->PE4 (loopback) ping"
-)
-luCommand(
-    "r4", "ping 3.3.3.3 -c 1", " 0. packet loss", "wait", "PE->PE3 (loopback) ping"
-)
+check_ping("r1", "3.3.3.3", True, 10, 1)
+check_ping("r1", "4.4.4.4", True, 10, 1)
+check_ping("r4", "3.3.3.3", True, 10, 1)

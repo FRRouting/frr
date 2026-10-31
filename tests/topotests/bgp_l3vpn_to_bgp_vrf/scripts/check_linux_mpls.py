@@ -1,3 +1,4 @@
+from lib.checkping import check_ping
 from lib.lutil import luCommand, luLast
 from lib import topotest
 
@@ -45,39 +46,15 @@ if ret != False and found != None:
     luCommand("r4", "ip -M route show", "1041", "pass", "MPLS->VRF1 route installed")
     luCommand("r4", "ip -M route show", "1042", "pass", "MPLS->VRF2 route installed")
 
-    luCommand(
-        "ce1",
-        "ping 99.0.0.4 -I 99.0.0.1 -c 1",
-        " 0. packet loss",
-        "wait",
-        "CE->CE (loopback) ping - l3vpn+zebra case",
-    )
+    check_ping("ce1", "99.0.0.4", True, 10, 1, "99.0.0.1")
     # skip due to VRF weirdness
     # luCommand('ce4', 'ping 99.0.0.1 -I 99.0.0.4 -c 1',
     # 	' 0. packet loss','wait','CE->CE (loopback) ping - l3vpn+zebra case')
 
-    luCommand(
-        "ce1",
-        "ping 99.0.0.4 -I 99.0.0.1 -c 1",
-        " 0. packet loss",
-        "wait",
-        "CE->CE (loopback) ping",
-    )
+    check_ping("ce1", "99.0.0.4", True, 10, 1, "99.0.0.1")
     # luCommand('ce4', 'ping 99.0.0.1 -I 99.0.0.4 -c 1',
     # 	' 0. packet loss','wait','CE->CE (loopback) ping')
 
     luCommand("r3", "ip -M route show", "103", "pass", "MPLS->VRF route installed")
-    luCommand(
-        "ce2",
-        "ping 99.0.0.3 -I 99.0.0.2 -c 1",
-        " 0. packet loss",
-        "wait",
-        "CE2->CE3 (loopback) ping",
-    )
-    luCommand(
-        "ce3",
-        "ping 99.0.0.4 -I 99.0.0.3 -c 1",
-        " 0. packet loss",
-        "wait",
-        "CE3->CE4 (loopback) ping",
-    )
+    check_ping("ce2", "99.0.0.3", True, 10, 1, "99.0.0.2")
+    check_ping("ce3", "99.0.0.4", True, 10, 1, "99.0.0.3")

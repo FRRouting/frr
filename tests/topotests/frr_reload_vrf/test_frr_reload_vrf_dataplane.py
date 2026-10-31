@@ -42,6 +42,7 @@ CWD = os.path.dirname(os.path.realpath(__file__))
 sys.path.append(os.path.join(CWD, ".."))
 
 from lib import topotest
+from lib.checkping import check_ping
 from lib.topogen import Topogen
 from lib.topolog import logger
 from lib.topotest import iproute2_is_vrf_capable
@@ -148,15 +149,6 @@ def _assert_daemons_healthy(tgen):
         assert status == "", "router {} unhealthy: {}".format(node, status)
 
 
-def _ping_across_pes(tgen, v, src_pe="pe1", dst_pe="pe2"):
-    """Ping from the host behind src_pe to the host behind dst_pe in VRF v."""
-    src_host = tgen.gears[D.host_name(src_pe, v)]
-    dst_ip = D.tenant_host(dst_pe, v)
-    out = src_host.run("ping -c3 -w5 {}".format(dst_ip))
-    logger.info("vrf%s %s->%s:\n%s", v, src_pe, dst_pe, out)
-    return "0% packet loss" in out or " 0% packet loss" in out
-
-
 def _diag_unicast(tgen, v):
     pe1 = tgen.gears["pe1"]
     pe2 = tgen.gears["pe2"]
@@ -202,12 +194,21 @@ def _diag_unicast(tgen, v):
                 pe1.run("ping -c2 -w3 -I 10.0.0.1 10.0.0.2"))
 
 
-def _check_unicast(tgen, vrfs):
+def _check_unicast(tgen, vrfs, src_pe="pe1", dst_pe="pe2"):
     for v in vrfs:
-        ok = _ping_across_pes(tgen, v)
-        if not ok:
+        try:
+            check_ping(
+                D.host_name(src_pe, v),
+                D.tenant_host(dst_pe, v),
+                True,
+                10,
+                1,
+            )
+        except AssertionError as err:
             _diag_unicast(tgen, v)
-        assert ok, "inter-PE unicast failed in vrf{} (pe1->pe2)".format(v)
+            raise AssertionError(
+                "inter-PE unicast failed in vrf{} ({}->{})".format(v, src_pe, dst_pe)
+            ) from err
 
 
 def _pim_rp_ready(pe1, v):
