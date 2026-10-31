@@ -1227,30 +1227,9 @@ static void bgp_evpn_ip_ead_evi_extcomm_build(struct bgp *bgp_vrf, struct attr *
 	bgp_attr_set_ecommunity(attr, ecom);
 }
 
-/* Originator used on IP A-D (per-EVI and per-ES). Prefer a global IPv6
- * address on the default VRF loopback so a PE can advertise an IPv6 VTEP
- * without changing the VXLAN local (Type-4) address. Skip ::1 / link-local.
- */
+/* Use the ES originator learned from zebra's configured VXLAN endpoint. */
 static void bgp_evpn_es_ip_ead_originator(const struct bgp_evpn_es *es, struct ipaddr *ip)
 {
-	struct interface *ifp;
-	struct connected *ifc;
-	struct prefix *cp;
-
-	ifp = if_get_vrf_loopback(VRF_DEFAULT);
-	if (ifp) {
-		frr_each (if_connected, ifp->connected, ifc) {
-			cp = ifc->address;
-			if (cp->family != AF_INET6)
-				continue;
-			if (IN6_IS_ADDR_LINKLOCAL(&cp->u.prefix6) ||
-			    IN6_IS_ADDR_LOOPBACK(&cp->u.prefix6) ||
-			    IN6_IS_ADDR_UNSPECIFIED(&cp->u.prefix6))
-				continue;
-			ipaddr_set_v6(ip, &cp->u.prefix6);
-			return;
-		}
-	}
 	*ip = es->originator_ip;
 }
 

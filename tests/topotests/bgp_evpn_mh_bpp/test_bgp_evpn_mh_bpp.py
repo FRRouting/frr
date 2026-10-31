@@ -127,13 +127,13 @@ def build_topo(tgen):
 
 
 def add_l3vni_dataplane(tor, vrf, table, l3vni):
-    lo = tor_lo(tor.name)
+    vtep = tor_vtep(tor.name)
     tor.run("ip link add %s type vrf table %d" % (vrf, table))
     tor.run("ip link set dev %s up" % vrf)
 
     tor.run(
         "ip link add vni%d type vxlan id %d dstport 4789 local %s nolearning"
-        % (l3vni, l3vni, lo)
+        % (l3vni, l3vni, vtep)
     )
     tor.run("ip link set dev vni%d master br_default" % l3vni)
     tor.run("/sbin/bridge link set dev vni%d learning off" % l3vni)
@@ -155,6 +155,9 @@ def config_tor_dataplane(tor):
         tor.run("sysctl -w net.ipv6.conf.all.disable_ipv6=0")
         tor.run("sysctl -w net.ipv6.conf.lo.disable_ipv6=0")
         tor.run("ip link set lo up")
+        tor.run(
+            "ip -6 addr add 2001:db8:ffff::%d/128 dev lo" % (TORS.index(tor.name) + 1)
+        )
         tor.run("ip -6 addr add %s/128 dev lo" % vtep)
 
     tor.run("ip link add dev br_default type bridge stp_state 0")
@@ -298,7 +301,7 @@ def _es_peers(router):
     if isinstance(output, dict):
         output = output.get("es", [])
     entries = {es.get("esi"): es for es in output}
-    remote = sorted(tor_lo(t) for t in TORS if t != router.name)
+    remote = sorted(tor_vtep(t) for t in TORS if t != router.name)
 
     for _, _, esi in HOST_ES.values():
         es = entries.get(esi)
@@ -1284,7 +1287,9 @@ def test_bpp_ip_ead_tx_ipv6():
     rts = (_vrf_rt(tor3, "vrf-a"), _vrf_rt(tor3, "vrf-b"))
 
     _set_bpp(tor3, True)
-    _expect_ip_ead(tor3, "IPv6 VTEP", evi_vrfs=("vrf-a", "vrf-b"), es_rts=rts)
+    _expect_ip_ead(
+        tor3, "configured IPv6 VTEP", evi_vrfs=("vrf-a", "vrf-b"), es_rts=rts,
+    )
 
     def _check_nh():
         evi = _ead_evi(tor3)
