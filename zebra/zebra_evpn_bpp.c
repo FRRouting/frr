@@ -998,6 +998,7 @@ static void zebra_evpn_bpp_group_enqueue(struct zebra_evpn_es *es, struct zebra_
 			hold->nh_id = es->l3_nhg_id;
 			zebra_evpn_bpp_nh_id_hash_add(&bpp_nh_retire, hold);
 		}
+		es->l3_nhg_id = 0;
 	} else {
 		if (bif->group_exported)
 			bpp_xcnt_group_upd++;
@@ -1045,6 +1046,7 @@ static void zebra_evpn_bpp_export_sync(struct zebra_evpn_bpp_if *bif)
 	bool was_bound = es && es->bpp_backup_nhg_id;
 
 	if (bound) {
+		zebra_evpn_bpp_group_id_ensure(es);
 		zebra_evpn_bpp_member_adds(bif);
 		zebra_evpn_bpp_group_enqueue(es, bif, false);
 		zebra_evpn_bpp_member_dels();
@@ -1895,7 +1897,6 @@ void zebra_evpn_bpp_dplane_result(struct zebra_dplane_ctx *ctx)
 		nh = zebra_evpn_bpp_nh_id_hash_find(&bpp_nh_retire, &key);
 		if (nh) {
 			zebra_evpn_bpp_nh_id_hash_del(&bpp_nh_retire, nh);
-			zebra_evpn_mh_nhid_free(nh->nh_id);
 			XFREE(MTYPE_ZEVPN_BPP_NH, nh);
 		}
 	}

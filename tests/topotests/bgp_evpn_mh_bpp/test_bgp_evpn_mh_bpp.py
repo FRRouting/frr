@@ -3259,19 +3259,47 @@ def test_bpp_id_no_reuse():
     _set_bpp_if(tor2, ES_IF, True)
     _set_bpp(tor1, True)
     _expect_members(tor1, ES1_ID, (lo2,), "member present")
-    old = _member_view(tor1, ES1_ID)["members"][0]["nhId"]
+    old = _member_view(tor1, ES1_ID)
+    old_gid = old["groupId"]
+    old_nid = old["members"][0]["nhId"]
 
     _set_bpp_if(tor2, ES_IF, False)
     _expect_members(tor1, ES1_ID, (), "Member deleted", bound=False)
-    members = _member_view(tor1, ES1_ID).get("members", [])
-    assert all(m.get("nhId") != old for m in members), members
+    _expect_export_clean(
+        tor1,
+        "retired ES-1 objects acknowledged",
+        members=0,
+        groups=0,
+        bindings=0,
+        released=True,
+    )
+
+    _set_bpp_if(tor1, "hostbond2", True)
+    _set_bpp_if(tor2, "hostbond2", True)
+    _expect_json(
+        tor1,
+        "show evpn mh bridge-port-protection member json",
+        {ES2_ID: {"members": [{"vtep": lo2}]}},
+        "ES-2 allocated after ES-1 delete",
+    )
+    es2 = _member_view(tor1, ES2_ID)
+    assert es2["groupId"] != old_gid, (old, es2)
+    assert es2["members"][0]["nhId"] != old_nid, (old, es2)
 
     _set_bpp_if(tor2, ES_IF, True)
     _expect_members(tor1, ES1_ID, (lo2,), "member back")
-    ids = [m["nhId"] for m in _member_view(tor1, ES1_ID)["members"]]
-    assert len(ids) == len(set(ids)), ids
+    restored = _member_view(tor1, ES1_ID)
+    assert restored["groupId"] != old_gid, (old, restored)
+    assert restored["groupId"] != es2["groupId"], (restored, es2)
+    assert restored["members"][0]["nhId"] != old_nid, (old, restored)
+    assert restored["members"][0]["nhId"] == es2["members"][0]["nhId"], (
+        restored,
+        es2,
+    )
     assert _id_errors(tor1, ES1_ID) == 0
 
+    _set_bpp_if(tor2, "hostbond2", False)
+    _set_bpp_if(tor1, "hostbond2", False)
     _set_bpp(tor1, False)
     _clear_ip_ead(tor2)
 

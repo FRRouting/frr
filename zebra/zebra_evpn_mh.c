@@ -1373,8 +1373,11 @@ uint32_t zebra_evpn_mh_nhid_alloc(enum nhg_type type)
 void zebra_evpn_mh_nhid_free(uint32_t nh_id)
 {
 	uint32_t id = nh_id & EVPN_NH_ID_VAL_MASK;
+	enum nhg_type type = NHG_ID_TYPE(nh_id);
 
 	if (!id || !zmh_info)
+		return;
+	if (type == NHG_TYPE_L3_BPP_NH || type == NHG_TYPE_L3_BPP)
 		return;
 
 	bf_release_index(zmh_info->nh_id_bitmap, id);
