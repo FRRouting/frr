@@ -1,0 +1,21 @@
+{
+  "10.0.94.0/24":[
+    {
+      "prefix":"10.0.94.0/24",
+      "protocol":"ospf",
+      "vrfName":"blue",
+      "distance":110,
+      "metric":30,
+      "selected":true,
+      "installed":true,
+      "nexthops":[
+        {
+          "ip":"10.0.10.5",
+          "interfaceName":"r1-eth1",
+          "active":true,
+          "fib":true
+        }
+      ]
+    }
+  ]
+}
