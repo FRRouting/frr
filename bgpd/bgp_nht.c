@@ -841,6 +841,38 @@ static void bgp_process_nexthop_update(struct bgp_nexthop_cache *bnc,
 	evaluate_paths(bnc);
 }
 
+/*
+ * Ask zebra to restate how it resolves this nexthop.
+ *
+ * The down handling below invalidates a nexthop without consulting zebra. A
+ * nexthop keyed on the interface itself is undone locally by the matching up
+ * event, but one reached through a gateway is zebra's to resolve, and zebra
+ * only speaks up when the resolving route changes state, or when the nexthop
+ * resolves through the connected route that flapped. A flap short enough for
+ * zebra to coalesce that route's delete and re-add leaves a route resolving
+ * one level above it looking untouched, so nothing would ever tell bgpd the
+ * nexthop came back. Re-registering makes zebra answer with the state it
+ * holds right now.
+ */
+static void bgp_nht_zebra_resync(struct bgp_nexthop_cache *bnc)
+{
+	if (BGP_DEBUG(nht, NHT))
+		zlog_debug("%s: re-registering %pFX (vrf %s) with zebra",
+			   __func__, &bnc->prefix, bnc->bgp->name_pretty);
+
+	UNSET_FLAG(bnc->flags, BGP_NEXTHOP_REGISTERED);
+	register_zebra_rnh(bnc);
+
+	/* Drop the marker only once zebra has the registration. A send that
+	 * failed leaves the BNC unregistered, so keep the marker and let a
+	 * later up event on the same interface try again:
+	 * bgp_nht_register_nexthops() only covers nexthop_cache_table, so an
+	 * import-check entry has no other way back.
+	 */
+	if (CHECK_FLAG(bnc->flags, BGP_NEXTHOP_REGISTERED))
+		bnc->ifindex_down = IFINDEX_INTERNAL;
+}
+
 static void bgp_nht_ifp_table_handle(struct bgp *bgp,
 				     struct bgp_nexthop_cache_head *table,
 				     struct interface *ifp, bool up)
@@ -853,10 +885,19 @@ static void bgp_nht_ifp_table_handle(struct bgp *bgp,
 	}
 
 	frr_each (bgp_nexthop_cache, table, bnc) {
+		bool ll_match = bnc->ifindex_ipv6_ll == ifp->ifindex;
+
 		if (!(bnc->nexthop_num == 1 && bnc->nexthop &&
 		      bnc->nexthop->ifindex == ifp->ifindex) &&
-		    (bnc->ifindex_ipv6_ll != ifp->ifindex))
+		    !ll_match) {
+			/* The down handling freed the nexthop, so a nexthop
+			 * this interface used to carry no longer matches
+			 * above. ifindex_down is all that is left of it.
+			 */
+			if (up && bnc->ifindex_down == ifp->ifindex)
+				bgp_nht_zebra_resync(bnc);
 			continue;
+		}
 
 		bnc->last_update = monotime(NULL);
 		bnc->change_flags = 0;
@@ -876,6 +917,7 @@ static void bgp_nht_ifp_table_handle(struct bgp *bgp,
 			UNSET_FLAG(bnc->flags, BGP_NEXTHOP_PEER_NOTIFIED);
 			SET_FLAG(bnc->flags, BGP_NEXTHOP_VALID);
 			SET_FLAG(bnc->change_flags, BGP_NEXTHOP_CHANGED);
+			bnc->ifindex_down = IFINDEX_INTERNAL;
 
 			bnc_nexthop_free(bnc);
 			nh = nexthop_new();
@@ -888,6 +930,12 @@ static void bgp_nht_ifp_table_handle(struct bgp *bgp,
 			UNSET_FLAG(bnc->flags, BGP_NEXTHOP_PEER_NOTIFIED);
 			UNSET_FLAG(bnc->flags, BGP_NEXTHOP_VALID);
 			SET_FLAG(bnc->change_flags, BGP_NEXTHOP_CHANGED);
+			/* A nexthop that is not keyed on an interface is
+			 * zebra's to restore, so remember which interface
+			 * took it down for the matching up event.
+			 */
+			if (!bnc->ifindex_ipv6_ll)
+				bnc->ifindex_down = ifp->ifindex;
 			bnc_nexthop_free(bnc);
 			bnc->nexthop = NULL;
 			bnc->nexthop_num = 0;
