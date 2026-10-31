@@ -281,17 +281,21 @@ DEFINE_HOOK(isis_circuit_add_addr_hook, (struct isis_circuit *circuit),
 	    (circuit));
 
 /*
- * A local IP address was added or removed on this circuit. Re-evaluate
- * which address families each adjacency can still be used for (we need a
- * local address in that AF to reach the neighbor's nexthop), then
- * re-originate our LSP and re-run SPF so any route whose nexthop is no
- * longer usable is withdrawn. IPv6 adjacencies keep working across an
- * IPv4 address removal and vice versa.
+ * A local IP address was added or removed on this circuit. Update the local
+ * addresses advertised for MPLS TE or SRv6, re-evaluate which address
+ * families each adjacency can still be used for (we need a local address in
+ * that AF to reach the neighbor's nexthop), then re-originate our LSP and
+ * re-run SPF so any route whose nexthop is no longer usable is withdrawn.
+ * IPv6 adjacencies keep working across an IPv4 address removal and vice
+ * versa.
  */
 static void isis_circuit_ip_addr_change_update(struct isis_circuit *circuit)
 {
 	if (circuit->area == NULL)
 		return;
+
+	if (circuit->ext && (IS_MPLS_TE(circuit->area->mta) || IS_SRV6_ENABLED(circuit->area)))
+		isis_link_params_local_addrs_update(circuit);
 
 	lsp_regenerate_schedule(circuit->area, circuit->is_type, 0);
 	if (circuit->is_type & IS_LEVEL_1)
@@ -322,14 +326,6 @@ void isis_circuit_add_addr(struct isis_circuit *circuit,
 		ipv4->prefixlen = connected->address->prefixlen;
 		ipv4->prefix = connected->address->u.prefix4;
 		listnode_add(circuit->ip_addrs, ipv4);
-
-		/* Update local IP address parameter if MPLS TE or SRv6 is enabled. */
-		if (circuit->ext && circuit->area &&
-		    (IS_MPLS_TE(circuit->area->mta) || IS_SRV6_ENABLED(circuit->area))) {
-			circuit->ext->local_addr.s_addr = ipv4->prefix.s_addr;
-			SET_SUBTLV(circuit->ext, EXT_LOCAL_ADDR);
-		}
-
 		isis_circuit_ip_addr_change_update(circuit);
 
 #ifdef EXTREME_DEBUG
@@ -358,16 +354,8 @@ void isis_circuit_add_addr(struct isis_circuit *circuit,
 
 		if (IN6_IS_ADDR_LINKLOCAL(&ipv6->prefix))
 			listnode_add(circuit->ipv6_link, ipv6);
-		else {
+		else
 			listnode_add(circuit->ipv6_non_link, ipv6);
-			/* Update local IPv6 address parameter if MPLS TE or SRv6 is enabled. */
-			if (circuit->ext && circuit->area &&
-			    (IS_MPLS_TE(circuit->area->mta) || IS_SRV6_ENABLED(circuit->area))) {
-				IPV6_ADDR_COPY(&circuit->ext->local_addr6,
-					       &ipv6->prefix);
-				SET_SUBTLV(circuit->ext, EXT_LOCAL_ADDR6);
-			}
-		}
 		isis_circuit_ip_addr_change_update(circuit);
 
 #ifdef EXTREME_DEBUG
