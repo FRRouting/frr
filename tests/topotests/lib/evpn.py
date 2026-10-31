@@ -11,6 +11,7 @@
 evpn.py: Library of helper functions for EVPN testing
 """
 
+import ipaddress
 import json
 import shlex
 import sys
@@ -2358,8 +2359,10 @@ def evpn_verify_overlay_route_in_kernel(
     """
     import json
 
-    # Step 1: Get route information with JSON output
-    cmd = f"ip -j route show vrf {vrf} {route}"
+    # Step 1: Get route information with JSON output.
+    # `ip route` is IPv4 unless -6 is set, so an IPv6 prefix needs -6.
+    ip_family = "-6" if ":" in route else "-4"
+    cmd = f"ip {ip_family} -j route show vrf {vrf} {route}"
     output = router.run(cmd)
 
     if not output or not output.strip():
@@ -2663,18 +2666,40 @@ def evpn_verify_type5_prefixes(router, prefixes, present=True):
     return None
 
 
+def _evpn_bgp_unicast_paths(output, prefix):
+    """Path dicts from ``show bgp vrf ... unicast <prefix> json``.
+
+    A specific prefix is either a flat object with ``paths``, or one prefix key
+    whose value is that object (or a list of path objects).
+    """
+    if not isinstance(output, dict):
+        return []
+    if isinstance(output.get("paths"), list):
+        candidates = output["paths"]
+    else:
+        nested = output.get(prefix)
+        if isinstance(nested, dict):
+            candidates = nested.get("paths") or []
+        elif isinstance(nested, list):
+            candidates = nested
+        else:
+            candidates = []
+    return [path for path in candidates if isinstance(path, dict)]
+
+
 def evpn_verify_bgp_vrf_prefix(router, vrf, prefix, present=True, family="ipv4"):
     """Imported (or local) unicast prefix in ``show bgp vrf`` JSON.
 
-    ``present=True`` requires at least one path that is not marked invalid.
-    ``present=False`` requires the prefix to have no such path.
+    ``present=True`` requires at least one path that is not marked invalid or
+    removed. ``present=False`` requires the prefix to have no such path.
+    ``family`` is ``ipv4`` or ``ipv6``.
     """
     cmd = "show bgp vrf {} {} unicast {} json".format(vrf, family, prefix)
     output = router.vtysh_cmd(cmd, isjson=True) or {}
-    if not isinstance(output, dict):
-        output = {}
-    paths = output.get("paths") or []
-    has_valid = any(path.get("valid") is not False for path in paths)
+    paths = _evpn_bgp_unicast_paths(output, prefix)
+    has_valid = any(
+        path.get("valid") is not False and not path.get("removed") for path in paths
+    )
     if present and not has_valid:
         return "{}: VRF {} missing BGP {} {}".format(router.name, vrf, family, prefix)
     if not present and has_valid:
@@ -2753,7 +2778,12 @@ def evpn_reload_has_packed_rtlist(output, direction, rts, delete=False):
 
 
 def evpn_verify_vrf_route_labels(
-    router, vrf, route, expected_labels=None, expected_interface=None
+    router,
+    vrf,
+    route,
+    expected_labels=None,
+    expected_interface=None,
+    forbidden_labels=None,
 ):
     """
     Verify EVPN labels on a selected VRF route in the zebra RIB.
@@ -2766,6 +2796,7 @@ def evpn_verify_vrf_route_labels(
     * `expected_labels`: list of expected labels, or None/[] for unlabeled
     * `expected_interface`: optional interface name that must appear on a
       selected nexthop (e.g., "vxlan48")
+    * `forbidden_labels`: labels that must not appear on any selected nexthop
 
     Returns
     -------
@@ -2775,12 +2806,9 @@ def evpn_verify_vrf_route_labels(
     cmd = f"show {'ipv6' if is_ipv6 else 'ip'} route vrf {vrf} {route} json"
     output = router.vtysh_cmd(cmd, isjson=True)
 
-    if not output or route not in output:
-        return f"VRF {vrf}: route {route} not found via '{cmd}'"
-
-    routes = output[route]
-    if not isinstance(routes, list) or not routes:
-        return f"VRF {vrf}: unexpected route data for {route}: {output}"
+    routes = _evpn_zebra_route_entries(output, route)
+    if not routes:
+        return f"VRF {vrf}: route {route} not found via '{cmd}': {output}"
 
     selected = None
     for entry in routes:
@@ -2797,7 +2825,7 @@ def evpn_verify_vrf_route_labels(
     want_labels = list(expected_labels) if expected_labels else []
     matched = False
     for nh in nexthops:
-        if nh.get("duplicate"):
+        if not isinstance(nh, dict) or nh.get("duplicate"):
             continue
         labels = nh.get("labels", [])
         if labels != want_labels:
@@ -2809,13 +2837,30 @@ def evpn_verify_vrf_route_labels(
 
     if not matched:
         return (
-            f"VRF {vrf}: route {route} label/interface mismatch.\n"
-            f"Expected labels={want_labels}"
-            f"{(' interface=' + expected_interface) if expected_interface else ''}\n"
-            f"Nexthops: {nexthops}"
+            "VRF {}: route {} label/interface mismatch. "
+            "Expected labels={}{}.\n{}".format(
+                vrf,
+                route,
+                want_labels,
+                (" interface=" + expected_interface) if expected_interface else "",
+                _evpn_zebra_routes_brief(routes),
+            )
         )
 
-    logger.info(
+    if forbidden_labels:
+        blocked = [
+            label
+            for nh in nexthops
+            if isinstance(nh, dict) and not nh.get("duplicate")
+            for label in (nh.get("labels") or [])
+            if label in forbidden_labels
+        ]
+        if blocked:
+            return "VRF {}: route {} has forbidden labels {}.\n{}".format(
+                vrf, route, blocked, _evpn_zebra_routes_brief(routes)
+            )
+
+    logger.debug(
         "%s: VRF %s route %s has labels %s%s",
         router.name,
         vrf,
@@ -2869,17 +2914,18 @@ def _kernel_encap_id(nh_entry):
 
     iproute2 has printed this three ways:
     - nested object: {"encap": {"type": "ip", "id": 900000}}
+      IPv6 VTEPs use "type": "ip6" with the same "id".
     - one string: {"encap": "ip id 900000 dst 10.0.0.30"}
+      or {"encap": "ip6 id 900001 dst fd00:0:20::30"}
     - flattened: {"encap": "ip", "id": 900000, "dst": "10.0.0.30", ...}
+      or {"encap": "ip6", "id": 900001, "dst": "fd00:0:20::30", ...}
       The tunnel fields sit beside the nexthop fields, and both ids use the
       key "id". json.loads keeps the last duplicate key, so "id" is the
       tunnel id and the nexthop id is lost.
 
-    Caveat for the flattened form: a bare "ip"/"vxlan" encap is taken to mean
-    the top-level "id" is the tunnel id. If iproute2 ever printed that encap
-    with no tunnel id, "id" would still be the nexthop id and would be
-    returned as if it were a VNI. A VNI check would then fail with a
-    misleading value instead of None.
+    A flattened "ip", "ip6", or "vxlan" value is a tunnel id only when "dst"
+    is also present. Without that destination, "id" is still the nexthop id
+    and this returns None.
     """
     encap = nh_entry.get("encap")
     if isinstance(encap, dict):
@@ -2891,7 +2937,7 @@ def _kernel_encap_id(nh_entry):
             idx = parts.index("id")
             if idx + 1 < len(parts) and parts[idx + 1].isdigit():
                 encap_id = int(parts[idx + 1])
-        elif encap in ("ip", "vxlan"):
+        elif encap in ("ip", "ip6", "vxlan") and nh_entry.get("dst"):
             encap_id = nh_entry.get("id")
     else:
         encap_id = None
@@ -2899,6 +2945,149 @@ def _kernel_encap_id(nh_entry):
     if isinstance(encap_id, str) and encap_id.isdigit():
         return int(encap_id)
     return encap_id
+
+
+def _evpn_zebra_nh_brief(nh):
+    """Turn one zebra nexthop into a single readable line.
+
+    Use this for any EVPN nexthop, not only a downstream VNI. The label and
+    device are whatever zebra programmed.
+
+    Symmetric L3VNI route, label stripped, egress on the SVI::
+
+        ip=10.0.0.30 dev=vlan4001 labels=None fib=True active=True onLink=True flags=<zebra flags> duplicate=False
+
+    Downstream VNI, label kept, egress on the VXLAN device::
+
+        ip=10.0.0.30 dev=vxlan48 labels=[900001] fib=True active=True onLink=True flags=265 duplicate=False
+
+    ``fib=False`` means zebra selected the route and the kernel did not
+    install that nexthop.
+    """
+    if not isinstance(nh, dict):
+        return repr(nh)
+    return (
+        "ip={ip} dev={dev} labels={labels} fib={fib} active={active} "
+        "onLink={onlink} flags={flags} duplicate={duplicate}"
+    ).format(
+        ip=nh.get("ip"),
+        dev=nh.get("interfaceName"),
+        labels=nh.get("labels"),
+        fib=nh.get("fib"),
+        active=nh.get("active"),
+        onlink=nh.get("onLink"),
+        flags=nh.get("flags"),
+        duplicate=nh.get("duplicate"),
+    )
+
+
+def _evpn_zebra_routes_brief(routes):
+    """Summarize a zebra VRF route and every nexthop on it.
+
+    Call this for a regular EVPN route or a downstream-VNI route. It prints
+    the route flags and then one line per nexthop. It does not require a label.
+
+    Regular EVPN prefix installed on the SVI, with no label::
+
+        route protocol=bgp selected=True installed=True failed=False nexthopGroupId=40
+          ip=10.0.0.30 dev=vlan4001 labels=None fib=True active=True onLink=True flags=<zebra flags> duplicate=False
+
+    Downstream VNI kept on the VXLAN device::
+
+        route protocol=bgp selected=True installed=True failed=False nexthopGroupId=132
+          ip=10.0.0.30 dev=vxlan48 labels=[900001] fib=True active=True onLink=True flags=265 duplicate=False
+
+    ``failed=True`` or ``installed=False`` means the kernel rejected the
+    nexthop. The raw JSON object is left out so the line stays readable.
+    """
+    lines = []
+    for entry in routes or []:
+        if not isinstance(entry, dict):
+            continue
+        bits = [
+            "{}={}".format(key, entry.get(key))
+            for key in (
+                "protocol",
+                "selected",
+                "installed",
+                "failed",
+                "fib",
+                "nexthopGroupId",
+                "internalStatus",
+                "internalFlags",
+            )
+            if key in entry
+        ]
+        lines.append("route " + " ".join(bits))
+        for nh in entry.get("nexthops") or []:
+            lines.append("  " + _evpn_zebra_nh_brief(nh))
+    return "\n".join(lines) if lines else "<no zebra route>"
+
+
+def _evpn_kernel_nh_brief(nh_entry):
+    """Turn one ``ip -j nexthop`` object into gateway, device, and encap fields.
+
+    Call this for any kernel nexthop. A route with no VXLAN encap leaves
+    ``encap``, ``id``, and ``dst`` empty. ``id`` is the VNI only when the
+    nexthop carries a tunnel.
+
+    Regular EVPN route out the SVI, no tunnel::
+
+        dev=vlan4001 gateway=10.0.0.30 flags=['onlink'] encap=None id=None dst=None
+
+    Downstream VNI on the VXLAN device, IPv4 VTEP::
+
+        dev=vxlan48 gateway=10.0.0.30 flags=['onlink'] encap=ip id=900000 dst=10.0.0.30
+
+    Same shape with an IPv6 VTEP::
+
+        dev=vxlan48 gateway=fd00:0:20::30 flags=['onlink'] encap=ip6 id=900001 dst=fd00:0:20::30
+
+    ``dst`` is the outer tunnel destination. ``gateway`` is the fib nexthop.
+    Kernels before Linux 7.0 reject the IPv6 tunnel form when ``gateway``
+    resolves out of a different device than ``dev``.
+    """
+    if not isinstance(nh_entry, dict):
+        return repr(nh_entry)
+    encap = nh_entry.get("encap")
+    encap_type = encap if isinstance(encap, str) else None
+    encap_dst = nh_entry.get("dst")
+    if isinstance(encap, dict):
+        encap_type = encap.get("type")
+        encap_dst = encap.get("dst", encap_dst)
+    return (
+        "dev={dev} gateway={gateway} flags={flags} encap={encap} id={encap_id} dst={dst}"
+    ).format(
+        dev=nh_entry.get("dev"),
+        gateway=nh_entry.get("gateway", nh_entry.get("via")),
+        flags=nh_entry.get("flags"),
+        encap=encap_type,
+        encap_id=_kernel_encap_id(nh_entry),
+        dst=encap_dst,
+    )
+
+
+def _evpn_route_not_ready(error):
+    """Tell a prefix that has not arrived yet from a real mismatch.
+
+    Waiting, logged at debug while the test polls::
+
+        bordertor-11: VRF vrf1 missing BGP ipv4 203.0.130.0/24
+
+    Real failure, logged in full at info::
+
+        VRF vrf1: route 203.0.130.0/24 encap id mismatch: expected 900001, got None
+    """
+    text = error or ""
+    return any(
+        marker in text
+        for marker in (
+            "missing BGP",
+            "not found via",
+            "no kernel route",
+            "not found in kernel",
+        )
+    )
 
 
 def evpn_verify_kernel_encap_vni(
@@ -2923,7 +3112,8 @@ def evpn_verify_kernel_encap_vni(
     -------
     None on success, error string on failure (for use with topotest.run_and_expect)
     """
-    cmd = f"ip -j route show vrf {vrf} {route}"
+    ip_family = "-6" if ":" in route else "-4"
+    cmd = f"ip {ip_family} -j route show vrf {vrf} {route}"
     output = router.run(cmd)
     if not output or not output.strip():
         return f"VRF {vrf}: no kernel route for '{cmd}'"
@@ -2947,7 +3137,7 @@ def evpn_verify_kernel_encap_vni(
                     f"VRF {vrf}: route {route} unexpectedly has encap id "
                     f"{encap.get('id')}: {route_entry}"
                 )
-            logger.info(
+            logger.debug(
                 "%s: VRF %s route %s has no nhid/encap (unlabeled)",
                 router.name,
                 vrf,
@@ -2993,25 +3183,23 @@ def evpn_verify_kernel_encap_vni(
         encap_id = _kernel_encap_id(nh_entry)
         nh_dev = nh_entry.get("dev")
 
+        brief = _evpn_kernel_nh_brief(nh_entry)
         if expected_vni is None:
             if encap_id is not None:
-                return (
-                    f"VRF {vrf}: route {route} unexpectedly has encap id "
-                    f"{encap_id} on nh {nh_entry}"
+                return "VRF {}: route {} unexpectedly has encap id {}: {}".format(
+                    vrf, route, encap_id, brief
                 )
         else:
             if encap_id != expected_vni:
-                return (
-                    f"VRF {vrf}: route {route} encap id mismatch: "
-                    f"expected {expected_vni}, got {encap_id}; nh={nh_entry}"
+                return "VRF {}: route {} encap id mismatch: expected {}, got {}: {}".format(
+                    vrf, route, expected_vni, encap_id, brief
                 )
             if expected_dev and nh_dev != expected_dev:
-                return (
-                    f"VRF {vrf}: route {route} encap device mismatch: "
-                    f"expected {expected_dev}, got {nh_dev}; nh={nh_entry}"
+                return "VRF {}: route {} encap device mismatch: expected {}, got {}: {}".format(
+                    vrf, route, expected_dev, nh_dev, brief
                 )
 
-    logger.info(
+    logger.debug(
         "%s: VRF %s route %s kernel encap vni=%s%s",
         router.name,
         vrf,
@@ -3020,3 +3208,345 @@ def evpn_verify_kernel_encap_vni(
         f" via {expected_dev}" if expected_dev else "",
     )
     return None
+
+
+def _evpn_route_nexthop_group_id(zebra_text, route):
+    """Return the selected zebra route's nexthopGroupId, or None."""
+    try:
+        data = json.loads(zebra_text)
+    except (TypeError, json.JSONDecodeError):
+        return None
+    entries = _evpn_zebra_route_entries(data, route)
+    if not entries:
+        return None
+    selected = None
+    for entry in entries:
+        if isinstance(entry, dict) and (
+            entry.get("selected") or entry.get("installed")
+        ):
+            selected = entry
+            break
+    if selected is None:
+        selected = entries[0]
+    nhg_id = selected.get("nexthopGroupId") if isinstance(selected, dict) else None
+    if isinstance(nhg_id, int) and nhg_id > 0:
+        return nhg_id
+    return None
+
+
+def _evpn_nhg_depends(nhg_text, nhg_id):
+    """Return member ids from ``show nexthop-group rib <id> json``."""
+    try:
+        data = json.loads(nhg_text)
+    except (TypeError, json.JSONDecodeError):
+        return []
+    if not isinstance(data, dict):
+        return []
+    entry = data.get(str(nhg_id))
+    if not isinstance(entry, dict) and len(data) == 1:
+        entry = next(iter(data.values()))
+    if not isinstance(entry, dict):
+        return []
+    depends = entry.get("depends") or []
+    ids = []
+    for dep in depends:
+        if isinstance(dep, int) and dep > 0:
+            ids.append(dep)
+        elif isinstance(dep, dict) and isinstance(dep.get("id"), int) and dep["id"] > 0:
+            ids.append(dep["id"])
+    return ids
+
+
+def _evpn_zebra_route_entries(output, route):
+    """Normalize ``show ip/ipv6 route ... json`` to a list of route objects."""
+    if not isinstance(output, dict) or route not in output:
+        return None
+    routes = output[route]
+    if isinstance(routes, dict):
+        return [routes]
+    if isinstance(routes, list):
+        return [entry for entry in routes if isinstance(entry, dict)]
+    return None
+
+
+def _evpn_normalize_nexthop_ip(address):
+    """Return the IPv4 VTEP when zebra prints it as IPv4-mapped IPv6.
+
+    An IPv6 overlay route whose underlay next hop is IPv4 is displayed as
+    ``::ffff:a.b.c.d`` with ``afi`` ``ipv6``. Callers pass the VTEP they
+    configured, which is the IPv4 form. Other addresses are unchanged.
+    """
+    try:
+        parsed = ipaddress.ip_address(address)
+    except ValueError:
+        return address
+    if isinstance(parsed, ipaddress.IPv6Address) and parsed.ipv4_mapped:
+        mapped = str(parsed.ipv4_mapped)
+        logger.debug("nexthop %s is IPv4-mapped, comparing as %s", address, mapped)
+        return mapped
+    return str(parsed)
+
+
+def evpn_verify_bgp_vrf_l3vni(router, vrf, expected_l3vni):
+    """Check the L3VNI recorded for one BGP VRF.
+
+    ``expected_l3vni`` is ``0`` when the VRF must not have an L3VNI.
+    Returns None on success, else an error string.
+    """
+    output = router.vtysh_cmd("show bgp vrfs {} json".format(vrf), isjson=True) or {}
+    if not isinstance(output, dict):
+        output = {}
+    info = output.get(vrf)
+    if not isinstance(info, dict):
+        return "{}: BGP VRF {} not found in 'show bgp vrfs {} json'".format(
+            router.name, vrf, vrf
+        )
+    got = info.get("l3vni")
+    if got != expected_l3vni:
+        return "{}: VRF {} L3VNI is {}, expected {}".format(
+            router.name, vrf, got, expected_l3vni
+        )
+    logger.debug("%s: VRF %s L3VNI is %s", router.name, vrf, got)
+    return None
+
+
+def evpn_verify_bgp_vrf_absent(router, vrf):
+    """Return None once ``vrf`` is gone from ``show bgp vrfs``."""
+    output = router.vtysh_cmd("show bgp vrfs {} json".format(vrf), isjson=True) or {}
+    if isinstance(output, dict) and isinstance(output.get(vrf), dict):
+        return "{}: BGP VRF {} still exists".format(router.name, vrf)
+    return None
+
+
+def evpn_verify_vrf_route_nexthops(
+    router, vrf, route, expected_ips=None, forbidden_labels=None
+):
+    """Check nexthop IPs and rejected labels on a selected VRF RIB route.
+
+    ``expected_ips`` must all be present. An IPv4 VTEP matches zebra's
+    IPv4-mapped IPv6 form. ``forbidden_labels`` must not appear on any
+    non-duplicate nexthop. Returns None on success, else an error string.
+    """
+    family = "ipv6" if ":" in route else "ip"
+    cmd = "show {} route vrf {} {} json".format(family, vrf, route)
+    output = router.vtysh_cmd(cmd, isjson=True)
+    routes = _evpn_zebra_route_entries(output, route)
+    if not routes:
+        return "VRF {}: route {} unexpected JSON from '{}': {}".format(
+            vrf, route, cmd, output
+        )
+
+    selected = None
+    for entry in routes:
+        if entry.get("selected") or entry.get("installed"):
+            selected = entry
+            break
+    if selected is None:
+        selected = routes[0]
+
+    nexthops = [
+        nh
+        for nh in (selected.get("nexthops") or [])
+        if isinstance(nh, dict) and not nh.get("duplicate")
+    ]
+    if not nexthops:
+        return "VRF {}: route {} has no nexthops: {}".format(vrf, route, selected)
+
+    if expected_ips:
+        nh_ips = {
+            _evpn_normalize_nexthop_ip(nh["ip"]) for nh in nexthops if nh.get("ip")
+        }
+        missing = [
+            ip for ip in expected_ips if _evpn_normalize_nexthop_ip(ip) not in nh_ips
+        ]
+        if missing:
+            return "VRF {}: route {} missing nexthop {}: {}".format(
+                vrf, route, missing, nexthops
+            )
+
+    if forbidden_labels:
+        blocked = [
+            label
+            for nh in nexthops
+            for label in (nh.get("labels") or [])
+            if label in forbidden_labels
+        ]
+        if blocked:
+            return "VRF {}: route {} has forbidden labels {}: {}".format(
+                vrf, route, blocked, nexthops
+            )
+
+    logger.debug(
+        "%s: VRF %s route %s nexthops %s",
+        router.name,
+        vrf,
+        route,
+        sorted(nh_ips) if expected_ips else [nh.get("ip") for nh in nexthops],
+    )
+    return None
+
+
+def evpn_verify_imported_route(
+    router,
+    vrf,
+    route,
+    expected_labels=None,
+    expected_vni=None,
+    expected_interface=None,
+    expected_dev=None,
+    expected_nexthops=None,
+    forbidden_labels=None,
+):
+    """Validate one imported or leaked prefix from BGP through the kernel.
+
+    Checks, in order:
+
+    1. BGP IPv4 or IPv6 unicast RIB (the family follows ``route``)
+    2. Zebra VRF RIB label, interface, and optional nexthop
+    3. Kernel encapsulation (``expected_vni=None`` means no VXLAN id)
+
+    ``expected_labels=[]`` or None requires an unlabeled zebra nexthop.
+    Nexthop comparison accepts an IPv4-mapped IPv6 VTEP. A prefix that is
+    not in BGP, zebra, or the kernel yet returns that short error and is
+    logged at debug, so a poll does not look like a failure. A label, VTEP,
+    or encap mismatch is logged at info: zebra selected/installed/failed/fib,
+    each nexthop, and the kernel gateway, onlink flags, device, and encap
+    id/dst, plus ``show nexthop-group rib`` for that route's group.
+    ``topotest.run_and_expect`` prints the same text when the wait ends.
+    """
+    family = "ipv6" if ":" in route else "ipv4"
+    zebra_family = "ipv6" if family == "ipv6" else "ip"
+    kernel_family = "-6" if family == "ipv6" else "-4"
+    failure_key = (router.name, vrf, route)
+
+    def _fail(error):
+        """Attach zebra and kernel nexthop state to a real mismatch."""
+        if _evpn_route_not_ready(error):
+            logger.debug("%s: VRF %s %s not ready: %s", router.name, vrf, route, error)
+            return error
+
+        zebra_cmd = "show {} route vrf {} {} json".format(zebra_family, vrf, route)
+        kernel_cmd = "ip {} -j route show vrf {} {}".format(kernel_family, vrf, route)
+        zebra_out = router.vtysh_cmd(zebra_cmd) or ""
+        kernel_out = router.run(kernel_cmd) or ""
+        try:
+            zebra_json = json.loads(zebra_out) if zebra_out else {}
+        except json.JSONDecodeError:
+            zebra_json = {}
+        zebra_brief = _evpn_zebra_routes_brief(
+            _evpn_zebra_route_entries(zebra_json, route)
+        )
+
+        kernel_lines = []
+
+        def _kernel_leaves(nh_id, seen_ids):
+            if nh_id in seen_ids:
+                return
+            seen_ids.add(nh_id)
+            nh_out = router.run("ip -j nexthop get id {}".format(nh_id)) or ""
+            try:
+                nh_json = json.loads(nh_out) if nh_out.strip() else []
+            except json.JSONDecodeError:
+                kernel_lines.append("kernel nhid {} unparsable".format(nh_id))
+                return
+            for entry in nh_json if isinstance(nh_json, list) else []:
+                group = entry.get("group")
+                if group:
+                    kernel_lines.append("kernel nhid {} group {}".format(nh_id, group))
+                    for mid in _kernel_nh_group_ids(group):
+                        _kernel_leaves(mid, seen_ids)
+                    continue
+                kernel_lines.append(
+                    "kernel nhid {} {}".format(nh_id, _evpn_kernel_nh_brief(entry))
+                )
+
+        try:
+            kernel_json = json.loads(kernel_out) if kernel_out.strip() else []
+        except json.JSONDecodeError:
+            kernel_json = []
+        if (
+            isinstance(kernel_json, list)
+            and kernel_json
+            and kernel_json[0].get("nhid") is not None
+        ):
+            _kernel_leaves(kernel_json[0].get("nhid"), set())
+        else:
+            kernel_lines.append("kernel <no route>")
+
+        nhg_sections = []
+        nhg_id = _evpn_route_nexthop_group_id(zebra_out, route)
+        if nhg_id is None:
+            nhg_sections.append("nexthop-group: none on {}".format(route))
+        else:
+            pending = [nhg_id]
+            seen = set()
+            while pending:
+                current = pending.pop(0)
+                if current in seen:
+                    continue
+                seen.add(current)
+                nhg_cmd = "show nexthop-group rib {} json".format(current)
+                nhg_out = router.vtysh_cmd(nhg_cmd) or "<empty>"
+                nhg_sections.append("{}:\n{}".format(nhg_cmd, nhg_out))
+                for dep in _evpn_nhg_depends(nhg_out, current):
+                    if dep not in seen:
+                        pending.append(dep)
+
+        detail = "{}\nzebra:\n{}\n{}\n{}".format(
+            error,
+            zebra_brief,
+            "\n".join(kernel_lines),
+            "\n".join(nhg_sections),
+        )
+        if evpn_verify_imported_route._last_failure.get(failure_key) != error:
+            logger.info(
+                "%s: VRF %s route %s failed:\n%s",
+                router.name,
+                vrf,
+                route,
+                detail,
+            )
+            evpn_verify_imported_route._last_failure[failure_key] = error
+        return detail
+
+    err = evpn_verify_bgp_vrf_prefix(router, vrf, route, present=True, family=family)
+    if err:
+        return _fail(err)
+    logger.debug("%s: VRF %s BGP %s %s is present", router.name, vrf, family, route)
+
+    err = evpn_verify_vrf_route_labels(
+        router,
+        vrf,
+        route,
+        expected_labels=expected_labels,
+        expected_interface=expected_interface,
+        forbidden_labels=forbidden_labels,
+    )
+    if err:
+        return _fail(err)
+
+    if expected_nexthops or forbidden_labels:
+        err = evpn_verify_vrf_route_nexthops(
+            router,
+            vrf,
+            route,
+            expected_ips=expected_nexthops,
+            forbidden_labels=forbidden_labels,
+        )
+        if err:
+            return _fail(err)
+
+    err = evpn_verify_kernel_encap_vni(
+        router,
+        vrf,
+        route,
+        expected_vni=expected_vni,
+        expected_dev=expected_dev,
+    )
+    if err:
+        return _fail(err)
+    evpn_verify_imported_route._last_failure.pop(failure_key, None)
+    return None
+
+
+evpn_verify_imported_route._last_failure = {}
