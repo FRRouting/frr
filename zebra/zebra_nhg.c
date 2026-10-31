@@ -29,6 +29,7 @@
 #include "zebra/zapi_msg.h"
 #include "zebra/rib.h"
 #include "zebra/zebra_vxlan.h"
+#include "zebra/zebra_vxlan_private.h"
 #include "zebra/zebra_evpn_mh.h"
 #include "zebra/zebra_trace.h"
 
@@ -2225,35 +2226,161 @@ static bool nexthop_valid_resolve(const struct nexthop *nexthop,
 }
 
 /*
- * Downstream VNI and Single VXlan device check.
+ * Read the tenant VNI carried by this nexthop.
+ * BGP stores that VNI as an EVPN label. It is the VNI that must be
+ * written into the VXLAN header.
+ */
+static bool nexthop_evpn_label_vni(const struct nexthop *nexthop, vni_t *vni)
+{
+	const struct mpls_label_stack *labels = nexthop->nh_label;
+
+	if (!labels || nexthop->nh_label_type != ZEBRA_LSP_EVPN || !labels->num_labels)
+		return false;
+
+	*vni = label2vni(&labels->label[labels->num_labels - 1]);
+
+	return *vni != 0;
+}
+
+/*
+ * Point the nexthop at this VRF's single-VXLAN device.
+ * That device lives in the default VRF. The route VNI stays in the label.
  *
- * If it has nexthop VNI labels at this point it must be D-VNI allocated
- * and all the nexthops have to be on an SVD.
+ * This is the same assignment the destination-VRF path has always made.
+ */
+static bool nexthop_use_vrf_svd(struct nexthop *nexthop, vrf_id_t vrf_id)
+{
+	if (!is_vrf_l3vni_svd_backed(vrf_id))
+		return false;
+
+	nexthop->ifindex = get_l3vni_vxlan_ifindex(vrf_id);
+	nexthop->vrf_id = 0;
+
+	return true;
+}
+
+/*
+ * The nexthop was already moved onto a single-VXLAN device.
+ * Keep that device. A later lookup no longer has the source VRF,
+ * because the first lookup stored the device's VRF on the nexthop.
+ */
+static bool nexthop_keep_svd_if(const struct nexthop *nexthop)
+{
+	struct interface *ifp;
+	struct zebra_if *zif;
+
+	if (!nexthop->ifindex)
+		return false;
+
+	ifp = if_lookup_by_index(nexthop->ifindex, nexthop->vrf_id);
+	if (!ifp || !ifp->info || !if_is_operative(ifp))
+		return false;
+
+	zif = ifp->info;
+	if (zif->zif_type != ZEBRA_IF_VXLAN || !IS_ZEBRA_VXLAN_IF_SVD(zif))
+		return false;
+
+	return true;
+}
+
+/*
+ * Downstream VNI and single-VXLAN device check.
  *
- * If SVD is not available, mark as inactive.
+ * A labeled EVPN nexthop needs a working single-VXLAN device. The label
+ * itself stays the tenant VNI.
+ *
+ * A destination VRF that already has a working L3VNI is unchanged. The
+ * nexthop uses that VRF's SVD device in the default VRF, as before.
+ *
+ * Otherwise choose a device in this order:
+ *  1. The route VNI is configured on this switch.
+ *  2. The VRF the route was leaked from has a working L3VNI, and that
+ *     L3VNI is not the route VNI.
+ *  3. The nexthop already points at a working single-VXLAN device.
+ *
+ * If none of these is available, the nexthop stays inactive. The source
+ * VRF SVI is not a safe fallback: traffic sent that way is encapsulated
+ * with the source VRF's own L3VNI, and the remote VTEP drops it.
  */
 static bool nexthop_set_evpn_dvni_svd(vrf_id_t re_vrf_id,
 				      struct nexthop *nexthop)
 {
-	if (!is_vrf_l3vni_svd_backed(re_vrf_id)) {
-		if (IS_ZEBRA_DEBUG_NHG_DETAIL) {
-			struct vrf *vrf = vrf_lookup_by_id(re_vrf_id);
+	struct zebra_l3vni *label_zl3vni;
+	vni_t nh_vni = 0;
+	vni_t src_vni;
+	vrf_id_t src_vrf_id;
+	bool have_vni;
 
-			zlog_debug(
-				"nexthop %pNHv D-VNI but route's vrf %s(%u) doesn't use SVD",
-				nexthop, VRF_LOGNAME(vrf), re_vrf_id);
-		}
+	/*
+	 * Destination VRF already has a working L3VNI. Leave this path
+	 * as it was: SVD ifindex, nexthop VRF 0.
+	 */
+	if (nexthop_use_vrf_svd(nexthop, re_vrf_id)) {
+		if (IS_ZEBRA_DEBUG_NHG_DETAIL)
+			zlog_debug("nexthop %pNHv using SVD", nexthop);
 
-		return false;
+		return true;
 	}
 
-	nexthop->ifindex = get_l3vni_vxlan_ifindex(re_vrf_id);
-	nexthop->vrf_id = 0;
+	have_vni = nexthop_evpn_label_vni(nexthop, &nh_vni);
 
-	if (IS_ZEBRA_DEBUG_NHG_DETAIL)
-		zlog_debug("nexthop %pNHv using SVD", nexthop);
+	/*
+	 * The route VNI is configured here. Use the SVD device that
+	 * belongs to that local L3VNI.
+	 */
+	if (have_vni) {
+		label_zl3vni = zl3vni_lookup(nh_vni);
+		if (label_zl3vni && is_l3vni_oper_up(label_zl3vni) &&
+		    IS_ZL3VNI_SVD_BACKED(label_zl3vni)) {
+			nexthop->ifindex = label_zl3vni->vxlan_if->ifindex;
+			nexthop->vrf_id = 0;
 
-	return true;
+			if (IS_ZEBRA_DEBUG_NHG_DETAIL)
+				zlog_debug("nexthop %pNHv using SVD (l3vni %u)", nexthop, nh_vni);
+
+			return true;
+		}
+	}
+
+	/*
+	 * On the first lookup, nexthop->vrf_id is still the VRF that
+	 * imported the EVPN route. Its L3VNI can lend the shared VXLAN
+	 * device. Do this only when the route VNI is different from
+	 * that L3VNI. A leaked route whose VNI is the source L3VNI is
+	 * unlabeled by bgpd and never reaches this function.
+	 */
+	src_vrf_id = nexthop->vrf_id;
+	if (src_vrf_id != re_vrf_id) {
+		src_vni = get_l3vni_vni(src_vrf_id);
+		if (src_vni != 0 && (!have_vni || nh_vni != src_vni) &&
+		    nexthop_use_vrf_svd(nexthop, src_vrf_id)) {
+			if (IS_ZEBRA_DEBUG_NHG_DETAIL) {
+				struct vrf *vrf = vrf_lookup_by_id(src_vrf_id);
+
+				zlog_debug("nexthop %pNHv using SVD from source VRF %s(%u) L3VNI %u",
+					   nexthop, VRF_LOGNAME(vrf), src_vrf_id, src_vni);
+			}
+
+			return true;
+		}
+	}
+
+	/* A later lookup can keep the device chosen above. */
+	if (nexthop_keep_svd_if(nexthop)) {
+		if (IS_ZEBRA_DEBUG_NHG_DETAIL)
+			zlog_debug("nexthop %pNHv keeping SVD interface", nexthop);
+
+		return true;
+	}
+
+	if (IS_ZEBRA_DEBUG_NHG_DETAIL) {
+		struct vrf *vrf = vrf_lookup_by_id(re_vrf_id);
+
+		zlog_debug("nexthop %pNHv D-VNI but route VRF %s(%u) has no usable SVD", nexthop,
+			   VRF_LOGNAME(vrf), re_vrf_id);
+	}
+
+	return false;
 }
 
 /*
