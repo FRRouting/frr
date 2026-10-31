@@ -498,6 +498,7 @@ extern void bgp_evpn_ip_ead_process(struct bgp *bgp_vrf, struct prefix_evpn *evp
 				   struct bgp_path_info *pi, int import);
 extern void bgp_evpn_ip_ead_reimport(void);
 extern void bgp_evpn_ip_ead_flush_all(void);
+extern void bgp_evpn_ip_ead_path_owners_free(struct bgp_evpn_ip_ead_path_owners **owners);
 int bgp_evpn_type1_route_process(struct peer *peer, afi_t afi, safi_t safi,
 		struct attr *attr, uint8_t *pfx, int psize,
 		uint32_t addpath_id);

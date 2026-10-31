@@ -425,6 +425,8 @@ void bgp_path_info_extra_free(struct bgp_path_info_extra **extra)
 
 	if (e->evpn && e->evpn->mh_info)
 		bgp_evpn_path_mh_info_free(e->evpn->mh_info);
+	if (e->evpn && e->evpn->ip_ead_owners)
+		bgp_evpn_ip_ead_path_owners_free(&e->evpn->ip_ead_owners);
 
 	if ((*extra)->flowspec && (*extra)->flowspec->bgp_fs_iprule)
 		list_delete(&((*extra)->flowspec->bgp_fs_iprule));
@@ -6804,6 +6806,7 @@ void bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 					  evp->prefix.route_type == BGP_EVPN_ES_ROUTE) &&
 					 !bgp_attr_nexthop_same(pi->attr, attr_new, afi)) {
 					bgp_evpn_unimport_route(bgp, afi, safi, p, pi);
+					evpn_unimported = true;
 				}
 			} else if (safi == SAFI_EVPN &&
 				   bgp_attr_exists(pi->attr, BGP_ATTR_EXT_COMMUNITIES)) {
