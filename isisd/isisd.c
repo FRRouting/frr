@@ -3294,6 +3294,9 @@ void isis_area_is_type_set(struct isis_area *area, int is_type)
 	}
 
 	spftree_area_init(area);
+#ifndef FABRICD
+	isis_flex_algos_spftrees_init(area);
+#endif /* ifndef FABRICD */
 
 	if (iso_address_list_count(&area->area_addrs) > 0) {
 		if (is_type & IS_LEVEL_1)

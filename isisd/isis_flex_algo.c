@@ -40,25 +40,43 @@
 #ifndef FABRICD
 DEFINE_MTYPE_STATIC(ISISD, FLEX_ALGO, "ISIS Flex Algo");
 
+/* Create the SPF trees of the area's levels that the algorithm lacks. */
+static void isis_flex_algo_spftrees_init(struct isis_area *area, struct isis_flex_algo_data *data,
+					 uint8_t algorithm)
+{
+	for (int tree = SPFTREE_IPV4; tree < SPFTREE_COUNT; tree++) {
+		for (int level = ISIS_LEVEL1; level <= ISIS_LEVEL2; level++) {
+			if (!(area->is_type & level) || data->spftree[tree][level - 1])
+				continue;
+			data->spftree[tree][level - 1] =
+				isis_spftree_new(area, &area->lspdb[level - 1], area->isis->sysid,
+						 level, tree, SPF_TYPE_FORWARD, 0, algorithm);
+		}
+	}
+}
+
 void *isis_flex_algo_data_alloc(void *voidarg)
 {
 	struct isis_flex_algo_alloc_arg *arg = voidarg;
 	struct isis_flex_algo_data *data;
 
 	data = XCALLOC(MTYPE_FLEX_ALGO, sizeof(struct isis_flex_algo_data));
-
-	for (int tree = SPFTREE_IPV4; tree < SPFTREE_COUNT; tree++) {
-		for (int level = ISIS_LEVEL1; level <= ISIS_LEVEL2; level++) {
-			if (!(arg->area->is_type & level))
-				continue;
-			data->spftree[tree][level - 1] =
-				isis_spftree_new(arg->area, &arg->area->lspdb[level - 1],
-						 arg->area->isis->sysid, level, tree,
-						 SPF_TYPE_FORWARD, 0, arg->algorithm);
-		}
-	}
+	isis_flex_algo_spftrees_init(arg->area, data, arg->algorithm);
 
 	return data;
+}
+
+/*
+ * Give every flex-algo the SPF trees of the area's levels, which change with
+ * the area's IS type.
+ */
+void isis_flex_algos_spftrees_init(struct isis_area *area)
+{
+	struct flex_algo *fa;
+	struct listnode *node;
+
+	for (ALL_LIST_ELEMENTS_RO(area->flex_algos->flex_algos, node, fa))
+		isis_flex_algo_spftrees_init(area, fa->data, fa->algorithm);
 }
 
 void isis_flex_algo_data_free(void *voiddata)
