@@ -984,6 +984,14 @@ lspfragloop:
 		struct isis_extended_ip_reach *r;
 		for (r = ipv4_reachs ? (struct isis_extended_ip_reach *)ipv4_reachs->head : NULL;
 		     r; r = r->next) {
+			/*
+			 * RFC 5305 section 4: a prefix advertised with a metric
+			 * larger than MAX_PATH_METRIC MUST NOT be considered
+			 * during the normal SPF computation.
+			 */
+			if ((uint64_t)cost + r->metric > MAX_WIDE_PATH_METRIC)
+				continue;
+
 			dist = cost + r->metric;
 			ip_info.dest.u.prefix4 = r->prefix.prefix;
 			ip_info.dest.prefixlen = r->prefix.prefixlen;
@@ -1034,6 +1042,10 @@ lspfragloop:
 		struct isis_ipv6_reach *r;
 		for (r = ipv6_reachs ? (struct isis_ipv6_reach *)ipv6_reachs->head : NULL; r;
 		     r = r->next) {
+			/* RFC 5308 section 2, see the IPv4 case above */
+			if ((uint64_t)cost + r->metric > MAX_WIDE_PATH_METRIC)
+				continue;
+
 			dist = cost + r->metric;
 			vtype = r->external ? VTYPE_IP6REACH_EXTERNAL : VTYPE_IP6REACH_INTERNAL;
 			memset(&ip_info, 0, sizeof(ip_info));
@@ -1097,6 +1109,10 @@ lspfragloop:
 					 : NULL;
 		     loc; loc = loc->next) {
 			if (loc->algorithm != SR_ALGORITHM_SPF)
+				continue;
+
+			/* RFC 9352 section 7.1, see the IPv4 case above */
+			if ((uint64_t)cost + loc->metric > MAX_WIDE_PATH_METRIC)
 				continue;
 
 			dist = cost + loc->metric;
