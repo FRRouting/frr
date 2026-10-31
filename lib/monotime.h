@@ -73,6 +73,23 @@ static inline time_t monotime(struct timeval *tvo)
 	return ts.tv_sec;
 }
 
+/*
+ * Monotonic timestamp in nanoseconds, meant for cheap duration accounting
+ * in hot paths (subtract two values to get elapsed ns).
+ *
+ * CLOCK_MONOTONIC is served from the vDSO on Linux (~20-30ns, no syscall),
+ * unlike CLOCK_THREAD_CPUTIME_ID / getrusage() which are real syscalls
+ * (~250-400ns). Prefer this for per-item accounting (e.g. per prefix);
+ * for short non-blocking code, wall time is a good proxy for CPU time.
+ */
+static inline uint64_t monotime_ns(void)
+{
+	struct timespec ts;
+
+	clock_gettime(CLOCK_MONOTONIC, &ts);
+	return (uint64_t)ts.tv_sec * 1000000000ULL + (uint64_t)ts.tv_nsec;
+}
+
 #define ONE_DAY_SECOND (60 * 60 * 24)
 #define ONE_WEEK_SECOND (ONE_DAY_SECOND * 7)
 #define ONE_YEAR_SECOND (ONE_DAY_SECOND * 365)
