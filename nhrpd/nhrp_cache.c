@@ -426,9 +426,15 @@ int nhrp_cache_update_binding(struct nhrp_cache *c, enum nhrp_cache_type type,
 {
 	char buf[2][SU_ADDRSTRLEN];
 
-	if (c->cur.type > type || c->new.type > type) {
-		nhrp_peer_unref(p);
-		return 0;
+	/* holding_time < 0 signals expiry/deletion of current binding;
+	 * bypass normal priority checks to ensure expired entries are
+	 * discarded per RFC 2332 §5.2.0.1 and §6.2.1.
+	 */
+	if (holding_time >= 0) {
+		if (c->cur.type > type || c->new.type > type) {
+			nhrp_peer_unref(p);
+			return 0;
+		}
 	}
 
 	/* Sanitize MTU */
