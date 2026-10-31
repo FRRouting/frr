@@ -22,6 +22,7 @@ import re
 import string
 import subprocess
 import sys
+import time
 from collections import OrderedDict
 from ipaddress import IPv6Address, ip_network
 from pprint import pformat
@@ -33,6 +34,17 @@ def iteritems(d):
 
 
 log = logging.getLogger(__name__)
+
+# Module-level flags set after argument parsing.
+_timing_enabled = False
+_stdout_logging = False
+
+
+def timing_print(msg):
+    """Log a TIMING message. Always logs to file; prints to stdout if --timing."""
+    log.warning("TIMING: " + msg)
+    if _timing_enabled and not _stdout_logging:
+        print("TIMING: " + msg, flush=True)
 
 
 class VtyshException(Exception):
@@ -189,6 +201,7 @@ class Vtysh(object):
         if daemon:
             cmd += " %s" % daemon
         cmd += " no-header"
+        t0 = time.monotonic()
         show_run = self._call_cmd(cmd, stdout=subprocess.PIPE)
         mark = self._call(
             ["-m", "-f", "-"], stdin=show_run.stdout, stdout=subprocess.PIPE
@@ -197,6 +210,7 @@ class Vtysh(object):
         show_run.wait()
         stdout, stderr = mark.communicate()
         mark.wait()
+        timing_print("show-running + mark: %.3fs" % (time.monotonic() - t0))
 
         if show_run.returncode != 0:
             raise VtyshException(
@@ -631,6 +645,7 @@ class Config(object):
         """
         log.info(f"Loading Config object from file {filename}")
 
+        t0 = time.monotonic()
         file_output = self.vtysh.mark_file(filename)
 
         vrf_context = None
@@ -741,6 +756,9 @@ class Config(object):
             self.lines.append(pim_vrfs)
 
         self.load_contexts()
+        timing_print(
+            "load_from_file (mark_file + parse): %.3fs" % (time.monotonic() - t0)
+        )
 
     def load_from_show_running(self, daemon):
         """
@@ -752,6 +770,7 @@ class Config(object):
 
         config_text = self.vtysh.mark_show_run(daemon)
 
+        t0 = time.monotonic()
         for line in config_text.split("\n"):
             line = line.strip()
 
@@ -763,8 +782,17 @@ class Config(object):
                 continue
 
             self.lines.append(line)
+        timing_print(
+            "running-config line split/strip: %.3fs (%d lines)"
+            % (time.monotonic() - t0, len(self.lines))
+        )
 
+        t0 = time.monotonic()
         self.load_contexts()
+        timing_print(
+            "load_contexts (parse into context objects): %.3fs (%d contexts)"
+            % (time.monotonic() - t0, len(self.contexts))
+        )
 
     def get_lines(self):
         """
@@ -3162,8 +3190,17 @@ if __name__ == "__main__":
         help="logfile for frr-reload",
         default=None,
     )
+    parser.add_argument(
+        "--timing",
+        action="store_true",
+        help="Print per-phase timing breakdowns to stdout for profiling",
+        default=False,
+    )
 
     args = parser.parse_args()
+
+    _timing_enabled = args.timing
+    _stdout_logging = args.stdout
 
     # Derive logfile path if not explicitly specified.
     # In topotest context, use cwd (router's log directory).
@@ -3196,6 +3233,14 @@ if __name__ == "__main__":
         handler = logging.FileHandler(args.logfile)
     if args.stdout:
         handler = logging.StreamHandler(sys.stdout)
+
+    # In topotest context, clear any pre-existing handlers to avoid duplicates
+    if os.environ.get("PYTEST_CURRENT_TEST"):
+        root = logging.getLogger()
+        for h in root.handlers[:]:
+            h.close()
+            root.removeHandler(h)
+
     handler.setFormatter(formatter)
     log = logging.getLogger(__name__)
     log.addHandler(handler)
@@ -3412,7 +3457,12 @@ if __name__ == "__main__":
             running.load_from_show_running(args.daemon)
             log.debug(f"Running Frr Config (Pass #{x})\n{running.get_lines()}")
 
+            t0 = time.monotonic()
             lines_to_add, lines_to_del = compare_context_objects(newconf, running)
+            timing_print(
+                "pass %d compare_context_objects: %.3fs (add=%d del=%d)"
+                % (x, time.monotonic() - t0, len(lines_to_add), len(lines_to_del))
+            )
 
             if x == 0:
                 lines_to_add_first_pass = lines_to_add
@@ -3433,6 +3483,8 @@ if __name__ == "__main__":
             # apply to other scenarios as well where configuring FOO adds BAR
             # to the config.
             if lines_to_del and x == 0:
+                t0 = time.monotonic()
+                lines_to_del_count = len(lines_to_del)
                 log.info("lines_to_del content\n%s", pformat(lines_to_del))
 
                 # Flush log before executing deletes so content is preserved if crash occurs
@@ -3563,8 +3615,13 @@ if __name__ == "__main__":
                         for ctx_keys, line in vrf_ctx_batch:
                             if not delete_line_with_vtysh(vtysh, ctx_keys, line):
                                 reload_ok = False
+                timing_print(
+                    "pass %d apply deletes (vtysh -f): %.3fs (%d commands)"
+                    % (x, time.monotonic() - t0, lines_to_del_count)
+                )
 
             if lines_to_add:
+                t0 = time.monotonic()
                 add_entries = []
 
                 for ctx_keys, line in lines_to_add:
@@ -3610,6 +3667,10 @@ if __name__ == "__main__":
                         log.warning(f"frr-reload.py failed due to\n{e}")
                         reload_ok = False
                     os.unlink(filename)
+                timing_print(
+                    "pass %d apply adds (vtysh -f): %.3fs (%d commands)"
+                    % (x, time.monotonic() - t0, len(add_entries))
+                )
 
         # Make these changes persistent
         target = str(args.confdir + "/frr.conf")
