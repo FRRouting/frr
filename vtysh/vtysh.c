@@ -5240,12 +5240,14 @@ static char *vtysh_completion_entry_function(const char *ignore,
 void vtysh_readline_init(void)
 {
 	/* readline related settings. */
+	static const char custom_word_break_chars[] = " \t\n";
 	char *disable_bracketed_paste =
 		XSTRDUP(MTYPE_TMP, "set enable-bracketed-paste off");
 
 	rl_initialize();
 	rl_parse_and_bind(disable_bracketed_paste);
 	rl_bind_key('?', (rl_command_func_t *)vtysh_rl_describe);
+	rl_completer_word_break_characters = (char *)custom_word_break_chars;
 	rl_completion_entry_function = vtysh_completion_entry_function;
 	rl_attempted_completion_function = new_completion;
 
