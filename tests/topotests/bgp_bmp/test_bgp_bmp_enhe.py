@@ -39,7 +39,7 @@ from lib.topogen import Topogen, get_topogen
 
 pytestmark = [pytest.mark.bgpd]
 
-POLICIES = ("pre-policy", "post-policy", "loc-rib")
+POLICIES = ("rib-in-pre-policy", "rib-in-post-policy", "loc-rib")
 
 # announcing router: (ASN, prefix)
 ANNOUNCEMENTS = {
