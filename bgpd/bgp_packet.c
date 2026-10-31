@@ -453,6 +453,14 @@ void bgp_generate_updgrp_packets(struct event *event)
 	    || bgp_update_delay_active(peer->bgp))
 		return;
 
+#ifdef DEV_BUILD
+	if (peer->bgp->updates_plugged || peer->updates_plugged) {
+		if (bgp_debug_update(peer, NULL, NULL, 0))
+			zlog_debug("%pBP UPDATEs are plugged, not building any", peer);
+		return;
+	}
+#endif
+
 	/* If the MRAI timer is running and we have conditional advertisement
 	 * configured, send the updates only after the MRAI timer expires unless
 	 * we have pending conditional advertisements.
@@ -626,6 +634,44 @@ void bgp_generate_updgrp_packets(struct event *event)
 
 	bgp_write_proceed_actions(connection);
 }
+
+#ifdef DEV_BUILD
+static void bgp_updates_kick(struct peer *peer)
+{
+	struct peer_connection *connection = peer->connection;
+
+	if (peer_established(connection))
+		event_add_timer_msec(bm->master, bgp_generate_updgrp_packets, connection, 0,
+				     &connection->t_generate_updgrp_packets);
+}
+
+/*
+ * Stop building UPDATEs for one peer, or for every peer of the instance
+ * when peer is NULL. Routes are still selected and queued per subgroup.
+ */
+void bgp_updates_plug(struct bgp *bgp, struct peer *peer)
+{
+	if (peer)
+		peer->updates_plugged = true;
+	else
+		bgp->updates_plugged = true;
+}
+
+void bgp_updates_unplug(struct bgp *bgp, struct peer *peer)
+{
+	struct listnode *node;
+
+	if (peer) {
+		peer->updates_plugged = false;
+		bgp_updates_kick(peer);
+		return;
+	}
+
+	bgp->updates_plugged = false;
+	for (ALL_LIST_ELEMENTS_RO(bgp->peer, node, peer))
+		bgp_updates_kick(peer);
+}
+#endif
 
 /*
  * Creates a BGP Keepalive packet and appends it to the peer's output queue.

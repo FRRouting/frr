@@ -5493,6 +5493,19 @@ void bgp_process_queue_init(struct bgp *bgp)
 	bgp->mq = meta_queue_new();
 }
 
+void bgp_meta_queue_plug(struct bgp *bgp)
+{
+	bgp->meta_queue_plugged = true;
+	work_queue_plug(bgp->process_queue);
+}
+
+void bgp_meta_queue_unplug(struct bgp *bgp)
+{
+	bgp->meta_queue_plugged = false;
+	if (!bgp_update_delay_active(bgp))
+		work_queue_unplug(bgp->process_queue);
+}
+
 static void bgp_process_internal(struct bgp *bgp, struct bgp_dest *dest,
 				 struct bgp_path_info *pi, afi_t afi,
 				 safi_t safi, bool early_process)
