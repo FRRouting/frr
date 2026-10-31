@@ -13,6 +13,7 @@
 #include "if.h"
 #include "table.h"
 #include "log.h"
+#include "monotime.h"
 
 #include "ospfd/ospfd.h"
 #include "ospfd/ospf_interface.h"
@@ -241,6 +242,8 @@ int ospf_dr_election(struct ospf_interface *oi)
 			ospf_hello_send(oi);
 	}
 
+	monotime(&oi->last_dr_election);
+
 	return new_state;
 }
 
@@ -293,6 +296,7 @@ static void ism_timer_set(struct ospf_interface *oi)
 		event_cancel(&oi->t_wait);
 		event_cancel(&oi->t_qn_wait);
 		event_cancel(&oi->t_ls_ack_delayed);
+		event_cancel(&oi->t_nbr_change);
 		event_cancel(&oi->gr.hello_delay.t_grace_send);
 		break;
 	case ISM_Loopback:
@@ -302,6 +306,7 @@ static void ism_timer_set(struct ospf_interface *oi)
 		event_cancel(&oi->t_wait);
 		event_cancel(&oi->t_qn_wait);
 		event_cancel(&oi->t_ls_ack_delayed);
+		event_cancel(&oi->t_nbr_change);
 		event_cancel(&oi->gr.hello_delay.t_grace_send);
 		break;
 	case ISM_Waiting:
@@ -407,6 +412,112 @@ static int ism_wait_timer(struct ospf_interface *oi)
 static int ism_neighbor_change(struct ospf_interface *oi)
 {
 	return ospf_dr_election(oi);
+}
+
+/* Milliseconds until the next ISM NeighborChange election may run.
+ *
+ * Two bounds apply, both from RFC 2328 Section 12.4 (MinLSInterval).
+ * Per interface, an election waits MinLSInterval after the previous
+ * one.  And since every election whose result changes re-originates
+ * the area's router-LSA -- shared by all interfaces of the area -- and
+ * this interface's network-LSA, the election must also wait until
+ * those LSAs are past MinLSInterval since their own origination;
+ * ospf_lsa_refresh_delay() returns that remainder.  Taking the
+ * maximum keeps successive originations of the same LSA
+ * MinLSInterval apart even when several interfaces of one area elect
+ * in turn, or when a pending election was armed before another path
+ * refreshed the LSA.
+ */
+static long ospf_ism_neighbor_change_delay(struct ospf_interface *oi)
+{
+	int64_t window = (int64_t)oi->ospf->min_ls_interval * 1000LL;
+	int64_t elapsed;
+	long delay = 0;
+
+	elapsed = monotime_since(&oi->last_dr_election, NULL);
+	if (elapsed < window)
+		delay = (long)((window - elapsed + 999) / 1000);
+
+	if (oi->area->router_lsa_self != NULL) {
+		int lsa_delay = ospf_lsa_refresh_delay(oi->ospf, oi->area->router_lsa_self);
+
+		if (lsa_delay > delay)
+			delay = lsa_delay;
+	}
+
+	if (oi->network_lsa_self != NULL) {
+		int lsa_delay = ospf_lsa_refresh_delay(oi->ospf, oi->network_lsa_self);
+
+		if (lsa_delay > delay)
+			delay = lsa_delay;
+	}
+
+	return delay;
+}
+
+/* Timer callback for a coalesced ISM NeighborChange election. */
+static void ospf_ism_neighbor_change_timer(struct event *event)
+{
+	struct ospf_interface *oi = EVENT_ARG(event);
+	long delay = ospf_ism_neighbor_change_delay(oi);
+
+	/* Another path ran an election or re-originated a shared LSA
+	 * after this timer was armed; hold the election for the rest of
+	 * the window instead of firing on the stale deadline.
+	 */
+	if (delay > 0) {
+		event_add_timer_msec(master, ospf_ism_neighbor_change_timer, oi, delay,
+				     &oi->t_nbr_change);
+		return;
+	}
+
+	OSPF_ISM_EVENT_EXECUTE(oi, ISM_NeighborChange);
+}
+
+/* Schedule an ISM NeighborChange election, coalescing repeated events.
+ *
+ * A Hello that changes a neighbor's DR, BDR or priority field raises
+ * ISM_NeighborChange, and every election whose result changes triggers
+ * AdjOK events on all neighbors plus self-originated router/network-LSA
+ * re-origination and flooding.  RFC 2328 Section 12.4 bounds successive
+ * originations of the same LSA to one per MinLSInterval; without a
+ * bound here, a stream of forged Hello field changes turned every packet
+ * into an election plus LSA churn at packet rate, well below
+ * MinLSInterval.
+ *
+ * Coalesce per interface: the first event after a quiet period is
+ * scheduled immediately (isolated, legitimate changes are unaffected);
+ * further events within the same MinLSInterval window collapse into a
+ * single pending election that fires when the window ends, so any
+ * genuine change still takes effect within MinLSInterval of the
+ * previous election.
+ */
+void ospf_ism_neighbor_change_throttle(struct ospf_interface *oi)
+{
+	uint32_t window = oi->ospf->min_ls_interval;
+	long delay;
+
+	if (window == 0) {
+		OSPF_ISM_EVENT_SCHEDULE(oi, ISM_NeighborChange);
+		return;
+	}
+
+	/* An election is already pending: coalesce this change into it. */
+	if (event_is_scheduled(oi->t_nbr_change))
+		return;
+
+	delay = ospf_ism_neighbor_change_delay(oi);
+
+	if (delay == 0) {
+		event_add_event(master, ospf_ism_event, oi, ISM_NeighborChange, &oi->t_nbr_change);
+		return;
+	}
+
+	if (IS_DEBUG_OSPF(ism, ISM_EVENTS))
+		zlog_debug("ISM[%s]: NeighborChange election delayed %ld milliseconds (MinLSInterval coalescing)",
+			   IF_NAME(oi), delay);
+
+	event_add_timer_msec(master, ospf_ism_neighbor_change_timer, oi, delay, &oi->t_nbr_change);
 }
 
 static int ism_ignore(struct ospf_interface *oi)

@@ -76,6 +76,7 @@ extern void ospf_ism_event(struct event *event);
 extern void ism_change_status(struct ospf_interface *oi, int status);
 extern void ospf_hello_timer(struct event *event);
 extern int ospf_dr_election(struct ospf_interface *oi);
+extern void ospf_ism_neighbor_change_throttle(struct ospf_interface *oi);
 
 DECLARE_HOOK(ospf_ism_change,
 	     (struct ospf_interface * oi, int state, int oldstate),
