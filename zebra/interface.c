@@ -228,6 +228,7 @@ static int if_zebra_delete_hook(struct interface *ifp)
 			route_table_finish(zebra_if->ipv4_subnets);
 
 		rtadv_if_fini(zebra_if);
+		rtadv_stop_ra(ifp, true);
 
 		bond = &zebra_if->bond_info;
 		if (bond && bond->mbr_zifs)
