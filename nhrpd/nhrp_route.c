@@ -257,6 +257,57 @@ int nhrp_route_read(ZAPI_CALLBACK_ARGS)
 	return 0;
 }
 
+/*
+ * RFC 2332 6.3: the Prefix Length advertised in a CIE must be taken
+ * from the shortest prefix covering the destination that does not
+ * contain any more specific route (a subset NLRI) inside it.  The
+ * plain longest-prefix match is the most specific route covering the
+ * destination, but its range may still contain unrelated more
+ * specific routes, and advertising it would merge those destinations
+ * into the wrong equivalence class.
+ *
+ * Walk down from the matched route towards the destination, splitting
+ * the candidate prefix at every step, until the candidate range no
+ * longer contains any subset route.
+ */
+static void nhrp_route_shortest_prefix(afi_t afi, const union sockunion *addr,
+				       struct prefix *p)
+{
+	struct prefix lookup, cand;
+	struct route_node *node;
+	unsigned int maxlen = 8 * sockunion_get_addrlen(addr);
+	bool subset;
+
+	if (!zebra_rib[afi] || p->prefixlen >= maxlen)
+		return;
+
+	sockunion2hostprefix(addr, &lookup);
+
+	do {
+		/* Candidate prefix: the destination truncated to the
+		 * current length.
+		 */
+		cand = lookup;
+		cand.prefixlen = p->prefixlen;
+		apply_mask(&cand);
+
+		/* Does any route sit strictly inside the candidate? */
+		subset = false;
+		for (node = route_top(zebra_rib[afi]); node;
+		     node = route_next(node)) {
+			if (node->info && node->p.prefixlen > p->prefixlen &&
+			    prefix_match(&cand, &node->p)) {
+				subset = true;
+				route_unlock_node(node);
+				break;
+			}
+		}
+
+		if (subset)
+			p->prefixlen++;
+	} while (subset && p->prefixlen < maxlen);
+}
+
 int nhrp_route_get_nexthop(const union sockunion *addr, struct prefix *p,
 			   union sockunion *via, struct interface **ifp)
 {
@@ -292,8 +343,10 @@ int nhrp_route_get_nexthop(const union sockunion *addr, struct prefix *p,
 		if (ifp)
 			*ifp = ri->ifp;
 	}
-	if (p)
+	if (p) {
 		*p = rn->p;
+		nhrp_route_shortest_prefix(afi, addr, p);
+	}
 	route_unlock_node(rn);
 	return 1;
 }
