@@ -37,6 +37,12 @@ struct isis_lsp {
 	time_t installed;
 	time_t last_generated;
 	int own_lsp;
+	/*
+	 * Placeholder for an unknown own LSP ID created by
+	 * lsp_purge_non_exist(); cleared when the entry becomes a real
+	 * originated LSP.
+	 */
+	bool purge_placeholder;
 	/* used for 60 second counting when rem_lifetime is zero */
 	int age_out;
 	struct isis_area *area;
