@@ -997,31 +997,31 @@ unsigned int connected_count_by_family(struct interface *ifp, int family)
 	return cnt;
 }
 
-struct connected *connected_lookup_prefix_exact(struct interface *ifp,
-						const struct prefix *p)
+struct connected *connected_lookup_prefix_exact(struct interface *ifp, const struct prefix *p,
+						const struct prefix *dest)
 {
 	struct connected *ifc;
 
 	frr_each (if_connected, ifp->connected, ifc) {
-		if (prefix_same(ifc->address, p))
+		if (!prefix_same(ifc->address, p))
+			continue;
+		if (!ifc->destination && !dest)
+			return ifc;
+		if (ifc->destination && dest && prefix_same(ifc->destination, dest))
 			return ifc;
 	}
 	return NULL;
 }
 
-struct connected *connected_delete_by_prefix(struct interface *ifp,
-					     struct prefix *p)
+struct connected *connected_delete_by_prefix(struct interface *ifp, const struct prefix *p,
+					     const struct prefix *dest)
 {
 	struct connected *ifc;
 
-	/* In case of same prefix come, replace it with new one. */
-	frr_each_safe (if_connected, ifp->connected, ifc) {
-		if (prefix_same(ifc->address, p)) {
-			if_connected_del(ifp->connected, ifc);
-			return ifc;
-		}
-	}
-	return NULL;
+	ifc = connected_lookup_prefix_exact(ifp, p, dest);
+	if (ifc)
+		if_connected_del(ifp->connected, ifc);
+	return ifc;
 }
 
 /* Find the address on our side that will be used when packets
@@ -1044,9 +1044,8 @@ struct connected *connected_lookup_prefix(struct interface *ifp,
 	return match;
 }
 
-struct connected *connected_add_by_prefix(struct interface *ifp,
-					  struct prefix *p,
-					  struct prefix *destination)
+struct connected *connected_add_by_prefix(struct interface *ifp, const struct prefix *p,
+					  const struct prefix *destination)
 {
 	struct connected *ifc;
 
