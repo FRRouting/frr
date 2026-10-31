@@ -3615,7 +3615,11 @@ def _expect_scale_export(router, peers, msg):
                 )
         return None
 
-    _, result = topotest.run_and_expect(_check, None, count=WAIT_COUNT, wait=WAIT_STEP)
+    # The scale setup originates several bursts of EVPN routes. Allow two
+    # advertisement intervals for every PE to propagate all IP A-D routes.
+    _, result = topotest.run_and_expect(
+        _check, None, count=WAIT_COUNT * 2, wait=WAIT_STEP
+    )
     assert result is None, "%s: %s" % (msg, result)
 
 
