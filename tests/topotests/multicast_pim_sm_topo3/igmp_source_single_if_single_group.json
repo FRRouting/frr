@@ -8,6 +8,7 @@
           "source":"*",
           "timer":"*",
           "forwarded":true,
+          "mroute":true,
           "uptime":"*"
         }
       ]
