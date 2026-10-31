@@ -73,6 +73,7 @@ struct ospf_neighbor {
 	struct timeval ts_last_progress; /* last advance of NSM            */
 	struct timeval ts_last_regress;	 /* last regressive NSM change     */
 	const char *last_regress_str;	 /* Event which last regressed NSM */
+	struct timeval ts_last_exstart_reset; /* last SeqNumberMismatch/BadLSReq reset to ExStart */
 	uint32_t state_change;		 /* NSM state change counter       */
 	uint32_t ls_rxmt_lsa;		 /* Number of LSAs retransmitted.  */
 	uint64_t dead_timer_resets;	 /* Number of times dead-timer was reset RFC4222 rec 2*/
