@@ -9572,7 +9572,7 @@ char *peer_uptime(time_t uptime2, char *buf, size_t len, bool use_json,
 			 tm.tm_yday - ((tm.tm_yday / 7) * 7));
 
 	if (use_json) {
-		epoch_tbuf = time(NULL) - uptime1;
+		epoch_tbuf = time_to_epoch(uptime2);
 		json_object_string_add(json, "peerUptime", buf);
 		json_object_int_add(json, "peerUptimeMsec", uptime1 * 1000);
 		json_object_int_add(json, "peerUptimeEstablishedEpoch",
