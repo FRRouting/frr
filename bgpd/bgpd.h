@@ -1397,6 +1397,9 @@ struct peer_af {
 	/* Long-lived Graceful Restart "Long-lived Stale Time" timer */
 	struct event *t_llgr_stale;
 
+	/* Runs from a received BoRR until the matching EoRR */
+	struct event *t_refresh_stalepath;
+
 	afi_t afi;
 	safi_t safi;
 	int afid;
@@ -2061,9 +2064,6 @@ struct peer {
 	_Atomic uint32_t v_delayopen;
 	_Atomic uint32_t v_pmax_restart;
 	_Atomic uint32_t v_gr_restart;
-
-	/* Threads. */
-	struct event *t_refresh_stalepath;
 
 	/* Thread flags. */
 	_Atomic uint32_t thread_flags;
