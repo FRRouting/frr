@@ -26,6 +26,7 @@
 #include "zebra/debug.h"
 #include "zebra/zebra_pbr.h"
 #include "zebra/zebra_l2.h"
+#include "zebra/interface.h"
 #include "zebra/zebra_neigh.h"
 #include "zebra/zebra_tc.h"
 #include "zebra/zebra_trace.h"
@@ -4470,7 +4471,8 @@ int dplane_ctx_route_init(struct zebra_dplane_ctx *ctx, enum dplane_op_e op,
 		 * The nexthop VRF owns the L3VNI for a normal EVPN route.
 		 * An on-link SVD D-VNI route is different: nexthop_set_evpn_dvni_svd()
 		 * moves the nexthop into the default VRF, where the VXLAN device
-		 * lives, and that VRF has no L3VNI. The route VRF still does.
+		 * lives, and that VRF has no L3VNI. The route VRF still does,
+		 * unless the route was leaked into a VRF that has none.
 		 */
 		zl3vni = zl3vni_from_vrf(nexthop->vrf_id);
 		if (!zl3vni || !is_l3vni_oper_up(zl3vni))
@@ -4489,6 +4491,37 @@ int dplane_ctx_route_init(struct zebra_dplane_ctx *ctx, enum dplane_op_e op,
 			if (labels && nexthop->nh_label_type == ZEBRA_LSP_EVPN &&
 			    labels->num_labels)
 				encap_vni = label2vni(&labels->label[labels->num_labels - 1]);
+
+			nexthop->nh_encap_type = NET_VXLAN;
+			nexthop->nh_encap.vni = encap_vni;
+			if (IS_ZEBRA_DEBUG_DPLANE_DETAIL)
+				zlog_debug("%s vni %u", __func__, encap_vni);
+		} else if (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_ACTIVE) && nexthop->nh_label &&
+			   nexthop->nh_label_type == ZEBRA_LSP_EVPN &&
+			   nexthop->nh_label->num_labels) {
+			struct interface *vxlan_ifp;
+			struct zebra_if *zif;
+			const struct mpls_label_stack *labels;
+			vni_t encap_vni;
+
+			/*
+			 * Leaked downstream VNI, and neither VRF has an L3VNI.
+			 * Resolution already attached the shared SVD device.
+			 * Program the tenant VNI from the label. The local
+			 * VTEP is the SVD device's own source address.
+			 */
+			labels = nexthop->nh_label;
+			vxlan_ifp = if_lookup_by_index(nexthop->ifindex, nexthop->vrf_id);
+			if (!vxlan_ifp || !vxlan_ifp->info)
+				continue;
+
+			zif = vxlan_ifp->info;
+			if (!IS_ZEBRA_IF_VXLAN(vxlan_ifp) || !IS_ZEBRA_VXLAN_IF_SVD(zif))
+				continue;
+
+			encap_vni = label2vni(&labels->label[labels->num_labels - 1]);
+			if (!encap_vni)
+				continue;
 
 			nexthop->nh_encap_type = NET_VXLAN;
 			nexthop->nh_encap.vni = encap_vni;
