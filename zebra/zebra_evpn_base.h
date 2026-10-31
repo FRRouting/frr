@@ -31,9 +31,20 @@ RB_PROTOTYPE(host_rb_tree_entry, host_rb_entry, hl_entry, host_rb_entry_compare)
  * Contains information pertaining to a VNI:
  * - the list of remote VTEPs (with this VNI)
  */
+/* Forward decl: per-EVI dataplane backend ops (zebra_srv6_l2evpn.h). */
+struct zevpn_dp_ops;
+
 struct zebra_evpn {
 	/* VNI - key */
 	vni_t vni;
+
+	/*
+	 * Dataplane backend ops for this EVI.  Defaults to the VXLAN backend
+	 * (zevpn_dp_ops_vxlan) at allocation so existing behavior is unchanged;
+	 * SRv6 EVIs point this at zevpn_dp_ops_srv6.  See the SRv6 L2 EVPN
+	 * VXLAN-decoupling design (backend abstraction).
+	 */
+	const struct zevpn_dp_ops *dp_ops;
 
 	/* ES flags */
 	uint32_t flags;
