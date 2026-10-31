@@ -187,14 +187,67 @@ int ospf6_router_is_stub_router(struct ospf6_lsa *lsa)
 	return OSPF6_NOT_STUB_ROUTER;
 }
 
+/*
+ * Helper for router LSA origination. Check whether we're at the size limit
+ * for a single LSA, originate and reset if necessary.
+ */
+static struct ospf6_router_lsdesc *
+lsadesc_limit_check(struct ospf6_router_lsdesc *lsdesc, struct ospf6_area *oa,
+		    char *buffer, uint32_t size_limit, size_t bufsize,
+		    uint32_t *ls_id)
+{
+	struct ospf6_lsa_header *lsa_header;
+	struct ospf6_router_lsa *router_lsa;
+	struct ospf6_lsa *lsa;
+
+	/* Generate multiple Router-LSA instances according to size limit */
+	if (((size_t)((char *)lsdesc - buffer) + sizeof(*lsdesc) <= size_limit)) {
+		/* Space ok, continue */
+		goto done;
+	} else {
+		/* Fill LSA Header */
+		lsa_header = (struct ospf6_lsa_header *)buffer;
+		lsa_header->age = 0;
+		lsa_header->type = htons(OSPF6_LSTYPE_ROUTER);
+		lsa_header->id = htonl(*ls_id);
+		lsa_header->adv_router = oa->ospf6->router_id;
+		lsa_header->seqnum = ospf6_new_ls_seqnum(lsa_header->type, lsa_header->id,
+							 lsa_header->adv_router, oa->lsdb);
+		lsa_header->length = htons((char *)lsdesc - (char *)buffer);
+
+		/* LSA checksum */
+		ospf6_lsa_checksum(lsa_header);
+
+		/* create LSA */
+		lsa = ospf6_lsa_create(lsa_header);
+
+		/* Originate */
+		ospf6_lsa_originate_area(lsa, oa);
+
+		/* Reset Buffer to fill next Router LSA */
+		memset(buffer, 0, bufsize);
+		lsa_header = (struct ospf6_lsa_header *)buffer;
+		router_lsa = lsa_after_header(lsa_header);
+
+		ospf6_router_lsa_options_set(oa, router_lsa);
+
+		/* Reset lsdesc pointer */
+		lsdesc = lsdesc_start_lsa_type(lsa_header, OSPF6_LSTYPE_ROUTER);
+
+		(*ls_id)++;
+	}
+
+done:
+
+	return lsdesc;
+}
+
 void ospf6_router_lsa_originate(struct event *event)
 {
 	struct ospf6_area *oa;
-
 	char buffer[OSPF6_MAX_LSASIZE];
 	struct ospf6_lsa_header *lsa_header;
 	struct ospf6_lsa *lsa;
-
 	uint32_t link_state_id = 0;
 	struct listnode *node, *nnode;
 	struct listnode *j;
@@ -203,7 +256,7 @@ void ospf6_router_lsa_originate(struct event *event)
 	struct ospf6_router_lsa *router_lsa;
 	struct ospf6_router_lsdesc *lsdesc;
 	uint16_t type;
-	uint32_t router;
+	uint32_t router, size_limit;
 	int count;
 
 	oa = (struct ospf6_area *)EVENT_ARG(event);
@@ -215,8 +268,9 @@ void ospf6_router_lsa_originate(struct event *event)
 		return;
 	}
 
-	if (IS_OSPF6_DEBUG_ORIGINATE(ROUTER))
-		zlog_debug("Originate Router-LSA for Area %s", oa->name);
+	size_limit = sizeof(buffer);
+	if (oa->router_lsa_size_limit > 0 && oa->router_lsa_size_limit < size_limit)
+		size_limit = oa->router_lsa_size_limit;
 
 	memset(buffer, 0, sizeof(buffer));
 	lsa_header = (struct ospf6_lsa_header *)buffer;
@@ -227,6 +281,16 @@ void ospf6_router_lsa_originate(struct event *event)
 	/* describe links for each interfaces */
 	lsdesc = lsdesc_start_lsa_type(lsa_header, OSPF6_LSTYPE_ROUTER);
 
+	/* Validate edge condition for size limit: we need room for at least one desc */
+	if (((size_t)((char *)lsdesc - buffer) + sizeof(struct ospf6_router_lsdesc) > size_limit)) {
+		zlog_warn("Area %s: Size limit setting for Router-LSA too short",
+			  oa->name);
+		return;
+	}
+
+	if (IS_OSPF6_DEBUG_ORIGINATE(ROUTER))
+		zlog_debug("Originate Router-LSA for Area %s", oa->name);
+
 	for (ALL_LIST_ELEMENTS(oa->if_list, node, nnode, oi)) {
 		/* Interfaces in state Down or Loopback are not described */
 		if (oi->state == OSPF6_INTERFACE_DOWN
@@ -235,60 +299,19 @@ void ospf6_router_lsa_originate(struct event *event)
 
 		/* Nor are interfaces without any full adjacencies described */
 		count = 0;
-		for (ALL_LIST_ELEMENTS_RO(oi->neighbor_list, j, on))
-			if (on->state == OSPF6_NEIGHBOR_FULL)
+		for (ALL_LIST_ELEMENTS_RO(oi->neighbor_list, j, on)) {
+			if (on->state == OSPF6_NEIGHBOR_FULL) {
 				count++;
+				break;
+			}
+		}
 
 		if (count == 0)
 			continue;
 
-		/* Multiple Router-LSA instance according to size limit setting
-		 */
-		if ((oa->router_lsa_size_limit != 0)
-		    && ((size_t)((char *)lsdesc - buffer)
-				+ sizeof(struct ospf6_router_lsdesc)
-			> oa->router_lsa_size_limit)) {
-			if (lsdesc ==
-			    lsdesc_start_lsa_type(lsa_header,
-						  OSPF6_LSTYPE_ROUTER)) {
-				zlog_warn(
-					"Size limit setting for Router-LSA too short");
-				return;
-			}
-
-			/* Fill LSA Header */
-			lsa_header->age = 0;
-			lsa_header->type = htons(OSPF6_LSTYPE_ROUTER);
-			lsa_header->id = htonl(link_state_id);
-			lsa_header->adv_router = oa->ospf6->router_id;
-			lsa_header->seqnum = ospf6_new_ls_seqnum(
-				lsa_header->type, lsa_header->id,
-				lsa_header->adv_router, oa->lsdb);
-			lsa_header->length =
-				htons((caddr_t)lsdesc - (caddr_t)buffer);
-
-			/* LSA checksum */
-			ospf6_lsa_checksum(lsa_header);
-
-			/* create LSA */
-			lsa = ospf6_lsa_create(lsa_header);
-
-			/* Originate */
-			ospf6_lsa_originate_area(lsa, oa);
-
-			/* Reset Buffer to fill next Router LSA */
-			memset(buffer, 0, sizeof(buffer));
-			lsa_header = (struct ospf6_lsa_header *)buffer;
-			router_lsa = lsa_after_header(lsa_header);
-
-			ospf6_router_lsa_options_set(oa, router_lsa);
-
-			/* describe links for each interfaces */
-			lsdesc = lsdesc_start_lsa_type(lsa_header,
-						       OSPF6_LSTYPE_ROUTER);
-
-			link_state_id++;
-		}
+		/* Ensure we have space for next desc */
+		lsdesc = lsadesc_limit_check(lsdesc, oa, buffer, size_limit, sizeof(buffer),
+					     &link_state_id);
 
 		/* Point-to-Point interfaces */
 		if (oi->type == OSPF_IFTYPE_POINTOPOINT
@@ -296,6 +319,11 @@ void ospf6_router_lsa_originate(struct event *event)
 			for (ALL_LIST_ELEMENTS_RO(oi->neighbor_list, j, on)) {
 				if (on->state != OSPF6_NEIGHBOR_FULL)
 					continue;
+
+				/* Ensure we have space for next desc */
+				lsdesc = lsadesc_limit_check(lsdesc, oa, buffer,
+							     size_limit, sizeof(buffer),
+							     &link_state_id);
 
 				lsdesc->type = OSPF6_ROUTER_LSDESC_POINTTOPOINT;
 				lsdesc->metric = htons(ospf6_neighbor_cost(on));
@@ -315,10 +343,9 @@ void ospf6_router_lsa_originate(struct event *event)
 			   and If this router not fully adjacent with DR,
 			   this interface is not transit yet: ignore. */
 			if (oi->state != OSPF6_INTERFACE_DR) {
-				drouter =
-					ospf6_neighbor_lookup(oi->drouter, oi);
-				if (drouter == NULL
-				    || drouter->state != OSPF6_NEIGHBOR_FULL)
+				drouter = ospf6_neighbor_lookup(oi->drouter, oi);
+				if (drouter == NULL ||
+				    drouter->state != OSPF6_NEIGHBOR_FULL)
 					continue;
 			}
 
@@ -343,8 +370,6 @@ void ospf6_router_lsa_originate(struct event *event)
 
 		/* Virtual links */
 		/* xxx */
-		/* Point-to-Multipoint interfaces */
-		/* xxx */
 	}
 
 	/* Fill LSA Header */
@@ -352,9 +377,8 @@ void ospf6_router_lsa_originate(struct event *event)
 	lsa_header->type = htons(OSPF6_LSTYPE_ROUTER);
 	lsa_header->id = htonl(link_state_id);
 	lsa_header->adv_router = oa->ospf6->router_id;
-	lsa_header->seqnum =
-		ospf6_new_ls_seqnum(lsa_header->type, lsa_header->id,
-				    lsa_header->adv_router, oa->lsdb);
+	lsa_header->seqnum = ospf6_new_ls_seqnum(lsa_header->type, lsa_header->id,
+						 lsa_header->adv_router, oa->lsdb);
 	lsa_header->length = htons((caddr_t)lsdesc - (caddr_t)buffer);
 
 	/* LSA checksum */
@@ -383,12 +407,10 @@ void ospf6_router_lsa_originate(struct event *event)
 	 * Waiting till the LSA is actually removed from the database to trigger
 	 * SPF delays network convergence. Unlike IPv4, for an ABR, when all
 	 * interfaces associated with an area are gone, triggering an SPF right
-	 * away
-	 * helps convergence with inter-area routes.
+	 * away helps convergence with inter-area routes.
 	 */
-	if (count && !link_state_id)
-		ospf6_spf_schedule(oa->ospf6,
-				   OSPF6_SPF_FLAGS_ROUTER_LSA_ORIGINATED);
+	if (count > 0 && link_state_id == 0)
+		ospf6_spf_schedule(oa->ospf6, OSPF6_SPF_FLAGS_ROUTER_LSA_ORIGINATED);
 }
 
 /*******************************/
@@ -541,8 +563,16 @@ void ospf6_network_lsa_originate(struct event *event)
 		if (on->state != OSPF6_NEIGHBOR_FULL)
 			continue;
 
+		/* Ensure we don't overrun the fixed size buffer */
+		if ((char *)(lsdesc + 1) > (buffer + sizeof(buffer))) {
+			zlog_warn("Interface %s: Too many full neighbors",
+				  oi->interface->name);
+			break;
+		}
+
 		/* set this neighbor's Router-ID to LSA */
 		lsdesc->router_id = on->router_id;
+
 		lsdesc++;
 	}
 
