@@ -18,6 +18,7 @@
 #include "flex_algo.h"
 #include "affinitymap.h"
 #include "lib/iso.h"
+#include "lib/keychain.h"
 
 #include "lib/srv6.h"
 
@@ -123,6 +124,16 @@ struct isis_threeway_adj {
 	bool neighbor_set;
 	uint8_t neighbor_id[6];
 	uint32_t neighbor_circuit_id;
+};
+
+/* RFC 7602 Extended Sequence Number */
+struct isis_esn {
+	uint64_t essn; /* Extended Session Sequence Number */
+	uint32_t psn;  /* Packet Sequence Number */
+	/* Set on receipt of a PDU with more than one ESN TLV or a malformed one,
+	 * which RFC 7602 section 3 makes invalid; the values are then unusable
+	 */
+	bool invalid;
 };
 
 /* Segment Routing subTLV's as per RFC8667 */
@@ -386,6 +397,12 @@ struct isis_auth {
 	uint8_t plength;
 	uint8_t passwd[256];
 
+	/* ISIS_PASSWD_TYPE_CRYPTO_AUTH: the key used to send, passwd holding
+	 * its HMAC key; on receipt only the key ID is set.
+	 */
+	uint16_t key_id;
+	enum keychain_hash_algo algo;
+
 	size_t offset; /* Only valid after packing */
 };
 
@@ -442,6 +459,7 @@ struct isis_tlvs {
 	struct isis_item_list ipv6_reach;
 	struct isis_mt_item_list mt_ipv6_reach;
 	struct isis_threeway_adj *threeway_adj;
+	struct isis_esn *esn;
 	struct isis_router_cap *router_cap;
 	struct isis_spine_leaf *spine_leaf;
 	struct isis_mt_item_list srv6_locator;
@@ -488,6 +506,7 @@ enum isis_tlv_type {
 	ISIS_TLV_PADDING = 8,
 	ISIS_TLV_LSP_ENTRY = 9,
 	ISIS_TLV_AUTH = 10,
+	ISIS_TLV_ESN = 11,
 	ISIS_TLV_PURGE_ORIGINATOR = 13,
 	ISIS_TLV_EXTENDED_REACH = 22,
 
@@ -814,7 +833,12 @@ struct list *isis_fragment_tlvs(struct isis_tlvs *tlvs, size_t size);
 #define ISIS_MT_AT_MASK 0x4000
 #endif
 
-void isis_tlvs_add_auth(struct isis_tlvs *tlvs, struct isis_passwd *passwd);
+/* Authentication TLV with an RFC 5310 key ID and the largest digest */
+#define ISIS_CRYPTO_AUTH_TLV_MAX_LEN (2 + 1 + 2 + KEYCHAIN_MAX_HASH_SIZE)
+
+bool isis_tlvs_add_auth(struct isis_tlvs *tlvs, struct isis_passwd *passwd);
+size_t isis_tlvs_auth_len(const struct isis_tlvs *tlvs);
+time_t isis_keychain_next_send_change(const char *keychain_name, time_t now);
 void isis_tlvs_add_area_addresses(struct isis_tlvs *tlvs, struct iso_address_list_head *addresses);
 void isis_tlvs_add_lan_neighbors(struct isis_tlvs *tlvs, struct list *neighbors);
 void isis_tlvs_set_protocols_supported(struct isis_tlvs *tlvs, struct nlpids *nlpids);
@@ -878,6 +902,7 @@ void isis_tlvs_add_srlg(struct isis_tlvs *tlvs, const uint8_t *id, const uint32_
 
 const char *isis_threeway_state_name(enum isis_threeway_state state);
 
+void isis_tlvs_set_esn(struct isis_tlvs *tlvs, uint64_t essn, uint32_t psn);
 void isis_tlvs_add_threeway_adj(struct isis_tlvs *tlvs, enum isis_threeway_state state,
 				uint32_t local_circuit_id, const uint8_t *neighbor_id,
 				uint32_t neighbor_circuit_id);

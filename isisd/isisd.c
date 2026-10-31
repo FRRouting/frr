@@ -31,6 +31,7 @@
 #include "flex_algo.h"
 #include "lib/northbound_cli.h"
 #include "bfd.h"
+#include "keychain.h"
 
 #include "isisd/isis_constants.h"
 #include "isisd/isis_common.h"
@@ -634,6 +635,7 @@ void isis_area_destroy(struct isis_area *area)
 	event_cancel(&area->t_lsp_refresh[0]);
 	event_cancel(&area->t_lsp_refresh[1]);
 	event_cancel(&area->t_rlfa_rib_update);
+	event_cancel(&area->t_auth_rollover);
 
 	event_cancel_event(master, area);
 
@@ -3078,9 +3080,82 @@ void isis_area_lsp_mtu_set(struct isis_area *area, unsigned int lsp_mtu)
 	lsp_regenerate_schedule(area, IS_LEVEL_1_AND_2, 1);
 }
 
-static int isis_area_passwd_set(struct isis_area *area, int level,
-				uint8_t passwd_type, const char *passwd,
-				uint8_t snp_auth)
+/*
+ * LSPs are signed when they are generated. When a key chain signing them
+ * changes, or one of its keys starts or stops being valid for sending, they
+ * are regenerated, to be signed with the key valid then.
+ */
+static void isis_area_auth_rollover(struct event *thread);
+
+static struct isis_passwd *isis_area_level_passwd(struct isis_area *area, int level)
+{
+	return (level == IS_LEVEL_1) ? &area->area_passwd : &area->domain_passwd;
+}
+
+static void isis_area_auth_rollover_schedule(struct isis_area *area)
+{
+	time_t now = time(NULL);
+	time_t next = 0;
+
+	event_cancel(&area->t_auth_rollover);
+
+	for (int level = IS_LEVEL_1; level <= IS_LEVEL_2; level++) {
+		struct isis_passwd *passwd = isis_area_level_passwd(area, level);
+		time_t change;
+
+		if (passwd->type != ISIS_PASSWD_TYPE_CRYPTO_AUTH)
+			continue;
+
+		change = isis_keychain_next_send_change((const char *)passwd->passwd, now);
+		if (change && (!next || change < next))
+			next = change;
+	}
+
+	if (next)
+		event_add_timer(master, isis_area_auth_rollover, area, next - now,
+				&area->t_auth_rollover);
+}
+
+/* Re-sign the LSPs signed with keychain_name, or with any key chain if NULL */
+static void isis_area_auth_resign(struct isis_area *area, const char *keychain_name)
+{
+	int levels = 0;
+
+	for (int level = IS_LEVEL_1; level <= IS_LEVEL_2; level++) {
+		struct isis_passwd *passwd = isis_area_level_passwd(area, level);
+
+		if (passwd->type == ISIS_PASSWD_TYPE_CRYPTO_AUTH &&
+		    (!keychain_name || strmatch((const char *)passwd->passwd, keychain_name)))
+			levels |= level;
+	}
+
+	if (!levels)
+		return;
+
+	lsp_regenerate_schedule(area, levels, 1);
+	isis_area_auth_rollover_schedule(area);
+}
+
+static void isis_area_auth_rollover(struct event *thread)
+{
+	isis_area_auth_resign(EVENT_ARG(thread), NULL);
+}
+
+static int isis_keychain_changed(const char *keychain_name)
+{
+	struct isis_area *area;
+	struct isis *isis;
+
+	frr_each (isis_instance_list, &im->isis, isis) {
+		frr_each (isis_area_list, &isis->area_list, area)
+			isis_area_auth_resign(area, keychain_name);
+	}
+
+	return 0;
+}
+
+static int isis_area_passwd_set(struct isis_area *area, int level, uint8_t passwd_type,
+				const char *passwd, uint8_t snp_auth, bool strict_rfc5310)
 {
 	struct isis_passwd *dest;
 	struct isis_passwd modified;
@@ -3104,11 +3179,13 @@ static int isis_area_passwd_set(struct isis_area *area, int level,
 			sizeof(modified.passwd));
 		modified.type = passwd_type;
 		modified.snp_auth = snp_auth;
+		modified.strict_rfc5310 = strict_rfc5310;
 	}
 
 	if (memcmp(&modified, dest, sizeof(modified))) {
 		memcpy(dest, &modified, sizeof(modified));
 		lsp_regenerate_schedule(area, IS_LEVEL_1 | IS_LEVEL_2, 1);
+		isis_area_auth_rollover_schedule(area);
 	}
 
 	return 0;
@@ -3116,22 +3193,28 @@ static int isis_area_passwd_set(struct isis_area *area, int level,
 
 int isis_area_passwd_unset(struct isis_area *area, int level)
 {
-	return isis_area_passwd_set(area, level, ISIS_PASSWD_TYPE_UNUSED, NULL,
-				    0);
+	return isis_area_passwd_set(area, level, ISIS_PASSWD_TYPE_UNUSED, NULL, 0, false);
 }
 
 int isis_area_passwd_cleartext_set(struct isis_area *area, int level,
 				   const char *passwd, uint8_t snp_auth)
 {
-	return isis_area_passwd_set(area, level, ISIS_PASSWD_TYPE_CLEARTXT,
-				    passwd, snp_auth);
+	return isis_area_passwd_set(area, level, ISIS_PASSWD_TYPE_CLEARTXT, passwd, snp_auth,
+				    false);
 }
 
 int isis_area_passwd_hmac_md5_set(struct isis_area *area, int level,
 				  const char *passwd, uint8_t snp_auth)
 {
-	return isis_area_passwd_set(area, level, ISIS_PASSWD_TYPE_HMAC_MD5,
-				    passwd, snp_auth);
+	return isis_area_passwd_set(area, level, ISIS_PASSWD_TYPE_HMAC_MD5, passwd, snp_auth,
+				    false);
+}
+
+int isis_area_passwd_keychain_set(struct isis_area *area, int level, const char *keychain,
+				  bool strict_rfc5310, uint8_t snp_auth)
+{
+	return isis_area_passwd_set(area, level, ISIS_PASSWD_TYPE_CRYPTO_AUTH, keychain, snp_auth,
+				    strict_rfc5310);
 }
 
 void isis_area_invalidate_routes(struct isis_area *area, int levels)
@@ -3409,6 +3492,49 @@ void isis_area_advertise_high_metrics_set(struct isis_area *area,
 						configured_metric_l2);
 		}
 	}
+}
+
+/*
+ * RFC 7602 Appendix A: the Extended Session Sequence Number of an area is the
+ * current time (A.1) or one more than the last one, kept in the daemon state
+ * (A.2), whichever is greater, so that it keeps increasing across restarts as
+ * long as either the clock or the state file survives. A session starts when
+ * the area first sends an ESN, and again whenever a Packet Sequence Number
+ * wraps. Not under "areas", which isis_restart_read_overload_time() deletes.
+ */
+#define ESN_SESSIONS_KEY "extended-session-sequence-numbers"
+
+void isis_area_esn_new_session(struct isis_area *area)
+{
+	json_object *json = frr_daemon_state_load();
+	json_object *json_sessions = NULL;
+	json_object *json_session = NULL;
+	uint64_t last = area->esn_session;
+
+	json_object_object_get_ex(json, ESN_SESSIONS_KEY, &json_sessions);
+	if (!json_object_is_type(json_sessions, json_type_object)) {
+		json_sessions = json_object_new_object();
+		json_object_object_add(json, ESN_SESSIONS_KEY, json_sessions);
+	}
+
+	json_object_object_get_ex(json_sessions, area->area_tag, &json_session);
+	if (json_object_is_type(json_session, json_type_int) &&
+	    json_object_get_int64(json_session) > 0)
+		last = MAX(last, (uint64_t)json_object_get_int64(json_session));
+
+	area->esn_session = MAX(last + 1, (uint64_t)time(NULL));
+	json_object_object_add(json_sessions, area->area_tag,
+			       json_object_new_int64(area->esn_session));
+
+	frr_daemon_state_save(&json);
+}
+
+uint64_t isis_area_esn_session(struct isis_area *area)
+{
+	if (!area->esn_session)
+		isis_area_esn_new_session(area);
+
+	return area->esn_session;
 }
 
 /*
@@ -3891,6 +4017,9 @@ struct cmd_node isis_srv6_node_msd_node = {
 
 void isis_init(void)
 {
+	hook_register(keychain_updated, isis_keychain_changed);
+	hook_register(keychain_removed, isis_keychain_changed);
+
 	/* Install IS-IS top node */
 	install_node(&router_node);
 
