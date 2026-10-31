@@ -17,6 +17,11 @@ struct ospf_test_node {
 	const char *router_id;
 	mpls_label_t label;
 	struct ospf_test_adj adjacencies[MAX_ADJACENCIES + 1];
+	/*
+	 * Don't inject this node's router-LSA: other routers still advertise
+	 * a link to it, as when its LSA has not been received yet.
+	 */
+	bool no_router_lsa;
 };
 
 struct ospf_topology {
@@ -37,6 +42,7 @@ extern struct ospf_topology topo2;
 extern struct ospf_topology topo3;
 extern struct ospf_topology topo4;
 extern struct ospf_topology topo5;
+extern struct ospf_topology topo6;
 extern struct zebra_privs_t ospfd_privs;
 
 /* For stable order in unit tests */

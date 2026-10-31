@@ -1404,9 +1404,14 @@ static void ospf_spf_next(struct vertex *v, struct ospf_area *area,
 			/*
 			 * For TI-LFA we might need the reverse SPF.
 			 * Currently only works with P2P!
+			 *
+			 * W's router-LSA may not be in the LSDB (not received
+			 * yet, or already flushed) while V still advertises
+			 * the link: then there is no reverse distance to read,
+			 * and the check below skips W, as the forward SPF does.
 			 */
 			if (type == LSA_LINK_TYPE_POINTOPOINT
-			    && area->spf_reversed)
+			    && area->spf_reversed && w_lsa)
 				link_distance =
 					get_reverse_distance(v, l, w_lsa);
 			else
