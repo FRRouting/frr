@@ -57,6 +57,7 @@ def setup_module(mod):
 def teardown_module():
     "Teardown the pytest environment"
     tgen = get_topogen()
+    app_helper.cleanup()
     tgen.stop_topology()
 
 
