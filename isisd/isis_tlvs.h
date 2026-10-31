@@ -840,7 +840,7 @@ struct isis_router_cap *isis_tlvs_init_router_capability(struct isis_tlvs *tlvs)
 
 struct isis_area;
 struct isis_flex_algo;
-void isis_tlvs_set_router_capability_fad(struct isis_tlvs *tlvs, struct flex_algo *fa,
+bool isis_tlvs_set_router_capability_fad(struct isis_tlvs *tlvs, struct flex_algo *fa,
 					 int algorithm, uint8_t *sysid);
 
 struct isis_area;
