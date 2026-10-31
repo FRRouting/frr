@@ -9,10 +9,13 @@
 """
 Test static route functionality
 """
+
+import functools
 import json
 
 import pytest
 from lib.topogen import Topogen
+from lib.topotest import run_and_expect
 
 pytestmark = [pytest.mark.ripd, pytest.mark.mgmtd]
 
@@ -148,3 +151,70 @@ exit
     r1.vtysh_multicmd(conf.split("\n"), pretty_output=True)
     assert not is_key_active(r1, "kc", 3, DIR_SEND)
     assert not is_key_active(r1, "kc", 3, DIR_ACCEPT)
+
+
+def no_lifetime(router, keyid, direction):
+    dstr = "send" if direction == DIR_SEND else "accept"
+    conf = f"""conf t
+key chain kc
+ key {keyid}
+  no {dstr}-lifetime
+ exit
+exit
+"""
+    router.vtysh_multicmd(conf.split("\n"), pretty_output=True)
+
+
+def check_active(router, keyid, send, accept):
+    "None once the send and accept lifetimes of key keyid have these states."
+    active = {
+        DIR_SEND: is_key_active(router, "kc", keyid, DIR_SEND),
+        DIR_ACCEPT: is_key_active(router, "kc", keyid, DIR_ACCEPT),
+    }
+    if active == {DIR_SEND: send, DIR_ACCEPT: accept}:
+        return None
+    return "key {}: send active {}, accept active {}; expected {}, {}".format(
+        keyid, active[DIR_SEND], active[DIR_ACCEPT], send, accept
+    )
+
+
+def wait_active(router, keyid, active):
+    "Wait for the lifetimes of key keyid to have the states in active."
+    test_func = functools.partial(
+        check_active, router, keyid, active[DIR_SEND], active[DIR_ACCEPT]
+    )
+    _, result = run_and_expect(test_func, None, count=30, wait=1)
+    assert result is None, result
+
+
+def check_no_lifetime_config(router):
+    "None once the running configuration lists no lifetime for keys 1 and 2."
+    config = router.vtysh_cmd("show running-config")
+    keys = config[config.index(" key 1\n") : config.index(" key 3\n")]
+    if "lifetime" in keys:
+        return keys
+    return None
+
+
+def test_no_lifetime(tgen):
+    "Removing a lifetime makes the key valid again in that direction only."
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    r1 = tgen.gears["r1"]
+
+    # test_send_accept left keys 1 and 2 with lifetimes not valid now. The
+    # first lifetime removed goes with its start time, the second with the
+    # container: remove them in both orders.
+    for keyid, first, second in ((1, DIR_SEND, DIR_ACCEPT), (2, DIR_ACCEPT, DIR_SEND)):
+        wait_active(r1, keyid, {first: False, second: False})
+
+        no_lifetime(r1, keyid, first)
+        wait_active(r1, keyid, {first: True, second: False})
+
+        no_lifetime(r1, keyid, second)
+        wait_active(r1, keyid, {first: True, second: True})
+
+    test_func = functools.partial(check_no_lifetime_config, r1)
+    _, result = run_and_expect(test_func, None, count=30, wait=1)
+    assert result is None, "lifetimes still configured:\n{}".format(result)
