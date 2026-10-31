@@ -2049,8 +2049,7 @@ static void ospf6_auth_trailer_copy_keychain_key(struct ospf6_interface *oi)
 	keychain = keychain_lookup(keychain_name);
 	if (keychain) {
 		key = key_lookup_for_send(keychain);
-		if (key && key->string &&
-		    key->hash_algo != KEYCHAIN_ALGO_NULL) {
+		if (key && key->string && ospf6_auth_algo_usable(key->hash_algo)) {
 			/* storing the values so that further
 			 * lookup can be avoided. after
 			 * processing the digest need to reset
