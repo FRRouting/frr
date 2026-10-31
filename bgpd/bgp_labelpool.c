@@ -283,6 +283,76 @@ void bgp_lp_release_pending_lu_locks(void)
 	}
 }
 
+/* Only valid while the dest is alive, i.e. before its table is freed */
+static bool lp_lu_labelid_in_bgp(void *labelid, struct bgp *bgp)
+{
+	struct bgp_table *table;
+
+	if (!labelid)
+		return false;
+
+	table = bgp_dest_table((struct bgp_dest *)labelid);
+
+	return table && table->bgp == bgp;
+}
+
+/* Live instance delete; shutdown uses bgp_lp_release_pending_lu_locks() */
+void bgp_lp_release_instance_lu(struct bgp *bgp)
+{
+	struct lp_fifo *lf;
+	struct work_queue_item *item;
+	struct lp_cbq_item *q;
+	struct lp_lcb *lcb, *next_lcb;
+	void *labelid, *next_labelid;
+	void *cursor, *next_cursor;
+	int rc, next_rc;
+	int debug = BGP_DEBUG(labelpool, LABELPOOL);
+
+	if (!lp || !bgp)
+		return;
+
+	/* Remove, not just clear: an emptied chunk can then go back to zebra */
+	frr_each_safe (lp_fifo, &lp->requests, lf) {
+		if (lf->lcb.type == LP_TYPE_BGP_LU && lp_lu_labelid_in_bgp(lf->lcb.labelid, bgp)) {
+			bgp_dest_unlock_node(lf->lcb.labelid);
+			lp_fifo_del(&lp->requests, lf);
+			XFREE(MTYPE_BGP_LABEL_FIFO, lf);
+		}
+	}
+
+	if (lp->callback_q) {
+		STAILQ_FOREACH (item, &lp->callback_q->items, wq) {
+			q = item->data;
+			if (q && q->type == LP_TYPE_BGP_LU &&
+			    lp_lu_labelid_in_bgp(q->labelid, bgp)) {
+				bgp_dest_unlock_node(q->labelid);
+				q->labelid = NULL;
+			}
+		}
+	}
+
+	/* Advance before deleting - bgp_lp_release() only removes the key it is given */
+	cursor = NULL;
+	rc = skiplist_next(lp->ledger, &labelid, (void **)&lcb, &cursor);
+	while (!rc) {
+		next_cursor = cursor;
+		next_rc = skiplist_next(lp->ledger, &next_labelid, (void **)&next_lcb,
+					&next_cursor);
+
+		if (lcb->type == LP_TYPE_BGP_LU && lp_lu_labelid_in_bgp(labelid, bgp)) {
+			if (lcb->label != MPLS_LABEL_NONE)
+				bgp_lp_release(lcb->label, labelid, LP_TYPE_BGP_LU, true, debug);
+			else
+				skiplist_delete(lp->ledger, labelid, NULL);
+		}
+
+		labelid = next_labelid;
+		lcb = next_lcb;
+		cursor = next_cursor;
+		rc = next_rc;
+	}
+}
+
 void bgp_lp_finish(void)
 {
 	struct lp_fifo *lf;
