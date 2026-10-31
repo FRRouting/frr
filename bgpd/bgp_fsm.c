@@ -587,7 +587,18 @@ static void bgp_holdtime_timer(struct event *event)
 	frr_with_mutex (&connection->io_mtx) {
 		inq_count = atomic_load_explicit(&connection->ibuf->count, memory_order_relaxed);
 	}
-	if (inq_count) {
+
+	/*
+	 * Also start the hold timer again while the peer's close is pending (see
+	 * bgp_close_after_ibuf()). ibuf can already be empty then: all the queued
+	 * messages were processed and the close was queued again, but
+	 * bgp_process_conn_error() is only scheduled and has not run yet. A hold
+	 * timer expiry in this gap sees ibuf as empty and would end the session
+	 * itself. In that case, close_pending decides here whether the routes are
+	 * kept for graceful restart, not this timer. bgp_stop() cancels this
+	 * timer when the close is handled later.
+	 */
+	if (inq_count || atomic_load_explicit(&connection->close_pending, memory_order_relaxed)) {
 		BGP_TIMER_ON(connection->t_holdtime, bgp_holdtime_timer,
 			     peer->v_holdtime);
 		return;
@@ -2329,6 +2340,18 @@ enum bgp_fsm_state_progress bgp_stop(struct peer_connection *connection)
 			connection->curr = NULL;
 		}
 	}
+
+	/*
+	 * If the peer's close was postponed (see bgp_close_after_ibuf()), it is
+	 * done now: allow writes again, the fd is closed below. The reason shows
+	 * how it ended: either the close itself was handled, or a queued
+	 * NOTIFICATION ended the session before the close.
+	 */
+	if (atomic_exchange_explicit(&connection->close_pending, false, memory_order_relaxed) &&
+	    bgp_debug_neighbor_events(peer))
+		zlog_debug("%s(%s) [Event] Postponed close done; session stopped (%s)", peer->host,
+			   bgp_peer_get_connection_direction_string(connection),
+			   peer_down_str[peer->last_reset]);
 
 	/* Close of file descriptor. */
 	if (connection->fd >= 0) {

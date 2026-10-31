@@ -1560,6 +1560,16 @@ struct peer_connection {
 
 	struct ringbuf *ibuf_work; // WiP buffer used by bgp_read() only
 
+	/*
+	 * Set when the peer closed a graceful-restart session while messages it
+	 * sent before closing were still on ibuf. The close is handled once
+	 * bgp_process_packet() has processed them (see bgp_close_after_ibuf()).
+	 * While set, nothing is sent to the peer (see bgp_process_writes()).
+	 * Cleared only by bgp_stop(), which closes the fd.
+	 * Set and cleared by the main pthread, also read by the I/O pthread.
+	 */
+	atomic_bool close_pending;
+
 	struct event *t_read;
 	struct event *t_write;
 	struct event *t_connect;
