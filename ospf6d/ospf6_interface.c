@@ -753,6 +753,9 @@ uint8_t dr_election(struct ospf6_interface *oi)
 
 	oi->drouter = (drouter ? drouter->router_id : htonl(0));
 	oi->bdrouter = (bdrouter ? bdrouter->router_id : htonl(0));
+
+	monotime(&oi->last_dr_election);
+
 	return next_state;
 }
 
@@ -986,6 +989,78 @@ void neighbor_change(struct event *event)
 	}
 }
 
+/* Milliseconds until the next NeighborChange election may run on this
+ * interface, 0 when the coalescing window has already passed.
+ */
+static long ospf6_neighbor_change_delay(struct ospf6_interface *oi)
+{
+	int64_t window = (int64_t)OSPF6_ELECTION_COALESCE_MSEC * 1000LL;
+	int64_t elapsed;
+
+	elapsed = monotime_since(&oi->last_dr_election, NULL);
+	if (elapsed < window)
+		return (long)((window - elapsed + 999) / 1000);
+	return 0;
+}
+
+/* Timer callback for a coalesced NeighborChange election. */
+static void ospf6_neighbor_change_timer(struct event *event)
+{
+	struct ospf6_interface *oi = EVENT_ARG(event);
+	long delay = ospf6_neighbor_change_delay(oi);
+
+	/* Another path ran an election after this timer was armed; hold the
+	 * election for the rest of the window instead of firing on the stale
+	 * deadline.
+	 */
+	if (delay > 0) {
+		event_add_timer_msec(master, ospf6_neighbor_change_timer, oi,
+				     delay, &oi->thread_neighbor_change);
+		return;
+	}
+
+	neighbor_change(event);
+}
+
+/* Schedule a NeighborChange election, coalescing repeated events.
+ *
+ * A Hello that changes a neighbor's DR, BDR or priority field raises
+ * NeighborChange, and every election whose result changes sends AdjOK to
+ * all neighbors and re-originates the router-LSA and the network-LSA,
+ * flooding them.  Without a bound, a stream of forged Hello field changes
+ * turned every packet into an election plus LSA churn at packet rate.
+ *
+ * Coalesce per interface: the first event after a quiet period is
+ * scheduled immediately (isolated, legitimate changes are unaffected);
+ * further events within the same coalescing window collapse into a single
+ * pending election that fires when the window ends, so any genuine change
+ * still takes effect within the window of the previous election.  The
+ * timer recomputes the remaining delay when it fires, rescheduling itself
+ * if another election occurred in the meantime.
+ */
+void ospf6_neighbor_change_throttle(struct ospf6_interface *oi)
+{
+	long delay;
+
+	/* An election is already pending: coalesce this change into it. */
+	if (event_is_scheduled(oi->thread_neighbor_change))
+		return;
+
+	delay = ospf6_neighbor_change_delay(oi);
+	if (delay == 0) {
+		event_add_event(master, neighbor_change, oi, 0,
+				&oi->thread_neighbor_change);
+		return;
+	}
+
+	if (IS_OSPF6_DEBUG_INTERFACE)
+		zlog_debug("Interface Event %s: NeighborChange election delayed %ld milliseconds (election coalescing)",
+			   oi->interface->name, delay);
+
+	event_add_timer_msec(master, ospf6_neighbor_change_timer, oi, delay,
+			     &oi->thread_neighbor_change);
+}
+
 void interface_down(struct event *event)
 {
 	struct ospf6_interface *oi;
@@ -1005,6 +1080,9 @@ void interface_down(struct event *event)
 
 	/* Stop trying to set socket options. */
 	event_cancel(&oi->thread_sso);
+
+	/* Drop any pending coalesced election. */
+	event_cancel(&oi->thread_neighbor_change);
 
 	/* Cease the HELPER role for all the neighbours
 	 * of this interface.
