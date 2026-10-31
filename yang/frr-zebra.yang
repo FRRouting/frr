@@ -2216,6 +2216,165 @@ module frr-zebra {
           "Interface admin status.";
       }
 
+      leaf master {
+        type string {
+          length "1..15";
+        }
+        description
+          "Name of the interface this interface is enslaved to (a bridge,
+           bond, VRF, ...). Applied as soon as both interfaces exist.";
+      }
+
+      container link-type {
+        description
+          "Type and parameters of a link that zebra creates in the kernel.
+           An existing kernel interface is never modified in place.";
+
+        choice type {
+          description
+            "The kind of link to create. New kinds (gretap, ip6gre, vxlan,
+             ...) are added as additional cases.";
+
+          case bridge {
+            container bridge {
+              presence "Create a bridge.";
+              description
+                "A Linux bridge with default parameters.";
+            }
+          }
+
+          case dummy {
+            container dummy {
+              presence "Create a dummy interface.";
+              description
+                "A dummy interface: a virtual interface that is not attached
+                 to anything, typically used to carry addresses.";
+            }
+          }
+
+          case veth {
+            container veth {
+              presence "Create a veth pair.";
+              description
+                "A virtual ethernet pair; this interface is one end.";
+
+              leaf peer-name {
+                type string {
+                  length "1..15";
+                }
+                mandatory true;
+                description
+                  "Name of the other end of the pair.";
+              }
+            }
+          }
+
+          case vlan {
+            container vlan {
+              presence "Create a VLAN interface.";
+              description
+                "A VLAN sub-interface of a parent device.";
+
+              leaf parent {
+                type string {
+                  length "1..15";
+                }
+                mandatory true;
+                description
+                  "Name of the parent device.";
+              }
+
+              leaf id {
+                type uint16 {
+                  range "1..4094";
+                }
+                mandatory true;
+                description
+                  "VLAN identifier.";
+              }
+
+              leaf encapsulation {
+                type enumeration {
+                  enum dot1q {
+                    description
+                      "IEEE 802.1Q single tagging.";
+                  }
+                  enum q-in-q {
+                    description
+                      "IEEE 802.1ad provider bridging (q-in-q).";
+                  }
+                }
+                default "dot1q";
+                description
+                  "VLAN encapsulation.";
+              }
+            }
+          }
+
+          case gre {
+            container gre {
+              presence "Create a GRE tunnel.";
+              description
+                "A standard (IPv4, layer 3) GRE tunnel.";
+
+              must "local or dev" {
+                error-message
+                  "A GRE tunnel requires a local address or a dev.";
+              }
+
+              leaf local {
+                type inet:ipv4-address-no-zone;
+                description
+                  "Local tunnel endpoint address.";
+              }
+
+              leaf dev {
+                type string {
+                  length "1..15";
+                }
+                description
+                  "Underlying device the tunnel is bound to.";
+              }
+
+              leaf remote {
+                type union {
+                  type inet:ipv4-address-no-zone;
+                  type enumeration {
+                    enum any {
+                      description
+                        "Accept GRE from any remote endpoint.";
+                    }
+                  }
+                }
+                mandatory true;
+                description
+                  "Remote tunnel endpoint address, or 'any'.";
+              }
+
+              leaf key {
+                type uint32;
+                description
+                  "GRE key, used for both directions.";
+              }
+
+              leaf ttl {
+                type uint8 {
+                  range "1..255";
+                }
+                description
+                  "TTL of encapsulated packets.";
+              }
+
+              leaf tos {
+                type uint8;
+                description
+                  "TOS of encapsulated packets.";
+              }
+            }
+          }
+        }
+      }
+
       leaf mpls {
         type boolean;
         description
