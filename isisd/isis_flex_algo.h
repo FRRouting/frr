@@ -24,6 +24,8 @@
 struct isis_flex_algo_data {
 	struct isis_spftree *spftree[SPFTREE_COUNT][ISIS_LEVELS];
 	struct isis_area *area;
+	/* Whether our LSP of each level advertises participation. */
+	bool state[ISIS_LEVELS];
 };
 
 struct isis_flex_algo_alloc_arg {
@@ -35,14 +37,14 @@ void *isis_flex_algo_data_alloc(void *arg);
 void isis_flex_algo_data_free(void *data);
 void isis_flex_algos_spftrees_init(struct isis_area *area);
 
-struct isis_router_cap_fad *
-isis_flex_algo_elected(int algorithm, const struct isis_area *area);
+struct isis_router_cap_fad *isis_flex_algo_elected(int algorithm, const struct isis_area *area,
+						   int level);
 bool isis_flex_algo_supported(struct flex_algo *fad);
+bool isis_flex_algo_state(const struct isis_area *area, int algorithm, int level);
 struct isis_router_cap_fad *
-isis_flex_algo_elected_supported(int algorithm, const struct isis_area *area);
+isis_flex_algo_elected_supported(int algorithm, const struct isis_area *area, int level);
 struct isis_router_cap_fad *
-isis_flex_algo_elected_supported_local_fad(int algorithm,
-					   const struct isis_area *area,
+isis_flex_algo_elected_supported_local_fad(int algorithm, const struct isis_area *area, int level,
 					   struct isis_router_cap_fad **fad);
 struct isis_lsp;
 bool sr_algorithm_participated(const struct isis_lsp *lsp, uint8_t algorithm);
