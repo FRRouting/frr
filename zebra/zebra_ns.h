@@ -10,6 +10,7 @@
 #include <stddef.h>
 #include <stdint.h>
 
+#include "lib/frratomic.h"
 #include "lib/typesafe.h"
 #include "lib/if.h"
 #include "lib/ns.h"
@@ -20,6 +21,8 @@ extern "C" {
 #endif
 
 struct zebra_dplane_ctx;
+
+struct zebra_ns;
 
 #ifdef HAVE_NETLINK
 #include <linux/netlink.h>
@@ -35,6 +38,18 @@ struct nlsock {
 
 	uint8_t *buf;
 	size_t buflen;
+
+	/* Backpointer, so a netlink user can keep this ns alive. */
+	struct zebra_ns *zns;
+
+	/* Bumped per socket open; a queued context names the one it was built for. */
+	uint32_t gen;
+
+	/* Holders of this socket. Touched under the nlsock lock. */
+	uint32_t users;
+
+	/* Out of the hash; the last holder closes the fd. */
+	bool detached;
 };
 #endif
 
@@ -76,9 +91,18 @@ struct zebra_ns {
 
 	/* Back pointer */
 	struct ns *ns;
+
+	/*
+	 * One ref is held by the ns. The dplane thread holds another
+	 * while it still has a netlink socket of this ns in use.
+	 */
+	_Atomic uint32_t refcount;
 };
 
 struct zebra_ns *zebra_ns_lookup(ns_id_t ns_id);
+
+/* Drop one ref. The last ref frees the ns. */
+void zebra_ns_put(struct zebra_ns *zns);
 
 /* Manage collection of ifps per-NS */
 void zebra_ns_link_ifp(struct zebra_ns *zns, struct interface *ifp);
