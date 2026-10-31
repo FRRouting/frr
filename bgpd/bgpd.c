@@ -6071,6 +6071,7 @@ static int peer_af_flag_modify(struct peer *peer, afi_t afi, safi_t safi,
 	struct peer *member;
 	struct listnode *node, *nnode;
 	struct peer_flag_action action;
+	enum peer_change_type member_action_type;
 	enum bgp_peer_sort ptype;
 
 	memset(&action, 0, sizeof(struct peer_flag_action));
@@ -6257,17 +6258,18 @@ static int peer_af_flag_modify(struct peer *peer, afi_t afi, safi_t safi,
 					/* We should not reset the session if
 					 * dynamic capability is enabled and we
 					 * are changing the ORF prefix flags.
+					 * Use a per-member type so that one
+					 * member does not change the action
+					 * applied to the remaining members.
 					 */
-					if ((CHECK_FLAG(peer->cap,
-							PEER_CAP_DYNAMIC_RCV) &&
-					     CHECK_FLAG(peer->cap,
-							PEER_CAP_DYNAMIC_ADV)) &&
+					member_action_type = action.type;
+					if ((CHECK_FLAG(member->cap, PEER_CAP_DYNAMIC_RCV) &&
+					     CHECK_FLAG(member->cap, PEER_CAP_DYNAMIC_ADV)) &&
 					    (flag == PEER_FLAG_ORF_PREFIX_RM ||
 					     flag == PEER_FLAG_ORF_PREFIX_SM))
-						action.type = peer_change_none;
+						member_action_type = peer_change_none;
 
-					peer_change_action(member, afi, safi,
-							   action.type);
+					peer_change_action(member, afi, safi, member_action_type);
 				}
 			}
 		}
@@ -9326,6 +9328,7 @@ int peer_ttl_security_hops_set(struct peer *peer, int gtsm_hops)
 int peer_ttl_security_hops_unset(struct peer *peer)
 {
 	struct peer_group *group;
+	struct peer *member;
 	struct listnode *node, *nnode;
 	int ret = 0;
 
@@ -9362,24 +9365,26 @@ int peer_ttl_security_hops_unset(struct peer *peer)
 		}
 	} else {
 		group = peer->group;
-		for (ALL_LIST_ELEMENTS(group->peer, node, nnode, peer)) {
-			peer->gtsm_hops = BGP_GTSM_HOPS_DISABLED;
-			if (peer->sort == BGP_PEER_EBGP)
-				ret = peer_ebgp_multihop_unset(peer, false);
-			else {
-				if (peer->connection->fd >= 0)
-					sockopt_minttl(peer->connection->su.sa
-							       .sa_family,
-						       peer->connection->fd, 0);
+		for (ALL_LIST_ELEMENTS(group->peer, node, nnode, member)) {
+			member->gtsm_hops = BGP_GTSM_HOPS_DISABLED;
+			if (member->sort == BGP_PEER_EBGP) {
+				int member_ret = peer_ebgp_multihop_unset(member, false);
 
-				if ((peer->connection->status < Established) &&
-				    peer->doppelganger &&
-				    (peer->doppelganger->connection->fd >= 0))
-					sockopt_minttl(peer->connection->su.sa
-							       .sa_family,
-						       peer->doppelganger
-							       ->connection->fd,
-						       0);
+				/* Remember a failure on any member, but do not
+				 * let a later success overwrite it.
+				 */
+				if (member_ret != BGP_SUCCESS && ret == BGP_SUCCESS)
+					ret = member_ret;
+			} else {
+				if (member->connection->fd >= 0)
+					sockopt_minttl(member->connection->su.sa.sa_family,
+						       member->connection->fd, 0);
+
+				if ((member->connection->status < Established) &&
+				    member->doppelganger &&
+				    (member->doppelganger->connection->fd >= 0))
+					sockopt_minttl(member->connection->su.sa.sa_family,
+						       member->doppelganger->connection->fd, 0);
 			}
 		}
 	}
