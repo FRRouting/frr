@@ -362,6 +362,42 @@ int isis_instance_overload_on_startup_modify(struct nb_cb_modify_args *args)
 }
 
 /*
+ * XPath: /frr-isisd:isis/instance/leak
+ */
+int isis_instance_leak_create(struct nb_cb_create_args *args)
+{
+	struct isis_area *area;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	/* The YANG model only allows level-1 into level-2 for now */
+	area = nb_running_get_entry(args->dnode, NULL, true);
+	area->leak_l1_to_l2 = true;
+
+	/* Add the leaked prefixes to the level-2 LSP */
+	lsp_leak_l1_to_l2_check(area);
+
+	return NB_OK;
+}
+
+int isis_instance_leak_destroy(struct nb_cb_destroy_args *args)
+{
+	struct isis_area *area;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	area = nb_running_get_entry(args->dnode, NULL, true);
+	area->leak_l1_to_l2 = false;
+
+	/* Remove the leaked prefixes from the level-2 LSP */
+	lsp_leak_l1_to_l2_check(area);
+
+	return NB_OK;
+}
+
+/*
  * XPath: /frr-isisd:isis/instance/advertise-high-metrics
  */
 int isis_instance_advertise_high_metrics_modify(struct nb_cb_modify_args *args)
