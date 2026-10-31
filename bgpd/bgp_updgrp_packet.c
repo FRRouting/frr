@@ -331,6 +331,28 @@ void bpacket_queue_show_vty(struct bpacket_queue *q, struct vty *vty)
 	return;
 }
 
+/*
+ * The global IPv6 nexthop to send when this router is the nexthop. 6PE
+ * (RFC 4798) and 6VPE (RFC 4659) routes sent over an IPv4 session ride
+ * IPv4 LSPs, so they carry the IPv4-mapped form of the session's local
+ * IPv4 address, built in 'mapped'. Routes carrying an SRv6 service SID
+ * keep an IPv6 nexthop.
+ */
+static struct in6_addr *bpacket_v6_self_nexthop(struct peer *peer, const struct peer_af *paf,
+						const bpacket_attr_vec *vec,
+						struct in6_addr *mapped)
+{
+	if (paf->afi == AFI_IP6 &&
+	    (paf->safi == SAFI_MPLS_VPN || paf->safi == SAFI_LABELED_UNICAST) &&
+	    peer->connection->su.sa.sa_family == AF_INET && peer->nexthop.v4.s_addr != INADDR_ANY &&
+	    !CHECK_FLAG(vec->flags, BPKT_ATTRVEC_FLAGS_SRV6_SERVICE)) {
+		ipv4_to_ipv4_mapped_ipv6(mapped, peer->nexthop.v4);
+		return mapped;
+	}
+
+	return &peer->nexthop.v6_global;
+}
+
 struct stream *bpacket_reformat_for_peer(struct bpacket *pkt,
 					 struct peer_af *paf)
 {
@@ -446,6 +468,7 @@ struct stream *bpacket_reformat_for_peer(struct bpacket *pkt,
 	} else if (nhafi == AFI_IP6) {
 		struct in6_addr v6nhglobal, *mod_v6nhg;
 		struct in6_addr v6nhlocal, *mod_v6nhl;
+		struct in6_addr v6nhmapped;
 		int gnh_modified, lnh_modified;
 		size_t offset_nhglobal = vec->offset + 1;
 		size_t offset_nhlocal = vec->offset + 1;
@@ -512,7 +535,7 @@ struct stream *bpacket_reformat_for_peer(struct bpacket *pkt,
 				gnh_modified = 1;
 			}
 		} else if (IN6_IS_ADDR_UNSPECIFIED(&v6nhglobal)) {
-			mod_v6nhg = &peer->nexthop.v6_global;
+			mod_v6nhg = bpacket_v6_self_nexthop(peer, paf, vec, &v6nhmapped);
 			gnh_modified = 1;
 		} else if ((peer->sort == BGP_PEER_EBGP)
 			   && (!bgp_multiaccess_check_v6(v6nhglobal, peer))
@@ -523,7 +546,7 @@ struct stream *bpacket_reformat_for_peer(struct bpacket *pkt,
 				   PEER_FLAG_NEXTHOP_UNCHANGED)) {
 			/* NOTE: not handling case where NH has new AFI
 			 */
-			mod_v6nhg = &peer->nexthop.v6_global;
+			mod_v6nhg = bpacket_v6_self_nexthop(peer, paf, vec, &v6nhmapped);
 			gnh_modified = 1;
 		}
 
@@ -1462,6 +1485,9 @@ bpacket_vec_arr_inherit_attr_flags(struct bpacket_attr_vec_arr *vecarr,
 		       BATTR_RMAP_IPV6_LL_NHOP_CHANGED))
 		SET_FLAG(vecarr->entries[BGP_ATTR_VEC_NH].flags,
 			 BPKT_ATTRVEC_FLAGS_RMAP_IPV6_LNH_CHANGED);
+
+	if (bgp_attr_get_srv6_l3service(attr) || bgp_attr_get_srv6_vpn(attr))
+		SET_FLAG(vecarr->entries[BGP_ATTR_VEC_NH].flags, BPKT_ATTRVEC_FLAGS_SRV6_SERVICE);
 }
 
 /* Reset the Attributes vector array. The vector array is used to override
