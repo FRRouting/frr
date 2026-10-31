@@ -1634,10 +1634,7 @@ void bgp_capability_send(struct peer_connection *connection, afi_t afi, safi_t s
 
 			bgp_map_afi_safi_int2iana(afi, safi, &pkt_afi, &pkt_safi);
 
-			if (CHECK_FLAG(peer->flags, PEER_FLAG_CAPABILITY_ENHE) &&
-			    connection->su.sa.sa_family == AF_INET6 && afi == AFI_IP &&
-			    (safi == SAFI_UNICAST || safi == SAFI_MPLS_VPN ||
-			     safi == SAFI_LABELED_UNICAST)) {
+			if (bgp_connection_enhe_af_adv(connection, afi, safi)) {
 				stream_putc(s, action);
 				stream_putc(s, CAPABILITY_CODE_ENHE);
 				stream_putc(s, CAPABILITY_CODE_ENHE_LEN);

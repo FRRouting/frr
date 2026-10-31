@@ -2844,11 +2844,15 @@ static int peer_activate_af(struct peer *peer, afi_t afi, safi_t safi)
 	if (active != BGP_PEER_ACTIVE && peer_active(peer->connection) == BGP_PEER_ACTIVE) {
 		bgp_timer_set(peer->connection);
 	} else {
-		if (peer_established(peer->connection) &&
-		    CHECK_FLAG(peer->cap, PEER_CAP_DYNAMIC_RCV)) {
+		if (peer_established(peer->connection) && peer_cap_dynamic_nego(peer)) {
 			peer->afc_adv[afi][safi] = 1;
 			bgp_capability_send(peer->connection, afi, safi, CAPABILITY_CODE_MP,
 					    CAPABILITY_ACTION_SET);
+
+			if (bgp_connection_enhe_af_adv(peer->connection, afi, safi))
+				bgp_capability_send(peer->connection, afi, safi,
+						    CAPABILITY_CODE_ENHE, CAPABILITY_ACTION_SET);
+
 			if (peer->afc_recv[afi][safi]) {
 				peer->afc_nego[afi][safi] = 1;
 				update_group_adjust_peer(peer_af_find(peer, afi, safi));
@@ -3011,7 +3015,7 @@ static bool non_peergroup_deactivate_af(struct peer *peer, afi_t afi,
 	}
 
 	if (peer_established(peer->connection)) {
-		if (CHECK_FLAG(peer->cap, PEER_CAP_DYNAMIC_RCV)) {
+		if (peer_cap_dynamic_nego(peer)) {
 			peer->afc_adv[afi][safi] = 0;
 			peer->afc_nego[afi][safi] = 0;
 
