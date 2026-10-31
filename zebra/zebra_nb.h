@@ -251,6 +251,14 @@ int lib_interface_zebra_ipv6_router_advertisements_home_agent_lifetime_destroy(
 	struct nb_cb_destroy_args *args);
 int lib_interface_zebra_ipv6_router_advertisements_default_router_preference_modify(
 	struct nb_cb_modify_args *args);
+int lib_interface_zebra_ipv6_router_advertisements_prefix_list_default_lifetimes_create(
+	struct nb_cb_create_args *args);
+int lib_interface_zebra_ipv6_router_advertisements_prefix_list_default_lifetimes_destroy(
+	struct nb_cb_destroy_args *args);
+int lib_interface_zebra_ipv6_router_advertisements_prefix_list_default_lifetimes_valid_lifetime_modify(
+	struct nb_cb_modify_args *args);
+int lib_interface_zebra_ipv6_router_advertisements_prefix_list_default_lifetimes_preferred_lifetime_modify(
+	struct nb_cb_modify_args *args);
 int lib_interface_zebra_ipv6_router_advertisements_prefix_list_prefix_create(
 	struct nb_cb_create_args *args);
 int lib_interface_zebra_ipv6_router_advertisements_prefix_list_prefix_destroy(
