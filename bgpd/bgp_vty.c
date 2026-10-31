@@ -143,6 +143,13 @@ FRR_CFG_DEFAULT_BOOL(BGP_COMPARE_AIGP,
 	{ .val_bool = false },
 );
 
+#if CONFDATE > 20271101
+CPP_NOTICE("Flip BGP_DEFAULT_ORIGINATE_SETONLY_UNCONDITIONAL default to true")
+#endif
+FRR_CFG_DEFAULT_BOOL(BGP_DEFAULT_ORIGINATE_SETONLY_UNCONDITIONAL,
+	{ .val_bool = false },
+);
+
 FRR_CFG_DEFAULT_BOOL(BGP_IPV6_NEXTHOP_PREFER_GLOBAL,
 	{ .val_bool = false },
 );
@@ -774,6 +781,8 @@ int bgp_get_vty(struct bgp **bgp, as_t *as, const char *name,
 			SET_FLAG((*bgp)->flags, BGP_FLAG_RR_ALLOW_OUTBOUND_POLICY);
 		if (DFLT_BGP_COMPARE_AIGP)
 			SET_FLAG((*bgp)->flags, BGP_FLAG_COMPARE_AIGP);
+		if (DFLT_BGP_DEFAULT_ORIGINATE_SETONLY_UNCONDITIONAL)
+			SET_FLAG((*bgp)->flags, BGP_FLAG_DEFAULT_ORIGINATE_SETONLY_UNCONDITIONAL);
 
 		ret = BGP_SUCCESS;
 	}
@@ -3422,6 +3431,28 @@ DEFUN (no_bgp_deterministic_med,
 			bgp_recalculate_all_bestpaths(bgp);
 		}
 	}
+
+	return CMD_SUCCESS;
+}
+
+#if CONFDATE > 20271101
+CPP_NOTICE("Flip default and deprecate `bgp default-originate set-only-unconditional` knob")
+#endif
+/* "bgp default-originate set-only-unconditional" configuration. */
+DEFPY (bgp_default_originate_setonly_empty_table,
+       bgp_default_originate_setonly_empty_table_cmd,
+       "[no$no] bgp default-originate set-only-unconditional",
+       NO_STR
+       BGP_STR
+       "Control default-originate behavior\n"
+       "Permit set-only route-maps to originate default even with empty table\n")
+{
+	VTY_DECLVAR_CONTEXT(bgp, bgp);
+
+	if (no)
+		UNSET_FLAG(bgp->flags, BGP_FLAG_DEFAULT_ORIGINATE_SETONLY_UNCONDITIONAL);
+	else
+		SET_FLAG(bgp->flags, BGP_FLAG_DEFAULT_ORIGINATE_SETONLY_UNCONDITIONAL);
 
 	return CMD_SUCCESS;
 }
@@ -22647,6 +22678,15 @@ int bgp_config_write(struct vty *vty)
 					? ""
 					: "no ");
 
+		/* BGP default-originate set-only-unconditional. */
+		if (!!CHECK_FLAG(bgp->flags, BGP_FLAG_DEFAULT_ORIGINATE_SETONLY_UNCONDITIONAL) !=
+		    SAVE_BGP_DEFAULT_ORIGINATE_SETONLY_UNCONDITIONAL)
+			vty_out(vty, " %sbgp default-originate set-only-unconditional\n",
+				CHECK_FLAG(bgp->flags,
+					   BGP_FLAG_DEFAULT_ORIGINATE_SETONLY_UNCONDITIONAL)
+					? ""
+					: "no ");
+
 		/* BGP update-delay. */
 		bgp_config_write_update_delay(vty, bgp);
 
@@ -23789,6 +23829,9 @@ void bgp_vty_init(void)
 	/* "bgp deterministic-med" commands */
 	install_element(BGP_NODE, &bgp_deterministic_med_cmd);
 	install_element(BGP_NODE, &no_bgp_deterministic_med_cmd);
+
+	/* "bgp default-originate set-only-unconditional" command */
+	install_element(BGP_NODE, &bgp_default_originate_setonly_empty_table_cmd);
 
 	/* "bgp graceful-restart" command */
 	install_element(BGP_NODE, &bgp_graceful_restart_cmd);
