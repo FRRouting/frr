@@ -34,9 +34,13 @@ Linux Commands:
 12. bridge fdb show br <bridge> dev <vxlan> vlan <vid> | grep <rmac>
 13. bridge fdb flush dev <l3vni bridge>
 14. ip -d -j link show {vxlan_device}
-15. ip -j route show vrf {vrf} {route}
+15. ip -4/-6 -j route show vrf {vrf} {route}
 16. ip -j nexthop get id {nhid}
 17. ping / ping6
+18. show bgp vrf {vrf} {ipv4|ipv6} unicast {prefix} json
+19. show bgp vrfs {vrf} json
+20. show vrf
+21. show running-config
 
 Test Execution Order:
 =====================
@@ -55,7 +59,8 @@ Test Execution Order:
 13. test_evpn_vtep_on_uplink_flap       - No stale VTEP when uplinks down; VTEPs back when up
 14. test_host_to_host_ping              - Verify end-to-end connectivity
 15. test_import_vrf_preserves_dvni_label - Preserve D-VNI across import vrf
-16. test_memory_leak                    - Memory leak detection
+16. test_import_vrf_leaked_dvni_without_dest_l3vni - Leaked D-VNI into a VRF with no L3VNI
+17. test_memory_leak                    - Memory leak detection
 """
 
 import os
@@ -98,6 +103,9 @@ from lib.evpn import (
     evpn_verify_ping_connectivity,
     evpn_verify_vrf_route_labels,
     evpn_verify_kernel_encap_vni,
+    evpn_verify_bgp_vrf_l3vni,
+    evpn_verify_bgp_vrf_absent,
+    evpn_verify_imported_route,
 )
 
 # Required to instantiate the topology builder class.
@@ -3884,20 +3892,47 @@ def test_import_vrf_preserves_dvni_label(tgen_and_ip_version):
     - hub VRF keeps encap/label 900000 on SVD
     - dest VRF leaked route keeps encap/label 900000 on SVD (not hairpin SVI)
     - a non-EVPN local route leaked hub→dest stays unlabeled
+
+    The IPv6 underlay is skipped. See the comment below for the kernel
+    nexthop rejection and the Linux 7.0 commit that removes it.
     """
     tgen, ip_version = tgen_and_ip_version
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
 
-    # D-VNI Type-5 is IPv4 overlay; run once under IPv4 underlay.
-    if ip_version != "ipv4":
-        pytest.skip("D-VNI import-vrf label preservation runs with IPv4 underlay")
+    # Zebra installs this D-VNI as one singleton nexthop, then a group that
+    # contains it, then the overlay route. With an IPv6 underlay that
+    # singleton is "via <IPv6 VTEP> dev vxlan48 onlink". The VTEP is reached
+    # through the underlay, while the nexthop device is vxlan48. Kernels
+    # before Linux 7.0 reject that in ip6_route_check_nh_onlink():
+    # RTM_NEWNEXTHOP fails with
+    # "Nexthop has invalid gateway or device mismatch", and the group and
+    # route are never installed. An IPv4 VTEP passes the same onlink check,
+    # so the IPv4 underlay runs.
+    #
+    # Remove this skip when the host kernel is Linux 7.0 or newer. Commit
+    # b853b94e8482 ("ipv6: Allow for nexthop device mismatch with onlink")
+    # accepts an onlink IPv6 gateway whose resolved device differs from the
+    # nexthop device. It is in torvalds/linux v7.0 and absent from v6.19:
+    # https://github.com/torvalds/linux/commit/b853b94e848216b82ecaa0d5d3c7f6c9066e32a4
+    if ip_version == "ipv6":
+        pytest.skip(
+            "IPv6 underlay: RTM_NEWNEXTHOP via the IPv6 VTEP on vxlan48 "
+            "onlink fails with 'Nexthop has invalid gateway or device "
+            "mismatch', so the nexthop group and route are not installed. "
+            "Remove this skip on Linux 7.0 or newer "
+            "(commit b853b94e8482, ipv6: Allow for nexthop device mismatch "
+            "with onlink)"
+        )
 
-    logger.info("Testing D-VNI label preservation across import vrf")
+    logger.info(
+        "Testing D-VNI label preservation across import vrf (%s underlay)",
+        ip_version,
+    )
 
     tor21 = tgen.gears["tor-21"]
     bordertor11 = tgen.gears["bordertor-11"]
-    tor21_vtep = VTEP_IPS["ipv4"]["tor-21"]
+    tor21_vtep = VTEP_IPS[ip_version]["tor-21"]
 
     dvni = 900000
     hub_l3vni = 104001
@@ -4058,7 +4093,10 @@ def test_import_vrf_preserves_dvni_label(tgen_and_ip_version):
         _setup_tenant_dvni_origin()
         _setup_hub_import_and_leak()
 
-        # Hub VRF must learn Type-5 with D-VNI 900000 (not hub L3VNI 104001).
+        # Stage 1. Hub VRF vrf1 still has L3VNI 104001, but the imported
+        # Type-5 must keep the tenant VNI. A passing kernel nexthop looks like:
+        #   203.0.120.0/24 via 10.0.0.30 dev vxlan48 onlink encap ip id 900000
+        # Label 104001 here means the downstream VNI was replaced by the hub L3VNI.
         test_func = partial(
             evpn_verify_vrf_route_labels,
             bordertor11,
@@ -4081,7 +4119,9 @@ def test_import_vrf_preserves_dvni_label(tgen_and_ip_version):
         _, result = topotest.run_and_expect(test_func, None, count=60, wait=1)
         assert result is None, f"hub VRF D-VNI kernel encap check failed: {result}"
 
-        # Dest VRF leak must preserve D-VNI on SVD.
+        # Stage 2. import vrf into vrf2, which has its own L3VNI. The leaked
+        # route must still encapsulate with 900000 on vxlan48, not hairpin
+        # out the vrf2 SVI. Same nexthop shape as stage 1, in the dest VRF.
         test_func = partial(
             evpn_verify_vrf_route_labels,
             bordertor11,
@@ -4106,7 +4146,9 @@ def test_import_vrf_preserves_dvni_label(tgen_and_ip_version):
             result is None
         ), f"dest VRF leaked D-VNI kernel encap check failed: {result}"
 
-        # Non-EVPN local route leaked hub→dest must stay unlabeled (IP hairpin).
+        # Stage 3. 203.0.121.0/24 is a local static, not an EVPN Type-5.
+        # After the same leak it must have no label and no kernel encap id.
+        # A VNI on this route means a non-EVPN prefix was encapsulated.
         test_func = partial(
             evpn_verify_vrf_route_labels,
             bordertor11,
@@ -4164,6 +4206,815 @@ def test_import_vrf_preserves_dvni_label(tgen_and_ip_version):
         )
     finally:
         _cleanup()
+
+
+# Helpers below belong to test_import_vrf_leaked_dvni_without_dest_l3vni.
+# Shared checks live in lib/evpn.py. The config is specific to this SVD
+# topology, so it stays in this module.
+
+
+def _prefix_family(prefix):
+    return "ipv6" if ":" in prefix else "ipv4"
+
+
+def _vtysh_error_lines(output):
+    """Return vtysh lines that report a real command failure."""
+    ignored = "configuration applied with notes"
+    notes = []
+    for line in (output or "").splitlines():
+        text = line.strip()
+        if (
+            not text.startswith("%")
+            and not text.startswith("Error")
+            and "Failure to communicate" not in text
+        ):
+            continue
+        if ignored in text.lower():
+            continue
+        notes.append(text)
+    return notes
+
+
+def _vtysh_apply(router, commands, quiet=False):
+    """Apply commands in an interactive vtysh session.
+
+    ``vtysh -f`` opens the file already in config mode, so a leading
+    ``configure terminal`` is an unknown command and the commit fails.
+    The other tests in this module feed vtysh on stdin, which starts in
+    enable mode and accepts that command. Cleanup passes quiet=True so a
+    missing route does not hide a later removal, and logs the note.
+    """
+    logger.debug(
+        "%s: vtysh%s:\n%s",
+        router.name,
+        " cleanup" if quiet else "",
+        commands,
+    )
+    try:
+        output = router.vtysh_multicmd(commands) or ""
+    except Exception as exc:
+        if quiet:
+            logger.warning("%s: cleanup command failed: %s", router.name, exc)
+            return
+        raise
+    if output.strip():
+        logger.debug("%s: vtysh output:\n%s", router.name, output)
+    if quiet:
+        notes = _vtysh_error_lines(output)
+        if notes:
+            logger.warning("%s: cleanup noted: %s", router.name, "; ".join(notes))
+        return output
+    errors = _vtysh_error_lines(output)
+    if errors:
+        raise AssertionError(
+            "{}: vtysh configuration failed: {}".format(router.name, "; ".join(errors))
+        )
+    return output
+
+
+def _wait_for_vrf_active(router, vrf):
+    """Wait until ``show vrf`` lists ``vrf`` as active.
+
+    ``show vrf`` takes no name. Match the ``vrf NAME id N table T`` line.
+    """
+
+    def _check():
+        text = router.vtysh_cmd("show vrf") or ""
+        for line in text.splitlines():
+            parts = line.split()
+            if len(parts) >= 2 and parts[0] == "vrf" and parts[1] == vrf:
+                if "inactive" in parts:
+                    return "{}: VRF {} is inactive".format(router.name, vrf)
+                return None
+        return "{}: VRF {} not in zebra yet".format(router.name, vrf)
+
+    _, result = topotest.run_and_expect(_check, None, count=30, wait=1)
+    if result is not None:
+        raise AssertionError(result)
+
+
+def _blackhole_static_config(vrf, prefixes, delete=False):
+    families = []
+    lines = ["vrf {}".format(vrf)]
+    for prefix in prefixes:
+        family = _prefix_family(prefix)
+        if family not in families:
+            families.append(family)
+        route_cmd = "ipv6 route" if family == "ipv6" else "ip route"
+        verb = "no " if delete else ""
+        lines.append(" {}{} {} blackhole".format(verb, route_cmd, prefix))
+    lines.append("exit-vrf")
+    return families, lines
+
+
+def _create_tenant_type5_origin(
+    router, asn, vrf, table, vlan, vni, router_id, prefixes
+):
+    """Originate IPv4/IPv6 Type-5 for this test from tor-21's existing SVD.
+
+    The VLAN-to-VNI map is added on vxlan48. A new vxlan device would not
+    match the single-VXLAN device this topology already uses.
+    """
+    logger.info(
+        "%s: originate Type-5 VNI %s in %s (vlan %s, table %s, prefixes %s)",
+        router.name,
+        vni,
+        vrf,
+        vlan,
+        table,
+        prefixes,
+    )
+    vxlan = "vxlan48"
+    bridge = "br_default"
+    router.run("ip link del vlan{} 2>/dev/null || true".format(vlan))
+    router.run("ip link del {} 2>/dev/null || true".format(vrf))
+    router.run(
+        "bridge vlan del dev {} vid {} tunnel_info id {} 2>/dev/null || true".format(
+            vxlan, vlan, vni
+        )
+    )
+    router.run("bridge vlan del dev {} vid {} 2>/dev/null || true".format(vxlan, vlan))
+    router.run(
+        "bridge vlan del vid {} dev {} self 2>/dev/null || true".format(vlan, bridge)
+    )
+
+    router.cmd_raises("bridge vlan add vid {} dev {} self".format(vlan, bridge))
+    router.cmd_raises("bridge vlan add dev {} vid {}".format(vxlan, vlan))
+    router.cmd_raises(
+        "bridge vlan add dev {} vid {} tunnel_info id {}".format(vxlan, vlan, vni)
+    )
+    router.cmd_raises("ip link add {} type vrf table {}".format(vrf, table))
+    router.cmd_raises("ip link set dev {} up".format(vrf))
+    router.cmd_raises(
+        "ip link add link {} name vlan{} type vlan id {} protocol 802.1q".format(
+            bridge, vlan, vlan
+        )
+    )
+    router.cmd_raises("ip link set dev vlan{} master {}".format(vlan, vrf))
+    router.cmd_raises("ip link set dev vlan{} up".format(vlan))
+    _wait_for_vrf_active(router, vrf)
+
+    families, static_lines = _blackhole_static_config(vrf, prefixes)
+    static_lines.insert(1, " vni {}".format(vni))
+    af_lines = []
+    advertise = []
+    for family in families:
+        af_lines.extend(
+            [
+                " address-family {} unicast".format(family),
+                "  redistribute static",
+                " exit-address-family",
+            ]
+        )
+        advertise.append("  advertise {} unicast".format(family))
+    _vtysh_apply(
+        router,
+        "\n".join(
+            [
+                "configure terminal",
+                *static_lines,
+                "!",
+                "router bgp {} vrf {}".format(asn, vrf),
+                " bgp router-id {}".format(router_id),
+                *af_lines,
+                " address-family l2vpn evpn",
+                *advertise,
+                " exit-address-family",
+                "exit",
+            ]
+        ),
+    )
+
+
+def _zebra_interface_line(router, ifname):
+    """Return the ``Interface NAME is ...`` line, or "" when zebra has none."""
+    text = router.vtysh_cmd("show interface {}".format(ifname)) or ""
+    prefix = "Interface {}".format(ifname)
+    for line in text.splitlines():
+        if line.startswith(prefix):
+            return line
+    return ""
+
+
+def _zebra_reports_vrf_up(router, vrf):
+    """True while this VRF interface's own status line says it is up.
+
+    Other interfaces in the same ``show interface`` output are ignored.
+    Administrative state is not enough: zebra keeps the interface active
+    until the kernel device is deleted.
+    """
+    return " is up" in _zebra_interface_line(router, vrf)
+
+
+def _delete_linux_vrf_device(router, vrf, vlan=None):
+    """One attempt to shut down and delete the kernel VRF device.
+
+    Returns an error string while zebra can still refuse ``no vrf``.
+    Zebra ignores a netlink delete that arrives while the device is up,
+    and ``no vrf`` on the vrf-lite backend also deletes the same-named
+    interface. That delete is refused while the interface is active.
+    """
+    if vlan is not None:
+        router.run("ip link set dev vlan{} down 2>/dev/null || true".format(vlan))
+    router.run("ip link set dev {} down 2>/dev/null || true".format(vrf))
+    if _zebra_reports_vrf_up(router, vrf):
+        return "{}: {} is still up in zebra: {}".format(
+            router.name, vrf, _zebra_interface_line(router, vrf)
+        )
+    if vlan is not None:
+        router.run("ip link del vlan{} 2>/dev/null || true".format(vlan))
+    router.run("ip link del {} 2>/dev/null || true".format(vrf))
+    still_there = _link_absent(router, vrf)
+    if still_there is not None:
+        return still_there
+    # pseudoInterface false means ZEBRA_INTERFACE_ACTIVE is still set.
+    data = router.vtysh_cmd("show interface {} json".format(vrf), isjson=True) or {}
+    info = data.get(vrf) if isinstance(data, dict) else None
+    if isinstance(info, dict) and info.get("pseudoInterface") is False:
+        return "{}: {} is still an active zebra interface".format(router.name, vrf)
+    return None
+
+
+def _vrf_config_lines(text, vrf):
+    """Lines in running-config that still name this VRF."""
+    hits = []
+    for line in text.splitlines():
+        stripped = line.strip()
+        if (
+            stripped == "vrf {}".format(vrf)
+            or stripped.endswith(" {}".format(vrf))
+            or " {} ".format(vrf) in stripped
+        ):
+            hits.append(stripped)
+    return hits
+
+
+def _vrf_config_block(text, vrf):
+    """The ``vrf NAME`` ... ``exit-vrf`` block of a running-config, if any."""
+    block = []
+    for line in text.splitlines():
+        stripped = line.strip()
+        if not block:
+            if stripped == "vrf {}".format(vrf):
+                block.append(stripped)
+            continue
+        block.append(stripped)
+        if stripped == "exit-vrf":
+            break
+    return block
+
+
+def _delete_frr_vrf_config(router, vrf, vlan=None):
+    """Delete the kernel VRF device, then ``no vrf NAME``.
+
+    ``no vrf`` destroys only frr-vrf:lib/vrf and the same-named interface.
+    Static routes under ``vrf NAME`` live in staticd's own subtree and keep
+    printing the ``vrf NAME`` header, so callers remove them first.
+    ``no interface`` is not sent separately: if it fails, the same commit
+    rolls back the VRF deletion.
+    """
+    _, result = topotest.run_and_expect(
+        partial(_delete_linux_vrf_device, router, vrf, vlan), None, count=20, wait=1
+    )
+    if result is not None:
+        logger.warning("%s: %s not inactive in zebra: %s", router.name, vrf, result)
+    output = _vtysh_apply(
+        router,
+        "\n".join(["configure terminal", "no vrf {}".format(vrf)]),
+        quiet=True,
+    )
+
+    def _gone():
+        text = router.vtysh_cmd("show running-config") or ""
+        hits = _vrf_config_lines(text, vrf)
+        if not hits:
+            return None
+        logger.debug("%s: %s still configured: %s", router.name, vrf, hits[:8])
+        return "{}: {} remains in running-config: {} stanza: {}".format(
+            router.name, vrf, hits[:8], _vrf_config_block(text, vrf)
+        )
+
+    _, result = topotest.run_and_expect(_gone, None, count=20, wait=1)
+    if result is not None:
+        logger.warning(
+            "%s vtysh: %s",
+            result,
+            _vtysh_error_lines(output) or (output or "").strip(),
+        )
+
+
+def _remove_tenant_type5_origin(router, asn, vrf, vlan, vni, prefixes):
+    """Remove the tenant origin and its Linux devices.
+
+    The statics are removed while ``vrf NAME`` still exists; ``no vrf`` does
+    not delete them. bgpd rejects ``no router bgp`` while the VRF still has
+    an L3VNI, so the VNI binding goes next. The Linux device is shut down
+    and deleted before ``no vrf``, which zebra accepts only for an inactive
+    interface.
+    """
+    vxlan = "vxlan48"
+    bridge = "br_default"
+    logger.info(
+        "%s: remove tenant VRF %s, VNI %s and statics %s",
+        router.name,
+        vrf,
+        vni,
+        prefixes,
+    )
+    _, static_lines = _blackhole_static_config(vrf, prefixes, delete=True)
+    _vtysh_apply(router, "\n".join(["configure terminal", *static_lines]), quiet=True)
+    _vtysh_apply(
+        router,
+        "\n".join(
+            [
+                "configure terminal",
+                "vrf {}".format(vrf),
+                " no vni {}".format(vni),
+                "exit-vrf",
+            ]
+        ),
+        quiet=True,
+    )
+
+    def _l3vni_released():
+        if evpn_verify_bgp_vrf_absent(router, vrf) is None:
+            return None
+        return evpn_verify_bgp_vrf_l3vni(router, vrf, 0)
+
+    _, result = topotest.run_and_expect(_l3vni_released, None, count=20, wait=1)
+    if result is not None:
+        logger.warning(
+            "%s: L3VNI %s still recorded on %s: %s", router.name, vni, vrf, result
+        )
+    _vtysh_apply(
+        router,
+        "\n".join(
+            [
+                "configure terminal",
+                "no router bgp {} vrf {}".format(asn, vrf),
+            ]
+        ),
+        quiet=True,
+    )
+    _delete_frr_vrf_config(router, vrf, vlan)
+    router.run(
+        "bridge vlan del dev {} vid {} tunnel_info id {} 2>/dev/null || true".format(
+            vxlan, vlan, vni
+        )
+    )
+    router.run("bridge vlan del dev {} vid {} 2>/dev/null || true".format(vxlan, vlan))
+    router.run(
+        "bridge vlan del vid {} dev {} self 2>/dev/null || true".format(vlan, bridge)
+    )
+
+
+def _configure_hub_rt_import(router, asn, vrf, import_rt):
+    """Import the tenant VNI into the hub. ``add-always`` is required for ``*:VNI``."""
+    logger.info("%s: import RT %s into %s", router.name, import_rt, vrf)
+    _vtysh_apply(
+        router,
+        "\n".join(
+            [
+                "configure terminal",
+                "router bgp {} vrf {}".format(asn, vrf),
+                " address-family l2vpn evpn",
+                "  auto-route-target import add-always",
+                "  route-target import {}".format(import_rt),
+                " exit-address-family",
+                "exit",
+            ]
+        ),
+    )
+
+
+def _remove_hub_rt_import(router, asn, vrf, import_rt):
+    """Drop the temporary RT import and restore the default auto-RT behavior."""
+    logger.info("%s: remove RT %s from %s", router.name, import_rt, vrf)
+    _vtysh_apply(
+        router,
+        "\n".join(
+            [
+                "configure terminal",
+                "router bgp {} vrf {}".format(asn, vrf),
+                " address-family l2vpn evpn",
+                "  no route-target import {}".format(import_rt),
+                "  no auto-route-target import add-always",
+                " exit-address-family",
+                "exit",
+            ]
+        ),
+        quiet=True,
+    )
+
+
+def _configure_hub_blackholes(router, asn, vrf, prefixes):
+    """Add non-EVPN statics. The leak must not give these a VXLAN label."""
+    logger.info("%s: add local statics in %s: %s", router.name, vrf, prefixes)
+    families, static_lines = _blackhole_static_config(vrf, prefixes)
+    af_lines = []
+    for family in families:
+        af_lines.extend(
+            [
+                " address-family {} unicast".format(family),
+                "  redistribute static",
+                " exit-address-family",
+            ]
+        )
+    _vtysh_apply(
+        router,
+        "\n".join(
+            [
+                "configure terminal",
+                *static_lines,
+                "!",
+                "router bgp {} vrf {}".format(asn, vrf),
+                *af_lines,
+                "exit",
+            ]
+        ),
+    )
+
+
+def _remove_hub_blackholes(router, asn, vrf, prefixes):
+    """Remove the statics and the redistribute static this test added on the hub."""
+    logger.info("%s: remove local statics from %s: %s", router.name, vrf, prefixes)
+    families, static_lines = _blackhole_static_config(vrf, prefixes, delete=True)
+    af_lines = []
+    for family in families:
+        af_lines.extend(
+            [
+                " address-family {} unicast".format(family),
+                "  no redistribute static",
+                " exit-address-family",
+            ]
+        )
+    _vtysh_apply(
+        router,
+        "\n".join(
+            [
+                "configure terminal",
+                "router bgp {} vrf {}".format(asn, vrf),
+                *af_lines,
+                "exit",
+                "!",
+                *static_lines,
+            ]
+        ),
+        quiet=True,
+    )
+
+
+def _create_nol3vni_leak_vrf(
+    router, asn, dest_vrf, table, src_vrf, router_id, families
+):
+    """Create the leak VRF for this test. It is not given an L3VNI.
+
+    Leaving the tenant VNI unconfigured here is what forces zebra onto the
+    source-VRF SVD path. Mapping that VNI locally would take the other path.
+    """
+    logger.info(
+        "%s: create %s with no L3VNI (table %s) and import vrf %s for %s",
+        router.name,
+        dest_vrf,
+        table,
+        src_vrf,
+        ",".join(families),
+    )
+    router.run("ip link del {} 2>/dev/null || true".format(dest_vrf))
+    router.cmd_raises("ip link add {} type vrf table {}".format(dest_vrf, table))
+    router.cmd_raises("ip link set dev {} up".format(dest_vrf))
+    _wait_for_vrf_active(router, dest_vrf)
+    af_lines = []
+    for family in families:
+        af_lines.extend(
+            [
+                " address-family {} unicast".format(family),
+                "  import vrf {}".format(src_vrf),
+                " exit-address-family",
+            ]
+        )
+    _vtysh_apply(
+        router,
+        "\n".join(
+            [
+                "configure terminal",
+                "router bgp {} vrf {}".format(asn, dest_vrf),
+                " bgp router-id {}".format(router_id),
+                *af_lines,
+                "exit",
+            ]
+        ),
+    )
+
+
+def _remove_nol3vni_leak_vrf(router, asn, dest_vrf, src_vrf, families):
+    """Remove the leak, then the Linux VRF, then the inactive FRR VRF stanza."""
+    logger.info("%s: remove import VRF %s", router.name, dest_vrf)
+    af_lines = []
+    for family in families:
+        af_lines.extend(
+            [
+                " address-family {} unicast".format(family),
+                "  no import vrf {}".format(src_vrf),
+                " exit-address-family",
+            ]
+        )
+    _vtysh_apply(
+        router,
+        "\n".join(
+            [
+                "configure terminal",
+                "router bgp {} vrf {}".format(asn, dest_vrf),
+                *af_lines,
+                "exit",
+                "!",
+                "no router bgp {} vrf {}".format(asn, dest_vrf),
+            ]
+        ),
+        quiet=True,
+    )
+    _delete_frr_vrf_config(router, dest_vrf)
+
+
+def _running_config_absent(router, needle):
+    """Return None once ``needle`` is gone from running-config."""
+    text = router.vtysh_cmd("show running-config") or ""
+    if needle in text:
+        hits = [line.strip() for line in text.splitlines() if needle in line]
+        logger.debug(
+            "%s: running-config still matches %r: %s",
+            router.name,
+            needle,
+            hits[:8],
+        )
+        return "{}: running-config still contains {!r}: {}".format(
+            router.name, needle, hits[:8]
+        )
+    return None
+
+
+def _link_absent(router, ifname):
+    output = router.run("ip link show dev {} 2>&1 || true".format(ifname)) or ""
+    if "state " in output:
+        return "{}: interface {} still exists: {}".format(
+            router.name, ifname, output.strip()
+        )
+    return None
+
+
+def test_import_vrf_leaked_dvni_without_dest_l3vni(tgen_and_ip_version):
+    """
+    Install a leaked downstream VNI when the destination VRF has no L3VNI.
+
+    tor-21 originates IPv4 and IPv6 Type-5 routes with VNI 900001. bordertor-11
+    imports them into vrf1, which has L3VNI 104001, then leaks both families
+    into vrf_nol3 with "import vrf". vrf_nol3 is not given a VNI.
+
+    Zebra still has to program the tenant VNI on the shared SVD device. The
+    source VRF lends vxlan48; the destination VRF must not substitute its own
+    L3VNI, because it has none.
+
+    Each prefix is checked in order: BGP unicast RIB, zebra label and VTEP,
+    then kernel encap. An IPv6 route whose underlay VTEP is IPv4 is accepted
+    when zebra prints that VTEP as an IPv4-mapped IPv6 address. A non-EVPN
+    static leaked along the same path must stay unlabeled.
+
+    The IPv6 underlay is skipped. See the comment below for the kernel
+    nexthop rejection and the Linux 7.0 commit that removes it.
+
+    The test removes every command and interface it added. Later tests see
+    the original bordertor-11 and tor-21 configuration.
+    """
+    tgen, ip_version = tgen_and_ip_version
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    # Zebra installs this D-VNI as one singleton nexthop, then a group that
+    # contains it, then the overlay route. With an IPv6 underlay that
+    # singleton is "via <IPv6 VTEP> dev vxlan48 onlink". The VTEP is reached
+    # through the underlay, while the nexthop device is vxlan48. Kernels
+    # before Linux 7.0 reject that in ip6_route_check_nh_onlink():
+    # RTM_NEWNEXTHOP fails with
+    # "Nexthop has invalid gateway or device mismatch", and the group and
+    # route are never installed. An IPv4 VTEP passes the same onlink check,
+    # so the IPv4 underlay runs.
+    #
+    # Remove this skip when the host kernel is Linux 7.0 or newer. Commit
+    # b853b94e8482 ("ipv6: Allow for nexthop device mismatch with onlink")
+    # accepts an onlink IPv6 gateway whose resolved device differs from the
+    # nexthop device. It is in torvalds/linux v7.0 and absent from v6.19:
+    # https://github.com/torvalds/linux/commit/b853b94e848216b82ecaa0d5d3c7f6c9066e32a4
+    if ip_version == "ipv6":
+        pytest.skip(
+            "IPv6 underlay: RTM_NEWNEXTHOP via the IPv6 VTEP on vxlan48 "
+            "onlink fails with 'Nexthop has invalid gateway or device "
+            "mismatch', so the nexthop group and route are not installed. "
+            "Remove this skip on Linux 7.0 or newer "
+            "(commit b853b94e8482, ipv6: Allow for nexthop device mismatch "
+            "with onlink)"
+        )
+
+    logger.info(
+        "Testing leaked D-VNI install into a VRF with no L3VNI (%s underlay)",
+        ip_version,
+    )
+
+    tor21 = tgen.gears["tor-21"]
+    bordertor11 = tgen.gears["bordertor-11"]
+    tor21_vtep = VTEP_IPS[ip_version]["tor-21"]
+
+    # 900001 is not configured on bordertor-11. vrf1 keeps L3VNI 104001, so
+    # the leaked route has to borrow that VRF's SVD. 104002 is vrf2 and must
+    # not be used either. VLAN 901 and tables 1910/1911 stay clear of the
+    # sibling test (VLAN 900, table 1900). tor-21's ASN does not fit in a
+    # 2-octet route target together with this VNI, so the hub imports *:VNI.
+    dvni = 900001
+    hub_l3vni = 104001
+    other_l3vni = 104002
+    tenant_vrf = "tenant_nol3"
+    hub_vrf = "vrf1"
+    dest_vrf = "vrf_nol3"
+    tenant_vlan = 901
+    tenant_table = 1910
+    dest_table = 1911
+    tenant_asn = 650030
+    hub_asn = 660000
+    import_rt = "*:{}".format(dvni)
+    vxlan = "vxlan48"
+    families = ("ipv4", "ipv6")
+    dvni_routes = ["203.0.130.0/24", "2001:db8:130::/64"]
+    local_routes = ["203.0.131.0/24", "2001:db8:131::/64"]
+    forbidden_vnis = [hub_l3vni, other_l3vni]
+
+    def _expect(check, stage):
+        logger.debug("checking %s", stage)
+        _, result = topotest.run_and_expect(check, None, count=60, wait=1)
+        assert result is None, "{}: {}".format(stage, result)
+        logger.info("%s: ok", stage)
+
+    def _expect_imported(router, vrf, route, stage, **kwargs):
+        check = partial(evpn_verify_imported_route, router, vrf, route, **kwargs)
+        _expect(check, "{} {}".format(stage, route))
+
+    def _cleanup():
+        """Drop only the VRF, routes, and VLAN this test created."""
+        logger.info("Restoring bordertor-11 and tor-21 after no-L3VNI D-VNI leak")
+        _remove_nol3vni_leak_vrf(bordertor11, hub_asn, dest_vrf, hub_vrf, families)
+        _remove_hub_blackholes(bordertor11, hub_asn, hub_vrf, local_routes)
+        _remove_hub_rt_import(bordertor11, hub_asn, hub_vrf, import_rt)
+        _remove_tenant_type5_origin(
+            tor21, tenant_asn, tenant_vrf, tenant_vlan, dvni, dvni_routes
+        )
+
+    try:
+        _create_tenant_type5_origin(
+            tor21,
+            tenant_asn,
+            tenant_vrf,
+            tenant_table,
+            tenant_vlan,
+            dvni,
+            "10.0.0.30",
+            dvni_routes,
+        )
+        _configure_hub_rt_import(bordertor11, hub_asn, hub_vrf, import_rt)
+        _configure_hub_blackholes(bordertor11, hub_asn, hub_vrf, local_routes)
+
+        # Stage 1. Hub VRF vrf1 still has L3VNI 104001. Each imported Type-5
+        # must keep tenant VNI 900001 on vxlan48, for example:
+        #   203.0.130.0/24 via <tor-21 VTEP> dev vxlan48 onlink encap ip id 900001
+        #   2001:db8:130::/64 via the same VTEP, same VNI
+        # The local statics 203.0.131.0/24 and 2001:db8:131::/64 are not EVPN
+        # and must stay unlabeled. A real mismatch is logged at info with the
+        # zebra fib/failed flags and the kernel gateway, device, and encap.
+        logger.info(
+            "Stage 1: %s imports D-VNI %s into %s (L3VNI %s)",
+            bordertor11.name,
+            dvni,
+            hub_vrf,
+            hub_l3vni,
+        )
+        _expect(
+            partial(evpn_verify_bgp_vrf_l3vni, bordertor11, hub_vrf, hub_l3vni),
+            "hub VRF L3VNI",
+        )
+        for route in dvni_routes:
+            _expect_imported(
+                bordertor11,
+                hub_vrf,
+                route,
+                "stage 1 hub D-VNI",
+                expected_labels=[dvni],
+                expected_vni=dvni,
+                expected_interface=vxlan,
+                expected_dev=vxlan,
+                expected_nexthops=[tor21_vtep],
+                forbidden_labels=forbidden_vnis,
+            )
+        for route in local_routes:
+            _expect_imported(
+                bordertor11,
+                hub_vrf,
+                route,
+                "stage 1 hub local static",
+                expected_labels=[],
+                expected_vni=None,
+                forbidden_labels=forbidden_vnis + [dvni],
+            )
+
+        # Stage 2. Leak both families into vrf_nol3, which has no L3VNI.
+        # The destination VRF borrows vxlan48 from vrf1. The leaked route
+        # must still be encap id 900001 on vxlan48. It must not pick up
+        # 104001 (vrf1) or 104002 (vrf2). BGP L3VNI for vrf_nol3 stays 0.
+        logger.info("Stage 2: leak %s into %s, which has no L3VNI", hub_vrf, dest_vrf)
+        _create_nol3vni_leak_vrf(
+            bordertor11,
+            hub_asn,
+            dest_vrf,
+            dest_table,
+            hub_vrf,
+            "192.0.2.30",
+            families,
+        )
+        _expect(
+            partial(evpn_verify_bgp_vrf_l3vni, bordertor11, dest_vrf, 0),
+            "destination VRF has no L3VNI",
+        )
+        _expect(
+            partial(evpn_verify_bgp_vrf_l3vni, bordertor11, hub_vrf, hub_l3vni),
+            "hub VRF L3VNI unchanged after leak",
+        )
+        for route in dvni_routes:
+            _expect_imported(
+                bordertor11,
+                dest_vrf,
+                route,
+                "stage 2 leaked D-VNI without dest L3VNI",
+                expected_labels=[dvni],
+                expected_vni=dvni,
+                expected_interface=vxlan,
+                expected_dev=vxlan,
+                expected_nexthops=[tor21_vtep],
+                forbidden_labels=forbidden_vnis,
+            )
+
+        # Stage 3. The same leak applied to the non-EVPN statics. They must
+        # arrive in vrf_nol3 with an empty label list and no kernel encap id.
+        logger.info("Stage 3: non-EVPN leak into %s stays unlabeled", dest_vrf)
+        for route in local_routes:
+            _expect_imported(
+                bordertor11,
+                dest_vrf,
+                route,
+                "stage 3 unlabeled leak",
+                expected_labels=[],
+                expected_vni=None,
+                forbidden_labels=forbidden_vnis + [dvni],
+            )
+    finally:
+        _cleanup()
+
+    logger.info("Checking bordertor-11 and tor-21 are back to their original config")
+    restore_needles = [
+        (bordertor11, "900001"),
+        (bordertor11, "vrf_nol3"),
+        (bordertor11, "import vrf {}".format(hub_vrf)),
+        (bordertor11, "203.0.130.0/24"),
+        (bordertor11, "203.0.131.0/24"),
+        (bordertor11, "2001:db8:130::/64"),
+        (bordertor11, "2001:db8:131::/64"),
+        (bordertor11, "auto-route-target import add-always"),
+        (bordertor11, "redistribute static"),
+        (tor21, tenant_vrf),
+        (tor21, "203.0.130.0/24"),
+        (tor21, "2001:db8:130::/64"),
+        (tor21, "900001"),
+    ]
+    for router, needle in restore_needles:
+        _expect(
+            partial(_running_config_absent, router, needle),
+            "{} running-config still has {}".format(router.name, needle),
+        )
+    _expect(
+        partial(evpn_verify_bgp_vrf_absent, bordertor11, dest_vrf),
+        "destination BGP VRF still exists",
+    )
+    _expect(
+        partial(evpn_verify_bgp_vrf_absent, tor21, tenant_vrf),
+        "tenant BGP VRF still exists",
+    )
+    _expect(
+        partial(_link_absent, bordertor11, dest_vrf),
+        "destination Linux VRF still exists",
+    )
+    _expect(
+        partial(_link_absent, tor21, tenant_vrf),
+        "tenant Linux VRF still exists",
+    )
+    _expect(
+        partial(_link_absent, tor21, "vlan{}".format(tenant_vlan)),
+        "tenant SVI still exists",
+    )
 
 
 def test_memory_leak(tgen_and_ip_version):
