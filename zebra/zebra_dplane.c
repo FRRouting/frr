@@ -4294,6 +4294,7 @@ static void ctx_info_from_zns(struct zebra_dplane_info *ns_info,
 	ns_info->sock = zns->netlink_dplane_out.sock;
 	ns_info->seq = zns->netlink_dplane_out.seq;
 	ns_info->sock_gen = zns->netlink_dplane_out.gen;
+	ns_info->nlmsg_pid = zns->netlink_dplane_out.snl.nl_pid;
 #endif /* NETLINK */
 }
 
