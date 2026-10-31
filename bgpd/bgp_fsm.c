@@ -3463,7 +3463,7 @@ int bgp_event_update(struct peer_connection *connection,
 	next = FSM[connection->status - 1][event - 1].next_state;
 
 	if (connection->status != next)
-		frrtrace(2, frr_bgp, fsm_event, peer, event, connection->status, next,
+		frrtrace(5, frr_bgp, fsm_event, peer, event, connection->status, next,
 			 connection->fd);
 
 	if (bgp_debug_neighbor_events(peer) && connection->status != next)

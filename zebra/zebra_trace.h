@@ -10,6 +10,9 @@
 
 #include "lib/trace.h"
 
+#define INTF_INVALID_INDEX 4294967295
+#define INTF_INVALID_NAME  "not-found"
+
 #ifdef HAVE_LTTNG
 
 #undef TRACEPOINT_PROVIDER
@@ -33,9 +36,6 @@
 #include <linux/netlink.h>
 #include <linux/neighbour.h>
 #endif /* HAVE_NETLINK */
-
-#define INTF_INVALID_INDEX 4294967295
-#define INTF_INVALID_NAME  "not-found"
 
 /* clang-format off */
 
