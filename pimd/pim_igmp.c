@@ -643,6 +643,7 @@ static int igmp_v1_recv_report(struct gm_sock *igmp, struct in_addr from, char *
 	}
 
 	group->last_igmp_v1_report_dsec = pim_time_monotonic_dsec();
+	igmp_group_note_report(group, from);
 
 	return 0;
 }
@@ -1460,6 +1461,7 @@ struct gm_group *igmp_add_group_by_addr(struct gm_sock *igmp,
 	group->interface = igmp->interface;
 	group->last_igmp_v1_report_dsec = -1;
 	group->last_igmp_v2_report_dsec = -1;
+	group->last_report = 0;
 	group->group_creation = pim_time_monotonic_sec();
 	group->igmp_version = IGMP_DEFAULT_VERSION;
 
@@ -1492,11 +1494,22 @@ struct gm_group *igmp_add_group_by_addr(struct gm_sock *igmp,
 	return group;
 }
 
+void igmp_group_note_report(struct gm_group *group, struct in_addr from)
+{
+	if (!group)
+		return;
+
+	group->last_reporter = from;
+	group->last_report = pim_time_monotonic_sec();
+}
+
 void igmp_send_query(int igmp_version, struct gm_group *group, char *query_buf,
 		     size_t query_buf_size, int num_sources, struct in_addr dst_addr,
 		     struct in_addr group_addr, int query_max_response_time_dsec, uint8_t s_flag,
 		     struct gm_sock *igmp)
 {
+	int sent = -1;
+
 	if (pim_addr_is_any(group_addr) &&
 	    ntohl(dst_addr.s_addr) == INADDR_ALLHOSTS_GROUP)
 		igmp->igmp_stats.general_queries_sent++;
@@ -1504,17 +1517,18 @@ void igmp_send_query(int igmp_version, struct gm_group *group, char *query_buf,
 		igmp->igmp_stats.group_queries_sent++;
 
 	if (igmp_version == 3) {
-		igmp_v3_send_query(group, igmp->fd, igmp->interface->name,
-				   query_buf, query_buf_size, num_sources,
-				   dst_addr, group_addr,
-				   query_max_response_time_dsec, s_flag,
-				   igmp->querier_robustness_variable,
-				   igmp->querier_query_interval);
+		sent = igmp_v3_send_query(group, igmp->fd, igmp->interface->name, query_buf,
+					  query_buf_size, num_sources, dst_addr, group_addr,
+					  query_max_response_time_dsec, s_flag,
+					  igmp->querier_robustness_variable,
+					  igmp->querier_query_interval);
 	} else if (igmp_version == 2) {
-		igmp_v2_send_query(group, igmp->fd, igmp->interface->name,
-				   query_buf, dst_addr, group_addr,
-				   query_max_response_time_dsec);
+		sent = igmp_v2_send_query(group, igmp->fd, igmp->interface->name, query_buf,
+					  dst_addr, group_addr, query_max_response_time_dsec);
 	}
+
+	if (sent == 0)
+		igmp->last_query_sent = pim_time_monotonic_sec();
 }
 
 void igmp_send_query_on_intf(struct interface *ifp, int igmp_ver)
