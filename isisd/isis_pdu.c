@@ -1183,19 +1183,17 @@ dontcheckadj:
 							circuit, hdr.lsp_id);
 					}
 #endif /* ifndef FABRICD */
-					lsp_inc_seqno(lsp, hdr.seqno);
-					lsp_flood_or_update(lsp, NULL,
-							    circuit_scoped);
+					lsp_fight_back_schedule(
+						lsp, hdr.seqno,
+						circuit_scoped
+							? FIGHT_BACK_SCOPED
+							: FIGHT_BACK_FLOOD,
+						0);
 				} else {
 					isis_tx_queue_add(circuit->tx_queue,
 							  lsp, TX_LSP_NORMAL);
 					ISIS_CLEAR_FLAG(lsp->SSNflags, circuit);
 				}
-				if (IS_DEBUG_UPDATE_PACKETS)
-					zlog_debug(
-						"ISIS-Upd (%s): (1) re-originating LSP %pLS new seq 0x%08x",
-						circuit->area->area_tag,
-						hdr.lsp_id, lsp->hdr.seqno);
 			} else {
 				/* our own LSP with 0 remaining life time */
 #ifndef FABRICD
@@ -1225,19 +1223,13 @@ dontcheckadj:
 
 		if (comp == LSP_NEWER) {
 			/* 7.3.16.1  */
-			lsp_inc_seqno(lsp, hdr.seqno);
 #ifndef FABRICD
 			/* send northbound notification */
 			circuit->area->lsp_seqno_skipped_counter++;
 			isis_notif_seqno_skipped(circuit, hdr.lsp_id);
 #endif /* ifndef FABRICD */
-			if (IS_DEBUG_UPDATE_PACKETS) {
-				zlog_debug(
-					"ISIS-Upd (%s): (2) re-originating LSP %pLS new seq 0x%08x",
-					circuit->area->area_tag, hdr.lsp_id,
-					lsp->hdr.seqno);
-			}
-			lsp_flood(lsp, NULL);
+			lsp_fight_back_schedule(lsp, hdr.seqno,
+						FIGHT_BACK_FLOOD, 0);
 		} else if (comp == LSP_EQUAL) {
 			isis_tx_queue_del(circuit->tx_queue, lsp);
 			if (circuit->circ_type != CIRCUIT_T_BROADCAST)
@@ -1538,9 +1530,10 @@ static int process_snp(uint8_t pdu_type, struct isis_circuit *circuit,
 			   on p2p */
 			else {
 				if (own_lsp) {
-					lsp_inc_seqno(lsp, entry->seqno);
-					isis_tx_queue_add(circuit->tx_queue, lsp,
-							TX_LSP_NORMAL);
+					lsp_fight_back_schedule(
+						lsp, entry->seqno,
+						FIGHT_BACK_UNICAST,
+						circuit->interface->ifindex);
 				} else {
 					ISIS_SET_FLAG(lsp->SSNflags, circuit);
 					/* if (circuit->circ_type !=

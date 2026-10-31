@@ -633,6 +633,8 @@ void isis_area_destroy(struct isis_area *area)
 	event_cancel(&area->t_tick);
 	event_cancel(&area->t_lsp_refresh[0]);
 	event_cancel(&area->t_lsp_refresh[1]);
+	event_cancel(&area->t_lsp_fight_back[0]);
+	event_cancel(&area->t_lsp_fight_back[1]);
 	event_cancel(&area->t_rlfa_rib_update);
 
 	event_cancel_event(master, area);

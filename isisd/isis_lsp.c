@@ -340,6 +340,126 @@ void lsp_inc_seqno(struct isis_lsp *lsp, uint32_t seqno)
 	isis_te_lsp_event(lsp, LSP_INC);
 }
 
+/*
+ * Perform all pending fight-backs of our own LSPs: bump each pending
+ * LSP's sequence number above the highest one seen in forged copies of
+ * that specific LSP, and propagate it the way the triggering path
+ * requires (flood, fabricd circuit-scoped update, or unicast to every
+ * circuit that requested it by PSNP).  Sequence numbers are tracked
+ * per LSP ID, as 7.3.16.1 requires them to be independent for
+ * different LSP numbers.
+ */
+static void lsp_fight_back_timer(struct event *event)
+{
+	struct lsp_refresh_arg *arg = EVENT_ARG(event);
+	struct isis_area *area = arg->area;
+	int level = arg->level;
+	struct isis_lsp *lsp;
+	bool fought = false;
+
+	area->t_lsp_fight_back[level - 1] = NULL;
+
+	frr_each (lspdb, &area->lspdb[level - 1], lsp) {
+		if (lsp->fight_back_kind == FIGHT_BACK_NONE)
+			continue;
+
+		if (lsp->fight_back_seqno >= lsp->hdr.seqno) {
+			lsp_inc_seqno(lsp, lsp->fight_back_seqno);
+			fought = true;
+
+			if (IS_DEBUG_UPDATE_PACKETS)
+				zlog_debug(
+					"ISIS-Upd (%s): fight-back re-originating LSP %pLS new seq 0x%08x",
+					area->area_tag, lsp->hdr.lsp_id,
+					lsp->hdr.seqno);
+
+			switch (lsp->fight_back_kind) {
+			case FIGHT_BACK_FLOOD:
+				lsp_flood(lsp, NULL);
+				break;
+			case FIGHT_BACK_SCOPED:
+				fabricd_update_lsp_no_flood(lsp, NULL);
+				break;
+			case FIGHT_BACK_UNICAST:
+				for (int i = 0; i < lsp->fight_back_ifcount; i++) {
+					struct interface *ifp = if_lookup_by_index(
+						lsp->fight_back_ifindex[i],
+						area->isis->vrf_id);
+					struct isis_circuit *circuit =
+						ifp ? circuit_scan_by_ifp(ifp)
+						    : NULL;
+
+					if (circuit && circuit->area == area)
+						isis_tx_queue_add(
+							circuit->tx_queue, lsp,
+							TX_LSP_NORMAL);
+				}
+				break;
+			case FIGHT_BACK_NONE:
+				break;
+			}
+		}
+
+		lsp->fight_back_kind = FIGHT_BACK_NONE;
+		lsp->fight_back_seqno = 0;
+		lsp->fight_back_ifcount = 0;
+	}
+
+	if (fought)
+		monotime(&area->last_lsp_fight_back[level - 1]);
+}
+
+/*
+ * Request a fight-back of our own LSP after seeing a copy with a higher
+ * sequence number.  The regeneration itself is deferred so that at most
+ * one fight-back per LSP is performed per lsp_gen_interval; the highest
+ * seen sequence number is remembered per LSP ID so the deferred
+ * fight-back still wins over every forged copy of that LSP seen in the
+ * meantime, without ever mixing sequence numbers of different LSPs.
+ */
+void lsp_fight_back_schedule(struct isis_lsp *lsp, uint32_t seqno,
+			     enum isis_fight_back_kind kind,
+			     ifindex_t ifindex)
+{
+	struct isis_area *area = lsp->area;
+	int level = lsp->level;
+	int64_t since, interval;
+	long delay;
+	int i;
+
+	if (seqno > lsp->fight_back_seqno)
+		lsp->fight_back_seqno = seqno;
+	/* The widest requested scope wins. */
+	if (kind > lsp->fight_back_kind)
+		lsp->fight_back_kind = kind;
+	/*
+	 * Record every circuit that requested this LSP by PSNP so each one
+	 * gets the deferred response.  Once a wider scope is recorded the
+	 * unicast list is moot (flooding reaches those circuits anyway).
+	 */
+	if (kind == FIGHT_BACK_UNICAST &&
+	    lsp->fight_back_kind == FIGHT_BACK_UNICAST) {
+		for (i = 0; i < lsp->fight_back_ifcount; i++)
+			if (lsp->fight_back_ifindex[i] == ifindex)
+				break;
+		if (i == lsp->fight_back_ifcount &&
+		    lsp->fight_back_ifcount < ISIS_MAX_CIRCUITS)
+			lsp->fight_back_ifindex[lsp->fight_back_ifcount++] =
+				ifindex;
+	}
+
+	if (event_is_scheduled(area->t_lsp_fight_back[level - 1]))
+		return;
+
+	since = monotime_since(&area->last_lsp_fight_back[level - 1], NULL);
+	interval = 1000000L * area->lsp_gen_interval[level - 1];
+	delay = since < interval ? (interval - since) / 1000 : 0;
+
+	event_add_timer_msec(master, lsp_fight_back_timer,
+			     &area->lsp_refresh_arg[level - 1], delay,
+			     &area->t_lsp_fight_back[level - 1]);
+}
+
 static void lsp_purge_add_poi(struct isis_lsp *lsp,
 			      const uint8_t *sender)
 {
