@@ -300,6 +300,40 @@ jobs:
               | sort -u
           }
 
+          # Match tests/topotests/lib/topolog.py get_test_logdir() for a module.
+          # "dir/test_foo.py" -> "dir.test_foo"
+          pytest_module_logdir() {
+            local mod="${1%%::*}"
+            # cut -f3 leaves the leading space from "N: Status : path".
+            mod="${mod#"${mod%%[![:space:]]*}"}"
+            mod="${mod%"${mod##*[![:space:]]}"}"
+            mod="${mod%.py}"
+            mod="${mod//\[/_}"
+            mod="${mod//\]/_}"
+            printf '%s\n' "${mod//\//.}"
+          }
+
+          # The serial rerun recreates each failed module's log directory.
+          # Move the parallel-run logs aside so that rerun does not replace them.
+          preserve_rerun_logs() {
+            local results="$1"
+            shift
+            local orig="${results}.orig"
+            local t logdir src
+            for t in "$@"; do
+              [ -n "$t" ] || continue
+              logdir=$(pytest_module_logdir "$t")
+              src="${results}/${logdir}"
+              if [ -d "$src" ]; then
+                mkdir -p "$orig"
+                echo "Preserving failed test logs ${logdir} -> ${orig}/" >&2
+                mv "$src" "${orig}/"
+              else
+                echo "WARNING: no log directory ${src} for failed test ${t}" >&2
+              fi
+            done
+          }
+
           if [ -f test-results-${{ matrix.cfg.platform }}/topotests.xml ]; then
             ./tests/topotests/analyze.py -r test-results-${{ matrix.cfg.platform }}
             ls -l test-results-${{ matrix.cfg.platform }}/topotests.xml
@@ -344,6 +378,8 @@ jobs:
 
           echo "ERROR: Some tests failed during parallel run, rerunning serially." >&2
           echo RERUN_TESTS: $rerun_tests >&2
+          # shellcheck disable=SC2086
+          preserve_rerun_logs "test-results-${{ matrix.cfg.platform }}" $rerun_tests
           docker stop frr-${{ matrix.cfg.platform }}-cont
           docker rm frr-${{ matrix.cfg.platform }}-cont
 
@@ -358,10 +394,17 @@ jobs:
       - name: Gather results
         if: ${{ always() }}
         run: |
-          if [ ! -d test-results-${{ matrix.cfg.platform }} ]; then
-            if ! ./tests/topotests/analyze.py -Ar test-results-${{ matrix.cfg.platform }} -C frr-${{ matrix.cfg.platform }}-cont; then
+          results=test-results-${{ matrix.cfg.platform }}
+          if [ ! -d "$results" ]; then
+            if ! ./tests/topotests/analyze.py -Ar "$results" -C frr-${{ matrix.cfg.platform }}-cont; then
               echo "ERROR: gathering results produced an error, perhaps due earlier run cancellation." >&2
             fi
+          fi
+          # Fold the preserved parallel-run failure logs into the uploaded tree.
+          orig="${results}.orig"
+          if [ -d "$orig" ]; then
+            mkdir -p "$results"
+            mv "$orig" "${results}/.orig"
           fi
       - name: Upload test results
         if: ${{ always() }}
@@ -372,6 +415,8 @@ jobs:
             test-results-${{ matrix.cfg.platform }}
             test-results-${{ matrix.cfg.platform }}-initial
           overwrite: true
+          # .orig holds the parallel-run logs for modules that were rerun.
+          include-hidden-files: true
           # Keep test artifacts longer to aid flaky test/debug investigations.
           retention-days: 14
           if-no-files-found: warn
