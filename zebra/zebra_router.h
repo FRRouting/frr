@@ -138,15 +138,37 @@ struct zebra_architectural_values {
 
 };
 
-#define TRACKER_FLUSH_LOG_SIZE 16
+/* Flush event log: default size and the range of the hidden size knob */
+#define TRACKER_FLUSH_LOG_DEFAULT 1024
+#define TRACKER_FLUSH_LOG_MIN	  16
+#define TRACKER_FLUSH_LOG_MAX	  4096
 
+/*
+ * One tracker flush.  Written when the flush starts; duration, route
+ * counts and result are filled in when it completes.
+ */
 struct tracker_flush_event {
+	struct timeval start; /* flush start (monotime) */
+	uint32_t seq;	      /* flush number, from 1 */
 	uint32_t nhg_id;
 	uint32_t tracker_id;
 	uint32_t matched;
 	uint32_t unmatched;
 	uint32_t deleted;
 	uint32_t orig_re_count;
+	uint32_t silent;
+	uint32_t winner_nhg_id;
+	ifindex_t ifindex;	 /* link event interface, 0 for an ECMP change */
+	uint32_t parked_ms;	 /* tracker creation to flush start */
+	uint32_t duration_ms;	 /* flush start to completion */
+	uint32_t losers;	 /* loser REs drained */
+	uint32_t winners;	 /* winner REs released, silent ones included */
+	uint16_t members_before; /* parent NHG depends at flush start */
+	uint16_t members_after;	 /* parent NHG depends when the result was set */
+	uint8_t cause;		 /* enum nhg_tracker_event */
+	uint8_t trigger;	 /* enum tracker_flush_trigger | TRACKER_TRIGGER_WAITED */
+	uint8_t winner_flags;
+	uint8_t result; /* enum tracker_flush_result */
 };
 
 struct zebra_nhg_tracker_counters {
@@ -174,8 +196,9 @@ struct zebra_nhg_tracker_counters {
 	 * NHG-reuse debug accounting across the flush/reuse/consolidation
 	 * paths.  Debug-only, surfaced via 'show zebra nexthop-group tracker'.
 	 */
-	uint32_t losers_tagged;	       /* FLUSH_BATCH set: phase1 drain + silent enqueue */
-	uint32_t losers_consumed;      /* FLUSH_BATCH released on dplane ack */
+	uint32_t losers_tagged;	       /* LOSER set: phase1 drain + silent enqueue */
+	uint32_t losers_consumed;      /* LOSER released on dplane ack */
+	uint32_t losers_handed_over;   /* LOSER RE re-tagged by another tracker */
 	uint32_t winners_tagged;       /* WINNER set: phase2 release + silent fire */
 	uint32_t winners_consumed;     /* WINNER released by consumer or pre-remove */
 	uint32_t silent_fired;	       /* phase2: silent REs re-queued for install */
@@ -195,9 +218,11 @@ struct zebra_nhg_tracker_counters {
 	uint32_t reuse_skip_not_reusable;  /* reuse: parent left the kernel mid-flush */
 	uint32_t winner_drained_no_parent; /* winner tag consumed, tagged parent gone */
 	uint32_t consolidate_skipped_busy; /* consolidation deferred: base or dup busy */
-	/* Circular log of last few flush events */
-	struct tracker_flush_event log[TRACKER_FLUSH_LOG_SIZE];
-	uint32_t log_idx;
+	uint32_t loser_ack_no_pending;	   /* LOSER ack, tracker had nothing pending */
+	/* Ring of recent flush events: log_size entries, log_seq flushes logged */
+	struct tracker_flush_event *log;
+	uint32_t log_size;
+	uint32_t log_seq;
 };
 
 struct zebra_router {

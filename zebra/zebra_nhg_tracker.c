@@ -24,6 +24,7 @@
 DEFINE_MTYPE_STATIC(ZEBRA, NHG_TRACKER, "NHG Event Tracker");
 DEFINE_MTYPE(ZEBRA, NHG_TRACKER_PREFIX_MAP, "NHG Tracker Prefix Map Entry");
 DEFINE_MTYPE_STATIC(ZEBRA, NHG_TRACKER_FLUSH_GROUP, "NHG Tracker Flush Group");
+DEFINE_MTYPE_STATIC(ZEBRA, NHG_TRACKER_LOG, "NHG Tracker Flush Log");
 
 bool zebra_nhg_tracker_nhgs_equal(const struct nhg_hash_entry *a, const struct nhg_hash_entry *b,
 				  bool skip_inactive_old)
@@ -711,12 +712,9 @@ static void tracker_flush_complete(struct nhg_hash_entry *nhe, struct nhg_event_
 static void nhg_tracker_flush_iter_event(struct event *ev);
 static void nhg_tracker_flush_schedule(struct nhg_event_tracker *tracker);
 
-/* Update global tracker statistics and log the flush event. */
-static void tracker_flush_update_counters(struct nhg_event_tracker *tracker,
-					  struct nhg_hash_entry *nhe)
+/* Update global tracker statistics for a flush. */
+static void tracker_flush_update_counters(struct nhg_event_tracker *tracker)
 {
-	struct tracker_flush_event *evt;
-
 	zrouter.tracker_counters.tracker_full++;
 	if (tracker->matched_table.re_count == tracker->orig_re_count)
 		zrouter.tracker_counters.tracker_full_matched++;
@@ -729,16 +727,225 @@ static void tracker_flush_update_counters(struct nhg_event_tracker *tracker,
 		else if (tracker->unmatched_table.re_count > tracker->matched_table.re_count)
 			zrouter.tracker_counters.tracker_full_combined_unmatched_gt++;
 	}
+}
 
-	evt = &zrouter.tracker_counters
-		       .log[zrouter.tracker_counters.log_idx % TRACKER_FLUSH_LOG_SIZE];
+/*
+ * Flush event log: a ring in zrouter.tracker_counters.  The event of flush
+ * number seq lives in slot (seq - 1) % log_size until a newer one reuses it.
+ */
+static struct tracker_flush_event *tracker_flush_log_lookup(uint32_t seq)
+{
+	struct zebra_nhg_tracker_counters *c = &zrouter.tracker_counters;
+	struct tracker_flush_event *evt;
+
+	if (!c->log_size || !seq || seq > c->log_seq || c->log_seq - seq >= c->log_size)
+		return NULL;
+
+	evt = &c->log[(seq - 1) % c->log_size];
+	return evt->seq == seq ? evt : NULL;
+}
+
+const struct tracker_flush_event *zebra_nhg_tracker_log_get(uint32_t seq)
+{
+	return tracker_flush_log_lookup(seq);
+}
+
+/* Log a flush once its winner is chosen. */
+static void tracker_flush_log_start(struct nhg_event_tracker *tracker, struct nhg_hash_entry *nhe)
+{
+	struct zebra_nhg_tracker_counters *c = &zrouter.tracker_counters;
+	struct tracker_flush_event *evt;
+	struct timeval parked;
+
+	if (!c->log_size)
+		return;
+
+	evt = &c->log[c->log_seq % c->log_size];
+	memset(evt, 0, sizeof(*evt));
+	evt->seq = ++c->log_seq;
+	monotime(&evt->start);
 	evt->nhg_id = nhe->id;
 	evt->tracker_id = tracker->nhg_tracker_id;
 	evt->matched = tracker->matched_table.re_count;
 	evt->unmatched = tracker->unmatched_table.re_count;
 	evt->deleted = tracker->deleted_table.re_count;
 	evt->orig_re_count = tracker->orig_re_count;
-	zrouter.tracker_counters.log_idx++;
+	evt->silent = tracker->flush_silent_count;
+	evt->winner_flags = tracker->winner_flags;
+	evt->winner_nhg_id = tracker->winner_nhg_id;
+	evt->cause = tracker->event;
+	evt->ifindex = tracker->ifindex;
+	evt->trigger = tracker->flush_trigger;
+	if (tracker->flush_state == TRACKER_FLUSH_WAITING)
+		evt->trigger |= TRACKER_TRIGGER_WAITED;
+	timersub(&evt->start, &tracker->created_time, &parked);
+	evt->parked_ms = parked.tv_sec * 1000 + parked.tv_usec / 1000;
+	evt->members_before = zebra_nhg_depends_count(nhe);
+
+	tracker->log_seq = evt->seq;
+}
+
+/*
+ * nhe's flush event still waiting for its rework result: same flush number,
+ * same NHG and still REWORK_PENDING, so a stale link can't touch another event.
+ */
+static struct tracker_flush_event *tracker_flush_log_pending(struct nhg_hash_entry *nhe)
+{
+	struct tracker_flush_event *evt = tracker_flush_log_lookup(nhe->tracker_log_seq);
+
+	if (!evt || evt->nhg_id != nhe->id || evt->result != TRACKER_RESULT_REWORK_PENDING)
+		return NULL;
+
+	return evt;
+}
+
+/*
+ * Complete a flush's event.  A REWORK_PENDING result is finished later by
+ * the first winner (zebra_nhg_tracker_log_result), found through nhe.
+ */
+static void tracker_flush_log_complete(struct nhg_event_tracker *tracker,
+				       struct nhg_hash_entry *nhe, uint32_t winners,
+				       enum tracker_flush_result result)
+{
+	struct tracker_flush_event *evt = tracker_flush_log_lookup(tracker->log_seq);
+	struct tracker_flush_event *prev;
+
+	if (result == TRACKER_RESULT_REWORK_PENDING) {
+		/* An older flush still waiting on nhe shares this flush's rework. */
+		prev = tracker_flush_log_pending(nhe);
+		if (prev)
+			prev->result = TRACKER_RESULT_MERGED;
+		nhe->tracker_log_seq = evt ? evt->seq : 0;
+	}
+
+	if (!evt)
+		return;
+
+	evt->duration_ms = monotime_since(&evt->start, NULL) / 1000;
+	evt->losers = tracker->losers_tagged;
+	evt->winners = winners;
+	evt->result = result;
+	evt->members_after = zebra_nhg_depends_count(nhe);
+}
+
+void zebra_nhg_tracker_log_result(struct nhg_hash_entry *nhe, enum tracker_flush_result result)
+{
+	struct tracker_flush_event *evt;
+
+	if (!nhe->tracker_log_seq)
+		return;
+
+	evt = tracker_flush_log_pending(nhe);
+	nhe->tracker_log_seq = 0;
+	if (!evt)
+		return;
+
+	evt->result = result;
+	evt->members_after = zebra_nhg_depends_count(nhe);
+}
+
+void zebra_nhg_tracker_log_init(void)
+{
+	zebra_nhg_tracker_log_resize(TRACKER_FLUSH_LOG_DEFAULT);
+}
+
+void zebra_nhg_tracker_log_fini(void)
+{
+	XFREE(MTYPE_NHG_TRACKER_LOG, zrouter.tracker_counters.log);
+	zrouter.tracker_counters.log_size = 0;
+}
+
+/* Resize the flush event log, keeping the most recent events. */
+void zebra_nhg_tracker_log_resize(uint32_t size)
+{
+	struct zebra_nhg_tracker_counters *c = &zrouter.tracker_counters;
+	struct tracker_flush_event *log, *evt;
+	uint32_t keep = MIN(size, c->log_size);
+	uint32_t seq;
+
+	if (size == c->log_size)
+		return;
+
+	log = XCALLOC(MTYPE_NHG_TRACKER_LOG, size * sizeof(*log));
+	for (seq = c->log_seq - MIN(keep, c->log_seq) + 1; seq && seq <= c->log_seq; seq++) {
+		evt = tracker_flush_log_lookup(seq);
+		if (evt)
+			log[(seq - 1) % size] = *evt;
+	}
+
+	XFREE(MTYPE_NHG_TRACKER_LOG, c->log);
+	c->log = log;
+	c->log_size = size;
+}
+
+const char *zebra_nhg_tracker_event_str(enum nhg_tracker_event event)
+{
+	switch (event) {
+	case NHG_TRACKER_EVENT_INTF_DOWN:
+		return "DOWN";
+	case NHG_TRACKER_EVENT_INTF_UP:
+		return "UP";
+	case NHG_TRACKER_EVENT_ECMP_CHANGE:
+		return "ECMP_CHANGE";
+	}
+
+	return "UNKNOWN";
+}
+
+const char *zebra_nhg_tracker_winner_str(uint8_t winner_flags)
+{
+	switch (winner_flags) {
+	case 0:
+		return "none";
+	case TRACKER_WIN_SILENT:
+		return "silent";
+	case TRACKER_WIN_MATCHED:
+		return "matched";
+	case TRACKER_WIN_SILENT | TRACKER_WIN_MATCHED:
+		return "matched+silent";
+	case TRACKER_WIN_UNMATCHED:
+		return "unmatched";
+	}
+
+	return "unknown";
+}
+
+const char *zebra_nhg_tracker_trigger_str(uint8_t trigger)
+{
+	switch ((enum tracker_flush_trigger)(trigger & ~TRACKER_TRIGGER_WAITED)) {
+	case TRACKER_TRIGGER_FULL:
+		return "full";
+	case TRACKER_TRIGGER_TIMER:
+		return "timer";
+	}
+
+	return "unknown";
+}
+
+const char *zebra_nhg_tracker_result_str(uint8_t result)
+{
+	switch ((enum tracker_flush_result)result) {
+	case TRACKER_RESULT_RUNNING:
+		return "in-progress";
+	case TRACKER_RESULT_DELETES_ONLY:
+		return "deletions-only";
+	case TRACKER_RESULT_KEPT:
+		return "kept";
+	case TRACKER_RESULT_REWORK_PENDING:
+		return "rework-pending";
+	case TRACKER_RESULT_REWORKED:
+		return "reworked";
+	case TRACKER_RESULT_UNCHANGED:
+		return "unchanged";
+	case TRACKER_RESULT_SKIPPED:
+		return "skipped";
+	case TRACKER_RESULT_MERGED:
+		return "merged";
+	case TRACKER_RESULT_ABORTED:
+		return "aborted";
+	}
+
+	return "unknown";
 }
 
 /*
@@ -937,9 +1144,17 @@ static struct nhg_event_tracker *tracker_find_flushing(struct nhg_hash_entry *nh
 	return NULL;
 }
 
+static void tracker_set_flush_state(struct nhg_event_tracker *tracker,
+				    enum tracker_flush_batch_state state)
+{
+	if (tracker->flush_state != state)
+		monotime(&tracker->flush_state_time);
+	tracker->flush_state = state;
+}
+
 /*
  * Phase-1 tagging is about to take over an RE that is still moving for
- * another tracker (FLUSH_BATCH).  Credit that tracker now, exactly as the
+ * another tracker (LOSER).  Credit that tracker now, exactly as the
  * RE's ack would, so the RE is only ever counted by its newest owner.
  */
 static void tracker_loser_settle(struct route_node *rn, struct route_entry *re,
@@ -948,8 +1163,10 @@ static void tracker_loser_settle(struct route_node *rn, struct route_entry *re,
 {
 	uint32_t owner_id = re->tracker_parent_nhg_id;
 
-	if (!CHECK_FLAG(re->status, ROUTE_ENTRY_NHG_TRACKER_FLUSH_BATCH))
+	if (!CHECK_FLAG(re->status, ROUTE_ENTRY_NHG_TRACKER_LOSER))
 		return;
+
+	zrouter.tracker_counters.losers_handed_over++;
 
 	if (IS_ZEBRA_DEBUG_NHG_TRACKER)
 		zlog_debug("%s: %pRN still moving for NHG %u, handed over to NHG %u tracker %u",
@@ -967,7 +1184,7 @@ static void tracker_loser_settle(struct route_node *rn, struct route_entry *re,
  *
  * filter_nhg_id:  non-zero -> only process REs whose incoming NHG matches.
  * exclude_nhg_id: non-zero -> skip REs whose incoming NHG matches.
- * track_pending:  true -> mark RE with NHG_TRACKER_FLUSH_BATCH and increment
+ * track_pending:  true -> mark RE with NHG_TRACKER_LOSER and increment
  *                 routes_pending for phase 1 dplane ack tracking.
  *                 false -> just queue (phase 2 finishes synchronously).
  */
@@ -1034,9 +1251,10 @@ static size_t tracker_flush_process_rn(struct nhg_hash_entry *parent_nhe,
 			/* If another tracker still owns this route, release it first */
 			tracker_loser_settle(rn, re, parent_nhe, tracker);
 
-			SET_FLAG(re->status, ROUTE_ENTRY_NHG_TRACKER_FLUSH_BATCH);
+			SET_FLAG(re->status, ROUTE_ENTRY_NHG_TRACKER_LOSER);
 			re->tracker_parent_nhg_id = parent_nhe->id;
 			tracker->routes_pending++;
+			tracker->losers_tagged++;
 			zrouter.tracker_counters.losers_tagged++;
 			if (IS_ZEBRA_DEBUG_NHG_TRACKER)
 				zlog_debug("%s: phase1 loser drained %pRN parent NHG %u tracker %u -> routes_pending=%u (re->nhe %u status 0x%x %s)",
@@ -1054,7 +1272,7 @@ static size_t tracker_flush_process_rn(struct nhg_hash_entry *parent_nhe,
 			 * reuse, so the RE takes the plain find-or-create path.
 			 */
 			if (zebra_nhg_reusable(parent_nhe) &&
-			    !CHECK_FLAG(re->status, ROUTE_ENTRY_NHG_TRACKER_FLUSH_BATCH) &&
+			    !CHECK_FLAG(re->status, ROUTE_ENTRY_NHG_TRACKER_LOSER) &&
 			    !CHECK_FLAG(re->status, ROUTE_ENTRY_NHG_TRACKER_WINNER)) {
 				SET_FLAG(re->status, ROUTE_ENTRY_NHG_TRACKER_WINNER);
 				re->tracker_parent_nhg_id = parent_nhe->id;
@@ -1211,10 +1429,10 @@ void tracker_flush_batch_route_dplane_ack(struct route_entry *re)
 	struct nhg_event_tracker *tracker = NULL;
 	uint32_t parent_nhg_id;
 
-	if (!CHECK_FLAG(re->status, ROUTE_ENTRY_NHG_TRACKER_FLUSH_BATCH))
+	if (!CHECK_FLAG(re->status, ROUTE_ENTRY_NHG_TRACKER_LOSER))
 		return;
 
-	UNSET_FLAG(re->status, ROUTE_ENTRY_NHG_TRACKER_FLUSH_BATCH);
+	UNSET_FLAG(re->status, ROUTE_ENTRY_NHG_TRACKER_LOSER);
 	zrouter.tracker_counters.losers_consumed++;
 
 	/*
@@ -1247,7 +1465,10 @@ void tracker_flush_batch_route_dplane_ack(struct route_entry *re)
 		return;
 	}
 
+	tracker->losers_consumed++;
+
 	if (tracker->routes_pending == 0) {
+		zrouter.tracker_counters.loser_ack_no_pending++;
 		if (IS_ZEBRA_DEBUG_NHG_TRACKER)
 			zlog_debug("%s: dec-noop phase1 %pRN NHG %u tracker %u already 0 (re->nhe %u parent_nhg_id=%u)",
 				   __func__, re->rn, tracker->parent_nhe ? tracker->parent_nhe->id : 0,
@@ -1377,13 +1598,14 @@ static void tracker_flush_enqueue_silent_res(struct nhg_hash_entry *parent_nhe,
 		tracker_loser_settle(re->rn, re, parent_nhe, tracker);
 
 		SET_FLAG(re->status, ROUTE_ENTRY_CHANGED);
-		SET_FLAG(re->status, ROUTE_ENTRY_NHG_TRACKER_FLUSH_BATCH);
+		SET_FLAG(re->status, ROUTE_ENTRY_NHG_TRACKER_LOSER);
 		/*
 		 * Record parent id on the RE so the dplane-ack callback can
 		 * find the exact flushing tracker.
 		 */
 		re->tracker_parent_nhg_id = parent_nhe->id;
 		tracker->routes_pending++;
+		tracker->losers_tagged++;
 		zrouter.tracker_counters.losers_tagged++;
 		queued++;
 		rib_queue_add(re->rn);
@@ -1427,7 +1649,7 @@ static uint32_t tracker_flush_fire_silent_routes_phase2(struct nhg_hash_entry *p
 		 * The parent must still hold its id in the kernel.
 		 */
 		if (zebra_nhg_reusable(parent_nhe) &&
-		    !CHECK_FLAG(re->status, ROUTE_ENTRY_NHG_TRACKER_FLUSH_BATCH) &&
+		    !CHECK_FLAG(re->status, ROUTE_ENTRY_NHG_TRACKER_LOSER) &&
 		    !CHECK_FLAG(re->status, ROUTE_ENTRY_NHG_TRACKER_WINNER)) {
 			SET_FLAG(re->status, ROUTE_ENTRY_NHG_TRACKER_WINNER);
 			re->tracker_parent_nhg_id = parent_nhe->id;
@@ -1598,6 +1820,9 @@ static void tracker_flush_complete(struct nhg_hash_entry *nhe, struct nhg_event_
 		zebra_nhg_rework_content_rehash(nhe, __func__);
 	}
 
+	tracker_flush_log_complete(tracker, nhe, consumers,
+				   armed ? TRACKER_RESULT_REWORK_PENDING : TRACKER_RESULT_KEPT);
+
 	if (IS_ZEBRA_DEBUG_NHG_TRACKER)
 		zlog_debug("%s: flush done tracker %u NHG %u snapshot %u matched=%u unmatched=%u deleted=%u silent=%u consumers=%zu (silent_fired=%zu) pending_winners=%u -> %s",
 			   __func__, tracker->nhg_tracker_id, nhe->id,
@@ -1682,7 +1907,7 @@ static void nhg_tracker_flush_iter_event(struct event *ev)
 				goto done;
 			}
 			/* Transition to phase-2 */
-			tracker->flush_state = TRACKER_FLUSH_PHASE2;
+			tracker_set_flush_state(tracker, TRACKER_FLUSH_PHASE2);
 			tracker->flush_phase2_consumers = 0;
 			nhg_tracker_table_iter_rn_init(&tracker->iter, first_phase2_table(tracker));
 			continue;
@@ -1745,7 +1970,7 @@ static void tracker_flush_batch_start_phase1(struct nhg_hash_entry *nhe,
 	event_cancel(&tracker->timer);
 
 	tracker->routes_pending = 0;
-	tracker->flush_state = TRACKER_FLUSH_PHASE1;
+	tracker_set_flush_state(tracker, TRACKER_FLUSH_PHASE1);
 
 	zlog_info("%s: NHG %u tracker %u winner flags=0x%x nhg=%u", __func__, nhe->id,
 		  tracker->nhg_tracker_id, tracker->winner_flags, tracker->winner_nhg_id);
@@ -1791,7 +2016,7 @@ static void zebra_nhg_tracker_flush(struct nhg_event_tracker *tracker, struct nh
 
 		frrtrace(4, frr_zebra, nhg_tracker_phase, "deferred-waiting",
 			 tracker->nhg_tracker_id, nhe->id, 0);
-		tracker->flush_state = TRACKER_FLUSH_WAITING;
+		tracker_set_flush_state(tracker, TRACKER_FLUSH_WAITING);
 		/* No timer is needed in WAITING state — the tracker is
 		 * woken up purely by the event-driven handoff in
 		 * tracker_flush_batch_finish.  Cancel any creation timer
@@ -1801,8 +2026,9 @@ static void zebra_nhg_tracker_flush(struct nhg_event_tracker *tracker, struct nh
 		return;
 	}
 
-	tracker_flush_update_counters(tracker, nhe);
+	tracker_flush_update_counters(tracker);
 	tracker_flush_build_groups(tracker, nhe);
+	tracker_flush_log_start(tracker, nhe);
 
 	if (!tracker_win_has_winner(tracker) && listcount(tracker->flush_nhg_groups) == 0) {
 		/*
@@ -1819,6 +2045,7 @@ static void zebra_nhg_tracker_flush(struct nhg_event_tracker *tracker, struct nh
 			tracker_flush_process_rn(nhe, tracker, trn, &opts);
 		nhg_tracker_table_iter_rn_cleanup(&local_iter);
 
+		tracker_flush_log_complete(tracker, nhe, 0, TRACKER_RESULT_DELETES_ONLY);
 		zebra_nhg_tracker_free(nhe, tracker);
 
 		/*
@@ -1883,6 +2110,7 @@ void zebra_nhg_tracker_flush_if_full(struct nhg_event_tracker *tracker, struct n
 		 tracker->matched_table.re_count, tracker->unmatched_table.re_count,
 		 tracker->deleted_table.re_count, tracker->orig_re_count);
 
+	tracker->flush_trigger = TRACKER_TRIGGER_FULL;
 	zebra_nhg_tracker_flush(tracker, nhe);
 }
 
@@ -1911,6 +2139,7 @@ static void nhg_tracker_timer_expiry(struct event *event)
 		 tracker->matched_table.re_count, tracker->unmatched_table.re_count,
 		 tracker->deleted_table.re_count, tracker->orig_re_count);
 
+	tracker->flush_trigger = TRACKER_TRIGGER_TIMER;
 	zebra_nhg_tracker_flush(tracker, nhe);
 }
 
@@ -2076,6 +2305,8 @@ struct nhg_event_tracker *zebra_nhg_tracker_create(struct nhg_hash_entry *parent
 	 * and the phase-1/2 entry points.
 	 */
 	tracker->flush_state = TRACKER_ACTIVE;
+	monotime(&tracker->flush_state_time);
+	tracker->created_time = tracker->flush_state_time;
 
 	/*
 	 * Inherit the oldest existing tracker's remaining timer so that
@@ -2164,8 +2395,16 @@ struct nhg_event_tracker *zebra_nhg_tracker_create_or_update(struct nhg_hash_ent
 void zebra_nhg_tracker_free(struct nhg_hash_entry *nhe, struct nhg_event_tracker *tracker)
 {
 	struct tracker_prefix_map_entry *entry;
+	struct tracker_flush_event *evt;
 
 	zrouter.tracker_counters.trackers_freed++;
+
+	/* A flush torn down before it completed (NHG teardown, shutdown). */
+	evt = tracker_flush_log_lookup(tracker->log_seq);
+	if (evt && evt->result == TRACKER_RESULT_RUNNING) {
+		evt->result = TRACKER_RESULT_ABORTED;
+		evt->duration_ms = monotime_since(&evt->start, NULL) / 1000;
+	}
 
 	/* Leak detector: tracker torn down with phase-1 losers still outstanding (routes_pending never drained to 0) -- their dplane-ack accounting was mis-attributed, so phase 2 / NHG reuse did not complete cleanly. */
 	if (tracker->routes_pending > 0) {

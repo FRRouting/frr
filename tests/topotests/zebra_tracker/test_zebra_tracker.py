@@ -1616,10 +1616,10 @@ def _check_route_protocol_uses_nhg(router, prefix, protocol, expected_nhg_id):
 def _get_tracker_global_counters(router):
     """
     Fetch the global NHG-tracker counters from
-    `show zebra tracker-nhg json`.  Returns the parsed dict or None
+    `show zebra nexthop-group tracker json`.  Returns the parsed dict or None
     on parse failure.
     """
-    out = router.vtysh_cmd("show zebra tracker-nhg json")
+    out = router.vtysh_cmd("show zebra nexthop-group tracker json")
     try:
         return json.loads(out)
     except json.JSONDecodeError:
@@ -1660,7 +1660,7 @@ def _check_tracker_counters_unchanged(router, baseline, counters=None):
         counters = _TRACKER_LIFECYCLE_COUNTERS
     cur = _get_tracker_global_counters(router)
     if cur is None:
-        return "could not parse `show zebra tracker-nhg json`"
+        return "could not parse `show zebra nexthop-group tracker json`"
     for c in counters:
         if cur.get(c) != baseline.get(c):
             return "tracker counter {} changed: baseline={}, current={}".format(
@@ -1680,7 +1680,7 @@ def _check_tracker_counter_deltas(router, baseline, deltas):
     """
     cur = _get_tracker_global_counters(router)
     if cur is None:
-        return "could not parse `show zebra tracker-nhg json`"
+        return "could not parse `show zebra nexthop-group tracker json`"
     for counter, expected_delta in deltas.items():
         base = baseline.get(counter, 0) or 0
         now = cur.get(counter, 0) or 0
@@ -1701,7 +1701,7 @@ def _check_tracker_latest_flush_event(router, expected):
     """
     cur = _get_tracker_global_counters(router)
     if cur is None:
-        return "could not parse `show zebra tracker-nhg json`"
+        return "could not parse `show zebra nexthop-group tracker json`"
     events = cur.get("flushEvents", [])
     if not events:
         return "flushEvents ring buffer is empty"
@@ -3527,6 +3527,93 @@ def test_nhg_tracker_ecmp_2way_1way_transition():
     )
     _, result = topotest.run_and_expect(check_sharp_clean, None, count=20, wait=1)
     assert result is None, "cleanup did not remove sharp routes: {}".format(result)
+
+
+def test_nhg_tracker_flush_event_cli():
+    "Verify the tracker flush event log output and its hidden size knob on r1"
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    r1 = tgen.gears["r1"]
+    knob = "zebra nexthop-group tracker events size"
+    event_keys = (
+        "seq",
+        "startTime",
+        "nhgId",
+        "trackerId",
+        "event",
+        "trigger",
+        "waited",
+        "parkedMsecs",
+        "matched",
+        "unmatched",
+        "deleted",
+        "silent",
+        "origReCount",
+        "winnerFlags",
+        "winnerNhgId",
+        "losers",
+        "winners",
+        "result",
+        "membersBefore",
+        "membersAfter",
+        "durationMsecs",
+    )
+
+    def check_event_log(size, all_kept):
+        out = _get_tracker_global_counters(r1)
+        if out is None:
+            return "could not parse `show zebra nexthop-group tracker json`"
+        logged = out.get("flushEventsLogged")
+        events = out.get("flushEvents", [])
+        if out.get("flushEventLogSize") != size:
+            return "flushEventLogSize {}, expected {}".format(
+                out.get("flushEventLogSize"), size
+            )
+        # Every flush is logged once, in step with trackerFullTotal.
+        if logged != out.get("trackerFullTotal"):
+            return "flushEventsLogged {} != trackerFullTotal {}".format(
+                logged, out.get("trackerFullTotal")
+            )
+        if len(events) > size or (all_kept and len(events) != min(size, logged)):
+            return "{} flush events shown (logged {}, size {})".format(
+                len(events), logged, size
+            )
+        if events:
+            missing = [k for k in event_keys if k not in events[-1]]
+            if missing:
+                return "latest flush event lacks {}".format(missing)
+            if events[-1]["seq"] != logged:
+                return "latest flush event seq {}, expected {}".format(
+                    events[-1]["seq"], logged
+                )
+        return None
+
+    def check_running_config(present):
+        if (knob in r1.vtysh_cmd("show running-config")) != present:
+            return "'{}' {} show running-config".format(
+                knob, "missing from" if present else "unexpectedly in"
+            )
+        return None
+
+    logger.info("Step 1: default event log of 1024 entries, not in show running-config")
+    output = r1.vtysh_cmd("show zebra nexthop-group tracker")
+    assert (
+        "Flush event log: 1024 entries" in output
+    ), "text output lacks the event log line"
+    result = check_event_log(1024, True) or check_running_config(False)
+    assert result is None, "Step 1: {}".format(result)
+
+    logger.info("Step 2: '{} 16' shrinks the log and is saved".format(knob))
+    r1.vtysh_cmd("configure terminal\n{} 16\nend".format(knob))
+    result = check_event_log(16, True) or check_running_config(True)
+    assert result is None, "Step 2: {}".format(result)
+
+    logger.info("Step 3: 'no {}' restores 1024, removed from config".format(knob))
+    r1.vtysh_cmd("configure terminal\nno {}\nend".format(knob))
+    result = check_event_log(1024, False) or check_running_config(False)
+    assert result is None, "Step 3: {}".format(result)
 
 
 if __name__ == "__main__":

@@ -26,6 +26,7 @@ struct event;
 struct route_table;
 struct route_entry;
 struct route_node;
+struct tracker_flush_event;
 
 #define NHG_TRACKER_DEFAULT_TIMEOUT_SEC 10
 
@@ -114,6 +115,28 @@ enum tracker_flush_batch_state {
 #define TRACKER_WIN_MATCHED   (1u << 1)
 #define TRACKER_WIN_UNMATCHED (1u << 2)
 
+/* What started a flush (tracker_flush_event.trigger) */
+enum tracker_flush_trigger {
+	TRACKER_TRIGGER_FULL = 0, /* every expected route arrived */
+	TRACKER_TRIGGER_TIMER,	  /* the tracker timer expired */
+};
+
+/* Added to the trigger when the flush waited for another flush on its NHG */
+#define TRACKER_TRIGGER_WAITED 0x80
+
+/* What a flush did to its parent NHG (tracker_flush_event.result) */
+enum tracker_flush_result {
+	TRACKER_RESULT_RUNNING = 0,    /* flush not complete yet */
+	TRACKER_RESULT_DELETES_ONLY,   /* only deletions parked */
+	TRACKER_RESULT_KEPT,	       /* no winner left to rework it */
+	TRACKER_RESULT_REWORK_PENDING, /* waiting for the first winner */
+	TRACKER_RESULT_REWORKED,       /* reworked in place */
+	TRACKER_RESULT_UNCHANGED,      /* already held the winner content */
+	TRACKER_RESULT_SKIPPED,	       /* reuse skipped by every winner */
+	TRACKER_RESULT_MERGED,	       /* result kept on a later flush */
+	TRACKER_RESULT_ABORTED,	       /* tracker freed before the flush completed */
+};
+
 /*
  * Per-NHG group entry used during flush to count REs per incoming NHG
  * and to map incoming NHG IDs back to the parent NHG for dplane ack tracking.
@@ -162,7 +185,21 @@ struct nhg_event_tracker {
 	 */
 	bool flushing;
 	enum tracker_flush_batch_state flush_state;
+	/* When flush_state last changed (monotime) */
+	struct timeval flush_state_time;
+	/* Creation time (monotime), for the flush event log */
+	struct timeval created_time;
+	/* enum tracker_flush_trigger, set before every flush attempt */
+	uint8_t flush_trigger;
+	/* Flush event log seq of this tracker's flush, 0 until it starts */
+	uint32_t log_seq;
 	uint32_t routes_pending;
+	/*
+	 * Phase-1 losers this tracker tagged, and the acks credited to it; a
+	 * loser handed over to another tracker counts as an ack here.
+	 */
+	uint32_t losers_tagged;
+	uint32_t losers_consumed;
 
 	/*
 	 * Winner metadata - computed by tracker_flush_build_groups and used by
@@ -290,6 +327,20 @@ extern void zebra_nhg_tracker_free(struct nhg_hash_entry *nhe, struct nhg_event_
 
 /* Release all tracker-held RIB route_node locks before table teardown. */
 extern void zebra_nhg_tracker_sweep_all(void);
+
+/* Flush event log (zrouter.tracker_counters.log) */
+extern void zebra_nhg_tracker_log_init(void);
+extern void zebra_nhg_tracker_log_fini(void);
+extern void zebra_nhg_tracker_log_resize(uint32_t size);
+extern const struct tracker_flush_event *zebra_nhg_tracker_log_get(uint32_t seq);
+/* Record the rework result of nhe's pending flush, if any */
+extern void zebra_nhg_tracker_log_result(struct nhg_hash_entry *nhe,
+					 enum tracker_flush_result result);
+
+extern const char *zebra_nhg_tracker_event_str(enum nhg_tracker_event event);
+extern const char *zebra_nhg_tracker_winner_str(uint8_t winner_flags);
+extern const char *zebra_nhg_tracker_trigger_str(uint8_t trigger);
+extern const char *zebra_nhg_tracker_result_str(uint8_t result);
 
 /* Drop trackers' parked routes of a VRF before its RIB tables are freed. */
 extern void zebra_nhg_tracker_vrf_disable(vrf_id_t vrf_id);
