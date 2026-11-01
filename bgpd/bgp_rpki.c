@@ -693,19 +693,22 @@ struct rpki_revalidate_prefix {
 static void rpki_revalidate_prefix(struct event *event)
 {
 	struct rpki_revalidate_prefix *rrp = EVENT_ARG(event);
-	struct bgp_dest *match, *node;
+	struct route_node *match, *rn;
+	struct bgp_dest *dest;
 
 	match = bgp_table_subtree_lookup(rrp->bgp->rib[rrp->afi][rrp->safi],
 					 &rrp->prefix);
 
-	node = match;
-
-	while (node) {
-		if (bgp_dest_has_bgp_path_info_data(node)) {
-			revalidate_bgp_node(rrp->bgp, node, rrp->afi, rrp->safi);
-		}
-
-		node = bgp_route_next_until(node, match);
+	/*
+	 * The subtree root may be a holder node without a bgp_dest, so walk
+	 * the route_nodes. Revalidate destinations that only have Adj-RIB-In
+	 * entries too: a path denied by inbound policy has no path info, and
+	 * must be re-evaluated in case it is no longer denied.
+	 */
+	for (rn = match; rn; rn = route_next_until(rn, match)) {
+		dest = bgp_dest_from_rnode(rn);
+		if (dest && (bgp_dest_has_bgp_path_info_data(dest) || dest->adj_in))
+			revalidate_bgp_node(rrp->bgp, dest, rrp->afi, rrp->safi);
 	}
 
 	XFREE(MTYPE_BGP_RPKI_REVALIDATE, rrp);
@@ -806,10 +809,9 @@ static void revalidate_bgp_node(struct bgp *bgp, struct bgp_dest *bgp_dest, afi_
 	uint8_t num_labels;
 
 	for (ain = bgp_dest->adj_in; ain; ain = ain->next) {
-		struct bgp_path_info *path = bgp_dest_get_bgp_path_info(bgp_dest);
-
-		num_labels = BGP_PATH_INFO_NUM_LABELS(path);
-		label = num_labels ? path->extra->labels->label : NULL;
+		/* There may be no path info if the route was denied */
+		num_labels = ain->labels ? ain->labels->num_labels : 0;
+		label = num_labels ? &ain->labels->label[0] : NULL;
 
 		(void)bgp_update(ain->peer, bgp_dest_get_prefix(bgp_dest), ain->addpath_rx_id,
 				 ain->attr, afi, safi, ZEBRA_ROUTE_BGP, BGP_ROUTE_NORMAL, NULL,
