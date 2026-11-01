@@ -3045,7 +3045,7 @@ static void bmp_active_connect(struct bmp_active *ba)
 			/* address with same family   */
 			/* Preserve the BGP VRF lookup unless a transport VRF is set. */
 			ifp = if_lookup_by_name(ba->ifsrc,
-						ba->vrfname ? vrf_id : ba->targets->bgp->vrf_id);
+									ba->vrfname ? vrf_id : ba->targets->bgp->vrf_id);
 			if (!ifp) {
 				zlog_warn("bmp[%s]: failed to find interface",
 					  ba->ifsrc);
