@@ -103,6 +103,13 @@ const struct frr_yang_module_info frr_isisd_info = {
 			},
 		},
 		{
+			.xpath = "/frr-isisd:isis/instance/flood-reduction",
+			.cbs = {
+				.cli_show = cli_show_isis_flood_reduction,
+				.modify = isis_instance_flood_reduction_modify,
+			},
+		},
+		{
 			.xpath = "/frr-isisd:isis/instance/admin-group-send-zero",
 			.cbs = {
 				.cli_show = cli_show_isis_admin_group_send_zero,

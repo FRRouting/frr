@@ -1267,6 +1267,15 @@ module frr-isisd {
           "RFC6232";
       }
 
+      leaf flood-reduction {
+        type boolean;
+        default "false";
+        description
+          "Enable distributed flooding reduction.";
+        reference
+          "draft-ietf-lsr-distoptflood";
+      }
+
       leaf advertise-passive-only {
         type boolean;
         default "false";

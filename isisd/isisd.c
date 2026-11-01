@@ -45,6 +45,7 @@
 #include "isisd/isis_constants.h"
 #include "isisd/isis_lsp.h"
 #include "isisd/isis_spf.h"
+#include "isisd/isis_flood_reduction.h"
 #include "isisd/isis_route.h"
 #include "isisd/isis_zebra.h"
 #include "isisd/isis_events.h"
@@ -593,6 +594,9 @@ void isis_area_destroy(struct isis_area *area)
 #endif /* ifndef FABRICD */
 
 	spftree_area_del(area);
+
+	isis_fr_graph_free(&area->fr_graph[0]);
+	isis_fr_graph_free(&area->fr_graph[1]);
 
 	if (event_is_scheduled(area->spf_timer[0]))
 		isis_spf_timer_free(EVENT_ARG(area->spf_timer[0]));

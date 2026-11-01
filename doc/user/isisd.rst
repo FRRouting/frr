@@ -106,6 +106,12 @@ writing, *isisd* does not support multiple ISIS processes.
 
    Enable or disable :rfc:`6232` purge originator identification.
 
+.. clicmd:: flood-reduction
+   :daemon: isisd
+
+   Enable or disable distributed flooding reduction as described in
+   draft-ietf-lsr-distoptflood. Disabled by default.
+
 .. clicmd:: lsp-mtu (128-4352)
 
    Configure the maximum size of generated LSPs, in bytes.

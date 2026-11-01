@@ -1,8 +1,9 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
-/*
+/**
  * IS-IS Distributed Flooding Reduction (draft-ietf-lsr-distoptflood)
- *
  * Topology snapshot and per-LSP flooding decision (section 1.2.3).
+ *
+ * Copyright 2026 Russ White, Nokia
  */
 
 #include <zebra.h>
@@ -22,8 +23,7 @@ DEFINE_MTYPE_STATIC(ISISD, ISIS_FR_DATA, "ISIS flood reduction data");
 #define FR_NONE UINT_MAX
 
 struct isis_fr_graph {
-	/* Number of (non-pseudonode) intermediate systems. */
-	unsigned int n;
+	unsigned int is_count;
 	/* System IDs, sorted; the index into this array is the node ID. */
 	uint8_t (*sysid)[ISIS_SYS_ID_LEN];
 	/* Two-way links in CSR form: neighbors of i are
@@ -33,8 +33,6 @@ struct isis_fr_graph {
 	unsigned int *adj;
 	/* Per-root hop-count distance arrays, computed on demand. */
 	unsigned int **dist;
-
-	/* Scratch space reused by isis_fr_decide(). */
 	unsigned int *queue;
 	uint8_t *mark;
 	uint8_t *visited;
@@ -247,7 +245,7 @@ struct isis_fr_graph *isis_fr_graph_build(struct lspdb_head *lspdb)
 	}
 
 	/* Pack into the final graph. */
-	g->n = n;
+	g->is_count = n;
 	g->sysid = XCALLOC(MTYPE_ISIS_FR_DATA, (n ? n : 1) * sizeof(*g->sysid));
 	g->adj_off = XCALLOC(MTYPE_ISIS_FR_DATA, (n + 1) * sizeof(*g->adj_off));
 	for (i = 0; i < b.count; i++) {
@@ -291,7 +289,7 @@ void isis_fr_graph_free(struct isis_fr_graph **graph)
 	if (!g)
 		return;
 
-	for (unsigned int i = 0; i < g->n; i++)
+	for (unsigned int i = 0; i < g->is_count; i++)
 		XFREE(MTYPE_ISIS_FR_DATA, g->dist[i]);
 	XFREE(MTYPE_ISIS_FR_DATA, g->dist);
 	XFREE(MTYPE_ISIS_FR_DATA, g->sysid);
@@ -306,7 +304,7 @@ void isis_fr_graph_free(struct isis_fr_graph **graph)
 
 unsigned int isis_fr_graph_node_count(const struct isis_fr_graph *graph)
 {
-	return graph->n;
+	return graph->is_count;
 }
 
 /*
@@ -322,7 +320,7 @@ static unsigned int fr_node_find(const struct isis_fr_graph *g, const uint8_t *s
 {
 	const uint8_t(*p)[ISIS_SYS_ID_LEN];
 
-	p = bsearch(sysid, g->sysid, g->n, sizeof(*g->sysid), fr_sysid_key_cmp);
+	p = bsearch(sysid, g->sysid, g->is_count, sizeof(*g->sysid), fr_sysid_key_cmp);
 	return p ? (unsigned int)(p - g->sysid) : FR_NONE;
 }
 
@@ -339,8 +337,8 @@ static const unsigned int *fr_dist(struct isis_fr_graph *g, unsigned int root)
 	if (g->dist[root])
 		return g->dist[root];
 
-	dist = XMALLOC(MTYPE_ISIS_FR_DATA, g->n * sizeof(*dist));
-	for (unsigned int i = 0; i < g->n; i++)
+	dist = XMALLOC(MTYPE_ISIS_FR_DATA, g->is_count * sizeof(*dist));
+	for (unsigned int i = 0; i < g->is_count; i++)
 		dist[i] = FR_INF;
 
 	dist[root] = 0;
@@ -460,7 +458,7 @@ enum isis_fr_verdict isis_fr_decide(struct isis_fr_graph *g, const uint8_t *loca
 	 */
 	if (oi != FR_NONE)
 		fr_mark_on_shortest_paths(g, dtn, oi, 2, g->mark);
-	for (unsigned int x = 0; x < g->n; x++) {
+	for (unsigned int x = 0; x < g->is_count; x++) {
 		if (dtn[x] != 2)
 			continue;
 		if (x == oi)
@@ -473,13 +471,13 @@ enum isis_fr_verdict isis_fr_decide(struct isis_fr_graph *g, const uint8_t *loca
 		remaining++;
 	}
 	decision->thl_count = remaining;
-	memset(g->mark, 0, g->n);
+	memset(g->mark, 0, g->is_count);
 
 	/* Step 1D and 2: Remote Neighbor List, sorted by system ID (node
 	 * indices are already in system ID order).
 	 */
 	rnl = g->queue;
-	for (unsigned int x = 0; x < g->n; x++) {
+	for (unsigned int x = 0; x < g->is_count; x++) {
 		if (dtn[x] == 1)
 			rnl[rnl_count++] = x;
 	}
@@ -541,8 +539,8 @@ enum isis_fr_verdict isis_fr_decide(struct isis_fr_graph *g, const uint8_t *loca
 			decision->suppressed++;
 	}
 
-	memset(g->mark, 0, g->n);
-	memset(g->need, 0, g->n);
+	memset(g->mark, 0, g->is_count);
+	memset(g->need, 0, g->is_count);
 
 	decision->verdict = ISIS_FR_REDUCED;
 	return ISIS_FR_REDUCED;

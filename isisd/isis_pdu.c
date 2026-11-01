@@ -831,6 +831,19 @@ out:
 	return retval;
 }
 
+/* System ID of the neighbor an LSP was received from, if known. */
+static const uint8_t *lsp_tn_sysid(struct isis_circuit *circuit, const uint8_t *ssnpa, int level)
+{
+	struct isis_adjacency *adj;
+
+	if (circuit->circ_type == CIRCUIT_T_BROADCAST)
+		adj = isis_adj_lookup_snpa(ssnpa, circuit->u.bc.adjdb[level - 1]);
+	else
+		adj = circuit->u.p2p.neighbor;
+
+	return adj ? adj->sysid : NULL;
+}
+
 static void lsp_flood_or_update(struct isis_lsp *lsp,
 				struct isis_circuit *circuit,
 				bool circuit_scoped)
@@ -1284,7 +1297,11 @@ dontcheckadj:
 					   circuit->area, level, false);
 				tlvs = NULL;
 			}
-			lsp_flood_or_update(lsp, circuit, circuit_scoped);
+			if (!fabricd && !circuit_scoped && circuit->area->flood_reduction)
+				lsp_flood_reduced(lsp, circuit,
+						  lsp_tn_sysid(circuit, ssnpa, level));
+			else
+				lsp_flood_or_update(lsp, circuit, circuit_scoped);
 
 			/* iv */
 			if (circuit->circ_type != CIRCUIT_T_BROADCAST)

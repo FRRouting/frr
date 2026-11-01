@@ -7,6 +7,8 @@
  * knowledge of circuits or transmit queues: callers hand it the set of
  * neighbors the local IS has up adjacencies with, and it tells them
  * which of those neighbors the received LSP must be re-flooded to.
+ *
+ * Copyright 2026 Russ White, Nokia
  */
 
 #ifndef ISIS_FLOOD_REDUCTION_H
