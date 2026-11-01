@@ -2562,10 +2562,13 @@ static void ospf_ls_upd(struct ospf *ospf, struct ip *iph,
 				} else {
 					/* ospf_lsa_refresh() increments the sequence number as it
 					 * re-originates, which lands it one past the received one.
+					 * Schedule it through MinLSInterval pacing (RFC 2328
+					 * Section 12.4) so a rapid stream of forged
+					 * self-originated LSAs cannot turn the fight-back into
+					 * an unbounded refresh/flooding storm.
 					 */
-					current->data->ls_seqnum = lsa->data->ls_seqnum;
-					ospf_lsa_checksum(current->data);
-					ospf_lsa_refresh(oi->ospf, current);
+					ospf_lsa_fightback_schedule(oi->ospf, current,
+								    lsa->data->ls_seqnum);
 					DISCARD_LSA(lsa, 10);
 					continue;
 				}
