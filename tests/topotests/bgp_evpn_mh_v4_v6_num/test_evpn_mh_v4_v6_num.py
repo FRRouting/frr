@@ -45,6 +45,14 @@ sys.path.append(os.path.join(CWD, "../"))
 # Import topogen and topotest helpers
 from lib import topotest
 from lib.common_config import kill_router_daemons, start_router_daemons
+from lib.evpn import (
+    evpn_verify_bgp_es_vtep,
+    evpn_verify_df_role,
+    evpn_verify_es_kernel_nexthop,
+    evpn_verify_mh_mac,
+    evpn_verify_protodown_reason,
+    evpn_verify_zebra_es_vtep,
+)
 
 # Required to instantiate the topology builder class.
 from lib.topogen import Topogen, TopoRouter, get_topogen
@@ -1008,7 +1016,10 @@ def tgen_and_ip_version(request):
 
 def check_local_es(esi, vtep_ips, dut_name, down_vteps):
     """
-    Check if ES peers are setup correctly on local ESs
+    Compare a local ES VTEP list with this topology's rack peers.
+
+    A single VTEP, DF role, or kernel nexthop belongs in lib.evpn. This
+    helper stays here because it knows which ToRs share a rack.
     """
     peer_ips = []
     if "torm1" in dut_name:
@@ -1120,71 +1131,6 @@ def check_one_es(dut, esi, down_vteps):
     return result
 
 
-def _check_es_vtep(dut, esi, vtep_ip, expected_present, command, vtep_key, source):
-    """
-    Check one remote ES VTEP in the specified producer's JSON output.
-
-    bgpd and zebra expose the same ES state through different commands and
-    VTEP field names. Keeping the producer in the error makes a disagreement
-    between bgpd and zebra visible in a failed regression test.
-    """
-    output = dut.vtysh_cmd(command % esi)
-    es = json.loads(output)
-
-    if not es:
-        if expected_present:
-            return "%s missing ES %s while expecting VTEP %s" % (
-                source,
-                esi,
-                vtep_ip,
-            )
-        return None
-
-    vtep_ips = [vtep[vtep_key] for vtep in es.get("vteps", []) if vtep_key in vtep]
-    present = vtep_ip in vtep_ips
-    if present == expected_present:
-        return None
-
-    expectation = "present" if expected_present else "absent"
-    return "%s ES %s VTEPs %s; expected %s to be %s" % (
-        source,
-        esi,
-        vtep_ips,
-        vtep_ip,
-        expectation,
-    )
-
-
-def check_bgpd_es_vtep(dut, esi, vtep_ip, expected_present):
-    """
-    Check bgpd's ES VTEP list, which serializes each VTEP as ``vtep_ip``.
-    """
-    return _check_es_vtep(
-        dut,
-        esi,
-        vtep_ip,
-        expected_present,
-        "show bgp l2vpn evpn es %s json",
-        "vtep_ip",
-        "bgpd",
-    )
-
-
-def check_zebra_es_vtep(dut, esi, vtep_ip, expected_present):
-    """
-    Check zebra's ES VTEP list, which serializes each VTEP as ``vtep``.
-    """
-    return _check_es_vtep(
-        dut,
-        esi,
-        vtep_ip,
-        expected_present,
-        "show evpn es %s json",
-        "vtep",
-        "zebra",
-    )
-
-
 def test_evpn_es(tgen_and_ip_version):
     """
     Two ES are setup on each rack. This test checks if -
@@ -1256,9 +1202,9 @@ def test_evpn_mh_peer_withdraw_during_bgpd_restart(tgen_and_ip_version):
     A peer EAD withdrawal while bgpd is down must remove its ES VTEP in zebra.
 
     zebra stays alive on torm12 while its bgpd is stopped. torm11 then withdraws
-    the Type-1/EAD for hostd11. On restart, bgpd has no remote peer VTEP left,
-    and zebra must converge to that same state rather than retaining a stale
-    VTEP, ES L2 nexthop group, split-horizon entry, or non-DF role.
+    the Type-1/EAD for hostd11. Before the trigger, during the outage, and
+    after bgpd returns, bgpd, zebra, and the kernel FDB nexthop must agree on
+    that VTEP. The victim must finish as DF.
     """
     tgen, ip_version = tgen_and_ip_version
 
@@ -1278,12 +1224,20 @@ def test_evpn_mh_peer_withdraw_during_bgpd_restart(tgen_and_ip_version):
     peer_link_down = False
 
     try:
-        # Both daemons must first agree that the local ES on torm12 has its
-        # torm11 peer. The regression below is meaningful only from this state.
-        for check in (check_bgpd_es_vtep, check_zebra_es_vtep):
+        # Both daemons and the kernel must first agree that torm12's local ES
+        # still has its torm11 peer, and that torm12 is the non-DF.
+        for check in (
+            evpn_verify_bgp_es_vtep,
+            evpn_verify_zebra_es_vtep,
+            evpn_verify_es_kernel_nexthop,
+        ):
             test_fn = partial(check, victim, esi, peer_vtep, True)
             _, result = topotest.run_and_expect(test_fn, None, count=20, wait=3)
             assert result is None, "before bgpd stop: %s" % (result,)
+
+        test_fn = partial(evpn_verify_df_role, victim, esi, "nonDF")
+        _, result = topotest.run_and_expect(test_fn, None, count=20, wait=3)
+        assert result is None, "before bgpd stop: %s" % (result,)
 
         # Keep zebra running. Its BGP client-close cleanup is the behavior
         # under test, so restarting zebra would discard the stale state.
@@ -1296,29 +1250,38 @@ def test_evpn_mh_peer_withdraw_during_bgpd_restart(tgen_and_ip_version):
         peer_link_down = True
 
         # A live remote observer proves torm11's EAD withdrawal reached the
-        # EVPN fabric before bgpd on the victim is restarted. Killing the
-        # victim also withdraws its own EAD, so only require the leaving
-        # torm11 VTEP to disappear from the observer.
-        test_fn = partial(check_bgpd_es_vtep, observer, esi, peer_vtep, False)
+        # EVPN fabric. The victim's bgpd is down, so its zebra and kernel are
+        # the producers that must already have dropped the VTEP.
+        test_fn = partial(evpn_verify_bgp_es_vtep, observer, esi, peer_vtep, False)
         _, result = topotest.run_and_expect(test_fn, None, count=20, wait=3)
         assert result is None, "peer EAD withdrawal did not converge: %s" % (result,)
+
+        for check in (evpn_verify_zebra_es_vtep, evpn_verify_es_kernel_nexthop):
+            test_fn = partial(check, victim, esi, peer_vtep, False)
+            _, result = topotest.run_and_expect(test_fn, None, count=20, wait=3)
+            assert result is None, "during bgpd stop: %s" % (result,)
+
+        test_fn = partial(evpn_verify_df_role, victim, esi, "DF")
+        _, result = topotest.run_and_expect(test_fn, None, count=20, wait=3)
+        assert result is None, "during bgpd stop: %s" % (result,)
 
         start_router_daemons(tgen, victim_name, ["bgpd"])
         bgpd_stopped = False
 
-        # bgpd should rebuild without the withdrawn peer. The critical
-        # regression assertion is that zebra drops the same VTEP as well.
-        test_fn = partial(check_bgpd_es_vtep, victim, esi, peer_vtep, False)
-        _, result = topotest.run_and_expect(test_fn, None, count=30, wait=2)
-        assert result is None, "bgpd retained withdrawn ES VTEP: %s" % (result,)
+        # The new bgpd relearns the withdrawn EAD and must not put the VTEP
+        # back. zebra and the kernel must still agree, and the victim stays DF.
+        for check in (
+            evpn_verify_bgp_es_vtep,
+            evpn_verify_zebra_es_vtep,
+            evpn_verify_es_kernel_nexthop,
+        ):
+            test_fn = partial(check, victim, esi, peer_vtep, False)
+            _, result = topotest.run_and_expect(test_fn, None, count=30, wait=2)
+            assert result is None, "after bgpd restart: %s" % (result,)
 
-        test_fn = partial(check_zebra_es_vtep, victim, esi, peer_vtep, False)
+        test_fn = partial(evpn_verify_df_role, victim, esi, "DF")
         _, result = topotest.run_and_expect(test_fn, None, count=30, wait=2)
-        assert result is None, "zebra retained stale ES VTEP: %s" % (result,)
-
-        test_fn = partial(check_df_role, victim, esi, "DF")
-        _, result = topotest.run_and_expect(test_fn, None, count=30, wait=2)
-        assert result is None, "victim did not become DF: %s" % (result,)
+        assert result is None, "after bgpd restart: %s" % (result,)
     finally:
         # Restore both daemons and the access link even when the stale-VTEP
         # assertion fails, so later tests start from the original topology.
@@ -1349,33 +1312,10 @@ def ping_anycast_gw(tgen):
 
 
 def check_mac(dut, vni, mac, m_type, esi, intf, ping_gw=False, tgen=None):
-    """
-    checks if mac is present and if desination matches the one provided
-    """
-
+    """Refresh host MACs when asked, then use the shared MH MAC check."""
     if ping_gw:
         ping_anycast_gw(tgen)
-
-    out = dut.vtysh_cmd("show evpn mac vni %d mac %s json" % (vni, mac))
-
-    tmp_esi = None
-    mac_js = json.loads(out)
-    for mac, info in mac_js.items():
-        tmp_esi = info.get("esi", "")
-        tmp_m_type = info.get("type", "")
-        tmp_intf = info.get("intf", "") if tmp_m_type == "local" else ""
-        if tmp_esi == esi and tmp_m_type == m_type and tmp_intf == intf:
-            return None
-
-    return "invalid vni %d mac %s expected esi %s, %s m_type %s and intf %s out %s" % (
-        vni,
-        mac,
-        tmp_esi,
-        esi,
-        m_type,
-        intf,
-        mac_js,
-    )
+    return evpn_verify_mh_mac(dut, vni, mac, m_type, esi, intf)
 
 
 def test_evpn_mac(tgen_and_ip_version):
@@ -1423,25 +1363,6 @@ def test_evpn_mac(tgen_and_ip_version):
         assert result is None, assertmsg
 
 
-def check_df_role(dut, esi, role):
-    """
-    Return error string if the df role on the dut is different
-    """
-    es_json = dut.vtysh_cmd("show evpn es %s json" % esi)
-    es = json.loads(es_json)
-
-    if not es:
-        return "esi %s not found" % esi
-
-    flags = es.get("flags", [])
-    curr_role = "nonDF" if "nonDF" in flags else "DF"
-
-    if curr_role != role:
-        return "%s is %s for %s" % (dut.name, curr_role, esi)
-
-    return None
-
-
 def test_evpn_df(tgen_and_ip_version):
     """
     1. Check the DF role on all the PEs on rack-1.
@@ -1466,7 +1387,7 @@ def test_evpn_df(tgen_and_ip_version):
     # check roles on rack-1
     for tor in tors:
         role = "DF" if tor.name == df_node else "nonDF"
-        test_fn = partial(check_df_role, tor, esi, role)
+        test_fn = partial(evpn_verify_df_role, tor, esi, role)
         _, result = topotest.run_and_expect(test_fn, None, count=20, wait=3)
         assertmsg = '"{}" DF role incorrect'.format(tor.name)
         assert result is None, assertmsg
@@ -1479,30 +1400,10 @@ def test_evpn_df(tgen_and_ip_version):
     # re-check roles on rack-1; we should have a new winner
     for tor in tors:
         role = "DF" if tor.name == df_node else "nonDF"
-        test_fn = partial(check_df_role, tor, esi, role)
+        test_fn = partial(evpn_verify_df_role, tor, esi, role)
         _, result = topotest.run_and_expect(test_fn, None, count=20, wait=3)
         assertmsg = '"{}" DF role incorrect'.format(tor.name)
         assert result is None, assertmsg
-
-
-def check_protodown_rc(dut, protodown_rc):
-    """
-    check if specified protodown reason code is set
-    """
-
-    out = dut.vtysh_cmd("show evpn json")
-
-    evpn_js = json.loads(out)
-    tmp_rc = evpn_js.get("protodownReasons", [])
-
-    if protodown_rc:
-        if protodown_rc not in tmp_rc:
-            return "protodown %s missing in %s" % (protodown_rc, tmp_rc)
-    else:
-        if tmp_rc:
-            return "unexpected protodown rc %s" % (tmp_rc)
-
-    return None
 
 
 def test_evpn_uplink_tracking(tgen_and_ip_version):
@@ -1519,7 +1420,7 @@ def test_evpn_uplink_tracking(tgen_and_ip_version):
     dut = tgen.gears[dut_name]
 
     # wait for protodown rc to clear after startup
-    test_fn = partial(check_protodown_rc, dut, None)
+    test_fn = partial(evpn_verify_protodown_reason, dut, None)
     _, result = topotest.run_and_expect(test_fn, None, count=20, wait=3)
     assertmsg = '"{}" protodown rc incorrect'.format(dut_name)
     assert result is None, assertmsg
@@ -1529,7 +1430,7 @@ def test_evpn_uplink_tracking(tgen_and_ip_version):
     dut.run("ip link set %s-eth1 down" % dut_name)
 
     # check if the access ports have been protodowned
-    test_fn = partial(check_protodown_rc, dut, "uplinkDown")
+    test_fn = partial(evpn_verify_protodown_reason, dut, "uplinkDown")
     _, result = topotest.run_and_expect(test_fn, None, count=20, wait=3)
     assertmsg = '"{}" protodown rc incorrect'.format(dut_name)
     assert result is None, assertmsg
@@ -1539,7 +1440,7 @@ def test_evpn_uplink_tracking(tgen_and_ip_version):
     dut.run("ip link set %s-eth1 up" % dut_name)
 
     # check if the access ports have been moved out of protodown
-    test_fn = partial(check_protodown_rc, dut, None)
+    test_fn = partial(evpn_verify_protodown_reason, dut, None)
     _, result = topotest.run_and_expect(test_fn, None, count=20, wait=3)
     assertmsg = '"{}" protodown rc incorrect'.format(dut_name)
     assert result is None, assertmsg

@@ -34,6 +34,20 @@ sys.path.append(os.path.join(CWD, "../"))
 # Import topogen and topotest helpers
 from lib import topotest
 from lib.common_config import kill_router_daemons, start_router_daemons
+from lib.evpn import (
+    evpn_bgp_es,
+    evpn_bgp_rd_paths,
+    evpn_verify_bgp_es_local,
+    evpn_verify_bgp_es_vtep,
+    evpn_verify_bgp_instance_absent,
+    evpn_verify_df_role,
+    evpn_verify_local_es_evi,
+    evpn_verify_mac_route,
+    evpn_verify_mh_mac,
+    evpn_verify_protodown_reason,
+    evpn_verify_type4_origin_absent,
+    evpn_verify_type4_route,
+)
 
 # Required to instantiate the topology builder class.
 from lib.topogen import Topogen, TopoRouter, get_topogen
@@ -434,7 +448,10 @@ def teardown_module(_mod):
 
 def check_local_es(esi, vtep_ips, dut_name, down_vteps):
     """
-    Check if ES peers are setup correctly on local ESs
+    Compare a local ES VTEP list with this topology's rack peers.
+
+    A single VTEP, DF role, or kernel nexthop belongs in lib.evpn. This
+    helper stays here because it knows which ToRs share a rack.
     """
     peer_ips = []
     if "torm1" in dut_name:
@@ -546,88 +563,6 @@ def check_one_es(dut, esi, down_vteps):
     return result
 
 
-def parse_es_detail(output):
-    sections = {}
-    esi = None
-
-    for line in output.splitlines():
-        line = line.strip()
-        if not line:
-            continue
-
-        if line.startswith("ESI:"):
-            esi = line.split(":", 1)[1].strip()
-            sections[esi] = {}
-            continue
-
-        if esi and ":" in line:
-            key, value = line.split(":", 1)
-            sections[esi][key.strip()] = value.strip()
-
-    return sections
-
-
-def check_local_es_evi_count(dut, expected_esis):
-    zebra_es = parse_es_detail(dut.vtysh_cmd("show evpn es detail"))
-    bgp_es = {
-        es["esi"]: es
-        for es in json.loads(dut.vtysh_cmd("show bgp l2vpn evpn es detail json"))
-    }
-
-    for esi in expected_esis:
-        zebra_detail = zebra_es.get(esi)
-        if zebra_detail is None:
-            return "zebra missing local ES %s" % esi
-
-        zebra_type = zebra_detail.get("Type", "")
-        if "Local" not in zebra_type:
-            return "zebra ES %s is not local: %s" % (esi, zebra_type)
-
-        ready = zebra_detail.get("Ready for BGP", "")
-        if ready != "yes":
-            return "zebra ES %s is not ready for BGP: %s" % (esi, ready)
-
-        zebra_vni_count = int(zebra_detail.get("VNI Count", "0"))
-        if zebra_vni_count == 0:
-            return "zebra ES %s has zero VNI count" % esi
-
-        bgp_detail = bgp_es.get(esi)
-        if bgp_detail is None:
-            return "bgpd missing local ES %s" % esi
-
-        bgp_type = bgp_detail.get("type", [])
-        if "local" not in bgp_type:
-            return "bgpd ES %s is not local: %s" % (esi, bgp_type)
-
-        bgp_vni_count = bgp_detail.get("vniCount", 0)
-        if bgp_vni_count != zebra_vni_count:
-            return "ES %s VNI count mismatch: zebra %s bgpd %s" % (
-                esi,
-                zebra_vni_count,
-                bgp_vni_count,
-            )
-
-        bgp_rd = bgp_detail.get("rd")
-        local_frag = None
-        for frag in bgp_detail.get("fragments", []):
-            if frag.get("rd") == bgp_rd:
-                local_frag = frag
-                break
-
-        if local_frag is None:
-            return "bgpd ES %s missing local fragment %s" % (esi, bgp_rd)
-
-        bgp_evi_count = local_frag.get("eviCount", 0)
-        if bgp_evi_count != zebra_vni_count:
-            return "ES %s local EVI count mismatch: zebra VNI %s bgpd local EVI %s" % (
-                esi,
-                zebra_vni_count,
-                bgp_evi_count,
-            )
-
-    return None
-
-
 def check_type1_routes(peer, origin_name, expected_esis):
     origin_vtep = tor_ips[origin_name]
     out = peer.vtysh_cmd("show bgp l2vpn evpn route type 1")
@@ -680,7 +615,7 @@ def test_evpn_mh_bgpd_restart_replays_local_es_evi():
     peer = tgen.gears["torm12"]
     local_esis = [host_es_map["hostd11"], host_es_map["hostd12"]]
 
-    test_fn = partial(check_local_es_evi_count, dut, local_esis)
+    test_fn = partial(evpn_verify_local_es_evi, dut, local_esis)
     _, result = topotest.run_and_expect(test_fn, None, count=20, wait=3)
     assertmsg = '"{}" local ES-EVI count incorrect before bgpd restart'.format(dut_name)
     assert result is None, assertmsg
@@ -693,7 +628,7 @@ def test_evpn_mh_bgpd_restart_replays_local_es_evi():
     kill_router_daemons(tgen, dut_name, ["bgpd"])
     start_router_daemons(tgen, dut_name, ["bgpd"])
 
-    test_fn = partial(check_local_es_evi_count, dut, local_esis)
+    test_fn = partial(evpn_verify_local_es_evi, dut, local_esis)
     _, result = topotest.run_and_expect(test_fn, None, count=30, wait=2)
     assertmsg = (
         '"{}" bgpd did not recover local ES-EVI count after restart: {}'
@@ -780,33 +715,10 @@ def ping_anycast_gw(tgen):
 
 
 def check_mac(dut, vni, mac, m_type, esi, intf, ping_gw=False, tgen=None):
-    """
-    checks if mac is present and if desination matches the one provided
-    """
-
+    """Refresh host MACs when asked, then use the shared MH MAC check."""
     if ping_gw:
         ping_anycast_gw(tgen)
-
-    out = dut.vtysh_cmd("show evpn mac vni %d mac %s json" % (vni, mac))
-
-    tmp_esi = None
-    mac_js = json.loads(out)
-    for mac, info in mac_js.items():
-        tmp_esi = info.get("esi", "")
-        tmp_m_type = info.get("type", "")
-        tmp_intf = info.get("intf", "") if tmp_m_type == "local" else ""
-        if tmp_esi == esi and tmp_m_type == m_type and tmp_intf == intf:
-            return None
-
-    return "invalid vni %d mac %s expected esi %s, %s m_type %s and intf %s out %s" % (
-        vni,
-        mac,
-        tmp_esi,
-        esi,
-        m_type,
-        intf,
-        mac_js,
-    )
+    return evpn_verify_mh_mac(dut, vni, mac, m_type, esi, intf)
 
 
 def test_evpn_mac():
@@ -854,25 +766,6 @@ def test_evpn_mac():
         assert result is None, assertmsg
 
 
-def check_df_role(dut, esi, role):
-    """
-    Return error string if the df role on the dut is different
-    """
-    es_json = dut.vtysh_cmd("show evpn es %s json" % esi)
-    es = json.loads(es_json)
-
-    if not es:
-        return "esi %s not found" % esi
-
-    flags = es.get("flags", [])
-    curr_role = "nonDF" if "nonDF" in flags else "DF"
-
-    if curr_role != role:
-        return "%s is %s for %s" % (dut.name, curr_role, esi)
-
-    return None
-
-
 def test_evpn_df():
     """
     1. Check the DF role on all the PEs on rack-1.
@@ -897,7 +790,7 @@ def test_evpn_df():
     # check roles on rack-1
     for tor in tors:
         role = "DF" if tor.name == df_node else "nonDF"
-        test_fn = partial(check_df_role, tor, esi, role)
+        test_fn = partial(evpn_verify_df_role, tor, esi, role)
         _, result = topotest.run_and_expect(test_fn, None, count=20, wait=3)
         assertmsg = '"{}" DF role incorrect'.format(tor.name)
         assert result is None, assertmsg
@@ -910,53 +803,12 @@ def test_evpn_df():
     # re-check roles on rack-1; we should have a new winner
     for tor in tors:
         role = "DF" if tor.name == df_node else "nonDF"
-        test_fn = partial(check_df_role, tor, esi, role)
+        test_fn = partial(evpn_verify_df_role, tor, esi, role)
         _, result = topotest.run_and_expect(test_fn, None, count=20, wait=3)
         assertmsg = '"{}" DF role incorrect'.format(tor.name)
         assert result is None, assertmsg
 
     # tgen.mininet_cli()
-
-
-def check_remote_es_vtep_present(dut, esi, vtep_ip):
-    """
-    Return None if vtep_ip is found in the ES VTEP list, else error string.
-    """
-    bgp_es = dut.vtysh_cmd(f"show bgp l2vp evpn es {esi} json")
-    es = json.loads(bgp_es)
-
-    if not es:
-        return f"esi {esi} not found"
-
-    vtep_ips = []
-    for vtep in es.get("vteps", []):
-        vtep_ips.append(vtep["vtep_ip"])
-
-    if vtep_ip in vtep_ips:
-        return None
-
-    return f"vtep {vtep_ip} not in ES {esi} vteps {vtep_ips}"
-
-
-def check_remote_es_vtep_absent(dut, esi, vtep_ip):
-    """
-    Return None if vtep_ip is NOT in the ES VTEP list, else error string.
-    """
-    bgp_es = dut.vtysh_cmd(f"show bgp l2vp evpn es {esi} json")
-    es = json.loads(bgp_es)
-
-    if not es:
-        # ES gone entirely means vtep is absent
-        return None
-
-    vtep_ips = []
-    for vtep in es.get("vteps", []):
-        vtep_ips.append(vtep["vtep_ip"])
-
-    if vtep_ip not in vtep_ips:
-        return None
-
-    return f"stale vtep {vtep_ip} still in ES {esi} vteps {vtep_ips}"
 
 
 def test_evpn_vtep_change():
@@ -992,30 +844,17 @@ def test_evpn_vtep_change():
     remote_tor.run(f"ip addr add {secondary_vtep}/32 dev lo")
 
     # 2. Verify primary VTEP is present initially
-    test_fn = partial(check_remote_es_vtep_present, dut, esi, primary_vtep)
+    test_fn = partial(evpn_verify_bgp_es_vtep, dut, esi, primary_vtep, True)
     _, result = topotest.run_and_expect(test_fn, None, count=20, wait=3)
     assertmsg = f"torm11: primary VTEP {primary_vtep} not found in ES {esi} initially"
     assert result is None, assertmsg
-
-    # Helper to check that NO Type-4 (ES) route with the given IP exists.
-    # Returns None if no Type-4 prefix contains stale_ip, error string otherwise.
-    def check_type4_ip_not_present(node, stale_ip):
-        output = node.vtysh_cmd("show bgp l2vpn evpn route type es json")
-        data = json.loads(output)
-        for rd_key, rd_data in data.items():
-            if not isinstance(rd_data, dict):
-                continue
-            for key in rd_data.keys():
-                if key.startswith("[4]:") and stale_ip in key:
-                    return f"Type-4 route with stale IP {stale_ip} still present: {key}"
-        return None
 
     # 3. Switch VTEP from primary to secondary (vxlan local IP change
     #    triggers zebra to update ES originator IP and BGP re-advertises)
     remote_tor.run(f"ip link set dev vx-1000 type vxlan local {secondary_vtep}")
 
     # 4.1 Verify new VTEP appears and old VTEP is removed
-    test_fn = partial(check_remote_es_vtep_present, dut, esi, secondary_vtep)
+    test_fn = partial(evpn_verify_bgp_es_vtep, dut, esi, secondary_vtep, True)
     _, result = topotest.run_and_expect(test_fn, None, count=30, wait=3)
     assertmsg = (
         f"torm11: secondary VTEP {secondary_vtep} not found in ES {esi} after switch"
@@ -1023,13 +862,13 @@ def test_evpn_vtep_change():
     assert result is None, assertmsg
 
     # 4.2 Verify Type-4 route with old(primary IP) is gone on dut
-    test_fn = partial(check_type4_ip_not_present, dut, primary_vtep)
+    test_fn = partial(evpn_verify_type4_origin_absent, dut, primary_vtep)
     _, result = topotest.run_and_expect(test_fn, None, count=30, wait=3)
     assert (
         result is None
     ), f"torm11: {result} (stale Type-4 with primary IP after tunnel IP change)"
 
-    test_fn = partial(check_remote_es_vtep_absent, dut, esi, primary_vtep)
+    test_fn = partial(evpn_verify_bgp_es_vtep, dut, esi, primary_vtep, False)
     _, result = topotest.run_and_expect(test_fn, None, count=30, wait=3)
     assertmsg = f"torm11: stale VTEP {primary_vtep} still in ES {esi} after switch"
     assert result is None, assertmsg
@@ -1038,45 +877,25 @@ def test_evpn_vtep_change():
     remote_tor.run(f"ip link set dev vx-1000 type vxlan local {primary_vtep}")
 
     # Verify restored
-    test_fn = partial(check_remote_es_vtep_present, dut, esi, primary_vtep)
+    test_fn = partial(evpn_verify_bgp_es_vtep, dut, esi, primary_vtep, True)
     _, result = topotest.run_and_expect(test_fn, None, count=30, wait=3)
     assertmsg = f"torm11: primary VTEP {primary_vtep} not restored in ES {esi}"
     assert result is None, assertmsg
 
     # Verify Type-4 route with old(secondary IP) is gone on dut after restore
-    test_fn = partial(check_type4_ip_not_present, dut, secondary_vtep)
+    test_fn = partial(evpn_verify_type4_origin_absent, dut, secondary_vtep)
     _, result = topotest.run_and_expect(test_fn, None, count=30, wait=3)
     assert (
         result is None
     ), f"torm11: {result} (stale Type-4 with secondary IP after restore)"
 
-    test_fn = partial(check_remote_es_vtep_absent, dut, esi, secondary_vtep)
+    test_fn = partial(evpn_verify_bgp_es_vtep, dut, esi, secondary_vtep, False)
     _, result = topotest.run_and_expect(test_fn, None, count=30, wait=3)
     assertmsg = f"torm11: stale VTEP {secondary_vtep} still in ES {esi} after restore"
     assert result is None, assertmsg
 
     # Cleanup: remove secondary loopback
     remote_tor.run(f"ip addr del {secondary_vtep}/32 dev lo")
-
-
-def check_protodown_rc(dut, protodown_rc):
-    """
-    check if specified protodown reason code is set
-    """
-
-    out = dut.vtysh_cmd("show evpn json")
-
-    evpn_js = json.loads(out)
-    tmp_rc = evpn_js.get("protodownReasons", [])
-
-    if protodown_rc:
-        if protodown_rc not in tmp_rc:
-            return "protodown %s missing in %s" % (protodown_rc, tmp_rc)
-    else:
-        if tmp_rc:
-            return "unexpected protodown rc %s" % (tmp_rc)
-
-    return None
 
 
 def test_evpn_uplink_tracking():
@@ -1093,7 +912,7 @@ def test_evpn_uplink_tracking():
     dut = tgen.gears[dut_name]
 
     # wait for protodown rc to clear after startup
-    test_fn = partial(check_protodown_rc, dut, None)
+    test_fn = partial(evpn_verify_protodown_reason, dut, None)
     _, result = topotest.run_and_expect(test_fn, None, count=20, wait=3)
     assertmsg = '"{}" protodown rc incorrect'.format(dut_name)
     assert result is None, assertmsg
@@ -1103,7 +922,7 @@ def test_evpn_uplink_tracking():
     dut.run("ip link set %s-eth1 down" % dut_name)
 
     # check if the access ports have been protodowned
-    test_fn = partial(check_protodown_rc, dut, "uplinkDown")
+    test_fn = partial(evpn_verify_protodown_reason, dut, "uplinkDown")
     _, result = topotest.run_and_expect(test_fn, None, count=20, wait=3)
     assertmsg = '"{}" protodown rc incorrect'.format(dut_name)
     assert result is None, assertmsg
@@ -1113,7 +932,7 @@ def test_evpn_uplink_tracking():
     dut.run("ip link set %s-eth1 up" % dut_name)
 
     # check if the access ports have been moved out of protodown
-    test_fn = partial(check_protodown_rc, dut, None)
+    test_fn = partial(evpn_verify_protodown_reason, dut, None)
     _, result = topotest.run_and_expect(test_fn, None, count=20, wait=3)
     assertmsg = '"{}" protodown rc incorrect'.format(dut_name)
     assert result is None, assertmsg
@@ -1200,21 +1019,6 @@ def test_evpn_es_config_without_bridge():
         )
 
 
-def check_svi_mac_route(dut, rd, mac, expect_present):
-    """
-    Look up the type-2 route for the given MAC in the global EVPN table
-    under the origin's RD and return None if its presence matches
-    expect_present, the parsed output otherwise.
-    """
-    route = json.loads(
-        dut.vtysh_cmd(f"show bgp l2vpn evpn route rd {rd} mac {mac} json")
-    )
-    present = route.get("numPaths", 0) > 0
-    if present == expect_present:
-        return None
-    return route
-
-
 def test_evpn_svi_mac_withdraw_on_svi_del():
     """
     EVPN-MH advertises the SVI MAC as a MAC-only type-2 route once a
@@ -1250,7 +1054,7 @@ def test_evpn_svi_mac_withdraw_on_svi_del():
     rd = json.loads(origin.vtysh_cmd("show bgp l2vpn evpn vni 1000 json"))["rd"]
 
     # the SVI MAC-only route must be present before the SVI is deleted
-    test_fn = partial(check_svi_mac_route, dut, rd, svi_mac, True)
+    test_fn = partial(evpn_verify_mac_route, dut, rd, svi_mac, True)
     _, result = topotest.run_and_expect(test_fn, None, count=20, wait=3)
     assertmsg = f'"{origin_name}" SVI MAC route missing on {dut.name}: {result}'
     assert result is None, assertmsg
@@ -1261,7 +1065,7 @@ def test_evpn_svi_mac_withdraw_on_svi_del():
         origin.run("ip link del dev vlan1000")
 
         # the SVI MAC-only route must be withdrawn
-        test_fn = partial(check_svi_mac_route, dut, rd, svi_mac, False)
+        test_fn = partial(evpn_verify_mac_route, dut, rd, svi_mac, False)
         _, result = topotest.run_and_expect(test_fn, None, count=20, wait=3)
         assertmsg = (
             f'"{origin_name}" SVI MAC route not withdrawn on {dut.name} '
@@ -1273,43 +1077,6 @@ def test_evpn_svi_mac_withdraw_on_svi_del():
         config_svi(origin, svi_ips.get(origin_name))
 
 
-def check_type4_route(dut, esi, originator, expected, self_orig=False):
-    """
-    Return None if the presence of the Type-4 route for esi/originator
-    matches expected, the command output otherwise.
-    """
-    command = "show bgp l2vpn evpn route type 4"
-    if self_orig:
-        command += " self-originate"
-
-    output = dut.vtysh_cmd(command)
-    present = any(esi in line and originator in line for line in output.splitlines())
-    if present == expected:
-        return None
-
-    return output
-
-
-def get_evpn_rd_paths(node, route_type, rd, match):
-    """
-    Return the valid paths of the route_type routes under rd whose prefix
-    contains match.
-    """
-    routes = json.loads(
-        node.vtysh_cmd("show bgp l2vpn evpn route type %d json" % route_type) or "{}"
-    )
-    paths = []
-    for prefix, info in routes.get(rd, {}).items():
-        if not isinstance(info, dict) or match not in prefix:
-            continue
-        for path_list in info.get("paths", []):
-            for path in path_list if isinstance(path_list, list) else [path_list]:
-                if path.get("valid"):
-                    paths.append(path)
-
-    return paths
-
-
 def check_es_evpn_routes(tgen, dut, observer, esi, mac, vni):
     """
     Return None if the Type-1 and Type-2 routes that dut originates for esi
@@ -1317,7 +1084,10 @@ def check_es_evpn_routes(tgen, dut, observer, esi, mac, vni):
     VxLAN devices in this topology use a multicast underlay, so no Type-3
     routes are exchanged.
     """
-    es_rd = get_bgp_es(dut, esi).get("rd")
+    es = evpn_bgp_es(dut, esi)
+    if es is None:
+        return "%s ES %s show did not return JSON" % (dut.name, esi)
+    es_rd = es.get("rd")
     vni_rd = json.loads(
         dut.vtysh_cmd("show bgp l2vpn evpn vni %d json" % vni) or "{}"
     ).get("rd")
@@ -1335,7 +1105,7 @@ def check_es_evpn_routes(tgen, dut, observer, esi, mac, vni):
     errors = []
     for node in (dut, observer):
         for name, route_type, rd, match, path_esi in routes:
-            paths = get_evpn_rd_paths(node, route_type, rd, match)
+            paths = evpn_bgp_rd_paths(node, route_type, rd, match)
             if path_esi:
                 paths = [path for path in paths if path.get("esi") == path_esi]
             if not paths:
@@ -1346,43 +1116,21 @@ def check_es_evpn_routes(tgen, dut, observer, esi, mac, vni):
     return "\n".join(errors) if errors else None
 
 
-def get_bgp_es(dut, esi):
-    return json.loads(dut.vtysh_cmd("show bgp l2vpn evpn es %s json" % esi) or "{}")
-
-
-def check_bgp_es_local(dut, esi, expected):
-    """
-    Return None if the BGP local state of the ES matches expected.
-    """
-    es = get_bgp_es(dut, esi)
-    local = "local" in es.get("type", [])
-    if local == expected:
-        return None
-
-    return "ES local is %s, expected %s: %s" % (local, expected, es)
-
-
-def check_bgp_instance_absent(dut, instance):
-    output = dut.vtysh_cmd("show running-config bgpd")
-    if instance not in output.splitlines():
-        return None
-
-    return output
-
-
 def check_rebuilt_es(tgen, dut, observer, esi, originator, mac, vni, vni_count):
     """
     Return None once the local ES and all its EVPN state is rebuilt on dut
     and visible on observer, an error string otherwise.
     """
-    es = get_bgp_es(dut, esi)
+    es = evpn_bgp_es(dut, esi)
+    if es is None:
+        return "%s ES %s show did not return JSON" % (dut.name, esi)
     checks = (
         ("ES routes", check_es_evpn_routes(tgen, dut, observer, esi, mac, vni)),
         (
             "local Type-4",
-            check_type4_route(dut, esi, originator, True, self_orig=True),
+            evpn_verify_type4_route(dut, esi, originator, True, self_originate=True),
         ),
-        ("peer Type-4", check_type4_route(observer, esi, originator, True)),
+        ("peer Type-4", evpn_verify_type4_route(observer, esi, originator, True)),
         (
             "ES-EVI count",
             (
@@ -1392,8 +1140,8 @@ def check_rebuilt_es(tgen, dut, observer, esi, originator, mac, vni, vni_count):
                 % (es.get("vniCount"), vni_count, es)
             ),
         ),
-        ("local DF role", check_df_role(dut, esi, "DF")),
-        ("peer DF role", check_df_role(observer, esi, "nonDF")),
+        ("local DF role", evpn_verify_df_role(dut, esi, "DF")),
+        ("peer DF role", evpn_verify_df_role(observer, esi, "nonDF")),
     )
     errors = ["%s: %s" % check for check in checks if check[1] is not None]
     return "\n".join(errors) if errors else None
@@ -1424,7 +1172,7 @@ def test_evpn_mh_bgp_instance_delete_readd():
     vni = 1000
     instance = "router bgp 65002"
 
-    test_fn = partial(check_type4_route, observer, esi, originator, True)
+    test_fn = partial(evpn_verify_type4_route, observer, esi, originator, True)
     _, result = topotest.run_and_expect(test_fn, None, count=30, wait=1)
     assert result is None, result
 
@@ -1432,20 +1180,22 @@ def test_evpn_mh_bgp_instance_delete_readd():
     _, result = topotest.run_and_expect(test_fn, None, count=30, wait=1)
     assert result is None, result
 
-    vni_count = get_bgp_es(dut, esi).get("vniCount")
+    es = evpn_bgp_es(dut, esi)
+    assert es is not None, "bgpd ES %s show did not return JSON" % esi
+    vni_count = es.get("vniCount")
     assert vni_count, "ES %s has no ES-EVIs on %s" % (esi, dut.name)
 
     for _ in range(2):
         dut.vtysh_cmd("configure terminal\nno %s" % instance)
-        test_fn = partial(check_bgp_instance_absent, dut, instance)
+        test_fn = partial(evpn_verify_bgp_instance_absent, dut, instance)
         _, result = topotest.run_and_expect(test_fn, None, count=30, wait=1)
         assert result is None, result
 
-        test_fn = partial(check_bgp_es_local, dut, esi, False)
+        test_fn = partial(evpn_verify_bgp_es_local, dut, esi, False)
         _, result = topotest.run_and_expect(test_fn, None, count=30, wait=1)
         assert result is None, result
 
-        test_fn = partial(check_type4_route, observer, esi, originator, False)
+        test_fn = partial(evpn_verify_type4_route, observer, esi, originator, False)
         _, result = topotest.run_and_expect(test_fn, None, count=30, wait=1)
         assert result is None, result
 
