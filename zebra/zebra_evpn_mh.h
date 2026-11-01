@@ -398,6 +398,7 @@ void zebra_evpn_es_local_br_port_update(struct zebra_if *zif);
 extern int zebra_evpn_mh_startup_delay_update(struct vty *vty,
 					      uint32_t duration,
 					      bool set_default);
+extern void zebra_evpn_mh_uplink_oper_add(struct zebra_if *zif);
 extern void zebra_evpn_mh_uplink_oper_update(struct zebra_if *zif);
 extern void zebra_evpn_mh_update_protodown_bond_mbr(struct zebra_if *zif,
 						    bool clear,

@@ -636,6 +636,9 @@ void if_add_update(struct interface *ifp)
 				   ifp->ifindex);
 	}
 
+	if (if_data->flags & ZIF_FLAG_EVPN_MH_UPLINK)
+		zebra_evpn_mh_uplink_oper_add(if_data);
+
 	frrtrace(2, frr_zebra, if_add_del_update, ifp, 1);
 }
 
@@ -800,13 +803,6 @@ void if_delete_update(struct interface **pifp)
 
 	zebra_ns_unlink_ifp(ifp);
 
-	/* Update ifindex after distributing the delete message.  This is in
-	   case any client needs to have the old value of ifindex available
-	   while processing the deletion.  Each client daemon is responsible
-	   for setting ifindex to IFINDEX_INTERNAL after processing the
-	   interface deletion message. */
-	if_set_index(ifp, IFINDEX_INTERNAL);
-
 	UNSET_FLAG(ifp->status, ZEBRA_INTERFACE_VRF_LOOPBACK);
 
 	/* Reset some zebra interface params to default values. */
@@ -820,6 +816,13 @@ void if_delete_update(struct interface **pifp)
 		       sizeof(struct zebra_l2info_brslave));
 		zebra_evpn_mac_ifp_del(ifp);
 	}
+
+	/* Update ifindex after distributing the delete message.  This is in
+	   case any client needs to have the old value of ifindex available
+	   while processing the deletion.  Each client daemon is responsible
+	   for setting ifindex to IFINDEX_INTERNAL after processing the
+	   interface deletion message. */
+	if_set_index(ifp, IFINDEX_INTERNAL);
 
 	if (!ifp->configured) {
 		if (IS_ZEBRA_DEBUG_KERNEL)

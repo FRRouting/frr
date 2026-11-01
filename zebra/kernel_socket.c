@@ -1695,6 +1695,15 @@ void kernel_update_multi(struct dplane_ctx_list_head *ctx_list)
 			res = kernel_intf_netconf_update(ctx);
 			break;
 
+		case DPLANE_OP_EVPN_MH_UPLINK_ADD:
+		case DPLANE_OP_EVPN_MH_UPLINK_DELETE:
+		case DPLANE_OP_EVPN_MH_ES_DELETE:
+#ifdef HAVE_SPLIT_HORIZON_FILTER
+	#error Missing Split Horizon Filter implementation here
+#endif
+			res = ZEBRA_DPLANE_REQUEST_SUCCESS;
+			break;
+
 		case DPLANE_OP_NONE:
 		case DPLANE_OP_BR_PORT_UPDATE:
 		case DPLANE_OP_IPTABLE_ADD:

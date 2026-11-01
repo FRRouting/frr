@@ -74,6 +74,11 @@ RUN apt update -y && apt upgrade -y && \
         strace \
         tcpdump \
       && \
+    # eBPF compilation requirements
+    apt-get install -y \
+        clang \
+        llvm \
+      && \
     download-mibs && \
     wget --tries=5 --waitretry=10 --retry-connrefused https://raw.githubusercontent.com/FRRouting/frr-mibs/main/iana/IANA-IPPM-METRICS-REGISTRY-MIB -O /usr/share/snmp/mibs/iana/IANA-IPPM-METRICS-REGISTRY-MIB && \
     wget --tries=5 --waitretry=10 --retry-connrefused https://raw.githubusercontent.com/FRRouting/frr-mibs/main/ietf/SNMPv2-PDU -O /usr/share/snmp/mibs/ietf/SNMPv2-PDU && \
@@ -116,6 +121,40 @@ RUN echo "" >> /etc/security/limits.conf; \
 
 # Copy run scripts to facilitate users wanting to run the tests
 COPY docker/inner /opt/topotests
+
+# libbpf: we need at least 1.3 for TCX in Split Horizon Filter
+ARG LIBBPF_VERSION=1.8.0
+ARG LIBBPF_CHECKSUM=b7a1e685f90f6a63ead0dd85d053694b222975da8d09c1a966041cff6f0055ff
+RUN mkdir /tmp/compile-libbpf \
+    && cd /tmp/compile-libbpf \
+    && wget --tries=5 --waitretry=10 --retry-connrefused https://github.com/libbpf/libbpf/archive/refs/tags/v$LIBBPF_VERSION.tar.gz \
+    && echo "$LIBBPF_CHECKSUM  v$LIBBPF_VERSION.tar.gz" | sha256sum -c - \
+    && tar -xvf v$LIBBPF_VERSION.tar.gz \
+    && cd libbpf-$LIBBPF_VERSION/src \
+    && PREFIX=/usr/local LIBDIR=/usr/local/lib make \
+    && PREFIX=/usr/local LIBDIR=/usr/local/lib make install \
+    # Required for runtime search of libs in /usr/local/lib
+    && ldconfig \
+    && cd / \
+    && rm -rf /tmp/compile-libbpf \
+    ;
+
+
+# bpftool: Ubuntu package is only wrapper that chooses path
+# based on kernel version, this doesn't work under docker
+ARG BPFTOOL_VERSION=7.8.1
+ARG BPFTOOL_CHECKSUM=fed76b7acb54d810cc3982eb6394726010114977542fd146695887a7d904b60c
+RUN mkdir /tmp/compile-bpftool \
+    && cd /tmp/compile-bpftool \
+    && wget --tries=5 --waitretry=10 --retry-connrefused https://github.com/libbpf/bpftool/releases/download/v$BPFTOOL_VERSION/bpftool-libbpf-v$BPFTOOL_VERSION-sources.tar.gz \
+    && echo "$BPFTOOL_CHECKSUM  bpftool-libbpf-v$BPFTOOL_VERSION-sources.tar.gz" | sha256sum -c - \
+    && tar -xvf bpftool-libbpf-v$BPFTOOL_VERSION-sources.tar.gz \
+    && cd bpftool-libbpf-v$BPFTOOL_VERSION-sources/src \
+    && make \
+    && prefix=/usr/local make install \
+    && rm -rf /tmp/compile-bpftool \
+    && cd / \
+    ;
 
 ENV PATH "$PATH:/opt/topotests"
 
