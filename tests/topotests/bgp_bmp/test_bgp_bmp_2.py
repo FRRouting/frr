@@ -10,16 +10,17 @@ test_bgp_bmp.py: Test BGP BMP functionalities
 
     +------+            +------+               +------+
     |      |            |      |               |      |
-    | BMP1 |------------|  R1  |---------------|  R2  |
+    | BMP1 |----mgmt----|  R1  |-----vrf1------|  R2  |
     |      |            |      |               |      |
     +------+            +------+               +------+
 
 Setup two routers R1 and R2 with one link configured with IPv4 and
-IPv6 addresses.
+IPv6 addresses in VRF vrf1.
 Configure BGP in R1 and R2 to exchange prefixes from
 the latter to the first router.
-Setup a link between R1 and the BMP server, activate the BMP feature in R1
-and ensure the monitored BGP sessions logs are well present on the BMP server.
+Setup a link between R1 and the BMP server in a management VRF, activate
+the BMP feature in R1 with an explicit transport VRF, and ensure the
+monitored BGP sessions logs are well present on the BMP server.
 """
 
 from functools import partial
@@ -85,6 +86,9 @@ def setup_module(mod):
 ip link add vrf1 type vrf table 10
 ip link set vrf1 up
 ip link set r1vrf-eth1 master vrf1
+ip link add mgmt type vrf table 20
+ip link set mgmt up
+ip link set r1vrf-eth0 master mgmt
 """
     )
     bmp_reset_seq(bmp_seq_context)
@@ -118,6 +122,37 @@ def test_bgp_convergence():
 
     result = verify_bgp_convergence_from_running_config(tgen, dut="r1vrf")
     assert result is True, "BGP is not converging"
+
+
+def test_bmp_connect_vrf_config():
+    """
+    BMP collector is reached via the management VRF while stats are collected
+    from vrf1. Verify the transport VRF is present in running config and the
+    outbound session comes up.
+    """
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    router = tgen.gears["r1vrf"]
+    output = router.vtysh_cmd("show running-config")
+    assert (
+        "bmp connect 192.0.2.10 port 1789 min-retry 100 max-retry 10000 vrf mgmt"
+        in output
+    ), "BMP connect transport VRF missing from running-config"
+
+    def _bmp_session_up():
+        show = router.vtysh_cmd("show bmp")
+        if "192.0.2.10:1789" not in show or "Up" not in show:
+            return "BMP session not Up yet"
+        if "vrf mgmt" not in show:
+            return "BMP session missing mgmt VRF in show bmp"
+        return True
+
+    success, result = topotest.run_and_expect(_bmp_session_up, True, count=30, wait=1)
+    assert success, "BMP session via mgmt VRF failed to reach Up state: {}".format(
+        result
+    )
 
 
 def _test_prefixes(policy, step=1):
