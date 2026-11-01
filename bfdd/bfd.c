@@ -362,6 +362,19 @@ struct bfd_session *bs_peer_find(struct bfd_peer_cfg *bpc)
 }
 
 /*
+ * Arm a session's detection timer. An S-BFD initiator has its own: its remote
+ * discriminator is configuration (RFC 7880, Section 7.3.2), which the classic
+ * timer clears once a Detection Time passes in Down.
+ */
+static void bs_recvtimer_start(struct bfd_session *bs)
+{
+	if (bs->bfd_mode == BFD_MODE_TYPE_SBFD_INIT)
+		sbfd_init_recvtimer_update(bs);
+	else
+		bfd_recvtimer_update(bs);
+}
+
+/*
  * Starts a disabled BFD session.
  *
  * A session is disabled when the specified interface/VRF doesn't exist
@@ -487,7 +500,7 @@ int bfd_session_enable(struct bfd_session *bs)
 			sbfd_echo_recvtimer_update(bs);
 			ptm_bfd_start_xmt_timer(bs, true);
 		} else {
-			bfd_recvtimer_update(bs);
+			bs_recvtimer_start(bs);
 			ptm_bfd_start_xmt_timer(bs, false);
 		}
 	}
@@ -1905,7 +1918,7 @@ void bfd_set_shutdown(struct bfd_session *bs, bool shutdown)
 			bfd_recvtimer_delete(bs);
 			bfd_xmttimer_delete(bs);
 		} else {
-			bfd_recvtimer_update(bs);
+			bs_recvtimer_start(bs);
 			bfd_xmttimer_update(bs, bs->xmt_TO);
 		}
 	}
