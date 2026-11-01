@@ -6824,6 +6824,14 @@ static int zebra_evpn_pim_cfg_clean_up(struct zserv *client)
 static int zebra_evpn_cfg_clean_up(struct zserv *client)
 {
 	if (client->proto == ZEBRA_ROUTE_BGP) {
+		/*
+		 * ES VTEPs are not L2VNI VTEPs, so the configuration cleanup
+		 * below does not remove them.  They are owned by bgpd's ZAPI
+		 * client and must not outlive it.  This is independent of GR:
+		 * bgpd will replay its current active ES VTEPs on reconnect.
+		 */
+		zebra_evpn_remote_es_cleanup();
+
 		if (DYNAMIC_CLIENT_GR_DISABLED(client)) {
 			if (IS_ZEBRA_DEBUG_EVENT)
 				zlog_debug(
