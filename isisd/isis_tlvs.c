@@ -4879,6 +4879,16 @@ static void format_tlv_router_cap(const struct isis_router_cap *router_cap, stru
 			  SUPPORTS_SRV6_OAM(&router_cap->srv6_cap) ? "1" : "0");
 }
 
+#ifndef FABRICD
+static void isis_router_cap_fad_free(struct isis_router_cap_fad *fad)
+{
+	admin_group_term(&fad->fad.admin_group_exclude_any);
+	admin_group_term(&fad->fad.admin_group_include_any);
+	admin_group_term(&fad->fad.admin_group_include_all);
+	XFREE(MTYPE_ISIS_TLV, fad);
+}
+#endif /* ifndef FABRICD */
+
 static void free_tlv_router_cap(struct isis_router_cap *router_cap)
 {
 	if (!router_cap)
@@ -4886,15 +4896,8 @@ static void free_tlv_router_cap(struct isis_router_cap *router_cap)
 
 #ifndef FABRICD
 	for (int i = 0; i < SR_ALGORITHM_COUNT; i++) {
-		struct isis_router_cap_fad *fad;
-
-		fad = router_cap->fads[i];
-		if (!fad)
-			continue;
-		admin_group_term(&fad->fad.admin_group_exclude_any);
-		admin_group_term(&fad->fad.admin_group_include_any);
-		admin_group_term(&fad->fad.admin_group_include_all);
-		XFREE(MTYPE_ISIS_TLV, fad);
+		if (router_cap->fads[i])
+			isis_router_cap_fad_free(router_cap->fads[i]);
 	}
 #endif /* ifndef FABRICD */
 
@@ -4950,17 +4953,37 @@ static size_t isis_router_cap_subtlv_size(size_t *tlv_len, size_t hdr_len, size_
 	return 2 + hdr_len + subtlv_sz;
 }
 
-static size_t isis_router_cap_tlv_size(const struct isis_router_cap *router_cap)
+/* Size of the value that starts every Router Capability TLV */
+static size_t isis_router_cap_hdr_len(const struct isis_router_cap *router_cap)
 {
 	size_t hdr_len = ISIS_ROUTER_CAP_SIZE;
-	size_t tlv_len;
-	size_t sz;
-	int nb_algo, nb_msd;
-	bool sr_algo_subtlv_present = false;
 
 	if (!IN6_IS_ADDR_UNSPECIFIED(&router_cap->te_router_id_ipv6))
 		hdr_len += ISIS_SUBTLV_HDR_SIZE + IPV6_MAX_BYTELEN;
-	tlv_len = hdr_len;
+	return hdr_len;
+}
+
+#ifndef FABRICD
+/*
+ * A FAD sub-TLV has to fit in an otherwise empty Router Capability TLV.
+ * One that does not (e.g. two affinities with bit positions near 1023)
+ * cannot be encoded: its own length and the TLV length would wrap.
+ */
+static bool isis_router_cap_fad_fits(const struct isis_router_cap *router_cap,
+				     const struct isis_router_cap_fad *fad)
+{
+	return 2 + isis_router_cap_fad_sub_tlv_len(fad) <=
+	       UINT8_MAX - isis_router_cap_hdr_len(router_cap);
+}
+#endif /* ifndef FABRICD */
+
+static size_t isis_router_cap_tlv_size(const struct isis_router_cap *router_cap)
+{
+	size_t hdr_len = isis_router_cap_hdr_len(router_cap);
+	size_t tlv_len = hdr_len;
+	size_t sz;
+	int nb_algo, nb_msd;
+	bool sr_algo_subtlv_present = false;
 
 	if ((router_cap->srgb.range_size != 0) && (router_cap->srgb.lower_bound != 0)) {
 		tlv_len += 2 + ISIS_SUBTLV_SID_LABEL_RANGE_SIZE;
@@ -4986,6 +5009,8 @@ static size_t isis_router_cap_tlv_size(const struct isis_router_cap *router_cap)
 	for (int i = 0; i < SR_ALGORITHM_COUNT; i++) {
 		if (!router_cap->fads[i])
 			continue;
+		if (!isis_router_cap_fad_fits(router_cap, router_cap->fads[i]))
+			continue; /* not encoded, see pack_tlv_router_cap() */
 		sz += isis_router_cap_subtlv_size(&tlv_len, hdr_len,
 						  2 + isis_router_cap_fad_sub_tlv_len(
 							      router_cap->fads[i]));
@@ -5128,6 +5153,14 @@ static int pack_tlv_router_cap(const struct isis_router_cap *router_cap, struct 
 			continue;
 
 		subtlv_len = isis_router_cap_fad_sub_tlv_len(fad);
+
+		/* isis_tlvs_set_router_capability_fad() does not keep these */
+		if (!isis_router_cap_fad_fits(router_cap, fad)) {
+			zlog_warn("Flex-Algo %u definition too large to advertise (%zu bytes)",
+				  fad->fad.algorithm, subtlv_len);
+			continue;
+		}
+
 		len_pos = pack_tlv_router_cap_room(router_cap, s, len_pos, 2 + subtlv_len);
 
 		stream_putc(s, ISIS_SUBTLV_FAD);
@@ -7761,7 +7794,12 @@ struct isis_router_cap *isis_tlvs_init_router_capability(struct isis_tlvs *tlvs)
 }
 
 #ifndef FABRICD
-void isis_tlvs_set_router_capability_fad(struct isis_tlvs *tlvs, struct flex_algo *fa,
+/*
+ * Returns false, and keeps no definition for the algorithm, if the FAD
+ * cannot be encoded. Kept anyway, it would take part in the local
+ * Flex-Algo election while neighbours never receive it.
+ */
+bool isis_tlvs_set_router_capability_fad(struct isis_tlvs *tlvs, struct flex_algo *fa,
 					 int algorithm, uint8_t *sysid)
 {
 	struct isis_router_cap_fad *rcap_fad;
@@ -7786,7 +7824,14 @@ void isis_tlvs_set_router_capability_fad(struct isis_tlvs *tlvs, struct flex_alg
 	admin_group_copy(&rcap_fad->fad.admin_group_include_any, &fa->admin_group_include_any);
 	admin_group_copy(&rcap_fad->fad.admin_group_include_all, &fa->admin_group_include_all);
 
+	if (!isis_router_cap_fad_fits(tlvs->router_cap, rcap_fad)) {
+		isis_router_cap_fad_free(rcap_fad);
+		tlvs->router_cap->fads[algorithm] = NULL;
+		return false;
+	}
+
 	tlvs->router_cap->fads[algorithm] = rcap_fad;
+	return true;
 }
 #endif /* ifndef FABRICD */
 
