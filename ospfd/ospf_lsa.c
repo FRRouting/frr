@@ -3099,6 +3099,23 @@ struct ospf_lsa *ospf_lsa_install(struct ospf *ospf, struct ospf_interface *oi,
 	   update is needed */
 	old = ospf_lsdb_lookup(lsdb, lsa);
 
+	/*
+	 * Bound the LSDB: refuse a not-yet-present non-self LSA once the
+	 * database is full.  The LSA is then neither installed nor flooded
+	 * further; the sender retransmits until space frees or the
+	 * adjacency gives up.  Self-originated LSAs are always allowed so
+	 * the router can keep originating its own LSAs.
+	 */
+	if (old == NULL && ospf_lsdb_count_all(lsdb) >= ospf->max_lsa &&
+	    !ospf_lsa_is_self_originated(ospf, lsa)) {
+		ospf->lsas_dropped++;
+		if (ospf_limit_warn(&ospf->t_lsdb_limit_warn))
+			flog_warn(EC_OSPF_PACKET,
+				  "LSDB full (%lu LSAs), dropping LSA[%s]",
+				  ospf_lsdb_count_all(lsdb), dump_lsa_key(lsa));
+		return NULL;
+	}
+
 	/* Do comparison and record if recalc needed. */
 	rt_recalc = 0;
 	if (old == NULL || ospf_lsa_different(old, lsa, false)) {
