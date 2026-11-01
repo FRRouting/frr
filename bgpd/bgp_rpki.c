@@ -67,6 +67,7 @@ DEFINE_MTYPE_STATIC(BGPD, BGP_RPKI_ASPA, "BGP RPKI ASPA record");
 #define EXPIRE_INTERVAL_DEFAULT 7200
 #define RETRY_INTERVAL_DEFAULT 600
 #define BGP_RPKI_CACHE_SERVER_SYNC_RETRY_TIMEOUT 3
+#define RPKI_REVALIDATE_ALL_DELAY_MSEC 500
 
 #define RPKI_DEBUG(...)                                                        \
 	if (rpki_debug_conf || rpki_debug_term) {                              \
@@ -185,6 +186,7 @@ struct rpki_vrf {
 #endif
 	char *vrfname;
 	struct event *t_rpki_sync;
+	struct event *t_revalidate_all;
 
 	QOBJ_FIELDS;
 };
@@ -233,6 +235,7 @@ static enum route_map_cmd_result_t route_match(void *rule,
 					       void *object);
 static void *route_match_compile(const char *arg);
 static void revalidate_bgp_node(struct bgp *bgp, struct bgp_dest *dest, afi_t afi, safi_t safi);
+static void rpki_revalidate_all(struct event *event);
 static struct rpki_vrf *get_rpki_vrf(const char *vrfname);
 #ifdef FOUND_ASPA
 static int rpki_aspa_path_status(struct peer *peer, struct attr *attr, int direction);
@@ -769,23 +772,25 @@ static void bgpd_sync_callback(struct event *event)
 	if (atomic_load_explicit(&rpki_vrf->rtr_update_overflow, memory_order_seq_cst)) {
 		ssize_t size = 0;
 
-		retval = read(rpki_vrf->rpki_sync_socket_bgpd, &rec, sizeof(struct rtr_pfx_record));
-		while (retval != -1) {
-			if (retval != sizeof(struct rtr_pfx_record))
-				break;
-
+		while ((retval = read(rpki_vrf->rpki_sync_socket_bgpd, &rec,
+				      sizeof(struct rtr_pfx_record))) > 0)
 			size += retval;
-			pfx_record_to_prefix(&rec, &prefix);
-			afi = (rec.prefix.ver == RTR_IPV4) ? AFI_IP : AFI_IP6;
-			revalidate_single_prefix(vrf, prefix, afi);
-
-			retval = read(rpki_vrf->rpki_sync_socket_bgpd, &rec,
-				      sizeof(struct rtr_pfx_record));
-		}
-
-		RPKI_DEBUG("Socket overflow detected (%zu), revalidating affected prefixes", size);
 
 		atomic_store_explicit(&rpki_vrf->rtr_update_overflow, 0, memory_order_seq_cst);
+
+		/*
+		 * While the socket was full, the records that did not fit were
+		 * dropped, so revalidating the drained ones is not enough: they
+		 * may be a small part of the update. Revalidate all routes
+		 * instead, unless the initial sync is still running, which ends
+		 * with a full revalidation anyway. The timer coalesces the
+		 * overflows of one burst.
+		 */
+		RPKI_DEBUG("Socket overflow detected (%zd), revalidating all routes", size);
+		if (is_synchronized(rpki_vrf))
+			event_add_timer_msec(bm->master, rpki_revalidate_all, rpki_vrf,
+					     RPKI_REVALIDATE_ALL_DELAY_MSEC,
+					     &rpki_vrf->t_revalidate_all);
 		return;
 	}
 
@@ -916,6 +921,11 @@ static void revalidate_all_routes(struct rpki_vrf *rpki_vrf)
 				bgp_soft_reconfig_in(peer, afi, safi);
 		}
 	}
+}
+
+static void rpki_revalidate_all(struct event *event)
+{
+	revalidate_all_routes(EVENT_ARG(event));
 }
 
 #ifdef FOUND_ASPA
@@ -1351,6 +1361,7 @@ static void stop(struct rpki_vrf *rpki_vrf)
 	rpki_vrf->rtr_is_stopping = true;
 	if (is_running(rpki_vrf)) {
 		event_cancel(&rpki_vrf->t_rpki_sync);
+		event_cancel(&rpki_vrf->t_revalidate_all);
 #ifdef FOUND_ASPA
 		event_cancel(&rpki_vrf->t_aspa_revalidate);
 #endif

@@ -16,6 +16,9 @@ routes on its own, without "clear bgp ... soft in":
     10.10.4.0/24    not found   not found   invalid     not found
     10.20.0.0/24    not found   not found   not found   not found
 
+A burst of 1100 VRP changes, more than the sync socket between the RTR thread
+and the main thread holds, must be applied as well.
+
 The BGP session is brought up only after r2 holds the initial VRP set, so
 that the initial filtering does not depend on revalidation. A last step stops
 and restarts RPKI on r2: routes accepted while RPKI is stopped must be
@@ -67,6 +70,15 @@ VRPS_STEP1 = [
 ]
 
 VRPS_STEP2 = VRPS_STEP1 + [(65099, "10.10.0.0/16", 24)]
+
+# A burst of updates, more than the RPKI sync socket holds at once. The cache
+# sends the filler VRPs (lower ASN) first, so that the records which change
+# the state of the burst prefixes come after the socket is full.
+BURST_PREFIXES = ["10.30.{}.0/24".format(i) for i in range(100)]
+FILLER_VRPS = [
+    (64999, "172.16.{}.{}/32".format(i // 256, i % 256), 32) for i in range(1000)
+]
+VRPS_BURST = VRPS_INITIAL + FILLER_VRPS + [(65099, p, 24) for p in BURST_PREFIXES]
 
 EXPECTED_INITIAL = {
     "10.10.1.0/24": "valid",
@@ -133,6 +145,13 @@ def setup_module(mod):
 
     tgen.start_router()
 
+    # r1 also announces the prefixes of the burst test, all "not found"
+    config = ["configure terminal"]
+    config += ["ip route {} blackhole".format(p) for p in BURST_PREFIXES]
+    config += ["router bgp 65001", "address-family ipv4 unicast"]
+    config += ["network {}".format(p) for p in BURST_PREFIXES]
+    tgen.gears["r1"].vtysh_multicmd("\n".join(config))
+
 
 def teardown_module(mod):
     tgen = get_topogen()
@@ -191,6 +210,26 @@ def _bgp_state(expected):
     return None
 
 
+def _burst_routes(accepted):
+    """All burst prefixes are in Adj-RIB-In, and all or none of them are in
+    r2's BGP table."""
+    r2 = get_topogen().gears["r2"]
+    received = json.loads(
+        r2.vtysh_cmd("show bgp ipv4 unicast neighbors 10.0.0.1 received-routes json")
+    ).get("receivedRoutes", {})
+    routes = json.loads(r2.vtysh_cmd("show bgp ipv4 unicast json")).get("routes", {})
+
+    missing = [p for p in BURST_PREFIXES if p not in received]
+    if missing:
+        return "{} burst prefixes not in Adj-RIB-In".format(len(missing))
+    wrong = [p for p in BURST_PREFIXES if (p in routes) != accepted]
+    if wrong:
+        return "{} burst prefixes {} the BGP table".format(
+            len(wrong), "missing from" if accepted else "still in"
+        )
+    return None
+
+
 def change_vrps(vrps, expected):
     tgen = get_topogen()
     if tgen.routers_have_failure():
@@ -235,6 +274,10 @@ def test_initial_state():
     _, result = topotest.run_and_expect(test_func, None, count=60, wait=1)
     assert result is None, "unexpected initial state: {}".format(result)
 
+    test_func = functools.partial(_burst_routes, True)
+    _, result = topotest.run_and_expect(test_func, None, count=60, wait=1)
+    assert result is None, "unexpected initial state: {}".format(result)
+
 
 def test_valid_to_invalid_and_invalid_to_valid():
     change_vrps(
@@ -264,6 +307,35 @@ def test_covering_vrp_invalidates_notfound():
 
 def test_revert_vrps():
     change_vrps(VRPS_INITIAL, EXPECTED_INITIAL)
+
+
+def test_burst_of_updates():
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+    if rtrd_process.poll() is not None:
+        pytest.skip("rtrd is not running")
+
+    for vrps, accepted in [(VRPS_BURST, False), (VRPS_INITIAL, True)]:
+        write_vrps(vrps)
+
+        step("Wait for r2 to receive the new VRP set ({} VRPs)".format(len(vrps)))
+        test_func = functools.partial(_rpki_prefix_table, vrps)
+        _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
+        assert result is None, "r2 did not receive the new VRP set: {}".format(result)
+
+        step(
+            "Check that r2 {} the burst prefixes, without soft in".format(
+                "accepts" if accepted else "denies"
+            )
+        )
+        test_func = functools.partial(_burst_routes, accepted)
+        _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
+        assert result is None, "inbound policy not re-applied: {}".format(result)
+
+        test_func = functools.partial(_bgp_state, EXPECTED_INITIAL)
+        _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
+        assert result is None, "unexpected state: {}".format(result)
 
 
 def test_rpki_restart_refilters():
