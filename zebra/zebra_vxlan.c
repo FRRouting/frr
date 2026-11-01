@@ -1459,7 +1459,9 @@ static int zl3vni_remote_rmac_add(struct zebra_l3vni *zl3vni,
 	 * A native IPv6 remote is kept. Any remote is kept when the
 	 * local VTEP is not IPv4.
 	 */
-	if (IS_IPADDR_V4(&zl3vni->local_vtep_ip))
+	if (IS_IPADDR_V4(&zl3vni->local_vtep_ip) ||
+	    (zl3vni->local_vtep_ip.ipa_type == IPADDR_NONE && vtep_ip->ipa_type == IPADDR_V6 &&
+	     IS_MAPPED_IPV6(&vtep_ip->ipaddr_v6)))
 		vtep_to_v4(vtep_ip, &ip_vtep);
 	else
 		ip_vtep = *vtep_ip;
@@ -1537,7 +1539,9 @@ static void zl3vni_remote_rmac_del(struct zebra_l3vni *zl3vni,
 	struct ipaddr found_ip_vtep;
 
 	if (!zl3vni_nh_lookup(zl3vni, vtep_ip)) {
-		if (IS_IPADDR_V4(&zl3vni->local_vtep_ip))
+		if (IS_IPADDR_V4(&zl3vni->local_vtep_ip) ||
+		    (zl3vni->local_vtep_ip.ipa_type == IPADDR_NONE &&
+		     vtep_ip->ipa_type == IPADDR_V6 && IS_MAPPED_IPV6(&vtep_ip->ipaddr_v6)))
 			vtep_to_v4(vtep_ip, &ip_vtep);
 		else
 			ip_vtep = *vtep_ip;
@@ -1556,7 +1560,9 @@ static void zl3vni_remote_rmac_del(struct zebra_l3vni *zl3vni,
 			vtep = listgetdata(listhead(zrmac->nh_list));
 
 			/* Check if mapped */
-			if (IS_IPADDR_V4(&zl3vni->local_vtep_ip))
+			if (IS_IPADDR_V4(&zl3vni->local_vtep_ip) ||
+			    (zl3vni->local_vtep_ip.ipa_type == IPADDR_NONE &&
+			     vtep->ipa_type == IPADDR_V6 && IS_MAPPED_IPV6(&vtep->ipaddr_v6)))
 				vtep_to_v4(vtep, &found_ip_vtep);
 			else
 				found_ip_vtep = *vtep;
@@ -2497,6 +2503,7 @@ static int zl3vni_send_add_to_client(struct zebra_l3vni *zl3vni)
 	struct ethaddr svi_rmac, vrr_rmac = {.octet = {0} };
 	struct zebra_vrf *zvrf;
 	bool is_anycast_mac = true;
+	struct ipaddr local_vtep_ip;
 
 	client = zserv_find_client(ZEBRA_ROUTE_BGP, 0);
 	/* BGP may not be running. */
@@ -2525,7 +2532,12 @@ static int zl3vni_send_add_to_client(struct zebra_l3vni *zl3vni)
 	zclient_create_header(s, ZEBRA_L3VNI_ADD, zl3vni_vrf_id(zl3vni));
 	stream_putl(s, zl3vni->vni);
 	stream_put(s, &svi_rmac, sizeof(struct ethaddr));
-	stream_put_ipaddr(s, &zl3vni->local_vtep_ip);
+	local_vtep_ip = zl3vni->local_vtep_ip;
+	if (IS_IPADDR_NONE(&local_vtep_ip)) {
+		SET_IPADDR_V4(&local_vtep_ip);
+		local_vtep_ip.ipaddr_v4.s_addr = INADDR_ANY;
+	}
+	stream_put_ipaddr(s, &local_vtep_ip);
 	stream_put(s, &zl3vni->filter, sizeof(int));
 	stream_putl(s, zl3vni->svi_if->ifindex);
 	stream_put(s, &vrr_rmac, sizeof(struct ethaddr));
