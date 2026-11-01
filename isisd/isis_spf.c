@@ -829,7 +829,6 @@ static int isis_spf_process_lsp(struct isis_spftree *spftree, struct isis_lsp *l
 	struct isis_mt_router_info *mt_router_info = NULL;
 	struct prefix_pair ip_info;
 	bool has_valid_psid;
-	bool loc_is_in_ipv6_reach = false;
 
 	if (isis_lfa_excise_node_check(spftree, lsp->hdr.lsp_id)) {
 		if (IS_DEBUG_LFA)
@@ -1113,6 +1112,8 @@ lspfragloop:
 			them. If we find the SRv6 Locator in some Prefix
 			Reachbility TLV then it means that we have already
 			processed it before and we can skip it. */
+			bool loc_is_in_ipv6_reach = false;
+
 			for (r = ipv6_reachs ? (struct isis_ipv6_reach *)ipv6_reachs->head : NULL;
 			     r; r = r->next) {
 				if (prefix_same((struct prefix *)&r->prefix,
