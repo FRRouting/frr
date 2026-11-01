@@ -2158,9 +2158,7 @@ void rip_output_process(struct connected *ifc, struct sockaddr_in *to,
 					"RIPv1 mask check, %pFX considered for output",
 					&rp->p);
 
-			if (subnetted &&
-			    prefix_match((struct prefix *)&ifaddrclass,
-					 &rp->p)) {
+			if (subnetted && prefix_contains((struct prefix *)&ifaddrclass, &rp->p)) {
 				if ((ifc->address->prefixlen !=
 				     rp->p.prefixlen) &&
 				    (rp->p.prefixlen != IPV4_MAX_BITLEN))
@@ -2218,8 +2216,7 @@ void rip_output_process(struct connected *ifc, struct sockaddr_in *to,
 			if (!suppress && rinfo->type == ZEBRA_ROUTE_CONNECT) {
 				frr_each (if_connected, ifc->ifp->connected,
 					  tmp_ifc)
-					if (prefix_match((struct prefix *)p,
-							 tmp_ifc->address)) {
+					if (prefix_contains((struct prefix *)p, tmp_ifc->address)) {
 						suppress = 1;
 						break;
 					}
@@ -2328,8 +2325,7 @@ void rip_output_process(struct connected *ifc, struct sockaddr_in *to,
 			    rinfo->type == ZEBRA_ROUTE_CONNECT) {
 				frr_each (if_connected, ifc->ifp->connected,
 					  tmp_ifc)
-					if (prefix_match((struct prefix *)p,
-							 tmp_ifc->address)) {
+					if (prefix_contains((struct prefix *)p, tmp_ifc->address)) {
 						rinfo->metric_out =
 							RIP_METRIC_INFINITY;
 						break;
