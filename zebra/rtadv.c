@@ -541,10 +541,11 @@ no_more_opts:
 
 	ret = sendmsg(sock, &msg, 0);
 	if (ret < 0) {
-		flog_err_sys(EC_LIB_SOCKET,
-			     "%s(%u): Tx RA failed, socket %u error %d (%s)",
-			     ifp->name, ifp->ifindex, sock, errno,
-			     safe_strerror(errno));
+		if (IS_ZEBRA_DEBUG_PACKET)
+			zlog_debug(
+				"%s(%u): Tx RA failed, socket %u error %d (%s)",
+				ifp->name, ifp->ifindex, sock, errno,
+				safe_strerror(errno));
 	} else
 		zif->ra_sent++;
 }
