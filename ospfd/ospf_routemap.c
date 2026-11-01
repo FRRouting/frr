@@ -376,6 +376,41 @@ static const struct route_map_rule_cmd route_match_tag_cmd = {
 	route_map_rule_tag_free,
 };
 
+/* `match metric <proto> [range METRIC] METRIC' */
+/* Match function return 1 if match is success else return zero. */
+static enum route_map_cmd_result_t
+route_match_metric_detail(void *rule, const struct prefix *prefix, void *object)
+{
+	struct route_map_metric_compiled *mc;
+	struct external_info *einfo;
+
+	mc = rule;
+	einfo = object;
+
+	/* Route type */
+	if (mc->proto != einfo->type)
+		return RMAP_NOMATCH;
+	/* External metric */
+	if (mc->external && !(ROUTEMAP_METRIC_TYPE(einfo) == EXTERNAL_METRIC_TYPE_1 || ROUTEMAP_METRIC_TYPE(einfo) == EXTERNAL_METRIC_TYPE_2))
+		return RMAP_NOMATCH;
+	/* Metric (optional range) */
+	if (mc->range && !(mc->min_metric > einfo->metric || mc->max_metric < einfo->metric)) {
+		return RMAP_NOMATCH;
+	} else if (mc->metric != einfo->metric) {
+		return RMAP_NOMATCH;
+	}
+
+	return RMAP_MATCH;
+}
+
+/* Route map commands for metric detail matching. */
+static const struct route_map_rule_cmd route_match_metric_detail_cmd = {
+	"metric detail",
+	route_match_metric_detail,
+	route_map_rule_metric_detail_compile,
+	route_map_rule_metric_detail_free,
+};
+
 struct ospf_metric {
 	enum { metric_increment, metric_decrement, metric_absolute } type;
 	bool used;
@@ -714,6 +749,9 @@ void ospf_route_map_init(void)
 	route_map_match_tag_hook(generic_match_add);
 	route_map_no_match_tag_hook(generic_match_delete);
 
+	route_map_match_metric_detail_hook(generic_match_add);
+	route_map_no_match_metric_detail_hook(generic_match_delete);
+
 	route_map_set_metric_hook(generic_set_add);
 	route_map_no_set_metric_hook(generic_set_delete);
 
@@ -733,6 +771,7 @@ void ospf_route_map_init(void)
 	route_map_install_match(&route_match_ip_next_hop_type_cmd);
 	route_map_install_match(&route_match_interface_cmd);
 	route_map_install_match(&route_match_tag_cmd);
+	route_map_install_match(&route_match_metric_detail_cmd);
 
 	route_map_install_set(&route_set_metric_cmd);
 	route_map_install_set(&route_set_min_metric_cmd);
