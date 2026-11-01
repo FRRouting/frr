@@ -1442,13 +1442,17 @@ static void ospf_hello(struct ip *iph, struct ospf_header *ospfh,
 				      &hello->bd_router))
 			OSPF_ISM_EVENT_SCHEDULE(oi, ISM_BackupSeen);
 
-		/* had not previously. */
+		/* A field change raises ISM_NeighborChange; repeated events are
+		 * coalesced per interface so a stream of forged Hello field
+		 * flips cannot force an election (with its AdjOK events and
+		 * self-originated LSA re-origination) per packet.
+		 */
 		if ((IPV4_ADDR_SAME(&nbr->address.u.prefix4, &hello->d_router)
 		     && IPV4_ADDR_CMP(&nbr->address.u.prefix4, &nbr->d_router))
 		    || (IPV4_ADDR_CMP(&nbr->address.u.prefix4, &hello->d_router)
 			&& IPV4_ADDR_SAME(&nbr->address.u.prefix4,
 					  &nbr->d_router)))
-			OSPF_ISM_EVENT_SCHEDULE(oi, ISM_NeighborChange);
+			ospf_ism_neighbor_change_throttle(oi);
 
 		/* had not previously. */
 		if ((IPV4_ADDR_SAME(&nbr->address.u.prefix4, &hello->bd_router)
@@ -1457,11 +1461,11 @@ static void ospf_hello(struct ip *iph, struct ospf_header *ospfh,
 				      &hello->bd_router)
 			&& IPV4_ADDR_SAME(&nbr->address.u.prefix4,
 					  &nbr->bd_router)))
-			OSPF_ISM_EVENT_SCHEDULE(oi, ISM_NeighborChange);
+			ospf_ism_neighbor_change_throttle(oi);
 
 		/* Neighbor priority check. */
 		if (nbr->priority >= 0 && nbr->priority != hello->priority)
-			OSPF_ISM_EVENT_SCHEDULE(oi, ISM_NeighborChange);
+			ospf_ism_neighbor_change_throttle(oi);
 	}
 
 	/* Set neighbor information. */
