@@ -482,6 +482,7 @@ static void vty_show_ip_route_detail(struct vty *vty, struct route_node *rn,
 			vty_out(vty, "  Flags: %s\n", flags_buf);
 		if (status_buf[0] != '\0')
 			vty_out(vty, "  Status: %s\n", status_buf);
+		vty_out(vty, "  Internal Status: 0x%x\n", re->status);
 
 		if (show_ng) {
 			vty_out(vty, "  Nexthop Group ID: %u\n", re->nhe_id);
@@ -620,6 +621,7 @@ static void vty_show_ip_route(struct vty *vty, struct route_node *rn, struct rou
 					json_object_int_add(json_route,
 							    "trackerParentNexthopGroupId",
 							    re->tracker_parent_nhg_id);
+				json_object_int_add(json_route, "internalStatus", re->status);
 
 				if (re->nhe) {
 					json_object_int_add(json_route, "nexthopGroupFlags",
@@ -729,9 +731,7 @@ static void vty_show_ip_route(struct vty *vty, struct route_node *rn, struct rou
 		vty_out(vty, " ECMP/FIB count: %u/%u", nh_ecmp_count, fib_nh_count);
 		if (CHECK_FLAG(re->status, ROUTE_ENTRY_INSTALLED) ||
 		    CHECK_FLAG(re->status, ROUTE_ENTRY_QUEUED) ||
-		    CHECK_FLAG(re->status, ROUTE_ENTRY_FAILED) ||
-		    CHECK_FLAG(re->status, ROUTE_ENTRY_TRACKER) ||
-		    CHECK_FLAG(re->status, ROUTE_ENTRY_NHG_TRACKER_FLUSH_BATCH)) {
+		    CHECK_FLAG(re->status, ROUTE_ENTRY_FAILED)) {
 			bool first = true;
 
 			vty_out(vty, " Status: ");
@@ -745,19 +745,10 @@ static void vty_show_ip_route(struct vty *vty, struct route_node *rn, struct rou
 				first = false;
 			}
 
-			if (CHECK_FLAG(re->status, ROUTE_ENTRY_FAILED)) {
+			if (CHECK_FLAG(re->status, ROUTE_ENTRY_FAILED))
 				vty_out(vty, "%sFailed", first ? "" : ",");
-				first = false;
-			}
-
-			if (CHECK_FLAG(re->status, ROUTE_ENTRY_TRACKER)) {
-				vty_out(vty, "%sTracker", first ? "" : ",");
-				first = false;
-			}
-
-			if (CHECK_FLAG(re->status, ROUTE_ENTRY_NHG_TRACKER_FLUSH_BATCH))
-				vty_out(vty, "%sFlush Batch", first ? "" : ",");
 		}
+		vty_out(vty, " Internal Status: 0x%x", re->status);
 
 		if (re->nhe && re->nhe->flags) {
 			char flags_buf[256];
@@ -1216,6 +1207,7 @@ static void show_nexthop_group_out(struct vty *vty, struct nhg_hash_entry *nhe,
 		if (!brief) {
 			json_object_string_add(json, "type", zebra_route_string(nhe->type));
 			json_object_int_add(json, "refCount", nhe->refcnt);
+			json_object_int_add(json, "routeCount", nhe_re_tree_count(&nhe->re_head));
 			if (event_is_scheduled(nhe->timer))
 				json_object_string_add(json, "timeToDeletion",
 						       event_timer_to_hhmmss(time_left,
@@ -1243,6 +1235,7 @@ static void show_nexthop_group_out(struct vty *vty, struct nhg_hash_entry *nhe,
 		if (event_is_scheduled(nhe->consolidation_event))
 			vty_out(vty, " Dup Consolidation: pending");
 		vty_out(vty, "\n");
+		vty_out(vty, "     Route Count: %zu\n", nhe_re_tree_count(&nhe->re_head));
 
 		vty_out(vty, "     Uptime: %s\n", up_str);
 		vty_out(vty, "     VRF: %s(%s)\n", vrf_id_to_name(nhe->vrf_id),
@@ -1529,6 +1522,10 @@ static void show_nexthop_group_out(struct vty *vty, struct nhg_hash_entry *nhe,
 				json_object_int_add(jt, "trackerId", tracker->nhg_tracker_id);
 				json_object_string_add(jt, "event", event_str);
 				json_object_string_add(jt, "state", state_str);
+				json_object_int_add(jt, "stateAgeMsecs",
+						    monotime_since(&tracker->flush_state_time,
+								   NULL) /
+							    1000);
 				json_object_int_add(jt, "ifindex", tracker->ifindex);
 				if (ifp)
 					json_object_string_add(jt, "interfaceName", ifp->name);
@@ -1545,6 +1542,10 @@ static void show_nexthop_group_out(struct vty *vty, struct nhg_hash_entry *nhe,
 					if (tracker->winner_nhg_id)
 						json_object_int_add(jt, "winnerNhgId",
 								    tracker->winner_nhg_id);
+					json_object_int_add(jt, "losersTagged",
+							    tracker->losers_tagged);
+					json_object_int_add(jt, "losersConsumed",
+							    tracker->losers_consumed);
 				}
 				if (tracker->flush_state == TRACKER_FLUSH_PHASE1)
 					json_object_int_add(jt, "routesPending",
@@ -1574,9 +1575,13 @@ static void show_nexthop_group_out(struct vty *vty, struct nhg_hash_entry *nhe,
 
 				json_object_array_add(json_trackers, jt);
 			} else {
+				char age_buf[MONOTIME_STRLEN];
+
+				uptime2str(tracker->flush_state_time.tv_sec, age_buf,
+					   sizeof(age_buf));
 				vty_out(vty,
-					"       Tracker %u: event=%s state=%s interface=%s(%u) matched=%u unmatched=%u deleted=%u expected_re=%u",
-					tracker->nhg_tracker_id, event_str, state_str,
+					"       Tracker %u: event=%s state=%s state_age=%s interface=%s(%u) matched=%u unmatched=%u deleted=%u expected_re=%u",
+					tracker->nhg_tracker_id, event_str, state_str, age_buf,
 					ifp ? ifp->name : "unknown", tracker->ifindex,
 					tracker->matched_table.re_count,
 					tracker->unmatched_table.re_count,
@@ -1587,6 +1592,8 @@ static void show_nexthop_group_out(struct vty *vty, struct nhg_hash_entry *nhe,
 					if (tracker->winner_nhg_id)
 						vty_out(vty, " winner_nhg=%u",
 							tracker->winner_nhg_id);
+					vty_out(vty, " losers_tagged=%u losers_consumed=%u",
+						tracker->losers_tagged, tracker->losers_consumed);
 				}
 				if (tracker->flush_state == TRACKER_FLUSH_PHASE1)
 					vty_out(vty, " routes_pending=%u", tracker->routes_pending);
@@ -4690,6 +4697,8 @@ DEFUN (show_zebra_tracker,
 		json_object_int_add(json, "losersConsumed",
 				    zrouter.tracker_counters.losers_consumed);
 		json_object_int_add(json, "losersOutstanding", losers_out);
+		json_object_int_add(json, "losersHandedOver",
+				    zrouter.tracker_counters.losers_handed_over);
 		json_object_int_add(json, "winnersTagged", zrouter.tracker_counters.winners_tagged);
 		json_object_int_add(json, "winnersConsumed",
 				    zrouter.tracker_counters.winners_consumed);
@@ -4716,6 +4725,8 @@ DEFUN (show_zebra_tracker,
 				    zrouter.tracker_counters.winner_drained_no_parent);
 		json_object_int_add(json, "consolidateSkippedBusy",
 				    zrouter.tracker_counters.consolidate_skipped_busy);
+		json_object_int_add(json, "loserAckNoPending",
+				    zrouter.tracker_counters.loser_ack_no_pending);
 
 		for (uint32_t i = 0; i < count; i++) {
 			uint32_t idx = (start + i) % TRACKER_FLUSH_LOG_SIZE;
@@ -4763,6 +4774,8 @@ DEFUN (show_zebra_tracker,
 		vty_out(vty, "Losers consumed: %" PRIu32 "\n",
 			zrouter.tracker_counters.losers_consumed);
 		vty_out(vty, "  Outstanding (0 when idle): %" PRId64 "\n", losers_out);
+		vty_out(vty, "Losers handed over (re-tagged by another tracker): %" PRIu32 "\n",
+			zrouter.tracker_counters.losers_handed_over);
 		vty_out(vty, "Winners tagged: %" PRIu32 "\n",
 			zrouter.tracker_counters.winners_tagged);
 		vty_out(vty, "Winners consumed: %" PRIu32 "\n",
@@ -4795,6 +4808,8 @@ DEFUN (show_zebra_tracker,
 			zrouter.tracker_counters.winner_drained_no_parent);
 		vty_out(vty, "  Consolidation deferred (busy): %" PRIu32 "\n",
 			zrouter.tracker_counters.consolidate_skipped_busy);
+		vty_out(vty, "  Loser ack with nothing pending: %" PRIu32 "\n",
+			zrouter.tracker_counters.loser_ack_no_pending);
 
 		for (uint32_t i = 0; i < count; i++) {
 			uint32_t idx = (start + i) % TRACKER_FLUSH_LOG_SIZE;

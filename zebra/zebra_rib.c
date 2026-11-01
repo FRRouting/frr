@@ -4264,7 +4264,7 @@ static struct nhg_event_tracker *rib_link_track_ecmp_change(struct route_node *r
 		 * was fired by the older tracker's silent-fire.
 		 */
 		if (CHECK_FLAG(old_re->status, ROUTE_ENTRY_CHANGED) &&
-		    CHECK_FLAG(old_re->status, ROUTE_ENTRY_NHG_TRACKER_FLUSH_BATCH))
+		    CHECK_FLAG(old_re->status, ROUTE_ENTRY_NHG_TRACKER_LOSER))
 			UNSET_FLAG(old_re->status, ROUTE_ENTRY_CHANGED);
 	}
 

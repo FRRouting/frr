@@ -556,6 +556,22 @@ TRACEPOINT_LOGLEVEL(frr_zebra, zebra_nhg_uninstall_kernel, TRACE_INFO)
 
 TRACEPOINT_EVENT(
 	frr_zebra,
+	zebra_nhg_unset_installed_for_routes,
+	TP_ARGS(const char *, caller, uint32_t, nhe_id, uint32_t, nhe_flags, uint32_t, re_count,
+		uint32_t, dependents),
+	TP_FIELDS(
+		ctf_string(caller, caller)
+		ctf_integer(uint32_t, nhe_id, nhe_id)
+		ctf_integer(uint32_t, nhe_flags, nhe_flags)
+		ctf_integer(uint32_t, re_count, re_count)
+		ctf_integer(uint32_t, dependents, dependents)
+	)
+)
+
+TRACEPOINT_LOGLEVEL(frr_zebra, zebra_nhg_unset_installed_for_routes, TRACE_INFO)
+
+TRACEPOINT_EVENT(
+	frr_zebra,
 	zread_nhg_add,
 	TP_ARGS(uint32_t, id, uint16_t, proto, struct nexthop_group *, nhg, const char *, nexthop),
 	TP_FIELDS(

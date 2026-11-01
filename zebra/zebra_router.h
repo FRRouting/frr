@@ -174,8 +174,9 @@ struct zebra_nhg_tracker_counters {
 	 * NHG-reuse debug accounting across the flush/reuse/consolidation
 	 * paths.  Debug-only, surfaced via 'show zebra nexthop-group tracker'.
 	 */
-	uint32_t losers_tagged;	       /* FLUSH_BATCH set: phase1 drain + silent enqueue */
-	uint32_t losers_consumed;      /* FLUSH_BATCH released on dplane ack */
+	uint32_t losers_tagged;	       /* LOSER set: phase1 drain + silent enqueue */
+	uint32_t losers_consumed;      /* LOSER released on dplane ack */
+	uint32_t losers_handed_over;   /* LOSER RE re-tagged by another tracker */
 	uint32_t winners_tagged;       /* WINNER set: phase2 release + silent fire */
 	uint32_t winners_consumed;     /* WINNER released by consumer or pre-remove */
 	uint32_t silent_fired;	       /* phase2: silent REs re-queued for install */
@@ -195,6 +196,7 @@ struct zebra_nhg_tracker_counters {
 	uint32_t reuse_skip_not_reusable;  /* reuse: parent left the kernel mid-flush */
 	uint32_t winner_drained_no_parent; /* winner tag consumed, tagged parent gone */
 	uint32_t consolidate_skipped_busy; /* consolidation deferred: base or dup busy */
+	uint32_t loser_ack_no_pending;	   /* LOSER ack, tracker had nothing pending */
 	/* Circular log of last few flush events */
 	struct tracker_flush_event log[TRACKER_FLUSH_LOG_SIZE];
 	uint32_t log_idx;

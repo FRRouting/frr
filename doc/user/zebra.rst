@@ -1691,6 +1691,8 @@ zebra Terminal Mode Commands
    - Received/Installed NHG ID: The nexthop group IDs (received from protocol / installed in kernel)
    - ECMP/FIB count: Number of ECMP paths / Number of paths installed in FIB
    - Status: Route installation status (Installed, Queued, Failed)
+   - Internal Status: The route entry's full internal status bitmask, in hex
+     (``internalStatus`` in JSON)
    - Flags: Nexthop group flags (Valid, Installed, Recursive, etc.)
 
    Example showing routes with exactly 2 ECMP paths:
@@ -1698,17 +1700,17 @@ zebra Terminal Mode Commands
    ::
 
       Router# show ip route bgp nexthop-group summary ecmp-count eq 2
-      B>  192.168.1.0/24 [20/0] Rcv/Ins NHG ID: 100/100 ECMP/FIB count: 2/2 Status: Installed Flags: Valid, Installed
-      B>* 192.168.2.0/24 [20/0] Rcv/Ins NHG ID: 101/101 ECMP/FIB count: 2/2 Status: Installed Flags: Valid, Installed
-      B>  192.168.3.0/24 [20/0] Rcv/Ins NHG ID: 102/102 ECMP/FIB count: 2/2 Status: Installed Flags: Valid, Installed
-      B>  192.168.4.0/24 [20/0] Rcv/Ins NHG ID: 103/103 ECMP/FIB count: 2/2 Status: Installed Flags: Valid, Installed
+      B>  192.168.1.0/24 [20/0] Rcv/Ins NHG ID: 100/100 ECMP/FIB count: 2/2 Status: Installed Internal Status: 0x10 Flags: Valid, Installed
+      B>* 192.168.2.0/24 [20/0] Rcv/Ins NHG ID: 101/101 ECMP/FIB count: 2/2 Status: Installed Internal Status: 0x10 Flags: Valid, Installed
+      B>  192.168.3.0/24 [20/0] Rcv/Ins NHG ID: 102/102 ECMP/FIB count: 2/2 Status: Installed Internal Status: 0x10 Flags: Valid, Installed
+      B>  192.168.4.0/24 [20/0] Rcv/Ins NHG ID: 103/103 ECMP/FIB count: 2/2 Status: Installed Internal Status: 0x10 Flags: Valid, Installed
 
    Example showing routes with less than 2 ECMP paths:
 
    ::
 
       Router# show ip route ospf nexthop-group summary ecmp-count lt 2
-      O>  192.168.10.0/24 [110/20] Rcv/Ins NHG ID: 150/151 ECMP/FIB count: 1/1 Status: Installed Flags: Valid, Recursive
+      O>  192.168.10.0/24 [110/20] Rcv/Ins NHG ID: 150/151 ECMP/FIB count: 1/1 Status: Installed Internal Status: 0x10 Flags: Valid, Recursive
 
    JSON output example:
 
@@ -1732,6 +1734,7 @@ zebra Terminal Mode Commands
         "fibInstalledCount":1,
         "installedNexthopGroupId":200,
         "receivedNexthopGroupId":200,
+        "internalStatus":16,
         "nexthopGroupFlags":9,
         "nexthopGroupValid":"true"
       }]}
@@ -1848,13 +1851,14 @@ zebra Terminal Mode Commands
    that has `Initial Delay`, means that this nexthop group entry
    was not installed because no-one was using it at that point and
    Zebra can delay installing this route until it is used by something
-   else.
+   else.  ``Route Count`` is the number of routes that use the nexthop
+   group; ``RefCnt`` also counts other references held on it.
 
    With **json**, the output is in JSON format.  **brief** may only be
    given together with **json** (after it); it omits the full-detail
-   fields (type, refCount, timeToDeletion) and shows a condensed nexthop
-   list; groups with dependencies list only ``depends`` and not
-   per-nexthop detail.
+   fields (type, refCount, routeCount, timeToDeletion) and shows a
+   condensed nexthop list; groups with dependencies list only ``depends``
+   and not per-nexthop detail.
 
 .. clicmd:: show <ip|ipv6> zebra route dump [<vrf> VRFNAME]
 

@@ -162,7 +162,15 @@ struct nhg_event_tracker {
 	 */
 	bool flushing;
 	enum tracker_flush_batch_state flush_state;
+	/* When flush_state last changed (monotime) */
+	struct timeval flush_state_time;
 	uint32_t routes_pending;
+	/*
+	 * Phase-1 losers this tracker tagged, and the acks credited to it; a
+	 * loser handed over to another tracker counts as an ack here.
+	 */
+	uint32_t losers_tagged;
+	uint32_t losers_consumed;
 
 	/*
 	 * Winner metadata - computed by tracker_flush_build_groups and used by

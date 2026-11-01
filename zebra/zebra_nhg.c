@@ -1144,6 +1144,9 @@ static void zebra_nhg_unset_installed_for_routes(struct nhg_hash_entry *nhe, con
 	struct route_entry *re_dep = NULL;
 	struct nhg_connected *rb_node_dep = NULL;
 
+	frrtrace(5, frr_zebra, zebra_nhg_unset_installed_for_routes, caller, nhe->id, nhe->flags,
+		 (uint32_t)nhe_re_tree_count(&nhe->re_head), zebra_nhg_dependents_count(nhe));
+
 	frr_each (nhe_re_tree, &nhe->re_head, re) {
 		if (CHECK_FLAG(re->status, ROUTE_ENTRY_INSTALLED)) {
 			if (IS_ZEBRA_DEBUG_NHG_DETAIL && re->rn)
@@ -1592,8 +1595,7 @@ static void nhg_consolidate_migrate_loser(struct nhg_hash_entry *loser,
 		 * phase 1/2 ack tracking uses re->nhe and the parent
 		 * NHG ID; switching the NHG now would break it.
 		 */
-		if (CHECK_FLAG(re->status, ROUTE_ENTRY_TRACKER |
-						   ROUTE_ENTRY_NHG_TRACKER_FLUSH_BATCH |
+		if (CHECK_FLAG(re->status, ROUTE_ENTRY_TRACKER | ROUTE_ENTRY_NHG_TRACKER_LOSER |
 						   ROUTE_ENTRY_NHG_TRACKER_WINNER)) {
 			skipped++;
 			continue;
@@ -4102,7 +4104,7 @@ int nexthop_active_update(struct route_node *rn, struct route_entry *re,
 	if (is_tracker_winner && re->tracker_parent_nhg_id)
 		parent_nhe = zebra_nhg_lookup_id(re->tracker_parent_nhg_id);
 
-	if (!is_tracker_winner && CHECK_FLAG(re->status, ROUTE_ENTRY_NHG_TRACKER_FLUSH_BATCH))
+	if (!is_tracker_winner && CHECK_FLAG(re->status, ROUTE_ENTRY_NHG_TRACKER_LOSER))
 		zrouter.tracker_counters.new_nhg_on_loser++;
 
 	/*
@@ -4605,6 +4607,52 @@ void zebra_nhg_uninstall_kernel(struct nhg_hash_entry *nhe)
 	zebra_nhg_handle_uninstall(nhe);
 }
 
+/*
+ * The kernel's error for a rejected group (e.g. "Invalid nexthop id") does
+ * not name the member, so list the sent members that zebra no longer has as
+ * valid and installed.
+ */
+static void zebra_nhg_install_fail_members(const struct zebra_dplane_ctx *ctx, char *buf,
+					   size_t len)
+{
+	const struct nh_grp *grp = dplane_ctx_get_nhe_nh_grp(ctx);
+	uint16_t count = dplane_ctx_get_nhe_nh_grp_count(ctx);
+	const struct nhg_hash_entry *member;
+	char list[512] = "";
+	uint16_t bad = 0;
+	bool installed;
+	bool valid;
+
+	buf[0] = '\0';
+	if (!count)
+		return;
+
+	for (uint16_t i = 0; i < count; i++) {
+		member = zebra_nhg_lookup_id(grp[i].id);
+		if (!member) {
+			csnprintfrr(list, sizeof(list), " %u(missing)", grp[i].id);
+			bad++;
+			continue;
+		}
+
+		valid = CHECK_FLAG(member->flags, NEXTHOP_GROUP_VALID);
+		installed = CHECK_FLAG(member->flags, NEXTHOP_GROUP_INSTALLED);
+		if (valid && installed)
+			continue;
+
+		csnprintfrr(list, sizeof(list), " %u(%s%s%s%s)", grp[i].id, valid ? "" : "!valid",
+			    (valid || installed) ? "" : ",", installed ? "" : "!installed",
+			    CHECK_FLAG(member->flags, NEXTHOP_GROUP_QUEUED) ? ",queued" : "");
+		bad++;
+	}
+
+	if (bad)
+		snprintfrr(buf, len, ", sent %u members, %u not valid/installed now:%s", count,
+			   bad, list);
+	else
+		snprintfrr(buf, len, ", sent %u members, all valid and installed now", count);
+}
+
 void zebra_nhg_dplane_result(struct zebra_dplane_ctx *ctx)
 {
 	enum dplane_op_e op;
@@ -4670,12 +4718,14 @@ void zebra_nhg_dplane_result(struct zebra_dplane_ctx *ctx)
 						 nhe->zapi_session, nhe->id,
 						 ZAPI_NHG_FAIL_INSTALL);
 
-			if (!(zebra_nhg_proto_nexthops_only() &&
-			      !PROTO_OWNED(nhe)))
-				flog_err(
-					EC_ZEBRA_DP_INSTALL_FAIL,
-					"Failed to install Nexthop (%pNG) into the kernel",
-					nhe);
+			if (!(zebra_nhg_proto_nexthops_only() && !PROTO_OWNED(nhe))) {
+				char members[640];
+
+				zebra_nhg_install_fail_members(ctx, members, sizeof(members));
+				flog_err(EC_ZEBRA_DP_INSTALL_FAIL,
+					 "Failed to install Nexthop (%pNG) into the kernel%s", nhe,
+					 members);
+			}
 			break;
 		case ZEBRA_DPLANE_REQUEST_QUEUED:
 			flog_err(EC_ZEBRA_DP_INVALID_RC,
