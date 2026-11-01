@@ -978,7 +978,8 @@ struct ospf6_lsa *ospf6_create_single_router_lsa(struct ospf6_area *area,
 	struct ospf6_lsa_header *lsa_header = NULL;
 	uint8_t *new_header = NULL;
 	const struct route_node *end = NULL;
-	uint16_t lsa_length, total_lsa_length = 0, num_lsa = 0;
+	uint32_t total_lsa_length = 0;
+	uint16_t lsa_length, num_lsa = 0;
 	uint16_t type = 0;
 	char ifbuf[16];
 	uint32_t interface_id;
@@ -1007,9 +1008,26 @@ struct ospf6_lsa *ospf6_create_single_router_lsa(struct ospf6_area *area,
 		}
 		lsa_header = rtr_lsa->header;
 		total_lsa_length += (ospf6_lsa_size(lsa_header) - lsa_length);
+		/* Prevent overrun of 16-bits */
+		if (total_lsa_length > UINT16_MAX)
+			break;
+
 		num_lsa++;
 		rtr_lsa = ospf6_lsdb_next(end, rtr_lsa);
 	}
+
+	if (total_lsa_length > UINT16_MAX) {
+		if (IS_OSPF6_DEBUG_SPF(PROCESS))
+			zlog_debug("%s: adv_router %s: %u Router-LSAs with over-size total length, ignoring",
+				   __func__, ifbuf, num_lsa);
+
+		/* Release ref if we broke out of the loop above */
+		if (rtr_lsa)
+			ospf6_lsdb_lsa_unlock(rtr_lsa);
+
+		return NULL;
+	}
+
 	if (IS_OSPF6_DEBUG_SPF(PROCESS))
 		zlog_debug("%s: adv_router %s num_lsa %u to convert.", __func__,
 			   ifbuf, num_lsa);
