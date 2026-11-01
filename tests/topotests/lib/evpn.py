@@ -11,6 +11,7 @@
 evpn.py: Library of helper functions for EVPN testing
 """
 
+import ipaddress
 import json
 import shlex
 import sys
@@ -3020,3 +3021,655 @@ def evpn_verify_kernel_encap_vni(
         f" via {expected_dev}" if expected_dev else "",
     )
     return None
+
+
+# ---------------------------------------------------------------------------
+# EVPN multihoming
+#
+# These helpers are the MH checks shared by every topotest. A suite keeps
+# only the expectations that depend on its topology (which ToRs share a rack,
+# which hosts to ping). Each helper returns None when the state matches and
+# an error string when it does not, so topotest.run_and_expect can poll it.
+#
+# The first time a check fails it is logged at info with the ES flags, VTEP
+# list, and nexthop group. The same failure on a later poll is debug, so a
+# wait does not look like a new fault. Success is debug.
+# ---------------------------------------------------------------------------
+
+_evpn_mh_last_failure = {}
+
+
+def _evpn_loads(output):
+    """Parse vtysh or ip JSON. An empty or broken reply is an empty object."""
+    if output is None or isinstance(output, (dict, list)):
+        return output if output is not None else {}
+    text = str(output).strip()
+    if not text:
+        return {}
+    try:
+        parsed = json.loads(text)
+    except (TypeError, json.JSONDecodeError):
+        return {}
+    return parsed if parsed is not None else {}
+
+
+def _evpn_normalize_nexthop_ip(address):
+    """Return one comparable form of a VTEP or nexthop address.
+
+    bgpd, zebra, and ``ip -j nexthop`` do not print the same address the
+    same way. ``::ffff:192.168.100.15`` is the IPv4 VTEP ``192.168.100.15``.
+    Any other valid address is returned in canonical form, so compressed
+    and uncompressed IPv6 compare equal. An unparseable value is unchanged.
+    """
+    try:
+        parsed = ipaddress.ip_address(str(address))
+    except ValueError:
+        return address
+    if isinstance(parsed, ipaddress.IPv6Address) and parsed.ipv4_mapped:
+        mapped = str(parsed.ipv4_mapped)
+        logger.debug("nexthop %s is IPv4-mapped, comparing as %s", address, mapped)
+        return mapped
+    return str(parsed)
+
+
+def _evpn_same_addr(left, right):
+    """Compare two VTEP strings after ``_evpn_normalize_nexthop_ip``."""
+    return _evpn_normalize_nexthop_ip(left) == _evpn_normalize_nexthop_ip(right)
+
+
+def _evpn_mh_log(router, key, error, detail="", waiting=False):
+    """Log an MH check failure once at info, then at debug while it persists."""
+    if waiting:
+        logger.debug("%s: %s", router.name, error)
+        return error
+
+    slot = (getattr(router, "name", router), key)
+    if _evpn_mh_last_failure.get(slot) == error:
+        logger.debug("%s: %s", router.name, error)
+        return error
+
+    _evpn_mh_last_failure[slot] = error
+    if detail:
+        logger.info("%s: %s\n%s", router.name, error, detail)
+    else:
+        logger.info("%s: %s", router.name, error)
+    return error
+
+
+def _evpn_mh_ok(router, key, message):
+    _evpn_mh_last_failure.pop((getattr(router, "name", router), key), None)
+    logger.debug("%s: %s", router.name, message)
+    return None
+
+
+def _evpn_es_brief(es):
+    """One block a failure log can print without dumping the whole ES object."""
+    if not isinstance(es, dict) or not es:
+        return "<no ES>"
+    vteps = []
+    for vtep in es.get("vteps") or []:
+        if not isinstance(vtep, dict):
+            continue
+        vteps.append(
+            "vtep={vtep} nh={nh} dfPref={pref}".format(
+                vtep=vtep.get("vtep", vtep.get("vtep_ip")),
+                nh=vtep.get("nexthopId"),
+                pref=vtep.get("dfPreference"),
+            )
+        )
+    return "esi={esi} flags={flags} nhg={nhg} vniCount={vni}\n  {vteps}".format(
+        esi=es.get("esi"),
+        flags=es.get("flags"),
+        nhg=es.get("nexthopGroup"),
+        vni=es.get("vniCount"),
+        vteps="\n  ".join(vteps) if vteps else "<no vteps>",
+    )
+
+
+def evpn_bgp_es(router, esi):
+    """Return ``show bgp l2vpn evpn es <esi> json`` as a dict.
+
+    An unknown ESI is ``{}``. bgpd names each remote VTEP ``vtep_ip``.
+
+    Example::
+
+        es = evpn_bgp_es(torm12, "03:44:38:39:ff:ff:01:00:00:01")
+        rd = es.get("rd")
+    """
+    output = router.vtysh_cmd("show bgp l2vpn evpn es {} json".format(esi), isjson=True)
+    return output if isinstance(output, dict) else {}
+
+
+def evpn_zebra_es(router, esi):
+    """Return ``show evpn es <esi> json`` as a dict.
+
+    An unknown ESI is ``{}``. zebra names each remote VTEP ``vtep`` and
+    records the ES L2 nexthop group in ``nexthopGroup``. Per-VTEP
+    ``nexthopId`` is the FDB nexthop the kernel should hold.
+
+    Example::
+
+        es = evpn_zebra_es(torm12, esi)
+        nhg = es.get("nexthopGroup")
+    """
+    output = router.vtysh_cmd("show evpn es {} json".format(esi), isjson=True)
+    return output if isinstance(output, dict) else {}
+
+
+def _evpn_verify_es_vtep(router, esi, vtep_ip, present, source, es, key):
+    """Shared bgpd/zebra VTEP membership check. ``key`` is the JSON field."""
+    slot = "{} es {} vtep {}".format(source, esi, vtep_ip)
+    if not es:
+        if present:
+            return _evpn_mh_log(
+                router,
+                slot,
+                "{} missing ES {} while expecting VTEP {}".format(source, esi, vtep_ip),
+                waiting=True,
+            )
+        return _evpn_mh_ok(router, slot, "{} has no ES {}".format(source, esi))
+
+    found = [
+        vtep.get(key)
+        for vtep in es.get("vteps") or []
+        if isinstance(vtep, dict) and key in vtep
+    ]
+    have = any(_evpn_same_addr(ip, vtep_ip) for ip in found)
+    if have == present:
+        state = "present" if present else "absent"
+        return _evpn_mh_ok(
+            router, slot, "{} ES {} VTEP {} is {}".format(source, esi, vtep_ip, state)
+        )
+
+    expectation = "present" if present else "absent"
+    # A VTEP that has not arrived yet is a wait. One that is still listed
+    # after a withdraw is the stale-ES failure and is logged in full.
+    waiting = present and not have
+    return _evpn_mh_log(
+        router,
+        slot,
+        "{} ES {} VTEPs {}; expected {} to be {}".format(
+            source, esi, found, vtep_ip, expectation
+        ),
+        detail=_evpn_es_brief(es),
+        waiting=waiting,
+    )
+
+
+def evpn_verify_bgp_es_vtep(router, esi, vtep_ip, present=True):
+    """Check one VTEP in bgpd's ES list.
+
+    ``present=False`` succeeds when the ES itself is gone. Use this on the
+    DUT and on a live observer. When the DUT's bgpd is stopped, check the
+    observer instead.
+
+    Example::
+
+        partial(evpn_verify_bgp_es_vtep, torm12, esi, "192.168.100.15", True)
+    """
+    return _evpn_verify_es_vtep(
+        router, esi, vtep_ip, present, "bgpd", evpn_bgp_es(router, esi), "vtep_ip"
+    )
+
+
+def evpn_verify_zebra_es_vtep(router, esi, vtep_ip, present=True):
+    """Check one VTEP in zebra's ES list.
+
+    zebra keeps this list after bgpd exits unless client-close cleanup
+    removed it. A restart test reads zebra while bgpd is down.
+
+    Example::
+
+        partial(evpn_verify_zebra_es_vtep, torm12, esi, "192.168.100.15", False)
+    """
+    return _evpn_verify_es_vtep(
+        router, esi, vtep_ip, present, "zebra", evpn_zebra_es(router, esi), "vtep"
+    )
+
+
+def evpn_verify_df_role(router, esi, role):
+    """Check zebra's designated-forwarder role for one local ES.
+
+    ``role`` is ``DF`` or ``nonDF``. The flag lives in ``show evpn es``.
+    An ES with no ``nonDF`` flag is DF. This does not program the kernel;
+    pair it with ``evpn_verify_es_kernel_nexthop`` when the VTEP list changes.
+
+    Example::
+
+        partial(evpn_verify_df_role, torm12, esi, "DF")
+    """
+    es = evpn_zebra_es(router, esi)
+    slot = "df {} {}".format(esi, role)
+    if not es:
+        return _evpn_mh_log(
+            router, slot, "zebra missing ES {} for DF check".format(esi), waiting=True
+        )
+
+    flags = es.get("flags") or []
+    current = "nonDF" if "nonDF" in flags else "DF"
+    if current == role:
+        return _evpn_mh_ok(router, slot, "zebra ES {} is {}".format(esi, current))
+    return _evpn_mh_log(
+        router,
+        slot,
+        "{} is {} for {}, expected {}".format(router.name, current, esi, role),
+        detail=_evpn_es_brief(es),
+    )
+
+
+def _evpn_kernel_nh_entries(router, nh_id):
+    output = router.run("ip -j nexthop get id {}".format(nh_id)) or ""
+    parsed = _evpn_loads(output)
+    if isinstance(parsed, list):
+        return parsed
+    if isinstance(parsed, dict):
+        return [parsed]
+    return []
+
+
+def _evpn_kernel_gateways(router, nh_id, seen=None):
+    """Gateways under one nexthop id, walking group members once."""
+    seen = seen if seen is not None else set()
+    if nh_id in seen:
+        return []
+    seen.add(nh_id)
+    gateways = []
+    for entry in _evpn_kernel_nh_entries(router, nh_id):
+        group = entry.get("group")
+        if group:
+            for member in _kernel_nh_group_ids(group):
+                gateways.extend(_evpn_kernel_gateways(router, member, seen))
+            continue
+        gateway = entry.get("gateway", entry.get("via"))
+        if gateway:
+            gateways.append(str(gateway))
+    return gateways
+
+
+def evpn_verify_es_kernel_nexthop(router, esi, vtep_ip, present=True):
+    """Check the kernel FDB nexthop for one remote ES VTEP.
+
+    zebra's ``nexthopGroup`` and each VTEP ``nexthopId`` are walked with
+    ``ip -j nexthop get id``. ``present=True`` requires ``vtep_ip`` as a
+    gateway. ``present=False`` requires that gateway to be gone. An ES
+    that zebra has already freed has no kernel nexthop and counts as absent.
+
+    Example::
+
+        partial(evpn_verify_es_kernel_nexthop, torm12, esi, "192.168.100.15", False)
+    """
+    es = evpn_zebra_es(router, esi)
+    slot = "kernel es {} vtep {}".format(esi, vtep_ip)
+    if not es:
+        if present:
+            return _evpn_mh_log(
+                router,
+                slot,
+                "zebra missing ES {} while expecting kernel VTEP {}".format(
+                    esi, vtep_ip
+                ),
+                waiting=True,
+            )
+        return _evpn_mh_ok(router, slot, "kernel ES {} is gone".format(esi))
+
+    ids = []
+    nhg = es.get("nexthopGroup") or 0
+    if nhg:
+        ids.append(nhg)
+    for vtep in es.get("vteps") or []:
+        if isinstance(vtep, dict) and vtep.get("nexthopId"):
+            ids.append(vtep["nexthopId"])
+
+    if present and not ids:
+        return _evpn_mh_log(
+            router,
+            slot,
+            "zebra ES {} has no nexthop id for {}".format(esi, vtep_ip),
+            detail=_evpn_es_brief(es),
+            waiting=True,
+        )
+
+    gateways = []
+    for nh_id in ids:
+        gateways.extend(_evpn_kernel_gateways(router, nh_id))
+    have = any(_evpn_same_addr(gateway, vtep_ip) for gateway in gateways)
+    if have == present:
+        state = "present" if present else "absent"
+        return _evpn_mh_ok(
+            router, slot, "kernel ES {} VTEP {} is {}".format(esi, vtep_ip, state)
+        )
+
+    expectation = "present" if present else "absent"
+    waiting = present and not have
+    return _evpn_mh_log(
+        router,
+        slot,
+        "kernel ES {} gateways {}; expected {} to be {}".format(
+            esi, gateways, vtep_ip, expectation
+        ),
+        detail=_evpn_es_brief(es),
+        waiting=waiting,
+    )
+
+
+def evpn_verify_protodown_reason(router, reason):
+    """Check one protodown reason in ``show evpn json``.
+
+    ``reason=None`` requires the reason list to be empty. A startup-delay
+    test waits for None, then for ``uplinkDown`` after the uplinks drop.
+
+    Example::
+
+        partial(evpn_verify_protodown_reason, torm11, "uplinkDown")
+    """
+    evpn = _evpn_loads(router.vtysh_cmd("show evpn json", isjson=True))
+    if not isinstance(evpn, dict):
+        evpn = {}
+    current = evpn.get("protodownReasons") or []
+    slot = "protodown {}".format(reason)
+    if reason:
+        if reason in current:
+            return _evpn_mh_ok(router, slot, "protodown {} is set".format(reason))
+        return _evpn_mh_log(
+            router,
+            slot,
+            "protodown {} missing in {}".format(reason, current),
+            waiting=True,
+        )
+    if current:
+        return _evpn_mh_log(
+            router, slot, "unexpected protodown reasons {}".format(current)
+        )
+    return _evpn_mh_ok(router, slot, "protodown reasons are clear")
+
+
+def evpn_verify_mh_mac(router, vni, mac, mac_type, esi, intf=""):
+    """Check one EVPN MAC's ESI, local/remote type, and access interface.
+
+    The caller generates the MAC (ARP or ping) before polling. A local MAC
+    must name ``intf``. A remote MAC passes ``intf=""``.
+
+    Example::
+
+        evpn_verify_mh_mac(torm11, 1000, mac, "local", esi, "hostbond1")
+    """
+    output = router.vtysh_cmd(
+        "show evpn mac vni {} mac {} json".format(vni, mac), isjson=True
+    )
+    macs = output if isinstance(output, dict) else {}
+    slot = "mac {} vni {}".format(mac, vni)
+    for learned, info in macs.items():
+        if not isinstance(info, dict):
+            continue
+        got_type = info.get("type", "")
+        got_intf = info.get("intf", "") if got_type == "local" else ""
+        if info.get("esi", "") == esi and got_type == mac_type and got_intf == intf:
+            return _evpn_mh_ok(
+                router,
+                slot,
+                "VNI {} MAC {} is {} on ES {}".format(vni, mac, mac_type, esi),
+            )
+    return _evpn_mh_log(
+        router,
+        slot,
+        "VNI {} MAC {} expected ESI {} type {} intf {}".format(
+            vni, mac, esi, mac_type, intf or "-"
+        ),
+        detail=json.dumps(macs),
+        waiting=True,
+    )
+
+
+def evpn_verify_local_es_evi(router, esis):
+    """Check that each local ES is ready for BGP and its EVI count matches.
+
+    zebra ``vniCount`` must be non-zero and equal both bgpd ``vniCount`` and
+    the local fragment ``eviCount``. ``Ready for BGP`` is the zebra flag
+    ``readyForBgp``.
+
+    Example::
+
+        partial(evpn_verify_local_es_evi, torm11, [hostd11_esi, hostd12_esi])
+    """
+    for esi in esis:
+        zebra = evpn_zebra_es(router, esi)
+        slot = "local es-evi {}".format(esi)
+        if not zebra:
+            return _evpn_mh_log(
+                router, slot, "zebra missing local ES {}".format(esi), waiting=True
+            )
+        flags = zebra.get("flags") or []
+        if "local" not in flags:
+            return _evpn_mh_log(
+                router,
+                slot,
+                "zebra ES {} is not local: {}".format(esi, flags),
+                detail=_evpn_es_brief(zebra),
+            )
+        if "readyForBgp" not in flags:
+            return _evpn_mh_log(
+                router,
+                slot,
+                "zebra ES {} is not ready for BGP".format(esi),
+                detail=_evpn_es_brief(zebra),
+                waiting=True,
+            )
+        zebra_vnis = zebra.get("vniCount") or 0
+        if zebra_vnis == 0:
+            return _evpn_mh_log(
+                router,
+                slot,
+                "zebra ES {} has zero VNI count".format(esi),
+                detail=_evpn_es_brief(zebra),
+                waiting=True,
+            )
+
+        bgp = evpn_bgp_es(router, esi)
+        if not bgp:
+            return _evpn_mh_log(
+                router, slot, "bgpd missing local ES {}".format(esi), waiting=True
+            )
+        if "local" not in (bgp.get("type") or []):
+            return _evpn_mh_log(
+                router,
+                slot,
+                "bgpd ES {} is not local: {}".format(esi, bgp.get("type")),
+                detail=_evpn_es_brief(bgp),
+            )
+        if bgp.get("vniCount") != zebra_vnis:
+            return _evpn_mh_log(
+                router,
+                slot,
+                "ES {} VNI count mismatch: zebra {} bgpd {}".format(
+                    esi, zebra_vnis, bgp.get("vniCount")
+                ),
+                detail=_evpn_es_brief(bgp),
+            )
+
+        rd = bgp.get("rd")
+        local_frag = None
+        for frag in bgp.get("fragments") or []:
+            if isinstance(frag, dict) and frag.get("rd") == rd:
+                local_frag = frag
+                break
+        if local_frag is None:
+            return _evpn_mh_log(
+                router,
+                slot,
+                "bgpd ES {} missing local fragment {}".format(esi, rd),
+                waiting=True,
+            )
+        if local_frag.get("eviCount") != zebra_vnis:
+            return _evpn_mh_log(
+                router,
+                slot,
+                "ES {} local EVI count mismatch: zebra VNI {} bgpd local EVI {}".format(
+                    esi, zebra_vnis, local_frag.get("eviCount")
+                ),
+            )
+    return _evpn_mh_ok(router, "local es-evi", "local ES-EVI counts match")
+
+
+def evpn_verify_type4_route(
+    router, esi, originator, present=True, self_originate=False
+):
+    """Check one Type-4 Ethernet Segment route by ESI and originator IP.
+
+    ``self_originate=True`` limits the show to routes this speaker originated.
+    The command is text because the prefix line carries both the ESI and the
+    originator.
+
+    Example::
+
+        partial(evpn_verify_type4_route, torm12, esi, "192.168.100.15", True)
+    """
+    command = "show bgp l2vpn evpn route type 4"
+    if self_originate:
+        command += " self-originate"
+    output = router.vtysh_cmd(command) or ""
+    have = any(esi in line and originator in line for line in output.splitlines())
+    slot = "type4 {} {}".format(esi, originator)
+    if have == present:
+        state = "present" if present else "absent"
+        return _evpn_mh_ok(
+            router, slot, "Type-4 {} from {} is {}".format(esi, originator, state)
+        )
+    expectation = "present" if present else "absent"
+    return _evpn_mh_log(
+        router,
+        slot,
+        "Type-4 {} from {} expected {}".format(esi, originator, expectation),
+        detail=output,
+        waiting=present and not have,
+    )
+
+
+def evpn_verify_type4_origin_absent(router, address):
+    """Require that no Type-4 prefix still names ``address``.
+
+    Used after a VTEP address change. A leftover ``[4]:`` prefix that
+    contains the old address is a stale originator.
+
+    Example::
+
+        partial(evpn_verify_type4_origin_absent, torm11, "192.168.100.17")
+    """
+    output = router.vtysh_cmd("show bgp l2vpn evpn route type es json", isjson=True)
+    data = output if isinstance(output, dict) else {}
+    slot = "type4 origin {}".format(address)
+    for rd_data in data.values():
+        if not isinstance(rd_data, dict):
+            continue
+        for prefix in rd_data:
+            if str(prefix).startswith("[4]:") and address in str(prefix):
+                return _evpn_mh_log(
+                    router,
+                    slot,
+                    "Type-4 route still carries {}: {}".format(address, prefix),
+                )
+    return _evpn_mh_ok(router, slot, "no Type-4 route carries {}".format(address))
+
+
+def evpn_verify_mac_route(router, rd, mac, present=True):
+    """Check a Type-2 MAC route under one route distinguisher.
+
+    Example::
+
+        partial(evpn_verify_mac_route, torm12, rd, svi_mac, False)
+    """
+    route = _evpn_loads(
+        router.vtysh_cmd(
+            "show bgp l2vpn evpn route rd {} mac {} json".format(rd, mac), isjson=True
+        )
+    )
+    if not isinstance(route, dict):
+        route = {}
+    have = route.get("numPaths", 0) > 0
+    slot = "mac-route {} {}".format(rd, mac)
+    if have == present:
+        state = "present" if present else "absent"
+        return _evpn_mh_ok(router, slot, "MAC {} under {} is {}".format(mac, rd, state))
+    expectation = "present" if present else "absent"
+    return _evpn_mh_log(
+        router,
+        slot,
+        "MAC {} under {} expected {}".format(mac, rd, expectation),
+        detail=json.dumps(route),
+        waiting=present and not have,
+    )
+
+
+def evpn_bgp_rd_paths(router, route_type, rd, match):
+    """Return valid paths of one route type under ``rd`` whose prefix contains ``match``.
+
+    Example::
+
+        paths = evpn_bgp_rd_paths(torm12, 1, es_rd, "[4294967295]:[%s]" % esi)
+    """
+    routes = _evpn_loads(
+        router.vtysh_cmd(
+            "show bgp l2vpn evpn route type {} json".format(route_type), isjson=True
+        )
+    )
+    if not isinstance(routes, dict):
+        return []
+    paths = []
+    for prefix, info in (routes.get(rd) or {}).items():
+        if not isinstance(info, dict) or match not in prefix:
+            continue
+        for path_list in info.get("paths") or []:
+            for path in path_list if isinstance(path_list, list) else [path_list]:
+                if isinstance(path, dict) and path.get("valid"):
+                    paths.append(path)
+    logger.debug(
+        "%s: RD %s type %s match %s has %d valid paths",
+        router.name,
+        rd,
+        route_type,
+        match,
+        len(paths),
+    )
+    return paths
+
+
+def evpn_verify_bgp_es_local(router, esi, local=True):
+    """Check whether bgpd still marks the ES local.
+
+    Example::
+
+        partial(evpn_verify_bgp_es_local, torm11, esi, False)
+    """
+    es = evpn_bgp_es(router, esi)
+    have = "local" in (es.get("type") or [])
+    slot = "bgp es local {}".format(esi)
+    if have == local:
+        return _evpn_mh_ok(router, slot, "bgpd ES {} local is {}".format(esi, have))
+    return _evpn_mh_log(
+        router,
+        slot,
+        "bgpd ES {} local is {}, expected {}".format(esi, have, local),
+        detail=_evpn_es_brief(es),
+        waiting=local and not have,
+    )
+
+
+def evpn_verify_bgp_instance_absent(router, instance):
+    """Return None once ``instance`` is gone from ``show running-config bgpd``.
+
+    ``instance`` is the config line, for example ``router bgp 65002``.
+
+    Example::
+
+        partial(evpn_verify_bgp_instance_absent, torm11, "router bgp 65002")
+    """
+    output = router.vtysh_cmd("show running-config bgpd") or ""
+    slot = "bgp instance {}".format(instance)
+    if instance not in output.splitlines():
+        return _evpn_mh_ok(router, slot, "{} is absent".format(instance))
+    return _evpn_mh_log(
+        router,
+        slot,
+        "{} is still configured".format(instance),
+        detail=output,
+        waiting=True,
+    )
