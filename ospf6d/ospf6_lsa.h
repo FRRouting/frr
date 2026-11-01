@@ -217,7 +217,7 @@ struct ospf6_lsa {
 
 	struct route_node *rn;
 
-	unsigned char lock; /* reference counter */
+	unsigned int lock;  /* reference counter */
 	unsigned char flag; /* special meaning (e.g. floodback) */
 
 	struct timeval birth;      /* tv_sec when LS age 0 */
