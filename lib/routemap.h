@@ -24,6 +24,7 @@ DECLARE_MTYPE(ROUTE_MAP_COMPILED);
 
 #define DEBUG_ROUTEMAP 0x01
 #define DEBUG_ROUTEMAP_DETAIL 0x02
+#define DEBUG_ROUTEMAP_TIMING 0x04
 extern uint32_t rmap_debug;
 
 /* Route map's type. */
