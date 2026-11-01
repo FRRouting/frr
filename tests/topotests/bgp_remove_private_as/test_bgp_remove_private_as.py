@@ -389,6 +389,47 @@ def test_bgp_remove_private_as():
                     real_path = adj_rib_in["receivedRoutes"][pfx]["path"]
                     return real_path == good_path
 
+    def __advertised_routes_shown():
+        """Return None once r2 displays the routes advertised to r1."""
+        router = tgen.gears["r2"]
+        # displaying the advertised routes reads the first AS of their path,
+        # which is empty once remove-private-AS all has removed all of them
+        output = router.vtysh_cmd(
+            "show ip bgp neighbor 203.0.113.0 advertised-routes detail json"
+        )
+        error = router.check_router_running()
+        if error:
+            return "r2 daemons not running: {}".format(error)
+        try:
+            count = json.loads(output)["totalPrefixCounter"]
+        except (ValueError, KeyError):
+            return "invalid advertised-routes output: {}".format(output)
+        if count == 0:
+            return "no route advertised to r1 yet"
+        return None
+
+    def _empty_aspath_scenario():
+        """Replace the whole AS path, then remove all its private ASes."""
+        tgen.gears["r2"].vtysh_cmd(
+            """
+            configure terminal
+             route-map OLDCORE-INTERNET-IN-IPv4 permit 5
+              set as-path replace any 65398
+             route-map OLDCORE-INTERNET-OUT-IPv4 permit 5
+              set as-path replace any 65399
+            router bgp 65002
+             bgp deterministic-med
+             address-family ipv4 unicast
+              neighbor 203.0.113.0 remove-private-AS all
+              neighbor 203.0.113.0 soft-reconfiguration inbound
+              neighbor 203.0.113.0 route-map OLDCORE-INTERNET-IN-IPv4 in
+              neighbor 203.0.113.0 route-map OLDCORE-INTERNET-OUT-IPv4 out
+            """
+        )
+        test_func = partial(__advertised_routes_shown)
+        _, result = topotest.run_and_expect(test_func, None, count=60, wait=0.5)
+        assert result is None, "Routes with an empty AS path: {}".format(result)
+
     def _bgp_count_1():
         router = tgen.gears["r3"]
         output = json.loads(router.vtysh_cmd("show bgp ipv4 json"))
@@ -506,6 +547,11 @@ def test_bgp_remove_private_as():
         # each variation sets a separate peer flag in bgpd. we need to clear
         # the old flag after each iteration so we only test the flags we expect.
         _change_remove_type(rmv_type, "del")
+
+    # verify that an AS path emptied by remove-private-AS all does not make
+    # bgpd crash
+    _change_remove_type("remove-private-AS all", "add")
+    _empty_aspath_scenario()
 
     # verify the as-path-limit
     test_bgp_aspath_count_match()
