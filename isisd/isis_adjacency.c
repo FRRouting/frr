@@ -315,6 +315,13 @@ void isis_log_adj_change(struct isis_adjacency *adj,
 static void p2p_level_up(struct isis_circuit *circuit, int level)
 {
 	circuit->upadjcount[level - 1]++;
+	/* RFC 5303 section 1: each side sends a CSNP
+	 * once the adjacency is up. The periodic CSNP
+	 * timer is normally armed, and
+	 * event_add_timer() would keep it, so cancel
+	 * it first.
+	 */
+	event_cancel(&circuit->t_send_csnp[level - 1]);
 	event_add_timer(master, level == IS_LEVEL_1 ? send_l1_csnp : send_l2_csnp, circuit, 0,
 			&circuit->t_send_csnp[level - 1]);
 }
