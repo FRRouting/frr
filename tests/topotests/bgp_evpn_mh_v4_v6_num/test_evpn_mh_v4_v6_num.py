@@ -49,6 +49,7 @@ from lib.evpn import (
     evpn_verify_bgp_es_vtep,
     evpn_verify_df_role,
     evpn_verify_es_kernel_nexthop,
+    evpn_verify_evpn_peer_established,
     evpn_verify_mh_mac,
     evpn_verify_protodown_reason,
     evpn_verify_zebra_es_vtep,
@@ -1204,7 +1205,9 @@ def test_evpn_mh_peer_withdraw_during_bgpd_restart(tgen_and_ip_version):
     zebra stays alive on torm12 while its bgpd is stopped. torm11 then withdraws
     the Type-1/EAD for hostd11. Before the trigger, during the outage, and
     after bgpd returns, bgpd, zebra, and the kernel FDB nexthop must agree on
-    that VTEP. The victim must finish as DF.
+    that VTEP. The victim must finish as DF. After the restart the absence
+    check waits until both EVPN sessions are Established and hostd21 still
+    lists torm21, so an empty ES does not pass before the RIB is back.
     """
     tgen, ip_version = tgen_and_ip_version
 
@@ -1267,6 +1270,30 @@ def test_evpn_mh_peer_withdraw_during_bgpd_restart(tgen_and_ip_version):
 
         start_router_daemons(tgen, victim_name, ["bgpd"])
         bgpd_stopped = False
+
+        # An empty ES satisfies "VTEP absent" before bgpd has imported anything.
+        # Both L2VPN EVPN sessions, then a Type-1 the access flap does not
+        # withdraw, show that the RIB has been relearned.
+        if ip_version == "ipv6":
+            evpn_peers = ["2001:db8:2::1", "2001:db8:6::1"]
+        else:
+            evpn_peers = ["192.168.2.1", "192.168.6.1"]
+        for evpn_peer in evpn_peers:
+            test_fn = partial(evpn_verify_evpn_peer_established, victim, evpn_peer)
+            _, result = topotest.run_and_expect(test_fn, None, count=30, wait=2)
+            assert result is None, "after bgpd restart: %s" % (result,)
+
+        test_fn = partial(
+            evpn_verify_bgp_es_vtep,
+            victim,
+            host_es_map["hostd21"],
+            tor_ips["torm21"],
+            True,
+        )
+        _, result = topotest.run_and_expect(test_fn, None, count=30, wait=2)
+        assert result is None, "after bgpd restart, surviving remote ES missing: %s" % (
+            result,
+        )
 
         # The new bgpd relearns the withdrawn EAD and must not put the VTEP
         # back. zebra and the kernel must still agree, and the victim stays DF.
