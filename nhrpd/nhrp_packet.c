@@ -12,6 +12,7 @@
 #include "zbuf.h"
 #include "frrevent.h"
 #include "hash.h"
+#include "md5.h"
 
 #include "nhrp_protocol.h"
 #include "os.h"
@@ -151,14 +152,49 @@ void nhrp_packet_complete_auth(struct zbuf *zb, struct nhrp_packet_header *hdr,
 	struct nhrp_interface *nifp = ifp->info;
 	struct zbuf *auth_token = nifp->auth_token;
 	struct nhrp_extension_header *dst;
+	uint8_t *auth_data = NULL;
 	unsigned short size;
+	afi_t afi;
+	uint16_t zero = 0, spi;
 
+	afi = htons(hdr->afnum);
 	if (auth && auth_token) {
-		dst = nhrp_ext_push(zb, hdr,
-				    NHRP_EXTENSION_AUTHENTICATION |
-					    NHRP_EXTENSION_FLAG_COMPULSORY);
-		zbuf_copy_peek(zb, auth_token, zbuf_size(auth_token));
-		nhrp_ext_complete(zb, dst);
+		if (nifp->auth_mode == NHRP_AUTH_CISCO) {
+			/* Cisco style authentication: the plaintext
+			 * password is embedded in the extension.
+			 */
+			dst = nhrp_ext_push(zb, hdr,
+					    NHRP_EXTENSION_AUTHENTICATION |
+						    NHRP_EXTENSION_FLAG_COMPULSORY);
+			zbuf_copy_peek(zb, auth_token, zbuf_size(auth_token));
+			nhrp_ext_complete(zb, dst);
+		} else if (IS_VALID_AFI(afi) &&
+			   sockunion_family(&nifp->afi[afi].addr) != AF_UNSPEC) {
+			const union sockunion *src = &nifp->afi[afi].addr;
+
+			dst = nhrp_ext_push(zb, hdr,
+					    NHRP_EXTENSION_AUTHENTICATION |
+						    NHRP_EXTENSION_FLAG_COMPULSORY);
+			if (dst) {
+				/* RFC 2332 5.3.4.1: Reserved(2) + SPI(2) + Src
+				 * Addr + Authentication Data.  The hash field is
+				 * zeroed while the keyed hash is calculated and
+				 * only replaced afterwards.
+				 */
+				spi = htons(NHRP_AUTH_SPI);
+				zbuf_put(zb, &zero, sizeof(zero));
+				zbuf_put(zb, &spi, sizeof(spi));
+				zbuf_put(zb, sockunion_get_addr(src),
+					 sockunion_get_addrlen(src));
+				auth_data = zbuf_pushn(zb, NHRP_AUTH_HASH_LEN);
+				if (!auth_data) {
+					zbuf_set_werror(zb);
+				} else {
+					memset(auth_data, 0, NHRP_AUTH_HASH_LEN);
+					nhrp_ext_complete(zb, dst);
+				}
+			}
+		}
 	}
 
 	if (hdr->extension_offset)
@@ -170,6 +206,17 @@ void nhrp_packet_complete_auth(struct zbuf *zb, struct nhrp_packet_header *hdr,
 	hdr->packet_size = htons(size);
 	hdr->checksum = 0;
 	hdr->checksum = nhrp_packet_calculate_checksum((uint8_t *)hdr, size);
+
+	if (auth && auth_token && auth_data) {
+		/* The checksum covers the packet with the hash field
+		 * zeroed; the keyed hash is calculated over the packet
+		 * with the checksum filled in, and only then replaces
+		 * the zeroed field (RFC 2332 5.3.4.3).
+		 */
+		hmac_md5((unsigned char *)hdr, size,
+			 (unsigned char *)auth_token->buf,
+			 zbuf_size(auth_token), auth_data);
+	}
 }
 
 struct nhrp_cie_header *nhrp_cie_push(struct zbuf *zb, uint8_t code,
