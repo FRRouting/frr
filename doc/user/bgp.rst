@@ -4283,8 +4283,25 @@ With Downstream VNI, you can simply configure import Route Targets on the VRFs y
 and the destination VNI will be automatically extracted from the imported routes
 and used as the source VNI for sending traffic to the destination IP-VRF.
 
-Note that in FRR, Downstream VNI requires the use of single VXLAN devices (SVD)
-for the dataplane and will not work with traditional VXLAN devices.
+How zebra installs a Downstream VNI route depends on the VXLAN device that
+carries the L3VNI of the importing VRF (see :ref:`evpn-linux-vxlan-dataplane`).
+There is nothing to configure; zebra picks the behavior per VRF.
+
+- With a Single VXLAN Device (SVD), the route is installed on the SVD with the
+  downstream VNI as its VXLAN encapsulation, and the Linux kernel sends the
+  traffic with the downstream VNI.
+- With Traditional VXLAN Devices (one VXLAN device per VNI), the kernel cannot
+  carry a VNI per route. The route is installed on the L3VNI SVI of the
+  importing VRF as a plain onlink route, and the downstream VNI is kept as the
+  route's EVPN label. A dataplane programmed through the FIB push interface
+  (``dplane_fpm_nl``, see :ref:`zebra-fib-push-interface`) receives the
+  downstream VNI as the VXLAN encapsulation of the nexthop, in the route
+  message or, with ``fpm use-next-hop-groups``, in the nexthop group, and can
+  send the traffic with it.
+
+Traffic that the Linux kernel forwards itself on a Traditional VXLAN Device
+leaves with the L3VNI of the importing VRF, not the downstream VNI. If the
+kernel is the dataplane, use Single VXLAN Devices for Downstream VNI.
 
 .. _bgp-evpn-route-target-configuration:
 
