@@ -611,7 +611,8 @@ static struct isis_vertex *isis_spf_add2tent(struct isis_spftree *spftree, enum 
 
 #ifndef FABRICD
 			if (flex_algo_id_valid(spftree->algorithm) &&
-			    !isis_flex_algo_elected_supported(spftree->algorithm, spftree->area)) {
+			    !isis_flex_algo_elected_supported(spftree->algorithm, spftree->area,
+							      spftree->level)) {
 				vertex->N.ip.sr.present = false;
 				vertex->N.ip.sr.label = MPLS_INVALID_LABEL;
 			}
@@ -1002,7 +1003,8 @@ lspfragloop:
 					if (flex_algo_id_valid(spftree->algorithm) &&
 					    (!fa_participates ||
 					     !isis_flex_algo_elected_supported(spftree->algorithm,
-									       spftree->area)))
+									       spftree->area,
+									       spftree->level)))
 						continue;
 #endif /* ifndef FABRICD */
 
@@ -1068,7 +1070,8 @@ lspfragloop:
 					if (flex_algo_id_valid(spftree->algorithm) &&
 					    (!fa_participates ||
 					     !isis_flex_algo_elected_supported(spftree->algorithm,
-									       spftree->area)))
+									       spftree->area,
+									       spftree->level)))
 						continue;
 #endif /* ifndef FABRICD */
 
@@ -1876,9 +1879,9 @@ void isis_run_spf(struct isis_spftree *spftree)
 	 */
 	if (flex_algo_id_valid(spftree->algorithm)) {
 		flex_algo_enabled = isis_flex_algo_elected_supported(spftree->algorithm,
-								     spftree->area);
+								     spftree->area, spftree->level);
 		if (flex_algo_enabled !=
-		    flex_algo_get_state(spftree->area->flex_algos, spftree->algorithm)) {
+		    isis_flex_algo_state(spftree->area, spftree->algorithm, spftree->level)) {
 			/* actual state is inconsistent with local LSP */
 			lsp_regenerate_schedule(spftree->area, spftree->area->is_type, 0);
 			goto out;
@@ -2515,15 +2518,73 @@ static void show_isis_flex_algo_display_eag(struct vty *vty, char *buf, int inde
 	}
 }
 
+/* The flex-algo definition elected in the level's LSDB. */
+static void show_isis_flex_algo_elected(struct vty *vty, struct flex_algo *fa,
+					struct isis_area *area, int level)
+{
+	char buf[ADMIN_GROUP_PRINT_MAX_SIZE];
+	struct isis_router_cap_fad *router_fad;
+	struct admin_group *admin_group;
+	bool fad_identical, fad_supported;
+	int indent;
+
+	router_fad = isis_flex_algo_elected(fa->algorithm, area, level);
+	vty_out(vty, " Elected and running Flexible-Algorithm Definition");
+	if (area->is_type == IS_LEVEL_1_AND_2)
+		vty_out(vty, " (level-%d)", level);
+	vty_out(vty, ":\n");
+	if (router_fad)
+		vty_out(vty, "  Source: %pSY\n", router_fad->sysid);
+	else
+		vty_out(vty, "  Source: Not found\n");
+
+	if (!router_fad) {
+		vty_out(vty, "\n");
+		return;
+	}
+
+	fad_identical = flex_algo_definition_cmp(fa, &router_fad->fad);
+	fad_supported = isis_flex_algo_supported(&router_fad->fad);
+	vty_out(vty, "  Priority: %d\n", router_fad->fad.priority);
+	vty_out(vty, "  Equal to local: %s\n", fad_identical ? "yes" : "no");
+	vty_out(vty, "  Local state: %s\n",
+		fad_supported ? "enabled" : "disabled (unsupported definition)");
+	vty_out(vty, "  Calculation type: ");
+	if (router_fad->fad.calc_type == 0)
+		vty_out(vty, "spf\n");
+	else
+		vty_out(vty, "%d\n", router_fad->fad.calc_type);
+	vty_out(vty, "  Metric type: %s\n",
+		flex_algo_metric_type_print(buf, sizeof(buf), router_fad->fad.metric_type));
+	vty_out(vty, "  Prefix-metric: %s\n",
+		CHECK_FLAG(router_fad->fad.flags, FAD_FLAG_M) ? "enabled" : "disabled");
+	if (router_fad->fad.flags != 0 && router_fad->fad.flags != FAD_FLAG_M)
+		vty_out(vty, "  Flags: 0x%x\n", router_fad->fad.flags);
+	vty_out(vty, "  Exclude SRLG: %s\n", router_fad->fad.exclude_srlg ? "enabled" : "disabled");
+
+	admin_group = &router_fad->fad.admin_group_exclude_any;
+	indent = vty_out(vty, "  Exclude-any admin-group: ");
+	show_isis_flex_algo_display_eag(vty, buf, indent, admin_group);
+
+	admin_group = &router_fad->fad.admin_group_include_all;
+	indent = vty_out(vty, "  Include-all admin-group: ");
+	show_isis_flex_algo_display_eag(vty, buf, indent, admin_group);
+
+	admin_group = &router_fad->fad.admin_group_include_any;
+	indent = vty_out(vty, "  Include-any admin-group: ");
+	show_isis_flex_algo_display_eag(vty, buf, indent, admin_group);
+
+	if (router_fad->fad.unsupported_subtlv)
+		vty_out(vty, "  Unsupported sub-TLV: Present (see logs)");
+
+	vty_out(vty, "\n");
+}
+
 static void show_isis_flex_algo_common(struct vty *vty, struct isis *isis, uint8_t algorithm)
 {
-	struct isis_router_cap_fad *router_fad;
-	char buf[ADMIN_GROUP_PRINT_MAX_SIZE];
-	struct admin_group *admin_group;
 	struct isis_area *area;
 	struct flex_algo *fa;
-	int indent, algo;
-	bool fad_identical, fad_supported;
+	int algo;
 
 	if (isis_area_list_count(&isis->area_list) == 0)
 		return;
@@ -2562,56 +2623,9 @@ static void show_isis_flex_algo_common(struct vty *vty, struct isis *isis, uint8
 			vty_out(vty, "\n\n");
 
 
-			router_fad = isis_flex_algo_elected(algo, area);
-			vty_out(vty, " Elected and running Flexible-Algorithm Definition:\n");
-			if (router_fad)
-				vty_out(vty, "  Source: %pSY\n", router_fad->sysid);
-			else
-				vty_out(vty, "  Source: Not found\n");
-
-			if (!router_fad) {
-				vty_out(vty, "\n");
-				continue;
-			}
-
-			fad_identical = flex_algo_definition_cmp(fa, &router_fad->fad);
-			fad_supported = isis_flex_algo_supported(&router_fad->fad);
-			vty_out(vty, "  Priority: %d\n", router_fad->fad.priority);
-			vty_out(vty, "  Equal to local: %s\n", fad_identical ? "yes" : "no");
-			vty_out(vty, "  Local state: %s\n",
-				fad_supported ? "enabled" : "disabled (unsupported definition)");
-			vty_out(vty, "  Calculation type: ");
-			if (router_fad->fad.calc_type == 0)
-				vty_out(vty, "spf\n");
-			else
-				vty_out(vty, "%d\n", router_fad->fad.calc_type);
-			vty_out(vty, "  Metric type: %s\n",
-				flex_algo_metric_type_print(buf, sizeof(buf),
-							    router_fad->fad.metric_type));
-			vty_out(vty, "  Prefix-metric: %s\n",
-				CHECK_FLAG(router_fad->fad.flags, FAD_FLAG_M) ? "enabled"
-									      : "disabled");
-			if (router_fad->fad.flags != 0 && router_fad->fad.flags != FAD_FLAG_M)
-				vty_out(vty, "  Flags: 0x%x\n", router_fad->fad.flags);
-			vty_out(vty, "  Exclude SRLG: %s\n",
-				router_fad->fad.exclude_srlg ? "enabled" : "disabled");
-
-			admin_group = &router_fad->fad.admin_group_exclude_any;
-			indent = vty_out(vty, "  Exclude-any admin-group: ");
-			show_isis_flex_algo_display_eag(vty, buf, indent, admin_group);
-
-			admin_group = &router_fad->fad.admin_group_include_all;
-			indent = vty_out(vty, "  Include-all admin-group: ");
-			show_isis_flex_algo_display_eag(vty, buf, indent, admin_group);
-
-			admin_group = &router_fad->fad.admin_group_include_any;
-			indent = vty_out(vty, "  Include-any admin-group: ");
-			show_isis_flex_algo_display_eag(vty, buf, indent, admin_group);
-
-			if (router_fad->fad.unsupported_subtlv)
-				vty_out(vty, "  Unsupported sub-TLV: Present (see logs)");
-
-			vty_out(vty, "\n");
+			for (int level = ISIS_LEVEL1; level <= ISIS_LEVEL2; level++)
+				if (area->is_type & level)
+					show_isis_flex_algo_elected(vty, fa, area, level);
 		}
 	}
 }

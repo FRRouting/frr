@@ -689,28 +689,42 @@ static void _isis_route_verify_table(struct isis_area *area, struct route_table 
 static void _isis_route_verify_merge(struct isis_area *area, struct route_table **tables,
 				     struct route_table **tables_backup, int tree);
 
-void isis_route_verify_table(struct isis_area *area, struct route_table *table,
-			     struct route_table *table_backup, int tree)
+/*
+ * Append the flex-algo route tables of the level to tables, from index next,
+ * to be merged with the others. Returns the next free index.
+ */
+static int isis_route_flex_algo_tables(struct isis_area *area, int tree, int level,
+				       struct route_table **tables,
+				       struct route_table **tables_backup, int next)
 {
-	struct route_table *tables[SR_ALGORITHM_COUNT] = { table };
-	struct route_table *tables_backup[SR_ALGORITHM_COUNT] = { table_backup };
 #ifndef FABRICD
-	int tables_next = 1;
-	int level = area->is_type == IS_LEVEL_1 ? ISIS_LEVEL1 : ISIS_LEVEL2;
 	struct listnode *node;
 	struct flex_algo *fa;
 	struct isis_flex_algo_data *data;
 
 	for (ALL_LIST_ELEMENTS_RO(area->flex_algos->flex_algos, node, fa)) {
 		data = fa->data;
-		tables[tables_next] = data->spftree[tree][level - 1]->route_table;
-		tables_backup[tables_next] = data->spftree[tree][level - 1]->route_table_backup;
-		_isis_route_verify_table(area, tables[tables_next], tables_backup[tables_next],
-					 NULL);
-		tables_next++;
+		tables[next] = data->spftree[tree][level - 1]->route_table;
+		tables_backup[next] = data->spftree[tree][level - 1]->route_table_backup;
+		next++;
 	}
 #endif /* ifndef FABRICD */
 
+	return next;
+}
+
+void isis_route_verify_table(struct isis_area *area, struct route_table *table,
+			     struct route_table *table_backup, int tree)
+{
+	struct route_table *tables[SR_ALGORITHM_COUNT] = { table };
+	struct route_table *tables_backup[SR_ALGORITHM_COUNT] = { table_backup };
+	int level = area->is_type == IS_LEVEL_1 ? ISIS_LEVEL1 : ISIS_LEVEL2;
+	int next;
+
+	/* In a single level, each flex-algo table is the only one of its algorithm. */
+	next = isis_route_flex_algo_tables(area, tree, level, tables, tables_backup, 1);
+	for (int i = 1; i < next; i++)
+		_isis_route_verify_table(area, tables[i], tables_backup[i], NULL);
 	_isis_route_verify_merge(area, tables, tables_backup, tree);
 }
 
@@ -724,14 +738,74 @@ void isis_route_verify_table(struct isis_area *area, struct route_table *table,
  *
  * FIXME: Is it right place to do it at all? Maybe we should push both levels
  * to the RIB with different zebra route types and let RIB handle this? */
+/*
+ * Delete the routes a flex-algo SPF no longer computes. Verifying the merged
+ * routes deletes only the inactive routes that were merged, and one left in a
+ * flex-algo table would keep feeding its stale Segment Routing information
+ * into the merge.
+ */
+static void isis_route_purge_inactive(struct isis_area *area, struct route_table *table)
+{
+	struct route_node *rnode;
+	struct isis_route_info *rinfo;
+
+	for (rnode = route_top(table); rnode; rnode = srcdest_route_next(rnode)) {
+		rinfo = rnode->info;
+		if (rinfo && !CHECK_FLAG(rinfo->flag, ISIS_ROUTE_FLAG_ACTIVE))
+			isis_route_delete(area, rnode, table);
+	}
+}
+
 void isis_route_verify_merge(struct isis_area *area, struct route_table *level1_table,
 			     struct route_table *level1_table_backup,
 			     struct route_table *level2_table,
 			     struct route_table *level2_table_backup, int tree)
 {
-	struct route_table *tables[] = { level1_table, level2_table, NULL };
-	struct route_table *tables_backup[] = { level1_table_backup, level2_table_backup, NULL };
+	/*
+	 * Each level's tables, flex-algos included, L1 first as it is preferred.
+	 * As for algorithm 0, only the merged routes are installed: the two
+	 * levels can hold the same prefix and algorithm with different paths.
+	 */
+	struct route_table *tables[2 * SR_ALGORITHM_COUNT] = { level1_table };
+	struct route_table *tables_backup[2 * SR_ALGORITHM_COUNT] = { level1_table_backup };
+	int next;
+
+	next = isis_route_flex_algo_tables(area, tree, ISIS_LEVEL1, tables, tables_backup, 1);
+	tables[next] = level2_table;
+	tables_backup[next] = level2_table_backup;
+	isis_route_flex_algo_tables(area, tree, ISIS_LEVEL2, tables, tables_backup, next + 1);
+	for (int i = 0; tables[i]; i++)
+		if (isis_route_table_algorithm(tables[i]) != SR_ALGORITHM_SPF)
+			isis_route_purge_inactive(area, tables[i]);
 	_isis_route_verify_merge(area, tables, tables_backup, tree);
+}
+
+/*
+ * Whether an earlier table of the same algorithm has an active route to the
+ * prefix: tables are merged in order of preference (L1 before L2), so its
+ * Segment Routing information must not be replaced.
+ */
+static bool isis_route_preferred_earlier(struct route_table **tables, int i,
+					 const struct prefix *prefix,
+					 const struct prefix_ipv6 *src_p)
+{
+	uint8_t algorithm = isis_route_table_algorithm(tables[i]);
+	struct isis_route_info *rinfo;
+	struct route_node *rnode;
+
+	for (int j = 0; j < i; j++) {
+		if (isis_route_table_algorithm(tables[j]) != algorithm)
+			continue;
+		rnode = srcdest_rnode_lookup(tables[j], prefix, src_p);
+		if (!rnode)
+			continue;
+		rinfo = rnode->info;
+		route_unlock_node(rnode);
+		if (rinfo && CHECK_FLAG(rinfo->flag, ISIS_ROUTE_FLAG_ACTIVE))
+			return true;
+	}
+
+	return false;
 }
 
 static void _isis_route_verify_merge(struct isis_area *area, struct route_table **tables,
@@ -774,7 +848,8 @@ static void _isis_route_verify_merge(struct isis_area *area, struct route_table 
 			struct isis_route_info *mrinfo = mrnode->info;
 			if (mrinfo) {
 				route_unlock_node(mrnode);
-				set_merge_route_info_sr_algo(mrinfo, rinfo);
+				if (!isis_route_preferred_earlier(tables, i, prefix, src_p))
+					set_merge_route_info_sr_algo(mrinfo, rinfo);
 
 				if (CHECK_FLAG(mrinfo->flag, ISIS_ROUTE_FLAG_ACTIVE)) {
 					/* Clear the ZEBRA_SYNCED flag on the
