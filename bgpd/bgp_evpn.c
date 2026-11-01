@@ -4909,8 +4909,16 @@ static int bgp_evpn_install_uninstall_table(struct bgp *bgp, afi_t afi, safi_t s
 	struct ecommunity *ecom;
 	uint32_t i;
 	struct prefix_evpn ad_evp;
+	struct bgp *bgp_evpn = bgp_get_evpn();
 
 	assert(attr);
+
+	/* The VRF import RT tables live on the EVPN instance, which is not
+	 * necessarily the owner of the table this route sits in, and which
+	 * does not exist while the default is a hidden instance.
+	 */
+	if (!bgp_evpn)
+		in_vrf_rt = false;
 
 	/* Only EVPN route-types 1-5 are supported currently */
 	if (!(evp->prefix.route_type == BGP_EVPN_MAC_IP_ROUTE ||
@@ -4991,14 +4999,9 @@ static int bgp_evpn_install_uninstall_table(struct bgp *bgp, afi_t afi, safi_t s
 
 			if (evp->prefix.route_type != BGP_EVPN_AD_ROUTE &&
 			    evp->prefix.route_type != BGP_EVPN_IMET_ROUTE) {
-				/* The VRF import RT tables live on the EVPN
-				 * instance, which is not necessarily the
-				 * owner of the table this route sits in.
-				 */
-				vrf_fq_irt =
-					in_vrf_rt ? bgp_evpn_lookup_vrf_fq_irt_node(bgp_get_evpn(),
-										    eval)
-						  : NULL;
+				vrf_fq_irt = in_vrf_rt ? bgp_evpn_lookup_vrf_fq_irt_node(bgp_evpn,
+											 eval)
+						       : NULL;
 				if (vrf_fq_irt)
 					install_uninstall_route_in_vrfs(bgp, afi, safi, evp, pi,
 									vrf_fq_irt->vrfs, import);
@@ -5019,7 +5022,7 @@ static int bgp_evpn_install_uninstall_table(struct bgp *bgp, afi_t afi, safi_t s
 											local_admin_nbo);
 				if (in_vrf_rt)
 					vrf_wildcard_irt =
-						bgp_evpn_lookup_vrf_wildcard_irt_node(bgp_get_evpn(),
+						bgp_evpn_lookup_vrf_wildcard_irt_node(bgp_evpn,
 										      local_admin_nbo);
 			}
 
@@ -5911,6 +5914,12 @@ static void cleanup_vni_on_disable(struct hash_bucket *bucket, struct bgp *bgp)
 
 	/* Remove EVPN routes and schedule for processing. */
 	delete_routes_for_vni(bgp, vpn);
+
+	/* Tunnel is no longer active.
+	 * Delete VTEP-IP from EVPN underlay's tip_hash.
+	 */
+	if (is_vni_live(vpn))
+		bgp_tip_del(bgp, &vpn->originator_ip);
 
 	/* Clear "live" flag and see if hash needs to be freed. */
 	UNSET_FLAG(vpn->flags, VNI_FLAG_LIVE);
@@ -8468,16 +8477,15 @@ int bgp_evpn_local_l3vni_del(vni_t l3vni, vrf_id_t vrf_id)
 		return -1;
 	}
 
+	/* The EVPN instance may be gone already (it was deleted or stopped
+	 * advertising VNIs, which is what makes zebra delete the L3VNIs):
+	 * the VRF instance still has to drop its own L3VNI state, or it can
+	 * not be deleted afterwards ("Please unconfigure l3vni").
+	 */
 	bgp_evpn = bgp_get_evpn();
-	if (!bgp_evpn) {
+	if (bgp_evpn && CHECK_FLAG(bgp_evpn->flags, BGP_FLAG_DELETE_IN_PROGRESS)) {
 		flog_err(EC_BGP_NO_DFLT,
-			 "Cannot process L3VNI %u Del - Could not find EVPN BGP instance", l3vni);
-		return -1;
-	}
-
-	if (CHECK_FLAG(bgp_evpn->flags, BGP_FLAG_DELETE_IN_PROGRESS)) {
-		flog_err(EC_BGP_NO_DFLT,
-			 "Cannot process L3VNI %u ADD - EVPN BGP instance is shutting down", l3vni);
+			 "Cannot process L3VNI %u Del - EVPN BGP instance is shutting down", l3vni);
 		return -1;
 	}
 
@@ -8494,7 +8502,8 @@ int bgp_evpn_local_l3vni_del(vni_t l3vni, vrf_id_t vrf_id)
 	/* Tunnel is no longer active.
 	 * Delete VTEP-IP from EVPN underlay's tip_hash.
 	 */
-	bgp_tip_del(bgp_evpn, &bgp_vrf->originator_ip);
+	if (bgp_evpn)
+		bgp_tip_del(bgp_evpn, &bgp_vrf->originator_ip);
 
 	/* remove the l3vni from vrf instance */
 	bgp_vrf->l3vni = 0;
@@ -8518,7 +8527,8 @@ int bgp_evpn_local_l3vni_del(vni_t l3vni, vrf_id_t vrf_id)
 	if (!CHECK_FLAG(bgp_vrf->vrf_flags, BGP_VRF_L3VNI_PREFIX_ROUTES_ONLY)) {
 		for (ALL_LIST_ELEMENTS_RO(bgp_vrf->l2vnis, node, vpn)) {
 			UNSET_FLAG(vpn->flags, VNI_FLAG_USE_TWO_LABELS);
-			update_routes_for_vni(bgp_evpn, vpn);
+			if (bgp_evpn)
+				update_routes_for_vni(bgp_evpn, vpn);
 		}
 	}
 
