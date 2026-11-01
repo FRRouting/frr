@@ -167,6 +167,16 @@ struct isis_area {
 	 */
 	int lsp_regenerate_pending[ISIS_LEVELS];
 
+	/*
+	 * Fight-back of our own LSPs (7.3.16.1, 7.3.16.4 c) and 7.3.15.2
+	 * b) 4)) is rate limited by lsp_gen_interval.  A request records
+	 * the highest seen sequence number on the affected LSP and (re)arms
+	 * t_lsp_fight_back; the timer performs the actual sequence number
+	 * bump and propagation for every pending LSP at once.
+	 */
+	struct event *t_lsp_fight_back[ISIS_LEVELS];
+	struct timeval last_lsp_fight_back[ISIS_LEVELS];
+
 	bool bfd_signalled_down;
 	bool bfd_force_spf_refresh;
 
