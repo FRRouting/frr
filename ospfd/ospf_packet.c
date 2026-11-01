@@ -2229,6 +2229,8 @@ static void ospf_ls_upd(struct ospf *ospf, struct ip *iph,
 	struct list *lsas;
 	struct listnode *node, *nnode;
 	struct ospf_lsa *lsa = NULL;
+	/* ospf_check_nbr_status() result for this packet, -1 = not computed. */
+	int nbr_status = -1;
 	/* unsigned long ls_req_found = 0; */
 
 	/* Dis-assemble the stream, update each entry, re-encapsulate for
@@ -2360,18 +2362,25 @@ static void ospf_ls_upd(struct ospf *ospf, struct ip *iph,
 		   Loading,
 		   then take the following actions: */
 
-		if (IS_LSA_MAXAGE(lsa) && !current
-		    && ospf_check_nbr_status(oi->ospf)) {
-			/* (4a) Response Link State Acknowledgment. */
-			ospf_ls_ack_send_direct(nbr, lsa);
+		if (IS_LSA_MAXAGE(lsa) && !current) {
+			/* The neighbor-state predicate below cannot change while
+			 * this packet is being processed; evaluate it at most once
+			 * per packet instead of once per LSA.
+			 */
+			if (nbr_status < 0)
+				nbr_status = ospf_check_nbr_status(oi->ospf);
+			if (nbr_status) {
+				/* (4a) Response Link State Acknowledgment. */
+				ospf_ls_ack_send_direct(nbr, lsa);
 
-			/* (4b) Discard LSA. */
-			if (IS_DEBUG_OSPF(lsa, LSA)) {
-				zlog_debug(
-					"Link State Update[%s]: LS age is equal to MaxAge.",
-					dump_lsa_key(lsa));
+				/* (4b) Discard LSA. */
+				if (IS_DEBUG_OSPF(lsa, LSA)) {
+					zlog_debug(
+						"Link State Update[%s]: LS age is equal to MaxAge.",
+						dump_lsa_key(lsa));
+				}
+				DISCARD_LSA(lsa, 3);
 			}
-			DISCARD_LSA(lsa, 3);
 		}
 
 		if (IS_OPAQUE_LSA(lsa->data->type)
