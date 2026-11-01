@@ -18,6 +18,7 @@
 #include "flex_algo.h"
 #include "affinitymap.h"
 #include "lib/iso.h"
+#include "lib/keychain.h"
 
 #include "lib/srv6.h"
 
@@ -385,6 +386,12 @@ struct isis_auth {
 
 	uint8_t plength;
 	uint8_t passwd[256];
+
+	/* ISIS_PASSWD_TYPE_CRYPTO_AUTH: the key used to send, passwd holding
+	 * its HMAC key; on receipt only the key ID is set.
+	 */
+	uint16_t key_id;
+	enum keychain_hash_algo algo;
 
 	size_t offset; /* Only valid after packing */
 };
@@ -814,7 +821,12 @@ struct list *isis_fragment_tlvs(struct isis_tlvs *tlvs, size_t size);
 #define ISIS_MT_AT_MASK 0x4000
 #endif
 
-void isis_tlvs_add_auth(struct isis_tlvs *tlvs, struct isis_passwd *passwd);
+/* Authentication TLV with an RFC 5310 key ID and the largest digest */
+#define ISIS_CRYPTO_AUTH_TLV_MAX_LEN (2 + 1 + 2 + KEYCHAIN_MAX_HASH_SIZE)
+
+bool isis_tlvs_add_auth(struct isis_tlvs *tlvs, struct isis_passwd *passwd);
+size_t isis_tlvs_auth_len(const struct isis_tlvs *tlvs);
+time_t isis_keychain_next_send_change(const char *keychain_name, time_t now);
 void isis_tlvs_add_area_addresses(struct isis_tlvs *tlvs, struct iso_address_list_head *addresses);
 void isis_tlvs_add_lan_neighbors(struct isis_tlvs *tlvs, struct list *neighbors);
 void isis_tlvs_set_protocols_supported(struct isis_tlvs *tlvs, struct nlpids *nlpids);
