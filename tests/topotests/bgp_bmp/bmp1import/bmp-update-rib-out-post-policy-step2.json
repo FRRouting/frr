@@ -1,0 +1,45 @@
+{
+    "rib-out-post-policy": {
+        "update": {
+            "172.31.0.77/32": {
+                "afi": 1,
+                "as_path": "65501",
+                "bmp_log_type": "update",
+                "ip_prefix": "172.31.0.77/32",
+                "ipv6": false,
+                "nxhp_ip": "0.0.0.0",
+                "nxhp_rd": "0:0",
+                "label": 101,
+                "origin": "IGP",
+                "peer_asn": 65502,
+                "peer_bgp_id": "192.168.0.2",
+                "peer_distinguisher": "0:0",
+                "peer_ip": "192.168.0.2",
+                "peer_type": "global instance",
+                "policy": "rib-out-post-policy",
+                "rd": "444:1",
+                "safi": 128
+            },
+            "2001::1125/128": {
+                "afi": 2,
+                "as_path": "65501",
+                "bmp_log_type": "update",
+                "ip_prefix": "2001::1125/128",
+                "ipv6": true,
+                "nxhp_ip": "::",
+                "nxhp_rd1": "0:0",
+                "nxhp_rd2": "0:0",
+                "label": 103,
+                "origin": "IGP",
+                "peer_asn": 65502,
+                "peer_bgp_id": "192.168.0.2",
+                "peer_distinguisher": "0:0",
+                "peer_ip": "192:168::2",
+                "peer_type": "global instance",
+                "policy": "rib-out-post-policy",
+                "rd": "555:1",
+                "safi": 128
+            }
+        }
+    }
+}
