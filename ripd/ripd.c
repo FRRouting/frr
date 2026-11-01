@@ -2271,8 +2271,20 @@ void rip_output_process(struct connected *ifc, struct sockaddr_in *to,
 					zlog_debug(
 						"%pFX is filtered by route-map",
 						p);
-				continue;
-			}
+				/* If this route was advertised under the
+				 * previous policy and is now denied, poison it
+				 * once so neighbors withdraw it instead of
+				 * keeping it until timeout. Otherwise it was
+				 * never advertised, so just skip it.
+				 */
+				if (!CHECK_FLAG(rinfo->flags, RIP_RTF_POLICY_ADVERTISED))
+					continue;
+
+				UNSET_FLAG(rinfo->flags, RIP_RTF_POLICY_ADVERTISED);
+				rinfo->metric_out = RIP_METRIC_INFINITY;
+				rinfo->metric_set = 1;
+			} else
+				SET_FLAG(rinfo->flags, RIP_RTF_POLICY_ADVERTISED);
 		}
 
 		/* When route-map does not set metric. */
