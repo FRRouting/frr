@@ -2,6 +2,8 @@
 
 #include "zebra.h"
 #include "hash.h"
+#include "json.h"
+#include "libfrr.h"
 #include "nhrpd.h"
 
 static unsigned int nhrp_reqid_key(const void *data)
@@ -17,6 +19,32 @@ static bool nhrp_reqid_cmp(const void *data, const void *key)
 	return a->request_id == b->request_id;
 }
 
+static void nhrp_reqid_state_read(struct nhrp_reqid_pool *p)
+{
+	struct json_object *json;
+	struct json_object *json_reqid;
+
+	json = frr_daemon_state_load();
+	json_object_object_get_ex(json, "reqid", &json_reqid);
+	if (json_reqid) {
+		p->next_request_id = json_object_get_uint64(json_reqid);
+		if (p->next_request_id == 0)
+			p->next_request_id = 1;
+	}
+	json_object_put(json);
+}
+
+static void nhrp_reqid_state_write(uint32_t next)
+{
+	struct json_object *json;
+	struct json_object *json_reqid;
+
+	json = frr_daemon_state_load();
+	json_reqid = json_object_new_uint64(next);
+	json_object_object_add(json, "reqid", json_reqid);
+	frr_daemon_state_save(&json);
+}
+
 uint32_t nhrp_reqid_alloc(struct nhrp_reqid_pool *p, struct nhrp_reqid *r,
 			  void (*cb)(struct nhrp_reqid *, void *))
 {
@@ -24,6 +52,8 @@ uint32_t nhrp_reqid_alloc(struct nhrp_reqid_pool *p, struct nhrp_reqid *r,
 		p->reqid_hash = hash_create(nhrp_reqid_key, nhrp_reqid_cmp,
 					    "NHRP reqid Hash");
 		p->next_request_id = 1;
+		if (p->persist)
+			nhrp_reqid_state_read(p);
 	}
 
 	if (r->cb != cb) {
@@ -32,6 +62,13 @@ uint32_t nhrp_reqid_alloc(struct nhrp_reqid_pool *p, struct nhrp_reqid *r,
 			p->next_request_id = 1;
 		r->cb = cb;
 		(void)hash_get(p->reqid_hash, r, hash_alloc_intern);
+		/* RFC 2332 5.2.3: keep the request ID in nonvolatile
+		 * storage; persist the next ID after each allocation so
+		 * that a restart never hands out a request ID that has
+		 * already been sent to the NHS.
+		 */
+		if (p->persist)
+			nhrp_reqid_state_write(p->next_request_id);
 	}
 	return r->request_id;
 }
