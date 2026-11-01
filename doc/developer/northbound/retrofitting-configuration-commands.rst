@@ -520,6 +520,34 @@ constraints whenever possible. Code-level validations should be used
 only to validate constraints that can’t be modeled using the YANG
 language.
 
+.. warning::
+
+   **Avoid using pre_validate callbacks**
+
+   The ``pre_validate`` callback walks the **entire** candidate config tree
+   on every commit. For a deployment with N instances of a node (e.g., N
+   static routes), changing any single node triggers N ``pre_validate``
+   calls -- O(N) work for an O(1) change. This causes severe performance
+   degradation at scale (e.g., 10,000+ static routes where modifying one
+   route’s tag takes minutes instead of milliseconds).
+
+   **Prefer NB_EV_VALIDATE instead:**
+
+   * ``NB_EV_VALIDATE`` fires only for nodes actually changed in the
+     current transaction -- O(changed) instead of O(total).
+   * At ``NB_EV_VALIDATE`` time, ``args->dnode`` reflects the candidate
+     config including all changes in the transaction, so you can walk
+     parent or sibling nodes (via ``lyd_parent()``, ``lyd_child()``, etc.)
+     to perform cross-node validation.
+
+   For example, to validate that a list doesn’t exceed a maximum count,
+   use ``NB_EV_VALIDATE`` in the list entry’s ``create`` callback and count
+   siblings via ``yang_get_list_elements_count(lyd_child(lyd_parent(args->dnode)))``.
+
+   Only use ``pre_validate`` when you truly need to validate relationships
+   across **unrelated** subtrees that cannot be expressed via YANG
+   constraints or ``NB_EV_VALIDATE``.
+
 Most callbacks don’t need to perform any validations nor perform any
 error-prone operations, so in these cases we can use the following
 pattern to return early if ``event`` is different than ``NB_EV_APPLY``:
