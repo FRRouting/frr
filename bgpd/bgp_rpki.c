@@ -885,6 +885,39 @@ err:
 	flog_err(EC_LIB_DEVELOPMENT, "RPKI: %s", msg);
 }
 
+/*
+ * Re-run the inbound policy of every peer with soft-reconfiguration inbound,
+ * for the bgp instance(s) that use this RPKI configuration.
+ */
+static void revalidate_all_routes(struct rpki_vrf *rpki_vrf)
+{
+	struct listnode *node, *pnode;
+	struct vrf *vrf = NULL;
+	struct peer *peer;
+	struct bgp *bgp;
+
+	if (rpki_vrf->vrfname) {
+		vrf = vrf_lookup_by_name(rpki_vrf->vrfname);
+		if (!vrf)
+			return;
+	}
+
+	for (ALL_LIST_ELEMENTS_RO(bm->bgp, node, bgp)) {
+		if (!vrf && bgp->vrf_id != VRF_DEFAULT)
+			continue;
+		if (vrf && bgp->vrf_id != vrf->vrf_id)
+			continue;
+
+		for (ALL_LIST_ELEMENTS_RO(bgp->peer, pnode, peer)) {
+			afi_t afi;
+			safi_t safi;
+
+			FOREACH_AFI_SAFI (afi, safi)
+				bgp_soft_reconfig_in(peer, afi, safi);
+		}
+	}
+}
+
 #ifdef FOUND_ASPA
 static void rpki_aspa_msg_free(struct rpki_aspa_msg *msg);
 
@@ -968,31 +1001,8 @@ static void rpki_aspa_queue_flush(struct rpki_vrf *rpki_vrf)
 static void rpki_aspa_revalidate_all(struct event *event)
 {
 	struct rpki_vrf *rpki_vrf = EVENT_ARG(event);
-	struct listnode *node, *pnode;
-	struct vrf *vrf = NULL;
-	struct peer *peer;
-	struct bgp *bgp;
 
-	if (rpki_vrf->vrfname) {
-		vrf = vrf_lookup_by_name(rpki_vrf->vrfname);
-		if (!vrf)
-			return;
-	}
-
-	for (ALL_LIST_ELEMENTS_RO(bm->bgp, node, bgp)) {
-		if (!vrf && bgp->vrf_id != VRF_DEFAULT)
-			continue;
-		if (vrf && bgp->vrf_id != vrf->vrf_id)
-			continue;
-
-		for (ALL_LIST_ELEMENTS_RO(bgp->peer, pnode, peer)) {
-			afi_t afi;
-			safi_t safi;
-
-			FOREACH_AFI_SAFI (afi, safi)
-				bgp_soft_reconfig_in(peer, afi, safi);
-		}
-	}
+	revalidate_all_routes(rpki_vrf);
 
 	RPKI_DEBUG("ASPA table changed, scheduled revalidation");
 }
@@ -1243,6 +1253,14 @@ static void sync_expired(struct event *event)
 	RPKI_DEBUG("rtr_mgr sync is done.");
 
 	rpki_vrf->rtr_is_synced = true;
+
+	/*
+	 * Until now the validation state of every route was "not used", also
+	 * when the VRPs of the initial sync were revalidated one by one, so
+	 * routes that are invalid may have been accepted. Re-run the inbound
+	 * policy now that the VRP set is complete.
+	 */
+	revalidate_all_routes(rpki_vrf);
 }
 
 static int rpki_rtr_mgr_init(struct rpki_vrf *rpki_vrf, struct rtr_mgr_group *groups,
