@@ -420,6 +420,118 @@ const struct frr_yang_module_info frr_zebra_info = {
 			}
 		},
 		{
+			.xpath = "/frr-interface:lib/interface/frr-zebra:zebra/master",
+			.cbs = {
+				.modify = lib_interface_zebra_master_modify,
+				.destroy = lib_interface_zebra_master_destroy,
+			}
+		},
+		{
+			.xpath = "/frr-interface:lib/interface/frr-zebra:zebra/link-type/bridge",
+			.cbs = {
+				.create = lib_interface_zebra_link_type_create,
+				.destroy = lib_interface_zebra_link_type_destroy,
+				.apply_finish = lib_interface_zebra_link_type_apply_finish,
+			}
+		},
+		{
+			.xpath = "/frr-interface:lib/interface/frr-zebra:zebra/link-type/dummy",
+			.cbs = {
+				.create = lib_interface_zebra_link_type_create,
+				.destroy = lib_interface_zebra_link_type_destroy,
+				.apply_finish = lib_interface_zebra_link_type_apply_finish,
+			}
+		},
+		{
+			.xpath = "/frr-interface:lib/interface/frr-zebra:zebra/link-type/veth",
+			.cbs = {
+				.create = lib_interface_zebra_link_type_create,
+				.destroy = lib_interface_zebra_link_type_destroy,
+				.apply_finish = lib_interface_zebra_link_type_apply_finish,
+			}
+		},
+		{
+			.xpath = "/frr-interface:lib/interface/frr-zebra:zebra/link-type/vlan",
+			.cbs = {
+				.create = lib_interface_zebra_link_type_create,
+				.destroy = lib_interface_zebra_link_type_destroy,
+				.apply_finish = lib_interface_zebra_link_type_apply_finish,
+			}
+		},
+		{
+			.xpath = "/frr-interface:lib/interface/frr-zebra:zebra/link-type/gre",
+			.cbs = {
+				.create = lib_interface_zebra_link_type_create,
+				.destroy = lib_interface_zebra_link_type_destroy,
+				.apply_finish = lib_interface_zebra_link_type_apply_finish,
+			}
+		},
+		{
+			.xpath = "/frr-interface:lib/interface/frr-zebra:zebra/link-type/veth/peer-name",
+			.cbs = {
+				.modify = lib_interface_zebra_link_type_param_modify,
+			}
+		},
+		{
+			.xpath = "/frr-interface:lib/interface/frr-zebra:zebra/link-type/vlan/parent",
+			.cbs = {
+				.modify = lib_interface_zebra_link_type_param_modify,
+			}
+		},
+		{
+			.xpath = "/frr-interface:lib/interface/frr-zebra:zebra/link-type/vlan/id",
+			.cbs = {
+				.modify = lib_interface_zebra_link_type_param_modify,
+			}
+		},
+		{
+			.xpath = "/frr-interface:lib/interface/frr-zebra:zebra/link-type/vlan/encapsulation",
+			.cbs = {
+				.modify = lib_interface_zebra_link_type_param_modify,
+			}
+		},
+		{
+			.xpath = "/frr-interface:lib/interface/frr-zebra:zebra/link-type/gre/local",
+			.cbs = {
+				.modify = lib_interface_zebra_link_type_param_modify,
+				.destroy = lib_interface_zebra_link_type_param_destroy,
+			}
+		},
+		{
+			.xpath = "/frr-interface:lib/interface/frr-zebra:zebra/link-type/gre/dev",
+			.cbs = {
+				.modify = lib_interface_zebra_link_type_param_modify,
+				.destroy = lib_interface_zebra_link_type_param_destroy,
+			}
+		},
+		{
+			.xpath = "/frr-interface:lib/interface/frr-zebra:zebra/link-type/gre/remote",
+			.cbs = {
+				.modify = lib_interface_zebra_link_type_param_modify,
+			}
+		},
+		{
+			.xpath = "/frr-interface:lib/interface/frr-zebra:zebra/link-type/gre/key",
+			.cbs = {
+				.modify = lib_interface_zebra_link_type_param_modify,
+				.destroy = lib_interface_zebra_link_type_param_destroy,
+			}
+		},
+		{
+			.xpath = "/frr-interface:lib/interface/frr-zebra:zebra/link-type/gre/ttl",
+			.cbs = {
+				.modify = lib_interface_zebra_link_type_param_modify,
+				.destroy = lib_interface_zebra_link_type_param_destroy,
+			}
+		},
+		{
+			.xpath = "/frr-interface:lib/interface/frr-zebra:zebra/link-type/gre/tos",
+			.cbs = {
+				.modify = lib_interface_zebra_link_type_param_modify,
+				.destroy = lib_interface_zebra_link_type_param_destroy,
+			}
+		},
+		{
 			.xpath = "/frr-interface:lib/interface/frr-zebra:zebra/mpls",
 			.cbs = {
 				.modify = lib_interface_zebra_mpls_modify,
