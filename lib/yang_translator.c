@@ -100,7 +100,7 @@ static void yang_mapping_add(struct yang_translator *translator, int dir,
 
 	for (unsigned int i = 0; i < array_size(keys); i++) {
 		xpfmt = frrstr_replace(mapping->xpath_from_fmt, keys[i],
-				       "%[^']");
+				       "%127[^']");
 		strlcpy(mapping->xpath_from_fmt, xpfmt,
 			sizeof(mapping->xpath_from_fmt));
 		XFREE(MTYPE_TMP, xpfmt);
