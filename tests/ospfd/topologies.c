@@ -574,3 +574,135 @@ struct ospf_topology topo5 = {
 			},
 		},
 };
+
+
+/*
+ * +---------+                     +---------+
+ * |         |                     |         |
+ * |   RT1   |eth-rt2       eth-rt1|   RT2   |
+ * | 1.1.1.1 +---------------------+ 2.2.2.2 |
+ * |         |     10.0.1.0/24     |         |
+ * +---------+                     +---------+
+ *      |eth-rt3                 eth-rt3|
+ *      |                               |
+ *      |10.0.3.0/24                    |
+ *      |                               |
+ *      |eth-rt1                        |
+ * +---------+                          |
+ * |         |eth-rt2        10.0.2.0/24|
+ * |   RT3   +--------------------------+
+ * | 3.3.3.3 |
+ * |         |
+ * +---------+
+ *      |eth-rt4
+ *      |
+ *      |10.0.4.0/24
+ *      |
+ *      |eth-rt3
+ * +---------+
+ * |         |
+ * |   RT4   |
+ * | 4.4.4.4 |
+ * |         |
+ * +---------+
+ *
+ * The triangle of topo1 plus RT4, whose router-LSA is not in the LSDB yet
+ * while RT3 already advertises its point-to-point link to it (e.g. RT3's
+ * new router-LSA was flooded before RT4's own one arrived). The SPF just
+ * skips RT4 (RFC 2328 16.1 (2b)), and so must the reverse SPF of the Q
+ * spaces: the backup paths are the ones of topo1.
+ */
+struct ospf_topology topo6 = {
+	.nodes =
+		{
+			{
+				.hostname = "rt1",
+				.router_id = "1.1.1.1",
+				.label = 10,
+				.adjacencies =
+					{
+						{
+							.hostname = "rt2",
+							.network =
+								"10.0.1.1/24",
+							.metric = 10,
+							.label = 1,
+						},
+						{
+							.hostname = "rt3",
+							.network =
+								"10.0.3.1/24",
+							.metric = 10,
+							.label = 2,
+						},
+					},
+			},
+			{
+				.hostname = "rt2",
+				.router_id = "2.2.2.2",
+				.label = 20,
+				.adjacencies =
+					{
+						{
+							.hostname = "rt1",
+							.network =
+								"10.0.1.2/24",
+							.metric = 10,
+							.label = 3,
+						},
+						{
+							.hostname = "rt3",
+							.network =
+								"10.0.2.1/24",
+							.metric = 10,
+							.label = 4,
+						},
+					},
+			},
+			{
+				.hostname = "rt3",
+				.router_id = "3.3.3.3",
+				.label = 30,
+				.adjacencies =
+					{
+						{
+							.hostname = "rt1",
+							.network =
+								"10.0.3.2/24",
+							.metric = 10,
+							.label = 5,
+						},
+						{
+							.hostname = "rt2",
+							.network =
+								"10.0.2.2/24",
+							.metric = 10,
+							.label = 6,
+						},
+						{
+							.hostname = "rt4",
+							.network =
+								"10.0.4.1/24",
+							.metric = 10,
+							.label = 7,
+						},
+					},
+			},
+			{
+				.hostname = "rt4",
+				.router_id = "4.4.4.4",
+				.label = 40,
+				.adjacencies =
+					{
+						{
+							.hostname = "rt3",
+							.network =
+								"10.0.4.2/24",
+							.metric = 10,
+							.label = 8,
+						},
+					},
+				.no_router_lsa = true,
+			},
+		},
+};
