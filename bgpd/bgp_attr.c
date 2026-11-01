@@ -113,16 +113,31 @@ static void *cluster_hash_alloc(void *p)
 }
 
 /* Cluster list related functions. */
-static struct cluster_list *cluster_parse(struct in_addr *pnt, int length)
+static struct cluster_list *cluster_parse(struct stream *s, int length)
 {
+	/* 255 octets, the most without the extended length flag, fit. */
+	struct in_addr ids[64];
 	struct cluster_list tmp = {};
 	struct cluster_list *cluster;
 
+	/*
+	 * The cluster IDs on the wire are not aligned for struct in_addr:
+	 * copy them before they are hashed and compared.
+	 */
 	tmp.length = length;
-	tmp.list = length == 0 ? NULL : pnt;
+	if (length) {
+		if ((size_t)length <= sizeof(ids))
+			tmp.list = ids;
+		else
+			tmp.list = XMALLOC(MTYPE_CLUSTER_VAL, length);
+		stream_get(tmp.list, s, length);
+	}
 
 	cluster = hash_get(cluster_hash, &tmp, cluster_hash_alloc);
 	cluster->refcnt++;
+
+	if (tmp.list != ids)
+		XFREE(MTYPE_CLUSTER_VAL, tmp.list);
 	return cluster;
 }
 
@@ -2984,11 +2999,7 @@ bgp_attr_cluster_list(struct bgp_attr_parser_args *args)
 	if (peer->discard_attrs[args->type] || peer->withdraw_attrs[args->type])
 		goto cluster_list_ignore;
 
-	bgp_attr_set_cluster(attr, cluster_parse((struct in_addr *)stream_pnt(connection->curr),
-						 length));
-
-	/* XXX: Fix cluster_parse to use stream API and then remove this */
-	stream_forward_getp(connection->curr, length);
+	bgp_attr_set_cluster(attr, cluster_parse(connection->curr, length));
 
 	return BGP_ATTR_PARSE_PROCEED;
 

@@ -9,6 +9,7 @@ frr_northbound*
 /bgpd/test_attr_parse
 /bgpd/test_bgp_ls_attr
 /bgpd/test_bgp_table
+/bgpd/test_bgp_unaligned
 /bgpd/test_capability
 /bgpd/test_community
 /bgpd/test_ecommunity
