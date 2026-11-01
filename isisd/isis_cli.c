@@ -436,6 +436,29 @@ void cli_show_advertise_high_metrics(struct vty *vty, const struct lyd_node *dno
 }
 
 /*
+ * XPath: /frr-isisd:isis/instance/leak
+ */
+DEFPY_YANG(isis_leak, isis_leak_cmd,
+	   "[no] leak level-1 into level-2",
+	   NO_STR
+	   "Advertise the prefixes of a level in the LSP of another level\n"
+	   "Prefixes of level-1\n"
+	   "Into\n"
+	   "LSP of level-2\n")
+{
+	nb_cli_enqueue_change(vty, "./leak[level-from='level-1'][level-to='level-2']",
+			      no ? NB_OP_DESTROY : NB_OP_CREATE, NULL);
+
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+void cli_show_isis_leak(struct vty *vty, const struct lyd_node *dnode, bool show_defaults)
+{
+	vty_out(vty, " leak %s into %s\n", yang_dnode_get_string(dnode, "level-from"),
+		yang_dnode_get_string(dnode, "level-to"));
+}
+
+/*
  * XPath: /frr-isisd:isis/instance/attach-send
  */
 DEFPY_YANG(attached_bit_send, attached_bit_send_cmd, "[no] attached-bit send",
@@ -3700,6 +3723,7 @@ void isis_cli_init(void)
 	install_element(ISIS_NODE, &no_metric_style_cmd);
 
 	install_element(ISIS_NODE, &advertise_high_metrics_cmd);
+	install_element(ISIS_NODE, &isis_leak_cmd);
 
 	install_element(ISIS_NODE, &area_passwd_cmd);
 	install_element(ISIS_NODE, &domain_passwd_cmd);

@@ -22,6 +22,9 @@
 #include "isisd/isis_route.h"
 #include "isisd/isis_spf.h"
 #include "isisd/isis_spf_private.h"
+#include "isisd/isis_lsp.h"
+#include "isisd/isis_mt.h"
+#include "isisd/isis_tlvs.h"
 
 #include "test_common.h"
 
@@ -31,6 +34,7 @@ enum test_type {
 	TEST_LFA,
 	TEST_RLFA,
 	TEST_TI_LFA,
+	TEST_LEAK,
 };
 
 #define F_DISPLAY_LSPDB 0x01
@@ -223,10 +227,84 @@ static void test_run_ti_lfa(struct vty *vty, const struct isis_topology *topolog
 	isis_spftree_del(spftree_pc);
 }
 
+/* Find the level-1 LSP of the router @hostname. */
+static struct isis_lsp *test_leak_find_lsp(struct isis_area *area, const char *hostname)
+{
+	struct isis_dynhn *dynhn = dynhn_find_by_name(area->isis, hostname);
+	struct isis_lsp *lsp;
+
+	if (!dynhn)
+		return NULL;
+
+	frr_each (lspdb, &area->lspdb[ISIS_LEVEL1 - 1], lsp)
+		if (!memcmp(lsp->hdr.lsp_id, dynhn->id, ISIS_SYS_ID_LEN) &&
+		    !LSP_PSEUDO_ID(lsp->hdr.lsp_id))
+			return lsp;
+
+	return NULL;
+}
+
+/* Set the up/down bit, or the maximum metric, on every prefix advertised in @lsp. */
+static void test_leak_mark_prefixes(struct isis_lsp *lsp, bool down)
+{
+	struct isis_item_list *lists[] = {
+		&lsp->tlvs->ipv6_reach,
+		isis_lookup_mt_items(&lsp->tlvs->mt_ipv6_reach, ISIS_MT_IPV6_UNICAST),
+	};
+
+	for (struct isis_item *item = lsp->tlvs->extended_ip_reach.head; item; item = item->next) {
+		struct isis_extended_ip_reach *r = (struct isis_extended_ip_reach *)item;
+
+		if (down)
+			r->down = true;
+		else
+			r->metric = UINT32_MAX;
+	}
+	for (size_t i = 0; i < array_size(lists); i++) {
+		for (struct isis_item *item = lists[i] ? lists[i]->head : NULL; item;
+		     item = item->next) {
+			struct isis_ipv6_reach *r = (struct isis_ipv6_reach *)item;
+
+			if (down)
+				r->down = true;
+			else
+				r->metric = UINT32_MAX;
+		}
+	}
+}
+
+static void test_run_leak(struct vty *vty, const struct isis_test_node *root,
+			  struct isis_area *area, int tree)
+{
+	struct isis_spftree *spftree;
+	struct route_table *table;
+
+	spftree = isis_spftree_new(area, &area->lspdb[ISIS_LEVEL1 - 1], root->sysid, ISIS_LEVEL1,
+				   tree, SPF_TYPE_FORWARD, F_SPFTREE_NO_ADJACENCIES,
+				   SR_ALGORITHM_SPF);
+	isis_run_spf(spftree);
+
+	vty_out(vty, "Prefixes of the level-1 %s SPT that are leaked into level-2:\n",
+		tree == SPFTREE_IPV4 ? "IPv4" : "IPv6");
+	table = route_table_init();
+	isis_spf_leak_table_fill(spftree, table);
+	for (struct route_node *rn = route_top(table); rn; rn = route_next(rn)) {
+		struct isis_spf_leaked_prefix *lp = rn->info;
+
+		if (lp)
+			vty_out(vty, " %pFX  %u%s\n", &rn->p, lp->metric,
+				lp->external ? "  external" : "");
+	}
+	isis_spf_leak_table_free(table);
+
+	isis_spftree_del(spftree);
+}
+
 static int test_run(struct vty *vty, const struct isis_topology *topology,
 		    const struct isis_test_node *root, enum test_type test_type, uint8_t flags,
 		    enum lfa_protection_type protection_type, const char *fail_sysid_str,
-		    uint8_t fail_pseudonode_id)
+		    uint8_t fail_pseudonode_id, const char *down_str, const char *attached_str,
+		    const char *huge_str)
 {
 	struct isis_area *area;
 	struct lfa_protected_resource protected_resource = {};
@@ -251,6 +329,36 @@ static int test_run(struct vty *vty, const struct isis_topology *topology,
 	if (test_topology_load(topology, area, area->lspdb) != 0) {
 		vty_out(vty, "%% Failed to load topology\n");
 		return CMD_WARNING;
+	}
+
+	/* Leak test: advertise the prefixes of a router with the up/down bit, set the attached bit */
+	if (test_type == TEST_LEAK) {
+		struct isis_lsp *lsp;
+
+		if (down_str) {
+			lsp = test_leak_find_lsp(area, down_str);
+			if (!lsp) {
+				vty_out(vty, "Invalid hostname %s\n", down_str);
+				return CMD_WARNING;
+			}
+			test_leak_mark_prefixes(lsp, true);
+		}
+		if (huge_str) {
+			lsp = test_leak_find_lsp(area, huge_str);
+			if (!lsp) {
+				vty_out(vty, "Invalid hostname %s\n", huge_str);
+				return CMD_WARNING;
+			}
+			test_leak_mark_prefixes(lsp, false);
+		}
+		if (attached_str) {
+			lsp = test_leak_find_lsp(area, attached_str);
+			if (!lsp) {
+				vty_out(vty, "Invalid hostname %s\n", attached_str);
+				return CMD_WARNING;
+			}
+			lsp->hdr.lsp_bits |= LSPBIT_ATT;
+		}
 	}
 
 	/* Parse failed link/node. */
@@ -311,6 +419,10 @@ static int test_run(struct vty *vty, const struct isis_topology *topology,
 				test_run_ti_lfa(vty, topology, root, area, &area->lspdb[level - 1],
 						level, tree, &protected_resource);
 				break;
+			case TEST_LEAK:
+				if (level == IS_LEVEL_1)
+					test_run_leak(vty, root, area, tree);
+				break;
 			}
 		}
 	}
@@ -333,6 +445,7 @@ DEFUN(test_isis, test_isis_cmd,
 	   |lfa system-id WORD [pseudonode-id <1-255>]\
 	   |remote-lfa system-id WORD [pseudonode-id <1-255>]\
 	   |ti-lfa system-id WORD [pseudonode-id <1-255>] [node-protection]\
+	   |leak [down-prefixes-of WORD] [attached-by WORD] [huge-metric-of WORD]\
 	 >\
 	 [display-lspdb] [<ipv4-only|ipv6-only>] [<level-1-only|level-2-only>]",
       "Test command\n"
@@ -359,6 +472,13 @@ DEFUN(test_isis, test_isis_cmd,
       "Pseudonode-ID\n"
       "Pseudonode-ID\n"
       "Node protection\n"
+      "Prefixes leaked from the level-1 SPT into level-2\n"
+      "Advertise the prefixes of a router with the up/down bit\n"
+      "Router hostname\n"
+      "Set the attached bit in the LSP of a router\n"
+      "Router hostname\n"
+      "Advertise the prefixes of a router with the maximum metric\n"
+      "Router hostname\n"
       "Display the LSPDB\n"
       "Do IPv4 processing only\n"
       "Do IPv6 processing only\n"
@@ -371,6 +491,9 @@ DEFUN(test_isis, test_isis_cmd,
 	enum test_type test_type;
 	enum lfa_protection_type protection_type = 0;
 	const char *fail_sysid_str = NULL;
+	const char *down_str = NULL;
+	const char *attached_str = NULL;
+	const char *huge_str = NULL;
 	uint8_t fail_pseudonode_id = 0;
 	uint8_t flags = 0;
 	int idx = 0;
@@ -421,6 +544,15 @@ DEFUN(test_isis, test_isis_cmd,
 			protection_type = LFA_NODE_PROTECTION;
 		else
 			protection_type = LFA_LINK_PROTECTION;
+	} else if (argv_find(argv, argc, "leak", &idx)) {
+		test_type = TEST_LEAK;
+
+		if (argv_find(argv, argc, "down-prefixes-of", &idx))
+			down_str = argv[idx + 1]->arg;
+		if (argv_find(argv, argc, "attached-by", &idx))
+			attached_str = argv[idx + 1]->arg;
+		if (argv_find(argv, argc, "huge-metric-of", &idx))
+			huge_str = argv[idx + 1]->arg;
 	} else
 		return CMD_WARNING;
 
@@ -437,7 +569,7 @@ DEFUN(test_isis, test_isis_cmd,
 		SET_FLAG(flags, F_LEVEL2_ONLY);
 
 	return test_run(vty, topology, root, test_type, flags, protection_type, fail_sysid_str,
-			fail_pseudonode_id);
+			fail_pseudonode_id, down_str, attached_str, huge_str);
 }
 
 static void vty_do_exit(int isexit)
