@@ -6,6 +6,7 @@
 #ifndef __ZEBRA_ROUTER_H__
 #define __ZEBRA_ROUTER_H__
 
+#include <regex.h>
 #include "lib/mlag.h"
 #include "lib/hook.h"
 #include "lib/nexthop_group.h"
@@ -244,6 +245,19 @@ struct zebra_router {
 	uint64_t nexthop_weight_scale_value;
 
 	bool backup_nhs_installed;
+
+	/* Minimal kernel mode filtering */
+#define ZEBRA_MAX_IGNORE_REGEX 32
+	struct zebra_if_ignore_regex {
+		char pattern[256];
+		regex_t regex;
+		bool compiled;
+	} ignore_regex[ZEBRA_MAX_IGNORE_REGEX];
+	uint32_t ignore_regex_count;
+	bool ignore_kernel_routes;
+	bool ignore_kernel_addr;
+	bool ignore_kernel_neigh;
+	bool ignore_kernel_nht;
 };
 
 #define GRACEFUL_RESTART_TIME 60
