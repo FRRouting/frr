@@ -2808,6 +2808,12 @@ static void zebra_evpn_remote_es_flush(struct zebra_evpn_es **esp)
 	struct listnode	*nnode;
 	struct zebra_evpn_es *es = *esp;
 
+	/*
+	 * Caller has already removed local ES state, or this ES was never
+	 * local. Free the VTEP objects directly. DF election and the bridge
+	 * port update belong to zebra_evpn_es_vtep_del(), which is used while
+	 * the ES is still local.
+	 */
 	for (ALL_LIST_ELEMENTS(es->es_vtep_list, node, nnode, es_vtep)) {
 		if (IS_ZEBRA_DEBUG_EVPN_MH_ES)
 			zlog_debug("es %s vtep %pIA flush", es->esi_str, &es_vtep->vtep_ip);
@@ -3010,6 +3016,50 @@ void zebra_evpn_es_cleanup(void)
 		if (es)
 			zebra_evpn_remote_es_flush(&es);
 	}
+}
+
+/*
+ * Remote ES VTEPs are programmed only by bgpd over ZAPI.  Clear them when
+ * that client disappears, while retaining local ES and ES-EVI state owned by
+ * zebra.  bgpd replays active remote ES VTEPs after it reconnects.
+ */
+void zebra_evpn_remote_es_cleanup(void)
+{
+	struct zebra_evpn_es *es;
+	struct zebra_evpn_es *es_next;
+	struct zebra_evpn_es_vtep *es_vtep;
+	struct listnode *node;
+	struct listnode *nnode;
+	uint32_t es_cnt = 0;
+
+	if (!zmh_info)
+		return;
+
+	/*
+	 * The local ES stays. Delete each remote VTEP through the normal
+	 * path so DF election, the split-horizon filter, and the L2 nexthop
+	 * group are updated before the VTEP is freed. zebra_evpn_es_cleanup()
+	 * does not use this path: it clears the local ES first and then
+	 * flushes the remaining VTEPs without another DF election.
+	 */
+	RB_FOREACH_SAFE (es, zebra_es_rb_head, &zmh_info->es_rb_tree, es_next) {
+		if (!listcount(es->es_vtep_list))
+			continue;
+
+		es_cnt++;
+		for (ALL_LIST_ELEMENTS(es->es_vtep_list, node, nnode, es_vtep))
+			zebra_evpn_es_vtep_del(es, &es_vtep->vtep_ip);
+		/*
+		 * zebra_evpn_es_vtep_del() does not touch ZEBRA_EVPNES_REMOTE.
+		 * After the last VTEP is gone the flag is still set; this
+		 * clears it. A local ES stays allocated. An ES that was only
+		 * remote is freed.
+		 */
+		zebra_evpn_es_remote_info_re_eval(&es);
+	}
+
+	if (es_cnt && IS_ZEBRA_DEBUG_EVPN_MH_ES)
+		zlog_debug("%s: remote es cleanup count %u", __func__, es_cnt);
 }
 
 void zebra_evpn_es_df_pref_update(struct zebra_if *zif, uint16_t df_pref)

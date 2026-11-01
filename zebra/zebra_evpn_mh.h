@@ -389,6 +389,7 @@ zebra_evpn_acc_vl_find_index(vlanid_t vid, ifindex_t bridge_ifindex);
 extern void zebra_evpn_acc_vl_show_vid(struct vty *vty, bool uj, vlanid_t vid,
 				       struct interface *br_if);
 extern void zebra_evpn_es_cleanup(void);
+extern void zebra_evpn_remote_es_cleanup(void);
 extern int zebra_evpn_mh_mac_holdtime_update(struct vty *vty,
 		uint32_t duration, bool set_default);
 void zebra_evpn_mh_config_write(struct vty *vty);
