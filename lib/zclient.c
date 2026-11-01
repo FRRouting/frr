@@ -262,6 +262,7 @@ void zclient_stop(struct zclient *zclient)
 	event_cancel(&zclient->t_read);
 	event_cancel(&zclient->t_connect);
 	event_cancel(&zclient->t_write);
+	event_cancel(&zclient->t_disconnected);
 
 	/* Reset streams. */
 	stream_reset(zclient->ibuf);
@@ -340,10 +341,24 @@ int zclient_socket_connect(struct zclient *zclient)
 	return sock;
 }
 
+static void zclient_disconnected(struct event *event)
+{
+	struct zclient *zclient = EVENT_ARG(event);
+
+	(*zclient->zebra_disconnected)(zclient);
+}
+
 static enum zclient_send_status zclient_failed(struct zclient *zclient)
 {
 	zclient->fail++;
 	zclient_stop(zclient);
+	/*
+	 * Notify the daemon from an event: zclient_failed() may be called while
+	 * the daemon is sending a message to zebra.
+	 */
+	if (zclient->zebra_disconnected)
+		event_add_event(zclient->master, zclient_disconnected, zclient, 0,
+				&zclient->t_disconnected);
 	zclient_event(ZCLIENT_CONNECT, zclient);
 	return ZCLIENT_SEND_FAILURE;
 }

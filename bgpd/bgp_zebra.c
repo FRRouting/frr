@@ -3393,6 +3393,24 @@ static void bgp_zebra_connected(struct zclient *zclient)
 	 */
 }
 
+/* BGP has lost its connection with Zebra. */
+static void bgp_zebra_disconnected(struct zclient *zclient)
+{
+	struct bgp *bgp;
+	struct listnode *node;
+
+	for (ALL_LIST_ELEMENTS_RO(bm->bgp, node, bgp)) {
+		/* zebra has lost the SIDs of BGP */
+		vpn_leak_zebra_vrf_sids_forget(bgp);
+		if (bgp->vrf_id == VRF_DEFAULT)
+			bgp_srv6_unicast_sids_forget(bgp);
+
+		/* the locators may have changed when zebra is started again */
+		srv6_locator_free(bgp->srv6_locator);
+		bgp->srv6_locator = NULL;
+	}
+}
+
 void bgp_zebra_process_remote_routes_for_l2vni(struct event *e)
 {
 	/*
@@ -4678,6 +4696,7 @@ void bgp_zebra_init(struct event_loop *master, unsigned short instance)
 	zclient_init(bgp_zclient, ZEBRA_ROUTE_BGP, 0, &bgpd_privs);
 	bgp_zclient->zebra_buffer_write_ready = bgp_zebra_buffer_write_ready;
 	bgp_zclient->zebra_connected = bgp_zebra_connected;
+	bgp_zclient->zebra_disconnected = bgp_zebra_disconnected;
 	bgp_zclient->zebra_capabilities = bgp_zebra_capabilities;
 	bgp_zclient->nexthop_update = bgp_nexthop_update;
 	bgp_zclient->instance = instance;
