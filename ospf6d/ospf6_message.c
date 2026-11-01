@@ -1623,6 +1623,13 @@ static void ospf6_lsupdate_recv(struct in6_addr *src, struct in6_addr *dst,
 {
 	struct ospf6_neighbor *on;
 	struct ospf6_lsupdate *lsupdate;
+	/*
+	 * Caches the RFC 2328 section 13 (4) neighbor-state scan for this
+	 * packet (-1 = not computed yet): neighbor states cannot change while
+	 * the packet is processed, so the scan runs at most once per packet
+	 * instead of once per LSA.
+	 */
+	int nbr_exchanging = -1;
 	char *p;
 
 	on = ospf6_neighbor_lookup(oh->router_id, oi);
@@ -1651,7 +1658,8 @@ static void ospf6_lsupdate_recv(struct in6_addr *src, struct in6_addr *dst,
 	     ospf6_lsa_size((struct ospf6_lsa_header *)p) >= sizeof(struct ospf6_lsa_header) &&
 	     p + ospf6_lsa_size((struct ospf6_lsa_header *)p) <= OSPF6_MESSAGE_END(oh);
 	     p += ospf6_lsa_size((struct ospf6_lsa_header *)p)) {
-		ospf6_receive_lsa(on, (struct ospf6_lsa_header *)p);
+		ospf6_receive_lsa(on, (struct ospf6_lsa_header *)p,
+				  &nbr_exchanging);
 	}
 
 	if (p != OSPF6_MESSAGE_END(oh)) {
