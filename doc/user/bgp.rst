@@ -6829,3 +6829,61 @@ is applied to all the neighbors configured in that bgp instance.
    address-family ipv6 unicast
     neighbor fd00::2 activate
    exit-address-family
+
+.. _bgp-backup-path:
+
+BGP Install Backup Path
+=======================
+
+This feature enables sub-second failover for BGP routes. When enabled, BGP programs
+routes with primary paths and backup paths, allowing the forwarding plane to
+perform immediate failover when a primary path fails, without waiting for BGP
+convergence.
+
+.. clicmd:: install backup-path [ecmp] [tunnel-only]
+
+   Enable backup path for fast failover. When this command is configured, BGP will
+   identify backup paths and send them to the forwarding plane.
+   During normal operation, traffic flows only through primary paths.
+   When a primary path fails, the forwarding plane can immediately switch to the
+   backup path while BGP recalculates the best path in the background.
+
+   With ``ecmp``, the backup set may contain multiple equal-cost paths,
+   bounded by the address-family ``maximum-paths`` configuration.
+
+   With ``tunnel-only``, only paths whose nexthops are resolved over tunnels
+   are eligible as backups: paths that carry their own encapsulation (an
+   SRv6-VPN SID, a VPN/labeled-unicast label stack, or an EVPN-imported
+   route), or paths whose nexthop resolution consists entirely of
+   tunnel legs (an MPLS label stack, an SRv6 SID list, an SR-TE policy
+   steering the nexthop, or egress over
+   a GRE/VXLAN-type interface; nexthop updates do not carry a leg's
+   VXLAN encapsulation, so VXLAN otherwise qualifies only at the path
+   level, as an EVPN-imported route). This is
+   useful when a plain-IP backup toward another device could be routed
+   back over the failed primary link; an encapsulating backup is
+   loop-safe. Without the keyword, regular (plain-IP) nexthops remain
+   eligible as backups exactly as before. Eligibility is re-evaluated as
+   nexthop resolution changes. The verdict for a given nexthop can be
+   inspected with ``show bgp nexthop`` (``Tunnel-resolved:`` line).
+
+   This configuration is available per address-family and must be configured
+   within the address-family submode.
+
+.. code-block:: frr
+
+   router bgp 65000
+    neighbor 10.0.0.1 remote-as 65001
+    neighbor 10.0.0.2 remote-as 65001
+    neighbor 10.0.0.3 remote-as 65002
+   !
+   address-family ipv4 unicast
+    install backup-path
+    maximum-paths 4
+    neighbor 10.0.0.1 activate
+    neighbor 10.0.0.2 activate
+    neighbor 10.0.0.3 activate
+   exit-address-family
+
+In this example, if paths via 10.0.0.1 and 10.0.0.2 are selected as primary
+(multipath), the path via 10.0.0.3 may be selected as a backup path.
