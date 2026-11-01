@@ -56,6 +56,7 @@ static void lsp_l1_refresh_pseudo(struct event *event);
 static void lsp_l2_refresh_pseudo(struct event *event);
 
 static void lsp_destroy(struct isis_lsp *lsp);
+static void lsp_adjust_stream(struct isis_lsp *lsp);
 
 static bool device_startup;
 
@@ -304,6 +305,8 @@ static void lsp_pack_pdu(struct isis_lsp *lsp)
 		lsp->tlvs = isis_alloc_tlvs();
 
 	lsp_add_auth(lsp);
+
+	lsp_adjust_stream(lsp);
 
 	size_t len_pointer;
 	put_lsp_hdr(lsp, &len_pointer, false);
@@ -593,7 +596,13 @@ struct isis_lsp *lsp_new(struct isis_area *area, uint8_t *lsp_id,
 	lsp = XCALLOC(MTYPE_ISIS_LSP, sizeof(struct isis_lsp));
 	lsp->area = area;
 
-	lsp_adjust_stream(lsp);
+	/* The stream only holds the LSP header until actual LSP data is
+	 * packed; lsp_adjust_stream() grows it to the full MTU-sized buffer
+	 * when needed.  Placeholders created from SNP entries
+	 * (7.3.15.2 b) 5)) carry no LSP data and are never transmitted, so
+	 * they must not pin an MTU-sized buffer each.
+	 */
+	lsp->pdu = stream_new(ISIS_FIXED_HDR_LEN + ISIS_LSP_HDR_LEN);
 
 	/* Minimal LSP PDU size */
 	lsp->hdr.pdu_len = ISIS_FIXED_HDR_LEN + ISIS_LSP_HDR_LEN;
