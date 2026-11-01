@@ -44,6 +44,7 @@ sys.path.append(os.path.join(CWD, "../"))
 # pylint: disable=C0413
 # Import topogen and topotest helpers
 from lib import topotest
+from lib.common_config import kill_router_daemons, start_router_daemons
 
 # Required to instantiate the topology builder class.
 from lib.topogen import Topogen, TopoRouter, get_topogen
@@ -938,7 +939,14 @@ def tgen_and_ip_version(request):
     # Run this inside the torm11 namespace so that vtysh talks to the correct daemons.
     if torm11 is not None:
         logger.info("Running frr-reload.py on torm11 unified config")
-        cmd = "/usr/lib/frr/frr-reload.py --reload /etc/frr/frr.conf"
+        vtysh_path = torm11.run("command -v vtysh").strip()
+        if not vtysh_path:
+            pytest.fail("frr-reload requires vtysh, but it is not in torm11's PATH")
+        cmd = (
+            "/usr/lib/frr/frr-reload.py --bindir {} --reload /etc/frr/frr.conf".format(
+                os.path.dirname(vtysh_path)
+            )
+        )
         # Run this inside the torm11 namespace (TopoRouter.net is the underlying node)
         rc, out, err = torm11.net.cmd_status(cmd, warn=False)
         if rc:
@@ -1112,6 +1120,71 @@ def check_one_es(dut, esi, down_vteps):
     return result
 
 
+def _check_es_vtep(dut, esi, vtep_ip, expected_present, command, vtep_key, source):
+    """
+    Check one remote ES VTEP in the specified producer's JSON output.
+
+    bgpd and zebra expose the same ES state through different commands and
+    VTEP field names. Keeping the producer in the error makes a disagreement
+    between bgpd and zebra visible in a failed regression test.
+    """
+    output = dut.vtysh_cmd(command % esi)
+    es = json.loads(output)
+
+    if not es:
+        if expected_present:
+            return "%s missing ES %s while expecting VTEP %s" % (
+                source,
+                esi,
+                vtep_ip,
+            )
+        return None
+
+    vtep_ips = [vtep[vtep_key] for vtep in es.get("vteps", []) if vtep_key in vtep]
+    present = vtep_ip in vtep_ips
+    if present == expected_present:
+        return None
+
+    expectation = "present" if expected_present else "absent"
+    return "%s ES %s VTEPs %s; expected %s to be %s" % (
+        source,
+        esi,
+        vtep_ips,
+        vtep_ip,
+        expectation,
+    )
+
+
+def check_bgpd_es_vtep(dut, esi, vtep_ip, expected_present):
+    """
+    Check bgpd's ES VTEP list, which serializes each VTEP as ``vtep_ip``.
+    """
+    return _check_es_vtep(
+        dut,
+        esi,
+        vtep_ip,
+        expected_present,
+        "show bgp l2vpn evpn es %s json",
+        "vtep_ip",
+        "bgpd",
+    )
+
+
+def check_zebra_es_vtep(dut, esi, vtep_ip, expected_present):
+    """
+    Check zebra's ES VTEP list, which serializes each VTEP as ``vtep``.
+    """
+    return _check_es_vtep(
+        dut,
+        esi,
+        vtep_ip,
+        expected_present,
+        "show evpn es %s json",
+        "vtep",
+        "zebra",
+    )
+
+
 def test_evpn_es(tgen_and_ip_version):
     """
     Two ES are setup on each rack. This test checks if -
@@ -1176,6 +1249,83 @@ def test_evpn_ead_update(tgen_and_ip_version):
     _, result = topotest.run_and_expect(test_fn, None, count=20, wait=3)
     assertmsg = '"{}" ES incorrect after remote link flap'.format(dut_name)
     assert result is None, assertmsg
+
+
+def test_evpn_mh_peer_withdraw_during_bgpd_restart(tgen_and_ip_version):
+    """
+    A peer EAD withdrawal while bgpd is down must remove its ES VTEP in zebra.
+
+    zebra stays alive on torm12 while its bgpd is stopped. torm11 then withdraws
+    the Type-1/EAD for hostd11. On restart, bgpd has no remote peer VTEP left,
+    and zebra must converge to that same state rather than retaining a stale
+    VTEP, ES L2 nexthop group, split-horizon entry, or non-DF role.
+    """
+    tgen, ip_version = tgen_and_ip_version
+
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    victim_name = "torm12"
+    peer_name = "torm11"
+    observer_name = "torm21"
+    victim = tgen.gears[victim_name]
+    peer = tgen.gears[peer_name]
+    observer = tgen.gears[observer_name]
+    esi = host_es_map["hostd11"]
+    peer_vtep = tor_ips[peer_name]
+    peer_access_link = "%s-eth2" % peer_name
+    bgpd_stopped = False
+    peer_link_down = False
+
+    try:
+        # Both daemons must first agree that the local ES on torm12 has its
+        # torm11 peer. The regression below is meaningful only from this state.
+        for check in (check_bgpd_es_vtep, check_zebra_es_vtep):
+            test_fn = partial(check, victim, esi, peer_vtep, True)
+            _, result = topotest.run_and_expect(test_fn, None, count=20, wait=3)
+            assert result is None, "before bgpd stop: %s" % (result,)
+
+        # Keep zebra running. Its BGP client-close cleanup is the behavior
+        # under test, so restarting zebra would discard the stale state.
+        kill_router_daemons(tgen, victim_name, ["bgpd"])
+        bgpd_stopped = True
+
+        # torm11 owns one half of hostd11's ES. Losing its access link withdraws
+        # that Type-1/EAD while torm12 cannot send REMOTE_ES_VTEP_DEL to zebra.
+        peer.run("ip link set dev %s down" % peer_access_link)
+        peer_link_down = True
+
+        # A live remote observer proves torm11's EAD withdrawal reached the
+        # EVPN fabric before bgpd on the victim is restarted. Killing the
+        # victim also withdraws its own EAD, so only require the leaving
+        # torm11 VTEP to disappear from the observer.
+        test_fn = partial(check_bgpd_es_vtep, observer, esi, peer_vtep, False)
+        _, result = topotest.run_and_expect(test_fn, None, count=20, wait=3)
+        assert result is None, "peer EAD withdrawal did not converge: %s" % (result,)
+
+        start_router_daemons(tgen, victim_name, ["bgpd"])
+        bgpd_stopped = False
+
+        # bgpd should rebuild without the withdrawn peer. The critical
+        # regression assertion is that zebra drops the same VTEP as well.
+        test_fn = partial(check_bgpd_es_vtep, victim, esi, peer_vtep, False)
+        _, result = topotest.run_and_expect(test_fn, None, count=30, wait=2)
+        assert result is None, "bgpd retained withdrawn ES VTEP: %s" % (result,)
+
+        test_fn = partial(check_zebra_es_vtep, victim, esi, peer_vtep, False)
+        _, result = topotest.run_and_expect(test_fn, None, count=30, wait=2)
+        assert result is None, "zebra retained stale ES VTEP: %s" % (result,)
+
+        test_fn = partial(check_df_role, victim, esi, "DF")
+        _, result = topotest.run_and_expect(test_fn, None, count=30, wait=2)
+        assert result is None, "victim did not become DF: %s" % (result,)
+    finally:
+        # Restore both daemons and the access link even when the stale-VTEP
+        # assertion fails, so later tests start from the original topology.
+        if bgpd_stopped:
+            start_router_daemons(tgen, victim_name, ["bgpd"])
+        if peer_link_down:
+            peer.run("ip link set dev %s up" % peer_access_link)
 
 
 def ping_anycast_gw(tgen):
