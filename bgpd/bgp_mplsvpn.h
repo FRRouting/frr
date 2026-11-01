@@ -473,7 +473,7 @@ struct bgp_mplsvpn_nh_label_bind_cache {
 	mpls_label_t new_label;
 
 	/* list of path_vrfs using it */
-	LIST_HEAD(mplsvpn_nh_label_bind_path_lists, bgp_path_info) paths;
+	LIST_HEAD(mplsvpn_nh_label_bind_path_lists, bgp_path_info_extra) paths;
 
 	time_t last_update;
 

@@ -455,8 +455,10 @@ void bgp_path_info_extra_free(struct bgp_path_info_extra **extra)
  */
 struct bgp_path_info_extra *bgp_path_info_extra_get(struct bgp_path_info *pi)
 {
-	if (!pi->extra)
+	if (!pi->extra) {
 		pi->extra = bgp_path_info_extra_new();
+		pi->extra->path = pi;
+	}
 	if (!pi->extra->evpn && pi->net && pi->net->rn->p.family == AF_EVPN)
 		pi->extra->evpn =
 			XCALLOC(MTYPE_BGP_ROUTE_EXTRA_EVPN,
@@ -2510,6 +2512,7 @@ bool subgroup_announce_check(struct bgp_dest *dest, struct bgp_path_info *pi,
 	bool global_and_ll = false;
 	uint8_t num_labels;
 	mpls_label_t labels[BGP_MAX_LABELS] = { MPLS_INVALID_LABEL };
+	struct bgp_path_info_extra *extra = NULL;
 
 	if (DISABLE_BGP_ANNOUNCE)
 		return false;
@@ -2607,6 +2610,9 @@ bool subgroup_announce_check(struct bgp_dest *dest, struct bgp_path_info *pi,
 	if (bgp_path_suppressed(pi) && !UNSUPPRESS_MAP_NAME(filter))
 		return false;
 
+	if (safi == SAFI_MPLS_VPN)
+		extra = bgp_path_info_extra_get(pi);
+
 	/*
 	 * If we are doing VRF 2 VRF leaking via the import
 	 * statement, we want to prevent the route going
@@ -2633,11 +2639,9 @@ bool subgroup_announce_check(struct bgp_dest *dest, struct bgp_path_info *pi,
 
 			return false;
 		}
-	} else if (safi == SAFI_MPLS_VPN &&
-		   CHECK_FLAG(pi->flags, BGP_PATH_MPLSVPN_NH_LABEL_BIND) &&
-		   pi->mplsvpn.bmnc.nh_label_bind_cache && peer &&
-		   pi->peer != peer && pi->sub_type != BGP_ROUTE_IMPORTED &&
-		   pi->sub_type != BGP_ROUTE_STATIC &&
+	} else if (safi == SAFI_MPLS_VPN && CHECK_FLAG(pi->flags, BGP_PATH_MPLSVPN_NH_LABEL_BIND) &&
+		   extra->mplsvpn.bmnc.nh_label_bind_cache && peer && pi->peer != peer &&
+		   pi->sub_type != BGP_ROUTE_IMPORTED && pi->sub_type != BGP_ROUTE_STATIC &&
 		   bgp_mplsvpn_path_uses_valid_mpls_label(pi) &&
 		   bgp_path_info_nexthop_changed(pi, peer, afi)) {
 		/* Redistributed mpls vpn route between distinct

@@ -1513,21 +1513,28 @@ static struct bgp_path_info *leak_update(struct bgp *to_bgp, struct bgp_dest *bn
 void bgp_mplsvpn_path_nh_label_unlink(struct bgp_path_info *pi)
 {
 	struct bgp_label_per_nexthop_cache *blnc;
+	struct bgp_path_info_extra *extra;
 
 	if (!pi)
 		return;
 
+	extra = bgp_path_info_extra_get(pi);
+
 	if (!CHECK_FLAG(pi->flags, BGP_PATH_MPLSVPN_LABEL_NH))
 		return;
 
-	blnc = pi->mplsvpn.blnc.label_nexthop_cache;
+	if (!pi->extra)
+		return;
+
+	extra = bgp_path_info_extra_get(pi);
+	blnc = extra->mplsvpn.blnc.label_nexthop_cache;
 
 	if (!blnc)
 		return;
 
-	LIST_REMOVE(pi, mplsvpn.blnc.label_nh_thread);
-	pi->mplsvpn.blnc.label_nexthop_cache->path_count--;
-	pi->mplsvpn.blnc.label_nexthop_cache = NULL;
+	LIST_REMOVE(extra, mplsvpn.blnc.label_nh_thread);
+	extra->mplsvpn.blnc.label_nexthop_cache->path_count--;
+	extra->mplsvpn.blnc.label_nexthop_cache = NULL;
 	UNSET_FLAG(pi->flags, BGP_PATH_MPLSVPN_LABEL_NH);
 
 	if (LIST_EMPTY(&(blnc->paths)))
@@ -1544,6 +1551,7 @@ static int bgp_mplsvpn_get_label_per_nexthop_cb(mpls_label_t label,
 	mpls_label_t old_label;
 	int debug = BGP_DEBUG(vpn, VPN_LEAK_LABEL);
 	struct bgp_path_info *pi;
+	struct bgp_path_info_extra *extra;
 	struct bgp_table *table;
 
 	old_label = blnc->label;
@@ -1571,7 +1579,8 @@ static int bgp_mplsvpn_get_label_per_nexthop_cb(mpls_label_t label,
 					     blnc->nh->vrf_id, ZEBRA_LSP_BGP,
 					     &blnc->nexthop, 0, NULL);
 
-	LIST_FOREACH (pi, &(blnc->paths), mplsvpn.blnc.label_nh_thread) {
+	LIST_FOREACH (extra, &(blnc->paths), mplsvpn.blnc.label_nh_thread) {
+		pi = extra->path;
 		if (!pi->net)
 			continue;
 		table = bgp_dest_table(pi->net);
@@ -1598,6 +1607,7 @@ _vpn_leak_from_vrf_get_per_nexthop_label(struct bgp_path_info *pi,
 	struct bgp_label_per_nexthop_cache_head *tree;
 	struct prefix *nh_pfx = NULL;
 	struct prefix nh_gate = {0};
+	struct bgp_path_info_extra *extra;
 
 	/* extract the nexthop from the BNC nexthop cache */
 	switch (bnc->nexthop->type) {
@@ -1638,7 +1648,8 @@ _vpn_leak_from_vrf_get_per_nexthop_label(struct bgp_path_info *pi,
 			   bgp_mplsvpn_get_label_per_nexthop_cb);
 	}
 
-	if (pi->mplsvpn.blnc.label_nexthop_cache == blnc)
+	extra = bgp_path_info_extra_get(pi);
+	if (extra->mplsvpn.blnc.label_nexthop_cache == blnc)
 		/* no change */
 		return blnc->label;
 
@@ -1647,9 +1658,9 @@ _vpn_leak_from_vrf_get_per_nexthop_label(struct bgp_path_info *pi,
 	bgp_mplsvpn_path_nh_label_unlink(pi);
 
 	/* updates NHT pi list reference */
-	LIST_INSERT_HEAD(&(blnc->paths), pi, mplsvpn.blnc.label_nh_thread);
-	pi->mplsvpn.blnc.label_nexthop_cache = blnc;
-	pi->mplsvpn.blnc.label_nexthop_cache->path_count++;
+	LIST_INSERT_HEAD(&(blnc->paths), extra, mplsvpn.blnc.label_nh_thread);
+	extra->mplsvpn.blnc.label_nexthop_cache = blnc;
+	extra->mplsvpn.blnc.label_nexthop_cache->path_count++;
 	SET_FLAG(pi->flags, BGP_PATH_MPLSVPN_LABEL_NH);
 	blnc->last_update = monotime(NULL);
 
@@ -4579,8 +4590,9 @@ mpls_label_t bgp_mplsvpn_nh_label_bind_get_label(struct bgp_path_info *pi)
 {
 	mpls_label_t label;
 	struct bgp_mplsvpn_nh_label_bind_cache *bmnc;
+	struct bgp_path_info_extra *extra = bgp_path_info_extra_get(pi);
 
-	bmnc = pi->mplsvpn.bmnc.nh_label_bind_cache;
+	bmnc = extra->mplsvpn.bmnc.nh_label_bind_cache;
 	if (!bmnc || bmnc->new_label == MPLS_INVALID_LABEL)
 		/* allocation in progress
 		 * or path not eligible for local label
@@ -4603,6 +4615,7 @@ static int bgp_mplsvpn_nh_label_bind_get_local_label_cb(mpls_label_t label,
 	struct bgp_mplsvpn_nh_label_bind_cache *bmnc = context;
 	struct bgp_table *table;
 	struct bgp_path_info *pi;
+	struct bgp_path_info_extra *extra;
 
 	if (BGP_DEBUG(labelpool, LABELPOOL))
 		zlog_debug("%s: label=%u, allocated=%d, nexthop=%pFX, label %u",
@@ -4632,7 +4645,9 @@ static int bgp_mplsvpn_nh_label_bind_get_local_label_cb(mpls_label_t label,
 		bgp_mplsvpn_nh_label_bind_send_nexthop_label(
 			bmnc, ZEBRA_MPLS_LABELS_ADD);
 
-	LIST_FOREACH (pi, &(bmnc->paths), mplsvpn.bmnc.nh_label_bind_thread) {
+	LIST_FOREACH (extra, &(bmnc->paths), mplsvpn.bmnc.nh_label_bind_thread) {
+		pi = extra->path;
+
 		/* we can advertise it */
 		if (!pi->net)
 			continue;
@@ -4649,21 +4664,23 @@ static int bgp_mplsvpn_nh_label_bind_get_local_label_cb(mpls_label_t label,
 void bgp_mplsvpn_path_nh_label_bind_unlink(struct bgp_path_info *pi)
 {
 	struct bgp_mplsvpn_nh_label_bind_cache *bmnc;
+	struct bgp_path_info_extra *extra;
 
 	if (!pi)
 		return;
 
+	extra = bgp_path_info_extra_get(pi);
 	if (!CHECK_FLAG(pi->flags, BGP_PATH_MPLSVPN_NH_LABEL_BIND))
 		return;
 
-	bmnc = pi->mplsvpn.bmnc.nh_label_bind_cache;
+	bmnc = extra->mplsvpn.bmnc.nh_label_bind_cache;
 
 	if (!bmnc)
 		return;
 
-	LIST_REMOVE(pi, mplsvpn.bmnc.nh_label_bind_thread);
-	pi->mplsvpn.bmnc.nh_label_bind_cache->path_count--;
-	pi->mplsvpn.bmnc.nh_label_bind_cache = NULL;
+	LIST_REMOVE(extra, mplsvpn.bmnc.nh_label_bind_thread);
+	extra->mplsvpn.bmnc.nh_label_bind_cache->path_count--;
+	extra->mplsvpn.bmnc.nh_label_bind_cache = NULL;
 	SET_FLAG(pi->flags, BGP_PATH_MPLSVPN_NH_LABEL_BIND);
 
 	if (LIST_EMPTY(&(bmnc->paths)))
@@ -4677,6 +4694,7 @@ void bgp_mplsvpn_nh_label_bind_register_local_label(struct bgp *bgp,
 	struct bgp_mplsvpn_nh_label_bind_cache *bmnc;
 	struct bgp_mplsvpn_nh_label_bind_cache_head *tree;
 	mpls_label_t label;
+	struct bgp_path_info_extra *extra;
 
 	label = BGP_PATH_INFO_NUM_LABELS(pi)
 			? decode_label(&pi->extra->labels->label[0])
@@ -4693,16 +4711,18 @@ void bgp_mplsvpn_nh_label_bind_register_local_label(struct bgp *bgp,
 			   bgp_mplsvpn_nh_label_bind_get_local_label_cb);
 	}
 
-	if (pi->mplsvpn.bmnc.nh_label_bind_cache == bmnc)
+	extra = bgp_path_info_extra_get(pi);
+	if (extra->mplsvpn.bmnc.nh_label_bind_cache == bmnc)
 		/* no change */
 		return;
 
 	bgp_mplsvpn_path_nh_label_bind_unlink(pi);
 
 	/* updates NHT pi list reference */
-	LIST_INSERT_HEAD(&(bmnc->paths), pi, mplsvpn.bmnc.nh_label_bind_thread);
-	pi->mplsvpn.bmnc.nh_label_bind_cache = bmnc;
-	pi->mplsvpn.bmnc.nh_label_bind_cache->path_count++;
+	LIST_INSERT_HEAD(&(bmnc->paths), extra, mplsvpn.bmnc.nh_label_bind_thread);
+
+	extra->mplsvpn.bmnc.nh_label_bind_cache = bmnc;
+	extra->mplsvpn.bmnc.nh_label_bind_cache->path_count++;
 	SET_FLAG(pi->flags, BGP_PATH_MPLSVPN_NH_LABEL_BIND);
 	bmnc->last_update = monotime(NULL);
 
@@ -4728,6 +4748,7 @@ static void show_bgp_mplsvpn_nh_label_bind_internal(struct vty *vty,
 	safi_t safi;
 	struct bgp_dest *dest;
 	struct bgp_path_info *path;
+	struct bgp_path_info_extra *extra;
 	struct bgp *bgp_path;
 	struct bgp_table *table;
 	char buf[32];
@@ -4751,8 +4772,8 @@ static void show_bgp_mplsvpn_nh_label_bind_internal(struct vty *vty,
 		if (!detail)
 			continue;
 		vty_out(vty, "  Paths:\n");
-		LIST_FOREACH (path, &(iter->paths),
-			      mplsvpn.bmnc.nh_label_bind_thread) {
+		LIST_FOREACH (extra, &(iter->paths), mplsvpn.bmnc.nh_label_bind_thread) {
+			path = extra->path;
 			dest = path->net;
 			table = bgp_dest_table(dest);
 			assert(dest && table);
