@@ -35,11 +35,13 @@ Topology:
 - rr: BGP-LS Consumer (receives BGP-LS routes and builds TED)
 """
 
+import functools
+import json
 import os
 import sys
-import json
+import time
+
 import pytest
-import functools
 
 # pylint: disable=C0413
 # Import topogen and topotest helpers
@@ -54,6 +56,7 @@ pytestmark = [pytest.mark.bgpd, pytest.mark.isisd]
 #
 # Helper functions for BGP-LS validation
 #
+
 
 def extract_bgp_ls_routes(json_data):
     """
@@ -435,6 +438,7 @@ def test_bgp_ls_routes_consumer():
     assertmsg = '"rr" BGP-LS routes not received correctly'
     assert result is None, assertmsg
 
+
 def test_bgp_ls_attributes_consumer():
     tgen = get_topogen()
 
@@ -504,18 +508,26 @@ def test_bgp_ls_static_route_add():
 
     # Verify route count increased by 1
     new_count_r2 = get_bgp_ls_count(r2)
-    assert new_count_r2 == initial_count_r2 + 1, f'"r2" route count should be {initial_count_r2 + 1}, got {new_count_r2}'
+    assert (
+        new_count_r2 == initial_count_r2 + 1
+    ), f'"r2" route count should be {initial_count_r2 + 1}, got {new_count_r2}'
 
     # Verify consumer rr received the update
     test_func = functools.partial(
-        check_bgp_ls_prefix, consumer, "192.168.100.0/24", protocol_id=2, should_exist=True
+        check_bgp_ls_prefix,
+        consumer,
+        "192.168.100.0/24",
+        protocol_id=2,
+        should_exist=True,
     )
     _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
     assert result is None, '"rr" did not receive BGP-LS static route update'
 
     # Verify route count increased by 1
     new_count_rr = get_bgp_ls_count(consumer)
-    assert new_count_rr == initial_count_rr + 1, f'"rr" route count should be {initial_count_rr + 1}, got {new_count_rr}'
+    assert (
+        new_count_rr == initial_count_rr + 1
+    ), f'"rr" route count should be {initial_count_rr + 1}, got {new_count_rr}'
 
 
 def test_bgp_ls_static_route_remove():
@@ -548,18 +560,26 @@ def test_bgp_ls_static_route_remove():
 
     # Verify route count decreased by 1
     new_count_r2 = get_bgp_ls_count(r2)
-    assert new_count_r2 == initial_count_r2 - 1, f'"r2" route count should be {initial_count_r2 - 1}, got {new_count_r2}'
+    assert (
+        new_count_r2 == initial_count_r2 - 1
+    ), f'"r2" route count should be {initial_count_r2 - 1}, got {new_count_r2}'
 
     # Verify consumer rr received the withdrawal
     test_func = functools.partial(
-        check_bgp_ls_prefix, consumer, "192.168.100.0/24", protocol_id=2, should_exist=False
+        check_bgp_ls_prefix,
+        consumer,
+        "192.168.100.0/24",
+        protocol_id=2,
+        should_exist=False,
     )
     _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
     assert result is None, '"rr" did not receive BGP-LS static route withdrawal'
 
     # Verify route count decreased by 1
     new_count_rr = get_bgp_ls_count(consumer)
-    assert new_count_rr == initial_count_rr - 1, f'"rr" route count should be {initial_count_rr - 1}, got {new_count_rr}'
+    assert (
+        new_count_rr == initial_count_rr - 1
+    ), f'"rr" route count should be {initial_count_rr - 1}, got {new_count_rr}'
 
     # Verify r2 routes match original reference file
     reffile = os.path.join(CWD, "r2/bgp_ls_nlri.json")
@@ -571,7 +591,9 @@ def test_bgp_ls_static_route_remove():
         expected,
     )
     _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
-    assert result is None, '"r2" BGP-LS routes do not match expected after route removal'
+    assert (
+        result is None
+    ), '"r2" BGP-LS routes do not match expected after route removal'
 
     # Verify rr routes match original reference file
     reffile = os.path.join(CWD, "rr/bgp_ls_nlri.json")
@@ -583,7 +605,9 @@ def test_bgp_ls_static_route_remove():
         expected,
     )
     _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
-    assert result is None, '"rr" BGP-LS routes do not match expected after route removal'
+    assert (
+        result is None
+    ), '"rr" BGP-LS routes do not match expected after route removal'
 
 
 def test_bgp_ls_interface_address_add():
@@ -616,7 +640,9 @@ def test_bgp_ls_interface_address_add():
 
     # Verify route count increased by 1
     new_count_r2 = get_bgp_ls_count(r2)
-    assert new_count_r2 == initial_count_r2 + 1, f'"r2" route count should be {initial_count_r2 + 1}, got {new_count_r2}'
+    assert (
+        new_count_r2 == initial_count_r2 + 1
+    ), f'"r2" route count should be {initial_count_r2 + 1}, got {new_count_r2}'
 
     # Verify consumer rr received the update
     test_func = functools.partial(
@@ -627,7 +653,9 @@ def test_bgp_ls_interface_address_add():
 
     # Verify route count increased by 1
     new_count_rr = get_bgp_ls_count(consumer)
-    assert new_count_rr == initial_count_rr + 1, f'"rr" route count should be {initial_count_rr + 1}, got {new_count_rr}'
+    assert (
+        new_count_rr == initial_count_rr + 1
+    ), f'"rr" route count should be {initial_count_rr + 1}, got {new_count_rr}'
 
 
 def test_bgp_ls_interface_address_remove():
@@ -660,7 +688,9 @@ def test_bgp_ls_interface_address_remove():
 
     # Verify route count decreased by 1
     new_count_r2 = get_bgp_ls_count(r2)
-    assert new_count_r2 == initial_count_r2 - 1, f'"r2" route count should be {initial_count_r2 - 1}, got {new_count_r2}'
+    assert (
+        new_count_r2 == initial_count_r2 - 1
+    ), f'"r2" route count should be {initial_count_r2 - 1}, got {new_count_r2}'
 
     # Verify consumer rr received the withdrawal
     test_func = functools.partial(
@@ -671,7 +701,9 @@ def test_bgp_ls_interface_address_remove():
 
     # Verify route count decreased by 1
     new_count_rr = get_bgp_ls_count(consumer)
-    assert new_count_rr == initial_count_rr - 1, f'"rr" route count should be {initial_count_rr - 1}, got {new_count_rr}'
+    assert (
+        new_count_rr == initial_count_rr - 1
+    ), f'"rr" route count should be {initial_count_rr - 1}, got {new_count_rr}'
 
     # Verify routes match original reference files
     reffile = os.path.join(CWD, "r2/bgp_ls_nlri.json")
@@ -740,7 +772,9 @@ def test_bgp_ls_ipv6_address_remove():
     router = tgen.gears["r1"]
 
     # Remove secondary IPv6 address from r1
-    router.vtysh_cmd("configure terminal\ninterface lo\nno ipv6 address fc00:0:1::11/128")
+    router.vtysh_cmd(
+        "configure terminal\ninterface lo\nno ipv6 address fc00:0:1::11/128"
+    )
 
     # Wait for ISIS to propagate to r2, then BGP-LS to withdraw the prefix
     r2 = tgen.gears["r2"]
@@ -756,7 +790,9 @@ def test_bgp_ls_ipv6_address_remove():
         check_bgp_ls_prefix, consumer, "fc00:0:1::11/128", should_exist=False
     )
     _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
-    assert result is None, '"rr" did not receive BGP-LS IPv6 secondary address withdrawal'
+    assert (
+        result is None
+    ), '"rr" did not receive BGP-LS IPv6 secondary address withdrawal'
 
 
 def test_bgp_ls_ipv6_static_route_add():
@@ -815,7 +851,11 @@ def test_bgp_ls_ipv6_static_route_remove():
     # Verify consumer rr received the withdrawal
     consumer = tgen.gears["rr"]
     test_func = functools.partial(
-        check_bgp_ls_prefix, consumer, "fc00:100::/64", protocol_id=2, should_exist=False
+        check_bgp_ls_prefix,
+        consumer,
+        "fc00:100::/64",
+        protocol_id=2,
+        should_exist=False,
     )
     _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
     assert result is None, '"rr" did not receive BGP-LS static IPv6 route withdrawal'
@@ -838,7 +878,11 @@ def test_bgp_ls_r4_link_shutdown():
     # Wait for ISIS to detect the link down and propagate to r2, then BGP-LS to withdraw link NLRI
     r2 = tgen.gears["r2"]
     test_func = functools.partial(
-        check_bgp_ls_link, r2, "0000.0000.0004.00", "0000.0000.0001.00", should_exist=False
+        check_bgp_ls_link,
+        r2,
+        "0000.0000.0004.00",
+        "0000.0000.0001.00",
+        should_exist=False,
     )
     _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
     assert result is None, '"r2" BGP-LS r4 link down not reflected'
@@ -846,7 +890,11 @@ def test_bgp_ls_r4_link_shutdown():
     # Verify consumer rr received the update
     consumer = tgen.gears["rr"]
     test_func = functools.partial(
-        check_bgp_ls_link, consumer, "0000.0000.0004.00", "0000.0000.0001.00", should_exist=False
+        check_bgp_ls_link,
+        consumer,
+        "0000.0000.0004.00",
+        "0000.0000.0001.00",
+        should_exist=False,
     )
     _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
     assert result is None, '"rr" did not receive BGP-LS r4 link down update'
@@ -869,7 +917,11 @@ def test_bgp_ls_r4_link_no_shutdown():
     # Wait for ISIS adjacency to re-establish and propagate to r2, then BGP-LS to advertise link NLRI
     r2 = tgen.gears["r2"]
     test_func = functools.partial(
-        check_bgp_ls_link, r2, "0000.0000.0004.00", "0000.0000.0001.00", should_exist=True
+        check_bgp_ls_link,
+        r2,
+        "0000.0000.0004.00",
+        "0000.0000.0001.00",
+        should_exist=True,
     )
     _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
     assert result is None, '"r2" BGP-LS r4 link up not reflected'
@@ -877,7 +929,11 @@ def test_bgp_ls_r4_link_no_shutdown():
     # Verify consumer rr received the update
     consumer = tgen.gears["rr"]
     test_func = functools.partial(
-        check_bgp_ls_link, consumer, "0000.0000.0004.00", "0000.0000.0001.00", should_exist=True
+        check_bgp_ls_link,
+        consumer,
+        "0000.0000.0004.00",
+        "0000.0000.0001.00",
+        should_exist=True,
     )
     _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
     assert result is None, '"rr" did not receive BGP-LS r4 link up update'
@@ -958,7 +1014,9 @@ def test_bgp_ls_peer_reactivate():
         expected,
     )
     _, result = topotest.run_and_expect(test_func, None, count=60, wait=1)
-    assert result is None, '"r2" did not re-originate BGP-LS routes after peer reactivation'
+    assert (
+        result is None
+    ), '"r2" did not re-originate BGP-LS routes after peer reactivation'
 
     # rr (consumer) must receive all BGP-LS routes again
     consumer = tgen.gears["rr"]
@@ -971,7 +1029,93 @@ def test_bgp_ls_peer_reactivate():
         expected,
     )
     _, result = topotest.run_and_expect(test_func, None, count=60, wait=1)
-    assert result is None, '"rr" did not receive BGP-LS routes after r2 peer reactivation'
+    assert (
+        result is None
+    ), '"rr" did not receive BGP-LS routes after r2 peer reactivation'
+
+
+def test_bgp_ls_sync_on_isis_producer_registration():
+    """Test that BGP syncs its TED when IS-IS export starts later."""
+    tgen = get_topogen()
+
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    logger.info("Checking BGP-LS TED sync when IS-IS MPLS-TE export is enabled late")
+
+    r2 = tgen.gears["r2"]
+    consumer = tgen.gears["rr"]
+
+    # Drop the existing BGP-LS consumer registration and clear its routes.
+    r2.vtysh_cmd(
+        "configure terminal\n"
+        "router bgp 65000\n"
+        "address-family link-state link-state\n"
+        "no neighbor 10.0.3.4 activate"
+    )
+    test_func = functools.partial(check_bgp_ls_empty, r2)
+    _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
+    assert (
+        result is None
+    ), '"r2" BGP-LS routes not cleared before producer notification test'
+
+    test_func = functools.partial(check_bgp_ls_empty, consumer)
+    _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
+    assert (
+        result is None
+    ), '"rr" BGP-LS routes not cleared before producer notification test'
+
+    # Reactivate the consumer while the IS-IS producer is unavailable. BGP
+    # should request a sync when Zebra notifies it that IS-IS registers later.
+    r2.vtysh_cmd(
+        "configure terminal\n"
+        "router isis 1\n"
+        "no mpls-te export\n"
+        "router bgp 65000\n"
+        "address-family link-state link-state\n"
+        "neighbor 10.0.3.4 activate"
+    )
+
+    test_func = functools.partial(check_bgp_ls_empty, r2)
+    _, result = topotest.run_and_expect(test_func, None, count=10, wait=1)
+    assert result is None, '"r2" unexpectedly received TED data without IS-IS export'
+
+    # Give Zebra time to register BGP's producer notification request before
+    # enabling the IS-IS producer below.
+    time.sleep(7)
+    test_func = functools.partial(check_bgp_ls_empty, r2)
+    _, result = topotest.run_and_expect(test_func, None, count=5, wait=1)
+    assert result is None, '"r2" received TED data before IS-IS export was enabled'
+
+    r2.vtysh_cmd("configure terminal\n" "router isis 1\n" "mpls-te export")
+
+    # The producer-registration notification must trigger a sync of the full
+    # pre-existing IS-IS TED, not just later changes to it.
+    reffile = os.path.join(CWD, "r2/bgp_ls_nlri.json")
+    expected = json.loads(open(reffile).read())
+    test_func = functools.partial(
+        topotest.router_json_cmp,
+        r2,
+        "show bgp link-state link-state json",
+        expected,
+    )
+    _, result = topotest.run_and_expect(test_func, None, count=60, wait=1)
+    assert (
+        result is None
+    ), '"r2" did not receive the full IS-IS TED after export was enabled'
+
+    reffile = os.path.join(CWD, "rr/bgp_ls_nlri.json")
+    expected = json.loads(open(reffile).read())
+    test_func = functools.partial(
+        topotest.router_json_cmp,
+        consumer,
+        "show bgp link-state link-state json",
+        expected,
+    )
+    _, result = topotest.run_and_expect(test_func, None, count=60, wait=1)
+    assert (
+        result is None
+    ), '"rr" did not receive the full IS-IS TED after export was enabled'
 
 
 def test_memory_leak():

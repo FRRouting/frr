@@ -4519,6 +4519,30 @@ static int bgp_zebra_process_srv6_locator_delete(ZAPI_CALLBACK_ARGS)
 	return 0;
 }
 
+/* Handle producer registration notifications for BGP-LS link-state sync */
+static int bgp_zebra_opaque_notif_handler(ZAPI_CALLBACK_ARGS)
+{
+	struct zapi_opaque_notif_info info;
+	struct bgp *bgp = bgp_get_default();
+
+	if (zclient_opaque_notif_decode(zclient->ibuf, &info) != 0) {
+		zlog_err("%s: Failed to decode opaque notification", __func__);
+		return -1;
+	}
+
+	if (info.msg_type != LINK_STATE_SYNC || !info.reg)
+		return 0;
+
+	if (!bgp_ls_is_registered(bgp))
+		return 0;
+
+	if (BGP_DEBUG(zebra, ZEBRA) || BGP_DEBUG(linkstate, LINKSTATE))
+		zlog_debug("BGP-LS: Link State producer registered, requesting initial sync");
+
+	bgp_ls_request_sync(bgp);
+	return 0;
+}
+
 /* Handle ZEBRA_OPAQUE_MESSAGE for BGP-LS link-state updates */
 static int bgp_zebra_opaque_msg_handler(ZAPI_CALLBACK_ARGS)
 {
@@ -4578,6 +4602,7 @@ static zclient_handler *const bgp_handlers[] = {
 	[ZEBRA_SRV6_LOCATOR_DELETE] = bgp_zebra_process_srv6_locator_delete,
 	[ZEBRA_SRV6_MANAGER_GET_LOCATOR_CHUNK] = bgp_zebra_process_srv6_locator_chunk,
 	[ZEBRA_SRV6_SID_NOTIFY] = bgp_zebra_srv6_sid_notify,
+	[ZEBRA_OPAQUE_NOTIFY] = bgp_zebra_opaque_notif_handler,
 	[ZEBRA_OPAQUE_MESSAGE] = bgp_zebra_opaque_msg_handler,
 };
 
