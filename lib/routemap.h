@@ -187,7 +187,7 @@ struct route_map_index {
 	/* Keep track how many times we've try to apply */
 	uint64_t applied;
 	uint64_t applied_clear;
-	size_t cputime;
+	uint64_t time_ns;
 
 	/* List of match/sets contexts. */
 	TAILQ_HEAD(, routemap_hook_context) rhclist;
@@ -222,7 +222,7 @@ struct route_map {
 	/* How many times have we applied this route-map */
 	uint64_t applied;
 	uint64_t applied_clear;
-	size_t cputime;
+	uint64_t time_ns;
 
 	/* Counter to track active usage of this route-map */
 	uint16_t use_count;
