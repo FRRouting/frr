@@ -2907,6 +2907,35 @@ static struct stream *ospf_recv_packet(struct ospf *ospf, int fd,
 	return ibuf;
 }
 
+static bool
+ospf_vl_source_match(struct ospf_area *vl_area,
+		     const struct ospf_vl_data *vl_data,
+		     const struct in_addr ip_src)
+{
+	const struct router_lsa *rl;
+	const struct router_link *rlnk;
+	struct ospf_lsa *lsa;
+	uint16_t i;
+
+	lsa = ospf_lsa_lookup_by_id(vl_area, OSPF_ROUTER_LSA,
+				    vl_data->vl_peer);
+	if (lsa == NULL || IS_LSA_MAXAGE(lsa))
+		return false;
+
+	rl = (const struct router_lsa *)lsa->data;
+	rlnk = &rl->link[0];
+	for (i = 0; i < ntohs(rl->links); i++) {
+		if ((rlnk->type == LSA_LINK_TYPE_POINTOPOINT
+		     || rlnk->type == LSA_LINK_TYPE_TRANSIT)
+		    && rlnk->link_data.s_addr != INADDR_ANY
+		    && IPV4_ADDR_SAME(&rlnk->link_data, &ip_src))
+			return true;
+		rlnk = OSPF_ROUTER_LINK_NEXT(rlnk);
+	}
+
+	return false;
+}
+
 static struct ospf_interface *
 ospf_associate_packet_vl(struct ospf *ospf, struct interface *ifp,
 			 struct ip *iph, struct ospf_header *ospfh)
@@ -2915,6 +2944,7 @@ ospf_associate_packet_vl(struct ospf *ospf, struct interface *ifp,
 	struct ospf_vl_data *vl_data;
 	struct ospf_area *vl_area;
 	struct listnode *node;
+	struct in_addr srcaddr = iph->ip_src;
 
 	if (IN_MULTICAST(ntohl(iph->ip_dst.s_addr))
 	    || !OSPF_IS_AREA_BACKBONE(ospfh))
@@ -2937,6 +2967,16 @@ ospf_associate_packet_vl(struct ospf *ospf, struct interface *ifp,
 
 		if (OSPF_AREA_SAME(&vl_area, &rcv_oi->area)
 		    && IPV4_ADDR_SAME(&vl_data->vl_peer, &ospfh->router_id)) {
+			/* Asymmetric transit paths can give the peer a source
+			 * address different from our SPF's peer_addr.
+			 */
+			if (!ospf_vl_source_match(vl_area, vl_data, srcaddr)) {
+				if (IS_DEBUG_OSPF_EVENT)
+					zlog_debug(
+						"packet source %pI4 is not a transit address of virtual peer %pI4, not associating",
+						&srcaddr, &vl_data->vl_peer);
+				return NULL;
+			}
 			if (IS_DEBUG_OSPF_EVENT)
 				zlog_debug("associating packet with %s",
 					   IF_NAME(vl_data->vl_oi));
