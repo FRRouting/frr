@@ -31,6 +31,11 @@ struct bgp_nexthop_cache {
 	/* The ifindex of the outgoing interface *if* it's a v6 LL */
 	ifindex_t ifindex_ipv6_ll;
 
+	/* The ifindex whose down event invalidated this nexthop, for the
+	 * nexthops bgpd cannot revalidate by itself on the way back up.
+	 */
+	ifindex_t ifindex_down;
+
 	/* RB-tree entry. */
 	struct bgp_nexthop_cache_item entry;
 
