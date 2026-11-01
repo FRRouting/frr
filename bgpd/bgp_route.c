@@ -14865,7 +14865,7 @@ skip_nexthop:
 	}
 
 	/* Line 9 display Uptime */
-	tbuf = time(NULL) - (monotime(NULL) - path->uptime);
+	tbuf = time_to_epoch(path->uptime);
 	/* Calculate uptime and convert it into dd:hh:mm:ss display format */
 	time_to_date_string(path->uptime, time_buf, sizeof(time_buf));
 

@@ -13325,7 +13325,7 @@ DEFPY(show_bgp_router,
 	time_to_string(bm->start_time, timebuf);
 
 	if (uj) {
-		unix_timestamp = time(NULL) - (monotime(NULL) - bm->start_time);
+		unix_timestamp = time_to_epoch(bm->start_time);
 		json_object_int_add(json, "bgpStartedAt", unix_timestamp);
 		json_object_boolean_add(json, "bgpStartedGracefully",
 					CHECK_FLAG(bm->flags, BM_FLAG_GRACEFUL_RESTART));
@@ -13341,8 +13341,7 @@ DEFPY(show_bgp_router,
 		if (CHECK_FLAG(bm->flags, BM_FLAG_GR_COMPLETE)) {
 			time_to_string(bm->gr_completion_time, timebuf);
 			if (uj) {
-				unix_timestamp = time(NULL) -
-						 (monotime(NULL) - bm->gr_completion_time);
+				unix_timestamp = time_to_epoch(bm->gr_completion_time);
 				json_object_int_add(json, "grCompletedAt", unix_timestamp);
 			} else
 				vty_out(vty, "Graceful restart completed at %s", timebuf);
@@ -16547,7 +16546,7 @@ static void bgp_show_peer_status(struct vty *vty, struct peer *p, bool use_json,
 
 			uptime = monotime(NULL);
 			uptime -= p->uptime;
-			epoch_tbuf = time(NULL) - uptime;
+			epoch_tbuf = time_to_epoch(p->uptime);
 
 			json_object_int_add(json_neigh, "bgpTimerUpMsec", uptime * 1000);
 			json_object_string_add(json_neigh, "bgpTimerUpString",

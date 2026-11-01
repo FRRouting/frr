@@ -118,16 +118,22 @@ static inline time_t monotime_to_realtime(const struct timeval *mono,
 	return real.tv_sec;
 }
 
+/* Convert a CLOCK_MONOTONIC timestamp to its wall-clock epoch equivalent */
+static inline time_t time_to_epoch(time_t ts)
+{
+	struct timeval tv;
+
+	tv.tv_sec = ts;
+	tv.tv_usec = 0;
+	return monotime_to_realtime(&tv, NULL);
+}
+
 /* Char buffer size for time-to-string api */
 #define MONOTIME_STRLEN 32
 
 static inline char *time_to_string(time_t ts, char *buf)
 {
-	struct timeval tv;
-	time_t tbuf;
-
-	monotime(&tv);
-	tbuf = time(NULL) - (tv.tv_sec - ts);
+	time_t tbuf = time_to_epoch(ts);
 
 	return ctime_r(&tbuf, buf);
 }
@@ -146,11 +152,6 @@ static inline char *time_to_string_json(time_t ts, char *buf)
 		buf[len - 1] = '\0';
 
 	return buf;
-}
-
-static inline time_t time_to_epoch(time_t ts)
-{
-	return (time(NULL) - (monotime(NULL) - ts));
 }
 
 /*
