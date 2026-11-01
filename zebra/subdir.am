@@ -113,6 +113,7 @@ zebra_zebra_SOURCES = \
 	zebra/zebra_vxlan.c \
 	zebra/zebra_vxlan_if.c \
 	zebra/zebra_evpn_mh.c \
+	zebra/zebra_evpn_bpp.c \
 	zebra/zebra_neigh.c \
 	zebra/zserv.c \
 	# end
@@ -194,6 +195,7 @@ nobase_pkginclude_HEADERS += \
 	zebra/zebra_vxlan.h \
 	zebra/zebra_vxlan_private.h \
 	zebra/zebra_evpn_mh.h \
+	zebra/zebra_evpn_bpp.h \
 	zebra/zebra_neigh.h \
 	zebra/zebra_l2_bridge_if.h \
 	zebra/zebra_vxlan_if.h \

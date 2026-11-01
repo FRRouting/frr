@@ -4224,7 +4224,7 @@ There can only be a single underlay VRF.
 Specifying ``advertise-all-vni``, which lives under
 ``address-family l2vpn evpn``, marks this VRF as underlay and enables EVPN.
 
-.. clicmd:: advertise-all-vni
+.. clicmd:: advertise-all-vni [l3vni-neigh]
 
    This command defines the VRF to be used as the underlay for EVPN-VXLAN and enables EVPN. In most
    cases, this will be the default VRF. It is mandatory for EVPN-VXLAN to work.
@@ -4232,12 +4232,28 @@ Specifying ``advertise-all-vni``, which lives under
    This command can only be configured in a single VRF. Any attempt to configure it in multiple VRFs
    will be rejected (e.g. ``% Please unconfigure EVPN in VRF default``)
 
+   The optional ``l3vni-neigh`` token additionally enables neighbor (ARP/ND)
+   synchronization for EVPN L3 multihoming (L3MH) deployments, i.e. pure-L3
+   fabrics that have **no L2VNI**. When enabled, FRR originates and processes
+   EVPN Route Type-2 (MAC/IP) routes that carry an MPLS Explicit-NULL label
+   (``label[0] = 0``) purely to synchronize a dual-homed host's ARP/ND entry
+   between the multihoming leaves; no bridge/FDB (Layer 2) data plane is
+   driven.
+
+   The token gates both directions: origination of the pure-L3 RT-2 and
+   acceptance of a received one. Because RFC 7432 makes the MAC/IP route's
+   MPLS label mandatory, ``label[0] = 0`` is an out-of-spec signal, so a
+   receiver must be explicitly enabled to honor it; otherwise such a route is
+   ignored for install. Re-entering ``advertise-all-vni`` without the token, or
+   ``no advertise-all-vni l3vni-neigh``, disables L3MH neighbor sync while
+   keeping EVPN enabled; ``no advertise-all-vni`` disables both.
+
    .. code-block:: frr
 
       router bgp 65001
        !
        address-family l2vpn evpn
-        advertise-all-vni
+        advertise-all-vni l3vni-neigh
 
 A more comprehensive configuration example can be found in the :ref:`evpn` page.
 
@@ -4774,6 +4790,34 @@ following zebra configuration -
 
 .. clicmd:: evpn mh uplink
 
+Bridge-port protection
+""""""""""""""""""""""
+With EVPN L3 multihoming, the ES interface (the bridge port) can be
+protected by a backup group of the ES peers, so that traffic for a host
+behind a failed local link is redirected in hardware to another PE on the
+same ES. Protection is enabled per ES, and applies to every VLAN of the ES
+interface, via the following zebra configuration on the ES interface -
+
+.. clicmd:: evpn mh bridge-port-protection
+
+It requires L3 multihoming (``advertise-all-vni l3vni-neigh``, with VLANs
+in broadcast domains that have no L2VNI). It has no effect on DF
+election.
+
+.. clicmd:: show evpn mh bridge-port-protection [interface IFNAME] [detail] [json]
+
+   Display one protection entry per VLAN of each protected ES interface,
+   with its IP-VRF, L3VNI and backup group. An entry is ready when its ES,
+   IP-VRF, L3VNI and L3 multihoming mode are all present; otherwise every
+   missing one is listed as a reason. ``interface`` limits the output to one
+   ES interface; ``detail`` adds the number of backup members.
+
+.. clicmd:: show evpn mh bridge-port-protection member [ESI] [json]
+
+   Display each protected ES: its interface, backup group, VLAN count, the
+   IP-VRFs of its ready VLANs, and its backup members (peer VTEP and router
+   MAC).
+
 Proxy advertisements
 """"""""""""""""""""
 To handle hitless upgrades support for proxy advertisement has been added
@@ -5144,6 +5188,12 @@ Debugging
 .. clicmd:: debug bgp zebra
 
    Enable or disable debugging of communications between *bgpd* and *zebra*.
+
+.. clicmd:: debug bgp evpn mh <es|route|l3vni-neigh>
+
+   Enable or disable debugging of EVPN multihoming: Ethernet Segments, the
+   routes that use them, or EVPN L3 multihoming neighbor sync without an
+   L2VNI (see :clicmd:`advertise-all-vni [l3vni-neigh]`).
 
 .. clicmd:: debug bgp aggregate [prefix <A.B.C.D/M|X:X::X:X/M>]
 

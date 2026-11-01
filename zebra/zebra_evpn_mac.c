@@ -348,6 +348,46 @@ static void zebra_evpn_mac_get_access_info(struct zebra_mac *mac,
 	}
 }
 
+struct mac_l3_handoff_ctx {
+	struct interface *br_if;
+	vlanid_t vid;
+};
+
+static void zebra_evpn_mac_handoff_to_l3_cb(struct hash_bucket *bucket, void *arg)
+{
+	struct zebra_mac *mac = bucket->data;
+	struct mac_l3_handoff_ctx *ctx = arg;
+	struct interface *acc_ifp = NULL;
+	vlanid_t vid;
+
+	if (!CHECK_FLAG(mac->flags, ZEBRA_MAC_LOCAL) ||
+	    CHECK_FLAG(mac->flags, ZEBRA_MAC_LOCAL_INACTIVE) ||
+	    CHECK_FLAG(mac->flags, ZEBRA_MAC_DEF_GW | ZEBRA_MAC_SVI))
+		return;
+
+	zebra_evpn_mac_get_access_info(mac, &acc_ifp, &vid);
+	if (acc_ifp)
+		zebra_evpn_l3vni_local_mac_update(acc_ifp, ctx->br_if, &mac->macaddr, ctx->vid,
+						  true);
+}
+
+/* The VLAN is losing its L2VNI and its hosts move to pure-L3 sync. The kernel
+ * sends no new FDB learn for a MAC already in the FDB, so copy each local
+ * MAC's access port from the L2VNI into the pure-L3 MAC->port cache.
+ */
+void zebra_evpn_mac_handoff_to_l3(struct zebra_evpn *zevpn, struct interface *svi_ifp)
+{
+	struct zebra_if *svi_zif = svi_ifp->info;
+	struct mac_l3_handoff_ctx ctx = {};
+
+	if (!svi_zif || !IS_ZEBRA_IF_VLAN(svi_ifp) || !svi_zif->link || !zevpn->mac_table)
+		return;
+
+	ctx.br_if = svi_zif->link;
+	ctx.vid = svi_zif->l2info.vl.vid;
+	hash_iterate(zevpn->mac_table, zebra_evpn_mac_handoff_to_l3_cb, &ctx);
+}
+
 #define MAC_BUF_SIZE 256
 static char *zebra_evpn_zebra_mac_flag_dump(struct zebra_mac *mac, char *buf,
 					    size_t len)
@@ -981,9 +1021,9 @@ void zebra_evpn_print_mac_hash_detail(struct hash_bucket *bucket, void *ctxt)
  * Inform BGP about local MACIP.
  */
 int zebra_evpn_macip_send_msg_to_client(vni_t vni, const struct ethaddr *macaddr,
-					const struct ipaddr *ip, uint8_t flags,
-					uint32_t seq, int state,
-					struct zebra_evpn_es *es, uint16_t cmd)
+					const struct ipaddr *ip, uint8_t flags, uint32_t seq,
+					int state, vlanid_t eth_tag, struct zebra_evpn_es *es,
+					uint16_t cmd)
 {
 	int ipa_len;
 	struct zserv *client = NULL;
@@ -1020,6 +1060,8 @@ int zebra_evpn_macip_send_msg_to_client(vni_t vni, const struct ethaddr *macaddr
 	} else {
 		stream_putl(s, state); /* state - active/inactive */
 	}
+
+	stream_putl(s, eth_tag); /* ETAG (VLAN) of the owning bridge domain */
 
 
 	/* Write packet size. */
@@ -1341,9 +1383,8 @@ int zebra_evpn_mac_send_add_to_client(vni_t vni, const struct ethaddr *macaddr,
 	if (CHECK_FLAG(mac_flags, ZEBRA_MAC_DEF_GW))
 		SET_FLAG(flags, ZEBRA_MACIP_TYPE_GW);
 
-	return zebra_evpn_macip_send_msg_to_client(vni, macaddr, NULL, flags,
-						   seq, ZEBRA_NEIGH_ACTIVE, es,
-						   ZEBRA_MACIP_ADD);
+	return zebra_evpn_macip_send_msg_to_client(vni, macaddr, NULL, flags, seq,
+						   ZEBRA_NEIGH_ACTIVE, 0, es, ZEBRA_MACIP_ADD);
 }
 
 /*
@@ -1372,8 +1413,8 @@ int zebra_evpn_mac_send_del_to_client(vni_t vni, const struct ethaddr *macaddr,
 			state = ZEBRA_NEIGH_INACTIVE;
 	}
 
-	return zebra_evpn_macip_send_msg_to_client(vni, macaddr, NULL, 0, 0,
-						   state, NULL, ZEBRA_MACIP_DEL);
+	return zebra_evpn_macip_send_msg_to_client(vni, macaddr, NULL, 0, 0, state, 0, NULL,
+						   ZEBRA_MACIP_DEL);
 }
 
 /*

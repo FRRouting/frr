@@ -163,6 +163,8 @@ struct bgp_path_mh_info {
 	struct bgp_path_evpn_nh_info *nh_info;
 };
 
+struct bgp_evpn_ip_ead_path_owners;
+
 struct bgp_sid_info {
 	struct in6_addr sid;
 	uint8_t loc_block_len;
@@ -184,6 +186,8 @@ struct bgp_path_info_extra_evpn {
 	} vni_info;
 	/* Destination Ethernet Segment links for EVPN MH */
 	struct bgp_path_mh_info *mh_info;
+	/* Per-VRF ownership of imported IP A-D state. */
+	struct bgp_evpn_ip_ead_path_owners *ip_ead_owners;
 
 	struct bgp_path_info *type5_originator;
 };

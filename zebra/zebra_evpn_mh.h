@@ -74,8 +74,14 @@ struct zebra_evpn_es {
 	/* list of zebra_mac entries using this ES as destination */
 	struct list *mac_list;
 
-	/* Nexthop group id */
+	/* Nexthop group id (L2 ES NHG, kernel) */
 	uint32_t nhg_id;
+
+	/* Protection Group id (L3 Members, FPM only) */
+	uint32_t l3_nhg_id;
+
+	/* Protection Binding currently on the wire (0 if none) */
+	uint32_t bpp_backup_nhg_id;
 
 	/* Preference config for BUM-DF election. Sent to BGP and
 	 * advertised via the ESR
@@ -143,6 +149,7 @@ struct zebra_evpn_l2_nh {
 
 PREDECL_SORTLIST_UNIQ(mh_vtep_list);
 PREDECL_DLIST(mh_vtep_es_list);
+PREDECL_HASH(zebra_l3_mac_es);
 
 /* Global ES peer VTEP - one per unique peer VTEP on local ESs.
  * Used for "show evpn es-peer" (SPH VTEP list) with real SPH offset.
@@ -210,6 +217,54 @@ struct zebra_evpn_access_bd {
 	struct zebra_if *vlan_zif;
 	/* VNI count */
 	uint8_t vni_refcnt;
+	/* For a no-L2VNI BD only: cache of host MAC -> access-port ifindex,
+	 * learned from the local bridge FDB. It is populated for any no-L2VNI
+	 * BD (independently of whether the BD has yet entered L3VNI
+	 * neighbor-sync mode) because the FDB event that binds a MAC to its
+	 * port routinely arrives before the knob/L3VNI make the BD eligible.
+	 * Pure-L3 RT-2 origination consults it to stamp the neighbor's real ESI
+	 * (there is no zebra_mac to read the ES from, as in the L2 path). Emptied
+	 * on BD teardown.
+	 */
+	struct zebra_l3_mac_es_head l3_mac_es_table;
+};
+
+/* One host MAC -> access-port entry in an access BD's L3VNI neighbor-sync
+ * MAC/ES cache (zebra_evpn_access_bd.l3_mac_es_table).
+ *
+ * Where this lives (only the two leaf levels are new; the rest is existing MH
+ * infrastructure that this feature reuses):
+ *
+ *   zmh_info                        (global MH info)
+ *     +- evpn_vlan_table            (hash of all access BDs,
+ *        |                           key = vid + bridge_ifindex)
+ *        +- zebra_evpn_access_bd    (one per bridge+VLAN)
+ *           +- l3_mac_es_table      (hash: host MAC -> access-port)
+ *              +- zebra_evpn_l3_mac_es { macaddr (key), acc_ifindex }
+ *
+ * Rationale: on a no-L2VNI BD there is no struct zebra_mac (those live only in
+ * zevpn->mac_table), so nothing records which access port a host MAC sits
+ * behind. ESI resolution for a pure-L3 RT-2 is a join of IP->MAC (from the
+ * ARP/ND neighbor, keyed by IP) and MAC->port (this cache, keyed by MAC); the
+ * two kernel events are independent and often arrive out of order, so the
+ * MAC-keyed binding is parked here until a neighbor needs it.
+ */
+struct zebra_evpn_l3_mac_es {
+	struct zebra_l3_mac_es_item item;
+	struct ethaddr macaddr; /* key */
+	ifindex_t acc_ifindex;	/* access port the MAC was learned behind */
+};
+
+/* EVPN origination mode of an access broadcast domain, derived from the
+ * presence of an L2VNI and the advertise-all-vni l3vni-neigh token.
+ */
+enum zebra_evpn_bd_evpn_mode {
+	/* No L2VNI and not eligible for L3VNI neighbor sync: originate nothing. */
+	ZEBRA_EVPN_BD_MODE_NONE,
+	/* Backed by an L2VNI: standard EVPN origination. */
+	ZEBRA_EVPN_BD_MODE_L2VNI,
+	/* No L2VNI: L3VNI neighbor sync, originated as a label[0]=0 RT-2. */
+	ZEBRA_EVPN_BD_MODE_L3VNI_NEIGH,
 };
 
 /* multihoming information stored in zrouter */
@@ -275,6 +330,11 @@ struct zebra_evpn_mh_info {
 	/* List of ES peer VTEPs (zebra_evpn_mh_vtep) - peers on local ESs */
 	struct mh_vtep_list_head mh_vtep_list;
 
+	/* Rejected ZEBRA_EVPN_BPP_PEER_ADD/DEL messages */
+	uint32_t bpp_peer_bad_msg;
+	/* ID used on the wrong channel (kernel vs FPM); must stay 0 */
+	uint32_t bpp_id_err;
+
 	/* XXX - re-visit the default hold timer value */
 	int mac_hold_time;
 #define ZEBRA_EVPN_MH_MAC_HOLD_TIME_DEF (18 * 60)
@@ -311,8 +371,32 @@ static inline bool zebra_evpn_mac_is_es_local(struct zebra_mac *mac)
 /* Returns true if the id is of L2-NHG or L2-NH type */
 static inline bool zebra_evpn_mh_is_fdb_nh(uint32_t id)
 {
-	return ((id & EVPN_NHG_ID_TYPE_BIT) ||
-			(id & EVPN_NH_ID_TYPE_BIT));
+	uint32_t type = NHG_ID_TYPE(id);
+
+	return type == NHG_TYPE_L2 || type == NHG_TYPE_L2_NH;
+}
+
+static inline bool zebra_evpn_mh_id_is_l3_bpp(uint32_t id)
+{
+	uint32_t type = NHG_ID_TYPE(id);
+
+	return type == NHG_TYPE_L3_BPP || type == NHG_TYPE_L3_BPP_NH;
+}
+
+static inline const char *zebra_evpn_mh_id_channel(uint32_t id)
+{
+	switch (NHG_ID_TYPE(id)) {
+	case NHG_TYPE_L2:
+	case NHG_TYPE_L2_NH:
+		return "kernel";
+	case NHG_TYPE_L3_BPP:
+	case NHG_TYPE_L3_BPP_NH:
+		return "fpm";
+	case NHG_TYPE_L3:
+		return "l3";
+	}
+
+	return "none";
 }
 
 static inline bool
@@ -353,6 +437,26 @@ extern void zebra_evpn_vxl_evpn_set(struct zebra_if *zif,
 				    struct zebra_evpn *zevpn, bool set);
 extern void zebra_evpn_es_set_base_evpn(struct zebra_evpn *zevpn);
 extern void zebra_evpn_es_clear_base_evpn(struct zebra_evpn *zevpn);
+extern void zebra_evpn_es_l3vni_base_evpn_clear(void);
+extern void zebra_evpn_es_l3vni_base_evpn_reeval(void);
+extern void zebra_evpn_es_l3vni_oper_down(struct zebra_l3vni *zl3vni);
+extern enum zebra_evpn_bd_evpn_mode
+zebra_evpn_bd_evpn_mode(const struct zebra_evpn_access_bd *acc_bd);
+extern bool zebra_evpn_l3vni_neigh_sync_bd(struct interface *ifp, struct interface *br_if,
+					   vni_t *vni, struct ipaddr *vtep_ip, vlanid_t *vid);
+extern bool zebra_evpn_l3vni_from_svi(struct interface *ifp, vni_t *vni);
+extern struct zebra_evpn_es *zebra_evpn_l3vni_neigh_es(const struct ethaddr *macaddr,
+						       struct interface *svi_ifp);
+extern struct interface *zebra_evpn_l3vni_neigh_acc_ifp(const struct ethaddr *macaddr,
+							struct interface *svi_ifp);
+extern void zebra_evpn_l3vni_local_mac_update(struct interface *acc_ifp, struct interface *br_if,
+					      const struct ethaddr *macaddr, vlanid_t vid,
+					      bool add);
+extern void zebra_evpn_l3vni_mac_es_flush(struct zebra_evpn_access_bd *acc_bd);
+extern void zebra_evpn_l3vni_mac_es_flush_all(void);
+extern void zebra_evpn_l3vni_mac_es_port_flush(struct zebra_evpn_access_bd *acc_bd,
+					       ifindex_t acc_ifindex);
+extern void zebra_evpn_l3vni_readvertise_acc_port(struct interface *acc_ifp);
 extern void zebra_evpn_vl_vxl_ref(uint16_t vid, vni_t vni_id,
 				  struct zebra_if *vxlan_zif);
 extern void zebra_evpn_vl_vxl_deref(uint16_t vid, vni_t vni_id,
@@ -367,6 +471,7 @@ extern void zebra_evpn_es_show_esi(struct vty *vty, bool uj, esi_t *esi);
 extern void zebra_evpn_mh_vtep_show(struct vty *vty, bool uj);
 extern void zebra_evpn_update_all_es(struct zebra_evpn *zevpn);
 extern void zebra_evpn_proc_remote_es(ZAPI_HANDLER_ARGS);
+extern void zebra_evpn_proc_bpp_peer(ZAPI_HANDLER_ARGS);
 int zebra_evpn_remote_es_add(const esi_t *esi, struct ipaddr *vtep_ip, bool esr_rxed,
 			     uint8_t df_alg, uint16_t df_pref);
 int zebra_evpn_remote_es_del(const esi_t *esi, struct ipaddr *vtep_ip);
@@ -406,6 +511,10 @@ extern bool zebra_evpn_is_es_bond(struct interface *ifp);
 extern bool zebra_evpn_is_es_bond_member(struct interface *ifp);
 extern void zebra_evpn_mh_print(struct vty *vty);
 extern void zebra_evpn_mh_json(json_object *json);
+extern uint32_t zebra_evpn_mh_nhid_alloc(enum nhg_type type);
+extern void zebra_evpn_mh_nhid_free(uint32_t nh_id);
+extern void zebra_evpn_mh_id_channel_violation(uint32_t id, const char *op);
+extern void zebra_evpn_es_br_port_update(struct zebra_evpn_es *es);
 extern bool zebra_evpn_nhg_is_local_es(uint32_t nhg_id,
 				       struct zebra_evpn_es **local_es);
 extern int zebra_evpn_mh_redirect_off(struct vty *vty, bool redirect_off);
@@ -431,6 +540,7 @@ void zebra_evpn_es_type0_esi_update(struct zebra_if *zif, esi_t *esi);
 
 void zebra_evpn_es_df_pref_update(struct zebra_if *zif, uint16_t df_pref);
 void zebra_evpn_es_bypass_cfg_update(struct zebra_if *zif, bool bypass);
+void zebra_evpn_es_bpp_cfg_update(struct zebra_if *zif, bool bpp);
 void zebra_evpn_mh_uplink_cfg_update(struct zebra_if *zif, bool set);
 
 void zebra_evpn_mh_if_init(struct zebra_if *zif);

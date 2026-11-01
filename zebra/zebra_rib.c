@@ -50,6 +50,7 @@
 #include "zebra/zebra_dplane.h"
 #include "zebra/zebra_trace.h"
 #include "zebra/zebra_evpn_mh.h"
+#include "zebra/zebra_evpn_bpp.h"
 #include "zebra/zebra_neigh.h"
 #include "zebra/zebra_script.h"
 #include "zebra/zebra_tc.h"
@@ -213,6 +214,7 @@ struct wq_evpn_wrapper {
 	uint32_t seq;
 	esi_t esi;
 	vni_t vni;
+	vlanid_t eth_tag;
 	struct ipaddr ip;
 	struct ethaddr macaddr;
 	struct prefix prefix;
@@ -2454,9 +2456,10 @@ static void process_subq_evpn(struct listnode *lnode)
 
 		if (w->add_p)
 			zebra_evpn_rem_macip_add(w->vni, &w->macaddr, ipa_len, &w->ip, w->flags,
-						 w->seq, &w->vtep_ip, &w->esi);
+						 w->seq, &w->vtep_ip, &w->esi, w->eth_tag);
 		else
-			zebra_evpn_rem_macip_del(w->vni, &w->macaddr, ipa_len, &w->ip, &w->vtep_ip);
+			zebra_evpn_rem_macip_del(w->vni, &w->macaddr, ipa_len, &w->ip, &w->vtep_ip,
+						 w->eth_tag);
 	} else if (w->type == WQ_EVPN_WRAPPER_TYPE_REM_VTEP) {
 		if (w->add_p)
 			zebra_vxlan_remote_vtep_add(w->vrf_id, w->vni, &w->vtep_ip, w->flags);
@@ -3709,7 +3712,7 @@ int zebra_rib_queue_evpn_rem_es_del(const esi_t *esi, const struct ipaddr *vtep_
  */
 int zebra_rib_queue_evpn_rem_macip_add(vni_t vni, const struct ethaddr *macaddr,
 				       const struct ipaddr *ipaddr, uint8_t flags, uint32_t seq,
-				       struct ipaddr *vtep_ip, const esi_t *esi)
+				       struct ipaddr *vtep_ip, const esi_t *esi, vlanid_t eth_tag)
 {
 	struct wq_evpn_wrapper *w;
 	char buf[ESI_STR_LEN];
@@ -3719,6 +3722,7 @@ int zebra_rib_queue_evpn_rem_macip_add(vni_t vni, const struct ethaddr *macaddr,
 	w->type = WQ_EVPN_WRAPPER_TYPE_REM_MACIP;
 	w->add_p = true;
 	w->vni = vni;
+	w->eth_tag = eth_tag;
 	w->macaddr = *macaddr;
 	w->ip = *ipaddr;
 	w->flags = flags;
@@ -3740,7 +3744,8 @@ int zebra_rib_queue_evpn_rem_macip_add(vni_t vni, const struct ethaddr *macaddr,
 }
 
 int zebra_rib_queue_evpn_rem_macip_del(vni_t vni, const struct ethaddr *macaddr,
-				       const struct ipaddr *ip, struct ipaddr *vtep_ip)
+				       const struct ipaddr *ip, struct ipaddr *vtep_ip,
+				       vlanid_t eth_tag)
 {
 	struct wq_evpn_wrapper *w;
 
@@ -3749,6 +3754,7 @@ int zebra_rib_queue_evpn_rem_macip_del(vni_t vni, const struct ethaddr *macaddr,
 	w->type = WQ_EVPN_WRAPPER_TYPE_REM_MACIP;
 	w->add_p = false;
 	w->vni = vni;
+	w->eth_tag = eth_tag;
 	w->macaddr = *macaddr;
 	w->ip = *ip;
 	w->vtep_ip = *vtep_ip;
@@ -5548,6 +5554,12 @@ static void rib_process_dplane_results(struct event *event)
 				zebra_evpn_l2_nh_dplane_result(ctx);
 				break;
 
+			case DPLANE_OP_EVPN_MH_NH_UPDATE:
+			case DPLANE_OP_EVPN_MH_NHG_UPDATE:
+			case DPLANE_OP_EVPN_MH_REPLAY_DONE:
+				zebra_evpn_bpp_dplane_result(ctx);
+				break;
+
 			case DPLANE_OP_RULE_ADD:
 			case DPLANE_OP_RULE_DELETE:
 			case DPLANE_OP_RULE_UPDATE:
@@ -5596,6 +5608,8 @@ static void rib_process_dplane_results(struct event *event)
 			case DPLANE_OP_VTEP_ADD:
 			case DPLANE_OP_VTEP_DELETE:
 			case DPLANE_OP_BR_PORT_UPDATE:
+				zebra_evpn_bpp_dplane_result(ctx);
+				break;
 			case DPLANE_OP_NEIGH_TABLE_UPDATE:
 			case DPLANE_OP_GRE_SET:
 			case DPLANE_OP_SRV6_ENCAP_SRCADDR_SET:
