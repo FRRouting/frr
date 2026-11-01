@@ -22,6 +22,12 @@
 
 #define BGP_MP_NEXTHOP_FAMILY NEXTHOP_FAMILY
 
+/*
+ * Added to the NHT metric of a nexthop in a tenant VRF that resolves only over
+ * the VRF's L3VNI SVI, i.e. a host behind another VTEP.
+ */
+#define BGP_L3VNI_NEXTHOP_METRIC 1
+
 PREDECL_RBTREE_UNIQ(bgp_nexthop_cache);
 
 /* BGP nexthop cache value structure. */

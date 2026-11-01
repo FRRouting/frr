@@ -936,6 +936,22 @@ struct bgp_path_info *bgp_get_imported_bpi_ultimate(struct bgp_path_info *info)
 }
 
 /*
+ * The IGP metric of a path, which bestpath compares. An imported path has the
+ * metric of the path it was imported from, whose nexthop is resolved in the
+ * source instance. An EVPN route with a gateway IP is resolved through the
+ * gateway in the VRF that imports it instead, and NHT keeps that metric on
+ * the imported path.
+ */
+static uint32_t bgp_path_info_igpmetric(struct bgp_path_info *pi)
+{
+	if (pi->nexthop && pi->nexthop->is_evpn_gwip_nexthop)
+		return pi->extra ? pi->extra->igpmetric : 0;
+
+	pi = bgp_get_imported_bpi_ultimate(pi);
+	return pi->extra ? pi->extra->igpmetric : 0;
+}
+
+/*
  * Compare the admin distances of two paths when one is redistributed, and
  * the other one is eligible for installation. Prefer the path with a lower
  * admin distance.
@@ -1466,6 +1482,10 @@ int bgp_path_info_cmp(struct bgp *bgp, struct bgp_path_info *new,
 		exist_path_for_modifiable_attr = bgp_get_imported_bpi_ultimate(exist);
 	}
 
+	/* Take the IGP metrics (step 8) before the imported paths are replaced */
+	newm = bgp_path_info_igpmetric(new);
+	existm = bgp_path_info_igpmetric(exist);
+
 	/* Continue to use ultimate path/attr for certain cases like IGP etc */
 	new = bgp_get_imported_bpi_ultimate(new);
 	exist = bgp_get_imported_bpi_ultimate(exist);
@@ -1638,13 +1658,6 @@ int bgp_path_info_cmp(struct bgp *bgp, struct bgp_path_info *new,
 	}
 
 	/* 8. IGP metric check. */
-	newm = existm = 0;
-
-	if (new->extra)
-		newm = new->extra->igpmetric;
-	if (exist->extra)
-		existm = exist->extra->igpmetric;
-
 	if (newm < existm) {
 		if (debug && peer_sort_ret < 0)
 			zlog_debug(
@@ -14132,14 +14145,13 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp, struct bgp_dest *bn,
 				import ? ", import-check enabled" : "");
 		}
 	} else {
-		if (bpi_ultimate->extra && bpi_ultimate->extra->igpmetric) {
+		uint32_t igpmetric = bgp_path_info_igpmetric(path);
+
+		if (igpmetric) {
 			if (json_paths)
-				json_object_int_add(
-					json_nexthop_global, "metric",
-					bpi_ultimate->extra->igpmetric);
+				json_object_int_add(json_nexthop_global, "metric", igpmetric);
 			else
-				vty_out(vty, " (metric %u)",
-					bpi_ultimate->extra->igpmetric);
+				vty_out(vty, " (metric %u)", igpmetric);
 		}
 
 		/* IGP cost is 0, display this only for json */
