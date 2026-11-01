@@ -109,6 +109,10 @@ static void lsp_destroy(struct isis_lsp *lsp)
 	if (!lsp)
 		return;
 
+	/* undo the placeholder accounting of lsp_purge_non_exist() */
+	if (lsp->purge_placeholder)
+		lsp->area->own_purge_placeholder_count[lsp->level - 1]--;
+
 	frr_each (isis_circuit_list, &lsp->area->circuit_list, circuit)
 		isis_tx_queue_del(circuit->tx_queue, lsp);
 
@@ -1603,6 +1607,15 @@ static int lsp_regenerate(struct isis_area *area, int level)
 		return ISIS_ERROR;
 	}
 
+	/*
+	 * Adopting a purge placeholder: the entry becomes a real
+	 * originated LSP, so release its placeholder slot.
+	 */
+	if (lsp->purge_placeholder) {
+		lsp->purge_placeholder = false;
+		area->own_purge_placeholder_count[level - 1]--;
+	}
+
 	lsp_clear_data(lsp);
 	lsp_build(lsp, area);
 	rem_lifetime = lsp_rem_lifetime(area, level);
@@ -1827,6 +1840,11 @@ static void lsp_build_pseudo(struct isis_lsp *lsp, struct isis_circuit *circuit,
 	uint16_t mtid;
 
 	lsp_clear_data(lsp);
+	/*
+	 * An adopted purge placeholder carries a right-sized stream;
+	 * grow it to the full lsp-mtu before packing the real LSP.
+	 */
+	lsp_adjust_stream(lsp);
 	lsp->tlvs = isis_alloc_tlvs();
 	lsp_debug(
 		"ISIS (%s): Constructing pseudo LSP %pLS for interface %s level %d",
@@ -1990,6 +2008,15 @@ static int lsp_regenerate_pseudo(struct isis_circuit *circuit, int level)
 			 "lsp_regenerate_pseudo: no l%d LSP %pLS found!", level,
 			 lsp_id);
 		return ISIS_ERROR;
+	}
+
+	/*
+	 * Adopting a purge placeholder: the entry becomes a real
+	 * originated pseudonode LSP, so release its placeholder slot.
+	 */
+	if (lsp->purge_placeholder) {
+		lsp->purge_placeholder = false;
+		circuit->area->own_purge_placeholder_count[level - 1]--;
 	}
 
 	rem_lifetime = lsp_rem_lifetime(circuit->area, level);
@@ -2281,12 +2308,38 @@ void lsp_purge_non_exist(int level, struct isis_lsp_hdr *hdr,
 	struct isis_lsp *lsp;
 
 	/*
+	 * Each unknown own LSP ID would allocate a placeholder retained
+	 * for ZERO_AGE_LIFETIME.  The ID space (pseudonode x fragment
+	 * bytes) is large enough that an adjacent attacker could pin
+	 * unbounded entries, so cap the number of retained placeholders
+	 * per level; excess purges are dropped and counted.  Per level a
+	 * router can originate at most 256 non-pseudonode fragments plus
+	 * 255 pseudonode LSPs (see ISIS_OWN_PURGE_PLACEHOLDER_MAX), so
+	 * the cap never drops a purge for an LSP this router could
+	 * actually have originated.
+	 */
+	if (area->own_purge_placeholder_count[level - 1] >=
+	    ISIS_OWN_PURGE_PLACEHOLDER_MAX) {
+		area->own_purge_placeholder_dropped[level - 1]++;
+		return;
+	}
+
+	/*
 	 * We need to create the LSP to be purged
 	 */
 	lsp = XCALLOC(MTYPE_ISIS_LSP, sizeof(struct isis_lsp));
 	lsp->area = area;
 	lsp->level = level;
-	lsp_adjust_stream(lsp);
+	/*
+	 * The placeholder carries no LSP data: the PDU is the fixed+LSP
+	 * header plus, when enabled, the purge originator (up to 271B with
+	 * the hostname TLV) and authentication (up to 257B) TLVs, so size
+	 * the stream for that instead of the full lsp-mtu.  Conversion
+	 * paths (lsp_regenerate/lsp_regenerate_pseudo) grow it back via
+	 * lsp_adjust_stream().
+	 */
+	lsp->pdu = stream_new(ISIS_FIXED_HDR_LEN + ISIS_LSP_HDR_LEN + 640);
+	lsp->purge_placeholder = true;
 	lsp->age_out = ZERO_AGE_LIFETIME;
 	lsp->area->lsp_purge_count[level - 1]++;
 
@@ -2299,6 +2352,7 @@ void lsp_purge_non_exist(int level, struct isis_lsp_hdr *hdr,
 
 	lsp_insert(&area->lspdb[lsp->level - 1], lsp);
 	lsp_flood(lsp, NULL);
+	area->own_purge_placeholder_count[level - 1]++;
 
 	return;
 }

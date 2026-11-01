@@ -213,6 +213,14 @@ struct isis_area {
 	int lsp_frag_threshold;
 	uint64_t lsp_gen_count[ISIS_LEVELS];
 	uint64_t lsp_purge_count[ISIS_LEVELS];
+	/*
+	 * Purge placeholders retained for unknown own LSP IDs
+	 * (7.3.15.1 c)), accounted per level: the L1 and L2 LSDBs are
+	 * independent, so one level's placeholders must not eat the other
+	 * level's quota.
+	 */
+	uint32_t own_purge_placeholder_count[ISIS_LEVELS];
+	uint64_t own_purge_placeholder_dropped[ISIS_LEVELS];
 	uint32_t lsp_exceeded_max_counter;
 	uint32_t lsp_seqno_skipped_counter;
 	uint64_t spf_run_count[ISIS_LEVELS];

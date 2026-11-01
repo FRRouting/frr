@@ -2483,6 +2483,12 @@ static void common_isis_summary_json(struct json_object *json,
 					    area->lsp_gen_count[level - 1]);
 			json_object_int_add(level_json, "lsp-purged",
 					    area->lsp_purge_count[level - 1]);
+			json_object_int_add(
+				level_json, "own-purge-placeholders",
+				area->own_purge_placeholder_count[level - 1]);
+			json_object_int_add(
+				level_json, "own-purge-placeholders-dropped",
+				area->own_purge_placeholder_dropped[level - 1]);
 			if (event_is_scheduled(area->spf_timer[level - 1]))
 				json_object_string_add(level_json, "spf",
 						       "pending");
