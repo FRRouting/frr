@@ -50,6 +50,7 @@ from lib.evpn import (
     evpn_verify_df_role,
     evpn_verify_es_kernel_nexthop,
     evpn_verify_evpn_peer_established,
+    evpn_zebra_es_nexthop_ids,
     evpn_verify_mh_mac,
     evpn_verify_protodown_reason,
     evpn_verify_zebra_es_vtep,
@@ -1242,6 +1243,23 @@ def test_evpn_mh_peer_withdraw_during_bgpd_restart(tgen_and_ip_version):
         _, result = topotest.run_and_expect(test_fn, None, count=20, wait=3)
         assert result is None, "before bgpd stop: %s" % (result,)
 
+        # zebra removes the VTEP's nexthopId from the ES show on delete.
+        # The absence checks below still have to look that id up. The
+        # per-VTEP id is shared with hostd12, so it stays while that ES
+        # holds it. The group id is not shared and must leave the kernel.
+        saved_nh_ids = {}
+
+        def capture_nh_ids():
+            ids, error = evpn_zebra_es_nexthop_ids(victim, esi, peer_vtep)
+            if error:
+                return error
+            saved_nh_ids["ids"] = ids
+            return None
+
+        _, result = topotest.run_and_expect(capture_nh_ids, None, count=20, wait=3)
+        assert result is None, "before bgpd stop: %s" % (result,)
+        nh_ids = saved_nh_ids["ids"]
+
         # Keep zebra running. Its BGP client-close cleanup is the behavior
         # under test, so restarting zebra would discard the stale state.
         kill_router_daemons(tgen, victim_name, ["bgpd"])
@@ -1259,10 +1277,15 @@ def test_evpn_mh_peer_withdraw_during_bgpd_restart(tgen_and_ip_version):
         _, result = topotest.run_and_expect(test_fn, None, count=20, wait=3)
         assert result is None, "peer EAD withdrawal did not converge: %s" % (result,)
 
-        for check in (evpn_verify_zebra_es_vtep, evpn_verify_es_kernel_nexthop):
-            test_fn = partial(check, victim, esi, peer_vtep, False)
-            _, result = topotest.run_and_expect(test_fn, None, count=20, wait=3)
-            assert result is None, "during bgpd stop: %s" % (result,)
+        test_fn = partial(evpn_verify_zebra_es_vtep, victim, esi, peer_vtep, False)
+        _, result = topotest.run_and_expect(test_fn, None, count=20, wait=3)
+        assert result is None, "during bgpd stop: %s" % (result,)
+
+        test_fn = partial(
+            evpn_verify_es_kernel_nexthop, victim, esi, peer_vtep, False, nh_ids
+        )
+        _, result = topotest.run_and_expect(test_fn, None, count=20, wait=3)
+        assert result is None, "during bgpd stop: %s" % (result,)
 
         test_fn = partial(evpn_verify_df_role, victim, esi, "DF")
         _, result = topotest.run_and_expect(test_fn, None, count=20, wait=3)
@@ -1297,14 +1320,16 @@ def test_evpn_mh_peer_withdraw_during_bgpd_restart(tgen_and_ip_version):
 
         # The new bgpd relearns the withdrawn EAD and must not put the VTEP
         # back. zebra and the kernel must still agree, and the victim stays DF.
-        for check in (
-            evpn_verify_bgp_es_vtep,
-            evpn_verify_zebra_es_vtep,
-            evpn_verify_es_kernel_nexthop,
-        ):
+        for check in (evpn_verify_bgp_es_vtep, evpn_verify_zebra_es_vtep):
             test_fn = partial(check, victim, esi, peer_vtep, False)
             _, result = topotest.run_and_expect(test_fn, None, count=30, wait=2)
             assert result is None, "after bgpd restart: %s" % (result,)
+
+        test_fn = partial(
+            evpn_verify_es_kernel_nexthop, victim, esi, peer_vtep, False, nh_ids
+        )
+        _, result = topotest.run_and_expect(test_fn, None, count=30, wait=2)
+        assert result is None, "after bgpd restart: %s" % (result,)
 
         test_fn = partial(evpn_verify_df_role, victim, esi, "DF")
         _, result = topotest.run_and_expect(test_fn, None, count=30, wait=2)
