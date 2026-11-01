@@ -67,6 +67,7 @@ DEFINE_MTYPE_STATIC(BGPD, BGP_RPKI_ASPA, "BGP RPKI ASPA record");
 #define EXPIRE_INTERVAL_DEFAULT 7200
 #define RETRY_INTERVAL_DEFAULT 600
 #define BGP_RPKI_CACHE_SERVER_SYNC_RETRY_TIMEOUT 3
+#define RPKI_REVALIDATE_ALL_DELAY_MSEC 500
 
 #define RPKI_DEBUG(...)                                                        \
 	if (rpki_debug_conf || rpki_debug_term) {                              \
@@ -185,6 +186,7 @@ struct rpki_vrf {
 #endif
 	char *vrfname;
 	struct event *t_rpki_sync;
+	struct event *t_revalidate_all;
 
 	QOBJ_FIELDS;
 };
@@ -233,6 +235,7 @@ static enum route_map_cmd_result_t route_match(void *rule,
 					       void *object);
 static void *route_match_compile(const char *arg);
 static void revalidate_bgp_node(struct bgp *bgp, struct bgp_dest *dest, afi_t afi, safi_t safi);
+static void rpki_revalidate_all(struct event *event);
 static struct rpki_vrf *get_rpki_vrf(const char *vrfname);
 #ifdef FOUND_ASPA
 static int rpki_aspa_path_status(struct peer *peer, struct attr *attr, int direction);
@@ -693,19 +696,22 @@ struct rpki_revalidate_prefix {
 static void rpki_revalidate_prefix(struct event *event)
 {
 	struct rpki_revalidate_prefix *rrp = EVENT_ARG(event);
-	struct bgp_dest *match, *node;
+	struct route_node *match, *rn;
+	struct bgp_dest *dest;
 
 	match = bgp_table_subtree_lookup(rrp->bgp->rib[rrp->afi][rrp->safi],
 					 &rrp->prefix);
 
-	node = match;
-
-	while (node) {
-		if (bgp_dest_has_bgp_path_info_data(node)) {
-			revalidate_bgp_node(rrp->bgp, node, rrp->afi, rrp->safi);
-		}
-
-		node = bgp_route_next_until(node, match);
+	/*
+	 * The subtree root may be a holder node without a bgp_dest, so walk
+	 * the route_nodes. Revalidate destinations that only have Adj-RIB-In
+	 * entries too: a path denied by inbound policy has no path info, and
+	 * must be re-evaluated in case it is no longer denied.
+	 */
+	for (rn = match; rn; rn = route_next_until(rn, match)) {
+		dest = bgp_dest_from_rnode(rn);
+		if (dest && (bgp_dest_has_bgp_path_info_data(dest) || dest->adj_in))
+			revalidate_bgp_node(rrp->bgp, dest, rrp->afi, rrp->safi);
 	}
 
 	XFREE(MTYPE_BGP_RPKI_REVALIDATE, rrp);
@@ -766,23 +772,25 @@ static void bgpd_sync_callback(struct event *event)
 	if (atomic_load_explicit(&rpki_vrf->rtr_update_overflow, memory_order_seq_cst)) {
 		ssize_t size = 0;
 
-		retval = read(rpki_vrf->rpki_sync_socket_bgpd, &rec, sizeof(struct rtr_pfx_record));
-		while (retval != -1) {
-			if (retval != sizeof(struct rtr_pfx_record))
-				break;
-
+		while ((retval = read(rpki_vrf->rpki_sync_socket_bgpd, &rec,
+				      sizeof(struct rtr_pfx_record))) > 0)
 			size += retval;
-			pfx_record_to_prefix(&rec, &prefix);
-			afi = (rec.prefix.ver == RTR_IPV4) ? AFI_IP : AFI_IP6;
-			revalidate_single_prefix(vrf, prefix, afi);
-
-			retval = read(rpki_vrf->rpki_sync_socket_bgpd, &rec,
-				      sizeof(struct rtr_pfx_record));
-		}
-
-		RPKI_DEBUG("Socket overflow detected (%zu), revalidating affected prefixes", size);
 
 		atomic_store_explicit(&rpki_vrf->rtr_update_overflow, 0, memory_order_seq_cst);
+
+		/*
+		 * While the socket was full, the records that did not fit were
+		 * dropped, so revalidating the drained ones is not enough: they
+		 * may be a small part of the update. Revalidate all routes
+		 * instead, unless the initial sync is still running, which ends
+		 * with a full revalidation anyway. The timer coalesces the
+		 * overflows of one burst.
+		 */
+		RPKI_DEBUG("Socket overflow detected (%zd), revalidating all routes", size);
+		if (is_synchronized(rpki_vrf))
+			event_add_timer_msec(bm->master, rpki_revalidate_all, rpki_vrf,
+					     RPKI_REVALIDATE_ALL_DELAY_MSEC,
+					     &rpki_vrf->t_revalidate_all);
 		return;
 	}
 
@@ -806,10 +814,9 @@ static void revalidate_bgp_node(struct bgp *bgp, struct bgp_dest *bgp_dest, afi_
 	uint8_t num_labels;
 
 	for (ain = bgp_dest->adj_in; ain; ain = ain->next) {
-		struct bgp_path_info *path = bgp_dest_get_bgp_path_info(bgp_dest);
-
-		num_labels = BGP_PATH_INFO_NUM_LABELS(path);
-		label = num_labels ? path->extra->labels->label : NULL;
+		/* There may be no path info if the route was denied */
+		num_labels = ain->labels ? ain->labels->num_labels : 0;
+		label = num_labels ? &ain->labels->label[0] : NULL;
 
 		(void)bgp_update(ain->peer, bgp_dest_get_prefix(bgp_dest), ain->addpath_rx_id,
 				 ain->attr, afi, safi, ZEBRA_ROUTE_BGP, BGP_ROUTE_NORMAL, NULL,
@@ -881,6 +888,44 @@ static void rpki_update_cb_sync_rtr(struct rtr_pfx_table *p __attribute__((unuse
 	return;
 err:
 	flog_err(EC_LIB_DEVELOPMENT, "RPKI: %s", msg);
+}
+
+/*
+ * Re-run the inbound policy of every peer with soft-reconfiguration inbound,
+ * for the bgp instance(s) that use this RPKI configuration.
+ */
+static void revalidate_all_routes(struct rpki_vrf *rpki_vrf)
+{
+	struct listnode *node, *pnode;
+	struct vrf *vrf = NULL;
+	struct peer *peer;
+	struct bgp *bgp;
+
+	if (rpki_vrf->vrfname) {
+		vrf = vrf_lookup_by_name(rpki_vrf->vrfname);
+		if (!vrf)
+			return;
+	}
+
+	for (ALL_LIST_ELEMENTS_RO(bm->bgp, node, bgp)) {
+		if (!vrf && bgp->vrf_id != VRF_DEFAULT)
+			continue;
+		if (vrf && bgp->vrf_id != vrf->vrf_id)
+			continue;
+
+		for (ALL_LIST_ELEMENTS_RO(bgp->peer, pnode, peer)) {
+			afi_t afi;
+			safi_t safi;
+
+			FOREACH_AFI_SAFI (afi, safi)
+				bgp_soft_reconfig_in(peer, afi, safi);
+		}
+	}
+}
+
+static void rpki_revalidate_all(struct event *event)
+{
+	revalidate_all_routes(EVENT_ARG(event));
 }
 
 #ifdef FOUND_ASPA
@@ -966,31 +1011,8 @@ static void rpki_aspa_queue_flush(struct rpki_vrf *rpki_vrf)
 static void rpki_aspa_revalidate_all(struct event *event)
 {
 	struct rpki_vrf *rpki_vrf = EVENT_ARG(event);
-	struct listnode *node, *pnode;
-	struct vrf *vrf = NULL;
-	struct peer *peer;
-	struct bgp *bgp;
 
-	if (rpki_vrf->vrfname) {
-		vrf = vrf_lookup_by_name(rpki_vrf->vrfname);
-		if (!vrf)
-			return;
-	}
-
-	for (ALL_LIST_ELEMENTS_RO(bm->bgp, node, bgp)) {
-		if (!vrf && bgp->vrf_id != VRF_DEFAULT)
-			continue;
-		if (vrf && bgp->vrf_id != vrf->vrf_id)
-			continue;
-
-		for (ALL_LIST_ELEMENTS_RO(bgp->peer, pnode, peer)) {
-			afi_t afi;
-			safi_t safi;
-
-			FOREACH_AFI_SAFI (afi, safi)
-				bgp_soft_reconfig_in(peer, afi, safi);
-		}
-	}
+	revalidate_all_routes(rpki_vrf);
 
 	RPKI_DEBUG("ASPA table changed, scheduled revalidation");
 }
@@ -1241,6 +1263,14 @@ static void sync_expired(struct event *event)
 	RPKI_DEBUG("rtr_mgr sync is done.");
 
 	rpki_vrf->rtr_is_synced = true;
+
+	/*
+	 * Until now the validation state of every route was "not used", also
+	 * when the VRPs of the initial sync were revalidated one by one, so
+	 * routes that are invalid may have been accepted. Re-run the inbound
+	 * policy now that the VRP set is complete.
+	 */
+	revalidate_all_routes(rpki_vrf);
 }
 
 static int rpki_rtr_mgr_init(struct rpki_vrf *rpki_vrf, struct rtr_mgr_group *groups,
@@ -1331,6 +1361,7 @@ static void stop(struct rpki_vrf *rpki_vrf)
 	rpki_vrf->rtr_is_stopping = true;
 	if (is_running(rpki_vrf)) {
 		event_cancel(&rpki_vrf->t_rpki_sync);
+		event_cancel(&rpki_vrf->t_revalidate_all);
 #ifdef FOUND_ASPA
 		event_cancel(&rpki_vrf->t_aspa_revalidate);
 #endif
