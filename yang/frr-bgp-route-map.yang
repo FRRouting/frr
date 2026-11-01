@@ -431,6 +431,12 @@ identity set-extcommunity-color {
       "Accept L3VPN traffic over other than LSP encapsulation";
   }
 
+  identity srv6-locator {
+    base frr-route-map:rmap-set-type;
+    description
+      "Specify segment routing ipv6 locator";
+  }
+
   grouping extcommunity-non-transitive-types {
     description
       "Defines a grouping for non-transitive extended community types";
@@ -1531,6 +1537,15 @@ identity set-extcommunity-color {
         }
         description
           "Specify L3VPN traffic over other than LSP encapsulation value";
+      }
+    }
+
+    case srv6-locator {
+      when "derived-from-or-self(../frr-route-map:action, 'frr-bgp-route-map:srv6-locator')";
+      leaf srv6-locator {
+        type string;
+        description
+          "Specify segment routing ipv6 locator";
       }
     }
   }

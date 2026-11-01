@@ -37,7 +37,11 @@ import functools
 CWD = os.path.dirname(os.path.realpath(__file__))
 sys.path.append(os.path.join(CWD, "../"))
 
-from lib.common_config import retry
+from lib.common_config import (
+    kill_router_daemons,
+    retry,
+    start_router_daemons,
+)
 from lib import topotest
 from lib.topogen import Topogen, get_topogen
 from lib.topolog import logger
@@ -48,6 +52,7 @@ pytestmark = [pytest.mark.bgpd]
 r1_unicast_sid = None
 r3_unicast_sid = None
 
+
 def setup_module(mod):
     # This topotest sets net.vrf.strict_mode during setup. That sysctl is
     # available only after the VRF module is loaded; if the module is not loaded,
@@ -56,8 +61,13 @@ def setup_module(mod):
     if not topotest.module_present("vrf"):
         pytest.skip("VRF kernel module is not available")
 
-    topodef = {"s1": ("r1", "r2"), "s2": ("r1", "r3"), "s3": ("r1", "r4"),
-               "s4": ("c1", "r2"), "s5": ("r3", "c2")}
+    topodef = {
+        "s1": ("r1", "r2"),
+        "s2": ("r1", "r3"),
+        "s3": ("r1", "r4"),
+        "s4": ("c1", "r2"),
+        "s5": ("r3", "c2"),
+    }
     tgen = Topogen(topodef, mod.__name__)
     tgen.start_topology()
 
@@ -87,6 +97,7 @@ def setup_module(mod):
         )
 
     tgen.start_router()
+
 
 @retry(retry_timeout=10)
 def get_unicast_sid(afi):
@@ -154,8 +165,11 @@ def check_route(router, cmd, expect_route, expect_sid, expect_installed=True):
     if expect_sid == "" and route["nexthops"][0].get("seg6", {}).get("segs", "") != "":
         return "%s: expecting no sid on route %s" % (router.name, expect_route)
 
-    if expect_sid and route["nexthops"][0].get("seg6", {}).get("segs", "") != expect_sid:
-        error =  "%s: expecting" % router.name
+    if (
+        expect_sid
+        and route["nexthops"][0].get("seg6", {}).get("segs", "") != expect_sid
+    ):
+        error = "%s: expecting" % router.name
         if expect_sid:
             error = "%s %s sid" % (error, expect_sid)
 
@@ -164,6 +178,7 @@ def check_route(router, cmd, expect_route, expect_sid, expect_installed=True):
         return error
 
     return True
+
 
 def test_bgp_srv6_encap():
     """
@@ -177,20 +192,33 @@ def test_bgp_srv6_encap():
 
     res = get_unicast_sid("AFI_IP")
     assert res is True, res
-    logger.info("R1 sid[AFI_IP]: %s, R3 sid[AFI_IP]: %s" % (r1_unicast_sid, r3_unicast_sid))
+    logger.info(
+        "R1 sid[AFI_IP]: %s, R3 sid[AFI_IP]: %s" % (r1_unicast_sid, r3_unicast_sid)
+    )
 
     logger.info("Check prefix 10.0.0.1/32 SRv6 encap on R2")
-    res = check_route(tgen.gears["r2"], "show ip route 10.0.0.1/32 json", "10.0.0.1/32", r1_unicast_sid)
+    res = check_route(
+        tgen.gears["r2"],
+        "show ip route 10.0.0.1/32 json",
+        "10.0.0.1/32",
+        r1_unicast_sid,
+    )
     assert res is True, res
 
     logger.info("Check prefix 10.0.0.1/32 SRv6 encap on R3")
-    res = check_route(tgen.gears["r3"], "show ip route 10.0.0.1/32 json", "10.0.0.1/32", r1_unicast_sid)
+    res = check_route(
+        tgen.gears["r3"],
+        "show ip route 10.0.0.1/32 json",
+        "10.0.0.1/32",
+        r1_unicast_sid,
+    )
     assert res is True, res
 
     logger.info("Check prefix 10.0.0.1/32 no SRv6 encap on R4")
-    res = check_route(tgen.gears["r4"], "show ip route 10.0.0.1/32 json", "10.0.0.1/32", "")
+    res = check_route(
+        tgen.gears["r4"], "show ip route 10.0.0.1/32 json", "10.0.0.1/32", ""
+    )
     assert res is True, res
-
 
 
 def test_bgp_srv6_update1():
@@ -212,15 +240,24 @@ def test_bgp_srv6_update1():
     )
 
     logger.info("Check prefix 10.0.0.2/32 no SRv6 encap on R1")
-    res = check_route(tgen.gears["r1"], "show ip route 10.0.0.2/32 json", "10.0.0.2/32", "")
+    res = check_route(
+        tgen.gears["r1"], "show ip route 10.0.0.2/32 json", "10.0.0.2/32", ""
+    )
     assert res is True, res
 
     logger.info("Check prefix 10.0.0.2/32 SRv6 encap on R3")
-    res = check_route(tgen.gears["r3"], "show ip route 10.0.0.2/32 json", "10.0.0.2/32", r1_unicast_sid)
+    res = check_route(
+        tgen.gears["r3"],
+        "show ip route 10.0.0.2/32 json",
+        "10.0.0.2/32",
+        r1_unicast_sid,
+    )
     assert res is True, res
 
     logger.info("Check prefix 10.0.0.2/32 no SRv6 encap on R4")
-    res = check_route(tgen.gears["r4"], "show ip route 10.0.0.2/32 json", "10.0.0.2/32", "")
+    res = check_route(
+        tgen.gears["r4"], "show ip route 10.0.0.2/32 json", "10.0.0.2/32", ""
+    )
     assert res is True, res
 
 
@@ -243,16 +280,29 @@ def test_bgp_srv6_update2():
     )
 
     logger.info("Check prefix 10.0.0.3/32 SRv6 encap on R1")
-    res = check_route(tgen.gears["r1"], "show ip route 10.0.0.3/32 json", "10.0.0.3/32", r3_unicast_sid)
+    res = check_route(
+        tgen.gears["r1"],
+        "show ip route 10.0.0.3/32 json",
+        "10.0.0.3/32",
+        r3_unicast_sid,
+    )
     assert res is True, res
 
     logger.info("Check prefix 10.0.0.3/32 SRv6 encap on R2")
-    res = check_route(tgen.gears["r2"], "show ip route 10.0.0.3/32 json", "10.0.0.3/32", r3_unicast_sid)
+    res = check_route(
+        tgen.gears["r2"],
+        "show ip route 10.0.0.3/32 json",
+        "10.0.0.3/32",
+        r3_unicast_sid,
+    )
     assert res is True, res
 
     logger.info("Check prefix 10.0.0.3/32 no SRv6 encap on R4")
-    res = check_route(tgen.gears["r4"], "show ip route 10.0.0.3/32 json", "10.0.0.3/32", "")
+    res = check_route(
+        tgen.gears["r4"], "show ip route 10.0.0.3/32 json", "10.0.0.3/32", ""
+    )
     assert res is True, res
+
 
 def test_bgp_srv6_sid_rmap():
     """
@@ -269,13 +319,19 @@ def test_bgp_srv6_sid_rmap():
     )
 
     logger.info("Check prefix 172.16.0.0/24 no SRv6 encap on R2")
-    res = check_route(tgen.gears["r2"], "show ip route 172.16.0.0/24 json",
-                      "172.16.0.0/24", "")
+    res = check_route(
+        tgen.gears["r2"], "show ip route 172.16.0.0/24 json", "172.16.0.0/24", ""
+    )
     assert res is True, res
 
     logger.info("Check prefix 172.16.0.0/24 is not installed on R3")
-    res = check_route(tgen.gears["r3"], "show ip route 172.16.0.0/24 json",
-                      "172.16.0.0/24", "", expect_installed=False)
+    res = check_route(
+        tgen.gears["r3"],
+        "show ip route 172.16.0.0/24 json",
+        "172.16.0.0/24",
+        "",
+        expect_installed=False,
+    )
     assert res is True, res
 
 
@@ -437,9 +493,15 @@ def test_bgp_srv6_sid_unexport():
     prefixes = ["10.0.0.1/32", "10.0.0.2/32", "10.0.0.3/32"]
     logger.info("Check 10.0.0.1-3/32 are not installed on R3")
     for prefix in prefixes:
-        res = check_route(tgen.gears["r3"], "show ip route %s json" % prefix, prefix,
-                          "", expect_installed=False)
+        res = check_route(
+            tgen.gears["r3"],
+            "show ip route %s json" % prefix,
+            prefix,
+            "",
+            expect_installed=False,
+        )
         assert res is True, res
+
 
 def test_bgp_srv6_sid_export():
     """
@@ -458,23 +520,44 @@ def test_bgp_srv6_sid_export():
 
     res = get_unicast_sid("AFI_IP")
     assert res is True, res
-    logger.info("R1 sid[AFI_IP]: %s, R3 sid[AFI_IP]: %s" % (r1_unicast_sid, r3_unicast_sid))
+    logger.info(
+        "R1 sid[AFI_IP]: %s, R3 sid[AFI_IP]: %s" % (r1_unicast_sid, r3_unicast_sid)
+    )
 
     logger.info("Check 10.0.0.1/32 sid %s installed on R2" % r1_unicast_sid)
-    res = check_route(tgen.gears["r2"], "show ip route 10.0.0.1/32 json", "10.0.0.1/32", r1_unicast_sid)
+    res = check_route(
+        tgen.gears["r2"],
+        "show ip route 10.0.0.1/32 json",
+        "10.0.0.1/32",
+        r1_unicast_sid,
+    )
     assert res is True, res
 
     logger.info("Check 10.0.0.1/32 sid %s installed on R3" % r1_unicast_sid)
-    res = check_route(tgen.gears["r3"], "show ip route 10.0.0.1/32 json", "10.0.0.1/32", r1_unicast_sid)
+    res = check_route(
+        tgen.gears["r3"],
+        "show ip route 10.0.0.1/32 json",
+        "10.0.0.1/32",
+        r1_unicast_sid,
+    )
     assert res is True, res
 
-
     logger.info("Check 10.0.0.3/32 sid %s installed on R2" % r3_unicast_sid)
-    res = check_route(tgen.gears["r2"], "show ip route 10.0.0.3/32 json", "10.0.0.3/32", r3_unicast_sid)
+    res = check_route(
+        tgen.gears["r2"],
+        "show ip route 10.0.0.3/32 json",
+        "10.0.0.3/32",
+        r3_unicast_sid,
+    )
     assert res is True, res
 
     logger.info("Check 10.0.0.3/32 sid %s installed on R1" % r3_unicast_sid)
-    res = check_route(tgen.gears["r1"], "show ip route 10.0.0.3/32 json", "10.0.0.3/32", r3_unicast_sid)
+    res = check_route(
+        tgen.gears["r1"],
+        "show ip route 10.0.0.3/32 json",
+        "10.0.0.3/32",
+        r3_unicast_sid,
+    )
     assert res is True, res
 
 
@@ -503,37 +586,57 @@ def test_bgp_srv6_sid_v6_update():
 
     res = get_unicast_sid("AFI_IP6")
     assert res is True, res
-    logger.info("R1 sid[AFI_IP6]: %s, R3 sid[AFI_IP6]: %s" % (r1_unicast_sid, r3_unicast_sid))
+    logger.info(
+        "R1 sid[AFI_IP6]: %s, R3 sid[AFI_IP6]: %s" % (r1_unicast_sid, r3_unicast_sid)
+    )
 
     logger.info("Check fd00:200::/64 sid %s installed on R2" % r1_unicast_sid)
-    res = check_route(tgen.gears["r2"], "show ipv6 route fd00:200::/64 json",
-                      "fd00:200::/64", r1_unicast_sid)
+    res = check_route(
+        tgen.gears["r2"],
+        "show ipv6 route fd00:200::/64 json",
+        "fd00:200::/64",
+        r1_unicast_sid,
+    )
     assert res is True, res
 
     logger.info("Check fd00:200::/64 sid %s installed on R3" % r1_unicast_sid)
-    res = check_route(tgen.gears["r3"], "show ipv6 route fd00:200::/64 json",
-                      "fd00:200::/64", r1_unicast_sid)
+    res = check_route(
+        tgen.gears["r3"],
+        "show ipv6 route fd00:200::/64 json",
+        "fd00:200::/64",
+        r1_unicast_sid,
+    )
     assert res is True, res
 
     logger.info("Check fd00:300::/64 sid %s installed on R1" % r3_unicast_sid)
-    res = check_route(tgen.gears["r1"], "show ipv6 route fd00:300::/64 json",
-                      "fd00:300::/64", r3_unicast_sid)
+    res = check_route(
+        tgen.gears["r1"],
+        "show ipv6 route fd00:300::/64 json",
+        "fd00:300::/64",
+        r3_unicast_sid,
+    )
     assert res is True, res
 
     logger.info("Check fd00:300::/64 sid %s installed on R2" % r3_unicast_sid)
-    res = check_route(tgen.gears["r2"], "show ipv6 route fd00:300::/64 json",
-                      "fd00:300::/64", r3_unicast_sid)
+    res = check_route(
+        tgen.gears["r2"],
+        "show ipv6 route fd00:300::/64 json",
+        "fd00:300::/64",
+        r3_unicast_sid,
+    )
     assert res is True, res
 
     logger.info("Check fd00:200::/64 sid %s is not installed on R4" % r1_unicast_sid)
 
-    res = check_route(tgen.gears["r4"], "show ipv6 route fd00:200::/64 json",
-                      "fd00:200::/64", "")
+    res = check_route(
+        tgen.gears["r4"], "show ipv6 route fd00:200::/64 json", "fd00:200::/64", ""
+    )
     assert res is True, res
 
     logger.info("Check fd00:300::/64 sid %s is not installed on R4" % r3_unicast_sid)
-    res = check_route(tgen.gears["r4"], "show ipv6 route fd00:300::/64 json",
-                      "fd00:300::/64", "")
+    res = check_route(
+        tgen.gears["r4"], "show ipv6 route fd00:300::/64 json", "fd00:300::/64", ""
+    )
     assert res is True, res
 
 
@@ -570,23 +673,43 @@ def test_srv6_withdraw():
     )
 
     logger.info("Check 10.0.0.1/32 is withdrawn on R3")
-    res = check_route(tgen.gears["r3"], "show ip route 10.0.0.1/32 json",
-                      "10.0.0.1/32", r1_unicast_sid, expect_installed=False)
+    res = check_route(
+        tgen.gears["r3"],
+        "show ip route 10.0.0.1/32 json",
+        "10.0.0.1/32",
+        r1_unicast_sid,
+        expect_installed=False,
+    )
     assert res is True, res
 
     logger.info("Check 10.0.0.3/32 is withdrawn on R2")
-    res = check_route(tgen.gears["r2"], "show ip route 10.0.0.3/32 json",
-                      "10.0.0.3/32", r3_unicast_sid, expect_installed=False)
+    res = check_route(
+        tgen.gears["r2"],
+        "show ip route 10.0.0.3/32 json",
+        "10.0.0.3/32",
+        r3_unicast_sid,
+        expect_installed=False,
+    )
     assert res is True, res
 
     logger.info("Check fd00:200::/64 is withdrawn on R3")
-    res = check_route(tgen.gears["r3"], "show ipv6 route fd00:200::/64 json",
-                      "fd00:200::/64", r1_unicast_sid, expect_installed=False)
+    res = check_route(
+        tgen.gears["r3"],
+        "show ipv6 route fd00:200::/64 json",
+        "fd00:200::/64",
+        r1_unicast_sid,
+        expect_installed=False,
+    )
     assert res is True, res
 
     logger.info("Check fd00:300::/64 is withdrawn on R2")
-    res = check_route(tgen.gears["r2"], "show ipv6 route fd00:300::/64 json",
-                      "fd00:300::/64", r3_unicast_sid, expect_installed=False)
+    res = check_route(
+        tgen.gears["r2"],
+        "show ipv6 route fd00:300::/64 json",
+        "fd00:300::/64",
+        r3_unicast_sid,
+        expect_installed=False,
+    )
     assert res is True, res
 
 
@@ -819,6 +942,128 @@ def test_bgp_srv6_sid_dt46_enable_ipv6():
     check_ping("c1", "fd00:300::2", True, count=5, wait=0.5)
 
 
+def test_bgp_srv6_sid_dt46_locator_reset():
+    """
+    Both address-families use 'behavior dt46'. Give IPv6 an index SID, then
+    unset the BGP SRv6 locator, configure 'behavior dt46' on IPv6 again, and
+    set the BGP SRv6 locator back: IPv4 requests the shared End.DT46 SID, and
+    IPv6 waits for it. Verify that both address-families get the End.DT46 SID.
+    Its release is checked by test_bgp_srv6_sid_dt46_released.
+    """
+
+    tgen = get_topogen()
+    r1 = tgen.gears["r1"]
+
+    @retry(retry_timeout=10)
+    def check_unicast_sid_behaviors(expected_behaviors):
+        output = r1.vtysh_cmd("show bgp segment-routing srv6")
+        sids = json.loads(r1.vtysh_cmd("show segment-routing srv6 sid json"))
+        for afi, expected_behavior in expected_behaviors.items():
+            match = re.search(
+                r"srv6_unicast\[%s\].sid: ([0-9a-fA-F:]+::)" % afi, output
+            )
+            if not match:
+                return "R1 sid[%s] is null" % afi
+            sid = match.group(1)
+            behavior = sids.get(sid, {}).get("behavior")
+            if behavior != expected_behavior:
+                return "R1 sid[%s] %s: expected behavior %s, got %s" % (
+                    afi,
+                    sid,
+                    expected_behavior,
+                    behavior,
+                )
+        return True
+
+    r1.vtysh_multicmd(
+        """
+        configure
+        router bgp 65001
+        address-family ipv6 unicast
+        no sid export auto behavior dt46
+        """
+    )
+
+    r1.vtysh_multicmd(
+        """
+        configure
+        router bgp 65001
+        address-family ipv6 unicast
+        sid export 55
+        """
+    )
+
+    logger.info("Check R1 IPv6 SID has behavior End.DT6")
+    res = check_unicast_sid_behaviors({"AFI_IP": "End.DT46", "AFI_IP6": "End.DT6"})
+    output = r1.vtysh_cmd("show segment-routing srv6 sid")
+    logger.info(output)
+    assert res is True, res
+
+    r1.vtysh_multicmd(
+        """
+        configure
+        router bgp 65001
+        segment-routing srv6
+        no locator default
+        """
+    )
+
+    logger.info("Check R1 unicast SIDs are cleared")
+    res = check_no_unicast_sid("AFI_IP")
+    assert res is True, res
+    res = check_no_unicast_sid("AFI_IP6")
+    assert res is True, res
+
+    r1.vtysh_multicmd(
+        """
+        configure
+        router bgp 65001
+        address-family ipv6 unicast
+        no sid export 55
+        sid export auto behavior dt46
+        exit-address-family
+        segment-routing srv6
+        locator default
+        """
+    )
+
+    logger.info("Check R1 IPv4 and IPv6 SIDs have behavior End.DT46")
+    res = check_unicast_sid_behaviors({"AFI_IP": "End.DT46", "AFI_IP6": "End.DT46"})
+    output = r1.vtysh_cmd("show bgp segment-routing srv6")
+    logger.info(output)
+    output = r1.vtysh_cmd("show segment-routing srv6 sid")
+    logger.info(output)
+    assert res is True, res
+
+    res = get_unicast_sid("AFI_IP")
+    assert res is True, res
+    r1_sid_v4 = r1_unicast_sid
+
+    res = get_unicast_sid("AFI_IP6")
+    assert res is True, res
+    r1_sid_v6 = r1_unicast_sid
+
+    assert r1_sid_v4 == r1_sid_v6, "R1 IPv4 SID %s and IPv6 SID %s differ" % (
+        r1_sid_v4,
+        r1_sid_v6,
+    )
+
+    logger.info("Check 10.0.0.1/32 sid %s installed on R2" % r1_sid_v4)
+    res = check_route(
+        tgen.gears["r2"], "show ip route 10.0.0.1/32 json", "10.0.0.1/32", r1_sid_v4
+    )
+    assert res is True, res
+
+    logger.info("Check fd00:200::/64 sid %s installed on R3" % r1_sid_v6)
+    res = check_route(
+        tgen.gears["r3"],
+        "show ipv6 route fd00:200::/64 json",
+        "fd00:200::/64",
+        r1_sid_v6,
+    )
+    assert res is True, res
+
+
 def test_bgp_srv6_sid_dt46_disable_ipv4():
     """
     Unconfigure End.DT46 for IPv4 (back to default End.DT4).
@@ -858,17 +1103,24 @@ def test_bgp_srv6_sid_dt46_disable_ipv4():
     assert res is True, res
 
     logger.info("Check 10.0.0.1/32 sid %s installed on R2" % r1_sid_v4)
-    res = check_route(tgen.gears["r2"], "show ip route 10.0.0.1/32 json",
-                      "10.0.0.1/32", r1_sid_v4)
+    res = check_route(
+        tgen.gears["r2"], "show ip route 10.0.0.1/32 json", "10.0.0.1/32", r1_sid_v4
+    )
     assert res is True, res
 
-    logger.info("Check R1 SID %s still has behavior End.DT46 (IPv6 unaffected)" % r1_sid_v6)
+    logger.info(
+        "Check R1 SID %s still has behavior End.DT46 (IPv6 unaffected)" % r1_sid_v6
+    )
     res = check_srv6_localsid_behavior(tgen.gears["r1"], r1_sid_v6, "End.DT46")
     assert res is True, res
 
     logger.info("Check fd00:200::/64 sid %s still installed on R3" % r1_sid_v6)
-    res = check_route(tgen.gears["r3"], "show ipv6 route fd00:200::/64 json",
-                      "fd00:200::/64", r1_sid_v6)
+    res = check_route(
+        tgen.gears["r3"],
+        "show ipv6 route fd00:200::/64 json",
+        "fd00:200::/64",
+        r1_sid_v6,
+    )
     assert res is True, res
 
     logger.info("Check connectivity c1 -> c2 (IPv4)")
@@ -917,17 +1169,24 @@ def test_bgp_srv6_sid_dt46_disable_ipv6():
     assert res is True, res
 
     logger.info("Check fd00:200::/64 sid %s installed on R3" % r1_sid_v6)
-    res = check_route(tgen.gears["r3"], "show ipv6 route fd00:200::/64 json",
-                      "fd00:200::/64", r1_sid_v6)
+    res = check_route(
+        tgen.gears["r3"],
+        "show ipv6 route fd00:200::/64 json",
+        "fd00:200::/64",
+        r1_sid_v6,
+    )
     assert res is True, res
 
-    logger.info("Check R1 SID %s still has behavior End.DT4 (IPv4 unaffected)" % r1_sid_v4)
+    logger.info(
+        "Check R1 SID %s still has behavior End.DT4 (IPv4 unaffected)" % r1_sid_v4
+    )
     res = check_srv6_localsid_behavior(tgen.gears["r1"], r1_sid_v4, "End.DT4")
     assert res is True, res
 
     logger.info("Check 10.0.0.1/32 sid %s still installed on R2" % r1_sid_v4)
-    res = check_route(tgen.gears["r2"], "show ip route 10.0.0.1/32 json",
-                      "10.0.0.1/32", r1_sid_v4)
+    res = check_route(
+        tgen.gears["r2"], "show ip route 10.0.0.1/32 json", "10.0.0.1/32", r1_sid_v4
+    )
     assert res is True, res
 
     logger.info("Check connectivity c1 -> c2 (IPv4)")
@@ -935,6 +1194,34 @@ def test_bgp_srv6_sid_dt46_disable_ipv6():
 
     logger.info("Check connectivity c1 -> c2 (IPv6)")
     check_ping("c1", "fd00:300::2", True, count=5, wait=0.5)
+
+
+def test_bgp_srv6_sid_dt46_released():
+    """
+    'behavior dt46' has been removed from both address-families.
+    Verify that the End.DT46 SID is released in the SID manager of R1.
+    """
+
+    tgen = get_topogen()
+
+    @retry(retry_timeout=10)
+    def check_no_bgp_dt46_sid():
+        output = json.loads(
+            tgen.gears["r1"].vtysh_cmd("show segment-routing srv6 sid json")
+        )
+        for sid, sid_info in output.items():
+            if sid_info.get("behavior") != "End.DT46":
+                continue
+            clients = [c.get("protocol") for c in sid_info.get("clients", [])]
+            if "bgp" in clients:
+                return "R1 End.DT46 SID %s is still allocated by bgp" % sid
+        return True
+
+    logger.info("Check R1 End.DT46 SID is released")
+    res = check_no_bgp_dt46_sid()
+    output = tgen.gears["r1"].vtysh_cmd("show segment-routing srv6 sid")
+    logger.info(output)
+    assert res is True, res
 
 
 def test_bgp_srv6_sid_dt46_restore():
@@ -1053,13 +1340,13 @@ def test_bgp_srv6_locator_reapply():
 
     res = check_route(r3, "show ip route 10.0.0.1/32 json", "10.0.0.1/32", ipv4_sid)
     assert res is True, res
-    res = check_route(r3, "show ipv6 route fd00:200::/64 json", "fd00:200::/64", ipv6_sid)
+    res = check_route(
+        r3, "show ipv6 route fd00:200::/64 json", "fd00:200::/64", ipv6_sid
+    )
     assert res is True, res
 
     table_versions_before = {
-        afi: r1.vtysh_cmd("show bgp %s unicast json" % afi, isjson=True)[
-            "tableVersion"
-        ]
+        afi: r1.vtysh_cmd("show bgp %s unicast json" % afi, isjson=True)["tableVersion"]
         for afi in ("ipv4", "ipv6")
     }
 
@@ -1074,9 +1361,7 @@ def test_bgp_srv6_locator_reapply():
     )
 
     table_versions_after = {
-        afi: r1.vtysh_cmd("show bgp %s unicast json" % afi, isjson=True)[
-            "tableVersion"
-        ]
+        afi: r1.vtysh_cmd("show bgp %s unicast json" % afi, isjson=True)["tableVersion"]
         for afi in ("ipv4", "ipv6")
     }
     assert table_versions_after == table_versions_before, (
@@ -1093,8 +1378,11 @@ def test_bgp_srv6_locator_reapply():
 
     res = check_route(r3, "show ip route 10.0.0.1/32 json", "10.0.0.1/32", ipv4_sid)
     assert res is True, res
-    res = check_route(r3, "show ipv6 route fd00:200::/64 json", "fd00:200::/64", ipv6_sid)
+    res = check_route(
+        r3, "show ipv6 route fd00:200::/64 json", "fd00:200::/64", ipv6_sid
+    )
     assert res is True, res
+
 
 def test_bgp_srv6_no_locator():
     """
@@ -1131,14 +1419,26 @@ def test_bgp_srv6_no_locator():
     r1_ipv6_unicast_sid = r1_unicast_sid
     logger.info("R1 sid[AFI_IP6] before no locator: %s" % r1_ipv6_unicast_sid)
 
-    logger.info("Check 10.0.0.1/32 with SRv6 SID %s is installed on R3" % r1_ipv4_unicast_sid)
-    res = check_route(tgen.gears["r3"], "show ip route 10.0.0.1/32 json",
-                      "10.0.0.1/32", r1_ipv4_unicast_sid)
+    logger.info(
+        "Check 10.0.0.1/32 with SRv6 SID %s is installed on R3" % r1_ipv4_unicast_sid
+    )
+    res = check_route(
+        tgen.gears["r3"],
+        "show ip route 10.0.0.1/32 json",
+        "10.0.0.1/32",
+        r1_ipv4_unicast_sid,
+    )
     assert res is True, res
 
-    logger.info("Check fd00:200::/64 with SRv6 SID %s is installed on R3" % r1_ipv6_unicast_sid)
-    res = check_route(tgen.gears["r3"], "show ipv6 route fd00:200::/64 json",
-                      "fd00:200::/64", r1_ipv6_unicast_sid)
+    logger.info(
+        "Check fd00:200::/64 with SRv6 SID %s is installed on R3" % r1_ipv6_unicast_sid
+    )
+    res = check_route(
+        tgen.gears["r3"],
+        "show ipv6 route fd00:200::/64 json",
+        "fd00:200::/64",
+        r1_ipv6_unicast_sid,
+    )
     assert res is True, res
 
     logger.info("Issue 'no locator default' on R1")
@@ -1161,18 +1461,29 @@ def test_bgp_srv6_no_locator():
     assert res is True, res
 
     logger.info("Check 10.0.0.1/32 is withdrawn from R3 (strict encap-srv6 peer)")
-    res = check_route(tgen.gears["r3"], "show ip route 10.0.0.1/32 json",
-                      "10.0.0.1/32", r1_ipv4_unicast_sid, expect_installed=False)
+    res = check_route(
+        tgen.gears["r3"],
+        "show ip route 10.0.0.1/32 json",
+        "10.0.0.1/32",
+        r1_ipv4_unicast_sid,
+        expect_installed=False,
+    )
     assert res is True, res
 
     logger.info("Check fd00:200::/64 is withdrawn from R3 (strict encap-srv6 peer)")
-    res = check_route(tgen.gears["r3"], "show ipv6 route fd00:200::/64 json",
-                      "fd00:200::/64", r1_ipv6_unicast_sid, expect_installed=False)
+    res = check_route(
+        tgen.gears["r3"],
+        "show ipv6 route fd00:200::/64 json",
+        "fd00:200::/64",
+        r1_ipv6_unicast_sid,
+        expect_installed=False,
+    )
     assert res is True, res
 
     logger.info("Check 10.0.0.1/32 on R2 has no SRv6 encap (encap-srv6-relax peer)")
-    res = check_route(tgen.gears["r2"], "show ip route 10.0.0.1/32 json",
-                      "10.0.0.1/32", "")
+    res = check_route(
+        tgen.gears["r2"], "show ip route 10.0.0.1/32 json", "10.0.0.1/32", ""
+    )
     assert res is True, res
 
     # Re-add the locator and verify SIDs are re-allocated and routes re-announced.
@@ -1194,14 +1505,26 @@ def test_bgp_srv6_no_locator():
     r1_ipv4_unicast_sid = r1_unicast_sid
     logger.info("R1 sid[AFI_IP] after re-add: %s" % r1_ipv4_unicast_sid)
 
-    logger.info("Check 10.0.0.1/32 with new SID %s is installed on R3" % r1_ipv4_unicast_sid)
-    res = check_route(tgen.gears["r3"], "show ip route 10.0.0.1/32 json",
-                      "10.0.0.1/32", r1_ipv4_unicast_sid)
+    logger.info(
+        "Check 10.0.0.1/32 with new SID %s is installed on R3" % r1_ipv4_unicast_sid
+    )
+    res = check_route(
+        tgen.gears["r3"],
+        "show ip route 10.0.0.1/32 json",
+        "10.0.0.1/32",
+        r1_ipv4_unicast_sid,
+    )
     assert res is True, res
 
-    logger.info("Check 10.0.0.1/32 with new SID %s is installed on R2" % r1_ipv4_unicast_sid)
-    res = check_route(tgen.gears["r2"], "show ip route 10.0.0.1/32 json",
-                      "10.0.0.1/32", r1_ipv4_unicast_sid)
+    logger.info(
+        "Check 10.0.0.1/32 with new SID %s is installed on R2" % r1_ipv4_unicast_sid
+    )
+    res = check_route(
+        tgen.gears["r2"],
+        "show ip route 10.0.0.1/32 json",
+        "10.0.0.1/32",
+        r1_ipv4_unicast_sid,
+    )
     assert res is True, res
 
     logger.info("Wait for R1 GRT unicast SID[AFI_IP6] to be re-allocated")
@@ -1210,15 +1533,82 @@ def test_bgp_srv6_no_locator():
     r1_ipv6_unicast_sid = r1_unicast_sid
     logger.info("R1 sid[AFI_IP6] after re-add: %s" % r1_ipv6_unicast_sid)
 
-    logger.info("Check fd00:200::/64 with new SID %s is installed on R3" % r1_ipv6_unicast_sid)
-    res = check_route(tgen.gears["r3"], "show ipv6 route fd00:200::/64 json",
-                      "fd00:200::/64", r1_ipv6_unicast_sid)
+    logger.info(
+        "Check fd00:200::/64 with new SID %s is installed on R3" % r1_ipv6_unicast_sid
+    )
+    res = check_route(
+        tgen.gears["r3"],
+        "show ipv6 route fd00:200::/64 json",
+        "fd00:200::/64",
+        r1_ipv6_unicast_sid,
+    )
     assert res is True, res
 
-    logger.info("Check fd00:200::/64 with new SID %s is installed on R2" % r1_ipv6_unicast_sid)
-    res = check_route(tgen.gears["r2"], "show ipv6 route fd00:200::/64 json",
-                      "fd00:200::/64", r1_ipv6_unicast_sid)
+    logger.info(
+        "Check fd00:200::/64 with new SID %s is installed on R2" % r1_ipv6_unicast_sid
+    )
+    res = check_route(
+        tgen.gears["r2"],
+        "show ipv6 route fd00:200::/64 json",
+        "fd00:200::/64",
+        r1_ipv6_unicast_sid,
+    )
     assert res is True, res
+
+
+def test_bgp_srv6_zebra_restart():
+    """
+    Restart zebra on r1 while bgpd keeps running. The restarted zebra has lost
+    the SRv6 unicast SIDs allocated by bgp, and their local SIDs: the restart
+    must force bgp to allocate its SIDs again. Check that zebra has again a
+    SID allocated by bgp for each context that had one before the restart,
+    and that its local SID is installed.
+    """
+    tgen = get_topogen()
+
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    r1 = tgen.gears["r1"]
+
+    def get_bgp_sids_per_context():
+        output = json.loads(r1.vtysh_cmd("show segment-routing srv6 sid json"))
+        sids = {}
+        for sid, sid_info in output.items():
+            clients = [c.get("protocol") for c in sid_info.get("clients", [])]
+            if "bgp" not in clients:
+                continue
+            context = (
+                sid_info.get("context", {}).get("vrfName"),
+                sid_info.get("behavior"),
+            )
+            sids[context] = sid
+        return sids
+
+    contexts = get_bgp_sids_per_context()
+    assert contexts, "no SID allocated by bgp before the zebra restart"
+    output = r1.vtysh_cmd("show segment-routing srv6 sid")
+    logger.info(output)
+
+    kill_router_daemons(tgen, "r1", ["zebra"])
+    start_router_daemons(tgen, "r1", ["zebra"])
+
+    @retry(retry_timeout=60)
+    def check_bgp_sids_allocated_again():
+        sids = get_bgp_sids_per_context()
+        for context in contexts:
+            if context not in sids:
+                return f"no SID allocated by bgp for {context}"
+            sid = sids[context]
+            output = json.loads(r1.vtysh_cmd(f"show ipv6 route {sid}/128 json"))
+            if f"{sid}/128" not in output:
+                return f"local SID {sid} of {context} not installed"
+        return True
+
+    result = check_bgp_sids_allocated_again()
+    output = r1.vtysh_cmd("show segment-routing srv6 sid")
+    logger.info(output)
+    assert result is True, result
 
 
 def teardown_module(mod):

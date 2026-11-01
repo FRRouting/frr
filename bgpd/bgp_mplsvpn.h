@@ -14,6 +14,7 @@
 #include "bgpd/bgp_zebra.h"
 #include "bgpd/bgp_vty.h"
 #include "bgpd/bgp_label.h"
+#include "bgpd/bgp_srv6.h"
 
 #define MPLS_LABEL_IS_SPECIAL(label) ((label) <= MPLS_LABEL_EXTENSION)
 #define MPLS_LABEL_IS_NULL(label)                                              \
@@ -85,6 +86,7 @@ extern void delete_vrf_tovpn_sid(struct bgp *vpn, struct bgp *vrf, afi_t afi);
 extern void delete_vrf_tovpn_sid_per_af(struct bgp *vpn, struct bgp *vrf,
 					afi_t afi);
 extern void delete_vrf_tovpn_sid_per_vrf(struct bgp *vpn, struct bgp *vrf);
+extern void vpn_leak_zebra_vrf_sids_forget(struct bgp *bgp_vrf);
 extern void ensure_vrf_tovpn_sid_per_af(struct bgp *vpn, struct bgp *vrf,
 					afi_t afi);
 extern void ensure_vrf_tovpn_sid_per_vrf(struct bgp *vpn, struct bgp *vrf);
@@ -111,9 +113,8 @@ static inline bool is_bgp_vrf_mplsvpn(struct bgp *bgp)
 	return false;
 }
 
-static inline int vpn_leak_to_vpn_active(struct bgp *bgp_vrf, afi_t afi,
-					 const char **pmsg,
-					 bool ignore_export_rt_list)
+static inline int vpn_leak_to_vpn_config_active(struct bgp *bgp_vrf, afi_t afi, const char **pmsg,
+						bool ignore_export_rt_list)
 {
 	if (bgp_vrf->inst_type != BGP_INSTANCE_TYPE_VRF
 		&& bgp_vrf->inst_type != BGP_INSTANCE_TYPE_DEFAULT) {
@@ -187,7 +188,11 @@ static inline int vpn_leak_to_vpn_active(struct bgp *bgp_vrf, afi_t afi,
 		SET_FLAG(bgp_vrf->vpn_policy[afi].flags,
 			 BGP_VPN_POLICY_TOVPN_LABEL_MANUAL_REG);
 	}
+	return 1;
+}
 
+static inline int vpn_leak_to_vpn_sid_active(struct bgp *bgp_vrf, afi_t afi, const char **pmsg)
+{
 	/* Is there an export SID that isn't allocated yet? */
 	if ((CHECK_FLAG(bgp_vrf->vpn_policy[afi].flags, BGP_VPN_POLICY_TOVPN_SID_AUTO) ||
 	     CHECK_FLAG(bgp_vrf->vpn_policy[afi].flags, BGP_VPN_POLICY_TOVPN_SID_EXPLICIT) ||
@@ -198,6 +203,13 @@ static inline int vpn_leak_to_vpn_active(struct bgp *bgp_vrf, afi_t afi,
 		return 0;
 	}
 	return 1;
+}
+
+static inline int vpn_leak_to_vpn_active(struct bgp *bgp_vrf, afi_t afi, const char **pmsg,
+					 bool ignore_export_rt_list)
+{
+	return vpn_leak_to_vpn_config_active(bgp_vrf, afi, pmsg, ignore_export_rt_list) &&
+	       vpn_leak_to_vpn_sid_active(bgp_vrf, afi, pmsg);
 }
 
 static inline int vpn_leak_from_vpn_active(struct bgp *bgp_vrf, afi_t afi,
@@ -258,7 +270,8 @@ static inline void vpn_leak_prechange(enum vpn_policy_direction direction,
 		vpn_leak_to_vrf_withdraw_all(bgp_vrf, afi);
 	}
 	if ((direction == BGP_VPN_POLICY_DIR_TOVPN) &&
-	    vpn_leak_to_vpn_active(bgp_vrf, afi, NULL, true)) {
+	    (vpn_leak_to_vpn_active(bgp_vrf, afi, NULL, true) ||
+	     bgp_srv6_per_locator_cache_count(&bgp_vrf->srv6_locators_per_routemap[afi]))) {
 		vpn_leak_from_vrf_withdraw_all(bgp_vpn, bgp_vrf, afi);
 	}
 }

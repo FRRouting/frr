@@ -120,43 +120,6 @@ struct zebra_srv6_sid_block {
 	struct zebra_srv6_sid_ctx_list_head sids;
 };
 
-/**
- * The function part of an SRv6 SID can be allocated in one
- * of the following ways:
- *  - dynamic: allocate any available function
- *  - explicit: allocate a specific function
- */
-enum srv6_sid_alloc_mode {
-	SRV6_SID_ALLOC_MODE_UNSPEC = 0,
-	/* Dynamic SID allocation */
-	SRV6_SID_ALLOC_MODE_DYNAMIC = 1,
-	/* Explicit SID allocation */
-	SRV6_SID_ALLOC_MODE_EXPLICIT = 2,
-	SRV6_SID_ALLOC_MODE_MAX = 3,
-};
-
-/**
- * Convert SID allocation mode to string.
- *
- * @param alloc_mode SID allocation mode
- * @return String representing the allocation mode
- */
-static inline const char *
-srv6_sid_alloc_mode2str(enum srv6_sid_alloc_mode alloc_mode)
-{
-	switch (alloc_mode) {
-	case SRV6_SID_ALLOC_MODE_EXPLICIT:
-		return "explicit";
-	case SRV6_SID_ALLOC_MODE_DYNAMIC:
-		return "dynamic";
-	case SRV6_SID_ALLOC_MODE_UNSPEC:
-		return "unspec";
-	case SRV6_SID_ALLOC_MODE_MAX:
-	default:
-		return "unknown";
-	}
-}
-
 PREDECL_DLIST(zebra_srv6_sid_client_list);
 
 struct zebra_srv6_sid_client {
@@ -353,7 +316,7 @@ void zebra_srv6_sid_client_add(struct zebra_srv6_sid *sid, bool is_localonly,
 struct zebra_srv6_sid_entry *zebra_srv6_sid_entry_add(struct zebra_srv6_sid *sid,
 						      const char *locator_name,
 						      struct in6_addr *sid_value,
-						      bool is_localonly);
+						      bool is_localonly, bool *created);
 
 extern void srv6_manager_get_sid_call(struct zebra_srv6_sid **sid, struct zserv *client,
 				      struct srv6_sid_ctx *ctx, struct in6_addr *sid_value,
