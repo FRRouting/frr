@@ -2087,6 +2087,9 @@ Configuring Peers
    if you wish. This connection type is meant for point to point connections.
    If you are on an ethernet segment and attempt to use this with more than one
    bgp neighbor, only one neighbor will come up, due to how this feature works.
+   On a segment shared with other routers that send router advertisements,
+   configure ``ipv6 nd multi-access`` on the interface so that *bgpd* can find
+   the peer among them.
 
 .. clicmd:: neighbor PEER next-hop-self [force]
 

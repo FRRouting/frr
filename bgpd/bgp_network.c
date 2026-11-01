@@ -433,6 +433,8 @@ static void bgp_accept(struct event *event)
 	char buf[SU_ADDRSTRLEN];
 	struct bgp *bgp = NULL;
 	enum bgp_peer_active active;
+	uint32_t nbr_conn_idx = 0;
+	bool nbr_conn_retarget = false;
 
 	sockunion_init(&su);
 
@@ -585,6 +587,11 @@ static void bgp_accept(struct event *event)
 	}
 
 	if (!peer) {
+		peer = peer_lookup_nbr_conn_multi(bgp, &su, &nbr_conn_idx);
+		nbr_conn_retarget = !!peer;
+	}
+
+	if (!peer) {
 		if (bgp_debug_neighbor_events(NULL)) {
 			zlog_debug(
 				"[Event] %s connection rejected(%s:%u:%s) - not configured and not valid for dynamic",
@@ -671,6 +678,10 @@ static void bgp_accept(struct event *event)
 	if (bgp_debug_neighbor_events(peer))
 		zlog_debug("[Event] connection from %s fd %d, active peer status %d fd %d",
 			   inet_sutop(&su, buf), bgp_sock, connection->status, connection->fd);
+
+	/* Multi-access: the peer now targets the neighbor that connected */
+	if (nbr_conn_retarget)
+		peer_nbr_conn_retarget(peer, nbr_conn_idx);
 
 	if (peer->doppelganger) {
 		/* We have an existing connection. Kill the existing one and run
