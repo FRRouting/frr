@@ -44,6 +44,8 @@ Daemon gRPC Configuration
 
 The *gRPC* module accepts the following run time option:
 
+- ``ip``: the ip to bind to (defaults to ``0.0.0.0``).
+
 - ``port``: the port to listen to (defaults to ``50051``).
 
 
@@ -55,7 +57,15 @@ The *gRPC* module accepts the following run time option:
 
 To configure FRR daemons to listen to gRPC you need to append the
 following parameter to the daemon's command line: ``-M grpc``
-(optionally ``-M grpc:PORT`` to specify listening port).
+(optionally ``-M grpc:PORT`` to specify listening port or ``-M grpc:IP:PORT``
+to specify both IP and port).
+
+
+.. note::
+
+   For IPv6 where address contains ``:``,  use ``[IP]`` scheme to enclose
+   the IP (Example ``[::1]``).
+
 
 To do that in production you need to edit the ``/etc/frr/daemons`` file
 so the daemons get started with the command line argument. Example:
@@ -64,3 +74,5 @@ so the daemons get started with the command line argument. Example:
 
    # other daemons...
    bfdd_options="  --daemon -A 127.0.0.1 -M grpc"
+   bgpd_options="   -A 127.0.0.1 -M grpc:50005"
+   ospfd_options="  -A 127.0.0.1 -M grpc:127.0.0.1:50000"
