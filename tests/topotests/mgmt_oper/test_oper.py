@@ -15,7 +15,12 @@ import math
 
 import pytest
 from lib.topogen import Topogen
-from oper import check_kernel_32, check_kernel_net, do_oper_test
+from oper import (
+    check_kernel_32,
+    check_kernel_net,
+    check_link_local_routes,
+    do_oper_test,
+)
 
 pytestmark = [pytest.mark.staticd, pytest.mark.mgmtd]
 
@@ -106,6 +111,22 @@ def test_oper(tgen):
     check_kernel_net(r1, "2004:4444::/64", "red")
 
     do_oper_test(tgen, query_results)
+
+
+def test_oper_link_local(tgen):
+    """The northbound RIB walk must not hide IPv6 link-local routes.
+
+    A router holds one connected link-local route per interface, all of them
+    under the single fe80::/64 route node, so this also covers a route node
+    carrying several entries owned by the same protocol.
+    """
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    r1 = tgen.gears["r1"].net
+
+    check_link_local_routes(r1, "default")
+    check_link_local_routes(r1, "red")
 
 
 to_gen_new_results = """
