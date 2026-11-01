@@ -469,10 +469,10 @@ int bfd_session_enable(struct bfd_session *bs)
 		bvrf->bg_session_count++;
 		/*
 		 * Echo set before the VRF was known opened no echo socket.
-		 * Only where bfd_vrf_start_sockets would open sockets: not
-		 * with a data plane, and not in a VRF left out of --vrfs.
+		 * Only where bfd_vrf_start_sockets would open sockets, and
+		 * not in a VRF left out of --vrfs.
 		 */
-		if (CHECK_FLAG(bs->flags, BFD_SESS_FLAG_ECHO) && !bglobal.bg_use_dplane &&
+		if (CHECK_FLAG(bs->flags, BFD_SESS_FLAG_ECHO) && bfd_vrf_listens() &&
 		    bfd_vrf_is_perm(bvrf->vrf->name))
 			bfd_vrf_toggle_echo(bvrf);
 	}
@@ -2610,6 +2610,38 @@ void bfd_profiles_remove(void)
 		bfd_profile_free(bp, true);
 }
 
+/*
+ * Whether bfdd listens for the sessions it runs. With a data plane
+ * configured, only once one is connected and has declared what it supports:
+ * the sessions bfdd runs then are ones it declined. Until then they wait for
+ * it, and the ports stay free for a data plane on this host.
+ */
+bool bfd_vrf_listens(void)
+{
+	return !bglobal.bg_use_dplane || bfd_dplane_declared();
+}
+
+/*
+ * Open or close the listening sockets of every VRF once a data plane
+ * connects, declares what it supports, or goes away.
+ */
+void bfd_vrfs_listen_update(void)
+{
+	struct bfd_vrf_global *bvrf;
+	struct vrf *vrf;
+
+	RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name) {
+		bvrf = vrf->info;
+		if (!bvrf)
+			continue;
+
+		if (!bfd_vrf_listens())
+			bfd_vrf_stop_sockets(bvrf);
+		else if (bvrf->bg_session_count > 0 || bvrf->bg_reflector_count > 0)
+			bfd_vrf_start_sockets(bvrf);
+	}
+}
+
 struct __bfd_session_echo {
 	/* VRF peers must match */
 	struct vrf *vrf;
@@ -2626,6 +2658,9 @@ static int __bfd_session_has_echo(struct hash_bucket *hb, void *arg)
 		return HASHWALK_CONTINUE;
 	if (!CHECK_FLAG(session->flags, BFD_SESS_FLAG_ECHO))
 		return HASHWALK_CONTINUE;
+	/* A data plane sends and receives its sessions' echo. */
+	if (session->bdc)
+		return HASHWALK_CONTINUE;
 
 	has_echo->enabled = true;
 	return HASHWALK_ABORT;
@@ -2638,8 +2673,8 @@ void bfd_vrf_toggle_echo(struct bfd_vrf_global *bfd_vrf)
 		.vrf = bfd_vrf->vrf,
 	};
 
-	/* As bfd_vrf_start_sockets: the data plane sends and receives echo. */
-	if (bglobal.bg_use_dplane)
+	/* As bfd_vrf_start_sockets. */
+	if (!bfd_vrf_listens())
 		return;
 
 	/* Check for peers using echo */
@@ -3028,8 +3063,7 @@ void bfd_rtt_init(struct bfd_session *bfd)
  */
 int bfd_vrf_start_sockets(struct bfd_vrf_global *bvrf)
 {
-	/* Don't open sockets when using data plane. */
-	if (bglobal.bg_use_dplane)
+	if (!bfd_vrf_listens())
 		return 0;
 
 	if (!bfd_vrf_is_perm(bvrf->vrf->name))

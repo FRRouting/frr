@@ -915,6 +915,9 @@ void bfd_dplane_init(const struct sockaddr *sa, socklen_t salen, bool client);
  * and we should fallback to software implementation.
  */
 int bfd_dplane_add_session(struct bfd_session *bs);
+bool bfd_dplane_declared(void);
+bool bfd_vrf_listens(void);
+void bfd_vrfs_listen_update(void);
 
 /**
  * Send new session settings to data plane.
