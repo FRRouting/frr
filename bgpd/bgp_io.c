@@ -134,6 +134,21 @@ static void bgp_process_writes(struct event *event)
 	if (connection->fd < 0)
 		return;
 
+	/*
+	 * The peer has closed a graceful-restart session, and its close waits
+	 * until the messages already queued from this connection have been
+	 * processed (see bgp_close_after_ibuf()). Our fd stays open until
+	 * bgp_stop(), but nothing must be written: a failed write ends the session
+	 * as a fatal error, without graceful restart. So, just free the output and
+	 * do not reschedule.
+	 */
+	if (atomic_load_explicit(&connection->close_pending, memory_order_relaxed)) {
+		frr_with_mutex (&connection->io_mtx) {
+			stream_fifo_clean(connection->obuf);
+		}
+		return;
+	}
+
 	/* Anticipate rescheduling */
 	event_add_write(fpt->master, bgp_process_writes, connection, connection->fd,
 			&connection->t_write);
