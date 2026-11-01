@@ -312,7 +312,7 @@ jobs:
 
           echo RUN_TESTS: $run_tests
           if docker run --init -i --privileged --name frr-${{ matrix.cfg.platform }}-cont ${ADD_DOCKER_ENV} -v /lib/modules:/lib/modules frr-${{ matrix.cfg.platform }} \
-            bash -c 'cd ~/frr/tests/topotests ; sudo -E pytest -n$(($(nproc) * 5 / 2)) --dist=loadfile "$@"' _ $run_tests; then
+            bash -c 'cd ~/frr/tests/topotests ; sudo -E pytest -n$(($(nproc) * 2)) --dist=loadfile "$@"' _ $run_tests; then
             echo "All tests passed."
             exit 0
           fi
