@@ -334,6 +334,135 @@ def test_zebra_mtu_single_local_route_per_address():
     assert result is None, "Local route check failed: {}".format(result)
 
 
+def _get_intf(router, ifname):
+    output = router.vtysh_cmd("show interface {} json".format(ifname), isjson=True)
+    return output.get(ifname, {})
+
+
+def _link_status(intf):
+    # operationalStatus is only shown while the interface is admin up
+    if intf.get("administrativeStatus") != "up":
+        return "down"
+    return intf.get("operationalStatus")
+
+
+def _wait_oper_status(router, ifname, status):
+    def _check():
+        intf = _get_intf(router, ifname)
+        if _link_status(intf) != status:
+            return "{} is not {}: {}".format(ifname, status, _link_status(intf))
+        return None
+
+    step("Wait for {} to be operationally {}".format(ifname, status))
+    _, result = topotest.run_and_expect(_check, None, count=20, wait=1)
+    assert result is None, result
+
+
+def _assert_link_counters(router, ifname, ups, downs):
+    intf = _get_intf(router, ifname)
+    assert (intf["linkUps"], intf["linkDowns"]) == (
+        ups,
+        downs,
+    ), "{} expected linkUps/linkDowns {}/{}, got {}/{}".format(
+        ifname, ups, downs, intf["linkUps"], intf["linkDowns"]
+    )
+
+
+def _check_link_counters_no_change_on_attr_update(router, ifname, new_mac):
+    "Change MAC/MTU of an up interface and check link up/down counters"
+
+    _wait_oper_status(router, ifname, "up")
+
+    intf = _get_intf(router, ifname)
+    ups_before = intf["linkUps"]
+    downs_before = intf["linkDowns"]
+    logger.info(
+        "%s linkUps=%d linkDowns=%d before update", ifname, ups_before, downs_before
+    )
+
+    # Must differ from the current MTU (r2-eth2 is 6000 from an earlier test,
+    # r3-eth0 is the default 1500), otherwise no change is generated.
+    new_mtu = 1400
+    step("Change MAC and MTU of {} while it stays up".format(ifname))
+    router.run("ip link set dev {} address {}".format(ifname, new_mac))
+    router.run("ip link set dev {} mtu {}".format(ifname, new_mtu))
+
+    def _check_attrs_updated():
+        intf = _get_intf(router, ifname)
+        if intf.get("hardwareAddress") != new_mac:
+            return "MAC not updated yet: {}".format(intf.get("hardwareAddress"))
+        if intf.get("mtu") != new_mtu:
+            return "MTU not updated yet: {}".format(intf.get("mtu"))
+        if _link_status(intf) != "up":
+            return "{} went down".format(ifname)
+        return None
+
+    _, result = topotest.run_and_expect(_check_attrs_updated, None, count=20, wait=1)
+    assert result is None, result
+
+    step("Verify link up/down counters of {} did not change".format(ifname))
+    intf = _get_intf(router, ifname)
+    assert (
+        intf["linkUps"] == ups_before
+    ), "{} linkUps changed on attribute update: {} -> {}".format(
+        ifname, ups_before, intf["linkUps"]
+    )
+    assert (
+        intf["linkDowns"] == downs_before
+    ), "{} linkDowns changed on attribute update: {} -> {}".format(
+        ifname, downs_before, intf["linkDowns"]
+    )
+
+
+def test_zebra_link_counters_after_flap():
+    "Link up/down counters count real transitions only, after a flap"
+
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    # Interface that came up through a real down -> up transition. Flap it
+    # here so this test does not depend on earlier tests, and verify that
+    # the transitions themselves are counted.
+    r2 = tgen.gears["r2"]
+    _wait_oper_status(r2, "r2-eth2", "up")
+    intf = _get_intf(r2, "r2-eth2")
+    ups_before = intf["linkUps"]
+    downs_before = intf["linkDowns"]
+
+    step("Flap r2-eth2 and verify each transition is counted once")
+    r2.run("ip link set dev r2-eth2 down")
+    _wait_oper_status(r2, "r2-eth2", "down")
+    _assert_link_counters(r2, "r2-eth2", ups_before, downs_before + 1)
+
+    r2.run("ip link set dev r2-eth2 up")
+    _wait_oper_status(r2, "r2-eth2", "up")
+    _assert_link_counters(r2, "r2-eth2", ups_before + 1, downs_before + 1)
+
+    _check_link_counters_no_change_on_attr_update(r2, "r2-eth2", "02:00:00:00:22:22")
+
+
+def test_zebra_link_counters_up_at_startup():
+    "Link up/down counters are not bumped for an interface up since startup"
+
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    # Interface that was already up when zebra learned about it. r3-eth0 is
+    # brought up by start_topology() before the routers are started, and no
+    # test in this file touches r3. If a test that flaps r3 is added before
+    # this one, this precondition fails; use another untouched interface
+    # for this test then.
+    r3 = tgen.gears["r3"]
+    step("Verify r3-eth0 has never had a link up/down transition")
+    intf = _get_intf(r3, "r3-eth0")
+    assert (
+        intf.get("linkUps") == 0 and intf.get("linkDowns") == 0
+    ), "r3-eth0 is expected to be untouched since zebra started: {}".format(intf)
+    _check_link_counters_no_change_on_attr_update(r3, "r3-eth0", "02:00:00:00:33:33")
+
+
 def test_zebra_kernel_last_ipv4_address_deleted():
     "Test that when last IPv4 address is deleted on interface, kernel routes are deleted as well"
 
