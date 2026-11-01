@@ -17,7 +17,9 @@ routes on its own, without "clear bgp ... soft in":
     10.20.0.0/24    not found   not found   not found   not found
 
 The BGP session is brought up only after r2 holds the initial VRP set, so
-that the initial filtering does not depend on revalidation.
+that the initial filtering does not depend on revalidation. A last step stops
+and restarts RPKI on r2: routes accepted while RPKI is stopped must be
+re-filtered once the VRP set is loaded again.
 
 None of the covering prefixes is announced, so the path from the top of r2's
 BGP table to each /24 goes through holder route_nodes (no bgp_dest), and the
@@ -262,6 +264,35 @@ def test_covering_vrp_invalidates_notfound():
 
 def test_revert_vrps():
     change_vrps(VRPS_INITIAL, EXPECTED_INITIAL)
+
+
+def test_rpki_restart_refilters():
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+    if rtrd_process.poll() is not None:
+        pytest.skip("rtrd is not running")
+
+    r2 = tgen.gears["r2"]
+
+    step("Stop RPKI on r2 and re-run the inbound policy without VRPs")
+    r2.vtysh_cmd("rpki stop")
+    r2.vtysh_cmd("clear bgp ipv4 unicast 10.0.0.1 soft in")
+
+    test_func = functools.partial(_bgp_state, {p: "any" for p in PREFIXES})
+    _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
+    assert result is None, "routes not accepted with RPKI stopped: {}".format(result)
+
+    step("Start RPKI on r2 and wait for the VRP set")
+    r2.vtysh_cmd("rpki start")
+    test_func = functools.partial(_rpki_prefix_table, VRPS_INITIAL)
+    _, result = topotest.run_and_expect(test_func, None, count=60, wait=1)
+    assert result is None, "r2 did not receive the VRP set: {}".format(result)
+
+    step("Check that r2 re-filtered the routes, without soft in")
+    test_func = functools.partial(_bgp_state, EXPECTED_INITIAL)
+    _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
+    assert result is None, "inbound policy not re-applied: {}".format(result)
 
 
 def test_memory_leak():
