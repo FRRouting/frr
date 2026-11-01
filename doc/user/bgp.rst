@@ -6818,7 +6818,8 @@ convergence.
    are eligible as backups: paths that carry their own encapsulation (an
    SRv6-VPN SID, a VPN/labeled-unicast label stack, or an EVPN-imported
    route), or paths whose nexthop resolution consists entirely of
-   tunnel legs (an MPLS label stack, an SRv6 SID list, or egress over
+   tunnel legs (an MPLS label stack, an SRv6 SID list, an SR-TE policy
+   steering the nexthop, or egress over
    a GRE/VXLAN-type interface; nexthop updates do not carry a leg's
    VXLAN encapsulation, so VXLAN otherwise qualifies only at the path
    level, as an EVPN-imported route). This is

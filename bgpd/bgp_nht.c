@@ -174,6 +174,7 @@ enum bgp_nh_tunnel_kind {
 	BGP_NH_TUNNEL_MPLS = 1 << 0,
 	BGP_NH_TUNNEL_SRV6 = 1 << 1,
 	BGP_NH_TUNNEL_IFACE = 1 << 2,
+	BGP_NH_TUNNEL_SRTE = 1 << 3,
 };
 
 static enum bgp_nh_tunnel_kind bgp_nh_leg_tunnel_kind(struct bgp_nexthop_cache *bnc,
@@ -200,6 +201,13 @@ static enum bgp_nh_tunnel_kind bgp_nh_leg_tunnel_kind(struct bgp_nexthop_cache *
 	    nexthop->nh_srv6->seg6_segs->num_segs)
 		return BGP_NH_TUNNEL_SRV6;
 
+	/* An SR-TE-steered leg may carry neither labels nor segs inline:
+	 * zebra reports the policy indirection and applies the encap at
+	 * install time, so steering alone means the leg encapsulates.
+	 */
+	if (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_SRTE))
+		return BGP_NH_TUNNEL_SRTE;
+
 	if (nexthop->type == NEXTHOP_TYPE_BLACKHOLE)
 		return BGP_NH_TUNNEL_NONE;
 
@@ -216,7 +224,8 @@ static enum bgp_nh_tunnel_kind bgp_nh_leg_tunnel_kind(struct bgp_nexthop_cache *
 /*
  * Whether a bnc's resolution tunnels traffic: true iff the bnc is valid and
  * EVERY resolved leg carries an encapsulation (MPLS label stack, SRv6 SID
- * list) or egresses a tunnel-type interface. All-legs on purpose, unlike
+ * list, SR-TE policy steering) or egresses a tunnel-type interface.
+ * All-legs on purpose, unlike
  * BGP_NEXTHOP_LABELED_VALID's any-leg semantics: with one plain leg in an
  * ECMP resolution, part of the traffic would go out unencapsulated.
  *
@@ -253,6 +262,9 @@ bool bgp_nht_bnc_is_tunnel_resolved(struct bgp_nexthop_cache *bnc, const char **
 			break;
 		case BGP_NH_TUNNEL_IFACE:
 			*kind = "tunnel-if";
+			break;
+		case BGP_NH_TUNNEL_SRTE:
+			*kind = "srte";
 			break;
 		default:
 			*kind = "mixed";
