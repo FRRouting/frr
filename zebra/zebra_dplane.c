@@ -426,6 +426,12 @@ struct dplane_tc_filter_info {
 	uint8_t dsfield;
 	uint8_t dsfield_mask;
 	uint32_t classid;
+	uint16_t vlan_id;
+	uint8_t vlan_prio;
+	uint16_t vlan_eth_type;
+	enum tc_filter_attach attach;
+	bool has_action;
+	struct tc_action_skbedit skbedit;
 };
 
 /*
@@ -2445,6 +2451,48 @@ uint32_t dplane_ctx_tc_filter_get_classid(const struct zebra_dplane_ctx *ctx)
 	DPLANE_CTX_VALID(ctx);
 
 	return ctx->u.tc_filter.classid;
+}
+
+uint16_t dplane_ctx_tc_filter_get_vlan_id(const struct zebra_dplane_ctx *ctx)
+{
+	DPLANE_CTX_VALID(ctx);
+
+	return ctx->u.tc_filter.vlan_id;
+}
+
+uint8_t dplane_ctx_tc_filter_get_vlan_prio(const struct zebra_dplane_ctx *ctx)
+{
+	DPLANE_CTX_VALID(ctx);
+
+	return ctx->u.tc_filter.vlan_prio;
+}
+
+uint16_t dplane_ctx_tc_filter_get_vlan_eth_type(const struct zebra_dplane_ctx *ctx)
+{
+	DPLANE_CTX_VALID(ctx);
+
+	return ctx->u.tc_filter.vlan_eth_type;
+}
+
+enum tc_filter_attach dplane_ctx_tc_filter_get_attach(const struct zebra_dplane_ctx *ctx)
+{
+	DPLANE_CTX_VALID(ctx);
+
+	return ctx->u.tc_filter.attach;
+}
+
+bool dplane_ctx_tc_filter_has_action(const struct zebra_dplane_ctx *ctx)
+{
+	DPLANE_CTX_VALID(ctx);
+
+	return ctx->u.tc_filter.has_action;
+}
+
+const struct tc_action_skbedit *dplane_ctx_tc_filter_get_skbedit(const struct zebra_dplane_ctx *ctx)
+{
+	DPLANE_CTX_VALID(ctx);
+
+	return &ctx->u.tc_filter.skbedit;
 }
 
 /*
@@ -4620,6 +4668,12 @@ static int dplane_ctx_tc_filter_init(struct zebra_dplane_ctx *ctx,
 	ctx->u.tc_filter.dsfield = filter->filter.u.flower.dsfield;
 	ctx->u.tc_filter.dsfield_mask = filter->filter.u.flower.dsfield_mask;
 	ctx->u.tc_filter.classid = filter->filter.u.flower.classid;
+	ctx->u.tc_filter.vlan_id = filter->filter.u.flower.vlan_id;
+	ctx->u.tc_filter.vlan_prio = filter->filter.u.flower.vlan_prio;
+	ctx->u.tc_filter.vlan_eth_type = filter->filter.u.flower.vlan_eth_type;
+	ctx->u.tc_filter.attach = filter->filter.attach;
+	ctx->u.tc_filter.has_action = filter->filter.has_action;
+	ctx->u.tc_filter.skbedit = filter->filter.skbedit;
 
 	ctx->u.tc_filter.priority = filter->filter.priority;
 	ctx->u.tc_filter.handle = filter->filter.handle;

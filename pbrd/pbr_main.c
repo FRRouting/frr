@@ -32,6 +32,7 @@
 
 #include "pbr_nht.h"
 #include "pbr_map.h"
+#include "pbr_tc.h"
 #include "pbr_zebra.h"
 #include "pbr_vty.h"
 #include "pbr_debug.h"
@@ -70,6 +71,7 @@ static FRR_NORETURN void sigint(void)
 	zlog_notice("Terminating on signal");
 
 	pbr_map_terminate();
+	pbr_tc_terminate();
 	pbr_vrf_terminate();
 	nexthop_group_terminate();
 	pbr_nht_terminate();
@@ -164,6 +166,7 @@ int main(int argc, char **argv, char **envp)
 	access_list_init();
 	pbr_nht_init();
 	pbr_map_init();
+	pbr_tc_init();
 	hook_register_prio(if_real, 0, pbr_ifp_create);
 	hook_register_prio(if_up, 0, pbr_ifp_up);
 	hook_register_prio(if_down, 0, pbr_ifp_down);
