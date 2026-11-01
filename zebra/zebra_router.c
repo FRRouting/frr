@@ -262,6 +262,7 @@ void zebra_router_terminate(void)
 #endif
 
 	zebra_vxlan_terminate();
+	zebra_nhg_tracker_log_fini();
 	/* OS-specific deinit */
 	kernel_router_terminate();
 }
@@ -287,6 +288,7 @@ void zebra_router_init(bool asic_offload, bool notify_on_ack, bool v6_with_v4_ne
 
 	/* NHG event tracker functionality is enabled by default. */
 	zrouter.nhg_tracker_disabled = false;
+	zebra_nhg_tracker_log_init();
 
 	zrouter.gr_stale_cleanup_time_recorded = false;
 	zrouter.gr_update_pending_time_recorded = false;

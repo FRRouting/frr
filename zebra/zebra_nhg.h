@@ -231,6 +231,9 @@ struct nhg_hash_entry {
 	 */
 	uint32_t tracker_pending_winners;
 
+	/* Flush event log seq whose rework result is still pending, or 0 */
+	uint32_t tracker_log_seq;
+
 	/* Head of rb_tree of route_entries(re's)*/
 	struct nhe_re_tree_head re_head;
 };

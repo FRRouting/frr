@@ -170,8 +170,11 @@ struct route_entry {
  * then addition.
  */
 #define ROUTE_ENTRY_SEND_NHT_REMOVAL 0x100
-/* RE is part of a tracker flush batch phase 1 (awaiting dplane ack) */
-#define ROUTE_ENTRY_NHG_TRACKER_FLUSH_BATCH 0x200
+/*
+ * RE was drained by tracker phase 1 as a loser (a non-winning group, a
+ * silent RE or a withdrawn route); cleared on its dplane ack.
+ */
+#define ROUTE_ENTRY_NHG_TRACKER_LOSER 0x200
 /* RE was released by tracker phase 2 as a winner.  Consumed by
  * nexthop_active_update (or rib_unlink for cleanup), clears the flag,
  * decrements parent_nhe->tracker_pending_winners, fires consolidation
