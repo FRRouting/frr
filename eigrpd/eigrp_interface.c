@@ -331,6 +331,7 @@ static void eigrp_if_delete_one(struct eigrp_interface *ei)
 {
 	struct eigrp *eigrp = ei->eigrp;
 
+	eigrp_if_down(ei);
 	eigrp_nbr_hash_fini(&ei->nbr_hash_head);
 	eigrp_interface_hash_del(&eigrp->eifs, ei);
 
