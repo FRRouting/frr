@@ -79,6 +79,7 @@ void bgp_writes_off(struct peer_connection *connection)
 
 	event_cancel_async(fpt->master, &connection->t_write, NULL);
 	event_cancel(&connection->t_generate_updgrp_packets);
+	UNSET_FLAG(connection->thread_flags, PEER_THREAD_WRITES_PAUSED);
 }
 
 void bgp_reads_on(struct peer_connection *connection)
@@ -126,6 +127,7 @@ static void bgp_process_writes(struct event *event)
 	struct peer_connection *connection = EVENT_ARG(event);
 	uint16_t status;
 	bool reschedule = false;
+	bool resume = false;
 	bool fatal = false;
 	struct frr_pthread *fpt = bgp_pth_io;
 
@@ -141,6 +143,10 @@ static void bgp_process_writes(struct event *event)
 	frr_with_mutex (&connection->io_mtx) {
 		status = bgp_write(connection);
 		reschedule = (stream_fifo_head(connection->obuf) != NULL);
+		resume = CHECK_FLAG(connection->thread_flags, PEER_THREAD_WRITES_PAUSED) &&
+			 connection->obuf->count <= bm->outq_limit / 2;
+		if (resume)
+			UNSET_FLAG(connection->thread_flags, PEER_THREAD_WRITES_PAUSED);
 	}
 
 	/* no problem */
@@ -152,6 +158,10 @@ static void bgp_process_writes(struct event *event)
 		reschedule = false;
 		fatal = true;
 	}
+
+	if (resume && !fatal)
+		BGP_UPDATE_GROUP_TIMER_ON(&connection->t_generate_updgrp_packets,
+					  bgp_generate_updgrp_packets);
 
 	/* If suppress fib pending is enabled, route is advertised to peers when
 	 * the status is received from the FIB. The delay is added
