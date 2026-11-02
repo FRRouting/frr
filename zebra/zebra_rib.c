@@ -3055,6 +3055,8 @@ static void process_subq_early_route_delete(struct zebra_early_route *ere)
 				 */
 				dest->selected_fib = NULL;
 			} else {
+				UNSET_FLAG(fib->status, ROUTE_ENTRY_INSTALLED);
+				SET_FLAG(fib->status, ROUTE_ENTRY_SEND_NHT_REMOVAL);
 				/*
 				 * This means someone else, other than Zebra,
 				 * has deleted a Zebra router from the kernel.
@@ -3088,6 +3090,8 @@ static void process_subq_early_route_delete(struct zebra_early_route *ere)
 		if (ere->fromkernel &&
 		    CHECK_FLAG(ere->re->flags, ZEBRA_FLAG_SELFROUTE) &&
 		    !zrouter.allow_delete) {
+			UNSET_FLAG(same->status, ROUTE_ENTRY_INSTALLED);
+			SET_FLAG(same->status, ROUTE_ENTRY_SEND_NHT_REMOVAL);
 			rib_install_kernel(rn, same, NULL);
 			route_unlock_node(rn);
 
