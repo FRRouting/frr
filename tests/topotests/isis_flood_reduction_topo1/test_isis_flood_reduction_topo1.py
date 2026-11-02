@@ -162,6 +162,15 @@ def _lsp_tx_count(router):
     return output["vrfs"][0]["areas"][0]["tx-pdu-type"].get("l2-lsp", 0)
 
 
+def _fr_counters(router):
+    """Level-2 flooding reduction counters from "show isis summary json" """
+    output = json.loads(router.vtysh_cmd("show isis summary json"))
+    for level in output["vrfs"][0]["areas"][0]["levels"]:
+        if level["id"] == 2:
+            return level.get("flood-reduction")
+    return None
+
+
 def _log_has(router, pattern):
     logfile = os.path.join(router.gearlogdir, "isisd.log")
     with open(logfile, "r") as f:
@@ -199,6 +208,7 @@ def test_leaf_lsp_not_reflooded_by_leaves():
 
     others = [name for name in LEAVES if name != "l1"]
     before = {name: _lsp_tx_count(tgen.gears[name]) for name in others}
+    fr_before = {name: _fr_counters(tgen.gears[name]) for name in others}
     lsdb = _lsdb(tgen.gears["l1"])
 
     tgen.gears["l1"].vtysh_cmd(
@@ -219,6 +229,15 @@ def test_leaf_lsp_not_reflooded_by_leaves():
             tgen.gears[name],
             r"Flooding LSP 0000\.0000\.0011\.00-00 with reduction: .*suppressed [1-9]",
         ), "{}: no reduced flooding decision logged for l1's LSP".format(name)
+
+    for name in others:
+        fr_after = _fr_counters(tgen.gears[name])
+        for key in ("reduced", "suppressed"):
+            assert fr_after[key] > fr_before[name][key], (
+                "{}: flood-reduction {} counter did not increase: {} -> {}".format(
+                    name, key, fr_before[name][key], fr_after[key]
+                )
+            )
 
 
 def test_spine_lsp_flooded_with_reduction():
@@ -257,6 +276,9 @@ def test_flood_reduction_disabled():
         config = tgen.gears[name].vtysh_cmd("show running-config")
         assert not re.search(r"^ flood-reduction$", config, re.M), (
             "{}: flood-reduction still in running-config".format(name)
+        )
+        assert _fr_counters(tgen.gears[name]) is None, (
+            "{}: flood-reduction counters still shown".format(name)
         )
 
     lsdb = _lsdb(tgen.gears["l1"])

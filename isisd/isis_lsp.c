@@ -2377,6 +2377,7 @@ void lsp_flood_reduced(struct isis_lsp *lsp, struct isis_circuit *circuit, const
 	size_t n_circuits, n_nbrs = 0, i = 0;
 
 	if (!tn) {
+		area->fr_fallback_count[lsp->level - 1]++;
 		lsp_flood(lsp, circuit);
 		return;
 	}
@@ -2401,9 +2402,15 @@ void lsp_flood_reduced(struct isis_lsp *lsp, struct isis_circuit *circuit, const
 		if (IS_DEBUG_FLOODING)
 			zlog_debug("Flooding reduction not applicable to LSP %pLS, flooding to all",
 				   lsp->hdr.lsp_id);
+		area->fr_fallback_count[lsp->level - 1]++;
 		lsp_flood(lsp, circuit);
 		goto out;
 	}
+
+	area->fr_reduced_count[lsp->level - 1]++;
+	if (dec.selected)
+		area->fr_selected_count[lsp->level - 1]++;
+	area->fr_suppressed_count[lsp->level - 1] += dec.suppressed;
 
 	if (IS_DEBUG_FLOODING)
 		zlog_debug("Flooding LSP %pLS with reduction: %s, THL %u, RNL %u, start %u, suppressed %u",
