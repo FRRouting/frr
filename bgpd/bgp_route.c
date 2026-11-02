@@ -18955,6 +18955,7 @@ static int peer_adj_routes(struct vty *vty, struct peer *peer, afi_t afi, safi_t
 				continue;
 
 			output_count_per_rd = 0;
+			paths_count_per_rd = 0;
 			filtered_count_per_rd = 0;
 
 			if (use_json)
