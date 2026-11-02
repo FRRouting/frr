@@ -18,12 +18,13 @@ matching entry, leaving zebra/FIB and downstream peers with stale paths.
 """
 
 import sys
+import os
 import re
 import json
 import pytest
 
 from lib import topotest
-from lib.topogen import Topogen, TopoRouter
+from lib.topogen import Topogen
 
 pytestmark = [
     pytest.mark.bfdd,
@@ -54,9 +55,9 @@ def tgen(request):
     router_list = tgen.routers()
 
     for router_name, router in router_list.items():
-        router.load_config(TopoRouter.RD_BFD, "bfdd.conf")
-        router.load_config(TopoRouter.RD_RIP, "ripd.conf")
-        router.load_config(TopoRouter.RD_ZEBRA, "zebra.conf")
+        router.load_frr_config(
+            os.path.join(os.path.dirname(__file__), router_name, "frr.conf")
+        )
 
     tgen.start_router()
     yield tgen
