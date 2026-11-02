@@ -131,13 +131,18 @@ static void agentx_events_update(void)
 			thr = ln ? listgetdata(ln) : NULL;
 			thr_fd = thr ? EVENT_FD(*thr) : -1;
 		}
-		/* need listener, but haven't hit one where it would be */
+		/* need listener, but haven't hit one where it would be.
+		 * The new cell must not be stored in thr: thr is part of the
+		 * ln/thr/thr_fd cursor and has to keep describing ln's own
+		 * cell, which a later iteration cancels and frees.
+		 */
 		else if (netsnmp_large_fd_is_set(fd, &lfds)) {
+			struct event **newthr;
 			struct listnode *newln;
 
-			thr = XCALLOC(MTYPE_TMP, sizeof(struct event *));
-			newln = listnode_add_before(events, ln, thr);
-			event_add_read(agentx_tm, agentx_read, newln, fd, thr);
+			newthr = XCALLOC(MTYPE_TMP, sizeof(struct event *));
+			newln = listnode_add_before(events, ln, newthr);
+			event_add_read(agentx_tm, agentx_read, newln, fd, newthr);
 		}
 	}
 
