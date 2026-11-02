@@ -466,13 +466,29 @@ void ospf6_asbr_update_route_ecmp_path(struct ospf6_route *old,
 
 /* Check if the forwarding address is local address */
 static int ospf6_ase_forward_address_check(struct ospf6 *ospf6,
-					   struct in6_addr *fwd_addr)
+					   struct in6_addr *fwd_addr,
+					   struct route_table *fwd_cache)
 {
 	struct listnode *anode, *node;
 	struct ospf6_interface *oi;
 	struct ospf6_area *oa;
 	struct interface *ifp;
 	struct connected *c;
+	struct route_node *rn;
+	struct prefix p;
+	int ret = 1;
+
+	if (fwd_cache) {
+		p.family = AF_INET6;
+		p.prefixlen = IPV6_MAX_BITLEN;
+		p.u.prefix6 = *fwd_addr;
+		rn = route_node_lookup(fwd_cache, &p);
+		if (rn) {
+			ret = (int)((uintptr_t)rn->info - 1);
+			route_unlock_node(rn);
+			return ret;
+		}
+	}
 
 	for (ALL_LIST_ELEMENTS_RO(ospf6->area_list, anode, oa)) {
 		for (ALL_LIST_ELEMENTS_RO(oa->if_list, node, oi)) {
@@ -483,16 +499,30 @@ static int ospf6_ase_forward_address_check(struct ospf6 *ospf6,
 			ifp = oi->interface;
 			frr_each (if_connected, ifp->connected, c) {
 				if (IPV6_ADDR_SAME(&c->address->u.prefix6,
-						   fwd_addr))
-					return 0;
+						   fwd_addr)) {
+					ret = 0;
+					break;
+				}
 			}
+			if (ret == 0)
+				break;
 		}
+		if (ret == 0)
+			break;
 	}
 
-	return 1;
+	if (fwd_cache) {
+		rn = route_node_get(fwd_cache, &p);
+		if (rn->info == NULL)
+			rn->info = (void *)(uintptr_t)(ret + 1);
+		else
+			route_unlock_node(rn);
+	}
+
+	return ret;
 }
 
-void ospf6_asbr_lsa_add(struct ospf6_lsa *lsa)
+void ospf6_asbr_lsa_add(struct ospf6_lsa *lsa, struct route_table *fwd_cache)
 {
 	struct ospf6_as_external_lsa *external;
 	struct prefix asbr_id;
@@ -604,7 +634,7 @@ void ospf6_asbr_lsa_add(struct ospf6_lsa *lsa)
 
 		if (!IN6_IS_ADDR_UNSPECIFIED(&fwd_addr.u.prefix6)) {
 			if (!ospf6_ase_forward_address_check(
-				    ospf6, &fwd_addr.u.prefix6)) {
+				    ospf6, &fwd_addr.u.prefix6, fwd_cache)) {
 				if (IS_OSPF6_DEBUG_EXAMIN(AS_EXTERNAL))
 					zlog_debug("Fwd address (%s:%u:%u)%pFX is local address",
 						   OSPF6_DEBUG_VRF(ospf6), &fwd_addr);
@@ -991,7 +1021,7 @@ void ospf6_asbr_lsentry_add(struct ospf6_route *asbr_entry, struct ospf6 *ospf6)
 	router = ospf6_linkstate_prefix_adv_router(&asbr_entry->prefix);
 	for (ALL_LSDB_TYPED_ADVRTR(ospf6->lsdb, type, router, lsa)) {
 		if (!OSPF6_LSA_IS_MAXAGE(lsa))
-			ospf6_asbr_lsa_add(lsa);
+			ospf6_asbr_lsa_add(lsa, NULL);
 	}
 }
 
@@ -1011,6 +1041,14 @@ void ospf6_asbr_lsentry_remove(struct ospf6_route *asbr_entry,
 void ospf6_asbr_recalculate_external_routes(struct ospf6 *ospf6)
 {
 	struct ospf6_lsa *lsa, *lsanext;
+	struct route_table *fwd_cache;
+
+	/* The forwarding-address locality check reads the area/interface and
+	 * connected lists, which cannot change while this loop runs.  Cache
+	 * the verdict per address so that external LSAs carrying the same
+	 * forwarding address do not re-scan them.
+	 */
+	fwd_cache = route_table_init();
 
 	for (ALL_LSDB(ospf6->lsdb, lsa, lsanext)) {
 		if (ntohs(lsa->header->type) != OSPF6_LSTYPE_AS_EXTERNAL ||
@@ -1023,8 +1061,10 @@ void ospf6_asbr_recalculate_external_routes(struct ospf6 *ospf6)
 		 * installation in sync with current topology.
 		 */
 		ospf6_asbr_lsa_remove(lsa, NULL);
-		ospf6_asbr_lsa_add(lsa);
+		ospf6_asbr_lsa_add(lsa, fwd_cache);
 	}
+
+	route_table_finish(fwd_cache);
 }
 
 

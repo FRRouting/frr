@@ -92,7 +92,8 @@ struct ospf6_external_aggr_rt {
 				    htonl(C);                                  \
 	}
 
-extern void ospf6_asbr_lsa_add(struct ospf6_lsa *lsa);
+extern void ospf6_asbr_lsa_add(struct ospf6_lsa *lsa,
+			       struct route_table *fwd_cache);
 
 extern void ospf6_asbr_lsa_remove(struct ospf6_lsa *lsa,
 				  struct ospf6_route *asbr_entry);

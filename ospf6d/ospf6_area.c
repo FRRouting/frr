@@ -96,7 +96,7 @@ static void ospf6_area_lsdb_hook_add(struct ospf6_lsa *lsa)
 		break;
 
 	case OSPF6_LSTYPE_TYPE_7:
-		ospf6_asbr_lsa_add(lsa);
+		ospf6_asbr_lsa_add(lsa, NULL);
 		break;
 
 	default:

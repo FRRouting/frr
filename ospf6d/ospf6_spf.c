@@ -1106,7 +1106,8 @@ void ospf6_remove_temp_router_lsa(struct ospf6_area *area)
 }
 
 int ospf6_ase_calculate_route(struct ospf6 *ospf6, struct ospf6_lsa *lsa,
-			      struct ospf6_area *area)
+			      struct ospf6_area *area,
+			      struct route_table *fwd_cache)
 {
 	struct ospf6_route *route;
 	struct ospf6_as_external_lsa *external;
@@ -1143,7 +1144,7 @@ int ospf6_ase_calculate_route(struct ospf6 *ospf6, struct ospf6_lsa *lsa,
 		ospf6->route_table->hook_remove = NULL;
 
 		if (!OSPF6_LSA_IS_MAXAGE(lsa))
-			ospf6_asbr_lsa_add(lsa);
+			ospf6_asbr_lsa_add(lsa, fwd_cache);
 
 		ospf6->route_table->hook_add = hook_add;
 		ospf6->route_table->hook_remove = hook_remove;
@@ -1180,7 +1181,7 @@ int ospf6_ase_calculate_route(struct ospf6 *ospf6, struct ospf6_lsa *lsa,
 		area->route_table->hook_remove = NULL;
 
 		if (!OSPF6_LSA_IS_MAXAGE(lsa))
-			ospf6_asbr_lsa_add(lsa);
+			ospf6_asbr_lsa_add(lsa, fwd_cache);
 
 		area->route_table->hook_add = hook_add;
 		area->route_table->hook_remove = hook_remove;
@@ -1225,14 +1226,22 @@ static void ospf6_ase_calculate_timer(struct event *t)
 	struct ospf6_lsa *lsa;
 	struct listnode *node, *nnode;
 	struct ospf6_area *area;
+	struct route_table *fwd_cache;
 	uint16_t type;
 
 	ospf6 = EVENT_ARG(t);
 
+	/* The forwarding-address locality check reads the area/interface and
+	 * connected lists, which cannot change while this pass runs.  Cache
+	 * the verdict per address so that a batch of external LSAs carrying
+	 * the same forwarding address does not re-scan them.
+	 */
+	fwd_cache = route_table_init();
+
 	/* Calculate external route for each AS-external-LSA */
 	type = htons(OSPF6_LSTYPE_AS_EXTERNAL);
 	for (ALL_LSDB_TYPED(ospf6->lsdb, type, lsa))
-		ospf6_ase_calculate_route(ospf6, lsa, NULL);
+		ospf6_ase_calculate_route(ospf6, lsa, NULL, fwd_cache);
 
 	/*  This version simple adds to the table all NSSA areas  */
 	if (ospf6->anyNSSA) {
@@ -1243,9 +1252,12 @@ static void ospf6_ase_calculate_timer(struct event *t)
 
 			type = htons(OSPF6_LSTYPE_TYPE_7);
 			for (ALL_LSDB_TYPED(area->lsdb, type, lsa))
-				ospf6_ase_calculate_route(ospf6, lsa, area);
+				ospf6_ase_calculate_route(ospf6, lsa, area,
+							  fwd_cache);
 		}
 	}
+
+	route_table_finish(fwd_cache);
 
 	if (ospf6->gr_info.finishing_restart) {
 		/*
