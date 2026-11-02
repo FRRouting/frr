@@ -533,6 +533,28 @@ struct ospf_neighbor *ospf_nbr_get(struct ospf_interface *oi,
 	else
 		key.u.prefix4 = iph->ip_src;
 
+	/*
+	 * On a non-broadcast interface with statically configured
+	 * neighbors, the configuration is the set of acceptable
+	 * sources: refuse any other source, whether or not a neighbor
+	 * already exists for it.  Checking before the lookup also
+	 * revokes neighbors that were discovered dynamically while the
+	 * static list was still empty.
+	 */
+	if (OSPF_IF_NON_BROADCAST(oi) && !list_isempty(oi->nbr_nbma)) {
+		struct ospf_nbr_nbma *nbr_nbma;
+		struct listnode *node;
+		bool configured = false;
+
+		for (ALL_LIST_ELEMENTS_RO(oi->nbr_nbma, node, nbr_nbma))
+			if (IPV4_ADDR_SAME(&nbr_nbma->addr, &key.u.prefix4)) {
+				configured = true;
+				break;
+			}
+		if (!configured)
+			return NULL;
+	}
+
 	rn = route_node_get(oi->nbrs, &key);
 	if (rn->info) {
 		route_unlock_node(rn);

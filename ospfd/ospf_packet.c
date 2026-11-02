@@ -1214,6 +1214,9 @@ static void ospf_write(struct event *event)
 }
 
 /* OSPF Hello message read -- RFC2328 Section 10.5. */
+static void ospf_log_unknown_neighbor(uint8_t pkt_type, const char *what,
+				      struct ospf_interface *oi, const struct in_addr *rid);
+
 static void ospf_hello(struct ip *iph, struct ospf_header *ospfh,
 		       struct stream *s, struct ospf_interface *oi, int size)
 {
@@ -1357,8 +1360,15 @@ static void ospf_hello(struct ip *iph, struct ospf_header *ospfh,
 	/* get neighbour struct */
 	nbr = ospf_nbr_get(oi, ospfh, iph, &p);
 
-	/* neighbour must be valid, ospf_nbr_get creates if none existed */
-	assert(nbr);
+	/*
+	 * ospf_nbr_get() refuses sources that are not statically
+	 * configured on a non-broadcast interface; the warning is
+	 * rate-limited, per-packet detail goes to the packet debug log.
+	 */
+	if (nbr == NULL) {
+		ospf_log_unknown_neighbor(OSPF_MSG_HELLO, "Packet[Hello]", oi, &ospfh->router_id);
+		return;
+	}
 
 	old_state = nbr->state;
 
