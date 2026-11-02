@@ -1437,6 +1437,25 @@ DEFPY(srv6_sid_format_usid_wlib,
 {
 	VTY_DECLVAR_CONTEXT(srv6_sid_format, format);
 
+<<<<<<< HEAD
+=======
+	if (start > end) {
+		vty_out(vty,
+			"%% Wide LIB start (%" PRId64 ") cannot be greater than end (%" PRId64
+			")\n",
+			start, end);
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+
+	if (start > format->config.usid.ewlib_start) {
+		vty_out(vty,
+			"%% Wide LIB start (%" PRId64
+			") cannot be greater than the Explicit Wide LIB start (%u)\n",
+			start, format->config.usid.ewlib_start);
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+
+>>>>>>> 452990d (zebra: fix crash on explicit Wide LIB start below Wide LIB start)
 	format->config.usid.wlib_start = start;
 	format->config.usid.wlib_end = end;
 
@@ -1457,18 +1476,27 @@ DEFPY(no_srv6_sid_format_usid_wlib,
       "Specify the end value for the Wide LIB\n")
 {
 	VTY_DECLVAR_CONTEXT(srv6_sid_format, format);
+	uint32_t wlib_start = 0, wlib_end = 0;
 
 	if (strmatch(format->name, SRV6_SID_FORMAT_USID_F3216_NAME)) {
-		format->config.usid.wlib_start =
-			SRV6_SID_FORMAT_USID_F3216_WLIB_START;
-		format->config.usid.wlib_end =
-			SRV6_SID_FORMAT_USID_F3216_WLIB_END;
+		wlib_start = SRV6_SID_FORMAT_USID_F3216_WLIB_START;
+		wlib_end = SRV6_SID_FORMAT_USID_F3216_WLIB_END;
 	} else if (strmatch(format->name, SRV6_SID_FORMAT_USID_F4816_NAME)) {
-		format->config.usid.wlib_start = SRV6_SID_FORMAT_USID_F4816_WLIB_START;
-		format->config.usid.wlib_end = SRV6_SID_FORMAT_USID_F4816_WLIB_END;
+		wlib_start = SRV6_SID_FORMAT_USID_F4816_WLIB_START;
+		wlib_end = SRV6_SID_FORMAT_USID_F4816_WLIB_END;
 	} else {
 		assert(0);
 	}
+
+	if (wlib_start > format->config.usid.ewlib_start) {
+		vty_out(vty,
+			"%% Default Wide LIB start (%u) would be greater than the Explicit Wide LIB start (%u), remove the Explicit Wide LIB first\n",
+			wlib_start, format->config.usid.ewlib_start);
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+
+	format->config.usid.wlib_start = wlib_start;
+	format->config.usid.wlib_end = wlib_end;
 
 	/* Notify zclients that the format has changed */
 	zebra_srv6_sid_format_changed_cb(format);
@@ -1485,6 +1513,14 @@ DEFPY(srv6_sid_format_usid_wide_lib_explicit,
       "Specify the start value for the Explicit Wide LIB\n")
 {
 	VTY_DECLVAR_CONTEXT(srv6_sid_format, format);
+
+	if (start < format->config.usid.wlib_start) {
+		vty_out(vty,
+			"%% Explicit Wide LIB start (%" PRId64
+			") cannot be less than Wide LIB start (%u)\n",
+			start, format->config.usid.wlib_start);
+		return CMD_WARNING_CONFIG_FAILED;
+	}
 
 	format->config.usid.ewlib_start = start;
 
@@ -1504,14 +1540,23 @@ DEFPY(no_srv6_sid_format_usid_wide_lib_explicit,
       "Specify the start value for the Explicit Wide LIB\n")
 {
 	VTY_DECLVAR_CONTEXT(srv6_sid_format, format);
+	uint32_t ewlib_start = 0;
 
 	if (strmatch(format->name, SRV6_SID_FORMAT_USID_F3216_NAME))
-		format->config.usid.ewlib_start =
-			SRV6_SID_FORMAT_USID_F3216_EWLIB_START;
+		ewlib_start = SRV6_SID_FORMAT_USID_F3216_EWLIB_START;
 	else if (strmatch(format->name, SRV6_SID_FORMAT_USID_F4816_NAME))
-		format->config.usid.ewlib_start = SRV6_SID_FORMAT_USID_F4816_EWLIB_START;
+		ewlib_start = SRV6_SID_FORMAT_USID_F4816_EWLIB_START;
 	else
 		assert(0);
+
+	if (ewlib_start < format->config.usid.wlib_start) {
+		vty_out(vty,
+			"%% Default Explicit Wide LIB start (%u) would be less than the Wide LIB start (%u), remove the Wide LIB first\n",
+			ewlib_start, format->config.usid.wlib_start);
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+
+	format->config.usid.ewlib_start = ewlib_start;
 
 	/* Notify zclients that the format has changed */
 	zebra_srv6_sid_format_changed_cb(format);
