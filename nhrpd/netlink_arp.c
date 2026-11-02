@@ -187,14 +187,15 @@ int nhrp_neighbor_operation(ZAPI_CALLBACK_ARGS)
 	if (cmd == ZEBRA_NEIGH_GET) {
 		if (c->cur.type >= NHRP_CACHE_CACHED) {
 			nhrp_cache_set_used(c, 1);
-			debugf(NHRP_DEBUG_KERNEL,
-			       "Netlink: update binding for %pSU dev %s from c %pSU peer.vc.nbma %pSU to lladdr %pSU",
-			       &addr, ifp->name, &c->cur.remote_nbma_natoa,
-			       &c->cur.peer->vc->remote.nbma, &lladdr);
 
 			if (lladdr.sa.sa_family == AF_UNSPEC)
 				/* nothing from zebra, so use nhrp peer */
 				lladdr = c->cur.peer->vc->remote.nbma;
+
+			debugf(NHRP_DEBUG_KERNEL,
+			       "Netlink: update binding for %pSU dev %s from c %pSU peer.vc.nbma %pSU to lladdr %pSU",
+			       &addr, ifp->name, &c->cur.remote_nbma_natoa,
+			       &c->cur.peer->vc->remote.nbma, &lladdr);
 
 			/* In case of shortcuts, nbma is given by lladdr, not
 			 * vc->remote.nbma.
