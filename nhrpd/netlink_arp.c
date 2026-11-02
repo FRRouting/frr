@@ -185,7 +185,8 @@ int nhrp_neighbor_operation(ZAPI_CALLBACK_ARGS)
 					    : "del-neigh",
 	       &addr, ifp->name, &lladdr, ndm_state, c->used, c->cur.type);
 	if (cmd == ZEBRA_NEIGH_GET) {
-		if (c->cur.type >= NHRP_CACHE_CACHED) {
+		/* the local entries have no peer and nothing to bind */
+		if (c->cur.type >= NHRP_CACHE_CACHED && c->cur.peer) {
 			nhrp_cache_set_used(c, 1);
 
 			if (lladdr.sa.sa_family == AF_UNSPEC)
