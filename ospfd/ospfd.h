@@ -67,6 +67,15 @@
 /* Default socket buffer size */
 #define OSPF_DEFAULT_SOCK_BUFSIZE   (8 * 1024 * 1024)
 
+/*
+ * Default resource limits.  Each bounds one attacker-growable table;
+ * all three are configurable under "router ospf".  The defaults sit
+ * far beyond any real deployment while still capping memory.
+ */
+#define OSPF_NBR_LIMIT_DEFAULT        1024
+#define OSPF_MAX_LSA_DEFAULT          100000
+#define OSPF_LS_REQUEST_LIMIT_DEFAULT 4096
+
 /* OSPF config processing timer thread */
 extern struct event *t_ospf_cfg;
 
@@ -417,6 +426,21 @@ struct ospf {
 	 * to support ECMP.
 	 */
 	uint16_t max_multipath;
+
+	/*
+	 * Resource limits (configurable; defaults above).
+	 * nbr_limit caps the neighbor table of each interface, max_lsa
+	 * caps each LSDB (per area and AS scope), ls_request_limit caps
+	 * each neighbor's Link State Request list.
+	 */
+	uint32_t nbr_limit;
+	uint32_t max_lsa;
+	uint32_t ls_request_limit;
+
+	/* LSAs refused because the target LSDB was full. */
+	uint64_t lsas_dropped;
+	/* Last "LSDB full" warning (rate-limit). */
+	struct timeval t_lsdb_limit_warn;
 
 	/* MPLS LDP-IGP Sync */
 	struct ldp_sync_info_cmd ldp_sync_cmd;

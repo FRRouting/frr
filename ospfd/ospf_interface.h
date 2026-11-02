@@ -397,6 +397,17 @@ struct ospf_interface {
 
 	uint32_t full_nbrs;
 
+	/*
+	 * Live neighbors on this interface (nbrs table minus nbr_self);
+	 * packet-driven creation is refused once this reaches
+	 * ospf->nbr_limit.
+	 */
+	uint32_t nbr_count;
+	/* Neighbor creations refused because the table was full. */
+	uint64_t nbrs_dropped;
+	/* Last "neighbor table full" warning (rate-limit). */
+	struct timeval t_nbr_limit_warn;
+
 	/* Last Unknown Neighbor warn on this interface (rate-limit). */
 	struct timeval t_unknown_nbr_warn;
 

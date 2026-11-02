@@ -51,6 +51,11 @@ struct ospf_neighbor {
 	struct ospf_lsdb ls_req;
 	struct ospf_lsa *ls_req_last;
 
+	/* ls_req additions refused because the list was full. */
+	uint64_t ls_req_dropped;
+	/* Last "Link State Request list full" warning (rate-limit). */
+	struct timeval t_ls_req_limit_warn;
+
 	uint32_t crypt_seqnum; /* Cryptographic Sequence Number. */
 
 	/* Timer values. */

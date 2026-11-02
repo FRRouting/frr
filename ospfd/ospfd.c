@@ -432,6 +432,11 @@ struct ospf *ospf_new_alloc(unsigned short instance, const char *name)
 	/* Max paths initialization */
 	new->max_multipath = MULTIPATH_NUM;
 
+	/* Resource limits initialization */
+	new->nbr_limit = OSPF_NBR_LIMIT_DEFAULT;
+	new->max_lsa = OSPF_MAX_LSA_DEFAULT;
+	new->ls_request_limit = OSPF_LS_REQUEST_LIMIT_DEFAULT;
+
 	/* Distance table init. */
 	new->distance_table = route_table_init();
 
@@ -2071,6 +2076,7 @@ static void ospf_nbr_nbma_add(struct ospf_nbr_nbma *nbr_nbma,
 		nbr->address = p;
 
 		nbr_nbma->nbr = nbr;
+		oi->nbr_count++;
 
 		/* Configure BFD if interface has it. */
 		ospf_neighbor_bfd_apply(nbr);
