@@ -823,7 +823,7 @@ void zebra_rib_evaluate_rn_nexthops(struct route_node *rn, uint32_t seq,
 {
 	rib_dest_t *dest = rib_dest_from_rnode(rn);
 	struct rib_table_info *info = srcdest_rnode_table_info(rn);
-	struct rnh *rnh;
+	struct rnh *rnh, *next;
 
 	/*
 	 * We are storing the rnh's associated with
@@ -925,10 +925,12 @@ void zebra_rib_evaluate_rn_nexthops(struct route_node *rn, uint32_t seq,
 		 * nht resolution and as such we need to call the
 		 * nexthop tracking evaluation code
 		 */
-		frr_each_safe(rnh_list, &dest->nht, rnh) {
+		for (rnh = rnh_list_first(&dest->nht); rnh; rnh = next) {
 			struct zebra_vrf *zvrf =
 				zebra_vrf_lookup_by_id(rnh->vrf_id);
 			struct prefix *p = &rnh->node->p;
+
+			next = rnh_list_next(&dest->nht, rnh);
 
 			if (IS_ZEBRA_DEBUG_NHT_DETAILED)
 				zlog_debug(
@@ -956,6 +958,16 @@ void zebra_rib_evaluate_rn_nexthops(struct route_node *rn, uint32_t seq,
 						"    Node processed and moved already");
 				continue;
 			}
+
+			/*
+			 * zebra_evaluate_rnh() re-resolves every rnh tracking
+			 * this prefix (one per client), and each one that
+			 * resolves elsewhere is moved off this list.  Only the
+			 * saved next has to stay on it, so step past the ones
+			 * queued right behind us; they are handled by this call.
+			 */
+			while (next && next->node == rnh->node)
+				next = rnh_list_next(&dest->nht, next);
 
 			rnh->seqno = seq;
 			zebra_evaluate_rnh(zvrf, family2afi(p->family), 0, p,
