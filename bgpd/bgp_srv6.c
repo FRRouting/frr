@@ -13,9 +13,8 @@
 #include "bgpd/bgp_debug.h"
 #include "bgpd/bgp_mplsvpn.h"
 #include "bgpd/bgp_srv6.h"
+#include "bgpd/bgp_zebra.h"
 #include "bgpd/bgpd.h"
-
-extern struct zclient *bgp_zclient;
 
 static bool bgp_srv6_unicast_dt46_needs_sid_request(struct bgp *bgp, afi_t afi)
 {
