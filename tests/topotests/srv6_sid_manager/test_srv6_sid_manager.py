@@ -399,6 +399,130 @@ def test_ping():
     check_ping("rt1", "fc00:0:9::1", True, 10, 1)
 
 
+<<<<<<< HEAD
+=======
+def test_usid_lib_ranges():
+    """Verify uSID LIB ranges reject a start greater than the end."""
+    tgen = get_topogen()
+
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    router = tgen.gears["rt1"]
+    format_context = """configure terminal
+segment-routing
+srv6
+formats
+format usid-f3216
+"""
+
+    output = router.vtysh_cmd(
+        format_context + "local-id-block explicit start 201 end 200\n"
+    )
+    assert "Explicit LIB start (201) cannot be greater than end (200)" in output
+
+    output = router.vtysh_cmd(
+        format_context + "wide-local-id-block start 401 end 400\n"
+    )
+    assert "Wide LIB start (401) cannot be greater than end (400)" in output
+
+    output = router.vtysh_cmd("write terminal")
+    assert "local-id-block explicit start 201 end 200" not in output
+    assert "wide-local-id-block start 401 end 400" not in output
+
+
+def test_usid_wide_lib_explicit_range():
+    """
+    Verify the Explicit Wide LIB is kept inside the Wide LIB.
+
+    The Explicit Wide LIB is the tail of the Wide LIB and has no end of its
+    own, so the only way to misconfigure it is to leave its start below the
+    Wide LIB start. The Wide LIB is an array indexed by the offset of a SID
+    function from that start, so a function in the gap would index outside
+    the array.
+
+    Use usid-f4816, which no locator in this topology is attached to, so
+    moving its ranges around does not disturb the allocated SIDs.
+    """
+    tgen = get_topogen()
+
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    router = tgen.gears["rt1"]
+
+    format_context = """configure terminal
+segment-routing
+srv6
+formats
+format usid-f4816
+"""
+
+    output = router.vtysh_cmd(format_context + "wide-local-id-block explicit start 0\n")
+    assert (
+        "Explicit Wide LIB start (0) cannot be less than Wide LIB start (65520)"
+        in output
+    )
+
+    # The Wide LIB cannot move up and leave the Explicit Wide LIB behind
+    output = router.vtysh_cmd(
+        format_context
+        + """wide-local-id-block start 0 end 2000
+wide-local-id-block explicit start 500
+wide-local-id-block start 1000 end 1010
+"""
+    )
+    assert (
+        "Wide LIB start (1000) cannot be greater than the Explicit Wide LIB start (500)"
+        in output
+    )
+
+    # Nor can it move back up by being reset to its default
+    output = router.vtysh_cmd(format_context + "no wide-local-id-block\n")
+    assert (
+        "Default Wide LIB start (65520) would be greater than the Explicit Wide LIB start (500)"
+        in output
+    )
+
+    output = router.vtysh_cmd("write terminal")
+    assert "wide-local-id-block explicit start 0" not in output
+    assert "wide-local-id-block start 1000 end 1010" not in output
+    assert "wide-local-id-block start 0 end 2000" in output
+    assert "wide-local-id-block explicit start 500" in output
+
+    # Removing the Explicit Wide LIB first is the way out
+    router.vtysh_cmd(
+        format_context
+        + """no wide-local-id-block explicit
+no wide-local-id-block
+"""
+    )
+
+    # Resetting the Explicit Wide LIB cannot drop it below the Wide LIB either
+    output = router.vtysh_cmd(
+        format_context
+        + """wide-local-id-block explicit start 70000
+wide-local-id-block start 70000 end 80000
+no wide-local-id-block explicit
+"""
+    )
+    assert (
+        "Default Explicit Wide LIB start (65527) would be less than the Wide LIB start (70000)"
+        in output
+    )
+
+    router.vtysh_cmd(
+        format_context
+        + """no wide-local-id-block
+no wide-local-id-block explicit
+"""
+    )
+
+    output = router.vtysh_cmd("write terminal")
+    assert "wide-local-id-block" not in output
+
+
+>>>>>>> e7334f9 (tests: check the Explicit Wide LIB stays inside the Wide LIB)
 # Memory leak test template
 def test_memory_leak():
     "Run the memory leak test and report results."
