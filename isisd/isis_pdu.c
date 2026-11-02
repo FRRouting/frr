@@ -2311,6 +2311,9 @@ void send_l1_csnp(struct event *event)
 	     || circuit->circ_type == CIRCUIT_T_P2P) {
 		send_csnp(circuit, 1);
 	}
+	/* p2p, periodic CSNPs disabled: no re-arm, next CSNP on adjacency up */
+	if (circuit->circ_type == CIRCUIT_T_P2P && circuit->disable_p2p_periodic_csnp)
+		return;
 	/* set next timer event */
 	event_add_timer(master, send_l1_csnp, circuit,
 			isis_jitter(circuit->csnp_interval[0], CSNP_JITTER),
@@ -2331,6 +2334,9 @@ void send_l2_csnp(struct event *event)
              || circuit->circ_type == CIRCUIT_T_P2P) {
 		send_csnp(circuit, 2);
 	}
+	/* p2p, periodic CSNPs disabled: no re-arm, next CSNP on adjacency up */
+	if (circuit->circ_type == CIRCUIT_T_P2P && circuit->disable_p2p_periodic_csnp)
+		return;
 	/* set next timer event */
 	event_add_timer(master, send_l2_csnp, circuit,
 			isis_jitter(circuit->csnp_interval[1], CSNP_JITTER),
