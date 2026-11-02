@@ -549,12 +549,11 @@ struct ospf_neighbor *ospf_nbr_get(struct ospf_interface *oi,
 		 * Tear the stale neighbor down; the new identity
 		 * re-establishes from scratch with its next Hello.
 		 */
-		if (nbr != oi->nbr_self && nbr->router_id.s_addr != INADDR_ANY
-		    && !IPV4_ADDR_SAME(&nbr->router_id, &ospfh->router_id)) {
+		if (nbr != oi->nbr_self && nbr->router_id.s_addr != INADDR_ANY &&
+		    !IPV4_ADDR_SAME(&nbr->router_id, &ospfh->router_id)) {
 			flog_warn(EC_OSPF_PACKET,
 				  "Nbr %pI4, NbrIP %pI4 (%s) on %s: router ID changed to %pI4, tearing down stale neighbor",
-				  &nbr->router_id, &nbr->src,
-				  ospf_get_name(oi->ospf), IF_NAME(oi),
+				  &nbr->router_id, &nbr->src, ospf_get_name(oi->ospf), IF_NAME(oi),
 				  &ospfh->router_id);
 			OSPF_NSM_EVENT_EXECUTE(nbr, NSM_KillNbr);
 			return NULL;
