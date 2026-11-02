@@ -234,6 +234,13 @@ enum dplane_op_e {
 	/* EVPN-MH FDB (L2) nexthop update */
 	DPLANE_OP_NH_FDB_INSTALL,
 	DPLANE_OP_NH_FDB_DELETE,
+
+	/* Create/delete a kernel link (bridge, veth, vlan, gre, ...) from
+	 * zebra configuration, and set/clear an interface's master.
+	 */
+	DPLANE_OP_LINK_CREATE,
+	DPLANE_OP_LINK_DELETE,
+	DPLANE_OP_LINK_MASTER_SET,
 };
 
 /* Operational status of Bridge Ports */
@@ -1226,6 +1233,33 @@ enum zebra_dplane_result dplane_neigh_table_update(const struct interface *ifp,
 enum zebra_dplane_result
 dplane_gre_set(struct interface *ifp, struct interface *ifp_link,
 	       unsigned int mtu, const struct zebra_l2info_gre *gre_info);
+
+/*
+ * Link creation from configuration.
+ *
+ * 'link_ifindex' is the already-resolved ifindex of the parent (vlan) or dev
+ * (gre) the new link is stacked on; 0 if the link type has no such dependency.
+ * The request is idempotent: if the kernel already has the link, the create
+ * is treated as success without modifying the existing link.
+ */
+struct zebra_link_params;
+enum zebra_dplane_result dplane_link_create(struct interface *ifp,
+					    const struct zebra_link_params *params,
+					    ifindex_t link_ifindex);
+
+/* Delete a link in the kernel; 'ifp' must have a valid ifindex. */
+enum zebra_dplane_result dplane_link_delete(struct interface *ifp);
+
+/*
+ * Set the master of an interface (any master type: bridge, bond, vrf, ...).
+ * A master_ifindex of 0 releases the interface from its current master.
+ */
+enum zebra_dplane_result dplane_link_master_set(struct interface *ifp, ifindex_t master_ifindex);
+
+/* Accessors for the link ops */
+const struct zebra_link_params *dplane_ctx_link_get_params(const struct zebra_dplane_ctx *ctx);
+ifindex_t dplane_ctx_link_get_link_ifindex(const struct zebra_dplane_ctx *ctx);
+ifindex_t dplane_ctx_link_get_master_ifindex(const struct zebra_dplane_ctx *ctx);
 
 /*
  * Enqueue an SRv6 encap source address set

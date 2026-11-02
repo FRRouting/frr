@@ -1713,6 +1713,10 @@ void kernel_update_multi(struct dplane_ctx_list_head *ctx_list)
 		case DPLANE_OP_STARTUP_STAGE:
 		case DPLANE_OP_SRV6_ENCAP_SRCADDR_SET:
 		case DPLANE_OP_VLAN_INSTALL:
+		/* Link creation from configuration is netlink (Linux) only */
+		case DPLANE_OP_LINK_CREATE:
+		case DPLANE_OP_LINK_DELETE:
+		case DPLANE_OP_LINK_MASTER_SET:
 		case DPLANE_OP_FDB_READ:
 		case DPLANE_OP_NEIGH_READ:
 		case DPLANE_OP_TC_QDISC_READ:

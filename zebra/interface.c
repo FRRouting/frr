@@ -37,6 +37,7 @@
 #include "zebra/zebra_evpn_mh.h"
 #include "zebra/zebra_trace.h"
 #include "zebra/zebra_l2.h"
+#include "zebra/zebra_link_cfg_if.h"
 
 DEFINE_MTYPE_STATIC(ZEBRA, ZINFO, "Zebra Interface Information");
 
@@ -260,6 +261,8 @@ static int if_zebra_delete_hook(struct interface *ifp)
 		zebra_ns_unlink_ifp(ifp);
 
 		XFREE(MTYPE_ZIF_DESC, zebra_if->desc);
+
+		zebra_link_cfg_if_free(ifp);
 
 		event_cancel(&zebra_if->speed_update);
 
@@ -494,6 +497,10 @@ void if_addr_wakeup(struct interface *ifp)
 	struct prefix *p;
 	enum zebra_dplane_result dplane_res;
 
+	/* Not before the interface is in its master; retried once it is */
+	if (zebra_link_cfg_hold_addresses(ifp))
+		return;
+
 	frr_each_safe (if_connected, ifp->connected, ifc) {
 		p = ifc->address;
 
@@ -587,6 +594,9 @@ void if_add_update(struct interface *ifp)
 	zebra_ns_link_ifp(zns, ifp);
 	if_data = ifp->info;
 	assert(if_data);
+
+	/* Configured links/masters may now be creatable or enslavable */
+	zebra_link_cfg_if_added(ifp);
 
 	if (if_data->multicast == IF_ZEBRA_DATA_ON)
 		if_set_flags(ifp, IFF_MULTICAST);
@@ -820,6 +830,9 @@ void if_delete_update(struct interface **pifp)
 		       sizeof(struct zebra_l2info_brslave));
 		zebra_evpn_mac_ifp_del(ifp);
 	}
+
+	/* Configured links that vanished are re-evaluated (and re-created) */
+	zebra_link_cfg_if_deleted(ifp);
 
 	if (!ifp->configured) {
 		if (IS_ZEBRA_DEBUG_KERNEL)
@@ -2397,6 +2410,10 @@ static void zebra_if_dplane_ifp_handling(struct zebra_dplane_ctx *ctx)
 			else if (IS_ZEBRA_IF_BOND_SLAVE(ifp) || was_bond_slave)
 				zebra_l2if_update_bond_slave(ifp, bond_ifindex,
 							     !!bypass);
+
+			/* A master we set may have been taken away behind our back */
+			zebra_link_cfg_if_master_update(ifp, master_ifindex);
+
 			if (IS_ZEBRA_IF_BRIDGE(ifp)) {
 				if (IS_ZEBRA_DEBUG_KERNEL)
 					zlog_debug(
@@ -4094,7 +4111,8 @@ void if_ip_address_install(struct interface *ifp, struct prefix *prefix,
 	/* In case of this route need to install kernel. */
 	if (!CHECK_FLAG(ifc->conf, ZEBRA_IFC_QUEUED) &&
 	    CHECK_FLAG(ifp->status, ZEBRA_INTERFACE_ACTIVE) &&
-	    !(if_data && if_data->shutdown == IF_ZEBRA_DATA_ON)) {
+	    !(if_data && if_data->shutdown == IF_ZEBRA_DATA_ON) &&
+	    !zebra_link_cfg_hold_addresses(ifp)) {
 		/* Some system need to up the interface to set IP address. */
 		if (!if_is_up(ifp)) {
 			if_set_flags(ifp, IFF_UP | IFF_RUNNING);
@@ -4162,7 +4180,8 @@ void if_ipv6_address_install(struct interface *ifp, struct prefix *prefix)
 	/* In case of this route need to install kernel. */
 	if (!CHECK_FLAG(ifc->conf, ZEBRA_IFC_QUEUED) &&
 	    CHECK_FLAG(ifp->status, ZEBRA_INTERFACE_ACTIVE) &&
-	    !(if_data && if_data->shutdown == IF_ZEBRA_DATA_ON)) {
+	    !(if_data && if_data->shutdown == IF_ZEBRA_DATA_ON) &&
+	    !zebra_link_cfg_hold_addresses(ifp)) {
 		/* Some system need to up the interface to set IP address. */
 		if (!if_is_up(ifp)) {
 			if_set_flags(ifp, IFF_UP | IFF_RUNNING);

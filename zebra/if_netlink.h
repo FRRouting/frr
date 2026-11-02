@@ -32,6 +32,10 @@ extern ssize_t netlink_intf_msg_encode(uint16_t cmd,
 extern enum netlink_msg_status
 netlink_put_gre_set_msg(struct nl_batch *bth, struct zebra_dplane_ctx *ctx);
 
+/* Link create/delete/set-master requests for zebra-configured links */
+extern enum netlink_msg_status netlink_put_link_msg(struct nl_batch *bth,
+						    struct zebra_dplane_ctx *ctx);
+
 extern enum netlink_msg_status
 netlink_put_address_update_msg(struct nl_batch *bth,
 			       struct zebra_dplane_ctx *ctx);

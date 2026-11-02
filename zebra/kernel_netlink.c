@@ -820,6 +820,11 @@ static bool netlink_error_is_expected(const struct nlsock *nl, int msg_type, int
 		case RTM_DELTUNNEL:
 		case RTM_GETTUNNEL:
 			return -errnum == EOPNOTSUPP;
+		case RTM_NEWLINK:
+			return -errnum == EEXIST;
+		/* A link that is already gone on delete is likewise fine */
+		case RTM_DELLINK:
+			return -errnum == ENODEV || -errnum == ENOENT;
 		default:
 			return false;
 		}
@@ -905,9 +910,8 @@ static int netlink_parse_error(const struct nlsock *nl, struct nlmsghdr *h,
 	 * link-local.  The kernel should have already deleted the neighbor so
 	 * do not log these as an error.
 	 */
-	if (msg_type == RTM_DELNEIGH
-	    || (is_cmd && msg_type == RTM_NEWROUTE
-		&& (-errnum == ESRCH || -errnum == ENETUNREACH))) {
+	if (msg_type == RTM_DELNEIGH ||
+	    (is_cmd && msg_type == RTM_NEWROUTE && (-errnum == ESRCH || -errnum == ENETUNREACH))) {
 		/*
 		 * This is known to happen in some situations, don't log as
 		 * error.
@@ -918,8 +922,7 @@ static int netlink_parse_error(const struct nlsock *nl, struct nlmsghdr *h,
 				   nl_msg_type_to_str_sock(msg_type, nl->proto), msg_type,
 				   err->msg.nlmsg_seq, err->msg.nlmsg_pid);
 	} else {
-		if ((msg_type != RTM_GETNEXTHOP && msg_type != RTM_GETVLAN) ||
-		    !startup)
+		if ((msg_type != RTM_GETNEXTHOP && msg_type != RTM_GETVLAN) || !startup)
 			flog_err(EC_ZEBRA_UNEXPECTED_MESSAGE,
 				 "%s error: %s, type=%s(%u), seq=%u, pid=%u", nl->name,
 				 safe_strerror(-errnum),
@@ -1513,6 +1516,11 @@ static enum netlink_msg_status nl_put_msg(struct nl_batch *bth,
 
 	case DPLANE_OP_GRE_SET:
 		return netlink_put_gre_set_msg(bth, ctx);
+
+	case DPLANE_OP_LINK_CREATE:
+	case DPLANE_OP_LINK_DELETE:
+	case DPLANE_OP_LINK_MASTER_SET:
+		return netlink_put_link_msg(bth, ctx);
 
 	case DPLANE_OP_INTF_ADDR_ADD:
 	case DPLANE_OP_INTF_ADDR_DEL:
