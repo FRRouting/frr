@@ -1938,7 +1938,7 @@ void bgp_gr_start_all_deferral_timers(struct bgp *bgp)
 
 	FOREACH_AFI_SAFI_GR (afi, safi) {
 		gr_info = &(bgp->gr_info[afi][safi]);
-		if (!event_is_scheduled(gr_info->t_select_deferral))
+		if (!event_is_scheduled(gr_info->t_select_deferral) && !gr_info->select_defer_over)
 			bgp_start_deferral_timer(bgp, afi, safi, gr_info);
 	}
 }
