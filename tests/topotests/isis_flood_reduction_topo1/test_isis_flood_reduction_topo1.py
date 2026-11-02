@@ -162,6 +162,15 @@ def _lsp_tx_count(router):
     return output["vrfs"][0]["areas"][0]["tx-pdu-type"].get("l2-lsp", 0)
 
 
+def _fr_counters(router):
+    """Level-2 flooding reduction counters from "show isis summary json" """
+    output = json.loads(router.vtysh_cmd("show isis summary json"))
+    for level in output["vrfs"][0]["areas"][0]["levels"]:
+        if level["id"] == 2:
+            return level.get("flood-reduction")
+    return None
+
+
 def _log_has(router, pattern):
     logfile = os.path.join(router.gearlogdir, "isisd.log")
     with open(logfile, "r") as f:
@@ -199,6 +208,7 @@ def test_leaf_lsp_not_reflooded_by_leaves():
 
     others = [name for name in LEAVES if name != "l1"]
     before = {name: _lsp_tx_count(tgen.gears[name]) for name in others}
+    fr_before = {name: _fr_counters(tgen.gears[name]) for name in others}
     lsdb = _lsdb(tgen.gears["l1"])
 
     tgen.gears["l1"].vtysh_cmd(
@@ -220,16 +230,29 @@ def test_leaf_lsp_not_reflooded_by_leaves():
             r"Flooding LSP 0000\.0000\.0011\.00-00 with reduction: .*suppressed [1-9]",
         ), "{}: no reduced flooding decision logged for l1's LSP".format(name)
 
+    for name in others:
+        fr_after = _fr_counters(tgen.gears[name])
+        for key in ("reduced", "suppressed"):
+            assert fr_after[key] > fr_before[name][key], (
+                "{}: flood-reduction {} counter did not increase: {} -> {}".format(
+                    name, key, fr_before[name][key], fr_after[key]
+                )
+            )
+
 
 def test_spine_lsp_flooded_with_reduction():
     """
     A new LSP from s1 must still reach s2, which only hears it through
-    the leaf picked by the decision.
+    the leaf picked by the decision. Periodic CSNPs would also repair
+    s2's LSPDB, so check that some leaf was selected and that only the
+    selected leaves sent the LSP on.
     """
     tgen = get_topogen()
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
 
+    before = {name: _lsp_tx_count(tgen.gears[name]) for name in LEAVES}
+    fr_before = {name: _fr_counters(tgen.gears[name]) for name in LEAVES}
     lsdb = _lsdb(tgen.gears["s1"])
     tgen.gears["s1"].vtysh_cmd(
         """
@@ -239,6 +262,32 @@ def test_spine_lsp_flooded_with_reduction():
         """
     )
     _wait_lsdbs_synced(tgen, {"lsdb": lsdb, "changed": {"s1.00-00"}})
+
+    fr_after = {name: _fr_counters(tgen.gears[name]) for name in LEAVES}
+    for name in LEAVES:
+        assert fr_after[name]["reduced"] > fr_before[name]["reduced"], (
+            "{}: flood-reduction reduced counter did not increase: {} -> {}".format(
+                name, fr_before[name]["reduced"], fr_after[name]["reduced"]
+            )
+        )
+
+    selected = {
+        name
+        for name in LEAVES
+        if fr_after[name]["selected"] > fr_before[name]["selected"]
+    }
+    assert selected, "no leaf was selected to flood s1's LSP"
+
+    senders = {
+        name
+        for name in LEAVES
+        if _lsp_tx_count(tgen.gears[name]) > before[name]
+    }
+    assert senders == selected, (
+        "leaves that sent s1's LSP: {}, selected leaves: {}".format(
+            sorted(senders), sorted(selected)
+        )
+    )
 
 
 def test_flood_reduction_disabled():
@@ -257,6 +306,9 @@ def test_flood_reduction_disabled():
         config = tgen.gears[name].vtysh_cmd("show running-config")
         assert not re.search(r"^ flood-reduction$", config, re.M), (
             "{}: flood-reduction still in running-config".format(name)
+        )
+        assert _fr_counters(tgen.gears[name]) is None, (
+            "{}: flood-reduction counters still shown".format(name)
         )
 
     lsdb = _lsdb(tgen.gears["l1"])
