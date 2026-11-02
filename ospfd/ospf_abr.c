@@ -606,6 +606,7 @@ static int ospf_abr_translate_nssa(struct ospf_area *area, struct ospf_lsa *lsa)
 			   &lsa->data->id);
 
 	ext7 = (struct as_external_lsa *)(lsa->data);
+	p.family = AF_INET;
 	p.prefix = lsa->data->id;
 	p.prefixlen = ip_masklen(ext7->mask);
 

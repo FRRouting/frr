@@ -264,14 +264,14 @@ struct bgp_dest *bgp_table_subtree_lookup(const struct bgp_table *table,
 		struct route_node *node = dest->rn;
 
 		if (dest_p->prefixlen >= p->prefixlen) {
-			if (!prefix_match(p, dest_p))
+			if (!prefix_contains(p, dest_p))
 				return NULL;
 
 			matched = dest;
 			break;
 		}
 
-		if (!prefix_match(dest_p, p))
+		if (!prefix_contains(dest_p, p))
 			return NULL;
 
 		if (dest_p->prefixlen == p->prefixlen) {
