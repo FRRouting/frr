@@ -2189,6 +2189,25 @@ void bgp_fsm_change_status(struct peer_connection *connection,
 			   bgp_peer_get_connection_direction_string(connection));
 }
 
+/*
+ * Drop the connection's ready events, but keep a graceful restart timer
+ * that has already expired (restart-time 0): its callback is the only
+ * place that starts long-lived graceful restart (LLGR).
+ */
+static void bgp_connection_flush_ready_events(struct peer_connection *connection)
+{
+	bool gr_restart = event_is_scheduled(connection->t_gr_restart);
+
+	event_cancel_event_ready(bm->master, connection);
+	if (gr_restart && !event_is_scheduled(connection->t_gr_restart)) {
+		if (bgp_debug_neighbor_events(connection->peer))
+			zlog_debug("%pBP graceful restart timer re-armed after event flush for %s",
+				   connection->peer,
+				   bgp_peer_get_connection_direction_string(connection));
+		BGP_TIMER_ON(connection->t_gr_restart, bgp_graceful_restart_timer_expire, 0);
+	}
+}
+
 /* Flush the event queue and ensure the peer is shut down */
 static enum bgp_fsm_state_progress
 bgp_clearing_completed(struct peer_connection *connection)
@@ -2196,7 +2215,7 @@ bgp_clearing_completed(struct peer_connection *connection)
 	enum bgp_fsm_state_progress rc = bgp_stop(connection);
 
 	if (rc >= BGP_FSM_SUCCESS)
-		event_cancel_event_ready(bm->master, connection);
+		bgp_connection_flush_ready_events(connection);
 
 	return rc;
 }
@@ -2227,7 +2246,7 @@ enum bgp_fsm_state_progress bgp_stop(struct peer_connection *connection)
 	/* Can't do this in Clearing; events are used for state transitions */
 	if (connection->status != Clearing) {
 		/* Delete all existing events of the peer */
-		event_cancel_event_ready(bm->master, connection);
+		bgp_connection_flush_ready_events(connection);
 	}
 
 	/* Increment Dropped count. */
@@ -2275,6 +2294,7 @@ enum bgp_fsm_state_progress bgp_stop(struct peer_connection *connection)
 					   peer, bgp->stalepath_time,
 					   bgp_peer_get_connection_direction_string(connection));
 			}
+			/* Not pending here: bgp_establish() cancels t_gr_restart. */
 			BGP_TIMER_ON(connection->t_gr_restart,
 				     bgp_graceful_restart_timer_expire,
 				     peer->v_gr_restart);
