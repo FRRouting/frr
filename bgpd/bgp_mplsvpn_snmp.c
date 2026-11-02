@@ -507,6 +507,35 @@ static uint32_t bgp_mpls_l3vpn_current_routes(struct bgp *l3vpn_bgp)
 	return count;
 }
 
+static bool is_bgp_vrf_active(struct bgp *bgp)
+{
+	struct vrf *vrf;
+	struct interface *ifp;
+	const char *vrf_name;
+
+	/* if there is one interface in the vrf which is up then it is deemed
+	 *  active
+	 */
+	vrf = vrf_lookup_by_id(bgp->vrf_id);
+	if (vrf == NULL)
+		return false;
+
+	if (bgp->name)
+		vrf_name = bgp->name;
+	else
+		vrf_name = VRF_DEFAULT_NAME;
+
+	RB_FOREACH (ifp, if_name_head, &vrf->ifaces_by_name) {
+		/* if we are in a vrf skip the l3mdev */
+		if (vrf_name && strncmp(ifp->name, vrf_name, VRF_NAMSIZ) == 0)
+			continue;
+
+		if (if_is_up(ifp))
+			return true;
+	}
+	return false;
+}
+
 static int bgp_init_snmp_stats(struct bgp *bgp)
 {
 	if (is_bgp_vrf_mplsvpn(bgp)) {
@@ -519,6 +548,7 @@ static int bgp_init_snmp_stats(struct bgp *bgp)
 					bgp_mpls_l3vpn_current_routes(bgp);
 				bgp_mpls_l3vpn_update_timeticks(
 					&(bgp->snmp_stats->creation_time));
+				bgp->snmp_stats->active = is_bgp_vrf_active(bgp);
 			}
 		}
 	} else {
@@ -548,35 +578,6 @@ static int bgp_snmp_update_route_stats(struct bgp_dest *dest,
 		}
 	}
 	return 0;
-}
-
-static bool is_bgp_vrf_active(struct bgp *bgp)
-{
-	struct vrf *vrf;
-	struct interface *ifp;
-	const char *vrf_name;
-
-	/* if there is one interface in the vrf which is up then it is deemed
-	 *  active
-	 */
-	vrf = vrf_lookup_by_id(bgp->vrf_id);
-	if (vrf == NULL)
-		return false;
-
-	if (bgp->name)
-		vrf_name = bgp->name;
-	else
-		vrf_name = VRF_DEFAULT_NAME;
-
-	RB_FOREACH (ifp, if_name_head, &vrf->ifaces_by_name) {
-		/* if we are in a vrf skip the l3mdev */
-		if (vrf_name && strncmp(ifp->name, vrf_name, VRF_NAMSIZ) == 0)
-			continue;
-
-		if (if_is_up(ifp))
-			return true;
-	}
-	return false;
 }
 
 /* BGP Traps. */
