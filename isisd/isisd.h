@@ -140,6 +140,8 @@ enum isis_metric_style {
 	ISIS_TRANSITION_METRIC,
 };
 
+struct isis_fr_graph;
+
 struct isis_area {
 	struct isis *isis;			       /* back pointer */
 	struct lspdb_head lspdb[ISIS_LEVELS];	       /* link-state dbs */
@@ -233,6 +235,15 @@ struct isis_area {
 	struct isis_srv6_db srv6db;
 	int ipv6_circuits;
 	bool purge_originator;
+	/* Distributed flooding reduction (draft-ietf-lsr-distoptflood). */
+	bool flood_reduction;
+	/* Topology snapshots, dropped on each SPF run and rebuilt on demand. */
+	struct isis_fr_graph *fr_graph[ISIS_LEVELS];
+	/* Flooding reduction counters, shown in "show isis summary". */
+	uint64_t fr_reduced_count[ISIS_LEVELS];
+	uint64_t fr_fallback_count[ISIS_LEVELS];
+	uint64_t fr_selected_count[ISIS_LEVELS];
+	uint64_t fr_suppressed_count[ISIS_LEVELS];
 	/* SPF prefix priorities. */
 	struct spf_prefix_priority_acl
 		spf_prefix_priorities[SPF_PREFIX_PRIO_MAX];

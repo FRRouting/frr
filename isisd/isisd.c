@@ -45,6 +45,7 @@
 #include "isisd/isis_constants.h"
 #include "isisd/isis_lsp.h"
 #include "isisd/isis_spf.h"
+#include "isisd/isis_flood_reduction.h"
 #include "isisd/isis_route.h"
 #include "isisd/isis_zebra.h"
 #include "isisd/isis_events.h"
@@ -593,6 +594,9 @@ void isis_area_destroy(struct isis_area *area)
 #endif /* ifndef FABRICD */
 
 	spftree_area_del(area);
+
+	isis_fr_graph_free(&area->fr_graph[0]);
+	isis_fr_graph_free(&area->fr_graph[1]);
 
 	if (event_is_scheduled(area->spf_timer[0]))
 		isis_spf_timer_free(EVENT_ARG(area->spf_timer[0]));
@@ -2483,6 +2487,19 @@ static void common_isis_summary_json(struct json_object *json,
 					    area->lsp_gen_count[level - 1]);
 			json_object_int_add(level_json, "lsp-purged",
 					    area->lsp_purge_count[level - 1]);
+			if (area->flood_reduction) {
+				json_object *fr_json = json_object_new_object();
+
+				json_object_object_add(level_json, "flood-reduction", fr_json);
+				json_object_int_add(fr_json, "reduced",
+						    area->fr_reduced_count[level - 1]);
+				json_object_int_add(fr_json, "fallback",
+						    area->fr_fallback_count[level - 1]);
+				json_object_int_add(fr_json, "selected",
+						    area->fr_selected_count[level - 1]);
+				json_object_int_add(fr_json, "suppressed",
+						    area->fr_suppressed_count[level - 1]);
+			}
 			if (event_is_scheduled(area->spf_timer[level - 1]))
 				json_object_string_add(level_json, "spf",
 						       "pending");
@@ -2570,6 +2587,18 @@ static void common_isis_summary_vty(struct vty *vty, struct isis *isis)
 
 			vty_out(vty, "         LSPs purged: %" PRIu64 "\n",
 				area->lsp_purge_count[level - 1]);
+
+			if (area->flood_reduction) {
+				vty_out(vty, "    Flooding reduction:\n");
+				vty_out(vty, "      reduced LSPs      : %" PRIu64 "\n",
+					area->fr_reduced_count[level - 1]);
+				vty_out(vty, "      fallbacks         : %" PRIu64 "\n",
+					area->fr_fallback_count[level - 1]);
+				vty_out(vty, "      selected          : %" PRIu64 "\n",
+					area->fr_selected_count[level - 1]);
+				vty_out(vty, "      suppressed sends  : %" PRIu64 "\n",
+					area->fr_suppressed_count[level - 1]);
+			}
 
 			if (event_is_scheduled(area->spf_timer[level - 1]))
 				vty_out(vty, "    SPF: (pending)\n");

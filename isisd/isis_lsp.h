@@ -151,6 +151,7 @@ int isis_lsp_iterate_srv6_locator(struct isis_lsp *lsp, uint16_t mtid,
 
 #define lsp_flood(lsp, circuit) \
 	_lsp_flood((lsp), (circuit), __func__, __FILE__, __LINE__)
+void lsp_flood_reduced(struct isis_lsp *lsp, struct isis_circuit *circuit, const uint8_t *tn);
 void _lsp_flood(struct isis_lsp *lsp, struct isis_circuit *circuit,
 		const char *func, const char *file, int line);
 void lsp_init(void);

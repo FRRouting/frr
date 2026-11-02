@@ -106,6 +106,25 @@ writing, *isisd* does not support multiple ISIS processes.
 
    Enable or disable :rfc:`6232` purge originator identification.
 
+.. clicmd:: flood-reduction
+   :daemon: isisd
+
+   Enable or disable distributed flooding reduction as described in
+   draft-ietf-lsr-distoptflood. Disabled by default.
+
+   While enabled, :clicmd:`show isis summary` shows these counters for
+   each level:
+
+   - *reduced LSPs*: received LSPs re-flooded using the reduction
+     decision.
+   - *fallbacks*: received LSPs flooded to all neighbors because the
+     decision could not be applied, for example because the
+     transmitting neighbor is not in the topology yet.
+   - *selected*: reduced LSPs for which this router was selected to
+     re-flood to its two-hop neighbors.
+   - *suppressed sends*: total number of neighbors the LSP was not
+     sent to, not counting the neighbor it was received from.
+
 .. clicmd:: lsp-mtu (128-4352)
 
    Configure the maximum size of generated LSPs, in bytes.

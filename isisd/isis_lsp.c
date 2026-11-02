@@ -48,6 +48,7 @@
 #include "isisd/isis_tx_queue.h"
 #include "isisd/isis_nb.h"
 #include "isisd/isis_flex_algo.h"
+#include "isisd/isis_flood_reduction.h"
 
 DEFINE_MTYPE_STATIC(ISISD, ISIS_LSP, "ISIS LSP");
 
@@ -2339,6 +2340,99 @@ void _lsp_flood(struct isis_lsp *lsp, struct isis_circuit *circuit,
 
 	if (circuit)
 		isis_tx_queue_del(circuit->tx_queue, lsp);
+}
+
+/* Up point-to-point neighbor on circuit at level, if any. */
+static struct isis_adjacency *lsp_fr_p2p_neighbor(struct isis_circuit *circuit, int level)
+{
+	struct isis_adjacency *adj;
+
+	if (circuit->circ_type != CIRCUIT_T_P2P)
+		return NULL;
+	adj = circuit->u.p2p.neighbor;
+	if (!adj || adj->adj_state != ISIS_ADJ_UP ||
+	    !(isis_adj_usage2levels(adj->adj_usage) & level))
+		return NULL;
+
+	return adj;
+}
+
+/*
+ * Flood an LSP received from transmitting neighbor tn on circuit using
+ * distributed flooding reduction. Only point-to-point circuits are
+ * subject to the decision; broadcast circuits always get the LSP.
+ * Falls back to standard flooding whenever the decision can't be
+ * applied. Neighbors the LSP is withheld from are resynchronized by
+ * the periodic CSNPs sent on point-to-point circuits.
+ */
+void lsp_flood_reduced(struct isis_lsp *lsp, struct isis_circuit *circuit, const uint8_t *tn)
+{
+	struct isis_area *area = lsp->area;
+	struct isis_fr_graph **graph;
+	struct isis_fr_decision dec;
+	struct isis_circuit *c;
+	struct isis_adjacency *adj;
+	uint8_t(*nbrs)[ISIS_SYS_ID_LEN];
+	bool *flood;
+	size_t n_circuits, n_nbrs = 0, i = 0;
+
+	if (!tn) {
+		area->fr_fallback_count[lsp->level - 1]++;
+		lsp_flood(lsp, circuit);
+		return;
+	}
+
+	graph = &area->fr_graph[lsp->level - 1];
+	if (!*graph)
+		*graph = isis_fr_graph_build(&area->lspdb[lsp->level - 1]);
+
+	n_circuits = isis_circuit_list_count(&area->circuit_list);
+	nbrs = XCALLOC(MTYPE_TMP, (n_circuits ? n_circuits : 1) * sizeof(*nbrs));
+	flood = XCALLOC(MTYPE_TMP, (n_circuits ? n_circuits : 1) * sizeof(*flood));
+
+	frr_each (isis_circuit_list, &area->circuit_list, c) {
+		adj = lsp_fr_p2p_neighbor(c, lsp->level);
+		if (adj)
+			memcpy(nbrs[n_nbrs++], adj->sysid, ISIS_SYS_ID_LEN);
+	}
+
+	if (isis_fr_decide(*graph, area->isis->sysid, tn, lsp->hdr.lsp_id,
+			   ISIS_FR_DEFAULT_REDUNDANCY, nbrs, n_nbrs, flood,
+			   &dec) != ISIS_FR_REDUCED) {
+		if (IS_DEBUG_FLOODING)
+			zlog_debug("Flooding reduction not applicable to LSP %pLS, flooding to all",
+				   lsp->hdr.lsp_id);
+		area->fr_fallback_count[lsp->level - 1]++;
+		lsp_flood(lsp, circuit);
+		goto out;
+	}
+
+	area->fr_reduced_count[lsp->level - 1]++;
+	if (dec.selected)
+		area->fr_selected_count[lsp->level - 1]++;
+	area->fr_suppressed_count[lsp->level - 1] += dec.suppressed;
+
+	if (IS_DEBUG_FLOODING)
+		zlog_debug("Flooding LSP %pLS with reduction: %s, THL %u, RNL %u, start %u, suppressed %u",
+			   lsp->hdr.lsp_id, dec.selected ? "selected" : "not selected",
+			   dec.thl_count, dec.rnl_count, dec.start_index, dec.suppressed);
+
+	/* Same circuit order as when nbrs[] was filled in. */
+	frr_each (isis_circuit_list, &area->circuit_list, c) {
+		bool send = true;
+
+		if (lsp_fr_p2p_neighbor(c, lsp->level))
+			send = flood[i++];
+
+		if (send && c != circuit)
+			isis_tx_queue_add(c->tx_queue, lsp, TX_LSP_NORMAL);
+		else
+			isis_tx_queue_del(c->tx_queue, lsp);
+	}
+
+out:
+	XFREE(MTYPE_TMP, nbrs);
+	XFREE(MTYPE_TMP, flood);
 }
 
 static int lsp_handle_adj_state_change(struct isis_adjacency *adj)

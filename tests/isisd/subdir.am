@@ -84,3 +84,13 @@ tests_isisd_test_isis_tlv_ext_reach_CPPFLAGS = $(TESTS_CPPFLAGS)
 tests_isisd_test_isis_tlv_ext_reach_LDADD = $(ISISD_TEST_LDADD)
 tests_isisd_test_isis_tlv_ext_reach_SOURCES = tests/isisd/test_isis_tlv_ext_reach.c tests/isisd/test_common.c
 EXTRA_DIST += tests/isisd/test_isis_tlv_ext_reach.py
+
+
+if ISISD
+check_PROGRAMS += tests/isisd/test_isis_flood_reduction
+endif
+tests_isisd_test_isis_flood_reduction_CFLAGS = $(TESTS_CFLAGS)
+tests_isisd_test_isis_flood_reduction_CPPFLAGS = $(TESTS_CPPFLAGS)
+tests_isisd_test_isis_flood_reduction_LDADD = $(ISISD_TEST_LDADD)
+tests_isisd_test_isis_flood_reduction_SOURCES = tests/isisd/test_isis_flood_reduction.c tests/isisd/test_common.c
+EXTRA_DIST += tests/isisd/test_isis_flood_reduction.py

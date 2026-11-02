@@ -416,6 +416,8 @@ RB_HEAD(isis_mt_item_list, isis_item_list);
 
 struct isis_item_list *isis_get_mt_items(struct isis_mt_item_list *m, uint16_t mtid);
 struct isis_item_list *isis_lookup_mt_items(struct isis_mt_item_list *m, uint16_t mtid);
+struct isis_item_list *isis_mt_items_first(struct isis_mt_item_list *m);
+struct isis_item_list *isis_mt_items_next(struct isis_item_list *l);
 
 struct isis_tlvs {
 	struct isis_item_list isis_auth;

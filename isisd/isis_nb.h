@@ -29,6 +29,7 @@ int isis_instance_overload_on_startup_modify(struct nb_cb_modify_args *args);
 int isis_instance_advertise_high_metrics_modify(struct nb_cb_modify_args *args);
 int isis_instance_metric_style_modify(struct nb_cb_modify_args *args);
 int isis_instance_purge_originator_modify(struct nb_cb_modify_args *args);
+int isis_instance_flood_reduction_modify(struct nb_cb_modify_args *args);
 int isis_instance_admin_group_send_zero_modify(struct nb_cb_modify_args *args);
 int isis_instance_asla_legacy_flag_modify(struct nb_cb_modify_args *args);
 int isis_instance_lsp_mtu_modify(struct nb_cb_modify_args *args);
@@ -415,6 +416,8 @@ void cli_show_isis_spf_ietf_backoff(struct vty *vty, const struct lyd_node *dnod
 void cli_show_isis_spf_prefix_priority(struct vty *vty, const struct lyd_node *dnode,
 				       bool show_defaults);
 void cli_show_isis_purge_origin(struct vty *vty, const struct lyd_node *dnode, bool show_defaults);
+void cli_show_isis_flood_reduction(struct vty *vty, const struct lyd_node *dnode,
+				   bool show_defaults);
 void cli_show_isis_mpls_te(struct vty *vty, const struct lyd_node *dnode, bool show_defaults);
 void cli_show_isis_admin_group_send_zero(struct vty *vty, const struct lyd_node *dnode,
 					 bool show_defaults);

@@ -49,6 +49,7 @@
 #include "isis_zebra.h"
 #include "fabricd.h"
 #include "isis_spf_private.h"
+#include "isis_flood_reduction.h"
 
 DEFINE_MTYPE_STATIC(ISISD, ISIS_SPFTREE, "ISIS SPFtree");
 DEFINE_MTYPE_STATIC(ISISD, ISIS_SPF_RUN, "ISIS SPF Run Info");
@@ -1996,6 +1997,14 @@ static void isis_run_spf_cb(struct event *event)
 #endif /* ifndef FABRICD */
 
 	XFREE(MTYPE_ISIS_SPF_RUN, run);
+
+	/*
+	 * The LSPDB may have changed since the flooding reduction snapshot
+	 * was built: drop it so the next flooding decision rebuilds it. Doing
+	 * this here rather than when SPF is scheduled limits rebuilds to one
+	 * per SPF run instead of one per received LSP.
+	 */
+	isis_fr_graph_free(&area->fr_graph[level - 1]);
 
 	if (!(area->is_type & level)) {
 		if (IS_DEBUG_SPF_EVENTS)

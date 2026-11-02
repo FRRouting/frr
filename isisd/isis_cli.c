@@ -1045,6 +1045,25 @@ void cli_show_isis_purge_origin(struct vty *vty, const struct lyd_node *dnode, b
 	vty_out(vty, " purge-originator\n");
 }
 
+/*
+ * XPath: /frr-isisd:isis/instance/flood-reduction
+ */
+DEFPY_YANG(area_flood_reduction, area_flood_reduction_cmd, "[no] flood-reduction",
+	   NO_STR "Enable distributed flooding reduction\n")
+{
+	nb_cli_enqueue_change(vty, "./flood-reduction", NB_OP_MODIFY, no ? "false" : "true");
+
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+void cli_show_isis_flood_reduction(struct vty *vty, const struct lyd_node *dnode,
+				   bool show_defaults)
+{
+	if (!yang_dnode_get_bool(dnode, NULL))
+		vty_out(vty, " no");
+	vty_out(vty, " flood-reduction\n");
+}
+
 
 /*
  * XPath: /frr-isisd:isis/instance/admin-group-send-zero
@@ -3725,6 +3744,7 @@ void isis_cli_init(void)
 	install_element(ISIS_NODE, &no_spf_delay_ietf_cmd);
 
 	install_element(ISIS_NODE, &area_purge_originator_cmd);
+	install_element(ISIS_NODE, &area_flood_reduction_cmd);
 
 	install_element(ISIS_NODE, &isis_admin_group_send_zero_cmd);
 	install_element(ISIS_NODE, &isis_asla_legacy_flag_cmd);

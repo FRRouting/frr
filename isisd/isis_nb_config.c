@@ -44,6 +44,7 @@
 #include "isisd/isis_sr.h"
 #include "isisd/isis_flex_algo.h"
 #include "isisd/isis_zebra.h"
+#include "isisd/isis_flood_reduction.h"
 
 DEFINE_MTYPE_STATIC(ISISD, ISIS_TMP_SPF_BACKOFF_BUF_NB, "ISIS NB SPF backoff temporary buffer");
 
@@ -411,6 +412,26 @@ int isis_instance_purge_originator_modify(struct nb_cb_modify_args *args)
 
 	area = nb_running_get_entry(args->dnode, NULL, true);
 	area->purge_originator = yang_dnode_get_bool(args->dnode, NULL);
+
+	return NB_OK;
+}
+
+/*
+ * XPath: /frr-isisd:isis/instance/flood-reduction
+ */
+int isis_instance_flood_reduction_modify(struct nb_cb_modify_args *args)
+{
+	struct isis_area *area;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	area = nb_running_get_entry(args->dnode, NULL, true);
+	area->flood_reduction = yang_dnode_get_bool(args->dnode, NULL);
+	if (!area->flood_reduction) {
+		isis_fr_graph_free(&area->fr_graph[0]);
+		isis_fr_graph_free(&area->fr_graph[1]);
+	}
 
 	return NB_OK;
 }
