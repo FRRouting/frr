@@ -3180,6 +3180,9 @@ static void bmp_active_thread(struct event *t)
 		/* Check transport VRF availability before resolving. */
 		if (!bmp_active_vrf_id(ba, &vrf_id))
 			return;
+		/* Preserve the BGP VRF for DNS unless a transport VRF is set. */
+		if (!ba->vrfname)
+			vrf_id = ba->targets->bgp->vrf_id;
 		/* Keep the existing resolver behavior: it switches network
 		 * namespaces but does not bind DNS sockets to Linux VRF devices.
 		 * The transport VRF option does not add VRF device support for DNS.
