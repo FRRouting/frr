@@ -1976,25 +1976,33 @@ void ospf6_receive(struct event *event)
 	}
 }
 
+/*
+ * RFC 5340 A.3.1: covers the IPv6 pseudo-header and the OSPF packet up to its
+ * length field, which leaves out an LLS block or Authentication Trailer.
+ */
+uint16_t ospf6_packet_checksum(const struct in6_addr *src, const struct in6_addr *dst,
+			       const void *oh, uint16_t length)
+{
+	struct ipv6_ph ph = {};
+
+	ph.src = *src;
+	ph.dst = *dst;
+	ph.ulpl = htonl(length);
+	ph.next_hdr = IPPROTO_OSPFIGP;
+
+	return in_cksum_with_ph6(&ph, oh, length);
+}
+
 static void ospf6_fill_hdr_checksum(struct ospf6_interface *oi,
 				    struct ospf6_packet *op)
 {
-	struct ipv6_ph ph = {};
 	struct ospf6_header *oh;
-	void *offset = NULL;
 
 	if (oi->at_data.flags != 0)
 		return;
 
-	memcpy(&ph.src, oi->linklocal_addr, sizeof(struct in6_addr));
-	memcpy(&ph.dst, &op->dst, sizeof(struct in6_addr));
-	ph.ulpl = htonl(op->length);
-	ph.next_hdr = IPPROTO_OSPFIGP;
-
-	/* Suppress static analysis warnings about accessing icmp6 oob */
 	oh = (struct ospf6_header *)STREAM_DATA(op->s);
-	offset = oh;
-	oh->checksum = in_cksum_with_ph6(&ph, offset, op->length);
+	oh->checksum = ospf6_packet_checksum(oi->linklocal_addr, &op->dst, oh, op->length);
 }
 
 static void ospf6_make_header(uint8_t type, struct ospf6_interface *oi,
