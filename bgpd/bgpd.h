@@ -3257,6 +3257,28 @@ static inline int peer_cap_enhe(struct peer *peer, afi_t afi, safi_t safi)
 	return (CHECK_FLAG(peer->af_cap[afi][safi], PEER_CAP_ENHE_AF_NEGO));
 }
 
+/*
+ * Dynamic Capability is usable only if both sides advertised it,
+ * otherwise bgp_capability_send() does nothing.
+ */
+static inline bool peer_cap_dynamic_nego(const struct peer *peer)
+{
+	return CHECK_FLAG(peer->cap, PEER_CAP_DYNAMIC_ADV) &&
+	       CHECK_FLAG(peer->cap, PEER_CAP_DYNAMIC_RCV);
+}
+
+/*
+ * Whether we advertise Extended Next Hop Encoding (RFC 8950) for the
+ * given AFI/SAFI on this connection.
+ */
+static inline bool bgp_connection_enhe_af_adv(const struct peer_connection *connection, afi_t afi,
+					      safi_t safi)
+{
+	return CHECK_FLAG(connection->peer->flags, PEER_FLAG_CAPABILITY_ENHE) &&
+	       connection->su.sa.sa_family == AF_INET6 && afi == AFI_IP &&
+	       (safi == SAFI_UNICAST || safi == SAFI_MPLS_VPN || safi == SAFI_LABELED_UNICAST);
+}
+
 /* Lookup VRF for BGP instance based on its type. */
 static inline struct vrf *bgp_vrf_lookup_by_instance_type(struct bgp *bgp)
 {
