@@ -8061,6 +8061,13 @@ static void kernel_dplane_handle_result(struct zebra_dplane_ctx *ctx)
 			atomic_fetch_add_explicit(&zdplane_info.dg_route_errors,
 						  1, memory_order_relaxed);
 
+#ifdef HAVE_NETLINK
+		/*
+		 * Netlink installs the route with all its nexthops or not at
+		 * all. The routing socket adds them one by one and
+		 * kernel_rtm() marks the ones the kernel took, so a partial
+		 * install must not be marked as complete here.
+		 */
 		if ((dplane_ctx_get_op(ctx) != DPLANE_OP_ROUTE_DELETE)
 		    && (res == ZEBRA_DPLANE_REQUEST_SUCCESS)) {
 			struct nexthop *nexthop;
@@ -8081,6 +8088,7 @@ static void kernel_dplane_handle_result(struct zebra_dplane_ctx *ctx)
 				}
 			}
 		}
+#endif /* HAVE_NETLINK */
 		break;
 
 	case DPLANE_OP_NH_INSTALL:
