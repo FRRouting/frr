@@ -4579,10 +4579,14 @@ supported with ``advertise <ipv4|ipv6> unicast`` and cannot be used with the
 Only the VPN routes exported from a local VRF are advertised. With
 ``reoriginate``, a VRF without L3VNI also re-originates the routes it imports
 from VPN peers, as type-5 routes with its VPN export RD, route-targets and
-SRv6 SID. This makes the router a gateway between a L3VPN domain and an EVPN
-SRv6 domain. The ``reoriginate`` keyword is only supported in the EVPN
-instance, and the VRF needs a ``sid vpn export`` configuration. Re-origination
-is disabled with:
+SRv6 SID. In the other direction, the VRF re-originates the routes it
+imports from EVPN as VPN routes with its VPN export RD, route-targets and MPLS
+label, without SRv6 SID, and the VPN routes imported from EVPN are not
+advertised to the VPN peers. This makes the router a gateway between a L3VPN
+MPLS domain and an EVPN SRv6 domain. The ``reoriginate`` keyword is only
+supported in the EVPN instance. The VRF needs a ``sid vpn export``
+configuration for the EVPN direction, and a ``label vpn export``
+configuration for the L3VPN direction. Re-origination is disabled with:
 
 .. clicmd:: no advertise <ipv4|ipv6> vpn reoriginate
 

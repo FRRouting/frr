@@ -845,6 +845,7 @@ static bool bgp_evpn_wildcard_rt_local_admin_from_eval(uint8_t type,
 bool is_route_injectable_into_evpn_non_supp(struct bgp *bgp_vrf, afi_t afi, safi_t safi,
 					    struct bgp_path_info *pi)
 {
+	struct bgp_path_info *ultimate;
 	struct bgp_path_info *parent_pi;
 	struct bgp_dest *dest;
 	struct bgp_table *table;
@@ -885,6 +886,10 @@ bool is_route_injectable_into_evpn_non_supp(struct bgp *bgp_vrf, afi_t afi, safi
 		if (pi->peer != bgp_vrf->peer_self)
 			return false;
 		if (pi->extra && pi->extra->evpn && pi->extra->evpn->type5_originator)
+			return false;
+		ultimate = bgp_get_imported_bpi_ultimate(pi);
+		if (ultimate->extra && ultimate->extra->evpn &&
+		    ultimate->extra->evpn->type5_originator)
 			return false;
 	}
 
@@ -929,18 +934,49 @@ bool bgp_evpn_path_is_reoriginable(const struct bgp_path_info *pi)
 	return table && table->safi == SAFI_MPLS_VPN;
 }
 
+/* Flag if 'advertise <afi> vpn reoriginate' is configured */
+bool bgp_evpn_reoriginate_vpn_configured(afi_t afi)
+{
+	struct bgp *bgp_evpn = bgp_get_evpn();
+
+	return bgp_evpn &&
+	       CHECK_FLAG(bgp_evpn->evpn_reoriginate_flags[afi], BGP_EVPN_REORIGINATE_VPN) &&
+	       advertise_type5_routes_bestpath(bgp_evpn, afi, SAFI_MPLS_VPN);
+}
+
+/* Flag if the VRF path is imported from a VPN path, itself imported from an
+ * EVPN type-5 route.
+ */
+bool bgp_evpn_path_is_imported_from_evpn_vpn(const struct bgp_path_info *pi)
+{
+	const struct bgp_path_info *parent;
+
+	if (pi->sub_type != BGP_ROUTE_IMPORTED || !pi->extra || !pi->extra->vrfleak ||
+	    !pi->extra->vrfleak->parent)
+		return false;
+
+	parent = pi->extra->vrfleak->parent;
+
+	return is_pi_family_vpn(parent) && parent->extra && parent->extra->evpn &&
+	       parent->extra->evpn->type5_originator;
+}
+
+/* Flag if the VRF re-originates as MPLS VPN routes its paths imported from
+ * EVPN type-5 routes.
+ */
+bool bgp_evpn_reoriginate_evpn_active(struct bgp *bgp_vrf, afi_t afi)
+{
+	return bgp_vrf->inst_type == BGP_INSTANCE_TYPE_VRF && !bgp_vrf->l3vni &&
+	       bgp_evpn_reoriginate_vpn_configured(afi);
+}
+
 /* Flag if the VRF re-originates its paths imported from VPN as type-5 routes
  * with its VPN export RD, route-targets and SRv6 SID.
  */
 bool bgp_evpn_reoriginate_vpn_active(struct bgp *bgp_vrf, afi_t afi)
 {
-	struct bgp *bgp_evpn = bgp_get_evpn();
-
-	if (!bgp_evpn || bgp_vrf->inst_type != BGP_INSTANCE_TYPE_VRF || bgp_vrf->l3vni)
-		return false;
-
-	if (!CHECK_FLAG(bgp_evpn->evpn_reoriginate_flags[afi], BGP_EVPN_REORIGINATE_VPN) ||
-	    !advertise_type5_routes_bestpath(bgp_evpn, afi, SAFI_MPLS_VPN))
+	if (bgp_vrf->inst_type != BGP_INSTANCE_TYPE_VRF || bgp_vrf->l3vni ||
+	    !bgp_evpn_reoriginate_vpn_configured(afi))
 		return false;
 
 	if (!vpn_leak_to_vpn_active(bgp_vrf, afi, NULL, false))
@@ -1010,13 +1046,43 @@ void bgp_evpn_reoriginate_vpn_routes(struct bgp *bgp_vrf, afi_t afi, bool withdr
 	}
 }
 
+/* Advertise, or withdraw, the VPN routes re-originated by a VRF from its
+ * paths imported from EVPN.
+ */
+static void bgp_evpn_reoriginate_evpn_routes(struct bgp *bgp_vpn, struct bgp *bgp_vrf, afi_t afi,
+					     bool withdraw)
+{
+	struct bgp_dest *dest;
+	struct bgp_path_info *pi;
+
+	if (bgp_vrf->inst_type != BGP_INSTANCE_TYPE_VRF || !bgp_vrf->rib[afi][SAFI_UNICAST])
+		return;
+
+	for (dest = bgp_table_top(bgp_vrf->rib[afi][SAFI_UNICAST]); dest;
+	     dest = bgp_route_next(dest)) {
+		for (pi = bgp_dest_get_bgp_path_info(dest); pi; pi = pi->next) {
+			if (!bgp_evpn_path_is_imported_from_evpn_vpn(pi))
+				continue;
+
+			if (withdraw)
+				vpn_leak_from_vrf_withdraw(bgp_vpn, bgp_vrf, pi);
+			else
+				vpn_leak_from_vrf_update(bgp_vpn, bgp_vrf, pi);
+		}
+	}
+}
+
 void bgp_evpn_reoriginate_vpn_routes_all(afi_t afi, bool withdraw)
 {
+	struct bgp *bgp_vpn = bgp_get_default();
 	struct listnode *node;
 	struct bgp *bgp_vrf;
 
-	for (ALL_LIST_ELEMENTS_RO(bm->bgp, node, bgp_vrf))
+	for (ALL_LIST_ELEMENTS_RO(bm->bgp, node, bgp_vrf)) {
 		bgp_evpn_reoriginate_vpn_routes(bgp_vrf, afi, withdraw);
+		if (bgp_vpn)
+			bgp_evpn_reoriginate_evpn_routes(bgp_vpn, bgp_vrf, afi, withdraw);
+	}
 }
 
 /*
