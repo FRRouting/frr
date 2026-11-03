@@ -1444,13 +1444,17 @@ static char *_ecommunity_ecom2str(struct ecommunity *ecom, int format, int filte
 			} else if (*pnt
 				   == ECOMMUNITY_EVPN_SUBTYPE_ESI_LABEL) {
 				uint8_t flags = *++pnt;
+				uint32_t label;
 
-				snprintf(encbuf, sizeof(encbuf),
-					 "ESI-label-Rt:%s",
-					 CHECK_FLAG(flags,
-						    ECOMMUNITY_EVPN_SUBTYPE_ESI_SA_FLAG)
+				/* Skip the flags and the two reserved octets */
+				label = ((uint32_t)pnt[3] << 12) | ((uint32_t)pnt[4] << 4) |
+					((uint32_t)pnt[5] >> 4);
+
+				snprintf(encbuf, sizeof(encbuf), "ESI-label-Rt:%s:%u",
+					 CHECK_FLAG(flags, ECOMMUNITY_EVPN_SUBTYPE_ESI_SA_FLAG)
 						 ? "SA"
-						 : "AA");
+						 : "AA",
+					 label);
 			} else if (*pnt
 				   == ECOMMUNITY_EVPN_SUBTYPE_DF_ELECTION) {
 				uint8_t alg;
