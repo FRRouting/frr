@@ -227,7 +227,8 @@ static int kernel_rtm(int cmd, const struct prefix *p, const struct nexthop_grou
 					"%s: %pFX: attention! gate not found for re",
 					__func__, p);
 			} else {
-				switch (p->family) {
+				/* An IPv4 route can have an IPv6 gateway */
+				switch (sin_gate.sa.sa_family) {
 				case AF_INET:
 					inet_ntop(AF_INET,
 						  &sin_gate.sin.sin_addr,
