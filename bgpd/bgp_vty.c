@@ -10479,8 +10479,8 @@ DEFPY(sid_export,
 	struct in6_addr *unicast_sid_explicit = NULL;
 
 	VTY_DECLVAR_CONTEXT(bgp, bgp);
-	if (bgp->vrf_id != VRF_DEFAULT) {
-		vty_out(vty, "SRv6 unicast is only supported on default vrf");
+	if (bgp->inst_type != BGP_INSTANCE_TYPE_DEFAULT) {
+		vty_out(vty, "SRv6 unicast is only supported on the default BGP instance\n");
 
 		return CMD_WARNING_CONFIG_FAILED;
 	}
