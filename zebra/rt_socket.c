@@ -235,11 +235,14 @@ static int kernel_rtm(int cmd, const struct prefix *p, const struct nexthop_grou
 						  gate_buf, sizeof(gate_buf));
 					break;
 
-				case AF_INET6:
-					inet_ntop(AF_INET6,
-						  &sin_gate.sin6.sin6_addr,
-						  gate_buf, sizeof(gate_buf));
-					break;
+				case AF_INET6: {
+					struct in6_addr addr = sin_gate.sin6.sin6_addr;
+
+					/* Drop the ifindex set for the kernel */
+					if (IN6_IS_ADDR_LINKLOCAL(&addr))
+						SET_IN6_LINKLOCAL_IFINDEX(addr, 0);
+					inet_ntop(AF_INET6, &addr, gate_buf, sizeof(gate_buf));
+				} break;
 
 				default:
 					snprintf(gate_buf, sizeof(gate_buf),
