@@ -5153,6 +5153,8 @@ static void bgp_route_map_process_update(struct bgp *bgp, const char *rmap_name,
 				     advertise_type5_routes_multipath(bgp, afi, safi))) {
 			bgp_evpn_withdraw_type5_routes(bgp, afi, safi);
 			bgp_evpn_advertise_type5_routes(bgp, afi, safi);
+			if (safi == SAFI_MPLS_VPN)
+				bgp_evpn_reoriginate_vpn_routes_refresh(afi);
 		}
 	}
 }
