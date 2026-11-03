@@ -1252,6 +1252,72 @@ def test_bgp_srv6_no_locator():
     assert res is True, res
 
 
+def test_bgp_srv6_vrf_instance_delete():
+    """
+    Create a BGP VRF instance on r1, and delete it: the SRv6 unicast SIDs of
+    the default instance, their 'sid export' configuration and their local
+    SIDs must be kept.
+    """
+    tgen = get_topogen()
+
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    r1 = tgen.gears["r1"]
+
+    def get_sid_export_config():
+        output = r1.vtysh_cmd("show running-config bgpd")
+        return [line.strip() for line in output.splitlines() if "sid export" in line]
+
+    def get_bgp_vrfs():
+        return json.loads(r1.vtysh_cmd("show bgp vrfs json")).get("vrfs", {})
+
+    sids = {}
+    for afi in ("AFI_IP", "AFI_IP6"):
+        res = get_unicast_sid(afi)
+        assert res is True, res
+        sids[afi] = r1_unicast_sid
+    sid_export_config = get_sid_export_config()
+    assert sid_export_config, "no 'sid export' configured on r1"
+
+    r1.cmd("ip link add vrf10 type vrf table 10 && ip link set up dev vrf10")
+    r1.vtysh_multicmd(
+        "router bgp 65001 vrf vrf10", pretty_output=False, daemon="bgpd", raises=True
+    )
+    assert "vrf10" in get_bgp_vrfs(), "BGP instance vrf10 not created on r1"
+
+    r1.vtysh_multicmd(
+        "no router bgp 65001 vrf vrf10",
+        pretty_output=False,
+        daemon="bgpd",
+        raises=True,
+    )
+    assert "vrf10" not in get_bgp_vrfs(), "BGP instance vrf10 not deleted on r1"
+    r1.cmd("ip link del vrf10")
+
+    output = r1.vtysh_cmd("show bgp segment-routing srv6")
+    logger.info(output)
+
+    for afi, sid in sids.items():
+        res = get_unicast_sid(afi)
+        assert res is True, res
+        assert r1_unicast_sid == sid, "%s unicast SID changed: %s instead of %s" % (
+            afi,
+            r1_unicast_sid,
+            sid,
+        )
+        output = json.loads(r1.vtysh_cmd("show ipv6 route %s/128 json" % sid))
+        routes = output.get("%s/128" % sid, [])
+        assert any(
+            route.get("installed") for route in routes
+        ), "local SID %s of %s not installed" % (sid, afi)
+
+    config = get_sid_export_config()
+    assert config == sid_export_config, (
+        "'sid export' configuration changed: %s" % config
+    )
+
+
 def teardown_module(mod):
     tgen = get_topogen()
     tgen.stop_topology()
