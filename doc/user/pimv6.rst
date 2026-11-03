@@ -64,7 +64,9 @@ PIMv6 Router
    messages to be sent to. This command statically configures an RP. All
    routers in the PIMv6 network must agree on these values. The first IPv6
    address is the RP's address and the second value is the matching prefix
-   of group ranges covered. This command is VRF-aware.
+   of group ranges covered. A group range can only have one static RP:
+   configuring another RP for the group range of a configured RP is
+   rejected. This command is VRF-aware.
 
 .. clicmd:: rp X:X::X:X prefix-list WORD
 
