@@ -1951,6 +1951,9 @@ void vpn_leak_from_vrf_update(struct bgp *to_bgp,	     /* to */
 		return;
 	}
 
+	if (bgp_evpn_vxlan_reoriginate_disabled(from_bgp, afi, path_vrf))
+		return;
+
 	/* Is this route exportable into the VPN table? */
 	if (!is_route_injectable_into_vpn(path_vrf))
 		return;
