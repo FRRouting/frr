@@ -1240,9 +1240,6 @@ void subgroup_default_originate(struct update_subgroup *subgrp)
 			 * Route-map is configured but undefined or empty.
 			 * Treat as implicit deny - withdraw the default.
 			 */
-			if (!do_withdraw &&
-			    !CHECK_FLAG(subgrp->sflags, SUBGRP_STATUS_DEFAULT_ORIGINATE))
-				SET_FLAG(subgrp->sflags, SUBGRP_STATUS_DEFAULT_ORIGINATE);
 			do_withdraw = true;
 		}
 	}
@@ -1322,18 +1319,14 @@ rmap_done:;
 	}
 
 	if (do_withdraw) {
-		/* Withdraw the synthesized default.  Always send the withdraw
-		 * packet - the caller may have cleared the flag before calling
-		 * to force re-evaluation.
-		 *
-		 * TBD: Track the synthesized route's attributes so we can check
-		 * the flag properly and avoid unnecessary withdraw packets.
-		 */
-		subgroup_default_withdraw_packet(subgrp);
-		UNSET_FLAG(subgrp->sflags, SUBGRP_STATUS_DEFAULT_ORIGINATE);
+		/* Withdraw the synthesized default if it was previously sent. */
+		if (CHECK_FLAG(subgrp->sflags, SUBGRP_STATUS_DEFAULT_ORIGINATE)) {
+			subgroup_default_withdraw_packet(subgrp);
+			UNSET_FLAG(subgrp->sflags, SUBGRP_STATUS_DEFAULT_ORIGINATE);
+		}
 	} else {
-		if (!CHECK_FLAG(subgrp->sflags,
-				SUBGRP_STATUS_DEFAULT_ORIGINATE)) {
+		/* TBD: compare attributes to avoid sending redundant UPDATEs. */
+		{
 			struct attr attr_copy;
 
 			/*
@@ -1356,17 +1349,13 @@ rmap_done:;
 				p.prefixlen = 0;
 				if (bgp_route_map_setting_only(bgp, rmap, PEER_RMAP_TYPE_DEFAULT,
 							       &p, &attr_copy) == RMAP_DENYMATCH) {
-					/*
-					 * Route-map denied - withdraw default.
-					 * The flag may have been cleared by callers,
-					 * so withdraw unconditionally. This may send
-					 * an unnecessary withdraw, but a deny-only
-					 * route-map is not a practical scenario.
-					 */
+					/* Route-map denied - withdraw default if previously sent. */
 					bgp_attr_flush(&attr_copy);
 					aspath_unintern(&aspath);
-					subgroup_default_withdraw_packet(subgrp);
-					UNSET_FLAG(subgrp->sflags, SUBGRP_STATUS_DEFAULT_ORIGINATE);
+					if (CHECK_FLAG(subgrp->sflags, SUBGRP_STATUS_DEFAULT_ORIGINATE)) {
+						subgroup_default_withdraw_packet(subgrp);
+						UNSET_FLAG(subgrp->sflags, SUBGRP_STATUS_DEFAULT_ORIGINATE);
+					}
 					return;
 				}
 				/* Clear reflection attributes - default-originate
