@@ -183,10 +183,10 @@ static int kernel_rtm(int cmd, const struct prefix *p, const struct nexthop_grou
 				sin_gate.sin6.sin6_addr = loopback;
 				sin_gate.sin6.sin6_family = AF_INET6;
 
-#ifdef HAVE_STRUCTSOCKADDR_SA_LEN
+#ifdef HAVE_STRUCT_SOCKADDR_SA_LEN
 				sin_gate.sin6.sin6_len =
 					sizeof(struct sockaddr_in6);
-#endif /* HAVE_STRUCTSOCKADDR_SA_LEN */
+#endif /* HAVE_STRUCT_SOCKADDR_SA_LEN */
 				gate = true;
 			} break;
 			}
