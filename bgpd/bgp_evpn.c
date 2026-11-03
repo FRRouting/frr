@@ -882,6 +882,8 @@ bool is_route_injectable_into_evpn_non_supp(struct bgp *bgp_vrf, afi_t afi, safi
 			return false;
 		if (IS_PATH_IMPORTED_FROM_EVPN_TABLE(pi))
 			return false;
+		if (pi->extra && pi->extra->evpn && pi->extra->evpn->type5_originator)
+			return false;
 	}
 
 	return true;
