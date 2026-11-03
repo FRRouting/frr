@@ -201,7 +201,7 @@ void bgp_srv6_unicast_sid_withdraw(struct bgp *bgp, afi_t afi)
 	struct srv6_sid_ctx ctx = {};
 	int debug = BGP_DEBUG(zebra, ZEBRA);
 
-	if (bgp->vrf_id != VRF_DEFAULT)
+	if (bgp->inst_type != BGP_INSTANCE_TYPE_DEFAULT)
 		return;
 
 	if (debug)
@@ -233,7 +233,7 @@ void bgp_srv6_unicast_delete(struct bgp *bgp, afi_t afi)
 	struct interface *ifp;
 	struct srv6_sid_ctx ctx = {};
 
-	if (!bgp || bgp->vrf_id != VRF_DEFAULT)
+	if (!bgp || bgp->inst_type != BGP_INSTANCE_TYPE_DEFAULT)
 		return;
 
 	if (!is_srv6_unicast_enabled(bgp, afi))
