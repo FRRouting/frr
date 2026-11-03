@@ -75,6 +75,9 @@ struct bgp_adj_out {
 	/* VPN label information */
 	struct bgp_labels *labels;
 
+	/* Hash of the prefix, path id, attribute and labels last sent */
+	uint64_t fingerprint;
+
 	/* Advertisement information.  */
 	struct bgp_advertise *adv;
 };

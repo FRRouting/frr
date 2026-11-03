@@ -213,6 +213,12 @@ struct update_subgroup {
 	/* version maintained to record adj changes */
 	uint64_t adj_version;
 
+	/*
+	 * XOR of the fingerprints of all adj-outs. Subgroups that have sent
+	 * the same routes have the same value.
+	 */
+	uint64_t adj_fingerprint;
+
 	time_t uptime;
 
 	/*
@@ -441,6 +447,7 @@ extern void peer_af_announce_route(struct peer_af *paf, int combine);
 extern struct bgp_adj_out *bgp_adj_out_alloc(struct update_subgroup *subgrp,
 					     struct bgp_dest *dest,
 					     uint32_t addpath_tx_id);
+extern void bgp_adj_out_set_fingerprint(struct bgp_adj_out *adj);
 extern void bgp_adj_out_remove_subgroup(struct bgp_dest *dest,
 					struct bgp_adj_out *adj,
 					struct update_subgroup *subgrp);

@@ -17,6 +17,7 @@
 #include "memory.h"
 #include "prefix.h"
 #include "hash.h"
+#include "jhash.h"
 #include "frrevent.h"
 #include "queue.h"
 #include "routemap.h"
@@ -82,6 +83,7 @@ static void adj_free(struct bgp_adj_out *adj)
 {
 	bgp_labels_unintern(&adj->labels);
 
+	adj->subgroup->adj_fingerprint ^= adj->fingerprint;
 	TAILQ_REMOVE(&(adj->subgroup->adjq), adj, subgrp_adj_train);
 	SUBGRP_DECR_STAT(adj->subgroup, adj_count);
 
@@ -494,6 +496,20 @@ struct bgp_adj_out *bgp_adj_out_alloc(struct update_subgroup *subgrp,
 	TAILQ_INSERT_TAIL(&(subgrp->adjq), adj, subgrp_adj_train);
 	SUBGRP_INCR_STAT(subgrp, adj_count);
 	return adj;
+}
+
+/*
+ * Record the route just sent for this adj-out in its subgroup's fingerprint.
+ * Attributes and labels are interned, so equal values share a pointer.
+ */
+void bgp_adj_out_set_fingerprint(struct bgp_adj_out *adj)
+{
+	uint64_t key[] = { (uintptr_t)adj->dest, (uintptr_t)adj->attr, (uintptr_t)adj->labels,
+			   adj->addpath_tx_id };
+
+	adj->subgroup->adj_fingerprint ^= adj->fingerprint;
+	adj->fingerprint = (uint64_t)jhash(key, sizeof(key), 0) << 32 | jhash(key, sizeof(key), 1);
+	adj->subgroup->adj_fingerprint ^= adj->fingerprint;
 }
 
 

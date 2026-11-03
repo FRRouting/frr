@@ -951,6 +951,8 @@ static int update_group_show_walkcb(struct update_group *updgrp, void *arg)
 					       json_pkt_info);
 			json_object_int_add(json_subgrp, "adjListCount",
 					    subgrp->adj_count);
+			json_object_string_addf(json_subgrp, "adjListFingerprint", "0x%016" PRIx64,
+						subgrp->adj_fingerprint);
 			json_object_boolean_add(
 				json_subgrp, "needsRefresh",
 				CHECK_FLAG(subgrp->flags,
@@ -984,6 +986,8 @@ static int update_group_show_walkcb(struct update_group *updgrp, void *arg)
 				bpacket_queue_hwm_length(SUBGRP_PKTQ(subgrp)));
 			vty_out(vty, "    Adj-out list count: %u\n",
 				subgrp->adj_count);
+			vty_out(vty, "    Adj-out list fingerprint: 0x%016" PRIx64 "\n",
+				subgrp->adj_fingerprint);
 			vty_out(vty, "    Advertise list: %s\n",
 				advertise_list_is_empty(subgrp) ? "empty"
 								: "not empty");
@@ -1440,6 +1444,20 @@ static int update_subgroup_can_merge_into(struct update_subgroup *subgrp,
 	if (subgrp->adj_count != target->adj_count)
 		return 0;
 
+	/*
+	 * The version does not move until best path runs, but a route can
+	 * change before that. So subgroups at the same version may still
+	 * have sent different routes.
+	 */
+	if (subgrp->adj_fingerprint != target->adj_fingerprint) {
+		if (BGP_DEBUG(update_groups, UPDATE_GROUPS))
+			zlog_debug("u%" PRIu64 ":s%" PRIu64 " not merged into u%" PRIu64
+				   ":s%" PRIu64 ", adj-out differs",
+				   subgrp->update_group->id, subgrp->id, target->update_group->id,
+				   target->id);
+		return 0;
+	}
+
 	return update_subgroup_ready_for_merge(target);
 }
 
@@ -1582,9 +1600,11 @@ static void update_subgroup_copy_adj_out(struct update_subgroup *source,
 					      aout->addpath_tx_id);
 		aout_copy->attr =
 			aout->attr ? bgp_attr_intern(aout->attr) : NULL;
+		aout_copy->fingerprint = aout->fingerprint;
 	}
 
 	dest->scount = source->scount;
+	dest->adj_fingerprint = source->adj_fingerprint;
 }
 
 /*

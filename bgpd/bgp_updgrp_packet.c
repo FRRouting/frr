@@ -958,6 +958,7 @@ struct bpacket *subgroup_update_packet(struct update_subgroup *subgrp)
 			subgrp->scount++;
 
 		adj->attr = bgp_attr_intern(adv->baa->attr);
+		bgp_adj_out_set_fingerprint(adj);
 		adv = bgp_advertise_clean_subgroup(subgrp, adj);
 	}
 
