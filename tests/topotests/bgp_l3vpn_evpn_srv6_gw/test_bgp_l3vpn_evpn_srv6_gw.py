@@ -26,9 +26,8 @@ SID ('advertise ipv4 vpn'); 'no srv6-only' lets r3 accept the L3VPN MPLS
 routes while a SRv6 locator is configured. r2/r3 and r3/r4 use separate VLANs
 on the same segment.
 
-r3 re-originates the L3VPN routes of vrf1 as EVPN type-5 routes
-('advertise ipv4 vpn reoriginate'). Only this direction is checked: the EVPN
-routes are not re-originated as L3VPN MPLS routes.
+r3 re-originates the L3VPN routes of vrf1 as EVPN type-5 routes, and the
+EVPN routes of vrf1 as L3VPN MPLS routes ('advertise ipv4 vpn reoriginate').
 """
 
 import os
@@ -40,6 +39,7 @@ sys.path.append(os.path.join(CWD, "../"))
 
 # pylint: disable=C0413
 from lib import topotest
+from lib.checkping import check_ping
 from lib.common_config import required_linux_kernel_version, retry
 from lib.topogen import Topogen, get_topogen
 from lib.topolog import logger
@@ -302,10 +302,60 @@ def test_evpn_route_h4_not_reoriginated():
     assert not paths, "r3: 172.31.4.0/24 re-originated with RD 65501:13"
 
 
+@retry(retry_timeout=60)
+def check_reoriginated_route_h4(present):
+    r1 = get_topogen().gears["r1"]
+    output = r1.vtysh_cmd("show bgp ipv4 vpn 172.31.4.0/24 json", isjson=True)
+    paths = output.get("65501:13", {}).get("paths", [])
+    if "65502:14" in output:
+        return "r1: 172.31.4.0/24 of RD 65502:14 received"
+    if not present:
+        if paths:
+            return "r1: 172.31.4.0/24 of RD 65501:13 still received"
+        return True
+    if not paths:
+        return "r1: 172.31.4.0/24 of RD 65501:13 not received"
+    for path in paths:
+        if "remoteSid" in path or "prefixSids" in path:
+            return "r1: 172.31.4.0/24 of RD 65501:13 received with a SID"
+    return check_route(r1, "172.31.4.0/24", vrf="vrf1", labeled=True)
+
+
+def test_l3vpn_reoriginated_route_h4():
+    """
+    Check that r3 re-originates the prefix of h4, learned with EVPN SRv6, as
+    a L3VPN route with the RD and the MPLS label of its vrf1, and without
+    SID; that r3 does not advertise the VPN route of r4; and that r1 installs
+    the prefix in vrf1 with a labeled nexthop.
+    """
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    result = check_reoriginated_route_h4(True)
+    logger.info(tgen.gears["r1"].vtysh_cmd("show bgp ipv4 vpn 172.31.4.0/24"))
+    assert result is True, result
+
+
+def test_ping_h1_h4():
+    """
+    Check the traffic between h1 and h4: MPLS between r1 and r3, SRv6
+    between r3 and r4.
+    """
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    check_ping("h1", "172.31.4.10", True, 10, 1)
+    check_ping("h4", "172.31.1.10", True, 10, 1)
+
+
 def test_evpn_reoriginate_disable():
     """
-    Check that r4 loses the prefix of h1 when the re-origination is disabled
-    on r3, and receives it again when the re-origination is enabled.
+    Check that r4 loses the prefix of h1, and r1 the prefix of h4, when the
+    re-origination is disabled on r3, and that h1 and h4 can not ping each
+    other. Check that the prefixes and the traffic come back when the
+    re-origination is enabled.
     """
     tgen = get_topogen()
     if tgen.routers_have_failure():
@@ -325,6 +375,10 @@ router bgp 65501
     assert "  advertise ipv4 vpn\n" in output, "r3: 'advertise ipv4 vpn' not found"
     result = check_reoriginated_route_h1(False)
     assert result is True, result
+    result = check_reoriginated_route_h4(False)
+    assert result is True, result
+    check_ping("h1", "172.31.4.10", False, 10, 1)
+    check_ping("h4", "172.31.1.10", False, 10, 1)
 
     r3.vtysh_cmd(
         """
@@ -340,6 +394,10 @@ router bgp 65501
     ), "r3: 'advertise ipv4 vpn reoriginate' not found"
     result = check_reoriginated_route_h1(True)
     assert result is True, result
+    result = check_reoriginated_route_h4(True)
+    assert result is True, result
+    check_ping("h1", "172.31.4.10", True, 10, 1)
+    check_ping("h4", "172.31.1.10", True, 10, 1)
 
 
 def test_memory_leak():
