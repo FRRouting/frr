@@ -1570,8 +1570,8 @@ static unsigned ospf6_packet_examin(struct ospf6_header *oh,
 
 /* Verify particular fields of otherwise correct received OSPF packet to
    meet the requirements of RFC. */
-static int ospf6_rxpacket_examin(struct ospf6_interface *oi,
-				 struct ospf6_header *oh,
+static int ospf6_rxpacket_examin(struct ospf6_interface *oi, const struct in6_addr *src,
+				 const struct in6_addr *dst, struct ospf6_header *oh,
 				 const unsigned bytesonwire)
 {
 	struct ospf6_neighbor *on;
@@ -1580,6 +1580,20 @@ static int ospf6_rxpacket_examin(struct ospf6_interface *oi,
 		return MSG_NG;
 
 	on = ospf6_neighbor_lookup(oh->router_id, oi);
+
+	/*
+	 * Checksum check, RFC 5340 4.2.2. ospf6_packet_examin() made sure that
+	 * bytesonwire is the length field. RFC 7166 4.2 omits the check for a
+	 * packet with an Authentication Trailer. ospf6_auth_validate_pkt() let
+	 * through only packets that match the interface configuration, so the
+	 * interface tells whether this one has a trailer.
+	 */
+	if (oi->at_data.flags == 0 && ospf6_packet_checksum(src, dst, oh, bytesonwire) != 0) {
+		zlog_warn("VRF %s: I/F %s (%s, Router-ID: %pI4) Checksum error in %s packet from %pI6 (rcvd 0x%04x)",
+			  oi->interface->vrf->name, oi->interface->name, on ? on->name : "null",
+			  &oh->router_id, ospf6_message_type(oh->type), src, ntohs(oh->checksum));
+		return MSG_NG;
+	}
 
 	/* Area-ID check */
 	if (oh->area_id != oi->area->area_id) {
@@ -1883,7 +1897,7 @@ static int ospf6_read_helper(int sockfd, struct ospf6 *ospf6)
 		return OSPF6_READ_CONTINUE;
 	}
 
-	if (ospf6_rxpacket_examin(oi, oh, len) != MSG_OK)
+	if (ospf6_rxpacket_examin(oi, &src, &dst, oh, len) != MSG_OK)
 		return OSPF6_READ_CONTINUE;
 
 	/* Being here means, that no sizing/alignment issues were detected in
