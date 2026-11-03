@@ -243,6 +243,10 @@ extern void bgp_evpn_reoriginate_vpn_route(struct bgp *bgp_vrf, afi_t afi, const
 					   struct bgp_path_info *old_select);
 extern void bgp_evpn_reoriginate_vpn_routes(struct bgp *bgp_vrf, afi_t afi, bool withdraw);
 extern void bgp_evpn_reoriginate_vpn_routes_all(afi_t afi, bool withdraw);
+extern void bgp_evpn_withdraw_reoriginated_type5_routes(struct bgp *bgp_vrf, afi_t afi);
+extern bool bgp_evpn_vxlan_reoriginate_disabled(struct bgp *bgp_vrf, afi_t afi,
+						const struct bgp_path_info *pi);
+extern void bgp_evpn_vxlan_reoriginate_vpn_routes(struct bgp *bgp_vrf, afi_t afi, bool withdraw);
 extern void bgp_aggr_supp_withdraw_from_evpn(struct bgp *bgp, afi_t afi,
 					     safi_t safi);
 

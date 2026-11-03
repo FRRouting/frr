@@ -4470,12 +4470,7 @@ DEFPY (bgp_evpn_advertise_type5,
 		return CMD_WARNING;
 	}
 
-	if (reoriginate && safi != SAFI_MPLS_VPN) {
-		vty_out(vty, "%% reoriginate is only supported for vpn SAFI\n");
-		return CMD_WARNING;
-	}
-
-	if (reoriginate && bgp_vrf != bgp_get_evpn()) {
+	if (reoriginate && safi == SAFI_MPLS_VPN && bgp_vrf != bgp_get_evpn()) {
 		vty_out(vty, "%% reoriginate is only supported in the EVPN instance\n");
 		return CMD_WARNING;
 	}
@@ -4504,9 +4499,14 @@ DEFPY (bgp_evpn_advertise_type5,
 	skip_evpn_imported_newly_enabled = skip_evpn_imported &&
 					   !CHECK_FLAG(bgp_vrf->af_flags[AFI_L2VPN][SAFI_EVPN],
 						       suppress_flag);
-	reoriginate_newly_enabled = reoriginate &&
-				    !CHECK_FLAG(bgp_vrf->evpn_reoriginate_flags[afi],
-						BGP_EVPN_REORIGINATE_VPN);
+	if (safi == SAFI_MPLS_VPN)
+		reoriginate_newly_enabled = reoriginate &&
+					    !CHECK_FLAG(bgp_vrf->evpn_reoriginate_flags[afi],
+							BGP_EVPN_REORIGINATE_VPN);
+	else
+		reoriginate_newly_enabled = reoriginate &&
+					    CHECK_FLAG(bgp_vrf->evpn_reoriginate_flags[afi],
+						       BGP_EVPN_NO_REORIGINATE_UNICAST);
 
 	/* Omitting gateway-ip leaves the overlay index as configured, so the
 	 * mode only ever moves to gateway-ip here. Use
@@ -4546,6 +4546,14 @@ DEFPY (bgp_evpn_advertise_type5,
 		if (was_advertising)
 			bgp_evpn_withdraw_imported_type5_leaked_routes(bgp_vrf, afi);
 		SET_FLAG(bgp_vrf->af_flags[AFI_L2VPN][SAFI_EVPN], suppress_flag);
+	}
+
+	/* The routes imported from VPN are advertised again by the walk
+	 * below.
+	 */
+	if (reoriginate_newly_enabled && safi == SAFI_UNICAST) {
+		UNSET_FLAG(bgp_vrf->evpn_reoriginate_flags[afi], BGP_EVPN_NO_REORIGINATE_UNICAST);
+		bgp_evpn_vxlan_reoriginate_vpn_routes(bgp_vrf, afi, false);
 	}
 
 	if (rmap_changed && bgp_vrf->adv_cmd_rmap[afi][safi].name) {
@@ -4592,13 +4600,14 @@ DEFPY (bgp_evpn_advertise_type5,
 	 */
 	if ((advertise_type5_routes_bestpath(bgp_vrf, afi, safi) ||
 	     advertise_type5_routes_multipath(bgp_vrf, afi, safi)) &&
-	    (!was_advertising || rmap_changed || adv_flag_changed))
+	    (!was_advertising || rmap_changed || adv_flag_changed ||
+	     (reoriginate_newly_enabled && safi == SAFI_UNICAST)))
 		bgp_evpn_advertise_type5_routes(bgp_vrf, afi, safi);
 
 	/* Omitting reoriginate leaves it as configured, so it is only ever
 	 * set here.
 	 */
-	if (reoriginate_newly_enabled) {
+	if (reoriginate_newly_enabled && safi == SAFI_MPLS_VPN) {
 		SET_FLAG(bgp_vrf->evpn_reoriginate_flags[afi], BGP_EVPN_REORIGINATE_VPN);
 		bgp_evpn_reoriginate_vpn_routes_all(afi, false);
 	}
@@ -4656,11 +4665,6 @@ DEFPY (no_bgp_evpn_advertise_type5,
 		return CMD_WARNING;
 	}
 
-	if (reoriginate && safi != SAFI_MPLS_VPN) {
-		vty_out(vty, "%% reoriginate is only supported for vpn SAFI\n");
-		return CMD_WARNING;
-	}
-
 	if (safi == SAFI_UNICAST) {
 		if (afi == AFI_IP) {
 			flag_oi_none = BGP_L2VPN_EVPN_ADV_IPV4_UNICAST;
@@ -4683,7 +4687,8 @@ DEFPY (no_bgp_evpn_advertise_type5,
 	/* The re-originated Type-5 routes are withdrawn when re-origination
 	 * or the Type-5 export is disabled.
 	 */
-	if ((reoriginate || !(skip_evpn_imported || rmap_name || gateway_ip)) &&
+	if (safi == SAFI_MPLS_VPN &&
+	    (reoriginate || !(skip_evpn_imported || rmap_name || gateway_ip)) &&
 	    CHECK_FLAG(bgp_vrf->evpn_reoriginate_flags[afi], BGP_EVPN_REORIGINATE_VPN)) {
 		bgp_evpn_reoriginate_vpn_routes_all(afi, true);
 		UNSET_FLAG(bgp_vrf->evpn_reoriginate_flags[afi], BGP_EVPN_REORIGINATE_VPN);
@@ -4693,6 +4698,16 @@ DEFPY (no_bgp_evpn_advertise_type5,
 	if (skip_evpn_imported || rmap_name || gateway_ip || reoriginate) {
 		if (skip_evpn_imported)
 			bgp_evpn_clear_suppress_import_from_evpn(bgp_vrf, afi, safi);
+
+		if (reoriginate && safi == SAFI_UNICAST &&
+		    !CHECK_FLAG(bgp_vrf->evpn_reoriginate_flags[afi],
+				BGP_EVPN_NO_REORIGINATE_UNICAST)) {
+			if (has_flag_oi_none || has_flag_oi_gw_ip)
+				bgp_evpn_withdraw_reoriginated_type5_routes(bgp_vrf, afi);
+			SET_FLAG(bgp_vrf->evpn_reoriginate_flags[afi],
+				 BGP_EVPN_NO_REORIGINATE_UNICAST);
+			bgp_evpn_vxlan_reoriginate_vpn_routes(bgp_vrf, afi, true);
+		}
 
 		if (rmap_name && bgp_vrf->adv_cmd_rmap[afi][safi].name &&
 		    strcmp(bgp_vrf->adv_cmd_rmap[afi][safi].name, rmap_name) == 0) {
@@ -4741,8 +4756,15 @@ DEFPY (no_bgp_evpn_advertise_type5,
 	/* Type-5 export is disabled entirely, so clear skip-evpn-imported
 	 * along with all other advertise options.
 	 */
-	if (safi == SAFI_UNICAST)
+	if (safi == SAFI_UNICAST) {
 		UNSET_FLAG(bgp_vrf->af_flags[AFI_L2VPN][SAFI_EVPN], suppress_flag);
+		if (CHECK_FLAG(bgp_vrf->evpn_reoriginate_flags[afi],
+			       BGP_EVPN_NO_REORIGINATE_UNICAST)) {
+			UNSET_FLAG(bgp_vrf->evpn_reoriginate_flags[afi],
+				   BGP_EVPN_NO_REORIGINATE_UNICAST);
+			bgp_evpn_vxlan_reoriginate_vpn_routes(bgp_vrf, afi, false);
+		}
+	}
 
 	/* clear the route-map information for advertise ipv4/ipv6 unicast */
 	if (bgp_vrf->adv_cmd_rmap[afi][safi].name) {
@@ -8362,6 +8384,9 @@ void bgp_config_write_evpn_info(struct vty *vty, struct bgp *bgp, afi_t afi, saf
 		vty_out(vty, "\n");
 	}
 
+	if (CHECK_FLAG(bgp->evpn_reoriginate_flags[AFI_IP], BGP_EVPN_NO_REORIGINATE_UNICAST))
+		vty_out(vty, "  no advertise ipv4 unicast reoriginate\n");
+
 	if (CHECK_FLAG(bgp->af_flags[AFI_L2VPN][SAFI_EVPN], BGP_L2VPN_EVPN_ADV_IPV4_VPN)) {
 		vty_out(vty, "  advertise ipv4 vpn");
 		if (bgp->adv_cmd_rmap[AFI_IP][SAFI_MPLS_VPN].name)
@@ -8399,6 +8424,9 @@ void bgp_config_write_evpn_info(struct vty *vty, struct bgp *bgp, afi_t afi, saf
 			vty_out(vty, " skip-evpn-imported");
 		vty_out(vty, "\n");
 	}
+
+	if (CHECK_FLAG(bgp->evpn_reoriginate_flags[AFI_IP6], BGP_EVPN_NO_REORIGINATE_UNICAST))
+		vty_out(vty, "  no advertise ipv6 unicast reoriginate\n");
 
 	if (CHECK_FLAG(bgp->af_flags[AFI_L2VPN][SAFI_EVPN], BGP_L2VPN_EVPN_ADV_IPV6_VPN)) {
 		vty_out(vty, "  advertise ipv6 vpn");

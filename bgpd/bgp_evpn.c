@@ -872,6 +872,11 @@ bool is_route_injectable_into_evpn_non_supp(struct bgp *bgp_vrf, afi_t afi, safi
 		return false;
 	}
 
+	if (safi == SAFI_UNICAST &&
+	    CHECK_FLAG(bgp_vrf->evpn_reoriginate_flags[afi], BGP_EVPN_NO_REORIGINATE_UNICAST) &&
+	    bgp_evpn_path_is_reoriginable(pi))
+		return false;
+
 	/* Not suppressed - clear any stale mark */
 	if (CHECK_FLAG(pi->flags, BGP_PATH_EVPN_TYPE5_SKIP_IMPORTED))
 		UNSET_FLAG(pi->flags, BGP_PATH_EVPN_TYPE5_SKIP_IMPORTED);
@@ -6613,6 +6618,70 @@ void bgp_evpn_withdraw_type5_routes(struct bgp *bgp_vrf, afi_t afi, safi_t safi)
 
 			if (advertise_type5_routes_bestpath(bgp_vrf, afi, safi))
 				break;
+		}
+	}
+}
+
+/* Flag if the VRF path is imported from the EVPN table, and if
+ * 'no advertise <afi> unicast reoriginate' stops its VPN export.
+ */
+bool bgp_evpn_vxlan_reoriginate_disabled(struct bgp *bgp_vrf, afi_t afi,
+					 const struct bgp_path_info *pi)
+{
+	if (!CHECK_FLAG(bgp_vrf->evpn_reoriginate_flags[afi], BGP_EVPN_NO_REORIGINATE_UNICAST))
+		return false;
+
+	return pi->sub_type == BGP_ROUTE_IMPORTED && pi->extra && pi->extra->vrfleak &&
+	       pi->extra->vrfleak->parent && is_pi_family_evpn(pi->extra->vrfleak->parent);
+}
+
+/* Export to VPN, or withdraw from VPN, the VRF paths imported from the EVPN
+ * table.
+ */
+void bgp_evpn_vxlan_reoriginate_vpn_routes(struct bgp *bgp_vrf, afi_t afi, bool withdraw)
+{
+	struct bgp *bgp_vpn = bgp_get_default();
+	struct bgp_dest *dest;
+	struct bgp_path_info *pi;
+
+	if (!bgp_vpn || !bgp_vrf->rib[afi][SAFI_UNICAST])
+		return;
+
+	for (dest = bgp_table_top(bgp_vrf->rib[afi][SAFI_UNICAST]); dest;
+	     dest = bgp_route_next(dest)) {
+		for (pi = bgp_dest_get_bgp_path_info(dest); pi; pi = pi->next) {
+			if (pi->sub_type != BGP_ROUTE_IMPORTED || !pi->extra ||
+			    !pi->extra->vrfleak || !pi->extra->vrfleak->parent ||
+			    !is_pi_family_evpn(pi->extra->vrfleak->parent))
+				continue;
+
+			if (withdraw)
+				vpn_leak_from_vrf_withdraw(bgp_vpn, bgp_vrf, pi);
+			else
+				vpn_leak_from_vrf_update(bgp_vpn, bgp_vrf, pi);
+		}
+	}
+}
+
+/* Withdraw the type-5 routes of the VRF paths imported from VPN peers */
+void bgp_evpn_withdraw_reoriginated_type5_routes(struct bgp *bgp_vrf, afi_t afi)
+{
+	struct bgp_dest *dest;
+	struct bgp_path_info *pi;
+	uint32_t addpath_id;
+
+	if (!bgp_vrf->rib[afi][SAFI_UNICAST])
+		return;
+
+	for (dest = bgp_table_top(bgp_vrf->rib[afi][SAFI_UNICAST]); dest;
+	     dest = bgp_route_next(dest)) {
+		for (pi = bgp_dest_get_bgp_path_info(dest); pi; pi = pi->next) {
+			if (!bgp_evpn_path_is_reoriginable(pi))
+				continue;
+
+			addpath_id = bgp_evpn_addpath_id_for_path(bgp_vrf, pi, afi);
+			bgp_evpn_withdraw_type5_route(bgp_vrf, pi, bgp_dest_get_prefix(dest), afi,
+						      SAFI_UNICAST, addpath_id);
 		}
 	}
 }
