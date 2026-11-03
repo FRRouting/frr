@@ -9484,7 +9484,7 @@ int peer_clear_soft(struct peer *peer, afi_t afi, safi_t safi,
 			UNSET_FLAG(paf->subgroup->sflags,
 				   SUBGRP_STATUS_DEFAULT_ORIGINATE);
 
-		bgp_announce_route(peer, afi, safi, false);
+		bgp_announce_route(peer, afi, safi, true);
 	}
 
 	if (stype == BGP_CLEAR_SOFT_IN_ORF_PREFIX) {
