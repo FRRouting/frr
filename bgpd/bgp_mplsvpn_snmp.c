@@ -573,7 +573,8 @@ static int bgp_snmp_update_route_stats(struct bgp_dest *dest,
 	if (dest) {
 		table = bgp_dest_table(dest);
 		/* only update if we have a stats block - MPLSVPN vrfs for now*/
-		if (table && table->bgp && table->bgp->snmp_stats) {
+		if (table && table->bgp && table->bgp->snmp_stats && table->safi == SAFI_UNICAST &&
+		    (table->afi == AFI_IP || table->afi == AFI_IP6)) {
 			if (added)
 				table->bgp->snmp_stats->routes_added++;
 			else
