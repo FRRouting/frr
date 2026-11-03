@@ -4703,6 +4703,8 @@ int bgp_delete(struct bgp *bgp)
 	/* make sure we withdraw any exported routes */
 	vpn_leak_prechange(BGP_VPN_POLICY_DIR_TOVPN, AFI_IP, bgp_default, bgp);
 	vpn_leak_prechange(BGP_VPN_POLICY_DIR_TOVPN, AFI_IP6, bgp_default, bgp);
+	bgp_evpn_reoriginate_vpn_routes(bgp, AFI_IP, true);
+	bgp_evpn_reoriginate_vpn_routes(bgp, AFI_IP6, true);
 
 	bgp_vpn_leak_unimport(bgp);
 
