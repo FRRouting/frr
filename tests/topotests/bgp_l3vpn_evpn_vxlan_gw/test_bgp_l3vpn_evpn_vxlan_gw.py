@@ -23,6 +23,9 @@ physical interfaces; r2 reflects them with next-hop-self. r1 and r3 exchange
 the vrf1 prefixes with an iBGP L3VPN session between their loopbacks. r3 and
 r4 exchange the vrf1 prefixes with eBGP EVPN type-5 routes over VXLAN.
 r2/r3 and r3/r4 use separate VLANs on the same segment.
+
+r3 re-originates the L3VPN routes of vrf1 as EVPN type-5 routes, unless
+'no advertise ipv4 unicast reoriginate' is configured in vrf1.
 """
 
 import os
@@ -244,6 +247,76 @@ def test_ping_h1_h4():
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
 
+    check_ping("h1", "172.31.4.10", True, 10, 1)
+    check_ping("h4", "172.31.1.10", True, 10, 1)
+
+
+def test_evpn_reoriginate_disable():
+    """
+    Check that r4 loses the prefix of h1, and r1 the prefix of h4, when the
+    re-origination is disabled in vrf1 of r3, and that h1 and h4 can not ping
+    each other. Check that the prefixes and the traffic come back when the
+    re-origination is enabled.
+    """
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    r1 = tgen.gears["r1"]
+    r3 = tgen.gears["r3"]
+    r4 = tgen.gears["r4"]
+
+    @retry(retry_timeout=60)
+    def check_route_not_installed(router, prefix, vrf):
+        output = router.vtysh_cmd(
+            "show ip route vrf {} {} json".format(vrf, prefix), isjson=True
+        )
+        for route in output.get(prefix, []):
+            if route.get("protocol") == "bgp" and route.get("installed"):
+                return "{}: BGP route installed for {} in {}".format(
+                    router.name, prefix, vrf
+                )
+        return True
+
+    r3.vtysh_cmd(
+        """
+configure terminal
+router bgp 65501 vrf vrf1
+ address-family l2vpn evpn
+  no advertise ipv4 unicast reoriginate
+"""
+    )
+    output = r3.vtysh_cmd("show running-config")
+    assert (
+        "  no advertise ipv4 unicast reoriginate\n" in output
+    ), "r3: 'no advertise ipv4 unicast reoriginate' not found"
+    result = check_route_not_installed(r4, "172.31.1.0/24", "vrf1")
+    assert result is True, result
+    result = check_route_not_installed(r1, "172.31.4.0/24", "vrf1")
+    assert result is True, result
+    result = check_route(r3, "172.31.1.0/24", vrf="vrf1", labeled=True)
+    assert result is True, result
+    result = check_route(r3, "172.31.4.0/24", vrf="vrf1")
+    assert result is True, result
+    check_ping("h1", "172.31.4.10", False, 10, 1)
+    check_ping("h4", "172.31.1.10", False, 10, 1)
+
+    r3.vtysh_cmd(
+        """
+configure terminal
+router bgp 65501 vrf vrf1
+ address-family l2vpn evpn
+  advertise ipv4 unicast reoriginate
+"""
+    )
+    output = r3.vtysh_cmd("show running-config")
+    assert (
+        "reoriginate" not in output
+    ), "r3: 'no advertise ipv4 unicast reoriginate' still configured"
+    result = check_route(r4, "172.31.1.0/24", vrf="vrf1")
+    assert result is True, result
+    result = check_route(r1, "172.31.4.0/24", vrf="vrf1", labeled=True)
+    assert result is True, result
     check_ping("h1", "172.31.4.10", True, 10, 1)
     check_ping("h4", "172.31.1.10", True, 10, 1)
 
