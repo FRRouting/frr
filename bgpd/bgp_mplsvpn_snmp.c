@@ -1320,19 +1320,16 @@ bgp_lookup_route(struct bgp *l3vpn_bgp, struct bgp_dest **dest,
 	return NULL;
 }
 
-static struct bgp_path_info *bgp_lookup_route_next(struct bgp **l3vpn_bgp,
-						   struct bgp_dest **dest,
-						   struct prefix *prefix,
-						   uint16_t *policy,
-						   struct ipaddr *nexthop)
+static struct bgp_path_info *bgp_lookup_route_next(struct bgp **l3vpn_bgp, struct bgp_dest **dest,
+						   struct prefix *prefix, uint16_t *policy,
+						   struct ipaddr *nexthop, bool first)
 {
 	struct bgp_path_info *pi = NULL;
 	struct bgp_table *table;
 	const struct prefix *p;
 	uint8_t family;
 
-	/* First route?*/
-	if (prefix->prefixlen == 0) {
+	if (first) {
 		/* skip the instances without routes */
 		while (*l3vpn_bgp) {
 			/* try V4 table */
@@ -1547,8 +1544,8 @@ static struct bgp_path_info *bgpL3vpnRte_lookup(struct variable *v, oid name[],
 		if (*l3vpn_bgp == NULL)
 			return NULL;
 
-		pi = bgp_lookup_route_next(l3vpn_bgp, dest, &prefix, policy,
-					   &nexthop);
+		pi = bgp_lookup_route_next(l3vpn_bgp, dest, &prefix, policy, &nexthop,
+					   *length == namelen);
 
 		if (pi) {
 			const struct prefix *p = bgp_dest_get_prefix(*dest);
