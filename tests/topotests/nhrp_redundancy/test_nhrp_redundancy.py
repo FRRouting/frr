@@ -327,6 +327,58 @@ def test_protocols_convergence():
     ping_test(nhc1, "172.16.1.3", 1000, "nhs3")
 
 
+def test_local_map_neighbor():
+    """
+    Assert that nhrpd survives a kernel neighbor request for a local map
+    entry, which has no peer.
+    """
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    nhc1 = tgen.gears["nhc1"]
+
+    logger.info("nhc1: map 172.16.1.99 as a local address")
+    nhc1.vtysh_cmd(
+        """
+        configure terminal
+         interface nhc1-gre0
+          ip nhrp map 172.16.1.99 local
+        """
+    )
+    expected = {"table": {"172.16.1.99": {"type": "local"}}}
+    test_func = partial(router_nhrp_json_cmp, nhc1, "show ip nhrp cache json", expected)
+    _, result = topotest.run_and_expect(test_func, None, count=20, wait=1)
+    assert result is None, "nhc1: 172.16.1.99 local entry missing"
+
+    logger.info("nhc1: send traffic to 172.16.1.99 through nhc1-gre0")
+    nhc1.cmd("ip route add 172.16.1.99/32 dev nhc1-gre0")
+
+    def _local_neighbor_failed():
+        nhc1.cmd("ping -c 1 -W 1 172.16.1.99")
+        output = nhc1.cmd("ip neigh show 172.16.1.99 dev nhc1-gre0")
+        return "FAILED" in output
+
+    # FAILED means that the kernel has asked nhrpd and got no answer
+    _, result = topotest.run_and_expect(_local_neighbor_failed, True, count=20, wait=1)
+    assert result is True, "nhc1: no neighbor request for 172.16.1.99"
+    assert nhc1.check_router_running() == "", "nhc1: a daemon died"
+
+    logger.info("nhc1: remove the 172.16.1.99 route and local map")
+    nhc1.cmd("ip route del 172.16.1.99/32 dev nhc1-gre0")
+    nhc1.vtysh_cmd(
+        """
+        configure terminal
+         interface nhc1-gre0
+          no ip nhrp map 172.16.1.99 local
+        """
+    )
+    expected = {"table": {"172.16.1.99": None}}
+    test_func = partial(router_nhrp_json_cmp, nhc1, "show ip nhrp cache json", expected)
+    _, result = topotest.run_and_expect(test_func, None, count=20, wait=1)
+    assert result is None, "nhc1: 172.16.1.99 local entry not removed"
+
+
 @retry(retry_timeout=30, initial_wait=5)
 def verify_shortcut_path():
     """
