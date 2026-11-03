@@ -879,7 +879,7 @@ bool is_route_injectable_into_evpn_non_supp(struct bgp *bgp_vrf, afi_t afi, safi
 	if (safi == SAFI_MPLS_VPN) {
 		if (pi->peer != bgp_vrf->peer_self)
 			return false;
-		if (IS_PATH_IMPORTED_FROM_EVPN_TABLE(pi))
+		if (pi->extra && pi->extra->evpn && pi->extra->evpn->type5_originator)
 			return false;
 	}
 
