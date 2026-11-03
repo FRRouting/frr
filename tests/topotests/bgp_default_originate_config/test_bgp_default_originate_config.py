@@ -24,17 +24,20 @@ config changes from ongoing re-evaluation:
   4. test_rmap_delete_withdraw: Deleting the route-map from the library while
      'default-originate route-map RMAP' is still configured withdraws the default.
 
-  5. test_table_readvertise: After de-config, a real 0.0.0.0/0 in the BGP table
+  5. test_prefixlist_change_withdraw: Modifying the prefix-list so the route-map
+     condition is no longer met withdraws the default.
+
+  6. test_table_readvertise: After de-config, a real 0.0.0.0/0 in the BGP table
      is re-announced via subgroup_process_announce_selected().
 
-  6. test_cond_withdraw_from_table: When conditional default-originate is
+  7. test_cond_withdraw_from_table: When conditional default-originate is
      configured with an unmet condition, a previously table-advertised 0.0.0.0/0
      is withdrawn.
 
-  7. test_cond_never_sent: When the condition is never met, the synthesized
+  8. test_cond_never_sent: When the condition is never met, the synthesized
      default is never sent, even after the re-evaluation timer fires.
 
-  8. test_peergroup_inheritance: When removing a neighbor-specific override,
+  9. test_peergroup_inheritance: When removing a neighbor-specific override,
      the neighbor inherits default-originate from its peer-group.
 
 Topology:
@@ -95,6 +98,7 @@ def teardown_module(mod):
 # ---------------------------------------------------------------------------
 # Shared helpers
 # ---------------------------------------------------------------------------
+
 
 def _bgp_established(router, neighbor):
     output = json.loads(router.vtysh_cmd("show bgp neighbor {} json".format(neighbor)))
@@ -169,6 +173,7 @@ def _wait_for(test_func, timeout=30):
 # Test 1: adj-out cache clearing on config transition
 # ---------------------------------------------------------------------------
 
+
 def test_adjout_cache_clearing():
     """
     Verify adj-out cache is cleared when default-originate is activated.
@@ -193,7 +198,9 @@ def test_adjout_cache_clearing():
         router bgp 65001
             address-family ipv4 unicast
                 no neighbor {} default-originate
-    """.format(R2_IPV4)
+    """.format(
+            R2_IPV4
+        )
     )
 
     step("Wait for table route (with community) to be advertised")
@@ -206,14 +213,20 @@ def test_adjout_cache_clearing():
         router bgp 65001
             address-family ipv4 unicast
                 neighbor {} default-originate
-    """.format(R2_IPV4)
+    """.format(
+            R2_IPV4
+        )
     )
 
     step("Verify adj-out shows only synthesized route")
 
     def _check_adjout():
         output = json.loads(
-            r1.vtysh_cmd("show bgp ipv4 unicast neighbors {} advertised-routes json".format(R2_IPV4))
+            r1.vtysh_cmd(
+                "show bgp ipv4 unicast neighbors {} advertised-routes json".format(
+                    R2_IPV4
+                )
+            )
         )
         if output.get("bgpOriginatingDefaultNetwork") != "0.0.0.0/0":
             return "bgpOriginatingDefaultNetwork not set"
@@ -230,6 +243,7 @@ def test_adjout_cache_clearing():
 # ---------------------------------------------------------------------------
 # Test 2: conditional default-originate does not fall back to table route
 # ---------------------------------------------------------------------------
+
 
 def test_conditional_no_fallback():
     """
@@ -251,7 +265,9 @@ def test_conditional_no_fallback():
         router bgp 65001
             address-family ipv4 unicast
                 neighbor {} default-originate route-map CHECK_TRIGGER
-    """.format(R2_IPV4)
+    """.format(
+            R2_IPV4
+        )
     )
 
     step("Verify R2 receives synthesized default (condition met)")
@@ -288,6 +304,7 @@ def test_conditional_no_fallback():
 # Test 3: explicit de-config withdraws the default route
 # ---------------------------------------------------------------------------
 
+
 def test_deconfig_withdraw():
     """
     Verify 'no neighbor X default-originate' withdraws the synthesized default.
@@ -319,7 +336,9 @@ def test_deconfig_withdraw():
         router bgp 65001
             address-family ipv4 unicast
                 neighbor {} default-originate
-    """.format(R2_IPV4)
+    """.format(
+            R2_IPV4
+        )
     )
 
     step("Verify R2 receives synthesized default (no community)")
@@ -332,7 +351,9 @@ def test_deconfig_withdraw():
         router bgp 65001
             address-family ipv4 unicast
                 no neighbor {} default-originate
-    """.format(R2_IPV4)
+    """.format(
+            R2_IPV4
+        )
     )
 
     step("Verify R2 has no default (explicit withdrawal sent)")
@@ -346,7 +367,9 @@ def test_deconfig_withdraw():
             address-family ipv4 unicast
                 network 0.0.0.0/0 route-map SET_COMM
                 neighbor {} default-originate
-    """.format(R2_IPV4)
+    """.format(
+            R2_IPV4
+        )
     )
 
     step("Verify R2 receives default again")
@@ -359,7 +382,9 @@ def test_deconfig_withdraw():
         router bgp 65001
             address-family ipv4 unicast
                 no neighbor {} default-originate
-    """.format(R2_IPV4)
+    """.format(
+            R2_IPV4
+        )
     )
 
     step("Verify table route (with community) is re-advertised")
@@ -369,6 +394,7 @@ def test_deconfig_withdraw():
 # ---------------------------------------------------------------------------
 # Test 4: deleting route-map withdraws the default route
 # ---------------------------------------------------------------------------
+
 
 def test_rmap_delete_withdraw():
     """
@@ -391,7 +417,9 @@ def test_rmap_delete_withdraw():
         router bgp 65001
             address-family ipv4 unicast
                 neighbor {} default-originate route-map SET_COMM
-    """.format(R2_IPV4)
+    """.format(
+            R2_IPV4
+        )
     )
 
     step("Verify R2 receives default")
@@ -414,13 +442,74 @@ def test_rmap_delete_withdraw():
     configure
         route-map SET_COMM permit 10
             set community {}
-    """.format(COMMUNITY)
+    """.format(
+            COMMUNITY
+        )
     )
 
 
 # ---------------------------------------------------------------------------
-# Test 5: table route is re-advertised after de-config
+# Test 5: prefix-list modification withdraws default
 # ---------------------------------------------------------------------------
+
+
+def test_prefixlist_change_withdraw():
+    """
+    Verify modifying prefix-list so condition is unmet withdraws the default.
+
+    This tests the scenario where the route-map still exists but its match
+    condition changes.  The flag handling must correctly send the withdraw.
+    """
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    r1 = tgen.gears["r1"]
+
+    step("Configure conditional default-originate with route-map")
+    r1.vtysh_cmd(
+        """
+    configure
+        router bgp 65001
+            address-family ipv4 unicast
+                neighbor {} default-originate route-map CHECK_TRIGGER
+    """.format(
+            R2_IPV4
+        )
+    )
+
+    step("Verify R2 receives default (condition met: 10.10.10.10/32 exists)")
+    assert _wait_for(_r2_has_default_no_community) is None
+
+    step("Modify prefix-list to match non-existent prefix")
+    r1.vtysh_cmd(
+        """
+    configure
+        no ip prefix-list TRIGGER seq 5 permit 10.10.10.10/32
+        ip prefix-list TRIGGER seq 5 permit 10.99.99.99/32
+    """
+    )
+
+    step("Verify default is withdrawn (condition no longer met)")
+    assert _wait_for(_r2_has_no_default) is None
+
+    step("Restore prefix-list to match existing prefix")
+    r1.vtysh_cmd(
+        """
+    configure
+        no ip prefix-list TRIGGER seq 5 permit 10.99.99.99/32
+        ip prefix-list TRIGGER seq 5 permit 10.10.10.10/32
+    """
+    )
+
+    step("Verify default is advertised again")
+    assert _wait_for(_r2_has_default_no_community) is None
+
+
+# ---------------------------------------------------------------------------
+# Test 6: table route is re-advertised after de-config
+# ---------------------------------------------------------------------------
+
 
 def test_table_readvertise():
     """
@@ -443,7 +532,9 @@ def test_table_readvertise():
         router bgp 65001
             address-family ipv4 unicast
                 neighbor {} default-originate
-    """.format(R2_IPV4)
+    """.format(
+            R2_IPV4
+        )
     )
 
     step("Verify R2 receives synthesized default (no community)")
@@ -456,7 +547,9 @@ def test_table_readvertise():
         router bgp 65001
             address-family ipv4 unicast
                 no neighbor {} default-originate
-    """.format(R2_IPV4)
+    """.format(
+            R2_IPV4
+        )
     )
 
     step("Verify table route (with community) is re-advertised")
@@ -464,8 +557,9 @@ def test_table_readvertise():
 
 
 # ---------------------------------------------------------------------------
-# Test 6: conditional default-originate with unmet condition withdraws table route
+# Test 7: conditional default-originate with unmet condition withdraws table route
 # ---------------------------------------------------------------------------
+
 
 def test_cond_withdraw_from_table():
     """
@@ -494,7 +588,9 @@ def test_cond_withdraw_from_table():
         router bgp 65001
             address-family ipv4 unicast
                 neighbor {} default-originate route-map COND_NEVER_MET
-    """.format(R2_IPV4)
+    """.format(
+            R2_IPV4
+        )
     )
 
     step("Verify table route is withdrawn (condition unmet)")
@@ -502,8 +598,9 @@ def test_cond_withdraw_from_table():
 
 
 # ---------------------------------------------------------------------------
-# Test 7: synthesized default never sent when condition never met
+# Test 8: synthesized default never sent when condition never met
 # ---------------------------------------------------------------------------
+
 
 def test_cond_never_sent():
     """
@@ -556,8 +653,9 @@ def test_cond_never_sent():
 
 
 # ---------------------------------------------------------------------------
-# Test 8: peer-group inheritance of default-originate
+# Test 9: peer-group inheritance of default-originate
 # ---------------------------------------------------------------------------
+
 
 def test_peergroup_inheritance():
     """
@@ -580,7 +678,9 @@ def test_peergroup_inheritance():
         router bgp 65001
             address-family ipv4 unicast
                 no neighbor {} default-originate
-    """.format(R2_IPV4)
+    """.format(
+            R2_IPV4
+        )
     )
 
     step("Create peer-group with default-originate")
@@ -604,7 +704,9 @@ def test_peergroup_inheritance():
     configure
         router bgp 65001
             neighbor {} peer-group DEFORG
-    """.format(R2_IPV4)
+    """.format(
+            R2_IPV4
+        )
     )
 
     step("Verify r2 receives default (from peer-group)")
@@ -617,7 +719,9 @@ def test_peergroup_inheritance():
         router bgp 65001
             address-family ipv4 unicast
                 neighbor {} default-originate route-map CHECK_TRIGGER
-    """.format(R2_IPV4)
+    """.format(
+            R2_IPV4
+        )
     )
 
     step("Verify r2 still receives default (condition met)")
@@ -630,7 +734,9 @@ def test_peergroup_inheritance():
         router bgp 65001
             address-family ipv4 unicast
                 no neighbor {} default-originate
-    """.format(R2_IPV4)
+    """.format(
+            R2_IPV4
+        )
     )
 
     step("Verify r2 still receives default (inherited from peer-group)")
@@ -648,7 +754,9 @@ def test_peergroup_inheritance():
             address-family ipv4 unicast
                 neighbor {} default-originate
                 neighbor {} send-community
-    """.format(R2_IPV4, R2_IPV4, R2_IPV4, R2_IPV4, R2_IPV4, R2_IPV4)
+    """.format(
+            R2_IPV4, R2_IPV4, R2_IPV4, R2_IPV4, R2_IPV4, R2_IPV4
+        )
     )
 
 
