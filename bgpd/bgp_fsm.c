@@ -576,8 +576,10 @@ static void bgp_connect_timer(struct event *event)
 	if (bgp_peer_get_connection_direction(connection) == CONNECTION_INCOMING)
 		bgp_stop(connection);
 	else {
-		if (!peer->connect)
-			peer->v_connect = MIN(BGP_MAX_CONNECT_RETRY, peer->v_connect * 2);
+		if (frr_default_chosen() != FRR_DEFAULT_DATACENTER) {
+			if (!peer->connect)
+				peer->v_connect = MIN(BGP_MAX_CONNECT_RETRY, peer->v_connect * 2);
+		}
 		EVENT_VAL(event) = ConnectRetry_timer_expired;
 		bgp_event(event); /* bgp_event unlocks peer */
 	}
