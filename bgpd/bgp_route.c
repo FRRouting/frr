@@ -3050,6 +3050,12 @@ bool subgroup_announce_check(struct bgp_dest *dest, struct bgp_path_info *pi,
 	}
 
 	if (safi == SAFI_MPLS_VPN) {
+		/* A VPN path imported from EVPN keeps the RD, the label and the
+		 * SID of the EVPN route: it is not a VPN route of this router.
+		 */
+		if (pi->extra && pi->extra->evpn && pi->extra->evpn->type5_originator)
+			return false;
+
 		if (CHECK_FLAG(peer->af_flags[afi][safi], PEER_FLAG_CONFIG_ENCAPSULATION_SRV6) &&
 		    !CHECK_FLAG(peer->af_flags[afi][safi], PEER_FLAG_CONFIG_ENCAPSULATION_MPLS) &&
 		    !bgp_attr_get_srv6_l3service(pi->attr) && !bgp_attr_get_srv6_vpn(pi->attr))
