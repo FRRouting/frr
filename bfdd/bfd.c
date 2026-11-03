@@ -601,7 +601,7 @@ static void ptm_bfd_echo_xmt_TO(struct bfd_session *bfd)
 	 * the packet to be looped in forwarding plane of peer
 	 */
 	if (CHECK_FLAG(bfd->flags, BFD_SESS_FLAG_IPV6) == 0)
-#ifdef BFD_LINUX
+#if defined(BFD_LINUX) || defined(BFD_BSD)
 		ptm_bfd_echo_fp_snd(bfd);
 #else
 		ptm_bfd_echo_snd(bfd);

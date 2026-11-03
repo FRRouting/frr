@@ -26,6 +26,15 @@
 #include <linux/ipv6.h>
 #endif /* BFD_LINUX */
 
+#ifdef BFD_BSD
+#include <fcntl.h>
+#include <sys/sysctl.h>
+#include <net/bpf.h>
+#include <net/ethernet.h>
+#include <net/if_dl.h>
+#include <net/route.h>
+#endif /* BFD_BSD */
+
 #ifdef CRYPTO_OPENSSL
 #include <openssl/hmac.h>
 #include <openssl/evp.h>
@@ -50,6 +59,7 @@
  * Prototypes
  */
 static int ptm_bfd_process_echo_pkt(struct bfd_vrf_global *bvrf, int s);
+static int ptm_bfd_echo_rx(struct bfd_session *bfd, uint64_t my_rtt);
 int _ptm_bfd_send(struct bfd_session *bs, uint16_t *port, const void *data,
 		  size_t datalen);
 
@@ -297,6 +307,408 @@ void ptm_bfd_echo_fp_snd(struct bfd_session *bfd)
 }
 #endif
 
+#ifdef BFD_BSD
+/*
+ * BSD has no AF_PACKET, so the IPv4 echo goes out through bpf(4). One
+ * write-only descriptor is moved to the interface of the session that is
+ * sending.
+ */
+static int echo_bpf_fd = -1;
+static ifindex_t echo_bpf_ifindex = IFINDEX_INTERNAL;
+static unsigned int echo_bpf_dlt;
+
+static int bfd_echo_bpf_attach(struct interface *ifp)
+{
+	struct ifreq ifr;
+
+	if (echo_bpf_fd == -1) {
+		frr_with_privs (&bglobal.bfdd_privs) {
+			echo_bpf_fd = open("/dev/bpf", O_WRONLY);
+		}
+		if (echo_bpf_fd == -1) {
+			zlog_warn("%s: open(/dev/bpf): %s", __func__, strerror(errno));
+			return -1;
+		}
+		echo_bpf_ifindex = IFINDEX_INTERNAL;
+	}
+
+	if (echo_bpf_ifindex == ifp->ifindex)
+		return 0;
+
+	memset(&ifr, 0, sizeof(ifr));
+	strlcpy(ifr.ifr_name, ifp->name, sizeof(ifr.ifr_name));
+	if (ioctl(echo_bpf_fd, BIOCSETIF, &ifr) == -1 ||
+	    ioctl(echo_bpf_fd, BIOCGDLT, &echo_bpf_dlt) == -1) {
+		if (bglobal.debug_network)
+			zlog_debug("%s: bpf on %s: %s", __func__, ifp->name, strerror(errno));
+		echo_bpf_ifindex = IFINDEX_INTERNAL;
+		return -1;
+	}
+	echo_bpf_ifindex = ifp->ifindex;
+
+	return 0;
+}
+
+/*
+ * Find the MAC of the peer in the ARP table, the way arp(8) does.
+ */
+static bool bfd_peer_mac_lookup(const struct in_addr *addr, ifindex_t ifindex, uint8_t *mac)
+{
+	int mib[6] = { CTL_NET, PF_ROUTE, 0, AF_INET, NET_RT_FLAGS, RTF_LLINFO };
+	struct rt_msghdr *rtm;
+	char *buf, *next, *lim;
+	size_t needed;
+	bool found = false;
+
+	if (sysctl(mib, array_size(mib), NULL, &needed, NULL, 0) == -1 || needed == 0)
+		return false;
+
+	buf = XMALLOC(MTYPE_TMP, needed);
+	if (sysctl(mib, array_size(mib), buf, &needed, NULL, 0) == -1)
+		goto out;
+
+	lim = buf + needed;
+	for (next = buf; next < lim; next += rtm->rtm_msglen) {
+		struct sockaddr_in *sin;
+		struct sockaddr_dl *sdl;
+
+		rtm = (struct rt_msghdr *)next;
+		sin = (struct sockaddr_in *)(rtm + 1);
+		sdl = (struct sockaddr_dl *)((char *)sin + SA_SIZE(sin));
+
+		if (sin->sin_addr.s_addr != addr->s_addr)
+			continue;
+		if (sdl->sdl_family != AF_LINK || sdl->sdl_alen != ETH_ALEN)
+			continue;
+		if (sdl->sdl_index != ifindex)
+			continue;
+
+		memcpy(mac, LLADDR(sdl), ETH_ALEN);
+		found = true;
+		break;
+	}
+
+out:
+	XFREE(MTYPE_TMP, buf);
+	return found;
+}
+
+static void bfd_peer_mac_set(struct bfd_session *bfd, struct sockaddr_any *peer,
+			     struct interface *ifp)
+{
+	if (CHECK_FLAG(bfd->flags, BFD_SESS_FLAG_MAC_SET))
+		return;
+	if (peer->sa_sin.sin_family != AF_INET)
+		return;
+
+	/* Point-to-point links take the address family instead of a MAC. */
+	if (if_is_pointopoint(ifp)) {
+		SET_FLAG(bfd->flags, BFD_SESS_FLAG_MAC_SET);
+		return;
+	}
+
+	if (bfd_peer_mac_lookup(&peer->sa_sin.sin_addr, ifp->ifindex, bfd->peer_hw_addr))
+		SET_FLAG(bfd->flags, BFD_SESS_FLAG_MAC_SET);
+	else if (bglobal.debug_network)
+		zlog_debug("BFD: no ARP entry for %pI4 on %s", &peer->sa_sin.sin_addr, ifp->name);
+}
+
+/*
+ * The echo comes back with our address as source, which ip_input() drops
+ * with net.inet.ip.source_address_validation. Read it with bpf(4) instead,
+ * like Linux reads it with AF_PACKET: one descriptor per interface, opened
+ * when the first echo goes out there.
+ */
+struct echo_bpf_rx {
+	ifindex_t ifindex;
+	int fd;
+	size_t hlen;
+	size_t buflen;
+	uint8_t *buf;
+	struct event *ev;
+	struct echo_bpf_rx *next;
+};
+
+static struct echo_bpf_rx *echo_bpf_rx_list;
+
+/*
+ * IPv4, UDP, not a fragment, source == destination, destination port 3785.
+ * The IP header starts at @hlen, after an Ethernet header or the 4 byte
+ * address family. Returns the number of instructions written to @insn.
+ */
+static unsigned int bfd_echo_bpf_prog(struct bpf_insn *insn, unsigned int hlen)
+{
+	struct bpf_insn ether[] = {
+		BPF_STMT(BPF_LD + BPF_H + BPF_ABS, 12),
+		BPF_JUMP(BPF_JMP + BPF_JEQ + BPF_K, ETHERTYPE_IP, 0, 11),
+	};
+	struct bpf_insn ip[] = {
+		BPF_STMT(BPF_LD + BPF_B + BPF_ABS, hlen + 9),
+		BPF_JUMP(BPF_JMP + BPF_JEQ + BPF_K, IPPROTO_UDP, 0, 9),
+		BPF_STMT(BPF_LD + BPF_H + BPF_ABS, hlen + 6),
+		BPF_JUMP(BPF_JMP + BPF_JSET + BPF_K, 0x1fff, 7, 0),
+		BPF_STMT(BPF_LD + BPF_W + BPF_ABS, hlen + 12),
+		BPF_STMT(BPF_MISC + BPF_TAX, 0),
+		BPF_STMT(BPF_LD + BPF_W + BPF_ABS, hlen + 16),
+		BPF_JUMP(BPF_JMP + BPF_JEQ + BPF_X, 0, 0, 3),
+		BPF_STMT(BPF_LDX + BPF_B + BPF_MSH, hlen),
+		BPF_STMT(BPF_LD + BPF_H + BPF_IND, hlen + 2),
+		BPF_JUMP(BPF_JMP + BPF_JEQ + BPF_K, BFD_DEF_ECHO_PORT, 1, 0),
+		BPF_STMT(BPF_RET + BPF_K, 0),
+		BPF_STMT(BPF_RET + BPF_K, (unsigned int)-1),
+	};
+	unsigned int n = 0;
+
+	if (hlen == ETHER_HDR_LEN) {
+		memcpy(insn, ether, sizeof(ether));
+		n = array_size(ether);
+	}
+	memcpy(insn + n, ip, sizeof(ip));
+
+	return n + array_size(ip);
+}
+
+/* Only inbound packets, or our own echo going out would count as returned. */
+static int bfd_echo_bpf_inbound(int fd)
+{
+#if defined(BIOCSDIRECTION)
+	unsigned int dir = BPF_D_IN;
+
+	return ioctl(fd, BIOCSDIRECTION, &dir);
+#elif defined(BIOCSDIRFILT)
+	unsigned int dir = BPF_DIRECTION_OUT;
+
+	return ioctl(fd, BIOCSDIRFILT, &dir);
+#elif defined(BIOCSSEESENT)
+	unsigned int seesent = 0;
+
+	return ioctl(fd, BIOCSSEESENT, &seesent);
+#else
+#error "bpf(4) can't filter by direction"
+#endif
+}
+
+static void bfd_echo_bpf_read(struct event *t)
+{
+	struct echo_bpf_rx *rx = EVENT_ARG(t);
+	uint8_t *p, *end;
+	ssize_t len;
+
+	len = read(rx->fd, rx->buf, rx->buflen);
+	if (len <= 0) {
+		if (len == -1 && (errno == EAGAIN || errno == EINTR))
+			goto again;
+		/* The interface is gone, the next echo opens a new one. */
+		if (bglobal.debug_network)
+			zlog_debug("%s: read on ifindex %u: %s", __func__, rx->ifindex,
+				   len == 0 ? "eof" : strerror(errno));
+		close(rx->fd);
+		rx->fd = -1;
+		rx->ifindex = IFINDEX_INTERNAL;
+		return;
+	}
+
+	end = rx->buf + len;
+	for (p = rx->buf; p < end;) {
+		struct bpf_hdr *bh = (struct bpf_hdr *)p;
+		const uint8_t *pkt = p + bh->bh_hdrlen;
+		const struct bfd_echo_pkt *bep;
+		const struct ip *ip;
+		struct bfd_session *bfd;
+		struct timeval time_sent;
+		uint64_t rtt;
+		size_t iplen;
+
+		p += BPF_WORDALIGN(bh->bh_hdrlen + bh->bh_caplen);
+		if (bh->bh_caplen < rx->hlen + sizeof(*ip))
+			continue;
+		ip = (const struct ip *)(pkt + rx->hlen);
+		iplen = ip->ip_hl << 2;
+		if (bh->bh_caplen < rx->hlen + iplen + sizeof(struct udphdr) + sizeof(*bep))
+			continue;
+		bep = (const struct bfd_echo_pkt *)(pkt + rx->hlen + iplen + sizeof(struct udphdr));
+
+		/* Only our own echoes: a peer's echo passes here on its way back. */
+		bfd = bfd_id_lookup(ntohl(bep->my_discr));
+		if (bfd == NULL || bfd->ifp == NULL || bfd->ifp->ifindex != rx->ifindex ||
+		    bfd->local_address.sa_sin.sin_family != AF_INET ||
+		    bfd->local_address.sa_sin.sin_addr.s_addr != ip->ip_src.s_addr)
+			continue;
+
+		time_sent.tv_sec = be64toh(bep->time_sent_sec);
+		time_sent.tv_usec = be64toh(bep->time_sent_usec);
+		rtt = monotime_since(&time_sent, NULL);
+		ptm_bfd_echo_rx(bfd, rtt);
+	}
+
+again:
+	event_add_read(master, bfd_echo_bpf_read, rx, rx->fd, &rx->ev);
+}
+
+static void bfd_echo_bpf_rx_open(struct interface *ifp, unsigned int dlt)
+{
+	struct bpf_insn insn[16];
+	struct bpf_program prog;
+	struct echo_bpf_rx *rx;
+	struct ifreq ifr;
+	unsigned int on = 1;
+	unsigned int buflen;
+	unsigned int hlen;
+
+	for (rx = echo_bpf_rx_list; rx; rx = rx->next)
+		if (rx->ifindex == ifp->ifindex)
+			return;
+
+	switch (dlt) {
+	case DLT_EN10MB:
+		hlen = ETHER_HDR_LEN;
+		break;
+	case DLT_NULL:
+	case DLT_LOOP:
+		hlen = 4;
+		break;
+	default:
+		return;
+	}
+	prog.bf_insns = insn;
+	prog.bf_len = bfd_echo_bpf_prog(insn, hlen);
+
+	/* Reuse a slot left by an interface that went away. */
+	for (rx = echo_bpf_rx_list; rx; rx = rx->next)
+		if (rx->fd == -1)
+			break;
+	if (rx == NULL) {
+		rx = XCALLOC(MTYPE_TMP, sizeof(*rx));
+		rx->fd = -1;
+		rx->next = echo_bpf_rx_list;
+		echo_bpf_rx_list = rx;
+	}
+
+	frr_with_privs (&bglobal.bfdd_privs) {
+		rx->fd = open("/dev/bpf", O_RDONLY | O_NONBLOCK);
+	}
+	if (rx->fd == -1) {
+		zlog_warn("%s: open(/dev/bpf): %s", __func__, strerror(errno));
+		return;
+	}
+
+	memset(&ifr, 0, sizeof(ifr));
+	strlcpy(ifr.ifr_name, ifp->name, sizeof(ifr.ifr_name));
+	if (ioctl(rx->fd, BIOCSETIF, &ifr) == -1 || ioctl(rx->fd, BIOCIMMEDIATE, &on) == -1 ||
+	    bfd_echo_bpf_inbound(rx->fd) == -1 || ioctl(rx->fd, BIOCSETF, &prog) == -1 ||
+	    ioctl(rx->fd, BIOCGBLEN, &buflen) == -1) {
+		zlog_warn("%s: bpf on %s: %s", __func__, ifp->name, strerror(errno));
+		close(rx->fd);
+		rx->fd = -1;
+		return;
+	}
+
+	if (rx->buflen < buflen) {
+		XFREE(MTYPE_TMP, rx->buf);
+		rx->buf = XMALLOC(MTYPE_TMP, buflen);
+		rx->buflen = buflen;
+	}
+	rx->hlen = hlen;
+	rx->ifindex = ifp->ifindex;
+	event_add_read(master, bfd_echo_bpf_read, rx, rx->fd, &rx->ev);
+}
+
+/*
+ * Send an IPv4 echo with the local address as source and destination, so
+ * the peer loops it back in its forwarding plane (RFC 5881 section 4).
+ */
+void ptm_bfd_echo_fp_snd(struct bfd_session *bfd)
+{
+	uint8_t buf[sizeof(struct ether_header) + sizeof(struct ip) + sizeof(struct udphdr) +
+		    sizeof(struct bfd_echo_pkt)];
+	struct bfd_echo_pkt *bep;
+	struct udphdr *uh;
+	struct timeval time_sent;
+	struct ip *ip;
+	size_t hlen;
+	ssize_t len;
+
+	if (bfd->ifp == NULL || !CHECK_FLAG(bfd->flags, BFD_SESS_FLAG_MAC_SET))
+		return;
+	if (bfd_echo_bpf_attach(bfd->ifp) == -1)
+		return;
+	bfd_echo_bpf_rx_open(bfd->ifp, echo_bpf_dlt);
+	if (!CHECK_FLAG(bfd->flags, BFD_SESS_FLAG_ECHO_ACTIVE))
+		SET_FLAG(bfd->flags, BFD_SESS_FLAG_ECHO_ACTIVE);
+
+	memset(buf, 0, sizeof(buf));
+	switch (echo_bpf_dlt) {
+	case DLT_EN10MB: {
+		/* The kernel fills in our MAC. */
+		struct ether_header *eh = (struct ether_header *)buf;
+
+		memcpy(eh->ether_dhost, bfd->peer_hw_addr, sizeof(eh->ether_dhost));
+		eh->ether_type = htons(ETHERTYPE_IP);
+		hlen = sizeof(*eh);
+		break;
+	}
+	case DLT_NULL: {
+		uint32_t af = AF_INET;
+
+		memcpy(buf, &af, sizeof(af));
+		hlen = sizeof(af);
+		break;
+	}
+	case DLT_LOOP: {
+		uint32_t af = htonl(AF_INET);
+
+		memcpy(buf, &af, sizeof(af));
+		hlen = sizeof(af);
+		break;
+	}
+	default:
+		if (bglobal.debug_network)
+			zlog_debug("%s: unsupported link type %u on %s", __func__, echo_bpf_dlt,
+				   bfd->ifp->name);
+		return;
+	}
+
+	ip = (struct ip *)(buf + hlen);
+	uh = (struct udphdr *)(ip + 1);
+	bep = (struct bfd_echo_pkt *)(uh + 1);
+
+	ip->ip_v = IPVERSION;
+	ip->ip_hl = sizeof(*ip) >> 2;
+	ip->ip_tos = IPTOS_PREC_INTERNETCONTROL;
+	ip->ip_len = htons(sizeof(*ip) + sizeof(*uh) + sizeof(*bep));
+	ip->ip_id = htons((uint16_t)frr_weak_random());
+	ip->ip_ttl = BFD_TTL_VAL;
+	ip->ip_p = IPPROTO_UDP;
+	ip->ip_src = bfd->local_address.sa_sin.sin_addr;
+	ip->ip_dst = bfd->local_address.sa_sin.sin_addr;
+	ip->ip_sum = in_cksum(ip, sizeof(*ip));
+
+	/* The UDP checksum is optional over IPv4. */
+	uh->uh_sport = htons(BFD_DEF_ECHO_PORT);
+	uh->uh_dport = htons(BFD_DEF_ECHO_PORT);
+	uh->uh_ulen = htons(sizeof(*uh) + sizeof(*bep));
+
+	bep->ver = BFD_ECHO_VERSION;
+	bep->len = BFD_ECHO_PKT_LEN;
+	bep->my_discr = htonl(bfd->discrs.my_discr);
+	monotime(&time_sent);
+	bep->time_sent_sec = htobe64(time_sent.tv_sec);
+	bep->time_sent_usec = htobe64(time_sent.tv_usec);
+
+	len = write(echo_bpf_fd, buf, hlen + sizeof(*ip) + sizeof(*uh) + sizeof(*bep));
+	if (len == -1) {
+		if (bglobal.debug_network)
+			zlog_debug("%s: write on %s: %s", __func__, bfd->ifp->name,
+				   strerror(errno));
+		/* The interface may be gone, attach again next time. */
+		echo_bpf_ifindex = IFINDEX_INTERNAL;
+		return;
+	}
+
+	bfd->stats.tx_echo_pkt++;
+}
+#endif /* BFD_BSD */
+
 void ptm_bfd_echo_snd(struct bfd_session *bfd)
 {
 	struct sockaddr *sa;
@@ -386,10 +798,16 @@ static int ptm_bfd_process_echo_pkt(struct bfd_vrf_global *bvrf, int s)
 		return -1;
 	}
 
+	return ptm_bfd_echo_rx(bfd, my_rtt);
+}
+
+/* Account an echo packet that came back for @bfd. */
+static int ptm_bfd_echo_rx(struct bfd_session *bfd, uint64_t my_rtt)
+{
 	if (!CHECK_FLAG(bfd->flags, BFD_SESS_FLAG_ECHO_ACTIVE)) {
 		if (bglobal.debug_network)
-			zlog_debug("echo-packet: echo disabled [%s] (id:%u)",
-				   bs_to_string(bfd), my_discr);
+			zlog_debug("echo-packet: echo disabled [%s] (id:%u)", bs_to_string(bfd),
+				   bfd->discrs.my_discr);
 		return -1;
 	}
 
@@ -1407,6 +1825,10 @@ void bfd_recv_cb(struct event *t)
 		if (ifp)
 			bfd_peer_mac_set(sd, bfd, &peer, ifp);
 #endif
+#ifdef BFD_BSD
+		if (ifp)
+			bfd_peer_mac_set(bfd, &peer, ifp);
+#endif
 	}
 
 	bfd->stats.rx_ctrl_pkt++;
@@ -1582,6 +2004,10 @@ int bp_bfd_echo_in(struct bfd_vrf_global *bvrf, int sd, uint8_t *ttl,
 		rlen = bfd_recv_ipv4(sd, msgbuf, sizeof(msgbuf), ttl, &ifindex,
 				     &local, &peer);
 		bfd_offset = 0;
+
+		/* Our own looped echo is read with bpf(4), don't count it twice. */
+		if (rlen >= 0 && peer.sa_sin.sin_addr.s_addr == local.sa_sin.sin_addr.s_addr)
+			return -1;
 #endif
 	} else {
 		rlen = bfd_recv_ipv6(sd, msgbuf, sizeof(msgbuf), ttl, &ifindex,
@@ -1652,7 +2078,7 @@ int bp_bfd_echo_in(struct bfd_vrf_global *bvrf, int sd, uint8_t *ttl,
 		return -1;
 	}
 
-#ifdef BFD_LINUX
+#if defined(BFD_LINUX) || defined(BFD_BSD)
 	/* RTT Calculation: determine RTT time of IPv4 echo pkt */
 	if (sd == bvrf->bg_echo) {
 		struct timeval time_sent = {0, 0};
