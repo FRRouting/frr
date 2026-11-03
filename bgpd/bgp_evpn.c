@@ -902,6 +902,118 @@ bool is_route_injectable_into_evpn(struct bgp *bgp_vrf, afi_t afi, safi_t safi,
 	return is_route_injectable_into_evpn_non_supp(bgp_vrf, afi, safi, pi);
 }
 
+/* Flag if the VRF path is imported from a VPN path received from a peer.
+ * The VPN paths exported from a local VRF or imported from EVPN are not
+ * received from a peer.
+ */
+bool bgp_evpn_path_is_reoriginable(const struct bgp_path_info *pi)
+{
+	const struct bgp_path_info *parent;
+	struct bgp_table *table;
+
+	if (pi->sub_type != BGP_ROUTE_IMPORTED || !pi->extra || !pi->extra->vrfleak ||
+	    !pi->extra->vrfleak->parent)
+		return false;
+
+	parent = pi->extra->vrfleak->parent;
+	if (parent->sub_type != BGP_ROUTE_NORMAL || !parent->net)
+		return false;
+
+	table = bgp_dest_table(parent->net);
+
+	return table && table->safi == SAFI_MPLS_VPN;
+}
+
+/* Flag if the VRF re-originates its paths imported from VPN as type-5 routes
+ * with its VPN export RD, route-targets and SRv6 SID.
+ */
+bool bgp_evpn_reoriginate_vpn_active(struct bgp *bgp_vrf, afi_t afi)
+{
+	struct bgp *bgp_evpn = bgp_get_evpn();
+
+	if (!bgp_evpn || bgp_vrf->inst_type != BGP_INSTANCE_TYPE_VRF || bgp_vrf->l3vni)
+		return false;
+
+	if (!CHECK_FLAG(bgp_evpn->evpn_reoriginate_flags[afi], BGP_EVPN_REORIGINATE_VPN) ||
+	    !advertise_type5_routes_bestpath(bgp_evpn, afi, SAFI_MPLS_VPN))
+		return false;
+
+	if (!vpn_leak_to_vpn_active(bgp_vrf, afi, NULL, false))
+		return false;
+
+	return (bgp_vrf->vpn_policy[afi].tovpn_sid && bgp_vrf->vpn_policy[afi].tovpn_sid_locator) ||
+	       (bgp_vrf->tovpn_sid && bgp_vrf->tovpn_sid_locator);
+}
+
+void bgp_evpn_reoriginate_vpn_route(struct bgp *bgp_vrf, afi_t afi, const struct prefix *p,
+				    struct bgp_path_info *new_select,
+				    struct bgp_path_info *old_select)
+{
+	struct bgp *bgp_evpn = bgp_get_evpn();
+
+	if (!bgp_evpn ||
+	    !CHECK_FLAG(bgp_evpn->evpn_reoriginate_flags[afi], BGP_EVPN_REORIGINATE_VPN))
+		return;
+
+	if (old_select && old_select != new_select && bgp_evpn_path_is_reoriginable(old_select))
+		bgp_evpn_withdraw_type5_route(bgp_vrf, old_select, p, afi, SAFI_UNICAST, 0);
+
+	if (!new_select || !bgp_evpn_path_is_reoriginable(new_select))
+		return;
+
+	if (!bgp_evpn_reoriginate_vpn_active(bgp_vrf, afi) || bgp_path_suppressed(new_select))
+		bgp_evpn_withdraw_type5_route(bgp_vrf, new_select, p, afi, SAFI_UNICAST, 0);
+	else
+		bgp_evpn_advertise_type5_route(bgp_vrf, new_select, p, new_select->attr, afi,
+					       SAFI_UNICAST, 0);
+}
+
+/* Advertise, or withdraw, the type-5 routes re-originated by a VRF */
+void bgp_evpn_reoriginate_vpn_routes(struct bgp *bgp_vrf, afi_t afi, bool withdraw)
+{
+	struct bgp *bgp_evpn = bgp_get_evpn();
+	struct bgp_dest *dest;
+	struct bgp_path_info *pi;
+
+	if (!bgp_evpn ||
+	    !CHECK_FLAG(bgp_evpn->evpn_reoriginate_flags[afi], BGP_EVPN_REORIGINATE_VPN))
+		return;
+
+	if (bgp_vrf->inst_type != BGP_INSTANCE_TYPE_VRF || bgp_vrf->l3vni ||
+	    !bgp_vrf->rib[afi][SAFI_UNICAST])
+		return;
+
+	if (!withdraw && !bgp_evpn_reoriginate_vpn_active(bgp_vrf, afi))
+		withdraw = true;
+
+	for (dest = bgp_table_top(bgp_vrf->rib[afi][SAFI_UNICAST]); dest;
+	     dest = bgp_route_next(dest)) {
+		for (pi = bgp_dest_get_bgp_path_info(dest); pi; pi = pi->next) {
+			if (!bgp_evpn_path_is_reoriginable(pi))
+				continue;
+
+			if (withdraw)
+				bgp_evpn_withdraw_type5_route(bgp_vrf, pi,
+							      bgp_dest_get_prefix(dest), afi,
+							      SAFI_UNICAST, 0);
+			else if (CHECK_FLAG(pi->flags, BGP_PATH_SELECTED) &&
+				 !bgp_path_suppressed(pi))
+				bgp_evpn_advertise_type5_route(bgp_vrf, pi,
+							       bgp_dest_get_prefix(dest),
+							       pi->attr, afi, SAFI_UNICAST, 0);
+		}
+	}
+}
+
+void bgp_evpn_reoriginate_vpn_routes_all(afi_t afi, bool withdraw)
+{
+	struct listnode *node;
+	struct bgp *bgp_vrf;
+
+	for (ALL_LIST_ELEMENTS_RO(bm->bgp, node, bgp_vrf))
+		bgp_evpn_reoriginate_vpn_routes(bgp_vrf, afi, withdraw);
+}
+
 /*
  * Compare Route Targets.
  */
@@ -1916,8 +2028,8 @@ static struct bgp_path_info *bgp_evpn_route_get_local_path(struct bgp *bgp, stru
 static int update_evpn_type5_route_entry(struct bgp *bgp_evpn, struct bgp *bgp_vrf, afi_t afi,
 					 safi_t safi, struct bgp_dest *dest,
 					 struct bgp_path_info *originator, struct attr *attr,
-					 int *route_changed, struct bgp_path_info **entry,
-					 uint32_t addpath_id)
+					 const mpls_label_t *label, int *route_changed,
+					 struct bgp_path_info **entry, uint32_t addpath_id)
 {
 	struct attr *attr_new = NULL;
 	struct bgp_path_info *pi = NULL;
@@ -1972,7 +2084,10 @@ static int update_evpn_type5_route_entry(struct bgp *bgp_evpn, struct bgp *bgp_v
 		/* Type-5 routes advertise the L3-VNI */
 		bgp_evpn_path_info_extra_get(pi);
 		pi->extra->evpn->type5_originator = originator;
-		if (originator && is_pi_family_vpn(originator)) {
+		if (label) {
+			bgp_labels.label[0] = *label;
+			bgp_labels.num_labels = 1;
+		} else if (originator && is_pi_family_vpn(originator)) {
 			if (BGP_PATH_INFO_NUM_LABELS(originator)) {
 				bgp_labels.label[0] = originator->extra->labels->label[0];
 				bgp_labels.num_labels = 1;
@@ -2029,7 +2144,8 @@ static int update_evpn_type5_route_entry(struct bgp *bgp_evpn, struct bgp *bgp_v
 			tmp_pi->attr = attr_new;
 			tmp_pi->uptime = monotime(NULL);
 			tmp_pi->addpath_rx_id = addpath_id;
-		}
+		} else
+			bgp_attr_flush(&static_attr);
 		*entry = local_pi;
 	}
 	bgp_attr_extra_discard(&static_attr);
@@ -2051,6 +2167,8 @@ static int update_evpn_type5_route(struct bgp *bgp_vrf, struct bgp_path_info *or
 	struct ipaddr vtep_ip;
 	struct prefix_rd *prd = &bgp_vrf->vrf_prd;
 	bgp_encap_types tnl_type = BGP_ENCAP_TYPE_VXLAN;
+	mpls_label_t label;
+	mpls_label_t *labelp = NULL;
 
 	bgp_evpn = bgp_get_evpn();
 	if (!bgp_evpn)
@@ -2091,6 +2209,30 @@ static int update_evpn_type5_route(struct bgp *bgp_vrf, struct bgp_path_info *or
 		 */
 		tnl_type = BGP_ENCAP_TYPE_RESERVED;
 		prd = (struct prefix_rd *)bgp_dest_get_prefix(originator->net->pdest);
+	} else if (src_safi == SAFI_UNICAST && originator && !bgp_vrf->l3vni &&
+		   bgp_evpn_path_is_reoriginable(originator)) {
+		/* Re-originate the path imported from VPN with the VPN
+		 * export RD, route-targets and SRv6 SID of the VRF.
+		 */
+		struct ecommunity *ecom = bgp_attr_get_ecommunity(&attr);
+		struct ecommunity *rtlist =
+			bgp_vrf->vpn_policy[src_afi].rtlist[BGP_VPN_POLICY_DIR_TOVPN];
+
+		ecom = ecom ? ecommunity_dup(ecom) : ecommunity_new();
+		ecommunity_strip_rts(ecom);
+		if (rtlist)
+			ecom = ecommunity_merge(ecom, rtlist);
+		bgp_attr_set_ecommunity(&attr, ecom);
+
+		memset(&attr.rmac, 0, sizeof(attr.rmac));
+		if (!vpn_leak_from_vrf_fill_srv6(&attr, bgp_vrf, src_afi, &label)) {
+			bgp_attr_flush(&attr);
+			bgp_attr_extra_discard(&attr);
+			return 0;
+		}
+		labelp = &label;
+		tnl_type = BGP_ENCAP_TYPE_RESERVED;
+		prd = &bgp_vrf->vpn_policy[src_afi].tovpn_rd;
 	} else if (src_afi == AFI_IP6 && CHECK_FLAG(bgp_vrf->af_flags[AFI_L2VPN][SAFI_EVPN],
 						    BGP_L2VPN_EVPN_ADV_IPV6_UNICAST_GW_IP)) {
 		if (src_attr &&
@@ -2124,7 +2266,7 @@ static int update_evpn_type5_route(struct bgp *bgp_vrf, struct bgp_path_info *or
 	assert(dest);
 
 	/* create or update the route entry within the route node */
-	update_evpn_type5_route_entry(bgp_evpn, bgp_vrf, afi, safi, dest, originator, &attr,
+	update_evpn_type5_route_entry(bgp_evpn, bgp_vrf, afi, safi, dest, originator, &attr, labelp,
 				      &route_changed, &pi, addpath_id);
 
 	/* schedule for processing and unlock node */
@@ -2789,6 +2931,9 @@ static int delete_evpn_type5_route(struct bgp *bgp_vrf, const struct bgp_path_in
 
 	if (originator && is_pi_family_vpn(originator))
 		prd = (struct prefix_rd *)bgp_dest_get_prefix(originator->net->pdest);
+	else if (originator && !bgp_vrf->l3vni && bgp_evpn_path_is_reoriginable(originator))
+		prd = &bgp_vrf->vpn_policy[is_evpn_prefix_ipaddr_v4(evp) ? AFI_IP : AFI_IP6]
+			       .tovpn_rd;
 
 	/* locate the global route entry for this type-5 prefix */
 	dest = bgp_evpn_global_node_lookup(bgp_evpn->rib[afi][safi], safi, evp, prd, NULL);

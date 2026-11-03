@@ -1795,8 +1795,8 @@ vpn_leak_from_vrf_get_per_nexthop_label(afi_t afi, struct bgp_path_info *pi,
 							afi);
 }
 
-static bool vpn_leak_from_vrf_fill_srv6(struct attr *attr, struct bgp *from_bgp, afi_t afi,
-					mpls_label_t *label)
+bool vpn_leak_from_vrf_fill_srv6(struct attr *attr, struct bgp *from_bgp, afi_t afi,
+				 mpls_label_t *label)
 {
 	/* Set SID for SRv6 VPN */
 	if (from_bgp->vpn_policy[afi].tovpn_sid_locator && from_bgp->vpn_policy[afi].tovpn_sid) {
@@ -2266,6 +2266,8 @@ void vpn_leak_from_vrf_withdraw_all(struct bgp *to_bgp, struct bgp *from_bgp,
 	struct bgp_dest *pdest;
 	safi_t safi = SAFI_MPLS_VPN;
 
+	bgp_evpn_reoriginate_vpn_routes(from_bgp, afi, true);
+
 	/*
 	 * Walk vpn table, delete bpi with bgp_orig == from_bgp
 	 */
@@ -2348,6 +2350,8 @@ void vpn_leak_from_vrf_update_all(struct bgp *to_bgp, struct bgp *from_bgp,
 			vpn_leak_from_vrf_update(to_bgp, from_bgp, bpi);
 		}
 	}
+
+	bgp_evpn_reoriginate_vpn_routes(from_bgp, afi, false);
 }
 
 static struct bgp *bgp_lookup_by_rd(struct bgp_path_info *bpi,

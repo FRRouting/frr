@@ -236,6 +236,13 @@ extern bool is_route_injectable_into_evpn(struct bgp *bgp_vrf, afi_t afi, safi_t
 					  struct bgp_path_info *pi);
 extern bool is_route_injectable_into_evpn_non_supp(struct bgp *bgp_vrf, afi_t afi, safi_t safi,
 						   struct bgp_path_info *pi);
+extern bool bgp_evpn_path_is_reoriginable(const struct bgp_path_info *pi);
+extern bool bgp_evpn_reoriginate_vpn_active(struct bgp *bgp_vrf, afi_t afi);
+extern void bgp_evpn_reoriginate_vpn_route(struct bgp *bgp_vrf, afi_t afi, const struct prefix *p,
+					   struct bgp_path_info *new_select,
+					   struct bgp_path_info *old_select);
+extern void bgp_evpn_reoriginate_vpn_routes(struct bgp *bgp_vrf, afi_t afi, bool withdraw);
+extern void bgp_evpn_reoriginate_vpn_routes_all(afi_t afi, bool withdraw);
 extern void bgp_aggr_supp_withdraw_from_evpn(struct bgp *bgp, afi_t afi,
 					     safi_t safi);
 

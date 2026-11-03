@@ -4401,14 +4401,16 @@ static int bgp_evpn_clear_suppress_import_from_evpn(struct bgp *bgp_vrf, afi_t a
 DEFPY (bgp_evpn_advertise_type5,
        bgp_evpn_advertise_type5_cmd,
        "advertise " BGP_AFI_CMD_STR "" BGP_SAFI_CMD_STR
-       " [gateway-ip] [route-map RMAP_NAME$rmap_name] [skip-evpn-imported$skip_evpn_imported]",
+       " [gateway-ip] [route-map RMAP_NAME$rmap_name] [skip-evpn-imported$skip_evpn_imported]"
+       " [reoriginate$reoriginate]",
        "Advertise prefix routes\n"
        BGP_AFI_HELP_STR
        BGP_SAFI_HELP_STR
        "advertise gateway IP overlay index\n"
        "route-map for filtering specific routes\n"
        "Name of the route map\n"
-       "Do not advertise routes imported from EVPN as Type-5 routes\n")
+       "Do not advertise routes imported from EVPN as Type-5 routes\n"
+       "Re-originate the VRF routes imported from VPN as Type-5 routes\n")
 {
 	struct bgp *bgp_vrf = VTY_GET_CONTEXT(bgp); /* bgp vrf instance */
 	int idx_afi = 0;
@@ -4424,6 +4426,7 @@ DEFPY (bgp_evpn_advertise_type5,
 	bool has_flag_oi_none, has_flag_oi_gw_ip;
 	bool was_advertising;
 	bool skip_evpn_imported_newly_enabled = false;
+	bool reoriginate_newly_enabled;
 	int debug = BGP_DEBUG(vpn, VPN_LEAK_FROM_VRF) || BGP_DEBUG(vpn, VPN_LEAK_TO_VRF);
 
 	if (!bgp_vrf)
@@ -4467,6 +4470,16 @@ DEFPY (bgp_evpn_advertise_type5,
 		return CMD_WARNING;
 	}
 
+	if (reoriginate && safi != SAFI_MPLS_VPN) {
+		vty_out(vty, "%% reoriginate is only supported for vpn SAFI\n");
+		return CMD_WARNING;
+	}
+
+	if (reoriginate && bgp_vrf != bgp_get_evpn()) {
+		vty_out(vty, "%% reoriginate is only supported in the EVPN instance\n");
+		return CMD_WARNING;
+	}
+
 	if (safi == SAFI_UNICAST) {
 		if (afi == AFI_IP) {
 			flag_oi_none = BGP_L2VPN_EVPN_ADV_IPV4_UNICAST;
@@ -4491,6 +4504,9 @@ DEFPY (bgp_evpn_advertise_type5,
 	skip_evpn_imported_newly_enabled = skip_evpn_imported &&
 					   !CHECK_FLAG(bgp_vrf->af_flags[AFI_L2VPN][SAFI_EVPN],
 						       suppress_flag);
+	reoriginate_newly_enabled = reoriginate &&
+				    !CHECK_FLAG(bgp_vrf->evpn_reoriginate_flags[afi],
+						BGP_EVPN_REORIGINATE_VPN);
 
 	/* Omitting gateway-ip leaves the overlay index as configured, so the
 	 * mode only ever moves to gateway-ip here. Use
@@ -4500,7 +4516,7 @@ DEFPY (bgp_evpn_advertise_type5,
 	adv_flag_changed = oly == OVERLAY_INDEX_GATEWAY_IP && !has_flag_oi_gw_ip;
 
 	if (was_advertising && !adv_flag_changed && !rmap_changed &&
-	    !skip_evpn_imported_newly_enabled) {
+	    !skip_evpn_imported_newly_enabled && !reoriginate_newly_enabled) {
 		/* The supplied options are already configured. */
 		return CMD_SUCCESS;
 	}
@@ -4578,13 +4594,22 @@ DEFPY (bgp_evpn_advertise_type5,
 	     advertise_type5_routes_multipath(bgp_vrf, afi, safi)) &&
 	    (!was_advertising || rmap_changed || adv_flag_changed))
 		bgp_evpn_advertise_type5_routes(bgp_vrf, afi, safi);
+
+	/* Omitting reoriginate leaves it as configured, so it is only ever
+	 * set here.
+	 */
+	if (reoriginate_newly_enabled) {
+		SET_FLAG(bgp_vrf->evpn_reoriginate_flags[afi], BGP_EVPN_REORIGINATE_VPN);
+		bgp_evpn_reoriginate_vpn_routes_all(afi, false);
+	}
 	return CMD_SUCCESS;
 }
 
 DEFPY (no_bgp_evpn_advertise_type5,
        no_bgp_evpn_advertise_type5_cmd,
        "no advertise " BGP_AFI_CMD_STR "" BGP_SAFI_CMD_STR
-       " [gateway-ip$gateway_ip] [route-map RMAP_NAME$rmap_name] [skip-evpn-imported$skip_evpn_imported]",
+       " [gateway-ip$gateway_ip] [route-map RMAP_NAME$rmap_name] [skip-evpn-imported$skip_evpn_imported]"
+       " [reoriginate$reoriginate]",
        NO_STR
        "Advertise prefix routes\n"
        BGP_AFI_HELP_STR
@@ -4592,7 +4617,8 @@ DEFPY (no_bgp_evpn_advertise_type5,
        "advertise gateway IP overlay index\n"
        "route-map for filtering specific routes\n"
        "Name of the route map\n"
-       "Do not advertise routes imported from EVPN as Type-5 routes\n")
+       "Do not advertise routes imported from EVPN as Type-5 routes\n"
+       "Re-originate the VRF routes imported from VPN as Type-5 routes\n")
 {
 	struct bgp *bgp_vrf = VTY_GET_CONTEXT(bgp); /* bgp vrf instance */
 	int idx_afi = 0;
@@ -4630,6 +4656,11 @@ DEFPY (no_bgp_evpn_advertise_type5,
 		return CMD_WARNING;
 	}
 
+	if (reoriginate && safi != SAFI_MPLS_VPN) {
+		vty_out(vty, "%% reoriginate is only supported for vpn SAFI\n");
+		return CMD_WARNING;
+	}
+
 	if (safi == SAFI_UNICAST) {
 		if (afi == AFI_IP) {
 			flag_oi_none = BGP_L2VPN_EVPN_ADV_IPV4_UNICAST;
@@ -4649,8 +4680,17 @@ DEFPY (no_bgp_evpn_advertise_type5,
 	has_flag_oi_none = CHECK_FLAG(bgp_vrf->af_flags[AFI_L2VPN][SAFI_EVPN], flag_oi_none);
 	has_flag_oi_gw_ip = CHECK_FLAG(bgp_vrf->af_flags[AFI_L2VPN][SAFI_EVPN], flag_oi_gw_ip);
 
+	/* The re-originated Type-5 routes are withdrawn when re-origination
+	 * or the Type-5 export is disabled.
+	 */
+	if ((reoriginate || !(skip_evpn_imported || rmap_name || gateway_ip)) &&
+	    CHECK_FLAG(bgp_vrf->evpn_reoriginate_flags[afi], BGP_EVPN_REORIGINATE_VPN)) {
+		bgp_evpn_reoriginate_vpn_routes_all(afi, true);
+		UNSET_FLAG(bgp_vrf->evpn_reoriginate_flags[afi], BGP_EVPN_REORIGINATE_VPN);
+	}
+
 	/* Remove the named advertise options and keep Type-5 export enabled. */
-	if (skip_evpn_imported || rmap_name || gateway_ip) {
+	if (skip_evpn_imported || rmap_name || gateway_ip || reoriginate) {
 		if (skip_evpn_imported)
 			bgp_evpn_clear_suppress_import_from_evpn(bgp_vrf, afi, safi);
 
@@ -8323,11 +8363,13 @@ void bgp_config_write_evpn_info(struct vty *vty, struct bgp *bgp, afi_t afi, saf
 	}
 
 	if (CHECK_FLAG(bgp->af_flags[AFI_L2VPN][SAFI_EVPN], BGP_L2VPN_EVPN_ADV_IPV4_VPN)) {
+		vty_out(vty, "  advertise ipv4 vpn");
 		if (bgp->adv_cmd_rmap[AFI_IP][SAFI_MPLS_VPN].name)
-			vty_out(vty, "  advertise ipv4 vpn route-map %s\n",
+			vty_out(vty, " route-map %s",
 				bgp->adv_cmd_rmap[AFI_IP][SAFI_MPLS_VPN].name);
-		else
-			vty_out(vty, "  advertise ipv4 vpn\n");
+		if (CHECK_FLAG(bgp->evpn_reoriginate_flags[AFI_IP], BGP_EVPN_REORIGINATE_VPN))
+			vty_out(vty, " reoriginate");
+		vty_out(vty, "\n");
 	}
 
 	/* EAD ES export route-target */
@@ -8359,11 +8401,13 @@ void bgp_config_write_evpn_info(struct vty *vty, struct bgp *bgp, afi_t afi, saf
 	}
 
 	if (CHECK_FLAG(bgp->af_flags[AFI_L2VPN][SAFI_EVPN], BGP_L2VPN_EVPN_ADV_IPV6_VPN)) {
+		vty_out(vty, "  advertise ipv6 vpn");
 		if (bgp->adv_cmd_rmap[AFI_IP6][SAFI_MPLS_VPN].name)
-			vty_out(vty, "  advertise ipv6 vpn route-map %s\n",
+			vty_out(vty, " route-map %s",
 				bgp->adv_cmd_rmap[AFI_IP6][SAFI_MPLS_VPN].name);
-		else
-			vty_out(vty, "  advertise ipv6 vpn\n");
+		if (CHECK_FLAG(bgp->evpn_reoriginate_flags[AFI_IP6], BGP_EVPN_REORIGINATE_VPN))
+			vty_out(vty, " reoriginate");
+		vty_out(vty, "\n");
 	}
 
 	if (CHECK_FLAG(bgp->af_flags[AFI_L2VPN][SAFI_EVPN], BGP_L2VPN_EVPN_DEFAULT_ORIGINATE_IPV4))
