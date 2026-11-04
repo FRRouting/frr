@@ -4783,9 +4783,14 @@ rib_update_handle_kernel_route_down_possibility(struct route_node *rn,
 
 		srcdest_rnode_prefixes(rn, &p, (const struct prefix **)&src_p);
 
-		rib_delete(rib_table->afi, rib_table->safi, re->vrf_id,
-			   re->type, re->instance, re->flags, p, src_p, NULL, 0,
-			   re->table, re->metric, re->distance, true);
+		/*
+		 * Delete with this entry's nexthop: a prefix-only delete
+		 * would also hit a newer kernel route for the same prefix
+		 * on another interface (session reconnected meanwhile).
+		 */
+		rib_delete(rib_table->afi, rib_table->safi, re->vrf_id, re->type, re->instance,
+			   re->flags, p, src_p, re->nhe->nhg.nexthop, 0, re->table, re->metric,
+			   re->distance, true);
 	}
 }
 
