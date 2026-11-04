@@ -54,6 +54,27 @@ int _ptm_bfd_send(struct bfd_session *bs, uint16_t *port, const void *data,
 		  size_t datalen);
 
 static void bfd_sd_reschedule(struct bfd_vrf_global *bvrf, int sd);
+
+/* Where and how a BFD control packet was received. */
+struct bfd_ctrl_rx {
+	/* Receiving socket. */
+	int sd;
+	/* Received on a multi hop socket. */
+	bool is_mhop;
+	/* TTL / hop limit of the received packet. */
+	uint8_t ttl;
+	/* Receiving interface (index, and pointer if known). */
+	ifindex_t ifindex;
+	struct interface *ifp;
+	/* VRF the packet belongs to. */
+	vrf_id_t vrfid;
+	/* Packet destination (local) and source (peer) addresses. */
+	struct sockaddr_any local;
+	struct sockaddr_any peer;
+};
+
+static void bfd_ctrl_pkt_process(struct bfd_session *bfd, struct bfd_pkt *cp, ssize_t mlen,
+				 const struct bfd_ctrl_rx *rx);
 ssize_t bfd_recv_ipv4(int sd, uint8_t *msgbuf, size_t msgbuflen, uint8_t *ttl,
 		      ifindex_t *ifindex, struct sockaddr_any *local,
 		      struct sockaddr_any *peer);
@@ -1223,6 +1244,7 @@ void bfd_recv_cb(struct event *t)
 	uint8_t msgbuf[BFD_PACKET_SIZE];
 	struct interface *ifp = NULL;
 	struct bfd_vrf_global *bvrf = EVENT_ARG(t);
+	struct bfd_ctrl_rx rx;
 
 	/* Schedule next read. */
 	bfd_sd_reschedule(bvrf, sd);
@@ -1301,6 +1323,36 @@ void bfd_recv_cb(struct event *t)
 		cp_debug(is_mhop, &peer, &local, ifindex, vrfid, "session runs in a data plane");
 		return;
 	}
+
+	rx.sd = sd;
+	rx.is_mhop = is_mhop;
+	rx.ttl = ttl;
+	rx.ifindex = ifindex;
+	rx.vrfid = vrfid;
+	rx.ifp = ifp;
+	rx.local = local;
+	rx.peer = peer;
+	bfd_ctrl_pkt_process(bfd, cp, mlen, &rx);
+}
+
+/*
+ * Validate a received BFD control packet against the session it was matched
+ * to and run it through the state machine (RFC 5880, Section 6.8.6).
+ *
+ * The caller has already read the packet, checked that it holds at least a
+ * full fixed header and found its session. Keeping this part separate lets
+ * other receive paths share the same validation and state handling.
+ */
+static void bfd_ctrl_pkt_process(struct bfd_session *bfd, struct bfd_pkt *cp, ssize_t mlen,
+				 const struct bfd_ctrl_rx *rx)
+{
+	bool is_mhop = rx->is_mhop;
+	uint8_t ttl = rx->ttl;
+	ifindex_t ifindex = rx->ifindex;
+	vrf_id_t vrfid = rx->vrfid;
+	struct interface *ifp = rx->ifp;
+	struct sockaddr_any local = rx->local;
+	struct sockaddr_any peer = rx->peer;
 
 	/* Validate single hop packet TTL. */
 	if ((!is_mhop) && (ttl != BFD_TTL_VAL)) {
@@ -1414,7 +1466,7 @@ void bfd_recv_cb(struct event *t)
 			bfd->local_address = local;
 #ifdef BFD_LINUX
 		if (ifp)
-			bfd_peer_mac_set(sd, bfd, &peer, ifp);
+			bfd_peer_mac_set(rx->sd, bfd, &peer, ifp);
 #endif
 	}
 
