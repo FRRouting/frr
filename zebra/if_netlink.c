@@ -794,18 +794,36 @@ static void netlink_proc_dplane_if_protodown(struct zebra_dplane_ctx *ctx,
 	dplane_ctx_set_ifp_protodown_set(ctx, true);
 }
 
-static uint8_t netlink_parse_lacp_bypass(struct rtattr **linkinfo)
+/*
+ * Parse the bond member (slave) attributes of a link message: the LACP
+ * bypass flag and, for 802.3ad bonds, the member's LACP actor operational
+ * state (IEEE 802.1AX actor state bits, see ZEBRA_LACP_STATE_*).
+ *
+ * `ad_actor_state_valid` is false when the kernel did not report an actor
+ * state (not an 802.3ad bond, or the member has no aggregator yet).
+ */
+static void netlink_parse_bond_slave_info(struct rtattr **linkinfo, uint8_t *bypass,
+					  bool *ad_actor_state_valid, uint8_t *ad_actor_state)
 {
-	uint8_t bypass = 0;
 	struct rtattr *mbrinfo[IFLA_BOND_SLAVE_MAX + 1];
+
+	*bypass = 0;
+	*ad_actor_state_valid = false;
+	*ad_actor_state = 0;
+
+	if (!linkinfo[IFLA_INFO_SLAVE_DATA])
+		return;
 
 	netlink_parse_rtattr_nested(mbrinfo, IFLA_BOND_SLAVE_MAX,
 				    linkinfo[IFLA_INFO_SLAVE_DATA]);
 	if (mbrinfo[IFLA_BOND_SLAVE_AD_RX_BYPASS])
-		bypass = *(uint8_t *)RTA_DATA(
-			mbrinfo[IFLA_BOND_SLAVE_AD_RX_BYPASS]);
+		*bypass = *(uint8_t *)RTA_DATA(mbrinfo[IFLA_BOND_SLAVE_AD_RX_BYPASS]);
 
-	return bypass;
+	if (mbrinfo[IFLA_BOND_SLAVE_AD_ACTOR_OPER_PORT_STATE]) {
+		*ad_actor_state =
+			*(uint8_t *)RTA_DATA(mbrinfo[IFLA_BOND_SLAVE_AD_ACTOR_OPER_PORT_STATE]);
+		*ad_actor_state_valid = true;
+	}
 }
 
 /* Request for specific interface or address information from the kernel */
@@ -1393,6 +1411,8 @@ int netlink_link_change(struct nlmsghdr *h, ns_id_t ns_id, int startup, void *ar
 	ns_id_t link_nsid = ns_id;
 	ifindex_t master_infindex = IFINDEX_INTERNAL;
 	uint8_t bypass = 0;
+	bool ad_actor_state_valid = false;
+	uint8_t ad_actor_state = 0;
 	uint32_t txqlen = 0;
 	uint32_t cchanges = 0;
 	int speed_err = 0;
@@ -1553,7 +1573,9 @@ int netlink_link_change(struct nlmsghdr *h, ns_id_t ns_id, int startup, void *ar
 				zif_slave_type = ZEBRA_IF_SLAVE_BOND;
 				master_infindex = bond_ifindex =
 					*(ifindex_t *)RTA_DATA(tb[IFLA_MASTER]);
-				bypass = netlink_parse_lacp_bypass(linkinfo);
+				netlink_parse_bond_slave_info(linkinfo, &bypass,
+							      &ad_actor_state_valid,
+							      &ad_actor_state);
 			} else
 				zif_slave_type = ZEBRA_IF_SLAVE_OTHER;
 		}
@@ -1578,6 +1600,7 @@ int netlink_link_change(struct nlmsghdr *h, ns_id_t ns_id, int startup, void *ar
 		dplane_ctx_set_ifp_bridge_ifindex(ctx, bridge_ifindex);
 		dplane_ctx_set_ifp_bond_ifindex(ctx, bond_ifindex);
 		dplane_ctx_set_ifp_bypass(ctx, bypass);
+		dplane_ctx_set_ifp_ad_actor_state(ctx, ad_actor_state_valid, ad_actor_state);
 		dplane_ctx_set_ifp_zltype(
 			ctx, netlink_to_zebra_link_type(ifi->ifi_type));
 

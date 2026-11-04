@@ -2032,7 +2032,7 @@ static void zebra_if_dplane_ifp_handling(struct zebra_dplane_ctx *ctx)
 		if (IS_ZEBRA_IF_BOND(ifp))
 			zebra_l2if_update_bond(ifp, false);
 		if (IS_ZEBRA_IF_BOND_SLAVE(ifp))
-			zebra_l2if_update_bond_slave(ifp, bond_ifindex, false);
+			zebra_l2if_update_bond_slave(ifp, bond_ifindex, false, false, 0);
 		/* Special handling for bridge or VxLAN interfaces. */
 		if (IS_ZEBRA_IF_BRIDGE(ifp))
 			zebra_l2_bridge_del(ifp);
@@ -2054,6 +2054,8 @@ static void zebra_if_dplane_ifp_handling(struct zebra_dplane_ctx *ctx)
 		vrf_id_t vrf_id = dplane_ctx_get_ifp_vrf_id(ctx);
 		enum zebra_slave_iftype zif_slave_type;
 		uint8_t bypass;
+		bool ad_actor_state_valid;
+		uint8_t ad_actor_state;
 		uint64_t flags;
 		uint32_t mtu;
 		ns_id_t link_nsid;
@@ -2079,6 +2081,7 @@ static void zebra_if_dplane_ifp_handling(struct zebra_dplane_ctx *ctx)
 		bridge_ifindex = dplane_ctx_get_ifp_bridge_ifindex(ctx);
 		bond_ifindex = dplane_ctx_get_ifp_bond_ifindex(ctx);
 		bypass = dplane_ctx_get_ifp_bypass(ctx);
+		ad_actor_state_valid = dplane_ctx_get_ifp_ad_actor_state(ctx, &ad_actor_state);
 		flags = dplane_ctx_get_ifp_flags(ctx);
 		mtu = dplane_ctx_get_ifp_mtu(ctx);
 		link_ifindex = dplane_ctx_get_ifp_link_ifindex(ctx);
@@ -2183,8 +2186,8 @@ static void zebra_if_dplane_ifp_handling(struct zebra_dplane_ctx *ctx)
 					ifp, bridge_ifindex, ns_id,
 					ZEBRA_BRIDGE_NO_ACTION);
 			else if (IS_ZEBRA_IF_BOND_SLAVE(ifp))
-				zebra_l2if_update_bond_slave(ifp, bond_ifindex,
-							     !!bypass);
+				zebra_l2if_update_bond_slave(ifp, bond_ifindex, !!bypass,
+							     ad_actor_state_valid, ad_actor_state);
 
 			if (protodown_set) {
 				interface_if_protodown(ifp, protodown,
@@ -2395,8 +2398,8 @@ static void zebra_if_dplane_ifp_handling(struct zebra_dplane_ctx *ctx)
 				zebra_l2if_update_bridge_slave(
 					ifp, bridge_ifindex, ns_id, chgflags);
 			else if (IS_ZEBRA_IF_BOND_SLAVE(ifp) || was_bond_slave)
-				zebra_l2if_update_bond_slave(ifp, bond_ifindex,
-							     !!bypass);
+				zebra_l2if_update_bond_slave(ifp, bond_ifindex, !!bypass,
+							     ad_actor_state_valid, ad_actor_state);
 			if (IS_ZEBRA_IF_BRIDGE(ifp)) {
 				if (IS_ZEBRA_DEBUG_KERNEL)
 					zlog_debug(
@@ -3057,6 +3060,14 @@ static void if_dump_vty(struct vty *vty, struct interface *ifp)
 				vty_out(vty, "  Master ifindex: %u\n",
 					bond_slave->bond_ifindex);
 		}
+		if (bond_slave->ad_actor_state_valid) {
+			char lacp_buf[96];
+
+			vty_out(vty, "  LACP actor state: 0x%02x <%s>\n",
+				bond_slave->ad_actor_oper_state,
+				zebra_lacp_state2str(bond_slave->ad_actor_oper_state, lacp_buf,
+						     sizeof(lacp_buf)));
+		}
 	}
 
 	if (zebra_if->flags & ZIF_FLAG_LACP_BYPASS)
@@ -3445,6 +3456,18 @@ static void if_dump_vty_json(struct vty *vty, struct interface *ifp,
 			else
 				json_object_int_add(json_if, "masterIfindex",
 						    bond_slave->bond_ifindex);
+		}
+		if (bond_slave->ad_actor_state_valid) {
+			char lacp_buf[96];
+
+			json_object_int_add(json_if, "lacpActorState",
+					    bond_slave->ad_actor_oper_state);
+			json_object_string_add(json_if, "lacpActorStateFlags",
+					       zebra_lacp_state2str(bond_slave->ad_actor_oper_state,
+								    lacp_buf, sizeof(lacp_buf)));
+			json_object_boolean_add(json_if, "lacpDistributing",
+						CHECK_FLAG(bond_slave->ad_actor_oper_state,
+							   ZEBRA_LACP_STATE_DISTRIBUTING));
 		}
 	}
 

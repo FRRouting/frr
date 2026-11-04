@@ -240,6 +240,8 @@ struct dplane_intf_info {
 	ns_id_t link_nsid;
 	enum zebra_slave_iftype zslave_type;
 	uint8_t bypass;
+	bool ad_actor_state_valid;
+	uint8_t ad_actor_state;
 	enum zebra_link_type zltype;
 	uint8_t family;
 	struct zebra_vxlan_vni_array *vniarray;
@@ -1725,6 +1727,24 @@ uint8_t dplane_ctx_get_ifp_bypass(const struct zebra_dplane_ctx *ctx)
 	DPLANE_CTX_VALID(ctx);
 
 	return ctx->u.intf.bypass;
+}
+
+void dplane_ctx_set_ifp_ad_actor_state(struct zebra_dplane_ctx *ctx, bool valid, uint8_t state)
+{
+	DPLANE_CTX_VALID(ctx);
+
+	ctx->u.intf.ad_actor_state_valid = valid;
+	ctx->u.intf.ad_actor_state = valid ? state : 0;
+}
+
+bool dplane_ctx_get_ifp_ad_actor_state(const struct zebra_dplane_ctx *ctx, uint8_t *state)
+{
+	DPLANE_CTX_VALID(ctx);
+
+	if (state)
+		*state = ctx->u.intf.ad_actor_state;
+
+	return ctx->u.intf.ad_actor_state_valid;
 }
 
 void dplane_ctx_set_ifp_bridge_ifindex(struct zebra_dplane_ctx *ctx,
