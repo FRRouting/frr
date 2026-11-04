@@ -89,6 +89,14 @@ const struct frr_yang_module_info frr_isisd_info = {
 			}
 		},
 		{
+			.xpath = "/frr-isisd:isis/instance/leak",
+			.cbs = {
+				.cli_show = cli_show_isis_leak,
+				.create = isis_instance_leak_create,
+				.destroy = isis_instance_leak_destroy,
+			}
+		},
+		{
 			.xpath = "/frr-isisd:isis/instance/metric-style",
 			.cbs = {
 				.cli_show = cli_show_isis_metric_style,

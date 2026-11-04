@@ -434,6 +434,7 @@ struct isis_area *isis_area_create(const char *area_tag, const char *vrf_name)
 #endif /* ifndef FABRICD */
 	area->lfa_priority_limit[0] = SPF_PREFIX_PRIO_LOW;
 	area->lfa_priority_limit[1] = SPF_PREFIX_PRIO_LOW;
+	area->leak_l1_to_l2 = false;
 	isis_lfa_tiebreakers_init(area, ISIS_LEVEL1);
 	isis_lfa_tiebreakers_init(area, ISIS_LEVEL2);
 

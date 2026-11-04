@@ -143,6 +143,7 @@ enum isis_metric_style {
 struct isis_area {
 	struct isis *isis;			       /* back pointer */
 	struct lspdb_head lspdb[ISIS_LEVELS];	       /* link-state dbs */
+	uint32_t l1_leak_hash;			       /* L1 prefixes leaked into L2 */
 	struct isis_spftree *spftree[SPFTREE_COUNT][ISIS_LEVELS];
 #define DEFAULT_LSP_MTU 1497
 	unsigned int lsp_mtu;      /* Size of LSPs to generate */
@@ -201,6 +202,7 @@ struct isis_area {
 	bool advertise_passive_only;
 	/* Are we advertising high metrics? */
 	bool advertise_high_metrics;
+	bool leak_l1_to_l2; /* leak level-1 prefixes into the level-2 LSP */
 	/* L1/L2 router identifier for inter-area traffic */
 	char attached_bit_send;
 	char attached_bit_rcv_ignore;
