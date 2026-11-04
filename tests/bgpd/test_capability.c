@@ -972,9 +972,7 @@ int main(void)
 		parse_test(peer, &opt_params[i++], OPT_PARAM);
 
 	SET_FLAG(peer->cap, PEER_CAP_DYNAMIC_ADV);
-	peer->connection = bgp_peer_connection_new(peer, NULL, UNKNOWN);
 	peer->connection->status = Established;
-	peer->connection->curr = stream_new(BGP_MAX_PACKET_SIZE);
 
 	i = 0;
 	while (dynamic_cap_msgs[i].name)
