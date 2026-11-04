@@ -653,7 +653,6 @@ bool bgp_adj_out_set_subgroup(struct bgp_dest *dest,
 	adj->adv = bgp_advertise_new();
 
 	adv = adj->adv;
-	adv->dest = dest;
 	assert(adv->pathi == NULL);
 	/* bgp_path_info adj_out reference */
 	adv->pathi = bgp_path_info_lock(path);
@@ -737,7 +736,6 @@ void bgp_adj_out_unset_subgroup(struct bgp_dest *dest, struct update_subgroup *s
 			/* We need advertisement structure.  */
 			adj->adv = bgp_advertise_new();
 			adv = adj->adv;
-			adv->dest = dest;
 			adv->adj = adj;
 
 			/*
