@@ -2700,6 +2700,13 @@ static int zebra_vxlan_handle_vni_transition(struct zebra_vrf *zvrf, vni_t vni,
 
 		frrtrace(2, frr_zebra, zebra_vxlan_handle_vni_transition, vni, 2);
 
+		/*
+		 * The netns of an inactive netns VRF is gone, and zvrf->zns
+		 * still points to its freed zebra_ns: no vxlan left to find.
+		 */
+		if (vrf_is_backend_netns() && !vrf_is_enabled(zvrf->vrf))
+			return 0;
+
 		ctx.vni = vni;
 
 		/* Find VxLAN interface for this VNI. */
