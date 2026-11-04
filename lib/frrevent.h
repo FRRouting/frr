@@ -90,7 +90,6 @@ struct event {
 	/* lateness warning threshold, usec.  0 if it's not a timer. */
 	unsigned long tardy_threshold;
 	const struct xref_eventsched *xref; /* origin location */
-	pthread_mutex_t mtx;		    /* mutex for thread.c functions */
 };
 
 /* rate limit late timer warnings */
