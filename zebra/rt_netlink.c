@@ -4319,6 +4319,8 @@ ssize_t netlink_macfdb_update_ctx(struct zebra_dplane_ctx *ctx, void *data,
 		 */
 		if (update_flags & DPLANE_MAC_WAS_STATIC)
 			nfy = true;
+		if (update_flags & DPLANE_MAC_SELF_ONLY)
+			flags &= ~NTF_MASTER;
 	} else {
 		/* local mac */
 		if (update_flags & DPLANE_MAC_SET_STATIC) {
@@ -4346,7 +4348,7 @@ ssize_t netlink_macfdb_update_ctx(struct zebra_dplane_ctx *ctx, void *data,
 			vid_buf[0] = '\0';
 
 		zlog_debug(
-			"Tx %s family %s IF %s(%u)%s %sMAC %pEA dst %pIA nhg %u%s%s%s%s%s",
+			"Tx %s family %s IF %s(%u)%s %sMAC %pEA dst %pIA nhg %u%s%s%s%s%s%s",
 			nl_msg_type_to_str(cmd), nl_family_to_str(AF_BRIDGE),
 			dplane_ctx_get_ifname(ctx), dplane_ctx_get_ifindex(ctx),
 			vid_buf, dplane_ctx_mac_is_sticky(ctx) ? "sticky " : "",
@@ -4357,6 +4359,7 @@ ssize_t netlink_macfdb_update_ctx(struct zebra_dplane_ctx *ctx, void *data,
 			(update_flags & DPLANE_MAC_SET_STATIC) ? " static" : "",
 			(update_flags & DPLANE_MAC_SET_INACTIVE) ? " inactive"
 								 : "",
+			(update_flags & DPLANE_MAC_SELF_ONLY) ? " self_only" : "",
 			nfy ? " nfy" : "");
 	}
 
