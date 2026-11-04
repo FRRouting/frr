@@ -2243,7 +2243,7 @@ enum bgp_fsm_state_progress bgp_stop(struct peer_connection *connection)
 		if (peer->bfd_config &&
 		    (peer->last_reset == PEER_DOWN_UPDATE_SOURCE_CHANGE ||
 		     peer->last_reset == PEER_DOWN_MULTIHOP_CHANGE) &&
-		    !peergroup_flag_check(peer, PEER_FLAG_BFD_STRICT)) {
+		    !CHECK_FLAG(peer->flags, PEER_FLAG_BFD_STRICT)) {
 			bfd_sess_uninstall(peer->bfd_config->session);
 			/*
 			 * The session parameters are kept, so nothing looks changed
