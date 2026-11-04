@@ -6211,6 +6211,13 @@ enum zebra_dplane_result dplane_intf_speed_get(const struct interface *ifp)
 	struct zebra_ns *zns;
 	int ret;
 
+	/*
+	 * A PPP link has no speed to read: the ethtool request would only
+	 * wait on rtnl_lock, and fail if the link is renamed meanwhile.
+	 */
+	if (ifp->ll_type == ZEBRA_LLT_PPP)
+		return ZEBRA_DPLANE_REQUEST_SUCCESS;
+
 	ctx = dplane_ctx_alloc();
 
 	ctx->zd_op = DPLANE_OP_INTF_SPEED_GET;
