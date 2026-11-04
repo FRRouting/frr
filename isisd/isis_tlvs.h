@@ -823,6 +823,7 @@ void isis_tlvs_add_mt_router_info(struct isis_tlvs *tlvs, uint16_t mtid, bool ov
 void isis_tlvs_add_ipv4_address(struct isis_tlvs *tlvs, struct in_addr *addr);
 void isis_tlvs_add_ipv4_addresses(struct isis_tlvs *tlvs, struct list *addresses);
 void isis_tlvs_add_ipv6_addresses(struct isis_tlvs *tlvs, struct list *addresses);
+void isis_tlvs_add_lsp_ipv6_addresses(struct isis_tlvs *tlvs, struct list *addresses);
 void isis_tlvs_add_global_ipv6_addresses(struct isis_tlvs *tlvs, struct list *addresses);
 int isis_tlvs_auth_is_valid(struct isis_tlvs *tlvs, struct isis_passwd *passwd,
 			    struct stream *stream, bool is_lsp);

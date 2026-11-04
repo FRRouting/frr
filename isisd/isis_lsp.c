@@ -1529,6 +1529,12 @@ static void lsp_build(struct isis_lsp *lsp, struct isis_area *area)
 
 				for (ALL_LIST_ELEMENTS_RO(circuit->ipv6_non_link, ipnode, ipv6))
 					lsp_build_internal_reach_ipv6(lsp, area, ipv6, metric);
+
+				lsp_debug("ISIS (%s): Adding IPv6 Interface Address tlv(s) for %s.",
+					  area->area_tag,
+					  circuit->interface ? circuit->interface->name
+							     : "unknown");
+				isis_tlvs_add_lsp_ipv6_addresses(lsp->tlvs, circuit->ipv6_non_link);
 			}
 		}
 

@@ -7369,6 +7369,22 @@ void isis_tlvs_add_ipv6_addresses(struct isis_tlvs *tlvs, struct list *addresses
 	}
 }
 
+/* Unlike the IIH variant above, which must fit in a single TLV, an LSP has no
+ * per-call limit: the packer splits the addresses across TLVs and fragments.
+ */
+void isis_tlvs_add_lsp_ipv6_addresses(struct isis_tlvs *tlvs, struct list *addresses)
+{
+	struct listnode *node;
+	struct prefix_ipv6 *ip_addr;
+
+	for (ALL_LIST_ELEMENTS_RO(addresses, node, ip_addr)) {
+		struct isis_ipv6_address *a = XCALLOC(MTYPE_ISIS_TLV, sizeof(*a));
+
+		a->addr = ip_addr->prefix;
+		append_item(&tlvs->ipv6_address, (struct isis_item *)a);
+	}
+}
+
 void isis_tlvs_add_global_ipv6_addresses(struct isis_tlvs *tlvs, struct list *addresses)
 {
 	struct listnode *node;
