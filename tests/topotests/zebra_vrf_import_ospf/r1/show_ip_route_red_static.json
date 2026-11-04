@@ -1,0 +1,20 @@
+{
+  "10.48.48.0/24":[
+    {
+      "prefix":"10.48.48.0/24",
+      "protocol":"vrf-import",
+      "vrfName":"red",
+      "distance":15,
+      "selected":true,
+      "installed":true,
+      "nexthops":[
+        {
+          "ip":"10.0.92.2",
+          "interfaceName":"r1-eth5",
+          "active":true,
+          "fib":true
+        }
+      ]
+    }
+  ]
+}

@@ -596,6 +596,77 @@ commands in relationship to VRF. Here is an extract of some of those commands:
    the default vrf and default table.  If prefix is specified dump the
    number of prefix routes.
 
+.. _zebra-vrf-route-import:
+
+VRF Route Import
+----------------
+
+Zebra can import unicast routes from one VRF RIB into another VRF RIB.  The
+import is configured under the destination VRF and tracks source route changes;
+when a source route is added, updated, or deleted, the imported route is updated
+or removed in the destination VRF.  Imported routes are shown with protocol
+``vrf-import``.
+
+.. clicmd:: ip import-vrf VRF [distance (1-255)] [route-map RMAP_NAME]
+.. clicmd:: ipv6 import-vrf VRF [distance (1-255)] [route-map RMAP_NAME]
+
+   Import IPv4 or IPv6 unicast routes from source VRF ``VRF`` into the current
+   destination VRF.  The optional route-map can filter imported routes and, when
+   supported by the route-map action, rewrite the imported nexthop.
+
+   Every route imported by this command is installed with the same
+   administrative distance, 15 by default.  The distance a route had in the
+   source VRF is not carried over: it ranks the source protocol against the
+   other protocols in the source VRF and says nothing about how a copy should
+   rank in the destination VRF.  Keeping it would also let a kernel or connected
+   route arrive at distance 0 and outrank everything in the destination VRF.
+   Raise the distance to make imported routes lose against the routes the
+   destination VRF learns itself, or lower it to make them win.
+
+   Zebra copies eligible gateway nexthops, including ECMP nexthop groups, into
+   the destination VRF.  Copied nexthops are re-resolved in the destination VRF,
+   since the source VRF interface has no meaning there.  The gateway must
+   therefore be reachable from the destination VRF, either over one of its
+   connected subnets or recursively through one of its other routes.  Until such
+   a route exists the imported route stays inactive, and it becomes active by
+   itself once one appears.
+
+   For the same reason, a nexthop that only names an interface carries nothing
+   the destination VRF can act on, and is not copied.  This applies to
+   interface-only nexthops and to IPv6 link-local nexthops, and therefore to
+   connected and local routes, whose nexthop is the source VRF interface itself.
+   Import such routes by attaching a route-map that supplies a nexthop the
+   destination VRF can resolve, as in the second example below.
+
+Example:
+
+.. code-block:: frr
+
+   vrf blue
+    ip import-vrf red
+    ipv6 import-vrf red route-map IMPORT6
+   exit-vrf
+
+To import routes whose nexthop is an interface in the source VRF, match them in
+the route-map and set a gateway that is reachable from the destination VRF.  The
+import then uses that gateway instead of the source nexthop:
+
+.. code-block:: frr
+
+   route-map IMPORT permit 10
+    match source-protocol connected
+    set ip next-hop 10.0.0.1
+
+   route-map IMPORT permit 20
+
+   vrf blue
+    ip import-vrf red route-map IMPORT
+   exit-vrf
+
+The second, empty route-map entry imports every other route from ``red``
+unchanged.  Without it the implicit deny at the end of the route-map would drop
+those routes.
+
 .. _zebra-table-allocation:
 
 Table Allocation
