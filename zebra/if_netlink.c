@@ -937,6 +937,80 @@ static int interface_addr_lookup_netlink(struct zebra_ns *zns)
 	return 0;
 }
 
+/*
+ * Build an RTM_SETLINK request that changes an interface's master and, in
+ * the same request, optionally its admin state and MAC address.
+ *
+ * The kernel (do_setlink()) applies the MAC address and the flags before
+ * the master, so "set down, then enslave" fits in one request while "release,
+ * then set up" needs two.
+ *
+ * Returns the request length, or 0 if it did not fit in `buflen`.
+ */
+static ssize_t netlink_intf_set_master_build(void *buf, size_t buflen, ifindex_t ifindex,
+					     bool set_master, ifindex_t master_ifindex,
+					     enum dplane_intf_admin admin, const uint8_t *mac)
+{
+	struct {
+		struct nlmsghdr n;
+		struct ifinfomsg ifi;
+		char buf[];
+	} *req = buf;
+
+	if (buflen < sizeof(*req))
+		return 0;
+	memset(req, 0, sizeof(*req));
+
+	req->n.nlmsg_len = NLMSG_LENGTH(sizeof(struct ifinfomsg));
+	req->n.nlmsg_flags = NLM_F_REQUEST;
+	req->n.nlmsg_type = RTM_SETLINK;
+
+	req->ifi.ifi_family = AF_UNSPEC;
+	req->ifi.ifi_index = ifindex;
+
+	switch (admin) {
+	case DPLANE_INTF_ADMIN_UP:
+		req->ifi.ifi_change = IFF_UP;
+		req->ifi.ifi_flags = IFF_UP;
+		break;
+	case DPLANE_INTF_ADMIN_DOWN:
+		req->ifi.ifi_change = IFF_UP;
+		req->ifi.ifi_flags = 0;
+		break;
+	case DPLANE_INTF_ADMIN_NONE:
+		break;
+	}
+
+	if (mac && !nl_attr_put(&req->n, buflen, IFLA_ADDRESS, mac, ETH_ALEN))
+		return 0;
+
+	if (set_master && !nl_attr_put32(&req->n, buflen, IFLA_MASTER, master_ifindex))
+		return 0;
+
+	return NLMSG_ALIGN(req->n.nlmsg_len);
+}
+
+static ssize_t netlink_intf_set_master_msg_encoder(struct zebra_dplane_ctx *ctx, void *buf,
+						   size_t buflen)
+{
+	ifindex_t master_ifindex;
+	bool set_master;
+
+	set_master = dplane_ctx_intf_master_get_master(ctx, &master_ifindex);
+
+	return netlink_intf_set_master_build(buf, buflen, dplane_ctx_get_ifindex(ctx), set_master,
+					     master_ifindex, dplane_ctx_intf_master_get_admin(ctx),
+					     dplane_ctx_intf_master_get_mac(ctx));
+}
+
+enum netlink_msg_status netlink_put_intf_set_master_msg(struct nl_batch *bth,
+							struct zebra_dplane_ctx *ctx)
+{
+	assert(dplane_ctx_get_op(ctx) == DPLANE_OP_INTF_SET_MASTER);
+
+	return netlink_batch_add_msg(bth, ctx, netlink_intf_set_master_msg_encoder, false);
+}
+
 int kernel_interface_set_master(struct interface *master,
 				struct interface *slave)
 {

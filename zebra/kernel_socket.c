@@ -1718,6 +1718,7 @@ void kernel_update_multi(struct dplane_ctx_list_head *ctx_list)
 		case DPLANE_OP_NEIGH_IP_DELETE:
 		case DPLANE_OP_NEIGH_TABLE_UPDATE:
 		case DPLANE_OP_GRE_SET:
+		case DPLANE_OP_INTF_SET_MASTER:
 		case DPLANE_OP_INTF_ADDR_ADD:
 		case DPLANE_OP_INTF_ADDR_DEL:
 		case DPLANE_OP_INTF_SPEED_GET:

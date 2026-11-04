@@ -394,6 +394,19 @@ void lua_pushzebra_dplane_ctx(lua_State *L, const struct zebra_dplane_ctx *ctx)
 		}
 		lua_setfield(L, -2, "neightable");
 		break;
+	case DPLANE_OP_INTF_SET_MASTER: {
+		ifindex_t master_ifindex;
+
+		/* intf_master */
+		lua_newtable(L);
+		lua_pushboolean(L, dplane_ctx_intf_master_get_master(ctx, &master_ifindex));
+		lua_setfield(L, -2, "set_master");
+		lua_pushinteger(L, master_ifindex);
+		lua_setfield(L, -2, "master_ifindex");
+		lua_pushinteger(L, dplane_ctx_intf_master_get_admin(ctx));
+		lua_setfield(L, -2, "admin");
+		lua_setfield(L, -2, "intf_master");
+	} break;
 	case DPLANE_OP_GRE_SET:
 		/* gre */
 		lua_newtable(L);

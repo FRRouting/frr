@@ -2467,6 +2467,15 @@ void zebra_if_dplane_result(struct zebra_dplane_ctx *ctx)
 		zebra_if_netconf_update_ctx(ctx, ifp, ifindex);
 	} else if (op == DPLANE_OP_INTF_SPEED_GET) {
 		zebra_if_speed_update_ctx(ctx, ifp);
+	} else if (op == DPLANE_OP_INTF_SET_MASTER) {
+		/*
+		 * Membership changes come back through the kernel's link
+		 * notifications; only a failed request needs reporting here.
+		 */
+		if (dp_res != ZEBRA_DPLANE_REQUEST_SUCCESS)
+			flog_err(EC_ZEBRA_INTF_UPDATE_FAILURE,
+				 "%s: interface %s(%u) master change failed", __func__,
+				 ifp ? ifp->name : dplane_ctx_get_ifname(ctx), ifindex);
 	}
 }
 
