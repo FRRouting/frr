@@ -1206,7 +1206,10 @@ void pim_upstream_switch(struct pim_instance *pim, struct pim_upstream *up,
 
 		pim_jp_agg_single_upstream_send(&up->rpf, up, 0 /* prune */);
 
-		if (send_xg_jp) {
+		/* A parent that went NotJoined has already sent its (*,G)
+		 * prune, a (W,G) join here would undo it upstream.
+		 */
+		if (send_xg_jp && up->parent->join_state == PIM_UPSTREAM_JOINED) {
 			if (PIM_DEBUG_PIM_TRACE_DETAIL)
 				zlog_debug(
 				  "re-join RPT; *,G IIF %s S,G IIF %s ",
