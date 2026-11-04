@@ -354,13 +354,13 @@ def test_local_map_neighbor():
     logger.info("nhc1: send traffic to 172.16.1.99 through nhc1-gre0")
     nhc1.cmd("ip route add 172.16.1.99/32 dev nhc1-gre0")
 
-    def _local_neighbor_failed():
+    def _local_neighbor_probed():
         nhc1.cmd("ping -c 1 -W 1 172.16.1.99")
-        output = nhc1.cmd("ip neigh show 172.16.1.99 dev nhc1-gre0")
-        return "FAILED" in output
+        output = nhc1.cmd("ip -s neigh show 172.16.1.99 dev nhc1-gre0")
+        return re.search(r"probes [1-9]", output) is not None
 
-    # FAILED means that the kernel has asked nhrpd and got no answer
-    _, result = topotest.run_and_expect(_local_neighbor_failed, True, count=20, wait=1)
+    # Check that the kernel has sent unawswered probes
+    _, result = topotest.run_and_expect(_local_neighbor_probed, True, count=20, wait=1)
     assert result is True, "nhc1: no neighbor request for 172.16.1.99"
     assert nhc1.check_router_running() == "", "nhc1: a daemon died"
 
