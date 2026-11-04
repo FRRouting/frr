@@ -2128,6 +2128,7 @@ static void zebra_if_dplane_ifp_handling(struct zebra_dplane_ctx *ctx)
 			/* Update interface information. */
 			set_ifindex(ifp, ifindex, zns);
 			ifp->flags = flags;
+			ifp->ll_type = dplane_ctx_get_ifp_zltype(ctx);
 			if_update_state_mtu(ifp, mtu);
 			if_update_state_mtu6(ifp, mtu);
 			if_update_state_metric(ifp, 0);
@@ -2161,7 +2162,6 @@ static void zebra_if_dplane_ifp_handling(struct zebra_dplane_ctx *ctx)
 			/* Update link. */
 			zebra_if_update_link(ifp, link_ifindex, link_nsid);
 
-			ifp->ll_type = dplane_ctx_get_ifp_zltype(ctx);
 			interface_update_hw_addr(ctx, ifp);
 
 			/* Update interface type */
