@@ -42,6 +42,7 @@
 
 #include "lib/keychain.h"
 #include "bfd.h"
+#include "bfd_frame.h"
 #include "bfd_trace.h"
 #define BUF_SIZ		   1024
 #define SOCK_OPT_PRIO_HIGH 6
@@ -237,13 +238,11 @@ void ptm_bfd_echo_fp_snd(struct bfd_session *bfd)
 {
 	int sd;
 	struct bfd_vrf_global *bvrf = bfd_vrf_look_by_session(bfd);
-	int total_len = 0;
-	struct ethhdr *eth;
-	struct udphdr *uh;
-	struct iphdr *iph;
-	struct bfd_echo_pkt *beph;
-	static char sendbuff[100];
+	struct bfd_frame_params fp = {};
+	struct bfd_echo_pkt beph = {};
+	static uint8_t sendbuff[100];
 	struct timeval time_sent;
+	ssize_t total_len;
 
 	if (!bvrf)
 		return;
@@ -252,66 +251,35 @@ void ptm_bfd_echo_fp_snd(struct bfd_session *bfd)
 	if (!CHECK_FLAG(bfd->flags, BFD_SESS_FLAG_ECHO_ACTIVE))
 		SET_FLAG(bfd->flags, BFD_SESS_FLAG_ECHO_ACTIVE);
 
-	memset(sendbuff, 0, sizeof(sendbuff));
-
-	/* add eth hdr */
-	eth = (struct ethhdr *)(sendbuff);
-	memcpy(eth->h_source, bfd->ifp->hw_addr, sizeof(eth->h_source));
-	memcpy(eth->h_dest, bfd->peer_hw_addr, sizeof(eth->h_dest));
-
-	total_len += sizeof(struct ethhdr);
-
 	sd = bvrf->bg_echo;
-	eth->h_proto = htons(ETH_P_IP);
 
-	/* add ip hdr */
-	iph = (struct iphdr *)(sendbuff + sizeof(struct ethhdr));
-
-	iph->ihl = sizeof(struct ip) >> 2;
-	iph->version = IPVERSION;
-	iph->tos = IPTOS_PREC_INTERNETCONTROL;
-	iph->id = (uint16_t)frr_weak_random();
-	iph->ttl = BFD_TTL_VAL;
-	iph->protocol = IPPROTO_UDP;
-	memcpy(&iph->saddr, &bfd->local_address.sa_sin.sin_addr,
-	       sizeof(bfd->local_address.sa_sin.sin_addr));
-	memcpy(&iph->daddr, &bfd->local_address.sa_sin.sin_addr,
-	       sizeof(bfd->local_address.sa_sin.sin_addr));
-	total_len += sizeof(struct iphdr);
-
-	/* add udp hdr */
-	uh = (struct udphdr *)(sendbuff + sizeof(struct iphdr) +
-			       sizeof(struct ethhdr));
-	uh->source = htons(BFD_DEF_ECHO_PORT);
-	uh->dest = htons(BFD_DEF_ECHO_PORT);
-
-	total_len += sizeof(struct udphdr);
-
-	/* add bfd echo */
-	beph = (struct bfd_echo_pkt *)(sendbuff + sizeof(struct udphdr) +
-				       sizeof(struct iphdr) +
-				       sizeof(struct ethhdr));
-
-	beph->ver = BFD_ECHO_VERSION;
-	beph->len = BFD_ECHO_PKT_LEN;
-	beph->my_discr = htonl(bfd->discrs.my_discr);
+	/* bfd echo payload */
+	beph.ver = BFD_ECHO_VERSION;
+	beph.len = BFD_ECHO_PKT_LEN;
+	beph.my_discr = htonl(bfd->discrs.my_discr);
 
 	/* RTT calculation: add starting time in packet */
 	monotime(&time_sent);
-	beph->time_sent_sec = htobe64(time_sent.tv_sec);
-	beph->time_sent_usec = htobe64(time_sent.tv_usec);
+	beph.time_sent_sec = htobe64(time_sent.tv_sec);
+	beph.time_sent_usec = htobe64(time_sent.tv_usec);
 
-	total_len += sizeof(struct bfd_echo_pkt);
-	uh->len =
-		htons(total_len - sizeof(struct iphdr) - sizeof(struct ethhdr));
-	uh->check = bfd_pkt_checksum(
-		uh, (total_len - sizeof(struct iphdr) - sizeof(struct ethhdr)),
-		(struct in6_addr *)&iph->saddr, AF_INET);
+	/* Looped by the peer: our own address is both source and destination. */
+	fp.family = AF_INET;
+	memcpy(fp.smac, bfd->ifp->hw_addr, sizeof(fp.smac));
+	memcpy(fp.dmac, bfd->peer_hw_addr, sizeof(fp.dmac));
+	fp.src.v4 = bfd->local_address.sa_sin.sin_addr;
+	fp.dst.v4 = bfd->local_address.sa_sin.sin_addr;
+	fp.sport = BFD_DEF_ECHO_PORT;
+	fp.dport = BFD_DEF_ECHO_PORT;
+	fp.ttl = BFD_TTL_VAL;
+	fp.tos = IPTOS_PREC_INTERNETCONTROL;
+	fp.ip_id = (uint16_t)frr_weak_random();
 
-	iph->tot_len = htons(total_len - sizeof(struct ethhdr));
-	iph->check = in_cksum((const void *)iph, sizeof(struct iphdr));
+	total_len = bfd_frame_build(sendbuff, sizeof(sendbuff), &fp, &beph, sizeof(beph));
+	if (total_len < 0)
+		return;
 
-	if (bp_udp_send_fp(sd, (uint8_t *)&sendbuff, total_len, bfd) == -1)
+	if (bp_udp_send_fp(sd, sendbuff, total_len, bfd) == -1)
 		return;
 
 	bfd->stats.tx_echo_pkt++;
