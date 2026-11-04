@@ -2034,11 +2034,55 @@ int bp_udp_mhop(const struct vrf *vrf)
 	return sd;
 }
 
+/*
+ * Bind a socket to the next free source port in the RFC 5881 range
+ * (BFD_SRCPORTINIT to BFD_SRCPORTMAX).
+ *
+ * `sa` holds the local address to bind to; its port field is overwritten.
+ * Each address family keeps its own position in the range, so that
+ * consecutive sessions get consecutive ports as before.
+ *
+ * Returns 0 on success, or -1 with errno set by the last bind() when every
+ * port in the range was tried.
+ */
+int bp_bind_src_port(int sd, struct sockaddr *sa, socklen_t salen)
+{
+	static uint16_t next_port_v4 = BFD_SRCPORTINIT;
+	static uint16_t next_port_v6 = BFD_SRCPORTINIT;
+	uint16_t *next_port;
+	int pcount = 0;
+
+	switch (sa->sa_family) {
+	case AF_INET:
+		next_port = &next_port_v4;
+		break;
+	case AF_INET6:
+		next_port = &next_port_v6;
+		break;
+	default:
+		errno = EAFNOSUPPORT;
+		return -1;
+	}
+
+	do {
+		if ((++pcount) > (BFD_SRCPORTMAX - BFD_SRCPORTINIT))
+			return -1;
+		if (*next_port >= BFD_SRCPORTMAX)
+			*next_port = BFD_SRCPORTINIT;
+
+		if (sa->sa_family == AF_INET)
+			((struct sockaddr_in *)sa)->sin_port = htons((*next_port)++);
+		else
+			((struct sockaddr_in6 *)sa)->sin6_port = htons((*next_port)++);
+	} while (bind(sd, sa, salen) < 0);
+
+	return 0;
+}
+
 int bp_peer_socket(const struct bfd_session *bs)
 {
-	int sd, pcount;
+	int sd;
 	struct sockaddr_in sin;
-	static int srcPort = BFD_SRCPORTINIT;
 	const char *device_to_bind = NULL;
 
 	if (bs->key.ifname[0])
@@ -2081,20 +2125,13 @@ int bp_peer_socket(const struct bfd_session *bs)
 #endif /* HAVE_STRUCT_SOCKADDR_SA_LEN */
 	memcpy(&sin.sin_addr, &bs->key.local, sizeof(sin.sin_addr));
 
-	pcount = 0;
-	do {
-		if ((++pcount) > (BFD_SRCPORTMAX - BFD_SRCPORTINIT)) {
-			/* Searched all ports, none available */
-			frrtrace(3, frr_bfd, socket_error, 2, 2, errno);
-			zlog_err("ipv4-new: failed to bind port: %s",
-				 strerror(errno));
-			close(sd);
-			return -1;
-		}
-		if (srcPort >= BFD_SRCPORTMAX)
-			srcPort = BFD_SRCPORTINIT;
-		sin.sin_port = htons(srcPort++);
-	} while (bind(sd, (struct sockaddr *)&sin, sizeof(sin)) < 0);
+	if (bp_bind_src_port(sd, (struct sockaddr *)&sin, sizeof(sin)) == -1) {
+		/* Searched all ports, none available */
+		frrtrace(3, frr_bfd, socket_error, 2, 2, errno);
+		zlog_err("ipv4-new: failed to bind port: %s", strerror(errno));
+		close(sd);
+		return -1;
+	}
 
 	return sd;
 }
@@ -2106,9 +2143,8 @@ int bp_peer_socket(const struct bfd_session *bs)
 
 int bp_peer_socketv6(const struct bfd_session *bs)
 {
-	int sd, pcount;
+	int sd;
 	struct sockaddr_in6 sin6;
-	static int srcPort = BFD_SRCPORTINIT;
 	const char *device_to_bind = NULL;
 
 	if (bs->key.ifname[0])
@@ -2153,20 +2189,13 @@ int bp_peer_socketv6(const struct bfd_session *bs)
 	if (bs->ifp && IN6_IS_ADDR_LINKLOCAL(&sin6.sin6_addr))
 		sin6.sin6_scope_id = bs->ifp->ifindex;
 
-	pcount = 0;
-	do {
-		if ((++pcount) > (BFD_SRCPORTMAX - BFD_SRCPORTINIT)) {
-			/* Searched all ports, none available */
-			frrtrace(3, frr_bfd, socket_error, 2, 4, errno);
-			zlog_err("ipv6-new: failed to bind port: %s",
-				 strerror(errno));
-			close(sd);
-			return -1;
-		}
-		if (srcPort >= BFD_SRCPORTMAX)
-			srcPort = BFD_SRCPORTINIT;
-		sin6.sin6_port = htons(srcPort++);
-	} while (bind(sd, (struct sockaddr *)&sin6, sizeof(sin6)) < 0);
+	if (bp_bind_src_port(sd, (struct sockaddr *)&sin6, sizeof(sin6)) == -1) {
+		/* Searched all ports, none available */
+		frrtrace(3, frr_bfd, socket_error, 2, 4, errno);
+		zlog_err("ipv6-new: failed to bind port: %s", strerror(errno));
+		close(sd);
+		return -1;
+	}
 
 	return sd;
 }

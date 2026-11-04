@@ -645,6 +645,7 @@ int bp_udp_shop(const struct vrf *vrf);
 int bp_udp_mhop(const struct vrf *vrf);
 int bp_udp6_shop(const struct vrf *vrf);
 int bp_udp6_mhop(const struct vrf *vrf);
+int bp_bind_src_port(int sd, struct sockaddr *sa, socklen_t salen);
 int bp_peer_socket(const struct bfd_session *bs);
 int bp_peer_socketv6(const struct bfd_session *bs);
 int bp_echo_socket(const struct vrf *vrf);
