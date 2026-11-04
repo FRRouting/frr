@@ -1073,6 +1073,9 @@ DEFPY (show_ip_nht,
 	if (vrf_all) {
 		struct vrf *vrf;
 
+		if (uj)
+			json = json_object_new_object();
+
 		RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name) {
 			if ((zvrf = vrf->info) != NULL) {
 				resolve_via_default =
@@ -1081,7 +1084,6 @@ DEFPY (show_ip_nht,
 						: zvrf->zebra_rnh_ipv6_default_route;
 
 				if (uj) {
-					json = json_object_new_object();
 					json_vrf = json_object_new_object();
 					json_nexthop = json_object_new_object();
 					json_object_object_add(json,
