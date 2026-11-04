@@ -860,19 +860,19 @@ static void parse_test(struct peer *peer, struct test_segment *t, int type)
 
 		/* Convert AFI, SAFI to internal values, check. */
 		if (bgp_map_afi_safi_iana2int(t->afi, t->safi, &afi, &safi)) {
+			printf("MP: %u/%u: unsupported AFI/SAFI\n", t->afi, t->safi);
 			if (t->afi_valid == VALID_AFI)
 				failed++;
-		}
-		printf("MP: %u(%u)/%u(%u): recv %u, nego %u\n", t->afi, afi,
-		       t->safi, safi, peer->afc_recv[afi][safi],
-		       peer->afc_nego[afi][safi]);
+		} else {
+			printf("MP: %u(%u)/%u(%u): recv %u, nego %u\n", t->afi, afi, t->safi, safi,
+			       peer->afc_recv[afi][safi], peer->afc_nego[afi][safi]);
 
-		if (t->afi_valid == VALID_AFI) {
-
-			if (!peer->afc_recv[afi][safi])
-				failed++;
-			if (!peer->afc_nego[afi][safi])
-				failed++;
+			if (t->afi_valid == VALID_AFI) {
+				if (!peer->afc_recv[afi][safi])
+					failed++;
+				if (!peer->afc_nego[afi][safi])
+					failed++;
+			}
 		}
 	}
 
