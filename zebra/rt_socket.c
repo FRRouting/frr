@@ -413,10 +413,11 @@ enum zebra_dplane_result kernel_mac_update_ctx(struct zebra_dplane_ctx *ctx)
 	return ZEBRA_DPLANE_REQUEST_SUCCESS;
 }
 
-extern int kernel_interface_set_master(struct interface *master,
-				       struct interface *slave)
+int kernel_intf_set_master_sync(struct zebra_ns *zns, ifindex_t ifindex, bool set_master,
+				ifindex_t master_ifindex, enum dplane_intf_admin admin,
+				const uint8_t *mac)
 {
-	return 0;
+	return -1;
 }
 
 void kernel_read_intf_speed(struct zebra_dplane_ctx *ctx)

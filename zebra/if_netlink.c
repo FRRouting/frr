@@ -1011,34 +1011,31 @@ enum netlink_msg_status netlink_put_intf_set_master_msg(struct nl_batch *bth,
 	return netlink_batch_add_msg(bth, ctx, netlink_intf_set_master_msg_encoder, false);
 }
 
-int kernel_interface_set_master(struct interface *master,
-				struct interface *slave)
+/*
+ * Synchronous variant, sent on the namespace's command socket from the main
+ * pthread. Only for zebra shutdown, when the dataplane pthread may already
+ * be stopped; everything else goes through dplane_intf_set_master() and
+ * dplane_intf_release_master().
+ */
+int kernel_intf_set_master_sync(struct zebra_ns *zns, ifindex_t ifindex, bool set_master,
+				ifindex_t master_ifindex, enum dplane_intf_admin admin,
+				const uint8_t *mac)
 {
-	struct zebra_ns *zns = zebra_ns_lookup(NS_DEFAULT);
-
 	struct {
 		struct nlmsghdr n;
-		struct ifinfomsg ifa;
+		struct ifinfomsg ifi;
 		char buf[NL_PKT_BUF_SIZE];
 	} req;
+	ssize_t len;
 
-	memset(&req, 0, sizeof(req));
+	len = netlink_intf_set_master_build(&req, sizeof(req), ifindex, set_master, master_ifindex,
+					    admin, mac);
+	if (len == 0) {
+		zlog_err("%s: failed to encode request for ifindex %u", __func__, ifindex);
+		return -1;
+	}
 
-	req.n.nlmsg_len = NLMSG_LENGTH(sizeof(struct ifinfomsg));
-	req.n.nlmsg_flags = NLM_F_REQUEST;
-	req.n.nlmsg_type = RTM_SETLINK;
 	req.n.nlmsg_pid = zns->netlink_cmd.snl.nl_pid;
-
-	req.ifa.ifi_index = slave->ifindex;
-
-	if (!nl_attr_put32(&req.n, sizeof(req), IFLA_MASTER, master->ifindex)) {
-		zlog_err("%s: failed to encode IFLA_MASTER nl attribute", __func__);
-		return -1;
-	}
-	if (!nl_attr_put32(&req.n, sizeof(req), IFLA_LINK, slave->ifindex)) {
-		zlog_err("%s: failed to encode IFLA_LINK nl attribute", __func__);
-		return -1;
-	}
 
 	return netlink_talk(netlink_talk_filter, &req.n, &zns->netlink_cmd, zns, false, NULL, NULL);
 }
