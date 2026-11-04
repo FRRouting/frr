@@ -207,10 +207,17 @@ static struct interface *bgp_peer_bfd_egress_ifp(struct peer *p)
 		ifp = if_lookup_by_name(p->update_if, vrf_id);
 	else if (ifname)
 		ifp = if_lookup_by_name(ifname, vrf_id);
-	else if (su->sa.sa_family == AF_INET)
-		ifp = if_lookup_by_ipv4(&su->sin.sin_addr, vrf_id);
-	else
-		ifp = if_lookup_by_ipv6(&su->sin6.sin6_addr, 0, vrf_id);
+	else {
+		/* Longest match: with overlapping subnets the first one can be the wrong link. */
+		struct connected *c;
+
+		if (su->sa.sa_family == AF_INET)
+			c = if_lookup_address(&su->sin.sin_addr, AF_INET, vrf_id);
+		else
+			c = if_lookup_address(&su->sin6.sin6_addr, AF_INET6, vrf_id);
+		if (c)
+			ifp = c->ifp;
+	}
 
 	return ifp ? ifp : p->nexthop.ifp;
 }
