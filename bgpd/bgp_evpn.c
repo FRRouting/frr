@@ -4870,6 +4870,7 @@ static int bgp_evpn_install_uninstall_table(struct bgp *bgp, afi_t afi, safi_t s
 {
 	struct prefix_evpn *evp = (struct prefix_evpn *)p;
 	struct attr *attr = pi->attr;
+	struct bgp *bgp_evpn = bgp_get_evpn();
 	struct ecommunity *ecom;
 	uint32_t i;
 	struct prefix_evpn ad_evp;
@@ -4957,12 +4958,12 @@ static int bgp_evpn_install_uninstall_table(struct bgp *bgp, afi_t afi, safi_t s
 			    evp->prefix.route_type != BGP_EVPN_IMET_ROUTE) {
 				/* The VRF import RT tables live on the EVPN
 				 * instance, which is not necessarily the
-				 * owner of the table this route sits in.
+				 * owner of the table this route sits in,
+				 * and which may not exist.
 				 */
-				vrf_fq_irt =
-					in_vrf_rt ? bgp_evpn_lookup_vrf_fq_irt_node(bgp_get_evpn(),
-										    eval)
-						  : NULL;
+				vrf_fq_irt = (in_vrf_rt && bgp_evpn)
+						     ? bgp_evpn_lookup_vrf_fq_irt_node(bgp_evpn, eval)
+						     : NULL;
 				if (vrf_fq_irt)
 					install_uninstall_route_in_vrfs(bgp, afi, safi, evp, pi,
 									vrf_fq_irt->vrfs, import);
@@ -4981,9 +4982,9 @@ static int bgp_evpn_install_uninstall_table(struct bgp *bgp, afi_t afi, safi_t s
 					wildcard_irt =
 						bgp_evpn_lookup_l2vni_wildcard_irt_node(bgp,
 											local_admin_nbo);
-				if (in_vrf_rt)
+				if (in_vrf_rt && bgp_evpn)
 					vrf_wildcard_irt =
-						bgp_evpn_lookup_vrf_wildcard_irt_node(bgp_get_evpn(),
+						bgp_evpn_lookup_vrf_wildcard_irt_node(bgp_evpn,
 										      local_admin_nbo);
 			}
 
