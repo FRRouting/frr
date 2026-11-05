@@ -7126,6 +7126,70 @@ int peer_weight_unset(struct peer *peer, afi_t afi, safi_t safi)
 	return 0;
 }
 
+int peer_soo_set(struct peer *peer, afi_t afi, safi_t safi, struct ecommunity *soo)
+{
+	struct peer *member;
+	struct listnode *node, *nnode;
+
+	/* Same value: only record that it is explicitly configured. */
+	if (ecommunity_match(peer->soo[afi][safi], soo))
+		return peer_af_flag_set(peer, afi, safi, PEER_FLAG_SOO);
+
+	ecommunity_free(&peer->soo[afi][safi]);
+	peer->soo[afi][safi] = ecommunity_dup(soo);
+
+	/*
+	 * Set the value on peer-group members before touching the flag: the
+	 * flag change resets their sessions, and routes learned afterwards
+	 * must be tagged with the new value.
+	 */
+	if (CHECK_FLAG(peer->sflags, PEER_STATUS_GROUP)) {
+		for (ALL_LIST_ELEMENTS(peer->group->peer, node, nnode, member)) {
+			/* Skip peers with overridden configuration. */
+			if (CHECK_FLAG(member->af_flags_override[afi][safi], PEER_FLAG_SOO))
+				continue;
+
+			ecommunity_free(&member->soo[afi][safi]);
+			member->soo[afi][safi] = ecommunity_dup(soo);
+		}
+	}
+
+	/* Toggle the flag so that the change action runs for a new value too. */
+	peer_af_flag_unset(peer, afi, safi, PEER_FLAG_SOO);
+
+	return peer_af_flag_set(peer, afi, safi, PEER_FLAG_SOO);
+}
+
+int peer_soo_unset(struct peer *peer, afi_t afi, safi_t safi)
+{
+	struct peer *member;
+	struct listnode *node, *nnode;
+	struct ecommunity *group_soo;
+
+	ecommunity_free(&peer->soo[afi][safi]);
+
+	/* Inherit configuration from peer-group if peer is member. */
+	if (peer_group_active(peer)) {
+		group_soo = peer->group->conf->soo[afi][safi];
+		if (group_soo)
+			peer->soo[afi][safi] = ecommunity_dup(group_soo);
+
+		return peer_af_flag_unset(peer, afi, safi, PEER_FLAG_SOO);
+	}
+
+	if (CHECK_FLAG(peer->sflags, PEER_STATUS_GROUP)) {
+		for (ALL_LIST_ELEMENTS(peer->group->peer, node, nnode, member)) {
+			/* Skip peers with overridden configuration. */
+			if (CHECK_FLAG(member->af_flags_override[afi][safi], PEER_FLAG_SOO))
+				continue;
+
+			ecommunity_free(&member->soo[afi][safi]);
+		}
+	}
+
+	return peer_af_flag_unset(peer, afi, safi, PEER_FLAG_SOO);
+}
+
 int peer_timers_set(struct peer *peer, uint32_t keepalive, uint32_t holdtime)
 {
 	struct peer *member;
