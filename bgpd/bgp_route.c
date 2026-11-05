@@ -10552,6 +10552,62 @@ static bool aggr_unsuppress_path(struct bgp_aggregate *aggregate,
 	return false;
 }
 
+/*
+ * suppress-fib-pending contributor classification helpers.
+ *
+ * A path can contribute to a covering aggregate if it is not the aggregate
+ * route itself and is not in holddown.
+ */
+static inline bool bgp_aggr_path_contributes(struct bgp_path_info *pi)
+{
+	return !BGP_PATH_HOLDDOWN(pi) && pi->sub_type != BGP_ROUTE_AGGREGATE;
+}
+
+/*
+ * A local contributor BGP does not install in and wait for the FIB (a network
+ * statement, BGP_ROUTE_STATIC, or a redistributed route,
+ * BGP_ROUTE_REDISTRIBUTE) but which is reachable by other means. Such routes
+ * never produce a ZAPI route notification, so their forwardability is tracked
+ * at RIB add/remove time (local_fwd_count) rather than from FIB events.
+ */
+static inline bool bgp_aggr_path_is_local_fwd(struct bgp_path_info *pi)
+{
+	return bgp_aggr_path_contributes(pi) &&
+	       (pi->sub_type == BGP_ROUTE_STATIC ||
+		pi->sub_type == BGP_ROUTE_REDISTRIBUTE) &&
+	       CHECK_FLAG(pi->flags, BGP_PATH_VALID);
+}
+
+/*
+ * Is this prefix (dest) one whose forwardability is tracked via FIB
+ * notifications, i.e. does it carry at least one non-local contributor path
+ * (a route BGP installs and waits on)? Local contributors are tracked
+ * separately via local_fwd_count and are excluded here.
+ */
+static bool bgp_aggr_dest_fib_trackable(struct bgp_dest *dest)
+{
+	struct bgp_path_info *pi;
+
+	for (pi = bgp_dest_get_bgp_path_info(dest); pi; pi = pi->next) {
+		if (!bgp_aggr_path_contributes(pi))
+			continue;
+		if (!bgp_aggr_path_is_local_fwd(pi))
+			return true;
+	}
+	return false;
+}
+
+/*
+ * Does this prefix (dest) currently count towards a covering aggregate's
+ * in_fib_count: installed in the FIB and FIB-trackable? Used to rebuild the
+ * counter in the full recompute.
+ */
+static bool bgp_aggr_dest_is_fib_contributor(struct bgp_dest *dest)
+{
+	return CHECK_FLAG(dest->flags, BGP_NODE_FIB_INSTALLED) &&
+	       bgp_aggr_dest_fib_trackable(dest);
+}
+
 static void bgp_aggregate_install(
 	struct bgp *bgp, afi_t afi, safi_t safi, const struct prefix *p,
 	uint8_t origin, struct aspath *aspath, struct community *community,
@@ -10562,6 +10618,7 @@ static void bgp_aggregate_install(
 	struct bgp_table *table;
 	struct bgp_path_info *pi, *new;
 	struct attr *attr;
+	bool originate;
 	bool debug = bgp_debug_aggregate(p);
 
 	if (debug)
@@ -10590,7 +10647,18 @@ static void bgp_aggregate_install(
 		goto uninstall_aggregate_route;
 	}
 
-	if (aggregate->count > 0) {
+	/* Under suppress-fib-pending, only originate the aggregate while at
+	 * least one contributing more-specific is forwardable in the dataplane;
+	 * otherwise the aggregate would attract traffic this router cannot
+	 * forward (its contributors are not programmed in the FIB). The
+	 * forwardable-contributor count is maintained incrementally, so this is
+	 * an O(1) check rather than a scan of the more-specifics.
+	 */
+	originate = aggregate->count > 0;
+	if (originate && bgp_aggregate_fib_driven(bgp, safi))
+		originate = bgp_aggregate_has_fwd(aggregate);
+
+	if (originate) {
 		/*
 		 * If the aggregate information has not changed
 		 * no need to re-install it again.
@@ -10642,6 +10710,19 @@ static void bgp_aggregate_install(
 			bgp_evpn_export_type5_route(bgp, dest, new, afi, safi);
 		bgp_ls_originate_bgp_prefix(bgp, afi, safi, dest, new);
 	} else {
+			/* Not originating the aggregate: free any attributes the
+			 * caller supplied, since this branch neither interns nor
+			 * frees them otherwise. (The MED-mismatch path jumps to
+			 * the label below, having already freed them.) Under
+			 * suppress-fib-pending this branch is reached with
+			 * count > 0 while no contributor is yet forwardable, so
+			 * the as-set callers' duplicated aspath/communities would
+			 * otherwise leak on every update until install.
+			 */
+			aspath_free(aspath);
+			community_free(&community);
+			ecommunity_free(&ecommunity);
+			lcommunity_free(&lcommunity);
 	uninstall_aggregate_route:
 			/* Withdraw the aggregate route from routing table. */
 			if (pi) {
@@ -10876,6 +10957,12 @@ bool bgp_aggregate_route(struct bgp *bgp, const struct prefix *p, afi_t afi,
 	aggregate->count = 0;
 	aggregate->incomplete_origin_count = 0;
 	aggregate->egp_origin_count = 0;
+	aggregate->atomic_aggregate_count = 0;
+	/* Rebuild the forwardable-contributor counters from scratch; this
+	 * self-heals any drift in the incrementally maintained values.
+	 */
+	aggregate->in_fib_count = 0;
+	aggregate->local_fwd_count = 0;
 
 	/* ORIGIN attribute: If at least one route among routes that are
 	   aggregated has ORIGIN with the value INCOMPLETE, then the
@@ -10897,16 +10984,27 @@ bool bgp_aggregate_route(struct bgp *bgp, const struct prefix *p, afi_t afi,
 		if (dest_p->prefixlen <= p->prefixlen)
 			continue;
 
+		/* Rebuild in_fib_count: one per FIB-installed contributor
+		 * prefix (matches the per-prefix edge-triggered maintenance in
+		 * bgp_aggregate_fib_update()).
+		 */
+		if (bgp_aggr_dest_is_fib_contributor(dest))
+			aggregate->in_fib_count++;
+
 		for (pi = bgp_dest_get_bgp_path_info(dest); (pi != NULL) && (next = pi->next, 1);
 		     pi = next) {
 			if (BGP_PATH_HOLDDOWN(pi))
 				continue;
 
-			if (bgp_attr_exists(pi->attr, BGP_ATTR_ATOMIC_AGGREGATE))
-				atomic_aggregate = 1;
-
 			if (pi->sub_type == BGP_ROUTE_AGGREGATE)
 				continue;
+
+			/* Rebuild local_fwd_count: one per local forwardable
+			 * contributor path (matches the per-path maintenance in
+			 * bgp_add_route_to_aggregate()).
+			 */
+			if (bgp_aggr_path_is_local_fwd(pi))
+				aggregate->local_fwd_count++;
 
 			/*
 			 * summary-only aggregate route suppress
@@ -10964,6 +11062,9 @@ bool bgp_aggregate_route(struct bgp *bgp, const struct prefix *p, afi_t afi,
 			}
 
 			aggregate->count++;
+
+			if (bgp_attr_exists(pi->attr, BGP_ATTR_ATOMIC_AGGREGATE))
+				aggregate->atomic_aggregate_count++;
 
 			/*
                         * If at least one route among routes that are
@@ -11066,11 +11167,141 @@ bool bgp_aggregate_route(struct bgp *bgp, const struct prefix *p, afi_t afi,
 	/* Unimport suppressed routes from EVPN */
 	bgp_aggr_supp_withdraw_from_evpn(bgp, afi, safi);
 
+	atomic_aggregate = aggregate->atomic_aggregate_count > 0 ? 1 : 0;
+
 	bgp_aggregate_install(bgp, afi, safi, p, origin, aspath, community,
 			      ecommunity, lcommunity, atomic_aggregate,
 			      aggregate);
 
 	return true;
+}
+
+/*
+ * Re-run only the aggregate's origination/withdrawal decision, reusing the
+ * membership and as-set attributes already computed by the RIB path. Used on a
+ * FIB install/uninstall event, which changes whether a contributor is
+ * forwardable (and thus whether the aggregate should exist) but not the
+ * aggregate's membership or attributes - so the as-set hashes must NOT be
+ * rebuilt here (unlike bgp_aggregate_route(), which would re-add their
+ * contents and inflate the reference counts).
+ */
+static void bgp_aggregate_reinstall(struct bgp *bgp, const struct prefix *p,
+				    afi_t afi, safi_t safi,
+				    struct bgp_aggregate *aggregate)
+{
+	uint8_t origin = BGP_ORIGIN_IGP;
+	struct aspath *aspath = NULL;
+	struct community *community = NULL;
+	struct ecommunity *ecommunity = NULL;
+	struct lcommunity *lcommunity = NULL;
+	bool will_install;
+
+	/* Mirror bgp_aggregate_install()'s origination decision so attributes
+	 * are only built/duped when they will be consumed by an install; on
+	 * withdraw bgp_aggregate_install() ignores (and does not free) them.
+	 * The forwardable question is answered O(1) from the maintained
+	 * counters (bgp_aggregate_has_fwd()).
+	 */
+	will_install = aggregate->count > 0 &&
+		       (!bgp_aggregate_fib_driven(bgp, safi) ||
+			bgp_aggregate_has_fwd(aggregate));
+
+	if (will_install && aggregate->as_set) {
+		bgp_compute_aggregate_aspath_val(aggregate);
+		bgp_compute_aggregate_community_val(aggregate);
+		bgp_compute_aggregate_ecommunity_val(aggregate);
+		bgp_compute_aggregate_lcommunity_val(aggregate);
+	}
+
+	if (aggregate->incomplete_origin_count > 0)
+		origin = BGP_ORIGIN_INCOMPLETE;
+	else if (aggregate->egp_origin_count > 0)
+		origin = BGP_ORIGIN_EGP;
+	if (aggregate->origin != BGP_ORIGIN_UNSPECIFIED)
+		origin = aggregate->origin;
+
+	if (will_install && aggregate->as_set) {
+		if (aggregate->aspath)
+			aspath = aspath_dup(aggregate->aspath);
+		if (aggregate->community)
+			community = community_dup(aggregate->community);
+		if (aggregate->ecommunity)
+			ecommunity = ecommunity_dup(aggregate->ecommunity);
+		if (aggregate->lcommunity)
+			lcommunity = lcommunity_dup(aggregate->lcommunity);
+	}
+
+	bgp_aggregate_install(bgp, afi, safi, p, origin, aspath, community,
+			      ecommunity, lcommunity,
+			      aggregate->atomic_aggregate_count > 0 ? 1 : 0,
+			      aggregate);
+}
+
+/*
+ * suppress-fib-pending: the more-specific prefix p just transitioned FIB
+ * install state (BGP_NODE_FIB_INSTALLED set or cleared by the ZAPI route
+ * notification). delta is +1 when p became FIB-installed, -1 when it left the
+ * FIB. The caller only calls this on an actual edge transition and only when p
+ * is a FIB contributor (a non-aggregate, non-holddown prefix), so each covering
+ * aggregate's in_fib_count is adjusted once per transition. The origination
+ * decision is then re-evaluated for each covering aggregate; membership and
+ * attributes are unchanged by a FIB transition, so they are not recomputed.
+ */
+void bgp_aggregate_fib_update(struct bgp *bgp, const struct prefix *p, afi_t afi,
+			      safi_t safi, int delta)
+{
+	struct bgp_table *table;
+	struct bgp_dest *child;
+	struct bgp_dest *dest;
+	struct bgp_aggregate *aggregate;
+
+	struct bgp_dest *rn;
+	bool trackable;
+
+	if (!bgp_aggregate_fib_driven(bgp, safi))
+		return;
+
+	table = bgp->aggregate[afi][safi];
+	if (bgp_table_top_nolock(table) == NULL)
+		return;
+
+	if (p->prefixlen == 0)
+		return;
+
+	/* Only prefixes whose forwardability is learned from FIB
+	 * notifications affect in_fib_count. A prefix that is an aggregate
+	 * route, is in holddown, is local (tracked via local_fwd_count), or is
+	 * already gone from the RIB is not FIB-trackable: its transition does
+	 * not change any covering aggregate's forwardable state, so there is
+	 * nothing to do.
+	 */
+	rn = bgp_node_lookup(bgp->rib[afi][safi], p);
+	if (!rn)
+		return;
+	trackable = bgp_aggr_dest_fib_trackable(rn);
+	bgp_dest_unlock_node(rn);
+	if (!trackable)
+		return;
+
+	child = bgp_node_match(table, p);
+	if (!child)
+		return;
+
+	for (dest = child; dest; dest = bgp_dest_parent_nolock(dest)) {
+		const struct prefix *dest_p = bgp_dest_get_prefix(dest);
+
+		aggregate = bgp_dest_get_bgp_aggregate_info(dest);
+		if (aggregate == NULL || dest_p->prefixlen >= p->prefixlen)
+			continue;
+
+		if (delta > 0)
+			aggregate->in_fib_count++;
+		else if (delta < 0 && aggregate->in_fib_count > 0)
+			aggregate->in_fib_count--;
+
+		bgp_aggregate_reinstall(bgp, dest_p, afi, safi, aggregate);
+	}
+	bgp_dest_unlock_node(child);
 }
 
 void bgp_aggregate_delete(struct bgp *bgp, const struct prefix *p, afi_t afi,
@@ -11215,6 +11446,15 @@ static void bgp_add_route_to_aggregate(struct bgp *bgp,
 
 	aggregate->count++;
 
+	if (bgp_attr_exists(pinew->attr, BGP_ATTR_ATOMIC_AGGREGATE))
+		aggregate->atomic_aggregate_count++;
+
+	/* Local contributors (network / redistributed) are forwardable without
+	 * waiting for a FIB notification, so track them here at RIB add time.
+	 */
+	if (bgp_aggr_path_is_local_fwd(pinew))
+		aggregate->local_fwd_count++;
+
 	/*
 	 * This must be called before `summary` check to avoid
 	 * "suppressing" twice.
@@ -11250,6 +11490,8 @@ static void bgp_add_route_to_aggregate(struct bgp *bgp,
 
 	if (aggregate->origin != BGP_ORIGIN_UNSPECIFIED)
 		origin = aggregate->origin;
+
+	atomic_aggregate = aggregate->atomic_aggregate_count > 0 ? 1 : 0;
 
 	if (aggregate->as_set) {
 		/* Compute aggregate route's as-path.
@@ -11370,6 +11612,16 @@ static void bgp_remove_route_from_aggregate(struct bgp *bgp, const struct prefix
 	if (aggregate->count > 0)
 		aggregate->count--;
 
+	if (bgp_attr_exists(pi->attr, BGP_ATTR_ATOMIC_AGGREGATE) &&
+	    aggregate->atomic_aggregate_count > 0)
+		aggregate->atomic_aggregate_count--;
+
+	/* Pair with the local-contributor increment in
+	 * bgp_add_route_to_aggregate().
+	 */
+	if (bgp_aggr_path_is_local_fwd(pi) && aggregate->local_fwd_count > 0)
+		aggregate->local_fwd_count--;
+
 	if (pi->attr->origin == BGP_ORIGIN_INCOMPLETE)
 		aggregate->incomplete_origin_count--;
 	else if (pi->attr->origin == BGP_ORIGIN_EGP)
@@ -11408,6 +11660,8 @@ static void bgp_remove_route_from_aggregate(struct bgp *bgp, const struct prefix
 
 	if (aggregate->origin != BGP_ORIGIN_UNSPECIFIED)
 		origin = aggregate->origin;
+
+	atomic_aggregate = aggregate->atomic_aggregate_count > 0 ? 1 : 0;
 
 	if (aggregate->as_set) {
 		/* Retrieve aggregate route's as-path.

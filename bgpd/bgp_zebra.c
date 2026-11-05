@@ -3141,10 +3141,16 @@ static int bgp_zebra_route_notify_owner(int command, struct zclient *zclient,
 		/* Clear the flags so that route can be processed */
 		bgp_dest_decrement_gr_fib_install_pending_count(dest);
 		UNSET_FLAG(dest->flags, BGP_NODE_FIB_INSTALL_PENDING);
-		SET_FLAG(dest->flags, BGP_NODE_FIB_INSTALLED);
 		if (BGP_DEBUG(zebra, ZEBRA))
 			zlog_debug("route (%s:%u:%u)%pBD : INSTALLED", dv.name, dv.id,
 				   dv.table_id, dest);
+		/* suppress-fib: on a not-installed -> installed transition this
+		 * prefix becomes a forwardable contributor; bump covering
+		 * aggregates' in_fib_count and re-evaluate them. */
+		if (!CHECK_FLAG(dest->flags, BGP_NODE_FIB_INSTALLED)) {
+			SET_FLAG(dest->flags, BGP_NODE_FIB_INSTALLED);
+			bgp_aggregate_fib_update(bgp, &p, afi, safi, 1);
+		}
 		/* Find the best route */
 		for (pi = dest->info; pi; pi = pi->next) {
 			if (CHECK_FLAG(pi->flags, BGP_PATH_SELECTED))
@@ -3170,7 +3176,13 @@ static int bgp_zebra_route_notify_owner(int command, struct zclient *zclient,
 		 * so that route can be reinstalled when client sends
 		 * route add later
 		 */
-		UNSET_FLAG(dest->flags, BGP_NODE_FIB_INSTALLED);
+		/* suppress-fib: on an installed -> not-installed transition this
+		 * prefix is no longer a forwardable contributor; decrement
+		 * covering aggregates' in_fib_count and re-evaluate them. */
+		if (CHECK_FLAG(dest->flags, BGP_NODE_FIB_INSTALLED)) {
+			UNSET_FLAG(dest->flags, BGP_NODE_FIB_INSTALLED);
+			bgp_aggregate_fib_update(bgp, &p, afi, safi, -1);
+		}
 		if (BGP_DEBUG(zebra, ZEBRA))
 			zlog_debug("route (%s:%u:%u)%pBD: Removed from Fib", dv.name, dv.id,
 				   dv.table_id, dest);
@@ -3182,7 +3194,14 @@ static int bgp_zebra_route_notify_owner(int command, struct zclient *zclient,
 				   dv.id, dv.table_id, dest);
 		bgp_dest_decrement_gr_fib_install_pending_count(dest);
 		UNSET_FLAG(dest->flags, BGP_NODE_FIB_INSTALL_PENDING);
-		UNSET_FLAG(dest->flags, BGP_NODE_FIB_INSTALLED);
+		/* suppress-fib: install failed; on an installed -> not-installed
+		 * transition drop the contributor and re-evaluate covering
+		 * aggregates. (Usually the route was only pending, never
+		 * installed, so this is a no-op.) */
+		if (CHECK_FLAG(dest->flags, BGP_NODE_FIB_INSTALLED)) {
+			UNSET_FLAG(dest->flags, BGP_NODE_FIB_INSTALLED);
+			bgp_aggregate_fib_update(bgp, &p, afi, safi, -1);
+		}
 		for (pi = bgp_dest_get_bgp_path_info(dest); pi; pi = pi->next) {
 			if (CHECK_FLAG(pi->flags, BGP_PATH_SELECTED))
 				new_select = pi;
@@ -3198,7 +3217,13 @@ static int bgp_zebra_route_notify_owner(int command, struct zclient *zclient,
 		new_select = NULL;
 		bgp_dest_decrement_gr_fib_install_pending_count(dest);
 		UNSET_FLAG(dest->flags, BGP_NODE_FIB_INSTALL_PENDING);
-		UNSET_FLAG(dest->flags, BGP_NODE_FIB_INSTALLED);
+		/* suppress-fib: route lost the FIB to a better admin-distance
+		 * route; on an installed -> not-installed transition drop the
+		 * contributor and re-evaluate covering aggregates. */
+		if (CHECK_FLAG(dest->flags, BGP_NODE_FIB_INSTALLED)) {
+			UNSET_FLAG(dest->flags, BGP_NODE_FIB_INSTALLED);
+			bgp_aggregate_fib_update(bgp, &p, afi, safi, -1);
+		}
 		for (pi = bgp_dest_get_bgp_path_info(dest); pi; pi = pi->next) {
 			if (CHECK_FLAG(pi->flags, BGP_PATH_SELECTED))
 				new_select = pi;
