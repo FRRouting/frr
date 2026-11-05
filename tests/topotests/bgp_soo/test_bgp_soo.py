@@ -17,6 +17,12 @@ test_bgp_soo() validates the core SoO functionality:
 - When PE2 has "neighbor soo 65000:1" configured for CPE2, routes
   with matching SoO are filtered (not advertised to CPE2)
 
+test_bgp_soo_peer_group() moves the PE2 -- CPE2 session into a
+peer-group and checks that "neighbor soo" set on the peer-group is
+applied to a member that is already bound, that a member-level value
+overrides the group, and that "no" on the member restores the group
+value.
+
 The remaining tests use this SoO/VPN topology to validate the JSON
 output format for neighbor routes and advertised-routes commands.
 They verify JSON structure and path counts, not SoO behavior.
@@ -486,6 +492,140 @@ def test_bgp_soo_ipv6_advertised_routes_brief_json():
     assert (
         result is None
     ), "IPv6 advertised-routes json brief missing 2001:db8:2::/64 or expected shape on cpe2"
+
+
+def test_bgp_soo_peer_group():
+    """
+    SoO configured on a peer-group is applied to a member that is
+    already bound to the group; a value configured directly on the
+    member overrides the group value, and "no neighbor MEMBER soo"
+    restores the value inherited from the group.
+    """
+    tgen = get_topogen()
+
+    pe2 = tgen.gears["pe2"]
+
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    def _adv_routes():
+        return pe2.vtysh_cmd(
+            "show bgp vrf RED ipv4 unicast neighbors 192.168.2.1 "
+            "advertised-routes json"
+        )
+
+    def _expect(advertised, message):
+        def _check():
+            output = json.loads(_adv_routes())
+            if advertised:
+                expected = {
+                    "advertisedRoutes": {"172.16.255.1/32": {"path": "65001 65001"}}
+                }
+            else:
+                expected = {"advertisedRoutes": {"172.16.255.1/32": None}}
+            return topotest.json_cmp(output, expected)
+
+        test_func = functools.partial(_check)
+        _, result = topotest.run_and_expect(test_func, None, count=30, wait=0.5)
+        assert result is None, message
+
+    step("PE2 advertises 172.16.255.1/32 to CPE2 (no SoO configured)")
+    _expect(True, "PE2 does not advertise 172.16.255.1/32 to CPE2")
+
+    step("Bind CPE2 to peer-group PG (activate ipv4 unicast on the group first)")
+    pe2.vtysh_cmd(
+        """
+    configure terminal
+    router bgp 65001 vrf RED
+     neighbor PG peer-group
+     address-family ipv4 unicast
+      neighbor PG activate
+     exit-address-family
+     neighbor 192.168.2.1 peer-group PG
+    """
+    )
+    _expect(
+        True,
+        "172.16.255.1/32 is not advertised to CPE2 after binding it to PG",
+    )
+
+    step("Set SoO 65000:1 on peer-group PG, the member is already bound")
+    pe2.vtysh_cmd(
+        """
+    configure terminal
+    router bgp 65001 vrf RED
+     address-family ipv4 unicast
+      neighbor PG soo 65000:1
+    """
+    )
+    _expect(
+        False,
+        "SoO of the peer-group is not applied to the already bound member",
+    )
+
+    step("Change SoO on peer-group PG to 65000:2")
+    pe2.vtysh_cmd(
+        """
+    configure terminal
+    router bgp 65001 vrf RED
+     address-family ipv4 unicast
+      neighbor PG soo 65000:2
+    """
+    )
+    _expect(
+        True,
+        "Changed SoO of the peer-group is not applied to the member",
+    )
+
+    step("Restore SoO 65000:1 on peer-group PG")
+    pe2.vtysh_cmd(
+        """
+    configure terminal
+    router bgp 65001 vrf RED
+     address-family ipv4 unicast
+      neighbor PG soo 65000:1
+    """
+    )
+    _expect(
+        False,
+        "SoO of the peer-group is not applied to the member again",
+    )
+
+    step("Override SoO with 65000:2 on the member 192.168.2.1")
+    pe2.vtysh_cmd(
+        """
+    configure terminal
+    router bgp 65001 vrf RED
+     address-family ipv4 unicast
+      neighbor 192.168.2.1 soo 65000:2
+    """
+    )
+    _expect(True, "SoO of the member does not override the SoO of the group")
+
+    step("Remove SoO from the member, it inherits 65000:1 from PG again")
+    pe2.vtysh_cmd(
+        """
+    configure terminal
+    router bgp 65001 vrf RED
+     address-family ipv4 unicast
+      no neighbor 192.168.2.1 soo
+    """
+    )
+    _expect(
+        False,
+        "SoO of the peer-group is not inherited after no on the member",
+    )
+
+    step("Remove SoO from peer-group PG")
+    pe2.vtysh_cmd(
+        """
+    configure terminal
+    router bgp 65001 vrf RED
+     address-family ipv4 unicast
+      no neighbor PG soo
+    """
+    )
+    _expect(True, "SoO is not removed from the member by no on the peer-group")
 
 
 if __name__ == "__main__":
