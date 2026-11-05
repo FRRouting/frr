@@ -408,6 +408,35 @@ no longer than its block (33 to 64 bytes for HMAC-SHA-256), so the option
 does not matter with shorter keys. Arista EOS computes :rfc:`5310` digests
 only with the ``rfc-5310`` keyword of its authentication commands.
 
+The state of the authentication is shown, never the passwords: by
+:clicmd:`show isis [vrf <NAME|all>] interface [detail] [IFNAME] [json]` for the
+hellos of an active interface and by
+:clicmd:`show isis [vrf <NAME|all>] summary [json]` for the LSPs and SNPs of each
+level. They give the kind of authentication, for a key chain the Key ID and
+algorithm it signs with now (or that no key is valid for sending), and how
+many received PDUs failed authentication (``failures``) or did not carry the
+kind expected (``type failures``).
+:clicmd:`show isis [vrf <NAME|all>] neighbor [detail] [SYSTEMID] [json]` gives the
+Key ID of each neighbor's last hello and
+:clicmd:`show isis [vrf <NAME|all>] database [detail] [LSPID] [json]` that of each
+LSP, which shows a key change reaching every router:
+
+::
+
+   r1# show isis interface detail
+   ...
+       Authentication: key chain isis, sending with Key ID 2 (hmac-sha-256)
+         Failures: 0, type failures: 0
+   r1# show isis summary
+   ...
+     Level-2:
+       ...
+       Authentication: key chain isis, sending with Key ID 2 (hmac-sha-256), SNP authentication: validate
+         Failures: 0, type failures: 0
+   r1# show isis neighbor detail
+   ...
+       Authenticated with Key ID 2
+
 .. code-block:: frr
 
    key chain isis
@@ -435,7 +464,8 @@ Showing ISIS information
 
 .. clicmd:: show isis [vrf <NAME|all>] summary [json]
 
-   Show summary information about ISIS.
+   Show summary information about ISIS, including the authentication of each
+   level.
 
 .. clicmd:: show isis [vrf <NAME|all>] hostname
 

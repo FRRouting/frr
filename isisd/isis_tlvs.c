@@ -5839,7 +5839,7 @@ static bool key_send_active(const struct key *key, time_t now)
 }
 
 /* The first key of the chain that is valid for sending and usable for IS-IS */
-static const struct key *crypto_auth_key_for_send(const char *keychain_name)
+const struct key *isis_keychain_send_key(const char *keychain_name)
 {
 	const struct keychain *keychain = keychain_lookup(keychain_name);
 	struct listnode *node;
@@ -7517,7 +7517,7 @@ bool isis_tlvs_add_auth(struct isis_tlvs *tlvs, struct isis_passwd *passwd)
 		return true;
 
 	if (passwd->type == ISIS_PASSWD_TYPE_CRYPTO_AUTH) {
-		const struct key *key = crypto_auth_key_for_send((const char *)passwd->passwd);
+		const struct key *key = isis_keychain_send_key((const char *)passwd->passwd);
 
 		if (!key)
 			return false;
@@ -8017,6 +8017,14 @@ static void tlvs_global_ipv6_addresses_to_adj(struct isis_tlvs *tlvs, struct isi
 		hook_call(isis_adj_ip_enabled_hook, adj, AF_INET6, true);
 }
 
+/* A hello's authentication was validated before its TLVs reach the adjacency */
+static void tlvs_auth_to_adj(struct isis_tlvs *tlvs, struct isis_adjacency *adj)
+{
+	struct isis_auth *auth = (struct isis_auth *)tlvs->isis_auth.head;
+
+	adj->auth_key_id = (auth && auth->type == ISIS_PASSWD_TYPE_CRYPTO_AUTH) ? auth->key_id : -1;
+}
+
 void isis_tlvs_to_adj(struct isis_tlvs *tlvs, struct isis_adjacency *adj, bool *changed)
 {
 	*changed = false;
@@ -8026,6 +8034,7 @@ void isis_tlvs_to_adj(struct isis_tlvs *tlvs, struct isis_adjacency *adj, bool *
 	tlvs_ipv4_addresses_to_adj(tlvs, adj, changed);
 	tlvs_ipv6_addresses_to_adj(tlvs, adj, changed);
 	tlvs_global_ipv6_addresses_to_adj(tlvs, adj, changed);
+	tlvs_auth_to_adj(tlvs, adj);
 }
 
 bool isis_tlvs_own_snpa_found(struct isis_tlvs *tlvs, uint8_t *snpa)
