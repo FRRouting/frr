@@ -252,9 +252,18 @@ int zebra_evpn_rem_mac_uninstall(struct zebra_evpn *zevpn,
 	enum zebra_dplane_result res;
 
 	/* If the MAC was not installed there is no need to uninstall it */
-	if (!force && mac->es &&
-	    !CHECK_FLAG(mac->es->flags, ZEBRA_EVPNES_NHG_ACTIVE))
+	if (!force && mac->es && !CHECK_FLAG(mac->es->flags, ZEBRA_EVPNES_NHG_ACTIVE)) {
+		/* Logged because an earlier non-ES install is left in the
+		 * kernel when this skip happens on a non-ES to ES change.
+		 */
+		if (IS_ZEBRA_DEBUG_VXLAN)
+			zlog_debug("%s: VNI %u MAC %pEA uninstall skipped: es %s nhg not active (es flags 0x%x remote %d nhg_active %d)",
+				   __func__, zevpn->vni, &mac->macaddr, mac->es->esi_str,
+				   mac->es->flags,
+				   !!CHECK_FLAG(mac->es->flags, ZEBRA_EVPNES_REMOTE),
+				   !!CHECK_FLAG(mac->es->flags, ZEBRA_EVPNES_NHG_ACTIVE));
 		return -1;
+	}
 
 	if (!zevpn->vxlan_if) {
 		if (IS_ZEBRA_DEBUG_VXLAN)
