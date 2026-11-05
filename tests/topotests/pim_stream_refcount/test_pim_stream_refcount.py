@@ -23,6 +23,9 @@ exactly one reference for it:
   one, otherwise the upstream is never deleted. On a non-DR of the source
   LAN they must not take any (the upstream already has an owner).
 
+Taking the stream reference (on WRONGVIF) must also set up the register
+state, otherwise it waits for the keepalive timer expiry.
+
 Topology:
 
     r2 (source) ---- r1-eth0
@@ -30,7 +33,7 @@ Topology:
                      r1-eth2 ---- r3 (receiver, no PIM)
     r2 (source) ---- r1-eth3 (not DR)
                  |
-                 r4 (PIM DR)
+                 r4 (PIM DR, RP)
 """
 
 import os
@@ -177,6 +180,76 @@ def test_wrongvif_stream_reference():
 
     app_helper.stop_host("r3")
     expect_upstream(r1, group, source, None)
+
+
+def test_wrongvif_register():
+    """
+    The (S,G) upstream of an ASM group is joined before data (connected
+    source), so it has neither a stream reference nor register state. Data
+    then arrives on the alternate ingress and WRONGVIF realigns the input
+    interface: taking the stream reference must also set up the register
+    state, not leave it to the keepalive timer expiry or the upstream scan.
+    """
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    r1 = tgen.gears["r1"]
+    group = "239.1.1.1"
+    source = "10.20.1.4"
+
+    # IGMPv3 (S,G) reports in the ASM range don't create PIM state.
+    r1.vtysh_cmd(
+        f"""
+        configure terminal
+         interface r1-eth2
+          ip igmp static-group {group} {source}
+        """
+    )
+    expect_upstream(
+        r1,
+        group,
+        source,
+        {"inboundInterface": "r1-eth0", "joinState": "Joined", "regState": "RegNoInfo"},
+    )
+
+    app_helper.run("r2", ["--send=0.5", group, "r2-eth1"])
+
+    # The upstream scan (every 31 seconds) would set up the register state
+    # later too: check the first state seen after the realignment, which
+    # handles the register state in the same upcall.
+    upstream = None
+    for _ in range(60):
+        output = r1.vtysh_cmd("show ip pim upstream json", isjson=True)
+        upstream = output.get(group, {}).get(source)
+        assert upstream is not None, f"({source},{group}) upstream not found"
+        if upstream["inboundInterface"] == "r1-eth1":
+            break
+        time.sleep(0.5)
+
+    # The RP (no receivers) answers with a Register-Stop.
+    if upstream["regState"] == "RegPrune":
+        upstream["regState"] = "RegJoined"
+    result = topotest.json_cmp(
+        upstream,
+        {
+            "inboundInterface": "r1-eth1",
+            "firstHopRouter": True,
+            "regState": "RegJoined",
+        },
+    )
+    assert result is None, f"Router r1 ({source},{group}) upstream: {result}"
+
+    app_helper.stop_host("r2")
+    r1.vtysh_cmd(
+        f"""
+        configure terminal
+         interface r1-eth2
+          no ip igmp static-group {group} {source}
+        """
+    )
+    # Waits for the keepalive timer expiry to release the stream reference.
+    expect_upstream(r1, group, source, None, count=60)
 
 
 def test_nocache_stream_reference():
