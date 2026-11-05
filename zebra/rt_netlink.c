@@ -4113,7 +4113,8 @@ static int netlink_request_macs(struct nlsock *netlink_cmd, int family,
  * MAC forwarding database read using netlink interface.
  * Called from the dplane pthread.
  */
-static int netlink_macfdb_read(struct nlsock *nl, const struct zebra_dplane_info *dp_info)
+static int netlink_macfdb_read(struct nlsock *nl, const struct zebra_dplane_info *dp_info,
+			       int *nl_err)
 {
 	int ret;
 
@@ -4123,7 +4124,7 @@ static int netlink_macfdb_read(struct nlsock *nl, const struct zebra_dplane_info
 		return ret;
 	/* We are reading entire table. */
 	filter_vlan = 0;
-	ret = netlink_parse_info(netlink_macfdb_table, nl, dp_info, 0, true, NULL, NULL);
+	ret = netlink_parse_info(netlink_macfdb_table, nl, dp_info, 0, true, NULL, nl_err);
 
 	return ret;
 }
@@ -4135,7 +4136,8 @@ static int netlink_macfdb_read(struct nlsock *nl, const struct zebra_dplane_info
  */
 static int netlink_macfdb_read_for_bridge(struct nlsock *nl,
 					  const struct zebra_dplane_info *dp_info,
-					  ifindex_t br_ifindex, bool vlan_aware, vlanid_t vid)
+					  ifindex_t br_ifindex, bool vlan_aware, vlanid_t vid,
+					  int *nl_err)
 {
 	int ret = 0;
 
@@ -4149,7 +4151,7 @@ static int netlink_macfdb_read_for_bridge(struct nlsock *nl,
 	if (ret < 0)
 		goto done;
 
-	ret = netlink_parse_info(netlink_macfdb_table, nl, dp_info, 0, false, NULL, NULL);
+	ret = netlink_parse_info(netlink_macfdb_table, nl, dp_info, 0, false, NULL, nl_err);
 
 done:
 	/* Reset VLAN filter. */
@@ -4215,7 +4217,7 @@ static int netlink_request_specific_mac(struct nlsock *nl, int family, int type,
 static int netlink_macfdb_read_specific_mac(struct nlsock *nl,
 					    const struct zebra_dplane_info *dp_info,
 					    ifindex_t br_ifindex, const struct ethaddr *mac,
-					    vlanid_t vid, bool vlan_aware)
+					    vlanid_t vid, bool vlan_aware, int *nl_err)
 {
 	int ret = 0;
 
@@ -4226,12 +4228,13 @@ static int netlink_macfdb_read_specific_mac(struct nlsock *nl,
 	if (ret < 0)
 		return ret;
 
-	return netlink_parse_info(netlink_macfdb_table, nl, dp_info, 1, false, NULL, NULL);
+	return netlink_parse_info(netlink_macfdb_table, nl, dp_info, 1, false, NULL, nl_err);
 }
 
 static int netlink_macfdb_read_mcast_for_vni(struct nlsock *nl,
 					     const struct zebra_dplane_info *dp_info,
-					     ifindex_t ifindex, vni_t vni, bool is_vxlan)
+					     ifindex_t ifindex, vni_t vni, bool is_vxlan,
+					     int *nl_err)
 {
 	struct ethaddr mac = {.octet = {0}};
 	int ret = 0;
@@ -4242,7 +4245,7 @@ static int netlink_macfdb_read_mcast_for_vni(struct nlsock *nl,
 	if (ret < 0)
 		return ret;
 
-	return netlink_parse_info(netlink_macfdb_table, nl, dp_info, 1, false, NULL, NULL);
+	return netlink_parse_info(netlink_macfdb_table, nl, dp_info, 1, false, NULL, nl_err);
 }
 
 void kernel_read_macfdb(struct zebra_dplane_ctx *ctx)
@@ -4263,15 +4266,21 @@ void kernel_read_macfdb(struct zebra_dplane_ctx *ctx)
 	const struct ethaddr *mac = dplane_ctx_get_macfdb_read_mac(ctx);
 	bool vlan_aware = dplane_ctx_get_macfdb_read_vlan_aware(ctx);
 	bool is_vxlan = dplane_ctx_get_macfdb_read_is_vxlan(ctx);
+	int nl_err = 0;
 
 	if (!is_zero_mac(mac))
-		netlink_macfdb_read_specific_mac(nl, dp_info, br_ifindex, mac, vid, vlan_aware);
+		netlink_macfdb_read_specific_mac(nl, dp_info, br_ifindex, mac, vid, vlan_aware,
+						 &nl_err);
 	else if (vni)
-		netlink_macfdb_read_mcast_for_vni(nl, dp_info, ifindex, vni, is_vxlan);
+		netlink_macfdb_read_mcast_for_vni(nl, dp_info, ifindex, vni, is_vxlan, &nl_err);
 	else if (ifindex)
-		netlink_macfdb_read_for_bridge(nl, dp_info, br_ifindex, vlan_aware, vid);
+		netlink_macfdb_read_for_bridge(nl, dp_info, br_ifindex, vlan_aware, vid, &nl_err);
 	else
-		netlink_macfdb_read(nl, dp_info);
+		netlink_macfdb_read(nl, dp_info, &nl_err);
+
+	/* Pass any error reported by the kernel up to the main pthread. */
+	if (nl_err)
+		dplane_ctx_set_errno(ctx, -nl_err);
 
 	dplane_ctx_set_status(ctx, ZEBRA_DPLANE_REQUEST_SUCCESS);
 }
@@ -4618,6 +4627,7 @@ void kernel_read_neigh(struct zebra_dplane_ctx *ctx)
 	struct nlsock *nl;
 	ifindex_t ifindex;
 	int ret;
+	int nl_err = 0;
 
 	nl = kernel_netlink_nlsock_lookup(dplane_ctx_get_ns_sock(ctx));
 	if (!nl) {
@@ -4631,16 +4641,23 @@ void kernel_read_neigh(struct zebra_dplane_ctx *ctx)
 	if (ip->ipa_type != IPADDR_NONE) {
 		ret = netlink_request_specific_neigh_in_vlan(nl, RTM_GETNEIGH, ip, ifindex);
 		if (ret >= 0)
-			netlink_parse_info(netlink_neigh_table, nl, dp_info, 1, false, NULL, NULL);
+			netlink_parse_info(netlink_neigh_table, nl, dp_info, 1, false, NULL,
+					   &nl_err);
 	} else if (ifindex) {
 		ret = netlink_request_neigh(nl, AF_UNSPEC, RTM_GETNEIGH, ifindex);
 		if (ret >= 0)
-			netlink_parse_info(netlink_neigh_table, nl, dp_info, 0, false, NULL, NULL);
+			netlink_parse_info(netlink_neigh_table, nl, dp_info, 0, false, NULL,
+					   &nl_err);
 	} else {
 		ret = netlink_request_neigh(nl, AF_UNSPEC, RTM_GETNEIGH, 0);
 		if (ret >= 0)
-			netlink_parse_info(netlink_neigh_table, nl, dp_info, 0, true, NULL, NULL);
+			netlink_parse_info(netlink_neigh_table, nl, dp_info, 0, true, NULL,
+					   &nl_err);
 	}
+
+	/* Pass any error reported by the kernel up to the main pthread. */
+	if (nl_err)
+		dplane_ctx_set_errno(ctx, -nl_err);
 
 	dplane_ctx_set_status(ctx, ZEBRA_DPLANE_REQUEST_SUCCESS);
 }

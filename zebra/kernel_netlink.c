@@ -685,7 +685,8 @@ static void netlink_parse_extended_ack(struct nlmsghdr *h, int proto, bool expec
 /*
  * netlink_send_msg - send a netlink message of a certain size.
  *
- * Returns -1 on error. Otherwise, it returns the number of bytes sent.
+ * Returns -1 on error, with errno set to the sendmsg() failure. Otherwise, it
+ * returns the number of bytes sent.
  */
 static ssize_t netlink_send_msg(const struct nlsock *nl, void *buf,
 				size_t buflen)
@@ -724,6 +725,8 @@ static ssize_t netlink_send_msg(const struct nlsock *nl, void *buf,
 	if (status == -1) {
 		flog_err_sys(EC_LIB_SOCKET, "%s error: %s", __func__,
 			     safe_strerror(save_errno));
+		/* The logging above may have clobbered errno. */
+		errno = save_errno;
 		return -1;
 	}
 
@@ -734,6 +737,7 @@ static ssize_t netlink_send_msg(const struct nlsock *nl, void *buf,
  * netlink_recv_msg - receive a netlink message.
  *
  * Returns -1 on error, 0 if read would block or the number of bytes received.
+ * When -1 is returned errno is set to describe the failure.
  */
 static int netlink_recv_msg(struct nlsock *nl, struct msghdr *msg)
 {
@@ -774,6 +778,7 @@ static int netlink_recv_msg(struct nlsock *nl, struct msghdr *msg)
 
 	if (status == 0) {
 		flog_err_sys(EC_LIB_SOCKET, "%s EOF", nl->name);
+		errno = ECONNRESET;
 		return -1;
 	}
 
@@ -781,6 +786,7 @@ static int netlink_recv_msg(struct nlsock *nl, struct msghdr *msg)
 		flog_err(EC_ZEBRA_NETLINK_LENGTH_ERROR,
 			 "%s sender address length error: length %d", nl->name,
 			 msg->msg_namelen);
+		errno = EPROTO;
 		return -1;
 	}
 
@@ -1197,12 +1203,16 @@ static int nl_batch_read_resp(struct nl_batch *bth, struct nlsock *nl)
 		 *
 		 */
 		if (status == -1 || status == 0) {
+			int recv_errno = (status == -1) ? errno : 0;
+
 			while ((ctx = dplane_ctx_dequeue(&(bth->ctx_list))) !=
 			       NULL) {
-				if (status == -1)
+				if (status == -1) {
 					dplane_ctx_set_status(
 						ctx,
 						ZEBRA_DPLANE_REQUEST_FAILURE);
+					dplane_ctx_set_errno(ctx, recv_errno);
+				}
 				dplane_ctx_enqueue_tail(bth->ctx_out_q, ctx);
 			}
 			return status;
@@ -1287,7 +1297,17 @@ static int nl_batch_read_resp(struct nl_batch *bth, struct nlsock *nl)
 		}
 
 		if (h->nlmsg_type == NLMSG_ERROR) {
-			int err = netlink_parse_error(nl, h, bth->zns->is_cmd, false, NULL);
+			int nl_errno;
+			int err = netlink_parse_error(nl, h, bth->zns->is_cmd, false, &nl_errno);
+
+			/*
+			 * Pass the errno up to the zebra main pthread via the
+			 * context. Note that it is recorded even for errors
+			 * that are not treated as failures (err == 0), the
+			 * status remains the indication of success.
+			 */
+			if (nl_errno)
+				dplane_ctx_set_errno(ctx, nl_errno);
 
 			if (err == -1)
 				dplane_ctx_set_status(
@@ -1355,6 +1375,7 @@ static void nl_batch_send(struct nl_batch *bth)
 {
 	struct zebra_dplane_ctx *ctx;
 	bool err = false;
+	int err_errno = 0;
 
 	if (bth->curlen != 0 && bth->zns != NULL) {
 		struct nlsock *nl =
@@ -1365,9 +1386,15 @@ static void nl_batch_send(struct nl_batch *bth)
 				   __func__, nl->name, bth->curlen,
 				   bth->msgcnt);
 
-		if (netlink_send_msg(nl, bth->buf, bth->curlen) == -1)
+		if (netlink_send_msg(nl, bth->buf, bth->curlen) == -1) {
 			err = true;
+			err_errno = errno;
+		}
 
+		/*
+		 * If reading the responses fails, nl_batch_read_resp() has
+		 * already marked and moved all of the contexts.
+		 */
 		if (!err) {
 			if (nl_batch_read_resp(bth, nl) == -1)
 				err = true;
@@ -1380,9 +1407,12 @@ static void nl_batch_send(struct nl_batch *bth)
 		if (ctx == NULL)
 			break;
 
-		if (err)
+		if (err) {
 			dplane_ctx_set_status(ctx,
 					      ZEBRA_DPLANE_REQUEST_FAILURE);
+			if (err_errno)
+				dplane_ctx_set_errno(ctx, err_errno);
+		}
 
 		dplane_ctx_enqueue_tail(bth->ctx_out_q, ctx);
 	}

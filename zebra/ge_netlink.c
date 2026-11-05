@@ -417,6 +417,8 @@ static int netlink_ethtool_linkmodes_reply_read(struct nlmsghdr *h, ns_id_t ns_i
  * @zns:	Per-namespace netlink sockets holder (uses zns->ge_netlink_cmd)
  * @ifname:	Interface name
  * @error:	Out param, set to 0 on success, INTERFACE_SPEED_ERROR_* otherwise
+ * @err_errno:	Optional out param, set to 0 or, if the request to the kernel
+ *		failed, the errno (a positive value) describing the failure
  *
  * Sends ETHTOOL_MSG_LINKMODES_GET on the per-ns generic netlink command socket
  * and parses the reply. The socket is pinned to the right namespace at zns
@@ -424,7 +426,8 @@ static int netlink_ethtool_linkmodes_reply_read(struct nlmsghdr *h, ns_id_t ns_i
  *
  * Returns the link speed in Mbps, or 0 with *error set on failure.
  */
-uint32_t netlink_get_interface_speed(struct zebra_ns *zns, const char *ifname, int *error)
+uint32_t netlink_get_interface_speed(struct zebra_ns *zns, const char *ifname, int *error,
+				     int *err_errno)
 {
 	struct ethtool_speed_result res = {};
 	struct genl_request req = {};
@@ -433,6 +436,8 @@ uint32_t netlink_get_interface_speed(struct zebra_ns *zns, const char *ifname, i
 
 	if (error)
 		*error = 0;
+	if (err_errno)
+		*err_errno = 0;
 
 	if (zns == NULL || zns->ge_netlink_cmd.sock < 0) {
 		if (error)
@@ -475,6 +480,9 @@ uint32_t netlink_get_interface_speed(struct zebra_ns *zns, const char *ifname, i
 			      &res.nl_err);
 	if (ret < 0) {
 		int nl_errno = res.nl_err ? -res.nl_err : errno;
+
+		if (err_errno)
+			*err_errno = nl_errno;
 
 		if (error)
 			*error = (res.nl_err == -ENODEV ||
