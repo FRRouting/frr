@@ -10,6 +10,10 @@
 """
 test_bgp_confed1.py: Test the FRR BGP confederations with AS member
 same as confederation Id, verify BGP prefixes and path distribution
+
+r2 sets an AIGP metric on 203.0.113.16/28. Without "neighbor PEER aigp",
+r3 receives it over the confederation session, and r4 does not receive it
+over the eBGP session.
 """
 
 import os
@@ -27,6 +31,7 @@ sys.path.append(os.path.join(CWD, "../"))
 from lib import topotest
 from lib.topogen import Topogen, TopoRouter, get_topogen
 from lib.topolog import logger
+from lib.common_config import retry
 
 pytestmark = [pytest.mark.bgpd, pytest.mark.isisd]
 
@@ -139,6 +144,29 @@ def test_bgp_confed_ipv4_unicast():
         _, res = topotest.run_and_expect(test_func, None, count=40, wait=2.5)
         assertmsg = "{}: BGP UPDATE exchange failure".format(router.name)
         assert res is None, assertmsg
+
+
+def test_bgp_confed_aigp():
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    @retry(retry_timeout=60)
+    def check_aigp_metric(router, aigp):
+        output = json.loads(
+            router.vtysh_cmd("show bgp ipv4 unicast 203.0.113.16/28 json")
+        )
+        expected = {"paths": [{"valid": True, "aigpMetric": aigp}]}
+        result = topotest.json_cmp(output, expected)
+        if result is not None:
+            return "{}, {}".format(router.name, result)
+        return True
+
+    result = check_aigp_metric(tgen.gears["r3"], 20)
+    assert result is True, result
+
+    result = check_aigp_metric(tgen.gears["r4"], None)
+    assert result is True, result
 
 
 if __name__ == "__main__":
