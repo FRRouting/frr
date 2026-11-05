@@ -5621,12 +5621,8 @@ void peer_change_action(struct peer *peer, afi_t afi, safi_t safi,
 		peer_vpn_change_bestpath(peer, afi);
 	if (type == peer_change_reset_out || type == peer_change_best_path) {
 		paf = peer_af_find(peer, afi, safi);
-		if (paf && paf->subgroup)
-			SET_FLAG(paf->subgroup->sflags,
-				 SUBGRP_STATUS_FORCE_UPDATES);
-
 		update_group_adjust_peer(paf);
-		bgp_announce_route(peer, afi, safi, false);
+		bgp_announce_route(peer, afi, safi, true);
 	}
 }
 
