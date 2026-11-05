@@ -6186,12 +6186,11 @@ bgp_size_t bgp_packet_attribute(struct bgp *bgp, struct peer *peer, struct strea
 	}
 
 	/* MED attribute. */
-	if (bgp_attr_exists(attr, BGP_ATTR_MULTI_EXIT_DISC) || bgp->maxmed_active) {
+	if (bgp_attr_exists(attr, BGP_ATTR_MULTI_EXIT_DISC)) {
 		stream_putc(s, BGP_ATTR_FLAG_OPTIONAL);
 		stream_putc(s, BGP_ATTR_MULTI_EXIT_DISC);
 		stream_putc(s, 4);
-		stream_putl(s, (bgp->maxmed_active ? bgp->maxmed_value
-						   : attr->med));
+		stream_putl(s, attr->med);
 	}
 
 	/* Local preference. */

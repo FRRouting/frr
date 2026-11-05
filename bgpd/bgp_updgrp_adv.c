@@ -1243,6 +1243,10 @@ void subgroup_default_originate(struct update_subgroup *subgrp, bool withdraw)
 			    (CHECK_FLAG(peer->flags, PEER_FLAG_GRACEFUL_SHUTDOWN)))
 				bgp_attr_add_gshut_community(&attr_copy);
 
+			/* Handle "bgp max-med" */
+			if (bgp->maxmed_active)
+				bgp_attr_set_med(&attr_copy, bgp->maxmed_value);
+
 			bgp_peer_prepend_local_as(peer, afi, safi, &attr_copy);
 
 			SET_FLAG(subgrp->sflags,
