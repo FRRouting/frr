@@ -242,6 +242,47 @@ def encode_path_attribute_prefix_sid(data):
     return hexstream
 
 
+def encode_srv6_sid_info_sub_tlv(val):
+    sid_str = val.get("sid", "::")
+    behavior = int(val.get("behavior", 0))
+
+    # Note: Some pre-RFC FRR implementations/drafts used a 1-byte Flags
+    # field just before the behavior. We expose it here just in case.
+    flags_hex = val.get("flags", "").replace("0x", "")
+    flags_bytes = bytes.fromhex(flags_hex) if flags_hex else b""
+
+    sstlv_data = val.get("sid_structure", "")
+    if isinstance(sstlv_data, str):
+        sub_sub_tlvs = bytes.fromhex(sstlv_data)
+    elif isinstance(sstlv_data, dict):
+        # Pack: Type(2) + Length(2) + LBL(1) + LNL(1) + FL(1) + AL(1) + TL(1) + TO(1)
+        sub_sub_tlvs = struct.pack(
+            "!HHBBBBBB",
+            1,  # SID Structure type
+            6,  # Fixed Length of 6 bytes for the payload
+            int(sstlv_data.get("lbl", 0)),
+            int(sstlv_data.get("lnl", 0)),
+            int(sstlv_data.get("fl", 0)),
+            int(sstlv_data.get("al", 0)),
+            int(sstlv_data.get("tl", 0)),
+            int(sstlv_data.get("to", 0)),
+        )
+    else:
+        sub_sub_tlvs = b""
+
+    # Parse the IPv6 string into 16 bytes
+    sid_bytes = socket.inet_pton(socket.AF_INET6, sid_str)
+    behavior_bytes = struct.pack("!H", behavior)
+
+    # Construct Sub-TLV 1 Payload: Reserved(1) + SID(16) + [Flags(1)] + Behavior(2) + Sub-Sub-TLVs
+    sub_tlv_payload = (
+        struct.pack("!B", 0) + sid_bytes + flags_bytes + behavior_bytes + sub_sub_tlvs
+    )
+
+    # Construct Sub-TLV: Type(1) + Length(2) + Payload
+    return struct.pack("!BH", 1, len(sub_tlv_payload)) + sub_tlv_payload
+
+
 def encode_path_attribute(type, value):
     path_attributes = {
         "origin": [b"\x40", 1],
@@ -390,51 +431,17 @@ def encode_path_attribute(type, value):
             for val in value:
                 # Dynamically encode the SRv6 Prefix-SID Attribute (RFC 9252)
                 srv6_type = int(val.get("type", 6))  # 5 = L3 Service, 6 = L2 Service
-                sid_str = val.get("sid", "::")
-                behavior = int(val.get("behavior", 0))
 
-                # Note: Some pre-RFC FRR implementations/drafts used a 1-byte Flags
-                # field just before the behavior. We expose it here just in case.
-                flags_hex = val.get("flags", "").replace("0x", "")
-                flags_bytes = bytes.fromhex(flags_hex) if flags_hex else b""
-
-                sstlv_data = val.get("sid_structure", "")
-                if isinstance(sstlv_data, str):
-                    sub_sub_tlvs = bytes.fromhex(sstlv_data)
-                elif isinstance(sstlv_data, dict):
-                    # Pack: Type(2) + Length(2) + LBL(1) + LNL(1) + FL(1) + AL(1) + TL(1) + TO(1)
-                    sub_sub_tlvs = struct.pack(
-                        "!HHBBBBBB",
-                        1,  # SID Structure type
-                        6,  # Fixed Length of 6 bytes for the payload
-                        int(sstlv_data.get("lbl", 0)),
-                        int(sstlv_data.get("lnl", 0)),
-                        int(sstlv_data.get("fl", 0)),
-                        int(sstlv_data.get("al", 0)),
-                        int(sstlv_data.get("tl", 0)),
-                        int(sstlv_data.get("to", 0)),
-                    )
-                else:
-                    sub_sub_tlvs = b""
-
-                # Parse the IPv6 string into 16 bytes
-                sid_bytes = socket.inet_pton(socket.AF_INET6, sid_str)
-                behavior_bytes = struct.pack("!H", behavior)
-
-                # Construct Sub-TLV 1 Payload: Reserved(1) + SID(16) + [Flags(1)] + Behavior(2) + Sub-Sub-TLVs
-                sub_tlv_payload = (
-                    struct.pack("!B", 0)
-                    + sid_bytes
-                    + flags_bytes
-                    + behavior_bytes
-                    + sub_sub_tlvs
+                # An optional "sub_tlvs" list encodes several SID Information
+                # Sub-TLVs in the same TLV. Otherwise, the entry itself is the
+                # only SID Information Sub-TLV.
+                sub_tlvs = b"".join(
+                    encode_srv6_sid_info_sub_tlv(sub_tlv)
+                    for sub_tlv in val.get("sub_tlvs", [val])
                 )
 
-                # Construct Sub-TLV: Type(1) + Length(2) + Payload
-                sub_tlv = struct.pack("!BH", 1, len(sub_tlv_payload)) + sub_tlv_payload
-
                 # Construct Main TLV Payload: Reserved(1) + Sub-TLVs
-                tlv_payload = struct.pack("!B", 0) + sub_tlv
+                tlv_payload = struct.pack("!B", 0) + sub_tlvs
 
                 # Construct Final Attribute: Type(1) + Length(2) + Payload
                 attribute_value = attribute_value + (
