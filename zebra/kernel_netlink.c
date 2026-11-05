@@ -671,11 +671,22 @@ static void netlink_parse_extended_ack(struct nlmsghdr *h, int proto, bool expec
 	if (msg && *msg != '\0') {
 		bool is_err = !!err->error;
 
+		/* Name the failed request so the error can be tied to the
+		 * "Tx RTM_NEWNEIGH ... seq N" debug line that sent it (the
+		 * kernel text has no MAC or nhid in it; FDB installs go
+		 * through the dplane batch path, which does not log
+		 * "netlink_talk"). The echoed nlmsghdr is present
+		 * even when the kernel capped the ack (NLM_F_CAPPED only drops
+		 * the request payload after the header).
+		 */
 		if (expected) {
 			if (IS_ZEBRA_DEBUG_KERNEL)
 				zlog_debug("Extended %s: %s", is_err ? "Error" : "Warning", msg);
 		} else if (is_err)
-			flog_err(EC_ZEBRA_NETLINK_EXTENDED_ERROR, "Extended Error: %s", msg);
+			flog_err(EC_ZEBRA_NETLINK_EXTENDED_ERROR,
+				 "Extended Error: %s (req type=%s seq=%u)", msg,
+				 nl_msg_type_to_str_sock(err->msg.nlmsg_type, proto),
+				 err->msg.nlmsg_seq);
 		else
 			flog_warn(EC_ZEBRA_NETLINK_EXTENDED_WARNING,
 				  "Extended Warning: %s", msg);
