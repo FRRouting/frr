@@ -1770,7 +1770,7 @@ static void pim_upstream_fhr_kat_expiry(struct pim_upstream *up)
 /* When kat is started CouldRegister can go to true. And if it does we
  * need to transition  the (S, G) on FHR to JOINED state and add reg tunnel
  * to the OIL */
-static void pim_upstream_fhr_kat_start(struct pim_upstream *up)
+void pim_upstream_fhr_kat_start(struct pim_upstream *up)
 {
 	if (pim_upstream_could_register(up)) {
 		if (PIM_DEBUG_PIM_TRACE)

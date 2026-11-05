@@ -258,10 +258,19 @@ static void pim_mroute_nocache_forward_existing(struct interface *ifp, pim_sgadd
 	 * isn't set yet) only when starting the timer, otherwise nothing
 	 * would release it. Check after the MFC update so the timer sees the
 	 * realigned input interface.
+	 *
+	 * Also like the scan, set up the register state (if the source can
+	 * register and it isn't set up yet): the upstream may have switched
+	 * to joined without the stream reference (e.g. on the RPF change
+	 * above), or the input interface may only now be connected to the
+	 * source, and otherwise it would wait for the scan or the keepalive
+	 * timer expiry. Like the other upcalls, not for filtered groups.
 	 */
 	if (pim_upstream_kat_start_ok(up)) {
 		if (!PIM_UPSTREAM_FLAG_TEST_SRC_STREAM(up->flags))
 			pim_upstream_ref(up, PIM_UPSTREAM_FLAG_MASK_SRC_STREAM, __func__);
+		if (!pim_is_group_filtered(pim_ifp, &sg->grp, &sg->src))
+			pim_upstream_fhr_kat_start(up);
 		pim_upstream_keep_alive_timer_start(up, pim->keep_alive_time);
 	}
 }
@@ -1010,10 +1019,19 @@ static int pim_mroute_wrongvif_prefer_ingress(struct interface *ifp, pim_sgaddr 
 	 * isn't set yet) only when starting the timer, otherwise nothing
 	 * would release it. Check after the MFC update so the timer sees the
 	 * realigned input interface.
+	 *
+	 * Also like the scan, set up the register state (if the source can
+	 * register and it isn't set up yet): the upstream may have switched
+	 * to joined without the stream reference (e.g. on the RPF change
+	 * above), or the input interface may only now be connected to the
+	 * source, and otherwise it would wait for the scan or the keepalive
+	 * timer expiry. Like the other upcalls, not for filtered groups.
 	 */
 	if (pim_upstream_kat_start_ok(up)) {
 		if (!PIM_UPSTREAM_FLAG_TEST_SRC_STREAM(up->flags))
 			pim_upstream_ref(up, PIM_UPSTREAM_FLAG_MASK_SRC_STREAM, __func__);
+		if (!pim_is_group_filtered(pim_ifp, &sg->grp, &sg->src))
+			pim_upstream_fhr_kat_start(up);
 		pim_upstream_keep_alive_timer_start(up, pim->keep_alive_time);
 	}
 

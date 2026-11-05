@@ -348,6 +348,7 @@ void pim_upstream_update_my_assert_metric(struct pim_upstream *up);
 
 void pim_upstream_keep_alive_timer_start(struct pim_upstream *up,
 					 uint32_t time);
+void pim_upstream_fhr_kat_start(struct pim_upstream *up);
 
 int pim_upstream_switch_to_spt_desired_on_rp(struct pim_instance *pim,
 					     pim_sgaddr *sg);
