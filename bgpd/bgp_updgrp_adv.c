@@ -217,6 +217,18 @@ static void subgrp_withdraw_stale_addpath(struct updwalk_context *ctx,
 	}
 }
 
+/* Withdraw every Adj-RIB-Out entry this subgroup holds for dest */
+static void subgrp_withdraw_adj_out(struct bgp_dest *dest, struct update_subgroup *subgrp,
+				    afi_t afi, safi_t safi)
+{
+	struct bgp_adj_out *adj, *adj_next;
+
+	RB_FOREACH_SAFE (adj, bgp_adj_out_rb, &dest->adj_out, adj_next)
+		if (adj->subgroup == subgrp)
+			subgroup_process_announce_selected(subgrp, NULL, dest, afi, safi,
+							   adj->addpath_tx_id);
+}
+
 static int group_announce_route_walkcb(struct update_group *updgrp, void *arg)
 {
 	struct updwalk_context *ctx = arg;
@@ -224,7 +236,6 @@ static int group_announce_route_walkcb(struct update_group *updgrp, void *arg)
 	afi_t afi;
 	safi_t safi;
 	struct peer *peer;
-	struct bgp_adj_out *adj, *adj_next;
 	bool addpath_capable;
 
 	afi = UPDGRP_AFI(updgrp);
@@ -258,16 +269,8 @@ static int group_announce_route_walkcb(struct update_group *updgrp, void *arg)
 			 * to expire.
 			 */
 			if (event_is_scheduled(subgrp->t_coalesce)) {
-				if (!ctx->pi || CHECK_FLAG(ctx->pi->flags, BGP_PATH_UNUSEABLE)) {
-					RB_FOREACH_SAFE (adj, bgp_adj_out_rb, &ctx->dest->adj_out,
-							 adj_next) {
-						if (adj->subgroup == subgrp) {
-							subgroup_process_announce_selected(
-								subgrp, NULL, ctx->dest, afi, safi,
-								adj->addpath_tx_id);
-						}
-					}
-				}
+				if (!ctx->pi || CHECK_FLAG(ctx->pi->flags, BGP_PATH_UNUSEABLE))
+					subgrp_withdraw_adj_out(ctx->dest, subgrp, afi, safi);
 
 				goto done;
 			}
@@ -278,15 +281,7 @@ static int group_announce_route_walkcb(struct update_group *updgrp, void *arg)
 					bgp_addpath_id_for_peer(peer, afi, safi,
 								&ctx->pi->tx_addpath));
 			} else {
-				RB_FOREACH_SAFE (adj, bgp_adj_out_rb, &ctx->dest->adj_out,
-						 adj_next) {
-					if (adj->subgroup == subgrp) {
-						subgroup_process_announce_selected(subgrp, NULL,
-										   ctx->dest, afi,
-										   safi,
-										   adj->addpath_tx_id);
-					}
-				}
+				subgrp_withdraw_adj_out(ctx->dest, subgrp, afi, safi);
 			}
 		}
 
@@ -812,6 +807,7 @@ void subgroup_announce_table(struct update_subgroup *subgrp,
 	safi_t safi;
 	safi_t safi_rib;
 	bool addpath_capable;
+	bool announced;
 
 	peer = SUBGRP_PEER(subgrp);
 	afi = SUBGRP_AFI(subgrp);
@@ -836,9 +832,14 @@ void subgroup_announce_table(struct update_subgroup *subgrp,
 
 	for (dest = bgp_table_top(table); dest; dest = bgp_route_next(dest)) {
 		if (addpath_capable) {
+			struct updwalk_context ctx = { .dest = dest };
+
+			subgrp_withdraw_stale_addpath(&ctx, subgrp);
 			subgrp_announce_addpath_best_selected(dest, subgrp);
 			continue;
 		}
+
+		announced = false;
 
 		for (ri = bgp_dest_get_bgp_path_info(dest); ri; ri = ri->next) {
 
@@ -852,18 +853,29 @@ void subgroup_announce_table(struct update_subgroup *subgrp,
 			 * of default route advertised through
 			 * default originate
 			 */
-			if (CHECK_FLAG(peer->af_flags[afi][safi],
-				       PEER_FLAG_DEFAULT_ORIGINATE) &&
-			    is_default_prefix(bgp_dest_get_prefix(dest)))
+			if (CHECK_FLAG(peer->af_flags[afi][safi], PEER_FLAG_DEFAULT_ORIGINATE) &&
+			    is_default_prefix(bgp_dest_get_prefix(dest))) {
+				announced = true;
 				break;
+			}
 
-			if (CHECK_FLAG(ri->flags, BGP_PATH_SELECTED))
+			if (CHECK_FLAG(ri->flags, BGP_PATH_SELECTED)) {
 				subgroup_process_announce_selected(
 					subgrp, ri, dest, afi, safi_rib,
 					bgp_addpath_id_for_peer(
 						peer, afi, safi_rib,
 						&ri->tx_addpath));
+				announced = true;
+			}
 		}
+
+		/*
+		 * No selected path: withdraw any Adj-RIB-Out entry this
+		 * subgroup still holds, e.g. a withdrawal left queued on the
+		 * parent subgroup by update_subgroup_copy_adj_out().
+		 */
+		if (!announced)
+			subgrp_withdraw_adj_out(dest, subgrp, afi, safi_rib);
 	}
 	UNSET_FLAG(subgrp->sflags, SUBGRP_STATUS_TABLE_REPARSING);
 
