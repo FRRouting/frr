@@ -589,6 +589,23 @@ static void update_rej_adj_count(struct isis_circuit *circuit)
 	}
 }
 
+/* Count an authentication failure the way update_rej_adj_count() counts */
+static void update_auth_failure_count(struct isis_circuit *circuit, int auth_code)
+{
+	bool type_failure = auth_code != ISIS_AUTH_FAILURE;
+	uint64_t *area_counters = type_failure ? circuit->area->auth_type_failures
+					       : circuit->area->auth_failures;
+
+	if (type_failure)
+		circuit->auth_type_failures++;
+	else
+		circuit->auth_failures++;
+	if (circuit->is_type & IS_LEVEL_1)
+		area_counters[0]++;
+	if (circuit->is_type & IS_LEVEL_2)
+		area_counters[1]++;
+}
+
 static int process_hello(uint8_t pdu_type, struct isis_circuit *circuit,
 			 uint8_t *ssnpa)
 {
@@ -754,6 +771,7 @@ static int process_hello(uint8_t pdu_type, struct isis_circuit *circuit,
 		isis_event_auth_failure(circuit->area->area_tag,
 					"IIH authentication failure",
 					iih.sys_id);
+		update_auth_failure_count(circuit, auth_code);
 #ifndef FABRICD
 		/* send northbound notification */
 		stream_get_from(raw_pdu, circuit->rcv_stream, pdu_start,
@@ -1007,33 +1025,14 @@ static int process_lsp(uint8_t pdu_type, struct isis_circuit *circuit,
 		isis_event_auth_failure(circuit->area->area_tag,
 					"LSP authentication failure",
 					hdr.lsp_id);
+		update_auth_failure_count(circuit, auth_code);
 #ifndef FABRICD
 		/* send northbound notification */
-		if (auth_code == ISIS_AUTH_FAILURE) {
-			circuit->auth_failures++;
-			if (circuit->is_type == IS_LEVEL_1) {
-				circuit->area->auth_failures[0]++;
-			} else if (circuit->is_type == IS_LEVEL_2) {
-				circuit->area->auth_failures[1]++;
-			} else {
-				circuit->area->auth_failures[0]++;
-				circuit->area->auth_failures[1]++;
-			}
+		if (auth_code == ISIS_AUTH_FAILURE)
 			isis_notif_authentication_failure(circuit, raw_pdu,
 							  sizeof(raw_pdu));
-		} else { /* AUTH_TYPE_FAILURE or NO_VALIDATOR */
-			circuit->auth_type_failures++;
-			if (circuit->is_type == IS_LEVEL_1) {
-				circuit->area->auth_type_failures[0]++;
-			} else if (circuit->is_type == IS_LEVEL_2) {
-				circuit->area->auth_type_failures[1]++;
-			} else {
-				circuit->area->auth_type_failures[0]++;
-				circuit->area->auth_type_failures[1]++;
-			}
-			isis_notif_authentication_type_failure(circuit, raw_pdu,
-							       sizeof(raw_pdu));
-		}
+		else /* AUTH_TYPE_FAILURE or NO_VALIDATOR */
+			isis_notif_authentication_type_failure(circuit, raw_pdu, sizeof(raw_pdu));
 #endif /* ifndef FABRICD */
 		goto out;
 	}
@@ -1455,35 +1454,17 @@ static int process_snp(uint8_t pdu_type, struct isis_circuit *circuit,
 			isis_event_auth_failure(circuit->area->area_tag,
 						"SNP authentication failure",
 						rem_sys_id);
+			update_auth_failure_count(circuit, auth_code);
 #ifndef FABRICD
 			/* send northbound notification */
 			stream_get_from(raw_pdu, circuit->rcv_stream, pdu_start,
 					pdu_end - pdu_start);
-			if (auth_code == ISIS_AUTH_FAILURE) {
-				circuit->auth_failures++;
-				if (circuit->is_type == IS_LEVEL_1) {
-					circuit->area->auth_failures[0]++;
-				} else if (circuit->is_type == IS_LEVEL_2) {
-					circuit->area->auth_failures[1]++;
-				} else {
-					circuit->area->auth_failures[0]++;
-					circuit->area->auth_failures[1]++;
-				}
+			if (auth_code == ISIS_AUTH_FAILURE)
 				isis_notif_authentication_failure(
 					circuit, raw_pdu, sizeof(raw_pdu));
-			} else { /* AUTH_TYPE_FAILURE or NO_VALIDATOR */
-				circuit->auth_type_failures++;
-				if (circuit->is_type == IS_LEVEL_1) {
-					circuit->area->auth_type_failures[0]++;
-				} else if (circuit->is_type == IS_LEVEL_2) {
-					circuit->area->auth_type_failures[1]++;
-				} else {
-					circuit->area->auth_type_failures[0]++;
-					circuit->area->auth_type_failures[1]++;
-				}
-				isis_notif_authentication_type_failure(
-					circuit, raw_pdu, sizeof(raw_pdu));
-			}
+			else /* AUTH_TYPE_FAILURE or NO_VALIDATOR */
+				isis_notif_authentication_type_failure(circuit, raw_pdu,
+								       sizeof(raw_pdu));
 #endif /* ifndef FABRICD */
 			goto out;
 		}
