@@ -2392,6 +2392,100 @@ static const char *pdu_counter_index_to_name_json(enum pdu_counter_index index)
 	return "DEV ESCAPE";
 }
 
+static struct isis_passwd *isis_area_level_passwd(struct isis_area *area, int level)
+{
+	return (level == IS_LEVEL_1) ? &area->area_passwd : &area->domain_passwd;
+}
+
+static const char *isis_passwd_snp2string(uint8_t snp_auth)
+{
+	if (CHECK_FLAG(snp_auth, SNP_AUTH_RECV))
+		return "validate";
+	if (CHECK_FLAG(snp_auth, SNP_AUTH_SEND))
+		return "send-only";
+	return "none";
+}
+
+/*
+ * The authentication of the PDUs passwd signs, without the password: for a
+ * key chain, the key signing them now. with_snp for an area's passwords.
+ */
+void isis_passwd_print_vty(struct vty *vty, const char *indent, const struct isis_passwd *passwd,
+			   bool with_snp, uint64_t failures, uint64_t type_failures)
+{
+	const char *keychain_name = (const char *)passwd->passwd;
+	const struct key *key;
+
+	vty_out(vty, "%sAuthentication: ", indent);
+	switch (passwd->type) {
+	case ISIS_PASSWD_TYPE_UNUSED:
+		vty_out(vty, "none");
+		break;
+	case ISIS_PASSWD_TYPE_CLEARTXT:
+		vty_out(vty, "clear text");
+		break;
+	case ISIS_PASSWD_TYPE_HMAC_MD5:
+		vty_out(vty, "HMAC-MD5");
+		break;
+	case ISIS_PASSWD_TYPE_CRYPTO_AUTH:
+		vty_out(vty, "key chain %s%s", keychain_name,
+			passwd->strict_rfc5310 ? " (strict RFC 5310)" : "");
+		key = isis_keychain_send_key(keychain_name);
+		if (key)
+			vty_out(vty, ", sending with Key ID %u (%s)", key->index,
+				keychain_get_algo_name_by_id(key->hash_algo));
+		else if (keychain_lookup(keychain_name))
+			vty_out(vty, ", no key valid for sending");
+		else
+			vty_out(vty, ", which does not exist");
+		break;
+	}
+	if (with_snp && passwd->type != ISIS_PASSWD_TYPE_UNUSED)
+		vty_out(vty, ", SNP authentication: %s", isis_passwd_snp2string(passwd->snp_auth));
+	vty_out(vty, "\n");
+	if (passwd->type != ISIS_PASSWD_TYPE_UNUSED || failures || type_failures)
+		vty_out(vty, "%s  Failures: %" PRIu64 ", type failures: %" PRIu64 "\n", indent,
+			failures, type_failures);
+}
+
+void isis_passwd_print_json(struct json_object *json, const struct isis_passwd *passwd,
+			    bool with_snp, uint64_t failures, uint64_t type_failures)
+{
+	const char *keychain_name = (const char *)passwd->passwd;
+	struct json_object *auth_json = json_object_new_object();
+	const struct key *key;
+
+	json_object_object_add(json, "authentication", auth_json);
+	switch (passwd->type) {
+	case ISIS_PASSWD_TYPE_UNUSED:
+		json_object_string_add(auth_json, "type", "none");
+		break;
+	case ISIS_PASSWD_TYPE_CLEARTXT:
+		json_object_string_add(auth_json, "type", "clear-text");
+		break;
+	case ISIS_PASSWD_TYPE_HMAC_MD5:
+		json_object_string_add(auth_json, "type", "hmac-md5");
+		break;
+	case ISIS_PASSWD_TYPE_CRYPTO_AUTH:
+		json_object_string_add(auth_json, "type", "key-chain");
+		json_object_string_add(auth_json, "key-chain", keychain_name);
+		json_object_boolean_add(auth_json, "key-chain-exists",
+					keychain_lookup(keychain_name) != NULL);
+		json_object_boolean_add(auth_json, "strict-rfc5310", passwd->strict_rfc5310);
+		key = isis_keychain_send_key(keychain_name);
+		if (key) {
+			json_object_int_add(auth_json, "send-key-id", key->index);
+			json_object_string_add(auth_json, "send-algorithm",
+					       keychain_get_algo_name_by_id(key->hash_algo));
+		}
+		break;
+	}
+	if (with_snp && passwd->type != ISIS_PASSWD_TYPE_UNUSED)
+		json_object_string_add(auth_json, "snp", isis_passwd_snp2string(passwd->snp_auth));
+	json_object_int_add(auth_json, "failures", failures);
+	json_object_int_add(auth_json, "type-failures", type_failures);
+}
+
 static void common_isis_summary_json(struct json_object *json,
 				     struct isis *isis)
 {
@@ -2471,6 +2565,9 @@ static void common_isis_summary_json(struct json_object *json,
 					    area->lsp_gen_count[level - 1]);
 			json_object_int_add(level_json, "lsp-purged",
 					    area->lsp_purge_count[level - 1]);
+			isis_passwd_print_json(level_json, isis_area_level_passwd(area, level),
+					       true, area->auth_failures[level - 1],
+					       area->auth_type_failures[level - 1]);
 			if (event_is_scheduled(area->spf_timer[level - 1]))
 				json_object_string_add(level_json, "spf",
 						       "pending");
@@ -2558,6 +2655,10 @@ static void common_isis_summary_vty(struct vty *vty, struct isis *isis)
 
 			vty_out(vty, "         LSPs purged: %" PRIu64 "\n",
 				area->lsp_purge_count[level - 1]);
+
+			isis_passwd_print_vty(vty, "    ", isis_area_level_passwd(area, level),
+					      true, area->auth_failures[level - 1],
+					      area->auth_type_failures[level - 1]);
 
 			if (event_is_scheduled(area->spf_timer[level - 1]))
 				vty_out(vty, "    SPF: (pending)\n");
@@ -3072,11 +3173,6 @@ void isis_area_lsp_mtu_set(struct isis_area *area, unsigned int lsp_mtu)
  * are regenerated, to be signed with the key valid then.
  */
 static void isis_area_auth_rollover(struct event *thread);
-
-static struct isis_passwd *isis_area_level_passwd(struct isis_area *area, int level)
-{
-	return (level == IS_LEVEL_1) ? &area->area_passwd : &area->domain_passwd;
-}
 
 static void isis_area_auth_rollover_schedule(struct isis_area *area)
 {

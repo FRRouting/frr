@@ -209,6 +209,53 @@ def _check_same_seqno(lsp_id, level, router, owner):
     return None
 
 
+def _interface(router, ifname):
+    """What show isis interface detail json gives ifname"""
+    output = json.loads(router.vtysh_cmd("show isis interface detail json"))
+    for area in output["areas"]:
+        for circuit in area["circuits"]:
+            interface = circuit.get("interface", {})
+            if interface.get("name") == ifname:
+                return interface
+    return None
+
+
+def _interface_auth(router, ifname):
+    return _interface(router, ifname).get("authentication")
+
+
+def _level_auth(router, level):
+    """The authentication show isis summary json gives a level"""
+    output = json.loads(router.vtysh_cmd("show isis summary json"))
+    for lvl in output["vrfs"][0]["areas"][0]["levels"]:
+        if lvl["id"] == level:
+            return lvl["authentication"]
+    return None
+
+
+def _check_send_key(auth, key_chain, key_id):
+    """auth signs with key_id of key_chain, or with no key if key_id is None"""
+    expected = {"type": "key-chain", "key-chain": key_chain, "key-chain-exists": True}
+    if key_id is not None:
+        expected.update({"send-key-id": key_id, "send-algorithm": "hmac-sha-256"})
+    actual = {key: auth.get(key) for key in expected}
+    if actual != expected or (key_id is None and "send-key-id" in auth):
+        return "authentication {}, expected {}".format(auth, expected)
+    return None
+
+
+def _check_neighbor_key_ids(router, key_id):
+    """Every adjacency of router was last authenticated with key_id."""
+    output = router.vtysh_cmd("show isis neighbor detail")
+    adjacencies = output.count("Adjacency flaps:")
+    signed = output.count("Authenticated with Key ID {}\n".format(key_id))
+    if not adjacencies or signed != adjacencies:
+        return "{}: {} of {} adjacencies authenticated with Key ID {}".format(
+            router.name, signed, adjacencies, key_id
+        )
+    return None
+
+
 def _skip_on_failure():
     tgen = get_topogen()
     if tgen.routers_have_failure():
@@ -245,12 +292,42 @@ def test_running_config():
         assert line in config, "{!r} not in the running configuration".format(line)
 
 
+def test_show_authentication():
+    _skip_on_failure()
+    tgen = get_topogen()
+    r1, r2 = tgen.gears["r1"], tgen.gears["r2"]
+
+    step("The interfaces show the key chain and the key signing their hellos")
+    assert _check_send_key(_interface_auth(r1, "r1-eth0"), "hello", 1) is None
+    assert "strict-rfc5310" in _interface_auth(r1, "r1-eth0")
+    assert _interface_auth(r1, "lo") is None, "a passive interface sends no hello"
+    assert (
+        "    Authentication: key chain hello, sending with Key ID 1 (hmac-sha-256)\n"
+        in r1.vtysh_cmd("show isis interface detail")
+    )
+
+    step("The levels show theirs, and how SNPs are authenticated")
+    for level, key_chain in ((1, "area"), (2, "domain")):
+        auth = _level_auth(r2, level)
+        assert _check_send_key(auth, key_chain, 1) is None
+        assert auth["snp"] == "validate", auth
+    assert (
+        "    Authentication: key chain domain, sending with Key ID 1 (hmac-sha-256),"
+        " SNP authentication: validate\n" in r2.vtysh_cmd("show isis summary")
+    )
+
+    step("The neighbors show the Key ID of their last hello")
+    for name in ROUTERS:
+        _wait(_check_neighbor_key_ids, tgen.gears[name], 1)
+
+
 def test_hello_key_mismatch():
     _skip_on_failure()
     tgen = get_topogen()
     r1, r2 = tgen.gears["r1"], tgen.gears["r2"]
 
     step("r1 signs its hellos with another key string: the p2p adjacency goes down")
+    failures = _interface_auth(r2, "r2-eth0")["failures"]
     r1.vtysh_cmd("""
         configure terminal
         key chain hello
@@ -259,6 +336,7 @@ def test_hello_key_mismatch():
         """)
     _wait(_check_adjacency, r2, "r2-eth0", "r1", False)
     _wait(_check_adjacency, r1, "r1-eth0", "r2", False)
+    assert _interface_auth(r2, "r2-eth0")["failures"] > failures
 
     step("The LAN adjacencies of r2 stay up")
     adjacencies = _adjacencies(r2)
@@ -307,10 +385,11 @@ def test_hello_unknown_key_id():
 def test_lsp_key_mismatch():
     _skip_on_failure()
     tgen = get_topogen()
-    r1, r4 = tgen.gears["r1"], tgen.gears["r4"]
+    r1, r2, r4 = tgen.gears["r1"], tgen.gears["r2"], tgen.gears["r4"]
 
     step("r4 signs its level-2 LSPs with another key: r1 keeps the last valid one")
     before = _seqno(r1, "r4.00-00", 2)
+    failures = _level_auth(r2, 2)["failures"]
     r4.vtysh_cmd("""
         configure terminal
         key chain domain
@@ -327,6 +406,7 @@ def test_lsp_key_mismatch():
         )
 
     _wait(check)
+    assert _level_auth(r2, 2)["failures"] > failures
 
     step("r4's level-1 LSPs, signed with the area key chain, still reach r1")
     r4.vtysh_cmd("""
@@ -432,6 +512,11 @@ def test_no_send_key():
         """)
     _wait(_check_adjacency, r2, "r2-eth0", "r1", False)
     assert not _capture("r1-eth0", r2, "r2-eth0", P2P_IIH, 4), "r1 sent an IIH"
+    assert _check_send_key(_interface_auth(r1, "r1-eth0"), "hello", None) is None
+    assert (
+        "    Authentication: key chain hello, no key valid for sending\n"
+        in r1.vtysh_cmd("show isis interface detail")
+    )
 
     step("Valid again, the adjacency comes back")
     r1.vtysh_cmd(f"""
@@ -450,6 +535,7 @@ def test_no_send_key():
           {expired}
         """)
     assert not _capture("r1-eth0", r2, "r2-eth0", L2_CSNP, 12), "r1 sent a CSNP"
+    assert _check_send_key(_level_auth(r1, 2), "domain", None) is None
     r1.vtysh_cmd(f"""
         configure terminal
         key chain domain
@@ -503,6 +589,15 @@ def test_key_rollover_on_schedule():
     for name in ROUTERS:
         for level in (1, 2):
             _wait(_check_lsp_key_ids, tgen.gears[name], level, 2, count=15)
+
+    step("Every router shows it sends with Key ID 2, and gets hellos signed with it")
+    for name in ROUTERS:
+        router = tgen.gears[name]
+        for ifname, _ in EXPECTED_ADJACENCIES[name]:
+            assert _check_send_key(_interface_auth(router, ifname), "hello", 2) is None
+        for level, key_chain in ((1, "area"), (2, "domain")):
+            assert _check_send_key(_level_auth(router, level), key_chain, 2) is None
+        _wait(_check_neighbor_key_ids, router, 2, count=5)
 
     step("No adjacency flapped")
     for name in ROUTERS:

@@ -1067,6 +1067,9 @@ void isis_circuit_print_json(struct isis_circuit *circuit,
 			json_object_array_add(levels_json, level_json);
 		}
 
+		if (!circuit->is_passive)
+			isis_passwd_print_json(iface_json, &circuit->passwd, false,
+					       circuit->auth_failures, circuit->auth_type_failures);
 		if (listcount(circuit->ip_addrs) > 0) {
 			ipv4_addr_json = json_object_new_object();
 			json_object_object_add(iface_json, "ip-prefix",
@@ -1202,6 +1205,9 @@ void isis_circuit_print_vty(struct isis_circuit *circuit, struct vty *vty,
 				vty_out(vty, "\n");
 			}
 		}
+		if (!circuit->is_passive)
+			isis_passwd_print_vty(vty, "    ", &circuit->passwd, false,
+					      circuit->auth_failures, circuit->auth_type_failures);
 		if (listcount(circuit->ip_addrs) > 0) {
 			vty_out(vty, "    IP Prefix(es):\n");
 			for (ALL_LIST_ELEMENTS_RO(circuit->ip_addrs, node,

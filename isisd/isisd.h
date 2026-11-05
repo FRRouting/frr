@@ -374,6 +374,10 @@ void isis_area_lsp_refresh_set(struct isis_area *area, int level,
 			       uint16_t lsp_refresh);
 /* IS_LEVEL_1 sets area_passwd, IS_LEVEL_2 domain_passwd */
 int isis_area_passwd_unset(struct isis_area *area, int level);
+void isis_passwd_print_vty(struct vty *vty, const char *indent, const struct isis_passwd *passwd,
+			   bool with_snp, uint64_t failures, uint64_t type_failures);
+void isis_passwd_print_json(struct json_object *json, const struct isis_passwd *passwd,
+			    bool with_snp, uint64_t failures, uint64_t type_failures);
 int isis_area_passwd_cleartext_set(struct isis_area *area, int level,
 				   const char *passwd, uint8_t snp_auth);
 int isis_area_passwd_hmac_md5_set(struct isis_area *area, int level,

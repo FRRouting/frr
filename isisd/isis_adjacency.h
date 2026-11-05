@@ -90,6 +90,7 @@ struct isis_adjacency {
 	enum isis_threeway_state threeway_state;
 	uint32_t ext_circuit_id;
 	int flaps;		      /* number of adjacency flaps  */
+	int32_t auth_key_id;	      /* Key ID of its last hello, if key chain signed; or -1 */
 	struct event *t_expire;	      /* expire after hold_time  */
 	struct isis_circuit *circuit; /* back pointer */
 	uint16_t *mt_set;      /* Topologies this adjacency is valid for */
