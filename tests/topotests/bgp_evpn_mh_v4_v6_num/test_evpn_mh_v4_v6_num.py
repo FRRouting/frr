@@ -53,6 +53,7 @@ from lib.evpn import (
     evpn_verify_protodown_reason,
     evpn_verify_zebra_es_vtep,
 )
+from lib import evpn as evpn_lib
 
 # Required to instantiate the topology builder class.
 from lib.common_config import (
@@ -1472,6 +1473,528 @@ def test_evpn_uplink_tracking(tgen_and_ip_version):
     _, result = topotest.run_and_expect(test_fn, None, count=20, wait=3)
     assertmsg = '"{}" protodown rc incorrect'.format(dut_name)
     assert result is None, assertmsg
+
+
+#####################################################
+##
+##   Remote MAC moves from a single VTEP to an ES (EVPN MH)
+##
+## A remote MAC is first learnt with no ESI, so zebra programs it in the
+## kernel as "dst <vtep>". The same MAC is then re-advertised with an ESI, and
+## must be programmed as "nhid <ES nexthop group>". The kernel cannot replace
+## a "dst" FDB entry with an "nhid" one, so zebra has to delete the old entry
+## first. That delete used to be skipped when the ES nexthop group was not yet
+## active, leaving the single-VTEP entry in place and every later nhid install
+## failing with:
+##     Cannot replace an existing non nexthop fdb with a nexthop
+##
+## Roles (all names from the topology above):
+##   torm11  observer: the remote MAC and ES are seen here
+##   torm21  the leaf that learns the MAC, first on a plain access port
+##           (no ES), then on hostbond1 (ES of hostd21)
+##   torm22  the other leaf of the ES; syncs the MAC from torm21
+##
+## torm22 is checked around the same move. Before it, the MAC is remote there
+## with dst <torm21>. After the sync it is local on hostbond1 for that ES, and
+## the vxlan "self" entry for the old VTEP is gone. That is the sync-delete
+## path; the observer checks above do not reach it.
+##
+## The move is a bridge fdb replace of the existing entry onto hostbond1.
+## BGP updates the same Type-2 with the ESI, and the observer still has the
+## dst entry when that update arrives.
+##
+## The two conditions needed to trigger the old behaviour are:
+##   (a) the observer holds the MAC as a non-ES remote MAC, and
+##   (b) the ES nexthop group is inactive on the observer when the Type-2
+##       with the ESI arrives. This is forced by an inbound route-map on the
+##       observer that drops EVPN Type-1 (EAD) routes: with no EAD the ES has
+##       no VTEPs, so zebra cannot activate its nexthop group.
+## test_evpn_mac_move_to_es_nhg_inactive covers (a)+(b); the _nhg_active test
+## is the control with only (a).
+##
+## Every stage is logged from BGP, zebra and the kernel; see
+## evpn_mac_snapshot() in lib/evpn.py. Everything the test creates is removed
+## in a finally block and then verified to be gone.
+#####################################################
+
+MOVE_VNI = 1000
+MOVE_MAC = "02:00:5e:53:74:02"  # locally administered, not used by any host
+MOVE_ES_HOST = "hostd21"  # its ES (host_es_map) is the one the MAC moves to
+MOVE_OBSERVER = "torm11"
+MOVE_LEARN_LEAF = "torm21"
+MOVE_PEER_LEAF = "torm22"
+MOVE_ACCESS_PORT = "shport0"  # dummy access port: a MAC behind it has no ESI
+MOVE_ES_PORT = "hostbond1"  # ES bond of hostd21 on both remote leaves
+MOVE_ROUTE_MAP = "MAC_MOVE_HOLD_EAD"
+# ES peers keep a synced MAC for the hold time after the active leaf drops it;
+# the default (1080s) is far longer than the test cleanup may wait.
+MOVE_MAC_HOLDTIME = 10
+# bridge ageing_time is in centiseconds; the topology default is 18s, which
+# would age the injected MAC out mid-test.
+MOVE_AGEING_CS = 100000
+MOVE_KERNEL_ERR = "Cannot replace an existing non nexthop fdb with a nexthop"
+MOVE_DEBUGS = [
+    "debug zebra kernel",
+    "debug zebra evpn mh mac",
+    "debug zebra evpn mh es",
+    "debug zebra vxlan",
+]
+
+
+#
+# Level 1: single actions. Each does one thing and logs it.
+#
+
+
+def move_bridge_ageing_cs(router):
+    """Current br_default ageing_time (centiseconds)."""
+    out = router.run("ip -d link show dev br_default")
+    match = re.search(r"ageing_time (\d+)", out)
+    assert match, "%s: cannot read br_default ageing_time: %s" % (router.name, out)
+    return int(match.group(1))
+
+
+def move_zebra_log_mark(router):
+    """Offset into zebra.log, to read only what the test event caused."""
+    try:
+        return len(router.net.getLog("log", "zebra"))
+    except OSError:
+        return None
+
+
+def move_zebra_log_since(router, mark):
+    """zebra.log text after `mark` ('' when the log file is not readable)."""
+    if mark is None:
+        return ""
+    try:
+        return router.net.getLog("log", "zebra")[mark:]
+    except OSError:
+        return ""
+
+
+def move_hold_ead(router, hold):
+    """
+    Drop (hold=True) or accept (hold=False) EVPN Type-1 routes from every EVPN
+    peer of `router`, and re-run the inbound policy.
+    """
+    summary = router.vtysh_cmd("show bgp l2vpn evpn summary json", isjson=True)
+    summary = summary.get("l2VpnEvpn", summary)
+    asn = summary.get("as")
+    peers = list(summary.get("peers", {}).keys())
+    assert asn and peers, "%s: no EVPN peers: %s" % (router.name, summary)
+
+    cmds = ["configure terminal"]
+    if hold:
+        cmds += [
+            "route-map %s deny 10" % MOVE_ROUTE_MAP,
+            " match evpn route-type ead",
+            "exit",
+            "route-map %s permit 20" % MOVE_ROUTE_MAP,
+            "exit",
+        ]
+    cmds += ["router bgp %s" % asn, " address-family l2vpn evpn"]
+    for peer in peers:
+        cmds.append(
+            "  %sneighbor %s route-map %s in"
+            % ("" if hold else "no ", peer, MOVE_ROUTE_MAP)
+        )
+    cmds += [" exit-address-family", "exit"]
+    if not hold:
+        cmds.append("no route-map %s" % MOVE_ROUTE_MAP)
+    cmds.append("end")
+    router.vtysh_cmd("\n".join(cmds))
+    router.vtysh_cmd("clear bgp l2vpn evpn * soft in")
+    logger.info("%s: Type-1 routes %s", router.name, "held" if hold else "released")
+
+
+def move_add_access_port(leaf):
+    """Add a dummy bridge port in the MAC's VLAN. A MAC behind it has no ES."""
+    for cmd in (
+        "ip link add dev %s type dummy" % MOVE_ACCESS_PORT,
+        "ip link set dev %s master br_default" % MOVE_ACCESS_PORT,
+        "bridge vlan del vid 1 dev %s" % MOVE_ACCESS_PORT,
+        "bridge vlan add vid %d pvid untagged dev %s" % (MOVE_VNI, MOVE_ACCESS_PORT),
+        "ip link set dev %s up" % MOVE_ACCESS_PORT,
+    ):
+        leaf.run(cmd)
+
+
+def replace_mac_on_port(leaf, port):
+    """Replace MOVE_MAC onto `port` as a dynamic bridge entry."""
+    leaf.run(
+        "bridge fdb replace %s dev %s vlan %d master dynamic"
+        % (MOVE_MAC, port, MOVE_VNI)
+    )
+    logger.info("%s: MAC %s replaced onto %s", leaf.name, MOVE_MAC, port)
+
+
+def delete_mac_from_port(leaf, port):
+    """Delete MOVE_MAC from `port`. A missing entry is not an error."""
+    leaf.run(
+        "bridge fdb del %s dev %s vlan %d master 2>/dev/null || true"
+        % (MOVE_MAC, port, MOVE_VNI)
+    )
+
+
+#
+# Level 2: baseline, setup and cleanup of everything the test touches, with the
+# original values kept so the cleanup can be verified against them.
+#
+
+
+def move_baseline(tgen):
+    """
+    Read-only: record the state the cleanup must restore, and check the test
+    starts from a clean network (ES fully known on the observer, MAC nowhere).
+    """
+    obs = tgen.gears[MOVE_OBSERVER]
+    leaves = [tgen.gears[MOVE_LEARN_LEAF], tgen.gears[MOVE_PEER_LEAF]]
+    esi = host_es_map[MOVE_ES_HOST]
+
+    saved = {
+        "esi": esi,
+        "ageing": {l.name: move_bridge_ageing_cs(l) for l in leaves},
+        "holdtime": {
+            l.name: l.vtysh_cmd("show evpn json", isjson=True).get("macHoldtime")
+            for l in leaves
+        },
+        "debugging": obs.vtysh_cmd("show debugging"),
+        "obs_es_vteps": evpn_lib.evpn_zebra_es_state(obs, esi)["vteps"],
+    }
+
+    expected_vteps = sorted(tor_ips[n] for n in (MOVE_LEARN_LEAF, MOVE_PEER_LEAF))
+    assert (
+        saved["obs_es_vteps"] == expected_vteps
+    ), "baseline: ES %s VTEPs on %s are %s, expected %s" % (
+        esi,
+        obs.name,
+        saved["obs_es_vteps"],
+        expected_vteps,
+    )
+    for router in [obs] + leaves:
+        result = evpn_lib.evpn_check_mac_absent(router, MOVE_VNI, MOVE_MAC)
+        assert result is None, "baseline: %s" % result
+    return saved
+
+
+def move_configure(tgen):
+    """Apply the test-only configuration. move_cleanup() reverts all of it."""
+    obs = tgen.gears[MOVE_OBSERVER]
+    for name in (MOVE_LEARN_LEAF, MOVE_PEER_LEAF):
+        leaf = tgen.gears[name]
+        leaf.run(
+            "ip link set dev br_default type bridge ageing_time %d" % MOVE_AGEING_CS
+        )
+        leaf.vtysh_cmd(
+            "configure terminal\nevpn mh mac-holdtime %d" % MOVE_MAC_HOLDTIME
+        )
+    move_add_access_port(tgen.gears[MOVE_LEARN_LEAF])
+    obs.vtysh_cmd("\n".join(["configure terminal"] + MOVE_DEBUGS + ["end"]))
+
+
+def move_cleanup(tgen, saved):
+    """Undo move_setup() and everything the test did. Safe to call twice."""
+    obs = tgen.gears[MOVE_OBSERVER]
+    leaves = [tgen.gears[MOVE_LEARN_LEAF], tgen.gears[MOVE_PEER_LEAF]]
+
+    move_hold_ead(obs, False)
+    for leaf in leaves:
+        # the MAC may sit on the dummy port, the ES bond, or both (synced)
+        delete_mac_from_port(leaf, MOVE_ACCESS_PORT)
+        delete_mac_from_port(leaf, MOVE_ES_PORT)
+    tgen.gears[MOVE_LEARN_LEAF].run(
+        "ip link del dev %s 2>/dev/null || true" % MOVE_ACCESS_PORT
+    )
+    for leaf in leaves:
+        leaf.run(
+            "ip link set dev br_default type bridge ageing_time %d"
+            % saved["ageing"][leaf.name]
+        )
+        leaf.vtysh_cmd(
+            "configure terminal\nno evpn mh mac-holdtime %d" % MOVE_MAC_HOLDTIME
+        )
+    obs.vtysh_cmd(
+        "\n".join(["configure terminal"] + ["no " + d for d in MOVE_DEBUGS] + ["end"])
+    )
+
+
+def check_move_residual(tgen, saved):
+    """
+    None when nothing of the test is left: MAC gone from every router and
+    layer, the dummy port and route-map removed, ageing/hold-time/debug
+    settings back to their original values, and the ES as it was found.
+    """
+    obs = tgen.gears[MOVE_OBSERVER]
+    leaves = [tgen.gears[MOVE_LEARN_LEAF], tgen.gears[MOVE_PEER_LEAF]]
+    esi = saved["esi"]
+
+    for router in [obs] + leaves:
+        result = evpn_lib.evpn_check_mac_absent(router, MOVE_VNI, MOVE_MAC)
+        if result:
+            return result
+    for leaf in leaves:
+        # the access-side bridge FDB (local entries, synced entries)
+        left = leaf.run("bridge fdb show | grep -i -F %s || true" % MOVE_MAC).strip()
+        if left:
+            return "%s: bridge FDB still has %s: %s" % (leaf.name, MOVE_MAC, left)
+        now = move_bridge_ageing_cs(leaf)
+        if now != saved["ageing"][leaf.name]:
+            return "%s: ageing_time %d, expected %d" % (
+                leaf.name,
+                now,
+                saved["ageing"][leaf.name],
+            )
+        holdtime = leaf.vtysh_cmd("show evpn json", isjson=True).get("macHoldtime")
+        if holdtime != saved["holdtime"][leaf.name]:
+            return "%s: mac-holdtime %s, expected %s" % (
+                leaf.name,
+                holdtime,
+                saved["holdtime"][leaf.name],
+            )
+    if "does not exist" not in tgen.gears[MOVE_LEARN_LEAF].run(
+        "ip link show dev %s 2>&1" % MOVE_ACCESS_PORT
+    ):
+        return "%s: %s still exists" % (MOVE_LEARN_LEAF, MOVE_ACCESS_PORT)
+
+    if MOVE_ROUTE_MAP in obs.vtysh_cmd("show running-config"):
+        return "%s: route-map %s still configured" % (obs.name, MOVE_ROUTE_MAP)
+    if obs.vtysh_cmd("show debugging") != saved["debugging"]:
+        return "%s: debug settings differ from before the test" % obs.name
+
+    es = evpn_lib.evpn_zebra_es_state(obs, esi)
+    if es["vteps"] != saved["obs_es_vteps"] or not es["nhg_active"]:
+        return "%s: ES %s not restored (zebra %s)" % (obs.name, esi, es)
+    bgp_vteps = evpn_lib.evpn_bgp_es_vteps(obs, esi)
+    if bgp_vteps != saved["obs_es_vteps"]:
+        return "%s: ES %s BGP VTEPs %s, expected %s" % (
+            obs.name,
+            esi,
+            bgp_vteps,
+            saved["obs_es_vteps"],
+        )
+    return None
+
+
+#
+# Level 3: per-stage expectations, polled until true. Each returns None on
+# success or a message naming the layer that does not match yet.
+#
+
+
+def check_move_peer_local(peer, vni, mac, esi, intf):
+    """
+    None when `peer` holds `mac` as a synced local MAC on `intf` for `esi`.
+
+    The old single-VTEP vxlan "self" entry must be gone. The bridge "master"
+    entry on the ES port is local forwarding state and is not this entry.
+    """
+    entry = evpn_lib.evpn_zebra_mac_entry(peer, vni, mac)
+    if (
+        not entry
+        or entry.get("type") != "local"
+        or entry.get("esi") != esi
+        or entry.get("intf") != intf
+        or not entry.get("peerActive")
+        or not entry.get("localInactive")
+    ):
+        return "%s: zebra MAC %s is not a synced local MAC on %s ES %s: %s" % (
+            peer.name,
+            mac,
+            intf,
+            esi,
+            entry,
+        )
+    fdb = evpn_lib.evpn_kernel_vxlan_fdb_entry(peer, mac, vni)
+    if fdb:
+        return "%s: vxlan FDB still has a remote entry for %s: %s" % (
+            peer.name,
+            mac,
+            fdb,
+        )
+    return None
+
+
+def check_move_es_nhg_inactive(obs, esi):
+    """No VTEP in bgpd or zebra for the ES, so zebra's NHG cannot be active."""
+    bgp_vteps = evpn_lib.evpn_bgp_es_vteps(obs, esi)
+    es = evpn_lib.evpn_zebra_es_state(obs, esi)
+    if bgp_vteps or es["vteps"] or es["nhg_active"]:
+        return "ES %s still active on %s: bgp vteps %s, zebra %s" % (
+            esi,
+            obs.name,
+            bgp_vteps,
+            es,
+        )
+    return None
+
+
+def check_move_es_nhg_active(obs, esi, vteps):
+    """The ES lists all its VTEPs in bgpd and zebra and its NHG is active."""
+    # bgpd's view: reuse check_one_es(), which compares the ES's VTEPs with the
+    # remote rack's TORs (all of them, as none is down).
+    result = check_one_es(obs, esi, [])
+    if result:
+        return "bgp ES %s on %s not complete yet: %s" % (esi, obs.name, result)
+    es = evpn_lib.evpn_zebra_es_state(obs, esi)
+    if es["vteps"] != vteps or not es["nhg_active"]:
+        return "zebra ES %s on %s not active yet: %s, expected VTEPs %s" % (
+            esi,
+            obs.name,
+            es,
+            vteps,
+        )
+    return None
+
+
+#
+# Level 4: the scenario.
+#
+
+
+def run_mac_move_case(tgen, hold_ead):
+    """
+    Move MOVE_MAC from a single-VTEP remote MAC to an ES MAC on the observer.
+
+    hold_ead=True  the ES nexthop group is inactive when the ESI arrives
+    hold_ead=False the ES nexthop group is active throughout (control)
+    """
+    obs = tgen.gears[MOVE_OBSERVER]
+    learn_leaf = tgen.gears[MOVE_LEARN_LEAF]
+    peer = tgen.gears[MOVE_PEER_LEAF]
+    esi = host_es_map[MOVE_ES_HOST]
+    learn_vtep = tor_ips[MOVE_LEARN_LEAF]
+    es_vteps = sorted(tor_ips[n] for n in (MOVE_LEARN_LEAF, MOVE_PEER_LEAF))
+
+    saved = move_baseline(tgen)
+    log_mark = move_zebra_log_mark(obs)
+    try:
+        move_configure(tgen)
+        # ---- stage 1: set the ES NHG state the case needs --------------
+        if hold_ead:
+            move_hold_ead(obs, True)
+            _, result = topotest.run_and_expect(
+                partial(check_move_es_nhg_inactive, obs, esi), None, count=20, wait=3
+            )
+            assert result is None, "stage 1 (hold EAD): %s" % result
+        evpn_lib.evpn_mac_snapshot(obs, MOVE_MAC, MOVE_VNI, esi)
+
+        # ---- stage 2: MAC learnt with no ESI ---------------------------
+        replace_mac_on_port(learn_leaf, MOVE_ACCESS_PORT)
+        test_fn = partial(
+            evpn_lib.evpn_check_remote_mac_vtep, obs, MOVE_VNI, MOVE_MAC, learn_vtep
+        )
+        _, result = topotest.run_and_expect(test_fn, None, count=20, wait=3)
+        evpn_lib.evpn_mac_snapshot(obs, MOVE_MAC, MOVE_VNI, esi)
+        assert result is None, "stage 2 (non-ES MAC): %s" % result
+        # The ES peer must hold the same non-ES MAC before the move. The
+        # sync-delete only runs when that remote VTEP entry exists.
+        test_fn = partial(
+            evpn_lib.evpn_check_remote_mac_vtep, peer, MOVE_VNI, MOVE_MAC, learn_vtep
+        )
+        _, result = topotest.run_and_expect(test_fn, None, count=20, wait=3)
+        evpn_lib.evpn_mac_snapshot(peer, MOVE_MAC, MOVE_VNI, esi)
+        assert result is None, "stage 2 (peer non-ES MAC): %s" % result
+
+        # ---- stage 3: same MAC now behind the ES -----------------------
+        # Replace the bridge entry onto the ES port. The Type-2 is updated
+        # in place (ESI added) while the observer still holds the dst entry.
+        replace_mac_on_port(learn_leaf, MOVE_ES_PORT)
+        # NHG inactive: zebra cannot program the nhid yet, and must not leave
+        # the old "dst" entry behind. NHG active: programmed straight away.
+        test_fn = partial(
+            evpn_lib.evpn_check_remote_mac_es,
+            obs,
+            MOVE_VNI,
+            MOVE_MAC,
+            esi,
+            not hold_ead,
+        )
+        _, result = topotest.run_and_expect(test_fn, None, count=20, wait=3)
+        evpn_lib.evpn_mac_snapshot(obs, MOVE_MAC, MOVE_VNI, esi)
+        assert result is None, "stage 3 (move to ES, NHG %s): %s" % (
+            "inactive" if hold_ead else "active",
+            result,
+        )
+        # Synced onto the peer: local on the ES bond, old dst entry deleted.
+        test_fn = partial(
+            check_move_peer_local, peer, MOVE_VNI, MOVE_MAC, esi, MOVE_ES_PORT
+        )
+        _, result = topotest.run_and_expect(test_fn, None, count=20, wait=3)
+        evpn_lib.evpn_mac_snapshot(peer, MOVE_MAC, MOVE_VNI, esi)
+        assert result is None, "stage 3 (peer local on ES): %s" % result
+
+        # ---- stage 4: ES NHG becomes active ----------------------------
+        if hold_ead:
+            move_hold_ead(obs, False)
+            test_fn = partial(check_move_es_nhg_active, obs, esi, es_vteps)
+            _, result = topotest.run_and_expect(test_fn, None, count=30, wait=3)
+            assert result is None, "stage 4 (release EAD): %s" % result
+            test_fn = partial(
+                evpn_lib.evpn_check_remote_mac_es, obs, MOVE_VNI, MOVE_MAC, esi, True
+            )
+            _, result = topotest.run_and_expect(test_fn, None, count=20, wait=3)
+            evpn_lib.evpn_mac_snapshot(obs, MOVE_MAC, MOVE_VNI, esi)
+            assert result is None, "stage 4 (NHG active): %s" % result
+
+        # ---- the kernel must not have rejected anything ----------------
+        zebra_log = move_zebra_log_since(obs, log_mark)
+        rejected = [l for l in zebra_log.splitlines() if MOVE_KERNEL_ERR in l]
+        assert not rejected, "kernel rejected the nhid install %d time(s):\n%s" % (
+            len(rejected),
+            "\n".join(rejected[:5]),
+        )
+    finally:
+        # Debug aid: the MAC's lines from zebra.log, whether or not we passed.
+        for line in move_zebra_log_since(obs, log_mark).splitlines():
+            if (
+                MOVE_MAC in line
+                or MOVE_KERNEL_ERR in line
+                or "uninstall skipped" in line
+            ):
+                logger.debug("%s zebra: %s", obs.name, line)
+        move_cleanup(tgen, saved)
+
+    # Cleanup must have left nothing behind (checked after the finally so a
+    # test failure is reported first and a cleanup failure is not masked).
+    _, result = topotest.run_and_expect(
+        partial(check_move_residual, tgen, saved), None, count=40, wait=3
+    )
+    assert result is None, "cleanup left state behind: %s" % result
+
+
+def test_evpn_mac_move_to_es_nhg_inactive(tgen_and_ip_version):
+    """
+    A remote MAC changes from a single VTEP to an ES while the ES nexthop
+    group is inactive on the observer (torm11, Type-1 routes dropped).
+
+    1. MAC learnt without ESI: zebra and the kernel show dst <torm21>, no nhid.
+    2. MAC re-advertised with the ESI: zebra shows the ES, BGP carries the ESI
+       and the kernel must have no FDB entry (the old dst entry is deleted).
+    3. Type-1 routes released: the ES gets both VTEPs and an active NHG, and
+       the kernel entry becomes nhid <ES group> with no dst and no
+       "Cannot replace an existing non nexthop fdb" error.
+    4. Cleanup: nothing of the test is left in any layer.
+    """
+    tgen, _ = tgen_and_ip_version
+
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    run_mac_move_case(tgen, hold_ead=True)
+
+
+def test_evpn_mac_move_to_es_nhg_active(tgen_and_ip_version):
+    """
+    Control for test_evpn_mac_move_to_es_nhg_inactive: the same move with the
+    ES nexthop group active the whole time. The kernel entry must go straight
+    from dst <torm21> to nhid <ES group>.
+    """
+    tgen, _ = tgen_and_ip_version
+
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    run_mac_move_case(tgen, hold_ead=False)
 
 
 if __name__ == "__main__":
