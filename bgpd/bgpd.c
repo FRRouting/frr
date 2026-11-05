@@ -10195,6 +10195,11 @@ bool bgp_clearing_batch_check_peer(struct bgp_clearing_info *cinfo,
 	return (p != NULL);
 }
 
+bool bgp_clearing_batch_is_empty(const struct bgp_clearing_info *cinfo)
+{
+	return bgp_clearing_hash_count(&cinfo->peers) == 0;
+}
+
 /*
  * Done with a peer clearing batch; deal with refcounts, free memory
  */
@@ -10218,31 +10223,100 @@ void bgp_clearing_batch_completed(struct bgp_clearing_info *cinfo)
 	bgp_clearing_batch_free(cinfo->bgp, &cinfo);
 }
 
-/* If a clearing batch is available for 'peer', add it and return 'true',
- * else return 'false'.
+/* Remove 'peer' from its clearing batch without calling peer_unlock().
+ * On success, the caller will use the batch's existing peer_lock()
+ * reference in another batch without calling peer_lock() again, or release
+ * that reference with peer_unlock() if no new batch is available.
+ * Return true if the peer was removed.
  */
-bool bgp_clearing_batch_add_peer(struct bgp *bgp, struct peer *peer)
+static bool bgp_clearing_batch_drop_peer(struct bgp *bgp, struct peer *peer)
 {
 	struct bgp_clearing_info *cinfo;
 
-	cinfo = bgp_clearing_info_first(&bgp->clearing_list);
+	frr_each (bgp_clearing_info, &bgp->clearing_list, cinfo) {
+		if (!bgp_clearing_batch_check_peer(cinfo, peer))
+			continue;
 
-	if (cinfo && CHECK_FLAG(cinfo->flags, BGP_CLEARING_INFO_FLAG_OPEN)) {
-		if (!CHECK_FLAG(peer->flags, PEER_FLAG_CLEARING_BATCH)) {
-			/* Add a peer ref */
-			peer_lock(peer);
+		bgp_clearing_hash_del(&cinfo->peers, peer);
 
-			bgp_clearing_hash_add(&cinfo->peers, peer);
-			SET_FLAG(peer->flags, PEER_FLAG_CLEARING_BATCH);
-
-			if (bgp_debug_neighbor_events(peer))
-				zlog_debug("%s: peer %pBP batched in %#x", __func__,
-					   peer, cinfo->id);
-		}
+		if (bgp_debug_neighbor_events(peer))
+			zlog_debug("%s: peer %pBP taken out of batch %#x", __func__, peer,
+				   cinfo->id);
 		return true;
 	}
 
 	return false;
+}
+
+/* A peer's clearing flag may belong to an older batch already walking the
+ * RIB. For example, a GR peer going down has its paths marked STALE. If GR
+ * is then disabled, peer_nsf_stop() cancels the timers and requests another
+ * clear, but the old walk does not revisit paths it already marked STALE.
+ * Move the peer to an open batch so a fresh walk uses its current state.
+ * Create and schedule a batch if needed, keeping completion owned by a
+ * batch even when the peer has no routes.
+ */
+bool bgp_clearing_batch_add_peer(struct bgp *bgp, struct peer *peer)
+{
+	struct bgp_clearing_info *cinfo;
+	bool has_old_batch_ref = false;
+
+	cinfo = bgp_clearing_info_first(&bgp->clearing_list);
+	/* A closed head batch has already started its RIB walk and cannot
+	 * accept peers. Treat it as no open batch being available.
+	 */
+	if (cinfo && !CHECK_FLAG(cinfo->flags, BGP_CLEARING_INFO_FLAG_OPEN))
+		cinfo = NULL;
+
+	if (CHECK_FLAG(peer->flags, PEER_FLAG_CLEARING_BATCH)) {
+		/* If the flag is set and the peer belongs to the current open
+		 * batch, its RIB walk has not started, so no new walk is needed.
+		 */
+		if (cinfo && bgp_clearing_batch_check_peer(cinfo, peer))
+			return true;
+
+		has_old_batch_ref = bgp_clearing_batch_drop_peer(bgp, peer);
+		assertf(has_old_batch_ref,
+			"peer %pBP has PEER_FLAG_CLEARING_BATCH set but no clearing batch", peer);
+	}
+
+	/* The peer was not part of an in-flight batch and the new batch is
+	 * not open. Do not create a new batch in this case.
+	 */
+	if (!cinfo && !has_old_batch_ref)
+		return false;
+
+	/* The peer was removed from an in-flight batch, but no open batch
+	 * exists. Start a new batch so a fresh walk owns its completion.
+	 */
+	if (!cinfo) {
+		/* During termination, release the old batch's peer_lock() and
+		 * clear the flag so the caller uses the per-AFI/SAFI fallback.
+		 */
+		if (bm->terminating) {
+			UNSET_FLAG(peer->flags, PEER_FLAG_CLEARING_BATCH);
+			peer_unlock(peer);
+			return false;
+		}
+
+		bgp_clearing_batch_begin(bgp);
+		cinfo = bgp_clearing_info_first(&bgp->clearing_list);
+
+		/* Schedule once; later requests must not postpone the walk. */
+		bgp_clearing_batch_end_event_start(bgp);
+	}
+
+	/* Reuse the old batch's peer_lock() reference, or take a new one. */
+	if (!has_old_batch_ref)
+		peer_lock(peer);
+
+	bgp_clearing_hash_add(&cinfo->peers, peer);
+	SET_FLAG(peer->flags, PEER_FLAG_CLEARING_BATCH);
+
+	if (bgp_debug_neighbor_events(peer))
+		zlog_debug("%s: peer %pBP batched in %#x", __func__, peer, cinfo->id);
+
+	return true;
 }
 
 /*
