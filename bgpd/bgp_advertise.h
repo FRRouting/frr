@@ -25,9 +25,6 @@ struct bgp_advertise {
 	/* FIFO for this item in the bgp_advertise_attr fifo */
 	struct bgp_advertise_attr_fifo_item item;
 
-	/* Prefix information.  */
-	struct bgp_dest *dest;
-
 	/* Reference pointer.  */
 	struct bgp_adj_out *adj;
 
