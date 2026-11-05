@@ -4356,20 +4356,21 @@ ssize_t netlink_macfdb_update_ctx(struct zebra_dplane_ctx *ctx, void *data,
 		else
 			vid_buf[0] = '\0';
 
-		zlog_debug(
-			"Tx %s family %s IF %s(%u)%s %sMAC %pEA dst %pIA nhg %u%s%s%s%s%s%s",
-			nl_msg_type_to_str(cmd), nl_family_to_str(AF_BRIDGE),
-			dplane_ctx_get_ifname(ctx), dplane_ctx_get_ifindex(ctx),
-			vid_buf, dplane_ctx_mac_is_sticky(ctx) ? "sticky " : "",
-			mac, &vtep_ip, nhg_id,
-			(update_flags & DPLANE_MAC_REMOTE) ? " rem" : "",
-			(update_flags & DPLANE_MAC_WAS_STATIC) ? " clr_sync"
-							       : "",
-			(update_flags & DPLANE_MAC_SET_STATIC) ? " static" : "",
-			(update_flags & DPLANE_MAC_SET_INACTIVE) ? " inactive"
-								 : "",
-			(update_flags & DPLANE_MAC_SELF_ONLY) ? " self_only" : "",
-			nfy ? " nfy" : "");
+		zlog_debug("Tx %s family %s IF %s(%u)%s %sMAC %pEA dst %pIA nhg %u%s%s%s%s%s%s seq %d",
+			   nl_msg_type_to_str(cmd), nl_family_to_str(AF_BRIDGE),
+			   dplane_ctx_get_ifname(ctx), dplane_ctx_get_ifindex(ctx), vid_buf,
+			   dplane_ctx_mac_is_sticky(ctx) ? "sticky " : "", mac, &vtep_ip, nhg_id,
+			   (update_flags & DPLANE_MAC_REMOTE) ? " rem" : "",
+			   (update_flags & DPLANE_MAC_WAS_STATIC) ? " clr_sync" : "",
+			   (update_flags & DPLANE_MAC_SET_STATIC) ? " static" : "",
+			   (update_flags & DPLANE_MAC_SET_INACTIVE) ? " inactive" : "",
+			   (update_flags & DPLANE_MAC_SELF_ONLY) ? " self_only" : "",
+			   nfy ? " nfy" : "",
+			   /* netlink_batch_add_msg() stamps this seq on the
+			 * message, so a kernel error for it can be matched
+			 * to this line (the kernel text carries no MAC).
+			 */
+			   dplane_ctx_get_ns(ctx)->seq);
 	}
 
 	total = netlink_neigh_update_msg_encode(
