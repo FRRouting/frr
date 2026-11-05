@@ -2065,6 +2065,7 @@ int zebra_evpn_mac_remote_macip_add(struct zebra_evpn *zevpn, struct zebra_vrf *
 	bool old_static = false;
 	struct zebra_mac *mac;
 	bool old_es_present;
+	bool old_remote_vtep;
 	bool new_es_present;
 
 	sticky = !!CHECK_FLAG(flags, ZEBRA_MACIP_TYPE_STICKY);
@@ -2116,15 +2117,36 @@ int zebra_evpn_mac_remote_macip_add(struct zebra_evpn *zevpn, struct zebra_vrf *
 				return -1;
 
 			old_es_present = !!mac->es;
+			/* A remote MAC always has fwd_info.r_vtep_ip; check it
+			 * anyway, as the delete is scoped by that dst.
+			 */
+			old_remote_vtep = CHECK_FLAG(mac->flags, ZEBRA_MAC_REMOTE) &&
+					  !IS_IPADDR_NONE(&mac->fwd_info.r_vtep_ip);
 			zebra_evpn_es_mac_ref(mac, esi);
 			new_es_present = !!mac->es;
 			/* XXX - dataplane is currently not able to handle a MAC
 			 * replace if the destination changes from L2-NHG to
 			 * single VTEP and vice-versa. So delete the old entry
 			 * and re-install
+			 *
+			 * The uninstall must act on what is in the kernel, i.e.
+			 * the old state. zebra_evpn_rem_mac_uninstall() skips
+			 * (unless forced) a MAC whose ES NHG is inactive,
+			 * but mac->es is already the new ES here. For a remote
+			 * MAC that moves from a single VTEP to an ES, the old
+			 * single-VTEP entry was installed regardless of the
+			 * new ES's NHG, so force the delete. Otherwise the
+			 * entry survives and the replace with an nhid, when
+			 * the NHG becomes active, is rejected by the kernel
+			 * ("Cannot replace an existing non nexthop fdb with
+			 * a nexthop"). A local MAC has no vxlan entry to
+			 * delete, so it keeps the unforced behavior.
 			 */
-			if (old_es_present != new_es_present)
-				zebra_evpn_rem_mac_uninstall(zevpn, mac, false);
+			if (old_es_present != new_es_present) {
+				bool force_uninstall = !old_es_present && old_remote_vtep;
+
+				zebra_evpn_rem_mac_uninstall(zevpn, mac, force_uninstall);
+			}
 		}
 
 		/* Check MAC's current state is local (this is the case
