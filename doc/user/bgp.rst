@@ -4101,6 +4101,42 @@ is accomplished via the following command in the context of a VRF:
    or explicit SID assignment will not complete, which will block corresponding
    route export.
 
+SRv6 locator selection with a route-map
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+.. clicmd:: set segment-routing srv6 locator WORD
+
+   This route-map command applies to the ``route-map vpn export`` route-map of
+   a VRF. The SRv6 SID of the matching prefixes is taken from the ``WORD``
+   locator, instead of the locator configured with the ``segment-routing srv6``
+   node. For each VRF, address-family and locator, bgpd requests a single SID
+   to Zebra, in automatic mode, with the End.DT4 or End.DT6 behavior. This SID
+   is shared by all the prefixes of the VRF that use this locator, and is
+   released when no prefix uses it anymore.
+
+   The locator must be configured in Zebra. As long as it is not, or if the
+   SID could not be allocated, the matching prefixes are not exported with
+   SRv6. The prefixes are exported only if ``export vpn`` and
+   ``rd vpn export`` are configured on the VRF, but the ``sid vpn export``
+   command is not needed. If the locator is the one of the VRF and
+   ``sid vpn export auto`` is configured, the SID of the VRF is used.
+
+.. code-block:: frr
+
+   route-map rmap_locator permit 1
+    match ip address prefix-list plist_192x
+    set segment-routing srv6 locator NAME
+   !
+   router bgp 65001 vrf Vrf20
+    address-family ipv4 unicast
+     sid vpn export auto
+     redistribute connected
+     rd vpn export 65001:20
+     rt vpn both 65001:20
+     export vpn
+     import vpn
+     route-map vpn export rmap_locator
+
 Filtering SRv6/MPLS per neighbor
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
@@ -6129,6 +6165,42 @@ Segment-Routing IPv6
    - name: vrf20
      vpn_policy[AFI_IP].tovpn_sid: none
      vpn_policy[AFI_IP6].tovpn_sid: 2001:db8:1:1::200
+
+.. clicmd:: show bgp segment-routing srv6 locators
+
+   This command displays the SRv6 locators that zebra has notified to bgpd,
+   with their prefix. A locator does not need to be configured in a BGP
+   instance to be listed: these are the locators that a route-map can select.
+
+::
+
+   router# show bgp segment-routing srv6 locators
+   loc1                 2001:db8:1:1::/64
+   loc2                 2001:db8:2:2::/64
+
+.. clicmd:: show bgp [vrf VRFNAME] locator-routemap [detail] [json]
+
+   This command displays, for each address-family, the SRv6 locators selected
+   by the ``set segment-routing srv6 locator`` route-map command in the BGP
+   instance: the locator name, the number of paths that use it, the time of
+   the last update, and, once allocated, the SID and its transposed label. The
+   ``detail`` option also lists these paths.
+
+::
+
+   r1# show bgp vrf Vrf20 locator-routemap detail
+   Current BGP SRv6 locator per route-map for IPv4, VRF Vrf20
+    NAME, #paths 1
+     Last update: Fri Oct 16 16:07:13 2026
+     SID 2001:db09:1:2:1::, label 16
+     Paths:
+       1/1 192.168.1.0/24 VRF Vrf20 flags 0x18
+    NAME2, #paths 1
+     Last update: Fri Oct 16 16:07:13 2026
+     SID 2001:db0a:1:3:1::, label 16
+     Paths:
+       1/1 10.0.0.0/24 VRF Vrf20 flags 0x18
+   Current BGP SRv6 locator per route-map for IPv6, VRF Vrf20
 
 .. clicmd:: show bgp ipv6 vpn detail
 

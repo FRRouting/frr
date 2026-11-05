@@ -76,6 +76,7 @@ from lib.topolog import logger
 from lib.common_config import (
     required_linux_kernel_version,
     create_interface_in_kernel,
+    retry,
 )
 from lib.checkping import check_ping
 
@@ -615,6 +616,34 @@ def test_srv6_locator_step4():
             "show segment-routing srv6 locator json",
             "step4/show_srv6_locator_table.ref",
         )
+
+
+def test_srv6_sids_released_step4():
+    logger.info("Test (step 4): verify that isisd released its SRv6 SIDs")
+    tgen = get_topogen()
+
+    # Skip if previous fatal error condition is raised
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    rt1 = tgen.gears["rt1"]
+
+    @retry(retry_timeout=30)
+    def check_no_isis_sid():
+        output = json.loads(rt1.vtysh_cmd("show segment-routing srv6 sid json"))
+        sids = [
+            sid
+            for sid, sid_info in output.items()
+            if "isis" in [c.get("protocol") for c in sid_info.get("clients", [])]
+        ]
+        if sids:
+            return f"SIDs still allocated by isis: {sids}"
+        return True
+
+    result = check_no_isis_sid()
+    output = rt1.vtysh_cmd("show segment-routing srv6 sid")
+    logger.info(output)
+    assert result is True, result
 
 
 def test_ping_step4():

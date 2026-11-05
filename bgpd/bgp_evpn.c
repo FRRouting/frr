@@ -7902,6 +7902,7 @@ void bgp_evpn_export_type5_route(struct bgp *bgp, struct bgp_dest *dest, struct 
 	RESET_FLAG(tmp_attr.rmap_change_flags);
 
 	ret = route_map_apply(bgp->adv_cmd_rmap[afi][safi].map, prefix, &tmp_pi);
+	cleanup_after_rmap_apply(&tmp_pi);
 	if (ret == RMAP_DENYMATCH) {
 		bgp_attr_flush(&tmp_attr);
 		return;
