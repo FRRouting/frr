@@ -53,6 +53,19 @@
 #define MAX_LSP_LIFETIME              65535
 #define DEFAULT_LSP_LIFETIME          1200
 
+/*
+ * Cap on the number of purge placeholders retained for unknown own LSP
+ * IDs (ISO 10589 7.3.15.1 c)) per area and level.  The L1 and L2 LSDBs
+ * are independent, so the quota is per level.  Per level a router can
+ * legitimately own at most 256 non-pseudonode LSPs (fragment byte 0-255;
+ * lsp_build() drops excess with "Too much information for 256
+ * fragments") plus at most 255 pseudonode LSPs (circuit IDs 1-255;
+ * FRR originates pseudonode LSPs with fragment byte 0 only), i.e. 511
+ * LSP IDs, so 512 covers every legitimate purge while bounding memory
+ * and flooding under an injection attack.
+ */
+#define ISIS_OWN_PURGE_PLACEHOLDER_MAX 512
+
 #define MIN_MAX_LSP_GEN_INTERVAL      1
 #define MAX_MAX_LSP_GEN_INTERVAL      65235
 #define DEFAULT_MAX_LSP_GEN_INTERVAL  900
