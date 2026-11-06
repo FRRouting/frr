@@ -89,6 +89,58 @@ def test_srv6_static_sids():
     check_srv6_static_sids(router, "expected_srv6_sids.json")
 
 
+def test_srv6_static_sids_locator_prefix_replay():
+    """
+    Enter the same prefix again in the locator and verify that the SIDs
+    allocated from it are not reinstalled (the locator must not flap)
+    """
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+    router = tgen.gears["r1"]
+
+    # staticd has not removed any route yet: a locator flap would make it
+    # remove all its SID routes, and install them again.
+    expected = open_json_file(
+        "{}/{}".format(CWD, "expected_srv6_sids_no_route_delete.json")
+    )
+    result = topotest.router_json_cmp(router, "show zebra client json", expected)
+    assert result is None, "staticd already removed routes"
+
+    router.vtysh_cmd(
+        """
+        configure terminal
+         segment-routing
+          srv6
+           locators
+            locator MAIN
+             prefix fcbb:bbbb:1::/48 block-len 32 node-len 16 func-bits 16
+        """
+    )
+
+    # Add a SID and wait for its route: staticd gets its allocation from
+    # zebra after the locator updates of the replay, if any, so their
+    # effects on the routes of the SIDs have been processed once it is
+    # installed.
+    sid_cmd = """
+        configure terminal
+         segment-routing
+          srv6
+           static-sids
+            {}sid fcbb:bbbb:1:fe90::/64 locator MAIN behavior uDT6 vrf Vrf40
+        """
+    router.vtysh_cmd(sid_cmd.format(""))
+    check_srv6_static_sid_route(router, "fcbb:bbbb:1:fe90::/64", True)
+
+    logger.info("Test that the SID routes are not reinstalled")
+    result = topotest.router_json_cmp(router, "show zebra client json", expected)
+    assert result is None, "staticd removed its SID routes"
+
+    router.vtysh_cmd(sid_cmd.format("no "))
+    check_srv6_static_sid_route(router, "fcbb:bbbb:1:fe90::/64", False)
+    check_srv6_static_sids(router, "expected_srv6_sids.json")
+
+
 def test_srv6_static_sids_sid_delete():
     """
     Remove the static SID and verify it gets removed

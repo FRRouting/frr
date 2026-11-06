@@ -1,0 +1,9 @@
+{
+  "static": [
+    {
+      "ipv6Routes": {
+        "delete": 0
+      }
+    }
+  ]
+}
