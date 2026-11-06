@@ -1679,6 +1679,77 @@ def test_pure_l3_svi_vrf_move_flushes_sync():
         )
 
 
+def test_pure_l3_svi_vrf_move_falls_back_to_peer():
+    """
+    A LOCAL host with ES_PEER_ACTIVE must fall back to the peer copy when its
+    SVI leaves the L3VNI's VRF. bgpd does not re-send the peer RT-2, so after
+    the SVI returns the held remote must reinstall without a knob bounce.
+    """
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    leaf2 = tgen.gears["leaf2"]
+    svi = "vlan%d" % HOST_VID
+    ip = HOST_IP["host1"]
+    mac = _host_bond_mac(tgen.gears["host1"])
+    _ping(tgen.gears["host1"], ANYCAST_GW)
+
+    def _zebra_neigh():
+        out = leaf2.vtysh_cmd("show evpn arp-cache vni %d ip %s json" % (L3VNI, ip))
+        try:
+            return json.loads(out)
+        except Exception:  # pragma: no cover - defensive
+            return {}
+
+    def _expect(fn, msg):
+        _, result = topotest.run_and_expect(
+            lambda: None if fn() else msg, None, count=WAIT_COUNT, wait=WAIT_STEP
+        )
+        assert result is None, result
+
+    _expect(
+        lambda: _host1_synced(leaf2) or _host1_local(leaf2), "host1 missing on leaf2"
+    )
+    leaf2.run("ip neigh replace %s lladdr %s dev %s nud reachable" % (ip, mac, svi))
+    _expect(
+        lambda: _host1_local(leaf2) and _pure_l3_rt2_path(leaf2, 65012) is not None,
+        "leaf2 did not take host1 as local before the VRF move",
+    )
+    _expect(
+        lambda: _pure_l3_rt2_path(tgen.gears["leaf1"], 65011) is not None,
+        "leaf1 is not advertising host1 (no peer copy to fall back to)",
+    )
+
+    leaf2.run("ip link add vrf2 type vrf table 1002")
+    leaf2.run("ip link set dev vrf2 up")
+    try:
+        leaf2.run("ip link set dev %s master vrf2" % svi)
+        _assert_settled(
+            lambda: _host1_local(leaf2) or _zebra_neigh().get("type") == "local",
+            lambda: "leaf2 still holds a LOCAL host1 after VRF move: %s"
+            % _zebra_neigh(),
+        )
+        leaf2.run("ip link set dev %s master %s" % (svi, VRF))
+        _expect(
+            lambda: _host1_synced(leaf2) and _mac_static_pinned(leaf2, mac, HOST_VID),
+            "host1 not restored from the peer copy once %s is back in %s: %s"
+            % (svi, VRF, leaf2.run("ip neigh show dev %s" % svi)),
+        )
+    finally:
+        leaf2.run("ip link set dev %s master %s" % (svi, VRF))
+        leaf2.run("ip link del vrf2")
+        if not _host1_synced(leaf2) and not _host1_local(leaf2):
+            _l3mh_knob(leaf2, 65012, False)
+            _l3mh_knob(leaf2, 65012, True)
+
+    _ping(tgen.gears["host1"], ANYCAST_GW)
+    _expect(
+        lambda: _host1_synced(leaf2) or _host1_local(leaf2),
+        "host1 missing on leaf2 after VRF-move peer-fallback cleanup",
+    )
+
+
 @pytest.mark.parametrize("late", ["svi", "bd_then_svi", "svi_then_bd"])
 def test_pure_l3_sync_waits_for_svi(late):
     """
