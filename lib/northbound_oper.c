@@ -601,26 +601,6 @@ static enum nb_error nb_op_ys_init_node_infos(struct nb_op_yield_state *ys)
 	darr_free(ys->xpath);
 	ys->xpath = xpath;
 
-	/* Move up to the container if on a leaf currently. */
-	if (!CHECK_FLAG(node->schema->nodetype, LYS_CONTAINER | LYS_LIST)) {
-		struct lyd_node *leaf = node;
-
-		node = lyd_parent(node);
-
-		/* Have to trim the leaf from the xpath now */
-		ret = yang_xpath_pop_node(xpath);
-		if (ret != NB_OK) {
-			darr_free(xpath);
-			goto error;
-		}
-
-		/*
-		 * If the leaf is not a key, delete it, because it has a wrong
-		 *  empty value.
-		 */
-		if (!lysc_is_key(leaf->schema))
-			lyd_free_tree(leaf);
-	}
 	assert(CHECK_FLAG(node->schema->nodetype, LYS_CONTAINER | LYS_LIST));
 
 	inner = node;
@@ -2149,6 +2129,16 @@ static enum nb_error nb_op_walk_start(struct nb_op_yield_state *ys)
 	if (ret != NB_OK)
 		return ret;
 
+	/*
+	 * If the xpath query is for a leaf or leaf-list, adjust it so
+	 * that its parent is queried instead.
+	 */
+	if (nblast->snode->nodetype & LYD_NODE_TERM) {
+		ret = yang_xpath_pop_node(ys->xpath);
+		if (ret != NB_OK)
+			return ret;
+		darr_strlen_fixup(ys->xpath);
+	}
 
 	/*
 	 * Get the node_info path (stack) corresponding to the uniquely
