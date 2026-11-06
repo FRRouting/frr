@@ -1572,6 +1572,33 @@ def move_zebra_log_since(router, mark):
         return ""
 
 
+def move_fdb_dump(router, esi, mac, log_mark):
+    """
+    Kernel and zebra state for `mac` on `router`, for a failed assertion.
+    The ES nexthop group id is read from zebra now, since it differs per run.
+    """
+    lines = ["bridge fdb entries for %s:" % mac]
+    lines.append(
+        str(router.run("bridge -d fdb show | grep -i -F -- %s || true" % mac)).strip()
+    )
+    es = evpn_lib.evpn_zebra_es_state(router, esi)
+    nhg_id = es.get("nhg_id") or 0
+    lines.append("zebra ES %s: nexthopGroup %s" % (esi, nhg_id))
+    if nhg_id:
+        lines.append("ip nexthop get id %s:" % nhg_id)
+        lines.append(
+            str(router.run("ip nexthop get id %d 2>&1 || true" % nhg_id)).strip()
+        )
+    zebra_lines = [
+        line
+        for line in move_zebra_log_since(router, log_mark).splitlines()
+        if mac.lower() in line.lower() or MOVE_KERNEL_ERR in line or "Extended" in line
+    ]
+    lines.append("zebra log (last 40 matching lines):")
+    lines.extend(zebra_lines[-40:])
+    return "\n".join(lines)
+
+
 def move_hold_ead(router, hold):
     """
     Drop (hold=True) or accept (hold=False) EVPN Type-1 routes from every EVPN
@@ -1965,7 +1992,10 @@ def run_mac_move_case(tgen, hold_ead):
             )
             _, result = topotest.run_and_expect(test_fn, None, count=20, wait=3)
             evpn_lib.evpn_mac_snapshot(obs, MOVE_MAC, MOVE_VNI, esi)
-            assert result is None, "stage 4 (NHG active): %s" % result
+            assert result is None, "stage 4 (NHG active): %s\n%s" % (
+                result,
+                move_fdb_dump(obs, esi, MOVE_MAC, log_mark),
+            )
 
         # ---- the kernel must not have rejected anything ----------------
         zebra_log = move_zebra_log_since(obs, log_mark)
