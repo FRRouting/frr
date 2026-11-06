@@ -152,7 +152,7 @@ static int tc_flower_get_inet_mask(const struct prefix *prefix,
 static ssize_t netlink_qdisc_msg_encode(int cmd, struct zebra_dplane_ctx *ctx,
 					void *data, size_t datalen)
 {
-	struct nlsock *nl;
+	struct nlsock *nl NLSOCK_AUTO = NULL;
 	const char *kind_str = NULL;
 
 	struct rtattr *nest;
@@ -166,7 +166,9 @@ static ssize_t netlink_qdisc_msg_encode(int cmd, struct zebra_dplane_ctx *ctx,
 	if (datalen < sizeof(*req))
 		return 0;
 
-	nl = kernel_netlink_nlsock_lookup(dplane_ctx_get_ns_sock(ctx));
+	nl = kernel_netlink_nlsock_hold(dplane_ctx_get_ns(ctx));
+	if (!nl)
+		return -1;
 
 	memset(req, 0, sizeof(*req));
 
@@ -233,7 +235,7 @@ static ssize_t netlink_tclass_msg_encode(int cmd, struct zebra_dplane_ctx *ctx,
 {
 	enum dplane_op_e op = dplane_ctx_get_op(ctx);
 
-	struct nlsock *nl;
+	struct nlsock *nl NLSOCK_AUTO = NULL;
 	const char *kind_str = NULL;
 
 	struct rtattr *nest;
@@ -247,7 +249,9 @@ static ssize_t netlink_tclass_msg_encode(int cmd, struct zebra_dplane_ctx *ctx,
 	if (datalen < sizeof(*req))
 		return 0;
 
-	nl = kernel_netlink_nlsock_lookup(dplane_ctx_get_ns_sock(ctx));
+	nl = kernel_netlink_nlsock_hold(dplane_ctx_get_ns(ctx));
+	if (!nl)
+		return -1;
 
 	memset(req, 0, sizeof(*req));
 
@@ -495,7 +499,7 @@ static ssize_t netlink_tfilter_msg_encode(int cmd, struct zebra_dplane_ctx *ctx,
 {
 	enum dplane_op_e op = dplane_ctx_get_op(ctx);
 
-	struct nlsock *nl;
+	struct nlsock *nl NLSOCK_AUTO = NULL;
 	const char *kind_str = NULL;
 
 	struct rtattr *nest;
@@ -514,7 +518,9 @@ static ssize_t netlink_tfilter_msg_encode(int cmd, struct zebra_dplane_ctx *ctx,
 	if (datalen < sizeof(*req))
 		return 0;
 
-	nl = kernel_netlink_nlsock_lookup(dplane_ctx_get_ns_sock(ctx));
+	nl = kernel_netlink_nlsock_hold(dplane_ctx_get_ns(ctx));
+	if (!nl)
+		return -1;
 
 	memset(req, 0, sizeof(*req));
 
@@ -809,10 +815,10 @@ int netlink_tfilter_change(struct nlmsghdr *h, ns_id_t ns_id, int startup, void 
 void kernel_read_tc_qdisc(struct zebra_dplane_ctx *ctx)
 {
 	const struct zebra_dplane_info *dp_info = dplane_ctx_get_ns(ctx);
-	struct nlsock *nl;
+	struct nlsock *nl NLSOCK_AUTO = NULL;
 	int ret;
 
-	nl = kernel_netlink_nlsock_lookup(dplane_ctx_get_ns_sock(ctx));
+	nl = kernel_netlink_nlsock_hold(dplane_ctx_get_ns(ctx));
 	if (!nl) {
 		dplane_ctx_set_status(ctx, ZEBRA_DPLANE_REQUEST_FAILURE);
 		zebra_dplane_startup_stage(dplane_ctx_get_ns_id(ctx),

@@ -109,7 +109,23 @@ extern int netlink_config_write_helper(struct vty *vty);
 extern void netlink_set_batch_buffer_size(uint32_t size, uint32_t threshold,
 					  bool set);
 
-extern struct nlsock *kernel_netlink_nlsock_lookup(int sock);
+/*
+ * Find the socket named by this info (fd, ns and generation) and keep its
+ * ns alive until release.
+ */
+extern struct nlsock *kernel_netlink_nlsock_hold(const struct zebra_dplane_info *info);
+extern void kernel_netlink_nlsock_release(struct nlsock *nl);
+
+static inline void kernel_netlink_nlsock_auto_release(struct nlsock **nl)
+{
+	if (nl && *nl)
+		kernel_netlink_nlsock_release(*nl);
+}
+
+#define NLSOCK_AUTO __attribute__((cleanup(kernel_netlink_nlsock_auto_release)))
+
+/* Free any netlink buffers still attached to this ns. */
+extern void kernel_ns_free_bufs(struct zebra_ns *zns);
 
 #ifdef __cplusplus
 }
