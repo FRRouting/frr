@@ -1,0 +1,53 @@
+{
+  "10.254.0.3/32": [
+    {
+      "nexthops": [
+        {
+          "active": true,
+          "directlyConnected": true,
+          "fib": true,
+          "interfaceName": "lo"
+        }
+      ],
+      "prefix": "10.254.0.3/32",
+      "protocol": "connected",
+      "selected": true
+    }
+  ],
+  "10.254.0.2/32": [
+    {
+      "distance": 115,
+      "metric": 20,
+      "nexthops": [
+        {
+          "active": true,
+          "afi": "ipv4",
+          "fib": true,
+          "interfaceName": "r3-eth1",
+          "ip": "10.254.0.2"
+        }
+      ],
+      "prefix": "10.254.0.2/32",
+      "protocol": "isis",
+      "selected": true
+    }
+  ],
+  "10.254.0.1/32": [
+    {
+      "distance": 115,
+      "metric": 20,
+      "nexthops": [
+        {
+          "active": true,
+          "afi": "ipv4",
+          "fib": true,
+          "interfaceName": "r3-eth0",
+          "ip": "10.254.0.1"
+        }
+      ],
+      "prefix": "10.254.0.1/32",
+      "protocol": "isis",
+      "selected": true
+    }
+  ]
+}

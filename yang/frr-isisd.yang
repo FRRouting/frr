@@ -786,6 +786,15 @@ module frr-isisd {
         "Container for the password of this IS interface.";
     }
 
+    leaf unnumbered {
+      type boolean;
+      default "false";
+      description
+        "Use an IPv4 address of a loopback interface in the same area
+         when this interface has no IPv4 address, and install IPv4
+         nexthops outside of the interface subnets as on-link.";
+    }
+
     leaf disable-three-way-handshake {
       type boolean;
       default "false";
@@ -807,6 +816,10 @@ module frr-isisd {
 
     leaf ipv4-over-ipv6-nexthop {
       type boolean;
+      must ". = 'false' or ../unnumbered = 'false'" {
+        error-message
+          "Can't route IPv4 over IPv6 link-local nexthops and enable unnumbered in the same interface.";
+      }
       default "false";
       description
         "Route IPv4 over this interface when it has no usable IPv4 nexthop,
