@@ -842,6 +842,69 @@ def test_srte_route_map_with_sr_policy_reinstall_prefix_sid_check_nextop_step5()
     )
 
 
+#
+# Step 6
+#
+# Checking the color received in a color extended community
+#
+def test_srte_color_extended_community_step6():
+    setup_testcase(
+        "Test (step 6): color received in a color extended community steers the route"
+    )
+
+    tgen = get_topogen()
+    delete_candidate_path("rt1", "6.6.6.6", 100)
+
+    tgen.gears["rt1"].vtysh_cmd(
+        """
+        configure terminal
+         route-map SET_SR_POLICY permit 10
+          no set sr-te color
+        """
+    )
+    logger.info("Without any color, the route should have no color")
+    cmp_json_output_doesnt(
+        "rt1", "show ip route bgp json", "step5/show_ip_route_bgp_inactive_srte.ref"
+    )
+
+    tgen.gears["rt6"].vtysh_cmd(
+        """
+        configure terminal
+         route-map COLOR permit 10
+          set extcommunity color 00:1
+         exit
+         router bgp 1
+          address-family ipv4 unicast
+           neighbor 1.1.1.1 route-map COLOR out
+        """
+    )
+
+    logger.info("Without SR policy, the route should have the received color")
+    cmp_json_output(
+        "rt1", "show ip route bgp json", "step5/show_ip_route_bgp_inactive_srte.ref"
+    )
+
+    add_candidate_path("rt1", "6.6.6.6", 100, "default")
+    logger.info("With an SR policy of this color, the route should be steered")
+    cmp_json_output(
+        "rt1", "show ip route bgp json", "step5/show_ip_route_bgp_active_srte.ref"
+    )
+
+    delete_candidate_path("rt1", "6.6.6.6", 100)
+    tgen.gears["rt6"].vtysh_cmd(
+        """
+        configure terminal
+         router bgp 1
+          address-family ipv4 unicast
+           no neighbor 1.1.1.1 route-map COLOR out
+          exit-address-family
+         exit
+         no route-map COLOR
+        """
+    )
+    set_route_map_color("rt1", 1)
+
+
 # Memory leak test template
 def test_memory_leak():
     "Run the memory leak test and report results."
