@@ -4747,14 +4747,17 @@ stream_failure:
 	return -1;
 }
 
-/* EVPN Ethernet Tag is 32-bit on the wire; L2/L3MH use it as a VLAN id. */
+/* Pure-L3 neighbor-sync uses the EVPN Ethernet Tag as a VLAN id. Classic L2
+ * MACIP may carry a VNI in the ETAG (VLAN-aware bundle), which can exceed
+ * VLANID_MAX; those must still be installed.
+ */
 static bool zebra_vxlan_eth_tag_in_vlan_range(uint32_t eth_tag)
 {
 	if (eth_tag <= VLANID_MAX)
 		return true;
 	if (IS_ZEBRA_DEBUG_VXLAN)
-		zlog_debug("ignoring MACIP with ETAG %u (exceeds VLANID_MAX %u)", eth_tag,
-			   VLANID_MAX);
+		zlog_debug("ignoring L3-neigh-sync MACIP with ETAG %u (exceeds VLANID_MAX %u)",
+			   eth_tag, VLANID_MAX);
 	return false;
 }
 
@@ -4792,7 +4795,8 @@ void zebra_vxlan_remote_macip_del(ZAPI_HANDLER_ARGS)
 		frrtrace(5, frr_zebra, zebra_vxlan_remote_macip_del, &macaddr, &ip, vni, &vtep_ip,
 			 ipa_len);
 
-		if (!zebra_vxlan_eth_tag_in_vlan_range(eth_tag))
+		/* DEL has no MACIP flags; constrain ETAG only for an L3VNI. */
+		if (zl3vni_lookup(vni) && !zebra_vxlan_eth_tag_in_vlan_range(eth_tag))
 			continue;
 
 		/* Enqueue to workqueue for processing */
@@ -4854,7 +4858,8 @@ void zebra_vxlan_remote_macip_add(ZAPI_HANDLER_ARGS)
 		frrtrace(6, frr_zebra, zebra_vxlan_remote_macip_add, &macaddr, &ip, vni, &vtep_ip,
 			 flags, &esi);
 
-		if (!zebra_vxlan_eth_tag_in_vlan_range(eth_tag))
+		if (CHECK_FLAG(flags, ZEBRA_MACIP_TYPE_L3_NEIGH_SYNC) &&
+		    !zebra_vxlan_eth_tag_in_vlan_range(eth_tag))
 			continue;
 
 		/* Enqueue to workqueue for processing */
