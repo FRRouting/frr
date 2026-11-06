@@ -1658,7 +1658,12 @@ def move_baseline(tgen):
             l.name: l.vtysh_cmd("show evpn json", isjson=True).get("macHoldtime")
             for l in leaves
         },
-        "debugging": obs.vtysh_cmd("show debugging"),
+        # torm22 is where a remote MAC becomes local on the ES. Its zebra
+        # log is the one that shows whether the old dst entry is deleted.
+        "debugging": {
+            r.name: r.vtysh_cmd("show debugging")
+            for r in (obs, tgen.gears[MOVE_PEER_LEAF])
+        },
         "obs_es_vteps": evpn_lib.evpn_zebra_es_state(obs, esi)["vteps"],
     }
 
@@ -1677,6 +1682,14 @@ def move_baseline(tgen):
     return saved
 
 
+def move_set_debugs(routers, on):
+    """Enable or disable MOVE_DEBUGS on each router."""
+    verb = "" if on else "no "
+    cmds = ["configure terminal"] + [verb + d for d in MOVE_DEBUGS] + ["end"]
+    for router in routers:
+        router.vtysh_cmd("\n".join(cmds))
+
+
 def move_configure(tgen):
     """Apply the test-only configuration. move_cleanup() reverts all of it."""
     obs = tgen.gears[MOVE_OBSERVER]
@@ -1689,7 +1702,7 @@ def move_configure(tgen):
             "configure terminal\nevpn mh mac-holdtime %d" % MOVE_MAC_HOLDTIME
         )
     move_add_access_port(tgen.gears[MOVE_LEARN_LEAF])
-    obs.vtysh_cmd("\n".join(["configure terminal"] + MOVE_DEBUGS + ["end"]))
+    move_set_debugs((obs, tgen.gears[MOVE_PEER_LEAF]), True)
 
 
 def move_cleanup(tgen, saved):
@@ -1710,12 +1723,28 @@ def move_cleanup(tgen, saved):
             "ip link set dev br_default type bridge ageing_time %d"
             % saved["ageing"][leaf.name]
         )
-        leaf.vtysh_cmd(
+    # mac-holdtime stays at MOVE_MAC_HOLDTIME until the MAC is gone.
+    # zebra reads it when the sync hold timer is armed, which is after this
+    # function returns (the FDB delete is still in the netlink queue). Restoring
+    # the default here arms that timer for 1080s.
+    move_set_debugs((obs, tgen.gears[MOVE_PEER_LEAF]), False)
+
+
+def move_restore_holdtime(tgen):
+    """Put mac-holdtime back to the default. The sync hold must already have ended."""
+    for name in (MOVE_LEARN_LEAF, MOVE_PEER_LEAF):
+        tgen.gears[name].vtysh_cmd(
             "configure terminal\nno evpn mh mac-holdtime %d" % MOVE_MAC_HOLDTIME
         )
-    obs.vtysh_cmd(
-        "\n".join(["configure terminal"] + ["no " + d for d in MOVE_DEBUGS] + ["end"])
-    )
+
+
+def check_move_mac_gone(tgen):
+    """None when MOVE_MAC is gone from zebra, the kernel and BGP on every router."""
+    for name in (MOVE_OBSERVER, MOVE_LEARN_LEAF, MOVE_PEER_LEAF):
+        result = evpn_lib.evpn_check_mac_absent(tgen.gears[name], MOVE_VNI, MOVE_MAC)
+        if result:
+            return result
+    return None
 
 
 def check_move_residual(tgen, saved):
@@ -1728,10 +1757,9 @@ def check_move_residual(tgen, saved):
     leaves = [tgen.gears[MOVE_LEARN_LEAF], tgen.gears[MOVE_PEER_LEAF]]
     esi = saved["esi"]
 
-    for router in [obs] + leaves:
-        result = evpn_lib.evpn_check_mac_absent(router, MOVE_VNI, MOVE_MAC)
-        if result:
-            return result
+    result = check_move_mac_gone(tgen)
+    if result:
+        return result
     for leaf in leaves:
         # the access-side bridge FDB (local entries, synced entries)
         left = leaf.run("bridge fdb show | grep -i -F %s || true" % MOVE_MAC).strip()
@@ -1758,8 +1786,10 @@ def check_move_residual(tgen, saved):
 
     if MOVE_ROUTE_MAP in obs.vtysh_cmd("show running-config"):
         return "%s: route-map %s still configured" % (obs.name, MOVE_ROUTE_MAP)
-    if obs.vtysh_cmd("show debugging") != saved["debugging"]:
-        return "%s: debug settings differ from before the test" % obs.name
+    for name, before in saved["debugging"].items():
+        now = tgen.gears[name].vtysh_cmd("show debugging")
+        if now != before:
+            return "%s: debug settings differ from before the test" % name
 
     es = evpn_lib.evpn_zebra_es_state(obs, esi)
     if es["vteps"] != saved["obs_es_vteps"] or not es["nhg_active"]:
@@ -1867,6 +1897,7 @@ def run_mac_move_case(tgen, hold_ead):
 
     saved = move_baseline(tgen)
     log_mark = move_zebra_log_mark(obs)
+    peer_log_mark = move_zebra_log_mark(tgen.gears[MOVE_PEER_LEAF])
     try:
         move_configure(tgen)
         # ---- stage 1: set the ES NHG state the case needs --------------
@@ -1945,14 +1976,28 @@ def run_mac_move_case(tgen, hold_ead):
         )
     finally:
         # Debug aid: the MAC's lines from zebra.log, whether or not we passed.
-        for line in move_zebra_log_since(obs, log_mark).splitlines():
-            if (
-                MOVE_MAC in line
-                or MOVE_KERNEL_ERR in line
-                or "uninstall skipped" in line
-            ):
-                logger.debug("%s zebra: %s", obs.name, line)
+        # torm22 is read before move_cleanup() turns its debug off.
+        for router, mark in (
+            (obs, log_mark),
+            (tgen.gears[MOVE_PEER_LEAF], peer_log_mark),
+        ):
+            for line in move_zebra_log_since(router, mark).splitlines():
+                if (
+                    MOVE_MAC in line
+                    or MOVE_KERNEL_ERR in line
+                    or "uninstall skipped" in line
+                    or "removing the vxlan entry" in line
+                ):
+                    logger.debug("%s zebra: %s", router.name, line)
         move_cleanup(tgen, saved)
+        # The sync hold was armed with the short timer. Wait it out before
+        # putting mac-holdtime back, including when a stage assertion failed.
+        _, gone = topotest.run_and_expect(
+            partial(check_move_mac_gone, tgen), None, count=40, wait=3
+        )
+        if gone:
+            logger.error("MAC still present when restoring mac-holdtime: %s", gone)
+        move_restore_holdtime(tgen)
 
     # Cleanup must have left nothing behind (checked after the finally so a
     # test failure is reported first and a cleanup failure is not masked).
