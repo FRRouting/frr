@@ -914,10 +914,8 @@ static const char *ecommunity_gettoken(const char *str, void *eval_ptr,
 			ecomm_type = ECOMMUNITY_ENCODE_AS4;
 		else if (sub_type == ECOMMUNITY_COLOR) {
 			ecomm_type = ECOMMUNITY_ENCODE_OPAQUE;
-			if (val_color) {
+			if (val_color)
 				val = val_color;
-				as = 1;
-			}
 		} else if (as > 0)
 			ecomm_type = ECOMMUNITY_ENCODE_AS;
 	}

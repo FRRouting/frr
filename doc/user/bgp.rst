@@ -3606,7 +3606,7 @@ BGP Extended Communities in Route Map
 
 :rfc:`9256`.
 
-``CO:COLOR``
+``CO:COLOR`` or ``COLOR``
    This is a format to define colors value. ``CO`` part is always 00 (default),
    it can be used to support the requirements of Color-Only steering when using
    a Null Endpoint in the SR-TE Policy as specified in Section 8.8 of [RFC9256].
