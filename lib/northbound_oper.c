@@ -476,11 +476,10 @@ done:
  * node_infos on the stack. If this node is a list node, obtain the specific
  * list-entry object.
  */
-static enum nb_error nb_op_ys_finalize_node_info(struct nb_op_yield_state *ys,
-						 uint index)
+static enum nb_error nb_op_ys_finalize_node_info(struct nb_op_yield_state *ys, int level)
 {
-	struct nb_op_node_info *pni = index == 0 ? NULL : &ys->node_infos[index - 1];
-	struct nb_op_node_info *ni = &ys->node_infos[index];
+	struct nb_op_node_info *pni = level == 0 ? NULL : &ys->node_infos[level - 1];
+	struct nb_op_node_info *ni = &ys->node_infos[level];
 	struct lyd_node *inner = ni->inner;
 	struct nb_node *nn = ni->schema->priv;
 	bool yield_ok = ys->finish != NULL;
@@ -488,7 +487,7 @@ static enum nb_error nb_op_ys_finalize_node_info(struct nb_op_yield_state *ys,
 	ni->has_lookup_next = nn->cbs.lookup_next != NULL;
 
 	/* track the last list_entry until updated by new list node */
-	ni->list_entry = index == 0 ? NULL : ni[-1].list_entry;
+	ni->list_entry = level == 0 ? NULL : ni[-1].list_entry;
 
 	/* Assert that we are walking the rightmost branch */
 	assert(!lyd_parent(inner) || inner == lyd_child(lyd_parent(inner))->prev);
@@ -497,15 +496,14 @@ static enum nb_error nb_op_ys_finalize_node_info(struct nb_op_yield_state *ys,
 		/* containers have only zero or one child on a branch of a tree */
 		inner = lyd_child(inner);
 		assert(!inner || inner->prev == inner);
-		ni->lookup_next_ok = yield_ok &&
-				     (index == 0 || ni[-1].lookup_next_ok);
+		ni->lookup_next_ok = yield_ok && (level == 0 || ni[-1].lookup_next_ok);
 		return NB_OK;
 	}
 
 	assert(CHECK_FLAG(inner->schema->nodetype, LYS_LIST));
 
 	ni->lookup_next_ok = yield_ok && ni->has_lookup_next &&
-			     (index == 0 || ni[-1].lookup_next_ok);
+			     (level == 0 || ni[-1].lookup_next_ok);
 
 	if (CHECK_FLAG(nn->flags, F_NB_NODE_KEYLESS_LIST)) {
 		uint i;
