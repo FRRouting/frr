@@ -24,6 +24,10 @@ module frr-isisd {
     prefix frr-route-types;
   }
 
+  import ietf-key-chain {
+    prefix kc;
+  }
+
   import frr-routing {
     prefix frr-rt;
   }
@@ -333,31 +337,60 @@ module frr-isisd {
   grouping isis-password {
     description
       "Authentication attributes or an IS-IS area or domain.";
-    leaf password {
-      type string {
-        length "1..254";
-      }
+    choice authentication {
       mandatory true;
       description
-        "Actual password.";
-    }
+        "A password, or a key chain.";
+      case password {
+        leaf password {
+          type string {
+            length "1..254";
+          }
+          mandatory true;
+          description
+            "Actual password.";
+        }
 
-    leaf password-type {
-      type enumeration {
-        enum "clear" {
-          value 1;
+        leaf password-type {
+          type enumeration {
+            enum "clear" {
+              value 1;
+              description
+                "Clear-text password type.";
+            }
+            enum "md5" {
+              value 54;
+              description
+                "MD5 password type.";
+            }
+          }
+          mandatory true;
           description
-            "Clear-text password type.";
-        }
-        enum "md5" {
-          value 54;
-          description
-            "MD5 password type.";
+            "Type of password used.";
         }
       }
-      mandatory true;
-      description
-        "Type of password used.";
+      case key-chain {
+        leaf key-chain {
+          type kc:key-chain-ref;
+          mandatory true;
+          description
+            "Key chain for generic cryptographic authentication (RFC 5310).
+             The Key ID of each PDU selects the key that verifies it; PDUs
+             are signed with the first key valid for sending that has a key
+             string and an HMAC-SHA algorithm.";
+        }
+
+        leaf strict-rfc5310 {
+          type boolean;
+          default "false";
+          description
+            "Hash the key strings longer than the hash, as RFC 5310 section
+             3.3 specifies, rather than those longer than its block, as
+             HMAC (RFC 2104) and the implementations interoperated with do.
+             The two only differ for keys longer than the hash and no
+             longer than its block.";
+        }
+      }
     }
   }
 
@@ -784,6 +817,31 @@ module frr-isisd {
 
       description
         "Container for the password of this IS interface.";
+    }
+
+    leaf extended-sequence-number {
+      type enumeration {
+        enum "send" {
+          value 1;
+          description
+            "Add an Extended Sequence Number TLV to the IIHs and SNPs sent
+             on this interface.";
+        }
+        enum "verify" {
+          value 2;
+          description
+            "Also discard the IIHs and SNPs received on this interface
+             without an Extended Sequence Number greater than the last one
+             accepted from the same neighbor for the same PDU type. Applies
+             to the PDUs authenticated with HMAC-MD5 or a key chain: the
+             IIHs when the interface authenticates them, the SNPs when
+             their level validates them.";
+        }
+      }
+      description
+        "Extended Sequence Numbers (RFC 7602), which protect the IIHs and
+         SNPs of an authenticated interface against replay. Enable send on
+         every router of a link before verify.";
     }
 
     leaf disable-three-way-handshake {

@@ -21,6 +21,7 @@ frr_northbound*
 /bgpd/test_unencodable_withdraw
 /isisd/test_fuzz_isis_tlv
 /isisd/test_fuzz_isis_tlv_tests.h
+/isisd/test_isis_crypto_auth
 /isisd/test_isis_lspdb
 /isisd/test_isis_remove_excess_adjs
 /isisd/test_isis_spf
