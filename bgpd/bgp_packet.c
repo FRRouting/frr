@@ -3295,6 +3295,7 @@ static void bgp_dynamic_capability_paths_limit(uint8_t *pnt, int action,
 	size_t len = end - data;
 	afi_t afi;
 	safi_t safi;
+	bool received[AFI_MAX][SAFI_MAX] = {};
 
 	if (action == CAPABILITY_ACTION_SET) {
 		if (len % CAPABILITY_CODE_PATHS_LIMIT_LEN) {
@@ -3347,6 +3348,21 @@ static void bgp_dynamic_capability_paths_limit(uint8_t *pnt, int action,
 						   iana_safi2str(pkt_safi));
 				goto ignore;
 			}
+
+			/* If more than one tuple is received for the same
+			 * AFI/SAFI, only the first one is considered, others
+			 * MUST be ignored. A tuple received in a previous
+			 * message is replaced, though.
+			 */
+			if (received[afi][safi]) {
+				if (bgp_debug_neighbor_events(peer))
+					zlog_debug("%s Addr-family %s/%s(afi/safi) already received. Ignore the duplicate Paths-Limit capability for this AFI/SAFI",
+						   peer->host, iana_afi2str(pkt_afi),
+						   iana_safi2str(pkt_safi));
+				goto ignore;
+			}
+
+			received[afi][safi] = true;
 
 			SET_FLAG(peer->af_cap[afi][safi],
 				 PEER_CAP_PATHS_LIMIT_AF_RCV);
