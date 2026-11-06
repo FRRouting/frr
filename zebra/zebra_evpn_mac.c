@@ -1728,6 +1728,25 @@ static inline bool zebra_evpn_mac_is_bgp_seq_ok(struct zebra_evpn *zevpn,
 	return false;
 }
 
+/*
+ * A remote single-VTEP MAC is about to become local via a sync route.
+ * Delete the VXLAN device's "dst <vtep>" entry while the remote VTEP is
+ * still recorded and before mac->es is switched. An ES MAC was installed
+ * with a nexthop group and no VTEP, so there is no single-VTEP entry to
+ * remove here.
+ */
+static void zebra_evpn_sync_mac_del_old_remote(struct zebra_evpn *zevpn, struct zebra_mac *mac)
+{
+	/* The delete is scoped by this dst. A remote MAC has one; check
+	 * anyway so a zero address is not handed to the dataplane.
+	 */
+	if (!CHECK_FLAG(mac->flags, ZEBRA_MAC_REMOTE) || mac->es ||
+	    ipaddr_is_zero(&mac->fwd_info.r_vtep_ip))
+		return;
+
+	zebra_evpn_rem_mac_net_entry_del(zevpn, &mac->macaddr, &mac->fwd_info.r_vtep_ip);
+}
+
 struct zebra_mac *zebra_evpn_proc_sync_mac_update(struct zebra_evpn *zevpn,
 						  const struct ethaddr *macaddr,
 						  uint16_t ipa_len,
@@ -1848,6 +1867,11 @@ struct zebra_mac *zebra_evpn_proc_sync_mac_update(struct zebra_evpn *zevpn,
 			}
 		}
 		mac->rem_seq = 0;
+		/* Remove the kernel entry for the old remote VTEP, if any. This
+		 * must run before the remote VTEP is cleared and the flags are
+		 * replaced, because the helper checks the old state.
+		 */
+		zebra_evpn_sync_mac_del_old_remote(zevpn, mac);
 		zebra_evpn_mac_clear_fwd_info(mac);
 		mac->flags = new_flags;
 
