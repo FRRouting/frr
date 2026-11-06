@@ -589,6 +589,23 @@ static void update_rej_adj_count(struct isis_circuit *circuit)
 	}
 }
 
+/* Count an authentication failure the way update_rej_adj_count() counts */
+static void update_auth_failure_count(struct isis_circuit *circuit, int auth_code)
+{
+	bool type_failure = auth_code != ISIS_AUTH_FAILURE;
+	uint64_t *area_counters = type_failure ? circuit->area->auth_type_failures
+					       : circuit->area->auth_failures;
+
+	if (type_failure)
+		circuit->auth_type_failures++;
+	else
+		circuit->auth_failures++;
+	if (circuit->is_type & IS_LEVEL_1)
+		area_counters[0]++;
+	if (circuit->is_type & IS_LEVEL_2)
+		area_counters[1]++;
+}
+
 static int process_hello(uint8_t pdu_type, struct isis_circuit *circuit,
 			 uint8_t *ssnpa)
 {
@@ -754,6 +771,7 @@ static int process_hello(uint8_t pdu_type, struct isis_circuit *circuit,
 		isis_event_auth_failure(circuit->area->area_tag,
 					"IIH authentication failure",
 					iih.sys_id);
+		update_auth_failure_count(circuit, auth_code);
 #ifndef FABRICD
 		/* send northbound notification */
 		stream_get_from(raw_pdu, circuit->rcv_stream, pdu_start,
@@ -1007,33 +1025,14 @@ static int process_lsp(uint8_t pdu_type, struct isis_circuit *circuit,
 		isis_event_auth_failure(circuit->area->area_tag,
 					"LSP authentication failure",
 					hdr.lsp_id);
+		update_auth_failure_count(circuit, auth_code);
 #ifndef FABRICD
 		/* send northbound notification */
-		if (auth_code == ISIS_AUTH_FAILURE) {
-			circuit->auth_failures++;
-			if (circuit->is_type == IS_LEVEL_1) {
-				circuit->area->auth_failures[0]++;
-			} else if (circuit->is_type == IS_LEVEL_2) {
-				circuit->area->auth_failures[1]++;
-			} else {
-				circuit->area->auth_failures[0]++;
-				circuit->area->auth_failures[1]++;
-			}
+		if (auth_code == ISIS_AUTH_FAILURE)
 			isis_notif_authentication_failure(circuit, raw_pdu,
 							  sizeof(raw_pdu));
-		} else { /* AUTH_TYPE_FAILURE or NO_VALIDATOR */
-			circuit->auth_type_failures++;
-			if (circuit->is_type == IS_LEVEL_1) {
-				circuit->area->auth_type_failures[0]++;
-			} else if (circuit->is_type == IS_LEVEL_2) {
-				circuit->area->auth_type_failures[1]++;
-			} else {
-				circuit->area->auth_type_failures[0]++;
-				circuit->area->auth_type_failures[1]++;
-			}
-			isis_notif_authentication_type_failure(circuit, raw_pdu,
-							       sizeof(raw_pdu));
-		}
+		else /* AUTH_TYPE_FAILURE or NO_VALIDATOR */
+			isis_notif_authentication_type_failure(circuit, raw_pdu, sizeof(raw_pdu));
 #endif /* ifndef FABRICD */
 		goto out;
 	}
@@ -1455,35 +1454,17 @@ static int process_snp(uint8_t pdu_type, struct isis_circuit *circuit,
 			isis_event_auth_failure(circuit->area->area_tag,
 						"SNP authentication failure",
 						rem_sys_id);
+			update_auth_failure_count(circuit, auth_code);
 #ifndef FABRICD
 			/* send northbound notification */
 			stream_get_from(raw_pdu, circuit->rcv_stream, pdu_start,
 					pdu_end - pdu_start);
-			if (auth_code == ISIS_AUTH_FAILURE) {
-				circuit->auth_failures++;
-				if (circuit->is_type == IS_LEVEL_1) {
-					circuit->area->auth_failures[0]++;
-				} else if (circuit->is_type == IS_LEVEL_2) {
-					circuit->area->auth_failures[1]++;
-				} else {
-					circuit->area->auth_failures[0]++;
-					circuit->area->auth_failures[1]++;
-				}
+			if (auth_code == ISIS_AUTH_FAILURE)
 				isis_notif_authentication_failure(
 					circuit, raw_pdu, sizeof(raw_pdu));
-			} else { /* AUTH_TYPE_FAILURE or NO_VALIDATOR */
-				circuit->auth_type_failures++;
-				if (circuit->is_type == IS_LEVEL_1) {
-					circuit->area->auth_type_failures[0]++;
-				} else if (circuit->is_type == IS_LEVEL_2) {
-					circuit->area->auth_type_failures[1]++;
-				} else {
-					circuit->area->auth_type_failures[0]++;
-					circuit->area->auth_type_failures[1]++;
-				}
-				isis_notif_authentication_type_failure(
-					circuit, raw_pdu, sizeof(raw_pdu));
-			}
+			else /* AUTH_TYPE_FAILURE or NO_VALIDATOR */
+				isis_notif_authentication_type_failure(circuit, raw_pdu,
+								       sizeof(raw_pdu));
 #endif /* ifndef FABRICD */
 			goto out;
 		}
@@ -1949,7 +1930,14 @@ int send_hello(struct isis_circuit *circuit, int level)
 
 	struct isis_tlvs *tlvs = isis_alloc_tlvs();
 
-	isis_tlvs_add_auth(tlvs, &circuit->passwd);
+	if (!isis_tlvs_add_auth(tlvs, &circuit->passwd)) {
+		if (IS_DEBUG_ADJ_PACKETS)
+			zlog_debug("ISIS-Adj (%s): Not sending IIH on %s: key chain %s has no key to sign it",
+				   circuit->area->area_tag, circuit->interface->name,
+				   circuit->passwd.passwd);
+		isis_free_tlvs(tlvs);
+		return ISIS_WARNING;
+	}
 
 	if (!iso_address_list_count(&circuit->area->area_addrs)) {
 		isis_free_tlvs(tlvs);
@@ -2153,6 +2141,23 @@ void send_hello_sched(struct isis_circuit *circuit, int level, long delay)
 
 
 /*
+ * Add the SNP authentication passwd calls for, if any. False if the key chain
+ * has no key to sign with: RFC 5310 has the PDU discarded then.
+ */
+static bool snp_add_auth(struct isis_circuit *circuit, int level, char typechar,
+			 struct isis_passwd *passwd, struct isis_tlvs *tlvs)
+{
+	if (!CHECK_FLAG(passwd->snp_auth, SNP_AUTH_SEND) || isis_tlvs_add_auth(tlvs, passwd))
+		return true;
+
+	if (IS_DEBUG_SNP_PACKETS)
+		zlog_debug("ISIS-Snp (%s): Not sending L%d %cSNP on %s: key chain %s has no key to sign it",
+			   circuit->area->area_tag, level, typechar, circuit->interface->name,
+			   passwd->passwd);
+	return false;
+}
+
+/*
  * Count the maximum number of lsps that can be accommodated by a given size.
  */
 #define LSP_ENTRIES_LEN (10 + ISIS_SYS_ID_LEN)
@@ -2203,8 +2208,10 @@ int send_csnp(struct isis_circuit *circuit, int level)
 
 	struct isis_tlvs *tlvs = isis_alloc_tlvs();
 
-	if (CHECK_FLAG(passwd->snp_auth, SNP_AUTH_SEND))
-		isis_tlvs_add_auth(tlvs, passwd);
+	if (!snp_add_auth(circuit, level, 'C', passwd, tlvs)) {
+		isis_free_tlvs(tlvs);
+		return ISIS_WARNING;
+	}
 
 	size_t tlv_start = stream_get_endp(circuit->snd_stream);
 	if (isis_pack_tlvs(tlvs, circuit->snd_stream, len_pointer, false,
@@ -2225,8 +2232,10 @@ int send_csnp(struct isis_circuit *circuit, int level)
 	bool loop = true;
 	while (loop) {
 		tlvs = isis_alloc_tlvs();
-		if (CHECK_FLAG(passwd->snp_auth, SNP_AUTH_SEND))
-			isis_tlvs_add_auth(tlvs, passwd);
+		if (!snp_add_auth(circuit, level, 'C', passwd, tlvs)) {
+			isis_free_tlvs(tlvs);
+			return ISIS_WARNING;
+		}
 
 		struct isis_lsp *last_lsp;
 		isis_tlvs_add_csnp_entries(tlvs, start, stop, num_lsps,
@@ -2376,8 +2385,10 @@ static int send_psnp(int level, struct isis_circuit *circuit)
 
 	struct isis_tlvs *tlvs = isis_alloc_tlvs();
 
-	if (CHECK_FLAG(passwd->snp_auth, SNP_AUTH_SEND))
-		isis_tlvs_add_auth(tlvs, passwd);
+	if (!snp_add_auth(circuit, level, 'P', passwd, tlvs)) {
+		isis_free_tlvs(tlvs);
+		return ISIS_WARNING;
+	}
 
 	size_t tlv_start = stream_get_endp(circuit->snd_stream);
 	if (isis_pack_tlvs(tlvs, circuit->snd_stream, len_pointer, false,
@@ -2394,8 +2405,10 @@ static int send_psnp(int level, struct isis_circuit *circuit)
 		struct isis_lsp *lsp;
 
 		tlvs = isis_alloc_tlvs();
-		if (CHECK_FLAG(passwd->snp_auth, SNP_AUTH_SEND))
-			isis_tlvs_add_auth(tlvs, passwd);
+		if (!snp_add_auth(circuit, level, 'P', passwd, tlvs)) {
+			isis_free_tlvs(tlvs);
+			return ISIS_WARNING;
+		}
 
 		frr_each (lspdb, &circuit->area->lspdb[level - 1], lsp) {
 			if (ISIS_CHECK_FLAG(lsp->SSNflags, circuit))

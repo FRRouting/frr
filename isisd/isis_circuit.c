@@ -1067,6 +1067,9 @@ void isis_circuit_print_json(struct isis_circuit *circuit,
 			json_object_array_add(levels_json, level_json);
 		}
 
+		if (!circuit->is_passive)
+			isis_passwd_print_json(iface_json, &circuit->passwd, false,
+					       circuit->auth_failures, circuit->auth_type_failures);
 		if (listcount(circuit->ip_addrs) > 0) {
 			ipv4_addr_json = json_object_new_object();
 			json_object_object_add(iface_json, "ip-prefix",
@@ -1202,6 +1205,9 @@ void isis_circuit_print_vty(struct isis_circuit *circuit, struct vty *vty,
 				vty_out(vty, "\n");
 			}
 		}
+		if (!circuit->is_passive)
+			isis_passwd_print_vty(vty, "    ", &circuit->passwd, false,
+					      circuit->auth_failures, circuit->auth_type_failures);
 		if (listcount(circuit->ip_addrs) > 0) {
 			vty_out(vty, "    IP Prefix(es):\n");
 			for (ALL_LIST_ELEMENTS_RO(circuit->ip_addrs, node,
@@ -1564,7 +1570,17 @@ ferr_r isis_circuit_passwd_set(struct isis_circuit *circuit,
 	strlcpy((char *)circuit->passwd.passwd, passwd,
 		sizeof(circuit->passwd.passwd));
 	circuit->passwd.type = passwd_type;
+	circuit->passwd.strict_rfc5310 = false;
 	return ferr_ok();
+}
+
+ferr_r isis_circuit_passwd_keychain_set(struct isis_circuit *circuit, const char *keychain,
+					bool strict_rfc5310)
+{
+	ferr_r rv = isis_circuit_passwd_set(circuit, ISIS_PASSWD_TYPE_CRYPTO_AUTH, keychain);
+
+	circuit->passwd.strict_rfc5310 = strict_rfc5310;
+	return rv;
 }
 
 ferr_r isis_circuit_passwd_cleartext_set(struct isis_circuit *circuit,

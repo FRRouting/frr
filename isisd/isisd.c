@@ -31,6 +31,7 @@
 #include "flex_algo.h"
 #include "lib/northbound_cli.h"
 #include "bfd.h"
+#include "keychain.h"
 
 #include "isisd/isis_constants.h"
 #include "isisd/isis_common.h"
@@ -635,6 +636,7 @@ void isis_area_destroy(struct isis_area *area)
 	event_cancel(&area->t_lsp_refresh[0]);
 	event_cancel(&area->t_lsp_refresh[1]);
 	event_cancel(&area->t_rlfa_rib_update);
+	event_cancel(&area->t_auth_rollover);
 
 	event_cancel_event(master, area);
 
@@ -2405,6 +2407,100 @@ static const char *pdu_counter_index_to_name_json(enum pdu_counter_index index)
 	return "DEV ESCAPE";
 }
 
+static struct isis_passwd *isis_area_level_passwd(struct isis_area *area, int level)
+{
+	return (level == IS_LEVEL_1) ? &area->area_passwd : &area->domain_passwd;
+}
+
+static const char *isis_passwd_snp2string(uint8_t snp_auth)
+{
+	if (CHECK_FLAG(snp_auth, SNP_AUTH_RECV))
+		return "validate";
+	if (CHECK_FLAG(snp_auth, SNP_AUTH_SEND))
+		return "send-only";
+	return "none";
+}
+
+/*
+ * The authentication of the PDUs passwd signs, without the password: for a
+ * key chain, the key signing them now. with_snp for an area's passwords.
+ */
+void isis_passwd_print_vty(struct vty *vty, const char *indent, const struct isis_passwd *passwd,
+			   bool with_snp, uint64_t failures, uint64_t type_failures)
+{
+	const char *keychain_name = (const char *)passwd->passwd;
+	const struct key *key;
+
+	vty_out(vty, "%sAuthentication: ", indent);
+	switch (passwd->type) {
+	case ISIS_PASSWD_TYPE_UNUSED:
+		vty_out(vty, "none");
+		break;
+	case ISIS_PASSWD_TYPE_CLEARTXT:
+		vty_out(vty, "clear text");
+		break;
+	case ISIS_PASSWD_TYPE_HMAC_MD5:
+		vty_out(vty, "HMAC-MD5");
+		break;
+	case ISIS_PASSWD_TYPE_CRYPTO_AUTH:
+		vty_out(vty, "key chain %s%s", keychain_name,
+			passwd->strict_rfc5310 ? " (strict RFC 5310)" : "");
+		key = isis_keychain_send_key(keychain_name);
+		if (key)
+			vty_out(vty, ", sending with Key ID %u (%s)", key->index,
+				keychain_get_algo_name_by_id(key->hash_algo));
+		else if (keychain_lookup(keychain_name))
+			vty_out(vty, ", no key valid for sending");
+		else
+			vty_out(vty, ", which does not exist");
+		break;
+	}
+	if (with_snp && passwd->type != ISIS_PASSWD_TYPE_UNUSED)
+		vty_out(vty, ", SNP authentication: %s", isis_passwd_snp2string(passwd->snp_auth));
+	vty_out(vty, "\n");
+	if (passwd->type != ISIS_PASSWD_TYPE_UNUSED || failures || type_failures)
+		vty_out(vty, "%s  Failures: %" PRIu64 ", type failures: %" PRIu64 "\n", indent,
+			failures, type_failures);
+}
+
+void isis_passwd_print_json(struct json_object *json, const struct isis_passwd *passwd,
+			    bool with_snp, uint64_t failures, uint64_t type_failures)
+{
+	const char *keychain_name = (const char *)passwd->passwd;
+	struct json_object *auth_json = json_object_new_object();
+	const struct key *key;
+
+	json_object_object_add(json, "authentication", auth_json);
+	switch (passwd->type) {
+	case ISIS_PASSWD_TYPE_UNUSED:
+		json_object_string_add(auth_json, "type", "none");
+		break;
+	case ISIS_PASSWD_TYPE_CLEARTXT:
+		json_object_string_add(auth_json, "type", "clear-text");
+		break;
+	case ISIS_PASSWD_TYPE_HMAC_MD5:
+		json_object_string_add(auth_json, "type", "hmac-md5");
+		break;
+	case ISIS_PASSWD_TYPE_CRYPTO_AUTH:
+		json_object_string_add(auth_json, "type", "key-chain");
+		json_object_string_add(auth_json, "key-chain", keychain_name);
+		json_object_boolean_add(auth_json, "key-chain-exists",
+					keychain_lookup(keychain_name) != NULL);
+		json_object_boolean_add(auth_json, "strict-rfc5310", passwd->strict_rfc5310);
+		key = isis_keychain_send_key(keychain_name);
+		if (key) {
+			json_object_int_add(auth_json, "send-key-id", key->index);
+			json_object_string_add(auth_json, "send-algorithm",
+					       keychain_get_algo_name_by_id(key->hash_algo));
+		}
+		break;
+	}
+	if (with_snp && passwd->type != ISIS_PASSWD_TYPE_UNUSED)
+		json_object_string_add(auth_json, "snp", isis_passwd_snp2string(passwd->snp_auth));
+	json_object_int_add(auth_json, "failures", failures);
+	json_object_int_add(auth_json, "type-failures", type_failures);
+}
+
 static void common_isis_summary_json(struct json_object *json,
 				     struct isis *isis)
 {
@@ -2484,6 +2580,9 @@ static void common_isis_summary_json(struct json_object *json,
 					    area->lsp_gen_count[level - 1]);
 			json_object_int_add(level_json, "lsp-purged",
 					    area->lsp_purge_count[level - 1]);
+			isis_passwd_print_json(level_json, isis_area_level_passwd(area, level),
+					       true, area->auth_failures[level - 1],
+					       area->auth_type_failures[level - 1]);
 			if (event_is_scheduled(area->spf_timer[level - 1]))
 				json_object_string_add(level_json, "spf",
 						       "pending");
@@ -2571,6 +2670,10 @@ static void common_isis_summary_vty(struct vty *vty, struct isis *isis)
 
 			vty_out(vty, "         LSPs purged: %" PRIu64 "\n",
 				area->lsp_purge_count[level - 1]);
+
+			isis_passwd_print_vty(vty, "    ", isis_area_level_passwd(area, level),
+					      true, area->auth_failures[level - 1],
+					      area->auth_type_failures[level - 1]);
 
 			if (event_is_scheduled(area->spf_timer[level - 1]))
 				vty_out(vty, "    SPF: (pending)\n");
@@ -3079,9 +3182,77 @@ void isis_area_lsp_mtu_set(struct isis_area *area, unsigned int lsp_mtu)
 	lsp_regenerate_schedule(area, IS_LEVEL_1_AND_2, 1);
 }
 
-static int isis_area_passwd_set(struct isis_area *area, int level,
-				uint8_t passwd_type, const char *passwd,
-				uint8_t snp_auth)
+/*
+ * LSPs are signed when they are generated. When a key chain signing them
+ * changes, or one of its keys starts or stops being valid for sending, they
+ * are regenerated, to be signed with the key valid then.
+ */
+static void isis_area_auth_rollover(struct event *thread);
+
+static void isis_area_auth_rollover_schedule(struct isis_area *area)
+{
+	time_t now = time(NULL);
+	time_t next = 0;
+
+	event_cancel(&area->t_auth_rollover);
+
+	for (int level = IS_LEVEL_1; level <= IS_LEVEL_2; level++) {
+		struct isis_passwd *passwd = isis_area_level_passwd(area, level);
+		time_t change;
+
+		if (passwd->type != ISIS_PASSWD_TYPE_CRYPTO_AUTH)
+			continue;
+
+		change = isis_keychain_next_send_change((const char *)passwd->passwd, now);
+		if (change && (!next || change < next))
+			next = change;
+	}
+
+	if (next)
+		event_add_timer(master, isis_area_auth_rollover, area, next - now,
+				&area->t_auth_rollover);
+}
+
+/* Re-sign the LSPs signed with keychain_name, or with any key chain if NULL */
+static void isis_area_auth_resign(struct isis_area *area, const char *keychain_name)
+{
+	int levels = 0;
+
+	for (int level = IS_LEVEL_1; level <= IS_LEVEL_2; level++) {
+		struct isis_passwd *passwd = isis_area_level_passwd(area, level);
+
+		if (passwd->type == ISIS_PASSWD_TYPE_CRYPTO_AUTH &&
+		    (!keychain_name || strmatch((const char *)passwd->passwd, keychain_name)))
+			levels |= level;
+	}
+
+	if (!levels)
+		return;
+
+	lsp_regenerate_schedule(area, levels, 1);
+	isis_area_auth_rollover_schedule(area);
+}
+
+static void isis_area_auth_rollover(struct event *thread)
+{
+	isis_area_auth_resign(EVENT_ARG(thread), NULL);
+}
+
+static int isis_keychain_changed(const char *keychain_name)
+{
+	struct isis_area *area;
+	struct isis *isis;
+
+	frr_each (isis_instance_list, &im->isis, isis) {
+		frr_each (isis_area_list, &isis->area_list, area)
+			isis_area_auth_resign(area, keychain_name);
+	}
+
+	return 0;
+}
+
+static int isis_area_passwd_set(struct isis_area *area, int level, uint8_t passwd_type,
+				const char *passwd, uint8_t snp_auth, bool strict_rfc5310)
 {
 	struct isis_passwd *dest;
 	struct isis_passwd modified;
@@ -3105,11 +3276,13 @@ static int isis_area_passwd_set(struct isis_area *area, int level,
 			sizeof(modified.passwd));
 		modified.type = passwd_type;
 		modified.snp_auth = snp_auth;
+		modified.strict_rfc5310 = strict_rfc5310;
 	}
 
 	if (memcmp(&modified, dest, sizeof(modified))) {
 		memcpy(dest, &modified, sizeof(modified));
 		lsp_regenerate_schedule(area, IS_LEVEL_1 | IS_LEVEL_2, 1);
+		isis_area_auth_rollover_schedule(area);
 	}
 
 	return 0;
@@ -3117,22 +3290,28 @@ static int isis_area_passwd_set(struct isis_area *area, int level,
 
 int isis_area_passwd_unset(struct isis_area *area, int level)
 {
-	return isis_area_passwd_set(area, level, ISIS_PASSWD_TYPE_UNUSED, NULL,
-				    0);
+	return isis_area_passwd_set(area, level, ISIS_PASSWD_TYPE_UNUSED, NULL, 0, false);
 }
 
 int isis_area_passwd_cleartext_set(struct isis_area *area, int level,
 				   const char *passwd, uint8_t snp_auth)
 {
-	return isis_area_passwd_set(area, level, ISIS_PASSWD_TYPE_CLEARTXT,
-				    passwd, snp_auth);
+	return isis_area_passwd_set(area, level, ISIS_PASSWD_TYPE_CLEARTXT, passwd, snp_auth,
+				    false);
 }
 
 int isis_area_passwd_hmac_md5_set(struct isis_area *area, int level,
 				  const char *passwd, uint8_t snp_auth)
 {
-	return isis_area_passwd_set(area, level, ISIS_PASSWD_TYPE_HMAC_MD5,
-				    passwd, snp_auth);
+	return isis_area_passwd_set(area, level, ISIS_PASSWD_TYPE_HMAC_MD5, passwd, snp_auth,
+				    false);
+}
+
+int isis_area_passwd_keychain_set(struct isis_area *area, int level, const char *keychain,
+				  bool strict_rfc5310, uint8_t snp_auth)
+{
+	return isis_area_passwd_set(area, level, ISIS_PASSWD_TYPE_CRYPTO_AUTH, keychain, snp_auth,
+				    strict_rfc5310);
 }
 
 void isis_area_invalidate_routes(struct isis_area *area, int levels)
@@ -3892,6 +4071,9 @@ struct cmd_node isis_srv6_node_msd_node = {
 
 void isis_init(void)
 {
+	hook_register(keychain_updated, isis_keychain_changed);
+	hook_register(keychain_removed, isis_keychain_changed);
+
 	/* Install IS-IS top node */
 	install_node(&router_node);
 
