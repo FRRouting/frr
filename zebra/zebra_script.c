@@ -359,6 +359,9 @@ void lua_pushzebra_dplane_ctx(lua_State *L, const struct zebra_dplane_ctx *ctx)
 		break;
 	case DPLANE_OP_VTEP_ADD:
 	case DPLANE_OP_VTEP_DELETE:
+	case DPLANE_OP_EVPN_MH_UPLINK_ADD:
+	case DPLANE_OP_EVPN_MH_UPLINK_DELETE:
+	case DPLANE_OP_EVPN_MH_ES_DELETE:
 		break;
 	case DPLANE_OP_BR_PORT_UPDATE:
 		/* br_port */

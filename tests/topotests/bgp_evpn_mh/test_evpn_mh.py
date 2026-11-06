@@ -16,13 +16,20 @@ test_evpn_mh.py: Testing EVPN multihoming
 
 import os
 import sys
-import subprocess
 from functools import partial
 
 import pytest
 import json
 import platform
-from functools import partial
+
+from lib.topolog import logger
+from scapy.all import Ether, sendp
+import time
+
+from lib.scapy_utils import ScapyNetNS, AsyncSnifferNetNS
+
+import threading
+
 
 pytestmark = [pytest.mark.bgpd, pytest.mark.evpn, pytest.mark.pimd]
 
@@ -34,6 +41,7 @@ sys.path.append(os.path.join(CWD, "../"))
 # Import topogen and topotest helpers
 from lib import topotest
 from lib.common_config import kill_router_daemons, start_router_daemons
+from lib.evpn import evpn_trigger_arp_scapy
 
 # Required to instantiate the topology builder class.
 from lib.topogen import Topogen, TopoRouter, get_topogen
@@ -42,7 +50,7 @@ from lib.topogen import Topogen, TopoRouter, get_topogen
 ##
 ##   Network Topology Definition
 ##
-## See topology picture at evpn-mh-topo-tests.pdf
+## See topology picture at test_evpn_mh.png
 #####################################################
 
 
@@ -63,10 +71,13 @@ def build_topo(tgen):
     tgen.add_router("torm12")
     tgen.add_router("torm21")
     tgen.add_router("torm22")
+    tgen.add_router("torm23")
     tgen.add_router("hostd11")
     tgen.add_router("hostd12")
+    tgen.add_router("hostd19")
     tgen.add_router("hostd21")
     tgen.add_router("hostd22")
+    tgen.add_router("hostd23")
 
     # On main router
     # First switch is for a dummy interface (for local network)
@@ -113,6 +124,11 @@ def build_topo(tgen):
     switch.add_link(tgen.gears["leaf1"])
     switch.add_link(tgen.gears["torm22"])
 
+    # leaf1-eth6 is connected to torm23-eth0
+    switch = tgen.add_switch("sw21")
+    switch.add_link(tgen.gears["leaf1"])
+    switch.add_link(tgen.gears["torm23"])
+
     ##################### leaf2 ########################
     # leaf2-eth2 is connected to torm11-eth1
     switch = tgen.add_switch("sw9")
@@ -134,6 +150,11 @@ def build_topo(tgen):
     switch.add_link(tgen.gears["leaf2"])
     switch.add_link(tgen.gears["torm22"])
 
+    # leaf2-eth6 is connected to torm23-eth1
+    switch = tgen.add_switch("sw22")
+    switch.add_link(tgen.gears["leaf2"])
+    switch.add_link(tgen.gears["torm23"])
+
     ##################### torm11 ########################
     # torm11-eth2 is connected to hostd11-eth0
     switch = tgen.add_switch("sw13")
@@ -144,6 +165,11 @@ def build_topo(tgen):
     switch = tgen.add_switch("sw14")
     switch.add_link(tgen.gears["torm11"])
     switch.add_link(tgen.gears["hostd12"])
+
+    #torm11-eth4 is connected to hostd19-eth0
+    switch = tgen.add_switch("sw26")
+    switch.add_link(tgen.gears["torm11"])
+    switch.add_link(tgen.gears["hostd19"])
 
     ##################### torm12 ########################
     # torm12-eth2 is connected to hostd11-eth1
@@ -178,6 +204,22 @@ def build_topo(tgen):
     switch.add_link(tgen.gears["torm22"])
     switch.add_link(tgen.gears["hostd22"])
 
+    # torm22-eth4 is connected to hostd23-eth0
+    switch = tgen.add_switch("sw23")
+    switch.add_link(tgen.gears["torm22"])
+    switch.add_link(tgen.gears["hostd23"])
+
+    ##################### torm23 ########################
+    # torm23-eth2 is connected to hostd22-eth2
+    switch = tgen.add_switch("sw24")
+    switch.add_link(tgen.gears["torm23"])
+    switch.add_link(tgen.gears["hostd22"])
+
+    # torm23-eth3 is connected to hostd23-eth1
+    switch = tgen.add_switch("sw25")
+    switch.add_link(tgen.gears["torm23"])
+    switch.add_link(tgen.gears["hostd23"])
+
 
 #####################################################
 ##
@@ -190,6 +232,7 @@ tor_ips = {
     "torm12": "192.168.100.16",
     "torm21": "192.168.100.17",
     "torm22": "192.168.100.18",
+    "torm23": "192.168.100.19",
 }
 
 svi_ips = {
@@ -197,18 +240,63 @@ svi_ips = {
     "torm12": "45.0.0.3",
     "torm21": "45.0.0.4",
     "torm22": "45.0.0.5",
+    "torm23": "45.0.0.6",
 }
 
-tor_ips_rack_1 = {"torm11": "192.168.100.15", "torm12": "192.168.100.16"}
+es_tor_map = {
+    "03:44:38:39:ff:ff:01:00:00:01": set(["torm11", "torm12"]),
+    "03:44:38:39:ff:ff:01:00:00:02": set(["torm11", "torm12"]),
+    "03:44:38:39:ff:ff:02:00:00:01": set(["torm21", "torm22"]),
+    "03:44:38:39:ff:ff:02:00:00:02": set(["torm21", "torm22", "torm23"]),
+    "03:44:38:39:ff:ff:02:00:00:03": set(["torm22", "torm23"]),
+}
 
-tor_ips_rack_2 = {"torm21": "192.168.100.17", "torm22": "192.168.100.18"}
+es_df_map_default = {
+    "03:44:38:39:ff:ff:01:00:00:01": "torm11",
+    "03:44:38:39:ff:ff:01:00:00:02": "torm11",
+    "03:44:38:39:ff:ff:02:00:00:01": "torm21",
+    "03:44:38:39:ff:ff:02:00:00:02": "torm21",
+    "03:44:38:39:ff:ff:02:00:00:03": "torm22",
+}
+# Expected that hostbondX is used for ESI ...:0X
+# DFs that are set in split_horizon_filter test
+es_df_map_split_horizon_filter = {
+    "03:44:38:39:ff:ff:01:00:00:01": "torm11",
+    "03:44:38:39:ff:ff:01:00:00:02": "torm12",
+    "03:44:38:39:ff:ff:02:00:00:01": "torm21",
+    "03:44:38:39:ff:ff:02:00:00:02": "torm22",
+    "03:44:38:39:ff:ff:02:00:00:03": "torm22",
+}
 
 host_es_map = {
     "hostd11": "03:44:38:39:ff:ff:01:00:00:01",
     "hostd12": "03:44:38:39:ff:ff:01:00:00:02",
     "hostd21": "03:44:38:39:ff:ff:02:00:00:01",
     "hostd22": "03:44:38:39:ff:ff:02:00:00:02",
+    "hostd23": "03:44:38:39:ff:ff:02:00:00:03",
 }
+
+def attach_slave_to_bridge(node, slave_ifname):
+    """
+    Attach an existing interface to the bridge with VLAN settings.
+    """
+    node.run("ip link set dev %s master bridge" % slave_ifname)
+    node.run("/sbin/bridge link set dev %s priority 8" % slave_ifname)
+    node.run("/sbin/bridge vlan del vid 1 dev %s" % slave_ifname)
+    node.run("/sbin/bridge vlan del vid 1 untagged pvid dev %s" % slave_ifname)
+    node.run("/sbin/bridge vlan add vid 1000 dev %s" % slave_ifname)
+    node.run("/sbin/bridge vlan add vid 1000 untagged pvid dev %s" % slave_ifname)
+
+
+def config_mcast_tunnel_termination_device(node):
+    """
+    The kernel requires a device to terminate VxLAN multicast tunnels
+    when EVPN-PIM is used for flooded traffic
+    """
+    node.run("ip link add dev ipmr-lo type dummy")
+    node.run("ip link set dev ipmr-lo mtu 16000")
+    node.run("ip link set dev ipmr-lo mode dormant")
+    node.run("ip link set dev ipmr-lo up")
 
 
 def config_bond(node, bond_name, bond_members, bond_ad_sys_mac, br):
@@ -233,35 +321,7 @@ def config_bond(node, bond_name, bond_members, bond_ad_sys_mac, br):
 
     # if bridge is specified add the bond as a bridge member
     if br:
-        node.run(" ip link set dev %s master bridge" % bond_name)
-        node.run("/sbin/bridge link set dev %s priority 8" % bond_name)
-        node.run("/sbin/bridge vlan del vid 1 dev %s" % bond_name)
-        node.run("/sbin/bridge vlan del vid 1 untagged pvid dev %s" % bond_name)
-        node.run("/sbin/bridge vlan add vid 1000 dev %s" % bond_name)
-        node.run("/sbin/bridge vlan add vid 1000 untagged pvid dev %s" % bond_name)
-
-
-def attach_bond_to_bridge(node, bond_name):
-    """
-    Re-attach an existing bond to the bridge with VLAN settings.
-    """
-    node.run("ip link set dev %s master bridge" % bond_name)
-    node.run("/sbin/bridge link set dev %s priority 8" % bond_name)
-    node.run("/sbin/bridge vlan del vid 1 dev %s" % bond_name)
-    node.run("/sbin/bridge vlan del vid 1 untagged pvid dev %s" % bond_name)
-    node.run("/sbin/bridge vlan add vid 1000 dev %s" % bond_name)
-    node.run("/sbin/bridge vlan add vid 1000 untagged pvid dev %s" % bond_name)
-
-
-def config_mcast_tunnel_termination_device(node):
-    """
-    The kernel requires a device to terminate VxLAN multicast tunnels
-    when EVPN-PIM is used for flooded traffic
-    """
-    node.run("ip link add dev ipmr-lo type dummy")
-    node.run("ip link set dev ipmr-lo mtu 16000")
-    node.run("ip link set dev ipmr-lo mode dormant")
-    node.run("ip link set dev ipmr-lo up")
+        attach_slave_to_bridge(node, bond_name)
 
 
 def config_bridge(node):
@@ -324,8 +384,10 @@ def config_tor(tor_name, tor, tor_ip, svi_pip):
     """
     Create the bond/vxlan-bridge on the TOR which acts as VTEP and EPN-PE
     """
+    # HEDROK TODO: dig what exactly is going on here
+    # With uncommented no remote BUM packets are sent
     # create a device for terminating VxLAN multicast tunnels
-    config_mcast_tunnel_termination_device(tor)
+    #config_mcast_tunnel_termination_device(tor)
 
     # create a vlan aware bridge
     config_bridge(tor)
@@ -338,11 +400,27 @@ def config_tor(tor_name, tor, tor_ip, svi_pip):
         sys_mac = "44:38:39:ff:ff:01"
     else:
         sys_mac = "44:38:39:ff:ff:02"
-    bond_member = tor_name + "-eth2"
-    config_bond(tor, "hostbond1", [bond_member], sys_mac, "bridge")
 
-    bond_member = tor_name + "-eth3"
-    config_bond(tor, "hostbond2", [bond_member], sys_mac, "bridge")
+    if tor_name == "torm23":
+        bond_member = tor_name + "-eth2"
+        config_bond(tor, "hostbond2", [bond_member], sys_mac, "bridge")
+
+        bond_member = tor_name + "-eth3"
+        config_bond(tor, "hostbond3", [bond_member], sys_mac, "bridge")
+
+    else:
+        bond_member = tor_name + "-eth2"
+        config_bond(tor, "hostbond1", [bond_member], sys_mac, "bridge")
+
+        bond_member = tor_name + "-eth3"
+        config_bond(tor, "hostbond2", [bond_member], sys_mac, "bridge")
+
+        if tor_name == 'torm22':
+            bond_member = tor_name + "-eth4"
+            config_bond(tor, "hostbond3", [bond_member], sys_mac, "bridge")
+
+    if tor_name == "torm11":
+        attach_slave_to_bridge(tor, tor_name + "-eth4")
 
     # create SVI
     config_svi(tor, svi_pip)
@@ -369,6 +447,8 @@ def config_host(host_name, host):
     bond_members = []
     bond_members.append(host_name + "-eth0")
     bond_members.append(host_name + "-eth1")
+    if host_name == 'hostd22':
+        bond_members.append(host_name + "-eth2")
     bond_name = "torbond"
     config_bond(host, bond_name, bond_members, "00:00:00:00:00:00", None)
 
@@ -376,11 +456,22 @@ def config_host(host_name, host):
     host.run("ip addr add %s dev %s" % (host_ip, bond_name))
     host.run("ip link set dev %s address %s" % (bond_name, host_mac))
 
+def config_host_no_bond(host_name, host):
+    """
+    Create host without MH
+    """
+    ifname = host_name + "-eth0"
+
+    host_ip, host_mac = compute_host_ip_mac(host_name)
+    host.run("ip addr add %s dev %s" % (host_ip, ifname))
+    host.run("ip link set dev %s address %s" % (ifname, host_mac))
+
 
 def config_hosts(tgen, hosts):
     for host_name in hosts:
         host = tgen.gears[host_name]
         config_host(host_name, host)
+    config_host_no_bond('hostd19', tgen.gears['hostd19'])
 
 
 def setup_module(module):
@@ -398,6 +489,7 @@ def setup_module(module):
     tors.append("torm12")
     tors.append("torm21")
     tors.append("torm22")
+    tors.append("torm23")
     config_tors(tgen, tors)
 
     # tgen.mininet_cli()
@@ -420,6 +512,7 @@ def setup_module(module):
     hosts.append("hostd12")
     hosts.append("hostd21")
     hosts.append("hostd22")
+    hosts.append("hostd23")
     config_hosts(tgen, hosts)
     # tgen.mininet_cli()
 
@@ -432,52 +525,26 @@ def teardown_module(_mod):
     tgen.stop_topology()
 
 
-def check_local_es(esi, vtep_ips, dut_name, down_vteps):
+def check_tor_es(esi, vtep_ips, dut_name, down_vteps, local):
     """
-    Check if ES peers are setup correctly on local ESs
+    Check if ES peers/assosiated PEs are setup correctly on local/remote ESs
     """
-    peer_ips = []
-    if "torm1" in dut_name:
-        tor_ips_rack = tor_ips_rack_1
-    else:
-        tor_ips_rack = tor_ips_rack_2
+    expected_ips = []
 
-    for tor_name, tor_ip in tor_ips_rack.items():
-        if dut_name not in tor_name:
-            peer_ips.append(tor_ip)
+    if dut_name in es_tor_map[esi] and not local:
+        return (esi, f"Expected '{dut_name}' not to be present in remote esi {esi}")
 
-    # remove down VTEPs from the peer check list
-    peer_set = set(peer_ips)
+    if dut_name not in es_tor_map[esi] and local:
+        return (esi, f"Expected '{dut_name}' to be present in local esi {esi}")
+
+    expected_set = {tor_ips[t] for t in es_tor_map[esi] if t != dut_name}
+
+    # remove down VTEPs from the expected check list
     down_vtep_set = set(down_vteps)
-    peer_set = peer_set - down_vtep_set
+    expected_set = expected_set - down_vtep_set
 
     vtep_set = set(vtep_ips)
-    diff = peer_set.symmetric_difference(vtep_set)
-
-    return (esi, diff) if diff else None
-
-
-def check_remote_es(esi, vtep_ips, dut_name, down_vteps):
-    """
-    Verify list of PEs associated with a remote ES
-    """
-    remote_ips = []
-
-    if "torm1" in dut_name:
-        tor_ips_rack = tor_ips_rack_2
-    else:
-        tor_ips_rack = tor_ips_rack_1
-
-    for _, tor_ip in tor_ips_rack.items():
-        remote_ips.append(tor_ip)
-
-    # remove down VTEPs from the remote check list
-    remote_set = set(remote_ips)
-    down_vtep_set = set(down_vteps)
-    remote_set = remote_set - down_vtep_set
-
-    vtep_set = set(vtep_ips)
-    diff = remote_set.symmetric_difference(vtep_set)
+    diff = expected_set.symmetric_difference(vtep_set)
 
     return (esi, diff) if diff else None
 
@@ -491,7 +558,7 @@ def check_es(dut):
 
     result = None
 
-    expected_es_set = set([v for k, v in host_es_map.items()])
+    expected_es_set = set(host_es_map.values())
     curr_es_set = []
 
     # check is ES content is correct
@@ -505,10 +572,7 @@ def check_es(dut):
         for vtep in es.get("vteps", []):
             vtep_ips.append(vtep["vtep_ip"])
 
-        if "local" in types:
-            result = check_local_es(esi, vtep_ips, dut.name, [])
-        else:
-            result = check_remote_es(esi, vtep_ips, dut.name, [])
+        result = check_tor_es(esi, vtep_ips, dut.name, [], "local" in types)
 
         if result:
             return result
@@ -538,10 +602,7 @@ def check_one_es(dut, esi, down_vteps):
     for vtep in es.get("vteps", []):
         vtep_ips.append(vtep["vtep_ip"])
 
-    if "local" in types:
-        result = check_local_es(esi, vtep_ips, dut.name, down_vteps)
-    else:
-        result = check_remote_es(esi, vtep_ips, dut.name, down_vteps)
+    result = check_tor_es(esi, vtep_ips, dut.name, down_vteps, "local" in types)
 
     return result
 
@@ -644,7 +705,7 @@ def check_type1_routes(peer, origin_name, expected_esis):
 
 def test_evpn_es():
     """
-    Two ES are setup on each rack. This test checks if -
+    Two ES are setup on first rack and three on second one. This test checks if -
     1. ES peer has been added to the local ES (via Type-1/EAD route)
     2. The remote ESs are setup with the right list of PEs (via Type-1)
     """
@@ -661,7 +722,319 @@ def test_evpn_es():
 
     assertmsg = '"{}" ES content incorrect'.format(dut_name)
     assert result is None, assertmsg
-    # tgen.mininet_cli()
+
+def _test_bum(test_bum_data, send_from, send_ifname, sender_mac):
+    proto = 0x7a05
+    num_of_packets = 5
+    wait_forward_seconds = 10
+    wait_extra_drop = 0.5
+
+    tgen = get_topogen()
+
+    sniffers = {}
+    forward_by_intf = {}
+
+    lock = threading.Lock()
+
+    # Prepare async sniffers
+    for tst in test_bum_data:
+        host = tgen.gears[tst['to']]
+        intf = tst['intf']
+        forward_by_intf[intf] = tst['forward']
+
+        sniffers[intf] = AsyncSnifferNetNS(
+            host,
+            lock=lock,
+            wait_on_start=True,
+            count=num_of_packets if tst['forward'] else 1,
+            filter=f"ether proto {proto}",
+            iface=intf,
+        )
+        sniffers[intf].start()
+
+    with lock:
+        with ScapyNetNS(tgen.gears[send_from]):
+            pkt = Ether(src=sender_mac, dst="ff:ff:ff:ff:ff:ff", type=proto)
+            sendp([pkt] * num_of_packets, iface=send_ifname)
+
+    # Now join all sniffers that expected forward packet
+    for intf, sniffer in sniffers.items():
+        if forward_by_intf[intf]:
+            sniffer.join(timeout=wait_forward_seconds)
+
+    # Wait a little just in case all proper packets are received, but
+    # wrong duplicates will come a bit later
+    time.sleep(wait_extra_drop)
+
+    # Now stop all sniffers
+    for intf, sniffer in sniffers.items():
+        sniffer.stop(ignore_stopped=True)
+
+    # Now check results
+    errors = []
+    for tst in test_bum_data:
+        intf = tst['intf']
+        res = sniffers[intf].results
+        received_packets_n = len(res) if res else 0
+        expected_packets_n = num_of_packets if tst['forward'] else 0
+        if received_packets_n != expected_packets_n:
+            errors.append(f"FAIL: {tst['from']} -> {tst['to']} captured {received_packets_n}, expected {expected_packets_n}, {tst['reason']}")
+            logger.error(errors[-1])
+        else:
+            logger.info(f"OK: {tst['from']} -> {tst['to']} captured {received_packets_n}, {tst['reason']}")
+
+    assert errors == [], "Split horizon filter test failed"
+
+
+def _evpn_split_horizon_filter_skip():
+    tgen = get_topogen()
+
+    if tgen.routers_have_failure():
+        return tgen.errors
+
+    if not tgen.gears["torm11"].has_split_horizon_filter():
+        return "Split Horizon Filter disabled, skipping"
+
+    return False
+
+
+@pytest.fixture
+def set_df_for_torms():
+    if _evpn_split_horizon_filter_skip():
+        yield
+        return
+
+    tgen = get_topogen()
+
+    for esi, tor_name in es_df_map_split_horizon_filter.items():
+        tor = tgen.gears[tor_name]
+        intf = f"hostbond{esi[-1:]}"
+        # Don't raise - we are checking results in test and raising exception
+        # will skip code after yield
+        tor.vtysh_cmd(f"conf\ninterface {intf}\nevpn mh es-df-pref 40000")
+
+    yield
+
+    # restore original configuration
+    for esi, tor_name in es_df_map_split_horizon_filter.items():
+        tor = tgen.gears[tor_name]
+        intf = f"hostbond{esi[-1:]}"
+        # Don't raise - we are checking results after this loop
+        # and raising exception will stop later routers from restoring
+        tor.vtysh_cmd(f"conf\ninterface {intf}\nno evpn mh es-df-pref 40000")
+
+    # Wait for DFs to get back to normal state
+    for esi, tors in es_tor_map.items():
+        for tor_name in tors:
+            tor = tgen.gears[tor_name]
+            role = "DF" if tor_name == es_df_map_default[esi] else "nonDF"
+            test_fn = partial(check_df_role, tor, esi, role)
+            _, result = topotest.run_and_expect(test_fn, None, count=20, wait=3)
+            assertmsg = f'"{tor_name}" DF role incorrect: {result}'
+            assert result is None, assertmsg
+
+def test_evpn_split_horizon_filter(subtests, set_df_for_torms):
+    """
+    Test EVPN MH Split Horizon Filter: send broadcast from one of hosts
+    and check whether it is received on other hosts by capturing traffic.
+    Separately test broadcast from multihomed and non-multihomed host.
+    """
+    ret = _evpn_split_horizon_filter_skip()
+    if ret:
+        pytest.skip(ret)
+
+    tgen = get_topogen()
+
+    # Check DFs, set in fixture `set_df_for_torms`
+    for esi, tors in es_tor_map.items():
+        for tor_name in tors:
+            tor = tgen.gears[tor_name]
+            role = "DF" if tor_name == es_df_map_split_horizon_filter[esi] else "nonDF"
+            test_fn = partial(check_df_role, tor, esi, role)
+            _, result = topotest.run_and_expect(test_fn, None, count=20, wait=3)
+            assertmsg = f'"{tor_name}" DF role incorrect: {result}'
+            assert result is None, assertmsg
+
+    test_bum_data = [
+        {
+            'from': 'torm11',
+            'to': 'hostd11',
+            'intf': 'hostd11-eth0',
+            'forward': True,
+            'reason': 'DF must forward traffic from non-ES peers',
+        },
+        {
+            'from': 'torm11',
+            'to': 'hostd12',
+            'intf': 'hostd12-eth0',
+            'forward': False,
+            'reason': 'non-DF must not forward traffic not originated from local hosts',
+        },
+        {
+            'from': 'torm11',
+            'to': 'hostd19',
+            'intf': 'hostd19-eth0',
+            'forward': True,
+            'reason': 'Traffic to non-multihomed hosts must not be blocked',
+        },
+        {
+            'from': 'torm12',
+            'to': 'hostd11',
+            'intf': 'hostd11-eth1',
+            'forward': False,
+            'reason': 'non-DF must not forward traffic not originated from local hosts',
+        },
+        {
+            'from': 'torm12',
+            'to': 'hostd12',
+            'intf': 'hostd12-eth1',
+            'forward': True,
+            'reason': 'DF must forward traffic from non-ES peers',
+        },
+        {
+            'from': 'hostd21',
+            'to': 'torm21',
+            'intf': 'torm21-eth2',
+            'forward': True,
+            'reason': 'Sanity check: can we catch input packet?',
+        },
+        {
+            'from': 'torm21',
+            'to': 'hostd22',
+            'intf': 'hostd22-eth0',
+            'forward': True,
+            'reason': 'Must forward because of local bias',
+        },
+        {
+            'from': 'torm22',
+            'to': 'hostd21',
+            'intf': 'hostd21-eth1',
+            'forward': False,
+            'reason': 'Must drop because of local bias',
+        },
+        {
+            'from': 'torm22',
+            'to': 'hostd22',
+            'intf': 'hostd22-eth1',
+            'forward': False,
+            'reason': 'Must drop because of local bias',
+        },
+        {
+            'from': 'torm22',
+            'to': 'hostd23',
+            'intf': 'hostd23-eth0',
+            'forward': True,
+            'reason': 'DF must forward traffic from non-ES peers',
+        },
+        {
+            'from': 'torm23',
+            'to': 'hostd22',
+            'intf': 'hostd22-eth2',
+            'forward': False,
+            'reason': 'non-DF must not forward traffic not originated from local hosts',
+        },
+        {
+            'from': 'torm23',
+            'to': 'hostd23',
+            'intf': 'hostd23-eth1',
+            'forward': False,
+            'reason': 'non-DF must not forward traffic not originated from local hosts',
+        },
+    ]
+
+    with subtests.test(msg="hostd-21 -> torm21"):
+        _test_bum(test_bum_data, send_from='hostd21', send_ifname='hostd21-eth0', sender_mac='00:00:00:00:00:21')
+
+    # Separate check: hostd19 -> torm11
+    test_bum_data = [
+        {
+            'from': 'torm11',
+            'to': 'hostd11',
+            'intf': 'hostd11-eth0',
+            'forward': True,
+            'reason': 'must forward traffic from local hosts (local bias)',
+        },
+        {
+            'from': 'torm11',
+            'to': 'hostd12',
+            'intf': 'hostd12-eth0',
+            'forward': True,
+            'reason': 'must forward traffic from local hosts (local bias)',
+        },
+        {
+            'from': 'hostd19',
+            'to': 'torm11',
+            'intf': 'torm11-eth4',
+            'forward': True,
+            'reason': 'Sanity check: can we catch input packet?',
+        },
+        {
+            'from': 'torm12',
+            'to': 'hostd11',
+            'intf': 'hostd11-eth1',
+            'forward': False,
+            'reason': 'non-DF must not forward traffic not originated from local hosts',
+        },
+        {
+            'from': 'torm12',
+            'to': 'hostd12',
+            'intf': 'hostd12-eth1',
+            'forward': False,
+            'reason': 'DF must not forward traffic from ES peers (local bias)',
+        },
+        {
+            'from': 'torm21',
+            'to': 'hostd21',
+            'intf': 'hostd21-eth0',
+            'forward': True,
+            'reason': 'DF must forward traffic from non-ES peers',
+        },
+        {
+            'from': 'torm21',
+            'to': 'hostd22',
+            'intf': 'hostd22-eth0',
+            'forward': False,
+            'reason': 'non-DF must not forward traffic not originated from local hosts',
+        },
+        {
+            'from': 'torm22',
+            'to': 'hostd21',
+            'intf': 'hostd21-eth1',
+            'forward': False,
+            'reason': 'non-DF must not forward traffic not originated from local hosts',
+        },
+        {
+            'from': 'torm22',
+            'to': 'hostd22',
+            'intf': 'hostd22-eth1',
+            'forward': True,
+            'reason': 'DF must forward traffic from non-ES peers',
+        },
+        {
+            'from': 'torm22',
+            'to': 'hostd23',
+            'intf': 'hostd23-eth0',
+            'forward': True,
+            'reason': 'DF must forward traffic from non-ES peers',
+        },
+        {
+            'from': 'torm23',
+            'to': 'hostd22',
+            'intf': 'hostd22-eth2',
+            'forward': False,
+            'reason': 'non-DF must not forward traffic not originated from local hosts',
+        },
+        {
+            'from': 'torm23',
+            'to': 'hostd23',
+            'intf': 'hostd23-eth1',
+            'forward': False,
+            'reason': 'non-DF must not forward traffic not originated from local hosts',
+        },
+    ]
+
+    with subtests.test(msg="hostd-19 -> torm-11"):
+        _test_bum(test_bum_data, send_from='hostd19', send_ifname='hostd19-eth0', sender_mac='00:00:00:00:00:19')
 
 
 def test_evpn_mh_bgpd_restart_replays_local_es_evi():
@@ -758,25 +1131,12 @@ def test_evpn_ead_update():
 def ping_anycast_gw(tgen):
     # ping the anycast gw from the local and remote hosts to populate
     # the mac address on the PEs
-    python3_path = tgen.net.get_exec_path(["python3", "python"])
-    script_path = os.path.abspath(os.path.join(CWD, "../lib/scapy_sendpkt.py"))
     intf = "torbond"
     ipaddr = "45.0.0.1"
-    ping_cmd = [
-        python3_path,
-        script_path,
-        "--imports=Ether,ARP",
-        "--interface=" + intf,
-        'Ether(dst="ff:ff:ff:ff:ff:ff")/ARP(pdst="{}")'.format(ipaddr),
-    ]
-    for name in ("hostd11", "hostd21", "hostd12", "hostd22"):
-        host = tgen.net.hosts[name]
-        _, stdout, _ = host.cmd_status(ping_cmd, warn=False, stderr=subprocess.STDOUT)
-        stdout = stdout.strip()
-        if stdout:
-            host.logger.debug(
-                "%s: arping on %s for %s returned: %s", name, intf, ipaddr, stdout
-            )
+    hosts = ("hostd11", "hostd21", "hostd12", "hostd22", "hostd23")
+
+    host_gateways = dict.fromkeys(hosts, ipaddr)
+    evpn_trigger_arp_scapy(tgen, host_gateways, interface=intf)
 
 
 def check_mac(dut, vni, mac, m_type, esi, intf, ping_gw=False, tgen=None):
@@ -1189,7 +1549,7 @@ def test_evpn_es_config_without_bridge():
         assert not status, assertmsg
     finally:
         # Restore original bond and EVPN MH config.
-        attach_bond_to_bridge(dut, bond_name)
+        attach_slave_to_bridge(dut, bond_name)
         dut.vtysh_cmd(
             f"""
             conf

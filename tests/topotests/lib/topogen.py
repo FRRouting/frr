@@ -1267,6 +1267,13 @@ class TopoRouter(TopoGear):
             return True
         return False
 
+    def has_split_horizon_filter(self):
+        "Get Build option to know if Split Horizon Filter is used."
+        output = self.vtysh_cmd("show version")
+        if "enable-splithorizon" in output:
+            return True
+        return False
+
     def expect_ospfv2_neighbor(self, neighbor: str) -> None:
         """
         Runs the command 'show ip ospf neighbor json' and verifies that the
