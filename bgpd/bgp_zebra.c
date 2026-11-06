@@ -3753,6 +3753,10 @@ static int bgp_ifp_create(struct interface *ifp)
 		vpn_leak_zebra_vrf_label_update(bgp, AFI_IP6);
 		vpn_leak_zebra_vrf_sid_update(bgp, AFI_IP);
 		vpn_leak_zebra_vrf_sid_update(bgp, AFI_IP6);
+		/* Be careful when changing: this call is also responsible for
+		 * processing deferred route leaks when default BGP instance is
+		 * created
+		 */
 		vpn_leak_postchange_all();
 	}
 
