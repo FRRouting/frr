@@ -94,7 +94,7 @@ def setup_module(module):
     shutdown_bringup_interface_in_kernel(leaf1.tgen, leaf1.name, "brleaf1", True)
     shutdown_bringup_interface_in_kernel(leaf2.tgen, leaf2.name, "brleaf2", True)
     leaf1.run(
-        "ip link add vxlan0 type vxlan id 42 group 239.1.1.1 dev leaf1-eth1 dstport 4789"
+        "ip link add vxlan0 type vxlan id 42 group 239.1.1.1 dev leaf1-eth1 dstport 4789 local 192.168.100.2"
     )
     leaf2.run(
         "ip link add vxlan0 type vxlan id 42 group 239.1.1.1 dev leaf2-eth1 dstport 4789"
@@ -171,6 +171,43 @@ def test_multicast_groups_on_rp():
     assertmsg = '"{}" JSON output mismatches'.format(spine.name)
     assert result is None, assertmsg
     # tgen.mininet_cli()
+
+
+def test_vxlan_group_cleanup():
+    "Ensure the BUM group of the VXLAN device is released when it is deleted"
+    # The VNI must release its reference on its BUM group entry when EVPN is
+    # disabled, otherwise the entry is never deleted.
+
+    tgen = get_topogen()
+
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    leaf1 = tgen.gears["leaf1"]
+
+    def _expect(command, json_file):
+        expected = json.loads(open("{}/leaf1/{}".format(CWD, json_file)).read())
+        test_func = partial(topotest.router_json_cmp, leaf1, command, expected)
+        _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
+        assertmsg = '"leaf1" JSON output mismatches ({})'.format(json_file)
+        assert result is None, assertmsg
+
+    _expect("show evpn vni json", "evpn-vni.json")
+    _expect("show ip pim vxlan-groups json", "vxlan-groups.json")
+
+    leaf1.vtysh_cmd(
+        "conf t\nrouter bgp 65002\naddress-family l2vpn evpn\nno advertise-all-vni"
+    )
+    _expect("show evpn vni json", "evpn-vni-deleted.json")
+    leaf1.vtysh_cmd(
+        "conf t\nrouter bgp 65002\naddress-family l2vpn evpn\nadvertise-all-vni"
+    )
+    _expect("show evpn vni json", "evpn-vni.json")
+    _expect("show ip pim vxlan-groups json", "vxlan-groups.json")
+
+    leaf1.run("ip link del vxlan0")
+    _expect("show evpn vni json", "evpn-vni-deleted.json")
+    _expect("show ip pim vxlan-groups json", "vxlan-groups-deleted.json")
 
 
 def test_shutdown_check_stderr():
