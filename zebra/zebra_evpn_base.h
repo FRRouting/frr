@@ -67,6 +67,11 @@ struct zebra_evpn {
 	/* PIM-SM MDT group for BUM flooding */
 	struct in_addr mcast_grp;
 
+	/* BUM flooding mode set by bgpd for this EVPN, or
+	 * VXLAN_FLOOD_INHERIT_GLOBAL for the global one (zvrf->vxlan_flood_ctrl)
+	 */
+	enum vxlan_flood_control flood_ctrl;
+
 	/* tenant VRF, if any */
 	vrf_id_t vrf_id;
 

@@ -8759,6 +8759,12 @@ int bgp_evpn_local_vni_add(struct bgp *bgp, vni_t vni,
 		}
 	}
 
+	/* The flooding mode of the VNI must be conveyed to zebra too, inherit
+	 * included: zebra may still have a mode of its own for the VNI that was
+	 * removed while the VNI was down, or by a bgpd restart.
+	 */
+	bgp_zebra_vxlan_flood_control(bgp, vpn);
+
 	/* If we are advertising gateway mac-ip
 	   It needs to be conveyed again to zebra */
 	bgp_zebra_advertise_gw_macip(bgp, vpn->advertise_gw_macip, vpn->vni);
@@ -8780,6 +8786,11 @@ int bgp_evpn_local_vni_add(struct bgp *bgp, vni_t vni,
  */
 void bgp_evpn_flood_control_change(struct bgp *bgp)
 {
+	/* The global mode first, for the VNIs that inherit it in zebra. zebra
+	 * gets it with advertise-all-vni otherwise.
+	 */
+	if (EVPN_ENABLED(bgp))
+		bgp_zebra_vxlan_flood_control(bgp, NULL);
 	hash_iterate(bgp->vnihash, advertise_withdraw_type3, bgp);
 }
 

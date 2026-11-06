@@ -1059,6 +1059,7 @@ struct zebra_evpn *zebra_evpn_add(vni_t vni)
 	memset(&tmp_zevpn, 0, sizeof(tmp_zevpn));
 	tmp_zevpn.vni = vni;
 	zevpn = hash_get(zvrf->evpn_table, &tmp_zevpn, zebra_evpn_alloc);
+	zevpn->flood_ctrl = VXLAN_FLOOD_INHERIT_GLOBAL;
 
 	zebra_evpn_es_evi_init(zevpn);
 
@@ -1302,7 +1303,7 @@ int zebra_evpn_vtep_install(struct zebra_evpn *zevpn, struct zebra_vtep *zvtep)
 		return -1;
 	}
 
-	if (is_vxlan_flooding_head_end() &&
+	if (zebra_evpn_flooding_head_end(zevpn) &&
 	    (zvtep->flood_control == VXLAN_FLOOD_HEAD_END_REPL)) {
 		if (ZEBRA_DPLANE_REQUEST_FAILURE ==
 		    dplane_vtep_add(zevpn->vxlan_if, &zvtep->vtep_ip, zevpn->vni))
@@ -1332,6 +1333,18 @@ int zebra_evpn_vtep_uninstall(struct zebra_evpn *zevpn, struct ipaddr *vtep_ip)
 }
 
 /*
+ * Whether BUM is flooded with head-end replication on EVPN @zevpn: its own
+ * mode if bgpd set one, the global one otherwise.
+ */
+bool zebra_evpn_flooding_head_end(const struct zebra_evpn *zevpn)
+{
+	if (zevpn->flood_ctrl != VXLAN_FLOOD_INHERIT_GLOBAL)
+		return zevpn->flood_ctrl == VXLAN_FLOOD_HEAD_END_REPL;
+
+	return is_vxlan_flooding_head_end();
+}
+
+/*
  * Install or uninstall flood entries in the kernel corresponding to
  * remote VTEPs. This is invoked upon change to BUM handling.
  */
@@ -1352,7 +1365,7 @@ void zebra_evpn_handle_flooding_remote_vteps(struct hash_bucket *bucket, void *a
 		return;
 
 	for (zvtep = zevpn->vteps; zvtep; zvtep = zvtep->next) {
-		if (is_vxlan_flooding_head_end())
+		if (zebra_evpn_flooding_head_end(zevpn))
 			zebra_evpn_vtep_install(zevpn, zvtep);
 		else
 			zebra_evpn_vtep_uninstall(zevpn, &zvtep->vtep_ip);
@@ -1660,6 +1673,7 @@ void zebra_evpn_cfg_cleanup(struct hash_bucket *bucket, void *ctxt)
 		zevpn->advertise_gw_macip = 0;
 		zevpn->advertise_svi_macip = 0;
 		zevpn->advertise_subnet = 0;
+		zevpn->flood_ctrl = VXLAN_FLOOD_INHERIT_GLOBAL;
 	}
 
 	zebra_evpn_neigh_del_all(zevpn, 1, 0, DEL_REMOTE_NEIGH, wctx);
