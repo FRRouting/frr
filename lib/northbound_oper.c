@@ -603,11 +603,14 @@ static enum nb_error nb_op_ys_init_node_infos(struct nb_op_yield_state *ys)
 
 	assert(CHECK_FLAG(node->schema->nodetype, LYS_CONTAINER | LYS_LIST));
 
-	inner = node;
-	for (len = 1; lyd_parent(inner); len++)
-		inner = lyd_parent(inner);
+	len = 0;
+	for (inner = node; inner; inner = lyd_parent(inner))
+		len++;
 
 	darr_append_nz_mt(ys->node_infos, len, MTYPE_NB_NODE_INFOS);
+
+	ys->walk_start_level = len;
+	ys->walk_root_level = ys->walk_start_level - 1;
 
 	/*
 	 * For each node find the prefix of the xpath query that identified it
@@ -662,10 +665,6 @@ static enum nb_error nb_op_ys_init_node_infos(struct nb_op_yield_state *ys)
 		if (ret != NB_OK)
 			goto error;
 	}
-
-	ys->walk_start_level = darr_len(ys->node_infos);
-
-	ys->walk_root_level = (int)ys->walk_start_level - 1;
 
 	return NB_OK;
 
