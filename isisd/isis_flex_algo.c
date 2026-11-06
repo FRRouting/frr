@@ -107,6 +107,7 @@ isis_flex_algo_definition_cmp(struct isis_router_cap_fad *elected, struct isis_r
  * definition with the highest sysid will be selected.
  * @param algorithm flex-algo algorithm number
  * @param area pointer
+ * @param level IS-IS level, whose LSDB is the flooding scope of the election
  * @param local router capability Flex-Algo Definition (FAD) double pointer.
  *    - fad is NULL: use the local router capability FAD from LSDB for the
  *      election.
@@ -117,7 +118,7 @@ isis_flex_algo_definition_cmp(struct isis_router_cap_fad *elected, struct isis_r
  * @return elected flex-algo-definition object if exist, else NULL
  */
 static struct isis_router_cap_fad *_isis_flex_algo_elected(int algorithm,
-							   const struct isis_area *area,
+							   const struct isis_area *area, int level,
 							   struct isis_router_cap_fad **fad)
 {
 	struct flex_algo *flex_ago;
@@ -143,7 +144,7 @@ static struct isis_router_cap_fad *_isis_flex_algo_elected(int algorithm,
 	 * Perform FAD comparison. First, compare the priority, and if they are
 	 * the same, compare the sys-id.
 	 */
-	frr_each (lspdb_const, &area->lspdb[ISIS_LEVEL1 - 1], lsp) {
+	frr_each (lspdb_const, &area->lspdb[level - 1], lsp) {
 		if (!lsp->tlvs || !lsp->tlvs->router_cap)
 			continue;
 
@@ -168,9 +169,10 @@ static struct isis_router_cap_fad *_isis_flex_algo_elected(int algorithm,
 	return elected;
 }
 
-struct isis_router_cap_fad *isis_flex_algo_elected(int algorithm, const struct isis_area *area)
+struct isis_router_cap_fad *isis_flex_algo_elected(int algorithm, const struct isis_area *area,
+						   int level)
 {
-	return _isis_flex_algo_elected(algorithm, area, NULL);
+	return _isis_flex_algo_elected(algorithm, area, level, NULL);
 }
 
 /**
@@ -199,16 +201,17 @@ bool isis_flex_algo_supported(struct flex_algo *fad)
  * supported by the current FRR version
  * @param algorithm flex-algo algorithm number
  * @param area pointer
+ * @param level IS-IS level
  * @param local router capability Flex-Algo Definition (FAD) double pointer.
  * @return elected flex-algo-definition object if exist and supported, else NULL
  */
 static struct isis_router_cap_fad *
-_isis_flex_algo_elected_supported(int algorithm, const struct isis_area *area,
+_isis_flex_algo_elected_supported(int algorithm, const struct isis_area *area, int level,
 				  struct isis_router_cap_fad **fad)
 {
 	struct isis_router_cap_fad *elected_fad;
 
-	elected_fad = _isis_flex_algo_elected(algorithm, area, fad);
+	elected_fad = _isis_flex_algo_elected(algorithm, area, level, fad);
 	if (!elected_fad)
 		return NULL;
 
@@ -218,17 +221,30 @@ _isis_flex_algo_elected_supported(int algorithm, const struct isis_area *area,
 	return NULL;
 }
 
-struct isis_router_cap_fad *isis_flex_algo_elected_supported(int algorithm,
-							     const struct isis_area *area)
+struct isis_router_cap_fad *
+isis_flex_algo_elected_supported(int algorithm, const struct isis_area *area, int level)
 {
-	return _isis_flex_algo_elected_supported(algorithm, area, NULL);
+	return _isis_flex_algo_elected_supported(algorithm, area, level, NULL);
+}
+
+/* Whether our LSP of the level advertises participation in the algorithm. */
+bool isis_flex_algo_state(const struct isis_area *area, int algorithm, int level)
+{
+	struct flex_algo *fa = flex_algo_lookup(area->flex_algos, algorithm);
+	struct isis_flex_algo_data *data;
+
+	if (!fa)
+		return false;
+
+	data = fa->data;
+	return data->state[level - 1];
 }
 
 struct isis_router_cap_fad *
-isis_flex_algo_elected_supported_local_fad(int algorithm, const struct isis_area *area,
+isis_flex_algo_elected_supported_local_fad(int algorithm, const struct isis_area *area, int level,
 					   struct isis_router_cap_fad **fad)
 {
-	return _isis_flex_algo_elected_supported(algorithm, area, fad);
+	return _isis_flex_algo_elected_supported(algorithm, area, level, fad);
 }
 
 /* The SR-Algorithm sub-TLV is stored indexed by algorithm. */
@@ -277,7 +293,7 @@ bool isis_flex_algo_constraint_drop(struct isis_spftree *spftree, struct isis_ls
 	uint32_t link_ext_admin_group_bitmap0;
 	struct admin_group *link_ext_admin_group = NULL;
 
-	fad = isis_flex_algo_elected_supported(spftree->algorithm, spftree->area);
+	fad = isis_flex_algo_elected_supported(spftree->algorithm, spftree->area, spftree->level);
 	if (!fad)
 		return true;
 
