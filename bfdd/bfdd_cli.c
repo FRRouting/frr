@@ -1386,6 +1386,24 @@ DEFPY(
 	return CMD_SUCCESS;
 }
 
+struct sbfd_reflector_range {
+	uint32_t from;
+	uint32_t to;
+};
+
+static void _sbfd_reflector_free_range(struct hash_bucket *hb, void *arg)
+{
+	struct sbfd_reflector *sr = hb->data;
+	struct sbfd_reflector_range *range = arg;
+
+	if (sr->discr < range->from || sr->discr > range->to)
+		return;
+
+	// notify bfdsyncd
+	//bfd_fpm_sbfd_reflector_sendmsg(sr, false);
+	sbfd_reflector_free(sr->discr);
+}
+
 DEFPY(
 	no_sbfd_reflector, no_sbfd_reflector_cmd,
 	"no sbfd reflector (0-4294967295)$start_discr [(0-4294967295)$end_discr]",
@@ -1396,7 +1414,7 @@ DEFPY(
 	"end discriminator\n")
 {
 	struct sbfd_reflector *sr;
-	int32_t i;
+	struct sbfd_reflector_range range;
 
 	if (end_discr == 0) {
 		if (start_discr == 0) {
@@ -1420,14 +1438,10 @@ DEFPY(
 			return CMD_WARNING_CONFIG_FAILED;
 		}
 
-		for (i = start_discr; i <= end_discr; i++) {
-			sr = sbfd_discr_lookup(i);
-			if (sr) {
-				// notify bfdsyncd
-				//bfd_fpm_sbfd_reflector_sendmsg(sr, false);
-				sbfd_reflector_free(i);
-			}
-		}
+		/* Walk the reflectors, not the range, which can span 2^32 values. */
+		range.from = start_discr;
+		range.to = end_discr;
+		sbfd_discr_iterate(_sbfd_reflector_free_range, &range);
 	}
 
 	return CMD_SUCCESS;
