@@ -306,6 +306,18 @@ sessions.
    Enable or disable :rfc:`5303` Three-Way Handshake for P2P adjacencies.
    Three-Way Handshake is enabled by default.
 
+.. clicmd:: isis periodic-csnp
+
+   Enable or disable periodic CSNPs on a point-to-point circuit. When
+   disabled, a complete set of CSNPs is sent only when an adjacency comes
+   up, as described in :rfc:`5303`, instead of every ``isis csnp-interval``.
+   This saves bandwidth, at the cost of the periodic database check.
+   Periodic CSNPs are enabled by default. While they are disabled,
+   ``isis csnp-interval`` is not used on point-to-point circuits, and setting
+   a CSNP interval other than the default prints a warning. On a broadcast
+   circuit the DIS keeps sending periodic CSNPs: the setting has no effect
+   there, and setting it prints a warning.
+
 .. clicmd:: isis ipv4-over-ipv6-nexthop
 
    Route IPv4 over this interface when it has no usable IPv4 nexthop, such

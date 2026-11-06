@@ -793,6 +793,18 @@ module frr-isisd {
         "Disables three-way handshake when creating new adjacencies.";
     }
 
+    leaf disable-p2p-periodic-csnp {
+      type boolean;
+      default "false";
+      description
+        "On a point-to-point circuit, send a complete set of CSNPs only
+         when an adjacency comes up (RFC 5303 section 1), not every
+         CSNP interval.";
+      reference
+        "RFC 5303: Three-Way Handshake for IS-IS Point-to-Point
+         Adjacencies, section 1";
+    }
+
     leaf ipv4-over-ipv6-nexthop {
       type boolean;
       default "false";
