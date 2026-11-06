@@ -30,6 +30,7 @@ sys.path.append(os.path.join(CWD, "../"))
 from lib import topotest
 from lib.bgp import verify_bgp_rib
 from lib.common_config import apply_raw_config
+from lib.checkping import check_ping
 from lib.topogen import Topogen, TopoRouter, get_topogen
 from lib.topolog import logger
 
@@ -192,26 +193,15 @@ def _test_evpn_ping_router(pingrouter, ipv4_only=False):
     logger.info(
         "Check Ping IPv4 from  R1(r1-vrf-101) to R2(r2-vrf-101 = 192.168.101.41)"
     )
-    output = pingrouter.run("ip netns exec r1-vrf-101 ping 192.168.101.41 -f -c 1000")
-    logger.info(output)
-    if "1000 packets transmitted, 1000 received" not in output:
-        assertmsg = (
-            "expected ping IPv4 from R1(r1-vrf-101) to R2(192.168.101.41) should be ok"
-        )
-        assert 0, assertmsg
-    else:
-        logger.info("Check Ping IPv4 from R1(r1-vrf-101) to R2(192.168.101.41) OK")
+    check_ping(pingrouter.name, "192.168.101.41", True, 10, 1, vrf="r1-vrf-101")
+    logger.info("Check Ping IPv4 from R1(r1-vrf-101) to R2(192.168.101.41) OK")
 
     if ipv4_only:
         return
 
     logger.info("Check Ping IPv6 from  R1(r1-vrf-101) to R2(r2-vrf-101 = fd00::2)")
-    output = pingrouter.run("ip netns exec r1-vrf-101 ping fd00::2 -f -c 1000")
-    logger.info(output)
-    if "1000 packets transmitted, 1000 received" not in output:
-        assert 0, "expected ping IPv6 from R1(r1-vrf-101) to R2(fd00::2) should be ok"
-    else:
-        logger.info("Check Ping IPv6 from R1(r1-vrf-101) to R2(fd00::2) OK")
+    check_ping(pingrouter.name, "fd00::2", True, 10, 1, vrf="r1-vrf-101")
+    logger.info("Check Ping IPv6 from R1(r1-vrf-101) to R2(fd00::2) OK")
 
 
 def test_protocols_convergence():

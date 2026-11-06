@@ -1,3 +1,4 @@
+from lib.checkping import check_ping
 from lib.lutil import luCommand
 
 rtrs = ["r1", "r3", "r4"]
@@ -54,7 +55,7 @@ for rtr in rtrs:
         "pass",
         "CE interface route",
     )
-    luCommand(rtr, "ping 192.168.1.1 -c 1", " 0. packet loss", "wait", "CE->PE ping")
+    check_ping(rtr, "192.168.1.1", True, 10, 1)
 luCommand(
     "ce4", "ip link show type vrf ce4-cust2", "cust2: .*UP", "pass", "VRF cust2 up"
 )
@@ -65,10 +66,4 @@ luCommand(
     "pass",
     "CE interface route",
 )
-luCommand(
-    "ce4",
-    "ping 192.168.2.1 -c 1 -I ce4-cust2",
-    " 0. packet loss",
-    "wait",
-    "CE4->PE4 ping",
-)
+check_ping("ce4", "192.168.2.1", True, 10, 1, "ce4-cust2")

@@ -16,6 +16,7 @@
 import sys
 import pytest
 
+from lib.checkping import check_ping
 from lib.topogen import Topogen
 from lib.topolog import logger
 
@@ -126,10 +127,8 @@ def test_get_version(tgen):
 def test_connectivity(tgen):
     "Test the logs the FRR version"
 
-    r1 = tgen.gears["r1"]
-    r2 = tgen.gears["r2"]
-    output = r1.cmd_raises("ping -c1 192.168.1.2")
-    output = r2.cmd_raises("ping -c1 192.168.3.1")
+    check_ping("r1", "192.168.1.2", True, 10, 1)
+    check_ping("r2", "192.168.3.1", True, 10, 1)
 
 
 @pytest.mark.xfail

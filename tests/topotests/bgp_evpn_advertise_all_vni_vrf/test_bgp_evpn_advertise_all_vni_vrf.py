@@ -54,6 +54,7 @@ sys.path.append(os.path.join(CWD, "../"))
 
 # pylint: disable=C0413
 from lib import topotest
+from lib.checkping import check_ping
 from lib.common_config import required_linux_kernel_version
 from lib.topogen import Topogen, get_topogen
 from lib.topolog import logger
@@ -263,11 +264,6 @@ def _routers_have_failure():
     return tgen
 
 
-def _ping_succeeds(node, command):
-    output = node.run(command)
-    return "0% packet loss" in output
-
-
 def _bgp_established(router, peer):
     output = router.vtysh_cmd(f"show bgp vrf {UNDERLAY_VRF} neighbors {peer}")
     return "BGP state = Established" in output
@@ -388,19 +384,15 @@ def test_underlay_vrf_and_vtep_reachability():
             f"{zebra_routes}"
         )
 
-        command = (
-            f"ip vrf exec {UNDERLAY_VRF} "
-            f"ping -c 1 -W 1 -I {config['vtep_ip']} "
-            f"{config['peer_ip']}"
-        )
-        success, last = topotest.run_and_expect(
-            lambda pe=pe, command=command: _ping_succeeds(pe, command),
+        check_ping(
+            name,
+            config["peer_ip"],
             True,
-            count=20,
-            wait=1,
+            20,
+            1,
+            source_addr=config["vtep_ip"],
+            vrf=UNDERLAY_VRF,
         )
-
-        assert success, f"{name}: peer VTEP is unreachable: {last}"
 
 
 def test_evpn_bgp_session_in_underlay_vrf():
@@ -450,33 +442,12 @@ def test_evpn_vni_discovers_remote_vtep():
 
 def test_evpn_vxlan_moves_host_traffic():
     """Real L2 host traffic must cross the EVPN-programmed VXLAN tunnel."""
-    tgen = _routers_have_failure()
-    host1 = tgen.gears["host1"]
-    host2 = tgen.gears["host2"]
+    _routers_have_failure()
 
     # Repeated ping generates ARP and gives EVPN time to advertise/program
     # host MAC state before the assertion is evaluated.
-    success, last = topotest.run_and_expect(
-        lambda: _ping_succeeds(
-            host1,
-            f"ping -c 2 -W 1 {HOST_CONFIG['host1']['peer_ip']}",
-        ),
-        True,
-        count=30,
-        wait=1,
-    )
-    assert success, f"host1 -> host2 VXLAN ping failed: {last}"
-
-    success, last = topotest.run_and_expect(
-        lambda: _ping_succeeds(
-            host2,
-            f"ping -c 2 -W 1 {HOST_CONFIG['host2']['peer_ip']}",
-        ),
-        True,
-        count=20,
-        wait=1,
-    )
-    assert success, f"host2 -> host1 VXLAN ping failed: {last}"
+    check_ping("host1", HOST_CONFIG["host1"]["peer_ip"], True, 30, 1)
+    check_ping("host2", HOST_CONFIG["host2"]["peer_ip"], True, 20, 1)
 
 
 def test_remote_host_macs_are_programmed_in_vxlan_fdb():

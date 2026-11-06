@@ -39,6 +39,7 @@ from lib.evpn import (
     evpn_mac_test_local_remote,
     evpn_show_vni_json_elide_ifindex,
 )
+from lib.checkping import check_ping
 from lib.topogen import Topogen, TopoRouter, get_topogen
 from lib.topolog import logger
 from lib.common_config import step
@@ -205,10 +206,8 @@ def test_pe1_converge_evpn():
     # each other.  Otherwise under certain startup conditions
     # they may not actually do any l2 arp'ing and as such
     # the bridges won't know about the hosts on their networks
-    host1 = tgen.gears["host1"]
-    host1.run("ping -c 1 10.10.1.56")
-    host2 = tgen.gears["host2"]
-    host2.run("ping -c 1 10.10.1.55")
+    check_ping("host1", "10.10.1.56", True, 10, 1)
+    check_ping("host2", "10.10.1.55", True, 10, 1)
 
     test_func = partial(
         evpn_check_vni_macs_present,
@@ -320,7 +319,7 @@ def test_ip_pe1_learn():
     # pe2.vtysh_cmd("debug zebra vxlan")
     # pe2.vtysh_cmd("debug zebra kernel")
     # lets populate that arp cache
-    host1.run("ping -c1 10.10.1.1")
+    check_ping("host1", "10.10.1.1", True, 10, 1)
     evpn_ip_learn_test(tgen, host1, pe1, pe2, "10.10.1.55")
     # tgen.mininet_cli()
 
@@ -339,7 +338,7 @@ def test_ip_pe2_learn():
     # pe1.vtysh_cmd("debug zebra vxlan")
     # pe1.vtysh_cmd("debug zebra kernel")
     # lets populate that arp cache
-    host2.run("ping -c1 10.10.1.3")
+    check_ping("host2", "10.10.1.3", True, 10, 1)
     evpn_ip_learn_test(tgen, host2, pe2, pe1, "10.10.1.56")
     # tgen.mininet_cli()
 
@@ -560,8 +559,8 @@ def test_macvrf_soo():
     host2_neigh_rt_str, _, _ = get_evpn_rt_json_str(*host2_neigh_parms)
 
     ## trigger mac/arp learn
-    host1.run("ping -c1 10.10.1.1")
-    host2.run("ping -c1 10.10.1.3")
+    check_ping("host1", "10.10.1.1", True, 10, 1)
+    check_ping("host2", "10.10.1.3", True, 10, 1)
 
     step("Test pe2/host2 routes are installed on pe1 (global/l2vni)")
 
