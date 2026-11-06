@@ -4696,7 +4696,7 @@ int bgp_delete(struct bgp *bgp)
 		vpn_leak_zebra_vrf_sid_withdraw(bgp, afi);
 
 		/* SRv6 unicast */
-		bgp_srv6_unicast_delete(bgp_default, afi);
+		bgp_srv6_unicast_delete(bgp, afi);
 	}
 
 	/* release auto vpn labels */
