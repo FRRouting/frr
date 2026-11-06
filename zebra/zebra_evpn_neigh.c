@@ -539,6 +539,25 @@ static void zebra_evpn_l3vni_neigh_del_one(struct zebra_evpn *zevpn, struct zebr
 	zebra_evpn_l3_neigh_sync_unref(zevpn);
 }
 
+/* Withdraw a LOCAL entry and restore the still-advertised peer copy. Used
+ * when the kernel deletes the local neighbor and when an SVI leaves this
+ * L3VNI's VRF. remote_neigh_add holds the entry if the SVI is gone or in
+ * another VRF; reinstall_bd programs it when the SVI returns.
+ */
+static void zebra_evpn_l3vni_local_fallback_peer(struct zebra_evpn *zevpn, struct zebra_neigh *n)
+{
+	struct ipaddr pip = n->ip;
+	struct ethaddr pmac = n->emac;
+	vlanid_t petag = n->eth_tag;
+	uint32_t pseq = n->rem_seq;
+	bool prouter = CHECK_FLAG(n->flags, ZEBRA_NEIGH_ES_PEER_ROUTER);
+	esi_t pesi = n->rem_esi;
+	vni_t vni = zevpn->vni;
+
+	zebra_evpn_l3vni_neigh_del_one(zevpn, n);
+	zebra_evpn_l3vni_remote_neigh_add(vni, &pip, &pmac, petag, pseq, &pesi, prouter);
+}
+
 /*
  * Local ARP/ND learn on a no-L2VNI SVI: build a pure-L3 neighbor in the
  * L3VNI-keyed neighbor-sync singleton and advertise it to bgpd. The host MAC
@@ -743,15 +762,7 @@ int zebra_evpn_l3vni_local_neigh_del(struct interface *ifp, struct interface *br
 		zebra_evpn_l3vni_remote_neigh_reinstall(vni, n);
 	} else if (CHECK_FLAG(n->flags, ZEBRA_NEIGH_ES_PEER_ACTIVE)) {
 		/* The peer still advertises the host: fall back to its sync. */
-		struct ipaddr pip = n->ip;
-		struct ethaddr pmac = n->emac;
-		vlanid_t petag = n->eth_tag;
-		uint32_t pseq = n->rem_seq;
-		bool prouter = CHECK_FLAG(n->flags, ZEBRA_NEIGH_ES_PEER_ROUTER);
-		esi_t pesi = n->rem_esi;
-
-		zebra_evpn_l3vni_neigh_del_one(zevpn, n);
-		zebra_evpn_l3vni_remote_neigh_add(vni, &pip, &pmac, petag, pseq, &pesi, prouter);
+		zebra_evpn_l3vni_local_fallback_peer(zevpn, n);
 	} else if (CHECK_FLAG(n->flags, ZEBRA_NEIGH_LOCAL)) {
 		zebra_evpn_l3vni_neigh_del_one(zevpn, n);
 	}
@@ -1243,7 +1254,10 @@ void zebra_evpn_l3vni_svi_vrf_change(struct interface *ifp, vrf_id_t old_vrf_id)
 				if (n->mac || n->ifindex != ifp->ifindex)
 					continue;
 
-				if (CHECK_FLAG(n->flags, ZEBRA_NEIGH_LOCAL)) {
+				if (CHECK_FLAG(n->flags, ZEBRA_NEIGH_LOCAL) &&
+				    CHECK_FLAG(n->flags, ZEBRA_NEIGH_ES_PEER_ACTIVE)) {
+					zebra_evpn_l3vni_local_fallback_peer(zevpn, n);
+				} else if (CHECK_FLAG(n->flags, ZEBRA_NEIGH_LOCAL)) {
 					zebra_evpn_l3vni_neigh_del_one(zevpn, n);
 				} else if (CHECK_FLAG(n->flags, ZEBRA_NEIGH_REMOTE)) {
 					bond_ifindex = n->sync_mac_ifindex;
