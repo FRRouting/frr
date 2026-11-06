@@ -43,7 +43,7 @@ sys.path.append(os.path.join(CWD, "../"))
 from lib import topotest
 from lib.topogen import Topogen, get_topogen
 from lib.topolog import logger
-from lib.common_config import required_linux_kernel_version
+from lib.common_config import required_linux_kernel_version, step
 from lib.checkping import check_ping
 
 """
@@ -282,6 +282,101 @@ def test_sbfd_echo_returned_with_hop_limit_255():
     r1.cmd(
         "vtysh -c 'config t' -c 'bfd' -c 'no peer 2001::10 bfd-mode sbfd-echo bfd-name echo-r2 local-address 2001::10 srv6-source-ipv6 2001::10 srv6-encap-data fc00:20::'"
     )
+
+
+# A command that never returns would hang vtysh, and the test, forever.
+VTYSH_TIMEOUT = 15
+
+
+def bfdd_vtysh(router, *commands):
+    "Run commands in one vtysh call with a time limit. Return its exit code and output."
+    output = router.cmd(
+        "timeout {} vtysh {}; echo rc=$?".format(
+            VTYSH_TIMEOUT, " ".join("-c '{}'".format(c) for c in commands)
+        )
+    )
+    output, _, rc = output.rstrip().rpartition("rc=")
+    rc = int(rc)
+    if rc == 124:
+        # Kill the stuck bfdd. The vtysh calls that topotest makes after the
+        # test have no time limit and would wait for it forever.
+        router.cmd("kill -KILL $(cat /var/run/frr/bfdd.pid)")
+    assert rc != 124, "bfdd did not answer '{}' in {} seconds".format(
+        commands[-1], VTYSH_TIMEOUT
+    )
+    return rc, output
+
+
+def sbfd_reflector_config(router, command):
+    "Run command in the bfd node. Return vtysh's exit code and output."
+    return bfdd_vtysh(router, "configure terminal", "bfd", command)
+
+
+def sbfd_reflector_discrs(router):
+    "Return the set of reflector discriminators in 'show sbfd reflector'."
+    _, output = bfdd_vtysh(router, "show sbfd reflector")
+    discrs = set()
+    for line in output.splitlines():
+        fields = line.split()
+        if fields and fields[0].isdigit():
+            discrs.add(int(fields[0]))
+    return discrs
+
+
+# step 5: discriminator ranges and limits
+def test_sbfd_reflector_discriminator_range():
+    "Assert that discriminator ranges up to 4294967295 add and delete what they cover."
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    r2 = tgen.net["r2"]
+    before = sbfd_reflector_discrs(r2)
+    top = {4294967293, 4294967294, 4294967295}
+
+    step("Add a range that ends at 4294967295")
+    rc, output = sbfd_reflector_config(
+        r2, "sbfd reflector source-address 2001::20 discriminator 4294967293-4294967295"
+    )
+    assert rc == 0, "range 4294967293-4294967295 rejected: {}".format(output)
+    assert sbfd_reflector_discrs(r2) == before | top
+
+    step("Reject illegal discriminators without adding any reflector")
+    for discr, error in [
+        ("4294967295-4294967295", "is illegal"),
+        ("200-100", "is illegal"),
+        ("0", "is illegal"),
+        ("4294967296", "is illegal"),
+        ("100-102 -50", "is illegal"),
+        ("7 abc", "is illegal"),
+        ("1-65536 4294967290", "Too many discriminators (65537)"),
+    ]:
+        rc, output = sbfd_reflector_config(
+            r2, "sbfd reflector source-address 2001::20 discriminator " + discr
+        )
+        assert rc != 0, "discriminator {} accepted".format(discr)
+        assert error in output, "discriminator {}: expected '{}' in: {}".format(
+            discr, error, output
+        )
+        assert sbfd_reflector_discrs(r2) == before | top, "discriminator {}".format(
+            discr
+        )
+
+    step("Add and delete the largest range one command allows")
+    many = set(range(1000001, 1065537))
+    rc, output = sbfd_reflector_config(
+        r2, "sbfd reflector source-address 2001::20 discriminator 1000001-1065536"
+    )
+    assert rc == 0, "range 1000001-1065536 rejected: {}".format(output)
+    assert sbfd_reflector_discrs(r2) == before | top | many
+    rc, output = sbfd_reflector_config(r2, "no sbfd reflector 1000001 1065536")
+    assert rc == 0, "no sbfd reflector 1000001 1065536 failed: {}".format(output)
+    assert sbfd_reflector_discrs(r2) == before | top
+
+    step("Delete a range that ends at 4294967295")
+    rc, output = sbfd_reflector_config(r2, "no sbfd reflector 4294967293 4294967295")
+    assert rc == 0, "no sbfd reflector 4294967293 4294967295 failed: {}".format(output)
+    assert sbfd_reflector_discrs(r2) == before
 
 
 # Memory leak test template
