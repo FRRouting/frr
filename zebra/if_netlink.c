@@ -1485,7 +1485,8 @@ int netlink_link_change(struct nlmsghdr *h, ns_id_t ns_id, int startup, void *ar
 
 		vrf_id_t ifp_vrf_id = vrf_is_backend_netns() ? ns_id : vrf_id;
 
-		if (startup) {
+		/* A PPP link has no speed, see dplane_intf_speed_get() */
+		if (startup && ifi->ifi_type != ARPHRD_PPP) {
 			speed = netlink_get_interface_speed(zebra_ns_lookup(ifp_vrf_id),
 							    name, &speed_err);
 			if (speed_err == 0) {
