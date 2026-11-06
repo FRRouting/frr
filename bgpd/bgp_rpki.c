@@ -806,10 +806,37 @@ static void bgpd_sync_callback(struct event *event)
 	revalidate_single_prefix(vrf, prefix, afi);
 }
 
+/*
+ * Locally originated routes (e.g., 'network' statement) have no adj_in
+ * entry, so neither bgp_update() of the Adj-RIB-In nor a soft inbound
+ * reconfiguration covers them.  Force re-advertisement so the outbound
+ * route-map re-evaluates the updated RPKI state.
+ * If we have something like:
+ * route-map out deny 10
+ *   match rpki invalid
+ * route-map out permit 20
+ * Then a locally originated route that becomes RPKI invalid needs to be
+ * re-evaluated against the route-map, and if we don't force
+ * re-advertisement, it won't be.
+ */
+static void revalidate_local_routes(struct bgp *bgp, struct bgp_dest *bgp_dest, afi_t afi,
+				    safi_t safi)
+{
+	struct bgp_path_info *bpi;
+
+	for (bpi = bgp_dest_get_bgp_path_info(bgp_dest); bpi; bpi = bpi->next) {
+		if (bpi->peer == bgp->peer_self && bpi->type == ZEBRA_ROUTE_BGP &&
+		    (bpi->sub_type == BGP_ROUTE_STATIC || bpi->sub_type == BGP_ROUTE_AGGREGATE)) {
+			bgp_path_info_set_flag(bgp_dest, bpi, BGP_PATH_ATTR_CHANGED);
+			bgp_process(bgp, bgp_dest, bpi, afi, safi);
+			break;
+		}
+	}
+}
+
 static void revalidate_bgp_node(struct bgp *bgp, struct bgp_dest *bgp_dest, afi_t afi, safi_t safi)
 {
 	struct bgp_adj_in *ain;
-	struct bgp_path_info *bpi;
 	mpls_label_t *label;
 	uint8_t num_labels;
 
@@ -823,25 +850,7 @@ static void revalidate_bgp_node(struct bgp *bgp, struct bgp_dest *bgp_dest, afi_
 				 label, num_labels, 1, NULL, NULL);
 	}
 
-	/* Locally originated routes (e.g., 'network' statement) have no adj_in
-	 * entry, so bgp_update() above won't cover them.  Force re-advertisement
-	 * so the outbound route-map re-evaluates the updated RPKI state.
-	 * If we have something like:
-	 * route-map out deny 10
-	 *   match rpki invalid
-	 * route-map out permit 20
-	 * Then a locally originated route that becomes RPKI invalid needs to be
-	 * re-evaluated against the route-map, and if we don't force
-	 * re-advertisement, it won't be.
-	 */
-	for (bpi = bgp_dest_get_bgp_path_info(bgp_dest); bpi; bpi = bpi->next) {
-		if (bpi->peer == bgp->peer_self && bpi->type == ZEBRA_ROUTE_BGP &&
-		    (bpi->sub_type == BGP_ROUTE_STATIC || bpi->sub_type == BGP_ROUTE_AGGREGATE)) {
-			bgp_path_info_set_flag(bgp_dest, bpi, BGP_PATH_ATTR_CHANGED);
-			bgp_process(bgp, bgp_dest, bpi, afi, safi);
-			break;
-		}
-	}
+	revalidate_local_routes(bgp, bgp_dest, afi, safi);
 }
 
 static void rpki_update_cb_sync_rtr(struct rtr_pfx_table *p __attribute__((unused)),
@@ -892,7 +901,8 @@ err:
 
 /*
  * Re-run the inbound policy of every peer with soft-reconfiguration inbound,
- * for the bgp instance(s) that use this RPKI configuration.
+ * and re-advertise the locally originated routes, for the bgp instance(s)
+ * that use this RPKI configuration.
  */
 static void revalidate_all_routes(struct rpki_vrf *rpki_vrf)
 {
@@ -900,6 +910,8 @@ static void revalidate_all_routes(struct rpki_vrf *rpki_vrf)
 	struct vrf *vrf = NULL;
 	struct peer *peer;
 	struct bgp *bgp;
+	afi_t afi;
+	safi_t safi;
 
 	if (rpki_vrf->vrfname) {
 		vrf = vrf_lookup_by_name(rpki_vrf->vrfname);
@@ -914,11 +926,27 @@ static void revalidate_all_routes(struct rpki_vrf *rpki_vrf)
 			continue;
 
 		for (ALL_LIST_ELEMENTS_RO(bgp->peer, pnode, peer)) {
-			afi_t afi;
-			safi_t safi;
-
 			FOREACH_AFI_SAFI (afi, safi)
 				bgp_soft_reconfig_in(peer, afi, safi);
+		}
+
+		/*
+		 * The soft reconfiguration only replays the Adj-RIB-In. Walk the
+		 * tables that RPKI validates for the locally originated routes,
+		 * as rpki_revalidate_prefix() does for the routes of one VRP.
+		 */
+		FOREACH_AFI_SAFI (afi, safi) {
+			struct bgp_table *table = bgp->rib[afi][safi];
+			struct bgp_dest *dest;
+
+			if (!table || (safi != SAFI_UNICAST && safi != SAFI_MULTICAST &&
+				       safi != SAFI_LABELED_UNICAST))
+				continue;
+
+			for (dest = bgp_table_top(table); dest; dest = bgp_route_next(dest)) {
+				if (bgp_dest_has_bgp_path_info_data(dest))
+					revalidate_local_routes(bgp, dest, afi, safi);
+			}
 		}
 	}
 }

@@ -31,6 +31,13 @@ BGP table to each /24 goes through holder route_nodes (no bgp_dest), and the
 covering VRP of step 2 (10.10.0.0/16 maxlen 24) has a holder as subtree root.
 Invalid routes must be gone from the BGP table but kept in Adj-RIB-In, so that
 they come back when they are no longer invalid.
+
+r2 also originates 10.40.0.0/24 and advertises it to r3 (AS 65003), denying
+"match rpki invalid" outbound. r3 has no soft-reconfiguration inbound, and the
+route has no Adj-RIB-In entry on r2, so a soft inbound reconfiguration covers
+neither: a VRP of another AS for it must withdraw the route from r3, and its
+removal must bring the route back, through an exact VRP update, through the
+burst, and through the initial sync after "rpki start".
 """
 
 import os
@@ -82,6 +89,12 @@ FILLER_VRPS = [
 ]
 VRPS_BURST = VRPS_INITIAL + FILLER_VRPS + [(65099, p, 24) for p in BURST_PREFIXES]
 
+# Locally originated by r2 (AS 65002), advertised to r3 unless invalid
+LOCAL_PREFIX = "10.40.0.0/24"
+VRP_LOCAL_INVALID = (65099, LOCAL_PREFIX, 24)
+VRPS_LOCAL_INVALID = VRPS_INITIAL + [VRP_LOCAL_INVALID]
+VRPS_BURST_LOCAL_INVALID = VRPS_BURST + [VRP_LOCAL_INVALID]
+
 EXPECTED_INITIAL = {
     "10.10.1.0/24": "valid",
     "10.10.2.0/24": "valid",
@@ -94,10 +107,15 @@ EXPECTED_INITIAL = {
 def build_topo(tgen):
     tgen.add_router("r1")
     tgen.add_router("r2")
+    tgen.add_router("r3")
 
     switch = tgen.add_switch("s1")
     switch.add_link(tgen.gears["r1"])
     switch.add_link(tgen.gears["r2"])
+
+    switch = tgen.add_switch("s2")
+    switch.add_link(tgen.gears["r2"])
+    switch.add_link(tgen.gears["r3"])
 
 
 def vrps_file():
@@ -232,6 +250,32 @@ def _burst_routes(accepted):
     return None
 
 
+def _local_route(advertised):
+    """r2's locally originated route is, or is not, in r3's BGP table."""
+    output = json.loads(
+        get_topogen().gears["r3"].vtysh_cmd(
+            "show bgp ipv4 unicast {} json".format(LOCAL_PREFIX)
+        )
+    )
+    paths = output.get("paths", [])
+    if advertised and not paths:
+        return "{} not advertised to r3".format(LOCAL_PREFIX)
+    if not advertised and paths:
+        return "{} still advertised to r3".format(LOCAL_PREFIX)
+    return None
+
+
+def check_local_route(advertised):
+    step(
+        "Check that r2 {} its local route, without soft out".format(
+            "advertises" if advertised else "withdrew"
+        )
+    )
+    test_func = functools.partial(_local_route, advertised)
+    _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
+    assert result is None, "outbound policy not re-applied: {}".format(result)
+
+
 def change_vrps(vrps, expected):
     tgen = get_topogen()
     if tgen.routers_have_failure():
@@ -280,6 +324,8 @@ def test_initial_state():
     _, result = topotest.run_and_expect(test_func, None, count=60, wait=1)
     assert result is None, "unexpected initial state: {}".format(result)
 
+    check_local_route(True)
+
 
 def test_valid_to_invalid_and_invalid_to_valid():
     change_vrps(
@@ -311,6 +357,15 @@ def test_revert_vrps():
     change_vrps(VRPS_INITIAL, EXPECTED_INITIAL)
 
 
+def test_local_route_exact_vrp():
+    """A VRP for r2's own route re-runs the outbound policy (per-prefix path)."""
+    change_vrps(VRPS_LOCAL_INVALID, EXPECTED_INITIAL)
+    check_local_route(False)
+
+    change_vrps(VRPS_INITIAL, EXPECTED_INITIAL)
+    check_local_route(True)
+
+
 def test_burst_of_updates():
     tgen = get_topogen()
     if tgen.routers_have_failure():
@@ -318,7 +373,7 @@ def test_burst_of_updates():
     if rtrd_process.poll() is not None:
         pytest.skip("rtrd is not running")
 
-    for vrps, accepted in [(VRPS_BURST, False), (VRPS_INITIAL, True)]:
+    for vrps, accepted in [(VRPS_BURST_LOCAL_INVALID, False), (VRPS_INITIAL, True)]:
         write_vrps(vrps)
 
         step("Wait for r2 to receive the new VRP set ({} VRPs)".format(len(vrps)))
@@ -339,6 +394,8 @@ def test_burst_of_updates():
         _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
         assert result is None, "unexpected state: {}".format(result)
 
+        check_local_route(accepted)
+
 
 def test_rpki_restart_refilters():
     tgen = get_topogen()
@@ -357,9 +414,12 @@ def test_rpki_restart_refilters():
     _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
     assert result is None, "routes not accepted with RPKI stopped: {}".format(result)
 
-    step("Start RPKI on r2 and wait for the VRP set")
+    check_local_route(True)
+
+    step("Make r2's local route invalid while RPKI is stopped, then start RPKI")
+    write_vrps(VRPS_LOCAL_INVALID)
     r2.vtysh_cmd("rpki start")
-    test_func = functools.partial(_rpki_prefix_table, VRPS_INITIAL)
+    test_func = functools.partial(_rpki_prefix_table, VRPS_LOCAL_INVALID)
     _, result = topotest.run_and_expect(test_func, None, count=60, wait=1)
     assert result is None, "r2 did not receive the VRP set: {}".format(result)
 
@@ -367,6 +427,11 @@ def test_rpki_restart_refilters():
     test_func = functools.partial(_bgp_state, EXPECTED_INITIAL)
     _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
     assert result is None, "inbound policy not re-applied: {}".format(result)
+
+    check_local_route(False)
+
+    change_vrps(VRPS_INITIAL, EXPECTED_INITIAL)
+    check_local_route(True)
 
 
 def test_memory_leak():
