@@ -111,6 +111,15 @@ This packet will be routed in the topo according to the dst ip 200::A, it will g
 
 .. clicmd:: sbfd reflector source-address 200::D discriminator 456
 
+   The discriminator can be one value, a range such as ``456-460``, or a list
+   of both, such as ``discriminator 456 500-510``. Values go from 1 to
+   4294967295, the first value of a range must be lower than the last, and one
+   command can add at most 65536 discriminators. If any of them is not valid,
+   the command is rejected and adds no reflector.
+
+   ``no sbfd reflector START [END]`` removes the reflector START, or every
+   reflector from START to END. ``no sbfd reflector`` removes all reflectors.
+
 
 .. _sbfd-echo:
 
