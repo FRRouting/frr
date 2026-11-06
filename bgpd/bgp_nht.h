@@ -83,6 +83,10 @@ extern void bgp_nht_ifp_down(struct interface *ifp);
 
 extern void bgp_nht_interface_events(struct peer *peer);
 
+/* Tunnel-resolution checks for "install backup-path ... tunnel-only". */
+extern bool bgp_nht_bnc_is_tunnel_resolved(struct bgp_nexthop_cache *bnc, const char **kind);
+extern bool bgp_path_backup_is_tunnel_resolved(struct bgp_path_info *pi);
+
 /* called when a path becomes valid or invalid, because of nexthop tracking */
 DECLARE_HOOK(bgp_nht_path_update, (struct bgp *bgp, struct bgp_path_info *pi, bool valid),
 	     (bgp, pi, valid));
