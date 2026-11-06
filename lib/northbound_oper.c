@@ -472,11 +472,67 @@ done:
 }
 
 /*
+ * Initialize the node info with the data and schema node at this level in the
+ * trunk, and the length of the corresponding xpath expression.
+ */
+static enum nb_error nb_op_ys_init_node_info_pass1(struct nb_op_yield_state *ys, int level,
+						   struct lyd_node *node)
+{
+	struct nb_op_node_info *ni = &ys->node_infos[level];
+	uint xpath_len;
+	enum nb_error ret = NB_OK;
+
+	if (level == ys->walk_root_level) {
+		/* Determine the length of the xpath expression for the trunk. */
+		xpath_len = strlen(ys->xpath);
+	} else {
+		const struct nb_op_node_info *cni = &ys->node_infos[level + 1];
+		const char *end_pos;
+
+		/*
+		 * Temporarily truncate the xpath expression, so that it refers
+		 * to the node in the previous step (our child).
+		 */
+		if (level < ys->walk_root_level - 1) {
+			assert(ys->xpath[cni->xpath_len] == '/');
+			ys->xpath[cni->xpath_len] = '\0';
+		}
+
+		/*
+		 * Find where the xpath expression would be truncated to refer
+		 * to the current node instead.
+		 */
+		end_pos = frrstr_back_to_char(ys->xpath, '/');
+		if (!end_pos || end_pos == ys->xpath) {
+			flog_warn(EC_LIB_LIBYANG, "%s: error tokenizing query xpath: %s", __func__,
+				  ys->xpath);
+			ret = NB_ERR_VALIDATION;
+		}
+
+		/* Restore the xpath expression so that it refers to the trunk. */
+		if (level < ys->walk_root_level - 1)
+			ys->xpath[cni->xpath_len] = '/';
+
+		if (ret != NB_OK)
+			return ret;
+
+		/* Store the length of the xpath expression for the current node. */
+		xpath_len = end_pos - ys->xpath;
+	}
+
+	ni->inner = node;
+	ni->schema = node->schema;
+	ni->xpath_len = xpath_len;
+
+	return NB_OK;
+}
+
+/*
  * Finish initializing the node info based on the xpath string, and previous
  * node_infos on the stack. If this node is a list node, obtain the specific
  * list-entry object.
  */
-static enum nb_error nb_op_ys_finalize_node_info(struct nb_op_yield_state *ys, int level)
+static enum nb_error nb_op_ys_init_node_info_pass2(struct nb_op_yield_state *ys, int level)
 {
 	struct nb_op_node_info *pni = level == 0 ? NULL : &ys->node_infos[level - 1];
 	struct nb_op_node_info *ni = &ys->node_infos[level];
@@ -577,13 +633,11 @@ static enum nb_error nb_op_ys_finalize_node_info(struct nb_op_yield_state *ys, i
  */
 static enum nb_error nb_op_ys_init_node_infos(struct nb_op_yield_state *ys)
 {
-	struct nb_op_node_info *ni;
 	struct lyd_node *inner;
 	struct lyd_node *node = NULL;
 	enum nb_error ret;
-	const char *cur;
 	char *xpath = NULL;
-	uint i, len, prevlen, xplen;
+	uint i, len;
 
 	/*
 	 * Obtain the trunk of the data node tree of the query.
@@ -615,44 +669,11 @@ static enum nb_error nb_op_ys_init_node_infos(struct nb_op_yield_state *ys)
 	 * -- save the prefix length.
 	 */
 	inner = node;
-	prevlen = 0;
-	xplen = strlen(ys->xpath);
 	for (i = len - 1; i < len; i--) {
-		ni = &ys->node_infos[i];
-		ni->inner = inner;
-		ni->schema = inner->schema;
-
-		if (i == len - 1) {
-			inner = lyd_parent(inner);
-			prevlen = xplen;
-			ni->xpath_len = prevlen;
-			continue;
-		}
-
-		/*
-		 * The only predicates we should have are concrete ones at this
-		 * point b/c of nb_op_xpath_to_trunk() above, so we aren't in
-		 * danger of finding a division symbol in the path, only '/'s
-		 * inside strings which frrstr_back_to_char skips over.
-		 */
-
-		assert(prevlen == xplen || ys->xpath[prevlen] == '/');
-		if (prevlen != xplen)
-			ys->xpath[prevlen] = 0;
-		cur = frrstr_back_to_char(ys->xpath, '/');
-		if (prevlen != xplen)
-			ys->xpath[prevlen] = '/';
-
-		if (!cur || cur == ys->xpath) {
-			flog_warn(EC_LIB_LIBYANG, "%s: error tokenizing query xpath: %s", __func__,
-				  ys->xpath);
-			ret = NB_ERR_VALIDATION;
+		ret = nb_op_ys_init_node_info_pass1(ys, i, inner);
+		if (ret != NB_OK)
 			goto error;
-		}
-
 		inner = lyd_parent(inner);
-		prevlen = cur - ys->xpath;
-		ni->xpath_len = prevlen;
 	}
 
 	/*
@@ -661,7 +682,7 @@ static enum nb_error nb_op_ys_init_node_infos(struct nb_op_yield_state *ys)
 	 */
 
 	darr_foreach_i (ys->node_infos, i) {
-		ret = nb_op_ys_finalize_node_info(ys, i);
+		ret = nb_op_ys_init_node_info_pass2(ys, i);
 		if (ret != NB_OK)
 			goto error;
 	}
