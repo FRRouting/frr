@@ -685,6 +685,7 @@ static const char *ecommunity_gettoken(const char *str, void *eval_ptr,
 	static const char *str_color = "color";
 	const char *ptr_color;
 	bool val_color_set = false;
+	bool val_color_overflow = false;
 
 	/* Skip white space. */
 	while (isspace((unsigned char)*p)) {
@@ -886,18 +887,23 @@ static const char *ecommunity_gettoken(const char *str, void *eval_ptr,
 			if (dot >= 4)
 				goto error;
 		} else {
+			uint32_t d = *p - '0';
+
 			digit = 1;
 
 			/* We're past the IP/ASN part,
 			 * or we have a color
 			 */
 			if (separator) {
-				val *= 10;
-				val += (*p - '0');
+				if (val > (UINT32_MAX - d) / 10)
+					goto error;
+				val = val * 10 + d;
 				val_color_set = false;
 			} else {
-				val_color *= 10;
-				val_color += (*p - '0');
+				if (val_color > (UINT32_MAX - d) / 10)
+					val_color_overflow = true;
+				else
+					val_color = val_color * 10 + d;
 				val_color_set = true;
 			}
 		}
@@ -924,6 +930,8 @@ static const char *ecommunity_gettoken(const char *str, void *eval_ptr,
 			ecomm_type = ECOMMUNITY_ENCODE_AS4;
 		else if (sub_type == ECOMMUNITY_COLOR) {
 			ecomm_type = ECOMMUNITY_ENCODE_OPAQUE;
+			if (!separator && val_color_overflow)
+				goto error;
 			/* A color without CO bits is encoded with CO bits 00 */
 			if (val_color)
 				val = val_color;
