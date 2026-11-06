@@ -691,24 +691,27 @@ static void ospf6_dbdesc_recv_master(struct ospf6_header *oh,
 			zlog_warn(
 				"DbDesc recv: Master/Slave bit mismatch Nbr %s",
 				on->name);
+			event_cancel(&on->thread_seqnumber_mismatch);
 			event_add_event(master, seqnumber_mismatch, on, 0,
-					NULL);
+					&on->thread_seqnumber_mismatch);
 			return;
 		}
 
 		if (CHECK_FLAG(dbdesc->bits, OSPF6_DBDESC_IBIT)) {
 			zlog_warn("DbDesc recv: Initialize bit mismatch Nbr %s",
 				  on->name);
+			event_cancel(&on->thread_seqnumber_mismatch);
 			event_add_event(master, seqnumber_mismatch, on, 0,
-					NULL);
+					&on->thread_seqnumber_mismatch);
 			return;
 		}
 
 		if (memcmp(on->options, dbdesc->options, sizeof(on->options))) {
 			zlog_warn("DbDesc recv: Option field mismatch Nbr %s",
 				  on->name);
+			event_cancel(&on->thread_seqnumber_mismatch);
 			event_add_event(master, seqnumber_mismatch, on, 0,
-					NULL);
+					&on->thread_seqnumber_mismatch);
 			return;
 		}
 
@@ -717,8 +720,9 @@ static void ospf6_dbdesc_recv_master(struct ospf6_header *oh,
 				"DbDesc recv: Sequence number mismatch Nbr %s (received %#lx, %#lx expected)",
 				on->name, (unsigned long)ntohl(dbdesc->seqnum),
 				(unsigned long)on->dbdesc_seqnum);
+			event_cancel(&on->thread_seqnumber_mismatch);
 			event_add_event(master, seqnumber_mismatch, on, 0,
-					 NULL);
+					&on->thread_seqnumber_mismatch);
 			return;
 		}
 		break;
@@ -738,7 +742,9 @@ static void ospf6_dbdesc_recv_master(struct ospf6_header *oh,
 		zlog_warn(
 			"DbDesc recv: Not duplicate dbdesc in state %s Nbr %s",
 			ospf6_neighbor_state_str[on->state], on->name);
-		event_add_event(master, seqnumber_mismatch, on, 0, NULL);
+		event_cancel(&on->thread_seqnumber_mismatch);
+		event_add_event(master, seqnumber_mismatch, on, 0,
+				&on->thread_seqnumber_mismatch);
 		return;
 
 	default:
@@ -784,8 +790,9 @@ static void ospf6_dbdesc_recv_master(struct ospf6_header *oh,
 				zlog_debug(
 					"SeqNumMismatch (E-bit mismatch), discard");
 			ospf6_lsa_delete(his);
+			event_cancel(&on->thread_seqnumber_mismatch);
 			event_add_event(master, seqnumber_mismatch, on, 0,
-					NULL);
+					&on->thread_seqnumber_mismatch);
 			return;
 		}
 
@@ -914,8 +921,9 @@ static void ospf6_dbdesc_recv_slave(struct ospf6_header *oh,
 			zlog_warn(
 				"DbDesc slave recv: Master/Slave bit mismatch Nbr %s",
 				on->name);
+			event_cancel(&on->thread_seqnumber_mismatch);
 			event_add_event(master, seqnumber_mismatch, on, 0,
-					NULL);
+					&on->thread_seqnumber_mismatch);
 			return;
 		}
 
@@ -923,8 +931,9 @@ static void ospf6_dbdesc_recv_slave(struct ospf6_header *oh,
 			zlog_warn(
 				"DbDesc slave recv: Initialize bit mismatch Nbr %s",
 				on->name);
+			event_cancel(&on->thread_seqnumber_mismatch);
 			event_add_event(master, seqnumber_mismatch, on, 0,
-					NULL);
+					&on->thread_seqnumber_mismatch);
 			return;
 		}
 
@@ -932,8 +941,9 @@ static void ospf6_dbdesc_recv_slave(struct ospf6_header *oh,
 			zlog_warn(
 				"DbDesc slave recv: Option field mismatch Nbr %s",
 				on->name);
+			event_cancel(&on->thread_seqnumber_mismatch);
 			event_add_event(master, seqnumber_mismatch, on, 0,
-					NULL);
+					&on->thread_seqnumber_mismatch);
 			return;
 		}
 
@@ -942,8 +952,9 @@ static void ospf6_dbdesc_recv_slave(struct ospf6_header *oh,
 				"DbDesc slave recv: Sequence number mismatch Nbr %s (received %#lx, %#lx expected)",
 				on->name, (unsigned long)ntohl(dbdesc->seqnum),
 				(unsigned long)on->dbdesc_seqnum + 1);
+			event_cancel(&on->thread_seqnumber_mismatch);
 			event_add_event(master, seqnumber_mismatch, on, 0,
-					 NULL);
+					&on->thread_seqnumber_mismatch);
 			return;
 		}
 		break;
@@ -966,7 +977,9 @@ static void ospf6_dbdesc_recv_slave(struct ospf6_header *oh,
 		zlog_warn(
 			"DbDesc slave recv: Not duplicate dbdesc in state %s Nbr %s",
 			ospf6_neighbor_state_str[on->state], on->name);
-		event_add_event(master, seqnumber_mismatch, on, 0, NULL);
+		event_cancel(&on->thread_seqnumber_mismatch);
+		event_add_event(master, seqnumber_mismatch, on, 0,
+				&on->thread_seqnumber_mismatch);
 		return;
 
 	default:
@@ -1008,8 +1021,9 @@ static void ospf6_dbdesc_recv_slave(struct ospf6_header *oh,
 			if (IS_OSPF6_DEBUG_MESSAGE(oh->type, RECV))
 				zlog_debug("E-bit mismatch with LSA Headers");
 			ospf6_lsa_delete(his);
+			event_cancel(&on->thread_seqnumber_mismatch);
 			event_add_event(master, seqnumber_mismatch, on, 0,
-					NULL);
+					&on->thread_seqnumber_mismatch);
 			return;
 		}
 
@@ -1160,7 +1174,9 @@ static void ospf6_lsreq_recv(struct in6_addr *src, struct in6_addr *dst,
 				"Can't find requested lsa [%s Id:%pI4 Adv:%pI4] send badLSReq",
 				ospf6_lstype_name(e->type), &e->id,
 				&e->adv_router);
-			event_add_event(master, bad_lsreq, on, 0, NULL);
+			event_cancel(&on->thread_bad_lsreq);
+			event_add_event(master, bad_lsreq, on, 0,
+					&on->thread_bad_lsreq);
 			return;
 		}
 

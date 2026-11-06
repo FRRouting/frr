@@ -1155,7 +1155,9 @@ void ospf6_receive_lsa(struct ospf6_neighbor *from,
 			new->name);
 
 		/* BadLSReq */
-		event_add_event(master, bad_lsreq, from, 0, NULL);
+		event_cancel(&from->thread_bad_lsreq);
+		event_add_event(master, bad_lsreq, from, 0,
+				&from->thread_bad_lsreq);
 
 		ospf6_lsa_delete(new);
 		return;
