@@ -1143,9 +1143,14 @@ void bgp_update_delay_end(struct bgp *bgp)
 	/*
 	 * Resume the queue processing. This should trigger the event that would
 	 * take care of processing any work that was queued during the read-only
-	 * mode.
+	 * mode. A hold taken with bgp_meta_queue_plug() keeps it plugged.
 	 */
+#ifdef DEV_BUILD
+	if (!bgp->meta_queue_plugged)
+		work_queue_unplug(bgp->process_queue);
+#else
 	work_queue_unplug(bgp->process_queue);
+#endif
 
 	/* Re-announce the routes once the update-delay timer expires.
 	 * This is needed to ensure that the routes are re-advertised to the
