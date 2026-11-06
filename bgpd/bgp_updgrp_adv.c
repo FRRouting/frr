@@ -435,14 +435,8 @@ static int update_group_announce_walkcb(struct update_group *updgrp, void *arg)
 {
 	struct update_subgroup *subgrp;
 
-	UPDGRP_FOREACH_SUBGRP (updgrp, subgrp) {
-		/* Avoid suppressing duplicate routes later
-		 * when processing in subgroup_announce_table().
-		 */
-		SET_FLAG(subgrp->sflags, SUBGRP_STATUS_FORCE_UPDATES);
-
+	UPDGRP_FOREACH_SUBGRP (updgrp, subgrp)
 		subgroup_announce_all(subgrp);
-	}
 
 	return UPDWALK_CONTINUE;
 }
