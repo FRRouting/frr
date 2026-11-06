@@ -648,6 +648,9 @@ struct bgp {
 		uint32_t subgrps_deleted;
 	} update_group_stats;
 
+	/* A subgroup merge was refused while best path was pending */
+	bool update_group_merge_retry;
+
 	struct bgp_snmp_stats *snmp_stats;
 
 	/* BGP configuration.  */

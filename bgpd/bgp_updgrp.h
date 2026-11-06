@@ -254,6 +254,7 @@ struct update_subgroup {
 
 	uint16_t flags;
 #define SUBGRP_FLAG_NEEDS_REFRESH (1 << 0)
+#define SUBGRP_FLAG_MERGE_WAITS_BESTPATH (1 << 1)
 };
 
 /*
@@ -366,6 +367,7 @@ extern struct bgp_table *update_subgroup_rib(struct update_subgroup *);
 extern void update_subgroup_split_peer(struct peer_af *paf, struct update_group *updgrp);
 extern bool update_subgroup_check_merge(struct update_subgroup *subgrp, const char *reason);
 extern bool update_subgroup_trigger_merge_check(struct update_subgroup *subgrp, int force);
+extern void update_group_retry_merges(struct bgp *bgp);
 extern void update_group_policy_update(struct bgp *bgp,
 				       enum bgp_policy_type ptype,
 				       const char *pname, bool route_update,

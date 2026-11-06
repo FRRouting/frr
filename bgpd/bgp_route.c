@@ -5479,6 +5479,11 @@ void bgp_meta_queue_free(struct meta_queue *mq)
 	XFREE(MTYPE_BGP_METAQ, mq);
 }
 
+static void bgp_process_queue_complete(struct work_queue *wq)
+{
+	update_group_retry_merges(wq->spec.data);
+}
+
 void bgp_process_queue_init(struct bgp *bgp)
 {
 	if (!bgp->process_queue) {
@@ -5488,7 +5493,9 @@ void bgp_process_queue_init(struct bgp *bgp)
 		bgp->process_queue = work_queue_new(bm->master, name);
 	}
 
+	bgp->process_queue->spec.data = bgp;
 	bgp->process_queue->spec.workfunc = &meta_queue_process;
+	bgp->process_queue->spec.completion_func = &bgp_process_queue_complete;
 	bgp->process_queue->spec.max_retries = 0;
 	bgp->process_queue->spec.hold = 50;
 	/* Use a higher yield value of 50ms for main queue processing */

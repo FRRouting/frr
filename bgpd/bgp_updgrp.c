@@ -1487,6 +1487,12 @@ static int update_subgroup_can_merge_into(struct update_subgroup *subgrp,
 
 	/* Walked: 1 if subgrp has a prefix waiting, else check the target */
 	if (*subgrp_waits || update_subgroup_waits_for_bestpath(target)) {
+		if (*subgrp_waits)
+			SET_FLAG(subgrp->flags, SUBGRP_FLAG_MERGE_WAITS_BESTPATH);
+		else
+			SET_FLAG(target->flags, SUBGRP_FLAG_MERGE_WAITS_BESTPATH);
+
+		SUBGRP_INST(subgrp)->update_group_merge_retry = true;
 		if (BGP_DEBUG(update_groups, UPDATE_GROUPS))
 			zlog_debug("u%" PRIu64 ":s%" PRIu64 " not merged into u%" PRIu64
 				   ":s%" PRIu64 ", best path pending",
@@ -1621,6 +1627,37 @@ bool update_subgroup_trigger_merge_check(struct update_subgroup *subgrp,
 	SUBGRP_INCR_STAT(subgrp, merge_checks_triggered);
 
 	return true;
+}
+
+static int update_group_retry_merges_walkcb(struct update_group *updgrp, void *arg)
+{
+	struct update_subgroup *subgrp;
+
+	UPDGRP_FOREACH_SUBGRP (updgrp, subgrp) {
+		if (!CHECK_FLAG(subgrp->flags, SUBGRP_FLAG_MERGE_WAITS_BESTPATH))
+			continue;
+
+		UNSET_FLAG(subgrp->flags, SUBGRP_FLAG_MERGE_WAITS_BESTPATH);
+		update_subgroup_trigger_merge_check(subgrp, 0);
+	}
+
+	return UPDWALK_CONTINUE;
+}
+
+/*
+ * Called when the best-path queue is empty, so best path has run for the
+ * prefixes that blocked a merge. If it sent nothing to those subgroups, no
+ * packet will trigger another merge check, so retry the refused merges
+ * here. If it did queue an UPDATE, the subgroup is not ready and the send
+ * checks it. A merge refused again is retried on the next call.
+ */
+void update_group_retry_merges(struct bgp *bgp)
+{
+	if (!bgp->update_group_merge_retry)
+		return;
+
+	bgp->update_group_merge_retry = false;
+	update_group_walk(bgp, update_group_retry_merges_walkcb, NULL);
 }
 
 /*
