@@ -1414,13 +1414,51 @@ static bool update_subgroup_ready_for_merge(struct update_subgroup *subgrp)
 }
 
 /*
+ * When an UPDATE is received, bgp_update() stores the new attributes in
+ * the path right away and only queues the prefix for best path.
+ * dest->version changes later, when best path runs for the prefix. In
+ * between, a subgroup that walks the table, for example one created when a
+ * soft clear out splits a peer off, reads and sends the new attributes,
+ * while an older subgroup still has the old ones recorded at the same
+ * subgrp->version. If the two merged, the older subgroup's peers would be
+ * covered by an adj-out saying the new attributes were sent, and best path
+ * would never send them. So a subgroup is not mergeable while any prefix
+ * it has sent is queued for best path, or has best path deferred.
+ */
+static bool update_subgroup_waits_for_bestpath(struct update_subgroup *subgrp)
+{
+	struct bgp_adj_out *adj;
+
+	SUBGRP_FOREACH_ADJ (subgrp, adj) {
+		if (CHECK_FLAG(adj->dest->flags,
+			       BGP_NODE_PROCESS_SCHEDULED | BGP_NODE_SELECT_DEFER))
+			return true;
+	}
+
+	return false;
+}
+
+/*
  * update_subgrp_can_merge_into
  *
  * Returns true if the first subgroup can merge into the second
  * subgroup.
+ *
+ * *subgrp_waits remembers whether the first subgroup has a prefix
+ * waiting for best path, so its adj-out is walked at most once per
+ * merge check:
+ *   -1  not walked yet
+ *    0  walked, no prefix waiting
+ *    1  walked, a prefix is waiting, so no subgroup can take it
+ *
+ * For example, subgroup 1 is checked against subgroups 2, 3 and 4, and
+ * the caller starts with -1. Subgroup 2 passes the cheaper checks, so
+ * subgroup 1's adj-out is walked and the answer is stored. If it is 1,
+ * the caller stops without trying subgroups 3 and 4. If it is 0,
+ * subgroups 3 and 4 reuse it, and only their own adj-out is walked.
  */
 static int update_subgroup_can_merge_into(struct update_subgroup *subgrp,
-					  struct update_subgroup *target)
+					  struct update_subgroup *target, int *subgrp_waits)
 {
 
 	if (subgrp == target)
@@ -1440,7 +1478,25 @@ static int update_subgroup_can_merge_into(struct update_subgroup *subgrp,
 	if (subgrp->adj_count != target->adj_count)
 		return 0;
 
-	return update_subgroup_ready_for_merge(target);
+	if (!update_subgroup_ready_for_merge(target))
+		return 0;
+
+	/* Not walked yet */
+	if (*subgrp_waits < 0)
+		*subgrp_waits = update_subgroup_waits_for_bestpath(subgrp);
+
+	/* Walked: 1 if subgrp has a prefix waiting, else check the target */
+	if (*subgrp_waits || update_subgroup_waits_for_bestpath(target)) {
+		if (BGP_DEBUG(update_groups, UPDATE_GROUPS))
+			zlog_debug("u%" PRIu64 ":s%" PRIu64 " not merged into u%" PRIu64
+				   ":s%" PRIu64 ", best path pending",
+				   subgrp->update_group->id, subgrp->id, target->update_group->id,
+				   target->id);
+
+		return 0;
+	}
+
+	return 1;
 }
 
 /*
@@ -1504,6 +1560,7 @@ bool update_subgroup_check_merge(struct update_subgroup *subgrp,
 				 const char *reason)
 {
 	struct update_subgroup *target;
+	int subgrp_waits = -1;
 
 	if (!update_subgroup_ready_for_merge(subgrp))
 		return false;
@@ -1512,8 +1569,12 @@ bool update_subgroup_check_merge(struct update_subgroup *subgrp,
 	 * Look for a subgroup to merge into.
 	 */
 	UPDGRP_FOREACH_SUBGRP (subgrp->update_group, target) {
-		if (update_subgroup_can_merge_into(subgrp, target))
+		if (update_subgroup_can_merge_into(subgrp, target, &subgrp_waits))
 			break;
+
+		/* No subgroup can take this one while it waits for best path */
+		if (subgrp_waits == 1)
+			return false;
 	}
 
 	if (!target)
