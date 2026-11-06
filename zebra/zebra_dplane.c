@@ -512,6 +512,12 @@ struct zebra_dplane_ctx {
 	/* Status on return */
 	enum zebra_dplane_result zd_status;
 
+	/*
+	 * errno (positive value, 0 == none) describing why a request failed.
+	 * Only meaningful in conjunction with zd_status.
+	 */
+	int zd_errno;
+
 	/* Dplane provider id */
 	uint32_t zd_provider;
 
@@ -1173,6 +1179,20 @@ void dplane_ctx_set_status(struct zebra_dplane_ctx *ctx,
 	DPLANE_CTX_VALID(ctx);
 
 	ctx->zd_status = status;
+}
+
+int dplane_ctx_get_errno(const struct zebra_dplane_ctx *ctx)
+{
+	DPLANE_CTX_VALID(ctx);
+
+	return ctx->zd_errno;
+}
+
+void dplane_ctx_set_errno(struct zebra_dplane_ctx *ctx, int err)
+{
+	DPLANE_CTX_VALID(ctx);
+
+	ctx->zd_errno = err;
 }
 
 /* Retrieve last/current provider id */
