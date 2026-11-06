@@ -2957,7 +2957,6 @@ static int bgp_route_refresh_receive(struct peer_connection *connection, bgp_siz
 	struct stream *s;
 	struct peer_af *paf;
 	uint8_t subtype;
-	bool force_update = false;
 	bgp_size_t msg_length =
 		size - (BGP_MSG_ROUTE_REFRESH_MIN_SIZE - BGP_HEADER_SIZE);
 
@@ -3234,11 +3233,6 @@ static int bgp_route_refresh_receive(struct peer_connection *connection, bgp_siz
 
 	paf = peer_af_find(peer, afi, safi);
 	if (paf && paf->subgroup) {
-		/* Avoid suppressing duplicate routes later
-		 * when processing in subgroup_announce_table().
-		 */
-		force_update = true;
-
 		/* If the peer is configured for default-originate clear the
 		 * SUBGRP_STATUS_DEFAULT_ORIGINATE flag so that we will
 		 * re-advertise the
@@ -3286,7 +3280,7 @@ static int bgp_route_refresh_receive(struct peer_connection *connection, bgp_siz
 	}
 
 	/* Perform route refreshment to the peer */
-	bgp_announce_route(peer, afi, safi, force_update);
+	bgp_announce_route(peer, afi, safi, true);
 
 	/* No FSM action necessary */
 	return BGP_PACKET_NOOP;
