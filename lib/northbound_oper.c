@@ -619,12 +619,13 @@ static enum nb_error nb_op_ys_init_node_infos(struct nb_op_yield_state *ys)
 	inner = node;
 	prevlen = 0;
 	xplen = strlen(ys->xpath);
-	for (i = len; i > 0; i--, inner = lyd_parent(inner)) {
-		ni = &ys->node_infos[i - 1];
+	for (i = len - 1; i < len; i--) {
+		ni = &ys->node_infos[i];
 		ni->inner = inner;
 		ni->schema = inner->schema;
 
-		if (i == len) {
+		if (i == len - 1) {
+			inner = lyd_parent(inner);
 			prevlen = xplen;
 			ni->xpath_len = prevlen;
 			continue;
@@ -651,6 +652,7 @@ static enum nb_error nb_op_ys_init_node_infos(struct nb_op_yield_state *ys)
 			goto error;
 		}
 
+		inner = lyd_parent(inner);
 		prevlen = cur - ys->xpath;
 		ni->xpath_len = prevlen;
 	}
