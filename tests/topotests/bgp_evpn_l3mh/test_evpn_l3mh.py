@@ -807,6 +807,52 @@ def _host1_local(dut, vid=HOST_VID):
     return line is not None and "lladdr" in line and "extern_learn" not in line
 
 
+def _pure_l3_mh_pair_ok(leaf1, leaf2, mac, vid=HOST_VID):
+    """Return None when the MH pair's pure-L3 view of host1 matches the LACP
+    hash.
+
+    The leaf that learned host1 locally is the hash target: it must originate
+    the pure-L3 RT-2. The other leaf must be extern_learn with a sync-MAC pin.
+    If both learned locally, both originate. A leaf that still originates from
+    an L2VNI handoff (RT-2 present, no local ARP) is also an originator.
+    """
+    asns = {"leaf1": 65011, "leaf2": 65012}
+    originated = 0
+    errors = []
+    for leaf in (leaf1, leaf2):
+        path = _pure_l3_rt2_path(leaf, asns[leaf.name])
+        if _host1_local(leaf, vid) or path is not None:
+            originated += 1
+            if path is None:
+                errors.append(
+                    "%s is the local learner but has no pure-L3 RT-2" % leaf.name
+                )
+            elif path.get("esi") != ES1_ID:
+                errors.append(
+                    "%s RT-2 esi %s, want %s" % (leaf.name, path.get("esi"), ES1_ID)
+                )
+        elif _host1_synced(leaf, vid):
+            if not _mac_static_pinned(leaf, mac, vid):
+                errors.append(
+                    "%s synced but pin missing: %s"
+                    % (leaf.name, _host1_sync_dump(leaf, mac, vid))
+                )
+        else:
+            errors.append(
+                "%s has neither local, originated RT-2, nor synced host1: %s"
+                % (leaf.name, _host1_sync_dump(leaf, mac, vid))
+            )
+    if not originated:
+        errors.append(
+            "no MH leaf originated a pure-L3 RT-2 (leaf1=%s leaf2=%s)"
+            % (
+                _host1_neigh_line(leaf1, vid) or "none",
+                _host1_neigh_line(leaf2, vid) or "none",
+            )
+        )
+    return "\n".join(errors) if errors else None
+
+
 def _synced_neigh_on_vlan_only(dut, ip, want_vid, all_vids):
     """Assert `ip` is an extern_learn (synced) neighbor on exactly `dev
     vlan<want_vid>` and on none of the other `all_vids`. Returns None on
@@ -3468,9 +3514,9 @@ def test_l2vni_bd_loses_l2vni_returns_to_pure_l3():
     The reverse transition: when VLAN100 loses its L2VNI, ownership
     of host1's MAC-IP returns from the L2VNI EVI to the pure-L3 singleton.
     Delete the old (L2VNI) owner, then rebuild under the pure-L3 owner: the
-    L2VNI MAC-IP RT-2 disappears, the pure-L3 RT-2 (vni=0/L3VNI, correct ESI)
-    returns, and leaf2 rebuilds the synced extern_learn neighbor and its static
-    sync-MAC FDB entry on vlan100.
+    L2VNI MAC-IP RT-2 disappears and the pure-L3 RT-2 (vni=0/L3VNI, correct
+    ESI) returns. Which MH leaf originates vs syncs follows the LACP hash:
+    the local learner originates, the other leaf is extern_learn + pin.
     """
     tgen = get_topogen()
     if tgen.routers_have_failure():
@@ -3485,26 +3531,26 @@ def test_l2vni_bd_loses_l2vni_returns_to_pure_l3():
         _, result = topotest.run_and_expect(fn, None, count=WAIT_COUNT, wait=WAIT_STEP)
         assert result is None, result
 
+    def _l2_rt2_present():
+        if _l2vni_rt2_path(leaf1, L2VNI_100, 65011) is not None:
+            return None
+        if _l2vni_rt2_path(leaf2, L2VNI_100, 65012) is not None:
+            return None
+        return "L2VNI MAC-IP RT-2 missing on leaf1 and leaf2"
+
+    def _l2_rt2_gone():
+        if _l2vni_rt2_path(leaf1, L2VNI_100, 65011) is not None:
+            return "L2VNI MAC-IP RT-2 still present on leaf1"
+        if _l2vni_rt2_path(leaf2, L2VNI_100, 65012) is not None:
+            return "L2VNI MAC-IP RT-2 still present on leaf2"
+        return None
+
     # Add the L2VNI with host1 active so its ARP survives the bridge reconfig
     # and hands off; the L2 owner then originates host1's MAC-IP.
     with _active_host(tgen.gears["host1"], ANYCAST_GW):
         for leaf, lo in ((leaf1, LEAF_LO["leaf1"]), (leaf2, LEAF_LO["leaf2"])):
             config_add_l2vni(leaf, lo, HOST_VID, L2VNI_100)
-        _expect(
-            lambda: (
-                None
-                if _l2vni_rt2_path(leaf1, L2VNI_100, 65011) is not None
-                else "L2VNI MAC-IP RT-2 missing after the L2VNI was added"
-            )
-        )
-
-    def _pure_l3_back():
-        path = _pure_l3_rt2_path(leaf1, 65011)
-        if path is None:
-            return "pure-L3 RT-2 did not return after L2VNI removed"
-        if path.get("esi") != ES1_ID:
-            return "pure-L3 RT-2 esi is %s, want %s" % (path.get("esi"), ES1_ID)
-        return None
+        _expect(_l2_rt2_present)
 
     # Remove the L2VNI. The bridge reconfig can flush host1's ARP
     # before the discovery probe, so keep host1 active and let it be re-learned
@@ -3514,26 +3560,8 @@ def test_l2vni_bd_loses_l2vni_returns_to_pure_l3():
             config_del_l2vni(leaf, L2VNI_100)
 
         # Old owner (L2VNI) gone: its MAC-IP RT-2 is withdrawn.
-        _expect(
-            lambda: (
-                None
-                if _l2vni_rt2_path(leaf1, L2VNI_100, 65011) is None
-                else "L2VNI MAC-IP RT-2 still present after L2VNI removed"
-            )
-        )
-        _expect(_pure_l3_back)
-    # leaf2 rebuilds the synced neighbor and its static sync-MAC FDB entry.
-    _expect(
-        lambda: (None if _host1_synced(leaf2) else "leaf2 synced neighbor not rebuilt")
-    )
-    _expect(
-        lambda: (
-            None
-            if _mac_static_pinned(leaf2, host1_mac, HOST_VID)
-            else "leaf2 static sync-MAC FDB entry not rebuilt after the L2VNI was "
-            "removed"
-        )
-    )
+        _expect(_l2_rt2_gone)
+        _expect(lambda: _pure_l3_mh_pair_ok(leaf1, leaf2, host1_mac))
 
 
 def test_l2vni_loss_handoffs_local_neigh_without_relearn():
