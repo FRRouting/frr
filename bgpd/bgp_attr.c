@@ -3911,19 +3911,6 @@ static enum bgp_attr_parse_ret bgp_attr_srv6_service(struct bgp_attr_parser_args
 				   &ipv6_sid, sid_flags, endpoint_behavior);
 
 		/* Configure from Info */
-		if (psid_type == BGP_PREFIX_SID_SRV6_L2_SERVICE)
-			srv6_service = bgp_attr_get_srv6_l2service(attr);
-		else
-			srv6_service = bgp_attr_get_srv6_l3service(attr);
-
-		if (srv6_service) {
-			flog_err(EC_BGP_ATTRIBUTE_REPEATED,
-				 "Prefix SID SRv6 L%s Service field repeated",
-				 psid_type == BGP_PREFIX_SID_SRV6_L2_SERVICE ? "2" : "3");
-			return bgp_attr_malformed(
-				args, BGP_NOTIFY_UPDATE_MAL_ATTR, args->total);
-		}
-
 		srv6_service = XCALLOC(MTYPE_BGP_SRV6_SERVICE,
 				       sizeof(struct bgp_attr_srv6_service));
 
