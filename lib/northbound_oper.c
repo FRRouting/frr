@@ -2374,13 +2374,13 @@ enum nb_error nb_oper_iterate_legacy(const char *xpath,
 	return ret;
 }
 
-enum nb_error nb_oper_int8_get(const struct nb_node *nb_node, const void *parent_list_entry,
+enum nb_error nb_oper_int8_get(const struct nb_node *nb_node, const void *list_entry,
 			       struct lyd_node *parent)
 {
 	struct lysc_node_leaf *lsnode = (struct lysc_node_leaf *)nb_node->snode;
 	struct lysc_node *snode = &lsnode->node;
 	ssize_t offset = (ssize_t)nb_node->cbs.get_elem;
-	void *valuep = (char *)parent_list_entry + offset;
+	void *valuep = (char *)list_entry + offset;
 	char value[5]; /* INT8_MIN has a sign and then 3 digits */
 
 	if (lsnode->type->basetype != LY_TYPE_INT8)
@@ -2392,13 +2392,13 @@ enum nb_error nb_oper_int8_get(const struct nb_node *nb_node, const void *parent
 	return NB_OK;
 }
 
-enum nb_error nb_oper_int16_get(const struct nb_node *nb_node, const void *parent_list_entry,
+enum nb_error nb_oper_int16_get(const struct nb_node *nb_node, const void *list_entry,
 				struct lyd_node *parent)
 {
 	struct lysc_node_leaf *lsnode = (struct lysc_node_leaf *)nb_node->snode;
 	struct lysc_node *snode = &lsnode->node;
 	ssize_t offset = (ssize_t)nb_node->cbs.get_elem;
-	void *valuep = (char *)parent_list_entry + offset;
+	void *valuep = (char *)list_entry + offset;
 	char value[7]; /* INT16_MIN has a sign and then 5 digits */
 
 	if (lsnode->type->basetype != LY_TYPE_INT16)
@@ -2410,13 +2410,13 @@ enum nb_error nb_oper_int16_get(const struct nb_node *nb_node, const void *paren
 	return NB_OK;
 }
 
-enum nb_error nb_oper_int32_get(const struct nb_node *nb_node, const void *parent_list_entry,
+enum nb_error nb_oper_int32_get(const struct nb_node *nb_node, const void *list_entry,
 				struct lyd_node *parent)
 {
 	struct lysc_node_leaf *lsnode = (struct lysc_node_leaf *)nb_node->snode;
 	struct lysc_node *snode = &lsnode->node;
 	ssize_t offset = (ssize_t)nb_node->cbs.get_elem;
-	void *valuep = (char *)parent_list_entry + offset;
+	void *valuep = (char *)list_entry + offset;
 	char value[12]; /* INT32_MIN has a sign and then 10 digits */
 
 	if (lsnode->type->basetype != LY_TYPE_INT32)
@@ -2428,13 +2428,13 @@ enum nb_error nb_oper_int32_get(const struct nb_node *nb_node, const void *paren
 	return NB_OK;
 }
 
-enum nb_error nb_oper_int64_get(const struct nb_node *nb_node, const void *parent_list_entry,
+enum nb_error nb_oper_int64_get(const struct nb_node *nb_node, const void *list_entry,
 				struct lyd_node *parent)
 {
 	struct lysc_node_leaf *lsnode = (struct lysc_node_leaf *)nb_node->snode;
 	struct lysc_node *snode = &lsnode->node;
 	ssize_t offset = (ssize_t)nb_node->cbs.get_elem;
-	void *valuep = (char *)parent_list_entry + offset;
+	void *valuep = (char *)list_entry + offset;
 	char value[22]; /* INT64_MIN has a sign and then 20 digits */
 
 	if (lsnode->type->basetype != LY_TYPE_INT64)
@@ -2446,13 +2446,13 @@ enum nb_error nb_oper_int64_get(const struct nb_node *nb_node, const void *paren
 	return NB_OK;
 }
 
-enum nb_error nb_oper_uint8_get(const struct nb_node *nb_node, const void *parent_list_entry,
+enum nb_error nb_oper_uint8_get(const struct nb_node *nb_node, const void *list_entry,
 				struct lyd_node *parent)
 {
 	struct lysc_node_leaf *lsnode = (struct lysc_node_leaf *)nb_node->snode;
 	struct lysc_node *snode = &lsnode->node;
 	ssize_t offset = (ssize_t)nb_node->cbs.get_elem;
-	void *valuep = (char *)parent_list_entry + offset;
+	void *valuep = (char *)list_entry + offset;
 	char value[4]; /* UINT8_MAX has 3 digits */
 
 	if (lsnode->type->basetype != LY_TYPE_UINT8)
@@ -2464,13 +2464,13 @@ enum nb_error nb_oper_uint8_get(const struct nb_node *nb_node, const void *paren
 	return NB_OK;
 }
 
-enum nb_error nb_oper_uint16_get(const struct nb_node *nb_node, const void *parent_list_entry,
+enum nb_error nb_oper_uint16_get(const struct nb_node *nb_node, const void *list_entry,
 				 struct lyd_node *parent)
 {
 	struct lysc_node_leaf *lsnode = (struct lysc_node_leaf *)nb_node->snode;
 	struct lysc_node *snode = &lsnode->node;
 	ssize_t offset = (ssize_t)nb_node->cbs.get_elem;
-	void *valuep = (char *)parent_list_entry + offset;
+	void *valuep = (char *)list_entry + offset;
 	char value[6]; /* UINT16_MAX has 5 digits */
 
 	if (lsnode->type->basetype != LY_TYPE_UINT16)
@@ -2482,13 +2482,13 @@ enum nb_error nb_oper_uint16_get(const struct nb_node *nb_node, const void *pare
 	return NB_OK;
 }
 
-enum nb_error nb_oper_uint32_get(const struct nb_node *nb_node, const void *parent_list_entry,
+enum nb_error nb_oper_uint32_get(const struct nb_node *nb_node, const void *list_entry,
 				 struct lyd_node *parent)
 {
 	struct lysc_node_leaf *lsnode = (struct lysc_node_leaf *)nb_node->snode;
 	struct lysc_node *snode = &lsnode->node;
 	ssize_t offset = (ssize_t)nb_node->cbs.get_elem;
-	void *valuep = (char *)parent_list_entry + offset;
+	void *valuep = (char *)list_entry + offset;
 	char value[11]; /* UINT32_MAX has 10 digits */
 
 	if (lsnode->type->basetype != LY_TYPE_UINT32)
@@ -2500,13 +2500,13 @@ enum nb_error nb_oper_uint32_get(const struct nb_node *nb_node, const void *pare
 	return NB_OK;
 }
 
-enum nb_error nb_oper_uint64_get(const struct nb_node *nb_node, const void *parent_list_entry,
+enum nb_error nb_oper_uint64_get(const struct nb_node *nb_node, const void *list_entry,
 				 struct lyd_node *parent)
 {
 	struct lysc_node_leaf *lsnode = (struct lysc_node_leaf *)nb_node->snode;
 	struct lysc_node *snode = &lsnode->node;
 	ssize_t offset = (ssize_t)nb_node->cbs.get_elem;
-	void *valuep = (char *)parent_list_entry + offset;
+	void *valuep = (char *)list_entry + offset;
 	char value[21]; /* UINT64_MAX has 20 digits */
 
 	if (lsnode->type->basetype != LY_TYPE_UINT64)
