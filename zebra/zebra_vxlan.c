@@ -5874,7 +5874,7 @@ void zebra_vxlan_advertise_subnet(ZAPI_HANDLER_ARGS)
 
 	s = msg;
 	STREAM_GETC(s, advertise);
-	STREAM_GET(&vni, s, 3);
+	STREAM_GETL(s, vni);
 
 	zevpn = zebra_evpn_lookup(vni);
 	if (!zevpn)
