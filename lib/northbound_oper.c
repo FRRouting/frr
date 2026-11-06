@@ -423,12 +423,13 @@ static void nb_op_resume_data_tree(struct nb_op_yield_state *ys)
  * This is logically as if we walked along the xpath string resolving each
  * nodename reference (in particular list nodes) until we could not.
  *
- * Return: error if any, if no error then @dnode contains the tree (trunk).
+ * Return: error if any, if no error then @trunk contains the tree (trunk).
  */
 static enum nb_error nb_op_xpath_to_trunk(const char *xpath_in, char **xpath_out,
 					  struct lyd_node **trunk)
 {
 	char *xpath = NULL;
+	struct lyd_node *node = NULL;
 	uint32_t llopts = 0;
 	enum nb_error ret = NB_OK;
 	LY_ERR err;
@@ -442,21 +443,31 @@ static enum nb_error nb_op_xpath_to_trunk(const char *xpath_in, char **xpath_out
 	ly_temp_log_options(&llopts);
 	for (;;) {
 		err = yang_new_path2(NULL, ly_native_ctx, xpath, NULL, 0, LYD_NEW_PATH_UPDATE,
-				     NULL, trunk);
+				     NULL, &node);
 		if (err == LY_SUCCESS)
 			break;
 
 		ret = yang_xpath_pop_node(xpath);
 		if (ret != NB_OK)
-			break;
+			goto done;
 		darr_strlen_fixup(xpath);
 	}
+	if (!node)
+		ret = NB_ERR_NOT_FOUND;
+
+done:
 	ly_temp_log_options(NULL);
 
-	if (ret == NB_OK)
+	if (ret == NB_OK) {
+		*trunk = node;
 		*xpath_out = xpath;
-	else
+	} else {
+		if (ret != NB_ERR_NOT_FOUND)
+			flog_warn(EC_LIB_LIBYANG, "%s: can't instantiate trunk: %s", __func__,
+				  xpath_in);
+		lyd_free_all(node);
 		darr_free(xpath);
+	}
 	return ret;
 }
 
@@ -585,14 +596,8 @@ static enum nb_error nb_op_ys_init_node_infos(struct nb_op_yield_state *ys)
 	 */
 
 	ret = nb_op_xpath_to_trunk(ys->xpath, &xpath, &node);
-	if (ret != NB_OK || !node) {
-		flog_warn(EC_LIB_LIBYANG,
-			  "%s: can't instantiate concrete path using xpath: %s",
-			  __func__, ys->xpath);
-		if (!ret)
-			ret = NB_ERR_NOT_FOUND;
+	if (ret != NB_OK)
 		return ret;
-	}
 
 	/* Move up to the container if on a leaf currently. */
 	if (!CHECK_FLAG(node->schema->nodetype, LYS_CONTAINER | LYS_LIST)) {
