@@ -1472,10 +1472,11 @@ void route_map_action_show(struct vty *vty, const struct lyd_node *dnode,
 
 		vty_out(vty, " set extcommunity bandwidth %s\n", str);
 	} else if (IS_SET_EXTCOMMUNITY_COLOR(action)) {
-		vty_out(vty, " set extcommunity color %s\n",
-			yang_dnode_get_string(
-				dnode,
-				"./rmap-set-action/frr-bgp-route-map:extcommunity-color"));
+		const char *xpath = "./rmap-set-action/frr-bgp-route-map:extcommunity-color";
+
+		if (yang_dnode_exists(dnode, xpath))
+			vty_out(vty, " set extcommunity color %s\n",
+				yang_dnode_get_string(dnode, xpath));
 	} else if (IS_SET_EXTCOMMUNITY_NONE(action)) {
 		if (yang_dnode_get_bool(
 			    dnode,
