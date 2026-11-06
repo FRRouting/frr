@@ -159,6 +159,207 @@ def test_bgp_evpn_flooding_per_vni():
     assert result is None, result
 
 
+def test_bgp_evpn_flooding_per_vni_local():
+    """
+    r1 floods toward r2 only on the VNIs where its own flooding mode is
+    head-end replication, whatever the mode of the other VNIs and the order
+    in which they change.
+    """
+    tgen = get_topogen()
+
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    r1 = tgen.gears["r1"]
+
+    def _expect_flooded_vnis(expected, step):
+        def _check():
+            flooded = [
+                vni
+                for vni in (10, 20, 30)
+                if "00:00:00:00:00:00 dst 192.168.1.2"
+                in r1.run("bridge fdb show dev vxlan%d" % vni)
+            ]
+            if flooded == expected:
+                return None
+            return "r1 floods toward r2 on VNIs %s, expected %s" % (flooded, expected)
+
+        _, result = topotest.run_and_expect(_check, None, count=30, wait=1)
+        assert result is None, "%s: %s" % (step, result)
+
+    def _expect_json(command, expected, step):
+        test_func = functools.partial(topotest.router_json_cmp, r1, command, expected)
+        _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
+        assert result is None, "%s: unexpected %s" % (step, command)
+
+    def _relearn_remote_vteps(step):
+        # zebra installs the flood entries of the remote VTEPs as they come,
+        # with the mode it has for their VNI at that time.
+        r1.vtysh_cmd(
+            """
+            configure terminal
+             router bgp 65001
+              neighbor 192.168.1.2 shutdown
+            """
+        )
+        _expect_json(
+            "show evpn vni json",
+            {str(vni): {"numRemoteVteps": 0} for vni in (10, 20, 30)},
+            step + ", remote VTEPs withdrawn",
+        )
+        r1.vtysh_cmd(
+            """
+            configure terminal
+             router bgp 65001
+              no neighbor 192.168.1.2 shutdown
+            """
+        )
+        _expect_json(
+            "show evpn vni json",
+            {str(vni): {"numRemoteVteps": 1} for vni in (10, 20, 30)},
+            step + ", remote VTEPs learnt again",
+        )
+
+    # The mode of VNI 20 must reach zebra although it was configured before
+    # the VNIs came up.
+    _expect_flooded_vnis([20], "startup")
+
+    # A mode of its own for VNI 10 must not change the other VNIs.
+    r1.vtysh_cmd(
+        """
+        configure terminal
+         router bgp 65001
+          address-family l2vpn evpn
+           vni 10
+            flooding head-end-replication
+        """
+    )
+    _expect_flooded_vnis([10, 20], "head-end replication on VNI 10")
+
+    # Back to the global mode.
+    r1.vtysh_cmd(
+        """
+        configure terminal
+         router bgp 65001
+          address-family l2vpn evpn
+           vni 10
+            no flooding head-end-replication
+        """
+    )
+    _expect_flooded_vnis([20], "VNI 10 back to the global mode")
+
+    # The global mode applies to the VNIs that inherit it only.
+    r1.vtysh_cmd(
+        """
+        configure terminal
+         router bgp 65001
+          address-family l2vpn evpn
+           flooding head-end-replication
+        """
+    )
+    _expect_flooded_vnis([10, 20, 30], "global head-end replication")
+
+    r1.vtysh_cmd(
+        """
+        configure terminal
+         router bgp 65001
+          address-family l2vpn evpn
+           vni 20
+            flooding disable
+        """
+    )
+    _expect_flooded_vnis([10, 30], "flooding disabled on VNI 20")
+    _relearn_remote_vteps("flooding disabled on VNI 20")
+    _expect_flooded_vnis([10, 30], "flooding disabled on VNI 20, relearnt")
+
+    # Back to the initial configuration.
+    r1.vtysh_cmd(
+        """
+        configure terminal
+         router bgp 65001
+          address-family l2vpn evpn
+           vni 20
+            flooding head-end-replication
+           exit-vni
+           flooding disable
+        """
+    )
+    _expect_flooded_vnis([20], "initial configuration")
+    _relearn_remote_vteps("initial configuration")
+    _expect_flooded_vnis([20], "initial configuration, relearnt")
+
+    # "no vni" puts the VNI back to the global mode.
+    r1.vtysh_cmd(
+        """
+        configure terminal
+         router bgp 65001
+          address-family l2vpn evpn
+           vni 30
+            flooding head-end-replication
+        """
+    )
+    _expect_flooded_vnis([20, 30], "head-end replication on VNI 30")
+    r1.vtysh_cmd(
+        """
+        configure terminal
+         router bgp 65001
+          address-family l2vpn evpn
+           no vni 30
+        """
+    )
+    _expect_flooded_vnis([20], "VNI 30 unconfigured")
+    r1.vtysh_cmd(
+        """
+        configure terminal
+         router bgp 65001
+          address-family l2vpn evpn
+           vni 30
+        """
+    )
+
+    # A mode removed while its VNI is down must not stay in zebra.
+    r1.vtysh_cmd(
+        """
+        configure terminal
+         router bgp 65001
+          address-family l2vpn evpn
+           flooding head-end-replication
+           vni 20
+            flooding disable
+        """
+    )
+    _expect_flooded_vnis([10, 30], "flooding disabled on VNI 20")
+    r1.run("ip link set dev vxlan20 down")
+    _expect_json(
+        "show bgp l2vpn evpn vni 20 json", {"inKernel": "False"}, "VNI 20 down"
+    )
+    r1.vtysh_cmd(
+        """
+        configure terminal
+         router bgp 65001
+          address-family l2vpn evpn
+           vni 20
+            no flooding disable
+        """
+    )
+    r1.run("ip link set dev vxlan20 up")
+    _expect_flooded_vnis([10, 20, 30], "VNI 20 back to the global mode while down")
+
+    # Back to the initial configuration.
+    r1.vtysh_cmd(
+        """
+        configure terminal
+         router bgp 65001
+          address-family l2vpn evpn
+           vni 20
+            flooding head-end-replication
+           exit-vni
+           flooding disable
+        """
+    )
+    _expect_flooded_vnis([20], "initial configuration")
+
+
 if __name__ == "__main__":
     args = ["-s"] + sys.argv[1:]
     sys.exit(pytest.main(args))
