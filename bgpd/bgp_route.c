@@ -5130,6 +5130,9 @@ void bgp_do_deferred_path_selection(struct bgp *bgp, afi_t afi, safi_t safi)
 		bgp_deferred_path_selection(bgp, afi, safi, bgp->rib[afi][safi], cnt, NULL, false);
 	}
 
+	/* Deferred prefixes do not go through the process queue */
+	update_group_retry_merges(bgp);
+
 	/*
 	 * Send EOR message when all routes are processed
 	 * and if select deferral timer for tier 2 peers is

@@ -1645,11 +1645,12 @@ static int update_group_retry_merges_walkcb(struct update_group *updgrp, void *a
 }
 
 /*
- * Called when the best-path queue is empty, so best path has run for the
- * prefixes that blocked a merge. If it sent nothing to those subgroups, no
- * packet will trigger another merge check, so retry the refused merges
- * here. If it did queue an UPDATE, the subgroup is not ready and the send
- * checks it. A merge refused again is retried on the next call.
+ * Called when the best-path queue is empty and after each round of deferred
+ * best path, so best path has run for the prefixes that blocked a merge. If
+ * it sent nothing to those subgroups, no packet will trigger another merge
+ * check, so retry the refused merges here. If it did queue an UPDATE, the
+ * subgroup is not ready and the send checks it. A merge refused again, for
+ * example because a prefix is still deferred, is retried on the next call.
  */
 void update_group_retry_merges(struct bgp *bgp)
 {
