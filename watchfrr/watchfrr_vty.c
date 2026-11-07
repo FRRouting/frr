@@ -15,6 +15,7 @@
 #include "log_vty.h"
 #include "vty.h"
 #include "command.h"
+#include "json.h"
 
 #include "watchfrr.h"
 
@@ -122,11 +123,12 @@ DEFUN_NOSH (show_debugging_watchfrr,
 
 DEFUN (show_watchfrr,
        show_watchfrr_cmd,
-       "show watchfrr",
+       "show watchfrr [json]",
        SHOW_STR
-       WATCHFRR_STR)
+       WATCHFRR_STR
+       JSON_STR)
 {
-	watchfrr_status(vty);
+	watchfrr_status(vty, use_json(argc, argv));
 	return CMD_SUCCESS;
 }
 
