@@ -28,8 +28,11 @@
 /*
  * Join a leaf-list into the string community_list_set() expects.
  *
- * Values are separated by a space ("A:B C:D"). The buffer is sized from
- * those values. Expanded expressions are not joined and are not copied.
+ * keyword is NULL for plain values ("A:B C:D"). For extcommunity it is
+ * repeated on every value ("rt A:B soo C:D") so ecommunity_str2com() with
+ * keyword_included set accepts more than one value and more than one type.
+ * The buffer is sized from those values; expanded expressions are not joined
+ * and are not copied.
  */
 struct bgp_filter_join {
 	size_t len;
@@ -105,23 +108,58 @@ static char *bgp_filter_join_leaflist(const struct lyd_node *entry, const char *
 	return join.buf;
 }
 
-
 /*
- * One leading keyword, then the values. "rt " already ends with a space and
- * the old collector forced first=false, so one more space is inserted.
+ * Standard extcommunity types are one entry, not alternatives. Join every
+ * list that is present so "rt A soo B" survives install and show running.
+ * Order is rt, soo, nt, color; ecommunity_str2com() sorts the values.
  */
-static char *bgp_filter_join_prefixed(const struct lyd_node *entry, const char *name,
-				      const char *prefix)
-{
-	char *joined;
-	char *full;
+static const struct {
+	const char *leaf;
+	const char *keyword;
+} bgp_extcommunity_parts[] = {
+	{ "extcommunity-rt", "rt" },
+	{ "extcommunity-soo", "soo" },
+	{ "extcommunity-nt", "nt" },
+	{ "extcommunity-color", "color" },
+};
 
-	joined = bgp_filter_join_leaflist(entry, name, NULL);
-	if (!joined)
+/* MTYPE_TMP string, or NULL when no standard extcommunity value is present. */
+static char *bgp_filter_join_extcommunity(const struct lyd_node *entry)
+{
+	struct bgp_filter_join join = {
+		.first = true,
+	};
+	const struct lyd_node *child;
+	size_t i;
+	bool any = false;
+
+	for (i = 0; i < array_size(bgp_extcommunity_parts); i++) {
+		join.keyword = bgp_extcommunity_parts[i].keyword;
+		LY_LIST_FOR (lyd_child(entry), child) {
+			if (!child->schema ||
+			    !strmatch(child->schema->name, bgp_extcommunity_parts[i].leaf))
+				continue;
+			bgp_filter_join_measure(child, &join);
+			any = true;
+		}
+	}
+	if (!any)
 		return NULL;
-	full = asprintfrr(MTYPE_TMP, "%s %s", prefix, joined);
-	XFREE(MTYPE_TMP, joined);
-	return full;
+
+	join.buf = XMALLOC(MTYPE_TMP, join.len + 1);
+	join.p = join.buf;
+	join.first = true;
+	for (i = 0; i < array_size(bgp_extcommunity_parts); i++) {
+		join.keyword = bgp_extcommunity_parts[i].keyword;
+		LY_LIST_FOR (lyd_child(entry), child) {
+			if (!child->schema ||
+			    !strmatch(child->schema->name, bgp_extcommunity_parts[i].leaf))
+				continue;
+			bgp_filter_join_copy(child, &join);
+		}
+	}
+	*join.p = '\0';
+	return join.buf;
 }
 
 /*
@@ -136,7 +174,6 @@ static const char *bgp_filter_entry_text(const struct lyd_node *entry, int maste
 					 char **owned)
 {
 	const char *leaf = NULL;
-	const char *keyword = NULL;
 
 	*owned = NULL;
 
@@ -160,21 +197,12 @@ static const char *bgp_filter_entry_text(const struct lyd_node *entry, int maste
 		leaf = "standard-community-string";
 	else if (master == LARGE_COMMUNITY_LIST_MASTER)
 		leaf = "standard-large-community-string";
-	else if (yang_dnode_exists(entry, "extcommunity-rt"))
-		*owned = bgp_filter_join_prefixed(entry, "extcommunity-rt", "rt ");
-	else if (yang_dnode_exists(entry, "extcommunity-soo"))
-		*owned = bgp_filter_join_prefixed(entry, "extcommunity-soo", "soo ");
-	else if (yang_dnode_exists(entry, "extcommunity-nt"))
-		*owned = bgp_filter_join_prefixed(entry, "extcommunity-nt", "nt ");
-	else if (yang_dnode_exists(entry, "extcommunity-color"))
-		*owned = bgp_filter_join_prefixed(entry, "extcommunity-color", "color ");
-	else
-		return "";
+	else {
+		*owned = bgp_filter_join_extcommunity(entry);
+		return *owned ? *owned : "";
+	}
 
-	if (*owned)
-		return *owned;
-	if (leaf)
-		*owned = bgp_filter_join_leaflist(entry, leaf, keyword);
+	*owned = bgp_filter_join_leaflist(entry, leaf, NULL);
 	return *owned ? *owned : "";
 }
 
@@ -431,8 +459,10 @@ static int bgp_filter_style_conflict(const struct lyd_node *entry, int master, i
 	return NB_OK;
 }
 
-
-
+/*
+ * Text community_list_set() or lcommunity_list_set() will compile.
+ * Standard extcommunity values are checked on each rt/soo/nt/color leaf.
+ */
 static int bgp_filter_value_check(int master, int style, const char *value, char *errmsg,
 				  size_t errmsg_len)
 {
@@ -903,7 +933,12 @@ int lib_extcommunity_list_destroy(struct nb_cb_destroy_args *args)
 /*
  * XPath: /frr-filter:lib/frr-bgp-filter:extcommunity-list/entry
  */
-int lib_extcommunity_list_entry_create(struct nb_cb_create_args *args)
+/*
+ * Install (or refresh) an extcommunity-list entry from the full candidate
+ * dnode. Used from create APPLY and apply_finish so RT/SOO leaflist children
+ * are present even when their create callbacks are no-ops.
+ */
+static int lib_extcommunity_list_entry_install(const struct lyd_node *dnode)
 {
 	const char *name;
 	const char *seq_str;
@@ -914,28 +949,19 @@ int lib_extcommunity_list_entry_create(struct nb_cb_create_args *args)
 	int style;
 	int ret;
 
-	ret = bgp_filter_nb_validate(args->event, args->dnode, EXTCOMMUNITY_LIST_MASTER,
-				     args->errmsg, args->errmsg_len);
-	if (ret != NB_OK)
-		return ret;
+	name = yang_dnode_get_string(dnode, "../name");
+	seq_str = yang_dnode_get_string(dnode, "sequence");
 
-	if (args->event != NB_EV_APPLY)
-		return NB_OK;
-
-	name = yang_dnode_get_string(args->dnode, "../name");
-	seq_str = yang_dnode_get_string(args->dnode, "sequence");
-
-	action_str = yang_dnode_get_string(args->dnode, "action");
+	action_str = yang_dnode_get_string(dnode, "action");
 	direct = (strcmp(action_str, "permit") == 0) ? COMMUNITY_PERMIT : COMMUNITY_DENY;
 
 	style = bgp_filter_type_style(EXTCOMMUNITY_LIST_MASTER,
-				      yang_dnode_get_string(args->dnode, "type"));
-	comm_str = bgp_filter_entry_text(args->dnode, EXTCOMMUNITY_LIST_MASTER,
+				      yang_dnode_get_string(dnode, "type"));
+	comm_str = bgp_filter_entry_text(dnode, EXTCOMMUNITY_LIST_MASTER,
 					 bgp_filter_style_expanded(style), &owned);
 	if (comm_str[0] == '\0') {
-		zlog_warn("extcommunity-list %s: no community string specified", name);
 		XFREE(MTYPE_TMP, owned);
-		return NB_ERR_VALIDATION;
+		return NB_OK;
 	}
 
 	ret = extcommunity_list_set(bgp_clist, name, comm_str, seq_str, direct, style);
@@ -947,6 +973,25 @@ int lib_extcommunity_list_entry_create(struct nb_cb_create_args *args)
 	}
 
 	return NB_OK;
+}
+
+int lib_extcommunity_list_entry_create(struct nb_cb_create_args *args)
+{
+	int ret;
+
+	ret = bgp_filter_nb_validate(args->event, args->dnode, EXTCOMMUNITY_LIST_MASTER,
+				     args->errmsg, args->errmsg_len);
+	if (ret != NB_OK)
+		return ret;
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	return lib_extcommunity_list_entry_install(args->dnode);
+}
+
+static void lib_extcommunity_list_entry_apply_finish(struct nb_cb_apply_finish_args *args)
+{
+	lib_extcommunity_list_entry_install(args->dnode);
 }
 
 int lib_extcommunity_list_entry_destroy(struct nb_cb_destroy_args *args)
@@ -2124,6 +2169,7 @@ const struct frr_yang_module_info frr_bgp_filter_info = {
 				.get_keys = lib_extcommunity_list_entry_get_keys,
 				.lookup_entry = lib_extcommunity_list_entry_lookup_entry,
 				.cli_show = lib_extcommunity_list_entry_cli_show,
+				.apply_finish = lib_extcommunity_list_entry_apply_finish,
 			}
 		},
 		{
