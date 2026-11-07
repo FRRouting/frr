@@ -559,14 +559,10 @@ def config_svi(node, svi_pip):
 
     if active_ip_version == "ipv6":
         # Assign IPv6 anycast GW only to VLAN 1000 in vrf1
-        create_address_on_interface(
-            node.tgen, node.name, "vlan1000", "%s/64" % svi_pip
-        )
+        create_address_on_interface(node.tgen, node.name, "vlan1000", "%s/64" % svi_pip)
     else:
         # Preserve legacy IPv4 anycast gateway behavior used by MAC learning tests.
-        create_address_on_interface(
-            node.tgen, node.name, "vlan1000", "%s/24" % svi_pip
-        )
+        create_address_on_interface(node.tgen, node.name, "vlan1000", "%s/24" % svi_pip)
         node.run("/sbin/sysctl net.ipv4.conf.vlan1000.arp_accept=1")
         node.run("ip link add link vlan1000 name vlan1000-v0 type macvlan mode private")
         node.run("ip link set dev vlan1000-v0 address 00:00:5e:00:01:01")
