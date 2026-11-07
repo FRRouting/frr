@@ -717,14 +717,56 @@ int bgp_nb_local_as_modify(struct nb_cb_modify_args *args)
 	struct peer *peer;
 	struct listnode *node;
 
-	if (args->event != NB_EV_APPLY)
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+		/*
+		 * Reject changing the instance AS to a value already used as a
+		 * peer local-as override (classic peer_local_as_set constraint).
+		 */
+		bgp = nb_running_get_entry(args->dnode, NULL, false);
+		if (!bgp)
+			return NB_OK;
+		new_as = yang_dnode_get_uint32(args->dnode, NULL);
+		if (new_as != bgp->as) {
+			snprintfrr(args->errmsg, args->errmsg_len,
+				   "BGP is already running; AS is %s",
+				   bgp->as_pretty ? bgp->as_pretty : "unknown");
+			return NB_ERR_VALIDATION;
+		}
+		for (ALL_LIST_ELEMENTS_RO(bgp->peer, node, peer)) {
+			if (CHECK_FLAG(peer->flags, PEER_FLAG_LOCAL_AS) &&
+			    peer->change_local_as == new_as) {
+				snprintfrr(args->errmsg, args->errmsg_len,
+					   "Cannot have local-as same as BGP AS number");
+				return NB_ERR_VALIDATION;
+			}
+		}
 		return NB_OK;
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+		return NB_OK;
+	case NB_EV_APPLY:
+		break;
+	}
 
 	bgp = nb_running_get_entry(args->dnode, NULL, true);
+	if (!bgp)
+		return NB_OK;
+
 	new_as = yang_dnode_get_uint32(args->dnode, NULL);
 	old_as = bgp->as;
 	if (old_as == new_as)
 		return NB_OK;
+
+	/*
+	 * A live instance is not renumbered. VALIDATE rejects this; do not
+	 * apply it if we got here anyway. as 0 is an instance that was just
+	 * created and has not stored the leaf yet.
+	 */
+	if (old_as != 0) {
+		zlog_warn("%s: refusing to change AS %u to %u", __func__, old_as, new_as);
+		return NB_OK;
+	}
 
 	bgp->as = new_as;
 	for (ALL_LIST_ELEMENTS_RO(bgp->peer, node, peer)) {
@@ -5453,15 +5495,31 @@ static int bgp_nb_peer_local_as_apply(struct peer *peer, const struct lyd_node *
 int bgp_nb_peer_local_as_modify(struct nb_cb_modify_args *args)
 {
 	struct peer *peer;
-	as_t as;
+	as_t as, bgp_as;
+	const struct lyd_node *bgp_dnode;
 
 	switch (args->event) {
 	case NB_EV_VALIDATE:
-		peer = bgp_nb_config_peer(args->dnode);
-		if (!peer || !peer->bgp)
-			return NB_OK;
 		as = yang_dnode_get_uint32(args->dnode, NULL);
-		if (peer->bgp->as == as) {
+		/*
+		 * Always prefer the candidate instance AS (./global/local-as).
+		 * Same-transaction "router bgp 110" + "neighbor … local-as 110"
+		 * must fail VALIDATE even when the peer already exists with a
+		 * different running AS (checking peer->bgp->as alone wrongly
+		 * returns NB_OK and the batch commits).
+		 */
+		bgp_dnode = yang_dnode_get_parent(args->dnode, "bgp");
+		if (bgp_dnode && yang_dnode_exists(bgp_dnode, "./global/local-as")) {
+			bgp_as = yang_dnode_get_uint32(bgp_dnode, "./global/local-as");
+			if (bgp_as == as) {
+				snprintfrr(args->errmsg, args->errmsg_len,
+					   "Cannot have local-as same as BGP AS number");
+				return NB_ERR_VALIDATION;
+			}
+			return NB_OK;
+		}
+		peer = bgp_nb_config_peer(args->dnode);
+		if (peer && peer->bgp && peer->bgp->as == as) {
 			snprintfrr(args->errmsg, args->errmsg_len,
 				   "Cannot have local-as same as BGP AS number");
 			return NB_ERR_VALIDATION;
