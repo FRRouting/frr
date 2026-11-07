@@ -2492,13 +2492,16 @@ DEFUN_YANG(bgp_shutdown_msg_yang, bgp_shutdown_msg_yang_cmd,
 	   "Shutdown message\n")
 {
 	char *msgstr;
+	int ret;
 
 	msgstr = argv_concat(argv, argc, 3);
 	nb_cli_enqueue_change(vty, "./global/shutdown-no-notify", NB_OP_DESTROY, NULL);
 	nb_cli_enqueue_change(vty, "./global/shutdown", NB_OP_MODIFY, "true");
 	nb_cli_enqueue_change(vty, "./global/shutdown-message", NB_OP_MODIFY, msgstr);
+	/* Pointer is stored in the change list — free only after apply. */
+	ret = nb_cli_apply_changes(vty, NULL);
 	XFREE(MTYPE_TMP, msgstr);
-	return nb_cli_apply_changes(vty, NULL);
+	return ret;
 }
 
 DEFUN_YANG(no_bgp_shutdown_yang, no_bgp_shutdown_yang_cmd, "no bgp shutdown",
@@ -3386,8 +3389,10 @@ DEFPY_YANG(neighbor_shutdown_msg_yang, neighbor_shutdown_msg_yang_cmd,
 	nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY, "true");
 	snprintfrr(leaf, sizeof(leaf), "%s/admin-shutdown/message", xpath);
 	nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY, msgstr);
+	/* Pointer is stored in the change list — free only after apply. */
+	ret = nb_cli_apply_changes(vty, NULL);
 	XFREE(MTYPE_TMP, msgstr);
-	return nb_cli_apply_changes(vty, NULL);
+	return ret;
 }
 
 DEFPY_YANG(no_neighbor_shutdown_msg_yang, no_neighbor_shutdown_msg_yang_cmd,
