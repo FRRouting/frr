@@ -4896,6 +4896,11 @@ static int vnc_clear_vrf(struct vty *vty, struct bgp *bgp, const char *arg_vrf,
 	vty_out(vty, "Cleared %u out of %d prefixes.\n", cda.pfx_count,
 		start_count);
 	print_cleared_stats(&cda); /* frees lists in cda */
+	/*
+	 * After prefixes are gone, close the VRF RFAPI descriptor opened
+	 * by "add vrf" so teardown does not leak RFAPI Descriptor / ADB.
+	 */
+	clear_vnc_vrf_closer(rfg);
 	return CMD_SUCCESS;
 }
 

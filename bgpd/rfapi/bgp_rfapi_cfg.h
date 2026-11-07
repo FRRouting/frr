@@ -303,6 +303,8 @@ extern struct rfapi_l2_group_cfg *rfapi_l2_group_new(void);
 extern void bgp_rfapi_delete_l2_group(struct vty *vty, struct bgp *bgp,
 				      struct rfapi_l2_group_cfg *rfg);
 extern int bgp_rfapi_delete_named_l2_group(struct vty *vty, struct bgp *bgp, const char *rfg_name);
+extern int bgp_rfapi_delete_named_nve_group(struct vty *vty, struct bgp *bgp, const char *rfg_name,
+					    rfapi_group_cfg_type_t type);
 
 extern struct rfapi_l2_group_cfg *
 bgp_rfapi_get_group_by_lni_label(struct bgp *bgp, uint32_t logical_net_id,
