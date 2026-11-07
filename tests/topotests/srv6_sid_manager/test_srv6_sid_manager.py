@@ -155,15 +155,15 @@ def build_topo(tgen):
 
     tgen.gears["rt1"].run("ip link add vrf10 type vrf table 10")
     shutdown_bringup_interface_in_kernel(
-        tgen.gears['rt1'].tgen,
-        tgen.gears['rt1'].name,
+        tgen.gears["rt1"].tgen,
+        tgen.gears["rt1"].name,
         "vrf10",
         True,
     )
     tgen.gears["rt1"].run("ip link add vrf20 type vrf table 20")
     shutdown_bringup_interface_in_kernel(
-        tgen.gears['rt1'].tgen,
-        tgen.gears['rt1'].name,
+        tgen.gears["rt1"].tgen,
+        tgen.gears["rt1"].name,
         "vrf20",
         True,
     )
@@ -173,16 +173,16 @@ def build_topo(tgen):
 
     tgen.gears["rt5"].run("ip link add vrf10 type vrf table 10")
     shutdown_bringup_interface_in_kernel(
-        tgen.gears['rt5'].tgen,
-        tgen.gears['rt5'].name,
+        tgen.gears["rt5"].tgen,
+        tgen.gears["rt5"].name,
         "vrf10",
         True,
     )
     tgen.gears["rt5"].run("ip link set eth-dst2 master vrf10")
     tgen.gears["rt5"].run("ip link add vrf20 type vrf table 20")
     shutdown_bringup_interface_in_kernel(
-        tgen.gears['rt5'].tgen,
-        tgen.gears['rt5'].name,
+        tgen.gears["rt5"].tgen,
+        tgen.gears["rt5"].name,
         "vrf20",
         True,
     )
@@ -190,15 +190,15 @@ def build_topo(tgen):
 
     tgen.gears["rt6"].run("ip link add vrf10 type vrf table 10")
     shutdown_bringup_interface_in_kernel(
-        tgen.gears['rt6'].tgen,
-        tgen.gears['rt6'].name,
+        tgen.gears["rt6"].tgen,
+        tgen.gears["rt6"].name,
         "vrf10",
         True,
     )
     tgen.gears["rt6"].run("ip link add vrf20 type vrf table 20")
     shutdown_bringup_interface_in_kernel(
-        tgen.gears['rt6'].tgen,
-        tgen.gears['rt6'].name,
+        tgen.gears["rt6"].tgen,
+        tgen.gears["rt6"].name,
         "vrf20",
         True,
     )
