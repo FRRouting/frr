@@ -11,6 +11,8 @@
 #ifndef _FRR_BGP_LS_TED_H
 #define _FRR_BGP_LS_TED_H
 
+#include "bgpd/bgp_ls_nlri.h"
+
 #define UNKNOWN LS_UNKNOWN
 #include "lib/link_state.h"
 #undef UNKNOWN
@@ -33,9 +35,11 @@ extern int bgp_ls_populate_node_attr(struct ls_node *ls_node, struct bgp_ls_attr
  *
  * @param ls_attr Link State attributes from TED
  * @param attr BGP-LS link attribute structure to populate
+ * @param protocol_id - IGP protocol (ISIS/OSPF)
  * @return 0 on success, -1 on error
  */
-extern int bgp_ls_populate_link_attr(struct ls_attributes *ls_attr, struct bgp_ls_attr *attr);
+extern int bgp_ls_populate_link_attr(struct ls_attributes *ls_attr, struct bgp_ls_attr *attr,
+				     enum bgp_ls_protocol_id protocol_id);
 
 /*
  * Populate BGP-LS Attributes from Link State Prefix
