@@ -229,28 +229,31 @@ def igmpv3_start_traffic_capture(tgen):
     logger.info("Start IGMPv3 traffic capture")
 
     pcap_file = os.path.join(tgen.logdir, "h1/dump.pcap")
-    pid_file = os.path.join(tgen.logdir, "h1/tshark.pid")
+    pid_file = os.path.join(tgen.logdir, "h1/dumpcap.pid")
     h1 = tgen.gears["h1"]
 
-    # A leftover pcap would satisfy the wait before this tshark is capturing.
+    # A leftover pcap would satisfy the wait before this dumpcap is capturing.
     if os.path.exists(pcap_file):
         os.remove(pcap_file)
 
+    # Use dumpcap rather than tshark: the pcap is only read back with scapy,
+    # and tshark's own startup (libwireshark, dissectors, extcap) has stalled
+    # for 30s+ in CI before it even started capturing. "-n" writes pcapng.
     cmd = (
-        f"(tshark -n -s 9200 -Q -i h1-eth0 -f 'igmp' -w {pcap_file} > /dev/null 2>&1 & "
+        f"(dumpcap -q -n -s 9200 -i h1-eth0 -f 'igmp' -w {pcap_file} > /dev/null 2>&1 & "
         f"echo $! > {pid_file})"
     )
     h1.run(cmd)
 
     def pcap_created():
-        # tshark writes the pcap header once the capture is open.
+        # dumpcap writes the pcap header once the capture is open.
         if os.path.isfile(pcap_file) and os.path.getsize(pcap_file) > 0:
             return None
-        return f"tshark has not created {pcap_file}"
+        return f"dumpcap has not created {pcap_file}"
 
     success, result = topotest.run_and_expect(pcap_created, None, count=30, wait=1)
     assert success, (
-        f"tshark did not create {pcap_file} before IGMP reports: {result}"
+        f"dumpcap did not create {pcap_file} before IGMP reports: {result}"
     )
 
 
@@ -273,7 +276,7 @@ def igmpv3_stop_traffic_capture(tgen):
 
     h1 = tgen.gears["h1"]
 
-    pid_file = os.path.join(tgen.logdir, "h1/tshark.pid")
+    pid_file = os.path.join(tgen.logdir, "h1/dumpcap.pid")
     cmd = (
         f"PID=$(cat {pid_file}); "
         f"kill -SIGINT $PID; "
