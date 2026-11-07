@@ -135,6 +135,13 @@ struct zebra_vrf {
 	int advertise_all_vni;
 
 	/*
+	 * EVPN config was retained across a client disconnect, so the next
+	 * advertise-all-vni request carries no value change to act on and
+	 * must replay EVPN state to the reconnecting client instead.
+	 */
+	bool evpn_resync_needed;
+
+	/*
 	 * Whether we are advertising g/w macip in EVPN or not.
 	 * Only in the EVPN instance.
 	 */
