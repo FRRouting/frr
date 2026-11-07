@@ -1214,46 +1214,61 @@ const char *yang_afi_safi_value2identity(afi_t afi, safi_t safi)
 
 void yang_afi_safi_identity2value(const char *key, afi_t *afi, safi_t *safi)
 {
-	if (strmatch(key, "frr-routing:ipv4-unicast")) {
+	const char *id;
+
+	/*
+	 * libyang may return identityrefs as "frr-routing:l2vpn-evpn" or as
+	 * the bare identity name "l2vpn-evpn". Match on the trailing name so
+	 * callers (EVPN reapply, AF enable, …) do not silently no-op.
+	 */
+	if (!key) {
+		*afi = AFI_UNSPEC;
+		*safi = SAFI_UNSPEC;
+		return;
+	}
+	id = strrchr(key, ':');
+	id = id ? id + 1 : key;
+
+	if (strmatch(id, "ipv4-unicast")) {
 		*afi = AFI_IP;
 		*safi = SAFI_UNICAST;
-	} else if (strmatch(key, "frr-routing:ipv6-unicast")) {
+	} else if (strmatch(id, "ipv6-unicast")) {
 		*afi = AFI_IP6;
 		*safi = SAFI_UNICAST;
-	} else if (strmatch(key, "frr-routing:ipv4-multicast")) {
+	} else if (strmatch(id, "ipv4-multicast")) {
 		*afi = AFI_IP;
 		*safi = SAFI_MULTICAST;
-	} else if (strmatch(key, "frr-routing:ipv6-multicast")) {
+	} else if (strmatch(id, "ipv6-multicast")) {
 		*afi = AFI_IP6;
 		*safi = SAFI_MULTICAST;
-	} else if (strmatch(key, "frr-routing:l3vpn-ipv4-unicast")) {
+	} else if (strmatch(id, "l3vpn-ipv4-unicast")) {
 		*afi = AFI_IP;
 		*safi = SAFI_MPLS_VPN;
-	} else if (strmatch(key, "frr-routing:l3vpn-ipv6-unicast")) {
+	} else if (strmatch(id, "l3vpn-ipv6-unicast")) {
 		*afi = AFI_IP6;
 		*safi = SAFI_MPLS_VPN;
-	} else if (strmatch(key, "frr-routing:ipv4-labeled-unicast")) {
+	} else if (strmatch(id, "ipv4-labeled-unicast")) {
 		*afi = AFI_IP;
 		*safi = SAFI_LABELED_UNICAST;
-	} else if (strmatch(key, "frr-routing:ipv6-labeled-unicast")) {
+	} else if (strmatch(id, "ipv6-labeled-unicast")) {
 		*afi = AFI_IP6;
 		*safi = SAFI_LABELED_UNICAST;
-	} else if (strmatch(key, "frr-routing:l2vpn-evpn")) {
+	} else if (strmatch(id, "l2vpn-evpn")) {
 		*afi = AFI_L2VPN;
 		*safi = SAFI_EVPN;
-	} else if (strmatch(key, "frr-routing:ipv4-flowspec")) {
+	} else if (strmatch(id, "ipv4-flowspec")) {
 		*afi = AFI_IP;
 		*safi = SAFI_FLOWSPEC;
-	} else if (strmatch(key, "frr-routing:ipv6-flowspec")) {
+	} else if (strmatch(id, "ipv6-flowspec")) {
 		*afi = AFI_IP6;
 		*safi = SAFI_FLOWSPEC;
-	} else if (strmatch(key, "frr-routing:link-state")) {
+	} else if (strmatch(id, "link-state")) {
 		*afi = AFI_BGP_LS;
 		*safi = SAFI_BGP_LS;
-	} else if (strmatch(key, "frr-routing:ipv4-unreachability")) {
+	} else if (strmatch(id, "ipv4-unreachability")) {
 		*afi = AFI_IP;
 		*safi = SAFI_UNREACH;
-	} else if (strmatch(key, "frr-routing:ipv6-unreachability")) {
+	} else if (strmatch(id, "ipv6-unreachability")) {
 		*afi = AFI_IP6;
 		*safi = SAFI_UNREACH;
 	} else {
