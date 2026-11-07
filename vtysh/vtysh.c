@@ -3548,6 +3548,19 @@ DEFUN (vtysh_show_memory,
 	return CMD_SUCCESS;
 }
 
+DEFUN (vtysh_show_northbound,
+       vtysh_show_northbound_cmd,
+       "show northbound [" DAEMONS_LIST "]",
+       SHOW_STR
+       "Northbound state information\n"
+       DAEMONS_STR)
+{
+	if (argc == 3)
+		return show_one_daemon(vty, argv, argc - 1, argv[argc - 1]->text);
+
+	return show_per_daemon(vty, argv, argc, "Northbound state for %s:\n");
+}
+
 /*
  * Support clis when using the tcmalloc lib
  */
@@ -5962,6 +5975,7 @@ void vtysh_init_vty(void)
 
 	/* northbound */
 	install_element(ENABLE_NODE, &show_config_running_cmd);
+	install_element(ENABLE_NODE, &vtysh_show_northbound_cmd);
 	install_element(ENABLE_NODE, &show_yang_operational_data_cmd);
 	install_element(ENABLE_NODE, &show_yang_module_cmd);
 	install_element(ENABLE_NODE, &show_yang_module_detail_cmd);
