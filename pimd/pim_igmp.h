@@ -70,6 +70,7 @@ struct gm_sock {
 	/* timer: issue IGMP general queries */
 	struct event *t_igmp_query_timer;
 	struct event *t_other_querier_timer;  /* timer: other querier present */
+	time_t last_query_sent;		      /* 0 if this router has not sent one */
 	pim_addr querier_addr;		      /* IP address of the querier */
 	int querier_query_interval;	   /* QQI */
 	int querier_robustness_variable; /* QRV */
@@ -187,6 +188,9 @@ struct gm_group {
 	struct interface *interface;
 	int64_t last_igmp_v1_report_dsec;
 	int64_t last_igmp_v2_report_dsec;
+	/* Host that last reported membership. last_report is 0 until then. */
+	pim_addr last_reporter;
+	time_t last_report;
 };
 
 #if PIM_IPV == 4
@@ -207,6 +211,7 @@ struct gm_group *find_group_by_addr(struct gm_sock *igmp,
 				    struct in_addr group_addr);
 struct gm_group *igmp_add_group_by_addr(struct gm_sock *igmp,
 					struct in_addr group_addr);
+void igmp_group_note_report(struct gm_group *group, struct in_addr from);
 
 struct gm_source *igmp_get_source_by_addr(struct gm_group *group,
 					  struct in_addr src_addr,

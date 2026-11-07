@@ -457,6 +457,7 @@ static void allow(struct gm_sock *igmp, struct in_addr from,
 				if (source)
 					igmp_source_reset_gmi(group, source);
 			}
+			igmp_group_note_report(group, from);
 		} else {
 			igmp_group_delete(group);
 		}
@@ -495,6 +496,8 @@ static void allow(struct gm_sock *igmp, struct in_addr from,
 		igmp_source_reset_gmi(group, source);
 
 	} /* scan received sources */
+
+	igmp_group_note_report(group, from);
 }
 
 void igmpv3_report_isin(struct gm_sock *igmp, struct in_addr from,
@@ -655,6 +658,7 @@ void igmpv3_report_isex(struct gm_sock *igmp, struct in_addr from,
 	assert(group->group_filtermode_isexcl);
 
 	igmp_group_reset_gmi(group);
+	igmp_group_note_report(group, from);
 }
 
 static void toin_incl(struct gm_group *group, int num_sources,
@@ -787,6 +791,10 @@ void igmpv3_report_toin(struct gm_sock *igmp, struct in_addr from,
 		/* INCLUDE mode */
 		toin_incl(group, num_sources, sources);
 	}
+
+	/* Empty TO_IN is a leave. A source list is a join and names the reporter. */
+	if (num_sources)
+		igmp_group_note_report(group, from);
 }
 
 static void toex_incl(struct gm_group *group, int num_sources,
@@ -955,6 +963,7 @@ void igmpv3_report_toex(struct gm_sock *igmp, struct in_addr from,
 
 	/* Group Timer=GMI */
 	igmp_group_reset_gmi(group);
+	igmp_group_note_report(group, from);
 }
 
 void igmpv3_report_allow(struct gm_sock *igmp, struct in_addr from,
@@ -1502,10 +1511,10 @@ void igmp_source_timer_lower_to_lmqt(struct gm_source *source)
 	igmp_source_timer_on(group, source, lmqt_msec);
 }
 
-void igmp_v3_send_query(struct gm_group *group, int fd, const char *ifname, char *query_buf,
-			size_t query_buf_size, int num_sources, struct in_addr dst_addr,
-			struct in_addr group_addr, int query_max_response_time_dsec, uint8_t s_flag,
-			uint8_t querier_robustness_variable, uint16_t querier_query_interval)
+int igmp_v3_send_query(struct gm_group *group, int fd, const char *ifname, char *query_buf,
+		       size_t query_buf_size, int num_sources, struct in_addr dst_addr,
+		       struct in_addr group_addr, int query_max_response_time_dsec, uint8_t s_flag,
+		       uint8_t querier_robustness_variable, uint16_t querier_query_interval)
 {
 	ssize_t msg_size;
 	uint8_t max_resp_code;
@@ -1522,7 +1531,7 @@ void igmp_v3_send_query(struct gm_group *group, int fd, const char *ifname, char
 		flog_err(EC_LIB_DEVELOPMENT,
 			 "%s %s: unable to send: msg_size=%zd larger than query_buf_size=%zu",
 			 __FILE__, __func__, msg_size, query_buf_size);
-		return;
+		return -1;
 	}
 
 	s_flag = PIM_FORCE_BOOLEAN(s_flag);
@@ -1579,7 +1588,7 @@ void igmp_v3_send_query(struct gm_group *group, int fd, const char *ifname, char
 			zlog_warn("Send IGMPv3 query failed due to %pI4s on %s: group=%pI4s msg_size=%zd: sent=%zd",
 				  &dst_addr, ifname, &group_addr, msg_size, sent);
 		}
-		return;
+		return -1;
 	}
 
 	/*
@@ -1600,6 +1609,8 @@ void igmp_v3_send_query(struct gm_group *group, int fd, const char *ifname, char
 				  __func__, &dst_addr, ifname, &group_addr, num_sources);
 		}
 	}
+
+	return 0;
 }
 
 void igmp_v3_recv_query(struct gm_sock *igmp, struct in_addr from, char *igmp_msg, int igmp_msg_len)
