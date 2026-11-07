@@ -177,4 +177,6 @@ extern void ospf6_hello_send_addr(struct ospf6_interface *oi,
 extern int config_write_ospf6_debug_message(struct vty *vty);
 extern void install_element_ospf6_debug_message(void);
 extern const char *ospf6_message_type(int type);
+extern uint16_t ospf6_packet_checksum(const struct in6_addr *src, const struct in6_addr *dst,
+				      const void *oh, uint16_t length);
 #endif /* OSPF6_MESSAGE_H */

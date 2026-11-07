@@ -102,10 +102,16 @@ static int ospf6_gr_lsa_originate(struct ospf6_interface *oi,
 		oh->instance_id = oi->instance_id;
 		oh->reserved = 0;
 		oh->length = htons(length);
+		oh->checksum = 0;
 
 		/* Fill LSA header. */
 		uv32 = (uint32_t *)&buffer[sizeof(*oh)];
 		*uv32 = htonl(1);
+
+		/* An operative interface can have no link-local address yet. */
+		if (oi->at_data.flags == 0 && oi->linklocal_addr)
+			oh->checksum = ospf6_packet_checksum(oi->linklocal_addr, &allspfrouters6,
+							     oh, length);
 
 		/* Send packet. */
 		iovector[0].iov_base = lsa_header;
