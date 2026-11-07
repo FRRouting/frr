@@ -408,6 +408,8 @@ extern void rtadv_cmd_init(void);
 extern void rtadv_if_init(struct zebra_if *zif);
 extern void rtadv_if_up(struct zebra_if *zif);
 extern void rtadv_if_fini(struct zebra_if *zif);
+extern void rtadv_ifindex_change(struct interface *ifp, ifindex_t old_ifindex,
+				 ifindex_t new_ifindex);
 extern void rtadv_add_prefix(struct zebra_if *zif, const struct prefix_ipv6 *p);
 extern void rtadv_delete_prefix(struct zebra_if *zif, const struct prefix *p);
 
