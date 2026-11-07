@@ -4366,7 +4366,10 @@ DEFPY_YANG(neighbor_bfd_param_yang, neighbor_bfd_param_yang_cmd,
 {
 	char xpath[XPATH_MAXLEN];
 	char leaf[XPATH_MAXLEN + 256];
-	char buf[16];
+	/* Distinct buffers: nb_cli_enqueue_change stores the pointer, not a copy. */
+	char detect_buf[16];
+	char min_rx_buf[16];
+	char min_tx_buf[16];
 	bool is_pg = false;
 	int ret;
 
@@ -4376,15 +4379,15 @@ DEFPY_YANG(neighbor_bfd_param_yang, neighbor_bfd_param_yang_cmd,
 
 	snprintfrr(leaf, sizeof(leaf), "%s/bfd-options/enable", xpath);
 	nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY, "true");
-	snprintfrr(buf, sizeof(buf), "%" PRId64, detect);
+	snprintfrr(detect_buf, sizeof(detect_buf), "%" PRId64, detect);
 	snprintfrr(leaf, sizeof(leaf), "%s/bfd-options/detect-multiplier", xpath);
-	nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY, buf);
-	snprintfrr(buf, sizeof(buf), "%" PRId64, min_rx);
+	nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY, detect_buf);
+	snprintfrr(min_rx_buf, sizeof(min_rx_buf), "%" PRId64, min_rx);
 	snprintfrr(leaf, sizeof(leaf), "%s/bfd-options/required-min-rx", xpath);
-	nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY, buf);
-	snprintfrr(buf, sizeof(buf), "%" PRId64, min_tx);
+	nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY, min_rx_buf);
+	snprintfrr(min_tx_buf, sizeof(min_tx_buf), "%" PRId64, min_tx);
 	snprintfrr(leaf, sizeof(leaf), "%s/bfd-options/desired-min-tx", xpath);
-	nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY, buf);
+	nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY, min_tx_buf);
 	return nb_cli_apply_changes(vty, NULL);
 }
 
