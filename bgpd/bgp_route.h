@@ -322,6 +322,7 @@ struct bgp_mplsvpn_nh_label_bind {
 	struct bgp_mplsvpn_nh_label_bind_cache *nh_label_bind_cache;
 };
 
+/* clang-format off */
 struct bgp_path_info {
 	/* For linked list. */
 	struct bgp_path_info *next;
@@ -398,6 +399,7 @@ struct bgp_path_info {
 #define BGP_PATH_UPA_DROP (1 << 23) /* UPA route has D-bit set (drop/blackhole) */
 /* Type-5 export was suppressed by skip-evpn-imported. */
 #define BGP_PATH_EVPN_TYPE5_SKIP_IMPORTED (1 << 24)
+#define BGP_PATH_ENCAPSULATION_SELECTED (1 << 25)
 
 	/* BGP route type.  This can be static, RIP, OSPF, BGP etc.  */
 	uint8_t type;
@@ -427,6 +429,7 @@ struct bgp_path_info {
 		struct bgp_mplsvpn_nh_label_bind bmnc;
 	} mplsvpn;
 };
+/* clang-format on */
 
 /* Structure used in BGP path selection */
 struct bgp_path_info_pair {
