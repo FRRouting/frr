@@ -622,9 +622,6 @@ void parse_packet(const unsigned char *from, struct interface *ifp, const unsign
 				goto done;
 			}
 
-			if (interval > 0)
-				/* Multiply by 3/2 to allow hellos to expire. */
-				schedule_neighbours_check(interval * 15, 0);
 			/* Sub-TLV handling. */
 			if (len > 8) {
 				int ret = parse_hello_subtlv(message + 8, len - 6, &timestamp);
@@ -640,6 +637,9 @@ void parse_packet(const unsigned char *from, struct interface *ifp, const unsign
 					have_hello_rtt = 1;
 				}
 			}
+			if (interval > 0)
+				/* Multiply by 3/2 to allow hellos to expire. */
+				schedule_neighbours_check(interval * 15, 0);
 			/* Moving the update code to the end of the block to ensure we have processed sub-TLVs first */
 			changed = update_neighbour(neigh, seqno, interval);
 			update_neighbour_metric(neigh, changed);
