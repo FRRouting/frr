@@ -577,6 +577,8 @@ static void nhgl_delete(struct nexthop_hold *nh)
 
 	XFREE(MTYPE_NEXTHOP_GROUP, nh->labels);
 
+	XFREE(MTYPE_NEXTHOP_GROUP, nh->backup_str);
+
 	XFREE(MTYPE_NEXTHOP_GROUP, nh);
 }
 
