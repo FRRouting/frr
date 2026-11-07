@@ -1229,7 +1229,7 @@ static const void *clients_client_lookup_entry(struct nb_cb_lookup_entry_args *a
  * XPath: /frr-backend:clients/client/name
  */
 static enum nb_error clients_client_name_get(const struct nb_node *nb_node,
-					     const void *parent_list_entry, struct lyd_node *parent)
+					     const void *list_entry, struct lyd_node *parent)
 {
 	const struct lysc_node *snode = nb_node->snode;
 	LY_ERR err;
@@ -1245,7 +1245,7 @@ static enum nb_error clients_client_name_get(const struct nb_node *nb_node,
  * XPath: /frr-backend:clients/client/state/candidate-config-version
  */
 static enum nb_error clients_client_state_candidate_config_version_get(
-	const struct nb_node *nb_node, const void *parent_list_entry, struct lyd_node *parent)
+	const struct nb_node *nb_node, const void *list_entry, struct lyd_node *parent)
 {
 	const struct lysc_node *snode = nb_node->snode;
 	uint64_t version;
@@ -1267,7 +1267,7 @@ static enum nb_error clients_client_state_candidate_config_version_get(
  * XPath: /frr-backend:clients/client/state/running-config-version
  */
 static enum nb_error clients_client_state_running_config_version_get(const struct nb_node *nb_node,
-								     const void *parent_list_entry,
+								     const void *list_entry,
 								     struct lyd_node *parent)
 {
 	const struct lysc_node *snode = nb_node->snode;
@@ -1288,7 +1288,7 @@ static enum nb_error clients_client_state_running_config_version_get(const struc
  */
 
 static enum nb_error clients_client_state_notify_selectors_get(const struct nb_node *nb_node,
-							       const void *parent_list_entry,
+							       const void *list_entry,
 							       struct lyd_node *parent)
 {
 	const struct lysc_node *snode = nb_node->snode;

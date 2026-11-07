@@ -423,12 +423,13 @@ static void nb_op_resume_data_tree(struct nb_op_yield_state *ys)
  * This is logically as if we walked along the xpath string resolving each
  * nodename reference (in particular list nodes) until we could not.
  *
- * Return: error if any, if no error then @dnode contains the tree (trunk).
+ * Return: error if any, if no error then @trunk contains the tree (trunk).
  */
 static enum nb_error nb_op_xpath_to_trunk(const char *xpath_in, char **xpath_out,
 					  struct lyd_node **trunk)
 {
 	char *xpath = NULL;
+	struct lyd_node *node = NULL;
 	uint32_t llopts = 0;
 	enum nb_error ret = NB_OK;
 	LY_ERR err;
@@ -442,22 +443,88 @@ static enum nb_error nb_op_xpath_to_trunk(const char *xpath_in, char **xpath_out
 	ly_temp_log_options(&llopts);
 	for (;;) {
 		err = yang_new_path2(NULL, ly_native_ctx, xpath, NULL, 0, LYD_NEW_PATH_UPDATE,
-				     NULL, trunk);
+				     NULL, &node);
 		if (err == LY_SUCCESS)
 			break;
 
 		ret = yang_xpath_pop_node(xpath);
 		if (ret != NB_OK)
-			break;
+			goto done;
 		darr_strlen_fixup(xpath);
 	}
+	if (!node)
+		ret = NB_ERR_NOT_FOUND;
+
+done:
 	ly_temp_log_options(NULL);
 
-	if (ret == NB_OK)
+	if (ret == NB_OK) {
+		*trunk = node;
 		*xpath_out = xpath;
-	else
+	} else {
+		if (ret != NB_ERR_NOT_FOUND)
+			flog_warn(EC_LIB_LIBYANG, "%s: can't instantiate trunk: %s", __func__,
+				  xpath_in);
+		lyd_free_all(node);
 		darr_free(xpath);
+	}
 	return ret;
+}
+
+/*
+ * Initialize the node info with the data and schema node at this level in the
+ * trunk, and the length of the corresponding xpath expression.
+ */
+static enum nb_error nb_op_ys_init_node_info_pass1(struct nb_op_yield_state *ys, int level,
+						   struct lyd_node *node)
+{
+	struct nb_op_node_info *ni = &ys->node_infos[level];
+	uint xpath_len;
+	enum nb_error ret = NB_OK;
+
+	if (level == ys->walk_root_level) {
+		/* Determine the length of the xpath expression for the trunk. */
+		xpath_len = strlen(ys->xpath);
+	} else {
+		const struct nb_op_node_info *cni = &ys->node_infos[level + 1];
+		const char *end_pos;
+
+		/*
+		 * Temporarily truncate the xpath expression, so that it refers
+		 * to the node in the previous step (our child).
+		 */
+		if (level < ys->walk_root_level - 1) {
+			assert(ys->xpath[cni->xpath_len] == '/');
+			ys->xpath[cni->xpath_len] = '\0';
+		}
+
+		/*
+		 * Find where the xpath expression would be truncated to refer
+		 * to the current node instead.
+		 */
+		end_pos = frrstr_back_to_char(ys->xpath, '/');
+		if (!end_pos || end_pos == ys->xpath) {
+			flog_warn(EC_LIB_LIBYANG, "%s: error tokenizing query xpath: %s", __func__,
+				  ys->xpath);
+			ret = NB_ERR_VALIDATION;
+		}
+
+		/* Restore the xpath expression so that it refers to the trunk. */
+		if (level < ys->walk_root_level - 1)
+			ys->xpath[cni->xpath_len] = '/';
+
+		if (ret != NB_OK)
+			return ret;
+
+		/* Store the length of the xpath expression for the current node. */
+		xpath_len = end_pos - ys->xpath;
+	}
+
+	ni->inner = node;
+	ni->schema = node->schema;
+	ni->xpath_len = xpath_len;
+
+	return NB_OK;
 }
 
 /*
@@ -465,11 +532,10 @@ static enum nb_error nb_op_xpath_to_trunk(const char *xpath_in, char **xpath_out
  * node_infos on the stack. If this node is a list node, obtain the specific
  * list-entry object.
  */
-static enum nb_error nb_op_ys_finalize_node_info(struct nb_op_yield_state *ys,
-						 uint index)
+static enum nb_error nb_op_ys_init_node_info_pass2(struct nb_op_yield_state *ys, int level)
 {
-	struct nb_op_node_info *pni = index == 0 ? NULL : &ys->node_infos[index - 1];
-	struct nb_op_node_info *ni = &ys->node_infos[index];
+	struct nb_op_node_info *pni = level == 0 ? NULL : &ys->node_infos[level - 1];
+	struct nb_op_node_info *ni = &ys->node_infos[level];
 	struct lyd_node *inner = ni->inner;
 	struct nb_node *nn = ni->schema->priv;
 	bool yield_ok = ys->finish != NULL;
@@ -477,7 +543,7 @@ static enum nb_error nb_op_ys_finalize_node_info(struct nb_op_yield_state *ys,
 	ni->has_lookup_next = nn->cbs.lookup_next != NULL;
 
 	/* track the last list_entry until updated by new list node */
-	ni->list_entry = index == 0 ? NULL : ni[-1].list_entry;
+	ni->list_entry = level == 0 ? NULL : ni[-1].list_entry;
 
 	/* Assert that we are walking the rightmost branch */
 	assert(!lyd_parent(inner) || inner == lyd_child(lyd_parent(inner))->prev);
@@ -486,15 +552,14 @@ static enum nb_error nb_op_ys_finalize_node_info(struct nb_op_yield_state *ys,
 		/* containers have only zero or one child on a branch of a tree */
 		inner = lyd_child(inner);
 		assert(!inner || inner->prev == inner);
-		ni->lookup_next_ok = yield_ok &&
-				     (index == 0 || ni[-1].lookup_next_ok);
+		ni->lookup_next_ok = yield_ok && (level == 0 || ni[-1].lookup_next_ok);
 		return NB_OK;
 	}
 
 	assert(CHECK_FLAG(inner->schema->nodetype, LYS_LIST));
 
 	ni->lookup_next_ok = yield_ok && ni->has_lookup_next &&
-			     (index == 0 || ni[-1].lookup_next_ok);
+			     (level == 0 || ni[-1].lookup_next_ok);
 
 	if (CHECK_FLAG(nn->flags, F_NB_NODE_KEYLESS_LIST)) {
 		uint i;
@@ -568,13 +633,11 @@ static enum nb_error nb_op_ys_finalize_node_info(struct nb_op_yield_state *ys,
  */
 static enum nb_error nb_op_ys_init_node_infos(struct nb_op_yield_state *ys)
 {
-	struct nb_op_node_info *ni;
 	struct lyd_node *inner;
 	struct lyd_node *node = NULL;
 	enum nb_error ret;
-	const char *cur;
 	char *xpath = NULL;
-	uint i, len, prevlen, xplen;
+	uint i, len;
 
 	/*
 	 * Obtain the trunk of the data node tree of the query.
@@ -585,85 +648,32 @@ static enum nb_error nb_op_ys_init_node_infos(struct nb_op_yield_state *ys)
 	 */
 
 	ret = nb_op_xpath_to_trunk(ys->xpath, &xpath, &node);
-	if (ret != NB_OK || !node) {
-		flog_warn(EC_LIB_LIBYANG,
-			  "%s: can't instantiate concrete path using xpath: %s",
-			  __func__, ys->xpath);
-		if (!ret)
-			ret = NB_ERR_NOT_FOUND;
+	if (ret != NB_OK)
 		return ret;
-	}
+	darr_free(ys->xpath);
+	ys->xpath = xpath;
 
-	/* Move up to the container if on a leaf currently. */
-	if (!CHECK_FLAG(node->schema->nodetype, LYS_CONTAINER | LYS_LIST)) {
-		struct lyd_node *leaf = node;
-
-		node = lyd_parent(node);
-
-		/* Have to trim the leaf from the xpath now */
-		ret = yang_xpath_pop_node(xpath);
-		if (ret != NB_OK) {
-			darr_free(xpath);
-			return ret;
-		}
-
-		/*
-		 * If the leaf is not a key, delete it, because it has a wrong
-		 *  empty value.
-		 */
-		if (!lysc_is_key(leaf->schema))
-			lyd_free_tree(leaf);
-	}
 	assert(CHECK_FLAG(node->schema->nodetype, LYS_CONTAINER | LYS_LIST));
 
-	inner = node;
-	for (len = 1; lyd_parent(inner); len++)
-		inner = lyd_parent(inner);
+	len = 0;
+	for (inner = node; inner; inner = lyd_parent(inner))
+		len++;
 
 	darr_append_nz_mt(ys->node_infos, len, MTYPE_NB_NODE_INFOS);
+
+	ys->walk_start_level = len;
+	ys->walk_root_level = ys->walk_start_level - 1;
 
 	/*
 	 * For each node find the prefix of the xpath query that identified it
 	 * -- save the prefix length.
 	 */
 	inner = node;
-	prevlen = 0;
-	xplen = strlen(xpath);
-	darr_free(ys->xpath);
-	ys->xpath = xpath;
-	for (i = len; i > 0; i--, inner = lyd_parent(inner)) {
-		ni = &ys->node_infos[i - 1];
-		ni->inner = inner;
-		ni->schema = inner->schema;
-
-		if (i == len) {
-			prevlen = xplen;
-			ni->xpath_len = prevlen;
-			continue;
-		}
-
-		/*
-		 * The only predicates we should have are concrete ones at this
-		 * point b/c of nb_op_xpath_to_trunk() above, so we aren't in
-		 * danger of finding a division symbol in the path, only '/'s
-		 * inside strings which frrstr_back_to_char skips over.
-		 */
-
-		assert(prevlen == xplen || ys->xpath[prevlen] == '/');
-		if (prevlen != xplen)
-			ys->xpath[prevlen] = 0;
-		cur = frrstr_back_to_char(ys->xpath, '/');
-		if (prevlen != xplen)
-			ys->xpath[prevlen] = '/';
-
-		if (!cur || cur == ys->xpath) {
-			flog_warn(EC_LIB_LIBYANG, "%s: error tokenizing query xpath: %s", __func__,
-				  ys->xpath);
-			return NB_ERR_VALIDATION;
-		}
-
-		prevlen = cur - ys->xpath;
-		ni->xpath_len = prevlen;
+	for (i = len - 1; i < len; i--) {
+		ret = nb_op_ys_init_node_info_pass1(ys, i, inner);
+		if (ret != NB_OK)
+			goto error;
+		inner = lyd_parent(inner);
 	}
 
 	/*
@@ -672,20 +682,18 @@ static enum nb_error nb_op_ys_init_node_infos(struct nb_op_yield_state *ys)
 	 */
 
 	darr_foreach_i (ys->node_infos, i) {
-		ret = nb_op_ys_finalize_node_info(ys, i);
-		if (ret != NB_OK) {
-			if (ys->node_infos[0].inner)
-				lyd_free_all(ys->node_infos[0].inner);
-			darr_free(ys->node_infos);
-			return ret;
-		}
+		ret = nb_op_ys_init_node_info_pass2(ys, i);
+		if (ret != NB_OK)
+			goto error;
 	}
 
-	ys->walk_start_level = darr_len(ys->node_infos);
-
-	ys->walk_root_level = (int)ys->walk_start_level - 1;
-
 	return NB_OK;
+
+error:
+	while (darr_len(ys->node_infos))
+		ys_pop_inner(ys);
+	lyd_free_all(node);
+	return ret;
 }
 
 /* ================ */
@@ -2141,6 +2149,16 @@ static enum nb_error nb_op_walk_start(struct nb_op_yield_state *ys)
 	if (ret != NB_OK)
 		return ret;
 
+	/*
+	 * If the xpath query is for a leaf or leaf-list, adjust it so
+	 * that its parent is queried instead.
+	 */
+	if (nblast->snode->nodetype & LYD_NODE_TERM) {
+		ret = yang_xpath_pop_node(ys->xpath);
+		if (ret != NB_OK)
+			return ret;
+		darr_strlen_fixup(ys->xpath);
+	}
 
 	/*
 	 * Get the node_info path (stack) corresponding to the uniquely
@@ -2356,13 +2374,13 @@ enum nb_error nb_oper_iterate_legacy(const char *xpath,
 	return ret;
 }
 
-enum nb_error nb_oper_int8_get(const struct nb_node *nb_node, const void *parent_list_entry,
+enum nb_error nb_oper_int8_get(const struct nb_node *nb_node, const void *list_entry,
 			       struct lyd_node *parent)
 {
 	struct lysc_node_leaf *lsnode = (struct lysc_node_leaf *)nb_node->snode;
 	struct lysc_node *snode = &lsnode->node;
 	ssize_t offset = (ssize_t)nb_node->cbs.get_elem;
-	void *valuep = (char *)parent_list_entry + offset;
+	void *valuep = (char *)list_entry + offset;
 	char value[5]; /* INT8_MIN has a sign and then 3 digits */
 
 	if (lsnode->type->basetype != LY_TYPE_INT8)
@@ -2374,13 +2392,13 @@ enum nb_error nb_oper_int8_get(const struct nb_node *nb_node, const void *parent
 	return NB_OK;
 }
 
-enum nb_error nb_oper_int16_get(const struct nb_node *nb_node, const void *parent_list_entry,
+enum nb_error nb_oper_int16_get(const struct nb_node *nb_node, const void *list_entry,
 				struct lyd_node *parent)
 {
 	struct lysc_node_leaf *lsnode = (struct lysc_node_leaf *)nb_node->snode;
 	struct lysc_node *snode = &lsnode->node;
 	ssize_t offset = (ssize_t)nb_node->cbs.get_elem;
-	void *valuep = (char *)parent_list_entry + offset;
+	void *valuep = (char *)list_entry + offset;
 	char value[7]; /* INT16_MIN has a sign and then 5 digits */
 
 	if (lsnode->type->basetype != LY_TYPE_INT16)
@@ -2392,13 +2410,13 @@ enum nb_error nb_oper_int16_get(const struct nb_node *nb_node, const void *paren
 	return NB_OK;
 }
 
-enum nb_error nb_oper_int32_get(const struct nb_node *nb_node, const void *parent_list_entry,
+enum nb_error nb_oper_int32_get(const struct nb_node *nb_node, const void *list_entry,
 				struct lyd_node *parent)
 {
 	struct lysc_node_leaf *lsnode = (struct lysc_node_leaf *)nb_node->snode;
 	struct lysc_node *snode = &lsnode->node;
 	ssize_t offset = (ssize_t)nb_node->cbs.get_elem;
-	void *valuep = (char *)parent_list_entry + offset;
+	void *valuep = (char *)list_entry + offset;
 	char value[12]; /* INT32_MIN has a sign and then 10 digits */
 
 	if (lsnode->type->basetype != LY_TYPE_INT32)
@@ -2410,13 +2428,13 @@ enum nb_error nb_oper_int32_get(const struct nb_node *nb_node, const void *paren
 	return NB_OK;
 }
 
-enum nb_error nb_oper_int64_get(const struct nb_node *nb_node, const void *parent_list_entry,
+enum nb_error nb_oper_int64_get(const struct nb_node *nb_node, const void *list_entry,
 				struct lyd_node *parent)
 {
 	struct lysc_node_leaf *lsnode = (struct lysc_node_leaf *)nb_node->snode;
 	struct lysc_node *snode = &lsnode->node;
 	ssize_t offset = (ssize_t)nb_node->cbs.get_elem;
-	void *valuep = (char *)parent_list_entry + offset;
+	void *valuep = (char *)list_entry + offset;
 	char value[22]; /* INT64_MIN has a sign and then 20 digits */
 
 	if (lsnode->type->basetype != LY_TYPE_INT64)
@@ -2428,13 +2446,13 @@ enum nb_error nb_oper_int64_get(const struct nb_node *nb_node, const void *paren
 	return NB_OK;
 }
 
-enum nb_error nb_oper_uint8_get(const struct nb_node *nb_node, const void *parent_list_entry,
+enum nb_error nb_oper_uint8_get(const struct nb_node *nb_node, const void *list_entry,
 				struct lyd_node *parent)
 {
 	struct lysc_node_leaf *lsnode = (struct lysc_node_leaf *)nb_node->snode;
 	struct lysc_node *snode = &lsnode->node;
 	ssize_t offset = (ssize_t)nb_node->cbs.get_elem;
-	void *valuep = (char *)parent_list_entry + offset;
+	void *valuep = (char *)list_entry + offset;
 	char value[4]; /* UINT8_MAX has 3 digits */
 
 	if (lsnode->type->basetype != LY_TYPE_UINT8)
@@ -2446,13 +2464,13 @@ enum nb_error nb_oper_uint8_get(const struct nb_node *nb_node, const void *paren
 	return NB_OK;
 }
 
-enum nb_error nb_oper_uint16_get(const struct nb_node *nb_node, const void *parent_list_entry,
+enum nb_error nb_oper_uint16_get(const struct nb_node *nb_node, const void *list_entry,
 				 struct lyd_node *parent)
 {
 	struct lysc_node_leaf *lsnode = (struct lysc_node_leaf *)nb_node->snode;
 	struct lysc_node *snode = &lsnode->node;
 	ssize_t offset = (ssize_t)nb_node->cbs.get_elem;
-	void *valuep = (char *)parent_list_entry + offset;
+	void *valuep = (char *)list_entry + offset;
 	char value[6]; /* UINT16_MAX has 5 digits */
 
 	if (lsnode->type->basetype != LY_TYPE_UINT16)
@@ -2464,13 +2482,13 @@ enum nb_error nb_oper_uint16_get(const struct nb_node *nb_node, const void *pare
 	return NB_OK;
 }
 
-enum nb_error nb_oper_uint32_get(const struct nb_node *nb_node, const void *parent_list_entry,
+enum nb_error nb_oper_uint32_get(const struct nb_node *nb_node, const void *list_entry,
 				 struct lyd_node *parent)
 {
 	struct lysc_node_leaf *lsnode = (struct lysc_node_leaf *)nb_node->snode;
 	struct lysc_node *snode = &lsnode->node;
 	ssize_t offset = (ssize_t)nb_node->cbs.get_elem;
-	void *valuep = (char *)parent_list_entry + offset;
+	void *valuep = (char *)list_entry + offset;
 	char value[11]; /* UINT32_MAX has 10 digits */
 
 	if (lsnode->type->basetype != LY_TYPE_UINT32)
@@ -2482,13 +2500,13 @@ enum nb_error nb_oper_uint32_get(const struct nb_node *nb_node, const void *pare
 	return NB_OK;
 }
 
-enum nb_error nb_oper_uint64_get(const struct nb_node *nb_node, const void *parent_list_entry,
+enum nb_error nb_oper_uint64_get(const struct nb_node *nb_node, const void *list_entry,
 				 struct lyd_node *parent)
 {
 	struct lysc_node_leaf *lsnode = (struct lysc_node_leaf *)nb_node->snode;
 	struct lysc_node *snode = &lsnode->node;
 	ssize_t offset = (ssize_t)nb_node->cbs.get_elem;
-	void *valuep = (char *)parent_list_entry + offset;
+	void *valuep = (char *)list_entry + offset;
 	char value[21]; /* UINT64_MAX has 20 digits */
 
 	if (lsnode->type->basetype != LY_TYPE_UINT64)
