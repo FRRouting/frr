@@ -38,8 +38,7 @@ int pathd_srte_segment_list_get_keys(struct nb_cb_get_keys_args *args)
 		(struct srte_segment_list *)args->list_entry;
 
 	args->keys->num = 1;
-	snprintf(args->keys->key[0], sizeof(args->keys->key[0]), "%s",
-		 segment_list->name);
+	strlcpy(args->keys->key[0], segment_list->name, sizeof(args->keys->key[0]));
 
 	return NB_OK;
 }
