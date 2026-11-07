@@ -220,6 +220,14 @@ type is encoded in the upper byte of the local administrator field, in
 front of the VNI. On the import side the wildcard then matches this RFC
 8365 encoded local administrator value instead.
 
+To force a 32-bit AS encoding of the automatic Route Target, the
+``auto-route-target <import|export|both> enforce-as4`` command can be used.
+This uses a Type 0x02 (AS4) route target, placing the full AS number in the
+Global Administrator field and truncating the VNI to the lower 16 bits in the
+Local Administrator field. VNIs larger than 65535 will skip auto-RT generation
+to prevent collisions. It cannot be configured simultaneously with
+``rfc8365-compatible`` for the same direction.
+
 
 .. _evpn-linux-vxlan-dataplane:
 
