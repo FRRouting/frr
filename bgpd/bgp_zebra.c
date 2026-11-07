@@ -143,8 +143,66 @@ static void bgp_start_interface_nbrs(struct bgp *bgp, struct interface *ifp)
 	for (ALL_LIST_ELEMENTS(bgp->peer, node, nnode, peer)) {
 		if (peer->conf_if && (strcmp(peer->conf_if, ifp->name) == 0) &&
 		    !peer_established(peer->connection)) {
-			if (peer_active(peer->connection) == BGP_PEER_ACTIVE)
-				BGP_EVENT_ADD(peer->connection, BGP_Stop);
+			/* Point-to-point, or a single RA source so far */
+			if (!ifp->nbr_multi_access || listcount(ifp->nbr_connected) < 2) {
+				if (peer_active(peer->connection) == BGP_PEER_ACTIVE)
+					BGP_EVENT_ADD(peer->connection, BGP_Stop);
+				BGP_EVENT_ADD(peer->connection, BGP_Start);
+				continue;
+			}
+
+			/* An accepted connection's doppelganger runs on its own,
+			 * and a peer that may not start (config being read,
+			 * shutdown, max-prefix) is started by the FSM later.
+			 */
+			if (!peer_is_config_node(peer) || BGP_PEER_START_SUPPRESSED(peer))
+				continue;
+
+			/*
+			 * Only restart a peer that is between attempts.  If a
+			 * TCP connect or OPEN exchange is in progress, just
+			 * reset the round-robin counters so the next cycle
+			 * includes the new entry: on slow systems (e.g. ASAN)
+			 * frequent RA arrivals would otherwise kill every
+			 * attempt before the OPEN exchange completes.  Clearing
+			 * and Deleted are left to the FSM.
+			 */
+			if (peer->connection->status != Idle && peer->connection->status != Active) {
+				peer->nbr_conn_tried = 0;
+				peer->nbr_conn_found = false;
+				peer->v_connect = BGP_INIT_START_TIMER;
+				continue;
+			}
+
+			/*
+			 * Reset the start and connect timers so a backed-off
+			 * peer retries immediately when a new nbr_connected
+			 * entry arrives.  v_connect controls the Active-state
+			 * ConnectRetry timer (default 30s, doubles each fire);
+			 * without resetting it the peer waits far too long
+			 * between round-robin attempts.
+			 */
+			peer->v_start = BGP_INIT_START_TIMER;
+			peer->v_connect = BGP_INIT_START_TIMER;
+			/*
+			 * Stop the peer synchronously rather than via
+			 * BGP_EVENT_ADD(BGP_Stop): bgp_stop() calls
+			 * event_cancel_event_ready(), which would cancel the
+			 * BGP_Start queued after it and leave the peer Idle
+			 * until its start timer fires.
+			 */
+			if (peer_active(peer->connection) == BGP_PEER_ACTIVE &&
+			    peer->connection->status != Idle) {
+				/* Not a failed attempt: keep the index */
+				uint32_t idx = peer->nbr_conn_idx;
+
+				bgp_stop(peer->connection);
+				bgp_fsm_change_status(peer->connection, Idle);
+				peer->nbr_conn_idx = idx;
+			}
+			/* Reset round-robin so the new entry is included */
+			peer->nbr_conn_tried = 0;
+			peer->nbr_conn_found = false;
 			BGP_EVENT_ADD(peer->connection, BGP_Start);
 		}
 	}
@@ -182,6 +240,13 @@ static void bgp_nbr_connected_delete(struct bgp *bgp, struct nbr_connected *ifc,
 	for (ALL_LIST_ELEMENTS(bgp->peer, node, nnode, peer)) {
 		if (peer->conf_if
 		    && (strcmp(peer->conf_if, ifc->ifp->name) == 0)) {
+			peer_nbr_conn_bad_del(peer, &ifc->address->u.prefix6);
+			/* Multi-access: a session on another neighbor stays up */
+			if (ifc->ifp->nbr_multi_access && peer_established(peer->connection) &&
+			    sockunion_family(&peer->connection->su) == AF_INET6 &&
+			    !IPV6_ADDR_SAME(&peer->connection->su.sin6.sin6_addr,
+					    &ifc->address->u.prefix6))
+				continue;
 			peer_set_last_reset(peer, PEER_DOWN_NBR_ADDR_DEL);
 			BGP_EVENT_ADD(peer->connection, BGP_Stop);
 		}

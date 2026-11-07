@@ -47,6 +47,7 @@ extern int zsend_interface_address(int cmd, struct zserv *zclient,
 				   struct connected *ifc);
 extern void nbr_connected_add_ipv6(struct interface *ifp,
 				   struct in6_addr *address);
+extern void nbr_connected_multi_access_set(struct interface *ifp, bool multi_access);
 extern void nbr_connected_delete_ipv6(struct interface *ifp,
 				      struct in6_addr *address);
 extern int zsend_interface_update(int cmd, struct zserv *client,

@@ -28,6 +28,33 @@ Router Advertisement
    enables sending RA messages. Note that while being suppressed, RA messages
    might still be enabled by other daemons, such as bgpd or vrrpd.
 
+.. clicmd:: ipv6 nd multi-access
+
+   Learn every router that sends router advertisements on this interface as a
+   separate neighbor. By default zebra treats the interface as point-to-point:
+   it keeps one neighbor, and a router advertisement from a new source replaces
+   it. With ``multi-access``, an unnumbered BGP peer
+   (``neighbor IFNAME interface``) on the interface tries each neighbor until
+   one answers with an acceptable AS; neighbors that reject or are rejected
+   with Bad Peer AS are skipped from then on (``show bgp neighbors`` lists
+   them). Between attempts, the peer also accepts a connection from any of the
+   neighbors, so a neighbor that connects first (e.g. the ToR) does not wait
+   for the search. Use it where a BGP unnumbered peering shares
+   a segment with other routers, e.g. servers peering with a ToR over a shared
+   VLAN.
+
+   The session comes up with the first neighbor whose OPEN passes the peer's
+   ``remote-as``. With ``remote-as external`` that works when the other routers
+   share this router's AS; if each server has its own AS, set ``remote-as`` to
+   the ToR's AS.
+
+   IPv4 routes learnt this way are installed via the neighbor's IPv6
+   link-local address. The 169.254.0.1 neighbor entry still maps to the first
+   neighbor learnt only, so FPM consumers that rely on it are not supported
+   with ``multi-access``. Neighbors are kept until the interface goes down.
+   Removing the command keeps only the first neighbor learnt, which resets
+   sessions with the others.
+
 .. clicmd:: ipv6 nd prefix ipv6prefix [valid-lifetime] [preferred-lifetime] [off-link] [no-autoconfig] [router-address]
 
    Configuring the IPv6 prefix to include in router advertisements. Several prefix

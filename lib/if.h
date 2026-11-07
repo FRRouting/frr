@@ -316,6 +316,9 @@ struct interface {
 	char ptm_enable; /* Should we look at ptm_status ? */
 	char ptm_status;
 
+	/* zebra "ipv6 nd multi-access": nbr_connected lists every RA source */
+	bool nbr_multi_access;
+
 /* Statistics fields. */
 #ifdef HAVE_PROC_NET_DEV
 	struct if_stats stats;
