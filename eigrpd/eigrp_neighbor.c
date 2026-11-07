@@ -170,7 +170,7 @@ struct eigrp_neighbor *eigrp_nbr_lookup_by_addr_process(struct eigrp *eigrp,
 void eigrp_nbr_delete(struct eigrp_neighbor *nbr)
 {
 	eigrp_nbr_state_set(nbr, EIGRP_NEIGHBOR_DOWN);
-	if (nbr->ei)
+	if (nbr->ei && !nbr->ei->eigrp->finishing)
 		eigrp_topology_neighbor_down(nbr->ei->eigrp, nbr);
 
 	/* Cancel all events. */ /* Thread lookup cost would be negligible. */
