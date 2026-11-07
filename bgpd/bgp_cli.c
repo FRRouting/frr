@@ -31,6 +31,8 @@
 #include "bgpd/bgp_evpn_private.h"
 #include "bgpd/bgp_rd.h"
 #include "bgpd/bgp_filter_cli.h"
+#include "bgpd/bgp_open.h"
+#include "bgpd/bgp_packet.h"
 #ifdef ENABLE_BGP_VNC
 #include "bgpd/bgp_vnc_nb.h"
 #endif
@@ -195,6 +197,26 @@ DEFUN_YANG_NOSH(router_bgp_yang, router_bgp_yang_cmd,
 		snprintfrr(leaf_xpath, sizeof(leaf_xpath), "%s/global/as-notation", bgp_xpath);
 		nb_cli_enqueue_change(vty, leaf_xpath, NB_OP_MODIFY,
 				      asnotation == ASNOTATION_DOTPLUS ? "dot+" : "dot");
+	}
+
+	/*
+	 * Seed YANG to match bgp_create()'s default_af IPv4 unicast, but only
+	 * for a new instance. Re-entering an existing router must not restore
+	 * a previously removed default. Without the leaf, "no bgp default
+	 * ipv4-unicast" DESTROY is a no-op and labeled-unicast activate fails.
+	 */
+	{
+		struct bgp *existing;
+
+		if (strmatch(vrf_name, VRF_DEFAULT_NAME))
+			existing = bgp_get_default();
+		else
+			existing = bgp_lookup_by_name(name);
+		if (!existing) {
+			snprintfrr(leaf_xpath, sizeof(leaf_xpath),
+				   "%s/global/default-afi-safi[.='ipv4-unicast']", bgp_xpath);
+			nb_cli_enqueue_change(vty, leaf_xpath, NB_OP_CREATE, NULL);
+		}
 	}
 
 	ret = nb_cli_apply_changes(vty, NULL);
