@@ -3938,6 +3938,13 @@ DEFPY_YANG(neighbor_capability_software_version_yang,
 	if (ret != 0)
 		return CMD_WARNING_CONFIG_FAILED;
 
+	/*
+	 * "no" stores "disabled". Absent means inherit bgp default
+	 * software-version-capability, so deleting the leaf turns the
+	 * capability back on when that default is set. "disabled" is the
+	 * explicit per-neighbor override.
+	 * Capability messages are sent solely by the NB modify callback.
+	 */
 	if (no)
 		val = "disabled";
 	else if (latest_encoding)

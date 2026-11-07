@@ -3878,6 +3878,7 @@ const struct frr_yang_module_info frr_bgp_info = {
 			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/capability-options/software-version-capability",
 			.cbs = {
 				.modify = bgp_nb_peer_cap_soft_version_modify,
+				.destroy = bgp_nb_peer_cap_soft_version_destroy,
 				.cli_show = bgp_nb_cli_show_peer_cap_soft_version,
 			},
 		},
@@ -3943,6 +3944,7 @@ const struct frr_yang_module_info frr_bgp_info = {
 			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/capability-options/software-version-capability",
 			.cbs = {
 				.modify = bgp_nb_peer_cap_soft_version_modify,
+				.destroy = bgp_nb_peer_cap_soft_version_destroy,
 				.cli_show = bgp_nb_cli_show_peer_cap_soft_version,
 			},
 		},
@@ -4008,6 +4010,7 @@ const struct frr_yang_module_info frr_bgp_info = {
 			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/capability-options/software-version-capability",
 			.cbs = {
 				.modify = bgp_nb_peer_cap_soft_version_modify,
+				.destroy = bgp_nb_peer_cap_soft_version_destroy,
 				.cli_show = bgp_nb_cli_show_peer_cap_soft_version,
 			},
 		},

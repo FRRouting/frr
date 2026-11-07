@@ -504,6 +504,7 @@ void bgp_nb_cli_show_peer_enforce_first_as(struct vty *vty, const struct lyd_nod
 
 
 int bgp_nb_peer_cap_soft_version_modify(struct nb_cb_modify_args *args);
+int bgp_nb_peer_cap_soft_version_destroy(struct nb_cb_destroy_args *args);
 void bgp_nb_cli_show_peer_cap_soft_version(struct vty *vty, const struct lyd_node *dnode,
 					   bool show_defaults);
 int bgp_nb_peer_cap_link_local_modify(struct nb_cb_modify_args *args);
