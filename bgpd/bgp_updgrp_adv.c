@@ -287,6 +287,14 @@ static int group_announce_route_walkcb(struct update_group *updgrp, void *arg)
 										   adj->addpath_tx_id);
 					}
 				}
+
+				/*
+				 * A subgroup that has already withdrawn the prefix
+				 * has nothing to send, but has still handled this
+				 * change. Without the version, it cannot merge with
+				 * the subgroups that did send the withdraw.
+				 */
+				subgrp->version = MAX(subgrp->version, ctx->dest->version);
 			}
 		}
 
