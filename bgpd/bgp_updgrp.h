@@ -366,6 +366,7 @@ extern void update_group_show(struct bgp *bgp, afi_t afi, safi_t safi,
 			      struct vty *vty, uint64_t subgrp_id, bool uj);
 extern void update_group_show_stats(struct bgp *bgp, struct vty *vty);
 extern void update_group_adjust_peer(struct peer_af *paf);
+extern void bgp_update_groups_adjust(struct bgp *bgp);
 extern int update_group_adjust_soloness(struct peer *peer, int set);
 
 extern void update_subgroup_remove_peer(struct update_subgroup *subgrp, struct peer_af *paf);

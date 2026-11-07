@@ -29,6 +29,12 @@ extern void vnc_import_bgp_del_route(struct bgp *bgp,
 				     const struct prefix *prefix,
 				     struct bgp_path_info *info);
 
+/* True when resolve-nve import must stay on the previous CE path. */
+extern bool vnc_import_bgp_keep_resolve_nve(struct bgp *bgp, struct bgp_path_info *new_select);
+
+/* True when this unicast path is the CE route resolve-nve is tracking. */
+extern bool vnc_import_bgp_resolve_nve_tracked(struct bgp *bgp, struct bgp_path_info *info);
+
 extern void vnc_import_bgp_redist_enable(struct bgp *bgp, afi_t afi);
 
 extern void vnc_import_bgp_redist_disable(struct bgp *bgp, afi_t afi);
