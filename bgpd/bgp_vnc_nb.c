@@ -17,6 +17,7 @@
 #include "bgpd/bgpd.h"
 #include "bgpd/bgp_rd.h"
 #include "bgpd/bgp_ecommunity.h"
+#include "bgpd/bgp_updgrp.h"
 #include "bgpd/bgp_vnc_nb.h"
 #include "bgpd/rfapi/bgp_rfapi_cfg.h"
 #include "bgpd/rfapi/rfapi.h"
@@ -818,6 +819,12 @@ int bgp_global_vnc_export_bgp_mode_modify(struct nb_cb_modify_args *args)
 		bgp->rfapi_cfg->flags |= BGP_VNC_CONFIG_EXPORT_BGP_MODE_RH;
 	else if (!strcmp(mode, "ce"))
 		bgp->rfapi_cfg->flags |= BGP_VNC_CONFIG_EXPORT_BGP_MODE_CE;
+	/*
+	 * vnc-direct routes are withheld from their originator for the whole
+	 * subgroup. Split peers on router-id before the export is advertised
+	 * again, and merge them back when export is turned off.
+	 */
+	bgp_update_groups_adjust(bgp);
 	vnc_export_bgp_postchange(bgp);
 	return NB_OK;
 }

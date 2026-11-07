@@ -20,6 +20,7 @@
 #include "bgpd/bgp_mplsvpn.h"
 
 #include "bgpd/bgp_vty.h"
+#include "bgpd/bgp_updgrp.h"
 #include "bgpd/bgp_ecommunity.h"
 #include "bgpd/rfapi/rfapi.h"
 #include "bgpd/rfapi/bgp_rfapi_cfg.h"
@@ -1381,6 +1382,11 @@ DEFUN (vnc_export_mode,
 		bgp->rfapi_cfg->flags &= ~BGP_VNC_CONFIG_EXPORT_BGP_MODE_BITS;
 		bgp->rfapi_cfg->flags |= newmode;
 
+		/*
+		 * Separate peers by router-id while export is on so a
+		 * vnc-direct withdraw hits only the originating CE.
+		 */
+		bgp_update_groups_adjust(bgp);
 		vnc_export_bgp_postchange(bgp);
 
 

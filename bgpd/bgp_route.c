@@ -2578,6 +2578,38 @@ bool subgroup_announce_check(struct bgp_dest *dest, struct bgp_path_info *pi,
 	}
 
 #ifdef ENABLE_BGP_VNC
+	/*
+	 * A vnc-direct unicast path is synthesized from the import table and
+	 * wins best-path on weight. Its originator-id is the CE the best
+	 * import path was resolved from. Do not advertise it back to that
+	 * CE. This decision covers the whole subgroup, so withdraw only when
+	 * every peer is that originator. While VNC BGP export is enabled,
+	 * peers with different router IDs are kept in different update
+	 * groups; a mixed subgroup must not drop the route for the others.
+	 * SUBGRP_PEER() is the update-group's config peer, not a CE, so the
+	 * comparison has to walk the subgroup's real peers.
+	 */
+	if ((afi == AFI_IP || afi == AFI_IP6) && safi == SAFI_UNICAST &&
+	    pi->type == ZEBRA_ROUTE_VNC_DIRECT && bgp_attr_exists(piattr, BGP_ATTR_ORIGINATOR_ID)) {
+		struct peer_af *paf;
+		bool any = false;
+		bool all_origin = true;
+
+		LIST_FOREACH (paf, &subgrp->peers, subgrp_train) {
+			struct peer *dst = PAF_PEER(paf);
+
+			if (!dst)
+				continue;
+			any = true;
+			if (!IPV4_ADDR_SAME(&dst->remote_id, &piattr->originator_id)) {
+				all_origin = false;
+				break;
+			}
+		}
+		if (any && all_origin)
+			return false;
+	}
+
 	if (((afi == AFI_IP) || (afi == AFI_IP6)) && (safi == SAFI_MPLS_VPN)
 	    && ((pi->type == ZEBRA_ROUTE_BGP_DIRECT)
 		|| (pi->type == ZEBRA_ROUTE_BGP_DIRECT_EXT))) {
@@ -4665,15 +4697,20 @@ void bgp_process_main_one(struct bgp *bgp, struct bgp_dest *dest, afi_t afi, saf
 #ifdef ENABLE_BGP_VNC
 	if ((afi == AFI_IP || afi == AFI_IP6) && (safi == SAFI_UNICAST)) {
 		if (old_select != new_select) {
+			/*
+			 * vnc-direct export must not displace resolve-nve
+			 * import of the CE path. Plain and nve-group modes,
+			 * and exterior export, still follow the new best.
+			 */
 			if (old_select) {
-				vnc_import_bgp_exterior_del_route(bgp, p,
-								  old_select);
-				vnc_import_bgp_del_route(bgp, p, old_select);
+				vnc_import_bgp_exterior_del_route(bgp, p, old_select);
+				if (!vnc_import_bgp_keep_resolve_nve(bgp, new_select))
+					vnc_import_bgp_del_route(bgp, p, old_select);
 			}
 			if (new_select) {
-				vnc_import_bgp_exterior_add_route(bgp, p,
-								  new_select);
-				vnc_import_bgp_add_route(bgp, p, new_select);
+				vnc_import_bgp_exterior_add_route(bgp, p, new_select);
+				if (!vnc_import_bgp_keep_resolve_nve(bgp, new_select))
+					vnc_import_bgp_add_route(bgp, p, new_select);
 			}
 		}
 	}
@@ -5886,9 +5923,15 @@ static void bgp_rib_withdraw(const struct prefix *p, struct bgp_dest *dest, stru
 	}
 	if ((afi == AFI_IP || afi == AFI_IP6) && (safi == SAFI_UNICAST)) {
 		if (CHECK_FLAG(pi->flags, BGP_PATH_SELECTED)) {
-
 			vnc_import_bgp_del_route(peer->bgp, p, pi);
 			vnc_import_bgp_exterior_del_route(peer->bgp, p, pi);
+		} else if (vnc_import_bgp_resolve_nve_tracked(peer->bgp, pi)) {
+			/*
+			 * The CE path is no longer selected because a
+			 * vnc-direct export won best-path, but resolve-nve
+			 * still holds it. Drop that import on withdraw.
+			 */
+			vnc_import_bgp_del_route(peer->bgp, p, pi);
 		}
 	}
 #endif

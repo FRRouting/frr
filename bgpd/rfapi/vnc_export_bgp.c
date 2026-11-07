@@ -160,6 +160,45 @@ static int getce(struct bgp *bgp, struct attr *attr, struct prefix *pfx_ce)
 	return -1;
 }
 
+/*
+ * The unicast vnc-direct path is built from a default attribute, so it does
+ * not otherwise say which CE it was resolved from. Stamp the best import
+ * path's route-origin (local-admin == resolve-nve-roo) as the originator.
+ * Announcement then suppresses the path back to that CE and still sends it
+ * to every other peer.
+ */
+static void vnc_direct_set_originator_from_rn(struct bgp *bgp, struct agg_node *rn,
+					      struct attr *attr)
+{
+	struct bgp_path_info *bpi;
+	struct prefix pfx_ce;
+	struct in_addr best = { 0 };
+	uint32_t best_lp = 0;
+	bool have = false;
+
+	if (!bgp || !bgp->rfapi_cfg || !rn)
+		return;
+
+	for (bpi = rn->info; bpi; bpi = bpi->next) {
+		uint32_t lp;
+
+		if (!bpi->attr || !bgp_attr_get_ecommunity(bpi->attr))
+			continue;
+		if (getce(bgp, bpi->attr, &pfx_ce))
+			continue;
+
+		lp = bgp_attr_exists(bpi->attr, BGP_ATTR_LOCAL_PREF) ? bpi->attr->local_pref : 0;
+		if (!have || lp > best_lp) {
+			have = true;
+			best_lp = lp;
+			best = pfx_ce.u.prefix4;
+		}
+	}
+
+	if (have)
+		bgp_attr_set_originator_id(attr, best);
+}
+
 
 void vnc_direct_bgp_add_route_ce(struct bgp *bgp, struct agg_node *rn,
 				 struct bgp_path_info *bpi)
@@ -1240,6 +1279,9 @@ static void vnc_direct_add_rn_group_rd(struct bgp *bgp,
 				   __func__);
 		rfapiPrintAttrPtrs(NULL, &hattr);
 	}
+
+	vnc_direct_set_originator_from_rn(bgp, rn, &hattr);
+
 	iattr = bgp_attr_intern(&hattr);
 	bgp_attr_flush(&hattr);
 

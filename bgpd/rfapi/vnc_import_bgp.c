@@ -2602,6 +2602,35 @@ void vnc_import_bgp_add_route(struct bgp *bgp, const struct prefix *prefix,
 /*
  * "Withdrawing a Route" import process
  */
+bool vnc_import_bgp_keep_resolve_nve(struct bgp *bgp, struct bgp_path_info *new_select)
+{
+	if (!bgp || !bgp->rfapi_cfg || !new_select)
+		return false;
+	if (bgp->rfapi_cfg->redist_mode != VNC_REDIST_MODE_RESOLVE_NVE)
+		return false;
+	return new_select->type == ZEBRA_ROUTE_VNC_DIRECT;
+}
+
+bool vnc_import_bgp_resolve_nve_tracked(struct bgp *bgp, struct bgp_path_info *info)
+{
+	struct skiplist *sl;
+	struct prefix_bag *pb;
+	void *cursor = NULL;
+	int rc;
+
+	if (!bgp || !bgp->rfapi || !info)
+		return false;
+	sl = bgp->rfapi->resolve_nve_nexthop;
+	if (!sl)
+		return false;
+	for (rc = skiplist_next(sl, NULL, (void **)&pb, &cursor); !rc;
+	     rc = skiplist_next(sl, NULL, (void **)&pb, &cursor)) {
+		if (pb && pb->ubpi == info)
+			return true;
+	}
+	return false;
+}
+
 void vnc_import_bgp_del_route(struct bgp *bgp, const struct prefix *prefix,
 			      struct bgp_path_info *info) /* unicast info */
 {
