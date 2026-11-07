@@ -2091,8 +2091,8 @@ void evpn_unconfigure_export_rt_for_l2vni(struct bgp *bgp, struct bgpevpn *vpn,
 /*
  * Configure the auto import RT state for an L2VNI (vty handler).
  */
-static void evpn_configure_import_auto_rt_for_l2vni(struct bgp *bgp, struct bgpevpn *vpn,
-						    enum bgp_evpn_autort_cfgd autort)
+void evpn_configure_import_auto_rt_for_l2vni(struct bgp *bgp, struct bgpevpn *vpn,
+					     enum bgp_evpn_autort_cfgd autort)
 {
 	struct bgp_evpn_rt_config *rt_config = vpn->rt_config;
 
@@ -2119,7 +2119,7 @@ static void evpn_configure_import_auto_rt_for_l2vni(struct bgp *bgp, struct bgpe
 /*
  * Unconfigure the auto import RT state for an L2VNI (vty handler).
  */
-static void evpn_unconfigure_import_auto_rt_for_l2vni(struct bgp *bgp, struct bgpevpn *vpn)
+void evpn_unconfigure_import_auto_rt_for_l2vni(struct bgp *bgp, struct bgpevpn *vpn)
 {
 	struct bgp_evpn_rt_config *rt_config = vpn->rt_config;
 
@@ -2146,8 +2146,8 @@ static void evpn_unconfigure_import_auto_rt_for_l2vni(struct bgp *bgp, struct bg
 /*
  * Configure the auto export RT state for an L2VNI (vty handler).
  */
-static void evpn_configure_export_auto_rt_for_l2vni(struct bgp *bgp, struct bgpevpn *vpn,
-						    enum bgp_evpn_autort_cfgd autort)
+void evpn_configure_export_auto_rt_for_l2vni(struct bgp *bgp, struct bgpevpn *vpn,
+					     enum bgp_evpn_autort_cfgd autort)
 {
 	struct bgp_evpn_rt_config *rt_config = vpn->rt_config;
 
@@ -2166,7 +2166,7 @@ static void evpn_configure_export_auto_rt_for_l2vni(struct bgp *bgp, struct bgpe
 /*
  * Unconfigure the auto export RT state for an L2VNI (vty handler).
  */
-static void evpn_unconfigure_export_auto_rt_for_l2vni(struct bgp *bgp, struct bgpevpn *vpn)
+void evpn_unconfigure_export_auto_rt_for_l2vni(struct bgp *bgp, struct bgpevpn *vpn)
 {
 	struct bgp_evpn_rt_config *rt_config = vpn->rt_config;
 
@@ -7484,57 +7484,6 @@ DEFPY (bgp_evpn_vrf_rt,
 	return ret;
 }
 
-/* Map an "auto-route-target" add-mode keyword to its enum. */
-static enum bgp_evpn_autort_cfgd bgp_evpn_autort_mode_from_str(const char *mode)
-{
-	if (strmatch(mode, "add-always"))
-		return BGP_EVPN_AUTORT_ADD_ALWAYS;
-	if (strmatch(mode, "add-never"))
-		return BGP_EVPN_AUTORT_ADD_NEVER;
-
-	/* add-if-no-manual */
-	return BGP_EVPN_AUTORT_ADD_IF_NO_MANUAL;
-}
-
-DEFPY (bgp_evpn_vrf_auto_rt,
-       bgp_evpn_vrf_auto_rt_cmd,
-       "auto-route-target <both|import|export>$type <add-always|add-never|add-if-no-manual|rfc8365-compatible>$mode",
-       "Automatic route-target configuration\n"
-       "Import and export\n"
-       "Import\n"
-       "Export\n"
-       "Always add the automatic route-target, even when manual route-targets are configured\n"
-       "Never add the automatic route-target\n"
-       "Add the automatic route-target only when no manual route-target is configured (default)\n"
-       "Encode the automatic route-target as RFC 8365 compatible (set the VXLAN encapsulation bits in the local admin field)\n")
-{
-	struct bgp *bgp = VTY_GET_CONTEXT(bgp);
-	bool do_import, do_export;
-
-	if (!bgp)
-		return CMD_WARNING_CONFIG_FAILED;
-
-	/* "both" is an alias for import plus export */
-	do_import = strmatch(type, "import") || strmatch(type, "both");
-	do_export = strmatch(type, "export") || strmatch(type, "both");
-
-	/* rfc8365-compatible is orthogonal to the add-mode: it only affects
-	 * how the automatic route-target is encoded.
-	 */
-	if (strmatch(mode, "rfc8365-compatible")) {
-		evpn_set_autort_rfc8365(bgp, do_import, do_export);
-	} else {
-		enum bgp_evpn_autort_cfgd autort = bgp_evpn_autort_mode_from_str(mode);
-
-		if (do_import)
-			bgp_evpn_configure_import_auto_rt_for_vrf(bgp, autort);
-		if (do_export)
-			bgp_evpn_configure_export_auto_rt_for_vrf(bgp, autort);
-	}
-
-	return CMD_SUCCESS;
-}
-
 #if CONFDATE > 20290206
 CPP_NOTICE("Remove `route-target <both|import|export> auto` command")
 #endif
@@ -7631,94 +7580,6 @@ DEFPY (no_bgp_evpn_vrf_rt,
 	XFREE(MTYPE_TMP, cfgd_rts);
 
 	return ret;
-}
-
-DEFPY (no_bgp_evpn_vrf_auto_rt,
-       no_bgp_evpn_vrf_auto_rt_cmd,
-       "no auto-route-target [<both|import|export>$type [<add-always|add-never|add-if-no-manual|rfc8365-compatible>$mode]]",
-       NO_STR
-       "Automatic route-target configuration\n"
-       "Import and export\n"
-       "Import\n"
-       "Export\n"
-       "Always add the automatic route-target, even when manual route-targets are configured\n"
-       "Never add the automatic route-target\n"
-       "Add the automatic route-target only when no manual route-target is configured (default)\n"
-       "Encode the automatic route-target as RFC 8365 compatible (set the VXLAN encapsulation bits in the local admin field)\n")
-{
-	struct bgp *bgp = VTY_GET_CONTEXT(bgp);
-	struct bgp_evpn_rt_config *rt_config;
-	bool do_import, do_export;
-	bool clear_add_import, clear_add_export;
-	bool clear_rfc_import, clear_rfc_export;
-
-	if (!bgp)
-		return CMD_WARNING_CONFIG_FAILED;
-
-	rt_config = bgp->vrf_route_target_config;
-
-	/* A missing direction means both; "both" is an alias for both too. */
-	do_import = !type || strmatch(type, "import") || strmatch(type, "both");
-	do_export = !type || strmatch(type, "export") || strmatch(type, "both");
-
-	if (mode && strmatch(mode, "rfc8365-compatible")) {
-		/* Clear the (orthogonal) rfc8365 setting, exact match. */
-		bool clear_import = do_import && bgp->autort_rfc8365_import;
-		bool clear_export = do_export && bgp->autort_rfc8365_export;
-
-		if (!clear_import && !clear_export) {
-			vty_out(vty,
-				"%% RFC 8365 compatible automatic route-target is not configured for this VRF\n");
-			return CMD_WARNING_CONFIG_FAILED;
-		}
-
-		evpn_unset_autort_rfc8365(bgp, clear_import, clear_export);
-		return CMD_SUCCESS;
-	}
-
-	if (mode) {
-		/* With an explicit add-mode the configured state must match it
-		 * exactly, otherwise nothing is changed.
-		 */
-		enum bgp_evpn_autort_cfgd autort = bgp_evpn_autort_mode_from_str(mode);
-		bool clear_import = do_import && rt_config->autort_cfgd_import == autort;
-		bool clear_export = do_export && rt_config->autort_cfgd_export == autort;
-
-		if (!clear_import && !clear_export) {
-			vty_out(vty,
-				"%% Automatic route-target \"%s\" is not configured for this VRF\n",
-				mode);
-			return CMD_WARNING_CONFIG_FAILED;
-		}
-
-		if (clear_import)
-			bgp_evpn_unconfigure_import_auto_rt_for_vrf(bgp);
-		if (clear_export)
-			bgp_evpn_unconfigure_export_auto_rt_for_vrf(bgp);
-
-		return CMD_SUCCESS;
-	}
-
-	/* Without a mode, clear both the add-mode and the rfc8365 setting for
-	 * the direction(s).
-	 */
-	clear_add_import = do_import && rt_config->autort_cfgd_import != BGP_EVPN_AUTORT_NOT_CFGD;
-	clear_add_export = do_export && rt_config->autort_cfgd_export != BGP_EVPN_AUTORT_NOT_CFGD;
-	clear_rfc_import = do_import && bgp->autort_rfc8365_import;
-	clear_rfc_export = do_export && bgp->autort_rfc8365_export;
-
-	if (!clear_add_import && !clear_add_export && !clear_rfc_import && !clear_rfc_export) {
-		vty_out(vty, "%% Automatic route-target is not configured for this VRF\n");
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-
-	if (clear_add_import)
-		bgp_evpn_unconfigure_import_auto_rt_for_vrf(bgp);
-	if (clear_add_export)
-		bgp_evpn_unconfigure_export_auto_rt_for_vrf(bgp);
-	evpn_unset_autort_rfc8365(bgp, clear_rfc_import, clear_rfc_export);
-
-	return CMD_SUCCESS;
 }
 
 #if CONFDATE > 20290206
@@ -8035,110 +7896,6 @@ DEFPY (no_bgp_evpn_vni_rt_without_val,
 	return CMD_SUCCESS;
 }
 
-DEFPY (bgp_evpn_vni_auto_rt,
-       bgp_evpn_vni_auto_rt_cmd,
-       "auto-route-target <both|import|export>$type <add-always|add-never|add-if-no-manual>$mode",
-       "Automatic route-target configuration\n"
-       "Import and export\n"
-       "Import\n"
-       "Export\n"
-       "Always add the automatic route-target, even when manual route-targets are configured\n"
-       "Never add the automatic route-target\n"
-       "Add the automatic route-target only when no manual route-target is configured (default)\n")
-{
-	struct bgp *bgp = VTY_GET_CONTEXT(bgp);
-	VTY_DECLVAR_CONTEXT_SUB(bgpevpn, vpn);
-	enum bgp_evpn_autort_cfgd autort;
-
-	if (!bgp)
-		return CMD_WARNING;
-
-	if (!EVPN_ENABLED(bgp)) {
-		vty_out(vty, "This command is only supported under EVPN VRF\n");
-		return CMD_WARNING;
-	}
-
-	autort = bgp_evpn_autort_mode_from_str(mode);
-
-	/* "both" is an alias for import plus export */
-	if (strmatch(type, "import") || strmatch(type, "both"))
-		evpn_configure_import_auto_rt_for_l2vni(bgp, vpn, autort);
-	if (strmatch(type, "export") || strmatch(type, "both"))
-		evpn_configure_export_auto_rt_for_l2vni(bgp, vpn, autort);
-
-	return CMD_SUCCESS;
-}
-
-DEFPY (no_bgp_evpn_vni_auto_rt,
-       no_bgp_evpn_vni_auto_rt_cmd,
-       "no auto-route-target [<both|import|export>$type [<add-always|add-never|add-if-no-manual>$mode]]",
-       NO_STR
-       "Automatic route-target configuration\n"
-       "Import and export\n"
-       "Import\n"
-       "Export\n"
-       "Always add the automatic route-target, even when manual route-targets are configured\n"
-       "Never add the automatic route-target\n"
-       "Add the automatic route-target only when no manual route-target is configured (default)\n")
-{
-	struct bgp *bgp = VTY_GET_CONTEXT(bgp);
-	VTY_DECLVAR_CONTEXT_SUB(bgpevpn, vpn);
-	struct bgp_evpn_rt_config *rt_config;
-	bool do_import, do_export;
-	bool clear_import, clear_export;
-
-	if (!bgp)
-		return CMD_WARNING;
-
-	if (!EVPN_ENABLED(bgp)) {
-		vty_out(vty, "This command is only supported under EVPN VRF\n");
-		return CMD_WARNING;
-	}
-
-	rt_config = vpn->rt_config;
-
-	/* A missing direction means both; "both" is an alias for both too. */
-	do_import = !type || strmatch(type, "import") || strmatch(type, "both");
-	do_export = !type || strmatch(type, "export") || strmatch(type, "both");
-
-	if (mode) {
-		/* With an explicit mode the configured state must match it
-		 * exactly, otherwise nothing is changed.
-		 */
-		enum bgp_evpn_autort_cfgd autort = bgp_evpn_autort_mode_from_str(mode);
-
-		clear_import = do_import && rt_config->autort_cfgd_import == autort;
-		clear_export = do_export && rt_config->autort_cfgd_export == autort;
-
-		if (!clear_import && !clear_export) {
-			vty_out(vty,
-				"%% Automatic route-target \"%s\" is not configured for this VNI\n",
-				mode);
-			return CMD_WARNING;
-		}
-	} else {
-		/* Without a mode, clear whatever is configured for the
-		 * direction(s).
-		 */
-		clear_import = do_import &&
-			       rt_config->autort_cfgd_import != BGP_EVPN_AUTORT_NOT_CFGD;
-		clear_export = do_export &&
-			       rt_config->autort_cfgd_export != BGP_EVPN_AUTORT_NOT_CFGD;
-
-		if (!clear_import && !clear_export) {
-			vty_out(vty, "%% Automatic route-target is not configured for this VNI\n");
-			return CMD_WARNING;
-		}
-	}
-
-	if (clear_import)
-		evpn_unconfigure_import_auto_rt_for_l2vni(bgp, vpn);
-	if (clear_export)
-		evpn_unconfigure_export_auto_rt_for_l2vni(bgp, vpn);
-
-	return CMD_SUCCESS;
-}
-
 void bgp_ethernetvpn_init(void)
 {
 	install_element(VIEW_NODE, &show_ip_bgp_l2vpn_evpn_cmd);
@@ -8228,9 +7985,5 @@ void bgp_ethernetvpn_init(void)
 	install_element(VIEW_NODE, &show_bgp_l2vpn_evpn_com_cmd);
 	install_element(VIEW_NODE, &show_bgp_l2vpn_evpn_rt_cmd);
 
-	install_element(BGP_EVPN_NODE, &bgp_evpn_vrf_auto_rt_cmd);
-	install_element(BGP_EVPN_NODE, &no_bgp_evpn_vrf_auto_rt_cmd);
-	install_element(BGP_EVPN_VNI_NODE, &bgp_evpn_vni_auto_rt_cmd);
-	install_element(BGP_EVPN_VNI_NODE, &no_bgp_evpn_vni_auto_rt_cmd);
 	/* vrf rd/rt and vni / exit-vni / vni rd|rt|advertise*|flooding — YANG: bgp_cli_init() */
 }
