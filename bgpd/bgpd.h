@@ -1108,6 +1108,11 @@ struct bgp {
 	/* route map for advertise ipv4/ipv6 unicast (type-5 routes) */
 	struct bgp_rmap adv_cmd_rmap[AFI_MAX][SAFI_MAX];
 
+	/* EVPN type-5 re-origination flags of the paths imported from VPN */
+	uint8_t evpn_reoriginate_flags[AFI_MAX];
+#define BGP_EVPN_REORIGINATE_VPN (1 << 0)
+#define BGP_EVPN_NO_REORIGINATE_UNICAST (1 << 1)
+
 	struct vpn_policy vpn_policy[AFI_MAX];
 
 	struct bgp_pbr_config *bgp_pbr_cfg;

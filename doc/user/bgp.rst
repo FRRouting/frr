@@ -4523,7 +4523,7 @@ route with gateway IP.
 1. CLI to add gateway IP while generating EVPN type-5 route from a BGP IPv4/IPv6
 prefix:
 
-.. clicmd:: advertise <ipv4|ipv6> unicast [gateway-ip] [route-map RMAP_NAME] [skip-evpn-imported]
+.. clicmd:: advertise <ipv4|ipv6> unicast [gateway-ip] [route-map RMAP_NAME] [skip-evpn-imported] [reoriginate]
 
 When this CLI is configured for a BGP vrf under L2VPN EVPN address family, EVPN
 type-5 routes are generated for BGP prefixes in the vrf.
@@ -4543,6 +4543,14 @@ unicast route as a Type-5 route when its ultimate VRF-leak import parent is in
 the EVPN table. This prevents an EVPN-origin route leaked between VRFs from
 being re-exported into EVPN.
 
+By default, the routes that the vrf imports from L3VPN peers are also
+re-originated as type-5 routes, which makes the router a gateway between a
+L3VPN domain and an EVPN VXLAN domain. In the other direction, the routes that
+the vrf imports from EVPN are exported to VPN. The ``no advertise <ipv4|ipv6>
+unicast reoriginate`` command stops the re-origination in both directions, and
+the ``reoriginate`` keyword enables it again. The routes imported from a local
+vrf through VPN are not concerned.
+
 The ``gateway-ip``, ``route-map`` and ``skip-evpn-imported`` keywords are
 additive: each one is configured by naming it, and omitting it from a later
 command leaves it as it was. So ``advertise ipv4 unicast route-map RMAP_NAME``
@@ -4555,6 +4563,8 @@ individually, without disabling type-5 export, using the matching no form:
 
 .. clicmd:: no advertise <ipv4|ipv6> unicast skip-evpn-imported
 
+.. clicmd:: no advertise <ipv4|ipv6> unicast reoriginate
+
 Removing ``gateway-ip`` returns the vrf to exporting only the best path for
 each prefix, without an overlay index. Removing ``route-map`` requires the
 configured route-map name, and re-exports the prefixes without any filtering.
@@ -4566,7 +4576,7 @@ above, use the no form without any keyword:
 
 VPN routes can also be advertised as EVPN type-5 routes:
 
-.. clicmd:: advertise <ipv4|ipv6> vpn [route-map RMAP_NAME]
+.. clicmd:: advertise <ipv4|ipv6> vpn [route-map RMAP_NAME] [reoriginate]
 
 When this CLI is configured under the L2VPN EVPN address family, selected
 IPv4/IPv6 VPN routes are exported to EVPN as type-5 routes. EVPN export route
@@ -4575,6 +4585,20 @@ If the VPN route carries an SRv6 L3 service attribute, the SRv6 SID is
 propagated to the EVPN type-5 route. The ``gateway-ip`` overlay index is only
 supported with ``advertise <ipv4|ipv6> unicast`` and cannot be used with the
 ``vpn`` form.
+
+Only the VPN routes exported from a local VRF are advertised. With
+``reoriginate``, a VRF without L3VNI also re-originates the routes it imports
+from VPN peers, as type-5 routes with its VPN export RD, route-targets and
+SRv6 SID. In the other direction, the VRF re-originates the routes it
+imports from EVPN as VPN routes with its VPN export RD, route-targets and MPLS
+label, without SRv6 SID, and the VPN routes imported from EVPN are not
+advertised to the VPN peers. This makes the router a gateway between a L3VPN
+MPLS domain and an EVPN SRv6 domain. The ``reoriginate`` keyword is only
+supported in the EVPN instance. The VRF needs a ``sid vpn export``
+configuration for the EVPN direction, and a ``label vpn export``
+configuration for the L3VPN direction. Re-origination is disabled with:
+
+.. clicmd:: no advertise <ipv4|ipv6> vpn reoriginate
 
 2. Add gateway IP to EVPN type-5 route using a route-map:
 
