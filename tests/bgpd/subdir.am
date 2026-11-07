@@ -62,6 +62,15 @@ tests_bgpd_test_ecommunity_LDADD = $(BGP_TEST_LDADD)
 tests_bgpd_test_ecommunity_SOURCES = tests/bgpd/test_ecommunity.c
 EXTRA_DIST += tests/bgpd/test_ecommunity.py
 
+if BGPD
+check_PROGRAMS += tests/bgpd/test_ecommunity_lb_float
+endif
+tests_bgpd_test_ecommunity_lb_float_CFLAGS = $(TESTS_CFLAGS)
+tests_bgpd_test_ecommunity_lb_float_CPPFLAGS = $(TESTS_CPPFLAGS)
+tests_bgpd_test_ecommunity_lb_float_LDADD = $(BGP_TEST_LDADD)
+tests_bgpd_test_ecommunity_lb_float_SOURCES = tests/bgpd/test_ecommunity_lb_float.c
+EXTRA_DIST += tests/bgpd/test_ecommunity_lb_float.py
+
 
 if BGPD
 check_PROGRAMS += tests/bgpd/test_mp_attr

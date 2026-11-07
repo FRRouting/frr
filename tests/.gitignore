@@ -12,6 +12,7 @@ frr_northbound*
 /bgpd/test_capability
 /bgpd/test_community
 /bgpd/test_ecommunity
+/bgpd/test_ecommunity_lb_float
 /bgpd/test_mp_attr
 /bgpd/test_mpath
 /bgpd/test_orf_defer
