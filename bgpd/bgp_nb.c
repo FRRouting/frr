@@ -3185,6 +3185,8 @@ const struct frr_yang_module_info frr_bgp_info = {
 				.destroy = bgp_nb_unnumbered_peer_group_destroy,
 				.cli_show = bgp_nb_cli_show_unnumbered_peer_group,
 			},
+			/* Same create-then-bind ordering as numbered neighbors. */
+			.priority = NB_DFLT_PRIORITY + 1,
 		},
 		{
 			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/neighbor-remote-as/remote-as-type",

@@ -3618,6 +3618,10 @@ int bgp_nb_peer_group_remote_as_type_modify(struct nb_cb_modify_args *args)
 int bgp_nb_peer_group_remote_as_type_destroy(struct nb_cb_destroy_args *args)
 {
 	struct peer_group *group;
+	struct peer *peer;
+	struct listnode *node, *nnode;
+	enum peer_asn_type as_type;
+	as_t as;
 
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
@@ -3625,6 +3629,25 @@ int bgp_nb_peer_group_remote_as_type_destroy(struct nb_cb_destroy_args *args)
 	group = nb_running_get_entry(args->dnode, NULL, true);
 	if (!group)
 		return NB_OK;
+
+	as_type = group->conf->as_type;
+	as = group->conf->as;
+
+	/*
+	 * YANG may stamp PEER_FLAG_REMOTE_AS on members when copying the
+	 * group's AS onto the mandatory neighbor remote-as leaf. Clear that
+	 * override when the member AS still matches the group so
+	 * peer_group_remote_as_delete() resets the session (→ Active).
+	 */
+	for (ALL_LIST_ELEMENTS(group->peer, node, nnode, peer)) {
+		if (!CHECK_FLAG(peer->flags_override, PEER_FLAG_REMOTE_AS))
+			continue;
+		if (peer->as_type != as_type)
+			continue;
+		if (as_type == AS_SPECIFIED && peer->as != as)
+			continue;
+		UNSET_FLAG(peer->flags_override, PEER_FLAG_REMOTE_AS);
+	}
 
 	peer_group_remote_as_delete(group);
 	return NB_OK;
@@ -3981,6 +4004,9 @@ void bgp_nb_cli_show_unnumbered_v6only(struct vty *vty, const struct lyd_node *d
 	/* Printed with interface / peer-group / remote-as composition. */
 }
 
+static bool bgp_nb_dnode_afi_safi(const struct lyd_node *dnode, afi_t *afi, safi_t *safi);
+static void bgp_nb_peer_reapply_enabled_af(struct peer *peer, const struct lyd_node *pg_leaf);
+
 int bgp_nb_unnumbered_peer_group_modify(struct nb_cb_modify_args *args)
 {
 	struct peer *peer;
@@ -4002,6 +4028,8 @@ int bgp_nb_unnumbered_peer_group_modify(struct nb_cb_modify_args *args)
 	ret = peer_group_bind(peer->bgp, NULL, peer, group, &as);
 	if (ret != 0)
 		return NB_ERR_RESOURCE;
+
+	bgp_nb_peer_reapply_enabled_af(peer, args->dnode);
 
 	return NB_OK;
 }
@@ -5825,6 +5853,43 @@ void bgp_nb_cli_show_peer_bfd_strict_hold(struct vty *vty, const struct lyd_node
 		yang_dnode_get_uint32(dnode, NULL));
 }
 
+/*
+ * peer_group_bind() deactivates any member AFI/SAFI the group does not have.
+ * Bind is applied after neighbor AF enable (higher priority, so the group
+ * exists), which clears an explicit "neighbor X activate". Put those back
+ * from the candidate.
+ */
+static void bgp_nb_peer_reapply_enabled_af(struct peer *peer, const struct lyd_node *pg_leaf)
+{
+	const struct lyd_node *nbr, *container, *af;
+	afi_t afi;
+	safi_t safi;
+
+	if (!peer || !pg_leaf)
+		return;
+
+	nbr = yang_dnode_get_parent(pg_leaf, "neighbor");
+	if (!nbr)
+		nbr = yang_dnode_get_parent(pg_leaf, "unnumbered-neighbor");
+	if (!nbr)
+		return;
+
+	LY_LIST_FOR (lyd_child(nbr), container) {
+		if (!strmatch(container->schema->name, "afi-safis"))
+			continue;
+		LY_LIST_FOR (lyd_child(container), af) {
+			if (!strmatch(af->schema->name, "afi-safi"))
+				continue;
+			if (!yang_dnode_exists(af, "enabled") || !yang_dnode_get_bool(af, "enabled"))
+				continue;
+			if (!bgp_nb_dnode_afi_safi(af, &afi, &safi))
+				continue;
+			if (!peer->afc[afi][safi])
+				peer_activate(peer, afi, safi);
+		}
+	}
+}
+
 int bgp_nb_neighbor_peer_group_modify(struct nb_cb_modify_args *args)
 {
 	struct peer *peer;
@@ -5848,9 +5913,23 @@ int bgp_nb_neighbor_peer_group_modify(struct nb_cb_modify_args *args)
 			return NB_ERR_VALIDATION;
 		}
 		group_name = yang_dnode_get_string(args->dnode, NULL);
-		if (!peer_group_lookup(peer->bgp, group_name)) {
+		group = peer_group_lookup(peer->bgp, group_name);
+		if (!group) {
 			snprintfrr(args->errmsg, args->errmsg_len,
 				   "Configure the peer-group first");
+			return NB_ERR_VALIDATION;
+		}
+		/*
+		 * Mirror peer_group_bind(): ebgp-multihop and ttl-security
+		 * cannot be mixed across peer and group. APPLY alone returns
+		 * a generic resource error; reject here so the CLI message
+		 * matches classic behavior.
+		 */
+		if ((CHECK_FLAG(peer->flags, PEER_FLAG_EBGP_MULTIHOP) &&
+		     group->conf->gtsm_hops != BGP_GTSM_HOPS_DISABLED) ||
+		    (peer->gtsm_hops != BGP_GTSM_HOPS_DISABLED && group->conf->cfg_ttl != 0)) {
+			snprintfrr(args->errmsg, args->errmsg_len,
+				   "%%Cannot configure both ttl-security hops and ebgp-multihop");
 			return NB_ERR_VALIDATION;
 		}
 		return NB_OK;
@@ -5872,8 +5951,15 @@ int bgp_nb_neighbor_peer_group_modify(struct nb_cb_modify_args *args)
 
 	as = peer->as;
 	ret = peer_group_bind(peer->bgp, &peer->connection->su, peer, group, &as);
+	if (ret == BGP_ERR_NO_EBGP_MULTIHOP_WITH_TTLHACK) {
+		snprintfrr(args->errmsg, args->errmsg_len,
+			   "%%Cannot configure both ttl-security hops and ebgp-multihop");
+		return NB_ERR_VALIDATION;
+	}
 	if (ret != 0)
 		return NB_ERR_RESOURCE;
+
+	bgp_nb_peer_reapply_enabled_af(peer, args->dnode);
 
 	if (group->conf->as_type != AS_UNSPECIFIED)
 		bgp_nb_need_listening(peer->bgp);
