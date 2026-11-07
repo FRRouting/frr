@@ -15895,6 +15895,23 @@ void bgp_nb_cli_show_peer_oad(struct vty *vty, const struct lyd_node *dnode, boo
 		vty_out(vty, " no neighbor %s oad\n", bgp_nb_config_peer_name(dnode));
 }
 
+static void bgp_nb_peer_announce_routes(struct peer *peer)
+{
+	afi_t afi;
+	safi_t safi;
+	struct peer_af *paf;
+
+	FOREACH_AFI_SAFI (afi, safi) {
+		if (!peer->afc[afi][safi])
+			continue;
+		paf = peer_af_find(peer, afi, safi);
+		if (paf) {
+			update_group_adjust_peer(paf);
+			bgp_announce_route(peer, afi, safi, false);
+		}
+	}
+}
+
 static void bgp_nb_peer_gs_soft_reset(struct peer *peer)
 {
 	struct listnode *node, *nnode;
@@ -15902,14 +15919,20 @@ static void bgp_nb_peer_gs_soft_reset(struct peer *peer)
 	afi_t afi;
 	safi_t safi;
 
+	/*
+	 * Match classic neighbor graceful-shutdown: soft-in clear plus
+	 * re-announce so originated routes pick up/drop GSHUT / loc-pref 0.
+	 */
 	if (CHECK_FLAG(peer->sflags, PEER_STATUS_GROUP)) {
 		for (ALL_LIST_ELEMENTS(peer->group->peer, node, nnode, member)) {
 			FOREACH_AFI_SAFI (afi, safi)
 				peer_clear_soft(member, afi, safi, BGP_CLEAR_SOFT_IN);
+			bgp_nb_peer_announce_routes(member);
 		}
 	} else {
 		FOREACH_AFI_SAFI (afi, safi)
 			peer_clear_soft(peer, afi, safi, BGP_CLEAR_SOFT_IN);
+		bgp_nb_peer_announce_routes(peer);
 	}
 }
 
