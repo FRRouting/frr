@@ -68,9 +68,28 @@ static int eigrpd_instance_create(struct nb_cb_create_args *args)
 	vrf_id_t vrfid;
 
 	switch (args->event) {
-	case NB_EV_VALIDATE:
-		/* NOTHING */
+	case NB_EV_VALIDATE: {
+		const struct lyd_node *other;
+
+		/*
+		 * The original daemon indexes instances by VRF only. The
+		 * OpenEIGRP YANG model permits multiple ASNs per VRF, but the
+		 * native daemon must reject that configuration before PREPARE
+		 * would reuse the same process for more than one list entry.
+		 */
+		vrf = yang_dnode_get_string(args->dnode, "vrf");
+		LY_LIST_FOR(lyd_child(lyd_parent(args->dnode)), other) {
+			if (other == args->dnode ||
+			    other->schema != args->dnode->schema)
+				continue;
+			if (strcmp(vrf, yang_dnode_get_string(other, "vrf")))
+				continue;
+			snprintfrr(args->errmsg, args->errmsg_len,
+				   "Legacy eigrpd supports one AS per VRF");
+			return NB_ERR_VALIDATION;
+		}
 		break;
+	}
 	case NB_EV_PREPARE:
 		vrf = yang_dnode_get_string(args->dnode, "vrf");
 
