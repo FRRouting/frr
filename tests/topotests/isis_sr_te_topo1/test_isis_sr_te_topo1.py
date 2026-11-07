@@ -345,6 +345,23 @@ def add_segment_adj(rname, name, index, src, dst):
     )
 
 
+def add_segment_prefix(rname, name, index, prefix):
+    get_topogen().net[rname].cmd(
+        """ \
+        vtysh -c "conf t" \
+              -c "segment-routing" \
+              -c "traffic-eng" \
+              -c "segment-list """
+        + name
+        + """" \
+              -c "index """
+        + str(index)
+        + """ nai prefix """
+        + prefix
+        + ''' algorithm 0"'''
+    )
+
+
 def set_ted_import(rname, enable):
     """
     pathd can't apply its "mpls-te" traffic-eng configuration from a
@@ -1009,6 +1026,36 @@ def test_srte_color_extended_community_step6():
         """
     )
     set_route_map_color("rt1", 1)
+
+
+#
+# Step 7
+#
+# Checking the MPLS table with a Segment List of a Prefix-SID that queries TED,
+# while the Prefix-SID of the endpoint changes
+#
+def test_srte_prefix_sid_segment_list_check_mpls_table_step7():
+    setup_testcase(
+        "Test (step 7): check MPLS table for a Prefix-SID Segment List and a "
+        "changed Prefix-SID"
+    )
+
+    set_ted_import("rt1", True)
+    add_segment_prefix("rt1", "prefix", 10, "6.6.6.6/32")
+    add_candidate_path("rt1", "6.6.6.6", 100, "prefix", "prefix")
+    cmp_json_output("rt1", "show mpls table json", "step7/show_mpls_table.ref")
+
+    # the new index reaches pathd through the TED
+    create_prefix_sid("rt6", "6.6.6.6/32", 66)
+    cmp_json_output(
+        "rt1", "show mpls table json", "step7/show_mpls_table_changed_sid.ref"
+    )
+
+    create_prefix_sid("rt6", "6.6.6.6/32", 60)
+    cmp_json_output("rt1", "show mpls table json", "step7/show_mpls_table.ref")
+
+    delete_candidate_path("rt1", "6.6.6.6", 100)
+    set_ted_import("rt1", False)
 
 
 # Memory leak test template
