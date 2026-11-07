@@ -156,6 +156,17 @@ static int static_path_list_create(struct nb_cb_create_args *args)
 			}
 		}
 
+		nh_type = yang_dnode_get_enum(args->dnode, "nh-type");
+		if (nh_type == STATIC_IPV6_GATEWAY) {
+			yang_dnode_get_ip(&ipaddr, args->dnode, "gateway");
+			if (IN6_IS_ADDR_LINKLOCAL(&ipaddr.ipaddr_v6)) {
+				snprintfrr(args->errmsg, args->errmsg_len,
+					   "%pIA: Interface has to be specified for a link-local nexthop",
+					   &ipaddr);
+				return NB_ERR_VALIDATION;
+			}
+		}
+
 		return ecmp_path_list_validate(args->dnode, args->errmsg, args->errmsg_len);
 	case NB_EV_ABORT:
 	case NB_EV_PREPARE:
