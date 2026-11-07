@@ -1845,6 +1845,136 @@ stream_failure:
 	return -1;
 }
 
+int zapi_vpws_local_encode(uint8_t cmd, struct stream *s, const struct zapi_vpws_local *api)
+{
+	stream_reset(s);
+	zclient_create_header(s, cmd, VRF_DEFAULT);
+	stream_put(s, api->instance_name, sizeof(api->instance_name));
+	stream_put(s, api->ac_ifname, sizeof(api->ac_ifname));
+	stream_put(s, api->bridge_ifname, sizeof(api->bridge_ifname));
+	stream_put(s, &api->local_sid, sizeof(api->local_sid));
+	stream_putc(s, api->l2_encap_mode);
+	stream_putw_at(s, 0, stream_get_endp(s));
+	return 0;
+}
+
+int zapi_vpws_local_decode(struct stream *s, struct zapi_vpws_local *api)
+{
+	memset(api, 0, sizeof(*api));
+	STREAM_GET(api->instance_name, s, sizeof(api->instance_name));
+	STREAM_GET(api->ac_ifname, s, sizeof(api->ac_ifname));
+	STREAM_GET(api->bridge_ifname, s, sizeof(api->bridge_ifname));
+	STREAM_GET(&api->local_sid, s, sizeof(api->local_sid));
+	STREAM_GETC(s, api->l2_encap_mode);
+	return 0;
+stream_failure:
+	return -1;
+}
+
+int zapi_vpws_remote_encode(uint8_t cmd, struct stream *s, const struct zapi_vpws_remote *api)
+{
+	stream_reset(s);
+	zclient_create_header(s, cmd, VRF_DEFAULT);
+	stream_put(s, api->instance_name, sizeof(api->instance_name));
+	stream_put(s, &api->peer_sid, sizeof(api->peer_sid));
+	stream_putw_at(s, 0, stream_get_endp(s));
+	return 0;
+}
+
+int zapi_vpws_remote_decode(struct stream *s, struct zapi_vpws_remote *api)
+{
+	memset(api, 0, sizeof(*api));
+	STREAM_GET(api->instance_name, s, sizeof(api->instance_name));
+	STREAM_GET(&api->peer_sid, s, sizeof(api->peer_sid));
+	return 0;
+stream_failure:
+	return -1;
+}
+
+/*
+ * VPWS name-only messages (LOCAL_DEL / REMOTE_DEL): length-prefixed instance
+ * name, so no fixed length is duplicated across daemons.
+ */
+void zapi_vpws_name_encode(uint8_t cmd, struct stream *s, const char *name)
+{
+	uint16_t len = strlen(name);
+
+	stream_reset(s);
+	zclient_create_header(s, cmd, VRF_DEFAULT);
+	stream_putw(s, len);
+	stream_put(s, name, len);
+	stream_putw_at(s, 0, stream_get_endp(s));
+}
+
+int zapi_vpws_name_decode(struct stream *s, char *name, size_t namesz)
+{
+	uint16_t len;
+
+	STREAM_GETW(s, len);
+	if (len >= namesz)
+		return -1;
+	STREAM_GET(name, s, len);
+	name[len] = '\0';
+	return 0;
+stream_failure:
+	return -1;
+}
+
+void zapi_srv6_l2_evi_encode(struct stream *s, const struct zapi_srv6_l2_evi *api)
+{
+	uint8_t llen = (uint8_t)strnlen(api->locator_name, sizeof(api->locator_name) - 1);
+
+	stream_put(s, &api->dt2u_sid, sizeof(api->dt2u_sid));
+	stream_put(s, &api->dt2m_sid, sizeof(api->dt2m_sid));
+	stream_putl(s, api->dt2u_oif);
+	stream_putl(s, api->dt2m_oif);
+	stream_putc(s, api->svc_type);
+	stream_putc(s, llen);
+	if (llen)
+		stream_put(s, api->locator_name, llen);
+	stream_putc(s, api->loc_meta_valid ? 1 : 0);
+	if (api->loc_meta_valid) {
+		stream_putc(s, api->loc_block_len);
+		stream_putc(s, api->loc_node_len);
+		stream_putc(s, api->loc_func_len);
+		stream_putc(s, api->loc_arg_len);
+		stream_putc(s, api->loc_is_usid ? 1 : 0);
+	}
+}
+
+int zapi_srv6_l2_evi_decode(struct stream *s, struct zapi_srv6_l2_evi *api)
+{
+	uint8_t llen;
+
+	memset(api, 0, sizeof(*api));
+	STREAM_GET(&api->dt2u_sid, s, sizeof(api->dt2u_sid));
+	STREAM_GET(&api->dt2m_sid, s, sizeof(api->dt2m_sid));
+	STREAM_GETL(s, api->dt2u_oif);
+	STREAM_GETL(s, api->dt2m_oif);
+	STREAM_GETC(s, api->svc_type);
+	STREAM_GETC(s, llen);
+
+	if (llen) {
+		/* llen is uint8_t (<= 255) and locator_name is larger, so the
+		 * name always fits and the trailing NUL is in range.
+		 */
+		STREAM_GET(api->locator_name, s, llen);
+		api->locator_name[llen] = '\0';
+	}
+
+	STREAM_GETC(s, api->loc_meta_valid);
+	if (api->loc_meta_valid) {
+		STREAM_GETC(s, api->loc_block_len);
+		STREAM_GETC(s, api->loc_node_len);
+		STREAM_GETC(s, api->loc_func_len);
+		STREAM_GETC(s, api->loc_arg_len);
+		STREAM_GETC(s, api->loc_is_usid);
+	}
+	return 0;
+stream_failure:
+	return -1;
+}
+
 static void zapi_encode_prefix(struct stream *s, struct prefix *p,
 			       uint8_t family)
 {
