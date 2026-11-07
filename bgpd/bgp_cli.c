@@ -576,6 +576,7 @@ DEFUN_YANG(no_bgp_log_neighbor_changes_yang,
 	   NO_STR BGP_STR "Log neighbor up/down and reset reason\n")
 {
 	struct bgp *bgp = VTY_GET_CONTEXT(bgp);
+	int pending_err = vty->pending_commit_error;
 	int ret;
 
 	nb_cli_enqueue_change(vty, "./global/global-neighbor-config/log-neighbor-changes",
@@ -587,7 +588,8 @@ DEFUN_YANG(no_bgp_log_neighbor_changes_yang,
 	 * clears the flag. A config-file batch commits later; create applies
 	 * an explicit false from that candidate.
 	 */
-	if (ret == CMD_SUCCESS && bgp && !vty->pending_commit)
+	if (ret == CMD_SUCCESS && bgp && !vty->pending_commit &&
+	    vty->pending_commit_error == pending_err)
 		UNSET_FLAG(bgp->flags, BGP_FLAG_LOG_NEIGHBOR_CHANGES);
 	return ret;
 }
