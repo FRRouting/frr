@@ -17775,7 +17775,14 @@ int bgp_nb_peer_local_role_strict_destroy(struct nb_cb_destroy_args *args)
 	if (!peer)
 		return NB_OK;
 
-	bgp_nb_peer_local_role_apply(peer, args->dnode);
+	/*
+	 * Only clear strict-mode. Do not call bgp_nb_peer_local_role_apply():
+	 * "no neighbor … local-role" destroys strict-mode and role together,
+	 * and apply order can unset the role first — re-apply from the old
+	 * dnode would resurrect the role and leave the capability advertised.
+	 */
+	if (CHECK_FLAG(peer->flags, PEER_FLAG_ROLE))
+		peer_role_set(peer, peer->local_role, false);
 	return NB_OK;
 }
 
