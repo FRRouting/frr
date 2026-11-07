@@ -652,15 +652,24 @@ bool pim_nht_candrp_add(struct pim_instance *pim, pim_addr addr)
 	return pim_nht_pnc_is_valid(pim, pnc, PIMADDR_ANY);
 }
 
+void pim_nht_gm_proxy_add(struct pim_instance *pim, pim_addr addr)
+{
+	struct pim_nexthop_cache *pnc;
+
+	pnc = pim_nht_get(pim, addr);
+	pnc->gm_proxy_count++;
+}
+
 static void pim_nht_drop_maybe(struct pim_instance *pim, struct pim_nexthop_cache *pnc)
 {
 	if (PIM_DEBUG_PIM_NHT)
-		zlog_debug("%s: NHT %pPA(%s) rp_list count:%d upstream count:%ld BSR count:%u Cand-RP count:%u",
+		zlog_debug("%s: NHT %pPA(%s) rp_list count:%d upstream count:%ld BSR count:%u Cand-RP count:%u GM proxy count:%u",
 			   __func__, &pnc->addr, pim->vrf->name, pnc->rp_list->count,
-			   pnc->upstream_hash->count, pnc->bsr_count, pnc->candrp_count);
+			   pnc->upstream_hash->count, pnc->bsr_count, pnc->candrp_count,
+			   pnc->gm_proxy_count);
 
 	if (pnc->rp_list->count == 0 && pnc->upstream_hash->count == 0 && pnc->bsr_count == 0 &&
-	    pnc->candrp_count == 0) {
+	    pnc->candrp_count == 0 && pnc->gm_proxy_count == 0) {
 		struct zclient *zclient = pim_zebra_zclient_get();
 
 		pim_sendmsg_zebra_rnh(pim, zclient, pnc->addr, ZEBRA_NEXTHOP_UNREGISTER);
@@ -801,6 +810,23 @@ void pim_nht_candrp_del(struct pim_instance *pim, pim_addr addr)
 
 	assertf(pnc->candrp_count > 0, "addr=%pPA", &addr);
 	pnc->candrp_count--;
+
+	pim_nht_drop_maybe(pim, pnc);
+}
+
+void pim_nht_gm_proxy_del(struct pim_instance *pim, pim_addr addr)
+{
+	struct pim_nexthop_cache *pnc;
+
+	pnc = pim_nexthop_cache_find(pim, addr);
+	if (!pnc) {
+		zlog_warn("%s: GM proxy NHT entry %pPA(%s) not found", __func__, &addr,
+			  pim->vrf->name);
+		return;
+	}
+
+	assertf(pnc->gm_proxy_count > 0, "addr=%pPA", &addr);
+	pnc->gm_proxy_count--;
 
 	pim_nht_drop_maybe(pim, pnc);
 }
