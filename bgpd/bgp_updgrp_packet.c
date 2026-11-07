@@ -408,9 +408,9 @@ struct stream *bpacket_reformat_for_peer(struct bpacket *pkt,
 		 * Note: It is assumed route-map cannot set the nexthop
 		 * to an invalid value.
 		 */
-		if (route_map_sets_nh
-		    && ((peer->sort != BGP_PEER_EBGP)
-			|| ROUTE_MAP_OUT(filter))) {
+		if (route_map_sets_nh &&
+		    ((peer->sort != BGP_PEER_EBGP) || ROUTE_MAP_OUT(filter) ||
+		     CHECK_FLAG(vec->flags, BPKT_ATTRVEC_FLAGS_DEFAULT_ORIGINATE))) {
 			if (CHECK_FLAG(
 				    vec->flags,
 				    BPKT_ATTRVEC_FLAGS_RMAP_NH_PEER_ADDRESS)) {
@@ -502,9 +502,9 @@ struct stream *bpacket_reformat_for_peer(struct bpacket *pkt,
 		 * next-hop if it was set in an outbound route-map
 		 * to that peer.
 		 */
-		if (route_map_sets_nh
-		    && ((peer->sort != BGP_PEER_EBGP)
-			|| ROUTE_MAP_OUT(filter))) {
+		if (route_map_sets_nh &&
+		    ((peer->sort != BGP_PEER_EBGP) || ROUTE_MAP_OUT(filter) ||
+		     CHECK_FLAG(vec->flags, BPKT_ATTRVEC_FLAGS_DEFAULT_ORIGINATE))) {
 			if (CHECK_FLAG(
 				    vec->flags,
 				    BPKT_ATTRVEC_FLAGS_RMAP_NH_PEER_ADDRESS)) {
@@ -1310,6 +1310,9 @@ void subgroup_default_update_packet(struct update_subgroup *subgrp,
 
 	/* Set Total Path Attribute Length. */
 	stream_putw_at(s, pos, total_attr_len);
+
+	/* A next-hop set by the default-originate route-map is outbound policy */
+	SET_FLAG(vecarr.entries[BGP_ATTR_VEC_NH].flags, BPKT_ATTRVEC_FLAGS_DEFAULT_ORIGINATE);
 
 	/* NLRI set. */
 	if (p.family == AF_INET && safi == SAFI_UNICAST
