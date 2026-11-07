@@ -7,6 +7,7 @@
  */
 
 #include <zebra.h>
+#include <iana_afi.h>
 
 #include "ldpd.h"
 #include "ldpe.h"
@@ -548,10 +549,10 @@ gen_fec_tlv(struct ibuf *buf, struct map *map)
 		SET_FLAG(err, ibuf_add(buf, &map->type, sizeof(map->type)));
 		switch (map->fec.prefix.af) {
 		case AF_INET:
-			family = htons(AF_IPV4);
+			family = htons(IANA_AFI_IPV4);
 			break;
 		case AF_INET6:
-			family = htons(AF_IPV6);
+			family = htons(IANA_AFI_IPV6);
 			break;
 		default:
 			fatalx("gen_fec_tlv: unknown af");
@@ -620,10 +621,10 @@ gen_fec_tlv(struct ibuf *buf, struct map *map)
 
 			switch (map->fec.twcard.u.prefix_af) {
 			case AF_INET:
-				family = htons(AF_IPV4);
+				family = htons(IANA_AFI_IPV4);
 				break;
 			case AF_INET6:
-				family = htons(AF_IPV6);
+				family = htons(IANA_AFI_IPV6);
 				break;
 			default:
 				fatalx("gen_fec_tlv: unknown af");
@@ -685,10 +686,10 @@ tlv_decode_fec_elm(struct nbr *nbr, struct ldp_msg *msg, char *buf,
 		off += sizeof(map->fec.prefix.af);
 		map->fec.prefix.af = ntohs(map->fec.prefix.af);
 		switch (map->fec.prefix.af) {
-		case AF_IPV4:
+		case IANA_AFI_IPV4:
 			map->fec.prefix.af = AF_INET;
 			break;
-		case AF_IPV6:
+		case IANA_AFI_IPV6:
 			map->fec.prefix.af = AF_INET6;
 			break;
 		default:
@@ -699,10 +700,10 @@ tlv_decode_fec_elm(struct nbr *nbr, struct ldp_msg *msg, char *buf,
 		/* Prefix Length */
 		map->fec.prefix.prefixlen = buf[off];
 		off += sizeof(uint8_t);
-		if ((map->fec.prefix.af == AF_IPV4
-		     && map->fec.prefix.prefixlen > IPV4_MAX_BITLEN)
-		    || (map->fec.prefix.af == AF_IPV6
-			&& map->fec.prefix.prefixlen > IPV6_MAX_BITLEN)) {
+		if ((map->fec.prefix.af == IANA_AFI_IPV4 &&
+		     map->fec.prefix.prefixlen > IPV4_MAX_BITLEN) ||
+		    (map->fec.prefix.af == IANA_AFI_IPV6 &&
+		     map->fec.prefix.prefixlen > IPV6_MAX_BITLEN)) {
 			session_shutdown(nbr, S_BAD_TLV_VAL, msg->id, msg->type);
 			return (-1);
 		}
@@ -827,10 +828,10 @@ tlv_decode_fec_elm(struct nbr *nbr, struct ldp_msg *msg, char *buf,
 			off += sizeof(uint16_t);
 
 			switch (map->fec.twcard.u.prefix_af) {
-			case AF_IPV4:
+			case IANA_AFI_IPV4:
 				map->fec.twcard.u.prefix_af = AF_INET;
 				break;
-			case AF_IPV6:
+			case IANA_AFI_IPV6:
 				map->fec.twcard.u.prefix_af = AF_INET6;
 				break;
 			default:
