@@ -6141,13 +6141,6 @@ def test_bpp_export_failure_status():
         )
 
 
-def test_memory_leak():
-    tgen = get_topogen()
-    if not tgen.is_memleak_enabled():
-        pytest.skip("Memory leak test/report is disabled")
-    tgen.report_memory_leaks()
-
-
 if __name__ == "__main__":
     args = ["-s"] + sys.argv[1:]
     sys.exit(pytest.main(args))

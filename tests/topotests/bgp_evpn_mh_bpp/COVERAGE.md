@@ -40,12 +40,12 @@ The implementation snapshot audited here is the PR working tree as of
 
 | Validation | Result |
 |---|---|
-| BPP topotest | **Covered** — latest full run with memory reporting: 100 passed in 505.96 seconds |
+| BPP topotest | **Covered** — 99 committed tests; the pre-submission run including local memory reporting passed 100 tests in 505.96 seconds |
 | L3MH regression | **Covered** — 58 passed in 375.44 seconds |
 | BPP feature tests | 96 `test_bpp_*` tests |
 | Baseline topology tests | 3 tests |
 | Focused follow-up | **Covered** — stabilized scale test passed six consecutive runs; exact Group/Binding dataplane test passed after the OBJ fixes |
-| Memory leak test | **Covered** — `test_memory_leak` passed in the full `--memleaks` run |
+| Memory validation | **Covered locally** — the pre-submission `--memleaks` run passed; its report-only test is not retained upstream |
 | FRR build | **Covered** |
 | Checkpatch | **Covered** — 0 errors, 0 warnings |
 | Changed-line coverage above 80% | **Pending** — no coverage report captured |
@@ -328,7 +328,8 @@ Every test in `test_bgp_evpn_mh_bpp.py` is accounted for below.
 
 ### Memory validation
 
-- `test_memory_leak` — passed with FRR memory-leak reporting enabled.
+- A pre-submission run with FRR memory-leak reporting enabled passed. The
+  report-only test used for that local validation is not retained upstream.
 
 ## Gaps and required follow-up
 
