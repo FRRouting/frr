@@ -1246,6 +1246,8 @@ DEFUN(no_srv6_sid_format_f3216_usid,
 	format = srv6_sid_format_lookup(SRV6_SID_FORMAT_USID_F3216_NAME);
 	assert(format);
 
+	zebra_srv6_sid_format_change_start(format);
+
 	format->config.usid.lib_start = SRV6_SID_FORMAT_USID_F3216_LIB_START;
 	format->config.usid.elib_start = SRV6_SID_FORMAT_USID_F3216_ELIB_START;
 	format->config.usid.elib_end = SRV6_SID_FORMAT_USID_F3216_ELIB_END;
@@ -1254,7 +1256,7 @@ DEFUN(no_srv6_sid_format_f3216_usid,
 	format->config.usid.ewlib_start = SRV6_SID_FORMAT_USID_F3216_EWLIB_START;
 
 	/* Notify zclients that the format has changed */
-	zebra_srv6_sid_format_changed_cb(format);
+	zebra_srv6_sid_format_change_finish(format);
 
 	return CMD_SUCCESS;
 }
@@ -1286,6 +1288,8 @@ DEFUN(no_srv6_sid_format_f4816_usid,
 	format = srv6_sid_format_lookup(SRV6_SID_FORMAT_USID_F4816_NAME);
 	assert(format);
 
+	zebra_srv6_sid_format_change_start(format);
+
 	format->config.usid.lib_start = SRV6_SID_FORMAT_USID_F4816_LIB_START;
 	format->config.usid.elib_start = SRV6_SID_FORMAT_USID_F4816_ELIB_START;
 	format->config.usid.elib_end = SRV6_SID_FORMAT_USID_F4816_ELIB_END;
@@ -1294,7 +1298,7 @@ DEFUN(no_srv6_sid_format_f4816_usid,
 	format->config.usid.ewlib_start = SRV6_SID_FORMAT_USID_F4816_EWLIB_START;
 
 	/* Notify zclients that the format has changed */
-	zebra_srv6_sid_format_changed_cb(format);
+	zebra_srv6_sid_format_change_finish(format);
 
 	return CMD_SUCCESS;
 }
@@ -1326,11 +1330,13 @@ DEFUN(no_srv6_sid_format_f4024_uncompressed,
 	format = srv6_sid_format_lookup(SRV6_SID_FORMAT_UNCOMPRESSED_F4024_NAME);
 	assert(format);
 
+	zebra_srv6_sid_format_change_start(format);
+
 	format->config.uncompressed.explicit_start =
 		SRV6_SID_FORMAT_UNCOMPRESSED_F4024_EXPLICIT_RANGE_START;
 
 	/* Notify zclients that the format has changed */
-	zebra_srv6_sid_format_changed_cb(format);
+	zebra_srv6_sid_format_change_finish(format);
 
 	return CMD_SUCCESS;
 }
@@ -1344,10 +1350,11 @@ DEFPY(srv6_sid_format_usid_lib,
 {
 	VTY_DECLVAR_CONTEXT(srv6_sid_format, format);
 
+	zebra_srv6_sid_format_change_start(format);
 	format->config.usid.lib_start = start;
 
 	/* Notify zclients that the format has changed */
-	zebra_srv6_sid_format_changed_cb(format);
+	zebra_srv6_sid_format_change_finish(format);
 
 	return CMD_SUCCESS;
 }
@@ -1362,6 +1369,7 @@ DEFPY(no_srv6_sid_format_usid_lib,
 {
 	VTY_DECLVAR_CONTEXT(srv6_sid_format, format);
 
+	zebra_srv6_sid_format_change_start(format);
 	if (strmatch(format->name, SRV6_SID_FORMAT_USID_F3216_NAME))
 		format->config.usid.lib_start =
 			SRV6_SID_FORMAT_USID_F3216_LIB_START;
@@ -1371,7 +1379,7 @@ DEFPY(no_srv6_sid_format_usid_lib,
 		assert(0);
 
 	/* Notify zclients that the format has changed */
-	zebra_srv6_sid_format_changed_cb(format);
+	zebra_srv6_sid_format_change_finish(format);
 
 	return CMD_SUCCESS;
 }
@@ -1388,11 +1396,23 @@ DEFPY(srv6_sid_format_usid_lib_explicit,
 {
 	VTY_DECLVAR_CONTEXT(srv6_sid_format, format);
 
+<<<<<<< HEAD
+=======
+	if (start > end) {
+		vty_out(vty,
+			"%% Explicit LIB start (%" PRId64 ") cannot be greater than end (%" PRId64
+			")\n",
+			start, end);
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+
+	zebra_srv6_sid_format_change_start(format);
+>>>>>>> 513acb8 (zebra: Release SRv6 SIDs when SID format changes)
 	format->config.usid.elib_start = start;
 	format->config.usid.elib_end = end;
 
 	/* Notify zclients that the format has changed */
-	zebra_srv6_sid_format_changed_cb(format);
+	zebra_srv6_sid_format_change_finish(format);
 
 	return CMD_SUCCESS;
 }
@@ -1410,6 +1430,7 @@ DEFPY(no_srv6_sid_format_usid_lib_explicit,
 {
 	VTY_DECLVAR_CONTEXT(srv6_sid_format, format);
 
+	zebra_srv6_sid_format_change_start(format);
 	if (strmatch(format->name, SRV6_SID_FORMAT_USID_F3216_NAME)) {
 		format->config.usid.elib_start =
 			SRV6_SID_FORMAT_USID_F3216_ELIB_START;
@@ -1423,7 +1444,7 @@ DEFPY(no_srv6_sid_format_usid_lib_explicit,
 	}
 
 	/* Notify zclients that the format has changed */
-	zebra_srv6_sid_format_changed_cb(format);
+	zebra_srv6_sid_format_change_finish(format);
 
 	return CMD_SUCCESS;
 }
@@ -1439,11 +1460,31 @@ DEFPY(srv6_sid_format_usid_wlib,
 {
 	VTY_DECLVAR_CONTEXT(srv6_sid_format, format);
 
+<<<<<<< HEAD
+=======
+	if (start > end) {
+		vty_out(vty,
+			"%% Wide LIB start (%" PRId64 ") cannot be greater than end (%" PRId64
+			")\n",
+			start, end);
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+
+	if (start > format->config.usid.ewlib_start) {
+		vty_out(vty,
+			"%% Wide LIB start (%" PRId64
+			") cannot be greater than the Explicit Wide LIB start (%u)\n",
+			start, format->config.usid.ewlib_start);
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+
+	zebra_srv6_sid_format_change_start(format);
+>>>>>>> 513acb8 (zebra: Release SRv6 SIDs when SID format changes)
 	format->config.usid.wlib_start = start;
 	format->config.usid.wlib_end = end;
 
 	/* Notify zclients that the format has changed */
-	zebra_srv6_sid_format_changed_cb(format);
+	zebra_srv6_sid_format_change_finish(format);
 
 	return CMD_SUCCESS;
 }
@@ -1472,8 +1513,22 @@ DEFPY(no_srv6_sid_format_usid_wlib,
 		assert(0);
 	}
 
+<<<<<<< HEAD
+=======
+	if (wlib_start > format->config.usid.ewlib_start) {
+		vty_out(vty,
+			"%% Default Wide LIB start (%u) would be greater than the Explicit Wide LIB start (%u), remove the Explicit Wide LIB first\n",
+			wlib_start, format->config.usid.ewlib_start);
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+
+	zebra_srv6_sid_format_change_start(format);
+	format->config.usid.wlib_start = wlib_start;
+	format->config.usid.wlib_end = wlib_end;
+
+>>>>>>> 513acb8 (zebra: Release SRv6 SIDs when SID format changes)
 	/* Notify zclients that the format has changed */
-	zebra_srv6_sid_format_changed_cb(format);
+	zebra_srv6_sid_format_change_finish(format);
 
 	return CMD_SUCCESS;
 }
@@ -1488,10 +1543,22 @@ DEFPY(srv6_sid_format_usid_wide_lib_explicit,
 {
 	VTY_DECLVAR_CONTEXT(srv6_sid_format, format);
 
+<<<<<<< HEAD
+=======
+	if (start < format->config.usid.wlib_start) {
+		vty_out(vty,
+			"%% Explicit Wide LIB start (%" PRId64
+			") cannot be less than Wide LIB start (%u)\n",
+			start, format->config.usid.wlib_start);
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+
+	zebra_srv6_sid_format_change_start(format);
+>>>>>>> 513acb8 (zebra: Release SRv6 SIDs when SID format changes)
 	format->config.usid.ewlib_start = start;
 
 	/* Notify zclients that the format has changed */
-	zebra_srv6_sid_format_changed_cb(format);
+	zebra_srv6_sid_format_change_finish(format);
 
 	return CMD_SUCCESS;
 }
@@ -1515,8 +1582,21 @@ DEFPY(no_srv6_sid_format_usid_wide_lib_explicit,
 	else
 		assert(0);
 
+<<<<<<< HEAD
+=======
+	if (ewlib_start < format->config.usid.wlib_start) {
+		vty_out(vty,
+			"%% Default Explicit Wide LIB start (%u) would be less than the Wide LIB start (%u), remove the Wide LIB first\n",
+			ewlib_start, format->config.usid.wlib_start);
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+
+	zebra_srv6_sid_format_change_start(format);
+	format->config.usid.ewlib_start = ewlib_start;
+
+>>>>>>> 513acb8 (zebra: Release SRv6 SIDs when SID format changes)
 	/* Notify zclients that the format has changed */
-	zebra_srv6_sid_format_changed_cb(format);
+	zebra_srv6_sid_format_change_finish(format);
 
 	return CMD_SUCCESS;
 }
@@ -1530,10 +1610,11 @@ DEFPY(srv6_sid_format_explicit,
 {
 	VTY_DECLVAR_CONTEXT(srv6_sid_format, format);
 
+	zebra_srv6_sid_format_change_start(format);
 	format->config.uncompressed.explicit_start = start;
 
 	/* Notify zclients that the format has changed */
-	zebra_srv6_sid_format_changed_cb(format);
+	zebra_srv6_sid_format_change_finish(format);
 
 	return CMD_SUCCESS;
 }
@@ -1548,6 +1629,7 @@ DEFPY(no_srv6_sid_format_explicit,
 {
 	VTY_DECLVAR_CONTEXT(srv6_sid_format, format);
 
+	zebra_srv6_sid_format_change_start(format);
 	if (strmatch(format->name, SRV6_SID_FORMAT_UNCOMPRESSED_F4024_NAME))
 		format->config.uncompressed.explicit_start =
 			SRV6_SID_FORMAT_UNCOMPRESSED_F4024_EXPLICIT_RANGE_START;
@@ -1555,7 +1637,7 @@ DEFPY(no_srv6_sid_format_explicit,
 		assert(0);
 
 	/* Notify zclients that the format has changed */
-	zebra_srv6_sid_format_changed_cb(format);
+	zebra_srv6_sid_format_change_finish(format);
 
 	return CMD_SUCCESS;
 }
