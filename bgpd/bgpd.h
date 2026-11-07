@@ -2325,6 +2325,11 @@ struct peer {
 		 * BFD session does not enter the Up state.
 		 */
 		struct event *t_hold_timer;
+		/*
+		 * Install held back until the single-hop session is keyed, or
+		 * until the peer reconnects after bgp_stop() uninstalled it.
+		 */
+		bool install_pending;
 	} * bfd_config;
 
 	/* hostname and domainname advertised by host */
