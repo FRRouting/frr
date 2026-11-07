@@ -1474,6 +1474,17 @@ def test_evpn_uplink_tracking(tgen_and_ip_version):
     assertmsg = '"{}" protodown rc incorrect'.format(dut_name)
     assert result is None, assertmsg
 
+    # The uplink flap reset the BGP sessions, which withdrew every ES on the
+    # DUT. Protodown clears as soon as the links are up, long before the ESs
+    # are back, so wait for them here. Otherwise the next test starts from a
+    # half-built network and fails on a race this test caused.
+    test_fn = partial(check_es, dut)
+    _, result = topotest.run_and_expect(test_fn, None, count=30, wait=3)
+    assertmsg = '"{}" ES content incorrect after uplink restore. Result: {}'.format(
+        dut_name, result
+    )
+    assert result is None, assertmsg
+
 
 #####################################################
 ##
@@ -1692,12 +1703,26 @@ def delete_mac_from_port(leaf, port):
 
 def move_baseline(tgen):
     """
-    Read-only: record the state the cleanup must restore, and check the test
-    starts from a clean network (ES fully known on the observer, MAC nowhere).
+    Wait for the ES to be fully known on the observer, then record the state
+    the cleanup must restore and check the MAC is nowhere. Changes nothing.
     """
     obs = tgen.gears[MOVE_OBSERVER]
     leaves = [tgen.gears[MOVE_LEARN_LEAF], tgen.gears[MOVE_PEER_LEAF]]
     esi = host_es_map[MOVE_ES_HOST]
+    expected_vteps = sorted(tor_ips[n] for n in (MOVE_LEARN_LEAF, MOVE_PEER_LEAF))
+
+    # Wait for the ES instead of reading it once. zebra frees a remote ES when
+    # its EAD and MAC routes are withdrawn and rebuilds it only after bgpd
+    # re-advertises them, so a session reset leaves a window where
+    # "show evpn es" is empty. The same check proves the NHG is active, which
+    # the nhg_active control case relies on from its first stage.
+    _, result = topotest.run_and_expect(
+        partial(check_move_es_nhg_active, obs, esi, expected_vteps),
+        None,
+        count=30,
+        wait=3,
+    )
+    assert result is None, "baseline: %s" % result
 
     saved = {
         "esi": esi,
@@ -1715,15 +1740,6 @@ def move_baseline(tgen):
         "obs_es_vteps": evpn_lib.evpn_zebra_es_state(obs, esi)["vteps"],
     }
 
-    expected_vteps = sorted(tor_ips[n] for n in (MOVE_LEARN_LEAF, MOVE_PEER_LEAF))
-    assert (
-        saved["obs_es_vteps"] == expected_vteps
-    ), "baseline: ES %s VTEPs on %s are %s, expected %s" % (
-        esi,
-        obs.name,
-        saved["obs_es_vteps"],
-        expected_vteps,
-    )
     for router in [obs] + leaves:
         result = evpn_lib.evpn_check_mac_absent(router, MOVE_VNI, MOVE_MAC)
         assert result is None, "baseline: %s" % result
