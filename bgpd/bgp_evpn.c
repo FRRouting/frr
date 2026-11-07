@@ -7957,11 +7957,6 @@ void bgp_evpn_free(struct bgp *bgp, struct bgpevpn *vpn)
 	XFREE(MTYPE_BGP_EVPN, vpn);
 }
 
-static void hash_evpn_free(struct bgpevpn *vpn)
-{
-	XFREE(MTYPE_BGP_EVPN, vpn);
-}
-
 /*
  * Import evpn route from global table to VNI/VRF/ESI.
  */
@@ -8574,6 +8569,19 @@ int bgp_evpn_local_l3vni_add(vni_t l3vni, vrf_id_t vrf_id, struct ethaddr *svi_r
 	/* if the BGP vrf instance doesn't exist - create one */
 	bgp_vrf = bgp_lookup_by_vrf_id(vrf_id);
 	if (!bgp_vrf) {
+		/*
+		 * YANG may have created a named instance before the VRF was
+		 * linked (vrf->info empty). Prefer that over a second AUTO.
+		 */
+		bgp_vrf = bgp_lookup_by_name(vrf_id_to_name(vrf_id));
+		if (bgp_vrf) {
+			struct vrf *vrf = vrf_lookup_by_id(vrf_id);
+
+			if (vrf)
+				bgp_vrf_link(bgp_vrf, vrf);
+		}
+	}
+	if (!bgp_vrf) {
 		int ret = 0;
 
 		ret = bgp_get_vty(&bgp_vrf, &as, vrf_id_to_name(vrf_id),
@@ -8590,8 +8598,9 @@ int bgp_evpn_local_l3vni_add(vni_t l3vni, vrf_id_t vrf_id, struct ethaddr *svi_r
 			return -1;
 		}
 
-		/* mark as auto created */
-		SET_FLAG(bgp_vrf->vrf_flags, BGP_VRF_AUTO);
+		/* mark as auto created only when we actually created one */
+		if (ret == BGP_CREATED)
+			SET_FLAG(bgp_vrf->vrf_flags, BGP_VRF_AUTO);
 	}
 
 	/* associate the vrf with l3vni and related parameters */
@@ -8685,58 +8694,57 @@ int bgp_evpn_local_l3vni_add(vni_t l3vni, vrf_id_t vrf_id, struct ethaddr *svi_r
 	return 0;
 }
 
-int bgp_evpn_local_l3vni_del(vni_t l3vni, vrf_id_t vrf_id)
+/*
+ * Tear down L3VNI state on a known VRF BGP instance. Operates on the
+ * struct bgp * itself so it still works after bgp_vrf_unlink() has set
+ * vrf_id to VRF_UNKNOWN (YANG/"no router bgp" and process exit).
+ *
+ * Even when the EVPN owner is already gone or shutting down, still clear
+ * local L3VNI state and drop L2VNI bgp_lock refs — otherwise tenant VRF
+ * instances (and their evpn_info / L3 RTs) leak after bgp_delete().
+ */
+static int bgp_evpn_vrf_l3vni_teardown(struct bgp *bgp_vrf)
 {
-	struct bgp *bgp_vrf = NULL;  /* bgp vrf instance */
-	struct bgp *bgp_evpn = NULL; /* EVPN bgp instance */
-	struct listnode *node = NULL;
-	struct listnode *next = NULL;
-	struct bgpevpn *vpn = NULL;
+	struct bgp *bgp_evpn;
+	struct listnode *node;
+	struct listnode *next;
+	struct bgpevpn *vpn;
+	bool evpn_ok;
 
-	bgp_vrf = bgp_lookup_by_vrf_id(vrf_id);
-	if (!bgp_vrf) {
-		flog_err(EC_BGP_NO_DFLT,
-			 "Cannot process L3VNI %u Del - Could not find BGP instance", l3vni);
-		return -1;
-	}
+	if (!bgp_vrf || !bgp_vrf->l3vni)
+		return 0;
 
 	bgp_evpn = bgp_get_evpn();
-	if (!bgp_evpn) {
-		flog_err(EC_BGP_NO_DFLT,
-			 "Cannot process L3VNI %u Del - Could not find EVPN BGP instance", l3vni);
-		return -1;
+	evpn_ok = bgp_evpn && !CHECK_FLAG(bgp_evpn->flags, BGP_FLAG_DELETE_IN_PROGRESS);
+
+	if (evpn_ok) {
+		/* Remove remote routes from BGP VRF even if BGP_VRF_AUTO is
+		 * configured, bgp_delete would not remove/decrement
+		 * bgp_path_info of the ip_prefix routes. This will uninstall
+		 * the routes from zebra and decrement the bgp info count.
+		 */
+		uninstall_routes_for_vrf(bgp_vrf);
+
+		/* delete/withdraw all type-5 routes */
+		delete_withdraw_vrf_routes(bgp_vrf);
+
+		/* Tunnel is no longer active.
+		 * Delete VTEP-IP from EVPN underlay's tip_hash.
+		 */
+		bgp_tip_del(bgp_evpn, &bgp_vrf->originator_ip);
 	}
-
-	if (CHECK_FLAG(bgp_evpn->flags, BGP_FLAG_DELETE_IN_PROGRESS)) {
-		flog_err(EC_BGP_NO_DFLT,
-			 "Cannot process L3VNI %u ADD - EVPN BGP instance is shutting down", l3vni);
-		return -1;
-	}
-
-	/* Remove remote routes from BGT VRF even if BGP_VRF_AUTO is configured,
-	 * bgp_delete would not remove/decrement bgp_path_info of the ip_prefix
-	 * routes. This will uninstalling the routes from zebra and decremnt the
-	 * bgp info count.
-	 */
-	uninstall_routes_for_vrf(bgp_vrf);
-
-	/* delete/withdraw all type-5 routes */
-	delete_withdraw_vrf_routes(bgp_vrf);
-
-	/* Tunnel is no longer active.
-	 * Delete VTEP-IP from EVPN underlay's tip_hash.
-	 */
-	bgp_tip_del(bgp_evpn, &bgp_vrf->originator_ip);
 
 	/* remove the l3vni from vrf instance */
 	bgp_vrf->l3vni = 0;
 
 	/* remove the Rmac from the BGP vrf */
-	memset(&bgp_vrf->rmac, 0, sizeof(struct ethaddr));
-	memset(&bgp_vrf->evpn_info->pip_rmac_zebra, 0, ETH_ALEN);
-	if (is_zero_mac(&bgp_vrf->evpn_info->pip_rmac_static) &&
-	    !is_zero_mac(&bgp_vrf->evpn_info->pip_rmac))
-		memset(&bgp_vrf->evpn_info->pip_rmac, 0, ETH_ALEN);
+	if (bgp_vrf->evpn_info) {
+		memset(&bgp_vrf->rmac, 0, sizeof(struct ethaddr));
+		memset(&bgp_vrf->evpn_info->pip_rmac_zebra, 0, ETH_ALEN);
+		if (is_zero_mac(&bgp_vrf->evpn_info->pip_rmac_static) &&
+		    !is_zero_mac(&bgp_vrf->evpn_info->pip_rmac))
+			memset(&bgp_vrf->evpn_info->pip_rmac, 0, ETH_ALEN);
+	}
 
 	/* Unmap the VRF from its import RTs and rederive the effective RTs;
 	 * with the L3VNI gone this removes the auto RTs, while manually
@@ -8747,7 +8755,8 @@ int bgp_evpn_local_l3vni_del(vni_t l3vni, vrf_id_t vrf_id)
 	bgp_evpn_vrf_regenerate_effective_export_rts(bgp_vrf);
 
 	/* update all corresponding local mac-ip routes */
-	if (!CHECK_FLAG(bgp_vrf->vrf_flags, BGP_VRF_L3VNI_PREFIX_ROUTES_ONLY)) {
+	if (evpn_ok && !CHECK_FLAG(bgp_vrf->vrf_flags, BGP_VRF_L3VNI_PREFIX_ROUTES_ONLY) &&
+	    bgp_vrf->l2vnis) {
 		for (ALL_LIST_ELEMENTS_RO(bgp_vrf->l2vnis, node, vpn)) {
 			UNSET_FLAG(vpn->flags, VNI_FLAG_USE_TWO_LABELS);
 			update_routes_for_vni(bgp_evpn, vpn);
@@ -8755,16 +8764,52 @@ int bgp_evpn_local_l3vni_del(vni_t l3vni, vrf_id_t vrf_id)
 	}
 
 	/* If any L2VNIs point to this instance, unlink them. */
-	for (ALL_LIST_ELEMENTS(bgp_vrf->l2vnis, node, next, vpn))
-		bgpevpn_unlink_from_l3vni(vpn);
+	if (bgp_vrf->l2vnis) {
+		for (ALL_LIST_ELEMENTS(bgp_vrf->l2vnis, node, next, vpn))
+			bgpevpn_unlink_from_l3vni(vpn);
+	}
 
 	UNSET_FLAG(bgp_vrf->vrf_flags, BGP_VRF_L3VNI_PREFIX_ROUTES_ONLY);
 
-	/* Delete the instance if it was autocreated */
-	if (CHECK_FLAG(bgp_vrf->vrf_flags, BGP_VRF_AUTO))
+	/*
+	 * Delete the instance if it was autocreated. Skip when already inside
+	 * bgp_delete() (e.g. YANG/"no router bgp" or process exit called
+	 * bgp_evpn_vrf_delete → instance_down → here) to avoid re-entrancy.
+	 */
+	if (CHECK_FLAG(bgp_vrf->vrf_flags, BGP_VRF_AUTO) &&
+	    !CHECK_FLAG(bgp_vrf->flags, BGP_FLAG_DELETE_IN_PROGRESS))
 		bgp_delete(bgp_vrf);
 
 	return 0;
+}
+
+int bgp_evpn_local_l3vni_del(vni_t l3vni, vrf_id_t vrf_id)
+{
+	struct bgp *bgp_vrf;
+
+	bgp_vrf = bgp_lookup_by_vrf_id(vrf_id);
+	if (!bgp_vrf) {
+		/*
+		 * After bgp_vrf_unlink(), vrf_id is VRF_UNKNOWN and zebra may
+		 * still deliver L3VNI del. Fall back to matching by L3VNI.
+		 */
+		struct listnode *node;
+		struct bgp *bgp;
+
+		for (ALL_LIST_ELEMENTS_RO(bm->bgp, node, bgp)) {
+			if (bgp->l3vni == l3vni) {
+				bgp_vrf = bgp;
+				break;
+			}
+		}
+	}
+	if (!bgp_vrf) {
+		flog_err(EC_BGP_NO_DFLT,
+			 "Cannot process L3VNI %u Del - Could not find BGP instance", l3vni);
+		return -1;
+	}
+
+	return bgp_evpn_vrf_l3vni_teardown(bgp_vrf);
 }
 
 static void bgp_evpn_l2vni_remote_route_processing(struct bgpevpn *vpn)
@@ -8812,9 +8857,13 @@ static void bgp_evpn_l2vni_remote_route_processing(struct bgpevpn *vpn)
  */
 void bgp_evpn_instance_down(struct bgp *bgp)
 {
-	/* If we have a stale local vni, delete it */
-	if (bgp->l3vni)
-		bgp_evpn_local_l3vni_del(bgp->l3vni, bgp->vrf_id);
+	/*
+	 * Tear down against the struct bgp * in hand. Do not re-lookup by
+	 * vrf_id: after bgp_vrf_unlink() (or interleaved VRF disable during
+	 * process exit) vrf_id is VRF_UNKNOWN and local_l3vni_del would
+	 * no-op, leaving L2VNI locks / L3 RTs / evpn_info leaked.
+	 */
+	bgp_evpn_vrf_l3vni_teardown(bgp);
 }
 
 /*
@@ -9087,7 +9136,13 @@ void bgp_evpn_cleanup(struct bgp *bgp)
 	}
 	bgp_evpn_vrf_wildcard_irt_fini(&bgp->vrf_wildcard_irt_nodes);
 
-	hash_clean_and_free(&bgp->vni_svi_hash, (void (*)(void *))hash_evpn_free);
+	/*
+	 * free_vni_entry() already released every entry from vni_svi_hash
+	 * via bgp_evpn_free(). Do not use hash_evpn_free here: that XFREE()s
+	 * without bgpevpn_unlink_from_l3vni(), which would leave tenant VRF
+	 * bgp_lock refs held and leak BGP instances on exit.
+	 */
+	hash_clean_and_free(&bgp->vni_svi_hash, NULL);
 
 	/*
 	 * Why is the vnihash freed at the top of this function and
@@ -9104,6 +9159,18 @@ void bgp_evpn_cleanup(struct bgp *bgp)
 	bgp_evpn_effective_fq_rt_slu_fini(&bgp->effective_fq_import_rts);
 	bgp_evpn_effective_fq_rt_list_flush(&bgp->effective_fq_export_rts);
 	bgp_evpn_effective_fq_rt_slu_fini(&bgp->effective_fq_export_rts);
+
+	/*
+	 * Any L2VNI still listed here must drop its VRF lock before the list
+	 * nodes are freed (list_delete has no del callback on l2vnis).
+	 */
+	if (bgp->l2vnis) {
+		struct listnode *node, *next;
+		struct bgpevpn *vpn;
+
+		for (ALL_LIST_ELEMENTS(bgp->l2vnis, node, next, vpn))
+			bgpevpn_unlink_from_l3vni(vpn);
+	}
 
 	list_delete(&bgp->l2vnis);
 
@@ -9171,6 +9238,29 @@ void bgp_evpn_init(struct bgp *bgp)
 
 void bgp_evpn_vrf_delete(struct bgp *bgp_vrf)
 {
+	struct listnode *node, *next;
+	struct bgpevpn *vpn;
+
+	/*
+	 * Classic "no router bgp" refused to run while L3VNI was still set,
+	 * forcing operators to tear down EVPN first (unlink L2VNIs that hold
+	 * bgp_lock on this VRF, withdraw type-5). YANG destroy and process
+	 * exit call bgp_delete() directly, so do that teardown here.
+	 */
+	if (bgp_vrf->l3vni)
+		bgp_evpn_instance_down(bgp_vrf);
+
+	/*
+	 * Always drop remaining L2VNI locks — do not gate on l3vni. A failed
+	 * or partial L3VNI teardown must not leave bgp_lock refs that keep
+	 * the instance (and its tables / evpn_info / L3 RTs) alive after
+	 * bgp_delete()'s final unlock.
+	 */
+	if (bgp_vrf->l2vnis) {
+		for (ALL_LIST_ELEMENTS(bgp_vrf->l2vnis, node, next, vpn))
+			bgpevpn_unlink_from_l3vni(vpn);
+	}
+
 	bgp_evpn_unmap_vrf_from_its_rts(bgp_vrf);
 	bgp_evpn_nh_finish(bgp_vrf);
 }
