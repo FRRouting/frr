@@ -280,10 +280,12 @@ def test_pim_ssm_ping():
 
     def _check_ssmping():
         output = r1.run("ssmping -I r1-eth0 10.0.20.2 -c 5")
-        return "5 packets received" in output
+        # Check for multicast packets received, not just unicast
+        # The key is to verify "since first mc packet" appears in the output
+        return "5 packets received, 0% packet loss since first mc packet" in output
 
     _, result = topotest.run_and_expect(_check_ssmping, True, count=20, wait=1)
-    assert result is True, "SSM ping failed"
+    assert result is True, "SSM ping failed - multicast responses not received"
 
 
 def test_memory_leak():
