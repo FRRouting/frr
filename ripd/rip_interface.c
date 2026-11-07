@@ -1104,8 +1104,20 @@ static int rip_interface_new_hook(struct interface *ifp)
 /* Called when interface structure deleted. */
 static int rip_interface_delete_hook(struct interface *ifp)
 {
-	rip_interface_reset(ifp->info);
-	XFREE(MTYPE_RIP_INTERFACE, ifp->info);
+	struct rip_interface *ri = ifp->info;
+	struct rip *rip = ri->rip;
+	struct rip_peer *peer;
+
+	/* Peers hold a borrowed reference to ri; free them before ri. */
+	if (rip)
+		frr_each_safe (rip_peer_list, &rip->peer_list, peer)
+			if (peer->ri == ri) {
+				rip_peer_list_del(&rip->peer_list, peer);
+				rip_peer_free(peer);
+			}
+
+	rip_interface_reset(ri);
+	XFREE(MTYPE_RIP_INTERFACE, ri);
 	return 0;
 }
 
