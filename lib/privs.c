@@ -684,6 +684,18 @@ void zprivs_init(struct zebra_privs_t *zprivs)
 		}
 	}
 
+	if (ngroups > NGROUPS_MAX) {
+		/*
+		 * more than the kernel takes in setgroups(), keep the vty group
+		 * in the list if it would be cut off
+		 */
+		fprintf(stderr, "privs_init: user %s is in %d groups, setgroups() keeps %d\n",
+			zprivs->user ? zprivs->user : "(none)", ngroups, NGROUPS_MAX);
+		if (zprivs->vty_group && i >= NGROUPS_MAX)
+			groups[NGROUPS_MAX - 1] = zprivs_state.vtygrp;
+		ngroups = NGROUPS_MAX;
+	}
+
 	zprivs_state.zsuid = geteuid(); /* initial uid */
 
 	if (ngroups > NGROUPS_MAX) {
