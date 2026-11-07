@@ -20,6 +20,8 @@ test_bfd_authentication_topo1.py:
 
 """
 
+import hashlib
+import hmac
 import os
 import sys
 import pytest
@@ -37,6 +39,18 @@ from lib.topogen import Topogen, get_topogen
 from lib.topolog import logger
 
 pytestmark = [pytest.mark.bfdd, pytest.mark.isisd]
+
+# Sniffs rt1's control packets in rt2's namespace with scapy, as tcpdump is
+# often missing in CI images. lfilter rather than a BPF filter, which scapy
+# compiles with tcpdump.
+SNIFF_CONTROL = """
+from scapy.all import IP, UDP, sniff
+pkts = sniff(iface="eth-rt1", count=5, timeout=10,
+             lfilter=lambda p: IP in p and UDP in p and p[UDP].dport == 3784
+             and p[IP].src == "10.0.1.1")
+for p in pkts:
+    print("bfd: " + bytes(p[UDP].payload).hex())
+"""
 
 
 def setup_module(mod):
@@ -670,6 +684,134 @@ def test_bfd_authentication_sha1_auth_keychain1_meticulous_up():
         20,
         1,
     )
+
+
+def test_bfd_authentication_rfc_sha1_against_hmac_sha1_down():
+    "Test BFD keyed SHA1 down when only one side uses the RFC 5880 digest"
+    logger.info(
+        "Test: BFD-AUTHEN keyed SHA1 down when rt1 uses sha-1 and rt2 hmac-sha-1"
+    )
+
+    tgen = get_topogen()
+    if not tgen.gears["rt1"].has_crypto_openssl():
+        pytest.skip("crypto-openssl disabled. skipping SHA1 test")
+
+    # sha-1 and hmac-sha-1 put different digests on the wire for the same
+    # key, so a session between them must not come up.
+    tgen.gears["rt1"].vtysh_cmd("""
+        configure terminal
+        key chain kc1
+        key 40
+        cryptographic-algorithm sha-1
+        """)
+
+    router_compare_json_output(
+        "rt1",
+        "show bfd peers json",
+        "step4/show_bfd_peers_sha1_newkey_meticulous.ref",
+        20,
+        1,
+    )
+
+
+def test_bfd_authentication_rfc_sha1_up():
+    "Test BFD keyed SHA1 up when both sides use the RFC 5880 digest"
+    logger.info("Test: BFD-AUTHEN keyed SHA1 up when rt1 and rt2 use sha-1")
+
+    tgen = get_topogen()
+    if not tgen.gears["rt1"].has_crypto_openssl():
+        pytest.skip("crypto-openssl disabled. skipping SHA1 test")
+
+    tgen.gears["rt2"].vtysh_cmd("""
+        configure terminal
+        key chain kc1
+        key 40
+        cryptographic-algorithm sha-1
+        """)
+
+    router_compare_json_output(
+        "rt1",
+        "show bfd peers json",
+        "step4/show_bfd_peers_2_sha1_newkey_meticulous.ref",
+        20,
+        1,
+    )
+
+
+def test_bfd_authentication_rfc_sha1_not_meticulous_up():
+    "Test BFD keyed SHA1 up with the RFC 5880 digest, meticulous off"
+    logger.info("Test: BFD-AUTHEN keyed SHA1 up with sha-1, meticulous off")
+
+    tgen = get_topogen()
+    if not tgen.gears["rt1"].has_crypto_openssl():
+        pytest.skip("crypto-openssl disabled. skipping SHA1 test")
+
+    tgen.gears["rt1"].vtysh_cmd("""
+        configure terminal
+        bfd
+        profile 0
+        no authentication algorithm meticulous
+        """)
+    tgen.gears["rt2"].vtysh_cmd("""
+        configure terminal
+        bfd
+        peer 10.0.1.1 interface eth-rt1
+        no authentication algorithm meticulous
+        """)
+
+    router_compare_json_output(
+        "rt1", "show bfd peers json", "step4/show_bfd_peers_2_sha1_newkey.ref", 20, 1
+    )
+
+
+def test_bfd_authentication_rfc_sha1_digest_on_the_wire():
+    """Test the keyed SHA1 digest rt1 sends is the one RFC 5880 describes.
+
+    Two bfdd agreeing with each other does not show that either follows
+    the RFC, so the digest is recomputed here from the captured packet:
+    the key, zero padded to 20 bytes, in place of the digest, then SHA1
+    over the whole packet (RFC 5880 Section 6.7.4).
+    """
+    logger.info("Test: BFD-AUTHEN keyed SHA1 digest matches RFC 5880 6.7.4")
+
+    tgen = get_topogen()
+    if not tgen.gears["rt1"].has_crypto_openssl():
+        pytest.skip("crypto-openssl disabled. skipping SHA1 test")
+
+    key = b"mysecret123"
+    rt2 = tgen.gears["rt2"]
+    script = os.path.join(tgen.logdir, "rt2", "sniff_control.py")
+    with open(script, "w") as f:
+        f.write(SNIFF_CONTROL)
+    output = rt2.run("python3 {} 2>&1".format(script))
+
+    # scapy may warn on stderr, which is kept for the failure message.
+    pkts = [
+        bytes.fromhex(line[5:])
+        for line in output.splitlines()
+        if line.startswith("bfd: ")
+    ]
+    assert len(pkts) == 5, "did not capture 5 of rt1's packets: {}".format(output)
+
+    for pkt in pkts:
+        # A 24 byte header, then type 4 (keyed SHA1), length 28, key ID,
+        # reserved, sequence number and the 20 byte digest.
+        assert pkt[1] & 0x04, "rt1 sent a packet without authentication"
+        assert (
+            len(pkt) == 52 and pkt[24] == 4 and pkt[25] == 28
+        ), "rt1 sent no keyed SHA1 section: {}".format(pkt.hex())
+        digest = pkt[32:52]
+
+        rfc = bytearray(pkt)
+        rfc[32:52] = key.ljust(20, b"\0")
+        assert (
+            hashlib.sha1(bytes(rfc)).digest() == digest
+        ), "digest is not the one RFC 5880 Section 6.7.4 gives: {}".format(pkt.hex())
+
+        # And not the HMAC a hmac-sha-1 key would give.
+        zeroed = bytearray(pkt)
+        zeroed[32:52] = bytes(20)
+        assert hmac.new(key, bytes(zeroed), hashlib.sha1).digest() != digest
 
 
 def test_memory_leak():

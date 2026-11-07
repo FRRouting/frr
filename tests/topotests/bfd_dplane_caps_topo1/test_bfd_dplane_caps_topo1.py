@@ -16,6 +16,9 @@ declaration, and the authenticating session must come back to bfdd while the
 other stays. Last, a key chain is given to the session still offloaded, and
 that one must come back too.
 
+The listener does not declare that it computes keyed SHA1 as RFC 5880 does,
+so a session whose key chain holds a "sha-1" key must stay in bfdd as well.
+
 The listener stands in for a data plane. It runs no BFD state machine, it
 records what it was sent.
 """
@@ -40,6 +43,7 @@ DPLANE_PORT = 50700
 
 AUTH_PEER = "192.168.1.2"
 PLAIN_PEER = "192.168.1.3"
+SHA1_PEER = "192.168.1.4"
 
 
 def setup_module(mod):
@@ -161,6 +165,59 @@ def test_both_sessions_offloaded():
 
     _expect_offloaded(
         [AUTH_PEER, PLAIN_PEER], "the authenticating session was not offloaded"
+    )
+
+
+def test_rfc_sha1_key_takes_the_session_back():
+    """A key using the RFC 5880 digest needs the data plane to declare it.
+
+    The session is first offloaded with an HMAC-SHA1 key, which the
+    listener can run, so it is known to reach the data plane at all. Its
+    key then moves to the RFC 5880 digest, which the listener did not
+    declare, and the session must come back to bfdd.
+    """
+    _skip_on_failure()
+
+    router = get_topogen().gears["r1"]
+    if not router.has_crypto_openssl():
+        pytest.skip("crypto-openssl disabled. skipping SHA1 test")
+
+    router.vtysh_cmd(
+        """
+        configure terminal
+        key chain sha1
+        key 1
+        key-string sha1key000000001
+        cryptographic-algorithm hmac-sha-1
+        exit
+        exit
+        bfd
+        peer {}
+        transmit-interval 1000
+        receive-interval 1000
+        authentication key-chain sha1
+        end
+        """.format(
+            SHA1_PEER
+        )
+    )
+    _expect_offloaded(
+        [AUTH_PEER, PLAIN_PEER, SHA1_PEER],
+        "the session with an HMAC-SHA1 key was not offloaded",
+    )
+
+    router.vtysh_cmd(
+        """
+        configure terminal
+        key chain sha1
+        key 1
+        cryptographic-algorithm sha-1
+        end
+        """
+    )
+    _expect_offloaded(
+        [AUTH_PEER, PLAIN_PEER],
+        "the session with an RFC 5880 SHA1 key was left with the data plane",
     )
 
 

@@ -66,6 +66,7 @@ struct listener_auth_key {
 	uint8_t type;
 	uint8_t key_id;
 	uint8_t key_len;
+	uint8_t flags;
 	int64_t send_start;
 	int64_t send_end;
 	int64_t accept_start;
@@ -200,12 +201,13 @@ static void sigusr1_handler(int signum)
 	fprintf(out, "Auth last lid: %u\n", glob->auth_lid);
 	fprintf(out, "Auth last key count: %zu\n", glob->auth_key_count);
 	for (i = 0; i < glob->auth_key_count; i++)
-		fprintf(out, "  auth key: id %u type %u len %u send %lld %lld accept %lld %lld\n",
+		fprintf(out,
+			"  auth key: id %u type %u len %u send %lld %lld accept %lld %lld flags %u\n",
 			glob->auth_key[i].key_id, glob->auth_key[i].type,
 			glob->auth_key[i].key_len, (long long)glob->auth_key[i].send_start,
 			(long long)glob->auth_key[i].send_end,
 			(long long)glob->auth_key[i].accept_start,
-			(long long)glob->auth_key[i].accept_end);
+			(long long)glob->auth_key[i].accept_end, glob->auth_key[i].flags);
 	fprintf(out, "Echo requested: %s\n", glob->echo_flag ? "yes" : "no");
 	fprintf(out, "Echo interval requested: %u\n", glob->echo_tx_requested);
 
@@ -405,6 +407,7 @@ static void record_auth_keys(const struct bfddp_message *msg)
 		glob->auth_key[i].type = keys[i].type;
 		glob->auth_key[i].key_id = keys[i].key_id;
 		glob->auth_key[i].key_len = keys[i].key_len;
+		glob->auth_key[i].flags = keys[i].flags;
 		glob->auth_key[i].send_start = (int64_t)be64toh((uint64_t)keys[i].send.start);
 		glob->auth_key[i].send_end = (int64_t)be64toh((uint64_t)keys[i].send.end);
 		glob->auth_key[i].accept_start = (int64_t)be64toh((uint64_t)keys[i].accept.start);

@@ -716,6 +716,16 @@ const struct bfd_session *bfd_session_next(const struct bfd_session *bs, bool mh
 					   uint32_t bfd_mode);
 void bfd_sessions_remove_manual(void);
 void bfd_profiles_remove(void);
+/*
+ * Key chain algorithms that give keyed SHA1. "sha-1" is the construction of
+ * RFC 5880 Section 6.7.4; "hmac-sha-1" is an HMAC-SHA1 over the packet,
+ * which earlier releases used and which only interoperates with them.
+ */
+static inline bool bfd_auth_algo_is_sha1(enum keychain_hash_algo algo)
+{
+	return algo == KEYCHAIN_ALGO_SHA1 || algo == KEYCHAIN_ALGO_HMAC_SHA1;
+}
+
 extern enum bfd_auth_type map_keychain_algo_to_bfd_auth_type(enum keychain_hash_algo kc_algo,
 							     bool meticulous);
 extern const char *bfd_auth_type_get_description(enum bfd_auth_type auth_type);

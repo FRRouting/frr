@@ -267,14 +267,22 @@ BFD peers and profiles share the same BFD session configuration commands.
 
    Configure peer or profile to use a key-chain. That key-chain refers
    to a list of available key tuple made up of a crypto algorithm and
-   a key-string. Those values are used in BFD packets. Clear text and
-   hmac-sha1 algorithm is currently supported.
+   a key-string. Those values are used in BFD packets. The following
+   ``cryptographic-algorithm`` values are supported:
 
-   A key is used only if its ``cryptographic-algorithm`` is one of those
-   two, and if its ``key-string`` is within the length RFC 5880 allows:
-   1 to 16 bytes for clear text, up to 20 bytes for hmac-sha1. A key
-   defaults to no algorithm, so configuring ``key-string`` on its own
-   leaves nothing the session can use.
+   - ``cleartext``: Simple Password authentication.
+   - ``sha-1``: Keyed SHA1 as RFC 5880 Section 6.7.4 describes. Use this
+     to interoperate with other BFD implementations.
+   - ``hmac-sha-1``: Keyed SHA1 computed as an HMAC-SHA1 over the packet.
+     Earlier releases used this for keyed SHA1. It only interoperates
+     with FRR using ``hmac-sha-1``, so both ends of a session have to be
+     changed to ``sha-1`` together.
+
+   A key is used only if its ``cryptographic-algorithm`` is one of those,
+   and if its ``key-string`` is within the length RFC 5880 allows: 1 to 16
+   bytes for clear text, up to 20 bytes for keyed SHA1. A key defaults to
+   no algorithm, so configuring ``key-string`` on its own leaves nothing
+   the session can use.
 
    A session whose key-chain holds no usable key stays down. It is not
    brought up unauthenticated, since that would leave the link
@@ -285,7 +293,7 @@ BFD peers and profiles share the same BFD session configuration commands.
 .. clicmd:: authentication algorithm meticulous
 
    Configure peer or profile to use meticulous mode when the key-chain
-   is configured with a hmac-sha1 crypto algorithm.
+   is configured with a ``sha-1`` or ``hmac-sha-1`` crypto algorithm.
 
 BFD Peer Specific Commands
 --------------------------
@@ -889,6 +897,10 @@ the message is treated as supporting none of them. The features are:
   daemon sends. Without it a session configured with an authentication key
   chain stays in the BFD daemon.
 
+* ``BFDDP_CAP_AUTH_RFC_SHA1``: computes keyed SHA1 as RFC 5880 Section 6.7.4
+  describes for keys flagged ``BFDDP_AUTH_KEY_RFC_SHA1``. Without it a
+  session whose key chain holds a ``sha-1`` key stays in the BFD daemon.
+
 BFD daemon will also keep record of data plane communication statistics with
 the command :clicmd:`show bfd distributed`.
 
@@ -973,10 +985,10 @@ Apply the Profile to the BFD Peer:
     peer 10.0.1.2 interface eth-rt2
      profile 0
 
-Example 2: Applying hmac-sha-1 Authentication via a Profile
+Example 2: Applying Keyed SHA1 Authentication via a Profile
 
 This method uses a BFD profile, which is useful for applying the same
-hmac-sha-1 authentication settings to multiple peers.
+keyed SHA1 authentication settings to multiple peers.
 
 Define the Keychain and Key:
 
@@ -985,7 +997,7 @@ Define the Keychain and Key:
    key chain 0
     key 0
      key-string secret123456
-     cryptographic-algorithm hmac-sha-1
+     cryptographic-algorithm sha-1
 
 Create a BFD Profile and Link the Keychain:
 

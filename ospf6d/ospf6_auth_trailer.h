@@ -74,4 +74,10 @@ void install_element_ospf6_debug_auth(void);
 int config_write_ospf6_debug_auth(struct vty *vty);
 void install_element_ospf6_clear_intf_auth(void);
 
+/* The trailer is an HMAC (RFC 7166); a key with a plain hash cannot sign it. */
+static inline bool ospf6_auth_algo_usable(enum keychain_hash_algo algo)
+{
+	return algo != KEYCHAIN_ALGO_NULL && algo != KEYCHAIN_ALGO_SHA1;
+}
+
 #endif /* __OSPF6_AUTH_TRAILER_H__ */
