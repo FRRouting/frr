@@ -21,6 +21,7 @@
 #include "pim_autorp.h"
 #include "pim_nht.h"
 #include "pim_static.h"
+#include "pim_tib.h"
 
 enum pim_spt_switchover {
 	PIM_SPT_IMMEDIATE,
@@ -201,6 +202,10 @@ struct pim_instance {
 
 	bool ecmp_enable;
 	bool ecmp_rebalance_enable;
+
+	/* IGMP/MLD proxy (S,G) joins follow the RPF toward the source */
+	bool gm_proxy_rpf;
+	struct gm_proxy_rpf_head gm_proxy_rpf_sgs;
 	/* No. of Dual active I/fs in pim_instance */
 	uint32_t inst_mlag_intf_cnt;
 

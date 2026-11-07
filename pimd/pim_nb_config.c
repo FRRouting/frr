@@ -2408,6 +2408,8 @@ int lib_interface_pim_address_family_pim_enable_modify(struct nb_cb_modify_args 
 
 			pim_pim_interface_delete(ifp);
 		}
+
+		tib_sg_proxy_rpf_if_changed(ifp);
 		break;
 	}
 
@@ -4841,10 +4843,11 @@ int lib_interface_gmp_address_family_enable_modify(
 		gm_enable = yang_dnode_get_bool(args->dnode, NULL);
 
 		if (gm_enable)
-			return pim_cmd_gm_start(ifp);
-
+			pim_cmd_gm_start(ifp);
 		else
 			pim_gm_interface_delete(ifp);
+
+		tib_sg_proxy_rpf_if_changed(ifp);
 	}
 	return NB_OK;
 }

@@ -185,6 +185,9 @@ static int pim_nht_hash_mode_update_helper(struct hash_bucket *bucket, void *arg
 	if (pnc->candrp_count)
 		pim_crp_nht_update(pim, pnc);
 
+	if (pnc->gm_proxy_count)
+		tib_sg_proxy_rpf_nht_update(pim, pnc->addr);
+
 	return HASHWALK_CONTINUE;
 }
 
@@ -2022,6 +2025,9 @@ void pim_nexthop_update(struct vrf *vrf, struct prefix *match, struct zapi_route
 
 	if (pnc->candrp_count)
 		pim_crp_nht_update(pim, pnc);
+
+	if (pnc->gm_proxy_count)
+		tib_sg_proxy_rpf_nht_update(pim, pnc->addr);
 }
 
 /* Cleanup pim->nht_hash each node data */
