@@ -3418,11 +3418,17 @@ void vrf_unimport_from_vrf(struct bgp *to_bgp, struct bgp *from_bgp, const char 
 				   BGP_CONFIG_VRF_TO_VRF_IMPORT);
 		if (to_bgp->vpn_policy[afi].rtlist[idir])
 			ecommunity_free(&to_bgp->vpn_policy[afi].rtlist[idir]);
-	} else if (from_bgp) {
-		ecom = from_bgp->vpn_policy[afi].rtlist[edir];
-		if (ecom)
-			ecommunity_del_val(to_bgp->vpn_policy[afi].rtlist[idir],
-				   (struct ecommunity_val *)ecom->val);
+	} else {
+		if (from_bgp) {
+			ecom = from_bgp->vpn_policy[afi].rtlist[edir];
+			if (ecom)
+				ecommunity_del_val(to_bgp->vpn_policy[afi].rtlist[idir],
+						   (struct ecommunity_val *)ecom->val);
+		}
+		/* Re-import what the remaining "import vrf" statements select.
+		 * Needed whether or not "import_name"'s instance still exists,
+		 * because vpn_leak_prechange() above withdrew all of them.
+		 */
 		vpn_leak_postchange(idir, afi, bgp_get_default(), to_bgp);
 	}
 
