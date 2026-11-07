@@ -6,7 +6,7 @@
 # Copyright 2026 6WIND S.A.
 
 """
-    BGP prefix injection tool
+BGP prefix injection tool
 """
 
 import socket
@@ -20,7 +20,6 @@ import os
 import re
 import signal
 import errno
-
 
 AFI_IPV4 = 1
 SAFI_UNICAST = 1
@@ -234,7 +233,7 @@ def encode_path_attribute_mp_reach_nrli(afi, safi, data, config):
 
 def encode_path_attribute_prefix_sid(data):
     hexstream = b""
-    hexstream += b"\xC0"  # flags optional, transitive, complete
+    hexstream += b"\xc0"  # flags optional, transitive, complete
     hexstream += struct.pack("!B", 40)  # type code Prefix-SID
     hexstream += struct.pack("!B", len(data))  # length
     hexstream += data
