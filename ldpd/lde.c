@@ -151,6 +151,8 @@ lde(void)
 
 	/* create base configuration */
 	ldeconf = config_new_empty();
+	ldp_config_reset_l2vpns(&ldeconf->l2vpn_tree);
+	RB_INIT(l2vpn_head, &ldeconf->l2vpn_tree);
 
 	struct event thread;
 	while (event_fetch(master, &thread))
@@ -539,12 +541,12 @@ static void lde_dispatch_parent(struct event *event)
 			switch (kr->af) {
 			case AF_INET:
 				fec.type = FEC_TYPE_IPV4;
-				fec.u.ipv4.prefix = kr->prefix.v4;
+				fec.u.ipv4.prefix = kr->prefix.ipv4;
 				fec.u.ipv4.prefixlen = kr->prefixlen;
 				break;
 			case AF_INET6:
 				fec.type = FEC_TYPE_IPV6;
-				fec.u.ipv6.prefix = kr->prefix.v6;
+				fec.u.ipv6.prefix = kr->prefix.ipv6;
 				fec.u.ipv6.prefixlen = kr->prefixlen;
 				break;
 			default:
@@ -656,6 +658,7 @@ static void lde_dispatch_parent(struct event *event)
 			break;
 		case IMSG_RECONF_END:
 			merge_config(ldeconf, nconf);
+			merge_l2vpns(&ldeconf->l2vpn_tree, &nconf->l2vpn_tree);
 			ldp_clear_config(nconf);
 			nconf = NULL;
 			break;
@@ -731,8 +734,7 @@ static void lde_dispatch_parent(struct event *event)
 	}
 }
 
-int
-lde_acl_check(char *acl_name, int af, union ldpd_addr *addr, uint8_t prefixlen)
+int lde_acl_check(char *acl_name, int af, union g_addr *addr, uint8_t prefixlen)
 {
 	return ldp_acl_request(iev_main_sync, acl_name, af, addr, prefixlen);
 }
@@ -770,9 +772,9 @@ lde_update_label(struct fec_node *fn)
 		    && fn->fec.u.ipv4.prefixlen != IPV4_MAX_BITLEN)
 			return (NO_LABEL);
 
-		if (lde_acl_check(ldeconf->ipv4.acl_label_allocate_for,
-		    AF_INET, (union ldpd_addr *)&fn->fec.u.ipv4.prefix,
-		    fn->fec.u.ipv4.prefixlen) != FILTER_PERMIT)
+		if (lde_acl_check(ldeconf->ipv4.acl_label_allocate_for, AF_INET,
+				  (union g_addr *)&fn->fec.u.ipv4.prefix,
+				  fn->fec.u.ipv4.prefixlen) != FILTER_PERMIT)
 			return (NO_LABEL);
 		break;
 	case FEC_TYPE_IPV6:
@@ -780,9 +782,9 @@ lde_update_label(struct fec_node *fn)
 		    && fn->fec.u.ipv6.prefixlen != IPV6_MAX_BITLEN)
 			return (NO_LABEL);
 
-		if (lde_acl_check(ldeconf->ipv6.acl_label_allocate_for,
-		    AF_INET6, (union ldpd_addr *)&fn->fec.u.ipv6.prefix,
-		    fn->fec.u.ipv6.prefixlen) != FILTER_PERMIT)
+		if (lde_acl_check(ldeconf->ipv6.acl_label_allocate_for, AF_INET6,
+				  (union g_addr *)&fn->fec.u.ipv6.prefix,
+				  fn->fec.u.ipv6.prefixlen) != FILTER_PERMIT)
 			return (NO_LABEL);
 		break;
 	case FEC_TYPE_PWID:
@@ -803,18 +805,18 @@ lde_update_label(struct fec_node *fn)
 			if (!CHECK_FLAG(ldeconf->ipv4.flags, F_LDPD_AF_EXPNULL))
 				return (MPLS_LABEL_IMPLICIT_NULL);
 
-			if (lde_acl_check(ldeconf->ipv4.acl_label_expnull_for,
-			    AF_INET, (union ldpd_addr *)&fn->fec.u.ipv4.prefix,
-			    fn->fec.u.ipv4.prefixlen) != FILTER_PERMIT)
+			if (lde_acl_check(ldeconf->ipv4.acl_label_expnull_for, AF_INET,
+					  (union g_addr *)&fn->fec.u.ipv4.prefix,
+					  fn->fec.u.ipv4.prefixlen) != FILTER_PERMIT)
 				return (MPLS_LABEL_IMPLICIT_NULL);
 			return MPLS_LABEL_IPV4_EXPLICIT_NULL;
 		case FEC_TYPE_IPV6:
 			if (!CHECK_FLAG(ldeconf->ipv6.flags, F_LDPD_AF_EXPNULL))
 				return (MPLS_LABEL_IMPLICIT_NULL);
 
-			if (lde_acl_check(ldeconf->ipv6.acl_label_expnull_for,
-			    AF_INET6, (union ldpd_addr *)&fn->fec.u.ipv6.prefix,
-			    fn->fec.u.ipv6.prefixlen) != FILTER_PERMIT)
+			if (lde_acl_check(ldeconf->ipv6.acl_label_expnull_for, AF_INET6,
+					  (union g_addr *)&fn->fec.u.ipv6.prefix,
+					  fn->fec.u.ipv6.prefixlen) != FILTER_PERMIT)
 				return (MPLS_LABEL_IMPLICIT_NULL);
 			return MPLS_LABEL_IPV6_EXPLICIT_NULL;
 		case FEC_TYPE_PWID:
@@ -848,9 +850,9 @@ lde_send_change_klabel(struct fec_node *fn, struct fec_nh *fnh)
 	case FEC_TYPE_IPV4:
 		memset(&kr, 0, sizeof(kr));
 		kr.af = AF_INET;
-		kr.prefix.v4 = fn->fec.u.ipv4.prefix;
+		kr.prefix.ipv4 = fn->fec.u.ipv4.prefix;
 		kr.prefixlen = fn->fec.u.ipv4.prefixlen;
-		kr.nexthop.v4 = fnh->nexthop.v4;
+		kr.nexthop.ipv4 = fnh->nexthop.ipv4;
 		kr.ifindex = fnh->ifindex;
 		kr.local_label = fn->local_label;
 		kr.remote_label = fnh->remote_label;
@@ -861,9 +863,9 @@ lde_send_change_klabel(struct fec_node *fn, struct fec_nh *fnh)
 	case FEC_TYPE_IPV6:
 		memset(&kr, 0, sizeof(kr));
 		kr.af = AF_INET6;
-		kr.prefix.v6 = fn->fec.u.ipv6.prefix;
+		kr.prefix.ipv6 = fn->fec.u.ipv6.prefix;
 		kr.prefixlen = fn->fec.u.ipv6.prefixlen;
-		kr.nexthop.v6 = fnh->nexthop.v6;
+		kr.nexthop.ipv6 = fnh->nexthop.ipv6;
 		kr.ifindex = fnh->ifindex;
 		kr.local_label = fn->local_label;
 		kr.remote_label = fnh->remote_label;
@@ -898,9 +900,9 @@ lde_send_delete_klabel(struct fec_node *fn, struct fec_nh *fnh)
 	case FEC_TYPE_IPV4:
 		memset(&kr, 0, sizeof(kr));
 		kr.af = AF_INET;
-		kr.prefix.v4 = fn->fec.u.ipv4.prefix;
+		kr.prefix.ipv4 = fn->fec.u.ipv4.prefix;
 		kr.prefixlen = fn->fec.u.ipv4.prefixlen;
-		kr.nexthop.v4 = fnh->nexthop.v4;
+		kr.nexthop.ipv4 = fnh->nexthop.ipv4;
 		kr.ifindex = fnh->ifindex;
 		kr.local_label = fn->local_label;
 		kr.remote_label = fnh->remote_label;
@@ -912,9 +914,9 @@ lde_send_delete_klabel(struct fec_node *fn, struct fec_nh *fnh)
 	case FEC_TYPE_IPV6:
 		memset(&kr, 0, sizeof(kr));
 		kr.af = AF_INET6;
-		kr.prefix.v6 = fn->fec.u.ipv6.prefix;
+		kr.prefix.ipv6 = fn->fec.u.ipv6.prefix;
 		kr.prefixlen = fn->fec.u.ipv6.prefixlen;
-		kr.nexthop.v6 = fnh->nexthop.v6;
+		kr.nexthop.ipv6 = fnh->nexthop.ipv6;
 		kr.ifindex = fnh->ifindex;
 		kr.local_label = fn->local_label;
 		kr.remote_label = fnh->remote_label;
@@ -988,13 +990,13 @@ lde_fec2map(struct fec *fec, struct map *map)
 	case FEC_TYPE_IPV4:
 		map->type = MAP_TYPE_PREFIX;
 		map->fec.prefix.af = AF_INET;
-		map->fec.prefix.prefix.v4 = fec->u.ipv4.prefix;
+		map->fec.prefix.prefix.ipv4 = fec->u.ipv4.prefix;
 		map->fec.prefix.prefixlen = fec->u.ipv4.prefixlen;
 		break;
 	case FEC_TYPE_IPV6:
 		map->type = MAP_TYPE_PREFIX;
 		map->fec.prefix.af = AF_INET6;
-		map->fec.prefix.prefix.v6 = fec->u.ipv6.prefix;
+		map->fec.prefix.prefix.ipv6 = fec->u.ipv6.prefix;
 		map->fec.prefix.prefixlen = fec->u.ipv6.prefixlen;
 		break;
 	case FEC_TYPE_PWID:
@@ -1017,12 +1019,12 @@ lde_map2fec(struct map *map, struct in_addr lsr_id, struct fec *fec)
 		switch (map->fec.prefix.af) {
 		case AF_INET:
 			fec->type = FEC_TYPE_IPV4;
-			fec->u.ipv4.prefix = map->fec.prefix.prefix.v4;
+			fec->u.ipv4.prefix = map->fec.prefix.prefix.ipv4;
 			fec->u.ipv4.prefixlen = map->fec.prefix.prefixlen;
 			break;
 		case AF_INET6:
 			fec->type = FEC_TYPE_IPV6;
-			fec->u.ipv6.prefix = map->fec.prefix.prefix.v6;
+			fec->u.ipv6.prefix = map->fec.prefix.prefix.ipv6;
 			fec->u.ipv6.prefixlen = map->fec.prefix.prefixlen;
 			break;
 		default:
@@ -1096,26 +1098,26 @@ lde_send_labelmapping(struct lde_nbr *ln, struct fec_node *fn, int single)
 		if (!ln->v4_enabled)
 			return;
 
-		if (lde_acl_check(ldeconf->ipv4.acl_label_advertise_to,
-		    AF_INET, (union ldpd_addr *)&ln->id, 32) != FILTER_PERMIT)
+		if (lde_acl_check(ldeconf->ipv4.acl_label_advertise_to, AF_INET,
+				  (union g_addr *)&ln->id, 32) != FILTER_PERMIT)
 			return;
 
-		if (lde_acl_check(ldeconf->ipv4.acl_label_advertise_for,
-		    AF_INET, (union ldpd_addr *)&fn->fec.u.ipv4.prefix,
-		    fn->fec.u.ipv4.prefixlen) != FILTER_PERMIT)
+		if (lde_acl_check(ldeconf->ipv4.acl_label_advertise_for, AF_INET,
+				  (union g_addr *)&fn->fec.u.ipv4.prefix,
+				  fn->fec.u.ipv4.prefixlen) != FILTER_PERMIT)
 			return;
 		break;
 	case FEC_TYPE_IPV6:
 		if (!ln->v6_enabled)
 			return;
 
-		if (lde_acl_check(ldeconf->ipv6.acl_label_advertise_to,
-		    AF_INET, (union ldpd_addr *)&ln->id, 32) != FILTER_PERMIT)
+		if (lde_acl_check(ldeconf->ipv6.acl_label_advertise_to, AF_INET,
+				  (union g_addr *)&ln->id, 32) != FILTER_PERMIT)
 			return;
 
-		if (lde_acl_check(ldeconf->ipv6.acl_label_advertise_for,
-		    AF_INET6, (union ldpd_addr *)&fn->fec.u.ipv6.prefix,
-		    fn->fec.u.ipv6.prefixlen) != FILTER_PERMIT)
+		if (lde_acl_check(ldeconf->ipv6.acl_label_advertise_for, AF_INET6,
+				  (union g_addr *)&fn->fec.u.ipv6.prefix,
+				  fn->fec.u.ipv6.prefixlen) != FILTER_PERMIT)
 			return;
 		break;
 	case FEC_TYPE_PWID:
@@ -1584,8 +1586,7 @@ lde_nbr_find_by_lsrid(struct in_addr addr)
 	return (NULL);
 }
 
-struct lde_nbr *
-lde_nbr_find_by_addr(int af, union ldpd_addr *addr)
+struct lde_nbr *lde_nbr_find_by_addr(int af, union g_addr *addr)
 {
 	struct lde_nbr		*ln;
 
@@ -1679,8 +1680,8 @@ lde_allow_broken_lsp_update(int new_config)
 static __inline int
 lde_map_compare(const struct lde_map *a, const struct lde_map *b)
 {
-	return (ldp_addrcmp(AF_INET, (union ldpd_addr *)&a->nexthop->id,
-	    (union ldpd_addr *)&b->nexthop->id));
+	return (ldp_addrcmp(AF_INET, (union g_addr *)&a->nexthop->id,
+			    (union g_addr *)&b->nexthop->id));
 }
 
 struct lde_map *
@@ -1915,7 +1916,7 @@ lde_change_advertise_filter(int af)
 	struct fec_node *fn;
 	char            *acl_to_filter;
 	char            *acl_for_filter;
-	union ldpd_addr *prefix;
+	union g_addr *prefix;
 	uint8_t          plen;
 	struct lde_map  *me;
 
@@ -1934,8 +1935,8 @@ lde_change_advertise_filter(int af)
 	}
 
 	RB_FOREACH(ln, nbr_tree, &lde_nbrs) {
-		if (lde_acl_check(acl_to_filter, af, (union ldpd_addr *)&ln->id,
-		    IPV4_MAX_BITLEN) != FILTER_PERMIT)
+		if (lde_acl_check(acl_to_filter, af, (union g_addr *)&ln->id, IPV4_MAX_BITLEN) !=
+		    FILTER_PERMIT)
 			lde_send_labelwithdraw_wcard(ln, NO_LABEL);
 		else {
 			/* This neighbor is allowed in to_filter, so
@@ -1947,13 +1948,13 @@ lde_change_advertise_filter(int af)
 				case AF_INET:
 					if (fn->fec.type != FEC_TYPE_IPV4)
 						continue;
-					prefix = (union ldpd_addr *)&fn->fec.u.ipv4.prefix;
+					prefix = (union g_addr *)&fn->fec.u.ipv4.prefix;
 					plen = fn->fec.u.ipv4.prefixlen;
 					break;
 				case FEC_TYPE_IPV6:
 					if (fn->fec.type != FEC_TYPE_IPV6)
 						continue;
-					prefix = (union ldpd_addr *)&fn->fec.u.ipv6.prefix;
+					prefix = (union g_addr *)&fn->fec.u.ipv6.prefix;
 					plen = fn->fec.u.ipv6.prefixlen;
 					break;
 				default:
@@ -1984,7 +1985,7 @@ lde_change_accept_filter(int af)
 	struct fec_node *fn;
 	char            *acl_for_filter;
 	char            *acl_from_filter;
-	union ldpd_addr *prefix;
+	union g_addr *prefix;
 	uint8_t          plen;
 	struct lde_map  *me;
 	enum fec_type    type;
@@ -2008,8 +2009,8 @@ lde_change_accept_filter(int af)
 	}
 
 	RB_FOREACH(ln, nbr_tree, &lde_nbrs) {
-		if (lde_acl_check(acl_from_filter, AF_INET, (union ldpd_addr *)
-		    &ln->id, IPV4_MAX_BITLEN) != FILTER_PERMIT) {
+		if (lde_acl_check(acl_from_filter, AF_INET, (union g_addr *)&ln->id,
+				  IPV4_MAX_BITLEN) != FILTER_PERMIT) {
 			/* This neighbor is now filtered so remove fecs from
 			 * recv list
 			 */
@@ -2034,13 +2035,13 @@ lde_change_accept_filter(int af)
 				case AF_INET:
 					if (fn->fec.type != FEC_TYPE_IPV4)
 						continue;
-					prefix = (union ldpd_addr *)&fn->fec.u.ipv4.prefix;
+					prefix = (union g_addr *)&fn->fec.u.ipv4.prefix;
 					plen = fn->fec.u.ipv4.prefixlen;
 					break;
 				case AF_INET6:
 					if (fn->fec.type != FEC_TYPE_IPV6)
 						continue;
-					prefix = (union ldpd_addr *)&fn->fec.u.ipv6.prefix;
+					prefix = (union g_addr *)&fn->fec.u.ipv6.prefix;
 					plen = fn->fec.u.ipv6.prefixlen;
 					break;
 				default:
@@ -2068,7 +2069,7 @@ lde_change_expnull_for_filter(int af)
 	struct fec_node *fn;
 	char            *acl_name;
 	uint32_t         exp_label;
-	union ldpd_addr *prefix;
+	union g_addr *prefix;
 	uint8_t          plen;
 
 	/* Configure explicit-null advertisement for all fecs in this filter */
@@ -2080,7 +2081,7 @@ lde_change_expnull_for_filter(int af)
 			if (fn->fec.type != FEC_TYPE_IPV4)
 				continue;
 			acl_name = ldeconf->ipv4.acl_label_expnull_for;
-			prefix = (union ldpd_addr *)&fn->fec.u.ipv4.prefix;
+			prefix = (union g_addr *)&fn->fec.u.ipv4.prefix;
 			plen = fn->fec.u.ipv4.prefixlen;
 			exp_label = MPLS_LABEL_IPV4_EXPLICIT_NULL;
 			break;
@@ -2088,7 +2089,7 @@ lde_change_expnull_for_filter(int af)
 			if (fn->fec.type != FEC_TYPE_IPV6)
 				continue;
 			acl_name = ldeconf->ipv6.acl_label_expnull_for;
-			prefix = (union ldpd_addr *)&fn->fec.u.ipv6.prefix;
+			prefix = (union g_addr *)&fn->fec.u.ipv6.prefix;
 			plen = fn->fec.u.ipv6.prefixlen;
 			exp_label = MPLS_LABEL_IPV6_EXPLICIT_NULL;
 			break;
@@ -2154,8 +2155,7 @@ lde_address_del(struct lde_nbr *ln, struct lde_addr *lde_addr)
 	return (0);
 }
 
-struct lde_addr *
-lde_address_find(struct lde_nbr *ln, int af, union ldpd_addr *addr)
+struct lde_addr *lde_address_find(struct lde_nbr *ln, int af, union g_addr *addr)
 {
 	struct lde_addr		*lde_addr;
 
