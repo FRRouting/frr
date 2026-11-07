@@ -11,7 +11,29 @@
 #include "lib/northbound.h"
 #include "lib/routemap.h"
 #include "bgpd/bgpd.h"
+#include "bgpd/bgp_ecommunity.h"
 #include "bgpd/bgp_routemap_nb.h"
+
+/* Make sure the extended community value is parseable before it is
+ * committed, otherwise a malformed value ends up in the running config
+ * even though the route-map rule was never installed.
+ */
+static int bgp_route_set_ecommunity_validate(struct nb_cb_modify_args *args, int sub_type,
+					     const char *what)
+{
+	struct ecommunity *ecom;
+
+	ecom = ecommunity_str2com(yang_dnode_get_string(args->dnode, NULL), sub_type, 0);
+	if (!ecom) {
+		snprintfrr(args->errmsg, args->errmsg_len, "%% Malformed extcommunity %s value",
+			   what);
+		return NB_ERR_VALIDATION;
+	}
+
+	ecommunity_free(&ecom);
+
+	return NB_OK;
+}
 
 /* Add bgp route map rule. */
 static int bgp_route_match_add(struct route_map_index *index,
@@ -1924,6 +1946,7 @@ lib_route_map_entry_set_action_rmap_set_action_extcommunity_rt_modify(
 
 	switch (args->event) {
 	case NB_EV_VALIDATE:
+		return bgp_route_set_ecommunity_validate(args, ECOMMUNITY_ROUTE_TARGET, "rt");
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
 		break;
@@ -1977,6 +2000,7 @@ int lib_route_map_entry_set_action_rmap_set_action_extcommunity_nt_modify(
 
 	switch (args->event) {
 	case NB_EV_VALIDATE:
+		return bgp_route_set_ecommunity_validate(args, ECOMMUNITY_NODE_TARGET, "nt");
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
 		break;
@@ -2030,6 +2054,7 @@ lib_route_map_entry_set_action_rmap_set_action_extcommunity_soo_modify(
 
 	switch (args->event) {
 	case NB_EV_VALIDATE:
+		return bgp_route_set_ecommunity_validate(args, ECOMMUNITY_SITE_ORIGIN, "soo");
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
 		break;
@@ -3536,6 +3561,7 @@ int lib_route_map_entry_set_action_rmap_set_action_extcommunity_color_modify(
 
 	switch (args->event) {
 	case NB_EV_VALIDATE:
+		return bgp_route_set_ecommunity_validate(args, ECOMMUNITY_COLOR, "color");
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
 		break;
