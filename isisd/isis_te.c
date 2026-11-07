@@ -1254,6 +1254,7 @@ static int lsp_to_subnet_cb(const struct prefix *prefix, uint32_t metric, bool e
 	struct ls_edge *edge;
 	struct ls_standard *std = NULL;
 	struct prefix p;
+	bool seen;
 
 	/* Sanity Check */
 	if (!args || !prefix)
@@ -1343,6 +1344,8 @@ static int lsp_to_subnet_cb(const struct prefix *prefix, uint32_t metric, bool e
 			return LSP_ITER_CONTINUE;
 	}
 	ls_pref = subnet->ls_pref;
+	/* All Subnets of the Vertex are ORPHAN before the LSP is parsed */
+	seen = subnet->status != ORPHAN;
 
 	te_debug("   |- %s Subnet from prefix (%s:%u:%u)%pFX",
 		 subnet->status == NEW ? "Create" : "Found", ISIS_DEBUG_VRF_ID(VRF_DEFAULT), &p);
@@ -1376,8 +1379,18 @@ static int lsp_to_subnet_cb(const struct prefix *prefix, uint32_t metric, bool e
 		sr.sid_flag = psid->flags;
 		sr.sid = psid->value;
 
+		/*
+		 * The same prefix may appear twice in the LSP, e.g. on a passive
+		 * loopback and redistributed with the R-Flag. Keep the Prefix-SID
+		 * of the node's own prefix rather than the re-advertised one.
+		 */
+		if (seen && CHECK_FLAG(ls_pref->flags, LS_PREF_SR) &&
+		    !CHECK_FLAG(ls_pref->sr.sid_flag, ISIS_PREFIX_SID_READVERTISED) &&
+		    CHECK_FLAG(sr.sid_flag, ISIS_PREFIX_SID_READVERTISED))
+			memcpy(&sr, &ls_pref->sr, sizeof(struct ls_sid));
+
 		if (!CHECK_FLAG(ls_pref->flags, LS_PREF_SR) ||
-		    !memcmp(&ls_pref->sr, &sr, sizeof(struct ls_sid))) {
+		    memcmp(&ls_pref->sr, &sr, sizeof(struct ls_sid))) {
 			memcpy(&ls_pref->sr, &sr, sizeof(struct ls_sid));
 			SET_FLAG(ls_pref->flags, LS_PREF_SR);
 			if (subnet->status != NEW)
