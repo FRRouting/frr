@@ -68,6 +68,7 @@ import platform
 from lib import topotest
 from lib.topogen import get_topogen
 from lib.topolog import logger
+from lib.common_config import shutdown_bringup_interface_in_kernel
 from lib.ltemplate import ltemplateRtrCmd
 
 # Required to instantiate the topology builder class.
@@ -147,10 +148,15 @@ def ltemplatePreRouterStartHook():
         "ip link add {0}-cust1 type vrf table 10",
         "ip ru add oif {0}-cust1 table 10",
         "ip ru add iif {0}-cust1 table 10",
-        "ip link set dev {0}-cust1 up",
+        ("up", "{0}-cust1"),
     ]
     for rtr in rtrs:
         for cmd in cmds:
+            if isinstance(cmd, tuple):
+                shutdown_bringup_interface_in_kernel(
+                    tgen, rtr, cmd[1].format(rtr), cmd[0] == "up"
+                )
+                continue
             cc.doCmd(tgen, rtr, cmd.format(rtr))
         cc.doCmd(tgen, rtr, "ip link set dev {0}-eth4 master {0}-cust1".format(rtr))
         intfs = [rtr + "-cust1", "lo", rtr + "-eth0", rtr + "-eth4"]
@@ -164,12 +170,17 @@ def ltemplatePreRouterStartHook():
     # configure cust4 VRFs & MPLS
     cmds = [
         "ip link add {0}-cust4 type vrf table 30",
-        "ip link set dev {0}-cust4 up",
+        ("up", "{0}-cust4"),
         "ip link add {0}-cust5 type vrf table 40",
-        "ip link set dev {0}-cust5 up",
+        ("up", "{0}-cust5"),
     ]
     rtr = "r1"
     for cmd in cmds:
+        if isinstance(cmd, tuple):
+            shutdown_bringup_interface_in_kernel(
+                tgen, rtr, cmd[1].format(rtr), cmd[0] == "up"
+            )
+            continue
         cc.doCmd(tgen, rtr, cmd.format(rtr))
     logger.info("setup {0} vrf {0}-cust3 and{0}-cust4.".format(rtr))
     # configure cust2 VRFs & MPLS
@@ -178,10 +189,15 @@ def ltemplatePreRouterStartHook():
         "ip link add {0}-cust2 type vrf table 20",
         "ip ru add oif {0}-cust2 table 20",
         "ip ru add iif {0}-cust2 table 20",
-        "ip link set dev {0}-cust2 up",
+        ("up", "{0}-cust2"),
     ]
     for rtr in rtrs:
         for cmd in cmds:
+            if isinstance(cmd, tuple):
+                shutdown_bringup_interface_in_kernel(
+                    tgen, rtr, cmd[1].format(rtr), cmd[0] == "up"
+                )
+                continue
             cc.doCmd(tgen, rtr, cmd.format(rtr))
         cc.doCmd(tgen, rtr, "ip link set dev {0}-eth5 master {0}-cust2".format(rtr))
         intfs = [rtr + "-cust2", rtr + "-eth5"]
@@ -198,10 +214,15 @@ def ltemplatePreRouterStartHook():
         "ip link add {0}-cust2 type vrf table 20",
         "ip ru add oif {0}-cust2 table 20",
         "ip ru add iif {0}-cust2 table 20",
-        "ip link set dev {0}-cust2 up",
+        ("up", "{0}-cust2"),
     ]
     for rtr in rtrs:
         for cmd in cmds:
+            if isinstance(cmd, tuple):
+                shutdown_bringup_interface_in_kernel(
+                    tgen, rtr, cmd[1].format(rtr), cmd[0] == "up"
+                )
+                continue
             cc.doCmd(tgen, rtr, cmd.format(rtr))
         cc.doCmd(tgen, rtr, "ip link set dev {0}-eth0 master {0}-cust2".format(rtr))
     if cc.getOutput() != 0:

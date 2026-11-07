@@ -33,6 +33,7 @@ from lib.topogen import Topogen, TopoRouter, get_topogen
 from lib.topolog import logger
 
 from lib.pim import McastTesterHelper
+from lib.common_config import shutdown_bringup_interface_in_kernel
 
 pytestmark = [pytest.mark.bgpd, pytest.mark.pimd]
 
@@ -65,6 +66,9 @@ def build_topo(tgen):
 
 def setup_module(mod):
     "Sets up the pytest environment"
+    if not topotest.platform_has_vrf():
+        pytest.skip("platform does not support VRF")
+
     tgen = Topogen(build_topo, mod.__name__)
     tgen.start_topology()
 
@@ -73,7 +77,12 @@ def setup_module(mod):
         router.load_frr_config()
 
     tgen.gears["r1"].run("ip link add blue type vrf table 10")
-    tgen.gears["r1"].run("ip link set blue up")
+    shutdown_bringup_interface_in_kernel(
+        tgen.gears['r1'].tgen,
+        tgen.gears['r1'].name,
+        "blue",
+        True,
+    )
     tgen.gears["r1"].run("ip link set r1-eth1 master blue")
 
     # Initialize all routers.

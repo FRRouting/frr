@@ -35,6 +35,7 @@ sys.path.append(os.path.join(CWD, "../"))
 from lib import topotest
 from lib.checkping import check_ping
 from lib.topogen import Topogen, get_topogen
+from lib.common_config import shutdown_bringup_interface_in_kernel
 
 pytestmark = [pytest.mark.bgpd]
 
@@ -170,6 +171,9 @@ def _failure_md5_diagnostic_bundle(dut, peer, vrf_name):
 
 
 def setup_module(mod):
+    if not topotest.platform_has_vrf():
+        pytest.skip("platform does not support VRF")
+
     tgen = Topogen(build_topo, mod.__name__)
     tgen.start_topology()
 
@@ -178,17 +182,17 @@ def setup_module(mod):
     s3 = tgen.gears["switch3"]
 
     s1.cmd_raises("ip link add {} type vrf table {}".format(VRF_NAME, VRF_TABLE_S1))
-    s1.cmd_raises("ip link set up dev {}".format(VRF_NAME))
+    shutdown_bringup_interface_in_kernel(s1.tgen, s1.name, VRF_NAME, True)
     s1.cmd_raises("ip link set switch1-eth0 master {}".format(VRF_NAME))
-    s1.cmd_raises("ip link set up dev switch1-eth0")
-    s1.cmd_raises("ip link set up dev switch1-eth1")
+    shutdown_bringup_interface_in_kernel(s1.tgen, s1.name, "switch1-eth0", True)
+    shutdown_bringup_interface_in_kernel(s1.tgen, s1.name, "switch1-eth1", True)
 
     s2.cmd_raises("ip link add {} type vrf table {}".format(VRF_NAME, VRF_TABLE_S2))
-    s2.cmd_raises("ip link set up dev {}".format(VRF_NAME))
+    shutdown_bringup_interface_in_kernel(s2.tgen, s2.name, VRF_NAME, True)
     s2.cmd_raises("ip link set switch2-eth0 master {}".format(VRF_NAME))
-    s2.cmd_raises("ip link set up dev switch2-eth0")
+    shutdown_bringup_interface_in_kernel(s2.tgen, s2.name, "switch2-eth0", True)
 
-    s3.cmd_raises("ip link set up dev switch3-eth0")
+    shutdown_bringup_interface_in_kernel(s3.tgen, s3.name, "switch3-eth0", True)
 
     for r in (s1, s2, s3):
         r.cmd_raises("sysctl -w net.ipv4.tcp_l3mdev_accept=1")

@@ -31,6 +31,7 @@ sys.path.append(os.path.join(CWD, "../"))
 from lib import topotest
 from lib.topogen import Topogen, TopoRouter, get_topogen
 from lib.topolog import logger
+from lib.common_config import shutdown_bringup_interface_in_kernel
 
 # Required to instantiate the topology builder class.
 
@@ -160,9 +161,9 @@ def test_shut_interface_and_recover():
 
     tgen = get_topogen()
     router = tgen.gears["r1"]
-    router.run("ip link set r1-eth1 down")
+    shutdown_bringup_interface_in_kernel(router.tgen, router.name, "r1-eth1", False)
     topotest.sleep(5, "Waiting for EIGRP convergence")
-    router.run("ip link set r1-eth1 up")
+    shutdown_bringup_interface_in_kernel(router.tgen, router.name, "r1-eth1", True)
 
 
 def test_shutdown_check_stderr():

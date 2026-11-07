@@ -28,7 +28,11 @@ sys.path.append(os.path.join(CWD, "../"))
 from lib import topotest
 from lib.topogen import Topogen, TopoRouter, get_topogen
 from lib.topolog import logger
-from lib.common_config import required_linux_kernel_version, retry
+from lib.common_config import (
+    required_linux_kernel_version,
+    retry,
+    shutdown_bringup_interface_in_kernel,
+)
 
 # Required to instantiate the topology builder class.
 
@@ -91,11 +95,23 @@ def build_topo(tgen):
     switch.add_link(tgen.gears["r4"])
 
 
+def _apply_nhrp_cmd(tgen, cmd, rname, unit):
+    if isinstance(cmd, tuple):
+        shutdown_bringup_interface_in_kernel(
+            tgen, rname, cmd[1].format(rname, unit), cmd[0] == "up"
+        )
+        return
+    formatted = cmd.format(rname, unit)
+    logger.info("input: " + formatted)
+    output = tgen.net[rname].cmd(formatted)
+    logger.info("output: " + output)
+
+
 def _populate_iface():
     tgen = get_topogen()
     cmds_tot_hub = [
         "ip tunnel add {0}-gre0 mode gre ttl 64 key 42 dev {0}-eth0 local 10.2.1.{1} remote 0.0.0.0",
-        "ip link set dev {0}-gre0 up",
+        ("up", "{0}-gre0"),
         "echo 0 > /proc/sys/net/ipv4/ip_forward_use_pmtu",
         "echo 1 > /proc/sys/net/ipv6/conf/{0}-eth0/disable_ipv6",
         "echo 1 > /proc/sys/net/ipv6/conf/{0}-gre0/disable_ipv6",
@@ -104,28 +120,18 @@ def _populate_iface():
 
     cmds_tot = [
         "ip tunnel add {0}-gre0 mode gre ttl 64 key 42 dev {0}-eth0 local 10.1.1.{1} remote 0.0.0.0",
-        "ip link set dev {0}-gre0 up",
+        ("up", "{0}-gre0"),
         "echo 0 > /proc/sys/net/ipv4/ip_forward_use_pmtu",
         "echo 1 > /proc/sys/net/ipv6/conf/{0}-eth0/disable_ipv6",
         "echo 1 > /proc/sys/net/ipv6/conf/{0}-gre0/disable_ipv6",
     ]
 
     for cmd in cmds_tot_hub:
-        input = cmd.format("r2", "2")
-        logger.info("input: " + input)
-        output = tgen.net["r2"].cmd(input)
-        logger.info("output: " + output)
+        _apply_nhrp_cmd(tgen, cmd, "r2", "2")
 
     for cmd in cmds_tot:
-        input = cmd.format("r1", "1")
-        logger.info("input: " + input)
-        output = tgen.net["r1"].cmd(input)
-        logger.info("output: " + output)
-
-        input = cmd.format("r4", "4")
-        logger.info("input: " + input)
-        output = tgen.net["r4"].cmd(input)
-        logger.info("output: " + output)
+        _apply_nhrp_cmd(tgen, cmd, "r1", "1")
+        _apply_nhrp_cmd(tgen, cmd, "r4", "4")
 
 
 def _verify_iptables():
