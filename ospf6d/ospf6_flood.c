@@ -110,6 +110,7 @@ void ospf6_lsa_originate(struct ospf6 *ospf6, struct ospf6_lsa *lsa)
 	}
 
 	/* store it in the LSDB for self-originated LSAs */
+	monotime(&lsa->originated);
 	ospf6_lsdb_add(ospf6_lsa_copy(lsa), lsdb_self);
 
 	event_cancel(&lsa->refresh);
@@ -1107,6 +1108,10 @@ void ospf6_receive_lsa(struct ospf6_neighbor *from,
 
 		/* (f) Self Originated LSA, section 13.4 */
 		if (self_originated) {
+			struct ospf6_lsdb *lsdb_self;
+			struct ospf6_lsa *self;
+			long delay;
+
 			if (from->ospf6_if->area->ospf6->gr_info
 				    .restart_in_progress) {
 				if (IS_DEBUG_OSPF6_GR)
@@ -1126,8 +1131,30 @@ void ospf6_receive_lsa(struct ospf6_neighbor *from,
 					"Newer instance of the self-originated LSA");
 				zlog_debug("Schedule reorigination");
 			}
-			event_add_event(master, ospf6_lsa_refresh, new, 0,
-					&new->refresh);
+
+			/* RFC 2328 Section 12.4 (MinLSInterval): pace
+			 * successive originations of the same LSA so a stream of
+			 * forged self-originated LSAs cannot turn the fight-back
+			 * into an unbounded refresh/flood storm.  The refresh is
+			 * scheduled on the received instance; installing a newer
+			 * instance cancels it again, so at most one refresh per
+			 * LSA is pending at any time.
+			 */
+			lsdb_self = ospf6_get_scoped_lsdb_self(new);
+			self = ospf6_lsdb_lookup(new->header->type, new->header->id,
+						 new->header->adv_router, lsdb_self);
+			delay = self ? ospf6_lsa_refresh_delay(self) : 0;
+			if (delay > 0) {
+				if (IS_OSPF6_DEBUG_FLOODING ||
+				    IS_OSPF6_DEBUG_FLOOD_TYPE(new->header->type))
+					zlog_debug(
+						"fight-back refresh delayed %ld ms (MinLSInterval), %s",
+						delay, new->name);
+				event_add_timer_msec(master, ospf6_lsa_refresh, new,
+						     delay, &new->refresh);
+			} else
+				event_add_event(master, ospf6_lsa_refresh, new, 0,
+						&new->refresh);
 		}
 
 		/* GR: check for network topology change. */
