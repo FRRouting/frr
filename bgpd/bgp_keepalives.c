@@ -9,7 +9,7 @@
 #include <zebra.h>
 #include <pthread.h>		// for pthread_mutex_lock, pthread_mutex_unlock
 
-#include "frr_pthread.h"        // for frr_pthread
+#include "frr_pthread.h"        // for frr_pthread, frr_pthread_cond_*
 #include "hash.h"		// for hash, hash_clean, hash_create_size...
 #include "log.h"		// for zlog_debug
 #include "memory.h"		// for MTYPE_TMP, XFREE, XCALLOC, XMALLOC
@@ -158,6 +158,7 @@ void *bgp_keepalives_start(void *arg)
 	struct timeval aftertime = {0, 0};
 	struct timeval next_update = {0, 0};
 	struct timespec next_update_ts = {0, 0};
+	int rv;
 
 	/*
 	 * The RCU mechanism for each pthread is initialized in a "locked"
@@ -174,12 +175,16 @@ void *bgp_keepalives_start(void *arg)
 	/* initialize mutex */
 	pthread_mutex_init(peerhash_mtx, NULL);
 
-	/* use monotonic clock with condition variable */
-	pthread_condattr_t attrs;
-	pthread_condattr_init(&attrs);
-	pthread_condattr_setclock(&attrs, CLOCK_MONOTONIC);
-	pthread_cond_init(peerhash_cond, &attrs);
-	pthread_condattr_destroy(&attrs);
+	/*
+	 * Deadline passed to frr_pthread_cond_timedwait() is absolute
+	 * CLOCK_MONOTONIC.  A failed init leaves the condvar on the wrong
+	 * clock, so do not continue.
+	 */
+	rv = frr_pthread_cond_init(peerhash_cond);
+	if (rv != 0) {
+		zlog_err("%s: frr_pthread_cond_init: %s", __func__, strerror(rv));
+		exit(1);
+	}
 
 	/*
 	 * We are not using normal FRR pthread mechanics and are
@@ -199,8 +204,8 @@ void *bgp_keepalives_start(void *arg)
 
 	while (atomic_load_explicit(&fpt->running, memory_order_relaxed)) {
 		if (peerhash->count > 0)
-			pthread_cond_timedwait(peerhash_cond, peerhash_mtx,
-					       &next_update_ts);
+			frr_pthread_cond_timedwait(peerhash_cond, peerhash_mtx,
+						   &next_update_ts);
 		else
 			while (peerhash->count == 0
 			       && atomic_load_explicit(&fpt->running,

@@ -11,6 +11,8 @@
 #include "config.h"
 #endif
 
+#include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
 #include <limits.h>
@@ -21,6 +23,7 @@
 #include <assert.h>
 
 #include "seqlock.h"
+#include "frr_pthread.h"
 
 /****************************************
  * OS specific synchronization wrappers *
@@ -126,16 +129,21 @@ static int wait_time(struct seqlock *sqlo, uint32_t val,
  */
 #else
 
-#define TIME_ABS_REALTIME	1
-
 #define wait_init(sqlo)		do { \
+		int _err; \
 		pthread_mutex_init(&sqlo->lock, NULL); \
-		pthread_cond_init(&sqlo->wake, NULL); \
+		_err = frr_pthread_cond_init(&sqlo->wake); \
+		if (_err != 0) { \
+			fprintf(stderr, \
+				"seqlock_init: frr_pthread_cond_init: %s\n", \
+				strerror(_err)); \
+			exit(1); \
+		} \
 	} while (0)
 #define wait_prep(sqlo)		pthread_mutex_lock(&sqlo->lock)
 #define wait_once(sqlo, val)	pthread_cond_wait(&sqlo->wake, &sqlo->lock)
 #define wait_time(sqlo, val, time, reltime) \
-				pthread_cond_timedwait(&sqlo->wake, \
+				frr_pthread_cond_timedwait(&sqlo->wake, \
 						       &sqlo->lock, time);
 #define wait_done(sqlo)		pthread_mutex_unlock(&sqlo->lock)
 #define wait_poke(sqlo)		do { \
@@ -185,31 +193,9 @@ bool seqlock_timedwait(struct seqlock *sqlo, seqlock_val_t val,
 		       const struct timespec *abs_monotime_limit)
 {
 /*
- * ABS_REALTIME - used on NetBSD, Solaris and OSX
- */
-#ifdef TIME_ABS_REALTIME
-#define time_arg1 &abs_rt
-#define time_arg2 NULL
-#define time_prep
-	struct timespec curmono, abs_rt;
-
-	clock_gettime(CLOCK_MONOTONIC, &curmono);
-	clock_gettime(CLOCK_REALTIME, &abs_rt);
-
-	abs_rt.tv_nsec += abs_monotime_limit->tv_nsec - curmono.tv_nsec;
-	if (abs_rt.tv_nsec < 0) {
-		abs_rt.tv_sec--;
-		abs_rt.tv_nsec += 1000000000;
-	} else if (abs_rt.tv_nsec >= 1000000000) {
-		abs_rt.tv_sec++;
-		abs_rt.tv_nsec -= 1000000000;
-	}
-	abs_rt.tv_sec += abs_monotime_limit->tv_sec - curmono.tv_sec;
-
-/*
  * RELATIVE - used on OpenBSD (might get a patch to get absolute monotime)
  */
-#elif defined(TIME_RELATIVE)
+#ifdef TIME_RELATIVE
 	struct timespec reltime;
 
 #define time_arg1 abs_monotime_limit
@@ -223,7 +209,9 @@ bool seqlock_timedwait(struct seqlock *sqlo, seqlock_val_t val,
 		reltime.tv_nsec += 1000000000;                                                    \
 	}
 /*
- * FreeBSD & Linux: absolute time re. CLOCK_MONOTONIC
+ * Absolute CLOCK_MONOTONIC. Linux and FreeBSD pass this straight to the
+ * kernel wait. The generic pthread fallback passes it to
+ * frr_pthread_cond_timedwait(), which translates the deadline on macOS.
  */
 #else
 #define time_arg1 abs_monotime_limit

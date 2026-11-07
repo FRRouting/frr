@@ -214,6 +214,10 @@ int frr_pthread_non_controlled_startup(pthread_t thread, const char *name,
 
 void frr_pthread_non_controlled_shutdown(pthread_t thread);
 
+int frr_pthread_cond_init(pthread_cond_t *cond);
+int frr_pthread_cond_timedwait(pthread_cond_t *cond, pthread_mutex_t *mutex,
+			       const struct timespec *abstime);
+
 /* mutex auto-lock/unlock */
 
 /* variant 1:
