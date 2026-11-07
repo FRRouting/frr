@@ -56,6 +56,20 @@ static bool nb_db_enabled;
  */
 static bool transaction_in_progress;
 
+/* gRPC health check callback - set by gRPC module when loaded */
+nb_grpc_set_health_status_func nb_grpc_set_health_status_cb;
+
+/* Hook called when gRPC server is ready - defined here so it's always
+ * available, even when gRPC module is not loaded. The hook is called
+ * from northbound_grpc.cpp when gRPC starts.
+ */
+DEFINE_HOOK(nb_grpc_server_ready, (), ());
+
+void nb_grpc_notify_server_ready(void)
+{
+	hook_call(nb_grpc_server_ready);
+}
+
 static int nb_callback_pre_validate(struct nb_context *context,
 				    const struct nb_node *nb_node,
 				    const struct lyd_node *dnode, char *errmsg,
