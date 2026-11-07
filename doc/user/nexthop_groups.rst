@@ -56,3 +56,10 @@ listing of ECMP nexthops used to forward packets.
    * **buckets**: Number of buckets in the hash (1-256)
    * **idle-timer**: Idle timer in seconds (1-4294967295)
    * **unbalanced-timer**: Unbalanced timer in seconds (1-4294967295)
+
+.. clicmd:: show nexthop-group global [NAME] [json]
+
+   Display the user-configured nexthop-groups owned by the running daemon
+   along with each member nexthop's address, interface and target
+   VRF if set.  When no ``NAME`` is given, all configured groups are listed;
+   when a ``NAME`` is given, only that group is shown.
