@@ -7889,12 +7889,12 @@ DEFPY_YANG(neighbor_encap_srv6_yang, neighbor_encap_srv6_yang_cmd,
 
 	af = bgp_cli_afi_safi_name(vty->node);
 	nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
-	snprintfrr(leaf, sizeof(leaf), "%s/%s/encapsulation/type", xpath, af);
 
 	yang_val = strmatch(encap, "encapsulation-srv6-relax") ? "srv6-relax" : "srv6";
 	flag = strmatch(encap, "encapsulation-srv6-relax")
 		       ? PEER_FLAG_CONFIG_ENCAPSULATION_SRV6_RELAX
 		       : PEER_FLAG_CONFIG_ENCAPSULATION_SRV6;
+	snprintfrr(leaf, sizeof(leaf), "%s/%s/encapsulation/type[.='%s']", xpath, af, yang_val);
 
 	if (no) {
 		peer = peer_and_group_lookup_vty(vty, neighbor);
@@ -7907,7 +7907,7 @@ DEFPY_YANG(neighbor_encap_srv6_yang, neighbor_encap_srv6_yang_cmd,
 		}
 		nb_cli_enqueue_change(vty, leaf, NB_OP_DESTROY, NULL);
 	} else
-		nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY, yang_val);
+		nb_cli_enqueue_change(vty, leaf, NB_OP_CREATE, yang_val);
 
 	return nb_cli_apply_changes(vty, NULL);
 }
@@ -7923,10 +7923,11 @@ DEFPY_YANG(neighbor_encapsulation_srv6_or_mpls_yang,
 	char leaf[XPATH_MAXLEN + 256];
 	bool is_pg = false;
 	const char *af;
+	const char *yang_val;
 	struct peer *peer;
 	afi_t afi;
 	safi_t safi;
-	uint64_t flag, other;
+	uint64_t flag;
 	int ret;
 
 	ret = bgp_cli_peer_af_xpath(vty, peer_str, xpath, sizeof(xpath), &is_pg);
@@ -7935,7 +7936,10 @@ DEFPY_YANG(neighbor_encapsulation_srv6_or_mpls_yang,
 
 	af = bgp_cli_afi_safi_name(vty->node);
 	nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
-	snprintfrr(leaf, sizeof(leaf), "%s/%s/encapsulation/type", xpath, af);
+
+	yang_val = srv6 ? "srv6" : "mpls";
+	flag = srv6 ? PEER_FLAG_CONFIG_ENCAPSULATION_SRV6 : PEER_FLAG_CONFIG_ENCAPSULATION_MPLS;
+	snprintfrr(leaf, sizeof(leaf), "%s/%s/encapsulation/type[.='%s']", xpath, af, yang_val);
 
 	if (no) {
 		peer = peer_and_group_lookup_vty(vty, peer_str);
@@ -7943,21 +7947,13 @@ DEFPY_YANG(neighbor_encapsulation_srv6_or_mpls_yang,
 			return CMD_WARNING_CONFIG_FAILED;
 		afi = bgp_node_afi(vty);
 		safi = bgp_node_safi(vty);
-		flag = srv6 ? PEER_FLAG_CONFIG_ENCAPSULATION_SRV6
-			    : PEER_FLAG_CONFIG_ENCAPSULATION_MPLS;
-		other = srv6 ? PEER_FLAG_CONFIG_ENCAPSULATION_MPLS
-			     : PEER_FLAG_CONFIG_ENCAPSULATION_SRV6;
 
 		if (!peergroup_af_flag_check(peer, afi, safi, flag))
 			return CMD_SUCCESS;
 
-		/* Keep the other encapsulation if still configured. */
-		if (peergroup_af_flag_check(peer, afi, safi, other))
-			nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY, srv6 ? "mpls" : "srv6");
-		else
-			nb_cli_enqueue_change(vty, leaf, NB_OP_DESTROY, NULL);
+		nb_cli_enqueue_change(vty, leaf, NB_OP_DESTROY, NULL);
 	} else
-		nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY, srv6 ? "srv6" : "mpls");
+		nb_cli_enqueue_change(vty, leaf, NB_OP_CREATE, yang_val);
 
 	return nb_cli_apply_changes(vty, NULL);
 }

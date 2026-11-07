@@ -609,7 +609,7 @@ int bgp_nb_peer_af_soft_reconfig_modify(struct nb_cb_modify_args *args);
 void bgp_nb_cli_show_peer_af_soft_reconfig(struct vty *vty, const struct lyd_node *dnode,
 					   bool show_defaults);
 
-int bgp_nb_peer_af_encapsulation_modify(struct nb_cb_modify_args *args);
+int bgp_nb_peer_af_encapsulation_create(struct nb_cb_create_args *args);
 int bgp_nb_peer_af_encapsulation_destroy(struct nb_cb_destroy_args *args);
 void bgp_nb_cli_show_peer_af_encapsulation(struct vty *vty, const struct lyd_node *dnode,
 					   bool show_defaults);
