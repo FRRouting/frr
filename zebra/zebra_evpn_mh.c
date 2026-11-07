@@ -28,6 +28,7 @@
 #include "zebra/rt.h"
 #include "zebra/rt_netlink.h"
 #include "zebra/if_netlink.h"
+#include "lib_errors.h"
 #include "zebra/zebra_errors.h"
 #include "zebra/zebra_l2.h"
 #include "zebra/zebra_l2_bridge_if.h"
@@ -37,12 +38,17 @@
 #include "zebra/zebra_vxlan_private.h"
 #include "zebra/zebra_evpn.h"
 #include "zebra/zebra_evpn_mac.h"
+#include "zebra/zebra_evpn_neigh.h"
 #include "zebra/zebra_router.h"
 #include "zebra/zebra_evpn_mh.h"
+#include "zebra/zebra_neigh.h"
+#include "zebra/zebra_evpn_bpp.h"
+#include "zebra/zebra_dplane.h"
 #include "zebra/zebra_nhg.h"
 
 DEFINE_MTYPE_STATIC(ZEBRA, ZACC_BD, "Access Broadcast Domain");
 DEFINE_MTYPE_STATIC(ZEBRA, ZES, "Ethernet Segment");
+DEFINE_MTYPE_STATIC(ZEBRA, ZL3_MAC_ES, "L3VNI neigh-sync MAC/ES cache entry");
 DEFINE_MTYPE_STATIC(ZEBRA, ZES_EVI, "ES info per-EVI");
 DEFINE_MTYPE_STATIC(ZEBRA, ZMH_INFO, "MH global info");
 DEFINE_MTYPE_STATIC(ZEBRA, ZES_VTEP, "VTEP attached to the ES");
@@ -50,6 +56,8 @@ DEFINE_MTYPE_STATIC(ZEBRA, L2_NH, "L2 nexthop");
 DEFINE_MTYPE_STATIC(ZEBRA, MH_VTEP, "EVPN MH peer VTEP");
 
 static void zebra_evpn_es_get_one_base_evpn(void);
+static void zebra_evpn_l3vni_readvertise_bd_neighbors(struct zebra_evpn_access_bd *acc_bd);
+static void zebra_evpn_l3vni_reinstall_bd_remote_neighs(struct zebra_evpn_access_bd *acc_bd);
 static int zebra_evpn_es_evi_send_to_client(struct zebra_evpn_es *es,
 					    struct zebra_evpn *zevpn, bool add);
 static void zebra_evpn_local_es_del(struct zebra_evpn_es **esp);
@@ -605,6 +613,9 @@ static void zebra_evpn_acc_vl_free(struct zebra_evpn_access_bd *acc_bd)
 	if (acc_bd->vlan_zif && acc_bd->zevpn && acc_bd->zevpn->mac_table)
 		zebra_evpn_mac_svi_del(acc_bd->vlan_zif->ifp, acc_bd->zevpn);
 
+	/* free the L3VNI neighbor-sync MAC/ES cache, if any */
+	zebra_evpn_l3vni_mac_es_flush(acc_bd);
+
 	/* cleanup resources maintained against the ES */
 	list_delete(&acc_bd->mbr_zifs);
 
@@ -675,6 +686,8 @@ void zebra_evpn_acc_bd_svi_set(struct zebra_if *vlan_zif,
 		return;
 
 	if (is_up) {
+		bool svi_linked = acc_bd->vlan_zif != vlan_zif;
+
 		if (IS_ZEBRA_DEBUG_EVPN_MH_ES)
 			zlog_debug("vlan %d bridge %s SVI %s set", vid,
 				   tmp_br_zif->ifp->name, vlan_zif->ifp->name);
@@ -683,6 +696,8 @@ void zebra_evpn_acc_bd_svi_set(struct zebra_if *vlan_zif,
 		if (acc_bd->zevpn)
 			zebra_evpn_mac_svi_add(acc_bd->vlan_zif->ifp,
 					       acc_bd->zevpn);
+		else if (svi_linked)
+			zebra_evpn_l3vni_reinstall_bd_remote_neighs(acc_bd);
 	} else if (acc_bd->vlan_zif) {
 		if (IS_ZEBRA_DEBUG_EVPN_MH_ES)
 			zlog_debug("vlan %d bridge %s SVI clear", vid,
@@ -691,6 +706,8 @@ void zebra_evpn_acc_bd_svi_set(struct zebra_if *vlan_zif,
 		if (acc_bd->zevpn && acc_bd->zevpn->mac_table)
 			zebra_evpn_mac_svi_del(vlan_zif->ifp, acc_bd->zevpn);
 	}
+
+	zebra_evpn_bpp_re_eval_schedule();
 }
 
 /* On some events macs are force-flushed. This api can be used to reinstate
@@ -733,6 +750,8 @@ static void zebra_evpn_acc_bd_evpn_set(struct zebra_evpn_access_bd *acc_bd,
 			zebra_evpn_mac_svi_del(acc_bd->vlan_zif->ifp,
 					       old_zevpn);
 	}
+
+	zebra_evpn_bpp_re_eval_schedule();
 }
 
 /* Lookup API for  VxLAN_IF's Bridge, VLAN in EVPN cache */
@@ -757,6 +776,30 @@ int zebra_evpn_vl_vxl_bridge_lookup(uint16_t vid, struct zebra_if *vxlan_zif)
 	return 1;
 }
 
+/* An access BD that had no L2VNI (L3VNI neighbor-sync mode) gained an L2VNI:
+ * withdraw the pure-L3 neighbors previously synced for that BD's ETAG so they
+ * are not left stale alongside the new L2VNI route.
+ */
+static void zebra_evpn_bd_l2vni_appeared_flush(struct zebra_evpn_access_bd *acc_bd, vlanid_t vid)
+{
+	struct zebra_l3vni *zl3vni;
+
+	/* Hand the BD's local pure-L3 neighbors off to the new L2VNI EVI BEFORE
+	 * dropping the MAC/ES cache: the handoff needs the cache to resolve each
+	 * host MAC's access port. Only possible with a usable SVI/VRF/L3VNI.
+	 */
+	if (acc_bd->vlan_zif && acc_bd->vlan_zif->ifp && acc_bd->vlan_zif->ifp->vrf) {
+		zl3vni = zl3vni_from_vrf(acc_bd->vlan_zif->ifp->vrf->vrf_id);
+		if (zl3vni)
+			zebra_evpn_l3vni_neigh_handoff_bd(zl3vni->vni, vid, acc_bd->zevpn,
+							  acc_bd->vlan_zif->ifp);
+	}
+
+	/* The BD no longer originates pure-L3; drop its MAC/ES cache
+	 * unconditionally (it is populated even for a BD with no SVI yet).
+	 */
+	zebra_evpn_l3vni_mac_es_flush(acc_bd);
+}
 
 /* handle VLAN->VxLAN_IF association */
 void zebra_evpn_vl_vxl_ref(uint16_t vid, vni_t vni_id,
@@ -818,6 +861,10 @@ void zebra_evpn_vl_vxl_ref(uint16_t vid, vni_t vni_id,
 		zlog_debug("%s bridge %s access vlan %d vni %u ref", __func__,
 			   br_if->name, acc_bd->vid, vni_id);
 
+	/* An L2VNI just appeared on this BD; withdraw its pure-L3 neighbors. */
+	if (!old_zevpn && acc_bd->zevpn)
+		zebra_evpn_bd_l2vni_appeared_flush(acc_bd, acc_bd->vid);
+
 	if (old_zevpn)
 		zebra_evpn_acc_bd_evpn_set(acc_bd, NULL, old_zevpn);
 
@@ -874,12 +921,31 @@ void zebra_evpn_vl_vxl_deref(uint16_t vid, vni_t vni_id,
 		zlog_debug("access vlan %d bridge ifindex %u vni %u deref", acc_bd->vid,
 			   bridge_ifindex, vni_id);
 
-	if (acc_bd->zevpn)
-		zebra_evpn_acc_bd_evpn_set(acc_bd, NULL, acc_bd->zevpn);
+	if (acc_bd->zevpn) {
+		/* The VLAN is losing its L2VNI: convert its local hosts to
+		 * pure-L3 RT-2s from the existing L2 neighbor state. Run
+		 * after acc_bd->zevpn is cleared so the pure-L3 BD check passes.
+		 */
+		struct zebra_evpn *old_zevpn = acc_bd->zevpn;
+		struct interface *svi_ifp = acc_bd->vlan_zif ? acc_bd->vlan_zif->ifp : NULL;
 
-	acc_bd->zevpn = NULL;
+		zebra_evpn_acc_bd_evpn_set(acc_bd, NULL, acc_bd->zevpn);
+		acc_bd->zevpn = NULL;
+		zebra_evpn_l2vni_neigh_handoff_to_l3(old_zevpn, svi_ifp);
+	} else {
+		acc_bd->zevpn = NULL;
+	}
+
 	acc_bd->vxlan_zif = NULL;
 	acc_bd->vni = 0;
+
+	/* Back to pure-L3: re-program the peers' synced neighbors held
+	 * meanwhile, and re-originate any kernel neighbors still on this SVI
+	 * that the L2 EVPN table no longer holds.
+	 */
+	zebra_evpn_l3vni_reinstall_bd_remote_neighs(acc_bd);
+	if (acc_bd->vlan_zif && acc_bd->vlan_zif->ifp)
+		zebra_neigh_l3_replay_ifp(acc_bd->vlan_zif->ifp);
 
 	/* if there are no other references the access_bd can be freed */
 	zebra_evpn_acc_bd_free_on_deref(acc_bd);
@@ -939,14 +1005,26 @@ void zebra_evpn_vxl_evpn_set(struct zebra_if *zif, struct zebra_evpn *zevpn,
 	if (set) {
 		zebra_evpn_es_set_base_evpn(zevpn);
 		if (acc_bd->zevpn != zevpn) {
+			/* An L2VNI just appeared on this BD; withdraw the
+			 * pure-L3 neighbors previously synced for its ETAG.
+			 */
+			if (!acc_bd->zevpn)
+				zebra_evpn_bd_l2vni_appeared_flush(acc_bd, vni->access_vlan);
 			acc_bd->zevpn = zevpn;
 			zebra_evpn_acc_bd_evpn_set(acc_bd, zevpn, NULL);
 		}
 	} else {
 		if (acc_bd->zevpn) {
+			/* The L2VNI is going away as an EVPN object: convert
+			 * its local hosts to pure-L3 RT-2s after
+			 * acc_bd->zevpn is cleared.
+			 */
 			struct zebra_evpn *old_zevpn = acc_bd->zevpn;
+			struct interface *svi_ifp = acc_bd->vlan_zif ? acc_bd->vlan_zif->ifp : NULL;
+
 			acc_bd->zevpn = NULL;
 			zebra_evpn_acc_bd_evpn_set(acc_bd, NULL, old_zevpn);
+			zebra_evpn_l2vni_neigh_handoff_to_l3(old_zevpn, svi_ifp);
 		}
 	}
 }
@@ -978,6 +1056,12 @@ void zebra_evpn_vl_mbr_ref(uint16_t vid, struct zebra_if *zif)
 	listnode_add(acc_bd->mbr_zifs, zif);
 	if (acc_bd->zevpn && zif->es_info.es)
 		zebra_evpn_local_es_evi_add(zif->es_info.es, acc_bd->zevpn);
+
+	/* MACs cached or with a static sync-MAC FDB entry on it now resolve. */
+	zebra_evpn_l3vni_readvertise_bd_neighbors(acc_bd);
+
+	/* A re-created BD or re-joined ES bond needs its held remote state. */
+	zebra_evpn_l3vni_reinstall_bd_remote_neighs(acc_bd);
 }
 
 /* handle deletion of VLAN members */
@@ -1006,10 +1090,18 @@ void zebra_evpn_vl_mbr_deref(uint16_t vid, struct zebra_if *zif)
 		zlog_debug("access vlan %d bridge %s mbr %s deref", vid,
 			   br_if->name, zif->ifp->name);
 
+	/* Purge any cached host MACs learned behind this leaving port so a
+	 * pure-L3 RT-2 stops advertising an ESI for a port no longer in the BD.
+	 */
+	zebra_evpn_l3vni_mac_es_port_flush(acc_bd, zif->ifp->ifindex);
+
 	list_delete_node(acc_bd->mbr_zifs, node);
 
 	if (acc_bd->zevpn && zif->es_info.es)
 		zebra_evpn_local_es_evi_del(zif->es_info.es, acc_bd->zevpn);
+
+	/* Neighbors resolved via a static sync-MAC FDB entry on this port. */
+	zebra_evpn_l3vni_readvertise_bd_neighbors(acc_bd);
 
 	/* if there are no other references the access_bd can be freed */
 	zebra_evpn_acc_bd_free_on_deref(acc_bd);
@@ -1253,6 +1345,8 @@ void zebra_evpn_if_cleanup(struct zebra_if *zif)
 	if (es)
 		zebra_evpn_local_es_del(&es);
 
+	zebra_evpn_bpp_if_del(zif);
+
 	if (zmh_info && zmh_info->evpn_vlan_table)
 		hash_iterate(zmh_info->evpn_vlan_table, zebra_evpn_acc_vl_ref_cleanup_cb, zif);
 }
@@ -1262,23 +1356,52 @@ void zebra_evpn_if_cleanup(struct zebra_if *zif)
  *   A L2 NH entry is programmed in the kernel for every ES-VTEP entry. This
  * NH is then added to the L2-ECMP-NHG associated with the ES.
  */
-static uint32_t zebra_evpn_nhid_alloc(struct zebra_evpn_es *es)
+uint32_t zebra_evpn_mh_nhid_alloc(enum nhg_type type)
 {
 	uint32_t id;
-	uint32_t nh_id;
+
+	if (!zmh_info)
+		return 0;
 
 	bf_assign_index(zmh_info->nh_id_bitmap, id);
-
 	if (!id)
 		return 0;
 
+	return id | ((uint32_t)type << NHG_ID_TYPE_POS);
+}
+
+void zebra_evpn_mh_nhid_free(uint32_t nh_id)
+{
+	uint32_t id = nh_id & EVPN_NH_ID_VAL_MASK;
+	enum nhg_type type = NHG_ID_TYPE(nh_id);
+
+	if (!id || !zmh_info)
+		return;
+	if (type == NHG_TYPE_L3_BPP_NH || type == NHG_TYPE_L3_BPP)
+		return;
+
+	bf_release_index(zmh_info->nh_id_bitmap, id);
+}
+
+void zebra_evpn_mh_id_channel_violation(uint32_t id, const char *op)
+{
+	flog_err(EC_ZEBRA_BAD_NHG_MESSAGE, "EVPN-MH ID 0x%x type %u channel %s refused on %s", id,
+		 NHG_ID_TYPE(id), zebra_evpn_mh_id_channel(id), op);
+	if (zmh_info)
+		zmh_info->bpp_id_err++;
+}
+
+static uint32_t zebra_evpn_nhid_alloc(struct zebra_evpn_es *es)
+{
+	uint32_t nh_id;
+
+	nh_id = zebra_evpn_mh_nhid_alloc(es ? NHG_TYPE_L2 : NHG_TYPE_L2_NH);
+	if (!nh_id)
+		return 0;
+
 	if (es) {
-		nh_id = id | EVPN_NHG_ID_TYPE_BIT;
-		/* Add to NHG hash */
 		es->nhg_id = nh_id;
 		(void)hash_get(zmh_info->nhg_table, es, hash_alloc_intern);
-	} else {
-		nh_id = id | EVPN_NH_ID_TYPE_BIT;
 	}
 
 	return nh_id;
@@ -1286,9 +1409,7 @@ static uint32_t zebra_evpn_nhid_alloc(struct zebra_evpn_es *es)
 
 static void zebra_evpn_nhid_free(uint32_t nh_id, struct zebra_evpn_es *es)
 {
-	uint32_t id = (nh_id & EVPN_NH_ID_VAL_MASK);
-
-	if (!id)
+	if (!nh_id)
 		return;
 
 	if (es) {
@@ -1296,7 +1417,7 @@ static void zebra_evpn_nhid_free(uint32_t nh_id, struct zebra_evpn_es *es)
 		es->nhg_id = 0;
 	}
 
-	bf_release_index(zmh_info->nh_id_bitmap, id);
+	zebra_evpn_mh_nhid_free(nh_id);
 }
 
 /* Reserve bitmap index for a stale FDB NH/NHG read from kernel at startup,
@@ -1898,6 +2019,11 @@ static bool zebra_evpn_es_br_port_dplane_clear(struct zebra_evpn_es *es)
 	if (IS_ZEBRA_DEBUG_EVPN_MH_ES)
 		zlog_debug("es %s br-port dplane clear", es->esi_str);
 
+	if (es->bpp_backup_nhg_id) {
+		es->bpp_backup_nhg_id = 0;
+		zebra_evpn_bpp_export_br_port(es, true);
+	}
+
 	memset(&sph_filters, 0, sizeof(sph_filters));
 	dplane_br_port_update(es->zif->ifp, false /* non_df */, 0, sph_filters,
 			      0 /* backup_nhg_id */);
@@ -1931,6 +2057,28 @@ static bool zebra_evpn_es_br_port_dplane_update(struct zebra_evpn_es *es,
 	if (!(es->flags & ZEBRA_EVPNES_BR_PORT))
 		return false;
 
+	if (zebra_evpn_bpp_es_bound(es) && es->l3_nhg_id) {
+		if (es->bpp_backup_nhg_id == es->l3_nhg_id)
+			return true;
+		if (IS_ZEBRA_DEBUG_EVPN_MH_ES || IS_ZEBRA_DEBUG_EVPN_MH_PROT)
+			zlog_debug("es %s br-port protection Binding by %s nhg 0x%x", es->esi_str,
+				   caller, es->l3_nhg_id);
+		memset(&sph_filters, 0, sizeof(sph_filters));
+		dplane_br_port_update(es->zif->ifp, false /* non_df */, 0, sph_filters,
+				      es->l3_nhg_id);
+		zebra_evpn_bpp_export_br_port(es, false);
+		es->bpp_backup_nhg_id = es->l3_nhg_id;
+		return true;
+	}
+
+	if (es->bpp_backup_nhg_id) {
+		if (IS_ZEBRA_DEBUG_EVPN_MH_ES || IS_ZEBRA_DEBUG_EVPN_MH_PROT)
+			zlog_debug("es %s br-port protection Binding clear by %s", es->esi_str,
+				   caller);
+		es->bpp_backup_nhg_id = 0;
+		zebra_evpn_bpp_export_br_port(es, true);
+	}
+
 	if (IS_ZEBRA_DEBUG_EVPN_MH_ES)
 		zlog_debug("es %s br-port dplane update by %s", es->esi_str,
 			   caller);
@@ -1963,6 +2111,12 @@ static bool zebra_evpn_es_br_port_dplane_update(struct zebra_evpn_es *es,
 			      sph_filter_cnt, sph_filters, backup_nhg_id);
 
 	return true;
+}
+
+void zebra_evpn_es_br_port_update(struct zebra_evpn_es *es)
+{
+	if (es)
+		zebra_evpn_es_br_port_dplane_update(es, __func__);
 }
 
 /* returns TRUE if dplane entry was updated */
@@ -2200,6 +2354,10 @@ static void zebra_evpn_es_free(struct zebra_evpn_es **esp)
 		dplane_nh_fdb_del(es->nhg_id);
 	}
 	zebra_evpn_nhid_free(es->nhg_id, es);
+	if (es->l3_nhg_id) {
+		zebra_evpn_mh_nhid_free(es->l3_nhg_id);
+		es->l3_nhg_id = 0;
+	}
 
 	/* cleanup resources maintained against the ES */
 	list_delete(&es->es_evi_list);
@@ -2299,10 +2457,14 @@ static void zebra_evpn_es_re_eval_send_to_client(struct zebra_evpn_es *es,
 	if (old_ready == new_ready)
 		return;
 
-	if (new_ready)
+	if (new_ready) {
 		zebra_evpn_es_send_add_to_client(es);
-	else
+		zebra_evpn_bpp_es_update(es);
+	} else {
+		zebra_evpn_bpp_es_send_all(es, false);
 		zebra_evpn_es_send_del_to_client(es);
+		zebra_evpn_bpp_es_update(es);
+	}
 
 	/* re-eval associated EVIs */
 	if (es_evi_re_reval) {
@@ -2343,6 +2505,7 @@ void zebra_evpn_es_send_all_to_client(bool add)
 						es, es_evi->zevpn,
 						false /* add */);
 			}
+			zebra_evpn_bpp_es_send_all(es, add);
 			if (!add)
 				zebra_evpn_es_send_del_to_client(es);
 		}
@@ -2614,6 +2777,13 @@ static void zebra_evpn_es_local_info_set(struct zebra_evpn_es *es,
 	/* Set the VTEPs as local ES peers (link existing es_vteps to mh_vtep_list) */
 	for (ALL_LIST_ELEMENTS_RO(es->es_vtep_list, node, zvtep))
 		zebra_evpn_es_vtep_local_set(zvtep);
+
+	/* Refresh any pure-L3 RT-2s for hosts behind this port now that it has
+	 * a local ES to stamp as their ESI.
+	 */
+	zebra_evpn_l3vni_readvertise_acc_port(zif->ifp);
+
+	zebra_evpn_bpp_if_update(zif);
 }
 
 static void zebra_evpn_es_local_info_clear(struct zebra_evpn_es **esp)
@@ -2660,6 +2830,14 @@ static void zebra_evpn_es_local_info_clear(struct zebra_evpn_es **esp)
 	es->flags &= ~(ZEBRA_EVPNES_OPER_UP | ZEBRA_EVPNES_BR_PORT
 		       | ZEBRA_EVPNES_BYPASS);
 
+	/* Refresh any pure-L3 RT-2s for hosts behind this port; with the local
+	 * ES gone they must be withdrawn.
+	 */
+	if (zif) {
+		zebra_evpn_l3vni_readvertise_acc_port(zif->ifp);
+		zebra_evpn_bpp_if_update(zif);
+	}
+
 	/* remove from the ES list */
 	list_delete_node(zmh_info->local_es_list, &es->local_es_listnode);
 
@@ -2690,9 +2868,12 @@ static void zebra_evpn_local_es_del(struct zebra_evpn_es **esp)
 		zebra_evpn_local_es_evi_do_del(es_evi);
 
 	/* send a del if the ES had been sent to BGP earlier */
-	if (es->flags & ZEBRA_EVPNES_READY_FOR_BGP)
+	if (es->flags & ZEBRA_EVPNES_READY_FOR_BGP) {
+		zebra_evpn_bpp_es_send_all(es, false);
 		zebra_evpn_es_send_del_to_client(es);
+	}
 
+	zebra_evpn_bpp_es_clear(es);
 	zebra_evpn_es_local_info_clear(esp);
 }
 
@@ -2881,6 +3062,33 @@ void zebra_evpn_proc_remote_es(ZAPI_HANDLER_ARGS)
 
 stream_failure:
 	return;
+}
+
+void zebra_evpn_proc_bpp_peer(ZAPI_HANDLER_ARGS)
+{
+	struct zapi_evpn_bpp_peer peer = {};
+	bool add = (hdr->command == ZEBRA_EVPN_BPP_PEER_ADD);
+	char esi_buf[ESI_STR_LEN];
+
+	if (zapi_evpn_bpp_peer_decode(msg, &peer, add)) {
+		flog_err(EC_LIB_ZAPI_ENCODE, "invalid EVPN BPP peer %s message",
+			 add ? "ADD" : "DEL");
+		if (zmh_info)
+			zmh_info->bpp_peer_bad_msg++;
+		return;
+	}
+
+	if (IS_ZEBRA_DEBUG_EVPN_MH_PROT) {
+		if (add)
+			zlog_debug("bpp peer add esi %s type L3 vtep %pIA rmac %pEA",
+				   esi_to_str(&peer.esi, esi_buf, sizeof(esi_buf)), &peer.vtep,
+				   &peer.rmac);
+		else
+			zlog_debug("bpp peer del esi %s type L3 vtep %pIA",
+				   esi_to_str(&peer.esi, esi_buf, sizeof(esi_buf)), &peer.vtep);
+	}
+
+	zebra_evpn_bpp_peer_update(&peer, add);
 }
 
 void zebra_evpn_es_mac_deref_entry(struct zebra_mac *mac)
@@ -3116,6 +3324,11 @@ void zebra_evpn_es_bypass_update(struct zebra_evpn_es *es,
 	if (!dplane_updated && (es->flags & ZEBRA_EVPNES_LOCAL)
 	    && (listcount(es->es_vtep_list) > ES_VTEP_MAX_CNT))
 		zebra_evpn_es_br_port_dplane_update(es, __func__);
+
+	/* bypass toggling changes whether hosts behind this port carry the ESI;
+	 * refresh their pure-L3 RT-2s.
+	 */
+	zebra_evpn_l3vni_readvertise_acc_port(ifp);
 }
 
 void zebra_evpn_es_bypass_cfg_update(struct zebra_if *zif, bool bypass)
@@ -3133,6 +3346,16 @@ void zebra_evpn_es_bypass_cfg_update(struct zebra_if *zif, bool bypass)
 
 	if (zif->es_info.es)
 		zebra_evpn_es_bypass_update(zif->es_info.es, zif->ifp, bypass);
+}
+
+void zebra_evpn_es_bpp_cfg_update(struct zebra_if *zif, bool bpp)
+{
+	if (bpp)
+		SET_FLAG(zif->es_info.flags, ZIF_CFG_ES_FLAG_BPP);
+	else
+		UNSET_FLAG(zif->es_info.flags, ZIF_CFG_ES_FLAG_BPP);
+
+	zebra_evpn_bpp_if_update(zif);
 }
 
 
@@ -3733,7 +3956,8 @@ void zebra_evpn_es_set_base_evpn(struct zebra_evpn *zevpn)
 		/* check if the local vtep-ip has changed */
 	} else {
 		/* check if the EVPN can be used as base EVPN */
-		if (!zebra_evpn_send_to_client_ok(zevpn))
+		if (!zebra_evpn_send_to_client_ok(zevpn) &&
+		    !CHECK_FLAG(zevpn->flags, ZEVPN_L3_NEIGH_SYNC))
 			return;
 
 		if (IS_ZEBRA_DEBUG_EVPN_MH_ES)
@@ -3767,6 +3991,8 @@ void zebra_evpn_es_set_base_evpn(struct zebra_evpn *zevpn)
 	}
 }
 
+static void zebra_evpn_es_get_one_base_evpn_excl(vni_t excl_vni, struct zebra_evpn *skip);
+
 /* called when a vni is removed or becomes oper down or is removed from a
  * bridge
  */
@@ -3780,7 +4006,7 @@ void zebra_evpn_es_clear_base_evpn(struct zebra_evpn *zevpn)
 
 	zmh_info->es_base_evpn = NULL;
 	/* lost current base EVPN; try to find a new one */
-	zebra_evpn_es_get_one_base_evpn();
+	zebra_evpn_es_get_one_base_evpn_excl(0, zevpn);
 
 	/* couldn't locate an eligible base evpn */
 	if (!zmh_info->es_base_evpn && !ipaddr_is_zero(&zmh_info->es_originator_ip)) {
@@ -3802,6 +4028,17 @@ static int zebra_evpn_es_get_one_base_evpn_cb(struct hash_bucket *b, void *data)
 {
 	struct zebra_evpn *zevpn = b->data;
 
+	/* Still in the table while it is being deleted. */
+	if (zevpn == data)
+		return HASHWALK_CONTINUE;
+
+	/* L3VNI neighbor-sync singletons live in the same table but are adopted
+	 * only via the explicit, knob-gated L3 fallback -- skip them here so the
+	 * generic walk cannot re-adopt one while it is being torn down.
+	 */
+	if (CHECK_FLAG(zevpn->flags, ZEVPN_L3_NEIGH_SYNC))
+		return HASHWALK_CONTINUE;
+
 	zebra_evpn_es_set_base_evpn(zevpn);
 
 	if (zmh_info->es_base_evpn)
@@ -3810,15 +4047,649 @@ static int zebra_evpn_es_get_one_base_evpn_cb(struct hash_bucket *b, void *data)
 	return HASHWALK_CONTINUE;
 }
 
-/* locate a base_evpn to follow for the purposes of common params like
- * originator IP
+/* Pick the first L3VNI with a resolved local VTEP IP, skipping excl_vni. */
+struct zebra_evpn_es_l3vni_ctx {
+	vni_t excl_vni;
+	struct zebra_l3vni *found;
+};
+
+static int zebra_evpn_es_l3vni_vtep_cb(struct hash_bucket *b, void *data)
+{
+	struct zebra_l3vni *zl3vni = b->data;
+	struct zebra_evpn_es_l3vni_ctx *ctx = data;
+
+	if (zl3vni->vni == ctx->excl_vni)
+		return HASHWALK_CONTINUE;
+
+	/* Only an operational L3VNI is a valid base: local_vtep_ip may linger
+	 * populated after the L3VNI has gone oper-down.
+	 */
+	if (is_l3vni_oper_up(zl3vni) && !ipaddr_is_zero(&zl3vni->local_vtep_ip)) {
+		ctx->found = zl3vni;
+		return HASHWALK_ABORT;
+	}
+
+	return HASHWALK_CONTINUE;
+}
+
+/* No L2VNI to follow: in an EVPN L3 multihoming (no-L2VNI) deployment the ES
+ * base EVPN / originator IP is sourced from the L3VNI instead. Use the
+ * L3VNI-keyed neighbor-sync singleton, populated with the L3VNI's local VTEP
+ * IP, as the base EVPN so the local ES can still be advertised to bgpd.
+ * excl_vni lets a caller skip an L3VNI that is being torn down. The hold taken
+ * here is released by zebra_evpn_es_l3vni_base_evpn_clear() (knob off) or
+ * zebra_evpn_es_l3vni_oper_down() (L3VNI down/removed).
  */
-static void zebra_evpn_es_get_one_base_evpn(void)
+static void zebra_evpn_es_get_l3vni_base_evpn(vni_t excl_vni)
+{
+	struct zebra_vrf *zvrf = zebra_vrf_get_evpn();
+	struct zebra_evpn_es_l3vni_ctx ctx = { .excl_vni = excl_vni };
+	struct zebra_l3vni *zl3vni;
+	struct zebra_evpn *zevpn;
+
+	if (!zvrf || !zvrf->advertise_l3vni_neigh)
+		return;
+
+	/* A leaf has a single VTEP loopback shared by all of its L3VNIs, so any
+	 * operational L3VNI with a resolved local VTEP IP yields the right ES
+	 * originator. If none is eligible yet, defer: re-evaluated when the knob
+	 * or an L3VNI comes up.
+	 */
+	hash_walk(zrouter.l3vni_table, zebra_evpn_es_l3vni_vtep_cb, &ctx);
+	zl3vni = ctx.found;
+	if (!zl3vni || ipaddr_is_zero(&zl3vni->local_vtep_ip))
+		return;
+
+	zevpn = zebra_evpn_l3_neigh_sync_ref(zl3vni->vni);
+	if (!zevpn)
+		return;
+
+	zevpn->local_vtep_ip = zl3vni->local_vtep_ip;
+	zebra_evpn_es_set_base_evpn(zevpn);
+
+	/* set_base_evpn should have adopted it; if not, drop the hold. */
+	if (zmh_info->es_base_evpn != zevpn)
+		zebra_evpn_l3_neigh_sync_unref(zevpn);
+}
+
+/* locate a base_evpn to follow for the purposes of common params like
+ * originator IP; skip is an EVPN being deleted and excl_vni an L3VNI being
+ * torn down.
+ */
+static void zebra_evpn_es_get_one_base_evpn_excl(vni_t excl_vni, struct zebra_evpn *skip)
 {
 	struct zebra_vrf *zvrf;
 
 	zvrf = zebra_vrf_get_evpn();
-	hash_walk(zvrf->evpn_table, zebra_evpn_es_get_one_base_evpn_cb, NULL);
+	hash_walk(zvrf->evpn_table, zebra_evpn_es_get_one_base_evpn_cb, skip);
+
+	/* No L2VNI base found; fall back to the L3VNI for a no-L2VNI
+	 * multihoming deployment.
+	 */
+	if (!zmh_info->es_base_evpn)
+		zebra_evpn_es_get_l3vni_base_evpn(excl_vni);
+}
+
+static void zebra_evpn_es_get_one_base_evpn(void)
+{
+	zebra_evpn_es_get_one_base_evpn_excl(0, NULL);
+}
+
+/* Drop the ES base EVPN / originator IP and re-eval the local ESs. */
+static void zebra_evpn_es_drop_originator_ip(void)
+{
+	struct listnode *node;
+	struct zebra_evpn_es *es;
+
+	if (ipaddr_is_zero(&zmh_info->es_originator_ip))
+		return;
+
+	memset(&zmh_info->es_originator_ip, 0, sizeof(struct ipaddr));
+	SET_IPADDR_V4(&zmh_info->es_originator_ip);
+
+	for (ALL_LIST_ELEMENTS_RO(zmh_info->local_es_list, node, es))
+		zebra_evpn_es_re_eval_send_to_client(es, true /* es_evi_re_reval */);
+}
+
+/* Release the hold taken by zebra_evpn_es_get_l3vni_base_evpn() and clear the
+ * L3VNI-sourced base EVPN. Called when advertise-all-vni l3vni-neigh is disabled.
+ */
+void zebra_evpn_es_l3vni_base_evpn_clear(void)
+{
+	struct zebra_evpn *zevpn = zmh_info->es_base_evpn;
+
+	if (!zevpn || !CHECK_FLAG(zevpn->flags, ZEVPN_L3_NEIGH_SYNC))
+		return;
+
+	/* Clears es_base_evpn and re-derives: the generic walk skips L3
+	 * singletons and the L3 fallback is now knob-gated off, so at most an
+	 * L2VNI base is chosen. Then release our singleton hold.
+	 */
+	zebra_evpn_es_clear_base_evpn(zevpn);
+	zebra_evpn_l3_neigh_sync_unref(zevpn);
+}
+
+/* The L3VNI currently providing the ES base EVPN is going down or being
+ * removed: drop it, release the hold, and try another usable L3VNI (they share
+ * the leaf VTEP loopback). Called from the L3VNI oper-down path.
+ */
+void zebra_evpn_es_l3vni_oper_down(struct zebra_l3vni *zl3vni)
+{
+	struct zebra_evpn *zevpn = zmh_info->es_base_evpn;
+
+	if (!zl3vni || !zevpn || !CHECK_FLAG(zevpn->flags, ZEVPN_L3_NEIGH_SYNC) ||
+	    zevpn->vni != zl3vni->vni)
+		return;
+
+	zmh_info->es_base_evpn = NULL;
+	zebra_evpn_l3_neigh_sync_unref(zevpn);
+
+	/* Re-derive from another base, excluding the L3VNI going away. */
+	zebra_evpn_es_get_one_base_evpn_excl(zl3vni->vni, NULL);
+
+	if (!zmh_info->es_base_evpn)
+		zebra_evpn_es_drop_originator_ip();
+}
+
+/* Re-evaluate the base EVPN when advertise-all-vni l3vni-neigh is enabled or an L3VNI
+ * comes up. Also refresh the copied VTEP IP if the L3VNI-sourced base's local
+ * VTEP has since changed.
+ */
+void zebra_evpn_es_l3vni_base_evpn_reeval(void)
+{
+	struct zebra_evpn *zevpn = zmh_info->es_base_evpn;
+	struct zebra_l3vni *zl3vni;
+
+	if (!zevpn) {
+		zebra_evpn_es_get_one_base_evpn();
+		return;
+	}
+
+	if (!CHECK_FLAG(zevpn->flags, ZEVPN_L3_NEIGH_SYNC))
+		return;
+
+	/* Base is L3VNI-sourced: pick up a changed local VTEP IP. */
+	zl3vni = zl3vni_lookup(zevpn->vni);
+	if (zl3vni && !ipaddr_is_zero(&zl3vni->local_vtep_ip) &&
+	    !ipaddr_is_same(&zevpn->local_vtep_ip, &zl3vni->local_vtep_ip)) {
+		zevpn->local_vtep_ip = zl3vni->local_vtep_ip;
+		zebra_evpn_es_set_base_evpn(zevpn);
+	}
+}
+
+/* Derive the EVPN origination mode of an access broadcast domain: L2VNI when it
+ * is backed by an L2VNI, L3VNI_NEIGH when it has no L2VNI but a usable SVI whose
+ * VRF has an operational L3VNI and advertise-all-vni l3vni-neigh is on, otherwise NONE.
+ */
+enum zebra_evpn_bd_evpn_mode zebra_evpn_bd_evpn_mode(const struct zebra_evpn_access_bd *acc_bd)
+{
+	struct zebra_vrf *evpn_zvrf;
+	struct interface *svi;
+	struct zebra_l3vni *zl3vni;
+
+	if (!acc_bd)
+		return ZEBRA_EVPN_BD_MODE_NONE;
+
+	if (acc_bd->zevpn)
+		return ZEBRA_EVPN_BD_MODE_L2VNI;
+
+	evpn_zvrf = zebra_vrf_get_evpn();
+	if (!evpn_zvrf || !evpn_zvrf->advertise_l3vni_neigh)
+		return ZEBRA_EVPN_BD_MODE_NONE;
+
+	if (!acc_bd->vlan_zif || !acc_bd->vlan_zif->ifp)
+		return ZEBRA_EVPN_BD_MODE_NONE;
+
+	svi = acc_bd->vlan_zif->ifp;
+	if (!svi->vrf)
+		return ZEBRA_EVPN_BD_MODE_NONE;
+
+	zl3vni = zl3vni_from_vrf(svi->vrf->vrf_id);
+	if (!zl3vni || !is_l3vni_oper_up(zl3vni))
+		return ZEBRA_EVPN_BD_MODE_NONE;
+
+	return ZEBRA_EVPN_BD_MODE_L3VNI_NEIGH;
+}
+
+/* If the neighbor's SVI maps to a no-L2VNI BD eligible for L3VNI neighbor sync,
+ * return true and hand back the owning L3VNI's vni, its local VTEP IP, and the
+ * BD's VLAN (used as the RT-2 ETAG). The pure-L3 local origination / withdraw
+ * paths use this to route a MAC-less neighbor to the L3VNI-keyed neighbor-sync
+ * singleton without dereferencing any L2VNI state.
+ */
+bool zebra_evpn_l3vni_neigh_sync_bd(struct interface *ifp, struct interface *br_if, vni_t *vni,
+				    struct ipaddr *vtep_ip, vlanid_t *vid)
+{
+	struct zebra_if *br_zif;
+	struct zebra_if *svi_zif;
+	struct zebra_evpn_access_bd *acc_bd;
+	struct zebra_l3vni *zl3vni;
+	vlanid_t bd_vid;
+
+	if (!ifp || !br_if || !ifp->vrf)
+		return false;
+
+	if (!IS_ZEBRA_IF_BRIDGE(br_if))
+		return false;
+	br_zif = br_if->info;
+	if (!br_zif || !IS_ZEBRA_IF_BRIDGE_VLAN_AWARE(br_zif))
+		return false;
+
+	if (!IS_ZEBRA_IF_VLAN(ifp))
+		return false;
+	svi_zif = ifp->info;
+	if (!svi_zif)
+		return false;
+	bd_vid = svi_zif->l2info.vl.vid;
+
+	acc_bd = zebra_evpn_acc_vl_find(bd_vid, br_if);
+	if (!acc_bd || acc_bd->zevpn)
+		return false;
+
+	if (zebra_evpn_bd_evpn_mode(acc_bd) != ZEBRA_EVPN_BD_MODE_L3VNI_NEIGH)
+		return false;
+
+	zl3vni = zl3vni_from_vrf(ifp->vrf->vrf_id);
+	if (!zl3vni)
+		return false;
+
+	if (vni)
+		*vni = zl3vni->vni;
+	if (vtep_ip)
+		*vtep_ip = zl3vni->local_vtep_ip;
+	if (vid)
+		*vid = bd_vid;
+
+	return true;
+}
+
+/* Resolve the L3VNI serving an SVI's VRF, independent of the knob / mode.
+ * Used by the local withdraw path so a synced neighbor can still be located
+ * and torn down after the BD has left L3VNI neighbor-sync mode (knob off,
+ * L3VNI down, or an L2VNI appeared).
+ */
+bool zebra_evpn_l3vni_from_svi(struct interface *ifp, vni_t *vni)
+{
+	struct zebra_l3vni *zl3vni;
+
+	if (!ifp || !ifp->vrf)
+		return false;
+
+	zl3vni = zl3vni_from_vrf(ifp->vrf->vrf_id);
+	if (!zl3vni)
+		return false;
+
+	if (vni)
+		*vni = zl3vni->vni;
+
+	return true;
+}
+
+/* Access BD MAC/ES cache: hash by host MAC. -------------------------------- */
+
+static int zebra_evpn_l3_mac_es_cmp(const struct zebra_evpn_l3_mac_es *e1,
+				    const struct zebra_evpn_l3_mac_es *e2)
+{
+	return memcmp(&e1->macaddr, &e2->macaddr, ETH_ALEN);
+}
+
+static uint32_t zebra_evpn_l3_mac_es_hash(const struct zebra_evpn_l3_mac_es *e)
+{
+	return jhash(e->macaddr.octet, ETH_ALEN, 0xa5a5a5a5);
+}
+
+DECLARE_HASH(zebra_l3_mac_es, struct zebra_evpn_l3_mac_es, item, zebra_evpn_l3_mac_es_cmp,
+	     zebra_evpn_l3_mac_es_hash);
+
+static struct zebra_evpn_l3_mac_es *zebra_evpn_l3_mac_es_lookup(struct zebra_evpn_access_bd *acc_bd,
+								const struct ethaddr *macaddr)
+{
+	struct zebra_evpn_l3_mac_es lookup = { .macaddr = *macaddr };
+
+	return zebra_l3_mac_es_find(&acc_bd->l3_mac_es_table, &lookup);
+}
+
+static ifindex_t zebra_evpn_l3_mac_es_find(struct zebra_evpn_access_bd *acc_bd,
+					   const struct ethaddr *macaddr)
+{
+	struct zebra_evpn_l3_mac_es *e = zebra_evpn_l3_mac_es_lookup(acc_bd, macaddr);
+
+	return e ? e->acc_ifindex : 0;
+}
+
+/* Empty an access BD's MAC/ES cache (BD teardown or mode exit). */
+void zebra_evpn_l3vni_mac_es_flush(struct zebra_evpn_access_bd *acc_bd)
+{
+	struct zebra_evpn_l3_mac_es *e;
+
+	if (!acc_bd)
+		return;
+
+	while ((e = zebra_l3_mac_es_pop(&acc_bd->l3_mac_es_table)))
+		XFREE(MTYPE_ZL3_MAC_ES, e);
+	zebra_l3_mac_es_fini(&acc_bd->l3_mac_es_table);
+}
+
+static void zebra_evpn_l3vni_mac_es_flush_cb(struct hash_bucket *bucket, void *arg)
+{
+	zebra_evpn_l3vni_mac_es_flush(bucket->data);
+}
+
+/* Flush every access BD's MAC/ES cache. Used on a full EVPN teardown -- e.g. a
+ * non-GR bgpd disconnect / config cleanup. (The l3vni-neigh disable
+ * path deliberately keeps the cache; see zebra_vxlan_advertise_all_vni().)
+ */
+void zebra_evpn_l3vni_mac_es_flush_all(void)
+{
+	if (zmh_info && zmh_info->evpn_vlan_table)
+		hash_iterate(zmh_info->evpn_vlan_table, zebra_evpn_l3vni_mac_es_flush_cb, NULL);
+}
+
+/* Drop every cached host MAC learned behind an access port that is leaving the
+ * BD, then re-advertise the BD's pure-L3 neighbors so any RT-2 that had been
+ * stamped with this port's ESI drops it.
+ *
+ * Cost is O(M + N): one scan of this BD's MAC/ES cache (M entries) to collect
+ * and purge the leaving port's MACs, plus a single BD-wide neighbor
+ * re-advertise (one scan of the L3VNI singleton's N neighbors). We deliberately
+ * do NOT re-advertise per purged MAC: neighbors are IP-keyed, so each per-MAC
+ * call would re-scan the whole neighbor table, giving O(P * N) (quadratic when
+ * most hosts sit behind the leaving port). The single BD-wide pass re-resolves
+ * every neighbor's ESI idempotently; the only cost is a few extra ZAPI
+ * refreshes for neighbors that were not behind the leaving port.
+ */
+void zebra_evpn_l3vni_mac_es_port_flush(struct zebra_evpn_access_bd *acc_bd, ifindex_t acc_ifindex)
+{
+	struct zebra_l3vni *zl3vni;
+	vni_t l3vni = 0;
+	uint32_t purged = 0;
+	struct zebra_evpn_l3_mac_es *e;
+
+	if (acc_bd->vlan_zif && acc_bd->vlan_zif->ifp && acc_bd->vlan_zif->ifp->vrf) {
+		zl3vni = zl3vni_from_vrf(acc_bd->vlan_zif->ifp->vrf->vrf_id);
+		if (zl3vni)
+			l3vni = zl3vni->vni;
+	}
+
+	/* Purge first so the re-advertise below re-resolves the affected
+	 * neighbors to a zero (or corrected) ESI.
+	 */
+	frr_each_safe (zebra_l3_mac_es, &acc_bd->l3_mac_es_table, e) {
+		if (e->acc_ifindex != acc_ifindex)
+			continue;
+		zebra_l3_mac_es_del(&acc_bd->l3_mac_es_table, e);
+		XFREE(MTYPE_ZL3_MAC_ES, e);
+		purged++;
+	}
+
+	/* One BD-wide re-advertise re-resolves every affected neighbor. */
+	if (l3vni && purged)
+		zebra_evpn_l3vni_neigh_readvertise_bd(l3vni, acc_bd->vid);
+}
+
+/* Local bridge FDB add/del for a host MAC on a no-L2VNI (zevpn == NULL) BD.
+ * Maintain the MAC -> access-port cache that pure-L3 RT-2 origination reads to
+ * stamp the host's real ESI, and re-advertise any neighbor already synced for
+ * that MAC so ordering between the FDB (L2) and ARP/ND (L3) events converges.
+ * The cache is kept for any no-L2VNI BD (see the note on acc_bd->l3_mac_es_table
+ * and the gate below): FDB events routinely precede the BD becoming fully
+ * eligible for L3VNI neighbor sync. No-op for a BD that has an L2VNI.
+ */
+void zebra_evpn_l3vni_local_mac_update(struct interface *acc_ifp, struct interface *br_if,
+				       const struct ethaddr *macaddr, vlanid_t vid, bool add)
+{
+	struct zebra_evpn_access_bd *acc_bd;
+	struct zebra_evpn_l3_mac_es *e;
+	struct zebra_l3vni *zl3vni;
+	ifindex_t old_ifindex;
+
+	acc_bd = zebra_evpn_acc_vl_find(vid, br_if);
+	if (!acc_bd)
+		return;
+
+	if (IS_ZEBRA_DEBUG_EVPN_MH_L3_NEIGH)
+		zlog_debug("L3VNI-neigh MAC/ES %s mac %pEA vid %u port %s(%d) br %s mode %d",
+			   add ? "add" : "del", macaddr, vid, acc_ifp->name, acc_ifp->ifindex,
+			   br_if->name, zebra_evpn_bd_evpn_mode(acc_bd));
+
+	/* Track host MACs for any no-L2VNI BD (acc_bd->zevpn == NULL). We do NOT
+	 * gate on the full L3VNI neighbor-sync mode here: a MAC (FDB) event
+	 * routinely arrives before the BD finishes entering that mode (the knob
+	 * is enabled, or the L3VNI comes oper-up, after the host was learned),
+	 * and there is no kernel re-read to backfill it. The cache is
+	 * only ever *consumed* by pure-L3 origination, which is itself
+	 * mode-gated, so caching a few extra no-L2VNI MACs is harmless; the
+	 * cache is flushed when the VLAN gains an L2VNI.
+	 */
+	if (add && acc_bd->zevpn)
+		return;
+
+	old_ifindex = zebra_evpn_l3_mac_es_find(acc_bd, macaddr);
+
+	if (add) {
+		if (old_ifindex == acc_ifp->ifindex)
+			return; /* no change */
+
+		e = zebra_evpn_l3_mac_es_lookup(acc_bd, macaddr);
+		if (!e) {
+			e = XCALLOC(MTYPE_ZL3_MAC_ES, sizeof(*e));
+			e->macaddr = *macaddr;
+			zebra_l3_mac_es_add(&acc_bd->l3_mac_es_table, e);
+		}
+		e->acc_ifindex = acc_ifp->ifindex;
+	} else {
+		if (!old_ifindex)
+			return; /* nothing cached */
+
+		/* Only the port that currently owns the MAC may remove it: a
+		 * delayed delete for the old port must not erase a newer move
+		 * to a different port.
+		 */
+		if (old_ifindex != acc_ifp->ifindex)
+			return;
+
+		e = zebra_evpn_l3_mac_es_lookup(acc_bd, macaddr);
+		if (e) {
+			zebra_l3_mac_es_del(&acc_bd->l3_mac_es_table, e);
+			XFREE(MTYPE_ZL3_MAC_ES, e);
+		}
+	}
+
+	/* Re-advertise any pure-L3 neighbor already learned for this MAC: an add
+	 * originates it with the port's ESI, a delete withdraws it.
+	 */
+	if (!acc_bd->vlan_zif || !acc_bd->vlan_zif->ifp || !acc_bd->vlan_zif->ifp->vrf)
+		return;
+	zl3vni = zl3vni_from_vrf(acc_bd->vlan_zif->ifp->vrf->vrf_id);
+	if (zl3vni)
+		zebra_evpn_l3vni_neigh_readvertise_mac(zl3vni->vni, macaddr, vid);
+}
+
+/* Cache-miss fallback: the bond holding a static sync-MAC FDB entry for the MAC.
+ * The bridge never reports a learn for a MAC that already has a static entry.
+ */
+static ifindex_t zebra_evpn_l3vni_sync_mac_acc_ifindex(const struct zebra_evpn_access_bd *acc_bd,
+						       const struct ethaddr *macaddr,
+						       struct interface *svi_ifp)
+{
+	struct zebra_l3vni *zl3vni;
+
+	if (!svi_ifp->vrf)
+		return 0;
+	zl3vni = zl3vni_from_vrf(svi_ifp->vrf->vrf_id);
+	if (!zl3vni)
+		return 0;
+	return zebra_evpn_l3vni_sync_mac_ifindex(zl3vni->vni, macaddr, acc_bd->vid);
+}
+
+/* Resolve the local Ethernet Segment a host MAC is learned behind, so the
+ * pure-L3 RT-2 can carry the host's ESI for the receiver's ESI-match. There is
+ * no linked zebra_mac to read the ES from, as in the L2 path. The per-MAC FDB
+ * cache (MAC -> access port) is authoritative when populated; on a cache miss
+ * use the bond holding the MAC's static sync-MAC FDB entry.
+ * Return NULL when the MAC's port is unknown, is not an ES, or is in bypass.
+ * There is no single-member fallback: mbr_zifs tracks bonds only, so a BD that
+ * looks single-member may also have plain ports.
+ */
+struct zebra_evpn_es *zebra_evpn_l3vni_neigh_es(const struct ethaddr *macaddr,
+						struct interface *svi_ifp)
+{
+	struct zebra_if *svi_zif;
+	struct interface *br_if;
+	struct interface *acc_ifp;
+	struct zebra_evpn_access_bd *acc_bd;
+	struct zebra_if *acc_zif;
+	ifindex_t acc_ifindex;
+
+	if (!macaddr || !svi_ifp || !svi_ifp->info || !IS_ZEBRA_IF_VLAN(svi_ifp))
+		return NULL;
+
+	svi_zif = svi_ifp->info;
+	br_if = svi_zif->link;
+	if (!br_if)
+		return NULL;
+
+	acc_bd = zebra_evpn_acc_vl_find(svi_zif->l2info.vl.vid, br_if);
+	if (!acc_bd)
+		return NULL;
+
+	acc_ifindex = zebra_evpn_l3_mac_es_find(acc_bd, macaddr);
+	if (!acc_ifindex)
+		acc_ifindex = zebra_evpn_l3vni_sync_mac_acc_ifindex(acc_bd, macaddr, svi_ifp);
+	if (!acc_ifindex)
+		return NULL;
+
+	acc_ifp = if_lookup_by_index_per_ns(zebra_ns_lookup(NS_DEFAULT), acc_ifindex);
+	if (!acc_ifp || !acc_ifp->info)
+		return NULL;
+
+	acc_zif = acc_ifp->info;
+
+	/* The port must still be a member of this BD: a stale cache entry for a
+	 * port that has left the BD must not stamp its ESI.
+	 */
+	if (!listnode_lookup(acc_bd->mbr_zifs, acc_zif))
+		return NULL;
+
+	if (!acc_zif->es_info.es || CHECK_FLAG(acc_zif->es_info.es->flags, ZEBRA_EVPNES_BYPASS))
+		return NULL;
+
+	return acc_zif->es_info.es;
+}
+
+/* Resolve the access port an SVI-side host MAC sits behind, from the BD's
+ * MAC->port cache. When the VLAN gains an L2VNI, the handoff needs it to build
+ * the L2 local MAC on the correct access port (not the SVI). Returns NULL if
+ * unresolved.
+ */
+struct interface *zebra_evpn_l3vni_neigh_acc_ifp(const struct ethaddr *macaddr,
+						 struct interface *svi_ifp)
+{
+	struct zebra_if *svi_zif;
+	struct interface *br_if;
+	struct interface *acc_ifp;
+	struct zebra_evpn_access_bd *acc_bd;
+	ifindex_t acc_ifindex;
+
+	if (!macaddr || !svi_ifp || !svi_ifp->info || !IS_ZEBRA_IF_VLAN(svi_ifp))
+		return NULL;
+
+	svi_zif = svi_ifp->info;
+	br_if = svi_zif->link;
+	if (!br_if)
+		return NULL;
+
+	acc_bd = zebra_evpn_acc_vl_find(svi_zif->l2info.vl.vid, br_if);
+	if (!acc_bd)
+		return NULL;
+
+	acc_ifindex = zebra_evpn_l3_mac_es_find(acc_bd, macaddr);
+	if (!acc_ifindex)
+		acc_ifindex = zebra_evpn_l3vni_sync_mac_acc_ifindex(acc_bd, macaddr, svi_ifp);
+	if (!acc_ifindex)
+		return NULL;
+
+	acc_ifp = if_lookup_by_index_per_ns(zebra_ns_lookup(NS_DEFAULT), acc_ifindex);
+	if (!acc_ifp || !acc_ifp->info)
+		return NULL;
+
+	/* The port must still be a member of this BD. */
+	if (!listnode_lookup(acc_bd->mbr_zifs, acc_ifp->info))
+		return NULL;
+
+	return acc_ifp;
+}
+
+/* Re-advertise every pure-L3 neighbor on the access BDs that a given port is a
+ * member of. Used when the port's ES state changes (local ES added/removed,
+ * bypass toggled): the ESI stamped on those RT-2s is derived from the port and
+ * need not produce any FDB event. We refresh whole BDs (not just cached MACs)
+ * because a neighbor may resolve its ESI via a static sync-MAC FDB entry
+ * without a cached MAC->port binding.
+ *
+ * Discovery is port-local: only the VLANs in the port's own bitmap can host
+ * neighbors whose ESI derives from it, so we walk that bitmap and look up each
+ * BD directly rather than scanning every access BD in zebra.
+ */
+void zebra_evpn_l3vni_readvertise_acc_port(struct interface *acc_ifp)
+{
+	struct zebra_vrf *evpn_zvrf = zebra_vrf_get_evpn();
+	struct zebra_if *acc_zif;
+	struct interface *br_if;
+	struct zebra_evpn_access_bd *acc_bd;
+	struct zebra_l3vni *zl3vni;
+	vlanid_t vid;
+
+	if (!acc_ifp || !acc_ifp->info || !evpn_zvrf || !evpn_zvrf->advertise_l3vni_neigh)
+		return;
+
+	acc_zif = acc_ifp->info;
+	br_if = acc_zif->brslave_info.br_if;
+	if (!br_if || !bf_is_inited(acc_zif->vlan_bitmap))
+		return;
+
+	bf_for_each_set_bit(acc_zif->vlan_bitmap, vid, IF_VLAN_BITMAP_MAX)
+	{
+		acc_bd = zebra_evpn_acc_vl_find(vid, br_if);
+		if (!acc_bd || acc_bd->zevpn)
+			continue;
+		if (!acc_bd->vlan_zif || !acc_bd->vlan_zif->ifp || !acc_bd->vlan_zif->ifp->vrf)
+			continue;
+
+		zl3vni = zl3vni_from_vrf(acc_bd->vlan_zif->ifp->vrf->vrf_id);
+		if (zl3vni)
+			zebra_evpn_l3vni_neigh_readvertise_bd(zl3vni->vni, acc_bd->vid);
+	}
+}
+
+/* Re-advertise every pure-L3 neighbor of one access BD, re-resolving each ESI.
+ * Called when a port joins or leaves the BD.
+ */
+static void zebra_evpn_l3vni_readvertise_bd_neighbors(struct zebra_evpn_access_bd *acc_bd)
+{
+	struct zebra_vrf *evpn_zvrf = zebra_vrf_get_evpn();
+	struct zebra_l3vni *zl3vni;
+
+	if (!evpn_zvrf || !evpn_zvrf->advertise_l3vni_neigh || acc_bd->zevpn)
+		return;
+	if (!acc_bd->vlan_zif || !acc_bd->vlan_zif->ifp || !acc_bd->vlan_zif->ifp->vrf)
+		return;
+
+	zl3vni = zl3vni_from_vrf(acc_bd->vlan_zif->ifp->vrf->vrf_id);
+	if (zl3vni)
+		zebra_evpn_l3vni_neigh_readvertise_bd(zl3vni->vni, acc_bd->vid);
+}
+
+static void zebra_evpn_l3vni_reinstall_bd_remote_neighs(struct zebra_evpn_access_bd *acc_bd)
+{
+	struct zebra_l3vni *zl3vni;
+
+	if (zebra_evpn_bd_evpn_mode(acc_bd) != ZEBRA_EVPN_BD_MODE_L3VNI_NEIGH)
+		return;
+
+	zl3vni = zl3vni_from_vrf(acc_bd->vlan_zif->ifp->vrf->vrf_id);
+	if (zl3vni)
+		zebra_evpn_l3vni_remote_neigh_reinstall_bd(zl3vni->vni, acc_bd->vid);
 }
 
 /*****************************************************************************
@@ -4256,11 +5127,15 @@ void zebra_evpn_mh_init(void)
 
 	zmh_info->startup_delay_time = ZEBRA_EVPN_MH_STARTUP_DELAY_DEF;
 	zebra_evpn_mh_startup_delay_timer_start("init");
+
+	zebra_evpn_bpp_init();
 }
 
 void zebra_evpn_mh_terminate(void)
 {
 	struct zebra_evpn_mh_vtep *mh_vtep;
+
+	zebra_evpn_bpp_terminate();
 
 	list_delete(&zmh_info->local_es_list);
 

@@ -28,6 +28,7 @@
 #include "srte.h"
 #include "printfrr.h"
 #include "srv6.h"
+#include "vxlan.h"
 
 DEFINE_MTYPE_STATIC(LIB, ZCLIENT, "Zclient");
 DEFINE_MTYPE_STATIC(LIB, REDIST_INST, "Redistribution instance IDs");
@@ -5233,18 +5234,15 @@ char *zclient_evpn_dump_macip_flags(uint8_t flags, char *buf, size_t len)
 		return buf;
 	}
 
-	snprintfrr(
-		buf, len, "%s%s%s%s%s%s%s",
-		CHECK_FLAG(flags, ZEBRA_MACIP_TYPE_STICKY) ? "Sticky MAC " : "",
-		CHECK_FLAG(flags, ZEBRA_MACIP_TYPE_GW) ? "Gateway MAC " : "",
-		CHECK_FLAG(flags, ZEBRA_MACIP_TYPE_ROUTER_FLAG) ? "Router "
-								: "",
-		CHECK_FLAG(flags, ZEBRA_MACIP_TYPE_OVERRIDE_FLAG) ? "Override "
-								  : "",
-		CHECK_FLAG(flags, ZEBRA_MACIP_TYPE_SVI_IP) ? "SVI MAC " : "",
-		CHECK_FLAG(flags, ZEBRA_MACIP_TYPE_PROXY_ADVERT) ? "Proxy "
-								 : "",
-		CHECK_FLAG(flags, ZEBRA_MACIP_TYPE_SYNC_PATH) ? "Sync " : "");
+	snprintfrr(buf, len, "%s%s%s%s%s%s%s%s",
+		   CHECK_FLAG(flags, ZEBRA_MACIP_TYPE_STICKY) ? "Sticky MAC " : "",
+		   CHECK_FLAG(flags, ZEBRA_MACIP_TYPE_GW) ? "Gateway MAC " : "",
+		   CHECK_FLAG(flags, ZEBRA_MACIP_TYPE_ROUTER_FLAG) ? "Router " : "",
+		   CHECK_FLAG(flags, ZEBRA_MACIP_TYPE_OVERRIDE_FLAG) ? "Override " : "",
+		   CHECK_FLAG(flags, ZEBRA_MACIP_TYPE_SVI_IP) ? "SVI MAC " : "",
+		   CHECK_FLAG(flags, ZEBRA_MACIP_TYPE_PROXY_ADVERT) ? "Proxy " : "",
+		   CHECK_FLAG(flags, ZEBRA_MACIP_TYPE_SYNC_PATH) ? "Sync " : "",
+		   CHECK_FLAG(flags, ZEBRA_MACIP_TYPE_L3_NEIGH_SYNC) ? "L3-neigh-sync " : "");
 
 	return buf;
 }
@@ -5483,4 +5481,119 @@ void zclient_neigh_get(struct zclient *zclient, struct interface *ifp, afi_t afi
 
 	stream_putw_at(s, 0, stream_get_endp(s));
 	zclient_send_message(zclient);
+}
+
+int zapi_evpn_local_es_evi_encode(struct stream *s, const struct zapi_evpn_local_es_evi *evi)
+{
+	esi_t zero_esi = {};
+
+	if (!s || !evi || !memcmp(&evi->esi, &zero_esi, sizeof(zero_esi)) || !evi->l3vni ||
+	    evi->l3vni > VNI_MAX)
+		return -1;
+
+	stream_put(s, &evi->esi, sizeof(evi->esi));
+	stream_putl(s, evi->l3vni);
+
+	return 0;
+}
+
+int zapi_evpn_local_es_evi_decode(struct stream *s, struct zapi_evpn_local_es_evi *evi)
+{
+	esi_t zero_esi = {};
+
+	if (!s || !evi)
+		return -1;
+
+	memset(evi, 0, sizeof(*evi));
+	if (STREAM_READABLE(s) != sizeof(evi->esi) + sizeof(uint32_t))
+		return -1;
+
+	STREAM_GET(&evi->esi, s, sizeof(evi->esi));
+	STREAM_GETL(s, evi->l3vni);
+
+	if (!memcmp(&evi->esi, &zero_esi, sizeof(zero_esi)) || !evi->l3vni || evi->l3vni > VNI_MAX)
+		return -1;
+
+	return 0;
+
+stream_failure:
+	return -1;
+}
+
+int zapi_evpn_bpp_peer_encode(struct stream *s, const struct zapi_evpn_bpp_peer *peer, bool add)
+{
+	uint8_t family;
+	uint8_t addrlen;
+
+	if (!s || !peer)
+		return -1;
+	if (peer->type != ZAPI_EVPN_BPP_PEER_L3)
+		return -1;
+	if (IS_IPADDR_V4(&peer->vtep)) {
+		family = AF_INET;
+		addrlen = IPV4_MAX_BYTELEN;
+	} else if (IS_IPADDR_V6(&peer->vtep)) {
+		family = AF_INET6;
+		addrlen = IPV6_MAX_BYTELEN;
+	} else
+		return -1;
+	if (ipaddr_is_zero(&peer->vtep))
+		return -1;
+	if (add && is_zero_mac(&peer->rmac))
+		return -1;
+
+	stream_put(s, &peer->esi, sizeof(esi_t));
+	stream_putc(s, peer->type);
+	stream_putc(s, family);
+	stream_put(s, &peer->vtep.ip, addrlen);
+	if (add)
+		stream_put(s, &peer->rmac, ETH_ALEN);
+
+	return 0;
+}
+
+int zapi_evpn_bpp_peer_decode(struct stream *s, struct zapi_evpn_bpp_peer *peer, bool add)
+{
+	uint8_t family;
+	uint8_t addrlen;
+
+	if (!s || !peer)
+		return -1;
+
+	memset(peer, 0, sizeof(*peer));
+	if (STREAM_READABLE(s) < sizeof(peer->esi) + 2 * sizeof(uint8_t))
+		return -1;
+
+	STREAM_GET(&peer->esi, s, sizeof(esi_t));
+	STREAM_GETC(s, peer->type);
+	STREAM_GETC(s, family);
+
+	if (peer->type != ZAPI_EVPN_BPP_PEER_L3)
+		return -1;
+
+	if (family == AF_INET) {
+		addrlen = IPV4_MAX_BYTELEN;
+		SET_IPADDR_V4(&peer->vtep);
+	} else if (family == AF_INET6) {
+		addrlen = IPV6_MAX_BYTELEN;
+		SET_IPADDR_V6(&peer->vtep);
+	} else
+		return -1;
+
+	if (STREAM_READABLE(s) != (size_t)addrlen + (add ? ETH_ALEN : 0))
+		return -1;
+
+	STREAM_GET(&peer->vtep.ip, s, addrlen);
+	if (ipaddr_is_zero(&peer->vtep))
+		return -1;
+	if (add) {
+		STREAM_GET(&peer->rmac, s, ETH_ALEN);
+		if (is_zero_mac(&peer->rmac))
+			return -1;
+	}
+
+	return 0;
+
+stream_failure:
+	return -1;
 }

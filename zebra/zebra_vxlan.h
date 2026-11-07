@@ -164,6 +164,9 @@ extern int zebra_vxlan_handle_kernel_neigh_update(struct interface *ifp, struct 
 						  struct ipaddr *ip, struct ethaddr *macaddr,
 						  uint16_t state, bool is_own, bool is_router,
 						  bool local_inactive, bool dp_static);
+extern void zebra_vxlan_l3vni_neigh_replay_entry(struct interface *ifp, struct interface *link_if,
+						 struct ipaddr *ip, struct ethaddr *macaddr,
+						 bool is_router);
 extern int zebra_vxlan_handle_kernel_neigh_del(struct interface *ifp,
 				       struct interface *link_if,
 				       struct ipaddr *ip);

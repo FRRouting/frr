@@ -119,6 +119,12 @@ DEFUN_NOSH (show_debugging_zebra,
 	if (IS_ZEBRA_DEBUG_EVPN_MH_NEIGH)
 		vty_out(vty, "  Zebra EVPN-MH Neigh debugging is on\n");
 
+	if (IS_ZEBRA_DEBUG_EVPN_MH_L3_NEIGH)
+		vty_out(vty, "  Zebra EVPN-MH l3vni-neigh debugging is on\n");
+
+	if (IS_ZEBRA_DEBUG_EVPN_MH_PROT)
+		vty_out(vty, "  Zebra EVPN-MH protection debugging is on\n");
+
 	if (IS_ZEBRA_DEBUG_PBR)
 		vty_out(vty, "  Zebra PBR debugging is on\n");
 
@@ -464,7 +470,7 @@ DEFPY (debug_zebra_mlag,
 
 DEFPY (debug_zebra_evpn_mh,
        debug_zebra_evpn_mh_cmd,
-       "[no$no] debug zebra evpn mh <es$es|mac$mac|neigh$neigh|nh$nh>",
+       "[no$no] debug zebra evpn mh <es$es|mac$mac|neigh$neigh|nh$nh|l3vni-neigh$l3neigh|protection$prot>",
        NO_STR
        DEBUG_STR
        "Zebra configuration\n"
@@ -473,7 +479,9 @@ DEFPY (debug_zebra_evpn_mh,
        "Ethernet Segment Debugging\n"
        "MAC Debugging\n"
        "Neigh Debugging\n"
-       "Nexthop Debugging\n")
+       "Nexthop Debugging\n"
+       "L3 multihoming neighbor-sync Debugging\n"
+       "Bridge-port protection Debugging\n")
 {
 	if (es) {
 		if (no) {
@@ -515,6 +523,26 @@ DEFPY (debug_zebra_evpn_mh,
 		} else {
 			SET_FLAG(zebra_debug_evpn_mh, ZEBRA_DEBUG_EVPN_MH_NH);
 			vty_out(vty, "Zebra EVPN-MH nexthop debugging is on\n");
+		}
+	}
+
+	if (l3neigh) {
+		if (no) {
+			UNSET_FLAG(zebra_debug_evpn_mh, ZEBRA_DEBUG_EVPN_MH_L3_NEIGH);
+			vty_out(vty, "Zebra EVPN-MH l3vni-neigh debugging is off\n");
+		} else {
+			SET_FLAG(zebra_debug_evpn_mh, ZEBRA_DEBUG_EVPN_MH_L3_NEIGH);
+			vty_out(vty, "Zebra EVPN-MH l3vni-neigh debugging is on\n");
+		}
+	}
+
+	if (prot) {
+		if (no) {
+			UNSET_FLAG(zebra_debug_evpn_mh, ZEBRA_DEBUG_EVPN_MH_PROT);
+			vty_out(vty, "Zebra EVPN-MH protection debugging is off\n");
+		} else {
+			SET_FLAG(zebra_debug_evpn_mh, ZEBRA_DEBUG_EVPN_MH_PROT);
+			vty_out(vty, "Zebra EVPN-MH protection debugging is on\n");
 		}
 	}
 
@@ -816,6 +844,14 @@ static int config_write_debug(struct vty *vty)
 	}
 	if (IS_ZEBRA_DEBUG_EVPN_MH_NEIGH) {
 		vty_out(vty, "debug zebra evpn mh neigh\n");
+		write++;
+	}
+	if (IS_ZEBRA_DEBUG_EVPN_MH_L3_NEIGH) {
+		vty_out(vty, "debug zebra evpn mh l3vni-neigh\n");
+		write++;
+	}
+	if (IS_ZEBRA_DEBUG_EVPN_MH_PROT) {
+		vty_out(vty, "debug zebra evpn mh protection\n");
 		write++;
 	}
 	if (IS_ZEBRA_DEBUG_PW) {
