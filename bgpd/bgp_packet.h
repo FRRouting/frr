@@ -80,6 +80,7 @@ extern void bgp_updates_plug(struct bgp *bgp, struct peer *peer);
 extern void bgp_updates_unplug(struct bgp *bgp, struct peer *peer);
 #endif
 extern void bgp_process_packet(struct event *event);
+extern void bgp_close_after_ibuf(struct peer_connection *connection, size_t queued);
 
 extern void bgp_send_delayed_eor(struct bgp *bgp);
 
