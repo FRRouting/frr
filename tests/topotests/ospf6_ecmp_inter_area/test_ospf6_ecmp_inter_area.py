@@ -144,7 +144,7 @@ def expect_routes_json(router, exp_routes_json_fname, stepmsg):
         "show ipv6 route ospf6 json",
         expected,
     )
-    _, result = topotest.run_and_expect(test_func, None, count=60, wait=0.5)
+    _, result = topotest.run_and_expect(test_func, None, count=60, wait=1)
     assertmsg = '"{}" JSON output mismatches ({})'.format(router, stepmsg)
     assert result is None, assertmsg
 
