@@ -620,7 +620,7 @@ static void ospf6_hello_recv(struct in6_addr *src, struct in6_addr *dst,
 	if (backupseen)
 		event_add_event(master, backup_seen, oi, 0, NULL);
 	if (neighborchange)
-		event_add_event(master, neighbor_change, oi, 0, NULL);
+		ospf6_neighbor_change_throttle(oi);
 
 	if (neighbor_ifindex_change && on->state == OSPF6_NEIGHBOR_FULL)
 		OSPF6_ROUTER_LSA_SCHEDULE(oi->area);
