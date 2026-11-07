@@ -5592,7 +5592,7 @@ DEFPY_YANG(bgp_distance_yang, bgp_distance_yang_cmd,
 {
 	char af_xpath[XPATH_MAXLEN];
 	char leaf[XPATH_MAXLEN + 256];
-	char buf[8];
+	char ext_buf[8], int_buf[8], local_buf[8];
 
 	bgp_cli_global_af_xpath(vty, af_xpath, sizeof(af_xpath));
 	nb_cli_enqueue_change(vty, af_xpath, NB_OP_CREATE, NULL);
@@ -5610,15 +5610,19 @@ DEFPY_YANG(bgp_distance_yang, bgp_distance_yang_cmd,
 	if (!ext_str || !internal_str || !local_str)
 		return CMD_WARNING_CONFIG_FAILED;
 
+	/*
+	 * Distinct buffers: nb_cli_enqueue_change stores the value pointer
+	 * until apply; reusing one buf made all three leaves the last value.
+	 */
 	snprintfrr(leaf, sizeof(leaf), "%s/admin-distance/external", af_xpath);
-	snprintfrr(buf, sizeof(buf), "%" PRId64, ext);
-	nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY, buf);
+	snprintfrr(ext_buf, sizeof(ext_buf), "%" PRId64, ext);
+	nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY, ext_buf);
 	snprintfrr(leaf, sizeof(leaf), "%s/admin-distance/internal", af_xpath);
-	snprintfrr(buf, sizeof(buf), "%" PRId64, internal);
-	nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY, buf);
+	snprintfrr(int_buf, sizeof(int_buf), "%" PRId64, internal);
+	nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY, int_buf);
 	snprintfrr(leaf, sizeof(leaf), "%s/admin-distance/local", af_xpath);
-	snprintfrr(buf, sizeof(buf), "%" PRId64, local);
-	nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY, buf);
+	snprintfrr(local_buf, sizeof(local_buf), "%" PRId64, local);
+	nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY, local_buf);
 	return nb_cli_apply_changes(vty, NULL);
 }
 
