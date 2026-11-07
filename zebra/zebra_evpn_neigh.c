@@ -1366,9 +1366,8 @@ void zebra_evpn_l3vni_remote_neigh_add(vni_t vni, const struct ipaddr *ip,
 		 * after the old SVI's DELNEIGH (ETAG mobility on an ES peer).
 		 */
 		if (IS_ZEBRA_DEBUG_EVPN_MH_L3_NEIGH)
-			zlog_debug(
-				"local L3VNI-neigh ip %pIA mac %pEA ETAG %u superseded by peer mac %pEA ETAG %u",
-				ip, &n->emac, n->eth_tag, macaddr, eth_tag);
+			zlog_debug("local L3VNI-neigh ip %pIA mac %pEA ETAG %u superseded by peer mac %pEA ETAG %u",
+				   ip, &n->emac, n->eth_tag, macaddr, eth_tag);
 		zebra_evpn_neigh_send_del_to_client_l3(vni, &n->ip, &n->emac, n->eth_tag);
 		UNSET_FLAG(n->flags, ZEBRA_NEIGH_LOCAL);
 		zebra_evpn_l3vni_peer_copy_clear(n);
