@@ -153,14 +153,31 @@ def build_topo(tgen):
     tgen.add_link(tgen.gears["ce7"], tgen.gears["rt5"], "eth-rt5", "eth-ce7")
 
     tgen.gears["rt1"].run("ip link add vrf10 type vrf table 10")
+<<<<<<< HEAD
     tgen.gears["rt1"].run("ip link set vrf10 up")
     tgen.gears["rt1"].run("ip link add vrf20 type vrf table 20")
     tgen.gears["rt1"].run("ip link set vrf20 up")
+=======
+    shutdown_bringup_interface_in_kernel(
+        tgen.gears["rt1"].tgen,
+        tgen.gears["rt1"].name,
+        "vrf10",
+        True,
+    )
+    tgen.gears["rt1"].run("ip link add vrf20 type vrf table 20")
+    shutdown_bringup_interface_in_kernel(
+        tgen.gears["rt1"].tgen,
+        tgen.gears["rt1"].name,
+        "vrf20",
+        True,
+    )
+>>>>>>> 9d918f1 (tests: Apply black formatting to srv6_sid_manager)
     tgen.gears["rt1"].run("ip link set eth-ce1 master vrf10")
     tgen.gears["rt1"].run("ip link set eth-ce3 master vrf10")
     tgen.gears["rt1"].run("ip link set eth-ce5 master vrf20")
 
     tgen.gears["rt5"].run("ip link add vrf10 type vrf table 10")
+<<<<<<< HEAD
     tgen.gears["rt5"].run("ip link set vrf10 up")
     tgen.gears["rt5"].run("ip link set eth-dst2 master vrf10")
     tgen.gears["rt5"].run("ip link add vrf20 type vrf table 20")
@@ -171,6 +188,38 @@ def build_topo(tgen):
     tgen.gears["rt6"].run("ip link set vrf10 up")
     tgen.gears["rt6"].run("ip link add vrf20 type vrf table 20")
     tgen.gears["rt6"].run("ip link set vrf20 up")
+=======
+    shutdown_bringup_interface_in_kernel(
+        tgen.gears["rt5"].tgen,
+        tgen.gears["rt5"].name,
+        "vrf10",
+        True,
+    )
+    tgen.gears["rt5"].run("ip link set eth-dst2 master vrf10")
+    tgen.gears["rt5"].run("ip link add vrf20 type vrf table 20")
+    shutdown_bringup_interface_in_kernel(
+        tgen.gears["rt5"].tgen,
+        tgen.gears["rt5"].name,
+        "vrf20",
+        True,
+    )
+    tgen.gears["rt5"].run("ip link set eth-ce7 master vrf20")
+
+    tgen.gears["rt6"].run("ip link add vrf10 type vrf table 10")
+    shutdown_bringup_interface_in_kernel(
+        tgen.gears["rt6"].tgen,
+        tgen.gears["rt6"].name,
+        "vrf10",
+        True,
+    )
+    tgen.gears["rt6"].run("ip link add vrf20 type vrf table 20")
+    shutdown_bringup_interface_in_kernel(
+        tgen.gears["rt6"].tgen,
+        tgen.gears["rt6"].name,
+        "vrf20",
+        True,
+    )
+>>>>>>> 9d918f1 (tests: Apply black formatting to srv6_sid_manager)
     tgen.gears["rt6"].run("ip link set eth-ce2 master vrf10")
     tgen.gears["rt6"].run("ip link set eth-ce4 master vrf20")
     tgen.gears["rt6"].run("ip link set eth-ce6 master vrf20")
