@@ -66,6 +66,8 @@ struct bfd_dplane_ctx {
 	uint16_t last_id;
 	/** What the data plane declared it supports. \see BFD_DP_CAPABILITIES. */
 	uint64_t caps;
+	/** Whether it has declared them on this connection. */
+	bool caps_declared;
 
 	/** Input buffer data. */
 	struct stream *inbuf;
@@ -873,6 +875,7 @@ static void bfd_dplane_capabilities_handle(struct bfd_dplane_ctx *bdc,
 	}
 
 	bdc->caps = be64toh(msg->data.capabilities.capabilities);
+	bdc->caps_declared = true;
 
 	/*
 	 * The set replaces the previous one. Take back what the data plane
@@ -880,6 +883,25 @@ static void bfd_dplane_capabilities_handle(struct bfd_dplane_ctx *bdc,
 	 */
 	bfd_key_iterate(_bfd_session_withdraw_dplane, bdc);
 	bfd_key_iterate(_bfd_session_register_dplane, bdc);
+
+	/* What it declined now runs in bfdd. */
+	bfd_vrfs_listen_update();
+}
+
+/*
+ * A data plane is connected and has declared what it supports: a session
+ * left in bfdd then is one it cannot run, not one it is about to take.
+ */
+bool bfd_dplane_declared(void)
+{
+	struct bfd_dplane_ctx *bdc;
+
+	TAILQ_FOREACH (bdc, &bglobal.bg_dplaneq, entry) {
+		if (bdc->sock != -1 && !bdc->connecting && bdc->caps_declared)
+			return true;
+	}
+
+	return false;
 }
 
 /*
@@ -946,6 +968,7 @@ static void bfd_dplane_ctx_free(struct bfd_dplane_ctx *bdc)
 		event_cancel(&bdc->outbufev);
 		event_add_timer(master, bfd_dplane_client_connect, bdc, 3,
 				&bdc->connectev);
+		bfd_vrfs_listen_update();
 		return;
 	}
 
@@ -968,6 +991,9 @@ free_resources:
 	event_cancel(&bdc->inbufev);
 	event_cancel(&bdc->outbufev);
 	XFREE(MTYPE_BFDD_DPLANE_CTX, bdc);
+
+	if (!bglobal.bg_shutdown)
+		bfd_vrfs_listen_update();
 }
 
 static void _bfd_dplane_session_fill(const struct bfd_session *bs,
@@ -1131,6 +1157,7 @@ static void _bfd_dplane_client_bootstrap(struct bfd_dplane_ctx *bdc)
 
 	/* Whatever answers this time declares its own capabilities. */
 	bdc->caps = 0;
+	bdc->caps_declared = false;
 
 	/* Clean up buffers. */
 	stream_reset(bdc->inbuf);
