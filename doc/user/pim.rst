@@ -258,6 +258,48 @@ PIM Routers
    Specify a range of group addresses via a prefix-list that forces PIM to
    never do SM over. This command is VRF-aware.
 
+.. clicmd:: igmp proxy rpf
+
+   Proxy each (S,G) membership only toward the source. By default every
+   membership is proxied on every interface with ``ip igmp proxy``. With
+   this command, (S,G) memberships (IGMPv3 source-specific joins, which
+   includes everything in the SSM range) are proxied only on the RPF
+   interface for S, and only if:
+
+   * that interface has ``ip igmp proxy``,
+   * it is not the interface the membership arrived on, and
+   * its ``ip igmp proxy route-map``, if any, permits the (S,G).
+
+   No other proxy interface gets a join for that (S,G). (*,G) and ASM
+   memberships are not affected and are still proxied on every proxy
+   interface.
+
+   If the RPF interface for S is not a proxy interface (for example S is
+   on a directly connected LAN), this router is the first hop and no
+   proxy join is sent. If there is no route to S, the membership is kept
+   pending and the join is sent as soon as a route appears. S is tracked
+   with next-hop tracking: when the RPF interface changes, the join is
+   sent on the new interface before it is withdrawn from the old one. On
+   a leave, the join is withdrawn only once no other downstream interface
+   still wants the (S,G).
+
+   Because the join only moves toward the source, memberships learned on
+   a proxy interface (for example from another proxy downstream of it)
+   can be proxied onward without echoing back, so chains of proxies work.
+   Use this on point-to-point links: an IGMP report reaches every router
+   on a shared link, so several upstream routers there could all forward
+   the stream.
+
+   The RPF lookup must select the right upstream interface. When a source
+   is covered by both a less specific and a more specific route, use
+   ``rpf-lookup-mode longer-prefix`` or ``rpf-lookup-mode urib-only`` so
+   the lookup picks the more specific one, otherwise joins are sent to the
+   wrong neighbor. The RPF lookup only considers interfaces with ``ip pim``
+   enabled (``ip pim passive`` is enough), so enable it on the proxy
+   interfaces too.
+
+   Changing this setting rebuilds the proxy joins on all proxy interfaces.
+
 .. clicmd:: join-filter route-map RMAP_NAME
 
    Specify a route-map name to use for filtering incoming PIM joins.
@@ -569,6 +611,9 @@ keyword at the end.
    Tell PIM to send proxy IGMP reports for joins occurring on all other
    interfaces on this interface. Join-groups on other interfaces will
    also be proxied. The default version is v3.
+
+   See :clicmd:`igmp proxy rpf` to proxy (S,G) joins only toward the
+   source.
 
 .. clicmd:: ip igmp proxy route-map ROUTE-MAP
 
