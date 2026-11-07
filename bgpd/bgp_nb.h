@@ -1004,6 +1004,10 @@ int bgp_nb_evpn_vrf_rt_auto_modify(struct nb_cb_modify_args *args);
 int bgp_nb_evpn_vrf_rt_auto_destroy(struct nb_cb_destroy_args *args);
 void bgp_nb_cli_show_evpn_vrf_rt_auto(struct vty *vty, const struct lyd_node *dnode,
 				      bool show_defaults);
+int bgp_nb_evpn_vni_rt_auto_modify(struct nb_cb_modify_args *args);
+int bgp_nb_evpn_vni_rt_auto_destroy(struct nb_cb_destroy_args *args);
+void bgp_nb_cli_show_evpn_vni_rt_auto(struct vty *vty, const struct lyd_node *dnode,
+				      bool show_defaults);
 
 int bgp_nb_evpn_vni_create(struct nb_cb_create_args *args);
 int bgp_nb_evpn_vni_destroy(struct nb_cb_destroy_args *args);

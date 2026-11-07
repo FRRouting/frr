@@ -1003,6 +1003,12 @@ extern void evpn_configure_export_rt_for_l2vni(struct bgp *bgp, struct bgpevpn *
 					       struct bgp_evpn_cfgd_rt *cfgd_rt);
 extern void evpn_unconfigure_export_rt_for_l2vni(struct bgp *bgp, struct bgpevpn *vpn,
 						 const struct bgp_evpn_cfgd_rt *cfgd_rt);
+extern void evpn_configure_import_auto_rt_for_l2vni(struct bgp *bgp, struct bgpevpn *vpn,
+						    enum bgp_evpn_autort_cfgd autort);
+extern void evpn_unconfigure_import_auto_rt_for_l2vni(struct bgp *bgp, struct bgpevpn *vpn);
+extern void evpn_configure_export_auto_rt_for_l2vni(struct bgp *bgp, struct bgpevpn *vpn,
+						    enum bgp_evpn_autort_cfgd autort);
+extern void evpn_unconfigure_export_auto_rt_for_l2vni(struct bgp *bgp, struct bgpevpn *vpn);
 extern void bgp_evpn_configure_export_rts_for_vrf_batch(struct bgp *bgp_vrf,
 							struct bgp_evpn_cfgd_rt_slu_head *cfgd_rts);
 extern void bgp_evpn_configure_export_auto_rt_for_vrf(struct bgp *bgp_vrf,

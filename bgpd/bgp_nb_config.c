@@ -8531,9 +8531,15 @@ void bgp_nb_cli_show_evpn_advertise_all_vni(struct vty *vty, const struct lyd_no
 		vty_out(vty, "  advertise-all-vni\n");
 }
 
+static bool bgp_nb_evpn_autort_rfc8365_is_import(const struct lyd_node *dnode)
+{
+	return strmatch(dnode->schema->name, "import-autort-rfc8365-compatible");
+}
+
 int bgp_nb_evpn_autort_rfc8365_modify(struct nb_cb_modify_args *args)
 {
 	struct bgp *bgp;
+	bool is_import;
 
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
@@ -8542,16 +8548,18 @@ int bgp_nb_evpn_autort_rfc8365_modify(struct nb_cb_modify_args *args)
 	if (!bgp)
 		return NB_ERR_NOT_FOUND;
 
+	is_import = bgp_nb_evpn_autort_rfc8365_is_import(args->dnode);
 	if (yang_dnode_get_bool(args->dnode, NULL))
-		evpn_set_autort_rfc8365(bgp, true, true);
+		evpn_set_autort_rfc8365(bgp, is_import, !is_import);
 	else
-		evpn_unset_autort_rfc8365(bgp, true, true);
+		evpn_unset_autort_rfc8365(bgp, is_import, !is_import);
 	return NB_OK;
 }
 
 int bgp_nb_evpn_autort_rfc8365_destroy(struct nb_cb_destroy_args *args)
 {
 	struct bgp *bgp;
+	bool is_import;
 
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
@@ -8559,7 +8567,9 @@ int bgp_nb_evpn_autort_rfc8365_destroy(struct nb_cb_destroy_args *args)
 	bgp = nb_running_get_entry(args->dnode, NULL, true);
 	if (!bgp)
 		return NB_OK;
-	evpn_unset_autort_rfc8365(bgp, true, true);
+
+	is_import = bgp_nb_evpn_autort_rfc8365_is_import(args->dnode);
+	evpn_unset_autort_rfc8365(bgp, is_import, !is_import);
 	return NB_OK;
 }
 
@@ -8567,7 +8577,8 @@ void bgp_nb_cli_show_evpn_autort_rfc8365(struct vty *vty, const struct lyd_node 
 					 bool show_defaults)
 {
 	if (yang_dnode_get_bool(dnode, NULL))
-		vty_out(vty, "  autort rfc8365-compatible\n");
+		vty_out(vty, "  auto-route-target %s rfc8365-compatible\n",
+			bgp_nb_evpn_autort_rfc8365_is_import(dnode) ? "import" : "export");
 }
 
 int bgp_nb_evpn_advertise_default_gw_modify(struct nb_cb_modify_args *args)
@@ -9965,6 +9976,8 @@ static void bgp_nb_evpn_vrf_rt_batch(struct bgp *bgp, struct bgp_evpn_cfgd_rt *c
  * Parse an FRR CLI RT string. Wildcard import RTs are stored as "*:NN" in
  * YANG; classic CLI rewrites '*' to '0' before ecommunity_str2com().
  */
+static enum bgp_evpn_autort_cfgd bgp_nb_evpn_autort_mode(const struct lyd_node *dnode);
+
 static struct ecommunity *bgp_nb_evpn_vrf_rt_str2com(const char *rt_str, bool *is_wildcard)
 {
 	char buf[64];
@@ -10099,6 +10112,12 @@ void bgp_nb_evpn_vrf_yang_reapply(struct bgp *bgp)
 				bgp_evpn_cfgd_rt_free(cfgd_rt);
 			else
 				bgp_nb_evpn_vrf_rt_batch(bgp, cfgd_rt, false, true);
+		} else if (strmatch(child->schema->name, "import-auto-route-target")) {
+			bgp_evpn_configure_import_auto_rt_for_vrf(bgp,
+								  bgp_nb_evpn_autort_mode(child));
+		} else if (strmatch(child->schema->name, "export-auto-route-target")) {
+			bgp_evpn_configure_export_auto_rt_for_vrf(bgp,
+								  bgp_nb_evpn_autort_mode(child));
 		}
 	}
 
@@ -10227,16 +10246,26 @@ void bgp_nb_cli_show_evpn_vrf_rt_export(struct vty *vty, const struct lyd_node *
 	vty_out(vty, "  route-target export %s\n", yang_dnode_get_string(dnode, NULL));
 }
 
-static bool bgp_nb_evpn_vrf_rt_auto_is_import(const struct lyd_node *dnode)
+static bool bgp_nb_evpn_rt_auto_is_import(const struct lyd_node *dnode)
 {
-	return strmatch(dnode->schema->name, "import-route-target-auto");
+	return strmatch(dnode->schema->name, "import-auto-route-target");
+}
+
+static enum bgp_evpn_autort_cfgd bgp_nb_evpn_autort_mode(const struct lyd_node *dnode)
+{
+	const char *mode = yang_dnode_get_string(dnode, NULL);
+
+	if (strmatch(mode, "add-always"))
+		return BGP_EVPN_AUTORT_ADD_ALWAYS;
+	if (strmatch(mode, "add-never"))
+		return BGP_EVPN_AUTORT_ADD_NEVER;
+	return BGP_EVPN_AUTORT_ADD_IF_NO_MANUAL;
 }
 
 int bgp_nb_evpn_vrf_rt_auto_modify(struct nb_cb_modify_args *args)
 {
 	struct bgp *bgp;
-	bool enable;
-	bool is_import;
+	enum bgp_evpn_autort_cfgd autort;
 
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
@@ -10245,27 +10274,17 @@ int bgp_nb_evpn_vrf_rt_auto_modify(struct nb_cb_modify_args *args)
 	if (!bgp)
 		return NB_ERR_NOT_FOUND;
 
-	enable = yang_dnode_get_bool(args->dnode, NULL);
-	is_import = bgp_nb_evpn_vrf_rt_auto_is_import(args->dnode);
-
-	if (is_import) {
-		if (enable)
-			bgp_evpn_configure_import_auto_rt_for_vrf(bgp, BGP_EVPN_AUTORT_ADD_ALWAYS);
-		else
-			bgp_evpn_unconfigure_import_auto_rt_for_vrf(bgp);
-	} else {
-		if (enable)
-			bgp_evpn_configure_export_auto_rt_for_vrf(bgp, BGP_EVPN_AUTORT_ADD_ALWAYS);
-		else
-			bgp_evpn_unconfigure_export_auto_rt_for_vrf(bgp);
-	}
+	autort = bgp_nb_evpn_autort_mode(args->dnode);
+	if (bgp_nb_evpn_rt_auto_is_import(args->dnode))
+		bgp_evpn_configure_import_auto_rt_for_vrf(bgp, autort);
+	else
+		bgp_evpn_configure_export_auto_rt_for_vrf(bgp, autort);
 	return NB_OK;
 }
 
 int bgp_nb_evpn_vrf_rt_auto_destroy(struct nb_cb_destroy_args *args)
 {
 	struct bgp *bgp;
-	bool is_import;
 
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
@@ -10274,8 +10293,7 @@ int bgp_nb_evpn_vrf_rt_auto_destroy(struct nb_cb_destroy_args *args)
 	if (!bgp)
 		return NB_OK;
 
-	is_import = bgp_nb_evpn_vrf_rt_auto_is_import(args->dnode);
-	if (is_import)
+	if (bgp_nb_evpn_rt_auto_is_import(args->dnode))
 		bgp_evpn_unconfigure_import_auto_rt_for_vrf(bgp);
 	else
 		bgp_evpn_unconfigure_export_auto_rt_for_vrf(bgp);
@@ -10285,13 +10303,9 @@ int bgp_nb_evpn_vrf_rt_auto_destroy(struct nb_cb_destroy_args *args)
 void bgp_nb_cli_show_evpn_vrf_rt_auto(struct vty *vty, const struct lyd_node *dnode,
 				      bool show_defaults)
 {
-	const char *dir;
-
-	if (!yang_dnode_get_bool(dnode, NULL))
-		return;
-
-	dir = bgp_nb_evpn_vrf_rt_auto_is_import(dnode) ? "import" : "export";
-	vty_out(vty, "  route-target %s auto\n", dir);
+	vty_out(vty, "  auto-route-target %s %s\n",
+		bgp_nb_evpn_rt_auto_is_import(dnode) ? "import" : "export",
+		yang_dnode_get_string(dnode, NULL));
 }
 
 /*
@@ -10445,12 +10459,19 @@ int bgp_nb_evpn_vni_rt_create(struct nb_cb_create_args *args)
 	struct bgpevpn *vpn;
 	struct ecommunity *ecom;
 	struct bgp_evpn_cfgd_rt *cfgd_rt;
+	const char *rt_str;
 	bool is_import;
+	bool is_wildcard;
 
 	switch (args->event) {
 	case NB_EV_VALIDATE:
-		ecom = ecommunity_str2com(yang_dnode_get_string(args->dnode, NULL),
-					  ECOMMUNITY_ROUTE_TARGET, 0);
+		rt_str = yang_dnode_get_string(args->dnode, NULL);
+		if (rt_str[0] == '*' && !bgp_nb_evpn_vni_rt_is_import(args->dnode)) {
+			snprintfrr(args->errmsg, args->errmsg_len,
+				   "Wildcard '*' only applicable for import");
+			return NB_ERR_VALIDATION;
+		}
+		ecom = bgp_nb_evpn_vrf_rt_str2com(rt_str, NULL);
 		if (!ecom) {
 			snprintfrr(args->errmsg, args->errmsg_len, "Malformed Route Target list");
 			return NB_ERR_VALIDATION;
@@ -10470,13 +10491,12 @@ int bgp_nb_evpn_vni_rt_create(struct nb_cb_create_args *args)
 		return NB_ERR_NOT_FOUND;
 
 	is_import = bgp_nb_evpn_vni_rt_is_import(args->dnode);
-	ecom = ecommunity_str2com(yang_dnode_get_string(args->dnode, NULL),
-				  ECOMMUNITY_ROUTE_TARGET, 0);
+	ecom = bgp_nb_evpn_vrf_rt_str2com(yang_dnode_get_string(args->dnode, NULL), &is_wildcard);
 	if (!ecom)
 		return NB_ERR_VALIDATION;
 	ecommunity_str(ecom);
 
-	cfgd_rt = bgp_evpn_cfgd_rt_from_ecom(ecom, false);
+	cfgd_rt = bgp_evpn_cfgd_rt_from_ecom(ecom, is_wildcard);
 	ecommunity_free(&ecom);
 	if (!cfgd_rt)
 		return NB_ERR_VALIDATION;
@@ -10504,6 +10524,7 @@ int bgp_nb_evpn_vni_rt_destroy(struct nb_cb_destroy_args *args)
 	struct ecommunity *ecom;
 	struct bgp_evpn_cfgd_rt *cfgd_rt;
 	bool is_import;
+	bool is_wildcard;
 
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
@@ -10514,13 +10535,12 @@ int bgp_nb_evpn_vni_rt_destroy(struct nb_cb_destroy_args *args)
 		return NB_OK;
 
 	is_import = bgp_nb_evpn_vni_rt_is_import(args->dnode);
-	ecom = ecommunity_str2com(yang_dnode_get_string(args->dnode, NULL),
-				  ECOMMUNITY_ROUTE_TARGET, 0);
+	ecom = bgp_nb_evpn_vrf_rt_str2com(yang_dnode_get_string(args->dnode, NULL), &is_wildcard);
 	if (!ecom)
 		return NB_OK;
 	ecommunity_str(ecom);
 
-	cfgd_rt = bgp_evpn_cfgd_rt_from_ecom(ecom, false);
+	cfgd_rt = bgp_evpn_cfgd_rt_from_ecom(ecom, is_wildcard);
 	ecommunity_free(&ecom);
 	if (!cfgd_rt)
 		return NB_OK;
@@ -10543,6 +10563,56 @@ void bgp_nb_cli_show_evpn_vni_rt_export(struct vty *vty, const struct lyd_node *
 					bool show_defaults)
 {
 	vty_out(vty, "   route-target export %s\n", yang_dnode_get_string(dnode, NULL));
+}
+
+int bgp_nb_evpn_vni_rt_auto_modify(struct nb_cb_modify_args *args)
+{
+	struct bgp *bgp;
+	struct bgpevpn *vpn;
+	enum bgp_evpn_autort_cfgd autort;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	vpn = nb_running_get_entry(args->dnode, NULL, true);
+	bgp = bgp_nb_evpn_vni_underlay(args->dnode);
+	if (!vpn || !bgp)
+		return NB_ERR_NOT_FOUND;
+
+	autort = bgp_nb_evpn_autort_mode(args->dnode);
+	if (bgp_nb_evpn_rt_auto_is_import(args->dnode))
+		evpn_configure_import_auto_rt_for_l2vni(bgp, vpn, autort);
+	else
+		evpn_configure_export_auto_rt_for_l2vni(bgp, vpn, autort);
+	return NB_OK;
+}
+
+int bgp_nb_evpn_vni_rt_auto_destroy(struct nb_cb_destroy_args *args)
+{
+	struct bgp *bgp;
+	struct bgpevpn *vpn;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	vpn = nb_running_get_entry(args->dnode, NULL, true);
+	bgp = bgp_nb_evpn_vni_underlay(args->dnode);
+	if (!vpn || !bgp)
+		return NB_OK;
+
+	if (bgp_nb_evpn_rt_auto_is_import(args->dnode))
+		evpn_unconfigure_import_auto_rt_for_l2vni(bgp, vpn);
+	else
+		evpn_unconfigure_export_auto_rt_for_l2vni(bgp, vpn);
+	return NB_OK;
+}
+
+void bgp_nb_cli_show_evpn_vni_rt_auto(struct vty *vty, const struct lyd_node *dnode,
+				      bool show_defaults)
+{
+	vty_out(vty, "   auto-route-target %s %s\n",
+		bgp_nb_evpn_rt_auto_is_import(dnode) ? "import" : "export",
+		yang_dnode_get_string(dnode, NULL));
 }
 
 int bgp_nb_evpn_vni_advertise_default_gw_modify(struct nb_cb_modify_args *args)

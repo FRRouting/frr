@@ -64,15 +64,48 @@ submodule frr-bgp-evpn {
       "FRRouting";
   }
 
+  typedef evpn-autort-mode {
+    type enumeration {
+      enum add-always {
+        description
+          "Always add the automatic route-target, even when manual
+           route-targets are configured.";
+      }
+      enum add-never {
+        description
+          "Never add the automatic route-target.";
+      }
+      enum add-if-no-manual {
+        description
+          "Add the automatic route-target only when no manual
+           route-target is configured (the implicit default; configuring
+           it explicitly round-trips in the configuration).";
+      }
+    }
+    description
+      "How the automatically derived route-target is combined with
+       manually configured route-targets.";
+  }
+
   grouping evpn-route-target-config {
     description
-      "Import and export route-target configuration.";
+      "Import and export route-target configuration, including the
+       automatic route-target mode.";
 
     leaf-list import-route-target {
       type frr-bt:route-target;
       description
-        "Route targets used to import EVPN routes.
+        "Route targets used to import EVPN routes. A wildcard '*:NN'
+         form is accepted for import only.
          Maps to: route-target import ...";
+    }
+
+    leaf import-auto-route-target {
+      type evpn-autort-mode;
+      description
+        "Automatic import route-target mode.
+         Maps to: auto-route-target import <add-always|add-never|
+         add-if-no-manual>.";
     }
 
     leaf-list export-route-target {
@@ -81,28 +114,13 @@ submodule frr-bgp-evpn {
         "Route targets attached to locally originated EVPN routes.
          Maps to: route-target export ...";
     }
-  }
 
-  grouping evpn-vrf-route-target-config {
-    description
-      "IP-VRF EVPN route-target configuration, including automatic RTs.";
-
-    uses evpn-route-target-config;
-
-    leaf import-route-target-auto {
-      type boolean;
-      default "false";
+    leaf export-auto-route-target {
+      type evpn-autort-mode;
       description
-        "Automatically derive the import route target.
-         Maps to: route-target import auto.";
-    }
-
-    leaf export-route-target-auto {
-      type boolean;
-      default "false";
-      description
-        "Automatically derive the export route target.
-         Maps to: route-target export auto.";
+        "Automatic export route-target mode.
+         Maps to: auto-route-target export <add-always|add-never|
+         add-if-no-manual>.";
     }
   }
 
@@ -318,12 +336,22 @@ submodule frr-bgp-evpn {
          Maps to: advertise-all-vni.";
     }
 
-    leaf autort-rfc8365-compatible {
+    leaf import-autort-rfc8365-compatible {
       type boolean;
       default "false";
       description
-        "Use RFC 8365-compatible automatic route-target derivation.
-         Maps to: autort rfc8365-compatible.";
+        "Encode the automatic import route-target in the RFC 8365
+         compatible form.
+         Maps to: auto-route-target import rfc8365-compatible.";
+    }
+
+    leaf export-autort-rfc8365-compatible {
+      type boolean;
+      default "false";
+      description
+        "Encode the automatic export route-target in the RFC 8365
+         compatible form.
+         Maps to: auto-route-target export rfc8365-compatible.";
     }
 
     leaf advertise-default-gateway {
@@ -534,7 +562,7 @@ submodule frr-bgp-evpn {
            Maps to: rd ... under EVPN AF in a VRF.";
       }
 
-      uses evpn-vrf-route-target-config;
+      uses evpn-route-target-config;
 
       uses evpn-type-5-config;
     }
