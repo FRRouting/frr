@@ -1533,6 +1533,27 @@ MOVE_MAC_HOLDTIME = 10
 # would age the injected MAC out mid-test.
 MOVE_AGEING_CS = 100000
 MOVE_KERNEL_ERR = "Cannot replace an existing non nexthop fdb with a nexthop"
+
+# Ubuntu 7.0 builds that reject a dynamic VXLAN FDB entry pointing at a
+# nexthop id (stable c8f29af91e08, upstream 98fc57d16744). FRR installs an
+# EVPN-MH remote MAC that way, so stage 4 cannot pass on these kernels.
+# The correction is 7308ef8b4a67 ("vxlan: Stop rejecting dynamic FDB
+# entries with a nexthop ID"). It is not in an Ubuntu build yet: `fixed`
+# stays None, and every ABI at or above `broken` is skipped. Set `fixed`
+# to the first ABI whose changelog contains that commit and newer builds
+# run again. generic 7.0.0-39 and azure 7.0.0-1018 do not have the reject;
+# generic 7.0.0-41 and azure 7.0.0-1019 are the first that do. 7.0.0-42
+# and 7.0.0-43 still do not have the correction. version_cmp() drops the
+# ABI after the hyphen, so this parser reads it itself.
+_UBUNTU_KERNEL_RE = re.compile(
+    r"^(?P<version>\d+\.\d+\.\d+)-(?P<abi>\d+)-(?P<flavor>[A-Za-z0-9_-]+)$"
+)
+_VXLAN_NH_FDB_FIX = {
+    "7.0.0": {
+        "azure": (1019, None),
+        "generic": (41, None),
+    }
+}
 MOVE_DEBUGS = [
     "debug zebra kernel",
     "debug zebra evpn mh mac",
@@ -1908,6 +1929,69 @@ def check_move_es_nhg_active(obs, esi, vteps):
 #
 
 
+def _ubuntu_kernel_family(flavor):
+    """Map a uname flavor onto the ABI series that carries the vxlan reject."""
+    if flavor == "azure" or flavor.startswith("azure-"):
+        return "azure"
+    if flavor == "generic" or flavor.startswith("generic-") or flavor == "lowlatency":
+        return "generic"
+    return None
+
+
+def vxlan_dynamic_nh_fdb_skip_reason(release=None):
+    """
+    Why to skip the MAC-move checks on this kernel, or None to run them.
+
+    Kernels older than the reject still run. Kernels at or after `fixed`
+    run again. While `fixed` is None the skip covers the whole broken range.
+    """
+    if release is None:
+        release = platform.release()
+    logger.debug("vxlan nh fdb: release %s", release)
+    match = _UBUNTU_KERNEL_RE.match(release)
+    if match is None:
+        logger.debug("vxlan nh fdb: %s is not an Ubuntu ABI kernel, running", release)
+        return None
+    version = match.group("version")
+    flavor = match.group("flavor")
+    family = _ubuntu_kernel_family(flavor)
+    abi = int(match.group("abi"))
+    window = _VXLAN_NH_FDB_FIX.get(version, {}).get(family)
+    logger.debug(
+        "vxlan nh fdb: version %s abi %s flavor %s family %s window %s",
+        version,
+        abi,
+        flavor,
+        family,
+        window,
+    )
+    if window is None:
+        logger.debug(
+            "vxlan nh fdb: no window for %s family %s, running", version, family
+        )
+        return None
+    broken, fixed = window
+    if abi < broken:
+        logger.debug("vxlan nh fdb: abi %s is before broken %s, running", abi, broken)
+        return None
+    if fixed is not None and abi >= fixed:
+        logger.debug(
+            "vxlan nh fdb: abi %s is at or after fixed %s, running", abi, fixed
+        )
+        return None
+    if fixed is None:
+        resume = "the first Ubuntu build that contains 7308ef8b4a67"
+    else:
+        resume = "%s-%s-%s" % (version, fixed, flavor)
+    logger.debug(
+        "vxlan nh fdb: skip abi %s, broken from %s, fixed at %s", abi, broken, fixed
+    )
+    return (
+        "kernel %s rejects a dynamic VXLAN FDB entry with a nexthop id "
+        "(c8f29af91e08); EVPN-MH nhid install resumes on %s" % (release, resume)
+    )
+
+
 def run_mac_move_case(tgen, hold_ead):
     """
     Move MOVE_MAC from a single-VTEP remote MAC to an ES MAC on the observer.
@@ -2052,6 +2136,9 @@ def test_evpn_mac_move_to_es_nhg_inactive(tgen_and_ip_version):
     """
     tgen, _ = tgen_and_ip_version
 
+    skip = vxlan_dynamic_nh_fdb_skip_reason()
+    if skip:
+        pytest.skip(skip)
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
 
@@ -2066,6 +2153,9 @@ def test_evpn_mac_move_to_es_nhg_active(tgen_and_ip_version):
     """
     tgen, _ = tgen_and_ip_version
 
+    skip = vxlan_dynamic_nh_fdb_skip_reason()
+    if skip:
+        pytest.skip(skip)
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
 
