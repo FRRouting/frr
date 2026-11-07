@@ -34,6 +34,8 @@ struct ospf_topology *test_find_topology(const char *name)
 		return &topo4;
 	else if (strmatch(name, "topo5"))
 		return &topo5;
+	else if (strmatch(name, "topo6"))
+		return &topo6;
 
 	return NULL;
 }
@@ -241,7 +243,8 @@ int topology_load(struct vty *vty, struct ospf_topology *topology,
 		tnode = &topology->nodes[i];
 
 		/* Inject a router LSA for each node, used for SPF */
-		inject_router_lsa(vty, ospf, topology, root, tnode);
+		if (!tnode->no_router_lsa)
+			inject_router_lsa(vty, ospf, topology, root, tnode);
 
 		/*
 		 * SR information could also be inected via LSAs, but directly
