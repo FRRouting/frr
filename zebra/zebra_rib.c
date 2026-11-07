@@ -1237,7 +1237,7 @@ static struct route_entry *rib_choose_best_type(uint8_t route_type,
 			struct interface *ifp = if_lookup_by_index(
 				nexthop->ifindex, alternate->vrf_id);
 
-			if (ifp && if_is_loopback(ifp))
+			if (ifp && (if_is_loopback(ifp) || if_is_macvlan(ifp)))
 				return alternate;
 		}
 
@@ -1245,7 +1245,7 @@ static struct route_entry *rib_choose_best_type(uint8_t route_type,
 			struct interface *ifp = if_lookup_by_index(
 				nexthop->ifindex, current->vrf_id);
 
-			if (ifp && if_is_loopback(ifp))
+			if (ifp && (if_is_loopback(ifp) || if_is_macvlan(ifp)))
 				return current;
 		}
 
