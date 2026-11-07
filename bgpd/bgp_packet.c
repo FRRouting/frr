@@ -3361,7 +3361,7 @@ static void bgp_dynamic_capability_paths_limit(uint8_t *pnt, int action,
 		if (!CHECK_FLAG(peer->cap, PEER_CAP_ADDPATH_RCV)) {
 			flog_warn(EC_BGP_CAPABILITY_INVALID_DATA,
 				  "Paths-Limit: Received Paths-Limit capability without Add-Path capability");
-			goto ignore;
+			return;
 		}
 
 		SET_FLAG(peer->cap, PEER_CAP_PATHS_LIMIT_RCV);
