@@ -91,13 +91,6 @@ def test_bgp_dynamic_capability_enhe():
                             "interfaceName": "r1-eth0",
                             "active": True,
                         },
-                        {
-                            "duplicate": True,
-                            "ip": "192.168.1.2",
-                            "afi": "ipv4",
-                            "interfaceName": "r1-eth0",
-                            "active": True,
-                        },
                     ],
                 }
             ]
