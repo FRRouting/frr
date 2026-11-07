@@ -3494,13 +3494,17 @@ extern void srv6_function_free(struct bgp_srv6_function *func);
 
 extern void bgp_session_reset_safe(struct peer *peer, struct listnode **nnode);
 
-/* If a clearing batch is available for 'peer', add it and return 'true',
- * else return 'false'.
+/* Add a peer to an open clearing batch. If its previous batch is already
+ * walking the RIB, move it to an open batch, creating and scheduling one
+ * if necessary. Return false for per-AFI/SAFI clearing when no batch is
+ * available; new batches are not created during daemon termination.
  */
 bool bgp_clearing_batch_add_peer(struct bgp *bgp, struct peer *peer);
 /* Check whether a dest's peer is relevant to a clearing batch */
 bool bgp_clearing_batch_check_peer(struct bgp_clearing_info *cinfo,
 				   const struct peer *peer);
+/* Check whether a clearing batch has no peers left. */
+bool bgp_clearing_batch_is_empty(const struct bgp_clearing_info *cinfo);
 /* Done with a peer clearing batch; deal with refcounts, free memory */
 void bgp_clearing_batch_completed(struct bgp_clearing_info *cinfo);
 /* Start a new batch of peers to clear */
