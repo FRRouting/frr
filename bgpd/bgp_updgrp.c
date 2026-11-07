@@ -398,7 +398,7 @@ static unsigned int updgrp_hash_key_make(const void *p)
 				   CHECK_FLAG(peer->flags,
 					      PEER_FLAG_AS_LOOP_DETECTION),
 				   key);
-	if (peer->group)
+	if (peer->group && peer->group->name)
 		key = jhash_1word(jhash(peer->group->name,
 					strlen(peer->group->name), SEED1),
 				  key);
