@@ -50,6 +50,7 @@ int zebra_sr_policy_bsid_install(struct zebra_sr_policy *policy);
 void zebra_sr_policy_bsid_uninstall(struct zebra_sr_policy *policy,
 				    mpls_label_t old_bsid);
 void zebra_srte_init(void);
+void zebra_sr_policy_lsp_freed(const struct zebra_lsp *lsp);
 int zebra_sr_policy_label_update(mpls_label_t label,
 				 enum zebra_sr_policy_update_label_mode mode);
 

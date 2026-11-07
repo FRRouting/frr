@@ -1215,6 +1215,7 @@ static void lsp_free(struct hash *lsp_table, struct zebra_lsp **plsp)
 
 	lsp_free_nhlfe(lsp);
 
+	zebra_sr_policy_lsp_freed(lsp);
 	hash_release(lsp_table, &lsp->ile);
 	XFREE(MTYPE_LSP, lsp);
 
@@ -4054,6 +4055,7 @@ static void lsp_table_free(void *p)
 
 	lsp_free_nhlfe(lsp);
 
+	zebra_sr_policy_lsp_freed(lsp);
 	XFREE(MTYPE_LSP, lsp);
 }
 

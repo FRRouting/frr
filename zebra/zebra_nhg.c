@@ -2623,7 +2623,8 @@ static int nexthop_active(struct nexthop *nexthop, struct nhg_hash_entry *nhe,
 		}
 
 		policy = zebra_sr_policy_find(nexthop->srte_color, &endpoint);
-		if (policy && policy->status == ZEBRA_SR_POLICY_UP) {
+		if (policy && policy->status == ZEBRA_SR_POLICY_UP &&
+		    policy->lsp) {
 			resolved = 0;
 			frr_each_safe (nhlfe_list, &policy->lsp->nhlfe_list,
 				       nhlfe) {
