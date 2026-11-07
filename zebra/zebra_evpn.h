@@ -45,6 +45,14 @@ struct zebra_vtep {
 	 */
 	int flood_control;
 
+	/*
+	 * SRv6 BUM SID (from Type-3 IMET route).  Tracks the SID address
+	 * of the bum-sr6 interface installed for this remote VTEP so that
+	 * the old interface can be released when the SID changes.
+	 */
+	struct in6_addr bum_srv6_sid;
+	bool has_bum_srv6_sid;
+
 	/* Links. */
 	struct zebra_vtep *next;
 	struct zebra_vtep *prev;
@@ -86,8 +94,15 @@ static inline struct interface *zevpn_map_to_svi(struct zebra_evpn *zevpn, bool 
 	struct zebra_vxlan_vni *vni;
 
 	ifp = zevpn->vxlan_if;
-	if (!ifp)
+	if (!ifp) {
+		/* SRv6 EVI: the bridge itself is the SVI (no vxlan device). */
+		if (zevpn->bridge_if) {
+			if (check_oper_state && !if_is_operative(zevpn->bridge_if))
+				return NULL;
+			return zevpn->bridge_if;
+		}
 		return NULL;
+	}
 	zif = ifp->info;
 	if (!zif)
 		return NULL;
@@ -117,7 +132,9 @@ int advertise_gw_macip_enabled(struct zebra_evpn *zevpn);
 int advertise_svi_macip_enabled(struct zebra_evpn *zevpn);
 void zebra_evpn_print(struct zebra_evpn *zevpn, void **ctxt);
 void zebra_evpn_print_hash(struct hash_bucket *bucket, void *ctxt[]);
+void zebra_evpn_print_evi_hash(struct hash_bucket *bucket, void *ctxt[]);
 void zebra_evpn_print_hash_detail(struct hash_bucket *bucket, void *data);
+void zebra_evpn_print_evi_hash_detail(struct hash_bucket *bucket, void *data);
 int zebra_evpn_add_macip_for_intf(struct interface *ifp,
 				  struct zebra_evpn *zevpn);
 int zebra_evpn_del_macip_for_intf(struct interface *ifp,
@@ -126,6 +143,7 @@ int zebra_evpn_advertise_subnet(struct zebra_evpn *zevpn, struct interface *ifp,
 				int advertise);
 int zebra_evpn_gw_macip_add(struct interface *ifp, struct zebra_evpn *zevpn,
 			    struct ethaddr *macaddr, struct ipaddr *ip);
+int zebra_srv6_evpn_gw_macip_add(struct interface *bridge_if, struct zebra_evpn *zevpn);
 int zebra_evpn_gw_macip_del(struct interface *ifp, struct zebra_evpn *zevpn,
 			    struct ipaddr *ip);
 void zebra_evpn_gw_macip_del_for_evpn_hash(struct hash_bucket *bucket,
@@ -164,7 +182,8 @@ void zebra_evpn_handle_flooding_remote_vteps(struct hash_bucket *bucket, void *a
 void zebra_evpn_cleanup_all(struct hash_bucket *bucket, void *arg);
 void zebra_evpn_rem_macip_add(vni_t vni, const struct ethaddr *macaddr, uint16_t ipa_len,
 			      const struct ipaddr *ipaddr, uint8_t flags, uint32_t seq,
-			      struct ipaddr *vtep_ip, const esi_t *esi);
+			      struct ipaddr *vtep_ip, const esi_t *esi,
+			      const struct in6_addr *srv6_sid);
 void zebra_evpn_rem_macip_del(vni_t vni, const struct ethaddr *macaddr, uint16_t ipa_len,
 			      const struct ipaddr *ipaddr, struct ipaddr *vtep_ip);
 void zebra_evpn_cfg_cleanup(struct hash_bucket *bucket, void *ctxt);

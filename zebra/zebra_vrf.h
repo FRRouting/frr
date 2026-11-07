@@ -13,6 +13,7 @@
 #include <zebra/zebra_pw.h>
 #include <zebra/rtadv.h>
 #include <lib/vxlan.h>
+#include <lib/zclient.h>
 #include "defaults.h"
 
 #ifdef __cplusplus
@@ -159,6 +160,8 @@ struct zebra_vrf {
 	 * Flooding mechanism for BUM packets for VxLAN-EVPN.
 	 */
 	enum vxlan_flood_control vxlan_flood_ctrl;
+
+	/* EVPN encapsulation is per-EVI; no instance-wide EVPN encap mode. */
 
 	/* Install stats */
 	uint64_t installs;

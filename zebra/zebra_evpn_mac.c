@@ -26,6 +26,8 @@
 #include "zebra/zebra_evpn_mh.h"
 #include "zebra/zebra_evpn_mac.h"
 #include "zebra/zebra_evpn_neigh.h"
+#include "zebra/zebra_sr6.h"
+#include "zebra/zebra_srv6_l2evpn.h"
 
 DEFINE_MTYPE_STATIC(ZEBRA, MAC, "EVPN MAC");
 
@@ -182,6 +184,38 @@ void zebra_evpn_mac_clear_fwd_info(struct zebra_mac *zmac)
 /*
  * Install remote MAC into the forwarding plane.
  */
+static void zebra_evpn_rem_srv6_mac_reinstall_cb(struct hash_bucket *bucket, void *arg)
+{
+	struct zebra_mac *mac = bucket->data;
+	struct zebra_evpn *zevpn = arg;
+
+	/* Only remote, SRv6-SID-bearing MACs need re-programming.  Their FDB
+	 * entry may have been installed earlier — while the EVI's vid was still
+	 * 0 / the egress sr6 wasn't yet a member of the EVI VLAN — so the
+	 * kernel either filed it under vid 0 or rejected the vlan-scoped add.
+	 * Re-issuing now (vid resolved, sr6 vlan-bound) lands it correctly.
+	 */
+	if (!CHECK_FLAG(mac->flags, ZEBRA_MAC_REMOTE))
+		return;
+	if (!mac->has_srv6_sid)
+		return;
+
+	(void)zebra_evpn_rem_mac_install(zevpn, mac, false /* was_static */);
+}
+
+/*
+ * Re-install every remote SRv6 MAC of @zevpn into the bridge FDB.  Called from
+ * zebra_srv6_evi_realize() once the EVI's vid and sr6 VLAN membership are
+ * known, to repair entries programmed during an earlier vid-0 window.
+ */
+void zebra_evpn_rem_srv6_macs_reinstall(struct zebra_evpn *zevpn)
+{
+	if (!zevpn || !zevpn->mac_table)
+		return;
+
+	hash_iterate(zevpn->mac_table, zebra_evpn_rem_srv6_mac_reinstall_cb, zevpn);
+}
+
 int zebra_evpn_rem_mac_install(struct zebra_evpn *zevpn, struct zebra_mac *mac,
 			       bool was_static)
 {
@@ -193,6 +227,15 @@ int zebra_evpn_rem_mac_install(struct zebra_evpn *zevpn, struct zebra_mac *mac,
 	vlanid_t vid;
 	uint32_t nhg_id;
 	struct ipaddr vtep_ip;
+	ifindex_t sr6_ifindex = 0;
+
+	/* Non-VXLAN backend (e.g. SRv6 L2 EVPN): dispatch to the backend op.
+	 * VXLAN EVIs (the default backend) use the path below, so
+	 * existing behavior is unchanged.  This also guards the vxlan_if deref
+	 * below for backends with no vxlan device.
+	 */
+	if (zevpn->dp_ops && zevpn->dp_ops != &zevpn_dp_ops_vxlan)
+		return zevpn->dp_ops->mac_install(zevpn, mac, was_static);
 
 	zif = zevpn->vxlan_if->info;
 	if (!zif)
@@ -230,8 +273,43 @@ int zebra_evpn_rem_mac_install(struct zebra_evpn *zevpn, struct zebra_mac *mac,
 	else
 		vid = 0;
 
+	/* A MAC must hold at most ONE reference per SID: acquire only when not
+	 * already holding one, keyed off sr6_ref_held (NOT sr6_ifindex == 0 -
+	 * the ifindex is 0 through the async create window, so gating on it let
+	 * repeated installs re-acquire and inflate the refcount).  SID-change /
+	 * SID-removal paths release and clear sr6_ref_held.
+	 */
+	if (mac->has_srv6_sid) {
+		struct zebra_sr6 *sr6;
+
+		if (!mac->sr6_ref_held) {
+			sr6 = zebra_sr6_get_or_create(&mac->srv6_sid, br_ifp->ifindex,
+						      false /*is_bum*/, vid);
+			if (sr6) {
+				mac->sr6_ref_held = true;
+				mac->sr6_ifindex = sr6->ifindex;
+				sr6_ifindex = sr6->ifindex;
+			} else {
+				zlog_warn("%s: failed to get/create sr6 for SID %pI6 on VNI %u",
+					  __func__, &mac->srv6_sid, zevpn->vni);
+				/* Use the NDA_DST path as fallback. */
+			}
+		} else {
+			/* Reference already held - refresh the async-resolved
+			 * ifindex (0 during the create window) without re-bumping.
+			 */
+			if (mac->sr6_ifindex == 0) {
+				sr6 = zebra_sr6_lookup(&mac->srv6_sid);
+				if (sr6)
+					mac->sr6_ifindex = sr6->ifindex;
+			}
+			sr6_ifindex = mac->sr6_ifindex;
+		}
+	}
+
 	res = dplane_rem_mac_add(zevpn->vxlan_if, br_ifp, vid, &mac->macaddr, vni->vni, &vtep_ip,
-				 sticky, nhg_id, was_static);
+				 sticky, nhg_id, was_static,
+				 mac->has_srv6_sid ? &mac->srv6_sid : NULL, sr6_ifindex);
 	if (res != ZEBRA_DPLANE_REQUEST_FAILURE)
 		return 0;
 	else
@@ -255,6 +333,12 @@ int zebra_evpn_rem_mac_uninstall(struct zebra_evpn *zevpn,
 	if (!force && mac->es &&
 	    !CHECK_FLAG(mac->es->flags, ZEBRA_EVPNES_NHG_ACTIVE))
 		return -1;
+
+	/* Non-VXLAN backend (SRv6): dispatch to the backend op. VXLAN EVIs
+	 * proceed unchanged.
+	 */
+	if (zevpn->dp_ops && zevpn->dp_ops != &zevpn_dp_ops_vxlan)
+		return zevpn->dp_ops->mac_uninstall(zevpn, mac, force);
 
 	if (!zevpn->vxlan_if) {
 		if (IS_ZEBRA_DEBUG_VXLAN)
@@ -1180,6 +1264,26 @@ int zebra_evpn_mac_del(struct zebra_evpn *zevpn, struct zebra_mac *mac)
 							  sizeof(mac_buf)));
 	}
 
+	/*
+	 * (sr6 refcount leak on MAC removal): release any sr6
+	 * reference this MAC holds before it is freed (or marked AUTO).
+	 * Remote-MAC removal can reach this terminal path WITHOUT going
+	 * through zebra_evpn_rem_mac_uninstall() - e.g. when the MAC still has
+	 * associated neighbors, so rem_mac_uninstall is gated out by its
+	 * `remote_neigh_count(mac) == 0` check.  Then the sr6 reference is
+	 * never returned, refcount stays > 0, and the interface is never
+	 * deleted even after the SID is withdrawn.  Idempotent: the uninstall
+	 * / SID-change / SID-removal paths clear sr6_ref_held after releasing,
+	 * so this guard prevents any double-release.  Keyed off sr6_ref_held
+	 * (not sr6_ifindex, which is 0 while the netdev's create is pending).
+	 */
+	if (mac->sr6_ref_held && mac->has_srv6_sid) {
+		zebra_sr6_release(&mac->srv6_sid);
+		mac->sr6_ifindex = 0;
+		mac->sr6_ref_held = false;
+		mac->has_srv6_sid = false;
+	}
+
 	/* force de-ref any ES entry linked to the MAC */
 	zebra_evpn_es_mac_deref_entry(mac);
 
@@ -2045,7 +2149,8 @@ void zebra_evpn_print_dad_mac_hash_detail(struct hash_bucket *bucket, void *ctxt
 
 int zebra_evpn_mac_remote_macip_add(struct zebra_evpn *zevpn, struct zebra_vrf *zvrf,
 				    const struct ethaddr *macaddr, struct ipaddr *vtep_ip,
-				    uint8_t flags, uint32_t seq, const esi_t *esi)
+				    uint8_t flags, uint32_t seq, const esi_t *esi,
+				    const struct in6_addr *srv6_sid)
 {
 	bool sticky;
 	bool remote_gw;
@@ -2086,7 +2191,11 @@ int zebra_evpn_mac_remote_macip_add(struct zebra_evpn *zevpn, struct zebra_vrf *
 	    sticky != !!CHECK_FLAG(mac->flags, ZEBRA_MAC_STICKY) ||
 	    remote_gw != !!CHECK_FLAG(mac->flags, ZEBRA_MAC_REMOTE_DEF_GW) ||
 	    !ipaddr_is_same(&mac->fwd_info.r_vtep_ip, vtep_ip) ||
-	    memcmp(old_esi, esi, sizeof(esi_t)) || seq != mac->rem_seq)
+	    memcmp(old_esi, esi, sizeof(esi_t)) || seq != mac->rem_seq ||
+	    /* SRv6 SID change: new SID on existing MAC, or SID added/removed */
+	    (mac && srv6_sid &&
+	     (!mac->has_srv6_sid || memcmp(&mac->srv6_sid, srv6_sid, sizeof(*srv6_sid)) != 0)) ||
+	    (mac && !srv6_sid && mac->has_srv6_sid))
 		update_mac = 1;
 
 	if (update_mac) {
@@ -2151,6 +2260,39 @@ int zebra_evpn_mac_remote_macip_add(struct zebra_evpn *zevpn, struct zebra_vrf *
 						   sizeof(mac_buf)));
 			}
 
+			/*
+			 * The kernel bridge learned this MAC dynamically on
+			 * mac->ifp before it moved. Nothing below tells the
+			 * kernel to forget that entry - it just sits there
+			 * until the bridge's own ageing timer (default 300s)
+			 * expires it, so the dataplane keeps a stale local
+			 * FDB entry alongside the new remote one for up to
+			 * five minutes after a MAC mobility event, even
+			 * though zebra and BGP have already fully converged
+			 * on "remote". Flush it proactively instead of
+			 * waiting on ageing. Only for SRv6 EVIs; the other EVIs
+			 * keep their existing behaviour.
+			 */
+			if (zevpn->dp_ops == &zevpn_dp_ops_srv6 && mac->ifp) {
+				struct interface *br_ifp;
+				vlanid_t vid;
+
+				if (zevpn->vxlan_if) {
+					struct zebra_if *zif = zevpn->vxlan_if->info;
+					struct zebra_vxlan_vni *vni;
+
+					br_ifp = zif->brslave_info.br_if;
+					vni = zebra_vxlan_if_vni_find(zif, zevpn->vni);
+					vid = vni ? vni->access_vlan : 0;
+				} else {
+					br_ifp = zevpn->bridge_if;
+					vid = zevpn->vid;
+				}
+
+				if (br_ifp)
+					dplane_local_mac_del(mac->ifp, br_ifp, vid, macaddr);
+			}
+
 			zebra_evpn_mac_clear_sync_info(mac);
 			zebra_evpn_mac_send_del_to_client(zevpn->vni, macaddr,
 							  mac->flags, false);
@@ -2166,6 +2308,33 @@ int zebra_evpn_mac_remote_macip_add(struct zebra_evpn *zevpn, struct zebra_vrf *
 		UNSET_FLAG(mac->flags, ZEBRA_MAC_ALL_LOCAL_FLAGS);
 		SET_FLAG(mac->flags, ZEBRA_MAC_REMOTE);
 		mac->fwd_info.r_vtep_ip = *vtep_ip;
+
+		/* Store optional SRv6 SID */
+		if (srv6_sid) {
+			/*
+			 * Bug-fix (sr6 stale unicast): if the SID has changed
+			 * and we already have an sr6 interface for the old SID,
+			 * release it now.  zebra_evpn_rem_mac_install() will call
+			 * zebra_sr6_get_or_create() with the new SID and create
+			 * a fresh interface.
+			 */
+			if (mac->sr6_ref_held && mac->has_srv6_sid &&
+			    memcmp(&mac->srv6_sid, srv6_sid, sizeof(mac->srv6_sid)) != 0) {
+				zebra_sr6_release(&mac->srv6_sid);
+				mac->sr6_ifindex = 0;
+				mac->sr6_ref_held = false;
+			}
+			mac->srv6_sid = *srv6_sid;
+			mac->has_srv6_sid = true;
+		} else {
+			/* SID withdrawn - release any existing sr6. */
+			if (mac->sr6_ref_held && mac->has_srv6_sid) {
+				zebra_sr6_release(&mac->srv6_sid);
+				mac->sr6_ifindex = 0;
+				mac->sr6_ref_held = false;
+			}
+			mac->has_srv6_sid = false;
+		}
 
 		if (sticky)
 			SET_FLAG(mac->flags, ZEBRA_MAC_STICKY);
@@ -2218,6 +2387,81 @@ int zebra_evpn_add_update_local_mac(struct zebra_vrf *zvrf,
 	/* Check if we need to create or update or it is a NO-OP. */
 	if (!mac)
 		mac = zebra_evpn_mac_lookup(zevpn, macaddr);
+
+	/*
+	 * A local MAC is about to be (re)established on this exact access
+	 * port+VLAN. If some *other* MAC is still marked local on this same
+	 * port+VLAN, the port's identity changed (e.g. a CE's interface was
+	 * given a new MAC without the kernel ever seeing an explicit
+	 * departure to key a delete off of - no link down/up, no more
+	 * traffic from the old address, nothing). This has to run
+	 * regardless of whether "mac" (the one being processed below) is
+	 * brand-new or already known to zebra as something else (e.g.
+	 * still remote from before it moved onto this port) - either way,
+	 * the other, different MAC on this port is now orphaned. Left
+	 * alone it sits as a stale local FDB entry (and a stale Type-2
+	 * route advertised to every peer) until the bridge's own ageing
+	 * timer eventually clears it - the same class of gap as the
+	 * local->remote mobility flush elsewhere in this file, but for the
+	 * case where the old MAC never reappears anywhere as remote either,
+	 * so BGP never has a reason to withdraw it on its own.
+	 * Point-to-point access ports carry exactly one CE's MAC, so a
+	 * second distinct local MAC here is always a replacement, not two
+	 * genuine hosts sharing the port.
+	 *
+	 * Only for SRv6 EVIs: a VXLAN access port may legitimately carry many
+	 * MACs, so the other EVIs must not have their local MACs flushed here.
+	 */
+	if (zevpn->dp_ops == &zevpn_dp_ops_srv6) {
+		/* Like the rest of this function, assume a bridge port has zebra_if info. */
+		struct zebra_if *port_zif = ifp->info;
+		struct listnode *ln;
+		struct zebra_mac *stale_mac;
+
+		if (port_zif->mac_list) {
+			for (ALL_LIST_ELEMENTS_RO(port_zif->mac_list, ln, stale_mac)) {
+				struct interface *stale_ifp;
+				vlanid_t stale_vid;
+
+				if (!CHECK_FLAG(stale_mac->flags, ZEBRA_MAC_LOCAL))
+					continue;
+				if (memcmp(&stale_mac->macaddr, macaddr, sizeof(*macaddr)) == 0)
+					continue;
+
+				zebra_evpn_mac_get_access_info(stale_mac, &stale_ifp, &stale_vid);
+				if (stale_ifp != ifp || stale_vid != vid)
+					continue;
+
+				if (IS_ZEBRA_DEBUG_VXLAN || IS_ZEBRA_DEBUG_EVPN_MH_MAC)
+					zlog_debug("        %pEA orphaned by new local MAC %pEA on same intf %s(%u) VID %u - flushing",
+						   &stale_mac->macaddr, macaddr, ifp->name,
+						   ifp->ifindex, vid);
+
+				{
+					struct interface *br_ifp;
+
+					if (zevpn->vxlan_if) {
+						struct zebra_if *vxlan_zif = zevpn->vxlan_if->info;
+
+						br_ifp = vxlan_zif->brslave_info.br_if;
+					} else {
+						br_ifp = zevpn->bridge_if;
+					}
+
+					if (br_ifp)
+						dplane_local_mac_del(ifp, br_ifp, vid,
+								     &stale_mac->macaddr);
+				}
+				zebra_evpn_del_local_mac(zevpn, stale_mac, false);
+				/* del may have unlinked/freed stale_mac and mutated
+				 * port_zif->mac_list - stop here rather than continue
+				 * iterating it.
+				 */
+				break;
+			}
+		}
+	}
+
 	if (!mac) {
 		if (IS_ZEBRA_DEBUG_VXLAN || IS_ZEBRA_DEBUG_EVPN_MH_MAC)
 			zlog_debug("ADD %sMAC %pEA intf %s(%u) VID %u -> VNI %u%s",
@@ -2330,7 +2574,7 @@ int zebra_evpn_add_update_local_mac(struct zebra_vrf *zvrf,
 				return 0;
 			}
 
-			/* If an actual move, compute MAC's seq number */
+			/* If an actual move, compute MAC's seq number. */
 			if (CHECK_FLAG(mac->flags, ZEBRA_MAC_REMOTE)) {
 				mac->loc_seq = MAX(mac->rem_seq + 1,
 						   mac->loc_seq);
