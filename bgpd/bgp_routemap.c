@@ -573,6 +573,52 @@ static const struct route_map_rule_cmd route_match_ip_address_cmd = {
 	route_match_ip_address_free
 };
 
+/*
+ * IPv4 next-hop of a path for the `match ip next-hop` rules: the NEXT_HOP of
+ * an IPv4 route, or the IPv4 next-hop in MP_REACH_NLRI of an EVPN route
+ * (normally the VTEP address, RFC 8365 section 5.1.3). The 12-octet RD+IPv4
+ * encoding is accepted too, as the MP_REACH_NLRI parser does.
+ */
+static bool route_match_ipv4_nexthop_get(const struct prefix *prefix, struct bgp_path_info *path,
+					 struct prefix_ipv4 *p)
+{
+	p->family = AF_INET;
+	p->prefixlen = IPV4_MAX_BITLEN;
+
+	if (prefix->family == AF_INET) {
+		p->prefix = path->attr->nexthop;
+		return true;
+	}
+
+	if (prefix->family == AF_EVPN && (path->attr->mp_nexthop_len == BGP_ATTR_NHLEN_IPV4 ||
+					  path->attr->mp_nexthop_len == BGP_ATTR_NHLEN_VPNV4)) {
+		p->prefix = path->attr->mp_nexthop_global_in;
+		return true;
+	}
+
+	return false;
+}
+
+/*
+ * IPv6 next-hop of a path for the `match ipv6 next-hop` rules: the global
+ * next-hop of an IPv6 route, or the IPv6 next-hop in MP_REACH_NLRI of an EVPN
+ * route (normally the VTEP address), in any encoding the parser accepts.
+ */
+static bool route_match_ipv6_nexthop_get(const struct prefix *prefix, struct bgp_path_info *path,
+					 struct prefix_ipv6 *p)
+{
+	p->family = AF_INET6;
+	p->prefixlen = IPV6_MAX_BITLEN;
+
+	if (prefix->family == AF_INET6 ||
+	    (prefix->family == AF_EVPN && BGP_ATTR_MP_NEXTHOP_LEN_IP6(path->attr))) {
+		p->prefix = path->attr->mp_nexthop_global;
+		return true;
+	}
+
+	return false;
+}
+
 /* `match ip next-hop <IP_ADDRESS_ACCESS_LIST_NAME>' */
 
 /* Match function return 1 if match is success else return zero. */
@@ -580,15 +626,10 @@ static enum route_map_cmd_result_t
 route_match_ip_next_hop(void *rule, const struct prefix *prefix, void *object)
 {
 	struct access_list *alist;
-	struct bgp_path_info *path;
+	struct bgp_path_info *path = object;
 	struct prefix_ipv4 p;
 
-	if (prefix->family == AF_INET) {
-		path = object;
-		p.family = AF_INET;
-		p.prefix = path->attr->nexthop;
-		p.prefixlen = IPV4_MAX_BITLEN;
-
+	if (route_match_ipv4_nexthop_get(prefix, path, &p)) {
 		alist = access_list_lookup(AFI_IP, (char *)rule);
 		if (alist == NULL) {
 			if (unlikely(CHECK_FLAG(rmap_debug,
@@ -797,15 +838,10 @@ route_match_ip_next_hop_prefix_list(void *rule, const struct prefix *prefix,
 				    void *object)
 {
 	struct prefix_list *plist;
-	struct bgp_path_info *path;
+	struct bgp_path_info *path = object;
 	struct prefix_ipv4 p;
 
-	if (prefix->family == AF_INET) {
-		path = object;
-		p.family = AF_INET;
-		p.prefix = path->attr->nexthop;
-		p.prefixlen = IPV4_MAX_BITLEN;
-
+	if (route_match_ipv4_nexthop_get(prefix, path, &p)) {
 		plist = prefix_list_lookup(AFI_IP, (char *)rule);
 		if (plist == NULL) {
 			if (unlikely(CHECK_FLAG(rmap_debug,
@@ -847,15 +883,10 @@ route_match_ipv6_next_hop_prefix_list(void *rule, const struct prefix *prefix,
 				      void *object)
 {
 	struct prefix_list *plist;
-	struct bgp_path_info *path;
+	struct bgp_path_info *path = object;
 	struct prefix_ipv6 p;
 
-	if (prefix->family == AF_INET6) {
-		path = object;
-		p.family = AF_INET6;
-		p.prefix = path->attr->mp_nexthop_global;
-		p.prefixlen = IPV6_MAX_BITLEN;
-
+	if (route_match_ipv6_nexthop_get(prefix, path, &p)) {
 		plist = prefix_list_lookup(AFI_IP6, (char *)rule);
 		if (!plist) {
 			if (unlikely(CHECK_FLAG(rmap_debug,
@@ -4026,16 +4057,11 @@ static const struct route_map_rule_cmd route_match_ipv6_address_cmd = {
 static enum route_map_cmd_result_t
 route_match_ipv6_next_hop(void *rule, const struct prefix *prefix, void *object)
 {
-	struct bgp_path_info *path;
+	struct bgp_path_info *path = object;
 	struct access_list *alist;
 	struct prefix_ipv6 p;
 
-	if (prefix->family == AF_INET6) {
-		path = object;
-		p.family = AF_INET6;
-		p.prefix = path->attr->mp_nexthop_global;
-		p.prefixlen = IPV6_MAX_BITLEN;
-
+	if (route_match_ipv6_nexthop_get(prefix, path, &p)) {
 		alist = access_list_lookup(AFI_IP6, (char *)rule);
 		if (!alist) {
 			if (unlikely(CHECK_FLAG(rmap_debug,
