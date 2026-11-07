@@ -240,6 +240,15 @@ static int group_announce_route_walkcb(struct update_group *updgrp, void *arg)
 	}
 
 	UPDGRP_FOREACH_SUBGRP (updgrp, subgrp) {
+		/*
+		 * Skip the default prefix when default-originate is configured.
+		 * subgroup_announce_check() already blocks advertising the table's
+		 * default route, but skipping here avoids unnecessary processing.
+		 */
+		if (CHECK_FLAG(peer->af_flags[afi][safi], PEER_FLAG_DEFAULT_ORIGINATE) &&
+		    is_default_prefix(bgp_dest_get_prefix(ctx->dest)))
+			continue;
+
 		/* An update-group that uses addpath */
 		if (addpath_capable) {
 			/* Send withdrawals without waiting for coalesting timer
@@ -827,6 +836,15 @@ void subgroup_announce_table(struct update_subgroup *subgrp,
 	SET_FLAG(subgrp->sflags, SUBGRP_STATUS_TABLE_REPARSING);
 
 	for (dest = bgp_table_top(table); dest; dest = bgp_route_next(dest)) {
+		/*
+		 * Skip the default prefix when default-originate is configured.
+		 * subgroup_announce_check() already blocks advertising the table's
+		 * default route, but skipping here avoids unnecessary processing.
+		 */
+		if (CHECK_FLAG(peer->af_flags[afi][safi], PEER_FLAG_DEFAULT_ORIGINATE) &&
+		    is_default_prefix(bgp_dest_get_prefix(dest)))
+			continue;
+
 		if (addpath_capable) {
 			subgrp_announce_addpath_best_selected(dest, subgrp);
 			continue;
@@ -837,17 +855,6 @@ void subgroup_announce_table(struct update_subgroup *subgrp,
 			if (!bgp_check_selected(ri, peer, addpath_capable, afi,
 						safi_rib))
 				continue;
-
-			/* If default originate is enabled for
-			 * the peer, do not send explicit
-			 * withdraw. This will prevent deletion
-			 * of default route advertised through
-			 * default originate
-			 */
-			if (CHECK_FLAG(peer->af_flags[afi][safi],
-				       PEER_FLAG_DEFAULT_ORIGINATE) &&
-			    is_default_prefix(bgp_dest_get_prefix(dest)))
-				break;
 
 			if (CHECK_FLAG(ri->flags, BGP_PATH_SELECTED))
 				subgroup_process_announce_selected(
