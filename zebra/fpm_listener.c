@@ -38,6 +38,7 @@
 #include <linux/rtnetlink.h>
 #include <linux/if_link.h>
 #include <linux/nexthop.h>
+#include <linux/lwtunnel.h>
 
 #include "rt_netlink.h"
 #include "fpm/fpm.h"
@@ -649,6 +650,8 @@ static int parse_route_msg(struct netlink_msg_ctx *ctx)
 	return 1;
 }
 
+static const char *addr_to_s(unsigned char family, void *addr);
+
 /* Forward declaration for handle_nexthop_update */
 static void handle_nexthop_update(struct nlmsghdr *hdr, struct nhmsg *nhmsg, struct rtattr *tb[],
 				  bool is_add);
@@ -724,7 +727,32 @@ static int parse_nexthop_msg(struct nlmsghdr *hdr)
 	} else if (tb[NHA_OIF] || tb[NHA_GATEWAY]) {
 		/* Single nexthop case */
 		nhg_count = 1;
-		snprintf(nexthop_buf, sizeof(nexthop_buf), " Singleton");
+		buf_pos = snprintfrr(nexthop_buf, sizeof(nexthop_buf), " Singleton");
+		if (tb[NHA_GATEWAY])
+			buf_pos +=
+				snprintfrr(nexthop_buf + buf_pos, sizeof(nexthop_buf) - buf_pos,
+					   " %s",
+					   addr_to_s(nhmsg->nh_family, RTA_DATA(tb[NHA_GATEWAY])));
+		if (tb[NHA_OIF])
+			buf_pos += snprintfrr(nexthop_buf + buf_pos, sizeof(nexthop_buf) - buf_pos,
+					      " via interface %u",
+					      *(uint32_t *)RTA_DATA(tb[NHA_OIF]));
+
+		/* An EVPN nexthop carries its VNI as an IP tunnel id */
+		if (tb[NHA_ENCAP_TYPE] && tb[NHA_ENCAP]) {
+			struct rtattr *encap[LWTUNNEL_IP_MAX + 1] = {};
+			uint16_t encap_type = *(uint16_t *)RTA_DATA(tb[NHA_ENCAP_TYPE]);
+			uint64_t vni;
+
+			if ((encap_type == LWTUNNEL_ENCAP_IP || encap_type == LWTUNNEL_ENCAP_IP6) &&
+			    parse_rtattrs_(RTA_DATA(tb[NHA_ENCAP]), RTA_PAYLOAD(tb[NHA_ENCAP]),
+					   encap, ARRAY_SIZE(encap), &err_msg) &&
+			    encap[LWTUNNEL_IP_ID]) {
+				vni = ntohll(*(uint64_t *)RTA_DATA(encap[LWTUNNEL_IP_ID]));
+				snprintfrr(nexthop_buf + buf_pos, sizeof(nexthop_buf) - buf_pos,
+					   ", Encap Type: %u Vxlan vni %" PRIu64, encap_type, vni);
+			}
+		}
 	}
 
 	/* Print blackhole status if applicable */
