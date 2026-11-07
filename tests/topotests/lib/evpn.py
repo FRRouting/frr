@@ -11,7 +11,9 @@
 evpn.py: Library of helper functions for EVPN testing
 """
 
+import ipaddress
 import json
+import re
 import shlex
 import sys
 from lib import topotest
@@ -3020,3 +3022,268 @@ def evpn_verify_kernel_encap_vni(
         f" via {expected_dev}" if expected_dev else "",
     )
     return None
+
+
+#
+# EVPN multihoming: one remote MAC seen through every layer
+#
+# A remote MAC is visible in four places that must agree:
+#   BGP     - the Type-2 route and the ES's VTEP list (from Type-1 routes)
+#   zebra   - "show evpn mac" (single VTEP or ES) and "show evpn es"
+#   kernel  - the vxlan "self" FDB entry (dst <vtep> or nhid <group>) and the
+#             fdb nexthop group it points to
+# The helpers below return plain data for one layer each, so a test can
+# snapshot all of them at a given stage and compare them.
+#
+
+
+def _same_ip(left, right):
+    """True when two address strings are the same IPv4/IPv6 address."""
+    try:
+        return ipaddress.ip_address(left) == ipaddress.ip_address(right)
+    except ValueError:
+        return left == right
+
+
+def evpn_zebra_mac_entry(dut, vni, mac):
+    """
+    Return zebra's JSON entry for one MAC in one VNI, or None when absent.
+
+    The entry carries "type" (local/remote) and, for a remote MAC, either
+    "remoteVtep" (single VTEP) or "remoteEs" (behind an ES), and for an ES
+    MAC "esi".
+    """
+    out = dut.vtysh_cmd(f"show evpn mac vni {int(vni)} mac {mac} json", isjson=True)
+    if not isinstance(out, dict):
+        return None
+    for key, info in out.items():
+        if key.lower() == mac.lower() and isinstance(info, dict):
+            return info
+    return None
+
+
+def evpn_zebra_es_state(dut, esi):
+    """
+    Summarise zebra's view of one ES (`show evpn es <esi> json`).
+
+    Returns {"exists", "nhg_active", "nhg_id", "vteps", "vtep_nhids"}, where
+    vtep_nhids maps each VTEP to the nexthop id zebra gave it (the member of
+    the ES nexthop group). A remote ES that no MAC or EAD route references is
+    freed by zebra, so "exists" can be False.
+    """
+    out = dut.vtysh_cmd(f"show evpn es {esi} json", isjson=True)
+    if not isinstance(out, dict) or not out:
+        return {
+            "exists": False,
+            "nhg_active": False,
+            "nhg_id": 0,
+            "vteps": [],
+            "vtep_nhids": {},
+        }
+    return {
+        "exists": True,
+        "nhg_active": "nexthopGroupActive" in out.get("flags", []),
+        "nhg_id": out.get("nexthopGroup", 0),
+        "vteps": sorted(v.get("vtep") for v in out.get("vteps", [])),
+        "vtep_nhids": {v.get("vtep"): v.get("nexthopId") for v in out.get("vteps", [])},
+    }
+
+
+def evpn_bgp_es_vteps(dut, esi):
+    """VTEPs bgpd lists for an ES (`show bgp l2vpn evpn es <esi> json`)."""
+    out = dut.vtysh_cmd(f"show bgp l2vpn evpn es {esi} json", isjson=True)
+    if not isinstance(out, dict):
+        return []
+    return sorted(v.get("vtep_ip") for v in out.get("vteps", []))
+
+
+def _json_values_for_key(node, key, found):
+    """Collect every value stored under `key` anywhere in a JSON tree."""
+    if isinstance(node, dict):
+        for name, value in node.items():
+            if name == key:
+                found.append(value)
+            _json_values_for_key(value, key, found)
+    elif isinstance(node, list):
+        for value in node:
+            _json_values_for_key(value, key, found)
+
+
+def evpn_bgp_macip_esis(dut, mac):
+    """
+    ESIs carried by the Type-2 paths for `mac` in the EVPN table.
+
+    Returns a sorted list of ESI strings, [] when the MAC has paths but none
+    carries an ESI, and None when bgpd has no route for the MAC. The route
+    JSON layout varies by RD and path, so every "esi" key is collected.
+    """
+    out = dut.vtysh_cmd(f"show bgp l2vpn evpn route rd all mac {mac} json", isjson=True)
+    # bgpd always prints numPrefix/numPaths, even when nothing matches
+    if not isinstance(out, dict) or not out.get("numPaths"):
+        return None
+    found = []
+    _json_values_for_key(out, "esi", found)
+    # bgpd prints an all-zero ESI for a MAC with no ESI
+    return sorted({e for e in found if e and set(e.replace(":", "")) != {"0"}})
+
+
+def evpn_kernel_vxlan_fdb_entry(dut, mac, vni, vxlan="vxlan48"):
+    """
+    The vxlan "self" FDB entry for `mac` in `vni`, or None.
+
+    check_mac_in_fdb() only looks at the bridge "master" row; this is the
+    vxlan-port entry that carries the remote destination.
+
+    Returns {"dst", "nhid", "line"}. A single-VTEP entry has dst and no nhid;
+    an ES MAC has nhid and no dst. Entries of other VNIs are ignored.
+    """
+    out = dut.run(
+        f"bridge -d fdb show dev {vxlan} | grep -i -F -- {shlex.quote(mac)} || true"
+    )
+    for line in str(out).splitlines():
+        parts = line.split()
+        if "self" not in parts or _fdb_token(parts, "src_vni") != str(int(vni)):
+            continue
+        if not parts or parts[0].lower() != mac.lower():
+            continue
+        return {
+            "dst": _fdb_token(parts, "dst"),
+            "nhid": _fdb_token(parts, "nhid"),
+            "line": line.strip(),
+        }
+    return None
+
+
+def evpn_kernel_nexthop_group(dut, nhid):
+    """
+    Kernel nexthop `nhid` and, for a group, its members, or None when absent.
+
+    Uses `ip -j nexthop get id`, as evpn_verify_kernel_encap_vni() does, and
+    _kernel_nh_group_ids() for the member ids. Returns
+    {"fdb": bool, "members": [ids], "member_vteps": {id: gateway ip}}.
+    An EVPN ES group is an fdb group whose members are fdb nexthops with the
+    remote VTEP as gateway.
+    """
+
+    def _get(nh_id):
+        out = str(dut.run(f"ip -j nexthop get id {int(nh_id)} 2>/dev/null || true"))
+        try:
+            data = json.loads(out)
+        except ValueError:
+            return None
+        if isinstance(data, list):
+            data = data[0] if data else None
+        return data if isinstance(data, dict) else None
+
+    entry = _get(nhid)
+    if not entry:
+        return None
+    members = [str(m) for m in _kernel_nh_group_ids(entry.get("group", []))]
+    member_vteps = {}
+    for member in members:
+        member_entry = _get(member) or {}
+        member_vteps[member] = member_entry.get("gateway")
+    return {
+        "fdb": "fdb" in entry,
+        "members": members,
+        "member_vteps": member_vteps,
+        "entry": entry,
+    }
+
+
+def evpn_mac_snapshot(dut, mac, vni, esi=None, vxlan="vxlan48"):
+    """
+    One MAC through BGP, zebra and the kernel on `dut` (for logging and for
+    comparing a stage against another).
+    """
+    fdb = evpn_kernel_vxlan_fdb_entry(dut, mac, vni, vxlan)
+    snap = {
+        "bgp_macip_esis": evpn_bgp_macip_esis(dut, mac),
+        "zebra_mac": evpn_zebra_mac_entry(dut, vni, mac),
+        "kernel_fdb": fdb,
+        "kernel_nhg": (
+            evpn_kernel_nexthop_group(dut, fdb["nhid"]) if fdb and fdb["nhid"] else None
+        ),
+    }
+    if esi:
+        snap["zebra_es"] = evpn_zebra_es_state(dut, esi)
+        snap["bgp_es_vteps"] = evpn_bgp_es_vteps(dut, esi)
+    logger.info("%s: MAC %s VNI %s snapshot: %s", dut.name, mac, vni, snap)
+    return snap
+
+
+def evpn_check_remote_mac_vtep(dut, vni, mac, vtep, vxlan="vxlan48"):
+    """
+    None when `mac` is a plain single-VTEP remote MAC from `vtep` in zebra and
+    the kernel (dst <vtep>, no nhid) and BGP carries no ESI for it.
+    """
+    entry = evpn_zebra_mac_entry(dut, vni, mac)
+    if not entry or entry.get("type") != "remote" or "remoteEs" in entry:
+        return f"{dut.name}: zebra MAC {mac} is not a single-VTEP remote: {entry}"
+    if not _same_ip(entry.get("remoteVtep", ""), vtep):
+        return f"{dut.name}: zebra MAC {mac} remoteVtep {entry.get('remoteVtep')} != {vtep}"
+    fdb = evpn_kernel_vxlan_fdb_entry(dut, mac, vni, vxlan)
+    if not fdb or fdb["nhid"] or not _same_ip(fdb["dst"] or "", vtep):
+        return (
+            f"{dut.name}: kernel FDB for {mac} is not 'dst {vtep}' without nhid: {fdb}"
+        )
+    esis = evpn_bgp_macip_esis(dut, mac)
+    if esis != []:
+        return f"{dut.name}: BGP Type-2 for {mac} should carry no ESI, got {esis}"
+    return None
+
+
+def evpn_check_remote_mac_es(dut, vni, mac, esi, programmed, vxlan="vxlan48"):
+    """
+    None when `mac` is a remote ES MAC for `esi` in BGP and zebra and:
+      programmed=True  - the kernel entry is `nhid <zebra's ES group>` with no
+                         dst, and that fdb nexthop group has exactly the
+                         member ids zebra lists in `show evpn es json`, each
+                         pointing at the VTEP zebra assigned it;
+      programmed=False - the kernel has no vxlan FDB entry for it at all
+                         (a stale single-VTEP entry must not be left behind).
+    """
+    entry = evpn_zebra_mac_entry(dut, vni, mac)
+    if not entry or entry.get("type") != "remote" or entry.get("remoteEs") != esi:
+        return f"{dut.name}: zebra MAC {mac} is not remote behind ES {esi}: {entry}"
+    esis = evpn_bgp_macip_esis(dut, mac)
+    if not esis or esi not in esis:
+        return f"{dut.name}: BGP Type-2 for {mac} lacks ESI {esi}: {esis}"
+    fdb = evpn_kernel_vxlan_fdb_entry(dut, mac, vni, vxlan)
+    if not programmed:
+        if fdb:
+            return f"{dut.name}: kernel still has an FDB entry for ES MAC {mac}: {fdb}"
+        return None
+    es = evpn_zebra_es_state(dut, esi)
+    if not fdb or fdb["dst"] or str(fdb["nhid"]) != str(es["nhg_id"]):
+        return f"{dut.name}: kernel FDB for {mac} should be 'nhid {es['nhg_id']}' only: {fdb}"
+    # The kernel group must be exactly what zebra reports: the same member
+    # ids, and each member pointing at the VTEP zebra assigned that id to.
+    group = evpn_kernel_nexthop_group(dut, fdb["nhid"])
+    if not group or not group["fdb"]:
+        return f"{dut.name}: kernel nexthop group {fdb['nhid']} is not an fdb group: {group}"
+    zebra_members = {str(nh): vtep for vtep, nh in es["vtep_nhids"].items()}
+    if set(group["members"]) != set(zebra_members) or not es["vteps"]:
+        return (
+            f"{dut.name}: kernel group {fdb['nhid']} members {group['members']} "
+            f"!= zebra ES {esi} nexthop ids {sorted(zebra_members)}"
+        )
+    for member, vtep in zebra_members.items():
+        if not _same_ip(group["member_vteps"].get(member) or "", vtep):
+            return (
+                f"{dut.name}: kernel nexthop {member} points at "
+                f"{group['member_vteps'].get(member)}, zebra says VTEP {vtep}"
+            )
+    return None
+
+
+def evpn_check_mac_absent(dut, vni, mac, vxlan="vxlan48"):
+    """None when `mac` is gone from zebra, the kernel vxlan FDB and BGP."""
+    left = []
+    if evpn_zebra_mac_entry(dut, vni, mac):
+        left.append("zebra")
+    if evpn_kernel_vxlan_fdb_entry(dut, mac, vni, vxlan):
+        left.append("kernel vxlan FDB")
+    if evpn_bgp_macip_esis(dut, mac) is not None:
+        left.append("BGP")
+    return f"{dut.name}: MAC {mac} still present in {left}" if left else None
