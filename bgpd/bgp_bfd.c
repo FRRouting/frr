@@ -467,8 +467,14 @@ static void bgp_peer_remove_bfd(struct peer *p)
 	/*
 	 * Peer configuration was removed, however we must check if there
 	 * is still a group configuration to keep this running.
+	 *
+	 * A peer being deleted must release its session now: bfdd keeps a
+	 * single registration per client and session, so a deregistration
+	 * deferred to peer_free() would take away the session already
+	 * registered by a new peer object for the same neighbor.
 	 */
-	if (p->group && p->group->conf->bfd_config) {
+	if (p->group && p->group->conf->bfd_config &&
+	    !CHECK_FLAG(p->flags, PEER_FLAG_DELETE)) {
 		p->bfd_config->manual = false;
 		bgp_peer_bfd_reset(p);
 		bgp_peer_config_apply(p, p->group);
