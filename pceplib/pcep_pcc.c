@@ -15,7 +15,7 @@
 
 #include <zebra.h>
 
-#include <netdb.h> // gethostbyname
+#include <netdb.h> // getaddrinfo
 #include <netinet/tcp.h>
 #include <pthread.h>
 #include <signal.h>
@@ -421,22 +421,46 @@ int main(int argc, char **argv)
 	strlcpy(config->tcp_authentication_str, g_cmd_line_args->tcp_md5_str,
 		sizeof(config->tcp_authentication_str));
 
-	int af = (g_cmd_line_args->is_ipv6 ? AF_INET6 : AF_INET);
-	struct hostent *host_info =
-		gethostbyname2(g_cmd_line_args->dest_ip_str, af);
-	if (host_info == NULL) {
-		pcep_log(LOG_ERR, "%s: Error getting IP address.", __func__);
+	struct addrinfo hints = {0};
+	struct addrinfo *result = NULL;
+	struct addrinfo *rp = NULL;
+	int ret;
+
+	hints.ai_family = g_cmd_line_args->is_ipv6 ? AF_INET6 : AF_INET;
+	hints.ai_socktype = SOCK_STREAM;
+	hints.ai_protocol = IPPROTO_TCP;
+	hints.ai_flags = AI_ADDRCONFIG;
+
+	ret = getaddrinfo(g_cmd_line_args->dest_ip_str, NULL, &hints, &result);
+	if (ret != 0) {
+		pcep_log(LOG_ERR, "%s: Error getting IP address: %s", __func__,
+			 gai_strerror(ret));
 		return -1;
 	}
 
-	if (g_cmd_line_args->is_ipv6) {
-		struct in6_addr host_address;
-		memcpy(&host_address, host_info->h_addr, host_info->h_length);
-		g_session = connect_pce_ipv6(config, &host_address);
-	} else {
-		struct in_addr host_address;
-		memcpy(&host_address, host_info->h_addr, host_info->h_length);
-		g_session = connect_pce(config, &host_address);
+	/* Find first matching address family */
+	for (rp = result; rp != NULL; rp = rp->ai_next) {
+		if (g_cmd_line_args->is_ipv6 &&
+		    rp->ai_family == AF_INET6) {
+			struct sockaddr_in6 *sin6 =
+				(struct sockaddr_in6 *)rp->ai_addr;
+			g_session = connect_pce_ipv6(config, &sin6->sin6_addr);
+			break;
+		} else if (!g_cmd_line_args->is_ipv6 &&
+			   rp->ai_family == AF_INET) {
+			struct sockaddr_in *sin =
+				(struct sockaddr_in *)rp->ai_addr;
+			g_session = connect_pce(config, &sin->sin_addr);
+			break;
+		}
+	}
+
+	freeaddrinfo(result);
+
+	if (rp == NULL) {
+		pcep_log(LOG_ERR, "%s: No matching address family found.",
+			 __func__);
+		return -1;
 	}
 
 	if (g_session == NULL) {
