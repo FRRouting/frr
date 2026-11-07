@@ -74,13 +74,119 @@ DEFINE_HOOK(bgp_route_distinguisher_update, (struct bgp *bgp, afi_t afi, bool pr
 	    (bgp, afi, preconfig));
 DEFINE_HOOK(bgp_snmp_update_last_changed, (struct bgp *bgp), (bgp));
 
+/* Same instance identity bgp_nb_bgp_create() uses on APPLY. */
+static void bgp_nb_instance_key(const struct lyd_node *bgp_dnode, enum bgp_instance_type *inst_type,
+				const char **inst_name)
+{
+	const char *vrf_name = yang_dnode_get_string(bgp_dnode, "../vrf");
+
+	if (strmatch(vrf_name, VRF_DEFAULT_NAME)) {
+		*inst_name = NULL;
+		*inst_type = BGP_INSTANCE_TYPE_DEFAULT;
+		return;
+	}
+
+	*inst_name = vrf_name;
+	if (yang_dnode_exists(bgp_dnode, "./global/instance-type-view") &&
+	    yang_dnode_get_bool(bgp_dnode, "./global/instance-type-view"))
+		*inst_type = BGP_INSTANCE_TYPE_VIEW;
+	else
+		*inst_type = BGP_INSTANCE_TYPE_VRF;
+}
+
+static bool bgp_nb_cpp_is_bgp(const struct lyd_node *cpp)
+{
+	const char *type;
+	const char *id;
+
+	if (!cpp || !strmatch(cpp->schema->name, "control-plane-protocol"))
+		return false;
+	if (!yang_dnode_exists(cpp, "./type"))
+		return false;
+
+	type = yang_dnode_get_string(cpp, "./type");
+	if (!type)
+		return false;
+	id = strrchr(type, ':');
+	id = id ? id + 1 : type;
+	return strmatch(id, "bgp");
+}
+
+static bool bgp_nb_instance_same(enum bgp_instance_type a, const char *aname, enum bgp_instance_type b,
+				 const char *bname)
+{
+	if (a != b)
+		return false;
+	if (!aname || !bname)
+		return !aname && !bname;
+	return strmatch(aname, bname);
+}
+
+/*
+ * The list key is (type, name, vrf), but the instance is looked up by the
+ * vrf leaf. Two entries that resolve to the same instance would share one
+ * struct bgp and bgp_delete() either of them out from under the other.
+ */
+static int bgp_nb_bgp_validate_unique(struct nb_cb_create_args *args)
+{
+	const struct lyd_node *cpp, *sib, *other;
+	enum bgp_instance_type mine_type, other_type;
+	const char *mine_name, *other_name;
+	const char *vrf;
+
+	cpp = yang_dnode_get_parent(args->dnode, "control-plane-protocol");
+	if (!cpp || !lyd_parent(cpp))
+		return NB_OK;
+
+	bgp_nb_instance_key(args->dnode, &mine_type, &mine_name);
+	LY_LIST_FOR (lyd_child(lyd_parent(cpp)), sib) {
+		if (sib == cpp || !bgp_nb_cpp_is_bgp(sib))
+			continue;
+		other = yang_dnode_get(sib, "frr-bgp:bgp");
+		if (!other)
+			other = yang_dnode_get(sib, "bgp");
+		if (!other)
+			continue;
+		bgp_nb_instance_key(other, &other_type, &other_name);
+		if (!bgp_nb_instance_same(mine_type, mine_name, other_type, other_name))
+			continue;
+
+		vrf = yang_dnode_get_string(args->dnode, "../vrf");
+		snprintfrr(args->errmsg, args->errmsg_len,
+			   "BGP instance for vrf %s is already configured", vrf);
+		return NB_ERR_VALIDATION;
+	}
+	return NB_OK;
+}
+
+/*
+ * bgp_get_vty() enables neighbor-change logging for the datacenter profile.
+ * The YANG default stays false, and a leaf whose value equals that default
+ * is not a configuration diff, so an implicit false must not clear the flag.
+ * An explicit value is not marked LYD_DEFAULT once the candidate is validated.
+ */
+static void bgp_nb_apply_explicit_log_neighbor_changes(struct bgp *bgp, const struct lyd_node *bgp_dnode)
+{
+	const struct lyd_node *leaf;
+
+	if (!bgp || !yang_dnode_exists(bgp_dnode, "./global/global-neighbor-config/log-neighbor-changes"))
+		return;
+
+	leaf = yang_dnode_get(bgp_dnode, "./global/global-neighbor-config/log-neighbor-changes");
+	if (!leaf || (leaf->flags & LYD_DEFAULT))
+		return;
+	if (yang_dnode_get_bool(leaf, NULL))
+		SET_FLAG(bgp->flags, BGP_FLAG_LOG_NEIGHBOR_CHANGES);
+	else
+		UNSET_FLAG(bgp->flags, BGP_FLAG_LOG_NEIGHBOR_CHANGES);
+}
+
 /*
  * XPath: .../frr-bgp:bgp
  */
 int bgp_nb_bgp_create(struct nb_cb_create_args *args)
 {
 	struct bgp *bgp = NULL;
-	const char *vrf_name;
 	const char *name;
 	enum bgp_instance_type inst_type;
 	enum asnotation_mode asnotation = ASNOTATION_UNDEFINED;
@@ -90,24 +196,13 @@ int bgp_nb_bgp_create(struct nb_cb_create_args *args)
 
 	switch (args->event) {
 	case NB_EV_VALIDATE:
+		return bgp_nb_bgp_validate_unique(args);
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
 		break;
 	case NB_EV_APPLY:
-		vrf_name = yang_dnode_get_string(args->dnode, "../vrf");
 		as = yang_dnode_get_uint32(args->dnode, "./global/local-as");
-
-		if (strmatch(vrf_name, VRF_DEFAULT_NAME)) {
-			name = NULL;
-			inst_type = BGP_INSTANCE_TYPE_DEFAULT;
-		} else if (yang_dnode_exists(args->dnode, "./global/instance-type-view") &&
-			   yang_dnode_get_bool(args->dnode, "./global/instance-type-view")) {
-			name = vrf_name;
-			inst_type = BGP_INSTANCE_TYPE_VIEW;
-		} else {
-			name = vrf_name;
-			inst_type = BGP_INSTANCE_TYPE_VRF;
-		}
+		bgp_nb_instance_key(args->dnode, &inst_type, &name);
 
 		if (yang_dnode_exists(args->dnode, "./global/as-notation")) {
 			notation = yang_dnode_get_string(args->dnode, "./global/as-notation");
@@ -119,19 +214,52 @@ int bgp_nb_bgp_create(struct nb_cb_create_args *args)
 				asnotation = ASNOTATION_PLAIN;
 		}
 
-		ret = bgp_get_vty(&bgp, &as, name, inst_type, NULL, asnotation);
-		if (ret != BGP_SUCCESS && ret != BGP_CREATED && ret != BGP_INSTANCE_EXISTS)
-			return NB_ERR_RESOURCE;
+		/*
+		 * Match classic router_bgp: look up with force_config so an
+		 * AUTO instance created by L3VNI (same VRF name) is reclaimed
+		 * instead of skipped. bgp_get_vty() filters AUTO and would
+		 * create a second struct bgp — config (RD/Type-5) then lands
+		 * on the YANG instance while L3VNI stays on the AUTO one
+		 * (memory leak + missing EVPN prefixes).
+		 */
+		ret = bgp_lookup_by_as_name_type(&bgp, &as, NULL, asnotation, name, inst_type,
+						 true);
+		if (!(bgp && ret == BGP_INSTANCE_EXISTS)) {
+			ret = bgp_get_vty(&bgp, &as, name, inst_type, NULL, asnotation);
+			if (ret != BGP_SUCCESS && ret != BGP_CREATED && ret != BGP_INSTANCE_EXISTS)
+				return NB_ERR_RESOURCE;
+		}
 
 		if (inst_type == BGP_INSTANCE_TYPE_VRF || IS_BGP_INSTANCE_HIDDEN(bgp)) {
+			struct vrf *vrf;
+
 			bgp_vpn_leak_export(bgp);
 			UNSET_FLAG(bgp->vrf_flags, BGP_VRF_AUTO);
 			UNSET_FLAG(bgp->flags, BGP_FLAG_INSTANCE_HIDDEN);
 			UNSET_FLAG(bgp->flags, BGP_FLAG_DELETE_IN_PROGRESS);
+
+			/* Ensure the claimed instance owns the VRF link. */
+			if (name) {
+				vrf = vrf_lookup_by_name(name);
+				if (vrf && (bgp->vrf_id != vrf->vrf_id || vrf->info != (void *)bgp))
+					bgp_vrf_link(bgp, vrf);
+			}
 		}
 
 		nb_running_set_entry(args->dnode, bgp);
 		bgp_vpn_leak_export(bgp);
+
+		/*
+		 * bgp_create() seeds default_af IPv4 unicast. Under XFRR
+		 * batching, the router-bgp seed CREATE of default-afi-safi
+		 * ipv4-unicast and "no bgp default ipv4-unicast" DESTROY
+		 * cancel in the candidate, so the destroy callback never
+		 * runs and peers stay IPv4-activated (e.g. BGP-LS fabric
+		 * tests leak EBGP prefixes as LS NLRIs). Clear the C
+		 * default here; child default-afi-safi create callbacks
+		 * re-apply only what remains in the committed tree.
+		 */
+		bgp->default_af[AFI_IP][SAFI_UNICAST] = false;
 
 		/*
 		 * Inverse race: L3VNI may already be live when the VRF BGP
@@ -141,6 +269,7 @@ int bgp_nb_bgp_create(struct nb_cb_create_args *args)
 		 */
 		if (bgp->l3vni)
 			bgp_nb_evpn_vrf_yang_reapply(bgp);
+		bgp_nb_apply_explicit_log_neighbor_changes(bgp, args->dnode);
 		break;
 	}
 
