@@ -5719,16 +5719,22 @@ static int bgp_cli_redistribute(struct vty *vty, const char *proto, unsigned sho
 	struct bgp *bgp;
 
 	if (strmatch(proto, "table-direct")) {
+		/*
+		 * During XFRR batch load, router-bgp context is not pushed
+		 * yet — do not abort. NB validate covers table/VRF checks.
+		 */
 		bgp = VTY_GET_CONTEXT(bgp);
-		if (!bgp)
-			return CMD_WARNING_CONFIG_FAILED;
-		if (instance == RT_TABLE_MAIN || instance == RT_TABLE_LOCAL) {
-			vty_out(vty, "%% 'table-direct', can not use %u routing table\n", instance);
-			return CMD_WARNING_CONFIG_FAILED;
-		}
-		if (vty->node == BGP_IPV6_NODE && bgp->vrf_id != VRF_DEFAULT) {
-			vty_out(vty, "%% Only default BGP instance can use 'table-direct'\n");
-			return CMD_WARNING_CONFIG_FAILED;
+		if (bgp) {
+			if (instance == RT_TABLE_MAIN || instance == RT_TABLE_LOCAL) {
+				vty_out(vty, "%% 'table-direct', can not use %u routing table\n",
+					instance);
+				return CMD_WARNING_CONFIG_FAILED;
+			}
+			if (vty->node == BGP_IPV6_NODE && bgp->vrf_id != VRF_DEFAULT) {
+				vty_out(vty,
+					"%% Only default BGP instance can use 'table-direct'\n");
+				return CMD_WARNING_CONFIG_FAILED;
+			}
 		}
 	}
 
