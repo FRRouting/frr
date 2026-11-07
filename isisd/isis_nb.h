@@ -31,6 +31,9 @@ int isis_instance_leak_create(struct nb_cb_create_args *args);
 int isis_instance_leak_destroy(struct nb_cb_destroy_args *args);
 int isis_instance_metric_style_modify(struct nb_cb_modify_args *args);
 int isis_instance_purge_originator_modify(struct nb_cb_modify_args *args);
+int isis_flex_algo_validate_size(const struct lyd_node *fa_dnode, char *errmsg, size_t errmsg_len);
+int isis_flex_algos_validate_size(const struct lyd_node *dnode, const char *xpath, char *errmsg,
+				  size_t errmsg_len);
 int isis_instance_admin_group_send_zero_modify(struct nb_cb_modify_args *args);
 int isis_instance_asla_legacy_flag_modify(struct nb_cb_modify_args *args);
 int isis_instance_lsp_mtu_modify(struct nb_cb_modify_args *args);

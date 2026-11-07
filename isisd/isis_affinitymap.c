@@ -8,6 +8,7 @@
 #include "lib/vrf.h"
 #include "isisd/isisd.h"
 #include "isisd/isis_affinitymap.h"
+#include "isisd/isis_nb.h"
 
 #ifndef FABRICD
 
@@ -57,11 +58,19 @@ static void isis_affinity_map_update(const char *affmap_name, uint16_t old_pos,
 	}
 }
 
+/* A new bit-position can make a Flex-Algo definition too large to advertise */
+static int isis_affinity_map_validate(const struct lyd_node *dnode, char *errmsg, size_t errmsg_len)
+{
+	return isis_flex_algos_validate_size(dnode, "/frr-isisd:isis/instance/flex-algos/flex-algo",
+					     errmsg, errmsg_len);
+}
+
 void isis_affinity_map_init(void)
 {
 	affinity_map_init();
 
 	affinity_map_set_update_hook(isis_affinity_map_update);
+	affinity_map_set_validate_hook(isis_affinity_map_validate);
 }
 
 void isis_affinity_map_terminate(void)

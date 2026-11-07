@@ -16,6 +16,7 @@
 #include "prefix.h"
 #include "vty.h"
 #include "affinitymap.h"
+#include "northbound.h"
 #include "command.h"
 #include "log.h"
 #include "hash.h"
@@ -113,6 +114,20 @@ void affinity_map_set_update_hook(void (*func)(const char *affmap_name,
 	affinity_map_master.update_hook = func;
 }
 
+int affinity_map_validate_hook(const struct lyd_node *dnode, char *errmsg, size_t errmsg_len)
+{
+	if (!affinity_map_master.validate_hook)
+		return NB_OK;
+
+	return (*affinity_map_master.validate_hook)(dnode, errmsg, errmsg_len);
+}
+
+void affinity_map_set_validate_hook(int (*func)(const struct lyd_node *dnode, char *errmsg,
+						size_t errmsg_len))
+{
+	affinity_map_master.validate_hook = func;
+}
+
 void affinity_map_terminate(void)
 {
 	if (!affinity_map_master.maps)
@@ -121,4 +136,5 @@ void affinity_map_terminate(void)
 	affinity_map_master.maps->del = (void (*)(void *))affinity_map_free;
 	list_delete(&affinity_map_master.maps);
 	affinity_map_master.update_hook = NULL;
+	affinity_map_master.validate_hook = NULL;
 }
