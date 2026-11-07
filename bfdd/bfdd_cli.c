@@ -1263,6 +1263,68 @@ DEFPY_YANG(bfd_peer_profile, bfd_peer_profile_cmd,
 	return nb_cli_apply_changes(vty, NULL);
 }
 
+/*
+ * One "sbfd reflector" command adds at most this many discriminators. Each
+ * one is a separate reflector, so this bounds how long the command keeps
+ * bfdd busy and how much memory it takes.
+ */
+#define SBFD_REFLECTOR_DISCR_MAX 65536
+
+static bool sbfd_reflector_parse_value(const char *str, const char **end, uint32_t *discr)
+{
+	unsigned long long value;
+	char *endp;
+
+	/* strtoull() would also take blanks, a sign or a 0x prefix. */
+	if (!isdigit((unsigned char)str[0]))
+		return false;
+
+	errno = 0;
+	value = strtoull(str, &endp, 10);
+	if (errno != 0 || value == 0 || value > UINT32_MAX)
+		return false;
+
+	*discr = value;
+	*end = endp;
+	return true;
+}
+
+/*
+ * Parse one discriminator argument: a value "N" or a range "N-M" with N < M,
+ * all in 1-4294967295.
+ */
+static bool sbfd_reflector_parse_discr(struct vty *vty, const char *arg, uint32_t *from,
+				       uint32_t *to)
+{
+	const char *end;
+
+	if (!sbfd_reflector_parse_value(arg, &end, from))
+		goto illegal;
+
+	if (*end == '\0') {
+		*to = *from;
+		return true;
+	}
+
+	if (*end != '-' || !sbfd_reflector_parse_value(end + 1, &end, to) || *end != '\0')
+		goto illegal;
+
+	if (*from >= *to) {
+		vty_out(vty,
+			"%% Discriminator range %s is illegal, the first value must be lower than the last\n",
+			arg);
+		return false;
+	}
+
+	return true;
+
+illegal:
+	vty_out(vty,
+		"%% Discriminator %s is illegal, use a value or a range of values in 1-4294967295\n",
+		arg);
+	return false;
+}
+
 DEFPY(
 	sbfd_reflector, sbfd_reflector_cmd,
 	"sbfd reflector source-address X:X::X:X$srcip discriminator WORD...",
@@ -1275,42 +1337,32 @@ DEFPY(
 {
 	int idx_discr = 5;
 	int i;
-	uint32_t j;
-	uint32_t discr = 0;
-	uint32_t discr_from = 0;
-	uint32_t discr_to = 0;
+	uint32_t from, to;
+	uint64_t discr, count = 0;
+
+	/*
+	 * Check every argument before adding anything, so that a bad one
+	 * leaves the configuration unchanged.
+	 */
+	for (i = idx_discr; i < argc; i++) {
+		if (!sbfd_reflector_parse_discr(vty, argv[i]->arg, &from, &to))
+			return CMD_WARNING_CONFIG_FAILED;
+
+		count += (uint64_t)to - from + 1;
+	}
+
+	if (count > SBFD_REFLECTOR_DISCR_MAX) {
+		vty_out(vty, "%% Too many discriminators (%" PRIu64 "), the limit is %u\n", count,
+			SBFD_REFLECTOR_DISCR_MAX);
+		return CMD_WARNING_CONFIG_FAILED;
+	}
 
 	for (i = idx_discr; i < argc; i++) {
-		/* check validity*/
-		char *pstr = argv[i]->arg;
+		sbfd_reflector_parse_discr(vty, argv[i]->arg, &from, &to);
 
-		/*single discr*/
-		if (strspn(pstr, "0123456789") == strlen(pstr)) {
-			discr = atol(pstr);
-			sbfd_reflector_new(discr, &srcip);
-		}
-		/*discr segment*/
-		else if (strspn(pstr, "0123456789-") == strlen(pstr)) {
-			char *token = strtok(argv[i]->arg, "-");
-
-			if (token)
-				discr_from = atol(token);
-
-			token = strtok(NULL, "-");
-			if (token)
-				discr_to = atol(token);
-
-			if (discr_from >= discr_to) {
-				vty_out(vty, "input discriminator range %u-%u is illegal\n",
-					discr_from, discr_to);
-			}
-
-			for (j = discr_from; j <= discr_to; j++)
-				sbfd_reflector_new(j, &srcip);
-		}
-		/*illegal input*/
-		else
-			vty_out(vty, "input discriminator %s is illegal\n", (char *)argv[i]);
+		/* 64 bits wide, so that a range that ends at UINT32_MAX ends. */
+		for (discr = from; discr <= to; discr++)
+			sbfd_reflector_new((uint32_t)discr, &srcip);
 	}
 
 	return CMD_SUCCESS;
@@ -1334,6 +1386,24 @@ DEFPY(
 	return CMD_SUCCESS;
 }
 
+struct sbfd_reflector_range {
+	uint32_t from;
+	uint32_t to;
+};
+
+static void _sbfd_reflector_free_range(struct hash_bucket *hb, void *arg)
+{
+	struct sbfd_reflector *sr = hb->data;
+	struct sbfd_reflector_range *range = arg;
+
+	if (sr->discr < range->from || sr->discr > range->to)
+		return;
+
+	// notify bfdsyncd
+	//bfd_fpm_sbfd_reflector_sendmsg(sr, false);
+	sbfd_reflector_free(sr->discr);
+}
+
 DEFPY(
 	no_sbfd_reflector, no_sbfd_reflector_cmd,
 	"no sbfd reflector (0-4294967295)$start_discr [(0-4294967295)$end_discr]",
@@ -1344,7 +1414,7 @@ DEFPY(
 	"end discriminator\n")
 {
 	struct sbfd_reflector *sr;
-	int32_t i;
+	struct sbfd_reflector_range range;
 
 	if (end_discr == 0) {
 		if (start_discr == 0) {
@@ -1368,14 +1438,10 @@ DEFPY(
 			return CMD_WARNING_CONFIG_FAILED;
 		}
 
-		for (i = start_discr; i <= end_discr; i++) {
-			sr = sbfd_discr_lookup(i);
-			if (sr) {
-				// notify bfdsyncd
-				//bfd_fpm_sbfd_reflector_sendmsg(sr, false);
-				sbfd_reflector_free(i);
-			}
-		}
+		/* Walk the reflectors, not the range, which can span 2^32 values. */
+		range.from = start_discr;
+		range.to = end_discr;
+		sbfd_discr_iterate(_sbfd_reflector_free_range, &range);
 	}
 
 	return CMD_SUCCESS;
