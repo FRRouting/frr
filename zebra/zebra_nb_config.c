@@ -3111,6 +3111,100 @@ int lib_interface_zebra_ipv6_router_advertisements_default_router_preference_mod
 }
 
 /*
+ * XPath: /frr-interface:lib/interface/frr-zebra:zebra/ipv6-router-advertisements/prefix-list/default-lifetimes
+ */
+int lib_interface_zebra_ipv6_router_advertisements_prefix_list_default_lifetimes_create(
+	struct nb_cb_create_args *args)
+{
+	struct interface *ifp;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	ifp = nb_running_get_entry(args->dnode, NULL, true);
+
+	rtadv_prefix_lifetime_set(ifp, yang_dnode_get_uint32(args->dnode, "valid-lifetime"),
+				  yang_dnode_get_uint32(args->dnode, "preferred-lifetime"));
+
+	return NB_OK;
+}
+
+int lib_interface_zebra_ipv6_router_advertisements_prefix_list_default_lifetimes_destroy(
+	struct nb_cb_destroy_args *args)
+{
+	struct interface *ifp;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	ifp = nb_running_get_entry(args->dnode, NULL, true);
+
+	rtadv_prefix_lifetime_reset(ifp);
+
+	return NB_OK;
+}
+
+/*
+ * XPath: /frr-interface:lib/interface/frr-zebra:zebra/ipv6-router-advertisements/prefix-list/default-lifetimes/valid-lifetime
+ */
+int lib_interface_zebra_ipv6_router_advertisements_prefix_list_default_lifetimes_valid_lifetime_modify(
+	struct nb_cb_modify_args *args)
+{
+	struct interface *ifp;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	ifp = nb_running_get_entry(args->dnode, NULL, true);
+
+	/*
+	 * Both leaves are mandatory inside the container, so the sibling is
+	 * always present.  Going through the setter for a single-leaf change
+	 * keeps the re-stamp in one place.
+	 */
+	rtadv_prefix_lifetime_set(ifp, yang_dnode_get_uint32(args->dnode, "../valid-lifetime"),
+				  yang_dnode_get_uint32(args->dnode, "../preferred-lifetime"));
+
+	return NB_OK;
+}
+
+/*
+ * XPath: /frr-interface:lib/interface/frr-zebra:zebra/ipv6-router-advertisements/prefix-list/default-lifetimes/preferred-lifetime
+ */
+int lib_interface_zebra_ipv6_router_advertisements_prefix_list_default_lifetimes_preferred_lifetime_modify(
+	struct nb_cb_modify_args *args)
+{
+	struct interface *ifp;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	ifp = nb_running_get_entry(args->dnode, NULL, true);
+
+	rtadv_prefix_lifetime_set(ifp, yang_dnode_get_uint32(args->dnode, "../valid-lifetime"),
+				  yang_dnode_get_uint32(args->dnode, "../preferred-lifetime"));
+
+	return NB_OK;
+}
+
+/*
+ * Both lifetime leaves carry a YANG default, so their callbacks fire even when
+ * the operator named neither.  Treat the pair as configured only when at least
+ * one holds a non-default value -- the same test the "ipv6 nd prefix" cli_write
+ * uses to decide whether to print them back out.  A prefix that named nothing
+ * inherits "ipv6 nd prefix-lifetime" from the interface instead.
+ */
+static bool rtadv_prefix_lifetimes_named(const struct lyd_node *dnode, const char *base)
+{
+	char valid[XPATH_MAXLEN], preferred[XPATH_MAXLEN];
+
+	snprintfrr(valid, sizeof(valid), "%svalid-lifetime", base);
+	snprintfrr(preferred, sizeof(preferred), "%spreferred-lifetime", base);
+
+	return !yang_dnode_is_default(dnode, valid) || !yang_dnode_is_default(dnode, preferred);
+}
+
+/*
  * XPath: /frr-interface:lib/interface/frr-zebra:zebra/ipv6-router-advertisements/prefix-list/prefix
  */
 int lib_interface_zebra_ipv6_router_advertisements_prefix_list_prefix_create(
@@ -3134,6 +3228,7 @@ int lib_interface_zebra_ipv6_router_advertisements_prefix_list_prefix_create(
 						    "valid-lifetime");
 	rp.AdvPreferredLifetime = yang_dnode_get_uint32(args->dnode,
 							"preferred-lifetime");
+	rp.AdvLifetimeSet = rtadv_prefix_lifetimes_named(args->dnode, "");
 
 	prefix = rtadv_add_prefix_manual(ifp->info, &rp);
 	nb_running_set_entry(args->dnode, prefix);
@@ -3165,13 +3260,28 @@ int lib_interface_zebra_ipv6_router_advertisements_prefix_list_prefix_valid_life
 	struct nb_cb_modify_args *args)
 {
 	struct rtadv_prefix *prefix;
+	struct interface *ifp;
 
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
 	prefix = nb_running_get_entry(args->dnode, NULL, true);
 
-	prefix->AdvValidLifetime = yang_dnode_get_uint32(args->dnode, NULL);
+	/*
+	 * Read both leaves.  A sibling named with its default value fires no
+	 * callback of its own, so it would otherwise keep whatever this prefix
+	 * last inherited from the interface.
+	 */
+	prefix->AdvValidLifetime = yang_dnode_get_uint32(args->dnode, "../valid-lifetime");
+	prefix->AdvPreferredLifetime = yang_dnode_get_uint32(args->dnode, "../preferred-lifetime");
+
+	/*
+	 * The interface is the nearest registered entry above the prefix-list.
+	 * Start there: nb_running_get_entry() ignores the xpath when given a
+	 * dnode, and from this leaf it would stop at the prefix itself.
+	 */
+	ifp = nb_running_get_entry(lyd_parent(lyd_parent(args->dnode)), NULL, true);
+	rtadv_prefix_lifetime_reeval(ifp, prefix, rtadv_prefix_lifetimes_named(args->dnode, "../"));
 
 	return NB_OK;
 }
@@ -3201,13 +3311,28 @@ int lib_interface_zebra_ipv6_router_advertisements_prefix_list_prefix_preferred_
 	struct nb_cb_modify_args *args)
 {
 	struct rtadv_prefix *prefix;
+	struct interface *ifp;
 
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
 	prefix = nb_running_get_entry(args->dnode, NULL, true);
 
-	prefix->AdvPreferredLifetime = yang_dnode_get_uint32(args->dnode, NULL);
+	/*
+	 * Read both leaves.  A sibling named with its default value fires no
+	 * callback of its own, so it would otherwise keep whatever this prefix
+	 * last inherited from the interface.
+	 */
+	prefix->AdvValidLifetime = yang_dnode_get_uint32(args->dnode, "../valid-lifetime");
+	prefix->AdvPreferredLifetime = yang_dnode_get_uint32(args->dnode, "../preferred-lifetime");
+
+	/*
+	 * The interface is the nearest registered entry above the prefix-list.
+	 * Start there: nb_running_get_entry() ignores the xpath when given a
+	 * dnode, and from this leaf it would stop at the prefix itself.
+	 */
+	ifp = nb_running_get_entry(lyd_parent(lyd_parent(args->dnode)), NULL, true);
+	rtadv_prefix_lifetime_reeval(ifp, prefix, rtadv_prefix_lifetimes_named(args->dnode, "../"));
 
 	return NB_OK;
 }
