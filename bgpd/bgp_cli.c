@@ -1226,15 +1226,33 @@ DEFUN_YANG(bgp_confederation_identifier_yang,
 	   AS_STR)
 {
 	as_t as;
+	int ret;
+	char asplain[32];
+	struct bgp *bgp;
 
 	if (!asn_str2asn(argv[3]->arg, &as)) {
 		vty_out(vty, "%% Invalid AS number: %s\n", argv[3]->arg);
 		return CMD_WARNING_CONFIG_FAILED;
 	}
-	/* inet:as-number is uint32; convert ASDOT before YANG apply. */
-	nb_cli_enqueue_change(vty, "./global/confederation/identifier", NB_OP_MODIFY,
-			      asn_asn2asplain(as));
-	return nb_cli_apply_changes(vty, NULL);
+	/*
+	 * Do not VTY_DECLVAR_CONTEXT here: during integrated frr.conf load
+	 * (XFRR batch) router-bgp context is not pushed until commit, and
+	 * DECLVAR would abort before YANG apply — leaving confed_id unset.
+	 */
+	snprintfrr(asplain, sizeof(asplain), "%u", as);
+	nb_cli_enqueue_change(vty, "./global/confederation/identifier", NB_OP_MODIFY, asplain);
+	ret = nb_cli_apply_changes(vty, NULL);
+	/*
+	 * Preserve user-facing notation (e.g. "1.0") when the instance
+	 * already exists (interactive / post-commit). During XFRR batch
+	 * bgp is often still NULL — the NB modify callback sets confed_id.
+	 */
+	if (ret == CMD_SUCCESS) {
+		bgp = VTY_GET_CONTEXT(bgp);
+		if (bgp)
+			bgp_confederation_id_set(bgp, as, argv[3]->arg);
+	}
+	return ret;
 }
 
 DEFUN_YANG(no_bgp_confederation_identifier_yang,
