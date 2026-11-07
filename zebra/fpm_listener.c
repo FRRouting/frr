@@ -124,6 +124,7 @@ struct glob {
 	bool dump_hex;
 	FILE *output_file;
 	const char *dump_file;
+	char dump_file_tmp[PATH_MAX];
 	struct fpm_route_head route_tree;
 	struct fpm_nhg_head nhg_hash;
 };
@@ -1149,13 +1150,19 @@ static void sigusr1_handler(int signum)
 	FILE *out = glob->output_file;
 	FILE *dump_fp = NULL;
 
+	/*
+	 * Write the dump to a temporary file and rename it into place when
+	 * it is complete, so a reader never sees a partial dump.  A dump that
+	 * could not be written in full is dropped.  When the temporary file
+	 * cannot be opened the dump goes to the output file.
+	 */
 	if (glob->dump_file) {
-		dump_fp = fopen(glob->dump_file, "w");
-		if (dump_fp) {
+		dump_fp = fopen(glob->dump_file_tmp, "w");
+		if (dump_fp)
 			out = dump_fp;
-			setbuf(dump_fp, NULL);
-		} else
-			out = glob->output_file;
+		else
+			fprintf(glob->output_file, "Failed to open %s: %s\n", glob->dump_file_tmp,
+				strerror(errno));
 	}
 
 	fprintf(out, "\n=== Nexthop Group Hash Dump ===\n");
@@ -1210,8 +1217,21 @@ static void sigusr1_handler(int signum)
 
 	fflush(out);
 
-	if (dump_fp)
-		fclose(dump_fp);
+	if (dump_fp) {
+		bool failed = ferror(dump_fp);
+
+		if (fclose(dump_fp) != 0)
+			failed = true;
+
+		if (failed) {
+			fprintf(glob->output_file, "Failed to write %s: %s\n", glob->dump_file_tmp,
+				strerror(errno));
+			unlink(glob->dump_file_tmp);
+		} else if (rename(glob->dump_file_tmp, glob->dump_file) < 0) {
+			fprintf(glob->output_file, "Failed to rename %s to %s: %s\n",
+				glob->dump_file_tmp, glob->dump_file, strerror(errno));
+		}
+	}
 }
 
 int main(int argc, char **argv)
@@ -1287,34 +1307,41 @@ int main(int argc, char **argv)
 
 	setbuf(glob->output_file, NULL);
 
+	if (glob->dump_file)
+		snprintfrr(glob->dump_file_tmp, sizeof(glob->dump_file_tmp), "%s.tmp",
+			   glob->dump_file);
+
 	if (fork_daemon) {
 		daemon = fork();
 
 		if (daemon)
 			exit(0);
-
-		/* Write PID file if dump_file is specified */
-		if (glob->dump_file) {
-			char *dump_file_copy = strdup(glob->dump_file);
-			char *dir = dirname(dump_file_copy);
-			char pid_file_path[PATH_MAX];
-			FILE *pid_file;
-
-			snprintf(pid_file_path, sizeof(pid_file_path), "%s/fpm_listener.pid", dir);
-			pid_file = fopen(pid_file_path, "w");
-			if (pid_file) {
-				fprintf(pid_file, "%d\n", getpid());
-				fclose(pid_file);
-			} else {
-				fprintf(stderr, "Warning: Failed to write PID file %s: %s\n",
-					pid_file_path, strerror(errno));
-			}
-			free(dump_file_copy);
-		}
 	}
 
 	if (!create_listen_sock(FPM_DEFAULT_PORT, &glob->server_sock))
 		exit(1);
+
+	/*
+	 * Write PID file if dump_file is specified.  This is done once the
+	 * listen socket exists, so the file always names a running listener.
+	 */
+	if (fork_daemon && glob->dump_file) {
+		char *dump_file_copy = strdup(glob->dump_file);
+		char *dir = dirname(dump_file_copy);
+		char pid_file_path[PATH_MAX];
+		FILE *pid_file;
+
+		snprintfrr(pid_file_path, sizeof(pid_file_path), "%s/fpm_listener.pid", dir);
+		pid_file = fopen(pid_file_path, "w");
+		if (pid_file) {
+			fprintf(pid_file, "%d\n", getpid());
+			fclose(pid_file);
+		} else {
+			fprintf(stderr, "Warning: Failed to write PID file %s: %s\n",
+				pid_file_path, strerror(errno));
+		}
+		free(dump_file_copy);
+	}
 
 	/*
 	 * Server forever.

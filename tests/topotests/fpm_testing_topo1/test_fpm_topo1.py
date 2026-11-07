@@ -18,6 +18,7 @@ import re
 import sys
 import pytest
 import json
+import time
 from functools import partial
 
 # Save the Current Working Directory to find configuration files.
@@ -28,6 +29,7 @@ sys.path.append(os.path.join(CWD, "../"))
 # Import topogen and topotest helpers
 from lib import topotest
 from lib.topogen import Topogen, TopoRouter, get_topogen
+from lib.topolog import logger
 
 
 pytestmark = [pytest.mark.fpm, pytest.mark.sharpd]
@@ -132,35 +134,69 @@ def test_fpm_install_routes():
     assert success, "Unable to remove 10000 routes: {}".format(result)
 
 
+def _fpm_dump_path(router):
+    return os.path.join(router.gearlogdir, "fpm_test.data")
+
+
+def _fpm_listener_dump(router):
+    """
+    Make fpm_listener dump its tables and return the dump as a string.
+
+    Returns None when no dump was produced: the pid file is missing or
+    unreadable, the signal could not be delivered, or the dump did not
+    show up in time.  None never compares equal to an expected count, so
+    callers polling with run_and_expect() retry instead of mistaking a
+    missing dump for "no routes".
+
+    The previous dump is removed before the listener is signalled, and
+    the listener renames a complete dump into place, so what is read here
+    is always a whole dump, never a partial one.  It is normally the one
+    this signal asked for; after a try that timed out it can be the dump
+    of that earlier try.
+    """
+    pid_file = os.path.join(router.gearlogdir, "fpm_listener.pid")
+    dump_file = _fpm_dump_path(router)
+
+    try:
+        with open(pid_file, "r") as f:
+            pid = int(f.read().strip())
+    except (OSError, ValueError) as error:
+        logger.info("fpm_listener pid file is not usable: {}".format(error))
+        return None
+
+    try:
+        os.unlink(dump_file)
+    except FileNotFoundError:
+        pass
+
+    rc, _, err = router.net.cmd_status("kill -USR1 {}".format(pid), warn=False)
+    if rc:
+        logger.info("fpm_listener (pid {}) not signalled: {}".format(pid, err.strip()))
+        return None
+
+    for _ in range(20):
+        try:
+            with open(dump_file, "r") as f:
+                return f.read()
+        except FileNotFoundError:
+            time.sleep(0.1)
+
+    logger.info("fpm_listener (pid {}) did not write {}".format(pid, dump_file))
+    return None
+
+
+def _fpm_dump_result(result):
+    "Describe the last result of a dump poll for an assert message"
+    if result is None:
+        return "no dump from fpm_listener"
+    return "found {}".format(result)
+
+
 def test_fpm_connected_and_local_routes():
     "Test that conneted and local routes"
 
     tgen = get_topogen()
     router = tgen.gears["r1"]
-
-    # Get the router's log directory where fpm_test.data is written
-    fpm_data_file = os.path.join(router.gearlogdir, "fpm_test.data")
-
-    def dump_fpm_listener_data():
-        """Send SIGUSR1 to fpm_listener to dump its data"""
-        pid_file = os.path.join(router.gearlogdir, "fpm_listener.pid")
-        try:
-            with open(pid_file, "r") as f:
-                pid = f.read().strip()
-            router.run(f"kill -SIGUSR1 {pid}")
-            return True
-        except FileNotFoundError:
-            return False
-
-    def check_specific_route(prefix):
-        """Check if a specific route prefix exists in the FPM dump file"""
-        # Read directly from the host filesystem
-        try:
-            with open(fpm_data_file, "r") as f:
-                content = f.read()
-                return content.count(prefix)
-        except FileNotFoundError:
-            return 0
 
     # Let's check added routes
     router_count = 1
@@ -172,38 +208,27 @@ def test_fpm_connected_and_local_routes():
         """
     )
 
-    def check_r1_connected_routes():
-        if not dump_fpm_listener_data():
-            return 0
+    def check_r1_routes(prefix):
+        dump = _fpm_listener_dump(router)
+        if dump is None:
+            return None
+        return dump.count(prefix)
 
-        def check_route():
-            return check_specific_route("10.10.10.0/24")
-
-        success, result = topotest.run_and_expect(
-            check_route, router_count, count=30, wait=0.5
-        )
-        return result if success else 0
-
-    def check_r1_local_routes():
-        if not dump_fpm_listener_data():
-            return 0
-
-        def check_route():
-            return check_specific_route("10.10.10.10/32")
-
-        success, result = topotest.run_and_expect(
-            check_route, router_count, count=30, wait=0.5
-        )
-        return result if success else 0
+    check_r1_connected_routes = partial(check_r1_routes, "10.10.10.0/24")
+    check_r1_local_routes = partial(check_r1_routes, "10.10.10.10/32")
 
     success, result = topotest.run_and_expect(
         check_r1_connected_routes, router_count, count=30, wait=1
     )
-    assert success, f"Failed to find {result} connected routes"
+    assert success, "Expected {} connected routes in the fpm_listener dump: {}".format(
+        router_count, _fpm_dump_result(result)
+    )
     success, result = topotest.run_and_expect(
         check_r1_local_routes, router_count, count=30, wait=1
     )
-    assert success, f"Failed to find {result} local routes"
+    assert success, "Expected {} local routes in the fpm_listener dump: {}".format(
+        router_count, _fpm_dump_result(result)
+    )
 
     # Let's check removed routes
     router_count = 0
@@ -218,11 +243,15 @@ def test_fpm_connected_and_local_routes():
     success, result = topotest.run_and_expect(
         check_r1_connected_routes, router_count, count=30, wait=1
     )
-    assert success, f"Failed to find {result} connected routes"
+    assert success, "Expected {} connected routes in the fpm_listener dump: {}".format(
+        router_count, _fpm_dump_result(result)
+    )
     success, result = topotest.run_and_expect(
         check_r1_local_routes, router_count, count=30, wait=1
     )
-    assert success, f"Failed to find {result} local routes"
+    assert success, "Expected {} local routes in the fpm_listener dump: {}".format(
+        router_count, _fpm_dump_result(result)
+    )
 
 
 def _get_nhg_for_prefix(router, prefix):
@@ -250,23 +279,8 @@ def _get_nhg_for_prefix(router, prefix):
     return None, None
 
 
-def _fpm_dump_path(router):
-    return os.path.join(router.gearlogdir, "fpm_test.data")
-
-
-def _fpm_listener_dump(router):
-    """Send SIGUSR1 to fpm_listener so it rewrites its dump file."""
-    pid_file = os.path.join(router.gearlogdir, "fpm_listener.pid")
-    try:
-        with open(pid_file, "r") as f:
-            pid = f.read().strip()
-        router.run("kill -SIGUSR1 {}".format(pid))
-        return True
-    except FileNotFoundError:
-        return False
-
-
 def _read_fpm_dump(router):
+    "Return the last dump fpm_listener wrote, for assert messages"
     try:
         with open(_fpm_dump_path(router), "r") as f:
             return f.read()
@@ -281,9 +295,10 @@ def _fpm_dump_has_nhg(router, nhg_id):
     "  ID: <id>, Protocol: ..." (see sigusr1_handler in fpm_listener.c),
     and removes the entry when it receives the matching RTM_DELNEXTHOP.
     """
-    if not _fpm_listener_dump(router):
+    dump = _fpm_listener_dump(router)
+    if dump is None:
         return False
-    return "  ID: {},".format(nhg_id) in _read_fpm_dump(router)
+    return "  ID: {},".format(nhg_id) in dump
 
 
 def _check_nhg_fpm_and_not_kernel(router, prefix, route_type):
@@ -452,13 +467,14 @@ def _get_fpm_resolved_via(router):
     Dump the fpm_listener tables and return {nhg_id: resolved via id} for
     the nexthop groups received with a resolved-via attribute.
     """
-    if not _fpm_listener_dump(router):
+    dump = _fpm_listener_dump(router)
+    if dump is None:
         return {}
 
     # Entries are not always newline-terminated (a group printed without
     # its nexthop list runs into the next entry), so parse them by
     # splitting on the entry marker instead of line by line.
-    dump = _read_fpm_dump(router).split("=== Route Tree Dump ===")[0]
+    dump = dump.split("=== Route Tree Dump ===")[0]
 
     resolved_via = {}
     for entry in re.split(r"(?=  ID: \d+,)", dump):
