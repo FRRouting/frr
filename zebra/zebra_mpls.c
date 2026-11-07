@@ -163,6 +163,8 @@ static int lsp_install(struct zebra_vrf *zvrf, mpls_label_t label,
 	char buf[BUFSIZ];
 	int added, changed;
 	bool zvrf_nexthop_resolution;
+	enum nexthop_types_t gtype;
+	union g_addr gate;
 
 	/* Lookup table. */
 	lsp_table = zvrf->lsp_table;
@@ -198,9 +200,20 @@ static int lsp_install(struct zebra_vrf *zvrf, mpls_label_t label,
 			continue;
 		}
 
-		nhlfe = nhlfe_find(&lsp->nhlfe_list, lsp_type,
-				   nexthop->type, &nexthop->gate,
-				   nexthop->ifindex);
+		/*
+		 * An IPv6 route over an IPv4-mapped gateway (6PE) swaps its
+		 * label towards the IPv4 neighbour, which the kernel resolves
+		 * over ARP.
+		 */
+		gtype = nexthop->type;
+		gate = nexthop->gate;
+		if (gtype == NEXTHOP_TYPE_IPV6_IFINDEX && IS_MAPPED_IPV6(&gate.ipv6)) {
+			gtype = NEXTHOP_TYPE_IPV4_IFINDEX;
+			memset(&gate, 0, sizeof(gate));
+			ipv4_mapped_ipv6_to_ipv4(&nexthop->gate.ipv6, &gate.ipv4);
+		}
+
+		nhlfe = nhlfe_find(&lsp->nhlfe_list, lsp_type, gtype, &gate, nexthop->ifindex);
 		if (nhlfe) {
 			/* Clear deleted flag (in case it was set) */
 			UNSET_FLAG(nhlfe->flags, NHLFE_FLAG_DELETED);
@@ -227,7 +240,7 @@ static int lsp_install(struct zebra_vrf *zvrf, mpls_label_t label,
 		} else {
 			/* Add LSP entry to this nexthop */
 			nhlfe = nhlfe_add(
-				lsp, lsp_type, nexthop->type, &nexthop->gate,
+				lsp, lsp_type, gtype, &gate,
 				nexthop->ifindex, nexthop->vrf_id,
 				nexthop->nh_label->num_labels,
 				nexthop->nh_label->label, false /*backup*/);

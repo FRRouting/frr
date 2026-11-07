@@ -117,6 +117,17 @@ static bool is_route_v4_over_v6(unsigned char rtm_family,
 	return false;
 }
 
+/*
+ * The kernel has no IPv6 route to an IPv4-mapped gateway (6PE, 6VPE), so
+ * it accepts one only as onlink.
+ */
+static bool is_ipv4_mapped_gateway(unsigned char family, const struct nexthop *nexthop)
+{
+	return family == AF_INET6 &&
+	       (nexthop->type == NEXTHOP_TYPE_IPV6 || nexthop->type == NEXTHOP_TYPE_IPV6_IFINDEX) &&
+	       IS_MAPPED_IPV6(&nexthop->gate.ipv6);
+}
+
 static bool add_v4_over_v6_rta_via_attr(struct nlmsghdr *nlmsg, size_t req_size,
 					const struct nexthop *nexthop)
 {
@@ -1486,17 +1497,14 @@ static bool _netlink_route_add_gateway_info(uint8_t route_family,
 				 bytelen + 2))
 			return false;
 	} else {
-		if (!(nexthop->rparent
-		      && IS_MAPPED_IPV6(&nexthop->rparent->gate.ipv6))) {
-			if (gw_family == AF_INET) {
-				if (!nl_attr_put(nlmsg, req_size, RTA_GATEWAY,
-						 &nexthop->gate.ipv4, bytelen))
-					return false;
-			} else {
-				if (!nl_attr_put(nlmsg, req_size, RTA_GATEWAY,
-						 &nexthop->gate.ipv6, bytelen))
-					return false;
-			}
+		if (gw_family == AF_INET) {
+			if (!nl_attr_put(nlmsg, req_size, RTA_GATEWAY, &nexthop->gate.ipv4,
+					 bytelen))
+				return false;
+		} else {
+			if (!nl_attr_put(nlmsg, req_size, RTA_GATEWAY, &nexthop->gate.ipv6,
+					 bytelen))
+				return false;
 		}
 	}
 
@@ -1955,7 +1963,8 @@ static bool _netlink_route_build_singlepath(const struct prefix *p,
 		}
 	}
 
-	if (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_ONLINK))
+	if (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_ONLINK) ||
+	    is_ipv4_mapped_gateway(rtmsg->rtm_family, nexthop))
 		rtmsg->rtm_flags |= RTNH_F_ONLINK;
 
 	if (is_route_v4_over_v6(rtmsg->rtm_family, nexthop->type)) {
@@ -2149,7 +2158,8 @@ static bool _netlink_route_build_multipath(const struct prefix *p,
 					      label_buf, sizeof(label_buf)))
 		return false;
 
-	if (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_ONLINK))
+	if (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_ONLINK) ||
+	    is_ipv4_mapped_gateway(rtmsg->rtm_family, nexthop))
 		rtnh->rtnh_flags |= RTNH_F_ONLINK;
 
 	if (is_route_v4_over_v6(rtmsg->rtm_family, nexthop->type)) {
@@ -3125,7 +3135,8 @@ ssize_t netlink_nexthop_msg_encode(uint16_t cmd,
 					   nh->ifindex))
 				return 0;
 
-			if (CHECK_FLAG(nh->flags, NEXTHOP_FLAG_ONLINK))
+			if (CHECK_FLAG(nh->flags, NEXTHOP_FLAG_ONLINK) ||
+			    is_ipv4_mapped_gateway(req->nhm.nh_family, nh))
 				req->nhm.nh_flags |= RTNH_F_ONLINK;
 
 			num_labels = build_label_stack(

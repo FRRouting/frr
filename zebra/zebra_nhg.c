@@ -2039,9 +2039,17 @@ void zebra_nhg_increment_ref(struct nhg_hash_entry *nhe)
 		nhg_connected_tree_increment_ref(&nhe->nhg_depends);
 }
 
+/*
+ * Build the nexthop that 'nexthop' resolves to through 'newhop'.
+ *
+ * 'ipv4_mapped' is set when an IPv6 route's IPv4-mapped IPv6 nexthop
+ * (6PE, 6VPE) resolved over IPv4: a resolved hop with an interface then
+ * stays IPv6, with the resolving IPv4 gateway mapped into it and marked
+ * onlink.
+ */
 static struct nexthop *nexthop_set_resolved(afi_t afi, const struct nexthop *newhop,
-					    struct nexthop *nexthop,
-					    struct zebra_sr_policy *policy, uint32_t flags)
+					    struct nexthop *nexthop, struct zebra_sr_policy *policy,
+					    uint32_t flags, bool ipv4_mapped)
 {
 	struct nexthop *resolved_hop;
 	uint8_t num_labels = 0;
@@ -2066,6 +2074,15 @@ static struct nexthop *nexthop_set_resolved(afi_t afi, const struct nexthop *new
 	switch (newhop->type) {
 	case NEXTHOP_TYPE_IPV4:
 	case NEXTHOP_TYPE_IPV4_IFINDEX:
+		/* An onlink nexthop needs its interface */
+		if (ipv4_mapped && newhop->ifindex) {
+			resolved_hop->type = NEXTHOP_TYPE_IPV6_IFINDEX;
+			ipv4_to_ipv4_mapped_ipv6(&resolved_hop->gate.ipv6, newhop->gate.ipv4);
+			resolved_hop->ifindex = newhop->ifindex;
+			SET_FLAG(resolved_hop->flags, NEXTHOP_FLAG_ONLINK);
+			break;
+		}
+
 		/* If the resolving route specifies a gateway, use it */
 		resolved_hop->type = newhop->type;
 		resolved_hop->gate.ipv4 = newhop->gate.ipv4;
@@ -2096,10 +2113,10 @@ static struct nexthop *nexthop_set_resolved(afi_t afi, const struct nexthop *new
 		 * otherwise, the kernel won't accept the route.
 		 */
 		resolved_hop->flags |= NEXTHOP_FLAG_ONLINK;
-		if (afi == AFI_IP) {
+		if (afi == AFI_IP && !ipv4_mapped) {
 			resolved_hop->type = NEXTHOP_TYPE_IPV4_IFINDEX;
 			resolved_hop->gate.ipv4 = nexthop->gate.ipv4;
-		} else if (afi == AFI_IP6) {
+		} else if (afi == AFI_IP6 || ipv4_mapped) {
 			resolved_hop->type = NEXTHOP_TYPE_IPV6_IFINDEX;
 			resolved_hop->gate.ipv6 = nexthop->gate.ipv6;
 		}
@@ -2509,6 +2526,7 @@ static int nexthop_active(struct nexthop *nexthop, struct nhg_hash_entry *nhe,
 	struct in_addr local_ipv4;
 	struct in_addr *ipv4;
 	afi_t afi = AFI_IP;
+	bool ipv4_mapped = false;
 
 	/* Reset some nexthop attributes that we'll recompute if necessary */
 	if ((nexthop->type == NEXTHOP_TYPE_IPV4)
@@ -2592,6 +2610,8 @@ static int nexthop_active(struct nexthop *nexthop, struct nhg_hash_entry *nhe,
 		afi = AFI_IP;
 		ipv4 = &local_ipv4;
 		ipv4_mapped_ipv6_to_ipv4(&nexthop->gate.ipv6, ipv4);
+		/* IPv4 routes keep resolving to an IPv4 nexthop */
+		ipv4_mapped = (top->family == AF_INET6);
 	} else {
 		ipv4 = &nexthop->gate.ipv4;
 	}
@@ -2634,7 +2654,8 @@ static int nexthop_active(struct nexthop *nexthop, struct nhg_hash_entry *nhe,
 					continue;
 				SET_FLAG(nexthop->flags,
 					 NEXTHOP_FLAG_RECURSIVE);
-				nexthop_set_resolved(afi, nhlfe->nexthop, nexthop, policy, flags);
+				nexthop_set_resolved(afi, nhlfe->nexthop, nexthop, policy, flags,
+						     ipv4_mapped);
 				resolved = 1;
 			}
 			if (resolved)
@@ -2818,7 +2839,8 @@ static int nexthop_active(struct nexthop *nexthop, struct nhg_hash_entry *nhe,
 
 				SET_FLAG(nexthop->flags,
 					 NEXTHOP_FLAG_RECURSIVE);
-				resolver = nexthop_set_resolved(afi, newhop, nexthop, NULL, flags);
+				resolver = nexthop_set_resolved(afi, newhop, nexthop, NULL, flags,
+								ipv4_mapped);
 
 				/* Capture the NHG info used to resolve the nexthop. */
 				if (!resolved)

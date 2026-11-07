@@ -110,6 +110,14 @@ Besides the common invocation options (:ref:`common-invocation-options`), the
    the upper level daemons that can install v6 routes with v4
    nexthops.
 
+   On Linux, with or without this option, zebra installs a v6 route whose
+   nexthop is an IPv4-mapped IPv6 address (``::ffff:A.B.C.D``, as 6PE and
+   6VPE routes carry) with the mapped address of the resolving IPv4
+   gateway as an onlink nexthop. The kernel's MPLS output resolves that
+   gateway over ARP, so labeled 6PE and 6VPE routes forward over an IPv4
+   MPLS transport. MPLS label bindings for these routes swap towards the
+   IPv4 gateway itself.
+
 .. option:: --nexthop-weight-16-bit
 
    Use 16 bit nexthop weights instead of 8 bit weights. This option
