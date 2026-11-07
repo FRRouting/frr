@@ -98,6 +98,13 @@ int nb_cli_pending_commit_check(struct vty *vty)
 	if (vty->pending_commit) {
 		ret = nb_cli_classic_commit(vty);
 		nb_cli_pending_commit_clear(vty);
+		/*
+		 * Keep the first rejection. The flushing command may have
+		 * to return success (it changed nodes); XFRR_end_configuration
+		 * reports this once.
+		 */
+		if (ret != CMD_SUCCESS && !vty->pending_commit_error)
+			vty->pending_commit_error = ret;
 	}
 
 	return ret;
@@ -132,8 +139,16 @@ static int nb_cli_schedule_command(struct vty *vty)
 	/* Schedule the commit operation. */
 	vty->pending_commit = 1;
 	vty->buffer_cmd_count++;
-	if (vty->buffer_cmd_count == NB_CMD_BATCH_SIZE)
-		nb_cli_pending_commit_check(vty);
+	if (vty->buffer_cmd_count == NB_CMD_BATCH_SIZE) {
+		/*
+		 * Commit the full batch, but do not return that status as
+		 * this command's result. The command may change the CLI
+		 * node, and vtysh follows only when the daemon returns
+		 * success. A rejection is remembered and reported from
+		 * XFRR_end_configuration.
+		 */
+		(void)nb_cli_pending_commit_check(vty);
+	}
 
 	return CMD_SUCCESS;
 }

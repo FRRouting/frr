@@ -152,6 +152,12 @@ struct vty {
 	size_t buffer_cmd_count;
 	bool pending_allowed;
 	bool pending_commit;
+	/*
+	 * First classic-CLI commit rejected while reading configuration.
+	 * Zero if none. XFRR_end_configuration returns it so a command that
+	 * changed the CLI node can still return success and vtysh can follow.
+	 */
+	int pending_commit_error;
 	char *pending_cmds_buf;
 	size_t pending_cmds_buflen;
 	size_t pending_cmds_bufpos;
