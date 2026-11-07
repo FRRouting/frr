@@ -194,6 +194,10 @@ void ospf6_neighbor_delete(struct ospf6_neighbor *on)
 	event_cancel(&on->gr_helper_info.t_grace_timer);
 
 	bfd_sess_free(&on->bfd_session);
+
+	event_cancel(&on->thread_seqnumber_mismatch);
+	event_cancel(&on->thread_bad_lsreq);
+
 	XFREE(MTYPE_OSPF6_NEIGHBOR, on);
 }
 
