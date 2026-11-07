@@ -110,6 +110,10 @@ struct listener_glob {
 
 	uint32_t sessions[BFD_DPLANE_MAX_SESSIONS];
 	size_t session_count;
+
+	/* The interface each session last arrived with, by `sessions` slot. */
+	uint32_t session_ifindex[BFD_DPLANE_MAX_SESSIONS];
+	char session_ifname[BFD_DPLANE_MAX_SESSIONS][sizeof(((struct bfddp_session *)0)->ifname) + 1];
 };
 
 /* Set by SIGUSR2; the connection loop withdraws the capabilities. */
@@ -150,14 +154,36 @@ static bool session_add(uint32_t lid)
 
 static void session_del(uint32_t lid)
 {
+	size_t i, last;
+
+	for (i = 0; i < glob->session_count; i++) {
+		if (glob->sessions[i] != lid)
+			continue;
+
+		last = glob->session_count - 1;
+		glob->sessions[i] = glob->sessions[last];
+		glob->session_ifindex[i] = glob->session_ifindex[last];
+		memcpy(glob->session_ifname[i], glob->session_ifname[last],
+		       sizeof(glob->session_ifname[i]));
+		glob->session_count--;
+		return;
+	}
+}
+
+/* Keep the interface a registration, first or repeated, came with. */
+static void session_set_iface(const struct bfddp_session *session)
+{
+	uint32_t lid = ntohl(session->lid);
 	size_t i;
 
 	for (i = 0; i < glob->session_count; i++) {
 		if (glob->sessions[i] != lid)
 			continue;
 
-		glob->sessions[i] = glob->sessions[glob->session_count - 1];
-		glob->session_count--;
+		glob->session_ifindex[i] = ntohl(session->ifindex);
+		/* Need not be NUL-terminated; the slot has room for one. */
+		memcpy(glob->session_ifname[i], session->ifname, sizeof(session->ifname));
+		glob->session_ifname[i][sizeof(session->ifname)] = '\0';
 		return;
 	}
 }
@@ -212,6 +238,10 @@ static void sigusr1_handler(int signum)
 	fprintf(out, "Sessions registered: %zu\n", glob->session_count);
 	for (i = 0; i < glob->session_count; i++)
 		fprintf(out, "  lid: %u\n", glob->sessions[i]);
+	for (i = 0; i < glob->session_count; i++)
+		fprintf(out, "  interface: lid %u ifindex %u ifname %s\n", glob->sessions[i],
+			glob->session_ifindex[i],
+			glob->session_ifname[i][0] ? glob->session_ifname[i] : "-");
 
 	fprintf(out, "====================================\n\n");
 	fflush(out);
@@ -432,6 +462,7 @@ static void handle_message(int sock, const struct bfddp_message *msg)
 		glob->echo_tx_requested = ntohl(msg->data.session.min_echo_tx);
 		if (session_add(ntohl(msg->data.session.lid)))
 			send_state_change(sock, &msg->data.session);
+		session_set_iface(&msg->data.session);
 		break;
 	case DP_DELETE_SESSION:
 		session_del(ntohl(msg->data.session.lid));
