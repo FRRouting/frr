@@ -576,8 +576,10 @@ static void bgp_connect_timer(struct event *event)
 	if (bgp_peer_get_connection_direction(connection) == CONNECTION_INCOMING)
 		bgp_stop(connection);
 	else {
-		if (!peer->connect)
-			peer->v_connect = MIN(BGP_MAX_CONNECT_RETRY, peer->v_connect * 2);
+		if (frr_default_chosen() != FRR_DEFAULT_DATACENTER) {
+			if (!peer->connect)
+				peer->v_connect = MIN(BGP_MAX_CONNECT_RETRY, peer->v_connect * 2);
+		}
 		EVENT_VAL(event) = ConnectRetry_timer_expired;
 		bgp_event(event); /* bgp_event unlocks peer */
 	}
@@ -1141,9 +1143,14 @@ void bgp_update_delay_end(struct bgp *bgp)
 	/*
 	 * Resume the queue processing. This should trigger the event that would
 	 * take care of processing any work that was queued during the read-only
-	 * mode.
+	 * mode. A hold taken with bgp_meta_queue_plug() keeps it plugged.
 	 */
+#ifdef DEV_BUILD
+	if (!bgp->meta_queue_plugged)
+		work_queue_unplug(bgp->process_queue);
+#else
 	work_queue_unplug(bgp->process_queue);
+#endif
 
 	/* Re-announce the routes once the update-delay timer expires.
 	 * This is needed to ensure that the routes are re-advertised to the

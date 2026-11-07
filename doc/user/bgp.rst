@@ -177,36 +177,38 @@ bottom until one of the factors can be used.
 
    Prefer local routes (statics, aggregates, redistributed) to received routes.
 
-   If ``bgp bestpath aigp`` is enabled, and both paths that are compared have
-   AIGP attribute, BGP uses AIGP tie-breaking unless both of the paths have the
-   AIGP metric attribute. This means that the AIGP attribute is not evaluated
-   during the best path selection process between two paths when one path does
-   not have the AIGP attribute.
+4. **AIGP**
 
-4. **AS path length check**
+   If ``bgp bestpath aigp`` is enabled, and both paths that are compared have
+   AIGP attribute, BGP uses AIGP tie-breaking. This means that the AIGP
+   attribute is not evaluated during the best path selection process between
+   two paths when one path does not have the AIGP attribute or AIGP is
+   disabled.
+
+5. **AS path length check**
 
    Prefer shortest hop-count AS_PATHs.
 
-5. **Origin check**
+6. **Origin check**
 
    Prefer the lowest origin type route. That is, prefer IGP origin routes to
    EGP, to Incomplete routes.
 
-6. **MED check**
+7. **MED check**
 
    Where routes with a MED were received from the same AS, prefer the route
    with the lowest MED. :ref:`bgp-med`.
 
-7. **External check**
+8. **External check**
 
    Prefer the route received from an external, eBGP peer over routes received
    from other types of peers.
 
-8. **IGP cost check**
+9. **IGP cost check**
 
    Prefer the route with the lower IGP cost.
 
-9. **Multi-path check**
+10. **Multi-path check**
 
    If multi-pathing is enabled, then check whether the routes not yet
    distinguished in preference may be considered equal. If
@@ -215,26 +217,26 @@ bottom until one of the factors can be used.
    AS_PATHs or routes received from eBGP neighbours in the same AS are
    considered equal.
 
-10. **Already-selected external check**
+11. **Already-selected external check**
 
     Where both routes were received from eBGP peers, then prefer the route
     which is already selected. Note that this check is not applied if
     :clicmd:`bgp bestpath compare-routerid` is configured. This check can
     prevent some cases of oscillation.
 
-11. **Router-ID check**
+12. **Router-ID check**
 
     Prefer the route with the lowest `router-ID`. If the route has an
     `ORIGINATOR_ID` attribute, through iBGP reflection, then that router ID is
     used, otherwise the `router-ID` of the peer the route was received from is
     used.
 
-12. **Cluster-List length check**
+13. **Cluster-List length check**
 
     The route with the shortest cluster-list length is used. The cluster-list
     reflects the iBGP reflection path the route has taken.
 
-13. **Peer address**
+14. **Peer address**
 
     Prefer the route received from the peer with the higher transport layer
     address, as a last-resort tie-breaker.
@@ -442,8 +444,7 @@ Route Selection
    the best path selection process between two paths that have the AIGP
    attribute.
 
-   When bgp bestpath aigp is disabled, BGP does not use AIGP tie-breaking
-   rules unless paths have the AIGP attribute.
+   When bgp bestpath aigp is disabled, BGP does not use AIGP tie-breaking.
 
    Disabled by default.
 
@@ -2878,9 +2879,18 @@ Capability Negotiation
 .. clicmd:: neighbor PEER aigp
 
    Send and receive AIGP attribute for this neighbor. This is valid only for
-   eBGP neighbors.
+   eBGP neighbors. When disabled, a received AIGP attribute is ignored, and
+   the AIGP attribute is not sent.
 
-   Disabled by default. iBGP neighbors have this option enabled implicitly.
+   This command does not add the AIGP attribute to the advertised routes: only
+   the routes that already carry it are sent with it. A route gets the AIGP
+   attribute from :clicmd:`set aigp-metric \<igp-metric|(0-4294967295)\>`, or
+   from a neighbor with AIGP enabled. When the nexthop is changed to the local
+   address, the AIGP metric is increased by the IGP metric to the previous
+   nexthop.
+
+   Disabled by default. iBGP and confederation neighbors have this option
+   enabled implicitly.
 
 .. _bgp-as-path-access-lists:
 

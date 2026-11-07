@@ -291,12 +291,19 @@ static void put_lsp_hdr(struct isis_lsp *lsp, size_t *len_pointer, bool keep)
 	}
 }
 
+static struct isis_passwd *lsp_passwd(struct isis_lsp *lsp)
+{
+	return (lsp->level == IS_LEVEL_1) ? &lsp->area->area_passwd : &lsp->area->domain_passwd;
+}
+
+/*
+ * Our LSPs stay in our database even when the key chain has no key to sign
+ * them with: they are then sent unauthenticated, for neighbors that validate
+ * to discard.
+ */
 static void lsp_add_auth(struct isis_lsp *lsp)
 {
-	struct isis_passwd *passwd;
-	passwd = (lsp->level == IS_LEVEL_1) ? &lsp->area->area_passwd
-					    : &lsp->area->domain_passwd;
-	isis_tlvs_add_auth(lsp->tlvs, passwd);
+	isis_tlvs_add_auth(lsp->tlvs, lsp_passwd(lsp));
 }
 
 static void lsp_pack_pdu(struct isis_lsp *lsp)
@@ -888,7 +895,7 @@ static void lsp_build_internal_reach_ipv4(struct isis_lsp *lsp,
 			for (int i = 0; i < SR_ALGORITHM_COUNT; i++) {
 #ifndef FABRICD
 				if (flex_algo_id_valid(i) &&
-				    !isis_flex_algo_elected_supported(i, area))
+				    !isis_flex_algo_elected_supported(i, area, lsp->level))
 					continue;
 #endif /* ifndef FABRICD */
 				pcfgs[i] =
@@ -914,7 +921,7 @@ static void lsp_build_internal_reach_ipv6(struct isis_lsp *lsp,
 		for (int i = 0; i < SR_ALGORITHM_COUNT; i++) {
 #ifndef FABRICD
 			if (flex_algo_id_valid(i) &&
-			    !isis_flex_algo_elected_supported(i, area))
+			    !isis_flex_algo_elected_supported(i, area, lsp->level))
 				continue;
 #endif /* ifndef FABRICD */
 			pcfgs[i] = isis_sr_cfg_prefix_find(area, ipv6, i);
@@ -957,8 +964,7 @@ static void lsp_build_ext_reach_ipv4(struct isis_lsp *lsp,
 				for (int i = 0; i < SR_ALGORITHM_COUNT; i++) {
 #ifndef FABRICD
 					if (flex_algo_id_valid(i) &&
-					    !isis_flex_algo_elected_supported(
-						    i, area))
+					    !isis_flex_algo_elected_supported(i, area, lsp->level))
 						continue;
 #endif /* ifndef FABRICD */
 					pcfgs[i] = isis_sr_cfg_prefix_find(
@@ -1001,8 +1007,7 @@ static void lsp_build_ext_reach_ipv6(struct isis_lsp *lsp,
 				for (int i = 0; i < SR_ALGORITHM_COUNT; i++) {
 #ifndef FABRICD
 					if (flex_algo_id_valid(i) &&
-					    !isis_flex_algo_elected_supported(
-						    i, area))
+					    !isis_flex_algo_elected_supported(i, area, lsp->level))
 						continue;
 #endif /* ifndef FABRICD */
 					pcfgs[i] = isis_sr_cfg_prefix_find(
@@ -1311,6 +1316,7 @@ static void lsp_build(struct isis_lsp *lsp, struct isis_area *area)
 		struct isis_router_cap *rcap;
 #ifndef FABRICD
 		struct isis_router_cap_fad *rcap_fad;
+		struct isis_flex_algo_data *fa_data;
 		struct flex_algo *fa;
 #endif /* ifndef FABRICD */
 
@@ -1357,12 +1363,13 @@ static void lsp_build(struct isis_lsp *lsp, struct isis_area *area)
 				else
 					rcap_fad = NULL;
 
-				if (!isis_flex_algo_elected_supported_local_fad(
-					    fa->algorithm, area, &rcap_fad)) {
-					fa->state = false;
+				fa_data = fa->data;
+				fa_data->state[lsp->level - 1] =
+					isis_flex_algo_elected_supported_local_fad(fa->algorithm,
+										   area, lsp->level,
+										   &rcap_fad);
+				if (!fa_data->state[lsp->level - 1])
 					continue;
-				}
-				fa->state = true;
 				lsp_debug("ISIS (%s):   SR Algorithm %u",
 					  area->area_tag, fa->algorithm);
 				rcap->algo[fa->algorithm] = fa->algorithm;
@@ -1618,6 +1625,11 @@ static void lsp_build(struct isis_lsp *lsp, struct isis_area *area)
 	lsp_adjust_stream(lsp);
 	lsp_pack_pdu(lsp);
 	size_t tlv_space = STREAM_WRITEABLE(lsp->pdu) - LLC_LEN;
+	/* A refresh re-signs the fragments with the key valid then, whose
+	 * digest may be longer: leave room for the longest.
+	 */
+	if (lsp_passwd(lsp)->type == ISIS_PASSWD_TYPE_CRYPTO_AUTH)
+		tlv_space -= ISIS_CRYPTO_AUTH_TLV_MAX_LEN - isis_tlvs_auth_len(lsp->tlvs);
 	lsp_clear_data(lsp);
 
 	struct list *fragments = isis_fragment_tlvs(tlvs, tlv_space);

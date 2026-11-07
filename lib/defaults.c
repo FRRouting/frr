@@ -207,6 +207,14 @@ const char *frr_defaults_profile(void)
 	return df_profile;
 }
 
+enum frr_default_profile frr_default_chosen(void)
+{
+	if (!strcmp(df_profile, "datacenter"))
+		return FRR_DEFAULT_DATACENTER;
+
+	return FRR_DEFAULT_TRADITIONAL;
+}
+
 void frr_defaults_version_set(const char *version)
 {
 	strlcpy(df_version, version, sizeof(df_version));

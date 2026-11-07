@@ -74,28 +74,79 @@ def test_keeparound_reuse_keeps_dependency_refs():
         output = json.loads(r1.vtysh_cmd(f"show nexthop-group rib {nhg_id} json"))
         return output.get(str(nhg_id))
 
+    def route_nexthops():
+        """Return the set of nexthop addresses currently in the RIB route."""
+        route = json.loads(r1.vtysh_cmd(f"show ip route {prefix} json"))
+        if prefix not in route:
+            return set()
+        return {nh["ip"] for nh in route[prefix][0].get("nexthops", []) if "ip" in nh}
+
+    def wait_for_nexthops(expected):
+        _, result = topotest.run_and_expect(
+            lambda: route_nexthops() == expected, True, count=30, wait=1
+        )
+        assert result, f"Route {prefix} nexthops are not {sorted(expected)}"
+
+    def get_parent_id():
+        route = json.loads(r1.vtysh_cmd(f"show ip route {prefix} json"))
+        if prefix not in route:
+            return None
+        return route[prefix][0].get("receivedNexthopGroupId")
+
     try:
+        # Staticd sends nexthop additions/removals one at a time, so zebra
+        # can see the route transiently with a single nexthop and create a
+        # singleton NHG that depends on one of the ECMP parent's
+        # dependencies.  Whether that happens is timing dependent, and such
+        # an NHG legitimately holds references on the dependency.  Create
+        # (and keep around) both singleton NHGs up front so they are already
+        # present when the baseline is recorded and cannot change it later.
+        step("Create the single nexthop NHGs used by the transient route states")
+        r1.vtysh_cmd(f"configure terminal\n ip route {prefix} {nexthops[0]}\nend")
+        wait_for_nexthops({nexthops[0]})
+        r1.vtysh_cmd(f"configure terminal\n ip route {prefix} {nexthops[1]}\nend")
+        wait_for_nexthops(set(nexthops))
+        r1.vtysh_cmd(f"configure terminal\n no ip route {prefix} {nexthops[0]}\nend")
+        wait_for_nexthops({nexthops[1]})
+        r1.vtysh_cmd(f"configure terminal\n no ip route {prefix} {nexthops[1]}\nend")
+        wait_for_nexthops(set())
+
         step("Install a static ECMP route")
         route_cmd("")
+        wait_for_nexthops(set(nexthops))
 
-        def get_parent_id():
-            route = json.loads(r1.vtysh_cmd(f"show ip route {prefix} json"))
-            if prefix not in route:
-                return None
-            return route[prefix][0].get("receivedNexthopGroupId")
-
-        _, result = topotest.run_and_expect(
-            lambda: get_parent_id() is not None, True, count=30, wait=1
-        )
-        assert result, "Static ECMP route has no received NHG"
         parent_id = get_parent_id()
+        assert parent_id is not None, "Static ECMP route has no received NHG"
 
         parent = nhg(parent_id)
         assert parent and len(parent.get("depends", [])) == 2
-        dependency_refs = {
-            dependency_id: nhg(dependency_id)["refCount"]
-            for dependency_id in parent["depends"]
-        }
+        dependency_ids = list(parent["depends"])
+
+        def get_dependency_refs():
+            refs = {}
+            for dependency_id in dependency_ids:
+                dependency = nhg(dependency_id)
+                if dependency is None:
+                    return None
+                refs[dependency_id] = dependency["refCount"]
+            return refs
+
+        def wait_for_stable_refs():
+            """Return the dependency refcounts once two reads in a row match."""
+            reads = []
+
+            def refs_stable():
+                current = get_dependency_refs()
+                stable = current is not None and len(reads) > 0 and reads[-1] == current
+                reads.append(current)
+                return stable
+
+            _, result = topotest.run_and_expect(refs_stable, True, count=30, wait=1)
+            assert result, "Dependency NHG refcounts did not stabilize"
+            return reads[-1]
+
+        step("Record the dependency refcounts with the parent route installed")
+        dependency_refs = wait_for_stable_refs()
         logger.info(
             "Parent NHG %s dependency refcounts before removal: %s",
             parent_id,
@@ -120,15 +171,17 @@ def test_keeparound_reuse_keeps_dependency_refs():
 
         _, result = topotest.run_and_expect(parent_reused, True, count=30, wait=1)
         assert result, f"Parent NHG {parent_id} was not reused"
+        wait_for_nexthops(set(nexthops))
 
-        for dependency_id, refcount in dependency_refs.items():
-            current_refcount = nhg(dependency_id)["refCount"]
-            logger.info(
-                "Dependency NHG %s refcount after reuse: %s",
-                dependency_id,
-                current_refcount,
-            )
-            assert current_refcount == refcount
+        # The route is re-added in several steps, so give zebra a moment to
+        # finish before comparing.  A leaked reference never goes away.
+        current_refs = wait_for_stable_refs()
+        logger.info(
+            "Parent NHG %s dependency refcounts after reuse: %s",
+            parent_id,
+            current_refs,
+        )
+        assert current_refs == dependency_refs
     finally:
         route_cmd("no")
 

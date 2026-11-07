@@ -435,14 +435,8 @@ static int update_group_announce_walkcb(struct update_group *updgrp, void *arg)
 {
 	struct update_subgroup *subgrp;
 
-	UPDGRP_FOREACH_SUBGRP (updgrp, subgrp) {
-		/* Avoid suppressing duplicate routes later
-		 * when processing in subgroup_announce_table().
-		 */
-		SET_FLAG(subgrp->sflags, SUBGRP_STATUS_FORCE_UPDATES);
-
+	UPDGRP_FOREACH_SUBGRP (updgrp, subgrp)
 		subgroup_announce_all(subgrp);
-	}
 
 	return UPDWALK_CONTINUE;
 }
@@ -653,7 +647,6 @@ bool bgp_adj_out_set_subgroup(struct bgp_dest *dest,
 	adj->adv = bgp_advertise_new();
 
 	adv = adj->adv;
-	adv->dest = dest;
 	assert(adv->pathi == NULL);
 	/* bgp_path_info adj_out reference */
 	adv->pathi = bgp_path_info_lock(path);
@@ -737,7 +730,6 @@ void bgp_adj_out_unset_subgroup(struct bgp_dest *dest, struct update_subgroup *s
 			/* We need advertisement structure.  */
 			adj->adv = bgp_advertise_new();
 			adv = adj->adv;
-			adv->dest = dest;
 			adv->adj = adj;
 
 			/*
@@ -1242,6 +1234,10 @@ void subgroup_default_originate(struct update_subgroup *subgrp, bool withdraw)
 			if (bgp_in_graceful_shutdown(bgp) ||
 			    (CHECK_FLAG(peer->flags, PEER_FLAG_GRACEFUL_SHUTDOWN)))
 				bgp_attr_add_gshut_community(&attr_copy);
+
+			/* Handle "bgp max-med" */
+			if (bgp->maxmed_active)
+				bgp_attr_set_med(&attr_copy, bgp->maxmed_value);
 
 			bgp_peer_prepend_local_as(peer, afi, safi, &attr_copy);
 

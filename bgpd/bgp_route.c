@@ -1416,7 +1416,7 @@ int bgp_path_info_cmp(struct bgp *bgp, struct bgp_path_info *new,
 		return 0;
 	}
 
-	/* 3.5. Tie-breaker - AIGP (Metric TLV) attribute */
+	/* 4. Tie-breaker - AIGP (Metric TLV) attribute */
 	if (bgp_attr_exists(newattr, BGP_ATTR_AIGP) && bgp_attr_exists(existattr, BGP_ATTR_AIGP) &&
 	    CHECK_FLAG(bgp->flags, BGP_FLAG_COMPARE_AIGP)) {
 		uint64_t new_aigp = bgp_aigp_metric_total(new);
@@ -1470,7 +1470,7 @@ int bgp_path_info_cmp(struct bgp *bgp, struct bgp_path_info *new,
 	new = bgp_get_imported_bpi_ultimate(new);
 	exist = bgp_get_imported_bpi_ultimate(exist);
 
-	/* 4. AS path length check. */
+	/* 5. AS path length check. */
 	if (!CHECK_FLAG(bgp->flags, BGP_FLAG_ASPATH_IGNORE)) {
 		int exist_hops = aspath_count_hops(exist_path_for_modifiable_attr->attr->aspath);
 		int exist_confeds =
@@ -1529,7 +1529,7 @@ int bgp_path_info_cmp(struct bgp *bgp, struct bgp_path_info *new,
 		}
 	}
 
-	/* 5. Origin check. */
+	/* 6. Origin check. */
 	if (new_path_for_modifiable_attr->attr->origin <
 	    exist_path_for_modifiable_attr->attr->origin) {
 		*reason = bgp_path_selection_origin;
@@ -1552,7 +1552,7 @@ int bgp_path_info_cmp(struct bgp *bgp, struct bgp_path_info *new,
 		return 0;
 	}
 
-	/* 6. MED check. */
+	/* 7. MED check. */
 	internal_as_route = (aspath_count_hops(new_path_for_modifiable_attr->attr->aspath) == 0 &&
 			     aspath_count_hops(exist_path_for_modifiable_attr->attr->aspath) == 0);
 	confed_as_route = (aspath_count_confeds(new_path_for_modifiable_attr->attr->aspath) > 0 &&
@@ -1603,7 +1603,7 @@ int bgp_path_info_cmp(struct bgp *bgp, struct bgp_path_info *new,
 	} else
 		peer_new = new->peer;
 
-	/* 7. Peer type check. */
+	/* 8. Peer type check. */
 	new_sort = peer_new->sort;
 	exist_sort = peer_exist->sort;
 	new_sub_sort = peer_new->sub_sort;
@@ -1637,7 +1637,7 @@ int bgp_path_info_cmp(struct bgp *bgp, struct bgp_path_info *new,
 		peer_sort_ret = 0;
 	}
 
-	/* 8. IGP metric check. */
+	/* 9. IGP metric check. */
 	newm = existm = 0;
 
 	if (new->extra)
@@ -1661,7 +1661,7 @@ int bgp_path_info_cmp(struct bgp *bgp, struct bgp_path_info *new,
 		igp_metric_ret = 0;
 	}
 
-	/* 9. Same IGP metric. Compare the cluster list length as
+	/* 10. Same IGP metric. Compare the cluster list length as
 	   representative of IGP hops metric. Rewrite the metric value
 	   pair (newm, existm) with the cluster list length. Prefer the
 	   path with smaller cluster list length.                       */
@@ -1692,7 +1692,7 @@ int bgp_path_info_cmp(struct bgp *bgp, struct bgp_path_info *new,
 		}
 	}
 
-	/* 10. confed-external vs. confed-internal */
+	/* 11. confed-external vs. confed-internal */
 	if (CHECK_FLAG(bgp->config, BGP_CONFIG_CONFEDERATION)) {
 		if (new_sort == BGP_PEER_CONFED
 		    && exist_sort == BGP_PEER_IBGP) {
@@ -1721,7 +1721,7 @@ int bgp_path_info_cmp(struct bgp *bgp, struct bgp_path_info *new,
 		}
 	}
 
-	/* 11. Maximum path check. */
+	/* 12. Maximum path check. */
 	if (newm == existm) {
 		/* If one path has a label but the other does not, do not treat
 		 * them as equals for multipath
@@ -1814,7 +1814,7 @@ int bgp_path_info_cmp(struct bgp *bgp, struct bgp_path_info *new,
 	if (peer_sort_ret >= 0)
 		return peer_sort_ret;
 
-	/* 12. If both paths are external, prefer the path that was received
+	/* 13. If both paths are external, prefer the path that was received
 	   first (the oldest one).  This step minimizes route-flap, since a
 	   newer path won't displace an older one, even if it was the
 	   preferred route based on the additional decision criteria below.  */
@@ -1839,7 +1839,7 @@ int bgp_path_info_cmp(struct bgp *bgp, struct bgp_path_info *new,
 		}
 	}
 
-	/* 13. Router-ID comparison. */
+	/* 14. Router-ID comparison. */
 	/* If one of the paths is "stale", the corresponding peer router-id will
 	 * be 0 and would always win over the other path. If originator id is
 	 * used for the comparison, it will decide which path is better.
@@ -1871,7 +1871,7 @@ int bgp_path_info_cmp(struct bgp *bgp, struct bgp_path_info *new,
 		return 0;
 	}
 
-	/* 14. Cluster length comparison. */
+	/* 15. Cluster length comparison. */
 	new_cluster = BGP_CLUSTER_LIST_LENGTH(new->attr);
 	exist_cluster = BGP_CLUSTER_LIST_LENGTH(exist->attr);
 
@@ -1895,7 +1895,7 @@ int bgp_path_info_cmp(struct bgp *bgp, struct bgp_path_info *new,
 		return 0;
 	}
 
-	/* 15. Neighbor address comparison. */
+	/* 16. Neighbor address comparison. */
 	/* Do this only if neither path is "stale" as stale paths do not have
 	 * valid peer information (as the connection may or may not be up).
 	 */
@@ -3551,6 +3551,10 @@ bool subgroup_announce_check(struct bgp_dest *dest, struct bgp_path_info *pi,
 		bgp_attr_clear_reflection(attr);
 	}
 
+	/* Handle "bgp max-med" */
+	if (bgp->maxmed_active)
+		bgp_attr_set_med(attr, bgp->maxmed_value);
+
 	return true;
 }
 
@@ -5126,6 +5130,9 @@ void bgp_do_deferred_path_selection(struct bgp *bgp, afi_t afi, safi_t safi)
 		bgp_deferred_path_selection(bgp, afi, safi, bgp->rib[afi][safi], cnt, NULL, false);
 	}
 
+	/* Deferred prefixes do not go through the process queue */
+	update_group_retry_merges(bgp);
+
 	/*
 	 * Send EOR message when all routes are processed
 	 * and if select deferral timer for tier 2 peers is
@@ -5475,6 +5482,11 @@ void bgp_meta_queue_free(struct meta_queue *mq)
 	XFREE(MTYPE_BGP_METAQ, mq);
 }
 
+static void bgp_process_queue_complete(struct work_queue *wq)
+{
+	update_group_retry_merges(wq->spec.data);
+}
+
 void bgp_process_queue_init(struct bgp *bgp)
 {
 	if (!bgp->process_queue) {
@@ -5484,7 +5496,9 @@ void bgp_process_queue_init(struct bgp *bgp)
 		bgp->process_queue = work_queue_new(bm->master, name);
 	}
 
+	bgp->process_queue->spec.data = bgp;
 	bgp->process_queue->spec.workfunc = &meta_queue_process;
+	bgp->process_queue->spec.completion_func = &bgp_process_queue_complete;
 	bgp->process_queue->spec.max_retries = 0;
 	bgp->process_queue->spec.hold = 50;
 	/* Use a higher yield value of 50ms for main queue processing */
@@ -5492,6 +5506,21 @@ void bgp_process_queue_init(struct bgp *bgp)
 
 	bgp->mq = meta_queue_new();
 }
+
+#ifdef DEV_BUILD
+void bgp_meta_queue_plug(struct bgp *bgp)
+{
+	bgp->meta_queue_plugged = true;
+	work_queue_plug(bgp->process_queue);
+}
+
+void bgp_meta_queue_unplug(struct bgp *bgp)
+{
+	bgp->meta_queue_plugged = false;
+	if (!bgp_update_delay_active(bgp))
+		work_queue_unplug(bgp->process_queue);
+}
+#endif
 
 static void bgp_process_internal(struct bgp *bgp, struct bgp_dest *dest,
 				 struct bgp_path_info *pi, afi_t afi,
@@ -9648,7 +9677,10 @@ void bgp_static_delete(struct bgp *bgp)
 					assert(rm);
 				}
 
-				bgp_table_unlock(table);
+				bgp_table_finish(&table);
+				bgp_dest_set_bgp_table_info(dest, NULL);
+				dest = bgp_dest_unlock_node(dest);
+				assert(dest);
 			} else {
 				bgp_static = bgp_dest_get_bgp_static_info(dest);
 				bgp_static_withdraw(bgp,

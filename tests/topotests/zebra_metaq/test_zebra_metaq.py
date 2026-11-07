@@ -7,21 +7,26 @@
 # meta queue (one entry per nexthop-group id), and that after unplugging
 # both groups are processed and created.
 #
+# Test that when a client goes away, only its own routes are purged from
+# the early route queue: the queued routes of another client, of another
+# type but with the same instance, are kept and installed.
+#
 
 import json
 import os
 import sys
+from functools import partial
 
 import pytest
 
-pytestmark = [pytest.mark.sharpd]
+pytestmark = [pytest.mark.sharpd, pytest.mark.staticd]
 
 CWD = os.path.dirname(os.path.realpath(__file__))
 sys.path.append(os.path.join(CWD, "../"))
 
 # pylint: disable=C0413
 from lib import topotest
-from lib.common_config import step
+from lib.common_config import kill_router_daemons, step
 from lib.topogen import Topogen, TopoRouter, get_topogen
 from lib.topolog import logger
 
@@ -39,7 +44,7 @@ def setup_module(mod):
     tgen.start_topology()
 
     for router in tgen.routers().values():
-        router.load_frr_config(extra_daemons=["sharpd"])
+        router.load_frr_config(extra_daemons=["sharpd", "staticd"])
 
     tgen.start_router()
 
@@ -190,3 +195,109 @@ def test_zebra_metaq_plug_dedup():
     assert (
         result
     ), "Expected 2 sharp non-singleton nexthop groups (A and B) after unplug"
+
+
+def test_zebra_metaq_client_close():
+    "Plug metaq, queue routes of sharpd and staticd, kill staticd, unplug"
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    r1 = tgen.gears["r1"]
+    sharp_routes = 10
+
+    def _get_early_route_current():
+        output = json.loads(r1.vtysh_cmd("show zebra metaq json"))
+        for subq in output["subqueues"]:
+            if subq["SubQ"] == "Early Route Processing":
+                return subq["Current"]
+        return None
+
+    def _check_early_route_queued(base, expected):
+        # Routes of other sources (e.g. an address still coming up) may be
+        # queued too: only check that ours are.
+        current = _get_early_route_current()
+        if current is None or current < base + expected:
+            return "Expected at least {} Early Route Processing entries, got {}".format(
+                base + expected, current
+            )
+        return None
+
+    def _check_connected(prefix):
+        output = json.loads(r1.vtysh_cmd("show ip route {} json".format(prefix)))
+        for entry in output.get(prefix, []):
+            if entry.get("protocol") == "connected" and entry.get("selected"):
+                return None
+        return "Expected connected route {} installed".format(prefix)
+
+    def _check_client_gone(name):
+        output = r1.vtysh_cmd("show zebra client summary")
+        for line in output.splitlines():
+            if line.split() and line.split()[0] == name:
+                return "Expected client {} gone: {}".format(name, line)
+        return None
+
+    def _check_route_count(proto, expected):
+        output = json.loads(r1.vtysh_cmd("show ip route {} json".format(proto)))
+        if len(output) != expected:
+            return "Expected {} {} routes, got {}: {}".format(
+                expected, proto, len(output), sorted(output)
+            )
+        return None
+
+    # Before plugging, the address of r1-eth0 (the nexthop of the routes of
+    # the test) must be up, not queued along with the routes of the test.
+    step("Wait for the connected route of r1-eth0")
+    _, result = topotest.run_and_expect(
+        partial(_check_connected, "10.1.1.0/24"), None, count=30, wait=1
+    )
+    assert result is None, result
+
+    step("Plug the meta queue")
+    r1.vtysh_cmd("zebra test metaq disable")
+
+    try:
+        step("Queue {} sharpd routes and 1 static route".format(sharp_routes))
+        base = _get_early_route_current()
+        r1.vtysh_cmd(
+            "sharp install routes 10.10.0.0 nexthop 10.1.1.1 {}".format(sharp_routes)
+        )
+        r1.vtysh_cmd(
+            """
+            configure terminal
+            ip route 10.20.0.0/24 10.1.1.1
+            """
+        )
+        _, result = topotest.run_and_expect(
+            partial(_check_early_route_queued, base, sharp_routes + 1),
+            None,
+            count=30,
+            wait=1,
+        )
+        assert result is None, result
+
+        # The routes of staticd and sharpd both have instance 0: only the
+        # one of staticd must be purged, checked once the meta queue is
+        # unplugged (the routes of sharpd installed, not the one of staticd).
+        step("Kill staticd, wait for zebra to see it gone")
+        kill_router_daemons(tgen, "r1", ["staticd"])
+        _, result = topotest.run_and_expect(
+            partial(_check_client_gone, "static"), None, count=30, wait=1
+        )
+        assert result is None, result
+    finally:
+        step("Unplug the meta queue")
+        r1.vtysh_cmd("no zebra test metaq disable")
+
+    step("Verify the sharpd routes are installed")
+    _, result = topotest.run_and_expect(
+        partial(_check_route_count, "sharp", sharp_routes),
+        None,
+        count=30,
+        wait=1,
+    )
+    assert result is None, result
+
+    step("Verify the static route is not installed")
+    result = _check_route_count("static", 0)
+    assert result is None, result

@@ -17,10 +17,12 @@ across EBGP-OAD sessions (r3 -> r2 -> r1) when explicitly enabled with
 
 Per draft-uttaro-idr-bgp-oad section 3.20 the default value of AIGP_SESSION
 is "disabled" for EBGP-OAD sessions, hence "neighbor PEER aigp" is configured
-on both ends of each OAD session (r3<->r2, r2<->r1).
+on both ends of each OAD session (r3<->r2, r2<->r1). On r2, both sessions
+inherit it from a peer-group.
 
 Finally, check that AIGP is NOT propagated over an EBGP-OAD session once
-"neighbor PEER aigp" is removed, confirming the default is "disabled".
+"neighbor PEER aigp" is removed, confirming the default is "disabled". On
+r2, it is removed from the peer-group, and kept on the r3 member only.
 """
 
 import os
@@ -203,12 +205,15 @@ def test_bgp_oad():
     # an EBGP-OAD session (draft-uttaro-idr-bgp-oad section 3.20). Disable AIGP
     # on the r2 -> r1 OAD session only: r2 still learns the AIGP metric from r3
     # (that session keeps "neighbor aigp"), but r2 must no longer advertise it
-    # to r1.
+    # to r1. Both sessions are members of the same peer-group: AIGP is removed
+    # from the peer-group, and configured on the r3 member, so that the two
+    # members have a different aigp flag.
     r2.vtysh_cmd(
         """
         configure terminal
         router bgp 65002
-         no neighbor 192.168.1.1 aigp
+         neighbor 192.168.2.3 aigp
+         no neighbor PG aigp
         """
     )
 

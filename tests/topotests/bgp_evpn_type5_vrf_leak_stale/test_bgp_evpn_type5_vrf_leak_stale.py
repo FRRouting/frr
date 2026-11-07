@@ -99,6 +99,7 @@ MULTI_SOURCE_GREEN_PREFIX = "192.168.100.1/32"
 MULTI_SOURCE_BLUE_PREFIX = "192.168.101.1/32"
 INITIAL_IMPORT_PREFIX = "192.168.102.1/32"
 PE_VRFS = ("GREEN", "BLUE", "PURPLE")
+GREEN_L3VNI = 101
 BLUE_L3VNI = 102
 PURPLE_L3VNI = 103
 # Fabric sessions live in the default instance; the tenant VRFs have no peers.
@@ -1517,30 +1518,30 @@ def test_skip_evpn_imported_preserves_mixed_local_and_evpn_paths():
             for vrf in PE_VRFS:
                 _configure_skip_evpn_imported(router, vrf, False)
 
+        # r1's origin and r2's leaks of its local BLUE static must stay advertised.
+        # r3 has no local copy: its BLUE and PURPLE Type-5s are leaks of the EVPN
+        # import and are the routes suppression must withdraw. r3 GREEN only holds
+        # the direct import, which is not re-exported.
+        local_rds = {
+            _evpn_l3vni_rd(r1, GREEN_L3VNI),
+            _evpn_l3vni_rd(r2, GREEN_L3VNI),
+            _evpn_l3vni_rd(r2, BLUE_L3VNI),
+            _evpn_l3vni_rd(r2, PURPLE_L3VNI),
+        }
+        evpn_derived_rds = {
+            _evpn_l3vni_rd(r3, BLUE_L3VNI),
+            _evpn_l3vni_rd(r3, PURPLE_L3VNI),
+        }
+
         logger.info("Install the same prefix as an origin and a local BLUE route")
         _configure_static_route(r1, "GREEN", MIXED_PATH_PREFIX, True)
         _configure_static_route(r2, "BLUE", MIXED_PATH_PREFIX, True)
         _wait_bgp_valid_path_count_at_least(r2, "BLUE", MIXED_PATH_PREFIX, 2)
-        _wait_evpn_type5_prefix_count_at_least(r1, MIXED_PATH_PREFIX, 2)
-        before_rds = set(evpn_type5_route_distinguishers(r1, MIXED_PATH_PREFIX))
-        assert (
-            len(before_rds) >= 2
-        ), "r1 {0}: expected at least 2 Type-5 RDs, actual={1}\n{2}".format(
-            MIXED_PATH_PREFIX,
-            before_rds,
-            r1.vtysh_cmd("show bgp l2vpn evpn route type 5"),
-        )
-
-        # The RD r2 exports its local BLUE route under. Suppression must leave
-        # this one advertised while the EVPN-derived copies are withdrawn.
-        blue_rd = _evpn_l3vni_rd(r2, BLUE_L3VNI)
-        assert (
-            blue_rd in before_rds
-        ), "r1 {0}: expected r2 BLUE export {1} in baseline {2}\n{3}".format(
-            MIXED_PATH_PREFIX,
-            blue_rd,
-            sorted(before_rds),
-            r1.vtysh_cmd("show bgp l2vpn evpn route type 5"),
+        # Two Type-5 paths can be r1 plus r2 BLUE, before r3 has advertised.
+        # Enabling suppression at that point keeps r3 from ever exporting, so the
+        # RD set never shrinks. Wait until r3's re-exports are actually present.
+        _wait_evpn_type5_rds(
+            r1, MIXED_PATH_PREFIX, present=local_rds | evpn_derived_rds
         )
 
         logger.info("Suppress EVPN-derived paths while retaining the local path")
@@ -1549,36 +1550,24 @@ def test_skip_evpn_imported_preserves_mixed_local_and_evpn_paths():
                 _configure_skip_evpn_imported(router, vrf, True)
 
         _wait_bgp_route(r2, "BLUE", MIXED_PATH_PREFIX, True)
-        current_rds = set()
-
-        def _type5_exports_reduced():
-            nonlocal current_rds
-            current_rds = set(evpn_type5_route_distinguishers(r1, MIXED_PATH_PREFIX))
-            return current_rds < before_rds and blue_rd in current_rds
-
-        topotest.run_and_expect(_type5_exports_reduced, True, count=60, wait=1)
-        route_output = r2.vtysh_cmd(
-            "show bgp vrf BLUE ipv4 unicast {0}".format(MIXED_PATH_PREFIX)
+        current_rds = _wait_evpn_type5_rds(
+            r1,
+            MIXED_PATH_PREFIX,
+            present=local_rds,
+            absent=evpn_derived_rds | {_evpn_l3vni_rd(r3, GREEN_L3VNI)},
         )
         type5_output = r1.vtysh_cmd("show bgp l2vpn evpn route type 5")
-        assert current_rds < before_rds, (
-            "r1 {0}: expected Type-5 RDs to be a proper subset of baseline; "
-            "before={1}, after={2}\n{3}".format(
+        assert current_rds == local_rds, (
+            "r1 {0}: expected only the local-origin Type-5 RDs to remain; "
+            "expected={1}, actual={2}\n{3}".format(
                 MIXED_PATH_PREFIX,
-                sorted(before_rds),
+                sorted(local_rds),
                 sorted(current_rds),
                 type5_output,
             )
         )
-        # Shrinking alone would also be satisfied by wrongly dropping r2's own
-        # export, so require the RD carrying it to survive.
-        assert (
-            blue_rd in current_rds
-        ), "r1 {0}: expected r2 BLUE export {1} to survive; after={2}\n{3}".format(
-            MIXED_PATH_PREFIX,
-            blue_rd,
-            sorted(current_rds),
-            type5_output,
+        route_output = r2.vtysh_cmd(
+            "show bgp vrf BLUE ipv4 unicast {0}".format(MIXED_PATH_PREFIX)
         )
         assert (
             "weight 32768, valid" in route_output

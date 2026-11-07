@@ -453,6 +453,14 @@ void bgp_generate_updgrp_packets(struct event *event)
 	    || bgp_update_delay_active(peer->bgp))
 		return;
 
+#ifdef DEV_BUILD
+	if (peer->bgp->updates_plugged || peer->updates_plugged) {
+		if (bgp_debug_update(peer, NULL, NULL, 0))
+			zlog_debug("%pBP UPDATEs are plugged, not building any", peer);
+		return;
+	}
+#endif
+
 	/* If the MRAI timer is running and we have conditional advertisement
 	 * configured, send the updates only after the MRAI timer expires unless
 	 * we have pending conditional advertisements.
@@ -476,8 +484,16 @@ void bgp_generate_updgrp_packets(struct event *event)
 	 * let's stop adding to the outq if we are
 	 * already at the limit.
 	 */
-	if (connection->obuf->count >= bm->outq_limit) {
-		bgp_write_proceed_actions(connection);
+	bool outq_full;
+
+	frr_with_mutex (&connection->io_mtx) {
+		outq_full = CHECK_FLAG(connection->thread_flags, PEER_THREAD_WRITES_PAUSED) ||
+			    connection->obuf->count >= bm->outq_limit;
+		if (outq_full)
+			SET_FLAG(connection->thread_flags, PEER_THREAD_WRITES_PAUSED);
+	}
+
+	if (outq_full) {
 		UNSET_FLAG(peer->sflags, PEER_STATUS_COND_ADV_PENDING);
 		return;
 	}
@@ -626,6 +642,44 @@ void bgp_generate_updgrp_packets(struct event *event)
 
 	bgp_write_proceed_actions(connection);
 }
+
+#ifdef DEV_BUILD
+static void bgp_updates_kick(struct peer *peer)
+{
+	struct peer_connection *connection = peer->connection;
+
+	if (peer_established(connection))
+		event_add_timer_msec(bm->master, bgp_generate_updgrp_packets, connection, 0,
+				     &connection->t_generate_updgrp_packets);
+}
+
+/*
+ * Stop building UPDATEs for one peer, or for every peer of the instance
+ * when peer is NULL. Routes are still selected and queued per subgroup.
+ */
+void bgp_updates_plug(struct bgp *bgp, struct peer *peer)
+{
+	if (peer)
+		peer->updates_plugged = true;
+	else
+		bgp->updates_plugged = true;
+}
+
+void bgp_updates_unplug(struct bgp *bgp, struct peer *peer)
+{
+	struct listnode *node;
+
+	if (peer) {
+		peer->updates_plugged = false;
+		bgp_updates_kick(peer);
+		return;
+	}
+
+	bgp->updates_plugged = false;
+	for (ALL_LIST_ELEMENTS_RO(bgp->peer, node, peer))
+		bgp_updates_kick(peer);
+}
+#endif
 
 /*
  * Creates a BGP Keepalive packet and appends it to the peer's output queue.
@@ -2957,7 +3011,6 @@ static int bgp_route_refresh_receive(struct peer_connection *connection, bgp_siz
 	struct stream *s;
 	struct peer_af *paf;
 	uint8_t subtype;
-	bool force_update = false;
 	bgp_size_t msg_length =
 		size - (BGP_MSG_ROUTE_REFRESH_MIN_SIZE - BGP_HEADER_SIZE);
 
@@ -3234,11 +3287,6 @@ static int bgp_route_refresh_receive(struct peer_connection *connection, bgp_siz
 
 	paf = peer_af_find(peer, afi, safi);
 	if (paf && paf->subgroup) {
-		/* Avoid suppressing duplicate routes later
-		 * when processing in subgroup_announce_table().
-		 */
-		force_update = true;
-
 		/* If the peer is configured for default-originate clear the
 		 * SUBGRP_STATUS_DEFAULT_ORIGINATE flag so that we will
 		 * re-advertise the
@@ -3286,7 +3334,7 @@ static int bgp_route_refresh_receive(struct peer_connection *connection, bgp_siz
 	}
 
 	/* Perform route refreshment to the peer */
-	bgp_announce_route(peer, afi, safi, force_update);
+	bgp_announce_route(peer, afi, safi, true);
 
 	/* No FSM action necessary */
 	return BGP_PACKET_NOOP;
@@ -3313,7 +3361,7 @@ static void bgp_dynamic_capability_paths_limit(uint8_t *pnt, int action,
 		if (!CHECK_FLAG(peer->cap, PEER_CAP_ADDPATH_RCV)) {
 			flog_warn(EC_BGP_CAPABILITY_INVALID_DATA,
 				  "Paths-Limit: Received Paths-Limit capability without Add-Path capability");
-			goto ignore;
+			return;
 		}
 
 		SET_FLAG(peer->cap, PEER_CAP_PATHS_LIMIT_RCV);

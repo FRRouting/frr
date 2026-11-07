@@ -4723,7 +4723,7 @@ int bgp_delete(struct bgp *bgp)
 		vpn_leak_zebra_vrf_sid_withdraw(bgp, afi);
 
 		/* SRv6 unicast */
-		bgp_srv6_unicast_delete(bgp_default, afi);
+		bgp_srv6_unicast_delete(bgp, afi);
 	}
 
 	/* release auto vpn labels */
@@ -4935,6 +4935,10 @@ int bgp_delete(struct bgp *bgp)
 		 */
 		bgp_evpn_cleanup_per_vni_routes(bgp);
 	}
+
+	/* drop pending BGP-LU label requests before bgp_free() frees the dests */
+	if (!bm->terminating && !IS_BGP_INSTANCE_HIDDEN(bgp))
+		bgp_lp_release_instance_lu(bgp);
 
 	bgp_cleanup_routes(bgp);
 
@@ -5621,12 +5625,8 @@ void peer_change_action(struct peer *peer, afi_t afi, safi_t safi,
 		peer_vpn_change_bestpath(peer, afi);
 	if (type == peer_change_reset_out || type == peer_change_best_path) {
 		paf = peer_af_find(peer, afi, safi);
-		if (paf && paf->subgroup)
-			SET_FLAG(paf->subgroup->sflags,
-				 SUBGRP_STATUS_FORCE_UPDATES);
-
 		update_group_adjust_peer(paf);
-		bgp_announce_route(peer, afi, safi, false);
+		bgp_announce_route(peer, afi, safi, true);
 	}
 }
 
@@ -9484,7 +9484,7 @@ int peer_clear_soft(struct peer *peer, afi_t afi, safi_t safi,
 			UNSET_FLAG(paf->subgroup->sflags,
 				   SUBGRP_STATUS_DEFAULT_ORIGINATE);
 
-		bgp_announce_route(peer, afi, safi, false);
+		bgp_announce_route(peer, afi, safi, true);
 	}
 
 	if (stype == BGP_CLEAR_SOFT_IN_ORF_PREFIX) {

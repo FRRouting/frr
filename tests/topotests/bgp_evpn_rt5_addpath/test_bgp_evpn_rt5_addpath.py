@@ -42,6 +42,7 @@ Topology:
 import functools
 import json
 import os
+import re
 import sys
 import pytest
 from typing import Optional
@@ -369,6 +370,63 @@ def test_bgp_evpn_rt5_addpath_basic():
     )
     _, result = topotest.run_and_expect(f, None, count=60, wait=1)
     assert result is None, "Multipath routes should be installed in FIB"
+
+
+def test_bgp_evpn_rt5_addpath_summary_rib_count():
+    """EVPN summary counts prefixes across RDs, not RDs or AddPath paths."""
+    tgen: Topogen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    rr = tgen.gears["rr"]
+
+    logger.info("Wait for both exported Type-5 paths on RR")
+    expected = {
+        "10.0.0.10:1": {
+            "[5]:[0]:[24]:[10.0.0.0]": {
+                "paths": [
+                    [{"gatewayIP": "10.0.0.0"}],
+                    [{"gatewayIP": "10.0.0.2"}],
+                ],
+            },
+        },
+        "numPrefix": 1,
+        "numPaths": 2,
+    }
+    check_routes = _converge_fn(
+        rr, "show bgp l2vpn evpn route detail type prefix json", expected
+    )
+    _, result = topotest.run_and_expect(check_routes, None, count=130, wait=1)
+    assert result is None, "Both Type-5 paths must reach RR: {}".format(result)
+
+    def _check_summary():
+        routes = json.loads(rr.vtysh_cmd("show bgp l2vpn evpn route json"))
+        num_prefix = routes.get("numPrefix")
+        num_paths = routes.get("numPaths")
+        if not isinstance(num_prefix, int) or not isinstance(num_paths, int):
+            return "EVPN route counters missing: {}".format(routes)
+        num_rd = sum(isinstance(value, dict) for value in routes.values())
+
+        # Keep the old RD count and an incorrect path count distinguishable.
+        if not num_prefix > num_rd >= 2:
+            return "Need multiple RDs and more prefixes than RDs: {}".format(routes)
+        if num_paths <= num_prefix:
+            return "Need multiple paths for an EVPN prefix: {}".format(routes)
+
+        summary = json.loads(rr.vtysh_cmd("show bgp l2vpn evpn summary json"))
+        output = rr.vtysh_cmd("show bgp l2vpn evpn summary")
+        match = re.search(r"^RIB entries (\d+),", output, re.MULTILINE)
+        if match is None:
+            return "RIB entries missing from EVPN summary: {}".format(output)
+
+        return topotest.json_cmp(
+            {"ribCount": summary.get("ribCount"), "ribEntries": int(match.group(1))},
+            {"ribCount": num_prefix, "ribEntries": num_prefix},
+        )
+
+    logger.info("Check EVPN summary RIB entries against prefixes on RR")
+    _, result = topotest.run_and_expect(_check_summary, None, count=130, wait=1)
+    assert result is None, "EVPN summary must count prefixes per RD: {}".format(result)
 
 
 def test_bgp_evpn_rt5_addpath_withdraw():

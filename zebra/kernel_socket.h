@@ -31,7 +31,7 @@ extern int ifam_read(struct ifa_msghdr *ifam);
 extern int ifm_read(struct if_msghdr *ifm);
 extern int rtm_write(int message, union sockunion *dest, union sockunion *mask,
 		     union sockunion *gate, union sockunion *mpls, unsigned int index,
-		     enum blackhole_type bh_type, int metric);
+		     enum blackhole_type bh_type, int metric, int *err_errno);
 extern const struct message rtm_type_str[];
 
 #ifdef __cplusplus

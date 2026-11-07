@@ -6,6 +6,7 @@ Area test:
       Hello interval: 3, Holddown count: 10, Padding: yes
       CNSP interval: 10, PSNP interval: 2
       LAN Priority: 64, is not DIS
+    Authentication: none
     IP Prefix(es):
       192.168.5.1/26
     IPv6 Link-Locals:
@@ -20,6 +21,7 @@ Area test:
       Hello interval: 3, Holddown count: 10, Padding: yes
       CNSP interval: 10, PSNP interval: 2
       LAN Priority: 64, is not DIS
+    Authentication: none
     IP Prefix(es):
       192.168.6.1/26
     IPv6 Link-Locals:

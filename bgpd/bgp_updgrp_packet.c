@@ -712,10 +712,10 @@ struct bpacket *subgroup_update_packet(struct update_subgroup *subgrp)
 	while (adv) {
 		const struct prefix *dest_p;
 
-		assert(adv->dest);
-		dest = adv->dest;
-		dest_p = bgp_dest_get_prefix(dest);
 		adj = adv->adj;
+		assert(adj->dest);
+		dest = adj->dest;
+		dest_p = bgp_dest_get_prefix(dest);
 		addpath_tx_id = adj->addpath_tx_id;
 		path = adv->pathi;
 
@@ -1045,9 +1045,9 @@ struct bpacket *subgroup_withdraw_packet(struct update_subgroup *subgrp)
 	while ((adv = bgp_adv_fifo_first(&subgrp->sync->withdraw)) != NULL) {
 		const struct prefix *dest_p;
 
-		assert(adv->dest);
 		adj = adv->adj;
-		dest = adv->dest;
+		assert(adj->dest);
+		dest = adj->dest;
 		dest_p = bgp_dest_get_prefix(dest);
 		addpath_tx_id = adj->addpath_tx_id;
 

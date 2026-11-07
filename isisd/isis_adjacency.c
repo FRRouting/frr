@@ -78,6 +78,7 @@ struct isis_adjacency *isis_new_adj(const uint8_t *id, const uint8_t *snpa,
 	adj->level = level;
 	adj->flaps = 0;
 	adj->last_flap = time(NULL);
+	adj->auth_key_id = -1;
 	adj->threeway_state = ISIS_THREEWAY_DOWN;
 	if (circuit->circ_type == CIRCUIT_T_BROADCAST) {
 		listnode_add(circuit->u.bc.adjdb[level - 1], adj);
@@ -315,6 +316,13 @@ void isis_log_adj_change(struct isis_adjacency *adj,
 static void p2p_level_up(struct isis_circuit *circuit, int level)
 {
 	circuit->upadjcount[level - 1]++;
+	/* RFC 5303 section 1: each side sends a CSNP
+	 * once the adjacency is up. The periodic CSNP
+	 * timer is normally armed, and
+	 * event_add_timer() would keep it, so cancel
+	 * it first.
+	 */
+	event_cancel(&circuit->t_send_csnp[level - 1]);
 	event_add_timer(master, level == IS_LEVEL_1 ? send_l1_csnp : send_l2_csnp, circuit, 0,
 			&circuit->t_send_csnp[level - 1]);
 }
@@ -598,6 +606,8 @@ void isis_adj_print_json(struct isis_adjacency *adj, struct json_object *json,
 		json_object_int_add(iface_json, "adj-flaps", adj->flaps);
 		json_object_string_add(iface_json, "last-ago",
 				       time2string(now - adj->last_flap));
+		if (adj->auth_key_id >= 0)
+			json_object_int_add(iface_json, "auth-key-id", adj->auth_key_id);
 		json_object_string_add(iface_json, "circuit-type",
 				       circuit_t2string(adj->circuit_t));
 		json_object_string_add(iface_json, "speaks",
@@ -793,6 +803,8 @@ void isis_adj_print_vty(struct isis_adjacency *adj, struct vty *vty,
 		vty_out(vty, ", Last: %s ago",
 			time2string(now - adj->last_flap));
 		vty_out(vty, "\n");
+		if (adj->auth_key_id >= 0)
+			vty_out(vty, "    Authenticated with Key ID %d\n", adj->auth_key_id);
 		vty_out(vty, "    Circuit type: %s",
 			circuit_t2string(adj->circuit_t));
 		vty_out(vty, ", Speaks: %s", nlpid2string(&adj->nlpids));

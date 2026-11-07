@@ -51,9 +51,15 @@ static int kernel_rtm_add_labels(struct mpls_label_stack *nh_label,
 }
 #endif
 
-/* Interface between zebra message and rtm message. */
-static int kernel_rtm(int cmd, const struct prefix *p,
-		      const struct nexthop_group *ng, uint32_t metric)
+/*
+ * Interface between zebra message and rtm message.
+ *
+ * If err_errno is not NULL, it is set to 0 or, if the kernel rejected the
+ * request in a way that is not tolerated (the cases that are logged as errors
+ * below), the errno (a positive value) of the first such failure.
+ */
+static int kernel_rtm(int cmd, const struct prefix *p, const struct nexthop_group *ng,
+		      uint32_t metric, int *err_errno)
 
 {
 	union sockunion sin_dest, sin_mask, sin_gate;
@@ -66,8 +72,12 @@ static int kernel_rtm(int cmd, const struct prefix *p,
 	ifindex_t ifindex = 0;
 	bool gate = false;
 	int error;
+	int write_errno;
 	char gate_buf[INET6_BUFSIZ];
 	enum blackhole_type bh_type = BLACKHOLE_UNSPEC;
+
+	if (err_errno)
+		*err_errno = 0;
 
 	/*
 	 * We only have the ability to ADD or DELETE at this point
@@ -108,10 +118,15 @@ static int kernel_rtm(int cmd, const struct prefix *p,
 	/* Make gateway. */
 	for (ALL_NEXTHOPS_PTR(ng, nexthop)) {
 		/*
-		 * We only want to use the actual good nexthops
+		 * We only want to install the actual good nexthops.  When
+		 * deleting, an interface going down has already cleared
+		 * ACTIVE on the nexthops that are still in the kernel, so
+		 * try all of them; a gateway that isn't there just gives
+		 * ESRCH.
 		 */
-		if (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_RECURSIVE) ||
-		    !CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_ACTIVE))
+		if (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_RECURSIVE))
+			continue;
+		if (cmd != RTM_DELETE && !CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_ACTIVE))
 			continue;
 
 		smplsp = NULL;
@@ -202,9 +217,9 @@ static int kernel_rtm(int cmd, const struct prefix *p,
 			smplsp = (union sockunion *)&smpls;
 		}
 #endif
-		error = rtm_write(cmd, &sin_dest, &sin_mask,
-				  gate ? &sin_gate : NULL, smplsp,
-				  ifindex, bh_type, metric);
+		write_errno = 0;
+		error = rtm_write(cmd, &sin_dest, &sin_mask, gate ? &sin_gate : NULL, smplsp,
+				  ifindex, bh_type, metric, &write_errno);
 
 		if (IS_ZEBRA_DEBUG_KERNEL) {
 			if (!gate) {
@@ -251,18 +266,24 @@ static int kernel_rtm(int cmd, const struct prefix *p,
 			 * otherwise.
 			 */
 		case ZEBRA_ERR_RTEXIST:
-			if (cmd != RTM_ADD)
+			if (cmd != RTM_ADD) {
 				flog_err(EC_LIB_SYSTEM_CALL,
 					 "%s: rtm_write() returned %d for command %d",
 					 __func__, error, cmd);
+				if (err_errno && !*err_errno)
+					*err_errno = write_errno;
+			}
 			continue;
 
 			/* Note any unexpected status returns */
 		case ZEBRA_ERR_RTNOEXIST:
-			if (cmd != RTM_DELETE)
+			if (cmd != RTM_DELETE) {
 				flog_err(EC_LIB_SYSTEM_CALL,
 					 "%s: rtm_write() returned %d for command %d",
 					 __func__, error, cmd);
+				if (err_errno && !*err_errno)
+					*err_errno = write_errno;
+			}
 			break;
 		default:
 			flog_err(
@@ -270,6 +291,8 @@ static int kernel_rtm(int cmd, const struct prefix *p,
 				"%s: %pFX: rtm_write() unexpectedly returned %d for command %s",
 				__func__, p, error,
 				lookup_msg(rtm_type_str, cmd, NULL));
+			if (err_errno && !*err_errno)
+				*err_errno = write_errno;
 			break;
 		}
 	} /* for (ALL_NEXTHOPS(...))*/
@@ -294,6 +317,8 @@ enum zebra_dplane_result kernel_route_update(struct zebra_dplane_ctx *ctx)
 {
 	enum zebra_dplane_result res = ZEBRA_DPLANE_REQUEST_SUCCESS;
 	uint32_t type, old_type;
+	int err_errno = 0;
+	int del_errno = 0;
 
 	if (dplane_ctx_get_src(ctx) != NULL) {
 		flog_err(EC_ZEBRA_UNSUPPORTED_V6_SRCDEST,
@@ -309,13 +334,13 @@ enum zebra_dplane_result kernel_route_update(struct zebra_dplane_ctx *ctx)
 		if (dplane_ctx_get_op(ctx) == DPLANE_OP_ROUTE_DELETE) {
 			if (!RSYSTEM_ROUTE(type) && dplane_ctx_get_safi(ctx) != SAFI_MULTICAST)
 				kernel_rtm(RTM_DELETE, dplane_ctx_get_dest(ctx),
-					   dplane_ctx_get_ng(ctx),
-					   dplane_ctx_get_metric(ctx));
+					   dplane_ctx_get_ng(ctx), dplane_ctx_get_metric(ctx),
+					   &err_errno);
 		} else if (dplane_ctx_get_op(ctx) == DPLANE_OP_ROUTE_INSTALL) {
 			if (!RSYSTEM_ROUTE(type) && dplane_ctx_get_safi(ctx) != SAFI_MULTICAST)
 				kernel_rtm(RTM_ADD, dplane_ctx_get_dest(ctx),
-					   dplane_ctx_get_ng(ctx),
-					   dplane_ctx_get_metric(ctx));
+					   dplane_ctx_get_ng(ctx), dplane_ctx_get_metric(ctx),
+					   &err_errno);
 		} else if (dplane_ctx_get_op(ctx) == DPLANE_OP_ROUTE_UPDATE) {
 			/* Must do delete and add separately -
 			 * no update available
@@ -323,12 +348,19 @@ enum zebra_dplane_result kernel_route_update(struct zebra_dplane_ctx *ctx)
 			if (!RSYSTEM_ROUTE(old_type) && dplane_ctx_get_safi(ctx) != SAFI_MULTICAST)
 				kernel_rtm(RTM_DELETE, dplane_ctx_get_dest(ctx),
 					   dplane_ctx_get_old_ng(ctx),
-					   dplane_ctx_get_old_metric(ctx));
+					   dplane_ctx_get_old_metric(ctx), &del_errno);
 
 			if (!RSYSTEM_ROUTE(type) && dplane_ctx_get_safi(ctx) != SAFI_MULTICAST)
 				kernel_rtm(RTM_ADD, dplane_ctx_get_dest(ctx),
-					   dplane_ctx_get_ng(ctx),
-					   dplane_ctx_get_metric(ctx));
+					   dplane_ctx_get_ng(ctx), dplane_ctx_get_metric(ctx),
+					   &err_errno);
+
+			/*
+			 * The add is what installs the new route, so its errno
+			 * takes precedence over any failure of the delete.
+			 */
+			if (!err_errno)
+				err_errno = del_errno;
 		} else {
 			flog_err(EC_ZEBRA_RT_SOCKET_INVALID_OP,
 				 "Invalid routing socket update op %s (%u)",
@@ -336,6 +368,10 @@ enum zebra_dplane_result kernel_route_update(struct zebra_dplane_ctx *ctx)
 			res = ZEBRA_DPLANE_REQUEST_FAILURE;
 		}
 	} /* Elevated privs */
+
+	/* Pass the errno up to the zebra main pthread via the context. */
+	if (err_errno)
+		dplane_ctx_set_errno(ctx, err_errno);
 
 	return res;
 }

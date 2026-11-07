@@ -648,6 +648,9 @@ struct bgp {
 		uint32_t subgrps_deleted;
 	} update_group_stats;
 
+	/* A subgroup merge was refused while best path was pending */
+	bool update_group_merge_retry;
+
 	struct bgp_snmp_stats *snmp_stats;
 
 	/* BGP configuration.  */
@@ -702,6 +705,10 @@ struct bgp {
 	uint8_t update_delay_over;
 	uint8_t main_zebra_update_hold;
 	uint8_t main_peers_update_hold;
+#ifdef DEV_BUILD
+	/* No UPDATEs are built for any peer while set */
+	bool updates_plugged;
+#endif
 	uint16_t v_update_delay;
 	uint16_t v_establish_wait;
 	char update_delay_begin_time[64];
@@ -1113,6 +1120,11 @@ struct bgp {
 
 	/* Process Queue for handling routes */
 	struct work_queue *process_queue;
+
+#ifdef DEV_BUILD
+	/* Plugged by bgp_meta_queue_plug(), independent of update-delay */
+	bool meta_queue_plugged;
+#endif
 
 	/* Meta Queue Information */
 	struct meta_queue *mq;
@@ -1555,6 +1567,7 @@ struct peer_connection {
 	_Atomic uint32_t thread_flags;
 #define PEER_THREAD_WRITES_ON (1U << 0)
 #define PEER_THREAD_READS_ON  (1U << 1)
+#define PEER_THREAD_WRITES_PAUSED (1U << 2) /* output queue was full */
 
 	/* Packet receive and send buffer. */
 	pthread_mutex_t io_mtx;	  // guards ibuf, obuf
@@ -2016,6 +2029,11 @@ struct peer {
 		char *name;
 		struct route_map *map;
 	} default_rmap[AFI_MAX][SAFI_MAX];
+
+#ifdef DEV_BUILD
+	/* No UPDATEs are built for this peer while set */
+	bool updates_plugged;
+#endif
 
 	/* Peer status flags. */
 	uint16_t sflags;

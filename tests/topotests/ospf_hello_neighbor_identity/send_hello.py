@@ -23,7 +23,7 @@ visible from the host (use the test's logdir).
 import argparse
 import json
 import sys
-import time
+import threading
 
 from scapy.all import AsyncSniffer, Ether, IP, Raw, conf, sendp, wrpcap
 from scapy.contrib.ospf import OSPF_Hdr, OSPF_Hello
@@ -33,6 +33,8 @@ conf.verb = 0
 ALL_SPF_ROUTERS = "224.0.0.5"
 ALL_SPF_ROUTERS_MAC = "01:00:5e:00:00:05"
 OSPF_PROTO = 89
+SNIFFER_START_TIMEOUT = 15
+CAPTURE_TIMEOUT = 15
 
 
 def main():
@@ -86,17 +88,39 @@ def main():
         / Raw(payload)
     )
 
+    # AsyncSniffer.start() only launches a thread; the capture socket and
+    # BPF filter are not in place until the thread calls started_callback.
+    # Do not send until then, or the frame can leave before the sniffer is
+    # listening (seen on loaded CI hosts).
+    def is_ours(packet):
+        return packet.haslayer(IP) and bytes(packet[IP].payload) == payload
+
+    sniffer_ready = threading.Event()
     sniffer = AsyncSniffer(
         iface=args.iface,
         filter="ip proto %d and src host %s and dst host %s"
         % (OSPF_PROTO, args.src_ip, args.dst_ip),
         store=True,
+        started_callback=sniffer_ready.set,
+        # Stop as soon as the exact frame is seen on the wire.
+        stop_filter=is_ours,
     )
     sniffer.start()
-    time.sleep(0.2)
+    if not sniffer_ready.wait(SNIFFER_START_TIMEOUT):
+        sys.exit(
+            "sniffer did not start within %ds (exception: %s)"
+            % (SNIFFER_START_TIMEOUT, sniffer.exception)
+        )
     sendp(frame, iface=args.iface, count=1, verbose=False)
-    time.sleep(0.3)
-    packets = list(sniffer.stop())
+
+    # Wait for the matching frame instead of sleeping a fixed time: this
+    # returns immediately on a healthy host and still tolerates a starved
+    # sniffer thread on a loaded one.
+    sniffer.join(timeout=CAPTURE_TIMEOUT)
+    if sniffer.running:
+        # No match within the window; stop the sniffer and keep what it has.
+        sniffer.stop()
+    packets = list(sniffer.results or [])
 
     matching = [
         packet

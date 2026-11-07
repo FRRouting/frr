@@ -27,6 +27,7 @@ DECLARE_HOOK(isis_if_new_hook, (struct interface *ifp), (ifp));
 
 /* Typesafe list declarations for circuits */
 PREDECL_DLIST(isis_circuit_list);
+PREDECL_LIST(isis_esn_peer_list);
 
 struct isis_lsp;
 
@@ -123,6 +124,12 @@ struct isis_circuit {
 	 */
 	char *tag;		   /* area tag */
 	struct isis_passwd passwd; /* Circuit rx/tx password */
+	enum isis_esn_mode esn_mode;
+	/* RFC 7602: the last ESNs accepted, per neighbor (struct isis_esn_peer);
+	 * kept until the circuit goes down, not with the adjacency, which a
+	 * replayed IIH could bring back otherwise
+	 */
+	struct isis_esn_peer_list_head esn_peers;
 	int is_type_config;	   /* configured circuit is type */
 	/*
 	 * circuit is type == level of circuit
@@ -148,6 +155,8 @@ struct isis_circuit {
 #define ISIS_CIRCUIT_IF_DOWN_FROM_Z    0x02
 	uint8_t flags;
 	bool disable_threeway_adj;
+	/* p2p: CSNPs only when an adjacency comes up */
+	bool disable_p2p_periodic_csnp;
 	/* route IPv4 over IPv6 link-local nexthops where IPv4 has none? */
 	bool ipv4_over_ipv6_nexthop;
 	struct {
@@ -179,6 +188,9 @@ struct isis_circuit {
 	uint32_t max_area_addr_mismatches; /* max-area-addresses-mismatch */
 	uint32_t auth_type_failures;	   /*authentication-type-fails */
 	uint32_t auth_failures;		   /* authentication-fails */
+	/* IIHs and SNPs discarded verifying RFC 7602 ESNs */
+	uint32_t esn_missing_drops; /* no valid ESN TLV */
+	uint32_t esn_replay_drops;  /* an ESN not newer than the last accepted */
 
 	uint32_t snmp_id; /* Circuit id in snmp */
 
@@ -231,6 +243,8 @@ ferr_r isis_circuit_passwd_set(struct isis_circuit *circuit, uint8_t passwd_type
 			       const char *passwd);
 ferr_r isis_circuit_passwd_cleartext_set(struct isis_circuit *circuit, const char *passwd);
 ferr_r isis_circuit_passwd_hmac_md5_set(struct isis_circuit *circuit, const char *passwd);
+ferr_r isis_circuit_passwd_keychain_set(struct isis_circuit *circuit, const char *keychain,
+					bool strict_rfc5310);
 
 int isis_circuit_mt_enabled_set(struct isis_circuit *circuit, uint16_t mtid, bool enabled);
 

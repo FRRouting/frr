@@ -2,7 +2,7 @@
   "l2VpnEvpn": {
     "peers": {
       "fc00::2": {
-        "pfxRcd": 15,
+        "pfxRcd": 16,
         "peerState": "OK",
         "connectionsEstablished": 1
       }
