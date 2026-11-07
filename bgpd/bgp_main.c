@@ -47,6 +47,7 @@
 #include "bgpd/bgp_network.h"
 #include "bgpd/bgp_errors.h"
 #include "bgpd/bgp_script.h"
+#include "bgpd/bgp_evpn.h"
 #include "bgpd/bgp_evpn_mh.h"
 #include "bgpd/bgp_nhg.h"
 #include "bgpd/bgp_routemap_nb.h"
@@ -204,6 +205,17 @@ static FRR_NORETURN void bgp_exit(int status)
 	 * below.
 	 */
 	bgp_lp_release_pending_lu_locks();
+
+	/*
+	 * Tear down L3VNI / L2VNI linkage while the EVPN owner is still
+	 * alive. Tenant VRFs hold bgp_lock refs from linked L2VNIs;
+	 * classic CLI required L3VNI gone before "no router bgp", but
+	 * process exit (and YANG destroy) skip that ordering. Without
+	 * this, deleting VRFs before the EVPN owner leaves instances
+	 * allocated after unlock.
+	 */
+	for (ALL_LIST_ELEMENTS(bm->bgp, node, nnode, bgp))
+		bgp_evpn_instance_down(bgp);
 
 	/* reverse bgp_master_init */
 	for (ALL_LIST_ELEMENTS(bm->bgp, node, nnode, bgp)) {
