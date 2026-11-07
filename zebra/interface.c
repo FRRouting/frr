@@ -477,12 +477,12 @@ void if_flags_update(struct interface *ifp, uint64_t newflags)
 		/* operative -> inoperative? */
 		ifp->flags = newflags;
 		if (!if_is_operative(ifp))
-			if_down(ifp);
+			if_down(ifp, true);
 	} else {
 		/* inoperative -> operative? */
 		ifp->flags = newflags;
 		if (if_is_operative(ifp))
-			if_up(ifp, true);
+			if_up(ifp, true, false);
 	}
 }
 #endif
@@ -984,15 +984,21 @@ static void if_handle_bond_speed_change(struct interface *ifp)
 	}
 }
 
-/* Interface is up. */
-void if_up(struct interface *ifp, bool install_connected)
+/*
+ * Interface is up. if_up() is also called while the interface stays up
+ * (e.g. MAC/MTU changes) to re-notify clients, so was_up tells whether
+ * this is a real down -> up transition to be counted.
+ */
+void if_up(struct interface *ifp, bool install_connected, bool was_up)
 {
 	struct zebra_if *zif;
 	struct interface *link_if;
 
 	zif = ifp->info;
-	zif->up_count++;
-	frr_timestamp(2, zif->up_last, sizeof(zif->up_last));
+	if (!was_up) {
+		zif->up_count++;
+		frr_timestamp(2, zif->up_last, sizeof(zif->up_last));
+	}
 
 	/* Notify the protocol daemons. */
 	if (ifp->ptm_enable && (ifp->ptm_status == ZEBRA_PTM_STATUS_DOWN)) {
@@ -1053,15 +1059,17 @@ void if_up(struct interface *ifp, bool install_connected)
 }
 
 /* Interface goes down.  We have to manage different behavior of based
-   OS. */
-void if_down(struct interface *ifp)
+   OS. As with if_up(), was_up tells whether this is a real transition. */
+void if_down(struct interface *ifp, bool was_up)
 {
 	struct zebra_if *zif;
 	struct interface *link_if;
 
 	zif = ifp->info;
-	zif->down_count++;
-	frr_timestamp(2, zif->down_last, sizeof(zif->down_last));
+	if (was_up) {
+		zif->down_count++;
+		frr_timestamp(2, zif->down_last, sizeof(zif->down_last));
+	}
 
 	rtadv_stop_ra(ifp, true);
 	if_down_nhg_dependents(ifp);
@@ -2309,7 +2317,7 @@ static void zebra_if_dplane_ifp_handling(struct zebra_dplane_ctx *ctx)
 							name, ifp->ifindex);
 					frrtrace(3, frr_zebra, if_dplane_ifp_handling, name,
 						 ifp->ifindex, 1);
-					if_down(ifp);
+					if_down(ifp, is_up);
 					rib_update(RIB_UPDATE_KERNEL, ZEBRA_ROUTE_ALL);
 				} else if (if_is_operative(ifp)) {
 					bool mac_updated = false;
@@ -2324,7 +2332,7 @@ static void zebra_if_dplane_ifp_handling(struct zebra_dplane_ctx *ctx)
 							   kernel_pd_cleared);
 					frrtrace(3, frr_zebra, if_dplane_ifp_handling, name,
 						 ifp->ifindex, 2);
-					if_up(ifp, kernel_pd_cleared || !is_up);
+					if_up(ifp, kernel_pd_cleared || !is_up, is_up);
 
 					/*
 					 * Update EVPN VNI when SVI MAC change
@@ -2365,7 +2373,7 @@ static void zebra_if_dplane_ifp_handling(struct zebra_dplane_ctx *ctx)
 							name, ifp->ifindex);
 					frrtrace(3, frr_zebra, if_dplane_ifp_handling, name,
 						 ifp->ifindex, 4);
-					if_up(ifp, true);
+					if_up(ifp, true, false);
 					if (IS_ZEBRA_IF_BRIDGE(ifp))
 						chgflags =
 							ZEBRA_BRIDGE_MASTER_UP;
@@ -2376,7 +2384,7 @@ static void zebra_if_dplane_ifp_handling(struct zebra_dplane_ctx *ctx)
 							name, ifp->ifindex);
 					frrtrace(3, frr_zebra, if_dplane_ifp_handling, name,
 						 ifp->ifindex, 5);
-					if_down(ifp);
+					if_down(ifp, false);
 					rib_update(RIB_UPDATE_KERNEL, ZEBRA_ROUTE_ALL);
 				}
 			}
@@ -3972,13 +3980,13 @@ void if_linkdetect(struct interface *ifp, bool detect)
 
 		/* When linkdetection is enabled, if might come down */
 		if (!if_is_no_ptm_operative(ifp) && if_was_operative)
-			if_down(ifp);
+			if_down(ifp, true);
 	} else {
 		UNSET_FLAG(ifp->status, ZEBRA_INTERFACE_LINKDETECTION);
 
 		/* Interface may come up after disabling link detection */
 		if (if_is_operative(ifp) && !if_was_operative)
-			if_up(ifp, true);
+			if_up(ifp, true, false);
 	}
 	/* FIXME: Will defer status change forwarding if interface
 	   does not come down! */
