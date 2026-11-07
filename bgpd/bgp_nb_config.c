@@ -4604,6 +4604,7 @@ int bgp_nb_peer_ttl_security_modify(struct nb_cb_modify_args *args)
 {
 	struct peer *peer;
 	uint8_t hops;
+	int ret;
 
 	switch (args->event) {
 	case NB_EV_VALIDATE:
@@ -4614,6 +4615,17 @@ int bgp_nb_peer_ttl_security_modify(struct nb_cb_modify_args *args)
 		if (peer->conf_if && hops > 1) {
 			snprintfrr(args->errmsg, args->errmsg_len,
 				   "interface peer hops cannot exceed 1");
+			return NB_ERR_VALIDATION;
+		}
+		/*
+		 * Mutual exclusion with ebgp-multihop must be enforced in
+		 * VALIDATE: APPLY-time rejection cannot block the commit, and
+		 * a local-as override may have temporarily sorted the peer as
+		 * iBGP while cfg_ttl still records operator multihop.
+		 */
+		if (peer_ebgp_multihop_cfg(peer)) {
+			snprintfrr(args->errmsg, args->errmsg_len,
+				   "%%Cannot configure both ttl-security hops and ebgp-multihop");
 			return NB_ERR_VALIDATION;
 		}
 		return NB_OK;
@@ -4628,7 +4640,13 @@ int bgp_nb_peer_ttl_security_modify(struct nb_cb_modify_args *args)
 	if (!peer)
 		return NB_ERR_NOT_FOUND;
 
-	if (peer_ttl_security_hops_set(peer, yang_dnode_get_uint8(args->dnode, NULL)))
+	ret = peer_ttl_security_hops_set(peer, yang_dnode_get_uint8(args->dnode, NULL));
+	if (ret == BGP_ERR_NO_EBGP_MULTIHOP_WITH_TTLHACK) {
+		snprintfrr(args->errmsg, args->errmsg_len,
+			   "%%Cannot configure both ttl-security hops and ebgp-multihop");
+		return NB_ERR_RESOURCE;
+	}
+	if (ret)
 		return NB_ERR_RESOURCE;
 	return NB_OK;
 }

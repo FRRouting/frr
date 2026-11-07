@@ -2899,6 +2899,7 @@ extern int peer_ebgp_multihop_set(struct peer *peer, int ttl, bool record_cfg);
 extern int peer_ebgp_multihop_unset(struct peer *peer, bool record_cfg);
 extern void peer_cfg_ttl_set(struct peer *peer, int cfg_ttl);
 extern int peer_gtsm_configured(struct peer *peer);
+extern int peer_ebgp_multihop_cfg(struct peer *peer);
 extern int is_ebgp_multihop_configured(struct peer *peer);
 
 extern int peer_role_set(struct peer *peer, uint8_t role, bool strict_mode);
