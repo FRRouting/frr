@@ -10700,6 +10700,18 @@ DEFPY_YANG(pim_rpf_lookup_mode, pim_rpf_lookup_mode_cmd,
 				    (grp_list ? grp_list : ""), (src_list ? src_list : ""));
 }
 
+DEFPY_YANG(pim_igmp_proxy_rpf, pim_igmp_proxy_rpf_cmd,
+	   "[no] igmp proxy rpf",
+	   NO_STR
+	   IGMP_STR
+	   "IGMP proxy configuration\n"
+	   "Proxy (S,G) joins only on the RPF interface toward the source\n")
+{
+	nb_cli_enqueue_change(vty, "./gm-proxy-rpf", NB_OP_MODIFY, no ? "false" : "true");
+
+	return nb_cli_apply_changes(vty, NULL);
+}
+
 DEFPY_YANG(pim_join_filter_route_map, pim_join_filter_route_map_cmd,
 	   "[no] join-filter route-map ![RMAP_NAME]$rmap",
 	   NO_STR
@@ -10888,6 +10900,7 @@ void pim_cmd_init(void)
 	install_element(PIM_NODE, &pim_dm_prefix_list_cmd);
 
 	install_element(PIM_NODE, &pim_rpf_lookup_mode_cmd);
+	install_element(PIM_NODE, &pim_igmp_proxy_rpf_cmd);
 	install_element(PIM_NODE, &pim_join_filter_route_map_cmd);
 
 	install_element(INTERFACE_NODE, &interface_ip_igmp_cmd);
