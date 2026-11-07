@@ -4700,9 +4700,6 @@ static const char *rib_update_event2str(enum rib_update_event event)
 	const char *ret = "UNKNOWN";
 
 	switch (event) {
-	case RIB_UPDATE_INTERFACE_DOWN:
-		ret = "RIB_UPDATE_INTERFACE_DOWN";
-		break;
 	case RIB_UPDATE_KERNEL:
 		ret = "RIB_UPDATE_KERNEL";
 		break;
@@ -4711,9 +4708,6 @@ static const char *rib_update_event2str(enum rib_update_event event)
 		break;
 	case RIB_UPDATE_OTHER:
 		ret = "RIB_UPDATE_OTHER";
-		break;
-	case RIB_UPDATE_KERNEL_LAST_IPV4_ADDRESS_DELETED:
-		ret = "RIB_UPDATE_KERNEL_LAST_IPV4_ADDRESS_DELETED";
 		break;
 	case RIB_UPDATE_MAX:
 		break;
@@ -4725,9 +4719,9 @@ static const char *rib_update_event2str(enum rib_update_event event)
 /*
  * We now keep kernel routes, but we don't have any
  * trigger events for them when they are implicitly
- * deleted. Since we are already walking the
- * entire table on a down event let's look at
- * the few kernel routes we may have
+ * deleted. Delete this kernel route if the kernel
+ * has removed it, i.e. if none of its nexthops is
+ * still usable.
  */
 static void
 rib_update_handle_kernel_route_down_possibility(struct route_node *rn,
@@ -4787,26 +4781,26 @@ rib_update_handle_kernel_route_down_possibility(struct route_node *rn,
 
 		srcdest_rnode_prefixes(rn, &p, (const struct prefix **)&src_p);
 
-		rib_delete(rib_table->afi, rib_table->safi, re->vrf_id,
-			   re->type, re->instance, re->flags, p, src_p, NULL, 0,
-			   re->table, re->metric, re->distance, true);
+		/*
+		 * Delete with this entry's nexthop: a prefix-only delete
+		 * would also hit a newer kernel route for the same prefix
+		 * on another interface (session reconnected meanwhile).
+		 */
+		rib_delete(rib_table->afi, rib_table->safi, re->vrf_id, re->type, re->instance,
+			   re->flags, p, src_p, re->nhe->nhg.nexthop, 0, re->table, re->metric,
+			   re->distance, true);
 	}
 }
 
 
 /* Schedule route nodes to be processed if they match the type */
-static void rib_update_route_node(struct route_node *rn, int type,
-				  enum rib_update_event event)
+static void rib_update_route_node(struct route_node *rn, int type)
 {
 	struct route_entry *re, *next;
 	bool re_changed = false;
 
 	RNODE_FOREACH_RE_SAFE (rn, re, next) {
-		if ((event == RIB_UPDATE_INTERFACE_DOWN ||
-		     event == RIB_UPDATE_KERNEL_LAST_IPV4_ADDRESS_DELETED) &&
-		    type == re->type && type == ZEBRA_ROUTE_KERNEL)
-			rib_update_handle_kernel_route_down_possibility(rn, re);
-		else if (type == ZEBRA_ROUTE_ALL || type == re->type) {
+		if (type == ZEBRA_ROUTE_ALL || type == re->type) {
 			SET_FLAG(re->status, ROUTE_ENTRY_CHANGED);
 			re_changed = true;
 		}
@@ -4846,25 +4840,18 @@ void rib_update_table(struct route_table *table, enum rib_update_event event,
 		/*
 		 * If we are looking at a route node and the node
 		 * has already been queued  we don't
-		 * need to queue it up again, unless it is
-		 * an interface down event or last address down event
-		 * as that we need
-		 * to process these no matter what.
+		 * need to queue it up again.
 		 */
-		if (rn->info && CHECK_FLAG(rib_dest_from_rnode(rn)->flags, RIB_ROUTE_ANY_QUEUED) &&
-		    event != RIB_UPDATE_INTERFACE_DOWN &&
-		    event != RIB_UPDATE_KERNEL_LAST_IPV4_ADDRESS_DELETED)
+		if (rn->info && CHECK_FLAG(rib_dest_from_rnode(rn)->flags, RIB_ROUTE_ANY_QUEUED))
 			continue;
 
 		switch (event) {
-		case RIB_UPDATE_INTERFACE_DOWN:
-		case RIB_UPDATE_KERNEL_LAST_IPV4_ADDRESS_DELETED:
 		case RIB_UPDATE_KERNEL:
-			rib_update_route_node(rn, ZEBRA_ROUTE_KERNEL, event);
+			rib_update_route_node(rn, ZEBRA_ROUTE_KERNEL);
 			break;
 		case RIB_UPDATE_RMAP_CHANGE:
 		case RIB_UPDATE_OTHER:
-			rib_update_route_node(rn, rtype, event);
+			rib_update_route_node(rn, rtype);
 			break;
 		case RIB_UPDATE_MAX:
 			break;
@@ -4883,6 +4870,53 @@ void rib_update_handle_vrf_all(enum rib_update_event event, int rtype)
 	/* Just iterate over all the route tables, rather than vrf lookups */
 	RB_FOREACH (zrt, zebra_router_table_head, &zrouter.tables)
 		rib_update_table(zrt->table, event, rtype);
+}
+
+/* Does one of the nexthops of this route use this interface? */
+static bool rib_route_uses_interface(const struct route_entry *re, const struct interface *ifp)
+{
+	struct nexthop *nexthop;
+
+	for (ALL_NEXTHOPS(re->nhe->nhg, nexthop)) {
+		/*
+		 * The nexthop vrf of a kernel route is the vrf its interface had
+		 * when the route was learnt: stale once the interface moved to
+		 * another vrf, the default one if the interface was not known yet.
+		 * With VRF-lite ifindexes are global; with netns vrfs they are per
+		 * namespace, and a route only goes through interfaces of its own
+		 * namespace.
+		 */
+		if (nexthop->ifindex == ifp->ifindex &&
+		    (!vrf_is_backend_netns() || re->vrf_id == ifp->vrf->vrf_id))
+			return true;
+	}
+
+	return false;
+}
+
+/*
+ * The kernel removes, without notifying us, the IPv4 routes through an
+ * interface that goes down or loses its last IPv4 address. Re-evaluate the
+ * kernel routes that use this interface, and only them: the other kernel
+ * routes did not change. Judging them as well would delete a route whose
+ * interface zebra does not know yet, its RTM_NEWLINK still queued behind
+ * the route (an interface created and given a route in quick succession).
+ */
+void rib_update_kernel_routes_via_if(const struct interface *ifp)
+{
+	struct zebra_router_table *zrt;
+	struct route_node *rn;
+	struct route_entry *re, *next;
+
+	RB_FOREACH (zrt, zebra_router_table_head, &zrouter.tables) {
+		for (rn = route_top(zrt->table); rn; rn = srcdest_route_next(rn)) {
+			RNODE_FOREACH_RE_SAFE (rn, re, next) {
+				if (re->type == ZEBRA_ROUTE_KERNEL &&
+				    rib_route_uses_interface(re, ifp))
+					rib_update_handle_kernel_route_down_possibility(rn, re);
+			}
+		}
+	}
 }
 
 struct rib_update_ctx {
