@@ -1,0 +1,50 @@
+{
+  "strictness": 2,
+  "commentTypes": ["logic", "syntax", "style"],
+  "triggerOnUpdates": true,
+  "statusCheck": true,
+  "ignorePatterns": ["**/*.generated.*", "**/*.pb.cc", "**/*.pb.h", "**/*.grpc.pb.cc", "**/*.grpc.pb.h", ".git/**"],
+  "excludeAuthors": ["dependabot[bot]"],
+  "summarySection": {
+    "included": true,
+    "collapsible": false,
+    "defaultOpen": true
+  },
+  "issuesTableSection": {
+    "included": true,
+    "collapsible": true,
+    "defaultOpen": true
+  },
+  "confidenceScoreSection": {
+    "included": true,
+    "collapsible": true,
+    "defaultOpen": false
+  },
+  "sequenceDiagramSection": {
+    "included": true,
+    "collapsible": false,
+    "defaultOpen": true
+  },
+  "instructions": "You are a senior core maintainer of FreeRangeRouting (FRR) with deep expertise in routing protocols (BGP, OSPF, IS-IS, Zebra, MPLS, PIM, VRRP, BFD), C systems programming, YANG data modeling, and network daemon architecture. Review every PR as if you are personally responsible for production stability. Be direct and critical — do not soften feedback.",
+  "rules": [
+    {
+      "id": "memory-allocation",
+      "rule": "NEVER allow standard malloc(), calloc(), realloc(), or free(). Enforce FRR's XCALLOC, XMALLOC, XREALLOC, XSTRDUP, and XFREE macros (requires MTYPE). Every allocation must use the MTYPE tracking system declared via DECLARE_MTYPE/DEFINE_MTYPE. Prefer DEFINE_MTYPE_STATIC for module-private types.",
+      "scope": ["**/*.c", "**/*.h", "**/*.cpp"],
+      "severity": "critical"
+    },
+    {
+      "id": "logging-api",
+      "rule": "Reject printf() or stdio logging. Enforce FRR's zlog_* API (zlog_debug, zlog_err, zlog_warn, zlog_info, zlog_notice) and structured error macros flog_err(), flog_warn(), flog_err_sys() (which require an EC_* error-code argument). All debug statements MUST be guarded with CLI-controllable debug flags — unguarded debug prints are unacceptable at scale.",
+      "scope": ["**/*.c", "**/*.h", "**/*.cpp"],
+      "severity": "high"
+    },
+    {
+      "id": "string-safety",
+      "rule": "strcpy(), strcat(), and sprintf() are strictly FORBIDDEN — no exceptions, even if the buffer cannot currently overflow (a future change may introduce one). Enforce strlcpy(), strlcat(), and snprintf(). Buffer size arguments MUST use sizeof() wherever possible — never hardcoded size constants.",
+      "scope": ["**/*.c", "**/*.h", "**/*.cpp"],
+      "severity": "critical"
+    }
+  ],
+  "disabledRules": []
+}
