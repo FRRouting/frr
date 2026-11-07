@@ -51,7 +51,11 @@ extern struct zebra_privs_t zserv_privs;
  * 0).  We follow this practice without questioning it, but it is a
  * bug if frr calls ROUNDUP with 0.
  */
+#ifdef __APPLE__
+#define ROUNDUP_TYPE uint32_t
+#else
 #define ROUNDUP_TYPE long
+#endif
 
 /*
  * Because of these varying conventions, the only sane approach is for
@@ -970,6 +974,10 @@ static int rtm_read_mesg(struct rt_msghdr *rtm, union sockunion *dest,
 			break;
 		case RTA_IFP:
 			pnt += rta_getsdlname(pnt, ifname, ifnlen);
+			break;
+
+		case RTA_IFA:
+			pnt += rta_get(pnt, NULL, 0);
 			break;
 
 		default:
