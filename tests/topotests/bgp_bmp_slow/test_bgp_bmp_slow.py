@@ -71,8 +71,12 @@ exit
 def build_topo(tgen):
     tgen.add_router("r1")
     tgen.add_router("r2")
-    tgen.add_bmp_server("bmp_fast", ip=FAST_IP, defaultRoute="via 192.0.2.1", port=BMP_PORT)
-    tgen.add_bmp_server("bmp_slow", ip=SLOW_IP, defaultRoute="via 192.0.2.1", port=BMP_PORT)
+    tgen.add_bmp_server(
+        "bmp_fast", ip=FAST_IP, defaultRoute="via 192.0.2.1", port=BMP_PORT
+    )
+    tgen.add_bmp_server(
+        "bmp_slow", ip=SLOW_IP, defaultRoute="via 192.0.2.1", port=BMP_PORT
+    )
 
     s1 = tgen.add_switch("s1")
     s1.add_link(tgen.gears["r1"])
@@ -109,7 +113,11 @@ def setup_module(mod):
     )
     tgen.gears["r2"].load_frr_config(
         os.path.join(CWD, "r2/frr.conf"),
-        [(TopoRouter.RD_ZEBRA, None), (TopoRouter.RD_SHARP, None), (TopoRouter.RD_BGP, None)],
+        [
+            (TopoRouter.RD_ZEBRA, None),
+            (TopoRouter.RD_SHARP, None),
+            (TopoRouter.RD_BGP, None),
+        ],
     )
 
     tgen.start_router()
@@ -123,7 +131,12 @@ def setup_module(mod):
     def _installed(cmd):
         out = tgen.gears["r2"].vtysh_cmd(cmd, isjson=True)
         n = next(
-            (e.get("fib", 0) for e in out.get("routes", []) if e.get("type") == "sharp"), 0
+            (
+                e.get("fib", 0)
+                for e in out.get("routes", [])
+                if e.get("type") == "sharp"
+            ),
+            0,
         )
         logger.info("r2 sharp routes installed (%s): %d" % (cmd, n))
         return n >= NROUTES
@@ -182,11 +195,11 @@ def _parse_bmp_clients(r1):
     res = {}
     for line in out.splitlines():
         f = line.split()
-        # data line: "<ip>:<port> <uptime> <MonSent> <MirrSent> <MirrLost> <ByteSent> <ByteQ> <ByteQKernel>"
-        if len(f) >= 8 and ":" in f[0] and re.match(r"^\d+:\d+", f[1]):
+        # data line: "<ip>:<port> <uptime> <state> <MonSent> <MirrSent> <MirrLost> <ByteSent> <ByteQ> <ByteQKernel>"
+        if len(f) >= 9 and ":" in f[0] and re.match(r"^\d+:\d+", f[1]):
             ip = f[0].rsplit(":", 1)[0]
             try:
-                res[ip] = {"monsent": int(f[2]), "byteq": int(f[6])}
+                res[ip] = {"monsent": int(f[3]), "byteq": int(f[7])}
             except ValueError:
                 continue
     return res
@@ -253,7 +266,9 @@ def test_no_route_monitoring_truncation():
     c = _parse_bmp_clients(r1)
     fast = c[FAST_IP]["monsent"]
     slow = c[SLOW_IP]["monsent"]
-    logger.info("FINAL MonSent: fast=%d slow=%d (missing %d)" % (fast, slow, fast - slow))
+    logger.info(
+        "FINAL MonSent: fast=%d slow=%d (missing %d)" % (fast, slow, fast - slow)
+    )
 
     assert slow == fast, (
         "route-monitoring truncated: slow collector received only %d of %d "

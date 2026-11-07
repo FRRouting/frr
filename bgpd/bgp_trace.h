@@ -198,19 +198,19 @@ TRACEPOINT_LOGLEVEL(frr_bgp, bmp_peer_backward, TRACE_DEBUG)
  */
 TRACEPOINT_EVENT(
 	frr_bgp,
-	bmp_process,
+	bmp_process_ribinpre,
 	TP_ARGS(struct peer *, peer, char *, pfx, afi_t,
-		afi, safi_t, safi, bool, withdraw),
+		afi, safi_t, safi, bool, post),
 	TP_FIELDS(
 		ctf_string(peer, PEER_HOSTNAME(peer))
 		ctf_string(prefix, pfx)
 		ctf_integer(afi_t, afi, afi)
 		ctf_integer(safi_t, safi, safi)
-		ctf_integer(bool, withdraw, withdraw)
+		ctf_integer(bool, withdraw, post)
 	)
 )
 
-TRACEPOINT_LOGLEVEL(frr_bgp, bmp_process, TRACE_DEBUG)
+TRACEPOINT_LOGLEVEL(frr_bgp, bmp_process_ribinpre, TRACE_DEBUG)
 
 /*
  * BMP is hooked for a nexthop tracking event
