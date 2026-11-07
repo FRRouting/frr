@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: BSD-2-Clause
 module frr-pathd {
   yang-version 1.1;
   namespace "http://frrouting.org/yang/pathd";
@@ -16,7 +17,39 @@ module frr-pathd {
     "FRR Users List:       <mailto:frog@lists.frrouting.org>
      FRR Development List: <mailto:dev@lists.frrouting.org>";
   description
-    "This module defines a model for managing FRR pathd daemon.";
+    "This module defines a model for managing FRR pathd daemon.
+
+     Copyright 2026 FRRouting
+
+     Redistribution and use in source and binary forms, with or without
+     modification, are permitted provided that the following conditions
+     are met:
+
+     1. Redistributions of source code must retain the above copyright notice,
+     this list of conditions and the following disclaimer.
+
+     2. Redistributions in binary form must reproduce the above copyright
+     notice, this list of conditions and the following disclaimer in the
+     documentation and/or other materials provided with the distribution.
+
+     THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+     \"AS IS\" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+     LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
+     A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
+     HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+     SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
+     LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
+     DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
+     THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+     (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+     OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.";
+
+  revision 2026-07-21 {
+    description
+      "Add must constraint on segments, when condition on segment-list-name,
+       and range restrictions on decimal64 values.
+       Extract metric-type and objective-function-type into reusable typedefs.";
+  }
 
   revision 2018-11-06 {
     description
@@ -32,7 +65,7 @@ module frr-pathd {
       }
       enum bgp {
         value 2;
-        description "The object was created through GBP";
+        description "The object was created through BGP";
       }
       enum local {
         value 3;
@@ -44,12 +77,178 @@ module frr-pathd {
   }
 
   typedef originator-type {
-        type string {
-          length "1..64";
-        }
-        description
-          "Identifier of the originator of an object, could be 'config', '1.1.1.1:4189' or '2001:db8:85a3::8a2e:370:7334:4189'";
+    type string {
+      length "1..64";
+    }
+    description
+      "Identifier of the originator of an object, could be 'config', '1.1.1.1:4189' or '2001:db8:85a3::8a2e:370:7334:4189'";
+  }
+
+  typedef metric-type {
+    type enumeration {
+      enum igp {
+        value 1;
+        description "IGP metric";
       }
+      enum te {
+        value 2;
+        description "TE metric";
+      }
+      enum hc {
+        value 3;
+        description "Hop Counts";
+      }
+      enum abc {
+        value 4;
+        description "Aggregate bandwidth consumption";
+      }
+      enum lmll {
+        value 5;
+        description "Load of the most loaded link";
+      }
+      enum cigp {
+        value 6;
+        description "Cumulative IGP cost";
+      }
+      enum cte {
+        value 7;
+        description "Cumulative TE cost";
+      }
+      enum pigp {
+        value 8;
+        description "P2MP IGP metric";
+      }
+      enum pte {
+        value 9;
+        description "P2MP TE metric";
+      }
+      enum phc {
+        value 10;
+        description "P2MP hop count metric";
+      }
+      enum msd {
+        value 11;
+        description "Segment-ID (SID) Depth";
+      }
+      enum pd {
+        value 12;
+        description "Path Delay metric";
+      }
+      enum pdv {
+        value 13;
+        description "Path Delay Variation metric";
+      }
+      enum pl {
+        value 14;
+        description "Path Loss metric";
+      }
+      enum ppd {
+        value 15;
+        description "P2MP Path Delay metric";
+      }
+      enum ppdv {
+        value 16;
+        description "P2MP Path Delay variation metric";
+      }
+      enum ppl {
+        value 17;
+        description "P2MP Path Loss metric";
+      }
+      enum nap {
+        value 18;
+        description "Number of adaptations on a path";
+      }
+      enum nlp {
+        value 19;
+        description "Number of layers on a path";
+      }
+      enum dc {
+        value 20;
+        description "Domain Count metric";
+      }
+      enum bnc {
+        value 21;
+        description "Border Node Count metric";
+      }
+    }
+    description
+      "Type of metric for a candidate path constraint.";
+  }
+
+  typedef objective-function-type {
+    type enumeration {
+      enum mcp {
+        value 1;
+        description "Minimum Cost Path";
+      }
+      enum mlp {
+        value 2;
+        description "Minimum Load Path";
+      }
+      enum mbp {
+        value 3;
+        description "Maximum residual Bandwidth Path";
+      }
+      enum mbc {
+        value 4;
+        description "Minimize aggregate Bandwidth Consumption";
+      }
+      enum mll {
+        value 5;
+        description "Minimize the Load of the most loaded Link";
+      }
+      enum mcc {
+        value 6;
+        description "Minimize the Cumulative Cost of a set of paths";
+      }
+      enum spt {
+        value 7;
+        description "Shortest Path Tree";
+      }
+      enum mct {
+        value 8;
+        description "Minimum Cost Tree";
+      }
+      enum mplp {
+        value 9;
+        description "Minimum Packet Loss Path";
+      }
+      enum mup {
+        value 10;
+        description "Maximum Under-Utilized Path";
+      }
+      enum mrup {
+        value 11;
+        description "Maximum Reserved Under-Utilized Path";
+      }
+      enum mtd {
+        value 12;
+        description "Minimize the number of Transit Domains";
+      }
+      enum mbn {
+        value 13;
+        description "Minimize the number of Border Nodes";
+      }
+      enum mctd {
+        value 14;
+        description "Minimize the number of Common Transit Domains";
+      }
+      enum msl {
+        value 15;
+        description "Minimize the number of Shared Links";
+      }
+      enum mss {
+        value 16;
+        description "Minimize the number of Shared SRLGs";
+      }
+      enum msn {
+        value 17;
+        description "Minimize the number of Shared Nodes";
+      }
+    }
+    description
+      "Type of objective function for a candidate path constraint.";
+  }
 
   container pathd {
     description
@@ -85,100 +284,106 @@ module frr-pathd {
           leaf index {
             type uint32;
             description "Segment index";
-	  }
-        leaf sid-value {
-          type rt-types:mpls-label;
-          description "MPLS label value";
-        }
-        container nai {
-          presence "The segment has a Node or Adjacency Identifier";
-          description
-            "Node or Adjacency Identifier for the segment";
+          }
+          leaf sid-value {
+            type rt-types:mpls-label;
+            description "MPLS label value";
+          }
+          container nai {
+            presence "The segment has a Node or Adjacency Identifier";
+            description
+              "Node or Adjacency Identifier for the segment";
 
-          leaf type {
-            type enumeration {
-              enum ipv4_node {
-                value 1;
-                description "IPv4 node identifier";
+            leaf type {
+              type enumeration {
+                enum ipv4_node {
+                  value 1;
+                  description "IPv4 node identifier";
+                }
+                enum ipv6_node {
+                  value 2;
+                  description "IPv6 node identifier";
+                }
+                enum ipv4_adjacency {
+                  value 3;
+                  description "IPv4 adjacency";
+                }
+                enum ipv6_adjacency {
+                  value 4;
+                  description "IPv6 adjacency";
+                }
+                enum ipv4_unnumbered_adjacency {
+                  value 5;
+                  description "IPv4 unnumbered adjacency";
+                }
+                /* value 6 is reserved per RFC 8664 */
+                enum ipv4_local_iface {
+                  value 7;
+                  description "IPv4 prefix with local interface id";
+                }
+                enum ipv6_local_iface {
+                  value 8;
+                  description "IPv6 prefix with local interface id";
+                }
+                enum ipv4_algo {
+                  value 9;
+                  description "IPv4 prefix with optional algorithm";
+                }
+                enum ipv6_algo {
+                  value 10;
+                  description "IPv6 prefix with optional algorithm";
+                }
               }
-              enum ipv6_node {
-                value 2;
-                description "IPv6 node identifier";
-              }
-              enum ipv4_adjacency {
-                value 3;
-                description "IPv4 adjacency";
-              }
-              enum ipv6_adjacency {
-                value 4;
-                description "IPv6 adjacency";
-              }
-              enum ipv4_unnumbered_adjacency {
-                value 5;
-                description "IPv4 unnumbered adjacency";
-              }
-              enum ipv4_local_iface {
-                value 7;
-                description "IPv4 prefix with local interface id";
-              }
-              enum ipv6_local_iface {
-                value 8;
-                description "IPv6 prefix with local interface id";
-              }
-              enum ipv4_algo {
-                value 9;
-                description "IPv4 prefix with optional algorithm";
-              }
-              enum ipv6_algo {
-                value 10;
-                description "IPv6 prefix with optional algorithm";
-              }
+              mandatory true;
+              description "NAI type";
             }
-            mandatory true;
-            description "NAI type";
+            leaf local-address {
+              type inet:ip-address;
+              mandatory true;
+              description
+                "Local address of the NAI";
+            }
+            leaf local-prefix-len {
+              when "../type = 'ipv4_local_iface' or ../type = 'ipv6_local_iface' or ../type = 'ipv4_algo' or ../type = 'ipv6_algo'";
+              type uint8;
+              mandatory true;
+              description
+                "Prefix length of the local address";
+            }
+            leaf local-interface {
+              when "../type = 'ipv4_local_iface' or ../type = 'ipv6_local_iface' or ../type = 'ipv4_unnumbered_adjacency'";
+              type uint32;
+              mandatory true;
+              description
+                "Local interface ID for the NAI";
+            }
+            leaf remote-address {
+              when "../type = 'ipv4_adjacency' or ../type = 'ipv6_adjacency' or ../type = 'ipv4_unnumbered_adjacency'";
+              type inet:ip-address;
+              mandatory true;
+              description
+                "Remote address of the NAI";
+            }
+            leaf remote-interface {
+              when "../type = 'ipv4_unnumbered_adjacency'";
+              type uint32;
+              mandatory true;
+              description
+                "Remote interface ID for the NAI";
+            }
+            leaf algorithm {
+              when "../type = 'ipv4_algo' or ../type = 'ipv6_algo'";
+              type uint8;
+              mandatory true;
+              description
+                "Algorithm to use for the NAI";
+            }
           }
-          leaf local-address {
-            type inet:ip-address;
-            mandatory true;
+          must "sid-value or nai" {
+            error-message "A segment must have either a sid-value or a NAI";
             description
-              "Local address of the NAI";
+              "Each segment must specify at least a SID value or a NAI.";
           }
-          leaf local-prefix-len {
-            when "../type = 'ipv4_local_iface' or ../type = 'ipv6_local_iface' or ../type = 'ipv4_algo' or ../type = 'ipv6_algo'";
-            type uint8;
-            mandatory true;
-            description
-              "Prefix length of the local address";
-          }
-          leaf local-interface {
-            when "../type = 'ipv4_local_iface' or ../type = 'ipv6_local_iface' or ../type = 'ipv4_unnumbered_adjacency'";
-            type uint32;
-            mandatory true;
-            description
-              "Local interface ID for the NAI";
-          }
-          leaf remote-address {
-            when "../type = 'ipv4_adjacency' or ../type = 'ipv6_adjacency' or ../type = 'ipv4_unnumbered_adjacency'";
-            type inet:ip-address;
-            mandatory true;
-            description
-              "Remote address of the NAI";
-          }
-          leaf remote-interface {
-            when "../type = 'ipv4_unnumbered_adjacency'";
-            type uint32;
-            mandatory true;
-            description
-              "Remote interface ID for the NAI";
-          }
-          leaf algorithm {
-            when "../type = 'ipv4_algo' or ../type = 'ipv6_algo'";
-            type uint8;
-            mandatory true;
-            description
-              "Algorithm to use for the NAI";
-          }
-         }
         }
       }
       list policy {
@@ -273,6 +478,7 @@ module frr-pathd {
               "Type of the Candidate Path.";
           }
           leaf segment-list-name {
+            when "../type = 'explicit'";
             type leafref {
               path ../../../segment-list/name;
             }
@@ -295,7 +501,8 @@ module frr-pathd {
               }
               leaf value {
                 type decimal64 {
-                    fraction-digits 6;
+                  fraction-digits 6;
+                  range "0..max";
                 }
                 mandatory true;
                 description
@@ -327,92 +534,7 @@ module frr-pathd {
                 "This list contains the different metrics that can be used to describe a path.";
 
               leaf type {
-                type enumeration {
-                  enum igp {
-                    value 1;
-                    description "IGP metric";
-                  }
-                  enum te {
-                    value 2;
-                    description "TE metric";
-                  }
-                  enum hc {
-                    value 3;
-                    description "Hop Counts";
-                  }
-                  enum abc {
-                    value 4;
-                    description "Aggregate bandwidth consumption";
-                  }
-                  enum lmll {
-                    value 5;
-                    description "Load of the most loaded link";
-                  }
-                  enum cigp {
-                    value 6;
-                    description "Cumulative IGP cost";
-                  }
-                  enum cte {
-                    value 7;
-                    description "Cumulative TE cost";
-                  }
-                  enum pigp {
-                    value 8;
-                    description "P2MP IGP metric";
-                  }
-                  enum pte {
-                    value 9;
-                    description "P2MP TE metric";
-                  }
-                  enum phc {
-                    value 10;
-                    description "P2MP hop count metric";
-                  }
-                  enum msd {
-                    value 11;
-                    description "Segment-ID (SID) Depth";
-                  }
-                  enum pd {
-                    value 12;
-                    description "Path Delay metric";
-                  }
-                  enum pdv {
-                    value 13;
-                    description "Path Delay Variation metric";
-                  }
-                  enum pl {
-                    value 14;
-                    description "Path Loss metric";
-                  }
-                  enum ppd {
-                    value 15;
-                    description "P2MP Path Delay metric";
-                  }
-                  enum ppdv {
-                    value 16;
-                    description "P2MP Path Delay variation metric";
-                  }
-                  enum ppl {
-                    value 17;
-                    description "P2MP Path Loss metric";
-                  }
-                  enum nap {
-                    value 18;
-                    description "Number of adaptations on a path";
-                  }
-                  enum nlp {
-                    value 19;
-                    description "Number of layers on a path";
-                  }
-                  enum dc {
-                    value 20;
-                    description "Domain Count metric";
-                  }
-                  enum bnc {
-                    value 21;
-                    description "Border Node Count metric";
-                  }
-                }
+                type metric-type;
                 description
                   "Type of the metric.";
               }
@@ -434,7 +556,8 @@ module frr-pathd {
               }
               leaf value {
                 type decimal64 {
-                    fraction-digits 6;
+                  fraction-digits 6;
+                  range "0..max";
                 }
                 mandatory true;
                 description
@@ -452,76 +575,7 @@ module frr-pathd {
                   "If an objective function is a requirement, or if it is only a suggestion";
               }
               leaf type {
-                type enumeration {
-                  enum mcp {
-                    value 1;
-                    description "Minimum Cost Path";
-                  }
-                  enum mlp {
-                    value 2;
-                    description "Minimum Load Path";
-                  }
-                  enum mbp {
-                    value 3;
-                    description "Maximum residual Bandwidth Path";
-                  }
-                  enum mbc {
-                    value 4;
-                    description "Minimize aggregate Bandwidth Consumption";
-                  }
-                  enum mll {
-                    value 5;
-                    description "Minimize the Load of the most loaded Link";
-                  }
-                  enum mcc {
-                    value 6;
-                    description "Minimize the Cumulative Cost of a set of paths";
-                  }
-                  enum spt {
-                    value 7;
-                    description "Shortest Path Tree";
-                  }
-                  enum mct {
-                    value 8;
-                    description "Minimum Cost Tree";
-                  }
-                  enum mplp {
-                    value 9;
-                    description "Minimum Packet Loss Path";
-                  }
-                  enum mup {
-                    value 10;
-                    description "Maximum Under-Utilized Path";
-                  }
-                  enum mrup {
-                    value 11;
-                    description "Maximum Reserved Under-Utilized Path";
-                  }
-                  enum mtd {
-                    value 12;
-                    description "Minimize the number of Transit Domains";
-                  }
-                  enum mbn {
-                    value 13;
-                    description "Minimize the number of Border Nodes";
-                  }
-                  enum mctd {
-                    value 14;
-                    description "Minimize the number of Common Transit Domains";
-                  }
-                  enum msl {
-                    value 15;
-                    description "Minimize the number of Shared Links";
-                  }
-                  enum mss {
-                    value 16;
-                    description "Minimize the number of Shared SRLGs";
-                  }
-                  enum msn {
-                    value 17;
-                    description "Minimize the number of Shared Nodes";
-                  }
-                }
+                type objective-function-type;
                 mandatory true;
                 description
                   "Type of objective function.";
