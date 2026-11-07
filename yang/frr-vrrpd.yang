@@ -37,21 +37,23 @@ module frr-vrrpd {
      notice, this list of conditions and the following disclaimer in the
      documentation and/or other materials provided with the distribution.
 
-     THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
-     \"AS IS\" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
-     LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
-     A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
-     HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
-     SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
-     LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
-     DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
-     THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
-     (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
-     OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.";
+    THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+    \"AS IS\" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+    LIMITED TO THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
+    A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
+    HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+    SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
+    LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
+    DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
+    THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+    (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+    OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.";
 
   revision 2019-09-09 {
     description
       "Initial revision.";
+    reference
+      "RFC 5798 - Virtual Router Redundancy Protocol (VRRP) Version 3 for IPv4 and IPv6";
   }
 
   grouping ip-vrrp-config {
@@ -64,7 +66,7 @@ module frr-vrrpd {
       description
         "Set the virtual router id for use by the VRRP group. This
          usually also determines the virtual MAC address that is
-         generated for the VRRP group";
+         generated for the VRRP";
     }
 
     leaf version {
@@ -81,9 +83,10 @@ module frr-vrrpd {
         }
       }
       default "3";
+      description "VRRP version.";
     }
 
-    leaf priority {
+leaf priority {
       type uint8 {
         range "1..254";
       }
@@ -94,7 +97,7 @@ module frr-vrrpd {
          priority";
     }
 
-    leaf preempt {
+leaf preempt {
       type boolean;
       default "true";
       description
@@ -102,7 +105,7 @@ module frr-vrrpd {
          priority backup router of a lower priority master router";
     }
 
-    leaf accept-mode {
+leaf accept-mode {
       type boolean;
       default "true";
       description
@@ -143,26 +146,26 @@ module frr-vrrpd {
   grouping ip-vrrp-state {
     description
       "Grouping for operational state data for a virtual router";
-    leaf current-priority {
+leaf current-priority {
       type uint8;
-      config false;
       description
         "Operational value of the priority for the
          interface in the VRRP group.";
+      config false;
     }
 
-    leaf vrrp-interface {
+leaf vrrp-interface {
       type frr-interface:interface-ref;
-      config false;
       description
         "The interface used to transmit VRRP traffic.";
+      config false;
     }
 
-    leaf source-address {
+leaf source-address {
       type inet:ip-address;
-      config false;
       description
         "The source IP address used for VRRP advertisements.";
+      config false;
     }
 
     leaf state {
@@ -173,37 +176,39 @@ module frr-vrrpd {
         }
         enum "Master" {
           description
-            "State when virtual router is functioning as the forwarding router
+            "State when the router is functioning as the forwarding router
              for the virtual addresses.";
         }
         enum "Backup" {
           description
-            "State when virtual router is monitoring the availability and state
+            "State when the router is monitoring the availability and state
              of the Master router.";
         }
       }
       config false;
+      description "VRRP operational state.";
     }
 
-    leaf master-advertisement-interval {
+leaf master-advertisement-interval {
       type uint16 {
         range "0..4095";
       }
       units "centiseconds";
-      config false;
       description
         "Advertisement interval contained in advertisements received from the Master.";
+      config false;
     }
 
-    leaf skew-time {
+leaf skew-time {
       type uint16;
       units "centiseconds";
-      config false;
       description
         "Time to skew Master_Down_Interval.";
+      config false;
     }
 
     container counter {
+      description "Operational counters for VRRP.";
       config false;
       leaf state-transition {
         type yang:zero-based-counter32;
@@ -212,6 +217,7 @@ module frr-vrrpd {
       }
 
       container tx {
+        description "Transmitted counters.";
         leaf advertisement {
           type yang:zero-based-counter32;
           description
@@ -220,6 +226,7 @@ module frr-vrrpd {
       }
 
       container rx {
+        description "Received counters.";
         leaf advertisement {
           type yang:zero-based-counter32;
           description
@@ -240,12 +247,13 @@ module frr-vrrpd {
         "RFC 5798 - Virtual Router Redundancy Protocol
          (VRRP) Version 3 for IPv4 and IPv6";
       list vrrp-group {
-        key "virtual-router-id";
-        description
-          "List of VRRP groups, keyed by virtual router id";
+key "virtual-router-id";
+description
+  "List of VRRP groups, keyed by virtual router id";
         uses ip-vrrp-config;
 
         container v4 {
+          description "IPv4 specific configuration.";
           leaf-list virtual-address {
             type inet:ipv4-address;
             description
@@ -255,17 +263,19 @@ module frr-vrrpd {
 
           uses ip-vrrp-state {
             augment "counter/tx" {
+              description "Augments counter/tx with IPv4 specific leafs.";
               leaf gratuitous-arp {
                 type yang:zero-based-counter32;
                 description
                   "Number of sent gratuitous ARP requests.";
-              }
+ }
             }
           }
         }
 
         container v6 {
           when "../version = 3";
+          description "IPv6 specific configuration.";
           leaf-list virtual-address {
             type inet:ipv6-address;
             description
@@ -275,6 +285,7 @@ module frr-vrrpd {
 
           uses ip-vrrp-state {
             augment "counter/tx" {
+              description "Augments counter/tx with IPv6 specific leafs.";
               leaf neighbor-advertisement {
                 type yang:zero-based-counter32;
                 description
@@ -288,6 +299,7 @@ module frr-vrrpd {
   }
 
   augment "/frr-interface:lib/frr-interface:interface" {
+    description "Augments interface with VRRP configuration.";
     uses ip-vrrp-top;
   }
 }
