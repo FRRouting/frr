@@ -266,6 +266,12 @@ const struct frr_yang_module_info frr_ripd_info = {
 			},
 		},
 		{
+			.xpath = "/frr-interface:lib/interface/frr-ripd:rip/enable",
+			.cbs = {
+				.modify = lib_interface_rip_enable_modify,
+			},
+		},
+		{
 			.xpath = "/frr-interface:lib/interface/frr-ripd:rip/split-horizon",
 			.cbs = {
 				.modify = lib_interface_rip_split_horizon_modify,

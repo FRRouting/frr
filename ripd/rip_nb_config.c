@@ -69,6 +69,12 @@ int ripd_instance_create(struct nb_cb_create_args *args)
 
 		rip = rip_create(vrf_name, vrf, socket);
 		nb_running_set_entry(args->dnode, rip);
+
+		/*
+		 * RIP instance created, go through all interfaces
+		 * and set them to working state.
+		 */
+		rip_enable_apply_all(rip);
 		break;
 	}
 
@@ -974,6 +980,28 @@ int ripd_instance_default_bfd_profile_destroy(struct nb_cb_destroy_args *args)
 	rip = nb_running_get_entry(args->dnode, NULL, true);
 	XFREE(MTYPE_RIP_BFD_PROFILE, rip->default_bfd_profile);
 	rip_bfd_instance_update(rip);
+
+	return NB_OK;
+}
+
+/*
+ * XPath: /frr-interface:lib/interface/frr-ripd:rip/enable
+ */
+int lib_interface_rip_enable_modify(struct nb_cb_modify_args *args)
+{
+	struct rip_interface *rip_interface;
+	struct interface *interface;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	interface = nb_running_get_entry(args->dnode, NULL, true);
+	rip_interface = interface->info;
+	rip_interface->enabled = yang_dnode_get_bool(args->dnode, NULL);
+
+	/* Only attempt to configure if instance has started. */
+	if (rip_interface->rip)
+		rip_enable_apply(interface);
 
 	return NB_OK;
 }
