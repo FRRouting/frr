@@ -53,6 +53,11 @@ static struct test_segment {
 #define VALID_AFI 1
 #define INVALID_AFI 0
 	int afi_valid;
+
+	/* Paths-Limit validation */
+	int validate_paths_limit;
+	uint16_t paths_limit_ipv4;
+	uint16_t paths_limit_ipv6;
 } test_segments[] = {
 	/* 0 */
 	{
@@ -802,6 +807,99 @@ struct test_segment opt_params[] = {
 
 	{NULL, NULL, {0}, 0, 0}};
 
+/* Paths-Limit with and without Add-Path, as entire Optional-Parameters block */
+struct test_segment paths_limit_opt_params[] = {
+	{
+		.name = "PathsLimit-noAddPath",
+		.desc = "Paths-Limit capability without Add-Path capability",
+		.data = {
+			0x02, 0x07, CAPABILITY_CODE_PATHS_LIMIT, 0x05,
+			0x00, 0x01, 0x01, 0x00, 0x05, /* IPv4/Uni, 5 */
+		},
+		.len = 9,
+		.parses = SHOULD_PARSE,
+		.validate_paths_limit = 1,
+		.paths_limit_ipv4 = 0,
+		.paths_limit_ipv6 = 0,
+	},
+	{
+		.name = "PathsLimit-first",
+		.desc = "Paths-Limit capability before Add-Path capability",
+		.data = {
+			0x02, 0x07, CAPABILITY_CODE_PATHS_LIMIT, 0x05,
+			0x00, 0x01, 0x01, 0x00, 0x05, /* IPv4/Uni, 5 */
+			0x02, 0x06, CAPABILITY_CODE_ADDPATH, 0x04,
+			0x00, 0x01, 0x01, 0x03, /* IPv4/Uni, send/receive */
+		},
+		.len = 17,
+		.parses = SHOULD_PARSE,
+		.validate_paths_limit = 1,
+		.paths_limit_ipv4 = 5,
+		.paths_limit_ipv6 = 0,
+	},
+	{
+		.name = "PathsLimit-after",
+		.desc = "Paths-Limit capability after Add-Path capability",
+		.data = {
+			0x02, 0x0a, CAPABILITY_CODE_ADDPATH, 0x08,
+			0x00, 0x01, 0x01, 0x03, /* IPv4/Uni, send/receive */
+			0x00, 0x02, 0x01, 0x03, /* IPv6/Uni, send/receive */
+			0x02, 0x0c, CAPABILITY_CODE_PATHS_LIMIT, 0x0a,
+			0x00, 0x01, 0x01, 0x00, 0x05, /* IPv4/Uni, 5 */
+			0x00, 0x02, 0x01, 0x00, 0x07, /* IPv6/Uni, 7 */
+		},
+		.len = 26,
+		.parses = SHOULD_PARSE,
+		.validate_paths_limit = 1,
+		.paths_limit_ipv4 = 5,
+		.paths_limit_ipv6 = 7,
+	},
+	{
+		.name = "PathsLimit-AFI",
+		.desc = "Paths-Limit capability with AFI/SAFI not in Add-Path capability",
+		.data = {
+			0x02, 0x06, CAPABILITY_CODE_ADDPATH, 0x04,
+			0x00, 0x01, 0x01, 0x03, /* IPv4/Uni, send/receive */
+			0x02, 0x0c, CAPABILITY_CODE_PATHS_LIMIT, 0x0a,
+			0x00, 0x01, 0x01, 0x00, 0x05, /* IPv4/Uni, 5 */
+			0x00, 0x02, 0x01, 0x00, 0x07, /* IPv6/Uni, 7 */
+		},
+		.len = 22,
+		.parses = SHOULD_PARSE,
+		.validate_paths_limit = 1,
+		.paths_limit_ipv4 = 5,
+		.paths_limit_ipv6 = 0,
+	},
+	{NULL, NULL, {0}, 0, 0}};
+
+/* Forget Add-Path and Paths-Limit capabilities received by previous tests */
+static void paths_limit_reset(struct peer *peer)
+{
+	afi_t afi;
+	safi_t safi;
+
+	UNSET_FLAG(peer->cap, PEER_CAP_ADDPATH_RCV | PEER_CAP_PATHS_LIMIT_RCV);
+
+	FOREACH_AFI_SAFI (afi, safi) {
+		UNSET_FLAG(peer->af_cap[afi][safi], PEER_CAP_ADDPATH_AF_RX_RCV |
+							    PEER_CAP_ADDPATH_AF_TX_RCV |
+							    PEER_CAP_PATHS_LIMIT_AF_RCV);
+		peer->addpath_paths_limit[afi][safi].receive = 0;
+	}
+}
+
+static void paths_limit_validate(struct peer *peer, afi_t afi, safi_t safi, uint16_t expected)
+{
+	uint16_t limit = peer->addpath_paths_limit[afi][safi].receive;
+	bool rcv = !!CHECK_FLAG(peer->af_cap[afi][safi], PEER_CAP_PATHS_LIMIT_AF_RCV);
+
+	printf("Paths-Limit: %s/%s: limit %u (expected %u), received %s\n", afi2str(afi),
+	       safi2str(safi), limit, expected, rcv ? "yes" : "no");
+
+	if (limit != expected || rcv != !!expected)
+		failed++;
+}
+
 /* basic parsing test */
 static void parse_test(struct peer *peer, struct test_segment *t, int type)
 {
@@ -874,6 +972,11 @@ static void parse_test(struct peer *peer, struct test_segment *t, int type)
 					failed++;
 			}
 		}
+	}
+
+	if (t->validate_paths_limit) {
+		paths_limit_validate(peer, AFI_IP, SAFI_UNICAST, t->paths_limit_ipv4);
+		paths_limit_validate(peer, AFI_IP6, SAFI_UNICAST, t->paths_limit_ipv6);
 	}
 
 	if (as4 != t->peek_for) {
@@ -970,6 +1073,12 @@ int main(void)
 	i = 0;
 	while (opt_params[i].name)
 		parse_test(peer, &opt_params[i++], OPT_PARAM);
+
+	i = 0;
+	while (paths_limit_opt_params[i].name) {
+		paths_limit_reset(peer);
+		parse_test(peer, &paths_limit_opt_params[i++], OPT_PARAM);
+	}
 
 	SET_FLAG(peer->cap, PEER_CAP_DYNAMIC_ADV);
 	peer->connection->status = Established;
