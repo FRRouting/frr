@@ -285,6 +285,8 @@ static struct rip_peer *rip2PeerLookup(struct variable *v, oid name[],
 		oid2in_addr(name + v->namelen, sizeof(struct in_addr), addr);
 
 		peer = rip_peer_lookup(rip, addr);
+		if (!peer)
+			return NULL;
 
 		if (peer->domain
 		    == (int)name[v->namelen + sizeof(struct in_addr)])
