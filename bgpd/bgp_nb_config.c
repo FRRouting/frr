@@ -3248,8 +3248,15 @@ int bgp_nb_shutdown_modify(struct nb_cb_modify_args *args)
 	bgp = nb_running_get_entry(args->dnode, NULL, true);
 	global = yang_dnode_get_parent(args->dnode, "global");
 	if (yang_dnode_get_bool(args->dnode, NULL)) {
+		/*
+		 * If shutdown-message is in the same candidate, let its
+		 * modify callback call bgp_shutdown_enable() with the text.
+		 * Enabling here first with NULL makes the later call a no-op
+		 * (BGP_FLAG_SHUTDOWN already set) and peers get an empty
+		 * RFC 8203 message.
+		 */
 		if (yang_dnode_exists(global, "shutdown-message"))
-			msg = yang_dnode_get_string(global, "shutdown-message");
+			return NB_OK;
 		bgp_shutdown_enable(bgp, msg, bgp_nb_shutdown_send_notify(global));
 	} else
 		bgp_shutdown_disable(bgp);
