@@ -1271,6 +1271,8 @@ DEFUN(no_srv6_sid_format_f3216_usid,
 	format = srv6_sid_format_lookup(SRV6_SID_FORMAT_USID_F3216_NAME);
 	assert(format);
 
+	zebra_srv6_sid_format_change_start(format);
+
 	format->config.usid.lib_start = SRV6_SID_FORMAT_USID_F3216_LIB_START;
 	format->config.usid.elib_start = SRV6_SID_FORMAT_USID_F3216_ELIB_START;
 	format->config.usid.elib_end = SRV6_SID_FORMAT_USID_F3216_ELIB_END;
@@ -1279,7 +1281,7 @@ DEFUN(no_srv6_sid_format_f3216_usid,
 	format->config.usid.ewlib_start = SRV6_SID_FORMAT_USID_F3216_EWLIB_START;
 
 	/* Notify zclients that the format has changed */
-	zebra_srv6_sid_format_changed_cb(format);
+	zebra_srv6_sid_format_change_finish(format);
 
 	return CMD_SUCCESS;
 }
@@ -1311,6 +1313,8 @@ DEFUN(no_srv6_sid_format_f4816_usid,
 	format = srv6_sid_format_lookup(SRV6_SID_FORMAT_USID_F4816_NAME);
 	assert(format);
 
+	zebra_srv6_sid_format_change_start(format);
+
 	format->config.usid.lib_start = SRV6_SID_FORMAT_USID_F4816_LIB_START;
 	format->config.usid.elib_start = SRV6_SID_FORMAT_USID_F4816_ELIB_START;
 	format->config.usid.elib_end = SRV6_SID_FORMAT_USID_F4816_ELIB_END;
@@ -1319,7 +1323,7 @@ DEFUN(no_srv6_sid_format_f4816_usid,
 	format->config.usid.ewlib_start = SRV6_SID_FORMAT_USID_F4816_EWLIB_START;
 
 	/* Notify zclients that the format has changed */
-	zebra_srv6_sid_format_changed_cb(format);
+	zebra_srv6_sid_format_change_finish(format);
 
 	return CMD_SUCCESS;
 }
@@ -1351,11 +1355,13 @@ DEFUN(no_srv6_sid_format_f4024_uncompressed,
 	format = srv6_sid_format_lookup(SRV6_SID_FORMAT_UNCOMPRESSED_F4024_NAME);
 	assert(format);
 
+	zebra_srv6_sid_format_change_start(format);
+
 	format->config.uncompressed.explicit_start =
 		SRV6_SID_FORMAT_UNCOMPRESSED_F4024_EXPLICIT_RANGE_START;
 
 	/* Notify zclients that the format has changed */
-	zebra_srv6_sid_format_changed_cb(format);
+	zebra_srv6_sid_format_change_finish(format);
 
 	return CMD_SUCCESS;
 }
@@ -1369,10 +1375,11 @@ DEFPY(srv6_sid_format_usid_lib,
 {
 	VTY_DECLVAR_CONTEXT(srv6_sid_format, format);
 
+	zebra_srv6_sid_format_change_start(format);
 	format->config.usid.lib_start = start;
 
 	/* Notify zclients that the format has changed */
-	zebra_srv6_sid_format_changed_cb(format);
+	zebra_srv6_sid_format_change_finish(format);
 
 	return CMD_SUCCESS;
 }
@@ -1387,6 +1394,7 @@ DEFPY(no_srv6_sid_format_usid_lib,
 {
 	VTY_DECLVAR_CONTEXT(srv6_sid_format, format);
 
+	zebra_srv6_sid_format_change_start(format);
 	if (strmatch(format->name, SRV6_SID_FORMAT_USID_F3216_NAME))
 		format->config.usid.lib_start =
 			SRV6_SID_FORMAT_USID_F3216_LIB_START;
@@ -1396,7 +1404,7 @@ DEFPY(no_srv6_sid_format_usid_lib,
 		assert(0);
 
 	/* Notify zclients that the format has changed */
-	zebra_srv6_sid_format_changed_cb(format);
+	zebra_srv6_sid_format_change_finish(format);
 
 	return CMD_SUCCESS;
 }
@@ -1421,11 +1429,12 @@ DEFPY(srv6_sid_format_usid_lib_explicit,
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 
+	zebra_srv6_sid_format_change_start(format);
 	format->config.usid.elib_start = start;
 	format->config.usid.elib_end = end;
 
 	/* Notify zclients that the format has changed */
-	zebra_srv6_sid_format_changed_cb(format);
+	zebra_srv6_sid_format_change_finish(format);
 
 	return CMD_SUCCESS;
 }
@@ -1443,6 +1452,7 @@ DEFPY(no_srv6_sid_format_usid_lib_explicit,
 {
 	VTY_DECLVAR_CONTEXT(srv6_sid_format, format);
 
+	zebra_srv6_sid_format_change_start(format);
 	if (strmatch(format->name, SRV6_SID_FORMAT_USID_F3216_NAME)) {
 		format->config.usid.elib_start =
 			SRV6_SID_FORMAT_USID_F3216_ELIB_START;
@@ -1456,7 +1466,7 @@ DEFPY(no_srv6_sid_format_usid_lib_explicit,
 	}
 
 	/* Notify zclients that the format has changed */
-	zebra_srv6_sid_format_changed_cb(format);
+	zebra_srv6_sid_format_change_finish(format);
 
 	return CMD_SUCCESS;
 }
@@ -1488,11 +1498,12 @@ DEFPY(srv6_sid_format_usid_wlib,
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 
+	zebra_srv6_sid_format_change_start(format);
 	format->config.usid.wlib_start = start;
 	format->config.usid.wlib_end = end;
 
 	/* Notify zclients that the format has changed */
-	zebra_srv6_sid_format_changed_cb(format);
+	zebra_srv6_sid_format_change_finish(format);
 
 	return CMD_SUCCESS;
 }
@@ -1527,11 +1538,12 @@ DEFPY(no_srv6_sid_format_usid_wlib,
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 
+	zebra_srv6_sid_format_change_start(format);
 	format->config.usid.wlib_start = wlib_start;
 	format->config.usid.wlib_end = wlib_end;
 
 	/* Notify zclients that the format has changed */
-	zebra_srv6_sid_format_changed_cb(format);
+	zebra_srv6_sid_format_change_finish(format);
 
 	return CMD_SUCCESS;
 }
@@ -1554,10 +1566,11 @@ DEFPY(srv6_sid_format_usid_wide_lib_explicit,
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 
+	zebra_srv6_sid_format_change_start(format);
 	format->config.usid.ewlib_start = start;
 
 	/* Notify zclients that the format has changed */
-	zebra_srv6_sid_format_changed_cb(format);
+	zebra_srv6_sid_format_change_finish(format);
 
 	return CMD_SUCCESS;
 }
@@ -1588,10 +1601,11 @@ DEFPY(no_srv6_sid_format_usid_wide_lib_explicit,
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 
+	zebra_srv6_sid_format_change_start(format);
 	format->config.usid.ewlib_start = ewlib_start;
 
 	/* Notify zclients that the format has changed */
-	zebra_srv6_sid_format_changed_cb(format);
+	zebra_srv6_sid_format_change_finish(format);
 
 	return CMD_SUCCESS;
 }
@@ -1605,10 +1619,11 @@ DEFPY(srv6_sid_format_explicit,
 {
 	VTY_DECLVAR_CONTEXT(srv6_sid_format, format);
 
+	zebra_srv6_sid_format_change_start(format);
 	format->config.uncompressed.explicit_start = start;
 
 	/* Notify zclients that the format has changed */
-	zebra_srv6_sid_format_changed_cb(format);
+	zebra_srv6_sid_format_change_finish(format);
 
 	return CMD_SUCCESS;
 }
@@ -1623,6 +1638,7 @@ DEFPY(no_srv6_sid_format_explicit,
 {
 	VTY_DECLVAR_CONTEXT(srv6_sid_format, format);
 
+	zebra_srv6_sid_format_change_start(format);
 	if (strmatch(format->name, SRV6_SID_FORMAT_UNCOMPRESSED_F4024_NAME))
 		format->config.uncompressed.explicit_start =
 			SRV6_SID_FORMAT_UNCOMPRESSED_F4024_EXPLICIT_RANGE_START;
@@ -1630,7 +1646,7 @@ DEFPY(no_srv6_sid_format_explicit,
 		assert(0);
 
 	/* Notify zclients that the format has changed */
-	zebra_srv6_sid_format_changed_cb(format);
+	zebra_srv6_sid_format_change_finish(format);
 
 	return CMD_SUCCESS;
 }
