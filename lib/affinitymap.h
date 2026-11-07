@@ -22,6 +22,8 @@
 extern "C" {
 #endif
 
+struct lyd_node;
+
 #define AFFINITY_NAME_SIZE 32
 
 struct affinity_map {
@@ -37,6 +39,8 @@ struct affinity_maps {
 
 	void (*update_hook)(const char *affmap_name, uint16_t old_pos,
 			    uint16_t new_pos);
+	/* Validate the candidate configuration after a bit-position change */
+	int (*validate_hook)(const struct lyd_node *dnode, char *errmsg, size_t errmsg_len);
 
 	QOBJ_FIELDS;
 };
@@ -54,6 +58,10 @@ void affinity_map_update_hook(const char *affmap_name, uint16_t new_pos);
 void affinity_map_set_update_hook(void (*func)(const char *affmap_name,
 					       uint16_t old_pos,
 					       uint16_t new_pos));
+
+int affinity_map_validate_hook(const struct lyd_node *dnode, char *errmsg, size_t errmsg_len);
+void affinity_map_set_validate_hook(int (*func)(const struct lyd_node *dnode, char *errmsg,
+						size_t errmsg_len));
 
 void affinity_map_init(void);
 void affinity_map_terminate(void);

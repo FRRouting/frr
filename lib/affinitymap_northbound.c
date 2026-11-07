@@ -58,6 +58,7 @@ static int lib_affinity_map_value_modify(struct nb_cb_modify_args *args)
 
 	switch (args->event) {
 	case NB_EV_VALIDATE:
+		return affinity_map_validate_hook(args->dnode, args->errmsg, args->errmsg_len);
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
 		break;
