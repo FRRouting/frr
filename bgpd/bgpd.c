@@ -9277,7 +9277,7 @@ int is_ebgp_multihop_configured(struct peer *peer)
  * (the sort-independent source of truth) so it still fires while a local-as
  * override has temporarily made the peer iBGP.
  */
-static int peer_ebgp_multihop_cfg(struct peer *peer)
+int peer_ebgp_multihop_cfg(struct peer *peer)
 {
 	struct peer_group *group;
 	struct listnode *node, *nnode;
