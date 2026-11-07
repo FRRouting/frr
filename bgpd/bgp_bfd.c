@@ -150,7 +150,7 @@ static void bfd_session_status_update(struct bfd_session_params *bsp,
 		 * Otherwise, we end up resetting BGP session when BFD session is UP,
 		 * when the source address is changed, e.g. 0.0.0.0 -> 10.0.0.1.
 		 */
-		if (bss->last_event > peer->uptime) {
+		if (peer_established(peer->connection) && bss->last_event > peer->uptime) {
 			if ((CHECK_FLAG(peer->flags, PEER_FLAG_TIMER) && !peer->holdtime) ||
 			    !peer->bgp->default_holdtime) {
 				event_add_timer(bm->master, bgp_bfd_strict_holdtime_expire, peer,
