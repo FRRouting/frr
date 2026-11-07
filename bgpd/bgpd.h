@@ -2922,6 +2922,8 @@ extern void peer_port_unset(struct peer *peer);
 
 extern int peer_weight_set(struct peer *peer, afi_t afi, safi_t safi, uint16_t weight);
 extern int peer_weight_unset(struct peer *peer, afi_t afi, safi_t safi);
+extern int peer_soo_set(struct peer *peer, afi_t afi, safi_t safi, struct ecommunity *soo);
+extern int peer_soo_unset(struct peer *peer, afi_t afi, safi_t safi);
 
 extern int peer_timers_set(struct peer *peer, uint32_t keepalive, uint32_t holdtime);
 extern int peer_timers_unset(struct peer *peer);

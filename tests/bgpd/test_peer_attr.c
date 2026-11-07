@@ -21,6 +21,7 @@
 #include "bgpd/bgp_network.h"
 #include "bgpd/bgp_label.h"
 #include "bgpd/bgp_evpn_mh.h"
+#include "bgpd/bgp_ecommunity.h"
 
 #ifdef ENABLE_BGP_VNC
 #include "bgpd/rfapi/rfapi_backend.h"
@@ -242,6 +243,31 @@ TEST_STR_ATTR_HANDLER_DECL(
 TEST_STR_ATTR_HANDLER_DECL(unsuppress_map, filter[pa->afi][pa->safi].usmap.name,
 			   "UM-PEER", "UM-GROUP");
 TEST_ATTR_HANDLER_DECL(weight, weight[pa->afi][pa->safi], 100, 200);
+
+#define TEST_SOO_ASSERT_EQ(test, soo, val)                                                        \
+	do {                                                                                      \
+		TEST_ASSERT(test, (soo) != NULL);                                                 \
+		if (soo)                                                                          \
+			TEST_ASSERT(test, !strcmp(ecommunity_str(soo), (val)));                   \
+	} while (0)
+
+TEST_HANDLER_DECL(soo)
+{
+	struct ecommunity *peer_soo = peer->soo[pa->afi][pa->safi];
+	struct ecommunity *group_soo = group->soo[pa->afi][pa->safi];
+
+	if (peer_set)
+		TEST_SOO_ASSERT_EQ(test, peer_soo, "SoO:100:1");
+	else if (peer_group_active(peer) && group_set)
+		TEST_SOO_ASSERT_EQ(test, peer_soo, "SoO:100:2");
+	else
+		TEST_ASSERT(test, peer_soo == NULL);
+
+	if (group_set)
+		TEST_SOO_ASSERT_EQ(test, group_soo, "SoO:100:2");
+	else
+		TEST_ASSERT(test, group_soo == NULL);
+}
 
 /* clang-format off */
 static struct test_peer_attr test_peer_attrs[] = {
@@ -641,6 +667,13 @@ static struct test_peer_attr test_peer_attrs[] = {
 		.group_cmd = "weight 200",
 		.u.flag = PEER_FLAG_WEIGHT,
 		.handlers[0] = TEST_HANDLER(weight),
+	},
+	{
+		.cmd = "soo",
+		.peer_cmd = "soo 100:1",
+		.group_cmd = "soo 100:2",
+		.u.flag = PEER_FLAG_SOO,
+		.handlers[0] = TEST_HANDLER(soo),
 	},
 	{
 		.cmd = "accept-own",
