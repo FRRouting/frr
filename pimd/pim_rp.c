@@ -616,7 +616,7 @@ int pim_rp_new(struct pim_instance *pim, pim_addr rp_addr, struct prefix group,
 			pim_nht_find_or_track(pim, nht_p, NULL, rp_all, NULL);
 
 			if (!pim_nht_lookup_ecmp(pim, &rp_all->rp.source_nexthop, nht_p,
-						 &rp_all->group, true, NULL))
+						 &rp_all->group, true, NULL, nht_p))
 				return PIM_RP_NO_PATH;
 			return PIM_SUCCESS;
 		}
@@ -718,7 +718,7 @@ int pim_rp_new(struct pim_instance *pim, pim_addr rp_addr, struct prefix group,
 			   __func__, &nht_p, PIM_DEBUG_VRF(pim->vrf), &rp_info->group);
 	pim_nht_find_or_track(pim, nht_p, NULL, rp_info, NULL);
 	if (!pim_nht_lookup_ecmp(pim, &rp_info->rp.source_nexthop, nht_p, &rp_info->group, true,
-				 NULL))
+				 NULL, nht_p))
 		return PIM_RP_NO_PATH;
 
 	return PIM_SUCCESS;
@@ -993,7 +993,7 @@ int pim_rp_change(struct pim_instance *pim, pim_addr new_rp_addr,
 
 	pim_nht_find_or_track(pim, nht_p, NULL, rp_info, NULL);
 	if (!pim_nht_lookup_ecmp(pim, &rp_info->rp.source_nexthop, nht_p, &rp_info->group, true,
-				 NULL))
+				 NULL, nht_p))
 		result = PIM_RP_NO_PATH;
 
 	route_unlock_node(rn);
@@ -1018,7 +1018,7 @@ void pim_rp_setup(struct pim_instance *pim)
 
 		pim_nht_find_or_track(pim, nht_p, NULL, rp_info, NULL);
 		if (!pim_nht_lookup_ecmp(pim, &rp_info->rp.source_nexthop, nht_p, &rp_info->group,
-					 true, NULL)) {
+					 true, NULL, nht_p)) {
 			if (PIM_DEBUG_PIM_NHT_RP)
 				zlog_debug("%s: unable to lookup nexthop for rp %pPA", __func__,
 					   &rp_info->rp.rpf_addr);
@@ -1168,7 +1168,7 @@ struct pim_rpf *pim_rp_g(struct pim_instance *pim, pim_addr group)
 		pim_nht_find_or_track(pim, nht_p, NULL, rp_info, NULL);
 		pim_rpf_set_refresh_time(pim);
 		if (!pim_nht_lookup_ecmp(pim, &rp_info->rp.source_nexthop, nht_p, &rp_info->group,
-					 true, NULL))
+					 true, NULL, nht_p))
 			if (PIM_DEBUG_PIM_NHT_RP)
 				zlog_debug("%s: unable to lookup nexthop for rp %pPA", __func__,
 					   &rp_info->rp.rpf_addr);
@@ -1557,7 +1557,7 @@ void pim_embedded_rp_new(struct pim_instance *pim, const pim_addr *group, const 
 
 	pim_nht_find_or_track(pim, rp_info->rp.rpf_addr, NULL, rp_info, NULL);
 	if (!pim_nht_lookup_ecmp(pim, &rp_info->rp.source_nexthop, rp_info->rp.rpf_addr,
-				 &rp_info->group, 1, NULL)) {
+				 &rp_info->group, 1, NULL, rp_info->rp.rpf_addr)) {
 		if (PIM_DEBUG_PIM_NHT_RP)
 			zlog_debug("%s: Embedded RP %pPA learned but no next hop", __func__,
 				   &rp_info->rp.rpf_addr);

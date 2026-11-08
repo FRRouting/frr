@@ -209,7 +209,7 @@ static void pim_mroute_nocache_forward_existing(struct interface *ifp, pim_sgadd
 	 * Prefer the kernel ingress interface when it is a valid nexthop (e.g.
 	 * tunnel vs underlying WAN with duplicate addressing).
 	 */
-	if (!pim_nht_lookup_ecmp(pim, &rpf_nh, sg->src, &grp, false, ifp)) {
+	if (!pim_nht_lookup_ecmp(pim, &rpf_nh, sg->src, &grp, false, ifp, sg->src)) {
 		if (PIM_DEBUG_MROUTE_DETAIL)
 			zlog_debug("%s: (%s:%u:%u)%pSG NOCACHE on %s, no RPF route to source",
 				   __func__, PIM_DEBUG_VRF(ifp->vrf), sg, ifp->name);
@@ -871,7 +871,7 @@ static int pim_mroute_wrongvif_prefer_ingress(struct interface *ifp, pim_sgaddr 
 	 * Live RPF lookup with ingress preference (neighbor_needed=false so
 	 * passive receive interfaces are accepted when routing selects them).
 	 */
-	if (!pim_nht_lookup_ecmp(pim, &rpf_nh, sg->src, &grp, false, ifp)) {
+	if (!pim_nht_lookup_ecmp(pim, &rpf_nh, sg->src, &grp, false, ifp, sg->src)) {
 		if (PIM_DEBUG_MROUTE_DETAIL)
 			zlog_debug("%s: (%s:%u:%u)%pSG WRONGVIF on %s, no RPF route to source",
 				   __func__, PIM_DEBUG_VRF(ifp->vrf), sg, ifp->name);

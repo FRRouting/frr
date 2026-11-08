@@ -36,6 +36,7 @@ struct interface;
  * its proxy route-map. Used when the route-map is attached, detached, or
  * its contents change, which is not a membership event.
  */
+extern bool tib_sg_ifp_has_downstream_interest(struct interface *ifp, pim_sgaddr sg);
 extern void tib_sg_proxy_filter_reeval(struct pim_instance *pim, struct interface *proxy_ifp);
 
 /* Re-evaluate every proxy interface whose proxy route-map is named rmap_name. */

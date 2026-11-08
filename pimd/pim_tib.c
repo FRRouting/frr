@@ -42,7 +42,7 @@ tib_sg_oil_setup(struct pim_instance *pim, pim_sgaddr sg, struct interface *oif)
 	up = pim_upstream_find(pim, &sg);
 	if (up) {
 		memcpy(&nexthop, &up->rpf.source_nexthop, sizeof(struct pim_nexthop));
-		if (!pim_nht_lookup_ecmp(pim, &nexthop, vif_source, &grp, false, NULL))
+		if (!pim_nht_lookup_ecmp(pim, &nexthop, vif_source, &grp, false, NULL, sg.src))
 			if (PIM_DEBUG_PIM_NHT_RP)
 				zlog_debug("%s: Nexthop Lookup failed vif_src:%pPA, sg.src:%pPA, sg.grp:%pPA",
 					   __func__, &vif_source, &sg.src, &sg.grp);
@@ -51,7 +51,8 @@ tib_sg_oil_setup(struct pim_instance *pim, pim_sgaddr sg, struct interface *oif)
 			input_iface_vif_index = pim_if_find_vifindex_by_ifindex(
 				pim, nexthop.interface->ifindex);
 	} else
-		input_iface_vif_index = pim_nht_lookup_ecmp_if_vif_index(pim, vif_source, &grp);
+		input_iface_vif_index = pim_nht_lookup_ecmp_if_vif_index(pim, vif_source, &grp,
+									 sg.src);
 
 	if (PIM_DEBUG_ZEBRA)
 		zlog_debug("%s: NHT (%s:%u:%u)%pSG vif_source %pPAs vif_index:%d", __func__,
@@ -237,7 +238,7 @@ static void tib_sg_interest_covers_cb(struct interface *ifp, pim_sgaddr interest
 		ca->found = true;
 }
 
-static bool tib_sg_ifp_has_downstream_interest(struct interface *ifp, pim_sgaddr sg)
+bool tib_sg_ifp_has_downstream_interest(struct interface *ifp, pim_sgaddr sg)
 {
 	struct interest_covers_arg ca = { .sg = sg };
 
@@ -274,6 +275,32 @@ static bool tib_sg_downstream_receivers_remain(struct pim_instance *pim, pim_sga
 	}
 
 	return false;
+}
+
+/*
+ * A leave can drop the last receiver the proxy route-map accepts. The
+ * proxy join is withdrawn, but the neighbor waiver depends on that same
+ * set of receivers, and RPF is not otherwise re-run for a membership
+ * change. If this (S,G) is still resolved through the proxy, move it.
+ */
+static void tib_sg_proxy_rpf_refresh_on_leave(struct pim_instance *pim,
+					      struct interface *proxy_ifp, pim_sgaddr sg)
+{
+	struct pim_interface *pim_ifp = proxy_ifp->info;
+	struct pim_upstream *up;
+
+	if (!pim_ifp || !pim_ifp->gm_proxy_filter.rmapname)
+		return;
+
+	/* The waiver still applies, so this proxy interface can stay the RPF. */
+	if (pim_if_gm_proxy_permits(proxy_ifp, sg.src, sg.grp))
+		return;
+
+	up = pim_upstream_find(pim, &sg);
+	if (!up || up->rpf.source_nexthop.interface != proxy_ifp)
+		return;
+
+	pim_nht_upstream_if_update(pim, proxy_ifp);
 }
 
 /*
@@ -321,6 +348,7 @@ static void tib_sg_proxy_prune_uncovered_sources(struct pim_instance *pim, pim_a
 				   leave_oif->name);
 
 		pim_if_gm_join_del(proxy_ifp, group, ij->source_addr, GM_JOIN_PROXY);
+		tib_sg_proxy_rpf_refresh_on_leave(pim, proxy_ifp, check);
 	}
 }
 
@@ -440,6 +468,9 @@ void tib_sg_proxy_filter_reeval(struct pim_instance *pim, struct interface *prox
 			continue;
 		tib_ifp_interest_foreach(ifp, tib_sg_proxy_reeval_add, &arg);
 	}
+
+	/* RPF over a proxy interface depends on its route-map too. */
+	pim_nht_upstream_if_update(pim, proxy_ifp);
 }
 
 static struct event *gm_proxy_filter_event;
@@ -554,6 +585,9 @@ void tib_sg_proxy_join_prune_check(struct pim_instance *pim, pim_sgaddr sg,
 				if (pim_addr_is_any(sg.src))
 					tib_sg_proxy_prune_uncovered_sources(pim, sg.grp, oif, ifp);
 			}
+
+			if (!join)
+				tib_sg_proxy_rpf_refresh_on_leave(pim, ifp, sg);
 		}
 	} /* scan interfaces */
 }

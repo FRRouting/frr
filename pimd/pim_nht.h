@@ -133,9 +133,13 @@ void pim_nht_reregister_all(struct pim_instance *pim);
  * Providing the group only effects the ECMP decision, if enabled.
  * When ingress_ifp is non-NULL and listed among valid nexthops, it is
  * preferred over the default first-fit / ECMP selection.
+ * gm_src is the membership source a proxy route-map is checked against.
+ * For a (*,G) upstream it is 0.0.0.0; src is still the RP the route is
+ * looked up with. Other lookups pass src again.
  */
 bool pim_nht_lookup_ecmp(struct pim_instance *pim, struct pim_nexthop *nexthop, pim_addr src,
-			 struct prefix *grp, bool neighbor_needed, struct interface *ingress_ifp);
+			 struct prefix *grp, bool neighbor_needed, struct interface *ingress_ifp,
+			 pim_addr gm_src);
 
 /* Very similar to pim_nht_lookup_ecmp, but does not check the nht cache and only does
  * a synchronous lookup. No ECMP decision is made.
@@ -148,7 +152,8 @@ bool pim_bgp_nht_lookup(struct pim_instance *pim, struct pim_nexthop *nexthop, p
 			pim_addr group, uint32_t *asn);
 
 /* Performs a pim_nht_lookup_ecmp and returns the mroute VIF index of the nexthop interface */
-int pim_nht_lookup_ecmp_if_vif_index(struct pim_instance *pim, pim_addr src, struct prefix *grp);
+int pim_nht_lookup_ecmp_if_vif_index(struct pim_instance *pim, pim_addr src, struct prefix *grp,
+				     pim_addr gm_src);
 
 /* Tracked nexthop update from zebra */
 void pim_nexthop_update(struct vrf *vrf, struct prefix *match, struct zapi_route *nhr);
