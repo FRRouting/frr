@@ -2066,6 +2066,8 @@ struct peer {
 #define PEER_STATUS_REFRESH_PENDING (1U << 12) /* refresh request from peer */
 #define PEER_STATUS_RTT_SHUTDOWN (1U << 13) /* In shutdown state due to RTT */
 #define PEER_STATUS_GR_WAIT_EOR	    (1U << 14) /* wait for EOR */
+/* Paths-Limit tuple received in the current CAPABILITY message */
+#define PEER_STATUS_PATHS_LIMIT_MSG_RCV (1U << 15)
 	/* Configured timer values. */
 	_Atomic uint32_t holdtime;
 	_Atomic uint32_t keepalive;

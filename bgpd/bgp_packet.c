@@ -3388,6 +3388,38 @@ static void bgp_dynamic_capability_paths_limit(uint8_t *pnt, int action,
 				goto ignore;
 			}
 
+			/* A tuple with zero Paths Limit SHOULD be ignored. Do
+			 * it before marking the AFI/SAFI as received, so that
+			 * a later tuple for the same AFI/SAFI is still
+			 * considered.
+			 */
+			if (!paths_limit) {
+				if (bgp_debug_neighbor_events(peer))
+					zlog_debug("%s Addr-family %s/%s(afi/safi) has zero limit. Ignore the Paths-Limit capability for this AFI/SAFI",
+						   peer->host, iana_afi2str(pkt_afi),
+						   iana_safi2str(pkt_safi));
+				goto ignore;
+			}
+
+			/* If more than one tuple is received for the same
+			 * AFI/SAFI, only the first one is considered, others
+			 * MUST be ignored. This covers all Paths-Limit
+			 * capabilities in the same message, because
+			 * bgp_capability_msg_parse() clears the flag only
+			 * once per message. A tuple received in a previous
+			 * message is replaced, though.
+			 */
+			if (CHECK_FLAG(peer->af_sflags[afi][safi],
+				       PEER_STATUS_PATHS_LIMIT_MSG_RCV)) {
+				if (bgp_debug_neighbor_events(peer))
+					zlog_debug("%s Addr-family %s/%s(afi/safi) already received. Ignore the duplicate Paths-Limit capability for this AFI/SAFI",
+						   peer->host, iana_afi2str(pkt_afi),
+						   iana_safi2str(pkt_safi));
+				goto ignore;
+			}
+
+			SET_FLAG(peer->af_sflags[afi][safi], PEER_STATUS_PATHS_LIMIT_MSG_RCV);
+
 			SET_FLAG(peer->af_cap[afi][safi],
 				 PEER_CAP_PATHS_LIMIT_AF_RCV);
 			peer->addpath_paths_limit[afi][safi].receive =
@@ -3396,10 +3428,14 @@ ignore:
 			data += CAPABILITY_CODE_PATHS_LIMIT_LEN;
 		}
 	} else {
+		/* The capability is removed, so a later SET in the same
+		 * message is not a duplicate of the tuples removed here.
+		 */
 		FOREACH_AFI_SAFI (afi, safi) {
 			UNSET_FLAG(peer->af_cap[afi][safi],
 				   PEER_CAP_PATHS_LIMIT_AF_RCV);
 			peer->addpath_paths_limit[afi][safi].receive = 0;
+			UNSET_FLAG(peer->af_sflags[afi][safi], PEER_STATUS_PATHS_LIMIT_MSG_RCV);
 		}
 
 		UNSET_FLAG(peer->cap, PEER_CAP_PATHS_LIMIT_RCV);
@@ -3959,6 +3995,12 @@ static int bgp_capability_msg_parse(struct peer_connection *connection, uint8_t 
 	iana_safi_t pkt_safi;
 	safi_t safi;
 	const char *capability;
+
+	/* Start every CAPABILITY message with no Paths-Limit tuple received,
+	 * so a later message can update the limit.
+	 */
+	FOREACH_AFI_SAFI (afi, safi)
+		UNSET_FLAG(peer->af_sflags[afi][safi], PEER_STATUS_PATHS_LIMIT_MSG_RCV);
 
 	end = pnt + length;
 

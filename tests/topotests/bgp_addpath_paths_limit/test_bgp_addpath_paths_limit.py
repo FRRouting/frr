@@ -369,12 +369,16 @@ def test_bgp_addpath_paths_limit_dynamic_capability():
 
     def _bgp_check_paths_limit(limit, aspaths):
         output = json.loads(r2.vtysh_cmd("show bgp neighbor 192.168.7.7 json"))
+        # A tuple with zero Paths Limit is ignored, so after removing the
+        # limit, no limit is received from r7 anymore.
         expected = {
             "192.168.7.7": {
                 "bgpState": "Established",
                 "neighborCapabilities": {
                     "dynamic": "advertisedAndReceived",
-                    "pathsLimit": {"ipv4Unicast": {"receivedPathsLimit": limit}},
+                    "pathsLimit": {
+                        "ipv4Unicast": {"receivedPathsLimit": limit if limit else None}
+                    },
                 },
                 "messageStats": {
                     "notificationsRecv": 0,
