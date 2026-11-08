@@ -206,6 +206,87 @@ route-map PROXY_FILTER permit 10
     wait_proxied(r1, True)
 
 
+def test_starg_leave_prunes_sg_that_was_never_proxied_as_starg():
+    "A (*,G) that was not proxied still drops an (S,G) it had been covering"
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    r1 = tgen.gears["r1"]
+    group = "225.8.8.8"
+    source = "10.9.9.9"
+
+    logger.info("permit (S,G) and deny (*,G)")
+    r1.vtysh_cmd(
+        """
+conf
+route-map PROXY_SG deny 10
+ match ip multicast-source 0.0.0.0
+route-map PROXY_SG permit 20
+ match ip multicast-source {source}
+interface r1-eth1
+ ip igmp proxy route-map PROXY_SG
+interface r1-eth0
+ ip igmp static-group {group} {source}
+interface r1-eth2
+ ip address 10.0.3.1/24
+ ip pim
+ ip igmp
+ ip igmp static-group {group}
+""".format(
+            group=group, source=source
+        )
+    )
+
+    def covered():
+        if not proxy_sg(r1, source, group):
+            return "missing (S,G) proxy"
+        if proxy_sg(r1, "*", group):
+            return "(*,G) was proxied"
+        return None
+
+    _, result = topotest.run_and_expect(covered, None, count=40, wait=0.5)
+    assert result is None, result
+
+    logger.info("specific receiver leaves; (*,G) on r1-eth2 keeps the (S,G) join")
+    r1.vtysh_cmd(
+        """
+conf
+interface r1-eth0
+ no ip igmp static-group {group} {source}
+""".format(
+            group=group, source=source
+        )
+    )
+
+    def still_covered():
+        if not proxy_sg(r1, source, group):
+            return "(S,G) pruned while (*,G) remains"
+        return None
+
+    _, result = topotest.run_and_expect(still_covered, None, count=40, wait=0.5)
+    assert result is None, result
+
+    logger.info("(*,G) leaves; the uncovered (S,G) join must go")
+    r1.vtysh_cmd(
+        """
+conf
+interface r1-eth2
+ no ip igmp static-group {group}
+""".format(
+            group=group
+        )
+    )
+
+    def uncovered_gone():
+        if proxy_sg(r1, source, group):
+            return "(S,G) proxy still installed"
+        return None
+
+    _, result = topotest.run_and_expect(uncovered_gone, None, count=40, wait=0.5)
+    assert result is None, result
+
+
 SRC2 = "10.20.0.10"
 GRP_RPF = "232.1.1.20"
 GRP_STATIC = "232.1.1.21"
