@@ -25,6 +25,10 @@ extern "C" {
 # endif
 #endif
 
+#ifdef __APPLE__
+#include <os/base.h>
+#endif
+
 /* function attributes, use like
  *   void prototype(void) __attribute__((_CONSTRUCTOR(100)));
  */
@@ -422,7 +426,7 @@ _Static_assert(sizeof(_uint64_t) == 8 && sizeof(_int64_t) == 8,
 #endif /* !__cplusplus */
 #endif /* !_FRR_ATTRIBUTE_PRINTFRR */
 
-#if defined(__STDC_VERSION__) && __STDC_VERSION__ >= 202311L
+#if defined(__STDC_VERSION__) && __STDC_VERSION__ >= 202311L && !defined(__APPLE__)
 /* whohoo, we can start moving towards getting rid of these, since
  * __STDC_VERSION__ >= 202311L also implies printf supports it
  *
@@ -430,6 +434,9 @@ _Static_assert(sizeof(_uint64_t) == 8 && sizeof(_int64_t) == 8,
  * supports w64, we don't know what libc's printf supports.  And we use plain
  * printf quite a bit, since a bulk printf -> printfrr pass is rather intrusive
  * for little benefit.)
+ *
+ * (not on macOS, though: its libc printf doesn't know w64 even when the
+ * compiler is in C23 mode.)
  */
 #undef PRIu64
 #undef PRId64
