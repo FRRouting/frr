@@ -250,8 +250,10 @@ static intmax_t zlog_gettid(void)
 #elif defined(__sun)
 	rv = pthread_self();
 #elif defined(__APPLE__)
-	rv = mach_thread_self();
-	mach_port_deallocate(mach_task_self(), rv);
+	uint64_t apple_tid = 0;
+
+	pthread_threadid_np(NULL, &apple_tid);
+	rv = apple_tid;
 #endif
 
 #ifndef __OpenBSD__
