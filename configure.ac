@@ -964,6 +964,13 @@ AS_IF([test "$host" = "$build"], [
   FRR_PYTHON
 ])
 
+dnl lib/subdir.am uses CLIPPY_ELF to decide whether clippy links libelf.
+dnl Every host still does.  Mach-O turns this off in the same commit that
+dnl adds the Mach-O reader and stops the call sites from requiring elf_py.c,
+dnl so a bisect does not drop libelf out from under command_py.c.
+clippy_elf="yes"
+AM_CONDITIONAL([CLIPPY_ELF], [test "$clippy_elf" = "yes"])
+
 FRR_PYTHON_MODULES([pytest])
 
 if test "$enable_doc" != "no"; then
@@ -1125,6 +1132,19 @@ fi
 if test -n "$frr_cv_interp"; then
   AC_DEFINE_UNQUOTED([INTERP], ["$frr_cv_interp"], [.interp value])
 fi
+
+dnl libfrr.so can be executed to print its version, which needs an entry point
+dnl (_libfrr_version in lib/libfrr.c) as well as .interp above.  Both are ELF
+dnl concepts;  Apple's ld rejects -e when linking a dylib.
+case "$host_os" in
+  darwin*)
+    LIBFRR_ENTRY_LDFLAGS=""
+    ;;
+  *)
+    LIBFRR_ENTRY_LDFLAGS="-Xlinker -e_libfrr_version"
+    ;;
+esac
+AC_SUBST([LIBFRR_ENTRY_LDFLAGS])
 
 dnl -------------------------
 dnl Check other header files.
