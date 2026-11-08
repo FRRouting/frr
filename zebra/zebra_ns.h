@@ -37,7 +37,16 @@ struct nlsock {
 	uint8_t *buf;
 	size_t buflen;
 };
+
+/* Runtime sockets owned and closed by the dataplane thread. */
+struct zebra_dplane_sockets {
+	struct nlsock out;
+	struct nlsock in;
+};
 #endif
+
+struct zebra_dplane_sockets;
+struct dplane_zns_info;
 
 /* Tree of interfaces: external linkage struct, and rbtree */
 PREDECL_RBTREE_UNIQ(ifp_tree);
@@ -62,15 +71,13 @@ struct zebra_ns {
 
 #ifdef HAVE_NETLINK
 	struct nlsock netlink_cmd; /* command channel */
-
-	/* dplane system's channels: one for outgoing programming,
-	 * for the FIB e.g., and one for incoming events from the OS.
-	 */
-	struct nlsock netlink_dplane_out;
-	struct nlsock netlink_dplane_in;
+	struct zebra_dplane_sockets *dplane_sockets;
+	int dplane_seq;
 
 	struct nlsock ge_netlink_cmd; /* command channel for generic netlink */
 #endif
+	/* Dataplane event state is separate from the namespace object's lifetime. */
+	struct dplane_zns_info *dplane_info;
 
 	/* Tree of interfaces in this ns */
 	struct ifp_tree_head ifp_tree;
@@ -80,6 +87,7 @@ struct zebra_ns {
 };
 
 struct zebra_ns *zebra_ns_lookup(ns_id_t ns_id);
+void zebra_ns_free(struct zebra_ns *zns);
 
 /* Manage collection of ifps per-NS */
 void zebra_ns_link_ifp(struct zebra_ns *zns, struct interface *ifp);

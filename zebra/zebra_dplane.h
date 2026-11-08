@@ -64,10 +64,17 @@ zebra_dplane_info_from_zns(struct zebra_dplane_info *zns_info,
 		zns_info->sock_gen = zns->netlink_cmd.gen;
 		zns_info->nlmsg_pid = zns->netlink_cmd.snl.nl_pid;
 	} else {
-		zns_info->sock = zns->netlink_dplane_in.sock;
-		zns_info->seq = zns->netlink_dplane_in.seq;
-		zns_info->sock_gen = zns->netlink_dplane_in.gen;
-		zns_info->nlmsg_pid = zns->netlink_dplane_in.snl.nl_pid;
+		if (zns->dplane_sockets) {
+			zns_info->sock = zns->dplane_sockets->in.sock;
+			zns_info->seq = zns->dplane_sockets->in.seq;
+			zns_info->sock_gen = zns->dplane_sockets->in.gen;
+			zns_info->nlmsg_pid = zns->dplane_sockets->in.snl.nl_pid;
+		} else {
+			zns_info->sock = -1;
+			zns_info->seq = 0;
+			zns_info->sock_gen = 0;
+			zns_info->nlmsg_pid = 0;
+		}
 	}
 #endif /* NETLINK */
 }
@@ -77,6 +84,7 @@ zebra_dplane_info_from_zns(struct zebra_dplane_info *zns_info,
  * needs to start and stop reading incoming events from the ns.
  */
 void zebra_dplane_ns_enable(struct zebra_ns *zns, bool enabled);
+void zebra_dplane_ns_delete(struct zebra_ns *zns);
 
 /*
  * Result codes used when returning status back to the main zebra context.
