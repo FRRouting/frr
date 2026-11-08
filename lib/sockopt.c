@@ -14,6 +14,11 @@
 #include "sockunion.h"
 #include "lib_errors.h"
 
+#if defined(__APPLE__) && !defined(TCP_KEEPIDLE) && defined(TCP_KEEPALIVE)
+/* macOS calls the keepalive idle time option TCP_KEEPALIVE */
+#define TCP_KEEPIDLE TCP_KEEPALIVE
+#endif
+
 #if (defined(__FreeBSD__) &&                                                   \
      ((__FreeBSD_version >= 500022 && __FreeBSD_version < 700000) ||           \
       (__FreeBSD_version < 500000 && __FreeBSD_version >= 440000))) ||         \
