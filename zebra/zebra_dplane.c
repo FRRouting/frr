@@ -23,6 +23,9 @@
 #include "zebra/zebra_vxlan_private.h"
 #include "zebra/zebra_mpls.h"
 #include "zebra/rt.h"
+#ifdef HAVE_NETLINK
+#include "zebra/kernel_netlink.h"
+#endif
 #include "zebra/debug.h"
 #include "zebra/zebra_pbr.h"
 #include "zebra/zebra_l2.h"
@@ -651,6 +654,11 @@ PREDECL_DLIST(zns_info_list);
 
 struct dplane_zns_info {
 	struct zebra_dplane_info info;
+	struct zebra_dplane_sockets *sockets;
+	struct zebra_ns *owner_zns;
+	struct zebra_ns *delete_zns;
+	bool stopping;
+	struct event *t_stop;
 
 	/* Request data from the OS */
 	struct event *t_request;
@@ -686,6 +694,9 @@ static struct zebra_dplane_globals {
 
 	/* List of info about each zns */
 	struct zns_info_list_head dg_zns_list;
+	_Atomic uint32_t dg_ns_stop_acks;
+	/* Main pthread only: zebra_dplane_shutdown() has destroyed dg_mutex. */
+	bool dg_torn_down;
 
 	/* Counter used to assign internal ids to providers */
 	uint32_t dg_provider_id;
@@ -4311,10 +4322,17 @@ static void ctx_info_from_zns(struct zebra_dplane_info *ns_info,
 
 #if defined(HAVE_NETLINK)
 	ns_info->is_cmd = true;
-	ns_info->sock = zns->netlink_dplane_out.sock;
-	ns_info->seq = zns->netlink_dplane_out.seq;
-	ns_info->sock_gen = zns->netlink_dplane_out.gen;
-	ns_info->nlmsg_pid = zns->netlink_dplane_out.snl.nl_pid;
+	if (zns->dplane_sockets) {
+		ns_info->sock = zns->dplane_sockets->out.sock;
+		ns_info->sock_gen = zns->dplane_sockets->out.gen;
+		ns_info->seq = zns->dplane_seq;
+		ns_info->nlmsg_pid = zns->dplane_sockets->out.snl.nl_pid;
+	} else {
+		ns_info->sock = -1;
+		ns_info->sock_gen = 0;
+		ns_info->seq = zns->dplane_seq;
+		ns_info->nlmsg_pid = 0;
+	}
 #endif /* NETLINK */
 }
 
@@ -4333,10 +4351,12 @@ static int dplane_ctx_ns_init(struct zebra_dplane_ctx *ctx,
 	/* Increment message counter after copying to context struct - may need
 	 * two messages in some 'update' cases.
 	 */
-	if (is_update)
-		zns->netlink_dplane_out.seq += 2;
-	else
-		zns->netlink_dplane_out.seq++;
+	if (zns->dplane_sockets) {
+		if (is_update)
+			zns->dplane_seq += 2;
+		else
+			zns->dplane_seq++;
+	}
 #endif	/* HAVE_NETLINK */
 
 	return AOK;
@@ -7711,8 +7731,59 @@ static void dplane_kernel_info_request(struct dplane_zns_info *zi)
 		event_add_event(zdplane_info.dg_master, dplane_incoming_request,
 				zi, 0, &zi->t_request);
 }
-
 #endif /* HAVE_NETLINK */
+
+static void dplane_ns_stopped(struct dplane_zns_info *zi)
+{
+	struct zebra_ns *zns, *delete_zns;
+
+	DPLANE_LOCK();
+	zns = zi->owner_zns;
+	delete_zns = zi->delete_zns;
+	if (zns && zns->dplane_info == zi) {
+		zns->dplane_info = NULL;
+#if defined(HAVE_NETLINK)
+		zns->dplane_sockets = NULL;
+#endif
+	}
+	DPLANE_UNLOCK();
+
+	if (delete_zns)
+		zebra_ns_free(delete_zns);
+
+	XFREE(MTYPE_DP_NS, zi);
+}
+
+static void dplane_ns_stopped_main(struct event *event)
+{
+	dplane_ns_stopped(EVENT_ARG(event));
+	atomic_fetch_sub_explicit(&zdplane_info.dg_ns_stop_acks, 1, memory_order_acq_rel);
+}
+
+/* Stop and destroy a namespace's runtime sockets on the dataplane thread. */
+static void dplane_ns_stop_info(struct dplane_zns_info *zi)
+{
+	event_cancel(&zi->t_request);
+	event_cancel(&zi->t_read);
+
+#if defined(HAVE_NETLINK)
+	kernel_dplane_sockets_close(zi->sockets);
+	zi->sockets = NULL;
+#endif
+
+	DPLANE_LOCK();
+	zns_info_list_del(&zdplane_info.dg_zns_list, zi);
+	DPLANE_UNLOCK();
+
+	/* The main thread owns zebra_ns and performs its final release. */
+	atomic_fetch_add_explicit(&zdplane_info.dg_ns_stop_acks, 1, memory_order_release);
+	event_add_event(zrouter.master, dplane_ns_stopped_main, zi, 0, NULL);
+}
+
+static void dplane_ns_stop(struct event *event)
+{
+	dplane_ns_stop_info(EVENT_ARG(event));
+}
 
 /*
  * Notify dplane when namespaces are enabled and disabled. The dplane
@@ -7725,16 +7796,25 @@ static void dplane_kernel_info_request(struct dplane_zns_info *zi)
 void zebra_dplane_ns_enable(struct zebra_ns *zns, bool enabled)
 {
 	struct dplane_zns_info *zi;
+	bool stop;
+
+	/* Every zi was already released with the dplane. */
+	if (zdplane_info.dg_torn_down) {
+#if defined(HAVE_NETLINK)
+		zns->dplane_sockets = NULL;
+#endif
+		return;
+	}
+
+	DPLANE_LOCK();
+	zi = zns->dplane_info;
+	if (zi && zi->stopping)
+		zi = NULL;
+	DPLANE_UNLOCK();
 
 	if (IS_ZEBRA_DEBUG_DPLANE)
 		zlog_debug("%s: %s for nsid %u", __func__,
 			   (enabled ? "ENABLED" : "DISABLED"), zns->ns_id);
-
-	/* Search for an existing zns info entry */
-	frr_each (zns_info_list, &zdplane_info.dg_zns_list, zi) {
-		if (zi->info.ns_id == zns->ns_id)
-			break;
-	}
 
 	if (enabled) {
 		/* Create a new entry if necessary; start reading. */
@@ -7742,8 +7822,15 @@ void zebra_dplane_ns_enable(struct zebra_ns *zns, bool enabled)
 			zi = XCALLOC(MTYPE_DP_NS, sizeof(*zi));
 
 			zi->info.ns_id = zns->ns_id;
+			zi->owner_zns = zns;
+#if defined(HAVE_NETLINK)
+			zi->sockets = zns->dplane_sockets;
+#endif
 
+			DPLANE_LOCK();
 			zns_info_list_add_tail(&zdplane_info.dg_zns_list, zi);
+			zns->dplane_info = zi;
+			DPLANE_UNLOCK();
 
 			if (IS_ZEBRA_DEBUG_DPLANE)
 				zlog_debug("%s: nsid %u, new zi %p", __func__,
@@ -7753,33 +7840,71 @@ void zebra_dplane_ns_enable(struct zebra_ns *zns, bool enabled)
 		/* Make sure we're up-to-date with the zns object */
 #if defined(HAVE_NETLINK)
 		zi->info.is_cmd = false;
-		zi->info.sock = zns->netlink_dplane_in.sock;
-		zi->info.sock_gen = zns->netlink_dplane_in.gen;
+		zi->sockets = zns->dplane_sockets;
+		zi->info.sock = zi->sockets->in.sock;
+		zi->info.sock_gen = zi->sockets->in.gen;
+		zi->info.nlmsg_pid = zi->sockets->in.snl.nl_pid;
 
 		/* Initiate requests for existing info from the OS, and
 		 * begin reading from the netlink socket.
 		 */
 		dplane_kernel_info_request(zi);
 #endif
-	} else if (zi) {
+	} else {
+#if defined(HAVE_NETLINK)
+		zns->dplane_sockets = NULL;
+#endif
+		if (!zi)
+			return;
+
 		if (IS_ZEBRA_DEBUG_DPLANE)
 			zlog_debug("%s: nsid %u, deleting zi %p", __func__,
 				   zns->ns_id, zi);
 
-		/* Stop reading, free memory */
-		zns_info_list_del(&zdplane_info.dg_zns_list, zi);
+		DPLANE_LOCK();
+		stop = !zi->stopping;
+		if (stop)
+			zi->stopping = true;
+		DPLANE_UNLOCK();
+		if (!stop)
+			return;
 
-		/* Stop any outstanding tasks */
-		if (zdplane_info.dg_master) {
-			event_cancel_async(zdplane_info.dg_master,
-					   &zi->t_request, NULL);
+		/* A stop ack would never run; zebra_dplane_shutdown() frees zi. */
+		if (dplane_is_in_shutdown())
+			return;
 
-			event_cancel_async(zdplane_info.dg_master, &zi->t_read,
-					   NULL);
+		if (zdplane_info.dg_master)
+			event_add_event(zdplane_info.dg_master, dplane_ns_stop, zi, 0, &zi->t_stop);
+		else {
+#if defined(HAVE_NETLINK)
+			kernel_dplane_sockets_close(zi->sockets);
+			zi->sockets = NULL;
+#endif
+			DPLANE_LOCK();
+			zns_info_list_del(&zdplane_info.dg_zns_list, zi);
+			DPLANE_UNLOCK();
+			dplane_ns_stopped(zi);
 		}
-
-		XFREE(MTYPE_DP_NS, zi);
 	}
+}
+
+void zebra_dplane_ns_delete(struct zebra_ns *zns)
+{
+	struct dplane_zns_info *zi;
+
+	DPLANE_LOCK();
+	zi = zns->dplane_info;
+	DPLANE_UNLOCK();
+
+	if (!zi) {
+		zebra_ns_free(zns);
+		return;
+	}
+
+	DPLANE_LOCK();
+	zi->delete_zns = zns;
+	DPLANE_UNLOCK();
+	zebra_dplane_ns_enable(zns, false);
 }
 
 /*
@@ -8661,19 +8786,8 @@ static void dplane_check_shutdown_status(struct event *event)
 	if (IS_ZEBRA_DEBUG_DPLANE)
 		zlog_debug("Zebra dataplane shutdown status check called");
 
-	/* Remove any zns info entries as we stop the dplane pthread. */
-	frr_each_safe (zns_info_list, &zdplane_info.dg_zns_list, zi) {
-		zns_info_list_del(&zdplane_info.dg_zns_list, zi);
-
-		if (zdplane_info.dg_master) {
-			event_cancel(&zi->t_read);
-			event_cancel(&zi->t_request);
-		}
-
-		XFREE(MTYPE_DP_NS, zi);
-	}
-
-	if (dplane_work_pending()) {
+	if (dplane_work_pending() ||
+	    atomic_load_explicit(&zdplane_info.dg_ns_stop_acks, memory_order_acquire)) {
 		/* Reschedule dplane check on a short timer */
 		event_add_timer_msec(zdplane_info.dg_master,
 				     dplane_check_shutdown_status, NULL, 100,
@@ -8682,6 +8796,18 @@ static void dplane_check_shutdown_status(struct event *event)
 		/* TODO - give up and stop waiting after a short time? */
 
 	} else {
+		/*
+		 * Stop reading. The main pthread may still enqueue work and
+		 * read zns->dplane_sockets, so it closes them after we stop.
+		 */
+		DPLANE_LOCK();
+		frr_each (zns_info_list, &zdplane_info.dg_zns_list, zi) {
+			event_cancel(&zi->t_stop);
+			event_cancel(&zi->t_read);
+			event_cancel(&zi->t_request);
+		}
+		DPLANE_UNLOCK();
+
 		/* We appear to be done - schedule a final callback event
 		 * for the zebra main pthread.
 		 */
@@ -9060,12 +9186,13 @@ void zebra_dplane_shutdown(void)
 		dp = dplane_prov_list_first(&zdplane_info.dg_providers);
 	}
 
-	/* Clean up namespace info entries */
-	zi = zns_info_list_first(&zdplane_info.dg_zns_list);
-	while (zi) {
-		zns_info_list_del(&zdplane_info.dg_zns_list, zi);
-		XFREE(MTYPE_DP_NS, zi);
-		zi = zns_info_list_first(&zdplane_info.dg_zns_list);
+	/* Clean up namespace info entries and their sockets */
+	while ((zi = zns_info_list_pop(&zdplane_info.dg_zns_list)) != NULL) {
+#if defined(HAVE_NETLINK)
+		kernel_dplane_sockets_close(zi->sockets);
+		zi->sockets = NULL;
+#endif
+		dplane_ns_stopped(zi);
 	}
 
 	/* TODO -- Clean queue(s), free memory */
@@ -9099,6 +9226,7 @@ void zebra_dplane_shutdown(void)
 
 	/* Destroy global mutex */
 	pthread_mutex_destroy(&zdplane_info.dg_mutex);
+	zdplane_info.dg_torn_down = true;
 }
 
 /*
@@ -9153,6 +9281,7 @@ void zebra_dplane_start(void)
 			&zdplane_info.dg_t_update);
 
 	/* Enqueue requests and reads if necessary */
+	DPLANE_LOCK();
 	frr_each (zns_info_list, &zdplane_info.dg_zns_list, zi) {
 #if defined(HAVE_NETLINK)
 		event_add_read(zdplane_info.dg_master, dplane_incoming_read, zi,
@@ -9160,6 +9289,7 @@ void zebra_dplane_start(void)
 		dplane_kernel_info_request(zi);
 #endif
 	}
+	DPLANE_UNLOCK();
 
 	/* Call start callbacks for registered providers */
 

@@ -167,6 +167,7 @@ static const struct message rttype_str[] = {{RTN_UNSPEC, "none"},
 extern struct zebra_privs_t zserv_privs;
 
 DEFINE_MTYPE_STATIC(ZEBRA, NL_BUF, "Zebra Netlink buffers");
+DEFINE_MTYPE_STATIC(ZEBRA, DP_SOCKETS, "Zebra DPlane sockets");
 
 /* Hashtable and mutex to allow lookup of nlsock structs by socket/fd value.
  * We have both the main and dplane pthreads using these structs, so we have
@@ -1783,11 +1784,10 @@ static void netlink_enable_ext_ack(int sock, const char *desc)
 /*
  * Initialize all netlink sockets and subsystem for a given network namespace.
  *
- * Creates four netlink sockets:
+ * Creates command sockets and a separate runtime socket pair for dataplane:
  *   netlink_cmd        - Outbound synchronous commands (main pthread)
- *   netlink_dplane_out - Outbound dataplane programming (dplane pthread)
- *   netlink_dplane_in  - Inbound link/addr/neigh/netconf/tc/nexthop/rule/tunnel/route
- *                        events (dplane pthread)
+ *   dplane_sockets.out - Outbound dataplane programming (dplane pthread)
+ *   dplane_sockets.in  - Inbound kernel events (dplane pthread)
  *   ge_netlink_cmd     - Generic netlink commands (optional, non-fatal)
  *
  * Also configures: multicast group subscriptions, extended ACK, non-blocking
@@ -1831,12 +1831,13 @@ void kernel_init(struct zebra_ns *zns)
 			       NETLINK_ROUTE, false) < 0)
 		frr_exit_with_buffer_flush(-1);
 
-	if (kernel_init_nlsock(&zns->netlink_dplane_out, "netlink-dp", 0, NULL, 0, zns->ns_id,
+	zns->dplane_sockets = XCALLOC(MTYPE_DP_SOCKETS, sizeof(*zns->dplane_sockets));
+	if (kernel_init_nlsock(&zns->dplane_sockets->out, "netlink-dp", 0, NULL, 0, zns->ns_id,
 			       NETLINK_ROUTE, false) < 0)
 		frr_exit_with_buffer_flush(-1);
 
-	if (kernel_init_nlsock(&zns->netlink_dplane_in, "netlink-dp-in", dplane_groups, &ext_groups,
-			       1, zns->ns_id, NETLINK_ROUTE, false) < 0)
+	if (kernel_init_nlsock(&zns->dplane_sockets->in, "netlink-dp-in", dplane_groups,
+			       &ext_groups, 1, zns->ns_id, NETLINK_ROUTE, false) < 0)
 		frr_exit_with_buffer_flush(-1);
 
 	/* Generic netlink — non-fatal on failure */
@@ -1851,15 +1852,15 @@ void kernel_init(struct zebra_ns *zns)
 
 	/* Subscribe dplane inbound to BRVLAN group (bit >= 32) */
 	grp = RTNLGRP_BRVLAN;
-	ret = setsockopt(zns->netlink_dplane_in.sock, SOL_NETLINK,
-			 NETLINK_ADD_MEMBERSHIP, &grp, sizeof(grp));
+	ret = setsockopt(zns->dplane_sockets->in.sock, SOL_NETLINK, NETLINK_ADD_MEMBERSHIP, &grp,
+			 sizeof(grp));
 	if (ret < 0)
 		zlog_notice("Registration for RTNLGRP_BRVLAN Membership failed: %d %s", errno,
 			    safe_strerror(errno));
 
 	/* Enable extended ACK on command and dplane output sockets */
 	netlink_enable_ext_ack(zns->netlink_cmd.sock, "cmd");
-	netlink_enable_ext_ack(zns->netlink_dplane_out.sock, "dp");
+	netlink_enable_ext_ack(zns->dplane_sockets->out.sock, "dp");
 
 	/* Enable extended ACK on generic netlink socket (uses flog_err
 	 * per original behavior — protocol-level failures are significant).
@@ -1879,7 +1880,7 @@ void kernel_init(struct zebra_ns *zns)
 	{
 		one = 1;
 
-		ret = setsockopt(zns->netlink_dplane_out.sock, SOL_NETLINK, NETLINK_CAP_ACK, &one,
+		ret = setsockopt(zns->dplane_sockets->out.sock, SOL_NETLINK, NETLINK_CAP_ACK, &one,
 				 sizeof(one));
 		if (ret < 0)
 			zlog_notice(
@@ -1892,8 +1893,8 @@ void kernel_init(struct zebra_ns *zns)
 	 * ----------------------------------------------------------------
 	 */
 	netlink_set_nonblock(&zns->netlink_cmd);
-	netlink_set_nonblock(&zns->netlink_dplane_out);
-	netlink_set_nonblock(&zns->netlink_dplane_in);
+	netlink_set_nonblock(&zns->dplane_sockets->out);
+	netlink_set_nonblock(&zns->dplane_sockets->in);
 
 	if (zns->ge_netlink_cmd.sock >= 0)
 		netlink_set_nonblock(&zns->ge_netlink_cmd);
@@ -1905,8 +1906,8 @@ void kernel_init(struct zebra_ns *zns)
 	 */
 	if (rcvbufsize) {
 		netlink_recvbuf(&zns->netlink_cmd, rcvbufsize);
-		netlink_recvbuf(&zns->netlink_dplane_out, rcvbufsize);
-		netlink_recvbuf(&zns->netlink_dplane_in, rcvbufsize);
+		netlink_recvbuf(&zns->dplane_sockets->out, rcvbufsize);
+		netlink_recvbuf(&zns->dplane_sockets->in, rcvbufsize);
 
 		if (zns->ge_netlink_cmd.sock >= 0)
 			netlink_recvbuf(&zns->ge_netlink_cmd, rcvbufsize);
@@ -1919,9 +1920,8 @@ void kernel_init(struct zebra_ns *zns)
 	 * regardless of origin to keep state in sync).
 	 * ----------------------------------------------------------------
 	 */
-	netlink_install_filter(zns->netlink_dplane_in.sock,
-			       zns->netlink_cmd.snl.nl_pid,
-			       zns->netlink_dplane_out.snl.nl_pid);
+	netlink_install_filter(zns->dplane_sockets->in.sock, zns->netlink_cmd.snl.nl_pid,
+			       zns->dplane_sockets->out.snl.nl_pid);
 
 	/* Initialize route and generic netlink subsystems */
 	rt_netlink_init();
@@ -1940,19 +1940,20 @@ static void kernel_nlsock_fini(struct nlsock *nls)
 	}
 }
 
-void kernel_terminate(struct zebra_ns *zns, bool complete)
+void kernel_terminate(struct zebra_ns *zns)
 {
 	kernel_nlsock_fini(&zns->netlink_cmd);
-
-	kernel_nlsock_fini(&zns->netlink_dplane_in);
-
 	kernel_nlsock_fini(&zns->ge_netlink_cmd);
+}
 
-	/* During zebra shutdown, we need to leave the dataplane socket
-	 * around until all work is done.
-	 */
-	if (complete)
-		kernel_nlsock_fini(&zns->netlink_dplane_out);
+void kernel_dplane_sockets_close(struct zebra_dplane_sockets *sockets)
+{
+	if (!sockets)
+		return;
+
+	kernel_nlsock_fini(&sockets->in);
+	kernel_nlsock_fini(&sockets->out);
+	XFREE(MTYPE_DP_SOCKETS, sockets);
 }
 
 /*

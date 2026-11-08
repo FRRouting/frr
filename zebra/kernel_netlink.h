@@ -26,6 +26,7 @@ struct rtnexthop;
 struct vty;
 struct zebra_dplane_ctx;
 struct zebra_dplane_info;
+struct zebra_dplane_sockets;
 struct zebra_ns;
 
 #define NL_RCV_PKT_BUF_SIZE     (34 * 1024)
@@ -111,6 +112,7 @@ extern void netlink_set_batch_buffer_size(uint32_t size, uint32_t threshold,
 
 extern struct nlsock *kernel_netlink_nlsock_lookup(int sock);
 extern struct nlsock *kernel_netlink_nlsock_lookup_info(const struct zebra_dplane_info *info);
+extern void kernel_dplane_sockets_close(struct zebra_dplane_sockets *sockets);
 
 #ifdef __cplusplus
 }
