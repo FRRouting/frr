@@ -1700,8 +1700,11 @@ ferr_r pim_if_gm_join_add(struct interface *ifp, pim_addr group_addr,
 	 */
 	if (ij) {
 		/* turn an existing join into a "both" join */
-		if (ij->join_type != join_type)
+		if (ij->join_type != join_type) {
+			if (ij->join_type == GM_JOIN_PROXY)
+				igmp_local_join_shared(ifp, group_addr, source_addr, true);
 			ij->join_type = GM_JOIN_BOTH;
+		}
 		return ferr_ok();
 	}
 
@@ -1757,6 +1760,8 @@ int pim_if_gm_join_del(struct interface *ifp, pim_addr group_addr,
 		/* drop back to a single join type from current setting of GM_JOIN_BOTH */
 		ij->join_type = (join_type == GM_JOIN_STATIC ? GM_JOIN_PROXY
 							     : GM_JOIN_STATIC);
+		if (ij->join_type == GM_JOIN_PROXY)
+			igmp_local_join_shared(ifp, group_addr, source_addr, false);
 		return 0;
 	}
 
