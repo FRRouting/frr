@@ -212,9 +212,15 @@ GRP_STATIC = "232.1.1.21"
 
 
 def upstream_iif(r1, group, source):
-    "RPF interface of r1's (S,G) upstream, None if there is no upstream"
+    "RPF interface of r1's upstream, None if there is no upstream"
     output = json.loads(r1.vtysh_cmd("show ip pim upstream json"))
-    return output.get(group, {}).get(source, {}).get("inboundInterface")
+    grp = output.get(group, {})
+    entry = grp.get(source)
+    if entry is None and source == "*":
+        entry = grp.get("0.0.0.0")
+    if not entry:
+        return None
+    return entry.get("inboundInterface")
 
 
 def wait_for(check, what):
@@ -299,6 +305,127 @@ def test_leave_keeps_join_for_static_group():
     wait_for(proxied(False), "pruned")
 
 
+def test_rpf_needs_proxy_route_map_permit():
+    "The proxy RPF waiver needs the route-map to permit the receiver's interface"
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    r1 = tgen.gears["r1"]
+
+    logger.info("route to the source over the proxy, which has no PIM neighbor")
+    r1.vtysh_cmd(
+        """
+conf
+ip route 10.20.0.0/24 10.0.2.2
+route-map PROXY_IF permit 10
+ match multicast-source-interface r1-eth2
+interface r1-eth1
+ no ip igmp proxy route-map PROXY_SG
+ ip igmp proxy route-map PROXY_IF
+interface r1-eth0
+ ip igmp static-group {grp} {src}
+""".format(
+            grp=GRP_RPF, src=SRC2
+        )
+    )
+
+    def denied():
+        iif = upstream_iif(r1, GRP_RPF, SRC2)
+        if iif is None:
+            return "no upstream"
+        if iif == "r1-eth1":
+            return "RPF on the proxy, which never sends the join"
+        if proxy_sg(r1, SRC2, GRP_RPF):
+            return "(S,G) proxied despite the route-map"
+        return None
+
+    wait_for(denied, "receiver on r1-eth0 is denied")
+    topotest.sleep(2)
+    assert denied() is None, "after settling: {}".format(denied())
+
+    logger.info("drop the route-map: the join and the proxy RPF must follow")
+    r1.vtysh_cmd(
+        """
+conf
+interface r1-eth1
+ no ip igmp proxy route-map PROXY_IF
+"""
+    )
+
+    def permitted():
+        if not proxy_sg(r1, SRC2, GRP_RPF):
+            return "(S,G) not proxied"
+        iif = upstream_iif(r1, GRP_RPF, SRC2)
+        if iif != "r1-eth1":
+            return "RPF {}".format(iif)
+        return None
+
+    wait_for(permitted, "receiver on r1-eth0 is permitted")
+
+
+def test_no_ip_igmp_on_proxy():
+    "Turning IGMP off on the proxy removes its joins and its RPF waiver"
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    r1 = tgen.gears["r1"]
+    proxy_unfiltered(r1)
+    r1.vtysh_cmd(
+        "conf\ninterface r1-eth0\n ip igmp static-group {} {}\n".format(
+            GRP_RPF, SRC2
+        )
+    )
+
+    def joined():
+        if not proxy_sg(r1, SRC2, GRP_RPF):
+            return "(S,G) not proxied"
+        iif = upstream_iif(r1, GRP_RPF, SRC2)
+        if iif != "r1-eth1":
+            return "RPF {}".format(iif)
+        return None
+
+    wait_for(joined, "proxied over r1-eth1")
+
+    r1.vtysh_cmd("conf\ninterface r1-eth1\n no ip igmp\n")
+
+    def gone():
+        if proxy_sg(r1, SRC2, GRP_RPF):
+            return "(S,G) still proxied"
+        joins = r1.vtysh_cmd("show ip igmp join")
+        if GRP_RPF in joins:
+            return "proxy join still in place"
+        iif = upstream_iif(r1, GRP_RPF, SRC2)
+        if iif == "r1-eth1":
+            return "RPF still on r1-eth1"
+        return None
+
+    wait_for(gone, "no ip igmp on the proxy")
+
+    r1.vtysh_cmd("conf\ninterface r1-eth1\n ip igmp\n ip igmp proxy\n")
+
+    def back():
+        if not proxy_sg(r1, SRC2, GRP_RPF):
+            return "(S,G) not proxied"
+        iif = upstream_iif(r1, GRP_RPF, SRC2)
+        if iif != "r1-eth1":
+            return "RPF {}".format(iif)
+        return None
+
+    wait_for(back, "ip igmp on the proxy again")
+
+    r1.vtysh_cmd(
+        "conf\ninterface r1-eth0\n no ip igmp static-group {} {}\n".format(
+            GRP_RPF, SRC2
+        )
+    )
+    wait_for(
+        lambda: "still proxied" if proxy_sg(r1, SRC2, GRP_RPF) else None,
+        "static group removed",
+    )
+
+
 def _send_igmpv3(rtype, group, sources):
     "Send one IGMPv3 report from h1"
     cmd = (
@@ -357,3 +484,133 @@ interface r1-eth1
 
     _, result = topotest.run_and_expect(switched, None, count=40, wait=0.5)
     assert result is None, result
+
+
+def test_starg_rpf_uses_wildcard_source():
+    "A (*,G) proxy route-map is matched as 0.0.0.0, not the RP address"
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    r1 = tgen.gears["r1"]
+    group = "225.9.8.7"
+    rp = "10.30.0.1"
+
+    logger.info("permit only source 0.0.0.0; the RP is reached via the proxy")
+    r1.vtysh_cmd(
+        """
+conf
+ip route 10.30.0.0/24 10.0.2.2
+ip prefix-list ONLY_STAR seq 5 permit 0.0.0.0/32
+route-map PROXY_STAR permit 10
+ match ip multicast-source prefix-list ONLY_STAR
+router pim
+ rp {rp} {group}/32
+interface r1-eth1
+ ip igmp proxy route-map PROXY_STAR
+interface r1-eth0
+ ip igmp static-group {group}
+""".format(
+            rp=rp, group=group
+        )
+    )
+
+    def on_proxy():
+        if not proxy_sg(r1, "*", group):
+            return "(*,G) not proxied"
+        iif = upstream_iif(r1, group, "*")
+        if iif != "r1-eth1":
+            return "RPF {}".format(iif)
+        return None
+
+    wait_for(on_proxy, "(*,G) RPF on the proxy")
+
+    r1.vtysh_cmd(
+        """
+conf
+interface r1-eth0
+ no ip igmp static-group {group}
+interface r1-eth1
+ no ip igmp proxy route-map PROXY_STAR
+router pim
+ no rp {rp} {group}/32
+no ip route 10.30.0.0/24 10.0.2.2
+""".format(
+            rp=rp, group=group
+        )
+    )
+
+def test_permitted_leave_moves_rpf_off_proxy():
+    "When the last permitted receiver leaves, RPF must leave the proxy"
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    r1 = tgen.gears["r1"]
+    group = "232.1.1.30"
+    source = "10.20.0.30"
+
+    logger.info("permitted and denied receivers share an (S,G) reached via the proxy")
+    r1.vtysh_cmd(
+        """
+conf
+ip route 10.20.0.0/24 10.0.2.2
+interface r1-eth2
+ ip address 10.0.3.1/24
+ ip pim
+ ip igmp
+route-map PROXY_LEAVE permit 10
+ match multicast-source-interface r1-eth2
+interface r1-eth1
+ ip igmp proxy route-map PROXY_LEAVE
+interface r1-eth2
+ ip igmp static-group {group} {source}
+interface r1-eth0
+ ip igmp static-group {group} {source}
+""".format(
+            group=group, source=source
+        )
+    )
+
+    def on_proxy():
+        if not proxy_sg(r1, source, group):
+            return "(S,G) not proxied"
+        iif = upstream_iif(r1, group, source)
+        if iif != "r1-eth1":
+            return "RPF {}".format(iif)
+        return None
+
+    wait_for(on_proxy, "RPF on the proxy while a permitted receiver remains")
+
+    logger.info("permitted receiver leaves; the denied one must not stay on the proxy")
+    r1.vtysh_cmd(
+        """
+conf
+interface r1-eth2
+ no ip igmp static-group {group} {source}
+""".format(
+            group=group, source=source
+        )
+    )
+
+    def moved():
+        if proxy_sg(r1, source, group):
+            return "proxy join still installed"
+        iif = upstream_iif(r1, group, source)
+        if iif == "r1-eth1":
+            return "RPF still on the proxy"
+        return None
+
+    wait_for(moved, "RPF left the proxy")
+
+    r1.vtysh_cmd(
+        """
+conf
+interface r1-eth0
+ no ip igmp static-group {group} {source}
+interface r1-eth1
+ no ip igmp proxy route-map PROXY_LEAVE
+""".format(
+            group=group, source=source
+        )
+    )
