@@ -1136,26 +1136,26 @@ int netlink_talk(netlink_parse_filter_t filter, struct nlmsghdr *n, struct nlsoc
  * Synchronous version of netlink_talk_info. Converts args to suit the
  * common version, which is suitable for both sync and async use.
  */
-int ge_netlink_talk(netlink_parse_filter_t filter, struct nlmsghdr *n, struct zebra_ns *zns,
-		    bool startup, void *arg, int *nl_err)
+int ge_netlink_talk(netlink_parse_filter_t filter, struct nlmsghdr *n, struct nlsock *nl,
+		    ns_id_t ns_id, bool startup, void *arg, int *nl_err)
 {
 	struct zebra_dplane_info dp_info;
 
-	if (zns->ge_netlink_cmd.sock < 0)
+	if (nl->sock < 0)
 		return -1;
 
 	/* Increment sequence number before capturing snapshot of ns socket
 	 * info.
 	 */
-	zns->ge_netlink_cmd.seq = zebra_router_get_next_sequence();
+	nl->seq = zebra_router_get_next_sequence();
 
 	/* Capture info in intermediate info struct */
-	dp_info.ns_id = zns->ns_id;
+	dp_info.ns_id = ns_id;
 
 	dp_info.is_cmd = true;
-	dp_info.sock = zns->ge_netlink_cmd.sock;
-	dp_info.seq = zns->ge_netlink_cmd.seq;
-	dp_info.sock_gen = zns->ge_netlink_cmd.gen;
+	dp_info.sock = nl->sock;
+	dp_info.seq = nl->seq;
+	dp_info.sock_gen = nl->gen;
 
 	return netlink_talk_info(filter, n, &dp_info, startup, arg, nl_err);
 }
@@ -1788,6 +1788,7 @@ static void netlink_enable_ext_ack(int sock, const char *desc)
  *   netlink_cmd        - Outbound synchronous commands (main pthread)
  *   dplane_sockets.out - Outbound dataplane programming (dplane pthread)
  *   dplane_sockets.in  - Inbound kernel events (dplane pthread)
+ *   dplane_sockets.ge  - Generic netlink commands (dplane pthread, optional)
  *   ge_netlink_cmd     - Generic netlink commands (optional, non-fatal)
  *
  * Also configures: multicast group subscriptions, extended ACK, non-blocking
@@ -1843,6 +1844,8 @@ void kernel_init(struct zebra_ns *zns)
 	/* Generic netlink — non-fatal on failure */
 	kernel_init_nlsock(&zns->ge_netlink_cmd, "generic-netlink-cmd", 0, NULL, 0, zns->ns_id,
 			   NETLINK_GENERIC, true);
+	kernel_init_nlsock(&zns->dplane_sockets->ge, "generic-netlink-dp", 0, NULL, 0, zns->ns_id,
+			   NETLINK_GENERIC, true);
 
 	/* ----------------------------------------------------------------
 	 * Platform-specific socket options (SOL_NETLINK).
@@ -1876,6 +1879,17 @@ void kernel_init(struct zebra_ns *zns)
 				 errno, safe_strerror(errno));
 	}
 
+	if (zns->dplane_sockets->ge.sock >= 0) {
+		one = 1;
+
+		ret = setsockopt(zns->dplane_sockets->ge.sock, SOL_NETLINK, NETLINK_EXT_ACK, &one,
+				 sizeof(one));
+		if (ret < 0)
+			flog_err(EC_ZEBRA_NETLINK_EXT_ACK_FAILED,
+				 "Registration for extended generic netlink dp ACK failed: %d %s",
+				 errno, safe_strerror(errno));
+	}
+
 	/* Enable capped ACK to reduce ACK payload size (Linux 4.2+) */
 	{
 		one = 1;
@@ -1898,6 +1912,8 @@ void kernel_init(struct zebra_ns *zns)
 
 	if (zns->ge_netlink_cmd.sock >= 0)
 		netlink_set_nonblock(&zns->ge_netlink_cmd);
+	if (zns->dplane_sockets->ge.sock >= 0)
+		netlink_set_nonblock(&zns->dplane_sockets->ge);
 
 	/* ----------------------------------------------------------------
 	 * Configure receive buffer sizes if specified via CLI.
@@ -1911,6 +1927,8 @@ void kernel_init(struct zebra_ns *zns)
 
 		if (zns->ge_netlink_cmd.sock >= 0)
 			netlink_recvbuf(&zns->ge_netlink_cmd, rcvbufsize);
+		if (zns->dplane_sockets->ge.sock >= 0)
+			netlink_recvbuf(&zns->dplane_sockets->ge, rcvbufsize);
 	}
 
 	/* ----------------------------------------------------------------
@@ -1953,6 +1971,7 @@ void kernel_dplane_sockets_close(struct zebra_dplane_sockets *sockets)
 
 	kernel_nlsock_fini(&sockets->in);
 	kernel_nlsock_fini(&sockets->out);
+	kernel_nlsock_fini(&sockets->ge);
 	XFREE(MTYPE_DP_SOCKETS, sockets);
 }
 

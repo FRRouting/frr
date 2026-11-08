@@ -65,8 +65,8 @@ extern int netlink_parse_info(netlink_parse_filter_t filter, struct nlsock *nl,
 extern int netlink_talk_filter(struct nlmsghdr *h, ns_id_t ns, int startup, void *arg);
 extern int netlink_talk(netlink_parse_filter_t filter, struct nlmsghdr *n, struct nlsock *nl,
 			struct zebra_ns *zns, bool startup, void *arg, int *nl_err);
-extern int ge_netlink_talk(netlink_parse_filter_t filter, struct nlmsghdr *n, struct zebra_ns *zns,
-			   bool startup, void *arg, int *nl_err);
+extern int ge_netlink_talk(netlink_parse_filter_t filter, struct nlmsghdr *n, struct nlsock *nl,
+			   ns_id_t ns_id, bool startup, void *arg, int *nl_err);
 extern int netlink_request(struct nlsock *nl, void *req);
 
 enum netlink_msg_status {

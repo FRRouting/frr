@@ -2577,17 +2577,6 @@ const struct zebra_dplane_info *dplane_ctx_get_ns(
 	return &(ctx->zd_ns_info);
 }
 
-int dplane_ctx_get_ns_sock(const struct zebra_dplane_ctx *ctx)
-{
-	DPLANE_CTX_VALID(ctx);
-
-#ifdef HAVE_NETLINK
-	return ctx->zd_ns_info.sock;
-#else
-	return -1;
-#endif
-}
-
 /* Setters/accessors for nexthop information */
 void dplane_ctx_set_nhe_id(struct zebra_dplane_ctx *ctx, uint32_t id)
 {
@@ -7840,7 +7829,9 @@ void zebra_dplane_ns_enable(struct zebra_ns *zns, bool enabled)
 		/* Make sure we're up-to-date with the zns object */
 #if defined(HAVE_NETLINK)
 		zi->info.is_cmd = false;
+		DPLANE_LOCK();
 		zi->sockets = zns->dplane_sockets;
+		DPLANE_UNLOCK();
 		zi->info.sock = zi->sockets->in.sock;
 		zi->info.sock_gen = zi->sockets->in.gen;
 		zi->info.nlmsg_pid = zi->sockets->in.snl.nl_pid;
@@ -7906,6 +7897,28 @@ void zebra_dplane_ns_delete(struct zebra_ns *zns)
 	DPLANE_UNLOCK();
 	zebra_dplane_ns_enable(zns, false);
 }
+
+#if defined(HAVE_NETLINK)
+/* Dplane pthread only: only that pthread closes the returned socket. */
+struct nlsock *dplane_ns_ge_nlsock(const struct zebra_dplane_info *info)
+{
+	struct dplane_zns_info *zi;
+	struct nlsock *nl = NULL;
+
+	DPLANE_LOCK();
+	frr_each (zns_info_list, &zdplane_info.dg_zns_list, zi) {
+		if (zi->sockets && zi->sockets->out.sock == info->sock &&
+		    zi->sockets->out.gen == info->sock_gen) {
+			if (zi->sockets->ge.sock >= 0)
+				nl = &zi->sockets->ge;
+			break;
+		}
+	}
+	DPLANE_UNLOCK();
+
+	return nl;
+}
+#endif
 
 /*
  * Provider api to signal that work/events are available

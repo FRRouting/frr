@@ -42,6 +42,7 @@ struct nlsock {
 struct zebra_dplane_sockets {
 	struct nlsock out;
 	struct nlsock in;
+	struct nlsock ge;
 };
 #endif
 

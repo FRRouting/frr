@@ -86,6 +86,11 @@ zebra_dplane_info_from_zns(struct zebra_dplane_info *zns_info,
 void zebra_dplane_ns_enable(struct zebra_ns *zns, bool enabled);
 void zebra_dplane_ns_delete(struct zebra_ns *zns);
 
+#if defined(HAVE_NETLINK)
+/* Generic netlink socket of the ns whose dataplane socket info names. */
+struct nlsock *dplane_ns_ge_nlsock(const struct zebra_dplane_info *info);
+#endif
+
 /*
  * Result codes used when returning status back to the main zebra context.
  */
@@ -1024,9 +1029,7 @@ void dplane_ctx_set_netconf_linkdown(struct zebra_dplane_ctx *ctx,
 				     enum dplane_netconf_status_e val);
 
 /* Namespace fd info - esp. for netlink communication */
-const struct zebra_dplane_info *dplane_ctx_get_ns(
-	const struct zebra_dplane_ctx *ctx);
-int dplane_ctx_get_ns_sock(const struct zebra_dplane_ctx *ctx);
+const struct zebra_dplane_info *dplane_ctx_get_ns(const struct zebra_dplane_ctx *ctx);
 
 /* Indicates zebra shutdown/exit is in progress. Some operations may be
  * simplified or skipped during shutdown processing.
