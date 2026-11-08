@@ -576,12 +576,18 @@ void tib_sg_proxy_join_prune_check(struct pim_instance *pim, pim_sgaddr sg,
 						   __func__, PIM_DEBUG_VRF(pim->vrf), &sg,
 						   oif->name, ifp->name);
 			} else {
-				pim_if_gm_join_del(ifp, sg.grp, sg.src, GM_JOIN_PROXY);
 				/*
-				 * (*,G) coverage can have deferred (S,G) proxy
-				 * prunes; re-evaluate those when (*,G) itself
-				 * finally leaves.
+				 * The route-map may have kept this exact join
+				 * from ever being added. Do not look it up just
+				 * to log that it is missing.
+				 *
+				 * A (*,G) leave must still drop (S,G) joins that
+				 * only survived because (*,G) interest covered
+				 * them, even when the (*,G) itself was never
+				 * proxied.
 				 */
+				if (pim_if_gm_join_exists(ifp, sg.grp, sg.src))
+					pim_if_gm_join_del(ifp, sg.grp, sg.src, GM_JOIN_PROXY);
 				if (pim_addr_is_any(sg.src))
 					tib_sg_proxy_prune_uncovered_sources(pim, sg.grp, oif, ifp);
 			}

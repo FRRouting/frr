@@ -1722,6 +1722,16 @@ ferr_r pim_if_gm_join_add(struct interface *ifp, pim_addr group_addr,
 	return ferr_ok();
 }
 
+bool pim_if_gm_join_exists(struct interface *ifp, pim_addr group_addr, pim_addr source_addr)
+{
+	struct pim_interface *pim_ifp = ifp ? ifp->info : NULL;
+
+	if (!pim_ifp || !pim_ifp->gm_join_list)
+		return false;
+
+	return gm_join_find(pim_ifp->gm_join_list, group_addr, source_addr) != NULL;
+}
+
 int pim_if_gm_join_del(struct interface *ifp, pim_addr group_addr,
 		       pim_addr source_addr, enum gm_join_type join_type)
 {

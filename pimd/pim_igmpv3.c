@@ -1763,8 +1763,19 @@ void igmp_v3_recv_query(struct gm_sock *igmp, struct in_addr from, char *igmp_ms
 					}
 				}
 			} else {
-				zlog_warn("IGMP query v3 from %pI4s on %s: could not find group %pI4s for timer update",
-					  &from, ifp->name, &group_addr);
+				/*
+				 * A proxy interface sends joins for groups it
+				 * has no local membership for. Queries for
+				 * those groups are expected and are not a
+				 * missing-state error.
+				 */
+				if (pim_ifp && pim_ifp->gm_proxy) {
+					if (PIM_DEBUG_GM_TRACE)
+						zlog_debug("IGMP query v3 from %pI4s on %s: could not find group %pI4s for timer update",
+							   &from, ifp->name, &group_addr);
+				} else
+					zlog_warn("IGMP query v3 from %pI4s on %s: could not find group %pI4s for timer update",
+						  &from, ifp->name, &group_addr);
 			}
 		}
 	} /* s_flag is clear: timer updates */

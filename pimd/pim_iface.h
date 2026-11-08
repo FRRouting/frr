@@ -274,6 +274,8 @@ ferr_r pim_if_gm_join_add(struct interface *ifp, pim_addr group_addr,
 			  pim_addr source_addr, enum gm_join_type join_type);
 int pim_if_gm_join_del(struct interface *ifp, pim_addr group_addr,
 		       pim_addr source_addr, enum gm_join_type join_type);
+bool pim_if_gm_join_exists(struct interface *ifp, pim_addr group_addr,
+			   pim_addr source_addr);
 void pim_if_gm_proxy_init(struct pim_instance *pim, struct interface *oif);
 void pim_if_gm_proxy_finis(struct pim_instance *pim, struct interface *ifp);
 bool pim_if_is_gm_proxy(struct interface *ifp);
