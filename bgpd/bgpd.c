@@ -6716,12 +6716,9 @@ int peer_default_originate_set(struct peer *peer, afi_t afi, safi_t safi,
 {
 	struct peer *member;
 	struct listnode *node, *nnode;
-	struct update_subgroup *subgrp;
 
 	/* Set flag and configuration on peer. */
 	peer_af_flag_set(peer, afi, safi, PEER_FLAG_DEFAULT_ORIGINATE);
-
-	subgrp = peer_subgroup(peer, afi, safi);
 
 	if (rmap) {
 		if (!peer->bgp->rmap_def_originate_eval_timer)
@@ -6739,17 +6736,6 @@ int peer_default_originate_set(struct peer *peer, afi_t afi, safi_t safi,
 				      peer->default_rmap[afi][safi].name);
 			}
 
-			/*
-			 * When there is a change in route-map policy,
-			 * this flow gets triggered. Since, the default
-			 * route is already originated, the flag is set.
-			 * The flag should be unset here,
-			 * to trigger the flow of sending update message.
-			 */
-			if (subgrp)
-				UNSET_FLAG(subgrp->sflags,
-					   SUBGRP_STATUS_DEFAULT_ORIGINATE);
-
 			route_map_counter_decrement(map);
 			peer->default_rmap[afi][safi].name =
 				XSTRDUP(MTYPE_ROUTE_MAP_NAME, rmap);
@@ -6765,15 +6751,6 @@ int peer_default_originate_set(struct peer *peer, afi_t afi, safi_t safi,
 			XFREE(MTYPE_ROUTE_MAP_NAME,
 			      peer->default_rmap[afi][safi].name);
 		}
-
-		/*
-		 * This is triggered in case of route-map deletion.
-		 * The flag needs to be unset, to trigger the flow
-		 * of sending an update message.
-		 */
-		if (subgrp)
-			UNSET_FLAG(subgrp->sflags,
-				   SUBGRP_STATUS_DEFAULT_ORIGINATE);
 
 		route_map_counter_decrement(map);
 		peer->default_rmap[afi][safi].name = NULL;
@@ -9484,8 +9461,6 @@ int peer_clear(struct peer *peer, struct listnode **nnode)
 int peer_clear_soft(struct peer *peer, afi_t afi, safi_t safi,
 		    enum bgp_clear_type stype)
 {
-	struct peer_af *paf;
-
 	if (!peer_established(peer->connection))
 		return 0;
 
@@ -9494,17 +9469,8 @@ int peer_clear_soft(struct peer *peer, afi_t afi, safi_t safi,
 
 	peer->rtt = sockopt_tcp_rtt(peer->connection->fd);
 
-	if (stype == BGP_CLEAR_SOFT_OUT || stype == BGP_CLEAR_SOFT_BOTH) {
-		/* Clear the "neighbor x.x.x.x default-originate" flag */
-		paf = peer_af_find(peer, afi, safi);
-		if (paf && paf->subgroup
-		    && CHECK_FLAG(paf->subgroup->sflags,
-				  SUBGRP_STATUS_DEFAULT_ORIGINATE))
-			UNSET_FLAG(paf->subgroup->sflags,
-				   SUBGRP_STATUS_DEFAULT_ORIGINATE);
-
+	if (stype == BGP_CLEAR_SOFT_OUT || stype == BGP_CLEAR_SOFT_BOTH)
 		bgp_announce_route(peer, afi, safi, true);
-	}
 
 	if (stype == BGP_CLEAR_SOFT_IN_ORF_PREFIX) {
 		if (CHECK_FLAG(peer->af_cap[afi][safi],

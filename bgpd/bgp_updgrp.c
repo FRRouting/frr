@@ -1890,11 +1890,7 @@ static int updgrp_policy_update_walkcb(struct update_group *updgrp, void *arg)
 			 * the route-map is still present.  If it was deleted,
 			 * subgroup_default_originate() detects the missing map
 			 * and withdraws the default route.
-			 *
-			 * Clear the flag to force re-announcement with
-			 * potentially updated attributes from the route-map.
 			 */
-			UNSET_FLAG(subgrp->sflags, SUBGRP_STATUS_DEFAULT_ORIGINATE);
 			subgroup_default_originate(subgrp);
 		}
 		update_subgroup_set_needs_refresh(subgrp, 0);
@@ -2300,14 +2296,8 @@ update_group_default_originate_route_map_walkcb(struct update_group *updgrp,
 		afi = SUBGRP_AFI(subgrp);
 		safi = SUBGRP_SAFI(subgrp);
 
-		if (peer->default_rmap[afi][safi].name) {
-			/*
-			 * Clear the flag to force re-announcement with
-			 * potentially updated attributes from the route-map.
-			 */
-			UNSET_FLAG(subgrp->sflags, SUBGRP_STATUS_DEFAULT_ORIGINATE);
+		if (peer->default_rmap[afi][safi].name)
 			subgroup_default_originate(subgrp);
-		}
 	}
 
 	return UPDWALK_CONTINUE;

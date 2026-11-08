@@ -1240,9 +1240,6 @@ void subgroup_default_originate(struct update_subgroup *subgrp)
 			 * Route-map is configured but undefined or empty.
 			 * Treat as implicit deny - withdraw the default.
 			 */
-			if (!do_withdraw &&
-			    !CHECK_FLAG(subgrp->sflags, SUBGRP_STATUS_DEFAULT_ORIGINATE))
-				SET_FLAG(subgrp->sflags, SUBGRP_STATUS_DEFAULT_ORIGINATE);
 			do_withdraw = true;
 		}
 	}
@@ -1322,77 +1319,64 @@ rmap_done:;
 	}
 
 	if (do_withdraw) {
-		/* Withdraw the synthesized default.  Always send the withdraw
-		 * packet - the caller may have cleared the flag before calling
-		 * to force re-evaluation.
-		 *
-		 * TBD: Track the synthesized route's attributes so we can check
-		 * the flag properly and avoid unnecessary withdraw packets.
+		/* Withdraw the synthesized default if it was previously sent. */
+		if (CHECK_FLAG(subgrp->sflags, SUBGRP_STATUS_DEFAULT_ORIGINATE)) {
+			subgroup_default_withdraw_packet(subgrp);
+			UNSET_FLAG(subgrp->sflags, SUBGRP_STATUS_DEFAULT_ORIGINATE);
+		}
+	} else { /* TBD: compare attributes to avoid sending redundant UPDATEs. */
+		struct attr attr_copy;
+
+		/*
+		 * Prepend local-AS for EBGP. Make a copy first since
+		 * new_attr may be interned (shared) when route-map
+		 * matched, and modifying it in place would corrupt
+		 * the attribute hash.
 		 */
-		subgroup_default_withdraw_packet(subgrp);
-		UNSET_FLAG(subgrp->sflags, SUBGRP_STATUS_DEFAULT_ORIGINATE);
-	} else {
-		if (!CHECK_FLAG(subgrp->sflags,
-				SUBGRP_STATUS_DEFAULT_ORIGINATE)) {
-			struct attr attr_copy;
+		bgp_attr_dup_into(&attr_copy, new_attr);
 
-			/*
-			 * Prepend local-AS for EBGP. Make a copy first since
-			 * new_attr may be interned (shared) when route-map
-			 * matched, and modifying it in place would corrupt
-			 * the attribute hash.
-			 */
-			bgp_attr_dup_into(&attr_copy, new_attr);
-
-			/* Apply set-only route-map to attr_copy (not new_attr)
-			 * to avoid memory leak - attr_copy will be flushed.
-			 * Only needed when table walk was skipped (new behavior).
-			 */
-			if (rmap && match_rules == 0 &&
-			    CHECK_FLAG(bgp->flags,
-				       BGP_FLAG_DEFAULT_ORIGINATE_SETONLY_UNCONDITIONAL)) {
-				memset(&p, 0, sizeof(p));
-				p.family = afi2family(afi);
-				p.prefixlen = 0;
-				if (bgp_route_map_setting_only(bgp, rmap, PEER_RMAP_TYPE_DEFAULT,
-							       &p, &attr_copy) == RMAP_DENYMATCH) {
-					/*
-					 * Route-map denied - withdraw default.
-					 * The flag may have been cleared by callers,
-					 * so withdraw unconditionally. This may send
-					 * an unnecessary withdraw, but a deny-only
-					 * route-map is not a practical scenario.
-					 */
-					bgp_attr_flush(&attr_copy);
-					aspath_unintern(&aspath);
+		/* Apply set-only route-map to attr_copy (not new_attr)
+		 * to avoid memory leak - attr_copy will be flushed.
+		 * Only needed when table walk was skipped (new behavior).
+		 */
+		if (rmap && match_rules == 0 &&
+		    CHECK_FLAG(bgp->flags, BGP_FLAG_DEFAULT_ORIGINATE_SETONLY_UNCONDITIONAL)) {
+			memset(&p, 0, sizeof(p));
+			p.family = afi2family(afi);
+			p.prefixlen = 0;
+			if (bgp_route_map_setting_only(bgp, rmap, PEER_RMAP_TYPE_DEFAULT, &p,
+						       &attr_copy) == RMAP_DENYMATCH) {
+				/* Route-map denied - withdraw default if previously sent. */
+				bgp_attr_flush(&attr_copy);
+				aspath_unintern(&aspath);
+				if (CHECK_FLAG(subgrp->sflags, SUBGRP_STATUS_DEFAULT_ORIGINATE)) {
 					subgroup_default_withdraw_packet(subgrp);
 					UNSET_FLAG(subgrp->sflags, SUBGRP_STATUS_DEFAULT_ORIGINATE);
-					return;
 				}
-				/* Clear reflection attributes - default-originate
-				 * is self-originated, not reflected.
-				 */
-				bgp_attr_clear_reflection(&attr_copy);
+				return;
 			}
-
-			/* Add gshut community after set-only so route-map
-			 * cannot overwrite the shutdown signal.
+			/* Clear reflection attributes - default-originate
+			 * is self-originated, not reflected.
 			 */
-			if (bgp_in_graceful_shutdown(bgp) ||
-			    (CHECK_FLAG(peer->flags, PEER_FLAG_GRACEFUL_SHUTDOWN)))
-				bgp_attr_add_gshut_community(&attr_copy);
-
-			/* Handle "bgp max-med" */
-			if (bgp->maxmed_active)
-				bgp_attr_set_med(&attr_copy, bgp->maxmed_value);
-
-			bgp_peer_prepend_local_as(peer, afi, safi, &attr_copy);
-
-			SET_FLAG(subgrp->sflags,
-				 SUBGRP_STATUS_DEFAULT_ORIGINATE);
-			subgroup_default_update_packet(subgrp, &attr_copy, from);
-			bgp_attr_flush(&attr_copy);
+			bgp_attr_clear_reflection(&attr_copy);
 		}
+
+		/* Add gshut community after set-only so route-map
+		 * cannot overwrite the shutdown signal.
+		 */
+		if (bgp_in_graceful_shutdown(bgp) ||
+		    CHECK_FLAG(peer->flags, PEER_FLAG_GRACEFUL_SHUTDOWN))
+			bgp_attr_add_gshut_community(&attr_copy);
+
+		/* Handle "bgp max-med" */
+		if (bgp->maxmed_active)
+			bgp_attr_set_med(&attr_copy, bgp->maxmed_value);
+
+		bgp_peer_prepend_local_as(peer, afi, safi, &attr_copy);
+
+		SET_FLAG(subgrp->sflags, SUBGRP_STATUS_DEFAULT_ORIGINATE);
+		subgroup_default_update_packet(subgrp, &attr_copy, from);
+		bgp_attr_flush(&attr_copy);
 	}
 
 	aspath_unintern(&aspath);

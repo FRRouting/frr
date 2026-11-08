@@ -3009,7 +3009,6 @@ static int bgp_route_refresh_receive(struct peer_connection *connection, bgp_siz
 	iana_safi_t pkt_safi;
 	safi_t safi;
 	struct stream *s;
-	struct peer_af *paf;
 	uint8_t subtype;
 	bgp_size_t msg_length =
 		size - (BGP_MSG_ROUTE_REFRESH_MIN_SIZE - BGP_HEADER_SIZE);
@@ -3284,19 +3283,6 @@ static int bgp_route_refresh_receive(struct peer_connection *connection, bgp_siz
 		       PEER_STATUS_ORF_WAIT_REFRESH))
 		UNSET_FLAG(peer->af_sflags[afi][safi],
 			   PEER_STATUS_ORF_WAIT_REFRESH);
-
-	paf = peer_af_find(peer, afi, safi);
-	if (paf && paf->subgroup) {
-		/* If the peer is configured for default-originate clear the
-		 * SUBGRP_STATUS_DEFAULT_ORIGINATE flag so that we will
-		 * re-advertise the
-		 * default
-		 */
-		if (CHECK_FLAG(paf->subgroup->sflags,
-			       SUBGRP_STATUS_DEFAULT_ORIGINATE))
-			UNSET_FLAG(paf->subgroup->sflags,
-				   SUBGRP_STATUS_DEFAULT_ORIGINATE);
-	}
 
 	if (bgp_debug_neighbor_events(peer))
 		zlog_debug("%pBP rcvd route-refresh (REQUEST) for %s/%s", peer, afi2str(afi),
