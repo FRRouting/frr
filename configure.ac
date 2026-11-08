@@ -1146,6 +1146,22 @@ case "$host_os" in
 esac
 AC_SUBST([LIBFRR_ENTRY_LDFLAGS])
 
+dnl macOS specifics.  These need to be in CPPFLAGS rather than in some automake
+dnl variable since the checks below use them, too.
+dnl
+dnl - macOS has no <endian.h> (and, depending on the SDK, no htobe64() & co.)
+dnl   include/macos/endian.h provides one.  It must be an absolute path since
+dnl   srcdir is often ".".
+dnl - the RFC 3542 IPv6 socket API (IPV6_PKTINFO, IPV6_HOPLIMIT, IPV6_RECV*)
+dnl   is only visible when __APPLE_USE_RFC_3542 is defined.  The default there
+dnl   is the obsolete RFC 2292 API.
+case "$host_os" in
+  darwin*)
+    frr_abs_srcdir="`cd \"${srcdir}\"; pwd`"
+    CPPFLAGS="-I${frr_abs_srcdir}/include/macos -D__APPLE_USE_RFC_3542 $CPPFLAGS"
+    ;;
+esac
+
 dnl -------------------------
 dnl Check other header files.
 dnl -------------------------
