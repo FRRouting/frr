@@ -528,7 +528,10 @@ PyMODINIT_FUNC command_py_init(void)
 	PyModule_AddObject(pymod, "GraphNode", (PyObject *)&typeobj_graph_node);
 	Py_INCREF(&typeobj_graph);
 	PyModule_AddObject(pymod, "Graph", (PyObject *)&typeobj_graph);
+#ifdef HAVE_CLIPPY_ELF
+	/* no libelf (e.g. on macOS) => python/clippy/macho.py does the work */
 	if (!elf_py_init(pymod))
 		initret(NULL);
+#endif
 	initret(pymod);
 }

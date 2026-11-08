@@ -250,6 +250,7 @@ EXTRA_DIST += \
 	python/clidef.py \
 	python/clippy/__init__.py \
 	python/clippy/elf.py \
+	python/clippy/macho.py \
 	python/clippy/uidhash.py \
 	python/makevars.py \
 	python/makefile.py \
