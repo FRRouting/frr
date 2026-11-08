@@ -1548,6 +1548,17 @@ void bfd_recv_cb(struct event *t)
 	}
 }
 
+/* Whether an IPv6 echo packet is an S-BFD echo of ours that came back. */
+static bool bfd_sbfd_echo_returned(const struct bfd_echo_pkt *bep, const struct sockaddr_any *peer,
+				   const struct sockaddr_any *local)
+{
+	const struct bfd_session *bs = bfd_id_lookup(ntohl(bep->my_discr));
+
+	return bs && bs->bfd_mode == BFD_MODE_TYPE_SBFD_ECHO &&
+	       IPV6_ADDR_SAME(&peer->sa_sin6.sin6_addr, &local->sa_sin6.sin6_addr) &&
+	       IPV6_ADDR_SAME(&peer->sa_sin6.sin6_addr, &bs->key.local);
+}
+
 /*
  * bp_bfd_echo_in: processes an BFD echo packet. On TTL == BFD_TTL_VAL
  * the packet is looped back or returns the my discriminator ID along
@@ -1604,8 +1615,15 @@ int bp_bfd_echo_in(struct bfd_vrf_global *bvrf, int sd, uint8_t *ttl,
 
 	bep = (struct bfd_echo_pkt *)(msgbuf + bfd_offset);
 
-	/* Test for loopback for ipv6, ipv4 is looped in forwarding plane */
-	if ((*ttl == BFD_TTL_VAL) && (sd == bvrf->bg_echov6)) {
+	/*
+	 * Test for loopback for ipv6, ipv4 is looped in forwarding plane.
+	 * An S-BFD echo comes back to its initiator, source and destination
+	 * its own address: it may keep the hop limit it was sent with (the
+	 * node that decapsulated it need not decrement it), and it is the
+	 * session's echo, not a peer's to reflect.
+	 */
+	if ((*ttl == BFD_TTL_VAL) && (sd == bvrf->bg_echov6) &&
+	    !bfd_sbfd_echo_returned(bep, &peer, &local)) {
 		struct bfd_key key;
 		struct vrf *vrf;
 		struct interface *ifp = NULL;
