@@ -2635,7 +2635,7 @@ static void zread_mpls_labels_delete(ZAPI_HANDLER_ARGS)
 	if (zl.nexthop_num > 0) {
 		mpls_zapi_labels_process(false /*delete*/, zvrf, &zl);
 	} else {
-		mpls_lsp_uninstall_all_vrf(zvrf, zl.type, zl.local_label);
+		mpls_zapi_labels_uninstall_all(zvrf, zl.type, zl.local_label);
 
 		if (CHECK_FLAG(zl.message, ZAPI_LABELS_FTN))
 			mpls_ftn_uninstall(zvrf, zl.type, &zl.route.prefix,
@@ -2677,10 +2677,12 @@ static void zread_mpls_labels_replace(ZAPI_HANDLER_ARGS)
 		return;
 
 	/* This removes everything, then re-adds from the client's
-	 * zapi message. Since the LSP will be processed later, on this
-	 * this same pthread, all of the changes will 'appear' at once.
+	 * zapi message. Both are queued, so that a request that follows
+	 * this one cannot be applied between them, and since the LSP will
+	 * be processed later, on this same pthread, all of the changes will
+	 * 'appear' at once.
 	 */
-	mpls_lsp_uninstall_all_vrf(zvrf, zl.type, zl.local_label);
+	mpls_zapi_labels_uninstall_all(zvrf, zl.type, zl.local_label);
 	if (CHECK_FLAG(zl.message, ZAPI_LABELS_FTN))
 		mpls_ftn_uninstall(zvrf, zl.type, &zl.route.prefix,
 				   zl.route.type, zl.route.instance);
