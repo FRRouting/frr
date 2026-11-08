@@ -4248,7 +4248,7 @@ void kernel_read_macfdb(struct zebra_dplane_ctx *ctx)
 	const struct zebra_dplane_info *dp_info = dplane_ctx_get_ns(ctx);
 	struct nlsock *nl;
 
-	nl = kernel_netlink_nlsock_lookup(dplane_ctx_get_ns_sock(ctx));
+	nl = kernel_netlink_nlsock_lookup_info(dplane_ctx_get_ns(ctx));
 	if (!nl) {
 		dplane_ctx_set_status(ctx, ZEBRA_DPLANE_REQUEST_FAILURE);
 		return;
@@ -4624,7 +4624,7 @@ void kernel_read_neigh(struct zebra_dplane_ctx *ctx)
 	int ret;
 	int nl_err = 0;
 
-	nl = kernel_netlink_nlsock_lookup(dplane_ctx_get_ns_sock(ctx));
+	nl = kernel_netlink_nlsock_lookup_info(dplane_ctx_get_ns(ctx));
 	if (!nl) {
 		dplane_ctx_set_status(ctx, ZEBRA_DPLANE_REQUEST_FAILURE);
 		return;

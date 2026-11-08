@@ -110,6 +110,7 @@ extern void netlink_set_batch_buffer_size(uint32_t size, uint32_t threshold,
 					  bool set);
 
 extern struct nlsock *kernel_netlink_nlsock_lookup(int sock);
+extern struct nlsock *kernel_netlink_nlsock_lookup_info(const struct zebra_dplane_info *info);
 
 #ifdef __cplusplus
 }

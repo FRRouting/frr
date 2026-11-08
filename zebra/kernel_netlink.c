@@ -174,6 +174,7 @@ DEFINE_MTYPE_STATIC(ZEBRA, NL_BUF, "Zebra Netlink buffers");
  */
 static struct hash *nlsock_hash;
 pthread_mutex_t nlsock_mutex;
+static uint32_t nlsock_gen;
 
 /* Lock and unlock wrappers for nlsock hash */
 #define NLSOCK_LOCK() pthread_mutex_lock(&nlsock_mutex)
@@ -454,7 +455,10 @@ static int dplane_netlink_information_fetch(struct nlmsghdr *h, ns_id_t ns_id, i
  */
 int kernel_dplane_read(struct zebra_dplane_info *info)
 {
-	struct nlsock *nl = kernel_netlink_nlsock_lookup(info->sock);
+	struct nlsock *nl = kernel_netlink_nlsock_lookup_info(info);
+
+	if (!nl)
+		return -1;
 
 	netlink_parse_info(dplane_netlink_information_fetch, nl, info, 5, false, NULL, NULL);
 
@@ -1086,7 +1090,9 @@ static int netlink_talk_info(netlink_parse_filter_t filter, struct nlmsghdr *n,
 {
 	struct nlsock *nl;
 
-	nl = kernel_netlink_nlsock_lookup(dp_info->sock);
+	nl = kernel_netlink_nlsock_lookup_info(dp_info);
+	if (!nl)
+		return -1;
 	n->nlmsg_seq = dp_info->seq;
 	n->nlmsg_pid = nl->snl.nl_pid;
 
@@ -1148,6 +1154,7 @@ int ge_netlink_talk(netlink_parse_filter_t filter, struct nlmsghdr *n, struct ze
 	dp_info.is_cmd = true;
 	dp_info.sock = zns->ge_netlink_cmd.sock;
 	dp_info.seq = zns->ge_netlink_cmd.seq;
+	dp_info.sock_gen = zns->ge_netlink_cmd.gen;
 
 	return netlink_talk_info(filter, n, &dp_info, startup, arg, nl_err);
 }
@@ -1378,15 +1385,16 @@ static void nl_batch_send(struct nl_batch *bth)
 	int err_errno = 0;
 
 	if (bth->curlen != 0 && bth->zns != NULL) {
-		struct nlsock *nl =
-			kernel_netlink_nlsock_lookup(bth->zns->sock);
+		struct nlsock *nl = kernel_netlink_nlsock_lookup_info(bth->zns);
 
-		if (IS_ZEBRA_DEBUG_KERNEL)
+		if (!nl)
+			err = true;
+		else if (IS_ZEBRA_DEBUG_KERNEL)
 			zlog_debug("%s: %s, batch size=%zu, msg cnt=%zu",
 				   __func__, nl->name, bth->curlen,
 				   bth->msgcnt);
 
-		if (netlink_send_msg(nl, bth->buf, bth->curlen) == -1) {
+		if (nl && netlink_send_msg(nl, bth->buf, bth->curlen) == -1) {
 			err = true;
 			err_errno = errno;
 		}
@@ -1395,7 +1403,7 @@ static void nl_batch_send(struct nl_batch *bth)
 		 * If reading the responses fails, nl_batch_read_resp() has
 		 * already marked and moved all of the contexts.
 		 */
-		if (!err) {
+		if (nl && !err) {
 			if (nl_batch_read_resp(bth, nl) == -1)
 				err = true;
 		}
@@ -1428,7 +1436,7 @@ enum netlink_msg_status netlink_batch_add_msg(
 	int seq;
 	ssize_t size;
 	struct nlmsghdr *msgh;
-	struct nlsock *nl = kernel_netlink_nlsock_lookup(dplane_ctx_get_ns_sock(ctx));
+	struct nlsock *nl = kernel_netlink_nlsock_lookup_info(dplane_ctx_get_ns(ctx));
 
 	if (!nl || nl->sock < 0 || !nl->buf)
 		return FRR_NETLINK_ERROR;
@@ -1585,6 +1593,11 @@ static enum netlink_msg_status nl_put_msg(struct nl_batch *bth,
 	return FRR_NETLINK_ERROR;
 }
 
+static bool nl_batch_same_sock(const struct zebra_dplane_info *a, const struct zebra_dplane_info *b)
+{
+	return a->ns_id == b->ns_id && a->sock == b->sock && a->sock_gen == b->sock_gen;
+}
+
 void kernel_update_multi(struct dplane_ctx_list_head *ctx_list)
 {
 	struct nl_batch batch;
@@ -1613,8 +1626,8 @@ void kernel_update_multi(struct dplane_ctx_list_head *ctx_list)
 			continue;
 		}
 
-		if (batch.zns != NULL
-		    && batch.zns->ns_id != dplane_ctx_get_ns(ctx)->ns_id)
+		/* A batch goes out on a single socket generation. */
+		if (batch.zns != NULL && !nl_batch_same_sock(batch.zns, dplane_ctx_get_ns(ctx)))
 			nl_batch_send(&batch);
 
 		/*
@@ -1651,6 +1664,16 @@ struct nlsock *kernel_netlink_nlsock_lookup(int sock)
 	NLSOCK_UNLOCK();
 
 	return retval;
+}
+
+struct nlsock *kernel_netlink_nlsock_lookup_info(const struct zebra_dplane_info *info)
+{
+	struct nlsock *nl = kernel_netlink_nlsock_lookup(info->sock);
+
+	if (!nl || nl->gen != info->sock_gen)
+		return NULL;
+
+	return nl;
 }
 
 /* Insert nlsock entry into hash */
@@ -1729,6 +1752,10 @@ static int kernel_init_nlsock(struct nlsock *nl, const char *name_prefix, unsign
 			flog_err(EC_LIB_SOCKET, "Failure to create %s socket", nl->name);
 		return -1;
 	}
+
+	if (++nlsock_gen == 0)
+		++nlsock_gen;
+	nl->gen = nlsock_gen;
 
 	kernel_netlink_nlsock_insert(nl);
 	return 0;
