@@ -1053,6 +1053,13 @@ void igmp_group_delete(struct gm_group *group)
 			   group->interface->name);
 	}
 
+	/*
+	 * The group is going away: drop its filter mode first, so the prunes
+	 * below no longer see the '*' source as wanted.
+	 */
+	group_timer_off(group);
+	group->group_filtermode_isexcl = 0;
+
 	for (ALL_LIST_ELEMENTS(group->group_source_list, src_node, src_nextnode,
 			       src)) {
 		igmp_source_delete(src);
@@ -1060,7 +1067,6 @@ void igmp_group_delete(struct gm_group *group)
 
 	event_cancel(&group->t_group_query_retransmit_timer);
 
-	group_timer_off(group);
 	igmp_group_count_decr(pim_ifp);
 	listnode_delete(pim_ifp->gm_group_list, group);
 	hash_release(pim_ifp->gm_group_hash, group);
@@ -1327,6 +1333,24 @@ static void igmp_group_timer(struct event *t)
 
 	/* Any source (*,G) is forwarded only if mode is EXCLUDE {empty} */
 	igmp_anysource_forward_stop(group);
+
+	/*
+	 * '*' may already have been removed while the group was still
+	 * EXCLUDE (immediate leave, or EXCLUDE {} becoming EXCLUDE {S}),
+	 * so the stop above did not run the proxy prune. The mode change
+	 * is the (*,G) leave.
+	 */
+	{
+		struct in_addr star = { .s_addr = INADDR_ANY };
+		struct pim_interface *pim_ifp = group->interface->info;
+
+		if (pim_ifp && !igmp_find_source_by_addr(group, star)) {
+			pim_sgaddr sg = {};
+
+			sg.grp = group->group_addr;
+			tib_sg_proxy_join_prune_check(pim_ifp->pim, sg, group->interface, false);
+		}
+	}
 
 	igmp_source_delete_expired(group->group_source_list);
 

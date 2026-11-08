@@ -58,6 +58,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Send an IGMPv3 packet")
     parser.add_argument("--gaddr", type=str, default="224.0.0.22", help="Destination IP address")
     parser.add_argument("--maddr", action='append', default=[], help="Multicast Address Records")
+    parser.add_argument("--source", action='append', default=[], help="Source address in the group record")
     parser.add_argument("--src_ip", type=str, default="192.168.1.10", help="Source IP address")
     parser.add_argument("--type", type=lambda x: int(x, 0), default=0x22, help="Type of IGMP message")
     parser.add_argument("--rtype", type=int, default=1, help="Record type")
@@ -69,6 +70,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     igmp_packet = IGMPv3(maddrs=args.maddr,
+                         records=args.source,
                          src_ip=args.src_ip,
                          type=args.type,
                          gaddr=args.gaddr,

@@ -576,10 +576,11 @@ keyword at the end.
    via IGMP proxy on this interface. Only groups permitted by the route-map
    will be proxied; all others are silently dropped.
 
-   This is evaluated at proxy join time: on initial proxy setup
-   (``ip igmp proxy``) and each time a new IGMP report arrives on another
-   interface. Changing the route-map takes effect on the next proxy
-   enable/disable cycle.
+   This is evaluated when the proxy is enabled, when a membership changes
+   on another interface, and when this route-map is attached, detached,
+   or its contents (including a prefix-list it matches) change. Joins the
+   new filter denies are withdrawn, and joins it newly permits are added,
+   without disabling the proxy.
 
    The following ``match`` statements are supported:
 

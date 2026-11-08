@@ -314,6 +314,18 @@ void igmp_source_delete(struct gm_source *source)
 	}
 
 	source_timer_off(group, source);
+
+	/*
+	 * Unlink before the prune. The proxy interest walk would otherwise
+	 * still see this source. A '*' source stays wanted while the group
+	 * is EXCLUDE, so deleting it on the way from EXCLUDE {} to
+	 * EXCLUDE {S} kept the proxy (*,G) join.
+	 *
+	 * listnode_delete() stays here, not in igmp_source_free(), because
+	 * free() is also called by list_delete_all_node().
+	 */
+	listnode_delete(group->group_source_list, source);
+
 	igmp_source_forward_stop(source);
 	source->source_channel_oil = NULL;
 
@@ -324,13 +336,6 @@ void igmp_source_delete(struct gm_source *source)
 			  group->interface->name);
 		/* warning only */
 	}
-
-	/*
-	  notice that listnode_delete() can't be moved
-	  into igmp_source_free() because the later is
-	  called by list_delete_all_node()
-	*/
-	listnode_delete(group->group_source_list, source);
 
 	src.s_addr = source->source_addr.s_addr;
 	igmp_source_free(source);
