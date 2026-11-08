@@ -1865,9 +1865,9 @@ int pim_if_static_group_del(struct interface *ifp, pim_addr group_addr,
 	sg.src = source_addr;
 	sg.grp = group_addr;
 
-	tib_sg_gm_prune(pim_ifp->pim, sg, ifp, &(stgrp->oilp));
-
+	/* Unlink first, so the prune does not count this static group. */
 	listnode_delete(pim_ifp->static_group_list, stgrp);
+	tib_sg_gm_prune(pim_ifp->pim, sg, ifp, &(stgrp->oilp));
 	static_group_free(stgrp);
 	if (listcount(pim_ifp->static_group_list) < 1) {
 		list_delete(&pim_ifp->static_group_list);

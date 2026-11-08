@@ -16,6 +16,7 @@
 #include "pimd/pim_addr.h"
 #include "pimd/pim_nb.h"
 #include "pimd/pim_routemap.h"
+#include "pimd/pim_tib.h"
 #include "pimd/pim_util.h"
 
 #include "pimd.h"
@@ -683,17 +684,20 @@ ALIAS_YANG(route_map_match_source_interface,
 static void pim_route_map_add(const char *rmap_name)
 {
 	pim_filter_ref_update();
+	pim_gm_proxy_filter_update(rmap_name);
 	route_map_notify_dependencies(rmap_name, RMAP_EVENT_MATCH_ADDED);
 }
 
 static void pim_route_map_delete(const char *rmap_name)
 {
 	pim_filter_ref_update();
+	pim_gm_proxy_filter_update(rmap_name);
 	route_map_notify_dependencies(rmap_name, RMAP_EVENT_MATCH_DELETED);
 }
 
 static void pim_route_map_event(const char *rmap_name)
 {
+	pim_gm_proxy_filter_update(rmap_name);
 	route_map_notify_dependencies(rmap_name, RMAP_EVENT_MATCH_ADDED);
 }
 
@@ -736,13 +740,15 @@ void pim_route_map_init(void)
 void pim_route_map_terminate(void)
 {
 	route_map_finish();
+	pim_gm_proxy_filter_terminate();
 }
 
 
 /*
  * Northbound
  */
-static int pim_route_map_match_item_modify(struct nb_cb_modify_args *args, const char *rulename)
+static int pim_route_map_match_item_modify(struct nb_cb_modify_args *args, const char *rulename,
+					   route_map_event_t add_type, route_map_event_t del_type)
 {
 	struct routemap_hook_context *rhc;
 	const char *addr;
@@ -758,10 +764,10 @@ static int pim_route_map_match_item_modify(struct nb_cb_modify_args *args, const
 	/* Set destroy information. */
 	rhc->rhc_mhook = generic_match_delete;
 	rhc->rhc_rule = rulename;
-	rhc->rhc_event = RMAP_EVENT_MATCH_DELETED;
+	rhc->rhc_event = del_type;
 
-	rv = generic_match_add(rhc->rhc_rmi, rhc->rhc_rule, addr, RMAP_EVENT_MATCH_ADDED,
-			       args->errmsg, args->errmsg_len);
+	rv = generic_match_add(rhc->rhc_rmi, rhc->rhc_rule, addr, add_type, args->errmsg,
+			       args->errmsg_len);
 	if (rv != CMD_SUCCESS) {
 		rhc->rhc_mhook = NULL;
 		return NB_ERR_INCONSISTENCY;
@@ -772,32 +778,38 @@ static int pim_route_map_match_item_modify(struct nb_cb_modify_args *args, const
 
 int pim_route_map_match_source_modify(struct nb_cb_modify_args *args)
 {
-	return pim_route_map_match_item_modify(args, MULTICAST_IPV4_SOURCE);
+	return pim_route_map_match_item_modify(args, MULTICAST_IPV4_SOURCE, RMAP_EVENT_MATCH_ADDED,
+					       RMAP_EVENT_MATCH_DELETED);
 }
 
 int pim_route_map_match_source_v6_modify(struct nb_cb_modify_args *args)
 {
-	return pim_route_map_match_item_modify(args, MULTICAST_IPV6_SOURCE);
+	return pim_route_map_match_item_modify(args, MULTICAST_IPV6_SOURCE, RMAP_EVENT_MATCH_ADDED,
+					       RMAP_EVENT_MATCH_DELETED);
 }
 
 int pim_route_map_match_group_modify(struct nb_cb_modify_args *args)
 {
-	return pim_route_map_match_item_modify(args, MULTICAST_IPV4_GROUP);
+	return pim_route_map_match_item_modify(args, MULTICAST_IPV4_GROUP, RMAP_EVENT_MATCH_ADDED,
+					       RMAP_EVENT_MATCH_DELETED);
 }
 
 int pim_route_map_match_group_v6_modify(struct nb_cb_modify_args *args)
 {
-	return pim_route_map_match_item_modify(args, MULTICAST_IPV6_GROUP);
+	return pim_route_map_match_item_modify(args, MULTICAST_IPV6_GROUP, RMAP_EVENT_MATCH_ADDED,
+					       RMAP_EVENT_MATCH_DELETED);
 }
 
 int pim_route_map_match_interface_modify(struct nb_cb_modify_args *args)
 {
-	return pim_route_map_match_item_modify(args, MULTICAST_INTERFACE);
+	return pim_route_map_match_item_modify(args, MULTICAST_INTERFACE, RMAP_EVENT_MATCH_ADDED,
+					       RMAP_EVENT_MATCH_DELETED);
 }
 
 int pim_route_map_match_source_interface_modify(struct nb_cb_modify_args *args)
 {
-	return pim_route_map_match_item_modify(args, MULTICAST_SOURCE_INTERFACE);
+	return pim_route_map_match_item_modify(args, MULTICAST_SOURCE_INTERFACE,
+					       RMAP_EVENT_MATCH_ADDED, RMAP_EVENT_MATCH_DELETED);
 }
 
 int pim_route_map_match_list_name_modify(struct nb_cb_modify_args *args)
@@ -805,13 +817,21 @@ int pim_route_map_match_list_name_modify(struct nb_cb_modify_args *args)
 	const char *condition = yang_dnode_get_string(args->dnode, "../../condition");
 
 	if (IS_MATCH_IPV4_MULTICAST_SOURCE_PREFIX_LIST(condition))
-		return pim_route_map_match_item_modify(args, MULTICAST_IPV4_SOURCE_LIST);
+		return pim_route_map_match_item_modify(args, MULTICAST_IPV4_SOURCE_LIST,
+						       RMAP_EVENT_PLIST_ADDED,
+						       RMAP_EVENT_PLIST_DELETED);
 	else if (IS_MATCH_IPV6_MULTICAST_SOURCE_PREFIX_LIST(condition))
-		return pim_route_map_match_item_modify(args, MULTICAST_IPV6_SOURCE_LIST);
+		return pim_route_map_match_item_modify(args, MULTICAST_IPV6_SOURCE_LIST,
+						       RMAP_EVENT_PLIST_ADDED,
+						       RMAP_EVENT_PLIST_DELETED);
 	else if (IS_MATCH_IPV4_MULTICAST_GROUP_PREFIX_LIST(condition))
-		return pim_route_map_match_item_modify(args, MULTICAST_IPV4_GROUP_LIST);
+		return pim_route_map_match_item_modify(args, MULTICAST_IPV4_GROUP_LIST,
+						       RMAP_EVENT_PLIST_ADDED,
+						       RMAP_EVENT_PLIST_DELETED);
 	else if (IS_MATCH_IPV6_MULTICAST_GROUP_PREFIX_LIST(condition))
-		return pim_route_map_match_item_modify(args, MULTICAST_IPV6_GROUP_LIST);
+		return pim_route_map_match_item_modify(args, MULTICAST_IPV6_GROUP_LIST,
+						       RMAP_EVENT_PLIST_ADDED,
+						       RMAP_EVENT_PLIST_DELETED);
 
 	assertf(0, "unknown YANG condition %s", condition);
 }

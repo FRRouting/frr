@@ -30,6 +30,7 @@
 #include "pim6_mld.h"
 #include "pim_autorp.h"
 #include "pim_igmp.h"
+#include "pim_tib.h"
 
 #if PIM_IPV == 6
 #define pim6_msdp_err(funcname, argtype)                                       \
@@ -5315,6 +5316,8 @@ int lib_interface_gm_proxy_rmap_modify(struct nb_cb_modify_args *args)
 
 		rmap = yang_dnode_get_string(args->dnode, NULL);
 		pim_filter_ref_set_rmap(&pim_ifp->gm_proxy_filter, rmap);
+		if (pim_ifp->pim)
+			tib_sg_proxy_filter_reeval(pim_ifp->pim, ifp);
 		break;
 	}
 
@@ -5338,6 +5341,8 @@ int lib_interface_gm_proxy_rmap_destroy(struct nb_cb_destroy_args *args)
 			return NB_ERR_INCONSISTENCY;
 
 		pim_filter_ref_set_rmap(&pim_ifp->gm_proxy_filter, NULL);
+		if (pim_ifp->pim)
+			tib_sg_proxy_filter_reeval(pim_ifp->pim, ifp);
 		break;
 	}
 
