@@ -254,9 +254,9 @@ def test_sbfd_echo_returned_with_hop_limit_255():
 
     r1 = tgen.net["r1"]
     r2 = tgen.net["r2"]
-    r2.cmd(
-        "ip -6 route add fc00:20::/128 encap seg6local action End.DT6 table 254 dev r2-eth0"
-    )
+    dt6 = "fc00:20::/128 encap seg6local action End.DT6 table 254 dev r2-eth0"
+    if r2.cmd("ip -6 route add {} && echo ok".format(dt6)).strip() != "ok":
+        pytest.skip("seg6local End.DT6 not supported by the kernel")
     r1.cmd("ip -6 route add fc00:20::/128 via 2001::20")
     r1.cmd(
         "vtysh -c 'config t' -c 'bfd' -c 'peer 2001::10 bfd-mode sbfd-echo bfd-name echo-r2 local-address 2001::10 srv6-source-ipv6 2001::10 srv6-encap-data fc00:20::'"
@@ -268,11 +268,15 @@ def test_sbfd_echo_returned_with_hop_limit_255():
     rule = "POSTROUTING -o r2-eth0 -p udp --dport 3785 -j HL --hl-set 255"
     if r2.cmd("ip6tables -t mangle -A {} && echo ok".format(rule)).strip() != "ok":
         pytest.skip("ip6tables HL target not available")
-    check_func = partial(show_bfd_check, r1, "down", type="echo", encap="fc00:20::")
-    went_down, _ = topotest.run_and_expect(check_func, True, count=20, wait=1)
-    assert (
-        went_down is False
-    ), "sbfd echo went down when it came back with hop limit 255"
+    # up at every sample: a session that went down or is gone fails
+    check_func = partial(show_bfd_check, r1, "up", type="echo", encap="fc00:20::")
+    for sample in range(20):
+        assert (
+            check_func()
+        ), "sbfd echo not up {}s after its echo came back with hop limit 255".format(
+            sample
+        )
+        time.sleep(1)
 
     r2.cmd("ip6tables -t mangle -D {}".format(rule))
     r1.cmd(
