@@ -459,9 +459,9 @@ static int zclient_lookup_nexthop_once(struct zclient_next_hop_args *args)
 	} else if (mode == MCAST_MIX_PFXLEN &&
 		   multicast_args.next_hops[0].prefix_len < unicast_args.next_hops[0].prefix_len) {
 		if (PIM_DEBUG_PIM_NHT_DETAIL)
-			zlog_debug("%s: addr=%pPAs(%s), URIB has lengthest prefix length", __func__,
+			zlog_debug("%s: addr=%pPAs(%s), URIB has longest prefix length", __func__,
 				   &args->address, args->pim->vrf->name);
-		*args = multicast_args;
+		*args = unicast_args;
 		return urib_num;
 	}
 
