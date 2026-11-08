@@ -77,3 +77,6 @@ TestCapability.okfail(
 TestCapability.okfail(
     "DynCapPathsLimit-unset-set: Dynamic Capability Message, Paths-Limit SET, UNSET and SET again"
 )
+TestCapability.okfail(
+    "DynCap-SAFI: Dynamic Capability Message, GR, LLGR and Paths-Limit with IANA SAFIs"
+)

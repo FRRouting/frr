@@ -3360,7 +3360,7 @@ static void bgp_dynamic_capability_paths_limit(uint8_t *pnt, int action,
 
 			memcpy(&bpl, data, sizeof(bpl));
 			pkt_afi = ntohs(bpl.afi);
-			pkt_safi = safi_int2iana(bpl.safi);
+			pkt_safi = bpl.safi;
 			paths_limit = ntohs(bpl.paths_limit);
 
 			if (bgp_debug_neighbor_events(peer))
@@ -3776,7 +3776,7 @@ static void bgp_dynamic_capability_llgr(uint8_t *pnt, int action,
 
 			memcpy(&graf, data, sizeof(graf));
 			pkt_afi = ntohs(graf.afi);
-			pkt_safi = safi_int2iana(graf.safi);
+			pkt_safi = graf.safi;
 
 			/* Stale time is after AFI/SAFI/flags.
 			 * It's encoded as 24 bits (= 3 bytes), so we need to
@@ -3883,7 +3883,7 @@ static void bgp_dynamic_capability_graceful_restart(uint8_t *pnt, int action,
 
 			memcpy(&graf, data, sizeof(graf));
 			pkt_afi = ntohs(graf.afi);
-			pkt_safi = safi_int2iana(graf.safi);
+			pkt_safi = graf.safi;
 
 			/* Convert AFI, SAFI to internal values, check. */
 			if (bgp_map_afi_safi_iana2int(pkt_afi, pkt_safi, &afi,

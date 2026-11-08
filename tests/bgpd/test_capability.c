@@ -811,6 +811,91 @@ static struct test_segment paths_limit_dup_msgs[] = {
 	},
 };
 
+/*
+ * SAFI in Dynamic Capability Messages is an IANA value. Wire SAFI 4 is
+ * labeled-unicast (SAFI_ENCAP internally), 128 is MPLS VPN, and 70 is EVPN
+ * (not internal values at all).
+ */
+static struct test_segment dyncap_safi_msg = {
+	.name = "DynCap-SAFI",
+	.desc = "Dynamic Capability Message, GR, LLGR and Paths-Limit with IANA SAFIs",
+	.data = {
+		CAPABILITY_ACTION_SET, CAPABILITY_CODE_RESTART, 0x0a,
+		0x00, 0x78, /* restart time 120 */
+		0x00, 0x01, 0x04, 0x80, /* IPv4/LU, F-bit */
+		0x00, 0x01, 0x80, 0x80, /* IPv4/VPN, F-bit */
+		CAPABILITY_ACTION_SET, CAPABILITY_CODE_LLGR, 0x0e,
+		0x00, 0x01, 0x04, 0x80, 0x00, 0x00, 0x3c, /* IPv4/LU, 60 */
+		0x00, 0x01, 0x80, 0x80, 0x00, 0x00, 0x3c, /* IPv4/VPN, 60 */
+		CAPABILITY_ACTION_SET, CAPABILITY_CODE_PATHS_LIMIT, 0x0f,
+		0x00, 0x01, 0x04, 0x00, 0x03, /* IPv4/LU, 3 */
+		0x00, 0x01, 0x80, 0x00, 0x04, /* IPv4/VPN, 4 */
+		0x00, 0x19, 0x46, 0x00, 0x06, /* L2VPN/EVPN, 6 */
+	},
+	.len = 48,
+	.parses = SHOULD_PARSE,
+};
+
+static void dyncap_safi_test(struct peer *peer, struct test_segment *t)
+{
+	struct {
+		afi_t afi;
+		safi_t safi;
+		bool gr;
+		uint16_t limit;
+	} checks[] = {
+		{ AFI_IP, SAFI_LABELED_UNICAST, true, 3 },
+		{ AFI_IP, SAFI_MPLS_VPN, true, 4 },
+		{ AFI_L2VPN, SAFI_EVPN, false, 6 },
+		{ AFI_IP, SAFI_ENCAP, false, 0 },
+	};
+	uint32_t gr_flags = PEER_CAP_RESTART_AF_RCV | PEER_CAP_LLGR_AF_RCV;
+	int oldfailed = failed;
+	afi_t afi;
+	safi_t safi;
+	int ret;
+
+	SET_FLAG(peer->cap, PEER_CAP_ADDPATH_RCV);
+	FOREACH_AFI_SAFI (afi, safi) {
+		UNSET_FLAG(peer->af_cap[afi][safi], gr_flags | PEER_CAP_PATHS_LIMIT_AF_RCV);
+		peer->addpath_paths_limit[afi][safi].receive = 0;
+	}
+
+	stream_reset(peer->connection->curr);
+	stream_write(peer->connection->curr, t->data, t->len);
+
+	printf("%s: %s\n", t->name, t->desc);
+
+	ret = bgp_capability_receive(peer->connection, t->len);
+	ret = (ret == BGP_Stop) ? SHOULD_ERR : SHOULD_PARSE;
+	printf("parsed?: %s\n", ret ? "no" : "yes");
+	if (ret != t->parses)
+		failed++;
+
+	for (size_t i = 0; i < array_size(checks); i++) {
+		bool gr = (peer->af_cap[checks[i].afi][checks[i].safi] & gr_flags) == gr_flags;
+		uint16_t limit = peer->addpath_paths_limit[checks[i].afi][checks[i].safi].receive;
+
+		printf("%s/%s: GR/LLGR %s (expected %s), Paths-Limit %u (expected %u)\n",
+		       afi2str(checks[i].afi), safi2str(checks[i].safi), gr ? "yes" : "no",
+		       checks[i].gr ? "yes" : "no", limit, checks[i].limit);
+
+		if (gr != checks[i].gr || limit != checks[i].limit)
+			failed++;
+	}
+
+	if (tty)
+		printf("%s", (failed > oldfailed) ? VT100_RED "failed!" VT100_RESET
+						  : VT100_GREEN "OK" VT100_RESET);
+	else
+		printf("%s", (failed > oldfailed) ? "failed!" : "OK");
+
+	if (failed)
+		printf(" (%u)", failed);
+
+	printf("\n\n");
+}
+
 static void paths_limit_dup_test(struct peer *peer, struct test_segment *t, int type, bool reset,
 				 uint16_t expected_ipv4, uint16_t expected_ipv6)
 {
@@ -1164,6 +1249,8 @@ int main(void)
 	paths_limit_dup_test(peer, &paths_limit_dup_msgs[6], DYNCAP, true, 1, 0);
 	/* Not reset, IPv4/Uni 1 is received in the previous message */
 	paths_limit_dup_test(peer, &paths_limit_dup_msgs[7], DYNCAP, false, 5, 0);
+
+	dyncap_safi_test(peer, &dyncap_safi_msg);
 
 	printf("failures: %d\n", failed);
 	return failed;
