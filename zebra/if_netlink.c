@@ -854,7 +854,7 @@ int interface_lookup_netlink(struct zebra_ns *zns)
 {
 	int ret;
 	struct zebra_dplane_info dp_info;
-	struct nlsock *netlink_cmd = &zns->netlink_dplane_out;
+	struct nlsock *netlink_cmd = &zns->netlink_cmd;
 
 	/* Capture key info from ns struct */
 	zebra_dplane_info_from_zns(&dp_info, zns, true /*is_cmd*/);
