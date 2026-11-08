@@ -1824,6 +1824,41 @@ static bool igmp_pkt_grp_addr_ok(struct interface *ifp, struct in_addr from, str
 }
 
 /*
+ * A local join (ip igmp join-group) was added to, or removed from, a proxy
+ * join for the same (S,G) on ifp.  Both share one kernel membership, so the
+ * kernel reports no change, and our own reports for (S,G) are only learned
+ * while the local join exists (see igmp_self_report_joins()).  Apply the
+ * change as if we had received the corresponding report from ourselves.
+ */
+void igmp_local_join_shared(struct interface *ifp, struct in_addr group, struct in_addr source,
+			    bool join)
+{
+	struct pim_interface *pim_ifp = ifp->info;
+	struct gm_sock *igmp;
+
+	if (!pim_ifp || !pim_ifp->gm_socket_list || !listcount(pim_ifp->gm_socket_list))
+		return;
+
+	igmp = listnode_head(pim_ifp->gm_socket_list);
+
+	if (PIM_DEBUG_GM_EVENTS)
+		zlog_debug("%s: local join for (%pI4,%pI4) on %s %s proxy join", __func__, &source,
+			   &group, ifp->name, join ? "added to" : "removed from");
+
+	if (pim_addr_is_any(source)) {
+		if (join)
+			igmpv3_report_isex(igmp, igmp->ifaddr, group, 0, NULL, 0);
+		else
+			igmpv3_report_toin(igmp, igmp->ifaddr, group, 0, NULL);
+	} else {
+		if (join)
+			igmpv3_report_isin(igmp, igmp->ifaddr, group, 1, &source);
+		else
+			igmpv3_report_block(igmp, igmp->ifaddr, group, 1, &source);
+	}
+}
+
+/*
  * Reduce a group record from one of our own reports to what is not owed to
  * proxy-only joins on ifp (see igmp_self_report_joins()):
  *  - EXCLUDE records come from a proxy (*,G) join; keep only the local (S,G)
