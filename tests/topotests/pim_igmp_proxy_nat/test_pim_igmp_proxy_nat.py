@@ -41,6 +41,7 @@ it through r1's NAT.
 import os
 import sys
 import json
+import subprocess
 import time
 from functools import partial
 import pytest
@@ -82,21 +83,34 @@ def setup_module(mod):
     tgen.start_topology()
 
     r1 = tgen.gears["r1"]
-    for cmd in [
-        # NAT and a typical stateful firewall on the WAN
-        "iptables -t nat -A POSTROUTING -o r1-eth1 -j MASQUERADE",
-        "iptables -P FORWARD DROP",
-        "iptables -A FORWARD -i r1-eth0 -o r1-eth1 -j ACCEPT",
-        "iptables -A FORWARD -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT",
-        "sysctl -w net.ipv4.conf.all.rp_filter=1",
-        "sysctl -w net.ipv4.conf.r1-eth1.rp_filter=1",
-    ]:
-        r1.cmd_raises(cmd)
+    missing = [
+        tool
+        for tool in ("iptables", "conntrack", "ping")
+        if not r1.cmd("command -v {} || true".format(tool)).strip()
+    ]
+    if missing:
+        pytest.skip(
+            "NAT proxy test needs {} in the test environment".format(", ".join(missing))
+        )
 
-    # Count the stream as delivered to h1, and IGMP from r1's WAN on u1
-    for grp in [GRP, GRP2]:
-        tgen.gears["h1"].cmd_raises("iptables -A INPUT -d {} -p udp".format(grp))
-    tgen.gears["u1"].cmd_raises("iptables -A INPUT -s {} -p igmp".format(R1_WAN))
+    try:
+        for cmd in [
+            # NAT and a typical stateful firewall on the WAN
+            "iptables -t nat -A POSTROUTING -o r1-eth1 -j MASQUERADE",
+            "iptables -P FORWARD DROP",
+            "iptables -A FORWARD -i r1-eth0 -o r1-eth1 -j ACCEPT",
+            "iptables -A FORWARD -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT",
+            "sysctl -w net.ipv4.conf.all.rp_filter=1",
+            "sysctl -w net.ipv4.conf.r1-eth1.rp_filter=1",
+        ]:
+            r1.cmd_raises(cmd)
+
+        # Count the stream as delivered to h1, and IGMP from r1's WAN on u1
+        for grp in [GRP, GRP2]:
+            tgen.gears["h1"].cmd_raises("iptables -A INPUT -d {} -p udp".format(grp))
+        tgen.gears["u1"].cmd_raises("iptables -A INPUT -s {} -p igmp".format(R1_WAN))
+    except subprocess.CalledProcessError as err:
+        pytest.skip("iptables/conntrack not usable in this environment: {}".format(err))
 
     for router in tgen.routers().values():
         router.load_frr_config()
