@@ -78,5 +78,14 @@ TestCapability.okfail(
     "DynCapPathsLimit-unset-set: Dynamic Capability Message, Paths-Limit SET, UNSET and SET again"
 )
 TestCapability.okfail(
+    "DynCapPathsLimit-zero-keep: Dynamic Capability Message, Paths-Limit SET with zero limit keeps the old limit"
+)
+TestCapability.okfail(
+    "DynCapPathsLimit-remove-unset: Dynamic Capability Message, Paths-Limit removed, UNSET"
+)
+TestCapability.okfail(
+    "DynCapPathsLimit-remove-set: Dynamic Capability Message, Paths-Limit removed, SET with zero limit"
+)
+TestCapability.okfail(
     "DynCap-SAFI: Dynamic Capability Message, GR, LLGR and Paths-Limit with IANA SAFIs"
 )

@@ -183,18 +183,22 @@ def test_bgp_addpath_paths_limit():
                             "rxReceived": False,
                         }
                     },
+                    # The capability is withdrawn and advertised again, and
+                    # the zero limit tuple is ignored, so no limit is
+                    # received from r2 anymore.
                     "pathsLimit": {
                         "ipv4Unicast": {
-                            "advertisedAndReceived": True,
+                            "advertisedAndReceived": None,
+                            "advertised": True,
                             "advertisedPathsLimit": 10,
-                            "receivedPathsLimit": 0,
+                            "receivedPathsLimit": None,
                         }
                     },
                 },
                 "messageStats": {
                     "notificationsRecv": 0,
                     "notificationsSent": 0,
-                    "capabilityRecv": 2,
+                    "capabilityRecv": 3,
                 },
             }
         }

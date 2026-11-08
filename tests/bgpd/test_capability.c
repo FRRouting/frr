@@ -809,6 +809,36 @@ static struct test_segment paths_limit_dup_msgs[] = {
 		.len = 24,
 		.parses = SHOULD_PARSE,
 	},
+	{
+		.name = "DynCapPathsLimit-zero-keep",
+		.desc = "Dynamic Capability Message, Paths-Limit SET with zero limit keeps the old limit",
+		.data = {
+			CAPABILITY_ACTION_SET, CAPABILITY_CODE_PATHS_LIMIT, 0x05,
+			0x00, 0x01, 0x01, 0x00, 0x00, /* IPv4/Uni, 0 */
+		},
+		.len = 8,
+		.parses = SHOULD_PARSE,
+	},
+	{
+		.name = "DynCapPathsLimit-remove-unset",
+		.desc = "Dynamic Capability Message, Paths-Limit removed, UNSET",
+		.data = {
+			CAPABILITY_ACTION_UNSET, CAPABILITY_CODE_PATHS_LIMIT, 0x05,
+			0x00, 0x01, 0x01, 0x00, 0x05, /* IPv4/Uni, 5 */
+		},
+		.len = 8,
+		.parses = SHOULD_PARSE,
+	},
+	{
+		.name = "DynCapPathsLimit-remove-set",
+		.desc = "Dynamic Capability Message, Paths-Limit removed, SET with zero limit",
+		.data = {
+			CAPABILITY_ACTION_SET, CAPABILITY_CODE_PATHS_LIMIT, 0x05,
+			0x00, 0x01, 0x01, 0x00, 0x00, /* IPv4/Uni, 0 */
+		},
+		.len = 8,
+		.parses = SHOULD_PARSE,
+	},
 };
 
 /*
@@ -1249,6 +1279,11 @@ int main(void)
 	paths_limit_dup_test(peer, &paths_limit_dup_msgs[6], DYNCAP, true, 1, 0);
 	/* Not reset, IPv4/Uni 1 is received in the previous message */
 	paths_limit_dup_test(peer, &paths_limit_dup_msgs[7], DYNCAP, false, 5, 0);
+	/* Not reset, IPv4/Uni 5 from the previous message stays */
+	paths_limit_dup_test(peer, &paths_limit_dup_msgs[8], DYNCAP, false, 5, 0);
+	/* Removing the limit: UNSET, then SET with zero, as two messages */
+	paths_limit_dup_test(peer, &paths_limit_dup_msgs[9], DYNCAP, false, 0, 0);
+	paths_limit_dup_test(peer, &paths_limit_dup_msgs[10], DYNCAP, false, 0, 0);
 
 	dyncap_safi_test(peer, &dyncap_safi_msg);
 
