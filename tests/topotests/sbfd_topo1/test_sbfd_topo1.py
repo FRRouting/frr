@@ -239,6 +239,47 @@ def test_sbfd_change_transmit_interval():
     assert success is True, "sbfd not deleted as unexpected"
 
 
+# step 4: an sbfd echo back with the hop limit it was sent with stays up
+def test_sbfd_echo_returned_with_hop_limit_255():
+    """
+    Assert that an sbfd echo that comes back with hop limit 255 still counts.
+
+    r2 decapsulates r1's echo (End.DT6) and routes it back; with the hop limit
+    set back to 255, as on a router that decapsulates (USD) without decrementing
+    it, the echo must not be taken for a peer's echo to reflect.
+    """
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    r1 = tgen.net["r1"]
+    r2 = tgen.net["r2"]
+    r2.cmd(
+        "ip -6 route add fc00:20::/128 encap seg6local action End.DT6 table 254 dev r2-eth0"
+    )
+    r1.cmd("ip -6 route add fc00:20::/128 via 2001::20")
+    r1.cmd(
+        "vtysh -c 'config t' -c 'bfd' -c 'peer 2001::10 bfd-mode sbfd-echo bfd-name echo-r2 local-address 2001::10 srv6-source-ipv6 2001::10 srv6-encap-data fc00:20::'"
+    )
+    check_func = partial(show_bfd_check, r1, "up", type="echo", encap="fc00:20::")
+    success, _ = topotest.run_and_expect(check_func, True, count=15, wait=1)
+    assert success is True, "sbfd echo not up in 15 seconds"
+
+    rule = "POSTROUTING -o r2-eth0 -p udp --dport 3785 -j HL --hl-set 255"
+    if r2.cmd("ip6tables -t mangle -A {} && echo ok".format(rule)).strip() != "ok":
+        pytest.skip("ip6tables HL target not available")
+    check_func = partial(show_bfd_check, r1, "down", type="echo", encap="fc00:20::")
+    went_down, _ = topotest.run_and_expect(check_func, True, count=20, wait=1)
+    assert (
+        went_down is False
+    ), "sbfd echo went down when it came back with hop limit 255"
+
+    r2.cmd("ip6tables -t mangle -D {}".format(rule))
+    r1.cmd(
+        "vtysh -c 'config t' -c 'bfd' -c 'no peer 2001::10 bfd-mode sbfd-echo bfd-name echo-r2 local-address 2001::10 srv6-source-ipv6 2001::10 srv6-encap-data fc00:20::'"
+    )
+
+
 # Memory leak test template
 def test_memory_leak():
     "Run the memory leak test and report results."
