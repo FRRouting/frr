@@ -28,6 +28,7 @@ struct zebra_dplane_ctx;
 struct nlsock {
 	int sock;
 	int seq;
+	uint32_t gen;
 	struct sockaddr_nl snl;
 	char name[64];
 	/* NETLINK_ROUTE, NETLINK_GENERIC, ... — set at socket creation */

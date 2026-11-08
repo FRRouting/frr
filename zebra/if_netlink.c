@@ -1564,11 +1564,12 @@ ssize_t netlink_intf_msg_encode(uint16_t cmd,
 	ifindex_t ifindex = dplane_ctx_get_ifindex(ctx);
 	bool down = dplane_ctx_intf_is_protodown(ctx);
 	bool pd_reason_val = dplane_ctx_get_intf_pd_reason_val(ctx);
-	struct nlsock *nl =
-		kernel_netlink_nlsock_lookup(dplane_ctx_get_ns_sock(ctx));
+	struct nlsock *nl = kernel_netlink_nlsock_lookup_info(dplane_ctx_get_ns(ctx));
 
 	if (buflen < sizeof(*req))
 		return 0;
+	if (!nl)
+		return -1;
 
 	memset(req, 0, sizeof(*req));
 
