@@ -2236,7 +2236,7 @@ static void *nb_op_root_walk_branch_finished(struct nb_op_yield_state *ys, enum 
 						 "%s: unable to merge data tree: %s", __func__,
 						 ly_strerrcode(err));
 					ret = NB_ERR_RESOURCE;
-					break;
+					/* Handle error after yield state is reset */
 				}
 			}
 		}
@@ -2244,6 +2244,9 @@ static void *nb_op_root_walk_branch_finished(struct nb_op_yield_state *ys, enum 
 		nb_op_reset_yield_state(ys);
 		/* make sure tree == NULL for when we are called back */
 		assert(ys_root_node(ys) == NULL);
+
+		if (ret != NB_OK)
+			break;
 
 		if (tree && monotime_since(&ys->start_time, NULL) > NB_OP_WALK_INTERVAL_US) {
 			/* come back for next branch */
