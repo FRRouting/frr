@@ -89,34 +89,42 @@ struct nb_op_yield_state {
 	/* Walking state */
 	char *xpath;
 	struct nb_op_node_info *node_infos;
+
+	/* Parsed query */
 	const struct lysc_node **schema_path;
 	char *query_tokstr;
 	char **query_tokens;
 	uint8_t *non_specific_predicate;
+
+	/* Walk/query boundaries */
 	int walk_root_level;
 	int walk_start_level;
 	int query_base_level;
 
-	/* top-level module walk state */
+	/* Top-level module walk state */
 	struct yang_module *module;   /* current module */
 	const struct lysc_node *node; /* current schema node */
 	struct lyd_node *top_level_tree;
 
+	/* User tree state */
 	/* For now we support a single use of this. */
 	const struct lyd_node *user_tree;
 	void *user_tree_lock;
 	unlock_tree_cb user_tree_unlock;
 
-	/* Yielding state */
-	bool should_batch;
-	struct timeval start_time;
+	/* Walk settings */
 	struct yang_translator *translator;
 	uint32_t flags;
+	bool should_batch;
 	nb_oper_data_cb cb;
 	void *cb_arg;
 	nb_oper_data_finish_cb finish;
 	void *finish_arg;
+
+	/* Yielding state */
+	struct timeval start_time;
 	struct event *walk_ev;
+
 	struct nb_op_walks_item link;
 };
 
