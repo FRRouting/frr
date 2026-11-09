@@ -82,7 +82,22 @@ uint32_t zebra_ecmp_count = MULTIPATH_NUM;
 /* Interface addition message from zebra. */
 static int static_ifp_create(struct interface *ifp)
 {
+	struct static_srv6_sid *sid;
+	struct listnode *node;
+
 	static_ifindex_update(ifp, true);
+
+	if (!srv6_sids || ifp->vrf->vrf_id != VRF_DEFAULT)
+		return 0;
+
+	/* Retry explicit uA requests even if the interface is still down. */
+	for (ALL_LIST_ELEMENTS_RO(srv6_sids, node, sid)) {
+		if (sid->behavior == SRV6_ENDPOINT_BEHAVIOR_END_X_NEXT_CSID &&
+		    !CHECK_FLAG(sid->flags, STATIC_FLAG_SRV6_SID_VALID) &&
+		    !CHECK_FLAG(sid->flags, STATIC_FLAG_SRV6_SID_NEEDS_NH_RESOLUTION) &&
+		    strmatch(sid->attributes.ifname, ifp->name))
+			static_zebra_request_srv6_sid(sid);
+	}
 
 	return 0;
 }
@@ -1131,9 +1146,9 @@ extern void static_zebra_request_srv6_sid(struct static_srv6_sid *sid)
 		ctx.behavior = ZEBRA_SEG6_LOCAL_ACTION_END_X;
 		ctx.nh6 = sid->attributes.nh6;
 		ifp = if_lookup_by_name(sid->attributes.ifname, VRF_DEFAULT);
-		if (!ifp) {
-			zlog_warn("Failed to request SRv6 SID %pFX: interface %s does not exist",
-				  &sid->addr, sid->attributes.ifname);
+		if (!ifp || ifp->ifindex == IFINDEX_INTERNAL) {
+			DEBUGD(&static_dbg_srv6, "%s: SRv6 SID %pFX waiting for interface %s",
+			       __func__, &sid->addr, sid->attributes.ifname);
 			return;
 		}
 		ctx.ifindex = ifp->ifindex;
