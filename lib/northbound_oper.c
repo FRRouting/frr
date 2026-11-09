@@ -599,6 +599,8 @@ static enum nb_error nb_op_ys_init_node_infos(struct nb_op_yield_state *ys)
 	ret = nb_op_xpath_to_trunk(ys->xpath, &xpath, &node);
 	if (ret != NB_OK)
 		return ret;
+	darr_free(ys->xpath);
+	ys->xpath = xpath;
 
 	/* Move up to the container if on a leaf currently. */
 	if (!CHECK_FLAG(node->schema->nodetype, LYS_CONTAINER | LYS_LIST)) {
@@ -610,7 +612,7 @@ static enum nb_error nb_op_ys_init_node_infos(struct nb_op_yield_state *ys)
 		ret = yang_xpath_pop_node(xpath);
 		if (ret != NB_OK) {
 			darr_free(xpath);
-			return ret;
+			goto error;
 		}
 
 		/*
@@ -634,13 +636,14 @@ static enum nb_error nb_op_ys_init_node_infos(struct nb_op_yield_state *ys)
 	 */
 	inner = node;
 	prevlen = 0;
-	xplen = strlen(xpath);
-	darr_free(ys->xpath);
-	ys->xpath = xpath;
+	xplen = strlen(ys->xpath);
 	for (i = len; i > 0; i--, inner = lyd_parent(inner)) {
 		ni = &ys->node_infos[i - 1];
 		ni->inner = inner;
 		ni->schema = inner->schema;
+
+		if (ret != NB_OK)
+			continue;
 
 		if (i == len) {
 			prevlen = xplen;
@@ -665,12 +668,15 @@ static enum nb_error nb_op_ys_init_node_infos(struct nb_op_yield_state *ys)
 		if (!cur || cur == ys->xpath) {
 			flog_warn(EC_LIB_LIBYANG, "%s: error tokenizing query xpath: %s", __func__,
 				  ys->xpath);
-			return NB_ERR_VALIDATION;
+			ret = NB_ERR_VALIDATION;
+			/* Handle error after ni->inner is set for all levels */
 		}
 
 		prevlen = cur - ys->xpath;
 		ni->xpath_len = prevlen;
 	}
+	if (ret != NB_OK)
+		goto error;
 
 	/*
 	 * Obtain the specific list-entry objects for each list node on the
@@ -679,11 +685,8 @@ static enum nb_error nb_op_ys_init_node_infos(struct nb_op_yield_state *ys)
 
 	darr_foreach_i (ys->node_infos, i) {
 		ret = nb_op_ys_finalize_node_info(ys, i);
-		if (ret != NB_OK) {
-			ys_free_inner(ys, &ys->node_infos[0]);
-			darr_free(ys->node_infos);
-			return ret;
-		}
+		if (ret != NB_OK)
+			goto error;
 	}
 
 	ys->walk_start_level = darr_len(ys->node_infos);
@@ -691,6 +694,13 @@ static enum nb_error nb_op_ys_init_node_infos(struct nb_op_yield_state *ys)
 	ys->walk_root_level = (int)ys->walk_start_level - 1;
 
 	return NB_OK;
+
+error:
+	ys_free_inner(ys, &ys->node_infos[0]);
+	while (darr_len(ys->node_infos))
+		ys_pop_inner(ys);
+	darr_free(ys->node_infos);
+	return ret;
 }
 
 /* ================ */
