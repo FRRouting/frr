@@ -72,12 +72,11 @@ struct nb_op_node_info {
  * struct nb_op_yield_state - tracking required state for yielding.
  *
  * @xpath: current xpath representing the node_info stack.
- * @xpath_orig: the original query string from the user
  * @node_infos: the container stack for the walk from root to current
  * @schema_path: the schema nodes along the path indicated by the query string.
  *               this will include the choice and case nodes which are not
  *               present in the query string.
- * @query_tokstr: the query string tokenized with NUL bytes.
+ * @query_tokstr: the original query string, tokenized with NUL bytes.
  * @query_tokens: the string pointers to each query token (node).
  * @non_specific_predicate: tracks if a query_token is non-specific predicate.
  * @walk_root_level: The topmost specific node, +1 is where we start walking.
@@ -89,7 +88,6 @@ struct nb_op_node_info {
 struct nb_op_yield_state {
 	/* Walking state */
 	char *xpath;
-	char *xpath_orig;
 	struct nb_op_node_info *node_infos;
 	const struct lysc_node **schema_path;
 	char *query_tokstr;
@@ -98,7 +96,6 @@ struct nb_op_yield_state {
 	int walk_root_level;
 	int walk_start_level;
 	int query_base_level;
-	bool query_list_entry; /* XXX query was for a specific list entry */
 
 	/* top-level module walk state */
 	struct yang_module *module;   /* current module */
@@ -111,7 +108,6 @@ struct nb_op_yield_state {
 	unlock_tree_cb user_tree_unlock;
 
 	/* Yielding state */
-	bool query_did_entry;  /* currently processing the entry */
 	bool should_batch;
 	struct timeval start_time;
 	struct yang_translator *translator;
@@ -170,7 +166,6 @@ nb_op_create_yield_state(const char *xpath, struct yang_translator *translator,
 		assert(darr_last(ys->xpath)); /* quiet clang-analyzer :( */
 		*darr_last(ys->xpath) = 0;
 	}
-	ys->xpath_orig = darr_strdup(xpath);
 	ys->translator = translator;
 	ys->flags = flags;
 	ys->should_batch = should_batch;
@@ -214,7 +209,6 @@ static inline void nb_op_free_yield_state(struct nb_op_yield_state *ys,
 		while (darr_len(ys->node_infos))
 			ys_pop_inner(ys);
 		darr_free(ys->node_infos);
-		darr_free(ys->xpath_orig);
 		darr_free(ys->xpath);
 		if (ys->top_level_tree)
 			lyd_free_all(ys->top_level_tree);
