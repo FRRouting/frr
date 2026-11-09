@@ -148,6 +148,7 @@ static void nb_op_list_list_entry_done(struct nb_op_yield_state *ys, struct nb_n
 				       const struct nb_op_node_info *pni, const void *list_entry);
 static void *nb_op_root_walk_branch_finished(struct nb_op_yield_state *ys, enum nb_error ret);
 static void ys_pop_inner(struct nb_op_yield_state *ys);
+static void ys_free_inner(struct nb_op_yield_state *ys, struct nb_op_node_info *ni);
 
 /* -------------------- */
 /* Function Definitions */
@@ -203,8 +204,8 @@ static inline void nb_op_free_yield_state(struct nb_op_yield_state *ys,
 		event_cancel(&ys->walk_ev);
 		nb_op_walks_del(&nb_op_walks, ys);
 		/* if we have a branch then free up it's libyang tree */
-		if (!nofree_tree && ys_root_node(ys))
-			lyd_free_all(ys_root_node(ys));
+		if (!nofree_tree && darr_len(ys->node_infos))
+			ys_free_inner(ys, &ys->node_infos[0]);
 		darr_free(ys->query_tokens);
 		darr_free(ys->non_specific_predicate);
 		darr_free(ys->query_tokstr);
@@ -679,8 +680,7 @@ static enum nb_error nb_op_ys_init_node_infos(struct nb_op_yield_state *ys)
 	darr_foreach_i (ys->node_infos, i) {
 		ret = nb_op_ys_finalize_node_info(ys, i);
 		if (ret != NB_OK) {
-			if (ys->node_infos[0].inner)
-				lyd_free_all(ys->node_infos[0].inner);
+			ys_free_inner(ys, &ys->node_infos[0]);
 			darr_free(ys->node_infos);
 			return ret;
 		}
@@ -2354,8 +2354,8 @@ enum nb_error nb_oper_iterate_legacy(const char *xpath,
 	if (tree && ret == NB_OK)
 		*tree = ys_root_node(ys);
 	else {
-		if (ys_root_node(ys))
-			yang_dnode_free(ys_root_node(ys));
+		if (darr_len(ys->node_infos))
+			ys_free_inner(ys, &ys->node_infos[0]);
 		if (tree)
 			*tree = NULL;
 	}
