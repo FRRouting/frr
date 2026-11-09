@@ -886,18 +886,22 @@ static const char *ecommunity_gettoken(const char *str, void *eval_ptr,
 			if (dot >= 4)
 				goto error;
 		} else {
+			uint32_t digit_val = (uint32_t)(*p - '0');
+
 			digit = 1;
 
 			/* We're past the IP/ASN part,
 			 * or we have a color
 			 */
 			if (separator) {
-				val *= 10;
-				val += (*p - '0');
+				if (val > (UINT32_MAX - digit_val) / 10)
+					goto error;
+				val = val * 10 + digit_val;
 				val_color_set = false;
 			} else {
-				val_color *= 10;
-				val_color += (*p - '0');
+				if (val_color > (UINT32_MAX - digit_val) / 10)
+					goto error;
+				val_color = val_color * 10 + digit_val;
 				val_color_set = true;
 			}
 		}
@@ -906,6 +910,10 @@ static const char *ecommunity_gettoken(const char *str, void *eval_ptr,
 
 	/* Low digit part must be there. */
 	if (!digit && (!separator || !val_color_set))
+		goto error;
+
+	/* A color value is 1 to 4294967295, 0 is not a valid color. */
+	if (sub_type == ECOMMUNITY_COLOR && (separator ? val : val_color) == 0)
 		goto error;
 
 	/* Only Color may be specified without the ':' separator, everything
