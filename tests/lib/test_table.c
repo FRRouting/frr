@@ -570,7 +570,7 @@ static void test_flowspec_prefix_match(void)
 	struct route_table *table;
 	struct route_node *rn_short;
 	struct route_node *rn_long;
-	struct route_node *lookup;
+	struct route_node *node;
 
 	p_long.u.prefix_flowspec.prefixlen = sizeof(nlri_long);
 	p_long.u.prefix_flowspec.ptr = (uintptr_t)nlri_long;
@@ -586,15 +586,15 @@ static void test_flowspec_prefix_match(void)
 	assert(rn_long != rn_short);
 	rn_long->info = &p_long;
 
-	lookup = route_node_lookup(table, &p_short);
-	assert(lookup == rn_short);
-	route_unlock_node(lookup);
-	lookup = route_node_lookup(table, &p_long);
-	assert(lookup == rn_long);
-	route_unlock_node(lookup);
-	lookup = route_node_get(table, &p_long);
-	assert(lookup == rn_long);
-	route_unlock_node(lookup);
+	/* Reuse the get path used by BGP updates and withdrawals. */
+	node = route_node_get(table, &p_short);
+	assert(node == rn_short);
+	assert(node->info == &p_short);
+	route_unlock_node(node);
+	node = route_node_get(table, &p_long);
+	assert(node == rn_long);
+	assert(node->info == &p_long);
+	route_unlock_node(node);
 
 	assert(route_table_count(table) == 2);
 	route_table_finish(table);
