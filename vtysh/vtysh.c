@@ -4660,6 +4660,11 @@ DEFPY (vtysh_terminal_monitor,
 	int ret_all = CMD_SUCCESS, ret, fd;
 	size_t i, ok = 0;
 
+	if (!master) {
+		vty_out(vty, "%% terminal monitor is only available in interactive vtysh\n");
+		return CMD_WARNING;
+	}
+
 	for (i = 0; i < array_size(vtysh_client); i++) {
 		struct vtysh_client *vclient = &vtysh_client[i];
 
