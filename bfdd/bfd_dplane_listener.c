@@ -18,6 +18,11 @@
  * `-e` sets the Required Min Echo RX it reports for the peer, and the
  * dump shows the echo interval the daemon asked for in return.
  *
+ * With `-n <count>` it sends that many ECHO_REQUESTs before each counters
+ * reply, as a data plane does when it has something else to tell the
+ * daemon at that moment. `-g <ms>` pauses between them and the reply;
+ * without it they go out in the same write.
+ *
  * Copyright (C) 2026 Abdul Wasey <awasey8905@gmail.com>
  */
 
@@ -82,6 +87,12 @@ struct listener_glob {
 	/* Declared on every connection when `caps_set`, `-c`. */
 	uint64_t caps;
 	bool caps_set;
+
+	/* `-n`, `-g`: ECHO_REQUESTs ahead of every counters reply, and the
+	 * pause in milliseconds before the reply.
+	 */
+	unsigned int noise;
+	unsigned int noise_gap;
 
 	unsigned long connections;
 	unsigned long msg_count[BFD_DPLANE_MSG_TYPES];
@@ -272,23 +283,59 @@ static bool create_listen_sock(int port, int *sock_p)
 	return true;
 }
 
+/* Append an ECHO_REQUEST to `buf` at `off`; returns its length. */
+static size_t put_echo_request(uint8_t *buf, size_t off)
+{
+	struct bfddp_message msg = {};
+	uint16_t len = sizeof(struct bfddp_message_header) + sizeof(struct bfddp_echo);
+	struct timespec ts;
+
+	clock_gettime(CLOCK_MONOTONIC, &ts);
+
+	msg.header.version = BFD_DP_VERSION;
+	msg.header.type = htons(ECHO_REQUEST);
+	msg.header.length = htons(len);
+	msg.data.echo.dp_time = htobe64((uint64_t)ts.tv_sec * 1000000 + ts.tv_nsec / 1000);
+	memcpy(buf + off, &msg, len);
+
+	return len;
+}
+
 /*
- * Answer a counter request. The values are all zero: the tests care that
- * a well formed reply arrives and that the connection survives, not what
- * the numbers are.
+ * Answer a counter request. Control packets in is the number of this
+ * reply and control packets out the session's own discriminator, so a
+ * test can tell a stale reply, or one given to another session, from
+ * the right one.
  */
 static bool send_counters_reply(int sock, uint16_t id, uint32_t lid)
 {
 	struct bfddp_message msg = {};
 	uint16_t len = sizeof(struct bfddp_message_header) + sizeof(struct bfddp_session_counters);
+	size_t elen = sizeof(struct bfddp_message_header) + sizeof(struct bfddp_echo);
+	uint8_t buf[BFD_DPLANE_BUFSIZ];
+	size_t off = 0;
+	unsigned int i;
+
+	for (i = 0; i < glob->noise && off + elen + len <= sizeof(buf); i++)
+		off += put_echo_request(buf, off);
+	if (off && glob->noise_gap) {
+		if (write(sock, buf, off) != (ssize_t)off)
+			return false;
+		usleep(glob->noise_gap * 1000);
+		off = 0;
+	}
 
 	msg.header.version = BFD_DP_VERSION;
 	msg.header.type = htons(BFD_SESSION_COUNTERS);
 	msg.header.id = id;
 	msg.header.length = htons(len);
 	msg.data.session_counters.lid = lid;
+	msg.data.session_counters.control_input_packets = htobe64(glob->counter_replies + 1);
+	msg.data.session_counters.control_output_packets = htobe64(ntohl(lid));
+	memcpy(buf + off, &msg, len);
+	off += len;
 
-	if (write(sock, &msg, len) != len) {
+	if (write(sock, buf, off) != (ssize_t)off) {
 		fprintf(glob->output_file, "Failed to send counters: %s\n", strerror(errno));
 		return false;
 	}
@@ -582,7 +629,7 @@ int main(int argc, char **argv)
 
 	signal(SIGPIPE, SIG_IGN);
 
-	while ((r = getopt(argc, argv, "c:de:o:p:z:")) != -1) {
+	while ((r = getopt(argc, argv, "c:de:g:n:o:p:z:")) != -1) {
 		switch (r) {
 		case 'c':
 			glob->caps = strtoull(optarg, NULL, 0);
@@ -593,6 +640,12 @@ int main(int argc, char **argv)
 			break;
 		case 'e':
 			glob->echo_rx = strtoul(optarg, NULL, 10);
+			break;
+		case 'g':
+			glob->noise_gap = strtoul(optarg, NULL, 10);
+			break;
+		case 'n':
+			glob->noise = strtoul(optarg, NULL, 10);
 			break;
 		case 'o':
 			output_file = optarg;
