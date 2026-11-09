@@ -820,10 +820,10 @@ int sockopt_ttl(int family, int sock, int ttl)
 
 int sockopt_minttl(int family, int sock, int minttl)
 {
-	int ret;
-
 #ifdef IP_MINTTL
 	if (family == AF_INET) {
+		int ret;
+
 		ret = setsockopt(sock, IPPROTO_IP, IP_MINTTL, &minttl, sizeof(minttl));
 
 		if (ret < 0)
@@ -835,6 +835,8 @@ int sockopt_minttl(int family, int sock, int minttl)
 #endif /* IP_MINTTL */
 #ifdef IPV6_MINHOPCOUNT
 	if (family == AF_INET6) {
+		int ret;
+
 		ret = setsockopt(sock, IPPROTO_IPV6, IPV6_MINHOPCOUNT, &minttl, sizeof(minttl));
 		if (ret < 0)
 			flog_err(EC_LIB_SOCKET,
