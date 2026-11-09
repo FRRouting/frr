@@ -241,6 +241,7 @@ struct route_node *route_node_match(struct route_table *table,
 		apply_mask(&rn.p);
 
 		matched = rn_tree_find(&table->tree, &rn);
+		prefix_flowspec_ptr_free(&rn.p);
 		if (matched && matched->info == NULL)
 			matched = NULL;
 
@@ -280,6 +281,8 @@ struct route_node *route_node_lookup(struct route_table *table,
 		node = rn_tree_find(&table->tree, &rn);
 	else
 		node = rn_hash_node_find(&table->hash, &rn);
+	prefix_flowspec_ptr_free(&rn.p);
+
 	return (node && node->info) ? route_lock_node(node) : NULL;
 }
 
@@ -295,6 +298,8 @@ struct route_node *route_node_lookup_maynull(struct route_table *table,
 		node = rn_tree_find(&table->tree, &rn);
 	else
 		node = rn_hash_node_find(&table->hash, &rn);
+	prefix_flowspec_ptr_free(&rn.p);
+
 	return node ? route_lock_node(node) : NULL;
 }
 

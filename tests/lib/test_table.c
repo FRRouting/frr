@@ -602,6 +602,57 @@ static void test_flowspec_prefix_match(void)
 	printf("Verified flowspec byte-prefix NLRIs get distinct nodes\n");
 }
 
+/* Exercise temporary FlowSpec lookup keys in both table modes. */
+static void test_flowspec_lookup(void)
+{
+	uint8_t nlri[] = {1, 8, 10};
+	struct prefix p = {
+		.family = AF_FLOWSPEC,
+		.u.prefix_flowspec = {
+			.family = AF_INET,
+			.prefixlen = sizeof(nlri),
+			.ptr = (uintptr_t)nlri,
+		},
+	};
+	struct route_table *table;
+	struct route_node *node;
+	struct route_node *lookup;
+
+	for (int unique_mode = 0; unique_mode < 2; unique_mode++) {
+		table = route_table_init_with_delegate(&flowspec_delegate);
+		if (unique_mode)
+			route_table_set_unique_mode(table);
+
+		assert(route_node_lookup(table, &p) == NULL);
+		assert(route_node_lookup_maynull(table, &p) == NULL);
+		assert(route_node_match(table, &p) == NULL);
+
+		node = route_node_get(table, &p);
+		assert(route_node_lookup(table, &p) == NULL);
+		assert(route_node_match(table, &p) == NULL);
+		lookup = route_node_lookup_maynull(table, &p);
+		assert(lookup == node);
+		route_unlock_node(lookup);
+
+		route_node_set_info(node, &p);
+		lookup = route_node_lookup(table, &p);
+		assert(lookup == node);
+		route_unlock_node(lookup);
+		lookup = route_node_lookup_maynull(table, &p);
+		assert(lookup == node);
+		route_unlock_node(lookup);
+		lookup = route_node_match(table, &p);
+		assert(lookup == node);
+		route_unlock_node(lookup);
+
+		route_node_set_info(node, NULL);
+		route_unlock_node(node);
+		route_table_finish(table);
+	}
+
+	printf("Verified flowspec lookup keys in both table modes\n");
+}
+
 /*
  * run_tests
  */
@@ -613,6 +664,7 @@ static void run_tests(void)
 	test_info_count();
 	test_flowspec_prefix_cmp();
 	test_flowspec_prefix_match();
+	test_flowspec_lookup();
 }
 
 /*
