@@ -1503,6 +1503,13 @@ if test "$enable_protobuf" != "no"; then
       AC_MSG_FAILURE([protobuf requested but libprotobuf-c > 1.3.0 not found])
     fi
   fi
+
+  # missing on macOS
+  if test "$PROTOC_C" = "/bin/false" || test "$PROTO3" = "false"; then
+    AC_MSG_NOTICE([protoc-c and/or libprotobuf-c not found, protobuf support disabled])
+    enable_protobuf="no"
+    PROTO3=false
+  fi
 fi
 #
 # End of logic for protobuf support.
