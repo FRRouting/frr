@@ -472,6 +472,8 @@ extern bool cluster_loop_check(struct cluster_list *cluster,
 			       struct in_addr originator);
 extern void bgp_attr_prepend_cluster_id(struct bgp *bgp, struct attr *attr);
 extern void bgp_attr_clear_reflection(struct attr *attr);
+extern void bgp_attr_strip_unsent_communities(struct peer *peer, afi_t afi, safi_t safi,
+					      struct attr *attr);
 
 /* Below exported for unit-test purposes only */
 struct bgp_attr_parser_args {
@@ -601,6 +603,25 @@ static inline void bgp_attr_set_tunn_id(struct attr *attr, const struct in6_addr
 	attr->extra->tunn_id = tunn_id ? *tunn_id : in6addr_any;
 }
 
+static inline uint64_t bgp_attr_get_partial_attrs(const struct attr *attr)
+{
+	return attr->extra ? attr->extra->partial_attrs : 0;
+}
+
+static inline void bgp_attr_set_partial_attrs(struct attr *attr, uint64_t partial_attrs)
+{
+	uint64_t old = bgp_attr_get_partial_attrs(attr);
+
+	if (partial_attrs && !old) {
+		bgp_attr_extra_get(attr)->partial_attrs = partial_attrs;
+	} else if (partial_attrs && old) {
+		attr->extra->partial_attrs = partial_attrs; /* replace; refcnt unchanged */
+	} else if (!partial_attrs && old) {
+		attr->extra->partial_attrs = 0;
+		bgp_attr_extra_put(attr);
+	}
+}
+
 static inline struct ecommunity *
 bgp_attr_get_ecommunity(const struct attr *attr)
 {
@@ -614,8 +635,11 @@ static inline void bgp_attr_set_ecommunity(struct attr *attr,
 
 	if (ecomm && ecomm->size)
 		bgp_attr_set(attr, BGP_ATTR_EXT_COMMUNITIES);
-	else
+	else {
 		bgp_attr_unset(attr, BGP_ATTR_EXT_COMMUNITIES);
+		bgp_attr_set_partial_attrs(attr, bgp_attr_get_partial_attrs(attr) &
+							 ~(1ULL << (BGP_ATTR_EXT_COMMUNITIES - 1)));
+	}
 }
 
 static inline struct lcommunity *
@@ -631,8 +655,12 @@ static inline void bgp_attr_set_lcommunity(struct attr *attr,
 
 	if (lcomm)
 		bgp_attr_set(attr, BGP_ATTR_LARGE_COMMUNITIES);
-	else
+	else {
 		bgp_attr_unset(attr, BGP_ATTR_LARGE_COMMUNITIES);
+		bgp_attr_set_partial_attrs(attr,
+					   bgp_attr_get_partial_attrs(attr) &
+						   ~(1ULL << (BGP_ATTR_LARGE_COMMUNITIES - 1)));
+	}
 }
 
 static inline struct community *bgp_attr_get_community(const struct attr *attr)
@@ -647,8 +675,11 @@ static inline void bgp_attr_set_community(struct attr *attr,
 
 	if (comm)
 		bgp_attr_set(attr, BGP_ATTR_COMMUNITIES);
-	else
+	else {
 		bgp_attr_unset(attr, BGP_ATTR_COMMUNITIES);
+		bgp_attr_set_partial_attrs(attr, bgp_attr_get_partial_attrs(attr) &
+							 ~(1ULL << (BGP_ATTR_COMMUNITIES - 1)));
+	}
 }
 
 static inline struct ecommunity *
@@ -673,8 +704,12 @@ static inline void bgp_attr_set_ipv6_ecommunity(struct attr *attr,
 
 	if (ipv6_ecomm && ipv6_ecomm->size)
 		bgp_attr_set(attr, BGP_ATTR_IPV6_EXT_COMMUNITIES);
-	else
+	else {
 		bgp_attr_unset(attr, BGP_ATTR_IPV6_EXT_COMMUNITIES);
+		bgp_attr_set_partial_attrs(attr,
+					   bgp_attr_get_partial_attrs(attr) &
+						   ~(1ULL << (BGP_ATTR_IPV6_EXT_COMMUNITIES - 1)));
+	}
 }
 
 static inline struct transit *bgp_attr_get_transit(const struct attr *attr)
@@ -864,25 +899,6 @@ static inline void bgp_attr_set_otc(struct attr *attr, uint32_t otc)
 		attr->extra->otc = 0;
 		bgp_attr_extra_put(attr);
 		bgp_attr_unset(attr, BGP_ATTR_OTC);
-	}
-}
-
-static inline uint64_t bgp_attr_get_partial_attrs(const struct attr *attr)
-{
-	return attr->extra ? attr->extra->partial_attrs : 0;
-}
-
-static inline void bgp_attr_set_partial_attrs(struct attr *attr, uint64_t partial_attrs)
-{
-	uint64_t old = bgp_attr_get_partial_attrs(attr);
-
-	if (partial_attrs && !old) {
-		bgp_attr_extra_get(attr)->partial_attrs = partial_attrs;
-	} else if (partial_attrs && old) {
-		attr->extra->partial_attrs = partial_attrs; /* replace; refcnt unchanged */
-	} else if (!partial_attrs && old) {
-		attr->extra->partial_attrs = 0;
-		bgp_attr_extra_put(attr);
 	}
 }
 

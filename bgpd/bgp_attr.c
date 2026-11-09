@@ -241,6 +241,39 @@ void bgp_attr_clear_reflection(struct attr *attr)
 		bgp_attr_set_cluster(attr, NULL);
 }
 
+void bgp_attr_strip_unsent_communities(struct peer *peer, afi_t afi, safi_t safi, struct attr *attr)
+{
+	if (!CHECK_FLAG(peer->af_flags[afi][safi], PEER_FLAG_SEND_COMMUNITY)) {
+		struct community *comm = bgp_attr_get_community(attr);
+
+		if (comm && !comm->refcnt)
+			community_free(&comm);
+		bgp_attr_set_community(attr, NULL);
+	}
+
+	if (!CHECK_FLAG(peer->af_flags[afi][safi], PEER_FLAG_SEND_LARGE_COMMUNITY)) {
+		struct lcommunity *lcomm = bgp_attr_get_lcommunity(attr);
+
+		if (lcomm && !lcomm->refcnt)
+			lcommunity_free(&lcomm);
+		bgp_attr_set_lcommunity(attr, NULL);
+	}
+
+	if (!CHECK_FLAG(peer->af_flags[afi][safi], PEER_FLAG_SEND_EXT_COMMUNITY)) {
+		struct ecommunity *ecomm = bgp_attr_get_ecommunity(attr);
+
+		if (ecomm && !ecomm->refcnt)
+			ecommunity_free(&ecomm);
+		bgp_attr_set_ecommunity(attr, NULL);
+
+		struct ecommunity *ipv6_ecomm = bgp_attr_get_ipv6_ecommunity(attr);
+
+		if (ipv6_ecomm && !ipv6_ecomm->refcnt)
+			ecommunity_free(&ipv6_ecomm);
+		bgp_attr_set_ipv6_ecommunity(attr, NULL);
+	}
+}
+
 static void cluster_init(void)
 {
 	cluster_hash = hash_create(cluster_hash_key_make, cluster_hash_cmp,
@@ -6229,8 +6262,7 @@ bgp_size_t bgp_packet_attribute(struct bgp *bgp, struct peer *peer, struct strea
 	}
 
 	/* Community attribute. */
-	if (CHECK_FLAG(peer->af_flags[afi][safi], PEER_FLAG_SEND_COMMUNITY) &&
-	    bgp_attr_exists(attr, BGP_ATTR_COMMUNITIES)) {
+	if (bgp_attr_exists(attr, BGP_ATTR_COMMUNITIES)) {
 		struct community *comm = NULL;
 
 		comm = bgp_attr_get_community(attr);
@@ -6252,8 +6284,7 @@ bgp_size_t bgp_packet_attribute(struct bgp *bgp, struct peer *peer, struct strea
 	/*
 	 * Large Community attribute.
 	 */
-	if (CHECK_FLAG(peer->af_flags[afi][safi], PEER_FLAG_SEND_LARGE_COMMUNITY) &&
-	    bgp_attr_exists(attr, BGP_ATTR_LARGE_COMMUNITIES)) {
+	if (bgp_attr_exists(attr, BGP_ATTR_LARGE_COMMUNITIES)) {
 		if (lcom_length(bgp_attr_get_lcommunity(attr)) > 255) {
 			stream_putc(s, BGP_ATTR_FLAG_OPTIONAL | BGP_ATTR_FLAG_TRANS |
 					       BGP_ATTR_FLAG_EXTLEN |
@@ -6297,21 +6328,17 @@ bgp_size_t bgp_packet_attribute(struct bgp *bgp, struct peer *peer, struct strea
 	}
 
 	/* Extended IPv6/Communities attributes. */
-	if (CHECK_FLAG(peer->af_flags[afi][safi], PEER_FLAG_SEND_EXT_COMMUNITY)) {
-		if (bgp_attr_exists(attr, BGP_ATTR_EXT_COMMUNITIES)) {
-			struct ecommunity *ecomm = bgp_attr_get_ecommunity(attr);
+	if (bgp_attr_exists(attr, BGP_ATTR_EXT_COMMUNITIES)) {
+		struct ecommunity *ecomm = bgp_attr_get_ecommunity(attr);
 
-			bgp_packet_ecommunity_attribute(s, peer, attr, ecomm,
-							BGP_ATTR_EXT_COMMUNITIES);
-		}
+		bgp_packet_ecommunity_attribute(s, peer, attr, ecomm, BGP_ATTR_EXT_COMMUNITIES);
+	}
 
-		if (bgp_attr_exists(attr, BGP_ATTR_IPV6_EXT_COMMUNITIES)) {
-			struct ecommunity *ecomm =
-				bgp_attr_get_ipv6_ecommunity(attr);
+	if (bgp_attr_exists(attr, BGP_ATTR_IPV6_EXT_COMMUNITIES)) {
+		struct ecommunity *ecomm = bgp_attr_get_ipv6_ecommunity(attr);
 
-			bgp_packet_ecommunity_attribute(s, peer, attr, ecomm,
-							BGP_ATTR_IPV6_EXT_COMMUNITIES);
-		}
+		bgp_packet_ecommunity_attribute(s, peer, attr, ecomm,
+						BGP_ATTR_IPV6_EXT_COMMUNITIES);
 	}
 
 	/* Label index attribute. */

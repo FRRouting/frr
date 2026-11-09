@@ -1402,6 +1402,8 @@ rmap_done:;
 
 		bgp_peer_prepend_local_as(peer, afi, safi, &attr_copy);
 
+		bgp_attr_strip_unsent_communities(peer, afi, safi, &attr_copy);
+
 		/*
 		 * Suppress duplicate UPDATEs: bgp_attr_intern() returns
 		 * the same interned pointer for identical attribute
