@@ -1213,6 +1213,9 @@ static void update_subgroup_delete(struct update_subgroup *subgrp)
 
 	update_group_remove_subgroup(subgrp->update_group, subgrp);
 
+	if (subgrp->default_originate_attr)
+		bgp_attr_unintern(&subgrp->default_originate_attr);
+
 	XFREE(MTYPE_BGP_UPD_SUBGRP, subgrp);
 }
 
@@ -1223,6 +1226,15 @@ void update_subgroup_inherit_info(struct update_subgroup *to,
 		return;
 
 	to->sflags = from->sflags;
+
+	/*
+	 * Copy default_originate_attr - this is the sentinel that tracks
+	 * whether the synthesized default has been sent.  Needs to be
+	 * copied so withdraw logic works correctly for the split peer.
+	 * The attr is interned, so increment its refcnt.
+	 */
+	if (from->default_originate_attr)
+		to->default_originate_attr = bgp_attr_intern(from->default_originate_attr);
 }
 
 /*
@@ -1362,9 +1374,16 @@ static struct update_subgroup *update_subgroup_find(struct update_group *updgrp,
 		return NULL;
 
 	UPDGRP_FOREACH_SUBGRP (updgrp, subgrp) {
-		if (subgrp->version != version
-		    || CHECK_FLAG(subgrp->sflags,
-				  SUBGRP_STATUS_DEFAULT_ORIGINATE))
+		/*
+		 * Skip subgroups that have already processed routes or
+		 * originated a default.  A new peer must join a "fresh"
+		 * subgroup because:
+		 *   - version != 0 means routes were already announced
+		 *   - default_originate_attr != NULL means the default
+		 *     route UPDATE was sent directly (not queued), so a
+		 *     peer joining this subgroup won't receive it
+		 */
+		if (subgrp->version != version || subgrp->default_originate_attr)
 			continue;
 
 		/*
@@ -1471,8 +1490,17 @@ static int update_subgroup_can_merge_into(struct update_subgroup *subgrp,
 	if (subgrp->version != target->version)
 		return 0;
 
-	if (CHECK_FLAG(subgrp->sflags, SUBGRP_STATUS_DEFAULT_ORIGINATE)
-	    != CHECK_FLAG(target->sflags, SUBGRP_STATUS_DEFAULT_ORIGINATE))
+	/*
+	 * Both must have the same default-originate state to be merged.
+	 * Since attrs are interned, pointer equality means identical
+	 * attributes.  This allows merging when:
+	 *   - Both are NULL (neither has sent the default)
+	 *   - Both point to the same interned attr (sent identical default)
+	 * And blocks merging when:
+	 *   - One is NULL, other isn't (different send state)
+	 *   - Different non-NULL pointers (different attributes advertised)
+	 */
+	if (subgrp->default_originate_attr != target->default_originate_attr)
 		return 0;
 
 	if (subgrp->adj_count != target->adj_count)

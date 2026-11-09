@@ -16166,9 +16166,7 @@ static void bgp_show_peer_afi(struct vty *vty, struct peer *p, afi_t afi,
 					json_addr, "defaultRouteMap",
 					p->default_rmap[afi][safi].name);
 
-			if (paf && PAF_SUBGRP(paf)
-			    && CHECK_FLAG(PAF_SUBGRP(paf)->sflags,
-					  SUBGRP_STATUS_DEFAULT_ORIGINATE))
+			if (paf && PAF_SUBGRP(paf) && PAF_SUBGRP(paf)->default_originate_attr)
 				json_object_boolean_true_add(json_addr,
 							     "defaultSent");
 			else
@@ -16482,9 +16480,7 @@ static void bgp_show_peer_afi(struct vty *vty, struct peer *p, afi_t afi,
 					p->default_rmap[afi][safi].map ? "*"
 								       : "",
 					p->default_rmap[afi][safi].name);
-			if (paf && PAF_SUBGRP(paf)
-			    && CHECK_FLAG(PAF_SUBGRP(paf)->sflags,
-					  SUBGRP_STATUS_DEFAULT_ORIGINATE))
+			if (paf && PAF_SUBGRP(paf) && PAF_SUBGRP(paf)->default_originate_attr)
 				vty_out(vty, " default sent\n");
 			else
 				vty_out(vty, " default not sent\n");
