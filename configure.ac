@@ -1817,7 +1817,10 @@ if test "$ac_cv_have_decl_TCP_MD5SIG" = "no"; then
 fi
 
 LIBS_save="$LIBS"
-AC_CHECK_LIB([crypt], [crypt], [], [
+dnl crypt() is from libc on some systems (e.g. macOS)
+AC_SEARCH_LIBS([crypt], [crypt], [
+  AC_DEFINE([HAVE_LIBCRYPT], [1], [crypt() is available (libc or libcrypt)])
+], [
   AC_CHECK_LIB([crypto], [DES_crypt])
 ])
 LIBCRYPT="$LIBS"
