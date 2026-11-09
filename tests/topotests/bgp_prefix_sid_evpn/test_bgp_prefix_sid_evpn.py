@@ -108,7 +108,9 @@ def test_show_bgp_evpn_route_detail():
         if rname == "r1":
             continue
 
-        expected_file = os.path.join(CWD, rname, "show_bgp_l2vpn_evpn_route_detail.json")
+        expected_file = os.path.join(
+            CWD, rname, "show_bgp_l2vpn_evpn_route_detail.json"
+        )
         expected = json.load(open(expected_file))
 
         logger.info("Checking EVPN global table on {}".format(rname))

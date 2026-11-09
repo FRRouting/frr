@@ -717,6 +717,112 @@
     },
     "numRoutes": 1
   },
-  "numPrefix": 16,
-  "numPaths": 16
+  "192.0.2.1:204": {
+    "rd": "192.0.2.1:204",
+    "[5]:[0]:[64]:[2001:6::]": {
+      "prefixLen": 352,
+      "rd": "192.0.2.1:204",
+      "routeType": 5,
+      "ethTag": 0,
+      "ipLen": 64,
+      "ip": "2001:6::",
+      "pathCount": 1,
+      "paths": [
+        [
+          {
+            "label": "32763",
+            "aspath": {
+              "string": "65002 65001"
+            },
+            "origin": "IGP",
+            "valid": true,
+            "extendedCommunity": {
+              "string": "RT:65001:204"
+            },
+            "prefixSids": [
+              {
+                "remoteSid": "3333:3333:3333::",
+                "remoteTransposedSid": "3333:3333:3333:7ff::",
+                "endpointBehavior": "End.DT6",
+                "prefixSidType": "l3",
+                "remoteSidStructure": {
+                  "locatorBlockLen": 32,
+                  "locatorNodeLen": 16,
+                  "functionLen": 16,
+                  "argumentLen": 0,
+                  "transpositionLen": 16,
+                  "transpositionOffset": 48
+                }
+              }
+            ],
+            "nexthops": [
+              {
+                "ip": "fc00::1",
+                "afi": "ipv6",
+                "scope": "global",
+                "used": true
+              }
+            ]
+          }
+        ]
+      ]
+    },
+    "numRoutes": 1
+  },
+  "192.0.2.1:205": {
+    "rd": "192.0.2.1:205",
+    "[2]:[0]:[48]:[00:11:22:33:44:66]:[128]:[2001:4::1]": {
+      "prefixLen": 352,
+      "rd": "192.0.2.1:205",
+      "routeType": 2,
+      "ethTag": 0,
+      "macLen": 48,
+      "mac": "00:11:22:33:44:66",
+      "ipLen": 128,
+      "ip": "2001:4::1",
+      "pathCount": 1,
+      "paths": [
+        [
+          {
+            "label": "32768/32767",
+            "aspath": {
+              "string": "65002 65001"
+            },
+            "origin": "IGP",
+            "valid": true,
+            "extendedCommunity": {
+              "string": "RT:65001:205"
+            },
+            "prefixSids": [
+              {
+                "remoteSid": "1111:1111:1111::",
+                "remoteTransposedSid": "1111:1111:1111:800::",
+                "endpointBehavior": "End.DT2U",
+                "prefixSidType": "l2",
+                "remoteSidStructure": {
+                  "locatorBlockLen": 32,
+                  "locatorNodeLen": 16,
+                  "functionLen": 16,
+                  "argumentLen": 0,
+                  "transpositionLen": 16,
+                  "transpositionOffset": 48
+                }
+              }
+            ],
+            "nexthops": [
+              {
+                "ip": "fc00::1",
+                "afi": "ipv6",
+                "scope": "global",
+                "used": true
+              }
+            ]
+          }
+        ]
+      ]
+    },
+    "numRoutes": 1
+  },
+  "numPrefix": 18,
+  "numPaths": 18
 }
