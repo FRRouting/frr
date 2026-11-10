@@ -281,6 +281,17 @@ static void isis_route_info_delete(struct isis_route_info *route_info)
 
 		route_info->sr_algo[i].nexthops->del = (void (*)(void *))isis_nexthop_delete;
 		list_delete(&route_info->sr_algo[i].nexthops);
+
+		/*
+		 * nexthops_backup follows the same ownership rule as
+		 * nexthops: it is an owned (dup'd) copy whenever the
+		 * primary nexthops are dup'd.  Free it here too.
+		 */
+		if (route_info->sr_algo[i].nexthops_backup) {
+			route_info->sr_algo[i].nexthops_backup->del =
+				(void (*)(void *))isis_nexthop_delete;
+			list_delete(&route_info->sr_algo[i].nexthops_backup);
+		}
 	}
 
 	if (route_info->nexthops) {
@@ -345,6 +356,37 @@ static bool isis_label_stack_same(struct mpls_label_stack *new, struct mpls_labe
 		return false;
 	if (memcmp(&new->label, &old->label, sizeof(mpls_label_t) * new->num_labels))
 		return false;
+
+	return true;
+}
+
+/*
+ * Compare two SR algo nexthop lists for equality: same count, same set of
+ * (family, ip, ifindex) tuples, same outgoing SR label, and same label stack.
+ * Used by set_merge_route_info_sr_algo() to decide whether the forwarding
+ * data changed and ZEBRA_SYNCED must be cleared on the merged route info.
+ */
+static bool isis_sr_algo_nexthops_same(struct list *a, struct list *b)
+{
+	struct listnode *node;
+	struct isis_nexthop *nha, *nhb;
+
+	if (!a && !b)
+		return true;
+	if (!a || !b)
+		return false;
+	if (listcount(a) != listcount(b))
+		return false;
+
+	for (ALL_LIST_ELEMENTS_RO(a, node, nha)) {
+		nhb = nexthoplookup(b, nha->family, &nha->ip, nha->ifindex);
+		if (!nhb)
+			return false;
+		if (!isis_sr_psid_info_same(&nha->sr, &nhb->sr))
+			return false;
+		if (!isis_label_stack_same(nha->label_stack, nhb->label_stack))
+			return false;
+	}
 
 	return true;
 }
@@ -518,36 +560,116 @@ static void isis_route_remove_previous_sid(struct isis_area *area, struct prefix
 	for (int i = 0; i < SR_ALGORITHM_COUNT; i++) {
 		if (route_info->sr_algo_previous[i].present &&
 		    (!route_info->sr_algo[i].present ||
-		     route_info->sr_algo_previous[i].label != route_info->sr_algo[i].label))
+		     route_info->sr_algo_previous[i].label != route_info->sr_algo[i].label)) {
+			if (IS_DEBUG_RTE_EVENTS)
+				zlog_debug("ISIS-Rte: uninstall SR label %u algo-%d for %pFX",
+					   route_info->sr_algo_previous[i].label, i, prefix);
 			isis_zebra_prefix_sid_uninstall(area, prefix, route_info,
 							&route_info->sr_algo_previous[i]);
+		}
 	}
 }
 
 static void set_merge_route_info_sr_algo(struct isis_route_info *mrinfo,
-					 struct isis_route_info *rinfo)
+					 struct isis_route_info *rinfo, uint8_t algorithm)
 {
+	bool changed = false;
+
 	for (int i = 0; i < SR_ALGORITHM_COUNT; i++) {
 		if (rinfo->sr_algo[i].present) {
+			bool algo_changed;
+
 			assert(i == rinfo->sr_algo[i].algorithm);
 			assert(rinfo->nexthops);
 			assert(rinfo->backup ? rinfo->backup->nexthops != NULL : true);
 
-			if (mrinfo->sr_algo[i].nexthops != NULL &&
-			    mrinfo->sr_algo[i].nexthops != mrinfo->nexthops) {
-				mrinfo->sr_algo[i].nexthops->del =
-					(void (*)(void *))isis_nexthop_delete;
-				list_delete(&mrinfo->sr_algo[i].nexthops);
-			}
+			/*
+			 * Only update mrinfo and mark changed if the SID label,
+			 * primary forwarding nexthops, or backup nexthops differ.
+			 * mrinfo->sr_algo[i].nexthops_backup is safe to read and
+			 * compare here because set_merge_route_info_sr_algo()
+			 * always stores an owned (dup'd) copy or NULL — never a
+			 * raw pointer that could dangle after a backup-table
+			 * rebuild.
+			 */
+			algo_changed =
+				!mrinfo->sr_algo[i].present ||
+				mrinfo->sr_algo[i].label != rinfo->sr_algo[i].label ||
+				!isis_sr_algo_nexthops_same(mrinfo->sr_algo[i].nexthops,
+							    rinfo->sr_algo[i].nexthops) ||
+				!isis_sr_algo_nexthops_same(mrinfo->sr_algo[i].nexthops_backup,
+							    rinfo->sr_algo[i].nexthops_backup);
 
-			mrinfo->sr_algo[i] = rinfo->sr_algo[i];
-			mrinfo->sr_algo[i].nexthops =
-				isis_nexthop_list_dup(rinfo->sr_algo[i].nexthops);
+			if (algo_changed) {
+				if (mrinfo->sr_algo[i].nexthops != NULL &&
+				    mrinfo->sr_algo[i].nexthops != mrinfo->nexthops) {
+					mrinfo->sr_algo[i].nexthops->del =
+						(void (*)(void *))isis_nexthop_delete;
+					list_delete(&mrinfo->sr_algo[i].nexthops);
+				}
+				/*
+				 * nexthops_backup follows the same ownership
+				 * rule as nexthops: free the dup'd copy before
+				 * overwriting with the new one.
+				 */
+				if (mrinfo->sr_algo[i].nexthops_backup != NULL) {
+					mrinfo->sr_algo[i].nexthops_backup->del =
+						(void (*)(void *))isis_nexthop_delete;
+					list_delete(&mrinfo->sr_algo[i].nexthops_backup);
+				}
+
+				mrinfo->sr_algo[i] = rinfo->sr_algo[i];
+				mrinfo->sr_algo[i].nexthops =
+					isis_nexthop_list_dup(rinfo->sr_algo[i].nexthops);
+				mrinfo->sr_algo[i].nexthops_backup =
+					rinfo->sr_algo[i].nexthops_backup
+						? isis_nexthop_list_dup(
+							  rinfo->sr_algo[i].nexthops_backup)
+						: NULL;
+				changed = true;
+			} else if (mrinfo->sr_algo[i].nexthops == NULL) {
+				mrinfo->sr_algo[i].nexthops =
+					isis_nexthop_list_dup(rinfo->sr_algo[i].nexthops);
+				mrinfo->sr_algo[i].nexthops_backup =
+					rinfo->sr_algo[i].nexthops_backup
+						? isis_nexthop_list_dup(
+							  rinfo->sr_algo[i].nexthops_backup)
+						: NULL;
+			}
 		}
 	}
 
+	/*
+	 * A previous merge may have written the flex-algo SID into mrinfo
+	 * (which aliases the algo-0 route info). If the flex-algo SPF no
+	 * longer assigns that SID, clear the stale entry so that
+	 * isis_route_remove_previous_sid() uninstalls the label.
+	 */
+	if (algorithm != SR_ALGORITHM_SPF && !rinfo->sr_algo[algorithm].present &&
+	    mrinfo->sr_algo[algorithm].present) {
+		if (IS_DEBUG_RTE_EVENTS)
+			zlog_debug("ISIS-Rte: clearing stale SR label %u algo-%u from merge",
+				   mrinfo->sr_algo[algorithm].label, algorithm);
+		mrinfo->sr_algo_previous[algorithm] = mrinfo->sr_algo[algorithm];
+		if (mrinfo->sr_algo[algorithm].nexthops != NULL &&
+		    mrinfo->sr_algo[algorithm].nexthops != mrinfo->nexthops) {
+			mrinfo->sr_algo[algorithm].nexthops->del =
+				(void (*)(void *))isis_nexthop_delete;
+			list_delete(&mrinfo->sr_algo[algorithm].nexthops);
+		}
+		/* nexthops_backup follows the same ownership rule; free it too. */
+		if (mrinfo->sr_algo[algorithm].nexthops_backup != NULL) {
+			mrinfo->sr_algo[algorithm].nexthops_backup->del =
+				(void (*)(void *))isis_nexthop_delete;
+			list_delete(&mrinfo->sr_algo[algorithm].nexthops_backup);
+		}
+		memset(&mrinfo->sr_algo[algorithm], 0, sizeof(mrinfo->sr_algo[algorithm]));
+		changed = true;
+	}
+
 	UNSET_FLAG(rinfo->flag, ISIS_ROUTE_FLAG_ZEBRA_SYNCED);
-	UNSET_FLAG(mrinfo->flag, ISIS_ROUTE_FLAG_ZEBRA_SYNCED);
+	if (changed)
+		UNSET_FLAG(mrinfo->flag, ISIS_ROUTE_FLAG_ZEBRA_SYNCED);
 }
 
 static void isis_route_update(struct isis_area *area, struct prefix *prefix,
@@ -573,8 +695,12 @@ static void isis_route_update(struct isis_area *area, struct prefix *prefix,
 			/*
 			 * Install/reinstall Prefix-SID label.
 			 */
-			if (sr_algo.present)
+			if (sr_algo.present) {
+				if (IS_DEBUG_RTE_EVENTS)
+					zlog_debug("ISIS-Rte: install SR label %u algo-%d for %pFX",
+						   sr_algo.label, i, prefix);
 				isis_zebra_prefix_sid_install(area, prefix, &sr_algo);
+			}
 
 			hook_call(isis_route_update_hook, area, prefix, route_info);
 		}
@@ -849,7 +975,7 @@ static void _isis_route_verify_merge(struct isis_area *area, struct route_table 
 			if (mrinfo) {
 				route_unlock_node(mrnode);
 				if (!isis_route_preferred_earlier(tables, i, prefix, src_p))
-					set_merge_route_info_sr_algo(mrinfo, rinfo);
+					set_merge_route_info_sr_algo(mrinfo, rinfo, algorithm);
 
 				if (CHECK_FLAG(mrinfo->flag, ISIS_ROUTE_FLAG_ACTIVE)) {
 					/* Clear the ZEBRA_SYNCED flag on the
