@@ -469,6 +469,13 @@ static bool bgp_peer_bfd_sync(struct peer *p)
 
 		bfd_sess_set_interface(session, egress_ifp->name);
 		changed = true;
+	} else if (!egress_ifp && bfd_sess_interface(session)) {
+		if (BGP_DEBUG(bfd, BFD_LIB))
+			zlog_debug("%s: interface %s to none", __func__,
+				   bfd_sess_interface(session));
+
+		bfd_sess_set_interface(session, NULL);
+		changed = true;
 	}
 
 	/*
@@ -578,7 +585,7 @@ void bgp_peer_configure_bfd(struct peer *p, bool manual)
 	bfd_sess_set_hop_count(p->bfd_config->session,
 			       PEER_IS_MULTIHOP(p) ? p->ttl : 1);
 
-	if (p->nexthop.ifp)
+	if (p->nexthop.ifp && !if_is_loopback(p->nexthop.ifp))
 		bfd_sess_set_interface(p->bfd_config->session,
 				       p->nexthop.ifp->name);
 }
