@@ -77,6 +77,7 @@ sys.path.append(os.path.join(CWD, "../"))
 from lib import topotest
 from lib.topogen import Topogen, TopoRouter, get_topogen
 from lib.topolog import logger
+from lib.common_config import retry
 
 # Required to instantiate the topology builder class.
 
@@ -903,6 +904,118 @@ def test_srte_color_extended_community_step6():
         """
     )
     set_route_map_color("rt1", 1)
+
+
+#
+# Step 7
+#
+# Checking a colored L3VPN route imported in a VRF, when the SR Policy
+# of its color comes up and goes down after the route is installed
+#
+def test_srte_l3vpn_vrf_route_follows_sr_policy_step7():
+    setup_testcase(
+        "Test (step 7): colored L3VPN route imported in a VRF follows the SR Policy state"
+    )
+
+    tgen = get_topogen()
+
+    @retry(retry_timeout=60)
+    def check_vrf_route_labels(expected_labels):
+        output = tgen.gears["rt1"].vtysh_cmd(
+            "show ip route vrf vrf1 10.200.0.0/24 json", isjson=True
+        )
+        routes = output.get("10.200.0.0/24")
+        if not routes:
+            return "10.200.0.0/24 not found in vrf1"
+        nexthops = routes[0].get("nexthops", [])
+        if not any(nh.get("srteColor") == 1 for nh in nexthops):
+            return "no nexthop with SR-TE color 1: {}".format(nexthops)
+        # the last label is the VPN label, allocated by rt6
+        labels = [nh["labels"][:-1] for nh in nexthops if nh.get("fib")]
+        if not labels or any(label != expected_labels for label in labels):
+            return "expected labels {} before the VPN label, got {}".format(
+                expected_labels, labels
+            )
+        return True
+
+    for rname in ["rt1", "rt6"]:
+        tgen.net[rname].cmd("ip link add vrf1 type vrf table 1001")
+        tgen.net[rname].cmd("ip link set vrf1 up")
+
+    tgen.gears["rt6"].vtysh_cmd(
+        """
+        configure terminal
+         router bgp 1
+          address-family ipv4 vpn
+           neighbor 1.1.1.1 activate
+          exit-address-family
+         exit
+         router bgp 1 vrf vrf1
+          no bgp network import-check
+          address-family ipv4 unicast
+           network 10.200.0.0/24
+           label vpn export auto
+           rd vpn export 6:1
+           rt vpn both 52:100
+           export vpn
+           import vpn
+          exit-address-family
+        """
+    )
+    tgen.gears["rt1"].vtysh_cmd(
+        """
+        configure terminal
+         router bgp 1
+          address-family ipv4 vpn
+           neighbor 6.6.6.6 activate
+           neighbor 6.6.6.6 route-map SET_SR_POLICY in
+          exit-address-family
+         exit
+         router bgp 1 vrf vrf1
+          address-family ipv4 unicast
+           rd vpn export 1:1
+           rt vpn both 52:100
+           export vpn
+           import vpn
+          exit-address-family
+        """
+    )
+
+    logger.info("Without SR Policy, the VRF route should use the IGP path")
+    result = check_vrf_route_labels([16060])
+    assert result is True, result
+
+    add_candidate_path("rt1", "6.6.6.6", 100, "default")
+    logger.info("With the SR Policy up, the VRF route should use its segment list")
+    result = check_vrf_route_labels([16050, 16060])
+    assert result is True, result
+
+    delete_candidate_path("rt1", "6.6.6.6", 100)
+    logger.info("With the SR Policy down, the VRF route should use the IGP path")
+    result = check_vrf_route_labels([16060])
+    assert result is True, result
+
+    tgen.gears["rt1"].vtysh_cmd(
+        """
+        configure terminal
+         no router bgp 1 vrf vrf1
+         router bgp 1
+          address-family ipv4 vpn
+           no neighbor 6.6.6.6 route-map SET_SR_POLICY in
+           no neighbor 6.6.6.6 activate
+        """
+    )
+    tgen.gears["rt6"].vtysh_cmd(
+        """
+        configure terminal
+         no router bgp 1 vrf vrf1
+         router bgp 1
+          address-family ipv4 vpn
+           no neighbor 1.1.1.1 activate
+        """
+    )
+    for rname in ["rt1", "rt6"]:
+        tgen.net[rname].cmd("ip link del vrf1")
 
 
 # Memory leak test template
