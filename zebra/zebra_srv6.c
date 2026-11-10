@@ -621,15 +621,15 @@ void delete_zebra_srv6_sid_block(void *val)
 	zebra_srv6_sid_block_free((struct zebra_srv6_sid_block *)val);
 }
 
-struct zebra_srv6_sid_block *
-zebra_srv6_sid_block_lookup(struct prefix_ipv6 *prefix)
+struct zebra_srv6_sid_block *zebra_srv6_sid_block_lookup(struct srv6_sid_format *format,
+							 struct prefix_ipv6 *prefix)
 {
 	struct zebra_srv6 *srv6 = zebra_srv6_get_default();
 	struct zebra_srv6_sid_block *block;
 	struct listnode *node;
 
 	for (ALL_LIST_ELEMENTS_RO(srv6->sid_blocks, node, block))
-		if (prefix_match(prefix, &block->prefix))
+		if (block->sid_format == format && prefix_match(prefix, &block->prefix))
 			return block;
 
 	return NULL;
@@ -679,7 +679,7 @@ void zebra_srv6_sid_locator_block_alloc(struct srv6_locator *locator)
 	apply_mask(&block_pfx_new);
 
 	/* Allocate the new parent block */
-	block_new = zebra_srv6_sid_block_lookup(&block_pfx_new);
+	block_new = zebra_srv6_sid_block_lookup(format, &block_pfx_new);
 	if (!block_new) {
 		block_new = zebra_srv6_sid_block_alloc(format, &block_pfx_new);
 		listnode_add(srv6->sid_blocks, block_new);
