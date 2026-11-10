@@ -343,18 +343,29 @@ static struct vertex_parent *
 ospf_spf_vertex_parent_copy(struct vertex_parent *vertex_parent)
 {
 	struct vertex_parent *vertex_parent_copy;
-	struct vertex_nexthop *nexthop_copy, *local_nexthop_copy;
+	struct vertex_nexthop *nexthop_copy = NULL;
+	struct vertex_nexthop *local_nexthop_copy = NULL;
 
-	vertex_parent_copy = XCALLOC(MTYPE_OSPF_VERTEX_PARENT, sizeof(struct vertex_parent));
-
-	nexthop_copy = vertex_nexthop_new();
-	local_nexthop_copy = vertex_nexthop_new();
+	vertex_parent_copy = XCALLOC(MTYPE_OSPF_VERTEX_PARENT,
+				     sizeof(struct vertex_parent));
 
 	memcpy(vertex_parent_copy, vertex_parent, sizeof(struct vertex_parent));
-	memcpy(nexthop_copy, vertex_parent->nexthop,
-	       sizeof(struct vertex_nexthop));
-	memcpy(local_nexthop_copy, vertex_parent->local_nexthop,
-	       sizeof(struct vertex_nexthop));
+
+	/*
+	 * ospf_canonical_nexthops_free() releases these objects and sets the
+	 * pointers to NULL, while the parent link stays on the SPF tree.
+	 * TI-LFA copies that tree from ospf_ti_lfa_generate_p_space().
+	 */
+	if (vertex_parent->nexthop) {
+		nexthop_copy = vertex_nexthop_new();
+		memcpy(nexthop_copy, vertex_parent->nexthop,
+		       sizeof(struct vertex_nexthop));
+	}
+	if (vertex_parent->local_nexthop) {
+		local_nexthop_copy = vertex_nexthop_new();
+		memcpy(local_nexthop_copy, vertex_parent->local_nexthop,
+		       sizeof(struct vertex_nexthop));
+	}
 
 	vertex_parent_copy->nexthop = nexthop_copy;
 	vertex_parent_copy->local_nexthop = local_nexthop_copy;
