@@ -3184,20 +3184,48 @@ static int show_per_daemon(struct vty *vty, struct cmd_token **argv, int argc,
 
 /*
  * Daemons that call libagentx_init(). The daemon command is NOSH; this
- * wrapper is the one vtysh installs, so each daemon's JSON stays one value.
+ * wrapper is the one vtysh installs. Each connected client is one value.
+ * OSPF numbered instances share the ospfd slot and hang off its next
+ * chain. One disconnected client must not hide the others, and their
+ * JSON objects must not be concatenated under a single key.
  */
 #define VTYSH_AGENTX_SHOW                                                                         \
 	(VTYSH_ZEBRA | VTYSH_RIPD | VTYSH_OSPFD | VTYSH_OSPF6D | VTYSH_LDPD | VTYSH_BGPD |        \
 	 VTYSH_ISISD | VTYSH_EIGRPD | VTYSH_FABRICD)
+
+/* Socket basename without ".vty": bgpd.vty -> bgpd, ospfd-1.vty -> ospfd-1. */
+static void vtysh_agentx_client_label(const struct vtysh_client *client, char *label,
+				      size_t label_len)
+{
+	const char *base;
+	const char *dot;
+	size_t len;
+
+	base = strrchr(client->path, '/');
+	base = base ? base + 1 : client->path;
+	if (!base[0])
+		base = client->name;
+
+	dot = strrchr(base, '.');
+	if (dot && strcmp(dot, ".vty") == 0)
+		len = (size_t)(dot - base);
+	else
+		len = strlen(base);
+
+	if (len >= label_len)
+		len = label_len - 1;
+	memcpy(label, base, len);
+	label[len] = '\0';
+}
 
 static void vtysh_show_agentx_send(struct vty *vty, struct cmd_token **argv,
 				   int argc, bool as_json)
 {
 	unsigned int i;
 	bool first = true;
-	bool is_connected;
 	char *line;
-	const struct vtysh_client *client;
+	struct vtysh_client *client;
+	char label[64];
 
 	/*
 	 * VIEW_NODE rejects the "do" shortcut. do_prepend() adds it only
@@ -3209,33 +3237,30 @@ static void vtysh_show_agentx_send(struct vty *vty, struct cmd_token **argv,
 		vty_out(vty, "{");
 
 	for (i = 0; i < array_size(vtysh_client); i++) {
-		client = &vtysh_client[i];
-		is_connected = true;
-
-		if (!(client->flag & VTYSH_AGENTX_SHOW))
+		if (!(vtysh_client[i].flag & VTYSH_AGENTX_SHOW))
 			continue;
 
-		for (; client; client = client->next) {
+		for (client = &vtysh_client[i]; client; client = client->next) {
 			if (client->fd < 0)
-				is_connected = false;
+				continue;
+
+			vtysh_agentx_client_label(client, label, sizeof(label));
+
+			if (as_json) {
+				if (!first)
+					vty_out(vty, ",");
+				vty_out(vty, "\"%s\":", label);
+			} else {
+				vty_out(vty, "AgentX status for %s:\n", label);
+			}
+
+			first = false;
+			/* This client only. execute_name walks the chain. */
+			vtysh_client_run(client, line, NULL, NULL, NULL);
+
+			if (!as_json)
+				vty_out(vty, "\n");
 		}
-
-		if (!is_connected)
-			continue;
-
-		if (as_json) {
-			if (!first)
-				vty_out(vty, ",");
-			vty_out(vty, "\"%s\":", vtysh_client[i].name);
-		} else {
-			vty_out(vty, "AgentX status for %s:\n", vtysh_client[i].name);
-		}
-
-		first = false;
-		vtysh_client_execute_name(vtysh_client[i].name, line);
-
-		if (!as_json)
-			vty_out(vty, "\n");
 	}
 
 	if (as_json)
