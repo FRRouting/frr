@@ -251,9 +251,14 @@ void zebra_mpls_print_fec(struct vty *vty, struct zebra_vrf *zvrf,
  * mpls_zapi_labels_process -> Installs for future processing
  *                             in the meta-q
  * zebra_mpls_labels_process -> called by the meta-q
+ *
+ * mpls_zapi_labels_uninstall_all queues the removal of all NHLFEs of a
+ * type, so that it is applied in order with the requests queued before it.
  */
 void mpls_zapi_labels_process(bool add_p, struct zebra_vrf *zvrf,
 			      const struct zapi_labels *zl);
+void mpls_zapi_labels_uninstall_all(struct zebra_vrf *zvrf, enum lsp_types_t type,
+				    mpls_label_t in_label);
 void zebra_mpls_zapi_labels_process(bool add_p, struct zebra_vrf *zvrf,
 				    const struct zapi_labels *zl);
 

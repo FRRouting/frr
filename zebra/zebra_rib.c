@@ -227,6 +227,7 @@ struct wq_evpn_wrapper {
 enum wq_label_types {
 	WQ_LABEL_FTN_UNINSTALL,
 	WQ_LABEL_LABELS_PROCESS,
+	WQ_LABEL_LSP_UNINSTALL_ALL,
 };
 
 struct wq_label_wrapper {
@@ -235,6 +236,7 @@ struct wq_label_wrapper {
 
 	struct prefix p;
 	enum lsp_types_t ltype;
+	mpls_label_t in_label;
 	uint8_t route_type;
 	uint8_t route_instance;
 
@@ -2575,6 +2577,9 @@ static void process_subq_early_label(struct listnode *lnode)
 	case WQ_LABEL_LABELS_PROCESS:
 		zebra_mpls_zapi_labels_process(w->add_p, zvrf, &w->zl);
 		break;
+	case WQ_LABEL_LSP_UNINSTALL_ALL:
+		mpls_lsp_uninstall_all_vrf(zvrf, w->ltype, w->in_label);
+		break;
 	}
 
 	XFREE(MTYPE_WQ_WRAPPER, w);
@@ -3554,6 +3559,23 @@ void mpls_ftn_uninstall(struct zebra_vrf *zvrf, enum lsp_types_t type,
 	mq_add_handler(w, early_label_meta_queue_add);
 }
 
+void mpls_zapi_labels_uninstall_all(struct zebra_vrf *zvrf, enum lsp_types_t type,
+				    mpls_label_t in_label)
+{
+	struct wq_label_wrapper *w;
+
+	w = XCALLOC(MTYPE_WQ_WRAPPER, sizeof(struct wq_label_wrapper));
+	w->type = WQ_LABEL_LSP_UNINSTALL_ALL;
+	w->vrf_id = zvrf->vrf->vrf_id;
+	w->ltype = type;
+	w->in_label = in_label;
+
+	if (IS_ZEBRA_DEBUG_RIB_DETAILED)
+		zlog_debug("Early Label Handling: LSP %u Uninstall All", in_label);
+
+	mq_add_handler(w, early_label_meta_queue_add);
+}
+
 void mpls_zapi_labels_process(bool add_p, struct zebra_vrf *zvrf,
 			      const struct zapi_labels *zl)
 {
@@ -3902,6 +3924,7 @@ static void early_label_meta_queue_free(struct meta_queue *mq, struct list *l,
 		switch (w->type) {
 		case WQ_LABEL_FTN_UNINSTALL:
 		case WQ_LABEL_LABELS_PROCESS:
+		case WQ_LABEL_LSP_UNINSTALL_ALL:
 			break;
 		}
 
