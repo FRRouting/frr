@@ -220,6 +220,56 @@ jobs:
         if: ${{ always() }}
         run: rm -rf test-results-${{ matrix.cfg.platform }}* /tmp/frr-${{ matrix.cfg.platform }}.tar
 
+  # Compile check only. Topotests stay on the Linux Test job.
+  macOS:
+    needs: doc-path-filter
+    if: ${{ needs.doc-path-filter.outputs.non_doc == 'true' }}
+    runs-on: macos-latest
+    name: macOS arm Build
+    timeout-minutes: 45
+    env:
+      HOMEBREW_NO_AUTO_UPDATE: 1
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 1
+      - name: Install dependencies
+        run: |
+          set -euo pipefail
+          brew install autoconf automake libtool pkgconf bison texinfo cmake \
+            json-c c-ares readline pcre2 protobuf-c
+          # The bottled libyang is built without pkgconf, so it ships no
+          # libyang.pc and configure cannot see the library.
+          brew install --build-from-source libyang
+          pkg-config --modversion libyang
+          brew_prefix="$(brew --prefix)"
+          readline_prefix="$(brew --prefix readline)"
+          # macOS bison is too old, and libtoolize is installed as glibtoolize.
+          # clang does not search Homebrew. readline is keg-only, shadowed by libedit.
+          {
+            echo "PATH=${brew_prefix}/opt/bison/bin:${brew_prefix}/opt/libtool/libexec/gnubin:${PATH}"
+            echo "CPPFLAGS=-I${brew_prefix}/include -I${readline_prefix}/include"
+            echo "LDFLAGS=-L${brew_prefix}/lib -L${readline_prefix}/lib"
+            echo "PKG_CONFIG_PATH=${brew_prefix}/lib/pkgconfig:${readline_prefix}/lib/pkgconfig"
+          } >> "$GITHUB_ENV"
+      - name: Configure
+        run: |
+          set -euo pipefail
+          ./bootstrap.sh
+          ./configure \
+            CC=clang \
+            CXX=clang++ \
+            --prefix=/usr/local \
+            --sysconfdir=/usr/local/etc \
+            --localstatedir=/usr/local/var \
+            --enable-dev-build \
+            --disable-doc
+      - name: Make
+        run: |
+          set -euo pipefail
+          make -j"$(sysctl -n hw.ncpu)"
+
   Test:
     runs-on: ${{ matrix.cfg.os }}
     needs: Build
