@@ -42,7 +42,8 @@ const char *pcep_open_odl_hexbyte_strs[] = {
 	"00", "1a", "00", "04", "00", "00", "00", "00"};
 
 /* PCEP INITIATE str received from ODL with 4 objects: [SRP, LSP, Endpoints,
- * ERO] The LSP has a SYMBOLIC_PATH_NAME TLV. The ERO has 2 IPV4 Endpoints. */
+ * ERO] The LSP has a SYMBOLIC_PATH_NAME TLV. The ERO has 2 IPV4 Endpoints.
+ */
 uint16_t pcep_initiate_hexbyte_strs_length = 68;
 const char *pcep_initiate_hexbyte_strs[] = {
 	"20", "0c", "00", "44", "21", "12", "00", "0c", "00", "00", "00", "00",
@@ -60,6 +61,19 @@ const char *pcep_initiate2_hexbyte_strs[] = {
 	"36", "65", "31", "31", "38", "39", "32", "31", "04", "10", "00", "0c",
 	"c0", "a8", "14", "05", "01", "01", "01", "01", "07", "10", "00", "10",
 	"05", "0c", "10", "01", "03", "e8", "a0", "00", "01", "01", "01", "01"};
+
+/* The PCEP INITIATE above, followed by a VENDOR-INFORMATION object as sent by
+ * a Cisco PCE: color TLV (type 1, color 1) and preference TLV (type 3, 100). */
+uint16_t pcep_initiate_vendor_info_hexbyte_strs_length = 92;
+const char *pcep_initiate_vendor_info_hexbyte_strs[] = {
+	"20", "0c", "00", "5c", "21", "12", "00", "0c", "00", "00", "00", "00", "00", "00",
+	"00", "01", "20", "10", "00", "14", "00", "00", "00", "09", "00", "11", "00", "08",
+	"66", "61", "39", "33", "33", "39", "32", "39", "04", "10", "00", "0c", "7f", "00",
+	"00", "01", "28", "28", "28", "28", "07", "10", "00", "14", "01", "08", "0a", "00",
+	"01", "01", "18", "00", "01", "08", "0a", "00", "07", "04", "18", "00", "22", "10",
+	"00", "18", "00", "00", "00", "09", "00", "01", "00", "04", "00", "00", "00", "01",
+	"00", "03", "00", "04", "00", "00", "00", "64"
+};
 
 uint16_t pcep_update_hexbyte_strs_length = 48;
 const char *pcep_update_hexbyte_strs[] = {
@@ -390,6 +404,43 @@ void test_pcep_msg_read_pcep_initiate2(void)
 	CU_ASSERT_EQUAL(*((uint32_t *) subobj_sr->nai_list->head->data),
 	0x01010101);
 	*/
+
+	pcep_msg_free_message_list(msg_list);
+	close(fd);
+	unlink(filename);
+}
+
+void test_pcep_msg_read_pcep_initiate_vendor_info(void)
+{
+	char filename[BASE_TMPFILE_SIZE];
+	int fd = convert_hexstrs_to_binary(filename, pcep_initiate_vendor_info_hexbyte_strs,
+					   pcep_initiate_vendor_info_hexbyte_strs_length);
+	double_linked_list *msg_list;
+	struct pcep_message *msg;
+	struct pcep_object_vendor_info *vendor_info;
+
+	if (fd == -1) {
+		CU_ASSERT_TRUE(fd >= 0);
+		return;
+	}
+	msg_list = pcep_msg_read(fd);
+	CU_ASSERT_PTR_NOT_NULL(msg_list);
+	assert(msg_list != NULL);
+	CU_ASSERT_EQUAL(msg_list->num_entries, 1);
+
+	msg = (struct pcep_message *)msg_list->head->data;
+	CU_ASSERT_EQUAL(msg->obj_list->num_entries, 5);
+	CU_ASSERT_EQUAL(msg->msg_header->type, PCEP_TYPE_INITIATE);
+	CU_ASSERT_EQUAL(msg->encoded_message_length, pcep_initiate_vendor_info_hexbyte_strs_length);
+
+	vendor_info = (struct pcep_object_vendor_info *)msg->obj_list->tail->data;
+	CU_ASSERT_EQUAL(vendor_info->header.object_class, PCEP_OBJ_CLASS_VENDOR_INFO);
+	CU_ASSERT_EQUAL(vendor_info->header.object_type, PCEP_OBJ_TYPE_VENDOR_INFO);
+	CU_ASSERT_EQUAL(vendor_info->header.encoded_object_length, 24);
+	CU_ASSERT_FALSE(pcep_obj_has_tlv(&vendor_info->header));
+	CU_ASSERT_EQUAL(vendor_info->enterprise_number, ENTERPRISE_NUMBER_CISCO);
+	CU_ASSERT_EQUAL(vendor_info->enterprise_specific_info, ENTERPRISE_COLOR_CISCO);
+	CU_ASSERT_EQUAL(vendor_info->enterprise_specific_info1, 1);
 
 	pcep_msg_free_message_list(msg_list);
 	close(fd);

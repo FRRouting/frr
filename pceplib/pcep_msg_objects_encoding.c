@@ -977,6 +977,10 @@ uint16_t pcep_object_get_length_by_hdr(struct pcep_object_header *object_hdr)
 
 bool pcep_object_has_tlvs(struct pcep_object_header *object_hdr)
 {
+	/* RFC 7470, section 4: the body is enterprise-specific, without TLVs */
+	if (object_hdr->object_class == PCEP_OBJ_CLASS_VENDOR_INFO)
+		return false;
+
 	uint8_t object_length = pcep_object_get_length_by_hdr(object_hdr);
 	if (object_length == 0) {
 		return false;
