@@ -84,6 +84,7 @@ from lib.bgp import (
 from lib.topogen import Topogen, get_topogen
 from lib.topojson import build_config_from_json
 from lib.topolog import logger
+from lib.topotest import platform_has_vrf
 
 # Global variables
 topo = None
@@ -117,6 +118,8 @@ def setup_module(mod):
 
     * `mod`: module name
     """
+    if not platform_has_vrf():
+        pytest.skip("platform does not support VRF")
 
     global topo
 

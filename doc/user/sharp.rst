@@ -128,6 +128,18 @@ keyword. At present, no sharp commands will be preserved in the config.
    name, and can include optional zapi ``instance`` and ``session``
    values.
 
+.. clicmd:: sharp send opaque notify <reg | unreg> type (1-1000)
+
+   The ``reg`` form asks Zebra to notify sharpd when a protocol daemon
+   registers to receive opaque messages of subtype ``type``, or when the
+   last receiver for that subtype unregisters. Registration notifications
+   identify the daemon by its protocol, instance, and session ID; an
+   unregistration notification indicates that no receivers remain. sharpd
+   writes these notifications to its debug log.
+
+   The ``unreg`` form cancels sharpd's notification subscription for
+   that subtype.
+
 .. clicmd:: sharp create session (1-1024)
 
    Create an additional zapi client session for testing, using the

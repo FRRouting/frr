@@ -400,13 +400,13 @@ static int zebra_ptm_handle_bfd_msg(void *arg, void *in_ctxt,
 	struct prefix src_prefix;
 	vrf_id_t vrf_id;
 
-	ptm_lib_find_key_in_msg(in_ctxt, ZEBRA_PTM_BFDSTATUS_STR, bfdst_str);
+	ptm_lib_find_key_in_msg(in_ctxt, ZEBRA_PTM_BFDSTATUS_STR, bfdst_str, sizeof(bfdst_str));
 
 	if (bfdst_str[0] == '\0') {
 		return -1;
 	}
 
-	ptm_lib_find_key_in_msg(in_ctxt, ZEBRA_PTM_BFDDEST_STR, dest_str);
+	ptm_lib_find_key_in_msg(in_ctxt, ZEBRA_PTM_BFDDEST_STR, dest_str, sizeof(dest_str));
 
 	if (dest_str[0] == '\0') {
 		zlog_debug("%s: Key %s not found in PTM msg", __func__,
@@ -414,7 +414,7 @@ static int zebra_ptm_handle_bfd_msg(void *arg, void *in_ctxt,
 		return -1;
 	}
 
-	ptm_lib_find_key_in_msg(in_ctxt, ZEBRA_PTM_BFDSRC_STR, src_str);
+	ptm_lib_find_key_in_msg(in_ctxt, ZEBRA_PTM_BFDSRC_STR, src_str, sizeof(src_str));
 
 	if (src_str[0] == '\0') {
 		zlog_debug("%s: Key %s not found in PTM msg", __func__,
@@ -422,7 +422,7 @@ static int zebra_ptm_handle_bfd_msg(void *arg, void *in_ctxt,
 		return -1;
 	}
 
-	ptm_lib_find_key_in_msg(in_ctxt, ZEBRA_PTM_BFDVRF_STR, vrf_str);
+	ptm_lib_find_key_in_msg(in_ctxt, ZEBRA_PTM_BFDVRF_STR, vrf_str, sizeof(vrf_str));
 
 	if (vrf_str[0] == '\0') {
 		zlog_debug("%s: Key %s not found in PTM msg", __func__,
@@ -527,15 +527,15 @@ static int zebra_ptm_handle_msg_cb(void *arg, void *in_ctxt)
 	char cbl_str[32];
 	char cmd_status_str[32];
 
-	ptm_lib_find_key_in_msg(in_ctxt, ZEBRA_PTM_CMD_STATUS_STR,
-				cmd_status_str);
+	ptm_lib_find_key_in_msg(in_ctxt, ZEBRA_PTM_CMD_STATUS_STR, cmd_status_str,
+				sizeof(cmd_status_str));
 
 	/* Drop command response messages */
 	if (cmd_status_str[0] != '\0') {
 		return 0;
 	}
 
-	ptm_lib_find_key_in_msg(in_ctxt, ZEBRA_PTM_PORT_STR, port_str);
+	ptm_lib_find_key_in_msg(in_ctxt, ZEBRA_PTM_PORT_STR, port_str, sizeof(port_str));
 
 	if (port_str[0] == '\0') {
 		zlog_debug("%s: Key %s not found in PTM msg", __func__,
@@ -570,7 +570,7 @@ static int zebra_ptm_handle_msg_cb(void *arg, void *in_ctxt)
 		}
 	}
 
-	ptm_lib_find_key_in_msg(in_ctxt, ZEBRA_PTM_CBL_STR, cbl_str);
+	ptm_lib_find_key_in_msg(in_ctxt, ZEBRA_PTM_CBL_STR, cbl_str, sizeof(cbl_str));
 
 	if (cbl_str[0] == '\0') {
 		return zebra_ptm_handle_bfd_msg(arg, in_ctxt, ifp);

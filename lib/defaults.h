@@ -126,6 +126,15 @@ extern void frr_defaults_apply(void);
 extern const char *frr_defaults_profiles[];
 extern bool frr_defaults_profile_valid(const char *profile);
 
+/* The available default profiles */
+enum frr_default_profile {
+	FRR_DEFAULT_TRADITIONAL = 0,
+	FRR_DEFAULT_DATACENTER,
+};
+
+/* Returns which default profile is currently in use */
+extern enum frr_default_profile frr_default_chosen(void);
+
 /* like strcmp(), but with version ordering */
 extern int frr_version_cmp(const char *aa, const char *bb);
 

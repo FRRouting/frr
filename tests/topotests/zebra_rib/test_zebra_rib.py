@@ -27,7 +27,7 @@ sys.path.append(os.path.join(CWD, "../"))
 # pylint: disable=C0413
 # Import topogen and topotest helpers
 from lib import topotest
-from lib.common_config import step
+from lib.common_config import step, shutdown_bringup_interface_in_kernel
 from lib.topogen import Topogen, TopoRouter, get_topogen
 from lib.topolog import logger
 from time import sleep
@@ -47,11 +47,14 @@ def config_macvlan(tgen, r_str, device, macvlan):
     router.run(
         "ip link add {} link {} type macvlan mode bridge".format(macvlan, device)
     )
-    router.run("ip link set {} up".format(macvlan))
+    shutdown_bringup_interface_in_kernel(router.tgen, router.name, macvlan, True)
 
 
 def setup_module(mod):
     "Sets up the pytest environment"
+    if not topotest.platform_has_vrf():
+        pytest.skip("platform does not support VRF")
+
     # 8 links to 8 switches on r1
     topodef = {"s{}".format(x): ("r1",) for x in range(1, 9)}
     tgen = Topogen(topodef, mod.__name__)
@@ -167,7 +170,7 @@ configure terminal
 
     step("Add VRF {} and assign it r1-eth0 interface".format(vrf))
     r1.run("ip link add {} type vrf table {}".format(vrf, table_id))
-    r1.run("ip link set {} up".format(vrf))
+    shutdown_bringup_interface_in_kernel(r1.tgen, r1.name, vrf, True)
     r1.run("ip link set dev r1-eth0 master {}".format(vrf))
 
     step("Add static routes to VRF {}".format(vrf))

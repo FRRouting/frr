@@ -293,6 +293,55 @@ int zebra_evpn_rem_mac_uninstall(struct zebra_evpn *zevpn,
 }
 
 /*
+ * Delete the VXLAN device's own FDB entry (NTF_SELF, dst = the VTEP) that
+ * zebra installed for a remote MAC which is now local. When a remote MAC is
+ * learnt locally the bridge takes over only its own entry for the VLAN the
+ * frame arrived on; the VXLAN device's entry, and the copies the bridge made
+ * for the other VLANs of the vxlan port, are left behind. The bridge's copies
+ * carry no destination and are ignored here; the VXLAN device's entry is not:
+ * whenever zebra reads it back (a restart, a VNI rebuild) it is taken for a
+ * remote learn and the local MAC is deleted. So remove it.
+ *
+ * The delete carries NTF_SELF without NTF_MASTER, so the kernel hands it to
+ * the VXLAN device only and never to the bridge, whose entry for the MAC is
+ * now the local one. NDA_MASTER is still encoded, as for every MAC update,
+ * but the kernel does not use it to route a delete. NDA_SRC_VNI and NDA_DST
+ * narrow the delete to this VNI's entry to this VTEP, which matters on a
+ * single VXLAN device that carries several VNIs.
+ *
+ * Best effort: the result is not checked and there is no retry, and a
+ * kernel error on a delete is logged at debug level only. If the delete
+ * fails, the entry is removed the next time zebra reads it back
+ * (zebra_vxlan_dp_network_mac_add()).
+ *
+ * Only for single-homed MACs. A remote MAC behind an ES is installed with
+ * a nexthop group and no VTEP address; its entry may stay behind when the
+ * MAC becomes local, but zebra ignores such entries when it reads the FDB
+ * back, so they cannot delete the local MAC.
+ */
+void zebra_evpn_rem_mac_net_entry_del(struct zebra_evpn *zevpn, const struct ethaddr *macaddr,
+				      const struct ipaddr *vtep_ip)
+{
+	const struct zebra_if *zif;
+	const struct interface *br_ifp;
+
+	if (!zevpn->vxlan_if || ipaddr_is_zero(vtep_ip))
+		return;
+	zif = zevpn->vxlan_if->info;
+	if (!zif)
+		return;
+	br_ifp = zif->brslave_info.br_if;
+	if (!br_ifp)
+		return;
+
+	if (IS_ZEBRA_DEBUG_VXLAN)
+		zlog_debug("VNI %u MAC %pEA is local, removing the vxlan entry to VTEP %pIA",
+			   zevpn->vni, macaddr, vtep_ip);
+
+	dplane_rem_mac_net_del(zevpn->vxlan_if, br_ifp, macaddr, zevpn->vni, vtep_ip);
+}
+
+/*
  * Decrement neighbor refcount of MAC; uninstall and free it if
  * appropriate.
  */
@@ -2288,6 +2337,13 @@ int zebra_evpn_add_update_local_mac(struct zebra_vrf *zvrf,
 				vtep_ip = mac->fwd_info.r_vtep_ip;
 				/* Trigger DAD for remote MAC */
 				do_dad = true;
+				/*
+				 * The bridge has taken over its own entry;
+				 * the vxlan device's entry to the old VTEP
+				 * stays unless it is removed.
+				 */
+				if (!mac->es)
+					zebra_evpn_rem_mac_net_entry_del(zevpn, macaddr, &vtep_ip);
 			}
 
 			UNSET_FLAG(mac->flags, ZEBRA_MAC_REMOTE);

@@ -709,7 +709,7 @@ void ospf6_lsa_show_internal(struct vty *vty, struct ospf6_lsa *lsa,
 			ntohs(lsa->header->checksum),
 			ospf6_lsa_size(lsa->header));
 		vty_out(vty, "Flag: %x \n", lsa->flag);
-		vty_out(vty, "Lock: %d \n", lsa->lock);
+		vty_out(vty, "Lock: %u \n", lsa->lock);
 		vty_out(vty, "ReTx Count: %d\n", lsa->retrans_count);
 		vty_out(vty, "Threads: Expire: %p, Refresh: %p\n", lsa->expire,
 			lsa->refresh);

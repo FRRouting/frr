@@ -1004,8 +1004,7 @@ static struct sr_link *get_ext_link_sid(struct tlv_header *tlvh, size_t size)
 	bool error_p = false;
 
 	/* Check TLV size */
-	if ((ntohs(tlvh->length) > size)
-	    || ntohs(tlvh->length) < EXT_TLV_LINK_SIZE) {
+	if (!tlv_fits(tlvh, size) || ntohs(tlvh->length) < EXT_TLV_LINK_SIZE) {
 		zlog_warn("Wrong Extended Link TLV size. Abort!");
 		return NULL;
 	}
@@ -1122,9 +1121,8 @@ static struct sr_prefix *get_ext_prefix_sid(struct tlv_header *tlvh,
 	uint32_t length = 0, sum = 0;
 
 	/* Check TLV size */
-	if ((ntohs(tlvh->length) > size)
-	    || ntohs(tlvh->length) < EXT_TLV_PREFIX_SIZE) {
-		zlog_warn("Wrong Extended Link TLV size. Abort!");
+	if (!tlv_fits(tlvh, size) || ntohs(tlvh->length) < EXT_TLV_PREFIX_SIZE) {
+		zlog_warn("Wrong Extended Prefix TLV size. Abort!");
 		return NULL;
 	}
 

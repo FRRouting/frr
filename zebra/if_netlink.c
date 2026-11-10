@@ -275,8 +275,12 @@ void kernel_read_intf_speed(struct zebra_dplane_ctx *ctx)
 	struct zebra_ns *zns = zebra_ns_lookup(dplane_ctx_get_ns_id(ctx));
 	uint32_t speed;
 	int error = 0;
+	int err_errno = 0;
 
-	speed = netlink_get_interface_speed(zns, ifname, &error);
+	speed = netlink_get_interface_speed(zns, ifname, &error, &err_errno);
+	if (err_errno)
+		dplane_ctx_set_errno(ctx, err_errno);
+
 	switch (error) {
 	case 0:
 		dplane_ctx_set_status(ctx, ZEBRA_DPLANE_REQUEST_SUCCESS);
@@ -1485,9 +1489,10 @@ int netlink_link_change(struct nlmsghdr *h, ns_id_t ns_id, int startup, void *ar
 
 		vrf_id_t ifp_vrf_id = vrf_is_backend_netns() ? ns_id : vrf_id;
 
-		if (startup) {
-			speed = netlink_get_interface_speed(zebra_ns_lookup(ifp_vrf_id),
-							    name, &speed_err);
+		/* A PPP link has no speed, see dplane_intf_speed_get() */
+		if (startup && ifi->ifi_type != ARPHRD_PPP) {
+			speed = netlink_get_interface_speed(zebra_ns_lookup(ifp_vrf_id), name,
+							    &speed_err, NULL);
 			if (speed_err == 0) {
 				dplane_ctx_set_ifp_speed(ctx, speed);
 				dplane_ctx_set_ifp_speed_set(ctx, true);

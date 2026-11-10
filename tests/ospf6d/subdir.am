@@ -12,7 +12,17 @@ tests_ospf6d_test_lsdb_CPPFLAGS = $(TESTS_CPPFLAGS)
 tests_ospf6d_test_lsdb_LDADD = $(OSPF6_TEST_LDADD)
 tests_ospf6d_test_lsdb_SOURCES = tests/ospf6d/test_lsdb.c tests/lib/cli/common_cli.c
 clippy_scan += tests/ospf6d/test_lsdb.c
+
+if OSPF6D
+check_PROGRAMS += tests/ospf6d/test_grace_lsa
+endif
+tests_ospf6d_test_grace_lsa_CFLAGS = $(TESTS_CFLAGS)
+tests_ospf6d_test_grace_lsa_CPPFLAGS = $(TESTS_CPPFLAGS)
+tests_ospf6d_test_grace_lsa_LDADD = $(OSPF6_TEST_LDADD)
+tests_ospf6d_test_grace_lsa_SOURCES = tests/ospf6d/test_grace_lsa.c
+
 EXTRA_DIST += \
+	tests/ospf6d/test_grace_lsa.py \
 	tests/ospf6d/test_lsdb.py \
 	tests/ospf6d/test_lsdb.in \
 	tests/ospf6d/test_lsdb.refout \

@@ -224,6 +224,8 @@ static inline bool zebra_evpn_mac_in_use(struct zebra_mac *mac)
 struct hash *zebra_mac_db_create(const char *desc);
 uint32_t num_valid_macs(struct zebra_evpn *zevi);
 uint32_t num_dup_detected_macs(struct zebra_evpn *zevi);
+void zebra_evpn_rem_mac_net_entry_del(struct zebra_evpn *zevpn, const struct ethaddr *macaddr,
+				      const struct ipaddr *vtep_ip);
 int zebra_evpn_rem_mac_uninstall(struct zebra_evpn *zevi, struct zebra_mac *mac,
 				 bool force);
 int zebra_evpn_rem_mac_install(struct zebra_evpn *zevi, struct zebra_mac *mac,

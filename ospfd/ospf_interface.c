@@ -1673,6 +1673,45 @@ static int ospf_ifp_create(struct interface *ifp)
 	return 0;
 }
 
+/*
+ * Without "ip ospf network" the type follows the interface flags. They may
+ * not be known yet when the interface is created: a tunnel added at run time
+ * is announced before it is point-to-point, so it would stay broadcast.
+ */
+static void ospf_if_default_type_update(struct interface *ifp)
+{
+	struct ospf_if_params *params = IF_DEF_PARAMS(ifp);
+	struct route_node *rn;
+	uint8_t type;
+
+	if (!params || params->type_cfg)
+		return;
+
+	type = ospf_default_iftype(ifp);
+	if (type == params->type)
+		return;
+
+	if (IS_DEBUG_OSPF(zebra, ZEBRA_INTERFACE))
+		zlog_debug("Zebra: Interface[%s] default network type is now %s", ifp->name,
+			   type == OSPF_IFTYPE_POINTOPOINT ? "point-to-point"
+			   : type == OSPF_IFTYPE_LOOPBACK  ? "loopback"
+							   : "broadcast");
+
+	params->type = type;
+	for (rn = route_top(IF_OIFS(ifp)); rn; rn = route_next(rn)) {
+		struct ospf_interface *oi = rn->info;
+
+		if (!oi)
+			continue;
+
+		oi->type = type;
+		if (oi->state > ISM_Down) {
+			OSPF_ISM_EVENT_EXECUTE(oi, ISM_InterfaceDown);
+			OSPF_ISM_EVENT_EXECUTE(oi, ISM_InterfaceUp);
+		}
+	}
+}
+
 static int ospf_ifp_up(struct interface *ifp)
 {
 	struct ospf_interface *oi;
@@ -1683,6 +1722,8 @@ static int ospf_ifp_up(struct interface *ifp)
 	if (IS_DEBUG_OSPF(zebra, ZEBRA_INTERFACE))
 		zlog_debug("Zebra: Interface[%s] state change to up.",
 			   ifp->name);
+
+	ospf_if_default_type_update(ifp);
 
 	/* Open per-intf write socket if configured */
 	ospf = ifp->vrf->info;

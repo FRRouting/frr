@@ -19,6 +19,22 @@ r1 receives routes with aigp-metric TLV 81, 91 and 82, 92 respectively.
 r1 advertises MED from IGP protocol (set metric igp) to r8.
 
 r1 advertises MED from AIGP (set metric aigp) to r8.
+
+r8 does not receive the AIGP attribute, as r1 -> r8 is an eBGP session
+without "neighbor PEER aigp".
+
+peer1 and peer2 are eBGP peers of r7, and both advertise a prefix with
+the AIGP attribute. r7 accepts it from peer1 ("neighbor PEER aigp"),
+and ignores it from peer2.
+
+The AIGP commands are displayed in the running configuration of r1
+and r7.
+
+r7 sets aigp-metric 0 for 10.0.0.72/32, and r6 receives the AIGP
+attribute with a metric of 0.
+
+r7 removes the aigp-metric action for 10.0.0.72/32, and r6 receives it
+without the AIGP attribute.
 """
 
 import os
@@ -33,6 +49,7 @@ sys.path.append(os.path.join(CWD, "../"))
 # pylint: disable=C0413
 from lib import topotest
 from lib.topogen import Topogen, TopoRouter, get_topogen
+from lib.common_config import retry
 
 pytestmark = [pytest.mark.bgpd, pytest.mark.ospfd]
 
@@ -73,6 +90,16 @@ def build_topo(tgen):
     switch.add_link(tgen.gears["r1"])
     switch.add_link(tgen.gears["r8"])
 
+    switch = tgen.add_switch("s9")
+    switch.add_link(tgen.gears["r7"])
+    for peern in range(1, 3):
+        peer = tgen.add_exabgp_peer(
+            "peer{}".format(peern),
+            ip="192.168.7.10{}/24".format(peern),
+            defaultRoute="via 192.168.7.7",
+        )
+        switch.add_link(peer)
+
 
 def setup_module(mod):
     tgen = Topogen(build_topo, mod.__name__)
@@ -93,10 +120,26 @@ def setup_module(mod):
 
     tgen.start_router()
 
+    for peern in range(1, 3):
+        peer = tgen.gears["peer{}".format(peern)]
+        peer.start(os.path.join(CWD, peer.name), os.path.join(CWD, "exabgp.env"))
+
 
 def teardown_module(mod):
     tgen = get_topogen()
     tgen.stop_topology()
+
+
+@retry(retry_timeout=60)
+def check_aigp_metric(router, prefix, aigp):
+    output = json.loads(
+        router.vtysh_cmd("show bgp ipv4 unicast {} json".format(prefix))
+    )
+    expected = {"paths": [{"valid": True, "aigpMetric": aigp}]}
+    result = topotest.json_cmp(output, expected)
+    if result is not None:
+        return str(result)
+    return True
 
 
 def test_bgp_aigp():
@@ -154,12 +197,18 @@ def test_bgp_aigp():
 
     def _bgp_check_received_med():
         output = json.loads(
-            r8.vtysh_cmd("show bgp ipv4 unicast 10.0.0.64/28 longer-prefixes json")
+            r8.vtysh_cmd(
+                "show bgp ipv4 unicast 10.0.0.64/28 longer-prefixes json detail"
+            )
         )
         expected = {
             "routes": {
-                "10.0.0.71/32": [{"valid": True, "metric": 10}],
-                "10.0.0.72/32": [{"valid": True, "metric": 92}],
+                "10.0.0.71/32": {
+                    "paths": [{"valid": True, "metric": 10, "aigpMetric": None}]
+                },
+                "10.0.0.72/32": {
+                    "paths": [{"valid": True, "metric": 92, "aigpMetric": None}]
+                },
             }
         }
         return topotest.json_cmp(output, expected)
@@ -288,7 +337,90 @@ def test_bgp_aigp():
     _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
     assert (
         result is None
-    ), "MED attribute values are not derived from `set metric [a]igp`"
+    ), "MED is not derived from `set metric [a]igp`, or AIGP is received"
+
+
+def test_bgp_aigp_ebgp_peer():
+    tgen = get_topogen()
+
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    r7 = tgen.gears["r7"]
+
+    # peer1 is configured with "neighbor PEER aigp"
+    result = check_aigp_metric(r7, "10.0.7.101/32", 101)
+    assert result is True, result
+
+    # peer2 is not configured with "neighbor PEER aigp"
+    result = check_aigp_metric(r7, "10.0.7.102/32", None)
+    assert result is True, result
+
+
+def test_bgp_aigp_running_config():
+    tgen = get_topogen()
+
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    r1 = tgen.gears["r1"]
+    r7 = tgen.gears["r7"]
+
+    output = r1.vtysh_cmd("show running-config")
+    assert " bgp bestpath aigp\n" in output, "r1, bgp bestpath aigp not displayed"
+
+    output = r7.vtysh_cmd("show running-config")
+    for line in (
+        " neighbor 192.168.7.101 aigp\n",
+        " set aigp-metric igp-metric\n",
+        " set aigp-metric 72\n",
+    ):
+        assert line in output, "r7, {} not displayed".format(line.strip())
+    assert (
+        " neighbor 192.168.7.102 aigp\n" not in output
+    ), "r7, neighbor 192.168.7.102 aigp displayed"
+
+
+def test_bgp_aigp_metric_zero():
+    tgen = get_topogen()
+
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    r6 = tgen.gears["r6"]
+    r7 = tgen.gears["r7"]
+
+    r7.vtysh_cmd(
+        """
+    configure terminal
+        route-map rmap permit 20
+            set aigp-metric 0
+    """
+    )
+
+    result = check_aigp_metric(r6, "10.0.0.72/32", 0)
+    assert result is True, result
+
+
+def test_bgp_aigp_no_set_metric():
+    tgen = get_topogen()
+
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    r6 = tgen.gears["r6"]
+    r7 = tgen.gears["r7"]
+
+    r7.vtysh_cmd(
+        """
+    configure terminal
+        route-map rmap permit 20
+            no set aigp-metric
+    """
+    )
+
+    result = check_aigp_metric(r6, "10.0.0.72/32", None)
+    assert result is True, result
 
 
 if __name__ == "__main__":

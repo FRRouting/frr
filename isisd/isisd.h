@@ -143,6 +143,7 @@ enum isis_metric_style {
 struct isis_area {
 	struct isis *isis;			       /* back pointer */
 	struct lspdb_head lspdb[ISIS_LEVELS];	       /* link-state dbs */
+	uint32_t l1_leak_hash;			       /* L1 prefixes leaked into L2 */
 	struct isis_spftree *spftree[SPFTREE_COUNT][ISIS_LEVELS];
 #define DEFAULT_LSP_MTU 1497
 	unsigned int lsp_mtu;      /* Size of LSPs to generate */
@@ -152,6 +153,13 @@ struct isis_area {
 	struct event *t_tick; /* LSP walker */
 	struct event *t_lsp_refresh[ISIS_LEVELS];
 	struct event *t_overload_on_startup_timer;
+	/* Re-signs our LSPs when a key chain's send key may change */
+	struct event *t_auth_rollover;
+	/* RFC 7602 Extended Session Sequence Number, 0 until ESNs are sent,
+	 * and the last Packet Sequence Number sent on any circuit
+	 */
+	uint64_t esn_session;
+	uint32_t esn_psn;
 	struct timeval last_lsp_refresh_event[ISIS_LEVELS];
 	struct event *t_rlfa_rib_update;
 	/* t_lsp_refresh is used in two ways:
@@ -201,6 +209,7 @@ struct isis_area {
 	bool advertise_passive_only;
 	/* Are we advertising high metrics? */
 	bool advertise_high_metrics;
+	bool leak_l1_to_l2; /* leak level-1 prefixes into the level-2 LSP */
 	/* L1/L2 router identifier for inter-area traffic */
 	char attached_bit_send;
 	char attached_bit_rcv_ignore;
@@ -372,10 +381,18 @@ void isis_area_lsp_refresh_set(struct isis_area *area, int level,
 			       uint16_t lsp_refresh);
 /* IS_LEVEL_1 sets area_passwd, IS_LEVEL_2 domain_passwd */
 int isis_area_passwd_unset(struct isis_area *area, int level);
+void isis_passwd_print_vty(struct vty *vty, const char *indent, const struct isis_passwd *passwd,
+			   bool with_snp, uint64_t failures, uint64_t type_failures);
+void isis_passwd_print_json(struct json_object *json, const struct isis_passwd *passwd,
+			    bool with_snp, uint64_t failures, uint64_t type_failures);
 int isis_area_passwd_cleartext_set(struct isis_area *area, int level,
 				   const char *passwd, uint8_t snp_auth);
 int isis_area_passwd_hmac_md5_set(struct isis_area *area, int level,
 				  const char *passwd, uint8_t snp_auth);
+int isis_area_passwd_keychain_set(struct isis_area *area, int level, const char *keychain,
+				  bool strict_rfc5310, uint8_t snp_auth);
+uint64_t isis_area_esn_session(struct isis_area *area);
+void isis_area_esn_new_session(struct isis_area *area);
 void show_isis_database_lspdb_json(struct json_object *json,
 				   struct isis_area *area, int level,
 				   struct lspdb_head *lspdb, const char *argv,

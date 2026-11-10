@@ -22,7 +22,10 @@ sys.path.append(os.path.join(CWD, "../"))
 from lib import topotest
 from lib.topogen import Topogen, TopoRouter, get_topogen
 from lib.topolog import logger
-from lib.common_config import required_linux_kernel_version
+from lib.common_config import (
+    required_linux_kernel_version,
+    shutdown_bringup_interface_in_kernel,
+)
 from lib.checkping import check_ping
 
 pytestmark = [pytest.mark.bgpd]
@@ -48,6 +51,9 @@ def build_topo(tgen):
 
 
 def setup_module(mod):
+    if not topotest.platform_has_vrf():
+        pytest.skip("platform does not support VRF")
+
     result = required_linux_kernel_version("5.15")
     if result is not True:
         pytest.skip("Kernel requirements are not met")
@@ -73,13 +79,23 @@ def setup_module(mod):
 
     tgen.gears["r1"].run("sysctl net.vrf.strict_mode=1")
     tgen.gears["r1"].run("ip link add vrf10 type vrf table 10")
-    tgen.gears["r1"].run("ip link set vrf10 up")
+    shutdown_bringup_interface_in_kernel(
+        tgen.gears['r1'].tgen,
+        tgen.gears['r1'].name,
+        "vrf10",
+        True,
+    )
     tgen.gears["r1"].run("ip route add table 10 unreachable default metric 4278198272")
     tgen.gears["r1"].run(
         "ip -6 route add table 10 unreachable default metric 4278198272"
     )
     tgen.gears["r1"].run("ip link add vrf20 type vrf table 20")
-    tgen.gears["r1"].run("ip link set vrf20 up")
+    shutdown_bringup_interface_in_kernel(
+        tgen.gears['r1'].tgen,
+        tgen.gears['r1'].name,
+        "vrf20",
+        True,
+    )
     tgen.gears["r1"].run("ip route add table 20 unreachable default metric 4278198272")
     tgen.gears["r1"].run(
         "ip -6 route add table 20 unreachable default metric 4278198272"
@@ -90,13 +106,23 @@ def setup_module(mod):
 
     tgen.gears["r2"].run("sysctl net.vrf.strict_mode=1")
     tgen.gears["r2"].run("ip link add vrf10 type vrf table 10")
-    tgen.gears["r2"].run("ip link set vrf10 up")
+    shutdown_bringup_interface_in_kernel(
+        tgen.gears['r2'].tgen,
+        tgen.gears['r2'].name,
+        "vrf10",
+        True,
+    )
     tgen.gears["r2"].run("ip route add table 10 unreachable default metric 4278198272")
     tgen.gears["r2"].run(
         "ip -6 route add table 10 unreachable default metric 4278198272"
     )
     tgen.gears["r2"].run("ip link add vrf20 type vrf table 20")
-    tgen.gears["r2"].run("ip link set vrf20 up")
+    shutdown_bringup_interface_in_kernel(
+        tgen.gears['r2'].tgen,
+        tgen.gears['r2'].name,
+        "vrf20",
+        True,
+    )
     tgen.gears["r2"].run("ip route add table 20 unreachable default metric 4278198272")
     tgen.gears["r2"].run(
         "ip -6 route add table 20 unreachable default metric 4278198272"

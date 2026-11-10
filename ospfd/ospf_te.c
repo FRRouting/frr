@@ -1770,7 +1770,7 @@ static int ospf_te_export(uint8_t type, void *link_state)
  * @param metric	Standard metric attached to this Edge
  */
 static void ospf_te_update_link(struct ls_ted *ted, struct ls_vertex *vertex,
-				struct in_addr link_data, uint8_t metric)
+				struct in_addr link_data, uint32_t metric)
 {
 	struct ls_edge *edge;
 	struct ls_attributes *attr;
@@ -1822,8 +1822,8 @@ static void ospf_te_update_link(struct ls_ted *ted, struct ls_vertex *vertex,
  * @param p		Prefix associated to the Subnet
  * @param metric	Standard metric attached to this Edge
  */
-static void ospf_te_update_subnet(struct ls_ted *ted, struct ls_vertex *vertex,
-				  struct prefix *p, uint8_t metric)
+static void ospf_te_update_subnet(struct ls_ted *ted, struct ls_vertex *vertex, struct prefix *p,
+				  uint32_t metric)
 {
 	struct ls_subnet *subnet;
 	struct ls_prefix *ls_pref;
@@ -3465,7 +3465,7 @@ static void ospf_te_init_ted(struct ls_ted *ted, struct ospf *ospf)
  *------------------------------------------------------------------------*/
 #define check_tlv_size(size, msg)                                                                           \
 	do {                                                                                                \
-		if (ntohs(tlvh->length) > size) {                                                           \
+		if (ntohs(tlvh->length) > size || TLV_BODY_SIZE(tlvh) < size) {                             \
 			if (vty != NULL)                                                                    \
 				vty_out(vty,                                                                \
 					"  Wrong %s TLV size: %d(expected %d). Skip subsequent TLVs!\n",    \
@@ -4239,6 +4239,8 @@ static uint16_t ospf_mpls_te_show_link_subtlv(struct vty *vty,
 	uint16_t sum = subtotal;
 
 	for (tlvh = tlvh0; sum < total; tlvh = TLV_HDR_NEXT(tlvh)) {
+		if (!tlv_fits(tlvh, total - sum))
+			return total;
 		switch (ntohs(tlvh->type)) {
 		case TE_LINK_SUBTLV_LINK_TYPE:
 			sum += show_vty_link_subtlv_link_type(vty, tlvh, json);
@@ -4341,6 +4343,8 @@ static void ospf_mpls_te_show_info(struct vty *vty, struct json_object *json,
 
 		next = NULL;
 		sub = total - sum;
+		if (!tlv_fits(tlvh, sub))
+			break;
 		switch (ntohs(tlvh->type)) {
 		case TE_TLV_ROUTER_ADDR:
 			if (json) {

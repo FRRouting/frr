@@ -1764,7 +1764,7 @@ static uint16_t show_vty_ext_link_adj_sid(struct vty *vty,
 	struct ext_subtlv_adj_sid *top = (struct ext_subtlv_adj_sid *)tlvh;
 	uint8_t tlv_size;
 
-	tlv_size = CHECK_FLAG(top->flags, EXT_SUBTLV_LINK_ADJ_SID_VFLG)
+	tlv_size = ntohs(tlvh->length) && CHECK_FLAG(top->flags, EXT_SUBTLV_LINK_ADJ_SID_VFLG)
 			      ? SID_LABEL_SIZE(EXT_SUBTLV_ADJ_SID_SIZE)
 			      : SID_INDEX_SIZE(EXT_SUBTLV_ADJ_SID_SIZE);
 	check_tlv_size(tlv_size, "Adjacency SID");
@@ -1815,7 +1815,7 @@ static uint16_t show_vty_ext_link_lan_adj_sid(struct vty *vty,
 		(struct ext_subtlv_lan_adj_sid *)tlvh;
 	uint8_t tlv_size;
 
-	tlv_size = CHECK_FLAG(top->flags, EXT_SUBTLV_LINK_ADJ_SID_VFLG)
+	tlv_size = ntohs(tlvh->length) && CHECK_FLAG(top->flags, EXT_SUBTLV_LINK_ADJ_SID_VFLG)
 			      ? SID_LABEL_SIZE(EXT_SUBTLV_LAN_ADJ_SID_SIZE)
 			      : SID_INDEX_SIZE(EXT_SUBTLV_LAN_ADJ_SID_SIZE);
 	check_tlv_size(tlv_size, "LAN-Adjacency SID");
@@ -1905,16 +1905,13 @@ static uint16_t show_vty_link_info(struct vty *vty, struct tlv_header *ext,
 	uint16_t sum = 0;
 	json_object *jadj = NULL, *obj = NULL;
 
-	/* Verify that TLV length is valid against remaining buffer size */
-	if (length > buf_size) {
+	/* Verify that the TLV, with its fixed part, lies within the LSA */
+	if (!tlv_fits(ext, buf_size) || length < EXT_TLV_LINK_SIZE) {
 		/* Add security check for vty_out. If vty is not available, dump info via zlog. */
-		if (vty != NULL) {
-			vty_out(vty, "  Extended Link TLV size %d exceeds buffer size. Abort!\n",
-				length);
-		} else {
-			zlog_debug("  Extended Link TLV size %d exceeds buffer size. Abort!",
-				   length);
-		}
+		if (vty != NULL)
+			vty_out(vty, "  Extended Link TLV length %u invalid. Abort!\n", length);
+		else
+			zlog_debug("  Extended Link TLV length %u invalid. Abort!", length);
 		return buf_size;
 	}
 
@@ -1943,10 +1940,12 @@ static uint16_t show_vty_link_info(struct vty *vty, struct tlv_header *ext,
 	}
 
 	/* Skip Extended TLV and parse sub-TLVs */
-	length -= EXT_TLV_LINK_SIZE;
+	length = TLV_BODY_SIZE(ext) - EXT_TLV_LINK_SIZE;
 	tlvh = (struct tlv_header *)((char *)(ext) + TLV_HDR_SIZE
 				     + EXT_TLV_LINK_SIZE);
 	for (; sum < length && tlvh; tlvh = TLV_HDR_NEXT(tlvh)) {
+		if (!tlv_fits(tlvh, length - sum))
+			break;
 		switch (ntohs(tlvh->type)) {
 		case EXT_SUBTLV_ADJ_SID:
 			if (json) {
@@ -1974,7 +1973,7 @@ static uint16_t show_vty_link_info(struct vty *vty, struct tlv_header *ext,
 		}
 	}
 
-	return sum + sizeof(struct ext_tlv_link);
+	return TLV_SIZE(ext);
 }
 
 /* Extended Link TLVs */
@@ -1996,6 +1995,8 @@ static void ospf_ext_link_show_info(struct vty *vty, struct json_object *json,
 
 	for (tlvh = TLV_HDR_TOP(lsah); sum < length && tlvh;
 	     tlvh = TLV_HDR_NEXT(tlvh)) {
+		if (!tlv_fits(tlvh, length - sum))
+			break;
 		switch (ntohs(tlvh->type)) {
 		case EXT_TLV_LINK:
 			sum += show_vty_link_info(vty, tlvh, length - sum,
@@ -2018,7 +2019,7 @@ static uint16_t show_vty_ext_pref_pref_sid(struct vty *vty,
 		(struct ext_subtlv_prefix_sid *)tlvh;
 	uint8_t tlv_size;
 
-	tlv_size = CHECK_FLAG(top->flags, EXT_SUBTLV_PREFIX_SID_VFLG)
+	tlv_size = ntohs(tlvh->length) && CHECK_FLAG(top->flags, EXT_SUBTLV_PREFIX_SID_VFLG)
 			      ? SID_LABEL_SIZE(EXT_SUBTLV_PREFIX_SID_SIZE)
 			      : SID_INDEX_SIZE(EXT_SUBTLV_PREFIX_SID_SIZE);
 	check_tlv_size(tlv_size, "Prefix SID");
@@ -2068,15 +2069,12 @@ static uint16_t show_vty_pref_info(struct vty *vty, struct tlv_header *ext,
 	uint16_t sum = 0;
 	json_object *jsid = NULL;
 
-	/* Verify that TLV length is valid against remaining buffer size */
-	if (length > buf_size) {
-		if (vty != NULL) {
-			vty_out(vty, "  Extended Link TLV size %d exceeds buffer size. Abort!\n",
-				length);
-		} else {
-			zlog_debug("  Extended Link TLV size %d exceeds buffer size. Abort!",
-				   length);
-		}
+	/* Verify that the TLV, with its fixed part, lies within the LSA */
+	if (!tlv_fits(ext, buf_size) || length < EXT_TLV_PREFIX_SIZE) {
+		if (vty != NULL)
+			vty_out(vty, "  Extended Prefix TLV length %u invalid. Abort!\n", length);
+		else
+			zlog_debug("  Extended Prefix TLV length %u invalid. Abort!", length);
 		return buf_size;
 	}
 
@@ -2105,10 +2103,12 @@ static uint16_t show_vty_pref_info(struct vty *vty, struct tlv_header *ext,
 	}
 
 	/* Skip Extended Prefix TLV and parse sub-TLVs */
-	length -= EXT_TLV_PREFIX_SIZE;
+	length = TLV_BODY_SIZE(ext) - EXT_TLV_PREFIX_SIZE;
 	tlvh = (struct tlv_header *)((char *)(ext) + TLV_HDR_SIZE
 				     + EXT_TLV_PREFIX_SIZE);
 	for (; sum < length && tlvh; tlvh = TLV_HDR_NEXT(tlvh)) {
+		if (!tlv_fits(tlvh, length - sum))
+			break;
 		switch (ntohs(tlvh->type)) {
 		case EXT_SUBTLV_PREFIX_SID:
 			sum += show_vty_ext_pref_pref_sid(vty, tlvh, jsid);
@@ -2120,7 +2120,7 @@ static uint16_t show_vty_pref_info(struct vty *vty, struct tlv_header *ext,
 		}
 	}
 
-	return sum + sizeof(struct ext_tlv_prefix);
+	return TLV_SIZE(ext);
 }
 
 /* Extended Prefix TLVs */
@@ -2142,6 +2142,8 @@ static void ospf_ext_pref_show_info(struct vty *vty, struct json_object *json,
 
 	for (tlvh = TLV_HDR_TOP(lsah); sum < length && tlvh;
 	     tlvh = TLV_HDR_NEXT(tlvh)) {
+		if (!tlv_fits(tlvh, length - sum))
+			break;
 		switch (ntohs(tlvh->type)) {
 		case EXT_TLV_PREFIX:
 			sum += show_vty_pref_info(vty, tlvh, length - sum,

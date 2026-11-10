@@ -2030,15 +2030,16 @@ void zebra_nhg_decrement_ref(struct nhg_hash_entry *nhe)
 
 void zebra_nhg_increment_ref(struct nhg_hash_entry *nhe)
 {
-	if (IS_ZEBRA_DEBUG_NHG_DETAIL)
-		zlog_debug("%s: nhe %p (%pNG) %d => %d", __func__, nhe, nhe,
-			   nhe->refcnt, nhe->refcnt + 1);
-
-	nhe->refcnt++;
-
+	/*
+	 * A KEEP_AROUND reference already retains the NHE and its dependencies.
+	 * Reusing that reference must not increment the dependencies again.
+	 */
 	if (event_is_scheduled(nhe->timer)) {
+		if (IS_ZEBRA_DEBUG_NHG_DETAIL)
+			zlog_debug("%s: nhe %p (%pNG) %d => %d (cancel keep-around)", __func__,
+				   nhe, nhe, nhe->refcnt, nhe->refcnt);
+
 		event_cancel(&nhe->timer);
-		nhe->refcnt--;
 		UNSET_FLAG(nhe->flags, NEXTHOP_GROUP_KEEP_AROUND);
 		/*
 		 * This group is being resurrected from KEEP_AROUND.
@@ -2052,6 +2053,12 @@ void zebra_nhg_increment_ref(struct nhg_hash_entry *nhe)
 		 */
 		return;
 	}
+
+	if (IS_ZEBRA_DEBUG_NHG_DETAIL)
+		zlog_debug("%s: nhe %p (%pNG) %d => %d", __func__, nhe, nhe, nhe->refcnt,
+			   nhe->refcnt + 1);
+
+	nhe->refcnt++;
 
 	if (!zebra_nhg_depends_is_empty(nhe))
 		nhg_connected_tree_increment_ref(&nhe->nhg_depends);
@@ -2572,6 +2579,18 @@ static int nexthop_active(struct nexthop *nexthop, struct nhg_hash_entry *nhe,
 		break;
 	case NEXTHOP_TYPE_IPV6:
 		afi = AFI_IP6;
+
+		/*
+		 * A link-local address is only meaningful on a given link;
+		 * every interface owns a connected fe80::/64, so resolving
+		 * it via the RIB would pick an arbitrary interface.
+		 */
+		if (IN6_IS_ADDR_LINKLOCAL(&nexthop->gate.ipv6)) {
+			if (IS_ZEBRA_DEBUG_RIB_DETAILED)
+				zlog_debug("%s: link-local nexthop %pI6 has no interface, not resolving",
+					   __func__, &nexthop->gate.ipv6);
+			return 0;
+		}
 		break;
 
 	case NEXTHOP_TYPE_BLACKHOLE:

@@ -346,6 +346,8 @@ Route Map Set Command
 
    Set the BGP attribute AIGP to a specific value. If ``igp-metric`` is specified,
    then the value is taken from the IGP protocol, otherwise an arbitrary value.
+   A value of 0 is valid: the route carries the AIGP attribute with a metric
+   of 0, which is compared in the best path selection.
 
 .. clicmd:: set as-path prepend AS_PATH
 

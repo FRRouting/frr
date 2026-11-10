@@ -24,6 +24,7 @@ DECLARE_MTYPE(ROUTE_MAP_COMPILED);
 
 #define DEBUG_ROUTEMAP 0x01
 #define DEBUG_ROUTEMAP_DETAIL 0x02
+#define DEBUG_ROUTEMAP_TIMING 0x04
 extern uint32_t rmap_debug;
 
 /* Route map's type. */
@@ -187,7 +188,7 @@ struct route_map_index {
 	/* Keep track how many times we've try to apply */
 	uint64_t applied;
 	uint64_t applied_clear;
-	size_t cputime;
+	uint64_t time_ns;
 
 	/* List of match/sets contexts. */
 	TAILQ_HEAD(, routemap_hook_context) rhclist;
@@ -222,7 +223,7 @@ struct route_map {
 	/* How many times have we applied this route-map */
 	uint64_t applied;
 	uint64_t applied_clear;
-	size_t cputime;
+	uint64_t time_ns;
 
 	/* Counter to track active usage of this route-map */
 	uint16_t use_count;
@@ -552,6 +553,8 @@ extern void
 route_map_notify_pentry_dependencies(const char *affected_name,
 				     struct prefix_list_entry *pentry,
 				     route_map_event_t event);
+extern bool route_map_depends_on(route_map_event_t event, const char *dep_name,
+				 const char *rmap_name);
 extern int generic_match_add(struct route_map_index *index,
 			     const char *command, const char *arg,
 			     route_map_event_t type,

@@ -23,6 +23,7 @@
 #include "hash.h"
 #include "if.h"
 #include "checksum.h"
+#include "jhash.h"
 #include "md5.h"
 #include "table.h"
 #include "srcdest_table.h"
@@ -290,12 +291,19 @@ static void put_lsp_hdr(struct isis_lsp *lsp, size_t *len_pointer, bool keep)
 	}
 }
 
+static struct isis_passwd *lsp_passwd(struct isis_lsp *lsp)
+{
+	return (lsp->level == IS_LEVEL_1) ? &lsp->area->area_passwd : &lsp->area->domain_passwd;
+}
+
+/*
+ * Our LSPs stay in our database even when the key chain has no key to sign
+ * them with: they are then sent unauthenticated, for neighbors that validate
+ * to discard.
+ */
 static void lsp_add_auth(struct isis_lsp *lsp)
 {
-	struct isis_passwd *passwd;
-	passwd = (lsp->level == IS_LEVEL_1) ? &lsp->area->area_passwd
-					    : &lsp->area->domain_passwd;
-	isis_tlvs_add_auth(lsp->tlvs, passwd);
+	isis_tlvs_add_auth(lsp->tlvs, lsp_passwd(lsp));
 }
 
 static void lsp_pack_pdu(struct isis_lsp *lsp)
@@ -887,7 +895,7 @@ static void lsp_build_internal_reach_ipv4(struct isis_lsp *lsp,
 			for (int i = 0; i < SR_ALGORITHM_COUNT; i++) {
 #ifndef FABRICD
 				if (flex_algo_id_valid(i) &&
-				    !isis_flex_algo_elected_supported(i, area))
+				    !isis_flex_algo_elected_supported(i, area, lsp->level))
 					continue;
 #endif /* ifndef FABRICD */
 				pcfgs[i] =
@@ -913,7 +921,7 @@ static void lsp_build_internal_reach_ipv6(struct isis_lsp *lsp,
 		for (int i = 0; i < SR_ALGORITHM_COUNT; i++) {
 #ifndef FABRICD
 			if (flex_algo_id_valid(i) &&
-			    !isis_flex_algo_elected_supported(i, area))
+			    !isis_flex_algo_elected_supported(i, area, lsp->level))
 				continue;
 #endif /* ifndef FABRICD */
 			pcfgs[i] = isis_sr_cfg_prefix_find(area, ipv6, i);
@@ -956,8 +964,7 @@ static void lsp_build_ext_reach_ipv4(struct isis_lsp *lsp,
 				for (int i = 0; i < SR_ALGORITHM_COUNT; i++) {
 #ifndef FABRICD
 					if (flex_algo_id_valid(i) &&
-					    !isis_flex_algo_elected_supported(
-						    i, area))
+					    !isis_flex_algo_elected_supported(i, area, lsp->level))
 						continue;
 #endif /* ifndef FABRICD */
 					pcfgs[i] = isis_sr_cfg_prefix_find(
@@ -1000,8 +1007,7 @@ static void lsp_build_ext_reach_ipv6(struct isis_lsp *lsp,
 				for (int i = 0; i < SR_ALGORITHM_COUNT; i++) {
 #ifndef FABRICD
 					if (flex_algo_id_valid(i) &&
-					    !isis_flex_algo_elected_supported(
-						    i, area))
+					    !isis_flex_algo_elected_supported(i, area, lsp->level))
 						continue;
 #endif /* ifndef FABRICD */
 					pcfgs[i] = isis_sr_cfg_prefix_find(
@@ -1017,6 +1023,163 @@ static void lsp_build_ext_reach_ipv6(struct isis_lsp *lsp,
 							p, src_p, metric);
 		}
 	}
+}
+
+/*
+ * RFC 1195 section 1.3 specifies that level 2 routers include in their level 2
+ * LSPs the IP addresses reachable in their area. The prefixes are taken from
+ * the level-1 SPT, with the metric of the path to the prefix, which is the
+ * metric of the path to the advertising router plus the metric of the prefix
+ * (RFC 1195 section 3.2). Prefixes that carry the up/down bit were already
+ * leaked from level-2 into level-1 and must not be advertised back into
+ * level-2 (RFC 5302 section 2; the bit is defined in RFC 5305 section 4.1),
+ * the SPT marks them for that purpose.
+ */
+static void leak_collect(struct isis_area *area, int family, struct route_table *table)
+{
+	struct isis_spftree *spftree;
+
+	if (family == AF_INET ? !area->ip_circuits : !area->ipv6_circuits)
+		return;
+
+	spftree = area->spftree[family == AF_INET ? SPFTREE_IPV4 : SPFTREE_IPV6][ISIS_LEVEL1 - 1];
+	if (spftree)
+		isis_spf_leak_table_fill(spftree, table);
+}
+
+/*
+ * The prefixes that @tlvs already advertises, in a route table, so that a leaked
+ * prefix is looked up instead of searching the list of TLVs for each prefix.
+ */
+static struct route_table *leak_local_table(struct isis_tlvs *tlvs, int family, uint16_t mtid)
+{
+	struct route_table *table = route_table_init();
+	struct isis_item_list *reachs;
+
+	if (family == AF_INET)
+		reachs = &tlvs->extended_ip_reach;
+	else
+		reachs = (mtid == ISIS_MT_IPV4_UNICAST)
+				 ? &tlvs->ipv6_reach
+				 : isis_lookup_mt_items(&tlvs->mt_ipv6_reach, mtid);
+
+	for (struct isis_item *item = reachs ? reachs->head : NULL; item; item = item->next) {
+		struct prefix *p =
+			(family == AF_INET)
+				? (struct prefix *)&((struct isis_extended_ip_reach *)item)->prefix
+				: (struct prefix *)&((struct isis_ipv6_reach *)item)->prefix;
+		struct route_node *rn = route_node_get(table, p);
+
+		if (rn->info)
+			route_unlock_node(rn);
+		else
+			rn->info = table; /* any non-NULL value: the prefix is present */
+	}
+
+	return table;
+}
+
+static bool leak_prefix_is_local(struct route_table *local, const struct prefix *p)
+{
+	struct route_node *rn = route_node_lookup(local, p);
+
+	if (!rn)
+		return false;
+
+	route_unlock_node(rn);
+	return true;
+}
+
+static void leak_local_table_free(struct route_table *table)
+{
+	for (struct route_node *rn = route_top(table); rn; rn = route_next(rn)) {
+		if (!rn->info)
+			continue;
+		rn->info = NULL;
+		route_unlock_node(rn);
+	}
+	route_table_finish(table);
+}
+
+static void lsp_build_leaked_reach(struct isis_lsp *lsp, struct isis_area *area)
+{
+	struct route_table *v4 = route_table_init();
+	struct route_table *v6 = route_table_init();
+	uint16_t mtid6 = isis_area_ipv6_topology(area);
+	struct route_table *local4, *local6;
+
+	leak_collect(area, AF_INET, v4);
+	leak_collect(area, AF_INET6, v6);
+
+	/* Built once, before the leaked prefixes are added to the LSP */
+	local4 = leak_local_table(lsp->tlvs, AF_INET, ISIS_MT_IPV4_UNICAST);
+	local6 = leak_local_table(lsp->tlvs, AF_INET6, mtid6);
+
+	for (struct route_node *rn = route_top(v4); rn; rn = route_next(rn)) {
+		struct isis_spf_leaked_prefix *lp = rn->info;
+
+		if (!lp || leak_prefix_is_local(local4, &rn->p))
+			continue;
+		/* TODO: Prefix SID sub-TLVs are not propagated when leaking, so SR
+		 * Prefix SIDs of leaked prefixes are lost at level 2. Left for a
+		 * follow-up to keep this change small.
+		 */
+		lsp_debug("ISIS (%s): Leaking L1 IPv4 prefix %pFX into L2 (metric %u)",
+			  area->area_tag, &rn->p, lp->metric);
+		isis_tlvs_add_extended_ip_reach(lsp->tlvs, (struct prefix_ipv4 *)&rn->p,
+						lp->metric, false, NULL);
+	}
+
+	for (struct route_node *rn = route_top(v6); rn; rn = route_next(rn)) {
+		struct isis_spf_leaked_prefix *lp = rn->info;
+
+		if (!lp || leak_prefix_is_local(local6, &rn->p))
+			continue;
+		/* TODO: Prefix SID sub-TLVs are not propagated when leaking, so SR
+		 * Prefix SIDs of leaked prefixes are lost at level 2. Left for a
+		 * follow-up to keep this change small.
+		 */
+		lsp_debug("ISIS (%s): Leaking L1 IPv6 prefix %pFX into L2 (metric %u)",
+			  area->area_tag, &rn->p, lp->metric);
+		isis_tlvs_add_ipv6_reach(lsp->tlvs, mtid6, (struct prefix_ipv6 *)&rn->p,
+					 lp->metric, lp->external, NULL);
+	}
+
+	leak_local_table_free(local4);
+	leak_local_table_free(local6);
+	isis_spf_leak_table_free(v4);
+	isis_spf_leak_table_free(v6);
+}
+
+/* Regenerate the level-2 LSP when the set of leaked level-1 prefixes has changed. */
+void lsp_leak_l1_to_l2_check(struct isis_area *area)
+{
+	struct route_table *tables[2] = { route_table_init(), route_table_init() };
+	uint32_t hash = 0;
+
+	if (area->is_type == IS_LEVEL_1_AND_2 && area->newmetric && area->leak_l1_to_l2) {
+		leak_collect(area, AF_INET, tables[0]);
+		leak_collect(area, AF_INET6, tables[1]);
+	}
+
+	for (int i = 0; i < 2; i++) {
+		for (struct route_node *rn = route_top(tables[i]); rn; rn = route_next(rn)) {
+			struct isis_spf_leaked_prefix *lp = rn->info;
+
+			if (!lp)
+				continue;
+			hash = jhash(&rn->p.u.prefix, prefix_blen(&rn->p), hash);
+			hash = jhash_3words(rn->p.prefixlen, lp->metric, lp->external, hash);
+		}
+		isis_spf_leak_table_free(tables[i]);
+	}
+
+	if (hash == area->l1_leak_hash)
+		return;
+
+	area->l1_leak_hash = hash;
+	if (area->is_type == IS_LEVEL_1_AND_2)
+		lsp_regenerate_schedule(area, IS_LEVEL_2, 0);
 }
 
 static void lsp_build_ext_reach(struct isis_lsp *lsp, struct isis_area *area)
@@ -1153,6 +1316,7 @@ static void lsp_build(struct isis_lsp *lsp, struct isis_area *area)
 		struct isis_router_cap *rcap;
 #ifndef FABRICD
 		struct isis_router_cap_fad *rcap_fad;
+		struct isis_flex_algo_data *fa_data;
 		struct flex_algo *fa;
 #endif /* ifndef FABRICD */
 
@@ -1199,12 +1363,13 @@ static void lsp_build(struct isis_lsp *lsp, struct isis_area *area)
 				else
 					rcap_fad = NULL;
 
-				if (!isis_flex_algo_elected_supported_local_fad(
-					    fa->algorithm, area, &rcap_fad)) {
-					fa->state = false;
+				fa_data = fa->data;
+				fa_data->state[lsp->level - 1] =
+					isis_flex_algo_elected_supported_local_fad(fa->algorithm,
+										   area, lsp->level,
+										   &rcap_fad);
+				if (!fa_data->state[lsp->level - 1])
 					continue;
-				}
-				fa->state = true;
 				lsp_debug("ISIS (%s):   SR Algorithm %u",
 					  area->area_tag, fa->algorithm);
 				rcap->algo[fa->algorithm] = fa->algorithm;
@@ -1443,12 +1608,22 @@ static void lsp_build(struct isis_lsp *lsp, struct isis_area *area)
 
 	lsp_build_ext_reach(lsp, area);
 
+	/* After the redistributed routes, so prefixes already advertised are skipped */
+	if (lsp->level == ISIS_LEVEL2 && area->is_type == IS_LEVEL_1_AND_2 && area->newmetric &&
+	    area->leak_l1_to_l2)
+		lsp_build_leaked_reach(lsp, area);
+
 	struct isis_tlvs *tlvs = lsp->tlvs;
 	lsp->tlvs = NULL;
 
 	lsp_adjust_stream(lsp);
 	lsp_pack_pdu(lsp);
 	size_t tlv_space = STREAM_WRITEABLE(lsp->pdu) - LLC_LEN;
+	/* A refresh re-signs the fragments with the key valid then, whose
+	 * digest may be longer: leave room for the longest.
+	 */
+	if (lsp_passwd(lsp)->type == ISIS_PASSWD_TYPE_CRYPTO_AUTH)
+		tlv_space -= ISIS_CRYPTO_AUTH_TLV_MAX_LEN - isis_tlvs_auth_len(lsp->tlvs);
 	lsp_clear_data(lsp);
 
 	struct list *fragments = isis_fragment_tlvs(tlvs, tlv_space);

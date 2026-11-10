@@ -40,7 +40,7 @@ int pim_staterefresh_recv(struct interface *ifp, pim_addr src_addr, uint8_t *buf
 	struct listnode *neighnode;
 	struct pim_neighbor *neigh;
 	uint8_t pim_msg[1000];
-	uint8_t p;
+	bool p;
 	int pim_msg_size;
 	struct pim_upstream *up;
 
@@ -157,7 +157,7 @@ int pim_staterefresh_recv(struct interface *ifp, pim_addr src_addr, uint8_t *buf
 	/* TODO: condition StateRefreshRateLimit(S,G) not implemented yet!! */
 
 	/*
-	 * RFC 3973 4.5.2: forward the State Refresh on every downstream PIM
+	 * RFC 3973 4.5.1: forward the State Refresh on every downstream PIM
 	 * dense-mode interface, i.e. all PIM interfaces except the one the
 	 * message arrived on. Iterating the receiving interface's neighbor list
 	 * would only echo it back onto the incoming segment.
@@ -176,7 +176,7 @@ int pim_staterefresh_recv(struct interface *ifp, pim_addr src_addr, uint8_t *buf
 
 		pim_ifchannel_find(ifp2, &up->sg, &ch, &throwaway);
 		if (!ch)
-			p = 0;
+			p = false;
 		else {
 			if (pim_macro_ch_lost_assert(ch))
 				continue;
@@ -286,7 +286,7 @@ int pim_staterefresh_build_msg(uint8_t *pim_msg, int buf_size, struct interface 
 void pim_send_staterefresh(struct pim_upstream *up)
 {
 	uint8_t pim_msg[1000];
-	uint8_t p, n;
+	bool p, n;
 	int pim_msg_size;
 	struct interface *ifp, *ifp2 = NULL;
 	struct pim_interface *pim_ifp2;
@@ -319,7 +319,7 @@ void pim_send_staterefresh(struct pim_upstream *up)
 		if (HAVE_DENSE_MODE(pim_ifp2->pim_mode) && ifp2->ifindex != ifp->ifindex) {
 			pim_ifchannel_find(ifp2, &up->sg, &ch, &throwaway);
 			if (!ch)
-				p = 0;
+				p = false;
 			else
 				p = PIM_UPSTREAM_DM_TEST_PRUNE(ch->flags);
 

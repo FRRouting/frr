@@ -14,35 +14,35 @@
         "timer":"*",
         "sourcesCount":1,
         "version":2,
-        "uptime":"*"
+        "uptime":"*","forwarded":true,"mroute":true
       },
       {
         "group":"225.1.1.2",
         "timer":"*",
         "sourcesCount":1,
         "version":2,
-        "uptime":"*"
+        "uptime":"*","forwarded":true,"mroute":true
       },
       {
         "group":"225.1.1.3",
         "timer":"*",
         "sourcesCount":1,
         "version":2,
-        "uptime":"*"
+        "uptime":"*","forwarded":true,"mroute":true
       },
       {
         "group":"225.1.1.4",
         "timer":"*",
         "sourcesCount":1,
         "version":2,
-        "uptime":"*"
+        "uptime":"*","forwarded":true,"mroute":true
       },
       {
         "group":"225.1.1.5",
         "timer":"*",
         "sourcesCount":1,
         "version":2,
-        "uptime":"*"
+        "uptime":"*","forwarded":true,"mroute":true
       }
     ]
   }

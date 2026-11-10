@@ -20,6 +20,7 @@
 #include "bgpd/bgp_ecommunity.h"
 #include "bgpd/bgp_evpn.h"
 #include "bgpd/bgp_evpn_private.h"
+#include "bgpd/bgp_label.h"
 
 bool bgp_route_evpn_same(const struct bgp_route_evpn *e1,
 			 const struct bgp_route_evpn *e2)
@@ -114,6 +115,38 @@ bool bgp_attr_rmac(struct attr *attr, struct ethaddr *rmac)
 			continue;
 
 		memcpy(rmac, pnt, ETH_ALEN);
+		return true;
+	}
+	return false;
+}
+
+/* Fetch the label field of the ESI label extended community */
+bool bgp_attr_esi_label(struct attr *attr, mpls_label_t *label)
+{
+	uint32_t i = 0;
+	struct ecommunity *ecom;
+
+	ecom = bgp_attr_get_ecommunity(attr);
+	if (!ecom || !ecom->size)
+		return false;
+
+	for (i = 0; i < ecom->size; i++) {
+		uint8_t *pnt = NULL;
+		uint8_t type = 0;
+		uint8_t sub_type = 0;
+
+		pnt = (ecom->val + (i * ECOMMUNITY_SIZE));
+		type = *pnt++;
+		sub_type = *pnt++;
+
+		if (!(type == ECOMMUNITY_ENCODE_EVPN &&
+		      sub_type == ECOMMUNITY_EVPN_SUBTYPE_ESI_LABEL))
+			continue;
+
+		/* Skip the flags and the two reserved octets */
+		pnt += 3;
+		*label = 0;
+		memcpy(label, pnt, BGP_LABEL_BYTES);
 		return true;
 	}
 	return false;

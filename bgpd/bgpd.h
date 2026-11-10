@@ -648,6 +648,9 @@ struct bgp {
 		uint32_t subgrps_deleted;
 	} update_group_stats;
 
+	/* A subgroup merge was refused while best path was pending */
+	bool update_group_merge_retry;
+
 	struct bgp_snmp_stats *snmp_stats;
 
 	/* BGP configuration.  */
@@ -702,6 +705,10 @@ struct bgp {
 	uint8_t update_delay_over;
 	uint8_t main_zebra_update_hold;
 	uint8_t main_peers_update_hold;
+#ifdef DEV_BUILD
+	/* No UPDATEs are built for any peer while set */
+	bool updates_plugged;
+#endif
 	uint16_t v_update_delay;
 	uint16_t v_establish_wait;
 	char update_delay_begin_time[64];
@@ -793,6 +800,8 @@ struct bgp {
 #define BGP_FLAG_BESTPATH_USE_IMPORTED_ATTRS (1ULL << 47)
 /* Shutdown without sending notification (for HA standby transition) */
 #define BGP_FLAG_SHUTDOWN_NO_NOTIFY (1ULL << 48)
+/* default-originate with set-only route-map works even with empty table */
+#define BGP_FLAG_DEFAULT_ORIGINATE_SETONLY_UNCONDITIONAL (1ULL << 49)
 
 	/* BGP default address-families.
 	 * New peers inherit enabled afi/safis from bgp instance.
@@ -1117,6 +1126,11 @@ struct bgp {
 	/* Process Queue for handling routes */
 	struct work_queue *process_queue;
 
+#ifdef DEV_BUILD
+	/* Plugged by bgp_meta_queue_plug(), independent of update-delay */
+	bool meta_queue_plugged;
+#endif
+
 	/* Meta Queue Information */
 	struct meta_queue *mq;
 
@@ -1397,6 +1411,12 @@ struct peer_af {
 	 */
 	struct event *t_announce_route;
 
+	/* Long-lived Graceful Restart "Long-lived Stale Time" timer */
+	struct event *t_llgr_stale;
+
+	/* Runs from a received BoRR until the matching EoRR */
+	struct event *t_refresh_stalepath;
+
 	afi_t afi;
 	safi_t safi;
 	int afid;
@@ -1552,6 +1572,7 @@ struct peer_connection {
 	_Atomic uint32_t thread_flags;
 #define PEER_THREAD_WRITES_ON (1U << 0)
 #define PEER_THREAD_READS_ON  (1U << 1)
+#define PEER_THREAD_WRITES_PAUSED (1U << 2) /* output queue was full */
 
 	/* Packet receive and send buffer. */
 	pthread_mutex_t io_mtx;	  // guards ibuf, obuf
@@ -2014,6 +2035,11 @@ struct peer {
 		struct route_map *map;
 	} default_rmap[AFI_MAX][SAFI_MAX];
 
+#ifdef DEV_BUILD
+	/* No UPDATEs are built for this peer while set */
+	bool updates_plugged;
+#endif
+
 	/* Peer status flags. */
 	uint16_t sflags;
 #define PEER_STATUS_PREFIX_OVERFLOW   (1U << 0) /* prefix-overflow */
@@ -2061,10 +2087,6 @@ struct peer {
 	_Atomic uint32_t v_delayopen;
 	_Atomic uint32_t v_pmax_restart;
 	_Atomic uint32_t v_gr_restart;
-
-	/* Threads. */
-	struct event *t_llgr_stale[AFI_MAX][SAFI_MAX];
-	struct event *t_refresh_stalepath;
 
 	/* Thread flags. */
 	_Atomic uint32_t thread_flags;
@@ -3256,6 +3278,28 @@ static inline int peer_cap_enhe(struct peer *peer, afi_t afi, safi_t safi)
 {
 	assert(peer);
 	return (CHECK_FLAG(peer->af_cap[afi][safi], PEER_CAP_ENHE_AF_NEGO));
+}
+
+/*
+ * Dynamic Capability is usable only if both sides advertised it,
+ * otherwise bgp_capability_send() does nothing.
+ */
+static inline bool peer_cap_dynamic_nego(const struct peer *peer)
+{
+	return CHECK_FLAG(peer->cap, PEER_CAP_DYNAMIC_ADV) &&
+	       CHECK_FLAG(peer->cap, PEER_CAP_DYNAMIC_RCV);
+}
+
+/*
+ * Whether we advertise Extended Next Hop Encoding (RFC 8950) for the
+ * given AFI/SAFI on this connection.
+ */
+static inline bool bgp_connection_enhe_af_adv(const struct peer_connection *connection, afi_t afi,
+					      safi_t safi)
+{
+	return CHECK_FLAG(connection->peer->flags, PEER_FLAG_CAPABILITY_ENHE) &&
+	       connection->su.sa.sa_family == AF_INET6 && afi == AFI_IP &&
+	       (safi == SAFI_UNICAST || safi == SAFI_MPLS_VPN || safi == SAFI_LABELED_UNICAST);
 }
 
 /* Lookup VRF for BGP instance based on its type. */

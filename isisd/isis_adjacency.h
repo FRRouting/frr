@@ -90,6 +90,7 @@ struct isis_adjacency {
 	enum isis_threeway_state threeway_state;
 	uint32_t ext_circuit_id;
 	int flaps;		      /* number of adjacency flaps  */
+	int32_t auth_key_id;	      /* Key ID of its last hello, if key chain signed; or -1 */
 	struct event *t_expire;	      /* expire after hold_time  */
 	struct isis_circuit *circuit; /* back pointer */
 	uint16_t *mt_set;      /* Topologies this adjacency is valid for */
@@ -148,6 +149,7 @@ void isis_bfd_startup_timer(struct event *event);
 const char *isis_adj_name(const struct isis_adjacency *adj);
 bool isis_circuit_ipv4_over_ipv6(const struct isis_circuit *circuit);
 bool isis_adj_ipv4_native_usable(const struct isis_adjacency *adj);
+void isis_adj_p2p_level_set(struct isis_adjacency *adj, int level);
 bool isis_adj_ipv4_usable(const struct isis_adjacency *adj);
 bool isis_adj_ipv6_usable(const struct isis_adjacency *adj);
 #endif /* ISIS_ADJACENCY_H */

@@ -64,7 +64,9 @@ PIMv6 Router
    messages to be sent to. This command statically configures an RP. All
    routers in the PIMv6 network must agree on these values. The first IPv6
    address is the RP's address and the second value is the matching prefix
-   of group ranges covered. This command is VRF-aware.
+   of group ranges covered. A group range can only have one static RP:
+   configuring another RP for the group range of a configured RP is
+   rejected. This command is VRF-aware.
 
 .. clicmd:: rp X:X::X:X prefix-list WORD
 
@@ -520,13 +522,14 @@ General multicast routing state
 
    Display multicast data packets count per interface for all VRF.
 
-.. clicmd:: show ipv6 mroute [vrf NAME] [X:X::X:X [X:X::X:X]] [fill] [json]
+.. clicmd:: show ipv6 mroute [vrf NAME] [X:X::X:X [X:X::X:X]] [fill] [detail] [json]
 
    Display information about installed into the kernel S,G mroutes.  If
    one address is specified we assume it is the Group we are interested
    in displaying data on.  If the second address is specified then it is
    Source Group.  The keyword ``fill`` says to fill in all assumed data
-   for test/data gathering purposes.
+   for test/data gathering purposes. ``detail`` adds an ``Origin`` column
+   on each output. See :ref:`igmp-fwd-mroute`.
 
 .. clicmd:: show ipv6 mroute [vrf NAME] count [json]
 

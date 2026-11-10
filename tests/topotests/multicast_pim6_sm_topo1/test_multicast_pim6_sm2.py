@@ -25,6 +25,7 @@ import sys
 import time
 
 import pytest
+from lib.topotest import platform_has_pimv6
 from lib.common_config import (
     required_linux_kernel_version,
     reset_config_on_routers,
@@ -103,6 +104,9 @@ def setup_module(mod):
 
     * `mod`: module name
     """
+
+    if not platform_has_pimv6():
+        pytest.skip("platform does not support PIMv6")
 
     # Required linux kernel version for this suite to run.
     result = required_linux_kernel_version("4.19")

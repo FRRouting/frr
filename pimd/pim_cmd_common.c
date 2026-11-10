@@ -529,9 +529,52 @@ int pim_process_no_ip_mroute_cmd(struct vty *vty, const char *interface,
 				    group_str);
 }
 
+struct rp_group_owner {
+	pim_addr rp_addr;
+	struct prefix group;
+	const char *owner;
+};
+
+static int pim_rp_group_owner_cb(const struct lyd_node *dnode, void *arg)
+{
+	struct rp_group_owner *ctx = arg;
+	struct prefix group;
+	pim_addr rp_addr;
+	const char *rp_str;
+
+	yang_dnode_get_prefix(&group, dnode, NULL);
+	apply_mask(&group);
+	if (!prefix_same(&group, &ctx->group))
+		return YANG_ITER_CONTINUE;
+
+	rp_str = yang_dnode_get_string(dnode, "../rp-address");
+	if (inet_pton(PIM_AF, rp_str, &rp_addr) == 1 && !pim_addr_cmp(rp_addr, ctx->rp_addr))
+		return YANG_ITER_CONTINUE;
+
+	ctx->owner = rp_str;
+	return YANG_ITER_STOP;
+}
+
+/*
+ * pimd keeps one static RP per group range: return the address of another
+ * RP configured with `group`, if any.
+ */
+static const char *pim_rp_group_owner(struct vty *vty, pim_addr rp_addr, const struct prefix *group)
+{
+	struct rp_group_owner ctx = { .rp_addr = rp_addr };
+
+	prefix_copy(&ctx.group, group);
+	apply_mask(&ctx.group);
+	yang_dnode_iterate(pim_rp_group_owner_cb, &ctx, vty->candidate_config->dnode,
+			   "%s/frr-pim-rp:rp/static-rp/rp-list/group-list", VTY_CURR_XPATH);
+
+	return ctx.owner;
+}
+
 int pim_process_rp_cmd(struct vty *vty, const char *rp_str,
 		       const char *group_str)
 {
+	const char *owner;
 	char group_xpath[XPATH_MAXLEN];
 	int printed;
 	int result = 0;
@@ -573,6 +616,12 @@ int pim_process_rp_cmd(struct vty *vty, const char *rp_str,
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 #endif
+
+	owner = pim_rp_group_owner(vty, rp_addr, &group);
+	if (owner) {
+		vty_out(vty, "%% Group range %s already has RP %s\n", group_str, owner);
+		return CMD_WARNING_CONFIG_FAILED;
+	}
 
 	printed = snprintf(group_xpath, sizeof(group_xpath),
 			   "./" FRR_PIM_STATIC_RP_XPATH "/group-list[.='%s']",
@@ -3783,8 +3832,165 @@ void pim_cmd_show_ip_multicast_helper(struct pim_instance *pim, struct vty *vty)
 	show_multicast_interfaces(pim, vty, NULL);
 }
 
-void show_mroute(struct pim_instance *pim, struct vty *vty, pim_sgaddr *sg,
-		 bool fill, json_object *json)
+static bool mroute_addr_covers(pim_addr have, pim_addr want)
+{
+	if (!pim_addr_cmp(have, want))
+		return true;
+
+	/* A (*,G) receiver covers every source of that group. */
+	return pim_addr_is_any(have);
+}
+
+static bool mroute_oif_host_report(struct interface *ifp, pim_addr src, pim_addr grp)
+{
+	struct pim_interface *pim_ifp = ifp->info;
+#if PIM_IPV == 4
+	struct gm_group *group;
+	struct gm_group lookup = {};
+	struct listnode *snode;
+	struct gm_source *gsrc;
+#else
+	struct gm_sg *mlsg, ref = {};
+#endif
+
+	if (!pim_ifp)
+		return false;
+
+#if PIM_IPV == 4
+	/*
+	 * Groups are hashed by address. A (*,G) receiver is a source of
+	 * that one group, so this does not walk the rest of the interface.
+	 */
+	if (!pim_ifp->gm_group_hash)
+		return false;
+
+	lookup.group_addr = grp;
+	group = hash_lookup(pim_ifp->gm_group_hash, &lookup);
+	if (!group || !group->group_source_list)
+		return false;
+
+	for (ALL_LIST_ELEMENTS_RO(group->group_source_list, snode, gsrc)) {
+		if (!IGMP_SOURCE_TEST_FORWARDING(gsrc->source_flags))
+			continue;
+		if (mroute_addr_covers(gsrc->source_addr, src))
+			return true;
+	}
+#else
+	if (!pim_ifp->mld)
+		return false;
+
+	ref.sgaddr.src = src;
+	ref.sgaddr.grp = grp;
+	mlsg = gm_sgs_find(pim_ifp->mld->sgs, &ref);
+	if (mlsg && mlsg->tib_joined)
+		return true;
+
+	if (!pim_addr_is_any(src)) {
+		ref.sgaddr.src = PIMADDR_ANY;
+		mlsg = gm_sgs_find(pim_ifp->mld->sgs, &ref);
+		if (mlsg && mlsg->tib_joined)
+			return true;
+	}
+#endif
+	return false;
+}
+
+static bool mroute_oif_join_group(struct pim_interface *pim_ifp, pim_addr src, pim_addr grp)
+{
+	struct listnode *node;
+	struct gm_join *ij;
+
+	if (!pim_ifp || !pim_ifp->gm_join_list)
+		return false;
+
+	for (ALL_LIST_ELEMENTS_RO(pim_ifp->gm_join_list, node, ij)) {
+		if (ij->join_type == GM_JOIN_PROXY)
+			continue;
+		if (pim_addr_cmp(ij->group_addr, grp))
+			continue;
+		if (mroute_addr_covers(ij->source_addr, src))
+			return true;
+	}
+
+	return false;
+}
+
+static bool mroute_oif_static_group(struct pim_interface *pim_ifp, pim_addr src, pim_addr grp)
+{
+	struct listnode *node;
+	struct static_group *stgrp;
+
+	if (!pim_ifp || !pim_ifp->static_group_list)
+		return false;
+
+	for (ALL_LIST_ELEMENTS_RO(pim_ifp->static_group_list, node, stgrp)) {
+		if (pim_addr_cmp(stgrp->group_addr, grp))
+			continue;
+		if (mroute_addr_covers(stgrp->source_addr, src))
+			return true;
+	}
+
+	return false;
+}
+
+/* Letters are display-only. The oil still stores one protocol bit. */
+static void mroute_oif_origin(char *buf, size_t buflen, struct pim_instance *pim,
+			      struct interface *ifp, const struct channel_oif *oif, pim_addr src,
+			      pim_addr grp)
+{
+	struct pim_interface *pim_ifp = NULL;
+	bool reg = false;
+	size_t n = 0;
+
+	buf[0] = '\0';
+	if (ifp) {
+		pim_ifp = ifp->info;
+		reg = (pim->regiface == ifp);
+	}
+
+#define ORIGIN_ADD(ch)                                                                            \
+	do {                                                                                      \
+		if (n + 1 < buflen)                                                               \
+			buf[n++] = (ch);                                                          \
+	} while (0)
+
+	if (oif && CHECK_FLAG(oif->flags, PIM_OIF_FLAG_PROTO_STAR))
+		ORIGIN_ADD('*');
+
+	/*
+	 * pimreg is the register tunnel. It is often marked IGMP because the
+	 * router itself is the receiver, which is not a host or static group.
+	 */
+	if (!reg && pim_ifp) {
+		if (mroute_oif_join_group(pim_ifp, src, grp))
+			ORIGIN_ADD('J');
+		if (mroute_oif_host_report(ifp, src, grp))
+			ORIGIN_ADD('M');
+		if (mroute_oif_static_group(pim_ifp, src, grp))
+			ORIGIN_ADD('S');
+	}
+
+	if (oif && CHECK_FLAG(oif->flags, PIM_OIF_FLAG_PROTO_PIM))
+		ORIGIN_ADD('P');
+	if (oif && CHECK_FLAG(oif->flags, PIM_OIF_FLAG_PROTO_DM))
+		ORIGIN_ADD('D');
+	if (reg)
+		ORIGIN_ADD('R');
+	if (oif && CHECK_FLAG(oif->flags, PIM_OIF_FLAG_PROTO_VXLAN))
+		ORIGIN_ADD('V');
+
+#undef ORIGIN_ADD
+
+	if (!n) {
+		strlcpy(buf, "-", buflen);
+		return;
+	}
+
+	buf[n] = '\0';
+}
+
+void show_mroute(struct pim_instance *pim, struct vty *vty, pim_sgaddr *sg, bool fill, bool detail,
+		 json_object *json)
 {
 	struct listnode *node;
 	struct channel_oif *oif;
@@ -3813,11 +4019,20 @@ void show_mroute(struct pim_instance *pim, struct vty *vty, pim_sgaddr *sg,
 		vty_out(vty, "Flags: S - Sparse, D - Dense, C - Connected, P - Pruned\n");
 		vty_out(vty,
 			"       R - SGRpt Pruned, F - Register flag, T - SPT-bit set\n");
+		if (detail) {
+			vty_out(vty,
+				"Origin: M - membership report, J - join-group, S - static-group, P - PIM\n");
+			vty_out(vty,
+				"        D - dense, V - VxLAN, * - inherited from (*,G), R - register\n");
+		}
 
 		/* Prepare table. */
 		tt = ttable_new(&ttable_styles[TTSTYLE_BLANK]);
-		ttable_add_row(
-			tt, "Source|Group|Flags|Proto|Input|Output|TTL|Uptime");
+		if (detail)
+			ttable_add_row(tt,
+				       "Source|Group|Flags|Proto|Origin|Input|Output|TTL|Uptime");
+		else
+			ttable_add_row(tt, "Source|Group|Flags|Proto|Input|Output|TTL|Uptime");
 		tt->style.cell.rpad = 2;
 		tt->style.corner = '+';
 		ttable_restyle(tt);
@@ -3917,6 +4132,7 @@ void show_mroute(struct pim_instance *pim, struct vty *vty, pim_sgaddr *sg,
 
 		frr_each (channel_oif_list, &c_oil->oif_list, oif) {
 			struct interface *ifp_out;
+			char origin[16];
 
 			/* do not display muted OIFs */
 			if (channel_oif_no_forward(oif))
@@ -3935,6 +4151,16 @@ void show_mroute(struct pim_instance *pim, struct vty *vty, pim_sgaddr *sg,
 			else
 				strlcpy(out_ifname, "<oif?>",
 					sizeof(out_ifname));
+
+			/*
+			 * Origin walks receiver state. The plain mroute show
+			 * skips it; detail is the debugging view.
+			 */
+			if (detail)
+				mroute_oif_origin(origin, sizeof(origin), pim, ifp_out, oif,
+						  c_oil->source, c_oil->group);
+			else
+				origin[0] = '\0';
 
 			if (json) {
 				json_ifp_out = json_object_new_object();
@@ -3972,6 +4198,8 @@ void show_mroute(struct pim_instance *pim, struct vty *vty, pim_sgaddr *sg,
 				json_object_int_add(json_ifp_out, "ttl", PIM_MROUTE_MIN_TTL);
 				json_object_string_add(json_ifp_out, "upTime",
 						       mroute_uptime);
+				if (detail)
+					json_object_string_add(json_ifp_out, "origin", origin);
 				json_object_string_add(json_source, "flags",
 						       state_str);
 				if (!json_oil) {
@@ -4000,9 +4228,16 @@ void show_mroute(struct pim_instance *pim, struct vty *vty, pim_sgaddr *sg,
 				if (CHECK_FLAG(oif->flags, PIM_OIF_FLAG_PROTO_STAR))
 					strlcpy(proto, "STAR", sizeof(proto));
 
-				ttable_add_row(tt, "%s|%s|%s|%s|%s|%s|%d|%s", src_str, grp_str,
-					       state_str, proto, in_ifname, out_ifname,
-					       PIM_MROUTE_MIN_TTL, mroute_uptime);
+				if (detail)
+					ttable_add_row(tt, "%s|%s|%s|%s|%s|%s|%s|%d|%s", src_str,
+						       grp_str, state_str, proto, origin,
+						       in_ifname, out_ifname, PIM_MROUTE_MIN_TTL,
+						       mroute_uptime);
+				else
+					ttable_add_row(tt, "%s|%s|%s|%s|%s|%s|%d|%s", src_str,
+						       grp_str, state_str, proto, in_ifname,
+						       out_ifname, PIM_MROUTE_MIN_TTL,
+						       mroute_uptime);
 
 				if (first) {
 					src_str[0] = '\0';
@@ -4016,9 +4251,14 @@ void show_mroute(struct pim_instance *pim, struct vty *vty, pim_sgaddr *sg,
 		}
 
 		if (!json && !found_oif) {
-			ttable_add_row(tt, "%pPAs|%pPAs|%s|%s|%s|%s|%d|%s", &c_oil->source,
-				       &c_oil->group, state_str, "none", in_ifname, "none", 0,
-				       "--:--:--");
+			if (detail)
+				ttable_add_row(tt, "%pPAs|%pPAs|%s|%s|%s|%s|%s|%d|%s",
+					       &c_oil->source, &c_oil->group, state_str, "none",
+					       "-", in_ifname, "none", 0, "--:--:--");
+			else
+				ttable_add_row(tt, "%pPAs|%pPAs|%s|%s|%s|%s|%d|%s", &c_oil->source,
+					       &c_oil->group, state_str, "none", in_ifname, "none",
+					       0, "--:--:--");
 		}
 	}
 
@@ -4071,6 +4311,7 @@ void show_mroute(struct pim_instance *pim, struct vty *vty, pim_sgaddr *sg,
 		frr_each (channel_oif_list, &s_route->c_oil.oif_list, oif) {
 			struct interface *ifp_out;
 			char oif_uptime[10];
+			char origin[16];
 
 			ifp_out = pim_if_find_by_vif_index(pim, oif->index);
 			pim_time_uptime(oif_uptime, sizeof(oif_uptime), now - oif->creation);
@@ -4082,6 +4323,12 @@ void show_mroute(struct pim_instance *pim, struct vty *vty, pim_sgaddr *sg,
 			else
 				strlcpy(out_ifname, "<oif?>",
 					sizeof(out_ifname));
+
+			if (detail)
+				mroute_oif_origin(origin, sizeof(origin), pim, ifp_out, oif,
+						  s_route->source, s_route->group);
+			else
+				origin[0] = '\0';
 
 			if (json) {
 				json_ifp_out = json_object_new_object();
@@ -4103,6 +4350,8 @@ void show_mroute(struct pim_instance *pim, struct vty *vty, pim_sgaddr *sg,
 				json_object_int_add(json_ifp_out, "ttl", PIM_MROUTE_MIN_TTL);
 				json_object_string_add(json_ifp_out, "upTime",
 						       oif_uptime);
+				if (detail)
+					json_object_string_add(json_ifp_out, "origin", origin);
 				if (!json_oil) {
 					json_oil = json_object_new_object();
 					json_object_object_add(json_source,
@@ -4111,10 +4360,16 @@ void show_mroute(struct pim_instance *pim, struct vty *vty, pim_sgaddr *sg,
 				json_object_object_add(json_oil, out_ifname,
 						       json_ifp_out);
 			} else {
-				ttable_add_row(tt, "%pPAs|%pPAs|%s|%s|%s|%s|%d|%s",
-					       &s_route->source, &s_route->group, "-", proto,
-					       in_ifname, out_ifname, PIM_MROUTE_MIN_TTL,
-					       oif_uptime);
+				if (detail)
+					ttable_add_row(tt, "%pPAs|%pPAs|%s|%s|%s|%s|%s|%d|%s",
+						       &s_route->source, &s_route->group, "-",
+						       proto, origin, in_ifname, out_ifname,
+						       PIM_MROUTE_MIN_TTL, oif_uptime);
+				else
+					ttable_add_row(tt, "%pPAs|%pPAs|%s|%s|%s|%s|%d|%s",
+						       &s_route->source, &s_route->group, "-",
+						       proto, in_ifname, out_ifname,
+						       PIM_MROUTE_MIN_TTL, oif_uptime);
 				if (first && !fill) {
 					src_str[0] = '\0';
 					grp_str[0] = '\0';
@@ -4125,9 +4380,14 @@ void show_mroute(struct pim_instance *pim, struct vty *vty, pim_sgaddr *sg,
 		}
 
 		if (!json && !found_oif) {
-			ttable_add_row(tt, "%pPAs|%pPAs|%s|%s|%s|%s|%d|%s",
-				       &s_route->source, &s_route->group, "-",
-				       proto, in_ifname, "none", 0, "--:--:--");
+			if (detail)
+				ttable_add_row(tt, "%pPAs|%pPAs|%s|%s|%s|%s|%s|%d|%s",
+					       &s_route->source, &s_route->group, "-", proto, "-",
+					       in_ifname, "none", 0, "--:--:--");
+			else
+				ttable_add_row(tt, "%pPAs|%pPAs|%s|%s|%s|%s|%d|%s",
+					       &s_route->source, &s_route->group, "-", proto,
+					       in_ifname, "none", 0, "--:--:--");
 		}
 	}
 	/* Dump the generated table. */
@@ -4977,8 +5237,8 @@ int pim_show_multicast_count_vrf_all_helper(struct vty *vty, bool json)
 	return CMD_SUCCESS;
 }
 
-int pim_show_mroute_helper(const char *vrf, struct vty *vty, pim_addr s_or_g,
-			   pim_addr g, bool fill, bool json)
+int pim_show_mroute_helper(const char *vrf, struct vty *vty, pim_addr s_or_g, pim_addr g,
+			   bool fill, bool detail, bool json)
 {
 	pim_sgaddr sg = {0};
 	struct pim_instance *pim;
@@ -5008,7 +5268,7 @@ int pim_show_mroute_helper(const char *vrf, struct vty *vty, pim_addr s_or_g,
 			sg.grp = s_or_g;
 	}
 
-	show_mroute(pim, vty, &sg, fill, json_parent);
+	show_mroute(pim, vty, &sg, fill, detail, json_parent);
 
 	if (json)
 		vty_json(vty, json_parent);
@@ -5016,7 +5276,7 @@ int pim_show_mroute_helper(const char *vrf, struct vty *vty, pim_addr s_or_g,
 	return CMD_SUCCESS;
 }
 
-int pim_show_mroute_vrf_all_helper(struct vty *vty, bool fill, bool json)
+int pim_show_mroute_vrf_all_helper(struct vty *vty, bool fill, bool detail, bool json)
 {
 	pim_sgaddr sg = {0};
 	struct vrf *vrf;
@@ -5031,7 +5291,7 @@ int pim_show_mroute_vrf_all_helper(struct vty *vty, bool fill, bool json)
 			vty_out(vty, "VRF: %s\n", vrf->name);
 		else
 			json_vrf = json_object_new_object();
-		show_mroute(vrf->info, vty, &sg, fill, json_vrf);
+		show_mroute(vrf->info, vty, &sg, fill, detail, json_vrf);
 		if (json)
 			json_object_object_add(json_parent, vrf->name,
 					       json_vrf);

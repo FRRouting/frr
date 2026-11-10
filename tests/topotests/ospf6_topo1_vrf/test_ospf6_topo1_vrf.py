@@ -76,7 +76,7 @@ from lib import topotest
 from lib.topogen import Topogen, TopoRouter, get_topogen
 from lib.topolog import logger
 from lib.topotest import iproute2_is_vrf_capable
-from lib.common_config import required_linux_kernel_version
+from lib.common_config import create_interface_in_kernel, required_linux_kernel_version
 
 
 pytestmark = [pytest.mark.ospf6d]
@@ -131,6 +131,8 @@ def build_topo(tgen):
 
 def setup_module(mod):
     "Sets up the pytest environment"
+    if not topotest.platform_has_vrf():
+        pytest.skip("platform does not support VRF")
 
     # Required linux kernel version for this suite to run.
     result = required_linux_kernel_version("5.0")
@@ -151,7 +153,6 @@ def setup_module(mod):
 
     cmds = [
         "ip link add {0}-cust1 type vrf table 1001",
-        "ip link add loop1 type dummy",
         "ip link set {0}-stubnet master {0}-cust1",
     ]
 
@@ -164,6 +165,7 @@ def setup_module(mod):
         # create VRF rx-cust1 and link rx-eth0 to rx-cust1
         for cmd in cmds:
             output = tgen.net[rname].cmd(cmd.format(rname))
+        create_interface_in_kernel(tgen, rname, "loop1")
         if rname == "r1" or rname == "r2" or rname == "r3":
             for cmd in cmds1:
                 output = tgen.net[rname].cmd(cmd.format(rname))

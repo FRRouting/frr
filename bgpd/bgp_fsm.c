@@ -359,6 +359,27 @@ static struct peer *peer_xfer_conn(struct peer *from_peer)
 	return (peer);
 }
 
+static void bgp_refresh_stalepath_timers_stop(struct peer_connection *connection)
+{
+	struct peer *peer = connection->peer;
+	struct peer_af *paf;
+	afi_t afi;
+	safi_t safi;
+
+	FOREACH_AFI_SAFI (afi, safi) {
+		paf = peer_af_find(peer, afi, safi);
+		if (!paf || !event_is_scheduled(paf->t_refresh_stalepath))
+			continue;
+
+		event_cancel(&paf->t_refresh_stalepath);
+
+		if (bgp_debug_neighbor_events(peer))
+			zlog_debug("%pBP route-refresh stalepath timer for %s/%s stopped for %s",
+				   peer, afi2str(afi), safi2str(safi),
+				   bgp_peer_get_connection_direction_string(connection));
+	}
+}
+
 /* Hook function called after bgp event is occered.  And vty's
    neighbor command invoke this function after making neighbor
    structure. */
@@ -366,6 +387,7 @@ void bgp_timer_set(struct peer_connection *connection)
 {
 	afi_t afi;
 	safi_t safi;
+	struct peer_af *paf;
 	struct peer *peer = connection->peer;
 
 	switch (connection->status) {
@@ -494,11 +516,14 @@ void bgp_timer_set(struct peer_connection *connection)
 		event_cancel(&connection->t_gr_restart);
 		event_cancel(&connection->t_gr_stale);
 
-		FOREACH_AFI_SAFI (afi, safi)
-			event_cancel(&peer->t_llgr_stale[afi][safi]);
+		FOREACH_AFI_SAFI (afi, safi) {
+			paf = peer_af_find(peer, afi, safi);
+			if (paf)
+				event_cancel(&paf->t_llgr_stale);
+		}
 
 		event_cancel(&connection->t_pmax_restart);
-		event_cancel(&peer->t_refresh_stalepath);
+		bgp_refresh_stalepath_timers_stop(connection);
 		fallthrough;
 	case Clearing:
 		event_cancel(&connection->t_start);
@@ -551,8 +576,10 @@ static void bgp_connect_timer(struct event *event)
 	if (bgp_peer_get_connection_direction(connection) == CONNECTION_INCOMING)
 		bgp_stop(connection);
 	else {
-		if (!peer->connect)
-			peer->v_connect = MIN(BGP_MAX_CONNECT_RETRY, peer->v_connect * 2);
+		if (frr_default_chosen() != FRR_DEFAULT_DATACENTER) {
+			if (!peer->connect)
+				peer->v_connect = MIN(BGP_MAX_CONNECT_RETRY, peer->v_connect * 2);
+		}
 		EVENT_VAL(event) = ConnectRetry_timer_expired;
 		bgp_event(event); /* bgp_event unlocks peer */
 	}
@@ -741,6 +768,7 @@ static void bgp_set_llgr_stale(struct peer *peer, afi_t afi, safi_t safi)
 	struct bgp_path_info *pi, *next;
 	struct bgp_table *table;
 	struct attr attr;
+	struct attr *old_attr;
 
 	if (safi == SAFI_MPLS_VPN || safi == SAFI_ENCAP || safi == SAFI_EVPN) {
 		for (dest = bgp_table_top(bgp->rib[afi][safi]); dest; dest = bgp_route_next(dest)) {
@@ -770,13 +798,14 @@ static void bgp_set_llgr_stale(struct peer *peer, afi_t afi, safi_t safi)
 						continue;
 
 					if (bgp_debug_neighbor_events(peer))
-						zlog_debug(
-							"%pBP Long-lived set stale community (LLGR_STALE) for: %pFX",
-							peer, &dest->rn->p);
+						zlog_debug("%pBP Long-lived set stale community (LLGR_STALE) for: %pFX",
+							   peer, bgp_dest_get_prefix(rm));
 
 					bgp_attr_dup_into(&attr, pi->attr);
 					bgp_attr_add_llgr_community(&attr);
+					old_attr = pi->attr;
 					pi->attr = bgp_attr_intern(&attr);
+					bgp_attr_unintern(&old_attr);
 					bgp_process(bgp, rm, pi, afi, safi);
 				}
 		}
@@ -799,13 +828,14 @@ static void bgp_set_llgr_stale(struct peer *peer, afi_t afi, safi_t safi)
 					continue;
 
 				if (bgp_debug_neighbor_events(peer))
-					zlog_debug(
-						"%pBP Long-lived set stale community (LLGR_STALE) for: %pFX",
-						peer, &dest->rn->p);
+					zlog_debug("%pBP Long-lived set stale community (LLGR_STALE) for: %pFX",
+						   peer, bgp_dest_get_prefix(dest));
 
 				bgp_attr_dup_into(&attr, pi->attr);
 				bgp_attr_add_llgr_community(&attr);
+				old_attr = pi->attr;
 				pi->attr = bgp_attr_intern(&attr);
+				bgp_attr_unintern(&old_attr);
 				bgp_process(bgp, dest, pi, afi, safi);
 			}
 	}
@@ -858,9 +888,8 @@ static void bgp_graceful_restart_timer_expire(struct event *event)
 			bgp_set_llgr_stale(peer, afi, safi);
 			bgp_clear_stale_route(peer, afi, safi);
 
-			event_add_timer(bm->master, bgp_llgr_stale_timer_expire,
-					paf, peer->llgr[afi][safi].stale_time,
-					&peer->t_llgr_stale[afi][safi]);
+			event_add_timer(bm->master, bgp_llgr_stale_timer_expire, paf,
+					peer->llgr[afi][safi].stale_time, &paf->t_llgr_stale);
 
 			for (ALL_LIST_ELEMENTS(peer->bgp->peer, node, nnode,
 					       tmp_peer))
@@ -877,6 +906,7 @@ static void bgp_graceful_stale_timer_expire(struct event *event)
 {
 	struct peer_connection *connection = EVENT_ARG(event);
 	struct peer *peer = connection->peer;
+	struct peer_af *paf;
 	afi_t afi;
 	safi_t safi;
 
@@ -888,7 +918,7 @@ static void bgp_graceful_stale_timer_expire(struct event *event)
 	 * RFC 9494 §4.3: for LLGR-negotiated AFI/SAFI, retention is bounded
 	 * by the Long-Lived Stale Time, not stalepath-time. Skip the delete
 	 * if LLGR retention is (or will be) active for this AFI/SAFI:
-	 *   - t_llgr_stale[afi][safi] scheduled: the LLGR window is already
+	 *   - paf->t_llgr_stale scheduled: the LLGR window is already
 	 *     running; t_gr_restart has fired but didn't cancel t_gr_stale
 	 *     (bgp_graceful_restart_timer_off() bails when any AFI/SAFI is
 	 *     in PEER_STATUS_LLGR_WAIT).
@@ -904,7 +934,8 @@ static void bgp_graceful_stale_timer_expire(struct event *event)
 		if (!peer->nsf[afi][safi])
 			continue;
 
-		if (event_is_scheduled(peer->t_llgr_stale[afi][safi]) ||
+		paf = peer_af_find(peer, afi, safi);
+		if ((paf && event_is_scheduled(paf->t_llgr_stale)) ||
 		    (peer->llgr[afi][safi].stale_time &&
 		     event_is_scheduled(connection->t_gr_restart))) {
 			if (bgp_debug_neighbor_events(peer))
@@ -1112,9 +1143,14 @@ void bgp_update_delay_end(struct bgp *bgp)
 	/*
 	 * Resume the queue processing. This should trigger the event that would
 	 * take care of processing any work that was queued during the read-only
-	 * mode.
+	 * mode. A hold taken with bgp_meta_queue_plug() keeps it plugged.
 	 */
+#ifdef DEV_BUILD
+	if (!bgp->meta_queue_plugged)
+		work_queue_unplug(bgp->process_queue);
+#else
 	work_queue_unplug(bgp->process_queue);
+#endif
 
 	/* Re-announce the routes once the update-delay timer expires.
 	 * This is needed to ensure that the routes are re-advertised to the
@@ -2258,15 +2294,7 @@ enum bgp_fsm_state_progress bgp_stop(struct peer_connection *connection)
 				peer->nsf[afi][safi] = 0;
 		}
 
-		/* Stop route-refresh stalepath timer */
-		if (event_is_scheduled(peer->t_refresh_stalepath)) {
-			event_cancel(&peer->t_refresh_stalepath);
-
-			if (bgp_debug_neighbor_events(peer))
-				zlog_debug("%pBP route-refresh restart stalepath timer stopped for %s",
-					   peer,
-					   bgp_peer_get_connection_direction_string(connection));
-		}
+		bgp_refresh_stalepath_timers_stop(connection);
 
 		/* set last reset time */
 		peer->resettime = peer->uptime = monotime(NULL);
@@ -2346,6 +2374,7 @@ enum bgp_fsm_state_progress bgp_stop(struct peer_connection *connection)
 
 		/* peer address family capability flags*/
 		peer->af_cap[afi][safi] = 0;
+		peer->addpath_paths_limit[afi][safi].receive = 0;
 
 		/* peer address family status flags*/
 		/* Don't clear WAIT_EOR */
@@ -3009,6 +3038,7 @@ bgp_establish(struct peer_connection *connection)
 {
 	afi_t afi;
 	safi_t safi;
+	struct peer_af *paf;
 	enum bgp_fsm_state_progress ret = BGP_FSM_SUCCESS;
 	struct peer *other;
 	struct peer *peer = connection->peer;
@@ -3092,8 +3122,9 @@ bgp_establish(struct peer_connection *connection)
 	 * Stop Long-lived Graceful Restart timers.
 	 */
 	FOREACH_AFI_SAFI (afi, safi) {
-		if (event_is_scheduled(peer->t_llgr_stale[afi][safi])) {
-			event_cancel(&peer->t_llgr_stale[afi][safi]);
+		paf = peer_af_find(peer, afi, safi);
+		if (paf && event_is_scheduled(paf->t_llgr_stale)) {
+			event_cancel(&paf->t_llgr_stale);
 			if (bgp_debug_neighbor_events(peer))
 				zlog_debug("%pBP Long-lived stale timer stopped for afi/safi: %d/%d for %s",
 					   peer, afi, safi,

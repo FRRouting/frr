@@ -82,7 +82,12 @@ sys.path.append(os.path.join(CWD, "../"))
 # Import topogen and topotest helpers
 from lib import topotest
 from lib.topogen import Topogen, TopoRouter, get_topogen
-from lib.common_config import write_test_header, write_test_footer, step
+from lib.common_config import (
+    write_test_header,
+    write_test_footer,
+    step,
+    shutdown_bringup_interface_in_kernel,
+)
 
 # Required to instantiate the topology builder class.
 
@@ -212,18 +217,38 @@ def test_ecmp_inter_area(request):
         pytest.skip(tgen.errors)
 
     step("triggering R3-R6 link down")
-    tgen.gears["r3"].run("ip link set r3-eth1 down")
+    shutdown_bringup_interface_in_kernel(
+        tgen.gears['r3'].tgen,
+        tgen.gears['r3'].name,
+        "r3-eth1",
+        False,
+    )
 
     expect_routes_json("r1", "show_ipv6_routes_ospf6-2.json", "post-R3-R6-link-down")
 
     step("triggering R2-R5 link down")
-    tgen.gears["r2"].run("ip link set r2-eth1 down")
+    shutdown_bringup_interface_in_kernel(
+        tgen.gears['r2'].tgen,
+        tgen.gears['r2'].name,
+        "r2-eth1",
+        False,
+    )
 
     expect_routes_json("r1", "show_ipv6_routes_ospf6-3.json", "post-R2-R5-link-down")
 
     step("restoring links R2-R5/R3-R6")
-    tgen.gears["r3"].run("ip link set r3-eth1 up")
-    tgen.gears["r2"].run("ip link set r2-eth1 up")
+    shutdown_bringup_interface_in_kernel(
+        tgen.gears['r3'].tgen,
+        tgen.gears['r3'].name,
+        "r3-eth1",
+        True,
+    )
+    shutdown_bringup_interface_in_kernel(
+        tgen.gears['r2'].tgen,
+        tgen.gears['r2'].name,
+        "r2-eth1",
+        True,
+    )
 
     expect_routes_json(
         "r1", "show_ipv6_routes_ospf6-1.json", "post-R2-R5/R3-R6-link-up"
@@ -245,19 +270,49 @@ def test_multipath_inter_area(request):
         pytest.skip(tgen.errors)
 
     step("links R1-R3/R3-R6/R5-R8/R6-R8 down (simplify topology, disconnect R3/R8)")
-    tgen.gears["r3"].run("ip link set r3-eth0 down")
-    tgen.gears["r3"].run("ip link set r3-eth1 down")
-    tgen.gears["r8"].run("ip link set r8-eth0 down")
-    tgen.gears["r8"].run("ip link set r8-eth1 down")
+    shutdown_bringup_interface_in_kernel(
+        tgen.gears['r3'].tgen,
+        tgen.gears['r3'].name,
+        "r3-eth0",
+        False,
+    )
+    shutdown_bringup_interface_in_kernel(
+        tgen.gears['r3'].tgen,
+        tgen.gears['r3'].name,
+        "r3-eth1",
+        False,
+    )
+    shutdown_bringup_interface_in_kernel(
+        tgen.gears['r8'].tgen,
+        tgen.gears['r8'].name,
+        "r8-eth0",
+        False,
+    )
+    shutdown_bringup_interface_in_kernel(
+        tgen.gears['r8'].tgen,
+        tgen.gears['r8'].name,
+        "r8-eth1",
+        False,
+    )
     step("link R6-R7 down (initial summary LSAs)")
-    tgen.gears["r6"].run("ip link set r6-eth2 down")
+    shutdown_bringup_interface_in_kernel(
+        tgen.gears['r6'].tgen,
+        tgen.gears['r6'].name,
+        "r6-eth2",
+        False,
+    )
 
     expect_routes_json(
         "r1", "show_ipv6_routes_ospf6-4.json", "post-R3-R6/R6-R7-link-down"
     )
 
     step("triggering R6-R7 link up")
-    tgen.gears["r6"].run("ip link set r6-eth2 up")
+    shutdown_bringup_interface_in_kernel(
+        tgen.gears['r6'].tgen,
+        tgen.gears['r6'].name,
+        "r6-eth2",
+        True,
+    )
 
     expect_routes_json("r1", "show_ipv6_routes_ospf6-5.json", "post-R6-R7-link-up")
 

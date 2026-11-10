@@ -620,6 +620,7 @@ static int bfd_dplane_expect(struct bfd_dplane_ctx *bdc, uint16_t id,
 	struct bfddp_message_header *bh;
 	size_t rlen = 0, reads = 0;
 	ssize_t rv;
+	bool found;
 
 	/*
 	 * Reclaim space consumed by previous calls. Synchronous callers
@@ -714,9 +715,11 @@ skip_read:
 
 		/*
 		 * Handle incoming message with callback if the ID matches,
-		 * otherwise fallback to default handler.
+		 * otherwise fallback to default handler. Decided here: the
+		 * pulldown below can move the message out from under `bh`.
 		 */
-		if (id && ntohs(bh->id) == id)
+		found = id && ntohs(bh->id) == id;
+		if (found)
 			cb((struct bfddp_message *)bh, arg);
 		else
 			bfd_dplane_handle_message((struct bfddp_message *)bh,
@@ -735,9 +738,18 @@ skip_read:
 		}
 
 		/* We found the message, return to caller. */
-		if (id && ntohs(bh->id) == id)
-			break;
+		if (found)
+			return 0;
 	}
+
+	/*
+	 * The answer can arrive after other messages the data plane had
+	 * queued, which are handled above. Returning now would leave the
+	 * caller without it, and the reply would arrive while the next
+	 * request waits, to be dropped as unexpected.
+	 */
+	if (id)
+		goto read_again;
 
 	return 0;
 }

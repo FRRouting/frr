@@ -24,6 +24,7 @@ from lib.common_config import (
     required_linux_kernel_version,
     shutdown_bringup_interface,
     retry,
+    shutdown_bringup_interface_in_kernel,
 )
 
 """
@@ -102,11 +103,23 @@ def build_topo(tgen):
     switch.add_link(tgen.gears["nhc2"])
 
 
+def _apply_nhrp_cmd(tgen, cmd, rname, unit):
+    if isinstance(cmd, tuple):
+        shutdown_bringup_interface_in_kernel(
+            tgen, rname, cmd[1].format(rname, unit), cmd[0] == "up"
+        )
+        return
+    formatted = cmd.format(rname, unit)
+    logger.info("input: " + formatted)
+    output = tgen.net[rname].cmd(formatted)
+    logger.info("output: " + output)
+
+
 def _populate_iface():
     tgen = get_topogen()
     cmds_tot_hub = [
         "ip tunnel add {0}-gre0 mode gre ttl 64 key 42 dev {0}-eth0 local 192.168.1.{1} remote 0.0.0.0",
-        "ip link set dev {0}-gre0 up",
+        ("up", "{0}-gre0"),
         "echo 0 > /proc/sys/net/ipv4/ip_forward_use_pmtu",
         "echo 1 > /proc/sys/net/ipv6/conf/{0}-eth0/disable_ipv6",
         "echo 1 > /proc/sys/net/ipv6/conf/{0}-gre0/disable_ipv6",
@@ -115,38 +128,19 @@ def _populate_iface():
 
     cmds_tot = [
         "ip tunnel add {0}-gre0 mode gre ttl 64 key 42 dev {0}-eth0 local 192.168.2.{1} remote 0.0.0.0",
-        "ip link set dev {0}-gre0 up",
+        ("up", "{0}-gre0"),
         "echo 0 > /proc/sys/net/ipv4/ip_forward_use_pmtu",
         "echo 1 > /proc/sys/net/ipv6/conf/{0}-eth0/disable_ipv6",
         "echo 1 > /proc/sys/net/ipv6/conf/{0}-gre0/disable_ipv6",
     ]
 
     for cmd in cmds_tot_hub:
-        input = cmd.format("nhs1", "1")
-        logger.info("input: " + input)
-        output = tgen.net["nhs1"].cmd(input)
-        logger.info("output: " + output)
-
-        input = cmd.format("nhs2", "2")
-        logger.info("input: " + input)
-        output = tgen.net["nhs2"].cmd(input)
-        logger.info("output: " + output)
-
-        input = cmd.format("nhs3", "3")
-        logger.info("input: " + input)
-        output = tgen.net["nhs3"].cmd(input)
-        logger.info("output: " + output)
+        for rname, unit in (("nhs1", "1"), ("nhs2", "2"), ("nhs3", "3")):
+            _apply_nhrp_cmd(tgen, cmd, rname, unit)
 
     for cmd in cmds_tot:
-        input = cmd.format("nhc1", "4")
-        logger.info("input: " + input)
-        output = tgen.net["nhc1"].cmd(input)
-        logger.info("output: " + output)
-
-        input = cmd.format("nhc2", "5")
-        logger.info("input: " + input)
-        output = tgen.net["nhc2"].cmd(input)
-        logger.info("output: " + output)
+        for rname, unit in (("nhc1", "4"), ("nhc2", "5")):
+            _apply_nhrp_cmd(tgen, cmd, rname, unit)
 
 
 def _verify_iptables():
@@ -327,6 +321,58 @@ def test_protocols_convergence():
     ping_test(nhc1, "172.16.1.3", 1000, "nhs3")
 
 
+def test_local_map_neighbor():
+    """
+    Assert that nhrpd survives a kernel neighbor request for a local map
+    entry, which has no peer.
+    """
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    nhc1 = tgen.gears["nhc1"]
+
+    logger.info("nhc1: map 172.16.1.99 as a local address")
+    nhc1.vtysh_cmd(
+        """
+        configure terminal
+         interface nhc1-gre0
+          ip nhrp map 172.16.1.99 local
+        """
+    )
+    expected = {"table": {"172.16.1.99": {"type": "local"}}}
+    test_func = partial(router_nhrp_json_cmp, nhc1, "show ip nhrp cache json", expected)
+    _, result = topotest.run_and_expect(test_func, None, count=20, wait=1)
+    assert result is None, "nhc1: 172.16.1.99 local entry missing"
+
+    logger.info("nhc1: send traffic to 172.16.1.99 through nhc1-gre0")
+    nhc1.cmd("ip route add 172.16.1.99/32 dev nhc1-gre0")
+
+    def _local_neighbor_probed():
+        nhc1.cmd("ping -c 1 -W 1 172.16.1.99")
+        output = nhc1.cmd("ip -s neigh show 172.16.1.99 dev nhc1-gre0")
+        return re.search(r"probes [1-9]", output) is not None
+
+    # Check that the kernel has sent unawswered probes
+    _, result = topotest.run_and_expect(_local_neighbor_probed, True, count=20, wait=1)
+    assert result is True, "nhc1: no neighbor request for 172.16.1.99"
+    assert nhc1.check_router_running() == "", "nhc1: a daemon died"
+
+    logger.info("nhc1: remove the 172.16.1.99 route and local map")
+    nhc1.cmd("ip route del 172.16.1.99/32 dev nhc1-gre0")
+    nhc1.vtysh_cmd(
+        """
+        configure terminal
+         interface nhc1-gre0
+          no ip nhrp map 172.16.1.99 local
+        """
+    )
+    expected = {"table": {"172.16.1.99": None}}
+    test_func = partial(router_nhrp_json_cmp, nhc1, "show ip nhrp cache json", expected)
+    _, result = topotest.run_and_expect(test_func, None, count=20, wait=1)
+    assert result is None, "nhc1: 172.16.1.99 local entry not removed"
+
+
 @retry(retry_timeout=30, initial_wait=5)
 def verify_shortcut_path():
     """
@@ -409,15 +455,18 @@ def test_redundancy_shortcut():
     PING_PID = None
 
     logger.info("check the shortcut disappears because of no traffic")
-    json_file = "{}/{}/nhrp_shortcut_absent.json".format(CWD, nhc1.name)
-    expected = json.loads(open(json_file).read())
-    test_func = partial(
-        router_nhrp_json_cmp, nhc1, "show ip nhrp shortcut json", expected
-    )
-    _, result = topotest.run_and_expect(test_func, None, count=60, wait=1)
 
-    assertmsg = '"{}" "show ip nhrp shortcut" output mismatches'.format(nhc1.name)
-    assert result is None, assertmsg
+    expected = {"attr": {"entriesCount": 0}}
+
+    for rname in ("nhc1", "nhc2"):
+        router = tgen.gears[rname]
+        test_func = partial(
+            router_nhrp_json_cmp, router, "show ip nhrp shortcut json", expected
+        )
+        _, result = topotest.run_and_expect(test_func, None, count=60, wait=1)
+
+        assertmsg = '"{}" "show ip nhrp shortcut" output mismatches'.format(rname)
+        assert result is None, assertmsg
 
 
 def test_redundancy_shortcut_backup():
@@ -518,8 +567,7 @@ def test_redundancy_shortcut_backup():
     assertmsg = '"{}" "show ip route nhrp" output mismatches'.format(nhc1.name)
     assert result is None, assertmsg
 
-    json_file = "{}/{}/nhrp_shortcut_absent.json".format(CWD, nhc1.name)
-    expected = json.loads(open(json_file).read())
+    expected = {"attr": {"entriesCount": 0}}
     test_func = partial(
         router_nhrp_json_cmp, nhc1, "show ip nhrp shortcut json", expected
     )

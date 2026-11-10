@@ -518,6 +518,12 @@ struct zebra_dplane_ctx {
 	/* Status on return */
 	enum zebra_dplane_result zd_status;
 
+	/*
+	 * errno (positive value, 0 == none) describing why a request failed.
+	 * Only meaningful in conjunction with zd_status.
+	 */
+	int zd_errno;
+
 	/* Dplane provider id */
 	uint32_t zd_provider;
 
@@ -810,7 +816,7 @@ static enum zebra_dplane_result intf_addr_update_internal(
 static enum zebra_dplane_result mac_update_common(enum dplane_op_e op, const struct interface *ifp,
 						  const struct interface *br_ifp, vlanid_t vid,
 						  const struct ethaddr *mac, vni_t vni,
-						  struct ipaddr *vtep_ip, bool sticky,
+						  const struct ipaddr *vtep_ip, bool sticky,
 						  uint32_t nhg_id, uint32_t update_flags);
 static enum zebra_dplane_result
 neigh_update_internal(enum dplane_op_e op, const struct interface *ifp,
@@ -1179,6 +1185,20 @@ void dplane_ctx_set_status(struct zebra_dplane_ctx *ctx,
 	DPLANE_CTX_VALID(ctx);
 
 	ctx->zd_status = status;
+}
+
+int dplane_ctx_get_errno(const struct zebra_dplane_ctx *ctx)
+{
+	DPLANE_CTX_VALID(ctx);
+
+	return ctx->zd_errno;
+}
+
+void dplane_ctx_set_errno(struct zebra_dplane_ctx *ctx, int err)
+{
+	DPLANE_CTX_VALID(ctx);
+
+	ctx->zd_errno = err;
 }
 
 /* Retrieve last/current provider id */
@@ -6227,6 +6247,13 @@ enum zebra_dplane_result dplane_intf_speed_get(const struct interface *ifp)
 	struct zebra_ns *zns;
 	int ret;
 
+	/*
+	 * A PPP link has no speed to read: the ethtool request would only
+	 * wait on rtnl_lock, and fail if the link is renamed meanwhile.
+	 */
+	if (ifp->ll_type == ZEBRA_LLT_PPP)
+		return ZEBRA_DPLANE_REQUEST_SUCCESS;
+
 	ctx = dplane_ctx_alloc();
 
 	ctx->zd_op = DPLANE_OP_INTF_SPEED_GET;
@@ -6295,6 +6322,22 @@ enum zebra_dplane_result dplane_rem_mac_del(const struct interface *ifp,
 	result = mac_update_common(DPLANE_OP_MAC_DELETE, ifp, bridge_ifp, vid,
 				   mac, vni, vtep_ip, false, 0, update_flags);
 	return result;
+}
+
+/*
+ * Enqueue the delete of the VXLAN device's own FDB entry for a remote MAC,
+ * leaving the bridge's entries alone - used when the bridge's entry for the
+ * MAC is already a local one.
+ */
+enum zebra_dplane_result dplane_rem_mac_net_del(const struct interface *ifp,
+						const struct interface *bridge_ifp,
+						const struct ethaddr *mac, vni_t vni,
+						const struct ipaddr *vtep_ip)
+{
+	uint32_t update_flags = DPLANE_MAC_REMOTE | DPLANE_MAC_SELF_ONLY;
+
+	return mac_update_common(DPLANE_OP_MAC_DELETE, ifp, bridge_ifp, 0, mac, vni, vtep_ip,
+				 false, 0, update_flags);
 }
 
 /*
@@ -6377,7 +6420,7 @@ dplane_local_mac_del(const struct interface *ifp,
  */
 void dplane_mac_init(struct zebra_dplane_ctx *ctx, const struct interface *ifp,
 		     const struct interface *br_ifp, vlanid_t vid, const struct ethaddr *mac,
-		     vni_t vni, struct ipaddr *vtep_ip, bool sticky, uint32_t nhg_id,
+		     vni_t vni, const struct ipaddr *vtep_ip, bool sticky, uint32_t nhg_id,
 		     uint32_t update_flags)
 {
 	struct zebra_ns *zns;
@@ -6410,7 +6453,7 @@ void dplane_mac_init(struct zebra_dplane_ctx *ctx, const struct interface *ifp,
 static enum zebra_dplane_result mac_update_common(enum dplane_op_e op, const struct interface *ifp,
 						  const struct interface *br_ifp, vlanid_t vid,
 						  const struct ethaddr *mac, vni_t vni,
-						  struct ipaddr *vtep_ip, bool sticky,
+						  const struct ipaddr *vtep_ip, bool sticky,
 						  uint32_t nhg_id, uint32_t update_flags)
 {
 	enum zebra_dplane_result result = ZEBRA_DPLANE_REQUEST_FAILURE;

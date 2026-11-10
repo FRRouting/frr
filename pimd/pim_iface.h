@@ -281,6 +281,7 @@ ferr_r pim_if_static_group_add(struct interface *ifp, pim_addr group_addr,
 			       pim_addr source_addr);
 int pim_if_static_group_del(struct interface *ifp, pim_addr group_addr,
 			    pim_addr source_addr);
+void pim_if_static_group_replay(struct interface *ifp);
 
 void pim_if_update_could_assert(struct interface *ifp);
 

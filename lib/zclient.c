@@ -2636,6 +2636,15 @@ static bool zapi_nexthop_update_decode(struct stream *s, struct prefix *match,
 	STREAM_GETL(s, nhr->metric);
 	STREAM_GETW(s, nhr->nexthop_num);
 
+	/* We're decoding nexthops into a fixed array; validate limit */
+	if (nhr->nexthop_num > MULTIPATH_NUM) {
+		flog_warn(EC_LIB_ZAPI_ENCODE,
+			  "Tracking prefix %pFX has %d nexthops, but we can only use the first %d",
+			  &nhr->prefix, nhr->nexthop_num, MULTIPATH_NUM);
+
+		nhr->nexthop_num = MULTIPATH_NUM;
+	}
+
 	for (i = 0; i < nhr->nexthop_num; i++) {
 		if (zapi_nexthop_decode(s, &(nhr->nexthops[i]), 0, 0) != 0)
 			return false;

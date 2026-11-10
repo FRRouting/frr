@@ -266,6 +266,53 @@ static void color_test(struct color_segment *t)
 	printf(fails ? "failed\n\n" : "OK\n\n");
 }
 
+/* String parsing (extcommunity-list syntax). A NULL shouldbe means the input
+ * must be rejected rather than silently turned into something else.
+ */
+static struct str_segment {
+	const char *str;
+	const char *shouldbe;
+} str_segments[] = { { "rt 65001:100", "rt 65001:100" },
+		     { "rt 192.168.1.1:100", "rt 192.168.1.1:100" },
+		     { "soo 192.168.1.1:100", "soo 192.168.1.1:100" },
+		     { "nt 192.168.1.1:0", "nt 192.168.1.1:0" },
+		     { "nt 192.168.1.1:0 nt 10.0.0.1:0", "nt 10.0.0.1:0 nt 192.168.1.1:0" },
+		     /* Node Target is only A.B.C.D:0 */
+		     { "nt 65001:100", NULL },
+		     { "nt 65001:192.168.1.1", NULL },
+		     { "nt 1.2:3", NULL },
+		     { "nt 4200000000:1", NULL },
+		     { "nt 192.168.1.1:5", NULL },
+		     /* ':' separator is mandatory (except for color) */
+		     { "nt 192.168.1.1", NULL },
+		     { "rt 192.168.1.1", NULL },
+		     { "rt 100", NULL },
+		     { "rt 100:", NULL },
+		     { NULL, NULL } };
+
+static void str_test(struct str_segment *t)
+{
+	struct ecommunity *ecom;
+	char *str = NULL;
+
+	printf("str: %s\n", t->str);
+
+	ecom = ecommunity_str2com(t->str, 0, 1);
+	if (ecom)
+		str = ecommunity_ecom2str(ecom, ECOMMUNITY_FORMAT_COMMUNITY_LIST, 0);
+
+	printf("got: %s\n", str ? str : "NULL");
+	if ((!str && t->shouldbe) || (str && !t->shouldbe) || (str && strcmp(str, t->shouldbe))) {
+		failed++;
+		printf("shouldbe: %s\nfailed\n\n", t->shouldbe ? t->shouldbe : "NULL");
+	} else {
+		printf("OK\n\n");
+	}
+
+	XFREE(MTYPE_ECOMMUNITY_STR, str);
+	ecommunity_free(&ecom);
+}
+
 int main(void)
 {
 	int i = 0;
@@ -278,6 +325,9 @@ int main(void)
 	i = 0;
 	while (color_segments[i].name)
 		color_test(&color_segments[i++]);
+
+	for (i = 0; str_segments[i].str; i++)
+		str_test(&str_segments[i]);
 
 	printf("failures: %d\n", failed);
 	// printf ("aspath count: %ld\n", aspath_count());

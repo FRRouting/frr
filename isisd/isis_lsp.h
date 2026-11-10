@@ -96,6 +96,8 @@ void lsp_purge_non_exist(int level, struct isis_lsp_hdr *hdr,
 #define LSP_NEWER 2
 #define LSP_OLDER 3
 
+void lsp_leak_l1_to_l2_check(struct isis_area *area);
+
 #define LSP_PSEUDO_ID(I) ((I)[ISIS_SYS_ID_LEN])
 #define LSP_FRAGMENT(I) ((I)[ISIS_SYS_ID_LEN + 1])
 #define OWNLSPID(I)                                                            \

@@ -963,12 +963,12 @@ static void vty_show_route_map_entry(struct vty *vty, struct route_map *map,
 		json_object_boolean_add(json_rmap, "processedChange",
 					map->to_be_processed);
 		json_object_object_add(json_rmap, "rules", json_rules);
-		json_object_int_add(json_rmap, "cpuTimeMS", map->cputime / 1000);
+		json_object_int_add(json_rmap, "cpuTimeMS", map->time_ns / 1000000);
 	} else {
 		vty_out(vty,
-			"route-map: %s Invoked: %" PRIu64
-			" (%zu milliseconds total) Optimization: %s Processed Change: %s\n",
-			map->name, map->applied - map->applied_clear, map->cputime / 1000,
+			"route-map: %s Invoked: %" PRIu64 " (%" PRIu64
+			" milliseconds total) Optimization: %s Processed Change: %s\n",
+			map->name, map->applied - map->applied_clear, map->time_ns / 1000000,
 			map->optimization_disabled ? "disabled" : "enabled",
 			map->to_be_processed ? "true" : "false");
 	}
@@ -990,7 +990,7 @@ static void vty_show_route_map_entry(struct vty *vty, struct route_map *map,
 			json_object_int_add(json_rule, "invoked",
 					    index->applied
 						    - index->applied_clear);
-			json_object_int_add(json_rule, "cpuTimeMS", index->cputime / 1000);
+			json_object_int_add(json_rule, "cpuTimeMS", index->time_ns / 1000000);
 
 			/* Description */
 			if (index->description)
@@ -1043,9 +1043,10 @@ static void vty_show_route_map_entry(struct vty *vty, struct route_map *map,
 						       action);
 		} else {
 			vty_out(vty,
-				" %s, sequence %d Invoked %" PRIu64 " (%zu milliseconds total)\n",
+				" %s, sequence %d Invoked %" PRIu64 " (%" PRIu64
+				" milliseconds total)\n",
 				route_map_type_str(index->type), index->pref,
-				index->applied - index->applied_clear, index->cputime / 1000);
+				index->applied - index->applied_clear, index->time_ns / 1000000);
 
 			/* Description */
 			if (index->description)
@@ -1919,8 +1920,13 @@ route_map_get_index(struct route_map *map, const struct prefix *prefix,
 			if (best_index && (best_index->pref < index->pref))
 				break;
 
-			ret = route_map_apply_match(&index->match_list, prefix,
-						    object);
+			if (unlikely(CHECK_FLAG(rmap_debug, DEBUG_ROUTEMAP_TIMING))) {
+				uint64_t match_start_ns = monotime_ns();
+
+				ret = route_map_apply_match(&index->match_list, prefix, object);
+				index->time_ns += monotime_ns() - match_start_ns;
+			} else
+				ret = route_map_apply_match(&index->match_list, prefix, object);
 
 			if (ret == RMAP_MATCH) {
 				*match_ret = ret;
@@ -2581,9 +2587,9 @@ route_map_result_t route_map_apply_ext(struct route_map *map,
 	struct route_map_index *index = NULL;
 	struct route_map_rule *set = NULL;
 	bool skip_match_clause = false;
-	RUSAGE_T mbefore, mafter;
-	RUSAGE_T ibefore, iafter;
-	unsigned long cputime;
+	uint64_t start_ns = 0;
+	struct route_map_index *timed_index = NULL;
+	uint64_t seq_start_ns = 0;
 	enum route_map_action_reason reason = route_map_action_none;
 
 	if (recursion > RMAP_RECURSION_LIMIT) {
@@ -2608,8 +2614,8 @@ route_map_result_t route_map_apply_ext(struct route_map *map,
 
 	map->applied++;
 
-	GETRUSAGE(&mbefore);
-	ibefore = mbefore;
+	if (unlikely(CHECK_FLAG(rmap_debug, DEBUG_ROUTEMAP_TIMING)))
+		start_ns = monotime_ns();
 
 	if (prefix->family != AF_INET && prefix->family != AF_INET6) {
 		/* LPM tries are IPv4/IPv6-only; non-IP families (AF_EVPN,
@@ -2625,11 +2631,6 @@ route_map_result_t route_map_apply_ext(struct route_map *map,
 
 	if (index) {
 		index->applied++;
-
-		GETRUSAGE(&iafter);
-		event_consumed_time(&iafter, &ibefore, &cputime);
-		index->cputime += cputime;
-		ibefore = iafter;
 
 		if (unlikely(CHECK_FLAG(rmap_debug, DEBUG_ROUTEMAP)))
 			zlog_debug(
@@ -2655,6 +2656,15 @@ route_map_result_t route_map_apply_ext(struct route_map *map,
 	}
 
 	for (; index; index = index->next) {
+		if (start_ns) {
+			uint64_t now = monotime_ns();
+
+			if (timed_index)
+				timed_index->time_ns += now - seq_start_ns;
+			timed_index = index;
+			seq_start_ns = now;
+		}
+
 		if (!skip_match_clause) {
 			index->applied++;
 			/* Apply this index. */
@@ -2775,10 +2785,6 @@ route_map_result_t route_map_apply_ext(struct route_map *map,
 				goto route_map_apply_end;
 			}
 		}
-		GETRUSAGE(&iafter);
-		event_consumed_time(&iafter, &ibefore, &cputime);
-		index->cputime += cputime;
-		ibefore = iafter;
 	}
 
 route_map_apply_end:
@@ -2794,11 +2800,12 @@ route_map_apply_end:
 			*pref = 65536;
 	}
 
-	if (map) {
-		GETRUSAGE(&mbefore);
-		GETRUSAGE(&mafter);
-		event_consumed_time(&mafter, &mbefore, &cputime);
-		map->cputime += cputime;
+	if (start_ns) {
+		uint64_t now = monotime_ns();
+
+		map->time_ns += now - start_ns;
+		if (timed_index)
+			timed_index->time_ns += now - seq_start_ns;
 	}
 
 	return (ret);
@@ -3121,6 +3128,30 @@ void route_map_upd8_dependency(route_map_event_t type, const char *arg,
 	}
 }
 
+/*
+ * Answers whether `rmap_name' depends on `dep_name', using the same lookup
+ * route_map_notify_dependencies() does.
+ */
+bool route_map_depends_on(route_map_event_t event, const char *dep_name, const char *rmap_name)
+{
+	struct route_map_dep_data tmp_dep_data = { .rname = (char *)rmap_name };
+	struct route_map_dep *dep;
+	struct hash *upd8_hash;
+
+	if (!dep_name || !rmap_name)
+		return false;
+
+	upd8_hash = route_map_get_dep_hash(event);
+	if (!upd8_hash)
+		return false;
+
+	dep = hash_lookup(upd8_hash, (void *)dep_name);
+	if (!dep)
+		return false;
+
+	return hash_lookup(dep->dep_rmap_hash, &tmp_dep_data) != NULL;
+}
+
 void route_map_notify_dependencies(const char *affected_name,
 				   route_map_event_t event)
 {
@@ -3158,10 +3189,10 @@ static void clear_route_map_helper(struct route_map *map)
 	struct route_map_index *index;
 
 	map->applied_clear = map->applied;
-	map->cputime = 0;
+	map->time_ns = 0;
 	for (index = map->head; index; index = index->next) {
 		index->applied_clear = index->applied;
-		index->cputime = 0;
+		index->time_ns = 0;
 	}
 }
 
@@ -3224,6 +3255,22 @@ DEFPY_NOSH (rmap_show_unused,
 	return vty_show_unused_route_map(vty, uj);
 }
 
+DEFPY (debug_rmap_timing,
+       debug_rmap_timing_cmd,
+       "[no] debug route-map timing",
+       NO_STR
+       DEBUG_STR
+       "DEBUG option set for route-maps\n"
+       "Grab timings associated with the route-maps\n")
+{
+	if (no)
+		UNSET_FLAG(rmap_debug, DEBUG_ROUTEMAP_TIMING);
+	else
+		SET_FLAG(rmap_debug, DEBUG_ROUTEMAP_TIMING);
+
+	return CMD_SUCCESS;
+}
+
 DEFPY (debug_rmap,
        debug_rmap_cmd,
        "debug route-map [detail]$detail",
@@ -3266,8 +3313,13 @@ static struct cmd_node rmap_debug_node = {
 
 void route_map_show_debug(struct vty *vty)
 {
-	if (CHECK_FLAG(rmap_debug, DEBUG_ROUTEMAP))
+	if (CHECK_FLAG(rmap_debug, DEBUG_ROUTEMAP_DETAIL))
+		vty_out(vty, "debug route-map detail\n");
+	else if (CHECK_FLAG(rmap_debug, DEBUG_ROUTEMAP))
 		vty_out(vty, "debug route-map\n");
+
+	if (CHECK_FLAG(rmap_debug, DEBUG_ROUTEMAP_TIMING))
+		vty_out(vty, "debug route-map timing\n");
 }
 
 /* Configuration write function. */
@@ -3487,6 +3539,7 @@ void route_map_init_new(bool in_backend)
 	/* Install route map commands. */
 	install_element(CONFIG_NODE, &debug_rmap_cmd);
 	install_element(CONFIG_NODE, &no_debug_rmap_cmd);
+	install_element(CONFIG_NODE, &debug_rmap_timing_cmd);
 
 	/* Install show command */
 	install_element(ENABLE_NODE, &rmap_clear_counters_cmd);
@@ -3496,6 +3549,7 @@ void route_map_init_new(bool in_backend)
 
 	install_element(ENABLE_NODE, &debug_rmap_cmd);
 	install_element(ENABLE_NODE, &no_debug_rmap_cmd);
+	install_element(ENABLE_NODE, &debug_rmap_timing_cmd);
 
 	install_element(ENABLE_NODE, &show_route_map_pfx_tbl_cmd);
 }

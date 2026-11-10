@@ -19,8 +19,14 @@ import pytest
 from lib.topogen import TopoRouter, Topogen
 from lib.topolog import logger
 from lib.common_config import retry, step
+from lib.topotest import platform_has_vrf
 
 pytestmark = [pytest.mark.mgmtd, pytest.mark.staticd]
+
+
+def setup_module(module):
+    if not platform_has_vrf():
+        pytest.skip("platform does not support VRF")
 
 
 @pytest.fixture(scope="module")

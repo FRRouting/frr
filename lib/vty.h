@@ -238,6 +238,14 @@ struct vty {
 	 */
 	size_t vty_buf_threshold;
 	size_t vty_buf_size_accum;
+
+	/* During output, it's possible for a vty to schedule a task to
+	 * continue flushing buffered output. Some specialized callers
+	 * in the library code may be holding the event-loop mutex while
+	 * they produce output: in those paths, we defer task-scheduling
+	 * to avoid deadlocks
+	 */
+	bool avoid_sched;
 };
 
 static inline void vty_push_context(struct vty *vty, int node, uint64_t id)
@@ -437,6 +445,12 @@ static inline bool vty_is_closed(const struct vty *vty)
  * Semi-private APIs for use in mgmtd-vty code
  */
 extern void vty_resume_response(struct vty *vty, int ret);
+
+/* Defer scheduling tasks, used when the caller will be holding the
+ * scheduling mutex and must avoid deadlock. These callers are inside
+ * the scheduling library, so far.
+ */
+void vty_defer_scheduling(struct vty *vty, bool defer_p);
 
 /* --------------------------------------------------- */
 /* Callbacks for Mgmtd front-end CLI vty modifications */

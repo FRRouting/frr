@@ -26,6 +26,7 @@ sys.path.append(os.path.join(CWD, "../"))
 
 # pylint: disable=C0413
 from lib import topotest
+from lib.common_config import create_interface_in_kernel
 from lib.topogen import Topogen, get_topogen
 from lib.topolog import logger
 from lib.common_config import step
@@ -49,12 +50,10 @@ def setup_module(mod):
     r1.run("modprobe mpls_router")
     r1.run("echo 100000 > /proc/sys/net/mpls/platform_labels")
 
-    r1.run("ip link add ANNIE type dummy")
-    r1.run("ip link set ANNIE up")
+    create_interface_in_kernel(tgen, "r1", "ANNIE")
     r1.run("echo 1 > /proc/sys/net/mpls/conf/ANNIE/input")
 
-    r1.run("ip link add BETTY type dummy")
-    r1.run("ip link set BETTY up")
+    create_interface_in_kernel(tgen, "r1", "BETTY")
     r1.run("echo 1 > /proc/sys/net/mpls/conf/BETTY/input")
 
     for router in tgen.routers().values():

@@ -66,3 +66,9 @@ test isis topology 10 root rt1 ti-lfa system-id rt4
 test isis topology 11 root rt2 ti-lfa system-id rt4
 test isis topology 12 root rt1 ti-lfa system-id rt3 ipv4-only
 test isis topology 13 root rt1 ti-lfa system-id rt3 ipv4-only
+
+test isis topology 1 root rt1 leak level-1-only
+test isis topology 1 root rt1 leak down-prefixes-of rt2 level-1-only
+test isis topology 1 root rt1 leak attached-by rt2 level-1-only
+test isis topology 3 root rt1 leak down-prefixes-of rt3 ipv4-only level-1-only
+test isis topology 1 root rt1 leak huge-metric-of rt2 level-1-only

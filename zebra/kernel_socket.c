@@ -1186,12 +1186,16 @@ void rtm_read(struct rt_msghdr *rtm)
 /* Interface function for the kernel routing table updates.  Support
  * for RTM_CHANGE will be needed.
  * Exported only for rt_socket.c
+ *
+ * If err_errno is not NULL, it is set to 0 or, when the write to the routing
+ * socket fails, the errno (a positive value) of that failure.
  */
-int rtm_write(int message, union sockunion *dest, union sockunion *mask,
-	      union sockunion *gate, union sockunion *mpls, unsigned int index,
-	      enum blackhole_type bh_type, int metric)
+int rtm_write(int message, union sockunion *dest, union sockunion *mask, union sockunion *gate,
+	      union sockunion *mpls, unsigned int index, enum blackhole_type bh_type, int metric,
+	      int *err_errno)
 {
 	int ret;
+	int save_errno;
 	caddr_t pnt;
 	struct interface *ifp;
 
@@ -1203,6 +1207,9 @@ int rtm_write(int message, union sockunion *dest, union sockunion *mask,
 		struct rt_msghdr rtm;
 		char buf[512];
 	} msg;
+
+	if (err_errno)
+		*err_errno = 0;
 
 	if (dplane_routing_sock < 0)
 		return ZEBRA_ERR_EPERM;
@@ -1313,17 +1320,21 @@ int rtm_write(int message, union sockunion *dest, union sockunion *mask,
 	msg.rtm.rtm_msglen = pnt - (caddr_t)&msg;
 
 	ret = write(dplane_routing_sock, &msg, msg.rtm.rtm_msglen);
+	save_errno = errno;
 
 	if (ret != msg.rtm.rtm_msglen) {
-		if (errno == EEXIST)
+		if (err_errno)
+			*err_errno = save_errno;
+
+		if (save_errno == EEXIST)
 			return ZEBRA_ERR_RTEXIST;
-		if (errno == ENETUNREACH)
+		if (save_errno == ENETUNREACH)
 			return ZEBRA_ERR_RTUNREACH;
-		if (errno == ESRCH)
+		if (save_errno == ESRCH)
 			return ZEBRA_ERR_RTNOEXIST;
 
 		flog_err_sys(EC_LIB_SOCKET, "%s: write : %s (%d)", __func__,
-			     safe_strerror(errno), errno);
+			     safe_strerror(save_errno), save_errno);
 		return ZEBRA_ERR_KERNEL;
 	}
 	return ZEBRA_ERR_NOERROR;

@@ -25,7 +25,12 @@ sys.path.append(os.path.join(CWD, "../"))
 # pylint: disable=C0413
 from lib import topotest
 from lib.topogen import Topogen, TopoRouter, get_topogen
-from lib.common_config import kill_router_daemons, start_router_daemons, step
+from lib.common_config import (
+    kill_router_daemons,
+    start_router_daemons,
+    step,
+    shutdown_bringup_interface_in_kernel,
+)
 
 pytestmark = [pytest.mark.bgpd, pytest.mark.ldpd, pytest.mark.staticd]
 
@@ -40,6 +45,9 @@ def build_topo(tgen):
 
 
 def setup_module(mod):
+    if not topotest.platform_has_vrf():
+        pytest.skip("platform does not support VRF")
+
     tgen = Topogen(build_topo, mod.__name__)
     tgen.start_topology()
 
@@ -47,7 +55,12 @@ def setup_module(mod):
 
     for rtr in [1, 2]:
         tgen.gears["r{}".format(rtr)].cmd("ip link add vrf1 type vrf table 10")
-        tgen.gears["r{}".format(rtr)].cmd("ip link set vrf1 up")
+        shutdown_bringup_interface_in_kernel(
+            tgen.gears['r{}'.format(rtr)].tgen,
+            tgen.gears['r{}'.format(rtr)].name,
+            "vrf1",
+            True,
+        )
         tgen.gears["r{}".format(rtr)].cmd(
             "ip address add dev vrf1 192.0.3.{}/32".format(rtr)
         )

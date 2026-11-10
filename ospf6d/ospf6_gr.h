@@ -98,6 +98,8 @@ extern const char *ospf6_exit_reason_desc[];
 extern const char *ospf6_restart_reason_desc[];
 extern const char *ospf6_rejected_reason_desc[];
 
+extern struct ospf6_lsa_handler grace_lsa_handler;
+
 extern void ospf6_gr_helper_config_init(void);
 extern void ospf6_gr_helper_init(struct ospf6 *ospf6);
 extern void ospf6_gr_helper_deinit(struct ospf6 *ospf6);

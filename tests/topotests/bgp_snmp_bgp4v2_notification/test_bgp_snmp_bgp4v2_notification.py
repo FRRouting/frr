@@ -69,6 +69,27 @@ def teardown_module(mod):
     tgen.stop_topology()
 
 
+def test_agentx_debug_config():
+    tgen = get_topogen()
+    r2 = tgen.gears["r2"]
+
+    r2.vtysh_multicmd(
+        """
+configure terminal
+debug agentx
+"""
+    )
+
+    running = r2.vtysh_cmd("show running-config")
+    assert "debug agentx" in running, "debug agentx missing from running-config"
+
+    # bgpd's "show debugging [bgp]" is DEFUN_NOSH, so vtysh does not accept
+    # the "bgp" keyword. "show debugging" is vtysh's command; it asks bgpd,
+    # which prints the lib debug flags.
+    debugs = r2.vtysh_cmd("show debugging")
+    assert "SNMP AgentX debugging is on" in debugs, "debug agentx not reported"
+
+
 def test_bgp_open_notification_change_configuration():
     tgen = get_topogen()
 

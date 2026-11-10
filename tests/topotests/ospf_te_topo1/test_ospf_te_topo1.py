@@ -252,6 +252,39 @@ def test_step7():
         compare_ted_json_output(tgen, rname, "ted_step7.json")
 
 
+def test_step8():
+    "Step8: Set an OSPF cost above 255 on r1 eth0 and verify that the \
+    corresponding Edge and Subnet carry the whole cost as metric in the TED \
+    on all remaining routers"
+
+    tgen = setup_testcase("Step8: Set OSPF cost above 255 on r1 eth0")
+
+    # 1000 and 1256 have the same low octet (0xe8)
+    for cost in [1000, 1256]:
+        tgen.net["r1"].cmd(
+            'vtysh -c "conf t" -c "interface eth0" -c "ip ospf cost {}"'.format(cost)
+        )
+        expected = {
+            "ted": {
+                "edges": [{"edge-id": "10.0.0.1", "metric": cost}],
+                "subnets": [{"subnet-id": "10.0.0.1/32", "metric": cost}],
+            }
+        }
+        for rname in ["r1", "r2", "r3"]:
+            logger.info('Checking router "%s" TED metric %d', rname, cost)
+            test_func = partial(
+                topotest.router_json_cmp,
+                tgen.gears[rname],
+                "show ip ospf mpls-te database json",
+                expected,
+            )
+            _, diff = topotest.run_and_expect(test_func, None, count=30, wait=1)
+            assertmsg = '"{}" TED does not have metric {} for r1 eth0'.format(
+                rname, cost
+            )
+            assert diff is None, assertmsg
+
+
 def test_memory_leak():
     "Run the memory leak test and report results."
 

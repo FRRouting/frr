@@ -811,6 +811,7 @@ void kernel_read_tc_qdisc(struct zebra_dplane_ctx *ctx)
 	const struct zebra_dplane_info *dp_info = dplane_ctx_get_ns(ctx);
 	struct nlsock *nl;
 	int ret;
+	int nl_err = 0;
 
 	nl = kernel_netlink_nlsock_lookup(dplane_ctx_get_ns_sock(ctx));
 	if (!nl) {
@@ -822,7 +823,11 @@ void kernel_read_tc_qdisc(struct zebra_dplane_ctx *ctx)
 
 	ret = netlink_request_qdiscs(nl, AF_UNSPEC, RTM_GETQDISC);
 	if (ret >= 0)
-		netlink_parse_info(netlink_qdisc_change, nl, dp_info, 0, true, NULL, NULL);
+		netlink_parse_info(netlink_qdisc_change, nl, dp_info, 0, true, NULL, &nl_err);
+
+	/* Pass any error reported by the kernel up to the main pthread. */
+	if (nl_err)
+		dplane_ctx_set_errno(ctx, -nl_err);
 
 	dplane_ctx_set_status(ctx, ZEBRA_DPLANE_REQUEST_SUCCESS);
 

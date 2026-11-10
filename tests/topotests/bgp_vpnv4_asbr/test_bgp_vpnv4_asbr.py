@@ -9,29 +9,32 @@
 #
 
 """
- test_bgp_vpnv4_asbr.py: Test the FRR BGP daemon with rfc4364 option 10b
- r1, r2, and r100 are in an iBGP AS, while r2, r3 do an eBGP peering
- h1 is a host behind r1 VRF1, and {h2,h3} are hosts behind r3 VRF1
- The test demonstrates the connectivity across the network between h1 and h3.
+test_bgp_vpnv4_asbr.py: Test the FRR BGP daemon with rfc4364 option 10b
+r1, r2, and r100 are in an iBGP AS, while r2, r3 do an eBGP peering
+h1 is a host behind r1 VRF1, and {h2,h3} are hosts behind r3 VRF1
+The test demonstrates the connectivity across the network between h1 and h3.
+r3 sets an AIGP metric on its exported VPN routes, and AIGP is enabled on
+the eBGP sessions between r2, rs200 and r3: r2 and r1 receive the AIGP
+metric.
 
 
- +----------+          +----+--------+              +--------+              +--------+-----+
- |          |172.31.0.0|vrf | r1     |192.168.0.0/24| r2     |192.168.1.0/24|r3      | vrf |
- |   h1     +----------+    |       1+------+-------+        +------+-------+3       |     +--- 172.31.3.0/24
- |   10     |          |VRF1|AS65500 |      |       | AS65500|      |       |AS65501 |VRF1 |
- +----------+          +-------------+      |       +--------+      |       +--------+--+-++
-                           192.0.2.1        |       192.0.2.2       |                172| |
-                                       +----------+            +----+--------+        31| |
-                                       |rr100     |            |rs200/AS65502|         1| |
-                                       +----------+            +-------------+         0| |
-                                        192.0.2.100   +--------+                     /24| |
-                                                      |        |        +----------+----+ |
-                                                      |h3      |        |          |      |
-                                                      |10      |        |  h2      |      |
-                                                      +---+----+        |  10      |      |
-                                                          |             +----------+      |
-                                                          |172.31.2.0/24                  |
-                                                          +--------------------------------+
++----------+          +----+--------+              +--------+              +--------+-----+
+|          |172.31.0.0|vrf | r1     |192.168.0.0/24| r2     |192.168.1.0/24|r3      | vrf |
+|   h1     +----------+    |       1+------+-------+        +------+-------+3       |     +--- 172.31.3.0/24
+|   10     |          |VRF1|AS65500 |      |       | AS65500|      |       |AS65501 |VRF1 |
++----------+          +-------------+      |       +--------+      |       +--------+--+-++
+                          192.0.2.1        |       192.0.2.2       |                172| |
+                                      +----------+            +----+--------+        31| |
+                                      |rr100     |            |rs200/AS65502|         1| |
+                                      +----------+            +-------------+         0| |
+                                       192.0.2.100   +--------+                     /24| |
+                                                     |        |        +----------+----+ |
+                                                     |h3      |        |          |      |
+                                                     |10      |        |  h2      |      |
+                                                     +---+----+        |  10      |      |
+                                                         |             +----------+      |
+                                                         |172.31.2.0/24                  |
+                                                         +--------------------------------+
 """
 
 import os
@@ -55,6 +58,10 @@ from lib.bgpcheck import (
 from lib.topogen import Topogen, TopoRouter, get_topogen
 from lib.topolog import logger
 from lib.checkping import check_ping
+from lib.common_config import (
+    retry,
+    shutdown_bringup_interface_in_kernel,
+)
 
 
 # Required to instantiate the topology builder class.
@@ -107,16 +114,21 @@ def _populate_iface():
     cmds_list = [
         "ip link add vrf1 type vrf table 10",
         "echo 100000 > /proc/sys/net/mpls/platform_labels",
-        "ip link set dev vrf1 up",
+        ("up", "vrf1"),
         "ip link set dev {0}-eth1 master vrf1",
         "echo 1 > /proc/sys/net/mpls/conf/{0}-eth0/input",
     ]
 
     for rname in ("r1", "r3"):
         for cmd in cmds_list:
-            input = cmd.format(rname)
+            if isinstance(cmd, tuple):
+                shutdown_bringup_interface_in_kernel(
+                    tgen, rname, cmd[1].format(rname), cmd[0] == "up"
+                )
+                continue
+            formatted = cmd.format(rname)
             logger.info("input: " + cmd)
-            output = tgen.net[rname].cmd(cmd.format(rname))
+            output = tgen.net[rname].cmd(formatted)
             logger.info("output: " + output)
 
     cmds_list = [
@@ -132,6 +144,9 @@ def _populate_iface():
 
 def setup_module(mod):
     "Sets up the pytest environment"
+    if not topotest.platform_has_vrf():
+        pytest.skip("platform does not support VRF")
+
     tgen = Topogen(build_topo, mod.__name__)
     tgen.start_topology()
 
@@ -422,6 +437,28 @@ def test_mpls_setup_ok():
     logger.info("h1, check that ping from h1 to (h2,h3) is ok")
     check_ping("h1", "172.31.1.10", True, 20, 0.5)
     check_ping("h1", "172.31.2.10", True, 20, 0.5)
+
+
+def test_aigp_vpn_inter_as():
+    """
+    Check that r2 and r1 receive 172.31.3.0/24 from r3 with the AIGP metric
+    """
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    @retry(retry_timeout=30)
+    def check_vpn_aigp_metric(router):
+        output = router.vtysh_cmd("show bgp ipv4 vpn 172.31.3.0/24 json", isjson=True)
+        expected = {"444:3": {"paths": [{"aigpMetric": 30}]}}
+        result = topotest.json_cmp(output, expected)
+        if result is not None:
+            return "{}, {}".format(router.name, result)
+        return True
+
+    for rname in ("r2", "r1"):
+        result = check_vpn_aigp_metric(tgen.gears[rname])
+        assert result is True, result
 
 
 def test_r3_prefixes_removed():

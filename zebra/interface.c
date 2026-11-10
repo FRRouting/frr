@@ -37,6 +37,7 @@
 #include "zebra/zebra_evpn_mh.h"
 #include "zebra/zebra_trace.h"
 #include "zebra/zebra_l2.h"
+#include "zebra/zebra_dplane.h"
 
 DEFINE_MTYPE_STATIC(ZEBRA, ZINFO, "Zebra Interface Information");
 
@@ -875,22 +876,22 @@ void if_nbr_mac_to_ipv4ll_neigh_update(struct interface *ifp,
 				       struct in6_addr *address,
 				       int add)
 {
+	struct ipaddr ip = { .ipa_type = IPADDR_V4 };
 	struct zebra_vrf *zvrf = ifp->vrf->info;
 	struct zebra_if *zif = ifp->info;
 	char buf[16] = "169.254.0.1";
 	struct in_addr ipv4_ll;
-	ns_id_t ns_id;
+	struct ethaddr ethaddr;
 
 	inet_pton(AF_INET, buf, &ipv4_ll);
-
-	ns_id = zvrf->zns->ns_id;
+	ip.ipaddr_v4 = ipv4_ll;
+	memcpy(&ethaddr, mac, ETH_ALEN);
 
 	/*
 	 * Remove and re-add any existing neighbor entry for this address,
 	 * since Netlink doesn't currently offer update message types.
 	 */
-	kernel_neigh_update(0, ifp->ifindex, (void *)&ipv4_ll.s_addr, mac, 6,
-			    ns_id, AF_INET, true);
+	dplane_rem_neigh_delete(ifp, &ip);
 
 	/* Add new neighbor entry.
 	 *
@@ -902,8 +903,7 @@ void if_nbr_mac_to_ipv4ll_neigh_update(struct interface *ifp,
 	 * they'll be useless to us.
 	 */
 	if (add)
-		kernel_neigh_update(add, ifp->ifindex, (void *)&ipv4_ll.s_addr,
-				    mac, 6, ns_id, AF_INET, true);
+		dplane_local_neigh_add(ifp, &ip, &ethaddr, false, true, false);
 
 	memcpy(&zif->neigh_mac[0], &mac[0], 6);
 
@@ -2128,6 +2128,7 @@ static void zebra_if_dplane_ifp_handling(struct zebra_dplane_ctx *ctx)
 			/* Update interface information. */
 			set_ifindex(ifp, ifindex, zns);
 			ifp->flags = flags;
+			ifp->ll_type = dplane_ctx_get_ifp_zltype(ctx);
 			if_update_state_mtu(ifp, mtu);
 			if_update_state_mtu6(ifp, mtu);
 			if_update_state_metric(ifp, 0);
@@ -2161,7 +2162,6 @@ static void zebra_if_dplane_ifp_handling(struct zebra_dplane_ctx *ctx)
 			/* Update link. */
 			zebra_if_update_link(ifp, link_ifindex, link_nsid);
 
-			ifp->ll_type = dplane_ctx_get_ifp_zltype(ctx);
 			interface_update_hw_addr(ctx, ifp);
 
 			/* Update interface type */
