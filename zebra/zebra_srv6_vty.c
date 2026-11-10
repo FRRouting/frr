@@ -971,6 +971,13 @@ DEFPY (locator_prefix,
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 
+	/* Nothing changed (e.g., configuration replayed): do not flap the locator */
+	if (locator->status_up && prefix_same(&locator->prefix, prefix) &&
+	    locator->block_bits_length == block_bit_len &&
+	    locator->node_bits_length == node_bit_len &&
+	    locator->function_bits_length == func_bit_len && locator->argument_bits_length == 0)
+		return CMD_SUCCESS;
+
 	locator->prefix = *prefix;
 	locator->block_bits_length = block_bit_len;
 	locator->node_bits_length = node_bit_len;
