@@ -282,6 +282,10 @@ BFD peers and profiles share the same BFD session configuration commands.
    distinguishes the two: authentication is reported as enabled once a
    key is in effect, and as configured when only the key-chain is.
 
+   A peer may refer to a key-chain that is not configured yet. Until it
+   is, the peer uses the key-chain of its profile if any, and is not
+   authenticated otherwise.
+
 .. clicmd:: authentication algorithm meticulous
 
    Configure peer or profile to use meticulous mode when the key-chain
