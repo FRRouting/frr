@@ -5,6 +5,7 @@ endif
 
 if PIMD
 check_PROGRAMS += tests/pimd/test_pim_jp_encode
+check_PROGRAMS += tests/pimd/test_pim_staterefresh
 endif
 tests_pimd_test_pim_jp_encode_CFLAGS = $(TESTS_CFLAGS) -DPIM_IPV=4
 tests_pimd_test_pim_jp_encode_CPPFLAGS = $(TESTS_CPPFLAGS) -I$(top_srcdir)/pimd
@@ -16,3 +17,14 @@ tests_pimd_test_pim_jp_encode_SOURCES = \
 	pimd/pim_tlv.c \
 	# end
 EXTRA_DIST += tests/pimd/test_pim_jp_encode.py
+
+tests_pimd_test_pim_staterefresh_CFLAGS = $(TESTS_CFLAGS) -DPIM_IPV=4
+tests_pimd_test_pim_staterefresh_CPPFLAGS = $(TESTS_CPPFLAGS) -I$(top_srcdir)/pimd
+tests_pimd_test_pim_staterefresh_LDADD = $(ALL_TESTS_LDADD)
+tests_pimd_test_pim_staterefresh_SOURCES = \
+	tests/pimd/test_pim_staterefresh.c \
+	pimd/pim_int.c \
+	pimd/pim_msg.c \
+	pimd/pim_tlv.c \
+	# end
+EXTRA_DIST += tests/pimd/test_pim_staterefresh.py
