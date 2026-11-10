@@ -190,7 +190,11 @@ no debug agentx
     running = r2.vtysh_cmd("show running-config")
     assert "debug agentx" not in running, "debug agentx still in running-config"
 
-    debugs = r2.vtysh_cmd("show debugging bgp")
+    # Same command as test_agentx_debug_config(). "show debugging bgp" is
+    # not a vtysh command: bgpd registers it DEFUN_NOSH. The error text
+    # does not contain the AgentX line, so that negative check always passed.
+    debugs = r2.vtysh_cmd("show debugging")
+    assert "Unknown command" not in debugs, debugs
     assert "SNMP AgentX debugging is on" not in debugs, "debug agentx still on"
 
     # The peer transition queues its trap synchronously, so once the session
