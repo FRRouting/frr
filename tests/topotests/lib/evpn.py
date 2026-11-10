@@ -999,6 +999,30 @@ def evpn_verify_route_advertisement(
     return None
 
 
+def evpn_type5_prefix_count(router, prefix):
+    """Return the number of matching Type-5 routes in the EVPN BGP table."""
+    address, prefixlen = prefix.split("/", 1)
+    evpn_prefix = "[5]:[0]:[{0}]:[{1}]".format(prefixlen, address)
+    output = router.vtysh_cmd("show bgp l2vpn evpn route type 5")
+    return output.count(evpn_prefix)
+
+
+def evpn_type5_route_distinguishers(router, prefix):
+    """Return the route distinguisher headings carrying a Type-5 prefix."""
+    address, prefixlen = prefix.split("/", 1)
+    evpn_prefix = "[5]:[0]:[{0}]:[{1}]".format(prefixlen, address)
+    route_distinguishers = []
+    current_rd = None
+    output = router.vtysh_cmd("show bgp l2vpn evpn route type 5")
+    for line in output.splitlines():
+        stripped = line.strip()
+        if stripped.startswith("Route Distinguisher:"):
+            current_rd = stripped
+        elif evpn_prefix in line and current_rd:
+            route_distinguishers.append(current_rd)
+    return route_distinguishers
+
+
 def evpn_verify_l3vni_nexthops(router, l3vni_list, expected_remote_vteps):
     """
     Helper function to verify L3VNI EVPN next-hops from remote VTEPs.

@@ -315,6 +315,11 @@ static void cpu_record_print(struct vty *vty, uint8_t filter)
 	tmp.funcname = "TOTAL";
 	tmp.types = filter;
 
+	/* Defer background write scheduling from the vty - we're holding that lock
+	 * here.
+	 */
+	vty_defer_scheduling(vty, true);
+
 	frr_with_mutex (&masters_mtx) {
 		for (ALL_LIST_ELEMENTS_RO(masters, ln, m)) {
 			const char *name = m->name ? m->name : "main";
@@ -348,6 +353,9 @@ static void cpu_record_print(struct vty *vty, uint8_t filter)
 			vty_out(vty, "\n");
 		}
 	}
+
+	/* Resume background write scheduling from the vty */
+	vty_defer_scheduling(vty, false);
 
 	vty_out(vty, "\n");
 	vty_out(vty, "Total Event statistics\n");
@@ -600,6 +608,11 @@ DEFUN_NOSH (show_event_poll,
 	struct listnode *node;
 	struct event_loop *m;
 
+	/* Defer background write scheduling from the vty - we're holding that lock
+	 * here.
+	 */
+	vty_defer_scheduling(vty, true);
+
 	frr_with_mutex (&masters_mtx) {
 		for (ALL_LIST_ELEMENTS_RO(masters, node, m)) {
 			pthread_mutex_lock(&m->mtx);
@@ -607,6 +620,9 @@ DEFUN_NOSH (show_event_poll,
 			pthread_mutex_unlock(&m->mtx);
 		}
 	}
+
+	/* Resume background write scheduling from the vty */
+	vty_defer_scheduling(vty, false);
 
 	return CMD_SUCCESS;
 }
@@ -663,6 +679,11 @@ DEFPY_NOSH (show_event_timers,
 	struct listnode *node;
 	struct event_loop *m;
 
+	/* Defer background write scheduling from the vty - we're holding that lock
+	 * here.
+	 */
+	vty_defer_scheduling(vty, true);
+
 	frr_with_mutex (&masters_mtx) {
 		for (ALL_LIST_ELEMENTS_RO(masters, node, m)) {
 			pthread_mutex_lock(&m->mtx);
@@ -670,6 +691,9 @@ DEFPY_NOSH (show_event_timers,
 			pthread_mutex_unlock(&m->mtx);
 		}
 	}
+
+	/* Resume background write scheduling from the vty */
+	vty_defer_scheduling(vty, false);
 
 	return CMD_SUCCESS;
 }

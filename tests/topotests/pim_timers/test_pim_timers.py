@@ -35,6 +35,9 @@ pytestmark = [pytest.mark.pimd]
 def setup_module(mod):
     "Sets up the pytest environment"
 
+    if not topotest.platform_has_pimv6():
+        pytest.skip("platform does not support PIMv6")
+
     topodef = {"s1": ("r1")}
 
     tgen = Topogen(topodef, mod.__name__)

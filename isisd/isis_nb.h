@@ -27,6 +27,8 @@ int isis_instance_attached_modify(struct nb_cb_modify_args *args);
 int isis_instance_overload_enabled_modify(struct nb_cb_modify_args *args);
 int isis_instance_overload_on_startup_modify(struct nb_cb_modify_args *args);
 int isis_instance_advertise_high_metrics_modify(struct nb_cb_modify_args *args);
+int isis_instance_leak_create(struct nb_cb_create_args *args);
+int isis_instance_leak_destroy(struct nb_cb_destroy_args *args);
 int isis_instance_metric_style_modify(struct nb_cb_modify_args *args);
 int isis_instance_purge_originator_modify(struct nb_cb_modify_args *args);
 int isis_instance_admin_group_send_zero_modify(struct nb_cb_modify_args *args);
@@ -62,12 +64,24 @@ int isis_instance_spf_prefix_priorities_medium_access_list_name_destroy(
 int isis_instance_area_password_create(struct nb_cb_create_args *args);
 int isis_instance_area_password_destroy(struct nb_cb_destroy_args *args);
 int isis_instance_area_password_password_modify(struct nb_cb_modify_args *args);
+int isis_instance_area_password_password_destroy(struct nb_cb_destroy_args *args);
 int isis_instance_area_password_password_type_modify(struct nb_cb_modify_args *args);
+int isis_instance_area_password_password_type_destroy(struct nb_cb_destroy_args *args);
+int isis_instance_area_password_key_chain_modify(struct nb_cb_modify_args *args);
+int isis_instance_area_password_key_chain_destroy(struct nb_cb_destroy_args *args);
+int isis_instance_area_password_strict_rfc5310_modify(struct nb_cb_modify_args *args);
+int isis_instance_area_password_strict_rfc5310_destroy(struct nb_cb_destroy_args *args);
 int isis_instance_area_password_authenticate_snp_modify(struct nb_cb_modify_args *args);
 int isis_instance_domain_password_create(struct nb_cb_create_args *args);
 int isis_instance_domain_password_destroy(struct nb_cb_destroy_args *args);
 int isis_instance_domain_password_password_modify(struct nb_cb_modify_args *args);
+int isis_instance_domain_password_password_destroy(struct nb_cb_destroy_args *args);
 int isis_instance_domain_password_password_type_modify(struct nb_cb_modify_args *args);
+int isis_instance_domain_password_password_type_destroy(struct nb_cb_destroy_args *args);
+int isis_instance_domain_password_key_chain_modify(struct nb_cb_modify_args *args);
+int isis_instance_domain_password_key_chain_destroy(struct nb_cb_destroy_args *args);
+int isis_instance_domain_password_strict_rfc5310_modify(struct nb_cb_modify_args *args);
+int isis_instance_domain_password_strict_rfc5310_destroy(struct nb_cb_destroy_args *args);
 int isis_instance_domain_password_authenticate_snp_modify(struct nb_cb_modify_args *args);
 int isis_instance_default_information_originate_ipv4_create(struct nb_cb_create_args *args);
 int isis_instance_default_information_originate_ipv4_destroy(struct nb_cb_destroy_args *args);
@@ -255,8 +269,18 @@ int lib_interface_isis_passive_modify(struct nb_cb_modify_args *args);
 int lib_interface_isis_password_create(struct nb_cb_create_args *args);
 int lib_interface_isis_password_destroy(struct nb_cb_destroy_args *args);
 int lib_interface_isis_password_password_modify(struct nb_cb_modify_args *args);
+int lib_interface_isis_password_password_destroy(struct nb_cb_destroy_args *args);
 int lib_interface_isis_password_password_type_modify(struct nb_cb_modify_args *args);
+int lib_interface_isis_password_password_type_destroy(struct nb_cb_destroy_args *args);
+int lib_interface_isis_password_key_chain_modify(struct nb_cb_modify_args *args);
+int lib_interface_isis_password_key_chain_destroy(struct nb_cb_destroy_args *args);
+int lib_interface_isis_password_strict_rfc5310_modify(struct nb_cb_modify_args *args);
+int lib_interface_isis_password_strict_rfc5310_destroy(struct nb_cb_destroy_args *args);
+int lib_interface_isis_extended_sequence_number_modify(struct nb_cb_modify_args *args);
+int lib_interface_isis_extended_sequence_number_destroy(struct nb_cb_destroy_args *args);
 int lib_interface_isis_disable_three_way_handshake_modify(struct nb_cb_modify_args *args);
+int lib_interface_isis_disable_p2p_periodic_csnp_modify(struct nb_cb_modify_args *args);
+int lib_interface_isis_ipv4_over_ipv6_nexthop_modify(struct nb_cb_modify_args *args);
 int lib_interface_isis_multi_topology_standard_modify(struct nb_cb_modify_args *args);
 int lib_interface_isis_multi_topology_ipv4_multicast_modify(struct nb_cb_modify_args *args);
 int lib_interface_isis_multi_topology_ipv4_management_modify(struct nb_cb_modify_args *args);
@@ -370,6 +394,7 @@ int isis_instance_segment_routing_label_blocks_pre_validate(struct nb_cb_pre_val
 void ietf_backoff_delay_apply_finish(struct nb_cb_apply_finish_args *args);
 void area_password_apply_finish(struct nb_cb_apply_finish_args *args);
 void domain_password_apply_finish(struct nb_cb_apply_finish_args *args);
+void lib_interface_isis_password_apply_finish(struct nb_cb_apply_finish_args *args);
 void default_info_origin_apply_finish(const struct lyd_node *dnode, int family);
 void default_info_origin_ipv4_apply_finish(struct nb_cb_apply_finish_args *args);
 void default_info_origin_ipv6_apply_finish(struct nb_cb_apply_finish_args *args);
@@ -400,6 +425,7 @@ void cli_show_isis_overload_on_startup(struct vty *vty, const struct lyd_node *d
 				       bool show_defaults);
 void cli_show_advertise_high_metrics(struct vty *vty, const struct lyd_node *dnode,
 				     bool show_defaults);
+void cli_show_isis_leak(struct vty *vty, const struct lyd_node *dnode, bool show_defaults);
 void cli_show_isis_metric_style(struct vty *vty, const struct lyd_node *dnode, bool show_defaults);
 void cli_show_isis_area_pwd(struct vty *vty, const struct lyd_node *dnode, bool show_defaults);
 void cli_show_isis_domain_pwd(struct vty *vty, const struct lyd_node *dnode, bool show_defaults);
@@ -465,6 +491,7 @@ void cli_show_isis_frr_remote_lfa_plist(struct vty *vty, const struct lyd_node *
 					bool show_defaults);
 void cli_show_ip_isis_passive(struct vty *vty, const struct lyd_node *dnode, bool show_defaults);
 void cli_show_ip_isis_password(struct vty *vty, const struct lyd_node *dnode, bool show_defaults);
+void cli_show_ip_isis_esn(struct vty *vty, const struct lyd_node *dnode, bool show_defaults);
 void cli_show_ip_isis_metric(struct vty *vty, const struct lyd_node *dnode, bool show_defaults);
 void cli_show_ip_isis_hello_interval(struct vty *vty, const struct lyd_node *dnode,
 				     bool show_defaults);
@@ -472,6 +499,10 @@ void cli_show_ip_isis_hello_multi(struct vty *vty, const struct lyd_node *dnode,
 				  bool show_defaults);
 void cli_show_ip_isis_threeway_shake(struct vty *vty, const struct lyd_node *dnode,
 				     bool show_defaults);
+void cli_show_ip_isis_periodic_csnp(struct vty *vty, const struct lyd_node *dnode,
+				    bool show_defaults);
+void cli_show_ip_isis_ipv4_over_ipv6_nexthop(struct vty *vty, const struct lyd_node *dnode,
+					     bool show_defaults);
 void cli_show_ip_isis_hello_padding(struct vty *vty, const struct lyd_node *dnode,
 				    bool show_defaults);
 void cli_show_ip_isis_csnp_interval(struct vty *vty, const struct lyd_node *dnode,

@@ -6,6 +6,7 @@
 /watchfrr.sh
 /frrinit.sh
 /frrcommon.sh
+/frr-reload.py
 /frr.service
 /frr@.service
 /frr-llvm-cg

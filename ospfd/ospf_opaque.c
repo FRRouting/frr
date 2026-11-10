@@ -64,16 +64,18 @@ static void free_opaque_info_per_type_del(void *val);
 static void free_opaque_info_per_id(void *val);
 
 /*
- * OSPF Opaque specific hooks and state.
+ * OSPF Opaque specific hooks.
  */
 static int ospf_opaque_lsa_update_hook(struct ospf_lsa *lsa);
 static int ospf_opaque_lsa_delete_hook(struct ospf_lsa *lsa);
-static bool ospf_opaque_lsa_hooks_registered;
 
 void ospf_opaque_init(void)
 {
 	ospf_opaque_register_vty();
 	ospf_opaque_funclist_init();
+
+	hook_register(ospf_lsa_update, ospf_opaque_lsa_update_hook);
+	hook_register(ospf_lsa_delete, ospf_opaque_lsa_delete_hook);
 
 	if (ospf_mpls_te_init() != 0)
 		exit(1);
@@ -98,6 +100,9 @@ void ospf_opaque_init(void)
 
 void ospf_opaque_term(void)
 {
+	hook_unregister(ospf_lsa_update, ospf_opaque_lsa_update_hook);
+	hook_unregister(ospf_lsa_delete, ospf_opaque_lsa_delete_hook);
+
 	ospf_mpls_te_term();
 
 	ospf_router_info_term();
@@ -155,20 +160,11 @@ int ospf_opaque_type10_lsa_init(struct ospf_area *area)
 
 	area->opaque_lsa_self = list_new();
 	area->opaque_lsa_self->del = free_opaque_info_per_type_del;
-	if (!ospf_opaque_lsa_hooks_registered) {
-		hook_register(ospf_lsa_update, ospf_opaque_lsa_update_hook);
-		hook_register(ospf_lsa_delete, ospf_opaque_lsa_delete_hook);
-		ospf_opaque_lsa_hooks_registered = true;
-	}
 	return 0;
 }
 
 void ospf_opaque_type10_lsa_term(struct ospf_area *area)
 {
-	hook_unregister(ospf_lsa_update, ospf_opaque_lsa_update_hook);
-	hook_unregister(ospf_lsa_delete, ospf_opaque_lsa_delete_hook);
-	ospf_opaque_lsa_hooks_registered = false;
-
 	event_cancel(&area->t_opaque_lsa_self);
 	if (area->opaque_lsa_self != NULL)
 		list_delete(&area->opaque_lsa_self);

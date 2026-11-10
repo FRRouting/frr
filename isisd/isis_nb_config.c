@@ -33,6 +33,7 @@
 #include "isisd/isis_misc.h"
 #include "isisd/isis_csm.h"
 #include "isisd/isis_adjacency.h"
+#include "isisd/isis_pdu.h"
 #include "isisd/isis_spf.h"
 #include "isisd/isis_spf_private.h"
 #include "isisd/isis_srv6.h"
@@ -357,6 +358,42 @@ int isis_instance_overload_on_startup_modify(struct nb_cb_modify_args *args)
 	overload_time = yang_dnode_get_uint32(args->dnode, NULL);
 	area = nb_running_get_entry(args->dnode, NULL, true);
 	isis_area_overload_on_startup_set(area, overload_time);
+
+	return NB_OK;
+}
+
+/*
+ * XPath: /frr-isisd:isis/instance/leak
+ */
+int isis_instance_leak_create(struct nb_cb_create_args *args)
+{
+	struct isis_area *area;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	/* The YANG model only allows level-1 into level-2 for now */
+	area = nb_running_get_entry(args->dnode, NULL, true);
+	area->leak_l1_to_l2 = true;
+
+	/* Add the leaked prefixes to the level-2 LSP */
+	lsp_leak_l1_to_l2_check(area);
+
+	return NB_OK;
+}
+
+int isis_instance_leak_destroy(struct nb_cb_destroy_args *args)
+{
+	struct isis_area *area;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	area = nb_running_get_entry(args->dnode, NULL, true);
+	area->leak_l1_to_l2 = false;
+
+	/* Remove the leaked prefixes from the level-2 LSP */
+	lsp_leak_l1_to_l2_check(area);
 
 	return NB_OK;
 }
@@ -884,24 +921,51 @@ int isis_instance_spf_prefix_priorities_medium_access_list_name_destroy(
 	return NB_OK;
 }
 
+/* A key chain name has to fit isis_passwd, which also holds passwords */
+static int isis_password_key_chain_validate(struct nb_cb_modify_args *args)
+{
+	const char *name = yang_dnode_get_string(args->dnode, NULL);
+
+	if (strlen(name) > 254) {
+		snprintfrr(args->errmsg, args->errmsg_len,
+			   "key chain name too long (max 254 chars)");
+		return NB_ERR_VALIDATION;
+	}
+
+	return NB_OK;
+}
+
+static void isis_area_password_apply(const struct lyd_node *dnode, int level)
+{
+	struct isis_area *area = nb_running_get_entry(dnode, NULL, true);
+	uint8_t snp_auth = yang_dnode_get_enum(dnode, "authenticate-snp");
+	const char *password;
+
+	if (yang_dnode_exists(dnode, "key-chain")) {
+		isis_area_passwd_keychain_set(area, level,
+					      yang_dnode_get_string(dnode, "key-chain"),
+					      yang_dnode_get_bool(dnode, "strict-rfc5310"),
+					      snp_auth);
+		return;
+	}
+
+	password = yang_dnode_get_string(dnode, "password");
+	switch (yang_dnode_get_enum(dnode, "password-type")) {
+	case ISIS_PASSWD_TYPE_CLEARTXT:
+		isis_area_passwd_cleartext_set(area, level, password, snp_auth);
+		break;
+	case ISIS_PASSWD_TYPE_HMAC_MD5:
+		isis_area_passwd_hmac_md5_set(area, level, password, snp_auth);
+		break;
+	}
+}
+
 /*
  * XPath: /frr-isisd:isis/instance/area-password
  */
 void area_password_apply_finish(struct nb_cb_apply_finish_args *args)
 {
-	const char *password = yang_dnode_get_string(args->dnode, "password");
-	struct isis_area *area = nb_running_get_entry(args->dnode, NULL, true);
-	int pass_type = yang_dnode_get_enum(args->dnode, "password-type");
-	uint8_t snp_auth = yang_dnode_get_enum(args->dnode, "authenticate-snp");
-
-	switch (pass_type) {
-	case ISIS_PASSWD_TYPE_CLEARTXT:
-		isis_area_passwd_cleartext_set(area, IS_LEVEL_1, password, snp_auth);
-		break;
-	case ISIS_PASSWD_TYPE_HMAC_MD5:
-		isis_area_passwd_hmac_md5_set(area, IS_LEVEL_1, password, snp_auth);
-		break;
-	}
+	isis_area_password_apply(args->dnode, IS_LEVEL_1);
 }
 
 int isis_instance_area_password_create(struct nb_cb_create_args *args)
@@ -932,10 +996,55 @@ int isis_instance_area_password_password_modify(struct nb_cb_modify_args *args)
 	return NB_OK;
 }
 
+int isis_instance_area_password_password_destroy(struct nb_cb_destroy_args *args)
+{
+	/* actual setting is done in apply_finish */
+	return NB_OK;
+}
+
 /*
  * XPath: /frr-isisd:isis/instance/area-password/password-type
  */
 int isis_instance_area_password_password_type_modify(struct nb_cb_modify_args *args)
+{
+	/* actual setting is done in apply_finish */
+	return NB_OK;
+}
+
+int isis_instance_area_password_password_type_destroy(struct nb_cb_destroy_args *args)
+{
+	/* actual setting is done in apply_finish */
+	return NB_OK;
+}
+
+/*
+ * XPath: /frr-isisd:isis/instance/area-password/key-chain
+ */
+int isis_instance_area_password_key_chain_modify(struct nb_cb_modify_args *args)
+{
+	if (args->event == NB_EV_VALIDATE)
+		return isis_password_key_chain_validate(args);
+
+	/* actual setting is done in apply_finish */
+	return NB_OK;
+}
+
+int isis_instance_area_password_key_chain_destroy(struct nb_cb_destroy_args *args)
+{
+	/* actual setting is done in apply_finish */
+	return NB_OK;
+}
+
+/*
+ * XPath: /frr-isisd:isis/instance/area-password/strict-rfc5310
+ */
+int isis_instance_area_password_strict_rfc5310_modify(struct nb_cb_modify_args *args)
+{
+	/* actual setting is done in apply_finish */
+	return NB_OK;
+}
+
+int isis_instance_area_password_strict_rfc5310_destroy(struct nb_cb_destroy_args *args)
 {
 	/* actual setting is done in apply_finish */
 	return NB_OK;
@@ -955,19 +1064,7 @@ int isis_instance_area_password_authenticate_snp_modify(struct nb_cb_modify_args
  */
 void domain_password_apply_finish(struct nb_cb_apply_finish_args *args)
 {
-	const char *password = yang_dnode_get_string(args->dnode, "password");
-	struct isis_area *area = nb_running_get_entry(args->dnode, NULL, true);
-	int pass_type = yang_dnode_get_enum(args->dnode, "password-type");
-	uint8_t snp_auth = yang_dnode_get_enum(args->dnode, "authenticate-snp");
-
-	switch (pass_type) {
-	case ISIS_PASSWD_TYPE_CLEARTXT:
-		isis_area_passwd_cleartext_set(area, IS_LEVEL_2, password, snp_auth);
-		break;
-	case ISIS_PASSWD_TYPE_HMAC_MD5:
-		isis_area_passwd_hmac_md5_set(area, IS_LEVEL_2, password, snp_auth);
-		break;
-	}
+	isis_area_password_apply(args->dnode, IS_LEVEL_2);
 }
 
 int isis_instance_domain_password_create(struct nb_cb_create_args *args)
@@ -998,10 +1095,55 @@ int isis_instance_domain_password_password_modify(struct nb_cb_modify_args *args
 	return NB_OK;
 }
 
+int isis_instance_domain_password_password_destroy(struct nb_cb_destroy_args *args)
+{
+	/* actual setting is done in apply_finish */
+	return NB_OK;
+}
+
 /*
  * XPath: /frr-isisd:isis/instance/domain-password/password-type
  */
 int isis_instance_domain_password_password_type_modify(struct nb_cb_modify_args *args)
+{
+	/* actual setting is done in apply_finish */
+	return NB_OK;
+}
+
+int isis_instance_domain_password_password_type_destroy(struct nb_cb_destroy_args *args)
+{
+	/* actual setting is done in apply_finish */
+	return NB_OK;
+}
+
+/*
+ * XPath: /frr-isisd:isis/instance/domain-password/key-chain
+ */
+int isis_instance_domain_password_key_chain_modify(struct nb_cb_modify_args *args)
+{
+	if (args->event == NB_EV_VALIDATE)
+		return isis_password_key_chain_validate(args);
+
+	/* actual setting is done in apply_finish */
+	return NB_OK;
+}
+
+int isis_instance_domain_password_key_chain_destroy(struct nb_cb_destroy_args *args)
+{
+	/* actual setting is done in apply_finish */
+	return NB_OK;
+}
+
+/*
+ * XPath: /frr-isisd:isis/instance/domain-password/strict-rfc5310
+ */
+int isis_instance_domain_password_strict_rfc5310_modify(struct nb_cb_modify_args *args)
+{
+	/* actual setting is done in apply_finish */
+	return NB_OK;
+}
+
+int isis_instance_domain_password_strict_rfc5310_destroy(struct nb_cb_destroy_args *args)
 {
 	/* actual setting is done in apply_finish */
 	return NB_OK;
@@ -3952,8 +4094,22 @@ int lib_interface_isis_passive_modify(struct nb_cb_modify_args *args)
 /*
  * XPath: /frr-interface:lib/interface/frr-isisd:isis/password
  */
+void lib_interface_isis_password_apply_finish(struct nb_cb_apply_finish_args *args)
+{
+	const struct lyd_node *dnode = args->dnode;
+	struct isis_circuit *circuit = nb_running_get_entry(dnode, NULL, true);
+
+	if (yang_dnode_exists(dnode, "key-chain"))
+		isis_circuit_passwd_keychain_set(circuit, yang_dnode_get_string(dnode, "key-chain"),
+						 yang_dnode_get_bool(dnode, "strict-rfc5310"));
+	else
+		isis_circuit_passwd_set(circuit, yang_dnode_get_enum(dnode, "password-type"),
+					yang_dnode_get_string(dnode, "password"));
+}
+
 int lib_interface_isis_password_create(struct nb_cb_create_args *args)
 {
+	/* actual setting is done in apply_finish */
 	return NB_OK;
 }
 
@@ -3975,17 +4131,13 @@ int lib_interface_isis_password_destroy(struct nb_cb_destroy_args *args)
  */
 int lib_interface_isis_password_password_modify(struct nb_cb_modify_args *args)
 {
-	struct isis_circuit *circuit;
-	const char *password;
+	/* actual setting is done in apply_finish */
+	return NB_OK;
+}
 
-	if (args->event != NB_EV_APPLY)
-		return NB_OK;
-
-	password = yang_dnode_get_string(args->dnode, NULL);
-	circuit = nb_running_get_entry(args->dnode, NULL, true);
-
-	isis_circuit_passwd_set(circuit, circuit->passwd.type, password);
-
+int lib_interface_isis_password_password_destroy(struct nb_cb_destroy_args *args)
+{
+	/* actual setting is done in apply_finish */
 	return NB_OK;
 }
 
@@ -3994,15 +4146,74 @@ int lib_interface_isis_password_password_modify(struct nb_cb_modify_args *args)
  */
 int lib_interface_isis_password_password_type_modify(struct nb_cb_modify_args *args)
 {
+	/* actual setting is done in apply_finish */
+	return NB_OK;
+}
+
+int lib_interface_isis_password_password_type_destroy(struct nb_cb_destroy_args *args)
+{
+	/* actual setting is done in apply_finish */
+	return NB_OK;
+}
+
+/*
+ * XPath: /frr-interface:lib/interface/frr-isisd:isis/password/key-chain
+ */
+int lib_interface_isis_password_key_chain_modify(struct nb_cb_modify_args *args)
+{
+	if (args->event == NB_EV_VALIDATE)
+		return isis_password_key_chain_validate(args);
+
+	/* actual setting is done in apply_finish */
+	return NB_OK;
+}
+
+int lib_interface_isis_password_key_chain_destroy(struct nb_cb_destroy_args *args)
+{
+	/* actual setting is done in apply_finish */
+	return NB_OK;
+}
+
+/*
+ * XPath: /frr-interface:lib/interface/frr-isisd:isis/password/strict-rfc5310
+ */
+int lib_interface_isis_password_strict_rfc5310_modify(struct nb_cb_modify_args *args)
+{
+	/* actual setting is done in apply_finish */
+	return NB_OK;
+}
+
+int lib_interface_isis_password_strict_rfc5310_destroy(struct nb_cb_destroy_args *args)
+{
+	/* actual setting is done in apply_finish */
+	return NB_OK;
+}
+
+/*
+ * XPath: /frr-interface:lib/interface/frr-isisd:isis/extended-sequence-number
+ */
+int lib_interface_isis_extended_sequence_number_modify(struct nb_cb_modify_args *args)
+{
 	struct isis_circuit *circuit;
-	uint8_t pass_type;
 
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
-	pass_type = yang_dnode_get_enum(args->dnode, NULL);
 	circuit = nb_running_get_entry(args->dnode, NULL, true);
-	circuit->passwd.type = pass_type;
+	circuit->esn_mode = yang_dnode_get_enum(args->dnode, NULL);
+
+	return NB_OK;
+}
+
+int lib_interface_isis_extended_sequence_number_destroy(struct nb_cb_destroy_args *args)
+{
+	struct isis_circuit *circuit;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	circuit = nb_running_get_entry(args->dnode, NULL, true);
+	circuit->esn_mode = ISIS_ESN_OFF;
 
 	return NB_OK;
 }
@@ -4020,6 +4231,72 @@ int lib_interface_isis_disable_three_way_handshake_modify(struct nb_cb_modify_ar
 
 	circuit = nb_running_get_entry(args->dnode, NULL, true);
 	circuit->disable_threeway_adj = yang_dnode_get_bool(args->dnode, NULL);
+
+	return NB_OK;
+}
+
+/*
+ * XPath:
+ * /frr-interface:lib/interface/frr-isisd:isis/disable-p2p-periodic-csnp
+ */
+int lib_interface_isis_disable_p2p_periodic_csnp_modify(struct nb_cb_modify_args *args)
+{
+	struct isis_circuit *circuit;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	circuit = nb_running_get_entry(args->dnode, NULL, true);
+	circuit->disable_p2p_periodic_csnp = yang_dnode_get_bool(args->dnode, NULL);
+
+	if (circuit->circ_type != CIRCUIT_T_P2P)
+		return NB_OK;
+
+	/* Turned off: drop the pending periodic CSNPs. */
+	if (circuit->disable_p2p_periodic_csnp) {
+		event_cancel(&circuit->t_send_csnp[0]);
+		event_cancel(&circuit->t_send_csnp[1]);
+		return NB_OK;
+	}
+
+	/* Turned back on: re-arm the timer on the circuit's levels with an adjacency up. */
+	for (int level = ISIS_LEVEL1; level <= ISIS_LEVEL2; level++) {
+		if (!(circuit->is_type & level) || !circuit->upadjcount[level - 1])
+			continue;
+		event_add_timer(master, level == IS_LEVEL_1 ? send_l1_csnp : send_l2_csnp, circuit,
+				isis_jitter(circuit->csnp_interval[level - 1], CSNP_JITTER),
+				&circuit->t_send_csnp[level - 1]);
+	}
+
+	return NB_OK;
+}
+
+/*
+ * XPath:
+ * /frr-interface:lib/interface/frr-isisd:isis/ipv4-over-ipv6-nexthop
+ */
+int lib_interface_isis_ipv4_over_ipv6_nexthop_modify(struct nb_cb_modify_args *args)
+{
+	struct isis_circuit *circuit;
+	struct isis_area *area;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	circuit = nb_running_get_entry(args->dnode, NULL, true);
+	circuit->ipv4_over_ipv6_nexthop = yang_dnode_get_bool(args->dnode, NULL);
+
+	/*
+	 * Nexthops are computed locally, so no LSP changes: rerun SPF. An MT
+	 * adjacency's IPv4 topology membership follows on the neighbor's next IIH.
+	 */
+	area = circuit->area;
+	if (!area)
+		return NB_OK;
+	if (area->is_type & IS_LEVEL_1)
+		isis_spf_schedule(area, IS_LEVEL_1);
+	if (area->is_type & IS_LEVEL_2)
+		isis_spf_schedule(area, IS_LEVEL_2);
 
 	return NB_OK;
 }

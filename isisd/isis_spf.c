@@ -611,7 +611,8 @@ static struct isis_vertex *isis_spf_add2tent(struct isis_spftree *spftree, enum 
 
 #ifndef FABRICD
 			if (flex_algo_id_valid(spftree->algorithm) &&
-			    !isis_flex_algo_elected_supported(spftree->algorithm, spftree->area)) {
+			    !isis_flex_algo_elected_supported(spftree->algorithm, spftree->area,
+							      spftree->level)) {
 				vertex->N.ip.sr.present = false;
 				vertex->N.ip.sr.label = MPLS_INVALID_LABEL;
 			}
@@ -690,8 +691,14 @@ static void isis_spf_add_local(struct isis_spftree *spftree, enum vertextype vty
 	return;
 }
 
+/*
+ * @noleak: the prefix must not be advertised into level-2 by a level-1-2 router
+ * (it carries the up/down bit, or it is the default route we synthesize from
+ * the attached bit).
+ */
 static void process_N(struct isis_spftree *spftree, enum vertextype vtype, void *id, uint32_t dist,
-		      uint16_t depth, struct isis_prefix_sid *psid, struct isis_vertex *parent)
+		      uint16_t depth, struct isis_prefix_sid *psid, struct isis_vertex *parent,
+		      bool noleak)
 {
 	struct isis_vertex *vertex;
 #ifdef EXTREME_DEBUG
@@ -766,6 +773,8 @@ static void process_N(struct isis_spftree *spftree, enum vertextype vtype, void 
 				remove_excess_adjs(vertex->Adj_N);
 			if (listnode_lookup(vertex->parents, parent) == NULL)
 				listnode_add(vertex->parents, parent);
+			if (!noleak)
+				UNSET_FLAG(vertex->flags, F_ISIS_VERTEX_NOLEAK);
 			return;
 		} else if (vertex->d_N < dist) {
 			return;
@@ -784,9 +793,37 @@ static void process_N(struct isis_spftree *spftree, enum vertextype vtype, void 
 			   (parent ? print_sys_hostname(parent->N.id) : "null"));
 #endif /* EXTREME_DEBUG */
 
-	isis_spf_add2tent(spftree, vtype, id, dist, depth, NULL, psid, parent);
-	return;
+	vertex = isis_spf_add2tent(spftree, vtype, id, dist, depth, NULL, psid, parent);
+	if (vertex && noleak)
+		SET_FLAG(vertex->flags, F_ISIS_VERTEX_NOLEAK);
 }
+
+#ifndef FABRICD
+/*
+ * Whether a flex-algo computation prunes this link of the LSP: its router does
+ * not participate, or the link fails the definition's constraints. A
+ * pseudonode advertises neither, so a LAN is pruned by its routers' links to
+ * the pseudonode only.
+ */
+static bool spf_flex_algo_prune_link(struct isis_spftree *spftree, struct isis_lsp *lsp,
+				     struct isis_extended_reach *reach, bool participates)
+{
+	if (!flex_algo_id_valid(spftree->algorithm) || LSP_PSEUDO_ID(lsp->hdr.lsp_id))
+		return false;
+
+	return !participates || isis_flex_algo_constraint_drop(spftree, lsp, reach);
+}
+
+/*
+ * Whether the router of this LSP participates in the flex-algo. Finding it
+ * takes a scan of the LSP's fragments, so it is done once per LSP.
+ */
+static bool spf_flex_algo_participates(struct isis_spftree *spftree, struct isis_lsp *lsp)
+{
+	return flex_algo_id_valid(spftree->algorithm) &&
+	       sr_algorithm_participated(lsp, spftree->algorithm);
+}
+#endif /* ifndef FABRICD */
 
 /*
  * C.2.6 Step 1
@@ -830,6 +867,10 @@ static int isis_spf_process_lsp(struct isis_spftree *spftree, struct isis_lsp *l
 			     !ISIS_MASK_LSP_OL_BIT(lsp->hdr.lsp_bits)) ||
 			    (mt_router_info && !mt_router_info->overload));
 
+#ifndef FABRICD
+	bool fa_participates = spf_flex_algo_participates(spftree, lsp);
+#endif /* ifndef FABRICD */
+
 lspfragloop:
 	if (!lsp->tlvs)
 		return ISIS_OK;
@@ -865,7 +906,7 @@ lspfragloop:
 				process_N(spftree,
 					  LSP_PSEUDO_ID(r->id) ? VTYPE_PSEUDO_IS
 							       : VTYPE_NONPSEUDO_IS,
-					  (void *)r->id, dist, depth + 1, NULL, parent);
+					  (void *)r->id, dist, depth + 1, NULL, parent, false);
 			}
 		}
 
@@ -888,10 +929,7 @@ lspfragloop:
 				if (!pseudo_lsp && !memcmp(er->id, null_sysid, ISIS_SYS_ID_LEN))
 					continue;
 #ifndef FABRICD
-
-				if (flex_algo_id_valid(spftree->algorithm) &&
-				    (!sr_algorithm_participated(lsp, spftree->algorithm) ||
-				     isis_flex_algo_constraint_drop(spftree, lsp, er)))
+				if (spf_flex_algo_prune_link(spftree, lsp, er, fa_participates))
 					continue;
 #endif /* ifndef FABRICD */
 
@@ -913,7 +951,7 @@ lspfragloop:
 				process_N(spftree,
 					  LSP_PSEUDO_ID(er->id) ? VTYPE_PSEUDO_TE_IS
 								: VTYPE_NONPSEUDO_TE_IS,
-					  (void *)er->id, dist, depth + 1, NULL, parent);
+					  (void *)er->id, dist, depth + 1, NULL, parent, false);
 			}
 		}
 	}
@@ -934,7 +972,8 @@ lspfragloop:
 				dist = cost + r->metric;
 				ip_info.dest.u.prefix4 = r->prefix.prefix;
 				ip_info.dest.prefixlen = r->prefix.prefixlen;
-				process_N(spftree, vtype, &ip_info, dist, depth + 1, NULL, parent);
+				process_N(spftree, vtype, &ip_info, dist, depth + 1, NULL, parent,
+					  false);
 			}
 		}
 	}
@@ -956,6 +995,14 @@ lspfragloop:
 		struct isis_extended_ip_reach *r;
 		for (r = ipv4_reachs ? (struct isis_extended_ip_reach *)ipv4_reachs->head : NULL;
 		     r; r = r->next) {
+			/*
+			 * RFC 5305 section 4: a prefix advertised with a metric
+			 * larger than MAX_PATH_METRIC MUST NOT be considered
+			 * during the normal SPF computation.
+			 */
+			if ((uint64_t)cost + r->metric > MAX_WIDE_PATH_METRIC)
+				continue;
+
 			dist = cost + r->metric;
 			ip_info.dest.u.prefix4 = r->prefix.prefix;
 			ip_info.dest.prefixlen = r->prefix.prefixlen;
@@ -972,15 +1019,16 @@ lspfragloop:
 
 #ifndef FABRICD
 					if (flex_algo_id_valid(spftree->algorithm) &&
-					    (!sr_algorithm_participated(lsp, spftree->algorithm) ||
+					    (!fa_participates ||
 					     !isis_flex_algo_elected_supported(spftree->algorithm,
-									       spftree->area)))
+									       spftree->area,
+									       spftree->level)))
 						continue;
 #endif /* ifndef FABRICD */
 
 					has_valid_psid = true;
 					process_N(spftree, VTYPE_IPREACH_TE, &ip_info, dist,
-						  depth + 1, psid, parent);
+						  depth + 1, psid, parent, r->down);
 					/*
 					 * Stop the Prefix-SID iteration since
 					 * we only support the SPF algorithm for
@@ -991,7 +1039,7 @@ lspfragloop:
 			}
 			if (!has_valid_psid)
 				process_N(spftree, VTYPE_IPREACH_TE, &ip_info, dist, depth + 1,
-					  NULL, parent);
+					  NULL, parent, r->down);
 		}
 	}
 
@@ -1006,6 +1054,10 @@ lspfragloop:
 		struct isis_ipv6_reach *r;
 		for (r = ipv6_reachs ? (struct isis_ipv6_reach *)ipv6_reachs->head : NULL; r;
 		     r = r->next) {
+			/* RFC 5308 section 2, see the IPv4 case above */
+			if ((uint64_t)cost + r->metric > MAX_WIDE_PATH_METRIC)
+				continue;
+
 			dist = cost + r->metric;
 			vtype = r->external ? VTYPE_IP6REACH_EXTERNAL : VTYPE_IP6REACH_INTERNAL;
 			memset(&ip_info, 0, sizeof(ip_info));
@@ -1038,15 +1090,16 @@ lspfragloop:
 
 #ifndef FABRICD
 					if (flex_algo_id_valid(spftree->algorithm) &&
-					    (!sr_algorithm_participated(lsp, spftree->algorithm) ||
+					    (!fa_participates ||
 					     !isis_flex_algo_elected_supported(spftree->algorithm,
-									       spftree->area)))
+									       spftree->area,
+									       spftree->level)))
 						continue;
 #endif /* ifndef FABRICD */
 
 					has_valid_psid = true;
 					process_N(spftree, vtype, &ip_info, dist, depth + 1, psid,
-						  parent);
+						  parent, r->down);
 					/*
 					 * Stop the Prefix-SID iteration since
 					 * we only support the SPF algorithm for
@@ -1056,7 +1109,8 @@ lspfragloop:
 				}
 			}
 			if (!has_valid_psid)
-				process_N(spftree, vtype, &ip_info, dist, depth + 1, NULL, parent);
+				process_N(spftree, vtype, &ip_info, dist, depth + 1, NULL, parent,
+					  r->down);
 		}
 
 		/* Process SRv6 Locator TLVs */
@@ -1069,6 +1123,10 @@ lspfragloop:
 					 : NULL;
 		     loc; loc = loc->next) {
 			if (loc->algorithm != SR_ALGORITHM_SPF)
+				continue;
+
+			/* RFC 9352 section 7.1, see the IPv4 case above */
+			if ((uint64_t)cost + loc->metric > MAX_WIDE_PATH_METRIC)
 				continue;
 
 			dist = cost + loc->metric;
@@ -1095,7 +1153,8 @@ lspfragloop:
 			/* SRv6 locator not present in Prefix Reachability TLV,
 			 * let's process it */
 			if (!loc_is_in_ipv6_reach)
-				process_N(spftree, vtype, &ip_info, dist, depth + 1, NULL, parent);
+				process_N(spftree, vtype, &ip_info, dist, depth + 1, NULL, parent,
+					  false);
 		}
 	}
 
@@ -1121,7 +1180,7 @@ end:
 			ip_info.dest.family = AF_INET6;
 			vtype = VTYPE_IP6REACH_INTERNAL;
 		}
-		process_N(spftree, vtype, &ip_info, cost, depth + 1, NULL, parent);
+		process_N(spftree, vtype, &ip_info, cost, depth + 1, NULL, parent, true);
 	}
 
 	if (fragnode == NULL)
@@ -1434,13 +1493,12 @@ static void spf_adj_list_parse_tlv(struct isis_spftree *spftree, struct spf_adj_
 		spf_adj_list_parse_lsp(spftree, adj_list, lsp, id, metric);
 }
 
-static void spf_adj_list_parse_lsp(struct isis_spftree *spftree,
-				   struct spf_adj_list_head *adj_list, struct isis_lsp *lsp,
-				   const uint8_t *pseudo_nodeid, uint32_t pseudo_metric)
+static void spf_adj_list_parse_lsp_frag(struct isis_spftree *spftree,
+					struct spf_adj_list_head *adj_list, struct isis_lsp *lsp,
+					const uint8_t *pseudo_nodeid, uint32_t pseudo_metric,
+					bool fa_participates)
 {
 	bool pseudo_lsp = LSP_PSEUDO_ID(lsp->hdr.lsp_id);
-	struct isis_lsp *frag;
-	struct listnode *node;
 	struct isis_item *head;
 	struct isis_item_list *te_neighs;
 
@@ -1467,13 +1525,7 @@ static void spf_adj_list_parse_lsp(struct isis_spftree *spftree,
 			for (struct isis_extended_reach *reach = (struct isis_extended_reach *)head;
 			     reach; reach = reach->next) {
 #ifndef FABRICD
-				/*
-				 * cutting out adjacency by flex-algo link
-				 * affinity attribute
-				 */
-				if (flex_algo_id_valid(spftree->algorithm) &&
-				    (!sr_algorithm_participated(lsp, spftree->algorithm) ||
-				     isis_flex_algo_constraint_drop(spftree, lsp, reach)))
+				if (spf_flex_algo_prune_link(spftree, lsp, reach, fa_participates))
 					continue;
 #endif /* ifndef FABRICD */
 
@@ -1483,6 +1535,25 @@ static void spf_adj_list_parse_lsp(struct isis_spftree *spftree,
 			}
 		}
 	}
+}
+
+static void spf_adj_list_parse_lsp(struct isis_spftree *spftree,
+				   struct spf_adj_list_head *adj_list, struct isis_lsp *lsp,
+				   const uint8_t *pseudo_nodeid, uint32_t pseudo_metric)
+{
+	bool fa_participates = false;
+	struct isis_lsp *frag;
+	struct listnode *node;
+
+	if (lsp->hdr.seqno == 0 || lsp->hdr.rem_lifetime == 0)
+		return;
+
+#ifndef FABRICD
+	fa_participates = spf_flex_algo_participates(spftree, lsp);
+#endif /* ifndef FABRICD */
+
+	spf_adj_list_parse_lsp_frag(spftree, adj_list, lsp, pseudo_nodeid, pseudo_metric,
+				    fa_participates);
 
 	if (LSP_FRAGMENT(lsp->hdr.lsp_id))
 		return;
@@ -1492,7 +1563,8 @@ static void spf_adj_list_parse_lsp(struct isis_spftree *spftree,
 		if (!frag->tlvs)
 			continue;
 
-		spf_adj_list_parse_lsp(spftree, adj_list, frag, pseudo_nodeid, pseudo_metric);
+		spf_adj_list_parse_lsp_frag(spftree, adj_list, frag, pseudo_nodeid, pseudo_metric,
+					    fa_participates);
 	}
 }
 
@@ -1835,9 +1907,9 @@ void isis_run_spf(struct isis_spftree *spftree)
 	 */
 	if (flex_algo_id_valid(spftree->algorithm)) {
 		flex_algo_enabled = isis_flex_algo_elected_supported(spftree->algorithm,
-								     spftree->area);
+								     spftree->area, spftree->level);
 		if (flex_algo_enabled !=
-		    flex_algo_get_state(spftree->area->flex_algos, spftree->algorithm)) {
+		    isis_flex_algo_state(spftree->area, spftree->algorithm, spftree->level)) {
 			/* actual state is inconsistent with local LSP */
 			lsp_regenerate_schedule(spftree->area, spftree->area->is_type, 0);
 			goto out;
@@ -1900,6 +1972,75 @@ static void isis_run_spf_with_protection(struct isis_area *area, struct isis_spf
 	if (area->lfa_protected_links[spftree->level - 1] > 0 ||
 	    area->tilfa_protected_links[spftree->level - 1] > 0)
 		isis_spf_run_lfa(area, spftree);
+}
+
+/*
+ * Add to @table, a route table, the prefixes of the SPT that a router advertises
+ * into level-2: the prefixes learned from other routers, with the metric of the
+ * path to them. The prefixes of this router are skipped (they are already in its
+ * own LSPs), and so are prefixes that must not be leaked (see process_N()). The
+ * route nodes hold a struct isis_spf_leaked_prefix, release them with
+ * isis_spf_leak_table_free().
+ */
+void isis_spf_leak_table_fill(struct isis_spftree *spftree, struct route_table *table)
+{
+	struct isis_vertex *vertex;
+	struct listnode *node, *pnode;
+	struct isis_vertex *parent;
+
+	for (ALL_QUEUE_ELEMENTS_RO(&spftree->paths, node, vertex)) {
+		struct route_node *rn;
+		struct isis_spf_leaked_prefix *lp;
+		bool local = false;
+		bool wrapped = false;
+
+		/* Only wide metric IPv4 prefixes and IPv6 prefixes are leaked */
+		if (vertex->type != VTYPE_IPREACH_TE && vertex->type != VTYPE_IP6REACH_INTERNAL &&
+		    vertex->type != VTYPE_IP6REACH_EXTERNAL)
+			continue;
+		if (CHECK_FLAG(vertex->flags, F_ISIS_VERTEX_NOLEAK) || vertex->N.ip.p.src.prefixlen)
+			continue;
+
+		/*
+		 * The path to a prefix cannot be shorter than the path to the router that
+		 * advertises it: if it is, the sum of the distance and the metric of the
+		 * prefix overflowed in the SPF, so ignore the prefix.
+		 */
+		for (ALL_LIST_ELEMENTS_RO(vertex->parents, pnode, parent)) {
+			if (!memcmp(parent->N.id, spftree->sysid, ISIS_SYS_ID_LEN))
+				local = true;
+			if (vertex->d_N < parent->d_N)
+				wrapped = true;
+		}
+		if (local || wrapped)
+			continue;
+
+		rn = route_node_get(table, &vertex->N.ip.p.dest);
+		lp = rn->info;
+		if (lp) {
+			route_unlock_node(rn);
+			if (vertex->d_N >= lp->metric)
+				continue;
+		} else {
+			lp = XCALLOC(MTYPE_TMP, sizeof(*lp));
+			rn->info = lp;
+		}
+
+		lp->metric = vertex->d_N;
+		lp->external = vertex->type == VTYPE_IP6REACH_EXTERNAL;
+	}
+}
+
+/* Free a table filled by isis_spf_leak_table_fill() */
+void isis_spf_leak_table_free(struct route_table *table)
+{
+	for (struct route_node *rn = route_top(table); rn; rn = route_next(rn)) {
+		if (!rn->info)
+			continue;
+		XFREE(MTYPE_TMP, rn->info);
+		route_unlock_node(rn);
+	}
+	route_table_finish(table);
 }
 
 void isis_spf_verify_routes(struct isis_area *area, struct isis_spftree **trees, int tree)
@@ -1997,6 +2138,10 @@ static void isis_run_spf_cb(struct event *event)
 		area->spf_run_count[level - 1]++;
 
 	isis_area_verify_routes(area);
+
+	/* level-1 reachability may have changed, refresh what is leaked into level-2 */
+	if (level == IS_LEVEL_1)
+		lsp_leak_l1_to_l2_check(area);
 
 	/* walk all circuits and reset any spf specific flags */
 	frr_each (isis_circuit_list, &area->circuit_list, circuit)
@@ -2474,15 +2619,73 @@ static void show_isis_flex_algo_display_eag(struct vty *vty, char *buf, int inde
 	}
 }
 
+/* The flex-algo definition elected in the level's LSDB. */
+static void show_isis_flex_algo_elected(struct vty *vty, struct flex_algo *fa,
+					struct isis_area *area, int level)
+{
+	char buf[ADMIN_GROUP_PRINT_MAX_SIZE];
+	struct isis_router_cap_fad *router_fad;
+	struct admin_group *admin_group;
+	bool fad_identical, fad_supported;
+	int indent;
+
+	router_fad = isis_flex_algo_elected(fa->algorithm, area, level);
+	vty_out(vty, " Elected and running Flexible-Algorithm Definition");
+	if (area->is_type == IS_LEVEL_1_AND_2)
+		vty_out(vty, " (level-%d)", level);
+	vty_out(vty, ":\n");
+	if (router_fad)
+		vty_out(vty, "  Source: %pSY\n", router_fad->sysid);
+	else
+		vty_out(vty, "  Source: Not found\n");
+
+	if (!router_fad) {
+		vty_out(vty, "\n");
+		return;
+	}
+
+	fad_identical = flex_algo_definition_cmp(fa, &router_fad->fad);
+	fad_supported = isis_flex_algo_supported(&router_fad->fad);
+	vty_out(vty, "  Priority: %d\n", router_fad->fad.priority);
+	vty_out(vty, "  Equal to local: %s\n", fad_identical ? "yes" : "no");
+	vty_out(vty, "  Local state: %s\n",
+		fad_supported ? "enabled" : "disabled (unsupported definition)");
+	vty_out(vty, "  Calculation type: ");
+	if (router_fad->fad.calc_type == 0)
+		vty_out(vty, "spf\n");
+	else
+		vty_out(vty, "%d\n", router_fad->fad.calc_type);
+	vty_out(vty, "  Metric type: %s\n",
+		flex_algo_metric_type_print(buf, sizeof(buf), router_fad->fad.metric_type));
+	vty_out(vty, "  Prefix-metric: %s\n",
+		CHECK_FLAG(router_fad->fad.flags, FAD_FLAG_M) ? "enabled" : "disabled");
+	if (router_fad->fad.flags != 0 && router_fad->fad.flags != FAD_FLAG_M)
+		vty_out(vty, "  Flags: 0x%x\n", router_fad->fad.flags);
+	vty_out(vty, "  Exclude SRLG: %s\n", router_fad->fad.exclude_srlg ? "enabled" : "disabled");
+
+	admin_group = &router_fad->fad.admin_group_exclude_any;
+	indent = vty_out(vty, "  Exclude-any admin-group: ");
+	show_isis_flex_algo_display_eag(vty, buf, indent, admin_group);
+
+	admin_group = &router_fad->fad.admin_group_include_all;
+	indent = vty_out(vty, "  Include-all admin-group: ");
+	show_isis_flex_algo_display_eag(vty, buf, indent, admin_group);
+
+	admin_group = &router_fad->fad.admin_group_include_any;
+	indent = vty_out(vty, "  Include-any admin-group: ");
+	show_isis_flex_algo_display_eag(vty, buf, indent, admin_group);
+
+	if (router_fad->fad.unsupported_subtlv)
+		vty_out(vty, "  Unsupported sub-TLV: Present (see logs)");
+
+	vty_out(vty, "\n");
+}
+
 static void show_isis_flex_algo_common(struct vty *vty, struct isis *isis, uint8_t algorithm)
 {
-	struct isis_router_cap_fad *router_fad;
-	char buf[ADMIN_GROUP_PRINT_MAX_SIZE];
-	struct admin_group *admin_group;
 	struct isis_area *area;
 	struct flex_algo *fa;
-	int indent, algo;
-	bool fad_identical, fad_supported;
+	int algo;
 
 	if (isis_area_list_count(&isis->area_list) == 0)
 		return;
@@ -2521,56 +2724,9 @@ static void show_isis_flex_algo_common(struct vty *vty, struct isis *isis, uint8
 			vty_out(vty, "\n\n");
 
 
-			router_fad = isis_flex_algo_elected(algo, area);
-			vty_out(vty, " Elected and running Flexible-Algorithm Definition:\n");
-			if (router_fad)
-				vty_out(vty, "  Source: %pSY\n", router_fad->sysid);
-			else
-				vty_out(vty, "  Source: Not found\n");
-
-			if (!router_fad) {
-				vty_out(vty, "\n");
-				continue;
-			}
-
-			fad_identical = flex_algo_definition_cmp(fa, &router_fad->fad);
-			fad_supported = isis_flex_algo_supported(&router_fad->fad);
-			vty_out(vty, "  Priority: %d\n", router_fad->fad.priority);
-			vty_out(vty, "  Equal to local: %s\n", fad_identical ? "yes" : "no");
-			vty_out(vty, "  Local state: %s\n",
-				fad_supported ? "enabled" : "disabled (unsupported definition)");
-			vty_out(vty, "  Calculation type: ");
-			if (router_fad->fad.calc_type == 0)
-				vty_out(vty, "spf\n");
-			else
-				vty_out(vty, "%d\n", router_fad->fad.calc_type);
-			vty_out(vty, "  Metric type: %s\n",
-				flex_algo_metric_type_print(buf, sizeof(buf),
-							    router_fad->fad.metric_type));
-			vty_out(vty, "  Prefix-metric: %s\n",
-				CHECK_FLAG(router_fad->fad.flags, FAD_FLAG_M) ? "enabled"
-									      : "disabled");
-			if (router_fad->fad.flags != 0 && router_fad->fad.flags != FAD_FLAG_M)
-				vty_out(vty, "  Flags: 0x%x\n", router_fad->fad.flags);
-			vty_out(vty, "  Exclude SRLG: %s\n",
-				router_fad->fad.exclude_srlg ? "enabled" : "disabled");
-
-			admin_group = &router_fad->fad.admin_group_exclude_any;
-			indent = vty_out(vty, "  Exclude-any admin-group: ");
-			show_isis_flex_algo_display_eag(vty, buf, indent, admin_group);
-
-			admin_group = &router_fad->fad.admin_group_include_all;
-			indent = vty_out(vty, "  Include-all admin-group: ");
-			show_isis_flex_algo_display_eag(vty, buf, indent, admin_group);
-
-			admin_group = &router_fad->fad.admin_group_include_any;
-			indent = vty_out(vty, "  Include-any admin-group: ");
-			show_isis_flex_algo_display_eag(vty, buf, indent, admin_group);
-
-			if (router_fad->fad.unsupported_subtlv)
-				vty_out(vty, "  Unsupported sub-TLV: Present (see logs)");
-
-			vty_out(vty, "\n");
+			for (int level = ISIS_LEVEL1; level <= ISIS_LEVEL2; level++)
+				if (area->is_type & level)
+					show_isis_flex_algo_elected(vty, fa, area, level);
 		}
 	}
 }

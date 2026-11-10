@@ -29,6 +29,7 @@ from lib import topotest
 from lib.topogen import Topogen, TopoRouter, get_topogen
 from lib.topolog import logger
 from lib.checkping import check_ping
+from lib.common_config import shutdown_bringup_interface_in_kernel
 
 pytestmark = [pytest.mark.staticd]
 
@@ -52,6 +53,46 @@ def check_srv6_static_sids(router, expected_file, exact=False):
     func = functools.partial(_check_srv6_static_sids, router, expected_file, exact)
     _, result = topotest.run_and_expect(func, None, count=15, wait=1)
     assert result is None, "Failed"
+
+
+def check_srv6_static_sid_route(router, route, expected_present):
+    def _check():
+        output = json.loads(router.vtysh_cmd("show ipv6 route static json"))
+        route_present = route in output
+        if route_present == expected_present:
+            return None
+        state = "present" if route_present else "absent"
+        expected_state = "present" if expected_present else "absent"
+        return "Static route {} is {}, expected {}".format(route, state, expected_state)
+
+    _, result = topotest.run_and_expect(_check, None, count=15, wait=1)
+    assert result is None, "Failed: {}".format(result)
+
+
+def check_srv6_sid_manager(router, sid, expected_context):
+    def _check():
+        output = json.loads(router.vtysh_cmd("show segment-routing srv6 sid json"))
+        sid_info = output.get(sid)
+
+        if expected_context is None:
+            if sid_info is None:
+                return None
+            return "SID {} is still allocated: {}".format(sid, sid_info)
+
+        if sid_info is None:
+            return "SID {} is not allocated".format(sid)
+
+        actual_context = sid_info.get("context", {})
+        for key, expected_value in expected_context.items():
+            actual_value = actual_context.get(key)
+            if actual_value != expected_value:
+                return "SID {} has context {}, expected {}={}".format(
+                    sid, actual_context, key, expected_value
+                )
+        return None
+
+    _, result = topotest.run_and_expect(_check, None, count=15, wait=1)
+    assert result is None, "Failed: {}".format(result)
 
 
 def setup_module(mod):
@@ -360,7 +401,7 @@ def test_srv6_static_sids_interface_down_up():
 
     # Bring down sr0 interface using ip link
     logger.info("Bringing down sr0 interface using ip link")
-    router.run("ip link set sr0 down")
+    shutdown_bringup_interface_in_kernel(router.tgen, router.name, "sr0", False)
 
     # Verify routes using sr0 are removed
     logger.info("Verifying routes using sr0 are removed")
@@ -368,7 +409,7 @@ def test_srv6_static_sids_interface_down_up():
 
     # Bring up sr0 interface using ip link
     logger.info("Bringing up sr0 interface using ip link")
-    router.run("ip link set sr0 up")
+    shutdown_bringup_interface_in_kernel(router.tgen, router.name, "sr0", True)
 
     # Verify routes are restored
     logger.info("Verifying routes are restored")
@@ -479,7 +520,12 @@ def test_srv6_static_sids_ua_neighbor_down():
 
     # Bring down r2 interface
     logger.info("Taking down r2-eth0 interface")
-    tgen.gears["r2"].run("ip link set r2-eth0 down")
+    shutdown_bringup_interface_in_kernel(
+        tgen.gears['r2'].tgen,
+        tgen.gears['r2'].name,
+        "r2-eth0",
+        False,
+    )
 
     # Flush neighbor entry on r1 to simulate neighbor unreachable
     logger.info("Flushing neighbor entry on r1")
@@ -506,7 +552,12 @@ def test_srv6_static_sids_ua_neighbor_recovery():
 
     # Bring up r2 interface
     logger.info("Bringing up r2-eth0 interface")
-    tgen.gears["r2"].run("ip link set r2-eth0 up")
+    shutdown_bringup_interface_in_kernel(
+        tgen.gears['r2'].tgen,
+        tgen.gears['r2'].name,
+        "r2-eth0",
+        True,
+    )
 
     # Wait for neighbor discovery and verify SID is installed
     check_ping("r1", "2001::2", True, 10, 1)
@@ -772,6 +823,56 @@ def test_srv6_static_sids_same_address_missing_locator():
     assert not errors, "\n".join(errors)
 
     logger.info("Verify the other SIDs are unaffected")
+    check_srv6_static_sids(router, "expected_srv6_sids.json")
+
+
+def test_srv6_static_sid_vrf_recreation():
+    """Release and reallocate a static uDT46 SID as its VRF is recreated."""
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+    router = tgen.gears["r1"]
+
+    sid = "fcbb:bbbb:1:fe30::"
+    sid_prefix = "{}/64".format(sid)
+    check_srv6_static_sids(router, "expected_srv6_sids.json")
+    check_srv6_sid_manager(router, sid, {"vrfName": "Vrf30"})
+
+    logger.info("Delete Vrf30")
+    router.run("ip link del Vrf30")
+    check_srv6_sid_manager(router, sid, None)
+    check_srv6_static_sid_route(router, sid_prefix, expected_present=False)
+
+    logger.info("Recreate Vrf30 with the same table ID")
+    router.run("ip link add Vrf30 type vrf table 30")
+    router.run("ip link set Vrf30 up")
+    check_srv6_sid_manager(router, sid, {"vrfName": "Vrf30"})
+    check_srv6_static_sids(router, "expected_srv6_sids.json")
+
+    logger.info("Delete the uDT46 SID")
+    router.vtysh_cmd(
+        """
+        configure terminal
+         segment-routing
+          srv6
+           static-sids
+            no sid fcbb:bbbb:1:fe30::/64 locator MAIN behavior uDT46 vrf Vrf30
+        """
+    )
+    check_srv6_sid_manager(router, sid, None)
+    check_srv6_static_sid_route(router, sid_prefix, expected_present=False)
+
+    logger.info("Reallocate the uDT46 SID")
+    router.vtysh_cmd(
+        """
+        configure terminal
+         segment-routing
+          srv6
+           static-sids
+            sid fcbb:bbbb:1:fe30::/64 locator MAIN behavior uDT46 vrf Vrf30
+        """
+    )
+    check_srv6_sid_manager(router, sid, {"vrfName": "Vrf30"})
     check_srv6_static_sids(router, "expected_srv6_sids.json")
 
 

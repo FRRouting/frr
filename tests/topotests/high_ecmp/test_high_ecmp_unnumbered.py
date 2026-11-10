@@ -26,6 +26,7 @@ from time import sleep
 
 from lib.common_config import (
     kill_router_daemons,
+    shutdown_bringup_interface_in_kernel,
     start_router_daemons,
 )
 
@@ -198,10 +199,11 @@ def test_v6_rtadv():
 
     logger.info("Remove r1-eth200")
     existing_config = tgen.gears["r1"].vtysh_cmd("show interface r1-eth200")
-    tgen.gears["r1"].cmd(
-        """
-    sudo ip link set dev r1-eth200 down
-    """
+    shutdown_bringup_interface_in_kernel(
+        tgen.gears['r1'].tgen,
+        tgen.gears['r1'].name,
+        "r1-eth200",
+        False,
     )
 
     # Verify interface is down after ip link set down
@@ -223,10 +225,11 @@ def test_v6_rtadv():
         ra_sent_count1 == ra_sent_count2
     ), f"RA sent count changed from {ra_sent_count1} to {ra_sent_count2} within {ra_interval + 1} seconds while interface is down"
 
-    tgen.gears["r1"].cmd(
-        """
-    sudo ip link set dev r1-eth200 up
-    """
+    shutdown_bringup_interface_in_kernel(
+        tgen.gears['r1'].tgen,
+        tgen.gears['r1'].name,
+        "r1-eth200",
+        True,
     )
 
     # Verify interface is up after ip link set up
@@ -360,7 +363,7 @@ def test_bgp_route_cleanup():
 
     # Phase 1: Shutdown all interfaces
     for interface in interfaces:
-        net["r1"].cmd(f"ip link set {interface} down")
+        shutdown_bringup_interface_in_kernel(get_topogen(), 'r1', interface, False)
 
     # Define test functions for route checking
     def _check_ipv4_routes_removed():
@@ -399,7 +402,7 @@ def test_bgp_route_cleanup():
 
     # Phase 2: Bring interfaces back up
     for interface in interfaces:
-        net["r1"].cmd(f"ip link set {interface} up")
+        shutdown_bringup_interface_in_kernel(get_topogen(), 'r1', interface, True)
 
     # Define test functions for route restoration checking
     def _check_ipv4_routes_restored():
@@ -463,7 +466,7 @@ def test_bgp_route_cleanup():
 
     # Phase 1: Shutdown interfaces on r2
     for interface in r2_interfaces:
-        net["r2"].cmd(f"ip link set {interface} down")
+        shutdown_bringup_interface_in_kernel(get_topogen(), 'r2', interface, False)
 
     # Wait for routes to be deleted (even with GR, routes should be deleted when interfaces go down)
     test_func = functools.partial(_check_ipv4_routes_removed)
@@ -486,7 +489,7 @@ def test_bgp_route_cleanup():
 
     # Phase 2: Bring r2 interfaces back up
     for interface in r2_interfaces:
-        net["r2"].cmd(f"ip link set {interface} up")
+        shutdown_bringup_interface_in_kernel(get_topogen(), 'r2', interface, True)
 
     # Wait for route restoration
     test_func = functools.partial(_check_ipv4_routes_restored)

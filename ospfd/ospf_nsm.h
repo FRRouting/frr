@@ -82,6 +82,7 @@ struct ospf_adj_pacing; /* forward declaration — full type in ospf_interface.h
 extern void ospf_adj_pacing_queue_init(struct ospf_adj_pacing *p);
 extern void ospf_adj_pacing_queue_fini(struct ospf_adj_pacing *p);
 extern void ospf_adj_pacing_queue_flush(struct ospf_interface *oi);
+extern void ospf_adj_pacing_remove(struct ospf_neighbor *nbr);
 
 DECLARE_HOOK(ospf_nsm_change,
 	     (struct ospf_neighbor * on, int state, int oldstate),

@@ -422,7 +422,23 @@ bool ecommunity_cmp(const void *arg1, const void *arg2)
 			  ecom1->unit_size) == 0);
 }
 
-static void ecommunity_color_str(char *buf, size_t bufsz, uint8_t *ptr)
+/* Unlike rt/soo, no caller emits a "color" keyword ahead of the value, so
+ * the re-parseable formats have to carry it themselves.
+ */
+static const char *ecommunity_color_prefix(int format)
+{
+	switch (format) {
+	case ECOMMUNITY_FORMAT_COMMUNITY_LIST:
+	case ECOMMUNITY_FORMAT_ROUTE_MAP:
+		return "color ";
+	case ECOMMUNITY_FORMAT_DISPLAY:
+	default:
+		return "Color:";
+	}
+}
+
+static void ecommunity_color_str(char *buf, size_t bufsz, uint8_t *ptr,
+				 int format)
 {
 	/*
 	 *  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
@@ -441,7 +457,8 @@ static void ecommunity_color_str(char *buf, size_t bufsz, uint8_t *ptr)
 
 	memcpy(&colorid, ptr + 2, 4);
 	colorid = ntohl(colorid);
-	snprintf(buf, bufsz, "Color:%d%d:%d", (color_type & 0x2) >> 1, color_type & 0x1, colorid);
+	snprintfrr(buf, bufsz, "%s%d%d:%u", ecommunity_color_prefix(format),
+		   (color_type & 0x2) >> 1, color_type & 0x1, colorid);
 }
 
 /* Initialize Extended Comminities related hash. */
@@ -656,7 +673,7 @@ static const char *ecommunity_gettoken(const char *str, void *eval_ptr,
 	int separator = 0;
 	const char *p = str;
 	char *endptr;
-	struct in_addr ip;
+	struct in_addr ip = {};
 	struct in6_addr ip6;
 	as_t as = 0;
 	uint32_t val = 0;
@@ -891,6 +908,16 @@ static const char *ecommunity_gettoken(const char *str, void *eval_ptr,
 	if (!digit && (!separator || !val_color_set))
 		goto error;
 
+	/* Only Color may be specified without the ':' separator, everything
+	 * else is in ASN:NN or A.B.C.D:NN format.
+	 */
+	if (sub_type != ECOMMUNITY_COLOR && (!separator || !digit))
+		goto error;
+
+	/* Node Target is always A.B.C.D:0, the low-order part is reserved */
+	if (sub_type == ECOMMUNITY_NODE_TARGET && (ecomm_type != ECOMMUNITY_ENCODE_IP || val != 0))
+		goto error;
+
 	if (ecomm_type != ECOMMUNITY_ENCODE_IP) {
 		/* Encode result into extended community for AS format or color.  */
 		if (as > BGP_AS_MAX)
@@ -1110,6 +1137,13 @@ static int ecommunity_rt_soo_str(char *buf, size_t bufsz, const uint8_t *pnt,
 					      ECOMMUNITY_SIZE);
 }
 
+/*
+ * Exclusive upper bound of a decoded IEEE link bandwidth: 0x1p64f is
+ * exactly 2^64, one more than UINT64_MAX (which rounds up to 2^64 when
+ * stored as float). Values at or above it saturate to UINT64_MAX.
+ */
+#define BGP_LINK_BW_MAX 0x1p64f
+
 /* Helper function to convert IEEE-754 Floating Point to uint64 */
 static uint64_t ieee_float_uint32_to_uint64(uint32_t u)
 {
@@ -1118,6 +1152,14 @@ static uint64_t ieee_float_uint32_to_uint64(uint32_t u)
 		uint32_t d;
 	} f = {.d = u};
 
+	/*
+	 * Bound peer-supplied values before conversion: NaN and nonpositive
+	 * values map to zero; values >= 2^64 (including +inf) saturate.
+	 */
+	if (!(f.r > 0.0f))
+		return 0;
+	if (f.r >= BGP_LINK_BW_MAX)
+		return UINT64_MAX;
 	return (uint64_t)f.r;
 }
 
@@ -1128,7 +1170,7 @@ static int ecommunity_lb_str(char *buf, size_t bufsz, const uint8_t *pnt,
 	as_t as;
 	uint32_t bw_tmp;
 	uint64_t bw;
-	char bps_buf[20] = {0};
+	char bps_buf[32] = { 0 };
 
 	as = (*pnt++ << 8);
 	as |= (*pnt++);
@@ -1158,7 +1200,7 @@ static int ipv6_ecommunity_lb_str(char *buf, size_t bufsz, const uint8_t *pnt,
 	int len = 0;
 	as_t as = 0;
 	uint64_t bw = 0;
-	char bps_buf[20] = { 0 };
+	char bps_buf[32] = { 0 };
 
 	if (length < IPV6_ECOMMUNITY_SIZE)
 		goto done;
@@ -1350,7 +1392,7 @@ static char *_ecommunity_ecom2str(struct ecommunity *ecom, int format, int filte
 					sizeof(encbuf));
 			} else if (*pnt == ECOMMUNITY_COLOR) {
 				ecommunity_color_str(encbuf, sizeof(encbuf),
-						     pnt);
+						     pnt, format);
 			} else if (*pnt == ECOMMUNITY_OPAQUE_SUBTYPE_UPA) {
 				struct in_addr rid = {};
 				uint8_t flags = data[BGP_UPA_EXTCOM_OFF_FLAGS];
@@ -1427,13 +1469,17 @@ static char *_ecommunity_ecom2str(struct ecommunity *ecom, int format, int filte
 			} else if (*pnt
 				   == ECOMMUNITY_EVPN_SUBTYPE_ESI_LABEL) {
 				uint8_t flags = *++pnt;
+				uint32_t label;
 
-				snprintf(encbuf, sizeof(encbuf),
-					 "ESI-label-Rt:%s",
-					 CHECK_FLAG(flags,
-						    ECOMMUNITY_EVPN_SUBTYPE_ESI_SA_FLAG)
+				/* Skip the flags and the two reserved octets */
+				label = ((uint32_t)pnt[3] << 12) | ((uint32_t)pnt[4] << 4) |
+					((uint32_t)pnt[5] >> 4);
+
+				snprintf(encbuf, sizeof(encbuf), "ESI-label-Rt:%s:%u",
+					 CHECK_FLAG(flags, ECOMMUNITY_EVPN_SUBTYPE_ESI_SA_FLAG)
 						 ? "SA"
-						 : "AA");
+						 : "AA",
+					 label);
 			} else if (*pnt
 				   == ECOMMUNITY_EVPN_SUBTYPE_DF_ELECTION) {
 				uint8_t alg;

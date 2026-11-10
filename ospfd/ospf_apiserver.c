@@ -929,6 +929,12 @@ int ospf_apiserver_handle_register_opaque_type(struct ospf_apiserver *apiserv,
 	uint8_t opaque_type;
 	int rc = 0;
 
+	/* Validate size */
+	if (STREAM_READABLE(msg->s) < sizeof(struct msg_register_opaque_type)) {
+		rc = ospf_apiserver_send_reply(apiserv, ntohl(msg->hdr.msgseq), OSPF_API_ERROR);
+		goto out;
+	}
+
 	/* Extract parameters from register opaque type message */
 	rmsg = (struct msg_register_opaque_type *)STREAM_DATA(msg->s);
 
@@ -1112,6 +1118,10 @@ int ospf_apiserver_handle_unregister_opaque_type(struct ospf_apiserver *apiserv,
 	uint8_t otype;
 	int rc = 0;
 
+	/* Validate size */
+	if (STREAM_READABLE(msg->s) < sizeof(struct msg_unregister_opaque_type))
+		return ospf_apiserver_send_reply(apiserv, ntohl(msg->hdr.msgseq), OSPF_API_ERROR);
+
 	/* Extract parameters from unregister opaque type message */
 	umsg = (struct msg_unregister_opaque_type *)STREAM_DATA(msg->s);
 
@@ -1131,6 +1141,24 @@ int ospf_apiserver_handle_unregister_opaque_type(struct ospf_apiserver *apiserv,
  * Following are functions for event (filter) registration.
  * -----------------------------------------------------------
  */
+
+/*
+ * Check that the message carries a complete LSA filter, including the
+ * list of area IDs announced by its num_areas field.
+ */
+static bool apiserver_lsa_filter_valid(struct msg *msg)
+{
+	struct lsa_filter_type *filter;
+	size_t len = STREAM_READABLE(msg->s);
+
+	if (len < sizeof(struct lsa_filter_type))
+		return false;
+
+	filter = (struct lsa_filter_type *)STREAM_DATA(msg->s);
+
+	return len >= sizeof(struct lsa_filter_type) + filter->num_areas * sizeof(struct in_addr);
+}
+
 int ospf_apiserver_handle_register_event(struct ospf_apiserver *apiserv,
 					 struct msg *msg)
 {
@@ -1144,12 +1172,14 @@ int ospf_apiserver_handle_register_event(struct ospf_apiserver *apiserv,
 	/* Get request sequence number */
 	seqnum = msg_get_seq(msg);
 
-	/* Free existing filter in apiserv. */
-	XFREE(MTYPE_APISERVER_MSGFILTER, apiserv->filter);
 	/* Alloc new space for filter. */
 	size = ntohs(msg->hdr.msglen);
-	if (size < OSPF_MAX_LSA_SIZE) {
-
+	if (!apiserver_lsa_filter_valid(msg)) {
+		zlog_warn("%s: invalid LSA filter, message length %zu", __func__, size);
+		rc = OSPF_API_ERROR;
+	} else if (size < OSPF_MAX_LSA_SIZE) {
+		/* Free existing filter in apiserv. */
+		XFREE(MTYPE_APISERVER_MSGFILTER, apiserv->filter);
 		apiserv->filter = XMALLOC(MTYPE_APISERVER_MSGFILTER, size);
 
 		/* copy it over. */
@@ -1253,6 +1283,14 @@ int ospf_apiserver_handle_sync_lsdb(struct ospf_apiserver *apiserv,
 	ospf = ospf_lookup_by_vrf_id(VRF_DEFAULT);
 	if (!ospf)
 		goto out;
+
+	/* Validate size */
+	if (!apiserver_lsa_filter_valid(msg)) {
+		zlog_warn("%s: invalid LSA filter, message length %zu", __func__,
+			  STREAM_READABLE(msg->s));
+		rc = OSPF_API_ERROR;
+		goto out;
+	}
 
 	/* Set sync msg. */
 	smsg = (struct msg_sync_lsdb *)STREAM_DATA(msg->s);
@@ -2002,6 +2040,12 @@ int ospf_apiserver_handle_delete_request(struct ospf_apiserver *apiserv,
 	ospf = ospf_lookup_by_vrf_id(VRF_DEFAULT);
 	if (!ospf)
 		goto out;
+
+	/* Validate size */
+	if (STREAM_READABLE(msg->s) < sizeof(struct msg_delete_request)) {
+		rc = OSPF_API_ERROR;
+		goto out;
+	}
 
 	/* Extract opaque LSA from message */
 	dmsg = (struct msg_delete_request *)STREAM_DATA(msg->s);

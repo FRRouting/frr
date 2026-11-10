@@ -1087,6 +1087,7 @@ void kernel_read_tc_qdisc(struct zebra_dplane_ctx *ctx)
 	const struct zebra_dplane_info *dp_info = dplane_ctx_get_ns(ctx);
 	struct nlsock *nl;
 	int ret;
+	int nl_err = 0;
 
 	nl = kernel_netlink_nlsock_lookup(dplane_ctx_get_ns_sock(ctx));
 	if (!nl) {

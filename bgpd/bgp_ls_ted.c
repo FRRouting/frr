@@ -220,13 +220,31 @@ int bgp_ls_populate_link_attr(struct ls_attributes *ls_attr, struct bgp_ls_attr 
 
 	/* IGP Metric (TLV 1095) */
 	if (CHECK_FLAG(ls_attr->flags, LS_ATTR_METRIC)) {
-		/* IGP metric can be 1, 2, or 3 bytes */
-		if (ls_attr->metric <= 0xFF)
-			attr->igp_metric_len = 1;
-		else if (ls_attr->metric <= 0xFFFF)
+		/*
+		 * RFC 9552 section 5.3.2.4: the length is given by the metric
+		 * width of the IGP, not by the value. A receiver ignores the
+		 * two high bits of a 1 octet metric (IS-IS small metric).
+		 */
+		switch (ls_attr->adv.origin) {
+		case OSPFv2:
 			attr->igp_metric_len = 2;
-		else
+			break;
+		case ISIS_L1:
+		case ISIS_L2:
+			/* isisd puts only wide metric links in the TED */
 			attr->igp_metric_len = 3;
+			break;
+		case LS_UNKNOWN:
+		case DIRECT:
+		case STATIC:
+			if (ls_attr->metric <= 0xFF)
+				attr->igp_metric_len = 1;
+			else if (ls_attr->metric <= 0xFFFF)
+				attr->igp_metric_len = 2;
+			else
+				attr->igp_metric_len = 3;
+			break;
+		}
 		attr->igp_metric = ls_attr->metric;
 		SET_FLAG(attr->present_tlvs, BGP_LS_ATTR_IGP_METRIC_BIT);
 	}

@@ -11,7 +11,7 @@ from functools import partial
 import pytest
 
 from lib import topotest
-from lib.common_config import step
+from lib.common_config import step, shutdown_bringup_interface_in_kernel
 from lib.topogen import Topogen
 from lib.topolog import logger
 
@@ -343,10 +343,10 @@ def _exercise_adj_and_lsa_pacing(tgen, constrained):
     )
 
     for rname in ["r3", "r4", "r5"]:
-        tgen.net[rname].cmd("ip link set {}-eth0 down".format(rname))
+        shutdown_bringup_interface_in_kernel(tgen, rname, f"{rname}-eth0", False)
     time.sleep(1)
     for rname in ["r3", "r4", "r5"]:
-        tgen.net[rname].cmd("ip link set {}-eth0 up".format(rname))
+        shutdown_bringup_interface_in_kernel(tgen, rname, f"{rname}-eth0", True)
 
     _wait_all_full(tgen, routers=["r3", "r4", "r5"], timeout_s=40)
 

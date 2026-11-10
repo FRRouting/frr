@@ -254,6 +254,7 @@ struct update_subgroup {
 
 	uint16_t flags;
 #define SUBGRP_FLAG_NEEDS_REFRESH (1 << 0)
+#define SUBGRP_FLAG_MERGE_WAITS_BESTPATH (1 << 1)
 };
 
 /*
@@ -366,6 +367,7 @@ extern struct bgp_table *update_subgroup_rib(struct update_subgroup *);
 extern void update_subgroup_split_peer(struct peer_af *paf, struct update_group *updgrp);
 extern bool update_subgroup_check_merge(struct update_subgroup *subgrp, const char *reason);
 extern bool update_subgroup_trigger_merge_check(struct update_subgroup *subgrp, int force);
+extern void update_group_retry_merges(struct bgp *bgp);
 extern void update_group_policy_update(struct bgp *bgp,
 				       enum bgp_policy_type ptype,
 				       const char *pname, bool route_update,
@@ -413,6 +415,8 @@ extern void subgroup_default_update_packet(struct update_subgroup *subgrp,
 					   struct attr *attr,
 					   struct peer *from);
 extern void subgroup_default_withdraw_packet(struct update_subgroup *subgrp);
+extern void subgroup_table_default_withdraw_packet(struct update_subgroup *subgrp,
+						   uint32_t addpath_tx_id);
 
 /* bgp_updgrp_adv.c */
 extern struct bgp_advertise *
@@ -429,8 +433,9 @@ extern void update_group_show_packet_queue(struct bgp *bgp, afi_t afi,
 extern void subgroup_announce_route(struct update_subgroup *subgrp);
 extern void subgroup_announce_all(struct update_subgroup *subgrp);
 
-extern void subgroup_default_originate(struct update_subgroup *subgrp,
-				       bool withdraw);
+extern void subgroup_default_originate(struct update_subgroup *subgrp);
+extern void subgroup_default_originate_config(struct update_subgroup *subgrp);
+extern void subgroup_default_originate_unconfig(struct update_subgroup *subgrp);
 extern void group_announce_route(struct bgp *bgp, afi_t afi, safi_t safi,
 				 struct bgp_dest *dest,
 				 struct bgp_path_info *pi);

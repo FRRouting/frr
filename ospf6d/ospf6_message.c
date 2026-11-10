@@ -1834,9 +1834,29 @@ static int ospf6_read_helper(int sockfd, struct ospf6 *ospf6)
 		return OSPF6_READ_ERROR;
 	}
 
-	/* RFC5340:A.1 Ignore multicast with invalid hop limit */
-	if (IN6_IS_ADDR_MULTICAST(&dst) && hoplim != 1)
+	if (IN6_IS_ADDR_LINKLOCAL(&dst)) {
+		/* no further check - LL destination is acceptable */
+	} else if (IPV6_ADDR_SAME(&dst, &allspfrouters6) || IPV6_ADDR_SAME(&dst, &alldrouters6)) {
+		/* RFC5340:A.1 Ignore multicast with invalid hop limit */
+		if (hoplim != 1)
+			return OSPF6_READ_CONTINUE;
+	} else {
+		/* anything else: only for virtual links, not supported yet */
+
+		if (IS_OSPF6_DEBUG_MESSAGE(OSPF6_MESSAGE_TYPE_UNKNOWN, RECV_HDR))
+			zlog_debug("discarding packet with bogus destination %pI6", &dst);
 		return OSPF6_READ_CONTINUE;
+	}
+
+	if (!IN6_IS_ADDR_LINKLOCAL(&src)) {
+		/* destination already got checked, so somehow this is a packet
+		 * with LL or link-scope-mcast destination.  Most likely,
+		 * someone removed all the link-local addresses on a legitimate
+		 * neighbor's interface.
+		 */
+		zlog_warn("discarding packet from non-LL source %pI6, faulty neighbor?", &src);
+		return OSPF6_READ_CONTINUE;
+	}
 
 	/* ensure some zeroes past the end, just as a security precaution */
 	memset(recvbuf + len, 0, MIN(128, iobuflen - len));

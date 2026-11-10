@@ -13,6 +13,7 @@ test_bgp_show_l2vpn_evpn_rt.py: Test if `show bgp l2vpn evpn rt` filters EVPN RI
 """
 
 import json
+import re
 from functools import partial
 import os
 import sys
@@ -24,6 +25,7 @@ sys.path.append(os.path.join(CWD, "../"))
 
 # pylint: disable=C0413
 from lib import topotest
+from lib.common_config import create_interface_in_kernel
 from lib.topogen import Topogen, get_topogen
 from lib.topolog import logger
 
@@ -48,9 +50,9 @@ def _setup_vrfs(router, vrf):
     mac = f"52:54:00:00:{idx}{idx}:{idx}{idx}"
     iface = f"eth-{router.name}"
     router.add_netns(ns)
+    create_interface_in_kernel(get_topogen(), router.name, "loop{}".format(vrf))
     router.cmd_raises(
         f"""
-ip link add loop{vrf} type dummy
 ip link add vxlan-{vrf} type vxlan id {vrf} dstport 4789 dev {iface} local {ip}
 """
     )
@@ -71,6 +73,12 @@ def setup_module(mod):
     """
     Setup environment
     """
+    if not topotest.platform_has_vrf():
+        pytest.skip("platform does not support VRF")
+
+    if not topotest.platform_has_evpn():
+        pytest.skip("platform does not support EVPN")
+
     tgen = Topogen(build_topo, mod.__name__)
     tgen.start_topology()
 
@@ -131,6 +139,43 @@ def test_bgp_show_l2vpn_evpn_rt():
     _, result = topotest.run_and_expect(test_func, None, count=20, wait=1)
     assertmsg = "show bgp l2vpn evpn rt expected JSON output mismatches"
     assert result is None, assertmsg
+
+
+def test_bgp_evpn_summary_rib_count():
+    """Count prefixes in all RD tables, including local and received routes."""
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    r2 = tgen.gears["r2"]
+    expected_routes = {
+        "65000:1": {"numRoutes": 2},
+        "65000:2": {"numRoutes": 4},
+        "65000:3": {"numRoutes": 2},
+        "65000:4": {"numRoutes": 2},
+        "numPrefix": 10,
+    }
+
+    def _check_summary():
+        routes = r2.vtysh_cmd("show bgp l2vpn evpn route json", isjson=True)
+        result = topotest.json_cmp(routes, expected_routes)
+        if result is not None:
+            return result
+
+        summary = r2.vtysh_cmd("show bgp l2vpn evpn summary json", isjson=True)
+        output = r2.vtysh_cmd("show bgp l2vpn evpn summary")
+        match = re.search(r"^RIB entries (\d+),", output, re.MULTILINE)
+        if match is None:
+            return "RIB entries missing from EVPN summary: {}".format(output)
+
+        return topotest.json_cmp(
+            {"ribCount": summary.get("ribCount"), "ribEntries": int(match.group(1))},
+            {"ribCount": routes["numPrefix"], "ribEntries": routes["numPrefix"]},
+        )
+
+    logger.info("Check summary counts ten prefixes across four RDs")
+    _, result = topotest.run_and_expect(_check_summary, None, count=130, wait=1)
+    assert result is None, "EVPN summary must count prefixes per RD: {}".format(result)
 
 
 if __name__ == "__main__":

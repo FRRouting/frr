@@ -239,7 +239,7 @@ static bool ospf_adj_pacing_allow(struct ospf_interface *oi)
 }
 
 /* RFC4222/R5: Remove a neighbor from the per-interface pacing queue. */
-static void ospf_adj_pacing_remove(struct ospf_neighbor *nbr)
+void ospf_adj_pacing_remove(struct ospf_neighbor *nbr)
 {
 	struct ospf_interface *oi = nbr->oi;
 

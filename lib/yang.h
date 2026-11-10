@@ -10,6 +10,7 @@
 #include "memory.h"
 
 #include <libyang/libyang.h>
+#include <libyang/version.h>
 #ifdef HAVE_SYSREPO
 #include <sysrepo.h>
 #endif
@@ -20,20 +21,25 @@
 extern "C" {
 #endif
 
-#include <libyang/version.h>
-#if (LY_VERSION_MAJOR >= 4)
+/* libyang 4.2.0+ */
+#ifdef LYD_PRINT_SIBLINGS
 #define LYD_PRINT_WITHSIBLINGS LYD_PRINT_SIBLINGS
 #endif
 
-#if (LY_VERSION_MAJOR >= 5)
+/* libyang 4.7.0+ */
+#ifdef LYD_PARSE_LYB_SKIP_MODULE_CHECK
 #define LYD_PARSE_LYB_SKIP_CTX_CHECK LYD_PARSE_LYB_SKIP_MODULE_CHECK
-#define LYD_API_PARENT_TYPE(p)	     (p)
-#else
-#define LYD_API_PARENT_TYPE(p) ((struct lyd_node_inner *)(p))
 #endif
 
-#if (LY_VERSION_MAJOR >= 6)
+/* libyang 6.3.0+ */
+#ifdef LYA_COUNT
 #define LY_ARRAY_COUNT LYA_COUNT
+#endif
+
+#if (LY_VERSION_MAJOR < 5)
+#define LYD_API_PARENT_TYPE(p) ((struct lyd_node_inner *)(p))
+#else
+#define LYD_API_PARENT_TYPE(p) (p)
 #endif
 
 struct frr_yang_module_info;

@@ -4,9 +4,9 @@
 """
 Regression test for stale BGP LLGR timers after peer AF deletion.
 
-The test arms peer->t_llgr_stale[afi][safi], deletes the peer AF that was used
-as the timer callback argument, and verifies that bgpd survives beyond the
-original timer deadline.
+The test arms paf->t_llgr_stale, deletes the peer AF that owns the timer (and
+is used as the timer callback argument), and verifies that bgpd survives beyond
+the original timer deadline.
 """
 
 import functools
@@ -94,7 +94,7 @@ def test_bgp_llgr_stale_timer_cancelled_on_peer_af_delete():
     Deleting a peer AF must cancel any LLGR stale timer using that peer_af.
 
     Broken behavior:
-    - GR helper mode arms peer->t_llgr_stale[afi][safi] with struct peer_af.
+    - GR helper mode arms paf->t_llgr_stale with struct peer_af as argument.
     - `no neighbor ... activate` deletes and frees that peer_af.
     - The stale timer later fires and dereferences the freed callback argument.
     """

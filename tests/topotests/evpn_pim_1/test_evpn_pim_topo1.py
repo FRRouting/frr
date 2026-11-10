@@ -31,6 +31,7 @@ sys.path.append(os.path.join(CWD, "../"))
 from lib import topotest
 from lib.topogen import Topogen, TopoRouter, get_topogen
 from lib.topolog import logger
+from lib.common_config import shutdown_bringup_interface_in_kernel
 
 
 #####################################################
@@ -79,6 +80,9 @@ def build_topo(tgen):
 
 def setup_module(module):
     "Setup topology"
+    if not topotest.platform_has_evpn():
+        pytest.skip("platform does not support EVPN")
+
     tgen = Topogen(build_topo, module.__name__)
     tgen.start_topology()
 
@@ -87,8 +91,8 @@ def setup_module(module):
 
     leaf1.run("brctl addbr brleaf1")
     leaf2.run("brctl addbr brleaf2")
-    leaf1.run("ip link set dev brleaf1 up")
-    leaf2.run("ip link set dev brleaf2 up")
+    shutdown_bringup_interface_in_kernel(leaf1.tgen, leaf1.name, "brleaf1", True)
+    shutdown_bringup_interface_in_kernel(leaf2.tgen, leaf2.name, "brleaf2", True)
     leaf1.run(
         "ip link add vxlan0 type vxlan id 42 group 239.1.1.1 dev leaf1-eth1 dstport 4789"
     )
@@ -97,8 +101,8 @@ def setup_module(module):
     )
     leaf1.run("brctl addif brleaf1 vxlan0")
     leaf2.run("brctl addif brleaf2 vxlan0")
-    leaf1.run("ip link set up dev vxlan0")
-    leaf2.run("ip link set up dev vxlan0")
+    shutdown_bringup_interface_in_kernel(leaf1.tgen, leaf1.name, "vxlan0", True)
+    shutdown_bringup_interface_in_kernel(leaf2.tgen, leaf2.name, "vxlan0", True)
     # tgen.mininet_cli()
     # This is a sample of configuration loading.
     router_list = tgen.routers()

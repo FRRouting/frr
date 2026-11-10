@@ -105,6 +105,19 @@ eigrp_calculate_total_metrics(struct eigrp *eigrp,
 	eigrp_bandwidth_t bw;
 
 	entry->total_metric = entry->reported_metric;
+
+	/*
+	 * An inbound filter marks a route unreachable by setting delay to
+	 * EIGRP_MAX_METRIC (0xffffffff).  Both fields are uint32_t, so adding
+	 * the interface delay wraps in 32-bit arithmetic before the result is
+	 * widened into temp_delay, placing the total metric just below the
+	 * feasibility-condition threshold and causing DUAL to assert when it
+	 * finds no successor.  Short-circuit here to match the same guard in
+	 * eigrp_calculate_metrics().
+	 */
+	if (entry->total_metric.delay == EIGRP_MAX_METRIC)
+		return EIGRP_METRIC_MAX;
+
 	temp_delay = entry->total_metric.delay
 		     + eigrp_delay_to_scaled(ei->params->delay);
 

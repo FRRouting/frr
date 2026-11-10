@@ -1512,12 +1512,9 @@ void bfd_recv_cb(struct event *t)
 	 *
 	 * RFC 5880, Section 6.8.4.
 	 */
-	if (bfd->cur_timers.required_min_rx > bfd->remote_timers.desired_min_tx)
-		bfd->detect_TO = bfd->remote_detect_mult
-				 * bfd->cur_timers.required_min_rx;
-	else
-		bfd->detect_TO = bfd->remote_detect_mult
-				 * bfd->remote_timers.desired_min_tx;
+	bfd->detect_TO = bfd_detection_timeout_us(bfd->remote_detect_mult,
+						  bfd->cur_timers.required_min_rx,
+						  bfd->remote_timers.desired_min_tx);
 
 	/*
 	 * Apply new receive timer immediately, unless demand mode is

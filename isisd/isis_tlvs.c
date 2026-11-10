@@ -20,6 +20,7 @@
 
 #ifdef CRYPTO_INTERNAL
 #include "md5.h"
+#include "sha256.h"
 #endif
 #include "memory.h"
 #include "stream.h"
@@ -3259,27 +3260,40 @@ static void free_item_extended_reach(struct isis_item *i)
 	XFREE(MTYPE_ISIS_TLV, item);
 }
 
+/* The largest LSP ("lsp-mtu"): no item can be packed into a longer one. */
+#define ISIS_LSP_MAX_SIZE 4352
+
 static int pack_item_extended_reach(struct isis_item *i, struct stream *s, size_t *min_len)
 {
 	struct isis_extended_reach *r = (struct isis_extended_reach *)i;
-	size_t len;
-	size_t len_pos;
+	struct stream *scratch;
+	size_t len_pos, len, size;
 
-	if (STREAM_WRITEABLE(s) < 11 + ISIS_SUBTLV_MAX_SIZE) {
-		*min_len = 11 + ISIS_SUBTLV_MAX_SIZE;
+	/*
+	 * The sub-TLV packers do not check for room, and their output has no
+	 * fixed bound: pack into room for the largest LSP, then require room
+	 * for the item's actual size only.
+	 */
+	scratch = stream_new(ISIS_LSP_MAX_SIZE);
+	stream_put(scratch, r->id, sizeof(r->id));
+	stream_put3(scratch, r->metric);
+	len_pos = stream_get_endp(scratch);
+	/* Real length will be adjust after adding subTLVs */
+	stream_putc(scratch, 11);
+	if (r->subtlvs)
+		pack_item_ext_subtlvs(r->subtlvs, scratch, min_len);
+	/* Adjust length */
+	len = stream_get_endp(scratch) - len_pos - 1;
+	stream_putc_at(scratch, len_pos, len);
+
+	size = stream_get_endp(scratch);
+	if (STREAM_WRITEABLE(s) < size) {
+		*min_len = size;
+		stream_free(scratch);
 		return 1;
 	}
-
-	stream_put(s, r->id, sizeof(r->id));
-	stream_put3(s, r->metric);
-	len_pos = stream_get_endp(s);
-	/* Real length will be adjust after adding subTLVs */
-	stream_putc(s, 11);
-	if (r->subtlvs)
-		pack_item_ext_subtlvs(r->subtlvs, s, min_len);
-	/* Adjust length */
-	len = stream_get_endp(s) - len_pos - 1;
-	stream_putc_at(s, len_pos, len);
+	stream_put(s, STREAM_DATA(scratch), size);
+	stream_free(scratch);
 	return 0;
 }
 
@@ -4462,6 +4476,93 @@ static int unpack_tlv_threeway_adj(enum isis_tlv_context context, uint8_t tlv_ty
 	return 0;
 }
 
+/* Functions related to TLV 11 Extended Sequence Number (RFC 7602) */
+#define ESN_TLV_LEN 12
+
+static struct isis_esn *copy_tlv_esn(const struct isis_esn *esn)
+{
+	if (!esn)
+		return NULL;
+
+	struct isis_esn *rv = XCALLOC(MTYPE_ISIS_TLV, sizeof(*rv));
+
+	rv->essn = esn->essn;
+	rv->psn = esn->psn;
+	rv->invalid = esn->invalid;
+	return rv;
+}
+
+static void format_tlv_esn(const struct isis_esn *esn, struct sbuf *buf, struct json_object *json,
+			   int indent)
+{
+	if (!esn)
+		return;
+
+	if (json) {
+		struct json_object *esn_json = json_object_new_object();
+
+		json_object_object_add(json, "extendedSequenceNumber", esn_json);
+		json_object_int_add(esn_json, "session", esn->essn);
+		json_object_int_add(esn_json, "packet", esn->psn);
+	} else {
+		sbuf_push(buf, indent,
+			  "Extended Sequence Number: session %" PRIu64 ", packet %" PRIu32 "\n",
+			  esn->essn, esn->psn);
+	}
+}
+
+static void free_tlv_esn(struct isis_esn *esn)
+{
+	XFREE(MTYPE_ISIS_TLV, esn);
+}
+
+static int pack_tlv_esn(const struct isis_esn *esn, struct stream *s)
+{
+	if (!esn)
+		return 0;
+
+	if (STREAM_WRITEABLE(s) < 2 + ESN_TLV_LEN)
+		return 1;
+
+	stream_putc(s, ISIS_TLV_ESN);
+	stream_putc(s, ESN_TLV_LEN);
+	stream_putq(s, esn->essn);
+	stream_putl(s, esn->psn);
+	return 0;
+}
+
+static int unpack_tlv_esn(enum isis_tlv_context context, uint8_t tlv_type, uint8_t tlv_len,
+			  struct stream *s, struct sbuf *log, void *dest, int indent)
+{
+	struct isis_tlvs *tlvs = dest;
+
+	sbuf_push(log, indent, "Unpacking Extended Sequence Number TLV...\n");
+
+	/* RFC 7602 section 3: a PDU with more than one ESN TLV, malformed ones
+	 * included, is invalid; the receiver verifying ESNs discards it.
+	 */
+	if (tlvs->esn) {
+		sbuf_push(log, indent,
+			  "WARNING: Extended Sequence Number TLV present multiple times.\n");
+		tlvs->esn->invalid = true;
+		stream_forward_getp(s, tlv_len);
+		return 0;
+	}
+
+	tlvs->esn = XCALLOC(MTYPE_ISIS_TLV, sizeof(*tlvs->esn));
+	if (tlv_len != ESN_TLV_LEN) {
+		sbuf_push(log, indent, "WARNING: Unexpected TLV size\n");
+		tlvs->esn->invalid = true;
+		stream_forward_getp(s, tlv_len);
+		return 0;
+	}
+
+	tlvs->esn->essn = stream_getq(s);
+	tlvs->esn->psn = stream_getl(s);
+	format_tlv_esn(tlvs->esn, log, NULL, indent + 2);
+	return 0;
+}
+
 /* Functions related to TLVs 236/237 IPv6/MT-IPv6 reach */
 static struct isis_item *copy_item_ipv6_reach(struct isis_item *i)
 {
@@ -4717,7 +4818,9 @@ static void format_tlv_router_cap_json(const struct isis_router_cap *router_cap,
 	json_object_string_add(cap_json, "id", addrbuf);
 	json_object_boolean_add(cap_json, "flagD", !!(router_cap->flags & ISIS_ROUTER_CAP_FLAG_D));
 	json_object_boolean_add(cap_json, "flagS", !!(router_cap->flags & ISIS_ROUTER_CAP_FLAG_S));
-
+	if (!IN6_IS_ADDR_UNSPECIFIED(&router_cap->te_router_id_ipv6))
+		json_object_string_addf(cap_json, "ipv6TeRouterId", "%pI6",
+					&router_cap->te_router_id_ipv6);
 
 	/* Segment Routing Global Block as per RFC8667 section #3.1 */
 	if (router_cap->srgb.range_size != 0) {
@@ -4777,6 +4880,10 @@ static void format_tlv_router_cap(const struct isis_router_cap *router_cap, stru
 	sbuf_push(buf, indent, " %s , D:%c, S:%c\n", addrbuf,
 		  router_cap->flags & ISIS_ROUTER_CAP_FLAG_D ? '1' : '0',
 		  router_cap->flags & ISIS_ROUTER_CAP_FLAG_S ? '1' : '0');
+
+	if (!IN6_IS_ADDR_UNSPECIFIED(&router_cap->te_router_id_ipv6))
+		sbuf_push(buf, indent, "  IPv6 TE Router ID: %pI6\n",
+			  &router_cap->te_router_id_ipv6);
 
 	/* Segment Routing Global Block as per RFC8667 section #3.1 */
 	if (router_cap->srgb.range_size != 0)
@@ -4909,67 +5016,136 @@ static size_t isis_router_cap_fad_sub_tlv_len(const struct isis_router_cap_fad *
 }
 #endif /* ifndef FABRICD */
 
+static int isis_router_cap_srv6_msd_count(const struct isis_router_cap *router_cap)
+{
+	return !!router_cap->srv6_msd.max_seg_left_msd + !!router_cap->srv6_msd.max_end_pop_msd +
+	       !!router_cap->srv6_msd.max_h_encaps_msd + !!router_cap->srv6_msd.max_end_d_msd;
+}
+
+/*
+ * Size of a sub-TLV of subtlv_sz bytes added to the Router Capability TLV of
+ * tlv_len bytes, including a new Router Capability TLV with a header of
+ * hdr_len bytes when the sub-TLV does not fit in the current one.
+ */
+static size_t isis_router_cap_subtlv_size(size_t *tlv_len, size_t hdr_len, size_t subtlv_sz)
+{
+	if (*tlv_len + subtlv_sz <= UINT8_MAX) {
+		*tlv_len += subtlv_sz;
+		return subtlv_sz;
+	}
+
+	*tlv_len = hdr_len + subtlv_sz;
+	return 2 + hdr_len + subtlv_sz;
+}
+
 static size_t isis_router_cap_tlv_size(const struct isis_router_cap *router_cap)
 {
-	size_t sz = 2 + ISIS_ROUTER_CAP_SIZE;
-#ifndef FABRICD
-	size_t fad_sz;
-#endif /* ifndef FABRICD */
+	size_t hdr_len = ISIS_ROUTER_CAP_SIZE;
+	size_t tlv_len;
+	size_t sz;
 	int nb_algo, nb_msd;
+	bool sr_algo_subtlv_present = false;
+
+	if (!IN6_IS_ADDR_UNSPECIFIED(&router_cap->te_router_id_ipv6))
+		hdr_len += ISIS_SUBTLV_HDR_SIZE + IPV6_MAX_BYTELEN;
+	tlv_len = hdr_len;
 
 	if ((router_cap->srgb.range_size != 0) && (router_cap->srgb.lower_bound != 0)) {
-		sz += 2 + ISIS_SUBTLV_SID_LABEL_RANGE_SIZE;
-		sz += 2 + ISIS_SUBTLV_SID_LABEL_SIZE;
+		tlv_len += 2 + ISIS_SUBTLV_SID_LABEL_RANGE_SIZE;
+		tlv_len += 2 + ISIS_SUBTLV_SID_LABEL_SIZE;
 
 		nb_algo = isis_tlvs_sr_algo_count(router_cap);
-		if (nb_algo != 0)
-			sz += 2 + nb_algo;
+		if (nb_algo != 0) {
+			tlv_len += 2 + nb_algo;
+			sr_algo_subtlv_present = true;
+		}
 
 		if ((router_cap->srlb.range_size != 0) && (router_cap->srlb.lower_bound != 0)) {
-			sz += 2 + ISIS_SUBTLV_SID_LABEL_RANGE_SIZE;
-			sz += 2 + ISIS_SUBTLV_SID_LABEL_SIZE;
+			tlv_len += 2 + ISIS_SUBTLV_SID_LABEL_RANGE_SIZE;
+			tlv_len += 2 + ISIS_SUBTLV_SID_LABEL_SIZE;
 		}
 
 		if (router_cap->msd != 0)
-			sz += 2 + ISIS_SUBTLV_NODE_MSD_SIZE;
+			tlv_len += 2 + ISIS_SUBTLV_NODE_MSD_SIZE;
 	}
+	sz = 2 + tlv_len;
 
 #ifndef FABRICD
 	for (int i = 0; i < SR_ALGORITHM_COUNT; i++) {
 		if (!router_cap->fads[i])
 			continue;
-		fad_sz = 2 + isis_router_cap_fad_sub_tlv_len(router_cap->fads[i]);
-		if (((sz + fad_sz) % 256) < (sz % 256))
-			sz += 2 + ISIS_ROUTER_CAP_SIZE + fad_sz;
-		else
-			sz += fad_sz;
+		sz += isis_router_cap_subtlv_size(&tlv_len, hdr_len,
+						  2 + isis_router_cap_fad_sub_tlv_len(
+							      router_cap->fads[i]));
 	}
 #endif /* ifndef FABRICD */
 
 	if (router_cap->srv6_cap.is_srv6_capable) {
-		sz += ISIS_SUBTLV_TYPE_FIELD_SIZE + ISIS_SUBTLV_LENGTH_FIELD_SIZE +
-		      ISIS_SUBTLV_SRV6_CAPABILITIES_SIZE;
+		sz += isis_router_cap_subtlv_size(&tlv_len, hdr_len,
+						  ISIS_SUBTLV_TYPE_FIELD_SIZE +
+							  ISIS_SUBTLV_LENGTH_FIELD_SIZE +
+							  ISIS_SUBTLV_SRV6_CAPABILITIES_SIZE);
 
 		nb_algo = isis_tlvs_sr_algo_count(router_cap);
-		if (nb_algo != 0)
-			sz += ISIS_SUBTLV_TYPE_FIELD_SIZE + ISIS_SUBTLV_LENGTH_FIELD_SIZE + nb_algo;
+		if (nb_algo != 0 && !sr_algo_subtlv_present)
+			sz += isis_router_cap_subtlv_size(&tlv_len, hdr_len,
+							  ISIS_SUBTLV_TYPE_FIELD_SIZE +
+								  ISIS_SUBTLV_LENGTH_FIELD_SIZE + nb_algo);
 
-		nb_msd = router_cap->srv6_msd.max_seg_left_msd +
-			 router_cap->srv6_msd.max_end_pop_msd +
-			 router_cap->srv6_msd.max_h_encaps_msd + router_cap->srv6_msd.max_end_d_msd;
+		nb_msd = isis_router_cap_srv6_msd_count(router_cap);
 		if (nb_msd != 0)
-			sz += ISIS_SUBTLV_TYPE_FIELD_SIZE + ISIS_SUBTLV_LENGTH_FIELD_SIZE +
-			      (ISIS_SUBTLV_NODE_MSD_TYPE_SIZE + ISIS_SUBTLV_NODE_MSD_VALUE_SIZE) *
-				      nb_msd;
+			sz += isis_router_cap_subtlv_size(
+				&tlv_len, hdr_len,
+				ISIS_SUBTLV_TYPE_FIELD_SIZE + ISIS_SUBTLV_LENGTH_FIELD_SIZE +
+					(ISIS_SUBTLV_NODE_MSD_TYPE_SIZE + ISIS_SUBTLV_NODE_MSD_VALUE_SIZE) *
+						nb_msd);
 	}
 
 	return sz;
+}
+
+static void pack_tlv_router_cap_header(const struct isis_router_cap *router_cap, struct stream *s)
+{
+	stream_put_ipv4(s, router_cap->router_id.s_addr);
+	stream_putc(s, router_cap->flags);
+
+	/* RFC 7981 section #3: mandatory with a Router ID of 0.0.0.0 */
+	if (!IN6_IS_ADDR_UNSPECIFIED(&router_cap->te_router_id_ipv6)) {
+		stream_putc(s, ISIS_SUBTLV_IPV6_TE_ROUTER_ID);
+		stream_putc(s, IPV6_MAX_BYTELEN);
+		stream_put(s, &router_cap->te_router_id_ipv6, IPV6_MAX_BYTELEN);
+	}
+}
+
+/*
+ * Return the position of the length of the Router Capability TLV to which a
+ * sub-TLV of subtlv_sz bytes is added: the current one at len_pos, or a new
+ * one when the sub-TLV does not fit in the current one.
+ */
+static size_t pack_tlv_router_cap_room(const struct isis_router_cap *router_cap,
+				       struct stream *s, size_t len_pos, size_t subtlv_sz)
+{
+	size_t tlv_len = stream_get_endp(s) - len_pos - 1;
+
+	if (tlv_len + subtlv_sz <= UINT8_MAX)
+		return len_pos;
+
+	stream_putc_at(s, len_pos, tlv_len);
+
+	/* Add Router Capability TLV 242 with Router ID and Flags */
+	stream_putc(s, ISIS_TLV_ROUTER_CAPABILITY);
+	len_pos = stream_get_endp(s);
+	stream_putc(s, 0); /* Real length will be adjusted later */
+	pack_tlv_router_cap_header(router_cap, s);
+
+	return len_pos;
 }
 
 static int pack_tlv_router_cap(const struct isis_router_cap *router_cap, struct stream *s)
 {
 	size_t tlv_len, len_pos;
 	uint8_t nb_algo;
+	int nb_msd;
 	size_t subtlv_len, subtlv_len_pos;
 	bool sr_algo_subtlv_present = false;
 
@@ -4983,8 +5159,7 @@ static int pack_tlv_router_cap(const struct isis_router_cap *router_cap, struct 
 	stream_putc(s, ISIS_TLV_ROUTER_CAPABILITY);
 	len_pos = stream_get_endp(s);
 	stream_putc(s, 0); /* Real length will be adjusted later */
-	stream_put_ipv4(s, router_cap->router_id.s_addr);
-	stream_putc(s, router_cap->flags);
+	pack_tlv_router_cap_header(router_cap, s);
 
 	/* Add SRGB if set as per RFC8667 section #3.1 */
 	if ((router_cap->srgb.range_size != 0) && (router_cap->srgb.lower_bound != 0)) {
@@ -5041,23 +5216,7 @@ static int pack_tlv_router_cap(const struct isis_router_cap *router_cap, struct 
 			continue;
 
 		subtlv_len = isis_router_cap_fad_sub_tlv_len(fad);
-
-		if ((stream_get_endp(s) - len_pos - 1) > 250) {
-			/* Adjust TLV length which depends on subTLVs presence
-			 */
-			tlv_len = stream_get_endp(s) - len_pos - 1;
-			stream_putc_at(s, len_pos, tlv_len);
-
-			/* Add Router Capability TLV 242 with Router ID and
-			 * Flags
-			 */
-			stream_putc(s, ISIS_TLV_ROUTER_CAPABILITY);
-			/* Real length will be adjusted later */
-			len_pos = stream_get_endp(s);
-			stream_putc(s, 0);
-			stream_put_ipv4(s, router_cap->router_id.s_addr);
-			stream_putc(s, router_cap->flags);
-		}
+		len_pos = pack_tlv_router_cap_room(router_cap, s, len_pos, 2 + subtlv_len);
 
 		stream_putc(s, ISIS_SUBTLV_FAD);
 		stream_putc(s, subtlv_len); /* length will be filled later */
@@ -5104,6 +5263,10 @@ static int pack_tlv_router_cap(const struct isis_router_cap *router_cap, struct 
 
 	/* Add SRv6 capabilities if set as per RFC 9352 section #2 */
 	if (router_cap->srv6_cap.is_srv6_capable) {
+		len_pos = pack_tlv_router_cap_room(router_cap, s, len_pos,
+						   ISIS_SUBTLV_TYPE_FIELD_SIZE +
+							   ISIS_SUBTLV_LENGTH_FIELD_SIZE +
+							   ISIS_SUBTLV_SRV6_CAPABILITIES_SIZE);
 		stream_putc(s, ISIS_SUBTLV_SRV6_CAPABILITIES);
 		stream_putc(s, ISIS_SUBTLV_SRV6_CAPABILITIES_SIZE);
 		stream_putw(s, router_cap->srv6_cap.flags);
@@ -5116,6 +5279,10 @@ static int pack_tlv_router_cap(const struct isis_router_cap *router_cap, struct 
 		if (!sr_algo_subtlv_present) {
 			nb_algo = isis_tlvs_sr_algo_count(router_cap);
 			if (nb_algo > 0) {
+				len_pos = pack_tlv_router_cap_room(router_cap, s, len_pos,
+								   ISIS_SUBTLV_TYPE_FIELD_SIZE +
+									   ISIS_SUBTLV_LENGTH_FIELD_SIZE +
+									   nb_algo);
 				stream_putc(s, ISIS_SUBTLV_ALGORITHM);
 				stream_putc(s, nb_algo);
 				for (int i = 0; i < SR_ALGORITHM_COUNT; i++)
@@ -5125,10 +5292,13 @@ static int pack_tlv_router_cap(const struct isis_router_cap *router_cap, struct 
 		}
 
 		/* And finish with MSDs if set as per RFC 9352 section #4 */
-		if (router_cap->srv6_msd.max_seg_left_msd + router_cap->srv6_msd.max_end_pop_msd +
-			    router_cap->srv6_msd.max_h_encaps_msd +
-			    router_cap->srv6_msd.max_end_d_msd !=
-		    0) {
+		nb_msd = isis_router_cap_srv6_msd_count(router_cap);
+		if (nb_msd != 0) {
+			len_pos = pack_tlv_router_cap_room(
+				router_cap, s, len_pos,
+				ISIS_SUBTLV_TYPE_FIELD_SIZE + ISIS_SUBTLV_LENGTH_FIELD_SIZE +
+					(ISIS_SUBTLV_NODE_MSD_TYPE_SIZE + ISIS_SUBTLV_NODE_MSD_VALUE_SIZE) *
+						nb_msd);
 			stream_putc(s, ISIS_SUBTLV_NODE_MSD);
 
 			subtlv_len_pos = stream_get_endp(s);
@@ -5174,6 +5344,25 @@ static int pack_tlv_router_cap(const struct isis_router_cap *router_cap, struct 
 	return 0;
 }
 
+static bool router_cap_has_ipv6_te_router_id(struct stream *s, uint8_t subtlv_len)
+{
+	size_t pos = stream_get_getp(s);
+	uint8_t type, length;
+
+	while (subtlv_len >= ISIS_SUBTLV_HDR_SIZE) {
+		type = stream_getc_from(s, pos);
+		length = stream_getc_from(s, pos + 1);
+		if (length > subtlv_len - ISIS_SUBTLV_HDR_SIZE)
+			return false;
+		if (type == ISIS_SUBTLV_IPV6_TE_ROUTER_ID && length == IPV6_MAX_BYTELEN)
+			return true;
+		pos += ISIS_SUBTLV_HDR_SIZE + length;
+		subtlv_len -= ISIS_SUBTLV_HDR_SIZE + length;
+	}
+
+	return false;
+}
+
 static int unpack_tlv_router_cap(enum isis_tlv_context context, uint8_t tlv_type, uint8_t tlv_len,
 				 struct stream *s, struct sbuf *log, void *dest, int indent)
 {
@@ -5184,11 +5373,26 @@ static int unpack_tlv_router_cap(enum isis_tlv_context context, uint8_t tlv_type
 	uint8_t subtlv_len;
 	uint8_t size;
 	int num_msd;
+	struct in_addr router_id;
+	uint8_t flags;
 
 	sbuf_push(log, indent, "Unpacking Router Capability TLV...\n");
 	if (tlv_len < ISIS_ROUTER_CAP_SIZE) {
 		sbuf_push(log, indent, "WARNING: Unexpected TLV size\n");
 		stream_forward_getp(s, tlv_len);
+		return 0;
+	}
+
+	/* Get Router ID and Flags */
+	router_id.s_addr = stream_get_ipv4(s);
+	flags = stream_getc(s);
+	subtlv_len = tlv_len - ISIS_ROUTER_CAP_SIZE;
+
+	/* RFC 7981 section #3 */
+	if (router_id.s_addr == INADDR_ANY && !router_cap_has_ipv6_te_router_id(s, subtlv_len)) {
+		sbuf_push(log, indent,
+			  "WARNING: Router ID 0.0.0.0 without IPv6 TE Router ID sub-TLV, ignoring TLV\n");
+		stream_forward_getp(s, subtlv_len);
 		return 0;
 	}
 
@@ -5201,13 +5405,10 @@ static int unpack_tlv_router_cap(enum isis_tlv_context context, uint8_t tlv_type
 	}
 
 	rcap = tlvs->router_cap;
-
-	/* Get Router ID and Flags */
-	rcap->router_id.s_addr = stream_get_ipv4(s);
-	rcap->flags = stream_getc(s);
+	rcap->router_id = router_id;
+	rcap->flags = flags;
 
 	/* Parse remaining part of the TLV if present */
-	subtlv_len = tlv_len - ISIS_ROUTER_CAP_SIZE;
 	while (subtlv_len >= ISIS_SUBTLV_HDR_SIZE) {
 #ifndef FABRICD
 		struct isis_router_cap_fad *fad;
@@ -5226,6 +5427,13 @@ static int unpack_tlv_router_cap(enum isis_tlv_context context, uint8_t tlv_type
 		}
 
 		switch (type) {
+		case ISIS_SUBTLV_IPV6_TE_ROUTER_ID:
+			if (length != IPV6_MAX_BYTELEN) {
+				stream_forward_getp(s, length);
+				break;
+			}
+			stream_get(&rcap->te_router_id_ipv6, s, IPV6_MAX_BYTELEN);
+			break;
 		case ISIS_SUBTLV_SID_LABEL_RANGE:
 			/* Check that SRGB is correctly formatted */
 			if (length < SUBTLV_RANGE_LABEL_SIZE || length > SUBTLV_RANGE_INDEX_SIZE) {
@@ -5581,6 +5789,207 @@ static int unpack_tlv_router_cap(enum isis_tlv_context context, uint8_t tlv_type
 }
 
 /* Functions related to TLV 10 Authentication */
+
+/*
+ * RFC 5310 generic cryptographic authentication. The key comes from a key
+ * chain, whose Key ID is sent in the TLV and selects the key on receipt.
+ */
+#define CRYPTO_AUTH_KEY_ID_LEN 2
+
+static const uint8_t crypto_auth_apad[] = { 0x87, 0x8f, 0xe1, 0xf3 };
+
+/* The key chain algorithms RFC 5310 defines that this build implements; the
+ * key chain configuration already rejects the others.
+ */
+static bool crypto_auth_algo_supported(enum keychain_hash_algo algo)
+{
+	switch (algo) {
+	case KEYCHAIN_ALGO_HMAC_SHA1:
+	case KEYCHAIN_ALGO_HMAC_SHA384:
+	case KEYCHAIN_ALGO_HMAC_SHA512:
+#ifdef CRYPTO_OPENSSL
+		return true;
+#else
+		return false;
+#endif
+	case KEYCHAIN_ALGO_HMAC_SHA256:
+		return true;
+	case KEYCHAIN_ALGO_NULL:
+	case KEYCHAIN_ALGO_CLEARTEXT:
+	case KEYCHAIN_ALGO_MD5:
+	case KEYCHAIN_ALGO_MAX:
+		return false;
+	}
+
+	return false;
+}
+
+#ifdef CRYPTO_OPENSSL
+static const EVP_MD *crypto_auth_md(enum keychain_hash_algo algo)
+{
+	switch (algo) {
+	case KEYCHAIN_ALGO_HMAC_SHA1:
+		return EVP_sha1();
+	case KEYCHAIN_ALGO_HMAC_SHA256:
+		return EVP_sha256();
+	case KEYCHAIN_ALGO_HMAC_SHA384:
+		return EVP_sha384();
+	case KEYCHAIN_ALGO_HMAC_SHA512:
+		return EVP_sha512();
+	case KEYCHAIN_ALGO_NULL:
+	case KEYCHAIN_ALGO_CLEARTEXT:
+	case KEYCHAIN_ALGO_MD5:
+	case KEYCHAIN_ALGO_MAX:
+		break;
+	}
+
+	assert(!"not an RFC 5310 algorithm");
+	return NULL;
+}
+#endif
+
+static void crypto_auth_hash(enum keychain_hash_algo algo, const void *data, size_t len,
+			     uint8_t *digest)
+{
+#ifdef CRYPTO_OPENSSL
+	EVP_Digest(data, len, digest, NULL, crypto_auth_md(algo), NULL);
+#else
+	SHA256_CTX ctx;
+
+	assert(algo == KEYCHAIN_ALGO_HMAC_SHA256);
+	SHA256_Init(&ctx);
+	SHA256_Update(&ctx, data, len);
+	SHA256_Final(digest, &ctx);
+#endif
+}
+
+static void crypto_auth_hmac(enum keychain_hash_algo algo, const uint8_t *key, size_t key_len,
+			     const uint8_t *data, size_t len, uint8_t *digest)
+{
+#ifdef CRYPTO_OPENSSL
+	HMAC(crypto_auth_md(algo), key, key_len, data, len, digest, NULL);
+#else
+	HMAC_SHA256_CTX ctx;
+
+	assert(algo == KEYCHAIN_ALGO_HMAC_SHA256);
+	HMAC__SHA256_Init(&ctx, key, key_len);
+	HMAC__SHA256_Update(&ctx, data, len);
+	HMAC__SHA256_Final(digest, &ctx);
+#endif
+}
+
+/*
+ * The HMAC key: the key, or its hash when it is longer than the block size,
+ * as plain HMAC (RFC 2104) has it. RFC 5310 section 3.3 (1) hashes keys longer
+ * than the hash instead, which strict_rfc5310 selects: IOS XR, EOS and Holo
+ * all use plain HMAC, and the two only differ for keys longer than the hash
+ * and no longer than the block. Hashing long keys here bounds what struct
+ * isis_auth has to hold.
+ */
+_Static_assert(sizeof(((struct isis_auth *)0)->passwd) >= KEYCHAIN_ALGO_MAX_INTERNAL_BLK_SIZE,
+	       "struct isis_auth must hold any HMAC key");
+
+static size_t crypto_auth_ko(enum keychain_hash_algo algo, const char *key, bool strict_rfc5310,
+			     uint8_t *ko)
+{
+	size_t key_len = strlen(key);
+	size_t hash_len = keychain_get_hash_len(algo);
+
+	if (key_len > (strict_rfc5310 ? hash_len : keychain_get_block_size(algo))) {
+		crypto_auth_hash(algo, key, key_len, ko);
+		return hash_len;
+	}
+
+	memcpy(ko, key, key_len);
+	return key_len;
+}
+
+static void crypto_auth_fill_apad(uint8_t *dst, size_t len)
+{
+	for (size_t i = 0; i < len; i++)
+		dst[i] = crypto_auth_apad[i % sizeof(crypto_auth_apad)];
+}
+
+static bool crypto_auth_digest_equal(const uint8_t *a, const uint8_t *b, size_t len)
+{
+	uint8_t diff = 0;
+
+	for (size_t i = 0; i < len; i++)
+		diff |= a[i] ^ b[i];
+
+	return diff == 0;
+}
+
+/* A key that can sign an IS-IS PDU: a key string, a Key ID that fits the
+ * 16-bit field and an algorithm RFC 5310 defines.
+ */
+static bool crypto_auth_key_usable(const struct key *key)
+{
+	return key->string && key->index <= UINT16_MAX &&
+	       crypto_auth_algo_supported(key->hash_algo);
+}
+
+/* The lifetime test of key_lookup_for_send() */
+static bool key_send_active(const struct key *key, time_t now)
+{
+	if (key->send.start == 0)
+		return true;
+
+	return key->send.start <= now && (key->send.end == -1 || key->send.end >= now);
+}
+
+/* The first key of the chain that is valid for sending and usable for IS-IS */
+const struct key *isis_keychain_send_key(const char *keychain_name)
+{
+	const struct keychain *keychain = keychain_lookup(keychain_name);
+	struct listnode *node;
+	const struct key *key;
+	time_t now = time(NULL);
+
+	if (!keychain)
+		return NULL;
+
+	for (ALL_LIST_ELEMENTS_RO(keychain->key, node, key)) {
+		if (key_send_active(key, now) && crypto_auth_key_usable(key))
+			return key;
+	}
+
+	return NULL;
+}
+
+/*
+ * The next time after now at which a key of the chain starts or stops being
+ * valid for sending, which may change the key signing our PDUs; 0 if none.
+ */
+time_t isis_keychain_next_send_change(const char *keychain_name, time_t now)
+{
+	const struct keychain *keychain = keychain_lookup(keychain_name);
+	struct listnode *node;
+	const struct key *key;
+	time_t next = 0;
+
+	if (!keychain)
+		return 0;
+
+	for (ALL_LIST_ELEMENTS_RO(keychain->key, node, key)) {
+		time_t change;
+
+		if (key->send.start == 0)
+			continue;
+		if (key->send.start > now)
+			change = key->send.start;
+		else if (key->send.end != -1 && key->send.end >= now)
+			change = key->send.end + 1;
+		else
+			continue;
+
+		if (!next || change < next)
+			next = change;
+	}
+
+	return next;
+}
+
 static struct isis_item *copy_item_auth(struct isis_item *i)
 {
 	struct isis_auth *auth = (struct isis_auth *)i;
@@ -5589,6 +5998,8 @@ static struct isis_item *copy_item_auth(struct isis_item *i)
 	rv->type = auth->type;
 	rv->length = auth->length;
 	memcpy(rv->value, auth->value, sizeof(rv->value));
+	rv->key_id = auth->key_id;
+	rv->algo = auth->algo;
 	return (struct isis_item *)rv;
 }
 
@@ -5617,6 +6028,19 @@ static void format_item_auth(uint16_t mtid, struct isis_item *i, struct sbuf *bu
 			json_object_string_add(json, "authHmacMd5", obuf);
 		else
 			sbuf_push(buf, indent, "  HMAC-MD5: %s\n", obuf);
+		break;
+	case ISIS_PASSWD_TYPE_CRYPTO_AUTH:
+		/* A received TLV can carry a Key ID and no digest */
+		obuf[0] = '\0';
+		for (unsigned int j = 0; j < auth->length; j++)
+			snprintfrr(obuf + 2 * j, sizeof(obuf) - 2 * j, "%02hhx", auth->value[j]);
+		if (json) {
+			json_object_int_add(json, "authKeyId", auth->key_id);
+			json_object_string_add(json, "authCryptoDigest", obuf);
+		} else {
+			sbuf_push(buf, indent, "  Crypto Auth: Key ID %hu, %s\n", auth->key_id,
+				  obuf);
+		}
 		break;
 	default:
 		if (json)
@@ -5658,6 +6082,18 @@ static int pack_item_auth(struct isis_item *i, struct stream *s, size_t *min_len
 		auth->offset = stream_get_endp(s);
 		stream_put(s, NULL, 16);
 		break;
+	case ISIS_PASSWD_TYPE_CRYPTO_AUTH: {
+		size_t hash_len = keychain_get_hash_len(auth->algo);
+
+		if (STREAM_WRITEABLE(s) < CRYPTO_AUTH_KEY_ID_LEN + hash_len) {
+			*min_len = 1 + CRYPTO_AUTH_KEY_ID_LEN + hash_len;
+			return 1;
+		}
+		stream_putw(s, auth->key_id);
+		auth->offset = stream_get_endp(s);
+		stream_put(s, NULL, hash_len);
+		break;
+	}
 	default:
 		return 1;
 	}
@@ -5688,6 +6124,18 @@ static int unpack_item_auth(uint16_t mtid, uint8_t len, struct stream *s, struct
 			  rv->length);
 		XFREE(MTYPE_ISIS_TLV, rv);
 		return 1;
+	}
+
+	if (rv->type == ISIS_PASSWD_TYPE_CRYPTO_AUTH) {
+		if (rv->length < CRYPTO_AUTH_KEY_ID_LEN) {
+			sbuf_push(log, indent,
+				  "Not enough data left.(Expected %d bytes of Key ID, got %hhu)\n",
+				  CRYPTO_AUTH_KEY_ID_LEN, rv->length);
+			XFREE(MTYPE_ISIS_TLV, rv);
+			return 1;
+		}
+		rv->key_id = stream_getw(s);
+		rv->length -= CRYPTO_AUTH_KEY_ID_LEN;
 	}
 
 	rv->offset = stream_get_getp(s);
@@ -5937,11 +6385,13 @@ static int pack_items_(uint16_t mtid, enum isis_tlv_context context, enum isis_t
 	struct isis_item *item = NULL;
 	int rv;
 	size_t min_len = 0;
+	size_t tlv_start, hdr_len = 0;
 
 	if (!items->head)
 		return 0;
 
 top:
+	tlv_start = stream_get_endp(s);
 	if (STREAM_WRITEABLE(s) < 2)
 		goto too_long;
 
@@ -5968,6 +6418,7 @@ top:
 			goto too_long;
 		stream_putc(s, 0); /* Virtual flag is set to 0 */
 	}
+	hdr_len = stream_get_endp(s) - tlv_start;
 
 	last_len = len = 0;
 	for (item = item ? item : items->head; item; item = item->next) {
@@ -6021,7 +6472,8 @@ too_long:
 	if (!fragment_tlvs)
 		return 1;
 	stream_reset(s);
-	if (STREAM_WRITEABLE(s) < min_len)
+	/* A fresh fragment must take the TLV header too, or it will not fit either. */
+	if (STREAM_WRITEABLE(s) < hdr_len + min_len)
 		return 1;
 	*fragment_tlvs = new_fragment(new_fragment_arg);
 	goto top;
@@ -6513,6 +6965,8 @@ struct isis_tlvs *isis_copy_tlvs(struct isis_tlvs *tlvs)
 
 	rv->threeway_adj = copy_tlv_threeway_adj(tlvs->threeway_adj);
 
+	rv->esn = copy_tlv_esn(tlvs->esn);
+
 	rv->router_cap = copy_tlv_router_cap(tlvs->router_cap);
 
 	rv->spine_leaf = copy_tlv_spine_leaf(tlvs->spine_leaf);
@@ -6597,6 +7051,8 @@ static void format_tlvs(struct isis_tlvs *tlvs, struct sbuf *buf, struct json_ob
 
 	format_tlv_threeway_adj(tlvs->threeway_adj, buf, json, indent);
 
+	format_tlv_esn(tlvs->esn, buf, json, indent);
+
 	format_tlv_spine_leaf(tlvs->spine_leaf, buf, json, indent);
 
 	format_mt_items(ISIS_CONTEXT_LSP, ISIS_TLV_SRV6_LOCATOR, &tlvs->srv6_locator, buf, json,
@@ -6650,6 +7106,7 @@ void isis_free_tlvs(struct isis_tlvs *tlvs)
 	free_items(ISIS_CONTEXT_LSP, ISIS_TLV_IPV6_REACH, &tlvs->ipv6_reach);
 	free_mt_items(ISIS_CONTEXT_LSP, ISIS_TLV_MT_IPV6_REACH, &tlvs->mt_ipv6_reach);
 	free_tlv_threeway_adj(tlvs->threeway_adj);
+	free_tlv_esn(tlvs->esn);
 	free_tlv_router_cap(tlvs->router_cap);
 	free_tlv_spine_leaf(tlvs->spine_leaf);
 	free_mt_items(ISIS_CONTEXT_LSP, ISIS_TLV_SRV6_LOCATOR, &tlvs->srv6_locator);
@@ -6679,7 +7136,7 @@ static void add_padding(struct stream *s)
 
 #define LSP_REM_LIFETIME_OFF 10
 #define LSP_CHECKSUM_OFF     24
-static void safe_auth_md5(struct stream *s, uint16_t *checksum, uint16_t *rem_lifetime)
+static void lsp_auth_fields_clear(struct stream *s, uint16_t *checksum, uint16_t *rem_lifetime)
 {
 	memcpy(rem_lifetime, STREAM_DATA(s) + LSP_REM_LIFETIME_OFF, sizeof(*rem_lifetime));
 	memset(STREAM_DATA(s) + LSP_REM_LIFETIME_OFF, 0, sizeof(*rem_lifetime));
@@ -6687,7 +7144,7 @@ static void safe_auth_md5(struct stream *s, uint16_t *checksum, uint16_t *rem_li
 	memset(STREAM_DATA(s) + LSP_CHECKSUM_OFF, 0, sizeof(*checksum));
 }
 
-static void restore_auth_md5(struct stream *s, uint16_t checksum, uint16_t rem_lifetime)
+static void lsp_auth_fields_restore(struct stream *s, uint16_t checksum, uint16_t rem_lifetime)
 {
 	memcpy(STREAM_DATA(s) + LSP_REM_LIFETIME_OFF, &rem_lifetime, sizeof(rem_lifetime));
 	memcpy(STREAM_DATA(s) + LSP_CHECKSUM_OFF, &checksum, sizeof(checksum));
@@ -6699,7 +7156,7 @@ static void update_auth_hmac_md5(struct isis_auth *auth, struct stream *s, bool 
 	uint16_t checksum = 0, rem_lifetime = 0;
 
 	if (is_lsp)
-		safe_auth_md5(s, &checksum, &rem_lifetime);
+		lsp_auth_fields_clear(s, &checksum, &rem_lifetime);
 
 	memset(STREAM_DATA(s) + auth->offset, 0, 16);
 #ifdef CRYPTO_OPENSSL
@@ -6714,7 +7171,28 @@ static void update_auth_hmac_md5(struct isis_auth *auth, struct stream *s, bool 
 	memcpy(STREAM_DATA(s) + auth->offset, digest, 16);
 
 	if (is_lsp)
-		restore_auth_md5(s, checksum, rem_lifetime);
+		lsp_auth_fields_restore(s, checksum, rem_lifetime);
+}
+
+/* RFC 5310 section 3.4: HMAC over the PDU with the digest set to Apad and, in
+ * LSPs, the checksum and remaining lifetime set to zero.
+ */
+static void update_auth_crypto(struct isis_auth *auth, struct stream *s, bool is_lsp)
+{
+	size_t hash_len = keychain_get_hash_len(auth->algo);
+	uint16_t checksum = 0, rem_lifetime = 0;
+
+	if (is_lsp)
+		lsp_auth_fields_clear(s, &checksum, &rem_lifetime);
+
+	crypto_auth_fill_apad(STREAM_DATA(s) + auth->offset, hash_len);
+	crypto_auth_hmac(auth->algo, auth->passwd, auth->plength, STREAM_DATA(s),
+			 stream_get_endp(s), auth->value);
+	auth->length = hash_len;
+	memcpy(STREAM_DATA(s) + auth->offset, auth->value, hash_len);
+
+	if (is_lsp)
+		lsp_auth_fields_restore(s, checksum, rem_lifetime);
 }
 
 static void update_auth(struct isis_tlvs *tlvs, struct stream *s, bool is_lsp)
@@ -6724,6 +7202,8 @@ static void update_auth(struct isis_tlvs *tlvs, struct stream *s, bool is_lsp)
 	for (struct isis_auth *auth = auth_head; auth; auth = auth->next) {
 		if (auth->type == ISIS_PASSWD_TYPE_HMAC_MD5)
 			update_auth_hmac_md5(auth, s, is_lsp);
+		else if (auth->type == ISIS_PASSWD_TYPE_CRYPTO_AUTH)
+			update_auth_crypto(auth, s, is_lsp);
 	}
 }
 
@@ -6837,6 +7317,12 @@ static int pack_tlvs(struct isis_tlvs *tlvs, struct stream *stream, struct isis_
 		return rv;
 	if (fragment_tlvs)
 		fragment_tlvs->threeway_adj = copy_tlv_threeway_adj(tlvs->threeway_adj);
+
+	rv = pack_tlv_esn(tlvs->esn, stream);
+	if (rv)
+		return rv;
+	if (fragment_tlvs)
+		fragment_tlvs->esn = copy_tlv_esn(tlvs->esn);
 
 	rv = pack_tlv_spine_leaf(tlvs->spine_leaf, stream);
 	if (rv)
@@ -7064,6 +7550,7 @@ TLV_OPS(dynamic_hostname, "TLV 137 Dynamic Hostname");
 TLV_OPS(te_router_id_ipv6, "TLV 140 IPv6 TE Router ID");
 TLV_OPS(spine_leaf, "TLV 150 Spine Leaf Extensions");
 ITEM_TLV_OPS(mt_router_info, "TLV 229 MT Router Information");
+TLV_OPS(esn, "TLV 11 Extended Sequence Number");
 TLV_OPS(threeway_adj, "TLV 240 P2P Three-Way Adjacency");
 ITEM_TLV_OPS(ipv6_address, "TLV 232 IPv6 Interface Address");
 ITEM_TLV_OPS(global_ipv6_address, "TLV 233 Global IPv6 Interface Address");
@@ -7104,6 +7591,7 @@ static const struct tlv_ops *const tlv_table[ISIS_CONTEXT_MAX][ISIS_TLV_MAX] = {
 		[ISIS_TLV_MT_IP_REACH] = &tlv_extended_ip_reach_ops,
 		[ISIS_TLV_IPV6_REACH] = &tlv_ipv6_reach_ops,
 		[ISIS_TLV_MT_IPV6_REACH] = &tlv_ipv6_reach_ops,
+		[ISIS_TLV_ESN] = &tlv_esn_ops,
 		[ISIS_TLV_THREE_WAY_ADJ] = &tlv_threeway_adj_ops,
 		[ISIS_TLV_ROUTER_CAPABILITY] = &tlv_router_cap_ops,
 		[ISIS_TLV_SRV6_LOCATOR] = &tlv_srv6_locator_ops,
@@ -7132,13 +7620,35 @@ static const struct tlv_ops *const tlv_table[ISIS_CONTEXT_MAX][ISIS_TLV_MAX] = {
 
 /* Accessor functions */
 
-void isis_tlvs_add_auth(struct isis_tlvs *tlvs, struct isis_passwd *passwd)
+/*
+ * Replace the authentication of tlvs with passwd's. Returns false when passwd
+ * names a key chain that has no key to sign with, in which case tlvs is left
+ * without authentication: RFC 5310 section 3.4 has such a PDU discarded.
+ */
+bool isis_tlvs_add_auth(struct isis_tlvs *tlvs, struct isis_passwd *passwd)
 {
 	free_items(ISIS_CONTEXT_LSP, ISIS_TLV_AUTH, &tlvs->isis_auth);
 	init_item_list(&tlvs->isis_auth);
 
 	if (passwd->type == ISIS_PASSWD_TYPE_UNUSED)
-		return;
+		return true;
+
+	if (passwd->type == ISIS_PASSWD_TYPE_CRYPTO_AUTH) {
+		const struct key *key = isis_keychain_send_key((const char *)passwd->passwd);
+
+		if (!key)
+			return false;
+
+		struct isis_auth *auth = XCALLOC(MTYPE_ISIS_TLV, sizeof(*auth));
+
+		auth->type = ISIS_PASSWD_TYPE_CRYPTO_AUTH;
+		auth->key_id = key->index;
+		auth->algo = key->hash_algo;
+		auth->plength = crypto_auth_ko(key->hash_algo, key->string, passwd->strict_rfc5310,
+					       auth->passwd);
+		append_item(&tlvs->isis_auth, (struct isis_item *)auth);
+		return true;
+	}
 
 	struct isis_auth *auth = XCALLOC(MTYPE_ISIS_TLV, sizeof(*auth));
 
@@ -7154,6 +7664,31 @@ void isis_tlvs_add_auth(struct isis_tlvs *tlvs, struct isis_passwd *passwd)
 	}
 
 	append_item(&tlvs->isis_auth, (struct isis_item *)auth);
+	return true;
+}
+
+/* The bytes the authentication TLVs of tlvs take once packed */
+size_t isis_tlvs_auth_len(const struct isis_tlvs *tlvs)
+{
+	const struct isis_auth *auth;
+	size_t len = 0;
+
+	for (auth = (const struct isis_auth *)tlvs->isis_auth.head; auth; auth = auth->next) {
+		len += 2 + 1;
+		switch (auth->type) {
+		case ISIS_PASSWD_TYPE_HMAC_MD5:
+			len += 16;
+			break;
+		case ISIS_PASSWD_TYPE_CRYPTO_AUTH:
+			len += CRYPTO_AUTH_KEY_ID_LEN + keychain_get_hash_len(auth->algo);
+			break;
+		default:
+			len += auth->length;
+			break;
+		}
+	}
+
+	return len;
 }
 
 void isis_tlvs_add_area_addresses(struct isis_tlvs *tlvs, struct iso_address_list_head *addresses)
@@ -7280,7 +7815,7 @@ static bool auth_validator_hmac_md5(struct isis_passwd *passwd, struct stream *s
 	uint16_t rem_lifetime;
 
 	if (is_lsp)
-		safe_auth_md5(stream, &checksum, &rem_lifetime);
+		lsp_auth_fields_clear(stream, &checksum, &rem_lifetime);
 
 	memset(STREAM_DATA(stream) + auth->offset, 0, 16);
 #ifdef CRYPTO_OPENSSL
@@ -7296,13 +7831,54 @@ static bool auth_validator_hmac_md5(struct isis_passwd *passwd, struct stream *s
 	bool rv = !memcmp(digest, auth->value, 16);
 
 	if (is_lsp)
-		restore_auth_md5(stream, checksum, rem_lifetime);
+		lsp_auth_fields_restore(stream, checksum, rem_lifetime);
 
 	return rv;
 }
 
+/* RFC 5310 section 3.5: the Key ID selects a key of the chain valid for
+ * accepting, whose algorithm must produce a digest of the length received.
+ */
+static bool auth_validator_crypto(struct isis_passwd *passwd, struct stream *stream,
+				  struct isis_auth *auth, bool is_lsp)
+{
+	const struct keychain *keychain = keychain_lookup((const char *)passwd->passwd);
+	uint8_t ko[KEYCHAIN_ALGO_MAX_INTERNAL_BLK_SIZE];
+	uint8_t digest[KEYCHAIN_MAX_HASH_SIZE];
+	uint16_t checksum = 0, rem_lifetime = 0;
+	const struct key *key;
+	size_t hash_len, ko_len;
+
+	if (!keychain)
+		return false;
+
+	key = key_lookup_for_accept(keychain, auth->key_id, true);
+	if (!key || !crypto_auth_key_usable(key))
+		return false;
+
+	hash_len = keychain_get_hash_len(key->hash_algo);
+	if (auth->length != hash_len)
+		return false;
+
+	ko_len = crypto_auth_ko(key->hash_algo, key->string, passwd->strict_rfc5310, ko);
+
+	if (is_lsp)
+		lsp_auth_fields_clear(stream, &checksum, &rem_lifetime);
+
+	crypto_auth_fill_apad(STREAM_DATA(stream) + auth->offset, hash_len);
+	crypto_auth_hmac(key->hash_algo, ko, ko_len, STREAM_DATA(stream), stream_get_endp(stream),
+			 digest);
+	memcpy(STREAM_DATA(stream) + auth->offset, auth->value, hash_len);
+
+	if (is_lsp)
+		lsp_auth_fields_restore(stream, checksum, rem_lifetime);
+
+	return crypto_auth_digest_equal(digest, auth->value, hash_len);
+}
+
 static const auth_validator_func auth_validators[] = {
 	[ISIS_PASSWD_TYPE_CLEARTXT] = auth_validator_cleartxt,
+	[ISIS_PASSWD_TYPE_CRYPTO_AUTH] = auth_validator_crypto,
 	[ISIS_PASSWD_TYPE_HMAC_MD5] = auth_validator_hmac_md5,
 };
 
@@ -7558,6 +8134,14 @@ static void tlvs_global_ipv6_addresses_to_adj(struct isis_tlvs *tlvs, struct isi
 		hook_call(isis_adj_ip_enabled_hook, adj, AF_INET6, true);
 }
 
+/* A hello's authentication was validated before its TLVs reach the adjacency */
+static void tlvs_auth_to_adj(struct isis_tlvs *tlvs, struct isis_adjacency *adj)
+{
+	struct isis_auth *auth = (struct isis_auth *)tlvs->isis_auth.head;
+
+	adj->auth_key_id = (auth && auth->type == ISIS_PASSWD_TYPE_CRYPTO_AUTH) ? auth->key_id : -1;
+}
+
 void isis_tlvs_to_adj(struct isis_tlvs *tlvs, struct isis_adjacency *adj, bool *changed)
 {
 	*changed = false;
@@ -7567,6 +8151,7 @@ void isis_tlvs_to_adj(struct isis_tlvs *tlvs, struct isis_adjacency *adj, bool *
 	tlvs_ipv4_addresses_to_adj(tlvs, adj, changed);
 	tlvs_ipv6_addresses_to_adj(tlvs, adj, changed);
 	tlvs_global_ipv6_addresses_to_adj(tlvs, adj, changed);
+	tlvs_auth_to_adj(tlvs, adj);
 }
 
 bool isis_tlvs_own_snpa_found(struct isis_tlvs *tlvs, uint8_t *snpa)
@@ -7962,6 +8547,15 @@ void isis_tlvs_add_srlg(struct isis_tlvs *tlvs, const uint8_t *id, const uint32_
 		memcpy(s->srlgs, srlgs, num * sizeof(uint32_t));
 		append_item(&tlvs->srlg_ipv6, (struct isis_item *)s);
 	}
+}
+
+void isis_tlvs_set_esn(struct isis_tlvs *tlvs, uint64_t essn, uint32_t psn)
+{
+	if (!tlvs->esn)
+		tlvs->esn = XCALLOC(MTYPE_ISIS_TLV, sizeof(*tlvs->esn));
+
+	tlvs->esn->essn = essn;
+	tlvs->esn->psn = psn;
 }
 
 void isis_tlvs_add_threeway_adj(struct isis_tlvs *tlvs, enum isis_threeway_state state,

@@ -75,7 +75,12 @@ sys.path.append(os.path.join(CWD, "../"))
 from lib import topotest
 from lib.topogen import Topogen, TopoRouter, get_topogen
 from lib.topolog import logger
-from lib.common_config import required_iproute2_version, required_linux_kernel_version
+from lib.common_config import (
+    create_address_on_interface,
+    required_iproute2_version,
+    required_linux_kernel_version,
+    shutdown_bringup_interface_in_kernel,
+)
 from lib.bgp import get_bgp_summary_json
 from lib.evpn import (
     evpn_verify_vni_remote_vteps,
@@ -119,6 +124,14 @@ VTEP_IPS = {
         "tor-22": "10.0.0.31",
     },
 }
+
+
+def setup_module(module):
+    if not topotest.platform_has_vrf():
+        pytest.skip("platform does not support VRF")
+
+    if not topotest.platform_has_evpn():
+        pytest.skip("platform does not support EVPN")
 
 
 @pytest.fixture(scope="module", params=["ipv4", "ipv6"])
@@ -219,14 +232,54 @@ def tgen_and_ip_version(request):
             logger.info(f"Cleaning up interfaces on {rname}")
 
             # Bring interfaces down first
-            router.run("ip link set dev vlan111 down 2>/dev/null || true")
-            router.run("ip link set dev vlan112 down 2>/dev/null || true")
-            router.run("ip link set dev vlan4001 down 2>/dev/null || true")
-            router.run("ip link set dev vlan4002 down 2>/dev/null || true")
-            router.run("ip link set dev vxlan48 down 2>/dev/null || true")
-            router.run("ip link set dev vxlan99 down 2>/dev/null || true")
-            router.run("ip link set dev br_default down 2>/dev/null || true")
-            router.run("ip link set dev br_l3vni down 2>/dev/null || true")
+            shutdown_bringup_interface_in_kernel(
+                router.tgen,
+                router.name,
+                "vlan111",
+                False,
+            )
+            shutdown_bringup_interface_in_kernel(
+                router.tgen,
+                router.name,
+                "vlan112",
+                False,
+            )
+            shutdown_bringup_interface_in_kernel(
+                router.tgen,
+                router.name,
+                "vlan4001",
+                False,
+            )
+            shutdown_bringup_interface_in_kernel(
+                router.tgen,
+                router.name,
+                "vlan4002",
+                False,
+            )
+            shutdown_bringup_interface_in_kernel(
+                router.tgen,
+                router.name,
+                "vxlan48",
+                False,
+            )
+            shutdown_bringup_interface_in_kernel(
+                router.tgen,
+                router.name,
+                "vxlan99",
+                False,
+            )
+            shutdown_bringup_interface_in_kernel(
+                router.tgen,
+                router.name,
+                "br_default",
+                False,
+            )
+            shutdown_bringup_interface_in_kernel(
+                router.tgen,
+                router.name,
+                "br_l3vni",
+                False,
+            )
 
             # Delete in dependency order
             router.run("ip link del vlan111 2>/dev/null || true")
@@ -417,14 +470,14 @@ def setup_vtep(tgen, rname, local_ip, is_bordertor=True):
     # Cleanup any existing interfaces from previous runs
     logger.info(f"Cleaning up existing interfaces on {rname}")
     # First bring interfaces down, then delete them
-    router.run("ip link set dev vlan111 down 2>/dev/null || true")
-    router.run("ip link set dev vlan112 down 2>/dev/null || true")
-    router.run("ip link set dev vlan4001 down 2>/dev/null || true")
-    router.run("ip link set dev vlan4002 down 2>/dev/null || true")
-    router.run("ip link set dev vxlan48 down 2>/dev/null || true")
-    router.run("ip link set dev vxlan99 down 2>/dev/null || true")
-    router.run("ip link set dev br_default down 2>/dev/null || true")
-    router.run("ip link set dev br_l3vni down 2>/dev/null || true")
+    shutdown_bringup_interface_in_kernel(router.tgen, router.name, "vlan111", False)
+    shutdown_bringup_interface_in_kernel(router.tgen, router.name, "vlan112", False)
+    shutdown_bringup_interface_in_kernel(router.tgen, router.name, "vlan4001", False)
+    shutdown_bringup_interface_in_kernel(router.tgen, router.name, "vlan4002", False)
+    shutdown_bringup_interface_in_kernel(router.tgen, router.name, "vxlan48", False)
+    shutdown_bringup_interface_in_kernel(router.tgen, router.name, "vxlan99", False)
+    shutdown_bringup_interface_in_kernel(router.tgen, router.name, "br_default", False)
+    shutdown_bringup_interface_in_kernel(router.tgen, router.name, "br_l3vni", False)
 
     # Delete VLAN interfaces first (they depend on bridges)
     router.run("ip link del vlan111 2>/dev/null || true")
@@ -453,7 +506,7 @@ def setup_vtep(tgen, rname, local_ip, is_bordertor=True):
     router.run("ip link add name br_default type bridge stp_state 0")
     router.run("ip link set dev br_default type bridge vlan_filtering 1")
     router.run("ip link set dev br_default type bridge ageing_time 18000")
-    router.run("ip link set dev br_default up")
+    shutdown_bringup_interface_in_kernel(router.tgen, router.name, "br_default", True)
 
     # Add all VLANs to the bridge (L2VNIs: 111, 112 and L3VNIs: 4001, 4002)
     router.run("bridge vlan add vid 111 dev br_default self")
@@ -483,13 +536,13 @@ def setup_vtep(tgen, rname, local_ip, is_bordertor=True):
     router.run("bridge vlan add dev vxlan48 vid 4002")
     router.run("bridge vlan add dev vxlan48 vid 4002 tunnel_info id 104002")
 
-    router.run("ip link set up dev vxlan48")
+    shutdown_bringup_interface_in_kernel(router.tgen, router.name, "vxlan48", True)
 
     # Create VRFs
     router.run("ip link add vrf1 type vrf table 1001")
-    router.run("ip link set dev vrf1 up")
+    shutdown_bringup_interface_in_kernel(router.tgen, router.name, "vrf1", True)
     router.run("ip link add vrf2 type vrf table 1002")
-    router.run("ip link set dev vrf2 up")
+    shutdown_bringup_interface_in_kernel(router.tgen, router.name, "vrf2", True)
 
     # Create SVI for VLAN 111 (VRF2) from br_default
     router.run(
@@ -499,19 +552,19 @@ def setup_vtep(tgen, rname, local_ip, is_bordertor=True):
 
     # Configure SVI IPs based on router
     if rname == "bordertor-11":
-        router.run("ip addr add 192.168.11.11/24 dev vlan111")
-        router.run("ip addr add fd00:60:1:1::11/64 dev vlan111")
+        create_address_on_interface(tgen, rname, "vlan111", "192.168.11.11/24")
+        create_address_on_interface(tgen, rname, "vlan111", "fd00:60:1:1::11/64")
     elif rname == "bordertor-12":
-        router.run("ip addr add 192.168.11.12/24 dev vlan111")
-        router.run("ip addr add fd00:60:1:1::12/64 dev vlan111")
+        create_address_on_interface(tgen, rname, "vlan111", "192.168.11.12/24")
+        create_address_on_interface(tgen, rname, "vlan111", "fd00:60:1:1::12/64")
     elif rname == "tor-21":
-        router.run("ip addr add 192.168.11.21/24 dev vlan111")
-        router.run("ip addr add fd00:60:1:1::21/64 dev vlan111")
+        create_address_on_interface(tgen, rname, "vlan111", "192.168.11.21/24")
+        create_address_on_interface(tgen, rname, "vlan111", "fd00:60:1:1::21/64")
     elif rname == "tor-22":
-        router.run("ip addr add 192.168.11.22/24 dev vlan111")
-        router.run("ip addr add fd00:60:1:1::22/64 dev vlan111")
+        create_address_on_interface(tgen, rname, "vlan111", "192.168.11.22/24")
+        create_address_on_interface(tgen, rname, "vlan111", "fd00:60:1:1::22/64")
 
-    router.run("ip link set dev vlan111 up")
+    shutdown_bringup_interface_in_kernel(router.tgen, router.name, "vlan111", True)
     router.run("/sbin/sysctl net.ipv4.conf.vlan111.arp_accept=1")
 
     # Create SVI for VLAN 112 (VRF1) from br_default
@@ -521,19 +574,19 @@ def setup_vtep(tgen, rname, local_ip, is_bordertor=True):
     router.run("ip link set dev vlan112 master vrf1")
 
     if rname == "bordertor-11":
-        router.run("ip addr add 192.168.12.11/24 dev vlan112")
-        router.run("ip addr add fd00:50:1:1::11/64 dev vlan112")
+        create_address_on_interface(tgen, rname, "vlan112", "192.168.12.11/24")
+        create_address_on_interface(tgen, rname, "vlan112", "fd00:50:1:1::11/64")
     elif rname == "bordertor-12":
-        router.run("ip addr add 192.168.12.12/24 dev vlan112")
-        router.run("ip addr add fd00:50:1:1::12/64 dev vlan112")
+        create_address_on_interface(tgen, rname, "vlan112", "192.168.12.12/24")
+        create_address_on_interface(tgen, rname, "vlan112", "fd00:50:1:1::12/64")
     elif rname == "tor-21":
-        router.run("ip addr add 192.168.12.21/24 dev vlan112")
-        router.run("ip addr add fd00:50:1:1::21/64 dev vlan112")
+        create_address_on_interface(tgen, rname, "vlan112", "192.168.12.21/24")
+        create_address_on_interface(tgen, rname, "vlan112", "fd00:50:1:1::21/64")
     elif rname == "tor-22":
-        router.run("ip addr add 192.168.12.22/24 dev vlan112")
-        router.run("ip addr add fd00:50:1:1::22/64 dev vlan112")
+        create_address_on_interface(tgen, rname, "vlan112", "192.168.12.22/24")
+        create_address_on_interface(tgen, rname, "vlan112", "fd00:50:1:1::22/64")
 
-    router.run("ip link set dev vlan112 up")
+    shutdown_bringup_interface_in_kernel(router.tgen, router.name, "vlan112", True)
     router.run("/sbin/sysctl net.ipv4.conf.vlan112.arp_accept=1")
 
     # Create L3VNI interfaces from br_default (same bridge as L2VNIs)
@@ -541,13 +594,13 @@ def setup_vtep(tgen, rname, local_ip, is_bordertor=True):
         "ip link add link br_default name vlan4001 type vlan id 4001 protocol 802.1q"
     )
     router.run("ip link set dev vlan4001 master vrf1")
-    router.run("ip link set dev vlan4001 up")
+    shutdown_bringup_interface_in_kernel(router.tgen, router.name, "vlan4001", True)
 
     router.run(
         "ip link add link br_default name vlan4002 type vlan id 4002 protocol 802.1q"
     )
     router.run("ip link set dev vlan4002 master vrf2")
-    router.run("ip link set dev vlan4002 up")
+    shutdown_bringup_interface_in_kernel(router.tgen, router.name, "vlan4002", True)
 
     # Add host interfaces to br_default bridge
     # Border ToRs: swp4 for hosts (VLAN 111 only)
@@ -596,18 +649,22 @@ def setup_bordertor_ext_connectivity(tgen, ip_version):
     # swp3.4001 for VRF1 L3VNI
     router.run("ip link add link swp3 name swp3.4001 type vlan id 4001")
     router.run("ip link set dev swp3.4001 master vrf1")
-    router.run("ip addr add 192.0.2.2/30 dev swp3.4001")
+    create_address_on_interface(tgen, router.name, "swp3.4001", "192.0.2.2/30")
     if ip_version == "ipv6":
-        router.run("ip addr add 2001:db8:144:1::2/64 dev swp3.4001")
-    router.run("ip link set dev swp3.4001 up")
+        create_address_on_interface(
+            tgen, router.name, "swp3.4001", "2001:db8:144:1::2/64"
+        )
+    shutdown_bringup_interface_in_kernel(router.tgen, router.name, "swp3.4001", True)
 
     # swp3.4002 for VRF2 L3VNI
     router.run("ip link add link swp3 name swp3.4002 type vlan id 4002")
     router.run("ip link set dev swp3.4002 master vrf2")
-    router.run("ip addr add 192.0.2.6/30 dev swp3.4002")
+    create_address_on_interface(tgen, router.name, "swp3.4002", "192.0.2.6/30")
     if ip_version == "ipv6":
-        router.run("ip addr add 2001:db8:144:2::6/64 dev swp3.4002")
-    router.run("ip link set dev swp3.4002 up")
+        create_address_on_interface(
+            tgen, router.name, "swp3.4002", "2001:db8:144:2::6/64"
+        )
+    shutdown_bringup_interface_in_kernel(router.tgen, router.name, "swp3.4002", True)
 
     # Configure bordertor-12
     router = tgen.gears["bordertor-12"]
@@ -617,18 +674,22 @@ def setup_bordertor_ext_connectivity(tgen, ip_version):
     # swp3.4001 for VRF1 L3VNI
     router.run("ip link add link swp3 name swp3.4001 type vlan id 4001")
     router.run("ip link set dev swp3.4001 master vrf1")
-    router.run("ip addr add 192.0.2.10/30 dev swp3.4001")
+    create_address_on_interface(tgen, router.name, "swp3.4001", "192.0.2.10/30")
     if ip_version == "ipv6":
-        router.run("ip addr add 2001:db8:144:11::2/64 dev swp3.4001")
-    router.run("ip link set dev swp3.4001 up")
+        create_address_on_interface(
+            tgen, router.name, "swp3.4001", "2001:db8:144:11::2/64"
+        )
+    shutdown_bringup_interface_in_kernel(router.tgen, router.name, "swp3.4001", True)
 
     # swp3.4002 for VRF2 L3VNI
     router.run("ip link add link swp3 name swp3.4002 type vlan id 4002")
     router.run("ip link set dev swp3.4002 master vrf2")
-    router.run("ip addr add 192.0.2.14/30 dev swp3.4002")
+    create_address_on_interface(tgen, router.name, "swp3.4002", "192.0.2.14/30")
     if ip_version == "ipv6":
-        router.run("ip addr add 2001:db8:144:12::6/64 dev swp3.4002")
-    router.run("ip link set dev swp3.4002 up")
+        create_address_on_interface(
+            tgen, router.name, "swp3.4002", "2001:db8:144:12::6/64"
+        )
+    shutdown_bringup_interface_in_kernel(router.tgen, router.name, "swp3.4002", True)
 
 
 def setup_ext1(tgen, ip_version):
@@ -644,44 +705,48 @@ def setup_ext1(tgen, ip_version):
     logger.info(f"Configuring ext-1 interfaces for {ip_version} underlay")
 
     # Configure swp1 - Connected to bordertor-11
-    router.run("ip link set dev swp1 up")
+    shutdown_bringup_interface_in_kernel(router.tgen, router.name, "swp1", True)
     if ip_version == "ipv6":
-        router.run("ip addr add fd00:10:254::2:0:2/126 dev swp1")
+        create_address_on_interface(
+            tgen, router.name, "swp1", "fd00:10:254::2:0:2/126"
+        )
     else:  # ipv4
-        router.run("ip addr add 10.254.0.10/30 dev swp1")
+        create_address_on_interface(tgen, router.name, "swp1", "10.254.0.10/30")
 
     # Configure swp2 - Connected to bordertor-12
-    router.run("ip link set dev swp2 up")
+    shutdown_bringup_interface_in_kernel(router.tgen, router.name, "swp2", True)
     if ip_version == "ipv6":
-        router.run("ip addr add fd00:10:254::9:0:2/126 dev swp2")
+        create_address_on_interface(
+            tgen, router.name, "swp2", "fd00:10:254::9:0:2/126"
+        )
     else:  # ipv4
-        router.run("ip addr add 10.254.0.38/30 dev swp2")
+        create_address_on_interface(tgen, router.name, "swp2", "10.254.0.38/30")
 
     # Configure VLAN sub-interfaces on swp1 for bordertor-11
     # swp1.4001 for VRF1 L3VNI connectivity - always configure both IPv4 and IPv6
     router.run("ip link add link swp1 name swp1.4001 type vlan id 4001")
-    router.run("ip addr add 192.0.2.1/30 dev swp1.4001")
-    router.run("ip addr add 2001:db8:144:1::1/64 dev swp1.4001")
-    router.run("ip link set dev swp1.4001 up")
+    create_address_on_interface(tgen, router.name, "swp1.4001", "192.0.2.1/30")
+    create_address_on_interface(tgen, router.name, "swp1.4001", "2001:db8:144:1::1/64")
+    shutdown_bringup_interface_in_kernel(router.tgen, router.name, "swp1.4001", True)
 
     # swp1.4002 for VRF2 L3VNI connectivity - always configure both IPv4 and IPv6
     router.run("ip link add link swp1 name swp1.4002 type vlan id 4002")
-    router.run("ip addr add 192.0.2.5/30 dev swp1.4002")
-    router.run("ip addr add 2001:db8:144:2::5/64 dev swp1.4002")
-    router.run("ip link set dev swp1.4002 up")
+    create_address_on_interface(tgen, router.name, "swp1.4002", "192.0.2.5/30")
+    create_address_on_interface(tgen, router.name, "swp1.4002", "2001:db8:144:2::5/64")
+    shutdown_bringup_interface_in_kernel(router.tgen, router.name, "swp1.4002", True)
 
     # Configure VLAN sub-interfaces on swp2 for bordertor-12
     # swp2.4001 for VRF1 L3VNI connectivity - always configure both IPv4 and IPv6
     router.run("ip link add link swp2 name swp2.4001 type vlan id 4001")
-    router.run("ip addr add 192.0.2.9/30 dev swp2.4001")
-    router.run("ip addr add 2001:db8:144:11::1/64 dev swp2.4001")
-    router.run("ip link set dev swp2.4001 up")
+    create_address_on_interface(tgen, router.name, "swp2.4001", "192.0.2.9/30")
+    create_address_on_interface(tgen, router.name, "swp2.4001", "2001:db8:144:11::1/64")
+    shutdown_bringup_interface_in_kernel(router.tgen, router.name, "swp2.4001", True)
 
     # swp2.4002 for VRF2 L3VNI connectivity - always configure both IPv4 and IPv6
     router.run("ip link add link swp2 name swp2.4002 type vlan id 4002")
-    router.run("ip addr add 192.0.2.13/30 dev swp2.4002")
-    router.run("ip addr add 2001:db8:144:12::5/64 dev swp2.4002")
-    router.run("ip link set dev swp2.4002 up")
+    create_address_on_interface(tgen, router.name, "swp2.4002", "192.0.2.13/30")
+    create_address_on_interface(tgen, router.name, "swp2.4002", "2001:db8:144:12::5/64")
+    shutdown_bringup_interface_in_kernel(router.tgen, router.name, "swp2.4002", True)
 
     # Configure swp3-6 for connection to host-1 (4 links)
     # Using separate /24 networks from 198.51.100-103.0/24 TEST-NET-2 space
@@ -697,9 +762,13 @@ def setup_ext1(tgen, ip_version):
         # Check if interface exists by examining command output
         output = router.run(f"ip link show {intf} 2>&1")
         if "does not exist" not in output and "Cannot find device" not in output:
-            router.run(f"ip link set dev {intf} up")
-            router.run(f"ip addr add 198.51.{ipv4_net}.1/24 dev {intf}")
-            router.run(f"ip addr add 2001:db8:81:{ipv6_net}::1/64 dev {intf}")
+            shutdown_bringup_interface_in_kernel(router.tgen, router.name, intf, True)
+            create_address_on_interface(
+                tgen, router.name, intf, f"198.51.{ipv4_net}.1/24"
+            )
+            create_address_on_interface(
+                tgen, router.name, intf, f"2001:db8:81:{ipv6_net}::1/64"
+            )
             logger.info(f"Configured {intf} on ext-1 (connected to host-1 swp{i-2})")
         else:
             logger.info(f"Interface {intf} does not exist on ext-1, skipping")
@@ -729,9 +798,9 @@ def setup_ext21_connectivity(tgen, ip_version):
 
     router.run("ip link del RED 2>/dev/null || true")
     router.run("ip link add RED type vrf table 1003")
-    router.run("ip link set dev RED up")
+    shutdown_bringup_interface_in_kernel(router.tgen, router.name, "RED", True)
     router.run("ip link set dev swp1 master RED")
-    router.run("ip link set dev swp1 up")
+    shutdown_bringup_interface_in_kernel(router.tgen, router.name, "swp1", True)
 
     # --- leaf-21: Create VRF RED and move swp5 into it ---
     router = tgen.gears["leaf-21"]
@@ -739,9 +808,9 @@ def setup_ext21_connectivity(tgen, ip_version):
 
     router.run("ip link del RED 2>/dev/null || true")
     router.run("ip link add RED type vrf table 1003")
-    router.run("ip link set dev RED up")
+    shutdown_bringup_interface_in_kernel(router.tgen, router.name, "RED", True)
     router.run("ip link set dev swp5 master RED")
-    router.run("ip link set dev swp5 up")
+    shutdown_bringup_interface_in_kernel(router.tgen, router.name, "swp5", True)
 
 
 def setup_ext21_post_start(tgen, ip_version):
@@ -1619,6 +1688,194 @@ def cleanup_route_leak_common(tor21, tor22, bordertor11, ip_version, test_route)
     logger.info("Common configuration removed successfully")
 
 
+def _set_ebgp_skip(router, asn, address_family, enabled):
+    command = "advertise {0} unicast skip-evpn-imported".format(address_family)
+    if not enabled:
+        command = "no " + command
+    router.vtysh_multicmd(
+        """
+        configure terminal
+        router bgp {asn} vrf vrf1
+         address-family l2vpn evpn
+          {command}
+         exit-address-family
+        exit
+        """.format(
+            asn=asn, command=command
+        )
+    )
+
+
+def _wait_ebgp_established(router, address_family, require_all=True):
+    summary_key = "ipv4Unicast" if address_family == "ipv4" else "ipv6Unicast"
+
+    def _check():
+        summary = router.vtysh_cmd("show bgp summary json", isjson=True)
+        peers = summary.get(summary_key, {}).get("peers", {})
+        established = [
+            peer for peer in peers.values() if peer.get("state") == "Established"
+        ]
+        if require_all:
+            return bool(peers) and len(established) == len(peers)
+        return bool(established)
+
+    _, result = topotest.run_and_expect(_check, True, count=60, wait=1)
+    assert result, "{0}: {1} expected {2} eBGP peers Established\n{3}\n{4}".format(
+        router.name,
+        address_family,
+        "all" if require_all else "at least one",
+        router.vtysh_cmd("show bgp summary json"),
+        router.run("ip -brief link show"),
+    )
+
+
+def test_skip_evpn_imported_ebgp_runtime_toggle_and_withdrawal(tgen_and_ip_version):
+    """Verify eBGP runtime toggling and Type-5 withdrawal cleanup."""
+
+    tgen, ip_version = tgen_and_ip_version
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    tor21 = tgen.gears["tor-21"]
+    tor22 = tgen.gears["tor-22"]
+    address_family = ip_version
+    if address_family == "ipv4":
+        prefix = "203.0.250.0/24"
+        route_command = "ip route {0} blackhole".format(prefix)
+    else:
+        prefix = "2001:db8:250:21::/64"
+        route_command = "ipv6 route {0} blackhole".format(prefix)
+    address = prefix.split("/", 1)[0]
+
+    try:
+        _set_ebgp_skip(tor21, 650030, address_family, False)
+        _set_ebgp_skip(tor22, 650031, address_family, False)
+        tor21.vtysh_multicmd(
+            "configure terminal\nvrf vrf1\n{0}\nexit\n".format(route_command)
+        )
+
+        def _origin_present():
+            return address in tor21.vtysh_cmd(
+                "show bgp l2vpn evpn route self-originate"
+            )
+
+        _, result = topotest.run_and_expect(_origin_present, True, count=60, wait=1)
+        assert (
+            result
+        ), "tor-21 vrf1 {0}: expected local Type-5 present, actual absent\n{1}".format(
+            prefix, tor21.vtysh_cmd("show bgp l2vpn evpn route self-originate")
+        )
+
+        _set_ebgp_skip(tor21, 650030, address_family, True)
+        _set_ebgp_skip(tor22, 650031, address_family, True)
+        marker = "advertise {0} unicast skip-evpn-imported".format(address_family)
+        for router in (tor21, tor22):
+            running = router.vtysh_cmd("show running-config bgpd")
+            assert (
+                marker in running
+            ), "{0} vrf1: expected {1} in running configuration\n{2}".format(
+                router.name, marker, running
+            )
+
+        tor21.vtysh_multicmd(
+            "configure terminal\nvrf vrf1\nno {0}\nexit\n".format(route_command)
+        )
+
+        def _origin_withdrawn():
+            return address not in tor21.vtysh_cmd(
+                "show bgp l2vpn evpn route self-originate"
+            )
+
+        _, result = topotest.run_and_expect(_origin_withdrawn, True, count=60, wait=1)
+        assert (
+            result
+        ), "tor-21 vrf1 {0}: expected local Type-5 absent, actual present\n{1}".format(
+            prefix, tor21.vtysh_cmd("show bgp l2vpn evpn route self-originate")
+        )
+    finally:
+        tor21.vtysh_multicmd(
+            "configure terminal\nvrf vrf1\nno {0}\nexit\n".format(route_command)
+        )
+        _set_ebgp_skip(tor21, 650030, address_family, False)
+        _set_ebgp_skip(tor22, 650031, address_family, False)
+
+
+def test_skip_evpn_imported_ebgp_clear_and_uplink_failover(tgen_and_ip_version):
+    """Verify export and skip state across eBGP failover and clear."""
+
+    tgen, ip_version = tgen_and_ip_version
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    tor21 = tgen.gears["tor-21"]
+    tor22 = tgen.gears["tor-22"]
+    address_family = ip_version
+    if address_family == "ipv4":
+        expected_routes = {
+            "tor-21": "203.0.113.0/24",
+            "tor-22": "203.0.117.0/24",
+        }
+    else:
+        expected_routes = {
+            "tor-21": "2001:db8:72:21::/64",
+            "tor-22": "2001:db8:72:22::/64",
+        }
+
+    def check_config_and_local_exports():
+        marker = "advertise {0} unicast skip-evpn-imported".format(address_family)
+        for name, route in expected_routes.items():
+            router = tgen.gears[name]
+            running = router.vtysh_cmd("show running-config bgpd")
+            assert (
+                marker in running
+            ), "{0} vrf1: expected {1} in running configuration\n{2}".format(
+                name, marker, running
+            )
+
+            def local_export_present(router=router, route=route):
+                return route.split("/", 1)[0] in router.vtysh_cmd(
+                    "show bgp l2vpn evpn route self-originate"
+                )
+
+            _, result = topotest.run_and_expect(
+                local_export_present, True, count=60, wait=1
+            )
+            assert result, (
+                "{0} vrf1 {1}: expected local Type-5 present, actual absent\n{2}"
+                "\nBGP summary:\n{3}\nLink state:\n{4}".format(
+                    name,
+                    route,
+                    router.vtysh_cmd("show bgp l2vpn evpn route self-originate"),
+                    router.vtysh_cmd("show bgp summary json"),
+                    router.run("ip -brief link show"),
+                )
+            )
+
+    try:
+        _set_ebgp_skip(tor21, 650030, address_family, True)
+        _set_ebgp_skip(tor22, 650031, address_family, True)
+        _wait_ebgp_established(tor21, address_family)
+        _wait_ebgp_established(tor22, address_family)
+        check_config_and_local_exports()
+
+        tor21.run("ip link set dev swp1 down")
+        _wait_ebgp_established(tor21, address_family, require_all=False)
+        check_config_and_local_exports()
+
+        tor21.vtysh_cmd("clear bgp *")
+        _wait_ebgp_established(tor21, address_family, require_all=False)
+        check_config_and_local_exports()
+
+        tor21.run("ip link set dev swp1 up")
+        _wait_ebgp_established(tor21, address_family)
+        _wait_ebgp_established(tor22, address_family)
+        check_config_and_local_exports()
+    finally:
+        tor21.run("ip link set dev swp1 up 2>/dev/null || true")
+        _set_ebgp_skip(tor21, 650030, address_family, False)
+        _set_ebgp_skip(tor22, 650031, address_family, False)
+
+
 def test_bgp_summary_neighbor_state(tgen_and_ip_version):
     """
     Verify BGP neighbor states are Established based on underlay IP version
@@ -2321,9 +2578,9 @@ def test_l3vni_rmac_change(tgen_and_ip_version):
 
     logger.info(f"Changing vlan4001 MAC from {original_mac} to {new_mac}")
 
-    tor21.run(f"ip link set dev vlan4001 down")
+    shutdown_bringup_interface_in_kernel(tor21.tgen, tor21.name, "vlan4001", False)
     tor21.run(f"ip link set dev vlan4001 address {new_mac}")
-    tor21.run(f"ip link set dev vlan4001 up")
+    shutdown_bringup_interface_in_kernel(tor21.tgen, tor21.name, "vlan4001", True)
 
     # Step 3: Verify RMAC update and check for duplicates
     logger.info("Step 3: Verifying RMAC update (checking for duplicates)")
@@ -2385,9 +2642,9 @@ def test_l3vni_rmac_change(tgen_and_ip_version):
     logger.info("Step 4: Restoring original MAC on tor-21")
 
     if original_mac:
-        tor21.run(f"ip link set dev vlan4001 down")
+        shutdown_bringup_interface_in_kernel(tor21.tgen, tor21.name, "vlan4001", False)
         tor21.run(f"ip link set dev vlan4001 address {original_mac}")
-        tor21.run(f"ip link set dev vlan4001 up")
+        shutdown_bringup_interface_in_kernel(tor21.tgen, tor21.name, "vlan4001", True)
 
     def check_rmac_restored(router, vni, vtep_ip):
         """Check that RMAC exists for the VTEP after restoration"""
@@ -2654,8 +2911,8 @@ def test_evpn_vtep_on_uplink_flap(tgen_and_ip_version):
         logger.info(
             "tor-21: bringing uplinks swp1 and swp2 down ({})".format(ip_version)
         )
-        router.run("ip link set dev swp1 down")
-        router.run("ip link set dev swp2 down")
+        shutdown_bringup_interface_in_kernel(router.tgen, router.name, "swp1", False)
+        shutdown_bringup_interface_in_kernel(router.tgen, router.name, "swp2", False)
 
         test_func = partial(
             evpn_verify_no_remote_vtep_in_l3vni,
@@ -2667,8 +2924,8 @@ def test_evpn_vtep_on_uplink_flap(tgen_and_ip_version):
         logger.info("tor-21: no stale VTEP entries after uplinks down")
 
         logger.info("tor-21: bringing uplinks swp1 and swp2 up")
-        router.run("ip link set dev swp1 up")
-        router.run("ip link set dev swp2 up")
+        shutdown_bringup_interface_in_kernel(router.tgen, router.name, "swp1", True)
+        shutdown_bringup_interface_in_kernel(router.tgen, router.name, "swp2", True)
 
         test_func = partial(
             evpn_verify_l3vni_nexthops,
@@ -2682,8 +2939,8 @@ def test_evpn_vtep_on_uplink_flap(tgen_and_ip_version):
         ), f"tor-21: remote VTEPs not restored after uplink up: {result}"
         logger.info("tor-21: remote VTEPs restored after uplinks up")
     finally:
-        router.run("ip link set dev swp1 up 2>/dev/null || true")
-        router.run("ip link set dev swp2 up 2>/dev/null || true")
+        shutdown_bringup_interface_in_kernel(router.tgen, router.name, "swp1", True)
+        shutdown_bringup_interface_in_kernel(router.tgen, router.name, "swp2", True)
 
 
 def test_host_to_host_ping(tgen_and_ip_version):
@@ -3737,13 +3994,18 @@ def test_import_vrf_preserves_dvni_label(tgen_and_ip_version):
         )
 
         tor21.run(f"ip link add {tenant_vrf} type vrf table 1900")
-        tor21.run(f"ip link set dev {tenant_vrf} up")
+        shutdown_bringup_interface_in_kernel(tor21.tgen, tor21.name, tenant_vrf, True)
         tor21.run(
             "ip link add link br_default name vlan%u type vlan id %u protocol 802.1q"
             % (tenant_vlan, tenant_vlan)
         )
         tor21.run(f"ip link set dev vlan{tenant_vlan} master {tenant_vrf}")
-        tor21.run(f"ip link set dev vlan{tenant_vlan} up")
+        shutdown_bringup_interface_in_kernel(
+            tor21.tgen,
+            tor21.name,
+            f"vlan{tenant_vlan}",
+            True,
+        )
 
         tor21.vtysh_multicmd(
             f"""

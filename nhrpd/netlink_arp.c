@@ -184,17 +184,19 @@ int nhrp_neighbor_operation(ZAPI_CALLBACK_ARGS)
 	       : (cmd == ZEBRA_NEIGH_ADDED) ? "new-neigh"
 					    : "del-neigh",
 	       &addr, ifp->name, &lladdr, ndm_state, c->used, c->cur.type);
-	if (cmd == ZEBRA_NEIGH_GET && ndm_state != ZEBRA_NEIGH_STATE_INCOMPLETE) {
-		if (c->cur.type >= NHRP_CACHE_CACHED) {
+	if (cmd == ZEBRA_NEIGH_GET) {
+		/* the local entries have no peer and nothing to bind */
+		if (c->cur.type >= NHRP_CACHE_CACHED && c->cur.peer) {
 			nhrp_cache_set_used(c, 1);
-			debugf(NHRP_DEBUG_KERNEL,
-			       "Netlink: update binding for %pSU dev %s from c %pSU peer.vc.nbma %pSU to lladdr %pSU",
-			       &addr, ifp->name, &c->cur.remote_nbma_natoa,
-			       &c->cur.peer->vc->remote.nbma, &lladdr);
 
 			if (lladdr.sa.sa_family == AF_UNSPEC)
 				/* nothing from zebra, so use nhrp peer */
 				lladdr = c->cur.peer->vc->remote.nbma;
+
+			debugf(NHRP_DEBUG_KERNEL,
+			       "Netlink: update binding for %pSU dev %s from c %pSU peer.vc.nbma %pSU to lladdr %pSU",
+			       &addr, ifp->name, &c->cur.remote_nbma_natoa,
+			       &c->cur.peer->vc->remote.nbma, &lladdr);
 
 			/* In case of shortcuts, nbma is given by lladdr, not
 			 * vc->remote.nbma.
@@ -204,7 +206,11 @@ int nhrp_neighbor_operation(ZAPI_CALLBACK_ARGS)
 	} else {
 		state = (cmd == ZEBRA_NEIGH_ADDED) ? ndm_state
 						   : ZEBRA_NEIGH_STATE_FAILED;
-		nhrp_cache_set_used(c, state == ZEBRA_NEIGH_STATE_REACHABLE);
+		/* The kernel delays and probes a neighbor only when it is
+		 * used, these states do not mean that the entry is unused.
+		 */
+		if (state != ZEBRA_NEIGH_STATE_DELAY && state != ZEBRA_NEIGH_STATE_PROBE)
+			nhrp_cache_set_used(c, state == ZEBRA_NEIGH_STATE_REACHABLE);
 	}
 	return 0;
 }

@@ -24,6 +24,7 @@ import sys
 import time
 
 from lib.topogen import Topogen
+from lib.common_config import shutdown_bringup_interface_in_kernel
 
 
 pytestmark = [
@@ -228,8 +229,18 @@ def test_interface_down(tgen, ip_version):
     before = time.monotonic()
 
     # Take the links between r1 and r2 down
-    routers["r1"].cmd_raises("ip link set down dev eth1")
-    routers["r1"].cmd_raises("ip link set down dev eth2")
+    shutdown_bringup_interface_in_kernel(
+        routers['r1'].tgen,
+        routers['r1'].name,
+        "eth1",
+        False,
+    )
+    shutdown_bringup_interface_in_kernel(
+        routers['r1'].tgen,
+        routers['r1'].name,
+        "eth2",
+        False,
+    )
 
     # Wait for OSPF to converge
     wait_for_ospf(routers["r1"], ip_version=ip_version, neighbors=1)
@@ -274,15 +285,35 @@ def test_interface_flap(tgen, ip_version):
     before = time.monotonic()
 
     # Take the links between r1 and r2 down
-    routers["r1"].cmd_raises("ip link set down dev eth1")
-    routers["r2"].cmd_raises("ip link set down dev eth2")
+    shutdown_bringup_interface_in_kernel(
+        routers['r1'].tgen,
+        routers['r1'].name,
+        "eth1",
+        False,
+    )
+    shutdown_bringup_interface_in_kernel(
+        routers['r2'].tgen,
+        routers['r2'].name,
+        "eth2",
+        False,
+    )
 
     # Wait for OSPF to converge
     wait_for_ospf(routers["r1"], ip_version=ip_version, neighbors=1)
 
     # Take the links between r1 and r2 up
-    routers["r1"].cmd_raises("ip link set up dev eth1")
-    routers["r2"].cmd_raises("ip link set up dev eth2")
+    shutdown_bringup_interface_in_kernel(
+        routers['r1'].tgen,
+        routers['r1'].name,
+        "eth1",
+        True,
+    )
+    shutdown_bringup_interface_in_kernel(
+        routers['r2'].tgen,
+        routers['r2'].name,
+        "eth2",
+        True,
+    )
 
     # Wait for OSPF to converge
     wait_for_ospf(routers["r1"], ip_version=ip_version, neighbors=3)

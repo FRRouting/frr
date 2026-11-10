@@ -2638,6 +2638,10 @@ void bfd_vrf_toggle_echo(struct bfd_vrf_global *bfd_vrf)
 		.vrf = bfd_vrf->vrf,
 	};
 
+	/* As bfd_vrf_start_sockets: the data plane sends and receives echo. */
+	if (bglobal.bg_use_dplane)
+		return;
+
 	/* Check for peers using echo */
 	hash_walk(bfd_id_hash, __bfd_session_has_echo, &has_echo);
 
@@ -2901,7 +2905,7 @@ unsigned long bfd_get_session_count(void)
 	return bfd_key_hash->count;
 }
 
-struct sbfd_reflector *sbfd_reflector_new(const uint32_t discr, struct in6_addr *sip)
+void sbfd_reflector_new(const uint32_t discr, struct in6_addr *sip)
 {
 	struct sbfd_reflector *sr;
 	struct vrf *vrf;
@@ -2909,7 +2913,7 @@ struct sbfd_reflector *sbfd_reflector_new(const uint32_t discr, struct in6_addr 
 
 	sr = sbfd_discr_lookup(discr);
 	if (sr)
-		return sr;
+		return;
 
 	sr = XCALLOC(MTYPE_SBFD_REFLECTOR, sizeof(*sr));
 	sr->discr = discr;
@@ -2927,8 +2931,6 @@ struct sbfd_reflector *sbfd_reflector_new(const uint32_t discr, struct in6_addr 
 			bvrf->bg_reflector_count++;
 		}
 	}
-
-	return sr;
 }
 
 void sbfd_reflector_free(const uint32_t discr)

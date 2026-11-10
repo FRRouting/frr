@@ -99,6 +99,15 @@ struct tlv_header {
 #define TLV_LEN(tlvh)	tlvh.header.length
 #define TLV_HDR(tlvh)	tlvh.header
 
+/*
+ * Whether a TLV, header and (padded) body, lies within the 'len' bytes
+ * that start at it: a received TLV must pass this before its body is read.
+ */
+static inline bool tlv_fits(const struct tlv_header *tlvh, uint32_t len)
+{
+	return len >= TLV_HDR_SIZE && TLV_SIZE(tlvh) <= len;
+}
+
 /* Following declaration concerns the Opaque LSA management */
 enum lsa_opcode { REORIGINATE_THIS_LSA, REFRESH_THIS_LSA, FLUSH_THIS_LSA };
 

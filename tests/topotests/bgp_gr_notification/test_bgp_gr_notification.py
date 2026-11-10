@@ -51,7 +51,7 @@ sys.path.append(os.path.join(CWD, "../"))
 # pylint: disable=C0413
 from lib import topotest
 from lib.topogen import Topogen, TopoRouter, get_topogen
-from lib.common_config import step
+from lib.common_config import step, shutdown_bringup_interface_in_kernel
 
 pytestmark = [pytest.mark.bgpd]
 
@@ -108,10 +108,10 @@ def test_bgp_hold_timer_expired_gr():
         return topotest.json_cmp(output, expected)
 
     def _disable_link_r1_r2():
-        r1.cmd_raises("ip link set down dev r1-eth0")
+        shutdown_bringup_interface_in_kernel(r1.tgen, r1.name, "r1-eth0", False)
 
     def _enable_link_r1_r2():
-        r1.cmd_raises("ip link set up dev r1-eth0")
+        shutdown_bringup_interface_in_kernel(r1.tgen, r1.name, "r1-eth0", True)
 
     def _bgp_check_hold_timer_expire_reason():
         output = json.loads(r2.vtysh_cmd("show ip bgp neighbor 192.168.255.1 json"))

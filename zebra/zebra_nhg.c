@@ -2005,17 +2005,35 @@ void zebra_nhg_decrement_ref(struct nhg_hash_entry *nhe)
 
 void zebra_nhg_increment_ref(struct nhg_hash_entry *nhe)
 {
+	/*
+	 * A KEEP_AROUND reference already retains the NHE and its dependencies.
+	 * Reusing that reference must not increment the dependencies again.
+	 */
+	if (event_is_scheduled(nhe->timer)) {
+		if (IS_ZEBRA_DEBUG_NHG_DETAIL)
+			zlog_debug("%s: nhe %p (%pNG) %d => %d (cancel keep-around)", __func__,
+				   nhe, nhe, nhe->refcnt, nhe->refcnt);
+
+		event_cancel(&nhe->timer);
+		UNSET_FLAG(nhe->flags, NEXTHOP_GROUP_KEEP_AROUND);
+		/*
+		 * This group is being resurrected from KEEP_AROUND.
+		 * zebra_nhg_decrement_ref() returned early when it parked the
+		 * group, so it never propagated a decrement to the members in
+		 * nhg_depends; they still hold the reference taken by this
+		 * group.  Incrementing them again here would leak one reference
+		 * per member on every keep_around -> resurrect cycle, leaving
+		 * those members installed forever.  Return early to stay
+		 * symmetric with zebra_nhg_decrement_ref().
+		 */
+		return;
+	}
+
 	if (IS_ZEBRA_DEBUG_NHG_DETAIL)
-		zlog_debug("%s: nhe %p (%pNG) %d => %d", __func__, nhe, nhe,
-			   nhe->refcnt, nhe->refcnt + 1);
+		zlog_debug("%s: nhe %p (%pNG) %d => %d", __func__, nhe, nhe, nhe->refcnt,
+			   nhe->refcnt + 1);
 
 	nhe->refcnt++;
-
-	if (event_is_scheduled(nhe->timer)) {
-		event_cancel(&nhe->timer);
-		nhe->refcnt--;
-		UNSET_FLAG(nhe->flags, NEXTHOP_GROUP_KEEP_AROUND);
-	}
 
 	if (!zebra_nhg_depends_is_empty(nhe))
 		nhg_connected_tree_increment_ref(&nhe->nhg_depends);
@@ -2536,6 +2554,18 @@ static int nexthop_active(struct nexthop *nexthop, struct nhg_hash_entry *nhe,
 		break;
 	case NEXTHOP_TYPE_IPV6:
 		afi = AFI_IP6;
+
+		/*
+		 * A link-local address is only meaningful on a given link;
+		 * every interface owns a connected fe80::/64, so resolving
+		 * it via the RIB would pick an arbitrary interface.
+		 */
+		if (IN6_IS_ADDR_LINKLOCAL(&nexthop->gate.ipv6)) {
+			if (IS_ZEBRA_DEBUG_RIB_DETAILED)
+				zlog_debug("%s: link-local nexthop %pI6 has no interface, not resolving",
+					   __func__, &nexthop->gate.ipv6);
+			return 0;
+		}
 		break;
 
 	case NEXTHOP_TYPE_BLACKHOLE:
@@ -4352,6 +4382,14 @@ void zebra_interface_nhg_reinstall(struct interface *ifp)
 		 */
 		if (CHECK_FLAG(rb_node_dep->nhe->flags, NEXTHOP_GROUP_INITIAL_DELAY_INSTALL))
 			continue;
+
+		/*
+		 * Skip NHGs whose nexthop belongs to a different VRF than the
+		 * interface's current VRF.
+		 */
+		if (rb_node_dep->nhe->nhg.nexthop->vrf_id != ifp->vrf->vrf_id)
+			continue;
+
 		/*
 		 * The nexthop associated with this was set as !ACTIVE
 		 * so we need to turn it back to active when we get to

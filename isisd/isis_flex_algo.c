@@ -40,25 +40,43 @@
 #ifndef FABRICD
 DEFINE_MTYPE_STATIC(ISISD, FLEX_ALGO, "ISIS Flex Algo");
 
+/* Create the SPF trees of the area's levels that the algorithm lacks. */
+static void isis_flex_algo_spftrees_init(struct isis_area *area, struct isis_flex_algo_data *data,
+					 uint8_t algorithm)
+{
+	for (int tree = SPFTREE_IPV4; tree < SPFTREE_COUNT; tree++) {
+		for (int level = ISIS_LEVEL1; level <= ISIS_LEVEL2; level++) {
+			if (!(area->is_type & level) || data->spftree[tree][level - 1])
+				continue;
+			data->spftree[tree][level - 1] =
+				isis_spftree_new(area, &area->lspdb[level - 1], area->isis->sysid,
+						 level, tree, SPF_TYPE_FORWARD, 0, algorithm);
+		}
+	}
+}
+
 void *isis_flex_algo_data_alloc(void *voidarg)
 {
 	struct isis_flex_algo_alloc_arg *arg = voidarg;
 	struct isis_flex_algo_data *data;
 
 	data = XCALLOC(MTYPE_FLEX_ALGO, sizeof(struct isis_flex_algo_data));
-
-	for (int tree = SPFTREE_IPV4; tree < SPFTREE_COUNT; tree++) {
-		for (int level = ISIS_LEVEL1; level <= ISIS_LEVEL2; level++) {
-			if (!(arg->area->is_type & level))
-				continue;
-			data->spftree[tree][level - 1] =
-				isis_spftree_new(arg->area, &arg->area->lspdb[level - 1],
-						 arg->area->isis->sysid, level, tree,
-						 SPF_TYPE_FORWARD, 0, arg->algorithm);
-		}
-	}
+	isis_flex_algo_spftrees_init(arg->area, data, arg->algorithm);
 
 	return data;
+}
+
+/*
+ * Give every flex-algo the SPF trees of the area's levels, which change with
+ * the area's IS type.
+ */
+void isis_flex_algos_spftrees_init(struct isis_area *area)
+{
+	struct flex_algo *fa;
+	struct listnode *node;
+
+	for (ALL_LIST_ELEMENTS_RO(area->flex_algos->flex_algos, node, fa))
+		isis_flex_algo_spftrees_init(area, fa->data, fa->algorithm);
 }
 
 void isis_flex_algo_data_free(void *voiddata)
@@ -89,6 +107,7 @@ isis_flex_algo_definition_cmp(struct isis_router_cap_fad *elected, struct isis_r
  * definition with the highest sysid will be selected.
  * @param algorithm flex-algo algorithm number
  * @param area pointer
+ * @param level IS-IS level, whose LSDB is the flooding scope of the election
  * @param local router capability Flex-Algo Definition (FAD) double pointer.
  *    - fad is NULL: use the local router capability FAD from LSDB for the
  *      election.
@@ -99,7 +118,7 @@ isis_flex_algo_definition_cmp(struct isis_router_cap_fad *elected, struct isis_r
  * @return elected flex-algo-definition object if exist, else NULL
  */
 static struct isis_router_cap_fad *_isis_flex_algo_elected(int algorithm,
-							   const struct isis_area *area,
+							   const struct isis_area *area, int level,
 							   struct isis_router_cap_fad **fad)
 {
 	struct flex_algo *flex_ago;
@@ -125,7 +144,7 @@ static struct isis_router_cap_fad *_isis_flex_algo_elected(int algorithm,
 	 * Perform FAD comparison. First, compare the priority, and if they are
 	 * the same, compare the sys-id.
 	 */
-	frr_each (lspdb_const, &area->lspdb[ISIS_LEVEL1 - 1], lsp) {
+	frr_each (lspdb_const, &area->lspdb[level - 1], lsp) {
 		if (!lsp->tlvs || !lsp->tlvs->router_cap)
 			continue;
 
@@ -150,9 +169,10 @@ static struct isis_router_cap_fad *_isis_flex_algo_elected(int algorithm,
 	return elected;
 }
 
-struct isis_router_cap_fad *isis_flex_algo_elected(int algorithm, const struct isis_area *area)
+struct isis_router_cap_fad *isis_flex_algo_elected(int algorithm, const struct isis_area *area,
+						   int level)
 {
-	return _isis_flex_algo_elected(algorithm, area, NULL);
+	return _isis_flex_algo_elected(algorithm, area, level, NULL);
 }
 
 /**
@@ -181,16 +201,17 @@ bool isis_flex_algo_supported(struct flex_algo *fad)
  * supported by the current FRR version
  * @param algorithm flex-algo algorithm number
  * @param area pointer
+ * @param level IS-IS level
  * @param local router capability Flex-Algo Definition (FAD) double pointer.
  * @return elected flex-algo-definition object if exist and supported, else NULL
  */
 static struct isis_router_cap_fad *
-_isis_flex_algo_elected_supported(int algorithm, const struct isis_area *area,
+_isis_flex_algo_elected_supported(int algorithm, const struct isis_area *area, int level,
 				  struct isis_router_cap_fad **fad)
 {
 	struct isis_router_cap_fad *elected_fad;
 
-	elected_fad = _isis_flex_algo_elected(algorithm, area, fad);
+	elected_fad = _isis_flex_algo_elected(algorithm, area, level, fad);
 	if (!elected_fad)
 		return NULL;
 
@@ -200,33 +221,62 @@ _isis_flex_algo_elected_supported(int algorithm, const struct isis_area *area,
 	return NULL;
 }
 
-struct isis_router_cap_fad *isis_flex_algo_elected_supported(int algorithm,
-							     const struct isis_area *area)
+struct isis_router_cap_fad *
+isis_flex_algo_elected_supported(int algorithm, const struct isis_area *area, int level)
 {
-	return _isis_flex_algo_elected_supported(algorithm, area, NULL);
+	return _isis_flex_algo_elected_supported(algorithm, area, level, NULL);
+}
+
+/* Whether our LSP of the level advertises participation in the algorithm. */
+bool isis_flex_algo_state(const struct isis_area *area, int algorithm, int level)
+{
+	struct flex_algo *fa = flex_algo_lookup(area->flex_algos, algorithm);
+	struct isis_flex_algo_data *data;
+
+	if (!fa)
+		return false;
+
+	data = fa->data;
+	return data->state[level - 1];
 }
 
 struct isis_router_cap_fad *
-isis_flex_algo_elected_supported_local_fad(int algorithm, const struct isis_area *area,
+isis_flex_algo_elected_supported_local_fad(int algorithm, const struct isis_area *area, int level,
 					   struct isis_router_cap_fad **fad)
 {
-	return _isis_flex_algo_elected_supported(algorithm, area, fad);
+	return _isis_flex_algo_elected_supported(algorithm, area, level, fad);
+}
+
+/* The SR-Algorithm sub-TLV is stored indexed by algorithm. */
+static bool sr_algorithm_advertised(const struct isis_lsp *lsp, uint8_t algorithm)
+{
+	return lsp->tlvs && lsp->tlvs->router_cap &&
+	       lsp->tlvs->router_cap->algo[algorithm] == algorithm;
 }
 
 /**
  * Check LSP is participating specified SR Algorithm
  *
- * @param lsp        IS-IS lsp
+ * @param lsp        IS-IS lsp, or any of its fragments
  * @param algorithm  SR Algorithm
  * @return           Return true if sr-algorithm tlv includes specified
  *                   algorithm in router capability tlv
  */
 bool sr_algorithm_participated(const struct isis_lsp *lsp, uint8_t algorithm)
 {
-	if (!lsp || !lsp->tlvs || !lsp->tlvs->router_cap)
+	const struct isis_lsp *frag;
+	struct listnode *node;
+
+	/* The router capability is in any fragment of the router's LSP. */
+	if (lsp && LSP_FRAGMENT(lsp->hdr.lsp_id))
+		lsp = lsp->lspu.zero_lsp;
+	if (!lsp)
 		return false;
-	for (int i = 0; i < SR_ALGORITHM_COUNT; i++)
-		if (lsp->tlvs->router_cap->algo[i] == algorithm)
+
+	if (sr_algorithm_advertised(lsp, algorithm))
+		return true;
+	for (ALL_LIST_ELEMENTS_RO(lsp->lspu.frags, node, frag))
+		if (sr_algorithm_advertised(frag, algorithm))
 			return true;
 	return false;
 }
@@ -243,11 +293,16 @@ bool isis_flex_algo_constraint_drop(struct isis_spftree *spftree, struct isis_ls
 	uint32_t link_ext_admin_group_bitmap0;
 	struct admin_group *link_ext_admin_group = NULL;
 
-	fad = isis_flex_algo_elected_supported(spftree->algorithm, spftree->area);
+	fad = isis_flex_algo_elected_supported(spftree->algorithm, spftree->area, spftree->level);
 	if (!fad)
 		return true;
 
-	for (ALL_LIST_ELEMENTS_RO(subtlvs->aslas, node, asla)) {
+	/*
+	 * A link can be advertised without any sub-TLV (RFC 5305 section 3),
+	 * which leaves reach->subtlvs NULL. Like a link without an ASLA, it has
+	 * no admin group, so only include-any and include-all can drop it.
+	 */
+	for (ALL_LIST_ELEMENTS_RO(subtlvs ? subtlvs->aslas : NULL, node, asla)) {
 		if (!CHECK_FLAG(asla->standard_apps, ISIS_SABM_FLAG_X))
 			continue;
 		if (asla->legacy) {

@@ -13,9 +13,8 @@
 #include "bgpd/bgp_debug.h"
 #include "bgpd/bgp_mplsvpn.h"
 #include "bgpd/bgp_srv6.h"
+#include "bgpd/bgp_zebra.h"
 #include "bgpd/bgpd.h"
-
-extern struct zclient *bgp_zclient;
 
 static bool bgp_srv6_unicast_dt46_needs_sid_request(struct bgp *bgp, afi_t afi)
 {
@@ -201,7 +200,7 @@ void bgp_srv6_unicast_sid_withdraw(struct bgp *bgp, afi_t afi)
 	struct srv6_sid_ctx ctx = {};
 	int debug = BGP_DEBUG(zebra, ZEBRA);
 
-	if (bgp->vrf_id != VRF_DEFAULT)
+	if (bgp->inst_type != BGP_INSTANCE_TYPE_DEFAULT)
 		return;
 
 	if (debug)
@@ -233,7 +232,7 @@ void bgp_srv6_unicast_delete(struct bgp *bgp, afi_t afi)
 	struct interface *ifp;
 	struct srv6_sid_ctx ctx = {};
 
-	if (!bgp || bgp->vrf_id != VRF_DEFAULT)
+	if (!bgp || bgp->inst_type != BGP_INSTANCE_TYPE_DEFAULT)
 		return;
 
 	if (!is_srv6_unicast_enabled(bgp, afi))
@@ -304,7 +303,7 @@ void bgp_srv6_unicast_sid_update(struct bgp *bgp, afi_t afi)
 
 void bgp_srv6_unicast_unregister_route(struct bgp_dest *dest)
 {
-	XFREE(MTYPE_BGP_SRV6_L3SERVICE, dest->srv6_unicast);
+	XFREE(MTYPE_BGP_SRV6_SERVICE, dest->srv6_unicast);
 	dest->srv6_unicast = NULL;
 }
 
@@ -377,8 +376,7 @@ void bgp_srv6_unicast_register_route(struct bgp *bgp, afi_t afi, struct bgp_dest
 		bgp_srv6_unicast_unregister_route(dest);
 
 	locator = bgp->srv6_unicast[afi].sid_locator;
-	dest->srv6_unicast = XCALLOC(MTYPE_BGP_SRV6_L3SERVICE,
-				     sizeof(struct bgp_attr_srv6_l3service));
+	dest->srv6_unicast = XCALLOC(MTYPE_BGP_SRV6_SERVICE, sizeof(struct bgp_attr_srv6_service));
 	dest->srv6_unicast->sid_flags = 0x00;
 	dest->srv6_unicast->endpoint_behavior =
 		bgp_srv6_unicast_endpoint_behavior_codepoint(bgp, afi, locator);

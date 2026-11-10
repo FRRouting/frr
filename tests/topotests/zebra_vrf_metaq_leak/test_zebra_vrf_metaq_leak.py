@@ -50,7 +50,11 @@ sys.path.append(os.path.join(CWD, ".."))
 
 # pylint: disable=C0413
 from lib import topotest
-from lib.common_config import step
+from lib.common_config import (
+    create_interface_in_kernel,
+    step,
+    shutdown_bringup_interface_in_kernel,
+)
 from lib.topogen import Topogen, get_topogen
 from lib.topolog import logger
 
@@ -61,6 +65,9 @@ NHOP = "169.254.0.1"
 
 
 def setup_module(mod):
+    if not topotest.platform_has_vrf():
+        pytest.skip("platform does not support VRF")
+
     topodef = {"s1": ("r1",)}
     tgen = Topogen(topodef, mod.__name__)
     tgen.start_topology()
@@ -76,9 +83,9 @@ def teardown_module():
 
 def _add_vrf_netdev(r1):
     r1.run("ip link add {} type vrf table {}".format(VRF, TABLE))
-    r1.run("ip link set {} up".format(VRF))
+    shutdown_bringup_interface_in_kernel(r1.tgen, r1.name, VRF, True)
     r1.run("ip link set dev r1-eth0 master {}".format(VRF))
-    r1.run("ip link set dev r1-eth0 up")
+    shutdown_bringup_interface_in_kernel(r1.tgen, r1.name, "r1-eth0", True)
 
 
 def _add_kernel_routes(r1):
@@ -128,8 +135,7 @@ def test_vrf_disable_metaq_leak():
 
     step("Create VRF RED netdev + kernel routes, confirm they install")
     _add_vrf_netdev(r1)
-    r1.run("ip link add metaqflap type dummy")
-    r1.run("ip link set metaqflap up")
+    create_interface_in_kernel(tgen, "r1", "metaqflap")
     _add_kernel_routes(r1)
 
     test_func = partial(_all_routes_active, r1)
@@ -141,8 +147,8 @@ def test_vrf_disable_metaq_leak():
 
     step("Flap an interface: parks RED's kernel route nodes on the frozen queue")
     for _ in range(3):
-        r1.run("ip link set metaqflap down")
-        r1.run("ip link set metaqflap up")
+        shutdown_bringup_interface_in_kernel(r1.tgen, r1.name, "metaqflap", False)
+        shutdown_bringup_interface_in_kernel(r1.tgen, r1.name, "metaqflap", True)
 
     step("Disable VRF RED (remove netdev) -> meta_queue_free() flushes the queue")
     # NOTE: "VRF disable" here is the zebra lifecycle event zebra_vrf_disable(),

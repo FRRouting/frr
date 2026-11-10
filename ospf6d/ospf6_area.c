@@ -1279,6 +1279,38 @@ DEFUN(show_ipv6_ospf6_simulate_spf_tree_root,
 	return CMD_SUCCESS;
 }
 
+static int ospf6_area_stub_configure(struct vty *vty, struct ospf6 *ospf6,
+				     const char *area_str, bool no_summary)
+{
+	struct ospf6_area *area;
+	uint32_t area_id;
+	int format;
+
+	if (str2area_id(area_str, &area_id, &format)) {
+		vty_out(vty, "Malformed Area-ID: %s\n", area_str);
+		return CMD_WARNING;
+	}
+	if (area_id == OSPF_AREA_BACKBONE) {
+		vty_out(vty, "Backbone area cannot be configured as stub\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+
+	area = ospf6_area_lookup(area_id, ospf6);
+	if (area == NULL)
+		area = ospf6_area_create(area_id, ospf6, format);
+	if (!ospf6_area_stub_set(ospf6, area)) {
+		vty_out(vty,
+			"First deconfigure all virtual link through this area\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+
+	if (no_summary)
+		ospf6_area_no_summary_set(ospf6, area);
+	else
+		ospf6_area_no_summary_unset(ospf6, area);
+	return CMD_SUCCESS;
+}
+
 DEFUN (ospf6_area_stub,
        ospf6_area_stub_cmd,
        "area <A.B.C.D|(0-4294967295)> stub",
@@ -1288,21 +1320,11 @@ DEFUN (ospf6_area_stub,
        "Configure OSPF6 area as stub\n")
 {
 	int idx_ipv4_number = 1;
-	struct ospf6_area *area;
 
 	VTY_DECLVAR_CONTEXT(ospf6, ospf6);
 
-	OSPF6_CMD_AREA_GET(argv[idx_ipv4_number]->arg, area, ospf6);
-
-	if (!ospf6_area_stub_set(ospf6, area)) {
-		vty_out(vty,
-			"First deconfigure all virtual link through this area\n");
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-
-	ospf6_area_no_summary_unset(ospf6, area);
-
-	return CMD_SUCCESS;
+	return ospf6_area_stub_configure(vty, ospf6,
+					argv[idx_ipv4_number]->arg, false);
 }
 
 DEFUN (ospf6_area_stub_no_summary,
@@ -1315,21 +1337,11 @@ DEFUN (ospf6_area_stub_no_summary,
        "Do not inject inter-area routes into stub\n")
 {
 	int idx_ipv4_number = 1;
-	struct ospf6_area *area;
 
 	VTY_DECLVAR_CONTEXT(ospf6, ospf6);
 
-	OSPF6_CMD_AREA_GET(argv[idx_ipv4_number]->arg, area, ospf6);
-
-	if (!ospf6_area_stub_set(ospf6, area)) {
-		vty_out(vty,
-			"First deconfigure all virtual link through this area\n");
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-
-	ospf6_area_no_summary_set(ospf6, area);
-
-	return CMD_SUCCESS;
+	return ospf6_area_stub_configure(vty, ospf6,
+					argv[idx_ipv4_number]->arg, true);
 }
 
 DEFUN (no_ospf6_area_stub,

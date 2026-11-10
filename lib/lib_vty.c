@@ -317,7 +317,7 @@ DEFUN (frr_version,
 }
 
 static struct call_back {
-	time_t readin_time;
+	struct timeval readin_time;
 
 	void (*start_config)(struct vty *vty);
 	void (*end_config)(struct vty *vty);
@@ -327,7 +327,7 @@ static struct call_back {
 DEFUN_NOSH(start_config, start_config_cmd, "XFRR_start_configuration",
 	   "The Beginning of Configuration\n")
 {
-	callback.readin_time = monotime(NULL);
+	monotime(&callback.readin_time);
 
 	vty->pending_allowed = 1;
 
@@ -340,21 +340,16 @@ DEFUN_NOSH(start_config, start_config_cmd, "XFRR_start_configuration",
 DEFUN_NOSH(end_config, end_config_cmd, "XFRR_end_configuration",
 	   "The End of Configuration\n")
 {
-	time_t readin_time;
-	char readin_time_str[MONOTIME_STRLEN];
+	struct timeval readin_time;
 	int ret;
 
-	readin_time = monotime(NULL);
-	readin_time -= callback.readin_time;
-
-	frrtime_to_interval(readin_time, readin_time_str,
-			    sizeof(readin_time_str));
+	monotime_since(&callback.readin_time, &readin_time);
 
 	/* This is also getting cleared in the config node exit */
 	vty->pending_allowed = 0;
 	ret = nb_cli_pending_commit_check(vty);
 
-	zlog_info("Configuration Read in Took: %s", readin_time_str);
+	zlog_info("Configuration Read in Took: %pTVI", &readin_time);
 	zlog_debug("%s: VTY:%p, pending SET-CFG: %u", __func__, vty,
 		   (uint32_t)vty->mgmt_num_pending_setcfg);
 

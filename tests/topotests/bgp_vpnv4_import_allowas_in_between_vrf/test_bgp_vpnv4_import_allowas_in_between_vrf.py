@@ -18,6 +18,7 @@ sys.path.append(os.path.join(CWD, "../"))
 # pylint: disable=C0413
 from lib import topotest
 from lib.topogen import Topogen, get_topogen
+from lib.common_config import shutdown_bringup_interface_in_kernel
 
 pytestmark = [pytest.mark.bgpd]
 
@@ -38,6 +39,9 @@ def build_topo(tgen):
 
 
 def setup_module(mod):
+    if not topotest.platform_has_vrf():
+        pytest.skip("platform does not support VRF")
+
     tgen = Topogen(build_topo, mod.__name__)
     tgen.start_topology()
 
@@ -45,19 +49,19 @@ def setup_module(mod):
     r2 = tgen.gears["r2"]
 
     r1.run("ip link add CUSTOMER-A type vrf table 1001")
-    r1.run("ip link set up dev CUSTOMER-A")
+    shutdown_bringup_interface_in_kernel(r1.tgen, r1.name, "CUSTOMER-A", True)
     r1.run("ip link set r1-eth0 master CUSTOMER-A")
 
     r1.run("ip link add CUSTOMER-B type vrf table 1002")
-    r1.run("ip link set up dev CUSTOMER-B")
+    shutdown_bringup_interface_in_kernel(r1.tgen, r1.name, "CUSTOMER-B", True)
     r1.run("ip link set r1-eth1 master CUSTOMER-B")
 
     r2.run("ip link add CUSTOMER-A type vrf table 1001")
-    r2.run("ip link set up dev CUSTOMER-A")
+    shutdown_bringup_interface_in_kernel(r2.tgen, r2.name, "CUSTOMER-A", True)
     r2.run("ip link set r2-eth0 master CUSTOMER-A")
 
     r2.run("ip link add CUSTOMER-B type vrf table 1002")
-    r2.run("ip link set up dev CUSTOMER-B")
+    shutdown_bringup_interface_in_kernel(r2.tgen, r2.name, "CUSTOMER-B", True)
     r2.run("ip link set r2-eth1 master CUSTOMER-B")
 
     router_list = tgen.routers()

@@ -686,6 +686,12 @@ struct zebra_evpn *zebra_evpn_map_vlan(struct interface *ifp,
 		vni_id = zebra_l2_bridge_if_vni_find(zif, vid);
 		if (vni_id)
 			return zebra_evpn_lookup(vni_id);
+
+		/* Don't need to search in this case. The walk below resolves
+		 * the VNI with zebra_vxlan_if_access_vlan_vni_find(), which
+		 * takes no VLAN id and is only valid for vlan-unaware bridges.
+		 */
+		return NULL;
 	}
 
 	in_param.vid = vid;

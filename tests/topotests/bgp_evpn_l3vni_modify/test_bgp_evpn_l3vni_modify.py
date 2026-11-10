@@ -36,12 +36,19 @@ CWD = os.path.dirname(os.path.realpath(__file__))
 sys.path.append(os.path.join(CWD, "../"))
 
 from lib import topotest
+from lib.common_config import create_address_on_interface
 from lib.topogen import Topogen, get_topogen
 
 pytestmark = [pytest.mark.bgpd, pytest.mark.ospfd]
 
 
 def setup_module(mod):
+    if not topotest.platform_has_vrf():
+        pytest.skip("platform does not support VRF")
+
+    if not topotest.platform_has_evpn():
+        pytest.skip("platform does not support EVPN")
+
     topodef = {
         "s1": ("PE1", "P1"),
         "s2": ("P1", "PE2"),
@@ -54,8 +61,9 @@ def setup_module(mod):
 
     tgen.start_router()
 
-    for pe in ("PE1", "PE2"):
+    for pe, addr in (("PE1", "10.99.99.1/24"), ("PE2", "10.99.99.3/24")):
         tgen.gears[pe].run(f"/bin/bash {CWD}/{pe}/setup.sh")
+        create_address_on_interface(tgen, pe, "vlan60", addr)
 
 
 def teardown_module(mod):

@@ -502,6 +502,107 @@ static void test_info_count(void)
 }
 
 /*
+ * flowspec_node_destroy
+ *
+ * Releases the node's owned FlowSpec payload before destroying the node.
+ */
+static void flowspec_node_destroy(route_table_delegate_t *delegate,
+				  struct route_table *table,
+				  struct route_node *node)
+{
+	prefix_flowspec_ptr_free(&node->p);
+	route_node_destroy(delegate, table, node);
+}
+
+static route_table_delegate_t flowspec_delegate = {
+	.create_node = route_node_create,
+	.destroy_node = flowspec_node_destroy,
+};
+
+/*
+ * test_flowspec_prefix_cmp
+ *
+ * Verifies that reversing FlowSpec address families reverses comparison.
+ */
+static void test_flowspec_prefix_cmp(void)
+{
+	/* Destination 10.0.0.0/8. */
+	uint8_t nlri[] = {1, 8, 10};
+	struct prefix ipv4 = {
+		.family = AF_FLOWSPEC,
+		.u.prefix_flowspec = {
+			.family = AF_INET,
+			.prefixlen = sizeof(nlri),
+			.ptr = (uintptr_t)nlri,
+		},
+	};
+	struct prefix ipv6 = ipv4;
+	int ipv4_ipv6;
+	int ipv6_ipv4;
+
+	ipv6.u.prefix_flowspec.family = AF_INET6;
+	ipv4_ipv6 = prefix_cmp(&ipv4, &ipv6);
+	ipv6_ipv4 = prefix_cmp(&ipv6, &ipv4);
+	assert(ipv4_ipv6 != 0);
+	assert(ipv4_ipv6 == -ipv6_ipv4);
+}
+
+/*
+ * test_flowspec_prefix_match
+ *
+ * Verifies exact NLRI matching and distinct nodes for byte-prefix NLRIs.
+ */
+static void test_flowspec_prefix_match(void)
+{
+	/* Destination 10.0.0.0/8. */
+	uint8_t nlri_short[] = {1, 8, 10};
+	/* Destination 10.0.0.0/8 and IP protocol TCP. */
+	uint8_t nlri_long[] = {1, 8, 10, 3, 0x81, 6};
+	struct prefix p_short = {
+		.family = AF_FLOWSPEC,
+		.u.prefix_flowspec = {
+			.family = AF_INET,
+			.prefixlen = sizeof(nlri_short),
+			.ptr = (uintptr_t)nlri_short,
+		},
+	};
+	struct prefix p_long = p_short;
+	struct route_table *table;
+	struct route_node *rn_short;
+	struct route_node *rn_long;
+	struct route_node *lookup;
+
+	p_long.u.prefix_flowspec.prefixlen = sizeof(nlri_long);
+	p_long.u.prefix_flowspec.ptr = (uintptr_t)nlri_long;
+
+	assert(prefix_match(&p_short, &p_short));
+	assert(!prefix_match(&p_short, &p_long));
+	assert(!prefix_match(&p_long, &p_short));
+
+	table = route_table_init_with_delegate(&flowspec_delegate);
+	rn_short = route_node_get(table, &p_short);
+	rn_short->info = &p_short;
+	rn_long = route_node_get(table, &p_long);
+	assert(rn_long != rn_short);
+	rn_long->info = &p_long;
+
+	lookup = route_node_lookup(table, &p_short);
+	assert(lookup == rn_short);
+	route_unlock_node(lookup);
+	lookup = route_node_lookup(table, &p_long);
+	assert(lookup == rn_long);
+	route_unlock_node(lookup);
+	lookup = route_node_get(table, &p_long);
+	assert(lookup == rn_long);
+	route_unlock_node(lookup);
+
+	assert(route_table_count(table) == 2);
+	route_table_finish(table);
+
+	printf("Verified flowspec byte-prefix NLRIs get distinct nodes\n");
+}
+
+/*
  * run_tests
  */
 static void run_tests(void)
@@ -510,6 +611,8 @@ static void run_tests(void)
 	test_get_next();
 	test_iter_pause();
 	test_info_count();
+	test_flowspec_prefix_cmp();
+	test_flowspec_prefix_match();
 }
 
 /*

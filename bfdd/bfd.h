@@ -22,6 +22,7 @@
 #include "lib/vrf.h"
 #include "lib/keychain.h"
 #include "lib/bfd.h"
+#include "bfdd/bfd_timer.h"
 
 #ifdef BFD_DEBUG
 #define BFDD_JSON_CONV_OPTIONS (JSON_C_TO_STRING_PRETTY)
@@ -945,7 +946,7 @@ int bfd_dplane_update_session_counters(struct bfd_session *bs);
 void bfd_dplane_show_counters(struct vty *vty);
 
 /*sbfd relfector*/
-struct sbfd_reflector *sbfd_reflector_new(const uint32_t discr, struct in6_addr *sip);
+void sbfd_reflector_new(const uint32_t discr, struct in6_addr *sip);
 void sbfd_reflector_free(const uint32_t discr);
 void sbfd_reflector_flush(void);
 

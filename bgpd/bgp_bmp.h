@@ -217,6 +217,8 @@ struct bmp_targets {
 
 	char *acl_name;
 	char *acl6_name;
+	char *sysdescr;
+	char *sysname;
 #define BMP_STAT_DEFAULT_TIMER	60000
 	int stat_msec;
 

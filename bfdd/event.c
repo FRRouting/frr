@@ -25,7 +25,7 @@ void tv_normalize(struct timeval *tv)
 
 void bfd_recvtimer_update(struct bfd_session *bs)
 {
-	struct timeval tv = {.tv_sec = 0, .tv_usec = bs->detect_TO};
+	struct timeval tv = bfd_detection_timeout_tv(bs->detect_TO);
 
 	/* Remove previous schedule if any. */
 	bfd_recvtimer_delete(bs);
@@ -34,8 +34,6 @@ void bfd_recvtimer_update(struct bfd_session *bs)
 	if (CHECK_FLAG(bs->flags, BFD_SESS_FLAG_SHUTDOWN) ||
 	    bs->sock == -1)
 		return;
-
-	tv_normalize(&tv);
 
 	event_add_timer_tv(master, bfd_recvtimer_cb, bs, &tv,
 			   &bs->recvtimer_ev);

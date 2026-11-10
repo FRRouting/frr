@@ -98,6 +98,61 @@ def test_bgp_route_map_prefix_list():
     assert result is None, "More or less prefixes advertised to r1, MUST be 4"
 
 
+def test_prefix_list_created_after_inbound_binding():
+    tgen = get_topogen()
+
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    r1 = tgen.gears["r1"]
+    r2 = tgen.gears["r2"]
+    prefix = "2001:db8:10::1/128"
+
+    def _route_present(router, expected):
+        output = json.loads(
+            router.vtysh_cmd("show bgp ipv6 unicast {} json".format(prefix))
+        )
+        present = bool(output.get("paths"))
+        if present != expected:
+            return "Expected route presence {}, got {}: {}".format(
+                expected, present, output
+            )
+        return None
+
+    def _route_advertised():
+        output = json.loads(
+            r2.vtysh_cmd(
+                "show bgp ipv6 unicast neighbor 2001:db8:1::1 advertised-routes json"
+            )
+        )
+        if prefix not in output.get("advertisedRoutes", {}):
+            return "r2 is not advertising {} to r1: {}".format(prefix, output)
+        return None
+
+    test_func = functools.partial(_route_present, r2, True)
+    _, result = topotest.run_and_expect(test_func, None, count=60, wait=0.5)
+    assert result is None, "Baseline IPv6 route was not originated by r2"
+
+    _, result = topotest.run_and_expect(_route_advertised, None, count=60, wait=0.5)
+    assert result is None, "Baseline IPv6 route was not advertised to r1"
+
+    test_func = functools.partial(_route_present, r1, False)
+    _, result = topotest.run_and_expect(test_func, None, count=30, wait=0.5)
+    assert result is None, "Route should be filtered while test-inbound is undefined"
+
+    r1.vtysh_cmd(
+        """
+        configure terminal
+         ipv6 prefix-list test-inbound seq 10 permit 2001:db8:10::1/128
+        end
+        """
+    )
+
+    test_func = functools.partial(_route_present, r1, True)
+    _, result = topotest.run_and_expect(test_func, None, count=60, wait=0.5)
+    assert result is None, "Route was not re-evaluated after creating test-inbound"
+
+
 if __name__ == "__main__":
     args = ["-s"] + sys.argv[1:]
     sys.exit(pytest.main(args))

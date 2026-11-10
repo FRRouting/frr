@@ -2208,7 +2208,11 @@ static int vtysh_flush(struct vty *vty)
 
 	switch (ret) {
 	case BUFFER_PENDING:
-		vty_event(VTYSH_WRITE, vty);
+		/* Some callers may be holding the scheduling mutex; defer
+		 * for them.
+		 */
+		if (!vty->avoid_sched)
+			vty_event(VTYSH_WRITE, vty);
 		break;
 	case BUFFER_ERROR:
 		flog_err(EC_LIB_SOCKET, "%s: write error to fd %d, closing",
@@ -2974,6 +2978,15 @@ static void vty_event(enum vty_event event, struct vty *vty)
 	case VTYSH_SERV:
 		assert(!"vty_event() called incorrectly");
 	}
+}
+
+/* Defer scheduling tasks, used when the caller will be holding the
+ * scheduling mutex and must avoid deadlock. These callers are inside
+ * the scheduling library, so far.
+ */
+void vty_defer_scheduling(struct vty *vty, bool defer_p)
+{
+	vty->avoid_sched = defer_p;
 }
 
 DEFUN_NOSH (config_who,

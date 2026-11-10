@@ -1,9 +1,12 @@
 {
-  "table":[
-    {
+  "attr": {
+    "entriesCount": 1
+  },
+  "table":{
+    "10.5.5.0/24": {
       "type":"dynamic",
       "prefix":"10.5.5.0/24",
       "via":"172.16.1.5"
     }
-  ]
+  }
 }

@@ -145,6 +145,8 @@ exclude_patterns = [
     "flowspec.rst",
     "snmptrap.rst",
     "wecmp_linkbw.rst",
+    "bgp-linkstate.rst",
+    "unreachability.rst",
 ]
 
 # The reST default role (used for this markup: `text`) to use for all

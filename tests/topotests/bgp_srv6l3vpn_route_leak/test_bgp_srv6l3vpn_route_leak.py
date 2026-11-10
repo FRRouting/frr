@@ -18,6 +18,7 @@ sys.path.append(os.path.join(CWD, "../"))
 from lib import topotest
 from lib.topogen import Topogen, TopoRouter, get_topogen
 from lib.topolog import logger
+from lib.common_config import shutdown_bringup_interface_in_kernel
 
 pytestmark = [pytest.mark.bgpd]
 
@@ -30,6 +31,9 @@ def build_topo(tgen):
 
 
 def setup_module(mod):
+    if not topotest.platform_has_vrf():
+        pytest.skip("platform does not support VRF")
+
     tgen = Topogen(build_topo, mod.__name__)
     tgen.start_topology()
 
@@ -42,9 +46,19 @@ def setup_module(mod):
         )
 
     tgen.gears["pe1"].run("ip link add vrf10 type vrf table 10")
-    tgen.gears["pe1"].run("ip link set vrf10 up")
+    shutdown_bringup_interface_in_kernel(
+        tgen.gears['pe1'].tgen,
+        tgen.gears['pe1'].name,
+        "vrf10",
+        True,
+    )
     tgen.gears["pe1"].run("ip link add vrf20 type vrf table 20")
-    tgen.gears["pe1"].run("ip link set vrf20 up")
+    shutdown_bringup_interface_in_kernel(
+        tgen.gears['pe1'].tgen,
+        tgen.gears['pe1'].name,
+        "vrf20",
+        True,
+    )
     tgen.gears["pe1"].run("ip link set eth0 master vrf10")
 
     tgen.start_router()

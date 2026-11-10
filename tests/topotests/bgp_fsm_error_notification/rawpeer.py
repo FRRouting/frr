@@ -34,7 +34,12 @@ NOTIFICATION = 3
 KEEPALIVE = 4
 ROUTE_REFRESH = 5
 CAPABILITY = 6
+# Pre-standard ROUTE-REFRESH. Never assigned by IANA, and only ever sent to a
+# peer advertising the pre-standard capability 128, deprecated by RFC 8810.
 ROUTE_REFRESH_OLD = 128
+
+HEADER_ERROR = 1
+SUBCODE_BAD_MESSAGE_TYPE = 3
 
 FSM_ERROR = 5
 SUBCODE_OPENSENT = 1
@@ -65,17 +70,28 @@ class Case:
 
     The expected answer follows from these two alone: an FSM Error whose
     subcode names the state and whose single Data octet is the message type.
+    A message type the router does not know at all is instead refused with
+    a Message Header Error, Bad Message Type, whose Data is again the type.
     """
 
-    def __init__(self, name, state, kind, body=b"", spec="RFC 6608 section 4"):
+    def __init__(
+        self, name, state, kind, body=b"", spec="RFC 6608 section 4", known=True
+    ):
         self.name = name
         self.state = state
         self.kind = kind
         self.body = body
         self.spec = spec
+        self.known = known
 
     @property
     def expected(self):
+        if not self.known:
+            return {
+                "code": HEADER_ERROR,
+                "subcode": SUBCODE_BAD_MESSAGE_TYPE,
+                "data": "%02x" % self.kind,
+            }
         subcode = SUBCODE_OPENSENT if self.state == OPENSENT else SUBCODE_OPENCONFIRM
         return {"code": FSM_ERROR, "subcode": subcode, "data": "%02x" % self.kind}
 
@@ -93,17 +109,21 @@ CASES = [
     # Rejected by the receive handler before the FSM sees the message.
     Case("opensent-update", OPENSENT, UPDATE, EMPTY_UPDATE),
     Case("opensent-route-refresh", OPENSENT, ROUTE_REFRESH, IPV4_UNICAST_REFRESH),
-    Case(
-        "opensent-route-refresh-old",
-        OPENSENT,
-        ROUTE_REFRESH_OLD,
-        IPV4_UNICAST_REFRESH,
-    ),
     Case("openconfirm-update", OPENCONFIRM, UPDATE, EMPTY_UPDATE),
     Case("openconfirm-route-refresh", OPENCONFIRM, ROUTE_REFRESH, IPV4_UNICAST_REFRESH),
     # Only once both OPENs carried the capability does the router get as far
     # as the state check, which is why there is no OpenSent variant.
     Case("openconfirm-capability", OPENCONFIRM, CAPABILITY, DYNAMIC_CAPABILITY),
+    # Rejected by the header check before any state is looked at: the
+    # pre-standard ROUTE-REFRESH type is no longer accepted.
+    Case(
+        "opensent-route-refresh-old",
+        OPENSENT,
+        ROUTE_REFRESH_OLD,
+        IPV4_UNICAST_REFRESH,
+        spec="RFC 4271 section 6.1",
+        known=False,
+    ),
 ]
 
 

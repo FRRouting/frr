@@ -56,7 +56,7 @@ static struct stream *refresh_begin(uint8_t when, size_t orf_len)
 {
 	struct stream *s = stream_new(BGP_STANDARD_MESSAGE_MAX_PACKET_SIZE);
 
-	bgp_packet_set_marker(s, BGP_MSG_ROUTE_REFRESH_NEW);
+	bgp_packet_set_marker(s, BGP_MSG_ROUTE_REFRESH);
 	stream_putw(s, IANA_AFI_IPV4);
 	stream_putc(s, 0);
 	stream_putc(s, IANA_SAFI_UNICAST);

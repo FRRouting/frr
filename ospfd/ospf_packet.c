@@ -1357,8 +1357,11 @@ static void ospf_hello(struct ip *iph, struct ospf_header *ospfh,
 	/* get neighbour struct */
 	nbr = ospf_nbr_get(oi, ospfh, iph, &p);
 
-	/* neighbour must be valid, ospf_nbr_get creates if none existed */
-	assert(nbr);
+	/* ospf_nbr_get returns NULL when it tore the neighbor down after
+	 * a router ID change; the Hello is then dropped.
+	 */
+	if (!nbr)
+		return;
 
 	old_state = nbr->state;
 
@@ -3014,6 +3017,12 @@ static unsigned ospf_router_lsa_links_examin(struct router_lsa_link *link,
 		link = (struct router_lsa_link *)((uint8_t *)link + thislinklen);
 		linkbytes -= thislinklen;
 		counted_links++;
+	}
+	if (linkbytes) {
+		if (IS_DEBUG_OSPF_PACKET(0, RECV))
+			zlog_debug("%s: %u bytes after link block #%u", __func__,
+				   linkbytes, counted_links);
+		return MSG_NG;
 	}
 	if (counted_links != num_links) {
 		if (IS_DEBUG_OSPF_PACKET(0, RECV))

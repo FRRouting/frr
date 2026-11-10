@@ -1414,13 +1414,51 @@ static bool update_subgroup_ready_for_merge(struct update_subgroup *subgrp)
 }
 
 /*
+ * When an UPDATE is received, bgp_update() stores the new attributes in
+ * the path right away and only queues the prefix for best path.
+ * dest->version changes later, when best path runs for the prefix. In
+ * between, a subgroup that walks the table, for example one created when a
+ * soft clear out splits a peer off, reads and sends the new attributes,
+ * while an older subgroup still has the old ones recorded at the same
+ * subgrp->version. If the two merged, the older subgroup's peers would be
+ * covered by an adj-out saying the new attributes were sent, and best path
+ * would never send them. So a subgroup is not mergeable while any prefix
+ * it has sent is queued for best path, or has best path deferred.
+ */
+static bool update_subgroup_waits_for_bestpath(struct update_subgroup *subgrp)
+{
+	struct bgp_adj_out *adj;
+
+	SUBGRP_FOREACH_ADJ (subgrp, adj) {
+		if (CHECK_FLAG(adj->dest->flags,
+			       BGP_NODE_PROCESS_SCHEDULED | BGP_NODE_SELECT_DEFER))
+			return true;
+	}
+
+	return false;
+}
+
+/*
  * update_subgrp_can_merge_into
  *
  * Returns true if the first subgroup can merge into the second
  * subgroup.
+ *
+ * *subgrp_waits remembers whether the first subgroup has a prefix
+ * waiting for best path, so its adj-out is walked at most once per
+ * merge check:
+ *   -1  not walked yet
+ *    0  walked, no prefix waiting
+ *    1  walked, a prefix is waiting, so no subgroup can take it
+ *
+ * For example, subgroup 1 is checked against subgroups 2, 3 and 4, and
+ * the caller starts with -1. Subgroup 2 passes the cheaper checks, so
+ * subgroup 1's adj-out is walked and the answer is stored. If it is 1,
+ * the caller stops without trying subgroups 3 and 4. If it is 0,
+ * subgroups 3 and 4 reuse it, and only their own adj-out is walked.
  */
 static int update_subgroup_can_merge_into(struct update_subgroup *subgrp,
-					  struct update_subgroup *target)
+					  struct update_subgroup *target, int *subgrp_waits)
 {
 
 	if (subgrp == target)
@@ -1440,7 +1478,31 @@ static int update_subgroup_can_merge_into(struct update_subgroup *subgrp,
 	if (subgrp->adj_count != target->adj_count)
 		return 0;
 
-	return update_subgroup_ready_for_merge(target);
+	if (!update_subgroup_ready_for_merge(target))
+		return 0;
+
+	/* Not walked yet */
+	if (*subgrp_waits < 0)
+		*subgrp_waits = update_subgroup_waits_for_bestpath(subgrp);
+
+	/* Walked: 1 if subgrp has a prefix waiting, else check the target */
+	if (*subgrp_waits || update_subgroup_waits_for_bestpath(target)) {
+		if (*subgrp_waits)
+			SET_FLAG(subgrp->flags, SUBGRP_FLAG_MERGE_WAITS_BESTPATH);
+		else
+			SET_FLAG(target->flags, SUBGRP_FLAG_MERGE_WAITS_BESTPATH);
+
+		SUBGRP_INST(subgrp)->update_group_merge_retry = true;
+		if (BGP_DEBUG(update_groups, UPDATE_GROUPS))
+			zlog_debug("u%" PRIu64 ":s%" PRIu64 " not merged into u%" PRIu64
+				   ":s%" PRIu64 ", best path pending",
+				   subgrp->update_group->id, subgrp->id, target->update_group->id,
+				   target->id);
+
+		return 0;
+	}
+
+	return 1;
 }
 
 /*
@@ -1504,6 +1566,7 @@ bool update_subgroup_check_merge(struct update_subgroup *subgrp,
 				 const char *reason)
 {
 	struct update_subgroup *target;
+	int subgrp_waits = -1;
 
 	if (!update_subgroup_ready_for_merge(subgrp))
 		return false;
@@ -1512,8 +1575,12 @@ bool update_subgroup_check_merge(struct update_subgroup *subgrp,
 	 * Look for a subgroup to merge into.
 	 */
 	UPDGRP_FOREACH_SUBGRP (subgrp->update_group, target) {
-		if (update_subgroup_can_merge_into(subgrp, target))
+		if (update_subgroup_can_merge_into(subgrp, target, &subgrp_waits))
 			break;
+
+		/* No subgroup can take this one while it waits for best path */
+		if (subgrp_waits == 1)
+			return false;
 	}
 
 	if (!target)
@@ -1560,6 +1627,38 @@ bool update_subgroup_trigger_merge_check(struct update_subgroup *subgrp,
 	SUBGRP_INCR_STAT(subgrp, merge_checks_triggered);
 
 	return true;
+}
+
+static int update_group_retry_merges_walkcb(struct update_group *updgrp, void *arg)
+{
+	struct update_subgroup *subgrp;
+
+	UPDGRP_FOREACH_SUBGRP (updgrp, subgrp) {
+		if (!CHECK_FLAG(subgrp->flags, SUBGRP_FLAG_MERGE_WAITS_BESTPATH))
+			continue;
+
+		UNSET_FLAG(subgrp->flags, SUBGRP_FLAG_MERGE_WAITS_BESTPATH);
+		update_subgroup_trigger_merge_check(subgrp, 0);
+	}
+
+	return UPDWALK_CONTINUE;
+}
+
+/*
+ * Called when the best-path queue is empty and after each round of deferred
+ * best path, so best path has run for the prefixes that blocked a merge. If
+ * it sent nothing to those subgroups, no packet will trigger another merge
+ * check, so retry the refused merges here. If it did queue an UPDATE, the
+ * subgroup is not ready and the send checks it. A merge refused again, for
+ * example because a prefix is still deferred, is retried on the next call.
+ */
+void update_group_retry_merges(struct bgp *bgp)
+{
+	if (!bgp->update_group_merge_retry)
+		return;
+
+	bgp->update_group_merge_retry = false;
+	update_group_walk(bgp, update_group_retry_merges_walkcb, NULL);
 }
 
 /*
@@ -1786,24 +1885,13 @@ static int updgrp_policy_update_walkcb(struct update_group *updgrp, void *arg)
 			frrtrace(5, frr_bgp, upd_announce_route_on_policy_change, 1, updgrp->id,
 				 subgrp->id, ctx->policy_name, ctx->policy_type);
 
-			if (route_map_lookup_by_name(ctx->policy_name)) {
-				/*
-				 * When there is change in routemap, this flow
-				 * is triggered. the routemap is still present
-				 * in lib, hence its a update flow. The flag
-				 * needs to be unset.
-				 */
-				UNSET_FLAG(subgrp->sflags,
-					   SUBGRP_STATUS_DEFAULT_ORIGINATE);
-				subgroup_default_originate(subgrp, false);
-			} else {
-				/*
-				 * This is a explicit withdraw, since the
-				 * routemap is not present in routemap lib. need
-				 * to pass `true` for withdraw arg.
-				 */
-				subgroup_default_originate(subgrp, true);
-			}
+			/*
+			 * Re-evaluate default-originate regardless of whether
+			 * the route-map is still present.  If it was deleted,
+			 * subgroup_default_originate() detects the missing map
+			 * and withdraws the default route.
+			 */
+			subgroup_default_originate(subgrp);
 		}
 		update_subgroup_set_needs_refresh(subgrp, 0);
 	}
@@ -2208,16 +2296,8 @@ update_group_default_originate_route_map_walkcb(struct update_group *updgrp,
 		afi = SUBGRP_AFI(subgrp);
 		safi = SUBGRP_SAFI(subgrp);
 
-		if (peer->default_rmap[afi][safi].name) {
-			/*
-			 * When there is change in routemap this flow will
-			 * be triggered. We need to unset the Flag to ensure
-			 * the update flow gets triggered.
-			 */
-			UNSET_FLAG(subgrp->sflags,
-				   SUBGRP_STATUS_DEFAULT_ORIGINATE);
-			subgroup_default_originate(subgrp, false);
-		}
+		if (peer->default_rmap[afi][safi].name)
+			subgroup_default_originate(subgrp);
 	}
 
 	return UPDWALK_CONTINUE;
