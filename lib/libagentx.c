@@ -135,7 +135,7 @@ static void agentx_show_text(struct vty *vty, bool module_loaded,
 			status->connected ? "unavailable" : "not connected");
 }
 
-/* NOSH: vtysh installs the operator command and wraps one object per daemon. */
+/* NOSH: vtysh installs the operator command and wraps one object per client. */
 DEFPY_NOSH(show_agentx, show_agentx_cmd,
 	   "show agentx status [json$json]",
 	   SHOW_STR

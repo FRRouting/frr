@@ -275,8 +275,12 @@ Here is the syntax for using AgentX:
 
 .. clicmd:: show agentx status [json]
 
-   Show AgentX status. From vtysh this is one section per daemon that
-   has the command. Each value is read when the command runs.
+   Show AgentX status. vtysh prints one section for each connected
+   client, labeled with the vty socket name without ``.vty``. A normal
+   bgpd is ``bgpd``. A numbered OSPF instance is ``ospfd-1`` rather than
+   ``ospfd``. A client vtysh is not connected to is left out, so when
+   only ``ospfd --instance 1`` is running the output has ``ospfd-1`` and
+   no ``ospfd`` section. Each value is read when the command runs.
 
    ::
 
@@ -325,7 +329,8 @@ Here is the syntax for using AgentX:
    number of bytes not yet acknowledged. Those bytes may already have
    been received by snmpd.
 
-   ``json`` prints the same fields. vtysh wraps them in one object keyed
-   by daemon name. Socket numbers are omitted when they were not read.
+   ``json`` prints the same fields, one object per connected client,
+   with the same labels (``bgpd``, ``ospfd-1``). Socket numbers are
+   omitted when they were not read.
 
 .. include:: snmptrap.rst
