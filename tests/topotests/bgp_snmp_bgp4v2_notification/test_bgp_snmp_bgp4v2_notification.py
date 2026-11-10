@@ -60,6 +60,11 @@ def setup_module(mod):
             os.path.join(CWD, "{}/snmpd.conf".format(rname)),
             "-Le -Ivacm_conf,usmConf,iquery -V -DAgentX",
         )
+        # Numbered instances only. No ospfd.vty, so vtysh's default ospfd
+        # client stays disconnected while ospfd-1.vty and ospfd-2.vty are up.
+        if rname == "r2":
+            router.load_config(TopoRouter.RD_OSPF, instance="1")
+            router.load_config(TopoRouter.RD_OSPF, instance="2")
 
     tgen.start_router()
 
@@ -116,6 +121,28 @@ def test_agentx_show():
     assert "AgentX status for bgpd:" in text
     assert "Pending notifications:" in text
     assert "Dropped notifications:" in text
+
+
+def test_agentx_show_ospf_instances():
+    """Numbered ospfd clients stay visible, each as its own JSON value.
+
+    r2 runs ospfd --instance 1 and --instance 2 and not the default ospfd.
+    The default client's fd stays negative. A show that skips the whole
+    ospfd chain in that case drops both instances. A show that queries the
+    chain in one call prints both objects under one key, which is not JSON.
+    """
+    tgen = get_topogen()
+    r2 = tgen.gears["r2"]
+
+    output = json.loads(r2.vtysh_cmd("show agentx status json"))
+    assert "ospfd" not in output
+    for name in ("ospfd-1", "ospfd-2"):
+        assert output[name]["moduleLoaded"] is False
+
+    text = r2.vtysh_cmd("show agentx status")
+    assert "AgentX status for ospfd-1:" in text
+    assert "AgentX status for ospfd-2:" in text
+    assert "AgentX status for ospfd:" not in text
 
 
 def test_bgp_open_notification_change_configuration():
