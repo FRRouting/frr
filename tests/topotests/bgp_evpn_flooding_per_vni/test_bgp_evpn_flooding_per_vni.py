@@ -220,6 +220,17 @@ def test_bgp_evpn_flooding_per_vni_local():
             step + ", remote VTEPs learnt again",
         )
 
+    def _expect_vni_config(vni, line, step):
+        def _check():
+            output = r1.vtysh_cmd("show running-config bgpd")
+            match = re.search(r"\n  vni %d\n(.*?)\n  exit-vni" % vni, output, re.DOTALL)
+            if match and line in match.group(1).splitlines():
+                return None
+            return "no '%s' under vni %d" % (line.strip(), vni)
+
+        _, result = topotest.run_and_expect(_check, None, count=5, wait=1)
+        assert result is None, "%s: %s" % (step, result)
+
     # The mode of VNI 20 must reach zebra although it was configured before
     # the VNIs came up.
     _expect_flooded_vnis([20], "startup")
@@ -358,6 +369,29 @@ def test_bgp_evpn_flooding_per_vni_local():
         """
     )
     _expect_flooded_vnis([20], "initial configuration")
+
+    # The mode of a VNI is kept in the configuration, even if it is the same
+    # as the one of the BGP instance of the VRF of the VNI (VNI 40 in vrf-red,
+    # which has an L3VNI).
+    _expect_json("show bgp vrf vrf-red vni json", {"l2Vnis": [40]}, "VNI 40 in vrf-red")
+    r1.vtysh_cmd(
+        """
+        configure terminal
+         router bgp 65001
+          address-family l2vpn evpn
+           vni 40
+            flooding head-end-replication
+        """
+    )
+    _expect_vni_config(40, "   flooding head-end-replication", "VNI 40 configuration")
+    r1.vtysh_cmd(
+        """
+        configure terminal
+         router bgp 65001
+          address-family l2vpn evpn
+           no vni 40
+        """
+    )
 
 
 if __name__ == "__main__":
