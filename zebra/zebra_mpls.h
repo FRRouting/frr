@@ -250,11 +250,15 @@ void zebra_mpls_print_fec(struct vty *vty, struct zebra_vrf *zvrf,
  *
  * mpls_zapi_labels_process -> Installs for future processing
  *                             in the meta-q
- * zebra_mpls_labels_process -> called by the meta-q
+ * zebra_mpls_zapi_labels_process -> called by the meta-q
+ *
+ * replace_p is meaningful only when add_p is true. The queued replace
+ * uninstalls the current LSP and then applies the message, in that order,
+ * when the meta-q item runs.
  */
-void mpls_zapi_labels_process(bool add_p, struct zebra_vrf *zvrf,
+void mpls_zapi_labels_process(bool add_p, bool replace_p, struct zebra_vrf *zvrf,
 			      const struct zapi_labels *zl);
-void zebra_mpls_zapi_labels_process(bool add_p, struct zebra_vrf *zvrf,
+void zebra_mpls_zapi_labels_process(bool add_p, bool replace_p, struct zebra_vrf *zvrf,
 				    const struct zapi_labels *zl);
 
 /*
