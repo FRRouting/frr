@@ -821,8 +821,7 @@ struct zebra_neigh *zebra_evpn_proc_sync_neigh_update(
 /*
  * Uninstall remote neighbor from the kernel.
  */
-static int zebra_evpn_neigh_uninstall(struct zebra_evpn *zevpn,
-				      struct zebra_neigh *n)
+int zebra_evpn_neigh_uninstall(struct zebra_evpn *zevpn, struct zebra_neigh *n)
 {
 	struct interface *vlan_if;
 
