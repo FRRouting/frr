@@ -1065,6 +1065,15 @@ struct pcep_object_header *pcep_decode_object(const uint8_t *obj_buf, size_t buf
 				break;
 			}
 
+			/* RFC 5440, section 7.1: unrecognized TLVs are ignored */
+			if (!pcep_tlv_has_decoder(tlv_hdr.type)) {
+				pcep_log(LOG_DEBUG, "%s: Ignoring unknown TLV type [%d]", __func__,
+					 tlv_hdr.type);
+				tlv_index += normalize_pcep_tlv_length(tlv_hdr.encoded_tlv_length +
+								       TLV_HEADER_LENGTH);
+				continue;
+			}
+
 			struct pcep_object_tlv_header *tlv =
 				pcep_decode_tlv(obj_buf + tlv_index);
 			if (tlv == NULL) {

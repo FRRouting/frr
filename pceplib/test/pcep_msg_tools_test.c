@@ -75,6 +75,20 @@ const char *pcep_initiate_vendor_info_hexbyte_strs[] = {
 	"00", "03", "00", "04", "00", "00", "00", "64"
 };
 
+/* The PCEP INITIATE above, with a TLV of type 31 before the SYMBOLIC_PATH_NAME
+ * TLV of the LSP object. pceplib has no decoder for this TLV type. Its 5 octet
+ * value is followed by 3 padding octets.
+ */
+uint16_t pcep_initiate_unknown_tlv_hexbyte_strs_length = 80;
+const char *pcep_initiate_unknown_tlv_hexbyte_strs[] = {
+	"20", "0c", "00", "50", "21", "12", "00", "0c", "00", "00", "00", "00", "00", "00",
+	"00", "01", "20", "10", "00", "20", "00", "00", "00", "09", "00", "1f", "00", "05",
+	"01", "02", "03", "04", "05", "00", "00", "00", "00", "11", "00", "08", "66", "61",
+	"39", "33", "33", "39", "32", "39", "04", "10", "00", "0c", "7f", "00", "00", "01",
+	"28", "28", "28", "28", "07", "10", "00", "14", "01", "08", "0a", "00", "01", "01",
+	"18", "00", "01", "08", "0a", "00", "07", "04", "18", "00"
+};
+
 uint16_t pcep_update_hexbyte_strs_length = 48;
 const char *pcep_update_hexbyte_strs[] = {
 	"20", "0b", "00", "30", "21", "12", "00", "14", "00", "00", "00", "00",
@@ -441,6 +455,50 @@ void test_pcep_msg_read_pcep_initiate_vendor_info(void)
 	CU_ASSERT_EQUAL(vendor_info->enterprise_number, ENTERPRISE_NUMBER_CISCO);
 	CU_ASSERT_EQUAL(vendor_info->enterprise_specific_info, ENTERPRISE_COLOR_CISCO);
 	CU_ASSERT_EQUAL(vendor_info->enterprise_specific_info1, 1);
+
+	pcep_msg_free_message_list(msg_list);
+	close(fd);
+	unlink(filename);
+}
+
+void test_pcep_msg_read_pcep_initiate_unknown_tlv(void)
+{
+	char filename[BASE_TMPFILE_SIZE];
+	int fd = convert_hexstrs_to_binary(filename, pcep_initiate_unknown_tlv_hexbyte_strs,
+					   pcep_initiate_unknown_tlv_hexbyte_strs_length);
+	double_linked_list *msg_list;
+	struct pcep_message *msg;
+	struct pcep_object_header *obj_hdr;
+	struct pcep_object_tlv_symbolic_path_name *sym_path_name;
+
+	if (fd == -1) {
+		CU_ASSERT_TRUE(fd >= 0);
+		return;
+	}
+	msg_list = pcep_msg_read(fd);
+	CU_ASSERT_PTR_NOT_NULL(msg_list);
+	assert(msg_list != NULL);
+	CU_ASSERT_EQUAL(msg_list->num_entries, 1);
+
+	msg = (struct pcep_message *)msg_list->head->data;
+	CU_ASSERT_EQUAL(msg->obj_list->num_entries, 4);
+	CU_ASSERT_EQUAL(msg->msg_header->type, PCEP_TYPE_INITIATE);
+	CU_ASSERT_EQUAL(msg->encoded_message_length, pcep_initiate_unknown_tlv_hexbyte_strs_length);
+
+	obj_hdr = (struct pcep_object_header *)msg->obj_list->head->next_node->data;
+	CU_ASSERT_EQUAL(obj_hdr->object_class, PCEP_OBJ_CLASS_LSP);
+	CU_ASSERT_EQUAL(obj_hdr->encoded_object_length, 32);
+	CU_ASSERT_TRUE(pcep_obj_has_tlv(obj_hdr));
+	CU_ASSERT_EQUAL(obj_hdr->tlv_list->num_entries, 1);
+
+	sym_path_name = (struct pcep_object_tlv_symbolic_path_name *)obj_hdr->tlv_list->head->data;
+	CU_ASSERT_EQUAL(sym_path_name->header.type, PCEP_OBJ_TLV_TYPE_SYMBOLIC_PATH_NAME);
+	CU_ASSERT_EQUAL(sym_path_name->symbolic_path_name_length, 8);
+	CU_ASSERT_EQUAL(strncmp(sym_path_name->symbolic_path_name, "fa933929", 8), 0);
+
+	obj_hdr = (struct pcep_object_header *)msg->obj_list->tail->data;
+	CU_ASSERT_EQUAL(obj_hdr->object_class, PCEP_OBJ_CLASS_ERO);
+	CU_ASSERT_EQUAL(((struct pcep_object_ro *)obj_hdr)->sub_objects->num_entries, 2);
 
 	pcep_msg_free_message_list(msg_list);
 	close(fd);

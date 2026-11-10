@@ -840,6 +840,14 @@ void pcep_decode_tlv_hdr(const uint8_t *tlv_buf,
 	tlv_hdr->encoded_tlv = tlv_buf;
 }
 
+bool pcep_tlv_has_decoder(uint16_t tlv_type)
+{
+	if (tlv_type == PCEP_OBJ_TYPE_CISCO_BSID)
+		return true;
+
+	return tlv_type < MAX_TLV_ENCODER_INDEX && tlv_decoders[tlv_type] != NULL;
+}
+
 struct pcep_object_tlv_header *pcep_decode_tlv(const uint8_t *tlv_buf)
 {
 	initialize_tlv_coders();

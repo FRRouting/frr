@@ -194,6 +194,8 @@ int main(int argc, char **argv)
 		    test_pcep_msg_read_pcep_initiate2);
 	CU_add_test(tools_suite, "test_pcep_msg_read_pcep_initiate_vendor_info",
 		    test_pcep_msg_read_pcep_initiate_vendor_info);
+	CU_add_test(tools_suite, "test_pcep_msg_read_pcep_initiate_unknown_tlv",
+		    test_pcep_msg_read_pcep_initiate_unknown_tlv);
 	CU_add_test(tools_suite, "test_pcep_msg_read_pcep_update",
 		    test_pcep_msg_read_pcep_update);
 	CU_add_test(tools_suite, "test_pcep_msg_read_pcep_open",
