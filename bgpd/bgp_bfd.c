@@ -189,8 +189,11 @@ static void bfd_session_status_update(struct bfd_session_params *bsp,
  * interface of the connected prefix) and otherwise lets the route choose,
  * so do the same: the neighbor interface, else the interface of the
  * connected subnet, else none and the route chooses.  update-source only
- * gives the source address.  This depends only on configuration and
- * connected routes, so it is the same before and after TCP connects.
+ * gives the source address, except for a link-local peer without a
+ * neighbor interface: there it is the only interface BGP has for the
+ * link (bgp_zebra_nexthop_set() requires it) and bfdd needs one too.
+ * This depends only on configuration and connected routes, so it is the
+ * same before and after TCP connects.
  */
 static struct interface *bgp_peer_bfd_egress_ifp(struct peer *p)
 {
@@ -216,7 +219,8 @@ static struct interface *bgp_peer_bfd_egress_ifp(struct peer *p)
 			c = if_lookup_address(&su->sin6.sin6_addr, AF_INET6, vrf_id);
 		if (c)
 			ifp = c->ifp;
-	}
+	} else if (su->sa.sa_family == AF_INET6 && p->update_if)
+		ifp = if_lookup_by_name(p->update_if, vrf_id);
 
 	if (ifp && if_is_loopback(ifp))
 		return NULL;

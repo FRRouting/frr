@@ -18,7 +18,7 @@ bfdd keys sessions on those fields, so the (already Up) session was deleted
 and re-created with a new discriminator: the remote saw BFD go Down and, in
 the field, reset BGP.
 
-Topology (r2/r3 are passive, their BFD sessions are static so their counters
+Topology (r2/r3 are passive except towards fe80::c:1, their BFD sessions are static so their counters
 only reflect what r1 does; link-local addresses are pinned to fe80::<n>:1 on
 r1 and fe80::<n>:2 on r2):
 
@@ -68,6 +68,11 @@ r1 and fe80::<n>:2 on r2):
                                                               .130): BFD egress
                                                               stays r1-eth16,
                                                               not the VRF device
+  r1-eth17 fe80::c:1         ---- r2-eth16 fe80::c:2          link-local
+                                                              neighbor, no
+                                                              interface, update-
+                                                              source r1-eth17;
+                                                              r2 connects
   r1 lo 198.51.100.1 ---(via eth0)--- r2 lo 198.51.100.3      multihop
   r1 lo 2001:db8:ff::1 ---(via eth1)--- r2 lo 2001:db8:ff::3  IPv6 multihop
 """
@@ -97,6 +102,7 @@ LINK_LOCAL = {
         "r1-eth10": "fe80::a:1",
         "r1-eth11.100": "fe80::b:1",
         "r1-eth11.101": "fe80::b:1",
+        "r1-eth17": "fe80::c:1",
     },
     "r2": {
         "r2-eth7": "fe80::7:2",
@@ -105,6 +111,7 @@ LINK_LOCAL = {
         "r2-eth10": "fe80::a:2",
         "r2-eth11.100": "fe80::b:2",
         "r2-eth11.101": "fe80::b:2",
+        "r2-eth16": "fe80::c:2",
     },
 }
 
@@ -122,6 +129,8 @@ RESOLVABLE = {
     "192.0.2.26": ("192.0.2.26", "r1-eth14", "198.51.100.11", ("r2", "198.51.100.11")),
     "192.0.2.30": ("192.0.2.30", "r1-eth15", "192.0.2.129", ("r2", "192.0.2.129")),
     "192.0.2.34": ("192.0.2.34", "r1-eth16", "192.0.2.130", ("r2", "192.0.2.130")),
+    # link-local, no neighbor interface: update-source names the link
+    "fe80::c:2": ("fe80::c:2%r1-eth17", "r1-eth17", "fe80::c:1", ("r2", "fe80::c:1%r2-eth16")),
 }
 # Installed only once TCP is up.
 DEFERRED = {
@@ -175,7 +184,7 @@ def build_topo(tgen):
     switch.add_link(tgen.gears["r1"])
     switch.add_link(tgen.gears["r3"])
 
-    for switchn in (14, 15, 16, 17):
+    for switchn in (14, 15, 16, 17, 18):
         switch = tgen.add_switch("s{}".format(switchn))
         switch.add_link(tgen.gears["r1"])
         switch.add_link(tgen.gears["r2"])
