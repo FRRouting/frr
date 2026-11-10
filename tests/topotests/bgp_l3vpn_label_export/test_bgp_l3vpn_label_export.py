@@ -122,7 +122,7 @@ def check_bgp_vpn_prefix(label, rname="r1", rd=None):
             "paths": [
                 {
                     "valid": True,
-                    "remoteLabel": label,
+                    "remoteLabels": [label],
                     "aspath": {"string": "65002"},
                     "nexthops": [{"ip": "192.0.2.2"}],
                 },
@@ -135,7 +135,7 @@ def check_bgp_vpn_prefix(label, rname="r1", rd=None):
                 "paths": [
                     {
                         "valid": True,
-                        "remoteLabel": label,
+                        "remoteLabels": [label],
                         "nexthops": [{"ip": "0.0.0.0"}],
                     }
                 ],
@@ -388,7 +388,11 @@ def test_vpn_label_export_no_auto():
         tgen.gears["r1"].vtysh_cmd("show bgp vrf vrf1 ipv4 unicast 192.0.3.2/32 json")
     )
 
-    auto_label = output.get("paths")[0].get("remoteLabel", None)
+    auto_label = None
+    auto_list = output.get("paths")[0].get("remoteLabels", None)
+    if auto_list is not None:
+        auto_label = auto_list[0]
+
     assert auto_label is not None, "Failed to fetch prefix label on R1"
 
     tgen.gears["r2"].vtysh_cmd(
@@ -481,7 +485,11 @@ def test_vpn_label_export_manual_from_auto():
         tgen.gears["r1"].vtysh_cmd("show bgp vrf vrf1 ipv4 unicast 192.0.3.2/32 json")
     )
 
-    auto_label = output.get("paths")[0].get("remoteLabel", None)
+    auto_label = None
+    auto_list = output.get("paths")[0].get("remoteLabels", None)
+    if auto_list is not None:
+        auto_label = auto_list[0]
+
     assert auto_label is not None, "Failed to fetch prefix label on R1"
 
     auto_label = auto_label + 1

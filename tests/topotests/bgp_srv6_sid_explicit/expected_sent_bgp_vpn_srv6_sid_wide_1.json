@@ -31,7 +31,7 @@
             "string":"RT:0:10"
           },
           "originatorId":"192.0.2.3",
-          "remoteLabel":3,
+          "remoteLabels": [3],
           "remoteTransposedSid":"2001:db8:3:fff7:fe4b::",
           "remoteSid":"2001:db8:3:fff7:fe4b::",
           "remoteSidStructure":{

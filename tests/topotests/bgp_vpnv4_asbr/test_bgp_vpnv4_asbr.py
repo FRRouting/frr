@@ -193,11 +193,11 @@ def bgp_vpnv4_prefix_check(router, rd, prefix, label, nexthop):
             if dumped_rd != rd:
                 continue
             for path in pathes["paths"]:
-                if "remoteLabel" not in path.keys():
-                    return "{0}, {1}, rd {2}, remoteLabel not present".format(
+                if "remoteLabels" not in path.keys():
+                    return "{0}, {1}, rd {2}, remoteLabels not present".format(
                         router.name, prefix, rd
                     )
-                if str(path["remoteLabel"]) != label:
+                if str(path["remoteLabels"]) != f"[{label}]":
                     continue
 
                 if "nexthops" not in path.keys():
@@ -314,11 +314,12 @@ def check_show_bgp_vpn_ok(router, vpnv4_entries):
         assert dump, assert_msg
         for rd, pathes in dump.items():
             for path in pathes["paths"]:
-                if "remoteLabel" not in path.keys():
+                if "remoteLabels" not in path.keys():
                     assert 0, assert_msg
                 for nh in path["nexthops"]:
                     if "ip" in nh.keys():
-                        return path["remoteLabel"], nh["ip"], rd
+                        labels = path["remoteLabels"]
+                        return labels[0], nh["ip"], rd
         assert 0, assert_msg
 
     def _check_nexthop_available(router, prefix):
@@ -329,8 +330,8 @@ def check_show_bgp_vpn_ok(router, vpnv4_entries):
             )
         for _, pathes in dump.items():
             for path in pathes["paths"]:
-                if "remoteLabel" not in path.keys():
-                    return "{0}, {1}, remoteLabel not present".format(
+                if "remoteLabels" not in path.keys():
+                    return "{0}, {1}, remoteLabels not present".format(
                         router.name, prefix
                     )
                 if "nexthops" not in path.keys():

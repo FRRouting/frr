@@ -31,7 +31,7 @@
           "extendedCommunity":{
             "string":"RT:0:10"
           },
-          "remoteLabel":65536,
+          "remoteLabels": [65536],
           "remoteSid":"2001:db8:1:1::",
           "nexthops":[
             {
@@ -84,7 +84,7 @@
           "extendedCommunity":{
             "string":"RT:0:20"
           },
-          "remoteLabel":131072,
+          "remoteLabels": [131072],
           "remoteSid":"2001:db8:1:1::",
           "nexthops":[
             {

@@ -134,7 +134,7 @@ def _check_show_bgp_mpls_not_selected(router, vrf, ipv4prefix):
     output = json.loads(router.vtysh_cmd(f"show bgp vrf {vrf} ipv4 {ipv4prefix} json"))
     paths = output["paths"]
     for path in paths:
-        if "remoteLabel" in path.keys():
+        if "remoteLabels" in path.keys():
             valid = path.get("valid", False)
     if not valid:
         return True
