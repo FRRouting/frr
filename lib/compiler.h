@@ -40,6 +40,10 @@ extern "C" {
 #  define fallthrough __attribute__((fallthrough));
 #endif
 # define _CONSTRUCTOR(x)  constructor(x)
+/*
+ * libyang 6's ly_config.h defines a no-argument _DEPRECATED.
+ * Callers that include libyang hide this macro first; see yang.h.
+ */
 # define _DEPRECATED(x) deprecated(x)
 # if __has_builtin(assume)
 #  define assume(x) __builtin_assume(x)

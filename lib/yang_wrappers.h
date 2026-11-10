@@ -7,7 +7,11 @@
 #ifndef _FRR_NORTHBOUND_WRAPPERS_H_
 #define _FRR_NORTHBOUND_WRAPPERS_H_
 
+/* libyang's _DEPRECATED clashes with compiler.h; see yang.h. */
+#pragma push_macro("_DEPRECATED")
+#undef _DEPRECATED
 #include <libyang/libyang.h>
+#pragma pop_macro("_DEPRECATED")
 #include "prefix.h"
 
 #ifdef __cplusplus
