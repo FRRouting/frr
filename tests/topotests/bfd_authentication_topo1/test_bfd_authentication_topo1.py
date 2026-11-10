@@ -672,6 +672,74 @@ def test_bfd_authentication_sha1_auth_keychain1_meticulous_up():
     )
 
 
+def test_bfd_authentication_peer_keychain_not_configured_yet():
+    "Test BFD peer keychain not configured yet, profile keychain used"
+    logger.info("Test: BFD-AUTHEN peer keychain not configured yet")
+
+    tgen = get_topogen()
+    if not tgen.gears["rt1"].has_crypto_openssl():
+        pytest.skip("crypto-openssl disabled. skipping SHA1 test")
+
+    output = tgen.gears["rt1"].vtysh_cmd("""
+        configure terminal
+        bfd
+        peer 10.0.1.2 interface eth-rt2
+        authentication key-chain kc2
+        """)
+    assert "Configuration failed" not in output, (
+        "rt1 refuses a peer keychain not configured yet:\n" + output
+    )
+
+    # Verify BFD session stays up with the profile keychain
+    router_compare_json_output(
+        "rt1", "show bfd peers json", "step5/show_bfd_peers_kc1.ref", 20, 1
+    )
+
+
+def test_bfd_authentication_peer_keychain_configured():
+    "Test BFD peer keychain configured after the peer"
+    logger.info("Test: BFD-AUTHEN peer keychain configured after the peer")
+
+    tgen = get_topogen()
+    if not tgen.gears["rt1"].has_crypto_openssl():
+        pytest.skip("crypto-openssl disabled. skipping SHA1 test")
+
+    tgen.gears["rt1"].vtysh_cmd("""
+        configure terminal
+        key chain kc2
+        key 40
+        key-string mysecret123
+        cryptographic-algorithm hmac-sha-1
+        """)
+
+    # Verify BFD session is up with the peer keychain
+    router_compare_json_output(
+        "rt1", "show bfd peers json", "step5/show_bfd_peers_kc2.ref", 20, 1
+    )
+
+
+def test_bfd_authentication_peer_keychain_removed():
+    "Test BFD peer keychain removed, profile keychain used again"
+    logger.info("Test: BFD-AUTHEN peer keychain removed")
+
+    tgen = get_topogen()
+    if not tgen.gears["rt1"].has_crypto_openssl():
+        pytest.skip("crypto-openssl disabled. skipping SHA1 test")
+
+    tgen.gears["rt1"].vtysh_cmd("""
+        configure terminal
+        no key chain kc2
+        """)
+
+    # Verify BFD session is up with the profile keychain
+    router_compare_json_output(
+        "rt1", "show bfd peers json", "step5/show_bfd_peers_kc1.ref", 20, 1
+    )
+
+    if tgen.routers_have_failure():
+        pytest.fail(tgen.errors)
+
+
 def test_memory_leak():
     "Run the memory leak test and report results."
     tgen = get_topogen()
