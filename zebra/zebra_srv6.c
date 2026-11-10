@@ -166,14 +166,25 @@ void delete_zebra_srv6_sid_ctx(void *val)
 	zebra_srv6_sid_ctx_free((struct zebra_srv6_sid_ctx *)val);
 }
 
-struct zebra_srv6_sid_ctx *zebra_srv6_sid_ctx_lookup(const struct srv6_sid_ctx *ctx,
-						     struct zebra_srv6_sid_block *block)
+static struct zebra_srv6_sid_ctx *zebra_srv6_sid_ctx_lookup(const struct srv6_sid_ctx *ctx,
+							   struct zebra_srv6_sid_block *block,
+							   enum srv6_sid_alloc_mode alloc_mode)
 {
 	struct zebra_srv6_sid_ctx *zctx;
+	bool separate_adj_sids = ctx->behavior == ZEBRA_SEG6_LOCAL_ACTION_END_X &&
+				 block->sid_format &&
+				 block->sid_format->type == SRV6_SID_FORMAT_TYPE_USID;
 
-	frr_each (zebra_srv6_sid_ctx_list, &block->sids, zctx)
-		if (memcmp(&zctx->ctx, ctx, sizeof(struct srv6_sid_ctx)) == 0)
-			return zctx;
+	frr_each (zebra_srv6_sid_ctx_list, &block->sids, zctx) {
+		if (memcmp(&zctx->ctx, ctx, sizeof(*ctx)) != 0)
+			continue;
+
+		/* Formatted uA SIDs have separate explicit and dynamic ranges. */
+		if (separate_adj_sids && zctx->sid->alloc_mode != alloc_mode)
+			continue;
+
+		return zctx;
+	}
 
 	return NULL;
 }
@@ -1894,7 +1905,7 @@ static int get_srv6_sid_explicit(struct zebra_srv6_sid **sid, struct srv6_sid_ct
 		locator = loc;
 
 	/* Check if we already have a SID associated with the provided context */
-	zctx = zebra_srv6_sid_ctx_lookup(ctx, block);
+	zctx = zebra_srv6_sid_ctx_lookup(ctx, block, SRV6_SID_ALLOC_MODE_EXPLICIT);
 
 	if (zctx) {
 		/*
@@ -2025,7 +2036,7 @@ static int get_srv6_sid_dynamic(struct zebra_srv6_sid **sid, struct srv6_sid_ctx
 	 * If we already have a SID for the provided context, we return the existing
 	 * SID instead of allocating a new one.
 	 */
-	zctx = zebra_srv6_sid_ctx_lookup(ctx, block);
+	zctx = zebra_srv6_sid_ctx_lookup(ctx, block, SRV6_SID_ALLOC_MODE_DYNAMIC);
 	if (zctx) {
 		if (((format && format->type == SRV6_SID_FORMAT_TYPE_USID) ||
 		     (!format && CHECK_FLAG(locator->flags, SRV6_LOCATOR_USID))) &&
@@ -2875,24 +2886,22 @@ static int srv6_manager_release_sid_internal(struct zserv *client, struct srv6_s
 		return 0;
 	}
 
-	/* Lookup Zebra SID context and release it */
-	frr_each_safe (zebra_srv6_sid_ctx_list, &block->sids, zctx)
-		if (memcmp(&zctx->ctx, ctx, sizeof(struct srv6_sid_ctx)) == 0) {
-			if (zctx->sid) {
-				entry = zebra_srv6_sid_entry_lookup(zctx->sid, locator->name,
-								    is_localonly);
-				if (!entry)
-					break;
+	/* Match the requesting client when static and IGP contexts coexist. */
+	frr_each_safe (zebra_srv6_sid_ctx_list, &block->sids, zctx) {
+		if (!zctx->sid || memcmp(&zctx->ctx, ctx, sizeof(*ctx)) != 0)
+			continue;
 
-				sid_value = entry->sid_value;
-			}
+		entry = zebra_srv6_sid_entry_lookup(zctx->sid, locator->name, is_localonly);
+		if (!entry || !zebra_srv6_sid_client_lookup(zctx->sid, entry, client))
+			continue;
 
-			ret = release_srv6_sid(client, zctx, locator, is_localonly);
-			break;
-		}
+		sid_value = entry->sid_value;
+		ret = release_srv6_sid(client, zctx, locator, is_localonly);
+		break;
+	}
 
-	if (IS_ZEBRA_DEBUG_SRV6)
-		zlog_debug("%s: no SID associated with ctx %s", __func__,
+	if (ret < 0 && IS_ZEBRA_DEBUG_SRV6)
+		zlog_debug("%s: no SID owned by the client for ctx %s", __func__,
 			   srv6_sid_ctx2str(buf, sizeof(buf), ctx));
 
 	if (ret == 0)
