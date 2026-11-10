@@ -30,8 +30,9 @@ r1 and fe80::<n>:2 on r2):
   r1-eth2 192.0.2.5/30       ---- r2-eth2 192.0.2.6/30        IPv4, strict
   r1-eth3 2001:db8:4::1/64   ---- r2-eth3 2001:db8:4::2/64    IPv6, strict
                                                               inherited from pg
-  r1-eth4 192.0.2.9/30       ---- r2-eth4 192.0.2.10/30       r2 lo .2, egress
-                                                              unknown pre-TCP
+  r1-eth4 192.0.2.9/30       ---- r2-eth4 192.0.2.10/30       r2 lo .2, no
+                                                              connected subnet:
+                                                              no interface
   r1-eth5 192.0.2.13/30      ---- r2-eth5 192.0.2.14/30       r2 lo .4, same,
                                                               strict inherited
                                                               from pg (fallback)
@@ -125,7 +126,8 @@ RESOLVABLE = {
 # Installed only once TCP is up.
 DEFERRED = {
     "192.0.2.2": ("192.0.2.2", "r1-eth0", "192.0.2.1", ("r2", "192.0.2.1")),
-    "198.51.100.2": ("198.51.100.2", "r1-eth4", "192.0.2.9", ("r2", "192.0.2.9")),
+    # no connected subnet: like the BGP socket, not bound to an interface
+    "198.51.100.2": ("198.51.100.2", None, "192.0.2.9", ("r2", "192.0.2.9")),
     "2001:db8:6::2": ("2001:db8:6::2", "r1-eth6", "2001:db8:6::1", ("r2", "2001:db8:6::1")),
     "r1-eth7": ("fe80::7:2%r1-eth7", "r1-eth7", "fe80::7:1", ("r2", "fe80::7:1%r2-eth7")),
     "fe80::9:2": ("fe80::9:2%r1-eth9", "r1-eth9", "fe80::9:1", ("r2", "fe80::9:1%r2-eth9")),
