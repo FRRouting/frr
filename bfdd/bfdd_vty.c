@@ -1116,7 +1116,7 @@ void _display_rtt(uint32_t *min, uint32_t *avg, uint32_t *max,
 		return;
 
 	*max = bs->rtt[0];
-	*min = 1000;
+	*min = bs->rtt[0];
 	*avg = 0;
 
 	for (i = 0; i < bs->rtt_valid; i++) {
