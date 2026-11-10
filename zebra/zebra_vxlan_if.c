@@ -244,6 +244,10 @@ static int zebra_vxlan_if_update_vni(struct interface *ifp,
 				   vni, ifp->name, ifp->ifindex, vnip->access_vlan, &vxl->vtep_ip,
 				   zif->brslave_info.bridge_ifindex, chgflags);
 
+		/* Leaving a bridge flushes the port's FDB entries */
+		if (CHECK_FLAG(chgflags, ZEBRA_VXLIF_MASTER_CHANGE))
+			zl3vni->rmac_flushed = true;
+
 		/* Removed from bridge? Cleanup and return */
 		if (CHECK_FLAG(chgflags, ZEBRA_VXLIF_MASTER_CHANGE) &&
 		    (zif->brslave_info.bridge_ifindex == IFINDEX_INTERNAL)) {
@@ -924,6 +928,8 @@ int zebra_vxlan_if_vni_down(struct interface *ifp, struct zebra_vxlan_vni *vnip)
 			zlog_debug("Intf %s(%u) L3-VNI %u is DOWN", ifp->name,
 				   ifp->ifindex, vni);
 
+		/* The kernel flushes the router MAC FDB entries on the device */
+		zl3vni->rmac_flushed = true;
 		zebra_vxlan_process_l3vni_oper_down(zl3vni);
 	} else {
 		/* process if-down for l2-vni */
@@ -984,6 +990,9 @@ int zebra_vxlan_if_down(struct interface *ifp)
 
 	zebra_vxlan_if_vni_iterate(zif, zebra_vxlan_if_vni_entry_down_callback,
 				   NULL);
+
+	/* The kernel flushes the next hop neighbors on the device */
+	zebra_vxlan_svd_nh_flushed(ifp, false);
 
 	return 0;
 }
@@ -1138,6 +1147,7 @@ int zebra_vxlan_if_del(struct interface *ifp)
 	}
 
 	zebra_vxlan_if_vni_table_destroy(zif);
+	zebra_vxlan_svd_nh_flushed(ifp, true);
 
 	return 0;
 }
