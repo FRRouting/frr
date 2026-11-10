@@ -1386,17 +1386,17 @@ static struct bgp_path_info *leak_update(struct bgp *to_bgp, struct bgp_dest *bn
 		if (CHECK_FLAG(source_bpi->flags, BGP_PATH_ACCEPT_OWN))
 			bgp_path_info_set_flag(bn, bpi, BGP_PATH_ACCEPT_OWN);
 
+		/* Carry srte_color from the leaked source path (or the
+		 * rmap-modified copy when a vpn-policy route-map ran).
+		 */
+		bgp_path_info_extra_propagate(bpi, rmap_bpi ? rmap_bpi : source_bpi);
+
 		if (leak_update_nexthop_valid(to_bgp, bn, new_attr, afi, safi,
 					      source_bpi, bpi, bgp_orig, p,
 					      debug))
 			bgp_path_info_set_flag(bn, bpi, BGP_PATH_VALID);
 		else
 			bgp_path_info_unset_flag(bn, bpi, BGP_PATH_VALID);
-
-		/* Carry srte_color from the leaked source path (or the
-		 * rmap-modified copy when a vpn-policy route-map ran).
-		 */
-		bgp_path_info_extra_propagate(bpi, rmap_bpi ? rmap_bpi : source_bpi);
 
 		/* Process change. */
 		bgp_aggregate_increment(to_bgp, p, bpi, afi, safi);
@@ -1459,6 +1459,11 @@ static struct bgp_path_info *leak_update(struct bgp *to_bgp, struct bgp_dest *bn
 	if (nexthop_orig)
 		new->extra->vrfleak->nexthop_orig = *nexthop_orig;
 
+	/* Carry srte_color from the leaked source path (or the
+	 * rmap-modified copy when a vpn-policy route-map ran).
+	 */
+	bgp_path_info_extra_propagate(new, rmap_bpi ? rmap_bpi : source_bpi);
+
 	if (leak_update_nexthop_valid(to_bgp, bn, static_attr, afi, safi, source_bpi, new,
 				      bgp_orig, p, debug)) {
 		bgp_path_info_set_flag(bn, new, BGP_PATH_VALID);
@@ -1466,11 +1471,6 @@ static struct bgp_path_info *leak_update(struct bgp *to_bgp, struct bgp_dest *bn
 	} else
 		bgp_path_info_unset_flag(bn, new, BGP_PATH_VALID);
 	new->attr = bgp_attr_intern(static_attr);
-
-	/* Carry srte_color from the leaked source path (or the
-	 * rmap-modified copy when a vpn-policy route-map ran).
-	 */
-	bgp_path_info_extra_propagate(new, rmap_bpi ? rmap_bpi : source_bpi);
 
 	bgp_path_info_add(bn, new);
 	bgp_aggregate_increment(to_bgp, p, new, afi, safi);
