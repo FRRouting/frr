@@ -1434,7 +1434,7 @@ class TopoExaBGP(TopoHost):
         env_cmd += "exabgp.log.destination={} ".format(log_file)
 
         output = self.run(
-            env_cmd + exacmd + " -e /etc/exabgp/exabgp.env /etc/exabgp/exabgp.cfg "
+            env_cmd + exacmd + " --env /etc/exabgp/exabgp.env /etc/exabgp/exabgp.cfg "
         )
         if output is None or len(output) == 0:
             output = "<none>"
