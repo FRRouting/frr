@@ -942,10 +942,17 @@ static bool vertex_is_affected(struct isis_spftree *spftree_root,
 		else {
 			struct isis_spf_node *adj_node;
 
+			/*
+			 * A parent in the SPF tree is not necessarily a member
+			 * of the adjacency set used for this LFA run. Skipping
+			 * the missing node keeps the search on its own parents
+			 * instead of aborting isisd.
+			 */
 			adj_node = isis_spf_node_find(adj_nodes, pvertex->N.id);
-			assert(adj_node);
+			if (!adj_node || !adj_node->lfa.spftree)
+				goto parents;
+
 			spftree_parent = adj_node->lfa.spftree;
-			assert(spftree_parent);
 			reverse = true;
 		}
 
