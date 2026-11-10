@@ -2067,6 +2067,15 @@ static void ospf_te_update_remote_asbr(struct ls_ted *ted, struct ls_edge *edge)
 		snprintfrr(lnode->name, MAX_NAME_LENGTH, "%pI4",
 			   &lnid.id.ip.addr);
 		vertex = ls_vertex_add(ted, lnode);
+		/*
+		 * A zero remote ASBR address produces a zero vertex key.
+		 * ls_vertex_add() rejects it and does not take ownership of
+		 * the node.
+		 */
+		if (!vertex) {
+			ls_node_del(lnode);
+			return;
+		}
 	}
 
 	/* Update Node information */
