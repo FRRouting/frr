@@ -2858,6 +2858,14 @@ static int ospf_te_parse_ext_pref(struct ls_ted *ted, struct ospf_lsa *lsa)
 	uint16_t len, size;
 	struct tlv_header *tlvh;
 
+	/*
+	 * Extended Prefix is area-scoped. An AS-scoped (Type 11) copy has no
+	 * area, and the lookup below reads lsa->area->area_id. Ignore it
+	 * without failing the opaque update hook.
+	 */
+	if (!lsa->area)
+		return 0;
+
 	/* Initialize TLV browsing */
 	if (lsa->size < OSPF_LSA_HEADER_SIZE) {
 		zlog_warn("Invalid EXT Prefix LSA");
@@ -3032,6 +3040,14 @@ static int ospf_te_parse_ext_link(struct ls_ted *ted, struct ospf_lsa *lsa)
 	uint32_t len = 0, sum = 0;
 	uint16_t i;
 	uint32_t label;
+
+	/*
+	 * Extended Link is area-scoped. An AS-scoped (Type 11) copy has no
+	 * area, and the lookup below reads lsa->area->area_id. Ignore it
+	 * without failing the opaque update hook.
+	 */
+	if (!lsa->area)
+		return 0;
 
 	/* Validate LSA/TLV */
 	if (lsa->size < OSPF_LSA_HEADER_SIZE + TLV_HDR_SIZE + EXT_TLV_LINK_SIZE) {
