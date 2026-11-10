@@ -409,6 +409,7 @@ struct mpls_te_link {
 extern int ospf_mpls_te_init(void);
 extern void ospf_mpls_te_term(void);
 extern void ospf_mpls_te_finish(void);
+extern void ospf_mpls_te_area_detach(struct ospf_area *area);
 extern struct ospf_mpls_te *get_ospf_mpls_te(void);
 extern void ospf_mpls_te_update_if(struct interface *ifp);
 extern void ospf_mpls_te_lsa_schedule(struct mpls_te_link *lp, enum lsa_opcode opcode);
