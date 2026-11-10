@@ -2338,6 +2338,12 @@ static void evpn_delete_vni(struct bgp *bgp, struct bgpevpn *vpn)
 	/* Next, deal with the import side. */
 	if (bgp_evpn_l2vni_has_manual_import_rt_cfgd(vpn))
 		evpn_unconfigure_import_rt_for_l2vni(bgp, vpn, NULL);
+
+	/* Back to the global flooding mode. */
+	if (vpn->vxlan_flood_ctrl != VXLAN_FLOOD_INHERIT_GLOBAL) {
+		vpn->vxlan_flood_ctrl = VXLAN_FLOOD_INHERIT_GLOBAL;
+		bgp_evpn_flood_control_change(bgp);
+	}
 }
 
 /*
