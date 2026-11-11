@@ -3392,6 +3392,8 @@ bgp_create_evpn_bgp_path_info(struct bgp_path_info *parent_pi,
 	if (BGP_PATH_INFO_NUM_LABELS(parent_pi))
 		pi->extra->labels = bgp_labels_intern(parent_pi->extra->labels);
 
+	bgp_path_info_extra_propagate(pi, parent_pi);
+
 	bgp_path_info_add(dest, pi);
 
 	return pi;
@@ -3547,7 +3549,8 @@ static int install_evpn_route_entry_in_vrf(struct bgp *bgp_vrf,
 		pi = bgp_create_evpn_bgp_path_info(parent_pi, dest, &attr);
 		new_pi = true;
 	} else {
-		if (!CHECK_FLAG(pi->flags, BGP_PATH_REMOVED) && attrhash_cmp(pi->attr, &attr)) {
+		if (!CHECK_FLAG(pi->flags, BGP_PATH_REMOVED) && attrhash_cmp(pi->attr, &attr) &&
+		    bgp_path_info_extra_same(pi, parent_pi)) {
 			bgp_dest_unlock_node(dest);
 			bgp_attr_extra_discard(&attr);
 			return 0;
@@ -3579,6 +3582,7 @@ static int install_evpn_route_entry_in_vrf(struct bgp *bgp_vrf,
 		bgp_attr_unintern(&pi->attr);
 		pi->attr = attr_new;
 		pi->uptime = monotime(NULL);
+		bgp_path_info_extra_propagate(pi, parent_pi);
 	}
 
 	bgp_dest_set_defer_flag(dest, false);
