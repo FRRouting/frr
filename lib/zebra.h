@@ -127,9 +127,10 @@ extern "C" {
  * SunOS: nominally as per BSD. but bug: network order on LE.
  * OpenBSD: network byte order, apart from older versions which are as per
  *          *BSD
+ * macOS: as per *BSD, a length in network byte order is rejected (EINVAL)
  */
-#if defined(__NetBSD__) ||                                                     \
-	(defined(__FreeBSD__) && (__FreeBSD_version < 1100030)) ||             \
+#if defined(__NetBSD__) || defined(__APPLE__) ||                                                  \
+	(defined(__FreeBSD__) && (__FreeBSD_version < 1100030)) ||                                \
 	(defined(__OpenBSD__) && (OpenBSD < 200311))
 #define HAVE_IP_HDRINCL_BSD_ORDER
 #endif

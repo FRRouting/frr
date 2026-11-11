@@ -732,7 +732,7 @@ static struct stream *eigrp_recv_packet(struct eigrp *eigrp,
 
 	ip_len = iph->ip_len;
 
-#if defined(__FreeBSD__) && (__FreeBSD_version < 1000000)
+#if (defined(__FreeBSD__) && (__FreeBSD_version < 1000000)) || defined(__APPLE__)
 	/*
 	 * Kernel network code touches incoming IP header parameters,
 	 * before protocol specific processing.
@@ -748,6 +748,11 @@ static struct stream *eigrp_recv_packet(struct eigrp *eigrp,
 	 * For more details, see <netinet/ip_input.c>.
 	 */
 	ip_len = ip_len + (iph->ip_hl << 2);
+#endif
+
+#if defined(__APPLE__)
+	/* eigrp_read() computes the EIGRP length from the header */
+	iph->ip_len = ip_len;
 #endif
 
 #if defined(__DragonFly__)
