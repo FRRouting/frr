@@ -698,6 +698,45 @@ static void bgp_nh_lp_release(struct bgp_label_per_nexthop_cache *blnc,
 	bgp_lp_release(label, blnc, LP_TYPE_NEXTHOP, true, false);
 }
 
+static void bgp_nh_lp_cancel(struct bgp_label_per_nexthop_cache *blnc)
+{
+	struct lp_fifo *lf;
+	struct work_queue_item *item;
+	struct lp_cbq_item *q;
+	struct lp_lcb *lcb;
+	int debug = BGP_DEBUG(labelpool, LABELPOOL);
+
+	if (!lp)
+		return;
+
+	frr_each_safe (lp_fifo, &lp->requests, lf) {
+		if (lf->lcb.type == LP_TYPE_NEXTHOP && lf->lcb.labelid == blnc) {
+			lp_fifo_del(&lp->requests, lf);
+			XFREE(MTYPE_BGP_LABEL_FIFO, lf);
+		}
+	}
+
+	if (lp->callback_q) {
+		STAILQ_FOREACH (item, &lp->callback_q->items, wq) {
+			q = item->data;
+			if (q && q->type == LP_TYPE_NEXTHOP && q->labelid == blnc)
+				q->labelid = NULL;
+		}
+	}
+
+	if (skiplist_search(lp->ledger, blnc, (void **)&lcb) || lcb->type != LP_TYPE_NEXTHOP)
+		return;
+
+	if (debug)
+		zlog_debug("%s: cancelling request labelid=%p label=%u", __func__, blnc,
+			   lcb->label);
+
+	if (lcb->label != MPLS_LABEL_NONE)
+		bgp_lp_release(lcb->label, blnc, LP_TYPE_NEXTHOP, true, debug);
+
+	skiplist_delete(lp->ledger, blnc, NULL);
+}
+
 /*
  * Public typed release api
  */
@@ -1936,6 +1975,7 @@ void bgp_label_per_nexthop_free(struct bgp_label_per_nexthop_cache *blnc)
 					     &blnc->nexthop, 0, NULL);
 		bgp_nh_lp_release(blnc, blnc->label);
 	}
+	bgp_nh_lp_cancel(blnc);
 	bgp_label_per_nexthop_cache_del(blnc->tree, blnc);
 	if (blnc->nh)
 		nexthop_free(blnc->nh);
