@@ -501,6 +501,49 @@ static enum zebra_link_type sdl_to_zebra_link_type(unsigned int sdlt)
 	}
 }
 
+#ifdef __APPLE__
+/*
+ * Check again at the flags of the interfaces that are up but not running,
+ * for a few seconds: see ifm_read().
+ * XNU workaround on an issue fixed on BSD kernel decades ago.
+ */
+#define KERNEL_FLAGS_RECHECK_MSEC 200
+#define KERNEL_FLAGS_RECHECK_MAX  25
+
+static struct event *t_flags_recheck;
+static int flags_recheck_left;
+
+static void kernel_flags_recheck(struct event *event)
+{
+	struct vrf *vrf;
+	struct interface *ifp;
+	bool pending = false;
+
+	RB_FOREACH (vrf, vrf_id_head, &vrfs_by_id) {
+		FOR_ALL_INTERFACES (vrf, ifp) {
+			if (ifp->ifindex == IFINDEX_INTERNAL || !CHECK_FLAG(ifp->flags, IFF_UP) ||
+			    if_is_operative(ifp))
+				continue;
+			if_get_flags(ifp);
+			if (CHECK_FLAG(ifp->flags, IFF_UP) && !if_is_operative(ifp))
+				pending = true;
+		}
+	}
+
+	if (pending && --flags_recheck_left > 0)
+		event_add_timer_msec(zrouter.master, kernel_flags_recheck, NULL,
+				     KERNEL_FLAGS_RECHECK_MSEC, &t_flags_recheck);
+}
+
+static void kernel_flags_recheck_start(void)
+{
+	flags_recheck_left = KERNEL_FLAGS_RECHECK_MAX;
+	if (!t_flags_recheck)
+		event_add_timer_msec(zrouter.master, kernel_flags_recheck, NULL,
+				     KERNEL_FLAGS_RECHECK_MSEC, &t_flags_recheck);
+}
+#endif /* __APPLE__ */
+
 /*
  * Handle struct if_msghdr obtained from reading routing socket or
  * sysctl (from interface_list).  There may or may not be sockaddrs
@@ -699,7 +742,16 @@ int ifm_read(struct if_msghdr *ifm)
 
 		/* update flags and handle operative->inoperative transition, if
 		 * any */
+#ifdef __APPLE__
+		if (if_nametoindex(ifp->name) == (unsigned int)ifm->ifm_index) {
+			if_get_flags(ifp);
+			if (CHECK_FLAG(ifp->flags, IFF_UP) && !if_is_operative(ifp))
+				kernel_flags_recheck_start();
+		} else
+			if_flags_update(ifp, ifm->ifm_flags);
+#else
 		if_flags_update(ifp, ifm->ifm_flags);
+#endif /* __APPLE__ */
 
 #ifndef RTM_IFANNOUNCE
 		if (!if_is_up(ifp)) {
