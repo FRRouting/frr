@@ -145,27 +145,31 @@ DECLARE_QOBJ_TYPE(bgpevpn);
 
 DECLARE_LIST(zebra_l2_vni, struct bgpevpn, zl2vni);
 
-/* Mapping of a fully qualified Import RT to VNIs.
- * The fully qualified import RTs of all VNIs are maintained in a hash
+/* Mapping of an exact-match Import RT to VNIs.
+ * The exact-match import RTs of all VNIs are maintained in a hash
  * table with each RT linking to all VNIs that will import routes
  * carrying exactly this RT.
  */
-struct bgp_evpn_l2vni_fq_irt_node {
+struct bgp_evpn_l2vni_exact_match_import_rt_node {
 	/* RT */
 	struct ecommunity_val rt;
 
 	/* List of VNIs (struct bgpevpn) importing routes matching this RT. */
 	struct list *vnis;
 
-	struct bgp_evpn_l2vni_fq_irt_item item;
+	struct bgp_evpn_l2vni_exact_match_import_rt_item item;
 };
 
-extern int bgp_evpn_l2vni_fq_irt_cmp(const struct bgp_evpn_l2vni_fq_irt_node *irt1,
-				     const struct bgp_evpn_l2vni_fq_irt_node *irt2);
-extern uint32_t bgp_evpn_l2vni_fq_irt_hash(const struct bgp_evpn_l2vni_fq_irt_node *irt);
+extern int bgp_evpn_l2vni_exact_match_import_rt_cmp(
+	const struct bgp_evpn_l2vni_exact_match_import_rt_node *import_rt1,
+	const struct bgp_evpn_l2vni_exact_match_import_rt_node *import_rt2);
+extern uint32_t bgp_evpn_l2vni_exact_match_import_rt_hash(
+	const struct bgp_evpn_l2vni_exact_match_import_rt_node *import_rt);
 
-DECLARE_HASH(bgp_evpn_l2vni_fq_irt, struct bgp_evpn_l2vni_fq_irt_node, item,
-	     bgp_evpn_l2vni_fq_irt_cmp, bgp_evpn_l2vni_fq_irt_hash);
+DECLARE_HASH(bgp_evpn_l2vni_exact_match_import_rt,
+	     struct bgp_evpn_l2vni_exact_match_import_rt_node, item,
+	     bgp_evpn_l2vni_exact_match_import_rt_cmp,
+	     bgp_evpn_l2vni_exact_match_import_rt_hash);
 
 /* Mapping of a wildcard Import RT to VNIs.
  * The wildcard import RTs of all VNIs are maintained in a hash table
@@ -173,64 +177,76 @@ DECLARE_HASH(bgp_evpn_l2vni_fq_irt, struct bgp_evpn_l2vni_fq_irt_node, item,
  * VNIs that will import routes carrying a route target with this local
  * admin value, regardless of the global admin field.
  */
-struct bgp_evpn_l2vni_wildcard_irt_node {
+struct bgp_evpn_l2vni_wildcard_import_rt_node {
 	/* local admin value in network byte order */
 	uint32_t local_admin_nbo;
 
 	/* List of VNIs (struct bgpevpn) importing routes matching this RT. */
 	struct list *vnis;
 
-	struct bgp_evpn_l2vni_wildcard_irt_item item;
+	struct bgp_evpn_l2vni_wildcard_import_rt_item item;
 };
 
-extern int bgp_evpn_l2vni_wildcard_irt_cmp(const struct bgp_evpn_l2vni_wildcard_irt_node *irt1,
-					   const struct bgp_evpn_l2vni_wildcard_irt_node *irt2);
-extern uint32_t bgp_evpn_l2vni_wildcard_irt_hash(const struct bgp_evpn_l2vni_wildcard_irt_node *irt);
+extern int bgp_evpn_l2vni_wildcard_import_rt_cmp(
+	const struct bgp_evpn_l2vni_wildcard_import_rt_node *import_rt1,
+	const struct bgp_evpn_l2vni_wildcard_import_rt_node *import_rt2);
+extern uint32_t bgp_evpn_l2vni_wildcard_import_rt_hash(
+	const struct bgp_evpn_l2vni_wildcard_import_rt_node *import_rt);
 
-DECLARE_HASH(bgp_evpn_l2vni_wildcard_irt, struct bgp_evpn_l2vni_wildcard_irt_node, item,
-	     bgp_evpn_l2vni_wildcard_irt_cmp, bgp_evpn_l2vni_wildcard_irt_hash);
+DECLARE_HASH(bgp_evpn_l2vni_wildcard_import_rt,
+	     struct bgp_evpn_l2vni_wildcard_import_rt_node, item,
+	     bgp_evpn_l2vni_wildcard_import_rt_cmp,
+	     bgp_evpn_l2vni_wildcard_import_rt_hash);
 
-/* Mapping of a fully qualified Import RT to VRFs.
- * The fully qualified import RTs of all VRFs are maintained in a hash
+/* Mapping of an exact-match Import RT to VRFs.
+ * The exact-match import RTs of all VRFs are maintained in a hash
  * table with each RT linking to all VRFs that will import routes
  * carrying exactly this RT.
  */
-struct bgp_evpn_vrf_fq_irt_node {
+struct bgp_evpn_vrf_exact_match_import_rt_node {
 	/* RT */
 	struct ecommunity_val rt;
 
 	/* List of VRFs (struct bgp) importing routes matching this RT. */
 	struct list *vrfs;
 
-	struct bgp_evpn_vrf_fq_irt_item item;
+	struct bgp_evpn_vrf_exact_match_import_rt_item item;
 };
 
-extern int bgp_evpn_vrf_fq_irt_cmp(const struct bgp_evpn_vrf_fq_irt_node *irt1,
-				   const struct bgp_evpn_vrf_fq_irt_node *irt2);
-extern uint32_t bgp_evpn_vrf_fq_irt_hash(const struct bgp_evpn_vrf_fq_irt_node *irt);
+extern int bgp_evpn_vrf_exact_match_import_rt_cmp(
+	const struct bgp_evpn_vrf_exact_match_import_rt_node *import_rt1,
+	const struct bgp_evpn_vrf_exact_match_import_rt_node *import_rt2);
+extern uint32_t bgp_evpn_vrf_exact_match_import_rt_hash(
+	const struct bgp_evpn_vrf_exact_match_import_rt_node *import_rt);
 
-DECLARE_HASH(bgp_evpn_vrf_fq_irt, struct bgp_evpn_vrf_fq_irt_node, item, bgp_evpn_vrf_fq_irt_cmp,
-	     bgp_evpn_vrf_fq_irt_hash);
+DECLARE_HASH(bgp_evpn_vrf_exact_match_import_rt,
+	     struct bgp_evpn_vrf_exact_match_import_rt_node, item,
+	     bgp_evpn_vrf_exact_match_import_rt_cmp,
+	     bgp_evpn_vrf_exact_match_import_rt_hash);
 
 /* Mapping of a wildcard Import RT to VRFs. See the VNI variant above
  * for the wildcard matching semantics.
  */
-struct bgp_evpn_vrf_wildcard_irt_node {
+struct bgp_evpn_vrf_wildcard_import_rt_node {
 	/* local admin value in network byte order */
 	uint32_t local_admin_nbo;
 
 	/* List of VRFs (struct bgp) importing routes matching this RT. */
 	struct list *vrfs;
 
-	struct bgp_evpn_vrf_wildcard_irt_item item;
+	struct bgp_evpn_vrf_wildcard_import_rt_item item;
 };
 
-extern int bgp_evpn_vrf_wildcard_irt_cmp(const struct bgp_evpn_vrf_wildcard_irt_node *irt1,
-					 const struct bgp_evpn_vrf_wildcard_irt_node *irt2);
-extern uint32_t bgp_evpn_vrf_wildcard_irt_hash(const struct bgp_evpn_vrf_wildcard_irt_node *irt);
+extern int bgp_evpn_vrf_wildcard_import_rt_cmp(
+	const struct bgp_evpn_vrf_wildcard_import_rt_node *import_rt1,
+	const struct bgp_evpn_vrf_wildcard_import_rt_node *import_rt2);
+extern uint32_t bgp_evpn_vrf_wildcard_import_rt_hash(
+	const struct bgp_evpn_vrf_wildcard_import_rt_node *import_rt);
 
-DECLARE_HASH(bgp_evpn_vrf_wildcard_irt, struct bgp_evpn_vrf_wildcard_irt_node, item,
-	     bgp_evpn_vrf_wildcard_irt_cmp, bgp_evpn_vrf_wildcard_irt_hash);
+DECLARE_HASH(bgp_evpn_vrf_wildcard_import_rt,
+	     struct bgp_evpn_vrf_wildcard_import_rt_node, item,
+	     bgp_evpn_vrf_wildcard_import_rt_cmp,
+	     bgp_evpn_vrf_wildcard_import_rt_hash);
 
 
 /* Direction(s) of a configured EVPN route target. */
@@ -641,6 +657,21 @@ static inline void encode_rmac_extcomm(struct ecommunity_val *eval,
 	memcpy(&eval->val[2], rmac, ETH_ALEN);
 }
 
+/* RFC 8214 Layer-2 Attributes Extended Community. P=1 is all-active. */
+static inline void encode_l2_attr_extcomm(struct ecommunity_val *eval, uint16_t flags,
+					  uint16_t l2_mtu)
+{
+	uint16_t tmp;
+
+	memset(eval, 0, sizeof(*eval));
+	eval->val[0] = ECOMMUNITY_ENCODE_EVPN;
+	eval->val[1] = ECOMMUNITY_EVPN_SUBTYPE_LAYER2_ATTR;
+	tmp = htons(flags);
+	memcpy(&eval->val[2], &tmp, sizeof(tmp));
+	tmp = htons(l2_mtu);
+	memcpy(&eval->val[4], &tmp, sizeof(tmp));
+}
+
 static inline void encode_default_gw_extcomm(struct ecommunity_val *eval)
 {
 	memset(eval, 0, sizeof(*eval));
@@ -1040,6 +1071,7 @@ extern struct bgpevpn *bgp_evpn_new(struct bgp *bgp, vni_t vni,
 		ifindex_t svi_ifindex);
 extern void bgp_evpn_free(struct bgp *bgp, struct bgpevpn *vpn);
 extern bool bgp_evpn_lookup_l3vni_l2vni_table(vni_t vni);
+extern struct bgp *bgp_evpn_l3vni_to_bgp_vrf(vni_t l3vni);
 extern int update_routes_for_vni(struct bgp *bgp, struct bgpevpn *vpn);
 extern struct bgp_path_info *delete_evpn_route_entry(struct bgp *bgp, afi_t afi, safi_t safi,
 						     struct bgp_dest *dest,
@@ -1089,6 +1121,7 @@ extern int bgp_evpn_route_entry_install_if_vrf_match(struct bgp *bgp_vrf,
 						     struct bgp_path_info *pi,
 						     int install);
 extern void bgp_evpn_import_type2_route(struct bgp_path_info *pi, int import);
+extern void bgp_evpn_l3vni_neigh_reimport(struct bgp *bgp_vrf);
 extern void bgp_evpn_xxport_delete_ecomm(void *val);
 extern int bgp_evpn_route_target_cmp(struct ecommunity *ecom1,
 				     struct ecommunity *ecom2);
