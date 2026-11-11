@@ -772,6 +772,52 @@ configure terminal
         assert result is None, "r3: {}".format(result)
 
 
+def test_advertise_subnet():
+    """
+    advertise-subnet on r1's L2VNI: the subnet of its SVI (10.20.0.0/24) is
+    advertised as a type-5 route of vrf-blue, imported by r2 and r3, and
+    withdrawn when the command is removed.
+    """
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    r1 = tgen.gears["r1"]
+    prefix = "10.20.0.0/24"
+    advertise_subnet = """
+        configure terminal
+         router bgp {}
+          address-family l2vpn evpn
+           vni 100
+            {}advertise-subnet
+        """
+
+    def _check_type5_absent(router):
+        return topotest.router_json_cmp(
+            router,
+            "show bgp vrf {} ipv4 unicast {} json".format(VRF, prefix),
+            {"paths": None},
+        )
+
+    for rname in ("r2", "r3"):
+        result = _check_type5_absent(tgen.gears[rname])
+        assert result is None, "{}: {} already advertised".format(rname, prefix)
+
+    r1.vtysh_cmd(advertise_subnet.format(ASN["r1"], ""))
+    for rname in ("r2", "r3"):
+        test_func = partial(
+            _check_type5_received, tgen.gears[rname], prefix, "10.100.0.1"
+        )
+        _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
+        assert result is None, "{}: {} not received from r1".format(rname, prefix)
+
+    r1.vtysh_cmd(advertise_subnet.format(ASN["r1"], "no "))
+    for rname in ("r2", "r3"):
+        test_func = partial(_check_type5_absent, tgen.gears[rname])
+        _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
+        assert result is None, "{}: {} not withdrawn".format(rname, prefix)
+
+
 def test_memory_leak():
     "Run the memory leak test and report results."
     tgen = get_topogen()
