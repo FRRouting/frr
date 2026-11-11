@@ -285,6 +285,53 @@ def test_step8():
             assert diff is None, assertmsg
 
 
+def check_eth0_adjacency(tgen, count):
+    "Wait until r1 and r2 have the given number of Full neighbors on eth0"
+
+    expected = {"interfaces": {"eth0": {"nbrAdjacentCount": count}}}
+    for rname in ["r1", "r2"]:
+        logger.info('Checking router "%s" Full neighbors on eth0', rname)
+        test_func = partial(
+            topotest.router_json_cmp,
+            tgen.gears[rname],
+            "show ip ospf interface eth0 json",
+            expected,
+        )
+        _, diff = topotest.run_and_expect(test_func, None, count=60, wait=2)
+        assertmsg = '"{}" does not have {} Full neighbor on eth0'.format(rname, count)
+        assert diff is None, assertmsg
+
+
+def test_step9():
+    "Step9: Break the adjacency between r1 and r2 on eth0 while the link stays \
+    up, restore it and verify that the TED on all remaining routers is the \
+    same as before"
+
+    tgen = setup_testcase("Step9: Break and restore the r1 & r2 eth0 adjacency")
+
+    command = "show ip ospf mpls-te database json"
+    ted = {}
+    for rname in ["r1", "r2", "r3"]:
+        ted[rname] = tgen.gears[rname].vtysh_cmd(command, isjson=True)
+
+    # A Hello interval mismatch brings the neighbor down on both ends
+    for interval, count in [(3, 0), (2, 1)]:
+        hello = "ip ospf hello-interval {}".format(interval)
+        tgen.net["r1"].cmd(
+            'vtysh -c "conf t" -c "interface eth0" -c "{}"'.format(hello)
+        )
+        check_eth0_adjacency(tgen, count)
+
+    for rname in ["r1", "r2", "r3"]:
+        logger.info('Comparing router "%s" TED with the one before', rname)
+        test_func = partial(
+            topotest.router_json_cmp, tgen.gears[rname], command, ted[rname]
+        )
+        _, diff = topotest.run_and_expect(test_func, None, count=60, wait=2)
+        assertmsg = '"{}" TED JSON output mismatches the one before'.format(rname)
+        assert diff is None, assertmsg
+
+
 def test_memory_leak():
     "Run the memory leak test and report results."
 
