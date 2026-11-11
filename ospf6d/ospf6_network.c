@@ -180,6 +180,19 @@ int ospf6_sendmsg(struct in6_addr *src, struct in6_addr *dst,
 	else
 		memset(&pktinfo->ipi6_addr, 0, sizeof(struct in6_addr));
 
+#ifdef __APPLE__
+	/*
+	 * XNU uses the IPV6_PKTINFO source address of a raw socket as is, and
+	 * its output path then wants a link-local address to carry its zone in
+	 * the KAME embedded form;  a plain fe80:: address fails the scope check
+	 * and sendmsg() returns EHOSTUNREACH.
+	 */
+	if (IN6_IS_ADDR_LINKLOCAL(&pktinfo->ipi6_addr)) {
+		pktinfo->ipi6_addr.s6_addr[2] = (ifindex >> 8) & 0xff;
+		pktinfo->ipi6_addr.s6_addr[3] = ifindex & 0xff;
+	}
+#endif
+
 	/* destination address */
 	dst_sin6.sin6_family = AF_INET6;
 #ifdef SIN6_LEN
