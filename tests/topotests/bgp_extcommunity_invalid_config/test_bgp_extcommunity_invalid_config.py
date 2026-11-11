@@ -52,7 +52,7 @@ EXPECTED_SET_CLAUSES = {
 # The rt, soo and nt values are plain strings in the YANG model, so only
 # the northbound validation callback can reject them. The color value
 # matches the YANG color-list pattern (it is read as "01:100" followed by
-# "01:5"), but the command checks each color itself and rejects it first.
+# "01:5"), so it also gets as far as the validation callback.
 MALFORMED_SET_VALUES = [
     ("rt", "1.2.3"),
     ("rt", "100"),
@@ -175,13 +175,6 @@ def test_bgp_extcommunity_initial_config():
     assert result is None, "Initial configuration not loaded: {}".format(result)
 
 
-def _set_malformed_message(kind, value):
-    "The error a malformed set extcommunity value is rejected with."
-    if kind == "color":
-        return "Malformed color extended community {}".format(value)
-    return "Malformed extcommunity {} value".format(kind)
-
-
 @pytest.mark.parametrize("seq", [10, 20], ids=["existing-rule", "no-rule"])
 @pytest.mark.parametrize(
     "kind,value",
@@ -208,7 +201,7 @@ def test_bgp_route_map_set_extcommunity_malformed(kind, value, seq):
 
     assert rc != 0, "{} was accepted (exit status 0):\n{}".format(what, output)
     assert (
-        _set_malformed_message(kind, value) in output
+        "Malformed extcommunity {} value".format(kind) in output
     ), "{} was not rejected by validation:\n{}".format(what, output)
 
     _check_unchanged(r1, baseline, what)
