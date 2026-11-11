@@ -43,6 +43,7 @@
 #include "zebra/zebra_evpn_mh.h"
 #include "zebra/zebra_neigh.h"
 #include "zebra/zebra_evpn_bpp.h"
+#include "zebra/zebra_dplane.h"
 #include "zebra/zebra_nhg.h"
 
 DEFINE_MTYPE_STATIC(ZEBRA, ZACC_BD, "Access Broadcast Domain");
@@ -2020,6 +2021,7 @@ static void zebra_evpn_es_vtep_local_clear(struct zebra_evpn_es_vtep *es_vtep)
 static bool zebra_evpn_es_br_port_dplane_clear(struct zebra_evpn_es *es)
 {
 	struct ipaddr sph_filters[ES_VTEP_MAX_CNT];
+	uint32_t seq = 0;
 
 	if (!(es->flags & ZEBRA_EVPNES_BR_PORT))
 		return false;
@@ -2027,9 +2029,14 @@ static bool zebra_evpn_es_br_port_dplane_clear(struct zebra_evpn_es *es)
 	if (IS_ZEBRA_DEBUG_EVPN_MH_ES)
 		zlog_debug("es %s br-port dplane clear", es->esi_str);
 
+	if (es->bpp_backup_nhg_id) {
+		es->bpp_backup_nhg_id = 0;
+		seq = zebra_evpn_bpp_export_br_port(es, true);
+	}
+
 	memset(&sph_filters, 0, sizeof(sph_filters));
 	dplane_br_port_update(es->zif->ifp, false /* non_df */, 0, sph_filters,
-			      0 /* backup_nhg_id */);
+			      0 /* backup_nhg_id */, seq);
 	return true;
 }
 
@@ -2047,6 +2054,7 @@ static bool zebra_evpn_es_br_port_dplane_update(struct zebra_evpn_es *es,
 {
 	uint32_t backup_nhg_id;
 	struct ipaddr sph_filters[ES_VTEP_MAX_CNT];
+	uint32_t seq = 0;
 	struct listnode *node = NULL;
 	struct zebra_evpn_es_vtep *es_vtep;
 	uint32_t sph_filter_cnt = 0;
@@ -2059,6 +2067,28 @@ static bool zebra_evpn_es_br_port_dplane_update(struct zebra_evpn_es *es,
 	 */
 	if (!(es->flags & ZEBRA_EVPNES_BR_PORT))
 		return false;
+
+	if (zebra_evpn_bpp_es_bound(es) && es->l3_nhg_id) {
+		if (es->bpp_backup_nhg_id == es->l3_nhg_id)
+			return true;
+		if (IS_ZEBRA_DEBUG_EVPN_MH_ES || IS_ZEBRA_DEBUG_EVPN_MH_PROT)
+			zlog_debug("es %s br-port protection Binding by %s nhg 0x%x", es->esi_str,
+				   caller, es->l3_nhg_id);
+		memset(&sph_filters, 0, sizeof(sph_filters));
+		seq = zebra_evpn_bpp_export_br_port(es, false);
+		dplane_br_port_update(es->zif->ifp, false /* non_df */, 0, sph_filters,
+				      es->l3_nhg_id, seq);
+		es->bpp_backup_nhg_id = es->l3_nhg_id;
+		return true;
+	}
+
+	if (es->bpp_backup_nhg_id) {
+		if (IS_ZEBRA_DEBUG_EVPN_MH_ES || IS_ZEBRA_DEBUG_EVPN_MH_PROT)
+			zlog_debug("es %s br-port protection Binding clear by %s", es->esi_str,
+				   caller);
+		es->bpp_backup_nhg_id = 0;
+		seq = zebra_evpn_bpp_export_br_port(es, true);
+	}
 
 	if (IS_ZEBRA_DEBUG_EVPN_MH_ES)
 		zlog_debug("es %s br-port dplane update by %s", es->esi_str,
@@ -2088,10 +2118,16 @@ static bool zebra_evpn_es_br_port_dplane_update(struct zebra_evpn_es *es,
 		}
 	}
 
-	dplane_br_port_update(es->zif->ifp, !!(es->flags & ZEBRA_EVPNES_NON_DF),
-			      sph_filter_cnt, sph_filters, backup_nhg_id);
+	dplane_br_port_update(es->zif->ifp, !!(es->flags & ZEBRA_EVPNES_NON_DF), sph_filter_cnt,
+			      sph_filters, backup_nhg_id, seq);
 
 	return true;
+}
+
+void zebra_evpn_es_br_port_update(struct zebra_evpn_es *es)
+{
+	if (es)
+		zebra_evpn_es_br_port_dplane_update(es, __func__);
 }
 
 /* returns TRUE if dplane entry was updated */
@@ -2848,6 +2884,7 @@ static void zebra_evpn_local_es_del(struct zebra_evpn_es **esp)
 		zebra_evpn_es_send_del_to_client(es);
 	}
 
+	zebra_evpn_bpp_es_clear(es);
 	zebra_evpn_es_local_info_clear(esp);
 }
 
