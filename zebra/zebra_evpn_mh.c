@@ -28,6 +28,7 @@
 #include "zebra/rt.h"
 #include "zebra/rt_netlink.h"
 #include "zebra/if_netlink.h"
+#include "lib_errors.h"
 #include "zebra/zebra_errors.h"
 #include "zebra/zebra_l2.h"
 #include "zebra/zebra_l2_bridge_if.h"
@@ -1363,23 +1364,52 @@ void zebra_evpn_if_cleanup(struct zebra_if *zif)
  *   A L2 NH entry is programmed in the kernel for every ES-VTEP entry. This
  * NH is then added to the L2-ECMP-NHG associated with the ES.
  */
-static uint32_t zebra_evpn_nhid_alloc(struct zebra_evpn_es *es)
+uint32_t zebra_evpn_mh_nhid_alloc(enum nhg_type type)
 {
 	uint32_t id;
-	uint32_t nh_id;
+
+	if (!zmh_info)
+		return 0;
 
 	bf_assign_index(zmh_info->nh_id_bitmap, id);
-
 	if (!id)
 		return 0;
 
+	return id | ((uint32_t)type << NHG_ID_TYPE_POS);
+}
+
+void zebra_evpn_mh_nhid_free(uint32_t nh_id)
+{
+	uint32_t id = nh_id & EVPN_NH_ID_VAL_MASK;
+	enum nhg_type type = NHG_ID_TYPE(nh_id);
+
+	if (!id || !zmh_info)
+		return;
+	if (type == NHG_TYPE_L3_BPP_NH || type == NHG_TYPE_L3_BPP)
+		return;
+
+	bf_release_index(zmh_info->nh_id_bitmap, id);
+}
+
+void zebra_evpn_mh_id_channel_violation(uint32_t id, const char *op)
+{
+	flog_err(EC_ZEBRA_BAD_NHG_MESSAGE, "EVPN-MH ID 0x%x type %u channel %s refused on %s", id,
+		 NHG_ID_TYPE(id), zebra_evpn_mh_id_channel(id), op);
+	if (zmh_info)
+		zmh_info->bpp_id_err++;
+}
+
+static uint32_t zebra_evpn_nhid_alloc(struct zebra_evpn_es *es)
+{
+	uint32_t nh_id;
+
+	nh_id = zebra_evpn_mh_nhid_alloc(es ? NHG_TYPE_L2 : NHG_TYPE_L2_NH);
+	if (!nh_id)
+		return 0;
+
 	if (es) {
-		nh_id = id | EVPN_NHG_ID_TYPE_BIT;
-		/* Add to NHG hash */
 		es->nhg_id = nh_id;
 		(void)hash_get(zmh_info->nhg_table, es, hash_alloc_intern);
-	} else {
-		nh_id = id | EVPN_NH_ID_TYPE_BIT;
 	}
 
 	return nh_id;
@@ -1387,9 +1417,7 @@ static uint32_t zebra_evpn_nhid_alloc(struct zebra_evpn_es *es)
 
 static void zebra_evpn_nhid_free(uint32_t nh_id, struct zebra_evpn_es *es)
 {
-	uint32_t id = (nh_id & EVPN_NH_ID_VAL_MASK);
-
-	if (!id)
+	if (!nh_id)
 		return;
 
 	if (es) {
@@ -1397,7 +1425,7 @@ static void zebra_evpn_nhid_free(uint32_t nh_id, struct zebra_evpn_es *es)
 		es->nhg_id = 0;
 	}
 
-	bf_release_index(zmh_info->nh_id_bitmap, id);
+	zebra_evpn_mh_nhid_free(nh_id);
 }
 
 /* Reserve bitmap index for a stale FDB NH/NHG read from kernel at startup,
@@ -2301,6 +2329,10 @@ static void zebra_evpn_es_free(struct zebra_evpn_es **esp)
 		dplane_nh_fdb_del(es->nhg_id);
 	}
 	zebra_evpn_nhid_free(es->nhg_id, es);
+	if (es->l3_nhg_id) {
+		zebra_evpn_mh_nhid_free(es->l3_nhg_id);
+		es->l3_nhg_id = 0;
+	}
 
 	/* cleanup resources maintained against the ES */
 	list_delete(&es->es_evi_list);
@@ -2400,10 +2432,14 @@ static void zebra_evpn_es_re_eval_send_to_client(struct zebra_evpn_es *es,
 	if (old_ready == new_ready)
 		return;
 
-	if (new_ready)
+	if (new_ready) {
 		zebra_evpn_es_send_add_to_client(es);
-	else
+		zebra_evpn_bpp_es_update(es);
+	} else {
+		zebra_evpn_bpp_es_send_all(es, false);
 		zebra_evpn_es_send_del_to_client(es);
+		zebra_evpn_bpp_es_update(es);
+	}
 
 	/* re-eval associated EVIs */
 	if (es_evi_re_reval) {
@@ -2444,6 +2480,7 @@ void zebra_evpn_es_send_all_to_client(bool add)
 						es, es_evi->zevpn,
 						false /* add */);
 			}
+			zebra_evpn_bpp_es_send_all(es, add);
 			if (!add)
 				zebra_evpn_es_send_del_to_client(es);
 		}
@@ -2806,8 +2843,10 @@ static void zebra_evpn_local_es_del(struct zebra_evpn_es **esp)
 		zebra_evpn_local_es_evi_do_del(es_evi);
 
 	/* send a del if the ES had been sent to BGP earlier */
-	if (es->flags & ZEBRA_EVPNES_READY_FOR_BGP)
+	if (es->flags & ZEBRA_EVPNES_READY_FOR_BGP) {
+		zebra_evpn_bpp_es_send_all(es, false);
 		zebra_evpn_es_send_del_to_client(es);
+	}
 
 	zebra_evpn_es_local_info_clear(esp);
 }
@@ -2997,6 +3036,33 @@ void zebra_evpn_proc_remote_es(ZAPI_HANDLER_ARGS)
 
 stream_failure:
 	return;
+}
+
+void zebra_evpn_proc_bpp_peer(ZAPI_HANDLER_ARGS)
+{
+	struct zapi_evpn_bpp_peer peer = {};
+	bool add = (hdr->command == ZEBRA_EVPN_BPP_PEER_ADD);
+	char esi_buf[ESI_STR_LEN];
+
+	if (zapi_evpn_bpp_peer_decode(msg, &peer, add)) {
+		flog_err(EC_LIB_ZAPI_ENCODE, "invalid EVPN BPP peer %s message",
+			 add ? "ADD" : "DEL");
+		if (zmh_info)
+			zmh_info->bpp_peer_bad_msg++;
+		return;
+	}
+
+	if (IS_ZEBRA_DEBUG_EVPN_MH_PROT) {
+		if (add)
+			zlog_debug("bpp peer add esi %s type L3 vtep %pIA rmac %pEA",
+				   esi_to_str(&peer.esi, esi_buf, sizeof(esi_buf)), &peer.vtep,
+				   &peer.rmac);
+		else
+			zlog_debug("bpp peer del esi %s type L3 vtep %pIA",
+				   esi_to_str(&peer.esi, esi_buf, sizeof(esi_buf)), &peer.vtep);
+	}
+
+	zebra_evpn_bpp_peer_update(&peer, add);
 }
 
 void zebra_evpn_es_mac_deref_entry(struct zebra_mac *mac)

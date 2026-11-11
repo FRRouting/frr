@@ -5524,6 +5524,38 @@ incoming/outgoing directions.
    format (prefix keys per RD only, no paths or detail). Route type and
    self-originate filters apply to both normal and brief output.
 
+.. clicmd:: show bgp l2vpn evpn route mac-ip [<evi-es|global-es>] [ESI] [detail] [json]
+
+   Display valid MAC-IP paths associated with Ethernet Segments. Without an
+   ``evi-es`` or ``global-es`` filter, the command displays paths from both the
+   per-EVI and global EVPN tables. Use ``evi-es`` to display only per-EVI paths,
+   or ``global-es`` to display only global-table paths. The optional ``ESI``
+   restricts the output to one Ethernet Segment. Use ``detail`` for per-path
+   details and ``json`` for structured output.
+
+.. clicmd:: show bgp l2vpn evpn es-vrf [summary] [ESI] [json]
+
+   Display ES-to-VRF associations. The summary is the default view and reports
+   NHG activation, L3 multihoming state, IPv4 and IPv6 NHG identifiers, and
+   ES-EVI reference counts. An absent NHG is displayed as ``-``.
+
+.. clicmd:: show bgp l2vpn evpn es-vrf drop-counters [ESI] [json]
+
+   Display IP A-D route drop counters for each ES-VRF. Counters distinguish
+   label mismatches, missing Router-MAC extended communities, and routes that
+   are not all-active.
+
+.. clicmd:: show bgp l2vpn evpn es-vrf ip-ad-vteps [ESI] [json]
+
+   Display remote VTEPs learned from IP A-D per-EVI and per-ES routes for each
+   ES-VRF, including their active state and Router MAC.
+
+.. clicmd:: show bgp l2vpn evpn es l3-eligibility [ESI] [json]
+
+   Display per-ESI L3 VTEP eligibility across all required VRFs. ``Zebra-Op``
+   is the last operation requested by bgpd: ``add``, ``del``, or ``none``. It
+   does not represent Zebra acknowledgement or dataplane installation state.
+
 .. clicmd:: show bgp vni <all|VNI> [vtep VTEP] [type <ead|1|macip|2|multicast|3>] [<detail|json>]
 
    Display per-VNI EVPN routing table in bgp. Filter route-type, vtep, or VNI.

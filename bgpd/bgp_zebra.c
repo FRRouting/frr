@@ -2833,6 +2833,43 @@ int bgp_zebra_advertise_all_vni(struct bgp *bgp, int advertise)
 	return zclient_send_message(bgp_zclient);
 }
 
+enum zclient_send_status bgp_zebra_send_bpp_peer(const esi_t *esi, const struct ipaddr *vtep,
+						 const struct ethaddr *rmac, bool add)
+{
+	struct bgp *bgp;
+	struct stream *s;
+	struct zapi_evpn_bpp_peer peer = {};
+	char esi_buf[ESI_STR_LEN];
+
+	if (!bgp_zclient || bgp_zclient->sock < 0)
+		return ZCLIENT_SEND_SUCCESS;
+
+	bgp = bgp_get_evpn();
+	if (!bgp || !IS_BGP_INST_KNOWN_TO_ZEBRA(bgp))
+		return ZCLIENT_SEND_SUCCESS;
+
+	memcpy(&peer.esi, esi, sizeof(esi_t));
+	peer.type = ZAPI_EVPN_BPP_PEER_L3;
+	peer.vtep = *vtep;
+	if (add && rmac)
+		memcpy(&peer.rmac, rmac, ETH_ALEN);
+
+	s = bgp_zclient->obuf;
+	stream_reset(s);
+	zclient_create_header(s, add ? ZEBRA_EVPN_BPP_PEER_ADD : ZEBRA_EVPN_BPP_PEER_DEL,
+			      bgp->vrf_id);
+	if (zapi_evpn_bpp_peer_encode(s, &peer, add)) {
+		if (BGP_DEBUG(evpn_mh, EVPN_MH_PROT))
+			zlog_debug("es %s vtep %pIA bpp-peer %s encode failed",
+				   esi_to_str(esi, esi_buf, sizeof(esi_buf)), vtep,
+				   add ? "add" : "del");
+		return ZCLIENT_SEND_FAILURE;
+	}
+	stream_putw_at(s, 0, stream_get_endp(s));
+
+	return zclient_send_message(bgp_zclient);
+}
+
 int bgp_zebra_dup_addr_detection(struct bgp *bgp)
 {
 	struct stream *s;
@@ -3480,33 +3517,33 @@ static int bgp_zebra_process_local_es_del(ZAPI_CALLBACK_ARGS)
 
 static int bgp_zebra_process_local_es_evi(ZAPI_CALLBACK_ARGS)
 {
-	esi_t esi;
-	vni_t vni;
+	struct zapi_evpn_local_es_evi evi;
 	struct bgp *bgp;
-	struct stream *s;
 	char buf[ESI_STR_LEN];
 
 	bgp = bgp_lookup_by_vrf_id(vrf_id);
 	if (!bgp)
 		return 0;
 
-	s = zclient->ibuf;
-	stream_get(&esi, s, sizeof(esi_t));
-	vni = stream_getl(s);
+	if (zapi_evpn_local_es_evi_decode(zclient->ibuf, &evi) < 0) {
+		if (BGP_DEBUG(zebra, ZEBRA))
+			zlog_debug("Malformed local ES-EVI %s message",
+				   cmd == ZEBRA_LOCAL_ES_EVI_ADD ? "add" : "del");
+		return -1;
+	}
 
 	if (BGP_DEBUG(zebra, ZEBRA))
-		zlog_debug("Rx %s ESI %s VNI %u",
-			   (cmd == ZEBRA_VNI_ADD) ? "add" : "del",
-			   esi_to_str(&esi, buf, sizeof(buf)), vni);
+		zlog_debug("Rx %s ESI %s VNI %u", cmd == ZEBRA_LOCAL_ES_EVI_ADD ? "add" : "del",
+			   esi_to_str(&evi.esi, buf, sizeof(buf)), evi.l3vni);
 
 	if (cmd == ZEBRA_LOCAL_ES_EVI_ADD) {
-		frrtrace(2, frr_bgp, evpn_mh_local_es_evi_add_zrecv, &esi, vni);
+		frrtrace(2, frr_bgp, evpn_mh_local_es_evi_add_zrecv, &evi.esi, evi.l3vni);
 
-		bgp_evpn_local_es_evi_add(bgp, &esi, vni);
+		bgp_evpn_local_es_evi_add(bgp, &evi.esi, evi.l3vni);
 	} else {
-		frrtrace(2, frr_bgp, evpn_mh_local_es_evi_del_zrecv, &esi, vni);
+		frrtrace(2, frr_bgp, evpn_mh_local_es_evi_del_zrecv, &evi.esi, evi.l3vni);
 
-		bgp_evpn_local_es_evi_del(bgp, &esi, vni);
+		bgp_evpn_local_es_evi_del(bgp, &evi.esi, evi.l3vni);
 	}
 
 	return 0;
