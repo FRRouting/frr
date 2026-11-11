@@ -746,14 +746,11 @@ static void ifam_read_mesg(struct ifa_msghdr *ifm, union sockunion *addr,
 			   union sockunion *mask, union sockunion *brd,
 			   char *ifname, short *ifnlen)
 {
-	caddr_t pnt, end;
+	caddr_t pnt, end, real_end;
 	union sockunion dst;
 	union sockunion gateway;
 	int maskbit;
 	char fbuf[64];
-
-	pnt = (caddr_t)(ifm + 1);
-	end = ((caddr_t)ifm) + ifm->ifam_msglen;
 
 	/* Be sure structure is cleared */
 	memset(mask, 0, sizeof(union sockunion));
@@ -762,10 +759,28 @@ static void ifam_read_mesg(struct ifa_msghdr *ifm, union sockunion *addr,
 	memset(&dst, 0, sizeof(union sockunion));
 	memset(&gateway, 0, sizeof(union sockunion));
 
+	if (ifm->ifam_msglen < sizeof(*ifm)) {
+		zlog_warn("%s: short message length %u", __func__, ifm->ifam_msglen);
+		return;
+	}
+
+	pnt = (caddr_t)(ifm + 1);
+	real_end = ((caddr_t)ifm) + ifm->ifam_msglen;
+#ifdef __APPLE__
+	end = ((caddr_t)ifm) + ROUNDUP(ifm->ifam_msglen);
+#else
+	end = real_end;
+#endif
+
 	/* We fetch each socket variable into sockunion. */
 	for (maskbit = 1; maskbit; maskbit <<= 1) {
 		if ((maskbit & ifm->ifam_addrs) == 0)
 			continue;
+
+		if (pnt >= real_end) {
+			zlog_warn("%s: overflow detected (pnt:%p end:%p)", __func__, pnt, real_end);
+			break;
+		}
 
 		switch (maskbit) {
 		case RTA_DST:
@@ -932,12 +947,27 @@ static int rtm_read_mesg(struct rt_msghdr *rtm, union sockunion *dest,
 			 union sockunion *mask, union sockunion *gate,
 			 char *ifname, short *ifnlen)
 {
-	caddr_t pnt, end;
+	caddr_t pnt, end, real_end;
 	int maskbit;
+
+	/* Be sure structure is cleared */
+	memset(dest, 0, sizeof(union sockunion));
+	memset(gate, 0, sizeof(union sockunion));
+	memset(mask, 0, sizeof(union sockunion));
+
+	if (rtm->rtm_msglen < sizeof(*rtm)) {
+		zlog_warn("%s: short message length %u", __func__, rtm->rtm_msglen);
+		return 0;
+	}
 
 	/* Pnt points out socket data start point. */
 	pnt = (caddr_t)(rtm + 1);
-	end = ((caddr_t)rtm) + rtm->rtm_msglen;
+	real_end = ((caddr_t)rtm) + rtm->rtm_msglen;
+#ifdef __APPLE__
+	end = ((caddr_t)rtm) + ROUNDUP(rtm->rtm_msglen);
+#else
+	end = real_end;
+#endif
 
 	/* rt_msghdr version check. */
 	if (rtm->rtm_version != RTM_VERSION)
@@ -945,16 +975,15 @@ static int rtm_read_mesg(struct rt_msghdr *rtm, union sockunion *dest,
 			  "Routing message version different %d should be %d.This may cause problem",
 			  rtm->rtm_version, RTM_VERSION);
 
-	/* Be sure structure is cleared */
-	memset(dest, 0, sizeof(union sockunion));
-	memset(gate, 0, sizeof(union sockunion));
-	memset(mask, 0, sizeof(union sockunion));
-
-	/* We fetch each socket variable into sockunion. */
 	/* We fetch each socket variable into sockunion. */
 	for (maskbit = 1; maskbit; maskbit <<= 1) {
 		if ((maskbit & rtm->rtm_addrs) == 0)
 			continue;
+
+		if (pnt >= real_end) {
+			zlog_warn("%s: overflow detected (pnt:%p end:%p)", __func__, pnt, real_end);
+			break;
+		}
 
 		switch (maskbit) {
 		case RTA_DST:
