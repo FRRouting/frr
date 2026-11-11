@@ -87,10 +87,13 @@ static int static_ifp_create(struct interface *ifp)
 
 	static_ifindex_update(ifp, true);
 
-	if (!srv6_sids || ifp->vrf->vrf_id != VRF_DEFAULT)
+	if (!srv6_sids || ifp->vrf->vrf_id != VRF_DEFAULT || !if_is_operative(ifp))
 		return 0;
 
-	/* Retry explicit uA requests even if the interface is still down. */
+	/*
+	 * A newly registered operative interface may only generate ADD.
+	 * For an inoperative interface, static_ifp_up() will retry.
+	 */
 	for (ALL_LIST_ELEMENTS_RO(srv6_sids, node, sid)) {
 		if (sid->behavior == SRV6_ENDPOINT_BEHAVIOR_END_X_NEXT_CSID &&
 		    !CHECK_FLAG(sid->flags, STATIC_FLAG_SRV6_SID_VALID) &&
