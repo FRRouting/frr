@@ -556,7 +556,8 @@ void bgp_path_info_mpath_update(struct bgp *bgp, struct bgp_dest *dest,
 			if (cur_iterator != new_best)
 				SET_FLAG(cur_iterator->flags, BGP_PATH_MULTIPATH);
 
-			if (!old_mpath)
+			/* A kept bestpath may lack BGP_PATH_MULTIPATH; it is not new. */
+			if (!old_mpath && !(cur_iterator == new_best && old_best == new_best))
 				mpath_changed = true;
 
 			if (ecommunity_linkbw_present(bgp_attr_get_ecommunity(cur_iterator->attr),
