@@ -483,3 +483,19 @@ tests_lib_test_bfd_timer_CPPFLAGS = $(TESTS_CPPFLAGS)
 tests_lib_test_bfd_timer_LDADD = $(ALL_TESTS_LDADD)
 tests_lib_test_bfd_timer_SOURCES = tests/lib/test_bfd_timer.c
 EXTRA_DIST += tests/lib/test_bfd_timer.py
+
+
+check_PROGRAMS += tests/lib/test_zapi_evpn_bpp
+tests_lib_test_zapi_evpn_bpp_CFLAGS = $(TESTS_CFLAGS)
+tests_lib_test_zapi_evpn_bpp_CPPFLAGS = $(TESTS_CPPFLAGS)
+tests_lib_test_zapi_evpn_bpp_LDADD = $(ALL_TESTS_LDADD)
+tests_lib_test_zapi_evpn_bpp_SOURCES = tests/lib/test_zapi_evpn_bpp.c
+
+
+if LINUX
+check_PROGRAMS += tests/lib/test_fpm_bpp
+tests_lib_test_fpm_bpp_CFLAGS = $(TESTS_CFLAGS)
+tests_lib_test_fpm_bpp_CPPFLAGS = $(TESTS_CPPFLAGS)
+tests_lib_test_fpm_bpp_LDADD = $(ALL_TESTS_LDADD)
+tests_lib_test_fpm_bpp_SOURCES = tests/lib/test_fpm_bpp.c
+endif

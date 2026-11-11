@@ -51,6 +51,7 @@ sys.path.append(os.path.join(CWD, "../"))
 
 # pylint: disable=C0413
 from lib import topotest
+from lib.bpp_export_check import bpp_export_check
 from lib.common_config import kill_router_daemons, start_router_daemons
 from lib.topogen import Topogen, get_topogen
 
@@ -68,9 +69,7 @@ HOST_ES = {
     "hostd1": ("hostbond1", "44:38:39:ff:ff:01", ES1_ID),
     "hostd2": ("hostbond2", "44:38:39:ff:ff:02", ES2_ID),
 }
-BPP_XPATH = (
-    "/frr-interface:lib/interface[name='%s']/frr-zebra:zebra/evpn-mh" % ES_IF
-)
+BPP_XPATH = "/frr-interface:lib/interface[name='%s']/frr-zebra:zebra/evpn-mh" % ES_IF
 
 # vrf -> (table, L3VNI)
 VRFS = {"vrf-a": (1001, 4001), "vrf-b": (1002, 4002)}
@@ -128,13 +127,13 @@ def build_topo(tgen):
 
 
 def add_l3vni_dataplane(tor, vrf, table, l3vni):
-    lo = tor_lo(tor.name)
+    vtep = tor_vtep(tor.name)
     tor.run("ip link add %s type vrf table %d" % (vrf, table))
     tor.run("ip link set dev %s up" % vrf)
 
     tor.run(
         "ip link add vni%d type vxlan id %d dstport 4789 local %s nolearning"
-        % (l3vni, l3vni, lo)
+        % (l3vni, l3vni, vtep)
     )
     tor.run("ip link set dev vni%d master br_default" % l3vni)
     tor.run("/sbin/bridge link set dev vni%d learning off" % l3vni)
@@ -156,6 +155,9 @@ def config_tor_dataplane(tor):
         tor.run("sysctl -w net.ipv6.conf.all.disable_ipv6=0")
         tor.run("sysctl -w net.ipv6.conf.lo.disable_ipv6=0")
         tor.run("ip link set lo up")
+        tor.run(
+            "ip -6 addr add 2001:db8:ffff::%d/128 dev lo" % (TORS.index(tor.name) + 1)
+        )
         tor.run("ip -6 addr add %s/128 dev lo" % vtep)
 
     tor.run("ip link add dev br_default type bridge stp_state 0")
@@ -299,7 +301,7 @@ def _es_peers(router):
     if isinstance(output, dict):
         output = output.get("es", [])
     entries = {es.get("esi"): es for es in output}
-    remote = sorted(tor_lo(t) for t in TORS if t != router.name)
+    remote = sorted(tor_vtep(t) for t in TORS if t != router.name)
 
     for _, _, esi in HOST_ES.values():
         es = entries.get(esi)
@@ -327,9 +329,7 @@ def test_es_on_all_tors():
 
 
 def _bpp_in_running_config(router):
-    return "evpn mh bridge-port-protection" in router.vtysh_cmd(
-        "show running-config"
-    )
+    return "evpn mh bridge-port-protection" in router.vtysh_cmd("show running-config")
 
 
 def _check_bpp(router, expected):
@@ -376,26 +376,33 @@ def test_bpp_config():
 
     # Remove.
     tor1.vtysh_cmd(
-        "configure terminal\ninterface %s\nno evpn mh bridge-port-protection"
-        % ES_IF
+        "configure terminal\ninterface %s\nno evpn mh bridge-port-protection" % ES_IF
     )
     _expect_bpp(tor1, False)
 
-    # Add before es-id: the knob is kept across es-id removal and re-add.
+    # Add and remove without an es-id.
     tor1.vtysh_cmd(
         "configure terminal\ninterface %s\nno evpn mh es-id\n"
-        "evpn mh bridge-port-protection\nevpn mh es-id 1" % ES_IF
+        "evpn mh bridge-port-protection" % ES_IF
     )
+    _expect_bpp(tor1, True)
+    tor1.vtysh_cmd(
+        "configure terminal\ninterface %s\nno evpn mh bridge-port-protection" % ES_IF
+    )
+    _expect_bpp(tor1, False)
+
+    # The knob is kept across es-id addition and removal.
+    tor1.vtysh_cmd(
+        "configure terminal\ninterface %s\nevpn mh bridge-port-protection\n"
+        "evpn mh es-id 1" % ES_IF
+    )
+    _expect_bpp(tor1, True)
+    tor1.vtysh_cmd("configure terminal\ninterface %s\nno evpn mh es-id" % ES_IF)
     _expect_bpp(tor1, True)
 
     tor1.vtysh_cmd(
-        "configure terminal\ninterface %s\nno evpn mh es-id" % ES_IF
-    )
-    _expect_bpp(tor1, True)
-
-    tor1.vtysh_cmd(
-        "configure terminal\ninterface %s\nevpn mh es-id 1\n"
-        "no evpn mh bridge-port-protection" % ES_IF
+        "configure terminal\ninterface %s\nno evpn mh bridge-port-protection\n"
+        "evpn mh es-id 1" % ES_IF
     )
     _expect_bpp(tor1, False)
 
@@ -530,9 +537,7 @@ def test_bpp_pending_reasons():
             ES_IF: {
                 "vlans": {
                     "10": _ready_vlans((10,))["10"],
-                    "20": _pending(
-                        ["IP-VRF has no L3VNI"], vrf="default", l3vni=None
-                    ),
+                    "20": _pending(["IP-VRF has no L3VNI"], vrf="default", l3vni=None),
                 }
             }
         },
@@ -681,12 +686,16 @@ def test_bpp_show():
     _expect_json(tor1, cmd + " member json", {}, "no protected ES")
 
 
-def _expect_log(tgen, router, text):
+def _expect_log(tgen, router, text, after):
     path = os.path.join(tgen.logdir, router.name, "zebra.log")
 
     def _check():
         with open(path) as f:
-            return None if text in f.read() else "'%s' not in %s" % (text, path)
+            output = f.read()
+        output = output[len(after) :] if output.startswith(after) else output
+        return (
+            None if text in output else "'%s' not in new output from %s" % (text, path)
+        )
 
     _, result = topotest.run_and_expect(_check, None, count=30, wait=1)
     assert result is None, result
@@ -719,17 +728,26 @@ def test_bpp_debug():
     for line in ("debug zebra evpn mh protection", "debug bgp evpn mh protection"):
         assert line in output, "'%s' not in running-config" % line
 
+    marker = _log_text(tgen, tor1, "zebra")
     _set_bpp(tor1, True)
-    _expect_log(tgen, tor1, "bridge-port protection %s vlan 10 add: no eligible peer" % ES_IF)
+    _expect_log(
+        tgen,
+        tor1,
+        "bridge-port protection %s vlan 10 add: no eligible peer" % ES_IF,
+        marker,
+    )
     _expect_json(
         tor1, cmd, {ES_IF: {"vlans": {"10": {"lastEvent": "created"}}}}, "created"
     )
 
+    marker = _log_text(tgen, tor1, "zebra")
     _set_l3vni_neigh(tor1, False)
     _expect_log(
         tgen,
         tor1,
-        "bridge-port protection %s vlan 10: no eligible peer -> l3vni-neigh off" % ES_IF,
+        "bridge-port protection %s vlan 10: no eligible peer -> l3vni-neigh off"
+        % ES_IF,
+        marker,
     )
     _expect_json(
         tor1,
@@ -737,15 +755,19 @@ def test_bpp_debug():
         {ES_IF: {"vlans": {"10": {"lastEvent": "reasons changed"}}}},
         "reasons changed",
     )
+    marker = _log_text(tgen, tor1, "zebra")
     _set_l3vni_neigh(tor1, True)
     _expect_log(
         tgen,
         tor1,
-        "bridge-port protection %s vlan 10: l3vni-neigh off -> no eligible peer" % ES_IF,
+        "bridge-port protection %s vlan 10: l3vni-neigh off -> no eligible peer"
+        % ES_IF,
+        marker,
     )
 
+    marker = _log_text(tgen, tor1, "zebra")
     _set_bpp(tor1, False)
-    _expect_log(tgen, tor1, "bridge-port protection %s vlan 10 del" % ES_IF)
+    _expect_log(tgen, tor1, "bridge-port protection %s vlan 10 del" % ES_IF, marker)
 
     tor1.vtysh_cmd(
         "configure terminal\nno debug zebra evpn mh protection\n"
@@ -758,9 +780,7 @@ def test_bpp_debug():
 def _es_vrfs(router, esi):
     """BGP ES-VRFs of an ES, keyed by VRF name ("VRF <name>" in the output)."""
     output = json.loads(router.vtysh_cmd("show bgp l2vpn evpn es-vrf json"))
-    return {
-        e["vrf"].split()[-1]: e for e in output if e.get("esi") == esi
-    }
+    return {e["vrf"].split()[-1]: e for e in output if e.get("esi") == esi}
 
 
 def _l3mh_es_vrf(l3_ref_cnt=1):
@@ -789,10 +809,7 @@ def _expect_es_vrfs(router, esi, expected, msg):
 def _expect_es_evi_l3vnis(router, l3vnis, msg):
     expected = {ES1_ID: {"esEviL3vnis": l3vnis}} if l3vnis is not None else {}
     _expect_json(
-        router,
-        "show evpn mh bridge-port-protection member json",
-        expected,
-        msg,
+        router, "show evpn mh bridge-port-protection member json", expected, msg,
     )
 
 
@@ -826,9 +843,7 @@ def test_bpp_es_vrf_assoc():
 
     tor1.run("/sbin/bridge vlan del vid 30 dev %s" % ES_IF)
     _expect_es_evi_l3vnis(tor1, ["__ordered__", 4002], "vrf-a ES-EVI withdrawn")
-    _expect_es_vrfs(
-        tor1, ES1_ID, {"vrf-b": _l3mh_es_vrf()}, "last vrf-a VLAN removed"
-    )
+    _expect_es_vrfs(tor1, ES1_ID, {"vrf-b": _l3mh_es_vrf()}, "last vrf-a VLAN removed")
 
     tor1.run("/sbin/bridge vlan add vid 10 dev %s" % ES_IF)
     _expect_es_vrfs(tor1, ES1_ID, ES1_L3MH_VRFS, "VLAN 10 restored")
@@ -861,6 +876,8 @@ def test_bpp_l3mh_gate():
 
 L2VNI = 1020
 L2VNI_VLAN = 20
+DUAL_SCOPE_L2VNI = 1090
+DUAL_SCOPE_VLAN = 90
 
 
 def _add_l2vni(router):
@@ -880,6 +897,39 @@ def _add_l2vni(router):
 
 def _del_l2vni(router):
     router.run("ip link del dev vni%d" % L2VNI)
+
+
+def _add_dual_scope_l2vni(router):
+    lo = tor_lo(router.name)
+    router.run(
+        "ip link add vni%d type vxlan id %d dstport 4789 local %s nolearning"
+        % (DUAL_SCOPE_L2VNI, DUAL_SCOPE_L2VNI, lo)
+    )
+    router.run("ip link set dev vni%d master br_default" % DUAL_SCOPE_L2VNI)
+    router.run("/sbin/bridge link set dev vni%d learning off" % DUAL_SCOPE_L2VNI)
+    router.run("/sbin/bridge vlan del vid 1 dev vni%d" % DUAL_SCOPE_L2VNI)
+    router.run(
+        "/sbin/bridge vlan add vid %d dev vni%d pvid untagged"
+        % (DUAL_SCOPE_VLAN, DUAL_SCOPE_L2VNI)
+    )
+    router.run("ip link set dev vni%d up" % DUAL_SCOPE_L2VNI)
+
+
+def _set_dual_scope_l2vni_rt(router, import_rt, enable):
+    router.vtysh_cmd(
+        "configure terminal\nrouter bgp %d\naddress-family l2vpn evpn\n"
+        "vni %d\n%sroute-target import %s"
+        % (
+            65000 + TORS.index(router.name) + 1,
+            DUAL_SCOPE_L2VNI,
+            "" if enable else "no ",
+            import_rt,
+        )
+    )
+
+
+def _del_dual_scope_l2vni(router):
+    router.run("ip link del dev vni%d" % DUAL_SCOPE_L2VNI)
 
 
 def _expect_l2_es_evi(router, esi, present, msg):
@@ -931,10 +981,7 @@ def test_bpp_l3mh_bd_gets_l2vni():
     for esi in (ES1_ID, ES2_ID):
         _expect_l2_es_evi(tor1, esi, True, "L2VNI ES-EVI")
         _expect_es_vrfs(
-            tor1,
-            esi,
-            {"vrf-b": {"refCount": 1, "l3RefCount": 0}},
-            "L2VNI ES-VRF",
+            tor1, esi, {"vrf-b": {"refCount": 1, "l3RefCount": 0}}, "L2VNI ES-VRF",
         )
 
     _del_l2vni(tor1)
@@ -956,10 +1003,7 @@ def test_bpp_es_evi_l2vni_unchanged():
     _add_l2vni(tor1)
     _expect_l2_es_evi(tor1, ES2_ID, True, "L2VNI ES-EVI")
     _expect_es_vrfs(
-        tor1,
-        ES2_ID,
-        {"vrf-b": {"refCount": 1, "l3RefCount": 0}},
-        "L2VNI ES-VRF",
+        tor1, ES2_ID, {"vrf-b": {"refCount": 1, "l3RefCount": 0}}, "L2VNI ES-VRF",
     )
     nhg = _es_vrfs(tor1, ES2_ID)["vrf-b"]["ipv4NHG"]
     assert nhg, "L2VNI ES-VRF has no L3 NHG"
@@ -1000,12 +1044,16 @@ def _evpn_cmd(router, cmd):
     )
 
 
-def _expect_bgpd_log(tgen, router, text):
+def _expect_bgpd_log(tgen, router, text, after):
     path = os.path.join(tgen.logdir, router.name, "bgpd.log")
 
     def _check():
         with open(path) as f:
-            return None if text in f.read() else "'%s' not in %s" % (text, path)
+            output = f.read()
+        output = output[len(after) :] if output.startswith(after) else output
+        return (
+            None if text in output else "'%s' not in new output from %s" % (text, path)
+        )
 
     _, result = topotest.run_and_expect(_check, None, count=30, wait=1)
     assert result is None, result
@@ -1026,9 +1074,13 @@ def test_bpp_es_evi_pending_es():
     _set_bgp_prot_debug(tor1, True)
 
     # L3VNI ES-EVI before the ES: kept pending, applied on local ES add.
+    marker = _log_text(tgen, tor1, "bgpd")
     _evpn_cmd(tor1, "test es %s vni %d" % (ES9_ID, VRFS["vrf-a"][1]))
     _expect_bgpd_log(
-        tgen, tor1, "es %s l3vni %d pending: no local ES" % (ES9_ID, VRFS["vrf-a"][1])
+        tgen,
+        tor1,
+        "es %s l3vni %d pending: no local ES" % (ES9_ID, VRFS["vrf-a"][1]),
+        marker,
     )
     _expect_es_vrfs(tor1, ES9_ID, {}, "no ES yet")
 
@@ -1074,9 +1126,13 @@ def test_bpp_es_evi_l3vni_order():
     _set_bgp_prot_debug(tor1, True)
 
     # L3VNI ES-EVI before bgpd knows the L3VNI: pending, applied on L3VNI add.
+    marker = _log_text(tgen, tor1, "bgpd")
     _evpn_cmd(tor1, "test es %s vni %d" % (ES1_ID, VRF_C_L3VNI))
     _expect_bgpd_log(
-        tgen, tor1, "es %s l3vni %d pending: no BGP VRF" % (ES1_ID, VRF_C_L3VNI)
+        tgen,
+        tor1,
+        "es %s l3vni %d pending: no BGP VRF" % (ES1_ID, VRF_C_L3VNI),
+        marker,
     )
     _expect_es_vrfs(tor1, ES1_ID, {}, "L3VNI unknown")
 
@@ -1146,32 +1202,21 @@ def _path_nexthop(path):
     return None
 
 
-def _known_l3vnis():
-    vnis = set(v[1] for v in VRFS.values())
-    vnis.add(VRF_C_L3VNI)
-    return vnis
-
-
 def _route_vni(route):
     vni = route.get("vni")
-    if vni not in (None, "0", 0, "0"):
-        return int(vni)
-    known = _known_l3vnis()
-    for tok in (route.get("extcomm") or "").split():
-        if tok.startswith("RT:") and tok.count(":") >= 2:
-            try:
-                val = int(tok.rsplit(":", 1)[1])
-            except ValueError:
-                continue
-            if val in known:
-                return val
+    if vni not in (None, "0", 0):
+        try:
+            return int(vni)
+        except (TypeError, ValueError):
+            return None
     return None
 
 
-def _ead_routes(router):
-    """Local type-1 routes: list of {rd, eth_tag, esi, extcomm, vni}."""
+def _ead_routes(router, self_originate=True):
+    """Type-1 routes: list of {rd, eth_tag, esi, extcomm, vni, nexthop}."""
+    origin = " self-originate" if self_originate else ""
     output = json.loads(
-        router.vtysh_cmd("show bgp l2vpn evpn route type 1 self-originate json") or "{}"
+        router.vtysh_cmd("show bgp l2vpn evpn route type 1%s json" % origin) or "{}"
     )
     routes = []
     local_nhs = {tor_lo(router.name), tor_vtep(router.name)}
@@ -1192,7 +1237,7 @@ def _ead_routes(router):
                 esi = parts[2].rstrip("]")
             for path in _path_dicts(paths):
                 nh = _path_nexthop(path)
-                if nh and nh not in local_nhs:
+                if self_originate and nh and nh not in local_nhs:
                     continue
                 ext = (path.get("extendedCommunity") or {}).get("string", "")
                 rec = {
@@ -1209,7 +1254,11 @@ def _ead_routes(router):
             return
         rd_here = obj.get("rd", rd)
         for key, val in obj.items():
-            if isinstance(key, str) and key.startswith("[1]:[") and isinstance(val, dict):
+            if (
+                isinstance(key, str)
+                and key.startswith("[1]:[")
+                and isinstance(val, dict)
+            ):
                 val = dict(val, prefix=val.get("prefix") or key)
             _walk(val, rd_here if isinstance(rd_here, str) else rd)
 
@@ -1218,14 +1267,25 @@ def _ead_routes(router):
 
 
 def _ead_evi(router, esi=ES1_ID):
-    return [r for r in _ead_routes(router) if r["eth_tag"] == EAD_EVI_ET and r["esi"] == esi]
+    return [
+        r for r in _ead_routes(router) if r["eth_tag"] == EAD_EVI_ET and r["esi"] == esi
+    ]
+
+
+def _ead_evi_vrf(router, vrf, esi=ES1_ID):
+    rt = "RT:%s" % _vrf_rt(router, vrf)
+    return [route for route in _ead_evi(router, esi) if rt in (route["extcomm"] or "")]
 
 
 def _ead_es(router, esi=ES1_ID):
-    return [r for r in _ead_routes(router) if r["eth_tag"] == ETH_TAG_ES and r["esi"] == esi]
+    return [
+        r for r in _ead_routes(router) if r["eth_tag"] == ETH_TAG_ES and r["esi"] == esi
+    ]
 
 
-def _expect_ip_ead(router, msg, evi_vrfs=None, es_rts=None, evi_absent=False, es_absent=False):
+def _expect_ip_ead(
+    router, msg, evi_vrfs=None, es_rts=None, evi_absent=False, es_absent=False
+):
     def _check():
         evi = _ead_evi(router)
         esr = _ead_es(router)
@@ -1234,14 +1294,30 @@ def _expect_ip_ead(router, msg, evi_vrfs=None, es_rts=None, evi_absent=False, es
         if es_absent and esr:
             return "per-ES present: %s" % esr
         if evi_vrfs is not None:
-            vnis = sorted(r["vni"] for r in evi if r.get("vni") is not None)
-            want = sorted(VRFS[v][1] for v in evi_vrfs)
-            if vnis != want:
-                return "per-EVI VNIs %s, want %s (%s)" % (vnis, want, evi)
-            for r in evi:
+            if len(evi) != len(evi_vrfs):
+                return "per-EVI route count %d, want %d (%s)" % (
+                    len(evi),
+                    len(evi_vrfs),
+                    evi,
+                )
+            for vrf in evi_vrfs:
+                vni = VRFS[vrf][1]
+                rt = "RT:%s" % _vrf_rt(router, vrf)
+                matches = [route for route in evi if rt in (route["extcomm"] or "")]
+                if len(matches) != 1:
+                    return "per-EVI %s routes %s, want one (%s)" % (vrf, matches, evi)
+                r = matches[0]
                 ext = r["extcomm"] or ""
-                if "Rmac:" not in ext:
-                    return "per-EVI missing Router's MAC: %s" % r
+                if r.get("vni") not in (None, vni):
+                    return "per-EVI %s label %s, want %d: %s" % (
+                        vrf,
+                        r.get("vni"),
+                        vni,
+                        r,
+                    )
+                rmac = _if_mac(router, "vlan%d" % vni)
+                if "Rmac:%s" % rmac not in ext:
+                    return "per-EVI Router's MAC is not %s: %s" % (rmac, r)
                 if "L2:" not in ext or "P" not in ext:
                     return "per-EVI missing L2 P=1: %s" % r
                 if "ET:8" not in ext:
@@ -1259,6 +1335,112 @@ def _expect_ip_ead(router, msg, evi_vrfs=None, es_rts=None, evi_absent=False, es
     assert result is None, "%s: %s" % (msg, result)
 
 
+def _expect_ip_ead_bgp_rx(router, source, esi, vrfs, msg):
+    vtep = tor_vtep(source.name)
+    expected = {
+        vrf: {
+            "rt": "RT:%s" % _vrf_rt(source, vrf),
+            "rmac": _if_mac(source, "vlan%d" % VRFS[vrf][1]),
+        }
+        for vrf in vrfs
+    }
+
+    def _check():
+        routes = [
+            route
+            for route in _ead_routes(router, self_originate=False)
+            if route["eth_tag"] == EAD_EVI_ET
+            and route["esi"] == esi
+            and route["nexthop"] == vtep
+        ]
+        found = set()
+        for route in routes:
+            ext = route["extcomm"] or ""
+            matches = [vrf for vrf, attrs in expected.items() if attrs["rt"] in ext]
+            if len(matches) != 1:
+                return "received route does not identify one expected VRF: %s" % route
+            vrf = matches[0]
+            found.add(vrf)
+            if "Rmac:%s" % expected[vrf]["rmac"] not in ext:
+                return "received %s Router's MAC is not %s: %s" % (
+                    vrf,
+                    expected[vrf]["rmac"],
+                    route,
+                )
+            if "L2:" not in ext or "P" not in ext:
+                return "received %s missing L2 P=1: %s" % (vrf, route)
+            if "ET:8" not in ext:
+                return "received %s missing VXLAN encap: %s" % (vrf, route)
+        if found != set(expected):
+            return "received VRFs %s, want %s (%s)" % (
+                sorted(found),
+                sorted(expected),
+                routes,
+            )
+        return None
+
+    _, result = topotest.run_and_expect(_check, None, count=30, wait=1)
+    assert result is None, "%s: %s" % (msg, result)
+
+
+def _expect_no_ip_ead_bgp_rx(router, source, esi, msg):
+    vtep = tor_vtep(source.name)
+
+    def _check():
+        routes = [
+            route
+            for route in _ead_routes(router, self_originate=False)
+            if route["esi"] == esi and route["nexthop"] == vtep
+        ]
+        return routes or None
+
+    _, result = topotest.run_and_expect(_check, None, count=30, wait=1)
+    assert result is None, "%s: %s" % (msg, result)
+
+
+def _route_targets(route):
+    return {
+        token[3:]
+        for token in (route.get("extcomm") or "").split()
+        if token.startswith("RT:")
+    }
+
+
+def _expect_ip_ead_rt_rx(router, source, esi, evi_rts, es_rts, msg):
+    vtep = tor_vtep(source.name)
+    expected_evi = {frozenset((rt,)) for rt in evi_rts}
+    expected_es = set(es_rts)
+
+    def _check():
+        routes = [
+            route
+            for route in _ead_routes(router, self_originate=False)
+            if route["esi"] == esi and route["nexthop"] == vtep
+        ]
+        evi = [route for route in routes if route["eth_tag"] == EAD_EVI_ET]
+        es = [route for route in routes if route["eth_tag"] == ETH_TAG_ES]
+        got_evi = {frozenset(_route_targets(route)) for route in evi}
+        if got_evi != expected_evi:
+            return "received per-EVI RT sets %s, want %s (%s)" % (
+                sorted(map(sorted, got_evi)),
+                sorted(map(sorted, expected_evi)),
+                evi,
+            )
+        if not es:
+            return "received no per-ES route"
+        got_es = set().union(*(_route_targets(route) for route in es))
+        if got_es != expected_es:
+            return "received per-ES RT union %s, want %s (%s)" % (
+                sorted(got_es),
+                sorted(expected_es),
+                es,
+            )
+        return None
+
+    _, result = topotest.run_and_expect(_check, None, count=30, wait=1)
+    assert result is None, "%s: %s" % (msg, result)
+
+
 def _clear_ip_ead(router):
     _set_bpp_if(router, ES_IF, False)
     _expect_ip_ead(router, "IP A-D withdrawn", evi_absent=True, es_absent=True)
@@ -1270,13 +1452,29 @@ def test_bpp_ip_ead_tx():
         pytest.skip(tgen.errors)
 
     tor1 = tgen.gears["tor1"]
+    tor2 = tgen.gears["tor2"]
+    lo1 = tor_lo("tor1")
     rts = (_vrf_rt(tor1, "vrf-a"), _vrf_rt(tor1, "vrf-b"))
 
-    _expect_ip_ead(tor1, "no IP A-D without protection", evi_absent=True, es_absent=True)
+    _set_bpp(tor2, True)
+    _expect_ip_ead(
+        tor1, "no IP A-D without protection", evi_absent=True, es_absent=True
+    )
+    _expect_no_exports(tor2, "receiver has no source RT-1")
 
     _set_bpp(tor1, True)
     _expect_ip_ead(tor1, "protected ES", evi_vrfs=("vrf-a", "vrf-b"), es_rts=rts)
+    _expect_ip_ead_bgp_rx(
+        tor2, tor1, ES1_ID, ("vrf-a", "vrf-b"), "receiver has exact per-EVI attributes",
+    )
+    _expect_ip_ead_rx_all(tor2, ES1_ID, (lo1,), "source RT-1 classified")
+    _expect_export_clean(
+        tor2, "source RT-1 exports all objects", members=1, vteps=(lo1,)
+    )
     _clear_ip_ead(tor1)
+    _expect_no_ip_ead_rx(tor2, ES1_ID, "source RT-1 withdrawn")
+    _expect_no_exports(tor2, "source withdrawal removes exports", released=True)
+    _clear_ip_ead(tor2)
 
 
 def test_bpp_ip_ead_tx_ipv6():
@@ -1285,11 +1483,19 @@ def test_bpp_ip_ead_tx_ipv6():
         pytest.skip(tgen.errors)
 
     tor3 = tgen.gears["tor3"]
+    tor1 = tgen.gears["tor1"]
     vtep = tor_vtep("tor3")
     rts = (_vrf_rt(tor3, "vrf-a"), _vrf_rt(tor3, "vrf-b"))
 
+    _set_bpp(tor1, True)
     _set_bpp(tor3, True)
-    _expect_ip_ead(tor3, "IPv6 VTEP", evi_vrfs=("vrf-a", "vrf-b"), es_rts=rts)
+    _expect_ip_ead(
+        tor3, "configured IPv6 VTEP", evi_vrfs=("vrf-a", "vrf-b"), es_rts=rts,
+    )
+    _expect_ip_ead_rx_all(tor1, ES1_ID, (vtep,), "IPv6 source RT-1 classified")
+    _expect_export_clean(
+        tor1, "IPv6 source exports all objects", members=1, vteps=(vtep,)
+    )
 
     def _check_nh():
         evi = _ead_evi(tor3)
@@ -1301,6 +1507,9 @@ def test_bpp_ip_ead_tx_ipv6():
     _, result = topotest.run_and_expect(_check_nh, None, count=30, wait=1)
     assert result is None, result
     _clear_ip_ead(tor3)
+    _expect_no_ip_ead_rx(tor1, ES1_ID, "IPv6 source RT-1 withdrawn")
+    _expect_no_exports(tor1, "IPv6 source cleanup removes exports", released=True)
+    _clear_ip_ead(tor1)
 
 
 def test_bpp_ip_ead_tx_per_es_frag():
@@ -1309,12 +1518,15 @@ def test_bpp_ip_ead_tx_per_es_frag():
         pytest.skip(tgen.errors)
 
     tor1 = tgen.gears["tor1"]
+    tor2 = tgen.gears["tor2"]
+    lo1 = tor_lo("tor1")
     rts = (_vrf_rt(tor1, "vrf-a"), _vrf_rt(tor1, "vrf-b"))
 
     tor1.vtysh_cmd(
         "configure terminal\nrouter bgp 65001\naddress-family l2vpn evpn\n"
         "ead-es-frag evi-limit 1"
     )
+    _set_bpp(tor2, True)
     _set_bpp(tor1, True)
 
     def _check_frags():
@@ -1332,7 +1544,12 @@ def test_bpp_ip_ead_tx_per_es_frag():
 
     _, result = topotest.run_and_expect(_check_frags, None, count=30, wait=1)
     assert result is None, "fragments: %s" % result
+    _expect_ip_ead_rx_all(tor2, ES1_ID, (lo1,), "fragmented source classified")
+    _expect_export_clean(
+        tor2, "fragmented source exports all objects", members=1, vteps=(lo1,)
+    )
 
+    marker = _export_marker(tor2)
     tor1.vtysh_cmd(
         "configure terminal\nrouter bgp 65001\naddress-family l2vpn evpn\n"
         "ead-es-route-target export 65001:1"
@@ -1348,12 +1565,20 @@ def test_bpp_ip_ead_tx_per_es_frag():
 
     _, result = topotest.run_and_expect(_check_ead_rt, None, count=30, wait=1)
     assert result is None, "ead-es-route-target: %s" % result
+    _expect_ip_ead_rx_all(tor2, ES1_ID, (lo1,), "decorated source classified")
+    _expect_export_clean(
+        tor2, "RT decoration keeps active exports", members=1, vteps=(lo1,)
+    )
+    _expect_export_events(tor2, marker, [], "RT decoration sends no export")
 
     tor1.vtysh_cmd(
         "configure terminal\nrouter bgp 65001\naddress-family l2vpn evpn\n"
         "no ead-es-route-target export 65001:1\nno ead-es-frag evi-limit 1"
     )
     _clear_ip_ead(tor1)
+    _expect_no_ip_ead_rx(tor2, ES1_ID, "fragmented source withdrawn")
+    _expect_no_exports(tor2, "fragment source cleanup removes exports", released=True)
+    _clear_ip_ead(tor2)
 
 
 def test_bpp_ip_ead_tx_no_l3mh():
@@ -1362,14 +1587,28 @@ def test_bpp_ip_ead_tx_no_l3mh():
         pytest.skip(tgen.errors)
 
     tor1 = tgen.gears["tor1"]
+    tor2 = tgen.gears["tor2"]
+    lo1 = tor_lo("tor1")
 
+    _set_bpp(tor2, True)
     _expect_ip_ead(tor1, "unprotected", evi_absent=True, es_absent=True)
+    _expect_no_exports(tor2, "unprotected source exports nothing")
 
     _set_bpp(tor1, True)
     _set_l3vni_neigh(tor1, False)
     _expect_ip_ead(tor1, "l3vni-neigh off", evi_absent=True, es_absent=True)
+    _expect_no_ip_ead_rx(tor2, ES1_ID, "source knob off withdraws RT-1")
+    _expect_no_exports(tor2, "source knob off exports nothing", released=True)
     _set_l3vni_neigh(tor1, True)
+    _expect_ip_ead(tor1, "l3vni-neigh restored", evi_vrfs=("vrf-a", "vrf-b"))
+    _expect_ip_ead_rx_all(tor2, ES1_ID, (lo1,), "restored source classified")
+    _expect_export_clean(
+        tor2, "source knob restore exports all objects", members=1, vteps=(lo1,)
+    )
     _clear_ip_ead(tor1)
+    _expect_no_ip_ead_rx(tor2, ES1_ID, "restored source withdrawn")
+    _expect_no_exports(tor2, "no-l3mh cleanup removes exports", released=True)
+    _clear_ip_ead(tor2)
 
 
 def test_bpp_ip_ead_tx_withdraw():
@@ -1377,33 +1616,52 @@ def test_bpp_ip_ead_tx_withdraw():
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
 
+    tor1 = tgen.gears["tor1"]
     tor2 = tgen.gears["tor2"]
+    lo2 = tor_lo("tor2")
     rts = (_vrf_rt(tor2, "vrf-a"), _vrf_rt(tor2, "vrf-b"))
 
+    _set_bpp(tor1, True)
     _set_bpp_if(tor2, ES_IF, True)
     _expect_ip_ead(tor2, "tor2 initial", evi_vrfs=("vrf-a", "vrf-b"), es_rts=rts)
+    _expect_ip_ead_rx_all(tor1, ES1_ID, (lo2,), "originator RT-1 classified")
+    _expect_export_clean(
+        tor1, "originator exports all objects", members=1, vteps=(lo2,)
+    )
 
     tor2.run("/sbin/bridge vlan del vid 20 dev %s" % ES_IF)
     _expect_ip_ead(tor2, "vrf-b VLAN gone", evi_vrfs=("vrf-a",), es_rts=(rts[0],))
+    _expect_ip_ead_rx(tor1, ES1_ID, "vrf-a", (lo2,), "vrf-a RT-1 remains")
+    _expect_ip_ead_rx(tor1, ES1_ID, "vrf-b", (), "vrf-b RT-1 withdrawn")
+    _expect_no_exports(tor1, "partial coverage withdraws exports", released=True)
 
     tor2.run("ip link set %s down" % ES_IF)
 
     def _check_es_down():
         if _ead_es(tor2):
             return "per-ES still present"
-        evi = _ead_evi(tor2)
-        vnis = sorted(r["vni"] for r in evi if r.get("vni") is not None)
-        if vnis != [4001]:
-            return "per-EVI VNIs %s, want [4001]" % vnis
+        if len(_ead_evi_vrf(tor2, "vrf-a")) != 1 or _ead_evi_vrf(tor2, "vrf-b"):
+            return "unexpected per-EVI routes: %s" % _ead_evi(tor2)
         return None
 
     _, result = topotest.run_and_expect(_check_es_down, None, count=30, wait=1)
     assert result is None, "ES down: %s" % result
+    _expect_ip_ead_rx(
+        tor1, ES1_ID, "vrf-a", (lo2,), "ES-down per-EVI remains", es=False
+    )
+    _expect_no_exports(tor1, "ES-down source keeps exports absent", released=True)
 
     tor2.run("ip link set %s up" % ES_IF)
     tor2.run("/sbin/bridge vlan add vid 20 dev %s" % ES_IF)
     _expect_ip_ead(tor2, "tor2 restored", evi_vrfs=("vrf-a", "vrf-b"), es_rts=rts)
+    _expect_ip_ead_rx_all(tor1, ES1_ID, (lo2,), "originator RT-1 restored")
+    _expect_export_clean(
+        tor1, "restored originator exports all objects", members=1, vteps=(lo2,)
+    )
     _clear_ip_ead(tor2)
+    _expect_no_ip_ead_rx(tor1, ES1_ID, "originator cleanup withdraws RT-1")
+    _expect_no_exports(tor1, "withdrawal cleanup removes exports", released=True)
+    _clear_ip_ead(tor1)
 
 
 def test_bpp_ip_ead_tx_svi_oper():
@@ -1412,19 +1670,39 @@ def test_bpp_ip_ead_tx_svi_oper():
         pytest.skip(tgen.errors)
 
     tor1 = tgen.gears["tor1"]
+    tor2 = tgen.gears["tor2"]
+    lo2 = tor_lo("tor2")
     rts = (_vrf_rt(tor1, "vrf-a"), _vrf_rt(tor1, "vrf-b"))
+    _set_bpp_if(tor2, ES_IF, True)
     _set_bpp(tor1, True)
     _expect_ip_ead(tor1, "before SVI down", evi_vrfs=("vrf-a", "vrf-b"), es_rts=rts)
+    _expect_ip_ead_rx_all(tor1, ES1_ID, (lo2,), "remote RT-1 before SVI down")
+    _expect_export_clean(tor1, "active export before SVI down", members=1, vteps=(lo2,))
 
     before = [(r["prefix"], r["extcomm"], r["vni"]) for r in _ead_routes(tor1)]
+    remote_before = _ip_ead_classification_snapshot(tor1, ES1_ID)
+    marker = _export_marker(tor1)
     tor1.run("ip link set vlan20 down")
     _expect_ip_ead(tor1, "SVI down", evi_vrfs=("vrf-a", "vrf-b"), es_rts=rts)
     after = [(r["prefix"], r["extcomm"], r["vni"]) for r in _ead_routes(tor1)]
     assert after == before, "SVI down changed type-1: %s -> %s" % (before, after)
+    _expect_ip_ead_classification_unchanged(
+        tor1, ES1_ID, remote_before, "SVI down keeps remote RT-1 classification"
+    )
+    _expect_export_clean(tor1, "SVI down keeps active export", members=1, vteps=(lo2,))
+    _expect_export_events(tor1, marker, [], "SVI down sends no export")
 
     tor1.run("ip link set vlan20 up")
     _expect_ip_ead(tor1, "SVI up", evi_vrfs=("vrf-a", "vrf-b"), es_rts=rts)
+    _expect_ip_ead_classification_unchanged(
+        tor1, ES1_ID, remote_before, "SVI up keeps remote RT-1 classification"
+    )
+    _expect_export_clean(tor1, "SVI up keeps active export", members=1, vteps=(lo2,))
+    _expect_export_events(tor1, marker, [], "SVI up sends no export")
     _clear_ip_ead(tor1)
+    _clear_ip_ead(tor2)
+    _expect_no_ip_ead_rx(tor1, ES1_ID, "SVI test remote RT-1 cleanup")
+    _expect_no_exports(tor1, "SVI test cleanup has no exports")
 
 
 def test_bpp_ip_ead_tx_local_es_down():
@@ -1433,27 +1711,44 @@ def test_bpp_ip_ead_tx_local_es_down():
         pytest.skip(tgen.errors)
 
     tor1 = tgen.gears["tor1"]
+    tor2 = tgen.gears["tor2"]
+    lo1 = tor_lo("tor1")
     rts = (_vrf_rt(tor1, "vrf-a"), _vrf_rt(tor1, "vrf-b"))
+    _set_bpp(tor2, True)
     _set_bpp(tor1, True)
     _expect_ip_ead(tor1, "before ES down", evi_vrfs=("vrf-a", "vrf-b"), es_rts=rts)
+    _expect_ip_ead_rx_all(tor2, ES1_ID, (lo1,), "source RT-1 before ES down")
+    _expect_export_clean(tor2, "source exports before ES down", members=1, vteps=(lo1,))
 
     tor1.run("ip link set %s down" % ES_IF)
 
     def _check():
         if _ead_es(tor1):
             return "per-ES still present"
-        evi = _ead_evi(tor1)
-        vnis = sorted(r["vni"] for r in evi if r.get("vni") is not None)
-        if vnis != [4001, 4002]:
-            return "per-EVI VNIs %s" % vnis
+        if any(len(_ead_evi_vrf(tor1, vrf)) != 1 for vrf in VRFS):
+            return "unexpected per-EVI routes: %s" % _ead_evi(tor1)
         return None
 
     _, result = topotest.run_and_expect(_check, None, count=30, wait=1)
     assert result is None, "local ES down: %s" % result
+    _expect_ip_ead_rx(
+        tor2, ES1_ID, "vrf-a", (lo1,), "ES-down vrf-a classification", es=False
+    )
+    _expect_ip_ead_rx(
+        tor2, ES1_ID, "vrf-b", (lo1,), "ES-down vrf-b classification", es=False
+    )
+    _expect_no_exports(tor2, "local ES down withdraws exports", released=True)
 
     tor1.run("ip link set %s up" % ES_IF)
     _expect_ip_ead(tor1, "ES restored", evi_vrfs=("vrf-a", "vrf-b"), es_rts=rts)
+    _expect_ip_ead_rx_all(tor2, ES1_ID, (lo1,), "source RT-1 after ES restore")
+    _expect_export_clean(
+        tor2, "local ES restore restores exports", members=1, vteps=(lo1,)
+    )
     _clear_ip_ead(tor1)
+    _expect_no_ip_ead_rx(tor2, ES1_ID, "local ES source cleanup")
+    _expect_no_exports(tor2, "local ES cleanup removes exports", released=True)
+    _clear_ip_ead(tor2)
 
 
 def test_bpp_ip_ead_tx_rt_change():
@@ -1462,9 +1757,22 @@ def test_bpp_ip_ead_tx_rt_change():
         pytest.skip(tgen.errors)
 
     tor1 = tgen.gears["tor1"]
+    tor2 = tgen.gears["tor2"]
+    lo1 = tor_lo("tor1")
+    _set_bpp(tor2, True)
     _set_bpp(tor1, True)
     new_rt = "65001:9999"
+    auto_rts = (_vrf_rt(tor1, "vrf-a"), _vrf_rt(tor1, "vrf-b"))
+    _expect_ip_ead_rt_rx(
+        tor2, tor1, ES1_ID, auto_rts, auto_rts, "receiver before RT change"
+    )
+    _expect_ip_ead_rx_all(tor2, ES1_ID, (lo1,), "source RT-1 before RT change")
+    classification = _ip_ead_classification_snapshot(tor2, ES1_ID)
+    _expect_export_clean(
+        tor2, "source exports before RT change", members=1, vteps=(lo1,)
+    )
 
+    marker = _export_marker(tor2)
     tor1.vtysh_cmd(
         "configure terminal\nrouter bgp 65001 vrf vrf-a\naddress-family l2vpn evpn\n"
         "route-target export %s" % new_rt
@@ -1482,12 +1790,39 @@ def test_bpp_ip_ead_tx_rt_change():
 
     _, result = topotest.run_and_expect(_check, None, count=30, wait=1)
     assert result is None, "RT change: %s" % result
+    changed_rts = (new_rt, auto_rts[1])
+    _expect_ip_ead_rt_rx(
+        tor2,
+        tor1,
+        ES1_ID,
+        changed_rts,
+        changed_rts,
+        "receiver after explicit RT replacement",
+    )
+    _expect_ip_ead_rx(tor2, ES1_ID, "vrf-a", (), "explicit RT removes vrf-a import")
+    _expect_ip_ead_rx(tor2, ES1_ID, "vrf-b", (lo1,), "explicit RT keeps vrf-b import")
+    _expect_no_exports(tor2, "explicit RT removes all-ready coverage", released=True)
+    _expect_export_events(tor2, marker, BPP_DEL_EVENTS, "explicit RT withdraws exports")
 
+    marker = _export_marker(tor2)
     tor1.vtysh_cmd(
         "configure terminal\nrouter bgp 65001 vrf vrf-a\naddress-family l2vpn evpn\n"
         "no route-target export %s" % new_rt
     )
+    _expect_ip_ead_rt_rx(
+        tor2, tor1, ES1_ID, auto_rts, auto_rts, "receiver after RT restoration"
+    )
+    _expect_ip_ead_classification_unchanged(
+        tor2, ES1_ID, classification, "RT restoration keeps classification"
+    )
+    _expect_export_clean(
+        tor2, "auto RT restoration restores exports", members=1, vteps=(lo1,)
+    )
+    _expect_export_events(tor2, marker, BPP_ADD_EVENTS, "auto RT restores exports")
     _clear_ip_ead(tor1)
+    _expect_no_ip_ead_rx(tor2, ES1_ID, "RT source cleanup withdraws classification")
+    _expect_no_exports(tor2, "RT decoration cleanup removes exports", released=True)
+    _clear_ip_ead(tor2)
 
 
 def test_bpp_ip_ead_tx_rmac_change():
@@ -1496,10 +1831,20 @@ def test_bpp_ip_ead_tx_rmac_change():
         pytest.skip(tgen.errors)
 
     tor1 = tgen.gears["tor1"]
+    tor2 = tgen.gears["tor2"]
+    lo1 = tor_lo("tor1")
+    _set_bpp(tor2, True)
     _set_bpp(tor1, True)
     _expect_ip_ead(tor1, "before RMAC change", evi_vrfs=("vrf-a", "vrf-b"))
+    _expect_ip_ead_bgp_rx(
+        tor2, tor1, ES1_ID, ("vrf-a", "vrf-b"), "receiver before RMAC change"
+    )
+    _expect_ip_ead_rx_all(tor2, ES1_ID, (lo1,), "source RT-1 before RMAC change")
+    _expect_export_clean(
+        tor2, "source exports before RMAC change", members=1, vteps=(lo1,)
+    )
 
-    evi = [r for r in _ead_evi(tor1) if r.get("vni") == 4001]
+    evi = _ead_evi_vrf(tor1, "vrf-a")
     assert evi, "no vrf-a per-EVI"
     old_ext = evi[0]["extcomm"]
     new_mac = "44:38:39:00:00:99"
@@ -1507,7 +1852,7 @@ def test_bpp_ip_ead_tx_rmac_change():
     tor1.run("ip link set vlan4001 address %s" % new_mac)
 
     def _check():
-        cur = [r for r in _ead_evi(tor1) if r.get("vni") == 4001]
+        cur = _ead_evi_vrf(tor1, "vrf-a")
         if not cur:
             return "no vrf-a per-EVI"
         ext = cur[0]["extcomm"] or ""
@@ -1517,9 +1862,53 @@ def test_bpp_ip_ead_tx_rmac_change():
 
     _, result = topotest.run_and_expect(_check, None, count=30, wait=1)
     assert result is None, "RMAC change: %s" % result
+    _expect_ip_ead_bgp_rx(
+        tor2, tor1, ES1_ID, ("vrf-a", "vrf-b"), "receiver after RMAC change"
+    )
+    _expect_ip_ead_rx(
+        tor2, ES1_ID, "vrf-a", (lo1,), "updated RMAC classification", rmac=new_mac
+    )
+    _expect_export_clean(
+        tor2, "RMAC change keeps active exports", members=1, vteps=(lo1,)
+    )
+
+    def _check_export_rmac():
+        member = _export_member(tor2, lo1)
+        return None if member and member.get("rmac") == new_mac else member
+
+    _, result = topotest.run_and_expect(
+        _check_export_rmac, None, count=WAIT_COUNT, wait=WAIT_STEP
+    )
+    assert result is None, "RMAC source export did not update: %s" % result
 
     tor1.run("ip link set vlan4001 address %s" % old_mac)
+    _expect_ip_ead_bgp_rx(
+        tor2, tor1, ES1_ID, ("vrf-a", "vrf-b"), "receiver after RMAC restoration"
+    )
+    _expect_ip_ead_rx(
+        tor2, ES1_ID, "vrf-a", (lo1,), "restored RMAC classification", rmac=old_mac
+    )
+
+    def _check_restored_export_rmac():
+        member = _export_member(tor2, lo1)
+        if not member or member.get("rmac") != old_mac:
+            return member
+        groups = ((_export(tor2).get("tables") or {}).get("groups") or {}).values()
+        group_members = [m for group in groups for m in group.get("members", [])]
+        if not any(
+            m.get("vtep") == lo1 and m.get("rmac") == old_mac for m in group_members
+        ):
+            return group_members
+        return None
+
+    _, result = topotest.run_and_expect(
+        _check_restored_export_rmac, None, count=WAIT_COUNT, wait=WAIT_STEP
+    )
+    assert result is None, "restored RMAC export did not converge: %s" % result
     _clear_ip_ead(tor1)
+    _expect_no_ip_ead_rx(tor2, ES1_ID, "RMAC source cleanup")
+    _expect_no_exports(tor2, "RMAC source cleanup removes exports", released=True)
+    _clear_ip_ead(tor2)
 
 
 def _evpn_nbrs(router):
@@ -1528,17 +1917,36 @@ def _evpn_nbrs(router):
 
 
 def _es_vrf_vteps(router, esi, vrf):
-    entry = _es_vrfs(router, esi).get(vrf, {})
+    ip_ad = json.loads(router.vtysh_cmd("show bgp l2vpn evpn es-vrf ip-ad-vteps json"))
+    drops = json.loads(
+        router.vtysh_cmd("show bgp l2vpn evpn es-vrf drop-counters json")
+    )
+    entry = next(
+        (
+            item
+            for item in ip_ad
+            if item.get("esi") == esi and item.get("vrf", "").split()[-1] == vrf
+        ),
+        {},
+    )
+    drop_entry = next(
+        (
+            item
+            for item in drops
+            if item.get("esi") == esi and item.get("vrf", "").split()[-1] == vrf
+        ),
+        {},
+    )
+    entry.update(drop_entry)
     return {v.get("vtep"): v for v in entry.get("vteps") or []}, entry
 
 
-def _expect_ip_ead_rx(router, esi, vrf, vtep_ips, msg, evi=True, es=True):
+def _expect_ip_ead_rx(router, esi, vrf, vtep_ips, msg, evi=True, es=True, rmac=None):
     want = sorted(vtep_ips)
 
     def _check():
         vteps, _ = _es_vrf_vteps(router, esi, vrf)
-        got = sorted(ip for ip, rec in vteps.items() if rec.get("ip_ead_per_evi") or rec.get("ip_ead_per_es"))
-        if sorted(vteps) != want and got != want:
+        if sorted(vteps) != want:
             return "vteps %s, want %s" % (sorted(vteps), want)
         for ip in want:
             rec = vteps.get(ip)
@@ -1560,10 +1968,84 @@ def _expect_ip_ead_rx(router, esi, vrf, vtep_ips, msg, evi=True, es=True):
                 )
             if evi and not rec.get("rmac"):
                 return "%s missing rmac: %s" % (ip, rec)
+            if rmac is not None and rec.get("rmac") != rmac:
+                return "%s rmac=%s want %s (%s)" % (ip, rec.get("rmac"), rmac, rec,)
         return None
 
     _, result = topotest.run_and_expect(_check, None, count=30, wait=1)
     assert result is None, "%s: %s" % (msg, result)
+
+
+def _expect_ip_ead_rx_all(router, esi, vtep_ips, msg, vrfs=None, rmac=None):
+    for vrf in vrfs or VRFS:
+        _expect_ip_ead_rx(
+            router, esi, vrf, vtep_ips, "%s in %s" % (msg, vrf), rmac=rmac,
+        )
+
+
+def _expect_l2vni_ip_ead(router, esi, vtep, present, msg):
+    def _check():
+        output = json.loads(
+            router.vtysh_cmd("show bgp l2vpn evpn route vni %d json" % DUAL_SCOPE_L2VNI)
+            or "{}"
+        )
+
+        def _walk(obj):
+            if isinstance(obj, dict):
+                prefix = obj.get("prefix")
+                if (
+                    isinstance(prefix, str)
+                    and prefix.startswith("[1]:[")
+                    and esi in prefix
+                ):
+                    if any(
+                        _path_nexthop(path) == vtep
+                        for path in _path_dicts(obj.get("paths"))
+                    ):
+                        return True
+                for key, value in obj.items():
+                    if (
+                        isinstance(key, str)
+                        and key.startswith("[1]:[")
+                        and isinstance(value, dict)
+                    ):
+                        value = dict(value, prefix=value.get("prefix") or key)
+                    if _walk(value):
+                        return True
+                return False
+            if isinstance(obj, list):
+                return any(_walk(value) for value in obj)
+            return False
+
+        found = _walk(output)
+        return None if found == present else "L2VNI IP A-D present=%s" % found
+
+    _, result = topotest.run_and_expect(_check, None, count=30, wait=1)
+    assert result is None, "%s: %s" % (msg, result)
+
+
+def _ip_ead_classification_snapshot(router, esi, vrfs=None):
+    state = {}
+    for vrf in vrfs or VRFS:
+        vteps, _ = _es_vrf_vteps(router, esi, vrf)
+        state[vrf] = {
+            ip: {
+                "perEvi": bool(rec.get("ip_ead_per_evi")),
+                "perEs": bool(rec.get("ip_ead_per_es")),
+                "rmac": rec.get("rmac"),
+            }
+            for ip, rec in vteps.items()
+        }
+    return state
+
+
+def _expect_ip_ead_classification_unchanged(router, esi, expected, msg):
+    def _check():
+        current = _ip_ead_classification_snapshot(router, esi, expected)
+        return None if current == expected else current
+
+    _, result = topotest.run_and_expect(_check, None, count=30, wait=1)
+    assert result is None, "%s: got %s, want %s" % (msg, result, expected)
 
 
 def _expect_no_ip_ead_rx(router, esi, msg, vrfs=None):
@@ -1602,23 +2084,109 @@ def test_bpp_ip_ead_rx_classify():
     tor3 = tgen.gears["tor3"]
     peers = (tor_lo("tor2"), tor_vtep("tor3"))
 
+    _set_bpp(tor1, True)
     _set_bpp_if(tor2, ES_IF, True)
     _set_bpp_if(tor3, ES_IF, True)
     for vrf in VRFS:
         _expect_ip_ead_rx(tor1, ES1_ID, vrf, peers, "tor2/tor3 classified in %s" % vrf)
+    _expect_export_clean(tor1, "both classified peers exported", members=2, vteps=peers)
 
     for vrf in VRFS:
         _set_vrf_auto_rt(tor2, vrf, False)
     _expect_ip_ead_rx(tor1, ES1_ID, "vrf-a", (tor_vtep("tor3"),), "tor2 RTs removed")
     _expect_ip_ead_rx(tor1, ES1_ID, "vrf-b", (tor_vtep("tor3"),), "tor2 RTs removed")
+    _expect_export_clean(
+        tor1,
+        "RT removal leaves one exported peer",
+        members=1,
+        vteps=(tor_vtep("tor3"),),
+    )
 
     for vrf in VRFS:
         _set_vrf_auto_rt(tor2, vrf, True)
     _expect_ip_ead_rx(tor1, ES1_ID, "vrf-a", peers, "tor2 RTs restored")
+    _expect_ip_ead_rx(tor1, ES1_ID, "vrf-b", peers, "tor2 RTs restored")
+    _expect_export_clean(
+        tor1, "RT restoration exports both peers", members=2, vteps=peers
+    )
 
     _clear_ip_ead(tor2)
     _clear_ip_ead(tor3)
     _expect_no_ip_ead_rx(tor1, ES1_ID, "remotes withdrawn")
+    _expect_no_exports(tor1, "classification cleanup removes exports", released=True)
+    _set_bpp(tor1, False)
+
+
+def test_bpp_ip_ead_rx_attr_update_withdraw():
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    tor1 = tgen.gears["tor1"]
+    tor2 = tgen.gears["tor2"]
+    lo = tor_lo("tor2")
+    nbrs = _evpn_nbrs(tor2)
+    asn = 65002
+
+    _set_bpp(tor1, True)
+    _set_bpp_if(tor2, ES_IF, True)
+    _expect_ip_ead_rx(tor1, ES1_ID, "vrf-a", (lo,), "before attribute update")
+    _expect_ip_ead_rx(tor1, ES1_ID, "vrf-b", (lo,), "before attribute update")
+    _expect_export_clean(tor1, "attribute source exported", members=1, vteps=(lo,))
+
+    marker = _export_marker(tor1)
+    rmap = (
+        "route-map EAD-ASPATH permit 10\n"
+        " match evpn route-type ead\n"
+        " set as-path prepend 65002 65002\n"
+        "route-map EAD-ASPATH permit 20\n"
+    )
+    nbr_cfg = "".join(
+        "router bgp %d\naddress-family l2vpn evpn\n"
+        "neighbor %s route-map EAD-ASPATH out\n" % (asn, nbr)
+        for nbr in nbrs
+    )
+    tor2.vtysh_cmd("configure terminal\n%s%s" % (rmap, nbr_cfg))
+
+    def _updated():
+        output = json.loads(
+            tor1.vtysh_cmd("show bgp l2vpn evpn route type 1 json") or "{}"
+        )
+
+        def _walk(obj):
+            if isinstance(obj, dict):
+                for path in _path_dicts(obj.get("paths")):
+                    if (
+                        _path_nexthop(path) == lo
+                        and json.dumps(path).count("65002") >= 3
+                    ):
+                        return True
+                return any(_walk(value) for value in obj.values())
+            if isinstance(obj, list):
+                return any(_walk(value) for value in obj)
+            return False
+
+        return None if _walk(output) else "updated path not received"
+
+    _, result = topotest.run_and_expect(_updated, None, count=30, wait=1)
+    assert result is None, result
+    _expect_ip_ead_rx_all(tor1, ES1_ID, (lo,), "updated RT-1 remains classified")
+    _expect_export_clean(
+        tor1, "attribute update keeps active export", members=1, vteps=(lo,)
+    )
+    _expect_export_events(tor1, marker, [], "attribute update sends no export")
+
+    _clear_ip_ead(tor2)
+    _expect_no_ip_ead_rx(tor1, ES1_ID, "attribute-updated path withdrawn")
+    _expect_no_exports(tor1, "attribute withdrawal removes exports", released=True)
+    _set_bpp(tor1, False)
+
+    nbr_del = "".join(
+        "router bgp %d\naddress-family l2vpn evpn\n"
+        "no neighbor %s route-map EAD-ASPATH out\n" % (asn, nbr)
+        for nbr in nbrs
+    )
+    tor2.vtysh_cmd("configure terminal\n%sno route-map EAD-ASPATH\n" % nbr_del)
 
 
 def test_bpp_ip_ead_rx_mac_scope_only():
@@ -1628,12 +2196,112 @@ def test_bpp_ip_ead_rx_mac_scope_only():
 
     tor1 = tgen.gears["tor1"]
     tor2 = tgen.gears["tor2"]
+    lo2 = tor_lo("tor2")
 
+    _set_bpp(tor1, True)
     _set_bpp_if(tor2, ES_IF, True)
-    _expect_ip_ead_rx(tor1, ES1_ID, "vrf-a", (tor_lo("tor2"),), "ES-1 IP A-D")
+    _expect_ip_ead_rx(tor1, ES1_ID, "vrf-a", (lo2,), "ES-1 IP A-D")
+    _expect_ip_ead_rx(tor1, ES1_ID, "vrf-b", (lo2,), "ES-1 IP A-D")
     _expect_no_ip_ead_rx(tor1, ES2_ID, "ES-2 has no IP A-D")
+    _expect_export_clean(
+        tor1, "MAC-scope source exports ES-1 objects", members=1, vteps=(lo2,)
+    )
     _clear_ip_ead(tor2)
     _expect_no_ip_ead_rx(tor1, ES1_ID, "cleaned")
+    _expect_no_exports(tor1, "MAC-scope cleanup removes exports", released=True)
+    _set_bpp(tor1, False)
+
+
+def test_bpp_ip_ead_rx_dual_scope():
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    tor1 = tgen.gears["tor1"]
+    tor2 = tgen.gears["tor2"]
+    lo2 = tor_vtep("tor2")
+    import_rt = _vrf_rt(tor2, "vrf-a")
+
+    _set_bpp(tor1, True)
+    _set_bpp_if(tor2, ES_IF, True)
+    _expect_ip_ead_rx_all(tor1, ES1_ID, (lo2,), "dual-scope baseline")
+    _expect_export_clean(tor1, "dual-scope baseline export", members=1)
+    baseline = _ip_ead_classification_snapshot(tor1, ES1_ID)
+
+    _add_dual_scope_l2vni(tor1)
+    _expect_ip_ead_classification_unchanged(
+        tor1, ES1_ID, baseline, "MAC-VRF creation keeps IP-VRF state"
+    )
+    _expect_export_clean(tor1, "MAC-VRF creation keeps export", members=1)
+
+    marker = _export_marker(tor1)
+    _set_dual_scope_l2vni_rt(tor1, import_rt, True)
+    _expect_l2vni_ip_ead(tor1, ES1_ID, lo2, True, "MAC-VRF import")
+    _expect_ip_ead_classification_unchanged(
+        tor1, ES1_ID, baseline, "MAC-VRF import does not duplicate IP-VRF state"
+    )
+    _expect_export_clean(tor1, "MAC-VRF import keeps export", members=1)
+    _expect_export_events(tor1, marker, [], "MAC-VRF import sends no export")
+
+    marker = _export_marker(tor1)
+    _set_dual_scope_l2vni_rt(tor1, import_rt, False)
+    _expect_l2vni_ip_ead(tor1, ES1_ID, lo2, False, "MAC-VRF import removed")
+    _expect_ip_ead_classification_unchanged(
+        tor1, ES1_ID, baseline, "MAC-VRF removal keeps IP-VRF state"
+    )
+    _expect_export_clean(tor1, "MAC-VRF removal keeps export", members=1)
+    _expect_export_events(tor1, marker, [], "MAC-VRF removal sends no export")
+
+    _set_dual_scope_l2vni_rt(tor1, import_rt, True)
+    _expect_l2vni_ip_ead(tor1, ES1_ID, lo2, True, "MAC-VRF import restored")
+    _expect_ip_ead_classification_unchanged(
+        tor1, ES1_ID, baseline, "MAC-VRF restoration keeps IP-VRF state"
+    )
+
+    marker = _export_marker(tor1)
+    _set_vrf_auto_rt(tor1, "vrf-a", False)
+    _expect_l2vni_ip_ead(
+        tor1, ES1_ID, lo2, True, "MAC-VRF route survives IP-VRF removal"
+    )
+    _expect_ip_ead_rx(tor1, ES1_ID, "vrf-a", (), "IP-VRF import removed")
+    _expect_ip_ead_rx(tor1, ES1_ID, "vrf-b", (lo2,), "other IP-VRF retained")
+    _expect_no_exports(tor1, "MAC-VRF route cannot sustain protection", released=True)
+    _expect_export_events(
+        tor1, marker, BPP_DEL_EVENTS, "IP-VRF removal withdraws export"
+    )
+
+    marker = _export_marker(tor1)
+    _set_vrf_auto_rt(tor1, "vrf-a", True)
+    _expect_l2vni_ip_ead(
+        tor1, ES1_ID, lo2, True, "MAC-VRF route survives IP-VRF restoration"
+    )
+    _expect_ip_ead_classification_unchanged(
+        tor1, ES1_ID, baseline, "IP-VRF restoration restores exact state"
+    )
+    _expect_export_clean(tor1, "IP-VRF restoration restores export", members=1)
+    _expect_export_events(
+        tor1, marker, BPP_ADD_EVENTS, "IP-VRF restoration adds export"
+    )
+
+    marker = _export_marker(tor1)
+    _set_dual_scope_l2vni_rt(tor1, import_rt, False)
+    _expect_l2vni_ip_ead(tor1, ES1_ID, lo2, False, "final MAC-VRF import removal")
+    _expect_ip_ead_classification_unchanged(
+        tor1, ES1_ID, baseline, "final MAC-VRF removal keeps IP-VRF state"
+    )
+    _expect_export_clean(tor1, "final MAC-VRF removal keeps export", members=1)
+    _expect_export_events(tor1, marker, [], "final MAC-VRF removal sends no export")
+
+    _del_dual_scope_l2vni(tor1)
+    _expect_ip_ead_classification_unchanged(
+        tor1, ES1_ID, baseline, "MAC-VRF deletion converges with IP-VRF state"
+    )
+    _expect_export_clean(tor1, "MAC-VRF deletion converges with export", members=1)
+
+    _clear_ip_ead(tor2)
+    _expect_no_ip_ead_rx(tor1, ES1_ID, "dual-scope cleanup")
+    _expect_no_exports(tor1, "dual-scope cleanup removes exports", released=True)
+    _set_bpp(tor1, False)
 
 
 def test_bpp_ip_ead_rx_label_mismatch():
@@ -1653,6 +2321,14 @@ def test_bpp_ip_ead_rx_label_mismatch():
     _set_bpp(tor1, True)
     _set_bpp_if(tor2, ES_IF, True)
     _expect_ip_ead_rx(tor1, ES1_ID, "vrf-a", (lo,), "vrf-a still matches")
+    _expect_export_clean(
+        tor1,
+        "label mismatch leaves one eligible Member",
+        members=1,
+        groups=1,
+        bindings=1,
+        vteps=(lo,),
+    )
 
     def _check():
         vteps, entry = _es_vrf_vteps(tor1, ES1_ID, VRF_C)
@@ -1667,15 +2343,27 @@ def test_bpp_ip_ead_rx_label_mismatch():
 
     _, result = topotest.run_and_expect(_check, None, count=30, wait=1)
     assert result is None, "label mismatch: %s" % result
+    _expect_export_clean(
+        tor1,
+        "mismatched VRF does not alter exports",
+        members=1,
+        groups=1,
+        bindings=1,
+        vteps=(lo,),
+    )
 
     _clear_ip_ead(tor2)
     _set_bpp(tor1, False)
+    _expect_ip_ead(
+        tor1, "label mismatch local RT-1 cleanup", evi_absent=True, es_absent=True,
+    )
     tor1.vtysh_cmd(
         "configure terminal\nrouter bgp 65001 vrf %s\naddress-family l2vpn evpn\n"
         "no route-target import 65002:4001" % VRF_C
     )
     _del_vrf_c(tor1)
     _expect_no_ip_ead_rx(tor1, ES1_ID, "cleaned")
+    _expect_no_exports(tor1, "label mismatch cleanup has no exports", released=True)
 
 
 def test_bpp_ip_ead_rx_no_rmac_ec():
@@ -1691,6 +2379,7 @@ def test_bpp_ip_ead_rx_no_rmac_ec():
     _set_bpp(tor1, True)
     _set_bpp_if(tor2, ES_IF, True)
     _expect_ip_ead_rx(tor1, ES1_ID, "vrf-a", (lo,), "with rmac")
+    _expect_export_clean(tor1, "RMAC route exports one Member", members=1, vteps=(lo,))
 
     nbrs = _evpn_nbrs(tor2)
     rmap = (
@@ -1720,6 +2409,7 @@ def test_bpp_ip_ead_rx_no_rmac_ec():
 
     _, result = topotest.run_and_expect(_check, None, count=30, wait=1)
     assert result is None, "no rmac: %s" % result
+    _expect_no_exports(tor1, "missing RMAC makes peer ineligible", released=True)
 
     nbr_del = "".join(
         "router bgp %d\naddress-family l2vpn evpn\nno neighbor %s route-map NO-RMAC out\n"
@@ -1731,9 +2421,88 @@ def test_bpp_ip_ead_rx_no_rmac_ec():
         % nbr_del
     )
     _expect_ip_ead_rx(tor1, ES1_ID, "vrf-a", (lo,), "rmac restored")
+    _expect_export_clean(tor1, "restored RMAC restores Member", members=1, vteps=(lo,))
     _clear_ip_ead(tor2)
     _set_bpp(tor1, False)
     _expect_no_ip_ead_rx(tor1, ES1_ID, "cleaned")
+    _expect_no_exports(tor1, "missing RMAC cleanup has no exports", released=True)
+
+
+def test_bpp_ip_ead_rx_not_all_active():
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    tor1 = tgen.gears["tor1"]
+    tor2 = tgen.gears["tor2"]
+    lo = tor_lo("tor2")
+    asn = 65002
+
+    _set_bpp(tor1, True)
+    _set_bpp_if(tor2, ES_IF, True)
+    _expect_ip_ead_rx_all(tor1, ES1_ID, (lo,), "all-active baseline")
+    _expect_export_clean(
+        tor1, "all-active route exports one Member", members=1, vteps=(lo,)
+    )
+
+    nbrs = _evpn_nbrs(tor2)
+    rmap = (
+        "bgp extcommunity-list expanded STRIP-L2-P permit L2:.*\n"
+        "route-map NO-L2-P permit 10\n"
+        " match evpn route-type ead\n"
+        " set extended-comm-list STRIP-L2-P delete\n"
+        "route-map NO-L2-P permit 20\n"
+    )
+    nbr_cfg = "".join(
+        "router bgp %d\naddress-family l2vpn evpn\nneighbor %s route-map NO-L2-P out\n"
+        % (asn, n)
+        for n in nbrs
+    )
+    tor2.vtysh_cmd("configure terminal\n%s%s" % (rmap, nbr_cfg))
+
+    def _check():
+        routes = [
+            route
+            for route in _ead_routes(tor1, self_originate=False)
+            if route["esi"] == ES1_ID
+            and route["eth_tag"] == EAD_EVI_ET
+            and route["nexthop"] == lo
+        ]
+        if len({route["rd"] for route in routes}) != len(VRFS):
+            return "received per-EVI routes %s" % routes
+        if any("L2:" in (route["extcomm"] or "") for route in routes):
+            return "Layer-2 Attributes EC still present: %s" % routes
+
+        for vrf in VRFS:
+            vteps, entry = _es_vrf_vteps(tor1, ES1_ID, vrf)
+            rec = vteps.get(lo, {})
+            if rec.get("ip_ead_per_evi"):
+                return "%s per-EVI still set: %s" % (vrf, rec)
+            if not rec.get("ip_ead_per_es"):
+                return "%s per-ES cleared: %s" % (vrf, rec)
+            if not entry.get("dropNotAllActive"):
+                return "%s dropNotAllActive not incremented: %s" % (vrf, entry)
+        return None
+
+    _, result = topotest.run_and_expect(_check, None, count=30, wait=1)
+    assert result is None, "not all-active: %s" % result
+    _expect_no_exports(tor1, "route without P=1 makes peer ineligible", released=True)
+
+    nbr_del = "".join(
+        "router bgp %d\naddress-family l2vpn evpn\nno neighbor %s route-map NO-L2-P out\n"
+        % (asn, n)
+        for n in nbrs
+    )
+    tor2.vtysh_cmd(
+        "configure terminal\n%sno route-map NO-L2-P\n"
+        "no bgp extcommunity-list expanded STRIP-L2-P\n" % nbr_del
+    )
+    _expect_ip_ead_rx_all(tor1, ES1_ID, (lo,), "all-active restored")
+    _expect_export_clean(tor1, "restored P=1 restores Member", members=1, vteps=(lo,))
+    _clear_ip_ead(tor2)
+    _set_bpp(tor1, False)
+    _expect_no_ip_ead_rx(tor1, ES1_ID, "all-active cleanup")
+    _expect_no_exports(tor1, "all-active cleanup has no exports", released=True)
 
 
 def test_bpp_ip_ead_rx_knob_off():
@@ -1743,17 +2512,28 @@ def test_bpp_ip_ead_rx_knob_off():
 
     tor1 = tgen.gears["tor1"]
     tor2 = tgen.gears["tor2"]
+    lo2 = tor_lo("tor2")
 
+    _set_bpp(tor1, True)
     _set_bpp_if(tor2, ES_IF, True)
-    _expect_ip_ead_rx(tor1, ES1_ID, "vrf-a", (tor_lo("tor2"),), "before knob off")
+    _expect_ip_ead_rx_all(tor1, ES1_ID, (lo2,), "before knob off")
+    _expect_export_clean(
+        tor1, "knob-on classification exports objects", members=1, vteps=(lo2,)
+    )
 
     _set_l3vni_neigh(tor1, False)
     _expect_no_ip_ead_rx(tor1, ES1_ID, "l3vni-neigh off")
+    _expect_no_exports(tor1, "RX knob off withdraws exports", released=True)
 
     _set_l3vni_neigh(tor1, True)
-    _expect_ip_ead_rx(tor1, ES1_ID, "vrf-a", (tor_lo("tor2"),), "l3vni-neigh restored")
+    _expect_ip_ead_rx_all(tor1, ES1_ID, (lo2,), "l3vni-neigh restored")
+    _expect_export_clean(
+        tor1, "RX knob restore exports objects", members=1, vteps=(lo2,)
+    )
     _clear_ip_ead(tor2)
     _expect_no_ip_ead_rx(tor1, ES1_ID, "cleaned")
+    _expect_no_exports(tor1, "RX knob cleanup removes exports", released=True)
+    _set_bpp(tor1, False)
 
 
 def test_bpp_ip_ead_rx_protection_off():
@@ -1770,17 +2550,25 @@ def test_bpp_ip_ead_rx_protection_off():
     _set_bpp_if(tor2, ES_IF, True)
     _set_bpp_if(tor3, ES_IF, True)
     _expect_ip_ead_rx(tor1, ES1_ID, "vrf-a", peers, "with protection")
+    _expect_export_clean(
+        tor1, "protected RX exports both Members", members=2, vteps=peers
+    )
 
     _set_bpp(tor1, False)
     _expect_ip_ead_rx(tor1, ES1_ID, "vrf-a", peers, "protection off, RX kept")
     _expect_ip_ead_rx(tor1, ES1_ID, "vrf-b", peers, "protection off, RX kept")
+    _expect_no_exports(tor1, "protection off withdraws all exports", released=True)
 
     _set_bpp(tor1, True)
     _expect_ip_ead_rx(tor1, ES1_ID, "vrf-a", peers, "protection back, no reprocess")
+    _expect_export_clean(
+        tor1, "protection restore exports both Members", members=2, vteps=peers
+    )
     _set_bpp(tor1, False)
     _clear_ip_ead(tor2)
     _clear_ip_ead(tor3)
     _expect_no_ip_ead_rx(tor1, ES1_ID, "cleaned")
+    _expect_no_exports(tor1, "protection RX cleanup has no exports", released=True)
 
 
 def test_bpp_ip_ead_rx_remote_only_es():
@@ -1795,10 +2583,12 @@ def test_bpp_ip_ead_rx_remote_only_es():
     _set_bpp_if(tor2, "hostbond2", True)
     _expect_ip_ead_rx(tor1, ES2_ID, "vrf-a", (tor_lo("tor2"),), "remote-only ES-2")
     _expect_ip_ead_rx(tor1, ES2_ID, "vrf-b", (tor_lo("tor2"),), "remote-only ES-2")
+    _expect_no_exports(tor1, "remote-only ES exports nothing")
 
     _set_bpp_if(tor2, "hostbond2", False)
     tor1.vtysh_cmd("configure terminal\ninterface hostbond2\nevpn mh es-id 2")
     _expect_no_ip_ead_rx(tor1, ES2_ID, "cleaned")
+    _expect_no_exports(tor1, "remote-only RX cleanup has no exports")
 
 
 def test_bpp_neigh_sync_coexist():
@@ -1807,27 +2597,85 @@ def test_bpp_neigh_sync_coexist():
         pytest.skip(tgen.errors)
 
     tor1 = tgen.gears["tor1"]
+    tor2 = tgen.gears["tor2"]
     host = tgen.gears["hostd1"]
-    vid = ES_VLANS[0]
-    gw = ACCESS_VLANS[vid][1].split("/")[0]
-    ip = "%s.%d" % (gw.rsplit(".", 1)[0], HOST_ID["hostd1"])
+    host_mac = host.run("cat /sys/class/net/bond0/address").strip()
+    peers = (tor_vtep("tor2"),)
 
+    _set_bpp_if(tor2, ES_IF, True)
     _set_bpp(tor1, True)
-    host.run("ping -c 3 -W 1 %s" % gw)
+    _expect_ip_ead_rx_all(tor1, ES1_ID, peers, "neighbor-sync RT-1 baseline")
+    _expect_export_clean(tor1, "neighbor-sync BPP baseline", members=1, vteps=peers)
+    marker = _export_marker(tor1)
 
-    def _check():
+    expected = {}
+    for vid in ES_VLANS:
+        gw = ACCESS_VLANS[vid][1].split("/")[0]
+        ip = "%s.%d" % (gw.rsplit(".", 1)[0], HOST_ID["hostd1"])
+        expected[vid] = ip
+        host.run("ping -I bond0.%d -c 3 -W 1 %s" % (vid, gw))
+
+    def _check(vid, ip):
+        local = []
         synced = []
         for name in TORS:
-            for line in tgen.gears[name].run("ip neigh show dev vlan%d" % vid).splitlines():
-                if line.split()[:1] == [ip] and "extern_learn" in line:
-                    synced.append(name)
-        if synced:
+            lines = [
+                line
+                for line in tgen.gears[name]
+                .run("ip neigh show dev vlan%d" % vid)
+                .splitlines()
+                if line.split()[:1] == [ip]
+            ]
+            if len(lines) != 1:
+                return "%s vlan%d has %d entries for %s: %s" % (
+                    name,
+                    vid,
+                    len(lines),
+                    ip,
+                    lines,
+                )
+            words = lines[0].split()
+            if "lladdr" not in words or words[words.index("lladdr") + 1] != host_mac:
+                return "%s vlan%d has wrong MAC for %s: %s" % (name, vid, ip, lines[0],)
+            if "extern_learn" in words:
+                synced.append(name)
+            else:
+                local.append(name)
+
+            for other_vid in set(ES_VLANS) - {vid}:
+                other = tgen.gears[name].run(
+                    "ip neigh show %s dev vlan%d" % (ip, other_vid)
+                )
+                if any(line.split()[:1] == [ip] for line in other.splitlines()):
+                    return "%s leaked to %s vlan%d: %s" % (ip, name, other_vid, other,)
+
+        if len(local) != 1:
+            return "vlan%d local owners %s, want exactly one" % (vid, local)
+        want_synced = sorted(set(TORS) - set(local))
+        if sorted(synced) != want_synced:
+            return "vlan%d synced %s, want %s (local %s)" % (
+                vid,
+                sorted(synced),
+                want_synced,
+                local,
+            )
+        if set(local + synced) == set(TORS):
             return None
-        return "no tor synced %s" % ip
+        return "vlan%d incomplete ToR set: local %s synced %s" % (vid, local, synced)
 
-    _, result = topotest.run_and_expect(_check, None, count=40, wait=1)
-    assert result is None, result
+    for vid, ip in expected.items():
+        _, result = topotest.run_and_expect(
+            partial(_check, vid, ip), None, count=40, wait=1
+        )
+        assert result is None, result
 
+    _expect_ip_ead_rx_all(tor1, ES1_ID, peers, "neighbor sync keeps RT-1")
+    _expect_export_clean(tor1, "neighbor sync keeps BPP export", members=1, vteps=peers)
+    _expect_export_events(tor1, marker, [], "neighbor sync sends no BPP export")
+
+    _clear_ip_ead(tor2)
+    _expect_no_ip_ead_rx(tor1, ES1_ID, "neighbor-sync RT-1 cleanup")
+    _expect_no_exports(tor1, "neighbor-sync BPP cleanup", released=True)
     _set_bpp(tor1, False)
 
 
@@ -1842,6 +2690,68 @@ def _set_prot_debug(router, enable):
 def _log_text(tgen, router, daemon):
     with open(os.path.join(tgen.logdir, router.name, daemon + ".log")) as f:
         return f.read()
+
+
+def _expect_br_port_context(tgen, router, ifname, after):
+    needle = "init br_port ctx BR_PORT_UPDATE: ifp %s," % ifname
+
+    def _contexts():
+        output = _log_text(tgen, router, "zebra")
+        output = output[len(after) :] if output.startswith(after) else output
+        contexts = [
+            line[line.index(needle) :] for line in output.splitlines() if needle in line
+        ]
+        return None if contexts else "no new bridge-port context for %s" % ifname
+
+    _, result = topotest.run_and_expect(_contexts, None, count=30, wait=1)
+    assert result is None, result
+
+    output = _log_text(tgen, router, "zebra")
+    output = output[len(after) :] if output.startswith(after) else output
+    contexts = [
+        line[line.index(needle) :] for line in output.splitlines() if needle in line
+    ]
+    return contexts[-1]
+
+
+def _l2_br_port_update_cycle(tgen, local, ifname):
+    marker = _log_text(tgen, local, "zebra")
+    local.vtysh_cmd("configure terminal\ninterface %s\nno evpn mh es-id" % ifname)
+    removed = _expect_br_port_context(tgen, local, ifname, marker)
+
+    marker = _log_text(tgen, local, "zebra")
+    local.vtysh_cmd("configure terminal\ninterface %s\nevpn mh es-id 2" % ifname)
+    restored = _expect_br_port_context(tgen, local, ifname, marker)
+    return removed, restored
+
+
+def _expect_es_df_converged(router, esi, msg):
+    def _check():
+        es = json.loads(router.vtysh_cmd("show evpn es %s json" % esi))
+        return es.get("dfDelayTimer")
+
+    _, result = topotest.run_and_expect(_check, None, count=30, wait=1)
+    assert result is None, "%s: DF election did not converge" % msg
+
+
+def _kernel_nexthops(router):
+    return json.loads(router.run("ip -j nexthop show"))
+
+
+def _expect_kernel_nexthops_ready(router):
+    def _check():
+        return None if _kernel_nexthops(router) else "empty"
+
+    _, result = topotest.run_and_expect(_check, None, count=30, wait=1)
+    assert result is None, "kernel nexthops did not converge"
+
+
+def _expect_kernel_nexthops(router, expected, msg):
+    def _check():
+        return topotest.json_cmp(_kernel_nexthops(router), expected)
+
+    _, result = topotest.run_and_expect(_check, None, count=30, wait=1)
+    assert result is None, "%s: %s" % (msg, result)
 
 
 def _bpp_peer_lines(text, esi=None, action=None):
@@ -1885,10 +2795,15 @@ def _expect_eligible(router, esi, vtep_ips, msg, eligible=True, missing=None):
     want = list(vtep_ips) if isinstance(vtep_ips, (list, tuple)) else [vtep_ips]
 
     def _check():
-        found = {}
+        ip_ad_vteps = {}
         for vrf in VRFS:
             vteps, _ = _es_vrf_vteps(router, esi, vrf)
-            found.update(vteps)
+            ip_ad_vteps.update(vteps)
+        output = json.loads(
+            router.vtysh_cmd("show bgp l2vpn evpn es l3-eligibility json")
+        )
+        es = next((entry for entry in output if entry.get("esi") == esi), {})
+        found = {vtep.get("vtep"): vtep for vtep in es.get("vteps") or []}
         for ip in want:
             rec = found.get(ip)
             if eligible:
@@ -1896,8 +2811,9 @@ def _expect_eligible(router, esi, vtep_ips, msg, eligible=True, missing=None):
                     return "missing %s" % ip
                 if not rec.get("eligible"):
                     return "%s not eligible: %s" % (ip, rec)
-                if not rec.get("active"):
-                    return "%s not active in a ready vrf: %s" % (ip, rec)
+                ip_ad = ip_ad_vteps.get(ip)
+                if not ip_ad or not ip_ad.get("active"):
+                    return "%s not active in a ready vrf: %s" % (ip, ip_ad)
             elif rec and rec.get("eligible"):
                 return "%s still eligible: %s" % (ip, rec)
             if missing is not None and rec is not None:
@@ -1978,7 +2894,10 @@ def test_bpp_zapi():
     _expect_bpp_peer(tgen, tor1, ES1_ID, lo2, "add", "ADD logged")
 
     before = json.loads(tor1.vtysh_cmd("show bgp l2vpn evpn es json"))
-    assert any(e.get("esi") == ES1_ID for e in (before if isinstance(before, list) else before.get("es", [])))
+    assert any(
+        e.get("esi") == ES1_ID
+        for e in (before if isinstance(before, list) else before.get("es", []))
+    )
 
     _set_bpp(tor1, False)
     _expect_bpp_peer(tgen, tor1, ES1_ID, lo2, "del", "DEL logged")
@@ -1993,18 +2912,20 @@ def test_bpp_l2_untouched():
 
     tor1 = tgen.gears["tor1"]
     tor2 = tgen.gears["tor2"]
-    before_es = tor1.vtysh_cmd("show evpn es %s json" % ES2_ID)
-    before_nh = tor1.run("ip -j nexthop show")
+    _expect_es_df_converged(tor1, ES2_ID, "initial L2 ES")
+    _expect_kernel_nexthops_ready(tor1)
+    before_es = json.loads(tor1.vtysh_cmd("show evpn es %s json" % ES2_ID))
+    before_nh = _kernel_nexthops(tor1)
     _set_prot_debug(tor1, True)
     snap = _log_text(tgen, tor1, "zebra")
     _set_bpp_if(tor2, ES_IF, True)
     _set_bpp(tor1, True)
     _expect_eligible(tor1, ES1_ID, (tor_lo("tor2"),), "ES-1 eligible")
     _expect_no_new_bpp_peer(tgen, tor1, snap, "no ES-2 BPP_PEER", esi=ES2_ID, delay=3)
-    after_es = tor1.vtysh_cmd("show evpn es %s json" % ES2_ID)
-    after_nh = tor1.run("ip -j nexthop show")
-    assert json.loads(before_es) == json.loads(after_es), "ES-2 changed"
-    assert json.loads(before_nh) == json.loads(after_nh), "nexthop table changed"
+    _expect_es_df_converged(tor1, ES2_ID, "protected L2 ES")
+    after_es = json.loads(tor1.vtysh_cmd("show evpn es %s json" % ES2_ID))
+    assert before_es == after_es, "ES-2 changed"
+    _expect_kernel_nexthops(tor1, before_nh, "kernel L2 nexthops changed")
     _set_bpp(tor1, False)
     _clear_ip_ead(tor2)
     _set_prot_debug(tor1, False)
@@ -2026,6 +2947,99 @@ def test_bpp_eligibility():
     _set_bpp_if(tor3, ES_IF, True)
     _set_bpp(tor1, True)
     _expect_eligible(tor1, ES1_ID, peers, "tor2 and tor3 eligible")
+
+    es_vrfs = json.loads(tor1.vtysh_cmd("show bgp l2vpn evpn es-vrf json"))
+    summary = tor1.vtysh_cmd("show bgp l2vpn evpn es-vrf")
+    assert summary == tor1.vtysh_cmd("show bgp l2vpn evpn es-vrf summary")
+    filtered_summary = json.loads(
+        tor1.vtysh_cmd("show bgp l2vpn evpn es-vrf summary %s json" % ES1_ID)
+    )
+    assert filtered_summary and all(
+        entry.get("esi") == ES1_ID for entry in filtered_summary
+    )
+    if es_vrfs:
+        summary_header = "%-30s %-15s %-10s %-5s %-10s %-10s %-11s %s" % (
+            "ESI",
+            "VRF",
+            "NHG-Active",
+            "L3MH",
+            "IPv4-NHG",
+            "IPv6-NHG",
+            "ES-EVI-Refs",
+            "L3VNI-Refs",
+        )
+        assert summary_header in summary
+        assert "Remote-VTEP" not in summary
+    else:
+        assert summary.strip() == "No ES-VRF entries found"
+
+    drops = tor1.vtysh_cmd("show bgp l2vpn evpn es-vrf drop-counters")
+    drop_header = "%-30s %-15s %-14s %-12s %s" % (
+        "ESI",
+        "VRF",
+        "Label-Mismatch",
+        "Missing-RMAC",
+        "Not-All-Active",
+    )
+    assert drop_header in drops
+
+    ip_ad = tor1.vtysh_cmd("show bgp l2vpn evpn es-vrf ip-ad-vteps")
+    ip_ad_header = "  %-39s %-9s %-8s %-6s %s" % (
+        "Remote-VTEP",
+        "IP-AD-EVI",
+        "IP-AD-ES",
+        "Active",
+        "RMAC",
+    )
+    assert ip_ad_header in ip_ad
+    for lo in peers:
+        row = "  %-39s %-9s %-8s %-6s" % (lo, "yes", "yes", "yes")
+        assert row in ip_ad, "missing aligned IP A-D VTEP row for %s" % lo
+
+    l3 = tor1.vtysh_cmd("show bgp l2vpn evpn es l3-eligibility")
+    l3_header = "  %-39s %-8s %-6s %-17s %-8s %s" % (
+        "Remote-VTEP",
+        "Eligible",
+        "Type-4",
+        "RMAC",
+        "Zebra-Op",
+        "Missing-VRFs",
+    )
+    assert l3_header in l3
+    for lo in peers:
+        row = "  %-39s %-8s %-6s" % (lo, "yes", "yes")
+        assert row in l3, "missing aligned L3 eligibility row for %s" % lo
+
+    def _expect_zebra_ops(expected, msg):
+        def _check():
+            output = json.loads(
+                tor1.vtysh_cmd("show bgp l2vpn evpn es l3-eligibility json")
+            )
+            es = next((entry for entry in output if entry.get("esi") == ES1_ID), {})
+            candidates = {entry["vtep"]: entry for entry in es.get("vteps") or []}
+            got = {vtep: candidates.get(vtep, {}).get("zebraOp") for vtep in expected}
+            return None if got == expected else got
+
+        _, result = topotest.run_and_expect(
+            _check, None, count=WAIT_COUNT, wait=WAIT_STEP
+        )
+        assert result is None, "%s: %s" % (msg, result)
+
+    expected_ops = {lo: "add" for lo in peers}
+    expected_ops[tor_vtep("tor4")] = "none"
+    _expect_zebra_ops(expected_ops, "initial Zebra operations")
+
+    all_mac_ip = json.loads(tor1.vtysh_cmd("show bgp l2vpn evpn route mac-ip json"))
+    evi_mac_ip = json.loads(
+        tor1.vtysh_cmd("show bgp l2vpn evpn route mac-ip evi-es json")
+    )
+    global_mac_ip = json.loads(
+        tor1.vtysh_cmd("show bgp l2vpn evpn route mac-ip global-es json")
+    )
+    assert all_mac_ip["numPaths"] == (
+        evi_mac_ip["numPaths"] + global_mac_ip["numPaths"]
+    )
+    assert len(all_mac_ip["paths"]) == all_mac_ip["numPaths"]
     for lo in peers:
         _expect_bpp_peer(tgen, tor1, ES1_ID, lo, "add", "one ADD", after=snap)
     text = _log_text(tgen, tor1, "zebra")
@@ -2034,6 +3048,7 @@ def test_bpp_eligibility():
         adds = [ln for ln in _bpp_peer_lines(new, ES1_ID, "add") if lo in ln]
         assert len(adds) == 1, "want 1 ADD for %s, got %s" % (lo, adds)
     _set_bpp(tor1, False)
+    _expect_zebra_ops({lo: "del" for lo in peers}, "Zebra delete operations")
     _clear_ip_ead(tor2)
     _clear_ip_ead(tor3)
     _set_prot_debug(tor1, False)
@@ -2055,7 +3070,9 @@ def test_bpp_eligibility_all_vrfs():
     _set_bpp_if(tor3, ES_IF, True)
     _set_bpp(tor1, True)
     _expect_eligible(tor1, ES1_ID, (tor_lo("tor2"),), "tor2 eligible")
-    _expect_eligible(tor1, ES1_ID, (lo3,), "tor3 missing vrf-b", eligible=False, missing=["vrf-b"])
+    _expect_eligible(
+        tor1, ES1_ID, (lo3,), "tor3 missing vrf-b", eligible=False, missing=["vrf-b"]
+    )
     snap = _log_text(tgen, tor1, "zebra")
     _set_vrf_auto_rt(tor3, "vrf-b", True)
     _expect_eligible(tor1, ES1_ID, (lo3,), "tor3 eligible after vrf-b")
@@ -2081,7 +3098,9 @@ def test_bpp_new_local_vrf():
     _expect_eligible(tor1, ES1_ID, (lo2,), "before vrf-c")
     snap = _log_text(tgen, tor1, "zebra")
     _add_vrf_c_vlan(tor1)
-    _expect_eligible(tor1, ES1_ID, (lo2,), "vrf-c ready, peer missing it", eligible=False)
+    _expect_eligible(
+        tor1, ES1_ID, (lo2,), "vrf-c ready, peer missing it", eligible=False
+    )
     _expect_bpp_peer(tgen, tor1, ES1_ID, lo2, "del", "DEL without vrf-c", after=snap)
     snap = _log_text(tgen, tor1, "zebra")
     _add_vrf_c_vlan(tor2)
@@ -2143,7 +3162,9 @@ def test_bpp_rmac_common_multi_vrf():
     _set_bpp_if(tor2, ES_IF, True)
     _set_bpp(tor1, True)
     _expect_eligible(tor1, ES1_ID, (lo2,), "same rmac")
-    _expect_bpp_peer(tgen, tor1, ES1_ID, lo2, "add", "one ADD with common rmac", rmac=mac, after=snap)
+    _expect_bpp_peer(
+        tgen, tor1, ES1_ID, lo2, "add", "one ADD with common rmac", rmac=mac, after=snap
+    )
     tor2.run("ip link set vlan4001 address %s" % old1)
     tor2.run("ip link set vlan4002 address %s" % old2)
     _set_bpp(tor1, False)
@@ -2169,8 +3190,12 @@ def test_bpp_rmac_latest():
     _set_bpp(tor1, True)
     _expect_eligible(tor1, ES1_ID, (lo2,), "common rmac")
     snap = _log_text(tgen, tor1, "zebra")
+    bgpd_marker = _log_text(tgen, tor1, "bgpd")
     tor2.run("ip link set vlan4002 address %s" % mac_b)
-    _expect_bpp_peer(tgen, tor1, ES1_ID, lo2, "add", "latest rmac", rmac=mac_b, after=snap)
+    _expect_bpp_peer(
+        tgen, tor1, ES1_ID, lo2, "add", "latest rmac", rmac=mac_b, after=snap
+    )
+    _expect_bgpd_log(tgen, tor1, "vtep %s rmac differs vrf" % lo2, bgpd_marker)
     text = _log_text(tgen, tor1, "zebra")[len(snap) :]
     assert not _bpp_peer_lines(text, ES1_ID, "del"), text
     tor2.run("ip link set vlan4001 address %s" % old1)
@@ -2197,7 +3222,9 @@ def test_bpp_rmac_change():
     _expect_eligible(tor1, ES1_ID, (lo2,), "before rmac change")
     snap = _log_text(tgen, tor1, "zebra")
     tor2.run("ip link set vlan4001 address %s" % new_mac)
-    _expect_bpp_peer(tgen, tor1, ES1_ID, lo2, "add", "first rmac update", rmac=new_mac, after=snap)
+    _expect_bpp_peer(
+        tgen, tor1, ES1_ID, lo2, "add", "first rmac update", rmac=new_mac, after=snap
+    )
     snap2 = _log_text(tgen, tor1, "zebra")
     tor2.run("ip link set vlan4002 address %s" % new_mac)
     _expect_no_new_bpp_peer(tgen, tor1, snap2, "second vrf same rmac", delay=5)
@@ -2264,11 +3291,12 @@ def test_bpp_rt4_initial_admission():
 
     _set_rt4_filter(tor2, True)
     _set_prot_debug(tor1, True)
+    marker = _log_text(tgen, tor1, "bgpd")
     _set_bpp_if(tor2, ES_IF, True)
     _set_bpp(tor1, True)
     _expect_eligible(tor1, ES1_ID, (lo2,), "eligible without rt4")
     _expect_bpp_peer(tgen, tor1, ES1_ID, lo2, "add", "ADD without rt4")
-    _expect_bgpd_log(tgen, tor1, "eligible without type-4")
+    _expect_bgpd_log(tgen, tor1, "eligible without type-4", marker)
     _set_bpp(tor1, False)
     _clear_ip_ead(tor2)
     _set_rt4_filter(tor2, False)
@@ -2310,13 +3338,20 @@ def test_bpp_rt4_withdraw():
     _set_bpp_if(tor2, ES_IF, True)
     _set_bpp(tor1, True)
     _expect_eligible(tor1, ES1_ID, (lo2,), "with rt4")
+    _expect_ip_ead_rx_all(tor1, ES1_ID, (lo2,), "RT-4 present RT-1 classified")
+    _expect_export_clean(
+        tor1, "RT-4 present exports one Member", members=1, vteps=(lo2,)
+    )
     snap = _log_text(tgen, tor1, "zebra")
     _set_rt4_filter(tor2, True)
     _expect_no_new_bpp_peer(tgen, tor1, snap, "rt4 withdraw", esi=ES1_ID)
+    _expect_ip_ead_rx_all(tor1, ES1_ID, (lo2,), "RT-4 withdrawal keeps RT-1 classified")
+    _expect_export_clean(tor1, "RT-4 withdrawal keeps exports", members=1, vteps=(lo2,))
     _set_bpp(tor1, False)
     _clear_ip_ead(tor2)
     _set_rt4_filter(tor2, False)
     _expect_no_ip_ead_rx(tor1, ES1_ID, "tor2 IP A-D gone")
+    _expect_no_exports(tor1, "RT-4 withdrawal cleanup has no exports", released=True)
     _set_prot_debug(tor1, False)
 
 
@@ -2331,12 +3366,17 @@ def test_bpp_rt4_only():
 
     _clear_ip_ead(tor2)
     _expect_no_ip_ead_rx(tor1, ES1_ID, "no leftover IP A-D")
+    _expect_no_exports(tor1, "RT-4-only baseline has no exports")
     _set_prot_debug(tor1, True)
     snap = _log_text(tgen, tor1, "zebra")
+    bgpd_marker = _log_text(tgen, tor1, "bgpd")
     _set_bpp(tor1, True)
     _expect_eligible(tor1, ES1_ID, (lo2,), "rt4 only", eligible=False)
-    _expect_no_new_bpp_peer(tgen, tor1, snap, "no ADD for rt4-only", esi=ES1_ID, delay=5)
-    _expect_bgpd_log(tgen, tor1, "type-4 without ip-ead coverage")
+    _expect_no_new_bpp_peer(
+        tgen, tor1, snap, "no ADD for rt4-only", esi=ES1_ID, delay=5
+    )
+    _expect_no_exports(tor1, "RT-4 alone exports no objects")
+    _expect_bgpd_log(tgen, tor1, "type-4 without ip-ead coverage", bgpd_marker)
     _set_bpp(tor1, False)
     _set_prot_debug(tor1, False)
 
@@ -2399,7 +3439,9 @@ def test_bpp_non_l3mh_es():
     _set_bpp_if(tor2, ES_IF, True)
     _set_bpp(tor1, True)
     _expect_eligible(tor1, ES1_ID, (tor_lo("tor2"),), "ES-1")
-    _expect_no_new_bpp_peer(tgen, tor1, snap, "no BPP_PEER for ES-2", esi=ES2_ID, delay=3)
+    _expect_no_new_bpp_peer(
+        tgen, tor1, snap, "no BPP_PEER for ES-2", esi=ES2_ID, delay=3
+    )
     _set_bpp(tor1, False)
     _clear_ip_ead(tor2)
     _set_prot_debug(tor1, False)
@@ -2464,7 +3506,9 @@ def test_bpp_knob_off_del():
     _expect_eligible(tor1, ES1_ID, (lo2,), "before knob off")
     snap = _log_text(tgen, tor1, "zebra")
     _set_l3vni_neigh(tor1, False)
-    _expect_bpp_peer(tgen, tor1, ES1_ID, lo2, "del", "DEL on l3vni-neigh off", after=snap)
+    _expect_bpp_peer(
+        tgen, tor1, ES1_ID, lo2, "del", "DEL on l3vni-neigh off", after=snap
+    )
     snap = _log_text(tgen, tor1, "zebra")
     _set_l3vni_neigh(tor1, True)
     _expect_eligible(tor1, ES1_ID, (lo2,), "knob restored")
@@ -2487,17 +3531,99 @@ def test_bpp_protection_off_del():
     _set_bpp_if(tor2, ES_IF, True)
     _set_bpp(tor1, True)
     _expect_eligible(tor1, ES1_ID, (lo2,), "protected")
+    _expect_ip_ead_rx_all(tor1, ES1_ID, (lo2,), "protected RT-1 classified")
+    _expect_export_clean(
+        tor1, "protected peer exports one Member", members=1, vteps=(lo2,)
+    )
     snap = _log_text(tgen, tor1, "zebra")
     _set_bpp(tor1, False)
-    _expect_ip_ead_rx(tor1, ES1_ID, "vrf-a", (lo2,), "rx kept")
-    _expect_bpp_peer(tgen, tor1, ES1_ID, lo2, "del", "DEL on protection off", after=snap)
+    _expect_ip_ead_rx_all(tor1, ES1_ID, (lo2,), "protection off keeps RT-1")
+    _expect_no_exports(tor1, "protection off removes exports", released=True)
+    _expect_bpp_peer(
+        tgen, tor1, ES1_ID, lo2, "del", "DEL on protection off", after=snap
+    )
     snap = _log_text(tgen, tor1, "zebra")
     _set_bpp(tor1, True)
     _expect_eligible(tor1, ES1_ID, (lo2,), "protection back")
+    _expect_ip_ead_rx_all(tor1, ES1_ID, (lo2,), "re-enabled RT-1 classified")
+    _expect_export_clean(
+        tor1, "protection re-enable restores exports", members=1, vteps=(lo2,)
+    )
     _expect_bpp_peer(tgen, tor1, ES1_ID, lo2, "add", "ADD on re-enable", after=snap)
     _set_bpp(tor1, False)
     _clear_ip_ead(tor2)
+    _expect_no_ip_ead_rx(tor1, ES1_ID, "protection lifecycle RT-1 cleanup")
+    _expect_no_exports(tor1, "protection lifecycle cleanup", released=True)
     _set_prot_debug(tor1, False)
+
+
+def test_bpp_single_tor_enabled():
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    tor1 = tgen.gears["tor1"]
+    tor2 = tgen.gears["tor2"]
+    lo2 = tor_lo("tor2")
+    rts = tuple(_vrf_rt(tor2, vrf) for vrf in VRFS)
+
+    for tor in (tor1, tor2):
+        _expect_bpp(tor, False)
+        _expect_ip_ead(
+            tor, "%s initial local IP A-D" % tor.name, evi_absent=True, es_absent=True,
+        )
+        _expect_no_ip_ead_rx(tor, ES1_ID, "%s initial received IP A-D" % tor.name)
+        _expect_no_exports(tor, "%s initial exports" % tor.name)
+    _expect_no_ip_ead_bgp_rx(tor1, tor2, ES1_ID, "tor1 initial received BGP IP A-D")
+    _expect_no_ip_ead_bgp_rx(tor2, tor1, ES1_ID, "tor2 initial received BGP IP A-D")
+
+    markers = {tor.name: _export_marker(tor) for tor in (tor1, tor2)}
+
+    _set_bpp_if(tor2, ES_IF, True)
+    _expect_bpp(tor1, False)
+    _expect_bpp(tor2, True)
+    _expect_ip_ead(
+        tor2, "enabled TOR advertises IP A-D", evi_vrfs=tuple(VRFS), es_rts=rts
+    )
+    _expect_ip_ead_rt_rx(
+        tor1, tor2, ES1_ID, rts, rts, "disabled TOR BGP receives enabled TOR IP A-D",
+    )
+    _expect_ip_ead_rx_all(
+        tor1, ES1_ID, (lo2,), "disabled TOR receives enabled TOR IP A-D"
+    )
+    _expect_ip_ead(
+        tor1, "disabled TOR does not advertise IP A-D", evi_absent=True, es_absent=True,
+    )
+    _expect_no_ip_ead_rx(tor2, ES1_ID, "enabled TOR receives no disabled peer")
+    _expect_no_ip_ead_bgp_rx(
+        tor2, tor1, ES1_ID, "enabled TOR BGP receives no disabled peer"
+    )
+    for tor in (tor1, tor2):
+        _expect_no_exports(tor, "%s has no asymmetric exports" % tor.name)
+        _expect_export_events(
+            tor,
+            markers[tor.name],
+            [],
+            "%s sends no asymmetric dataplane messages" % tor.name,
+        )
+
+    markers = {tor.name: _export_marker(tor) for tor in (tor1, tor2)}
+    _set_bpp_if(tor2, ES_IF, False)
+    for tor in (tor1, tor2):
+        _expect_bpp(tor, False)
+        _expect_ip_ead(
+            tor, "%s cleanup local IP A-D" % tor.name, evi_absent=True, es_absent=True,
+        )
+        _expect_no_ip_ead_rx(tor, ES1_ID, "%s cleanup received IP A-D" % tor.name)
+        _expect_no_exports(tor, "%s cleanup has no exports" % tor.name)
+        _expect_export_events(
+            tor,
+            markers[tor.name],
+            [],
+            "%s sends no cleanup dataplane messages" % tor.name,
+        )
+    _expect_no_ip_ead_bgp_rx(tor1, tor2, ES1_ID, "tor1 cleanup received BGP IP A-D")
+    _expect_no_ip_ead_bgp_rx(tor2, tor1, ES1_ID, "tor2 cleanup received BGP IP A-D")
 
 
 def test_bpp_remote_only_es_no_send():
@@ -2514,8 +3640,11 @@ def test_bpp_remote_only_es_no_send():
     _set_bpp_if(tor2, "hostbond2", True)
     _expect_ip_ead_rx(tor1, ES2_ID, "vrf-a", (tor_lo("tor2"),), "remote-only rx")
     _expect_no_new_bpp_peer(tgen, tor1, snap, "no BPP_PEER for remote-only", esi=ES2_ID)
+    _expect_no_exports(tor1, "remote-only ES sends no exports")
     _set_bpp_if(tor2, "hostbond2", False)
     tor1.vtysh_cmd("configure terminal\ninterface hostbond2\nevpn mh es-id 2")
+    _expect_no_ip_ead_rx(tor1, ES2_ID, "remote-only route withdrawn")
+    _expect_no_exports(tor1, "remote-only cleanup has no exports")
     _set_prot_debug(tor1, False)
 
 
@@ -2534,7 +3663,9 @@ def test_bpp_vrf_leaves_ready_set():
     _set_bpp_if(tor2, ES_IF, True)
     _set_bpp_if(tor3, ES_IF, True)
     _set_bpp(tor1, True)
-    _expect_eligible(tor1, ES1_ID, (lo3,), "missing vrf-b", eligible=False, missing=["vrf-b"])
+    _expect_eligible(
+        tor1, ES1_ID, (lo3,), "missing vrf-b", eligible=False, missing=["vrf-b"]
+    )
     snap = _log_text(tgen, tor1, "zebra")
     tor1.run("/sbin/bridge vlan del vid 20 dev %s" % ES_IF)
     _expect_eligible(tor1, ES1_ID, (lo3,), "vrf-b left ready set")
@@ -2590,7 +3721,9 @@ def test_bpp_fanout():
         {ES_IF: {"vlans": _active_vlans(ES_VLANS + (30,))}},
         "new VRF-A VLAN ACTIVE",
     )
-    _expect_no_new_bpp_peer(tgen, tor1, snap, "no bgpd message for extra VLAN", esi=ES1_ID)
+    _expect_no_new_bpp_peer(
+        tgen, tor1, snap, "no bgpd message for extra VLAN", esi=ES1_ID
+    )
 
     tor1.run("/sbin/bridge vlan del vid 30 dev %s" % ES_IF)
     _set_bpp(tor1, False)
@@ -2632,9 +3765,7 @@ def test_bpp_pending_vlan():
 
     tor1.run("ip link set dev vlan20 master vrf-b")
     tor1.run("ip link set dev vlan20 up")
-    _expect_entries(
-        tor1, {ES_IF: {"vlans": _active_vlans(ES_VLANS)}}, "VRF-B restored"
-    )
+    _expect_entries(tor1, {ES_IF: {"vlans": _active_vlans(ES_VLANS)}}, "VRF-B restored")
 
     _set_bpp(tor1, False)
     _clear_ip_ead(tor2)
@@ -2657,7 +3788,9 @@ def test_bpp_show_member():
     _set_bpp(tor1, True)
     _expect_members(tor1, ES1_ID, (lo2, lo3), "tor2 and tor3 in member view")
 
-    output = json.loads(tor1.vtysh_cmd("show evpn mh bridge-port-protection member json"))
+    output = json.loads(
+        tor1.vtysh_cmd("show evpn mh bridge-port-protection member json")
+    )
     members = {m["vtep"]: m for m in output[ES1_ID]["members"]}
     assert members[lo2]["rmac"] in macs2, members[lo2]
     assert members[lo3]["rmac"] in macs3, members[lo3]
@@ -2735,8 +3868,13 @@ def test_bpp_unprotected_l3mh_es():
 
     _expect_es_evi_l3vnis(tor1, None, "no L3VNI ES-EVI without protection")
     _expect_es_vrfs(tor1, ES1_ID, {}, "no ES-VRF without protection")
-    _expect_ip_ead(tor1, "no IP A-D without protection", evi_absent=True, es_absent=True)
-    _expect_json(tor1, "show evpn mh bridge-port-protection member json", {}, "no Group")
+    _expect_ip_ead(
+        tor1, "no IP A-D without protection", evi_absent=True, es_absent=True
+    )
+    _expect_no_exports(tor1, "unprotected L3MH ES has no exports")
+    _expect_json(
+        tor1, "show evpn mh bridge-port-protection member json", {}, "no Group"
+    )
 
     _set_bpp_if(tor2, ES_IF, True)
     _set_bpp(tor1, True)
@@ -2744,9 +3882,20 @@ def test_bpp_unprotected_l3mh_es():
     _expect_entries(
         tor1, {ES_IF: {"bound": True, "vlans": _active_vlans(ES_VLANS)}}, "ports ACTIVE"
     )
+    _expect_ip_ead_rx_all(
+        tor1, ES1_ID, (tor_lo("tor2"),), "protected peer RT-1 classified"
+    )
+    _expect_export_clean(
+        tor1,
+        "protected L3MH ES exports all objects",
+        members=1,
+        vteps=(tor_lo("tor2"),),
+    )
 
     _set_bpp(tor1, False)
     _clear_ip_ead(tor2)
+    _expect_no_ip_ead_rx(tor1, ES1_ID, "unprotected L3MH RT-1 cleanup")
+    _expect_no_exports(tor1, "unprotected L3MH cleanup", released=True)
 
 
 def test_bpp_member_rmac():
@@ -2765,7 +3914,9 @@ def test_bpp_member_rmac():
     _set_bpp_if(tor2, ES_IF, True)
     _set_bpp(tor1, True)
     _expect_members(tor1, ES1_ID, (lo2,), "member present")
-    output = json.loads(tor1.vtysh_cmd("show evpn mh bridge-port-protection member json"))
+    output = json.loads(
+        tor1.vtysh_cmd("show evpn mh bridge-port-protection member json")
+    )
     assert output[ES1_ID]["members"][0]["rmac"] == mac, output
 
     asn = 65002
@@ -2809,9 +3960,14 @@ def test_bpp_ipv6_vtep():
     )
     _expect_ip_ead_rx(tor1, ES1_ID, "vrf-a", (vtep,), "IPv6 IP A-D classified")
     _expect_eligible(tor1, ES1_ID, (vtep,), "IPv6 VTEP eligible")
+    _expect_export_clean(
+        tor1, "IPv6 peer exports Member, Group, and Binding", members=1, vteps=(vtep,),
+    )
 
     _set_bpp(tor1, False)
     _clear_ip_ead(tor3)
+    _expect_no_ip_ead_rx(tor1, ES1_ID, "IPv6 peer RT-1 cleanup")
+    _expect_no_exports(tor1, "IPv6 peer cleanup", released=True)
 
 
 def test_bpp_dual_family_same_peer():
@@ -2864,7 +4020,9 @@ def _nhg_type(nhid):
 
 
 def _member_view(router, esi=None):
-    out = json.loads(router.vtysh_cmd("show evpn mh bridge-port-protection member json"))
+    out = json.loads(
+        router.vtysh_cmd("show evpn mh bridge-port-protection member json")
+    )
     if esi is None:
         return out
     return out.get(esi, {})
@@ -3159,28 +4317,2190 @@ def test_bpp_id_no_reuse():
     _set_bpp_if(tor2, ES_IF, True)
     _set_bpp(tor1, True)
     _expect_members(tor1, ES1_ID, (lo2,), "member present")
-    old = _member_view(tor1, ES1_ID)["members"][0]["nhId"]
+    _expect_ip_ead_rx_all(tor1, ES1_ID, (lo2,), "ES-1 RT-1 present")
+    old = _member_view(tor1, ES1_ID)
+    old_gid = old["groupId"]
+    old_nid = old["members"][0]["nhId"]
 
     _set_bpp_if(tor2, ES_IF, False)
     _expect_members(tor1, ES1_ID, (), "Member deleted", bound=False)
-    members = _member_view(tor1, ES1_ID).get("members", [])
-    assert all(m.get("nhId") != old for m in members), members
+    _expect_no_ip_ead_rx(tor1, ES1_ID, "ES-1 RT-1 withdrawn")
+    _expect_export_clean(
+        tor1,
+        "retired ES-1 objects acknowledged",
+        members=0,
+        groups=0,
+        bindings=0,
+        released=True,
+    )
+
+    _set_bpp_if(tor1, "hostbond2", True)
+    _set_bpp_if(tor2, "hostbond2", True)
+    _expect_ip_ead_rx_all(tor1, ES2_ID, (lo2,), "ES-2 RT-1 present")
+    _expect_json(
+        tor1,
+        "show evpn mh bridge-port-protection member json",
+        {ES2_ID: {"members": [{"vtep": lo2}]}},
+        "ES-2 allocated after ES-1 delete",
+    )
+    es2 = _member_view(tor1, ES2_ID)
+    assert es2["groupId"] != old_gid, (old, es2)
+    assert es2["members"][0]["nhId"] != old_nid, (old, es2)
 
     _set_bpp_if(tor2, ES_IF, True)
     _expect_members(tor1, ES1_ID, (lo2,), "member back")
-    ids = [m["nhId"] for m in _member_view(tor1, ES1_ID)["members"]]
-    assert len(ids) == len(set(ids)), ids
+    _expect_ip_ead_rx_all(tor1, ES1_ID, (lo2,), "ES-1 RT-1 restored")
+    restored = _member_view(tor1, ES1_ID)
+    assert restored["groupId"] != old_gid, (old, restored)
+    assert restored["groupId"] != es2["groupId"], (restored, es2)
+    assert restored["members"][0]["nhId"] != old_nid, (old, restored)
+    assert restored["members"][0]["nhId"] == es2["members"][0]["nhId"], (
+        restored,
+        es2,
+    )
     assert _id_errors(tor1, ES1_ID) == 0
+
+    _set_bpp_if(tor2, "hostbond2", False)
+    _expect_no_ip_ead_rx(tor1, ES2_ID, "ES-2 RT-1 withdrawn")
+    _set_bpp_if(tor1, "hostbond2", False)
+    _set_bpp(tor1, False)
+    _clear_ip_ead(tor2)
+    _expect_no_ip_ead_rx(tor1, ES1_ID, "ID lifecycle RT-1 cleanup")
+
+
+def _export(router):
+    out = router.vtysh_cmd("show evpn mh bridge-port-protection export json")
+    return json.loads(out) if out and out.strip() else {}
+
+
+def _expect_export_clean(
+    router,
+    msg,
+    members=None,
+    groups=1,
+    bindings=1,
+    esi=None,
+    released=False,
+    vteps=None,
+    interface=ES_IF,
+    allow_failed=False,
+):
+    def _check():
+        out = _export(router)
+        errs = bpp_export_check(out)
+        if errs:
+            return errs
+        tables = out.get("tables") or {}
+        mem = tables.get("members") or {}
+        grp = tables.get("groups") or {}
+        bind = tables.get("bindings") or {}
+        if members is not None and len(mem) != members:
+            return "members %s want %s" % (list(mem), members)
+        if vteps is not None:
+            got = sorted(member.get("vtep") for member in mem.values())
+            if got != sorted(vteps):
+                return "member VTEPs %s want %s" % (got, sorted(vteps))
+        if groups is not None and len(grp) != groups:
+            return "groups %s want %s" % (list(grp), groups)
+        if bindings is not None and len(bind) != bindings:
+            return "bindings %s want %s" % (list(bind), bindings)
+        selected = None
+        if esi:
+            matches = [group for group in grp.values() if group.get("esi") == esi]
+            if len(matches) != 1:
+                return "Group ESI %s matches %s in %s" % (esi, len(matches), grp)
+            selected = matches[0]
+        elif len(grp) == 1:
+            selected = next(iter(grp.values()))
+        expected_vteps = vteps
+        if selected is not None and expected_vteps is None and len(grp) == 1:
+            expected_vteps = tuple(member.get("vtep") for member in mem.values())
+        if selected is not None and expected_vteps is not None:
+            got = sorted(member.get("vtep") for member in selected.get("members", []))
+            if got != sorted(expected_vteps):
+                return "Group VTEPs %s want %s" % (got, sorted(expected_vteps))
+        if selected is not None and bindings == 1:
+            if set(bind) != {interface}:
+                return "Binding interfaces %s want [%s]" % (sorted(bind), interface)
+            binding = bind[interface]
+            if binding.get("backupNhgId") != selected.get("nhgId"):
+                return "Binding %s Group %s want %s" % (
+                    interface,
+                    binding.get("backupNhgId"),
+                    selected.get("nhgId"),
+                )
+            if binding.get("esi") != selected.get("esi"):
+                return "Binding ESI %s Group ESI %s" % (
+                    binding.get("esi"),
+                    selected.get("esi"),
+                )
+        log = out.get("log") or []
+        pending = [e for e in log if not e.get("completed")]
+        if pending:
+            return "incomplete %s" % pending
+        failed = [
+            e
+            for e in log
+            if e.get("completed") and e.get("result") not in (None, "SUCCESS")
+        ]
+        if failed and not allow_failed:
+            return "failed %s" % failed
+        if released:
+            counters = out.get("counters") or {}
+            live = counters.get("membersLive")
+            pending_del = counters.get("pendingDeletes")
+            if live:
+                return "membersLive %s" % live
+            if pending_del:
+                return "pendingDeletes %s" % pending_del
+            pending_bind = counters.get("pendingBindingDeletes")
+            if pending_bind:
+                return "pendingBindingDeletes %s" % pending_bind
+        return None
+
+    _, result = topotest.run_and_expect(_check, None, count=WAIT_COUNT, wait=WAIT_STEP)
+    assert result is None, "%s: %s" % (msg, result)
+
+
+def _expect_no_exports(router, msg, released=False):
+    _expect_export_clean(
+        router, msg, members=0, groups=0, bindings=0, released=released, vteps=(),
+    )
+
+
+def _export_marker(router):
+    log = _export(router).get("log") or []
+    return max((int(ent.get("seq") or 0) for ent in log), default=0)
+
+
+def _expect_export_quiescent(router, msg):
+    stable_seq = [None]
+    stable_at = [None]
+
+    def _check():
+        log = _export(router).get("log") or []
+        pending = [ent for ent in log if not ent.get("completed")]
+        if pending:
+            stable_seq[0] = None
+            stable_at[0] = None
+            return "incomplete %s" % pending
+
+        seq = max((int(ent.get("seq") or 0) for ent in log), default=0)
+        if seq != stable_seq[0]:
+            stable_seq[0] = seq
+            stable_at[0] = time.monotonic()
+            return "settling"
+        if time.monotonic() < stable_at[0] + (3 * WAIT_STEP):
+            return "settling"
+        return None
+
+    _, result = topotest.run_and_expect(_check, None, count=WAIT_COUNT, wait=WAIT_STEP)
+    assert result is None, "%s: %s" % (msg, result)
+    return stable_seq[0]
+
+
+def _export_events(router, after):
+    return [
+        (ent.get("op"), ent.get("action"))
+        for ent in (_export(router).get("log") or [])
+        if int(ent.get("seq") or 0) > after
+        and ent.get("op")
+        in ("EVPN_MH_NH_UPDATE", "EVPN_MH_NHG_UPDATE", "BR_PORT_UPDATE")
+    ]
+
+
+def _expect_export_events(router, after, expected, msg):
+    matched_at = [None]
+
+    def _check():
+        events = _export_events(router, after)
+        if events != expected:
+            matched_at[0] = None
+            return events
+        if matched_at[0] is None:
+            matched_at[0] = time.monotonic()
+        if time.monotonic() < matched_at[0] + (3 * WAIT_STEP):
+            return "settling"
+        return None
+
+    _, result = topotest.run_and_expect(_check, None, count=WAIT_COUNT, wait=WAIT_STEP)
+    assert result is None, "%s: %s" % (msg, result)
+
+
+def _expect_scale_export_events(router, after, peers, added, removed, msg):
+    matched_seq = [None]
+    matched_at = [None]
+
+    def _check():
+        events = [
+            ent
+            for ent in (_export(router).get("log") or [])
+            if int(ent.get("seq") or 0) > after
+            and ent.get("op")
+            in ("EVPN_MH_NH_UPDATE", "EVPN_MH_NHG_UPDATE", "BR_PORT_UPDATE")
+        ]
+        pending = [ent for ent in events if not ent.get("completed")]
+        failed = [
+            ent
+            for ent in events
+            if ent.get("completed") and ent.get("result") != "SUCCESS"
+        ]
+        bindings = [ent for ent in events if ent.get("op") == "BR_PORT_UPDATE"]
+        groups = [ent for ent in events if ent.get("op") == "EVPN_MH_NHG_UPDATE"]
+        members = [ent for ent in events if ent.get("op") == "EVPN_MH_NH_UPDATE"]
+        member_adds = [ent.get("vtep") for ent in members if ent.get("action") == "add"]
+        member_dels = [ent.get("vtep") for ent in members if ent.get("action") == "del"]
+
+        error = None
+        if pending:
+            error = "incomplete %s" % pending
+        elif failed:
+            error = "failed %s" % failed
+        elif bindings:
+            error = "unexpected Binding updates %s" % bindings
+        elif len(groups) != SCALE_ES_COUNT or any(
+            ent.get("action") != "add" for ent in groups
+        ):
+            error = "Group updates %s" % [
+                (ent.get("action"), ent.get("id")) for ent in groups
+            ]
+        elif any(vtep not in peers for vtep in member_adds + member_dels):
+            error = "unknown Member VTEPs adds %s dels %s" % (member_adds, member_dels,)
+        elif not set(added).issubset(member_adds):
+            error = "Member adds %s missing %s" % (member_adds, sorted(added))
+        elif sorted(member_dels) != sorted(removed):
+            error = "Member dels %s want %s" % (member_dels, sorted(removed))
+
+        if error:
+            matched_seq[0] = None
+            matched_at[0] = None
+            return error
+
+        seq = max((int(ent.get("seq") or 0) for ent in events), default=after)
+        if seq != matched_seq[0]:
+            matched_seq[0] = seq
+            matched_at[0] = time.monotonic()
+            return "settling"
+        if time.monotonic() < matched_at[0] + (3 * WAIT_STEP):
+            return "settling"
+        return None
+
+    _, result = topotest.run_and_expect(_check, None, count=WAIT_COUNT, wait=WAIT_STEP)
+    assert result is None, "%s: %s" % (msg, result)
+
+
+BPP_ADD_EVENTS = [
+    ("EVPN_MH_NH_UPDATE", "add"),
+    ("EVPN_MH_NHG_UPDATE", "add"),
+    ("BR_PORT_UPDATE", "add"),
+]
+BPP_DEL_EVENTS = [
+    ("BR_PORT_UPDATE", "del"),
+    ("EVPN_MH_NHG_UPDATE", "del"),
+    ("EVPN_MH_NH_UPDATE", "del"),
+]
+
+
+def _export_member(router, vtep):
+    tables = _export(router).get("tables") or {}
+    for member in (tables.get("members") or {}).values():
+        if member.get("vtep") == vtep:
+            return member
+    return None
+
+
+def _local_forwarding_state(router):
+    neighbors = json.loads(router.run("ip -j neigh show") or "[]")
+    return {
+        "export": (_export(router).get("tables") or {}),
+        "mac": json.loads(router.vtysh_cmd("show evpn mac vni all json") or "{}"),
+        "arp": json.loads(router.vtysh_cmd("show evpn arp-cache vni all json") or "{}"),
+        "routes": {
+            vrf: json.loads(router.run("ip -j route show table %d" % table) or "[]")
+            for vrf, (table, _) in VRFS.items()
+        },
+        "neighbors": [
+            {
+                key: value
+                for key, value in neighbor.items()
+                if key not in ("state", "probes", "used")
+            }
+            for neighbor in neighbors
+        ],
+    }
+
+
+def _replay_forwarding_state(router):
+    state = _local_forwarding_state(router)
+    state["es"] = json.loads(router.vtysh_cmd("show evpn es %s json" % ES1_ID) or "{}")
+    state["fdb"] = json.loads(router.run("bridge -j fdb show br br_default") or "[]")
+    return state
+
+
+def _dplane_primary_counters(router):
+    output = router.vtysh_cmd("show zebra dplane detailed")
+    labels = ("Route updates", "EVPN MAC updates", "EVPN neigh updates")
+    counters = {}
+    for line in output.splitlines():
+        for label in labels:
+            if line.startswith(label + ":"):
+                counters[label] = int(line.rsplit(None, 1)[-1])
+    assert set(counters) == set(labels), output
+    return counters
+
+
+def _replay_events(router, after):
+    return [
+        ent
+        for ent in (_export(router).get("log") or [])
+        if int(ent.get("seq") or 0) > after
+    ]
+
+
+def _expect_no_replay_events(router, after, msg):
+    settle_until = time.monotonic() + (3 * WAIT_STEP)
+
+    def _check():
+        events = _replay_events(router, after)
+        if events:
+            return events
+        return "settling" if time.monotonic() < settle_until else None
+
+    _, result = topotest.run_and_expect(_check, None, count=WAIT_COUNT, wait=WAIT_STEP)
+    assert result is None, "%s: %s" % (msg, result)
+
+
+def _expect_replay(router, after, tables, msg):
+    members = tables.get("members") or {}
+    groups = tables.get("groups") or {}
+    bindings = tables.get("bindings") or {}
+    expected_ops = (
+        ["EVPN_MH_NH_UPDATE"] * len(members)
+        + ["EVPN_MH_NHG_UPDATE"] * len(groups)
+        + ["BR_PORT_UPDATE"] * len(bindings)
+        + ["EVPN_MH_REPLAY_DONE"]
+    )
+
+    def _check():
+        events = _replay_events(router, after)
+        if [ent.get("op") for ent in events] != expected_ops:
+            return events
+        if any(
+            not ent.get("replay")
+            or ent.get("action") != "add"
+            or not ent.get("completed")
+            or ent.get("result") != "SUCCESS"
+            for ent in events
+        ):
+            return events
+        member_end = len(members)
+        group_end = member_end + len(groups)
+        binding_end = group_end + len(bindings)
+        if {ent.get("id") for ent in events[:member_end]} != {
+            rec.get("nhId") for rec in members.values()
+        }:
+            return events
+        if {ent.get("id") for ent in events[member_end:group_end]} != {
+            rec.get("nhgId") for rec in groups.values()
+        }:
+            return events
+        replay_groups = {
+            ent.get("id"): sorted(ent.get("memberIds") or [])
+            for ent in events[member_end:group_end]
+        }
+        table_groups = {
+            rec.get("nhgId"): sorted(
+                member.get("nhId") for member in rec.get("members", [])
+            )
+            for rec in groups.values()
+        }
+        if replay_groups != table_groups:
+            return events
+        if {ent.get("interface") for ent in events[group_end:binding_end]} != set(
+            bindings
+        ):
+            return events
+        if {
+            ent.get("interface"): ent.get("id") for ent in events[group_end:binding_end]
+        } != {ifname: rec.get("backupNhgId") for ifname, rec in bindings.items()}:
+            return events
+        return None
+
+    _, result = topotest.run_and_expect(_check, None, count=WAIT_COUNT, wait=WAIT_STEP)
+    assert result is None, "%s: %s" % (msg, result)
+    return _replay_events(router, after)
+
+
+SCALE_VRFS = (
+    ("vrf-a", 1001, 4001),
+    ("vrf-b", 1002, 4002),
+    ("vrf-c", 1003, 4003),
+    ("vrf-d", 1004, 4004),
+)
+SCALE_ES_COUNT = 8
+
+
+def _scale_es_name(index):
+    return "bpp%d" % index
+
+
+def _scale_es_id(index):
+    return "03:44:38:39:aa:00:%02x:00:00:%02x" % (index, index)
+
+
+def _scale_es_mac(index):
+    return "44:38:39:aa:00:%02x" % index
+
+
+def _scale_vid(index, vrf_index):
+    return 100 + ((index - 1) * len(SCALE_VRFS)) + vrf_index
+
+
+def _scale_vrf_add(router, vrf, table, l3vni):
+    asn = 65000 + TORS.index(router.name) + 1
+
+    add_l3vni_dataplane(router, vrf, table, l3vni)
+    router.vtysh_cmd(
+        "configure terminal\nvrf %s\nvni %d\nexit-vrf\n"
+        "router bgp %d vrf %s\nbgp router-id %s\n"
+        "address-family ipv4 unicast\nredistribute connected\n"
+        "address-family l2vpn evpn\nadvertise ipv4 unicast"
+        % (vrf, l3vni, asn, vrf, tor_lo(router.name))
+    )
+
+
+def _scale_vrf_del(router, vrf, l3vni):
+    asn = 65000 + TORS.index(router.name) + 1
+
+    router.vtysh_cmd(
+        "configure terminal\nno router bgp %d vrf %s\n"
+        "vrf %s\nno vni %d\nexit-vrf\nno vrf %s" % (asn, vrf, vrf, l3vni, vrf)
+    )
+    router.run("ip link del dev vlan%d" % l3vni)
+    router.run("ip link del dev vni%d" % l3vni)
+    router.run("ip link del dev %s" % vrf)
+    router.run("/sbin/bridge vlan del vid %d dev br_default self" % l3vni)
+
+
+def _scale_dataplane_add(router):
+    for vrf, table, l3vni in SCALE_VRFS[2:]:
+        _scale_vrf_add(router, vrf, table, l3vni)
+
+    for index in range(1, SCALE_ES_COUNT + 1):
+        bond = _scale_es_name(index)
+        peer = "%sp" % bond
+        far = "%sq" % bond
+
+        router.run("ip link add dev %s type bond mode active-backup" % bond)
+        router.run("ip link add dev %s type veth peer name %s" % (peer, far))
+        router.run("ip link set dev %s master %s" % (peer, bond))
+        router.run("ip link set dev %s up" % far)
+        router.run("ip link set dev %s up" % peer)
+        router.run("ip link set dev %s up" % bond)
+        router.run("ip link set dev %s master br_default" % bond)
+        router.run("/sbin/bridge vlan del vid 1 dev %s" % bond)
+
+        for vrf_index, (vrf, _, _) in enumerate(SCALE_VRFS, 1):
+            vid = _scale_vid(index, vrf_index)
+            router.run("/sbin/bridge vlan add vid %d dev br_default self" % vid)
+            router.run(
+                "ip link add link br_default name vlan%d type vlan id %d" % (vid, vid)
+            )
+            router.run("ip link set dev vlan%d master %s" % (vid, vrf))
+            router.run("ip link set dev vlan%d up" % vid)
+            router.run("/sbin/bridge vlan add vid %d dev %s" % (vid, bond))
+
+    config = ["configure terminal"]
+    for index in range(1, SCALE_ES_COUNT + 1):
+        config.extend(
+            (
+                "interface %s" % _scale_es_name(index),
+                "evpn mh es-id %d" % index,
+                "evpn mh es-sys-mac %s" % _scale_es_mac(index),
+                "evpn mh bridge-port-protection",
+            )
+        )
+    router.vtysh_cmd("\n".join(config))
+
+
+def _expect_scale_ip_ead_tx(router):
+    asn = 65000 + TORS.index(router.name) + 1
+    expected_rts = {"RT:%d:%d" % (asn, l3vni) for _, _, l3vni in SCALE_VRFS}
+
+    def _check():
+        routes = _ead_routes(router)
+        for index in range(1, SCALE_ES_COUNT + 1):
+            esi = _scale_es_id(index)
+            evi = [
+                route
+                for route in routes
+                if route.get("esi") == esi and route.get("eth_tag") == EAD_EVI_ET
+            ]
+            es = [
+                route
+                for route in routes
+                if route.get("esi") == esi and route.get("eth_tag") == ETH_TAG_ES
+            ]
+            if len(evi) != len(SCALE_VRFS):
+                return "%s per-EVI count %d want %d" % (esi, len(evi), len(SCALE_VRFS),)
+            got_rts = {
+                token
+                for route in evi
+                for token in (route.get("extcomm") or "").split()
+                if token.startswith("RT:")
+            }
+            if got_rts != expected_rts:
+                return "%s per-EVI RTs %s want %s" % (
+                    esi,
+                    sorted(got_rts),
+                    sorted(expected_rts),
+                )
+            if not es:
+                return "%s has no per-ES route" % esi
+        return None
+
+    _, result = topotest.run_and_expect(_check, None, count=WAIT_COUNT, wait=WAIT_STEP)
+    assert result is None, "%s local scale IP A-D: %s" % (router.name, result)
+
+
+def _expect_scale_ip_ead_bgp_rx(router, peers):
+    peer_rts = {
+        tor_vtep(name): {
+            "RT:%d:%d" % (65000 + TORS.index(name) + 1, l3vni)
+            for _, _, l3vni in SCALE_VRFS
+        }
+        for name in TORS
+        if tor_vtep(name) in peers
+    }
+
+    def _check():
+        routes = _ead_routes(router, self_originate=False)
+        for index in range(1, SCALE_ES_COUNT + 1):
+            esi = _scale_es_id(index)
+            for peer, expected_rts in peer_rts.items():
+                peer_routes = [
+                    route
+                    for route in routes
+                    if route.get("esi") == esi and route.get("nexthop") == peer
+                ]
+                evi = [
+                    route for route in peer_routes if route.get("eth_tag") == EAD_EVI_ET
+                ]
+                got_rts = {
+                    token
+                    for route in evi
+                    for token in (route.get("extcomm") or "").split()
+                    if token.startswith("RT:")
+                }
+                if got_rts != expected_rts:
+                    return "%s peer %s per-EVI RTs %s want %s" % (
+                        esi,
+                        peer,
+                        sorted(got_rts),
+                        sorted(expected_rts),
+                    )
+                if not any(route.get("eth_tag") == ETH_TAG_ES for route in peer_routes):
+                    return "%s peer %s has no per-ES route" % (esi, peer)
+        return None
+
+    _, result = topotest.run_and_expect(_check, None, count=WAIT_COUNT, wait=WAIT_STEP)
+    assert result is None, "%s received scale IP A-D: %s" % (router.name, result)
+
+
+def _expect_scale_vteps_reachable(router, peers):
+    def _check():
+        for vtep in peers:
+            family = "-6 " if ":" in vtep else ""
+            rc, stdout, stderr = router.net.cmd_status(
+                "ip %sroute get %s" % (family, vtep), warn=False
+            )
+            if rc:
+                return "%s is unreachable: %s%s" % (vtep, stdout, stderr)
+        return None
+
+    _, result = topotest.run_and_expect(_check, None, count=WAIT_COUNT, wait=WAIT_STEP)
+    assert result is None, "%s scale VTEP reachability: %s" % (router.name, result)
+
+
+def _scale_dataplane_del(router):
+    config = ["configure terminal"]
+    for index in range(1, SCALE_ES_COUNT + 1):
+        config.extend(
+            (
+                "interface %s" % _scale_es_name(index),
+                "no evpn mh bridge-port-protection",
+                "no evpn mh es-id",
+            )
+        )
+    router.vtysh_cmd("\n".join(config))
+
+    for index in range(1, SCALE_ES_COUNT + 1):
+        bond = _scale_es_name(index)
+        for vrf_index in range(1, len(SCALE_VRFS) + 1):
+            vid = _scale_vid(index, vrf_index)
+            router.run("ip link del dev vlan%d" % vid)
+            router.run("/sbin/bridge vlan del vid %d dev br_default self" % vid)
+        router.run("ip link del dev %s" % bond)
+        router.run("ip link del dev %sp" % bond)
+        router.vtysh_cmd("configure terminal\nno interface %s" % bond)
+
+    for vrf, _, l3vni in reversed(SCALE_VRFS[2:]):
+        _scale_vrf_del(router, vrf, l3vni)
+
+
+def _expect_scale_export(router, peers, msg):
+    esis = {_scale_es_id(index) for index in range(1, SCALE_ES_COUNT + 1)}
+
+    def _check():
+        output = _export(router)
+        errors = bpp_export_check(output)
+        if errors:
+            return errors
+        tables = output.get("tables") or {}
+        members = tables.get("members") or {}
+        groups = tables.get("groups") or {}
+        bindings = tables.get("bindings") or {}
+        if len(members) != len(peers):
+            return "member VTEPs %s want %s" % (
+                {member.get("vtep") for member in members.values()},
+                set(peers),
+            )
+        if len(groups) != SCALE_ES_COUNT:
+            return "groups %d want %d" % (len(groups), SCALE_ES_COUNT)
+        if len(bindings) != SCALE_ES_COUNT:
+            return "bindings %d want %d" % (len(bindings), SCALE_ES_COUNT)
+        if {group.get("esi") for group in groups.values()} != esis:
+            return "Group ESIs %s want %s" % (
+                {group.get("esi") for group in groups.values()},
+                esis,
+            )
+        for group in groups.values():
+            got = {member.get("vtep") for member in group.get("members", [])}
+            if got != set(peers):
+                return "Group %s peers %s want %s" % (
+                    group.get("esi"),
+                    got,
+                    set(peers),
+                )
+        groups_by_esi = {group.get("esi"): group for group in groups.values()}
+        for index in range(1, SCALE_ES_COUNT + 1):
+            ifname = _scale_es_name(index)
+            esi = _scale_es_id(index)
+            binding = bindings.get(ifname)
+            group = groups_by_esi.get(esi)
+            if not binding or not group:
+                return "missing Binding %s or Group %s" % (ifname, esi)
+            if binding.get("esi") != esi:
+                return "Binding %s ESI %s want %s" % (ifname, binding.get("esi"), esi,)
+            if binding.get("backupNhgId") != group.get("nhgId"):
+                return "Binding %s Group %s want %s" % (
+                    ifname,
+                    binding.get("backupNhgId"),
+                    group.get("nhgId"),
+                )
+        return None
+
+    # The scale setup originates several bursts of EVPN routes. Allow two
+    # advertisement intervals for every PE to propagate all IP A-D routes.
+    _, result = topotest.run_and_expect(
+        _check, None, count=WAIT_COUNT * 2, wait=WAIT_STEP
+    )
+    assert result is None, "%s: %s" % (msg, result)
+
+
+def _expect_scale_setup_logged(router, after, msg):
+    marker = [None]
+
+    def _check():
+        output = _export(router)
+        tables = output.get("tables") or {}
+        member_ids = {
+            int(member.get("nhId")) for member in (tables.get("members") or {}).values()
+        }
+        group_ids = {
+            int(group.get("nhgId")) for group in (tables.get("groups") or {}).values()
+        }
+        interfaces = set((tables.get("bindings") or {}).keys())
+        member_seen = {}
+        group_seen = {}
+        interface_seen = {}
+        for entry in output.get("log") or []:
+            if (
+                int(entry.get("seq") or 0) <= after
+                or entry.get("action") != "add"
+                or not entry.get("completed")
+            ):
+                continue
+            seq = int(entry.get("seq") or 0)
+            entry_id = int(entry.get("id") or 0)
+            if entry.get("op") == "EVPN_MH_NH_UPDATE" and entry_id in member_ids:
+                member_seen[entry_id] = seq
+            elif entry.get("op") == "EVPN_MH_NHG_UPDATE" and entry_id in group_ids:
+                group_seen[entry_id] = seq
+            elif (
+                entry.get("op") == "BR_PORT_UPDATE"
+                and entry.get("interface") in interfaces
+            ):
+                interface_seen[entry.get("interface")] = seq
+        if set(member_seen) != member_ids:
+            return "Member ADD logs %s want %s" % (
+                sorted(member_seen),
+                sorted(member_ids),
+            )
+        if set(group_seen) != group_ids:
+            return "Group ADD logs %s want %s" % (
+                sorted(group_seen),
+                sorted(group_ids),
+            )
+        if set(interface_seen) != interfaces:
+            return "Binding ADD logs %s want %s" % (
+                sorted(interface_seen),
+                sorted(interfaces),
+            )
+        marker[0] = max(
+            list(member_seen.values())
+            + list(group_seen.values())
+            + list(interface_seen.values())
+        )
+        return None
+
+    _, result = topotest.run_and_expect(_check, None, count=WAIT_COUNT, wait=WAIT_STEP)
+    assert result is None, "%s: %s" % (msg, result)
+    return marker[0]
+
+
+def _expect_scale_ip_ead_rx(router, peers, msg):
+    for index in range(1, SCALE_ES_COUNT + 1):
+        esi = _scale_es_id(index)
+        for vrf, _, _ in SCALE_VRFS:
+            _expect_ip_ead_rx(
+                router, esi, vrf, peers, "%s for %s in %s" % (msg, esi, vrf),
+            )
+
+
+def test_bpp_dplane_emit():
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    tor1 = tgen.gears["tor1"]
+    tor2 = tgen.gears["tor2"]
+    tor3 = tgen.gears["tor3"]
+    lo2, lo3 = tor_lo("tor2"), tor_vtep("tor3")
+
+    _set_bpp_if(tor2, ES_IF, True)
+    _set_bpp_if(tor3, ES_IF, True)
+    marker = _export_marker(tor1)
+    _set_bpp(tor1, True)
+    _expect_members(tor1, ES1_ID, (lo2, lo3), "members present")
+    _expect_ip_ead_rx_all(tor1, ES1_ID, (lo2, lo3), "exported peers classified")
+    _expect_export_clean(
+        tor1, "export tables", members=2, groups=1, bindings=1, esi=ES1_ID
+    )
+
+    out = _export(tor1)
+    tables = out.get("tables") or {}
+    members = tables.get("members") or {}
+    groups = tables.get("groups") or {}
+    bind = tables.get("bindings") or {}
+    assert len(groups) == 1, groups
+    group = next(iter(groups.values()))
+    expected_members = sorted(members.values(), key=lambda member: member["nhId"])
+    assert group["esi"] == ES1_ID, group
+    assert group["members"] == expected_members, (group, expected_members)
+    assert all(member.get("type") == 4 for member in group["members"]), group
+    assert all(member.get("memberType") == 1 for member in group["members"]), group
+    assert [member["nhId"] for member in group["members"]] == sorted(
+        member["nhId"] for member in group["members"]
+    ), group
+    assert ES_IF in bind, bind
+    binding = bind[ES_IF]
+    assert binding.get("esi") == ES1_ID, binding
+    assert binding.get("ifindex", 0) > 0, binding
+    assert binding.get("backupNhgId") == group["nhgId"], (binding, group)
+    assert binding.get("type") == 8, binding
+
+    binding_events = [
+        ent
+        for ent in out.get("log") or []
+        if int(ent.get("seq") or 0) > marker
+        and ent.get("op") == "BR_PORT_UPDATE"
+        and ent.get("action") == "add"
+        and ent.get("interface") == ES_IF
+    ]
+    assert len(binding_events) == 1, binding_events
+    assert binding_events[0].get("flags") == 0, binding_events[0]
+    assert binding_events[0].get("splitHorizonFilterCount") == 0, binding_events[0]
+
+    kernel = _kernel_nh_ids(tor1)
+    exp_ids = set()
+    for rec in members.values():
+        exp_ids.add(int(rec["nhId"]))
+    for rec in groups.values():
+        exp_ids.add(int(rec["nhgId"]))
+    assert exp_ids.isdisjoint(kernel), exp_ids & kernel
 
     _set_bpp(tor1, False)
     _clear_ip_ead(tor2)
+    _clear_ip_ead(tor3)
+    _expect_no_ip_ead_rx(tor1, ES1_ID, "dplane export RT-1 cleanup")
+    _expect_export_clean(
+        tor1, "cleanup", members=0, groups=0, bindings=0, released=True
+    )
 
 
-def test_memory_leak():
+def test_bpp_config_order_export():
     tgen = get_topogen()
-    if not tgen.is_memleak_enabled():
-        pytest.skip("Memory leak test/report is disabled")
-    tgen.report_memory_leaks()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    tor1 = tgen.gears["tor1"]
+    tor2 = tgen.gears["tor2"]
+
+    _set_bpp_if(tor2, ES_IF, True)
+    _expect_ip_ead_rx_all(tor1, ES1_ID, (tor_lo("tor2"),), "remote RT-1 present")
+    rt_state = _ip_ead_classification_snapshot(tor1, ES1_ID)
+
+    # With an ESI, enabling and disabling protection exports and withdraws
+    # the Member, Group, and Binding.
+    marker = _export_marker(tor1)
+    _set_bpp(tor1, True)
+    _expect_export_clean(tor1, "enabled with ESI", members=1)
+    _expect_export_events(tor1, marker, BPP_ADD_EVENTS, "add with ESI")
+    _expect_ip_ead_classification_unchanged(
+        tor1, ES1_ID, rt_state, "enable keeps remote RT-1 classification"
+    )
+
+    marker = _export_marker(tor1)
+    _set_bpp(tor1, False)
+    _expect_export_clean(
+        tor1, "disabled with ESI", members=0, groups=0, bindings=0, released=True
+    )
+    _expect_export_events(tor1, marker, BPP_DEL_EVENTS, "delete with ESI")
+    _expect_ip_ead_classification_unchanged(
+        tor1, ES1_ID, rt_state, "disable keeps remote RT-1 classification"
+    )
+
+    # Without an ESI, protection is retained but cannot export anything.
+    tor1.vtysh_cmd("configure terminal\ninterface %s\nno evpn mh es-id" % ES_IF)
+    marker = _export_marker(tor1)
+    _set_bpp(tor1, True)
+    _expect_bpp(tor1, True)
+    _expect_export_clean(
+        tor1, "enabled without ESI", members=0, groups=0, bindings=0, released=True
+    )
+    _expect_export_events(tor1, marker, [], "enable without ESI sends no export")
+    _expect_ip_ead_classification_unchanged(
+        tor1, ES1_ID, rt_state, "missing local ESI keeps RT-1 classification"
+    )
+
+    # Adding the ESI reconciles the retained configuration and exports all
+    # three object types.
+    marker = _export_marker(tor1)
+    tor1.vtysh_cmd("configure terminal\ninterface %s\nevpn mh es-id 1" % ES_IF)
+    _expect_export_clean(tor1, "ESI added after protection", members=1)
+    _expect_export_events(tor1, marker, BPP_ADD_EVENTS, "ESI added after protection")
+    _expect_ip_ead_classification_unchanged(
+        tor1, ES1_ID, rt_state, "ESI add keeps remote RT-1 classification"
+    )
+
+    # Removing the ESI withdraws all exported objects. Removing protection
+    # afterward, while no ESI exists, only clears the retained configuration.
+    marker = _export_marker(tor1)
+    tor1.vtysh_cmd("configure terminal\ninterface %s\nno evpn mh es-id" % ES_IF)
+    _expect_export_clean(
+        tor1, "ESI removed", members=0, groups=0, bindings=0, released=True
+    )
+    _expect_export_events(tor1, marker, BPP_DEL_EVENTS, "ESI removed")
+    _expect_ip_ead_classification_unchanged(
+        tor1, ES1_ID, rt_state, "ESI removal keeps RT-1 classification"
+    )
+
+    marker = _export_marker(tor1)
+    _set_bpp(tor1, False)
+    _expect_bpp(tor1, False)
+    _expect_export_events(tor1, marker, [], "final disable without ESI")
+    _expect_ip_ead_classification_unchanged(
+        tor1, ES1_ID, rt_state, "final disable keeps RT-1 classification"
+    )
+
+    tor1.vtysh_cmd("configure terminal\ninterface %s\nevpn mh es-id 1" % ES_IF)
+    _clear_ip_ead(tor2)
+    _expect_no_ip_ead_rx(tor1, ES1_ID, "config-order RT-1 cleanup")
+
+
+def test_bpp_all_pending_no_binding():
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    tor1 = tgen.gears["tor1"]
+    tor2 = tgen.gears["tor2"]
+
+    _set_bpp_if(tor2, ES_IF, True)
+    _set_bpp(tor1, True)
+    _expect_export_clean(tor1, "initially active", members=1)
+    _expect_ip_ead_rx_all(
+        tor1, ES1_ID, (tor_lo("tor2"),), "initial remote RT-1 classified"
+    )
+
+    # Exercise independent and simultaneous dependency failures. VLAN 10
+    # loses its operational L3VNI, while VLAN 40 has no SVI/IP-VRF.
+    _set_l3vni_neigh(tor1, False)
+    tor1.vtysh_cmd("configure terminal\ninterface %s\nno evpn mh es-id" % ES_IF)
+    tor1.run("ip link set dev vni4001 down")
+    tor1.run("/sbin/bridge vlan add vid 40 dev %s" % ES_IF)
+
+    _expect_entries(
+        tor1,
+        {
+            ES_IF: {
+                "esi": None,
+                "bound": False,
+                "vlans": {
+                    "10": _pending(
+                        ["no local ES", "L3VNI down", "l3vni-neigh off"],
+                        vrf="vrf-a",
+                        l3vni=4001,
+                    ),
+                    "20": _pending(
+                        ["no local ES", "l3vni-neigh off"], vrf="vrf-b", l3vni=4002,
+                    ),
+                    "40": _pending(
+                        ["no local ES", "no SVI or IP-VRF", "l3vni-neigh off"],
+                        l3vni=None,
+                    ),
+                },
+            }
+        },
+        "all VLANs pending with simultaneous reasons",
+    )
+    _expect_export_clean(
+        tor1,
+        "entire ES pending has no Binding",
+        members=0,
+        groups=0,
+        bindings=0,
+        released=True,
+    )
+    _expect_no_ip_ead_rx(tor1, ES1_ID, "l3vni-neigh off clears classification")
+
+    tor1.run("/sbin/bridge vlan del vid 40 dev %s" % ES_IF)
+    tor1.run("ip link set dev vni4001 up")
+    tor1.vtysh_cmd("configure terminal\ninterface %s\nevpn mh es-id 1" % ES_IF)
+    _set_l3vni_neigh(tor1, True)
+    _expect_export_clean(tor1, "dependencies restored", members=1)
+    _expect_ip_ead_rx_all(
+        tor1, ES1_ID, (tor_lo("tor2"),), "restored dependencies classify RT-1"
+    )
+
+    _set_bpp(tor1, False)
+    _clear_ip_ead(tor2)
+    _expect_no_ip_ead_rx(tor1, ES1_ID, "pending-state RT-1 cleanup")
+    _expect_export_clean(
+        tor1, "cleanup", members=0, groups=0, bindings=0, released=True
+    )
+
+
+def test_bpp_all_vlans_removed():
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    tor1 = tgen.gears["tor1"]
+    tor2 = tgen.gears["tor2"]
+    first_vid, last_vid = ES_VLANS
+
+    _set_bpp_if(tor2, ES_IF, True)
+    _set_bpp(tor1, True)
+    _expect_export_clean(tor1, "initially active", members=1)
+    _expect_ip_ead_rx_all(tor1, ES1_ID, (tor_lo("tor2"),), "initial RT-1 classified")
+    rt_state = _ip_ead_classification_snapshot(tor1, ES1_ID)
+
+    marker = _export_marker(tor1)
+    tor1.run("/sbin/bridge vlan del vid %d dev %s" % (first_vid, ES_IF))
+    _expect_entries(
+        tor1,
+        {
+            ES_IF: {
+                "bound": True,
+                "vlans": {
+                    str(first_vid): None,
+                    str(last_vid): _active_vlans((last_vid,))[str(last_vid)],
+                },
+            }
+        },
+        "one protected VLAN remains",
+    )
+
+    tor1.run("/sbin/bridge vlan del vid %d dev %s" % (last_vid, ES_IF))
+    kernel_vlans = json.loads(tor1.run("/sbin/bridge -j vlan show dev %s" % ES_IF))
+    assert kernel_vlans == [], kernel_vlans
+
+    _expect_entries(tor1, {}, "all protected VLANs removed")
+    _expect_export_clean(
+        tor1,
+        "last VLAN removal withdraws protection",
+        members=0,
+        groups=0,
+        bindings=0,
+        released=True,
+    )
+    _expect_export_events(tor1, marker, BPP_DEL_EVENTS, "last VLAN removed")
+    _expect_ip_ead_classification_unchanged(
+        tor1, ES1_ID, rt_state, "local VLAN removal keeps RT-1 classification"
+    )
+
+    marker = _export_marker(tor1)
+    tor1.run("/sbin/bridge vlan add vid %d dev %s" % (first_vid, ES_IF))
+    _expect_entries(
+        tor1,
+        {ES_IF: {"bound": True, "vlans": _active_vlans((first_vid,))}},
+        "first protected VLAN restored",
+    )
+    _expect_export_clean(tor1, "first VLAN restores protection", members=1)
+    _expect_export_events(tor1, marker, BPP_ADD_EVENTS, "first VLAN restored")
+    _expect_ip_ead_classification_unchanged(
+        tor1, ES1_ID, rt_state, "local VLAN restore keeps RT-1 classification"
+    )
+
+    marker = _export_marker(tor1)
+    tor1.run("/sbin/bridge vlan add vid %d dev %s" % (last_vid, ES_IF))
+    _expect_entries(
+        tor1,
+        {ES_IF: {"bound": True, "vlans": _active_vlans(ES_VLANS)}},
+        "all protected VLANs restored",
+    )
+    _expect_ip_ead_classification_unchanged(
+        tor1, ES1_ID, rt_state, "all local VLANs keep RT-1 classification"
+    )
+    _expect_export_clean(
+        tor1, "second VLAN keeps active exports", members=1, vteps=(tor_lo("tor2"),),
+    )
+    _expect_export_events(tor1, marker, [], "second VLAN sends no export")
+
+    _set_bpp(tor1, False)
+    _clear_ip_ead(tor2)
+    _expect_no_ip_ead_rx(tor1, ES1_ID, "VLAN lifecycle RT-1 cleanup")
+    _expect_export_clean(
+        tor1, "cleanup", members=0, groups=0, bindings=0, released=True
+    )
+
+
+def test_bpp_peer_join_leave():
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    tor1 = tgen.gears["tor1"]
+    tor2 = tgen.gears["tor2"]
+    tor3 = tgen.gears["tor3"]
+    lo2, lo3 = tor_lo("tor2"), tor_vtep("tor3")
+
+    _set_bpp_if(tor2, ES_IF, True)
+    _set_bpp(tor1, True)
+    _expect_export_clean(tor1, "initial peer", members=1)
+    _expect_ip_ead_rx_all(tor1, ES1_ID, (lo2,), "initial peer RT-1")
+
+    marker = _export_marker(tor1)
+    _set_bpp_if(tor3, ES_IF, True)
+    _expect_members(tor1, ES1_ID, (lo2, lo3), "peer joined")
+    _expect_export_clean(tor1, "peer join export", members=2)
+    _expect_export_events(
+        tor1,
+        marker,
+        [("EVPN_MH_NH_UPDATE", "add"), ("EVPN_MH_NHG_UPDATE", "add"),],
+        "Member then Group on peer join",
+    )
+    _expect_ip_ead_rx_all(tor1, ES1_ID, (lo2, lo3), "joined peer RT-1")
+
+    marker = _export_marker(tor1)
+    _set_bpp_if(tor3, ES_IF, False)
+    _expect_members(tor1, ES1_ID, (lo2,), "peer left")
+    _expect_export_clean(tor1, "peer leave export", members=1)
+    _expect_export_events(
+        tor1,
+        marker,
+        [("EVPN_MH_NHG_UPDATE", "add"), ("EVPN_MH_NH_UPDATE", "del"),],
+        "Group then Member on peer leave",
+    )
+    _expect_ip_ead_rx_all(tor1, ES1_ID, (lo2,), "departed peer RT-1 withdrawn")
+
+    _set_bpp(tor1, False)
+    _clear_ip_ead(tor2)
+    _expect_no_ip_ead_rx(tor1, ES1_ID, "peer lifecycle RT-1 cleanup")
+    _expect_export_clean(
+        tor1, "cleanup", members=0, groups=0, bindings=0, released=True
+    )
+
+
+def test_bpp_last_peer():
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    tor1 = tgen.gears["tor1"]
+    tor2 = tgen.gears["tor2"]
+
+    _set_bpp_if(tor2, ES_IF, True)
+    _set_bpp(tor1, True)
+    _expect_export_clean(tor1, "initial peer", members=1)
+    _expect_ip_ead_rx_all(tor1, ES1_ID, (tor_lo("tor2"),), "last peer RT-1 present")
+
+    marker = _export_marker(tor1)
+    _set_bpp_if(tor2, ES_IF, False)
+    _expect_members(tor1, ES1_ID, (), "last peer left", bound=False)
+    _expect_export_clean(
+        tor1, "last peer export", members=0, groups=0, bindings=0, released=True,
+    )
+    _expect_export_events(
+        tor1,
+        marker,
+        [
+            ("BR_PORT_UPDATE", "del"),
+            ("EVPN_MH_NHG_UPDATE", "del"),
+            ("EVPN_MH_NH_UPDATE", "del"),
+        ],
+        "Binding, Group, Member on last peer",
+    )
+    _expect_no_ip_ead_rx(tor1, ES1_ID, "last peer RT-1 withdrawn")
+
+    _set_bpp(tor1, False)
+
+
+def test_bpp_disable():
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    tor1 = tgen.gears["tor1"]
+    tor2 = tgen.gears["tor2"]
+    tor3 = tgen.gears["tor3"]
+
+    _set_bpp_if(tor2, ES_IF, True)
+    _set_bpp_if(tor3, ES_IF, True)
+    _set_bpp(tor1, True)
+    _expect_export_clean(tor1, "protected", members=2)
+    peers = (tor_lo("tor2"), tor_vtep("tor3"))
+    _expect_ip_ead_rx_all(tor1, ES1_ID, peers, "disable test RT-1 present")
+
+    marker = _export_marker(tor1)
+    _set_bpp(tor1, False)
+    _expect_export_clean(
+        tor1, "disabled", members=0, groups=0, bindings=0, released=True,
+    )
+    _expect_export_events(
+        tor1,
+        marker,
+        [
+            ("BR_PORT_UPDATE", "del"),
+            ("EVPN_MH_NHG_UPDATE", "del"),
+            ("EVPN_MH_NH_UPDATE", "del"),
+            ("EVPN_MH_NH_UPDATE", "del"),
+        ],
+        "Binding, Group, Members on disable",
+    )
+    _expect_ip_ead_rx_all(tor1, ES1_ID, peers, "local disable keeps remote RT-1")
+
+    _clear_ip_ead(tor2)
+    _clear_ip_ead(tor3)
+    _expect_no_ip_ead_rx(tor1, ES1_ID, "disable test RT-1 cleanup")
+
+
+def test_bpp_es_delete():
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    tor1 = tgen.gears["tor1"]
+    tor2 = tgen.gears["tor2"]
+
+    _set_bpp_if(tor2, ES_IF, True)
+    _set_bpp(tor1, True)
+    _expect_export_clean(tor1, "protected", members=1)
+    lo2 = tor_lo("tor2")
+    _expect_ip_ead_rx_all(tor1, ES1_ID, (lo2,), "ES-delete RT-1 present")
+
+    marker = _export_marker(tor1)
+    tor1.vtysh_cmd("configure terminal\ninterface %s\nno evpn mh es-id" % ES_IF)
+    _expect_export_clean(
+        tor1, "ES deleted", members=0, groups=0, bindings=0, released=True,
+    )
+    _expect_export_events(
+        tor1,
+        marker,
+        [
+            ("BR_PORT_UPDATE", "del"),
+            ("EVPN_MH_NHG_UPDATE", "del"),
+            ("EVPN_MH_NH_UPDATE", "del"),
+        ],
+        "Binding, Group, Member on ES delete",
+    )
+    _expect_ip_ead_rx_all(
+        tor1, ES1_ID, (lo2,), "local ES delete keeps remote-only RT-1"
+    )
+
+    tor1.vtysh_cmd("configure terminal\ninterface %s\nevpn mh es-id 1" % ES_IF)
+    _set_bpp(tor1, False)
+    _clear_ip_ead(tor2)
+    _expect_no_ip_ead_rx(tor1, ES1_ID, "ES-delete RT-1 cleanup")
+
+
+def test_bpp_per_evi_one_vrf():
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    tor1 = tgen.gears["tor1"]
+    tor2 = tgen.gears["tor2"]
+    tor3 = tgen.gears["tor3"]
+    lo2, lo3 = tor_lo("tor2"), tor_vtep("tor3")
+
+    _set_bpp_if(tor2, ES_IF, True)
+    _set_bpp_if(tor3, ES_IF, True)
+    _set_bpp(tor1, True)
+    _expect_export_clean(tor1, "both peers", members=2)
+    _expect_ip_ead_rx_all(tor1, ES1_ID, (lo2, lo3), "both peer RT-1 present")
+
+    marker = _export_marker(tor1)
+    _set_vrf_auto_rt(tor2, "vrf-a", False)
+    _expect_eligible(
+        tor1, ES1_ID, (lo2,), "tor2 missing vrf-a", eligible=False, missing=["vrf-a"]
+    )
+    _expect_members(tor1, ES1_ID, (lo3,), "tor3 remains")
+    _expect_export_clean(tor1, "one peer remains", members=1)
+    _expect_export_events(
+        tor1,
+        marker,
+        [("EVPN_MH_NHG_UPDATE", "add"), ("EVPN_MH_NH_UPDATE", "del"),],
+        "Group update before Member delete",
+    )
+    _expect_ip_ead_rx(tor1, ES1_ID, "vrf-a", (lo3,), "tor2 vrf-a RT removed")
+    _expect_ip_ead_rx(tor1, ES1_ID, "vrf-b", (lo2, lo3), "tor2 vrf-b RT remains")
+
+    marker = _export_marker(tor1)
+    _set_vrf_auto_rt(tor2, "vrf-a", True)
+    _expect_eligible(tor1, ES1_ID, (lo2,), "tor2 restored")
+    _expect_members(tor1, ES1_ID, (lo2, lo3), "both peers restored")
+    _expect_export_clean(tor1, "both peers restored", members=2)
+    _expect_export_events(
+        tor1,
+        marker,
+        [("EVPN_MH_NH_UPDATE", "add"), ("EVPN_MH_NHG_UPDATE", "add"),],
+        "Member add before Group update",
+    )
+    _expect_ip_ead_rx_all(tor1, ES1_ID, (lo2, lo3), "tor2 RT-1 restored")
+
+    _set_bpp(tor1, False)
+    _clear_ip_ead(tor2)
+    _clear_ip_ead(tor3)
+    _expect_no_ip_ead_rx(tor1, ES1_ID, "per-EVI lifecycle RT-1 cleanup")
+
+
+def test_bpp_per_es_mass_withdraw():
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    tor1 = tgen.gears["tor1"]
+    tor2 = tgen.gears["tor2"]
+    tor3 = tgen.gears["tor3"]
+    lo2, lo3 = tor_lo("tor2"), tor_vtep("tor3")
+
+    _set_bpp_if(tor2, ES_IF, True)
+    _set_bpp_if(tor3, ES_IF, True)
+    _set_bpp(tor1, True)
+    _expect_export_clean(tor1, "both peers", members=2)
+    _expect_ip_ead_rx_all(tor1, ES1_ID, (lo2, lo3), "mass-withdraw RT-1 present")
+
+    marker = _export_marker(tor1)
+    tor2.vtysh_cmd("configure terminal\ninterface %s\nno evpn mh es-id" % ES_IF)
+    _expect_eligible(tor1, ES1_ID, (lo2,), "tor2 withdrawn", eligible=False)
+    _expect_members(tor1, ES1_ID, (lo3,), "tor3 remains")
+    _expect_export_events(
+        tor1,
+        marker,
+        [("EVPN_MH_NHG_UPDATE", "add"), ("EVPN_MH_NH_UPDATE", "del"),],
+        "first peer mass-withdraw",
+    )
+    _expect_ip_ead_rx_all(tor1, ES1_ID, (lo3,), "first peer RT-1 withdrawn")
+
+    marker = _export_marker(tor1)
+    tor3.vtysh_cmd("configure terminal\ninterface %s\nno evpn mh es-id" % ES_IF)
+    _expect_members(tor1, ES1_ID, (), "all peers withdrawn", bound=False)
+    _expect_export_clean(
+        tor1, "all peers withdrawn", members=0, groups=0, bindings=0, released=True,
+    )
+    _expect_export_events(
+        tor1,
+        marker,
+        [
+            ("BR_PORT_UPDATE", "del"),
+            ("EVPN_MH_NHG_UPDATE", "del"),
+            ("EVPN_MH_NH_UPDATE", "del"),
+        ],
+        "last peer mass-withdraw",
+    )
+    _expect_no_ip_ead_rx(tor1, ES1_ID, "all peer RT-1 withdrawn")
+
+    tor2.vtysh_cmd("configure terminal\ninterface %s\nevpn mh es-id 1" % ES_IF)
+    tor3.vtysh_cmd("configure terminal\ninterface %s\nevpn mh es-id 1" % ES_IF)
+    _set_bpp(tor1, False)
+    _clear_ip_ead(tor2)
+    _clear_ip_ead(tor3)
+
+
+def test_bpp_peer_vtep_unreachable():
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    tor1 = tgen.gears["tor1"]
+    tor2 = tgen.gears["tor2"]
+    tor3 = tgen.gears["tor3"]
+    lo2, lo3 = tor_lo("tor2"), tor_vtep("tor3")
+
+    _set_bpp_if(tor2, ES_IF, True)
+    _set_bpp_if(tor3, ES_IF, True)
+    _set_bpp(tor1, True)
+    _expect_export_clean(tor1, "both peers", members=2)
+    _expect_ip_ead_rx_all(tor1, ES1_ID, (lo2, lo3), "reachable peer RT-1 present")
+
+    marker = _export_marker(tor1)
+    tor2.run("ip addr del %s/32 dev lo" % lo2)
+    _expect_eligible(tor1, ES1_ID, (lo2,), "tor2 VTEP unreachable", eligible=False)
+    _expect_members(tor1, ES1_ID, (lo3,), "tor3 remains")
+    _expect_export_events(
+        tor1,
+        marker,
+        [("EVPN_MH_NHG_UPDATE", "add"), ("EVPN_MH_NH_UPDATE", "del"),],
+        "unreachable peer removed",
+    )
+    _expect_ip_ead_rx_all(
+        tor1, ES1_ID, (lo3,), "unreachable peer removed from RT-1 classification"
+    )
+
+    marker = _export_marker(tor1)
+    tor2.run("ip addr add %s/32 dev lo" % lo2)
+    _expect_eligible(tor1, ES1_ID, (lo2,), "tor2 VTEP reachable")
+    _expect_members(tor1, ES1_ID, (lo2, lo3), "tor2 restored")
+    _expect_export_events(
+        tor1,
+        marker,
+        [("EVPN_MH_NH_UPDATE", "add"), ("EVPN_MH_NHG_UPDATE", "add"),],
+        "reachable peer restored",
+    )
+    _expect_ip_ead_rx_all(
+        tor1, ES1_ID, (lo2, lo3), "reachable peer restored to RT-1 classification"
+    )
+
+    _set_bpp(tor1, False)
+    _clear_ip_ead(tor2)
+    _clear_ip_ead(tor3)
+    _expect_no_ip_ead_rx(tor1, ES1_ID, "reachability RT-1 cleanup")
+
+
+def test_bpp_rmac_change_export():
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    tor1 = tgen.gears["tor1"]
+    tor2 = tgen.gears["tor2"]
+    lo2 = tor_lo("tor2")
+    new_mac = "44:38:39:00:00:99"
+    old1, old2 = _if_mac(tor2, "vlan4001"), _if_mac(tor2, "vlan4002")
+
+    _set_bpp_if(tor2, ES_IF, True)
+    _set_bpp(tor1, True)
+    _expect_export_clean(tor1, "initial RMAC", members=1)
+    _expect_ip_ead_rx_all(tor1, ES1_ID, (lo2,), "initial RMAC RT-1")
+    old_id = _export_member(tor1, lo2)["nhId"]
+
+    marker = _export_marker(tor1)
+    tor2.run("ip link set vlan4001 address %s" % new_mac)
+
+    def _check_rmac():
+        member = _export_member(tor1, lo2)
+        if not member or member.get("rmac") != new_mac:
+            return member
+        groups = ((_export(tor1).get("tables") or {}).get("groups") or {}).values()
+        group_members = [m for group in groups for m in group.get("members", [])]
+        if not any(
+            m.get("vtep") == lo2 and m.get("rmac") == new_mac for m in group_members
+        ):
+            return group_members
+        return None
+
+    _, result = topotest.run_and_expect(
+        _check_rmac, None, count=WAIT_COUNT, wait=WAIT_STEP
+    )
+    assert result is None, "RMAC export did not converge: %s" % result
+    _expect_ip_ead_rx(tor1, ES1_ID, "vrf-a", (lo2,), "updated RMAC RT-1", rmac=new_mac)
+    _expect_ip_ead_rx(tor1, ES1_ID, "vrf-b", (lo2,), "unchanged vrf-b RT-1", rmac=old2)
+    assert _export_member(tor1, lo2)["nhId"] == old_id
+    _expect_export_events(
+        tor1,
+        marker,
+        [("EVPN_MH_NH_UPDATE", "add"), ("EVPN_MH_NHG_UPDATE", "add"),],
+        "RMAC changes Member and Group only",
+    )
+
+    tor2.run("ip link set vlan4001 address %s" % old1)
+    tor2.run("ip link set vlan4002 address %s" % old2)
+    _set_bpp(tor1, False)
+    _clear_ip_ead(tor2)
+    _expect_no_ip_ead_rx(tor1, ES1_ID, "RMAC export RT-1 cleanup")
+
+
+def test_bpp_local_link_down():
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    tor1 = tgen.gears["tor1"]
+    tor2 = tgen.gears["tor2"]
+    host = tgen.gears["hostd1"]
+    gw = ACCESS_VLANS[10][1].split("/")[0]
+    rts = (_vrf_rt(tor1, "vrf-a"), _vrf_rt(tor1, "vrf-b"))
+
+    _set_bpp_if(tor2, ES_IF, True)
+    _set_bpp(tor1, True)
+    _expect_ip_ead(
+        tor1, "local RT-1 before link down", evi_vrfs=("vrf-a", "vrf-b"), es_rts=rts,
+    )
+    _expect_export_clean(tor1, "protected", members=1)
+    _expect_ip_ead_rx_all(tor1, ES1_ID, (tor_lo("tor2"),), "local-link RT-1 present")
+    rt_state = _ip_ead_classification_snapshot(tor1, ES1_ID)
+    host.run("ping -c 3 -W 1 %s" % gw)
+    before = _local_forwarding_state(tor1)
+
+    marker = _export_marker(tor1)
+    tor1.run("ip link set dev %s down" % ES_IF)
+    _expect_ip_ead(
+        tor1,
+        "link down withdraws local per-ES RT-1",
+        evi_vrfs=("vrf-a", "vrf-b"),
+        es_absent=True,
+    )
+    _expect_members(tor1, ES1_ID, (tor_lo("tor2"),), "objects kept")
+    _expect_export_clean(tor1, "link down export unchanged", members=1)
+    assert _local_forwarding_state(tor1) == before
+    _expect_export_events(tor1, marker, [], "link down has no export")
+    _expect_ip_ead_classification_unchanged(
+        tor1, ES1_ID, rt_state, "local link down keeps RT-1 classification"
+    )
+
+    tor1.run("ip link set dev %s up" % ES_IF)
+    _expect_ip_ead(
+        tor1,
+        "link up restores local per-ES RT-1",
+        evi_vrfs=("vrf-a", "vrf-b"),
+        es_rts=rts,
+    )
+    _expect_export_clean(tor1, "link up export unchanged", members=1)
+    assert _local_forwarding_state(tor1) == before
+    _expect_export_events(tor1, marker, [], "link up has no export")
+    _expect_ip_ead_classification_unchanged(
+        tor1, ES1_ID, rt_state, "local link up keeps RT-1 classification"
+    )
+
+    _set_bpp(tor1, False)
+    _clear_ip_ead(tor2)
+    _expect_no_ip_ead_rx(tor1, ES1_ID, "local-link RT-1 cleanup")
+
+
+def test_bpp_replay():
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    tor1 = tgen.gears["tor1"]
+    tor2 = tgen.gears["tor2"]
+    tor3 = tgen.gears["tor3"]
+
+    _set_bpp_if(tor2, ES_IF, True)
+    _set_bpp_if(tor3, ES_IF, True)
+    _set_bpp(tor1, True)
+    _expect_export_clean(tor1, "before replay", members=2)
+    peers = (tor_lo("tor2"), tor_vtep("tor3"))
+    _expect_ip_ead_rx_all(tor1, ES1_ID, peers, "replay RT-1 present")
+    rt_state = _ip_ead_classification_snapshot(tor1, ES1_ID)
+    before = _replay_forwarding_state(tor1)
+    counters = _dplane_primary_counters(tor1)
+
+    marker = _export_marker(tor1)
+    tor1.vtysh_cmd("clear evpn mh bridge-port-protection replay")
+    _expect_replay(tor1, marker, before["export"], "full replay")
+
+    assert _replay_forwarding_state(tor1) == before
+    assert _dplane_primary_counters(tor1) == counters
+    _expect_export_clean(tor1, "after replay", members=2)
+    _expect_ip_ead_classification_unchanged(
+        tor1, ES1_ID, rt_state, "replay keeps RT-1 classification"
+    )
+
+    _set_bpp(tor1, False)
+    _clear_ip_ead(tor2)
+    _clear_ip_ead(tor3)
+    _expect_no_ip_ead_rx(tor1, ES1_ID, "replay RT-1 cleanup")
+
+
+def test_bpp_replay_empty():
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    tor1 = tgen.gears["tor1"]
+    _expect_no_ip_ead_rx(tor1, ES1_ID, "empty replay has no RT-1")
+    _expect_export_clean(
+        tor1, "empty before replay", members=0, groups=0, bindings=0, released=True
+    )
+
+    marker = _export_marker(tor1)
+    tor1.vtysh_cmd("clear evpn mh bridge-port-protection replay")
+    events = _expect_replay(tor1, marker, {}, "empty replay")
+    assert [ent.get("op") for ent in events] == ["EVPN_MH_REPLAY_DONE"]
+    _expect_no_ip_ead_rx(tor1, ES1_ID, "empty replay keeps RT-1 empty")
+
+
+def test_bpp_replay_idempotent():
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    tor1 = tgen.gears["tor1"]
+    tor2 = tgen.gears["tor2"]
+
+    _set_bpp_if(tor2, ES_IF, True)
+    _set_bpp(tor1, True)
+    _expect_export_clean(tor1, "before repeated replay", members=1)
+    _expect_ip_ead_rx_all(
+        tor1, ES1_ID, (tor_lo("tor2"),), "idempotent replay RT-1 present"
+    )
+    rt_state = _ip_ead_classification_snapshot(tor1, ES1_ID)
+    tables = _export(tor1).get("tables") or {}
+
+    for attempt in range(2):
+        marker = _export_marker(tor1)
+        tor1.vtysh_cmd("clear evpn mh bridge-port-protection replay")
+        _expect_replay(tor1, marker, tables, "replay %d" % (attempt + 1))
+        assert (_export(tor1).get("tables") or {}) == tables
+        _expect_export_clean(tor1, "after replay %d" % (attempt + 1), members=1)
+        _expect_ip_ead_classification_unchanged(
+            tor1,
+            ES1_ID,
+            rt_state,
+            "replay %d keeps RT-1 classification" % (attempt + 1),
+        )
+
+    _set_bpp(tor1, False)
+    _clear_ip_ead(tor2)
+    _expect_no_ip_ead_rx(tor1, ES1_ID, "idempotent replay RT-1 cleanup")
+
+
+def test_bpp_config_reload():
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    tor1 = tgen.gears["tor1"]
+    tor2 = tgen.gears["tor2"]
+
+    _set_bpp_if(tor2, ES_IF, True)
+    _set_bpp(tor1, True)
+    _expect_export_clean(tor1, "before config reload", members=1)
+    _expect_ip_ead_rx_all(tor1, ES1_ID, (tor_lo("tor2"),), "config reload RT-1 present")
+    rt_state = _ip_ead_classification_snapshot(tor1, ES1_ID)
+    before = _export(tor1).get("tables") or {}
+    before_groups = set((before.get("groups") or {}))
+
+    tor1.vtysh_cmd("write memory")
+    marker = _export_marker(tor1)
+    rc, stdout, stderr = tor1.net.cmd_status(
+        "/usr/lib/frr/frr-reload.py --reload /etc/frr/frr.conf", warn=False
+    )
+    assert rc == 0, "frr-reload.py failed: %s%s" % (stdout, stderr)
+    _expect_no_replay_events(tor1, marker, "frr-reload sends no export")
+    assert (_export(tor1).get("tables") or {}) == before
+    _expect_ip_ead_classification_unchanged(
+        tor1, ES1_ID, rt_state, "frr-reload keeps RT-1 classification"
+    )
+
+    kill_router_daemons(tgen, "tor1", ["zebra"], save_config=False)
+    start_router_daemons(tgen, "tor1", ["zebra"])
+    _expect_export_clean(tor1, "after zebra restart", members=1, esi=ES1_ID)
+    after = _export(tor1).get("tables") or {}
+    after_groups = set((after.get("groups") or {}))
+    assert after_groups.isdisjoint(before_groups), (before_groups, after_groups)
+    _expect_ip_ead_classification_unchanged(
+        tor1, ES1_ID, rt_state, "zebra restart keeps RT-1 classification"
+    )
+
+    _set_bpp(tor1, False)
+    _clear_ip_ead(tor2)
+    _expect_no_ip_ead_rx(tor1, ES1_ID, "config reload RT-1 cleanup")
+    tor1.vtysh_cmd("write memory")
+
+    # A zebra-only restart can leave bgpd's replayed underlay routes
+    # incomplete.  Reconnect bgpd before returning the shared topology to
+    # subsequent tests, and require every remote VTEP to be reachable.
+    kill_router_daemons(tgen, "tor1", ["bgpd"], save_config=False)
+    start_router_daemons(tgen, "tor1", ["bgpd"])
+
+    peers = ["%s.1" % link_subnet(spine, "tor1") for spine in SPINES]
+    for afi in ("ipv4 unicast", "l2vpn evpn"):
+        _, result = topotest.run_and_expect(
+            partial(_bgp_peers_up, tor1, afi, peers),
+            None,
+            count=WAIT_COUNT,
+            wait=WAIT_STEP,
+        )
+        assert result is None, result
+
+    def _vteps_reachable():
+        for name in TORS:
+            if name == "tor1":
+                continue
+            vtep = tor_vtep(name)
+            family = "-6 " if ":" in vtep else ""
+            rc, stdout, stderr = tor1.net.cmd_status(
+                "ip %sroute get %s" % (family, vtep), warn=False
+            )
+            if rc:
+                return "%s is unreachable: %s%s" % (vtep, stdout, stderr)
+        return None
+
+    _, result = topotest.run_and_expect(
+        _vteps_reachable, None, count=WAIT_COUNT, wait=WAIT_STEP
+    )
+    assert result is None, result
+
+
+def test_bpp_scale():
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    tor1 = tgen.gears["tor1"]
+    peers = tuple(tor_vtep(name) for name in TORS if name != "tor1")
+
+    try:
+        _expect_scale_vteps_reachable(tor1, peers)
+        setup_marker = _export_marker(tor1)
+        for name in TORS:
+            _scale_dataplane_add(tgen.gears[name])
+            _expect_scale_ip_ead_tx(tgen.gears[name])
+
+        expected = {}
+        for index in range(1, SCALE_ES_COUNT + 1):
+            vlans = {}
+            for vrf_index, (vrf, _, l3vni) in enumerate(SCALE_VRFS, 1):
+                vlans[str(_scale_vid(index, vrf_index))] = {
+                    "vrf": vrf,
+                    "l3vni": l3vni,
+                    "state": "ACTIVE",
+                    "ready": True,
+                    "reasons": ["__ordered__"],
+                }
+            expected[_scale_es_name(index)] = {
+                "esi": _scale_es_id(index),
+                "bound": True,
+                "vlans": vlans,
+            }
+
+        _expect_scale_ip_ead_bgp_rx(tor1, peers)
+        _expect_scale_ip_ead_rx(tor1, peers, "scale RT-1 classified")
+        _expect_entries(tor1, expected, "32 protected VLANs across 8 ESes")
+        _expect_scale_export(tor1, peers, "8 Groups with 3 peers")
+        marker = _expect_scale_setup_logged(
+            tor1, setup_marker, "initial scale exports logged"
+        )
+        before = _export(tor1)
+        binding_adds = (before.get("counters") or {}).get("bindingAdd")
+        bindings = (before.get("tables") or {}).get("bindings")
+
+        marker = _expect_export_quiescent(tor1, "scale setup export settled")
+        config = ["configure terminal"]
+        for index in range(1, SCALE_ES_COUNT + 1):
+            config.extend(
+                (
+                    "interface %s" % _scale_es_name(index),
+                    "no evpn mh bridge-port-protection",
+                )
+            )
+        tgen.gears["tor4"].vtysh_cmd("\n".join(config))
+
+        remaining = tuple(tor_vtep(name) for name in ("tor2", "tor3"))
+        _expect_scale_export(tor1, remaining, "peer churn withdrawal")
+        _expect_scale_ip_ead_rx(tor1, remaining, "scale RT-1 withdrawal")
+        after = _export(tor1)
+        assert (after.get("tables") or {}).get("bindings") == bindings
+        assert (after.get("counters") or {}).get("bindingAdd") == binding_adds
+        _expect_scale_export_events(
+            tor1,
+            marker,
+            peers,
+            added=(),
+            removed=(tor_vtep("tor4"),),
+            msg="scale withdrawal has no Binding updates",
+        )
+
+        marker = _expect_export_quiescent(tor1, "scale withdrawal export settled")
+        config = ["configure terminal"]
+        for index in range(1, SCALE_ES_COUNT + 1):
+            config.extend(
+                (
+                    "interface %s" % _scale_es_name(index),
+                    "evpn mh bridge-port-protection",
+                )
+            )
+        tgen.gears["tor4"].vtysh_cmd("\n".join(config))
+
+        _expect_scale_export(tor1, peers, "peer churn restoration")
+        _expect_scale_ip_ead_rx(tor1, peers, "scale RT-1 restoration")
+        after = _export(tor1)
+        assert (after.get("tables") or {}).get("bindings") == bindings
+        assert (after.get("counters") or {}).get("bindingAdd") == binding_adds
+        _expect_scale_export_events(
+            tor1,
+            marker,
+            peers,
+            added=(tor_vtep("tor4"),),
+            removed=(),
+            msg="scale restoration has no Binding updates",
+        )
+    finally:
+        for name in TORS:
+            _scale_dataplane_del(tgen.gears[name])
+
+    _expect_entries(tor1, {}, "scale entries removed")
+    _expect_export_clean(
+        tor1, "scale exports removed", members=0, groups=0, bindings=0, released=True,
+    )
+    for index in range(1, SCALE_ES_COUNT + 1):
+        _expect_no_ip_ead_rx(
+            tor1,
+            _scale_es_id(index),
+            "scale RT-1 removed for %s" % _scale_es_id(index),
+            vrfs=[vrf for vrf, _, _ in SCALE_VRFS],
+        )
+
+
+def test_bpp_fpm_kernel_disjoint():
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    tor1 = tgen.gears["tor1"]
+    tor2 = tgen.gears["tor2"]
+    lo2 = tor_lo("tor2")
+
+    _set_bpp_if(tor2, ES_IF, True)
+    _set_bpp(tor1, True)
+    _expect_members(tor1, ES1_ID, (lo2,), "member present")
+    _expect_export_clean(tor1, "typed IDs", members=1, groups=1, bindings=1)
+    _expect_ip_ead_rx_all(tor1, ES1_ID, (lo2,), "typed export RT-1 present")
+
+    out = _export(tor1)
+    tables = out.get("tables") or {}
+    for rec in (tables.get("members") or {}).values():
+        assert _nhg_type(rec["nhId"]) == NHG_TYPE_L3_BPP_NH, rec
+    for rec in (tables.get("groups") or {}).values():
+        assert _nhg_type(rec["nhgId"]) == NHG_TYPE_L3_BPP, rec
+    kernel = _kernel_nh_ids(tor1)
+    for rec in list((tables.get("members") or {}).values()) + list(
+        (tables.get("groups") or {}).values()
+    ):
+        nid = int(rec.get("nhId") or rec.get("nhgId"))
+        assert nid not in kernel, hex(nid)
+
+    _set_bpp(tor1, False)
+    _clear_ip_ead(tor2)
+    _expect_no_ip_ead_rx(tor1, ES1_ID, "typed export RT-1 cleanup")
+    _expect_export_clean(
+        tor1, "cleanup", members=0, groups=0, bindings=0, released=True
+    )
+
+
+def test_bpp_l2_br_port_unchanged():
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    tor1 = tgen.gears["tor1"]
+    tor2 = tgen.gears["tor2"]
+    lo2 = tor_lo("tor2")
+    l2_if = "hostbond2"
+    l2_nhg = _es_nhg_id(tor1, ES2_ID)
+
+    assert _nhg_type(l2_nhg) == NHG_TYPE_L2, hex(l2_nhg)
+    _expect_kernel_nexthops_ready(tor1)
+    _expect_es_df_converged(tor1, ES2_ID, "initial L2 ES")
+
+    before_es = json.loads(tor1.vtysh_cmd("show evpn es %s json" % ES2_ID))
+    before_nh = _kernel_nexthops(tor1)
+
+    tor1.vtysh_cmd("configure terminal\ndebug zebra dplane detailed")
+    baseline_ctx = _l2_br_port_update_cycle(tgen, tor1, l2_if)
+    assert all("backup_nhg 0x0" in context for context in baseline_ctx), baseline_ctx
+    _expect_es_df_converged(tor1, ES2_ID, "baseline L2 ES")
+
+    _set_bpp_if(tor2, ES_IF, True)
+    _set_bpp(tor1, True)
+    _expect_members(tor1, ES1_ID, (lo2,), "member present")
+    _expect_export_clean(tor1, "hostbond1 Binding", bindings=1)
+    _expect_ip_ead_rx_all(tor1, ES1_ID, (lo2,), "L2 isolation RT-1 present")
+
+    protected_ctx = _l2_br_port_update_cycle(tgen, tor1, l2_if)
+    assert protected_ctx == baseline_ctx, (baseline_ctx, protected_ctx)
+    _expect_es_df_converged(tor1, ES2_ID, "protected L2 ES")
+    after_es = json.loads(tor1.vtysh_cmd("show evpn es %s json" % ES2_ID))
+    assert after_es == before_es, "L2 ES changed"
+    _expect_kernel_nexthops(tor1, before_nh, "kernel L2 nexthops changed")
+
+    out = _export(tor1)
+    bind = (out.get("tables") or {}).get("bindings") or {}
+    assert list(bind) == [ES_IF], bind
+
+    _set_bpp(tor1, False)
+    _clear_ip_ead(tor2)
+    _expect_no_ip_ead_rx(tor1, ES1_ID, "L2 isolation RT-1 cleanup")
+    _expect_export_clean(
+        tor1, "cleanup", members=0, groups=0, bindings=0, released=True
+    )
+    tor1.vtysh_cmd("configure terminal\nno debug zebra dplane detailed")
+
+
+def test_bpp_l2vni_on_bd_binding():
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    tor1 = tgen.gears["tor1"]
+    tor2 = tgen.gears["tor2"]
+    lo2 = tor_lo("tor2")
+
+    _set_bpp_if(tor2, ES_IF, True)
+    _set_bpp(tor1, True)
+    _expect_members(tor1, ES1_ID, (lo2,), "member present")
+    _expect_export_clean(tor1, "protection Binding", bindings=1)
+    _expect_ip_ead_rx_all(tor1, ES1_ID, (lo2,), "L2VNI test RT-1 present")
+    rt_state = _ip_ead_classification_snapshot(tor1, ES1_ID)
+
+    _add_l2vni(tor1)
+    _expect_export_clean(
+        tor1, "L2VNI withdraws protection", members=0, groups=0, bindings=0
+    )
+    assert bpp_export_check(_export(tor1)) == []
+    _expect_ip_ead_classification_unchanged(
+        tor1, ES1_ID, rt_state, "local L2VNI keeps RT-1 classification"
+    )
+
+    _del_l2vni(tor1)
+    _expect_members(tor1, ES1_ID, (lo2,), "protection back")
+    _expect_export_clean(tor1, "protection Binding restored", bindings=1)
+    assert bpp_export_check(_export(tor1)) == []
+    _expect_ip_ead_classification_unchanged(
+        tor1, ES1_ID, rt_state, "L2VNI removal keeps RT-1 classification"
+    )
+
+    _set_bpp(tor1, False)
+    _clear_ip_ead(tor2)
+    _expect_no_ip_ead_rx(tor1, ES1_ID, "L2VNI test RT-1 cleanup")
+    _expect_export_clean(
+        tor1, "cleanup", members=0, groups=0, bindings=0, released=True
+    )
+
+
+def _expect_entry_export_status(router, status, last_error, msg):
+    _expect_entries(
+        router,
+        {
+            ES_IF: {
+                "bound": True,
+                "vlans": {
+                    str(vid): {
+                        "state": "ACTIVE",
+                        "ready": True,
+                        "exportStatus": status,
+                        "lastFpmError": last_error,
+                    }
+                    for vid in ES_VLANS
+                },
+            }
+        },
+        msg,
+    )
+
+
+def _expect_failed_completion(router, after, op, action, msg):
+    def _check():
+        matches = [
+            ent
+            for ent in (_export(router).get("log") or [])
+            if int(ent.get("seq") or 0) > after
+            and ent.get("op") == op
+            and ent.get("action") == action
+        ]
+        if len(matches) != 1:
+            return matches
+        ent = matches[0]
+        if not ent.get("completed") or ent.get("result") != "FAILURE":
+            return ent
+        return None
+
+    _, result = topotest.run_and_expect(_check, None, count=WAIT_COUNT, wait=WAIT_STEP)
+    assert result is None, "%s: %s" % (msg, result)
+
+
+def _expect_pending_deletes(router, objects, bindings, msg):
+    def _check():
+        counters = _export(router).get("counters") or {}
+        got = (
+            counters.get("pendingDeletes"),
+            counters.get("pendingBindingDeletes"),
+        )
+        want = (objects, bindings)
+        return None if got == want else "%s want %s" % (got, want)
+
+    _, result = topotest.run_and_expect(_check, None, count=WAIT_COUNT, wait=WAIT_STEP)
+    assert result is None, "%s: %s" % (msg, result)
+
+
+def _expect_delete_replay(router, after, op, object_id, msg):
+    def _check():
+        events = _replay_events(router, after)
+        if not events or events[-1].get("op") != "EVPN_MH_REPLAY_DONE":
+            return events
+        if any(
+            not ent.get("replay")
+            or not ent.get("completed")
+            or ent.get("result") != "SUCCESS"
+            for ent in events
+        ):
+            return events
+        matches = [
+            ent
+            for ent in events
+            if ent.get("op") == op
+            and ent.get("action") == "del"
+            and (object_id is None or ent.get("id") == object_id)
+        ]
+        if len(matches) != 1:
+            return events
+        return None
+
+    _, result = topotest.run_and_expect(_check, None, count=WAIT_COUNT, wait=WAIT_STEP)
+    assert result is None, "%s: %s" % (msg, result)
+
+
+def test_bpp_export_status():
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    tor1 = tgen.gears["tor1"]
+    tor2 = tgen.gears["tor2"]
+    lo2 = tor_lo("tor2")
+
+    _set_bpp_if(tor2, ES_IF, True)
+    _set_bpp(tor1, True)
+    _expect_members(tor1, ES1_ID, (lo2,), "member present")
+    _expect_export_clean(
+        tor1,
+        "export status has Member, Group, and Binding",
+        members=1,
+        groups=1,
+        bindings=1,
+        vteps=(lo2,),
+    )
+    _expect_ip_ead_rx_all(tor1, ES1_ID, (lo2,), "export-status RT-1 present")
+    _expect_entry_export_status(tor1, "acked", "none", "all ACTIVE entries acked")
+
+    _set_bpp(tor1, False)
+    _clear_ip_ead(tor2)
+    _expect_no_ip_ead_rx(tor1, ES1_ID, "export-status RT-1 cleanup")
+    _expect_export_clean(
+        tor1, "cleanup", members=0, groups=0, bindings=0, released=True
+    )
+
+
+def test_bpp_export_failure_status():
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    tor1 = tgen.gears["tor1"]
+    tor2 = tgen.gears["tor2"]
+    lo2 = tor_lo("tor2")
+
+    operations = {
+        "member": "EVPN_MH_NH_UPDATE",
+        "group": "EVPN_MH_NHG_UPDATE",
+        "binding": "BR_PORT_UPDATE",
+    }
+
+    for object_name, op in operations.items():
+        marker = _export_marker(tor1)
+        tor1.vtysh_cmd(
+            "test zebra evpn mh bridge-port-protection "
+            "fail-next %s add" % object_name
+        )
+        _set_bpp_if(tor2, ES_IF, True)
+        _set_bpp(tor1, True)
+        _expect_failed_completion(
+            tor1, marker, op, "add", "failed %s ADD is visible" % object_name
+        )
+        _expect_ip_ead_rx_all(
+            tor1, ES1_ID, (lo2,), "failed %s ADD keeps RT-1" % object_name
+        )
+        _expect_entry_export_status(
+            tor1,
+            "sent" if object_name == "binding" else "acked",
+            "FAILURE",
+            "failed %s ADD status" % object_name,
+        )
+        _expect_export_clean(
+            tor1,
+            "failed %s ADD retains desired objects" % object_name,
+            members=1,
+            groups=1,
+            bindings=1,
+            vteps=(lo2,),
+            allow_failed=True,
+        )
+
+        tables = _export(tor1).get("tables") or {}
+        marker = _export_marker(tor1)
+        tor1.vtysh_cmd("clear evpn mh bridge-port-protection replay")
+        _expect_replay(tor1, marker, tables, "failed %s ADD replay" % object_name)
+        _expect_entry_export_status(
+            tor1,
+            "acked",
+            "none",
+            "successful %s ADD replay clears error" % object_name,
+        )
+
+        _set_bpp(tor1, False)
+        _clear_ip_ead(tor2)
+        _expect_no_ip_ead_rx(tor1, ES1_ID, "failed %s ADD cleanup RT-1" % object_name)
+        _expect_export_clean(
+            tor1,
+            "failed %s ADD cleanup" % object_name,
+            members=0,
+            groups=0,
+            bindings=0,
+            released=True,
+            allow_failed=True,
+        )
+
+    for object_name, op in operations.items():
+        _set_bpp_if(tor2, ES_IF, True)
+        _set_bpp(tor1, True)
+        _expect_export_clean(
+            tor1,
+            "%s DELETE setup" % object_name,
+            members=1,
+            groups=1,
+            bindings=1,
+            vteps=(lo2,),
+            allow_failed=True,
+        )
+        tables = _export(tor1).get("tables") or {}
+        old_member_id = next(iter(tables["members"].values()))["nhId"]
+        old_group_id = next(iter(tables["groups"].values()))["nhgId"]
+        old_id = {"member": old_member_id, "group": old_group_id, "binding": None,}[
+            object_name
+        ]
+
+        marker = _export_marker(tor1)
+        tor1.vtysh_cmd(
+            "test zebra evpn mh bridge-port-protection "
+            "fail-next %s delete" % object_name
+        )
+        _set_bpp(tor1, False)
+        _expect_failed_completion(
+            tor1, marker, op, "del", "failed %s DELETE is visible" % object_name
+        )
+        _expect_export_clean(
+            tor1,
+            "failed %s DELETE removes desired objects" % object_name,
+            members=0,
+            groups=0,
+            bindings=0,
+            allow_failed=True,
+        )
+        _expect_pending_deletes(
+            tor1,
+            int(object_name in ("member", "group")),
+            int(object_name == "binding"),
+            "failed %s DELETE is retained" % object_name,
+        )
+
+        if object_name != "binding":
+            _set_bpp(tor1, True)
+            _expect_export_clean(
+                tor1,
+                "%s DELETE re-enable" % object_name,
+                members=1,
+                groups=1,
+                bindings=1,
+                vteps=(lo2,),
+                allow_failed=True,
+            )
+            tables = _export(tor1).get("tables") or {}
+            new_id = (
+                next(iter(tables["members"].values()))["nhId"]
+                if object_name == "member"
+                else next(iter(tables["groups"].values()))["nhgId"]
+            )
+            assert new_id != old_id, "%s ID 0x%x reused before failed DELETE retry" % (
+                object_name,
+                old_id,
+            )
+
+        marker = _export_marker(tor1)
+        tor1.vtysh_cmd("clear evpn mh bridge-port-protection replay")
+        _expect_delete_replay(
+            tor1, marker, op, old_id, "failed %s DELETE replay" % object_name
+        )
+        _expect_pending_deletes(
+            tor1, 0, 0, "successful %s DELETE retires the ID" % object_name
+        )
+
+        if object_name == "binding":
+            _set_bpp(tor1, True)
+        _expect_entry_export_status(
+            tor1,
+            "acked",
+            "none",
+            "successful %s DELETE retry clears error" % object_name,
+        )
+        _expect_export_clean(
+            tor1,
+            "%s DELETE retry keeps active objects" % object_name,
+            members=1,
+            groups=1,
+            bindings=1,
+            vteps=(lo2,),
+            allow_failed=True,
+        )
+
+        _set_bpp(tor1, False)
+        _clear_ip_ead(tor2)
+        _expect_no_ip_ead_rx(
+            tor1, ES1_ID, "failed %s DELETE cleanup RT-1" % object_name
+        )
+        _expect_export_clean(
+            tor1,
+            "failed %s DELETE cleanup" % object_name,
+            members=0,
+            groups=0,
+            bindings=0,
+            released=True,
+            allow_failed=True,
+        )
 
 
 if __name__ == "__main__":
