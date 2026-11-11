@@ -606,13 +606,13 @@ int ifm_read(struct if_msghdr *ifm)
 			return -1;
 		}
 
-#ifndef RTM_IFANNOUNCE
+#if !defined(RTM_IFANNOUNCE) && !defined(__APPLE__)
 		/* Down->Down interface should be ignored here.
 		 * See further comment below.
 		 */
 		if (!CHECK_FLAG(ifm->ifm_flags, IFF_UP))
 			return 0;
-#endif /* !RTM_IFANNOUNCE */
+#endif /* !RTM_IFANNOUNCE && !__APPLE__ */
 
 		if (ifp == NULL) {
 			/* Interface that zebra was not previously aware of, so
@@ -714,7 +714,12 @@ int ifm_read(struct if_msghdr *ifm)
 			 * will still behave correctly if run on a platform
 			 * without
 			 */
-			if_delete_update(&ifp);
+#ifdef __APPLE__
+			char name[IFNAMSIZ];
+
+			if (if_indextoname(ifm->ifm_index, name) == NULL)
+#endif /* __APPLE__ */
+				if_delete_update(&ifp);
 		}
 #endif /* RTM_IFANNOUNCE */
 		if (ifp && if_is_up(ifp)) {
