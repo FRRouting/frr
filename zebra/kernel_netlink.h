@@ -39,6 +39,12 @@ struct zebra_ns;
 enum fpm_nha_attrs {
 	/* Resolved-via nexthop group id; uint32 */
 	NHA_FPM_RESOLVED_VIA = 30,
+	/* Resolved-via prefix family (AF_INET or AF_INET6); uint8 */
+	NHA_FPM_RESOLVED_PREFIX_FAM = 31,
+	/* Resolved-via prefix; bytes */
+	NHA_FPM_RESOLVED_PREFIX = 32,
+	/* Resolved-via prefix-len; uint8 */
+	NHA_FPM_RESOLVED_PREFIX_LEN = 33,
 
 	NHA_FPM_MAX
 };
