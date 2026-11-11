@@ -1808,15 +1808,9 @@ DEFUN_NOSH (router_bgp,
 			vty_out(vty, "BGP instance not found\n");
 			return CMD_WARNING_CONFIG_FAILED;
 		}
-		/*
-		 * If we just instantiated the default instance, complete
-		 * any pending VRF-VPN leaking that was configured via
-		 * earlier "router bgp X vrf FOO" blocks.
-		 */
-		if (inst_type == BGP_INSTANCE_TYPE_DEFAULT) {
+
+		if (inst_type == BGP_INSTANCE_TYPE_DEFAULT)
 			bgp_need_listening(bgp, vty);
-			vpn_leak_postchange_all();
-		}
 
 		if (inst_type == BGP_INSTANCE_TYPE_VRF || IS_BGP_INSTANCE_HIDDEN(bgp)) {
 			bgp_vpn_leak_export(bgp);
