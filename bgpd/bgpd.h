@@ -673,8 +673,9 @@ struct bgp {
 	struct as_confed *confed_peers;
 	int confed_peers_cnt;
 
-	/* start-up timer on only once at the beginning */
+	/* Restart State window at instance creation and administrative re-enable. */
 	struct event *t_startup;
+	struct timeval startup_started;
 
 	struct event *clearing_end;
 
@@ -3027,6 +3028,7 @@ extern int peer_af_delete(struct peer *peer, afi_t afi, safi_t safi);
 
 extern void bgp_shutdown_enable(struct bgp *bgp, const char *msg, bool send_notify);
 extern void bgp_shutdown_disable(struct bgp *bgp);
+extern void bgp_startup_timer_update(struct bgp *bgp);
 
 extern void bgp_close(void);
 extern void bgp_free(struct bgp *bgp);
