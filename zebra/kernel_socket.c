@@ -754,6 +754,9 @@ static void ifam_read_mesg(struct ifa_msghdr *ifm, union sockunion *addr,
 
 	pnt = (caddr_t)(ifm + 1);
 	end = ((caddr_t)ifm) + ifm->ifam_msglen;
+#ifdef __APPLE__
+	end = ((caddr_t)ifm) + ROUNDUP(ifm->ifam_msglen);
+#endif
 
 	/* Be sure structure is cleared */
 	memset(mask, 0, sizeof(union sockunion));
@@ -938,6 +941,9 @@ static int rtm_read_mesg(struct rt_msghdr *rtm, union sockunion *dest,
 	/* Pnt points out socket data start point. */
 	pnt = (caddr_t)(rtm + 1);
 	end = ((caddr_t)rtm) + rtm->rtm_msglen;
+#ifdef __APPLE__
+	end = ((caddr_t)rtm) + ROUNDUP(rtm->rtm_msglen);
+#endif
 
 	/* rt_msghdr version check. */
 	if (rtm->rtm_version != RTM_VERSION)
