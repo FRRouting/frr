@@ -2809,6 +2809,7 @@ static void peer_group2peer_config_copy_af(struct peer_group *group,
 
 	if (peer->addpath_type[afi][safi] == BGP_ADDPATH_NONE) {
 		peer->addpath_type[afi][safi] = conf->addpath_type[afi][safi];
+		peer->addpath_best_selected[afi][safi] = conf->addpath_best_selected[afi][safi];
 		bgp_addpath_type_changed(conf->bgp);
 	}
 }
