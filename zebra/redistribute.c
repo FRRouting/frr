@@ -30,6 +30,7 @@
 #include "zebra/zebra_vxlan.h"
 #include "zebra/zebra_errors.h"
 #include "zebra/zebra_neigh.h"
+#include "zebra/zebra_evpn_neigh.h"
 
 #define ZEBRA_PTM_SUPPORT
 
@@ -627,6 +628,7 @@ void zebra_interface_address_add_update(struct interface *ifp,
 			"advertising address to clients that is not yet usable.");
 
 	zebra_vxlan_add_del_gw_macip(ifp, ifc->address, 1);
+	zebra_evpn_l3vni_svi_addr_add(ifp);
 
 	router_id_add_address(ifc);
 
