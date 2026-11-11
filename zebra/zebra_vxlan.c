@@ -6864,6 +6864,19 @@ static int zebra_evpn_cfg_clean_up(struct zserv *client)
 			if (IS_ZEBRA_DEBUG_EVENT)
 				zlog_debug(
 					"EVPN-GR: client bgp has GR disabled. Cleaning up EVPN entries");
+
+			/*
+			 * ES VTEPs are not L2VNI VTEPs, so the configuration cleanup
+			 * below does not remove them. bgpd's main ZAPI client owns
+			 * them. bgpd also opens a synchronous label-manager connection
+			 * that identifies itself as BGP. Closing that socket must not
+			 * flush ES VTEPs while the main connection is still up.
+			 * With GR enabled, leave the VTEPs installed. bgpd does not
+			 * replay them on reconnect.
+			 */
+			if (!client->synchronous)
+				zebra_evpn_remote_es_cleanup();
+
 			return zebra_evpn_bgp_cfg_clean_up(client);
 		}
 		/*
@@ -6872,6 +6885,9 @@ static int zebra_evpn_cfg_clean_up(struct zserv *client)
 		 */
 		if (IS_ZEBRA_DEBUG_EVENT)
 			zlog_debug("EVPN-GR: client bgp has GR enabled. Retaining EVPN entries");
+
+		if (!client->synchronous && IS_ZEBRA_DEBUG_EVPN_MH_ES)
+			zlog_debug("EVPN-GR: retaining remote ES VTEPs across bgp disconnect");
 	}
 
 	if (client->proto == ZEBRA_ROUTE_PIM)
