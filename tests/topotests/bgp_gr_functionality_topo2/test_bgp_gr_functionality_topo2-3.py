@@ -119,7 +119,7 @@ from lib.common_config import (
 )
 import functools
 
-pytestmark = [pytest.mark.bgpd]
+pytestmark = [pytest.mark.bgpd, pytest.mark.freebsd]
 
 
 # Global variables

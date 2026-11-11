@@ -54,7 +54,7 @@ from lib.topolog import logger
 from lib.bgp import verify_bgp_convergence, verify_bgp_rib, create_router_bgp, clear_bgp
 from lib.topojson import build_config_from_json
 
-pytestmark = [pytest.mark.bgpd, pytest.mark.staticd]
+pytestmark = [pytest.mark.bgpd, pytest.mark.staticd, pytest.mark.freebsd]
 
 # Reading the data from JSON File for topology creation
 topo = None

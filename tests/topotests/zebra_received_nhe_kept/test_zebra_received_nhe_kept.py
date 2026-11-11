@@ -23,6 +23,8 @@ from munet.testing.util import retry
 # pylint: disable=C0413
 from lib import topotest
 
+pytestmark = [pytest.mark.freebsd]
+
 
 def build_topo(tgen):
     "Build function"

@@ -124,9 +124,11 @@ def test_bgp_gr_restart_time_reload():
 
     step("Reload the very same configuration twice")
 
-    frrdir = tgen.config.get(tgen.CONFIG_SECTION, "frrdir")
+    frr_reload = topotest.frr_reload_script(
+        tgen.config.get(tgen.CONFIG_SECTION, "frrdir")
+    )
     for _ in range(2):
-        r1.cmd_raises("{}/frr-reload.py --reload {}".format(frrdir, reload_conf))
+        r1.cmd_raises("{} --reload {}".format(frr_reload, reload_conf))
 
     step("Check that the session was not reset")
 

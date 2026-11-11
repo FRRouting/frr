@@ -50,7 +50,7 @@ from lib import topotest
 from lib.topogen import Topogen, get_topogen
 from lib.common_config import shutdown_bringup_interface_in_kernel
 
-pytestmark = [pytest.mark.bgpd]
+pytestmark = [pytest.mark.bgpd, pytest.mark.freebsd]
 
 
 def setup_module(mod):

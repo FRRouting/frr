@@ -46,7 +46,7 @@ from lib.ospf import (
 )
 
 
-pytestmark = [pytest.mark.ospf6d, pytest.mark.staticd]
+pytestmark = [pytest.mark.ospf6d, pytest.mark.staticd, pytest.mark.freebsd]
 
 
 # Global variables

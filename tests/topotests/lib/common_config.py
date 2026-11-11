@@ -566,7 +566,9 @@ def reset_config_on_routers(tgen, routerName=None):
         with open(delta_fmt.format(rname, gen), "w") as delta_fd:
             procs[rname] = tgen.net.popen(
                 [
-                    "/usr/lib/frr/frr-reload.py",
+                    topotest.frr_reload_script(
+                        tgen.config.get(tgen.CONFIG_SECTION, "frrdir")
+                    ),
                     "--test-reset",
                     "--input",
                     run_cfg_fmt.format(rname, gen),
@@ -927,7 +929,7 @@ def get_frr_ipv6_linklocal(tgen, router, intf=None, vrf=None):
 def generate_support_bundle():
     """
     API to generate support bundle on any verification ste failure.
-    it runs a python utility, /usr/lib/frr/generate_support_bundle.py,
+    it runs generate_support_bundle.py from the FRR daemon directory,
     which basically runs defined CLIs and dumps the data to specified location
     """
 
@@ -960,7 +962,7 @@ def generate_support_bundle():
             return True
 
         gen_sup_cmd = [
-            "/usr/lib/frr/generate_support_bundle.py",
+            os.path.join(topotest.default_frrdir(), "generate_support_bundle.py"),
             "--log-dir=" + dst_bundle,
         ]
         bundle_procs[rname] = tgen.net[rname].popen(gen_sup_cmd, stdin=None)
@@ -1711,11 +1713,12 @@ def _freebsd_run(rnode, dut, args):
 
 
 def _freebsd_clone_loopback(rnode):
-    """Create a lo(4) clone and return the name ifconfig printed.
+    """Create a lo(4) clone and return its name.
 
-    ``ifconfig lo create`` asks for the next unit. Once an interface is
-    named ``lo``, the kernel rejects that with EEXIST, so try an explicit
-    unit.
+    ``ifconfig lo create`` asks for the next unit and prints it. Once an
+    interface is named ``lo``, the kernel rejects that with EEXIST, so try
+    an explicit unit. ``ifconfig loN create`` succeeds and prints nothing;
+    the created name is the unit that was requested.
     """
 
     names = ["lo"] + ["lo{}".format(unit) for unit in range(1, 128)]
@@ -1728,10 +1731,11 @@ def _freebsd_clone_loopback(rnode):
             last = "{}{}".format(out or "", err or "").strip()
             continue
         text = (out or "").strip() or (err or "").strip()
-        created = text.split()[-1] if text else ""
-        if not created:
-            raise RuntimeError("ifconfig {} create returned no name".format(ifname))
-        return created
+        if text:
+            return text.split()[-1]
+        if ifname != "lo":
+            return ifname
+        raise RuntimeError("ifconfig {} create returned no name".format(ifname))
     raise RuntimeError("could not clone a loopback: {}".format(last))
 
 

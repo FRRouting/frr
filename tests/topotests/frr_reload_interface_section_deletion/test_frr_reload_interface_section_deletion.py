@@ -99,8 +99,10 @@ def test_frr_reload_interface_section_deletion():
         }
         return topotest.json_cmp(output, expected)
 
-    frrdir = tgen.config.get(tgen.CONFIG_SECTION, "frrdir")
-    frrreload = frrdir + '/frr-reload.py --reload'
+    frrreload = (
+        topotest.frr_reload_script(tgen.config.get(tgen.CONFIG_SECTION, "frrdir"))
+        + " --reload"
+    )
     r1.cmd_raises("vtysh -c 'write terminal no-header' > frr-clean.conf")
     r1.cmd_raises("sudo ip link add veth0 type veth peer name veth1")
     r1.vtysh_cmd("configure terminal\ninterface veth0\nip address 10.0.0.5 peer 10.0.0.6/32\n")

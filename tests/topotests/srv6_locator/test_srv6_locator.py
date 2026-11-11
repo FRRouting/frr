@@ -29,7 +29,7 @@ from lib.common_config import step
 from lib.topogen import Topogen, TopoRouter, get_topogen
 from lib.topolog import logger
 
-pytestmark = [pytest.mark.bgpd, pytest.mark.sharpd]
+pytestmark = [pytest.mark.bgpd, pytest.mark.sharpd, pytest.mark.freebsd]
 
 
 def open_json_file(filename):

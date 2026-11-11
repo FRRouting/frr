@@ -79,10 +79,71 @@ time) run:
    modprobe sch_netem
 
 
-Enable Coredumps
-""""""""""""""""
+Running on FreeBSD 15.1
+"""""""""""""""""""""""
 
-Optional, will give better output.
+Topotests on FreeBSD use VNET jails, ``epair(4)`` links, and ``if_bridge(4)``
+switches. pytest selects tests marked ``freebsd`` (``pytest.mark.freebsd``).
+Pass ``-m`` to choose a different set; ``-m ''`` collects the full tree. Add
+the mark to a test module once that test is known to pass.
+
+``jail``, ``jexec``, ``ifconfig``, ``kldload``, and the ``if_epair`` and
+``if_bridge`` modules are part of the base system. ``GENERIC`` includes
+``VIMAGE``. Run the suite as root.
+
+
+Packages
+~~~~~~~~
+
+Install bash, a debugger, and the pytest stack that matches the ``python3``
+package. The version suffix (``py311``, ``py312``, ...) has to be the same
+interpreter ``python3`` runs, or pytest will import the wrong modules:
+
+.. code:: shell
+
+   pkg install bash gdb python3
+   pyver=$(python3 -c 'import sys; print("%d%d" % sys.version_info[:2])')
+   pkg install py${pyver}-pytest py${pyver}-pytest-asyncio py${pyver}-pytest-xdist
+
+Load the link and bridge modules once. They stay loaded until reboot; the
+harness also runs ``kldload -n`` when a test starts:
+
+.. code:: shell
+
+   sysctl kern.features.vimage
+   kldload -n if_epair
+   kldload -n if_bridge
+
+``kern.features.vimage`` must print ``1``.
+
+Build and install FRR with the steps in
+:doc:`building-frr-for-freebsd14`, including the ``frr`` user and the
+``frrvty`` group. Marked tests need the daemons they start on the install
+prefix, normally ``/usr/local/libexec/frr``. Each jail links
+``/usr/local/etc/frr`` to ``/etc/frr``, so a build configured with
+``--sysconfdir=/usr/local/etc`` reads the test configuration.
+
+From ``tests/topotests``:
+
+.. code:: shell
+
+   cd tests/topotests
+   sudo pytest
+
+A new VNET has forwarding disabled; the harness turns on
+``net.inet.ip.forwarding`` and ``net.inet6.ip6.forwarding`` inside each jail
+and sets ``net.inet6.ip6.dad_count=0`` so configured addresses leave the
+tentative state immediately.
+
+
+Enabling Coredumps
+""""""""""""""""""
+
+This is optional, but it will give better output and allow the topotests
+to fail when this happens.
+
+Enable Coredumps for Linux
+""""""""""""""""""""""""""
 
 .. code:: shell
 
@@ -99,6 +160,19 @@ Next, update security limits by changing :file:`/etc/security/limits.conf` to::
    root            hard    core          unlimited
 
 Reboot for options to take effect.
+
+Enable Coredumps for FreeBSD
+""""""""""""""""""""""""""""
+
+.. code:: shell
+
+   Set these values in /etc/sysctl.conf
+
+   kern.coredump=1
+   kern.sugid_coredump=1
+   kern.corefile: %N.dmp
+
+The topotests look for .dmp as part of the filename to detect the core.
 
 SNMP Utilities Installation
 """""""""""""""""""""""""""

@@ -31,7 +31,7 @@ from lib.topogen import Topogen, get_topogen
 from lib.common_config import step, kill_router_daemons, start_router_daemons
 from lib.topolog import logger
 
-pytestmark = [pytest.mark.bgpd]
+pytestmark = [pytest.mark.bgpd, pytest.mark.freebsd]
 
 
 def build_topo(tgen):

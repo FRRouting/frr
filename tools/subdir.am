@@ -62,7 +62,6 @@ EXTRA_DIST += \
 	tools/frr-reload \
 	tools/frr.service \
 	tools/frr@.service \
-	tools/generate_support_bundle.py \
 	tools/frr_babeltrace.py \
 	tools/build-debian-package.sh \
 	# end

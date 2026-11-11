@@ -48,7 +48,7 @@ from lib import topotest
 from lib.topogen import Topogen, get_topogen
 from lib.topolog import logger
 
-pytestmark = [pytest.mark.ospf6d]
+pytestmark = [pytest.mark.ospf6d, pytest.mark.freebsd]
 
 R1_ROUTER_ID = "10.0.0.1"
 OSPF6_LSA_MAXAGE = 3600

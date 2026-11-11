@@ -34,7 +34,7 @@ from lib.common_config import (
     step,
 )
 
-pytestmark = [pytest.mark.bgpd]
+pytestmark = [pytest.mark.bgpd, pytest.mark.freebsd]
 
 DUMMY_IF = "dum0"
 NETWORK_PREFIX = "200.1.12.0/24"

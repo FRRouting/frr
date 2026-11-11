@@ -54,7 +54,7 @@ from lib.ospf import (
     verify_ospf_summary,
 )
 
-pytestmark = [pytest.mark.ospfd, pytest.mark.staticd]
+pytestmark = [pytest.mark.ospfd, pytest.mark.staticd, pytest.mark.freebsd]
 
 
 # Global variables

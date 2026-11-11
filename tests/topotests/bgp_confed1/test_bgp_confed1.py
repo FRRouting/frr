@@ -33,7 +33,7 @@ from lib.topogen import Topogen, TopoRouter, get_topogen
 from lib.topolog import logger
 from lib.common_config import retry
 
-pytestmark = [pytest.mark.bgpd, pytest.mark.isisd]
+pytestmark = [pytest.mark.bgpd, pytest.mark.isisd, pytest.mark.freebsd]
 
 
 def build_topo(tgen):
