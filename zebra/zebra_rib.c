@@ -239,6 +239,7 @@ struct wq_label_wrapper {
 	uint8_t route_instance;
 
 	bool add_p;
+	bool replace_p;
 	struct zapi_labels zl;
 
 	int afi;
@@ -2573,7 +2574,7 @@ static void process_subq_early_label(struct listnode *lnode)
 					 w->route_instance);
 		break;
 	case WQ_LABEL_LABELS_PROCESS:
-		zebra_mpls_zapi_labels_process(w->add_p, zvrf, &w->zl);
+		zebra_mpls_zapi_labels_process(w->add_p, w->replace_p, zvrf, &w->zl);
 		break;
 	}
 
@@ -3554,7 +3555,7 @@ void mpls_ftn_uninstall(struct zebra_vrf *zvrf, enum lsp_types_t type,
 	mq_add_handler(w, early_label_meta_queue_add);
 }
 
-void mpls_zapi_labels_process(bool add_p, struct zebra_vrf *zvrf,
+void mpls_zapi_labels_process(bool add_p, bool replace_p, struct zebra_vrf *zvrf,
 			      const struct zapi_labels *zl)
 {
 	struct wq_label_wrapper *w;
@@ -3563,6 +3564,7 @@ void mpls_zapi_labels_process(bool add_p, struct zebra_vrf *zvrf,
 	w->type = WQ_LABEL_LABELS_PROCESS;
 	w->vrf_id = zvrf->vrf->vrf_id;
 	w->add_p = add_p;
+	w->replace_p = replace_p;
 	w->zl = *zl;
 
 	if (IS_ZEBRA_DEBUG_RIB_DETAILED)
