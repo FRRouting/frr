@@ -40,6 +40,9 @@ config changes from ongoing re-evaluation:
   9. test_peergroup_inheritance: When removing a neighbor-specific override,
      the neighbor inherits default-originate from its peer-group.
 
+ 10. test_suppress_duplicate_updates: Duplicate default-originate UPDATEs are
+     suppressed when BGP table changes but synthesized attributes are unchanged.
+
 Topology:
     r1 (AS 65001) --- EBGP --- r2 (AS 65002)
 
@@ -167,6 +170,30 @@ def _r2_has_no_default():
 def _wait_for(test_func, timeout=30):
     _, result = topotest.run_and_expect(test_func, None, count=timeout, wait=1)
     return result
+
+
+def _bgp_get_duplicate_count(router, neighbor):
+    """Get the duplicate prefix count for the neighbor."""
+    output = json.loads(router.vtysh_cmd("show bgp neighbors {} json".format(neighbor)))
+    dup_count = output[neighbor]["addressFamilyInfo"]["ipv4Unicast"][
+        "receivedPrefixDup"
+    ]
+    return int(dup_count)
+
+
+def _get_default_route_attrs(router):
+    """Get key attributes of the default route for comparison."""
+    output = json.loads(router.vtysh_cmd("show bgp ipv4 unicast 0.0.0.0/0 json"))
+    if not output.get("paths"):
+        return None
+    path = output["paths"][0]
+    return {
+        "nexthop": path.get("nexthops", [{}])[0].get("ip"),
+        "metric": path.get("metric"),
+        "locPrf": path.get("locPrf"),
+        "origin": path.get("origin"),
+        "aspath": path.get("aspath", {}).get("string"),
+    }
 
 
 # ---------------------------------------------------------------------------
@@ -758,6 +785,127 @@ def test_peergroup_inheritance():
             R2_IPV4, R2_IPV4, R2_IPV4, R2_IPV4, R2_IPV4, R2_IPV4
         )
     )
+
+
+# ---------------------------------------------------------------------------
+# Test 10: duplicate default-originate UPDATEs are suppressed
+# ---------------------------------------------------------------------------
+
+
+def test_suppress_duplicate_updates():
+    """
+    Verify duplicate default-originate UPDATEs are suppressed.
+
+    When BGP table changes trigger re-evaluation but the default route
+    attributes are unchanged, no UPDATE should be sent.  The test sources
+    a local route with NO_EXPORT community and changes its metric to trigger
+    the re-evaluation timer.
+
+    Note: A route-map must be configured with default-originate for the
+    re-evaluation timer to trigger subgroup_default_originate().
+    """
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    r1 = tgen.gears["r1"]
+    r2 = tgen.gears["r2"]
+
+    step("Configure default-originate with route-map (required for timer re-eval)")
+    r1.vtysh_cmd(
+        """
+    configure
+        route-map RMAP_ALWAYS permit 10
+        router bgp 65001
+            bgp default-originate set-only-unconditional
+            address-family ipv4 unicast
+                neighbor {} default-originate route-map RMAP_ALWAYS
+    """.format(
+            R2_IPV4
+        )
+    )
+
+    step("Verify R2 receives default route")
+    assert _wait_for(_r2_has_default) is None
+
+    step("Add local route with NO_EXPORT to trigger re-evaluation")
+    r1.vtysh_cmd(
+        """
+    configure
+        router bgp 65001
+            address-family ipv4 unicast
+                network 10.99.99.99/32 route-map RMAP_LOCAL
+    """
+    )
+
+    step("Wait for things to settle")
+    time.sleep(3)
+
+    step("Get initial state")
+    dup_before = _bgp_get_duplicate_count(r2, R1_IPV4)
+    attrs_before = _get_default_route_attrs(r2)
+    assert attrs_before is not None, "Failed to get default route attributes"
+
+    step("Change local route metric to trigger re-evaluation timer")
+    r1.vtysh_cmd(
+        """
+    configure
+        route-map RMAP_LOCAL permit 10
+         set community no-export
+         set metric 200
+    """
+    )
+
+    step("Wait for route-map delay-timer (1s) + re-evaluation timer (1s) + margin")
+    time.sleep(4)
+
+    step("Verify duplicate count did not increase (UPDATE was suppressed)")
+    dup_after = _bgp_get_duplicate_count(r2, R1_IPV4)
+    assert (
+        dup_before == dup_after
+    ), "Duplicate count changed from {} to {} - UPDATE was not suppressed".format(
+        dup_before, dup_after
+    )
+
+    step("Verify default route attributes unchanged")
+    attrs_after = _get_default_route_attrs(r2)
+    assert (
+        attrs_before == attrs_after
+    ), "Default route attributes changed: before={}, after={}".format(
+        attrs_before, attrs_after
+    )
+
+    step("Change local route metric again")
+    r1.vtysh_cmd(
+        """
+    configure
+        route-map RMAP_LOCAL permit 10
+         set community no-export
+         set metric 300
+    """
+    )
+
+    step("Wait for timers")
+    time.sleep(4)
+
+    step("Verify duplicate count still unchanged")
+    dup_final = _bgp_get_duplicate_count(r2, R1_IPV4)
+    assert (
+        dup_before == dup_final
+    ), "Duplicate count changed from {} to {} - UPDATE was not suppressed".format(
+        dup_before, dup_final
+    )
+
+    step("Verify default route attributes still unchanged")
+    attrs_final = _get_default_route_attrs(r2)
+    assert (
+        attrs_before == attrs_final
+    ), "Default route attributes changed: before={}, after={}".format(
+        attrs_before, attrs_final
+    )
+
+    step("Verify R2 still has default route")
+    assert _wait_for(_r2_has_default) is None
 
 
 if __name__ == "__main__":

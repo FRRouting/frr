@@ -241,7 +241,6 @@ struct update_subgroup {
 	uint64_t id;
 
 	uint16_t sflags;
-#define SUBGRP_STATUS_DEFAULT_ORIGINATE (1 << 0)
 #define SUBGRP_STATUS_FORCE_UPDATES (1 << 1)
 #define SUBGRP_STATUS_TABLE_REPARSING (1 << 2)
 /*
@@ -251,6 +250,19 @@ struct update_subgroup {
  * not during the update workflow.
  */
 #define SUBGRP_STATUS_PEER_DEFAULT_ORIGINATED (1 << 3)
+
+	/*
+	 * Interned attributes of the synthesized default route sent via
+	 * 'default-originate'.  Non-NULL iff the default UPDATE has been
+	 * sent and not yet withdrawn.  Serves three purposes:
+	 *   1. Sentinel: indicates the synthesized default is currently active
+	 *      (replaces the former SUBGRP_STATUS_DEFAULT_ORIGINATE flag).
+	 *   2. Duplicate suppression: compared against newly computed attrs
+	 *      so an identical UPDATE is not re-sent on every re-evaluation.
+	 *   3. Display (TBD): for showing outbound attributes in
+	 *      "show bgp neighbor X advertised-routes".
+	 */
+	struct attr *default_originate_attr;
 
 	uint16_t flags;
 #define SUBGRP_FLAG_NEEDS_REFRESH (1 << 0)
