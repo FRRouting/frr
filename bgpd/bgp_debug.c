@@ -2142,7 +2142,7 @@ DEFUN (no_debug_bgp_pbr,
 
 DEFPY (debug_bgp_evpn_mh,
        debug_bgp_evpn_mh_cmd,
-       "[no$no] debug bgp evpn mh <es$es|route$rt|l3vni-neigh$l3neigh>",
+       "[no$no] debug bgp evpn mh <es$es|route$rt|l3vni-neigh$l3neigh|protection$prot>",
        NO_STR
        DEBUG_STR
        BGP_STR
@@ -2150,7 +2150,8 @@ DEFPY (debug_bgp_evpn_mh,
        "Multihoming\n"
        "Ethernet Segment debugging\n"
        "Route debugging\n"
-       "L3 multihoming neighbor-sync debugging\n")
+       "L3 multihoming neighbor-sync debugging\n"
+       "Bridge-port protection debugging\n")
 {
 	if (es) {
 		if (vty->node == CONFIG_NODE) {
@@ -2201,6 +2202,22 @@ DEFPY (debug_bgp_evpn_mh,
 			} else {
 				TERM_DEBUG_ON(evpn_mh, EVPN_MH_L3_NEIGH);
 				vty_out(vty, "BGP EVPN-MH l3vni-neigh debugging is on\n");
+			}
+		}
+	}
+	if (prot) {
+		if (vty->node == CONFIG_NODE) {
+			if (no)
+				DEBUG_OFF(evpn_mh, EVPN_MH_PROT);
+			else
+				DEBUG_ON(evpn_mh, EVPN_MH_PROT);
+		} else {
+			if (no) {
+				TERM_DEBUG_OFF(evpn_mh, EVPN_MH_PROT);
+				vty_out(vty, "BGP EVPN-MH protection debugging is off\n");
+			} else {
+				TERM_DEBUG_ON(evpn_mh, EVPN_MH_PROT);
+				vty_out(vty, "BGP EVPN-MH protection debugging is on\n");
 			}
 		}
 	}
@@ -2396,6 +2413,7 @@ DEFUN (no_debug_bgp,
 	TERM_DEBUG_OFF(evpn_mh, EVPN_MH_ES);
 	TERM_DEBUG_OFF(evpn_mh, EVPN_MH_RT);
 	TERM_DEBUG_OFF(evpn_mh, EVPN_MH_L3_NEIGH);
+	TERM_DEBUG_OFF(evpn_mh, EVPN_MH_PROT);
 	TERM_DEBUG_OFF(bfd, BFD_LIB);
 	TERM_DEBUG_OFF(cond_adv, COND_ADV);
 	TERM_DEBUG_OFF(linkstate, LINKSTATE);
@@ -2497,6 +2515,8 @@ DEFUN_NOSH (show_debugging_bgp,
 		vty_out(vty, "  BGP EVPN-MH route debugging is on\n");
 	if (BGP_DEBUG(evpn_mh, EVPN_MH_L3_NEIGH))
 		vty_out(vty, "  BGP EVPN-MH l3vni-neigh debugging is on\n");
+	if (BGP_DEBUG(evpn_mh, EVPN_MH_PROT))
+		vty_out(vty, "  BGP EVPN-MH protection debugging is on\n");
 
 	if (BGP_DEBUG(bfd, BFD_LIB))
 		vty_out(vty, "  BGP BFD library debugging is on\n");
@@ -2645,6 +2665,10 @@ static int bgp_config_write_debug(struct vty *vty)
 	}
 	if (CONF_BGP_DEBUG(evpn_mh, EVPN_MH_L3_NEIGH)) {
 		vty_out(vty, "debug bgp evpn mh l3vni-neigh\n");
+		write++;
+	}
+	if (CONF_BGP_DEBUG(evpn_mh, EVPN_MH_PROT)) {
+		vty_out(vty, "debug bgp evpn mh protection\n");
 		write++;
 	}
 

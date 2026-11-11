@@ -4802,17 +4802,31 @@ following zebra configuration -
 
 Bridge-port protection
 """"""""""""""""""""""
-With EVPN L3 multihoming, a bridge port (sub-interface) of an ES can be
+With EVPN L3 multihoming, the ES interface (the bridge port) can be
 protected by a backup group of the ES peers, so that traffic for a host
 behind a failed local link is redirected in hardware to another PE on the
-same ES. Protection is enabled per ES, and applies to every bridge port of
-the ES, via the following zebra configuration on the ES interface -
+same ES. Protection is enabled per ES, and applies to every VLAN of the ES
+interface, via the following zebra configuration on the ES interface -
 
 .. clicmd:: evpn mh bridge-port-protection
 
-It requires L3 multihoming (``advertise-all-vni l3vni-neigh``, with bridge
-ports in broadcast domains that have no L2VNI). It has no effect on DF
+It requires L3 multihoming (``advertise-all-vni l3vni-neigh``, with VLANs
+in broadcast domains that have no L2VNI). It has no effect on DF
 election.
+
+.. clicmd:: show evpn mh bridge-port-protection [interface IFNAME] [detail] [json]
+
+   Display one protection entry per VLAN of each protected ES interface,
+   with its IP-VRF, L3VNI and backup group. An entry is ready when its ES,
+   IP-VRF, L3VNI and L3 multihoming mode are all present; otherwise every
+   missing one is listed as a reason. ``interface`` limits the output to one
+   ES interface; ``detail`` adds the number of backup members.
+
+.. clicmd:: show evpn mh bridge-port-protection member [ESI] [json]
+
+   Display each protected ES: its interface, backup group, VLAN count, the
+   IP-VRFs of its ready VLANs, and its backup members (peer VTEP and router
+   MAC).
 
 Proxy advertisements
 """"""""""""""""""""

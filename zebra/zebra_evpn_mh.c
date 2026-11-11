@@ -41,6 +41,7 @@
 #include "zebra/zebra_router.h"
 #include "zebra/zebra_evpn_mh.h"
 #include "zebra/zebra_neigh.h"
+#include "zebra/zebra_evpn_bpp.h"
 #include "zebra/zebra_nhg.h"
 
 DEFINE_MTYPE_STATIC(ZEBRA, ZACC_BD, "Access Broadcast Domain");
@@ -712,6 +713,8 @@ void zebra_evpn_acc_bd_svi_set(struct zebra_if *vlan_zif,
 			zebra_evpn_mac_svi_del(vlan_zif->ifp, acc_bd->zevpn);
 		zebra_evpn_acc_bd_free_on_deref(acc_bd);
 	}
+
+	zebra_evpn_bpp_re_eval_schedule();
 }
 
 /* On some events macs are force-flushed. This api can be used to reinstate
@@ -754,6 +757,8 @@ static void zebra_evpn_acc_bd_evpn_set(struct zebra_evpn_access_bd *acc_bd,
 			zebra_evpn_mac_svi_del(acc_bd->vlan_zif->ifp,
 					       old_zevpn);
 	}
+
+	zebra_evpn_bpp_re_eval_schedule();
 }
 
 /* Lookup API for  VxLAN_IF's Bridge, VLAN in EVPN cache */
@@ -1346,6 +1351,8 @@ void zebra_evpn_if_cleanup(struct zebra_if *zif)
 	es = zif->es_info.es;
 	if (es)
 		zebra_evpn_local_es_del(&es);
+
+	zebra_evpn_bpp_if_del(zif);
 
 	if (zmh_info && zmh_info->evpn_vlan_table)
 		hash_iterate(zmh_info->evpn_vlan_table, zebra_evpn_acc_vl_ref_cleanup_cb, zif);
@@ -2713,6 +2720,8 @@ static void zebra_evpn_es_local_info_set(struct zebra_evpn_es *es,
 	 * a local ES to stamp as their ESI.
 	 */
 	zebra_evpn_l3vni_readvertise_acc_port(zif->ifp);
+
+	zebra_evpn_bpp_if_update(zif);
 }
 
 static void zebra_evpn_es_local_info_clear(struct zebra_evpn_es **esp)
@@ -2762,8 +2771,10 @@ static void zebra_evpn_es_local_info_clear(struct zebra_evpn_es **esp)
 	/* Refresh any pure-L3 RT-2s for hosts behind this port; with the local
 	 * ES gone they must be withdrawn.
 	 */
-	if (zif)
+	if (zif) {
 		zebra_evpn_l3vni_readvertise_acc_port(zif->ifp);
+		zebra_evpn_bpp_if_update(zif);
+	}
 
 	/* remove from the ES list */
 	list_delete_node(zmh_info->local_es_list, &es->local_es_listnode);
@@ -3251,6 +3262,8 @@ void zebra_evpn_es_bpp_cfg_update(struct zebra_if *zif, bool bpp)
 		SET_FLAG(zif->es_info.flags, ZIF_CFG_ES_FLAG_BPP);
 	else
 		UNSET_FLAG(zif->es_info.flags, ZIF_CFG_ES_FLAG_BPP);
+
+	zebra_evpn_bpp_if_update(zif);
 }
 
 
@@ -5022,11 +5035,15 @@ void zebra_evpn_mh_init(void)
 
 	zmh_info->startup_delay_time = ZEBRA_EVPN_MH_STARTUP_DELAY_DEF;
 	zebra_evpn_mh_startup_delay_timer_start("init");
+
+	zebra_evpn_bpp_init();
 }
 
 void zebra_evpn_mh_terminate(void)
 {
 	struct zebra_evpn_mh_vtep *mh_vtep;
+
+	zebra_evpn_bpp_terminate();
 
 	list_delete(&zmh_info->local_es_list);
 
