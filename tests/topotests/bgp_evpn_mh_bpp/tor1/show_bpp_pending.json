@@ -1,0 +1,40 @@
+{
+  "hostbond1": {
+    "esi": "03:44:38:39:ff:ff:01:00:00:01",
+    "vlans": {
+      "10": {
+        "vrf": "vrf-a",
+        "l3vni": 4001,
+        "state": "PENDING",
+        "ready": true,
+        "reasons": ["__ordered__", "no eligible peer"]
+      },
+      "20": {
+        "vrf": "vrf-b",
+        "l3vni": 4002,
+        "state": "PENDING",
+        "ready": true,
+        "reasons": ["__ordered__", "no eligible peer"]
+      }
+    }
+  },
+  "hostbond2": {
+    "esi": "03:44:38:39:ff:ff:02:00:00:02",
+    "vlans": {
+      "10": {
+        "vrf": "vrf-a",
+        "l3vni": 4001,
+        "state": "PENDING",
+        "ready": true,
+        "reasons": ["__ordered__", "no eligible peer"]
+      },
+      "20": {
+        "vrf": "vrf-b",
+        "l3vni": 4002,
+        "state": "PENDING",
+        "ready": true,
+        "reasons": ["__ordered__", "no eligible peer"]
+      }
+    }
+  }
+}

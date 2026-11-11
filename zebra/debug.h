@@ -56,6 +56,7 @@ extern "C" {
 #define ZEBRA_DEBUG_EVPN_MH_MAC 0x04
 #define ZEBRA_DEBUG_EVPN_MH_NEIGH 0x08
 #define ZEBRA_DEBUG_EVPN_MH_L3_NEIGH 0x10
+#define ZEBRA_DEBUG_EVPN_MH_PROT     0x20
 
 #define ZEBRA_DEBUG_PBR 0x01
 
@@ -119,6 +120,7 @@ extern "C" {
 #define IS_ZEBRA_DEBUG_EVPN_MH_NEIGH \
 	(zebra_debug_evpn_mh & ZEBRA_DEBUG_EVPN_MH_NEIGH)
 #define IS_ZEBRA_DEBUG_EVPN_MH_L3_NEIGH (zebra_debug_evpn_mh & ZEBRA_DEBUG_EVPN_MH_L3_NEIGH)
+#define IS_ZEBRA_DEBUG_EVPN_MH_PROT (zebra_debug_evpn_mh & ZEBRA_DEBUG_EVPN_MH_PROT)
 
 #define IS_ZEBRA_DEBUG_PBR (zebra_debug_pbr & ZEBRA_DEBUG_PBR)
 
