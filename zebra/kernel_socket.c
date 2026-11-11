@@ -456,6 +456,24 @@ static int ifan_read(struct if_announcemsghdr *ifan)
 }
 #endif /* RTM_IFANNOUNCE */
 
+#ifndef RTM_IFANNOUNCE
+/*
+ * Without RTM_IFANNOUNCE, an interface that goes down may have been deleted.
+ * macOS sets interfaces down without deleting them: it is gone only once its
+ * index is.
+ */
+static bool kernel_if_gone(const struct if_msghdr *ifm)
+{
+#ifdef __APPLE__
+	char name[IFNAMSIZ];
+
+	return if_indextoname(ifm->ifm_index, name) == NULL;
+#else
+	return true;
+#endif /* __APPLE__ */
+}
+#endif /* RTM_IFANNOUNCE */
+
 #ifdef HAVE_BSD_IFI_LINK_STATE
 /* BSD link detect translation */
 static void bsd_linkdetect_translate(struct if_msghdr *ifm)
@@ -606,13 +624,13 @@ int ifm_read(struct if_msghdr *ifm)
 			return -1;
 		}
 
-#ifndef RTM_IFANNOUNCE
+#if !defined(RTM_IFANNOUNCE) && !defined(__APPLE__)
 		/* Down->Down interface should be ignored here.
 		 * See further comment below.
 		 */
 		if (!CHECK_FLAG(ifm->ifm_flags, IFF_UP))
 			return 0;
-#endif /* !RTM_IFANNOUNCE */
+#endif /* !RTM_IFANNOUNCE && !__APPLE__ */
 
 		if (ifp == NULL) {
 			/* Interface that zebra was not previously aware of, so
@@ -714,7 +732,8 @@ int ifm_read(struct if_msghdr *ifm)
 			 * will still behave correctly if run on a platform
 			 * without
 			 */
-			if_delete_update(&ifp);
+			if (kernel_if_gone(ifm))
+				if_delete_update(&ifp);
 		}
 #endif /* RTM_IFANNOUNCE */
 		if (ifp && if_is_up(ifp)) {
