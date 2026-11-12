@@ -697,7 +697,14 @@ static void stream_put_bgp_aigp_tlv_metric(struct stream *s, uint64_t aigp)
 	stream_putq(s, aigp);
 }
 
-static void bgp_packet_aigp_attribute(struct stream *s, uint8_t flags, const struct attr *attr)
+/*
+ * Write AIGP attribute to stream.  If vecarr is non-NULL, record the stream
+ * offset of the first TLV metric value in BGP_ATTR_VEC_AIGP so that
+ * bpacket_reformat_for_peer() can adjust it per-peer when the nexthop is
+ * changed to the router's own address.
+ */
+static void bgp_packet_aigp_attribute(struct stream *s, uint8_t flags, const struct attr *attr,
+				      struct bpacket_attr_vec_arr *vecarr)
 {
 	struct bgp_aigp_tlvs *tlvs = bgp_attr_get_aigp_tlvs(attr);
 	size_t len;
@@ -716,9 +723,19 @@ static void bgp_packet_aigp_attribute(struct stream *s, uint8_t flags, const str
 	else
 		stream_putc(s, len);
 
-	for (uint16_t i = 0; i < tlvs->count; i++)
-		stream_put_bgp_aigp_tlv_metric(s, tlvs->metric[i]);
+	for (uint16_t i = 0; i < tlvs->count; i++) {
+		if (i == 0 && vecarr) {
+			/* Write TLV header inline to record the metric offset. */
+			stream_putc(s, BGP_AIGP_TLV_METRIC);
+			stream_putw(s, BGP_AIGP_TLV_METRIC_LEN);
+			bpacket_attr_vec_arr_set_vec(vecarr, BGP_ATTR_VEC_AIGP, s, NULL);
+			stream_putq(s, tlvs->metric[i]);
+		} else {
+			stream_put_bgp_aigp_tlv_metric(s, tlvs->metric[i]);
+		}
+	}
 }
+
 
 /* Put NLRI with optional label and optional addpath*/
 int bgp_attr_stream_put_labeled_prefix(struct stream *s, const struct prefix *p,
@@ -6525,8 +6542,29 @@ bgp_size_t bgp_packet_attribute(struct bgp *bgp, struct peer *peer, struct strea
 	}
 
 	/* AIGP */
-	if (bgp_attr_exists(attr, BGP_ATTR_AIGP) && AIGP_TRANSMIT_ALLOWED(peer))
-		bgp_packet_aigp_attribute(s, BGP_ATTR_FLAG_OPTIONAL, attr);
+	if (bgp_attr_exists(attr, BGP_ATTR_AIGP) && AIGP_TRANSMIT_ALLOWED(peer)) {
+		/*
+		 * For the EBGP third-party nexthop case, AIGP was not adjusted
+		 * in subgroup_announce_check() for EBGP so the original received
+		 * metric is in the stream.  Record the stream offset so that
+		 * bpacket_reformat_for_peer() can add the local IGP cost per-peer
+		 * whenever the nexthop is changed to the router's own address.
+		 * This covers all EBGP nexthop-change cases: non-multiaccess
+		 * (zeroed nexthop), third-party (preserved nexthop replaced), and
+		 * nexthop-peer-address route-map.  subgroup_announce_check() does
+		 * not adjust AIGP for EBGP so there is no double-count risk.
+		 */
+		struct bpacket_attr_vec_arr *aigp_vecarr = NULL;
+
+		if (bpi && peer->sort == BGP_PEER_EBGP && vecarr &&
+		    (afi == AFI_IP || afi == AFI_IP6)) {
+			aigp_vecarr = vecarr;
+			vecarr->entries[BGP_ATTR_VEC_AIGP].data = bpi->extra
+									  ? bpi->extra->igpmetric
+									  : 0;
+		}
+		bgp_packet_aigp_attribute(s, BGP_ATTR_FLAG_OPTIONAL, attr, aigp_vecarr);
+	}
 
 	/* Mark received routes so bpacket_reformat_for_peer() can distinguish
 	 * them from self-originated routes when checking if the nexthop equals
@@ -6809,7 +6847,8 @@ void bgp_dump_routes_attr(struct stream *s, struct bgp_path_info *bpi,
 
 	/* AIGP */
 	if (bgp_attr_exists(attr, BGP_ATTR_AIGP))
-		bgp_packet_aigp_attribute(s, BGP_ATTR_FLAG_OPTIONAL | BGP_ATTR_FLAG_TRANS, attr);
+		bgp_packet_aigp_attribute(s, BGP_ATTR_FLAG_OPTIONAL | BGP_ATTR_FLAG_TRANS, attr,
+					  NULL);
 
 	/* Return total size of attribute. */
 	len = stream_get_endp(s) - cp - 2;
