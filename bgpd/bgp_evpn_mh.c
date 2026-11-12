@@ -190,8 +190,8 @@ static int bgp_evpn_es_route_select_install(struct bgp *bgp,
 
 			bgp_evpn_mh_get_vtep_ip(old_select->attr, &vtep_ip);
 			bgp_evpn_es_vtep_add(bgp, es, vtep_ip, true /*esr*/,
-					     old_select->attr->df_alg, old_select->attr->df_pref,
-					     &zret);
+					     bgp_attr_get_df_alg(old_select->attr),
+					     old_select->attr->df_pref, &zret);
 		}
 		UNSET_FLAG(old_select->flags, BGP_PATH_MULTIPATH_CHG);
 		bgp_zebra_clear_route_change_flags(dest);
@@ -221,7 +221,8 @@ static int bgp_evpn_es_route_select_install(struct bgp *bgp,
 		struct ipaddr vtep_ip = {};
 
 		bgp_evpn_mh_get_vtep_ip(new_select->attr, &vtep_ip);
-		bgp_evpn_es_vtep_add(bgp, es, vtep_ip, true /*esr */, new_select->attr->df_alg,
+		bgp_evpn_es_vtep_add(bgp, es, vtep_ip, true /*esr */,
+				     bgp_attr_get_df_alg(new_select->attr),
 				     new_select->attr->df_pref, &zret);
 	} else {
 		if (old_select && old_select->type == ZEBRA_ROUTE_BGP &&

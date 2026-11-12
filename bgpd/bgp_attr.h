@@ -850,6 +850,16 @@ static inline void bgp_attr_set_es_flags(struct attr *attr, uint8_t es_flags)
 	attr->es_flags = es_flags;
 }
 
+static inline uint8_t bgp_attr_get_df_alg(const struct attr *attr)
+{
+	return attr->df_alg;
+}
+
+static inline void bgp_attr_set_df_alg(struct attr *attr, uint8_t df_alg)
+{
+	attr->df_alg = df_alg;
+}
+
 static inline struct bgp_route_evpn *
 bgp_attr_get_evpn_overlay(const struct attr *attr)
 {
