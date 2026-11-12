@@ -420,13 +420,13 @@ struct stream *bpacket_reformat_for_peer(struct bpacket *pkt,
 		} else if (v4nh.s_addr == INADDR_ANY) {
 			mod_v4nh = &peer->nexthop.v4;
 			nh_modified = 1;
-		} else if (peer->sort == BGP_PEER_EBGP
-			   && (bgp_multiaccess_check_v4(v4nh, peer) == 0)
-			   && !CHECK_FLAG(vec->flags,
-					  BPKT_ATTRVEC_FLAGS_RMAP_NH_UNCHANGED)
-			   && !peer_af_flag_check(
-				   peer, paf->afi, paf->safi,
-				   PEER_FLAG_NEXTHOP_UNCHANGED)) {
+		} else if (peer->sort == BGP_PEER_EBGP &&
+			   ((CHECK_FLAG(vec->flags, BPKT_ATTRVEC_FLAGS_NH_RECEIVED) &&
+			     IPV4_ADDR_SAME(&v4nh, &peer->connection->su.sin.sin_addr)) ||
+			    !bgp_multiaccess_check_v4(v4nh, peer)) &&
+			   !CHECK_FLAG(vec->flags, BPKT_ATTRVEC_FLAGS_RMAP_NH_UNCHANGED) &&
+			   !peer_af_flag_check(peer, paf->afi, paf->safi,
+					       PEER_FLAG_NEXTHOP_UNCHANGED)) {
 			/* NOTE: not handling case where NH has new AFI
 			 */
 			mod_v4nh = &peer->nexthop.v4;
@@ -514,13 +514,13 @@ struct stream *bpacket_reformat_for_peer(struct bpacket *pkt,
 		} else if (IN6_IS_ADDR_UNSPECIFIED(&v6nhglobal)) {
 			mod_v6nhg = &peer->nexthop.v6_global;
 			gnh_modified = 1;
-		} else if ((peer->sort == BGP_PEER_EBGP)
-			   && (!bgp_multiaccess_check_v6(v6nhglobal, peer))
-			   && !CHECK_FLAG(vec->flags,
-					  BPKT_ATTRVEC_FLAGS_RMAP_NH_UNCHANGED)
-			   && !peer_af_flag_check(
-				   peer, paf->afi, paf->safi,
-				   PEER_FLAG_NEXTHOP_UNCHANGED)) {
+		} else if ((peer->sort == BGP_PEER_EBGP) &&
+			   ((CHECK_FLAG(vec->flags, BPKT_ATTRVEC_FLAGS_NH_RECEIVED) &&
+			     IN6_ARE_ADDR_EQUAL(&v6nhglobal, &peer->connection->su.sin6.sin6_addr)) ||
+			    !bgp_multiaccess_check_v6(v6nhglobal, peer)) &&
+			   !CHECK_FLAG(vec->flags, BPKT_ATTRVEC_FLAGS_RMAP_NH_UNCHANGED) &&
+			   !peer_af_flag_check(peer, paf->afi, paf->safi,
+					       PEER_FLAG_NEXTHOP_UNCHANGED)) {
 			/* NOTE: not handling case where NH has new AFI
 			 */
 			mod_v6nhg = &peer->nexthop.v6_global;
@@ -622,8 +622,13 @@ struct stream *bpacket_reformat_for_peer(struct bpacket *pkt,
  * Update the vecarr offsets to go beyond 'pos' bytes, i.e. add 'pos'
  * to each offset.
  */
+<<<<<<< ours
 static void bpacket_attr_vec_arr_update(struct bpacket_attr_vec_arr *vecarr,
 					size_t pos)
+=======
+static void bpacket_attr_vec_arr_update(struct bpacket_attr_vec_arr *vecarr, size_t mpattr_pos,
+					size_t snlri_len)
+>>>>>>> theirs
 {
 	int i;
 

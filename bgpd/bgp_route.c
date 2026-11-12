@@ -3198,38 +3198,24 @@ bool subgroup_announce_check(struct bgp_dest *dest, struct bgp_path_info *pi,
 				nh_reset = true;
 			}
 		} else if (peer->sort == BGP_PEER_EBGP) {
-			/* Can also reset the nexthop if announcing to EBGP, but
-			 * only if
-			 * no peer in the subgroup is on a shared subnet.
-			 * Note: 3rd party nexthop currently implemented for
-			 * IPv4 only.
+			/*
+			 * For EBGP, the nexthop in the shared update-group
+			 * attribute is preserved as the original third-party
+			 * nexthop.  bpacket_reformat_for_peer() makes all
+			 * per-peer decisions at packet send time:
+			 *   - nexthop: bgp_multiaccess_check_v4/v6() determines
+			 *     whether to pass the third-party nexthop through or
+			 *     substitute the router's own address; for routes
+			 *     received from a peer, if the nexthop equals the
+			 *     peer's own remote address it is replaced with the
+			 *     router's own address (BPKT_ATTRVEC_FLAGS_NH_RECEIVED).
+			 *   - AIGP: adjusted via BGP_ATTR_VEC_AIGP when the
+			 *     nexthop is changed.
+			 *   - link-bandwidth WECMP: recalculated via
+			 *     BGP_ATTR_VEC_WECMP when the nexthop is changed.
+			 * nh_reset is not set; AIGP and WECMP for EBGP are
+			 * handled per-peer, not at the shared-attr level.
 			 */
-			if ((p->family == AF_INET) &&
-				(!bgp_subgrp_multiaccess_check_v4(
-					piattr->nexthop,
-					subgrp, from))) {
-				subgroup_announce_reset_nhop(
-					(peer_cap_enhe(peer, afi, safi)
-						 ? AF_INET6
-						 : p->family),
-						attr);
-				nh_reset = true;
-			}
-
-			if ((p->family == AF_INET6) &&
-				(!bgp_subgrp_multiaccess_check_v6(
-					piattr->mp_nexthop_global,
-					subgrp, from))) {
-				subgroup_announce_reset_nhop(
-					(peer_cap_enhe(peer, afi, safi)
-						? AF_INET6
-						: p->family),
-						attr);
-				nh_reset = true;
-			}
-
-
-
 		} else if (CHECK_FLAG(pi->flags, BGP_PATH_ANNC_NH_SELF)) {
 			/*
 			 * This flag is used for leaked vpn-vrf routes
@@ -3298,7 +3284,12 @@ bool subgroup_announce_check(struct bgp_dest *dest, struct bgp_path_info *pi,
 	struct attr *rmap_src_attr = post_attr ? post_attr : piattr;
 	bool link_bw_was_set = CHECK_FLAG(rmap_src_attr->rmap_change_flags, BATTR_RMAP_LINK_BW_SET);
 
-	if (nh_reset && bgp_path_info_mpath_chkwtd(bgp, pi->net) == BGP_WECMP_BEHAVIOR_LINK_BW &&
+	/*
+	 * Recalculate cumulative link-bandwidth for WECMP (non-EBGP only;
+	 * EBGP uses per-peer recalculation via BGP_ATTR_VEC_WECMP).
+	 */
+	if (nh_reset && peer->sort != BGP_PEER_EBGP &&
+	    bgp_path_info_mpath_chkwtd(bgp, pi->net) == BGP_WECMP_BEHAVIOR_LINK_BW &&
 	    (cum_bw = bgp_path_info_mpath_cumbw(pi->net)) != 0 && !link_bw_was_set &&
 	    !CHECK_FLAG(attr->rmap_change_flags, BATTR_RMAP_LINK_BW_SET)) {
 		as_t link_bw_as = bgp_local_as_for_peer(peer);
@@ -3373,11 +3364,14 @@ bool subgroup_announce_check(struct bgp_dest *dest, struct bgp_path_info *pi,
 	 * e.g., using "set ip nexthop peer-address" or when advertising to
 	 * EBGP. Note in route reflection the nexthop is usually unmodified
 	 * and the AIGP should not be adjusted in that case.
+	 * EBGP is excluded here; it uses per-peer adjustment via
+	 * BGP_ATTR_VEC_AIGP in bpacket_reformat_for_peer().
 	 */
 	if (bgp_attr_exists(attr, BGP_ATTR_AIGP)) {
 		if (AIGP_TRANSMIT_ALLOWED(peer)) {
-			if (nh_reset ||
-			    CHECK_FLAG(attr->rmap_change_flags, BATTR_RMAP_NEXTHOP_PEER_ADDRESS)) {
+			if (peer->sort != BGP_PEER_EBGP &&
+			    (nh_reset || CHECK_FLAG(attr->rmap_change_flags,
+						    BATTR_RMAP_NEXTHOP_PEER_ADDRESS))) {
 				uint64_t aigp = bgp_aigp_metric_total(pi, attr);
 
 				bgp_attr_set_aigp_metric(attr, aigp);

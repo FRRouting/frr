@@ -6525,8 +6525,48 @@ bgp_size_t bgp_packet_attribute(struct bgp *bgp, struct peer *peer, struct strea
 	}
 
 	/* AIGP */
+<<<<<<< ours
 	if (bgp_attr_exists(attr, BGP_ATTR_AIGP) && AIGP_TRANSMIT_ALLOWED(peer))
 		bgp_packet_aigp_attribute(s, BGP_ATTR_FLAG_OPTIONAL, attr);
+=======
+	if (bgp_attr_exists(attr, BGP_ATTR_AIGP) && AIGP_TRANSMIT_ALLOWED(peer)) {
+		/*
+		 * For the EBGP third-party nexthop case, AIGP was not adjusted
+		 * in subgroup_announce_check() for EBGP so the original received
+		 * metric is in the stream.  Record the stream offset so that
+		 * bpacket_reformat_for_peer() can add the local IGP cost per-peer
+		 * whenever the nexthop is changed to the router's own address.
+		 * This covers all EBGP nexthop-change cases: non-multiaccess
+		 * (zeroed nexthop), third-party (preserved nexthop replaced), and
+		 * nexthop-peer-address route-map.  subgroup_announce_check() does
+		 * not adjust AIGP for EBGP so there is no double-count risk.
+		 */
+		struct bpacket_attr_vec_arr *aigp_vecarr = NULL;
+
+		if (bpi && peer->sort == BGP_PEER_EBGP && vecarr &&
+		    (afi == AFI_IP || afi == AFI_IP6)) {
+			aigp_vecarr = vecarr;
+			vecarr->entries[BGP_ATTR_VEC_AIGP].data = bpi->extra
+									  ? bpi->extra->igpmetric
+									  : 0;
+		}
+		bgp_packet_aigp_attribute(s, BGP_ATTR_FLAG_OPTIONAL, attr, aigp_vecarr);
+	}
+>>>>>>> theirs
+
+	/* Set BPKT_ATTRVEC_FLAGS_NH_RECEIVED (a separate bit from
+	 * BPKT_ATTRVEC_FLAGS_UPDATED) when the route was received from a peer
+	 * rather than self-originated.  bpacket_reformat_for_peer() uses this
+	 * to apply the IPV4_ADDR_SAME / IN6_ARE_ADDR_EQUAL replacement only
+	 * for received routes; self-originated routes whose gateway nexthop
+	 * equals the peer's own IP are excluded so the peer rejects the route
+	 * as a martian nexthop and avoids a routing loop.
+	 * No BPKT_ATTRVEC_FLAGS_UPDATED gate: for IPv6/MP_REACH routes the NH
+	 * vec is populated later in bgp_packet_mpattr_start(), after this
+	 * function returns, so checking UPDATED here would always be false.
+	 */
+	if (vecarr && bpi && peer->sort == BGP_PEER_EBGP && bpi->peer != peer->bgp->peer_self)
+		SET_FLAG(vecarr->entries[BGP_ATTR_VEC_NH].flags, BPKT_ATTRVEC_FLAGS_NH_RECEIVED);
 
 	/* BGP-LS Attribute (Type 29) - RFC 9552 Section 4 */
 	if (afi == AFI_BGP_LS && safi == SAFI_BGP_LS && bgp_attr_get_ls_attr(attr))
@@ -6800,7 +6840,12 @@ void bgp_dump_routes_attr(struct stream *s, struct bgp_path_info *bpi,
 
 	/* AIGP */
 	if (bgp_attr_exists(attr, BGP_ATTR_AIGP))
+<<<<<<< ours
 		bgp_packet_aigp_attribute(s, BGP_ATTR_FLAG_OPTIONAL | BGP_ATTR_FLAG_TRANS, attr);
+=======
+		bgp_packet_aigp_attribute(s, BGP_ATTR_FLAG_OPTIONAL | BGP_ATTR_FLAG_TRANS, attr,
+					  NULL);
+>>>>>>> theirs
 
 	/* Return total size of attribute. */
 	len = stream_get_endp(s) - cp - 2;
