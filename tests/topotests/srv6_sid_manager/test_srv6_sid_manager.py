@@ -923,6 +923,220 @@ format usid-f3216
     check_ping("ce1", "2001:2::2", True, 10, 1)
 
 
+BGP_VRF10_CONTEXT = """configure terminal
+router bgp 1 vrf vrf10
+address-family ipv6 unicast
+"""
+
+
+def _check_sid_allocated(router, sid, expected_present):
+    """Check whether zebra has the SID allocated."""
+    try:
+        sid_output = json.loads(
+            router.vtysh_cmd("show segment-routing srv6 sid {} json".format(sid))
+        )
+    except json.JSONDecodeError as error:
+        return "show segment-routing srv6 sid {} json: {}".format(sid, error)
+
+    present = bool(sid_output.get(sid))
+    if present != expected_present:
+        return "SID {} allocation presence is {}, expected {}".format(
+            sid, present, expected_present
+        )
+
+    return None
+
+
+def _export_vpn_sid(router, sid_func):
+    """Export the SID with this function from vrf10 to the VPN."""
+    router.vtysh_cmd(BGP_VRF10_CONTEXT + "sid vpn export {}\n".format(sid_func))
+
+
+def _unexport_vpn_sid(router, sid_func):
+    """Stop exporting the SID with this function from vrf10 to the VPN."""
+    router.vtysh_cmd(BGP_VRF10_CONTEXT + "no sid vpn export {}\n".format(sid_func))
+
+
+def test_usid_wide_lib_explicit_sid_allocation():
+    """
+    Verify SID allocation stays inside the Wide LIB when the Explicit Wide LIB
+    starts below it.
+
+    The Wide LIB is an array indexed by the offset of a SID function from the
+    Wide LIB start, so a function below that start would index outside the
+    array. The commands keep an Explicit Wide LIB start below the Wide LIB
+    start, which leaves the clamp in the allocation and release paths as the
+    only thing keeping the index in bounds.
+
+    Use usid-f3216, the format of the locator SIDs are allocated from, so that
+    the allocation and release paths are reached at all.
+    """
+    tgen = get_topogen()
+
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    rt1 = tgen.gears["rt1"]
+    format_context = """configure terminal
+segment-routing
+srv6
+formats
+format usid-f3216
+"""
+    default_sid = "fc00:0:1:fe00::"
+    # The Explicit Wide LIB is configured at 65520 but the Wide LIB starts at
+    # 65524, so the Explicit Wide LIB takes effect at 65524
+    below_start_sid = "fc00:0:1:fff0::"
+    start_sid = "fc00:0:1:fff4::"
+
+    step("Configure an Explicit Wide LIB start below the Wide LIB start", reset=True)
+    output = rt1.vtysh_cmd(
+        format_context
+        + """wide-local-id-block explicit start 65520
+wide-local-id-block start 65524 end 65527
+"""
+    )
+    assert (
+        "Explicit Wide LIB start (65520) is below the Wide LIB start (65524), "
+        "the Explicit Wide LIB starts at 65524" in output
+    )
+
+    check_default = functools.partial(_check_sid_allocated, rt1, default_sid, True)
+    _, result = topotest.run_and_expect(check_default, None, count=30, wait=1)
+    assert result is None, "The default SID was not reallocated: {}".format(result)
+
+    step("Verify a SID below the Wide LIB start is not allocated")
+    _unexport_vpn_sid(rt1, 65024)
+    _export_vpn_sid(rt1, 65520)
+
+    # Ask for a SID at the Wide LIB start afterwards. zebra handles the two
+    # requests in order, so once this one is allocated the one below the start
+    # has been handled as well.
+    _unexport_vpn_sid(rt1, 65520)
+    _export_vpn_sid(rt1, 65524)
+
+    check_start = functools.partial(_check_sid_allocated, rt1, start_sid, True)
+    _, result = topotest.run_and_expect(check_start, None, count=30, wait=1)
+    assert result is None, "SID {} was not allocated: {}".format(start_sid, result)
+
+    result = _check_sid_allocated(rt1, below_start_sid, False)
+    assert result is None, "SID {} was allocated below the Wide LIB start: {}".format(
+        below_start_sid, result
+    )
+
+    step("Verify the SID at the Wide LIB start is released and allocated again")
+    _unexport_vpn_sid(rt1, 65524)
+
+    check_released = functools.partial(_check_sid_allocated, rt1, start_sid, False)
+    _, result = topotest.run_and_expect(check_released, None, count=30, wait=1)
+    assert result is None, "SID {} was not released: {}".format(start_sid, result)
+
+    _export_vpn_sid(rt1, 65524)
+
+    _, result = topotest.run_and_expect(check_start, None, count=30, wait=1)
+    assert result is None, "SID {} was not reallocated: {}".format(start_sid, result)
+
+    step("Restore the default ranges and the default exported SID")
+    _unexport_vpn_sid(rt1, 65524)
+    _export_vpn_sid(rt1, 65024)
+    rt1.vtysh_cmd(
+        format_context
+        + """no wide-local-id-block
+no wide-local-id-block explicit
+"""
+    )
+
+    _, result = topotest.run_and_expect(check_default, None, count=30, wait=1)
+    assert result is None, "The default SID was not restored: {}".format(result)
+
+
+def check_wide_lib_config_after_zebra_restart(router, expected):
+    """
+    Save the running configuration, restart zebra so it reads it back, and
+    assert that every line in `expected` is in the running configuration
+    again.
+    """
+    saved = router.vtysh_cmd("write terminal")
+    for line in expected:
+        assert line in saved, "'{}' was not saved".format(line)
+
+    router.vtysh_cmd("write memory")
+    router.killDaemons(["zebra"])
+    router.startDaemons(["zebra"])
+
+    def _zebra_read_config():
+        return "locator loc1" in router.vtysh_cmd("show running-config")
+
+    _, result = topotest.run_and_expect(_zebra_read_config, True, count=30, wait=1)
+    assert result is True, "zebra did not read its configuration after a restart"
+
+    output = router.vtysh_cmd("show running-config")
+    for line in expected:
+        assert line in output, "'{}' was lost when zebra re-read it".format(line)
+
+
+def test_usid_wide_lib_config_survives_zebra_restart():
+    """
+    Verify saved Wide LIB ranges are still there after zebra re-reads them.
+
+    zebra saves the Wide LIB and the Explicit Wide LIB as separate config
+    lines and replays them one at a time, so a command that validated one
+    range against the other's current value would reject a saved line whose
+    sibling is still at its default, and the range would silently fall back to
+    its default.
+
+    Both a Wide LIB above the default Explicit Wide LIB start and a Wide LIB
+    below the defaults are covered, so that emitting the two lines in a
+    different order cannot fix one and break the other.
+    """
+    tgen = get_topogen()
+
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    router = tgen.gears["rt1"]
+
+    # A Wide LIB above the default Explicit Wide LIB start of 65527
+    router.vtysh_cmd(
+        USID_F4816_CONTEXT
+        + """wide-local-id-block explicit start 100005
+wide-local-id-block start 100000 end 100010
+"""
+    )
+    check_wide_lib_config_after_zebra_restart(
+        router,
+        [
+            "wide-local-id-block start 100000 end 100010",
+            "wide-local-id-block explicit start 100005",
+        ],
+    )
+
+    # A Wide LIB below the defaults, which breaks instead if the Explicit Wide
+    # LIB is replayed first
+    router.vtysh_cmd(
+        USID_F4816_CONTEXT
+        + """no wide-local-id-block
+no wide-local-id-block explicit
+wide-local-id-block start 100 end 200
+wide-local-id-block explicit start 150
+"""
+    )
+    check_wide_lib_config_after_zebra_restart(
+        router,
+        [
+            "wide-local-id-block start 100 end 200",
+            "wide-local-id-block explicit start 150",
+        ],
+    )
+
+    router.vtysh_cmd(
+        USID_F4816_CONTEXT
+        + """no wide-local-id-block
+no wide-local-id-block explicit
+"""
+    )
+
+
 # Memory leak test template
 def test_memory_leak():
     "Run the memory leak test and report results."
