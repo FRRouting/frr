@@ -69,6 +69,7 @@
 enum bpacket_attr_vec_type {
 	BGP_ATTR_VEC_NH = 0,
 	BGP_ATTR_VEC_AIGP = 1,
+	BGP_ATTR_VEC_WECMP = 2, /* link-bandwidth for EBGP third-party nexthop */
 	BGP_ATTR_VEC_MAX
 };
 
