@@ -885,6 +885,16 @@ static inline void bgp_attr_set_mm_seqnum(struct attr *attr, uint32_t mm_seqnum)
 	attr->mm_seqnum = mm_seqnum;
 }
 
+static inline uint32_t bgp_attr_get_mm_sync_seqnum(const struct attr *attr)
+{
+	return attr->mm_sync_seqnum;
+}
+
+static inline void bgp_attr_set_mm_sync_seqnum(struct attr *attr, uint32_t mm_sync_seqnum)
+{
+	attr->mm_sync_seqnum = mm_sync_seqnum;
+}
+
 static inline struct bgp_route_evpn *
 bgp_attr_get_evpn_overlay(const struct attr *attr)
 {

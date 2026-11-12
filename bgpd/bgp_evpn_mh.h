@@ -367,7 +367,7 @@ static inline bool bgp_evpn_attr_is_sync(struct attr *attr)
 
 static inline uint32_t bgp_evpn_attr_get_sync_seq(struct attr *attr)
 {
-	return attr ?  attr->mm_sync_seqnum : 0;
+	return attr ? bgp_attr_get_mm_sync_seqnum(attr) : 0;
 }
 
 static inline bool bgp_evpn_attr_is_active_on_peer(struct attr *attr)
