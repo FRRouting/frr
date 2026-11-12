@@ -2139,8 +2139,7 @@ static int update_evpn_type5_route(struct bgp *bgp_vrf, struct bgp_path_info *or
 	/* uninten temporary */
 	if (!src_attr)
 		aspath_unintern(&attr.aspath);
-	else
-		bgp_attr_extra_discard(&attr);
+	bgp_attr_extra_discard(&attr);
 
 	return 0;
 }
@@ -3046,6 +3045,7 @@ void bgp_evpn_update_type2_route_entry(struct bgp *bgp, struct bgpevpn *vpn,
 
 	/* Unintern temporary. */
 	aspath_unintern(&attr.aspath);
+	bgp_attr_extra_discard(&attr);
 }
 
 static void update_type2_route(struct bgp *bgp, struct bgpevpn *vpn,
