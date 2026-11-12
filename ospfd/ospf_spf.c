@@ -351,11 +351,6 @@ ospf_spf_vertex_parent_copy(struct vertex_parent *vertex_parent)
 
 	memcpy(vertex_parent_copy, vertex_parent, sizeof(struct vertex_parent));
 
-	/*
-	 * ospf_canonical_nexthops_free() releases these objects and sets the
-	 * pointers to NULL, while the parent link stays on the SPF tree.
-	 * TI-LFA copies that tree from ospf_ti_lfa_generate_p_space().
-	 */
 	if (vertex_parent->nexthop) {
 		nexthop_copy = vertex_nexthop_new();
 		memcpy(nexthop_copy, vertex_parent->nexthop,
