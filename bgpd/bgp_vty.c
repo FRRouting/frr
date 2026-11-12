@@ -2174,6 +2174,10 @@ DEFUN (bgp_cluster_id,
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 
+	if (CHECK_FLAG(bgp->config, BGP_CONFIG_CLUSTER_ID) &&
+	    IPV4_ADDR_SAME(&bgp->cluster_id, &cluster))
+		return CMD_SUCCESS;
+
 	bgp_cluster_id_set(bgp, &cluster);
 	bgp_clear_star_soft_out(vty, bgp->name);
 
@@ -2190,6 +2194,10 @@ DEFUN (no_bgp_cluster_id,
        "Route-Reflector Cluster-id as 32 bit quantity\n")
 {
 	VTY_DECLVAR_CONTEXT(bgp, bgp);
+
+	if (!CHECK_FLAG(bgp->config, BGP_CONFIG_CLUSTER_ID))
+		return CMD_SUCCESS;
+
 	bgp_cluster_id_unset(bgp);
 	bgp_clear_star_soft_out(vty, bgp->name);
 
