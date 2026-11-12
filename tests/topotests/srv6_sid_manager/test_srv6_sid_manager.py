@@ -471,15 +471,26 @@ format usid-f3216
     assert "wide-local-id-block start 401 end 400" not in output
 
 
+USID_F4816_CONTEXT = """configure terminal
+segment-routing
+srv6
+formats
+format usid-f4816
+"""
+
+
 def test_usid_wide_lib_explicit_range():
     """
-    Verify the Explicit Wide LIB is kept inside the Wide LIB.
+    Verify an Explicit Wide LIB start below the Wide LIB start is reported
+    rather than refused.
 
     The Explicit Wide LIB is the tail of the Wide LIB and has no end of its
-    own, so the only way to misconfigure it is to leave its start below the
-    Wide LIB start. The Wide LIB is an array indexed by the offset of a SID
-    function from that start, so a function in the gap would index outside
-    the array.
+    own. The Wide LIB is an array indexed by the offset of a SID function from
+    the Wide LIB start, so a function below that start would index outside the
+    array; the allocation paths clamp the Explicit Wide LIB start to keep the
+    index in bounds. The commands themselves keep whatever they are given,
+    because the two ranges are saved as separate config lines and replayed one
+    at a time.
 
     Use usid-f4816, which no locator in this topology is attached to, so
     moving its ranges around does not disturb the allocated SIDs.
@@ -491,68 +502,50 @@ def test_usid_wide_lib_explicit_range():
 
     router = tgen.gears["rt1"]
 
-    format_context = """configure terminal
-segment-routing
-srv6
-formats
-format usid-f4816
-"""
-
-    output = router.vtysh_cmd(format_context + "wide-local-id-block explicit start 0\n")
-    assert (
-        "Explicit Wide LIB start (0) cannot be less than Wide LIB start (65520)"
-        in output
-    )
-
-    # The Wide LIB cannot move up and leave the Explicit Wide LIB behind
+    # An Explicit Wide LIB start below the Wide LIB start is kept, and the
+    # start it takes effect at is reported
     output = router.vtysh_cmd(
-        format_context
-        + """wide-local-id-block start 0 end 2000
-wide-local-id-block explicit start 500
-wide-local-id-block start 1000 end 1010
-"""
+        USID_F4816_CONTEXT + "wide-local-id-block explicit start 0\n"
     )
     assert (
-        "Wide LIB start (1000) cannot be greater than the Explicit Wide LIB start (500)"
-        in output
+        "Explicit Wide LIB start (0) is below the Wide LIB start (65520), "
+        "the Explicit Wide LIB starts at 65520" in output
     )
+    assert "wide-local-id-block explicit start 0" in router.vtysh_cmd("write terminal")
 
-    # Nor can it move back up by being reset to its default
-    output = router.vtysh_cmd(format_context + "no wide-local-id-block\n")
+    router.vtysh_cmd(USID_F4816_CONTEXT + "no wide-local-id-block explicit\n")
+
+    # The Wide LIB can move above the Explicit Wide LIB start
+    output = router.vtysh_cmd(
+        USID_F4816_CONTEXT + "wide-local-id-block start 100000 end 100010\n"
+    )
     assert (
-        "Default Wide LIB start (65520) would be greater than the Explicit Wide LIB start (500)"
-        in output
+        "Explicit Wide LIB start (65527) is below the Wide LIB start (100000), "
+        "the Explicit Wide LIB starts at 100000" in output
     )
 
-    output = router.vtysh_cmd("write terminal")
-    assert "wide-local-id-block explicit start 0" not in output
-    assert "wide-local-id-block start 1000 end 1010" not in output
-    assert "wide-local-id-block start 0 end 2000" in output
-    assert "wide-local-id-block explicit start 500" in output
+    # Resetting the Explicit Wide LIB cannot fail because of the Wide LIB
+    output = router.vtysh_cmd(USID_F4816_CONTEXT + "no wide-local-id-block explicit\n")
+    assert (
+        "Explicit Wide LIB start (65527) is below the Wide LIB start (100000), "
+        "the Explicit Wide LIB starts at 100000" in output
+    )
 
-    # Removing the Explicit Wide LIB first is the way out
+    # Nor can resetting the Wide LIB fail because of the Explicit Wide LIB
     router.vtysh_cmd(
-        format_context
-        + """no wide-local-id-block explicit
-no wide-local-id-block
+        USID_F4816_CONTEXT
+        + """wide-local-id-block start 100 end 200
+wide-local-id-block explicit start 150
 """
     )
-
-    # Resetting the Explicit Wide LIB cannot drop it below the Wide LIB either
-    output = router.vtysh_cmd(
-        format_context
-        + """wide-local-id-block explicit start 70000
-wide-local-id-block start 70000 end 80000
-no wide-local-id-block explicit
-"""
-    )
+    output = router.vtysh_cmd(USID_F4816_CONTEXT + "no wide-local-id-block\n")
     assert (
-        "Default Explicit Wide LIB start (65527) would be less than the Wide LIB start (70000)"
-        in output
+        "Explicit Wide LIB start (150) is below the Wide LIB start (65520), "
+        "the Explicit Wide LIB starts at 65520" in output
     )
 
     router.vtysh_cmd(
-        format_context
+        USID_F4816_CONTEXT
         + """no wide-local-id-block
 no wide-local-id-block explicit
 """
