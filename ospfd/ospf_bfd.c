@@ -102,11 +102,6 @@ static struct ospf_bfd_session_entry *ospf_bfd_entry_get(struct ospf_interface *
 	return entry;
 }
 
-/*
- * entry->nbr records only the neighbor that last took the session.
- * Another neighbor can still hold the same bsp, and its next NSM
- * change calls bfd_sess_uninstall() on it. Clear every alias first.
- */
 static void ospf_bfd_clear_session_holders(struct ospf_interface *oi,
 					    struct bfd_session_params *bsp)
 {
