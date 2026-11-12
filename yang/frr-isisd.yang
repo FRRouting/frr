@@ -1748,11 +1748,11 @@ module frr-isisd {
 
       leaf distribute-link-state {
         type boolean;
-        default "false";
         must ". = 'false' or (not(../mpls-te) and not(../mpls-te/export = 'true'))" {
           error-message
             "distribute-link-state is mutually exclusive with mpls-te and mpls-te export";
         }
+        default "false";
         description
           "Enable distribution of IS-IS link-state information to external
            consumers (for example, BGP-LS).";
