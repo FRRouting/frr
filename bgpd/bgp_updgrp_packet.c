@@ -619,6 +619,209 @@ struct stream *bpacket_reformat_for_peer(struct bpacket *pkt,
 }
 
 /*
+ * Apply the per-peer outbound nexthop to a display attribute.
+ *
+ * Follows the nexthop-adjustment logic of bpacket_reformat_for_peer(),
+ * using adj_attr->rmap_change_flags in place of the bpacket vec flags and
+ * writing the result directly into display_attr.  The outbound attribute
+ * (adj_attr) is shared among update-group members and carries a zeroed
+ * nexthop (0.0.0.0/::); bpacket_reformat_for_peer() substitutes the
+ * real per-peer nexthop at packet-send time.  This function performs the
+ * same substitution so that "show bgp advertised-routes" reflects the
+ * nexthop that was actually encoded in the UPDATE for this peer.
+ *
+ * One deliberate difference from bpacket_reformat_for_peer():
+ *
+ *   The IPv4-mapped IPv6 result is written directly into
+ *   display_attr->mp_nexthop_global rather than into peer->nexthop.v6_global,
+ *   avoiding the caching side effect that bpacket_reformat_for_peer() relies on.
+ *
+ * The ll_nexthop_only path in bpacket_reformat_for_peer() is handled in two
+ * parts: the stream-layout detail (writing peer->nexthop.v6_local at the LL
+ * byte offset within the stream) has no equivalent in the display path, which
+ * works on attr fields directly.  The corresponding address selection —
+ * displaying peer->nexthop.v6_local as the main nexthop for RFC 9229 peers
+ * when the shared packet encodes only a global nexthop (nhlen=16) — is
+ * accounted for by the PEER_HAS_LINK_LOCAL_CAPABILITY check below.
+ */
+void bgp_nexthop_reformat_for_peer(struct peer *peer, struct peer_af *paf, struct attr *adj_attr,
+				   struct attr *display_attr)
+{
+	afi_t nhafi;
+	bool route_map_sets_nh, peer_address, nh_unchanged;
+	struct bgp_filter *filter;
+
+	/* Mirror the nhafi determination in bpacket_reformat_for_peer().
+	 * peer_cap_enhe() means the session is IPv4 but carrying IPv6 routes
+	 * (RFC 5549), so the nexthop is IPv6 regardless of what the attr says.
+	 *
+	 * For non-ENHE AFI_IP and AFI_IP6 sessions, derive nhafi from paf->afi
+	 * rather than BGP_ATTR_NEXTHOP_AFI_IP6(adj_attr): when an IPv4 route
+	 * is learned with an IPv6 nexthop in mp_nexthop_global,
+	 * bgp_packet_attribute() still encodes a 4-byte IPv4 NEXT_HOP for
+	 * non-ENHE peers, so bpacket_reformat_for_peer() sees nhlen==4 and
+	 * selects AFI_IP.  Using BGP_ATTR_NEXTHOP_AFI_IP6() on adj_attr would
+	 * select AFI_IP6 and display the wrong family.
+	 *
+	 * For EVPN (AFI_L2VPN) and SAFI_ENCAP, the nexthop family follows the
+	 * attribute (IPv4 or IPv6) and the encoder does not perform any forced
+	 * conversion, so use BGP_ATTR_NEXTHOP_AFI_IP6() as before.
+	 *
+	 * For BGP-LS, the encoder selects the nexthop family based on
+	 * PEER_FLAG_BGP_LS_IPV6 (see bgp_packet_attribute()); mirror that here
+	 * rather than falling back to paf->afi (which is AFI_BGP_LS, not IP6).
+	 */
+	if (peer_cap_enhe(peer, paf->afi, paf->safi))
+		nhafi = AFI_IP6;
+	else if (paf->afi == AFI_L2VPN || paf->safi == SAFI_ENCAP)
+		nhafi = BGP_ATTR_NEXTHOP_AFI_IP6(adj_attr) ? AFI_IP6 : AFI_IP;
+	else if (paf->safi == SAFI_BGP_LS)
+		nhafi = CHECK_FLAG(peer->af_flags[AFI_BGP_LS][SAFI_BGP_LS], PEER_FLAG_BGP_LS_IPV6)
+				? AFI_IP6
+				: AFI_IP;
+	else
+		nhafi = (paf->afi == AFI_IP6) ? AFI_IP6 : AFI_IP;
+
+	filter = &peer->filter[paf->afi][paf->safi];
+
+	if (nhafi == AFI_IP) {
+		/*
+		 * VPNv4, ENCAP, and EVPN routes store their nexthop in
+		 * mp_nexthop_global_in (matching route_vty_out_tmp() display
+		 * and what subgroup_announce_reset_nhop() clears for
+		 * next-hop-self), while regular IPv4 routes use the nexthop field.
+		 */
+		bool is_vpn = (paf->safi == SAFI_MPLS_VPN || paf->safi == SAFI_ENCAP ||
+			       paf->afi == AFI_L2VPN);
+		struct in_addr nh_in = is_vpn ? adj_attr->mp_nexthop_global_in : adj_attr->nexthop;
+
+		route_map_sets_nh =
+			CHECK_FLAG(adj_attr->rmap_change_flags, BATTR_RMAP_IPV4_NHOP_CHANGED) ||
+			CHECK_FLAG(adj_attr->rmap_change_flags, BATTR_RMAP_VPNV4_NHOP_CHANGED) ||
+			CHECK_FLAG(adj_attr->rmap_change_flags, BATTR_RMAP_NEXTHOP_PEER_ADDRESS);
+		peer_address = CHECK_FLAG(adj_attr->rmap_change_flags,
+					  BATTR_RMAP_NEXTHOP_PEER_ADDRESS);
+		nh_unchanged = CHECK_FLAG(adj_attr->rmap_change_flags,
+					  BATTR_RMAP_NEXTHOP_UNCHANGED);
+
+		/*
+		 * Mirror the IPv4 decision block from bpacket_reformat_for_peer().
+		 *
+		 * For EVPN with a 4-byte IPv4 nexthop, bpacket_reformat_for_peer()
+		 * enters the AFI_IP branch (BGP_NEXTHOP_AFI_FROM_NHLEN(4) = AFI_IP)
+		 * and applies the full decision logic, including EBGP non-multiaccess.
+		 * The "No route-map changes allowed" note in bpacket's separate
+		 * AFI_L2VPN branch is only reached for unusual nhlen values that
+		 * do not map to AFI_IP.  Apply the same full logic here using
+		 * mp_nexthop_global_in (is_vpn = true for AFI_L2VPN).
+		 */
+		if (route_map_sets_nh && ((peer->sort != BGP_PEER_EBGP) || ROUTE_MAP_OUT(filter))) {
+			if (peer_address) {
+				if (is_vpn)
+					display_attr->mp_nexthop_global_in = peer->nexthop.v4;
+				else
+					display_attr->nexthop = peer->nexthop.v4;
+			}
+		} else if (nh_in.s_addr == INADDR_ANY) {
+			if (is_vpn)
+				display_attr->mp_nexthop_global_in = peer->nexthop.v4;
+			else
+				display_attr->nexthop = peer->nexthop.v4;
+		} else if (peer->sort == BGP_PEER_EBGP &&
+			   (bgp_multiaccess_check_v4(nh_in, peer) == 0) && !nh_unchanged &&
+			   !peer_af_flag_check(peer, paf->afi, paf->safi,
+					       PEER_FLAG_NEXTHOP_UNCHANGED)) {
+			if (is_vpn)
+				display_attr->mp_nexthop_global_in = peer->nexthop.v4;
+			else
+				display_attr->nexthop = peer->nexthop.v4;
+		}
+
+		/* If adj_attr had an IPv6 mp_nexthop_len (e.g. a route learned
+		 * with an IPv6 nexthop that is re-encoded as IPv4 for non-ENHE
+		 * peers), clear it so route_vty_out_tmp() selects the IPv4
+		 * nexthop field rather than the stale mp_nexthop_global.
+		 */
+		if (BGP_ATTR_MP_NEXTHOP_LEN_IP6(display_attr))
+			display_attr->mp_nexthop_len = 0;
+
+	} else if (nhafi == AFI_IP6) {
+		route_map_sets_nh = CHECK_FLAG(adj_attr->rmap_change_flags,
+					       BATTR_RMAP_IPV6_GLOBAL_NHOP_CHANGED) ||
+				    CHECK_FLAG(adj_attr->rmap_change_flags,
+					       BATTR_RMAP_VPNV6_GLOBAL_NHOP_CHANGED) ||
+				    CHECK_FLAG(adj_attr->rmap_change_flags,
+					       BATTR_RMAP_NEXTHOP_PEER_ADDRESS);
+		peer_address = CHECK_FLAG(adj_attr->rmap_change_flags,
+					  BATTR_RMAP_NEXTHOP_PEER_ADDRESS);
+		nh_unchanged = CHECK_FLAG(adj_attr->rmap_change_flags,
+					  BATTR_RMAP_NEXTHOP_UNCHANGED);
+
+		/*
+		 * Mirror the IPv6 global decision block from
+		 * bpacket_reformat_for_peer().
+		 */
+		if (route_map_sets_nh && ((peer->sort != BGP_PEER_EBGP) || ROUTE_MAP_OUT(filter))) {
+			if (peer_address)
+				display_attr->mp_nexthop_global = peer->nexthop.v6_global;
+		} else if (IN6_IS_ADDR_UNSPECIFIED(&adj_attr->mp_nexthop_global)) {
+			display_attr->mp_nexthop_global = peer->nexthop.v6_global;
+		} else if ((peer->sort == BGP_PEER_EBGP) &&
+			   (!bgp_multiaccess_check_v6(adj_attr->mp_nexthop_global, peer)) &&
+			   !nh_unchanged &&
+			   !peer_af_flag_check(peer, paf->afi, paf->safi,
+					       PEER_FLAG_NEXTHOP_UNCHANGED)) {
+			display_attr->mp_nexthop_global = peer->nexthop.v6_global;
+		}
+
+		/* IPv4-mapped case: write directly into display_attr instead of
+		 * mutating peer->nexthop.v6_global as bpacket_reformat_for_peer()
+		 * does.
+		 */
+		if (IN6_IS_ADDR_UNSPECIFIED(&display_attr->mp_nexthop_global) &&
+		    peer->nexthop.v4.s_addr != INADDR_ANY)
+			ipv4_to_ipv4_mapped_ipv6(&display_attr->mp_nexthop_global,
+						 peer->nexthop.v4);
+
+		if (IS_MAPPED_IPV6(&peer->nexthop.v6_global))
+			display_attr->mp_nexthop_global = peer->nexthop.v6_global;
+
+		/* Mirror the ll_nexthop_only path in bpacket_reformat_for_peer():
+		 * when the peer has the link-local nexthop capability (RFC 9229)
+		 * and the shared packet encodes only a global nexthop (nhlen=16),
+		 * bpacket_reformat_for_peer() places the peer's link-local address
+		 * in the single 16-byte nexthop slot.  Display the link-local as
+		 * the main nexthop so the operator sees what was actually sent.
+		 *
+		 * Compare against the stream-encoded length, not just
+		 * adj_attr->mp_nexthop_len: VPNv6 routes prefix each nexthop
+		 * with an 8-byte RD, so the encoded length is 24, not 16, and
+		 * bpacket_reformat_for_peer() does not enter ll_nexthop_only for
+		 * them.
+		 */
+		uint8_t stream_nhlen = adj_attr->mp_nexthop_len;
+
+		if (paf->safi == SAFI_MPLS_VPN &&
+		    (stream_nhlen == BGP_ATTR_NHLEN_IPV6_GLOBAL ||
+		     stream_nhlen == BGP_ATTR_NHLEN_IPV6_GLOBAL_AND_LL))
+			stream_nhlen += 8; /* account for 8-byte RD prefix */
+
+		if (stream_nhlen == BGP_ATTR_NHLEN_IPV6_GLOBAL &&
+		    PEER_HAS_LINK_LOCAL_CAPABILITY(peer))
+			display_attr->mp_nexthop_global = peer->nexthop.v6_local;
+
+		/* Link-local nexthop: use peer's if the attribute has none.
+		 * Mirror bpacket_reformat_for_peer(): only substitute when the
+		 * encoded nexthop includes a local slot (nhlen == 32 or 40).
+		 */
+		if ((adj_attr->mp_nexthop_len == BGP_ATTR_NHLEN_IPV6_GLOBAL_AND_LL ||
+		     adj_attr->mp_nexthop_len == BGP_ATTR_NHLEN_VPNV6_GLOBAL_AND_LL) &&
+		    IN6_IS_ADDR_UNSPECIFIED(&adj_attr->mp_nexthop_local))
+			display_attr->mp_nexthop_local = peer->nexthop.v6_local;
+	}
+}
+
+/*
  * Update the vecarr offsets to go beyond 'pos' bytes, i.e. add 'pos'
  * to each offset.
  */

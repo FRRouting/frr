@@ -18503,6 +18503,13 @@ static void show_adj_route(struct vty *vty, struct peer *peer, struct bgp_table 
 				SUBGRP_FOREACH_PEER (adj->subgroup, paf) {
 					if (paf->peer == peer && adj->attr) {
 						bgp_attr_dup_into(&attr, adj->attr);
+						/* Apply peer nexthop before the
+						 * show route-map so the map's
+						 * explicit set ip next-hop takes
+						 * precedence over the default.
+						 */
+						bgp_nexthop_reformat_for_peer(peer, paf, adj->attr,
+									      &attr);
 						peer_found = true;
 						break;
 					}
@@ -18682,6 +18689,20 @@ static void show_adj_route(struct vty *vty, struct peer *peer, struct bgp_table 
 						bgp_dest_get_prefix(dest);
 
 					bgp_attr_dup_into(&attr, adj->attr);
+
+					/*
+					 * Apply the per-peer outbound nexthop to
+					 * the dup'd attr before the show route-map
+					 * runs. adj->attr carries the shared
+					 * update-group nexthop (may be 0.0.0.0/::);
+					 * bgp_nexthop_reformat_for_peer() determines
+					 * what bpacket_reformat_for_peer() would
+					 * encode for this specific peer. Running it
+					 * first lets the show route-map's explicit
+					 * set ip next-hop take precedence.
+					 */
+					bgp_nexthop_reformat_for_peer(peer, paf, adj->attr, &attr);
+
 					ret = bgp_output_modifier(peer, rn_p, &attr, afi, safi,
 								  rmap_name);
 
@@ -18731,7 +18752,7 @@ static void show_adj_route(struct vty *vty, struct peer *peer, struct bgp_table 
 								(*paths_count)++;
 							}
 							route_vty_out_tmp(vty, bgp, dest, rn_p,
-									  adj->attr, safi, use_json,
+									  &attr, safi, use_json,
 									  json_ar, wide);
 						} else {
 							for (bpi = bgp_dest_get_bgp_path_info(dest);
@@ -18743,8 +18764,8 @@ static void show_adj_route(struct vty *vty, struct peer *peer, struct bgp_table 
 									continue;
 								(*paths_count)++;
 								route_vty_out(vty, rn_p, bpi, 0,
-									      adj->attr, safi,
-									      NULL, wide, NULL);
+									      &attr, safi, NULL,
+									      wide, NULL);
 							}
 						}
 					}
