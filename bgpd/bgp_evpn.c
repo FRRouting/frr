@@ -942,7 +942,7 @@ static void bgp_evpn_get_rmac_nexthop(struct bgpevpn *vpn,
 {
 	struct bgp *bgp_vrf = vpn->bgp_vrf;
 
-	memset(&attr->rmac, 0, sizeof(struct ethaddr));
+	bgp_attr_set_rmac(attr, &(struct ethaddr){ 0 });
 	if (!bgp_vrf)
 		return;
 
@@ -960,11 +960,10 @@ static void bgp_evpn_get_rmac_nexthop(struct bgpevpn *vpn,
 	    bgp_vrf->evpn_info->is_anycast_mac &&
 	    bgp_evpn_pip_ip_usable(bgp_vrf, &vpn->originator_ip)) {
 		/* copy sys rmac and the system IP of the VTEP-IP family */
-		memcpy(&attr->rmac, &bgp_vrf->evpn_info->pip_rmac,
-		       ETH_ALEN);
+		bgp_attr_set_rmac(attr, &bgp_vrf->evpn_info->pip_rmac);
 		bgp_evpn_vtep_ip_to_attr_nh(&bgp_vrf->evpn_info->pip_ip, attr);
 	} else
-		memcpy(&attr->rmac, &bgp_vrf->rmac, ETH_ALEN);
+		bgp_attr_set_rmac(attr, &bgp_vrf->rmac);
 }
 
 /*
@@ -1382,8 +1381,8 @@ static void build_evpn_type5_route_extcomm(struct bgp *bgp_vrf, struct attr *att
 		ecommunity_append_val_unchecked(ecom, &fq_rt->ecom_val);
 
 	/* add the router mac extended community */
-	if (!is_zero_mac(&attr->rmac)) {
-		encode_rmac_extcomm(&eval_tmp, &attr->rmac);
+	if (!is_zero_mac(bgp_attr_get_rmac(attr))) {
+		encode_rmac_extcomm(&eval_tmp, bgp_attr_get_rmac(attr));
 		ecommunity_add_val(ecom, &eval_tmp, true, true);
 	}
 
@@ -1449,7 +1448,7 @@ static void build_evpn_route_extcomm(struct bgpevpn *vpn, struct attr *attr, int
 
 	/* Add RMAC, if told to. */
 	if (add_l3_ecomm) {
-		encode_rmac_extcomm(&eval_tmp, &attr->rmac);
+		encode_rmac_extcomm(&eval_tmp, bgp_attr_get_rmac(attr));
 		ecommunity_add_val(ecom, &eval_tmp, true, true);
 	}
 
@@ -2078,10 +2077,11 @@ static int update_evpn_type5_route(struct bgp *bgp_vrf, struct bgp_path_info *or
 
 	if (bgp_debug_zebra(NULL))
 		zlog_debug("VRF %s type-5 route evp %pFX RMAC %pEA nexthop %pI4 mp_nexthop %pI6 orig vtep %pIA",
-			   vrf_id_to_name(bgp_vrf->vrf_id), evp, &attr.rmac, &attr.nexthop,
-			   &attr.mp_nexthop_global, &bgp_vrf->originator_ip);
+			   vrf_id_to_name(bgp_vrf->vrf_id), evp, bgp_attr_get_rmac(&attr),
+			   &attr.nexthop, &attr.mp_nexthop_global, &bgp_vrf->originator_ip);
 
-	frrtrace(4, frr_bgp, evpn_advertise_type5, bgp_vrf->vrf_id, evp, &attr.rmac, &vtep_ip);
+	frrtrace(4, frr_bgp, evpn_advertise_type5, bgp_vrf->vrf_id, evp, bgp_attr_get_rmac(&attr),
+		 &vtep_ip);
 
 	if (src_safi == SAFI_MPLS_VPN) {
 		/* Set tnl_type to BGP_ENCAP_TYPE_RESERVED for VPN routes so
@@ -2624,13 +2624,10 @@ static int update_evpn_route(struct bgp *bgp, struct bgpevpn *vpn,
 	if (bgp_debug_zebra(NULL)) {
 		char buf3[ESI_STR_LEN];
 
-		zlog_debug(
-			"VRF %s vni %u type-%u route evp %pFX RMAC %pEA nexthop %pIA esi %s",
-			vpn->bgp_vrf ? vrf_id_to_name(vpn->bgp_vrf->vrf_id)
-				     : "None",
-			vpn->vni, p->prefix.route_type, p, &attr.rmac,
-			&vpn->originator_ip,
-			esi_to_str(esi, buf3, sizeof(buf3)));
+		zlog_debug("VRF %s vni %u type-%u route evp %pFX RMAC %pEA nexthop %pIA esi %s",
+			   vpn->bgp_vrf ? vrf_id_to_name(vpn->bgp_vrf->vrf_id) : "None", vpn->vni,
+			   p->prefix.route_type, p, bgp_attr_get_rmac(&attr), &vpn->originator_ip,
+			   esi_to_str(esi, buf3, sizeof(buf3)));
 	}
 
 	vni2label(vpn->vni, &(attr.label));
@@ -2963,7 +2960,7 @@ void bgp_evpn_update_type2_route_entry(struct bgp *bgp, struct bgpevpn *vpn,
 
 		zlog_debug("VRF %s vni %u evp %pFX RMAC %pEA nexthop %pI4 esi %s esf 0x%x from %s",
 			   vpn->bgp_vrf ? vrf_id_to_name(vpn->bgp_vrf->vrf_id) : " ", vpn->vni,
-			   &evp, &attr.rmac, &attr.mp_nexthop_global_in,
+			   &evp, bgp_attr_get_rmac(&attr), &attr.mp_nexthop_global_in,
 			   esi_to_str(&attr.esi, buf3, sizeof(buf3)), bgp_attr_get_es_flags(&attr),
 			   caller);
 	}
@@ -4314,7 +4311,7 @@ static int bgp_evpn_route_rmac_self_check(struct bgp *bgp_vrf,
 	 * SVI comes up with MAC and stored in hash, triggers
 	 * bgp_mac_rescan_all_evpn_tables.
 	 */
-	if (memcmp(&bgp_vrf->rmac, &pi->attr->rmac, ETH_ALEN) == 0) {
+	if (memcmp(&bgp_vrf->rmac, bgp_attr_get_rmac(pi->attr), ETH_ALEN) == 0) {
 		/* Only do expensive string formatting if debug or trace is enabled. */
 		if (bgp_debug_update(pi->peer, NULL, NULL, 1) ||
 		    frrtrace_enabled(frr_bgp, upd_prefix_denied_due_to_self_mac)) {
@@ -4870,7 +4867,7 @@ static int install_uninstall_type5_route_in_vpn_rib(struct bgp *bgp, struct pref
 				 NULL);
 	bgp_attr_set_ecommunity(&attr, ecom);
 	attr.encap_tunneltype = BGP_ENCAP_TYPE_RESERVED;
-	memset(&attr.rmac, 0, sizeof(attr.rmac));
+	bgp_attr_set_rmac(&attr, &(struct ethaddr){ 0 });
 
 	if (!vpn_pi) {
 		attr_new = bgp_attr_intern(&attr);
@@ -5785,16 +5782,16 @@ static int process_type5_route(struct peer *peer, afi_t afi, safi_t safi,
 	else if (!ipaddr_is_zero(&evpn->gw_ip))
 		evpn->type = OVERLAY_INDEX_GATEWAY_IP;
 	if (attr) {
-		if (is_zero_mac(&attr->rmac) &&
-		    !bgp_evpn_is_esi_valid(&evpn->eth_s_id) &&
-		    ipaddr_is_zero(&evpn->gw_ip) && label == 0) {
+		if (is_zero_mac(bgp_attr_get_rmac(attr)) &&
+		    !bgp_evpn_is_esi_valid(&evpn->eth_s_id) && ipaddr_is_zero(&evpn->gw_ip) &&
+		    label == 0) {
 			flog_err(EC_BGP_EVPN_ROUTE_INVALID,
 				 "%s - Rx EVPN Type-5 ESI, gateway-IP, RMAC and label all zero",
 				 peer->host);
 			is_valid_update = false;
 		}
 
-		if (is_mcast_mac(&attr->rmac) || is_bcast_mac(&attr->rmac))
+		if (is_mcast_mac(bgp_attr_get_rmac(attr)) || is_bcast_mac(bgp_attr_get_rmac(attr)))
 			is_valid_update = false;
 	}
 
@@ -9800,7 +9797,7 @@ void bgp_evpn_fill_rmac_nh_to_attr(struct bgp *bgp_vrf, struct attr *attr, struc
 	 * use anycast-IP as nexthop and anycast RMAC.
 	 */
 	if (!use_pip) {
-		memcpy(&attr->rmac, &bgp_vrf->rmac, ETH_ALEN);
+		bgp_attr_set_rmac(attr, &bgp_vrf->rmac);
 		if (IS_IPADDR_V4(&bgp_vrf->originator_ip)) {
 			attr->nexthop = bgp_vrf->originator_ip.ipaddr_v4;
 			attr->mp_nexthop_global_in = bgp_vrf->originator_ip.ipaddr_v4;
@@ -9814,7 +9811,7 @@ void bgp_evpn_fill_rmac_nh_to_attr(struct bgp *bgp_vrf, struct attr *attr, struc
 			*vtep_ip = bgp_vrf->originator_ip;
 	} else {
 		/* copy sys rmac and the system IP of the VTEP-IP family */
-		memcpy(&attr->rmac, &bgp_vrf->evpn_info->pip_rmac, ETH_ALEN);
+		bgp_attr_set_rmac(attr, &bgp_vrf->evpn_info->pip_rmac);
 		bgp_evpn_vtep_ip_to_attr_nh(&bgp_vrf->evpn_info->pip_ip, attr);
 		if (vtep_ip)
 			*vtep_ip = bgp_vrf->evpn_info->pip_ip;

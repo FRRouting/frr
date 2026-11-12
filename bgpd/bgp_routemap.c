@@ -1515,7 +1515,7 @@ route_set_evpn_router_mac(void *rule, const struct prefix *prefix, void *object)
 	}
 
 	bgp_attr_set_ecommunity(path->attr, new_ecom);
-	memcpy(&path->attr->rmac, rmac, ETH_ALEN);
+	bgp_attr_set_rmac(path->attr, rmac);
 
 	return RMAP_OKAY;
 }

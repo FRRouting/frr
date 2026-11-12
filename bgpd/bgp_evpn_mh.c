@@ -4791,7 +4791,7 @@ static struct bgp_evpn_nh *bgp_evpn_nh_add(struct bgp *bgp_vrf,
 	/* Setup ref_pi when the nh is created */
 	if (CHECK_FLAG(pi->flags, BGP_PATH_VALID) && pi->attr) {
 		n->ref_pi = pi;
-		memcpy(&n->rmac, &pi->attr->rmac, ETH_ALEN);
+		memcpy(&n->rmac, bgp_attr_get_rmac(pi->attr), ETH_ALEN);
 	}
 
 	if (BGP_DEBUG(evpn_mh, EVPN_MH_ES))
@@ -4914,8 +4914,8 @@ static void bgp_evpn_nh_update_ref_pi(struct bgp_evpn_nh *nh)
 		/* If we have a new pi copy rmac from it and update
 		 * zebra if the new rmac is different
 		 */
-		if (memcmp(&nh->rmac, &nh->ref_pi->attr->rmac, ETH_ALEN)) {
-			memcpy(&nh->rmac, &nh->ref_pi->attr->rmac, ETH_ALEN);
+		if (memcmp(&nh->rmac, bgp_attr_get_rmac(nh->ref_pi->attr), ETH_ALEN)) {
+			memcpy(&nh->rmac, bgp_attr_get_rmac(nh->ref_pi->attr), ETH_ALEN);
 			bgp_evpn_nh_zebra_update(nh, true);
 		}
 		break;

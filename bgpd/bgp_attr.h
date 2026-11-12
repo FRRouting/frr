@@ -895,6 +895,16 @@ static inline void bgp_attr_set_mm_sync_seqnum(struct attr *attr, uint32_t mm_sy
 	attr->mm_sync_seqnum = mm_sync_seqnum;
 }
 
+static inline const struct ethaddr *bgp_attr_get_rmac(const struct attr *attr)
+{
+	return &attr->rmac;
+}
+
+static inline void bgp_attr_set_rmac(struct attr *attr, const struct ethaddr *rmac)
+{
+	attr->rmac = *rmac;
+}
+
 static inline struct bgp_route_evpn *
 bgp_attr_get_evpn_overlay(const struct attr *attr)
 {
