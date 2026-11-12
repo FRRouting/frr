@@ -823,13 +823,6 @@ void ospf_opaque_type9_lsa_if_cleanup(struct ospf_interface *oi)
 						   ntohl(lsa->data->id.s_addr)),
 					   GET_OPAQUE_ID(ntohl(
 						   lsa->data->id.s_addr)));
-			/*
-			 * Removing the LSDB entry drops its lock and frees the
-			 * LSA when that was the last reference. Keep one lock
-			 * until the age update and delete hook are done.
-			 * ospf_lsa_discard() releases that lock unless the LSA
-			 * was already discarded.
-			 */
 			discarded = CHECK_FLAG(lsa->flags, OSPF_LSA_DISCARD);
 			ospf_lsa_lock(lsa);
 			ospf_lsdb_delete(lsdb, lsa);
