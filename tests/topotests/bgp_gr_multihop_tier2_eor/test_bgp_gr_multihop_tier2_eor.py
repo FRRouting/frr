@@ -47,7 +47,7 @@ def hold_direct_eor():
     return False
 
 
-@pytest.fixture(params=[False, True], ids=["without-k", "with-k"])
+@pytest.fixture
 def routers(request, select_defer_time, startup_time, hold_direct_eor):
     """Each case owns fresh daemons and an independent deferral cycle."""
     tgen = Topogen(build_topo, request.node.name)
@@ -98,6 +98,9 @@ def routers(request, select_defer_time, startup_time, hold_direct_eor):
         tgen.stop_topology()
 
 
+@pytest.mark.parametrize(
+    "routers", [False, True], indirect=True, ids=["without-k", "with-k"]
+)
 def test_tier2_ends_on_last_multihop_eor(routers, select_defer_time):
     tgen, _, enabled, log = routers
     cycle_enabled = expect_tier2(tgen, log, enabled)
@@ -123,6 +126,9 @@ def test_tier2_ends_on_last_multihop_eor(routers, select_defer_time):
 
 
 @pytest.mark.parametrize("select_defer_time", [25])
+@pytest.mark.parametrize(
+    "routers", [False, True], indirect=True, ids=["without-k", "with-k"]
+)
 def test_missing_multihop_eor_uses_timeout(routers, select_defer_time):
     tgen, _, enabled, log = routers
     cycle_enabled = expect_tier2(tgen, log, enabled)
