@@ -791,12 +791,6 @@ static int bgp_capability_paths_limit(struct peer_connection *connection,
 		return -1;
 	}
 
-	if (!CHECK_FLAG(peer->cap, PEER_CAP_ADDPATH_RCV)) {
-		flog_warn(EC_BGP_CAPABILITY_INVALID_DATA,
-			  "Paths-Limit: Received Paths-Limit capability without Add-Path capability");
-		return -1;
-	}
-
 	SET_FLAG(peer->cap, PEER_CAP_PATHS_LIMIT_RCV);
 
 	while (stream_get_getp(s) + CAPABILITY_CODE_PATHS_LIMIT_LEN <= end) {
@@ -832,6 +826,39 @@ static int bgp_capability_paths_limit(struct peer_connection *connection,
 	}
 
 	return 0;
+}
+
+static void bgp_capability_paths_limit_check(struct peer *peer)
+{
+	afi_t afi;
+	safi_t safi;
+
+	if (!CHECK_FLAG(peer->cap, PEER_CAP_PATHS_LIMIT_RCV))
+		return;
+
+	if (!CHECK_FLAG(peer->cap, PEER_CAP_ADDPATH_RCV)) {
+		flog_warn(EC_BGP_CAPABILITY_INVALID_DATA,
+			  "%pBP Paths-Limit: Received Paths-Limit capability without Add-Path capability, ignoring",
+			  peer);
+		UNSET_FLAG(peer->cap, PEER_CAP_PATHS_LIMIT_RCV);
+	}
+
+	FOREACH_AFI_SAFI (afi, safi) {
+		if (!CHECK_FLAG(peer->af_cap[afi][safi], PEER_CAP_PATHS_LIMIT_AF_RCV))
+			continue;
+
+		if (CHECK_FLAG(peer->cap, PEER_CAP_PATHS_LIMIT_RCV) &&
+		    CHECK_FLAG(peer->af_cap[afi][safi],
+			       PEER_CAP_ADDPATH_AF_RX_RCV | PEER_CAP_ADDPATH_AF_TX_RCV))
+			continue;
+
+		if (bgp_debug_neighbor_events(peer))
+			zlog_debug("%pBP Paths-Limit: Addr-family %s/%s(afi/safi) not received in Add-Path capability, ignoring",
+				   peer, afi2str(afi), safi2str(safi));
+
+		UNSET_FLAG(peer->af_cap[afi][safi], PEER_CAP_PATHS_LIMIT_AF_RCV);
+		peer->addpath_paths_limit[afi][safi].receive = 0;
+	}
 }
 
 static int bgp_capability_enhe(struct peer_connection *connection, struct capability_header *hdr)
@@ -1561,6 +1588,8 @@ int bgp_open_option_parse(struct peer_connection *connection, uint16_t length, i
 		if (ret < 0)
 			return -1;
 	}
+
+	bgp_capability_paths_limit_check(peer);
 
 	/* All OPEN option is parsed.  Check capability when strict compare
 	   flag is enabled.*/

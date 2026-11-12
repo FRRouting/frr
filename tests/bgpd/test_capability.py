@@ -46,6 +46,18 @@ TestCapability.okfail("AS4more: AS4 capability after other caps (singlets)")
 TestCapability.okfail("AS4series: AS4 capability, in series of capabilities")
 TestCapability.okfail("AS4real: AS4 capability, in series of capabilities")
 TestCapability.okfail("AS4real2: AS4 capability, in series of capabilities")
+TestCapability.okfail(
+    "PathsLimit-noAddPath: Paths-Limit capability without Add-Path capability"
+)
+TestCapability.okfail(
+    "PathsLimit-first: Paths-Limit capability before Add-Path capability"
+)
+TestCapability.okfail(
+    "PathsLimit-after: Paths-Limit capability after Add-Path capability"
+)
+TestCapability.okfail(
+    "PathsLimit-AFI: Paths-Limit capability with AFI/SAFI not in Add-Path capability"
+)
 TestCapability.okfail("DynCap: Dynamic Capability Message, IP/Multicast")
 TestCapability.okfail("DynCapLong: Dynamic Capability Message, IP/Multicast, truncated")
 TestCapability.okfail("DynCapPadded: Dynamic Capability Message, IP/Multicast, padded")
