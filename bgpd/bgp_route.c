@@ -1143,9 +1143,9 @@ int bgp_path_info_cmp(struct bgp *bgp, struct bgp_path_info *new,
 		 * with the
 		 * sticky flag.
 		 */
-		bool new_sticky = CHECK_FLAG(newattr->evpn_flags,
+		bool new_sticky = CHECK_FLAG(bgp_attr_get_evpn_flags(newattr),
 					     ATTR_EVPN_FLAG_STICKY);
-		bool exist_sticky = CHECK_FLAG(existattr->evpn_flags,
+		bool exist_sticky = CHECK_FLAG(bgp_attr_get_evpn_flags(existattr),
 					       ATTR_EVPN_FLAG_STICKY);
 
 		if (new_sticky != exist_sticky) {
