@@ -198,12 +198,15 @@ void test_pcep_tlv_create_path_setup_type_capability(void)
 	if (tlv != NULL)
 		pcep_obj_free_tlv(&tlv->header);
 
-	/* Test only populating the pst list */
+	/* Test only populating the pst list.
+	 * PCECC and SRv6 (3, rfc9603) are not supported by pceplib, they
+	 * are only used to check the order of the PSTs.
+	 */
 	uint8_t *pst1 = pceplib_malloc(PCEPLIB_MESSAGES, 1);
 	uint8_t *pst2 = pceplib_malloc(PCEPLIB_MESSAGES, 1);
 	uint8_t *pst3 = pceplib_malloc(PCEPLIB_MESSAGES, 1);
-	*pst1 = 1;
-	*pst2 = 2;
+	*pst1 = SR_TE_PST;
+	*pst2 = PCECC_PST;
 	*pst3 = 3;
 	dll_append(pst_list, pst1);
 	dll_append(pst_list, pst2);
@@ -237,8 +240,8 @@ void test_pcep_tlv_create_path_setup_type_capability(void)
 	sub_tlv_list = dll_initialize();
 	pst1 = pceplib_malloc(PCEPLIB_MESSAGES, 1);
 	pst2 = pceplib_malloc(PCEPLIB_MESSAGES, 1);
-	*pst1 = 1;
-	*pst2 = 2;
+	*pst1 = SR_TE_PST;
+	*pst2 = PCECC_PST;
 	dll_append(pst_list, pst1);
 	dll_append(pst_list, pst2);
 	dll_append(sub_tlv_list, sub_tlv);
@@ -306,8 +309,8 @@ void test_pcep_tlv_create_path_setup_type_capability(void)
 
 	pst1 = pceplib_malloc(PCEPLIB_MESSAGES, 1);
 	pst2 = pceplib_malloc(PCEPLIB_MESSAGES, 1);
-	*pst1 = 1;
-	*pst2 = 2;
+	*pst1 = SR_TE_PST;
+	*pst2 = PCECC_PST;
 	dll_append(pst_list, pst1);
 	dll_append(pst_list, pst2);
 	tlv = pcep_tlv_create_path_setup_type_capability(pst_list, NULL);
