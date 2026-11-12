@@ -3176,6 +3176,9 @@ DEFUN (bgp_client_to_client_reflection,
        "reflection of routes allowed\n")
 {
 	VTY_DECLVAR_CONTEXT(bgp, bgp);
+	if (!CHECK_FLAG(bgp->flags, BGP_FLAG_NO_CLIENT_TO_CLIENT))
+		return CMD_SUCCESS;
+
 	UNSET_FLAG(bgp->flags, BGP_FLAG_NO_CLIENT_TO_CLIENT);
 	bgp_clear_star_soft_out(vty, bgp->name);
 
@@ -3191,6 +3194,9 @@ DEFUN (no_bgp_client_to_client_reflection,
        "reflection of routes allowed\n")
 {
 	VTY_DECLVAR_CONTEXT(bgp, bgp);
+	if (CHECK_FLAG(bgp->flags, BGP_FLAG_NO_CLIENT_TO_CLIENT))
+		return CMD_SUCCESS;
+
 	SET_FLAG(bgp->flags, BGP_FLAG_NO_CLIENT_TO_CLIENT);
 	bgp_clear_star_soft_out(vty, bgp->name);
 
