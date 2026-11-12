@@ -2610,6 +2610,8 @@ if test "$enable_backtrace" != "no" ; then
           backtrace_ok=true
         ])
       ], [
+        case "$host_os" in
+        openbsd*)
         # OpenBSD. no idea why the header file is under C++, but it is
         ac_cflags_save="$CFLAGS"
         CFLAGS="$CFLAGS -I/usr/include/c++/v1"
@@ -2633,6 +2635,8 @@ if test "$enable_backtrace" != "no" ; then
 	  LIBS="$ac_libs_save"
         ])
         CFLAGS="$ac_cflags_save"
+        ;;
+        esac
       ])
     ])
     if test "$enable_backtrace" = "libunwind" -a "$backtrace_ok" = "false"; then
