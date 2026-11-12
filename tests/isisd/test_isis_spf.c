@@ -291,9 +291,16 @@ static void test_run_leak(struct vty *vty, const struct isis_test_node *root,
 	for (struct route_node *rn = route_top(table); rn; rn = route_next(rn)) {
 		struct isis_spf_leaked_prefix *lp = rn->info;
 
-		if (lp)
-			vty_out(vty, " %pFX  %u%s\n", &rn->p, lp->metric,
-				lp->external ? "  external" : "");
+		if (!lp)
+			continue;
+
+		vty_out(vty, " %pFX  %u%s", &rn->p, lp->metric, lp->external ? "  external" : "");
+		if (lp->has_sid)
+			vty_out(vty, "  prefix-sid %s %u",
+				CHECK_FLAG(lp->sid.flags, ISIS_PREFIX_SID_VALUE) ? "label"
+										 : "index",
+				lp->sid.value);
+		vty_out(vty, "\n");
 	}
 	isis_spf_leak_table_free(table);
 

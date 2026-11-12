@@ -8430,8 +8430,10 @@ void isis_tlvs_free_asla(struct isis_ext_subtlvs *ext, uint8_t standard_apps)
 	}
 }
 
-void isis_tlvs_add_extended_ip_reach(struct isis_tlvs *tlvs, struct prefix_ipv4 *dest,
-				     uint32_t metric, bool external, struct sr_prefix_cfg **pcfgs)
+struct isis_extended_ip_reach *isis_tlvs_add_extended_ip_reach(struct isis_tlvs *tlvs,
+							       struct prefix_ipv4 *dest,
+							       uint32_t metric, bool external,
+							       struct sr_prefix_cfg **pcfgs)
 {
 	struct isis_extended_ip_reach *r = XCALLOC(MTYPE_ISIS_TLV, sizeof(*r));
 
@@ -8457,10 +8459,13 @@ void isis_tlvs_add_extended_ip_reach(struct isis_tlvs *tlvs, struct prefix_ipv4 
 	}
 
 	append_item(&tlvs->extended_ip_reach, (struct isis_item *)r);
+
+	return r;
 }
 
-void isis_tlvs_add_ipv6_reach(struct isis_tlvs *tlvs, uint16_t mtid, struct prefix_ipv6 *dest,
-			      uint32_t metric, bool external, struct sr_prefix_cfg **pcfgs)
+struct isis_ipv6_reach *isis_tlvs_add_ipv6_reach(struct isis_tlvs *tlvs, uint16_t mtid,
+						 struct prefix_ipv6 *dest, uint32_t metric,
+						 bool external, struct sr_prefix_cfg **pcfgs)
 {
 	struct isis_ipv6_reach *r = XCALLOC(MTYPE_ISIS_TLV, sizeof(*r));
 
@@ -8488,6 +8493,27 @@ void isis_tlvs_add_ipv6_reach(struct isis_tlvs *tlvs, uint16_t mtid, struct pref
 	l = (mtid == ISIS_MT_IPV4_UNICAST) ? &tlvs->ipv6_reach
 					   : isis_get_mt_items(&tlvs->mt_ipv6_reach, mtid);
 	append_item(l, (struct isis_item *)r);
+
+	return r;
+}
+
+/*
+ * Add a copy of the Prefix-SID @psid to the sub-TLVs of a prefix reachability
+ * item, allocating the sub-TLVs if the item has none. @context is the context
+ * of the item: ISIS_CONTEXT_SUBTLV_IP_REACH or ISIS_CONTEXT_SUBTLV_IPV6_REACH.
+ */
+void isis_tlvs_add_leaked_prefix_sid(struct isis_subtlvs **subtlvs, enum isis_tlv_context context,
+				     const struct isis_prefix_sid *psid)
+{
+	struct isis_prefix_sid *copy = XCALLOC(MTYPE_ISIS_SUBTLV, sizeof(*copy));
+
+	copy->flags = psid->flags;
+	copy->algorithm = psid->algorithm;
+	copy->value = psid->value;
+
+	if (!*subtlvs)
+		*subtlvs = isis_alloc_subtlvs(context);
+	append_item(&(*subtlvs)->prefix_sids, (struct isis_item *)copy);
 }
 
 void isis_tlvs_add_ipv6_dstsrc_reach(struct isis_tlvs *tlvs, uint16_t mtid,
