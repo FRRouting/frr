@@ -67,3 +67,37 @@ TestCapability.okfail(
 TestCapability.okfail(
     "DynCapMPCoverflow: Dynamic Capability Message, IP/Multicast, cap data != length"
 )
+TestCapability.okfail("PathsLimit-dup: Paths-Limit capability, same AFI/SAFI twice")
+TestCapability.okfail(
+    "PathsLimit-dup-caps: Two Paths-Limit capabilities, same AFI/SAFI in both"
+)
+TestCapability.okfail(
+    "DynCapPathsLimit-dup: Dynamic Capability Message, Paths-Limit, same AFI/SAFI twice"
+)
+TestCapability.okfail(
+    "DynCapPathsLimit-update: Dynamic Capability Message, Paths-Limit, update AFI/SAFI from previous message"
+)
+TestCapability.okfail(
+    "PathsLimit-zero: Paths-Limit capability, zero limit, then same AFI/SAFI again"
+)
+TestCapability.okfail(
+    "DynCapPathsLimit-zero: Dynamic Capability Message, Paths-Limit, zero limit, then same AFI/SAFI again"
+)
+TestCapability.okfail(
+    "DynCapPathsLimit-dup-caps: Dynamic Capability Message, two Paths-Limit capabilities, same AFI/SAFI in both"
+)
+TestCapability.okfail(
+    "DynCapPathsLimit-unset-set: Dynamic Capability Message, Paths-Limit SET, UNSET and SET again"
+)
+TestCapability.okfail(
+    "DynCapPathsLimit-zero-keep: Dynamic Capability Message, Paths-Limit SET with zero limit keeps the old limit"
+)
+TestCapability.okfail(
+    "DynCapPathsLimit-remove-unset: Dynamic Capability Message, Paths-Limit removed, UNSET"
+)
+TestCapability.okfail(
+    "DynCapPathsLimit-remove-set: Dynamic Capability Message, Paths-Limit removed, SET with zero limit"
+)
+TestCapability.okfail(
+    "DynCap-SAFI: Dynamic Capability Message, GR, LLGR and Paths-Limit with IANA SAFIs"
+)

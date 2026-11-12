@@ -10309,6 +10309,13 @@ DEFPY (no_neighbor_addpath_paths_limit,
 
 	peer->addpath_paths_limit[afi][safi].send = 0;
 
+	/* A tuple with zero Paths Limit is ignored by the receiver, so
+	 * re-sending the capability alone would not clear the old limit.
+	 * Withdraw the capability (clears all limits), and advertise it
+	 * again with the limits still configured for other AFI/SAFIs.
+	 */
+	bgp_capability_send(peer->connection, afi, safi, CAPABILITY_CODE_PATHS_LIMIT,
+			    CAPABILITY_ACTION_UNSET);
 	bgp_capability_send(peer->connection, afi, safi, CAPABILITY_CODE_PATHS_LIMIT,
 			    CAPABILITY_ACTION_SET);
 

@@ -821,6 +821,29 @@ static int bgp_capability_paths_limit(struct peer_connection *connection,
 			continue;
 		}
 
+		/* A tuple with zero Paths Limit SHOULD be ignored. Do it before
+		 * marking the AFI/SAFI as received, so that a later tuple for
+		 * the same AFI/SAFI is still considered.
+		 */
+		if (!paths_limit) {
+			if (bgp_debug_neighbor_events(peer))
+				zlog_debug("%s Addr-family %s/%s(afi/safi) has zero limit. Ignore the Paths-Limit capability for this AFI/SAFI",
+					   peer->host, iana_afi2str(pkt_afi),
+					   iana_safi2str(pkt_safi));
+			continue;
+		}
+
+		/* If more than one tuple is received for the same AFI/SAFI,
+		 * only the first one is considered, others MUST be ignored.
+		 */
+		if (CHECK_FLAG(peer->af_cap[afi][safi], PEER_CAP_PATHS_LIMIT_AF_RCV)) {
+			if (bgp_debug_neighbor_events(peer))
+				zlog_debug("%s Addr-family %s/%s(afi/safi) already received. Ignore the duplicate Paths-Limit capability for this AFI/SAFI",
+					   peer->host, iana_afi2str(pkt_afi),
+					   iana_safi2str(pkt_safi));
+			continue;
+		}
+
 		SET_FLAG(peer->af_cap[afi][safi], PEER_CAP_PATHS_LIMIT_AF_RCV);
 		peer->addpath_paths_limit[afi][safi].receive = paths_limit;
 	}

@@ -710,6 +710,297 @@ struct test_segment dynamic_cap_msgs[] = {
 	},
 	{NULL, NULL, {0}, 0, 0}};
 
+/* Paths-Limit capability with more than one tuple for the same AFI/SAFI */
+static struct test_segment paths_limit_dup_msgs[] = {
+	{
+		.name = "PathsLimit-dup",
+		.desc = "Paths-Limit capability, same AFI/SAFI twice",
+		.data = {
+			0x02, 0x0a, CAPABILITY_CODE_ADDPATH, 0x08,
+			0x00, 0x01, 0x01, 0x03, /* IPv4/Uni, send/receive */
+			0x00, 0x02, 0x01, 0x03, /* IPv6/Uni, send/receive */
+			0x02, 0x11, CAPABILITY_CODE_PATHS_LIMIT, 0x0f,
+			0x00, 0x01, 0x01, 0x00, 0x05, /* IPv4/Uni, 5 */
+			0x00, 0x01, 0x01, 0x00, 0x09, /* IPv4/Uni, 9 */
+			0x00, 0x02, 0x01, 0x00, 0x07, /* IPv6/Uni, 7 */
+		},
+		.len = 31,
+		.parses = SHOULD_PARSE,
+	},
+	{
+		.name = "PathsLimit-dup-caps",
+		.desc = "Two Paths-Limit capabilities, same AFI/SAFI in both",
+		.data = {
+			0x02, 0x0a, CAPABILITY_CODE_ADDPATH, 0x08,
+			0x00, 0x01, 0x01, 0x03, /* IPv4/Uni, send/receive */
+			0x00, 0x02, 0x01, 0x03, /* IPv6/Uni, send/receive */
+			0x02, 0x07, CAPABILITY_CODE_PATHS_LIMIT, 0x05,
+			0x00, 0x01, 0x01, 0x00, 0x05, /* IPv4/Uni, 5 */
+			0x02, 0x0c, CAPABILITY_CODE_PATHS_LIMIT, 0x0a,
+			0x00, 0x01, 0x01, 0x00, 0x09, /* IPv4/Uni, 9 */
+			0x00, 0x02, 0x01, 0x00, 0x07, /* IPv6/Uni, 7 */
+		},
+		.len = 35,
+		.parses = SHOULD_PARSE,
+	},
+	{
+		.name = "DynCapPathsLimit-dup",
+		.desc = "Dynamic Capability Message, Paths-Limit, same AFI/SAFI twice",
+		.data = {
+			CAPABILITY_ACTION_SET, CAPABILITY_CODE_PATHS_LIMIT, 0x0a,
+			0x00, 0x01, 0x01, 0x00, 0x05, /* IPv4/Uni, 5 */
+			0x00, 0x01, 0x01, 0x00, 0x09, /* IPv4/Uni, 9 */
+		},
+		.len = 13,
+		.parses = SHOULD_PARSE,
+	},
+	{
+		.name = "DynCapPathsLimit-update",
+		.desc = "Dynamic Capability Message, Paths-Limit, update AFI/SAFI from previous message",
+		.data = {
+			CAPABILITY_ACTION_SET, CAPABILITY_CODE_PATHS_LIMIT, 0x05,
+			0x00, 0x01, 0x01, 0x00, 0x09, /* IPv4/Uni, 9 */
+		},
+		.len = 8,
+		.parses = SHOULD_PARSE,
+	},
+	{
+		.name = "PathsLimit-zero",
+		.desc = "Paths-Limit capability, zero limit, then same AFI/SAFI again",
+		.data = {
+			0x02, 0x06, CAPABILITY_CODE_ADDPATH, 0x04,
+			0x00, 0x01, 0x01, 0x03, /* IPv4/Uni, send/receive */
+			0x02, 0x0c, CAPABILITY_CODE_PATHS_LIMIT, 0x0a,
+			0x00, 0x01, 0x01, 0x00, 0x00, /* IPv4/Uni, 0 */
+			0x00, 0x01, 0x01, 0x00, 0x0a, /* IPv4/Uni, 10 */
+		},
+		.len = 22,
+		.parses = SHOULD_PARSE,
+	},
+	{
+		.name = "DynCapPathsLimit-zero",
+		.desc = "Dynamic Capability Message, Paths-Limit, zero limit, then same AFI/SAFI again",
+		.data = {
+			CAPABILITY_ACTION_SET, CAPABILITY_CODE_PATHS_LIMIT, 0x0a,
+			0x00, 0x01, 0x01, 0x00, 0x00, /* IPv4/Uni, 0 */
+			0x00, 0x01, 0x01, 0x00, 0x0a, /* IPv4/Uni, 10 */
+		},
+		.len = 13,
+		.parses = SHOULD_PARSE,
+	},
+	{
+		.name = "DynCapPathsLimit-dup-caps",
+		.desc = "Dynamic Capability Message, two Paths-Limit capabilities, same AFI/SAFI in both",
+		.data = {
+			CAPABILITY_ACTION_SET, CAPABILITY_CODE_PATHS_LIMIT, 0x05,
+			0x00, 0x01, 0x01, 0x00, 0x01, /* IPv4/Uni, 1 */
+			CAPABILITY_ACTION_SET, CAPABILITY_CODE_PATHS_LIMIT, 0x05,
+			0x00, 0x01, 0x01, 0x00, 0x05, /* IPv4/Uni, 5 */
+		},
+		.len = 16,
+		.parses = SHOULD_PARSE,
+	},
+	{
+		.name = "DynCapPathsLimit-unset-set",
+		.desc = "Dynamic Capability Message, Paths-Limit SET, UNSET and SET again",
+		.data = {
+			CAPABILITY_ACTION_SET, CAPABILITY_CODE_PATHS_LIMIT, 0x05,
+			0x00, 0x01, 0x01, 0x00, 0x01, /* IPv4/Uni, 1 */
+			CAPABILITY_ACTION_UNSET, CAPABILITY_CODE_PATHS_LIMIT, 0x05,
+			0x00, 0x01, 0x01, 0x00, 0x01, /* IPv4/Uni, 1 */
+			CAPABILITY_ACTION_SET, CAPABILITY_CODE_PATHS_LIMIT, 0x05,
+			0x00, 0x01, 0x01, 0x00, 0x05, /* IPv4/Uni, 5 */
+		},
+		.len = 24,
+		.parses = SHOULD_PARSE,
+	},
+	{
+		.name = "DynCapPathsLimit-zero-keep",
+		.desc = "Dynamic Capability Message, Paths-Limit SET with zero limit keeps the old limit",
+		.data = {
+			CAPABILITY_ACTION_SET, CAPABILITY_CODE_PATHS_LIMIT, 0x05,
+			0x00, 0x01, 0x01, 0x00, 0x00, /* IPv4/Uni, 0 */
+		},
+		.len = 8,
+		.parses = SHOULD_PARSE,
+	},
+	{
+		.name = "DynCapPathsLimit-remove-unset",
+		.desc = "Dynamic Capability Message, Paths-Limit removed, UNSET",
+		.data = {
+			CAPABILITY_ACTION_UNSET, CAPABILITY_CODE_PATHS_LIMIT, 0x05,
+			0x00, 0x01, 0x01, 0x00, 0x05, /* IPv4/Uni, 5 */
+		},
+		.len = 8,
+		.parses = SHOULD_PARSE,
+	},
+	{
+		.name = "DynCapPathsLimit-remove-set",
+		.desc = "Dynamic Capability Message, Paths-Limit removed, SET with zero limit",
+		.data = {
+			CAPABILITY_ACTION_SET, CAPABILITY_CODE_PATHS_LIMIT, 0x05,
+			0x00, 0x01, 0x01, 0x00, 0x00, /* IPv4/Uni, 0 */
+		},
+		.len = 8,
+		.parses = SHOULD_PARSE,
+	},
+};
+
+/*
+ * SAFI in Dynamic Capability Messages is an IANA value. Wire SAFI 4 is
+ * labeled-unicast (SAFI_ENCAP internally), 128 is MPLS VPN, and 70 is EVPN
+ * (not internal values at all).
+ */
+static struct test_segment dyncap_safi_msg = {
+	.name = "DynCap-SAFI",
+	.desc = "Dynamic Capability Message, GR, LLGR and Paths-Limit with IANA SAFIs",
+	.data = {
+		CAPABILITY_ACTION_SET, CAPABILITY_CODE_RESTART, 0x0a,
+		0x00, 0x78, /* restart time 120 */
+		0x00, 0x01, 0x04, 0x80, /* IPv4/LU, F-bit */
+		0x00, 0x01, 0x80, 0x80, /* IPv4/VPN, F-bit */
+		CAPABILITY_ACTION_SET, CAPABILITY_CODE_LLGR, 0x0e,
+		0x00, 0x01, 0x04, 0x80, 0x00, 0x00, 0x3c, /* IPv4/LU, 60 */
+		0x00, 0x01, 0x80, 0x80, 0x00, 0x00, 0x3c, /* IPv4/VPN, 60 */
+		CAPABILITY_ACTION_SET, CAPABILITY_CODE_PATHS_LIMIT, 0x0f,
+		0x00, 0x01, 0x04, 0x00, 0x03, /* IPv4/LU, 3 */
+		0x00, 0x01, 0x80, 0x00, 0x04, /* IPv4/VPN, 4 */
+		0x00, 0x19, 0x46, 0x00, 0x06, /* L2VPN/EVPN, 6 */
+	},
+	.len = 48,
+	.parses = SHOULD_PARSE,
+};
+
+static void dyncap_safi_test(struct peer *peer, struct test_segment *t)
+{
+	struct {
+		afi_t afi;
+		safi_t safi;
+		bool gr;
+		uint16_t limit;
+	} checks[] = {
+		{ AFI_IP, SAFI_LABELED_UNICAST, true, 3 },
+		{ AFI_IP, SAFI_MPLS_VPN, true, 4 },
+		{ AFI_L2VPN, SAFI_EVPN, false, 6 },
+		{ AFI_IP, SAFI_ENCAP, false, 0 },
+	};
+	uint32_t gr_flags = PEER_CAP_RESTART_AF_RCV | PEER_CAP_LLGR_AF_RCV;
+	int oldfailed = failed;
+	afi_t afi;
+	safi_t safi;
+	int ret;
+
+	SET_FLAG(peer->cap, PEER_CAP_ADDPATH_RCV);
+	FOREACH_AFI_SAFI (afi, safi) {
+		UNSET_FLAG(peer->af_cap[afi][safi], gr_flags | PEER_CAP_PATHS_LIMIT_AF_RCV);
+		peer->addpath_paths_limit[afi][safi].receive = 0;
+	}
+
+	stream_reset(peer->connection->curr);
+	stream_write(peer->connection->curr, t->data, t->len);
+
+	printf("%s: %s\n", t->name, t->desc);
+
+	ret = bgp_capability_receive(peer->connection, t->len);
+	ret = (ret == BGP_Stop) ? SHOULD_ERR : SHOULD_PARSE;
+	printf("parsed?: %s\n", ret ? "no" : "yes");
+	if (ret != t->parses)
+		failed++;
+
+	for (size_t i = 0; i < array_size(checks); i++) {
+		bool gr = (peer->af_cap[checks[i].afi][checks[i].safi] & gr_flags) == gr_flags;
+		uint16_t limit = peer->addpath_paths_limit[checks[i].afi][checks[i].safi].receive;
+
+		printf("%s/%s: GR/LLGR %s (expected %s), Paths-Limit %u (expected %u)\n",
+		       afi2str(checks[i].afi), safi2str(checks[i].safi), gr ? "yes" : "no",
+		       checks[i].gr ? "yes" : "no", limit, checks[i].limit);
+
+		if (gr != checks[i].gr || limit != checks[i].limit)
+			failed++;
+	}
+
+	if (tty)
+		printf("%s", (failed > oldfailed) ? VT100_RED "failed!" VT100_RESET
+						  : VT100_GREEN "OK" VT100_RESET);
+	else
+		printf("%s", (failed > oldfailed) ? "failed!" : "OK");
+
+	if (failed)
+		printf(" (%u)", failed);
+
+	printf("\n\n");
+}
+
+static void paths_limit_dup_test(struct peer *peer, struct test_segment *t, int type, bool reset,
+				 uint16_t expected_ipv4, uint16_t expected_ipv6)
+{
+	struct {
+		afi_t afi;
+		safi_t safi;
+		uint16_t expected;
+	} checks[] = {
+		{ AFI_IP, SAFI_UNICAST, expected_ipv4 },
+		{ AFI_IP6, SAFI_UNICAST, expected_ipv6 },
+	};
+	int oldfailed = failed;
+	int capability = 0;
+	afi_t afi;
+	safi_t safi;
+	int ret;
+
+	/* Forget Add-Path and Paths-Limit capabilities from previous tests */
+	if (reset) {
+		UNSET_FLAG(peer->cap, PEER_CAP_ADDPATH_RCV | PEER_CAP_PATHS_LIMIT_RCV);
+		FOREACH_AFI_SAFI (afi, safi) {
+			UNSET_FLAG(peer->af_cap[afi][safi], PEER_CAP_ADDPATH_AF_RX_RCV |
+								    PEER_CAP_ADDPATH_AF_TX_RCV |
+								    PEER_CAP_PATHS_LIMIT_AF_RCV);
+			peer->addpath_paths_limit[afi][safi].receive = 0;
+		}
+	}
+
+	stream_reset(peer->connection->curr);
+	stream_write(peer->connection->curr, t->data, t->len);
+
+	printf("%s: %s\n", t->name, t->desc);
+
+	if (type == OPT_PARAM) {
+		ret = bgp_open_option_parse(peer->connection, t->len, &capability);
+	} else {
+		/* Add-Path capability is received in OPEN */
+		SET_FLAG(peer->cap, PEER_CAP_ADDPATH_RCV);
+		ret = bgp_capability_receive(peer->connection, t->len);
+	}
+
+	if (ret != -1)
+		ret = (ret == BGP_Stop) ? -1 : 0;
+
+	printf("parsed?: %s\n", ret ? "no" : "yes");
+	if (ret != t->parses)
+		failed++;
+
+	for (size_t i = 0; i < array_size(checks); i++) {
+		uint16_t limit = peer->addpath_paths_limit[checks[i].afi][checks[i].safi].receive;
+
+		printf("Paths-Limit: %s/%s: limit %u (expected %u)\n", afi2str(checks[i].afi),
+		       safi2str(checks[i].safi), limit, checks[i].expected);
+
+		if (limit != checks[i].expected)
+			failed++;
+	}
+
+	if (tty)
+		printf("%s", (failed > oldfailed) ? VT100_RED "failed!" VT100_RESET
+						  : VT100_GREEN "OK" VT100_RESET);
+	else
+		printf("%s", (failed > oldfailed) ? "failed!" : "OK");
+
+	if (failed)
+		printf(" (%u)", failed);
+
+	printf("\n\n");
+}
+
 /* Entire Optional-Parameters block */
 struct test_segment opt_params[] = {
 	{
@@ -1086,6 +1377,24 @@ int main(void)
 	i = 0;
 	while (dynamic_cap_msgs[i].name)
 		parse_test(peer, &dynamic_cap_msgs[i++], DYNCAP);
+
+	paths_limit_dup_test(peer, &paths_limit_dup_msgs[0], OPT_PARAM, true, 5, 7);
+	paths_limit_dup_test(peer, &paths_limit_dup_msgs[1], OPT_PARAM, true, 5, 7);
+	paths_limit_dup_test(peer, &paths_limit_dup_msgs[2], DYNCAP, true, 5, 0);
+	/* Not reset, IPv4/Uni 5 is received in the previous message */
+	paths_limit_dup_test(peer, &paths_limit_dup_msgs[3], DYNCAP, false, 9, 0);
+	paths_limit_dup_test(peer, &paths_limit_dup_msgs[4], OPT_PARAM, true, 10, 0);
+	paths_limit_dup_test(peer, &paths_limit_dup_msgs[5], DYNCAP, true, 10, 0);
+	paths_limit_dup_test(peer, &paths_limit_dup_msgs[6], DYNCAP, true, 1, 0);
+	/* Not reset, IPv4/Uni 1 is received in the previous message */
+	paths_limit_dup_test(peer, &paths_limit_dup_msgs[7], DYNCAP, false, 5, 0);
+	/* Not reset, IPv4/Uni 5 from the previous message stays */
+	paths_limit_dup_test(peer, &paths_limit_dup_msgs[8], DYNCAP, false, 5, 0);
+	/* Removing the limit: UNSET, then SET with zero, as two messages */
+	paths_limit_dup_test(peer, &paths_limit_dup_msgs[9], DYNCAP, false, 0, 0);
+	paths_limit_dup_test(peer, &paths_limit_dup_msgs[10], DYNCAP, false, 0, 0);
+
+	dyncap_safi_test(peer, &dyncap_safi_msg);
 
 	printf("failures: %d\n", failed);
 	return failed;
