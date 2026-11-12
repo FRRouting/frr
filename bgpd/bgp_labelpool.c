@@ -772,8 +772,9 @@ static void bgp_sync_label_manager(struct event *e)
 					   __func__, labelid);
 			}
 			/* if this was a BGP_LU request, unlock node
+			 * (no ledger entry here, so use the fifo copy)
 			 */
-			check_bgp_lu_cb_unlock(lcb);
+			check_bgp_lu_cb_unlock(&lf->lcb);
 			goto finishedrequest;
 		}
 
