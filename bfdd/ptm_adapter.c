@@ -135,31 +135,35 @@ static void _ptm_bfd_session_del(struct bfd_session *bs, uint8_t diag)
 	frrtrace(7, frr_bfd, ptm_session_event, 2, bs->discrs.my_discr, diag, bs->key.family,
 		 (uint8_t *)&bs->key.local, (uint8_t *)&bs->key.peer, bs->refcount);
 
-	/* Change state and notify peer. */
+	/*
+	 * The configuration or another client still holds the session: it
+	 * keeps running as it is. Taking it down here would flap it for
+	 * the others, and a data plane running it would never hear of it.
+	 */
+	if (bs->refcount > 0)
+		return;
+
+	/*
+	 * Sanity check: if there is a refcount bug, we can't delete
+	 * the session a user configured manually. Lets leave a
+	 * message here so we can catch the bug if it exists.
+	 */
+	if (CHECK_FLAG(bs->flags, BFD_SESS_FLAG_CONFIG)) {
+		frrtrace(4, frr_bfd, ptm_config_refcount_error, bs->discrs.my_discr,
+			 bs->key.family, (uint8_t *)&bs->key.local, (uint8_t *)&bs->key.peer);
+		zlog_err("ptm-del-session: [%s] session refcount is zero but it was configured by CLI",
+			 bs_to_string(bs));
+		return;
+	}
+
+	/* Change state and notify peer before the session goes away. */
 	bs->ses_state = PTM_BFD_DOWN;
 	bs->local_diag = diag;
 
 	if (bs->bfd_mode == BFD_MODE_TYPE_BFD)
 		ptm_bfd_snd(bs, 0);
 
-	/* Session reached refcount == 0, lets delete it. */
-	if (bs->refcount == 0) {
-		/*
-		 * Sanity check: if there is a refcount bug, we can't delete
-		 * the session a user configured manually. Lets leave a
-		 * message here so we can catch the bug if it exists.
-		 */
-		if (CHECK_FLAG(bs->flags, BFD_SESS_FLAG_CONFIG)) {
-			frrtrace(4, frr_bfd, ptm_config_refcount_error, bs->discrs.my_discr,
-				 bs->key.family, (uint8_t *)&bs->key.local,
-				 (uint8_t *)&bs->key.peer);
-			zlog_err(
-				"ptm-del-session: [%s] session refcount is zero but it was configured by CLI",
-				bs_to_string(bs));
-		} else {
-			bfd_session_free(bs);
-		}
-	}
+	bfd_session_free(bs);
 }
 
 static int _ptm_msg_address(struct stream *msg, int family, const void *addr)
