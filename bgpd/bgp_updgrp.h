@@ -66,11 +66,16 @@
 	(PEER_CAP_ADDPATH_AF_TX_ADV | PEER_CAP_ADDPATH_AF_RX_RCV               \
 	 | PEER_CAP_ENHE_AF_NEGO)
 
-enum bpacket_attr_vec_type { BGP_ATTR_VEC_NH = 0, BGP_ATTR_VEC_MAX };
+enum bpacket_attr_vec_type {
+	BGP_ATTR_VEC_NH = 0,
+	BGP_ATTR_VEC_AIGP = 1,
+	BGP_ATTR_VEC_MAX
+};
 
 typedef struct {
 	uint32_t flags;
 	unsigned long offset;
+	uint64_t data; /* type-specific: for AIGP, the IGP cost to add on NH change */
 } bpacket_attr_vec;
 
 #define BPKT_ATTRVEC_FLAGS_UPDATED        (1 << 0)
