@@ -66,6 +66,9 @@ struct eigrp {
 	struct eigrp_interface_hash_head eifs;
 	uint8_t passive_interface_default; /* passive-interface default */
 
+	/* Set while eigrp_finish_final() dismantles the process. */
+	bool finishing;
+
 	int fd;
 	unsigned int maxsndbuflen;
 
