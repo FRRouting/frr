@@ -5397,6 +5397,9 @@ DEFUN (bgp_disable_connected_route_check,
        "Disable checking if nexthop is connected on ebgp sessions\n")
 {
 	VTY_DECLVAR_CONTEXT(bgp, bgp);
+	if (CHECK_FLAG(bgp->flags, BGP_FLAG_DISABLE_NH_CONNECTED_CHK))
+		return CMD_SUCCESS;
+
 	SET_FLAG(bgp->flags, BGP_FLAG_DISABLE_NH_CONNECTED_CHK);
 	bgp_clear_star_soft_in(vty, bgp->name);
 
@@ -5411,6 +5414,9 @@ DEFUN (no_bgp_disable_connected_route_check,
        "Disable checking if nexthop is connected on ebgp sessions\n")
 {
 	VTY_DECLVAR_CONTEXT(bgp, bgp);
+	if (!CHECK_FLAG(bgp->flags, BGP_FLAG_DISABLE_NH_CONNECTED_CHK))
+		return CMD_SUCCESS;
+
 	UNSET_FLAG(bgp->flags, BGP_FLAG_DISABLE_NH_CONNECTED_CHK);
 	bgp_clear_star_soft_in(vty, bgp->name);
 
