@@ -1809,6 +1809,42 @@ static int svd_nh_uninstall(struct zebra_l3vni *zl3vni, struct zebra_neigh *n)
 	return _nh_uninstall(zl3vni->vxlan_if, n);
 }
 
+static void zl3vni_rmac_install_hash(struct hash_bucket *bucket, void *ctx)
+{
+	zl3vni_rmac_install(ctx, bucket->data);
+}
+
+static void zl3vni_rmac_uninstall_hash(struct hash_bucket *bucket, void *ctx)
+{
+	zl3vni_rmac_uninstall(ctx, bucket->data);
+}
+
+/*
+ * Re-map the L3VNI to its current SVI. On an access VLAN change, move
+ * the remote RMACs off the old VLAN.
+ */
+void zl3vni_access_vlan_update(struct zebra_l3vni *zl3vni, struct zebra_vxlan_vni *vnip,
+			       vlanid_t old_vlan)
+{
+	vlanid_t new_vlan = vnip->access_vlan;
+	bool changed = old_vlan != new_vlan;
+
+	if (changed) {
+		/* RMAC uninstall takes the VLAN from vnip */
+		vnip->access_vlan = old_vlan;
+		hash_iterate(zl3vni->rmac_table, zl3vni_rmac_uninstall_hash, zl3vni);
+		vnip->access_vlan = new_vlan;
+	}
+
+	zl3vni->svi_if = NULL;
+	zl3vni->svi_if = zl3vni_map_to_svi_if(zl3vni);
+
+	if (!changed)
+		return;
+
+	hash_iterate(zl3vni->rmac_table, zl3vni_rmac_install_hash, zl3vni);
+}
+
 /* Check for stale RMAC and delete if exists */
 static void zl3vni_check_del_rmac(struct zebra_l3vni *zl3vni, const struct ethaddr old_rmac,
 				  const struct ipaddr *vtep_ip)
