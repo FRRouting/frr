@@ -1323,11 +1323,6 @@ void subgroup_default_originate(struct update_subgroup *subgrp)
 							tmp_pi.attr);
 					}
 					bgp_attr_flush(tmp_pi.attr);
-					subgroup_announce_reset_nhop(
-						(peer_cap_enhe(peer, afi, safi)
-							 ? AF_INET6
-							 : AF_INET),
-						new_attr);
 					ret = new_ret;
 				} else
 					bgp_attr_flush(&tmp_attr);
@@ -1388,6 +1383,15 @@ rmap_done:;
 			 */
 			bgp_attr_clear_reflection(&attr_copy);
 		}
+
+		/* Locally originated: next-hop is always self, ignore any
+		 * next-hop set by the route-map.
+		 */
+		subgroup_announce_reset_nhop((afi == AFI_IP6 || peer_cap_enhe(peer, afi, safi))
+						     ? AF_INET6
+						     : AF_INET,
+					     &attr_copy);
+		UNSET_FLAG(attr_copy.rmap_change_flags, BATTR_RMAP_NEXTHOP_FLAGS);
 
 		/* Add gshut community after set-only so route-map
 		 * cannot overwrite the shutdown signal.

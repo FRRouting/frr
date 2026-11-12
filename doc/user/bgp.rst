@@ -2167,6 +2167,12 @@ Configuring Peers
        set community 123:123
       !
 
+   The default route is treated as locally originated, so its next-hop is
+   always this router; a ``set ip next-hop`` or ``set ipv6 next-hop`` in the
+   route-map is ignored. To advertise a default route with a different
+   next-hop, originate it from a static route instead (``network 0.0.0.0/0``
+   or ``redistribute static``) and set the next-hop in an outbound route-map.
+
    See also :clicmd:`bgp default-originate set-only-unconditional` for
    backward compatibility options when using set-only route-maps with an
    empty BGP table.
