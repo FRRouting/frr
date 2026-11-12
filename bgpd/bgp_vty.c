@@ -5029,6 +5029,8 @@ DEFUN (bgp_default_local_preference,
 	uint32_t local_pref;
 
 	local_pref = strtoul(argv[idx_number]->arg, NULL, 10);
+	if (bgp->default_local_pref == local_pref)
+		return CMD_SUCCESS;
 
 	bgp_default_local_preference_set(bgp, local_pref);
 	bgp_clear_star_soft_in(vty, bgp->name);
@@ -5046,6 +5048,9 @@ DEFUN (no_bgp_default_local_preference,
        "Configure default local preference value\n")
 {
 	VTY_DECLVAR_CONTEXT(bgp, bgp);
+	if (bgp->default_local_pref == BGP_DEFAULT_LOCAL_PREF)
+		return CMD_SUCCESS;
+
 	bgp_default_local_preference_unset(bgp);
 	bgp_clear_star_soft_in(vty, bgp->name);
 
