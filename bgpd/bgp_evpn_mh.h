@@ -348,14 +348,14 @@ static inline int bgp_evpn_is_es_local(struct bgp_evpn_es *es)
 }
 
 extern esi_t *zero_esi;
-static inline bool bgp_evpn_is_esi_valid(esi_t *esi)
+static inline bool bgp_evpn_is_esi_valid(const esi_t *esi)
 {
 	return !!memcmp(esi, zero_esi, sizeof(esi_t));
 }
 
-static inline esi_t *bgp_evpn_attr_get_esi(struct attr *attr)
+static inline const esi_t *bgp_evpn_attr_get_esi(const struct attr *attr)
 {
-	return attr ? &attr->esi : zero_esi;
+	return attr ? bgp_attr_get_esi(attr) : zero_esi;
 }
 
 static inline bool bgp_evpn_attr_is_sync(struct attr *attr)
@@ -440,21 +440,21 @@ void bgp_evpn_es_evi_show_vni(struct vty *vty, vni_t vni,
 void bgp_evpn_es_evi_show(struct vty *vty, bool uj, bool detail);
 struct bgp_evpn_es *bgp_evpn_es_find(const esi_t *esi);
 extern void bgp_evpn_vrf_es_init(struct bgp *bgp_vrf);
-extern bool bgp_evpn_is_esi_local_and_non_bypass(esi_t *esi);
+extern bool bgp_evpn_is_esi_local_and_non_bypass(const esi_t *esi);
 extern void bgp_evpn_es_vrf_deref(struct bgp_evpn_es_evi *es_evi);
 extern void bgp_evpn_es_vrf_ref(struct bgp_evpn_es_evi *es_evi,
 				struct bgp *bgp_vrf);
 extern void bgp_evpn_path_mh_info_free(struct bgp_path_mh_info *mh_info);
 extern void bgp_evpn_path_es_link(struct bgp_path_info *pi, vni_t vni,
-				  esi_t *esi);
+				  const esi_t *esi);
 extern bool bgp_evpn_path_es_use_nhg(struct bgp *bgp_vrf,
 				     struct bgp_path_info *pi, uint32_t *nhg_p);
 extern void bgp_evpn_es_vrf_show(struct vty *vty, bool uj,
 				 struct bgp_evpn_es *es);
 extern void bgp_evpn_es_vrf_show_esi(struct vty *vty, esi_t *esi, bool uj);
 extern void bgp_evpn_switch_ead_evi_rx(void);
-extern bool bgp_evpn_es_add_l3_attrs_ok(esi_t *esi);
-extern void bgp_evpn_es_vrf_use_nhg(struct bgp *bgp_vrf, esi_t *esi,
+extern bool bgp_evpn_es_add_l3_attrs_ok(const esi_t *esi);
+extern void bgp_evpn_es_vrf_use_nhg(struct bgp *bgp_vrf, const esi_t *esi,
 				    bool *use_l3nhg, bool *is_l3nhg_active,
 				    struct bgp_evpn_es_vrf **es_vrf_p);
 extern void bgp_evpn_nh_init(struct bgp *bgp_vrf);

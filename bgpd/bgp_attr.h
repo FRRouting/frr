@@ -905,6 +905,16 @@ static inline void bgp_attr_set_rmac(struct attr *attr, const struct ethaddr *rm
 	attr->rmac = *rmac;
 }
 
+static inline const esi_t *bgp_attr_get_esi(const struct attr *attr)
+{
+	return &attr->esi;
+}
+
+static inline void bgp_attr_set_esi(struct attr *attr, const esi_t *esi)
+{
+	attr->esi = *esi;
+}
+
 static inline struct bgp_route_evpn *
 bgp_attr_get_evpn_overlay(const struct attr *attr)
 {

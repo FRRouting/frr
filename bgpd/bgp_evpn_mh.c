@@ -1744,7 +1744,7 @@ static void bgp_evpn_path_es_unlink(struct bgp_path_es_info *es_info)
 	 */
 }
 
-void bgp_evpn_path_es_link(struct bgp_path_info *pi, vni_t vni, esi_t *esi)
+void bgp_evpn_path_es_link(struct bgp_path_info *pi, vni_t vni, const esi_t *esi)
 {
 	struct bgp_path_es_info *es_info;
 	struct bgp_evpn_es *es;
@@ -2200,7 +2200,7 @@ static void bgp_evpn_es_remote_info_re_eval(struct bgp_evpn_es *es)
 /* If ES is present and local it needs to be active/oper-up for
  * including L3 EC
  */
-bool bgp_evpn_es_add_l3_attrs_ok(esi_t *esi)
+bool bgp_evpn_es_add_l3_attrs_ok(const esi_t *esi)
 {
 	struct bgp_evpn_es *es;
 
@@ -2485,7 +2485,7 @@ static void bgp_evpn_local_es_do_del(struct bgp *bgp, struct bgp_evpn_es *es)
 	bgp_evpn_es_local_info_clear(es, false);
 }
 
-bool bgp_evpn_is_esi_local_and_non_bypass(esi_t *esi)
+bool bgp_evpn_is_esi_local_and_non_bypass(const esi_t *esi)
 {
 	struct bgp_evpn_es *es = NULL;
 
@@ -3349,7 +3349,7 @@ void bgp_evpn_es_evi_vrf_ref(struct bgpevpn *vpn)
  *   in zebra.
  * - if L3NHG has been activated install the route via that L3NHG
  */
-void bgp_evpn_es_vrf_use_nhg(struct bgp *bgp_vrf, esi_t *esi, bool *use_l3nhg,
+void bgp_evpn_es_vrf_use_nhg(struct bgp *bgp_vrf, const esi_t *esi, bool *use_l3nhg,
 			     bool *is_l3nhg_active,
 			     struct bgp_evpn_es_vrf **es_vrf_p)
 {
@@ -3378,7 +3378,7 @@ void bgp_evpn_es_vrf_use_nhg(struct bgp *bgp_vrf, esi_t *esi, bool *use_l3nhg,
 bool bgp_evpn_path_es_use_nhg(struct bgp *bgp_vrf, struct bgp_path_info *pi,
 			      uint32_t *nhg_p)
 {
-	esi_t *esi;
+	const esi_t *esi;
 	struct bgp_evpn_es_vrf *es_vrf = NULL;
 	struct bgp_path_info *parent_pi;
 	struct bgp_dest *bd;

@@ -1017,8 +1017,8 @@ int bgp_path_info_cmp(struct bgp *bgp, struct bgp_path_info *new,
 	uint32_t new_mm_seq;
 	uint32_t exist_mm_seq;
 	int nh_cmp;
-	esi_t *exist_esi;
-	esi_t *new_esi;
+	const esi_t *exist_esi;
+	const esi_t *new_esi;
 	bool same_esi;
 	bool old_proxy;
 	bool new_proxy;
@@ -9096,7 +9096,8 @@ void bgp_static_update(struct bgp *bgp, const struct prefix *p,
 			ipaddr_set_v6(&bre->gw_ip, &bgp_static->gatewayIp.u.prefix6);
 			bgp_attr_set_evpn_overlay(&attr, bre);
 		}
-		memcpy(&attr.esi, bgp_static->eth_s_id, sizeof(esi_t));
+		if (bgp_static->eth_s_id)
+			bgp_attr_set_esi(&attr, bgp_static->eth_s_id);
 		if (bgp_static->encap_tunneltype == BGP_ENCAP_TYPE_VXLAN) {
 			struct bgp_encap_type_vxlan bet;
 			memset(&bet, 0, sizeof(bet));
@@ -13075,10 +13076,10 @@ void route_vty_out(struct vty *vty, const struct prefix *p, struct bgp_path_info
 		vty_out(vty, "%s", bgp_origin_str[attr->origin]);
 
 	if (json_paths) {
-		if (bgp_evpn_is_esi_valid(&attr->esi)) {
+		if (bgp_evpn_is_esi_valid(bgp_attr_get_esi(attr))) {
 			json_object_string_add(json_path, "esi",
-					esi_to_str(&attr->esi,
-					esi_buf, sizeof(esi_buf)));
+					       esi_to_str(bgp_attr_get_esi(attr), esi_buf,
+							  sizeof(esi_buf)));
 		}
 		if ((safi == SAFI_EVPN || safi == SAFI_UNREACH) &&
 		    bgp_attr_exists(attr, BGP_ATTR_EXT_COMMUNITIES)) {
@@ -13133,11 +13134,11 @@ void route_vty_out(struct vty *vty, const struct prefix *p, struct bgp_path_info
 		vty_out(vty, "\n");
 
 		if (safi == SAFI_EVPN) {
-			if (bgp_evpn_is_esi_valid(&attr->esi)) {
+			if (bgp_evpn_is_esi_valid(bgp_attr_get_esi(attr))) {
 				/* XXX - add these params to the json out */
 				vty_out(vty, "%*s", 20, " ");
 				vty_out(vty, "ESI:%s",
-					esi_to_str(&attr->esi, esi_buf,
+					esi_to_str(bgp_attr_get_esi(attr), esi_buf,
 						   sizeof(esi_buf)));
 
 				vty_out(vty, "\n");
@@ -13733,7 +13734,7 @@ static void route_vty_out_detail_es_info(struct vty *vty,
 	bool peer_active = !!CHECK_FLAG(bgp_attr_get_es_flags(attr), ATTR_ES_PEER_ACTIVE);
 	bool peer_proxy = !!CHECK_FLAG(bgp_attr_get_es_flags(attr), ATTR_ES_PEER_PROXY);
 
-	esi_to_str(&attr->esi, esi_buf, sizeof(esi_buf));
+	esi_to_str(bgp_attr_get_esi(attr), esi_buf, sizeof(esi_buf));
 	if (json_path) {
 		json_object *json_es_info = NULL;
 
@@ -14447,7 +14448,7 @@ skip_nexthop:
 	}
 
 	if (safi == SAFI_EVPN &&
-			bgp_evpn_is_esi_valid(&attr->esi)) {
+			bgp_evpn_is_esi_valid(bgp_attr_get_esi(attr))) {
 		route_vty_out_detail_es_info(vty, path, attr, json_path);
 	}
 
