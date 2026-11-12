@@ -870,6 +870,16 @@ static inline void bgp_attr_set_evpn_flags(struct attr *attr, uint8_t evpn_flags
 	attr->evpn_flags = evpn_flags;
 }
 
+static inline uint16_t bgp_attr_get_df_pref(const struct attr *attr)
+{
+	return attr->df_pref;
+}
+
+static inline void bgp_attr_set_df_pref(struct attr *attr, uint16_t df_pref)
+{
+	attr->df_pref = df_pref;
+}
+
 static inline struct bgp_route_evpn *
 bgp_attr_get_evpn_overlay(const struct attr *attr)
 {
