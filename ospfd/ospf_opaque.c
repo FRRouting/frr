@@ -623,11 +623,6 @@ static void free_opaque_info_per_type(struct opaque_info_per_type *oipt,
 			continue;
 		if (IS_LSA_MAXAGE(lsa))
 			continue;
-		/*
-		 * Flush from the per-type object we already hold. Looking the
-		 * type up again walks the owner list, which list_delete() is
-		 * in the middle of freeing.
-		 */
 		ospf_opaque_lsa_flush_oipt(oipt, lsa);
 	}
 
