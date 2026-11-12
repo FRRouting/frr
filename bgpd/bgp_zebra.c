@@ -196,13 +196,24 @@ static void bgp_nbr_connected_delete(struct bgp *bgp, struct nbr_connected *ifc,
 
 static int bgp_ifp_destroy(struct interface *ifp)
 {
-	struct bgp *bgp;
+	struct bgp *bgp, *nbgp;
+	struct listnode *bnode, *node;
+	struct peer *peer;
 
 	bgp = ifp->vrf->info;
 
 	if (BGP_DEBUG(zebra, ZEBRA))
 		zlog_debug("Rx Intf del VRF %s IF %s", ifp->vrf->name,
 			   ifp->name);
+
+	/*
+	 * lib frees an unconfigured ifp once this hook returns. BGP views use
+	 * the default VRF's interfaces without being its vrf->info.
+	 */
+	for (ALL_LIST_ELEMENTS_RO(bm->bgp, bnode, nbgp))
+		for (ALL_LIST_ELEMENTS_RO(nbgp->peer, node, peer))
+			if (peer->nexthop.ifp == ifp)
+				peer->nexthop.ifp = NULL;
 
 	if (bgp) {
 		bgp_update_interface_nbrs(bgp, ifp, NULL);
@@ -995,9 +1006,8 @@ bgp_path_info_to_ipv6_nexthop(struct bgp_path_info *path, ifindex_t *ifindex)
 			    path->peer->connection->su_remote &&
 			    path->peer->connection->su_remote->sa.sa_family == AF_INET6) {
 				nexthop = &path->peer->connection->su_remote->sin6.sin6_addr;
-				if (IN6_IS_ADDR_LINKLOCAL(nexthop))
-					*ifindex = path->peer->nexthop.ifp
-							   ->ifindex;
+				if (IN6_IS_ADDR_LINKLOCAL(nexthop) && path->peer->nexthop.ifp)
+					*ifindex = path->peer->nexthop.ifp->ifindex;
 			} else {
 				nexthop = &path->attr->mp_nexthop_local;
 				if (IN6_IS_ADDR_LINKLOCAL(nexthop))
