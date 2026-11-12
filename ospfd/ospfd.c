@@ -1027,7 +1027,6 @@ void ospf_area_lsdb_discard_delete(struct ospf_area *area)
 
 static void ospf_area_free(struct ospf_area *area)
 {
-	/* Drop TE links before the area object goes away. */
 	ospf_mpls_te_area_detach(area);
 
 	ospf_opaque_type10_lsa_term(area);
