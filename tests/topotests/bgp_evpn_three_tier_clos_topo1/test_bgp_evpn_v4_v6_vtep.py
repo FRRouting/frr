@@ -715,18 +715,14 @@ def setup_ext1(tgen, ip_version):
     # Configure swp1 - Connected to bordertor-11
     shutdown_bringup_interface_in_kernel(router.tgen, router.name, "swp1", True)
     if ip_version == "ipv6":
-        create_address_on_interface(
-            tgen, router.name, "swp1", "fd00:10:254::2:0:2/126"
-        )
+        create_address_on_interface(tgen, router.name, "swp1", "fd00:10:254::2:0:2/126")
     else:  # ipv4
         create_address_on_interface(tgen, router.name, "swp1", "10.254.0.10/30")
 
     # Configure swp2 - Connected to bordertor-12
     shutdown_bringup_interface_in_kernel(router.tgen, router.name, "swp2", True)
     if ip_version == "ipv6":
-        create_address_on_interface(
-            tgen, router.name, "swp2", "fd00:10:254::9:0:2/126"
-        )
+        create_address_on_interface(tgen, router.name, "swp2", "fd00:10:254::9:0:2/126")
     else:  # ipv4
         create_address_on_interface(tgen, router.name, "swp2", "10.254.0.38/30")
 
