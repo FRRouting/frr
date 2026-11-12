@@ -287,6 +287,14 @@ static int group_announce_route_walkcb(struct update_group *updgrp, void *arg)
 										   adj->addpath_tx_id);
 					}
 				}
+
+				/*
+				 * A subgroup that has already withdrawn the prefix
+				 * has nothing to send, but has still handled this
+				 * change. Without the version, it cannot merge with
+				 * the subgroups that did send the withdraw.
+				 */
+				subgrp->version = MAX(subgrp->version, ctx->dest->version);
 			}
 		}
 
@@ -721,8 +729,7 @@ void bgp_adj_out_unset_subgroup(struct bgp_dest *dest, struct update_subgroup *s
 		 * route, do not send withdraw. This will prevent deletion of
 		 * the default route at the peer.
 		 */
-		if (CHECK_FLAG(subgrp->sflags, SUBGRP_STATUS_DEFAULT_ORIGINATE)
-		    && is_default_prefix(bgp_dest_get_prefix(dest)))
+		if (subgrp->default_originate_attr && is_default_prefix(bgp_dest_get_prefix(dest)))
 			return;
 
 		if (adj->attr) {
@@ -1109,6 +1116,11 @@ void subgroup_default_originate_unconfig(struct update_subgroup *subgrp)
 	else
 		safi_rib = safi;
 
+	/* Build the default prefix for debug and table lookup. */
+	memset(&p, 0, sizeof(p));
+	p.family = afi2family(afi);
+	p.prefixlen = 0;
+
 	/*
 	 * Flush pending packets first to ensure proper ordering with the
 	 * withdraw and subsequent table route update.
@@ -1117,14 +1129,16 @@ void subgroup_default_originate_unconfig(struct update_subgroup *subgrp)
 	subgroup_update_packet(subgrp);
 
 	/* Withdraw the synthesized default if it was previously sent. */
-	if (CHECK_FLAG(subgrp->sflags, SUBGRP_STATUS_DEFAULT_ORIGINATE))
+	if (subgrp->default_originate_attr) {
+		if (bgp_debug_update(NULL, &p, subgrp->update_group, 0))
+			zlog_debug("u%" PRIu64 ":s%" PRIu64 " default-originate WITHDRAW (unset)",
+				   subgrp->update_group->id, subgrp->id);
+		bgp_attr_unintern(&subgrp->default_originate_attr);
+		subgrp->default_originate_attr = NULL;
 		subgroup_default_withdraw_packet(subgrp);
-	UNSET_FLAG(subgrp->sflags, SUBGRP_STATUS_DEFAULT_ORIGINATE);
+	}
 
 	/* Advertise the table's default route if one exists. */
-	memset(&p, 0, sizeof(p));
-	p.family = afi2family(afi);
-	p.prefixlen = 0;
 	dest = bgp_safi_node_lookup(bgp->rib[afi][safi_rib], safi_rib, &p, NULL);
 	if (!dest)
 		return;
@@ -1179,6 +1193,7 @@ void subgroup_default_originate(struct update_subgroup *subgrp)
 	struct route_map *rmap;
 	struct prefix p;
 	bool do_withdraw = false;
+	bool do_debug;
 
 	if (!subgrp)
 		return;
@@ -1189,6 +1204,13 @@ void subgroup_default_originate(struct update_subgroup *subgrp)
 
 	if (!(afi == AFI_IP || afi == AFI_IP6))
 		return;
+
+	/* Build the default prefix for debug and route-map evaluation. */
+	memset(&p, 0, sizeof(p));
+	p.family = afi2family(afi);
+	p.prefixlen = 0;
+
+	do_debug = bgp_debug_update(NULL, &p, subgrp->update_group, 0);
 
 	/*
 	 * Flush pending packets to ensure proper ordering with the
@@ -1319,11 +1341,15 @@ rmap_done:;
 
 	if (do_withdraw) {
 		/* Withdraw the synthesized default if it was previously sent. */
-		if (CHECK_FLAG(subgrp->sflags, SUBGRP_STATUS_DEFAULT_ORIGINATE)) {
+		if (subgrp->default_originate_attr) {
+			if (do_debug)
+				zlog_debug("u%" PRIu64 ":s%" PRIu64 " default-originate WITHDRAW",
+					   subgrp->update_group->id, subgrp->id);
+			bgp_attr_unintern(&subgrp->default_originate_attr);
+			subgrp->default_originate_attr = NULL;
 			subgroup_default_withdraw_packet(subgrp);
-			UNSET_FLAG(subgrp->sflags, SUBGRP_STATUS_DEFAULT_ORIGINATE);
 		}
-	} else { /* TBD: compare attributes to avoid sending redundant UPDATEs. */
+	} else {
 		struct attr attr_copy;
 
 		/*
@@ -1340,17 +1366,19 @@ rmap_done:;
 		 */
 		if (rmap && match_rules == 0 &&
 		    CHECK_FLAG(bgp->flags, BGP_FLAG_DEFAULT_ORIGINATE_SETONLY_UNCONDITIONAL)) {
-			memset(&p, 0, sizeof(p));
-			p.family = afi2family(afi);
-			p.prefixlen = 0;
 			if (bgp_route_map_setting_only(bgp, rmap, PEER_RMAP_TYPE_DEFAULT, &p,
 						       &attr_copy) == RMAP_DENYMATCH) {
 				/* Route-map denied - withdraw default if previously sent. */
 				bgp_attr_flush(&attr_copy);
 				aspath_unintern(&aspath);
-				if (CHECK_FLAG(subgrp->sflags, SUBGRP_STATUS_DEFAULT_ORIGINATE)) {
+				if (subgrp->default_originate_attr) {
+					if (do_debug)
+						zlog_debug("u%" PRIu64 ":s%" PRIu64
+							   " default-originate WITHDRAW (route-map deny)",
+							   subgrp->update_group->id, subgrp->id);
+					bgp_attr_unintern(&subgrp->default_originate_attr);
+					subgrp->default_originate_attr = NULL;
 					subgroup_default_withdraw_packet(subgrp);
-					UNSET_FLAG(subgrp->sflags, SUBGRP_STATUS_DEFAULT_ORIGINATE);
 				}
 				return;
 			}
@@ -1373,8 +1401,44 @@ rmap_done:;
 
 		bgp_peer_prepend_local_as(peer, afi, safi, &attr_copy);
 
-		SET_FLAG(subgrp->sflags, SUBGRP_STATUS_DEFAULT_ORIGINATE);
-		subgroup_default_update_packet(subgrp, &attr_copy, from);
+		/*
+		 * Suppress duplicate UPDATEs: bgp_attr_intern() returns
+		 * the same interned pointer for identical attribute
+		 * sets, so a pointer comparison is sufficient.  If the
+		 * attrs differ (or this is the first origination),
+		 * intern the new set, update the saved copy, and send
+		 * the UPDATE.  Otherwise drop the extra reference and
+		 * skip the redundant send.
+		 */
+		struct attr *new_interned = bgp_attr_intern(&attr_copy);
+
+		if (subgrp->default_originate_attr != new_interned) {
+			/* Attrs changed: update sentinel and send. */
+			if (do_debug)
+				zlog_debug("u%" PRIu64 ":s%" PRIu64 " default-originate UPDATE",
+					   subgrp->update_group->id, subgrp->id);
+			if (subgrp->default_originate_attr)
+				bgp_attr_unintern(&subgrp->default_originate_attr);
+			subgrp->default_originate_attr = new_interned;
+			subgroup_default_update_packet(subgrp, new_interned, from);
+		} else if (!CHECK_FLAG(bgp->flags, BGP_FLAG_SUPPRESS_DUPLICATES) ||
+			   CHECK_FLAG(subgrp->sflags, SUBGRP_STATUS_FORCE_UPDATES)) {
+			/* Attrs unchanged but not suppressing: re-send. */
+			if (do_debug)
+				zlog_debug("u%" PRIu64 ":s%" PRIu64
+					   " default-originate UPDATE (re-send)",
+					   subgrp->update_group->id, subgrp->id);
+			subgroup_default_update_packet(subgrp, new_interned, from);
+			bgp_attr_unintern(&new_interned);
+		} else {
+			/* Attrs unchanged: suppress duplicate. */
+			if (do_debug)
+				zlog_debug("u%" PRIu64 ":s%" PRIu64
+					   " default-originate UPDATE suppressed (duplicate)",
+					   subgrp->update_group->id, subgrp->id);
+			bgp_attr_unintern(&new_interned);
+		}
+
 		bgp_attr_flush(&attr_copy);
 	}
 

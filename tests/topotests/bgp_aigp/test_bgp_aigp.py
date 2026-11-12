@@ -35,6 +35,9 @@ attribute with a metric of 0.
 
 r7 removes the aigp-metric action for 10.0.0.72/32, and r6 receives it
 without the AIGP attribute.
+
+r6 sets aigp-metric 100 in the outbound route-map that changes the
+nexthop towards r4, and r4 receives 10.0.0.71/32 with this AIGP metric.
 """
 
 import os
@@ -420,6 +423,27 @@ def test_bgp_aigp_no_set_metric():
     )
 
     result = check_aigp_metric(r6, "10.0.0.72/32", None)
+    assert result is True, result
+
+
+def test_bgp_aigp_outbound_route_map():
+    tgen = get_topogen()
+
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    r4 = tgen.gears["r4"]
+    r6 = tgen.gears["r6"]
+
+    r6.vtysh_cmd(
+        """
+    configure terminal
+        route-map set-nexthop permit 10
+            set aigp-metric 100
+    """
+    )
+
+    result = check_aigp_metric(r4, "10.0.0.71/32", 100)
     assert result is True, result
 
 

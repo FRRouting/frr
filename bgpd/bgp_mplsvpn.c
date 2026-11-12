@@ -1101,6 +1101,46 @@ void delete_vrf_tovpn_sid_per_vrf(struct bgp *bgp_vpn, struct bgp *bgp_vrf)
 	bgp_vrf->tovpn_sid_locator = NULL;
 }
 
+/*
+ * A stopped zebra has lost the SIDs of the VRF and their local SIDs: withdraw
+ * the VPN paths exported with them, and forget them without releasing them,
+ * so that they are requested again once the locator is received.
+ */
+void vpn_leak_zebra_vrf_sids_forget(struct bgp *bgp_vrf)
+{
+	struct bgp *bgp_vpn = bgp_get_default();
+	afi_t afi;
+
+	for (afi = AFI_IP; afi <= AFI_IP6; afi++)
+		if (bgp_vrf->vpn_policy[afi].tovpn_sid || bgp_vrf->tovpn_sid)
+			vpn_leak_prechange(BGP_VPN_POLICY_DIR_TOVPN, afi, bgp_vpn, bgp_vrf);
+
+	for (afi = AFI_IP; afi <= AFI_IP6; afi++) {
+		if (bgp_vrf->vpn_policy[afi].tovpn_sid) {
+			UNSET_FLAG(bgp_vrf->vpn_policy[afi].flags,
+				   BGP_VPN_POLICY_TOVPN_SID_FUNC_WIDE);
+			if (bgp_vpn)
+				sid_unregister(bgp_vpn, bgp_vrf->vpn_policy[afi].tovpn_sid);
+			XFREE(MTYPE_BGP_SRV6_SID, bgp_vrf->vpn_policy[afi].tovpn_sid);
+		}
+		XFREE(MTYPE_BGP_SRV6_SID, bgp_vrf->vpn_policy[afi].tovpn_zebra_vrf_sid_last_sent);
+		bgp_vrf->vpn_policy[afi].tovpn_sid_transpose_label = 0;
+		srv6_locator_free(bgp_vrf->vpn_policy[afi].tovpn_sid_locator);
+		bgp_vrf->vpn_policy[afi].tovpn_sid_locator = NULL;
+	}
+
+	if (bgp_vrf->tovpn_sid) {
+		UNSET_FLAG(bgp_vrf->vrf_flags, BGP_VRF_TOVPN_SID_FUNC_WIDE);
+		if (bgp_vpn)
+			sid_unregister(bgp_vpn, bgp_vrf->tovpn_sid);
+		XFREE(MTYPE_BGP_SRV6_SID, bgp_vrf->tovpn_sid);
+	}
+	XFREE(MTYPE_BGP_SRV6_SID, bgp_vrf->tovpn_zebra_vrf_sid_last_sent);
+	bgp_vrf->tovpn_sid_transpose_label = 0;
+	srv6_locator_free(bgp_vrf->tovpn_sid_locator);
+	bgp_vrf->tovpn_sid_locator = NULL;
+}
+
 void delete_vrf_tovpn_sid(struct bgp *bgp_vpn, struct bgp *bgp_vrf, afi_t afi)
 {
 	delete_vrf_tovpn_sid_per_af(bgp_vpn, bgp_vrf, afi);
@@ -1409,17 +1449,17 @@ static struct bgp_path_info *leak_update(struct bgp *to_bgp, struct bgp_dest *bn
 		if (CHECK_FLAG(source_bpi->flags, BGP_PATH_ACCEPT_OWN))
 			bgp_path_info_set_flag(bn, bpi, BGP_PATH_ACCEPT_OWN);
 
+		/* Carry srte_color from the leaked source path (or the
+		 * rmap-modified copy when a vpn-policy route-map ran).
+		 */
+		bgp_path_info_extra_propagate(bpi, rmap_bpi ? rmap_bpi : source_bpi);
+
 		if (leak_update_nexthop_valid(to_bgp, bn, new_attr, afi, safi,
 					      source_bpi, bpi, bgp_orig, p,
 					      debug))
 			bgp_path_info_set_flag(bn, bpi, BGP_PATH_VALID);
 		else
 			bgp_path_info_unset_flag(bn, bpi, BGP_PATH_VALID);
-
-		/* Carry srte_color from the leaked source path (or the
-		 * rmap-modified copy when a vpn-policy route-map ran).
-		 */
-		bgp_path_info_extra_propagate(bpi, rmap_bpi ? rmap_bpi : source_bpi);
 
 		/* Process change. */
 		bgp_aggregate_increment(to_bgp, p, bpi, afi, safi);
@@ -1483,6 +1523,11 @@ static struct bgp_path_info *leak_update(struct bgp *to_bgp, struct bgp_dest *bn
 	if (nexthop_orig)
 		new->extra->vrfleak->nexthop_orig = *nexthop_orig;
 
+	/* Carry srte_color from the leaked source path (or the
+	 * rmap-modified copy when a vpn-policy route-map ran).
+	 */
+	bgp_path_info_extra_propagate(new, rmap_bpi ? rmap_bpi : source_bpi);
+
 	if (leak_update_nexthop_valid(to_bgp, bn, static_attr, afi, safi, source_bpi, new,
 				      bgp_orig, p, debug)) {
 		bgp_path_info_set_flag(bn, new, BGP_PATH_VALID);
@@ -1490,11 +1535,6 @@ static struct bgp_path_info *leak_update(struct bgp *to_bgp, struct bgp_dest *bn
 	} else
 		bgp_path_info_unset_flag(bn, new, BGP_PATH_VALID);
 	new->attr = bgp_attr_intern(static_attr);
-
-	/* Carry srte_color from the leaked source path (or the
-	 * rmap-modified copy when a vpn-policy route-map ran).
-	 */
-	bgp_path_info_extra_propagate(new, rmap_bpi ? rmap_bpi : source_bpi);
 
 	bgp_path_info_add(bn, new);
 	bgp_aggregate_increment(to_bgp, p, new, afi, safi);
@@ -4158,9 +4198,6 @@ vrf_id_t get_first_vrf_for_redirect_with_rt(struct ecommunity *eckey)
  *
  *     router bgp NNN
  *       ...
- *
- * This function gets called when the default instance ("router bgp NNN")
- * is created.
  */
 void vpn_leak_postchange_all(void)
 {

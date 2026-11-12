@@ -2907,12 +2907,31 @@ static bool ftn_update_znh(bool add_p, enum lsp_types_t type,
 }
 
 /*
+ * Uninstall every NHLFE of this label and, when requested, the FTN binding.
+ */
+static void mpls_zapi_labels_uninstall_all(struct zebra_vrf *zvrf, const struct zapi_labels *zl)
+{
+	struct prefix p;
+
+	mpls_lsp_uninstall_all_vrf(zvrf, zl->type, zl->local_label);
+
+	if (!CHECK_FLAG(zl->message, ZAPI_LABELS_FTN))
+		return;
+
+	p = zl->route.prefix;
+	zebra_mpls_ftn_uninstall(zvrf, zl->type, &p, zl->route.type, zl->route.instance);
+}
+
+/*
  * Install/uninstall LSP and (optionally) FEC-To-NHLFE (FTN) bindings,
  * using zapi message info.
  * There are several changes that need to be made, in several zebra
  * data structures, so we want to do all the work required at once.
+ *
+ * A delete with no nexthops removes the whole LSP. A replace removes the
+ * current LSP and then applies the message as an add.
  */
-void zebra_mpls_zapi_labels_process(bool add_p, struct zebra_vrf *zvrf,
+void zebra_mpls_zapi_labels_process(bool add_p, bool replace_p, struct zebra_vrf *zvrf,
 				    const struct zapi_labels *zl)
 {
 	int i, counter, ret = 0;
@@ -2928,6 +2947,14 @@ void zebra_mpls_zapi_labels_process(bool add_p, struct zebra_vrf *zvrf,
 	struct hash *lsp_table;
 	struct zebra_ile tmp_ile;
 	struct zebra_lsp *lsp = NULL;
+
+	if (!add_p && zl->nexthop_num == 0) {
+		mpls_zapi_labels_uninstall_all(zvrf, zl);
+		return;
+	}
+
+	if (replace_p)
+		mpls_zapi_labels_uninstall_all(zvrf, zl);
 
 	/* Prep LSP for add case */
 	if (add_p) {

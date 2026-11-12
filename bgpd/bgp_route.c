@@ -1416,8 +1416,8 @@ int bgp_path_info_cmp(struct bgp *bgp, struct bgp_path_info *new,
 	/* 4. Tie-breaker - AIGP (Metric TLV) attribute */
 	if (bgp_attr_exists(newattr, BGP_ATTR_AIGP) && bgp_attr_exists(existattr, BGP_ATTR_AIGP) &&
 	    CHECK_FLAG(bgp->flags, BGP_FLAG_COMPARE_AIGP)) {
-		uint64_t new_aigp = bgp_aigp_metric_total(new);
-		uint64_t exist_aigp = bgp_aigp_metric_total(exist);
+		uint64_t new_aigp = bgp_aigp_metric_total(new, new->attr);
+		uint64_t exist_aigp = bgp_aigp_metric_total(exist, exist->attr);
 
 		if (new_aigp < exist_aigp) {
 			*reason = bgp_path_selection_aigp;
@@ -3375,7 +3375,7 @@ bool subgroup_announce_check(struct bgp_dest *dest, struct bgp_path_info *pi,
 		if (AIGP_TRANSMIT_ALLOWED(peer)) {
 			if (nh_reset ||
 			    CHECK_FLAG(attr->rmap_change_flags, BATTR_RMAP_NEXTHOP_PEER_ADDRESS)) {
-				uint64_t aigp = bgp_aigp_metric_total(pi);
+				uint64_t aigp = bgp_aigp_metric_total(pi, attr);
 
 				bgp_attr_set_aigp_metric(attr, aigp);
 			}
@@ -18817,8 +18817,7 @@ static void show_adj_route(struct vty *vty, struct peer *peer, struct bgp_table 
 
 	subgrp = peer_subgroup(peer, afi, safi);
 
-	if (type == bgp_show_adj_route_advertised && subgrp
-	    && CHECK_FLAG(subgrp->sflags, SUBGRP_STATUS_DEFAULT_ORIGINATE)) {
+	if (type == bgp_show_adj_route_advertised && subgrp && subgrp->default_originate_attr) {
 		if (!use_json) {
 			vty_out(vty,
 				"BGP table version is %" PRIu64
@@ -19336,7 +19335,7 @@ static int peer_adj_routes(struct vty *vty, struct peer *peer, afi_t afi, safi_t
 				vty_out(vty, ",\"defaultLocPrf\":%u", bgp->default_local_pref);
 				vty_out(vty, ",\"localAS\":%u", bgp->as);
 				if (type == bgp_show_adj_route_advertised && subgrp &&
-				    CHECK_FLAG(subgrp->sflags, SUBGRP_STATUS_DEFAULT_ORIGINATE))
+				    subgrp->default_originate_attr)
 					vty_out(vty, ",\"bgpOriginatingDefaultNetwork\":\"%s\"",
 						(afi == AFI_IP) ? "0.0.0.0/0" : "::/0");
 			}

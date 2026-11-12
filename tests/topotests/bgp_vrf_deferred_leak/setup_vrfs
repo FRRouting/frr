@@ -1,0 +1,5 @@
+#!/bin/bash
+
+ip link add NONNA type vrf table 1004
+ip link add dummy5 type dummy
+ip link set dummy5 master NONNA
