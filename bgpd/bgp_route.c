@@ -5500,11 +5500,25 @@ void bgp_process_queue_init(struct bgp *bgp)
 	bgp->process_queue->spec.workfunc = &meta_queue_process;
 	bgp->process_queue->spec.completion_func = &bgp_process_queue_complete;
 	bgp->process_queue->spec.max_retries = 0;
-	bgp->process_queue->spec.hold = 50;
+	bgp->process_queue->spec.hold = bm->process_queue_hold_time;
 	/* Use a higher yield value of 50ms for main queue processing */
 	bgp->process_queue->spec.yield = 50 * 1000L;
 
 	bgp->mq = meta_queue_new();
+}
+
+/* Set the process queue hold time globally, for all bgp instances */
+void bgp_process_queue_hold_time_set(uint32_t hold_time)
+{
+	struct listnode *node;
+	struct bgp *bgp;
+
+	bm->process_queue_hold_time = hold_time;
+
+	for (ALL_LIST_ELEMENTS_RO(bm->bgp, node, bgp)) {
+		if (bgp->process_queue)
+			bgp->process_queue->spec.hold = hold_time;
+	}
 }
 
 #ifdef DEV_BUILD
