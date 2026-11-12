@@ -1410,7 +1410,7 @@ unsigned int attrhash_key_make(const void *p)
 	MIX3(attr->nh_ifindex, attr->nh_lla_ifindex, attr->distance);
 	MIX(attr->bh_type);
 	MIX(bgp_attr_get_otc(attr));
-	MIX3(attr->mm_seqnum, bgp_attr_get_df_alg(attr), attr->df_pref);
+	MIX3(attr->mm_seqnum, bgp_attr_get_df_alg(attr), bgp_attr_get_df_pref(attr));
 	MIX(attr->encap_tunneltype);
 	MIX(bgp_attr_get_pmsi_tnl_type(attr));
 	if (bgp_attr_get_pmsi_tnl_type(attr) == PMSI_TNLTYPE_INGR_REPL)
@@ -1463,7 +1463,7 @@ bool attrhash_cmp(const void *p1, const void *p2)
 		    bgp_attr_get_es_flags(attr1) == bgp_attr_get_es_flags(attr2) &&
 		    attr1->mm_seqnum == attr2->mm_seqnum &&
 		    attr1->mm_sync_seqnum == attr2->mm_sync_seqnum &&
-		    attr1->df_pref == attr2->df_pref &&
+		    bgp_attr_get_df_pref(attr1) == bgp_attr_get_df_pref(attr2) &&
 		    bgp_attr_get_df_alg(attr1) == bgp_attr_get_df_alg(attr2) &&
 		    attr1->nh_ifindex == attr2->nh_ifindex &&
 		    attr1->nh_lla_ifindex == attr2->nh_lla_ifindex &&
@@ -3525,7 +3525,7 @@ bgp_attr_ext_communities(struct bgp_attr_parser_args *args)
 					  args->total);
 
 	/* Extract DF election preference and  mobility sequence number */
-	attr->df_pref = bgp_attr_df_pref_from_ec(attr, &df_alg);
+	bgp_attr_set_df_pref(attr, bgp_attr_df_pref_from_ec(attr, &df_alg));
 	bgp_attr_set_df_alg(attr, df_alg);
 
 	/* Extract MAC mobility sequence number, if any. */
