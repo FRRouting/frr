@@ -1459,7 +1459,7 @@ bool attrhash_cmp(const void *p1, const void *p2)
 		    IPV4_ADDR_SAME(&attr1->mp_nexthop_global_in, &attr2->mp_nexthop_global_in) &&
 		    IPV4_ADDR_SAME(&attr1->originator_id, &attr2->originator_id) &&
 		    overlay_index_same(attr1, attr2) &&
-		    !memcmp(&attr1->esi, &attr2->esi, sizeof(esi_t)) &&
+		    !memcmp(bgp_attr_get_esi(attr1), bgp_attr_get_esi(attr2), sizeof(esi_t)) &&
 		    bgp_attr_get_es_flags(attr1) == bgp_attr_get_es_flags(attr2) &&
 		    bgp_attr_get_mm_seqnum(attr1) == bgp_attr_get_mm_seqnum(attr2) &&
 		    bgp_attr_get_mm_sync_seqnum(attr1) == bgp_attr_get_mm_sync_seqnum(attr2) &&
