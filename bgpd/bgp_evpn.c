@@ -1561,7 +1561,7 @@ enum zclient_send_status evpn_zebra_install(struct bgp *bgp, struct bgpevpn *vpn
 			    CHECK_FLAG(bgp_attr_get_evpn_flags(pi->attr), ATTR_EVPN_FLAG_ROUTER))
 				SET_FLAG(flags, ZEBRA_MACIP_TYPE_ROUTER_FLAG);
 
-			seq = mac_mobility_seqnum(pi->attr);
+			seq = bgp_attr_get_mm_seqnum(pi->attr);
 			/* If local ES notify zebra that this is a sync path.
 			 * ES is non-local while in LACP Bypass.
 			 */
@@ -1601,7 +1601,7 @@ enum zclient_send_status evpn_zebra_install(struct bgp *bgp, struct bgpevpn *vpn
 						ATTR_ES_PEER_ACTIVE))
 					SET_FLAG(flags, ZEBRA_MACIP_TYPE_PROXY_ADVERT);
 			} else
-				seq = mac_mobility_seqnum(pi->attr);
+				seq = bgp_attr_get_mm_seqnum(pi->attr);
 		}
 
 		uint8_t nhfamily = NEXTHOP_FAMILY(pi->attr->mp_nexthop_len);
@@ -2194,7 +2194,7 @@ static void bgp_evpn_get_sync_info(struct bgp *bgp, esi_t *esi,
 	 * it is a sync path
 	 */
 	if (!memcmp(esi, tmp_esi, sizeof(esi_t))) {
-		tmp_mm_seq = mac_mobility_seqnum(second_best_path->attr);
+		tmp_mm_seq = bgp_attr_get_mm_seqnum(second_best_path->attr);
 		if (tmp_mm_seq < loc_seq)
 			return;
 
@@ -2367,7 +2367,7 @@ static int update_evpn_route_entry(struct bgp *bgp, struct bgpevpn *vpn,
 		bgp_attr_dup_into(&local_attr, attr);
 
 		/* Extract MAC mobility sequence number, if any. */
-		local_attr.mm_seqnum = bgp_attr_mac_mobility_seqnum(&local_attr);
+		bgp_attr_set_mm_seqnum(&local_attr, bgp_attr_mac_mobility_seqnum(&local_attr));
 
 		/* Add (or update) attribute to hash. */
 		attr_new = bgp_attr_intern(&local_attr);
@@ -2458,8 +2458,8 @@ static int update_evpn_route_entry(struct bgp *bgp, struct bgpevpn *vpn,
 					       BGP_PATH_ATTR_CHANGED);
 
 			/* Extract MAC mobility sequence number, if any. */
-			local_attr.mm_seqnum =
-				bgp_attr_mac_mobility_seqnum(&local_attr);
+			bgp_attr_set_mm_seqnum(&local_attr,
+					       bgp_attr_mac_mobility_seqnum(&local_attr));
 
 			attr_new = bgp_attr_intern(&local_attr);
 
@@ -2955,7 +2955,7 @@ void bgp_evpn_update_type2_route_entry(struct bgp *bgp, struct bgpevpn *vpn,
 
 	/* Set up extended community. */
 	build_evpn_route_extcomm(vpn, &attr, add_l3_attrs, macvrf_soo);
-	seq = mac_mobility_seqnum(local_pi->attr);
+	seq = bgp_attr_get_mm_seqnum(local_pi->attr);
 
 	if (bgp_debug_zebra(NULL)) {
 		char buf3[ESI_STR_LEN];
@@ -3032,7 +3032,7 @@ void bgp_evpn_update_type2_route_entry(struct bgp *bgp, struct bgpevpn *vpn,
 		update_evpn_route_entry(
 			bgp, vpn, afi, safi, global_dest, attr_new,
 			NULL /* mac */, NULL /* ip */, 0, &global_pi, 0,
-			mac_mobility_seqnum(attr_new), false /* setup_sync */,
+			bgp_attr_get_mm_seqnum(attr_new), false /* setup_sync */,
 			NULL /* old_is_sync */);
 
 		/* Schedule for processing and unlock node. */
@@ -5261,7 +5261,7 @@ static void update_advertise_vni_route(struct bgp *bgp, struct bgpevpn *vpn,
 		update_evpn_route_entry(
 			bgp, vpn, afi, safi, global_dest, attr, NULL /* mac */,
 			NULL /* ip */, 1, &global_pi, 0,
-			mac_mobility_seqnum(attr), false /* setup_sync */,
+			bgp_attr_get_mm_seqnum(attr), false /* setup_sync */,
 			NULL /* old_is_sync */);
 	} else {
 		/* Type-1 route */
@@ -5316,7 +5316,7 @@ static void update_advertise_vni_routes(struct bgp *bgp, struct bgpevpn *vpn)
 			bgp->rib[afi][safi], afi, safi, &p, &vpn->prd, NULL);
 		update_evpn_route_entry(
 			bgp, vpn, afi, safi, global_dest, attr, NULL /* mac */,
-			NULL /* ip */, 1, &pi, 0, mac_mobility_seqnum(attr),
+			NULL /* ip */, 1, &pi, 0, bgp_attr_get_mm_seqnum(attr),
 			false /* setup_sync */, NULL /* old_is_sync */);
 
 		/* Schedule for processing and unlock node. */

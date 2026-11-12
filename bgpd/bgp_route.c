@@ -1209,8 +1209,8 @@ int bgp_path_info_cmp(struct bgp *bgp, struct bgp_path_info *new,
 			}
 		}
 
-		new_mm_seq = mac_mobility_seqnum(newattr);
-		exist_mm_seq = mac_mobility_seqnum(existattr);
+		new_mm_seq = bgp_attr_get_mm_seqnum(newattr);
+		exist_mm_seq = bgp_attr_get_mm_seqnum(existattr);
 
 		if (new_mm_seq > exist_mm_seq) {
 			*reason = bgp_path_selection_evpn_seq;
