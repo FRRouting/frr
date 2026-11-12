@@ -1415,7 +1415,7 @@ unsigned int attrhash_key_make(const void *p)
 	MIX(bgp_attr_get_pmsi_tnl_type(attr));
 	if (bgp_attr_get_pmsi_tnl_type(attr) == PMSI_TNLTYPE_INGR_REPL)
 		key = jhash(bgp_attr_get_tunn_id(attr)->s6_addr, IPV6_MAX_BYTELEN, key);
-	key = jhash(&attr->rmac, sizeof(attr->rmac), key);
+	key = jhash(bgp_attr_get_rmac(attr), sizeof(struct ethaddr), key);
 	if (bgp_attr_get_nhc(attr))
 		MIX(bgp_nhc_hash_key_make(bgp_attr_get_nhc(attr)));
 	if (bgp_attr_get_ls_attr(attr))
@@ -1476,7 +1476,8 @@ bool attrhash_cmp(const void *p1, const void *p2)
 		    attr1->nh_type == attr2->nh_type && attr1->bh_type == attr2->bh_type &&
 		    bgp_attr_get_otc(attr1) == bgp_attr_get_otc(attr2) &&
 		    bgp_attr_get_partial_attrs(attr1) == bgp_attr_get_partial_attrs(attr2) &&
-		    !memcmp(&attr1->rmac, &attr2->rmac, sizeof(struct ethaddr)) &&
+		    !memcmp(bgp_attr_get_rmac(attr1), bgp_attr_get_rmac(attr2),
+			    sizeof(struct ethaddr)) &&
 		    bgp_nhc_same(bgp_attr_get_nhc(attr1), bgp_attr_get_nhc(attr2)) &&
 		    bgp_ls_attr_same(bgp_attr_get_ls_attr(attr1), bgp_attr_get_ls_attr(attr2)) &&
 		    (bgp_attr_get_pmsi_tnl_type(attr1) == bgp_attr_get_pmsi_tnl_type(attr2)) &&
@@ -3503,6 +3504,7 @@ bgp_attr_ext_communities(struct bgp_attr_parser_args *args)
 	bgp_encap_types tun_type = BGP_ENCAP_TYPE_VXLAN;/*Default tunnel type*/
 	uint8_t df_alg;
 	uint8_t evpn_flags;
+	struct ethaddr rmac;
 
 	if (length == 0) {
 		bgp_attr_set_ecommunity(attr, NULL);
@@ -3550,13 +3552,14 @@ bgp_attr_ext_communities(struct bgp_attr_parser_args *args)
 		bgp_attr_set_es_flags(attr, bgp_attr_get_es_flags(attr) | ATTR_ES_PROXY_ADVERT);
 
 	/* Extract the Rmac, if any */
-	if (bgp_attr_rmac(attr, &attr->rmac)) {
-		if (bgp_debug_update(peer, NULL, NULL, 1)
-		    && bgp_mac_exist(&attr->rmac))
+	if (bgp_attr_rmac(attr, &rmac)) {
+		bgp_attr_set_rmac(attr, &rmac);
+		if (bgp_debug_update(peer, NULL, NULL, 1) &&
+		    bgp_mac_exist(bgp_attr_get_rmac(attr)))
 			zlog_debug("%s: router mac %pEA is self mac", __func__,
-				   &attr->rmac);
+				   bgp_attr_get_rmac(attr));
 
-		frrtrace(1, frr_bgp, upd_rmac_is_self_mac, &attr->rmac);
+		frrtrace(1, frr_bgp, upd_rmac_is_self_mac, bgp_attr_get_rmac(attr));
 	}
 
 	/* Get the tunnel type from encap extended community */

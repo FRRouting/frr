@@ -1478,7 +1478,7 @@ static void bgp_zebra_announce_parse_nexthop(struct bgp_path_info *info, const s
 		}
 
 		if (is_evpn && !(bre && bre->type == OVERLAY_INDEX_GATEWAY_IP))
-			memcpy(&api_nh->rmac, &(mpinfo->attr->rmac),
+			memcpy(&api_nh->rmac, bgp_attr_get_rmac(mpinfo->attr),
 			       sizeof(struct ethaddr));
 
 		api_nh->weight = nh_weight;
