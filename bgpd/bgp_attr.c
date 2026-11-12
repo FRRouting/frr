@@ -3502,6 +3502,7 @@ bgp_attr_ext_communities(struct bgp_attr_parser_args *args)
 	struct ecommunity *ecomm;
 	bgp_encap_types tun_type = BGP_ENCAP_TYPE_VXLAN;/*Default tunnel type*/
 	uint8_t df_alg;
+	uint8_t evpn_flags;
 
 	if (length == 0) {
 		bgp_attr_set_ecommunity(attr, NULL);
@@ -3537,8 +3538,11 @@ bgp_attr_ext_communities(struct bgp_attr_parser_args *args)
 	 * set but default gw ext community is present.
 	 * Use default gateway, set and propagate R-bit.
 	 */
-	if (CHECK_FLAG(attr->evpn_flags, ATTR_EVPN_FLAG_DEFAULT_GW))
-		SET_FLAG(attr->evpn_flags, ATTR_EVPN_FLAG_ROUTER);
+	evpn_flags = bgp_attr_get_evpn_flags(attr);
+	if (CHECK_FLAG(evpn_flags, ATTR_EVPN_FLAG_DEFAULT_GW)) {
+		SET_FLAG(evpn_flags, ATTR_EVPN_FLAG_ROUTER);
+		bgp_attr_set_evpn_flags(attr, evpn_flags);
+	}
 
 	/* Check EVPN Neighbor advertisement flags, R-bit */
 	bgp_attr_evpn_na_flag(attr, &proxy);

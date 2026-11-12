@@ -1441,7 +1441,7 @@ static void build_evpn_route_extcomm(struct bgpevpn *vpn, struct attr *attr, int
 	}
 
 	/* Add MAC mobility (sticky) if needed. */
-	if (CHECK_FLAG(attr->evpn_flags, ATTR_EVPN_FLAG_STICKY)) {
+	if (CHECK_FLAG(bgp_attr_get_evpn_flags(attr), ATTR_EVPN_FLAG_STICKY)) {
 		seqnum = 0;
 		encode_mac_mobility_extcomm(1, seqnum, &eval_tmp);
 		ecommunity_append_val_unchecked(ecom, &eval_tmp);
@@ -1454,15 +1454,17 @@ static void build_evpn_route_extcomm(struct bgpevpn *vpn, struct attr *attr, int
 	}
 
 	/* Add default gateway, if needed. */
-	if (CHECK_FLAG(attr->evpn_flags, ATTR_EVPN_FLAG_DEFAULT_GW)) {
+	if (CHECK_FLAG(bgp_attr_get_evpn_flags(attr), ATTR_EVPN_FLAG_DEFAULT_GW)) {
 		encode_default_gw_extcomm(&eval_tmp);
 		ecommunity_append_val_unchecked(ecom, &eval_tmp);
 	}
 
 	proxy = !!(bgp_attr_get_es_flags(attr) & ATTR_ES_PROXY_ADVERT);
-	if (CHECK_FLAG(attr->evpn_flags, ATTR_EVPN_FLAG_ROUTER) || proxy) {
+	if (CHECK_FLAG(bgp_attr_get_evpn_flags(attr), ATTR_EVPN_FLAG_ROUTER) || proxy) {
 		encode_na_flag_extcomm(&eval_tmp,
-				       CHECK_FLAG(attr->evpn_flags, ATTR_EVPN_FLAG_ROUTER), proxy);
+				       CHECK_FLAG(bgp_attr_get_evpn_flags(attr),
+						  ATTR_EVPN_FLAG_ROUTER),
+				       proxy);
 		ecommunity_append_val_unchecked(ecom, &eval_tmp);
 	}
 
@@ -1492,8 +1494,9 @@ static void add_mac_mobility_to_attr(uint32_t seq_num, struct attr *attr)
 	struct ecommunity *ecomm = bgp_attr_get_ecommunity(attr);
 
 	/* MM carries the sticky flag and the seq in one community (RFC 7432 7.7) */
-	encode_mac_mobility_extcomm(!!CHECK_FLAG(attr->evpn_flags, ATTR_EVPN_FLAG_STICKY), seq_num,
-				    &eval);
+	encode_mac_mobility_extcomm(!!CHECK_FLAG(bgp_attr_get_evpn_flags(attr),
+						 ATTR_EVPN_FLAG_STICKY),
+				    seq_num, &eval);
 
 	/* Find current MM ecommunity */
 	ecom_val_ptr = NULL;
@@ -1549,15 +1552,13 @@ enum zclient_send_status evpn_zebra_install(struct bgp *bgp, struct bgpevpn *vpn
 		flags = 0;
 
 		if (pi->sub_type == BGP_ROUTE_IMPORTED) {
-			if (CHECK_FLAG(pi->attr->evpn_flags,
-				       ATTR_EVPN_FLAG_STICKY))
+			if (CHECK_FLAG(bgp_attr_get_evpn_flags(pi->attr), ATTR_EVPN_FLAG_STICKY))
 				SET_FLAG(flags, ZEBRA_MACIP_TYPE_STICKY);
-			if (CHECK_FLAG(pi->attr->evpn_flags,
+			if (CHECK_FLAG(bgp_attr_get_evpn_flags(pi->attr),
 				       ATTR_EVPN_FLAG_DEFAULT_GW))
 				SET_FLAG(flags, ZEBRA_MACIP_TYPE_GW);
 			if (is_evpn_prefix_ipaddr_v6(p) &&
-			    CHECK_FLAG(pi->attr->evpn_flags,
-				       ATTR_EVPN_FLAG_ROUTER))
+			    CHECK_FLAG(bgp_attr_get_evpn_flags(pi->attr), ATTR_EVPN_FLAG_ROUTER))
 				SET_FLAG(flags, ZEBRA_MACIP_TYPE_ROUTER_FLAG);
 
 			seq = mac_mobility_seqnum(pi->attr);
@@ -2203,7 +2204,7 @@ static void bgp_evpn_get_sync_info(struct bgp *bgp, esi_t *esi,
 		else
 			*active_on_peer = true;
 
-		if (CHECK_FLAG(second_best_path->attr->evpn_flags,
+		if (CHECK_FLAG(bgp_attr_get_evpn_flags(second_best_path->attr),
 			       ATTR_EVPN_FLAG_ROUTER))
 			*peer_router = true;
 
@@ -2569,6 +2570,7 @@ static int update_evpn_route(struct bgp *bgp, struct bgpevpn *vpn,
 	bool old_is_sync = false;
 	bool mac_only = false;
 	struct ecommunity *macvrf_soo = NULL;
+	uint8_t evpn_flags;
 	uint8_t es_flags;
 
 	memset(&attr, 0, sizeof(attr));
@@ -2576,14 +2578,16 @@ static int update_evpn_route(struct bgp *bgp, struct bgpevpn *vpn,
 	/* Build path-attribute for this route. */
 	bgp_attr_default_set(&attr, bgp, BGP_ORIGIN_IGP);
 	bgp_evpn_vtep_ip_to_attr_nh(&vpn->originator_ip, &attr);
-	if (CHECK_FLAG(flags, ZEBRA_MACIP_TYPE_STICKY))
-		SET_FLAG(attr.evpn_flags, ATTR_EVPN_FLAG_STICKY);
-	if (CHECK_FLAG(flags, ZEBRA_MACIP_TYPE_GW))
-		SET_FLAG(attr.evpn_flags, ATTR_EVPN_FLAG_DEFAULT_GW);
-	es_flags = bgp_attr_get_es_flags(&attr);
 
+	evpn_flags = bgp_attr_get_evpn_flags(&attr);
+	es_flags = bgp_attr_get_es_flags(&attr);
+	if (CHECK_FLAG(flags, ZEBRA_MACIP_TYPE_STICKY))
+		SET_FLAG(evpn_flags, ATTR_EVPN_FLAG_STICKY);
+	if (CHECK_FLAG(flags, ZEBRA_MACIP_TYPE_GW))
+		SET_FLAG(evpn_flags, ATTR_EVPN_FLAG_DEFAULT_GW);
 	if (CHECK_FLAG(flags, ZEBRA_MACIP_TYPE_ROUTER_FLAG))
-		SET_FLAG(attr.evpn_flags, ATTR_EVPN_FLAG_ROUTER);
+		SET_FLAG(evpn_flags, ATTR_EVPN_FLAG_ROUTER);
+	bgp_attr_set_evpn_flags(&attr, evpn_flags);
 	if (CHECK_FLAG(flags, ZEBRA_MACIP_TYPE_PROXY_ADVERT))
 		SET_FLAG(es_flags, ATTR_ES_PROXY_ADVERT);
 
@@ -2889,6 +2893,7 @@ void bgp_evpn_update_type2_route_entry(struct bgp *bgp, struct bgpevpn *vpn,
 	bool old_is_sync = false;
 	struct ecommunity *macvrf_soo = NULL;
 	uint8_t es_flags;
+	uint8_t evpn_flags;
 
 	if (CHECK_FLAG(local_pi->flags, BGP_PATH_REMOVED))
 		return;
@@ -2917,13 +2922,14 @@ void bgp_evpn_update_type2_route_entry(struct bgp *bgp, struct bgpevpn *vpn,
 	bgp_attr_default_set(&attr, bgp, BGP_ORIGIN_IGP);
 	bgp_evpn_vtep_ip_to_attr_nh(&vpn->originator_ip, &attr);
 	es_flags = bgp_attr_get_es_flags(local_pi->attr);
+	evpn_flags = bgp_attr_get_evpn_flags(local_pi->attr);
 
-	attr.evpn_flags = local_pi->attr->evpn_flags;
-	if (CHECK_FLAG(local_pi->attr->evpn_flags, ATTR_EVPN_FLAG_DEFAULT_GW)) {
-		SET_FLAG(attr.evpn_flags, ATTR_EVPN_FLAG_DEFAULT_GW);
+	if (CHECK_FLAG(evpn_flags, ATTR_EVPN_FLAG_DEFAULT_GW)) {
+		SET_FLAG(evpn_flags, ATTR_EVPN_FLAG_DEFAULT_GW);
 		if (is_evpn_prefix_ipaddr_v6(&evp))
-			SET_FLAG(attr.evpn_flags, ATTR_EVPN_FLAG_ROUTER);
+			SET_FLAG(evpn_flags, ATTR_EVPN_FLAG_ROUTER);
 	}
+	bgp_attr_set_evpn_flags(&attr, evpn_flags);
 	memcpy(&attr.esi, &local_pi->attr->esi, sizeof(esi_t));
 	/*
 	 * We are evaluating a change in local/non-local status.
