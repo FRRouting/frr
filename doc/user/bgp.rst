@@ -3594,7 +3594,10 @@ BGP Extended Communities in Route Map
 .. clicmd:: set extcommunity evpn rmac X:X:X:X:X:X
 
    This command sets the EVPN Router MAC extended community value in BGP
-   updates. This command is applied only to EVPN type-5 (IP Prefix) routes.
+   updates. This command is applied to EVPN type-5 (IP Prefix) and type-2
+   (MAC/IP Advertisement) routes. On type-2 routes it applies whether or not
+   the route carries an IP address or an MPLS Label2 (L3VNI). All other
+   route types are left unchanged.
 
 .. clicmd:: set extcommunity soo EXTCOMMUNITY
 
