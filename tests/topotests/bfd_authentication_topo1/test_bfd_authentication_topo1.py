@@ -150,7 +150,8 @@ def test_bfd_authentication_simple_password_auth_direct_down():
     tgen = get_topogen()
 
     # Configure BFD session is with sha1 authentication
-    tgen.gears["rt1"].vtysh_cmd("""
+    tgen.gears["rt1"].vtysh_cmd(
+        """
         configure terminal
         key chain abcd
         key 0
@@ -166,7 +167,8 @@ def test_bfd_authentication_simple_password_auth_direct_down():
         profile 0
         exit
         exit
-        """)
+        """
+    )
 
     # Verify BFD session is down with authentication
     router_compare_json_output(
@@ -180,7 +182,8 @@ def test_bfd_authentication_simple_password_auth_direct_up():
 
     tgen = get_topogen()
 
-    tgen.gears["rt2"].vtysh_cmd("""
+    tgen.gears["rt2"].vtysh_cmd(
+        """
         configure terminal
         key chain efgh
         key 0
@@ -193,7 +196,8 @@ def test_bfd_authentication_simple_password_auth_direct_up():
         authentication key-chain efgh
         exit
         exit
-        """)
+        """
+    )
 
     # Verify BFD session is up with authentication
     router_compare_json_output(
@@ -210,7 +214,8 @@ def test_bfd_authentication_sha1_auth_direct_down():
         pytest.skip("crypto-openssl disabled. skipping SHA1 test")
 
     # Configure BFD session is with sha1 authentication
-    tgen.gears["rt1"].vtysh_cmd("""
+    tgen.gears["rt1"].vtysh_cmd(
+        """
         configure terminal
         key chain abcd
         key 0
@@ -218,7 +223,8 @@ def test_bfd_authentication_sha1_auth_direct_down():
         cryptographic-algorithm hmac-sha-1
         exit
         exit
-        """)
+        """
+    )
 
     # Verify BFD session is down with authentication
     router_compare_json_output(
@@ -234,7 +240,8 @@ def test_bfd_authentication_sha1_auth_direct_up():
     if not tgen.gears["rt1"].has_crypto_openssl():
         pytest.skip("crypto-openssl disabled. skipping SHA1 test")
 
-    tgen.gears["rt2"].vtysh_cmd("""
+    tgen.gears["rt2"].vtysh_cmd(
+        """
         configure terminal
         key chain efgh
         key 0
@@ -242,7 +249,8 @@ def test_bfd_authentication_sha1_auth_direct_up():
         cryptographic-algorithm hmac-sha-1
         exit
         exit
-        """)
+        """
+    )
 
     # Verify BFD session is up with authentication
     router_compare_json_output(
@@ -260,14 +268,16 @@ def test_bfd_authentication_sha1_auth_direct_down_remove_auth_from_bfd_session()
     if not tgen.gears["rt1"].has_crypto_openssl():
         pytest.skip("crypto-openssl disabled. skipping SHA1 test")
 
-    tgen.gears["rt2"].vtysh_cmd("""
+    tgen.gears["rt2"].vtysh_cmd(
+        """
         configure terminal
         bfd
         peer 10.0.1.1 interface eth-rt1
         no authentication key-chain efgh
         exit
         exit
-        """)
+        """
+    )
 
     # Verify BFD session is down with authentication
     router_compare_json_output(
@@ -285,14 +295,16 @@ def test_bfd_authentication_sha1_auth_direct_up_readd_auth_to_bfd_session():
     if not tgen.gears["rt1"].has_crypto_openssl():
         pytest.skip("crypto-openssl disabled. skipping SHA1 test")
 
-    tgen.gears["rt2"].vtysh_cmd("""
+    tgen.gears["rt2"].vtysh_cmd(
+        """
         configure terminal
         bfd
         peer 10.0.1.1 interface eth-rt1
         authentication key-chain efgh
         exit
         exit
-        """)
+        """
+    )
 
     # Verify BFD session is up with authentication
     router_compare_json_output(
@@ -310,14 +322,16 @@ def test_bfd_authentication_sha1_auth_direct_down_remove_auth_from_bfd_profile()
     if not tgen.gears["rt1"].has_crypto_openssl():
         pytest.skip("crypto-openssl disabled. skipping SHA1 test")
 
-    tgen.gears["rt1"].vtysh_cmd("""
+    tgen.gears["rt1"].vtysh_cmd(
+        """
         configure terminal
         bfd
         profile 0
         no authentication key-chain abcd
         exit
         exit
-        """)
+        """
+    )
 
     # Verify BFD session is down with authentication
     router_compare_json_output(
@@ -335,14 +349,16 @@ def test_bfd_authentication_sha1_auth_direct_up_readd_auth_to_bfd_profile():
     if not tgen.gears["rt1"].has_crypto_openssl():
         pytest.skip("crypto-openssl disabled. skipping SHA1 test")
 
-    tgen.gears["rt1"].vtysh_cmd("""
+    tgen.gears["rt1"].vtysh_cmd(
+        """
         configure terminal
         bfd
         profile 0
         authentication key-chain abcd
         exit
         exit
-        """)
+        """
+    )
 
     # Verify BFD session is up with authentication
     router_compare_json_output(
@@ -358,14 +374,16 @@ def test_bfd_authentication_sha1_auth_direct_down_remove_bfd_profile_from_peer()
 
     tgen = get_topogen()
 
-    tgen.gears["rt1"].vtysh_cmd("""
+    tgen.gears["rt1"].vtysh_cmd(
+        """
         configure terminal
         bfd
         peer 10.0.1.2 interface eth-rt2
         no profile 0
         exit
         exit
-        """)
+        """
+    )
 
     # Verify BFD session is down with authentication
     router_compare_json_output(
@@ -383,14 +401,16 @@ def test_bfd_authentication_sha1_auth_direct_up_add_bfd_profile_to_peer():
     if not tgen.gears["rt1"].has_crypto_openssl():
         pytest.skip("crypto-openssl disabled. skipping SHA1 test")
 
-    tgen.gears["rt1"].vtysh_cmd("""
+    tgen.gears["rt1"].vtysh_cmd(
+        """
         configure terminal
         bfd
         peer 10.0.1.2 interface eth-rt2
         profile 0
         exit
         exit
-        """)
+        """
+    )
 
     # Verify BFD session is up with authentication
     router_compare_json_output(
@@ -408,11 +428,13 @@ def test_bfd_authentication_sha1_auth_direct_down_remove_bfd_profile():
     if not tgen.gears["rt1"].has_crypto_openssl():
         pytest.skip("crypto-openssl disabled. skipping SHA1 test")
 
-    tgen.gears["rt1"].vtysh_cmd("""
+    tgen.gears["rt1"].vtysh_cmd(
+        """
         configure terminal
         bfd
         no profile 0
-        """)
+        """
+    )
 
     # Verify BFD session is down with authentication
     router_compare_json_output(
@@ -430,13 +452,15 @@ def test_bfd_authentication_sha1_auth_direct_down_add_bfd_profile():
     if not tgen.gears["rt1"].has_crypto_openssl():
         pytest.skip("crypto-openssl disabled. skipping SHA1 test")
 
-    tgen.gears["rt1"].vtysh_cmd("""
+    tgen.gears["rt1"].vtysh_cmd(
+        """
         configure terminal
         bfd
         profile 0
         authentication key-chain abcd
         exit
-        """)
+        """
+    )
 
     # Verify BFD session is up with authentication
     router_compare_json_output(
@@ -454,12 +478,14 @@ def test_bfd_authentication_sha1_to_cleartext_switch_down():
     if not tgen.gears["rt1"].has_crypto_openssl():
         pytest.skip("crypto-openssl disabled. skipping SHA1 test")
 
-    tgen.gears["rt1"].vtysh_cmd("""
+    tgen.gears["rt1"].vtysh_cmd(
+        """
         configure terminal
         key chain abcd
         key 0
         cryptographic-algorithm cleartext
-        """)
+        """
+    )
 
     # Verify BFD session is down with authentication
     router_compare_json_output(
@@ -477,12 +503,14 @@ def test_bfd_authentication_sha1_to_cleartext_switch_up():
     if not tgen.gears["rt1"].has_crypto_openssl():
         pytest.skip("crypto-openssl disabled. skipping SHA1 test")
 
-    tgen.gears["rt2"].vtysh_cmd("""
+    tgen.gears["rt2"].vtysh_cmd(
+        """
         configure terminal
         key chain efgh
         key 0
         cryptographic-algorithm cleartext
-        """)
+        """
+    )
     # Verify BFD session is up with authentication
     router_compare_json_output(
         "rt1", "show bfd peers json", "step4/show_bfd_peers_2_simple.ref", 20, 1
@@ -499,23 +527,27 @@ def test_bfd_authentication_cleartext_to_sha1_switch_up():
     if not tgen.gears["rt1"].has_crypto_openssl():
         pytest.skip("crypto-openssl disabled. skipping SHA1 test")
 
-    tgen.gears["rt1"].vtysh_cmd("""
+    tgen.gears["rt1"].vtysh_cmd(
+        """
         configure terminal
         key chain abcd
         key 0
         cryptographic-algorithm hmac-sha-1
         exit
         exit
-        """)
+        """
+    )
 
-    tgen.gears["rt2"].vtysh_cmd("""
+    tgen.gears["rt2"].vtysh_cmd(
+        """
         configure terminal
         key chain efgh
         key 0
         cryptographic-algorithm hmac-sha-1
         exit
         exit
-        """)
+        """
+    )
 
     # Verify BFD session is up with authentication
     router_compare_json_output(
@@ -535,7 +567,8 @@ def test_bfd_authentication_sha1_auth_keychain1_direct_different_keystring_down(
 
     # Configure BFD session is with sha1 authentication
 
-    tgen.gears["rt1"].vtysh_cmd("""
+    tgen.gears["rt1"].vtysh_cmd(
+        """
         configure terminal
         key chain kc1
         key 0
@@ -547,7 +580,8 @@ def test_bfd_authentication_sha1_auth_keychain1_direct_different_keystring_down(
         profile 0
         authentication key-chain kc1
         exit
-        """)
+        """
+    )
 
     # Verify BFD session is down with authentication
     router_compare_json_output(
@@ -563,7 +597,8 @@ def test_bfd_authentication_sha1_auth_keychain1_direct_up():
     if not tgen.gears["rt1"].has_crypto_openssl():
         pytest.skip("crypto-openssl disabled. skipping SHA1 test")
 
-    tgen.gears["rt2"].vtysh_cmd("""
+    tgen.gears["rt2"].vtysh_cmd(
+        """
         configure terminal
         key chain kc1
         key 0
@@ -575,7 +610,8 @@ def test_bfd_authentication_sha1_auth_keychain1_direct_up():
         peer 10.0.1.1 interface eth-rt1
         authentication key-chain kc1
         exit
-        """)
+        """
+    )
 
     # Verify BFD session is up with authentication
     router_compare_json_output(
@@ -593,7 +629,8 @@ def test_bfd_authentication_sha1_auth_keychain1_direct_different_key_id_down():
 
     # Configure BFD session is with sha1 authentication
 
-    tgen.gears["rt1"].vtysh_cmd("""
+    tgen.gears["rt1"].vtysh_cmd(
+        """
         configure terminal
         key chain kc1
         no key 0
@@ -606,7 +643,8 @@ def test_bfd_authentication_sha1_auth_keychain1_direct_different_key_id_down():
         profile 0
         authentication key-chain kc1
         exit
-        """)
+        """
+    )
 
     # Verify BFD session is down with authentication
     router_compare_json_output(
@@ -624,7 +662,8 @@ def test_bfd_authentication_sha1_auth_keychain1_direct_with_same_key_id_up():
     if not tgen.gears["rt1"].has_crypto_openssl():
         pytest.skip("crypto-openssl disabled. skipping SHA1 test")
 
-    tgen.gears["rt2"].vtysh_cmd("""
+    tgen.gears["rt2"].vtysh_cmd(
+        """
         configure terminal
         key chain kc1
         no key 0
@@ -633,7 +672,8 @@ def test_bfd_authentication_sha1_auth_keychain1_direct_with_same_key_id_up():
         cryptographic-algorithm hmac-sha-1
         exit
         exit
-        """)
+        """
+    )
 
     # Verify BFD session is up with authentication
     router_compare_json_output(
@@ -649,18 +689,22 @@ def test_bfd_authentication_sha1_auth_keychain1_meticulous_up():
     if not tgen.gears["rt1"].has_crypto_openssl():
         pytest.skip("crypto-openssl disabled. skipping SHA1 test")
 
-    tgen.gears["rt1"].vtysh_cmd("""
+    tgen.gears["rt1"].vtysh_cmd(
+        """
         configure terminal
         bfd
         profile 0
         authentication algorithm meticulous
-        """)
-    tgen.gears["rt2"].vtysh_cmd("""
+        """
+    )
+    tgen.gears["rt2"].vtysh_cmd(
+        """
         configure terminal
         bfd
         peer 10.0.1.1 interface eth-rt1
         authentication algorithm meticulous
-        """)
+        """
+    )
 
     # Verify BFD session is up with authentication
     router_compare_json_output(
@@ -680,12 +724,14 @@ def test_bfd_authentication_peer_keychain_not_configured_yet():
     if not tgen.gears["rt1"].has_crypto_openssl():
         pytest.skip("crypto-openssl disabled. skipping SHA1 test")
 
-    output = tgen.gears["rt1"].vtysh_cmd("""
+    output = tgen.gears["rt1"].vtysh_cmd(
+        """
         configure terminal
         bfd
         peer 10.0.1.2 interface eth-rt2
         authentication key-chain kc2
-        """)
+        """
+    )
     assert "Configuration failed" not in output, (
         "rt1 refuses a peer keychain not configured yet:\n" + output
     )
@@ -704,13 +750,15 @@ def test_bfd_authentication_peer_keychain_configured():
     if not tgen.gears["rt1"].has_crypto_openssl():
         pytest.skip("crypto-openssl disabled. skipping SHA1 test")
 
-    tgen.gears["rt1"].vtysh_cmd("""
+    tgen.gears["rt1"].vtysh_cmd(
+        """
         configure terminal
         key chain kc2
         key 40
         key-string mysecret123
         cryptographic-algorithm hmac-sha-1
-        """)
+        """
+    )
 
     # Verify BFD session is up with the peer keychain
     router_compare_json_output(
@@ -726,10 +774,12 @@ def test_bfd_authentication_peer_keychain_removed():
     if not tgen.gears["rt1"].has_crypto_openssl():
         pytest.skip("crypto-openssl disabled. skipping SHA1 test")
 
-    tgen.gears["rt1"].vtysh_cmd("""
+    tgen.gears["rt1"].vtysh_cmd(
+        """
         configure terminal
         no key chain kc2
-        """)
+        """
+    )
 
     # Verify BFD session is up with the profile keychain
     router_compare_json_output(
