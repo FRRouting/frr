@@ -9836,6 +9836,7 @@ DEFPY (neighbor_soo,
 	afi_t afi = bgp_node_afi(vty);
 	safi_t safi = bgp_node_safi(vty);
 	struct ecommunity *ecomm_soo;
+	int ret;
 
 	peer = peer_and_group_lookup_vty(vty, neighbor);
 	if (!peer)
@@ -9848,16 +9849,10 @@ DEFPY (neighbor_soo,
 	}
 	ecommunity_str(ecomm_soo);
 
-	if (!ecommunity_match(peer->soo[afi][safi], ecomm_soo)) {
-		ecommunity_free(&peer->soo[afi][safi]);
-		peer->soo[afi][safi] = ecomm_soo;
-		peer_af_flag_unset(peer, afi, safi, PEER_FLAG_SOO);
-	} else {
-		ecommunity_free(&ecomm_soo);
-	}
+	ret = peer_soo_set(peer, afi, safi, ecomm_soo);
+	ecommunity_free(&ecomm_soo);
 
-	return bgp_vty_return(vty,
-			      peer_af_flag_set(peer, afi, safi, PEER_FLAG_SOO));
+	return bgp_vty_return(vty, ret);
 }
 
 DEFPY (no_neighbor_soo,
@@ -9877,10 +9872,7 @@ DEFPY (no_neighbor_soo,
 	if (!peer)
 		return CMD_WARNING_CONFIG_FAILED;
 
-	ecommunity_free(&peer->soo[afi][safi]);
-
-	return bgp_vty_return(
-		vty, peer_af_flag_unset(peer, afi, safi, PEER_FLAG_SOO));
+	return bgp_vty_return(vty, peer_soo_unset(peer, afi, safi));
 }
 
 /* "neighbor allowas-in" */
