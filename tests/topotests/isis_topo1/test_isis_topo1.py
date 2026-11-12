@@ -628,6 +628,10 @@ def test_isis_advertise_passive_only():
     expected_prefixes_advertise_passive_only = set(
         ["10.254.0.1/32", "2001:db8:f::1/128"]
     )
+    expected_addresses_no_advertise_passive_only = set(
+        ["2001:db8:1:1::2", "2001:db8:f::1"]
+    )
+    expected_addresses_advertise_passive_only = set(["2001:db8:f::1"])
     lsp_id = "r1.00-00"
 
     r1 = tgen.gears["r1"]
@@ -650,6 +654,11 @@ def test_isis_advertise_passive_only():
     )
     assert result is True, result
 
+    result = check_advertised_ipv6_addresses(
+        r1, lsp_id, expected_addresses_no_advertise_passive_only
+    )
+    assert result is True, result
+
     r1.vtysh_cmd(
         """
         configure
@@ -661,6 +670,11 @@ def test_isis_advertise_passive_only():
 
     result = check_advertised_prefixes(
         r1, lsp_id, expected_prefixes_advertise_passive_only
+    )
+    assert result is True, result
+
+    result = check_advertised_ipv6_addresses(
+        r1, lsp_id, expected_addresses_advertise_passive_only
     )
     assert result is True, result
 
@@ -678,6 +692,31 @@ def test_isis_advertise_passive_only():
     (result, _) = topotest.run_and_expect(test_func, None, wait=1, count=10)
     assertmsg = "Router '{}' routes mismatch:\n{}".format(rname, _)
     assert result, assertmsg
+
+
+def test_isis_lsp_many_ipv6_interface_addresses():
+    "Check that more than 15 IPv6 interface addresses are advertised in the LSP"
+    tgen = get_topogen()
+    # Don't run this test if we have any failure.
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    logger.info("Testing more than 15 IPv6 Interface Addresses in the LSP")
+    r1 = tgen.gears["r1"]
+    addresses = set("2001:db8:a::{}".format(i) for i in range(1, 18))
+    config = "".join("ipv6 address {}/128\n".format(a) for a in sorted(addresses))
+    r1.vtysh_cmd("configure\ninterface lo\n" + config + "end\n")
+
+    # lo is a passive IS-IS circuit here, so all of its addresses are advertised
+    # next to the ones of the previous tests.
+    result = check_advertised_ipv6_addresses(
+        r1, "r1.00-00", addresses | set(["2001:db8:f::1"])
+    )
+
+    unconfig = "".join("no ipv6 address {}/128\n".format(a) for a in sorted(addresses))
+    r1.vtysh_cmd("configure\ninterface lo\n" + unconfig + "end\n")
+
+    assert result is True, result
 
 
 def test_isis_hello_padding_during_adjacency_formation():
@@ -838,6 +877,15 @@ def check_advertised_prefixes(router, lsp_id, expected_prefixes):
     if prefixes == expected_prefixes:
         return True
     return str({"expected_prefixes:": expected_prefixes, "prefixes": prefixes})
+
+
+@retry(retry_timeout=30)
+def check_advertised_ipv6_addresses(router, lsp_id, expected_addresses):
+    output = router.vtysh_cmd("show isis database detail {}".format(lsp_id))
+    addresses = set(re.findall(r"IPv6 Interface Address: (.*)", output))
+    if addresses == expected_addresses:
+        return True
+    return str({"expected_addresses": expected_addresses, "addresses": addresses})
 
 
 @retry(retry_timeout=200)
