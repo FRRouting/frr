@@ -13727,13 +13727,11 @@ static void route_vty_out_detail_es_info(struct vty *vty,
 					 json_object *json_path)
 {
 	char esi_buf[ESI_STR_LEN];
-	bool es_local = !!CHECK_FLAG(attr->es_flags, ATTR_ES_IS_LOCAL);
-	bool peer_router = !!CHECK_FLAG(attr->es_flags,
-			ATTR_ES_PEER_ROUTER);
-	bool peer_active = !!CHECK_FLAG(attr->es_flags,
-			ATTR_ES_PEER_ACTIVE);
-	bool peer_proxy = !!CHECK_FLAG(attr->es_flags,
-			ATTR_ES_PEER_PROXY);
+	bool es_local = !!CHECK_FLAG(bgp_attr_get_es_flags(attr), ATTR_ES_IS_LOCAL);
+	bool peer_router = !!CHECK_FLAG(bgp_attr_get_es_flags(attr), ATTR_ES_PEER_ROUTER);
+	bool peer_active = !!CHECK_FLAG(bgp_attr_get_es_flags(attr), ATTR_ES_PEER_ACTIVE);
+	bool peer_proxy = !!CHECK_FLAG(bgp_attr_get_es_flags(attr), ATTR_ES_PEER_PROXY);
+
 	esi_to_str(&attr->esi, esi_buf, sizeof(esi_buf));
 	if (json_path) {
 		json_object *json_es_info = NULL;
@@ -14018,23 +14016,22 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp, struct bgp_dest *bn,
 						(struct prefix_evpn *)bgp_dest_get_prefix(dest),
 						has_srv6_service ? "Label" : "VNI", evpn_label_buf);
 				}
-				if (CHECK_FLAG(attr->es_flags, ATTR_ES_L3_NHG) &&
+				if (CHECK_FLAG(bgp_attr_get_es_flags(attr), ATTR_ES_L3_NHG) &&
 				    !json_paths) {
 					vty_out(vty, ", L3NHG %s",
-						CHECK_FLAG(
-							attr->es_flags,
-							ATTR_ES_L3_NHG_ACTIVE)
+						CHECK_FLAG(bgp_attr_get_es_flags(attr),
+							   ATTR_ES_L3_NHG_ACTIVE)
 							? "active"
 							: "inactive");
 					vty_out(vty, "\n");
 				} else if (json_paths) {
 					json_object_boolean_add(
 						json_path, "l3nhg",
-						CHECK_FLAG(attr->es_flags,
+						CHECK_FLAG(bgp_attr_get_es_flags(attr),
 							   ATTR_ES_L3_NHG));
 					json_object_boolean_add(
 						json_path, "l3nhgActive",
-						CHECK_FLAG(attr->es_flags,
+						CHECK_FLAG(bgp_attr_get_es_flags(attr),
 							   ATTR_ES_L3_NHG_ACTIVE));
 				}
 			} else {

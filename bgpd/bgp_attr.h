@@ -840,6 +840,16 @@ static inline void bgp_attr_set_originator_id(struct attr *attr, struct in_addr 
 		bgp_attr_unset(attr, BGP_ATTR_ORIGINATOR_ID);
 }
 
+static inline uint8_t bgp_attr_get_es_flags(const struct attr *attr)
+{
+	return attr->es_flags;
+}
+
+static inline void bgp_attr_set_es_flags(struct attr *attr, uint8_t es_flags)
+{
+	attr->es_flags = es_flags;
+}
+
 static inline struct bgp_route_evpn *
 bgp_attr_get_evpn_overlay(const struct attr *attr)
 {
