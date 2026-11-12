@@ -228,6 +228,7 @@ static void zebra_srv6_sid_entry_del_by_locator(struct zebra_srv6_sid *sid,
 		}
 
 	if (zebra_srv6_sid_entry_list_count(&sid->entries) == 0) {
+		release_srv6_sid_func(sid->ctx);
 		zebra_srv6_sid_ctx_list_del(&block->sids, sid->ctx);
 		zebra_srv6_sid_ctx_free(sid->ctx);
 
@@ -314,23 +315,24 @@ void zebra_srv6_locator_format_set(struct srv6_locator *locator,
 }
 
 /*
- * Called when a SID format is modified by the user.
+ * Called before a SID format is modified by the user.
  *
- * After modifying a SID format, the SIDs that are using that format may no
- * longer be valid.
+ * The SIDs that are using that format may no longer be valid after the
+ * change. Delete them while the old ranges are still configured so their
+ * allocations can be released correctly.
  * This function walks through the list of locators that are using the SID format
  * and notifies the zclients that the locator has changed, so that the zclients
- * can withdraw/uninstall the old SIDs, allocate/program/advertise the new SIDs.
+ * can withdraw/uninstall the old SIDs.
  */
-void zebra_srv6_sid_format_changed_cb(struct srv6_sid_format *format)
+void zebra_srv6_sid_format_change_start(struct srv6_sid_format *format)
 {
 	struct zebra_srv6 *srv6 = zebra_srv6_get_default();
 	struct srv6_locator *locator;
 	struct listnode *node;
 
 	if (IS_ZEBRA_DEBUG_SRV6)
-		zlog_debug("%s: SID format %s has changed. Notifying zclients.",
-			   __func__, format->name);
+		zlog_debug("%s: SID format %s is changing. Notifying zclients.", __func__,
+			   format->name);
 
 	for (ALL_LIST_ELEMENTS_RO(srv6->locators, node, locator)) {
 		if (locator->sid_format == format) {
@@ -343,11 +345,41 @@ void zebra_srv6_sid_format_changed_cb(struct srv6_sid_format *format)
 			zebra_notify_srv6_locator_delete(locator);
 
 			zebra_srv6_sid_entry_del_by_locator_all_sids(locator);
-
-			/* Notify zclients about the updated locator */
-			zebra_notify_srv6_locator_add(locator);
 		}
 	}
+}
+
+/*
+ * Called after a SID format is modified.
+ *
+ * Notify clients that locators using this format are available again so they
+ * can allocate SIDs using the updated format.
+ */
+void zebra_srv6_sid_format_change_finish(struct srv6_sid_format *format)
+{
+	struct zebra_srv6 *srv6 = zebra_srv6_get_default();
+	struct zebra_srv6_sid_block *block;
+	struct srv6_locator *locator;
+	struct listnode *node;
+
+	/* Reset the allocator before clients can request SIDs from the new range. */
+	for (ALL_LIST_ELEMENTS_RO(srv6->sid_blocks, node, block)) {
+		if (block->sid_format != format)
+			continue;
+
+		if (format->type == SRV6_SID_FORMAT_TYPE_USID) {
+			block->u.usid.lib.first_available_func = format->config.usid.lib_start;
+			list_delete_all_node(block->u.usid.lib.func_released);
+		} else {
+			block->u.uncompressed.first_available_func =
+				SRV6_SID_FORMAT_UNCOMPRESSED_F4024_FUNC_UNRESERVED_MIN;
+			list_delete_all_node(block->u.uncompressed.func_released);
+		}
+	}
+
+	for (ALL_LIST_ELEMENTS_RO(srv6->locators, node, locator))
+		if (locator->sid_format == format)
+			zebra_notify_srv6_locator_add(locator);
 }
 
 /*
@@ -589,15 +621,15 @@ void delete_zebra_srv6_sid_block(void *val)
 	zebra_srv6_sid_block_free((struct zebra_srv6_sid_block *)val);
 }
 
-struct zebra_srv6_sid_block *
-zebra_srv6_sid_block_lookup(struct prefix_ipv6 *prefix)
+struct zebra_srv6_sid_block *zebra_srv6_sid_block_lookup(struct srv6_sid_format *format,
+							 struct prefix_ipv6 *prefix)
 {
 	struct zebra_srv6 *srv6 = zebra_srv6_get_default();
 	struct zebra_srv6_sid_block *block;
 	struct listnode *node;
 
 	for (ALL_LIST_ELEMENTS_RO(srv6->sid_blocks, node, block))
-		if (prefix_match(prefix, &block->prefix))
+		if (block->sid_format == format && prefix_match(prefix, &block->prefix))
 			return block;
 
 	return NULL;
@@ -647,7 +679,7 @@ void zebra_srv6_sid_locator_block_alloc(struct srv6_locator *locator)
 	apply_mask(&block_pfx_new);
 
 	/* Allocate the new parent block */
-	block_new = zebra_srv6_sid_block_lookup(&block_pfx_new);
+	block_new = zebra_srv6_sid_block_lookup(format, &block_pfx_new);
 	if (!block_new) {
 		block_new = zebra_srv6_sid_block_alloc(format, &block_pfx_new);
 		listnode_add(srv6->sid_blocks, block_new);

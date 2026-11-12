@@ -58,11 +58,12 @@ test_srv6_sid_manager.py:
 
 """
 
+import functools
+import ipaddress
+import json
 import os
 import re
 import sys
-import json
-import functools
 import pytest
 
 CWD = os.path.dirname(os.path.realpath(__file__))
@@ -77,10 +78,16 @@ from lib.common_config import (
     create_interface_in_kernel,
     required_linux_kernel_version,
     shutdown_bringup_interface_in_kernel,
+    step,
 )
 from lib.checkping import check_ping
 
-pytestmark = [pytest.mark.bgpd, pytest.mark.isisd, pytest.mark.sharpd]
+pytestmark = [
+    pytest.mark.bgpd,
+    pytest.mark.isisd,
+    pytest.mark.sharpd,
+    pytest.mark.staticd,
+]
 
 
 def build_topo(tgen):
@@ -155,15 +162,15 @@ def build_topo(tgen):
 
     tgen.gears["rt1"].run("ip link add vrf10 type vrf table 10")
     shutdown_bringup_interface_in_kernel(
-        tgen.gears['rt1'].tgen,
-        tgen.gears['rt1'].name,
+        tgen.gears["rt1"].tgen,
+        tgen.gears["rt1"].name,
         "vrf10",
         True,
     )
     tgen.gears["rt1"].run("ip link add vrf20 type vrf table 20")
     shutdown_bringup_interface_in_kernel(
-        tgen.gears['rt1'].tgen,
-        tgen.gears['rt1'].name,
+        tgen.gears["rt1"].tgen,
+        tgen.gears["rt1"].name,
         "vrf20",
         True,
     )
@@ -173,16 +180,16 @@ def build_topo(tgen):
 
     tgen.gears["rt5"].run("ip link add vrf10 type vrf table 10")
     shutdown_bringup_interface_in_kernel(
-        tgen.gears['rt5'].tgen,
-        tgen.gears['rt5'].name,
+        tgen.gears["rt5"].tgen,
+        tgen.gears["rt5"].name,
         "vrf10",
         True,
     )
     tgen.gears["rt5"].run("ip link set eth-dst2 master vrf10")
     tgen.gears["rt5"].run("ip link add vrf20 type vrf table 20")
     shutdown_bringup_interface_in_kernel(
-        tgen.gears['rt5'].tgen,
-        tgen.gears['rt5'].name,
+        tgen.gears["rt5"].tgen,
+        tgen.gears["rt5"].name,
         "vrf20",
         True,
     )
@@ -190,15 +197,15 @@ def build_topo(tgen):
 
     tgen.gears["rt6"].run("ip link add vrf10 type vrf table 10")
     shutdown_bringup_interface_in_kernel(
-        tgen.gears['rt6'].tgen,
-        tgen.gears['rt6'].name,
+        tgen.gears["rt6"].tgen,
+        tgen.gears["rt6"].name,
         "vrf10",
         True,
     )
     tgen.gears["rt6"].run("ip link add vrf20 type vrf table 20")
     shutdown_bringup_interface_in_kernel(
-        tgen.gears['rt6'].tgen,
-        tgen.gears['rt6'].name,
+        tgen.gears["rt6"].tgen,
+        tgen.gears["rt6"].name,
         "vrf20",
         True,
     )
@@ -282,6 +289,8 @@ def setup_module(mod):
         router.load_config(
             TopoRouter.RD_BGP, os.path.join(CWD, "{}/bgpd.conf".format(rname))
         )
+        if rname == "rt1":
+            router.load_config(TopoRouter.RD_STATIC)
         if os.path.exists("{}/sharpd.conf".format(rname)):
             router.load_config(
                 TopoRouter.RD_SHARP, os.path.join(CWD, "{}/sharpd.conf".format(rname))
@@ -551,6 +560,374 @@ no wide-local-id-block explicit
 
     output = router.vtysh_cmd("write terminal")
     assert "wide-local-id-block" not in output
+
+
+def _check_srv6_sid_lifecycle(
+    rt1,
+    rt6,
+    sid,
+    expected_present,
+    expected_allocation_mode="explicit",
+    expected_clients=("bgp",),
+):
+    """Check SID allocation, local installation, and remote VPN propagation."""
+    try:
+        sid_output = json.loads(
+            rt1.vtysh_cmd("show segment-routing srv6 sid {} json".format(sid))
+        )
+        rt1_routes = json.loads(rt1.vtysh_cmd("show ipv6 route json"))
+        rt6_vrf_routes = json.loads(rt6.vtysh_cmd("show ipv6 route vrf vrf10 json"))
+        rt6_vpn_routes = json.loads(rt6.vtysh_cmd("show bgp ipv6 vpn json"))
+    except json.JSONDecodeError as error:
+        return "Failed to decode SID lifecycle command output: {}".format(error)
+
+    sid_info = sid_output.get(sid)
+    if bool(sid_info) != expected_present:
+        return "SID {} allocation presence is {}, expected {}".format(
+            sid, bool(sid_info), expected_present
+        )
+    if sid_info and sid_info.get("allocationMode") != expected_allocation_mode:
+        return "SID {} has allocation mode {}, expected {}".format(
+            sid, sid_info.get("allocationMode"), expected_allocation_mode
+        )
+    if sid_info:
+        clients = {client["protocol"] for client in sid_info.get("clients", [])}
+        missing_clients = set(expected_clients) - clients
+        if missing_clients:
+            return "SID {} is missing clients {}".format(
+                sid, ", ".join(sorted(missing_clients))
+            )
+
+    sid_routes = [
+        route
+        for prefix, routes in rt1_routes.items()
+        if prefix.rsplit("/", 1)[0] == sid
+        for route in routes
+    ]
+    if bool(sid_routes) != expected_present:
+        return "SID {} local RIB route presence is {}, expected {}".format(
+            sid, bool(sid_routes), expected_present
+        )
+    installed_sid_route = any(
+        route.get("selected")
+        and route.get("installed")
+        and any(
+            nexthop.get("interfaceName") == "vrf10"
+            and nexthop.get("seg6local", {}).get("action") == "uDT6"
+            for nexthop in route.get("nexthops", [])
+        )
+        for route in sid_routes
+    )
+    if installed_sid_route != expected_present:
+        return "SID {} local RIB installation is {}, expected {}".format(
+            sid, installed_sid_route, expected_present
+        )
+
+    vrf_route = rt6_vrf_routes.get("2001:1::/64", [])
+    if bool(vrf_route) != expected_present:
+        return "rt6 VRF route 2001:1::/64 presence is {}, expected {}".format(
+            bool(vrf_route), expected_present
+        )
+    if expected_present and not any(
+        route.get("selected")
+        and route.get("installed")
+        and route.get("protocol") == "bgp"
+        and any(
+            nexthop.get("seg6", {}).get("segs") == sid
+            for nexthop in route.get("nexthops", [])
+        )
+        for route in vrf_route
+    ):
+        return "rt6 VRF route 2001:1::/64 is not installed with SID {}".format(sid)
+
+    route_distinguishers = rt6_vpn_routes.get("routes", {}).get(
+        "routeDistinguishers", {}
+    )
+    vpn_route_present = any(
+        "2001:1::/64" in routes for routes in route_distinguishers.values()
+    )
+    if vpn_route_present != expected_present:
+        return "rt6 BGP VPN route 2001:1::/64 presence is {}, expected {}".format(
+            vpn_route_present, expected_present
+        )
+
+    return None
+
+
+def _dynamic_sids_from_range(router, sid_start, sid_end):
+    """Check that BGP and IS-IS have dynamic SIDs from the requested range."""
+    try:
+        sids = json.loads(router.vtysh_cmd("show segment-routing srv6 sid json"))
+    except json.JSONDecodeError as error:
+        return "show segment-routing srv6 sid json: {}".format(error)
+
+    protocols = set()
+    for sid, info in sids.items():
+        if info.get("allocationMode") != "dynamic":
+            continue
+
+        sid_func = int.from_bytes(ipaddress.IPv6Address(sid).packed[6:8], "big")
+        if not sid_start <= sid_func < sid_end:
+            continue
+
+        protocols.update(client["protocol"] for client in info.get("clients", []))
+
+    missing = {"bgp", "isis"} - protocols
+    if missing:
+        return "No dynamic SID from range {}-{} for {}".format(
+            sid_start, sid_end - 1, ", ".join(sorted(missing))
+        )
+
+    return None
+
+
+def _dynamic_sid_for_client(router, protocol, sid_start, sid_end):
+    """Return a client's dynamic SID from the requested uSID LIB range."""
+    sids = json.loads(router.vtysh_cmd("show segment-routing srv6 sid json"))
+    for sid, info in sids.items():
+        if info.get("allocationMode") != "dynamic":
+            continue
+
+        sid_func = int.from_bytes(ipaddress.IPv6Address(sid).packed[6:8], "big")
+        if not sid_start <= sid_func < sid_end:
+            continue
+
+        if any(client["protocol"] == protocol for client in info.get("clients", [])):
+            return sid
+
+    return None
+
+
+def test_dynamic_sid_range_and_static_sid_configuration():
+    """
+    Change the dynamic range and verify BGP and IS-IS allocate from it. Configure
+    an explicit SID in staticd and verify BGP gets the same SID, i.e., the SID
+    is shared between BGP and staticd. Restore the original configuration and
+    verify the default SID is allocated, installed, and advertised.
+    """
+    tgen = get_topogen()
+
+    result = required_linux_kernel_version("6.1")
+    if result is not True:
+        pytest.skip("Kernel requirements are not met, kernel version should be >=6.1")
+
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    router = tgen.gears["rt1"]
+    rt6 = tgen.gears["rt6"]
+    start = 57600
+    explicit_start = 65024
+    format_context = """configure terminal
+segment-routing
+srv6
+formats
+format usid-f3216
+"""
+
+    step(
+        "Change the dynamic SID range and verify BGP and IS-IS allocate from it",
+        reset=True,
+    )
+    router.vtysh_cmd(format_context + "local-id-block start 57600\n")
+    router.vtysh_cmd(
+        """configure terminal
+router bgp 1 vrf vrf10
+address-family ipv6 unicast
+no sid vpn export 65024
+"""
+    )
+    router.vtysh_cmd(
+        """configure terminal
+router bgp 1 vrf vrf10
+address-family ipv6 unicast
+sid vpn export auto
+"""
+    )
+
+    check_dynamic_sids = functools.partial(
+        _dynamic_sids_from_range, router, start, explicit_start
+    )
+    _, result = topotest.run_and_expect(check_dynamic_sids, None, count=30, wait=1)
+    assert (
+        result is None
+    ), "BGP and IS-IS did not allocate dynamic SIDs from range {}-{}: {}".format(
+        start, explicit_start - 1, result
+    )
+
+    bgp_dynamic_sid = _dynamic_sid_for_client(router, "bgp", start, explicit_start)
+    assert (
+        bgp_dynamic_sid is not None
+    ), "BGP did not receive a dynamic SID from range {}-{}".format(
+        start, explicit_start - 1
+    )
+    check_lifecycle = functools.partial(
+        _check_srv6_sid_lifecycle,
+        router,
+        rt6,
+        bgp_dynamic_sid,
+        True,
+        "dynamic",
+    )
+    _, result = topotest.run_and_expect(check_lifecycle, None, count=30, wait=1)
+    assert (
+        result is None
+    ), "BGP dynamic SID {} was not installed and advertised correctly: {}".format(
+        bgp_dynamic_sid, result
+    )
+    check_ping("ce2", "2001:1::2", True, 10, 1)
+
+    step(
+        "Configure an explicit SID in staticd and verify BGP gets the same SID, "
+        "shared between BGP and staticd"
+    )
+    sid = "fc00:0:1:fe10::"
+    router.vtysh_cmd(
+        """configure terminal
+segment-routing
+srv6
+static-sids
+sid fc00:0:1:fe10::/64 locator loc1 behavior uDT6 vrf vrf10
+"""
+    )
+
+    check_lifecycle = functools.partial(
+        _check_srv6_sid_lifecycle,
+        router,
+        rt6,
+        sid,
+        True,
+        expected_clients=("bgp", "static"),
+    )
+    _, result = topotest.run_and_expect(check_lifecycle, None, count=30, wait=1)
+    assert result is None, "Expected BGP and staticd to use SID {}: {}".format(
+        sid, result
+    )
+    check_ping("ce2", "2001:1::2", True, 10, 1)
+
+    step(
+        "Restore the default SID settings and verify the default SID is allocated, "
+        "installed, and advertised"
+    )
+    router.vtysh_cmd(
+        """configure terminal
+segment-routing
+srv6
+static-sids
+no sid fc00:0:1:fe10::/64
+"""
+    )
+    router.vtysh_cmd(format_context + "no local-id-block\n")
+    router.vtysh_cmd(
+        """configure terminal
+router bgp 1 vrf vrf10
+address-family ipv6 unicast
+no sid vpn export auto
+"""
+    )
+    router.vtysh_cmd(
+        """configure terminal
+router bgp 1 vrf vrf10
+address-family ipv6 unicast
+sid vpn export 65024
+"""
+    )
+
+    output = router.vtysh_cmd("write terminal")
+    assert (
+        "local-id-block start 57600" not in output
+    ), "The non-default dynamic SID range was not removed from the configuration"
+    assert (
+        "sid vpn export auto" not in output
+    ), "BGP automatic VPN SID export was not removed from the configuration"
+    assert (
+        "sid vpn export 65024" in output
+    ), "The default explicit VPN SID export was not restored"
+    assert (
+        "sid fc00:0:1:fe10::/64" not in output
+    ), "The test SID configured in staticd was not removed"
+
+    default_sid = "fc00:0:1:fe00::"
+    check_lifecycle = functools.partial(
+        _check_srv6_sid_lifecycle, router, rt6, default_sid, True
+    )
+    _, result = topotest.run_and_expect(check_lifecycle, None, count=30, wait=1)
+    assert (
+        result is None
+    ), "Default SID {} was not allocated, installed, and advertised: {}".format(
+        default_sid, result
+    )
+    check_ping("ce2", "2001:1::2", True, 10, 1)
+
+
+def test_explicit_sid_range_change_lifecycle():
+    """
+    Move the explicit range so the SID falls outside it and verify withdrawal, then
+    restore the default range and verify allocation, installation, and advertisement.
+    """
+    tgen = get_topogen()
+
+    # Required linux kernel version for this suite to run.
+    result = required_linux_kernel_version("6.1")
+    if result is not True:
+        pytest.skip("Kernel requirements are not met, kernel version should be >=6.1")
+
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    rt1 = tgen.gears["rt1"]
+    rt6 = tgen.gears["rt6"]
+    sid = "fc00:0:1:fe00::"
+    format_context = """configure terminal
+segment-routing
+srv6
+formats
+format usid-f3216
+"""
+
+    step(
+        "Check the default configuration and verify the explicit SID is allocated, "
+        "installed, and advertised",
+        reset=True,
+    )
+    check_lifecycle = functools.partial(_check_srv6_sid_lifecycle, rt1, rt6, sid, True)
+    _, result = topotest.run_and_expect(check_lifecycle, None, count=30, wait=1)
+    assert result is None, (
+        "Default explicit SID {} was not allocated, installed, and advertised: "
+        "{}".format(sid, result)
+    )
+    check_ping("ce2", "2001:1::2", True, 10, 1)
+    check_ping("ce1", "2001:2::2", True, 10, 1)
+
+    step(
+        "Exclude the configured SID from the explicit range and verify it is "
+        "withdrawn"
+    )
+    rt1.vtysh_cmd(format_context + "local-id-block explicit start 513 end 767\n")
+
+    check_lifecycle = functools.partial(_check_srv6_sid_lifecycle, rt1, rt6, sid, False)
+    _, result = topotest.run_and_expect(check_lifecycle, None, count=30, wait=1)
+    assert result is None, (
+        "SID {} remained allocated, installed, or advertised outside the explicit "
+        "range: {}".format(sid, result)
+    )
+    check_ping("ce2", "2001:1::2", False, 10, 1)
+    check_ping("ce1", "2001:2::2", False, 10, 1)
+
+    step(
+        "Restore the default explicit range and verify the SID is allocated, "
+        "installed, and advertised again"
+    )
+    rt1.vtysh_cmd(format_context + "no local-id-block explicit\n")
+
+    check_lifecycle = functools.partial(_check_srv6_sid_lifecycle, rt1, rt6, sid, True)
+    _, result = topotest.run_and_expect(check_lifecycle, None, count=30, wait=1)
+    assert result is None, (
+        "SID {} was not reallocated, installed, and advertised after range "
+        "restoration: {}".format(sid, result)
+    )
+    check_ping("ce2", "2001:1::2", True, 10, 1)
+    check_ping("ce1", "2001:2::2", True, 10, 1)
 
 
 # Memory leak test template

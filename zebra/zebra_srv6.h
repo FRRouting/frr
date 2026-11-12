@@ -312,7 +312,8 @@ void srv6_sid_format_unregister(struct srv6_sid_format *format);
 struct srv6_sid_format *srv6_sid_format_lookup(const char *name);
 void zebra_srv6_locator_format_set(struct srv6_locator *locator,
 				   struct srv6_sid_format *format);
-void zebra_srv6_sid_format_changed_cb(struct srv6_sid_format *format);
+void zebra_srv6_sid_format_change_start(struct srv6_sid_format *format);
+void zebra_srv6_sid_format_change_finish(struct srv6_sid_format *format);
 
 uint32_t *zebra_srv6_sid_func_alloc(uint32_t func);
 void zebra_srv6_sid_func_free(uint32_t *func);
@@ -323,8 +324,8 @@ zebra_srv6_sid_block_alloc(struct srv6_sid_format *format,
 			   struct prefix_ipv6 *prefix);
 extern void zebra_srv6_sid_block_free(struct zebra_srv6_sid_block *block);
 extern void delete_zebra_srv6_sid_block(void *val);
-extern struct zebra_srv6_sid_block *
-zebra_srv6_sid_block_lookup(struct prefix_ipv6 *prefix);
+extern struct zebra_srv6_sid_block *zebra_srv6_sid_block_lookup(struct srv6_sid_format *format,
+								struct prefix_ipv6 *prefix);
 void zebra_srv6_sid_locator_block_alloc(struct srv6_locator *locator);
 void zebra_srv6_sid_locator_block_release(struct srv6_locator *locator);
 
