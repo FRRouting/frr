@@ -2247,7 +2247,7 @@ static void update_evpn_route_entry_sync_info(struct bgp *bgp,
 					       &max_sync_seq, &active_on_peer,
 					       &peer_router, &proxy_from_peer,
 					       mac);
-			attr->mm_sync_seqnum = max_sync_seq;
+			bgp_attr_set_mm_sync_seqnum(attr, max_sync_seq);
 			es_flags = bgp_attr_get_es_flags(attr);
 			if (active_on_peer)
 				SET_FLAG(es_flags, ATTR_ES_PEER_ACTIVE);
@@ -2288,7 +2288,7 @@ static void update_evpn_route_entry_sync_info(struct bgp *bgp,
 	} else {
 		es_flags = bgp_attr_get_es_flags(attr);
 
-		attr->mm_sync_seqnum = 0;
+		bgp_attr_set_mm_sync_seqnum(attr, 0);
 		UNSET_FLAG(es_flags, ATTR_ES_PEER_ACTIVE);
 		UNSET_FLAG(es_flags, ATTR_ES_PEER_PROXY);
 		bgp_attr_set_es_flags(attr, es_flags);

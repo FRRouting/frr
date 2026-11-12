@@ -13753,10 +13753,9 @@ static void route_vty_out_detail_es_info(struct vty *vty,
 			if (peer_router)
 				json_object_boolean_true_add(
 						json_es_info, "peerRouter");
-			if (attr->mm_sync_seqnum)
-				json_object_int_add(
-						json_es_info, "peerSeq",
-						attr->mm_sync_seqnum);
+			if (bgp_attr_get_mm_sync_seqnum(attr))
+				json_object_int_add(json_es_info, "peerSeq",
+						    bgp_attr_get_mm_sync_seqnum(attr));
 			json_object_object_add(
 					json_path, "es_info",
 					json_es_info);
@@ -13770,7 +13769,7 @@ static void route_vty_out_detail_es_info(struct vty *vty,
 					peer_proxy ? "proxy " : "",
 					peer_active ? "active ":"",
 					peer_router ? "router ":"",
-					attr->mm_sync_seqnum);
+					bgp_attr_get_mm_sync_seqnum(attr));
 		else
 			vty_out(vty, "      ESI %s %s\n",
 					esi_buf,

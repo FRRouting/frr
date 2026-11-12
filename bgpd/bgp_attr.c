@@ -1462,7 +1462,7 @@ bool attrhash_cmp(const void *p1, const void *p2)
 		    !memcmp(&attr1->esi, &attr2->esi, sizeof(esi_t)) &&
 		    bgp_attr_get_es_flags(attr1) == bgp_attr_get_es_flags(attr2) &&
 		    bgp_attr_get_mm_seqnum(attr1) == bgp_attr_get_mm_seqnum(attr2) &&
-		    attr1->mm_sync_seqnum == attr2->mm_sync_seqnum &&
+		    bgp_attr_get_mm_sync_seqnum(attr1) == bgp_attr_get_mm_sync_seqnum(attr2) &&
 		    bgp_attr_get_df_pref(attr1) == bgp_attr_get_df_pref(attr2) &&
 		    bgp_attr_get_df_alg(attr1) == bgp_attr_get_df_alg(attr2) &&
 		    attr1->nh_ifindex == attr2->nh_ifindex &&
