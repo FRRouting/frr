@@ -675,7 +675,7 @@ struct bgp {
 
 	/* Restart State window at instance creation and administrative re-enable. */
 	struct event *t_startup;
-	struct timeval startup_started;
+	struct timeval startup_time;
 
 	struct event *clearing_end;
 

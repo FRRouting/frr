@@ -3985,9 +3985,12 @@ static void bgp_startup_timer_expire(struct event *event)
 static void bgp_startup_timer_start(struct bgp *bgp)
 {
 	event_cancel(&bgp->t_startup);
-	monotime(&bgp->startup_started);
+	monotime(&bgp->startup_time);
 	event_add_timer(bm->master, bgp_startup_timer_expire, bgp,
 			bgp->restart_time, &bgp->t_startup);
+	if (BGP_DEBUG(graceful_restart, GRACEFUL_RESTART))
+		zlog_debug("%s: Startup timer started with %u seconds",
+			   bgp->name_pretty, bgp->restart_time);
 }
 
 /* Keep a running startup window relative to its original start. */
@@ -3998,13 +4001,17 @@ void bgp_startup_timer_update(struct bgp *bgp)
 	if (!bgp->t_startup)
 		return;
 
-	elapsed_ms = monotime_since(&bgp->startup_started, NULL) / 1000;
+	elapsed_ms = monotime_since(&bgp->startup_time, NULL) / 1000;
 	window_ms = (int64_t)bgp->restart_time * 1000;
 
 	event_cancel(&bgp->t_startup);
 	if (window_ms > elapsed_ms)
 		event_add_timer_msec(bm->master, bgp_startup_timer_expire, bgp,
 				     window_ms - elapsed_ms, &bgp->t_startup);
+	if (BGP_DEBUG(graceful_restart, GRACEFUL_RESTART))
+		zlog_debug("%s: Startup timer updated: %u seconds, %" PRId64 " ms remaining",
+			   bgp->name_pretty, bgp->restart_time,
+			   window_ms > elapsed_ms ? window_ms - elapsed_ms : 0);
 }
 
 /*
