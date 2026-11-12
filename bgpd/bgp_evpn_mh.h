@@ -13,6 +13,7 @@
 #include "bgpd.h"
 #include "bgp_evpn.h"
 #include "bgp_evpn_private.h"
+#include "bgp_attr.h"
 
 #define BGP_EVPN_AD_ES_ETH_TAG 0xffffffff
 #define BGP_EVPN_AD_EVI_ETH_TAG 0
@@ -359,8 +360,9 @@ static inline esi_t *bgp_evpn_attr_get_esi(struct attr *attr)
 
 static inline bool bgp_evpn_attr_is_sync(struct attr *attr)
 {
-	return attr ? !!(attr->es_flags &
-		(ATTR_ES_PEER_PROXY | ATTR_ES_PEER_ACTIVE)) : false;
+	return attr ? !!(bgp_attr_get_es_flags(attr) &
+			 (ATTR_ES_PEER_PROXY | ATTR_ES_PEER_ACTIVE))
+		    : false;
 }
 
 static inline uint32_t bgp_evpn_attr_get_sync_seq(struct attr *attr)
@@ -370,24 +372,22 @@ static inline uint32_t bgp_evpn_attr_get_sync_seq(struct attr *attr)
 
 static inline bool bgp_evpn_attr_is_active_on_peer(struct attr *attr)
 {
-	return attr ?
-		!!(attr->es_flags & ATTR_ES_PEER_ACTIVE) : false;
+	return attr ? !!(bgp_attr_get_es_flags(attr) & ATTR_ES_PEER_ACTIVE) : false;
 }
 
 static inline bool bgp_evpn_attr_is_router_on_peer(struct attr *attr)
 {
-	return attr ?
-		!!(attr->es_flags & ATTR_ES_PEER_ROUTER) : false;
+	return attr ? !!(bgp_attr_get_es_flags(attr) & ATTR_ES_PEER_ROUTER) : false;
 }
 
 static inline bool bgp_evpn_attr_is_proxy(struct attr *attr)
 {
-	return attr ? !!(attr->es_flags & ATTR_ES_PROXY_ADVERT) : false;
+	return attr ? !!(bgp_attr_get_es_flags(attr) & ATTR_ES_PROXY_ADVERT) : false;
 }
 
 static inline bool bgp_evpn_attr_is_local_es(struct attr *attr)
 {
-	return attr ? !!(attr->es_flags & ATTR_ES_IS_LOCAL) : false;
+	return attr ? !!(bgp_attr_get_es_flags(attr) & ATTR_ES_IS_LOCAL) : false;
 }
 
 static inline bool bgp_evpn_local_es_is_active(struct bgp_evpn_es *es)
