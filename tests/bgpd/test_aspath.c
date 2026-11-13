@@ -1130,6 +1130,9 @@ static struct remove_private_tests {
 	/* 5: the peer's ASN is retained inside the AS_SET */
 	{"64512 {64513,64514}", 64513,
 	 {"{64513}", "{64513}", 1, 0, ALL_PRIVATE, 64513, 1, NULL_ASN}},
+	/* 6: two dropped sets, three sequences around them merge */
+	{"3356 {64513} 174 {64514} 2914", 0,
+	 {"3356 174 2914", "3356 174 2914", 3, 0, NOT_ALL_PRIVATE, 174, 1, 3356}},
 	{NULL, 0, {NULL, 0, 0}},
 };
 
@@ -1455,6 +1458,80 @@ static void remove_private_test(struct remove_private_tests *t)
 	aspath_free(asp);
 }
 
+/* aspath_put() packing of adjacent, un-normalised AS_SEQUENCE segments */
+static struct put_pack_tests {
+	const char *desc;
+	unsigned short lengths[4]; /* 0-terminated segment lengths */
+} put_pack_tests[] = {
+	/* 0: the packed segment header must count all three segments */
+	{"three adjacent 1-ASN sequences", {1, 1, 1, 0}},
+	/* 1: each pair fits in 255 ASNs, all three together do not */
+	{"adjacent 200, 50 and 50 ASN sequences", {200, 50, 50, 0}},
+	{NULL, {0}},
+};
+
+static void put_pack_test(struct put_pack_tests *t)
+{
+	struct aspath *as, *out;
+	struct assegment *seg, *last = NULL;
+	struct stream *s;
+	unsigned int hops = 0;
+	as_t asn = 1000;
+	size_t bytes;
+	int fails = 0;
+	int i, j, use32bit;
+
+	printf("%s\n", t->desc);
+
+	/* Build the segments by hand: aspath_parse() and aspath_str2aspath()
+	 * would already merge them.
+	 */
+	as = XCALLOC(MTYPE_AS_PATH, sizeof(struct aspath));
+	as->asnotation = ASNOTATION_PLAIN;
+	for (i = 0; t->lengths[i]; i++) {
+		seg = XCALLOC(MTYPE_AS_SEG, sizeof(struct assegment));
+		seg->type = AS_SEQUENCE;
+		seg->length = t->lengths[i];
+		seg->as = XCALLOC(MTYPE_AS_SEG_DATA, seg->length * sizeof(as_t));
+		for (j = 0; j < seg->length; j++)
+			seg->as[j] = asn++;
+		if (last)
+			last->next = seg;
+		else
+			as->segments = seg;
+		last = seg;
+		hops += seg->length;
+	}
+	aspath_str_update(as);
+
+	s = stream_new(BGP_MAX_PACKET_SIZE);
+	for (use32bit = 0; use32bit <= 1; use32bit++) {
+		stream_reset(s);
+		bytes = aspath_put(s, as, use32bit);
+		out = make_aspath(STREAM_DATA(s), bytes, use32bit, as->asnotation);
+
+		if (!out || aspath_count_hops(out) != hops ||
+		    strcmp(aspath_print(out), aspath_print(as))) {
+			printf("%d-byte encoding failed, got: %s\n", use32bit ? 4 : 2,
+			       out ? aspath_print(out) : "(parse error)");
+			fails++;
+		}
+		if (out)
+			aspath_unintern(&out);
+	}
+	stream_free(s);
+
+	if (!fails)
+		printf(OK "\n");
+	else {
+		failed++;
+		printf(FAILED "!\n");
+	}
+
+	printf("\n");
+	aspath_free(as);
+}
+
 /* aggregation testing */
 static void aggregate_test(struct tests *t)
 {
@@ -1736,6 +1813,13 @@ int main(void)
 	while (remove_private_tests[i].path) {
 		printf("remove private test %u\n", i);
 		remove_private_test(&remove_private_tests[i++]);
+	}
+
+	i = 0;
+
+	while (put_pack_tests[i].desc) {
+		printf("put pack test %u\n", i);
+		put_pack_test(&put_pack_tests[i++]);
 	}
 
 	i = 0;

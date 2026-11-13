@@ -64,8 +64,10 @@ for i in range(5):
     TestAspath.okfail("aggregate test %d" % i)
 for i in range(5):
     TestAspath.okfail("reconcile test %d" % i)
-for i in range(6):
+for i in range(7):
     TestAspath.okfail("remove private test %d" % i)
+for i in range(2):
+    TestAspath.okfail("put pack test %d" % i)
 for _ in range(22):
     TestAspath.okfail("left cmp ")
 
