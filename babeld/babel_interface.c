@@ -208,12 +208,12 @@ static int babel_enable_if_delete(const char *ifname)
 	return 1;
 }
 
-/* [Babel Command] Babel enable on specified interface or matched network. */
+/* [Babel Command] Enable Babel on specified interface. */
 DEFUN (babel_network,
        babel_network_cmd,
-       "network IF_OR_ADDR",
-       "Enable Babel protocol on specified interface or network.\n"
-       "Interface or address\n")
+       "network IFNAME",
+       "Enable Babel protocol on specified interface.\n"
+       "Interface name\n")
 {
 	int ret;
 	struct prefix p;
@@ -234,13 +234,13 @@ DEFUN (babel_network,
 	return CMD_SUCCESS;
 }
 
-/* [Babel Command] Babel enable on specified interface or matched network. */
+/* [Babel Command] Disable Babel on specified interface. */
 DEFUN (no_babel_network,
        no_babel_network_cmd,
-       "no network IF_OR_ADDR",
+       "no network IFNAME",
        NO_STR
-       "Disable Babel protocol on specified interface or network.\n"
-       "Interface or address\n")
+       "Disable Babel protocol on specified interface.\n"
+       "Interface name\n")
 {
 	int ret;
 	struct prefix p;
