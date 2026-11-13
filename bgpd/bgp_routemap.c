@@ -3822,13 +3822,18 @@ route_set_aigp_metric(void *rule, const struct prefix *pfx, void *object)
 {
 	const char *aigp_metric = rule;
 	struct bgp_path_info *path = object;
-	uint32_t aigp;
+	uint64_t aigp;
 
 	/* Note: the metric is stored as MED for a locally redistributed. */
 	if (strmatch(aigp_metric, "igp-metric"))
 		aigp = path->nexthop ? path->nexthop->metric : path->attr->med;
-	else
-		aigp = atoi(aigp_metric);
+	else if (aigp_metric[0] == '+') {
+		if (!bgp_attr_exists(path->attr, BGP_ATTR_AIGP))
+			return RMAP_OKAY;
+		aigp = bgp_aigp_metric_add(bgp_attr_get_aigp_metric(path->attr),
+					   strtoul(aigp_metric + 1, NULL, 10));
+	} else
+		aigp = strtoul(aigp_metric, NULL, 10);
 
 	bgp_attr_set_aigp_metric(path->attr, aigp);
 
@@ -7909,7 +7914,7 @@ DEFPY_YANG (set_aigp_metric,
 	    SET_STR
 	    "BGP AIGP attribute (AIGP Metric TLV)\n"
 	    "AIGP Metric value from IGP protocol\n"
-	    "Manual AIGP Metric value\n")
+	    "Manual AIGP Metric value (use + for an addition)\n")
 {
 	const char *xpath =
 		"./set-action[action='frr-bgp-route-map:aigp-metric']";
@@ -7930,7 +7935,7 @@ DEFPY_YANG (no_set_aigp_metric,
 	    SET_STR
 	    "BGP AIGP attribute (AIGP Metric TLV)\n"
 	    "AIGP Metric value from IGP protocol\n"
-	    "Manual AIGP Metric value\n")
+	    "Manual AIGP Metric value (use + for an addition)\n")
 {
 	const char *xpath =
 		"./set-action[action='frr-bgp-route-map:aigp-metric']";
