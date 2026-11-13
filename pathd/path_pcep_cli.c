@@ -744,7 +744,7 @@ static int path_pcep_cli_peer_sr_draft07(struct vty *vty, bool reset)
 	} else if (vty->node == PCEP_PCE_CONFIG_NODE) {
 		pce_config = current_pcep_config_group_opts_g;
 	} else {
-		return CMD_ERR_NO_MATCH;
+		assert(0);
 	}
 
 	pce_config->draft07 = reset ? DEFAULT_SR_DRAFT07 : true;
@@ -770,7 +770,7 @@ static int path_pcep_cli_peer_pce_initiated(struct vty *vty, bool reset)
 	} else if (vty->node == PCEP_PCE_CONFIG_NODE) {
 		pce_config = current_pcep_config_group_opts_g;
 	} else {
-		return CMD_ERR_NO_MATCH;
+		assert(0);
 	}
 
 	pce_config->pce_initiated = reset ? DEFAULT_PCE_INITIATED : true;
@@ -798,7 +798,7 @@ static int path_pcep_cli_peer_tcp_md5_auth(struct vty *vty,
 	} else if (vty->node == PCEP_PCE_CONFIG_NODE) {
 		pce_config = current_pcep_config_group_opts_g;
 	} else {
-		return CMD_ERR_NO_MATCH;
+		assert(0);
 	}
 
 	if (reset)
@@ -827,7 +827,7 @@ static int path_pcep_cli_peer_address(struct vty *vty, const char *ip_str,
 		pce_opts = &current_pce_opts_g->pce_opts;
 		current_pce_opts_g->merged = false;
 	} else {
-		return CMD_ERR_NO_MATCH;
+		assert(0);
 	}
 
 	if (ipv6_str != NULL) {
@@ -867,7 +867,7 @@ static int path_pcep_cli_peer_source_address(struct vty *vty,
 	} else if (vty->node == PCEP_PCE_CONFIG_NODE) {
 		pce_config = current_pcep_config_group_opts_g;
 	} else {
-		return CMD_ERR_NO_MATCH;
+		assert(0);
 	}
 
 	if (reset) {
@@ -907,7 +907,7 @@ static int path_pcep_cli_peer_pcep_pce_config_ref(struct vty *vty,
 		 * connection */
 		current_pce_opts_g->merged = false;
 	} else {
-		return CMD_ERR_NO_MATCH;
+		assert(0);
 	}
 
 	struct pcep_config_group_opts *pce_config =
@@ -946,7 +946,7 @@ static int path_pcep_cli_peer_timers(
 	} else if (vty->node == PCEP_PCE_CONFIG_NODE) {
 		pce_config = current_pcep_config_group_opts_g;
 	} else {
-		return CMD_ERR_NO_MATCH;
+		assert(0);
 	}
 
 	if (min_peer_keep_alive && max_peer_keep_alive)
