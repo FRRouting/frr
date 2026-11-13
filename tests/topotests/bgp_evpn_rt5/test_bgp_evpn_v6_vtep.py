@@ -575,6 +575,120 @@ def test_evpn_multipath():
         _test_rmac_present(dut)
 
 
+# r2 type-5 route that is still advertised after test_evpn_remove_ip
+R2_RD = "65000:201"
+R2_PREFIX = "[5]:[0]:[32]:[192.168.101.41]"
+R2_VTEP_IP = "192:168:100::41"
+R2_VRR_MAC = "00:00:5e:00:01:01"
+R2_SYSTEM_IP = "2001:db8:41::1"
+
+
+def _check_r2_type5_on_r1(r1, nexthop, rmac):
+    """
+    Return None if every path of the r2 type-5 route on r1 carries the given
+    nexthop and router MAC, an error string otherwise.
+    """
+    output = r1.vtysh_cmd("show bgp l2vpn evpn json", isjson=True)
+    paths = output.get(R2_RD, {}).get(R2_PREFIX, {}).get("paths", [])
+    if not paths:
+        return "{} {} not found".format(R2_RD, R2_PREFIX)
+
+    for path in paths:
+        nexthops = [nh.get("ip") for nh in path.get("nexthops", [])]
+        if nexthops != [nexthop]:
+            return "nexthops {}, expected {}".format(nexthops, nexthop)
+
+        ecom = path.get("extendedCommunity", {}).get("string", "").split()
+        if "Rmac:{}".format(rmac) not in ecom:
+            return "extended communities {}, expected Rmac:{}".format(ecom, rmac)
+
+    return None
+
+
+def _wait_r2_type5_on_r1(tgen, nexthop, rmac):
+    test_func = partial(_check_r2_type5_on_r1, tgen.gears["r1"], nexthop, rmac)
+    _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
+    assert result is None, "r1: r2 type-5 route mismatch: {}".format(result)
+
+
+def test_evpn_pip_anycast_fallback():
+    """
+    Give the r2 L3VNI an anycast (VRR) MAC so that advertise-pip takes
+    effect. r2 has no usable IPv6 address on its loopback, so there is no
+    system IP of the VTEP-IP family: the type-5 routes must keep the
+    anycast VTEP-IP and carry the anycast MAC, not the system MAC.
+    """
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    r2 = tgen.gears["r2"]
+    r2.cmd_raises(
+        "ip link add link bridge-101 name bridge-101-v0 type macvlan mode private"
+    )
+    r2.cmd_raises("ip link set dev bridge-101-v0 address {}".format(R2_VRR_MAC))
+    r2.cmd_raises("ip link set dev bridge-101-v0 master r2-vrf-101")
+    shutdown_bringup_interface_in_kernel(tgen, "r2", "bridge-101-v0", True)
+
+    # zebra associates the macvlan of a non VLAN-aware bridge with the L3VNI
+    # only when the VxLAN interface comes up
+    shutdown_bringup_interface_in_kernel(tgen, "r2", "vxlan-101", False)
+    shutdown_bringup_interface_in_kernel(tgen, "r2", "vxlan-101", True)
+
+    expected = {"advertisePip": "Enabled", "rmac": R2_VRR_MAC}
+    test_func = partial(
+        topotest.router_json_cmp, r2, "show bgp l2vpn evpn vni 101 json", expected
+    )
+    _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
+    assert result is None, "r2: L3VNI 101 has no anycast MAC"
+
+    _wait_r2_type5_on_r1(tgen, R2_VTEP_IP, R2_VRR_MAC)
+
+
+def test_evpn_pip_loopback_address_add():
+    """
+    Add the VTEP-IP and then a global address to the r2 loopback. The
+    VTEP-IP must not be picked as system IP, the second address must, and
+    the type-5 routes must be re-advertised with it and the system MAC.
+    """
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    r2 = tgen.gears["r2"]
+    svi_mac = r2.cmd_raises("cat /sys/class/net/bridge-101/address").strip()
+
+    r2.cmd_raises("ip -6 addr add {}/128 dev lo nodad".format(R2_VTEP_IP))
+    r2.cmd_raises("ip -6 addr add {}/128 dev lo nodad".format(R2_SYSTEM_IP))
+
+    expected = {"sysIP": R2_SYSTEM_IP, "sysMac": svi_mac}
+    test_func = partial(
+        topotest.router_json_cmp, r2, "show bgp l2vpn evpn vni 101 json", expected
+    )
+    _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
+    assert result is None, "r2: system IP not taken from the loopback"
+
+    _wait_r2_type5_on_r1(tgen, R2_SYSTEM_IP, svi_mac)
+
+
+def test_evpn_pip_loopback_address_del():
+    """
+    Remove the system IP from the r2 loopback. Only the VTEP-IP is left
+    there, so the type-5 routes must fall back to the anycast VTEP-IP and
+    MAC again.
+    """
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    r2 = tgen.gears["r2"]
+    r2.cmd_raises("ip -6 addr del {}/128 dev lo".format(R2_SYSTEM_IP))
+
+    _wait_r2_type5_on_r1(tgen, R2_VTEP_IP, R2_VRR_MAC)
+
+    r2.cmd_raises("ip -6 addr del {}/128 dev lo".format(R2_VTEP_IP))
+
+
 def test_memory_leak():
     "Run the memory leak test and report results."
     tgen = get_topogen()
