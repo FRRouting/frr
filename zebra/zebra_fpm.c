@@ -1878,7 +1878,7 @@ DEFUN (no_fpm_remote_ip,
 {
 	if (zfpm_g->fpm_server != inet_addr(argv[4]->arg)
 	    || zfpm_g->fpm_port != atoi(argv[6]->arg))
-		return CMD_ERR_NO_MATCH;
+		return CMD_SUCCESS;
 
 	zfpm_g->fpm_server = FPM_DEFAULT_IP;
 	zfpm_g->fpm_port = FPM_DEFAULT_PORT;
