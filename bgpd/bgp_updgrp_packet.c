@@ -1048,6 +1048,13 @@ struct bpacket *subgroup_update_packet(struct update_subgroup *subgrp)
 			subgrp->scount++;
 
 		adj->attr = bgp_attr_intern(adv->baa->attr);
+
+		/* Record per-peer values at send time so suppress-duplicate
+		 * correctly distinguishes sent vs queued on the next evaluation.
+		 */
+		adj->cum_bw = adv->baa->cum_bw;
+		adj->igpmetric = adv->baa->igpmetric;
+
 		adv = bgp_advertise_clean_subgroup(subgrp, adj);
 	}
 
