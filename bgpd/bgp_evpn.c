@@ -7378,6 +7378,11 @@ static int _bgp_nlri_parse_evpn_internal(struct peer *peer, struct attr *attr,
 		/* Clear prefix structure. */
 		memset(&p, 0, sizeof(p));
 
+		if (attr) {
+			attr->attr_intern_reuse.valid = false;
+			attr->attr_intern_reuse.interned = NULL;
+		}
+
 		/* Deal with path-id if AddPath is supported. */
 		if (addpath_capable) {
 			/* When packet overflow occurs return immediately. */
