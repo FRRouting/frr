@@ -104,9 +104,7 @@ BPS_FROM_R2 = mbps_to_bytes_per_sec(BW_MBPS_FROM_R2)
 BPS_FROM_R3 = mbps_to_bytes_per_sec(BW_MBPS_FROM_R3)
 LB_BYTES_FROM_R2 = frr_lb_display_bytes(BPS_FROM_R2)
 LB_BYTES_FROM_R3 = frr_lb_display_bytes(BPS_FROM_R3)
-LB_BYTES_CUMULATIVE_EBGP = frr_lb_cumulative_display_bytes(
-    [BPS_FROM_R2, BPS_FROM_R3]
-)
+LB_BYTES_CUMULATIVE_EBGP = frr_lb_cumulative_display_bytes([BPS_FROM_R2, BPS_FROM_R3])
 
 
 def setup_module(mod):
@@ -224,9 +222,9 @@ def test_bgp_link_bandwidth_cumulative():
 
     test_func = functools.partial(_check_ebgp_received_cumulative)
     _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
-    assert (
-        result is None
-    ), "eBGP peer should receive cumulative LB bytes %u" % LB_BYTES_CUMULATIVE_EBGP
+    assert result is None, (
+        "eBGP peer should receive cumulative LB bytes %u" % LB_BYTES_CUMULATIVE_EBGP
+    )
 
 
 if __name__ == "__main__":
