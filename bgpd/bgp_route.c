@@ -3551,6 +3551,11 @@ bool subgroup_announce_check(struct bgp_dest *dest, struct bgp_path_info *pi,
 		bgp_attr_clear_reflection(attr);
 	}
 
+	/* Remove communities not configured to be sent, so the outbound
+	 * attribute in the adj-out cache correctly reflects what will be sent.
+	 */
+	bgp_attr_strip_unsent_communities(peer, afi, safi, attr);
+
 	/* Handle "bgp max-med" */
 	if (bgp->maxmed_active)
 		bgp_attr_set_med(attr, bgp->maxmed_value);
