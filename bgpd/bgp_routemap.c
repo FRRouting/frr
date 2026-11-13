@@ -1419,8 +1419,7 @@ route_set_evpn_gateway_ip(void *rule, const struct prefix *prefix, void *object)
 	struct ipaddr *gw_ip = rule;
 	struct bgp_path_info *path;
 	struct prefix_evpn *evp;
-	struct bgp_route_evpn *bre = XCALLOC(MTYPE_BGP_EVPN_OVERLAY,
-					     sizeof(struct bgp_route_evpn));
+	struct bgp_route_evpn *bre;
 
 	if (prefix->family != AF_EVPN)
 		return RMAP_OKAY;
@@ -1436,6 +1435,7 @@ route_set_evpn_gateway_ip(void *rule, const struct prefix *prefix, void *object)
 	path = object;
 
 	/* Set gateway-ip value. */
+	bre = XCALLOC(MTYPE_BGP_EVPN_OVERLAY, sizeof(struct bgp_route_evpn));
 	bre->type = OVERLAY_INDEX_GATEWAY_IP;
 	bre->gw_ip = *gw_ip;
 	bgp_attr_set_evpn_overlay(path->attr, bre);
