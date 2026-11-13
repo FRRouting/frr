@@ -962,7 +962,7 @@ size_t aspath_put(struct stream *s, struct aspath *as, int use32bit)
 	struct assegment *seg = as->segments;
 	size_t bytes = 0;
 
-	if (!seg || seg->length == 0)
+	if (!seg)
 		return 0;
 
 	/*
@@ -979,6 +979,15 @@ size_t aspath_put(struct stream *s, struct aspath *as, int use32bit)
 		int written = 0;
 		int asns_packed = 0;
 		size_t lenp;
+
+		/* A segment must contain at least one ASN on the wire
+		 * (RFC 4271 4.3); an empty one would be rejected by the
+		 * peer as a malformed AS_PATH, so never write it out.
+		 */
+		if (seg->length == 0) {
+			seg = next;
+			continue;
+		}
 
 		/* Overlength segments have to be split up */
 		while ((seg->length - written) > AS_SEGMENT_MAX) {
@@ -1408,6 +1417,16 @@ struct aspath *aspath_remove_private_asns(struct aspath *aspath, as_t peer_asn)
 			 */
 			else if (seg->as[i] == peer_asn)
 				peer++;
+		}
+
+		/* Nothing of this segment is retained: leave it out rather
+		 * than appending a zero-length segment, which aspath_put()
+		 * would write to the wire and the peer would reject as a
+		 * malformed AS_PATH.
+		 */
+		if (!(public + peer)) {
+			seg = seg->next;
+			continue;
 		}
 
 		// The entire segment is public so copy it

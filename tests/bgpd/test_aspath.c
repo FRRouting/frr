@@ -1107,6 +1107,32 @@ struct tests aggregate_tests[] = {
 	{NULL, NULL, {NULL, 0, 0}},
 };
 
+/* remove-private-AS tests */
+static struct remove_private_tests {
+	const char *path;
+	as_t peer_asn;
+	struct test_spec sp;
+} remove_private_tests[] = {
+	/* 0: every ASN private, nothing is left */
+	{"64512 {64513,64514}", 0, {"", "", 0, 0, NOT_ALL_PRIVATE, 0, 0, 0}},
+	/* 1: an all-private AS_SET must be dropped, not kept empty */
+	{"64512 3356 {64513,64514}", 0,
+	 {"3356", "3356", 1, 0, NOT_ALL_PRIVATE, 3356, 1, 3356}},
+	/* 2: dropped segment in the middle, the sequences around it merge */
+	{"3356 {64513,64514} 174", 0,
+	 {"3356 174", "3356 174", 2, 0, NOT_ALL_PRIVATE, 174, 1, 3356}},
+	/* 3: leading all-private sequence */
+	{"64512 {64513,64514} 174", 0,
+	 {"174", "174", 1, 0, NOT_ALL_PRIVATE, 174, 1, 174}},
+	/* 4: the peer's ASN is retained */
+	{"64512 {64513,64514}", 64512,
+	 {"64512", "64512", 1, 0, ALL_PRIVATE, 64512, 1, 64512}},
+	/* 5: the peer's ASN is retained inside the AS_SET */
+	{"64512 {64513,64514}", 64513,
+	 {"{64513}", "{64513}", 1, 0, ALL_PRIVATE, 64513, 1, NULL_ASN}},
+	{NULL, 0, {NULL, 0, 0}},
+};
+
 struct compare_tests {
 	int test_index1;
 	int test_index2;
@@ -1408,6 +1434,27 @@ static void as4_reconcile_test(struct tests *t)
 }
 
 
+/* remove-private-AS testing */
+static void remove_private_test(struct remove_private_tests *t)
+{
+	struct aspath *asp;
+
+	printf("remove private from %s, peer %u\n", t->path, t->peer_asn);
+
+	asp = aspath_str2aspath(t->path, ASNOTATION_PLAIN);
+	asp = aspath_remove_private_asns(asp, t->peer_asn);
+
+	printf("aspath: %s\n", aspath_print(asp));
+
+	if (!validate(asp, &t->sp))
+		printf(OK "\n");
+	else
+		printf(FAILED "!\n");
+
+	printf("\n");
+	aspath_free(asp);
+}
+
 /* aggregation testing */
 static void aggregate_test(struct tests *t)
 {
@@ -1682,6 +1729,13 @@ int main(void)
 	while (reconcile_tests[i].test1) {
 		printf("reconcile test %u\n", i);
 		as4_reconcile_test(&reconcile_tests[i++]);
+	}
+
+	i = 0;
+
+	while (remove_private_tests[i].path) {
+		printf("remove private test %u\n", i);
+		remove_private_test(&remove_private_tests[i++]);
 	}
 
 	i = 0;
