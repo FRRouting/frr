@@ -1005,11 +1005,8 @@ int area_clear_net_title(struct vty *vty, const char *net_title)
 		    && !memcmp(addrp->area_addr, addr.area_addr, addr.addr_len))
 			break;
 
-	if (!addrp) {
-		vty_out(vty, "No area address %s for area %s \n", net_title,
-			area->area_tag);
-		return CMD_ERR_NO_MATCH;
-	}
+	if (!addrp)
+		return CMD_SUCCESS;
 
 	iso_address_list_del(&area->area_addrs, addrp);
 	XFREE(MTYPE_ISIS_AREA_ADDR, addrp);
@@ -3071,11 +3068,8 @@ DEFUN (no_router_openfabric,
 
 	area_tag = argv[idx_word]->arg;
 	area = isis_area_lookup(area_tag, VRF_DEFAULT);
-	if (area == NULL) {
-		zlog_warn("%s: could not find area with area-tag %s",
-				__func__, area_tag);
-		return CMD_ERR_NO_MATCH;
-	}
+	if (area == NULL)
+		return CMD_SUCCESS;
 
 	isis_area_destroy(area);
 	return CMD_SUCCESS;
