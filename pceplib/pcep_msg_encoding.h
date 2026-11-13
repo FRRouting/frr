@@ -119,6 +119,7 @@ uint16_t pcep_encode_tlv(struct pcep_object_tlv_header *tlv_hdr,
 
 /* Decode the TLV in tlv_buf and return a pointer to the object */
 struct pcep_object_tlv_header *pcep_decode_tlv(const uint8_t *tlv_buf);
+bool pcep_tlv_has_decoder(uint16_t tlv_type);
 /* Decode the TLV header in 'tlv_buf' */
 void pcep_decode_tlv_hdr(const uint8_t *tlv_buf,
 			 struct pcep_object_tlv_header *tlv_hdr);

@@ -977,6 +977,10 @@ uint16_t pcep_object_get_length_by_hdr(struct pcep_object_header *object_hdr)
 
 bool pcep_object_has_tlvs(struct pcep_object_header *object_hdr)
 {
+	/* RFC 7470, section 4: the body is enterprise-specific, without TLVs */
+	if (object_hdr->object_class == PCEP_OBJ_CLASS_VENDOR_INFO)
+		return false;
+
 	uint8_t object_length = pcep_object_get_length_by_hdr(object_hdr);
 	if (object_length == 0) {
 		return false;
@@ -1059,6 +1063,15 @@ struct pcep_object_header *pcep_decode_object(const uint8_t *obj_buf, size_t buf
 				pcep_obj_free_object(object);
 				object = NULL;
 				break;
+			}
+
+			/* RFC 5440, section 7.1: unrecognized TLVs are ignored */
+			if (!pcep_tlv_has_decoder(tlv_hdr.type)) {
+				pcep_log(LOG_DEBUG, "%s: Ignoring unknown TLV type [%d]", __func__,
+					 tlv_hdr.type);
+				tlv_index += normalize_pcep_tlv_length(tlv_hdr.encoded_tlv_length +
+								       TLV_HEADER_LENGTH);
+				continue;
 			}
 
 			struct pcep_object_tlv_header *tlv =
