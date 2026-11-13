@@ -494,14 +494,14 @@ DEFPY(mgmt_save_config,
 
 	if (!filepath) {
 		vty_out(vty, "ERROR: No file path mentioned!\n");
-		return CMD_ERR_NO_MATCH;
+		return CMD_ERR_INCOMPLETE;
 	}
 
 	f = fopen(filepath, "w");
 	if (!f) {
 		vty_out(vty, "Could not open file pointed by filepath %s\n",
 			filepath);
-		return CMD_SUCCESS;
+		return CMD_ERR_NO_FILE;
 	}
 
 	mgmt_ds_dump_tree(vty, ds_ctx, "/", f, LYD_JSON);
