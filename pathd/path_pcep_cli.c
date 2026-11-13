@@ -949,15 +949,17 @@ static int path_pcep_cli_peer_timers(
 		assert(0);
 	}
 
-	if (min_peer_keep_alive && max_peer_keep_alive)
-		if (min_peer_keep_alive >= max_peer_keep_alive) {
-			return CMD_ERR_NO_MATCH;
-		}
+	if (min_peer_keep_alive && max_peer_keep_alive
+	    && (min_peer_keep_alive >= max_peer_keep_alive)) {
+		vty_out(vty, "%% min-peer-keep-alive must be less than max-peer-keep-alive.\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
 
-	if (min_peer_dead_timer && max_peer_dead_timer)
-		if (min_peer_dead_timer >= max_peer_dead_timer) {
-			return CMD_ERR_NO_MATCH;
-		}
+	if (min_peer_dead_timer && max_peer_dead_timer
+	    && (min_peer_dead_timer >= max_peer_dead_timer)) {
+		vty_out(vty, "%% min-peer-dead-timer must be less than max-peer-dead-timer.\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
 
 	/* Handle the arguments */
 	PCEP_VTYSH_INT_ARG_CHECK(keep_alive_str, keep_alive,

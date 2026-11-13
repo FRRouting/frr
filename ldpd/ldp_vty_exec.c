@@ -1865,8 +1865,10 @@ ldp_vty_show_binding(struct vty *vty, const char *af_str, const char *prefix,
 	if (ldp_vty_connect(&ibuf) < 0)
 		return (CMD_WARNING);
 
-	if (ldp_vty_get_af(af_str, &af) < 0)
-		return (CMD_ERR_NO_MATCH);
+	if (ldp_vty_get_af(af_str, &af) < 0) {
+		vty_out(vty, "%% Unknown address family\n");
+		return (CMD_WARNING);
+	}
 
 	memset(&params, 0, sizeof(params));
 	params.family = af;
@@ -1905,8 +1907,10 @@ ldp_vty_show_discovery(struct vty *vty, const char *af_str, const char *detail,
 	if (ldp_vty_connect(&ibuf) < 0)
 		return (CMD_WARNING);
 
-	if (ldp_vty_get_af(af_str, &af) < 0)
-		return (CMD_ERR_NO_MATCH);
+	if (ldp_vty_get_af(af_str, &af) < 0) {
+		vty_out(vty, "%% Unknown address family\n");
+		return (CMD_WARNING);
+	}
 
 	memset(&params, 0, sizeof(params));
 	params.family = af;
@@ -1936,8 +1940,10 @@ ldp_vty_show_interface(struct vty *vty, const char *af_str, const char *json)
 	if (ldp_vty_connect(&ibuf) < 0)
 		return (CMD_WARNING);
 
-	if (ldp_vty_get_af(af_str, &af) < 0)
-		return (CMD_ERR_NO_MATCH);
+	if (ldp_vty_get_af(af_str, &af) < 0) {
+		vty_out(vty, "%% Unknown address family\n");
+		return (CMD_WARNING);
+	}
 
 	memset(&params, 0, sizeof(params));
 	params.family = af;

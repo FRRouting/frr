@@ -341,7 +341,8 @@ static int segment_list_has_src_dst(
 		ip_dst.ipa_type = IPADDR_V6;
 		ip_dst.ip._v6_addr = adj_dst_ipv6;
 	} else {
-		return CMD_ERR_NO_MATCH;
+		vty_out(vty, "%% Missing adjacency\n");
+		return CMD_WARNING_CONFIG_FAILED;
 	}
 	ted_sid = path_ted_query_type_f(&ip_src, &ip_dst);
 	if (ted_sid == MPLS_LABEL_NONE) {
@@ -405,7 +406,8 @@ int segment_list_has_prefix(
 			nb_cli_enqueue_change(vty, xpath, NB_OP_MODIFY,
 					      "ipv6_local_iface");
 		} else {
-			return CMD_ERR_NO_MATCH;
+			vty_out(vty, "%% Missing prefix\n");
+			return CMD_WARNING_CONFIG_FAILED;
 		}
 	} else {
 		if (prefix_ipv4_str != NULL) {
@@ -415,7 +417,8 @@ int segment_list_has_prefix(
 			nb_cli_enqueue_change(vty, xpath, NB_OP_MODIFY,
 					      "ipv6_algo");
 		} else {
-			return CMD_ERR_NO_MATCH;
+			vty_out(vty, "%% Missing prefix\n");
+			return CMD_WARNING_CONFIG_FAILED;
 		}
 	}
 	/* Prefix */

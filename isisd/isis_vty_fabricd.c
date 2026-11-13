@@ -275,7 +275,7 @@ DEFUN (isis_bfd,
 
 	if (!circuit) {
 		vty_out(vty, "ISIS is not enabled on circuit %s\n", ifp->name);
-		return CMD_ERR_NO_MATCH;
+		return CMD_WARNING_CONFIG_FAILED;
 	}
 
 	if (circuit->bfd_config.enabled)
@@ -716,7 +716,7 @@ DEFUN (isis_passive,
 
 	if (!circuit) {
 		vty_out(vty, "ISIS is not enabled on circuit %s\n", ifp->name);
-		return CMD_ERR_NO_MATCH;
+		return CMD_WARNING_CONFIG_FAILED;
 	}
 
 	CMD_FERR_RETURN(isis_circuit_passive_set(circuit, 1),
@@ -759,7 +759,7 @@ DEFUN (isis_passwd,
 
 	if (!circuit) {
 		vty_out(vty, "ISIS is not enabled on circuit %s\n", ifp->name);
-		return CMD_ERR_NO_MATCH;
+		return CMD_WARNING_CONFIG_FAILED;
 	}
 
 	if (argv[idx_encryption]->arg[0] == 'm')
@@ -807,7 +807,7 @@ DEFUN (isis_metric,
 
 	if (!circuit) {
 		vty_out(vty, "ISIS is not enabled on circuit %s\n", ifp->name);
-		return CMD_ERR_NO_MATCH;
+		return CMD_WARNING_CONFIG_FAILED;
 	}
 
 	/* RFC3787 section 5.1 */
@@ -871,7 +871,7 @@ DEFUN (isis_hello_interval,
 
 	if (!circuit) {
 		vty_out(vty, "ISIS is not enabled on circuit %s\n", ifp->name);
-		return CMD_ERR_NO_MATCH;
+		return CMD_WARNING_CONFIG_FAILED;
 	}
 
 	uint32_t old_interval_l1 = circuit->hello_interval[0];
@@ -921,7 +921,7 @@ DEFUN (isis_hello_multiplier,
 
 	if (!circuit) {
 		vty_out(vty, "ISIS is not enabled on circuit %s\n", ifp->name);
-		return CMD_ERR_NO_MATCH;
+		return CMD_WARNING_CONFIG_FAILED;
 	}
 
 	circuit->hello_multiplier[0] = mult;
@@ -963,7 +963,7 @@ DEFUN (csnp_interval,
 
 	if (!circuit) {
 		vty_out(vty, "ISIS is not enabled on circuit %s\n", ifp->name);
-		return CMD_ERR_NO_MATCH;
+		return CMD_WARNING_CONFIG_FAILED;
 	}
 
 	circuit->csnp_interval[0] = interval;
@@ -1005,7 +1005,7 @@ DEFUN (psnp_interval,
 
 	if (!circuit) {
 		vty_out(vty, "ISIS is not enabled on circuit %s\n", ifp->name);
-		return CMD_ERR_NO_MATCH;
+		return CMD_WARNING_CONFIG_FAILED;
 	}
 
 	circuit->psnp_interval[0] = interval;
@@ -1048,7 +1048,7 @@ DEFUN (circuit_topology,
 
 	if (!circuit) {
 		vty_out(vty, "ISIS is not enabled on circuit %s\n", ifp->name);
-		return CMD_ERR_NO_MATCH;
+		return CMD_WARNING_CONFIG_FAILED;
 	}
 
 	if (circuit->area && circuit->area->oldmetric) {

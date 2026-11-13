@@ -221,8 +221,10 @@ DEFUN (babel_network,
 	ret = str2prefix(argv[1]->arg, &p);
 
 	/* Given string is:               */
-	if (ret)			 /* an IPv4 or v6 network */
-		return CMD_ERR_NO_MATCH; /* not implemented yet */
+	if (ret) {			 /* an IPv4 or v6 network */
+		vty_out(vty, "%% Interface name required\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
 
 	babel_enable_if_add(argv[1]->arg);
 
@@ -243,8 +245,10 @@ DEFUN (no_babel_network,
 	ret = str2prefix(argv[2]->arg, &p);
 
 	/* Given string is:               */
-	if (ret)			 /* an IPv4 or v6 network */
-		return CMD_ERR_NO_MATCH; /* not implemented yet */
+	if (ret) {			 /* an IPv4 or v6 network */
+		vty_out(vty, "%% Interface name required\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
 
 	babel_enable_if_delete(argv[2]->arg);
 

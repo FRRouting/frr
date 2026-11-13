@@ -4770,8 +4770,10 @@ DEFPY (bgp_bestpath_bw,
 		bgp->lb_handling = BGP_LINK_BW_SKIP_MISSING;
 	else if (!strcmp(bw_cfg, "default-weight-for-missing"))
 		bgp->lb_handling = BGP_LINK_BW_DEFWT_4_MISSING;
-	else
-		return CMD_ERR_NO_MATCH;
+	else {
+		vty_out(vty, "%% Unknown bandwidth configuration %s\n", bw_cfg);
+		return CMD_WARNING_CONFIG_FAILED;
+	}
 
 	/* This config is used in route install, so redo that. */
 	FOREACH_AFI_SAFI (afi, safi) {
