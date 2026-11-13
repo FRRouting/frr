@@ -1577,6 +1577,14 @@ int bp_bfd_echo_in(struct bfd_vrf_global *bvrf, int sd, uint8_t *ttl,
 	uint8_t msgbuf[BFD_PACKET_SIZE];
 	size_t bfd_offset = 0;
 
+	/*
+	 * The receive functions only fill in what the packet provides (e.g.
+	 * the local address needs IPV6_PKTINFO), so start from zero as
+	 * bfd_recv_cb() does.
+	 */
+	memset(&local, 0, sizeof(local));
+	memset(&peer, 0, sizeof(peer));
+
 	if (sd == bvrf->bg_echo) {
 #ifdef BFD_LINUX
 		rlen = bfd_recv_ipv4_fp(sd, msgbuf, sizeof(msgbuf), ttl,
