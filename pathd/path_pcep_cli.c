@@ -838,7 +838,7 @@ static int path_pcep_cli_peer_address(struct vty *vty, const char *ip_str,
 		pce_opts->addr.ipa_type = IPADDR_V4;
 		memcpy(&pce_opts->addr.ipaddr_v4, ip, sizeof(struct in_addr));
 	} else {
-		return CMD_ERR_NO_MATCH;
+		return CMD_ERR_INCOMPLETE;
 	}
 
 	/* Handle the optional port */
