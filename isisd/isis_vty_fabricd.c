@@ -640,10 +640,7 @@ DEFUN (area_lsp_mtu,
        "Configure the maximum size of generated LSPs\n"
        "Maximum size of generated LSPs\n")
 {
-	int idx_number = 1;
-	unsigned int lsp_mtu;
-
-	lsp_mtu = strtoul(argv[idx_number]->arg, NULL, 10);
+	unsigned int lsp_mtu = strtoul(argv[1]->arg, NULL, 10);
 
 	return isis_vty_lsp_mtu_set(vty, lsp_mtu);
 }
@@ -735,6 +732,7 @@ DEFUN (isis_passive,
        "Configure the passive mode for interface\n")
 {
 	struct isis_circuit *circuit = isis_circuit_lookup(vty);
+
 	if (!circuit)
 		return CMD_ERR_NO_MATCH;
 
@@ -751,6 +749,7 @@ DEFUN (no_isis_passive,
        "Configure the passive mode for interface\n")
 {
 	struct isis_circuit *circuit = isis_circuit_lookup(vty);
+
 	if (!circuit)
 		return CMD_ERR_NO_MATCH;
 
@@ -770,8 +769,8 @@ DEFUN (isis_passwd,
 {
 	int idx_encryption = 2;
 	int idx_word = 3;
-	struct isis_circuit *circuit = isis_circuit_lookup(vty);
 	ferr_r rv;
+	struct isis_circuit *circuit = isis_circuit_lookup(vty);
 
 	if (!circuit)
 		return CMD_ERR_NO_MATCH;
@@ -798,6 +797,7 @@ DEFUN (no_isis_passwd,
        "Circuit password\n")
 {
 	struct isis_circuit *circuit = isis_circuit_lookup(vty);
+
 	if (!circuit)
 		return CMD_ERR_NO_MATCH;
 
@@ -813,13 +813,11 @@ DEFUN (isis_metric,
        "Set default metric for circuit\n"
        "Default metric value\n")
 {
-	int idx_number = 2;
-	int met;
+	int met = atoi(argv[2]->arg);
 	struct isis_circuit *circuit = isis_circuit_lookup(vty);
+
 	if (!circuit)
 		return CMD_ERR_NO_MATCH;
-
-	met = atoi(argv[idx_number]->arg);
 
 	/* RFC3787 section 5.1 */
 	if (circuit->area && circuit->area->oldmetric == 1
@@ -855,6 +853,7 @@ DEFUN (no_isis_metric,
        "Default metric value\n")
 {
 	struct isis_circuit *circuit = isis_circuit_lookup(vty);
+
 	if (!circuit)
 		return CMD_ERR_NO_MATCH;
 
@@ -876,6 +875,7 @@ DEFUN (isis_hello_interval,
 {
 	uint32_t interval = atoi(argv[2]->arg);
 	struct isis_circuit *circuit = isis_circuit_lookup(vty);
+
 	if (!circuit)
 		return CMD_ERR_NO_MATCH;
 
@@ -902,6 +902,7 @@ DEFUN (no_isis_hello_interval,
        "Holdtime 1 second, interval depends on multiplier\n")
 {
 	struct isis_circuit *circuit = isis_circuit_lookup(vty);
+
 	if (!circuit)
 		return CMD_ERR_NO_MATCH;
 
@@ -920,6 +921,7 @@ DEFUN (isis_hello_multiplier,
 {
 	uint16_t mult = atoi(argv[2]->arg);
 	struct isis_circuit *circuit = isis_circuit_lookup(vty);
+
 	if (!circuit)
 		return CMD_ERR_NO_MATCH;
 
@@ -938,6 +940,7 @@ DEFUN (no_isis_hello_multiplier,
        "Hello multiplier value\n")
 {
 	struct isis_circuit *circuit = isis_circuit_lookup(vty);
+
 	if (!circuit)
 		return CMD_ERR_NO_MATCH;
 
@@ -956,6 +959,7 @@ DEFUN (csnp_interval,
 {
 	uint16_t interval = atoi(argv[2]->arg);
 	struct isis_circuit *circuit = isis_circuit_lookup(vty);
+
 	if (!circuit)
 		return CMD_ERR_NO_MATCH;
 
@@ -974,6 +978,7 @@ DEFUN (no_csnp_interval,
        "CSNP interval value\n")
 {
 	struct isis_circuit *circuit = isis_circuit_lookup(vty);
+
 	if (!circuit)
 		return CMD_ERR_NO_MATCH;
 
@@ -992,6 +997,7 @@ DEFUN (psnp_interval,
 {
 	uint16_t interval = atoi(argv[2]->arg);
 	struct isis_circuit *circuit = isis_circuit_lookup(vty);
+
 	if (!circuit)
 		return CMD_ERR_NO_MATCH;
 
@@ -1010,6 +1016,7 @@ DEFUN (no_psnp_interval,
        "PSNP interval value\n")
 {
 	struct isis_circuit *circuit = isis_circuit_lookup(vty);
+
 	if (!circuit)
 		return CMD_ERR_NO_MATCH;
 
@@ -1026,11 +1033,12 @@ DEFUN (circuit_topology,
        "Configure interface IS-IS topologies\n"
        ISIS_MT_DESCRIPTIONS)
 {
-	struct isis_circuit *circuit = isis_circuit_lookup(vty);
-	if (!circuit)
-		return CMD_ERR_NO_MATCH;
 	const char *arg = argv[2]->arg;
 	uint16_t mtid = isis_str2mtid(arg);
+	struct isis_circuit *circuit = isis_circuit_lookup(vty);
+
+	if (!circuit)
+		return CMD_ERR_NO_MATCH;
 
 	if (circuit->area && circuit->area->oldmetric) {
 		vty_out(vty,
@@ -1054,11 +1062,12 @@ DEFUN (no_circuit_topology,
        "Configure interface IS-IS topologies\n"
        ISIS_MT_DESCRIPTIONS)
 {
-	struct isis_circuit *circuit = isis_circuit_lookup(vty);
-	if (!circuit)
-		return CMD_ERR_NO_MATCH;
 	const char *arg = argv[3]->arg;
 	uint16_t mtid = isis_str2mtid(arg);
+	struct isis_circuit *circuit = isis_circuit_lookup(vty);
+
+	if (!circuit)
+		return CMD_ERR_NO_MATCH;
 
 	if (circuit->area && circuit->area->oldmetric) {
 		vty_out(vty,
