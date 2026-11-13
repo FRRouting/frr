@@ -599,6 +599,57 @@ void test_pcep_obj_create_vendor_info(void)
 	pcep_obj_free_object((struct pcep_object_header *)obj);
 }
 
+void test_pcep_decode_obj_vendor_info_color(void)
+{
+	/*
+	 * A PCE-initiated policy carries the SR policy color in the
+	 * VENDOR-INFORMATION object (RFC 7470): opaque enterprise-specific
+	 * info after the Enterprise Number, giving a 16-byte object.  Decode
+	 * must read the color and must NOT parse the opaque bytes as a
+	 * trailing TLV.
+	 * Wire layout:
+	 *   class 34 | type 1<<4 | length 16
+	 *   Enterprise Number       = 9      (Cisco)
+	 *   Enterprise-Specific Info = 65540 (0x00010004, "color")
+	 *   Enterprise-Specific Info = color
+	 */
+	const uint32_t color = 1000;
+	uint8_t buf[16] = {
+		PCEP_OBJ_CLASS_VENDOR_INFO,
+		PCEP_OBJ_TYPE_VENDOR_INFO << 4,
+		0x00,
+		0x10,
+		0x00,
+		0x00,
+		0x00,
+		0x09,
+		0x00,
+		0x01,
+		0x00,
+		0x04,
+		0x00,
+		0x00,
+		0x03,
+		0xe8,
+	};
+
+	struct pcep_object_header *obj = pcep_decode_object(buf, sizeof(buf));
+
+	CU_ASSERT_PTR_NOT_NULL(obj);
+	assert(obj != NULL);
+	CU_ASSERT_EQUAL(obj->object_class, PCEP_OBJ_CLASS_VENDOR_INFO);
+
+	struct pcep_object_vendor_info *vendor = (struct pcep_object_vendor_info *)obj;
+
+	CU_ASSERT_EQUAL(vendor->enterprise_number, ENTERPRISE_NUMBER_CISCO);
+	CU_ASSERT_EQUAL(vendor->enterprise_specific_info, ENTERPRISE_COLOR_CISCO);
+	CU_ASSERT_EQUAL(vendor->enterprise_specific_info1, color);
+	/* The opaque color must not have been mis-parsed into a TLV. */
+	CU_ASSERT_TRUE(obj->tlv_list == NULL || obj->tlv_list->num_entries == 0);
+
+	pcep_obj_free_object(obj);
+}
+
 /* Internal test function. The only difference between pcep_obj_create_ero(),
  * pcep_obj_create_iro(), and pcep_obj_create_rro() is the object_class
  * and the object_type.

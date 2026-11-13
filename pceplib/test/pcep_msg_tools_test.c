@@ -18,6 +18,7 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <sys/types.h>
+#include <sys/socket.h>
 #include <sys/stat.h>
 
 
@@ -302,6 +303,108 @@ void test_pcep_msg_read_pcep_initiate(void)
 	unlink(filename);
 }
 
+
+/*
+ * Messages arriving split across reads must be reassembled from the
+ * caller's buffer instead of being dropped.
+ */
+void test_pcep_msg_read_buffered_split(void)
+{
+	char filename[BASE_TMPFILE_SIZE];
+	uint8_t msg_bytes[pcep_initiate_hexbyte_strs_length];
+	uint8_t buffer[PCEP_MESSAGE_LENGTH];
+	uint32_t buffer_len = 0;
+	int invalid_msgs = 0;
+	int sv[2];
+
+	int fd = convert_hexstrs_to_binary(filename, pcep_initiate_hexbyte_strs,
+					   pcep_initiate_hexbyte_strs_length);
+	if (fd == -1) {
+		CU_ASSERT_TRUE(fd >= 0);
+		return;
+	}
+	ssize_t msg_len = read(fd, msg_bytes, sizeof(msg_bytes));
+
+	close(fd);
+	unlink(filename);
+	CU_ASSERT_EQUAL(msg_len, pcep_initiate_hexbyte_strs_length);
+	if (msg_len != pcep_initiate_hexbyte_strs_length)
+		return;
+
+	CU_ASSERT_EQUAL(socketpair(AF_UNIX, SOCK_STREAM, 0, sv), 0);
+
+	/*
+	 * The first 30 bytes of a message: nothing to decode yet, and the
+	 * bytes are kept for the next read.
+	 */
+	CU_ASSERT_EQUAL(write(sv[1], msg_bytes, 30), 30);
+	double_linked_list *msg_list = pcep_msg_read_buffered(sv[0], buffer, sizeof(buffer),
+							      &buffer_len, &invalid_msgs);
+	CU_ASSERT_PTR_NOT_NULL(msg_list);
+	assert(msg_list != NULL);
+	CU_ASSERT_EQUAL(msg_list->num_entries, 0);
+	CU_ASSERT_EQUAL(buffer_len, 30);
+	CU_ASSERT_EQUAL(invalid_msgs, 0);
+	dll_destroy(msg_list);
+
+	/*
+	 * The rest of it, a whole second message and the start of a third:
+	 * two messages come out, the start of the third stays buffered.
+	 */
+	CU_ASSERT_EQUAL(write(sv[1], msg_bytes + 30, msg_len - 30), msg_len - 30);
+	CU_ASSERT_EQUAL(write(sv[1], msg_bytes, msg_len), msg_len);
+	CU_ASSERT_EQUAL(write(sv[1], msg_bytes, 10), 10);
+	msg_list = pcep_msg_read_buffered(sv[0], buffer, sizeof(buffer), &buffer_len,
+					  &invalid_msgs);
+	CU_ASSERT_PTR_NOT_NULL(msg_list);
+	assert(msg_list != NULL);
+	CU_ASSERT_EQUAL(msg_list->num_entries, 2);
+	CU_ASSERT_EQUAL(buffer_len, 10);
+	CU_ASSERT_EQUAL(invalid_msgs, 0);
+	double_linked_list_node *node;
+
+	for (node = msg_list->head; node != NULL; node = node->next_node) {
+		struct pcep_message *msg = (struct pcep_message *)node->data;
+
+		CU_ASSERT_EQUAL(msg->msg_header->type, PCEP_TYPE_INITIATE);
+		CU_ASSERT_EQUAL(msg->encoded_message_length, msg_len);
+	}
+	pcep_msg_free_message_list(msg_list);
+
+	/* The rest of the third message completes it */
+	CU_ASSERT_EQUAL(write(sv[1], msg_bytes + 10, msg_len - 10), msg_len - 10);
+	msg_list = pcep_msg_read_buffered(sv[0], buffer, sizeof(buffer), &buffer_len,
+					  &invalid_msgs);
+	CU_ASSERT_PTR_NOT_NULL(msg_list);
+	assert(msg_list != NULL);
+	CU_ASSERT_EQUAL(msg_list->num_entries, 1);
+	CU_ASSERT_EQUAL(buffer_len, 0);
+	CU_ASSERT_EQUAL(invalid_msgs, 0);
+	pcep_msg_free_message_list(msg_list);
+
+	/*
+	 * An invalid header (wrong version) is counted and discards the
+	 * buffer, since the length of what follows is unknown.
+	 */
+	uint8_t garbage[8] = { 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff };
+
+	CU_ASSERT_EQUAL(write(sv[1], garbage, sizeof(garbage)), (ssize_t)sizeof(garbage));
+	msg_list = pcep_msg_read_buffered(sv[0], buffer, sizeof(buffer), &buffer_len,
+					  &invalid_msgs);
+	CU_ASSERT_PTR_NOT_NULL(msg_list);
+	assert(msg_list != NULL);
+	CU_ASSERT_EQUAL(msg_list->num_entries, 0);
+	CU_ASSERT_EQUAL(buffer_len, 0);
+	CU_ASSERT_EQUAL(invalid_msgs, 1);
+	dll_destroy(msg_list);
+
+	/* The peer closing the socket is reported as NULL */
+	close(sv[1]);
+	msg_list = pcep_msg_read_buffered(sv[0], buffer, sizeof(buffer), &buffer_len,
+					  &invalid_msgs);
+	CU_ASSERT_PTR_NULL(msg_list);
+	close(sv[0]);
+}
 
 void test_pcep_msg_read_pcep_initiate2(void)
 {

@@ -44,6 +44,7 @@ void setup_mock_socket_comm_info(void)
 	mock_socket_metadata
 		.socket_comm_session_close_tcp_after_write_times_called = 0;
 	mock_socket_metadata.socket_comm_session_close_tcp_times_called = 0;
+	mock_socket_metadata.stop_socket_comm_loop_times_called = 0;
 	mock_socket_metadata.destroy_socket_comm_loop_times_called = 0;
 	mock_socket_metadata.send_message_save_message = false;
 	mock_socket_metadata.sent_message_list = dll_initialize();
@@ -113,6 +114,13 @@ bool initialize_socket_comm_external_infra(
 		.socket_comm_initialize_external_infra_times_called++;
 
 	return true;
+}
+
+bool stop_socket_comm_loop(void)
+{
+	mock_socket_metadata.stop_socket_comm_loop_times_called++;
+
+	return false;
 }
 
 bool destroy_socket_comm_loop(void)
