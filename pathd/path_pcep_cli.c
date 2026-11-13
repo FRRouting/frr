@@ -574,11 +574,8 @@ static int path_pcep_cli_pcep_pce_config_delete(struct vty *vty,
 {
 	struct pcep_config_group_opts *pce_config =
 		pcep_cli_find_pcep_pce_config(pcep_pce_config);
-	if (pce_config == NULL) {
-		vty_out(vty,
-			"%% Cannot delete pce-config, since it does not exist.\n");
-		return CMD_WARNING;
-	}
+	if (pce_config == NULL)
+		return CMD_SUCCESS;
 
 	if (pcep_cli_is_pcep_pce_config_used(pce_config->name)) {
 		vty_out(vty,
@@ -658,10 +655,8 @@ static int path_pcep_cli_pce(struct vty *vty, const char *pce_peer_name)
 static int path_pcep_cli_pce_delete(struct vty *vty, const char *pce_peer_name)
 {
 	struct pce_opts_cli *pce_opts_cli = pcep_cli_find_pce(pce_peer_name);
-	if (pce_opts_cli == NULL) {
-		vty_out(vty, "%% PCC peer does not exist.\n");
-		return CMD_WARNING;
-	}
+	if (pce_opts_cli == NULL)
+		return CMD_SUCCESS;
 
 	/* To better work with frr-reload, go ahead and delete it if its in use
 	 */
@@ -1123,12 +1118,8 @@ static int path_pcep_cli_pcc_pcc_peer_delete(struct vty *vty,
 					     long precedence)
 {
 	/* Check if the pcc-peer is connected to the PCC */
-	if (!pcep_cli_pcc_has_pce(peer_name)) {
-		vty_out(vty,
-			"%% WARN: The peer [%s] is not connected to the PCC.\n",
-			peer_name);
-		return CMD_WARNING;
-	}
+	if (!pcep_cli_pcc_has_pce(peer_name))
+		return CMD_SUCCESS;
 
 	struct pce_opts_cli *pce_opts_cli = pcep_cli_find_pce(peer_name);
 	pcep_cli_remove_pce_connection(&pce_opts_cli->pce_opts);
