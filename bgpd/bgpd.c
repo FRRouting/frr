@@ -5674,7 +5674,7 @@ static const struct peer_flag_action peer_flag_action_list[] = {
 	{ PEER_FLAG_CAPABILITY_SOFT_VERSION_NEW, 0, peer_change_none },
 	{ PEER_FLAG_CAPABILITY_FQDN, 0, peer_change_none },
 	{ PEER_FLAG_AS_LOOP_DETECTION, 0, peer_change_reset },
-	{ PEER_FLAG_EXTENDED_LINK_BANDWIDTH, 0, peer_change_none },
+	{ PEER_FLAG_EXTENDED_LINK_BANDWIDTH, 0, peer_change_reset },
 	{ PEER_FLAG_LONESOUL, 0, peer_change_reset_out },
 	{ PEER_FLAG_TCP_MSS, 0, peer_change_none },
 	{ PEER_FLAG_CAPABILITY_LINK_LOCAL, 0, peer_change_none },
