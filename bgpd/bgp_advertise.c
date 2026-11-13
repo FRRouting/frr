@@ -9,6 +9,7 @@
 #include "memory.h"
 #include "prefix.h"
 #include "hash.h"
+#include "jhash.h"
 #include "frrevent.h"
 #include "queue.h"
 #include "filter.h"
@@ -48,6 +49,8 @@ static void *bgp_advertise_attr_hash_alloc(void *p)
 
 	baa = bgp_advertise_attr_new();
 	baa->attr = ref->attr;
+	baa->cum_bw = ref->cum_bw;
+	baa->igpmetric = ref->igpmetric;
 
 	bgp_advertise_attr_fifo_init(&baa->fifo);
 
@@ -58,7 +61,12 @@ unsigned int bgp_advertise_attr_hash_key(const void *p)
 {
 	const struct bgp_advertise_attr *baa = p;
 
-	return attrhash_key_make(baa->attr);
+	uint32_t key = attrhash_key_make(baa->attr);
+
+	if (baa->cum_bw || baa->igpmetric)
+		key = jhash_3words(key, (uint32_t)(baa->cum_bw ^ (baa->cum_bw >> 32)),
+				   (uint32_t)(baa->igpmetric ^ (baa->igpmetric >> 32)), 0);
+	return key;
 }
 
 bool bgp_advertise_attr_hash_cmp(const void *p1, const void *p2)
@@ -66,7 +74,8 @@ bool bgp_advertise_attr_hash_cmp(const void *p1, const void *p2)
 	const struct bgp_advertise_attr *baa1 = p1;
 	const struct bgp_advertise_attr *baa2 = p2;
 
-	return attrhash_cmp(baa1->attr, baa2->attr);
+	return attrhash_cmp(baa1->attr, baa2->attr) && baa1->cum_bw == baa2->cum_bw &&
+	       baa1->igpmetric == baa2->igpmetric;
 }
 
 /* BGP update and withdraw information is stored in BGP advertise
@@ -97,14 +106,16 @@ void bgp_advertise_delete(struct bgp_advertise_attr *baa,
 	bgp_advertise_attr_fifo_del(&baa->fifo, adv);
 }
 
-struct bgp_advertise_attr *bgp_advertise_attr_intern(struct hash *hash,
-						     struct attr *attr)
+struct bgp_advertise_attr *bgp_advertise_attr_intern(struct hash *hash, struct attr *attr,
+						     uint64_t cum_bw, uint64_t igpmetric)
 {
 	struct bgp_advertise_attr ref;
 	struct bgp_advertise_attr *baa;
 
 	/* The attr is already intern'ed */
 	ref.attr = attr;
+	ref.cum_bw = cum_bw;
+	ref.igpmetric = igpmetric;
 	baa = (struct bgp_advertise_attr *)hash_get(
 		hash, &ref, bgp_advertise_attr_hash_alloc);
 	baa->refcnt++;

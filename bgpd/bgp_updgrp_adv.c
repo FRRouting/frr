@@ -31,6 +31,7 @@
 #include "bgpd/bgp_aspath.h"
 #include "bgpd/bgp_packet.h"
 #include "bgpd/bgp_fsm.h"
+#include "bgpd/bgp_mpath.h"
 #include "bgpd/bgp_mplsvpn.h"
 #include "bgpd/bgp_updgrp.h"
 #include "bgpd/bgp_advertise.h"
@@ -537,6 +538,87 @@ bgp_advertise_clean_subgroup(struct update_subgroup *subgrp,
 	return next;
 }
 
+/*
+ * Return true if the new per-peer state matches the given adj-out state
+ * (either the sent state or the queued state).  For EBGP, the WECMP cumulative
+ * bandwidth and AIGP igpmetric are computed per-peer and not in the shared
+ * attr; they are checked here against the same state to avoid mixing sent and
+ * queued values.
+ */
+static bool bgp_adj_out_state_matches(const struct bgp_adj_out *adj, const struct attr *attr_new,
+				      const struct attr *state_attr, uint64_t state_cum_bw,
+				      uint64_t state_igpmetric, struct bgp_dest *dest,
+				      uint64_t igpmetric, bool ebgp, afi_t afi)
+{
+	if (attr_new != state_attr)
+		return false;
+
+	if (ebgp && (afi == AFI_IP || afi == AFI_IP6)) {
+		if (!CHECK_FLAG(attr_new->rmap_change_flags, BATTR_RMAP_LINK_BW_SET) &&
+		    (ecommunity_linkbw_present(bgp_attr_get_ecommunity(attr_new), NULL) ||
+		     ecommunity_linkbw_present(bgp_attr_get_ipv6_ecommunity(attr_new), NULL)) &&
+		    state_cum_bw != bgp_path_info_mpath_cumbw(dest))
+			return false;
+
+		if (bgp_attr_exists(attr_new, BGP_ATTR_AIGP) && state_igpmetric != igpmetric)
+			return false;
+	}
+	return true;
+}
+
+/*
+ * Check whether the new attribute and per-peer values form a duplicate of
+ * either the sent or the queued state.  Attr and per-peer values (WECMP
+ * cumulative bandwidth, AIGP igpmetric) are checked against the SAME state
+ * to avoid suppressing updates where only the per-peer component changed.
+ *
+ * For non-EBGP peers, or EBGP without AIGP or active WECMP (common case),
+ * only the shared attr pointer is compared (fast path).  The per-peer value
+ * checks are entered only when EBGP and at least one of WECMP or AIGP is
+ * active on the route.
+ *
+ * Returns true (suppress) if the new state matches either the sent or queued
+ * state, false (re-announce required) otherwise.  *sent_matched is set to
+ * true when the sent state matched; the caller uses this to decide whether to
+ * cancel any queued advertisement.
+ */
+static bool bgp_adj_out_suppress_dup_check(const struct bgp_adj_out *adj,
+					   const struct attr *attr_new, struct bgp_dest *dest,
+					   uint64_t igpmetric, bool ebgp, afi_t afi,
+					   bool *sent_matched)
+{
+	bool ebgp_features =
+		ebgp && (afi == AFI_IP || afi == AFI_IP6) &&
+		(bgp_attr_exists(attr_new, BGP_ATTR_AIGP) ||
+		 (!CHECK_FLAG(attr_new->rmap_change_flags, BATTR_RMAP_LINK_BW_SET) &&
+		  (ecommunity_linkbw_present(bgp_attr_get_ecommunity(attr_new), NULL) ||
+		   ecommunity_linkbw_present(bgp_attr_get_ipv6_ecommunity(attr_new), NULL))));
+
+	if (!ebgp_features) {
+		/* Fast path (non-EBGP or EBGP without AIGP or active WECMP). */
+		if (attr_new == adj->attr) {
+			*sent_matched = true;
+			return true;
+		}
+		return adj->adv && adj->adv->baa && attr_new == adj->adv->baa->attr;
+	}
+
+	/* Check against sent state. */
+	if (bgp_adj_out_state_matches(adj, attr_new, adj->attr, adj->cum_bw, adj->igpmetric, dest,
+				      igpmetric, ebgp, afi)) {
+		*sent_matched = true;
+		return true;
+	}
+
+	/* Check against queued state. */
+	if (adj->adv && adj->adv->baa &&
+	    bgp_adj_out_state_matches(adj, attr_new, adj->adv->baa->attr, adj->adv->baa->cum_bw,
+				      adj->adv->baa->igpmetric, dest, igpmetric, ebgp, afi))
+		return true;
+
+	return false;
+}
+
 bool bgp_adj_out_set_subgroup(struct bgp_dest *dest,
 			      struct update_subgroup *subgrp, struct attr *attr,
 			      struct bgp_path_info *path)
@@ -599,11 +681,16 @@ bool bgp_adj_out_set_subgroup(struct bgp_dest *dest,
 	 */
 	attr_new = bgp_attr_intern(attr);
 
+	uint64_t igpmetric = path->extra ? path->extra->igpmetric : 0;
+	bool ebgp = (peer->sort == BGP_PEER_EBGP);
+
+	bool sent_matched = false;
+
 	if (CHECK_FLAG(bgp->flags, BGP_FLAG_SUPPRESS_DUPLICATES) &&
 	    !CHECK_FLAG(subgrp->sflags, SUBGRP_STATUS_FORCE_UPDATES) &&
-	    ((attr_new == adj->attr) ||
-	     (adj->adv && adj->adv->baa && (attr_new == adj->adv->baa->attr))) &&
-	    bgp_labels_cmp(path->extra ? path->extra->labels : NULL, adj->labels)) {
+	    bgp_labels_cmp(path->extra ? path->extra->labels : NULL, adj->labels) &&
+	    bgp_adj_out_suppress_dup_check(adj, attr_new, dest, igpmetric, ebgp, afi,
+					   &sent_matched)) {
 		if (debug) {
 			char attr_str[BUFSIZ] = {0};
 
@@ -619,7 +706,7 @@ bool bgp_adj_out_set_subgroup(struct bgp_dest *dest,
 		 * clean up the queued update, regardless whether it is a
 		 * withdraw or an advertisement.
 		 */
-		if (adj->adv && (attr_new == adj->attr)) {
+		if (adj->adv && sent_matched) {
 			if (debug) {
 				zlog_debug("%s delete queued UPDATE (%s:%u:%u)%pBD, afi=%s, safi=%s",
 					   peer->host, dv.name, dv.id, dv.table_id, dest,
@@ -659,9 +746,9 @@ bool bgp_adj_out_set_subgroup(struct bgp_dest *dest,
 	/* bgp_path_info adj_out reference */
 	adv->pathi = bgp_path_info_lock(path);
 
-	adv->baa = bgp_advertise_attr_intern(
-		subgrp->hash, attr_new,
-		peer->sort == BGP_PEER_EBGP ? bgp_path_info_mpath_cumbw(dest) : 0);
+	adv->baa = bgp_advertise_attr_intern(subgrp->hash, attr_new,
+					     ebgp ? bgp_path_info_mpath_cumbw(dest) : 0,
+					     ebgp ? igpmetric : 0);
 	adv->adj = adj;
 	if (path->extra)
 		adj->labels = bgp_labels_intern(path->extra->labels);

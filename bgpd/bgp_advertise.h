@@ -48,6 +48,14 @@ struct bgp_advertise_attr {
 
 	/* Attribute pointer to be announced.  */
 	struct attr *attr;
+
+	/* Per-peer values for EBGP third-party nexthop: included in the hash
+	 * key so that prefixes with different values do not share a packet,
+	 * and stored here (queued state) so suppress-duplicate can distinguish
+	 * sent vs queued.
+	 */
+	uint64_t cum_bw;    /* cumulative link-bandwidth of the ECMP set */
+	uint64_t igpmetric; /* IGP cost to nexthop, added to AIGP metric */
 };
 
 /* BGP adjacency out.  */
@@ -68,6 +76,15 @@ struct bgp_adj_out {
 
 	/* Advertised attribute.  */
 	struct attr *attr;
+
+	/* Values tracked separately from attr for suppress-duplicate: the
+	 * per-peer WECMP cumulative bandwidth and AIGP igpmetric are computed
+	 * at packet-send time (in bpacket_reformat_for_peer()) and are not
+	 * reflected in the shared attr.  When either changes, suppress-
+	 * duplicate must be bypassed to deliver the updated per-peer values.
+	 */
+	uint64_t cum_bw;    /* cumulative link-bandwidth of ECMP set */
+	uint64_t igpmetric; /* IGP cost to BGP nexthop, added to AIGP */
 
 	/* VPN label information */
 	struct bgp_labels *labels;
@@ -147,8 +164,8 @@ extern void bgp_advertise_add(struct bgp_advertise_attr *baa,
 			      struct bgp_advertise *adv);
 extern struct bgp_advertise *bgp_advertise_new(void);
 extern void bgp_advertise_free(struct bgp_advertise *adv);
-extern struct bgp_advertise_attr *bgp_advertise_attr_intern(struct hash *hash,
-							    struct attr *attr);
+extern struct bgp_advertise_attr *bgp_advertise_attr_intern(struct hash *hash, struct attr *attr,
+							    uint64_t cum_bw, uint64_t igpmetric);
 extern struct bgp_advertise_attr *bgp_advertise_attr_new(void);
 extern void bgp_advertise_delete(struct bgp_advertise_attr *baa,
 				 struct bgp_advertise *adv);
