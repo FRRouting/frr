@@ -264,11 +264,29 @@ struct bgp_path_info_extra_vnc {
 };
 #endif
 
+struct bgp_mplsvpn_label_nh {
+	/* For nexthop per label linked list */
+	LIST_ENTRY(bgp_path_info_extra) label_nh_thread;
+
+	/* Back pointer to the bgp label per nexthop structure */
+	struct bgp_label_per_nexthop_cache *label_nexthop_cache;
+};
+
+struct bgp_mplsvpn_nh_label_bind {
+	/* For mplsvpn nexthop label bind linked list */
+	LIST_ENTRY(bgp_path_info_extra) nh_label_bind_thread;
+
+	/* Back pointer to the bgp mplsvpn nexthop label bind structure */
+	struct bgp_mplsvpn_nh_label_bind_cache *nh_label_bind_cache;
+};
+
 /* Ancillary information to struct bgp_path_info,
  * used for uncommonly used data (aggregation, MPLS, etc.)
  * and lazily allocated to save memory.
  */
 struct bgp_path_info_extra {
+	struct bgp_path_info *path;
+
 	/* Pointer to dampening structure.  */
 	struct bgp_damp_info *damp_info;
 
@@ -304,22 +322,11 @@ struct bgp_path_info_extra {
 	 * the Color Extended Community via bgp_path_info_get_srte_color()).
 	 */
 	uint32_t srte_color;
-};
 
-struct bgp_mplsvpn_label_nh {
-	/* For nexthop per label linked list */
-	LIST_ENTRY(bgp_path_info) label_nh_thread;
-
-	/* Back pointer to the bgp label per nexthop structure */
-	struct bgp_label_per_nexthop_cache *label_nexthop_cache;
-};
-
-struct bgp_mplsvpn_nh_label_bind {
-	/* For mplsvpn nexthop label bind linked list */
-	LIST_ENTRY(bgp_path_info) nh_label_bind_thread;
-
-	/* Back pointer to the bgp mplsvpn nexthop label bind structure */
-	struct bgp_mplsvpn_nh_label_bind_cache *nh_label_bind_cache;
+	union {
+		struct bgp_mplsvpn_label_nh blnc;
+		struct bgp_mplsvpn_nh_label_bind bmnc;
+	} mplsvpn;
 };
 
 struct bgp_path_info {
@@ -421,11 +428,6 @@ struct bgp_path_info {
 	/* Addpath identifiers */
 	uint32_t addpath_rx_id;
 	struct bgp_addpath_info_data tx_addpath;
-
-	union {
-		struct bgp_mplsvpn_label_nh blnc;
-		struct bgp_mplsvpn_nh_label_bind bmnc;
-	} mplsvpn;
 };
 
 /* Structure used in BGP path selection */
