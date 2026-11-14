@@ -3284,6 +3284,12 @@ bool subgroup_announce_check(struct bgp_dest *dest, struct bgp_path_info *pi,
 	struct attr *rmap_src_attr = post_attr ? post_attr : piattr;
 	bool link_bw_was_set = CHECK_FLAG(rmap_src_attr->rmap_change_flags, BATTR_RMAP_LINK_BW_SET);
 
+	/* Carry the policy flag into attr so that bgp_packet_attribute()'s
+	 * deferred WECMP vec setup sees it even when the flag originated from
+	 * post_attr (outbound route-map) rather than piattr. */
+	if (link_bw_was_set)
+		SET_FLAG(attr->rmap_change_flags, BATTR_RMAP_LINK_BW_SET);
+
 	/*
 	 * Recalculate cumulative link-bandwidth for WECMP (non-EBGP only;
 	 * EBGP uses per-peer recalculation via BGP_ATTR_VEC_WECMP).

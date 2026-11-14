@@ -659,7 +659,9 @@ bool bgp_adj_out_set_subgroup(struct bgp_dest *dest,
 	/* bgp_path_info adj_out reference */
 	adv->pathi = bgp_path_info_lock(path);
 
-	adv->baa = bgp_advertise_attr_intern(subgrp->hash, attr_new);
+	adv->baa = bgp_advertise_attr_intern(
+		subgrp->hash, attr_new,
+		peer->sort == BGP_PEER_EBGP ? bgp_path_info_mpath_cumbw(dest) : 0);
 	adv->adj = adj;
 	if (path->extra)
 		adj->labels = bgp_labels_intern(path->extra->labels);

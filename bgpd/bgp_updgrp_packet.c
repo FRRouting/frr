@@ -37,6 +37,8 @@
 #include "bgpd/bgp_packet.h"
 #include "bgpd/bgp_advertise.h"
 #include "bgpd/bgp_updgrp.h"
+#include "bgpd/bgp_ecommunity.h"
+#include "bgpd/bgp_aspath.h"
 #include "bgpd/bgp_nexthop.h"
 #include "bgpd/bgp_nht.h"
 #include "bgpd/bgp_mplsvpn.h"
@@ -347,6 +349,39 @@ static void bpacket_reformat_aigp(struct stream *s, const struct bpacket *pkt)
 	}
 }
 
+/*
+ * Apply the per-peer link-bandwidth WECMP recalculation recorded at
+ * bpacket-build time.  Called after the nexthop has been changed to the
+ * router's own address.
+ */
+static void bpacket_reformat_wecmp(struct stream *s, const struct bpacket *pkt, struct peer *peer)
+{
+	const bpacket_attr_vec *wecmp_vec = &pkt->arr.entries[BGP_ATTR_VEC_WECMP];
+
+	if (!CHECK_FLAG(wecmp_vec->flags, BPKT_ATTRVEC_FLAGS_UPDATED))
+		return;
+
+	uint64_t cum_bw = wecmp_vec->data;
+	as_t link_bw_as = bgp_local_as_for_peer(peer);
+	uint8_t entry_type = stream_getc_from(s, wecmp_vec->offset) &
+			     ~ECOMMUNITY_FLAG_NON_TRANSITIVE;
+
+	if (entry_type == ECOMMUNITY_ENCODE_AS4) {
+		stream_putq_at(s, wecmp_vec->offset + 4, cum_bw);
+		stream_putl_at(s, wecmp_vec->offset + 12, (uint32_t)MIN(link_bw_as, UINT32_MAX));
+	} else {
+		bool disable_ieee = CHECK_FLAG(peer->flags,
+					       PEER_FLAG_DISABLE_LINK_BW_ENCODING_IEEE);
+		uint32_t bw32 = disable_ieee ? (uint32_t)MIN(cum_bw, UINT32_MAX)
+					     : uint64_to_ieee_float_uint32(cum_bw);
+
+		stream_putw_at(s, wecmp_vec->offset + 2,
+			       (uint16_t)(link_bw_as > BGP_AS_MAX ? BGP_AS_TRANS
+								  : link_bw_as));
+		stream_putl_at(s, wecmp_vec->offset + 4, bw32);
+	}
+}
+
 struct stream *bpacket_reformat_for_peer(struct bpacket *pkt,
 					 struct peer_af *paf)
 {
@@ -458,6 +493,17 @@ struct stream *bpacket_reformat_for_peer(struct bpacket *pkt,
 				 * metric in the stream.
 				 */
 				bpacket_reformat_aigp(s, pkt);
+
+				/* Per-peer WECMP recalculation: replace the
+				 * original per-path link-bandwidth with the
+				 * cumulative bandwidth recorded at bpacket-
+				 * build time.  The entry size is fixed within
+				 * a subgroup (guaranteed by
+				 * PEER_FLAG_EXTENDED_LINK_BANDWIDTH in
+				 * PEER_UPDGRP_FLAGS), so in-place rewriting
+				 * is safe.
+				 */
+				bpacket_reformat_wecmp(s, pkt, peer);
 			}
 		}
 
@@ -586,11 +632,12 @@ struct stream *bpacket_reformat_for_peer(struct bpacket *pkt,
 			if (gnh_modified) {
 				stream_put_in6_addr_at(s, offset_nhglobal, mod_v6nhg);
 
-			if (peer->sort == BGP_PEER_EBGP) {
+				if (peer->sort == BGP_PEER_EBGP) {
 					/* Per-peer AIGP and WECMP adjustments —
 					 * same logic as IPv4.
 					 */
 					bpacket_reformat_aigp(s, pkt);
+					bpacket_reformat_wecmp(s, pkt, peer);
 				}
 			}
 			if (lnh_modified)
@@ -673,6 +720,8 @@ static void bpacket_attr_vec_arr_update(struct bpacket_attr_vec_arr *vecarr, siz
 		vecarr->entries[BGP_ATTR_VEC_NH].offset += mpattr_pos;
 	if (CHECK_FLAG(vecarr->entries[BGP_ATTR_VEC_AIGP].flags, BPKT_ATTRVEC_FLAGS_UPDATED))
 		vecarr->entries[BGP_ATTR_VEC_AIGP].offset += snlri_len;
+	if (CHECK_FLAG(vecarr->entries[BGP_ATTR_VEC_WECMP].flags, BPKT_ATTRVEC_FLAGS_UPDATED))
+		vecarr->entries[BGP_ATTR_VEC_WECMP].offset += snlri_len;
 }
 
 /*

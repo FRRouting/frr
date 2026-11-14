@@ -6032,8 +6032,15 @@ void bgp_peer_prepend_local_as(struct peer *peer, afi_t afi, safi_t safi, struct
 	}
 }
 
+/*
+ * Write an extended-communities attribute to the stream.  If vecarr is
+ * non-NULL, scan the community list for a link-bandwidth entry and record its
+ * stream offset in BGP_ATTR_VEC_WECMP so that bpacket_reformat_for_peer()
+ * can rewrite it per-peer for the EBGP third-party nexthop case.
+ */
 static void bgp_packet_ecommunity_attribute(struct stream *s, struct peer *peer, struct attr *attr,
-					    struct ecommunity *ecomm, int attribute)
+					    struct ecommunity *ecomm, int attribute,
+					    struct bpacket_attr_vec_arr *vecarr)
 {
 	uint8_t partial = bgp_attr_partial(attr, attribute);
 
@@ -6049,6 +6056,31 @@ static void bgp_packet_ecommunity_attribute(struct stream *s, struct peer *peer,
 		stream_putc(s, BGP_ATTR_FLAG_OPTIONAL | BGP_ATTR_FLAG_TRANS | partial);
 		stream_putc(s, attribute);
 		stream_putc(s, ecomm->size * ecomm->unit_size);
+	}
+
+	/*
+	 * Record the stream offset of the link-bandwidth entry so that
+	 * bpacket_reformat_for_peer() can rewrite the AS and bandwidth
+	 * per-peer without rebuilding the entire ecommunity attribute.
+	 */
+	if (vecarr) {
+		size_t data_start = stream_get_endp(s);
+
+		for (uint32_t i = 0; i < ecomm->size; i++) {
+			const uint8_t *e = ecomm->val + (size_t)i * ecomm->unit_size;
+			uint8_t type = e[0] & ~ECOMMUNITY_FLAG_NON_TRANSITIVE;
+			uint8_t sub = e[1];
+
+			if ((type == ECOMMUNITY_ENCODE_AS && sub == ECOMMUNITY_LINK_BANDWIDTH) ||
+			    (type == ECOMMUNITY_ENCODE_AS4 &&
+			     sub == ECOMMUNITY_EXTENDED_LINK_BANDWIDTH)) {
+				SET_FLAG(vecarr->entries[BGP_ATTR_VEC_WECMP].flags,
+					 BPKT_ATTRVEC_FLAGS_UPDATED);
+				vecarr->entries[BGP_ATTR_VEC_WECMP].offset =
+					data_start + (size_t)i * ecomm->unit_size;
+				break;
+			}
+		}
 	}
 
 	stream_put(s, ecomm->val, ecomm->size * ecomm->unit_size);
@@ -6344,18 +6376,46 @@ bgp_size_t bgp_packet_attribute(struct bgp *bgp, struct peer *peer, struct strea
 		stream_put(s, cluster->list, cluster->length);
 	}
 
+	/*
+	 * For the EBGP third-party nexthop case, the link-bandwidth WECMP
+	 * recalculation was skipped in subgroup_announce_check() so that
+	 * multiaccess peers, which keep the original third-party nexthop,
+	 * are not incorrectly given the cumulative bandwidth.  Record the
+	 * stream offset of the link-bandwidth entry in the ecommunity
+	 * attribute; bpacket_reformat_for_peer() will rewrite it per-peer
+	 * when the nexthop is changed to the router's own address.
+	 * This applies for all EBGP peers regardless of whether the nexthop
+	 * was zeroed (non-multiaccess) or preserved (third-party nexthop);
+	 * subgroup_announce_check() no longer recalculates WECMP for EBGP.
+	 */
+	struct bpacket_attr_vec_arr *wecmp_vecarr = NULL;
+
+	if (bpi && peer->sort == BGP_PEER_EBGP && vecarr && (afi == AFI_IP || afi == AFI_IP6) &&
+	    !CHECK_FLAG(attr->rmap_change_flags, BATTR_RMAP_LINK_BW_SET)) {
+		struct bgp *b = bgp ? bgp : peer->bgp;
+		uint64_t cum_bw;
+
+		cum_bw = bgp_path_info_mpath_cumbw(bpi->net);
+		if (b && bgp_path_info_mpath_chkwtd(b, bpi->net) == BGP_WECMP_BEHAVIOR_LINK_BW &&
+		    cum_bw != 0) {
+			wecmp_vecarr = vecarr;
+			vecarr->entries[BGP_ATTR_VEC_WECMP].data = cum_bw;
+		}
+	}
+
 	/* Extended IPv6/Communities attributes. */
 	if (bgp_attr_exists(attr, BGP_ATTR_EXT_COMMUNITIES)) {
 		struct ecommunity *ecomm = bgp_attr_get_ecommunity(attr);
 
-		bgp_packet_ecommunity_attribute(s, peer, attr, ecomm, BGP_ATTR_EXT_COMMUNITIES);
+		bgp_packet_ecommunity_attribute(s, peer, attr, ecomm, BGP_ATTR_EXT_COMMUNITIES,
+						wecmp_vecarr);
 	}
 
 	if (bgp_attr_exists(attr, BGP_ATTR_IPV6_EXT_COMMUNITIES)) {
 		struct ecommunity *ecomm = bgp_attr_get_ipv6_ecommunity(attr);
 
 		bgp_packet_ecommunity_attribute(s, peer, attr, ecomm,
-						BGP_ATTR_IPV6_EXT_COMMUNITIES);
+						BGP_ATTR_IPV6_EXT_COMMUNITIES, wecmp_vecarr);
 	}
 
 	/* Label index attribute. */
