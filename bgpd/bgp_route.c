@@ -2833,32 +2833,6 @@ bool subgroup_announce_check(struct bgp_dest *dest, struct bgp_path_info *pi,
 	/* don't confuse inbound and outbound setting */
 	RESET_FLAG(attr->rmap_change_flags);
 
-	/* Strip UPA Extended Community for non-UPA peers.
-	 * If the peer does not support UPA (lacks PEER_FLAG_UPA),
-	 * remove UPA ExtCom from the attributes before sending. This handles
-	 * cases where non-UPA routes carry UPA ExtComs (e.g., received from
-	 * another router). Note: Full UPA routes (BGP_PATH_UPA flag set)
-	 * are already filtered earlier.
-	 */
-	if (!CHECK_FLAG(peer->af_flags[afi][safi], PEER_FLAG_UPA)) {
-		struct ecommunity *ecom = bgp_attr_get_ecommunity(attr);
-		struct ecommunity *ecom_filtered = NULL;
-
-		if (ecom && bgp_ecommunity_has_upa(ecom)) {
-			ecom_filtered = bgp_upa_extcom_filter(ecom);
-
-			if (ecom_filtered && ecom_filtered->size > 0) {
-				/* Replace with filtered ExtCom (UPA removed) */
-				bgp_attr_set_ecommunity(attr, ecom_filtered);
-			} else {
-				/* No ExtComs remain after filtering, remove attribute */
-				bgp_attr_unset(attr, BGP_ATTR_EXT_COMMUNITIES);
-				if (ecom_filtered)
-					ecommunity_free(&ecom_filtered);
-			}
-		}
-	}
-
 	/* If local-preference is not set. */
 	if ((peer->sort == BGP_PEER_IBGP || peer->sort == BGP_PEER_CONFED ||
 	     peer->sub_sort == BGP_PEER_EBGP_OAD) &&
@@ -3384,6 +3358,27 @@ bool subgroup_announce_check(struct bgp_dest *dest, struct bgp_path_info *pi,
 			}
 		} else {
 			bgp_attr_unset_aigp_metric(attr);
+		}
+	}
+
+	/* Strip UPA Extended Community for non-UPA peers.
+	 * If the peer does not support UPA (lacks PEER_FLAG_UPA),
+	 * remove UPA ExtCom from the attributes before sending. This handles
+	 * cases where non-UPA routes carry UPA ExtComs (e.g., received from
+	 * another router). Note: Full UPA routes (BGP_PATH_UPA flag set)
+	 * are already filtered earlier.
+	 *
+	 * The filtered ExtCom is not interned, so this must stay below the
+	 * route-map sections: they bgp_attr_flush() a shallow copy of attr,
+	 * which would free it while attr still points to it.
+	 */
+	if (!CHECK_FLAG(peer->af_flags[afi][safi], PEER_FLAG_UPA)) {
+		struct ecommunity *old_ecomm = bgp_attr_get_ecommunity(attr);
+
+		if (old_ecomm && bgp_ecommunity_has_upa(old_ecomm)) {
+			bgp_attr_set_ecommunity(attr, bgp_upa_extcom_filter(old_ecomm));
+			if (!old_ecomm->refcnt)
+				ecommunity_free(&old_ecomm);
 		}
 	}
 
