@@ -14686,12 +14686,48 @@ int bgp_nb_peer_af_default_originate_rmap_modify(struct nb_cb_modify_args *args)
 	return NB_OK;
 }
 
+/*
+ * Destroy callbacks run before modifies. "no neighbor X default-originate"
+ * deletes the route-map and sets originate false, but the deleted node's
+ * parent still shows originate true. Read the candidate. Advertising with
+ * a NULL map here would leak an unfiltered default before the unset.
+ */
+static bool bgp_nb_default_originate_remains(struct nb_cb_destroy_args *args)
+{
+	struct vty *vty;
+	const struct lyd_node *root;
+	char path[XPATH_MAXLEN];
+	char *slash, *leaf;
+
+	if (!args->context || args->context->client != NB_CLIENT_CLI || !args->context->user)
+		return true;
+
+	vty = (struct vty *)args->context->user;
+	if (!vty->candidate_config || !vty->candidate_config->dnode)
+		return true;
+
+	if (!yang_dnode_get_path(args->dnode, path, sizeof(path)))
+		return true;
+
+	slash = strrchr(path, '/');
+	leaf = slash ? slash + 1 : path;
+	if (strchr(leaf, ':'))
+		leaf = strchr(leaf, ':') + 1;
+	if (!strmatch(leaf, "route-map"))
+		return true;
+
+	strlcpy(leaf, "originate", path + sizeof(path) - leaf);
+	root = vty->candidate_config->dnode;
+	if (!yang_dnode_exists(root, path))
+		return false;
+	return yang_dnode_get_bool(root, "%s", path);
+}
+
 int bgp_nb_peer_af_default_originate_rmap_destroy(struct nb_cb_destroy_args *args)
 {
 	struct peer *peer;
 	afi_t afi;
 	safi_t safi;
-	const struct lyd_node *cont;
 
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
@@ -14700,13 +14736,15 @@ int bgp_nb_peer_af_default_originate_rmap_destroy(struct nb_cb_destroy_args *arg
 	if (!peer || !bgp_nb_dnode_afi_safi(args->dnode, &afi, &safi))
 		return NB_OK;
 
-	cont = yang_dnode_get_parent(args->dnode, "default-originate");
-	if (!cont || !yang_dnode_exists(cont, "./originate") ||
-	    !yang_dnode_get_bool(cont, "./originate"))
+	if (!CHECK_FLAG(peer->af_flags[afi][safi], PEER_FLAG_DEFAULT_ORIGINATE))
+		return NB_OK;
+
+	if (!bgp_nb_default_originate_remains(args))
 		return NB_OK;
 
 	if (peer_default_originate_set(peer, afi, safi, NULL, NULL) < 0)
-		return NB_ERR_RESOURCE;
+		zlog_warn("%s: failed to clear default-originate route-map on %s", __func__,
+			  peer->host);
 	return NB_OK;
 }
 
