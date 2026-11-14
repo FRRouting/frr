@@ -504,8 +504,13 @@ static int distribute_list_leaf_update(const struct lyd_node *dnode,
 	struct lyd_node *dir_node = lyd_parent(dnode);
 	struct lyd_node *list_node = lyd_parent(dir_node);
 	struct lyd_node *intf_key = lyd_child(list_node);
+	const char *ifname = lyd_get_value(intf_key);
 	bool ipv4 = ip_version == 4 ? true : false;
 	bool prefix;
+
+	/* An empty YANG interface key denotes a process-wide filter. */
+	if (ifname && ifname[0] == '\0')
+		ifname = NULL;
 
 	ctx = nb_running_get_entry_non_rec(list_node, NULL, false);
 
@@ -514,12 +519,12 @@ static int distribute_list_leaf_update(const struct lyd_node *dnode,
 		distribute_list_no_parser(ctx, NULL, prefix, ipv4,
 					  dir_node->schema->name,
 					  lyd_get_value(dnode),
-					  lyd_get_value(intf_key));
+					  ifname);
 	else
 		distribute_list_parser(ctx, prefix, ipv4,
 				       dir_node->schema->name,
 				       lyd_get_value(dnode),
-				       lyd_get_value(intf_key));
+				       ifname);
 	return NB_OK;
 }
 
