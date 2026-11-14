@@ -135,6 +135,14 @@ struct zebra_vrf {
 	int advertise_all_vni;
 
 	/*
+	 * A GR-enabled bgpd disconnected while EVPN was enabled. EVPN stays
+	 * enabled and its entries are retained; the next ADVERTISE_ALL_VNI
+	 * must replay VNIs and local entries even though advertise_all_vni
+	 * does not change. Only in the EVPN instance.
+	 */
+	bool evpn_gr_replay_pending;
+
+	/*
 	 * Whether we are advertising g/w macip in EVPN or not.
 	 * Only in the EVPN instance.
 	 */
