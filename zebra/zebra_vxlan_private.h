@@ -57,6 +57,9 @@ struct zebra_l3vni {
 	/* list of remote router-macs */
 	struct hash *rmac_table;
 
+	/* Router MACs flushed from the kernel with the VxLAN device */
+	bool rmac_flushed;
+
 	/* list of remote vtep-ip neigh */
 	struct zebra_neigh_db_head nh_table[1];
 };
@@ -257,6 +260,7 @@ extern void zebra_vxlan_sg_ref(struct ipaddr *local_vtep_ip, struct in_addr mcas
 extern void zebra_vxlan_sg_deref(struct ipaddr *local_vtep_ip, struct in_addr mcast_grp);
 extern void zebra_vxlan_process_l3vni_oper_up(struct zebra_l3vni *zl3vni);
 extern void zebra_vxlan_process_l3vni_oper_down(struct zebra_l3vni *zl3vni);
+extern void zebra_vxlan_svd_nh_flushed(struct interface *ifp, bool deleted);
 extern int zebra_evpn_vxlan_del(struct zebra_evpn *zevpn);
 extern void zebra_vxlan_stale_remote_mac_add_l3vni(struct zebra_l3vni *zl3vni,
 						   struct ethaddr *macaddr, struct ipaddr vtep_ip);
