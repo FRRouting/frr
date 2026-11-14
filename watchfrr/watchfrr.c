@@ -17,6 +17,7 @@
 #include <sigevent.h>
 #include <lib/version.h>
 #include "command.h"
+#include "json.h"
 #include "libfrr.h"
 #include "lib_errors.h"
 #include "zlog_targets.h"
@@ -990,37 +991,111 @@ bool check_all_up(void)
 	return true;
 }
 
-void watchfrr_status(struct vty *vty)
+/* Keep each field's JSON key, text format, and value together.
+ * The format strings are supplied by the field definitions below.
+ */
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wformat-nonliteral"
+static void status_bool(struct vty *vty, struct json_object *json, const char *key,
+			const char *format, bool value, const char *true_text,
+			const char *false_text)
 {
+	if (json)
+		json_object_boolean_add(json, key, value);
+	else
+		vty_out(vty, format, value ? true_text : false_text);
+}
+
+static void status_int(struct vty *vty, struct json_object *json, const char *key,
+		       const char *format, int64_t value)
+{
+	if (json)
+		json_object_int_add(json, key, value);
+	else
+		vty_out(vty, format, value);
+}
+
+static void status_pid(struct vty *vty, struct json_object *json, const char *key,
+		       const char *format, pid_t pid)
+{
+	if (!pid)
+		return;
+
+	if (json)
+		json_object_int_add(json, key, pid);
+	else
+		vty_out(vty, format, (long)pid);
+}
+
+static void status_string(struct vty *vty, struct json_object *json, const char *key,
+			  const char *format, const char *value)
+{
+	if (json)
+		json_object_string_add(json, key, value);
+	else
+		vty_out(vty, format, value);
+}
+#pragma GCC diagnostic pop
+
+void watchfrr_status(struct vty *vty, bool use_json)
+{
+	struct json_object *json = NULL, *daemons = NULL;
 	struct daemon *dmn;
 	struct timeval delay;
 
-	vty_out(vty, "watchfrr global phase: %s\n", phase_str[gs.phase]);
-	vty_out(vty, " Restart Command: %pSQq\n", gs.restart_command);
-	vty_out(vty, " Start Command: %pSQq\n", gs.start_command);
-	vty_out(vty, " Stop Command: %pSQq\n", gs.stop_command);
-	vty_out(vty, " Min Restart Interval: %ld\n", gs.min_restart_interval);
-	vty_out(vty, " Max Restart Interval: %ld\n", gs.max_restart_interval);
-	vty_out(vty, " Restart Timeout: %ld\n", gs.restart_timeout);
-	vty_out(vty, " Reading Configuration: %s\n",
-		gs.reading_configuration ? "yes" : "no");
-	if (gs.restart.pid)
-		vty_out(vty, "    global restart running, pid %ld\n",
-			(long)gs.restart.pid);
+	if (use_json) {
+		json = json_object_new_object();
+		daemons = json_object_new_array();
+	}
+
+	status_string(vty, json, "globalPhase", "watchfrr global phase: %s\n", phase_str[gs.phase]);
+	status_bool(vty, json, "allUp", " All daemons up: %s\n", check_all_up(), "yes", "no");
+	status_string(vty, json, "restartCommand", " Restart Command: %pSQq\n", gs.restart_command);
+	status_string(vty, json, "startCommand", " Start Command: %pSQq\n", gs.start_command);
+	status_string(vty, json, "stopCommand", " Stop Command: %pSQq\n", gs.stop_command);
+	status_int(vty, json, "minRestartInterval", " Min Restart Interval: %" PRId64 "\n",
+		   gs.min_restart_interval);
+	status_int(vty, json, "maxRestartInterval", " Max Restart Interval: %" PRId64 "\n",
+		   gs.max_restart_interval);
+	status_int(vty, json, "restartTimeout", " Restart Timeout: %" PRId64 "\n",
+		   gs.restart_timeout);
+	status_bool(vty, json, "readingConfiguration", " Reading Configuration: %s\n",
+		    gs.reading_configuration, "yes", "no");
+
+	status_pid(vty, json, "restartPid", "    global restart running, pid %ld\n",
+		   gs.restart.pid);
 
 	for (dmn = gs.daemons; dmn; dmn = dmn->next) {
-		vty_out(vty, "  %-20s %s%s", dmn->name, state_str[dmn->state],
-			dmn->ignore_timeout ? "/Ignoring Timeout\n" : "\n");
-		if (dmn->restart.pid)
-			vty_out(vty, "      restart running, pid %ld\n",
-				(long)dmn->restart.pid);
-		else if (dmn->state == DAEMON_DOWN &&
-			time_elapsed(&delay, &dmn->restart.time)->tv_sec
-				< dmn->restart.interval)
-			vty_out(vty, "      restarting in %jd seconds (%jds backoff interval)\n",
-				(intmax_t)dmn->restart.interval
-					- (intmax_t)delay.tv_sec,
-				(intmax_t)dmn->restart.interval);
+		struct json_object *daemon = NULL;
+
+		if (use_json)
+			daemon = json_object_new_object();
+
+		status_string(vty, daemon, "name", "  %-20s ", dmn->name);
+		status_string(vty, daemon, "state", "%s", state_str[dmn->state]);
+		status_bool(vty, daemon, "ignoreTimeout", "%s\n", dmn->ignore_timeout,
+			    "/Ignoring Timeout", "");
+
+		status_pid(vty, daemon, "restartPid", "      restart running, pid %ld\n",
+			   dmn->restart.pid);
+		if (!dmn->restart.pid && dmn->state == DAEMON_DOWN &&
+		    time_elapsed(&delay, &dmn->restart.time)->tv_sec < dmn->restart.interval) {
+			intmax_t restart_in = (intmax_t)dmn->restart.interval -
+					      (intmax_t)delay.tv_sec;
+
+			status_int(vty, daemon, "restartIn",
+				   "      restarting in %" PRId64 " seconds (", restart_in);
+			status_int(vty, daemon, "restartInterval",
+				   "%" PRId64 "s backoff interval)\n", dmn->restart.interval);
+		}
+
+		if (use_json)
+			json_object_array_add(daemons, daemon);
+	}
+
+	if (use_json) {
+		json_object_object_add(json, "daemons", daemons);
+		vty_json(vty, json);
 	}
 }
 

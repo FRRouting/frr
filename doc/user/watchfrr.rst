@@ -16,7 +16,7 @@ require end users management.
 WATCHFRR commands
 =================
 
-.. clicmd:: show watchfrr
+.. clicmd:: show watchfrr [json]
 
    Give status information about the state of the different daemons being
    watched by WATCHFRR
