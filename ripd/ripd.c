@@ -479,7 +479,9 @@ static void rip_rte_process(struct rte *rte, struct sockaddr_in *from,
 	newinfo.nh.type = NEXTHOP_TYPE_IPV4_IFINDEX;
 	newinfo.metric = rte->metric;
 	newinfo.metric_out = rte->metric; /* XXX */
+	newinfo.nexthop_out = rte->nexthop;
 	newinfo.tag = ntohs(rte->tag);    /* XXX */
+	newinfo.tag_out = ntohs(rte->tag); /* XXX */
 
 	/* Modify entry according to the interface routemap. */
 	if (ri->routemap[RIP_FILTER_IN]) {
