@@ -5335,6 +5335,22 @@ The following command is available in ``config`` mode as well as in the
    Set the BGP Output Queue limit for all peers when messaging parsing. Increase
    this only if you have the memory to handle large queues of messages at once.
 
+.. clicmd:: bgp process-queue hold-time (0-10000)
+
+   Set the time, in milliseconds, that bgpd waits after work is queued on the
+   idle route process queue of a BGP instance before processing it. The process
+   queue is where bgpd runs best path selection for changed prefixes, installs
+   the results into zebra and advertises them to peers. Holding the queue
+   allows route changes received in quick succession to be processed together
+   in fewer runs. The default is 50 milliseconds.
+
+   Lowering the hold time, down to 0 to process the queued work immediately,
+   reduces the time bgpd needs to react to a routing change, at the cost of
+   possibly more frequent processing runs while routes are churning. Higher
+   values batch more work into each run. The setting applies to all BGP
+   instances, including those created afterwards. The value in use is shown by
+   :clicmd:`show bgp router [json]`.
+
 .. _bgp-displaying-bgp-information:
 
 Displaying BGP Information

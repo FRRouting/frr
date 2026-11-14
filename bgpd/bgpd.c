@@ -9671,6 +9671,7 @@ void bgp_master_init(struct event_loop *master, const int buffer_size,
 	bm->ip_tos = IPTOS_PREC_INTERNETCONTROL;
 	bm->inq_limit = BM_DEFAULT_Q_LIMIT;
 	bm->outq_limit = BM_DEFAULT_Q_LIMIT;
+	bm->process_queue_hold_time = BGP_DEFAULT_PROCESS_QUEUE_HOLD_TIME;
 	bm->restart_time = BGP_DEFAULT_RESTART_TIME;
 	bm->stalepath_time = BGP_DEFAULT_STALEPATH_TIME;
 	bm->select_defer_time = BGP_DEFAULT_SELECT_DEFERRAL_TIME;

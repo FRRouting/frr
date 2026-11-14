@@ -13448,6 +13448,8 @@ DEFPY(show_bgp_router,
 	if (uj) {
 		json_object_int_add(json, "bgpInputQueueLimit", bm->inq_limit);
 		json_object_int_add(json, "bgpOutputQueueLimit", bm->outq_limit);
+		json_object_int_add(json, "bgpProcessQueueHoldTimeMsecs",
+				    bm->process_queue_hold_time);
 		json_object_int_add(json, "zebraAnnounceCount",
 				    zebra_announce_count(&bm->zebra_announce_head));
 		json_object_int_add(json, "zebraAnnounceEarlyCount",
@@ -13464,6 +13466,7 @@ DEFPY(show_bgp_router,
 	} else {
 		vty_out(vty, "BGP Input Queue Limit: %d\n", bm->inq_limit);
 		vty_out(vty, "BGP Output Queue Limit: %d\n", bm->outq_limit);
+		vty_out(vty, "BGP Process Queue Hold Time: %ums\n", bm->process_queue_hold_time);
 		vty_out(vty, "Zebra announce queue (priority): %zu\n",
 			zebra_announce_count(&bm->zebra_announce_early_head));
 		vty_out(vty, "Zebra announce queue (normal): %zu\n",
@@ -22592,6 +22595,9 @@ int bgp_config_write(struct vty *vty)
 	if (bm->outq_limit != BM_DEFAULT_Q_LIMIT)
 		vty_out(vty, "bgp output-queue-limit %u\n", bm->outq_limit);
 
+	if (bm->process_queue_hold_time != BGP_DEFAULT_PROCESS_QUEUE_HOLD_TIME)
+		vty_out(vty, "bgp process-queue hold-time %u\n", bm->process_queue_hold_time);
+
 	vty_out(vty, "!\n");
 
 	/* BGP configuration. */
@@ -23565,6 +23571,23 @@ DEFPY (no_bgp_outq_limit,
 	return CMD_SUCCESS;
 }
 
+DEFPY (bgp_process_queue_hold_time,
+       bgp_process_queue_hold_time_cmd,
+       "[no$no] bgp process-queue hold-time ![(0-10000)$hold_time]",
+       NO_STR
+       BGP_STR
+       "Route process queue of all BGP instances\n"
+       "Delay before processing routes once work is queued\n"
+       "Hold time in milliseconds (default 50)\n")
+{
+	if (no)
+		bgp_process_queue_hold_time_set(BGP_DEFAULT_PROCESS_QUEUE_HOLD_TIME);
+	else
+		bgp_process_queue_hold_time_set(hold_time);
+
+	return CMD_SUCCESS;
+}
+
 
 /* Initialization of BGP interface. */
 static void bgp_vty_if_init(void)
@@ -23758,6 +23781,9 @@ void bgp_vty_init(void)
 	install_element(CONFIG_NODE, &no_bgp_inq_limit_cmd);
 	install_element(CONFIG_NODE, &bgp_outq_limit_cmd);
 	install_element(CONFIG_NODE, &no_bgp_outq_limit_cmd);
+
+	/* global bgp process-queue hold-time command */
+	install_element(CONFIG_NODE, &bgp_process_queue_hold_time_cmd);
 
 	/* "bgp local-mac" hidden commands. */
 	install_element(CONFIG_NODE, &bgp_local_mac_cmd);
