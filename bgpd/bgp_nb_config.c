@@ -4527,9 +4527,21 @@ int bgp_nb_peer_shutdown_enable_modify(struct nb_cb_modify_args *args)
 	if (!peer)
 		return NB_ERR_NOT_FOUND;
 
-	if (yang_dnode_get_bool(args->dnode, NULL))
+	if (yang_dnode_get_bool(args->dnode, NULL)) {
+		const struct lyd_node *shut;
+
+		/*
+		 * Schema order applies enable before message. The cease
+		 * notification is sent from peer_flag_set(), so copy the
+		 * message from the candidate first. Classic CLI does the
+		 * same: peer_tx_shutdown_message_set() then the flag.
+		 */
+		shut = yang_dnode_get_parent(args->dnode, "admin-shutdown");
+		if (shut && yang_dnode_exists(shut, "./message"))
+			peer_tx_shutdown_message_set(peer,
+						     yang_dnode_get_string(shut, "./message"));
 		peer_flag_set(peer, PEER_FLAG_SHUTDOWN);
-	else {
+	} else {
 		peer_tx_shutdown_message_unset(peer);
 		peer_flag_unset(peer, PEER_FLAG_SHUTDOWN);
 	}
