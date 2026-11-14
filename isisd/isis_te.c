@@ -309,11 +309,33 @@ void isis_link_params_update_asla(struct isis_circuit *circuit, struct interface
 
 /* Main initialization / update function of the MPLS TE Circuit context */
 /* Call when interface TE Link parameters are modified */
+/* Register the circuit's first IPv4 and global IPv6 addresses as its local addresses. */
+void isis_link_params_local_addrs_update(struct isis_circuit *circuit)
+{
+	struct isis_ext_subtlvs *ext = circuit->ext;
+	struct prefix_ipv4 *addr;
+	struct prefix_ipv6 *addr6;
+
+	if (listcount(circuit->ip_addrs) != 0) {
+		addr = (struct prefix_ipv4 *)listgetdata(
+			(struct listnode *)listhead(circuit->ip_addrs));
+		IPV4_ADDR_COPY(&ext->local_addr, &addr->prefix);
+		SET_SUBTLV(ext, EXT_LOCAL_ADDR);
+	} else
+		UNSET_SUBTLV(ext, EXT_LOCAL_ADDR);
+
+	if (listcount(circuit->ipv6_non_link) != 0) {
+		addr6 = (struct prefix_ipv6 *)listgetdata(
+			(struct listnode *)listhead(circuit->ipv6_non_link));
+		IPV6_ADDR_COPY(&ext->local_addr6, &addr6->prefix);
+		SET_SUBTLV(ext, EXT_LOCAL_ADDR6);
+	} else
+		UNSET_SUBTLV(ext, EXT_LOCAL_ADDR6);
+}
+
 void isis_link_params_update(struct isis_circuit *circuit, struct interface *ifp)
 {
 	int i;
-	struct prefix_ipv4 *addr;
-	struct prefix_ipv6 *addr6;
 	struct isis_ext_subtlvs *ext;
 
 	/* Check if TE should be advertised (MPLS TE or SRv6 enabled). */
@@ -362,23 +384,7 @@ void isis_link_params_update(struct isis_circuit *circuit, struct interface *ifp
 			SET_SUBTLV(ext, EXT_EXTEND_ADM_GRP);
 		}
 
-		/* If known, register local IPv4 addr from ip_addr list */
-		if (listcount(circuit->ip_addrs) != 0) {
-			addr = (struct prefix_ipv4 *)listgetdata(
-				(struct listnode *)listhead(circuit->ip_addrs));
-			IPV4_ADDR_COPY(&ext->local_addr, &addr->prefix);
-			SET_SUBTLV(ext, EXT_LOCAL_ADDR);
-		} else
-			UNSET_SUBTLV(ext, EXT_LOCAL_ADDR);
-
-		/* If known, register local IPv6 addr from ip_addr list */
-		if (listcount(circuit->ipv6_non_link) != 0) {
-			addr6 = (struct prefix_ipv6 *)listgetdata(
-				(struct listnode *)listhead(circuit->ipv6_non_link));
-			IPV6_ADDR_COPY(&ext->local_addr6, &addr6->prefix);
-			SET_SUBTLV(ext, EXT_LOCAL_ADDR6);
-		} else
-			UNSET_SUBTLV(ext, EXT_LOCAL_ADDR6);
+		isis_link_params_local_addrs_update(circuit);
 
 		/*
 		 * Remote IPv4 and IPv6 addresses are now added in
