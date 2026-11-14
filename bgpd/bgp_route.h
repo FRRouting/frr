@@ -496,6 +496,34 @@ struct bgp_aggregate {
 	/* Optional modify flag to override ORIGIN */
 	uint8_t origin;
 
+	/* Count of contributing routes that carry the ATOMIC_AGGREGATE
+	 * attribute. The aggregate must advertise ATOMIC_AGGREGATE while this
+	 * is > 0. Maintained like incomplete_origin_count/egp_origin_count:
+	 * rebuilt by the full recompute (bgp_aggregate_route()) and adjusted
+	 * incrementally by bgp_add_route_to_aggregate()/
+	 * bgp_remove_route_from_aggregate(), so the value is available without
+	 * rescanning contributors (e.g. on a FIB-event re-install).
+	 */
+	unsigned long atomic_aggregate_count;
+
+	/* suppress-fib-pending: number of contributing more-specifics that are
+	 * forwardable in the dataplane, split by how forwardability is learned:
+	 *
+	 *   in_fib_count    - prefixes BGP installs and waits on, counted when
+	 *                     their FIB state transitions (edge-triggered from
+	 *                     the ZAPI route notifications). Per-prefix.
+	 *   local_fwd_count - local routes BGP does not FIB-wait on (network /
+	 *                     redistributed), reachable by other means; counted
+	 *                     when they enter/leave the aggregate. Per-path.
+	 *
+	 * Under suppress-fib-pending the aggregate is originated only while
+	 * (in_fib_count + local_fwd_count) > 0, so the decision is O(1) instead
+	 * of scanning the more-specifics. Both are rebuilt from scratch by the
+	 * full recompute (bgp_aggregate_route()), which self-heals any drift.
+	 */
+	unsigned long in_fib_count;
+	unsigned long local_fwd_count;
+
 	/** Are there MED mismatches? */
 	bool med_mismatched;
 	/* MED matching state. */
@@ -785,6 +813,31 @@ static inline bool bgp_check_advertise(struct bgp *bgp, struct bgp_dest *dest,
 }
 
 /*
+ * When suppress-fib-pending is in effect for a FIB-installing SAFI, an
+ * aggregate is only originated/advertised while at least one of its
+ * contributing more-specifics is actually forwardable in the dataplane.
+ * This reports whether that FIB-gated behavior applies; when it does not
+ * (no suppress-fib, non-FIB SAFI, or no-FIB mode) aggregate origination
+ * follows BGP RIB presence (aggregate->count) as before.
+ */
+static inline bool bgp_aggregate_fib_driven(struct bgp *bgp, safi_t safi)
+{
+	return BGP_SUPPRESS_FIB_ENABLED(bgp) && bgp_fibupd_safi(safi) &&
+	       bgp->inst_type != BGP_INSTANCE_TYPE_VIEW &&
+	       !bgp_option_check(BGP_OPT_NO_FIB);
+}
+
+/*
+ * suppress-fib-pending: does this aggregate currently have at least one
+ * forwardable contributor (installed in the FIB, or a local route reachable by
+ * other means)? O(1) read of the maintained counters.
+ */
+static inline bool bgp_aggregate_has_fwd(const struct bgp_aggregate *aggregate)
+{
+	return aggregate->in_fib_count > 0 || aggregate->local_fwd_count > 0;
+}
+
+/*
  * If we have a fib result and it failed to install( or was withdrawn due
  * to better admin distance we need to send down the wire a withdrawal.
  * This function assumes that bgp_check_advertise was already returned
@@ -1018,6 +1071,8 @@ extern void bgp_aggregate_delete(struct bgp *bgp, const struct prefix *p,
 extern bool bgp_aggregate_route(struct bgp *bgp, const struct prefix *p,
 				afi_t afi, safi_t safi,
 				struct bgp_aggregate *aggregate);
+extern void bgp_aggregate_fib_update(struct bgp *bgp, const struct prefix *p,
+				     afi_t afi, safi_t safi, int delta);
 extern void bgp_aggregate_increment(struct bgp *bgp, const struct prefix *p,
 				    struct bgp_path_info *path, afi_t afi,
 				    safi_t safi);
