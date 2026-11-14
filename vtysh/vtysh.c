@@ -3241,12 +3241,99 @@ static void vtysh_agentx_reconnect(struct vtysh_client *client)
 	gvty->of_saved = saved_of_saved;
 }
 
+/* Reassemble the lines vtysh_client_run() splits on '\n'. */
+static void vtysh_agentx_reply_line(void *arg, const char *line)
+{
+	buffer_putstr(arg, line);
+	buffer_putc(arg, '\n');
+}
+
+/*
+ * The daemon reply is usable only when it is one JSON object and nothing
+ * else. A transport error or a "% Unknown command" line is not.
+ */
+static struct json_object *vtysh_agentx_one_object(const char *text)
+{
+	struct json_tokener *tok;
+	struct json_object *obj;
+	enum json_tokener_error err;
+	size_t len, end;
+	const char *extra;
+
+	len = strlen(text);
+	if (!len)
+		return NULL;
+
+	tok = json_tokener_new();
+	if (!tok)
+		return NULL;
+
+	obj = json_tokener_parse_ex(tok, text, (int)len);
+	err = json_tokener_get_error(tok);
+	/*
+	 * json_tokener_get_parse_end() arrived in json-c 0.15. Older
+	 * releases keep the same offset in tok->char_offset.
+	 */
+#if JSON_C_MAJOR_VERSION > 0 || JSON_C_MINOR_VERSION >= 15
+	end = json_tokener_get_parse_end(tok);
+#else
+	end = (size_t)tok->char_offset;
+#endif
+	json_tokener_free(tok);
+
+	if (err != json_tokener_success || !obj || !json_object_is_type(obj, json_type_object)) {
+		json_object_free(obj);
+		return NULL;
+	}
+
+	extra = text + end;
+	while (*extra && isspace((unsigned char)*extra))
+		extra++;
+	if (*extra) {
+		json_object_free(obj);
+		return NULL;
+	}
+	return obj;
+}
+
+/*
+ * Read one client with output held back. vtysh_client_run() writes an I/O
+ * diagnostic on gvty->of and still returns CMD_SUCCESS, so the socket has
+ * to be checked again after the call. of and of_saved are both cleared:
+ * with of NULL, vty_out() falls through to of_saved.
+ */
+static struct json_object *vtysh_agentx_client_json(struct vtysh_client *client, const char *line)
+{
+	struct buffer *reply;
+	char *text;
+	struct json_object *obj = NULL;
+	FILE *saved_of, *saved_of_saved;
+	int ret;
+
+	reply = buffer_new(0);
+	saved_of = gvty->of;
+	saved_of_saved = gvty->of_saved;
+	gvty->of = NULL;
+	gvty->of_saved = NULL;
+	ret = vtysh_client_run(client, line, vtysh_agentx_reply_line, reply, NULL);
+	gvty->of = saved_of;
+	gvty->of_saved = saved_of_saved;
+
+	text = buffer_getstr(reply);
+	buffer_free(reply);
+
+	if (ret == CMD_SUCCESS && client->fd >= 0)
+		obj = vtysh_agentx_one_object(text);
+	XFREE(MTYPE_TMP, text);
+	return obj;
+}
+
 static void vtysh_show_agentx_send(struct vty *vty, struct cmd_token **argv, int argc, bool as_json)
 {
 	unsigned int i;
-	bool first = true;
 	char *line;
 	struct vtysh_client *client;
+	struct json_object *root = NULL;
 	char label[64];
 
 	/*
@@ -3255,39 +3342,48 @@ static void vtysh_show_agentx_send(struct vty *vty, struct cmd_token **argv, int
 	 */
 	line = do_prepend(vty, argv, argc);
 
-	if (as_json)
-		vty_out(vty, "{");
+	if (as_json) {
+		root = json_object_new_object();
+		if (!root) {
+			XFREE(MTYPE_TMP, line);
+			return;
+		}
+	}
 
 	for (i = 0; i < array_size(vtysh_client); i++) {
 		if (!(vtysh_client[i].flag & VTYSH_AGENTX_SHOW))
 			continue;
 
 		for (client = &vtysh_client[i]; client; client = client->next) {
+			struct json_object *obj;
+
 			vtysh_agentx_reconnect(client);
 			if (client->fd < 0)
 				continue;
 
 			vtysh_agentx_client_label(client, label, sizeof(label));
 
-			if (as_json) {
-				if (!first)
-					vty_out(vty, ",");
-				vty_out(vty, "\"%s\":", label);
-			} else {
+			if (!as_json) {
 				vty_out(vty, "AgentX status for %s:\n", label);
+				/* This client only. execute_name walks the chain. */
+				vtysh_client_run(client, line, NULL, NULL, NULL);
+				vty_out(vty, "\n");
+				continue;
 			}
 
-			first = false;
-			/* This client only. execute_name walks the chain. */
-			vtysh_client_run(client, line, NULL, NULL, NULL);
-
-			if (!as_json)
-				vty_out(vty, "\n");
+			obj = vtysh_agentx_client_json(client, line);
+			if (!obj) {
+				fprintf(stderr,
+					"%% %s: AgentX status unavailable, omitted from JSON\n",
+					label);
+				continue;
+			}
+			json_object_object_add(root, label, obj);
 		}
 	}
 
 	if (as_json)
-		vty_out(vty, "}\n");
+		vty_json(vty, root);
 
 	XFREE(MTYPE_TMP, line);
 }
