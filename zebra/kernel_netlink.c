@@ -454,7 +454,10 @@ static int dplane_netlink_information_fetch(struct nlmsghdr *h, ns_id_t ns_id, i
  */
 int kernel_dplane_read(struct zebra_dplane_info *info)
 {
-	struct nlsock *nl = kernel_netlink_nlsock_lookup(info->sock);
+	struct nlsock *nl NLSOCK_AUTO = kernel_netlink_nlsock_hold(info);
+
+	if (!nl)
+		return -1;
 
 	netlink_parse_info(dplane_netlink_information_fetch, nl, info, 5, false, NULL, NULL);
 
@@ -1095,9 +1098,12 @@ static int netlink_talk_info(netlink_parse_filter_t filter, struct nlmsghdr *n,
 			     struct zebra_dplane_info *dp_info, bool startup, void *arg,
 			     int *nl_err)
 {
-	struct nlsock *nl;
+	struct nlsock *nl NLSOCK_AUTO = NULL;
 
-	nl = kernel_netlink_nlsock_lookup(dp_info->sock);
+	nl = kernel_netlink_nlsock_hold(dp_info);
+	if (!nl)
+		return -1;
+
 	n->nlmsg_seq = dp_info->seq;
 	n->nlmsg_pid = nl->snl.nl_pid;
 
@@ -1159,6 +1165,7 @@ int ge_netlink_talk(netlink_parse_filter_t filter, struct nlmsghdr *n, struct ze
 	dp_info.is_cmd = true;
 	dp_info.sock = zns->ge_netlink_cmd.sock;
 	dp_info.seq = zns->ge_netlink_cmd.seq;
+	dp_info.sock_gen = zns->ge_netlink_cmd.gen;
 
 	return netlink_talk_info(filter, n, &dp_info, startup, arg, nl_err);
 }
@@ -1389,25 +1396,25 @@ static void nl_batch_send(struct nl_batch *bth)
 	int err_errno = 0;
 
 	if (bth->curlen != 0 && bth->zns != NULL) {
-		struct nlsock *nl =
-			kernel_netlink_nlsock_lookup(bth->zns->sock);
+		struct nlsock *nl NLSOCK_AUTO = kernel_netlink_nlsock_hold(bth->zns);
 
-		if (IS_ZEBRA_DEBUG_KERNEL)
-			zlog_debug("%s: %s, batch size=%zu, msg cnt=%zu",
-				   __func__, nl->name, bth->curlen,
-				   bth->msgcnt);
-
-		if (netlink_send_msg(nl, bth->buf, bth->curlen) == -1) {
+		if (!nl) {
 			err = true;
-			err_errno = errno;
-		}
+		} else {
+			if (IS_ZEBRA_DEBUG_KERNEL)
+				zlog_debug("%s: %s, batch size=%zu, msg cnt=%zu", __func__,
+					   nl->name, bth->curlen, bth->msgcnt);
 
-		/*
-		 * If reading the responses fails, nl_batch_read_resp() has
-		 * already marked and moved all of the contexts.
-		 */
-		if (!err) {
-			if (nl_batch_read_resp(bth, nl) == -1)
+			if (netlink_send_msg(nl, bth->buf, bth->curlen) == -1) {
+				err = true;
+				err_errno = errno;
+			}
+
+			/*
+			 * If reading the responses fails, nl_batch_read_resp() has
+			 * already marked and moved all of the contexts.
+			 */
+			if (!err && nl_batch_read_resp(bth, nl) == -1)
 				err = true;
 		}
 	}
@@ -1439,7 +1446,7 @@ enum netlink_msg_status netlink_batch_add_msg(
 	int seq;
 	ssize_t size;
 	struct nlmsghdr *msgh;
-	struct nlsock *nl = kernel_netlink_nlsock_lookup(dplane_ctx_get_ns_sock(ctx));
+	struct nlsock *nl NLSOCK_AUTO = kernel_netlink_nlsock_hold(dplane_ctx_get_ns(ctx));
 
 	if (!nl || nl->sock < 0 || !nl->buf)
 		return FRR_NETLINK_ERROR;
@@ -1596,6 +1603,11 @@ static enum netlink_msg_status nl_put_msg(struct nl_batch *bth,
 	return FRR_NETLINK_ERROR;
 }
 
+static bool nl_batch_same_sock(const struct zebra_dplane_info *a, const struct zebra_dplane_info *b)
+{
+	return a->ns_id == b->ns_id && a->sock == b->sock && a->sock_gen == b->sock_gen;
+}
+
 void kernel_update_multi(struct dplane_ctx_list_head *ctx_list)
 {
 	struct nl_batch batch;
@@ -1624,8 +1636,8 @@ void kernel_update_multi(struct dplane_ctx_list_head *ctx_list)
 			continue;
 		}
 
-		if (batch.zns != NULL
-		    && batch.zns->ns_id != dplane_ctx_get_ns(ctx)->ns_id)
+		/* A batch goes out on a single socket generation. */
+		if (batch.zns != NULL && !nl_batch_same_sock(batch.zns, dplane_ctx_get_ns(ctx)))
 			nl_batch_send(&batch);
 
 		/*
@@ -1651,17 +1663,44 @@ void kernel_update_multi(struct dplane_ctx_list_head *ctx_list)
 	dplane_ctx_list_append(ctx_list, &handled_list);
 }
 
-struct nlsock *kernel_netlink_nlsock_lookup(int sock)
+struct nlsock *kernel_netlink_nlsock_hold(const struct zebra_dplane_info *info)
 {
-	struct nlsock lookup, *retval;
+	struct nlsock lookup, *nl;
 
-	lookup.sock = sock;
+	lookup.sock = info->sock;
 
 	NLSOCK_LOCK();
-	retval = hash_lookup(nlsock_hash, &lookup);
+	nl = hash_lookup(nlsock_hash, &lookup);
+	/* A recycled fd, or a reopen of this ns, is not the socket info was built for. */
+	if (nl && nl->zns && nl->zns->ns_id == info->ns_id && nl->gen == info->sock_gen) {
+		nl->users++;
+		atomic_fetch_add_explicit(&nl->zns->refcount, 1, memory_order_acq_rel);
+	} else
+		nl = NULL;
 	NLSOCK_UNLOCK();
 
-	return retval;
+	return nl;
+}
+
+static void kernel_nlsock_shutdown_locked(struct nlsock *nls);
+
+void kernel_netlink_nlsock_release(struct nlsock *nl)
+{
+	struct zebra_ns *zns;
+
+	if (!nl)
+		return;
+
+	zns = nl->zns;
+
+	NLSOCK_LOCK();
+	nl->users--;
+	/* Fini left this fd open so the in-flight recv could finish. */
+	if (nl->detached && nl->users == 0)
+		kernel_nlsock_shutdown_locked(nl);
+	NLSOCK_UNLOCK();
+
+	zebra_ns_put(zns);
 }
 
 /* Insert nlsock entry into hash */
@@ -1669,14 +1708,6 @@ static void kernel_netlink_nlsock_insert(struct nlsock *nls)
 {
 	NLSOCK_LOCK();
 	(void)hash_get(nlsock_hash, nls, hash_alloc_intern);
-	NLSOCK_UNLOCK();
-}
-
-/* Remove nlsock entry from hash */
-static void kernel_netlink_nlsock_remove(struct nlsock *nls)
-{
-	NLSOCK_LOCK();
-	(void)hash_release(nlsock_hash, nls);
 	NLSOCK_UNLOCK();
 }
 
@@ -1709,6 +1740,28 @@ static void netlink_set_nonblock(struct nlsock *nl)
 			     safe_strerror(errno));
 }
 
+static void kernel_nlsock_buf_free(struct nlsock *nls)
+{
+	XFREE(MTYPE_NL_BUF, nls->buf);
+	nls->buflen = 0;
+}
+
+/* Caller holds the nlsock lock. users == 0. */
+static void kernel_nlsock_shutdown_locked(struct nlsock *nls)
+{
+	int fd;
+
+	if (!nls || nls->sock < 0)
+		return;
+
+	fd = nls->sock;
+	nls->sock = -1;
+	nls->detached = false;
+	kernel_nlsock_buf_free(nls);
+	/* Close before dropping the lock so this fd cannot be reused yet. */
+	close(fd);
+}
+
 /*
  * Create, configure, and register a netlink socket. Consolidates the
  * common 5-step init pattern: format name, mark uncreated, create socket,
@@ -1727,11 +1780,19 @@ static void netlink_set_nonblock(struct nlsock *nl)
  */
 static int kernel_init_nlsock(struct nlsock *nl, const char *name_prefix, unsigned long groups,
 			      uint32_t ext_groups[], uint8_t ext_group_size, ns_id_t ns_id,
-			      int nl_family, bool warn_only)
+			      int nl_family, bool warn_only, struct zebra_ns *zns)
 {
+	static uint32_t nlsock_gen;
+
 	snprintf(nl->name, sizeof(nl->name), "%s (NS %u)", name_prefix, ns_id);
 	nl->sock = -1;
 	nl->proto = nl_family;
+	nl->zns = zns;
+	nl->detached = false;
+	/* Never 0, so a zeroed dplane info matches no socket. */
+	if (++nlsock_gen == 0)
+		++nlsock_gen;
+	nl->gen = nlsock_gen;
 
 	if (netlink_socket(nl, groups, ext_groups, ext_group_size, ns_id, nl_family) < 0) {
 		if (warn_only)
@@ -1743,6 +1804,18 @@ static int kernel_init_nlsock(struct nlsock *nl, const char *name_prefix, unsign
 
 	kernel_netlink_nlsock_insert(nl);
 	return 0;
+}
+
+/*
+ * Holders of the previous generation finish their recv and close the fd.
+ * Wait so this generation does not reuse the nlsock under them.
+ */
+static void kernel_ns_drain_holders(struct zebra_ns *zns)
+{
+	while (atomic_load_explicit(&zns->refcount, memory_order_acquire) > 1)
+		usleep(1000);
+
+	kernel_ns_free_bufs(zns);
 }
 
 #if defined SOL_NETLINK
@@ -1784,6 +1857,8 @@ void kernel_init(struct zebra_ns *zns)
 	int one, ret, grp;
 #endif
 
+	kernel_ns_drain_holders(zns);
+
 	/* ----------------------------------------------------------------
 	 * Compute multicast group membership bitmasks.
 	 * Groups < 32 go into nl_groups; groups >= 32 use ext_groups
@@ -1812,20 +1887,20 @@ void kernel_init(struct zebra_ns *zns)
 	 */
 
 	if (kernel_init_nlsock(&zns->netlink_cmd, "netlink-cmd", 0, NULL, 0, zns->ns_id,
-			       NETLINK_ROUTE, false) < 0)
+			       NETLINK_ROUTE, false, zns) < 0)
 		frr_exit_with_buffer_flush(-1);
 
 	if (kernel_init_nlsock(&zns->netlink_dplane_out, "netlink-dp", 0, NULL, 0, zns->ns_id,
-			       NETLINK_ROUTE, false) < 0)
+			       NETLINK_ROUTE, false, zns) < 0)
 		frr_exit_with_buffer_flush(-1);
 
-	if (kernel_init_nlsock(&zns->netlink_dplane_in, "netlink-dp-in", dplane_groups, &ext_groups,
-			       1, zns->ns_id, NETLINK_ROUTE, false) < 0)
+	if (kernel_init_nlsock(&zns->netlink_dplane_in, "netlink-dp-in", dplane_groups,
+			       &ext_groups, 1, zns->ns_id, NETLINK_ROUTE, false, zns) < 0)
 		frr_exit_with_buffer_flush(-1);
 
 	/* Generic netlink — non-fatal on failure */
 	kernel_init_nlsock(&zns->ge_netlink_cmd, "generic-netlink-cmd", 0, NULL, 0, zns->ns_id,
-			   NETLINK_GENERIC, true);
+			   NETLINK_GENERIC, true, zns);
 
 	/* ----------------------------------------------------------------
 	 * Platform-specific socket options (SOL_NETLINK).
@@ -1912,16 +1987,31 @@ void kernel_init(struct zebra_ns *zns)
 	ge_netlink_init(zns);
 }
 
+void kernel_ns_free_bufs(struct zebra_ns *zns)
+{
+	kernel_nlsock_buf_free(&zns->netlink_cmd);
+	kernel_nlsock_buf_free(&zns->netlink_dplane_out);
+	kernel_nlsock_buf_free(&zns->netlink_dplane_in);
+	kernel_nlsock_buf_free(&zns->ge_netlink_cmd);
+}
+
 /* Helper to clean up an nlsock */
 static void kernel_nlsock_fini(struct nlsock *nls)
 {
-	if (nls && nls->sock >= 0) {
-		kernel_netlink_nlsock_remove(nls);
-		close(nls->sock);
-		nls->sock = -1;
-		XFREE(MTYPE_NL_BUF, nls->buf);
-		nls->buflen = 0;
+	if (!nls)
+		return;
+
+	/* A releasing holder may close a detached socket concurrently. */
+	NLSOCK_LOCK();
+	if (nls->sock >= 0) {
+		(void)hash_release(nlsock_hash, nls);
+		if (nls->users == 0)
+			kernel_nlsock_shutdown_locked(nls);
+		else
+			/* In a recv: leave the fd open. The last holder closes it. */
+			nls->detached = true;
 	}
+	NLSOCK_UNLOCK();
 }
 
 void kernel_terminate(struct zebra_ns *zns, bool complete)
