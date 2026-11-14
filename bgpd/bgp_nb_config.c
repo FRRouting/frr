@@ -4338,17 +4338,12 @@ int bgp_nb_unnumbered_peer_group_modify(struct nb_cb_modify_args *args)
 
 int bgp_nb_unnumbered_peer_group_destroy(struct nb_cb_destroy_args *args)
 {
-	struct peer *peer;
-
-	if (args->event != NB_EV_APPLY)
-		return NB_OK;
-
-	peer = nb_running_get_entry(args->dnode, NULL, true);
-	if (!peer || !peer->group)
-		return NB_OK;
-
-
-	return NB_OK;
+	/*
+	 * Same unbind as a numbered neighbor: drop the group, inherited
+	 * config, and update-group membership. bgp_nb_config_peer()
+	 * resolves an unnumbered-neighbor entry.
+	 */
+	return bgp_nb_neighbor_peer_group_destroy(args);
 }
 
 void bgp_nb_cli_show_unnumbered_peer_group(struct vty *vty, const struct lyd_node *dnode,
