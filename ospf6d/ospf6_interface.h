@@ -167,6 +167,14 @@ struct ospf6_interface {
 	struct event *thread_as_extern_lsa;
 	struct event *thread_wait_timer;
 
+	/* Pending coalesced NeighborChange election, held off until the
+	 * coalescing window after the previous DR election on this
+	 * interface.
+	 */
+	struct event *thread_neighbor_change;
+	/* Monotonic time of the last DR election run on this interface. */
+	struct timeval last_dr_election;
+
 	struct ospf6_route_table *route_connected;
 
 	/* last hello sent */
@@ -235,6 +243,16 @@ extern const char *const ospf6_interface_state_str[];
 #define OSPF6_INTERFACE_SSO_RETRY_INT  1
 #define OSPF6_INTERFACE_SSO_RETRY_MAX  5
 
+/* Minimum spacing between DR elections on one interface.  Every election
+ * whose result changes sends AdjOK to all neighbors and re-originates the
+ * router-LSA and the network-LSA, so without a bound a stream of forged
+ * Hello field changes turns each packet into an election plus flooding.
+ * RFC 5340 references the RFC 2328 election but defines no pacing for it;
+ * this bounds the work while leaving isolated, legitimate changes
+ * immediate.
+ */
+#define OSPF6_ELECTION_COALESCE_MSEC 1000
+
 /* Function Prototypes */
 
 extern void ospf6_interface_start(struct ospf6_interface *oi);
@@ -260,6 +278,7 @@ extern void interface_down(struct event *event);
 extern void wait_timer(struct event *event);
 extern void backup_seen(struct event *event);
 extern void neighbor_change(struct event *event);
+extern void ospf6_neighbor_change_throttle(struct ospf6_interface *oi);
 
 extern void ospf6_interface_init(void);
 extern void ospf6_interface_clear(struct interface *ifp);
