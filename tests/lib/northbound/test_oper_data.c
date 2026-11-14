@@ -123,7 +123,7 @@ static const void *frr_test_module_vrfs_vrf_interfaces_interface_get_next(
  * XPath: /frr-test-module:frr-test-module/vrfs/vrf/interfaces/interface-new
  */
 static enum nb_error frr_test_module_vrfs_vrf_interfaces_interface_new_get(
-	const struct nb_node *nb_node, const void *parent_list_entry, struct lyd_node *parent)
+	const struct nb_node *nb_node, const void *list_entry, struct lyd_node *parent)
 {
 	const struct lysc_node *snode = nb_node->snode;
 	const struct tvrf *vrf;
@@ -131,7 +131,7 @@ static enum nb_error frr_test_module_vrfs_vrf_interfaces_interface_new_get(
 	const char *interface;
 	LY_ERR err;
 
-	vrf = listgetdata((struct listnode *)parent_list_entry);
+	vrf = listgetdata((struct listnode *)list_entry);
 	for (ALL_LIST_ELEMENTS_RO(vrf->interfaces, node, interface)) {
 		err = lyd_new_term(parent, snode->module, snode->name, interface, false, NULL);
 		assert(err == LY_SUCCESS);
@@ -245,7 +245,7 @@ static struct yang_data *__return_null(struct nb_cb_get_elem_args *args)
  * XPath: /frr-test-module:frr-test-module/c2cont/c2value
  */
 static enum nb_error frr_test_module_c2cont_c2value_get(const struct nb_node *nb_node,
-							const void *parent_list_entry,
+							const void *list_entry,
 							struct lyd_node *parent)
 {
 	const struct lysc_node *snode = nb_node->snode;
