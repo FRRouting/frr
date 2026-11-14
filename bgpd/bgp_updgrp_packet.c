@@ -446,6 +446,7 @@ struct stream *bpacket_reformat_for_peer(struct bpacket *pkt,
 	} else if (nhafi == AFI_IP6) {
 		struct in6_addr v6nhglobal, *mod_v6nhg;
 		struct in6_addr v6nhlocal, *mod_v6nhl;
+		struct in6_addr v6nhmapped;
 		int gnh_modified, lnh_modified;
 		size_t offset_nhglobal = vec->offset + 1;
 		size_t offset_nhlocal = vec->offset + 1;
@@ -511,19 +512,31 @@ struct stream *bpacket_reformat_for_peer(struct bpacket *pkt,
 				mod_v6nhg = &peer->nexthop.v6_global;
 				gnh_modified = 1;
 			}
-		} else if (IN6_IS_ADDR_UNSPECIFIED(&v6nhglobal)) {
-			mod_v6nhg = &peer->nexthop.v6_global;
-			gnh_modified = 1;
-		} else if ((peer->sort == BGP_PEER_EBGP)
-			   && (!bgp_multiaccess_check_v6(v6nhglobal, peer))
-			   && !CHECK_FLAG(vec->flags,
-					  BPKT_ATTRVEC_FLAGS_RMAP_NH_UNCHANGED)
-			   && !peer_af_flag_check(
-				   peer, paf->afi, paf->safi,
-				   PEER_FLAG_NEXTHOP_UNCHANGED)) {
+		} else if (IN6_IS_ADDR_UNSPECIFIED(&v6nhglobal) ||
+			   ((peer->sort == BGP_PEER_EBGP) &&
+			    (!bgp_multiaccess_check_v6(v6nhglobal, peer)) &&
+			    !CHECK_FLAG(vec->flags, BPKT_ATTRVEC_FLAGS_RMAP_NH_UNCHANGED) &&
+			    !peer_af_flag_check(peer, paf->afi, paf->safi,
+						PEER_FLAG_NEXTHOP_UNCHANGED))) {
 			/* NOTE: not handling case where NH has new AFI
 			 */
-			mod_v6nhg = &peer->nexthop.v6_global;
+			if (paf->afi == AFI_IP6 &&
+			    (paf->safi == SAFI_MPLS_VPN || paf->safi == SAFI_LABELED_UNICAST) &&
+			    peer->connection->su.sa.sa_family == AF_INET &&
+			    peer->nexthop.v4.s_addr != INADDR_ANY &&
+			    !CHECK_FLAG(vec->flags, BPKT_ATTRVEC_FLAGS_SRV6_L3VPN)) {
+				/*
+				 * This router is the nexthop of a 6PE (RFC 4798)
+				 * or 6VPE (RFC 4659) route sent over an IPv4
+				 * session. The route rides IPv4 LSPs, so it
+				 * carries the IPv4-mapped form of the session's
+				 * local IPv4 address.
+				 */
+				ipv4_to_ipv4_mapped_ipv6(&v6nhmapped, peer->nexthop.v4);
+				mod_v6nhg = &v6nhmapped;
+			} else {
+				mod_v6nhg = &peer->nexthop.v6_global;
+			}
 			gnh_modified = 1;
 		}
 
@@ -1548,6 +1561,9 @@ bpacket_vec_arr_inherit_attr_flags(struct bpacket_attr_vec_arr *vecarr,
 		       BATTR_RMAP_IPV6_LL_NHOP_CHANGED))
 		SET_FLAG(vecarr->entries[BGP_ATTR_VEC_NH].flags,
 			 BPKT_ATTRVEC_FLAGS_RMAP_IPV6_LNH_CHANGED);
+
+	if (bgp_attr_get_srv6_l3service(attr) || bgp_attr_get_srv6_vpn(attr))
+		SET_FLAG(vecarr->entries[BGP_ATTR_VEC_NH].flags, BPKT_ATTRVEC_FLAGS_SRV6_L3VPN);
 }
 
 /* Reset the Attributes vector array. The vector array is used to override
