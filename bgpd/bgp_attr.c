@@ -1518,7 +1518,8 @@ static void attr_show_all_iterator(struct hash_bucket *bucket, void *args[])
 	bool summary = *(bool *)args[2];
 	unsigned int i;
 
-	for (i = 1; i <= BGP_ATTR_MAX; i++) {
+	/* Only attribute types 1-64 have a bit in attr->flag */
+	for (i = 1; i <= 64; i++) {
 		if (CHECK_FLAG(attr->flag, 1ULL << (i - 1)))
 			counters[i]++;
 	}
