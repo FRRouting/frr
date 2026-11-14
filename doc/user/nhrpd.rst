@@ -90,6 +90,14 @@ Configuring NHRP
    plaintext password to the outgoing NHRP packets.
    Maximum length of the password is 8 characters.
 
+.. clicmd:: ip nhrp authentication keyed-hash PASSWORD
+
+   Enables authentication on NHRP packets as described in RFC 2332
+   section 5.3.4.  The password is used as the key for the HMAC-MD5
+   keyed hash carried in the Authentication Extension; the password
+   itself is never sent on the wire.
+   Maximum length of the password is 8 characters.
+
 .. clicmd:: ip nhrp map A.B.C.D|X:X::X:X A.B.C.D|local
 
    Map an IP address of a station to the station's NBMA address.
