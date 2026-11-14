@@ -81,6 +81,13 @@ typedef struct {
 #define BPKT_ATTRVEC_FLAGS_RMAP_IPV6_LNH_CHANGED  (1 << 6)
 #define BPKT_ATTRVEC_FLAGS_RMAP_VPNV4_NH_CHANGED  (1 << 7)
 #define BPKT_ATTRVEC_FLAGS_RMAP_VPNV6_GNH_CHANGED (1 << 8)
+/* Route was received from a peer (not self-originated via network/redistribute)
+ * and is being advertised to an EBGP peer.  Allows bpacket_reformat_for_peer()
+ * to replace the nexthop when it equals the peer's own remote address, without
+ * affecting self-originated routes whose gateway nexthop happens to equal the
+ * peer's IP (those should be rejected by the peer as a martian).
+ */
+#define BPKT_ATTRVEC_FLAGS_NH_RECEIVED (1 << 9)
 
 typedef struct bpacket_attr_vec_arr {
 	bpacket_attr_vec entries[BGP_ATTR_VEC_MAX];

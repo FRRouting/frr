@@ -6528,6 +6528,15 @@ bgp_size_t bgp_packet_attribute(struct bgp *bgp, struct peer *peer, struct strea
 	if (bgp_attr_exists(attr, BGP_ATTR_AIGP) && AIGP_TRANSMIT_ALLOWED(peer))
 		bgp_packet_aigp_attribute(s, BGP_ATTR_FLAG_OPTIONAL, attr);
 
+	/* Mark received routes so bpacket_reformat_for_peer() can distinguish
+	 * them from self-originated routes when checking if the nexthop equals
+	 * the peer's own address (martian nexthop avoidance).
+	 * No BPKT_ATTRVEC_FLAGS_UPDATED gate: for IPv6/MP_REACH the NH vec is
+	 * populated later in bgp_packet_mpattr_start().
+	 */
+	if (vecarr && bpi && peer->sort == BGP_PEER_EBGP && bpi->peer != peer->bgp->peer_self)
+		SET_FLAG(vecarr->entries[BGP_ATTR_VEC_NH].flags, BPKT_ATTRVEC_FLAGS_NH_RECEIVED);
+
 	/* BGP-LS Attribute (Type 29) - RFC 9552 Section 4 */
 	if (afi == AFI_BGP_LS && safi == SAFI_BGP_LS && bgp_attr_get_ls_attr(attr))
 		bgp_packet_ls_attribute(s, bgp, attr, bpi);
