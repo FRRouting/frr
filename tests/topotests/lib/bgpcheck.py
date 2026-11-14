@@ -20,7 +20,7 @@ def check_show_bgp_vpn_prefix_not_found(router, ipversion, prefix, rd, label=Non
         router.vtysh_cmd("show bgp {} vpn {} json".format(ipversion, prefix))
     )
     if label:
-        expected = {rd: {"prefix": prefix, "paths": [{"remoteLabel": label}]}}
+        expected = {rd: {"prefix": prefix, "paths": [{"remoteLabels": [label]}]}}
     else:
         expected = {rd: {"prefix": prefix}}
     ret = topotest.json_cmp(output, expected)
@@ -48,11 +48,11 @@ def check_show_bgp_vpn_prefix_found(
             expected = {
                 rd: {
                     "prefix": prefix,
-                    "paths": [{"remoteLabel": label, "nexthops": [{"ip": nexthop}]}],
+                    "paths": [{"remoteLabels": [label], "nexthops": [{"ip": nexthop}]}],
                 }
             }
         else:
-            expected = {rd: {"prefix": prefix, "paths": [{"remoteLabel": label}]}}
+            expected = {rd: {"prefix": prefix, "paths": [{"remoteLabels": [label]}]}}
     else:
         if nexthop:
             expected = {

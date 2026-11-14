@@ -93,7 +93,7 @@ def test_bgp_labeled_unicast_default_originate():
                     "community": {
                         "string": "65001:65001",
                     },
-                    "remoteLabel": 0,
+                    "remoteLabels": [0],
                 }
             ]
         }
@@ -113,7 +113,7 @@ def test_bgp_labeled_unicast_default_originate():
                     "community": {
                         "string": "65001:65001",
                     },
-                    "remoteLabel": 2,
+                    "remoteLabels": [2],
                 }
             ]
         }
