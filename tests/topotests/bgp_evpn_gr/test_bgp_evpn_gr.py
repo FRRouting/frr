@@ -321,6 +321,93 @@ def _ip_neigh_has_extern_learn(router: TopoRouter, mac: str) -> bool:
     return False
 
 
+def _neigh_dev_has_extern_learn(router: TopoRouter, dev: str, ip: str) -> bool:
+    """Check that zebra has installed an extern_learn neighbour for ip on dev."""
+    out = router.cmd(f"ip neigh show dev {dev}")
+    for line in out.splitlines():
+        if line.split()[:1] == [ip] and "extern_learn" in line:
+            return True
+    logger.info(f"{router.name}: no extern_learn neigh {ip} on {dev}")
+    return False
+
+
+def _fdb_dev_has_extern_learn_dst(router: TopoRouter, dev: str, dst: str) -> bool:
+    """Check that dev has an extern_learn FDB entry pointing at remote VTEP dst."""
+    out = router.cmd(f"bridge fdb show dev {dev}")
+    for line in out.splitlines():
+        if f"dst {dst}" in line and "extern_learn" in line:
+            return True
+    logger.info(f"{router.name}: no extern_learn FDB entry to {dst} on {dev}")
+    return False
+
+
+def _pe2_own_evpn_entries_present(pe2: TopoRouter) -> bool:
+    """
+    The remote EVPN state PE2 itself has installed for PE1: host1's MAC on the
+    L2VNI (bridge and VTEP entries) and host1's IPv4/IPv6 neighbours, through
+    which PE1's type-5 routes resolve (gateway-IP overlay index).
+    """
+    return (
+        _bridge_has_extern_learn(pe2, "vxlan100", "1a:2b:3c:4d:5e:61")
+        and _fdb_dev_has_extern_learn_dst(pe2, "vxlan100", "10.100.0.1")
+        and _neigh_dev_has_extern_learn(pe2, "br100", "192.168.50.11")
+        and _neigh_dev_has_extern_learn(pe2, "br100", "fd00:50:1::11")
+    )
+
+
+def _holds_for(func, seconds: float, interval: float = 0.5) -> bool:
+    """Return True only if func() stays True for the whole period."""
+    end = time.monotonic() + seconds
+    while time.monotonic() < end:
+        if not func():
+            return False
+        time.sleep(interval)
+    return True
+
+
+def _bgp_evpn_vnis_learned(router: TopoRouter, l2: int, l3: int) -> bool:
+    """bgpd has learned at least l2 L2VNIs and l3 L3VNIs from zebra."""
+    try:
+        out = json.loads(router.vtysh_cmd("show bgp l2vpn evpn vni json"))
+    except Exception:
+        return False
+    num_l2 = out.get("numL2Vnis", 0)
+    num_l3 = out.get("numL3Vnis", 0)
+    logger.info(f"{router.name}: bgpd has {num_l2} L2VNIs, {num_l3} L3VNIs")
+    return num_l2 >= l2 and num_l3 >= l3
+
+
+def _bgp_vrf_has_prefix(router: TopoRouter, vrf: str, prefix: str) -> bool:
+    """prefix is in bgpd's table for vrf (i.e. imported from EVPN again)."""
+    try:
+        out = json.loads(
+            router.vtysh_cmd(f"show bgp vrf {vrf} ipv4 unicast {prefix} json")
+        )
+    except Exception:
+        return False
+    return bool(out.get("paths"))
+
+
+def _pe2_advertise_subnet(pe2: TopoRouter):
+    """
+    Enable advertise-subnet on PE2's L2VNI. This is done at runtime and not in
+    frr.conf, because bgpd only accepts it once the tenant VRF instance exists.
+    """
+    pe2.vtysh_cmd(
+        "configure terminal\n"
+        "router bgp 102\n"
+        "address-family l2vpn evpn\n"
+        "vni 100\n"
+        "advertise-subnet\n"
+    )
+
+
+def _evpn_subnet_type5_originated(router: TopoRouter, prefix: str) -> bool:
+    """bgpd has a type-5 route for the SVI subnet that zebra announced to it."""
+    out = router.vtysh_cmd("show bgp l2vpn evpn route type prefix")
+    return prefix in out
+
+
 def fetch_vni_rd_from_pe2(pe2: TopoRouter, vni: int):
     """
     Fetch the Route Distinguisher (RD) of the given l2vni from PE2
@@ -525,6 +612,21 @@ def test_bgp_evpn_gr_stale_and_recovery():
     result, _ = topotest.run_and_expect(test_func, True, count=30, wait=1)
     assert result, "Remote MAC (host1) not extern_learn in kernel ip_neigh table on PE2"
 
+    logger.info(
+        "STEP 7c: Verify PE2 has installed PE1's remote MAC and neighbours in its own kernel"
+    )
+    test_func = functools.partial(_pe2_own_evpn_entries_present, pe2)
+    result, _ = topotest.run_and_expect(test_func, True, count=30, wait=1)
+    assert result, "PE2 kernel lacks remote EVPN entries from PE1 before GR"
+
+    logger.info("STEP 7d: Verify PE2 originates a type-5 route for its SVI subnet")
+    _pe2_advertise_subnet(pe2)
+    test_func = functools.partial(
+        _evpn_subnet_type5_originated, pe2, "[5]:[0]:[24]:[192.168.50.0]"
+    )
+    result, _ = topotest.run_and_expect(test_func, True, count=30, wait=1)
+    assert result, "PE2 did not originate a type-5 route for the br100 subnet"
+
     # Fetch L2VNI RD from PE2 for validation
     pe2_rd_vni_100 = fetch_vni_rd_from_pe2(pe2, 100)
     # Fetch L3VNI RD from PE2 for validation
@@ -533,6 +635,16 @@ def test_bgp_evpn_gr_stale_and_recovery():
     # Kill bgpd on PE2 to trigger GR restart
     logger.info("STEP 8: Stop bgpd on PE2 to trigger graceful restart")
     kill_router_daemons(tgen, "PE2", ["bgpd"])
+
+    # The restarting router keeps forwarding (preserve-fw-state): zebra on PE2
+    # must not flush the remote MACs/neighbours/RMACs it installed when bgpd's
+    # ZAPI sessions (including the synchronous label-manager one) close.
+    logger.info(
+        "STEP 8b: Verify PE2's own kernel keeps remote EVPN entries while its bgpd is down"
+    )
+    assert _holds_for(
+        functools.partial(_pe2_own_evpn_entries_present, pe2), 10
+    ), "PE2 (restarting router) flushed its remote EVPN entries when bgpd went down"
 
     # PE1 should retain only PE2-originated EVPN routes as stale during GR (type-2 and type-5), not local
     # Verify only type-5 routes from PE2's RD are stale
@@ -616,6 +728,33 @@ def test_bgp_evpn_gr_stale_and_recovery():
     test_func = functools.partial(_evpn_peer_established, pe2, "10.0.1.1")
     result, _ = topotest.run_and_expect(test_func, True, count=60, wait=2)
     assert result, "PE2 EVPN session with PE1 not established"
+
+    # zebra kept its EVPN state, so it must still replay VNIs to the new bgpd
+    logger.info("STEP 15b: Verify restarted bgpd on PE2 learned its L2VNI and L3VNI")
+    test_func = functools.partial(_bgp_evpn_vnis_learned, pe2, 1, 1)
+    result, _ = topotest.run_and_expect(test_func, True, count=30, wait=2)
+    assert result, "Restarted bgpd on PE2 did not learn its VNIs from zebra"
+
+    logger.info("STEP 15c: Verify PE2 re-imports PE1's type-5 route into vrf-blue")
+    test_func = functools.partial(
+        _bgp_vrf_has_prefix, pe2, "vrf-blue", "172.31.0.21/32"
+    )
+    result, _ = topotest.run_and_expect(test_func, True, count=60, wait=2)
+    assert result, "Restarted bgpd on PE2 did not re-import type-5 into vrf-blue"
+
+    # zebra also kept the per-VNI advertise-subnet setting of the old bgpd. It
+    # must still send the SVI subnet to the new bgpd when that asks again.
+    logger.info("STEP 15d: Verify PE2 originates the SVI subnet type-5 route again")
+    _pe2_advertise_subnet(pe2)
+    test_func = functools.partial(
+        _evpn_subnet_type5_originated, pe2, "[5]:[0]:[24]:[192.168.50.0]"
+    )
+    result, _ = topotest.run_and_expect(test_func, True, count=30, wait=2)
+    assert result, "Restarted bgpd on PE2 did not get the br100 subnet from zebra"
+
+    test_func = functools.partial(_pe2_own_evpn_entries_present, pe2)
+    result, _ = topotest.run_and_expect(test_func, True, count=60, wait=2)
+    assert result, "PE2 kernel lost remote EVPN entries after bgpd recovered"
 
     # Verify R-bit and F-bit set on PE1 neighbor view after PE2 restart
     logger.info("STEP 16: Verify GR R-bit and EVPN AF F-bit set on PE1 neighbor view")
