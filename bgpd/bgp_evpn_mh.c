@@ -190,8 +190,8 @@ static int bgp_evpn_es_route_select_install(struct bgp *bgp,
 
 			bgp_evpn_mh_get_vtep_ip(old_select->attr, &vtep_ip);
 			bgp_evpn_es_vtep_add(bgp, es, vtep_ip, true /*esr*/,
-					     old_select->attr->df_alg, old_select->attr->df_pref,
-					     &zret);
+					     bgp_attr_get_df_alg(old_select->attr),
+					     bgp_attr_get_df_pref(old_select->attr), &zret);
 		}
 		UNSET_FLAG(old_select->flags, BGP_PATH_MULTIPATH_CHG);
 		bgp_zebra_clear_route_change_flags(dest);
@@ -221,8 +221,9 @@ static int bgp_evpn_es_route_select_install(struct bgp *bgp,
 		struct ipaddr vtep_ip = {};
 
 		bgp_evpn_mh_get_vtep_ip(new_select->attr, &vtep_ip);
-		bgp_evpn_es_vtep_add(bgp, es, vtep_ip, true /*esr */, new_select->attr->df_alg,
-				     new_select->attr->df_pref, &zret);
+		bgp_evpn_es_vtep_add(bgp, es, vtep_ip, true /*esr */,
+				     bgp_attr_get_df_alg(new_select->attr),
+				     bgp_attr_get_df_pref(new_select->attr), &zret);
 	} else {
 		if (old_select && old_select->type == ZEBRA_ROUTE_BGP &&
 		    old_select->sub_type == BGP_ROUTE_IMPORTED) {
@@ -1743,7 +1744,7 @@ static void bgp_evpn_path_es_unlink(struct bgp_path_es_info *es_info)
 	 */
 }
 
-void bgp_evpn_path_es_link(struct bgp_path_info *pi, vni_t vni, esi_t *esi)
+void bgp_evpn_path_es_link(struct bgp_path_info *pi, vni_t vni, const esi_t *esi)
 {
 	struct bgp_path_es_info *es_info;
 	struct bgp_evpn_es *es;
@@ -2199,7 +2200,7 @@ static void bgp_evpn_es_remote_info_re_eval(struct bgp_evpn_es *es)
 /* If ES is present and local it needs to be active/oper-up for
  * including L3 EC
  */
-bool bgp_evpn_es_add_l3_attrs_ok(esi_t *esi)
+bool bgp_evpn_es_add_l3_attrs_ok(const esi_t *esi)
 {
 	struct bgp_evpn_es *es;
 
@@ -2284,6 +2285,7 @@ static void bgp_evpn_mac_update_on_es_local_chg(struct bgp_evpn_es *es,
 	bool tmp_local;
 	struct attr *attr_new;
 	struct attr attr_tmp;
+	uint8_t es_flags;
 
 	if (BGP_DEBUG(evpn_mh, EVPN_MH_ES))
 		zlog_debug("update paths linked to es %s on chg to %s",
@@ -2299,7 +2301,7 @@ static void bgp_evpn_mac_update_on_es_local_chg(struct bgp_evpn_es *es,
 		if (!pi->attr)
 			continue;
 
-		tmp_local = !!(pi->attr->es_flags & ATTR_ES_IS_LOCAL);
+		tmp_local = !!(bgp_attr_get_es_flags(pi->attr) & ATTR_ES_IS_LOCAL);
 		if (tmp_local == is_local)
 			continue;
 
@@ -2310,10 +2312,12 @@ static void bgp_evpn_mac_update_on_es_local_chg(struct bgp_evpn_es *es,
 				is_local ? "local" : "non-local");
 
 		bgp_attr_dup_into(&attr_tmp, pi->attr);
+		es_flags = bgp_attr_get_es_flags(&attr_tmp);
 		if (is_local)
-			SET_FLAG(attr_tmp.es_flags, ATTR_ES_IS_LOCAL);
+			SET_FLAG(es_flags, ATTR_ES_IS_LOCAL);
 		else
-			UNSET_FLAG(attr_tmp.es_flags, ATTR_ES_IS_LOCAL);
+			UNSET_FLAG(es_flags, ATTR_ES_IS_LOCAL);
+		bgp_attr_set_es_flags(&attr_tmp, es_flags);
 		attr_new = bgp_attr_intern(&attr_tmp);
 		bgp_attr_unintern(&pi->attr);
 		pi->attr = attr_new;
@@ -2481,7 +2485,7 @@ static void bgp_evpn_local_es_do_del(struct bgp *bgp, struct bgp_evpn_es *es)
 	bgp_evpn_es_local_info_clear(es, false);
 }
 
-bool bgp_evpn_is_esi_local_and_non_bypass(esi_t *esi)
+bool bgp_evpn_is_esi_local_and_non_bypass(const esi_t *esi)
 {
 	struct bgp_evpn_es *es = NULL;
 
@@ -3345,7 +3349,7 @@ void bgp_evpn_es_evi_vrf_ref(struct bgpevpn *vpn)
  *   in zebra.
  * - if L3NHG has been activated install the route via that L3NHG
  */
-void bgp_evpn_es_vrf_use_nhg(struct bgp *bgp_vrf, esi_t *esi, bool *use_l3nhg,
+void bgp_evpn_es_vrf_use_nhg(struct bgp *bgp_vrf, const esi_t *esi, bool *use_l3nhg,
 			     bool *is_l3nhg_active,
 			     struct bgp_evpn_es_vrf **es_vrf_p)
 {
@@ -3374,7 +3378,7 @@ void bgp_evpn_es_vrf_use_nhg(struct bgp *bgp_vrf, esi_t *esi, bool *use_l3nhg,
 bool bgp_evpn_path_es_use_nhg(struct bgp *bgp_vrf, struct bgp_path_info *pi,
 			      uint32_t *nhg_p)
 {
-	esi_t *esi;
+	const esi_t *esi;
 	struct bgp_evpn_es_vrf *es_vrf = NULL;
 	struct bgp_path_info *parent_pi;
 	struct bgp_dest *bd;
@@ -4787,7 +4791,7 @@ static struct bgp_evpn_nh *bgp_evpn_nh_add(struct bgp *bgp_vrf,
 	/* Setup ref_pi when the nh is created */
 	if (CHECK_FLAG(pi->flags, BGP_PATH_VALID) && pi->attr) {
 		n->ref_pi = pi;
-		memcpy(&n->rmac, &pi->attr->rmac, ETH_ALEN);
+		memcpy(&n->rmac, bgp_attr_get_rmac(pi->attr), ETH_ALEN);
 	}
 
 	if (BGP_DEBUG(evpn_mh, EVPN_MH_ES))
@@ -4910,8 +4914,8 @@ static void bgp_evpn_nh_update_ref_pi(struct bgp_evpn_nh *nh)
 		/* If we have a new pi copy rmac from it and update
 		 * zebra if the new rmac is different
 		 */
-		if (memcmp(&nh->rmac, &nh->ref_pi->attr->rmac, ETH_ALEN)) {
-			memcpy(&nh->rmac, &nh->ref_pi->attr->rmac, ETH_ALEN);
+		if (memcmp(&nh->rmac, bgp_attr_get_rmac(nh->ref_pi->attr), ETH_ALEN)) {
+			memcpy(&nh->rmac, bgp_attr_get_rmac(nh->ref_pi->attr), ETH_ALEN);
 			bgp_evpn_nh_zebra_update(nh, true);
 		}
 		break;
@@ -5030,7 +5034,7 @@ static void bgp_evpn_path_nh_link(struct bgp *bgp_vrf, struct bgp_path_info *pi)
 	/* if NHG is not being used for this path we don't need to manage the
 	 * nexthops in bgp (they are managed by zebra instead)
 	 */
-	if (!CHECK_FLAG(pi->attr->es_flags, ATTR_ES_L3_NHG_USE)) {
+	if (!CHECK_FLAG(bgp_attr_get_es_flags(pi->attr), ATTR_ES_L3_NHG_USE)) {
 		if (nh_info)
 			bgp_evpn_path_nh_unlink(nh_info);
 		return;

@@ -166,7 +166,7 @@ static void bgp_process_mac_rescan_table(struct bgp *bgp, struct peer *peer,
 			 * If the mac address is not the same then
 			 * we don't care and since we are looking
 			 */
-			if ((memcmp(&pi->attr->rmac, macaddr, ETH_ALEN) != 0)
+			if ((memcmp(bgp_attr_get_rmac(pi->attr), macaddr, ETH_ALEN) != 0)
 			    && !dest_affected)
 				continue;
 

@@ -144,6 +144,67 @@ struct attr_extra {
 	/* EVPN overlay index */
 	struct bgp_route_evpn *evpn_overlay;
 
+	/* ES info */
+	uint8_t es_flags;
+	/* Path is not "locally-active" on the advertising VTEP. This is
+	 * translated into an ARP-ND ECOM.
+	 */
+#define ATTR_ES_PROXY_ADVERT (1 << 0)
+	/* Destination ES is present locally. This flag is set on local
+	 * paths and sync paths
+	 */
+#define ATTR_ES_IS_LOCAL (1 << 1)
+	/* There are one or more non-best paths from ES peers. Note that
+	 * this flag is only set on the local MAC-IP paths in the VNI
+	 * route table (not set in the global routing table). And only
+	 * non-proxy advertisements from an ES peer can result in this
+	 * flag being set.
+	 */
+#define ATTR_ES_PEER_ACTIVE (1 << 2)
+	/* There are one or more non-best proxy paths from ES peers */
+#define ATTR_ES_PEER_PROXY (1 << 3)
+	/* An ES peer has router bit set - only applicable if
+	 * ATTR_ES_PEER_ACTIVE is set
+	 */
+#define ATTR_ES_PEER_ROUTER (1 << 4)
+
+	/* These two flags are only set on L3 routes installed in a
+	 * VRF as a result of EVPN MAC-IP route
+	 * XXX - while splitting up per-family attrs these need to be
+	 * classified as non-EVPN
+	 */
+#define ATTR_ES_L3_NHG_USE    (1 << 5)
+#define ATTR_ES_L3_NHG_ACTIVE (1 << 6)
+#define ATTR_ES_L3_NHG	      (ATTR_ES_L3_NHG_USE | ATTR_ES_L3_NHG_ACTIVE)
+
+	uint8_t df_alg;
+
+	/* EVPN flags */
+	uint8_t evpn_flags;
+#define ATTR_EVPN_FLAG_STICKY	  (1 << 0)
+#define ATTR_EVPN_FLAG_DEFAULT_GW (1 << 1)
+/* NA router flag (R-bit) support in EVPN */
+#define ATTR_EVPN_FLAG_ROUTER (1 << 2)
+
+	/* EVPN DF preference for DF election on local ESs */
+	uint16_t df_pref;
+
+	/* EVPN MAC Mobility sequence number, if any. */
+	uint32_t mm_seqnum;
+	/* highest MM sequence number rxed in a MAC-IP route from an
+	 * ES peer (this includes both proxy and non-proxy MAC-IP
+	 * advertisements from ES peers).
+	 * This is only applicable to local paths in the VNI routing
+	 * table and derived from other imported/non-best paths.
+	 */
+	uint32_t mm_sync_seqnum;
+
+	/* EVPN local router-mac */
+	struct ethaddr rmac;
+
+	/* EVPN ES */
+	esi_t esi;
+
 	/* AIGP TLVs */
 	struct bgp_aigp_tlvs *aigp_tlvs;
 
@@ -209,50 +270,8 @@ struct attr {
 	/* Path origin attribute */
 	uint8_t origin;
 
-	/* ES info */
-	uint8_t es_flags;
-	/* Path is not "locally-active" on the advertising VTEP. This is
-	 * translated into an ARP-ND ECOM.
-	 */
-#define ATTR_ES_PROXY_ADVERT (1 << 0)
-	/* Destination ES is present locally. This flag is set on local
-	 * paths and sync paths
-	 */
-#define ATTR_ES_IS_LOCAL (1 << 1)
-	/* There are one or more non-best paths from ES peers. Note that
-	 * this flag is only set on the local MAC-IP paths in the VNI
-	 * route table (not set in the global routing table). And only
-	 * non-proxy advertisements from an ES peer can result in this
-	 * flag being set.
-	 */
-#define ATTR_ES_PEER_ACTIVE (1 << 2)
-	/* There are one or more non-best proxy paths from ES peers */
-#define ATTR_ES_PEER_PROXY (1 << 3)
-	/* An ES peer has router bit set - only applicable if
-	 * ATTR_ES_PEER_ACTIVE is set
-	 */
-#define ATTR_ES_PEER_ROUTER (1 << 4)
-
-	/* These two flags are only set on L3 routes installed in a
-	 * VRF as a result of EVPN MAC-IP route
-	 * XXX - while splitting up per-family attrs these need to be
-	 * classified as non-EVPN
-	 */
-#define ATTR_ES_L3_NHG_USE    (1 << 5)
-#define ATTR_ES_L3_NHG_ACTIVE (1 << 6)
-#define ATTR_ES_L3_NHG	      (ATTR_ES_L3_NHG_USE | ATTR_ES_L3_NHG_ACTIVE)
-
 	/* Distance as applied by Route map */
 	uint8_t distance;
-
-	uint8_t df_alg;
-
-	/* EVPN flags */
-	uint8_t evpn_flags;
-#define ATTR_EVPN_FLAG_STICKY	  (1 << 0)
-#define ATTR_EVPN_FLAG_DEFAULT_GW (1 << 1)
-/* NA router flag (R-bit) support in EVPN */
-#define ATTR_EVPN_FLAG_ROUTER (1 << 2)
 
 	/* has the route-map changed any attribute?
 	   Used on the peer outbound side. */
@@ -268,9 +287,6 @@ struct attr {
 		/* parsed attr pointer for equality check */
 		struct attr *parsed_attr;
 	} attr_intern_reuse;
-
-	/* EVPN DF preference for DF election on local ESs */
-	uint16_t df_pref;
 
 	/* MP Nexthop length */
 	uint8_t mp_nexthop_len;
@@ -327,21 +343,6 @@ struct attr {
 #ifdef ENABLE_BGP_VNC
 	struct bgp_attr_encap_subtlv *vnc_subtlvs; /* VNC-specific */
 #endif
-	/* EVPN MAC Mobility sequence number, if any. */
-	uint32_t mm_seqnum;
-	/* highest MM sequence number rxed in a MAC-IP route from an
-	 * ES peer (this includes both proxy and non-proxy MAC-IP
-	 * advertisements from ES peers).
-	 * This is only applicable to local paths in the VNI routing
-	 * table and derived from other imported/non-best paths.
-	 */
-	uint32_t mm_sync_seqnum;
-
-	/* EVPN local router-mac */
-	struct ethaddr rmac;
-
-	/* EVPN ES */
-	esi_t esi;
 
 	/* Nexthop type */
 	enum nexthop_types_t nh_type;
@@ -544,11 +545,6 @@ static inline bool bgp_rmap_nhop_changed(uint32_t out_rmap_flags)
 		 CHECK_FLAG(out_rmap_flags, BATTR_RMAP_IPV6_LL_NHOP_CHANGED))
 			? true
 			: false);
-}
-
-static inline uint32_t mac_mobility_seqnum(struct attr *attr)
-{
-	return (attr) ? attr->mm_seqnum : 0;
 }
 
 static inline enum pta_type bgp_attr_get_pmsi_tnl_type(const struct attr *attr)
@@ -838,6 +834,165 @@ static inline void bgp_attr_set_originator_id(struct attr *attr, struct in_addr 
 		bgp_attr_set(attr, BGP_ATTR_ORIGINATOR_ID);
 	else
 		bgp_attr_unset(attr, BGP_ATTR_ORIGINATOR_ID);
+}
+
+static inline uint8_t bgp_attr_get_es_flags(const struct attr *attr)
+{
+	return attr->extra ? attr->extra->es_flags : 0;
+}
+
+static inline void bgp_attr_set_es_flags(struct attr *attr, uint8_t es_flags)
+{
+	uint8_t old = bgp_attr_get_es_flags(attr);
+
+	if (es_flags && !old)
+		bgp_attr_extra_get(attr)->es_flags = es_flags;
+	else if (es_flags && old)
+		attr->extra->es_flags = es_flags; /* replace; refcnt unchanged */
+	else if (!es_flags && old) {
+		attr->extra->es_flags = 0;
+		bgp_attr_extra_put(attr);
+	}
+}
+
+static inline uint8_t bgp_attr_get_df_alg(const struct attr *attr)
+{
+	return attr->extra ? attr->extra->df_alg : 0;
+}
+
+static inline void bgp_attr_set_df_alg(struct attr *attr, uint8_t df_alg)
+{
+	uint8_t old = bgp_attr_get_df_alg(attr);
+
+	if (df_alg && !old)
+		bgp_attr_extra_get(attr)->df_alg = df_alg;
+	else if (df_alg && old)
+		attr->extra->df_alg = df_alg; /* replace; refcnt unchanged */
+	else if (!df_alg && old) {
+		attr->extra->df_alg = 0;
+		bgp_attr_extra_put(attr);
+	}
+}
+
+static inline uint8_t bgp_attr_get_evpn_flags(const struct attr *attr)
+{
+	return attr->extra ? attr->extra->evpn_flags : 0;
+}
+
+static inline void bgp_attr_set_evpn_flags(struct attr *attr, uint8_t evpn_flags)
+{
+	uint8_t old = bgp_attr_get_evpn_flags(attr);
+
+	if (evpn_flags && !old)
+		bgp_attr_extra_get(attr)->evpn_flags = evpn_flags;
+	else if (evpn_flags && old)
+		attr->extra->evpn_flags = evpn_flags; /* replace; refcnt unchanged */
+	else if (!evpn_flags && old) {
+		attr->extra->evpn_flags = 0;
+		bgp_attr_extra_put(attr);
+	}
+}
+
+static inline uint16_t bgp_attr_get_df_pref(const struct attr *attr)
+{
+	return attr->extra ? attr->extra->df_pref : 0;
+}
+
+static inline void bgp_attr_set_df_pref(struct attr *attr, uint16_t df_pref)
+{
+	uint16_t old = bgp_attr_get_df_pref(attr);
+
+	if (df_pref && !old)
+		bgp_attr_extra_get(attr)->df_pref = df_pref;
+	else if (df_pref && old)
+		attr->extra->df_pref = df_pref; /* replace; refcnt unchanged */
+	else if (!df_pref && old) {
+		attr->extra->df_pref = 0;
+		bgp_attr_extra_put(attr);
+	}
+}
+
+static inline uint32_t bgp_attr_get_mm_seqnum(const struct attr *attr)
+{
+	return attr->extra ? attr->extra->mm_seqnum : 0;
+}
+
+static inline void bgp_attr_set_mm_seqnum(struct attr *attr, uint32_t mm_seqnum)
+{
+	uint32_t old = bgp_attr_get_mm_seqnum(attr);
+
+	if (mm_seqnum && !old)
+		bgp_attr_extra_get(attr)->mm_seqnum = mm_seqnum;
+	else if (mm_seqnum && old)
+		attr->extra->mm_seqnum = mm_seqnum; /* replace; refcnt unchanged */
+	else if (!mm_seqnum && old) {
+		attr->extra->mm_seqnum = 0;
+		bgp_attr_extra_put(attr);
+	}
+}
+
+static inline uint32_t bgp_attr_get_mm_sync_seqnum(const struct attr *attr)
+{
+	return attr->extra ? attr->extra->mm_sync_seqnum : 0;
+}
+
+static inline void bgp_attr_set_mm_sync_seqnum(struct attr *attr, uint32_t mm_sync_seqnum)
+{
+	uint32_t old = bgp_attr_get_mm_sync_seqnum(attr);
+
+	if (mm_sync_seqnum && !old)
+		bgp_attr_extra_get(attr)->mm_sync_seqnum = mm_sync_seqnum;
+	else if (mm_sync_seqnum && old)
+		attr->extra->mm_sync_seqnum = mm_sync_seqnum; /* replace; refcnt unchanged */
+	else if (!mm_sync_seqnum && old) {
+		attr->extra->mm_sync_seqnum = 0;
+		bgp_attr_extra_put(attr);
+	}
+}
+
+static inline const struct ethaddr *bgp_attr_get_rmac(const struct attr *attr)
+{
+	static const struct ethaddr zero_rmac;
+
+	return attr->extra ? &attr->extra->rmac : &zero_rmac;
+}
+
+static inline void bgp_attr_set_rmac(struct attr *attr, const struct ethaddr *rmac)
+{
+	bool new_set = rmac && !is_zero_mac(rmac);
+	bool old_set = !is_zero_mac(bgp_attr_get_rmac(attr));
+
+	if (new_set && !old_set)
+		bgp_attr_extra_get(attr)->rmac = *rmac;
+	else if (new_set && old_set)
+		attr->extra->rmac = *rmac; /* replace; refcnt unchanged */
+	else if (!new_set && old_set) {
+		attr->extra->rmac = (struct ethaddr){};
+		bgp_attr_extra_put(attr);
+	}
+}
+
+static inline const esi_t *bgp_attr_get_esi(const struct attr *attr)
+{
+	static const esi_t zero_esi;
+
+	return attr->extra ? &attr->extra->esi : &zero_esi;
+}
+
+static inline void bgp_attr_set_esi(struct attr *attr, const esi_t *esi)
+{
+	static const esi_t zero_esi;
+	bool new_set = esi && memcmp(esi, &zero_esi, sizeof(zero_esi));
+	bool old_set = memcmp(bgp_attr_get_esi(attr), &zero_esi, sizeof(zero_esi));
+
+	if (new_set && !old_set)
+		bgp_attr_extra_get(attr)->esi = *esi;
+	else if (new_set && old_set)
+		attr->extra->esi = *esi; /* replace; refcnt unchanged */
+	else if (!new_set && old_set) {
+		attr->extra->esi = (esi_t){};
+		bgp_attr_extra_put(attr);
+	}
 }
 
 static inline struct bgp_route_evpn *
