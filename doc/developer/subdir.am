@@ -3,6 +3,7 @@
 #
 
 dev_RSTFILES = \
+	doc/developer/ai-policy.rst \
 	doc/developer/bgp-typecodes.rst \
 	doc/developer/bgpd.rst \
 	doc/developer/bmp.rst \
