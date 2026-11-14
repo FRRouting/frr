@@ -183,10 +183,10 @@ static int kernel_rtm(int cmd, const struct prefix *p, const struct nexthop_grou
 				sin_gate.sin6.sin6_addr = loopback;
 				sin_gate.sin6.sin6_family = AF_INET6;
 
-#ifdef HAVE_STRUCTSOCKADDR_SA_LEN
+#ifdef HAVE_STRUCT_SOCKADDR_SA_LEN
 				sin_gate.sin6.sin6_len =
 					sizeof(struct sockaddr_in6);
-#endif /* HAVE_STRUCTSOCKADDR_SA_LEN */
+#endif /* HAVE_STRUCT_SOCKADDR_SA_LEN */
 				gate = true;
 			} break;
 			}
@@ -227,18 +227,22 @@ static int kernel_rtm(int cmd, const struct prefix *p, const struct nexthop_grou
 					"%s: %pFX: attention! gate not found for re",
 					__func__, p);
 			} else {
-				switch (p->family) {
+				/* An IPv4 route can have an IPv6 gateway */
+				switch (sin_gate.sa.sa_family) {
 				case AF_INET:
 					inet_ntop(AF_INET,
 						  &sin_gate.sin.sin_addr,
 						  gate_buf, sizeof(gate_buf));
 					break;
 
-				case AF_INET6:
-					inet_ntop(AF_INET6,
-						  &sin_gate.sin6.sin6_addr,
-						  gate_buf, sizeof(gate_buf));
-					break;
+				case AF_INET6: {
+					struct in6_addr addr = sin_gate.sin6.sin6_addr;
+
+					/* Drop the ifindex set for the kernel */
+					if (IN6_IS_ADDR_LINKLOCAL(&addr))
+						SET_IN6_LINKLOCAL_IFINDEX(addr, 0);
+					inet_ntop(AF_INET6, &addr, gate_buf, sizeof(gate_buf));
+				} break;
 
 				default:
 					snprintf(gate_buf, sizeof(gate_buf),
