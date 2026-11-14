@@ -63,6 +63,12 @@ static int nb_cli_classic_commit(struct vty *vty)
 		/* Successful commit. Print warnings (if any). */
 		if (strlen(errmsg) > 0)
 			vty_out(vty, "%s\n", errmsg);
+		/*
+		 * Share running_config's dnode with candidate (copy-on-write).
+		 * This halves steady-state memory since candidate and running
+		 * now have identical content.
+		 */
+		nb_config_share_running(vty->candidate_config);
 		break;
 	case NB_ERR_NO_CHANGES:
 		break;
@@ -452,6 +458,10 @@ static int nb_cli_commit(struct vty *vty, bool force,
 	case NB_OK:
 		nb_config_replace(vty->candidate_config_base, running_config,
 				  true);
+		/*
+		 * Share running_config's dnode with candidate (copy-on-write).
+		 */
+		nb_config_share_running(vty->candidate_config);
 		vty_out(vty,
 			"%% Configuration committed successfully (Transaction ID #%u).\n\n",
 			transaction_id);
@@ -1815,6 +1825,34 @@ DEFPY (rollback_config,
 #endif /* HAVE_CONFIG_ROLLBACKS */
 }
 
+/* Show northbound state. */
+DEFPY (show_nb_state,
+       show_nb_state_cmd,
+       "show northbound",
+       SHOW_STR
+       "Northbound state information\n")
+{
+	struct nb_config *candidate = vty->candidate_config;
+
+	if (!candidate)
+		candidate = vty_mgmt_candidate_config ? vty_mgmt_candidate_config
+						      : vty_shared_candidate_config;
+
+	vty_out(vty, "Northbound state:\n");
+	vty_out(vty, "  Candidate config:\n");
+	if (candidate) {
+		vty_out(vty, "    dnode_shared: %s\n", candidate->dnode_shared ? "yes" : "no");
+		vty_out(vty, "    version: %u\n", candidate->version);
+		vty_out(vty, "    cow_share_count: %" PRIu64 "\n", candidate->cow_share_count);
+		vty_out(vty, "    cow_trigger_count: %" PRIu64 "\n", candidate->cow_trigger_count);
+	} else {
+		vty_out(vty, "    (not available)\n");
+	}
+	vty_out(vty, "  Running config:\n");
+	vty_out(vty, "    version: %u\n", running_config->version);
+	return CMD_SUCCESS;
+}
+
 /* Debug CLI commands. */
 DEFPY (debug_nb,
        debug_nb_cmd,
@@ -1956,6 +1994,8 @@ void nb_cli_init(struct event_loop *tm)
 
 	/* Other commands. */
 	install_element(ENABLE_NODE, &show_config_running_cmd);
+	install_element(ENABLE_NODE, &show_nb_state_cmd);
+	install_element(CONFIG_NODE, &show_nb_state_cmd);
 	install_element(CONFIG_NODE, &yang_module_translator_load_cmd);
 	install_element(CONFIG_NODE, &yang_module_translator_unload_cmd);
 	install_element(ENABLE_NODE, &show_yang_operational_data_cmd);
