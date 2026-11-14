@@ -105,6 +105,19 @@ void pim_igmp_other_querier_timer_off(struct gm_sock *igmp);
 
 int igmp_validate_checksum(char *igmp_msg, int igmp_msg_len);
 
+/* What our own joins on an interface hold for one group */
+struct igmp_self_joins {
+	bool proxy;	/* a proxy-only join, any source */
+	bool proxy_any; /* a proxy-only (*,G) join */
+	bool local;	/* a local join (ip igmp join-group), any source */
+	bool local_any; /* a local (*,G) join */
+};
+
+bool igmp_self_report_joins(struct interface *ifp, struct in_addr from, struct in_addr group,
+			    struct igmp_self_joins *sj);
+bool igmp_proxy_only_join(struct interface *ifp, struct in_addr group, struct in_addr source);
+void igmp_local_join_shared(struct interface *ifp, pim_addr group, pim_addr source, bool join);
+
 #else /* PIM_IPV != 4 */
 static inline void pim_igmp_if_init(struct pim_interface *pim_ifp,
 				    struct interface *ifp)
@@ -128,6 +141,11 @@ static inline void pim_igmp_other_querier_timer_on(struct gm_sock *igmp)
 }
 
 static inline void pim_igmp_other_querier_timer_off(struct gm_sock *igmp)
+{
+}
+
+static inline void igmp_local_join_shared(struct interface *ifp, pim_addr group, pim_addr source,
+					  bool join)
 {
 }
 #endif /* PIM_IPV == 4 */

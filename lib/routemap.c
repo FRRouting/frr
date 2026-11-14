@@ -1624,13 +1624,6 @@ enum rmap_compile_rets route_map_delete_match(struct route_map_index *index,
 	for (rule = index->match_list.head; rule; rule = rule->next)
 		if (rule->cmd == cmd && (rulecmp(rule->rule_str, match_arg) == 0
 					 || match_arg == NULL)) {
-			/* Execute event hook. */
-			if (route_map_master.event_hook) {
-				(*route_map_master.event_hook)(index->map->name);
-				route_map_notify_dependencies(
-					index->map->name,
-					RMAP_EVENT_CALL_ADDED);
-			}
 			if (cmd->func_get_rmap_rule_key)
 				rule_key = (*cmd->func_get_rmap_rule_key)
 					   (rule->value);
@@ -1655,6 +1648,18 @@ enum rmap_compile_rets route_map_delete_match(struct route_map_index *index,
 				route_map_pfx_tbl_update(
 					RMAP_EVENT_PLIST_DELETED, index,
 					AFI_IP6, match_arg);
+			}
+
+			/*
+			 * Notify after the match is gone, as
+			 * route_map_add_match() notifies after it is
+			 * installed. Listeners re-read the route-map.
+			 */
+			if (route_map_master.event_hook) {
+				(*route_map_master.event_hook)(index->map->name);
+				route_map_notify_dependencies(
+					index->map->name,
+					RMAP_EVENT_CALL_ADDED);
 			}
 
 			return RMAP_COMPILE_SUCCESS;

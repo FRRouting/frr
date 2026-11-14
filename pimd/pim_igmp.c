@@ -431,6 +431,68 @@ void pim_igmp_other_querier_timer_off(struct gm_sock *igmp)
 	event_cancel(&igmp->t_other_querier_timer);
 }
 
+/*
+ * The kernel loops the reports for our own memberships on an interface back
+ * to us, including the ones IGMP proxy sends on a proxy interface.  Learning
+ * those as membership makes the router forward the group out of the proxy
+ * interface whenever it has the stream (e.g. it is a source itself), as if
+ * a static route pointed there.  Only local joins ("ip igmp join-group",
+ * GM_JOIN_STATIC or GM_JOIN_BOTH) may create state from our own reports.
+ *
+ * Returns true when from is one of our addresses and ifp holds a proxy-only
+ * join for group, i.e. the report may carry state that must be ignored; sj
+ * then describes our joins for group on ifp.
+ */
+bool igmp_self_report_joins(struct interface *ifp, struct in_addr from, struct in_addr group,
+			    struct igmp_self_joins *sj)
+{
+	struct pim_interface *pim_ifp = ifp->info;
+	struct listnode *node;
+	struct gm_join *ij;
+
+	memset(sj, 0, sizeof(*sj));
+
+	if (!pim_ifp || !pim_ifp->gm_join_list || !pim_ifp->gm_join_list->count)
+		return false;
+
+	if (!if_address_is_local(&from, AF_INET, ifp->vrf->vrf_id))
+		return false;
+
+	for (ALL_LIST_ELEMENTS_RO(pim_ifp->gm_join_list, node, ij)) {
+		bool any = pim_addr_is_any(ij->source_addr);
+
+		if (pim_addr_cmp(ij->group_addr, group))
+			continue;
+
+		if (ij->join_type == GM_JOIN_PROXY) {
+			sj->proxy = true;
+			sj->proxy_any |= any;
+		} else {
+			sj->local = true;
+			sj->local_any |= any;
+		}
+	}
+
+	return sj->proxy;
+}
+
+/* Does ifp hold a proxy-only (S,G) join? */
+bool igmp_proxy_only_join(struct interface *ifp, struct in_addr group, struct in_addr source)
+{
+	struct pim_interface *pim_ifp = ifp->info;
+	struct listnode *node;
+	struct gm_join *ij;
+
+	if (!pim_ifp || !pim_ifp->gm_join_list)
+		return false;
+
+	for (ALL_LIST_ELEMENTS_RO(pim_ifp->gm_join_list, node, ij))
+		if (!pim_addr_cmp(ij->group_addr, group) && !pim_addr_cmp(ij->source_addr, source))
+			return ij->join_type == GM_JOIN_PROXY;
+
+	return false;
+}
+
 int igmp_validate_checksum(char *igmp_msg, int igmp_msg_len)
 {
 	uint16_t recv_checksum;
@@ -1053,6 +1115,13 @@ void igmp_group_delete(struct gm_group *group)
 			   group->interface->name);
 	}
 
+	/*
+	 * The group is going away: drop its filter mode first, so the prunes
+	 * below no longer see the '*' source as wanted.
+	 */
+	group_timer_off(group);
+	group->group_filtermode_isexcl = 0;
+
 	for (ALL_LIST_ELEMENTS(group->group_source_list, src_node, src_nextnode,
 			       src)) {
 		igmp_source_delete(src);
@@ -1060,7 +1129,6 @@ void igmp_group_delete(struct gm_group *group)
 
 	event_cancel(&group->t_group_query_retransmit_timer);
 
-	group_timer_off(group);
 	igmp_group_count_decr(pim_ifp);
 	listnode_delete(pim_ifp->gm_group_list, group);
 	hash_release(pim_ifp->gm_group_hash, group);
@@ -1327,6 +1395,24 @@ static void igmp_group_timer(struct event *t)
 
 	/* Any source (*,G) is forwarded only if mode is EXCLUDE {empty} */
 	igmp_anysource_forward_stop(group);
+
+	/*
+	 * '*' may already have been removed while the group was still
+	 * EXCLUDE (immediate leave, or EXCLUDE {} becoming EXCLUDE {S}),
+	 * so the stop above did not run the proxy prune. The mode change
+	 * is the (*,G) leave.
+	 */
+	{
+		struct in_addr star = { .s_addr = INADDR_ANY };
+		struct pim_interface *pim_ifp = group->interface->info;
+
+		if (pim_ifp && !igmp_find_source_by_addr(group, star)) {
+			pim_sgaddr sg = {};
+
+			sg.grp = group->group_addr;
+			tib_sg_proxy_join_prune_check(pim_ifp->pim, sg, group->interface, false);
+		}
+	}
 
 	igmp_source_delete_expired(group->group_source_list);
 

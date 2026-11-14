@@ -570,16 +570,26 @@ keyword at the end.
    interfaces on this interface. Join-groups on other interfaces will
    also be proxied. The default version is v3.
 
+   Reports sent for those proxy joins are not learned as membership on
+   the proxy interface. ``ip igmp join-group``, ``ip igmp static-group``,
+   and reports from other hosts still are. Traffic is not forwarded out a
+   proxy interface just because the router is proxying the group there.
+   RFC 4605 instead forwards downstream senders to the upstream interface
+   unconditionally, allows only one proxy interface, and forbids running
+   the router portion of IGMP on it. FRR does not follow those three
+   rules. The same own-report handling is not implemented for MLD.
+
 .. clicmd:: ip igmp proxy route-map ROUTE-MAP
 
    Apply a route-map to filter which multicast (S,G) entries are forwarded
    via IGMP proxy on this interface. Only groups permitted by the route-map
    will be proxied; all others are silently dropped.
 
-   This is evaluated at proxy join time: on initial proxy setup
-   (``ip igmp proxy``) and each time a new IGMP report arrives on another
-   interface. Changing the route-map takes effect on the next proxy
-   enable/disable cycle.
+   This is evaluated when the proxy is enabled, when a membership changes
+   on another interface, and when this route-map is attached, detached,
+   or its contents (including a prefix-list it matches) change. Joins the
+   new filter denies are withdrawn, and joins it newly permits are added,
+   without disabling the proxy.
 
    The following ``match`` statements are supported:
 
