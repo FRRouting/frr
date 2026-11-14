@@ -16,6 +16,7 @@ import argparse
 import os
 import signal
 import sys
+import threading
 import time
 
 from scapy.all import AsyncSniffer, conf, wrpcap
@@ -41,12 +42,26 @@ def main():
     signal.signal(signal.SIGINT, _request_stop)
     signal.signal(signal.SIGTERM, _request_stop)
 
-    sniffer = AsyncSniffer(iface=args.iface, filter=args.filter, store=True)
+    started = threading.Event()
+    sniffer = AsyncSniffer(
+        iface=args.iface,
+        filter=args.filter,
+        store=True,
+        started_callback=started.set,
+    )
     try:
         sniffer.start()
     except Exception as exc:
         sys.stderr.write("scapy sniff failed on %s: %s\n" % (args.iface, exc))
         sys.exit(1)
+
+    # AsyncSniffer opens its socket in a thread and keeps any error there.
+    while not started.wait(0.1):
+        if not sniffer.thread.is_alive():
+            sys.stderr.write(
+                "scapy sniff failed on %s: %s\n" % (args.iface, sniffer.exception)
+            )
+            sys.exit(1)
 
     if args.ready_file:
         with open(args.ready_file, "w") as f:
