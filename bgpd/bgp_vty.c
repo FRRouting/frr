@@ -2174,6 +2174,10 @@ DEFUN (bgp_cluster_id,
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 
+	if (CHECK_FLAG(bgp->config, BGP_CONFIG_CLUSTER_ID) &&
+	    IPV4_ADDR_SAME(&bgp->cluster_id, &cluster))
+		return CMD_SUCCESS;
+
 	bgp_cluster_id_set(bgp, &cluster);
 	bgp_clear_star_soft_out(vty, bgp->name);
 
@@ -2190,6 +2194,10 @@ DEFUN (no_bgp_cluster_id,
        "Route-Reflector Cluster-id as 32 bit quantity\n")
 {
 	VTY_DECLVAR_CONTEXT(bgp, bgp);
+
+	if (!CHECK_FLAG(bgp->config, BGP_CONFIG_CLUSTER_ID))
+		return CMD_SUCCESS;
+
 	bgp_cluster_id_unset(bgp);
 	bgp_clear_star_soft_out(vty, bgp->name);
 
@@ -3168,6 +3176,9 @@ DEFUN (bgp_client_to_client_reflection,
        "reflection of routes allowed\n")
 {
 	VTY_DECLVAR_CONTEXT(bgp, bgp);
+	if (!CHECK_FLAG(bgp->flags, BGP_FLAG_NO_CLIENT_TO_CLIENT))
+		return CMD_SUCCESS;
+
 	UNSET_FLAG(bgp->flags, BGP_FLAG_NO_CLIENT_TO_CLIENT);
 	bgp_clear_star_soft_out(vty, bgp->name);
 
@@ -3183,6 +3194,9 @@ DEFUN (no_bgp_client_to_client_reflection,
        "reflection of routes allowed\n")
 {
 	VTY_DECLVAR_CONTEXT(bgp, bgp);
+	if (CHECK_FLAG(bgp->flags, BGP_FLAG_NO_CLIENT_TO_CLIENT))
+		return CMD_SUCCESS;
+
 	SET_FLAG(bgp->flags, BGP_FLAG_NO_CLIENT_TO_CLIENT);
 	bgp_clear_star_soft_out(vty, bgp->name);
 
@@ -5029,6 +5043,8 @@ DEFUN (bgp_default_local_preference,
 	uint32_t local_pref;
 
 	local_pref = strtoul(argv[idx_number]->arg, NULL, 10);
+	if (bgp->default_local_pref == local_pref)
+		return CMD_SUCCESS;
 
 	bgp_default_local_preference_set(bgp, local_pref);
 	bgp_clear_star_soft_in(vty, bgp->name);
@@ -5046,6 +5062,9 @@ DEFUN (no_bgp_default_local_preference,
        "Configure default local preference value\n")
 {
 	VTY_DECLVAR_CONTEXT(bgp, bgp);
+	if (bgp->default_local_pref == BGP_DEFAULT_LOCAL_PREF)
+		return CMD_SUCCESS;
+
 	bgp_default_local_preference_unset(bgp);
 	bgp_clear_star_soft_in(vty, bgp->name);
 
@@ -5378,6 +5397,9 @@ DEFUN (bgp_disable_connected_route_check,
        "Disable checking if nexthop is connected on ebgp sessions\n")
 {
 	VTY_DECLVAR_CONTEXT(bgp, bgp);
+	if (CHECK_FLAG(bgp->flags, BGP_FLAG_DISABLE_NH_CONNECTED_CHK))
+		return CMD_SUCCESS;
+
 	SET_FLAG(bgp->flags, BGP_FLAG_DISABLE_NH_CONNECTED_CHK);
 	bgp_clear_star_soft_in(vty, bgp->name);
 
@@ -5392,6 +5414,9 @@ DEFUN (no_bgp_disable_connected_route_check,
        "Disable checking if nexthop is connected on ebgp sessions\n")
 {
 	VTY_DECLVAR_CONTEXT(bgp, bgp);
+	if (!CHECK_FLAG(bgp->flags, BGP_FLAG_DISABLE_NH_CONNECTED_CHK))
+		return CMD_SUCCESS;
+
 	UNSET_FLAG(bgp->flags, BGP_FLAG_DISABLE_NH_CONNECTED_CHK);
 	bgp_clear_star_soft_in(vty, bgp->name);
 
