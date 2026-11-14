@@ -1,7 +1,7 @@
 {
   "r3-eth1":{
     "ldpIgpSyncEnabled":false,
-    "holdDownTimeInSec":0,
+    "holdDownTimeInSec":50,
     "ldpIgpSyncState":"Sync not required"
   },
   "r3-eth2":{
