@@ -21,6 +21,7 @@
 #include "libfrr.h"
 #include "libfrr_trace.h"
 #include "sigevent.h"
+#include "monotime.h"
 
 DEFINE_MTYPE_STATIC(LIB, FRR_PTHREAD, "FRR POSIX Thread");
 DEFINE_MTYPE_STATIC(LIB, PTHREAD_PRIM, "POSIX sync primitives");
@@ -393,4 +394,44 @@ static void *fpt_run(void *arg)
 	zlog_tls_buffer_fini();
 
 	return NULL;
+}
+
+int frr_pthread_cond_init(pthread_cond_t *cond)
+{
+	pthread_condattr_t attr;
+	int ret;
+
+	ret = pthread_condattr_init(&attr);
+	if (ret)
+		return ret;
+#ifndef __APPLE__
+	ret = pthread_condattr_setclock(&attr, CLOCK_MONOTONIC);
+	if (ret) {
+		pthread_condattr_destroy(&attr);
+		return ret;
+	}
+#endif
+	ret = pthread_cond_init(cond, &attr);
+	pthread_condattr_destroy(&attr);
+	return ret;
+}
+
+int frr_pthread_cond_timedwait(pthread_cond_t *cond, pthread_mutex_t *mutex,
+			       const struct timespec *abstime)
+{
+#ifdef __APPLE__
+	struct timespec mono_now, real_now, delta, abs_real;
+
+	/*
+	 * Deadline is absolute CLOCK_MONOTONIC, but pthread_cond_timedwait()
+	 * always waits against CLOCK_REALTIME. Translate it.
+	 */
+	clock_gettime(CLOCK_MONOTONIC, &mono_now);
+	clock_gettime(CLOCK_REALTIME, &real_now);
+	timespecsub(abstime, &mono_now, &delta);
+	timespecadd(&real_now, &delta, &abs_real);
+	return pthread_cond_timedwait(cond, mutex, &abs_real);
+#else
+	return pthread_cond_timedwait(cond, mutex, abstime);
+#endif
 }

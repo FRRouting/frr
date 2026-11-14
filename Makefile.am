@@ -176,8 +176,7 @@ am__v_PROTOC_C_1 =
 
 %.pb-c.c %.pb-c.h : %.proto
 	$(AM_V_PROTOC_C)$(PROTOC_C) -I$(top_srcdir) --c_out=$(top_builddir) $^
-	$(AM_V_GEN)$(SED) -i -e '1i\
-	#include "config.h"' $@
+	$(AM_V_GEN)(echo '#include "config.h"'; cat $@) > $@.tmp && mv $@.tmp $@
 
 include doc/subdir.am
 include doc/user/subdir.am
@@ -251,6 +250,7 @@ EXTRA_DIST += \
 	python/clidef.py \
 	python/clippy/__init__.py \
 	python/clippy/elf.py \
+	python/clippy/macho.py \
 	python/clippy/uidhash.py \
 	python/makevars.py \
 	python/makefile.py \

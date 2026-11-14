@@ -59,7 +59,7 @@ static void xref_add_one(const struct xref *xref)
 	SHA256_CTX sha;
 	struct xrefdata *xrefdata;
 
-	const char *filename, *p, *q;
+	const char *filename, *p, *q, *r;
 	uint8_t hash[32], *h = hash;
 	uint32_t be_val;
 	int bitpos;
@@ -81,7 +81,16 @@ static void xref_add_one(const struct xref *xref)
 	filename = xref->file;
 	p = strrchr(filename, '/');
 	if (p) {
-		q = memrchr(filename, '/', p - filename);
+		/* memrchr(filename, '/', p - filename), which is a GNU
+		 * extension that e.g. macOS doesn't have
+		 */
+		q = NULL;
+		for (r = p; r > filename; r--) {
+			if (r[-1] == '/') {
+				q = r - 1;
+				break;
+			}
+		}
 		if (q)
 			filename = q + 1;
 	}

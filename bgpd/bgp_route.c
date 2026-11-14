@@ -17634,7 +17634,8 @@ struct bgp_table_stats {
 	unsigned long long counts[BGP_STATS_MAX];
 
 	unsigned long long
-		prefix_len_count[MAX(EVPN_ROUTE_PREFIXLEN, IPV6_MAX_BITLEN) +
+		prefix_len_count[(EVPN_ROUTE_PREFIXLEN > IPV6_MAX_BITLEN ? EVPN_ROUTE_PREFIXLEN
+									 : IPV6_MAX_BITLEN) +
 				 1];
 
 	double total_space;

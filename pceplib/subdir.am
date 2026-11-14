@@ -1,6 +1,6 @@
 if PATHD_PCEP
 
-noinst_LTLIBRARIES = pceplib/libpcep_pcc.la pceplib/libsocket_comm_mock.la
+noinst_LTLIBRARIES = pceplib/libpcep_pcc.la
 pceplib_libpcep_pcc_la_CFLAGS = $(AM_CFLAGS) -fPIC
 pceplib_libpcep_pcc_la_SOURCES = pceplib/pcep_msg_messages.c \
 		pceplib/pcep_msg_objects.c \
@@ -28,6 +28,7 @@ pceplib_libpcep_pcc_la_SOURCES = pceplib/pcep_msg_messages.c \
 
 if PATHD_PCEP_TEST
 # SocketComm Mock library used for Unit Testing
+noinst_LTLIBRARIES += pceplib/libsocket_comm_mock.la
 pceplib_libsocket_comm_mock_la_SOURCES = pceplib/pcep_socket_comm_mock.c
 endif
 

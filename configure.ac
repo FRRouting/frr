@@ -540,10 +540,22 @@ fi
 AC_SUBST([SAN_FLAGS])
 
 AC_MSG_CHECKING([whether linker supports __start/stop_section symbols])
+dnl This mirrors the declarations in lib/xref.h.  ELF linkers synthesize
+dnl __start_<sect>/__stop_<sect>;  Mach-O requires "segment,section" syntax and
+dnl has the linker provide section$start$/section$end$ symbols instead.
+dnl (The program text goes through an unquoted shell heredoc, so every literal
+dnl "$" below must be written as "\$" or the shell eats it.)
 AC_LINK_IFELSE([AC_LANG_PROGRAM([[
 #include <stdio.h>
-int __attribute__((section("secttest"))) var = 1;
+#ifdef __MACH__
+# define SECTTEST_SECTION "__DATA,secttest"
+extern int __start_secttest __asm("section\$start\$__DATA\$secttest");
+extern int __stop_secttest __asm("section\$end\$__DATA\$secttest");
+#else
+# define SECTTEST_SECTION "secttest"
 extern int __start_secttest, __stop_secttest;
+#endif
+int __attribute__((section(SECTTEST_SECTION))) var = 1;
 ]], [[
   void *a = &var, *b = &__start_secttest, *c = &__stop_secttest;
   printf("%p %p %p\n", a, b, c);
@@ -570,12 +582,13 @@ dnl (3) you're trying to build for Solaris.  Support for Solaris has been
 dnl     removed due to lack of maintainers and testing.  For this specific
 dnl     problem, use GNU ld and you're good, but you'll hit walls elsewhere.
 dnl
-dnl (4) you're trying to build for Apple OSX.  You in for a world of pain, with
-dnl     OSX using Mach-O for its binaries rather than ELF.  FRR contains code
-dnl     that uses libelf to open its own binaries and fish out things.  For
-dnl     obvious reasons of Mach-O not being ELF, this won't work.  There is no
-dnl     easy workaround, disabling this code results in a non-working FRR
-dnl     build even if you somehow get it to pass.  Good luck!
+dnl (4) you're trying to build for Apple OSX.  OSX uses Mach-O for its
+dnl     binaries rather than ELF, so the test above (and lib/xref.h) use the
+dnl     Mach-O spelling of the section attribute and of the linker-provided
+dnl     start/end symbols.  If it still fails, check config.log for the
+dnl     compiler/linker error.  Be aware that FRR also contains build-time code
+dnl     (python/xrelfo.py and lib/elf_py.c) that opens its own binaries and
+dnl     fishes out xrefs;  that part needs a Mach-O reader to work.
 dnl
 dnl IN ALL CASES: open config.log, scroll to the very bottom, then back up to
 dnl     before the kilometer long dumps of internal autoconf variables.  There
@@ -939,30 +952,49 @@ AC_DEFINE_UNQUOTED([DFLT_NAME], ["$DFLT_NAME"], [Name of the configuration defau
 # Python for clippy
 #
 
+clippy_elf="no"
+
 AS_IF([test "$host" = "$build"], [
   AM_PATH_PYTHON([3])
-  AC_CHECK_HEADER([gelf.h], [], [
-    AC_MSG_ERROR([libelf headers are required for building clippy.  (Host only when cross-compiling.)])
-  ])
 
-  LIBS_save="$LIBS"
-  AC_CHECK_LIB([elf], [elf_memory], [], [
-    AC_MSG_ERROR([libelf is required for building clippy.  (Host only when cross-compiling.)])
-  ])
+  AC_MSG_CHECKING([whether clippy reads ELF binaries (needs libelf)])
+  case "$host_os" in
+    darwin*)
+      AC_MSG_RESULT([no, Mach-O host])
+      ;;
+    *)
+      AC_MSG_RESULT([yes])
+      clippy_elf="yes"
+      ;;
+  esac
 
-  AC_CHECK_LIB([elf], [elf_getdata_rawchunk], [
-    AC_DEFINE([HAVE_ELF_GETDATA_RAWCHUNK], [1], [Have elf_getdata_rawchunk()])
-  ])
-  AC_CHECK_LIB([elf], [gelf_getnote], [
-    AC_DEFINE([HAVE_GELF_GETNOTE], [1], [Have gelf_getnote()])
-  ])
-  LIBS="$LIBS_save"
-  unset LIBS_save
+  if test "$clippy_elf" = "yes"; then
+    AC_CHECK_HEADER([gelf.h], [], [
+      AC_MSG_ERROR([libelf headers are required for building clippy.  (Host only when cross-compiling.)])
+    ])
+
+    LIBS_save="$LIBS"
+    AC_CHECK_LIB([elf], [elf_memory], [], [
+      AC_MSG_ERROR([libelf is required for building clippy.  (Host only when cross-compiling.)])
+    ])
+
+    AC_CHECK_LIB([elf], [elf_getdata_rawchunk], [
+      AC_DEFINE([HAVE_ELF_GETDATA_RAWCHUNK], [1], [Have elf_getdata_rawchunk()])
+    ])
+    AC_CHECK_LIB([elf], [gelf_getnote], [
+      AC_DEFINE([HAVE_GELF_GETNOTE], [1], [Have gelf_getnote()])
+    ])
+    LIBS="$LIBS_save"
+    unset LIBS_save
+
+    AC_DEFINE([HAVE_CLIPPY_ELF], [1], [clippy is built with ELF support (libelf)])
+  fi
 
   FRR_PYTHON_DEV
 ], [
   FRR_PYTHON
 ])
+AM_CONDITIONAL([CLIPPY_ELF], [test "$clippy_elf" = "yes"])
 
 FRR_PYTHON_MODULES([pytest])
 
@@ -1125,6 +1157,35 @@ fi
 if test -n "$frr_cv_interp"; then
   AC_DEFINE_UNQUOTED([INTERP], ["$frr_cv_interp"], [.interp value])
 fi
+
+dnl libfrr.so can be executed to print its version, which needs an entry point
+dnl (_libfrr_version in lib/libfrr.c) as well as .interp above.  Both are ELF
+dnl concepts;  Apple's ld rejects -e when linking a dylib.
+case "$host_os" in
+  darwin*)
+    LIBFRR_ENTRY_LDFLAGS=""
+    ;;
+  *)
+    LIBFRR_ENTRY_LDFLAGS="-Xlinker -e_libfrr_version"
+    ;;
+esac
+AC_SUBST([LIBFRR_ENTRY_LDFLAGS])
+
+dnl macOS specifics.  These need to be in CPPFLAGS rather than in some automake
+dnl variable since the checks below use them, too.
+dnl
+dnl - macOS has no <endian.h> (and, depending on the SDK, no htobe64() & co.)
+dnl   include/macos/endian.h provides one.  It must be an absolute path since
+dnl   srcdir is often ".".
+dnl - the RFC 3542 IPv6 socket API (IPV6_PKTINFO, IPV6_HOPLIMIT, IPV6_RECV*)
+dnl   is only visible when __APPLE_USE_RFC_3542 is defined.  The default there
+dnl   is the obsolete RFC 2292 API.
+case "$host_os" in
+  darwin*)
+    frr_abs_srcdir="`cd \"${srcdir}\"; pwd`"
+    CPPFLAGS="-I${frr_abs_srcdir}/include/macos -D__APPLE_USE_RFC_3542 $CPPFLAGS"
+    ;;
+esac
 
 dnl -------------------------
 dnl Check other header files.
@@ -1442,6 +1503,12 @@ if test "$enable_protobuf" != "no"; then
       AC_MSG_FAILURE([protobuf requested but libprotobuf-c > 1.3.0 not found])
     fi
   fi
+
+  # missing on macOS
+  if test "$PROTOC_C" = "/bin/false" || test "$PROTO3" = "false"; then
+    AC_MSG_NOTICE([protoc-c and/or libprotobuf-c not found, protobuf support disabled])
+    enable_protobuf="no"
+  fi
 fi
 #
 # End of logic for protobuf support.
@@ -1750,7 +1817,10 @@ if test "$ac_cv_have_decl_TCP_MD5SIG" = "no"; then
 fi
 
 LIBS_save="$LIBS"
-AC_CHECK_LIB([crypt], [crypt], [], [
+dnl crypt() is from libc on some systems (e.g. macOS)
+AC_SEARCH_LIBS([crypt], [crypt], [
+  AC_DEFINE([HAVE_LIBCRYPT], [1], [crypt() is available (libc or libcrypt)])
+], [
   AC_CHECK_LIB([crypto], [DES_crypt])
 ])
 LIBCRYPT="$LIBS"
@@ -2053,6 +2123,13 @@ dnl ---------------
 PKG_CHECK_MODULES([LIBYANG], [libyang >= 2.1.128], , [
 AC_MSG_ERROR([m4_normalize([libyang >= 2.1.128 is required, and was not found on your system.
 Please consult doc/developer/building-libyang.rst for instructions on installing or building libyang.])])])
+
+dnl LIBYANG_LIBS may carry -L for a libyang outside the default linker path
+for frr_libyang_flag in $LIBYANG_LIBS; do
+  case "$frr_libyang_flag" in
+    -L*) LDFLAGS="$LDFLAGS $frr_libyang_flag" ;;
+  esac
+done
 
 ac_cflags_save="$CFLAGS"
 CFLAGS="$CFLAGS $LIBYANG_CFLAGS"

@@ -127,9 +127,10 @@ extern "C" {
  * SunOS: nominally as per BSD. but bug: network order on LE.
  * OpenBSD: network byte order, apart from older versions which are as per
  *          *BSD
+ * macOS: as per *BSD, a length in network byte order is rejected (EINVAL)
  */
-#if defined(__NetBSD__) ||                                                     \
-	(defined(__FreeBSD__) && (__FreeBSD_version < 1100030)) ||             \
+#if defined(__NetBSD__) || defined(__APPLE__) ||                                                  \
+	(defined(__FreeBSD__) && (__FreeBSD_version < 1100030)) ||                                \
 	(defined(__OpenBSD__) && (OpenBSD < 200311))
 #define HAVE_IP_HDRINCL_BSD_ORDER
 #endif
@@ -149,12 +150,20 @@ extern "C" {
 
 #define strmatch(a,b) (!strcmp((a), (b)))
 
+/* macOS (and some BSDs) already provide these as macros */
+#ifndef htonll
 #if BYTE_ORDER == LITTLE_ENDIAN
 #define htonll(x) (((uint64_t)htonl((x)&0xFFFFFFFF) << 32) | htonl((x) >> 32))
-#define ntohll(x) (((uint64_t)ntohl((x)&0xFFFFFFFF) << 32) | ntohl((x) >> 32))
 #else
 #define htonll(x) (x)
+#endif
+#endif
+#ifndef ntohll
+#if BYTE_ORDER == LITTLE_ENDIAN
+#define ntohll(x) (((uint64_t)ntohl((x)&0xFFFFFFFF) << 32) | ntohl((x) >> 32))
+#else
 #define ntohll(x) (x)
+#endif
 #endif
 
 #ifndef INADDR_LOOPBACK

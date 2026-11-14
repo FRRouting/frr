@@ -20,8 +20,13 @@ from _clippy import (
     CMD_ATTR_HIDDEN,
     CMD_ATTR_DEPRECATED,
     CMD_ATTR_NOSH,
-    elf_notes,
 )
+
+try:
+    from _clippy import elf_notes
+except ImportError:
+    # clippy built without libelf (e.g. on macOS):  no ELF note support
+    elf_notes = False
 
 
 frr_top_src = os.path.dirname(

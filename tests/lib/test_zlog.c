@@ -45,12 +45,27 @@ static bool test_zlog_recirculate(void)
 {
 	int sockpair[2];
 	int ret;
+	bool seqpacket = true;
 	pid_t child, waited;
 	struct event_loop *loop;
 	struct event evt;
 
-	/* NB: SOCK_DGRAM doesn't give HUP events => use SOCK_SEQPACKET */
+	/* 2 otions: first SOCK_SEQPACKET, if not supported (macOS),
+	 * do SOCK_DGRAM.
+	 */
 	ret = socketpair(AF_UNIX, SOCK_SEQPACKET, PF_UNSPEC, sockpair);
+	if (ret < 0 && (errno == EPROTONOSUPPORT || errno == EPROTOTYPE ||
+			errno == ESOCKTNOSUPPORT)) {
+		int bufsize = 65536;
+
+		seqpacket = false;
+		ret = socketpair(AF_UNIX, SOCK_DGRAM, PF_UNSPEC, sockpair);
+
+		if (ret == 0) {
+			setsockopt(sockpair[1], SOL_SOCKET, SO_SNDBUF, &bufsize, sizeof(bufsize));
+			setsockopt(sockpair[0], SOL_SOCKET, SO_RCVBUF, &bufsize, sizeof(bufsize));
+		}
+	}
 	assertf(ret == 0, "socketpair: %m");
 
 	child = fork();
@@ -71,20 +86,38 @@ static bool test_zlog_recirculate(void)
 	loop = event_master_create(NULL);
 	zlog_recirculate_subscribe(loop, sockpair[0]);
 
-	/* this will exit when no events are left to handle, i.e. the child
-	 * closes the logging socket (hence having to use SOCK_SEQPACKET)
-	 */
-	while (event_fetch(loop, &evt))
-		event_call(&evt);
+	if (seqpacket) {
+		/* this will exit when no events are left to handle, i.e. the
+		 * child closes the logging socket (hence SOCK_SEQPACKET)
+		 */
+		while (event_fetch(loop, &evt))
+			event_call(&evt);
 
-	event_master_free(loop);
-
-	/* no close(), fd is closed by zlog_live handler when it goes dead */
+		/* no close(), fd is closed by zlog_live handler when it goes
+		 * dead
+		 */
+	}
 
 	waited = waitpid(child, &ret, 0);
 	assertf(waited == child, "waitpid(%jd, &ret, 0) = %jd (errno: %m)", (intmax_t)child,
 		(intmax_t)waited);
 	assertf(WIFEXITED(ret) && WEXITSTATUS(ret) == 0, "ret = %#x", ret);
+
+	if (!seqpacket) {
+		char peek;
+
+		/* SOCK_DGRAM gives no close notification, but the child has
+		 * exited now, so everything it logged is queued on the socket.
+		 */
+		while (recv(sockpair[0], &peek, 1, MSG_PEEK | MSG_DONTWAIT) > 0) {
+			if (!event_fetch(loop, &evt))
+				break;
+			event_call(&evt);
+		}
+		close(sockpair[0]);
+	}
+
+	event_master_free(loop);
 
 	return true;
 }

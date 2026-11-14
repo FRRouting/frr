@@ -26,7 +26,17 @@ static struct frrmod_info frrmod_default_info = {
 	.version = FRR_VERSION,
 	.description = "libfrr core module",
 };
+#ifdef __MACH__
+/*
+ * Mach-O has no symbol aliases (see the #pragma weak below), so instead give
+ * the default module object the _frrmod_this_module symbol name directly.  The
+ * extra leading underscore is Mach-O's C symbol prefix.
+ */
+union _frrmod_runtime_u frrmod_default __asm("__frrmod_this_module")
+	__attribute__((weak)) = {
+#else
 union _frrmod_runtime_u frrmod_default = {
+#endif
 	.r =
 		{
 			.info = &frrmod_default_info,
@@ -40,7 +50,9 @@ XREF_SETUP();
 // union _frrmod_runtime_u _frrmod_this_module
 //	__attribute__((weak, alias("frrmod_default")));
 // elif defined(HAVE_SYS_WEAK_ALIAS_PRAGMA)
+#ifndef __MACH__
 #pragma weak _frrmod_this_module = frrmod_default
+#endif
 // else
 // error need weak symbol support
 // endif
