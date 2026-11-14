@@ -90,6 +90,7 @@
 
 /* special syntax, value is irrelevant */
 %token <string> EXCL_BRACKET
+%token <string> PIPE
 
 /* union types for parsed rules */
 %type <node> start
@@ -306,7 +307,7 @@ selector: '<' selector_seq_seq '>' varname_token
 };
 
 selector_seq_seq:
-  selector_seq_seq '|' selector_token_seq
+  selector_seq_seq PIPE selector_token_seq
 {
   $$ = $1;
   graph_add_edge ($$.start, $3.start);
