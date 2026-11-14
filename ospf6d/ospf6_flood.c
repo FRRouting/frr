@@ -1229,7 +1229,11 @@ void ospf6_receive_lsa(struct ospf6_neighbor *from,
 						zlog_debug(
 							"%s: Current copy of LSA %s is MAXAGE, but new has recent age, flooding/installing.",
 							__PRETTY_FUNCTION__, old->name);
-					ospf6_lsa_purge(old);
+					/* The MaxAge instance is already flooded. Clear
+					 * its retransmission entry so the revived
+					 * instance can be flooded in its place.
+					 */
+					ospf6_flood_clear(old);
 					ospf6_flood(from, new);
 					ospf6_install_lsa(new);
 					return;
