@@ -5379,30 +5379,36 @@ ALIAS_ATTR(aggregate_addressv4_yang, aggregate_addressv4_yang_hidden_cmd,
 	   CMD_ATTR_YANG | CMD_ATTR_HIDDEN);
 
 
-DEFPY_YANG(bgp_maxpaths_yang, bgp_maxpaths_yang_cmd,
-	   "[no] maximum-paths [(1-" MULTIPATH_NUM_STR ")$mpaths]",
+/*
+ * DEFUN so the C preprocessor expands MULTIPATH_NUM. A DEFPY would need
+ * clippy to read config.h, which lives in the build directory.
+ */
+DEFUN_YANG(bgp_maxpaths_yang, bgp_maxpaths_yang_cmd,
+	   "[no] maximum-paths [" CMD_RANGE_STR(1, MULTIPATH_NUM) "]",
 	   NO_STR
 	   "Forward packets over multiple paths\n"
 	   "Number of paths\n")
 {
 	char af_xpath[XPATH_MAXLEN];
 	char leaf[XPATH_MAXLEN + 256];
+	int idx = 0;
 
 	bgp_cli_global_af_xpath(vty, af_xpath, sizeof(af_xpath));
 	nb_cli_enqueue_change(vty, af_xpath, NB_OP_CREATE, NULL);
 	snprintfrr(leaf, sizeof(leaf), "%s/use-multiple-paths/ebgp/maximum-paths", af_xpath);
-	if (no)
+	if (argv_find(argv, argc, "no", &idx))
 		nb_cli_enqueue_change(vty, leaf, NB_OP_DESTROY, NULL);
 	else {
-		if (!mpaths_str)
+		idx = 0;
+		if (!argv_find(argv, argc, CMD_RANGE_STR(1, MULTIPATH_NUM), &idx))
 			return CMD_WARNING_CONFIG_FAILED;
-		nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY, mpaths_str);
+		nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY, argv[idx]->arg);
 	}
 	return nb_cli_apply_changes(vty, NULL);
 }
 
-DEFPY_YANG(bgp_maxpaths_ibgp_yang, bgp_maxpaths_ibgp_yang_cmd,
-	   "[no] maximum-paths ibgp [(1-" MULTIPATH_NUM_STR ")$mpaths [equal-cluster-length$cluster]]",
+DEFUN_YANG(bgp_maxpaths_ibgp_yang, bgp_maxpaths_ibgp_yang_cmd,
+	   "[no] maximum-paths ibgp [" CMD_RANGE_STR(1, MULTIPATH_NUM) " [equal-cluster-length]]",
 	   NO_STR
 	   "Forward packets over multiple paths\n"
 	   "iBGP-multipath\n"
@@ -5411,19 +5417,23 @@ DEFPY_YANG(bgp_maxpaths_ibgp_yang, bgp_maxpaths_ibgp_yang_cmd,
 {
 	char af_xpath[XPATH_MAXLEN];
 	char leaf[XPATH_MAXLEN + 256];
+	int idx = 0;
+	bool cluster;
 
 	bgp_cli_global_af_xpath(vty, af_xpath, sizeof(af_xpath));
 	nb_cli_enqueue_change(vty, af_xpath, NB_OP_CREATE, NULL);
 	snprintfrr(leaf, sizeof(leaf), "%s/use-multiple-paths/ibgp/maximum-paths", af_xpath);
-	if (no) {
+	if (argv_find(argv, argc, "no", &idx)) {
 		nb_cli_enqueue_change(vty, leaf, NB_OP_DESTROY, NULL);
 		snprintfrr(leaf, sizeof(leaf), "%s/use-multiple-paths/ibgp/cluster-length-list",
 			   af_xpath);
 		nb_cli_enqueue_change(vty, leaf, NB_OP_DESTROY, NULL);
 	} else {
-		if (!mpaths_str)
+		idx = 0;
+		if (!argv_find(argv, argc, CMD_RANGE_STR(1, MULTIPATH_NUM), &idx))
 			return CMD_WARNING_CONFIG_FAILED;
-		nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY, mpaths_str);
+		nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY, argv[idx]->arg);
+		cluster = argv_find(argv, argc, "equal-cluster-length", &idx);
 		snprintfrr(leaf, sizeof(leaf), "%s/use-multiple-paths/ibgp/cluster-length-list",
 			   af_xpath);
 		nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY, cluster ? "true" : "false");
