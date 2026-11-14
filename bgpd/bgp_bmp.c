@@ -2338,7 +2338,8 @@ static struct bmp *bmp_open(struct bmp_targets *bt, int bmp_sock)
 	int on = 1;
 	struct access_list *acl = NULL;
 	enum filter_type ret;
-	char buf[SU_ADDRSTRLEN];
+	char buf[SU_ADDRSTRLEN + 6]; /* "address:port", as bmp->remote */
+	unsigned int port;
 	struct bmp *bmp;
 
 	sumem = sockunion_getpeername(bmp_sock);
@@ -2374,11 +2375,8 @@ static struct bmp *bmp_open(struct bmp_targets *bt, int bmp_sock)
 		ret = access_list_apply(acl, &p);
 	}
 
-	sockunion2str(&su, buf, SU_ADDRSTRLEN);
-	snprintf(buf + strlen(buf), sizeof(buf) - strlen(buf), ":%u",
-			su.sa.sa_family == AF_INET
-				? ntohs(su.sin.sin_port)
-				: ntohs(su.sin6.sin6_port));
+	port = ntohs(su.sa.sa_family == AF_INET ? su.sin.sin_port : su.sin6.sin6_port);
+	snprintfrr(buf, sizeof(buf), "%pSU:%u", &su, port);
 
 	if (ret == FILTER_DENY) {
 		bt->cnt_aclrefused++;
