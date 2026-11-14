@@ -993,9 +993,11 @@ static void ospf_mpls_te_ism_change(struct ospf_interface *oi, int old_state)
 				"MPLS-TE (%s): Interface %s goes down: flush LSA",
 				__func__, IF_NAME(oi));
 			ospf_mpls_te_lsa_schedule(lp, FLUSH_THIS_LSA);
-			return;
 		}
-		break;
+		/* The Area can be deleted before the interface comes back */
+		if (!IS_INTER_AS(lp->type))
+			lp->area = NULL;
+		return;
 	default:
 		break;
 	}
@@ -1035,6 +1037,25 @@ static void ospf_mpls_te_nsm_change(struct ospf_neighbor *nbr, int old_state)
 			EC_OSPF_TE_UNEXPECTED,
 			"MPLS-TE (%s): Cannot refer to OSPF from OI(%s)?",
 			__func__, IF_NAME(oi));
+		return;
+	}
+
+	/*
+	 * A TE Link flushed on Neighbor Down or Deleted stays active, to be
+	 * re-originated once Full, and keeps its Link ID only while an
+	 * adjacency is left, set to the DR on a LAN.
+	 */
+	if (!IS_INTER_AS(lp->type) && (nbr->state == NSM_Down || nbr->state == NSM_Deleted)) {
+		if (OspfMplsTE.enabled && CHECK_FLAG(lp->flags, LPFLG_LSA_ENGAGED)) {
+			ote_debug("MPLS-TE (%s): Interface %s goes down: flush LSA", __func__,
+				  IF_NAME(oi));
+			ospf_mpls_te_lsa_schedule(lp, FLUSH_THIS_LSA);
+			SET_FLAG(lp->flags, LPFLG_LSA_ACTIVE);
+		}
+		if (oi->full_nbrs == 0)
+			TLV_TYPE(lp->link_id) = 0;
+		else if (oi->state != ISM_PointToPoint)
+			set_linkparams_link_id(lp, DR(oi));
 		return;
 	}
 
