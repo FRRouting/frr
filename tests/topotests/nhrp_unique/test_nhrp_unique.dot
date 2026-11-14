@@ -1,0 +1,36 @@
+graph template {
+  label="nhrp_unique";
+
+  # Routers
+  nhs1 [
+    shape=doubleoctagon,
+    label="nhs1\nNHS",
+    fillcolor="#f08080",
+    style=filled,
+  ];
+  nhc1 [
+    shape=doubleoctagon,
+    label="nhc1\n172.16.1.4/32",
+    fillcolor="#f08080",
+    style=filled,
+  ];
+  nhc2 [
+    shape=doubleoctagon,
+    label="nhc2\n172.16.1.4/32",
+    fillcolor="#f08080",
+    style=filled,
+  ];
+
+  # Switch
+  s1 [
+    shape=oval,
+    label="s1\n10.2.1.0/24",
+    fillcolor="#d0e0d0",
+    style=filled,
+  ];
+
+  # Connections
+  nhs1 -- s1 [label="eth0"];
+  nhc1 -- s1 [label="eth0"];
+  nhc2 -- s1 [label="eth0"];
+}
