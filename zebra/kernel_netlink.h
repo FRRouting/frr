@@ -26,6 +26,7 @@ struct rtnexthop;
 struct vty;
 struct zebra_dplane_ctx;
 struct zebra_dplane_info;
+struct zebra_dplane_sockets;
 struct zebra_ns;
 
 #define NL_RCV_PKT_BUF_SIZE     (34 * 1024)
@@ -70,8 +71,8 @@ extern int netlink_parse_info(netlink_parse_filter_t filter, struct nlsock *nl,
 extern int netlink_talk_filter(struct nlmsghdr *h, ns_id_t ns, int startup, void *arg);
 extern int netlink_talk(netlink_parse_filter_t filter, struct nlmsghdr *n, struct nlsock *nl,
 			struct zebra_ns *zns, bool startup, void *arg, int *nl_err);
-extern int ge_netlink_talk(netlink_parse_filter_t filter, struct nlmsghdr *n, struct zebra_ns *zns,
-			   bool startup, void *arg, int *nl_err);
+extern int ge_netlink_talk(netlink_parse_filter_t filter, struct nlmsghdr *n, struct nlsock *nl,
+			   ns_id_t ns_id, bool startup, void *arg, int *nl_err);
 extern int netlink_request(struct nlsock *nl, void *req);
 
 enum netlink_msg_status {
@@ -116,6 +117,8 @@ extern void netlink_set_batch_buffer_size(uint32_t size, uint32_t threshold,
 					  bool set);
 
 extern struct nlsock *kernel_netlink_nlsock_lookup(int sock);
+extern struct nlsock *kernel_netlink_nlsock_lookup_info(const struct zebra_dplane_info *info);
+extern void kernel_dplane_sockets_close(struct zebra_dplane_sockets *sockets);
 
 #ifdef __cplusplus
 }

@@ -206,14 +206,14 @@ static void sigint(void)
 	 */
 	vrf_iterate(vrf_disable);
 
+	/* Clean up if any stale NHGs present */
+	zebra_nhg_sweep_table(zrouter.nhgs_id, true);
+
 	/* Indicate that all new dplane work has been enqueued. When that
 	 * work is complete, the dataplane will enqueue an event
 	 * with the 'finalize' function.
 	 */
 	zebra_dplane_finish();
-
-	/* Clean up if any stale NHGs present */
-	zebra_nhg_sweep_table(zrouter.nhgs_id, true);
 }
 
 /*

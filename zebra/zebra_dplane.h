@@ -42,6 +42,9 @@ struct zebra_dplane_info {
 #if defined(HAVE_NETLINK)
 	int sock;
 	int seq;
+	uint32_t sock_gen;
+	/* Netlink port ID captured for message encoding. */
+	uint32_t nlmsg_pid;
 	bool is_cmd;
 #endif
 };
@@ -58,9 +61,20 @@ zebra_dplane_info_from_zns(struct zebra_dplane_info *zns_info,
 	if (is_cmd) {
 		zns_info->sock = zns->netlink_cmd.sock;
 		zns_info->seq = zns->netlink_cmd.seq;
+		zns_info->sock_gen = zns->netlink_cmd.gen;
+		zns_info->nlmsg_pid = zns->netlink_cmd.snl.nl_pid;
 	} else {
-		zns_info->sock = zns->netlink_dplane_in.sock;
-		zns_info->seq = zns->netlink_dplane_in.seq;
+		if (zns->dplane_sockets) {
+			zns_info->sock = zns->dplane_sockets->in.sock;
+			zns_info->seq = zns->dplane_sockets->in.seq;
+			zns_info->sock_gen = zns->dplane_sockets->in.gen;
+			zns_info->nlmsg_pid = zns->dplane_sockets->in.snl.nl_pid;
+		} else {
+			zns_info->sock = -1;
+			zns_info->seq = 0;
+			zns_info->sock_gen = 0;
+			zns_info->nlmsg_pid = 0;
+		}
 	}
 #endif /* NETLINK */
 }
@@ -70,6 +84,12 @@ zebra_dplane_info_from_zns(struct zebra_dplane_info *zns_info,
  * needs to start and stop reading incoming events from the ns.
  */
 void zebra_dplane_ns_enable(struct zebra_ns *zns, bool enabled);
+void zebra_dplane_ns_delete(struct zebra_ns *zns);
+
+#if defined(HAVE_NETLINK)
+/* Generic netlink socket of the ns whose dataplane socket info names. */
+struct nlsock *dplane_ns_ge_nlsock(const struct zebra_dplane_info *info);
+#endif
 
 /*
  * Result codes used when returning status back to the main zebra context.
@@ -1009,9 +1029,7 @@ void dplane_ctx_set_netconf_linkdown(struct zebra_dplane_ctx *ctx,
 				     enum dplane_netconf_status_e val);
 
 /* Namespace fd info - esp. for netlink communication */
-const struct zebra_dplane_info *dplane_ctx_get_ns(
-	const struct zebra_dplane_ctx *ctx);
-int dplane_ctx_get_ns_sock(const struct zebra_dplane_ctx *ctx);
+const struct zebra_dplane_info *dplane_ctx_get_ns(const struct zebra_dplane_ctx *ctx);
 
 /* Indicates zebra shutdown/exit is in progress. Some operations may be
  * simplified or skipped during shutdown processing.

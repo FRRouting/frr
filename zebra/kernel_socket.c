@@ -1571,7 +1571,7 @@ void kernel_init(struct zebra_ns *zns)
 	routing_socket(zns);
 }
 
-void kernel_terminate(struct zebra_ns *zns, bool complete)
+void kernel_terminate(struct zebra_ns *zns)
 {
 	return;
 }
