@@ -17,6 +17,11 @@ For route-map `set extcommunity rt|soo|nt|color` and for
 - an existing rule of the same kind is not replaced, and no rule is
   added to an entry that had none (checked against the installed
   route-map rules, not just the configuration text).
+
+Check also the valid "set extcommunity color" values. r1 originates
+10.10.10.1/32 with the COLOR route-map. Valid colors ([CO:]COLOR, CO being
+00, 01, 10 or 11 and COLOR being 1 to 4294967295) are applied to the route
+in the BGP table. A color without CO bits is encoded with CO bits 00.
 """
 
 import difflib
@@ -34,6 +39,7 @@ sys.path.append(os.path.join(CWD, "../"))
 # pylint: disable=C0413
 from lib import topotest
 from lib.topogen import Topogen, get_topogen
+from lib.topolog import logger
 
 pytestmark = [pytest.mark.bgpd]
 
@@ -49,10 +55,8 @@ EXPECTED_SET_CLAUSES = {
     20: [],
 }
 
-# The rt, soo and nt values are plain strings in the YANG model, so only
-# the northbound validation callback can reject them. The color value
-# matches the YANG color-list pattern (it is read as "01:100" followed by
-# "01:5"), so it also gets as far as the validation callback.
+# The rt, soo, nt and color values are plain strings in the YANG model, so
+# only the northbound validation callback can reject them.
 MALFORMED_SET_VALUES = [
     ("rt", "1.2.3"),
     ("rt", "100"),
@@ -66,6 +70,12 @@ MALFORMED_SET_VALUES = [
     ("nt", "192.168.1.1:5"),
     ("nt", "192.168.1.1"),
     ("color", "01:10001:5"),
+    ("color", "abc"),
+    ("color", "0"),
+    ("color", "4294967296"),
+    ("color", "02:100"),
+    ("color", "65000:100"),
+    ("color", "01:100 abc"),
 ]
 
 MALFORMED_EXTCOMMUNITY_LIST_VALUES = [
@@ -264,6 +274,138 @@ def test_bgp_extcommunity_valid_config_still_accepted():
         "bgp extcommunity-list standard nt-list seq 10 permit nt 10.0.0.1:0"
         in _running_config(r1)
     )
+
+
+def check_r1_route(ext_community):
+    tgen = get_topogen()
+    r1 = tgen.gears["r1"]
+
+    if ext_community is None:
+        expected_ext_community = None
+    else:
+        expected_ext_community = {"string": ext_community}
+    expected = {
+        "prefix": "10.10.10.1/32",
+        "paths": [
+            {
+                "valid": True,
+                "extendedCommunity": expected_ext_community,
+            }
+        ],
+    }
+    test_func = functools.partial(
+        topotest.router_json_cmp,
+        r1,
+        "show bgp ipv4 unicast 10.10.10.1/32 json",
+        expected,
+    )
+    _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
+    assert result is None, '"r1" 10.10.10.1/32 has not the expected extended community'
+
+
+def check_r1_route_map(rmap_name, set_clauses):
+    tgen = get_topogen()
+    r1 = tgen.gears["r1"]
+
+    expected = {
+        "bgpd": {
+            rmap_name: {
+                "rules": [
+                    {
+                        "sequenceNumber": 10,
+                        "setClauses": ["__ordered__"] + set_clauses,
+                    }
+                ]
+            }
+        }
+    }
+    test_func = functools.partial(
+        topotest.router_json_cmp,
+        r1,
+        f"show route-map {rmap_name} json",
+        expected,
+    )
+    _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
+    assert (
+        result is None
+    ), f'"r1" route-map {rmap_name} has not the expected set clauses'
+
+
+def test_bgp_color_converge():
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    logger.info("r1, check 10.10.10.1/32 is originated without extended community")
+    check_r1_route(None)
+
+
+def test_bgp_color_without_co_bits():
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    r1 = tgen.gears["r1"]
+
+    logger.info("r1, set extcommunity color without CO bits")
+    r1.vtysh_cmd(
+        """
+configure terminal
+route-map COLOR permit 10
+ set extcommunity color 100
+"""
+    )
+
+    check_r1_route_map("COLOR", ["extcommunity color 100"])
+
+    logger.info("r1, check the color is encoded with CO bits 00")
+    check_r1_route("Color:00:100")
+
+
+def test_bgp_color_with_co_bits():
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    r1 = tgen.gears["r1"]
+
+    logger.info("r1, set extcommunity color with all the CO bits values")
+    r1.vtysh_cmd(
+        """
+configure terminal
+route-map COLOR permit 10
+ set extcommunity color 00:200 01:300 10:400 11:4294967295
+"""
+    )
+
+    check_r1_route_map(
+        "COLOR", ["extcommunity color 00:200 01:300 10:400 11:4294967295"]
+    )
+
+    logger.info("r1, check the colors are encoded with their CO bits")
+    check_r1_route("Color:00:200 Color:01:300 Color:10:400 Color:11:4294967295")
+
+
+def test_bgp_color_mixed_co_bits():
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    r1 = tgen.gears["r1"]
+
+    logger.info("r1, set extcommunity color with and without CO bits")
+    r1.vtysh_cmd(
+        """
+configure terminal
+route-map COLOR permit 10
+ set extcommunity color 500 10:600
+"""
+    )
+
+    check_r1_route_map("COLOR", ["extcommunity color 500 10:600"])
+
+    logger.info("r1, check the colors are encoded")
+    check_r1_route("Color:00:500 Color:10:600")
 
 
 if __name__ == "__main__":
