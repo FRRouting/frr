@@ -1057,7 +1057,7 @@ static void bgp_unreach_path_detail_json(json_object *json_path,
 		json_object_string_add(json_path, "pathFrom", "external");
 
 	{
-		time_t tbuf = time(NULL) - (monotime(NULL) - pi->uptime);
+		time_t tbuf = time_to_epoch(pi->uptime);
 		char timebuf[64];
 		json_object *json_last_update = json_object_new_object();
 
@@ -1148,7 +1148,7 @@ static void bgp_unreach_path_summary_json(json_object *json_path,
 		json_object_string_add(json_path, "pathFrom", "external");
 
 	{
-		time_t tbuf = time(NULL) - (monotime(NULL) - pi->uptime);
+		time_t tbuf = time_to_epoch(pi->uptime);
 		char timebuf[64];
 		json_object *json_last_update = json_object_new_object();
 
