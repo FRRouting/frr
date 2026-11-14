@@ -962,7 +962,7 @@ size_t aspath_put(struct stream *s, struct aspath *as, int use32bit)
 	struct assegment *seg = as->segments;
 	size_t bytes = 0;
 
-	if (!seg || seg->length == 0)
+	if (!seg)
 		return 0;
 
 	/*
@@ -979,6 +979,15 @@ size_t aspath_put(struct stream *s, struct aspath *as, int use32bit)
 		int written = 0;
 		int asns_packed = 0;
 		size_t lenp;
+
+		/* A segment must contain at least one ASN on the wire
+		 * (RFC 4271 4.3); an empty one would be rejected by the
+		 * peer as a malformed AS_PATH, so never write it out.
+		 */
+		if (seg->length == 0) {
+			seg = next;
+			continue;
+		}
 
 		/* Overlength segments have to be split up */
 		while ((seg->length - written) > AS_SEGMENT_MAX) {
@@ -1000,7 +1009,9 @@ size_t aspath_put(struct stream *s, struct aspath *as, int use32bit)
 		 * Case of a segment which was overlength and split up
 		 * will be missed here, but that doesn't matter.
 		 */
-		while (next && ASSEGMENTS_PACKABLE(seg, next)) {
+		while (next && ASSEGMENTS_PACKABLE(seg, next) &&
+		       (seg->length - written + asns_packed + next->length) <= AS_SEGMENT_MAX &&
+		       ASSEGMENT_DATA_SIZE(next->length, use32bit) <= STREAM_WRITEABLE(s)) {
 			/* NB: We should never normally get here given
 			 * we
 			 * normalise aspath data when parse them.
@@ -1018,10 +1029,11 @@ size_t aspath_put(struct stream *s, struct aspath *as, int use32bit)
 			/* Next segment's data can fit in this one */
 			assegment_data_put(s, next->as, next->length, use32bit);
 
-			/* update the length of the segment header */
-			stream_putc_at(s, lenp,
-				       seg->length - written + next->length);
+			/* update the length of the segment header to cover
+			 * every ASN packed into it so far
+			 */
 			asns_packed += next->length;
+			stream_putc_at(s, lenp, seg->length - written + asns_packed);
 
 			next = next->next;
 		}
@@ -1410,6 +1422,16 @@ struct aspath *aspath_remove_private_asns(struct aspath *aspath, as_t peer_asn)
 				peer++;
 		}
 
+		/* Nothing of this segment is retained: leave it out rather
+		 * than appending a zero-length segment, which aspath_put()
+		 * would write to the wire and the peer would reject as a
+		 * malformed AS_PATH.
+		 */
+		if (!(public + peer)) {
+			seg = seg->next;
+			continue;
+		}
+
 		// The entire segment is public so copy it
 		if (public == seg->length)
 			new_seg = assegment_dup(seg);
@@ -1446,6 +1468,8 @@ struct aspath *aspath_remove_private_asns(struct aspath *aspath, as_t peer_asn)
 	}
 	if (!aspath->refcnt)
 		aspath_free(aspath);
+	/* Dropping segments can leave AS_SEQUENCEs adjacent; merge them */
+	new->segments = assegment_normalise(new->segments);
 	aspath_str_update(new);
 	new->count = aspath_count_hops_internal(new);
 	return new;
