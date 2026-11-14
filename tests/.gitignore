@@ -89,4 +89,5 @@ frr_northbound*
 /ospf6d/test_lsdb
 /ospf6d/test_lsdb_clippy.c
 /pimd/test_pim_jp_encode
+/pimd/test_pim_staterefresh
 /zebra/test_lm_plugin
