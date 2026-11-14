@@ -88,6 +88,63 @@ def test_bgp_evpn_route_map_set_gateway_ip():
     assert result is None, "EVPN Route with gateway-ip should be advertised"
 
 
+def _r2_rt5_nexthops():
+    """Installed next hops of r1's RT-5 route 10.10.10.10/32 on r2."""
+    r2 = get_topogen().gears["r2"]
+    out = r2.vtysh_cmd("show ip route 10.10.10.10/32 json", isjson=True)
+    return sorted(
+        nh.get("ip")
+        for route in out.get("10.10.10.10/32", [])
+        if route.get("installed")
+        for nh in route.get("nexthops", [])
+    )
+
+
+def test_bgp_evpn_route_map_set_gateway_ip_removed():
+    """
+    r2 imports r1's RT-5 route with gateway IP 10.10.10.10, which does not
+    resolve on r2, so the route is not installed. Once r1 stops setting the
+    gateway IP, r2 must install the route via r1. Once r1 sets it again,
+    r2 must remove it again.
+    """
+    tgen: Topogen = get_topogen()
+
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    r1: TopoRouter = tgen.gears["r1"]
+
+    logger.info("Check the RT-5 route with gateway-ip is not installed")
+    _, result = topotest.run_and_expect(_r2_rt5_nexthops, [], count=30, wait=1)
+    assert result == [], "r2 installed the RT-5 route via {}".format(result)
+
+    logger.info("Remove set-gw-ip on r1")
+    r1.vtysh_cmd(
+        """
+        configure terminal
+        router bgp 64000
+         address-family l2vpn evpn
+          no neighbor 10.0.0.3 route-map set-gw-ip out
+        """
+    )
+    _, result = topotest.run_and_expect(
+        _r2_rt5_nexthops, ["10.0.0.2"], count=30, wait=1
+    )
+    assert result == ["10.0.0.2"], "r2 RT-5 route next hops: {}".format(result)
+
+    logger.info("Put set-gw-ip back on r1")
+    r1.vtysh_cmd(
+        """
+        configure terminal
+        router bgp 64000
+         address-family l2vpn evpn
+          neighbor 10.0.0.3 route-map set-gw-ip out
+        """
+    )
+    _, result = topotest.run_and_expect(_r2_rt5_nexthops, [], count=30, wait=1)
+    assert result == [], "r2 still installs the RT-5 route via {}".format(result)
+
+
 if __name__ == "__main__":
     args = ["-s"] + sys.argv[1:]
     sys.exit(pytest.main(args))
