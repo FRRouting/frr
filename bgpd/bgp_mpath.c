@@ -449,6 +449,7 @@ void bgp_path_info_mpath_update(struct bgp *bgp, struct bgp_dest *dest,
 	bool all_paths_lb;
 	char path_buf[PATH_ADDPATH_STR_BUFFER];
 	bool old_mpath, new_mpath;
+	struct attr *old_mp_attr = NULL;
 	struct bgp_debug_vrf dv = {
 		.name = "Unknown",
 		.id = VRF_UNKNOWN,
@@ -476,6 +477,10 @@ void bgp_path_info_mpath_update(struct bgp *bgp, struct bgp_dest *dest,
 		old_cum_bw = bgp_path_info_mpath_cumbw(dest);
 		bgp_path_info_mpath_count_set(dest, 0);
 		bgp_path_info_mpath_lb_update(dest, false, false, 0);
+		if (old_best == new_best && dest->mpath) {
+			old_mp_attr = dest->mpath->mp_attr;
+			dest->mpath->mp_attr = NULL;
+		}
 		bgp_path_info_mpath_free(&dest->mpath);
 		dest->mpath = NULL;
 	}
@@ -551,7 +556,8 @@ void bgp_path_info_mpath_update(struct bgp *bgp, struct bgp_dest *dest,
 			if (cur_iterator != new_best)
 				SET_FLAG(cur_iterator->flags, BGP_PATH_MULTIPATH);
 
-			if (!old_mpath)
+			/* A kept bestpath may lack BGP_PATH_MULTIPATH; it is not new. */
+			if (!old_mpath && !(cur_iterator == new_best && old_best == new_best))
 				mpath_changed = true;
 
 			if (ecommunity_linkbw_present(bgp_attr_get_ecommunity(cur_iterator->attr),
@@ -587,6 +593,18 @@ void bgp_path_info_mpath_update(struct bgp *bgp, struct bgp_dest *dest,
 		if (mpath_count > 1) {
 			bgp_path_info_mpath_count_set(dest, mpath_count);
 			bgp_path_info_mpath_lb_update(dest, true, all_paths_lb, cum_bw);
+		}
+		/*
+		 * Keep the aggregate attribute across an unchanged multipath
+		 * bestpath: bgp_path_info_mpath_aggregate_update() sets
+		 * BGP_PATH_ATTR_CHANGED whenever it finds none.  A single path
+		 * must not get mpath data back, it would be installed weighted.
+		 */
+		if (old_mp_attr) {
+			if (mpath_count > 1)
+				bgp_path_info_mpath_attr_set(dest, old_mp_attr);
+			else
+				bgp_attr_unintern(&old_mp_attr);
 		}
 		if (debug)
 			zlog_debug("(%s:%u:%u)%pBD: New mpath count (incl newbest) %d mpath-change %s all_paths_lb %d cum_bw %" PRIu64,
