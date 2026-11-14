@@ -27,6 +27,7 @@
 
 #include "pbr_nht.h"
 #include "pbr_map.h"
+#include "pbr_tc.h"
 #include "pbr_memory.h"
 #include "pbr_zebra.h"
 #include "pbr_debug.h"
@@ -558,13 +559,20 @@ static bool pbr_encode_pbr_map_sequence(struct stream *s,
 
 	r.action.flags = pbrms->action_bm;
 
-	SET_FLAG(r.action.flags, PBR_ACTION_TABLE); /* always valid */
+	/*
+	 * A classify-only sequence (set traffic-class, no forwarding action)
+	 * is sent without a table: zebra installs the classifier only.
+	 */
+	if (!pbrms_is_classify_only(pbrms))
+		SET_FLAG(r.action.flags, PBR_ACTION_TABLE);
 
 	/*
 	 * if the user does not use the command "set vrf name unchanged"
 	 * then pbr_encode_pbr_map_sequence_vrf will not be called
 	 */
-	if (pbrms->vrf_unchanged || pbrms->vrf_lookup)
+	if (pbrms_is_classify_only(pbrms))
+		r.action.table = 0;
+	else if (pbrms->vrf_unchanged || pbrms->vrf_lookup)
 		r.action.table = pbr_map_sequence_vrf(pbrms, ifp);
 	else if (pbrms->nhgrp_name)
 		r.action.table = pbr_nht_get_table(pbrms->nhgrp_name);
@@ -588,6 +596,11 @@ static bool pbr_encode_pbr_map_sequence(struct stream *s,
 
 	r.action.pcp = pbrms->action_pcp;
 	r.action.vlan_id = pbrms->action_vlan_id;
+
+	if (CHECK_FLAG(pbrms->action_bm, PBR_ACTION_TRAFFIC_CLASS)) {
+		r.action.traffic_class = pbrms->action_traffic_class;
+		r.action.tc_mark_mask = pbr_tc.mark_mask;
+	}
 
 	strlcpy(r.ifname, ifp->name, sizeof(r.ifname));
 

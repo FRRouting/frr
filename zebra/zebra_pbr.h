@@ -15,6 +15,7 @@
 
 #include "rt.h"
 #include "pbr.h"
+#include "zebra_pbr_tc.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -52,6 +53,9 @@ struct zebra_pbr_rule {
 	struct zebra_pbr_action action;
 
 	vrf_id_t vrf_id;
+
+	/* traffic-class classifier derived from this rule (zebra_pbr_tc.c) */
+	struct zebra_pbr_tc tc;
 };
 
 #define IS_RULE_FILTERING_ON_SRC_IP(r) \

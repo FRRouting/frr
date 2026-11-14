@@ -2045,6 +2045,12 @@ static void zapi_pbr_rule_action_encode(struct stream *s, struct pbr_action *a)
 		stream_putc(s, a->pcp);
 	if (CHECK_FLAG(a->flags, PBR_ACTION_VLAN_ID))
 		stream_putw(s, a->vlan_id);
+
+	/* QoS */
+	if (CHECK_FLAG(a->flags, PBR_ACTION_TRAFFIC_CLASS)) {
+		stream_putc(s, a->traffic_class);
+		stream_putl(s, a->tc_mark_mask);
+	}
 }
 
 static bool zapi_pbr_rule_action_decode(struct stream *s, struct pbr_action *a)
@@ -2084,6 +2090,14 @@ static bool zapi_pbr_rule_action_decode(struct stream *s, struct pbr_action *a)
 		STREAM_GETC(s, a->pcp);
 	if (CHECK_FLAG(a->flags, PBR_ACTION_VLAN_ID))
 		STREAM_GETW(s, a->vlan_id);
+
+	/* QoS */
+	if (CHECK_FLAG(a->flags, PBR_ACTION_TRAFFIC_CLASS)) {
+		STREAM_GETC(s, a->traffic_class);
+		STREAM_GETL(s, a->tc_mark_mask);
+		if (a->traffic_class > PBR_TC_MAX || !pbr_tc_mark_mask_valid(a->tc_mark_mask))
+			goto stream_failure;
+	}
 
 	return true;
 
@@ -2171,6 +2185,7 @@ int zapi_tc_class_encode(uint8_t cmd, struct stream *s, struct tc_class *class)
 		break;
 	case TC_QDISC_UNSPEC:
 	case TC_QDISC_NOQUEUE:
+	case TC_QDISC_CLSACT:
 		/* not implemented */
 		break;
 	}
