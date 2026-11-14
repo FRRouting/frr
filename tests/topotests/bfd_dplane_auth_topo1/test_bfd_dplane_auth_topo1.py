@@ -8,7 +8,8 @@
 
 """
 Test that a session's authentication keys reach the data plane with the
-lifetimes that say when each may be used.
+lifetimes that say when each may be used, and with the keyed SHA1 digest
+each one uses.
 
 The data plane picks the key, not the daemon: it has the packets, so it is
 the only side that can tell which key applies to one. That only works if
@@ -59,13 +60,14 @@ def setup_module(mod):
     dump_file = os.path.join(router.gearlogdir, "bfd_dplane.data")
 
     # The listener has to be accepting before bfdd starts, since bfdd
-    # connects to it as a client. It declares that it authenticates, or
-    # bfdd would keep the session instead of offloading it.
+    # connects to it as a client. It declares that it authenticates, and
+    # computes keyed SHA1 as RFC 5880 does, or bfdd would keep the session
+    # instead of offloading it.
     router.load_frr_config(
         daemons=[
             (
                 TopoRouter.RD_BFD_DPLANE_LISTENER,
-                "-c 0x1 -p {} -z {}".format(DPLANE_PORT, dump_file),
+                "-c 0x3 -p {} -z {}".format(DPLANE_PORT, dump_file),
             ),
             (TopoRouter.RD_ZEBRA, None),
             (
@@ -154,7 +156,7 @@ def _keys(dump):
     out = []
     pattern = re.compile(
         r"auth key: id (\d+) type (\d+) len (\d+) "
-        r"send (-?\d+) (-?\d+) accept (-?\d+) (-?\d+)"
+        r"send (-?\d+) (-?\d+) accept (-?\d+) (-?\d+) flags (\d+)"
     )
     for line in dump.splitlines():
         m = pattern.search(line)
@@ -169,6 +171,7 @@ def _keys(dump):
                     "send_end": n[4],
                     "accept_start": n[5],
                     "accept_end": n[6],
+                    "flags": n[7],
                 }
             )
     return out
@@ -317,6 +320,42 @@ def test_a_lifetime_edit_is_pushed():
     ), "the data plane still holds the old accept lifetime for key {}, {}".format(
         target, before[0]["accept_end"]
     )
+
+
+def test_keyed_sha1_digest_is_flagged():
+    """Each keyed SHA1 key says which digest it uses.
+
+    "sha-1" is the digest of RFC 5880 Section 6.7.4 and "hmac-sha-1" an
+    HMAC over the packet. They differ on the wire, so the data plane has to
+    be told which one a key uses.
+    """
+    _skip_on_failure()
+
+    router = get_topogen().gears["r1"]
+    if not router.has_crypto_openssl():
+        pytest.skip("crypto-openssl disabled. skipping SHA1 test")
+
+    router.vtysh_cmd(
+        """
+        configure terminal
+        key chain rollover
+        key 5
+        key-string fifthkey00000005
+        cryptographic-algorithm sha-1
+        exit
+        key 6
+        key-string sixthkey00000006
+        cryptographic-algorithm hmac-sha-1
+        end
+        """
+    )
+
+    def _flags():
+        return {k["id"]: k["flags"] for k in _keys(_listener_dump())}
+
+    want = {1: 0, 2: 0, 3: 0, 4: 0, 5: 1, 6: 0}
+    _, result = topotest.run_and_expect(_flags, want, count=30, wait=1)
+    assert result == want, "the data plane holds keys with flags {}".format(result)
 
 
 def test_memory_leak():

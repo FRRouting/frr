@@ -110,6 +110,10 @@ enum bfddp_message_type {
  */
 /** Authenticates sessions with the keys `DP_SESSION_AUTH` carries. */
 #define BFDDP_CAP_SESSION_AUTH (1ULL << 0)
+/** Computes keyed SHA1 as RFC 5880 Section 6.7.4 does, for keys flagged
+ * `BFDDP_AUTH_KEY_RFC_SHA1`.
+ */
+#define BFDDP_CAP_AUTH_RFC_SHA1 (1ULL << 1)
 
 /**
  * `ECHO_REQUEST`/`ECHO_REPLY` data payload.
@@ -387,12 +391,17 @@ struct bfddp_auth_key {
 	/** Length of `key`, in bytes. */
 	uint8_t key_len;
 	/**
+	 * \see BFDDP_AUTH_KEY_RFC_SHA1. Without it, keyed SHA1 is an
+	 * HMAC-SHA1 over the packet with the digest field zeroed.
+	 */
+	uint8_t flags;
+	/**
 	 * Reserved / zeroed.
 	 *
 	 * Sized so the lifetimes below start on an eight byte boundary
 	 * without the compiler inserting padding of its own.
 	 */
-	uint8_t zero[5];
+	uint8_t zero[4];
 
 	/** When this key may be used to transmit. */
 	struct bfddp_key_lifetime send;
@@ -402,6 +411,13 @@ struct bfddp_auth_key {
 	/** Key material, zero padded. */
 	char key[BFDDP_AUTH_KEY_MAX];
 };
+
+/**
+ * `bfddp_auth_key.flags`: keyed SHA1 as RFC 5880 Section 6.7.4 describes,
+ * SHA1 over the packet with the key in the digest field. Only sent to a
+ * data plane that declared `BFDDP_CAP_AUTH_RFC_SHA1`.
+ */
+#define BFDDP_AUTH_KEY_RFC_SHA1 0x01
 
 /**
  * `DP_SESSION_AUTH` data payload.

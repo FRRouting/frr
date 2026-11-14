@@ -254,6 +254,8 @@ const struct keychain_algo_info algo_info[] = {
 	{KEYCHAIN_ALGO_HMAC_SHA512, "hmac-sha-512",
 	 KEYCHAIN_HMAC_SHA512_HASH_SIZE, KEYCHAIN_ALGO_SHA512_INTERNAL_BLK_SIZE,
 	 "HMAC-SHA-512"},
+	{KEYCHAIN_ALGO_SHA1, "sha-1", KEYCHAIN_HMAC_SHA1_HASH_SIZE,
+	 KEYCHAIN_ALGO_SHA1_INTERNAL_BLK_SIZE, "SHA-1"},
 	{KEYCHAIN_ALGO_MAX, "max", KEYCHAIN_MAX_HASH_SIZE,
 	 KEYCHAIN_ALGO_MAX_INTERNAL_BLK_SIZE, "Not defined"}
 };
@@ -305,6 +307,8 @@ enum keychain_hash_algo keychain_get_algo_id_by_name(const char *name)
 		return KEYCHAIN_ALGO_HMAC_SHA384;
 	else if (!strncmp(name, "hmac-sha-5", 10))
 		return KEYCHAIN_ALGO_HMAC_SHA512;
+	else if (!strcmp(name, "sha-1"))
+		return KEYCHAIN_ALGO_SHA1;
 	else
 		return KEYCHAIN_ALGO_NULL;
 #endif

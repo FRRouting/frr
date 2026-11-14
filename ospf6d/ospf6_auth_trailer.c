@@ -284,6 +284,7 @@ static void ospf6_hash_hmac_sha_digest(enum keychain_hash_algo key,
 		break;
 	case KEYCHAIN_ALGO_CLEARTEXT:
 	case KEYCHAIN_ALGO_NULL:
+	case KEYCHAIN_ALGO_SHA1:
 	case KEYCHAIN_ALGO_MAX:
 	default:
 		/* no action */
@@ -308,8 +309,7 @@ uint16_t ospf6_auth_len_get(struct ospf6_interface *oi)
 			keychain = keychain_lookup(keychain_name);
 			if (keychain) {
 				key = key_lookup_for_send(keychain);
-				if (key && key->string
-				    && key->hash_algo != KEYCHAIN_ALGO_NULL) {
+				if (key && key->string && ospf6_auth_algo_usable(key->hash_algo)) {
 					at_len = OSPF6_AUTH_HDR_MIN_SIZE
 						 + keychain_get_hash_len(
 							   key->hash_algo);
@@ -523,8 +523,7 @@ int ospf6_auth_check_digest(struct ospf6_header *oh, struct ospf6_interface *oi,
 			return OSPF6_AUTH_VALIDATE_FAILURE;
 		}
 
-		if (key && key->string
-		    && key->hash_algo != KEYCHAIN_ALGO_NULL) {
+		if (key && key->string && ospf6_auth_algo_usable(key->hash_algo)) {
 			auth_str = key->string;
 			hash_algo = key->hash_algo;
 		} else {
@@ -628,8 +627,7 @@ void ospf6_auth_digest_send(struct in6_addr *src, struct ospf6_interface *oi,
 			keychain = keychain_lookup(keychain_name);
 			if (keychain) {
 				key = key_lookup_for_send(keychain);
-				if (key && key->string
-				    && key->hash_algo != KEYCHAIN_ALGO_NULL) {
+				if (key && key->string && ospf6_auth_algo_usable(key->hash_algo)) {
 					auth_str = key->string;
 					hash_algo = key->hash_algo;
 					key_id = key->index;
