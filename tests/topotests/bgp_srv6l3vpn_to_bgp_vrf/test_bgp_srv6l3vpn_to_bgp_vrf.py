@@ -104,6 +104,7 @@ def setup_module(mod):
     for router in tgen.routers().values():
         router.load_frr_config()
 
+    tgen.gears["r1"].run("sysctl net.vrf.strict_mode=1")
     tgen.gears["r1"].run("ip link add vrf10 type vrf table 10")
     shutdown_bringup_interface_in_kernel(
         tgen.gears['r1'].tgen,
@@ -122,6 +123,7 @@ def setup_module(mod):
     tgen.gears["r1"].run("ip link set eth2 master vrf10")
     tgen.gears["r1"].run("ip link set eth3 master vrf20")
 
+    tgen.gears["r2"].run("sysctl net.vrf.strict_mode=1")
     tgen.gears["r2"].run("ip link add vrf10 type vrf table 10")
     shutdown_bringup_interface_in_kernel(
         tgen.gears['r2'].tgen,
