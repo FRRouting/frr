@@ -1486,6 +1486,28 @@ DEFPY(no_srv6_sid_format_usid_lib_explicit,
 	return CMD_SUCCESS;
 }
 
+/*
+ * The Wide LIB is an array indexed by the offset of a SID function from
+ * wlib_start, so the Explicit Wide LIB cannot start below it. The allocation
+ * and release paths clamp the start to wlib_start; warn when the configured
+ * ranges rely on that, but leave the configured values alone.
+ *
+ * The two ranges are saved as separate config lines and applied one at a time,
+ * so a setter that rejected or adjusted based on the other range's current
+ * value would depend on the order the lines happen to be replayed in.
+ */
+static void srv6_sid_format_usid_wlib_warn(struct vty *vty,
+					   const struct srv6_sid_format *format)
+{
+	if (format->config.usid.ewlib_start >= format->config.usid.wlib_start)
+		return;
+
+	vty_out(vty,
+		"%% Explicit Wide LIB start (%u) is below the Wide LIB start (%u), the Explicit Wide LIB starts at %u\n",
+		format->config.usid.ewlib_start, format->config.usid.wlib_start,
+		format->config.usid.wlib_start);
+}
+
 DEFPY(srv6_sid_format_usid_wlib,
       srv6_sid_format_usid_wlib_cmd,
       "wide-local-id-block start (0-4294967295)$start end (0-4294967295)$end",
@@ -1505,17 +1527,11 @@ DEFPY(srv6_sid_format_usid_wlib,
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 
-	if (start > format->config.usid.ewlib_start) {
-		vty_out(vty,
-			"%% Wide LIB start (%" PRId64
-			") cannot be greater than the Explicit Wide LIB start (%u)\n",
-			start, format->config.usid.ewlib_start);
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-
 	zebra_srv6_sid_format_change_start(format);
 	format->config.usid.wlib_start = start;
 	format->config.usid.wlib_end = end;
+
+	srv6_sid_format_usid_wlib_warn(vty, format);
 
 	/* Notify zclients that the format has changed */
 	zebra_srv6_sid_format_change_finish(format);
@@ -1546,16 +1562,11 @@ DEFPY(no_srv6_sid_format_usid_wlib,
 		assert(0);
 	}
 
-	if (wlib_start > format->config.usid.ewlib_start) {
-		vty_out(vty,
-			"%% Default Wide LIB start (%u) would be greater than the Explicit Wide LIB start (%u), remove the Explicit Wide LIB first\n",
-			wlib_start, format->config.usid.ewlib_start);
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-
 	zebra_srv6_sid_format_change_start(format);
 	format->config.usid.wlib_start = wlib_start;
 	format->config.usid.wlib_end = wlib_end;
+
+	srv6_sid_format_usid_wlib_warn(vty, format);
 
 	/* Notify zclients that the format has changed */
 	zebra_srv6_sid_format_change_finish(format);
@@ -1573,16 +1584,10 @@ DEFPY(srv6_sid_format_usid_wide_lib_explicit,
 {
 	VTY_DECLVAR_CONTEXT(srv6_sid_format, format);
 
-	if (start < format->config.usid.wlib_start) {
-		vty_out(vty,
-			"%% Explicit Wide LIB start (%" PRId64
-			") cannot be less than Wide LIB start (%u)\n",
-			start, format->config.usid.wlib_start);
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-
 	zebra_srv6_sid_format_change_start(format);
 	format->config.usid.ewlib_start = start;
+
+	srv6_sid_format_usid_wlib_warn(vty, format);
 
 	/* Notify zclients that the format has changed */
 	zebra_srv6_sid_format_change_finish(format);
@@ -1609,15 +1614,10 @@ DEFPY(no_srv6_sid_format_usid_wide_lib_explicit,
 	else
 		assert(0);
 
-	if (ewlib_start < format->config.usid.wlib_start) {
-		vty_out(vty,
-			"%% Default Explicit Wide LIB start (%u) would be less than the Wide LIB start (%u), remove the Wide LIB first\n",
-			ewlib_start, format->config.usid.wlib_start);
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-
 	zebra_srv6_sid_format_change_start(format);
 	format->config.usid.ewlib_start = ewlib_start;
+
+	srv6_sid_format_usid_wlib_warn(vty, format);
 
 	/* Notify zclients that the format has changed */
 	zebra_srv6_sid_format_change_finish(format);
