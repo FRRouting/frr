@@ -143,6 +143,11 @@ int nexthop_g_addr_cmp(enum nexthop_types_t type, const union g_addr *addr1,
 	return ret;
 }
 
+static int nexthop_g_addr_cmp_raw(const union g_addr *addr1, const union g_addr *addr2)
+{
+	return memcmp(addr1, addr2, sizeof(union g_addr));
+}
+
 static int _nexthop_gateway_cmp(const struct nexthop *nh1,
 				const struct nexthop *nh2)
 {
@@ -152,13 +157,13 @@ static int _nexthop_gateway_cmp(const struct nexthop *nh1,
 static int _nexthop_source_cmp(const struct nexthop *nh1,
 			       const struct nexthop *nh2)
 {
-	return nexthop_g_addr_cmp(nh1->type, &nh1->src, &nh2->src);
+	return nexthop_g_addr_cmp_raw(&nh1->src, &nh2->src);
 }
 
 static int _nexthop_rmap_source_cmp(const struct nexthop *nh1,
 			       const struct nexthop *nh2)
 {
-	return nexthop_g_addr_cmp(nh1->type, &nh1->rmap_src, &nh2->rmap_src);
+	return nexthop_g_addr_cmp_raw(&nh1->rmap_src, &nh2->rmap_src);
 }
 
 static int _nexthop_cmp_no_labels(const struct nexthop *next1,
@@ -380,12 +385,12 @@ int nexthop_cmp_basic(const struct nexthop *nh1,
 	}
 
 	/* Compare rmap source addr */
-	ret = nexthop_g_addr_cmp(nh1->type, &nh1->rmap_src, &nh2->rmap_src);
+	ret = _nexthop_rmap_source_cmp(nh1, nh2);
 	if (ret != 0)
 		goto done;
 
 	/* Compare source addr */
-	ret = nexthop_g_addr_cmp(nh1->type, &nh1->src, &nh2->src);
+	ret = _nexthop_source_cmp(nh1, nh2);
 	if (ret != 0)
 		goto done;
 
