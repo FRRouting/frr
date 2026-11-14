@@ -3485,6 +3485,19 @@ int bgp_nb_neighbor_create(struct nb_cb_create_args *args)
 				   "cannot configure the local system as neighbor");
 			return NB_ERR_VALIDATION;
 		}
+		/*
+		 * peer_lookup() also returns dynamic peers from "bgp listen
+		 * range". Binding the YANG node to one changes its AS, and
+		 * the FSM frees that peer when the session drops.
+		 */
+		if (bgp) {
+			peer = peer_lookup(bgp, &su);
+			if (peer && peer_dynamic_neighbor(peer)) {
+				snprintfrr(args->errmsg, args->errmsg_len,
+					   "Operation not allowed on a dynamic neighbor");
+				return NB_ERR_VALIDATION;
+			}
+		}
 		return NB_OK;
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
@@ -3499,6 +3512,10 @@ int bgp_nb_neighbor_create(struct nb_cb_create_args *args)
 		return NB_ERR_VALIDATION;
 
 	peer = peer_lookup(bgp, &su);
+	if (peer && peer_dynamic_neighbor(peer)) {
+		/* VALIDATE rejects this. Do not adopt the dynamic peer. */
+		return NB_OK;
+	}
 	if (!peer) {
 		peer = peer_create(&su, NULL, bgp, bgp->as, 0, AS_UNSPECIFIED, NULL, true, NULL,
 				   CONNECTION_OUTGOING);
@@ -3515,15 +3532,34 @@ int bgp_nb_neighbor_destroy(struct nb_cb_destroy_args *args)
 	struct peer *peer, *other;
 	struct bgp *bgp;
 
-	if (args->event != NB_EV_APPLY)
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+		peer = nb_running_get_entry(args->dnode, NULL, false);
+		if (peer && peer_dynamic_neighbor(peer)) {
+			snprintfrr(args->errmsg, args->errmsg_len,
+				   "Operation not allowed on a dynamic neighbor");
+			return NB_ERR_VALIDATION;
+		}
 		return NB_OK;
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+		return NB_OK;
+	case NB_EV_APPLY:
+		break;
+	}
 
-	peer = nb_running_unset_entry(args->dnode);
+	peer = nb_running_get_entry(args->dnode, NULL, false);
 	if (!peer)
 		return NB_OK;
 
+	/*
+	 * VALIDATE rejects this. Leave the entry in place: unsetting it and
+	 * then failing would drop the binding while the node stays configured.
+	 */
 	if (peer_dynamic_neighbor(peer))
-		return NB_ERR_INCONSISTENCY;
+		return NB_OK;
+
+	nb_running_unset_entry(args->dnode);
 
 	bgp = peer->bgp;
 	other = peer->doppelganger;
