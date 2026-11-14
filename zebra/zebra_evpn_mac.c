@@ -2164,9 +2164,11 @@ int zebra_evpn_mac_remote_macip_add(struct zebra_evpn *zevpn, struct zebra_vrf *
 			 * the NHG becomes active, is rejected by the kernel
 			 * ("Cannot replace an existing non nexthop fdb with
 			 * a nexthop"). A local MAC has no vxlan entry to
-			 * delete, so it keeps the unforced behavior.
+			 * delete, and its fwd_info holds the local ifindex,
+			 * not a VTEP, so skip it.
 			 */
-			if (old_es_present != new_es_present) {
+			if (old_es_present != new_es_present &&
+			    CHECK_FLAG(mac->flags, ZEBRA_MAC_REMOTE)) {
 				bool force_uninstall = !old_es_present && old_remote_vtep;
 
 				zebra_evpn_rem_mac_uninstall(zevpn, mac, force_uninstall);
