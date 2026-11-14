@@ -39,8 +39,8 @@ enum zclient_event { ZCLIENT_SCHEDULE, ZCLIENT_READ, ZCLIENT_CONNECT };
 /* Prototype for event manager. */
 static void zclient_event(enum zclient_event, struct zclient *);
 
-static void zebra_interface_if_set_value(struct stream *s,
-					 struct interface *ifp);
+static int zebra_interface_if_set_value(struct stream *s,
+					struct interface *ifp);
 
 const struct zclient_options zclient_options_default = {
 	.synchronous = false,
@@ -2889,7 +2889,8 @@ static int zclient_interface_add(ZAPI_CALLBACK_ARGS)
 
 	ifp = if_get_by_name(ifname_tmp, vrf_id, vrf->name);
 
-	zebra_interface_if_set_value(s, ifp);
+	if (zebra_interface_if_set_value(s, ifp) != 0)
+		return -1;
 
 	if_new_via_zapi(ifp);
 
@@ -2921,7 +2922,8 @@ struct interface *zebra_interface_state_read(struct stream *s, vrf_id_t vrf_id)
 		return NULL;
 	}
 
-	zebra_interface_if_set_value(s, ifp);
+	if (zebra_interface_if_set_value(s, ifp) != 0)
+		return NULL;
 
 	return ifp;
 stream_failure:
@@ -3108,8 +3110,8 @@ stream_failure:
 	return NULL;
 }
 
-static void zebra_interface_if_set_value(struct stream *s,
-					 struct interface *ifp)
+static int zebra_interface_if_set_value(struct stream *s,
+					struct interface *ifp)
 {
 	uint8_t link_params_status = 0;
 	ifindex_t old_ifindex, new_ifindex;
@@ -3146,10 +3148,18 @@ static void zebra_interface_if_set_value(struct stream *s,
 
 	nexthop_group_interface_state_change(ifp, old_ifindex);
 
-	return;
+	return 0;
 stream_failure:
-	zlog_err("Could not parse interface values; aborting");
-	assert(!"Failed to parse interface values");
+	/*
+	 * A short/malformed ZAPI message (e.g. from a peer that isn't
+	 * zebra, or a version mismatch) must not abort this daemon --
+	 * every other stream_failure handler in this file fails
+	 * gracefully; this one is now consistent with them. See the
+	 * two callers below, which now check the return value instead
+	 * of assuming success.
+	 */
+	zlog_err("Could not parse interface values");
+	return -1;
 }
 
 size_t zebra_interface_link_params_write(struct stream *s,
