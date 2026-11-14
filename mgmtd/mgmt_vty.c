@@ -130,7 +130,7 @@ DEFPY(show_mgmt_ds,
 	ds_ctx = mgmt_ds_get_ctx_by_id(mm, mgmt_ds_name2id(dsname));
 	if (!ds_ctx) {
 		vty_out(vty, "ERROR: Could not access %s datastore!\n", dsname);
-		return CMD_ERR_NO_MATCH;
+		return CMD_WARNING;
 	}
 	mgmt_ds_status_write_one(vty, ds_ctx);
 
@@ -408,7 +408,7 @@ DEFPY(show_mgmt_dump_data,
 	ds_ctx = mgmt_ds_get_ctx_by_id(mm, datastore);
 	if (!ds_ctx) {
 		vty_out(vty, "ERROR: Could not access datastore!\n");
-		return CMD_ERR_NO_MATCH;
+		return CMD_WARNING;
 	}
 
 	if (filepath) {
@@ -462,7 +462,7 @@ DEFPY(mgmt_load_config,
 	ds_ctx = mgmt_ds_get_ctx_by_id(mm, MGMTD_DS_CANDIDATE);
 	if (!ds_ctx) {
 		vty_out(vty, "ERROR: Could not access Candidate datastore!\n");
-		return CMD_ERR_NO_MATCH;
+		return CMD_WARNING_CONFIG_FAILED;
 	}
 
 	ret = mgmt_ds_load_config_from_file(ds_ctx, filepath, merge);
@@ -489,19 +489,19 @@ DEFPY(mgmt_save_config,
 	if (!ds_ctx) {
 		vty_out(vty, "ERROR: Could not access the '%s' datastore!\n",
 			dsname);
-		return CMD_ERR_NO_MATCH;
+		return CMD_WARNING_CONFIG_FAILED;
 	}
 
 	if (!filepath) {
 		vty_out(vty, "ERROR: No file path mentioned!\n");
-		return CMD_ERR_NO_MATCH;
+		return CMD_ERR_INCOMPLETE;
 	}
 
 	f = fopen(filepath, "w");
 	if (!f) {
 		vty_out(vty, "Could not open file pointed by filepath %s\n",
 			filepath);
-		return CMD_SUCCESS;
+		return CMD_ERR_NO_FILE;
 	}
 
 	mgmt_ds_dump_tree(vty, ds_ctx, "/", f, LYD_JSON);

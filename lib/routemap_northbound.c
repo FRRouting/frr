@@ -649,7 +649,7 @@ static int lib_route_map_entry_match_condition_list_name_modify(
 			RMAP_EVENT_PLIST_ADDED,
 			args->errmsg, args->errmsg_len);
 	} else
-		rv = CMD_ERR_NO_MATCH;
+		assert(0);
 
 	if (rv != CMD_SUCCESS) {
 		rhc->rhc_mhook = NULL;
