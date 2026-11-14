@@ -35,6 +35,8 @@
 #include "zebra/zebra_vxlan_if.h"
 #include "zebra/zebra_errors.h"
 #include "zebra/zebra_evpn_mh.h"
+#include "zebra/zebra_srv6_vpws.h"
+#include "zebra/zebra_sr6.h"
 #include "zebra/zebra_trace.h"
 #include "zebra/zebra_l2.h"
 #include "zebra/zebra_dplane.h"
@@ -598,6 +600,13 @@ void if_add_update(struct interface *ifp)
 
 	zebra_interface_add_update(ifp);
 
+	/*
+	 * SRv6 VPWS: resolve an asynchronously-created vpws-br-<name> bridge (and
+	 * finish a deferred AC/sr6 enslave) now that the ifindex is known.
+	 */
+	zebra_srv6_vpws_if_add(ifp);
+	zebra_sr6_if_add(ifp);
+
 	if (IS_ZEBRA_IF_DUMMY(ifp))
 		SET_FLAG(ifp->status, ZEBRA_INTERFACE_DUMMY);
 
@@ -798,6 +807,15 @@ void if_delete_update(struct interface **pifp)
 
 	/* Send out notification on interface delete. */
 	zebra_interface_delete_update(ifp);
+
+	/*
+	 * SRv6 L2 EVPN (operator-owned sr6 model): an operator-deleted
+	 * sr6-/bum-sr6- netdev leaves its ifindex cached in the sr6 tracking
+	 * table and in remote MACs.  Clear it now, while ifp->ifindex is still
+	 * the real index (if_set_index() below resets it to IFINDEX_INTERNAL),
+	 * so a replacement port rebinds instead of being skipped.
+	 */
+	zebra_sr6_if_del(ifp);
 
 	zebra_ns_unlink_ifp(ifp);
 
@@ -2169,6 +2187,21 @@ static void zebra_if_dplane_ifp_handling(struct zebra_dplane_ctx *ctx)
 
 			/* Inform clients, install any configured addresses. */
 			if_add_update(ifp);
+
+			/*
+			 * sr6 (SRv6 L2 tunnel) netdev: cache the kernel-reported
+			 * encap mode on the zebra_if so the SRv6 L2 EVPN backend
+			 * mirrors the operator's mode per EVI / VPWS.
+			 */
+			{
+				struct zebra_if *zif2 = ifp->info;
+				uint8_t sr6_mode;
+
+				if (dplane_ctx_get_ifp_sr6_kernel_mode(ctx, &sr6_mode)) {
+					zif2->sr6_kernel_mode = sr6_mode;
+					zif2->sr6_kernel_mode_present = true;
+				}
+			}
 
 			/*
 			 * Extract and save L2 interface information, take
