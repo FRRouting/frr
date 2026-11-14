@@ -16,6 +16,7 @@
 #include "zebra/zserv.h"
 #include "zebra/zebra_router.h"
 #include "zebra/zebra_srv6.h"
+#include "zebra/zebra_srv6_l2evpn.h"
 #include "zebra/zebra_errors.h"
 #include "zebra/ge_netlink.h"
 #include "zebra/interface.h"
@@ -262,6 +263,8 @@ void zebra_srv6_sid_entry_del_by_locator_all_sids(struct srv6_locator *locator)
 void zebra_srv6_locator_format_set(struct srv6_locator *locator,
 				   struct srv6_sid_format *format)
 {
+	struct srv6_sid_format *old_format;
+
 	if (!locator)
 		return;
 
@@ -286,22 +289,60 @@ void zebra_srv6_locator_format_set(struct srv6_locator *locator,
 	/* Release the current parent block */
 	zebra_srv6_sid_locator_block_release(locator);
 
+	/*
+	 * Capture the outgoing format before overwriting it: it tells the
+	 * no-format branch below whether a set SRV6_LOCATOR_USID flag was
+	 * *format-implied* (set here for a uSID sid-format) or came from an
+	 * explicit `behavior usid` (which leaves sid_format NULL), so the
+	 * latter is never clobbered.
+	 */
+	old_format = locator->sid_format;
+
 	/* Change format */
 	locator->sid_format = format;
 	if (format) {
 		if (strmatch(format->name, SRV6_SID_FORMAT_USID_F3216_NAME)) {
 			SET_FLAG(locator->flags, SRV6_LOCATOR_F3216);
 			UNSET_FLAG(locator->flags, SRV6_LOCATOR_F4816);
+			/* A uSID sid-format IS uSID: keep the SRV6_LOCATOR_USID
+			 * flag in sync so consumers that only see the flag (e.g.
+			 * bgpd, whose locator copies drop sid_format) treat a
+			 * `format usid-*`-only locator as uSID too - not just one
+			 * configured with the explicit `behavior usid`.
+			 */
+			SET_FLAG(locator->flags, SRV6_LOCATOR_USID);
 		} else if (strmatch(format->name, SRV6_SID_FORMAT_USID_F4816_NAME)) {
 			SET_FLAG(locator->flags, SRV6_LOCATOR_F4816);
 			UNSET_FLAG(locator->flags, SRV6_LOCATOR_F3216);
+			SET_FLAG(locator->flags, SRV6_LOCATOR_USID);
 		} else {
+			/*
+			 * Uncompressed format (e.g. usid-f4024): NOT uSID.  Clear
+			 * SRV6_LOCATOR_USID too, otherwise a locator that had a
+			 * uSID format keeps the flag after switching to
+			 * uncompressed, and consumers that only see the flag
+			 * (bgpd drops sid_format) would keep advertising uSID
+			 * behaviors and adding NEXT_CSID to local decap.
+			 */
 			UNSET_FLAG(locator->flags, SRV6_LOCATOR_F3216);
 			UNSET_FLAG(locator->flags, SRV6_LOCATOR_F4816);
+			UNSET_FLAG(locator->flags, SRV6_LOCATOR_USID);
 		}
 	} else {
+		/*
+		 * No sid-format.  With no format, uSID-ness is governed solely by
+		 * the `behavior usid` flag (every consumer tests
+		 * `!format && SRV6_LOCATOR_USID`).  Only undo a *format-implied*
+		 * USID here - i.e. when the locator is leaving a uSID sid-format -
+		 * so an explicit `behavior usid` (which keeps sid_format NULL) is
+		 * never cleared.  Clearing it unconditionally regressed
+		 * behavior-usid locators to non-uSID (End.DT46 instead of uDT46)
+		 * every time the prefix was (re)configured.
+		 */
 		UNSET_FLAG(locator->flags, SRV6_LOCATOR_F3216);
 		UNSET_FLAG(locator->flags, SRV6_LOCATOR_F4816);
+		if (old_format && old_format->type == SRV6_SID_FORMAT_TYPE_USID)
+			UNSET_FLAG(locator->flags, SRV6_LOCATOR_USID);
 	}
 	/* Allocate the new parent block */
 	zebra_srv6_sid_locator_block_alloc(locator);
@@ -312,6 +353,13 @@ void zebra_srv6_locator_format_set(struct srv6_locator *locator,
 
 	/* Notify zclients about the updated locator */
 	zebra_srv6_locator_add(locator);
+
+	/*
+	 * Re-allocate any per-EVI L2 service SIDs drawn from this locator so the
+	 * new encoding (legacy <-> uSID) takes effect.  Done last so realize's
+	 * get_srv6_sid() draws from the freshly-allocated parent block above.
+	 */
+	zebra_srv6_evi_on_locator_update(locator->name);
 }
 
 /*
@@ -377,9 +425,22 @@ void zebra_srv6_sid_format_change_finish(struct srv6_sid_format *format)
 		}
 	}
 
-	for (ALL_LIST_ELEMENTS_RO(srv6->locators, node, locator))
-		if (locator->sid_format == format)
-			zebra_notify_srv6_locator_add(locator);
+	for (ALL_LIST_ELEMENTS_RO(srv6->locators, node, locator)) {
+		if (locator->sid_format != format)
+			continue;
+
+		zebra_notify_srv6_locator_add(locator);
+
+		/*
+		 * Re-allocate any per-EVI L2 service SIDs drawn from this
+		 * locator so the modified encoding takes effect, mirroring
+		 * zebra_srv6_locator_format_set().  Without this, an EVI's
+		 * DT2U/DT2M bookkeeping keeps its stale (old-format) SIDs
+		 * (srv6_evi_alloc_sids() short-circuits on the still-"valid"
+		 * flags) and its sr6 interfaces are never reprogrammed.
+		 */
+		zebra_srv6_evi_on_locator_update(locator->name);
+	}
 }
 
 /*
@@ -567,7 +628,11 @@ zebra_srv6_sid_block_alloc(struct srv6_sid_format *format,
 		block->u.uncompressed.func_released = list_new();
 		block->u.uncompressed.func_released->del =
 			delete_zebra_srv6_sid_func;
+
 		block->u.uncompressed.first_available_func = 1;
+
+		zebra_srv6_evi_func_list_init(&block->u.uncompressed.evi_func_released);
+		block->u.uncompressed.first_available_evi_func = SRV6_SID_NOFORMAT_EVI_FUNC_BASE;
 	}
 
 	return block;
@@ -606,6 +671,12 @@ void zebra_srv6_sid_block_free(struct zebra_srv6_sid_block *block)
 	} else {
 		list_delete(&block->u.uncompressed.func_allocated);
 		list_delete(&block->u.uncompressed.func_released);
+		struct zebra_srv6_evi_func *evi_func;
+
+		while ((evi_func = zebra_srv6_evi_func_list_pop(
+				&block->u.uncompressed.evi_func_released)))
+			XFREE(MTYPE_ZEBRA_SRV6_SID_FUNC, evi_func);
+		zebra_srv6_evi_func_list_fini(&block->u.uncompressed.evi_func_released);
 	}
 
 	XFREE(MTYPE_ZEBRA_SRV6_SID_BLOCK, block);
@@ -1012,6 +1083,11 @@ void zebra_srv6_locator_delete(struct srv6_locator *locator)
 		zsend_zebra_srv6_locator_delete(client, locator);
 	}
 
+	/* Invalidate SRv6 L2 EVPN EVIs bound to this locator before it is freed:
+	 * their per-EVI SIDs no longer have a backing allocation.
+	 */
+	zebra_srv6_evi_on_locator_delete(locator->name);
+
 	listnode_delete(srv6->locators, locator);
 	srv6_locator_free(locator);
 }
@@ -1313,6 +1389,12 @@ void zebra_srv6_encap_src_addr_unset(void)
 	memset(&srv6->encap_src_addr, 0, sizeof(struct in6_addr));
 }
 
+/*
+ * zebra_srv6_set_evpn_encap_mode() was removed along with the global
+ * ZEBRA_EVPN_ENCAP_MODE signalling: EVPN encapsulation is per-EVI and zebra
+ * does not keep an instance-wide EVPN encap mode.
+ */
+
 /* --- SRv6 SID Allocation/Release functions -------------------------------- */
 
 /**
@@ -1364,6 +1446,17 @@ static bool zebra_srv6_sid_compose(struct in6_addr *sid_value, struct srv6_locat
 	}
 
 	return true;
+}
+
+/*
+ * Exported thin wrapper around zebra_srv6_sid_compose() for the SRv6 L2 EVPN
+ * module: compose a plain LOC:FUNC:: SID under a locator (no wide function,
+ * not local-only).  Used to allocate per-EVI End.DT2U/End.DT2M service SIDs.
+ */
+bool zebra_srv6_l2_sid_compose(struct in6_addr *sid_value, struct srv6_locator *locator,
+			       uint32_t sid_func, uint32_t sid_func_wide)
+{
+	return zebra_srv6_sid_compose(sid_value, locator, sid_func, sid_func_wide, false);
 }
 
 /**
@@ -1694,6 +1787,20 @@ static bool alloc_srv6_sid_func_explicit(struct zebra_srv6_sid_block *block,
 			assert(0);
 		}
 	} else {
+		/*
+		 * The window reserved for per-EVI services is handed out by a
+		 * separate allocator that does not use "func_allocated", so an
+		 * explicit SID there would collide with an EVI's End.DT2U/DT2M.
+		 */
+		if (sid_func >= SRV6_SID_NOFORMAT_EVI_FUNC_BASE &&
+		    sid_func < SRV6_SID_NOFORMAT_EVI_FUNC_END) {
+			flog_err(EC_ZEBRA_SRV6_INVALID_REQUEST,
+				 "%s: invalid SM request arguments: SID function %u is in the range reserved for per-EVI services (%u - %u)",
+				 __func__, sid_func, SRV6_SID_NOFORMAT_EVI_FUNC_BASE,
+				 SRV6_SID_NOFORMAT_EVI_FUNC_END - 1);
+			return false;
+		}
+
 		/* Ensure that the SID function has not already been taken */
 
 		for (ALL_LIST_ELEMENTS_RO(block->u.uncompressed.func_allocated,
@@ -1726,15 +1833,54 @@ static bool alloc_srv6_sid_func_explicit(struct zebra_srv6_sid_block *block,
 }
 
 /**
+ * True for SRv6 behaviors that represent a per-EVI service of an SRv6 L2
+ * EVPN EVI (End.DT2U/DT2M), as opposed to VRF-level services
+ * (End.DT4/DT6/DT46) and everything else. Used to route dynamic allocation
+ * for no-named-format locators into a reserved range, so a VRF-level SID
+ * request (from bgpd) and a per-EVI SID request (zebra-internal) can never
+ * race for the same function number. See SRV6_SID_NOFORMAT_EVI_FUNC_BASE.
+ */
+static bool is_evi_level_srv6_behavior(enum seg6local_action_t behavior)
+{
+	switch (behavior) {
+	case ZEBRA_SEG6_LOCAL_ACTION_END_DT2U:
+	case ZEBRA_SEG6_LOCAL_ACTION_END_DT2M:
+		return true;
+	case ZEBRA_SEG6_LOCAL_ACTION_UNSPEC:
+	case ZEBRA_SEG6_LOCAL_ACTION_END:
+	case ZEBRA_SEG6_LOCAL_ACTION_END_X:
+	case ZEBRA_SEG6_LOCAL_ACTION_END_T:
+	case ZEBRA_SEG6_LOCAL_ACTION_END_DX2:
+	case ZEBRA_SEG6_LOCAL_ACTION_END_DX6:
+	case ZEBRA_SEG6_LOCAL_ACTION_END_DX4:
+	case ZEBRA_SEG6_LOCAL_ACTION_END_B6:
+	case ZEBRA_SEG6_LOCAL_ACTION_END_B6_ENCAP:
+	case ZEBRA_SEG6_LOCAL_ACTION_END_BM:
+	case ZEBRA_SEG6_LOCAL_ACTION_END_S:
+	case ZEBRA_SEG6_LOCAL_ACTION_END_AS:
+	case ZEBRA_SEG6_LOCAL_ACTION_END_AM:
+	case ZEBRA_SEG6_LOCAL_ACTION_END_BPF:
+	case ZEBRA_SEG6_LOCAL_ACTION_END_DT4:
+	case ZEBRA_SEG6_LOCAL_ACTION_END_DT6:
+	case ZEBRA_SEG6_LOCAL_ACTION_END_DT46:
+	default:
+		return false;
+	}
+}
+
+/**
  * Allocate a dynamic SID function (i.e. any available SID function value) from a given SID block.
  *
  * @param block SRv6 SID block from which the SID function has to be allocated
  * @param sid_func SID function allocated
+ * @param is_evi_level Whether this request is for a per-EVI service
+ *                     (End.DT2U/DT2M). Only affects no-named-format
+ *                     locators - see is_evi_level_srv6_behavior().
  *
  * @return true on success, false otherwise
  */
-static bool alloc_srv6_sid_func_dynamic(struct zebra_srv6_sid_block *block,
-					uint32_t *sid_func)
+static bool alloc_srv6_sid_func_dynamic(struct zebra_srv6_sid_block *block, uint32_t *sid_func,
+					bool is_evi_level)
 {
 	struct srv6_sid_format *format;
 	uint32_t *sid_func_ptr = NULL;
@@ -1849,6 +1995,31 @@ static bool alloc_srv6_sid_func_dynamic(struct zebra_srv6_sid_block *block,
 				 __func__, format->type);
 			assert(0);
 		}
+	} else if (is_evi_level) {
+		/*
+		 * Per-EVI service (End.DT2U/DT2M): allocate from the reserved
+		 * range so it can never collide with a VRF-level SID,
+		 * regardless of which one zebra happens to process first at
+		 * boot.
+		 */
+		struct zebra_srv6_evi_func *evi_func =
+			zebra_srv6_evi_func_list_pop(&block->u.uncompressed.evi_func_released);
+
+		if (evi_func) {
+			*sid_func = evi_func->func;
+			XFREE(MTYPE_ZEBRA_SRV6_SID_FUNC, evi_func);
+		} else {
+			*sid_func = block->u.uncompressed.first_available_evi_func;
+			block->u.uncompressed.first_available_evi_func++;
+		}
+
+		if (*sid_func >= SRV6_SID_NOFORMAT_EVI_FUNC_END) {
+			zlog_warn("%s: per-EVI SRv6 SID reserved range depleted (block %pFX)",
+				  __func__, &block->prefix);
+			return false;
+		}
+
+		block->u.uncompressed.num_func_allocated++;
 	} else {
 		/*
 		 * First, let's check if there are any SID functions that were previously
@@ -1872,6 +2043,12 @@ static bool alloc_srv6_sid_func_dynamic(struct zebra_srv6_sid_block *block,
 			 */
 			*sid_func = block->u.uncompressed.first_available_func;
 			block->u.uncompressed.first_available_func++;
+
+			/* Skip the window reserved for per-EVI services. */
+			if (block->u.uncompressed.first_available_func ==
+			    SRV6_SID_NOFORMAT_EVI_FUNC_BASE)
+				block->u.uncompressed.first_available_func =
+					SRV6_SID_NOFORMAT_EVI_FUNC_END;
 		}
 
 		/* Increase the counter of SID functions allocated */
@@ -2081,8 +2258,13 @@ static int get_srv6_sid_dynamic(struct zebra_srv6_sid **sid, struct srv6_sid_ctx
 		/* uN SID is allocated from the GIB range */
 		sid_value = locator->prefix.prefix;
 	} else {
-		/* Allocate a dynamic SID function for the SID */
-		if (!alloc_srv6_sid_func_dynamic(block, &sid_func)) {
+		/* Allocate a dynamic SID function for the SID. The per-EVI window
+		 * is only used when the locator's function field can hold it.
+		 */
+		bool evi_range = is_evi_level_srv6_behavior(ctx->behavior) && !format &&
+				 locator->function_bits_length >= SRV6_SID_NOFORMAT_EVI_FUNC_BITS;
+
+		if (!alloc_srv6_sid_func_dynamic(block, &sid_func, evi_range)) {
 			flog_err(EC_ZEBRA_SRV6_ALLOCATION_FAIL,
 				 "%s: invalid SM request arguments: failed to allocate SID function %u from block %pFX",
 				 __func__, sid_func, &block->prefix);
@@ -2370,10 +2552,12 @@ static bool release_srv6_sid_func_explicit(struct zebra_srv6_sid_block *block,
  *
  * @param block Parent SRv6 SID block of the SID function that has to be released
  * @param sid_func SID function to be released
+ * @param is_evi_level Whether sid_func came from the per-EVI reserved
+ *                     range - see alloc_srv6_sid_func_dynamic().
  * @return 0 on success, -1 otherwise
  */
-static int release_srv6_sid_func_dynamic(struct zebra_srv6_sid_block *block,
-					 uint32_t sid_func)
+static int release_srv6_sid_func_dynamic(struct zebra_srv6_sid_block *block, uint32_t sid_func,
+					 bool is_evi_level)
 {
 	struct srv6_sid_format *format;
 	struct listnode *node, *nnode;
@@ -2502,6 +2686,39 @@ static int release_srv6_sid_func_dynamic(struct zebra_srv6_sid_block *block,
 			listnode_add_head(block->u.uncompressed.func_released,
 					  sid_func_ptr);
 		}
+	} else if (!format && is_evi_level) {
+		/* Per-EVI reserved range - mirrors the general-pool logic
+		 * below, against first_available_evi_func/evi_func_released
+		 * instead. See alloc_srv6_sid_func_dynamic().
+		 */
+		struct zebra_srv6_evi_func *evi_func;
+
+		if (sid_func == block->u.uncompressed.first_available_evi_func - 1) {
+			block->u.uncompressed.first_available_evi_func -= 1;
+
+			bool found;
+
+			do {
+				found = false;
+				frr_each_safe (zebra_srv6_evi_func_list,
+					       &block->u.uncompressed.evi_func_released, evi_func)
+					if (evi_func->func ==
+					    block->u.uncompressed.first_available_evi_func - 1) {
+						zebra_srv6_evi_func_list_del(&block->u.uncompressed
+										      .evi_func_released,
+									     evi_func);
+						XFREE(MTYPE_ZEBRA_SRV6_SID_FUNC, evi_func);
+						block->u.uncompressed.first_available_evi_func -= 1;
+						found = true;
+						break;
+					}
+			} while (found);
+		} else {
+			evi_func = XCALLOC(MTYPE_ZEBRA_SRV6_SID_FUNC, sizeof(*evi_func));
+			evi_func->func = sid_func;
+			zebra_srv6_evi_func_list_add_head(&block->u.uncompressed.evi_func_released,
+							  evi_func);
+		}
 	} else if (!format) {
 		if (sid_func == block->u.uncompressed.first_available_func - 1) {
 			/*
@@ -2566,7 +2783,10 @@ static void release_srv6_sid_func(const struct zebra_srv6_sid_ctx *zctx)
 						       zctx->sid->wide_func);
 		else if (zctx->sid->alloc_mode == SRV6_SID_ALLOC_MODE_DYNAMIC)
 			/* Release SRv6 SID function */
-			release_srv6_sid_func_dynamic(zctx->sid->block, zctx->sid->func);
+			release_srv6_sid_func_dynamic(zctx->sid->block, zctx->sid->func,
+						      zctx->sid->func >= SRV6_SID_NOFORMAT_EVI_FUNC_BASE &&
+							      zctx->sid->func <
+								      SRV6_SID_NOFORMAT_EVI_FUNC_END);
 		else
 			/* We should never arrive here */
 			assert(0);
@@ -2664,6 +2884,43 @@ int release_srv6_sid(struct zserv *client, struct zebra_srv6_sid_ctx *zctx,
 	}
 
 	return 0;
+}
+
+/*
+ * Release an SRv6 SID that was allocated by a zebra-internal caller (no zserv
+ * client) — e.g. the SRv6 L2 EVPN per-EVI End.DT2U/End.DT2M SIDs allocated via
+ * get_srv6_sid() from zebra/zebra_srv6_l2evpn.c.
+ *
+ * release_srv6_sid() above is client-oriented (requires a per-client entry and
+ * dereferences client->proto), which does not fit internally-allocated SIDs.
+ * This variant looks the SID up by its context and runs the deallocation tail
+ * directly: return the function to the block's pool and free the SID +
+ * context (zebra_srv6_sid_free() also frees the SID's locator entries).
+ * Idempotent / safe if the ctx is unknown.
+ */
+void zebra_srv6_l2_sid_release(const struct srv6_sid_ctx *ctx, const char *locator_name)
+{
+	struct srv6_locator *locator;
+	struct zebra_srv6_sid_block *block;
+	struct zebra_srv6_sid_ctx *zctx;
+
+	if (!ctx || !locator_name)
+		return;
+
+	locator = zebra_srv6_locator_lookup(locator_name);
+	if (!locator || !locator->sid_block)
+		return;
+	block = locator->sid_block;
+
+	zctx = zebra_srv6_sid_ctx_lookup(ctx, block);
+	if (!zctx || !zctx->sid)
+		return;
+
+	release_srv6_sid_func(zctx);
+	zebra_srv6_sid_free(zctx->sid);
+	zctx->sid = NULL;
+	zebra_srv6_sid_ctx_list_del(&block->sids, zctx);
+	zebra_srv6_sid_ctx_free(zctx);
 }
 
 /**
@@ -2944,6 +3201,8 @@ void zebra_srv6_terminate(void)
 	struct zebra_srv6_sid_block *block;
 	struct zebra_srv6_sid_ctx *sid_ctx;
 
+	zebra_srv6_l2evpn_terminate();
+
 	if (g_srv6.locators) {
 		while (listcount(g_srv6.locators)) {
 			locator = listnode_head(g_srv6.locators);
@@ -3005,6 +3264,9 @@ void zebra_srv6_init(void)
 		      srv6_manager_release_sid_internal);
 	hook_register(srv6_manager_get_locator,
 		      srv6_manager_get_srv6_locator_internal);
+
+	/* SRv6 L2 EVPN (VLAN-to-EVI) EVI table. */
+	zebra_srv6_l2evpn_init();
 }
 
 bool zebra_srv6_is_enable(void)

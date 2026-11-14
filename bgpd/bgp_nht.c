@@ -30,6 +30,7 @@
 #include "bgpd/bgp_zebra.h"
 #include "bgpd/bgp_flowspec_util.h"
 #include "bgpd/bgp_evpn.h"
+#include "bgpd/bgp_evpn_vpws.h"
 #include "bgpd/bgp_rd.h"
 #include "bgpd/bgp_mplsvpn.h"
 #include "bgpd/bgp_ecommunity.h"
@@ -1650,9 +1651,22 @@ void evaluate_paths(struct bgp_nexthop_cache *bnc)
 				bgp_path_info_unset_flag(dest, path,
 							 BGP_PATH_VALID);
 				if (safi == SAFI_EVPN &&
-				    bgp_evpn_is_prefix_nht_supported(bgp_dest_get_prefix(dest)))
+				    bgp_evpn_is_prefix_nht_supported(bgp_dest_get_prefix(dest))) {
 					bgp_evpn_unimport_route(bgp_path,
 						afi, safi, bgp_dest_get_prefix(dest), path);
+					/*
+					 * A VPWS peer SID driven by this EAD path
+					 * must follow the next hop losing
+					 * reachability: the path is no longer VALID,
+					 * so reconcile tears the binding down (or
+					 * reprograms from another valid path).  No-op
+					 * for non-EAD prefixes / when VPWS is unused.
+					 */
+					bgp_evpn_vpws_reconcile_remote_ead(
+						bgp_path, dest,
+						(const struct prefix_evpn *)bgp_dest_get_prefix(dest),
+						NULL);
+				}
 				if (safi == SAFI_UNICAST &&
 				    (bgp_path->inst_type !=
 				     BGP_INSTANCE_TYPE_VIEW))
@@ -1668,9 +1682,23 @@ void evaluate_paths(struct bgp_nexthop_cache *bnc)
 				bgp_aggregate_increment(bgp_path, p, path, afi,
 							safi);
 				if (safi == SAFI_EVPN &&
-				    bgp_evpn_is_prefix_nht_supported(bgp_dest_get_prefix(dest)))
+				    bgp_evpn_is_prefix_nht_supported(bgp_dest_get_prefix(dest))) {
 					bgp_evpn_import_route(bgp_path,
 						afi, safi, bgp_dest_get_prefix(dest), path);
+					/*
+					 * Retry VPWS reconciliation now that the
+					 * path is VALID: a Type-1 EAD received while
+					 * its next hop was unresolved had its peer
+					 * SID skipped (see the BGP_PATH_VALID gate in
+					 * bgp_evpn_vpws_reconcile_remote_ead), and
+					 * nothing else replays it.  No-op for non-EAD
+					 * prefixes / when VPWS is unused.
+					 */
+					bgp_evpn_vpws_reconcile_remote_ead(
+						bgp_path, dest,
+						(const struct prefix_evpn *)bgp_dest_get_prefix(dest),
+						NULL);
+				}
 				if (safi == SAFI_UNICAST &&
 				    (bgp_path->inst_type !=
 				     BGP_INSTANCE_TYPE_VIEW))

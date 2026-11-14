@@ -80,6 +80,7 @@
 #include "bgpd/bgp_encap_tlv.h"
 #include "bgpd/bgp_evpn.h"
 #include "bgpd/bgp_evpn_mh.h"
+#include "bgpd/bgp_evpn_vpws.h"
 #include "bgpd/bgp_evpn_vty.h"
 #include "bgpd/bgp_flowspec.h"
 #include "bgpd/bgp_flowspec_util.h"
@@ -5857,8 +5858,17 @@ static void bgp_rib_withdraw(const struct prefix *p, struct bgp_dest *dest, stru
 #endif
 
 	/* If this is an EVPN route, process for un-import. */
-	if (safi == SAFI_EVPN)
+	if (safi == SAFI_EVPN) {
 		bgp_evpn_unimport_route(peer->bgp, afi, safi, p, pi);
+		/* VPWS: reconcile / tear down the peer SID when an EAD route
+		 * leaves the RIB. The Type-1 withdraw NLRI only covers graceful
+		 * withdrawals; a session drop without graceful restart reaches
+		 * cleanup here, not the NLRI parser, and would otherwise leave
+		 * zebra encapsulating toward the departed peer's SID.
+		 */
+		bgp_evpn_vpws_reconcile_remote_ead(peer->bgp, dest, (const struct prefix_evpn *)p,
+						   pi);
+	}
 	/* If this is a route exported to EVPN, process for un-export */
 	if (advertise_type5_routes_multipath(peer->bgp, afi, safi) &&
 	    is_route_injectable_into_evpn(peer->bgp, afi, safi, pi))
@@ -6741,6 +6751,17 @@ void bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 		if (CHECK_FLAG(pi->flags, BGP_PATH_STALE)) {
 			bgp_path_info_unset_flag(dest, pi, BGP_PATH_STALE);
 			bgp_dest_set_defer_flag(dest, false);
+
+			/* For EVPN routes, ensure import is triggered after stale
+			 * flag is cleared during GR recovery. This ensures L2VPN/EVPN
+			 * SRv6 SIDs are properly installed when routes are restored.
+			 */
+			if (safi == SAFI_EVPN && CHECK_FLAG(pi->flags, BGP_PATH_VALID)) {
+				if (BGP_DEBUG(evpn_mh, EVPN_MH_ES))
+					zlog_debug("%s: Re-importing EVPN route %pFX after GR stale flag clear",
+						   __func__, p);
+				bgp_evpn_import_route(bgp, afi, safi, p, pi);
+			}
 		}
 
 		/* The attribute is changed. */
