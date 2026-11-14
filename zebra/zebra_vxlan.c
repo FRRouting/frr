@@ -1445,6 +1445,24 @@ static void vtep_to_v4(const struct ipaddr *vtep_ip, struct ipaddr *ipv4_vtep)
 	ipv4_vtep->ipaddr_v4 = vtep_ip->ipaddr_v4;
 }
 
+/*
+ * Get the remote VTEP IP the RMAC is programmed against.
+ *
+ * If the L3VNI local VTEP-IP is IPv4, map the remote VTEP to IPv4. If the
+ * local VTEP-IP is implicit (the kernel defaults to IPv4), map the remote VTEP
+ * to IPv4 only if it is an IPv4-mapped IPv6 address. Otherwise, use it as is.
+ */
+static void zl3vni_rmac_vtep_ip_get(const struct zebra_l3vni *zl3vni, const struct ipaddr *vtep_ip,
+				    struct ipaddr *rmac_vtep_ip)
+{
+	if (IS_IPADDR_V4(&zl3vni->local_vtep_ip) ||
+	    (IS_IPADDR_NONE(&zl3vni->local_vtep_ip) && IS_IPADDR_V6(vtep_ip) &&
+	     IS_MAPPED_IPV6(&vtep_ip->ipaddr_v6)))
+		vtep_to_v4(vtep_ip, rmac_vtep_ip);
+	else
+		*rmac_vtep_ip = *vtep_ip;
+}
+
 /* handle rmac add */
 static int zl3vni_remote_rmac_add(struct zebra_l3vni *zl3vni,
 				  const struct ethaddr *rmac,
@@ -1459,10 +1477,7 @@ static int zl3vni_remote_rmac_add(struct zebra_l3vni *zl3vni,
 	 * A native IPv6 remote is kept. Any remote is kept when the
 	 * local VTEP is not IPv4.
 	 */
-	if (IS_IPADDR_V4(&zl3vni->local_vtep_ip))
-		vtep_to_v4(vtep_ip, &ip_vtep);
-	else
-		ip_vtep = *vtep_ip;
+	zl3vni_rmac_vtep_ip_get(zl3vni, vtep_ip, &ip_vtep);
 
 	zrmac = zl3vni_rmac_lookup(zl3vni, rmac);
 	if (!zrmac) {
@@ -1537,10 +1552,7 @@ static void zl3vni_remote_rmac_del(struct zebra_l3vni *zl3vni,
 	struct ipaddr found_ip_vtep;
 
 	if (!zl3vni_nh_lookup(zl3vni, vtep_ip)) {
-		if (IS_IPADDR_V4(&zl3vni->local_vtep_ip))
-			vtep_to_v4(vtep_ip, &ip_vtep);
-		else
-			ip_vtep = *vtep_ip;
+		zl3vni_rmac_vtep_ip_get(zl3vni, vtep_ip, &ip_vtep);
 
 		/*
 		 * remove nh from rmac's list
@@ -1556,10 +1568,7 @@ static void zl3vni_remote_rmac_del(struct zebra_l3vni *zl3vni,
 			vtep = listgetdata(listhead(zrmac->nh_list));
 
 			/* Check if mapped */
-			if (IS_IPADDR_V4(&zl3vni->local_vtep_ip))
-				vtep_to_v4(vtep, &found_ip_vtep);
-			else
-				found_ip_vtep = *vtep;
+			zl3vni_rmac_vtep_ip_get(zl3vni, vtep, &found_ip_vtep);
 
 			/* If still same, do nothing */
 			if (ipaddr_is_same(&zrmac->fwd_info.r_vtep_ip, &found_ip_vtep))
@@ -1829,10 +1838,7 @@ static void zl3vni_check_del_rmac(struct zebra_l3vni *zl3vni, const struct ethad
 	 * always held converted, because the dplane consumes it as-is, so every
 	 * comparison below has to be made on converted values.
 	 */
-	if (IS_IPADDR_V4(&zl3vni->local_vtep_ip))
-		vtep_to_v4(vtep_ip, &ip_vtep);
-	else
-		ip_vtep = *vtep_ip;
+	zl3vni_rmac_vtep_ip_get(zl3vni, vtep_ip, &ip_vtep);
 
 	if (listcount(zrmac->nh_list)) {
 		struct ipaddr *curr_vtep = NULL;
@@ -1861,10 +1867,8 @@ static void zl3vni_check_del_rmac(struct zebra_l3vni *zl3vni, const struct ethad
 
 				curr_vtep = listgetdata(node);
 
-				if (IS_IPADDR_V4(&zl3vni->local_vtep_ip))
-					vtep_to_v4(curr_vtep, &new_vtep);
-				else
-					new_vtep = *curr_vtep;
+				zl3vni_rmac_vtep_ip_get(zl3vni, curr_vtep, &new_vtep);
+
 
 				/* If the survivor is the same VTEP under its
 				 * other address form, the dplane already has it
@@ -2497,6 +2501,7 @@ static int zl3vni_send_add_to_client(struct zebra_l3vni *zl3vni)
 	struct ethaddr svi_rmac, vrr_rmac = {.octet = {0} };
 	struct zebra_vrf *zvrf;
 	bool is_anycast_mac = true;
+	struct ipaddr local_vtep_ip;
 
 	client = zserv_find_client(ZEBRA_ROUTE_BGP, 0);
 	/* BGP may not be running. */
@@ -2525,7 +2530,21 @@ static int zl3vni_send_add_to_client(struct zebra_l3vni *zl3vni)
 	zclient_create_header(s, ZEBRA_L3VNI_ADD, zl3vni_vrf_id(zl3vni));
 	stream_putl(s, zl3vni->vni);
 	stream_put(s, &svi_rmac, sizeof(struct ethaddr));
-	stream_put_ipaddr(s, &zl3vni->local_vtep_ip);
+
+	/* Without an explicit local address on the VXLAN interface, the kernel
+	 * selects the source address and defaults to IPv4 (AF_INET). Send an
+	 * unspecified IPv4 address to BGP in that case.
+	 *
+	 * IPv6 VTEPs with an implicit local address ("local ::") are not
+	 * supported: the kernel does not report this address over netlink, so
+	 * the VTEP is wrongly considered as IPv4.
+	 */
+	local_vtep_ip = zl3vni->local_vtep_ip;
+	if (IS_IPADDR_NONE(&local_vtep_ip)) {
+		SET_IPADDR_V4(&local_vtep_ip);
+		local_vtep_ip.ipaddr_v4.s_addr = INADDR_ANY;
+	}
+	stream_put_ipaddr(s, &local_vtep_ip);
 	stream_put(s, &zl3vni->filter, sizeof(int));
 	stream_putl(s, zl3vni->svi_if->ifindex);
 	stream_put(s, &vrr_rmac, sizeof(struct ethaddr));
@@ -2536,8 +2555,8 @@ static int zl3vni_send_add_to_client(struct zebra_l3vni *zl3vni)
 
 	if (IS_ZEBRA_DEBUG_VXLAN)
 		zlog_debug("Send L3VNI ADD %u VRF %s RMAC %pEA VRR %pEA local-ip %pIA filter %s to %s",
-			   zl3vni->vni, vrf_id_to_name(zl3vni_vrf_id(zl3vni)), &svi_rmac, &vrr_rmac,
-			   &zl3vni->local_vtep_ip,
+			   zl3vni->vni, vrf_id_to_name(zl3vni_vrf_id(zl3vni)), &svi_rmac,
+			   &vrr_rmac, &local_vtep_ip,
 			   CHECK_FLAG(zl3vni->filter, PREFIX_ROUTES_ONLY) ? "prefix-routes-only"
 									  : "none",
 			   zebra_route_string(client->proto));
