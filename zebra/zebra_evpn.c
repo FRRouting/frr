@@ -1649,6 +1649,16 @@ void zebra_evpn_rem_macip_del(vni_t vni, const struct ethaddr *macaddr, uint16_t
 }
 
 /************************** EVPN BGP config management ************************/
+/* Forget the per-VNI advertise knobs that bgpd configured. */
+void zebra_evpn_adv_cfg_reset(struct hash_bucket *bucket, void *ctxt)
+{
+	struct zebra_evpn *zevpn = bucket->data;
+
+	zevpn->advertise_gw_macip = 0;
+	zevpn->advertise_svi_macip = 0;
+	zevpn->advertise_subnet = 0;
+}
+
 void zebra_evpn_cfg_cleanup(struct hash_bucket *bucket, void *ctxt)
 {
 	struct zebra_evpn *zevpn = NULL;
@@ -1656,11 +1666,8 @@ void zebra_evpn_cfg_cleanup(struct hash_bucket *bucket, void *ctxt)
 
 	zevpn = (struct zebra_evpn *)bucket->data;
 
-	if (!wctx->gr_stale_cleanup) {
-		zevpn->advertise_gw_macip = 0;
-		zevpn->advertise_svi_macip = 0;
-		zevpn->advertise_subnet = 0;
-	}
+	if (!wctx->gr_stale_cleanup)
+		zebra_evpn_adv_cfg_reset(bucket, NULL);
 
 	zebra_evpn_neigh_del_all(zevpn, 1, 0, DEL_REMOTE_NEIGH, wctx);
 	zebra_evpn_mac_del_all(zevpn, 1, 0, DEL_REMOTE_MAC | DEL_REMOTE_MAC_FROM_VTEP, wctx);
