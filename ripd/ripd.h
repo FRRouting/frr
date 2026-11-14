@@ -252,6 +252,8 @@ struct rip_info {
 /* Flags of RIP route. */
 #define RIP_RTF_FIB      1
 #define RIP_RTF_CHANGED  2
+/* Route was advertised after the outbound filters permitted it. */
+#define RIP_RTF_OUTBOUND_ADVERTISED 8
 	uint8_t flags;
 
 	/* Garbage collect timer - not copied by rip_info_cpy() */
