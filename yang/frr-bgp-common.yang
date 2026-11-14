@@ -976,7 +976,7 @@ submodule frr-bgp-common {
 
     leaf hold-time {
       type uint16 {
-        range "0 | 3..65535";
+        range "0..65535";
       }
       units "seconds";
       default "180";

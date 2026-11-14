@@ -5136,28 +5136,85 @@ int bgp_nb_peer_local_as_dual_as_modify(struct nb_cb_modify_args *args)
 	return bgp_nb_peer_local_as_apply(peer, args->dnode, args->errmsg, args->errmsg_len);
 }
 
-int bgp_nb_peer_timers_keepalive_modify(struct nb_cb_modify_args *args)
+static bool bgp_nb_timer_leaf_implicit(const struct lyd_node *timers, const char *path)
 {
-	struct peer *peer;
-	uint32_t keepalive, holdtime;
-	const struct lyd_node *timers;
+	const struct lyd_node *leaf;
 
-	if (args->event != NB_EV_APPLY)
+	if (!timers || !yang_dnode_exists(timers, path))
+		return true;
+
+	leaf = yang_dnode_get(timers, path);
+	return CHECK_FLAG(leaf->flags, LYD_DEFAULT);
+}
+
+/*
+ * "no neighbor X timers" deletes both leaves. They have YANG defaults, so
+ * the diff arrives as MODIFY back to 60/180 with LYD_DEFAULT set. That is
+ * not an explicit "timers 60 180", which must still override "timers bgp".
+ */
+static bool bgp_nb_peer_timers_implicit(const struct lyd_node *dnode)
+{
+	const struct lyd_node *timers = yang_dnode_get_parent(dnode, "timers");
+
+	return bgp_nb_timer_leaf_implicit(timers, "./keepalive") &&
+	       bgp_nb_timer_leaf_implicit(timers, "./hold-time");
+}
+
+static int bgp_nb_peer_timers_validate(const struct lyd_node *dnode, char *errmsg,
+				       size_t errmsg_len)
+{
+	const struct lyd_node *timers;
+	uint32_t holdtime;
+
+	timers = yang_dnode_get_parent(dnode, "timers");
+	if (!timers || !yang_dnode_exists(timers, "./hold-time"))
 		return NB_OK;
 
-	peer = bgp_nb_config_peer(args->dnode);
+	holdtime = yang_dnode_get_uint16(timers, "./hold-time");
+	if (holdtime < 3 && holdtime != 0) {
+		snprintfrr(errmsg, errmsg_len,
+			   "hold time value must be either 0 or greater than 3");
+		return NB_ERR_VALIDATION;
+	}
+
+	return NB_OK;
+}
+
+static int bgp_nb_peer_timers_apply(const struct lyd_node *dnode)
+{
+	struct peer *peer;
+	const struct lyd_node *timers;
+	uint32_t keepalive, holdtime;
+
+	peer = bgp_nb_config_peer(dnode);
 	if (!peer)
 		return NB_ERR_NOT_FOUND;
 
-	keepalive = yang_dnode_get_uint16(args->dnode, NULL);
-	timers = yang_dnode_get_parent(args->dnode, "timers");
-	if (timers && yang_dnode_exists(timers, "./hold-time"))
-		holdtime = yang_dnode_get_uint16(timers, "./hold-time");
-	else
-		holdtime = peer->holdtime ? peer->holdtime : keepalive * 3;
+	if (bgp_nb_peer_timers_implicit(dnode)) {
+		peer_timers_unset(peer);
+		return NB_OK;
+	}
 
+	timers = yang_dnode_get_parent(dnode, "timers");
+	keepalive = yang_dnode_get_uint16(timers, "./keepalive");
+	holdtime = yang_dnode_get_uint16(timers, "./hold-time");
 	peer_timers_set(peer, keepalive, holdtime);
 	return NB_OK;
+}
+
+int bgp_nb_peer_timers_keepalive_modify(struct nb_cb_modify_args *args)
+{
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+		return bgp_nb_peer_timers_validate(args->dnode, args->errmsg, args->errmsg_len);
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+		return NB_OK;
+	case NB_EV_APPLY:
+		break;
+	}
+
+	return bgp_nb_peer_timers_apply(args->dnode);
 }
 
 int bgp_nb_peer_timers_keepalive_destroy(struct nb_cb_destroy_args *args)
@@ -5210,26 +5267,17 @@ void bgp_nb_cli_show_peer_timers_holdtime(struct vty *vty, const struct lyd_node
 
 int bgp_nb_peer_timers_holdtime_modify(struct nb_cb_modify_args *args)
 {
-	struct peer *peer;
-	uint32_t keepalive, holdtime;
-	const struct lyd_node *timers;
-
-	if (args->event != NB_EV_APPLY)
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+		return bgp_nb_peer_timers_validate(args->dnode, args->errmsg, args->errmsg_len);
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
 		return NB_OK;
+	case NB_EV_APPLY:
+		break;
+	}
 
-	peer = bgp_nb_config_peer(args->dnode);
-	if (!peer)
-		return NB_ERR_NOT_FOUND;
-
-	holdtime = yang_dnode_get_uint16(args->dnode, NULL);
-	timers = yang_dnode_get_parent(args->dnode, "timers");
-	if (timers && yang_dnode_exists(timers, "./keepalive"))
-		keepalive = yang_dnode_get_uint16(timers, "./keepalive");
-	else
-		keepalive = peer->keepalive ? peer->keepalive : holdtime / 3;
-
-	peer_timers_set(peer, keepalive, holdtime);
-	return NB_OK;
+	return bgp_nb_peer_timers_apply(args->dnode);
 }
 
 int bgp_nb_peer_timers_holdtime_destroy(struct nb_cb_destroy_args *args)
