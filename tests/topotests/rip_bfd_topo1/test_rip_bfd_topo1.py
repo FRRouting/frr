@@ -202,11 +202,21 @@ def test_rip_bfd_convergence(tgen):
 
     tgen.gears["r3"].link_enable("r3-eth0", False)
 
+    # A BFD down withdraws the peer's routes like a normal last-path
+    # deletion: the entry is poisoned (metric 16) and kept for
+    # garbage-collection time instead of disappearing at once.
     expect_routes(
         tgen.gears["r1"],
         {
             "10.254.254.2/32": [{"code": "R", "subCode": "n", "from": "192.168.0.2"}],
-            "10.254.254.3/32": None,
+            "10.254.254.3/32": [
+                {
+                    "code": "R",
+                    "subCode": "n",
+                    "from": "192.168.1.2",
+                    "metric": 16,
+                }
+            ],
             "10.254.254.100/32": [
                 {
                     "code": "R",
@@ -221,11 +231,43 @@ def test_rip_bfd_convergence(tgen):
     expect_routes(
         tgen.gears["r3"],
         {
-            "10.254.254.1/32": None,
-            "10.254.254.2/32": None,
+            "10.254.254.1/32": [
+                {
+                    "code": "R",
+                    "subCode": "n",
+                    "from": "192.168.1.1",
+                    "metric": 16,
+                }
+            ],
+            "10.254.254.2/32": [
+                {
+                    "code": "R",
+                    "subCode": "n",
+                    "from": "192.168.1.1",
+                    "metric": 16,
+                }
+            ],
             "10.254.254.100/32": [{"code": "S", "subCode": "r", "from": "self"}],
         },
         15,
+    )
+
+    # After garbage-collection time the poisoned entries are removed.
+    expect_routes(
+        tgen.gears["r1"],
+        {
+            "10.254.254.3/32": None,
+        },
+        40,
+    )
+
+    expect_routes(
+        tgen.gears["r3"],
+        {
+            "10.254.254.1/32": None,
+            "10.254.254.2/32": None,
+        },
+        40,
     )
 
 
