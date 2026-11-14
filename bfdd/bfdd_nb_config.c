@@ -385,9 +385,14 @@ static int bfd_session_destroy(enum nb_event event, const struct lyd_node *dnode
 
 		UNSET_FLAG(bs->flags, BFD_SESS_FLAG_CONFIG);
 		bs->refcount--;
-		/* There are still daemons using it. */
-		if (bs->refcount > 0)
+		/*
+		 * There are still daemons using it: drop what the `peer` node
+		 * configured, which would otherwise outlive it.
+		 */
+		if (bs->refcount > 0) {
+			bfd_session_unconfigure(bs);
 			break;
+		}
 
 		if (bglobal.debug_peer_event)
 			zlog_info("session destroy: %s", bs_to_string(bs));
@@ -966,6 +971,7 @@ int bfdd_bfd_sessions_single_hop_profile_modify(struct nb_cb_modify_args *args)
 		return NB_OK;
 
 	bs = nb_running_get_entry(args->dnode, NULL, true);
+	SET_FLAG(bs->flags, BFD_SESS_FLAG_CONFIG_PROFILE);
 	bfd_profile_apply(yang_dnode_get_string(args->dnode, NULL), bs);
 
 	return NB_OK;
@@ -980,7 +986,9 @@ int bfdd_bfd_sessions_single_hop_profile_destroy(
 		return NB_OK;
 
 	bs = nb_running_get_entry(args->dnode, NULL, true);
-	bfd_profile_remove(bs);
+	UNSET_FLAG(bs->flags, BFD_SESS_FLAG_CONFIG_PROFILE);
+	/* Fall back on the profile of the clients, if any. */
+	bfd_profile_apply_client(bs);
 
 	return NB_OK;
 }

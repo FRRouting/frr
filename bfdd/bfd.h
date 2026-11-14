@@ -275,6 +275,7 @@ enum bfd_session_flags {
 	BFD_SESS_FLAG_PASSIVE = 1 << 10,	     /* Passive mode */
 	BFD_SESS_FLAG_MAC_SET = 1 << 11,	     /* MAC of peer known */
 	BFD_SESS_FLAG_LOG_SESSION_CHANGES = 1 << 12, /* Log session changes */
+	BFD_SESS_FLAG_CONFIG_PROFILE = 1 << 13,	     /* Profile set with bfd NB API */
 };
 
 enum bfd_mode_type {
@@ -401,6 +402,11 @@ struct bfd_session {
 	struct bfd_profile *profile;
 	/** BFD peer configuration (without profile). */
 	struct bfd_profile peer_profile;
+	/**
+	 * Peer configuration the first client of the session asked for,
+	 * restored when a `peer` node stops configuring the session.
+	 */
+	struct bfd_profile client_peer_profile;
 
 	/* Timers */
 	struct bfd_config_timers timers;
@@ -857,6 +863,32 @@ void bfd_profile_apply(const char *profname, struct bfd_session *bs);
 void bfd_profile_remove(struct bfd_session *bs);
 
 /**
+ * Give the session back the profile one of its clients registered it with,
+ * or no profile if they gave none.
+ *
+ * \param bs the BFD session.
+ */
+void bfd_profile_apply_client(struct bfd_session *bs);
+
+/**
+ * Remove the configuration a `peer` node set on a session that clients still
+ * use: give it back the peer settings of its first client, and the profile of
+ * its clients.
+ *
+ * \param bs the BFD session.
+ */
+void bfd_session_unconfigure(struct bfd_session *bs);
+
+/**
+ * Save the peer settings a client registered the session with, which the
+ * session gets back when a `peer` node stops configuring it.
+ *
+ * \param bs the BFD session.
+ * \param bpc the peer configuration of the client.
+ */
+void bfd_session_save_client_config(struct bfd_session *bs, const struct bfd_peer_cfg *bpc);
+
+/**
  * Apply new profile values to sessions using it.
  *
  * \param[in] bp the BFD profile that got updated.
@@ -891,6 +923,16 @@ void bfdd_sessions_enable_vrf(struct vrf *vrf);
 void bfdd_sessions_disable_vrf(struct vrf *vrf);
 
 int ptm_bfd_notify(struct bfd_session *bs, uint8_t notify_state);
+
+/**
+ * Look up the profile a client registered the session with.
+ *
+ * \param bs the BFD session.
+ *
+ * \returns the profile name of the most recent registration that gave one,
+ * among those of the clients still using the session, or NULL.
+ */
+const char *ptm_bfd_client_profile(const struct bfd_session *bs);
 
 /*
  * dplane.c
