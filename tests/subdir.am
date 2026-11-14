@@ -71,6 +71,7 @@ clean-tests:
 # EXTRA_DIST += tests/daemon/test_foo.py
 #
 
+include tests/bfdd/subdir.am
 include tests/bgpd/subdir.am
 include tests/isisd/subdir.am
 include tests/ospfd/subdir.am
