@@ -739,6 +739,24 @@ struct babel_route *update_route(const unsigned char *router_id, const unsigned 
 
 	route = find_route(prefix, plen, neigh, nexthop);
 
+	/* For retractions, RFC 8966 §4.6.9 says nexthop is not used.
+	 * If the primary lookup missed, try matching by neighbour only.
+	 */
+	if (!route && refmetric >= INFINITY) {
+		int rt_slot = find_route_slot(prefix, plen, NULL);
+
+		if (rt_slot >= 0) {
+			struct babel_route *rt = routes[rt_slot];
+
+			while (rt) {
+				if (rt->neigh == neigh) {
+					route = rt;
+					break;
+				}
+				rt = rt->next;
+			}
+		}
+		}
 	if (route && memcmp(route->src->id, router_id, 8) == 0)
 		/* Avoid scanning the source table. */
 		src = route->src;
