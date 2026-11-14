@@ -6303,8 +6303,23 @@ void zebra_vxlan_advertise_all_vni(ZAPI_HANDLER_ARGS)
 			   is_evpn_enabled() ? "enabled" : "disabled",
 			   flood_ctrl);
 
-	if (zvrf->advertise_all_vni == advertise)
+	if (zvrf->advertise_all_vni == advertise && !zvrf->evpn_gr_replay_pending)
 		return;
+
+	if (zvrf->evpn_gr_replay_pending) {
+		/*
+		 * EVPN was left enabled when a GR-enabled bgpd went away, and
+		 * this is the first request since. The new bgpd knows nothing
+		 * yet, so an unchanged "enable" still has to go through the
+		 * replay below. Forget the advertise knobs the old bgpd set:
+		 * the new one sends the ones it has configured, and those
+		 * handlers also ignore a request that changes nothing.
+		 */
+		zvrf->evpn_gr_replay_pending = false;
+		zvrf->advertise_gw_macip = 0;
+		zvrf->advertise_svi_macip = 0;
+		hash_iterate(zvrf->evpn_table, zebra_evpn_adv_cfg_reset, NULL);
+	}
 
 	zvrf->advertise_all_vni = advertise;
 	if (EVPN_ENABLED(zvrf)) {
@@ -6777,6 +6792,7 @@ static void zebra_evpn_vrf_cfg_cleanup(struct zebra_vrf *zvrf, bool stale_cleanu
 	struct l2vni_walk_ctx wctx;
 
 	if (!stale_cleanup) {
+		zvrf->evpn_gr_replay_pending = false;
 		zvrf->advertise_all_vni = 0;
 		zvrf->advertise_gw_macip = 0;
 		zvrf->advertise_svi_macip = 0;
@@ -6812,6 +6828,22 @@ void zebra_evpn_stale_entries_cleanup(uint64_t gr_cleanup_time)
 {
 	struct vrf *vrf;
 	struct zebra_vrf *zvrf;
+	bool stale_cleanup = true;
+
+	/*
+	 * EVPN was left enabled for a restarting bgpd, but GR is over and
+	 * nothing has asked for EVPN again: bgpd did not come back in time, or
+	 * came back without advertise-all-vni. Nothing is going to refresh the
+	 * retained entries, so do what a GR-disabled disconnect does.
+	 */
+	zvrf = zebra_vrf_get_evpn();
+	if (zvrf && zvrf->evpn_gr_replay_pending) {
+		if (IS_ZEBRA_DEBUG_EVENT)
+			zlog_debug("EVPN-GR: bgp did not re-enable EVPN. Cleaning up EVPN entries");
+
+		zebra_evpn_remote_es_cleanup();
+		stale_cleanup = false;
+	}
 
 	if (IS_ZEBRA_DEBUG_EVENT)
 		zlog_debug("EVPN-GR: Cleaning up stale entries in all VRFs");
@@ -6825,7 +6857,7 @@ void zebra_evpn_stale_entries_cleanup(uint64_t gr_cleanup_time)
 
 		zvrf = vrf->info;
 		if (zvrf)
-			zebra_evpn_vrf_cfg_cleanup(zvrf, true, gr_cleanup_time);
+			zebra_evpn_vrf_cfg_cleanup(zvrf, stale_cleanup, gr_cleanup_time);
 	}
 }
 
@@ -6859,7 +6891,20 @@ static int zebra_evpn_pim_cfg_clean_up(struct zserv *client)
 
 static int zebra_evpn_cfg_clean_up(struct zserv *client)
 {
+	struct zebra_vrf *zvrf;
+
 	if (client->proto == ZEBRA_ROUTE_BGP) {
+		/*
+		 * bgpd's synchronous (label-manager) session never sends GR
+		 * capabilities, so it always looks GR-disabled. It owns no EVPN
+		 * state: only the main session does. Without this check, bgpd
+		 * exiting with GR enabled still flushes all EVPN entries
+		 * (remote MACs/neighs/VTEPs, L3VNI RMACs and next-hops) when
+		 * the synchronous socket closes.
+		 */
+		if (client->synchronous)
+			return 0;
+
 		if (DYNAMIC_CLIENT_GR_DISABLED(client)) {
 			if (IS_ZEBRA_DEBUG_EVENT)
 				zlog_debug(
@@ -6874,8 +6919,7 @@ static int zebra_evpn_cfg_clean_up(struct zserv *client)
 			 * With GR enabled, leave the VTEPs installed. bgpd does not
 			 * replay them on reconnect.
 			 */
-			if (!client->synchronous)
-				zebra_evpn_remote_es_cleanup();
+			zebra_evpn_remote_es_cleanup();
 
 			return zebra_evpn_bgp_cfg_clean_up(client);
 		}
@@ -6886,8 +6930,18 @@ static int zebra_evpn_cfg_clean_up(struct zserv *client)
 		if (IS_ZEBRA_DEBUG_EVENT)
 			zlog_debug("EVPN-GR: client bgp has GR enabled. Retaining EVPN entries");
 
-		if (!client->synchronous && IS_ZEBRA_DEBUG_EVPN_MH_ES)
+		if (IS_ZEBRA_DEBUG_EVPN_MH_ES)
 			zlog_debug("EVPN-GR: retaining remote ES VTEPs across bgp disconnect");
+
+		/*
+		 * Leave EVPN enabled so that zebra keeps tracking VNI,
+		 * interface, MAC and neighbour changes while bgpd is away.
+		 * The restarted bgpd's ADVERTISE_ALL_VNI then changes nothing,
+		 * so note that it still needs the replay.
+		 */
+		zvrf = zebra_vrf_get_evpn();
+		if (zvrf && EVPN_ENABLED(zvrf))
+			zvrf->evpn_gr_replay_pending = true;
 	}
 
 	if (client->proto == ZEBRA_ROUTE_PIM)

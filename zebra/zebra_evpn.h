@@ -167,6 +167,7 @@ void zebra_evpn_rem_macip_add(vni_t vni, const struct ethaddr *macaddr, uint16_t
 			      struct ipaddr *vtep_ip, const esi_t *esi);
 void zebra_evpn_rem_macip_del(vni_t vni, const struct ethaddr *macaddr, uint16_t ipa_len,
 			      const struct ipaddr *ipaddr, struct ipaddr *vtep_ip);
+void zebra_evpn_adv_cfg_reset(struct hash_bucket *bucket, void *ctxt);
 void zebra_evpn_cfg_cleanup(struct hash_bucket *bucket, void *ctxt);
 
 #ifdef __cplusplus
