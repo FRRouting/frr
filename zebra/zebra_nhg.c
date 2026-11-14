@@ -3283,11 +3283,49 @@ void nexthop_vrf_update(struct route_node *rn, struct route_entry *re, vrf_id_t 
 }
 
 /*
+ * Re-using an old nhg that still carries an inactive nexthop the upper level
+ * protocol no longer sends is only worthwhile if that nexthop can become
+ * active again once its interface comes back up.  It cannot once the
+ * interface it points at, or the vrf it lives in, has been deleted: a
+ * recreated interface or vrf gets a new ifindex or vrf_id, so the nexthop
+ * stays dead for good.
+ *
+ * A nexthop is also treated as gone when its interface sits in another vrf
+ * than the nexthop, typically after the interface was moved, as
+ * zebra_interface_nhg_reinstall() does not bring such a nexthop back.  This
+ * also matches nexthops built that way on purpose, like SRv6 End.DT* SIDs
+ * pointing at a vrf device, but those come in single nexthop routes, for
+ * which it does not change the outcome of the comparison.
+ */
+static bool zebra_nhg_nexthop_is_gone(const struct nexthop *nhop)
+{
+	struct interface *ifp;
+
+	if (nhop->ifindex == IFINDEX_INTERNAL)
+		return !vrf_lookup_by_id(nhop->vrf_id);
+
+	/*
+	 * Once the nexthop's vrf is gone, either no interface is found, or,
+	 * with vrf-lite where if_lookup_by_index() searches all vrfs, one in
+	 * another vrf.
+	 */
+	ifp = if_lookup_by_index(nhop->ifindex, nhop->vrf_id);
+
+	return !ifp || ifp->vrf->vrf_id != nhop->vrf_id;
+}
+
+/*
  * This function takes the start of two comparable nexthops from two different
  * nexthop groups and walks them to see if they can be considered the same
  * or not.  This is being used to determine if zebra should reuse a nhg
  * from the old_re to the new_re, when an interface goes down and the
- * new nhg sent down from the upper level protocol would resolve to it
+ * new nhg sent down from the upper level protocol would resolve to it.
+ *
+ * Inactive old nexthops missing from the new nhg are skipped, so that the
+ * old nhg can be kept while their interfaces are down.  That is not done
+ * for nexthops that are gone for good (see zebra_nhg_nexthop_is_gone()),
+ * otherwise the route would keep a nexthop the upper level protocol has
+ * removed.
  */
 static bool zebra_nhg_nexthop_compare(const struct nexthop *nhop,
 				      const struct nexthop *old_nhop,
@@ -3316,20 +3354,40 @@ static bool zebra_nhg_nexthop_compare(const struct nexthop *nhop,
 				   old_nhop->flags, CHECK_FLAG(old_nhop->flags, NEXTHOP_FLAG_ACTIVE),
 				   nexthop_same_no_ifindex(nhop, old_nhop));
 		if (!CHECK_FLAG(old_nhop->flags, NEXTHOP_FLAG_ACTIVE)) {
+			bool old_gone = zebra_nhg_nexthop_is_gone(old_nhop);
+
 			if (IS_ZEBRA_DEBUG_NHG_DETAIL)
-				zlog_debug("%s: (%s:%u:%u)%pRN Old is not active going to the next one",
-					   __func__, vrf_name, vrf_id, table_id, rn);
+				zlog_debug("%s: (%s:%u:%u)%pRN Old is not active%s", __func__,
+					   vrf_name, vrf_id, table_id, rn,
+					   old_gone ? " and gone for good"
+						    : " going to the next one");
 
 			/*
 			 * If the new nexthop is not active and the old nexthop is also not active,
 			 * then we know that we can skip both the old and new nexthops.
+			 * If the old nexthop is gone for good, the new one has to match it
+			 * exactly (nexthop_same() also compares the ifindex of interface
+			 * nexthops), as re-using the old nhg would otherwise replace what
+			 * the upper level protocol sent with a dead nexthop.
 			 */
 			if (!CHECK_FLAG(nhop->flags, NEXTHOP_FLAG_ACTIVE) &&
-			    nexthop_same_no_ifindex(nhop, old_nhop)) {
+			    (old_gone ? nexthop_same(nhop, old_nhop)
+				      : nexthop_same_no_ifindex(nhop, old_nhop))) {
 				if (IS_ZEBRA_DEBUG_NHG_DETAIL)
 					zlog_debug("%s: (%s:%u:%u)%pRN new is not active going to the next one",
 						   __func__, vrf_name, vrf_id, table_id, rn);
 				nhop = nhop->next;
+			} else if (old_gone) {
+				/*
+				 * The upper level protocol dropped a nexthop that can
+				 * never become active again, keeping the old nhg
+				 * would leave it in the route forever.
+				 */
+				if (IS_ZEBRA_DEBUG_NHG_DETAIL)
+					zlog_debug("%s: (%s:%u:%u)%pRN Old is gone and does not match new exactly, they are not the same",
+						   __func__, vrf_name, vrf_id, table_id, rn);
+				same = false;
+				break;
 			}
 			old_nhop = old_nhop->next;
 			continue;
@@ -3386,8 +3444,13 @@ static bool zebra_nhg_nexthop_compare(const struct nexthop *nhop,
 	if (nhop)
 		same = false;
 	else if (old_nhop) {
+		/*
+		 * Remaining old nexthops can only be ignored if they are
+		 * inactive and not gone for good.
+		 */
 		while (old_nhop) {
-			if (CHECK_FLAG(old_nhop->flags, NEXTHOP_FLAG_ACTIVE))
+			if (CHECK_FLAG(old_nhop->flags, NEXTHOP_FLAG_ACTIVE) ||
+			    zebra_nhg_nexthop_is_gone(old_nhop))
 				break;
 			old_nhop = old_nhop->next;
 		}
