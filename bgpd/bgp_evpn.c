@@ -7030,9 +7030,10 @@ static void bgp_evpn_handle_deferred_bestpath_per_vni(struct hash_bucket *bucket
 	if (!bgp->gr_info[afi][safi].gr_deferred || ctx->cnt >= BGP_MAX_BEST_ROUTE_SELECT)
 		return;
 
-	ctx->cnt += bgp_deferred_path_selection(bgp, afi, safi, vpn->mac_table, ctx->cnt, vpn,
-						true);
-	ctx->cnt += bgp_deferred_path_selection(bgp, afi, safi, vpn->ip_table, ctx->cnt, vpn, true);
+	ctx->cnt = bgp_deferred_path_selection(bgp, afi, safi, vpn->mac_table,
+					       ctx->cnt, vpn, true);
+	ctx->cnt = bgp_deferred_path_selection(bgp, afi, safi, vpn->ip_table,
+					       ctx->cnt, vpn, true);
 }
 
 void bgp_evpn_handle_deferred_bestpath_for_vnis(struct bgp *bgp, uint16_t cnt)
