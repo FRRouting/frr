@@ -16,7 +16,7 @@
 #include "nhrp_protocol.h"
 #include "os.h"
 
-struct nhrp_reqid_pool nhrp_packet_reqid;
+struct nhrp_reqid_pool nhrp_packet_reqid = { .persist = true };
 
 static uint16_t family2proto(int family)
 {
