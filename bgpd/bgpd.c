@@ -6142,19 +6142,26 @@ static int peer_af_flag_modify(struct peer *peer, afi_t afi, safi_t safi,
 		return BGP_ERR_INVALID_FLAG;
 
 	ptype = peer_sort(peer);
-	/* Special check for reflector client.  */
-	if (CHECK_FLAG(flag, PEER_FLAG_REFLECTOR_CLIENT) &&
-	    ptype != BGP_PEER_IBGP)
-		return BGP_ERR_NOT_INTERNAL_PEER;
+	/*
+	 * A peer-group with no remote-as and no members is INTERNAL.
+	 * Northbound applies AF flags before members are bound, so these
+	 * checks cannot be decided yet. Store the flag; member bind
+	 * inherits it once the member's sort is known. A known iBGP or
+	 * eBGP peer is still rejected here.
+	 */
+	if (!(CHECK_FLAG(peer->sflags, PEER_STATUS_GROUP) && ptype == BGP_PEER_INTERNAL)) {
+		/* Special check for reflector client.  */
+		if (CHECK_FLAG(flag, PEER_FLAG_REFLECTOR_CLIENT) && ptype != BGP_PEER_IBGP)
+			return BGP_ERR_NOT_INTERNAL_PEER;
 
-	/* Special check for remove-private-AS.  */
-	if (CHECK_FLAG(flag, PEER_FLAG_REMOVE_PRIVATE_AS) &&
-	    ptype == BGP_PEER_IBGP)
-		return BGP_ERR_REMOVE_PRIVATE_AS;
+		/* Special check for remove-private-AS.  */
+		if (CHECK_FLAG(flag, PEER_FLAG_REMOVE_PRIVATE_AS) && ptype == BGP_PEER_IBGP)
+			return BGP_ERR_REMOVE_PRIVATE_AS;
 
-	/* as-override is not allowed for IBGP peers */
-	if (CHECK_FLAG(flag, PEER_FLAG_AS_OVERRIDE) && ptype == BGP_PEER_IBGP)
-		return BGP_ERR_AS_OVERRIDE;
+		/* as-override is not allowed for IBGP peers */
+		if (CHECK_FLAG(flag, PEER_FLAG_AS_OVERRIDE) && ptype == BGP_PEER_IBGP)
+			return BGP_ERR_AS_OVERRIDE;
+	}
 
 	/* Handle flag updates where desired state matches current state. */
 	if (!CHECK_FLAG(peer->sflags, PEER_STATUS_GROUP)) {
