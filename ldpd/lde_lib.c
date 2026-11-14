@@ -434,8 +434,6 @@ lde_kernel_update(struct fec *fec)
 		if (CHECK_FLAG(fnh->flags, F_FEC_NH_NO_LDP))
 			continue;
 
-		lde_send_change_klabel(fn, fnh);
-
 		switch (fn->fec.type) {
 		case FEC_TYPE_IPV4:
 		case FEC_TYPE_IPV6:
@@ -452,9 +450,27 @@ lde_kernel_update(struct fec *fec)
 		if (ln) {
 			/* FEC.2  */
 			me = (struct lde_map *)fec_find(&ln->recv_map, &fn->fec);
-			if (me)
-				/* FEC.5 */
+			if (me) {
+				/* FEC.5: re-evaluate mapping now that we have a local label */
 				lde_check_mapping(&me->map, ln, 0);
+			} else if (fnh->remote_label != NO_LABEL) {
+				/* If we have a remote label but no mapping record,
+				 * ensure forwarding entry is installed.
+				 * Clear defer flag if set, as we have a remote label
+				 * which means the condition that caused defer is resolved. */
+				if (CHECK_FLAG(ldeconf->flags, F_LDPD_ORDERED_CONTROL))
+					UNSET_FLAG(fnh->flags, F_FEC_NH_DEFER);
+				lde_send_change_klabel(fn, fnh);
+			} else {
+				/* No neighbor mapping record and no remote label,
+				 * but we may still need to install forwarding entry
+				 * (e.g., for connected routes or when defer flag is not set) */
+				lde_send_change_klabel(fn, fnh);
+			}
+		} else {
+			/* No neighbor found, but we may still need to install
+			 * forwarding entry (e.g., for connected routes) */
+			lde_send_change_klabel(fn, fnh);
 		}
 	}
 }
