@@ -2532,17 +2532,38 @@ static int ospf_te_delete_te(struct ls_ted *ted, struct ospf_lsa *lsa)
 	uint32_t len, sum;
 	uint8_t lsa_id;
 
+	if (lsa->size < OSPF_LSA_HEADER_SIZE + TLV_HDR_SIZE)
+		return -1;
+
 	/* Initialize TLV browsing */
 	tlvh = TLV_HDR_TOP(lsa->data);
+	len = lsa->size - OSPF_LSA_HEADER_SIZE;
 	/* Skip Router TE ID if present */
-	if (ntohs(tlvh->type) == TE_TLV_ROUTER_ADDR)
+	if (ntohs(tlvh->type) == TE_TLV_ROUTER_ADDR) {
+		/* Router Address TLV value is a fixed 4 octets (RFC 3630) */
+		if (TLV_BODY_SIZE(tlvh) != TE_LINK_SUBTLV_DEF_SIZE ||
+		    TLV_SIZE(tlvh) > len)
+			return -1;
+		len -= TLV_SIZE(tlvh);
+		/* Nothing else to delete if TE Router-ID is alone */
+		if (len == 0)
+			return 0;
+		if (len < TLV_HDR_SIZE)
+			return -1;
 		tlvh = TLV_HDR_NEXT(tlvh);
-	len = TLV_BODY_SIZE(tlvh);
-	sum = sizeof(struct tlv_header);
+	}
+
+	/* Only a TE Link TLV carries a Link ID to delete */
+	if (ntohs(tlvh->type) != TE_TLV_LINK)
+		return 0;
+	if (TLV_SIZE(tlvh) > len)
+		return -1;
+	len = TLV_SIZE(tlvh);
+	sum = TLV_HDR_SIZE;
 
 	/* Browse sub-TLV to find Link ID */
 	tlvh = TLV_DATA(tlvh);
-	while (sum < len) {
+	while (len - sum >= TLV_HDR_SIZE) {
 		uint32_t tlv_size = TLV_SIZE(tlvh);
 
 		if (tlv_size > len - sum) {
@@ -2563,8 +2584,7 @@ static int ospf_te_delete_te(struct ls_ted *ted, struct ospf_lsa *lsa)
 			break;
 		}
 		sum += tlv_size;
-		if (sum < len)
-			tlvh = TLV_HDR_NEXT(tlvh);
+		tlvh = TLV_HDR_NEXT(tlvh);
 	}
 	if (key.family == AF_UNSPEC)
 		return 0;
@@ -2865,7 +2885,7 @@ static int ospf_te_parse_ext_pref(struct ls_ted *ted, struct ospf_lsa *lsa)
 	}
 
 	len = lsa->size - OSPF_LSA_HEADER_SIZE;
-	if (len <= TLV_HDR_SIZE) {
+	if (len < TLV_HDR_SIZE + EXT_TLV_PREFIX_SIZE) {
 		zlog_warn("Malformed EXT Prefix LSA");
 		return -1;
 	}
@@ -2974,7 +2994,7 @@ static int ospf_te_delete_ext_pref(struct ls_ted *ted, struct ospf_lsa *lsa)
 		return -1;
 	}
 
-	if ((lsa->size - OSPF_LSA_HEADER_SIZE) <= TLV_HDR_SIZE) {
+	if ((lsa->size - OSPF_LSA_HEADER_SIZE) < TLV_HDR_SIZE + EXT_TLV_PREFIX_SIZE) {
 		zlog_warn("Malformed EXT Prefix LSA");
 		return -1;
 	}
