@@ -321,6 +321,13 @@ int nhrp_ext_reply(struct zbuf *zb, struct nhrp_packet_header *hdr,
 		goto err;
 
 	switch (type) {
+	case NHRP_EXTENSION_AUTHENTICATION:
+		/* Authentication is always present when configured and is
+		 * regenerated hop-by-hop by nhrp_packet_complete_auth().
+		 * Copy the payload through to keep the reply layout.
+		 */
+		zbuf_copy(zb, extpayload, zbuf_used(extpayload));
+		break;
 	case NHRP_EXTENSION_RESPONDER_ADDRESS:
 		cie = nhrp_cie_push(zb, NHRP_CODE_SUCCESS, &nifp->nbma,
 				    &ad->addr);
@@ -330,7 +337,12 @@ int nhrp_ext_reply(struct zbuf *zb, struct nhrp_packet_header *hdr,
 		cie->holding_time = htons(ad->holdtime);
 		break;
 	default:
-		if (type & NHRP_EXTENSION_FLAG_COMPULSORY)
+		/* Per RFC 2332 §5.3: unknown compulsory extensions
+		 * must trigger Unrecognized Extension error.  Check
+		 * the original ext->type, not the cleaned type which
+		 * already had the compulsory bit removed.
+		 */
+		if (htons(ext->type) & NHRP_EXTENSION_FLAG_COMPULSORY)
 			goto err;
 		fallthrough;
 	case NHRP_EXTENSION_FORWARD_TRANSIT_NHS:
