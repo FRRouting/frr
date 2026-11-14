@@ -125,7 +125,10 @@ void ospf6_lsdb_add(struct ospf6_lsa *lsa, struct ospf6_lsdb *lsdb)
 			if (OSPF6_LSA_IS_MAXAGE(lsa)) {
 				if (lsdb->hook_remove) {
 					(*lsdb->hook_remove)(old);
-					(*lsdb->hook_remove)(lsa);
+					/* Inter-area removal examines the MaxAge copy. */
+					if (OSPF6_LSA_IS_TYPE(INTER_PREFIX, lsa) ||
+					    OSPF6_LSA_IS_TYPE(INTER_ROUTER, lsa))
+						(*lsdb->hook_remove)(lsa);
 				}
 			} else if (OSPF6_LSA_IS_MAXAGE(old)) {
 				if (lsdb->hook_add)
