@@ -3429,7 +3429,7 @@ DEFPY_YANG(neighbor_shutdown_rtt_yang, neighbor_shutdown_rtt_yang_cmd,
 {
 	char xpath[XPATH_MAXLEN];
 	char leaf[XPATH_MAXLEN + 256];
-	char buf[16];
+	char rtt_buf[16], count_buf[16];
 	bool is_pg = false;
 	int ret;
 
@@ -3450,12 +3450,12 @@ DEFPY_YANG(neighbor_shutdown_rtt_yang, neighbor_shutdown_rtt_yang_cmd,
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 
-	snprintfrr(buf, sizeof(buf), "%" PRId64, rtt);
-	nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY, buf);
+	snprintfrr(rtt_buf, sizeof(rtt_buf), "%" PRId64, rtt);
+	nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY, rtt_buf);
 	snprintfrr(leaf, sizeof(leaf), "%s/admin-shutdown/rtt-count", xpath);
 	if (count_str) {
-		snprintfrr(buf, sizeof(buf), "%" PRId64, count);
-		nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY, buf);
+		snprintfrr(count_buf, sizeof(count_buf), "%" PRId64, count);
+		nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY, count_buf);
 	} else
 		nb_cli_enqueue_change(vty, leaf, NB_OP_DESTROY, NULL);
 
@@ -5766,7 +5766,7 @@ DEFPY_YANG(bgp_dampening_yang, bgp_dampening_yang_cmd,
 {
 	char af_xpath[XPATH_MAXLEN];
 	char leaf[XPATH_MAXLEN + 256];
-	char buf[16];
+	char half_buf[16], reuse_buf[16], suppress_buf[16], max_buf[16];
 	unsigned int half_min, reuse_val, suppress_val, max_min;
 
 	if (!no && suppress_str && reuse_str && (unsigned int)suppress < (unsigned int)reuse) {
@@ -5800,20 +5800,20 @@ DEFPY_YANG(bgp_dampening_yang, bgp_dampening_yang_cmd,
 	nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY, "true");
 
 	snprintfrr(leaf, sizeof(leaf), "%s/route-flap-dampening/reach-decay", af_xpath);
-	snprintfrr(buf, sizeof(buf), "%u", half_min);
-	nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY, buf);
+	snprintfrr(half_buf, sizeof(half_buf), "%u", half_min);
+	nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY, half_buf);
 
 	snprintfrr(leaf, sizeof(leaf), "%s/route-flap-dampening/reuse-above", af_xpath);
-	snprintfrr(buf, sizeof(buf), "%u", reuse_val);
-	nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY, buf);
+	snprintfrr(reuse_buf, sizeof(reuse_buf), "%u", reuse_val);
+	nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY, reuse_buf);
 
 	snprintfrr(leaf, sizeof(leaf), "%s/route-flap-dampening/suppress-above", af_xpath);
-	snprintfrr(buf, sizeof(buf), "%u", suppress_val);
-	nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY, buf);
+	snprintfrr(suppress_buf, sizeof(suppress_buf), "%u", suppress_val);
+	nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY, suppress_buf);
 
 	snprintfrr(leaf, sizeof(leaf), "%s/route-flap-dampening/unreach-decay", af_xpath);
-	snprintfrr(buf, sizeof(buf), "%u", max_min);
-	nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY, buf);
+	snprintfrr(max_buf, sizeof(max_buf), "%u", max_min);
+	nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY, max_buf);
 
 	return nb_cli_apply_changes(vty, NULL);
 }
@@ -6057,7 +6057,7 @@ DEFPY_YANG(bgp_evpn_dad_yang, bgp_evpn_dad_yang_cmd,
 {
 	char af_xpath[XPATH_MAXLEN];
 	char leaf[XPATH_MAXLEN + 256];
-	char buf[16];
+	char moves_buf[16], time_buf[16], freeze_buf[16];
 
 	bgp_cli_global_af_xpath(vty, af_xpath, sizeof(af_xpath));
 	nb_cli_enqueue_change(vty, af_xpath, NB_OP_CREATE, NULL);
@@ -6105,11 +6105,11 @@ DEFPY_YANG(bgp_evpn_dad_yang, bgp_evpn_dad_yang_cmd,
 	if (max_moves_str && time_str) {
 		snprintfrr(leaf, sizeof(leaf), "%s/duplicate-address-detection/max-moves",
 			   af_xpath);
-		snprintfrr(buf, sizeof(buf), "%" PRId64, max_moves);
-		nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY, buf);
+		snprintfrr(moves_buf, sizeof(moves_buf), "%" PRId64, max_moves);
+		nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY, moves_buf);
 		snprintfrr(leaf, sizeof(leaf), "%s/duplicate-address-detection/time", af_xpath);
-		snprintfrr(buf, sizeof(buf), "%" PRId64, time);
-		nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY, buf);
+		snprintfrr(time_buf, sizeof(time_buf), "%" PRId64, time);
+		nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY, time_buf);
 	}
 
 	if (permanent) {
@@ -6125,8 +6125,8 @@ DEFPY_YANG(bgp_evpn_dad_yang, bgp_evpn_dad_yang_cmd,
 		nb_cli_enqueue_change(vty, leaf, NB_OP_DESTROY, NULL);
 		snprintfrr(leaf, sizeof(leaf), "%s/duplicate-address-detection/freeze-time",
 			   af_xpath);
-		snprintfrr(buf, sizeof(buf), "%" PRId64, freeze_time);
-		nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY, buf);
+		snprintfrr(freeze_buf, sizeof(freeze_buf), "%" PRId64, freeze_time);
+		nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY, freeze_buf);
 	}
 
 	return nb_cli_apply_changes(vty, NULL);
@@ -7720,7 +7720,7 @@ DEFPY_YANG(bmp_connect_yang, bmp_connect_yang_cmd,
 {
 	char sess[XPATH_MAXLEN];
 	char leaf[XPATH_MAXLEN + 256];
-	char buf[16];
+	char min_buf[16], max_buf[16];
 
 	snprintfrr(sess, sizeof(sess),
 		   "./outgoing-session/session-list[hostname='%s'][tcp-port='%" PRId64 "']", host,
@@ -7734,11 +7734,11 @@ DEFPY_YANG(bmp_connect_yang, bmp_connect_yang_cmd,
 	nb_cli_enqueue_change(vty, sess, NB_OP_CREATE, NULL);
 	snprintfrr(leaf, sizeof(leaf), "%s/min-retry-time", sess);
 	/* YANG defaults: 30000 / 720000 — avoid BMP module macros in CLI. */
-	snprintfrr(buf, sizeof(buf), "%ld", min_retry_str ? min_retry : 30000L);
-	nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY, buf);
+	snprintfrr(min_buf, sizeof(min_buf), "%ld", min_retry_str ? min_retry : 30000L);
+	nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY, min_buf);
 	snprintfrr(leaf, sizeof(leaf), "%s/max-retry-time", sess);
-	snprintfrr(buf, sizeof(buf), "%ld", max_retry_str ? max_retry : 720000L);
-	nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY, buf);
+	snprintfrr(max_buf, sizeof(max_buf), "%ld", max_retry_str ? max_retry : 720000L);
+	nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY, max_buf);
 	snprintfrr(leaf, sizeof(leaf), "%s/source-interface", sess);
 	if (srcif)
 		nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY, srcif);
@@ -8056,7 +8056,7 @@ DEFPY_YANG(neighbor_dampening_yang, neighbor_dampening_yang_cmd,
 {
 	char xpath[XPATH_MAXLEN];
 	char leaf[XPATH_MAXLEN + 256];
-	char buf[16];
+	char half_buf[16], reuse_buf[16], suppress_buf[16], max_buf[16];
 	bool is_pg = false;
 	unsigned int half_min, reuse_val, suppress_val, max_min;
 	int ret;
@@ -8089,20 +8089,20 @@ DEFPY_YANG(neighbor_dampening_yang, neighbor_dampening_yang_cmd,
 	nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY, "true");
 
 	snprintfrr(leaf, sizeof(leaf), "%s/route-flap-dampening/reach-decay", xpath);
-	snprintfrr(buf, sizeof(buf), "%u", half_min);
-	nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY, buf);
+	snprintfrr(half_buf, sizeof(half_buf), "%u", half_min);
+	nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY, half_buf);
 
 	snprintfrr(leaf, sizeof(leaf), "%s/route-flap-dampening/reuse-above", xpath);
-	snprintfrr(buf, sizeof(buf), "%u", reuse_val);
-	nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY, buf);
+	snprintfrr(reuse_buf, sizeof(reuse_buf), "%u", reuse_val);
+	nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY, reuse_buf);
 
 	snprintfrr(leaf, sizeof(leaf), "%s/route-flap-dampening/suppress-above", xpath);
-	snprintfrr(buf, sizeof(buf), "%u", suppress_val);
-	nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY, buf);
+	snprintfrr(suppress_buf, sizeof(suppress_buf), "%u", suppress_val);
+	nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY, suppress_buf);
 
 	snprintfrr(leaf, sizeof(leaf), "%s/route-flap-dampening/unreach-decay", xpath);
-	snprintfrr(buf, sizeof(buf), "%u", max_min);
-	nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY, buf);
+	snprintfrr(max_buf, sizeof(max_buf), "%u", max_min);
+	nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY, max_buf);
 
 	return nb_cli_apply_changes(vty, NULL);
 }
@@ -8804,7 +8804,7 @@ DEFPY_YANG(neighbor_maximum_prefix_yang, neighbor_maximum_prefix_yang_cmd,
 	char leaf[XPATH_MAXLEN + 512];
 	bool is_pg = false;
 	const char *af;
-	char buf[16];
+	char max_buf[16], threshold_buf[16], restart_buf[16];
 	int ret;
 
 	ret = bgp_cli_peer_af_xpath(vty, neighbor, xpath, sizeof(xpath), &is_pg);
@@ -8817,9 +8817,9 @@ DEFPY_YANG(neighbor_maximum_prefix_yang, neighbor_maximum_prefix_yang_cmd,
 		   xpath, af);
 
 	nb_cli_enqueue_change(vty, dirpath, NB_OP_CREATE, NULL);
-	snprintfrr(buf, sizeof(buf), "%" PRId64, max);
+	snprintfrr(max_buf, sizeof(max_buf), "%" PRId64, max);
 	snprintfrr(leaf, sizeof(leaf), "%s/max-prefixes", dirpath);
-	nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY, buf);
+	nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY, max_buf);
 
 	snprintfrr(leaf, sizeof(leaf), "%s/force-check", dirpath);
 	nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY, force ? "true" : "false");
@@ -8827,29 +8827,29 @@ DEFPY_YANG(neighbor_maximum_prefix_yang, neighbor_maximum_prefix_yang_cmd,
 	bgp_cli_clear_prefix_limit_options(vty, dirpath);
 
 	if (threshold_str && warn) {
-		snprintfrr(buf, sizeof(buf), "%" PRId64, threshold);
+		snprintfrr(threshold_buf, sizeof(threshold_buf), "%" PRId64, threshold);
 		snprintfrr(leaf, sizeof(leaf), "%s/options/tw-shutdown-threshold-pct", dirpath);
-		nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY, buf);
+		nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY, threshold_buf);
 		snprintfrr(leaf, sizeof(leaf), "%s/options/tw-warning-only", dirpath);
 		nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY, "true");
 	} else if (threshold_str && restart_str) {
-		snprintfrr(buf, sizeof(buf), "%" PRId64, threshold);
+		snprintfrr(threshold_buf, sizeof(threshold_buf), "%" PRId64, threshold);
 		snprintfrr(leaf, sizeof(leaf), "%s/options/tr-shutdown-threshold-pct", dirpath);
-		nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY, buf);
-		snprintfrr(buf, sizeof(buf), "%" PRId64, restart);
+		nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY, threshold_buf);
+		snprintfrr(restart_buf, sizeof(restart_buf), "%" PRId64, restart);
 		snprintfrr(leaf, sizeof(leaf), "%s/options/tr-restart-timer", dirpath);
-		nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY, buf);
+		nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY, restart_buf);
 	} else if (threshold_str) {
-		snprintfrr(buf, sizeof(buf), "%" PRId64, threshold);
+		snprintfrr(threshold_buf, sizeof(threshold_buf), "%" PRId64, threshold);
 		snprintfrr(leaf, sizeof(leaf), "%s/options/shutdown-threshold-pct", dirpath);
-		nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY, buf);
+		nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY, threshold_buf);
 	} else if (warn) {
 		snprintfrr(leaf, sizeof(leaf), "%s/options/warning-only", dirpath);
 		nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY, "true");
 	} else if (restart_str) {
-		snprintfrr(buf, sizeof(buf), "%" PRId64, restart);
+		snprintfrr(restart_buf, sizeof(restart_buf), "%" PRId64, restart);
 		snprintfrr(leaf, sizeof(leaf), "%s/options/restart-timer", dirpath);
-		nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY, buf);
+		nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY, restart_buf);
 	}
 
 	return nb_cli_apply_changes(vty, NULL);
