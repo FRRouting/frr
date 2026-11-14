@@ -60,6 +60,11 @@ def setup_module(mod):
             os.path.join(CWD, "{}/snmpd.conf".format(rname)),
             "-Le -Ivacm_conf,usmConf,iquery -V -DAgentX",
         )
+        # Numbered instances only. No ospfd.vty, so vtysh's default ospfd
+        # client stays disconnected while ospfd-1.vty and ospfd-2.vty are up.
+        if rname == "r2":
+            router.load_config(TopoRouter.RD_OSPF, instance="1")
+            router.load_config(TopoRouter.RD_OSPF, instance="2")
 
     tgen.start_router()
 
@@ -88,6 +93,56 @@ debug agentx
     # which prints the lib debug flags.
     debugs = r2.vtysh_cmd("show debugging")
     assert "SNMP AgentX debugging is on" in debugs, "debug agentx not reported"
+
+
+def test_agentx_show():
+    tgen = get_topogen()
+    r2 = tgen.gears["r2"]
+
+    output = json.loads(r2.vtysh_cmd("show agentx status json"))
+    bgpd = output["bgpd"]
+    assert bgpd["moduleLoaded"] is True
+    assert bgpd["enabled"] is True
+    assert isinstance(bgpd["connected"], bool)
+    assert bgpd["pendingNotifications"] >= 0
+    assert bgpd["droppedNotifications"] >= 0
+    if bgpd["connected"]:
+        assert bgpd["socketFd"] >= 0
+        assert bgpd["socketSendMaximum"] > 0
+        assert bgpd["socketSendQueued"] >= 0
+    else:
+        assert "socketFd" not in bgpd
+        assert "socketSendMaximum" not in bgpd
+        assert "socketSendQueued" not in bgpd
+
+    assert output["zebra"]["moduleLoaded"] is False
+
+    text = r2.vtysh_cmd("show agentx status")
+    assert "AgentX status for bgpd:" in text
+    assert "Pending notifications:" in text
+    assert "Dropped notifications:" in text
+
+
+def test_agentx_show_ospf_instances():
+    """Numbered ospfd clients stay visible, each as its own JSON value.
+
+    r2 runs ospfd --instance 1 and --instance 2 and not the default ospfd.
+    The default client's fd stays negative. A show that skips the whole
+    ospfd chain in that case drops both instances. A show that queries the
+    chain in one call prints both objects under one key, which is not JSON.
+    """
+    tgen = get_topogen()
+    r2 = tgen.gears["r2"]
+
+    output = json.loads(r2.vtysh_cmd("show agentx status json"))
+    assert "ospfd" not in output
+    for name in ("ospfd-1", "ospfd-2"):
+        assert output[name]["moduleLoaded"] is False
+
+    text = r2.vtysh_cmd("show agentx status")
+    assert "AgentX status for ospfd-1:" in text
+    assert "AgentX status for ospfd-2:" in text
+    assert "AgentX status for ospfd:" not in text
 
 
 def test_bgp_open_notification_change_configuration():
@@ -123,6 +178,63 @@ no neighbor 192.168.12.2  password 8888"
     _, result1 = topotest.run_and_expect(test_func1, None, count=120, wait=0.5)
 
     assert result1 is None, "Failed to verify the bgp session"
+
+
+def _check_r2_established():
+    r2 = get_topogen().gears["r2"]
+    output = json.loads(r2.vtysh_cmd("show bgp summary json"))
+    expected = {"ipv4Unicast": {"peers": {"192.168.12.4": {"state": "Established"}}}}
+
+    return topotest.json_cmp(output, expected)
+
+
+def test_agentx_debug_traps_logged():
+    tgen = get_topogen()
+    r2 = tgen.gears["r2"]
+
+    def _check_trap_logs():
+        log = r2.net.getLog("log", "bgpd")
+        for line in ("AgentX: queue trap", "AgentX: send trap to snmpd"):
+            if line not in log:
+                return "missing '{}' in bgpd.log".format(line)
+        return None
+
+    _, result = topotest.run_and_expect(_check_trap_logs, None, count=30, wait=1)
+    assert result is None, result
+
+
+def test_agentx_debug_disable():
+    tgen = get_topogen()
+    r2 = tgen.gears["r2"]
+
+    r2.vtysh_multicmd(
+        """
+configure terminal
+no debug agentx
+"""
+    )
+
+    running = r2.vtysh_cmd("show running-config")
+    assert "debug agentx" not in running, "debug agentx still in running-config"
+
+    # Same command as test_agentx_debug_config(). "show debugging bgp" is
+    # not a vtysh command: bgpd registers it DEFUN_NOSH. The error text
+    # does not contain the AgentX line, so that negative check always passed.
+    debugs = r2.vtysh_cmd("show debugging")
+    assert "Unknown command" not in debugs, debugs
+    assert "SNMP AgentX debugging is on" not in debugs, "debug agentx still on"
+
+    # The peer transition queues its trap synchronously, so once the session
+    # is back up any debug line for it would already be in the log.
+    log_offset = len(r2.net.getLog("log", "bgpd"))
+    r2.vtysh_cmd("clear bgp 192.168.12.4")
+    _, result = topotest.run_and_expect(
+        _check_r2_established, None, count=120, wait=0.5
+    )
+    assert result is None, "Failed to verify the bgp session"
+
+    new_log = r2.net.getLog("log", "bgpd")[log_offset:]
+    assert "AgentX: queue trap" not in new_log, "AgentX debug logged while disabled"
 
 
 def test_memory_leak():

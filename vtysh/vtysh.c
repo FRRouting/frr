@@ -3182,6 +3182,105 @@ static int show_per_daemon(struct vty *vty, struct cmd_token **argv, int argc,
 }
 #pragma GCC diagnostic pop
 
+/*
+ * Daemons that call libagentx_init(). The daemon command is NOSH; this
+ * wrapper is the one vtysh installs. Each connected client is one value.
+ * OSPF numbered instances share the ospfd slot and hang off its next
+ * chain. One disconnected client must not hide the others, and their
+ * JSON objects must not be concatenated under a single key.
+ */
+#define VTYSH_AGENTX_SHOW                                                                         \
+	(VTYSH_ZEBRA | VTYSH_RIPD | VTYSH_OSPFD | VTYSH_OSPF6D | VTYSH_LDPD | VTYSH_BGPD |        \
+	 VTYSH_ISISD | VTYSH_EIGRPD | VTYSH_FABRICD)
+
+/* Socket basename without ".vty": bgpd.vty -> bgpd, ospfd-1.vty -> ospfd-1. */
+static void vtysh_agentx_client_label(const struct vtysh_client *client, char *label,
+				      size_t label_len)
+{
+	const char *base;
+	const char *dot;
+	size_t len;
+
+	base = strrchr(client->path, '/');
+	base = base ? base + 1 : client->path;
+	if (!base[0])
+		base = client->name;
+
+	dot = strrchr(base, '.');
+	if (dot && strcmp(dot, ".vty") == 0)
+		len = (size_t)(dot - base);
+	else
+		len = strlen(base);
+
+	if (len >= label_len)
+		len = label_len - 1;
+	memcpy(label, base, len);
+	label[len] = '\0';
+}
+
+static void vtysh_show_agentx_send(struct vty *vty, struct cmd_token **argv,
+				   int argc, bool as_json)
+{
+	unsigned int i;
+	bool first = true;
+	char *line;
+	struct vtysh_client *client;
+	char label[64];
+
+	/*
+	 * VIEW_NODE rejects the "do" shortcut. do_prepend() adds it only
+	 * when this session is in some other node.
+	 */
+	line = do_prepend(vty, argv, argc);
+
+	if (as_json)
+		vty_out(vty, "{");
+
+	for (i = 0; i < array_size(vtysh_client); i++) {
+		if (!(vtysh_client[i].flag & VTYSH_AGENTX_SHOW))
+			continue;
+
+		for (client = &vtysh_client[i]; client; client = client->next) {
+			if (client->fd < 0)
+				continue;
+
+			vtysh_agentx_client_label(client, label, sizeof(label));
+
+			if (as_json) {
+				if (!first)
+					vty_out(vty, ",");
+				vty_out(vty, "\"%s\":", label);
+			} else {
+				vty_out(vty, "AgentX status for %s:\n", label);
+			}
+
+			first = false;
+			/* This client only. execute_name walks the chain. */
+			vtysh_client_run(client, line, NULL, NULL, NULL);
+
+			if (!as_json)
+				vty_out(vty, "\n");
+		}
+	}
+
+	if (as_json)
+		vty_out(vty, "}\n");
+
+	XFREE(MTYPE_TMP, line);
+}
+
+DEFPY(vtysh_show_agentx, vtysh_show_agentx_cmd,
+      "show agentx status [json$json]",
+      SHOW_STR
+      "SNMP AgentX subagent\n"
+      "AgentX subagent status\n"
+      JSON_STR)
+{
+	vtysh_show_agentx_send(vty, argv, argc, !!json);
+
+	return CMD_SUCCESS;
+}
+
 static int show_one_daemon(struct vty *vty, struct cmd_token **argv, int argc,
 			   const char *name)
 {
@@ -5911,6 +6010,8 @@ void vtysh_init_vty(void)
 	install_element(ENABLE_NODE, &vtysh_show_running_config_cmd);
 	install_element(ENABLE_NODE, &vtysh_copy_running_config_cmd);
 	install_element(ENABLE_NODE, &vtysh_copy_to_running_cmd);
+
+	install_element(VIEW_NODE, &vtysh_show_agentx_cmd);
 
 	install_element(ENABLE_NODE, &show_route_map_cmd);
 	install_element(ENABLE_NODE, &show_route_map_unused_cmd);

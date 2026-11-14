@@ -264,11 +264,73 @@ Here is the syntax for using AgentX:
 .. clicmd:: debug agentx
 
    Log AgentX subagent activity: the connection to the master agent going up
-   and down, and the file descriptors polled for it. Net-SNMP's own debug
-   messages are also only logged while this is enabled.
+   and down, the file descriptors polled for it, and each SNMP notification
+   as it is queued and later sent to the master agent, with its trap OID and,
+   for BGP, the neighbor address. Net-SNMP's own debug messages are also only
+   logged while this is enabled.
 
    The command is available in every daemon that supports ``agentx``,
    including bgpd. When given in configuration mode it is saved to the
    configuration; in enable mode it lasts until the daemon restarts.
+
+.. clicmd:: show agentx status [json]
+
+   Show AgentX status. vtysh prints one section for each connected
+   client, labeled with the vty socket name without ``.vty``. A normal
+   bgpd is ``bgpd``. A numbered OSPF instance is ``ospfd-1`` rather than
+   ``ospfd``. A client vtysh is not connected to is left out, so when
+   only ``ospfd --instance 1`` is running the output has ``ospfd-1`` and
+   no ``ospfd`` section. Each value is read when the command runs.
+
+   ::
+
+      show agentx status
+        |
+        +-- SNMP module not loaded
+        |     "AgentX module is not loaded"
+        |
+        +-- module loaded
+              |
+              Enabled: yes           the "agentx" command has run
+              Master session: up     the master session is open
+                              down   that transport has dropped
+                                     the command does not probe the socket
+              Pending notifications: still in the daemon queue
+              Dropped notifications: discarded because the queue was full,
+                                     or the master stayed down for 30 seconds
+              |
+              +-- session down
+              |     "Socket send buffer: not connected"
+              |
+              +-- session up
+                    Socket fd:           the socket connected to snmpd
+                    Socket send queued:  bytes in the kernel send accounting
+                                         (see below), not a notification count
+                    Socket send maximum: the live send-buffer cap, in bytes
+                    one of those reads failed: that line is omitted
+                    both failed: "Socket send buffer: unavailable"
+
+   The hold is 30 seconds. The clock starts when the master session goes
+   down, not when each notification is queued. If the session returns
+   before 30 seconds, the queue is sent in order. After 30 seconds the
+   queued notifications are discarded and counted in Dropped
+   notifications. Notifications that arrive while the session is still
+   down are discarded the same way, until the session opens again.
+
+   Pending notifications and the socket lines are different queues.
+   Pending is still inside the daemon. After a notification is handed
+   to the kernel it is no longer pending, so the socket lines are bytes
+   rather than a count of notifications.
+
+   Socket send queued comes from ``TIOCOUTQ``. On the usual Unix socket
+   that is data the daemon has written and snmpd has not read, and the
+   number includes per-buffer kernel overhead, so it is larger than the
+   notification payload. On a TCP AgentX socket the same ioctl is the
+   number of bytes not yet acknowledged. Those bytes may already have
+   been received by snmpd.
+
+   ``json`` prints the same fields, one object per connected client,
+   with the same labels (``bgpd``, ``ospfd-1``). Socket numbers are
+   omitted when they were not read.
 
 .. include:: snmptrap.rst
