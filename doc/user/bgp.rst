@@ -3463,7 +3463,9 @@ standard
    This type accepts explicit extended community values. Each value must be
    prefixed with a type keyword: ``rt``, ``soo``, ``nt``, or ``color``. The
    value itself uses either AS-based (``AS:VAL``) or IP-based
-   (``IP-Address:VAL``) format. Multiple values may be specified on one line.
+   (``IP-Address:VAL``) format, except for ``color`` which uses the
+   ``CO:COLOR`` or ``COLOR`` format (see :clicmd:`set extcommunity color EXTCOMMUNITY`).
+   Multiple values may be specified on one line.
    Matching is done on the encoded extended community, so ``rt 65001:100`` and
    ``soo 65001:100`` are different values.
 
@@ -3613,10 +3615,13 @@ BGP Extended Communities in Route Map
 
 :rfc:`9256`.
 
-``CO:COLOR``
-   This is a format to define colors value. ``CO`` part is always 00 (default),
-   it can be used to support the requirements of Color-Only steering when using
-   a Null Endpoint in the SR-TE Policy as specified in Section 8.8 of [RFC9256].
+``CO:COLOR`` or ``COLOR``
+   This is a format to define colors value. ``COLOR`` is a value from 1 to
+   4294967295. ``CO`` is optional: a color given without ``CO`` bits, as in
+   ``set extcommunity color 100``, is encoded with ``CO`` bits 00, like
+   ``set extcommunity color 00:100``. The ``CO`` bits can be used to support
+   the requirements of Color-Only steering when using a Null Endpoint in the
+   SR-TE Policy as specified in Section 8.8 of [RFC9256].
    The below shows in detail what the different combinations of ``CO`` bits can
    match on to for the purpose of determining what type of SR-TE Policy Tunnel
    a BGP route can resolve over, and it also shows the order for resolving the
