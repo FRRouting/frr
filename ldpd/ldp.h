@@ -257,9 +257,6 @@ struct capability_tlv {
 #define CAP_TLV_UNOTIF_SIZE	5
 #define CAP_TLV_UNOTIF_LEN	1
 
-#define	AF_IPV4			0x1
-#define	AF_IPV6			0x2
-
 struct address_list_tlv {
 	uint16_t	type;
 	uint16_t	length;
