@@ -14723,15 +14723,32 @@ void bgp_nb_cli_show_peer_af_default_originate_rmap(struct vty *vty, const struc
 
 static int bgp_nb_peer_af_named_filter_modify(struct nb_cb_modify_args *args, int direct,
 					      int (*set_fn)(struct peer *, afi_t, safi_t, int,
-							    const char *))
+							    const char *),
+					      const char *conflict)
 {
 	struct peer *peer;
 	afi_t afi;
 	safi_t safi;
 	const char *name;
 
-	if (args->event != NB_EV_APPLY)
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+		/*
+		 * The other list may be created in this same candidate, so
+		 * read the candidate rather than the live peer filter.
+		 */
+		if (conflict && yang_dnode_exists(args->dnode, conflict)) {
+			snprintfrr(args->errmsg, args->errmsg_len,
+				   "Prefix/distribute list can not co-exist");
+			return NB_ERR_VALIDATION;
+		}
 		return NB_OK;
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+		return NB_OK;
+	case NB_EV_APPLY:
+		break;
+	}
 
 	peer = bgp_nb_config_peer(args->dnode);
 	if (!peer || !bgp_nb_dnode_afi_safi(args->dnode, &afi, &safi))
@@ -14763,7 +14780,8 @@ static int bgp_nb_peer_af_named_filter_destroy(struct nb_cb_destroy_args *args, 
 
 int bgp_nb_peer_af_plist_import_modify(struct nb_cb_modify_args *args)
 {
-	return bgp_nb_peer_af_named_filter_modify(args, FILTER_IN, peer_prefix_list_set);
+	return bgp_nb_peer_af_named_filter_modify(args, FILTER_IN, peer_prefix_list_set,
+						  "../access-list-import");
 }
 
 int bgp_nb_peer_af_plist_import_destroy(struct nb_cb_destroy_args *args)
@@ -14780,7 +14798,8 @@ void bgp_nb_cli_show_peer_af_plist_import(struct vty *vty, const struct lyd_node
 
 int bgp_nb_peer_af_plist_export_modify(struct nb_cb_modify_args *args)
 {
-	return bgp_nb_peer_af_named_filter_modify(args, FILTER_OUT, peer_prefix_list_set);
+	return bgp_nb_peer_af_named_filter_modify(args, FILTER_OUT, peer_prefix_list_set,
+						  "../access-list-export");
 }
 
 int bgp_nb_peer_af_plist_export_destroy(struct nb_cb_destroy_args *args)
@@ -14797,7 +14816,8 @@ void bgp_nb_cli_show_peer_af_plist_export(struct vty *vty, const struct lyd_node
 
 int bgp_nb_peer_af_access_list_import_modify(struct nb_cb_modify_args *args)
 {
-	return bgp_nb_peer_af_named_filter_modify(args, FILTER_IN, peer_distribute_set);
+	return bgp_nb_peer_af_named_filter_modify(args, FILTER_IN, peer_distribute_set,
+						  "../plist-import");
 }
 
 int bgp_nb_peer_af_access_list_import_destroy(struct nb_cb_destroy_args *args)
@@ -14814,7 +14834,8 @@ void bgp_nb_cli_show_peer_af_access_list_import(struct vty *vty, const struct ly
 
 int bgp_nb_peer_af_access_list_export_modify(struct nb_cb_modify_args *args)
 {
-	return bgp_nb_peer_af_named_filter_modify(args, FILTER_OUT, peer_distribute_set);
+	return bgp_nb_peer_af_named_filter_modify(args, FILTER_OUT, peer_distribute_set,
+						  "../plist-export");
 }
 
 int bgp_nb_peer_af_access_list_export_destroy(struct nb_cb_destroy_args *args)
@@ -14831,7 +14852,7 @@ void bgp_nb_cli_show_peer_af_access_list_export(struct vty *vty, const struct ly
 
 int bgp_nb_peer_af_aspath_filter_import_modify(struct nb_cb_modify_args *args)
 {
-	return bgp_nb_peer_af_named_filter_modify(args, FILTER_IN, peer_aslist_set);
+	return bgp_nb_peer_af_named_filter_modify(args, FILTER_IN, peer_aslist_set, NULL);
 }
 
 int bgp_nb_peer_af_aspath_filter_import_destroy(struct nb_cb_destroy_args *args)
@@ -14848,7 +14869,7 @@ void bgp_nb_cli_show_peer_af_aspath_filter_import(struct vty *vty, const struct 
 
 int bgp_nb_peer_af_aspath_filter_export_modify(struct nb_cb_modify_args *args)
 {
-	return bgp_nb_peer_af_named_filter_modify(args, FILTER_OUT, peer_aslist_set);
+	return bgp_nb_peer_af_named_filter_modify(args, FILTER_OUT, peer_aslist_set, NULL);
 }
 
 int bgp_nb_peer_af_aspath_filter_export_destroy(struct nb_cb_destroy_args *args)
