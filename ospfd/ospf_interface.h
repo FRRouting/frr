@@ -400,6 +400,12 @@ struct ospf_interface {
 	/* Last Unknown Neighbor warn on this interface (rate-limit). */
 	struct timeval t_unknown_nbr_warn;
 
+	/* Set once the no-key NULL-auth fallback warning has been emitted;
+	 * cleared when a usable key is present again, so each fallback
+	 * episode warns exactly once.
+	 */
+	bool auth_null_fallback_warned;
+
 	/* Buffered values for keychain and key */
 	struct keychain *keychain;
 	struct key *key;
