@@ -278,6 +278,15 @@ module frr-pim {
         "Group count threshold for IGMP/MLD watermark warnings.";
     }
 
+    leaf gm-proxy-rpf {
+      type boolean;
+      default "false";
+      description
+        "Proxy IGMP/MLD (S,G) memberships only on the proxy interface
+         that is the RPF interface toward the source. (*,G) memberships
+         are still proxied on every proxy interface.";
+    }
+
     leaf shutdown {
       type boolean;
       default "false";

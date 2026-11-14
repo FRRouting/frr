@@ -1925,6 +1925,18 @@ void pim_if_gm_proxy_init(struct pim_instance *pim, struct interface *oif)
 						      .grp = group->group_addr };
 				struct prefix_sg pfx;
 
+				/*
+				 * RPF proxy mode places (S,G) joins itself;
+				 * excluded sources are not interest.
+				 */
+				if (tib_sg_proxy_rpf_applies(pim, sgaddr)) {
+					if (!group->group_filtermode_isexcl ||
+					    IGMP_SOURCE_TEST_FORWARDING(src->source_flags))
+						tib_sg_proxy_join_prune_check(pim, sgaddr, ifp,
+									      true);
+					continue;
+				}
+
 				pim_sg_to_prefix(&sgaddr, &pfx);
 				if (!pim_filter_match(&oif_pim->gm_proxy_filter, &pfx, oif, ifp)) {
 					if (PIM_DEBUG_GM_TRACE)
@@ -1938,7 +1950,22 @@ void pim_if_gm_proxy_init(struct pim_instance *pim, struct interface *oif)
 						   GM_JOIN_PROXY);
 			}
 		}
+
+		/* Static groups ('ip igmp static-group') are proxied too */
+		if (pim_ifp->static_group_list) {
+			struct static_group *stgrp;
+
+			for (ALL_LIST_ELEMENTS_RO(pim_ifp->static_group_list, group_node, stgrp)) {
+				pim_sgaddr sg = { .src = stgrp->source_addr,
+						  .grp = stgrp->group_addr };
+
+				tib_sg_proxy_join_prune_check(pim, sg, ifp, true);
+			}
+		}
 	} /* scan interfaces */
+
+	/* oif may now be the RPF proxy interface for existing (S,G) state */
+	tib_sg_proxy_rpf_update_all(pim);
 }
 
 void pim_if_gm_proxy_finis(struct pim_instance *pim, struct interface *ifp)
@@ -1950,6 +1977,9 @@ void pim_if_gm_proxy_finis(struct pim_instance *pim, struct interface *ifp)
 
 	if (!pim_ifp)
 		return;
+
+	/* Move RPF proxy (S,G) joins off ifp (to nowhere, or to a new RPF) */
+	tib_sg_proxy_rpf_update_all(pim);
 
 	for (ALL_LIST_ELEMENTS(pim_ifp->gm_join_list, join_node, next_join_node,
 			       join)) {
