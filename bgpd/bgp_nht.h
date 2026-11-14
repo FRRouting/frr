@@ -67,6 +67,9 @@ extern void path_nh_map(struct bgp_path_info *path,
  */
 extern void bgp_nht_register_nexthops(struct bgp *bgp);
 
+/* The L3VNI of a VRF or its SVI changed: refresh the nexthops of the VRF. */
+extern void bgp_nht_l3vni_change(struct bgp *bgp_vrf);
+
 /*
  * When we have the the PEER_FLAG_CAPABILITY_ENHE flag
  * set on a peer *after* it has been brought up we need
