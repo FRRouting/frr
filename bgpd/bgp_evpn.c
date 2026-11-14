@@ -3575,8 +3575,9 @@ static int install_evpn_route_entry_in_vrf(struct bgp *bgp_vrf,
 		pi = bgp_create_evpn_bgp_path_info(parent_pi, dest, &attr);
 		new_pi = true;
 	} else {
-		if (!CHECK_FLAG(pi->flags, BGP_PATH_REMOVED) && attrhash_cmp(pi->attr, &attr) &&
-		    bgp_path_info_extra_same(pi, parent_pi)) {
+		if (!CHECK_FLAG(pi->flags, BGP_PATH_REMOVED) &&
+		    !CHECK_FLAG(parent_pi->flags, BGP_PATH_IGP_CHANGED) &&
+		    attrhash_cmp(pi->attr, &attr) && bgp_path_info_extra_same(pi, parent_pi)) {
 			bgp_dest_unlock_node(dest);
 			bgp_attr_extra_discard(&attr);
 			return 0;
