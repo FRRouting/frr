@@ -2861,6 +2861,16 @@ module frr-zebra {
             }
           }
         }
+        leaf multi-access {
+          type boolean;
+          default "false";
+          description
+            "Learn every router that sends Router Advertisements on this
+            interface as a separate neighbor.  By default the interface
+            is treated as point-to-point: a new router replaces the one
+            learnt before.  Lets BGP unnumbered (RFC 5549) find its peer
+            on a segment shared with other routers.";
+        }
         container pref64 {
           description
             "A list of NAT64 prefixes that are placed in the PREF64 option in
