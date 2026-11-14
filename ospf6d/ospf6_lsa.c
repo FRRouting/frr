@@ -922,6 +922,21 @@ void ospf6_lsa_expire(struct event *event)
 	ospf6_maxage_remove(ospf6);
 }
 
+/* RFC 2328 Section 12.4: MinLSInterval bounds successive originations of
+ * the same LSA.  Return how many milliseconds must still pass before the
+ * LSA may be originated again; 0 when the interval has elapsed or the LSA
+ * was never originated (originated is unset).
+ */
+long ospf6_lsa_refresh_delay(struct ospf6_lsa *self)
+{
+	int64_t elapsed_ms;
+
+	elapsed_ms = monotime_since(&self->originated, NULL) / 1000;
+	if (elapsed_ms < OSPF_MIN_LS_INTERVAL)
+		return OSPF_MIN_LS_INTERVAL - elapsed_ms;
+	return 0;
+}
+
 void ospf6_lsa_refresh(struct event *event)
 {
 	struct ospf6_lsa *old, *self, *new;
@@ -952,6 +967,7 @@ void ospf6_lsa_refresh(struct event *event)
 
 	new = ospf6_lsa_create(self->header);
 	new->lsdb = old->lsdb;
+	monotime(&new->originated);
 	event_add_timer(master, ospf6_lsa_refresh, new, OSPF_LS_REFRESH_TIME,
 			&new->refresh);
 
