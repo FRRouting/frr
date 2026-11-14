@@ -71,6 +71,10 @@ DEFINE_HOOK(bgp_vrf_status_changed, (struct bgp *bgp, struct interface *ifp),
 
 DEFINE_MTYPE_STATIC(BGPD, BGP_IF_INFO, "BGP interface context");
 
+static void bgp_zebra_process_srv6_locator_routemap_internal(struct bgp *bgp,
+							     struct srv6_locator *locator,
+							     afi_t afi, bool add);
+
 /* Can we install into zebra? */
 static inline bool bgp_install_info_to_zebra(struct bgp *bgp)
 {
@@ -1025,6 +1029,7 @@ static bool bgp_table_map_apply(struct route_map *map, const struct prefix *p,
 	route_map_result_t ret;
 
 	ret = route_map_apply(map, p, path);
+	cleanup_after_rmap_apply(path);
 	bgp_attr_flush(path->attr);
 	bgp_attr_extra_discard(path->attr);
 
@@ -3385,6 +3390,9 @@ static void bgp_zebra_connected(struct zclient *zclient)
 
 		bgp_zebra_instance_register(bgp);
 
+		/* the SIDs of the route-map locator contexts are requested again */
+		bgp_srv6_per_locator_cache_get_locators(bgp);
+
 		FOREACH_AFI_SAFI (afi, safi) {
 			if (!bgp_fibupd_safi(safi))
 				continue;
@@ -3414,11 +3422,13 @@ static void bgp_zebra_disconnected(struct zclient *zclient)
 		vpn_leak_zebra_vrf_sids_forget(bgp);
 		if (bgp->inst_type == BGP_INSTANCE_TYPE_DEFAULT)
 			bgp_srv6_unicast_sids_forget(bgp);
+		bgp_srv6_per_locator_cache_forget_sids(bgp);
 
 		/* the locators may have changed when zebra is started again */
 		srv6_locator_free(bgp->srv6_locator);
 		bgp->srv6_locator = NULL;
 	}
+	bgp_srv6_locators_flush();
 }
 
 void bgp_zebra_process_remote_routes_for_l2vni(struct event *e)
@@ -3865,199 +3875,277 @@ static int bgp_zebra_process_srv6_locator_internal(struct srv6_locator *locator,
 	return 0;
 }
 
-static int bgp_zebra_srv6_sid_notify(ZAPI_CALLBACK_ARGS)
+static enum srv6_sid_alloc_mode bgp_zebra_srv6_sid_alloc_mode_cfg(struct bgp *bgp, afi_t afi)
 {
-	afi_t afi = AFI_UNSPEC;
-	struct bgp *bgp;
-	struct srv6_locator *locator_bgp;
-	struct srv6_sid_ctx ctx;
-	struct in6_addr sid_addr;
-	enum zapi_srv6_sid_notify note;
-	struct bgp *bgp_vrf;
-	struct vrf *vrf;
-	struct listnode *node, *nnode;
+	bool sid_auto;
+
+	if (afi != AFI_UNSPEC && is_srv6_vpn_afi_enabled(bgp, afi))
+		sid_auto = CHECK_FLAG(bgp->vpn_policy[afi].flags, BGP_VPN_POLICY_TOVPN_SID_AUTO);
+	else if (afi != AFI_UNSPEC && is_srv6_unicast_enabled(bgp, afi))
+		sid_auto = CHECK_FLAG(bgp->srv6_unicast[afi].flags, SRV6_POLICY_FLAG_SID_AUTO);
+	else if (afi == AFI_UNSPEC && is_srv6_vpn_vrf_enabled(bgp))
+		sid_auto = CHECK_FLAG(bgp->vrf_flags, BGP_VRF_TOVPN_SID_AUTO);
+	else if (afi == AFI_UNSPEC && is_srv6_unicast_dt46_enabled(bgp, AFI_IP))
+		sid_auto = CHECK_FLAG(bgp->srv6_unicast[AFI_IP].flags, SRV6_POLICY_FLAG_SID_AUTO);
+	else if (afi == AFI_UNSPEC && is_srv6_unicast_dt46_enabled(bgp, AFI_IP6))
+		sid_auto = CHECK_FLAG(bgp->srv6_unicast[AFI_IP6].flags, SRV6_POLICY_FLAG_SID_AUTO);
+	else
+		return SRV6_SID_ALLOC_MODE_UNSPEC;
+
+	return sid_auto ? SRV6_SID_ALLOC_MODE_DYNAMIC : SRV6_SID_ALLOC_MODE_EXPLICIT;
+}
+
+/* called to check case when SID is allocated */
+static int bgp_zebra_srv6_sid_control_locator_common(struct srv6_sid_ctx *ctx, struct bgp *bgp_vrf,
+						     char *loc_name, struct in6_addr *sid_addr,
+						     struct srv6_locator *locator, char *errmsg,
+						     size_t errmsg_len)
+{
 	char buf[256];
 	struct prefix_ipv6 tmp_prefix;
-	uint32_t sid_func, sid_wide_func = 0;
-	bool found = false;
-	char loc_name[SRV6_LOCNAME_SIZE];
 
-	for (ALL_LIST_ELEMENTS_RO(bm->bgp, node, bgp)) {
-		if (!bgp_srv6_locator_is_configured(bgp))
-			continue;
+	/* locator must be configured when allocation happens */
+	if (locator && !strmatch(locator->name, loc_name)) {
+		if (BGP_DEBUG(zebra, ZEBRA))
+			snprintfrr(errmsg, errmsg_len,
+				   "%s(%d): %s, SRv6 Locator name unmatch %s, releasing SID.",
+				   bgp_vrf->name_pretty, bgp_vrf->vrf_id, __func__, locator->name);
+		return -1;
+	}
 
-		if (!bgp_srv6_locator_lookup(NULL, bgp))
-			continue;
+	/* Verify that the received SID belongs to the configured locator */
+	tmp_prefix.family = AF_INET6;
+	tmp_prefix.prefixlen = IPV6_MAX_BITLEN;
+	IPV6_ADDR_COPY(&tmp_prefix.prefix, sid_addr);
 
-		/* at least one locator configured and available */
+	if (!prefix_match((struct prefix *)&locator->prefix, (struct prefix *)&tmp_prefix)) {
+		/* locator may have changed - release the SID */
+		if (BGP_DEBUG(zebra, ZEBRA))
+			snprintfrr(errmsg, errmsg_len,
+				   "SRv6 SID %pI6 %s : locator prefix mismatch (%s), releasing it.",
+				   sid_addr, srv6_sid_ctx2str(buf, sizeof(buf), ctx),
+				   locator->name);
+		return -1;
+	}
+	return 0;
+}
+
+static int bgp_zebra_srv6_sid_control_locator_rmap(
+	struct srv6_sid_ctx *ctx, enum zapi_srv6_sid_notify note, struct bgp *bgp_vrf,
+	char *loc_name, struct in6_addr *sid_addr, struct srv6_locator *locator_rmap, char *errmsg,
+	size_t errmsg_len, afi_t afi, struct bgp_srv6_per_locator_cache *bslc)
+{
+	char buf[256];
+
+	if (bslc && ctx->alloc_mode == SRV6_SID_ALLOC_MODE_EXPLICIT) {
+		if (BGP_DEBUG(zebra, ZEBRA))
+			snprintfrr(errmsg, errmsg_len,
+				   "%s: SRv6 SID %pI6 %s, Locator rmap is in automatic mode.",
+				   __func__, sid_addr, srv6_sid_ctx2str(buf, sizeof(buf), ctx));
+		return -1;
+	}
+
+	switch (note) {
+	case ZAPI_SRV6_SID_ALLOCATED:
+		if (bgp_zebra_srv6_sid_control_locator_common(ctx, bgp_vrf, loc_name, sid_addr,
+							      locator_rmap, errmsg,
+							      errmsg_len) == -1)
+			return -1;
+		if (ctx->behavior == ZEBRA_SEG6_LOCAL_ACTION_END_DT46) {
+			if (BGP_DEBUG(zebra, ZEBRA))
+				snprintfrr(errmsg, errmsg_len,
+					   "Unsupported behavior. Not assigned SRv6 SID: %s %pI6, releasing it.",
+					   srv6_sid_ctx2str(buf, sizeof(buf), ctx), sid_addr);
+			return -1;
+		}
+		break;
+	case ZAPI_SRV6_SID_RELEASED:
+		if (!sid_same(bslc->sid_policy.tovpn_sid, sid_addr))
+			/* already assigned to another SID. cancel update */
+			return -1;
+		break;
+	case ZAPI_SRV6_SID_FAIL_ALLOC:
+		break;
+	case ZAPI_SRV6_SID_FAIL_RELEASE:
 		break;
 	}
 
-	if (!bgp) {
-		if (BGP_DEBUG(zebra, ZEBRA))
-			zlog_debug("%s, ignoring SRv6 SID notify: locator not set", __func__);
-		return -1;
-	}
+	return 0;
+}
 
-	/* Decode the received notification message */
-	if (!zapi_srv6_sid_notify_decode(zclient->ibuf, &ctx, &sid_addr, &sid_func, &sid_wide_func,
-					 &note, loc_name, sizeof(loc_name))) {
-		zlog_err("%s : error in msg decode", __func__);
-		return -1;
-	}
-
-	if (BGP_DEBUG(zebra, ZEBRA))
-		zlog_debug("%s: received SRv6 SID notify: ctx %s sid_value %pI6 %s, locator %s",
-			   __func__, srv6_sid_ctx2str(buf, sizeof(buf), &ctx), &sid_addr,
-			   zapi_srv6_sid_notify2str(note), loc_name);
-
-	/* Get the BGP instance for which the SID has been requested, if any */
-	for (ALL_LIST_ELEMENTS(bm->bgp, node, nnode, bgp_vrf)) {
-		vrf = vrf_lookup_by_id(bgp_vrf->vrf_id);
-		if (!vrf)
-			continue;
-
-		if (vrf->vrf_id == ctx.vrf_id) {
-			found = true;
-			break;
-		}
-	}
-
-	if (!found) {
-		if (BGP_DEBUG(zebra, ZEBRA))
-			zlog_debug("%s: ignoring SRv6 SID notify: No VRF suitable for received SID ctx %s sid_value %pI6",
-				   __func__,
-				   srv6_sid_ctx2str(buf, sizeof(buf), &ctx),
-				   &sid_addr);
-		return -1;
-	}
-
-	locator_bgp = bgp_srv6_locator_lookup(bgp_vrf, bgp_get_default());
-	if (!locator_bgp)
-		return -1;
-
-	if (ctx.behavior == ZEBRA_SEG6_LOCAL_ACTION_END_DT6)
-		afi = AFI_IP6;
-	else if (ctx.behavior == ZEBRA_SEG6_LOCAL_ACTION_END_DT4)
-		afi = AFI_IP;
+static int bgp_zebra_srv6_sid_control_locator(struct srv6_sid_ctx *ctx,
+					      enum zapi_srv6_sid_notify note, struct bgp *bgp_vrf,
+					      char *loc_name, struct in6_addr *sid_addr,
+					      struct srv6_locator *locator_bgp, char *errmsg,
+					      size_t errmsg_len, afi_t afi)
+{
+	char buf[256];
+	enum srv6_sid_alloc_mode bgp_alloc_mode;
 
 	/* Handle notification */
 	switch (note) {
 	case ZAPI_SRV6_SID_ALLOCATED:
-		if (BGP_DEBUG(zebra, ZEBRA))
-			zlog_debug("SRv6 SID %pI6 %s : ALLOCATED", &sid_addr,
-				   srv6_sid_ctx2str(buf, sizeof(buf), &ctx));
-
-		if (!strmatch(locator_bgp->name, loc_name) ||
-		    (bgp_vrf->srv6_locator_name[0] != '\0' &&
-		     !strmatch(bgp_vrf->srv6_locator_name, loc_name))) {
+		/* enforce SID allocation matches BGP instance configuration with L3VPN */
+		if ((afi == AFI_UNSPEC && (is_srv6_vpn_afi_enabled(bgp_vrf, AFI_IP) ||
+					   is_srv6_vpn_afi_enabled(bgp_vrf, AFI_IP6))) ||
+		    (is_srv6_vpn_vrf_enabled(bgp_vrf) && (afi == AFI_IP || afi == AFI_IP6))) {
 			if (BGP_DEBUG(zebra, ZEBRA))
-				zlog_debug("%s(%d): %s, SRv6 Locator name unmatch %s:%s, releasing SID.",
-					   bgp->name_pretty, bgp->vrf_id, __func__,
-					   locator_bgp->name, loc_name);
-			bgp_zebra_release_srv6_sid(&ctx, loc_name);
+				snprintfrr(errmsg, errmsg_len,
+					   "%s: SRv6 SID %pI6 %s, BGP %s not configured.", __func__,
+					   sid_addr, srv6_sid_ctx2str(buf, sizeof(buf), ctx),
+					   bgp_vrf->name_pretty);
 			return -1;
 		}
 
-		/* Verify that the received SID belongs to the configured locator */
-		tmp_prefix.family = AF_INET6;
-		tmp_prefix.prefixlen = IPV6_MAX_BITLEN;
-		tmp_prefix.prefix = sid_addr;
+		bgp_alloc_mode = bgp_zebra_srv6_sid_alloc_mode_cfg(bgp_vrf, afi);
 
-		if (!prefix_match((struct prefix *)&locator_bgp->prefix,
-				  (struct prefix *)&tmp_prefix)) {
-			/* locator may have changed - release the SID */
+		/* enforce SID alloc mode against BGP and RMAP cases */
+		if (bgp_alloc_mode == SRV6_SID_ALLOC_MODE_UNSPEC ||
+		    (ctx->alloc_mode != SRV6_SID_ALLOC_MODE_UNSPEC &&
+		     ctx->alloc_mode != bgp_alloc_mode)) {
 			if (BGP_DEBUG(zebra, ZEBRA))
-				zlog_debug("SRv6 SID %pI6 %s : locator prefix mismatch (%s), releasing it.",
-					   &sid_addr, srv6_sid_ctx2str(buf, sizeof(buf), &ctx),
-					   locator_bgp->name);
-			bgp_zebra_release_srv6_sid(&ctx, loc_name);
+				snprintfrr(errmsg, errmsg_len,
+					   "%s: SRv6 SID %pI6 %s, BGP %s configuration does not match incoming SID.",
+					   __func__, sid_addr,
+					   srv6_sid_ctx2str(buf, sizeof(buf), ctx),
+					   bgp_vrf->name_pretty);
 			return -1;
 		}
 
+		if (bgp_zebra_srv6_sid_control_locator_common(ctx, bgp_vrf, loc_name, sid_addr,
+							      locator_bgp, errmsg,
+							      errmsg_len) == -1) {
+			return -1;
+		}
+		break;
+	case ZAPI_SRV6_SID_RELEASED:
+		if (ctx->behavior == ZEBRA_SEG6_LOCAL_ACTION_END_DT6 &&
+		    !sid_same(bgp_vrf->vpn_policy[AFI_IP6].tovpn_sid, sid_addr) &&
+		    !sid_same(bgp_vrf->srv6_unicast[AFI_IP6].sid, sid_addr))
+			return -1;
+		if (ctx->behavior == ZEBRA_SEG6_LOCAL_ACTION_END_DT4 &&
+		    !sid_same(bgp_vrf->vpn_policy[AFI_IP].tovpn_sid, sid_addr) &&
+		    !sid_same(bgp_vrf->srv6_unicast[AFI_IP].sid, sid_addr))
+			return -1;
+		if (ctx->behavior == ZEBRA_SEG6_LOCAL_ACTION_END_DT46 &&
+		    !sid_same(bgp_vrf->tovpn_sid, sid_addr) &&
+		    !sid_same(bgp_vrf->srv6_unicast[AFI_IP].sid, sid_addr) &&
+		    !sid_same(bgp_vrf->srv6_unicast[AFI_IP6].sid, sid_addr))
+			return -1;
+
+		/* Export VPN to VRF routes*/
+		vpn_leak_postchange_all();
+		if (afi != AFI_UNSPEC)
+			bgp_srv6_unicast_withdraw(bgp_vrf, afi);
+		break;
+	case ZAPI_SRV6_SID_FAIL_ALLOC:
+		break;
+	case ZAPI_SRV6_SID_FAIL_RELEASE:
+		break;
+	}
+
+	return 0;
+}
+
+static void bgp_zebra_srv6_sid_notify_locator(struct srv6_sid_ctx *ctx,
+					      enum zapi_srv6_sid_notify note, struct bgp *bgp_vrf,
+					      char *loc_name, struct in6_addr *sid_addr,
+					      uint32_t *sid_func, bool func_wide,
+					      struct srv6_locator *locator_bgp, afi_t afi,
+					      struct bgp_srv6_per_locator_cache *bslc)
+{
+	struct bgp *bgp = bgp_get_default();
+	struct srv6_policy *unicast;
+	uint8_t func_len;
+	afi_t dt46_afi;
+
+	switch (note) {
+	case ZAPI_SRV6_SID_ALLOCATED:
 		/* Get label */
-		uint8_t func_len = locator_bgp->function_bits_length;
+		func_len = locator_bgp->function_bits_length;
 		mpls_label_t label = MPLS_LABEL_IMPLICIT_NULL;
+		struct srv6_locator locator_wide = {};
 
-		if (sid_wide_func && (CHECK_FLAG(locator_bgp->flags, SRV6_LOCATOR_F3216) ||
-				      CHECK_FLAG(locator_bgp->flags, SRV6_LOCATOR_F4816))) {
-			if (ctx.behavior == ZEBRA_SEG6_LOCAL_ACTION_END_DT6)
-				SET_FLAG(bgp_vrf->vpn_policy[AFI_IP6].flags,
-					 BGP_VPN_POLICY_TOVPN_SID_FUNC_WIDE);
-			else if (ctx.behavior == ZEBRA_SEG6_LOCAL_ACTION_END_DT4)
-				SET_FLAG(bgp_vrf->vpn_policy[AFI_IP].flags,
-					 BGP_VPN_POLICY_TOVPN_SID_FUNC_WIDE);
-			else if (ctx.behavior == ZEBRA_SEG6_LOCAL_ACTION_END_DT46)
-				SET_FLAG(bgp_vrf->vrf_flags, BGP_VRF_TOVPN_SID_FUNC_WIDE);
+		if (func_wide && (CHECK_FLAG(locator_bgp->flags, SRV6_LOCATOR_F3216) ||
+				  CHECK_FLAG(locator_bgp->flags, SRV6_LOCATOR_F4816))) {
+			/* the copies stored for this SID use the wide function length,
+			 * the locator shared with other SIDs is left unchanged
+			 */
+			srv6_locator_copy(&locator_wide, locator_bgp);
+			locator_wide.function_bits_length =
+				BGP_PREFIX_SID_SRV6_MAX_FUNCTION_LENGTH_FOR_BGP;
+			locator_bgp = &locator_wide;
 		} else if (func_len <= BGP_PREFIX_SID_SRV6_MAX_FUNCTION_LENGTH_FOR_LABEL)
-			label = sid_func
+			label = *sid_func
 				<< (BGP_PREFIX_SID_SRV6_MAX_FUNCTION_LENGTH_FOR_LABEL - func_len);
 
-		/* Un-export VPN to VRF routes */
-		if (is_srv6_vpn_enabled(bgp_vrf)) {
-			vpn_leak_prechange(BGP_VPN_POLICY_DIR_TOVPN, AFI_IP, bgp, bgp_vrf);
-			vpn_leak_prechange(BGP_VPN_POLICY_DIR_TOVPN, AFI_IP6, bgp, bgp_vrf);
+		if (bslc && sid_same(bslc->sid_policy.tovpn_sid, sid_addr))
+			return;
+
+		/* Un-export VPN to VRF route
+		 * If BGP VRF configured with SRv6, or a route-map is configured
+		 * TODO: use finer granularity to flush only the necessary, if locator_rmap only
+		 */
+		if (is_srv6_vpn_enabled(bgp_vrf) || bslc) {
+			vpn_leak_prechange(BGP_VPN_POLICY_DIR_TOVPN, AFI_IP, bgp_get_default(),
+					   bgp_vrf);
+			vpn_leak_prechange(BGP_VPN_POLICY_DIR_TOVPN, AFI_IP6, bgp_get_default(),
+					   bgp_vrf);
 		}
 
 		/* Store SID, locator, and label */
-		bool dt46_ip_changed = false;
-		bool dt46_ip6_changed = false;
+		bool dt46_changed[AFI_MAX] = {};
+		bool dt46_sid_unregistered = false;
 
-		if (ctx.behavior == ZEBRA_SEG6_LOCAL_ACTION_END_DT6) {
-			if (is_srv6_vpn_afi_enabled(bgp_vrf, AFI_IP6)) {
-				srv6_locator_free(bgp_vrf->vpn_policy[AFI_IP6].tovpn_sid_locator);
-				sid_unregister(bgp, bgp_vrf->vpn_policy[AFI_IP6].tovpn_sid);
-				XFREE(MTYPE_BGP_SRV6_SID, bgp_vrf->vpn_policy[AFI_IP6].tovpn_sid);
+		if (bslc) {
+			srv6_locator_free(bslc->sid_policy.tovpn_sid_locator);
+			sid_unregister(bgp, bslc->sid_policy.tovpn_sid);
+			XFREE(MTYPE_BGP_SRV6_SID, bslc->sid_policy.tovpn_sid);
 
-				bgp_vrf->vpn_policy[AFI_IP6].tovpn_sid =
+			bslc->sid_policy.tovpn_sid = XCALLOC(MTYPE_BGP_SRV6_SID,
+							     sizeof(struct in6_addr));
+			*bslc->sid_policy.tovpn_sid = *sid_addr;
+			bslc->sid_policy.tovpn_sid_locator = srv6_locator_alloc(locator_bgp->name);
+			srv6_locator_copy(bslc->sid_policy.tovpn_sid_locator, locator_bgp);
+			bslc->sid_policy.tovpn_sid_transpose_label = label;
+
+			/* Register the new SID */
+			sid_register(bgp, sid_addr, locator_bgp->name);
+
+			vpn_leak_postchange(BGP_VPN_POLICY_DIR_TOVPN, AFI_IP, bgp, bgp_vrf);
+			vpn_leak_postchange(BGP_VPN_POLICY_DIR_TOVPN, AFI_IP6, bgp, bgp_vrf);
+			return;
+		}
+
+		if ((ctx->behavior == ZEBRA_SEG6_LOCAL_ACTION_END_DT6) ||
+		    (ctx->behavior == ZEBRA_SEG6_LOCAL_ACTION_END_DT4)) {
+			if (is_srv6_vpn_afi_enabled(bgp_vrf, afi)) {
+				srv6_locator_free(bgp_vrf->vpn_policy[afi].tovpn_sid_locator);
+				sid_unregister(bgp, bgp_vrf->vpn_policy[afi].tovpn_sid);
+				XFREE(MTYPE_BGP_SRV6_SID, bgp_vrf->vpn_policy[afi].tovpn_sid);
+
+				bgp_vrf->vpn_policy[afi].tovpn_sid =
 					XCALLOC(MTYPE_BGP_SRV6_SID, sizeof(struct in6_addr));
-				*bgp_vrf->vpn_policy[AFI_IP6].tovpn_sid = sid_addr;
-				bgp_vrf->vpn_policy[AFI_IP6].tovpn_sid_locator =
+				*bgp_vrf->vpn_policy[afi].tovpn_sid = *sid_addr;
+				bgp_vrf->vpn_policy[afi].tovpn_sid_locator =
 					srv6_locator_alloc(locator_bgp->name);
-				srv6_locator_copy(bgp_vrf->vpn_policy[AFI_IP6].tovpn_sid_locator,
+				srv6_locator_copy(bgp_vrf->vpn_policy[afi].tovpn_sid_locator,
 						  locator_bgp);
-				bgp_vrf->vpn_policy[AFI_IP6].tovpn_sid_transpose_label = label;
-			} else if (is_srv6_unicast_enabled(bgp_vrf, AFI_IP6)) {
-				srv6_locator_free(bgp_vrf->srv6_unicast[AFI_IP6].sid_locator);
-				sid_unregister(bgp, bgp_vrf->srv6_unicast[AFI_IP6].sid);
-				XFREE(MTYPE_BGP_SRV6_SID, bgp_vrf->srv6_unicast[AFI_IP6].sid);
+				bgp_vrf->vpn_policy[afi].tovpn_sid_transpose_label = label;
+			} else if (is_srv6_unicast_enabled(bgp_vrf, afi)) {
+				srv6_locator_free(bgp_vrf->srv6_unicast[afi].sid_locator);
+				sid_unregister(bgp, bgp_vrf->srv6_unicast[afi].sid);
+				XFREE(MTYPE_BGP_SRV6_SID, bgp_vrf->srv6_unicast[afi].sid);
 
-				bgp_vrf->srv6_unicast[AFI_IP6].sid =
-					XCALLOC(MTYPE_BGP_SRV6_SID, sizeof(struct in6_addr));
-				*bgp_vrf->srv6_unicast[AFI_IP6].sid = sid_addr;
-				bgp_vrf->srv6_unicast[AFI_IP6].sid_locator =
+				bgp_vrf->srv6_unicast[afi].sid = XCALLOC(MTYPE_BGP_SRV6_SID,
+									 sizeof(struct in6_addr));
+				*bgp_vrf->srv6_unicast[afi].sid = *sid_addr;
+				bgp_vrf->srv6_unicast[afi].sid_locator =
 					srv6_locator_alloc(locator_bgp->name);
-				srv6_locator_copy(bgp_vrf->srv6_unicast[AFI_IP6].sid_locator,
-						  locator_bgp);
-			}
-		} else if (ctx.behavior == ZEBRA_SEG6_LOCAL_ACTION_END_DT4) {
-			if (is_srv6_vpn_afi_enabled(bgp_vrf, AFI_IP)) {
-				srv6_locator_free(bgp_vrf->vpn_policy[AFI_IP].tovpn_sid_locator);
-				sid_unregister(bgp, bgp_vrf->vpn_policy[AFI_IP].tovpn_sid);
-				XFREE(MTYPE_BGP_SRV6_SID, bgp_vrf->vpn_policy[AFI_IP].tovpn_sid);
-
-				bgp_vrf->vpn_policy[AFI_IP].tovpn_sid =
-					XCALLOC(MTYPE_BGP_SRV6_SID, sizeof(struct in6_addr));
-				*bgp_vrf->vpn_policy[AFI_IP].tovpn_sid = sid_addr;
-				bgp_vrf->vpn_policy[AFI_IP].tovpn_sid_locator =
-					srv6_locator_alloc(locator_bgp->name);
-				srv6_locator_copy(bgp_vrf->vpn_policy[AFI_IP].tovpn_sid_locator,
-						  locator_bgp);
-				bgp_vrf->vpn_policy[AFI_IP].tovpn_sid_transpose_label = label;
-			} else if (is_srv6_unicast_enabled(bgp_vrf, AFI_IP)) {
-				srv6_locator_free(bgp_vrf->srv6_unicast[AFI_IP].sid_locator);
-				sid_unregister(bgp, bgp_vrf->srv6_unicast[AFI_IP].sid);
-				XFREE(MTYPE_BGP_SRV6_SID, bgp_vrf->srv6_unicast[AFI_IP].sid);
-
-				bgp_vrf->srv6_unicast[AFI_IP].sid =
-					XCALLOC(MTYPE_BGP_SRV6_SID, sizeof(struct in6_addr));
-				*bgp_vrf->srv6_unicast[AFI_IP].sid = sid_addr;
-				bgp_vrf->srv6_unicast[AFI_IP].sid_locator =
-					srv6_locator_alloc(locator_bgp->name);
-				srv6_locator_copy(bgp_vrf->srv6_unicast[AFI_IP].sid_locator,
+				srv6_locator_copy(bgp_vrf->srv6_unicast[afi].sid_locator,
 						  locator_bgp);
 			}
-		} else if (ctx.behavior == ZEBRA_SEG6_LOCAL_ACTION_END_DT46) {
+		} else if (ctx->behavior == ZEBRA_SEG6_LOCAL_ACTION_END_DT46) {
 			if (is_srv6_vpn_vrf_enabled(bgp_vrf)) {
 				srv6_locator_free(bgp_vrf->tovpn_sid_locator);
 				sid_unregister(bgp, bgp_vrf->tovpn_sid);
@@ -4065,120 +4153,71 @@ static int bgp_zebra_srv6_sid_notify(ZAPI_CALLBACK_ARGS)
 
 				bgp_vrf->tovpn_sid = XCALLOC(MTYPE_BGP_SRV6_SID,
 							     sizeof(struct in6_addr));
-				*bgp_vrf->tovpn_sid = sid_addr;
+				*bgp_vrf->tovpn_sid = *sid_addr;
 				bgp_vrf->tovpn_sid_locator = srv6_locator_alloc(locator_bgp->name);
 				srv6_locator_copy(bgp_vrf->tovpn_sid_locator, locator_bgp);
 				bgp_vrf->tovpn_sid_transpose_label = label;
 			}
 
-			/* Update DT46 unicast state only when at least one AFI SID changed. */
-			if ((is_srv6_unicast_dt46_enabled(bgp_vrf, AFI_IP) &&
-			     !sid_same(bgp_vrf->srv6_unicast[AFI_IP].sid, &sid_addr)) ||
-			    (is_srv6_unicast_dt46_enabled(bgp_vrf, AFI_IP6) &&
-			     !sid_same(bgp_vrf->srv6_unicast[AFI_IP6].sid, &sid_addr))) {
-				/* Update the DT46 SID for IPv4 unicast, if enabled. */
-				if (is_srv6_unicast_dt46_enabled(bgp_vrf, AFI_IP) &&
-				    !sid_same(bgp_vrf->srv6_unicast[AFI_IP].sid, &sid_addr)) {
-					sid_unregister(bgp, bgp_vrf->srv6_unicast[AFI_IP].sid);
+			for (dt46_afi = AFI_IP; dt46_afi <= AFI_IP6; dt46_afi++) {
+				unicast = &bgp_vrf->srv6_unicast[dt46_afi];
+				if (!is_srv6_unicast_dt46_enabled(bgp_vrf, dt46_afi) ||
+				    sid_same(unicast->sid, sid_addr))
+					continue;
 
-					srv6_locator_free(
-						bgp_vrf->srv6_unicast[AFI_IP].sid_locator);
-					XFREE(MTYPE_BGP_SRV6_SID,
-					      bgp_vrf->srv6_unicast[AFI_IP].sid);
-
-					bgp_vrf->srv6_unicast[AFI_IP].sid =
-						XCALLOC(MTYPE_BGP_SRV6_SID,
-							sizeof(struct in6_addr));
-					*bgp_vrf->srv6_unicast[AFI_IP].sid = sid_addr;
-					bgp_vrf->srv6_unicast[AFI_IP].sid_locator =
-						srv6_locator_alloc(locator_bgp->name);
-					srv6_locator_copy(bgp_vrf->srv6_unicast[AFI_IP].sid_locator,
-							  locator_bgp);
-
-					dt46_ip_changed = true;
+				/* DT46 uses one SID shared by both AFIs: unregister it once */
+				if (!dt46_sid_unregistered) {
+					sid_unregister(bgp, unicast->sid);
+					dt46_sid_unregistered = true;
 				}
 
-				/* Update the DT46 SID for IPv6 unicast, if enabled. */
-				if (is_srv6_unicast_dt46_enabled(bgp_vrf, AFI_IP6) &&
-				    !sid_same(bgp_vrf->srv6_unicast[AFI_IP6].sid, &sid_addr)) {
-					/*
-					 * DT46 uses one shared SID across IPv4 and IPv6 AFIs.
-					 * If IPv4 already unregistered the old SID, skip unregister
-					 * here to avoid a double sid_unregister().
-					 */
-					if (!dt46_ip_changed)
-						sid_unregister(bgp,
-							       bgp_vrf->srv6_unicast[AFI_IP6].sid);
+				srv6_locator_free(unicast->sid_locator);
+				XFREE(MTYPE_BGP_SRV6_SID, unicast->sid);
 
-					srv6_locator_free(
-						bgp_vrf->srv6_unicast[AFI_IP6].sid_locator);
-					XFREE(MTYPE_BGP_SRV6_SID,
-					      bgp_vrf->srv6_unicast[AFI_IP6].sid);
+				unicast->sid = XCALLOC(MTYPE_BGP_SRV6_SID, sizeof(struct in6_addr));
+				*unicast->sid = *sid_addr;
+				unicast->sid_locator = srv6_locator_alloc(locator_bgp->name);
+				srv6_locator_copy(unicast->sid_locator, locator_bgp);
+				unicast->zebra_sid_alloc_mode_last_sent = ctx->alloc_mode;
 
-					bgp_vrf->srv6_unicast[AFI_IP6].sid =
-						XCALLOC(MTYPE_BGP_SRV6_SID,
-							sizeof(struct in6_addr));
-					*bgp_vrf->srv6_unicast[AFI_IP6].sid = sid_addr;
-					bgp_vrf->srv6_unicast[AFI_IP6].sid_locator =
-						srv6_locator_alloc(locator_bgp->name);
-					srv6_locator_copy(bgp_vrf->srv6_unicast[AFI_IP6].sid_locator,
-							  locator_bgp);
-
-					dt46_ip6_changed = true;
-				}
+				dt46_changed[dt46_afi] = true;
 			}
-		} else {
-			if (BGP_DEBUG(zebra, ZEBRA))
-				zlog_debug("Unsupported behavior. Not assigned SRv6 SID: %s %pI6, releasing it.",
-					   srv6_sid_ctx2str(buf, sizeof(buf), &ctx), &sid_addr);
-			bgp_zebra_release_srv6_sid(&ctx, loc_name);
-			return -1;
 		}
 
 		/* Register the new SID */
-		sid_register(bgp, &sid_addr, locator_bgp->name);
+		sid_register(bgp, sid_addr, locator_bgp->name);
 
 		/* Export VPN to VRF routes */
 		vpn_leak_postchange_all();
 
 		/* SRv6 unicast */
-		if (ctx.behavior == ZEBRA_SEG6_LOCAL_ACTION_END_DT46) {
-			if (is_srv6_unicast_dt46_enabled(bgp_vrf, AFI_IP)) {
-				/* If the SID has not already been installed in zebra, install it. */
-				if (!sid_same(bgp_vrf->srv6_unicast[AFI_IP].zebra_sid_last_sent,
-					      bgp_vrf->srv6_unicast[AFI_IP].sid)) {
-					bgp_srv6_unicast_sid_update(bgp_vrf, AFI_IP);
-				}
-				/* If the SID has changed, re-advertise routes with the new SID. */
-				if (dt46_ip_changed)
-					bgp_srv6_unicast_announce(bgp_vrf, AFI_IP);
-			}
-			if (is_srv6_unicast_dt46_enabled(bgp_vrf, AFI_IP6)) {
+		if (ctx->behavior == ZEBRA_SEG6_LOCAL_ACTION_END_DT46) {
+			for (dt46_afi = AFI_IP; dt46_afi <= AFI_IP6; dt46_afi++) {
+				unicast = &bgp_vrf->srv6_unicast[dt46_afi];
+				if (!is_srv6_unicast_dt46_enabled(bgp_vrf, dt46_afi))
+					continue;
+
 				/*
 				 * If AFI_IP already installed this shared DT46 SID in zebra,
 				 * set AFI_IP6 zebra_sid_last_sent to the same SID so AFI_IP6
 				 * does not send a duplicate ROUTE_ADD.
 				 */
-				if (sid_same(bgp_vrf->srv6_unicast[AFI_IP6].sid,
-					     bgp_vrf->srv6_unicast[AFI_IP].sid) &&
+				if (dt46_afi == AFI_IP6 &&
+				    sid_same(unicast->sid, bgp_vrf->srv6_unicast[AFI_IP].sid) &&
 				    sid_same(bgp_vrf->srv6_unicast[AFI_IP].zebra_sid_last_sent,
 					     bgp_vrf->srv6_unicast[AFI_IP].sid)) {
-					XFREE(MTYPE_BGP_SRV6_SID,
-					      bgp_vrf->srv6_unicast[AFI_IP6].zebra_sid_last_sent);
-					bgp_vrf->srv6_unicast[AFI_IP6].zebra_sid_last_sent =
+					XFREE(MTYPE_BGP_SRV6_SID, unicast->zebra_sid_last_sent);
+					unicast->zebra_sid_last_sent =
 						XCALLOC(MTYPE_BGP_SRV6_SID,
 							sizeof(struct in6_addr));
-					*bgp_vrf->srv6_unicast[AFI_IP6].zebra_sid_last_sent =
-						*bgp_vrf->srv6_unicast[AFI_IP6].sid;
-				} else if (!sid_same(bgp_vrf->srv6_unicast[AFI_IP6]
-							     .zebra_sid_last_sent,
-						     bgp_vrf->srv6_unicast[AFI_IP6].sid)) {
+					*unicast->zebra_sid_last_sent = *unicast->sid;
+				} else if (!sid_same(unicast->zebra_sid_last_sent, unicast->sid)) {
 					/* If the SID has not already been installed in zebra, install it. */
-					bgp_srv6_unicast_sid_update(bgp_vrf, AFI_IP6);
+					bgp_srv6_unicast_sid_update(bgp_vrf, dt46_afi);
 				}
 				/* If the SID has changed, re-advertise routes with the new SID. */
-				if (dt46_ip6_changed)
-					bgp_srv6_unicast_announce(bgp_vrf, AFI_IP6);
+				if (dt46_changed[dt46_afi])
+					bgp_srv6_unicast_announce(bgp_vrf, dt46_afi);
 			}
 		} else if (is_srv6_unicast_enabled(bgp_vrf, afi)) {
 			bgp_srv6_unicast_sid_update(bgp_vrf, afi);
@@ -4187,69 +4226,46 @@ static int bgp_zebra_srv6_sid_notify(ZAPI_CALLBACK_ARGS)
 
 		break;
 	case ZAPI_SRV6_SID_RELEASED:
-		if (BGP_DEBUG(zebra, ZEBRA))
-			zlog_debug("SRv6 SID %pI6 %s: RELEASED", &sid_addr,
-				   srv6_sid_ctx2str(buf, sizeof(buf), &ctx));
-
-		if (ctx.behavior == ZEBRA_SEG6_LOCAL_ACTION_END_DT6 &&
-		    !sid_same(bgp_vrf->vpn_policy[AFI_IP6].tovpn_sid, &sid_addr) &&
-		    !sid_same(bgp_vrf->srv6_unicast[AFI_IP6].sid, &sid_addr))
-			break;
-		else if (ctx.behavior == ZEBRA_SEG6_LOCAL_ACTION_END_DT4 &&
-			 !sid_same(bgp_vrf->vpn_policy[AFI_IP].tovpn_sid, &sid_addr) &&
-			 !sid_same(bgp_vrf->srv6_unicast[AFI_IP].sid, &sid_addr))
-			break;
-		else if (ctx.behavior == ZEBRA_SEG6_LOCAL_ACTION_END_DT46 &&
-			 !sid_same(bgp_vrf->tovpn_sid, &sid_addr) &&
-			 !sid_same(bgp_vrf->srv6_unicast[AFI_IP].sid, &sid_addr) &&
-			 !sid_same(bgp_vrf->srv6_unicast[AFI_IP6].sid, &sid_addr))
-			break;
-
 		/* Un-export VPN to VRF routes */
+		/* TODO: use finer granularity to flush only the necessary, if locator_rmap only */
 		vpn_leak_prechange(BGP_VPN_POLICY_DIR_TOVPN, AFI_IP, bgp,
 				   bgp_vrf);
 		vpn_leak_prechange(BGP_VPN_POLICY_DIR_TOVPN, AFI_IP6, bgp,
 				   bgp_vrf);
 
+		if (bslc) {
+			/* Remove SID, locator, and label */
+			if (bslc->sid_policy.tovpn_sid_locator) {
+				srv6_locator_free(bslc->sid_policy.tovpn_sid_locator);
+				bslc->sid_policy.tovpn_sid_locator = NULL;
+				bslc->sid_policy.tovpn_sid_transpose_label = 0;
+			}
+			/* Unregister the SID */
+			sid_unregister(bgp, bslc->sid_policy.tovpn_sid);
+			XFREE(MTYPE_BGP_SRV6_SID, bslc->sid_policy.tovpn_sid);
+			vpn_leak_postchange(BGP_VPN_POLICY_DIR_TOVPN, AFI_IP, bgp, bgp_vrf);
+			vpn_leak_postchange(BGP_VPN_POLICY_DIR_TOVPN, AFI_IP6, bgp, bgp_vrf);
+			return;
+		}
+
 		/* Remove SID, locator, and label */
-		if (ctx.behavior == ZEBRA_SEG6_LOCAL_ACTION_END_DT6) {
-			if (bgp_vrf->vpn_policy[AFI_IP6].tovpn_sid_locator) {
-				srv6_locator_free(bgp_vrf->vpn_policy[AFI_IP6].tovpn_sid_locator);
-				bgp_vrf->vpn_policy[AFI_IP6].tovpn_sid_locator =
-					NULL;
-			} else if (bgp_vrf->srv6_unicast[AFI_IP6].sid_locator) {
-				srv6_locator_free(bgp_vrf->srv6_unicast[AFI_IP6].sid_locator);
-				bgp_vrf->srv6_unicast[AFI_IP6].sid_locator = NULL;
+		if (ctx->behavior == ZEBRA_SEG6_LOCAL_ACTION_END_DT6 ||
+		    ctx->behavior == ZEBRA_SEG6_LOCAL_ACTION_END_DT4) {
+			if (bgp_vrf->vpn_policy[afi].tovpn_sid_locator) {
+				srv6_locator_free(bgp_vrf->vpn_policy[afi].tovpn_sid_locator);
+				bgp_vrf->vpn_policy[afi].tovpn_sid_locator = NULL;
+			} else if (bgp_vrf->srv6_unicast[afi].sid_locator) {
+				srv6_locator_free(bgp_vrf->srv6_unicast[afi].sid_locator);
+				bgp_vrf->srv6_unicast[afi].sid_locator = NULL;
 			}
-			bgp_vrf->vpn_policy[AFI_IP6].tovpn_sid_transpose_label =
-				0;
+			bgp_vrf->vpn_policy[afi].tovpn_sid_transpose_label = 0;
 
 			/* Unregister the SID */
-			sid_unregister(bgp, bgp_vrf->vpn_policy[AFI_IP6].tovpn_sid);
-			XFREE(MTYPE_BGP_SRV6_SID, bgp_vrf->vpn_policy[AFI_IP6].tovpn_sid);
-			UNSET_FLAG(bgp_vrf->vpn_policy[AFI_IP6].flags,
-				   BGP_VPN_POLICY_TOVPN_SID_FUNC_WIDE);
-			sid_unregister(bgp_vrf, bgp_vrf->srv6_unicast[AFI_IP6].sid);
-			XFREE(MTYPE_BGP_SRV6_SID, bgp_vrf->srv6_unicast[AFI_IP6].sid);
-		} else if (ctx.behavior == ZEBRA_SEG6_LOCAL_ACTION_END_DT4) {
-			if (bgp_vrf->vpn_policy[AFI_IP].tovpn_sid_locator) {
-				srv6_locator_free(bgp_vrf->vpn_policy[AFI_IP].tovpn_sid_locator);
-				bgp_vrf->vpn_policy[AFI_IP].tovpn_sid_locator = NULL;
-			} else if (bgp_vrf->srv6_unicast[AFI_IP].sid_locator) {
-				srv6_locator_free(bgp_vrf->srv6_unicast[AFI_IP].sid_locator);
-				bgp_vrf->srv6_unicast[AFI_IP].sid_locator = NULL;
-			}
-			bgp_vrf->vpn_policy[AFI_IP].tovpn_sid_transpose_label = 0;
-
-			/* Unregister the SID */
-			sid_unregister(bgp, bgp_vrf->vpn_policy[AFI_IP].tovpn_sid);
-			XFREE(MTYPE_BGP_SRV6_SID, bgp_vrf->vpn_policy[AFI_IP].tovpn_sid);
-			UNSET_FLAG(bgp_vrf->vpn_policy[AFI_IP].flags,
-				   BGP_VPN_POLICY_TOVPN_SID_FUNC_WIDE);
-			sid_unregister(bgp_vrf, bgp_vrf->srv6_unicast[AFI_IP].sid);
-			XFREE(MTYPE_BGP_SRV6_SID, bgp_vrf->srv6_unicast[AFI_IP].sid);
-
-		} else if (ctx.behavior == ZEBRA_SEG6_LOCAL_ACTION_END_DT46) {
+			sid_unregister(bgp, bgp_vrf->vpn_policy[afi].tovpn_sid);
+			XFREE(MTYPE_BGP_SRV6_SID, bgp_vrf->vpn_policy[afi].tovpn_sid);
+			sid_unregister(bgp_vrf, bgp_vrf->srv6_unicast[afi].sid);
+			XFREE(MTYPE_BGP_SRV6_SID, bgp_vrf->srv6_unicast[afi].sid);
+		} else if (ctx->behavior == ZEBRA_SEG6_LOCAL_ACTION_END_DT46) {
 			if (is_srv6_vpn_vrf_enabled(bgp_vrf)) {
 				if (bgp_vrf->tovpn_sid_locator) {
 					srv6_locator_free(bgp_vrf->tovpn_sid_locator);
@@ -4261,7 +4277,6 @@ static int bgp_zebra_srv6_sid_notify(ZAPI_CALLBACK_ARGS)
 				/* Unregister the SID */
 				sid_unregister(bgp, bgp_vrf->tovpn_sid);
 				XFREE(MTYPE_BGP_SRV6_SID, bgp_vrf->tovpn_sid);
-				UNSET_FLAG(bgp_vrf->vrf_flags, BGP_VRF_TOVPN_SID_FUNC_WIDE);
 			}
 
 			if (is_srv6_unicast_dt46_enabled(bgp_vrf, AFI_IP) ||
@@ -4271,91 +4286,239 @@ static int bgp_zebra_srv6_sid_notify(ZAPI_CALLBACK_ARGS)
 				struct interface *ifp_dt46 = if_lookup_by_name(DEFAULT_SRV6_IFNAME,
 									       VRF_DEFAULT);
 
-				/* DT46 has one shared local SID in zebra, so send ROUTE_DELETE once. */
-				/* Withdraw the DT46 SID for IPv4 unicast. */
-				if (is_srv6_unicast_dt46_enabled(bgp_vrf, AFI_IP) &&
-				    sid_same(bgp_vrf->srv6_unicast[AFI_IP].sid, &sid_addr)) {
+				for (dt46_afi = AFI_IP; dt46_afi <= AFI_IP6; dt46_afi++) {
+					unicast = &bgp_vrf->srv6_unicast[dt46_afi];
+					if (!is_srv6_unicast_dt46_enabled(bgp_vrf, dt46_afi) ||
+					    !sid_same(unicast->sid, sid_addr))
+						continue;
+
 					/* Send ROUTE_DELETE if we still have last-sent state. */
-					if (ifp_dt46 &&
-					    bgp_vrf->srv6_unicast[AFI_IP].zebra_sid_last_sent) {
-						bgp_srv6_unicast_sid_endpoint(bgp_vrf, AFI_IP,
+					if (!shared_sid_deleted_in_zebra && ifp_dt46 &&
+					    unicast->zebra_sid_last_sent) {
+						bgp_srv6_unicast_sid_endpoint(bgp_vrf, dt46_afi,
 									      ifp_dt46, false);
 						shared_sid_deleted_in_zebra = true;
 					} else {
 						XFREE(MTYPE_BGP_SRV6_SID,
-						      bgp_vrf->srv6_unicast[AFI_IP]
-							      .zebra_sid_last_sent);
+						      unicast->zebra_sid_last_sent);
 					}
 
 					/* Remove per-route SRv6 attributes and free SID/locator state. */
-					bgp_srv6_unicast_withdraw(bgp_vrf, AFI_IP);
-					srv6_locator_free(
-						bgp_vrf->srv6_unicast[AFI_IP].sid_locator);
-					bgp_vrf->srv6_unicast[AFI_IP].sid_locator = NULL;
-					XFREE(MTYPE_BGP_SRV6_SID,
-					      bgp_vrf->srv6_unicast[AFI_IP].sid);
-				}
-
-				/* Withdraw the DT46 SID for IPv6 unicast. */
-				if (is_srv6_unicast_dt46_enabled(bgp_vrf, AFI_IP6) &&
-				    sid_same(bgp_vrf->srv6_unicast[AFI_IP6].sid, &sid_addr)) {
-					/* Send ROUTE_DELETE only if not already sent by AFI_IP path above. */
-					if (!shared_sid_deleted_in_zebra && ifp_dt46 &&
-					    bgp_vrf->srv6_unicast[AFI_IP6].zebra_sid_last_sent) {
-						bgp_srv6_unicast_sid_endpoint(bgp_vrf, AFI_IP6,
-									      ifp_dt46, false);
-					} else {
-						XFREE(MTYPE_BGP_SRV6_SID,
-						      bgp_vrf->srv6_unicast[AFI_IP6]
-							      .zebra_sid_last_sent);
-					}
-
-					/* Remove per-route SRv6 attributes and free SID/locator state. */
-					bgp_srv6_unicast_withdraw(bgp_vrf, AFI_IP6);
-					srv6_locator_free(
-						bgp_vrf->srv6_unicast[AFI_IP6].sid_locator);
-					bgp_vrf->srv6_unicast[AFI_IP6].sid_locator = NULL;
-					XFREE(MTYPE_BGP_SRV6_SID,
-					      bgp_vrf->srv6_unicast[AFI_IP6].sid);
+					bgp_srv6_unicast_withdraw(bgp_vrf, dt46_afi);
+					srv6_locator_free(unicast->sid_locator);
+					unicast->sid_locator = NULL;
+					XFREE(MTYPE_BGP_SRV6_SID, unicast->sid);
 				}
 
 				/* Unregister the SID */
-				sid_unregister(bgp_vrf, &sid_addr);
+				sid_unregister(bgp_vrf, sid_addr);
 			}
-		} else {
-			if (BGP_DEBUG(zebra, ZEBRA))
-				zlog_debug("Unsupported behavior. Not assigned SRv6 SID: %s %pI6",
-					   srv6_sid_ctx2str(buf, sizeof(buf),
-							    &ctx),
-					   &sid_addr);
-			bgp_zebra_release_srv6_sid(&ctx, loc_name);
-			return -1;
 		}
-
-		/* Export VPN to VRF routes*/
-		vpn_leak_postchange_all();
-		if (afi != AFI_UNSPEC)
-			bgp_srv6_unicast_withdraw(bgp_vrf, afi);
 		break;
 	case ZAPI_SRV6_SID_FAIL_ALLOC:
-		if (BGP_DEBUG(zebra, ZEBRA))
-			zlog_debug("SRv6 SID %pI6 %s: Failed to allocate",
-				   &sid_addr,
-				   srv6_sid_ctx2str(buf, sizeof(buf), &ctx));
-
-		/* Error will be logged by zebra module */
 		break;
 	case ZAPI_SRV6_SID_FAIL_RELEASE:
-		if (BGP_DEBUG(zebra, ZEBRA))
-			zlog_debug("%s: SRv6 SID %pI6 %s failure to release",
-				   __func__, &sid_addr,
-				   srv6_sid_ctx2str(buf, sizeof(buf), &ctx));
+		break;
+	}
+}
 
-		/* Error will be logged by zebra module */
+static int bgp_zebra_srv6_sid_notify(ZAPI_CALLBACK_ARGS)
+{
+	afi_t afi = AFI_UNSPEC;
+	struct srv6_locator *locator_bgp = NULL, *locator_rmap = NULL;
+	struct srv6_sid_ctx ctx;
+	struct in6_addr sid_addr;
+	enum zapi_srv6_sid_notify note;
+	struct bgp *bgp_vrf = NULL;
+	struct listnode *node;
+	char buf[256];
+	uint32_t sid_func, sid_wide_func = 0;
+	char loc_name[SRV6_LOCNAME_SIZE];
+	int ret_bgp = 1, ret_rmap = 1;
+	char errmsg[BUFSIZ] = { 0 };
+	bool func_wide = false;
+	struct bgp_srv6_per_locator_cache *bslc = NULL;
+
+	for (ALL_LIST_ELEMENTS_RO(bm->bgp, node, bgp_vrf)) {
+		if (!bgp_srv6_locator_is_configured(bgp_vrf))
+			continue;
+
+		if (!bgp_srv6_locator_lookup(NULL, bgp_vrf))
+			continue;
+
+		/* at least one locator configured and available */
 		break;
 	}
 
+	if (!bgp_vrf) {
+		if (BGP_DEBUG(zebra, ZEBRA))
+			zlog_debug("%s, ignoring SRv6 SID notify for BGP: locator not set",
+				   __func__);
+	}
+
+	/* Decode the received notification message */
+	if (!zapi_srv6_sid_notify_decode(zclient->ibuf, &ctx, &sid_addr, &sid_func, &sid_wide_func,
+					 &note, loc_name, sizeof(loc_name))) {
+		zlog_err("%s : error in msg decode", __func__);
+		return -1;
+	}
+
+	if (BGP_DEBUG(zebra, ZEBRA))
+		zlog_debug("%s: received SRv6 SID notify: ctx %s sid_value %pI6 %s, locator %s, mode %s",
+			   __func__, srv6_sid_ctx2str(buf, sizeof(buf), &ctx), &sid_addr,
+			   zapi_srv6_sid_notify2str(note), loc_name,
+			   srv6_sid_alloc_mode2str(ctx.alloc_mode));
+
+	if (ctx.behavior == ZEBRA_SEG6_LOCAL_ACTION_END_DT6)
+		afi = AFI_IP6;
+	else if (ctx.behavior == ZEBRA_SEG6_LOCAL_ACTION_END_DT4)
+		afi = AFI_IP;
+	else if (ctx.behavior != ZEBRA_SEG6_LOCAL_ACTION_END_DT46) {
+		if (BGP_DEBUG(zebra, ZEBRA))
+			zlog_debug("Unsupported behavior. Not assigned SRv6 SID: %s %pI6%s.",
+				   srv6_sid_ctx2str(buf, sizeof(buf), &ctx), &sid_addr,
+				   note == ZAPI_SRV6_SID_ALLOCATED ? ", releasing it" : "");
+		goto end_sid_notify;
+	}
+
+	/* Get the BGP instance for which the SID has been requested, if any */
+	bgp_vrf = bgp_lookup_by_vrf_id(ctx.vrf_id);
+
+	if (!bgp_vrf) {
+		if (BGP_DEBUG(zebra, ZEBRA))
+			zlog_debug("%s(): VRF %u, SRv6 SID notify, unknown BGP instance", __func__,
+				   ctx.vrf_id);
+		goto end_sid_notify;
+	}
+
+	locator_bgp = bgp_srv6_locator_lookup(bgp_vrf, bgp_get_default());
+
+	/* additional check for locator configured in bgp_vrf but no yet synchronized from zebra */
+	if (locator_bgp && bgp_vrf->srv6_locator == NULL && bgp_vrf->srv6_locator_name[0] != '\0' &&
+	    !strmatch(bgp_vrf->srv6_locator_name, loc_name)) {
+		if (BGP_DEBUG(zebra, ZEBRA))
+			snprintfrr(errmsg, sizeof(errmsg),
+				   "%s(%d): %s, SRv6 Locator name unmatch %s, releasing SID.",
+				   bgp_vrf->name_pretty, bgp_vrf->vrf_id, __func__,
+				   bgp_vrf->srv6_locator_name);
+		ret_bgp = -1;
+		locator_bgp = NULL;
+	}
+	/* parse route-map list
+	 * behavior will determine if AFI or AFI_IP6 are of importance
+	 * to be modified when DT46 and other behaviors are supported
+	 */
+	if (((ctx.behavior == ZEBRA_SEG6_LOCAL_ACTION_END_DT4) ||
+	     (ctx.behavior == ZEBRA_SEG6_LOCAL_ACTION_END_DT6))) {
+		bslc = bgp_srv6_per_locator_find(&bgp_vrf->srv6_locators_per_routemap[afi],
+						 loc_name);
+		if (bslc)
+			locator_rmap = bgp_srv6_locator_lookup_all_by_name(loc_name);
+	}
+
+	if (!locator_bgp && !locator_rmap) {
+		if (BGP_DEBUG(zebra, ZEBRA))
+			zlog_debug("%s(%s), SRv6 SID notify: locator %s not used",
+				   bgp_vrf->name_pretty, __func__, loc_name);
+		goto end_sid_notify;
+	}
+
+	if (locator_rmap && note != ZAPI_SRV6_SID_FAIL_RELEASE)
+		bslc->allocation_in_progress = false;
+
+	switch (note) {
+	case ZAPI_SRV6_SID_FAIL_ALLOC:
+		if (BGP_DEBUG(zebra, ZEBRA))
+			zlog_debug("SRv6 SID %pI6 %s: Failed to allocate", &sid_addr,
+				   srv6_sid_ctx2str(buf, sizeof(buf), &ctx));
+		return 0;
+	case ZAPI_SRV6_SID_FAIL_RELEASE:
+		if (BGP_DEBUG(zebra, ZEBRA))
+			zlog_debug("%s: SRv6 SID %pI6 %s failure to release", __func__, &sid_addr,
+				   srv6_sid_ctx2str(buf, sizeof(buf), &ctx));
+		return 0;
+	case ZAPI_SRV6_SID_ALLOCATED:
+	case ZAPI_SRV6_SID_RELEASED:
+		if (BGP_DEBUG(zebra, ZEBRA))
+			zlog_debug("SRv6 SID %pI6 %s : %s", &sid_addr,
+				   srv6_sid_ctx2str(buf, sizeof(buf), &ctx),
+				   note == ZAPI_SRV6_SID_ALLOCATED ? "ALLOCATED" : "RELEASED");
+		break;
+	}
+
+	if (locator_rmap) {
+		ret_rmap = bgp_zebra_srv6_sid_control_locator_rmap(&ctx, note, bgp_vrf, loc_name,
+								   &sid_addr, locator_rmap, errmsg,
+								   sizeof(errmsg), afi, bslc);
+	}
+
+	if (locator_bgp) {
+		ret_bgp = bgp_zebra_srv6_sid_control_locator(&ctx, note, bgp_vrf, loc_name,
+							     &sid_addr, locator_bgp, errmsg,
+							     sizeof(errmsg), afi);
+	}
+	if (locator_bgp && ret_bgp == 0) {
+		if (sid_wide_func && (CHECK_FLAG(locator_bgp->flags, SRV6_LOCATOR_F3216) ||
+				      CHECK_FLAG(locator_bgp->flags, SRV6_LOCATOR_F4816)))
+			func_wide = true;
+		bgp_zebra_srv6_sid_notify_locator(&ctx, note, bgp_vrf, loc_name, &sid_addr,
+						  &sid_func, func_wide, locator_bgp, afi, NULL);
+	}
+	if (locator_rmap && ret_rmap == 0) {
+		if (sid_wide_func && (CHECK_FLAG(locator_rmap->flags, SRV6_LOCATOR_F3216) ||
+				      CHECK_FLAG(locator_rmap->flags, SRV6_LOCATOR_F4816)))
+			func_wide = true;
+		bgp_zebra_srv6_sid_notify_locator(&ctx, note, bgp_vrf, loc_name, &sid_addr,
+						  &sid_func, func_wide, locator_rmap, afi, bslc);
+	}
+	if (ret_bgp == 0 || ret_rmap == 0)
+		return 0;
+
+end_sid_notify:
+	if (note == ZAPI_SRV6_SID_RELEASED)
+		/* no specific log messages are displayed in this case */
+		return 0;
+
+	if (BGP_DEBUG(zebra, ZEBRA))
+		zlog_debug("%s", errmsg);
+
+	/* the only case that reaches this code is SID_ALLOC, and there is an error */
+	if (note == ZAPI_SRV6_SID_ALLOCATED)
+		bgp_zebra_release_srv6_sid(&ctx, loc_name);
+
 	return 0;
+}
+
+static void bgp_zebra_process_srv6_locator_routemap_internal(struct bgp *bgp,
+							     struct srv6_locator *locator,
+							     afi_t afi, bool add)
+{
+	struct bgp_srv6_per_locator_cache *bslc;
+	struct bgp_path_info *path, *path_next;
+	bool withdraw = false;
+
+	bslc = bgp_srv6_per_locator_find(&bgp->srv6_locators_per_routemap[afi], locator->name);
+	if (bslc) {
+		zlog_info("%s(%d), afi %s: %s, %s SRv6 locator %s %pFX, loc-block-len=%u, loc-node-len=%u func-len=%u, arg-len=%u",
+			  bgp->name_pretty, bgp->vrf_id, afi2str(afi), add ? "added" : "removed",
+			  __func__, locator->name, &locator->prefix, locator->block_bits_length,
+			  locator->node_bits_length, locator->function_bits_length,
+			  locator->argument_bits_length);
+
+		if (add == false) {
+			withdraw = !!bslc->sid_policy.tovpn_sid;
+			bgp_srv6_per_locator_cache_delete_tovpn_sid(bslc);
+		}
+
+		LIST_FOREACH_SAFE (path, &(bslc->paths), srv6_vpn.srv6_locator_thread, path_next) {
+			if (add == false) {
+				if (withdraw)
+					vpn_leak_from_vrf_withdraw(bgp_get_default(), bgp, path);
+				bgp_srv6_per_locator_unlink(path);
+			}
+			vpn_leak_from_vrf_update(bgp_get_default(), bgp, path);
+		}
+	}
 }
 
 static int bgp_zebra_process_srv6_locator_add(ZAPI_CALLBACK_ARGS)
@@ -4369,10 +4532,17 @@ static int bgp_zebra_process_srv6_locator_add(ZAPI_CALLBACK_ARGS)
 
 	bgp_ls_originate_srv6_locator_prefix(bgp_get_default(), &loc);
 
+	bgp_srv6_locator_store(&loc);
+
 	for (ALL_LIST_ELEMENTS_RO(bm->bgp, node, bgp)) {
 		if (!bgp_srv6_locator_is_configured(bgp))
 			continue;
 		bgp_zebra_process_srv6_locator_internal(&loc, bgp);
+	}
+
+	for (ALL_LIST_ELEMENTS_RO(bm->bgp, node, bgp)) {
+		bgp_zebra_process_srv6_locator_routemap_internal(bgp, &loc, AFI_IP, true);
+		bgp_zebra_process_srv6_locator_routemap_internal(bgp, &loc, AFI_IP6, true);
 	}
 	return 0;
 }
@@ -4465,8 +4635,6 @@ static void bgp_zebra_process_srv6_locator_delete_per_bgp(struct srv6_locator *l
 					 (struct prefix *)&tmp_prefix)) {
 				XFREE(MTYPE_BGP_SRV6_SID,
 				      bgp_vrf->vpn_policy[AFI_IP].tovpn_sid);
-				UNSET_FLAG(bgp_vrf->vpn_policy[AFI_IP].flags,
-					   BGP_VPN_POLICY_TOVPN_SID_FUNC_WIDE);
 				/* refresh vpnv4 tovpn_sid_locator */
 				srv6_locator_free(bgp_vrf->vpn_policy[AFI_IP].tovpn_sid_locator);
 				bgp_vrf->vpn_policy[AFI_IP].tovpn_sid_locator = NULL;
@@ -4483,8 +4651,6 @@ static void bgp_zebra_process_srv6_locator_delete_per_bgp(struct srv6_locator *l
 					 (struct prefix *)&tmp_prefix)) {
 				XFREE(MTYPE_BGP_SRV6_SID,
 				      bgp_vrf->vpn_policy[AFI_IP6].tovpn_sid);
-				UNSET_FLAG(bgp_vrf->vpn_policy[AFI_IP6].flags,
-					   BGP_VPN_POLICY_TOVPN_SID_FUNC_WIDE);
 				/* refresh vpnv6 tovpn_sid_locator */
 				srv6_locator_free(bgp_vrf->vpn_policy[AFI_IP6].tovpn_sid_locator);
 				bgp_vrf->vpn_policy[AFI_IP6].tovpn_sid_locator = NULL;
@@ -4500,7 +4666,6 @@ static void bgp_zebra_process_srv6_locator_delete_per_bgp(struct srv6_locator *l
 			if (prefix_match((struct prefix *)&loc->prefix,
 					 (struct prefix *)&tmp_prefix)) {
 				XFREE(MTYPE_BGP_SRV6_SID, bgp_vrf->tovpn_sid);
-				UNSET_FLAG(bgp_vrf->vrf_flags, BGP_VRF_TOVPN_SID_FUNC_WIDE);
 				/* refresh per-vrf tovpn_sid_locator */
 				srv6_locator_free(bgp_vrf->tovpn_sid_locator);
 				bgp_vrf->tovpn_sid_locator = NULL;
@@ -4550,6 +4715,13 @@ static int bgp_zebra_process_srv6_locator_delete(ZAPI_CALLBACK_ARGS)
 
 	bgp_ls_withdraw_srv6_locator_prefix(bgp_get_default(), &loc);
 
+	bgp_srv6_locator_remove(loc.name);
+
+	for (ALL_LIST_ELEMENTS_RO(bm->bgp, node, bgp)) {
+		bgp_zebra_process_srv6_locator_routemap_internal(bgp, &loc, AFI_IP, false);
+		bgp_zebra_process_srv6_locator_routemap_internal(bgp, &loc, AFI_IP6, false);
+	}
+
 	for (ALL_LIST_ELEMENTS_RO(bm->bgp, node, bgp)) {
 		if (!bgp->srv6_locator)
 			continue;
@@ -4557,7 +4729,6 @@ static int bgp_zebra_process_srv6_locator_delete(ZAPI_CALLBACK_ARGS)
 			return 0;
 		bgp_zebra_process_srv6_locator_delete_per_bgp(&loc, bgp);
 	}
-
 	return 0;
 }
 
