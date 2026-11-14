@@ -649,6 +649,21 @@ uint32_t stream_get_ipv4(struct stream *s)
 	return l;
 }
 
+bool stream_get_ipv4_2(struct stream *s, uint32_t *l)
+{
+	STREAM_VERIFY_SANE(s);
+
+	if (STREAM_READABLE(s) < sizeof(uint32_t)) {
+		STREAM_BOUND_WARN2(s, "get ipv4");
+		return false;
+	}
+
+	memcpy(l, s->data + s->getp, sizeof(uint32_t));
+	s->getp += sizeof(uint32_t);
+
+	return true;
+}
+
 bool stream_get_ipaddr(struct stream *s, struct ipaddr *ip)
 {
 	uint16_t ipa_len = 0;
