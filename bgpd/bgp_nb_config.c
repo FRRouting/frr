@@ -689,6 +689,12 @@ int bgp_nb_local_as_modify(struct nb_cb_modify_args *args)
 		if (!bgp)
 			return NB_OK;
 		new_as = yang_dnode_get_uint32(args->dnode, NULL);
+		if (new_as != bgp->as) {
+			snprintfrr(args->errmsg, args->errmsg_len,
+				   "BGP is already running; AS is %s",
+				   bgp->as_pretty ? bgp->as_pretty : "unknown");
+			return NB_ERR_VALIDATION;
+		}
 		for (ALL_LIST_ELEMENTS_RO(bgp->peer, node, peer)) {
 			if (CHECK_FLAG(peer->flags, PEER_FLAG_LOCAL_AS) &&
 			    peer->change_local_as == new_as) {
@@ -706,10 +712,23 @@ int bgp_nb_local_as_modify(struct nb_cb_modify_args *args)
 	}
 
 	bgp = nb_running_get_entry(args->dnode, NULL, true);
+	if (!bgp)
+		return NB_OK;
+
 	new_as = yang_dnode_get_uint32(args->dnode, NULL);
 	old_as = bgp->as;
 	if (old_as == new_as)
 		return NB_OK;
+
+	/*
+	 * A live instance is not renumbered. VALIDATE rejects this; do not
+	 * apply it if we got here anyway. as 0 is an instance that was just
+	 * created and has not stored the leaf yet.
+	 */
+	if (old_as != 0) {
+		zlog_warn("%s: refusing to change AS %u to %u", __func__, old_as, new_as);
+		return NB_OK;
+	}
 
 	bgp->as = new_as;
 	for (ALL_LIST_ELEMENTS_RO(bgp->peer, node, peer)) {
