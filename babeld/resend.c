@@ -84,16 +84,19 @@ int record_resend(int kind, const unsigned char *prefix, unsigned char plen, uns
 
 	resend = find_resend(kind, prefix, plen, id, NULL);
 	if (resend) {
+		if (id && memcmp(resend->id, id, 8) == 0 &&
+		    seqno_compare(resend->seqno, seqno) > 0) {
+			/* An older seqno must not refresh or modify the
+			 * newer pending entry (RFC 8966 s3.8.1.2).
+			 */
+			return 0;
+		}
 		if (resend->delay && delay)
 			resend->delay = MIN(resend->delay, delay);
 		else if (delay)
 			resend->delay = delay;
 		resend->time = babel_now;
 		resend->max = RESEND_MAX;
-		if (id && memcmp(resend->id, id, 8) == 0 &&
-		    seqno_compare(resend->seqno, seqno) > 0) {
-			return 0;
-		}
 		if (id)
 			memcpy(resend->id, id, 8);
 		else
@@ -164,8 +167,11 @@ int request_redundant(struct interface *ifp, const unsigned char *prefix, unsign
 	if (request == NULL || resend_expired(request))
 		return 0;
 
+	/* We already forwarded a request with a larger seqno, so this
+	 * older request is redundant (RFC 8966 s3.8.1.2).
+	 */
 	if (seqno_compare(request->seqno, seqno) > 0)
-		return 0;
+		return 1;
 
 	if (request->ifp != NULL && request->ifp != ifp)
 		return 0;
