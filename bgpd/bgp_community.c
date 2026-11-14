@@ -911,6 +911,44 @@ static struct community *bgp_aggr_community_lookup(
 	return hash_lookup(aggregate->community_hash, community);
 }
 
+/*
+ * bgp_set_llgr_stale() adds LLGR_STALE to contributing paths in place, so
+ * use the sorted community without LLGR_STALE as the aggregate hash key.
+ * The caller must free *copy.
+ */
+static struct community *bgp_aggr_community_key(struct community *community,
+						struct community **copy)
+{
+	uint32_t llgr_stale = htonl(COMMUNITY_LLGR_STALE);
+	uint32_t prev = 0;
+	uint32_t val;
+	int i;
+
+	*copy = NULL;
+
+	if (!community)
+		return NULL;
+
+	for (i = 0; i < community->size; i++) {
+		val = community_val_get(community, i);
+		if (val == COMMUNITY_LLGR_STALE || (i > 0 && val <= prev))
+			break;
+		prev = val;
+	}
+	if (i == community->size)
+		return community->size ? community : NULL;
+
+	*copy = community_uniq_sort(community);
+	community_del_val(*copy, &llgr_stale);
+
+	if ((*copy)->size == 0) {
+		community_free(copy);
+		return NULL;
+	}
+
+	return *copy;
+}
+
 static void *bgp_aggr_community_hash_alloc(void *p)
 {
 	struct community *ref = (struct community *)p;
@@ -951,8 +989,13 @@ void bgp_compute_aggregate_community_hash(struct bgp_aggregate *aggregate,
 					  struct community *community)
 {
 	struct community *aggr_community = NULL;
+	struct community *copy;
 
-	if ((aggregate == NULL) || (community == NULL))
+	if (aggregate == NULL)
+		return;
+
+	community = bgp_aggr_community_key(community, &copy);
+	if (community == NULL)
 		return;
 
 	/* Create hash if not already created.
@@ -974,6 +1017,8 @@ void bgp_compute_aggregate_community_hash(struct bgp_aggregate *aggregate,
 	/* Increment reference counter.
 	 */
 	aggr_community->refcnt++;
+
+	community_free(&copy);
 }
 
 void bgp_compute_aggregate_community_val(struct bgp_aggregate *aggregate)
@@ -1006,10 +1051,13 @@ void bgp_remove_community_from_aggregate(struct bgp_aggregate *aggregate,
 {
 	struct community *aggr_community = NULL;
 	struct community *ret_comm = NULL;
+	struct community *copy;
 
-	if ((!aggregate)
-	    || (!aggregate->community_hash)
-	    || (!community))
+	if ((!aggregate) || (!aggregate->community_hash))
+		return;
+
+	community = bgp_aggr_community_key(community, &copy);
+	if (!community)
 		return;
 
 	/* Look-up the community in the hash.
@@ -1026,6 +1074,8 @@ void bgp_remove_community_from_aggregate(struct bgp_aggregate *aggregate,
 			bgp_compute_aggregate_community_val(aggregate);
 		}
 	}
+
+	community_free(&copy);
 }
 
 void bgp_remove_comm_from_aggregate_hash(struct bgp_aggregate *aggregate,
@@ -1034,10 +1084,13 @@ void bgp_remove_comm_from_aggregate_hash(struct bgp_aggregate *aggregate,
 
 	struct community *aggr_community = NULL;
 	struct community *ret_comm = NULL;
+	struct community *copy;
 
-	if ((!aggregate)
-	    || (!aggregate->community_hash)
-	    || (!community))
+	if ((!aggregate) || (!aggregate->community_hash))
+		return;
+
+	community = bgp_aggr_community_key(community, &copy);
+	if (!community)
 		return;
 
 	/* Look-up the community in the hash.
@@ -1052,4 +1105,6 @@ void bgp_remove_comm_from_aggregate_hash(struct bgp_aggregate *aggregate,
 			community_free(&ret_comm);
 		}
 	}
+
+	community_free(&copy);
 }
