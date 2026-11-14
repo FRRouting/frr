@@ -553,6 +553,10 @@ static void _bfd_sess_remove(struct bfd_session_params *bsp)
 	/* Cancel any pending installation request. */
 	event_cancel(&bsp->installev);
 
+	/* A replacement session reports its own initial state. */
+	bsp->bss.state = BSS_UNKNOWN;
+	bsp->bss.previous_state = BSS_UNKNOWN;
+
 	/* Not installed, nothing to do. */
 	if (!bsp->installed)
 		return;
