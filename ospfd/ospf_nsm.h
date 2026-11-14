@@ -71,6 +71,13 @@ extern int ospf_db_summary_count(struct ospf_neighbor *nbr);
 extern void ospf_db_summary_clear(struct ospf_neighbor *nbr);
 extern int nsm_should_adj(struct ospf_neighbor *nbr);
 
+/* RFC 2328 10.7/10.8 reset-loop damping: SeqNumberMismatch and BadLSReq
+ * must restart the database exchange, but repeats within a hold-down
+ * window are dropped so an on-link attacker cannot force one exchange
+ * restart (full db_sum rebuild plus LSA re-origination) per packet.
+ */
+extern bool ospf_nsm_reset_suppressed(struct ospf_neighbor *nbr);
+
 /* RFC4222/R5: Dynamic adjacency pacing */
 extern void ospf_adj_dyn_adjust(struct ospf_interface *oi);
 extern void ospf_adj_pacing_kick(struct ospf_interface *oi);
