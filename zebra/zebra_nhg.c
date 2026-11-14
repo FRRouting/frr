@@ -359,7 +359,12 @@ void zebra_nhe_init(struct nhg_hash_entry *nhe, afi_t afi,
 		    const struct nexthop *nh)
 {
 	memset(nhe, 0, sizeof(struct nhg_hash_entry));
-	nhe->vrf_id = VRF_DEFAULT;
+	/*
+	 * An nhe only has a vrf when vrfs are network namespaces: the kernel
+	 * nexthop ids are then private to each namespace and the nhe has to be
+	 * installed in the namespace of its nexthops.
+	 */
+	nhe->vrf_id = (!nh || !vrf_is_backend_netns()) ? VRF_DEFAULT : nh->vrf_id;
 	nhe->type = ZEBRA_ROUTE_NHG;
 
 	/*
@@ -727,6 +732,23 @@ static void handle_recursive_depend(struct nhg_connected_tree_head *nhg_depends,
 }
 
 /*
+ * Ifindex and blackhole nexthop objects are address family specific. A group
+ * holding one of them must be too, otherwise a v4 route and a v6 route with
+ * the same interfaces share one group whose members are of the wrong family
+ * for one of them.
+ */
+static bool zebra_nhg_has_af_specific_member(const struct nexthop_group *nhg)
+{
+	const struct nexthop *nh;
+
+	for (nh = nhg->nexthop; nh; nh = nh->next)
+		if (nh->type == NEXTHOP_TYPE_IFINDEX || nh->type == NEXTHOP_TYPE_BLACKHOLE)
+			return true;
+
+	return false;
+}
+
+/*
  * Lookup an nhe in the global hash, using data from another nhe. If 'lookup'
  * has an id value, that's used. Create a new global/shared nhe if not found.
  */
@@ -749,6 +771,10 @@ static bool zebra_nhe_find(struct nhg_hash_entry **nhe, /* return value */
 	    zrouter.nhg_resilience.buckets && lookup->nhg.nhgr.buckets == 0 &&
 	    (nhg_depends || (lookup->nhg.nexthop && lookup->nhg.nexthop->next)))
 		lookup->nhg.nhgr = zrouter.nhg_resilience;
+
+	if (!nhg_depends && lookup->afi == AFI_UNSPEC && lookup->nhg.nexthop &&
+	    lookup->nhg.nexthop->next && zebra_nhg_has_af_specific_member(&lookup->nhg))
+		lookup->afi = afi;
 
 	if (lookup->id)
 		(*nhe) = zebra_nhg_lookup_id(lookup->id);
@@ -1340,6 +1366,16 @@ static int nhg_ctx_process_new(struct nhg_ctx *ctx)
 		zlog_debug("%s: id %u, count %d, lookup => %p",
 			   __func__, id, count, lookup);
 
+	if (lookup && vrf_is_backend_netns() && lookup->vrf_id != vrf_id) {
+		/* Kernel ids are per netns, our table is not: this event is
+		 * for another namespace that reuses the id of our nhe.
+		 */
+		if (IS_ZEBRA_DEBUG_NHG_DETAIL)
+			zlog_debug("%s: id %u: event from vrf %u, nhe is vrf %u, ignored",
+				   __func__, id, vrf_id, lookup->vrf_id);
+		return 0;
+	}
+
 	if (lookup) {
 		if (lookup->type != ZEBRA_ROUTE_KERNEL) {
 			/* This is already present in our table, hence an
@@ -1357,6 +1393,24 @@ static int nhg_ctx_process_new(struct nhg_ctx *ctx)
 		replace = true;
 		hash_release(zrouter.nhgs_id, old);
 		restore_old_id = true;
+	}
+
+	if (count && vrf_is_backend_netns() && type == ZEBRA_ROUTE_KERNEL) {
+		/* Same for the members of a group: an id of another namespace
+		 * is not the member this namespace's group holds.
+		 */
+		for (int i = 0; i < count; i++) {
+			struct nhg_hash_entry *depend =
+				zebra_nhg_lookup_id(nhg_ctx_get_grp(ctx)[i].id);
+
+			if (depend && depend->vrf_id != vrf_id) {
+				if (IS_ZEBRA_DEBUG_NHG_DETAIL)
+					zlog_debug("%s: id %u: member %u is vrf %u, ignored",
+						   __func__, id, depend->id, depend->vrf_id);
+				ret = -1;
+				goto done;
+			}
+		}
 	}
 
 	if (nhg_ctx_get_count(ctx)) {
@@ -1475,6 +1529,13 @@ static int nhg_ctx_process_del(struct nhg_ctx *ctx)
 			"Kernel delete message received for nexthop group ID (%u) that we do not have in our ID table",
 			id);
 		return -1;
+	}
+
+	if (vrf_is_backend_netns() && nhe->vrf_id != nhg_ctx_get_vrf_id(ctx)) {
+		if (IS_ZEBRA_DEBUG_NHG_DETAIL)
+			zlog_debug("%s: id %u: event from vrf %u, nhe is vrf %u, ignored",
+				   __func__, id, nhg_ctx_get_vrf_id(ctx), nhe->vrf_id);
+		return 0;
 	}
 
 	if (nhe->type != ZEBRA_ROUTE_KERNEL) {
