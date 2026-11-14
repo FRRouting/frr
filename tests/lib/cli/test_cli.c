@@ -30,6 +30,56 @@ DUMMY_DEFUN(cmd14,
 DUMMY_DEFUN(cmd15, "no pat g ![ WORD ]");
 DUMMY_DEFUN(cmd16, "[no] pat h {foo ![A.B.C.D$foo]|bar X:X::X:X$bar} final");
 
+/* Commands that share tokens but have different attributes.  A shared token
+ * must stay visible to completion unless every command using it is hidden.
+ */
+DEFUN_NOSH(cmd17, cmd17_cmd, "attr a [WORD]", DUMMY_HELPSTR)
+{
+	return dump_args(vty, "cmd17", argc, argv);
+}
+
+DEFUN_HIDDEN(cmd18, cmd18_cmd, "attr a WORD hidden", DUMMY_HELPSTR)
+{
+	return dump_args(vty, "cmd18", argc, argv);
+}
+
+DEFUN_NOSH(cmd19, cmd19_cmd, "attr a-unused", DUMMY_HELPSTR)
+{
+	return dump_args(vty, "cmd19", argc, argv);
+}
+
+DEFUN_HIDDEN(cmd20, cmd20_cmd, "attr b WORD hidden", DUMMY_HELPSTR)
+{
+	return dump_args(vty, "cmd20", argc, argv);
+}
+
+DEFUN_NOSH(cmd21, cmd21_cmd, "attr b [WORD]", DUMMY_HELPSTR)
+{
+	return dump_args(vty, "cmd21", argc, argv);
+}
+
+DEFUN_HIDDEN(cmd22, cmd22_cmd, "attr c x", DUMMY_HELPSTR)
+{
+	return dump_args(vty, "cmd22", argc, argv);
+}
+
+DEFUN_ATTR(cmd23, cmd23_cmd, "attr c y", DUMMY_HELPSTR, CMD_ATTR_DEPRECATED | CMD_ATTR_HIDDEN)
+{
+	return dump_args(vty, "cmd23", argc, argv);
+}
+
+DEFUN_NOSH(cmd24, cmd24_cmd, "attr d <x|y> z", DUMMY_HELPSTR)
+{
+	return dump_args(vty, "cmd24", argc, argv);
+}
+
+DEFUN_HIDDEN(cmd25, cmd25_cmd, "attr d <x|y> hidden", DUMMY_HELPSTR)
+{
+	return dump_args(vty, "cmd25", argc, argv);
+}
+
+DUMMY_DEFUN(cmd26, "attr d w");
+
 #include "tests/lib/cli/test_cli_clippy.c"
 
 DEFPY(magic_test, magic_test_cmd,
@@ -72,5 +122,18 @@ void test_init(int argc, char **argv)
 	install_element(ENABLE_NODE, &cmd14_cmd);
 	install_element(ENABLE_NODE, &cmd15_cmd);
 	install_element(ENABLE_NODE, &cmd16_cmd);
+	/* hidden after visible, and visible after hidden */
+	install_element(ENABLE_NODE, &cmd17_cmd);
+	install_element(ENABLE_NODE, &cmd18_cmd);
+	install_element(ENABLE_NODE, &cmd19_cmd);
+	install_element(ENABLE_NODE, &cmd20_cmd);
+	install_element(ENABLE_NODE, &cmd21_cmd);
+	/* only hidden commands, stays hidden */
+	install_element(ENABLE_NODE, &cmd22_cmd);
+	install_element(ENABLE_NODE, &cmd23_cmd);
+	/* same <x|y> fork in a visible and a hidden command */
+	install_element(ENABLE_NODE, &cmd24_cmd);
+	install_element(ENABLE_NODE, &cmd25_cmd);
+	install_element(ENABLE_NODE, &cmd26_cmd);
 	install_element(ENABLE_NODE, &magic_test_cmd);
 }

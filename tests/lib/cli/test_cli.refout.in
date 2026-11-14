@@ -389,6 +389,44 @@ cmd13 with 3 args.
 [01] a@(null): a
 [02] X:X::X:X@a: 1:2::3
 test# 
+test# attr 
+a          a-unused   b          d          
+test# attr 
+% Command incomplete.
+test# attr a
+a          a-unused   
+test# attr a
+cmd17 with 2 args.
+[00] attr@(null): attr
+[01] a@(null): a
+test# attr 
+  a         01
+  a-unused  01
+  b         01
+  d         01
+test# attr 
+% Command incomplete.
+test# attr d 
+  w  02
+  x  02
+  y  03
+test# attr d 
+% Command incomplete.
+test# attr c 
+% There is no matched command.
+test# attr c 
+% Command incomplete.
+test# attr a foo
+cmd17 with 3 args.
+[00] attr@(null): attr
+[01] a@(null): a
+[02] WORD@a: foo
+test# attr c y
+cmd23 with 3 args.
+[00] attr@(null): attr
+[01] c@(null): c
+[02] y@(null): y
+test# 
 test# conf t
 test(config)# do pat d baz
 cmd8 with 3 args.
