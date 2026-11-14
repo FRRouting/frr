@@ -5469,8 +5469,29 @@ int bgp_nb_peer_cap_enhe_modify(struct nb_cb_modify_args *args)
 {
 	struct peer *peer;
 
-	if (args->event != NB_EV_APPLY)
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+		if (!yang_dnode_get_bool(args->dnode, NULL) &&
+		    yang_dnode_get_parent(args->dnode, "unnumbered-neighbor")) {
+			snprintfrr(args->errmsg, args->errmsg_len,
+				   "Peer %s cannot have capability extended-nexthop turned off",
+				   bgp_nb_config_peer_name(args->dnode));
+			return NB_ERR_VALIDATION;
+		}
+		peer = bgp_nb_config_peer(args->dnode);
+		if (!yang_dnode_get_bool(args->dnode, NULL) && peer && peer->conf_if) {
+			snprintfrr(args->errmsg, args->errmsg_len,
+				   "Peer %s cannot have capability extended-nexthop turned off",
+				   peer->host);
+			return NB_ERR_VALIDATION;
+		}
 		return NB_OK;
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+		return NB_OK;
+	case NB_EV_APPLY:
+		break;
+	}
 
 	peer = bgp_nb_config_peer(args->dnode);
 	if (!peer)
