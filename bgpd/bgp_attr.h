@@ -460,6 +460,8 @@ extern unsigned int attrhash_key_make(const void *p);
 extern void attr_show_all(struct vty *vty, bool summary);
 extern unsigned long int attr_count(void);
 extern unsigned long int attr_unknown_count(void);
+extern bool bgp_path_attribute_discard_forbidden(uint8_t attr_num, bool ebgp, bool withdraw,
+						 char *errmsg, size_t errmsg_len);
 extern void bgp_path_attribute_discard_vty(struct vty *vty, struct peer *peer,
 					   const char *discard_attrs, bool set);
 extern void bgp_path_attribute_withdraw_vty(struct vty *vty, struct peer *peer,

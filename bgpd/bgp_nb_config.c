@@ -15639,26 +15639,17 @@ void bgp_nb_cli_show_peer_af_orf_both(struct vty *vty, const struct lyd_node *dn
 			bgp_nb_config_peer_name(dnode));
 }
 
-static bool bgp_nb_path_attr_forbidden(uint8_t attr_num, struct peer *peer, char *errmsg,
-				       size_t errmsg_len)
+static bool bgp_nb_path_attr_forbidden(const struct lyd_node *dnode, uint8_t attr_num,
+				       bool withdraw, char *errmsg, size_t errmsg_len)
 {
-	if (attr_num == BGP_ATTR_ORIGIN || attr_num == BGP_ATTR_AS_PATH ||
-	    attr_num == BGP_ATTR_NEXT_HOP || attr_num == BGP_ATTR_MULTI_EXIT_DISC ||
-	    attr_num == BGP_ATTR_MP_REACH_NLRI || attr_num == BGP_ATTR_MP_UNREACH_NLRI ||
-	    attr_num == BGP_ATTR_EXT_COMMUNITIES) {
-		snprintfrr(errmsg, errmsg_len, "Can't discard/withdraw path-attribute %u",
-			   attr_num);
-		return true;
-	}
+	bool ebgp;
 
-	if (peer->sort != BGP_PEER_EBGP &&
-	    (attr_num == BGP_ATTR_LOCAL_PREF || attr_num == BGP_ATTR_ORIGINATOR_ID ||
-	     attr_num == BGP_ATTR_CLUSTER_LIST)) {
-		snprintfrr(errmsg, errmsg_len, "path-attribute %u only valid for eBGP", attr_num);
-		return true;
-	}
-
-	return false;
+	/*
+	 * Peer-independent attributes are rejected even when the neighbor
+	 * is created in this same candidate and has no running peer yet.
+	 */
+	ebgp = bgp_nb_candidate_peer_sort(dnode) == BGP_PEER_EBGP;
+	return bgp_path_attribute_discard_forbidden(attr_num, ebgp, withdraw, errmsg, errmsg_len);
 }
 
 static void bgp_nb_peer_path_attr_soft_clear(struct peer *peer)
@@ -15720,11 +15711,9 @@ int bgp_nb_peer_path_attr_discard_create(struct nb_cb_create_args *args)
 
 	switch (args->event) {
 	case NB_EV_VALIDATE:
-		peer = bgp_nb_config_peer(args->dnode);
-		if (!peer)
-			return NB_OK;
 		attr_num = yang_dnode_get_uint8(args->dnode, NULL);
-		if (bgp_nb_path_attr_forbidden(attr_num, peer, args->errmsg, args->errmsg_len))
+		if (bgp_nb_path_attr_forbidden(args->dnode, attr_num, false, args->errmsg,
+					       args->errmsg_len))
 			return NB_ERR_VALIDATION;
 		return NB_OK;
 	case NB_EV_PREPARE:
@@ -15775,11 +15764,9 @@ int bgp_nb_peer_path_attr_withdraw_create(struct nb_cb_create_args *args)
 
 	switch (args->event) {
 	case NB_EV_VALIDATE:
-		peer = bgp_nb_config_peer(args->dnode);
-		if (!peer)
-			return NB_OK;
 		attr_num = yang_dnode_get_uint8(args->dnode, NULL);
-		if (bgp_nb_path_attr_forbidden(attr_num, peer, args->errmsg, args->errmsg_len))
+		if (bgp_nb_path_attr_forbidden(args->dnode, attr_num, true, args->errmsg,
+					       args->errmsg_len))
 			return NB_ERR_VALIDATION;
 		return NB_OK;
 	case NB_EV_PREPARE:
