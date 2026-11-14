@@ -1182,6 +1182,9 @@ static void zebra_evpn_vxlan_cleanup_all(struct hash_bucket *bucket, void *arg)
 	if (zl3vni)
 		listnode_delete(zl3vni->l2vnis, zevpn);
 
+	/* Remove references to the BUM mcast grp */
+	zebra_vxlan_sg_deref(&zevpn->local_vtep_ip, zevpn->mcast_grp);
+
 	zebra_evpn_cleanup_all(bucket, arg);
 }
 
@@ -6701,6 +6704,8 @@ void zebra_vxlan_sg_deref(struct ipaddr *local_vtep_ip, struct in_addr mcast_grp
 		return;
 
 	zvrf = vrf_info_lookup(VRF_DEFAULT);
+	if (!zvrf || !zvrf->vxlan_sg_table)
+		return;
 
 	zebra_vxlan_sg_do_deref(zvrf, local_vtep_ip, mcast_grp);
 }
