@@ -13241,6 +13241,24 @@ void route_vty_out_tmp(struct vty *vty, struct bgp *bgp, struct bgp_dest *dest,
 			json_object_string_add(
 				json_net, "origin",
 				bgp_origin_long_str[attr->origin]);
+
+			/* Print community */
+			if (bgp_attr_get_community(attr))
+				json_object_string_add(json_net, "community",
+						       community_str(bgp_attr_get_community(attr),
+								     false));
+
+			/* Print extended community */
+			if (bgp_attr_get_ecommunity(attr))
+				json_object_string_add(json_net, "extendedCommunity",
+						       ecommunity_str(
+							       bgp_attr_get_ecommunity(attr)));
+
+			/* Print large community */
+			if (bgp_attr_get_lcommunity(attr))
+				json_object_string_add(json_net, "largeCommunity",
+						       lcommunity_str(bgp_attr_get_lcommunity(attr),
+								      false));
 		} else if (safi == SAFI_UNREACH) {
 			/* Skip nexthop display for SAFI_UNREACH */
 		} else {
