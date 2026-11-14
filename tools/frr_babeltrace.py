@@ -386,9 +386,9 @@ def location_gr_client_not_found(field_val):
 def parse_frr_bfd_state_change(event):
     """Parse BFD state change events"""
     family = event.get("family")
+    # Note: old_state, new_state, diag are decoded by CTF enums in bfd_trace.h
+    # Only decode fields that don't have CTF enum definitions
     field_parsers = {
-        "old_state": bfd_state2str,
-        "new_state": bfd_state2str,
         "family": lambda x: "IPv4"
         if x == socket.AF_INET
         else "IPv6"
@@ -397,17 +397,6 @@ def parse_frr_bfd_state_change(event):
         "local_addr": lambda x: print_bfd_addr(x, family),
         "peer_addr": lambda x: print_bfd_addr(x, family),
         "mhop": lambda x: "multihop" if x else "singlehop",
-        "diag": lambda x: {
-            0: "No Diagnostic",
-            1: "Control Detection Time Expired",
-            2: "Echo Function Failed",
-            3: "Neighbor Signaled Session Down",
-            4: "Forwarding Plane Reset",
-            5: "Path Down",
-            6: "Concatenated Path Down",
-            7: "Administratively Down",
-            8: "Reverse Concatenated Path Down",
-        }.get(x, f"Unknown Diag {x}"),
     }
     parse_event(event, field_parsers)
 
@@ -521,8 +510,8 @@ def parse_frr_bfd_remote_discriminator_change(event):
 def parse_frr_bfd_control_notify(event):
     """Parse BFD control notification events"""
     family = event.get("family", 0)
+    # Note: notify_state is decoded by CTF enum in bfd_trace.h
     field_parsers = {
-        "notify_state": bfd_state2str,
         "family": lambda x: "IPv4"
         if x == socket.AF_INET
         else "IPv6"
@@ -684,19 +673,9 @@ def parse_frr_bfd_control_protocol_error(event):
 def parse_frr_bfd_ptm_session_event(event):
     """Parse BFD PTM session events"""
     family = event.get("family", 0)
+    # Note: diag is decoded by CTF enum (bfd_diag) in bfd_trace.h
     field_parsers = {
         "action": lambda x: {1: "ADD", 2: "DELETE"}.get(x, f"UNKNOWN_ACTION_{x}"),
-        "diag": lambda x: {
-            0: "No Diagnostic",
-            1: "Control Detection Time Expired",
-            2: "Echo Function Failed",
-            3: "Neighbor Signaled Session Down",
-            4: "Forwarding Plane Reset",
-            5: "Path Down",
-            6: "Concatenated Path Down",
-            7: "Administratively Down",
-            8: "Reverse Concatenated Path Down",
-        }.get(x, f"Unknown Diag {x}"),
         "family": lambda x: "IPv4"
         if x == socket.AF_INET
         else "IPv6"
@@ -1144,6 +1123,49 @@ def parse_frr_bgp_fsm_event(event):
         "current_status": bgp_status_to_string,
         "next_status": bgp_status_to_string,
     }
+    parse_event(event, field_parsers)
+
+
+def parse_frr_bgp_bfd_session_status_update(event):
+    field_parsers = {"fsm_status": bgp_status_to_string}
+    parse_event(event, field_parsers)
+
+
+def print_location_bgp_bfd_session_register(field_val):
+    return {
+        1: "config_apply",
+        2: "config_apply_group",
+        3: "update_source",
+    }.get(field_val, f"unknown({field_val})")
+
+
+def print_location_bgp_bfd_session_deregister(field_val):
+    return {
+        1: "fast_shutdown",
+        2: "update_source_change",
+        3: "multihop_change",
+        4: "peer_config_removal",
+        5: "peer_group_config_removal",
+    }.get(field_val, f"unknown({field_val})")
+
+
+def parse_frr_bgp_bfd_session_register(event):
+    field_parsers = {"location": print_location_bgp_bfd_session_register}
+    parse_event(event, field_parsers)
+
+
+def parse_frr_bgp_bfd_session_install_deferred(event):
+    field_parsers = {"location": print_location_bgp_bfd_session_register}
+    parse_event(event, field_parsers)
+
+
+def parse_frr_bgp_bfd_session_deregister(event):
+    field_parsers = {"location": print_location_bgp_bfd_session_deregister}
+    parse_event(event, field_parsers)
+
+
+def parse_frr_bgp_bfd_fast_shutdown(event):
+    field_parsers = {"upgrade": lambda x: "true" if x else "false"}
     parse_event(event, field_parsers)
 
 
@@ -1907,6 +1929,11 @@ def main():
         "frr_bgp:session_state_change": parse_frr_bgp_session_state_change,
         "frr_bgp:connection_attempt": parse_frr_bgp_connection_attempt,
         "frr_bgp:fsm_event": parse_frr_bgp_fsm_event,
+        "frr_bgp:bfd_session_status_update": parse_frr_bgp_bfd_session_status_update,
+        "frr_bgp:bfd_session_register": parse_frr_bgp_bfd_session_register,
+        "frr_bgp:bfd_session_install_deferred": parse_frr_bgp_bfd_session_install_deferred,
+        "frr_bgp:bfd_session_deregister": parse_frr_bgp_bfd_session_deregister,
+        "frr_bgp:bfd_fast_shutdown": parse_frr_bgp_bfd_fast_shutdown,
         "frr_bgp:bgp_err_str": parse_frr_bgp_bgp_err_str,
         "frr_bgp:bgp_zebra_process_local_ip_prefix_zrecv": parse_frr_bgp_bgp_zebra_process_local_ip_prefix_zrecv,
         "frr_bgp:bgp_zebra_vxlan_flood_control": parse_frr_bgp_bgp_zebra_vxlan_flood_control,
