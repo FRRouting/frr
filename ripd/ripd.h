@@ -520,10 +520,8 @@ extern void rip_show_redistribute_config(struct vty *vty, struct rip *rip);
 extern void rip_peer_free(struct rip_peer *peer);
 extern void rip_peer_update(struct rip *rip, struct rip_interface *ri,
 			    struct sockaddr_in *from, uint8_t version);
-extern void rip_peer_bad_route(struct rip *rip, struct rip_interface *ri,
-			       struct sockaddr_in *from);
-extern void rip_peer_bad_packet(struct rip *rip, struct rip_interface *ri,
-				struct sockaddr_in *from);
+extern void rip_peer_bad_route(struct rip *rip, struct sockaddr_in *from);
+extern void rip_peer_bad_packet(struct rip *rip, struct sockaddr_in *from);
 extern void rip_peer_display(struct vty *vty, struct rip *rip);
 extern struct rip_peer *rip_peer_lookup(struct rip *rip, struct in_addr *addr);
 extern struct rip_peer *rip_peer_lookup_next(struct rip *rip,
