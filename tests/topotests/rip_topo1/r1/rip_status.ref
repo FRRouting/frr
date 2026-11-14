@@ -11,7 +11,7 @@ Routing Protocol is "rip"
     r1-eth2          2     2      
     r1-eth3          2     2      
   Routing for Networks:
-    193.1.1.0/26
+    r1-eth1
     r1-eth2
     r1-eth3
   Passive Interface(s):
