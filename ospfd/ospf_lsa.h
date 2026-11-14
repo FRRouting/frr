@@ -101,6 +101,12 @@ struct ospf_lsa {
 	/* Refreshement List or Queue */
 	int refresh_list;
 
+	/* Pending fight-back refresh (RFC 2328 Section 13.4), paced by
+	 * MinLSInterval.  The timer holds an LSA reference while scheduled.
+	 */
+	struct event *t_fightback;
+	uint32_t fightback_seqnum;
+
 	/* For Type-9 Opaque-LSAs */
 	struct ospf_interface *oi;
 
@@ -243,6 +249,7 @@ extern int get_age(struct ospf_lsa *lsa);
 extern uint16_t ospf_lsa_checksum(struct lsa_header *lsah);
 extern int ospf_lsa_checksum_valid(struct lsa_header *lsah);
 extern int ospf_lsa_refresh_delay(struct ospf *ospf, struct ospf_lsa *lsa);
+extern void ospf_lsa_fightback_schedule(struct ospf *ospf, struct ospf_lsa *lsa, uint32_t seqnum);
 
 extern const char *dump_lsa_key(struct ospf_lsa *lsa);
 extern uint32_t lsa_seqnum_increment(struct ospf_lsa *lsa);
