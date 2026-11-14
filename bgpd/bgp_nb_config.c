@@ -5890,6 +5890,29 @@ static bool bgp_nb_role_from_str(const char *role_str, uint8_t *role)
 	return true;
 }
 
+static enum bgp_peer_sort bgp_nb_candidate_peer_sort(const struct lyd_node *dnode);
+
+static int bgp_nb_peer_local_role_validate(const struct lyd_node *dnode, char *errmsg,
+					   size_t errmsg_len)
+{
+	enum bgp_peer_sort sort;
+	bool group;
+
+	group = yang_dnode_get_parent(dnode, "peer-group") != NULL;
+	sort = bgp_nb_candidate_peer_sort(dnode);
+
+	/*
+	 * An untyped peer-group is allowed; members are checked when they
+	 * are bound. A neighbor, or a group that is already iBGP, is not.
+	 */
+	if ((!group && sort != BGP_PEER_EBGP) || (group && sort == BGP_PEER_IBGP)) {
+		snprintfrr(errmsg, errmsg_len, "External roles can be set only on eBGP session");
+		return NB_ERR_VALIDATION;
+	}
+
+	return NB_OK;
+}
+
 static void bgp_nb_peer_local_role_apply(struct peer *peer, const struct lyd_node *dnode)
 {
 	const struct lyd_node *lr;
@@ -5908,8 +5931,10 @@ static void bgp_nb_peer_local_role_apply(struct peer *peer, const struct lyd_nod
 	if (yang_dnode_exists(lr, "./strict-mode"))
 		strict = yang_dnode_get_bool(lr, "./strict-mode");
 
-	if (peer_role_set(peer, role, strict) != CMD_SUCCESS)
+	if (peer_role_set(peer, role, strict) != CMD_SUCCESS) {
+		zlog_warn("%s: local-role rejected for peer %s", __func__, peer->host);
 		return;
+	}
 
 	bgp_vty_role_update(peer, CAPABILITY_ACTION_SET);
 }
@@ -5918,8 +5943,15 @@ int bgp_nb_peer_local_role_modify(struct nb_cb_modify_args *args)
 {
 	struct peer *peer;
 
-	if (args->event != NB_EV_APPLY)
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+		return bgp_nb_peer_local_role_validate(args->dnode, args->errmsg, args->errmsg_len);
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
 		return NB_OK;
+	case NB_EV_APPLY:
+		break;
+	}
 
 	peer = bgp_nb_config_peer(args->dnode);
 	if (!peer)
@@ -5960,8 +5992,15 @@ int bgp_nb_peer_local_role_strict_modify(struct nb_cb_modify_args *args)
 {
 	struct peer *peer;
 
-	if (args->event != NB_EV_APPLY)
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+		return bgp_nb_peer_local_role_validate(args->dnode, args->errmsg, args->errmsg_len);
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
 		return NB_OK;
+	case NB_EV_APPLY:
+		break;
+	}
 
 	peer = bgp_nb_config_peer(args->dnode);
 	if (!peer)
