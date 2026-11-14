@@ -15,6 +15,7 @@ The test validates a realistic EVPN/VXLAN datacenter fabric with:
 - external route import/export via VRF peering
 - dynamic BGP neighbor behavior
 - kernel route and nexthop validation
+- downstream VNI kept across `import vrf`, including a destination VRF with no L3VNI
 - RMAC lifecycle and flush/reinstall behavior
 
 The file is not only a pass/fail suite; it documents the design so failures can be localized quickly and future tests can follow the same patterns.
@@ -133,8 +134,11 @@ Examples:
 - `test_for_leaked_route_as_path()`
 - `test_as_path_strip_survives_config_change()`
 - `test_import_vrf_preserves_dvni_label()`
+- `test_import_vrf_leaked_dvni_without_dest_l3vni()`
 
 These tests protect against policy regressions where routes are leaked or imported with wrong path attributes, label semantics, or VNI correctness.
+
+The two downstream-VNI tests check that a Type-5 VNI other than the hub L3VNI stays on `vxlan48` after `import vrf`. `test_import_vrf_preserves_dvni_label()` leaks `203.0.120.0/24` (VNI 900000) into `vrf2`, which has its own L3VNI. `test_import_vrf_leaked_dvni_without_dest_l3vni()` leaks `203.0.130.0/24` and `2001:db8:130::/64` (VNI 900001) into `vrf_nol3`, which has no L3VNI, so zebra borrows `vrf1`'s SVD. A non-EVPN blackhole leaked on the same path stays unlabeled. Both run on the IPv4 underlay. The IPv6 underlay is skipped until Linux 7.0: `ip6_route_check_nh_onlink()` rejects `via <IPv6 VTEP> dev vxlan48 onlink` (`RTM_NEWNEXTHOP`, "Nexthop has invalid gateway or device mismatch"), so the nexthop group and route never install. Commit b853b94e8482 removes that check. The IPv6 overlay prefix in the second test still runs; its VTEP is IPv4.
 
 ### 4.6 Dynamic neighbor tests
 
@@ -172,8 +176,11 @@ Examples:
 - `evpn_verify_l3vni_remote_rmacs()`
 - `evpn_verify_vrf_rib_route()`
 - `evpn_verify_overlay_route_in_kernel()`
+- `evpn_verify_imported_route()`
+- `evpn_verify_vrf_route_labels()`
+- `evpn_verify_kernel_encap_vni()`
 
-These are the reusable verification modules. They turn CLI and kernel output into structured checks and should be kept generic enough for multiple EVPN scenarios.
+These are the reusable verification modules. They turn CLI and kernel output into structured checks and should be kept generic enough for multiple EVPN scenarios. `evpn_verify_imported_route()` walks BGP unicast, the zebra label and VTEP, then the kernel encap id. It logs a route that has not converged yet at debug, and a real label or encap mismatch once at info, with the zebra route, kernel nexthop, and nexthop-group rib. The same helpers describe a symmetric L3VNI route (`dev` is the SVI, no label, no kernel encap) and a downstream-VNI route (`dev` is `vxlan48`, label and encap id set).
 
 ### 5.3 Policy-change helpers
 
