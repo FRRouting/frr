@@ -697,7 +697,14 @@ static void stream_put_bgp_aigp_tlv_metric(struct stream *s, uint64_t aigp)
 	stream_putq(s, aigp);
 }
 
-static void bgp_packet_aigp_attribute(struct stream *s, uint8_t flags, const struct attr *attr)
+/*
+ * Write AIGP attribute to stream.  If vecarr is non-NULL, record the stream
+ * offset of the first TLV metric value in BGP_ATTR_VEC_AIGP so that
+ * bpacket_reformat_for_peer() can adjust it per-peer when the nexthop is
+ * changed to the router's own address.
+ */
+static void bgp_packet_aigp_attribute(struct stream *s, uint8_t flags, const struct attr *attr,
+				      struct bpacket_attr_vec_arr *vecarr)
 {
 	struct bgp_aigp_tlvs *tlvs = bgp_attr_get_aigp_tlvs(attr);
 	size_t len;
@@ -716,9 +723,19 @@ static void bgp_packet_aigp_attribute(struct stream *s, uint8_t flags, const str
 	else
 		stream_putc(s, len);
 
-	for (uint16_t i = 0; i < tlvs->count; i++)
-		stream_put_bgp_aigp_tlv_metric(s, tlvs->metric[i]);
+	for (uint16_t i = 0; i < tlvs->count; i++) {
+		if (i == 0 && vecarr) {
+			/* Write TLV header inline to record the metric offset. */
+			stream_putc(s, BGP_AIGP_TLV_METRIC);
+			stream_putw(s, BGP_AIGP_TLV_METRIC_LEN);
+			bpacket_attr_vec_arr_set_vec(vecarr, BGP_ATTR_VEC_AIGP, s, NULL);
+			stream_putq(s, tlvs->metric[i]);
+		} else {
+			stream_put_bgp_aigp_tlv_metric(s, tlvs->metric[i]);
+		}
+	}
 }
+
 
 /* Put NLRI with optional label and optional addpath*/
 int bgp_attr_stream_put_labeled_prefix(struct stream *s, const struct prefix *p,
@@ -6015,8 +6032,15 @@ void bgp_peer_prepend_local_as(struct peer *peer, afi_t afi, safi_t safi, struct
 	}
 }
 
+/*
+ * Write an extended-communities attribute to the stream.  If vecarr is
+ * non-NULL, scan the community list for a link-bandwidth entry and record its
+ * stream offset in BGP_ATTR_VEC_WECMP so that bpacket_reformat_for_peer()
+ * can rewrite it per-peer for the EBGP third-party nexthop case.
+ */
 static void bgp_packet_ecommunity_attribute(struct stream *s, struct peer *peer, struct attr *attr,
-					    struct ecommunity *ecomm, int attribute)
+					    struct ecommunity *ecomm, int attribute,
+					    struct bpacket_attr_vec_arr *vecarr)
 {
 	uint8_t partial = bgp_attr_partial(attr, attribute);
 
@@ -6032,6 +6056,31 @@ static void bgp_packet_ecommunity_attribute(struct stream *s, struct peer *peer,
 		stream_putc(s, BGP_ATTR_FLAG_OPTIONAL | BGP_ATTR_FLAG_TRANS | partial);
 		stream_putc(s, attribute);
 		stream_putc(s, ecomm->size * ecomm->unit_size);
+	}
+
+	/*
+	 * Record the stream offset of the link-bandwidth entry so that
+	 * bpacket_reformat_for_peer() can rewrite the AS and bandwidth
+	 * per-peer without rebuilding the entire ecommunity attribute.
+	 */
+	if (vecarr) {
+		size_t data_start = stream_get_endp(s);
+
+		for (uint32_t i = 0; i < ecomm->size; i++) {
+			const uint8_t *e = ecomm->val + (size_t)i * ecomm->unit_size;
+			uint8_t type = e[0] & ~ECOMMUNITY_FLAG_NON_TRANSITIVE;
+			uint8_t sub = e[1];
+
+			if ((type == ECOMMUNITY_ENCODE_AS && sub == ECOMMUNITY_LINK_BANDWIDTH) ||
+			    (type == ECOMMUNITY_ENCODE_AS4 &&
+			     sub == ECOMMUNITY_EXTENDED_LINK_BANDWIDTH)) {
+				SET_FLAG(vecarr->entries[BGP_ATTR_VEC_WECMP].flags,
+					 BPKT_ATTRVEC_FLAGS_UPDATED);
+				vecarr->entries[BGP_ATTR_VEC_WECMP].offset =
+					data_start + (size_t)i * ecomm->unit_size;
+				break;
+			}
+		}
 	}
 
 	stream_put(s, ecomm->val, ecomm->size * ecomm->unit_size);
@@ -6327,18 +6376,46 @@ bgp_size_t bgp_packet_attribute(struct bgp *bgp, struct peer *peer, struct strea
 		stream_put(s, cluster->list, cluster->length);
 	}
 
+	/*
+	 * For the EBGP third-party nexthop case, the link-bandwidth WECMP
+	 * recalculation was skipped in subgroup_announce_check() so that
+	 * multiaccess peers, which keep the original third-party nexthop,
+	 * are not incorrectly given the cumulative bandwidth.  Record the
+	 * stream offset of the link-bandwidth entry in the ecommunity
+	 * attribute; bpacket_reformat_for_peer() will rewrite it per-peer
+	 * when the nexthop is changed to the router's own address.
+	 * This applies for all EBGP peers regardless of whether the nexthop
+	 * was zeroed (non-multiaccess) or preserved (third-party nexthop);
+	 * subgroup_announce_check() no longer recalculates WECMP for EBGP.
+	 */
+	struct bpacket_attr_vec_arr *wecmp_vecarr = NULL;
+
+	if (bpi && peer->sort == BGP_PEER_EBGP && vecarr && (afi == AFI_IP || afi == AFI_IP6) &&
+	    !CHECK_FLAG(attr->rmap_change_flags, BATTR_RMAP_LINK_BW_SET)) {
+		struct bgp *b = bgp ? bgp : peer->bgp;
+		uint64_t cum_bw;
+
+		cum_bw = bgp_path_info_mpath_cumbw(bpi->net);
+		if (b && bgp_path_info_mpath_chkwtd(b, bpi->net) == BGP_WECMP_BEHAVIOR_LINK_BW &&
+		    cum_bw != 0) {
+			wecmp_vecarr = vecarr;
+			vecarr->entries[BGP_ATTR_VEC_WECMP].data = cum_bw;
+		}
+	}
+
 	/* Extended IPv6/Communities attributes. */
 	if (bgp_attr_exists(attr, BGP_ATTR_EXT_COMMUNITIES)) {
 		struct ecommunity *ecomm = bgp_attr_get_ecommunity(attr);
 
-		bgp_packet_ecommunity_attribute(s, peer, attr, ecomm, BGP_ATTR_EXT_COMMUNITIES);
+		bgp_packet_ecommunity_attribute(s, peer, attr, ecomm, BGP_ATTR_EXT_COMMUNITIES,
+						wecmp_vecarr);
 	}
 
 	if (bgp_attr_exists(attr, BGP_ATTR_IPV6_EXT_COMMUNITIES)) {
 		struct ecommunity *ecomm = bgp_attr_get_ipv6_ecommunity(attr);
 
 		bgp_packet_ecommunity_attribute(s, peer, attr, ecomm,
-						BGP_ATTR_IPV6_EXT_COMMUNITIES);
+						BGP_ATTR_IPV6_EXT_COMMUNITIES, wecmp_vecarr);
 	}
 
 	/* Label index attribute. */
@@ -6525,8 +6602,43 @@ bgp_size_t bgp_packet_attribute(struct bgp *bgp, struct peer *peer, struct strea
 	}
 
 	/* AIGP */
-	if (bgp_attr_exists(attr, BGP_ATTR_AIGP) && AIGP_TRANSMIT_ALLOWED(peer))
-		bgp_packet_aigp_attribute(s, BGP_ATTR_FLAG_OPTIONAL, attr);
+	if (bgp_attr_exists(attr, BGP_ATTR_AIGP) && AIGP_TRANSMIT_ALLOWED(peer)) {
+		/*
+		 * For the EBGP third-party nexthop case, AIGP was not adjusted
+		 * in subgroup_announce_check() for EBGP so the original received
+		 * metric is in the stream.  Record the stream offset so that
+		 * bpacket_reformat_for_peer() can add the local IGP cost per-peer
+		 * whenever the nexthop is changed to the router's own address.
+		 * This covers all EBGP nexthop-change cases: non-multiaccess
+		 * (zeroed nexthop), third-party (preserved nexthop replaced), and
+		 * nexthop-peer-address route-map.  subgroup_announce_check() does
+		 * not adjust AIGP for EBGP so there is no double-count risk.
+		 */
+		struct bpacket_attr_vec_arr *aigp_vecarr = NULL;
+
+		if (bpi && peer->sort == BGP_PEER_EBGP && vecarr &&
+		    (afi == AFI_IP || afi == AFI_IP6)) {
+			aigp_vecarr = vecarr;
+			vecarr->entries[BGP_ATTR_VEC_AIGP].data = bpi->extra
+									  ? bpi->extra->igpmetric
+									  : 0;
+		}
+		bgp_packet_aigp_attribute(s, BGP_ATTR_FLAG_OPTIONAL, attr, aigp_vecarr);
+	}
+
+	/* Set BPKT_ATTRVEC_FLAGS_NH_RECEIVED (a separate bit from
+	 * BPKT_ATTRVEC_FLAGS_UPDATED) when the route was received from a peer
+	 * rather than self-originated.  bpacket_reformat_for_peer() uses this
+	 * to apply the IPV4_ADDR_SAME / IN6_ARE_ADDR_EQUAL replacement only
+	 * for received routes; self-originated routes whose gateway nexthop
+	 * equals the peer's own IP are excluded so the peer rejects the route
+	 * as a martian nexthop and avoids a routing loop.
+	 * No BPKT_ATTRVEC_FLAGS_UPDATED gate: for IPv6/MP_REACH routes the NH
+	 * vec is populated later in bgp_packet_mpattr_start(), after this
+	 * function returns, so checking UPDATED here would always be false.
+	 */
+	if (vecarr && bpi && peer->sort == BGP_PEER_EBGP && bpi->peer != peer->bgp->peer_self)
+		SET_FLAG(vecarr->entries[BGP_ATTR_VEC_NH].flags, BPKT_ATTRVEC_FLAGS_NH_RECEIVED);
 
 	/* BGP-LS Attribute (Type 29) - RFC 9552 Section 4 */
 	if (afi == AFI_BGP_LS && safi == SAFI_BGP_LS && bgp_attr_get_ls_attr(attr))
@@ -6800,7 +6912,8 @@ void bgp_dump_routes_attr(struct stream *s, struct bgp_path_info *bpi,
 
 	/* AIGP */
 	if (bgp_attr_exists(attr, BGP_ATTR_AIGP))
-		bgp_packet_aigp_attribute(s, BGP_ATTR_FLAG_OPTIONAL | BGP_ATTR_FLAG_TRANS, attr);
+		bgp_packet_aigp_attribute(s, BGP_ATTR_FLAG_OPTIONAL | BGP_ATTR_FLAG_TRANS, attr,
+					  NULL);
 
 	/* Return total size of attribute. */
 	len = stream_get_endp(s) - cp - 2;

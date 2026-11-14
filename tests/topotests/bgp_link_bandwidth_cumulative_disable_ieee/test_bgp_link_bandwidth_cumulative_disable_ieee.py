@@ -97,39 +97,34 @@ def test_bgp_link_bandwidth_cumulative_disable_ieee():
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
 
-    dut = tgen.gears["r1"]
+    ebgp = tgen.gears["r4"]
 
-    def _check_dut_advertised_raw_cumulative():
-        output = json.loads(
-            dut.vtysh_cmd(
-                "show bgp ipv4 unicast neighbor %s advertised-routes detail json"
-                % R4_NEIGHBOR
-            )
-        )
-        if not _any_path_lb_bytes_match(
-            output, "advertisedRoutes", LB_BYTES_CUMULATIVE_RAW_CLAMP
-        ):
-            paths = _paths_for_prefix(output, PREFIX, key="advertisedRoutes")
-            got = [
-                lb_bytes_from_string(p.get("extendedCommunity", {}).get("string"))
-                for p in paths
-            ]
-            return (
-                "r1 advertised raw cumulative LB bytes %u (not truncated %u), "
-                "paths=%d got %s"
-                % (
-                    LB_BYTES_CUMULATIVE_RAW_CLAMP,
-                    LB_BYTES_CUMULATIVE_RAW_TRUNCATED,
-                    len(paths),
-                    got,
-                )
+    # TBD: 'show bgp advertised-routes' reflects the shared adj-out attr which
+    # carries the original per-path link-bandwidth.  The cumulative (clamped)
+    # bandwidth is applied per-peer at packet-send time in
+    # bpacket_reformat_wecmp() and is not yet visible in the display path.
+    # Restore once the display path is updated (bgp-outbound-nexthop-display).
+
+    # r4 is also configured with disable-link-bw-encoding-ieee so that it
+    # decodes the received raw uint32 LB correctly (ecommunity_parse() uses
+    # the peer flag to set disable_ieee_floating on the parsed community).
+    def _r4_check():
+        output = json.loads(ebgp.vtysh_cmd("show bgp ipv4 unicast json detail"))
+        paths = _paths_for_prefix(output, PREFIX)
+        if len(paths) != 1:
+            return "expected one eBGP path at r4, got %d" % len(paths)
+        if not _any_path_lb_bytes_match(output, "routes", LB_BYTES_CUMULATIVE_RAW_CLAMP):
+            ec = paths[0].get("extendedCommunity")
+            got = lb_bytes_from_string(ec.get("string") if ec else None)
+            return "r4 received LB %s, expected clamped %u (not truncated %u)" % (
+                got, LB_BYTES_CUMULATIVE_RAW_CLAMP, LB_BYTES_CUMULATIVE_RAW_TRUNCATED
             )
         return None
 
-    test_func = functools.partial(_check_dut_advertised_raw_cumulative)
+    test_func = functools.partial(_r4_check)
     _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
     assert result is None, (
-        "DUT should cap cumulative LB at %u for disable-link-bw-encoding-ieee"
+        "r4 should receive clamped LB %u for disable-link-bw-encoding-ieee"
         % LB_BYTES_CUMULATIVE_RAW_CLAMP
     )
 

@@ -37,6 +37,8 @@
 #include "bgpd/bgp_packet.h"
 #include "bgpd/bgp_advertise.h"
 #include "bgpd/bgp_updgrp.h"
+#include "bgpd/bgp_ecommunity.h"
+#include "bgpd/bgp_aspath.h"
 #include "bgpd/bgp_nexthop.h"
 #include "bgpd/bgp_nht.h"
 #include "bgpd/bgp_mplsvpn.h"
@@ -331,6 +333,55 @@ void bpacket_queue_show_vty(struct bpacket_queue *q, struct vty *vty)
 	return;
 }
 
+
+/*
+ * Apply the per-peer AIGP metric adjustment recorded at bpacket-build time.
+ * Called after the nexthop has been changed to the router's own address.
+ */
+static void bpacket_reformat_aigp(struct stream *s, const struct bpacket *pkt)
+{
+	const bpacket_attr_vec *aigp_vec = &pkt->arr.entries[BGP_ATTR_VEC_AIGP];
+
+	if (CHECK_FLAG(aigp_vec->flags, BPKT_ATTRVEC_FLAGS_UPDATED)) {
+		uint64_t aigp = stream_getq_from(s, aigp_vec->offset);
+
+		stream_putq_at(s, aigp_vec->offset, aigp + aigp_vec->data);
+	}
+}
+
+/*
+ * Apply the per-peer link-bandwidth WECMP recalculation recorded at
+ * bpacket-build time.  Called after the nexthop has been changed to the
+ * router's own address.
+ */
+static void bpacket_reformat_wecmp(struct stream *s, const struct bpacket *pkt, struct peer *peer)
+{
+	const bpacket_attr_vec *wecmp_vec = &pkt->arr.entries[BGP_ATTR_VEC_WECMP];
+
+	if (!CHECK_FLAG(wecmp_vec->flags, BPKT_ATTRVEC_FLAGS_UPDATED))
+		return;
+
+	uint64_t cum_bw = wecmp_vec->data;
+	as_t link_bw_as = bgp_local_as_for_peer(peer);
+	uint8_t entry_type = stream_getc_from(s, wecmp_vec->offset) &
+			     ~ECOMMUNITY_FLAG_NON_TRANSITIVE;
+
+	if (entry_type == ECOMMUNITY_ENCODE_AS4) {
+		stream_putq_at(s, wecmp_vec->offset + 4, cum_bw);
+		stream_putl_at(s, wecmp_vec->offset + 12, (uint32_t)MIN(link_bw_as, UINT32_MAX));
+	} else {
+		bool disable_ieee = CHECK_FLAG(peer->flags,
+					       PEER_FLAG_DISABLE_LINK_BW_ENCODING_IEEE);
+		uint32_t bw32 = disable_ieee ? (uint32_t)MIN(cum_bw, UINT32_MAX)
+					     : uint64_to_ieee_float_uint32(cum_bw);
+
+		stream_putw_at(s, wecmp_vec->offset + 2,
+			       (uint16_t)(link_bw_as > BGP_AS_MAX ? BGP_AS_TRANS
+								  : link_bw_as));
+		stream_putl_at(s, wecmp_vec->offset + 4, bw32);
+	}
+}
+
 struct stream *bpacket_reformat_for_peer(struct bpacket *pkt,
 					 struct peer_af *paf)
 {
@@ -420,21 +471,41 @@ struct stream *bpacket_reformat_for_peer(struct bpacket *pkt,
 		} else if (v4nh.s_addr == INADDR_ANY) {
 			mod_v4nh = &peer->nexthop.v4;
 			nh_modified = 1;
-		} else if (peer->sort == BGP_PEER_EBGP
-			   && (bgp_multiaccess_check_v4(v4nh, peer) == 0)
-			   && !CHECK_FLAG(vec->flags,
-					  BPKT_ATTRVEC_FLAGS_RMAP_NH_UNCHANGED)
-			   && !peer_af_flag_check(
-				   peer, paf->afi, paf->safi,
-				   PEER_FLAG_NEXTHOP_UNCHANGED)) {
+		} else if (peer->sort == BGP_PEER_EBGP &&
+			   ((CHECK_FLAG(vec->flags, BPKT_ATTRVEC_FLAGS_NH_RECEIVED) &&
+			     IPV4_ADDR_SAME(&v4nh, &peer->connection->su.sin.sin_addr)) ||
+			    !bgp_multiaccess_check_v4(v4nh, peer)) &&
+			   !CHECK_FLAG(vec->flags, BPKT_ATTRVEC_FLAGS_RMAP_NH_UNCHANGED) &&
+			   !peer_af_flag_check(peer, paf->afi, paf->safi,
+					       PEER_FLAG_NEXTHOP_UNCHANGED)) {
 			/* NOTE: not handling case where NH has new AFI
 			 */
 			mod_v4nh = &peer->nexthop.v4;
 			nh_modified = 1;
 		}
 
-		if (nh_modified) /* allow for VPN RD */
+		if (nh_modified) { /* allow for VPN RD */
 			stream_put_in_addr_at(s, offset_nh, mod_v4nh);
+
+			if (peer->sort == BGP_PEER_EBGP) {
+				/* Per-peer AIGP adjustment: add the IGP cost
+				 * recorded at bpacket-build time to the AIGP
+				 * metric in the stream.
+				 */
+				bpacket_reformat_aigp(s, pkt);
+
+				/* Per-peer WECMP recalculation: replace the
+				 * original per-path link-bandwidth with the
+				 * cumulative bandwidth recorded at bpacket-
+				 * build time.  The entry size is fixed within
+				 * a subgroup (guaranteed by
+				 * PEER_FLAG_EXTENDED_LINK_BANDWIDTH in
+				 * PEER_UPDGRP_FLAGS), so in-place rewriting
+				 * is safe.
+				 */
+				bpacket_reformat_wecmp(s, pkt, peer);
+			}
+		}
 
 		if (bgp_debug_update(peer, NULL, NULL, 0))
 			zlog_debug("u%" PRIu64 ":s%" PRIu64
@@ -514,13 +585,13 @@ struct stream *bpacket_reformat_for_peer(struct bpacket *pkt,
 		} else if (IN6_IS_ADDR_UNSPECIFIED(&v6nhglobal)) {
 			mod_v6nhg = &peer->nexthop.v6_global;
 			gnh_modified = 1;
-		} else if ((peer->sort == BGP_PEER_EBGP)
-			   && (!bgp_multiaccess_check_v6(v6nhglobal, peer))
-			   && !CHECK_FLAG(vec->flags,
-					  BPKT_ATTRVEC_FLAGS_RMAP_NH_UNCHANGED)
-			   && !peer_af_flag_check(
-				   peer, paf->afi, paf->safi,
-				   PEER_FLAG_NEXTHOP_UNCHANGED)) {
+		} else if ((peer->sort == BGP_PEER_EBGP) &&
+			   ((CHECK_FLAG(vec->flags, BPKT_ATTRVEC_FLAGS_NH_RECEIVED) &&
+			     IN6_ARE_ADDR_EQUAL(&v6nhglobal, &peer->connection->su.sin6.sin6_addr)) ||
+			    !bgp_multiaccess_check_v6(v6nhglobal, peer)) &&
+			   !CHECK_FLAG(vec->flags, BPKT_ATTRVEC_FLAGS_RMAP_NH_UNCHANGED) &&
+			   !peer_af_flag_check(peer, paf->afi, paf->safi,
+					       PEER_FLAG_NEXTHOP_UNCHANGED)) {
 			/* NOTE: not handling case where NH has new AFI
 			 */
 			mod_v6nhg = &peer->nexthop.v6_global;
@@ -558,8 +629,17 @@ struct stream *bpacket_reformat_for_peer(struct bpacket *pkt,
 			mod_v6nhl = &peer->nexthop.v6_local;
 			stream_put_in6_addr_at(s, offset_nhlocal, mod_v6nhl);
 		} else {
-			if (gnh_modified)
+			if (gnh_modified) {
 				stream_put_in6_addr_at(s, offset_nhglobal, mod_v6nhg);
+
+				if (peer->sort == BGP_PEER_EBGP) {
+					/* Per-peer AIGP and WECMP adjustments —
+					 * same logic as IPv4.
+					 */
+					bpacket_reformat_aigp(s, pkt);
+					bpacket_reformat_wecmp(s, pkt, peer);
+				}
+			}
 			if (lnh_modified)
 				stream_put_in6_addr_at(s, offset_nhlocal, mod_v6nhl);
 		}
@@ -622,16 +702,26 @@ struct stream *bpacket_reformat_for_peer(struct bpacket *pkt,
  * Update the vecarr offsets to go beyond 'pos' bytes, i.e. add 'pos'
  * to each offset.
  */
-static void bpacket_attr_vec_arr_update(struct bpacket_attr_vec_arr *vecarr,
-					size_t pos)
+static void bpacket_attr_vec_arr_update(struct bpacket_attr_vec_arr *vecarr, size_t mpattr_pos,
+					size_t snlri_len)
 {
-	int i;
-
 	if (!vecarr)
 		return;
 
-	for (i = 0; i < BGP_ATTR_VEC_MAX; i++)
-		vecarr->entries[i].offset += pos;
+	/*
+	 * BGP_ATTR_VEC_NH is recorded in the MP_REACH stream (snlri); its
+	 * offset is snlri-relative and must be shifted by mpattr_pos (the
+	 * insertion point) to become main-stream-relative.
+	 * AIGP and WECMP are recorded in the main stream (s) after mpattr_pos
+	 * (bgp_packet_attribute() runs after mpattr_pos is captured) and are
+	 * therefore shifted by snlri_len after the insertion.
+	 */
+	if (CHECK_FLAG(vecarr->entries[BGP_ATTR_VEC_NH].flags, BPKT_ATTRVEC_FLAGS_UPDATED))
+		vecarr->entries[BGP_ATTR_VEC_NH].offset += mpattr_pos;
+	if (CHECK_FLAG(vecarr->entries[BGP_ATTR_VEC_AIGP].flags, BPKT_ATTRVEC_FLAGS_UPDATED))
+		vecarr->entries[BGP_ATTR_VEC_AIGP].offset += snlri_len;
+	if (CHECK_FLAG(vecarr->entries[BGP_ATTR_VEC_WECMP].flags, BPKT_ATTRVEC_FLAGS_UPDATED))
+		vecarr->entries[BGP_ATTR_VEC_WECMP].offset += snlri_len;
 }
 
 /*
@@ -958,6 +1048,13 @@ struct bpacket *subgroup_update_packet(struct update_subgroup *subgrp)
 			subgrp->scount++;
 
 		adj->attr = bgp_attr_intern(adv->baa->attr);
+
+		/* Record per-peer values at send time so suppress-duplicate
+		 * correctly distinguishes sent vs queued on the next evaluation.
+		 */
+		adj->cum_bw = adv->baa->cum_bw;
+		adj->igpmetric = adv->baa->igpmetric;
+
 		adv = bgp_advertise_clean_subgroup(subgrp, adj);
 	}
 
@@ -971,8 +1068,10 @@ struct bpacket *subgroup_update_packet(struct update_subgroup *subgrp)
 		stream_putw_at(s, attrlen_pos, total_attr_len);
 
 		if (!stream_empty(snlri)) {
+			size_t snlri_len = stream_get_endp(snlri);
+
 			packet = stream_dupcat(s, snlri, mpattr_pos);
-			bpacket_attr_vec_arr_update(&vecarr, mpattr_pos);
+			bpacket_attr_vec_arr_update(&vecarr, mpattr_pos, snlri_len);
 		} else
 			packet = stream_dup(s);
 		bgp_packet_set_size(packet);
