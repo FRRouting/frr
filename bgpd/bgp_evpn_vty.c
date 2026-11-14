@@ -2338,6 +2338,12 @@ static void evpn_delete_vni(struct bgp *bgp, struct bgpevpn *vpn)
 	/* Next, deal with the import side. */
 	if (bgp_evpn_l2vni_has_manual_import_rt_cfgd(vpn))
 		evpn_unconfigure_import_rt_for_l2vni(bgp, vpn, NULL);
+
+	/* Back to the global flooding mode. */
+	if (vpn->vxlan_flood_ctrl != VXLAN_FLOOD_INHERIT_GLOBAL) {
+		vpn->vxlan_flood_ctrl = VXLAN_FLOOD_INHERIT_GLOBAL;
+		bgp_evpn_flood_control_change(bgp);
+	}
 }
 
 /*
@@ -3778,13 +3784,13 @@ static void write_vni_config(struct vty *vty, struct bgpevpn *vpn)
 		if (is_rd_configured(vpn))
 			vty_out(vty, "   rd %s\n", vpn->prd_pretty);
 
-		if (!vpn->bgp_vrf ||
-		    (vpn->bgp_vrf && (vpn->vxlan_flood_ctrl != vpn->bgp_vrf->vxlan_flood_ctrl))) {
-			if (vpn->vxlan_flood_ctrl == VXLAN_FLOOD_DISABLED)
-				vty_out(vty, "   flooding disable\n");
-			else if (vpn->vxlan_flood_ctrl == VXLAN_FLOOD_HEAD_END_REPL)
-				vty_out(vty, "   flooding head-end-replication\n");
-		}
+		/* The mode of the VNI as configured: it applies whatever the
+		 * global mode becomes.
+		 */
+		if (vpn->vxlan_flood_ctrl == VXLAN_FLOOD_DISABLED)
+			vty_out(vty, "   flooding disable\n");
+		else if (vpn->vxlan_flood_ctrl == VXLAN_FLOOD_HEAD_END_REPL)
+			vty_out(vty, "   flooding head-end-replication\n");
 
 		frr_each (bgp_evpn_cfgd_rt_slu, &rt_config->cfgd_import, cfgd_rt) {
 			bgp_evpn_format_cfgd_rt(rt_buf, sizeof(rt_buf), cfgd_rt);

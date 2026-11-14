@@ -2781,9 +2781,10 @@ int bgp_zebra_vxlan_flood_control(struct bgp *bgp, struct bgpevpn *evpn)
 {
 	struct stream *s;
 	vni_t vni = evpn ? evpn->vni : VNI_MAX;
-	int flood_control = (evpn && evpn->vxlan_flood_ctrl != VXLAN_FLOOD_INHERIT_GLOBAL)
-				    ? evpn->vxlan_flood_ctrl
-				    : bgp->vxlan_flood_ctrl;
+	/* The mode of the VNI as configured, VXLAN_FLOOD_INHERIT_GLOBAL included:
+	 * zebra keeps the global mode apart, for the VNIs that inherit it.
+	 */
+	int flood_control = evpn ? evpn->vxlan_flood_ctrl : bgp->vxlan_flood_ctrl;
 
 	/* Check socket. */
 	if (!bgp_zclient || bgp_zclient->sock < 0)
