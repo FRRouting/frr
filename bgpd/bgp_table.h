@@ -63,6 +63,7 @@ enum bgp_path_selection_reason {
 	bgp_path_selection_peer,
 	bgp_path_selection_confed,
 	bgp_path_selection_igp_metric,
+	bgp_path_selection_mpls_over_srv6,
 	bgp_path_selection_older,
 	bgp_path_selection_router_id,
 	bgp_path_selection_cluster_length,
