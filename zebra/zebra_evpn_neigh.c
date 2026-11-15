@@ -2975,6 +2975,200 @@ void zebra_evpn_clear_dup_neigh_hash(struct zebra_evpn *zevpn, struct zebra_neig
 /*
  * Print a specific neighbor entry.
  */
+const char *
+zebra_evpn_l3mh_neigh_lifecycle_name(enum zebra_l3mh_neigh_lifecycle state)
+{
+	switch (state) {
+	case ZEBRA_L3MH_NEIGH_NOT_MANAGED:
+		return "not-managed";
+	case ZEBRA_L3MH_NEIGH_LOCAL_DYNAMIC:
+		return "local-dynamic";
+	case ZEBRA_L3MH_NEIGH_PEER_SYNC_PROTECTED:
+		return "peer-sync-protected";
+	case ZEBRA_L3MH_NEIGH_HANDOFF_WAIT:
+		return "handoff-wait";
+	case ZEBRA_L3MH_NEIGH_VALIDATION_PENDING:
+		return "validation-pending";
+	}
+
+	return "unknown";
+}
+
+const char *zebra_evpn_l3mh_neigh_removal_reason_name(
+	enum zebra_l3mh_neigh_removal_reason reason)
+{
+	switch (reason) {
+	case ZEBRA_L3MH_NEIGH_REMOVE_NONE:
+		return "none";
+	case ZEBRA_L3MH_NEIGH_REMOVE_PEER_WITHDRAW:
+		return "peer-withdraw";
+	case ZEBRA_L3MH_NEIGH_REMOVE_INTERFACE_DOWN:
+		return "interface-down";
+	case ZEBRA_L3MH_NEIGH_REMOVE_MAC_LOSS:
+		return "mac-loss";
+	case ZEBRA_L3MH_NEIGH_REMOVE_KERNEL_DELETE:
+		return "kernel-delete";
+	case ZEBRA_L3MH_NEIGH_REMOVE_CONFIG_CHANGE:
+		return "config-change";
+	case ZEBRA_L3MH_NEIGH_REMOVE_AGEOUT:
+		return "ageout";
+	case ZEBRA_L3MH_NEIGH_REMOVE_ADMIN:
+		return "administrative";
+	}
+
+	return "unknown";
+}
+
+static bool zebra_evpn_neigh_is_l3mh_managed(const struct zebra_neigh *n)
+{
+	if (n->mac || !n->eth_tag)
+		return false;
+
+	return CHECK_FLAG(n->flags, ZEBRA_NEIGH_LOCAL)
+	       || CHECK_FLAG(n->flags, ZEBRA_NEIGH_ALL_PEER_FLAGS)
+	       || n->sync_mac_ifindex;
+}
+
+static enum zebra_l3mh_neigh_lifecycle
+zebra_evpn_neigh_compat_lifecycle(const struct zebra_neigh *n)
+{
+	if (!zebra_evpn_neigh_is_l3mh_managed(n))
+		return ZEBRA_L3MH_NEIGH_NOT_MANAGED;
+	if (CHECK_FLAG(n->flags, ZEBRA_NEIGH_LOCAL))
+		return ZEBRA_L3MH_NEIGH_LOCAL_DYNAMIC;
+
+	return ZEBRA_L3MH_NEIGH_PEER_SYNC_PROTECTED;
+}
+
+static const char *
+zebra_evpn_neigh_compat_mac_ownership(const struct zebra_neigh *n)
+{
+	if (n->sync_mac_ifindex
+	    || (n->mac && zebra_evpn_mac_is_static(n->mac)))
+		return "sync-static";
+	if (CHECK_FLAG(n->flags, ZEBRA_NEIGH_LOCAL))
+		return "local-dynamic";
+
+	return "none";
+}
+
+static uint32_t
+zebra_evpn_neigh_compat_associated_count(const struct zebra_neigh *n)
+{
+	struct zebra_l3_nidx *e;
+
+	if (n->mac && n->mac->neigh_list)
+		return listcount(n->mac->neigh_list);
+	if (!n->zevpn)
+		return 0;
+
+	e = zebra_l3_nidx_find(n->zevpn->vni, &n->emac, n->eth_tag);
+	return e ? zebra_l3_nidx_ips_count(&e->ips) : 0;
+}
+
+static struct interface *
+zebra_evpn_neigh_compat_expected_ifp(const struct zebra_neigh *n)
+{
+	struct interface *svi_ifp;
+
+	if (n->sync_mac_ifindex)
+		return if_lookup_by_index_per_ns(zebra_ns_lookup(NS_DEFAULT),
+						n->sync_mac_ifindex);
+	if (!CHECK_FLAG(n->flags, ZEBRA_NEIGH_LOCAL))
+		return NULL;
+
+	svi_ifp = if_lookup_by_index_per_ns(zebra_ns_lookup(NS_DEFAULT),
+					   n->ifindex);
+	if (!svi_ifp)
+		return NULL;
+
+	return zebra_evpn_l3vni_neigh_acc_ifp(&n->emac, svi_ifp);
+}
+
+static void zebra_evpn_print_l3mh_neigh(const struct zebra_neigh *n,
+					struct vty *vty, json_object *json)
+{
+	enum zebra_l3mh_neigh_lifecycle lifecycle;
+	struct interface *expected_ifp;
+	const char *mac_ownership;
+	const char *timer_state;
+	const char *neigh_aging;
+	const char *mac_aging;
+	bool peer_present;
+	uint32_t associated_count;
+	char thread_buf[EVENT_TIMER_STRLEN];
+
+	if (!zebra_evpn_neigh_is_l3mh_managed(n))
+		return;
+
+	lifecycle = zebra_evpn_neigh_compat_lifecycle(n);
+	expected_ifp = zebra_evpn_neigh_compat_expected_ifp(n);
+	mac_ownership = zebra_evpn_neigh_compat_mac_ownership(n);
+	timer_state =
+		event_is_scheduled(n->hold_timer) ? "peer-hold" : "inactive";
+	peer_present = CHECK_FLAG(n->flags, ZEBRA_NEIGH_REMOTE)
+		       || CHECK_FLAG(n->flags, ZEBRA_NEIGH_ALL_PEER_FLAGS);
+	associated_count = zebra_evpn_neigh_compat_associated_count(n);
+	neigh_aging =
+		lifecycle == ZEBRA_L3MH_NEIGH_PEER_SYNC_PROTECTED
+			? "disabled"
+			: "platform-default";
+	mac_aging = !strcmp(mac_ownership, "sync-static")
+			    ? "disabled"
+			    : "platform-default";
+
+	if (!json) {
+		vty_out(vty, " L3MH state: %s\n",
+			zebra_evpn_l3mh_neigh_lifecycle_name(lifecycle));
+		vty_out(vty, " Peer present: %s\n",
+			peer_present ? "yes" : "no");
+		vty_out(vty, " MAC ownership: %s\n", mac_ownership);
+		vty_out(vty, " Timer state: %s", timer_state);
+		if (event_is_scheduled(n->hold_timer))
+			vty_out(vty, " (%s)",
+				event_timer_to_hhmmss(thread_buf,
+						      sizeof(thread_buf),
+						      n->hold_timer));
+		vty_out(vty, "\n");
+		vty_out(vty, " Forwarding model: bridge\n");
+		vty_out(vty, " Expected interface: %s\n",
+			expected_ifp ? expected_ifp->name : "-");
+		vty_out(vty, " Generation: 0\n");
+		vty_out(vty, " Last removal reason: %s\n",
+			zebra_evpn_l3mh_neigh_removal_reason_name(
+				ZEBRA_L3MH_NEIGH_REMOVE_NONE));
+		vty_out(vty, " Associated neighbors: %u\n",
+			associated_count);
+		vty_out(vty, " Neighbor aging: %s\n", neigh_aging);
+		vty_out(vty, " MAC aging: %s\n", mac_aging);
+		return;
+	}
+
+	json_object_boolean_true_add(json, "l3mhManaged");
+	json_object_string_add(
+		json, "l3mhState",
+		zebra_evpn_l3mh_neigh_lifecycle_name(lifecycle));
+	json_object_boolean_add(json, "peerPresent", peer_present);
+	json_object_string_add(json, "macOwnership", mac_ownership);
+	json_object_string_add(json, "timerState", timer_state);
+	if (event_is_scheduled(n->hold_timer))
+		json_object_string_add(
+			json, "timerRemaining",
+			event_timer_to_hhmmss(thread_buf, sizeof(thread_buf),
+					      n->hold_timer));
+	json_object_string_add(json, "forwardingModel", "bridge");
+	json_object_string_add(json, "expectedInterface",
+			       expected_ifp ? expected_ifp->name : "-");
+	json_object_int_add(json, "generation", 0);
+	json_object_string_add(
+		json, "lastRemovalReason",
+		zebra_evpn_l3mh_neigh_removal_reason_name(
+			ZEBRA_L3MH_NEIGH_REMOVE_NONE));
+	json_object_int_add(json, "associatedNeighborCount", associated_count);
+	json_object_string_add(json, "neighborAging", neigh_aging);
+	json_object_string_add(json, "macAging", mac_aging);
+}
+
 void zebra_evpn_print_neigh(const struct zebra_neigh *n, void *ctxt, json_object *json)
 {
 	struct vty *vty;
@@ -3058,6 +3252,7 @@ void zebra_evpn_print_neigh(const struct zebra_neigh *n, void *ctxt, json_object
 						      sizeof(thread_buf),
 						      n->hold_timer));
 	}
+	zebra_evpn_print_l3mh_neigh(n, vty, json);
 	if (CHECK_FLAG(n->flags, ZEBRA_NEIGH_REMOTE)) {
 		if (n->mac && n->mac->es) {
 			if (json)

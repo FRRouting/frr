@@ -1418,6 +1418,73 @@ def test_pure_l3_sync_neighbor_install():
     assert result is None, result
 
 
+def test_l3mh_neighbor_show_state():
+    """Text and JSON detail expose local and peer-sync compatibility state."""
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    leaf1 = tgen.gears["leaf1"]
+    leaf2 = tgen.gears["leaf2"]
+    ip = HOST_IP["host1"]
+    command = "show evpn arp-cache vni %d ip %s" % (L3VNI, ip)
+
+    _ping(tgen.gears["host1"], ANYCAST_GW)
+
+    def _entry(dut):
+        try:
+            return json.loads(dut.vtysh_cmd("%s json" % command))
+        except Exception:  # pragma: no cover - defensive
+            return {}
+
+    def _show_ready():
+        local = _entry(leaf1)
+        synced = _entry(leaf2)
+        if local.get("l3mhState") != "local-dynamic":
+            return "leaf1 local L3MH state not ready: %s" % local
+        if synced.get("l3mhState") != "peer-sync-protected":
+            return "leaf2 peer-sync L3MH state not ready: %s" % synced
+        return None
+
+    _, result = topotest.run_and_expect(
+        _show_ready, None, count=WAIT_COUNT, wait=WAIT_STEP
+    )
+    assert result is None, result
+
+    local = _entry(leaf1)
+    assert local["l3mhManaged"] is True
+    assert local["macOwnership"] == "local-dynamic"
+    assert local["forwardingModel"] == "bridge"
+    assert local["expectedInterface"] == "hostbond1"
+    assert local["generation"] == 0
+    assert local["lastRemovalReason"] == "none"
+    assert local["associatedNeighborCount"] >= 1
+    assert local["neighborAging"] == "platform-default"
+    assert local["macAging"] == "platform-default"
+
+    synced = _entry(leaf2)
+    assert synced["l3mhManaged"] is True
+    assert synced["peerPresent"] is True
+    assert synced["macOwnership"] == "sync-static"
+    assert synced["timerState"] == "inactive"
+    assert synced["forwardingModel"] == "bridge"
+    assert synced["expectedInterface"] == "hostbond1"
+    assert synced["generation"] == 0
+    assert synced["lastRemovalReason"] == "none"
+    assert synced["associatedNeighborCount"] >= 1
+    assert synced["neighborAging"] == "disabled"
+    assert synced["macAging"] == "disabled"
+
+    local_text = leaf1.vtysh_cmd(command)
+    assert " L3MH state: local-dynamic" in local_text
+    assert " MAC ownership: local-dynamic" in local_text
+
+    synced_text = leaf2.vtysh_cmd(command)
+    assert " L3MH state: peer-sync-protected" in synced_text
+    assert " MAC ownership: sync-static" in synced_text
+    assert " Expected interface: hostbond1" in synced_text
+
+
 @pytest.mark.parametrize("proxy_arp", [1, 0], ids=["proxy_arp_on", "proxy_arp_off"])
 def test_pure_l3_sync_neigh_independent_of_proxy_arp(proxy_arp):
     """

@@ -24,6 +24,25 @@ extern "C" {
 typedef struct json_object json_object;
 struct l2vni_walk_ctx;
 
+enum zebra_l3mh_neigh_lifecycle {
+	ZEBRA_L3MH_NEIGH_NOT_MANAGED,
+	ZEBRA_L3MH_NEIGH_LOCAL_DYNAMIC,
+	ZEBRA_L3MH_NEIGH_PEER_SYNC_PROTECTED,
+	ZEBRA_L3MH_NEIGH_HANDOFF_WAIT,
+	ZEBRA_L3MH_NEIGH_VALIDATION_PENDING,
+};
+
+enum zebra_l3mh_neigh_removal_reason {
+	ZEBRA_L3MH_NEIGH_REMOVE_NONE,
+	ZEBRA_L3MH_NEIGH_REMOVE_PEER_WITHDRAW,
+	ZEBRA_L3MH_NEIGH_REMOVE_INTERFACE_DOWN,
+	ZEBRA_L3MH_NEIGH_REMOVE_MAC_LOSS,
+	ZEBRA_L3MH_NEIGH_REMOVE_KERNEL_DELETE,
+	ZEBRA_L3MH_NEIGH_REMOVE_CONFIG_CHANGE,
+	ZEBRA_L3MH_NEIGH_REMOVE_AGEOUT,
+	ZEBRA_L3MH_NEIGH_REMOVE_ADMIN,
+};
+
 #define IS_ZEBRA_NEIGH_ACTIVE(n) (n->state == ZEBRA_NEIGH_ACTIVE)
 
 #define IS_ZEBRA_NEIGH_INACTIVE(n) (n->state == ZEBRA_NEIGH_INACTIVE)
@@ -320,6 +339,10 @@ int zebra_evpn_remote_neigh_update(struct zebra_evpn *zevpn, struct interface *i
 				   uint16_t state, bool is_router);
 void zebra_evpn_send_neigh_to_client(struct zebra_evpn *zevpn);
 void zebra_evpn_clear_dup_neigh_hash(struct zebra_evpn *zevpn, struct zebra_neigh *n);
+const char *
+zebra_evpn_l3mh_neigh_lifecycle_name(enum zebra_l3mh_neigh_lifecycle state);
+const char *zebra_evpn_l3mh_neigh_removal_reason_name(
+	enum zebra_l3mh_neigh_removal_reason reason);
 void zebra_evpn_print_neigh(const struct zebra_neigh *n, void *ctxt, json_object *json);
 void zebra_evpn_print_neigh_hash(struct neigh_walk_ctx *ctx, const struct zebra_neigh *n,
 				 int addr_width, int r_vtep_width);
