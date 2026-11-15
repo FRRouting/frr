@@ -314,7 +314,7 @@ int zebra_evpn_local_neigh_update(struct zebra_evpn *zevpn,
 				  bool local_inactive, bool dp_static);
 int zebra_evpn_l3vni_local_neigh_update(struct interface *ifp, struct interface *br_if,
 					const struct ipaddr *ip, const struct ethaddr *macaddr,
-					bool is_own, bool is_router);
+					uint16_t nud_state, bool is_own, bool is_router);
 int zebra_evpn_l3vni_local_neigh_del(struct interface *ifp, struct interface *br_if,
 				     const struct ipaddr *ip);
 void zebra_evpn_l3vni_neigh_flush(struct zebra_evpn *zevpn);
@@ -324,6 +324,8 @@ void zebra_evpn_l3vni_neigh_handoff_bd(vni_t l3vni, vlanid_t vid, struct zebra_e
 void zebra_evpn_l2vni_neigh_handoff_to_l3(struct zebra_evpn *l2zevpn, struct interface *svi_ifp);
 void zebra_evpn_l3vni_neigh_readvertise_mac(vni_t l3vni, const struct ethaddr *macaddr,
 					    vlanid_t vid);
+void zebra_evpn_l3vni_neigh_debug_mac_event(vni_t l3vni, const struct ethaddr *macaddr,
+					    vlanid_t vid, struct interface *acc_ifp, bool present);
 void zebra_evpn_l3vni_neigh_readvertise_bd(vni_t l3vni, vlanid_t vid);
 void zebra_evpn_l3vni_remote_neigh_add(vni_t vni, const struct ipaddr *ip,
 				       const struct ethaddr *macaddr, vlanid_t eth_tag,

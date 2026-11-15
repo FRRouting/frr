@@ -1418,6 +1418,58 @@ def test_pure_l3_sync_neighbor_install():
     assert result is None, result
 
 
+def test_l3mh_neighbor_transition_debug():
+    """A kernel neighbor update emits the stable L3MH transition fields."""
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    leaves = (tgen.gears["leaf1"], tgen.gears["leaf2"])
+    _ping(tgen.gears["host1"], ANYCAST_GW)
+
+    _, result = topotest.run_and_expect(
+        lambda: any(_host1_local(leaf) for leaf in leaves),
+        True,
+        count=WAIT_COUNT,
+        wait=WAIT_STEP,
+    )
+    assert result is True, "neither MH leaf learned host1 locally"
+
+    local_leaf = next(leaf for leaf in leaves if _host1_local(leaf))
+    host1_mac = _host_bond_mac(tgen.gears["host1"])
+    log_path = os.path.join(local_leaf.logdir, local_leaf.name, "zebra.log")
+    log_offset = os.path.getsize(log_path)
+    pattern = re.compile(
+        r"L3MH-neigh transition state \S+ event nud-reachable "
+        r"next local-dynamic ip %s mac %s interface \S+\(\d+\) "
+        r"L3-VNI %d ETAG %d generation 0 reason none forwarding bridge "
+        r"associated-neighbors \d+"
+        % (re.escape(HOST_IP["host1"]), re.escape(host1_mac), L3VNI, HOST_VID,)
+    )
+
+    local_leaf.vtysh_cmd("configure terminal\ndebug zebra evpn mh l3vni-neigh")
+    try:
+        local_leaf.run(
+            "ip neigh replace %s lladdr %s dev vlan%d nud reachable"
+            % (HOST_IP["host1"], host1_mac, HOST_VID)
+        )
+
+        def _transition_logged():
+            with open(log_path, "r", encoding="utf-8", errors="replace") as log_file:
+                log_file.seek(log_offset)
+                output = log_file.read()
+            if pattern.search(output):
+                return None
+            return "L3MH transition record not found in zebra log: %s" % output
+
+        _, result = topotest.run_and_expect(
+            _transition_logged, None, count=WAIT_COUNT, wait=WAIT_STEP
+        )
+        assert result is None, result
+    finally:
+        local_leaf.vtysh_cmd("configure terminal\nno debug zebra evpn mh l3vni-neigh")
+
+
 def test_l3mh_neighbor_show_state():
     """Text and JSON detail expose local and peer-sync compatibility state."""
     tgen = get_topogen()
