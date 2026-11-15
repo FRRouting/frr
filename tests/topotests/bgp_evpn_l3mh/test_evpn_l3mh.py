@@ -1086,6 +1086,37 @@ def test_advertise_l3vni_neigh_cli():
     _expect(_zebra_flag_is, leaf1, "Yes")
 
 
+def test_l3_neigh_wait_time_cli():
+    """The L3MH interface-failure wait time is configurable in zebra."""
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    leaf1 = tgen.gears["leaf1"]
+    command = "evpn mh l3-neigh-wait-time"
+
+    def _wait_time():
+        return json.loads(leaf1.vtysh_cmd("show evpn json"))["l3NeighWaitTime"]
+
+    running = leaf1.vtysh_cmd("show running-config")
+    assert command not in running
+    assert _wait_time() == 30
+
+    leaf1.vtysh_cmd("configure terminal\n%s 45\n" % command)
+    running = leaf1.vtysh_cmd("show running-config")
+    assert "%s 45" % command in running
+    assert _wait_time() == 45
+
+    # Values outside the CLI range must not change the configured value.
+    leaf1.vtysh_cmd("configure terminal\n%s 0\n%s 86401\n" % (command, command))
+    assert _wait_time() == 45
+
+    leaf1.vtysh_cmd("configure terminal\nno %s\n" % command)
+    running = leaf1.vtysh_cmd("show running-config")
+    assert command not in running
+    assert _wait_time() == 30
+
+
 def test_l3vni_neigh_debug_cli():
     """The l3vni-neigh debug selectors are accepted in bgpd and zebra.
 

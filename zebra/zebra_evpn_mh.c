@@ -3778,6 +3778,8 @@ void zebra_evpn_mh_json(json_object *json)
 
 	json_object_int_add(json, "macHoldtime", zmh_info->mac_hold_time);
 	json_object_int_add(json, "neighHoldtime", zmh_info->neigh_hold_time);
+	json_object_int_add(json, "l3NeighWaitTime",
+			    zmh_info->l3_neigh_wait_time);
 	json_object_int_add(json, "startupDelay", zmh_info->startup_delay_time);
 	json_object_string_add(
 		json, "startupDelayTimer",
@@ -3812,6 +3814,8 @@ void zebra_evpn_mh_print(struct vty *vty)
 	vty_out(vty, "EVPN MH:\n");
 	vty_out(vty, "  mac-holdtime: %ds, neigh-holdtime: %ds\n",
 		zmh_info->mac_hold_time, zmh_info->neigh_hold_time);
+	vty_out(vty, "  l3-neigh-wait-time: %us\n",
+		zmh_info->l3_neigh_wait_time);
 	vty_out(vty, "  startup-delay: %ds, start-delay-timer: %s\n",
 		zmh_info->startup_delay_time,
 		event_timer_to_hhmmss(thread_buf, sizeof(thread_buf),
@@ -4925,6 +4929,11 @@ void zebra_evpn_mh_config_write(struct vty *vty)
 		vty_out(vty, "evpn mh neigh-holdtime %d\n",
 			zmh_info->neigh_hold_time);
 
+	if (zmh_info->l3_neigh_wait_time
+	    != ZEBRA_EVPN_MH_L3_NEIGH_WAIT_TIME_DEF)
+		vty_out(vty, "evpn mh l3-neigh-wait-time %u\n",
+			zmh_info->l3_neigh_wait_time);
+
 	if (zmh_info->startup_delay_time != ZEBRA_EVPN_MH_STARTUP_DELAY_DEF)
 		vty_out(vty, "evpn mh startup-delay %d\n",
 			zmh_info->startup_delay_time);
@@ -4951,6 +4960,18 @@ int zebra_evpn_mh_mac_holdtime_update(struct vty *vty,
 		duration = ZEBRA_EVPN_MH_MAC_HOLD_TIME_DEF;
 
 	zmh_info->mac_hold_time = duration;
+
+	return 0;
+}
+
+int zebra_evpn_mh_l3_neigh_wait_time_update(struct vty *vty,
+					    uint32_t duration,
+					    bool set_default)
+{
+	if (set_default)
+		duration = ZEBRA_EVPN_MH_L3_NEIGH_WAIT_TIME_DEF;
+
+	zmh_info->l3_neigh_wait_time = duration;
 
 	return 0;
 }
@@ -4991,6 +5012,7 @@ void zebra_evpn_mh_init(void)
 
 	zmh_info->mac_hold_time = ZEBRA_EVPN_MH_MAC_HOLD_TIME_DEF;
 	zmh_info->neigh_hold_time = ZEBRA_EVPN_MH_NEIGH_HOLD_TIME_DEF;
+	zmh_info->l3_neigh_wait_time = ZEBRA_EVPN_MH_L3_NEIGH_WAIT_TIME_DEF;
 	/* setup ES tables */
 	RB_INIT(zebra_es_rb_head, &zmh_info->es_rb_tree);
 	zmh_info->local_es_list = list_new();
