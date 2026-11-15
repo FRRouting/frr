@@ -13790,9 +13790,9 @@ static enum bgp_peer_sort bgp_nb_candidate_peer_sort(const struct lyd_node *dnod
 
 	remote_as = yang_dnode_get_uint32(nbr, "neighbor-remote-as/remote-as");
 	bgp_node = yang_dnode_get_parent(dnode, "bgp");
-	if (!bgp_node || !yang_dnode_exists(bgp_node, "local-as"))
+	if (!bgp_node || !yang_dnode_exists(bgp_node, "global/local-as"))
 		return BGP_PEER_INTERNAL;
-	local_as = yang_dnode_get_uint32(bgp_node, "local-as");
+	local_as = yang_dnode_get_uint32(bgp_node, "global/local-as");
 	if (!local_as)
 		return BGP_PEER_INTERNAL;
 
