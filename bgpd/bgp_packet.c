@@ -34,6 +34,8 @@
 #include "bgpd/bgp_fsm.h"
 #include "bgpd/bgp_route.h"
 #include "bgpd/bgp_packet.h"
+#include "bgpd/bgp_nsr.h"
+DEFINE_HOOK(cnlab_bgp_input, (struct peer_connection *c, uint8_t type, bgp_size_t size, struct stream *s), (c,type,size,s));
 #include "bgpd/bgp_open.h"
 #include "bgpd/bgp_aspath.h"
 #include "bgpd/bgp_community.h"
@@ -4356,6 +4358,7 @@ void bgp_process_packet(struct event *event)
 		type = stream_getc(connection->curr);
 
 		hook_call(bgp_packet_dump, connection, type, size, connection->curr);
+        hook_call(cnlab_bgp_input, connection, type, size, connection->curr);
 
 		/* adjust size to exclude the marker + length + type */
 		size -= BGP_HEADER_SIZE;

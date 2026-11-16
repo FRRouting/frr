@@ -1,0 +1,10 @@
+/* Experimental exact-connection input and kernel-accepted output journal. */
+#ifndef CNLAB_BGP_NSR_H
+#define CNLAB_BGP_NSR_H
+#include "lib/hook.h"
+#include <sys/uio.h>
+DECLARE_HOOK(cnlab_bgp_input, (struct peer_connection *c, uint8_t type, bgp_size_t size, struct stream *s), (c,type,size,s));
+DECLARE_HOOK(cnlab_bgp_written, (struct peer_connection *c, const struct iovec *iov, size_t count, size_t accepted), (c,iov,count,accepted));
+DECLARE_HOOK(cnlab_bgp_socket_identity, (int fd, const union sockunion *local, const union sockunion *remote), (fd,local,remote));
+
+#endif
