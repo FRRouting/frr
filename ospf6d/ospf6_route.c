@@ -597,8 +597,8 @@ ospf6_route_lookup_bestmatch(struct prefix *prefix,
 	return route;
 }
 
-#ifdef DEBUG
-static void route_table_assert(struct ospf6_route_table *table)
+#ifdef OSPF6_ROUTE_TABLE_ASSERT
+static void _route_table_assert(struct ospf6_route_table *table)
 {
 	struct ospf6_route *prev, *r, *next;
 	unsigned int link_error = 0, num = 0;
@@ -636,10 +636,10 @@ static void route_table_assert(struct ospf6_route_table *table)
 
 	assert(link_error == 0 && num == table->count);
 }
-#define ospf6_route_table_assert(t) (route_table_assert (t))
+#define ospf6_route_table_assert(t) (_route_table_assert (t))
 #else
 #define ospf6_route_table_assert(t) ((void) 0)
-#endif /*DEBUG*/
+#endif /* OSPF6_ROUTE_TABLE_ASSERT */
 
 struct ospf6_route *ospf6_route_add(struct ospf6_route *route,
 				    struct ospf6_route_table *table)
