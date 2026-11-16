@@ -6561,8 +6561,10 @@ int bgp_nb_neighbor_peer_group_modify(struct nb_cb_modify_args *args)
 			return NB_OK;
 		group = peer_group_lookup(peer->bgp, group_name);
 		if (!group) {
-			if (grp_node)
-				return NB_OK;
+			/*
+			 * A group created in this same candidate is applied
+			 * after neighbor edits, so it is not there to bind.
+			 */
 			snprintfrr(args->errmsg, args->errmsg_len,
 				   "Configure the peer-group first");
 			return NB_ERR_VALIDATION;
