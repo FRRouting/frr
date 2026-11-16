@@ -1553,14 +1553,16 @@ MOVE_KERNEL_ERR = "Cannot replace an existing non nexthop fdb with a nexthop"
 # stays None, and every ABI at or above `broken` is skipped. Set `fixed`
 # to the first ABI whose changelog contains that commit and newer builds
 # run again. generic 7.0.0-39 and azure 7.0.0-1018 do not have the reject;
-# generic 7.0.0-41 and azure 7.0.0-1019 are the first that do. 7.0.0-42
-# and 7.0.0-43 still do not have the correction. version_cmp() drops the
-# ABI after the hyphen, so this parser reads it itself.
+# generic 7.0.0-41 and azure 7.0.0-1019 are the first that do. The AWS
+# 7.0.0-1016 runner also rejects the entry. 7.0.0-42 and 7.0.0-43 still do
+# not have the correction. version_cmp() drops the ABI after the hyphen, so
+# this parser reads it itself.
 _UBUNTU_KERNEL_RE = re.compile(
     r"^(?P<version>\d+\.\d+\.\d+)-(?P<abi>\d+)-(?P<flavor>[A-Za-z0-9_-]+)$"
 )
 _VXLAN_NH_FDB_FIX = {
     "7.0.0": {
+        "aws": (1016, None),
         "azure": (1019, None),
         "generic": (41, None),
     }
@@ -1949,6 +1951,8 @@ def _ubuntu_kernel_family(flavor):
     """Map a uname flavor onto the ABI series that carries the vxlan reject."""
     if flavor == "azure" or flavor.startswith("azure-"):
         return "azure"
+    if flavor == "aws" or flavor.startswith("aws-"):
+        return "aws"
     if flavor == "generic" or flavor.startswith("generic-") or flavor == "lowlatency":
         return "generic"
     return None
