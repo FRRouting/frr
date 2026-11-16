@@ -53,3 +53,32 @@ Distribution membership is checked from a real generated distdir.
 Commit messages are normalized with a blank line before the body/trailers,
 and each author commit carries its matching Signed-off-by trailer.
 Local build/distribution checks do not substitute for the next upstream CI run.
+
+## BFD strict hold timer test precondition follow-up
+
+For head `058b2e0`, NetDEF build 24826 passed all 23 build jobs and source
+verification. Basic Tests passed 48/49 jobs; Ubuntu 24.04 Part 2 failed
+`test_bfd_strict_hold_timer_peer_delete_no_stale_crash` before peer deletion:
+BFD was Down, BGP remained Established, and the strict hold timer was never
+armed. The CI observation at convergence had `bgpTimerUpMsec: 0`.
+The first Down observation had BGP uptime 1000 ms and BFD lastUpdate one
+second ago, consistent with both establishment and the Down callback falling
+in the same monotonic second. The unchanged native callback requires
+`bss->last_event > peer->uptime`, with both timestamps in seconds.
+
+The test now requires an observed BGP uptime of at least 1000 ms, in addition
+to BGP Established and BFD Up, before stopping bfdd. It retains the original
+Down, running hold timer, peer deletion and post-deadline liveness checks;
+no daemon behavior or protocol timeout is changed.
+
+Targeted local validation used the matching master bgpd/bfdd/zebra binaries
+in two isolated network namespaces: three runs with the new uptime
+precondition armed the timer and kept bgpd alive after deletion and seven
+seconds of observation. Two runs without the precondition also passed locally,
+so they do not independently reproduce the original CI timing. A further
+50 ms BFD interval control passed with and without the precondition.
+Five boundary cases executed the exact convergence predicate extracted from
+the test (missing/0/999/1000 ms uptime and BFD Down); Python compilation and
+`git diff --check` passed. This is targeted native validation, not a local run
+of the complete Topogen/pytest suite; the refreshed upstream CI remains
+authoritative.

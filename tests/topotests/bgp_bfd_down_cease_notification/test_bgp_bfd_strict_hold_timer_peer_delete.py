@@ -67,6 +67,7 @@ def _r2_neighbor_observation(r2):
 
     return {
         "bgpState": neighbor.get("bgpState"),
+        "bgpTimerUpMsec": neighbor.get("bgpTimerUpMsec"),
         "connectionsDropped": neighbor.get("connectionsDropped"),
         "bfdHoldTimerExpireInMsecs": neighbor.get("bfdHoldTimerExpireInMsecs"),
         "bfdHoldTimerExpired": neighbor.get("bfdHoldTimerExpired"),
@@ -75,10 +76,9 @@ def _r2_neighbor_observation(r2):
 
 
 def _bgpd_alive(router):
-    return (
-        router.cmd("test -d /proc/$(cat /var/run/frr/bgpd.pid) && echo alive || true")
-        .strip()
-    )
+    return router.cmd(
+        "test -d /proc/$(cat /var/run/frr/bgpd.pid) && echo alive || true"
+    ).strip()
 
 
 def test_bfd_strict_hold_timer_peer_delete_no_stale_crash():
@@ -121,6 +121,11 @@ def test_bfd_strict_hold_timer_peer_delete_no_stale_crash():
         if obs["bgpState"] != "Established":
             return obs
         if obs["peerBfdStatus"] != "Up":
+            return obs
+        # BFD notifications are compared with peer->uptime at second
+        # resolution. A Down in the establishment second is intentionally
+        # ignored by bgpd; wait until this test can arm the hold timer.
+        if obs["bgpTimerUpMsec"] is None or obs["bgpTimerUpMsec"] < 1000:
             return obs
         return None
 
