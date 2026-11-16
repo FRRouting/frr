@@ -14889,22 +14889,22 @@ int bgp_nb_peer_af_default_originate_rmap_modify(struct nb_cb_modify_args *args)
 /*
  * Destroy callbacks run before modifies. "no neighbor X default-originate"
  * deletes the route-map and sets originate false, but the deleted node's
- * parent still shows originate true. Read the candidate. Advertising with
- * a NULL map here would leak an unfiltered default before the unset.
+ * parent still shows originate true. Read the commit candidate.
+ * Advertising with a NULL map here would leak an unfiltered default
+ * before the unset. The candidate is the transaction being applied, so
+ * this covers CLI, sysrepo, and any other northbound client.
  */
 static bool bgp_nb_default_originate_remains(struct nb_cb_destroy_args *args)
 {
-	struct vty *vty;
 	const struct lyd_node *root;
 	char path[XPATH_MAXLEN];
 	char *slash, *leaf;
 
-	if (!args->context || args->context->client != NB_CLIENT_CLI || !args->context->user)
+	root = nb_transaction_candidate_dnode();
+	if (!root) {
+		zlog_warn("%s: no commit candidate; keeping default-originate", __func__);
 		return true;
-
-	vty = (struct vty *)args->context->user;
-	if (!vty->candidate_config || !vty->candidate_config->dnode)
-		return true;
+	}
 
 	if (!yang_dnode_get_path(args->dnode, path, sizeof(path)))
 		return true;
@@ -14917,7 +14917,6 @@ static bool bgp_nb_default_originate_remains(struct nb_cb_destroy_args *args)
 		return true;
 
 	strlcpy(leaf, "originate", path + sizeof(path) - leaf);
-	root = vty->candidate_config->dnode;
 	if (!yang_dnode_exists(root, path))
 		return false;
 	return yang_dnode_get_bool(root, "%s", path);
