@@ -69,10 +69,11 @@ static int replay_open_restart_bit(struct peer *peer,bool *restart){
 }
 struct control {int fd;struct event *event,*deadline;json_object *reply;};
 static uint64_t clock_ns(void){struct timespec t;clock_gettime(CLOCK_MONOTONIC,&t);return (uint64_t)t.tv_sec*1000000000+t.tv_nsec;}
-static int observe_shadow_transition(struct peer *peer){
+static int observe_shadow_transition(struct peer_connection *c){
+    if(!c||!c->peer||c!=c->peer->connection)return 0;
+    struct peer *peer=c->peer;
     struct follow_state *s=state_for(peer,false);
     if(!s||s->transport_active)return 0;
-    struct peer_connection *c=peer->connection;
     struct shadow_transition *t=&s->transitions[s->transition_count++%16];
     *t=(struct shadow_transition){.at_ns=clock_ns(),.record=s->last_id,
         .before=c->ostatus,.after=c->status,.event=peer->cur_event,.reset=peer->last_reset};

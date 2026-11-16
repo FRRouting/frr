@@ -1,39 +1,41 @@
-# Public reference validation — 2026-11-16
+# Master-port validation — 2026-11-16
 
-Base: FRR `frr-10.7.1` / `f8c0b08dcb0c78f9e42b9b86ae70b049e4e617c1`.
-Environment: Linux x86_64, Debian 10, GCC 8.3, libyang 2.1.128.
-All checks below use the extracted public source, including its normalized
-`/run/frr-nsr/` socket path policy.
+Base: upstream master `49d35a1b9f27a18c92fca8f303474634791b8246`
+(FRR 10.9.0-dev). Environment: Linux x86_64, Debian 10, GCC 8.3,
+libyang 2.1.128. These results are separate from the historical release-only
+results in `VALIDATION-10.7.1.md`.
 
-## Completed
+## Completed on this port
 
-1. All ten native patches applied in order to the exact official release commit.
-2. `git diff --check` and `bash -n tools/nsr-experimental/build.sh` passed.
-3. Fresh bootstrap/configure completed with bgpd and bfdd enabled. Optional
-   mgmtd, documentation and unrelated routing daemons were excluded; protobuf,
-   gRPC and SNMP were disabled. No configure warnings were emitted.
-4. The published build entry point built bgpd/bfdd, four native shared modules
-   and four TCP/gate helpers. Modules/helpers used `-Wall -Wextra -Werror` with
-   the documented FRR/module-specific warning exceptions.
-5. Both newly built daemon binaries returned FRR 10.7.1 for `--version`.
-6. The required dynamic symbols of every shared module were present in its
-   corresponding freshly built daemon and actual dependency libraries.
-   This is a symbol availability check, not a live module activation test.
-7. `tcp_stage_node --inspect IMAGE` rejected an empty image, an eight-byte
-   truncated image and a 4096-byte zero-filled invalid-header image, all with
-   nonzero exit status. No repair socket or network change was attempted.
+- Fresh bootstrap/configure and bgpd/bfdd build, with unrelated optional
+  components disabled as in the release reference.
+- All four native shared modules and four transport/gate executables built
+  with the published build entry point. Module/helper compilation uses
+  `-Wall -Wextra -Werror` with the documented FRR-specific exceptions.
+- Newly built bgpd and bfdd both report version `10.9.0-dev`.
+- All required dynamic symbols of the four modules are available in their
+  corresponding newly built daemon and actual dependency libraries.
+  This is a symbol availability check, not live module initialization.
+- Empty, eight-byte truncated and invalid-header TCP images are rejected
+  by `tcp_stage_node --inspect` with nonzero exit status, without changing
+  networking or opening repair sockets. Results: `validation-smoke.json`.
+- `bash -n tools/nsr-experimental/build.sh` and `git diff --check` passed.
 
-The cold-build entry point explicitly generates `lib/gitversion.h`,
-`lib/route_types.h` and `lib/vtysh_daemons.h` before requesting daemon targets.
-Direct daemon targets alone do not perform the top-level generated-header step
-on a fresh checkout.
+The port preserves upstream's connection-aware packet hook and BFD include.
+The transition observer now accepts `struct peer_connection *` and ignores
+non-current connections. BFD Demand mode is detected from the configured flag
+or remote-demand state and remains unsupported/refused; the removed native
+session `demand_mode` field is not recreated or silently treated as false.
+These API adaptations have compile/symbol coverage, not live semantic coverage.
 
-## Not performed for this public extraction
+## Not performed / unavailable
 
-Upstream unit/topotests, live module initialization and activation, peer-session
-continuity, BFD fault/recovery, complete HA orchestration, traffic-loss tests,
-physical cross-device failure and long-running stability were not rerun here.
-The public branch is code for design review, not a new NSR acceptance result.
-Historical integrated experiments must not be substituted for these checks.
+The optional `frr-format` GCC plugin could not build because GCC plugin
+development headers are unavailable in this environment. Make continued without
+it. This compiler format checker was not validated.
 
-Machine-readable parser/symbol check results are in `validation-smoke.json`.
+Upstream unit/topotests, live module activation, collision/reconnect execution,
+BFD fault/recovery, complete HA orchestration, traffic-loss/failover tests,
+physical cross-device failure and long-running stability were not rerun.
+This is a Draft/RFC for design review, not a new NSR acceptance result.
+The separate 10.7.1 validation must not be used as proof for this master port.

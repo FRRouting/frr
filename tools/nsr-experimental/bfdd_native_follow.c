@@ -97,7 +97,7 @@ static json_object *apply(json_object *j){
     json_object *auth,*echo;
     if(!json_object_object_get_ex(j,"has_authentication",&auth)||json_object_get_type(auth)!=json_type_boolean||json_object_get_boolean(auth)||!json_object_object_get_ex(j,"echo_active",&echo)||json_object_get_type(echo)!=json_type_boolean||json_object_get_boolean(echo)||bs->kc||CHECK_FLAG(bs->flags,BFD_SESS_FLAG_ECHO_ACTIVE))return error("auth_or_echo_unsupported");
     if(s.state!=PTM_BFD_UP||s.my<=0||s.my>UINT32_MAX||s.remote<=0||s.remote>UINT32_MAX||s.rmult<1||s.rmult>255||s.rtx<1||s.rtx>UINT32_MAX||s.rrx<1||s.rrx>UINT32_MAX)return error("unsupported_state");
-    if(s.demand||s.poll<0||s.poll>1||s.diag<0||s.diag>31||s.rdiag<0||s.rdiag>31||s.uptime<0||s.downtime<0||s.actual_tx<0||s.actual_tx>UINT32_MAX)return error("unsupported_flags_or_timers");
+    if(s.demand||CHECK_FLAG(bs->flags,BFD_SESS_FLAG_DEMAND)||bs->remote_demand_mode||s.poll<0||s.poll>1||s.diag<0||s.diag>31||s.rdiag<0||s.rdiag>31||s.uptime<0||s.downtime<0||s.actual_tx<0||s.actual_tx>UINT32_MAX)return error("unsupported_flags_or_timers");
     if(s.mult!=bs->detect_mult||s.ltx!=bs->timers.desired_min_tx||s.lrx!=bs->timers.required_min_rx)return error("local_configuration_mismatch");
     uint64_t expected=(uint64_t)s.rmult*(s.lrx>s.rtx?s.lrx:s.rtx);
     uint64_t budget=(uint64_t)bs->detect_mult*(bs->timers.desired_min_tx>bs->timers.required_min_rx?bs->timers.desired_min_tx:bs->timers.required_min_rx);
@@ -116,7 +116,7 @@ static json_object *apply(json_object *j){
     uint8_t previous_state=bs->ses_state;
     bfd_recvtimer_delete(bs);bfd_xmttimer_delete(bs);
     bs->discrs.remote_discr=s.remote;bs->ses_state=s.state;bs->local_diag=s.diag;bs->remote_diag=s.rdiag;
-    bs->polling=s.poll;bs->demand_mode=s.demand;bs->remote_detect_mult=s.rmult;
+    bs->polling=s.poll;bs->remote_detect_mult=s.rmult;
     bs->cur_timers.desired_min_tx=s.ltx;bs->cur_timers.required_min_rx=s.lrx;
     bs->remote_timers.desired_min_tx=s.rtx;bs->remote_timers.required_min_rx=s.rrx;
     bs->detect_TO=s.detect;bs->xmt_TO=s.ltx;bs->xmt_TO_actual=s.actual_tx;

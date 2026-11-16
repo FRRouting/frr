@@ -1,0 +1,3 @@
+upstream_tag=frr-10.7.1
+upstream_commit=f8c0b08dcb0c78f9e42b9b86ae70b049e4e617c1
+archive_sha256=6aaf9d89deb94eeda6acceaa6fe48d8cd365d0908231e58f628538ff49696fc4

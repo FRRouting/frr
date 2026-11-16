@@ -1,9 +1,15 @@
 # Experimental native BGP/BFD NSR interfaces
 
 Design reference for [FRRouting/frr#24434](https://github.com/FRRouting/frr/issues/24434).
-This branch is based on upstream **frr-10.7.1**, commit
-`f8c0b08dcb0c78f9e42b9b86ae70b049e4e617c1`, which GitHub marked as the
-latest formal release when checked on 2026-11-16. It is not based on master.
+This PR branch is based on upstream **master**, commit
+`49d35a1b9f27a18c92fca8f303474634791b8246` (FRR 10.9.0-dev), fetched
+on 2026-11-16. The original release-based reference remains on
+[`nsr-design-v1`](https://github.com/hubblezzhu/frr/tree/nsr-design-v1).
+The master port preserves upstream's connection-aware `bgp_packet_dump` hook
+and its BFD include while adding the experimental interfaces. The follower
+uses the connection-aware status hook and rejects both configured and remote
+BFD Demand mode; it does not emulate the removed session demand_mode field.
+
 
 ## What is published
 
@@ -44,7 +50,8 @@ JOBS=2 bash tools/nsr-experimental/build.sh /absolute/path/to/new-nsr-build
 The script builds bgpd/bfdd and compiles four module shared objects and four
 transport/gate executables with warnings treated as errors. It does not install
 anything or change networking. Modules are paired with the exact patched FRR
-binary/headers. `upstream.lock` pins the release source archive provenance.
+binary/headers. `upstream.lock` pins this master base; `upstream-release.lock` records the
+original release archive provenance.
 Do not load untrusted modules or socket images into a privileged routing daemon.
 
 For this public extraction, the previous lab-specific socket/export directory
@@ -82,7 +89,7 @@ public checkout or every unsupported configuration.
   constraints, not a hard real-time guarantee.
 - Current native restoration is limited to the supported IPv4, single-hop,
   unauthenticated BFD Control and Linux TCP ABI. No general IPv6, MD5/AO,
-  BFD Echo/authentication, outstanding SACK holes/ECN or mixed-version guarantee.
+  BFD Echo/authentication/Demand mode, outstanding SACK holes/ECN or mixed-version guarantee.
 - Replaying a historical OPEN uses the source's recorded GR restart decision;
   it must not mask an output mismatch by changing expected wire bytes.
 - The separate Control-only ARP change skips Echo peer-MAC lookup when Echo
@@ -95,7 +102,8 @@ control protocols need review before any upstream proposal.
 
 ## Validation of this public checkout
 
-See `VALIDATION.md` for checks actually run on this exact public extraction.
+See `VALIDATION.md` for checks on this master port. Historical release-only
+checks are retained separately in `VALIDATION-10.7.1.md`.
 Build/smoke validation is distinct from upstream topotests, complete failure
 injection, protocol continuity, business traffic continuity and physical-device
 HA qualification.

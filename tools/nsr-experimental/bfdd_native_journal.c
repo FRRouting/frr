@@ -38,7 +38,7 @@ static int record_state(struct bfd_session *bs,const char *phase) {
     json_object_object_add(j,"echo_active",json_object_new_boolean(CHECK_FLAG(bs->flags,BFD_SESS_FLAG_ECHO_ACTIVE)));
     JI("my_discriminator",bs->discrs.my_discr);JI("remote_discriminator",bs->discrs.remote_discr);
     JI("local_diag",bs->local_diag);JI("remote_diag",bs->remote_diag);
-    JI("polling",bs->polling);JI("demand_mode",bs->demand_mode);
+    JI("polling",bs->polling);JI("demand_mode",CHECK_FLAG(bs->flags,BFD_SESS_FLAG_DEMAND)||bs->remote_demand_mode);
     JI("detect_mult",bs->detect_mult);JI("remote_detect_mult",bs->remote_detect_mult);
     JI("detection_timeout_us",bs->detect_TO);JI("transmit_timeout_us",bs->xmt_TO);
     JI("transmit_actual_us",bs->xmt_TO_actual);
