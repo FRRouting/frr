@@ -120,6 +120,13 @@ static void bfd_session_status_update(struct bfd_session_params *bsp,
 			   bfd_get_status_str(bss->previous_state),
 			   bfd_get_status_str(bss->state));
 
+	/* Local BFD notifications describe this shadow, not the source's TCP
+	 * session. Keep bfdd's real timers/readiness checks, and replay source
+	 * BGP resets from its journal. Once a real socket is adopted, normal
+	 * BFD-to-BGP handling applies again. */
+	if (getenv("CNLAB_NSR_BGP_FOLLOWER") && peer->connection->fd < 0)
+		return;
+
 	/*
 	 * Handle Admin Down from peer separately.
 	 * When BFD receives Admin Down from peer, we should NOT tear down
