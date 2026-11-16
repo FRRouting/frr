@@ -231,6 +231,23 @@ DEFPY(lsa_compare_age, lsa_compare_age_cmd,
 	return CMD_SUCCESS;
 }
 
+DEFPY(lsa_compare_checksum, lsa_compare_checksum_cmd,
+      "lsa compare-checksum (0-999999)$a (0-999999)$b checksums (1-65535)$cksuma (1-65535)$cksumb",
+      "LSA\n"
+      "compare two LSAs at the given checksums\n"
+      "first LSA index in array\n"
+      "second LSA index in array\n"
+      "set the LS checksums used for the comparison\n"
+      "LS checksum of the first LSA\n"
+      "LS checksum of the second LSA\n")
+{
+	lsas[a]->header->checksum = htons(cksuma);
+	lsas[b]->header->checksum = htons(cksumb);
+
+	vty_out(vty, "compare = %d\n", ospf6_lsa_compare(lsas[a], lsas[b]));
+	return CMD_SUCCESS;
+}
+
 DEFPY(lsdb_create, lsdb_create_cmd,
       "lsdb create",
       "LSDB\n"
@@ -263,6 +280,7 @@ void test_init(int argc, char **argv)
 	install_element(ENABLE_NODE, &lsa_refcounts_cmd);
 	install_element(ENABLE_NODE, &lsa_drop_cmd);
 	install_element(ENABLE_NODE, &lsa_compare_age_cmd);
+	install_element(ENABLE_NODE, &lsa_compare_checksum_cmd);
 
 	install_element(ENABLE_NODE, &lsdb_create_cmd);
 	install_element(ENABLE_NODE, &lsdb_delete_cmd);
