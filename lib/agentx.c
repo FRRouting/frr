@@ -8,6 +8,7 @@
 #include <poll.h>
 #include <sys/ioctl.h>
 #include <sys/socket.h>
+#include <sys/un.h>
 
 #ifdef SNMP_AGENTX
 #include <net-snmp/net-snmp-config.h>
@@ -732,12 +733,123 @@ static void agentx_trap_flush(struct event *t)
 		agentx_trap_schedule(AGENTX_TRAP_Q_INTERVAL_MS);
 }
 
+/* transportDomainLocal, RFC 3419. Same OID as netsnmp_UnixDomain. */
+static const oid agentx_unix_domain[] = { 1, 3, 6, 1, 2, 1, 100, 1, 13 };
+
+/*
+ * netsnmp_unix_recv() through net-snmp 5.9.4 allocates a sockaddr_un
+ * and returns without freeing it when recvfrom() fails. The caller never
+ * receives the pointer. snmpd exiting with AgentX data still unread makes
+ * the next read fail with ECONNRESET, leaking once per disconnect.
+ *
+ * Same receive as the library with the upstream fix (V5-9-patches): the
+ * address is getsockname(), the read is non-blocking, and the buffer is
+ * returned only when the read works. Drop once older releases are gone.
+ */
+static int agentx_unix_recv(netsnmp_transport *t, void *buf, int size, void **opaque, int *olength)
+{
+	struct sockaddr_un *to;
+	socklen_t tolen = sizeof(*to);
+	int rc;
+
+	if (!t || t->sock < 0)
+		return -1;
+
+	to = calloc(1, sizeof(*to));
+	if (!to)
+		goto fail;
+
+	/*
+	 * The library already frees on getsockname() failure. Preserve
+	 * errno: the caller records it when the read returns -1.
+	 */
+	if (getsockname(t->sock, (struct sockaddr *)to, &tolen) != 0) {
+		int saved = errno;
+
+		free(to);
+		errno = saved;
+		goto fail;
+	}
+
+	do {
+#ifdef MSG_DONTWAIT
+		rc = recvfrom(t->sock, buf, size, MSG_DONTWAIT, NULL, NULL);
+#else
+		rc = recvfrom(t->sock, buf, size, 0, NULL, NULL);
+#endif
+	} while (rc < 0 && errno == EINTR);
+
+	/*
+	 * The library returns here without freeing. The caller never
+	 * receives the pointer. Any failure leaks it, including EAGAIN
+	 * and the ECONNRESET from snmpd exiting with data still unread.
+	 */
+	if (rc < 0) {
+		int saved = errno;
+
+		free(to);
+		errno = saved;
+		goto fail;
+	}
+
+	/* EOF and a real read both belong to the caller, which frees opaque. */
+	if (opaque)
+		*opaque = to;
+	else
+		free(to);
+	if (olength)
+		*olength = (int)sizeof(*to);
+	return rc;
+
+fail:
+	/* Already freed. A non-NULL opaque would be freed a second time. */
+	if (opaque)
+		*opaque = NULL;
+	if (olength)
+		*olength = 0;
+	return -1;
+}
+
+/*
+ * A reconnect opens a new transport, so INDEX_START installs again.
+ * The Open exchange before that still uses the library receive.
+ */
+static void agentx_install_unix_recv(void)
+{
+	void *sessp;
+	netsnmp_transport *transport;
+
+	if (!agentx_master_sess)
+		return;
+
+	sessp = snmp_sess_pointer(agentx_master_sess);
+	if (!sessp)
+		return;
+
+	transport = snmp_sess_transport(sessp);
+	/* No transport to patch, or this one already has the receive. */
+	if (!transport || !transport->domain || transport->f_recv == agentx_unix_recv)
+		return;
+	/*
+	 * netsnmp_unix_recv() is static in libnetsnmp, so the domain OID
+	 * is how this transport is recognized. Only transportDomainLocal
+	 * has the leak. A TCP master keeps the library receive, which
+	 * returns its buffer on error.
+	 */
+	if (snmp_oid_compare(transport->domain, (size_t)transport->domain_length,
+			     agentx_unix_domain, array_size(agentx_unix_domain)) != 0)
+		return;
+
+	transport->f_recv = agentx_unix_recv;
+}
+
 /* INDEX_START: master session opened. show agentx status reports up. */
 static int agentx_master_up_cb(int majorID, int minorID, void *serverarg, void *clientarg)
 {
 	agentx_master_sess = serverarg;
 	agentx_connected = true;
 	trap_q_down_valid = false;
+	agentx_install_unix_recv();
 	DEBUGD(&agentx_dbg, "AgentX: master agent session up (%u traps queued)", trap_q_len);
 	if (trap_q_head) {
 		agentx_event_cancel_safe(&trap_q_ev);
