@@ -2956,7 +2956,8 @@ static void bgp_config_write_maxpaths(struct vty *vty, struct bgp *bgp,
 			bgp->maxpaths[afi][safi].maxpaths_ebgp);
 	}
 
-	if (bgp->maxpaths[afi][safi].maxpaths_ibgp != multipath_num) {
+	if (bgp->maxpaths[afi][safi].maxpaths_ibgp != multipath_num ||
+	    bgp->maxpaths[afi][safi].same_clusterlen) {
 		vty_out(vty, "  maximum-paths ibgp %d",
 			bgp->maxpaths[afi][safi].maxpaths_ibgp);
 		if (bgp->maxpaths[afi][safi].same_clusterlen)
@@ -12756,7 +12757,8 @@ static void print_bgp_vrfs(struct bgp *bgp, struct vty *vty, json_object *json,
 			if (bgp->maxpaths[afi][safi].maxpaths_ebgp != multipath_num)
 				json_object_int_add(json_addr, "ebgpMaximumPaths",
 						    bgp->maxpaths[afi][safi].maxpaths_ebgp);
-			if (bgp->maxpaths[afi][safi].maxpaths_ibgp != multipath_num) {
+			if (bgp->maxpaths[afi][safi].maxpaths_ibgp != multipath_num ||
+			    bgp->maxpaths[afi][safi].same_clusterlen) {
 				json_object_int_add(json_addr, "ibgpMaximumPaths",
 						    bgp->maxpaths[afi][safi].maxpaths_ibgp);
 				json_object_boolean_add(json_addr, "equalClusterLength",
@@ -13004,7 +13006,8 @@ static int show_bgp_vrfs_detail_common(struct vty *vty, struct bgp *bgp,
 					vty_out(vty, "   EBGP Maximumpaths %d\n",
 						bgp->maxpaths[afi][safi].maxpaths_ebgp);
 				}
-				if (bgp->maxpaths[afi][safi].maxpaths_ibgp != multipath_num) {
+				if (bgp->maxpaths[afi][safi].maxpaths_ibgp != multipath_num ||
+				    bgp->maxpaths[afi][safi].same_clusterlen) {
 					vty_out(vty, "   IBGP Maximumpaths %d\n",
 						bgp->maxpaths[afi][safi].maxpaths_ibgp);
 					if (bgp->maxpaths[afi][safi].same_clusterlen)
