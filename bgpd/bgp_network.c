@@ -1000,7 +1000,8 @@ enum connect_result bgp_connect(struct peer_connection *connection)
 		sockunion_free(connection->su_local);
 	connection->su_local = sockunion_getsockname(connection->fd);
 	if (res != connect_error && connection->su_local && connection->su_remote)
-		hook_call(cnlab_bgp_socket_identity, connection->fd, connection->su_local, connection->su_remote);
+		hook_call(cnlab_bgp_socket_identity, connection->fd, connection->su_local,
+			  connection->su_remote);
 
 	return res;
 }

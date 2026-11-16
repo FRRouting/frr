@@ -153,6 +153,7 @@ noinst_HEADERS += \
 	bgpd/bgp_network.h \
 	bgpd/bgp_nexthop.h \
 	bgpd/bgp_nht.h \
+	bgpd/bgp_nsr.h \
 	bgpd/bgp_open.h \
 	bgpd/bgp_packet.h \
 	bgpd/bgp_pbr.h \

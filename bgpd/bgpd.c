@@ -182,21 +182,21 @@ static int bgp_check_main_socket(bool create, struct bgp *bgp)
  * and adopted the complete transport set may enable a real listener. */
 int cnlab_bgp_start_owner_listener(const char *address)
 {
-    struct bgp *bgp = bgp_get_default();
-    struct in_addr ip;
-    if (!bgp || !address || inet_pton(AF_INET, address, &ip) != 1)
-        return -1;
-    if (bgp_server_main_created)
-        return bm->port == BGP_PORT_DEFAULT ? 0 : -1;
-    if (bm->port != 0 || !bgp_option_check(BGP_OPT_NO_LISTEN))
-        return -1;
-    /* Bind only the configured protocol IPv4 identity, not management IPs. */
-    if (bgp_socket(bgp, BGP_PORT_DEFAULT, address) < 0)
-        return -1;
-    bm->port = BGP_PORT_DEFAULT;
-    bgp_option_unset(BGP_OPT_NO_LISTEN);
-    bgp_server_main_created = 1;
-    return 0;
+	struct bgp *bgp = bgp_get_default();
+	struct in_addr ip;
+	if (!bgp || !address || inet_pton(AF_INET, address, &ip) != 1)
+		return -1;
+	if (bgp_server_main_created)
+		return bm->port == BGP_PORT_DEFAULT ? 0 : -1;
+	if (bm->port != 0 || !bgp_option_check(BGP_OPT_NO_LISTEN))
+		return -1;
+	/* Bind only the configured protocol IPv4 identity, not management IPs. */
+	if (bgp_socket(bgp, BGP_PORT_DEFAULT, address) < 0)
+		return -1;
+	bm->port = BGP_PORT_DEFAULT;
+	bgp_option_unset(BGP_OPT_NO_LISTEN);
+	bgp_server_main_created = 1;
+	return 0;
 }
 
 void bgp_session_reset(struct peer *peer)

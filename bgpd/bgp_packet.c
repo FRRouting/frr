@@ -4361,7 +4361,7 @@ void bgp_process_packet(struct event *event)
 		type = stream_getc(connection->curr);
 
 		hook_call(bgp_packet_dump, connection, type, size, connection->curr);
-        hook_call(cnlab_bgp_input, connection, type, size, connection->curr);
+		hook_call(cnlab_bgp_input, connection, type, size, connection->curr);
 
 		/* adjust size to exclude the marker + length + type */
 		size -= BGP_HEADER_SIZE;

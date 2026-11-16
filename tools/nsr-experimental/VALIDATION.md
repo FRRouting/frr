@@ -39,3 +39,17 @@ BFD fault/recovery, complete HA orchestration, traffic-loss/failover tests,
 physical cross-device failure and long-running stability were not rerun.
 This is a Draft/RFC for design review, not a new NSR acceptance result.
 The separate 10.7.1 validation must not be used as proof for this master port.
+
+## CI repair follow-up
+
+The first upstream CI run exposed `-Werror=misleading-indentation` in the
+route scheduling hook and missing `bgp_nsr.h` from RPM source packages.
+The native formatting changes preserve all non-whitespace characters; the
+same sources rebuilt locally with `-Werror=misleading-indentation`.
+Both new native headers are now in Automake's noinst_HEADERS, and the
+optional reference tool sources/documentation are listed in EXTRA_DIST.
+Distribution membership is checked from a real generated distdir.
+
+Commit messages are normalized with a blank line before the body/trailers,
+and each author commit carries its matching Signed-off-by trailer.
+Local build/distribution checks do not substitute for the next upstream CI run.

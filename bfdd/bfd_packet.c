@@ -437,9 +437,9 @@ static int ptm_bfd_process_echo_pkt(struct bfd_vrf_global *bvrf, int s)
 
 void ptm_bfd_snd(struct bfd_session *bfd, int fbit)
 {
-    if (hook_call(cnlab_bfd_send_blocked, bfd))
-        return;
-    hook_call(cnlab_bfd_state, bfd, "tx_before_build");
+	if (hook_call(cnlab_bfd_send_blocked, bfd))
+		return;
+	hook_call(cnlab_bfd_state, bfd, "tx_before_build");
 	unsigned char send_buffer[256];
 	struct bfd_pkt cp = {};
 	size_t packet_len = BFD_PKT_LEN;
@@ -1552,7 +1552,7 @@ void bfd_recv_cb(struct event *t)
 		/* Send the control packet with the final bit immediately. */
 		ptm_bfd_snd(bfd, 1);
 	}
-    hook_call(cnlab_bfd_state, bfd, "rx_applied");
+	hook_call(cnlab_bfd_state, bfd, "rx_applied");
 }
 
 /* Whether an IPv6 echo packet is an S-BFD echo of ours that came back. */

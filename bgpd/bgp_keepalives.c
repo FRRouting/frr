@@ -267,28 +267,39 @@ void bgp_keepalives_on(struct peer_connection *connection)
 /* Preserve the real scheduler clock across a checkpoint, without postponing KA. */
 bool cnlab_bgp_keepalive_pause(struct peer_connection *connection, struct timeval *last)
 {
-    struct peer *peer=connection->peer;struct pkat holder={.peer=peer};bool paused=false;
-    frr_with_mutex(peerhash_mtx) {
-        if (CHECK_FLAG(peer->thread_flags,PEER_THREAD_KEEPALIVES_ON)) {
-            struct pkat *saved=hash_release(peerhash,&holder);
-            if (saved) {*last=saved->last;pkat_del(saved);peer_unlock(peer);paused=true;}
-            UNSET_FLAG(peer->thread_flags,PEER_THREAD_KEEPALIVES_ON);
-        }
-    }
-    return paused;
+	struct peer *peer = connection->peer;
+	struct pkat holder = { .peer = peer };
+	bool paused = false;
+	frr_with_mutex (peerhash_mtx) {
+		if (CHECK_FLAG(peer->thread_flags, PEER_THREAD_KEEPALIVES_ON)) {
+			struct pkat *saved = hash_release(peerhash, &holder);
+			if (saved) {
+				*last = saved->last;
+				pkat_del(saved);
+				peer_unlock(peer);
+				paused = true;
+			}
+			UNSET_FLAG(peer->thread_flags, PEER_THREAD_KEEPALIVES_ON);
+		}
+	}
+	return paused;
 }
-void cnlab_bgp_keepalive_resume(struct peer_connection *connection,const struct timeval *last)
+void cnlab_bgp_keepalive_resume(struct peer_connection *connection, const struct timeval *last)
 {
-    struct peer *peer=connection->peer;struct pkat holder={.peer=peer};
-    frr_with_mutex(peerhash_mtx) {
-        if (!CHECK_FLAG(peer->thread_flags,PEER_THREAD_KEEPALIVES_ON)) {
-            if (!hash_lookup(peerhash,&holder)) {
-                struct pkat *saved=pkat_new(peer);saved->last=*last;
-                (void)hash_get(peerhash,saved,hash_alloc_intern);peer_lock(peer);
-            }
-            SET_FLAG(peer->thread_flags,PEER_THREAD_KEEPALIVES_ON);pthread_cond_signal(peerhash_cond);
-        }
-    }
+	struct peer *peer = connection->peer;
+	struct pkat holder = { .peer = peer };
+	frr_with_mutex (peerhash_mtx) {
+		if (!CHECK_FLAG(peer->thread_flags, PEER_THREAD_KEEPALIVES_ON)) {
+			if (!hash_lookup(peerhash, &holder)) {
+				struct pkat *saved = pkat_new(peer);
+				saved->last = *last;
+				(void)hash_get(peerhash, saved, hash_alloc_intern);
+				peer_lock(peer);
+			}
+			SET_FLAG(peer->thread_flags, PEER_THREAD_KEEPALIVES_ON);
+			pthread_cond_signal(peerhash_cond);
+		}
+	}
 }
 
 void bgp_keepalives_off(struct peer_connection *connection)
