@@ -2093,12 +2093,12 @@ DEFUN (show_ipv6_ripng,
 
 	for (rp = agg_route_top(ripng->table); rp; rp = agg_route_next(rp)) {
 		if ((aggregate = rp->aggregate) != NULL) {
-#ifdef DEBUG
+#ifdef RIPNG_ROUTE_TABLE_DEBUG
 			vty_out(vty, "R(a) %d/%d %pRN ", aggregate->count,
 				aggregate->suppress, rp);
 #else
 			vty_out(vty, "R(a) %pRN ", rp);
-#endif /* DEBUG */
+#endif /* RIPNG_ROUTE_TABLE_DEBUG */
 			vty_out(vty, "\n");
 			vty_out(vty, "%*s", 18, " ");
 
@@ -2109,7 +2109,7 @@ DEFUN (show_ipv6_ripng,
 
 		if ((list = rp->info) != NULL)
 			frr_each (ripng_info_list_const, list, rinfo) {
-#ifdef DEBUG
+#ifdef RIPNG_ROUTE_TABLE_DEBUG
 				vty_out(vty, "%c(%s) 0/%d %pRN ",
 					zebra_route_char(rinfo->type),
 					ripng_route_subtype_print(rinfo),
@@ -2118,7 +2118,7 @@ DEFUN (show_ipv6_ripng,
 				vty_out(vty, "%c(%s) %pRN ",
 					zebra_route_char(rinfo->type),
 					ripng_route_subtype_print(rinfo), rp);
-#endif /* DEBUG */
+#endif /* RIPNG_ROUTE_TABLE_DEBUG */
 				vty_out(vty, "\n");
 				vty_out(vty, "%*s", 18, " ");
 				len = vty_out(vty, "%pI6",
