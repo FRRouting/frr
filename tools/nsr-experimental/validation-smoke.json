@@ -1,0 +1,33 @@
+[
+  {
+    "case": "empty",
+    "returncode": 1,
+    "diagnostic": "short image: Success"
+  },
+  {
+    "case": "truncated",
+    "returncode": 1,
+    "diagnostic": "short image: Success"
+  },
+  {
+    "case": "invalid-header",
+    "returncode": 1,
+    "diagnostic": "image version/ABI: Success"
+  },
+  {
+    "case": "bgpd_native_journal.so required dynamic symbols",
+    "missing": []
+  },
+  {
+    "case": "bgpd_native_follow.so required dynamic symbols",
+    "missing": []
+  },
+  {
+    "case": "bfdd_native_journal.so required dynamic symbols",
+    "missing": []
+  },
+  {
+    "case": "bfdd_native_follow.so required dynamic symbols",
+    "missing": []
+  }
+]

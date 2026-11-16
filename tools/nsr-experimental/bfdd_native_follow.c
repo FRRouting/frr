@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-or-later */
 /* Experimental native BFD follower with guarded activation.
- * All BFD sends are blocked by a daemon hook. Applies complete, fresh,
+ * BFD sends stay blocked until guarded release. Applies complete, fresh,
  * unauthenticated/no-echo IPv4 steady-state snapshots to real FRR objects.
  */
 #include <zebra.h>
@@ -186,4 +186,4 @@ static int module_init(void){
     if(listener<0||bind(listener,(struct sockaddr *)&addr,sizeof(addr))||listen(listener,8))return -1;
     chmod(path,0600);hook_register(cnlab_bfd_send_blocked,block_send);hook_register(frr_late_init,late_init);return 0;
 }
-FRR_MODULE_SETUP(.name="cnlab_bfdd_native_follow",.version=FRR_VERSION,.description="Fenced native BFD state follower; no promotion API",.init=module_init,);
+FRR_MODULE_SETUP(.name="cnlab_bfdd_native_follow",.version=FRR_VERSION,.description="Fenced native BFD follower with guarded activation",.init=module_init,);

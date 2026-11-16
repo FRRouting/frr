@@ -7,6 +7,7 @@ output_dir=$(realpath -m "${1:?provide a NEW output directory}")
 [ -f "$source_dir/config.h" ] || { echo 'Configure FRR first' >&2; exit 2; }
 [ ! -e "$output_dir" ] || { echo 'Output directory already exists' >&2; exit 2; }
 mkdir -p "$output_dir"
+make -C "$source_dir" -j"${JOBS:-2}" lib/gitversion.h lib/route_types.h lib/vtysh_daemons.h
 make -C "$source_dir" -j"${JOBS:-2}" bgpd/bgpd bfdd/bfdd
 cd "$module_dir"
 for name in bgpd_native_journal bgpd_native_follow bfdd_native_journal bfdd_native_follow; do

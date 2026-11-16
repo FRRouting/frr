@@ -617,4 +617,4 @@ static int module_init(void){
     if(listener<0||bind(listener,(struct sockaddr *)&addr,sizeof(addr))||listen(listener,8))return -1;
     chmod(path,0600);hook_register(peer_status_changed,observe_shadow_transition);hook_register(cnlab_bgp_open_restart_bit,replay_open_restart_bit);hook_register(cnlab_bgp_native_event_gate,event_gate);hook_register(frr_late_init,late_init);return 0;
 }
-FRR_MODULE_SETUP(.name="cnlab_bgpd_native_follow",.version=FRR_VERSION,.description="Native BGP input shadow; no peer transport or promotion",.init=module_init,);
+FRR_MODULE_SETUP(.name="cnlab_bgpd_native_follow",.version=FRR_VERSION,.description="Native BGP shadow with guarded transport activation",.init=module_init,);
