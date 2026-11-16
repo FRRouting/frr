@@ -3487,6 +3487,16 @@ int bgp_event_update(struct peer_connection *connection,
 	int dyn_nbr;
 	struct peer *peer = connection->peer;
 
+	/* An fd-less NSR shadow reconstructs negotiation from the source journal.
+	 * A queued local connect retry can otherwise tear down an Established
+	 * replay (the native FSM maps that event to Clearing). Keep real packet,
+	 * hold-timer, BFD-down and administrative events unchanged. Socket adoption
+	 * removes this guard before normal connection management resumes. */
+	if (getenv("CNLAB_NSR_BGP_FOLLOWER") && connection->fd < 0 &&
+	    (event == BGP_Start || event == ConnectRetry_timer_expired ||
+	     event == DelayOpen_timer_expired || event == TCP_connection_open_failed))
+		return FSM_PEER_NOOP;
+
 	passive_conn = (bgp_peer_get_connection_direction(connection) == CONNECTION_INCOMING) ? 1
 											      : 0;
 	dyn_nbr = peer_dynamic_neighbor(peer);
