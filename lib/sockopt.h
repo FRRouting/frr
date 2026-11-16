@@ -23,6 +23,8 @@ extern int setsockopt_ipv6_unicast_hops(int sock, int val);
 extern int setsockopt_ipv6_hoplimit(int sock, int val);
 extern int setsockopt_ipv6_multicast_loop(int sock, int val);
 extern int setsockopt_ipv6_tclass(int sock, int tclass);
+extern int setsockopt_ipv6_freebind(int sock, int val);
+extern int setsockopt_so_bindtodevice(int sock, const char *ifname);
 
 #define SOPT_SIZE_CMSG_PKTINFO_IPV6() (sizeof(struct in6_pktinfo));
 

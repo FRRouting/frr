@@ -22,6 +22,37 @@ Router Advertisement
    Show configured route advertisement interfaces. VRF subcommand only
    applicable for netns-based vrfs.
 
+.. clicmd:: clear ipv6 nd prefix X:X::X:X/M interface IFNAME [vrf NAME] [count (1-3)] [valid-lifetime (0-4294967295)] [preferred-lifetime (0-4294967295)]
+
+   Send a short burst of router advertisements on the interface that carry the
+   prefix with the given lifetimes, so that hosts stop using addresses they
+   formed from it instead of waiting out the valid lifetime advertised earlier,
+   30 days by default. The configuration is not changed, so a prefix the
+   interface goes on advertising is announced with its configured lifetimes
+   again once the burst is over.
+
+   The prefix does not have to be one the interface advertises. A host that has
+   been moved to another port can still hold the prefix of the port it came
+   from, and the advertisement that retires it has to go out on the port the
+   host is now attached to. For such a prefix only a ``valid-lifetime`` of
+   ``0`` is accepted.
+
+   - ``count``: the number of advertisements to send, spaced 3 seconds apart
+     as RFC 4861 section 6.2.6 requires. Default: ``2``
+
+   - ``valid-lifetime`` and ``preferred-lifetime``: the lifetimes to advertise.
+     The preferred lifetime may not exceed the valid lifetime, since RFC 4861
+     section 4.6.2 has hosts discard such an option. Default: ``0``
+
+   The interface must be operationally up with router advertisements enabled,
+   and at most 16 prefixes can be in flight on an interface at a time. The
+   ``vrf`` keyword is only accepted with netns-based VRFs. While the burst is
+   in progress, ``show interface`` lists the prefix being flushed.
+
+   Note that RFC 4862 section 5.5.3 does not let a host lower the stored valid
+   lifetime of an address below two hours, so the address is deprecated at once
+   but only removed after that window.
+
 .. clicmd:: ipv6 nd suppress-ra
 
    Don't send router advertisement messages. The ``no`` form of this command
@@ -56,6 +87,35 @@ Router Advertisement
      prefix contains a complete IP address by setting R flag.
 
      Default: not set, i.e. hosts do not assume a complete IP address is placed.
+
+.. clicmd:: ipv6 nd prefix-lifetime <valid-lifetime|infinite> <preferred-lifetime|infinite>
+
+   Lifetimes advertised for every prefix on the interface that does not name its
+   own, whether it was derived from an address configured on the interface or
+   came from an ``ipv6 nd prefix`` entry that left the lifetimes out. This avoids
+   having to name each prefix in order to shorten its lifetime.
+
+   A prefix whose ``ipv6 nd prefix`` entry gives lifetimes of its own carries
+   those and is not affected by this command. An entry that gives exactly the
+   RFC 4861 defaults, ``2592000`` and ``604800``, counts as giving none; the
+   running configuration leaves them out too.
+
+   Both values must be given. RFC 4861 section 4.6.2 requires hosts to discard a
+   prefix option whose preferred lifetime exceeds its valid lifetime, so
+   lowering one without the other would remove the prefix from stateless address
+   autoconfiguration entirely.
+
+   Note that RFC 4862 section 5.5.3 clamps the stored valid lifetime of an
+   address a host already holds to a minimum of two hours, so a value below
+   ``7200`` only takes full effect for addresses formed after the change.
+
+   A prefix lifetime shorter than a few advertisement intervals will cause a
+   host that misses an advertisement to lose the address, so ``ra-interval``
+   should be lowered alongside it. A warning is logged when the valid lifetime
+   is below three advertisement intervals.
+
+   Range: ``(0-4294967295)``  Default: not set, i.e. ``2592000`` and ``604800``
+   are used.
 
 .. clicmd:: ipv6 nd ra-interval [(1-1800)]
 
