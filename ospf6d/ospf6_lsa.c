@@ -440,7 +440,7 @@ int ospf6_lsa_compare(struct ospf6_lsa *a, struct ospf6_lsa *b)
 	if (cksuma > cksumb)
 		return -1;
 	if (cksuma < cksumb)
-		return 0;
+		return 1;
 
 	/* Update Age */
 	agea = ospf6_lsa_age_current(a);
