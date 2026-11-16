@@ -12,6 +12,7 @@
 
 #include "command.h"
 #include "northbound_cli.h"
+#include "typesafe.h"
 #include "vrf.h"
 #include "asn.h"
 #include "frrstr.h"
@@ -6473,13 +6474,6 @@ static int bgp_cli_reserve_cfg_slots(struct vty *vty, int slots)
 	return ret;
 }
 
-static void bgp_cli_tmp_free(void *arg)
-{
-	char *str = arg;
-
-	XFREE(MTYPE_TMP, str);
-}
-
 /*
  * One route-target change queued by the command now in progress. The
  * candidate does not show it until the queue is applied, so a repeat in
@@ -6948,6 +6942,25 @@ DEFPY_YANG(bgp_evpn_vni_rt_yang, bgp_evpn_vni_rt_yang_cmd,
 	}
 }
 
+PREDECL_LIST(bgp_cli_vni_rt);
+
+struct bgp_cli_vni_rt {
+	char *rt;
+	struct bgp_cli_vni_rt_item item;
+};
+
+DECLARE_LIST(bgp_cli_vni_rt, struct bgp_cli_vni_rt, item);
+
+static void bgp_cli_vni_rt_clear(struct bgp_cli_vni_rt_head *head)
+{
+	struct bgp_cli_vni_rt *entry;
+
+	while ((entry = bgp_cli_vni_rt_pop(head))) {
+		XFREE(MTYPE_TMP, entry->rt);
+		XFREE(MTYPE_TMP, entry);
+	}
+}
+
 /* Remove every configured route-target of one direction from the L2VNI. */
 DEFPY_YANG(no_bgp_evpn_vni_rt_without_val_yang, no_bgp_evpn_vni_rt_without_val_yang_cmd,
 	   "no route-target <import|export>$type",
@@ -6958,42 +6971,42 @@ DEFPY_YANG(no_bgp_evpn_vni_rt_without_val_yang, no_bgp_evpn_vni_rt_without_val_y
 {
 	const struct lyd_node *vni_dnode, *child;
 	const char *want = strmatch(type, "import") ? "import-route-target" : "export-route-target";
-	struct list *rts;
-	struct listnode *node;
-	char *rt;
+	struct bgp_cli_vni_rt_head rts;
+	struct bgp_cli_vni_rt *entry;
 	char leaf[XPATH_MAXLEN];
 
 	/*
 	 * Snapshot the values first. Flushing a full cfg_changes batch edits
 	 * the candidate, which frees the nodes being walked.
 	 */
-	rts = list_new();
-	rts->del = bgp_cli_tmp_free;
+	bgp_cli_vni_rt_init(&rts);
 	vni_dnode = yang_dnode_get(vty->candidate_config->dnode, VTY_CURR_XPATH);
 	if (vni_dnode) {
 		LY_LIST_FOR (lyd_child(vni_dnode), child) {
 			if (!strmatch(child->schema->name, want))
 				continue;
-			listnode_add(rts, XSTRDUP(MTYPE_TMP, yang_dnode_get_string(child, NULL)));
+			entry = XCALLOC(MTYPE_TMP, sizeof(*entry));
+			entry->rt = XSTRDUP(MTYPE_TMP, yang_dnode_get_string(child, NULL));
+			bgp_cli_vni_rt_add_tail(&rts, entry);
 		}
 	}
 
-	if (!rts->count) {
-		list_delete(&rts);
+	if (!bgp_cli_vni_rt_count(&rts)) {
+		bgp_cli_vni_rt_fini(&rts);
 		vty_out(vty, "%% %s RT is not configured for this VNI\n",
 			strmatch(type, "import") ? "Import" : "Export");
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 
-	for (ALL_LIST_ELEMENTS_RO(rts, node, rt)) {
+	frr_each (bgp_cli_vni_rt, &rts, entry) {
 		if (bgp_cli_reserve_cfg_slots(vty, 1) != CMD_SUCCESS) {
-			list_delete(&rts);
+			bgp_cli_vni_rt_clear(&rts);
 			return CMD_WARNING_CONFIG_FAILED;
 		}
-		snprintfrr(leaf, sizeof(leaf), "./%s[.='%s']", want, rt);
+		snprintfrr(leaf, sizeof(leaf), "./%s[.='%s']", want, entry->rt);
 		nb_cli_enqueue_change(vty, leaf, NB_OP_DESTROY, NULL);
 	}
-	list_delete(&rts);
+	bgp_cli_vni_rt_clear(&rts);
 	return nb_cli_apply_changes(vty, NULL);
 }
 
