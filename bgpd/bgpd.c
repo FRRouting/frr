@@ -47,6 +47,7 @@
 #include "bgpd/bgp_clist.h"
 #include "bgpd/bgp_fsm.h"
 #include "bgpd/bgp_packet.h"
+#include "bgpd/bgp_nsr.h"
 #include "bgpd/bgp_zebra.h"
 #include "bgpd/bgp_open.h"
 #include "bgpd/bgp_filter.h"
@@ -145,10 +146,11 @@ static bool bgp_has_remaining_instances(const struct bgp *bgp)
 	return false;
 }
 
+static int bgp_server_main_created;
+
 /* handle main socket creation or deletion */
 static int bgp_check_main_socket(bool create, struct bgp *bgp)
 {
-	static int bgp_server_main_created;
 	struct listnode *node;
 	char *address;
 
@@ -174,6 +176,27 @@ static int bgp_check_main_socket(bool create, struct bgp *bgp)
 	bgp_close();
 	bgp_server_main_created = 0;
 	return 0;
+}
+
+/* NSR shadows start with -p 0. Only the caller that has committed ownership
+ * and adopted the complete transport set may enable a real listener. */
+int cnlab_bgp_start_owner_listener(const char *address)
+{
+    struct bgp *bgp = bgp_get_default();
+    struct in_addr ip;
+    if (!bgp || !address || inet_pton(AF_INET, address, &ip) != 1)
+        return -1;
+    if (bgp_server_main_created)
+        return bm->port == BGP_PORT_DEFAULT ? 0 : -1;
+    if (bm->port != 0 || !bgp_option_check(BGP_OPT_NO_LISTEN))
+        return -1;
+    /* Bind only the configured protocol IPv4 identity, not management IPs. */
+    if (bgp_socket(bgp, BGP_PORT_DEFAULT, address) < 0)
+        return -1;
+    bm->port = BGP_PORT_DEFAULT;
+    bgp_option_unset(BGP_OPT_NO_LISTEN);
+    bgp_server_main_created = 1;
+    return 0;
 }
 
 void bgp_session_reset(struct peer *peer)

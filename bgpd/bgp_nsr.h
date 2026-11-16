@@ -14,4 +14,5 @@ int cnlab_bgp_restore_hold_timer(struct peer_connection *c,int64_t remaining_us)
 int cnlab_bgp_replay_native_event(struct peer_connection *c,int kind,afi_t afi,safi_t safi);
 bool cnlab_bgp_keepalive_pause(struct peer_connection *c,struct timeval *last);
 void cnlab_bgp_keepalive_resume(struct peer_connection *c,const struct timeval *last);
+extern int cnlab_bgp_start_owner_listener(const char *address);
 #endif
