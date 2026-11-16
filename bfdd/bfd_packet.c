@@ -2347,6 +2347,10 @@ static void bfd_peer_mac_set(int sd, struct bfd_session *bfd, struct sockaddr_an
 {
 	struct arpreq arpreq_;
 
+	/* Only Echo needs the peer MAC. SIOCGARP can wait for RTNL and
+	 * must not block the Control session event loop when Echo is off. */
+	if (!CHECK_FLAG(bfd->flags, BFD_SESS_FLAG_ECHO))
+		return;
 	if (CHECK_FLAG(bfd->flags, BFD_SESS_FLAG_MAC_SET))
 		return;
 	if (CHECK_FLAG(ifp->flags, IFF_NOARP))
