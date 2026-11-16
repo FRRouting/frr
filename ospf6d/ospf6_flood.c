@@ -1219,35 +1219,10 @@ void ospf6_receive_lsa(struct ospf6_neighbor *from,
 					"Send back directly and then discard");
 			}
 
-			/* Neighbor router sent recent age for LSA,
-			 * Router could be restarted while current copy is
-			 * MAXAGEd and not removed.*/
-			if (OSPF6_LSA_IS_MAXAGE(old)
-			    && !OSPF6_LSA_IS_MAXAGE(new)) {
-				if (new->header->adv_router
-				    != from->ospf6_if->area->ospf6->router_id) {
-					if (is_debug)
-						zlog_debug(
-							"%s: Current copy of LSA %s is MAXAGE, but new has recent age, flooding/installing.",
-							__PRETTY_FUNCTION__, old->name);
-					/* The MaxAge instance is already flooded. Clear
-					 * its retransmission entry so the revived
-					 * instance can be flooded in its place.
-					 */
-					ospf6_flood_clear(old);
-					ospf6_flood(from, new);
-					ospf6_install_lsa(new);
-					return;
-				}
-				/* For self-originated LSA, only trust
-				 * ourselves. Fall through and send
-				 * LS Update with our current copy.
-				 */
-				if (is_debug)
-					zlog_debug(
-						"%s: Current copy of self-originated LSA %s is MAXAGE, but new has recent age, re-sending current one.",
-						__PRETTY_FUNCTION__, old->name);
-			}
+			/* RFC 2328 section 13 (8): retain the newer database
+			 * copy, including MaxAge withdrawals, and send it back.
+			 * A stale non-MaxAge LSA must not resurrect the route.
+			 */
 
 			/* MinLSArrival check as per RFC 2328 13 (8) */
 			if (ospf6_lsa_check_min_arrival(old, from)) {
