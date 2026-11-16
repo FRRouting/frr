@@ -22,11 +22,7 @@ extern "C" {
 #endif /* IPPROTO_OSPFIGP */
 
 /* Architectural Constants */
-#ifdef DEBUG
-#define OSPF_LS_REFRESH_TIME                   120
-#else
 #define OSPF_LS_REFRESH_TIME                  1800
-#endif
 #define OSPF_MIN_LS_INTERVAL			 5000	/* milliseconds */
 #define OSPF_MIN_LS_ARRIVAL			 1000	/* milliseconds */
 #define OSPF_MIN_LS_ARRIVAL_MAX			 5000	/* milliseconds */

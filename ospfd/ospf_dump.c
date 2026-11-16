@@ -688,13 +688,6 @@ DEFPY (debug_ospf_packet,
 			}
 		}
 
-#ifdef DEBUG
-/*
-for (i = 0; i < 5; i++)
-  zlog_debug ("flag[%d] = %d", i, ospf_debug_packet[i]);
-*/
-#endif /* DEBUG */
-
 	return CMD_SUCCESS;
 }
 
