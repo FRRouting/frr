@@ -34,6 +34,14 @@
 #include "jhash.h"
 
 #include "bgpd/bgpd.h"
+#include "bgpd/bgp_nsr.h"
+DEFINE_HOOK(cnlab_bgp_native_event_gate,(struct peer_connection *c,int kind,afi_t afi,safi_t safi),(c,kind,afi,safi));
+DEFINE_HOOK(cnlab_bgp_native_event,(struct peer_connection *c,int kind,afi_t afi,safi_t safi),(c,kind,afi,safi));
+int cnlab_bgp_native_event_begin(struct peer_connection *c,int kind,afi_t afi,safi_t safi){
+    if(hook_call(cnlab_bgp_native_event_gate,c,kind,afi,safi))return 1;
+    hook_call(cnlab_bgp_native_event,c,kind,afi,safi);return 0;
+}
+
 #include "bgpd/bgp_nhc.h"
 #include "bgpd/bgp_table.h"
 #include "bgpd/bgp_route.h"
@@ -5271,6 +5279,19 @@ static unsigned int process_subq(struct bgp_dest_queue *subq, enum meta_queue_in
  */
 static wq_item_status meta_queue_process(struct work_queue *dummy, void *data)
 {
+    struct bgp *instance=dummy->spec.data;
+    struct peer_connection *journal_connection=NULL;
+    if(instance){
+        struct listnode *node;struct peer *peer;
+        for(ALL_LIST_ELEMENTS_RO(instance->peer,node,peer)){
+            if(peer->connection&&peer_established(peer->connection)){
+                journal_connection=peer->connection;
+                if(hook_call(cnlab_bgp_native_event_gate,journal_connection,3,0,0))return WQ_QUEUE_BLOCKED;
+                break;
+            }
+        }
+    }
+
 	struct meta_queue *mq = data;
 	uint32_t i;
 	uint32_t peers_on_fifo;
@@ -5290,6 +5311,12 @@ static wq_item_status meta_queue_process(struct work_queue *dummy, void *data)
 	 */
 	if (peers_on_fifo > 10 && total_runs % 10 != 0)
 		return WQ_QUEUE_BLOCKED;
+
+    /* Journal only actual meta-queue work. A yielded invocation above must
+     * not advance a remote replica whose connection FIFO has a different
+     * depth or scheduling history. The event is instance-wide. */
+    if(journal_connection&&mq->size)
+        hook_call(cnlab_bgp_native_event,journal_connection,3,0,0);
 
 	for (i = 0; i < MQ_SIZE; i++)
 		if (process_subq(mq->subq[i], i)) {
@@ -7399,10 +7426,37 @@ static void bgp_announce_route_timer_expired(struct event *t)
 	if (!peer->afc_nego[paf->afi][paf->safi])
 		return;
 
+	if (hook_call(cnlab_bgp_native_event_gate, peer->connection, 1, paf->afi, paf->safi))
+		return;
+	hook_call(cnlab_bgp_native_event, peer->connection, 1, paf->afi, paf->safi);
 	peer_af_announce_route(paf, 1);
 
 	/* Notify BGP conditional advertisement scanner percess */
 	peer->advmap_config_change[paf->afi][paf->safi] = true;
+}
+
+/* Replay actual primary scheduling events in an explicitly fenced follower.
+ * No raw output is injected and no externally observed uptime is changed. */
+int cnlab_bgp_replay_native_event(struct peer_connection *c,int kind,afi_t afi,safi_t safi)
+{
+    struct event event={0};
+    if(kind==1){
+        struct peer_af *paf=peer_af_find(c->peer,afi,safi);
+        if(!paf)return -1;
+        event_cancel(&paf->t_announce_route);event.arg=paf;
+        bgp_announce_route_timer_expired(&event);return 0;
+    }
+    if(kind==3){
+        struct bgp *bgp=c->peer->bgp;
+        if(!bgp->process_queue||!bgp->mq)return -1;
+        meta_queue_process(bgp->process_queue,bgp->mq);return 0;
+    }
+    if(kind==2){
+        /* Source event is recorded only after its native MRAI gate passed. */
+        event_cancel(&c->t_routeadv);event.arg=c;
+        bgp_generate_updgrp_packets(&event);return 0;
+    }
+    return -1;
 }
 
 /*

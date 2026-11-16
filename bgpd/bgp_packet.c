@@ -508,6 +508,9 @@ void bgp_generate_updgrp_packets(struct event *event)
 		return;
 	}
 
+	if (cnlab_bgp_native_event_begin(connection, 2, 0, 0))
+		return;
+
 	do {
 		enum bgp_af_index index;
 
