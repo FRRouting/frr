@@ -4779,26 +4779,173 @@ void bgp_nb_cli_show_peer_update_source_if(struct vty *vty, const struct lyd_nod
 		yang_dnode_get_string(dnode, NULL));
 }
 
+/*
+ * Neighbor, unnumbered neighbor, or peer-group that owns this leaf.
+ * The node is in the candidate during VALIDATE.
+ */
+static const struct lyd_node *bgp_nb_peer_container(const struct lyd_node *dnode)
+{
+	const struct lyd_node *nbr;
+
+	nbr = yang_dnode_get_parent(dnode, "neighbor");
+	if (nbr)
+		return nbr;
+	nbr = yang_dnode_get_parent(dnode, "unnumbered-neighbor");
+	if (nbr)
+		return nbr;
+	return yang_dnode_get_parent(dnode, "peer-group");
+}
+
+/* True when the candidate still has ttl-security configured. */
+static bool bgp_nb_candidate_has_ttl_security(const struct lyd_node *nbr)
+{
+	return nbr && yang_dnode_exists(nbr, "ttl-security");
+}
+
+/*
+ * True when the candidate enables ebgp-multihop. disable-connected-check
+ * alone does not. enabled defaults to false, so a present false leaf is
+ * not multihop.
+ */
+static bool bgp_nb_candidate_has_ebgp_multihop(const struct lyd_node *nbr)
+{
+	if (!nbr)
+		return false;
+	if (yang_dnode_exists(nbr, "ebgp-multihop/enabled") &&
+	    yang_dnode_get_bool(nbr, "ebgp-multihop/enabled"))
+		return true;
+	return yang_dnode_exists(nbr, "ebgp-multihop/multihop-ttl");
+}
+
+static bool bgp_nb_candidate_gtsm_multihop_conflict(const struct lyd_node *a,
+						    const struct lyd_node *b)
+{
+	if (bgp_nb_candidate_has_ebgp_multihop(a) && bgp_nb_candidate_has_ttl_security(b))
+		return true;
+	if (bgp_nb_candidate_has_ttl_security(a) && bgp_nb_candidate_has_ebgp_multihop(b))
+		return true;
+	return false;
+}
+
+static bool bgp_nb_is_interface_peer(const struct lyd_node *dnode, const struct peer *peer)
+{
+	if (peer && peer->conf_if)
+		return true;
+	return yang_dnode_get_parent(dnode, "unnumbered-neighbor") != NULL;
+}
+
+static const struct lyd_node *bgp_nb_candidate_peer_group(const struct lyd_node *dnode,
+							  const char *name)
+{
+	const struct lyd_node *bgp;
+
+	if (!name)
+		return NULL;
+	bgp = yang_dnode_get_parent(dnode, "bgp");
+	if (!bgp)
+		return NULL;
+	return yang_dnode_getf(bgp, "peer-groups/peer-group[peer-group-name='%s']", name);
+}
+
+/*
+ * True when a neighbor bound to this peer-group has ttl-security (gtsm)
+ * or its own ebgp-multihop in the candidate. The group's leaf does not
+ * show a member's knob, and peer_ebgp_multihop_set(MAXTTL) will not
+ * reject that member.
+ */
+static bool bgp_nb_candidate_member_has(const struct lyd_node *group, bool gtsm)
+{
+	const struct lyd_node *bgp, *neighbors, *nbr;
+	const char *gname, *bound;
+
+	if (!group || !strmatch(group->schema->name, "peer-group"))
+		return false;
+	if (!yang_dnode_exists(group, "peer-group-name"))
+		return false;
+
+	gname = yang_dnode_get_string(group, "peer-group-name");
+	bgp = yang_dnode_get_parent(group, "bgp");
+	if (!bgp || !gname)
+		return false;
+
+	neighbors = yang_dnode_get(bgp, "neighbors");
+	if (!neighbors)
+		return false;
+
+	LY_LIST_FOR (lyd_child(neighbors), nbr) {
+		if (!strmatch(nbr->schema->name, "neighbor") &&
+		    !strmatch(nbr->schema->name, "unnumbered-neighbor"))
+			continue;
+		if (!yang_dnode_exists(nbr, "peer-group"))
+			continue;
+		bound = yang_dnode_get_string(nbr, "peer-group");
+		if (!strmatch(bound, gname))
+			continue;
+		if (gtsm) {
+			if (bgp_nb_candidate_has_ttl_security(nbr))
+				return true;
+		} else if (bgp_nb_candidate_has_ebgp_multihop(nbr))
+			return true;
+	}
+	return false;
+}
+
+/* Peer-group this neighbor is bound to, in the candidate. */
+static const struct lyd_node *bgp_nb_candidate_bound_group(const struct lyd_node *dnode)
+{
+	const struct lyd_node *nbr;
+	const char *name;
+
+	nbr = bgp_nb_peer_container(dnode);
+	if (!nbr || strmatch(nbr->schema->name, "peer-group"))
+		return NULL;
+	if (!yang_dnode_exists(nbr, "peer-group"))
+		return NULL;
+
+	name = yang_dnode_get_string(nbr, "peer-group");
+	return bgp_nb_candidate_peer_group(dnode, name);
+}
+
+static int bgp_nb_ebgp_mh_validate(const struct lyd_node *dnode, struct peer *peer, bool enabling,
+				   char *errmsg, size_t errmsg_len)
+{
+	if (bgp_nb_is_interface_peer(dnode, peer)) {
+		snprintfrr(errmsg, errmsg_len, "ebgp-multihop not valid for interface peer");
+		return NB_ERR_VALIDATION;
+	}
+	/*
+	 * The running peer is missing when the neighbor is created in this
+	 * same candidate, and it still shows the old knob when this commit
+	 * removes one and sets the other. The candidate is the end state.
+	 * A peer-group leaf does not carry a member's ttl-security, and a
+	 * member does not carry the group's leaf when it only inherits it.
+	 */
+	if (enabling) {
+		const struct lyd_node *nbr = bgp_nb_peer_container(dnode);
+		const struct lyd_node *grp = bgp_nb_candidate_bound_group(dnode);
+
+		if (bgp_nb_candidate_has_ttl_security(nbr) ||
+		    bgp_nb_candidate_member_has(nbr, true) ||
+		    bgp_nb_candidate_has_ttl_security(grp)) {
+			snprintfrr(errmsg, errmsg_len,
+				   "ebgp-multihop and ttl-security are mutually exclusive");
+			return NB_ERR_VALIDATION;
+		}
+	}
+	return NB_OK;
+}
+
 int bgp_nb_peer_ebgp_mh_enabled_modify(struct nb_cb_modify_args *args)
 {
 	struct peer *peer;
+	int ret;
 
 	switch (args->event) {
 	case NB_EV_VALIDATE:
 		peer = bgp_nb_config_peer(args->dnode);
-		if (!peer)
-			return NB_OK;
-		if (peer->conf_if) {
-			snprintfrr(args->errmsg, args->errmsg_len,
-				   "ebgp-multihop not valid for interface peer");
-			return NB_ERR_VALIDATION;
-		}
-		if (yang_dnode_get_bool(args->dnode, NULL) && peer_gtsm_configured(peer)) {
-			snprintfrr(args->errmsg, args->errmsg_len,
-				   "ebgp-multihop and ttl-security are mutually exclusive");
-			return NB_ERR_VALIDATION;
-		}
-		return NB_OK;
+		return bgp_nb_ebgp_mh_validate(args->dnode, peer,
+					       yang_dnode_get_bool(args->dnode, NULL),
+					       args->errmsg, args->errmsg_len);
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
 		return NB_OK;
@@ -4810,9 +4957,17 @@ int bgp_nb_peer_ebgp_mh_enabled_modify(struct nb_cb_modify_args *args)
 	if (!peer)
 		return NB_ERR_NOT_FOUND;
 
-	if (yang_dnode_get_bool(args->dnode, NULL))
-		peer_ebgp_multihop_set(peer, MAXTTL, true);
-	else
+	if (yang_dnode_get_bool(args->dnode, NULL)) {
+		/*
+		 * peer_ebgp_multihop_set(MAXTTL) does not itself reject
+		 * GTSM. VALIDATE owns that. An APPLY error cannot roll the
+		 * commit back.
+		 */
+		ret = peer_ebgp_multihop_set(peer, MAXTTL, true);
+		if (ret == BGP_ERR_NO_EBGP_MULTIHOP_WITH_TTLHACK)
+			zlog_warn("%s: ebgp-multihop rejected for %s; ttl-security is configured",
+				  __func__, peer->host);
+	} else
 		peer_ebgp_multihop_unset(peer, true);
 	return NB_OK;
 }
@@ -4846,23 +5001,13 @@ int bgp_nb_peer_ebgp_mh_ttl_modify(struct nb_cb_modify_args *args)
 {
 	struct peer *peer;
 	uint8_t ttl;
+	int ret;
 
 	switch (args->event) {
 	case NB_EV_VALIDATE:
 		peer = bgp_nb_config_peer(args->dnode);
-		if (!peer)
-			return NB_OK;
-		if (peer->conf_if) {
-			snprintfrr(args->errmsg, args->errmsg_len,
-				   "ebgp-multihop not valid for interface peer");
-			return NB_ERR_VALIDATION;
-		}
-		if (peer_gtsm_configured(peer)) {
-			snprintfrr(args->errmsg, args->errmsg_len,
-				   "ebgp-multihop and ttl-security are mutually exclusive");
-			return NB_ERR_VALIDATION;
-		}
-		return NB_OK;
+		return bgp_nb_ebgp_mh_validate(args->dnode, peer, true, args->errmsg,
+					       args->errmsg_len);
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
 		return NB_OK;
@@ -4875,7 +5020,12 @@ int bgp_nb_peer_ebgp_mh_ttl_modify(struct nb_cb_modify_args *args)
 		return NB_ERR_NOT_FOUND;
 
 	ttl = yang_dnode_get_uint8(args->dnode, NULL);
-	peer_ebgp_multihop_set(peer, ttl, true);
+	ret = peer_ebgp_multihop_set(peer, ttl, true);
+	if (ret == BGP_ERR_NO_EBGP_MULTIHOP_WITH_TTLHACK)
+		zlog_warn("%s: ebgp-multihop rejected for %s; ttl-security is configured",
+			  __func__, peer->host);
+	else if (ret)
+		return NB_ERR_RESOURCE;
 	return NB_OK;
 }
 
@@ -4931,27 +5081,36 @@ void bgp_nb_cli_show_peer_disable_connected(struct vty *vty, const struct lyd_no
 int bgp_nb_peer_ttl_security_modify(struct nb_cb_modify_args *args)
 {
 	struct peer *peer;
+	const struct lyd_node *nbr, *grp;
 	uint8_t hops;
 	int ret;
 
 	switch (args->event) {
 	case NB_EV_VALIDATE:
 		peer = bgp_nb_config_peer(args->dnode);
-		if (!peer)
-			return NB_OK;
 		hops = yang_dnode_get_uint8(args->dnode, NULL);
-		if (peer->conf_if && hops > 1) {
+		/*
+		 * A neighbor created in this candidate has no running peer
+		 * yet. An interface peer is the unnumbered list entry.
+		 */
+		if (bgp_nb_is_interface_peer(args->dnode, peer) && hops > 1) {
 			snprintfrr(args->errmsg, args->errmsg_len,
 				   "interface peer hops cannot exceed 1");
 			return NB_ERR_VALIDATION;
 		}
 		/*
 		 * Mutual exclusion with ebgp-multihop must be enforced in
-		 * VALIDATE: APPLY-time rejection cannot block the commit, and
-		 * a local-as override may have temporarily sorted the peer as
-		 * iBGP while cfg_ttl still records operator multihop.
+		 * VALIDATE. APPLY-time rejection cannot block the commit.
+		 * Read the candidate: the running peer is absent for a
+		 * same-commit create, and still shows multihop when this
+		 * commit is removing it. Also reject a group whose member
+		 * has multihop, and a member that inherits the group's.
 		 */
-		if (peer_ebgp_multihop_cfg(peer)) {
+		nbr = bgp_nb_peer_container(args->dnode);
+		grp = bgp_nb_candidate_bound_group(args->dnode);
+		if (bgp_nb_candidate_has_ebgp_multihop(nbr) ||
+		    bgp_nb_candidate_member_has(nbr, false) ||
+		    bgp_nb_candidate_has_ebgp_multihop(grp)) {
 			snprintfrr(args->errmsg, args->errmsg_len,
 				   "%%Cannot configure both ttl-security hops and ebgp-multihop");
 			return NB_ERR_VALIDATION;
@@ -4970,9 +5129,13 @@ int bgp_nb_peer_ttl_security_modify(struct nb_cb_modify_args *args)
 
 	ret = peer_ttl_security_hops_set(peer, yang_dnode_get_uint8(args->dnode, NULL));
 	if (ret == BGP_ERR_NO_EBGP_MULTIHOP_WITH_TTLHACK) {
-		snprintfrr(args->errmsg, args->errmsg_len,
-			   "%%Cannot configure both ttl-security hops and ebgp-multihop");
-		return NB_ERR_RESOURCE;
+		/*
+		 * VALIDATE rejects this pair. Failing APPLY cannot roll
+		 * back leaves that were already applied.
+		 */
+		zlog_warn("%s: ttl-security rejected for %s; ebgp-multihop is configured",
+			  __func__, peer->host);
+		return NB_OK;
 	}
 	if (ret)
 		return NB_ERR_RESOURCE;
@@ -6364,6 +6527,7 @@ int bgp_nb_neighbor_peer_group_modify(struct nb_cb_modify_args *args)
 {
 	struct peer *peer;
 	struct peer_group *group;
+	const struct lyd_node *nbr, *grp_node;
 	const char *group_name;
 	as_t as;
 	int ret;
@@ -6371,33 +6535,46 @@ int bgp_nb_neighbor_peer_group_modify(struct nb_cb_modify_args *args)
 	switch (args->event) {
 	case NB_EV_VALIDATE:
 		peer = bgp_nb_config_peer(args->dnode);
+		group_name = yang_dnode_get_string(args->dnode, NULL);
 		/*
 		 * Soft lookup may return NULL (same-candidate create) or a
 		 * stale/wrong entry without a live bgp — never deref blindly.
 		 */
-		if (!peer || !peer->bgp)
-			return NB_OK;
-		if (peer_dynamic_neighbor(peer)) {
+		if (peer && peer->bgp && peer_dynamic_neighbor(peer)) {
 			snprintfrr(args->errmsg, args->errmsg_len,
 				   "operation not allowed on a dynamic neighbor");
 			return NB_ERR_VALIDATION;
 		}
-		group_name = yang_dnode_get_string(args->dnode, NULL);
+		/*
+		 * The neighbor and the group may both be created in this
+		 * candidate. Compare those leaves. Running flags still show
+		 * a knob this commit is removing.
+		 */
+		nbr = bgp_nb_peer_container(args->dnode);
+		grp_node = bgp_nb_candidate_peer_group(args->dnode, group_name);
+		if (nbr && grp_node && bgp_nb_candidate_gtsm_multihop_conflict(nbr, grp_node)) {
+			snprintfrr(args->errmsg, args->errmsg_len,
+				   "%%Cannot configure both ttl-security hops and ebgp-multihop");
+			return NB_ERR_VALIDATION;
+		}
+		if (!peer || !peer->bgp)
+			return NB_OK;
 		group = peer_group_lookup(peer->bgp, group_name);
 		if (!group) {
+			if (grp_node)
+				return NB_OK;
 			snprintfrr(args->errmsg, args->errmsg_len,
 				   "Configure the peer-group first");
 			return NB_ERR_VALIDATION;
 		}
 		/*
-		 * Mirror peer_group_bind(): ebgp-multihop and ttl-security
-		 * cannot be mixed across peer and group. APPLY alone returns
-		 * a generic resource error; reject here so the CLI message
-		 * matches classic behavior.
+		 * Mirror peer_group_bind() when the candidate containers
+		 * were not both visible.
 		 */
-		if ((CHECK_FLAG(peer->flags, PEER_FLAG_EBGP_MULTIHOP) &&
-		     group->conf->gtsm_hops != BGP_GTSM_HOPS_DISABLED) ||
-		    (peer->gtsm_hops != BGP_GTSM_HOPS_DISABLED && group->conf->cfg_ttl != 0)) {
+		if ((!nbr || !grp_node) &&
+		    ((CHECK_FLAG(peer->flags, PEER_FLAG_EBGP_MULTIHOP) &&
+		      group->conf->gtsm_hops != BGP_GTSM_HOPS_DISABLED) ||
+		     (peer->gtsm_hops != BGP_GTSM_HOPS_DISABLED && group->conf->cfg_ttl != 0))) {
 			snprintfrr(args->errmsg, args->errmsg_len,
 				   "%%Cannot configure both ttl-security hops and ebgp-multihop");
 			return NB_ERR_VALIDATION;
@@ -6422,9 +6599,13 @@ int bgp_nb_neighbor_peer_group_modify(struct nb_cb_modify_args *args)
 	as = peer->as;
 	ret = peer_group_bind(peer->bgp, &peer->connection->su, peer, group, &as);
 	if (ret == BGP_ERR_NO_EBGP_MULTIHOP_WITH_TTLHACK) {
-		snprintfrr(args->errmsg, args->errmsg_len,
-			   "%%Cannot configure both ttl-security hops and ebgp-multihop");
-		return NB_ERR_VALIDATION;
+		/*
+		 * VALIDATE rejects this pair. Failing APPLY cannot roll
+		 * back leaves that were already applied.
+		 */
+		zlog_warn("%s: bind rejected for %s; ttl-security and ebgp-multihop conflict",
+			  __func__, peer->host);
+		return NB_OK;
 	}
 	if (ret != 0)
 		return NB_ERR_RESOURCE;
