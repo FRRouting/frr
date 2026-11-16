@@ -2673,7 +2673,8 @@ static void bgp_config_write_maxpaths(struct vty *vty, struct bgp *bgp,
 			bgp->maxpaths[afi][safi].maxpaths_ebgp);
 	}
 
-	if (bgp->maxpaths[afi][safi].maxpaths_ibgp != multipath_num) {
+	if (bgp->maxpaths[afi][safi].maxpaths_ibgp != multipath_num ||
+	    bgp->maxpaths[afi][safi].same_clusterlen) {
 		vty_out(vty, "  maximum-paths ibgp %d",
 			bgp->maxpaths[afi][safi].maxpaths_ibgp);
 		if (bgp->maxpaths[afi][safi].same_clusterlen)
@@ -11475,6 +11476,237 @@ static void print_bgp_vrfs(struct bgp *bgp, struct vty *vty, json_object *json,
 		json_object_string_add(
 			json, "interface",
 			ifindex2ifname(bgp->l3vni_svi_ifindex, bgp->vrf_id));
+<<<<<<< HEAD
+=======
+
+		if (CHECK_FLAG(bm->flags, BM_FLAG_GRACEFUL_RESTART)) {
+			struct graceful_restart_info *gr_info;
+
+			json_object *json_gr = NULL;
+			json_object *json_grs = NULL;
+
+			json_grs = json_object_new_array();
+
+			for (afi = AFI_IP; afi <= AFI_IP6; afi++) {
+				json_gr = json_object_new_object();
+				json_object_string_add(json_gr, "addressFamily",
+						       get_afi_safi_str(afi, safi, false));
+				gr_info = &(bgp->gr_info[afi][safi]);
+				json_object_boolean_add(json_gr, "grEnabled", gr_info->af_enabled);
+				json_object_boolean_add(json_gr, "grPathSelectionDeferral",
+							event_is_scheduled(
+								gr_info->t_select_deferral));
+				if (event_is_scheduled(gr_info->t_select_deferral))
+					json_object_int_add(json_gr, "grDeferralRemainingTimeSec",
+							    event_timer_remain_second(
+								    gr_info->t_select_deferral));
+				json_object_array_add(json_grs, json_gr);
+			}
+			json_object_boolean_add(json, "grRouteSyncPending",
+						bgp->gr_route_sync_pending);
+			json_object_object_add(json, "grs", json_grs);
+		}
+		json_object_int_add(json, "grRestartTime", bgp->restart_time);
+		json_object_int_add(json, "grStalePathTime", bgp->stalepath_time);
+		json_object_int_add(json, "grSelectDeferTime", bgp->select_defer_time);
+		json_object_string_add(json, "grMode", bgp_global_gr_mode_str[gr_mode]);
+		json_object_boolean_add(json, "waitForFibSet",
+					CHECK_FLAG(bgp->flags, BGP_FLAG_SUPPRESS_FIB_PENDING));
+		json_object_boolean_add(json, "gShutEnabled",
+					CHECK_FLAG(bgp->flags, BGP_FLAG_GRACEFUL_SHUTDOWN));
+
+		/* BGP cluster ID. */
+		if (CHECK_FLAG(bgp->config, BGP_CONFIG_CLUSTER_ID))
+			json_object_string_addf(json, "bgpClusterId", "%pI4", &bgp->cluster_id);
+		/* BGP route-reflector allow-outbound-policy. */
+		json_object_boolean_add(json, "rrAllowOutboundPolicy",
+					CHECK_FLAG(bgp->flags, BGP_FLAG_RR_ALLOW_OUTBOUND_POLICY));
+		/* BGP client-to-client reflection. */
+		json_object_boolean_add(json, "noClientToClientReflection",
+					CHECK_FLAG(bgp->flags, BGP_FLAG_NO_CLIENT_TO_CLIENT));
+
+		/* BGP confederation, then timers (JSON key order matches prior output) */
+		print_bgp_vrfs_confederation(vty, bgp, json);
+		print_bgp_vrfs_timers(vty, bgp, json);
+
+		/* listen range and limit for dynamic BGP neighbors info */
+		print_bgp_vrfs_listen_range(vty, bgp, json);
+
+		/* import and export route-target info */
+		print_bgp_vrfs_route_targets(vty, bgp, json);
+
+		/* address-family info */
+		json_object *json_addr = NULL, *json_af = NULL;
+
+		json_af = json_object_new_object();
+		for (afi = AFI_IP; afi <= AFI_IP6; afi++) {
+			json_addr = json_object_new_object();
+			json_object *json_aggregate = NULL, *json_agg = NULL, *json_network = NULL,
+				    *json_static = NULL;
+			struct bgp_dest *dest;
+			const struct prefix *p;
+			struct bgp_aggregate *bgp_aggregate;
+			struct bgp_static *bgp_static;
+
+			json_aggregate = json_object_new_object();
+			json_network = json_object_new_object();
+
+			/* Import VRF route-map info */
+			if (bgp->vpn_policy[afi].rmap_name[BGP_VPN_POLICY_DIR_FROMVPN]) {
+				if (CHECK_FLAG(bgp->af_flags[afi][SAFI_UNICAST],
+					       BGP_CONFIG_VRF_TO_VRF_IMPORT))
+					json_object_string_add(json_addr, "importVrfRouteMap",
+							       bgp->vpn_policy[afi].rmap_name
+								       [BGP_VPN_POLICY_DIR_FROMVPN]);
+				else
+					json_object_string_add(json_addr, "importVpnRouteMap",
+							       bgp->vpn_policy[afi].rmap_name
+								       [BGP_VPN_POLICY_DIR_FROMVPN]);
+			}
+			/* avertise origin, nhg per origin and tablemap info */
+			json_object_string_add(json_addr, "afi",
+					       get_afi_safi_str(afi, safi, false));
+			if (bgp->table_map[afi][safi].name)
+				json_object_string_add(json_addr, "tableMap",
+						       bgp->table_map[afi][safi].name);
+
+			/* bgp multipath info */
+			if (bgp->maxpaths[afi][safi].maxpaths_ebgp != multipath_num)
+				json_object_int_add(json_addr, "ebgpMaximumPaths",
+						    bgp->maxpaths[afi][safi].maxpaths_ebgp);
+			if (bgp->maxpaths[afi][safi].maxpaths_ibgp != multipath_num ||
+			    bgp->maxpaths[afi][safi].same_clusterlen) {
+				json_object_int_add(json_addr, "ibgpMaximumPaths",
+						    bgp->maxpaths[afi][safi].maxpaths_ibgp);
+				json_object_boolean_add(json_addr, "equalClusterLength",
+							bgp->maxpaths[afi][safi].same_clusterlen);
+			}
+
+			/* bgp distance info */
+			if (bgp->distance_ebgp[afi][safi])
+				json_object_int_add(json_addr, "ebgpDistance",
+						    bgp->distance_ebgp[afi][safi]);
+			if (bgp->distance_ibgp[afi][safi])
+				json_object_int_add(json_addr, "ibgpDistance",
+						    bgp->distance_ibgp[afi][safi]);
+			if (bgp->distance_local[afi][safi])
+				json_object_int_add(json_addr, "localDistance",
+						    bgp->distance_local[afi][safi]);
+
+			/* Network configuration (walk static_routes; RIB holds paths, not bgp_static). */
+			if (bgp->static_routes[afi][safi]) {
+				for (dest = bgp_table_top(bgp->static_routes[afi][safi]);
+				     dest; dest = bgp_route_next(dest)) {
+					if (!bgp_dest_has_bgp_path_info_data(dest))
+						continue;
+
+					bgp_static = bgp_dest_get_bgp_static_info(dest);
+					if (bgp_static == NULL)
+						continue;
+
+					p = bgp_dest_get_prefix(dest);
+					json_static = json_object_new_object();
+
+					if (bgp_static->rmap.name)
+						json_object_string_add(json_static, "routeMap",
+								       bgp_static->rmap.name);
+
+					json_object_object_addf(json_network, json_static,
+								"%pFX", p);
+				}
+			}
+			json_object_object_add(json_addr, "network", json_network);
+
+			/* Aggregate-address info */
+			if (bgp->aggregate[afi][safi]) {
+				for (dest = bgp_table_top(bgp->aggregate[afi][safi]); dest;
+				     dest = bgp_route_next(dest)) {
+					bgp_aggregate =
+						bgp_dest_get_bgp_aggregate_info(dest);
+					if (bgp_aggregate == NULL)
+						continue;
+
+					p = bgp_dest_get_prefix(dest);
+					json_agg = json_object_new_object();
+
+					if (bgp_aggregate->as_set)
+						json_object_boolean_add(json_agg, "asSet",
+									bgp_aggregate->as_set);
+					if (bgp_aggregate->summary_only)
+						json_object_boolean_add(json_agg, "summaryOnly",
+									bgp_aggregate->summary_only);
+					if (bgp_aggregate->rmap.name)
+						json_object_string_add(json_agg, "routeMap",
+								       bgp_aggregate->rmap.name);
+
+					json_object_object_addf(json_aggregate, json_agg,
+								"%pFX", p);
+				}
+			}
+			json_object_object_add(json_addr, "aggregateAddress",
+					       json_aggregate);
+
+			json_object_object_add(json_af, get_afi_safi_str(afi, safi, true),
+					       json_addr);
+		}
+		json_object_object_add(json, "addressFamilyInfo", json_af);
+	}
+}
+
+/* Static network / aggregate lines for `show bgp vrfs <name>` (plain text). */
+static void print_bgp_vrfs_detail_network_lines(struct vty *vty, struct bgp *bgp,
+						afi_t afi, safi_t safi)
+{
+	struct bgp_dest *dest;
+	struct bgp_static *bgp_static;
+	const struct prefix *p;
+
+	if (!bgp->static_routes[afi][safi])
+		return;
+
+	for (dest = bgp_table_top(bgp->static_routes[afi][safi]); dest;
+	     dest = bgp_route_next(dest)) {
+		if (!bgp_dest_has_bgp_path_info_data(dest))
+			continue;
+
+		bgp_static = bgp_dest_get_bgp_static_info(dest);
+		if (!bgp_static)
+			continue;
+
+		p = bgp_dest_get_prefix(dest);
+		vty_out(vty, "   network %pFX", p);
+		if (bgp_static->rmap.name)
+			vty_out(vty, " route-map %s", bgp_static->rmap.name);
+		vty_out(vty, "\n");
+	}
+}
+
+static void print_bgp_vrfs_detail_aggregate_lines(struct vty *vty, struct bgp *bgp,
+						  afi_t afi, safi_t safi)
+{
+	struct bgp_dest *dest;
+	struct bgp_aggregate *bgp_aggregate;
+	const struct prefix *p;
+
+	if (!bgp->aggregate[afi][safi])
+		return;
+
+	for (dest = bgp_table_top(bgp->aggregate[afi][safi]); dest;
+	     dest = bgp_route_next(dest)) {
+		bgp_aggregate = bgp_dest_get_bgp_aggregate_info(dest);
+		if (!bgp_aggregate)
+			continue;
+
+		p = bgp_dest_get_prefix(dest);
+		vty_out(vty, "   aggregate-address %pFX", p);
+		if (bgp_aggregate->as_set)
+			vty_out(vty, " as-set");
+		if (bgp_aggregate->summary_only)
+			vty_out(vty, " summary-only");
+		if (bgp_aggregate->rmap.name)
+			vty_out(vty, " route-map %s", bgp_aggregate->rmap.name);
+		vty_out(vty, "\n");
+>>>>>>> db2c10a (bgpd: preserve equal-cluster-length in maxpaths config)
 	}
 }
 
@@ -11506,6 +11738,118 @@ static int show_bgp_vrfs_detail_common(struct vty *vty, struct bgp *bgp,
 						       bgp->vrf_id),
 					&bgp->rmac);
 			}
+<<<<<<< HEAD
+=======
+			if (CHECK_FLAG(bm->flags, BM_FLAG_GRACEFUL_RESTART)) {
+				struct graceful_restart_info *gr_info;
+
+				for (afi = AFI_IP; afi <= AFI_IP6; afi++) {
+					vty_out(vty, "For address-family %s:\n",
+						get_afi_safi_str(afi, safi, false));
+					gr_info = &(bgp->gr_info[afi][safi]);
+					vty_out(vty, "  GR enabled %s Path Selection Deferral %s\n",
+						gr_info->af_enabled ? "YES" : "NO",
+						event_is_scheduled(gr_info->t_select_deferral)
+							? "DONE"
+							: "IN-PROGRESS");
+					if (event_is_scheduled(gr_info->t_select_deferral))
+						vty_out(vty,
+							"  Path selection deferral timer running, remaining time %lds\n",
+							event_timer_remain_second(
+								gr_info->t_select_deferral));
+				}
+				vty_out(vty, "Route sync with zebra %s\n",
+					bgp->gr_route_sync_pending ? "pending" : "completed");
+			}
+			vty_out(vty, "GR Restart Time Configured: %ds\n", bgp->restart_time);
+			vty_out(vty, "GR Stale Path Time Configured: %ds\n", bgp->stalepath_time);
+			vty_out(vty, "GR Select Defer Time Configured: %ds\n",
+				bgp->select_defer_time);
+			vty_out(vty, "Wait for install (FIB suppress pending) is set: %s\n",
+				CHECK_FLAG(bgp->flags, BGP_FLAG_SUPPRESS_FIB_PENDING) ? "YES"
+										      : "NO");
+			vty_out(vty, "BGP Graceful Shutdown is enabled: %s\n",
+				CHECK_FLAG(bgp->flags, BGP_FLAG_GRACEFUL_SHUTDOWN) ? "YES" : "NO");
+
+			/* BGP cluster ID. */
+			if (CHECK_FLAG(bgp->config, BGP_CONFIG_CLUSTER_ID))
+				vty_out(vty, "BGP cluster-id %pI4\n", &bgp->cluster_id);
+
+			/* BGP route-reflector allow-outbound-policy. */
+			if (CHECK_FLAG(bgp->flags, BGP_FLAG_RR_ALLOW_OUTBOUND_POLICY))
+				vty_out(vty, "BGP route-reflector allow-outbound-policy\n");
+
+			/* BGP client-to-client reflection. */
+			if (CHECK_FLAG(bgp->flags, BGP_FLAG_NO_CLIENT_TO_CLIENT))
+				vty_out(vty, "No BGP client-to-client reflection\n");
+
+			/* BGP timers, then confederation (text line order matches prior output) */
+			print_bgp_vrfs_timers(vty, bgp, NULL);
+			print_bgp_vrfs_confederation(vty, bgp, NULL);
+
+			/* listen range and limit for dynamic BGP neighbors info */
+			print_bgp_vrfs_listen_range(vty, bgp, NULL);
+
+			/* import export route-target info */
+			print_bgp_vrfs_route_targets(vty, bgp, NULL);
+
+			/* address-family info */
+			for (afi = AFI_IP; afi <= AFI_IP6; afi++) {
+				vty_out(vty, "For address-family %s:\n",
+					get_afi_safi_str(afi, safi, false));
+				/* Import VRF route-map info */
+				if (bgp->vpn_policy[afi].rmap_name[BGP_VPN_POLICY_DIR_FROMVPN]) {
+					if (CHECK_FLAG(bgp->af_flags[afi][SAFI_UNICAST],
+						       BGP_CONFIG_VRF_TO_VRF_IMPORT))
+						vty_out(vty, "   Import Vrf Route-map %s\n",
+							bgp->vpn_policy[afi].rmap_name
+								[BGP_VPN_POLICY_DIR_FROMVPN]);
+					else
+						vty_out(vty, "   Import Vpn Route-map %s\n",
+							bgp->vpn_policy[afi].rmap_name
+								[BGP_VPN_POLICY_DIR_FROMVPN]);
+				}
+
+				if (bgp->table_map[afi][safi].name)
+					vty_out(vty, "   BGP Tablemap %s\n",
+						bgp->table_map[afi][safi].name);
+
+				/* bgp multipath configuration */
+				if (bgp->maxpaths[afi][safi].maxpaths_ebgp != multipath_num) {
+					vty_out(vty, "   EBGP Maximumpaths %d\n",
+						bgp->maxpaths[afi][safi].maxpaths_ebgp);
+				}
+				if (bgp->maxpaths[afi][safi].maxpaths_ibgp != multipath_num ||
+				    bgp->maxpaths[afi][safi].same_clusterlen) {
+					vty_out(vty, "   IBGP Maximumpaths %d\n",
+						bgp->maxpaths[afi][safi].maxpaths_ibgp);
+					if (bgp->maxpaths[afi][safi].same_clusterlen)
+						vty_out(vty, "   Equal Cluster Length: %s\n",
+							bgp->maxpaths[afi][safi].same_clusterlen
+								? "YES"
+								: "NO");
+				}
+
+				/* bgp distance configuration */
+				if (bgp->distance_ebgp[afi][safi])
+					vty_out(vty, "   BGP Distance Ebgp %d\n",
+						bgp->distance_ebgp[afi][safi]);
+				if (bgp->distance_ibgp[afi][safi])
+					vty_out(vty, "   BGP Distance Ibgp %d\n",
+						bgp->distance_ibgp[afi][safi]);
+				if (bgp->distance_local[afi][safi])
+					vty_out(vty, "   BGP Distance Local %d\n",
+						bgp->distance_local[afi][safi]);
+
+				/* Network configuration (walk static_routes; RIB holds paths, not bgp_static). */
+				print_bgp_vrfs_detail_network_lines(vty, bgp, afi, safi);
+				vty_out(vty, "\n");
+
+				/* Aggregate-address info */
+				print_bgp_vrfs_detail_aggregate_lines(vty, bgp, afi, safi);
+				vty_out(vty, "\n");
+			}
+>>>>>>> db2c10a (bgpd: preserve equal-cluster-length in maxpaths config)
 		}
 	} else {
 		if (json) {
