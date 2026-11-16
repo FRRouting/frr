@@ -23,6 +23,7 @@
 #include "zclient.h"
 #include "lib/json.h"
 #include "bgpd/bgpd.h"
+#include "bgpd/bgp_nsr.h"
 #include "bgpd/bgp_attr.h"
 #include "bgpd/bgp_debug.h"
 #include "bgpd/bgp_errors.h"
@@ -618,6 +619,14 @@ static void bgp_holdtime_timer(struct event *event)
 
 	EVENT_VAL(event) = Hold_Timer_expired;
 	bgp_event(event); /* bgp_event unlocks peer */
+}
+
+int cnlab_bgp_restore_hold_timer(struct peer_connection *c,int64_t remaining_us)
+{
+    if(c->status!=Established||remaining_us<=0||remaining_us>(int64_t)c->peer->v_holdtime*1000000)return -1;
+    event_cancel(&c->t_holdtime);
+    struct timeval remaining={.tv_sec=remaining_us/1000000,.tv_usec=remaining_us%1000000};
+    event_add_timer_tv(bm->master,bgp_holdtime_timer,c,&remaining,&c->t_holdtime);return 0;
 }
 
 void bgp_routeadv_timer(struct event *event)

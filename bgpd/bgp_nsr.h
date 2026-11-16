@@ -7,4 +7,7 @@ DECLARE_HOOK(cnlab_bgp_input, (struct peer_connection *c, uint8_t type, bgp_size
 DECLARE_HOOK(cnlab_bgp_written, (struct peer_connection *c, const struct iovec *iov, size_t count, size_t accepted), (c,iov,count,accepted));
 DECLARE_HOOK(cnlab_bgp_socket_identity, (int fd, const union sockunion *local, const union sockunion *remote), (fd,local,remote));
 
+int cnlab_bgp_restore_hold_timer(struct peer_connection *c,int64_t remaining_us);
+bool cnlab_bgp_keepalive_pause(struct peer_connection *c,struct timeval *last);
+void cnlab_bgp_keepalive_resume(struct peer_connection *c,const struct timeval *last);
 #endif

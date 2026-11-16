@@ -19,6 +19,7 @@
 #include "bgpd/bgp_debug.h"	// for bgp_debug_neighbor_events
 #include "bgpd/bgp_packet.h"	// for bgp_keepalive_send
 #include "bgpd/bgp_keepalives.h"
+#include "bgpd/bgp_nsr.h"
 /* clang-format on */
 
 DEFINE_MTYPE_STATIC(BGPD, BGP_PKAT, "Peer KeepAlive Timer");
@@ -231,6 +232,9 @@ void *bgp_keepalives_start(void *arg)
 
 void bgp_keepalives_on(struct peer_connection *connection)
 {
+	/* Fd-less replicas schedule native KEEPALIVE only from real source output. */
+	if (getenv("CNLAB_NSR_BGP_CONSUME_OUTPUT") && connection->fd < 0)
+		return;
 	struct peer *peer = connection->peer;
 
 	struct frr_pthread *fpt = bgp_pth_ka;
@@ -258,6 +262,33 @@ void bgp_keepalives_on(struct peer_connection *connection)
 		/* Force the keepalive thread to wake up */
 		pthread_cond_signal(peerhash_cond);
 	}
+}
+
+/* Preserve the real scheduler clock across a checkpoint, without postponing KA. */
+bool cnlab_bgp_keepalive_pause(struct peer_connection *connection, struct timeval *last)
+{
+    struct peer *peer=connection->peer;struct pkat holder={.peer=peer};bool paused=false;
+    frr_with_mutex(peerhash_mtx) {
+        if (CHECK_FLAG(peer->thread_flags,PEER_THREAD_KEEPALIVES_ON)) {
+            struct pkat *saved=hash_release(peerhash,&holder);
+            if (saved) {*last=saved->last;pkat_del(saved);peer_unlock(peer);paused=true;}
+            UNSET_FLAG(peer->thread_flags,PEER_THREAD_KEEPALIVES_ON);
+        }
+    }
+    return paused;
+}
+void cnlab_bgp_keepalive_resume(struct peer_connection *connection,const struct timeval *last)
+{
+    struct peer *peer=connection->peer;struct pkat holder={.peer=peer};
+    frr_with_mutex(peerhash_mtx) {
+        if (!CHECK_FLAG(peer->thread_flags,PEER_THREAD_KEEPALIVES_ON)) {
+            if (!hash_lookup(peerhash,&holder)) {
+                struct pkat *saved=pkat_new(peer);saved->last=*last;
+                (void)hash_get(peerhash,saved,hash_alloc_intern);peer_lock(peer);
+            }
+            SET_FLAG(peer->thread_flags,PEER_THREAD_KEEPALIVES_ON);pthread_cond_signal(peerhash_cond);
+        }
+    }
 }
 
 void bgp_keepalives_off(struct peer_connection *connection)
