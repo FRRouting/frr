@@ -3262,6 +3262,11 @@ void bgp_fsm_nht_update(struct peer_connection *connection, struct peer *peer,
 	if (!peer)
 		return;
 
+	/* A shadow has no local TCP transport whose reachability NHT can
+	 * invalidate. Replay source protocol inputs; keep local RIB/FIB gates. */
+	if (getenv("CNLAB_NSR_BGP_FOLLOWER") && connection->fd < 0)
+		return;
+
 	switch (connection->status) {
 	case Idle:
 		if (has_valid_nexthops)
