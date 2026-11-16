@@ -265,6 +265,7 @@ void zlog_tls_buffer_init(void)
 	struct zlog_tls *zlog_tls;
 	char mmpath[MAXPATHLEN];
 	int mmfd;
+	int err;
 	size_t i;
 
 	zlog_tls = zlog_tls_get();
@@ -288,12 +289,15 @@ void zlog_tls_buffer_init(void)
 	fchown(mmfd, zlog_uid, zlog_gid);
 
 #ifdef HAVE_POSIX_FALLOCATE
-	if (posix_fallocate(mmfd, 0, TLS_LOG_BUF_SIZE) != 0)
-	/* note next statement is under above if() */
+	err = posix_fallocate(mmfd, 0, TLS_LOG_BUF_SIZE);
+#else
+	err = EOPNOTSUPP;
 #endif
-	if (ftruncate(mmfd, TLS_LOG_BUF_SIZE) < 0) {
-		zlog_err("failed to allocate thread log buffer \"%s\": %s",
-			 mmpath, strerror(errno));
+	/* space cannot be reserved on this system or filesystem: only set the size */
+	if (err == EOPNOTSUPP || err == EINVAL)
+		err = ftruncate(mmfd, TLS_LOG_BUF_SIZE) < 0 ? errno : 0;
+	if (err != 0) {
+		zlog_err("failed to allocate thread log buffer \"%s\": %s", mmpath, strerror(err));
 		goto out_anon_unlink;
 	}
 
