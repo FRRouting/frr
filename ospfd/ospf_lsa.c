@@ -2056,8 +2056,10 @@ static struct ospf_lsa *ospf_lsa_translated_nssa_new(struct ospf *ospf,
 
 	extnew = (struct as_external_lsa *)(new->data);
 
-	/* copy over Type-7 data to new */
+	/* copy over Type-7 data to new (RFC 3101, section 3.2) */
 	extnew->e[0].tos = ext->e[0].tos;
+	/* the metric is the Type-7's, not this ABR's default metric */
+	memcpy(extnew->e[0].metric, ext->e[0].metric, sizeof(extnew->e[0].metric));
 	extnew->e[0].route_tag = ext->e[0].route_tag;
 	if (type7->area->suppress_fa) {
 		extnew->e[0].fwd_addr.s_addr = 0;
