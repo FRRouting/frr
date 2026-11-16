@@ -5062,10 +5062,10 @@ static int vtysh_connect(struct vtysh_client *vclient)
 
 	sock = socket(AF_UNIX, SOCK_STREAM, 0);
 	if (sock < 0) {
-#ifdef DEBUG
+#ifdef VTYSH_DEBUG
 		fprintf(stderr, "vtysh_connect(%s): socket = %s\n", path,
 			safe_strerror(errno));
-#endif /* DEBUG */
+#endif /* VTYSH_DEBUG */
 		return -1;
 	}
 
@@ -5080,10 +5080,10 @@ static int vtysh_connect(struct vtysh_client *vclient)
 
 	ret = connect(sock, (struct sockaddr *)&addr, len);
 	if (ret < 0) {
-#ifdef DEBUG
+#ifdef VTYSH_DEBUG
 		fprintf(stderr, "vtysh_connect(%s): connect = %s\n", path,
 			safe_strerror(errno));
-#endif /* DEBUG */
+#endif /* VTYSH_DEBUG */
 		close(sock);
 		return -1;
 	}
@@ -5094,10 +5094,10 @@ static int vtysh_connect(struct vtysh_client *vclient)
 	 */
 	ret = setsockopt_so_recvbuf(sock, rcvbufsize);
 	if (ret <= 0) {
-#ifdef DEBUG
+#ifdef VTYSH_DEBUG
 		fprintf(stderr, "Cannot set socket %d rcv buffer size, %s\n",
 			sock, safe_strerror(errno));
-#endif /* DEBUG */
+#endif /* VTYSH_DEBUG */
 		close(sock);
 		return -1;
 	}
