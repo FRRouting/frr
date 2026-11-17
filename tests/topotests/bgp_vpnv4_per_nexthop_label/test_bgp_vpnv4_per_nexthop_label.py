@@ -213,21 +213,21 @@ def bgp_vpnv4_table_check(
         for _, pathes in dump.items():
             for path in pathes["paths"]:
                 assert (
-                    "remoteLabel" in path.keys()
-                ), "{0}, {1}, remoteLabel not present".format(router.name, prefix)
+                    "remoteLabels" in path.keys()
+                ), "{0}, {1}, remoteLabels not present".format(router.name, prefix)
                 logger.info(
                     "{0}, {1}, label value is {2}".format(
-                        router.name, prefix, path["remoteLabel"]
+                        router.name, prefix, path["remoteLabels"][0]
                     )
                 )
                 if stored_label_inited:
                     assert (
-                        path["remoteLabel"] == stored_label
+                        path["remoteLabels"][0] == stored_label
                     ), "{0}, {1}, label value not expected one (expected {2}, observed {3}".format(
-                        router.name, prefix, stored_label, path["remoteLabel"]
+                        router.name, prefix, stored_label, path["remoteLabels"][0]
                     )
                 else:
-                    stored_label = path["remoteLabel"]
+                    stored_label = path["remoteLabels"][0]
                     stored_label_inited = True
                     if label_list is not None:
                         assert (
@@ -239,9 +239,9 @@ def bgp_vpnv4_table_check(
 
                 if label_value_expected:
                     assert (
-                        path["remoteLabel"] == label_value_expected
+                        path["remoteLabels"][0] == label_value_expected
                     ), "{0}, {1}, label value not expected (expected {2}, observed {3}".format(
-                        router.name, prefix, label_value_expected, path["remoteLabel"]
+                        router.name, prefix, label_value_expected, path["remoteLabels"][0]
                     )
 
 
@@ -344,7 +344,7 @@ def check_show_bgp_vpn_prefix_not_found(router, ipversion, prefix, rd, label=Non
         router.vtysh_cmd("show bgp {} vpn {} json".format(ipversion, prefix))
     )
     if label:
-        expected = {rd: {"prefix": prefix, "paths": [{"remoteLabel": label}]}}
+        expected = {rd: {"prefix": prefix, "paths": [{"remoteLabels": [label]}]}}
     else:
         expected = {rd: {"prefix": prefix}}
     ret = topotest.json_cmp(output, expected)

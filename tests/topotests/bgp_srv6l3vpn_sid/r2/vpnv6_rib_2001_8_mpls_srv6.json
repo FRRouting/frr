@@ -20,7 +20,7 @@
         "extendedCommunity":{
           "string":"RT:55:55"
         },
-        "remoteLabel":48,
+        "remoteLabels": [48],
         "remoteSid":"2002:db8:1:1::",
         "remoteSidStructure":{
           "locatorBlockLen":40,
@@ -60,7 +60,7 @@
         "extendedCommunity":{
           "string":"RT:55:55"
         },
-        "remoteLabel":16,
+        "remoteLabels": [16],
         "nexthops":[
           {
             "ip":"2001::1",

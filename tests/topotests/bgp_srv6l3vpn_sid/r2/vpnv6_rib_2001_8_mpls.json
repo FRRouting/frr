@@ -22,7 +22,7 @@
         "extendedCommunity":{
           "string":"RT:55:55"
         },
-        "remoteLabel":16,
+        "remoteLabels": [16],
         "nexthops":[
           {
             "ip":"2001::1",

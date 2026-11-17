@@ -25,7 +25,6 @@
           "string":"RT:88:88"
         },
         "originatorId":"192.0.2.1",
-        "remoteLabel":16,
         "remoteLabels":[
           16
         ],

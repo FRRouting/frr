@@ -29,7 +29,7 @@
                 "extendedCommunity":{
                     "string":"RT:52:101"
                 },
-                "remoteLabel":102,
+                "remoteLabels": [102],
                 "nexthops":[
                     {
                         "ip":"192.168.0.1",

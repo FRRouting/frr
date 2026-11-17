@@ -30,7 +30,7 @@
           "string":"RT:55:55"
         },
         "originatorId":"192.0.2.1",
-        "remoteLabel":48,
+        "remoteLabels": [48],
         "remoteSid":"2002:db8:1:1::",
         "remoteSidStructure": {
           "locatorBlockLen":40,

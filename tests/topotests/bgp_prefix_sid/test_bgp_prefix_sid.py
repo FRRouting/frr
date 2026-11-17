@@ -85,7 +85,7 @@ def test_r1_receive_and_advertise_prefix_sid_type1():
             "paths": [
                 {
                     "valid": True,
-                    "remoteLabel": remoteLabel,
+                    "remoteLabels": [remoteLabel],
                     "labelIndex": labelIndex,
                 }
             ],

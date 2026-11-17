@@ -14820,13 +14820,6 @@ skip_nexthop:
 	if (bgp_path_info_has_valid_label(path) &&
 	    (safi != SAFI_EVPN && !is_route_parent_evpn(path))) {
 		if (json_paths) {
-#if CONFDATE > 20261107
-			CPP_NOTICE("Remove 'remoteLabel' field");
-#endif
-			/* For backward compatibility write top label to remoteLabel */
-			json_object_int_add(json_path, "remoteLabel",
-					    decode_label(&path->extra->labels->label[0]));
-
 			/* Write full stack to remoteLabels */
 			json_labels = json_object_new_array();
 			for (int label_index = 0; label_index < path->extra->labels->num_labels;
