@@ -4478,6 +4478,23 @@ int lib_interface_isis_mpls_holddown_destroy(struct nb_cb_destroy_args *args)
 }
 
 /*
+ * XPath: /frr-interface:lib/interface/frr-isisd:isis/mpls/te-link-identifiers
+ */
+int lib_interface_isis_mpls_te_link_identifiers_modify(struct nb_cb_modify_args *args)
+{
+	struct isis_circuit *circuit;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	circuit = nb_running_get_entry(args->dnode, NULL, true);
+	circuit->te_link_identifiers = yang_dnode_get_bool(args->dnode, NULL);
+	isis_mpls_te_circuit_llri_update(circuit);
+
+	return NB_OK;
+}
+
+/*
  * XPath:
  * /frr-interface:lib/interface/frr-isisd:isis/fast-reroute/level-1/lfa/enable
  */

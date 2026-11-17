@@ -245,8 +245,10 @@ static int process_p2p_hello(struct iih_info *iih)
 		adj->sys_type = ISIS_SYSTYPE_UNKNOWN;
 	}
 
-	if (tw_adj)
+	if (tw_adj && adj->ext_circuit_id != tw_adj->local_circuit_id) {
 		adj->ext_circuit_id = tw_adj->local_circuit_id;
+		isis_mpls_te_circuit_llri_update(iih->circuit);
+	}
 
 	/* 8.2.6 Monitoring point-to-point adjacencies */
 	adj->hold_time = iih->holdtime;

@@ -155,6 +155,7 @@ struct isis_circuit {
 #define ISIS_CIRCUIT_IF_DOWN_FROM_Z    0x02
 	uint8_t flags;
 	bool disable_threeway_adj;
+	bool te_link_identifiers;
 	/* p2p: CSNPs only when an adjacency comes up */
 	bool disable_p2p_periodic_csnp;
 	/* route IPv4 over IPv6 link-local nexthops where IPv4 has none? */

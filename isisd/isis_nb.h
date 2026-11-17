@@ -291,6 +291,7 @@ int lib_interface_isis_multi_topology_ipv6_dstsrc_modify(struct nb_cb_modify_arg
 int lib_interface_isis_mpls_ldp_sync_modify(struct nb_cb_modify_args *args);
 int lib_interface_isis_mpls_holddown_modify(struct nb_cb_modify_args *args);
 int lib_interface_isis_mpls_holddown_destroy(struct nb_cb_destroy_args *args);
+int lib_interface_isis_mpls_te_link_identifiers_modify(struct nb_cb_modify_args *args);
 int lib_interface_isis_fast_reroute_level_1_lfa_enable_modify(struct nb_cb_modify_args *args);
 int lib_interface_isis_fast_reroute_level_1_lfa_exclude_interface_create(
 	struct nb_cb_create_args *args);
@@ -541,6 +542,8 @@ void cli_show_isis_mpls_if_ldp_sync(struct vty *vty, const struct lyd_node *dnod
 				    bool show_defaults);
 void cli_show_isis_mpls_if_ldp_sync_holddown(struct vty *vty, const struct lyd_node *dnode,
 					     bool show_defaults);
+void cli_show_isis_mpls_if_te_link_identifiers(struct vty *vty, const struct lyd_node *dnode,
+					       bool show_defaults);
 void cli_show_isis_flex_algo(struct vty *vty, const struct lyd_node *dnode, bool show_defaults);
 void cli_show_isis_flex_algo_end(struct vty *vty, const struct lyd_node *dnode);
 

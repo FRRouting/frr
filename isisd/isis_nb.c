@@ -1543,6 +1543,13 @@ const struct frr_yang_module_info frr_isisd_info = {
 			}
 		},
 		{
+			.xpath = "/frr-interface:lib/interface/frr-isisd:isis/mpls/te-link-identifiers",
+			.cbs = {
+				.cli_show = cli_show_isis_mpls_if_te_link_identifiers,
+				.modify = lib_interface_isis_mpls_te_link_identifiers_modify,
+			}
+		},
+		{
 			.xpath = NULL,
 		},
 	}

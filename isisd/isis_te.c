@@ -484,8 +484,59 @@ void isis_link_params_update(struct isis_circuit *circuit, struct interface *ifp
 	}
 
 	isis_link_params_update_asla(circuit, ifp);
+	isis_mpls_te_circuit_llri_update(circuit);
 
 	return;
+}
+
+/*
+ * Link Local/Remote Identifiers (RFC 5307 section 1.1) of a point-to-point
+ * circuit: the Extended Local Circuit IDs of both ends, as exchanged by the
+ * three-way handshake (RFC 5303). The remote one is 0 when unknown.
+ */
+void isis_mpls_te_circuit_llri_update(struct isis_circuit *circuit)
+{
+	struct isis_ext_subtlvs *ext = circuit->ext;
+	struct isis_adjacency *adj = NULL;
+	uint32_t local_llri, remote_llri;
+	bool was_set;
+
+	if (!ext || !circuit->area)
+		return;
+
+	was_set = !!IS_SUBTLV(ext, EXT_LLRI);
+	local_llri = ext->local_llri;
+	remote_llri = ext->remote_llri;
+
+	if (circuit->circ_type == CIRCUIT_T_P2P)
+		adj = circuit->u.p2p.neighbor;
+
+	if (IS_MPLS_TE(circuit->area->mta) && circuit->te_link_identifiers && adj &&
+	    adj->adj_state == ISIS_ADJ_UP) {
+		ext->local_llri = isis_circuit_ext_id(circuit);
+		ext->remote_llri = adj->ext_circuit_id;
+		SET_SUBTLV(ext, EXT_LLRI);
+	} else
+		UNSET_SUBTLV(ext, EXT_LLRI);
+
+	if (was_set == !!IS_SUBTLV(ext, EXT_LLRI) &&
+	    (!was_set || (local_llri == ext->local_llri && remote_llri == ext->remote_llri)))
+		return;
+
+	te_debug("ISIS-TE(%s): %s Link Local/Remote Identifiers %u/%u on %s",
+		 circuit->area->area_tag, IS_SUBTLV(ext, EXT_LLRI) ? "Set" : "Unset",
+		 ext->local_llri, ext->remote_llri,
+		 circuit->interface ? circuit->interface->name : "?");
+
+	lsp_regenerate_schedule(circuit->area, circuit->is_type, 0);
+}
+
+static int isis_mpls_te_adj_state_change(struct isis_adjacency *adj)
+{
+	if (adj->circuit)
+		isis_mpls_te_circuit_llri_update(adj->circuit);
+
+	return 0;
 }
 
 static int _isis_mpls_te_adj_ip_enabled(struct isis_adjacency *adj, int family, bool global)
@@ -2197,6 +2248,7 @@ void isis_mpls_te_init(void)
 	hook_register(isis_if_new_hook, isis_mpls_te_update);
 	hook_register(isis_adj_ip_enabled_hook, isis_mpls_te_adj_ip_enabled);
 	hook_register(isis_adj_ip_disabled_hook, isis_mpls_te_adj_ip_disabled);
+	hook_register(isis_adj_state_change_hook, isis_mpls_te_adj_state_change);
 
 #ifndef FABRICD
 	/* Register new VTY commands */
