@@ -73,34 +73,38 @@ static void agentx_read(struct event *t)
 {
 	netsnmp_large_fd_set lfds;
 	int flags, new_flags = 0;
-	int nonblock = false;
+	bool restore = false;
 	struct listnode *ln = EVENT_ARG(t);
 	struct event **thr = listgetdata(ln);
 	XFREE(MTYPE_TMP, thr);
 	list_delete_node(events, ln);
 
+	/*
+	 * The listener for this fd is gone now. This event is one-shot and
+	 * only agentx_events_update() below puts the session's fd back on
+	 * the event loop, so no path out of here may skip it. snmpd dropping
+	 * the AgentX socket lands here, and returning early would leave
+	 * net-snmp unread: it would never see the disconnect or start its
+	 * reconnect.
+	 */
+
 	/* fix for non blocking socket */
 	flags = fcntl(EVENT_FD(t), F_GETFL, 0);
-	if (-1 == flags) {
-		/* The session fd is already gone. Logging here repeats once
-		 * per read after snmpd drops the AgentX socket.
+	if (flags == -1) {
+		/*
+		 * The session fd is already gone. Logging here repeats once
+		 * per read after snmpd drops the AgentX socket. Still run
+		 * snmp_read2(): it is what notices a dead transport.
 		 */
 		if (errno != EBADF)
 			flog_err(EC_LIB_SYSTEM_CALL, "Failed to get FD settings fcntl: %s(%d)",
 				 strerror(errno), errno);
-		return;
-	}
-
-	if (flags & O_NONBLOCK)
-		nonblock = true;
-	else
+	} else if (!(flags & O_NONBLOCK)) {
+		restore = true;
 		new_flags = fcntl(EVENT_FD(t), F_SETFL, flags | O_NONBLOCK);
-
-	if (new_flags == -1) {
-		if (errno == EBADF)
-			return;
-		flog_err(EC_LIB_SYSTEM_CALL, "Failed to set snmp fd non blocking: %s(%d)",
-			 strerror(errno), errno);
+		if (new_flags == -1 && errno != EBADF)
+			flog_err(EC_LIB_SYSTEM_CALL, "Failed to set snmp fd non blocking: %s(%d)",
+				 strerror(errno), errno);
 	}
 
 	netsnmp_large_fd_set_init(&lfds, FD_SETSIZE);
@@ -109,9 +113,10 @@ static void agentx_read(struct event *t)
 
 	/* Reset the flag. Leave the socket blocking: netsnmp's stream
 	 * send treats a short write as success and would split an AgentX
-	 * message if the fd stayed O_NONBLOCK.
+	 * message if the fd stayed O_NONBLOCK. Nothing to undo when
+	 * F_GETFL failed: flags is -1 then.
 	 */
-	if (!nonblock) {
+	if (restore) {
 		new_flags = fcntl(EVENT_FD(t), F_SETFL, flags);
 
 		if (new_flags == -1 && errno != EBADF)
