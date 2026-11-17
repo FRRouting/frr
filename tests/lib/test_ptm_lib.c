@@ -204,6 +204,91 @@ static void test_raw_messages(ptm_lib_handle_t *hdl)
 		send_raw(hdl, &cases[i]);
 }
 
+/*
+ * Message lengths that must be refused before any body is read.  A guard
+ * byte right past the input buffer catches the NUL terminator that
+ * ptm_lib_process_msg() writes at inbuf[len].
+ */
+#define GUARD_BYTE 0xa5
+
+static void send_length(ptm_lib_handle_t *hdl, const char *name, int inlen, const char *hdr,
+			const char *body, size_t body_len, int expected_errno)
+{
+	struct {
+		char buf[RAW_SOCKBUF];
+		unsigned char guard[16];
+	} in;
+	unsigned char *guard;
+	int fds[2];
+	int before = raw_notifications;
+	int rc;
+
+	assert(inlen > PTMLIB_MSG_HDR_LEN && inlen <= RAW_SOCKBUF);
+	guard = inlen < RAW_SOCKBUF ? (unsigned char *)&in.buf[inlen] : in.guard;
+
+	assert(socketpair(AF_UNIX, SOCK_STREAM, 0, fds) == 0);
+	assert(write(fds[0], hdr, PTMLIB_MSG_HDR_LEN) == PTMLIB_MSG_HDR_LEN);
+	if (body_len)
+		assert(write(fds[0], body, body_len) == (ssize_t)body_len);
+
+	memset(&in, 'Z', sizeof(in));
+	*guard = GUARD_BYTE;
+
+	printf("length: %s\n", name);
+	errno = 0;
+	rc = ptm_lib_process_msg(hdl, fds[1], in.buf, inlen, &raw_notifications);
+	assert(rc == -1);
+	/* 0 means errno is unspecified on this path, do not check it */
+	if (expected_errno)
+		assert(errno == expected_errno);
+	assert(*guard == GUARD_BYTE);
+	assert(raw_notifications == before);
+
+	close(fds[0]);
+	close(fds[1]);
+}
+
+static void test_bad_lengths(ptm_lib_handle_t *hdl)
+{
+	char hdr[PTMLIB_MSG_HDR_LEN + 1];
+	static char body[RAW_SOCKBUF];
+	static const int msglens[] = { -1, 0, RAW_SOCKBUF };
+	static const char *const names[] = { "negative framed length", "zero framed length",
+					     "buffer-sized framed length" };
+	size_t i;
+
+	memset(body, 'A', sizeof(body));
+
+	/*
+	 * Framed messages: the length in the header is rejected with
+	 * EBADMSG so that zebra drops the connection.  The last case sends
+	 * a body that fills the buffer exactly, which puts the terminator
+	 * one byte past it when the length is accepted.
+	 */
+	for (i = 0; i < array_size(msglens); i++) {
+		snprintfrr(hdr, sizeof(hdr), "%4d,%4d,%4d,%4d,%16.16s\n", msglens[i],
+			   PTMLIB_MSG_VERSION, PTMLIB_MSG_TYPE_NOTIFICATION, 0, "ptmd");
+		assert(strlen(hdr) == PTMLIB_MSG_HDR_LEN);
+		send_length(hdl, names[i], RAW_SOCKBUF, hdr, body,
+			    msglens[i] > 0 ? (size_t)msglens[i] : 0, EBADMSG);
+	}
+
+	/*
+	 * Legacy command: a header that does not decode as CSV makes the
+	 * rest of the buffer be read as a plain text command.  Send enough
+	 * to fill a 64 byte buffer; the read must stop one byte short so the
+	 * terminator stays inside it.  The command is unknown, so the result
+	 * is -1; errno is not set by that path and allocator internals may
+	 * leave anything in it, so it is not checked.
+	 */
+	memset(hdr, 'x', PTMLIB_MSG_HDR_LEN);
+	hdr[PTMLIB_MSG_HDR_LEN - 1] = '\n';
+	hdr[PTMLIB_MSG_HDR_LEN] = '\0';
+	memset(body, 'x', 64 - PTMLIB_MSG_HDR_LEN);
+	send_length(hdl, "legacy command filling the buffer", 64, hdr, body,
+		    64 - PTMLIB_MSG_HDR_LEN, 0);
+}
+
 int main(int argc, char **argv)
 {
 	ptm_lib_handle_t *hdl;
@@ -215,6 +300,7 @@ int main(int argc, char **argv)
 	test_find_key(hdl);
 	test_empty_csv_record();
 	test_raw_messages(hdl);
+	test_bad_lengths(hdl);
 
 	ptm_lib_deregister(hdl);
 	printf("done\n");
