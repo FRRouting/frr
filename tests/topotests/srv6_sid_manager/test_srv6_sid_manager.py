@@ -927,6 +927,96 @@ format usid-f3216
     check_ping("ce1", "2001:2::2", True, 10, 1)
 
 
+def test_explicit_wide_sid_after_wide_lib_change():
+    """
+    Grow the Wide LIB of a format used by a locator, and verify an explicit wide
+    SID past the end of the former Wide LIB is allocated, installed, and
+    advertised.
+    """
+    tgen = get_topogen()
+
+    # Required linux kernel version for this suite to run.
+    result = required_linux_kernel_version("6.1")
+    if result is not True:
+        pytest.skip("Kernel requirements are not met, kernel version should be >=6.1")
+
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    rt1 = tgen.gears["rt1"]
+    rt6 = tgen.gears["rt6"]
+    # function 0xffdc (65500), index 100 in the Wide LIB array, wide function 1
+    sid = "fc00:0:1:ffdc:1::"
+    format_context = """configure terminal
+segment-routing
+srv6
+formats
+format usid-f3216
+"""
+    vrf_context = """configure terminal
+router bgp 1 vrf vrf10
+address-family ipv6 unicast
+"""
+
+    step("Grow the Wide LIB and use an explicit wide SID", reset=True)
+    rt1.vtysh_cmd(
+        format_context
+        + """wide-local-id-block start 65400 end 65535
+wide-local-id-block explicit start 65400
+"""
+    )
+    rt1.vtysh_cmd(
+        vrf_context
+        + """no sid vpn export 65024
+sid vpn export explicit {}
+""".format(
+            sid
+        )
+    )
+
+    check_lifecycle = functools.partial(_check_srv6_sid_lifecycle, rt1, rt6, sid, True)
+    _, result = topotest.run_and_expect(check_lifecycle, None, count=30, wait=1)
+    assert result is None, (
+        "Explicit wide SID {} was not allocated, installed, and advertised: "
+        "{}".format(sid, result)
+    )
+
+    step("Shrink the Wide LIB back so the SID falls outside it")
+    rt1.vtysh_cmd(
+        format_context
+        + """no wide-local-id-block
+no wide-local-id-block explicit
+"""
+    )
+
+    check_lifecycle = functools.partial(_check_srv6_sid_lifecycle, rt1, rt6, sid, False)
+    _, result = topotest.run_and_expect(check_lifecycle, None, count=30, wait=1)
+    assert result is None, (
+        "SID {} remained allocated, installed, or advertised outside the Wide "
+        "LIB: {}".format(sid, result)
+    )
+
+    step("Restore the default explicit SID")
+    rt1.vtysh_cmd(
+        vrf_context
+        + """no sid vpn export explicit {}
+sid vpn export 65024
+""".format(
+            sid
+        )
+    )
+
+    default_sid = "fc00:0:1:fe00::"
+    check_lifecycle = functools.partial(
+        _check_srv6_sid_lifecycle, rt1, rt6, default_sid, True
+    )
+    _, result = topotest.run_and_expect(check_lifecycle, None, count=30, wait=1)
+    assert result is None, (
+        "Default explicit SID {} was not allocated, installed, and advertised: "
+        "{}".format(default_sid, result)
+    )
+
+
 # Memory leak test template
 def test_memory_leak():
     "Run the memory leak test and report results."
