@@ -517,18 +517,18 @@ def test_usid_wide_lib_explicit_range():
 
     # The Wide LIB can move above the Explicit Wide LIB start
     output = router.vtysh_cmd(
-        USID_F4816_CONTEXT + "wide-local-id-block start 100000 end 100010\n"
+        USID_F4816_CONTEXT + "wide-local-id-block start 65530 end 65535\n"
     )
     assert (
-        "Explicit Wide LIB start (65527) is below the Wide LIB start (100000), "
-        "the Explicit Wide LIB starts at 100000" in output
+        "Explicit Wide LIB start (65527) is below the Wide LIB start (65530), "
+        "the Explicit Wide LIB starts at 65530" in output
     )
 
     # Resetting the Explicit Wide LIB cannot fail because of the Wide LIB
     output = router.vtysh_cmd(USID_F4816_CONTEXT + "no wide-local-id-block explicit\n")
     assert (
-        "Explicit Wide LIB start (65527) is below the Wide LIB start (100000), "
-        "the Explicit Wide LIB starts at 100000" in output
+        "Explicit Wide LIB start (65527) is below the Wide LIB start (65530), "
+        "the Explicit Wide LIB starts at 65530" in output
     )
 
     # Nor can resetting the Wide LIB fail because of the Explicit Wide LIB
@@ -1099,15 +1099,15 @@ def test_usid_wide_lib_config_survives_zebra_restart():
     # A Wide LIB above the default Explicit Wide LIB start of 65527
     router.vtysh_cmd(
         USID_F4816_CONTEXT
-        + """wide-local-id-block explicit start 100005
-wide-local-id-block start 100000 end 100010
+        + """wide-local-id-block explicit start 65533
+wide-local-id-block start 65530 end 65535
 """
     )
     check_wide_lib_config_after_zebra_restart(
         router,
         [
-            "wide-local-id-block start 100000 end 100010",
-            "wide-local-id-block explicit start 100005",
+            "wide-local-id-block start 65530 end 65535",
+            "wide-local-id-block explicit start 65533",
         ],
     )
 
