@@ -1321,8 +1321,9 @@ DEFUN_YANG(bgp_maxmed_admin_yang, bgp_maxmed_admin_yang_cmd,
 	   "Administratively applied, for an indefinite period\n")
 {
 	char value[16];
+	int64_t maxmed = BGP_MAXMED_VALUE_DEFAULT;
 
-	snprintfrr(value, sizeof(value), "%lu", BGP_MAXMED_VALUE_DEFAULT);
+	snprintfrr(value, sizeof(value), "%" PRId64, maxmed);
 	nb_cli_enqueue_change(vty, "./global/med-config/enable-med-admin", NB_OP_MODIFY, "true");
 	nb_cli_enqueue_change(vty, "./global/med-config/max-med-admin", NB_OP_MODIFY, value);
 	return nb_cli_apply_changes(vty, NULL);
@@ -1348,8 +1349,9 @@ DEFUN_YANG(no_bgp_maxmed_admin_yang, no_bgp_maxmed_admin_yang_cmd,
 	   "Max MED value to be used\n")
 {
 	char value[16];
+	int64_t maxmed = BGP_MAXMED_VALUE_DEFAULT;
 
-	snprintfrr(value, sizeof(value), "%lu", BGP_MAXMED_VALUE_DEFAULT);
+	snprintfrr(value, sizeof(value), "%" PRId64, maxmed);
 	nb_cli_enqueue_change(vty, "./global/med-config/enable-med-admin", NB_OP_MODIFY, "false");
 	nb_cli_enqueue_change(vty, "./global/med-config/max-med-admin", NB_OP_MODIFY, value);
 	return nb_cli_apply_changes(vty, NULL);
@@ -1365,6 +1367,7 @@ DEFUN_YANG(bgp_maxmed_onstartup_yang, bgp_maxmed_onstartup_yang_cmd,
 {
 	int idx = 0;
 	char value[16];
+	int64_t maxmed = BGP_MAXMED_VALUE_DEFAULT;
 
 	argv_find(argv, argc, "(5-86400)", &idx);
 	nb_cli_enqueue_change(vty, "./global/med-config/max-med-onstart-up-time", NB_OP_MODIFY,
@@ -1374,7 +1377,7 @@ DEFUN_YANG(bgp_maxmed_onstartup_yang, bgp_maxmed_onstartup_yang_cmd,
 		nb_cli_enqueue_change(vty, "./global/med-config/max-med-onstart-up-value",
 				      NB_OP_MODIFY, argv[idx]->arg);
 	else {
-		snprintfrr(value, sizeof(value), "%lu", BGP_MAXMED_VALUE_DEFAULT);
+		snprintfrr(value, sizeof(value), "%" PRId64, maxmed);
 		nb_cli_enqueue_change(vty, "./global/med-config/max-med-onstart-up-value",
 				      NB_OP_MODIFY, value);
 	}
@@ -1567,6 +1570,7 @@ DEFPY_YANG(bgp_daemon_suppress_fib_yang, bgp_daemon_suppress_fib_yang_cmd,
 	   "Advertisement delay in milliseconds after FIB installation (default 1000)\n")
 {
 	char val[16];
+	int64_t adv_delay = delay_str ? delay : BGP_DEFAULT_SUPPRESS_FIB_ADV_DELAY;
 
 	if (no) {
 		nb_cli_enqueue_change(vty, "/frr-bgp:bgp-daemon/suppress-fib-pending-delay",
@@ -1574,8 +1578,7 @@ DEFPY_YANG(bgp_daemon_suppress_fib_yang, bgp_daemon_suppress_fib_yang_cmd,
 		nb_cli_enqueue_change(vty, "/frr-bgp:bgp-daemon/suppress-fib-pending",
 				      NB_OP_MODIFY, "false");
 	} else {
-		snprintfrr(val, sizeof(val), "%ld",
-			   delay_str ? delay : (long)BGP_DEFAULT_SUPPRESS_FIB_ADV_DELAY);
+		snprintfrr(val, sizeof(val), "%" PRId64, adv_delay);
 		nb_cli_enqueue_change(vty, "/frr-bgp:bgp-daemon/suppress-fib-pending",
 				      NB_OP_MODIFY, "true");
 		nb_cli_enqueue_change(vty, "/frr-bgp:bgp-daemon/suppress-fib-pending-delay",
@@ -2366,8 +2369,9 @@ DEFPY_YANG(bgp_wpkt_quanta_yang, bgp_wpkt_quanta_yang_cmd,
 	   "Number of packets\n")
 {
 	char val[16];
+	int64_t value = no ? BGP_WRITE_PACKET_MAX : quanta;
 
-	snprintfrr(val, sizeof(val), "%ld", no ? (long)BGP_WRITE_PACKET_MAX : quanta);
+	snprintfrr(val, sizeof(val), "%" PRId64, value);
 	nb_cli_enqueue_change(vty,
 			      "./global/global-neighbor-config/packet-quanta-config/wpkt-quanta",
 			      NB_OP_MODIFY, val);
@@ -2381,8 +2385,9 @@ DEFPY_YANG(bgp_rpkt_quanta_yang, bgp_rpkt_quanta_yang_cmd,
 	   "Number of packets\n")
 {
 	char val[16];
+	int64_t value = no ? BGP_READ_PACKET_MAX : quanta;
 
-	snprintfrr(val, sizeof(val), "%ld", no ? (long)BGP_READ_PACKET_MAX : quanta);
+	snprintfrr(val, sizeof(val), "%" PRId64, value);
 	nb_cli_enqueue_change(vty,
 			      "./global/global-neighbor-config/packet-quanta-config/rpkt-quanta",
 			      NB_OP_MODIFY, val);
@@ -2567,14 +2572,14 @@ DEFPY_YANG(bgp_suppress_fib_pending_yang, bgp_suppress_fib_pending_yang_cmd,
 	   "Advertisement delay in milliseconds after FIB installation (default 1000)\n")
 {
 	char val[16];
+	int64_t adv_delay = delay_str ? delay : BGP_DEFAULT_SUPPRESS_FIB_ADV_DELAY;
 
 	if (no) {
 		nb_cli_enqueue_change(vty, "./global/suppress-fib-pending-delay", NB_OP_DESTROY,
 				      NULL);
 		nb_cli_enqueue_change(vty, "./global/suppress-fib-pending", NB_OP_MODIFY, "false");
 	} else {
-		snprintfrr(val, sizeof(val), "%ld",
-			   delay_str ? delay : (long)BGP_DEFAULT_SUPPRESS_FIB_ADV_DELAY);
+		snprintfrr(val, sizeof(val), "%" PRId64, adv_delay);
 		nb_cli_enqueue_change(vty, "./global/suppress-fib-pending", NB_OP_MODIFY, "true");
 		nb_cli_enqueue_change(vty, "./global/suppress-fib-pending-delay", NB_OP_MODIFY,
 				      val);
@@ -7734,6 +7739,8 @@ DEFPY_YANG(bmp_connect_yang, bmp_connect_yang_cmd,
 	char sess[XPATH_MAXLEN];
 	char leaf[XPATH_MAXLEN + 256];
 	char min_buf[16], max_buf[16];
+	int64_t min_ms = min_retry_str ? min_retry : 30000;
+	int64_t max_ms = max_retry_str ? max_retry : 720000;
 
 	snprintfrr(sess, sizeof(sess),
 		   "./outgoing-session/session-list[hostname='%s'][tcp-port='%" PRId64 "']", host,
@@ -7747,10 +7754,10 @@ DEFPY_YANG(bmp_connect_yang, bmp_connect_yang_cmd,
 	nb_cli_enqueue_change(vty, sess, NB_OP_CREATE, NULL);
 	snprintfrr(leaf, sizeof(leaf), "%s/min-retry-time", sess);
 	/* YANG defaults: 30000 / 720000 — avoid BMP module macros in CLI. */
-	snprintfrr(min_buf, sizeof(min_buf), "%ld", min_retry_str ? min_retry : 30000L);
+	snprintfrr(min_buf, sizeof(min_buf), "%" PRId64, min_ms);
 	nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY, min_buf);
 	snprintfrr(leaf, sizeof(leaf), "%s/max-retry-time", sess);
-	snprintfrr(max_buf, sizeof(max_buf), "%ld", max_retry_str ? max_retry : 720000L);
+	snprintfrr(max_buf, sizeof(max_buf), "%" PRId64, max_ms);
 	nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY, max_buf);
 	snprintfrr(leaf, sizeof(leaf), "%s/source-interface", sess);
 	if (srcif)
