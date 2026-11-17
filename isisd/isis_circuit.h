@@ -209,6 +209,13 @@ DECLARE_QOBJ_TYPE(isis_circuit);
 DECLARE_DLIST(isis_circuit_list, struct isis_circuit, circuit_list_item);
 
 void isis_circuit_init(void);
+
+/* RFC 5307 uses 0 for an unknown Link Remote Identifier */
+static inline uint32_t isis_circuit_ext_id(const struct isis_circuit *circuit)
+{
+	return circuit->idx + 1;
+}
+
 struct isis_circuit *isis_circuit_new(struct interface *ifp, const char *tag);
 void isis_circuit_del(struct isis_circuit *circuit);
 struct isis_circuit *circuit_scan_by_ifp(struct interface *ifp);

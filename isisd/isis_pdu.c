@@ -130,12 +130,9 @@ static int process_p2p_hello(struct iih_info *iih)
 			return ISIS_WARNING;
 		}
 
-		if (tw_adj->neighbor_set
-		    && (memcmp(tw_adj->neighbor_id, iih->circuit->isis->sysid,
-			       ISIS_SYS_ID_LEN)
-			|| tw_adj->neighbor_circuit_id
-				   != (uint32_t)iih->circuit->idx)) {
-
+		if (tw_adj->neighbor_set &&
+		    (memcmp(tw_adj->neighbor_id, iih->circuit->isis->sysid, ISIS_SYS_ID_LEN) ||
+		     tw_adj->neighbor_circuit_id != isis_circuit_ext_id(iih->circuit))) {
 			if (IS_DEBUG_ADJ_PACKETS) {
 				zlog_debug("ISIS-Adj (%s): Rcvd P2P IIH from (%s) which lists IS/Circuit different from us as neighbor.",
 					   iih->circuit->area->area_tag,
@@ -2150,7 +2147,7 @@ int send_hello(struct isis_circuit *circuit, int level)
 			tlvs, circuit->u.bc.lan_neighs[level - 1]);
 	} else if (circuit->circ_type == CIRCUIT_T_P2P
 		   && !circuit->disable_threeway_adj) {
-		uint32_t ext_circuit_id = circuit->idx;
+		uint32_t ext_circuit_id = isis_circuit_ext_id(circuit);
 		if (circuit->u.p2p.neighbor) {
 			uint8_t threeway_state;
 
