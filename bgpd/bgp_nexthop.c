@@ -655,6 +655,18 @@ bool bgp_multiaccess_check_v4(struct in_addr nexthop, struct peer *peer)
 	struct prefix p;
 	int ret;
 
+	/* BGP VIEW instances do not populate connected_table (they do not
+	 * link to zebra's VRF info).  For VIEW peers, fall back to an
+	 * interface-based check: if the nexthop is reachable via the same
+	 * interface as the peer, they share a segment (multiaccess).
+	 */
+	if (peer->bgp->inst_type == BGP_INSTANCE_TYPE_VIEW && peer->nexthop.ifp) {
+		struct interface *nh_ifp;
+
+		nh_ifp = if_lookup_by_ipv4(&nexthop, peer->bgp->vrf_id);
+		return nh_ifp && (nh_ifp == peer->nexthop.ifp);
+	}
+
 	p.family = AF_INET;
 	p.prefixlen = IPV4_MAX_BITLEN;
 	p.u.prefix4 = nexthop;
@@ -683,6 +695,28 @@ bool bgp_multiaccess_check_v6(struct in6_addr nexthop, struct peer *peer)
 	struct bgp_dest *dest2 BGP_DEST_AUTOUNLOCK = NULL;
 	struct prefix p;
 	int ret;
+
+	/* BGP VIEW instances do not populate connected_table (they do not
+	 * link to zebra's VRF info).  Peers using link-local transport also
+	 * cannot be found via connected_table since link-local prefixes are
+	 * excluded from it.  For both cases, fall back to an interface-based
+	 * check: if the nexthop is reachable via the same interface as the
+	 * peer, they share a segment (multiaccess).
+	 */
+	if ((peer->bgp->inst_type == BGP_INSTANCE_TYPE_VIEW ||
+	     IN6_IS_ADDR_LINKLOCAL(&peer->connection->su.sin6.sin6_addr)) &&
+	    peer->nexthop.ifp) {
+		struct interface *nh_ifp;
+		ifindex_t ifidx;
+
+		/* For a link-local nexthop, if_lookup_by_ipv6() only matches
+		 * when the ifindex is the interface's own index; pass the peer's
+		 * interface index so the lookup succeeds.
+		 */
+		ifidx = IN6_IS_ADDR_LINKLOCAL(&nexthop) ? peer->nexthop.ifp->ifindex : 0;
+		nh_ifp = if_lookup_by_ipv6(&nexthop, ifidx, peer->bgp->vrf_id);
+		return nh_ifp && (nh_ifp == peer->nexthop.ifp);
+	}
 
 	p.family = AF_INET6;
 	p.prefixlen = IPV6_MAX_BITLEN;
