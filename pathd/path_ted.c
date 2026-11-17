@@ -308,12 +308,24 @@ uint32_t path_ted_query_type_e(struct prefix *prefix, uint32_t iface_id)
 				     subnet->vertex->outgoing_edges, lst_node,
 				     edge)) {
 				/* and look for ifaceid */
-				/* so get sid of attribute */
-				if (CHECK_FLAG(edge->attributes->flags,
-					       LS_ATTR_LOCAL_ID)
-				    && edge->attributes->standard.local_id
-					       == iface_id) {
-					sid = subnet->ls_pref->sr.sid;
+				/* so get the Adj-SID of the matching edge */
+				if (!CHECK_FLAG(edge->attributes->flags, LS_ATTR_LOCAL_ID) ||
+				    edge->attributes->standard.local_id != iface_id)
+					continue;
+
+				/*
+				 * The link may have one edge per topology with the
+				 * same interface ID: take the one with an Adj-SID of
+				 * the prefix family
+				 */
+				if (prefix->family == AF_INET &&
+				    CHECK_FLAG(edge->attributes->flags, LS_ATTR_ADJ_SID)) {
+					sid = edge->attributes->adj_sid[ADJ_PRI_IPV4].sid;
+					break;
+				}
+				if (prefix->family == AF_INET6 &&
+				    CHECK_FLAG(edge->attributes->flags, LS_ATTR_ADJ_SID6)) {
+					sid = edge->attributes->adj_sid[ADJ_PRI_IPV6].sid;
 					break;
 				}
 			}
