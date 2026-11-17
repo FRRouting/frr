@@ -700,6 +700,10 @@ static int process_hello(uint8_t pdu_type, struct isis_circuit *circuit,
 #endif /* ifndef FABRICD */
 		return ISIS_WARNING;
 	}
+#ifndef FABRICD
+	/* endp may have been decreased by pdu_len_validate() */
+	pdu_end = stream_get_endp(circuit->rcv_stream);
+#endif /* ifndef FABRICD */
 
 	if (!p2p_hello && !(level & iih.circ_type)) {
 		flog_err(EC_ISIS_PACKET,
