@@ -238,7 +238,7 @@ uint32_t path_ted_query_type_f(struct ipaddr *local, struct ipaddr *remote)
 {
 	uint32_t sid = MPLS_LABEL_NONE;
 	struct ls_edge *edge;
-	struct ls_edge_key key;
+	struct ls_edge_key key = {};
 
 	if (!path_ted_is_initialized())
 		return MPLS_LABEL_NONE;

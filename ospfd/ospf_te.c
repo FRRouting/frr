@@ -1699,7 +1699,7 @@ static struct ls_vertex *get_vertex(struct ls_ted *ted, struct ospf_lsa *lsa)
 static struct ls_edge *get_edge(struct ls_ted *ted, struct ls_node_id adv,
 				struct in_addr link_id)
 {
-	struct ls_edge_key key;
+	struct ls_edge_key key = {};
 	struct ls_edge *edge;
 	struct ls_attributes *attr;
 
@@ -3202,7 +3202,7 @@ static int ospf_te_delete_ext_link(struct ls_ted *ted, struct ospf_lsa *lsa)
 	struct ls_edge *edge;
 	struct ls_attributes *atr;
 	const struct ext_tlv_link *ext;
-	struct ls_edge_key key;
+	struct ls_edge_key key = {};
 	const struct tlv_header *tlvh;
 
 	/* Validate LSA/TLV */
@@ -4880,7 +4880,7 @@ DEFUN (show_ip_ospf_mpls_te_db,
 	struct ls_edge *edge = NULL;
 	struct ls_subnet *subnet = NULL;
 	uint64_t key;
-	struct ls_edge_key ekey;
+	struct ls_edge_key ekey = {};
 	enum {
 		SHOW_TED,
 		SHOW_VERTEX,

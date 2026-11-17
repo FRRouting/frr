@@ -842,36 +842,13 @@ static struct ls_vertex *lsp_to_vertex(struct ls_ted *ted, struct isis_lsp *lsp)
 static struct ls_edge *get_edge(struct ls_ted *ted, struct ls_attributes *attr)
 {
 	struct ls_edge *edge;
-	struct ls_standard *std;
-	struct ls_edge_key key;
 
 	/* Check parameters */
 	if (!ted || !attr)
 		return NULL;
 
-	std = &attr->standard;
-
-	/* Compute keys in function of local address (IPv4/v6) or identifier */
-	if (CHECK_FLAG(attr->flags, LS_ATTR_LOCAL_ADDR)) {
-		key.family = AF_INET;
-		IPV4_ADDR_COPY(&key.k.addr, &std->local);
-	} else if (CHECK_FLAG(attr->flags, LS_ATTR_LOCAL_ADDR6)) {
-		key.family = AF_INET6;
-		IPV6_ADDR_COPY(&key.k.addr6, &std->local6);
-	} else if (CHECK_FLAG(attr->flags, LS_ATTR_LOCAL_ID)) {
-		key.family = AF_LOCAL;
-		key.k.link_id = (((uint64_t)std->local_id) & 0xffffffff) |
-				((uint64_t)std->remote_id << 32);
-	} else {
-		key.family = AF_UNSPEC;
-	}
-
-	/* Stop here if we don't got a valid key */
-	if (key.family == AF_UNSPEC)
-		return NULL;
-
-	/* Get corresponding Edge by key from Link State Data Base */
-	edge = ls_find_edge_by_key(ted, key);
+	/* Get corresponding Edge from Link State Data Base */
+	edge = ls_find_edge_by_source(ted, attr);
 
 	/* and create new one if not exist */
 	if (!edge) {
@@ -1163,6 +1140,11 @@ static int lsp_to_edge_cb(const uint8_t *id, uint32_t metric, bool old_metric,
 
 	attr->mt_id = args->mt_id;
 	SET_FLAG(attr->flags, LS_ATTR_MT_ID);
+
+	if (CHECK_FLAG(attr->flags, LS_ATTR_NEIGH_ID) && !LSP_PSEUDO_ID(id)) {
+		attr->neighbor = attr->adv;
+		memcpy(attr->neighbor.id.iso.sys_id, id, ISO_SYS_ID_LEN);
+	}
 
 	/* Get corresponding Edge from Link State Data Base */
 	edge = get_edge(args->ted, attr);
@@ -2021,7 +2003,7 @@ static int show_ted(struct vty *vty, struct cmd_token *argv[], int argc, struct 
 	struct ls_vertex *vertex;
 	struct ls_edge *edge;
 	struct ls_subnet *subnet;
-	struct ls_edge_key key;
+	struct ls_edge_key key = {};
 	bool detail = false;
 	bool uj = use_json(argc, argv);
 	json_object *json = NULL;

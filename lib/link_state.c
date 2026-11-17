@@ -274,8 +274,9 @@ int ls_attributes_same(struct ls_attributes *l1, struct ls_attributes *l2)
 	if (CHECK_FLAG(l1->flags, LS_ATTR_LOCAL_ID)
 	    && (l1->standard.local_id != l2->standard.local_id))
 		return 0;
-	if (CHECK_FLAG(l1->flags, LS_ATTR_NEIGH_ID)
-	    && (l1->standard.remote_id != l2->standard.remote_id))
+	if (CHECK_FLAG(l1->flags, LS_ATTR_NEIGH_ID) &&
+	    ((l1->standard.remote_id != l2->standard.remote_id) ||
+	     !ls_node_id_same(l1->neighbor, l2->neighbor)))
 		return 0;
 	if (CHECK_FLAG(l1->flags, LS_ATTR_MAX_BW)
 	    && (l1->standard.max_bw != l2->standard.max_bw))
@@ -749,12 +750,15 @@ static struct ls_edge_key get_edge_key(struct ls_attributes *attr, bool dst)
 			/* or the IPv6 remote address */
 			key.family = AF_INET6;
 			IPV6_ADDR_COPY(&key.k.addr6, &std->remote6);
-		} else if (CHECK_FLAG(attr->flags, LS_ATTR_NEIGH_ID)) {
+		} else if (CHECK_FLAG(attr->flags, LS_ATTR_NEIGH_ID) &&
+			   ls_node_id_key(attr->neighbor) != 0) {
 			/* or Remote identifier if IP addr. are not defined */
 			key.family = AF_LOCAL;
 			key.k.link_id =
 				(((uint64_t)std->remote_id) & 0xffffffff) |
 				((uint64_t)std->local_id << 32);
+			key.node = ls_node_id_key(attr->neighbor);
+			key.mt_id = attr->mt_id;
 		}
 	} else {
 		if (CHECK_FLAG(attr->flags, LS_ATTR_LOCAL_ADDR)) {
@@ -771,6 +775,8 @@ static struct ls_edge_key get_edge_key(struct ls_attributes *attr, bool dst)
 			key.k.link_id =
 				(((uint64_t)std->local_id) & 0xffffffff) |
 				((uint64_t)std->remote_id << 32);
+			key.node = ls_node_id_key(attr->adv);
+			key.mt_id = attr->mt_id;
 		}
 	}
 
@@ -1316,8 +1322,10 @@ static struct ls_attributes *ls_parse_attributes(struct stream *s)
 		STREAM_GET(&attr->standard.remote6, s, IPV6_MAX_BYTELEN);
 	if (CHECK_FLAG(attr->flags, LS_ATTR_LOCAL_ID))
 		STREAM_GETL(s, attr->standard.local_id);
-	if (CHECK_FLAG(attr->flags, LS_ATTR_NEIGH_ID))
+	if (CHECK_FLAG(attr->flags, LS_ATTR_NEIGH_ID)) {
 		STREAM_GETL(s, attr->standard.remote_id);
+		STREAM_GET(&attr->neighbor, s, sizeof(struct ls_node_id));
+	}
 	if (CHECK_FLAG(attr->flags, LS_ATTR_MAX_BW))
 		STREAM_GETF(s, attr->standard.max_bw);
 	if (CHECK_FLAG(attr->flags, LS_ATTR_MAX_RSV_BW))
@@ -1623,8 +1631,10 @@ static int ls_format_attributes(struct stream *s, struct ls_attributes *attr)
 		stream_put(s, &attr->standard.remote6, IPV6_MAX_BYTELEN);
 	if (CHECK_FLAG(attr->flags, LS_ATTR_LOCAL_ID))
 		stream_putl(s, attr->standard.local_id);
-	if (CHECK_FLAG(attr->flags, LS_ATTR_NEIGH_ID))
+	if (CHECK_FLAG(attr->flags, LS_ATTR_NEIGH_ID)) {
 		stream_putl(s, attr->standard.remote_id);
+		stream_put(s, &attr->neighbor, sizeof(struct ls_node_id));
+	}
 	if (CHECK_FLAG(attr->flags, LS_ATTR_MAX_BW))
 		stream_putf(s, attr->standard.max_bw);
 	if (CHECK_FLAG(attr->flags, LS_ATTR_MAX_RSV_BW))
@@ -2440,7 +2450,7 @@ void ls_show_vertices(struct ls_ted *ted, struct vty *vty,
 static const char *edge_key_to_text(struct ls_edge_key key)
 {
 #define FORMAT_BUF_COUNT 4
-	static char buf_ring[FORMAT_BUF_COUNT][INET6_BUFSIZ];
+	static char buf_ring[FORMAT_BUF_COUNT][64];
 	static size_t cur_buf = 0;
 	char *rv;
 
@@ -2449,16 +2459,17 @@ static const char *edge_key_to_text(struct ls_edge_key key)
 
 	switch (key.family) {
 	case AF_INET:
-		snprintfrr(rv, INET6_BUFSIZ, "%pI4", &key.k.addr);
+		snprintfrr(rv, sizeof(buf_ring[0]), "%pI4", &key.k.addr);
 		break;
 	case AF_INET6:
-		snprintfrr(rv, INET6_BUFSIZ, "%pI6", &key.k.addr6);
+		snprintfrr(rv, sizeof(buf_ring[0]), "%pI6", &key.k.addr6);
 		break;
 	case AF_LOCAL:
-		snprintfrr(rv, INET6_BUFSIZ, "%" PRIu64, key.k.link_id);
+		snprintfrr(rv, sizeof(buf_ring[0]), "%" PRIu64 " (node %" PRIu64 ", mt %u)",
+			   key.k.link_id, key.node, key.mt_id);
 		break;
 	default:
-		snprintfrr(rv, INET6_BUFSIZ, "(Unknown)");
+		snprintfrr(rv, sizeof(buf_ring[0]), "(Unknown)");
 		break;
 	}
 
