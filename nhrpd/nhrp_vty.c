@@ -602,10 +602,10 @@ DEFUN(if_nhrp_map, if_nhrp_map_cmd,
 
 	c->map = 1;
 	if (type == NHRP_CACHE_LOCAL)
-		nhrp_cache_update_binding(c, NHRP_CACHE_LOCAL, 0, NULL, 0,
+		nhrp_cache_update_binding(c, NHRP_CACHE_LOCAL, 0, 0, NULL, 0,
 					  NULL, NULL);
 	else
-		nhrp_cache_update_binding(c, NHRP_CACHE_STATIC, 0,
+		nhrp_cache_update_binding(c, NHRP_CACHE_STATIC, 0, 0,
 					  nhrp_peer_get(ifp, &nbma_addr), 0,
 					  NULL, NULL);
 	return CMD_SUCCESS;
@@ -642,7 +642,7 @@ DEFUN(if_no_nhrp_map, if_no_nhrp_map_cmd,
 	if (!c || !c->map)
 		return CMD_SUCCESS;
 
-	nhrp_cache_update_binding(c, c->cur.type, -1,
+	nhrp_cache_update_binding(c, c->cur.type, -1, 0,
 				  nhrp_peer_get(ifp, &nbma_addr), 0, NULL,
 				  NULL);
 	return CMD_SUCCESS;
@@ -1134,7 +1134,7 @@ static void clear_nhrp_cache(struct nhrp_cache *c, void *data)
 	struct info_ctx *ctx = data;
 
 	if (c->cur.type <= NHRP_CACHE_DYNAMIC) {
-		nhrp_cache_update_binding(c, c->cur.type, -1, NULL, 0, NULL,
+		nhrp_cache_update_binding(c, c->cur.type, -1, 0, NULL, 0, NULL,
 					  NULL);
 		if (ctx)
 			ctx->count++;

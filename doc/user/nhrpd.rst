@@ -122,6 +122,34 @@ Configuring NHRP
    Allow the client to not set the unique flag in the NHRP packets. This is
    useful when a station has a dynamic IP address that could change over time.
 
+.. _uniqueness-qualifier:
+
+Uniqueness qualifier (U-bit)
+----------------------------
+
+NHRP registration requests carry a uniqueness qualifier flag (the U-bit,
+RFC 2332 section 5.2.3).  By default nhrpd sets this flag when it registers
+its protocol address, which tells the NHS that the address is uniquely
+assigned to this station.  The ``ip nhrp registration no-unique`` command
+above clears the flag, which is appropriate for stations whose address may
+change (for example a dynamically assigned address) and for which multiple
+bindings may exist.
+
+The NHS stores the uniqueness qualifier with each binding in its cache and
+honors it in two places:
+
+- When a Registration Request with the U-bit set arrives for a protocol
+  address that is already registered as unique from a different peer, the
+  registration is rejected with Code 14 (Unique Internetworking Layer
+  Address Already Registered) and the existing binding is left untouched.
+
+- When a Resolution Request with the U-bit set asks for a protocol address
+  whose binding is not unique, the reply is rejected with Code 13 (Binding
+  Exists But Is Not Unique) instead of returning the binding.  Clients set
+  the U-bit in Resolution Requests when they can only accept unique
+  bindings, for example to avoid forwarding traffic to a station that may
+  have changed its address.
+
 .. clicmd:: ip nhrp shortcut
 
    Enable shortcut (spoke-to-spoke) tunnels to allow NHC to talk to each others
