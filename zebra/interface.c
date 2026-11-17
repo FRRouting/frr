@@ -903,7 +903,7 @@ void if_nbr_mac_to_ipv4ll_neigh_update(struct interface *ifp,
 	 * they'll be useless to us.
 	 */
 	if (add)
-		dplane_local_neigh_add(ifp, &ip, &ethaddr, false, true, false);
+		dplane_local_neigh_add(ifp, &ip, &ethaddr, false, false, false);
 
 	memcpy(&zif->neigh_mac[0], &mac[0], 6);
 
