@@ -234,7 +234,7 @@ static uint32_t path_ted_adj_sid_label(struct ls_attributes *attr, int idx)
 	return attr->adj_sid[idx].sid;
 }
 
-uint32_t path_ted_query_type_f(struct ipaddr *local, struct ipaddr *remote)
+uint32_t path_ted_query_adj_sid(struct ipaddr *local, struct ipaddr *remote)
 {
 	uint32_t sid = MPLS_LABEL_NONE;
 	struct ls_edge *edge;
@@ -337,7 +337,7 @@ static uint32_t path_ted_prefix_sid_label(struct ls_subnet *subnet)
 	return node->srgb.lower_bound + pref->sr.sid;
 }
 
-uint32_t path_ted_query_type_c(struct prefix *prefix, uint8_t algo)
+uint32_t path_ted_query_prefix_sid(struct prefix *prefix, uint8_t algo)
 {
 	uint32_t sid = MPLS_LABEL_NONE;
 	struct ls_subnet *subnet;
@@ -365,7 +365,7 @@ uint32_t path_ted_query_type_c(struct prefix *prefix, uint8_t algo)
 	return sid;
 }
 
-uint32_t path_ted_query_type_e(struct prefix *prefix, uint32_t iface_id)
+uint32_t path_ted_query_prefix_iface_adj_sid(struct prefix *prefix, uint32_t iface_id)
 {
 	uint32_t sid = MPLS_LABEL_NONE;
 	uint32_t other_sid = MPLS_LABEL_NONE;

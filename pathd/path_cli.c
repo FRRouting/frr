@@ -344,11 +344,10 @@ static int segment_list_has_src_dst(
 	} else {
 		return CMD_ERR_NO_MATCH;
 	}
-	ted_sid = path_ted_query_type_f(&ip_src, &ip_dst);
+	ted_sid = path_ted_query_adj_sid(&ip_src, &ip_dst);
 	if (ted_sid == MPLS_LABEL_NONE) {
-		zlog_warn(
-			"%s: [rcv ted] CLI NOT FOUND Continue query_type_f SRC (%pIA) DST (%pIA)!",
-			__func__, &ip_src, &ip_dst);
+		zlog_warn("%s: [rcv ted] CLI NOT FOUND Continue Adj-SID query SRC (%pIA) DST (%pIA)!",
+			  __func__, &ip_src, &ip_dst);
 	}
 	/* type */
 	snprintf(xpath, XPATH_MAXLEN, "./segment[index='%s']/nai/type",
@@ -463,21 +462,17 @@ int segment_list_has_prefix(struct vty *vty, char *xpath, char *buf_prefix, long
 		}
 	}
 	if (has_algo != NULL) {
-		ted_sid = path_ted_query_type_c(&prefix_cli, algo);
+		ted_sid = path_ted_query_prefix_sid(&prefix_cli, algo);
 		if (ted_sid == MPLS_LABEL_NONE) {
-			zlog_err(
-				"%s: [rcv ted] CLI NOT FOUND Continue query_type_c PREFIX (%pIA/%d) ALGO (%ld) sid:(%d)!",
-				__func__, &pre_ipaddr, prefix_cli.prefixlen,
-				algo, ted_sid);
+			zlog_err("%s: [rcv ted] CLI NOT FOUND Continue prefix SID query PREFIX (%pIA/%d) ALGO (%ld) sid:(%d)!",
+				 __func__, &pre_ipaddr, prefix_cli.prefixlen, algo, ted_sid);
 		}
 	}
 	if (has_iface_id != NULL) {
-		ted_sid = path_ted_query_type_e(&prefix_cli, iface_id);
+		ted_sid = path_ted_query_prefix_iface_adj_sid(&prefix_cli, iface_id);
 		if (ted_sid == MPLS_LABEL_NONE) {
-			zlog_err(
-				"%s: [rcv ted] CLI NOT FOUND Continue query_type_e PREFIX (%pIA/%d) IFACE (%ld) sid:(%d)!",
-				__func__, &pre_ipaddr, prefix_cli.prefixlen,
-				iface_id, ted_sid);
+			zlog_err("%s: [rcv ted] CLI NOT FOUND Continue prefix and interface Adj-SID query PREFIX (%pIA/%d) IFACE (%ld) sid:(%d)!",
+				 __func__, &pre_ipaddr, prefix_cli.prefixlen, iface_id, ted_sid);
 		}
 	}
 	return CMD_SUCCESS;
