@@ -2529,6 +2529,7 @@ bool subgroup_announce_check(struct bgp_dest *dest, struct bgp_path_info *pi,
 	bool nh_reset = false;
 	uint64_t cum_bw;
 	bool global_and_ll = false;
+	bool is_v6_nexthop;
 	uint8_t num_labels;
 	mpls_label_t labels[BGP_MAX_LABELS] = { MPLS_INVALID_LABEL };
 
@@ -2915,7 +2916,8 @@ bool subgroup_announce_check(struct bgp_dest *dest, struct bgp_path_info *pi,
 	 * By checking if nexthop LL address is valid we are sure that
 	 * we do not announce LL address as `::`.
 	 */
-	if (NEXTHOP_IS_V6) {
+	is_v6_nexthop = NEXTHOP_IS_V6;
+	if (is_v6_nexthop) {
 		if (CHECK_FLAG(peer->af_flags[afi][safi], PEER_FLAG_NEXTHOP_LOCAL_UNCHANGED)) {
 			/* nexthop local unchanged: only include the link-local nexthop if it
 			 * was already present.
@@ -2945,16 +2947,34 @@ bool subgroup_announce_check(struct bgp_dest *dest, struct bgp_path_info *pi,
 		} else
 			attr->mp_nexthop_len = BGP_ATTR_NHLEN_IPV6_GLOBAL;
 
-		/* Clear off link-local nexthop in source, whenever it is not
-		 * needed to
-		 * ensure more prefixes share the same attribute for
-		 * announcement.
+		/* Zero the link-local nexthop when it will not be sent (nhlen=16)
+		 * or when it is not needed in the shared attr.  Zeroing maximizes
+		 * outbound attribute cache sharing.
+		 *
+		 * When nhlen=32 (link-local included), a subgroup may span peers
+		 * on multiple segments, so bpacket_reformat_for_peer() makes the
+		 * final per-peer decision.  For EBGP shared_network peers on a
+		 * broadcast source interface, the original link-local is preserved
+		 * in the shared attr so bpacket can forward it unchanged to peers
+		 * on the same segment.  Otherwise it is zeroed here and bpacket
+		 * substitutes the router's own.  Nexthop-local unchanged and an
+		 * outbound route-map setting both nexthops suppress zeroing.
+		 *
+		 * For non-EBGP (IBGP) destinations, global_and_ll is typically
+		 * false (nhlen=16, link-local not sent), so the !global_and_ll
+		 * branch already zeroes.  When nexthop-local unchanged IS
+		 * configured for an IBGP peer (e.g. route-reflector client),
+		 * global_and_ll is true but !nexthop_local_unchanged is false,
+		 * which suppresses zeroing and preserves the original link-local
+		 * for the route-reflector case.
 		 */
-		if (!(CHECK_FLAG(peer->af_flags[afi][safi], PEER_FLAG_NEXTHOP_LOCAL_UNCHANGED)) ||
-		    !IPV6_ADDR_SAME(&peer->nexthop.v6_global, &from->nexthop.v6_global))
-			/* Reset if "nexthop-local unchanged" is not set or originating and destination peer
-			 * does not share the same subnet.
-			 */
+		if (!global_and_ll ||
+		    ((peer->sort != BGP_PEER_EBGP || !peer->shared_network ||
+		      from == bgp->peer_self || !from->nexthop.ifp ||
+		      !if_is_broadcast(from->nexthop.ifp)) &&
+		     !CHECK_FLAG(peer->af_flags[afi][safi], PEER_FLAG_NEXTHOP_LOCAL_UNCHANGED) &&
+		     (!CHECK_FLAG(attr->rmap_change_flags, BATTR_RMAP_IPV6_GLOBAL_NHOP_CHANGED) ||
+		      !CHECK_FLAG(attr->rmap_change_flags, BATTR_RMAP_IPV6_LL_NHOP_CHANGED))))
 			memset(&attr->mp_nexthop_local, 0, IPV6_MAX_BYTELEN);
 	}
 
@@ -3260,6 +3280,13 @@ bool subgroup_announce_check(struct bgp_dest *dest, struct bgp_path_info *pi,
 				nh_reset = true;
 			}
 	}
+
+	/* When the global nexthop was reset (e.g. next-hop-self), zero the
+	 * link-local too.  bpacket_reformat_for_peer() will substitute it
+	 * anyway, so zeroing here allows more routes to share the same attr.
+	 */
+	if (nh_reset && is_v6_nexthop)
+		memset(&attr->mp_nexthop_local, 0, IPV6_MAX_BYTELEN);
 
 	/* If this is an iBGP, send Origin Validation State (OVS)
 	 * extended community (rfc8097).
