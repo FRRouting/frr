@@ -4048,7 +4048,6 @@ static struct bgp *bgp_create(as_t *as, const char *name,
 	bgp_lock(bgp);
 
 	bgp->allow_martian = false;
-	bgp_process_queue_init(bgp);
 	bgp->heuristic_coalesce = true;
 	bgp->inst_type = inst_type;
 	bgp->vrf_id = (inst_type == BGP_INSTANCE_TYPE_DEFAULT) ? VRF_DEFAULT
@@ -4195,6 +4194,10 @@ peer_init:
 				: "VIEW",
 			n);
 	}
+
+	/* The process queue is named after name_pretty */
+	if (!hidden)
+		bgp_process_queue_init(bgp);
 
 	atomic_store_explicit(&bgp->wpkt_quanta, BGP_WRITE_PACKET_MAX,
 			      memory_order_relaxed);
