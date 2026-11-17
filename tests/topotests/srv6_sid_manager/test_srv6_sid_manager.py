@@ -77,6 +77,7 @@ from lib.topolog import logger
 from lib.common_config import (
     create_interface_in_kernel,
     required_linux_kernel_version,
+    retry,
     shutdown_bringup_interface_in_kernel,
     step,
 )
@@ -1054,6 +1055,205 @@ no wide-local-id-block explicit
 
     _, result = topotest.run_and_expect(check_default, None, count=30, wait=1)
     assert result is None, "The default SID was not restored: {}".format(result)
+
+
+def test_static_sid_shared_with_bgp_route_map_and_vrf_sid():
+    """
+    Remove the vrf10 VPN SID, configure an explicit SID in staticd, then a
+    route-map locator for 2001:3::/64 in vrf10, and verify BGP shares the
+    staticd SID in automatic mode for this prefix. Configure the same SID as
+    the explicit vrf10 VPN SID and verify BGP uses it for 2001:1::/64 and
+    another automatic SID for 2001:3::/64. Remove the staticd SID and verify
+    BGP still installs and advertises the vrf10 VPN SID. Restore the original
+    configuration.
+    """
+    tgen = get_topogen()
+
+    result = required_linux_kernel_version("6.1")
+    if result is not True:
+        pytest.skip("Kernel requirements are not met, kernel version should be >=6.1")
+
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    rt1 = tgen.gears["rt1"]
+    rt6 = tgen.gears["rt6"]
+    static_sid = "fc00:0:1:fe10::"
+    default_sid = "fc00:0:1:fe00::"
+
+    def get_sid_info(sid):
+        output = json.loads(
+            rt1.vtysh_cmd("show segment-routing srv6 sid {} json".format(sid))
+        )
+        return output.get(sid)
+
+    @retry(retry_timeout=30)
+    def check_sid_clients_and_bgp_route(sid, expected_clients):
+        sid_info = get_sid_info(sid)
+        if not sid_info:
+            return "SID {} is not allocated".format(sid)
+        clients = {client["protocol"] for client in sid_info.get("clients", [])}
+        if clients != set(expected_clients):
+            return "SID {} has clients {}, expected {}".format(
+                sid, sorted(clients), sorted(expected_clients)
+            )
+        if "bgp" not in expected_clients:
+            return True
+
+        routes = json.loads(rt1.vtysh_cmd("show ipv6 route json"))
+        bgp_routes = [
+            route
+            for prefix, prefix_routes in routes.items()
+            if prefix.rsplit("/", 1)[0] == sid
+            for route in prefix_routes
+            if route.get("protocol") == "bgp"
+            and any(
+                nexthop.get("interfaceName") == "vrf10"
+                and nexthop.get("seg6local", {}).get("action") == "uDT6"
+                for nexthop in route.get("nexthops", [])
+            )
+        ]
+        if not bgp_routes:
+            return "SID {} has no BGP uDT6 local route in vrf10".format(sid)
+        if "static" not in expected_clients and not any(
+            route.get("selected") and route.get("installed") for route in bgp_routes
+        ):
+            return "SID {} BGP local route is not installed".format(sid)
+        return True
+
+    @retry(retry_timeout=30)
+    def check_rt6_vrf10_route_sid(prefix, expected_sid=None, expected_mode=None):
+        routes = json.loads(
+            rt6.vtysh_cmd("show ipv6 route vrf vrf10 {} json".format(prefix))
+        )
+        segs = {
+            nexthop.get("seg6", {}).get("segs")
+            for route in routes.get(prefix, [])
+            if route.get("protocol") == "bgp" and route.get("installed")
+            for nexthop in route.get("nexthops", [])
+        }
+        segs.discard(None)
+        if len(segs) != 1:
+            return "rt6 vrf10 route {} has SIDs {}".format(prefix, sorted(segs))
+        sid = segs.pop()
+        if expected_sid and sid != expected_sid:
+            return "rt6 vrf10 route {} uses SID {}, expected {}".format(
+                prefix, sid, expected_sid
+            )
+        if expected_mode:
+            sid_info = get_sid_info(sid)
+            if not sid_info or sid_info.get("allocationMode") != expected_mode:
+                return "SID {} of route {} is not allocated in {} mode".format(
+                    sid, prefix, expected_mode
+                )
+        return True
+
+    step(
+        "Remove the vrf10 VPN SID, configure a staticd SID and a route-map locator "
+        "for 2001:3::/64 in vrf10, verify BGP shares the staticd SID for this prefix",
+        reset=True,
+    )
+    rt1.vtysh_cmd(
+        """configure terminal
+router bgp 1 vrf vrf10
+address-family ipv6 unicast
+no sid vpn export 65024
+"""
+    )
+    rt1.vtysh_cmd(
+        """configure terminal
+segment-routing
+srv6
+static-sids
+sid fc00:0:1:fe10::/64 locator loc1 behavior uDT6 vrf vrf10
+"""
+    )
+    result = check_sid_clients_and_bgp_route(static_sid, ("static",))
+    assert result is True, result
+
+    rt1.vtysh_cmd(
+        """configure terminal
+ipv6 prefix-list plist_ce3 seq 5 permit 2001:3::/64
+route-map rmap_ce3_locator permit 10
+match ipv6 address prefix-list plist_ce3
+set segment-routing srv6 locator loc1
+exit
+route-map rmap_ce3_locator permit 20
+exit
+router bgp 1 vrf vrf10
+address-family ipv6 unicast
+route-map vpn export rmap_ce3_locator
+"""
+    )
+    result = check_sid_clients_and_bgp_route(static_sid, ("bgp", "static"))
+    assert result is True, result
+    result = check_rt6_vrf10_route_sid("2001:3::/64", expected_sid=static_sid)
+    assert result is True, result
+    check_ping("ce2", "2001:3::2", True, 10, 1)
+
+    step(
+        "Configure the staticd SID as the explicit vrf10 VPN SID, verify BGP uses "
+        "it for 2001:1::/64 and an automatic SID for 2001:3::/64"
+    )
+    rt1.vtysh_cmd(
+        """configure terminal
+router bgp 1 vrf vrf10
+address-family ipv6 unicast
+sid vpn export 65040
+"""
+    )
+    result = check_rt6_vrf10_route_sid("2001:1::/64", expected_sid=static_sid)
+    assert result is True, result
+    result = check_rt6_vrf10_route_sid("2001:3::/64", expected_mode="dynamic")
+    assert result is True, result
+    result = check_sid_clients_and_bgp_route(static_sid, ("bgp", "static"))
+    assert result is True, result
+    check_ping("ce2", "2001:3::2", True, 10, 1)
+    check_ping("ce2", "2001:1::2", True, 10, 1)
+
+    step(
+        "Remove the staticd SID, verify BGP still installs and advertises the "
+        "vrf10 VPN SID"
+    )
+    rt1.vtysh_cmd(
+        """configure terminal
+segment-routing
+srv6
+static-sids
+no sid fc00:0:1:fe10::/64
+"""
+    )
+    result = check_sid_clients_and_bgp_route(static_sid, ("bgp",))
+    assert result is True, result
+    result = check_rt6_vrf10_route_sid("2001:1::/64", expected_sid=static_sid)
+    assert result is True, result
+    check_ping("ce2", "2001:1::2", True, 10, 1)
+
+    step("Restore the original configuration and verify the default SID is used")
+    rt1.vtysh_cmd(
+        """configure terminal
+router bgp 1 vrf vrf10
+address-family ipv6 unicast
+no route-map vpn export rmap_ce3_locator
+no sid vpn export 65040
+sid vpn export 65024
+exit
+exit
+no route-map rmap_ce3_locator
+no ipv6 prefix-list plist_ce3
+"""
+    )
+    check_lifecycle = functools.partial(
+        _check_srv6_sid_lifecycle, rt1, rt6, default_sid, True
+    )
+    _, result = topotest.run_and_expect(check_lifecycle, None, count=30, wait=1)
+    assert result is None, "Default SID {} was not restored: {}".format(
+        default_sid, result
+    )
+    result = check_rt6_vrf10_route_sid("2001:3::/64", expected_sid=default_sid)
+    assert result is True, result
+    check_ping("ce2", "2001:3::2", True, 10, 1)
+    check_ping("ce2", "2001:1::2", True, 10, 1)
 
 
 def check_wide_lib_config_after_zebra_restart(router, expected):
