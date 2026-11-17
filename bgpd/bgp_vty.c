@@ -18547,6 +18547,58 @@ static void bgp_show_peer(struct vty *vty, struct peer *p, uint16_t sh_flags, bo
 		vty_out(vty, "  Connections established %d; dropped %d\n",
 			p->established, p->dropped);
 
+	/* Multi-access: RA sources skipped because they sent Bad Peer AS */
+	if (nbr_conn_count(&p->nbr_conn_bad)) {
+		struct nbr_conn_entry *bad;
+		json_object *json_bad = NULL;
+
+		if (use_json)
+			json_bad = json_object_new_array();
+		else
+			vty_out(vty, "  Skipped neighbors (Bad Peer AS):");
+		frr_each (nbr_conn, &p->nbr_conn_bad, bad) {
+			if (use_json)
+				json_array_string_addf(json_bad, "%pI6", &bad->addr);
+			else
+				vty_out(vty, " %pI6", &bad->addr);
+		}
+		if (use_json)
+			json_object_object_add(json_neigh, "badPeerAsNeighbors", json_bad);
+		else
+			vty_out(vty, "\n");
+	}
+
+	/* Multi-access: more than one RA source established with remote-as */
+	if (nbr_conn_count(&p->nbr_conn_matched) > 1) {
+		struct nbr_conn_entry *matched;
+		json_object *json_matched = NULL, *json_entry;
+
+		if (use_json)
+			json_matched = json_object_new_array();
+		else
+			vty_out(vty, "  Multi-access: %zu neighbors passed remote-as:",
+				nbr_conn_count(&p->nbr_conn_matched));
+		frr_each (nbr_conn, &p->nbr_conn_matched, matched) {
+			if (use_json) {
+				json_entry = json_object_new_object();
+				json_object_string_addf(json_entry, "neighbor", "%pI6",
+							&matched->addr);
+				asn_asn2json(json_entry, "remoteAs", matched->as, bgp->asnotation);
+				json_object_array_add(json_matched, json_entry);
+			} else {
+				vty_out(vty, " %pI6 (AS ", &matched->addr);
+				vty_out(vty, ASN_FORMAT(bgp->asnotation), &matched->as);
+				vty_out(vty, ")");
+			}
+		}
+		if (use_json) {
+			json_object_boolean_true_add(json_neigh, "multiAccessAmbiguous");
+			json_object_object_add(json_neigh, "remoteAsMatchedNeighbors",
+					       json_matched);
+		} else
+			vty_out(vty, "\n");
+	}
+
 	if (p->last_reset == PEER_DOWN_NONE) {
 		if (use_json)
 			json_object_string_add(json_neigh, "lastReset",

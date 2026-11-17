@@ -68,8 +68,26 @@ Router Advertisement
    (``neighbor IFNAME interface``) on the interface tries each neighbor until
    one answers with an acceptable AS; neighbors that reject or are rejected
    with Bad Peer AS are skipped from then on (``show bgp neighbors`` lists
-   them). Use it where a BGP unnumbered peering shares a segment with other
-   routers, e.g. servers peering with a ToR over a shared VLAN.
+   them). Between attempts, the peer also accepts a connection from any of the
+   neighbors, so a neighbor that connects first (e.g. the ToR) does not wait
+   for the search. Use it where a BGP unnumbered peering shares
+   a segment with other routers, e.g. servers peering with a ToR over a shared
+   VLAN.
+
+   The session comes up with the first neighbor whose OPEN passes the peer's
+   ``remote-as``. With ``remote-as external`` that works when the other routers
+   share this router's AS; if each server has its own AS, set ``remote-as`` to
+   the ToR's AS.
+
+   When more than one neighbor has established a session with a
+   ``remote-as external`` or ``internal`` peer, *bgpd* logs a warning naming
+   the neighbors and their AS numbers, and ``show bgp neighbors`` shows them
+   (``multiAccessAmbiguous`` and ``remoteAsMatchedNeighbors`` in JSON) until
+   ``remote-as`` changes or the neighbors go away. The warning fires only once
+   a second neighbor has completed the OPEN exchange, e.g. after the session
+   moved to it. *bgpd* does not try other neighbors while Established, so a
+   session that comes up with the wrong neighbor and stays up is not
+   detected; a numeric ``remote-as`` is the only way to rule that out.
 
    IPv4 routes learnt this way are installed via the neighbor's IPv6
    link-local address. The 169.254.0.1 neighbor entry still maps to the first
