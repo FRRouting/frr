@@ -202,7 +202,7 @@ uint32_t path_ted_rcvd_message(struct ls_message *msg)
 	return 0;
 }
 
-uint32_t path_ted_query_type_f(struct ipaddr *local, struct ipaddr *remote)
+uint32_t path_ted_query_adj_sid(struct ipaddr *local, struct ipaddr *remote)
 {
 	uint32_t sid = MPLS_LABEL_NONE;
 	struct ls_edge *edge;
@@ -257,7 +257,7 @@ uint32_t path_ted_query_type_f(struct ipaddr *local, struct ipaddr *remote)
 	return sid;
 }
 
-uint32_t path_ted_query_type_c(struct prefix *prefix, uint8_t algo)
+uint32_t path_ted_query_prefix_sid(struct prefix *prefix, uint8_t algo)
 {
 	uint32_t sid = MPLS_LABEL_NONE;
 	struct ls_subnet *subnet;
@@ -285,7 +285,7 @@ uint32_t path_ted_query_type_c(struct prefix *prefix, uint8_t algo)
 	return sid;
 }
 
-uint32_t path_ted_query_type_e(struct prefix *prefix, uint32_t iface_id)
+uint32_t path_ted_query_prefix_iface_adj_sid(struct prefix *prefix, uint32_t iface_id)
 {
 	uint32_t sid = MPLS_LABEL_NONE;
 	struct ls_subnet *subnet;

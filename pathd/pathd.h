@@ -450,7 +450,8 @@ void path_cli_init(void);
 
 
 /**
- * Search for sid based in prefix and algorithm
+ * Search for sid based in prefix and algorithm, segment types C and D of
+ * RFC 9256
  *
  * @param Prefix	The prefix to use
  * @param algo		Algorithm we want to query for
@@ -458,11 +459,12 @@ void path_cli_init(void);
  *
  * @return		void
  */
-int32_t srte_ted_do_query_type_c(struct srte_segment_entry *entry,
-				 struct prefix *prefix_cli, uint32_t algo);
+int32_t srte_ted_do_query_prefix_sid(struct srte_segment_entry *entry, struct prefix *prefix_cli,
+				     uint32_t algo);
 
 /**
- * Search for sid based in prefix and interface id
+ * Search for sid based in prefix and interface id, segment types E and G of
+ * RFC 9256
  *
  * @param Prefix	The prefix to use
  * @param local_iface	The id of interface
@@ -470,11 +472,11 @@ int32_t srte_ted_do_query_type_c(struct srte_segment_entry *entry,
  *
  * @return		void
  */
-int32_t srte_ted_do_query_type_e(struct srte_segment_entry *entry,
-				 struct prefix *prefix_cli,
-				 uint32_t local_iface);
+int32_t srte_ted_do_query_prefix_iface_adj_sid(struct srte_segment_entry *entry,
+					       struct prefix *prefix_cli, uint32_t local_iface);
 /**
- * Search for sid based in local and remote ip
+ * Search for sid based in local and remote ip, segment types F and H of
+ * RFC 9256
  *
  * @param entry		entry to update
  * @param local		Local addr for query
@@ -482,6 +484,6 @@ int32_t srte_ted_do_query_type_e(struct srte_segment_entry *entry,
  *
  * @return		void
  */
-int32_t srte_ted_do_query_type_f(struct srte_segment_entry *entry,
-				 struct ipaddr *local, struct ipaddr *remote);
+int32_t srte_ted_do_query_adj_sid(struct srte_segment_entry *entry, struct ipaddr *local,
+				  struct ipaddr *remote);
 #endif /* _FRR_PATHD_H_ */
