@@ -296,6 +296,13 @@ struct rtadvconf {
 	struct rtadv_flush flush[RTADV_MAX_FLUSH_PREFIXES];
 	uint8_t flush_count;
 	struct event *flush_timer;
+
+	/*
+	 * Learn each router sending RAs as its own neighbor (RFC 5549 on
+	 * multi-access segments) instead of replacing the one neighbor.
+	 * Default: false
+	 */
+	bool MultiAccess;
 };
 
 struct rtadv_rdnss {
