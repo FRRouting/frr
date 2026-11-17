@@ -1565,7 +1565,10 @@ _VXLAN_NH_FDB_FIX = {
         "aws": (1016, None),
         "azure": (1019, None),
         "generic": (41, None),
-    }
+    },
+    "7.2.15": {
+        "generic": (1, None),
+    },
 }
 MOVE_DEBUGS = [
     "debug zebra kernel",
