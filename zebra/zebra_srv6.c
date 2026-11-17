@@ -43,6 +43,8 @@ static struct zebra_srv6 g_srv6;
 
 /* Prototypes */
 static void release_srv6_sid_func(const struct zebra_srv6_sid_ctx *zctx);
+static void zebra_srv6_sid_block_wide_lib_alloc(struct zebra_srv6_sid_block *block);
+static void zebra_srv6_sid_block_wide_lib_free(struct zebra_srv6_sid_block *block);
 
 static bool zebra_srv6_sid_compose(struct in6_addr *sid_value, struct srv6_locator *locator,
 				   uint32_t sid_func, uint32_t sid_func_wide, bool is_localonly);
@@ -370,6 +372,8 @@ void zebra_srv6_sid_format_change_finish(struct srv6_sid_format *format)
 		if (format->type == SRV6_SID_FORMAT_TYPE_USID) {
 			block->u.usid.lib.first_available_func = format->config.usid.lib_start;
 			list_delete_all_node(block->u.usid.lib.func_released);
+			zebra_srv6_sid_block_wide_lib_free(block);
+			zebra_srv6_sid_block_wide_lib_alloc(block);
 		} else {
 			block->u.uncompressed.first_available_func =
 				SRV6_SID_FORMAT_UNCOMPRESSED_F4024_FUNC_UNRESERVED_MIN;
@@ -489,6 +493,40 @@ void delete_zebra_srv6_sid_func(void *val)
 	zebra_srv6_sid_func_free((uint32_t *)val);
 }
 
+/*
+ * The Wide LIB array has one entry per function of the Wide LIB range. Keep
+ * its size, as the range can be changed while the block exists.
+ */
+static void zebra_srv6_sid_block_wide_lib_alloc(struct zebra_srv6_sid_block *block)
+{
+	struct srv6_sid_format *format = block->sid_format;
+	uint32_t func;
+
+	block->u.usid.wide_lib_size = format->config.usid.wlib_end -
+				      format->config.usid.wlib_start + 1;
+	block->u.usid.wide_lib = XCALLOC(MTYPE_ZEBRA_SRV6_USID_WLIB,
+					 block->u.usid.wide_lib_size * sizeof(struct wide_lib));
+	for (func = 0; func < block->u.usid.wide_lib_size; func++) {
+		block->u.usid.wide_lib[func].func_allocated = list_new();
+		block->u.usid.wide_lib[func].func_allocated->del = delete_zebra_srv6_sid_func;
+		block->u.usid.wide_lib[func].func_released = list_new();
+		block->u.usid.wide_lib[func].func_released->del = delete_zebra_srv6_sid_func;
+		block->u.usid.wide_lib[func].func = func;
+	}
+}
+
+static void zebra_srv6_sid_block_wide_lib_free(struct zebra_srv6_sid_block *block)
+{
+	uint32_t func;
+
+	for (func = 0; func < block->u.usid.wide_lib_size; func++) {
+		list_delete(&block->u.usid.wide_lib[func].func_allocated);
+		list_delete(&block->u.usid.wide_lib[func].func_released);
+	}
+	XFREE(MTYPE_ZEBRA_SRV6_USID_WLIB, block->u.usid.wide_lib);
+	block->u.usid.wide_lib_size = 0;
+}
+
 /* --- Zebra SRv6 SID block management functions ---------------------------- */
 
 static struct zebra_srv6_sid_block *zebra_srv6_sid_block_alloc_internal(void)
@@ -516,8 +554,6 @@ zebra_srv6_sid_block_alloc(struct srv6_sid_format *format,
 
 	if (format) {
 		if (format->type == SRV6_SID_FORMAT_TYPE_USID) {
-			uint32_t wlib_start, wlib_end, func;
-
 			/* Init uSID LIB */
 			block->u.usid.lib.func_allocated = list_new();
 			block->u.usid.lib.func_allocated->del =
@@ -528,25 +564,7 @@ zebra_srv6_sid_block_alloc(struct srv6_sid_format *format,
 			block->u.usid.lib.first_available_func =
 				format->config.usid.lib_start;
 
-			/* Init uSID Wide LIB */
-			wlib_start = block->sid_format->config.usid.wlib_start;
-			wlib_end = block->sid_format->config.usid.wlib_end;
-			block->u.usid.wide_lib =
-				XCALLOC(MTYPE_ZEBRA_SRV6_USID_WLIB,
-					(wlib_end - wlib_start + 1) *
-						sizeof(struct wide_lib));
-			for (func = 0; func < wlib_end - wlib_start + 1;
-			     func++) {
-				block->u.usid.wide_lib[func].func_allocated =
-					list_new();
-				block->u.usid.wide_lib[func].func_allocated->del =
-					delete_zebra_srv6_sid_func;
-				block->u.usid.wide_lib[func].func_released =
-					list_new();
-				block->u.usid.wide_lib[func].func_released->del =
-					delete_zebra_srv6_sid_func;
-				block->u.usid.wide_lib[func].func = func;
-			}
+			zebra_srv6_sid_block_wide_lib_alloc(block);
 		} else if (format->type == SRV6_SID_FORMAT_TYPE_UNCOMPRESSED) {
 			block->u.uncompressed.func_allocated = list_new();
 			block->u.uncompressed.func_allocated->del =
@@ -577,24 +595,11 @@ void zebra_srv6_sid_block_free(struct zebra_srv6_sid_block *block)
 {
 	if (block->sid_format) {
 		if (block->sid_format->type == SRV6_SID_FORMAT_TYPE_USID) {
-			uint32_t wlib_start, wlib_end, func;
-
 			/* Free uSID LIB */
 			list_delete(&block->u.usid.lib.func_allocated);
 			list_delete(&block->u.usid.lib.func_released);
 
-			/* Free uSID Wide LIB */
-			wlib_start = block->sid_format->config.usid.wlib_start;
-			wlib_end = block->sid_format->config.usid.wlib_end;
-			for (func = 0; func < wlib_end - wlib_start + 1;
-			     func++) {
-				list_delete(&block->u.usid.wide_lib[func]
-						     .func_allocated);
-				list_delete(&block->u.usid.wide_lib[func]
-						     .func_released);
-			}
-			XFREE(MTYPE_ZEBRA_SRV6_USID_WLIB,
-			      block->u.usid.wide_lib);
+			zebra_srv6_sid_block_wide_lib_free(block);
 		} else if (block->sid_format->type ==
 			   SRV6_SID_FORMAT_TYPE_UNCOMPRESSED) {
 			list_delete(&block->u.uncompressed.func_allocated);
