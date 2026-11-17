@@ -105,6 +105,7 @@ struct zebra_srv6_sid_block {
 
 			/* uSID Wide LIB */
 			struct wide_lib *wide_lib;
+			uint32_t wide_lib_size;
 		} usid;
 
 		/* Information/state for uncompressed SID format */
