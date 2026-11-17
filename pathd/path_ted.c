@@ -288,6 +288,7 @@ uint32_t path_ted_query_prefix_sid(struct prefix *prefix, uint8_t algo)
 uint32_t path_ted_query_prefix_iface_adj_sid(struct prefix *prefix, uint32_t iface_id)
 {
 	uint32_t sid = MPLS_LABEL_NONE;
+	uint32_t other_sid = MPLS_LABEL_NONE;
 	struct ls_subnet *subnet;
 	struct listnode *lst_node;
 	struct ls_edge *edge;
@@ -318,17 +319,26 @@ uint32_t path_ted_query_prefix_iface_adj_sid(struct prefix *prefix, uint32_t ifa
 				/*
 				 * The link may have one edge per topology with the
 				 * same interface ID: take the one with an Adj-SID of
-				 * the prefix family
+				 * the prefix family, or else, as on an unnumbered
+				 * link, an Adj-SID of the other family
 				 */
-				if (prefix->family == AF_INET &&
-				    CHECK_FLAG(edge->attributes->flags, LS_ATTR_ADJ_SID)) {
-					sid = edge->attributes->adj_sid[ADJ_PRI_IPV4].sid;
-					break;
+				if (CHECK_FLAG(edge->attributes->flags, LS_ATTR_ADJ_SID)) {
+					if (prefix->family == AF_INET) {
+						sid = edge->attributes->adj_sid[ADJ_PRI_IPV4].sid;
+						break;
+					}
+					if (other_sid == MPLS_LABEL_NONE)
+						other_sid =
+							edge->attributes->adj_sid[ADJ_PRI_IPV4].sid;
 				}
-				if (prefix->family == AF_INET6 &&
-				    CHECK_FLAG(edge->attributes->flags, LS_ATTR_ADJ_SID6)) {
-					sid = edge->attributes->adj_sid[ADJ_PRI_IPV6].sid;
-					break;
+				if (CHECK_FLAG(edge->attributes->flags, LS_ATTR_ADJ_SID6)) {
+					if (prefix->family == AF_INET6) {
+						sid = edge->attributes->adj_sid[ADJ_PRI_IPV6].sid;
+						break;
+					}
+					if (other_sid == MPLS_LABEL_NONE)
+						other_sid =
+							edge->attributes->adj_sid[ADJ_PRI_IPV6].sid;
 				}
 			}
 		}
@@ -336,6 +346,9 @@ uint32_t path_ted_query_prefix_iface_adj_sid(struct prefix *prefix, uint32_t ifa
 	default:
 		break;
 	}
+
+	if (sid == MPLS_LABEL_NONE)
+		sid = other_sid;
 
 	return sid;
 }
