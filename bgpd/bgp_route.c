@@ -8193,6 +8193,14 @@ static void clear_dests_callback(struct event *event)
 	int ret;
 	struct bgp_clearing_info *cinfo = EVENT_ARG(event);
 
+	/* Peers can be removed from the batch. If it is empty, there is
+	 * nothing left to walk for, so skip the RIB walk.
+	 */
+	if (bgp_clearing_batch_is_empty(cinfo)) {
+		bgp_clearing_batch_completed(cinfo);
+		return;
+	}
+
 	/* Begin, or continue, work */
 	ret = clear_batch_rib_helper(cinfo);
 	if (ret == 0) {
