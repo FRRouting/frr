@@ -473,32 +473,34 @@ uint64_t sysid_to_key(const uint8_t sysid[ISO_SYS_ID_LEN])
 	return key;
 }
 
+/* Key of the Vertex of a node: IPv4 Router ID or ISO System ID, 0 if unknown */
+static uint64_t ls_node_id_key(struct ls_node_id nid)
+{
+	switch (nid.origin) {
+	case OSPFv2:
+	case STATIC:
+	case DIRECT:
+		return ((uint64_t)ntohl(nid.id.ip.addr.s_addr)) & 0xffffffff;
+	case ISIS_L1:
+	case ISIS_L2:
+		return sysid_to_key(nid.id.iso.sys_id);
+	case UNKNOWN:
+		break;
+	}
+
+	return 0;
+}
+
 struct ls_vertex *ls_vertex_add(struct ls_ted *ted, struct ls_node *node)
 {
 	struct ls_vertex *new;
-	uint64_t key = 0;
+	uint64_t key;
 
 	if ((ted == NULL) || (node == NULL))
 		return NULL;
 
-	/* set Key as the IPv4/Ipv6 Router ID or ISO System ID */
-	switch (node->adv.origin) {
-	case OSPFv2:
-	case STATIC:
-	case DIRECT:
-		key = ((uint64_t)ntohl(node->adv.id.ip.addr.s_addr))
-		      & 0xffffffff;
-		break;
-	case ISIS_L1:
-	case ISIS_L2:
-		key = sysid_to_key(node->adv.id.iso.sys_id);
-		break;
-	case UNKNOWN:
-		key = 0;
-		break;
-	}
-
-	/* Check that key is valid */
+	/* set Key as the IPv4 Router ID or ISO System ID */
+	key = ls_node_id_key(node->adv);
 	if (key == 0)
 		return NULL;
 
@@ -602,21 +604,9 @@ struct ls_vertex *ls_find_vertex_by_id(struct ls_ted *ted,
 {
 	struct ls_vertex vertex = {};
 
-	vertex.key = 0;
-	switch (nid.origin) {
-	case OSPFv2:
-	case STATIC:
-	case DIRECT:
-		vertex.key =
-			((uint64_t)ntohl(nid.id.ip.addr.s_addr)) & 0xffffffff;
-		break;
-	case ISIS_L1:
-	case ISIS_L2:
-		vertex.key = sysid_to_key(nid.id.iso.sys_id);
-		break;
-	case UNKNOWN:
+	vertex.key = ls_node_id_key(nid);
+	if (vertex.key == 0)
 		return NULL;
-	}
 
 	return vertices_find(&ted->vertices, &vertex);
 }
