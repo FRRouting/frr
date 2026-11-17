@@ -368,6 +368,8 @@ uint32_t path_ted_query_type_c(struct prefix *prefix, uint8_t algo)
 uint32_t path_ted_query_type_e(struct prefix *prefix, uint32_t iface_id)
 {
 	uint32_t sid = MPLS_LABEL_NONE;
+	uint32_t other_sid = MPLS_LABEL_NONE;
+	uint32_t label;
 	struct ls_subnet *subnet;
 	struct listnode *lst_node;
 	struct ls_edge *edge;
@@ -390,13 +392,41 @@ uint32_t path_ted_query_type_e(struct prefix *prefix, uint32_t iface_id)
 				     subnet->vertex->outgoing_edges, lst_node,
 				     edge)) {
 				/* and look for ifaceid */
-				/* so get sid of attribute */
-				if (CHECK_FLAG(edge->attributes->flags,
-					       LS_ATTR_LOCAL_ID)
-				    && edge->attributes->standard.local_id
-					       == iface_id) {
-					sid = subnet->ls_pref->sr.sid;
-					break;
+				/* so get the Adj-SID of the matching edge */
+				if (!CHECK_FLAG(edge->attributes->flags, LS_ATTR_LOCAL_ID) ||
+				    edge->attributes->standard.local_id != iface_id)
+					continue;
+
+				/*
+				 * The link may have one edge per topology with the
+				 * same interface ID: take the one with an Adj-SID of
+				 * the prefix family, or else, as on an unnumbered
+				 * link, an Adj-SID of the other family
+				 */
+				label = MPLS_LABEL_NONE;
+				if (CHECK_FLAG(edge->attributes->flags, LS_ATTR_ADJ_SID))
+					label = path_ted_adj_sid_label(edge->attributes,
+								       ADJ_PRI_IPV4);
+				if (label != MPLS_LABEL_NONE) {
+					if (prefix->family == AF_INET) {
+						sid = label;
+						break;
+					}
+					if (other_sid == MPLS_LABEL_NONE)
+						other_sid = label;
+				}
+
+				label = MPLS_LABEL_NONE;
+				if (CHECK_FLAG(edge->attributes->flags, LS_ATTR_ADJ_SID6))
+					label = path_ted_adj_sid_label(edge->attributes,
+								       ADJ_PRI_IPV6);
+				if (label != MPLS_LABEL_NONE) {
+					if (prefix->family == AF_INET6) {
+						sid = label;
+						break;
+					}
+					if (other_sid == MPLS_LABEL_NONE)
+						other_sid = label;
 				}
 			}
 		}
@@ -404,6 +434,9 @@ uint32_t path_ted_query_type_e(struct prefix *prefix, uint32_t iface_id)
 	default:
 		break;
 	}
+
+	if (sid == MPLS_LABEL_NONE)
+		sid = other_sid;
 
 	return sid;
 }
