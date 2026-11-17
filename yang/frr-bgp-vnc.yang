@@ -74,9 +74,11 @@ module frr-bgp-vnc {
         type enumeration {
           enum encap-attr {
             value 0;
+            description "Encapsulation attribute";
           }
           enum encap-safi {
             value 1;
+            description "Encapsulation SAFI";
           }
         }
         description
@@ -98,9 +100,11 @@ module frr-bgp-vnc {
           type enumeration {
             enum on {
               value 1;
+              description "Enable full table download";
             }
             enum off {
               value 0;
+              description "Disable full table download";
             }
           }
           description
@@ -361,15 +365,19 @@ module frr-bgp-vnc {
             type enumeration {
               enum none {
                 value 0;
+                description "No export";
               }
               enum group-nve {
                 value 1;
+                description "Group NVE export";
               }
               enum registering-nve {
                 value 2;
+                description "Registering NVE export";
               }
               enum ce {
                 value 3;
+                description "Customer Edge export";
               }
             }
             description
@@ -409,12 +417,15 @@ module frr-bgp-vnc {
             type enumeration {
               enum none {
                 value 0;
+                description "No export";
               }
               enum group-nve {
                 value 1;
+                description "Group NVE export";
               }
               enum registering-nve {
                 value 2;
+                description "Registering NVE export";
               }
             }
             description
@@ -457,12 +468,15 @@ module frr-bgp-vnc {
           type enumeration {
             enum plain {
               value 0;
+              description "Plain mode";
             }
             enum nve-group {
               value 1;
+              description "NVE group mode";
             }
             enum resolve-nve {
               value 2;
+              description "Resolve NVE mode";
             }
           }
           description
