@@ -118,6 +118,7 @@ void isis_mpls_te_term(struct isis_area *area);
 void isis_link_params_update_asla(struct isis_circuit *circuit,
 				  struct interface *ifp);
 void isis_link_params_update(struct isis_circuit *circuit, struct interface *ifp);
+void isis_mpls_te_circuit_llri_update(struct isis_circuit *circuit);
 int isis_mpls_te_update(struct interface *ifp);
 void isis_te_lsp_event(struct isis_lsp *lsp, enum lsp_event event);
 int isis_te_sync_ted(struct zapi_opaque_reg_info dst);
