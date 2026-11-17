@@ -84,6 +84,7 @@ static void zserv_encode_interface(struct stream *s, struct interface *ifp)
 	stream_putl(s, ifp->hw_addr_len);
 	if (ifp->hw_addr_len)
 		stream_put(s, ifp->hw_addr, ifp->hw_addr_len);
+	stream_putc(s, zif->rtadv.MultiAccess);
 
 	/* Then, Traffic Engineering parameters if any */
 	if (HAS_LINK_PARAMS(ifp) && IS_LINK_PARAMS_SET(ifp->link_params)) {
