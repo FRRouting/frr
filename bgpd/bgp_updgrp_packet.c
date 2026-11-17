@@ -331,6 +331,49 @@ void bpacket_queue_show_vty(struct bpacket_queue *q, struct vty *vty)
 	return;
 }
 
+static bool bgp_v6_lnh_needs_update(struct in6_addr v6nhlocal, struct in6_addr v6nhglobal,
+				    const bpacket_attr_vec *vec, int gnh_modified,
+				    struct peer *peer, struct peer_af *paf,
+				    bool multiaccess_checked, bool multiaccess,
+				    bool route_map_sets_nh)
+{
+	/* Always replace when unspecified (never send ::). */
+	if (IN6_IS_ADDR_UNSPECIFIED(&v6nhlocal))
+		return true;
+
+	/* Route-map explicitly set the link-local — preserve it. */
+	if (CHECK_FLAG(vec->flags, BPKT_ATTRVEC_FLAGS_RMAP_IPV6_LNH_CHANGED))
+		return false;
+
+	/* Global was replaced, or global IS our own address: link-local
+	 * must follow regardless of nexthop-local unchanged.
+	 */
+	if (gnh_modified || IPV6_ADDR_SAME(&v6nhglobal, &peer->nexthop.v6_global))
+		return true;
+
+	/* For link-local transport peers, the route may carry a valid
+	 * link-local nexthop.  Use bgp_multiaccess_check_v6() with the
+	 * link-local to determine whether it is on the peer's segment.
+	 */
+	if (IN6_IS_ADDR_LINKLOCAL(&peer->connection->su.sin6.sin6_addr) &&
+	    IN6_IS_ADDR_LINKLOCAL(&v6nhlocal) && bgp_multiaccess_check_v6(v6nhlocal, peer))
+		return false;
+
+	/* Nexthop not on peer's directly-connected segment: substitute.
+	 * bgp_multiaccess_check_v6() is deferred until here so the cheaper
+	 * checks above can short-circuit first.
+	 */
+	if (!multiaccess_checked)
+		multiaccess = bgp_multiaccess_check_v6(v6nhglobal, peer);
+
+	if (!multiaccess)
+		return true;
+
+	/* Route-map changed the global (nexthop-local unchanged gated). */
+	return route_map_sets_nh &&
+	       !peer_af_flag_check(peer, paf->afi, paf->safi, PEER_FLAG_NEXTHOP_LOCAL_UNCHANGED);
+}
+
 struct stream *bpacket_reformat_for_peer(struct bpacket *pkt,
 					 struct peer_af *paf)
 {
@@ -497,6 +540,12 @@ struct stream *bpacket_reformat_for_peer(struct bpacket *pkt,
 		stream_get_from(&v6nhglobal, s, offset_nhglobal,
 				IPV6_MAX_BYTELEN);
 
+		/* bgp_multiaccess_check_v6() involves a tree lookup; defer it
+		 * until actually needed and cache the result.
+		 */
+		bool multiaccess_checked = false;
+		bool multiaccess = false;
+
 		/*
 		 * Updates to an EBGP peer should only modify the
 		 * next-hop if it was set in an outbound route-map
@@ -515,16 +564,19 @@ struct stream *bpacket_reformat_for_peer(struct bpacket *pkt,
 			mod_v6nhg = &peer->nexthop.v6_global;
 			gnh_modified = 1;
 		} else if ((peer->sort == BGP_PEER_EBGP)
-			   && (!bgp_multiaccess_check_v6(v6nhglobal, peer))
 			   && !CHECK_FLAG(vec->flags,
 					  BPKT_ATTRVEC_FLAGS_RMAP_NH_UNCHANGED)
 			   && !peer_af_flag_check(
 				   peer, paf->afi, paf->safi,
 				   PEER_FLAG_NEXTHOP_UNCHANGED)) {
-			/* NOTE: not handling case where NH has new AFI
-			 */
-			mod_v6nhg = &peer->nexthop.v6_global;
-			gnh_modified = 1;
+			multiaccess = bgp_multiaccess_check_v6(v6nhglobal, peer);
+			multiaccess_checked = true;
+			if (!multiaccess) {
+				/* NOTE: not handling case where NH has new AFI
+				 */
+				mod_v6nhg = &peer->nexthop.v6_global;
+				gnh_modified = 1;
+			}
 		}
 
 		if (IN6_IS_ADDR_UNSPECIFIED(mod_v6nhg)) {
@@ -543,7 +595,10 @@ struct stream *bpacket_reformat_for_peer(struct bpacket *pkt,
 		    nhlen == BGP_ATTR_NHLEN_VPNV6_GLOBAL_AND_LL) {
 			stream_get_from(&v6nhlocal, s, offset_nhlocal,
 					IPV6_MAX_BYTELEN);
-			if (IN6_IS_ADDR_UNSPECIFIED(&v6nhlocal)) {
+
+			if (bgp_v6_lnh_needs_update(v6nhlocal, v6nhglobal, vec, gnh_modified, peer,
+						    paf, multiaccess_checked, multiaccess,
+						    route_map_sets_nh)) {
 				mod_v6nhl = &peer->nexthop.v6_local;
 				lnh_modified = 1;
 			}
