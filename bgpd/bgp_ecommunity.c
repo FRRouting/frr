@@ -1575,7 +1575,7 @@ static char *_ecommunity_ecom2str(struct ecommunity *ecom, int format, int filte
 				snprintf(encbuf, sizeof(encbuf),
 					 "FS:redirect VRF %s", buf);
 			} else if (sub_type == ECOMMUNITY_REDIRECT_VRF) {
-				char buf[16];
+				char buf[ECOMMUNITY_STRLEN];
 
 				memset(buf, 0, sizeof(buf));
 				ecommunity_rt_soo_str(
