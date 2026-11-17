@@ -691,7 +691,14 @@ static void zebra_gr_delete_stale_route_table_afi(struct event *event)
 
 	if (gac->afi == AFI_L2VPN && zvrf == zebra_vrf_get_evpn()) {
 		zebra_gr_cleanup_of_non_gr_vrf(gac);
-		zebra_evpn_stale_entries_cleanup(gac->update_pending_time);
+		/*
+		 * EVPN entries are installed and refreshed by bgpd only.
+		 * Another client's GR ending (e.g. ospfd's stale timer runs
+		 * every AFI) must not age them out by its own timestamp,
+		 * possibly while bgpd itself is restarting.
+		 */
+		if (gac->proto == ZEBRA_ROUTE_BGP)
+			zebra_evpn_stale_entries_cleanup(gac->update_pending_time);
 		goto done;
 	}
 
