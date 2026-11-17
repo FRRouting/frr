@@ -570,10 +570,13 @@ static void nhrp_handle_resolution_req(struct nhrp_packet_parser *pp)
 			debugf(NHRP_DEBUG_COMMON,
 			       "shortcut res_rep: U-bit set but binding not unique, returning Code 13");
 			hdr->flags &= ~htons(NHRP_FLAG_RESOLUTION_UNIQUE);
+			hdr->u.request_id = pp->hdr->u.request_id;
 			cie = nhrp_cie_push(zb, NHRP_CODE_BINDING_NON_UNIQUE,
 					    &nifp->nbma, &pp->if_ad->addr);
-			if (cie)
-				cie->code = NHRP_CODE_BINDING_NON_UNIQUE;
+			if (!cie)
+				goto err;
+			nhrp_packet_complete(zb, hdr, ifp);
+			nhrp_peer_send(peer, zb);
 			goto err;
 		}
 	}
