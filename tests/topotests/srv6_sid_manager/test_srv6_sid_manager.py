@@ -442,7 +442,7 @@ def test_ping():
 
 
 def test_usid_lib_ranges():
-    """Verify uSID LIB ranges reject a start greater than the end."""
+    """Verify uSID LIB ranges reject invalid bounds."""
     tgen = get_topogen()
 
     if tgen.routers_have_failure():
@@ -466,9 +466,15 @@ format usid-f3216
     )
     assert "Wide LIB start (401) cannot be greater than end (400)" in output
 
+    output = router.vtysh_cmd(
+        format_context + "wide-local-id-block start 0 end 65536\n"
+    )
+    assert "%" in output, output
+
     output = router.vtysh_cmd("write terminal")
     assert "local-id-block explicit start 201 end 200" not in output
     assert "wide-local-id-block start 401 end 400" not in output
+    assert "wide-local-id-block start 0 end 65536" not in output
 
 
 def test_usid_wide_lib_explicit_range():
