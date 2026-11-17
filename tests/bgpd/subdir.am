@@ -34,6 +34,16 @@ tests_bgpd_test_bgp_table_SOURCES = tests/bgpd/test_bgp_table.c
 
 
 if BGPD
+check_PROGRAMS += tests/bgpd/test_bgp_pbr
+endif
+tests_bgpd_test_bgp_pbr_CFLAGS = $(TESTS_CFLAGS)
+tests_bgpd_test_bgp_pbr_CPPFLAGS = $(TESTS_CPPFLAGS)
+tests_bgpd_test_bgp_pbr_LDADD = $(BGP_TEST_LDADD)
+tests_bgpd_test_bgp_pbr_SOURCES = tests/bgpd/test_bgp_pbr.c
+EXTRA_DIST += tests/bgpd/test_bgp_pbr.py
+
+
+if BGPD
 check_PROGRAMS += tests/bgpd/test_capability
 endif
 tests_bgpd_test_capability_CFLAGS = $(TESTS_CFLAGS)

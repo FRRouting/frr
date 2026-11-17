@@ -2147,8 +2147,8 @@ static void bgp_pbr_dump_entry(struct bgp_pbr_filter *bpf, bool add)
 	struct bgp_pbr_range_port *dst_port;
 	struct bgp_pbr_range_port *pkt_len;
 	char bufsrc[64], bufdst[64];
-	char buffer[64];
-	int remaining_len = 0;
+	char buffer[128];
+	struct fbuf fb = { .buf = buffer, .pos = buffer, .len = sizeof(buffer) - 1 };
 	char protocol_str[16];
 
 	if (!bpf)
@@ -2163,78 +2163,33 @@ static void bgp_pbr_dump_entry(struct bgp_pbr_filter *bpf, bool add)
 	if (bpf->protocol)
 		snprintf(protocol_str, sizeof(protocol_str),
 			 "proto %d", bpf->protocol);
-	buffer[0] = '\0';
 	if (bpf->protocol == IPPROTO_ICMP && src_port && dst_port)
-		remaining_len += snprintf(buffer, sizeof(buffer),
-					  "type %d, code %d",
-					  src_port->min_port,
-					  dst_port->min_port);
+		bprintfrr(&fb, "type %d, code %d", src_port->min_port, dst_port->min_port);
 	else if (bpf->protocol == IPPROTO_UDP ||
 		 bpf->protocol == IPPROTO_TCP) {
 
 		if (src_port && src_port->min_port)
-			remaining_len += snprintf(buffer,
-						  sizeof(buffer),
-						  "from [%u:%u]",
-						  src_port->min_port,
-						  src_port->max_port ?
-						  src_port->max_port :
-						  src_port->min_port);
+			bprintfrr(&fb, "from [%u:%u]", src_port->min_port,
+				  src_port->max_port ? src_port->max_port : src_port->min_port);
 		if (dst_port && dst_port->min_port)
-			remaining_len += snprintf(buffer +
-						  remaining_len,
-						  sizeof(buffer)
-						  - remaining_len,
-						  "to [%u:%u]",
-						  dst_port->min_port,
-						  dst_port->max_port ?
-						  dst_port->max_port :
-						  dst_port->min_port);
+			bprintfrr(&fb, "to [%u:%u]", dst_port->min_port,
+				  dst_port->max_port ? dst_port->max_port : dst_port->min_port);
 	}
-	if (pkt_len && (pkt_len->min_port || pkt_len->max_port)) {
-		remaining_len += snprintf(buffer + remaining_len,
-					  sizeof(buffer)
-					  - remaining_len,
-					  " len [%u:%u]",
-					  pkt_len->min_port,
-					  pkt_len->max_port ?
-					  pkt_len->max_port :
-					  pkt_len->min_port);
-	} else if (bpf->pkt_len_val) {
-		remaining_len += snprintf(buffer + remaining_len,
-					  sizeof(buffer)
-					  - remaining_len,
-					  " %s len %u",
-					  bpf->pkt_len_val->mask
-					  ? "!" : "",
-					  bpf->pkt_len_val->val);
-	}
-	if (bpf->tcp_flags) {
-		remaining_len += snprintf(buffer + remaining_len,
-					  sizeof(buffer)
-					  - remaining_len,
-					  "tcpflags %x/%x",
-					  bpf->tcp_flags->val,
-					  bpf->tcp_flags->mask);
-	}
-	if (bpf->dscp) {
-		snprintf(buffer + remaining_len,
-			 sizeof(buffer)
-			 - remaining_len,
-			 "%s dscp %d",
-			 bpf->dscp->mask
-			 ? "!" : "",
-			 bpf->dscp->val);
-	}
-	if (bpf->flow_label) {
-		snprintf(buffer + remaining_len,
-			 sizeof(buffer)
-			 - remaining_len,
-			 "%s flow_label %d",
-			 bpf->flow_label->mask
-			 ? "!" : "",
-			 bpf->flow_label->val);
-	}
+	if (pkt_len && (pkt_len->min_port || pkt_len->max_port))
+		bprintfrr(&fb, " len [%u:%u]", pkt_len->min_port,
+			  pkt_len->max_port ? pkt_len->max_port : pkt_len->min_port);
+	else if (bpf->pkt_len_val)
+		bprintfrr(&fb, " %s len %u", bpf->pkt_len_val->mask ? "!" : "",
+			  bpf->pkt_len_val->val);
+	if (bpf->tcp_flags)
+		bprintfrr(&fb, "tcpflags %x/%x", bpf->tcp_flags->val, bpf->tcp_flags->mask);
+	if (bpf->dscp)
+		bprintfrr(&fb, "%s dscp %d", bpf->dscp->mask ? "!" : "", bpf->dscp->val);
+	if (bpf->flow_label)
+		bprintfrr(&fb, "%s flow_label %d", bpf->flow_label->mask ? "!" : "",
+			  bpf->flow_label->val);
+	/* bprintfrr() does not terminate; .len leaves room for the NUL */
+	*fb.pos = '\0';
 	zlog_debug("BGP: %s FS PBR from %s to %s, %s %s",
 		  add ? "adding" : "removing",
 		  bpf->src == NULL ? "<all>" :
