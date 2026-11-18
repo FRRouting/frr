@@ -163,6 +163,12 @@ PREDECL_DLIST(zebra_srv6_sid_client_list);
 struct zebra_srv6_sid_client {
 	struct zserv *client;
 
+	/* Identifier of the requester of the SID in the client */
+	uint32_t request_id;
+
+	/* The requester asked for the SID value */
+	bool is_explicit;
+
 	struct zebra_srv6_sid_client_list_item item;
 };
 
@@ -270,12 +276,13 @@ DECLARE_HOOK(srv6_manager_release_chunk,
 
 DECLARE_HOOK(srv6_manager_get_sid,
 	     (struct zebra_srv6_sid **sid, struct zserv *client, struct srv6_sid_ctx *ctx,
-	      struct in6_addr *sid_value, const char *locator_name, bool is_localonly),
-	     (sid, client, ctx, sid_value, locator_name, is_localonly));
-DECLARE_HOOK(srv6_manager_release_sid,
-	     (struct zserv *client, struct srv6_sid_ctx *ctx, const char *locator_name,
+	      uint32_t request_id, struct in6_addr *sid_value, const char *locator_name,
 	      bool is_localonly),
-	     (client, ctx, locator_name, is_localonly));
+	     (sid, client, ctx, request_id, sid_value, locator_name, is_localonly));
+DECLARE_HOOK(srv6_manager_release_sid,
+	     (struct zserv *client, struct srv6_sid_ctx *ctx, uint32_t request_id,
+	      const char *locator_name, bool is_localonly),
+	     (client, ctx, request_id, locator_name, is_localonly));
 DECLARE_HOOK(srv6_manager_get_locator,
 	     (struct srv6_locator **locator, struct zserv *client,
 	      const char *locator_name),
@@ -342,7 +349,8 @@ struct zebra_srv6_sid_entry *zebra_srv6_sid_entry_alloc(void);
 void zebra_srv6_sid_entry_free(struct zebra_srv6_sid_entry *client);
 struct zebra_srv6_sid_client *zebra_srv6_sid_client_lookup(struct zebra_srv6_sid *sid,
 							   struct zebra_srv6_sid_entry *entry,
-							   struct zserv *client);
+							   struct zserv *client,
+							   uint32_t request_id);
 struct zebra_srv6_sid_entry *zebra_srv6_sid_entry_lookup(struct zebra_srv6_sid *sid,
 							 const char *locator_name,
 							 bool is_localonly);
@@ -351,26 +359,31 @@ void zebra_srv6_sid_client_del(struct zebra_srv6_sid *sid, struct zebra_srv6_sid
 			       struct zebra_srv6_sid_client *sclient);
 void zebra_srv6_sid_entry_del_by_locator_all_sids(struct srv6_locator *locator);
 void zebra_srv6_sid_client_add(struct zebra_srv6_sid *sid, bool is_localonly,
-			       struct srv6_locator *locator, struct zserv *client);
+			       struct srv6_locator *locator, struct zserv *client,
+			       uint32_t request_id, bool is_explicit);
 struct zebra_srv6_sid_entry *zebra_srv6_sid_entry_add(struct zebra_srv6_sid *sid,
 						      const char *locator_name,
 						      struct in6_addr *sid_value,
 						      bool is_localonly);
 
 extern void srv6_manager_get_sid_call(struct zebra_srv6_sid **sid, struct zserv *client,
-				      struct srv6_sid_ctx *ctx, struct in6_addr *sid_value,
-				      const char *locator_name, bool is_localonly);
+				      struct srv6_sid_ctx *ctx, uint32_t request_id,
+				      struct in6_addr *sid_value, const char *locator_name,
+				      bool is_localonly);
 extern void srv6_manager_release_sid_call(struct zserv *client, struct srv6_sid_ctx *ctx,
-					  const char *locator_name, bool is_localonly);
+					  uint32_t request_id, const char *locator_name,
+					  bool is_localonly);
 
 extern void srv6_manager_get_locator_call(struct srv6_locator **locator,
 					  struct zserv *client,
 					  const char *locator_name);
 
-extern int get_srv6_sid(struct zebra_srv6_sid **sid, struct zserv *client, struct srv6_sid_ctx *ctx,
-			struct in6_addr *sid_value, const char *locator_name, bool is_localonly);
-extern int release_srv6_sid(struct zserv *client, struct zebra_srv6_sid_ctx *zctx,
-			    struct srv6_locator *locator, bool is_localonly);
+extern int get_srv6_sid(struct zebra_srv6_sid **sid, struct zserv *client,
+			struct srv6_sid_ctx *ctx, uint32_t request_id, struct in6_addr *sid_value,
+			const char *locator_name, bool is_localonly);
+extern int release_srv6_sid(struct zserv *client, uint32_t request_id,
+			    struct zebra_srv6_sid_ctx *zctx, struct srv6_locator *locator,
+			    bool is_localonly);
 extern int release_daemon_srv6_sids(struct zserv *client);
 extern int srv6_manager_get_sid_response(struct zebra_srv6_sid *sid,
 					 struct zserv *client);

@@ -3933,8 +3933,8 @@ static int bgp_zebra_srv6_sid_notify(ZAPI_CALLBACK_ARGS)
 	}
 
 	/* Decode the received notification message */
-	if (!zapi_srv6_sid_notify_decode(zclient->ibuf, &ctx, &sid_addr, &sid_func, &sid_wide_func,
-					 &note, loc_name, sizeof(loc_name))) {
+	if (!zapi_srv6_sid_notify_decode(zclient->ibuf, &ctx, NULL, &sid_addr, &sid_func,
+					 &sid_wide_func, &note, loc_name, sizeof(loc_name))) {
 		zlog_err("%s : error in msg decode", __func__);
 		return -1;
 	}
@@ -5191,7 +5191,8 @@ bool bgp_zebra_request_srv6_sid(const struct srv6_sid_ctx *ctx,
 	 * Send the Get SRv6 SID request to the SRv6 Manager and check the
 	 * result
 	 */
-	ret = srv6_manager_get_sid(bgp_zclient, ctx, sid_value, locator_name, sid_func, false);
+	ret = srv6_manager_get_sid(bgp_zclient, ctx, SRV6_SID_REQUEST_ID_DEFAULT, sid_value,
+				   locator_name, sid_func, false);
 	if (ret < 0) {
 		zlog_warn("%s: error getting SRv6 SID!", __func__);
 		return false;
@@ -5220,7 +5221,8 @@ void bgp_zebra_release_srv6_sid(const struct srv6_sid_ctx *ctx, const char *loca
 	 * Send the Release SRv6 SID request to the SRv6 Manager and check the
 	 * result
 	 */
-	ret = srv6_manager_release_sid(bgp_zclient, ctx, locator_name, false);
+	ret = srv6_manager_release_sid(bgp_zclient, ctx, SRV6_SID_REQUEST_ID_DEFAULT, locator_name,
+				       false);
 	if (ret < 0) {
 		zlog_warn("%s: error releasing SRv6 SID!", __func__);
 		return;

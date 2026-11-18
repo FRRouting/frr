@@ -415,6 +415,13 @@ struct srv6_sid_ctx {
 	ifindex_t ifindex;
 };
 
+/*
+ * Identifier of the requester of an SRv6 SID in a client daemon. The
+ * SRv6 SID manager keeps one SID per requester and per SID context in a
+ * block. A daemon with one requester per SID context uses the default one.
+ */
+#define SRV6_SID_REQUEST_ID_DEFAULT 0
+
 static inline const char *srv6_headend_behavior2str(enum srv6_headend_behavior behavior,
 						    bool running_conf)
 {
