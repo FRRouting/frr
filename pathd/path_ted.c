@@ -219,6 +219,7 @@ uint32_t path_ted_query_type_f(struct ipaddr *local, struct ipaddr *remote)
 		/* We have local and remote ip */
 		/* so check all attributes in ted */
 		key.family = AF_INET;
+		key.node = 0;
 		IPV4_ADDR_COPY(&key.k.addr, &local->ip._v4_addr);
 		edge = ls_find_edge_by_key(ted_state_g.ted, key);
 		if (edge) {
@@ -234,6 +235,7 @@ uint32_t path_ted_query_type_f(struct ipaddr *local, struct ipaddr *remote)
 		break;
 	case IPADDR_V6:
 		key.family = AF_INET6;
+		key.node = 0;
 		IPV6_ADDR_COPY(&key.k.addr6, &local->ip._v6_addr);
 		edge = ls_find_edge_by_key(ted_state_g.ted, key);
 		if (edge) {

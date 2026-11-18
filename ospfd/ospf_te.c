@@ -1710,6 +1710,7 @@ static struct ls_edge *get_edge(struct ls_ted *ted, struct ls_node_id adv,
 
 	/* Search Edge that corresponds to the Link ID */
 	key.family = AF_INET;
+	key.node = 0;
 	IPV4_ADDR_COPY(&key.k.addr, &link_id);
 	edge = ls_find_edge_by_key(ted, key);
 
@@ -3220,6 +3221,7 @@ static int ospf_te_delete_ext_link(struct ls_ted *ted, struct ospf_lsa *lsa)
 	/* Search for corresponding Edge from Link State Data Base */
 	ext = (const struct ext_tlv_link *)tlvh;
 	key.family = AF_INET;
+	key.node = 0;
 	IPV4_ADDR_COPY(&key.k.addr, &ext->link_data);
 	edge = ls_find_edge_by_key(ted, key);
 
@@ -4932,6 +4934,7 @@ DEFUN (show_ip_ospf_mpls_te_db,
 			}
 			/* Get the Edge from the Link State Database */
 			ekey.family = AF_INET;
+			ekey.node = 0;
 			IPV4_ADDR_COPY(&ekey.k.addr, &ip_addr);
 			edge = ls_find_edge_by_key(OspfMplsTE.ted, ekey);
 			if (!edge) {

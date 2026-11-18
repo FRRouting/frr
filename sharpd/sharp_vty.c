@@ -1307,6 +1307,7 @@ DEFUN (show_sharp_ted,
 			}
 			/* Get the Edge from the Link State Database */
 			ekey.family = AF_INET;
+			ekey.node = 0;
 			IPV4_ADDR_COPY(&ekey.k.addr, &ip_addr);
 			edge = ls_find_edge_by_key(sg.ted, ekey);
 			if (!edge) {

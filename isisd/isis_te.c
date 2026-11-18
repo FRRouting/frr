@@ -2054,6 +2054,7 @@ static int show_ted(struct vty *vty, struct cmd_token *argv[], int argc, struct 
 			}
 			/* Get the Edge from the Link State Database */
 			key.family = AF_INET;
+			key.node = 0;
 			IPV4_ADDR_COPY(&key.k.addr, &ip_addr);
 			edge = ls_find_edge_by_key(ted, key);
 			if (!edge) {
