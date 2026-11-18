@@ -379,6 +379,11 @@ module frr-pathd {
                 "Algorithm to use for the NAI";
             }
           }
+          must "sid-value or nai" {
+            error-message "A segment must have either a sid-value or a NAI";
+            description
+              "Each segment must specify at least a SID value or a NAI.";
+          }
         }
       }
       list policy {
