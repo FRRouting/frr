@@ -478,6 +478,7 @@ module frr-pathd {
               "Type of the Candidate Path.";
           }
           leaf segment-list-name {
+            when "../type = 'explicit'";
             type leafref {
               path ../../../segment-list/name;
             }
