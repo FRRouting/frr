@@ -3185,15 +3185,8 @@ static int zebra_interface_if_set_value(struct stream *s,
 
 	return 0;
 stream_failure:
-	/*
-	 * A short/malformed ZAPI message (e.g. from a peer that isn't
-	 * zebra, or a version mismatch) must not abort this daemon --
-	 * every other stream_failure handler in this file fails
-	 * gracefully; this one is now consistent with them. See the
-	 * two callers below, which now check the return value instead
-	 * of assuming success.
-	 */
-	zlog_err("Could not parse interface values");
+	zlog_err("Could not parse interface values for interface %s vrf %s(%u)",
+		 ifp->name, ifp->vrf->name, ifp->vrf->vrf_id);
 	return -1;
 }
 
