@@ -3916,8 +3916,20 @@ static ssize_t netlink_neigh_update_msg_encode(
 			return 0;
 	}
 
+	/*
+	 * For EVPN type-3 (IMET) flood entries the access VLAN is otherwise
+	 * only implied by the vxlan interface ifindex. Advertise it like
+	 * type-2 entries carry it (NDA_VLAN, next to NDA_SRC_VNI) so that
+	 * data plane implementations which do not own a kernel vxlan
+	 * netdevice can associate the entry with its bridge domain. The
+	 * kernel ignores NDA_VLAN on a vxlan FDB entry.
+	 */
 	if (op == DPLANE_OP_VTEP_ADD || op == DPLANE_OP_VTEP_DELETE) {
 		vni_t vni = dplane_ctx_neigh_get_vni(ctx);
+		vlanid_t vid = dplane_ctx_neigh_get_vid(ctx);
+
+		if (vid > 0 && !nl_attr_put16(&req->n, datalen, NDA_VLAN, vid))
+			return 0;
 
 		if (vni > 0) {
 			if (!nl_attr_put32(&req->n, datalen, NDA_SRC_VNI, vni))
@@ -3946,7 +3958,7 @@ ssize_t netlink_vxlan_flood_update_ctx(const struct zebra_dplane_ctx *ctx, int c
 			   nl_msg_type_to_str(cmd), nl_family_to_str(PF_BRIDGE),
 			   dplane_ctx_get_ifname(ctx), dplane_ctx_get_ifindex(ctx),
 			   dplane_ctx_neigh_get_vni(ctx), &dst_mac,
-			   dplane_ctx_neigh_get_ipaddr(ctx), dplane_ctx_mac_get_vlan(ctx));
+			   dplane_ctx_neigh_get_ipaddr(ctx), dplane_ctx_neigh_get_vid(ctx));
 
 	return netlink_neigh_update_msg_encode(
 		ctx, cmd, (const void *)&dst_mac, ETH_ALEN,

@@ -1350,8 +1350,8 @@ int zebra_evpn_vtep_install(struct zebra_evpn *zevpn, struct zebra_vtep *zvtep)
 
 	if (zebra_evpn_flooding_head_end(zevpn) &&
 	    (zvtep->flood_control == VXLAN_FLOOD_HEAD_END_REPL)) {
-		if (ZEBRA_DPLANE_REQUEST_FAILURE ==
-		    dplane_vtep_add(zevpn->vxlan_if, &zvtep->vtep_ip, zevpn->vni))
+		if (dplane_vtep_add(zevpn->vxlan_if, &zvtep->vtep_ip, zevpn->vni,
+				    zebra_evpn_access_vid(zevpn)) == ZEBRA_DPLANE_REQUEST_FAILURE)
 			return -1;
 	}
 
@@ -1371,7 +1371,7 @@ int zebra_evpn_vtep_uninstall(struct zebra_evpn *zevpn, struct ipaddr *vtep_ip)
 	}
 
 	if (ZEBRA_DPLANE_REQUEST_FAILURE ==
-	    dplane_vtep_delete(zevpn->vxlan_if, vtep_ip, zevpn->vni))
+	    dplane_vtep_delete(zevpn->vxlan_if, vtep_ip, zevpn->vni, zebra_evpn_access_vid(zevpn)))
 		return -1;
 
 	return 0;
