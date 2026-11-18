@@ -111,6 +111,8 @@ def setup_module(mod):
 
 def teardown_module(mod):
     tgen = get_topogen()
+    # The restart tests use -r, which retains route tables on clean shutdown.
+    tgen.gears["PE2"].net.killRouterDaemons(["zebra"])
     tgen.stop_topology()
 
 
@@ -129,6 +131,17 @@ def _evpn_peer_established(router: TopoRouter, neighbor_ip: str) -> bool:
         f"Neighbor {neighbor_ip} found in BGP summary with state: {peers[neighbor_ip].get('state')}"
     )
     return peers[neighbor_ip].get("state") == "Established"
+
+
+def _evpn_peer_retrying(router: TopoRouter, neighbor_ip: str) -> bool:
+    try:
+        output = router.vtysh_cmd("show bgp l2vpn evpn summary json")
+        data = json.loads(output)
+    except Exception:
+        return False
+
+    peer = data.get("peers", {}).get(neighbor_ip, {})
+    return peer.get("state") in ("Active", "Connect")
 
 
 def _evpn_any_prefixes(router: TopoRouter) -> bool:
@@ -763,6 +776,267 @@ def test_bgp_evpn_gr_stale_cleanup_on_timeout():
     except Exception as e:
         logger.error(f"Failed to start daemon or load BGP config: {e}")
         raise
+
+
+def _gr_hrep_entry(router, remote_vtep, present):
+    output = router.run("bridge -j fdb show dev vxlan100")
+    try:
+        entries = json.loads(output)
+    except json.JSONDecodeError:
+        return f"Invalid bridge FDB JSON: {output}"
+    found = any(
+        entry.get("mac") == "00:00:00:00:00:00" and entry.get("dst") == remote_vtep
+        for entry in entries
+    )
+    return None if found == present else f"HREP present={found}, expected={present}"
+
+
+def _gr_imet_present(router, remote_vtep):
+    output = router.vtysh_cmd("show bgp l2vpn evpn route json", isjson=True)
+    prefix = f"[3]:[0]:[32]:[{remote_vtep}]"
+    return any(
+        rd.get(prefix, {}).get("paths")
+        for rd in output.values()
+        if isinstance(rd, dict)
+    )
+
+
+def _gr_flood_mode(router, remote_vtep):
+    output = router.vtysh_cmd("show evpn vni 100 json", isjson=True)
+    for vtep in output.get("remoteVteps", []):
+        if vtep.get("ip") == remote_vtep:
+            return None if vtep.get("flood") == "HER" else vtep
+    return f"Remote VTEP {remote_vtep} missing: {output}"
+
+
+def _gr_rib_sweep_finished(router):
+    output = router.vtysh_cmd("show zebra")
+    return None if "Zebra RIB sweep happened" in output else output
+
+
+def test_gr_restart_keeps_refreshed_hrep():
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    pe1 = tgen.gears["PE1"]
+    pe2 = tgen.gears["PE2"]
+    remote_vtep = "10.100.0.1"
+    check = functools.partial(_gr_hrep_entry, pe2, remote_vtep, True)
+    _, result = topotest.run_and_expect(check, None, count=30, wait=1)
+    assert result is None, f"Initial HREP entry missing: {result}"
+
+    check = functools.partial(_gr_imet_present, pe2, remote_vtep)
+    _, result = topotest.run_and_expect(check, True, count=30, wait=1)
+    assert result is True, "Initial PE1 type-3 route missing from PE2 BGP"
+
+    try:
+        pe2.vtysh_cmd("debug zebra kernel\ndebug zebra dplane detailed\nwrite memory")
+        assert pe2.net.killRouterDaemons(["zebra"]) == "", "Zebra did not stop"
+        # Reset the peer while Zebra is down so it sends a fresh RT-3 after
+        # kernel import. This avoids relying on replay of an unchanged BGP RIB.
+        pe1.vtysh_cmd(
+            "configure terminal\nrouter bgp 101\nneighbor 10.0.1.2 shutdown\nend"
+        )
+        pe2.vtysh_cmd("clear bgp l2vpn evpn 10.0.1.1")
+        check = functools.partial(_gr_imet_present, pe2, remote_vtep)
+        _, result = topotest.run_and_expect(check, False, count=30, wait=1)
+        assert result is False, "Old RT-3 was not withdrawn while Zebra was down"
+        if _gr_hrep_entry(pe2, remote_vtep, True) is None:
+            pe2.cmd_raises(
+                f"bridge fdb del 00:00:00:00:00:00 dev vxlan100 "
+                f"dst {remote_vtep} self"
+            )
+        assert _gr_hrep_entry(pe2, remote_vtep, False) is None
+        pe2.cmd_raises(
+            f"bridge fdb append 00:00:00:00:00:00 dev vxlan100 "
+            f"dst {remote_vtep} self permanent"
+        )
+        assert (
+            _gr_hrep_entry(pe2, remote_vtep, True) is None
+        ), "Kernel HREP was not seeded"
+
+        log_start = len(pe2.net.getLog("log", "zebra"))
+        pe2.load_config(pe2.RD_ZEBRA, "", param="-r -K15")
+        assert pe2.startDaemons(["zebra"]) == "", "Zebra did not restart"
+        # Debug was saved before the restart; keep it enabled for the replay
+        # from the existing bgpd process without restarting its sync session.
+        pe2.vtysh_cmd("debug zebra kernel\ndebug zebra dplane detailed", daemon="zebra")
+
+        def bgp_client_connected():
+            clients = pe2.vtysh_cmd("show zebra client json", isjson=True)
+            return any(
+                client.get("sessionId") == 0 for client in clients.get("bgp", [])
+            )
+
+        _, result = topotest.run_and_expect(
+            bgp_client_connected, True, count=30, wait=1
+        )
+        assert result is True, "BGP's main ZAPI session did not reconnect"
+
+        pe1.vtysh_cmd(
+            "configure terminal\nrouter bgp 101\nno neighbor 10.0.1.2 shutdown\nend"
+        )
+
+        refresh = (
+            f"zebra_vxlan_remote_vtep_add: VTEP {remote_vtep} "
+            "already exists for VNI 100 flood_control 0 (received flood_control 0)"
+        )
+        sweep = "Sweeping the RIB for stale routes..."
+
+        def rt3_replayed():
+            log = pe2.net.getLog("log", "zebra")[log_start:]
+            return (
+                None
+                if refresh in log
+                else "Zebra has not refreshed the imported HER VTEP"
+            )
+
+        _, result = topotest.run_and_expect(rt3_replayed, None, count=30, wait=1)
+        assert result is None, result
+
+        check = functools.partial(_evpn_peer_established, pe2, "10.0.1.1")
+        _, result = topotest.run_and_expect(check, True, count=30, wait=1)
+        assert result is True, "EVPN session did not recover"
+
+        check = functools.partial(_gr_imet_present, pe2, remote_vtep)
+        _, result = topotest.run_and_expect(check, True, count=30, wait=1)
+        assert result is True, "PE1 type-3 route was not restored in PE2 BGP"
+
+        check = functools.partial(_gr_flood_mode, pe2, remote_vtep)
+        _, result = topotest.run_and_expect(check, None, count=30, wait=1)
+        assert result is None, f"RT-3 did not restore HER: {result}"
+
+        check = functools.partial(_gr_rib_sweep_finished, pe2)
+        _, result = topotest.run_and_expect(check, None, count=30, wait=1)
+        assert result is None, f"GR stale cleanup did not finish: {result}"
+        # A queued uninstall is logged synchronously, so this also detects a
+        # delete followed by a reinstall and does not race kernel processing.
+        log = pe2.net.getLog("log", "zebra")[log_start:]
+        assert sweep in log, "RIB sweep missing from Zebra log"
+        assert log.index(refresh) < log.index(
+            sweep
+        ), "RIB sweep ran before RT-3 refresh"
+        uninstalls = [
+            line
+            for line in log.splitlines()
+            if "init neigh ctx VTEP_DELETE: ifp vxlan100," in line
+            and f"ip {remote_vtep}" in line
+        ]
+        assert not uninstalls, f"Refreshed HREP was uninstalled: {uninstalls}"
+        assert _gr_flood_mode(pe2, remote_vtep) is None, "GR cleanup disabled RT-3"
+        assert _gr_hrep_entry(pe2, remote_vtep, True) is None, "GR cleanup removed HREP"
+    finally:
+        try:
+            pe1.vtysh_cmd(
+                "configure terminal\nrouter bgp 101\nno neighbor 10.0.1.2 shutdown\nend"
+            )
+        finally:
+            pe2.vtysh_cmd("no debug zebra kernel\nno debug zebra dplane\nwrite memory")
+
+
+def test_gr_restart_removes_unrefreshed_hrep():
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    pe1 = tgen.gears["PE1"]
+    pe2 = tgen.gears["PE2"]
+    remote_vtep = "10.100.0.1"
+    assert pe2.net.killRouterDaemons(["zebra", "bgpd"]) == "", "FRR did not stop"
+    assert pe1.net.killRouterDaemons(["bgpd"]) == "", "Peer BGP did not stop"
+
+    # Model an HREP retained in the kernel without a matching RT-3 replay.
+    if _gr_hrep_entry(pe2, remote_vtep, True) is None:
+        pe2.cmd_raises(
+            f"bridge fdb del 00:00:00:00:00:00 dev vxlan100 " f"dst {remote_vtep} self"
+        )
+    assert _gr_hrep_entry(pe2, remote_vtep, False) is None
+    pe2.cmd_raises(
+        f"bridge fdb append 00:00:00:00:00:00 dev vxlan100 "
+        f"dst {remote_vtep} self permanent"
+    )
+    assert _gr_hrep_entry(pe2, remote_vtep, True) is None
+
+    pe2.load_config(pe2.RD_ZEBRA, "", param="-r -K15")
+    assert pe2.startDaemons(["zebra", "bgpd"]) == "", "FRR did not restart"
+
+    check = functools.partial(_gr_rib_sweep_finished, pe2)
+    _, result = topotest.run_and_expect(check, None, count=30, wait=1)
+    assert result is None, f"GR stale cleanup did not finish: {result}"
+    check = functools.partial(_gr_hrep_entry, pe2, remote_vtep, False)
+    _, result = topotest.run_and_expect(check, None, count=30, wait=1)
+    assert result is None, f"Stale HREP remains: {result}"
+
+    assert pe1.startDaemons(["bgpd"]) == "", "Peer BGP did not restart"
+    check = functools.partial(_evpn_peer_established, pe2, "10.0.1.1")
+    _, result = topotest.run_and_expect(check, True, count=60, wait=2)
+    assert result is True, "EVPN session did not recover after stale-HREP test"
+    check = functools.partial(_gr_hrep_entry, pe2, remote_vtep, True)
+    _, result = topotest.run_and_expect(check, None, count=30, wait=1)
+    assert result is None, f"HREP was not restored after peer recovery: {result}"
+
+
+def test_bgpd_reconnect_timeout_cleans_stale_hrep():
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    pe1 = tgen.gears["PE1"]
+    pe2 = tgen.gears["PE2"]
+    remote_vtep = "10.100.0.1"
+
+    check = functools.partial(_gr_hrep_entry, pe2, remote_vtep, True)
+    _, result = topotest.run_and_expect(check, None, count=30, wait=1)
+    assert result is None, f"Initial HREP entry missing: {result}"
+
+    # Shorten Zebra's stale timer so the reconnect can be held incomplete.
+    pe2.vtysh_cmd(
+        """
+        configure terminal
+        router bgp 102
+         bgp graceful-restart rib-stale-time 5
+         bgp graceful-restart select-defer-time 30
+        end
+        write memory
+        """
+    )
+
+    # Keep the EVPN peer down while bgpd reconnects to Zebra, so route sync
+    # cannot complete before Zebra's stale timer expires.
+    assert pe1.net.killRouterDaemons(["bgpd"]) == "", "Peer BGP did not stop"
+    check = functools.partial(_evpn_peer_retrying, pe2, "10.0.1.1")
+    _, result = topotest.run_and_expect(check, True, count=30, wait=1)
+    assert result is True, "EVPN peer did not go down"
+
+    assert pe2.net.killRouterDaemons(["bgpd"]) == "", "Local BGP did not stop"
+    assert pe2.startDaemons(["bgpd"]) == "", "Local BGP did not restart"
+    _, result = topotest.run_and_expect(check, True, count=30, wait=1)
+    assert result is True, "BGP did not reconnect to Zebra with peer down"
+
+    check = functools.partial(_gr_hrep_entry, pe2, remote_vtep, False)
+    _, result = topotest.run_and_expect(check, None, count=15, wait=1)
+    assert result is None, f"Stale HREP remained after reconnect timeout: {result}"
+
+    assert pe1.startDaemons(["bgpd"]) == "", "Peer BGP did not restart"
+    check = functools.partial(_evpn_peer_established, pe2, "10.0.1.1")
+    _, result = topotest.run_and_expect(check, True, count=60, wait=2)
+    assert result is True, "EVPN session did not recover"
+
+    check = functools.partial(_gr_hrep_entry, pe2, remote_vtep, True)
+    _, result = topotest.run_and_expect(check, None, count=30, wait=1)
+    assert result is None, f"HREP was not restored after peer recovery: {result}"
+
+    pe2.vtysh_cmd(
+        """
+        configure terminal
+        router bgp 102
+         no bgp graceful-restart rib-stale-time
+         no bgp graceful-restart select-defer-time
+        end
+        write memory
+        """
+    )
 
 
 """
