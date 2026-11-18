@@ -528,16 +528,32 @@ def test_msdp_sa_limit():
     """
     )
 
-    # Flow from r1 -> r4
-    for multicast_address in [
+    multicast_addresses = [
         "229.1.2.10",
         "229.1.2.11",
         "229.1.2.12",
         "229.1.2.13",
         "229.1.2.14",
-    ]:
+    ]
+
+    # Flow from r1 -> r4
+    for multicast_address in multicast_addresses:
         app_helper.run("h1", [multicast_address, "h1-eth0"])
         app_helper.run("h2", ["--send=0.7", multicast_address, "h2-eth0"])
+
+    r1_sa_expected = {
+        multicast_address: {"192.168.10.100": {"local": "yes"}}
+        for multicast_address in multicast_addresses
+    }
+    test_func = partial(
+        topotest.router_json_cmp,
+        tgen.gears["r1"],
+        "show ip msdp sa json",
+        r1_sa_expected,
+    )
+    logger.info("Waiting for r1 to originate the SAs")
+    _, val = topotest.run_and_expect(test_func, None, count=45, wait=1)
+    assert val is None, "r1 did not originate the SAs"
 
     def test_sa_limit_log():
         r4_log = tgen.gears["r4"].net.getLog("log", "pimd")
@@ -549,7 +565,7 @@ def test_msdp_sa_limit():
         else:
             return True
 
-    _, val = topotest.run_and_expect(test_sa_limit_log, True, count=30, wait=1)
+    _, val = topotest.run_and_expect(test_sa_limit_log, True, count=45, wait=1)
     assert val is True, "SA limit check failed"
 
 
