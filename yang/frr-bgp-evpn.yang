@@ -57,6 +57,14 @@ submodule frr-bgp-evpn {
      (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
      OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.";
 
+  revision 2026-11-18 {
+    description
+      "Add automatic route-target modes, type-5 skip-evpn-imported and
+       VPN advertisement, and per-VNI flooding configuration.";
+    reference
+      "FRRouting";
+  }
+
   revision 2026-07-21 {
     description
       "Initial EVPN configuration model synced with bgp_evpn_vty.c CLI.";
