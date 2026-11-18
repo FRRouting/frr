@@ -211,6 +211,7 @@ struct zebra_router {
 	 * zebra start time and time of sweeping RIB of old routes
 	 */
 	time_t startup_time;
+	struct timeval startup_time_tv;
 	time_t rib_sweep_time;
 
 	/* FRR fast/graceful restart info */

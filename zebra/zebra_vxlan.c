@@ -5310,6 +5310,7 @@ void zebra_vxlan_remote_vtep_add(vrf_id_t vrf_id, vni_t vni, struct ipaddr *vtep
 
 		/* Refresh entry */
 		zvtep->gr_refresh_time = monotime(NULL);
+		monotime(&zvtep->gr_imet_refresh_time);
 
 		/* If the remote VTEP already exists check if
 		 * the flood mode has changed
@@ -5330,9 +5331,10 @@ void zebra_vxlan_remote_vtep_add(vrf_id_t vrf_id, vni_t vni, struct ipaddr *vtep
 				   __func__, vtep_ip, vni, flood_control);
 
 		zvtep = zebra_evpn_vtep_add(zevpn, vtep_ip, flood_control);
-		if (zvtep)
+		if (zvtep) {
+			monotime(&zvtep->gr_imet_refresh_time);
 			zebra_evpn_vtep_install(zevpn, zvtep);
-		else
+		} else
 			flog_err(EC_ZEBRA_VTEP_ADD_FAILED,
 				 "Failed to add remote VTEP, VNI %u zevpn %p",
 				 vni, zevpn);
@@ -6804,10 +6806,11 @@ void zebra_vxlan_sg_replay(ZAPI_HANDLER_ARGS)
 
 /* Cleanup EVPN configuration of a specific VRF */
 static void zebra_evpn_vrf_cfg_cleanup(struct zebra_vrf *zvrf, bool stale_cleanup,
-				       uint64_t gr_cleanup_time)
+				       uint64_t gr_cleanup_time,
+				       const struct timeval *gr_imet_cleanup_time)
 {
 	struct zebra_l3vni *zl3vni = NULL;
-	struct l2vni_walk_ctx wctx;
+	struct l2vni_walk_ctx wctx = { 0 };
 
 	if (!stale_cleanup) {
 		zvrf->advertise_all_vni = 0;
@@ -6818,6 +6821,8 @@ static void zebra_evpn_vrf_cfg_cleanup(struct zebra_vrf *zvrf, bool stale_cleanu
 
 	wctx.gr_stale_cleanup = stale_cleanup;
 	wctx.gr_cleanup_time = gr_cleanup_time;
+	if (gr_imet_cleanup_time)
+		wctx.gr_imet_cleanup_time = *gr_imet_cleanup_time;
 	hash_iterate(zvrf->evpn_table, zebra_evpn_cfg_cleanup, &wctx);
 
 	if (zvrf->l3vni)
@@ -6841,7 +6846,8 @@ static void zebra_evpn_vrf_cfg_cleanup(struct zebra_vrf *zvrf, bool stale_cleanu
 /*
  * Cleanup stale EVPN entries in VRF
  */
-void zebra_evpn_stale_entries_cleanup(uint64_t gr_cleanup_time)
+void zebra_evpn_stale_entries_cleanup(uint64_t gr_cleanup_time,
+				      const struct timeval *gr_imet_cleanup_time)
 {
 	struct vrf *vrf;
 	struct zebra_vrf *zvrf;
@@ -6858,7 +6864,8 @@ void zebra_evpn_stale_entries_cleanup(uint64_t gr_cleanup_time)
 
 		zvrf = vrf->info;
 		if (zvrf)
-			zebra_evpn_vrf_cfg_cleanup(zvrf, true, gr_cleanup_time);
+			zebra_evpn_vrf_cfg_cleanup(zvrf, true, gr_cleanup_time,
+						   gr_imet_cleanup_time);
 	}
 }
 
@@ -6871,7 +6878,7 @@ static int zebra_evpn_bgp_cfg_clean_up(struct zserv *client)
 	RB_FOREACH (vrf, vrf_id_head, &vrfs_by_id) {
 		zvrf = vrf->info;
 		if (zvrf)
-			zebra_evpn_vrf_cfg_cleanup(zvrf, false, 0);
+			zebra_evpn_vrf_cfg_cleanup(zvrf, false, 0, NULL);
 	}
 
 	return 0;
