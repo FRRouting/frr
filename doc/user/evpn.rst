@@ -238,6 +238,7 @@ may seem counterintuitive or overcomplicated.
    - ``vnifilter`` flag (``VXLAN_F_VNIFILTER``): Only used together with ``external``, allows multiple ``external`` VXLAN devices to co-exist on the same port by limiting which VNIs are received on each device
    - **Single VXLAN Devices are the recommended approach for all EVPN deployments**
    - When using Single VXLAN Devices, it is good practice to always use ``vnifilter`` flag
+   - The kernel forwards :ref:`bgp-evpn-downstream-vni` routes with the downstream VNI only on Single VXLAN Devices; with Traditional VXLAN Devices only a dataplane fed over FPM can
 
 Single VXLAN Devices (SVD)
 -----------------------------
