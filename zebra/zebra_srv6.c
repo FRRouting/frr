@@ -1897,6 +1897,7 @@ static bool alloc_srv6_sid_func_dynamic(struct zebra_srv6_sid_block *block,
  * Otherwise, it allocates a new SID.
  *
  * @param sid SID returned
+ * @param client The client that requested the SID
  * @param ctx Context for which the SID has been requested
  * @param locator Parent locator of the SID
  * @param sid_value specific SRv6 SID value (i.e. IPv6 address) to be
@@ -1906,9 +1907,9 @@ static bool alloc_srv6_sid_func_dynamic(struct zebra_srv6_sid_block *block,
  * @return 0 if the function returned an existing SID and SID value has not changed,
  * 1 if a new SID has been allocated or the existing SID value has changed, -1 if an error occurred
  */
-static int get_srv6_sid_explicit(struct zebra_srv6_sid **sid, struct srv6_sid_ctx *ctx,
-				 struct srv6_locator *locator, struct in6_addr *sid_value,
-				 bool is_localonly)
+static int get_srv6_sid_explicit(struct zebra_srv6_sid **sid, struct zserv *client,
+				 struct srv6_sid_ctx *ctx, struct srv6_locator *locator,
+				 struct in6_addr *sid_value, bool is_localonly)
 {
 	struct zebra_srv6_sid_ctx *zctx = NULL;
 	uint32_t sid_func = 0, sid_func_wide = 0;
@@ -2035,6 +2036,7 @@ static int get_srv6_sid_explicit(struct zebra_srv6_sid **sid, struct srv6_sid_ct
  * Otherwise, it allocates a new SID.
  *
  * @param sid SID returned
+ * @param client The client that requested the SID
  * @param ctx Context for which the SID has been requested
  * @param locator SRv6 locator from which the SID has to be allocated
  * @param is_localonly SID is local-only
@@ -2042,8 +2044,9 @@ static int get_srv6_sid_explicit(struct zebra_srv6_sid **sid, struct srv6_sid_ct
  * @return 0 if the function returned an existing SID and SID value has not changed,
  * 1 if a new SID has been allocated or the existing SID value has changed, -1 if an error occurred
  */
-static int get_srv6_sid_dynamic(struct zebra_srv6_sid **sid, struct srv6_sid_ctx *ctx,
-				struct srv6_locator *locator, bool is_localonly)
+static int get_srv6_sid_dynamic(struct zebra_srv6_sid **sid, struct zserv *client,
+				struct srv6_sid_ctx *ctx, struct srv6_locator *locator,
+				bool is_localonly)
 {
 	struct zebra_srv6_sid_block *block;
 	struct srv6_sid_format *format;
@@ -2136,6 +2139,7 @@ static int get_srv6_sid_dynamic(struct zebra_srv6_sid **sid, struct srv6_sid_ctx
  * (dynamic SID allocation).
  *
  * @param sid SID returned
+ * @param client The client that requested the SID
  * @param ctx Context for which the SID has been requested
  * @param sid_value SRv6 SID value to be allocated (for explicit SID allocation)
  * @param locator_name Parent SRv6 locator from which the SID has to be allocated (for dynamic SID allocation)
@@ -2144,8 +2148,8 @@ static int get_srv6_sid_dynamic(struct zebra_srv6_sid **sid, struct srv6_sid_ctx
  * @return 0 if the function returned an existing SID and SID value has not changed,
  * 1 if a new SID has been allocated or the existing SID value has changed, -1 if an error occurred
  */
-int get_srv6_sid(struct zebra_srv6_sid **sid, struct srv6_sid_ctx *ctx, struct in6_addr *sid_value,
-		 const char *locator_name, bool is_localonly)
+int get_srv6_sid(struct zebra_srv6_sid **sid, struct zserv *client, struct srv6_sid_ctx *ctx,
+		 struct in6_addr *sid_value, const char *locator_name, bool is_localonly)
 {
 	int ret = -1;
 	struct srv6_locator *locator = NULL;
@@ -2156,9 +2160,10 @@ int get_srv6_sid(struct zebra_srv6_sid **sid, struct srv6_sid_ctx *ctx, struct i
 			    : SRV6_SID_ALLOC_MODE_DYNAMIC;
 
 	if (IS_ZEBRA_DEBUG_SRV6)
-		zlog_debug("%s: received SRv6 SID alloc request: SID ctx %s (%pI6), mode=%s",
-			   __func__, srv6_sid_ctx2str(buf, sizeof(buf), ctx),
-			   sid_value, srv6_sid_alloc_mode2str(alloc_mode));
+		zlog_debug("%s: received SRv6 SID alloc request: SID ctx %s (%pI6), mode=%s (proto=%u, instance=%u, sessionId=%u)",
+			   __func__, srv6_sid_ctx2str(buf, sizeof(buf), ctx), sid_value,
+			   srv6_sid_alloc_mode2str(alloc_mode), client->proto, client->instance,
+			   client->session_id);
 
 	frrtrace(3, frr_zebra, get_srv6_sid, srv6_sid_ctx2str(buf, sizeof(buf), ctx), sid_value,
 		 locator_name);
@@ -2185,7 +2190,7 @@ int get_srv6_sid(struct zebra_srv6_sid **sid, struct srv6_sid_ctx *ctx, struct i
 			return -1;
 		}
 
-		ret = get_srv6_sid_explicit(sid, ctx, locator, sid_value, is_localonly);
+		ret = get_srv6_sid_explicit(sid, client, ctx, locator, sid_value, is_localonly);
 	} else {
 		/*
 		 * Dynamic SID allocation: allocate any available SID value
@@ -2206,7 +2211,7 @@ int get_srv6_sid(struct zebra_srv6_sid **sid, struct srv6_sid_ctx *ctx, struct i
 			return -1;
 		}
 
-		ret = get_srv6_sid_dynamic(sid, ctx, locator, is_localonly);
+		ret = get_srv6_sid_dynamic(sid, client, ctx, locator, is_localonly);
 	}
 
 	return ret;
@@ -2761,7 +2766,7 @@ static int srv6_manager_get_sid_internal(struct zebra_srv6_sid **sid, struct zse
 		}
 	}
 
-	ret = get_srv6_sid(sid, ctx, sid_value, locator_name, is_localonly);
+	ret = get_srv6_sid(sid, client, ctx, sid_value, locator_name, is_localonly);
 	if (ret < 0) {
 		zlog_warn("%s: not got SRv6 SID for ctx %s, sid_value=%pI6, locator_name=%s",
 			  __func__, srv6_sid_ctx2str(buf, sizeof(buf), ctx),
