@@ -84,6 +84,172 @@ module frr-pathd {
       "Identifier of the originator of an object, could be 'config', '1.1.1.1:4189' or '2001:db8:85a3::8a2e:370:7334:4189'";
   }
 
+  typedef metric-type {
+    type enumeration {
+      enum igp {
+        value 1;
+        description "IGP metric";
+      }
+      enum te {
+        value 2;
+        description "TE metric";
+      }
+      enum hc {
+        value 3;
+        description "Hop Counts";
+      }
+      enum abc {
+        value 4;
+        description "Aggregate bandwidth consumption";
+      }
+      enum lmll {
+        value 5;
+        description "Load of the most loaded link";
+      }
+      enum cigp {
+        value 6;
+        description "Cumulative IGP cost";
+      }
+      enum cte {
+        value 7;
+        description "Cumulative TE cost";
+      }
+      enum pigp {
+        value 8;
+        description "P2MP IGP metric";
+      }
+      enum pte {
+        value 9;
+        description "P2MP TE metric";
+      }
+      enum phc {
+        value 10;
+        description "P2MP hop count metric";
+      }
+      enum msd {
+        value 11;
+        description "Segment-ID (SID) Depth";
+      }
+      enum pd {
+        value 12;
+        description "Path Delay metric";
+      }
+      enum pdv {
+        value 13;
+        description "Path Delay Variation metric";
+      }
+      enum pl {
+        value 14;
+        description "Path Loss metric";
+      }
+      enum ppd {
+        value 15;
+        description "P2MP Path Delay metric";
+      }
+      enum ppdv {
+        value 16;
+        description "P2MP Path Delay variation metric";
+      }
+      enum ppl {
+        value 17;
+        description "P2MP Path Loss metric";
+      }
+      enum nap {
+        value 18;
+        description "Number of adaptations on a path";
+      }
+      enum nlp {
+        value 19;
+        description "Number of layers on a path";
+      }
+      enum dc {
+        value 20;
+        description "Domain Count metric";
+      }
+      enum bnc {
+        value 21;
+        description "Border Node Count metric";
+      }
+    }
+    description
+      "Type of metric for a candidate path constraint.";
+  }
+
+  typedef objective-function-type {
+    type enumeration {
+      enum mcp {
+        value 1;
+        description "Minimum Cost Path";
+      }
+      enum mlp {
+        value 2;
+        description "Minimum Load Path";
+      }
+      enum mbp {
+        value 3;
+        description "Maximum residual Bandwidth Path";
+      }
+      enum mbc {
+        value 4;
+        description "Minimize aggregate Bandwidth Consumption";
+      }
+      enum mll {
+        value 5;
+        description "Minimize the Load of the most loaded Link";
+      }
+      enum mcc {
+        value 6;
+        description "Minimize the Cumulative Cost of a set of paths";
+      }
+      enum spt {
+        value 7;
+        description "Shortest Path Tree";
+      }
+      enum mct {
+        value 8;
+        description "Minimum Cost Tree";
+      }
+      enum mplp {
+        value 9;
+        description "Minimum Packet Loss Path";
+      }
+      enum mup {
+        value 10;
+        description "Maximum Under-Utilized Path";
+      }
+      enum mrup {
+        value 11;
+        description "Maximum Reserved Under-Utilized Path";
+      }
+      enum mtd {
+        value 12;
+        description "Minimize the number of Transit Domains";
+      }
+      enum mbn {
+        value 13;
+        description "Minimize the number of Border Nodes";
+      }
+      enum mctd {
+        value 14;
+        description "Minimize the number of Common Transit Domains";
+      }
+      enum msl {
+        value 15;
+        description "Minimize the number of Shared Links";
+      }
+      enum mss {
+        value 16;
+        description "Minimize the number of Shared SRLGs";
+      }
+      enum msn {
+        value 17;
+        description "Minimize the number of Shared Nodes";
+      }
+    }
+    description
+      "Type of objective function for a candidate path constraint.";
+  }
+
   container pathd {
     description
       "Path properties for Segment Routing TE";
@@ -361,92 +527,7 @@ module frr-pathd {
                 "This list contains the different metrics that can be used to describe a path.";
 
               leaf type {
-                type enumeration {
-                  enum igp {
-                    value 1;
-                    description "IGP metric";
-                  }
-                  enum te {
-                    value 2;
-                    description "TE metric";
-                  }
-                  enum hc {
-                    value 3;
-                    description "Hop Counts";
-                  }
-                  enum abc {
-                    value 4;
-                    description "Aggregate bandwidth consumption";
-                  }
-                  enum lmll {
-                    value 5;
-                    description "Load of the most loaded link";
-                  }
-                  enum cigp {
-                    value 6;
-                    description "Cumulative IGP cost";
-                  }
-                  enum cte {
-                    value 7;
-                    description "Cumulative TE cost";
-                  }
-                  enum pigp {
-                    value 8;
-                    description "P2MP IGP metric";
-                  }
-                  enum pte {
-                    value 9;
-                    description "P2MP TE metric";
-                  }
-                  enum phc {
-                    value 10;
-                    description "P2MP hop count metric";
-                  }
-                  enum msd {
-                    value 11;
-                    description "Segment-ID (SID) Depth";
-                  }
-                  enum pd {
-                    value 12;
-                    description "Path Delay metric";
-                  }
-                  enum pdv {
-                    value 13;
-                    description "Path Delay Variation metric";
-                  }
-                  enum pl {
-                    value 14;
-                    description "Path Loss metric";
-                  }
-                  enum ppd {
-                    value 15;
-                    description "P2MP Path Delay metric";
-                  }
-                  enum ppdv {
-                    value 16;
-                    description "P2MP Path Delay variation metric";
-                  }
-                  enum ppl {
-                    value 17;
-                    description "P2MP Path Loss metric";
-                  }
-                  enum nap {
-                    value 18;
-                    description "Number of adaptations on a path";
-                  }
-                  enum nlp {
-                    value 19;
-                    description "Number of layers on a path";
-                  }
-                  enum dc {
-                    value 20;
-                    description "Domain Count metric";
-                  }
-                  enum bnc {
-                    value 21;
-                    description "Border Node Count metric";
-                  }
-                }
+                type metric-type;
                 description
                   "Type of the metric.";
               }
@@ -486,76 +567,7 @@ module frr-pathd {
                   "If an objective function is a requirement, or if it is only a suggestion";
               }
               leaf type {
-                type enumeration {
-                  enum mcp {
-                    value 1;
-                    description "Minimum Cost Path";
-                  }
-                  enum mlp {
-                    value 2;
-                    description "Minimum Load Path";
-                  }
-                  enum mbp {
-                    value 3;
-                    description "Maximum residual Bandwidth Path";
-                  }
-                  enum mbc {
-                    value 4;
-                    description "Minimize aggregate Bandwidth Consumption";
-                  }
-                  enum mll {
-                    value 5;
-                    description "Minimize the Load of the most loaded Link";
-                  }
-                  enum mcc {
-                    value 6;
-                    description "Minimize the Cumulative Cost of a set of paths";
-                  }
-                  enum spt {
-                    value 7;
-                    description "Shortest Path Tree";
-                  }
-                  enum mct {
-                    value 8;
-                    description "Minimum Cost Tree";
-                  }
-                  enum mplp {
-                    value 9;
-                    description "Minimum Packet Loss Path";
-                  }
-                  enum mup {
-                    value 10;
-                    description "Maximum Under-Utilized Path";
-                  }
-                  enum mrup {
-                    value 11;
-                    description "Maximum Reserved Under-Utilized Path";
-                  }
-                  enum mtd {
-                    value 12;
-                    description "Minimize the number of Transit Domains";
-                  }
-                  enum mbn {
-                    value 13;
-                    description "Minimize the number of Border Nodes";
-                  }
-                  enum mctd {
-                    value 14;
-                    description "Minimize the number of Common Transit Domains";
-                  }
-                  enum msl {
-                    value 15;
-                    description "Minimize the number of Shared Links";
-                  }
-                  enum mss {
-                    value 16;
-                    description "Minimize the number of Shared SRLGs";
-                  }
-                  enum msn {
-                    value 17;
-                    description "Minimize the number of Shared Nodes";
-                  }
-                }
+                type objective-function-type;
                 mandatory true;
                 description
                   "Type of objective function.";
