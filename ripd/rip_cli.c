@@ -247,7 +247,8 @@ DEFPY_YANG (no_rip_distance,
 void cli_show_rip_distance(struct vty *vty, const struct lyd_node *dnode,
 			   bool show_defaults)
 {
-	if (yang_dnode_is_default(dnode, NULL))
+	/* The default 0 has no "distance" form (the CLI takes 1-255). */
+	if (yang_dnode_get_uint8(dnode, NULL) == 0)
 		vty_out(vty, " no distance\n");
 	else
 		vty_out(vty, " distance %s\n",
