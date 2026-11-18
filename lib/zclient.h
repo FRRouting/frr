@@ -238,6 +238,9 @@ typedef enum {
 	ZEBRA_TC_FILTER_DELETE,
 	ZEBRA_OPAQUE_NOTIFY,
 	ZEBRA_SRV6_SID_NOTIFY,
+	ZEBRA_PREFIX_TRACK_REGISTER,
+	ZEBRA_PREFIX_TRACK_UNREGISTER,
+	ZEBRA_PREFIX_TRACK_UPDATE,
 } zebra_message_types_t;
 /* Zebra message types. Please update the corresponding
  * command_types array with any changes!
@@ -926,6 +929,75 @@ int zclient_neigh_ip_decode(struct stream *s, struct zapi_neigh_ip *api);
 int zclient_neigh_ip_encode(struct stream *s, uint16_t cmd, union sockunion *in,
 			    union sockunion *out, struct interface *ifp,
 			    int ndm_state, int ip_len);
+
+/*
+ * Prefix tracking (ptrack): ZEBRA_PREFIX_TRACK_REGISTER, _UNREGISTER and
+ * _UPDATE.
+ *
+ * The VRF is identified by name in the payload because the vrf_id changes
+ * across VRF delete and add. The vrf_id in the ZAPI header is not used: the
+ * encoder always writes VRF_DEFAULT and the receiver ignores it.
+ *
+ * Payload (REGISTER and UNREGISTER):
+ *  VRF name (VRF_NAMSIZ bytes, NUL padded), prefix family (1 byte),
+ *  prefix length (1 byte), prefix (PSIZE(prefix length) bytes),
+ *  cookie count (2 bytes), cookies (8 bytes each).
+ *
+ * Payload (UPDATE): same, with the state (1 byte) between the prefix and the
+ * cookie count.
+ */
+enum zapi_ptrack_state {
+	ZAPI_PTRACK_UNREACHABLE = 0,
+	ZAPI_PTRACK_REACHABLE,
+};
+
+static inline const char *zapi_ptrack_state2str(enum zapi_ptrack_state state)
+{
+	switch (state) {
+	case ZAPI_PTRACK_UNREACHABLE:
+		return "UNREACHABLE";
+	case ZAPI_PTRACK_REACHABLE:
+		return "REACHABLE";
+	}
+
+	return "UNKNOWN";
+}
+
+/* Largest payload without the cookies: name, family, length, prefix, state, count */
+#define ZAPI_PTRACK_FIXED_SIZE (VRF_NAMSIZ + 1 + 1 + IPV6_MAX_BYTELEN + 1 + 2)
+
+/* Most cookies that fit in one ZAPI message */
+#define ZAPI_PTRACK_MAX_COOKIES                                                \
+	((ZEBRA_MAX_PACKET_SIZ - ZEBRA_HEADER_SIZE - ZAPI_PTRACK_FIXED_SIZE) / \
+	 sizeof(uint64_t))
+
+struct zapi_ptrack {
+	char vrf_name[VRF_NAMSIZ];
+	struct prefix prefix;
+
+	/* UPDATE only, not on the wire for REGISTER and UNREGISTER */
+	enum zapi_ptrack_state state;
+
+	uint16_t cookie_count;
+	uint64_t cookies[ZAPI_PTRACK_MAX_COOKIES];
+};
+
+/*
+ * Encode a complete ptrack message (header included) into the stream. The
+ * stream is reset first, like the other zapi_*_encode() functions.
+ * Returns 0 on success, -1 if the message is invalid.
+ */
+extern int zapi_ptrack_encode(uint8_t cmd, struct stream *s,
+			      const struct zapi_ptrack *api);
+
+/*
+ * Decode a ptrack message payload (the ZAPI header is already consumed).
+ * The family, prefix length, VRF name, state and cookie count are validated
+ * so that the result is safe to use. The prefix is not masked. Returns false
+ * if the message is invalid.
+ */
+extern bool zapi_ptrack_decode(uint8_t cmd, struct stream *s,
+			       struct zapi_ptrack *api);
 
 /*
  * We reserve the top 4 bits for l2-NHG, everything else
