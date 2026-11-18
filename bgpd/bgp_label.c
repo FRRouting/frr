@@ -613,6 +613,12 @@ int bgp_nlri_parse_label(struct peer *peer, struct attr *attr,
 			bgp_withdraw(peer, &p, addpath_id, packet->afi, SAFI_UNICAST,
 				     ZEBRA_ROUTE_BGP, BGP_ROUTE_NORMAL, NULL, labels, num_labels);
 		}
+
+		/* Do not send BGP notification twice when maximum-prefix count
+		 * overflow.
+		 */
+		if (CHECK_FLAG(peer->sflags, PEER_STATUS_PREFIX_OVERFLOW))
+			return BGP_NLRI_PARSE_ERROR_PREFIX_OVERFLOW;
 	}
 
 	/* Packet length consistency check. */

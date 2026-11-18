@@ -5652,7 +5652,9 @@ static uint32_t bgp_filtered_routes_count(struct peer *peer, afi_t afi,
 	struct bgp_dest *dest;
 	struct bgp_adj_in *ain;
 	struct attr attr = {};
-	struct bgp_table *table = peer->bgp->rib[afi][safi];
+	/* labeled-unicast routes are installed in the unicast table */
+	safi_t pfx_rcd_safi = (safi == SAFI_LABELED_UNICAST) ? SAFI_UNICAST : safi;
+	struct bgp_table *table = peer->bgp->rib[afi][pfx_rcd_safi];
 
 	for (dest = bgp_table_top(table); dest; dest = bgp_route_next(dest)) {
 		for (ain = dest->adj_in; ain; ain = ain->next) {
@@ -5690,11 +5692,12 @@ bool bgp_maximum_prefix_overflow(struct peer *peer, afi_t afi, safi_t safi,
 {
 	iana_afi_t pkt_afi;
 	iana_safi_t pkt_safi;
-	uint32_t pcount = (CHECK_FLAG(peer->af_flags[afi][safi],
-				      PEER_FLAG_MAX_PREFIX_FORCE))
-				  ? bgp_filtered_routes_count(peer, afi, safi)
-					    + peer->pcount[afi][safi]
-				  : peer->pcount[afi][safi];
+	/* labeled-unicast routes are installed in the unicast table */
+	safi_t pfx_rcd_safi = (safi == SAFI_LABELED_UNICAST) ? SAFI_UNICAST : safi;
+	uint32_t pcount = (CHECK_FLAG(peer->af_flags[afi][safi], PEER_FLAG_MAX_PREFIX_FORCE))
+				  ? bgp_filtered_routes_count(peer, afi, safi) +
+					    peer->pcount[afi][pfx_rcd_safi]
+				  : peer->pcount[afi][pfx_rcd_safi];
 	struct peer_connection *connection = peer->connection;
 
 	if (!CHECK_FLAG(peer->af_flags[afi][safi], PEER_FLAG_MAX_PREFIX))
@@ -7108,9 +7111,10 @@ void bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 	bgp_update_check_valid_flags(bgp, peer, dest, p, afi, safi, new, attr_new,
 				     bgp_nht_param_prefix, accept_own);
 	/* If maximum prefix count is configured and current prefix
-	 * count exceed it.
+	 * count exceed it. The limit is configured under the peer's own
+	 * safi (labeled-unicast included), not the table's.
 	 */
-	if (bgp_maximum_prefix_overflow(peer, afi, safi, 0)) {
+	if (bgp_maximum_prefix_overflow(peer, afi, orig_safi, 0)) {
 		reason = "maximum-prefix overflow";
 		bgp_attr_flush(&new_attr);
 		goto filtered;
