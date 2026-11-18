@@ -91,6 +91,15 @@ struct nhg_hash_entry {
 
 	struct event *timer;
 
+	/*
+	 * Incremented each time the nexthop group is installed in the
+	 * dataplane while it is not installed, or must be reinstalled. The
+	 * kernel removes the routes using a nexthop group when it removes the
+	 * nexthop group: the routes installed with a previous value are no
+	 * longer in the kernel.
+	 */
+	uint32_t install_gen;
+
 /*
  * Is this nexthop group valid, ie all nexthops are fully resolved.
  * What is fully resolved?  It's a nexthop that is either self contained
