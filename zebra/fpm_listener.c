@@ -38,6 +38,8 @@
 #include <linux/rtnetlink.h>
 #include <linux/if_link.h>
 #include <linux/nexthop.h>
+#include <linux/neighbour.h>
+#include <net/ethernet.h>
 
 #include "rt_netlink.h"
 #include "fpm/fpm.h"
@@ -49,6 +51,7 @@ XREF_SETUP();
 
 PREDECL_RBTREE_UNIQ(fpm_route);
 PREDECL_HASH(fpm_nhg);
+PREDECL_RBTREE_UNIQ(fpm_neigh);
 
 /* Route structure to store in RB tree */
 struct fpm_route {
@@ -117,6 +120,77 @@ static uint32_t fpm_nhg_hash(const struct fpm_nhg *a)
 /* Hash table for storing nexthop groups */
 DECLARE_HASH(fpm_nhg, struct fpm_nhg, hash_item, fpm_nhg_cmp, fpm_nhg_hash);
 
+/*
+ * Neighbor and FDB entries (RTM_NEWNEIGH / RTM_DELNEIGH): EVPN remote MACs,
+ * router MACs, flood list entries, remote neighbors and next hops.
+ */
+struct fpm_neigh {
+	uint8_t family; /* AF_INET, AF_INET6 or AF_BRIDGE */
+	int ifindex;
+	uint8_t lladdr[16];
+	uint8_t lladdr_len;
+	uint8_t dst_family; /* AF_UNSPEC when the entry has no NDA_DST */
+	union {
+		struct in_addr v4;
+		struct in6_addr v6;
+	} dst;
+	uint16_t vlan;
+	uint32_t src_vni;
+	uint32_t master;
+	uint32_t nhid;
+	uint8_t protocol;
+	uint8_t flags;
+	uint16_t state;
+
+	struct fpm_neigh_item rb_item;
+};
+
+static bool fpm_neigh_is_flood(const struct fpm_neigh *n)
+{
+	static const uint8_t zero_mac[ETH_ALEN];
+
+	return n->family == AF_BRIDGE && n->lladdr_len == ETH_ALEN &&
+	       memcmp(n->lladdr, zero_mac, ETH_ALEN) == 0;
+}
+
+/*
+ * Neighbor keys, like the kernel ones: an FDB entry is identified by its
+ * MAC and VLAN, except for the flood list (all zero MAC) entries that are
+ * one per remote VTEP, and an IP neighbor by its address.
+ */
+static int fpm_neigh_cmp(const struct fpm_neigh *a, const struct fpm_neigh *b)
+{
+	int ret;
+
+	if (a->family != b->family)
+		return a->family < b->family ? -1 : 1;
+	if (a->ifindex != b->ifindex)
+		return a->ifindex < b->ifindex ? -1 : 1;
+
+	if (a->family == AF_BRIDGE) {
+		/* Same length and address: both or none are flood entries. */
+		if (a->lladdr_len != b->lladdr_len)
+			return a->lladdr_len < b->lladdr_len ? -1 : 1;
+		ret = memcmp(a->lladdr, b->lladdr, sizeof(a->lladdr));
+		if (ret)
+			return ret;
+		if (a->vlan != b->vlan)
+			return a->vlan < b->vlan ? -1 : 1;
+		if (!fpm_neigh_is_flood(a))
+			return 0;
+		if (a->src_vni != b->src_vni)
+			return a->src_vni < b->src_vni ? -1 : 1;
+	}
+
+	if (a->dst_family != b->dst_family)
+		return a->dst_family < b->dst_family ? -1 : 1;
+
+	return memcmp(&a->dst, &b->dst, sizeof(a->dst));
+}
+
+/* RB tree for storing neighbors, sorted so that dumps are stable */
+DECLARE_RBTREE_UNIQ(fpm_neigh, struct fpm_neigh, rb_item, fpm_neigh_cmp);
+
 struct glob {
 	int server_sock;
 	int sock;
@@ -128,6 +202,9 @@ struct glob {
 	char dump_file_tmp[PATH_MAX];
 	struct fpm_route_head route_tree;
 	struct fpm_nhg_head nhg_hash;
+	struct fpm_neigh_head neigh_tree;
+	/* Number of FPM connections accepted so far */
+	unsigned int connections;
 };
 
 struct glob glob_space;
@@ -371,6 +448,12 @@ netlink_msg_type_to_s(uint16_t type)
 
 	case RTM_DELNEXTHOP:
 		return "Del Nexthop Group";
+
+	case RTM_NEWNEIGH:
+		return "New Neighbor";
+
+	case RTM_DELNEIGH:
+		return "Del Neighbor";
 
 	default:
 		return "Unknown";
@@ -1101,6 +1184,145 @@ static void handle_nexthop_update(struct nlmsghdr *hdr, struct nhmsg *nhmsg, str
 	}
 }
 
+static const char *fpm_neigh_family_to_s(uint8_t family)
+{
+	switch (family) {
+	case AF_INET:
+		return "inet";
+	case AF_INET6:
+		return "inet6";
+	case AF_BRIDGE:
+		return "bridge";
+	default:
+		return "unknown";
+	}
+}
+
+/*
+ * Format a neighbor as comma separated "Key: value" pairs, for the message
+ * log and the table dump.
+ */
+static void fpm_neigh_snprint(const struct fpm_neigh *n, char *buf, size_t buf_len)
+{
+	char lladdr[INET6_ADDRSTRLEN] = "none";
+	char dst[INET6_ADDRSTRLEN] = "none";
+
+	if (n->lladdr_len == ETH_ALEN)
+		snprintfrr(lladdr, sizeof(lladdr), "%02x:%02x:%02x:%02x:%02x:%02x", n->lladdr[0],
+			   n->lladdr[1], n->lladdr[2], n->lladdr[3], n->lladdr[4], n->lladdr[5]);
+	else if (n->lladdr_len == sizeof(struct in_addr))
+		inet_ntop(AF_INET, n->lladdr, lladdr, sizeof(lladdr));
+	else if (n->lladdr_len == sizeof(struct in6_addr))
+		inet_ntop(AF_INET6, n->lladdr, lladdr, sizeof(lladdr));
+
+	if (n->dst_family != AF_UNSPEC)
+		inet_ntop(n->dst_family, &n->dst, dst, sizeof(dst));
+
+	snprintfrr(buf, buf_len,
+		   "Family: %s, Ifindex: %d, Lladdr: %s, Dst: %s, Vlan: %u, Vni: %u, Master: %u, Nhid: %u, Protocol: %s(%u), Flags: 0x%x, State: 0x%x",
+		   fpm_neigh_family_to_s(n->family), n->ifindex, lladdr, dst, n->vlan, n->src_vni,
+		   n->master, n->nhid, netlink_prot_to_s(n->protocol), n->protocol, n->flags,
+		   n->state);
+}
+
+/*
+ * parse_neigh_msg
+ *
+ * Parse a neighbor or FDB message and update the neighbor table with it.
+ */
+static void parse_neigh_msg(struct nlmsghdr *hdr)
+{
+	struct ndmsg *ndm = NLMSG_DATA(hdr);
+	struct rtattr *tb[NDA_MAX + 1];
+	struct fpm_neigh lookup = {}, *neigh;
+	const char *err_msg = NULL;
+	char buf[512];
+	int len;
+
+	len = hdr->nlmsg_len - NLMSG_LENGTH(sizeof(*ndm));
+	if (len < 0) {
+		fprintf(stderr, "Malformed neighbor message\n");
+		return;
+	}
+
+	if (!parse_rtattrs_((struct rtattr *)((char *)ndm + NLMSG_ALIGN(sizeof(*ndm))), len, tb,
+			    ARRAY_SIZE(tb), &err_msg)) {
+		fprintf(stderr, "Error parsing neighbor attributes: %s\n", err_msg);
+		return;
+	}
+
+	lookup.family = ndm->ndm_family;
+	lookup.ifindex = ndm->ndm_ifindex;
+	lookup.flags = ndm->ndm_flags;
+	lookup.state = ndm->ndm_state;
+
+	if (tb[NDA_LLADDR]) {
+		lookup.lladdr_len = MIN(RTA_PAYLOAD(tb[NDA_LLADDR]), sizeof(lookup.lladdr));
+		memcpy(lookup.lladdr, RTA_DATA(tb[NDA_LLADDR]), lookup.lladdr_len);
+	}
+
+	if (tb[NDA_DST]) {
+		if (RTA_PAYLOAD(tb[NDA_DST]) == sizeof(struct in_addr))
+			lookup.dst_family = AF_INET;
+		else if (RTA_PAYLOAD(tb[NDA_DST]) == sizeof(struct in6_addr))
+			lookup.dst_family = AF_INET6;
+
+		if (lookup.dst_family != AF_UNSPEC)
+			memcpy(&lookup.dst, RTA_DATA(tb[NDA_DST]), RTA_PAYLOAD(tb[NDA_DST]));
+	}
+
+	if (tb[NDA_VLAN] && RTA_PAYLOAD(tb[NDA_VLAN]) >= sizeof(uint16_t))
+		lookup.vlan = *(uint16_t *)RTA_DATA(tb[NDA_VLAN]);
+	if (tb[NDA_SRC_VNI] && RTA_PAYLOAD(tb[NDA_SRC_VNI]) >= sizeof(uint32_t))
+		lookup.src_vni = *(uint32_t *)RTA_DATA(tb[NDA_SRC_VNI]);
+	if (tb[NDA_MASTER] && RTA_PAYLOAD(tb[NDA_MASTER]) >= sizeof(uint32_t))
+		lookup.master = *(uint32_t *)RTA_DATA(tb[NDA_MASTER]);
+	if (tb[NDA_NH_ID] && RTA_PAYLOAD(tb[NDA_NH_ID]) >= sizeof(uint32_t))
+		lookup.nhid = *(uint32_t *)RTA_DATA(tb[NDA_NH_ID]);
+	if (tb[NDA_PROTOCOL] && RTA_PAYLOAD(tb[NDA_PROTOCOL]) >= sizeof(uint8_t))
+		lookup.protocol = *(uint8_t *)RTA_DATA(tb[NDA_PROTOCOL]);
+
+	fpm_neigh_snprint(&lookup, buf, sizeof(buf));
+	fprintf(glob->output_file, "[%s] %s %s\n", get_timestamp(),
+		netlink_msg_type_to_s(hdr->nlmsg_type), buf);
+
+	neigh = fpm_neigh_find(&glob->neigh_tree, &lookup);
+	if (hdr->nlmsg_type == RTM_DELNEIGH) {
+		if (neigh) {
+			fpm_neigh_del(&glob->neigh_tree, neigh);
+			free(neigh);
+		}
+		return;
+	}
+
+	/* New or replaced entry: keep the attributes of the last message. */
+	if (!neigh) {
+		neigh = calloc(1, sizeof(*neigh));
+		if (!neigh) {
+			fprintf(stderr, "Failed to allocate neighbor structure\n");
+			return;
+		}
+		*neigh = lookup;
+		fpm_neigh_add(&glob->neigh_tree, neigh);
+		return;
+	}
+
+	memcpy(neigh, &lookup, offsetof(struct fpm_neigh, rb_item));
+}
+
+/*
+ * Every connection starts with zebra sending its whole state again, so
+ * forget the neighbors of the previous one: a dump then only shows what
+ * this connection sent.
+ */
+static void fpm_neigh_flush(void)
+{
+	struct fpm_neigh *neigh;
+
+	while ((neigh = fpm_neigh_pop(&glob->neigh_tree)))
+		free(neigh);
+}
+
 /*
  * The netlink message after `hdr`, `len` being what is left from it. Like
  * `NLMSG_NEXT()`, but the length does not wrap around when the last
@@ -1179,6 +1401,11 @@ static void parse_netlink_msg(char *buf, size_t buf_len, fpm_msg_hdr_t *fpm)
 			parse_nexthop_msg(hdr);
 			break;
 
+		case RTM_NEWNEIGH:
+		case RTM_DELNEIGH:
+			parse_neigh_msg(hdr);
+			break;
+
 		default:
 			fprintf(glob->output_file, "[%s] Ignoring netlink message - Type: %s(%d)\n",
 				get_timestamp(), netlink_msg_type_to_s(hdr->nlmsg_type),
@@ -1234,6 +1461,7 @@ static void sigusr1_handler(int signum)
 {
 	struct fpm_route *route;
 	struct fpm_nhg *nhg;
+	struct fpm_neigh *neigh;
 	char buf[PREFIX_STRLEN];
 	FILE *out = glob->output_file;
 	FILE *dump_fp = NULL;
@@ -1314,6 +1542,20 @@ static void sigusr1_handler(int signum)
 	}
 	fprintf(out, "=====================\n\n");
 
+	fprintf(out, "\n=== Neighbor Table Dump ===\n");
+	fprintf(out, "Timestamp: %s\n", get_timestamp());
+	fprintf(out, "Connection: %u\n", glob->connections);
+	fprintf(out, "Total neighbors: %zu\n", fpm_neigh_count(&glob->neigh_tree));
+	fprintf(out, "Neighbors:\n");
+
+	frr_each (fpm_neigh, &glob->neigh_tree, neigh) {
+		char neigh_buf[512];
+
+		fpm_neigh_snprint(neigh, neigh_buf, sizeof(neigh_buf));
+		fprintf(out, "  Neigh: %s\n", neigh_buf);
+	}
+	fprintf(out, "=====================\n\n");
+
 
 	fflush(out);
 
@@ -1348,6 +1590,7 @@ int main(int argc, char **argv)
 	glob->output_file = stdout;
 	fpm_route_init(&glob->route_tree);
 	fpm_nhg_init(&glob->nhg_hash);
+	fpm_neigh_init(&glob->neigh_tree);
 
 	/*
 	 * Set up the signal handlers, blocked until we wait for I/O, and
@@ -1460,6 +1703,8 @@ int main(int argc, char **argv)
 	 */
 	while (1) {
 		glob->sock = accept_conn(glob->server_sock);
+		fpm_neigh_flush();
+		glob->connections++;
 		fpm_serve();
 		fprintf(glob->output_file, "Done serving client\n");
 	}
