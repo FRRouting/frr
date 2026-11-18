@@ -39,10 +39,7 @@ static void zebra_ptm_enable_cli_write(struct vty *vty,
 {
 	bool enable = yang_dnode_get_bool(dnode, NULL);
 
-	if (enable)
-		vty_out(vty, "ptm-enable\n");
-	else if (show_defaults)
-		vty_out(vty, "no ptm-enable\n");
+	vty_out(vty, "%sptm-enable\n", enable ? "" : "no ");
 }
 #endif
 
@@ -477,10 +474,7 @@ static void lib_interface_zebra_link_detect_cli_write(
 {
 	bool link_detect = yang_dnode_get_bool(dnode, NULL);
 
-	if (!link_detect)
-		vty_out(vty, " no link-detect\n");
-	else if (show_defaults)
-		vty_out(vty, " link-detect\n");
+	vty_out(vty, " %slink-detect\n", link_detect ? "" : "no ");
 }
 
 DEFPY_YANG (shutdown_if,
@@ -1139,7 +1133,7 @@ static void lib_interface_zebra_link_params_affinity_mode_cli_write(
 		vty_out(vty, "  affinity-mode standard\n");
 	else if (affinity_mode == AFFINITY_MODE_BOTH)
 		vty_out(vty, "  affinity-mode both\n");
-	else if (affinity_mode == AFFINITY_MODE_EXTENDED && show_defaults)
+	else if (affinity_mode == AFFINITY_MODE_EXTENDED)
 		vty_out(vty, "  affinity-mode extended\n");
 }
 
