@@ -410,8 +410,9 @@ static void bgp_srv6_sids_unset(struct bgp *bgp)
 		if (bgp_vrf->vpn_policy[AFI_IP].tovpn_sid) {
 			/* release vpnv4 tovpn_sid */
 			ctx.behavior = ZEBRA_SEG6_LOCAL_ACTION_END_DT4;
-			bgp_zebra_release_srv6_sid(&ctx, bgp_vrf->vpn_policy[AFI_IP]
-								 .tovpn_sid_locator->name);
+			bgp_zebra_release_srv6_sid(&ctx, SRV6_SID_REQUEST_ID_DEFAULT,
+						   bgp_vrf->vpn_policy[AFI_IP]
+							   .tovpn_sid_locator->name);
 			/* refresh vpnv4 tovpn_sid */
 			XFREE(MTYPE_BGP_SRV6_SID, bgp_vrf->vpn_policy[AFI_IP].tovpn_sid);
 		}
@@ -419,8 +420,9 @@ static void bgp_srv6_sids_unset(struct bgp *bgp)
 		if (bgp_vrf->vpn_policy[AFI_IP6].tovpn_sid) {
 			/* release vpnv6 tovpn_sid */
 			ctx.behavior = ZEBRA_SEG6_LOCAL_ACTION_END_DT6;
-			bgp_zebra_release_srv6_sid(&ctx, bgp_vrf->vpn_policy[AFI_IP6]
-								 .tovpn_sid_locator->name);
+			bgp_zebra_release_srv6_sid(&ctx, SRV6_SID_REQUEST_ID_DEFAULT,
+						   bgp_vrf->vpn_policy[AFI_IP6]
+							   .tovpn_sid_locator->name);
 			/* refresh vpnv6 tovpn_sid */
 			XFREE(MTYPE_BGP_SRV6_SID, bgp_vrf->vpn_policy[AFI_IP6].tovpn_sid);
 		}
@@ -428,7 +430,8 @@ static void bgp_srv6_sids_unset(struct bgp *bgp)
 		if (bgp_vrf->tovpn_sid) {
 			/* release vpnvx tovpn_sid */
 			ctx.behavior = ZEBRA_SEG6_LOCAL_ACTION_END_DT46;
-			bgp_zebra_release_srv6_sid(&ctx, bgp_vrf->tovpn_sid_locator->name);
+			bgp_zebra_release_srv6_sid(&ctx, SRV6_SID_REQUEST_ID_DEFAULT,
+						   bgp_vrf->tovpn_sid_locator->name);
 			/* refresh per-vrf tovpn_sid */
 			XFREE(MTYPE_BGP_SRV6_SID, bgp_vrf->tovpn_sid);
 		}

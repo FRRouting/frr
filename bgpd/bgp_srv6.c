@@ -91,7 +91,8 @@ void bgp_srv6_unicast_sid_withdraw_dt46(struct bgp *bgp, afi_t afi)
 		if (bgp->srv6_unicast[afi].sid_locator) {
 			ctx.behavior = ZEBRA_SEG6_LOCAL_ACTION_END_DT46;
 			ctx.vrf_id = bgp->vrf_id;
-			bgp_zebra_release_srv6_sid(&ctx, bgp->srv6_unicast[afi].sid_locator->name);
+			bgp_zebra_release_srv6_sid(&ctx, SRV6_SID_REQUEST_ID_DEFAULT,
+						   bgp->srv6_unicast[afi].sid_locator->name);
 		}
 		if (bgp->srv6_unicast[afi].sid)
 			sid_unregister(bgp, bgp->srv6_unicast[afi].sid);
@@ -159,7 +160,8 @@ void bgp_srv6_unicast_ensure_afi_sid(struct bgp *bgp, afi_t afi)
 
 	ctx.vrf_id = bgp->vrf_id;
 	ctx.behavior = bgp_srv6_unicast_action(bgp, afi);
-	if (!bgp_zebra_request_srv6_sid(&ctx, &unicast_sid, locator_bgp->name, &sid_func)) {
+	if (!bgp_zebra_request_srv6_sid(&ctx, SRV6_SID_REQUEST_ID_DEFAULT, &unicast_sid,
+					locator_bgp->name, &sid_func)) {
 		zlog_err("%s: failed to request sid for bgp %s: afi %s", __func__,
 			 bgp->name_pretty, afi2str(afi));
 	}
@@ -232,7 +234,8 @@ void bgp_srv6_unicast_sid_withdraw(struct bgp *bgp, afi_t afi)
 
 	ctx.behavior = bgp_srv6_unicast_action(bgp, afi);
 	ctx.vrf_id = bgp->vrf_id;
-	bgp_zebra_release_srv6_sid(&ctx, bgp->srv6_unicast[afi].sid_locator->name);
+	bgp_zebra_release_srv6_sid(&ctx, SRV6_SID_REQUEST_ID_DEFAULT,
+				   bgp->srv6_unicast[afi].sid_locator->name);
 }
 
 /*
@@ -292,7 +295,8 @@ void bgp_srv6_unicast_delete(struct bgp *bgp, afi_t afi)
 
 		ctx.vrf_id = bgp->vrf_id;
 		ctx.behavior = bgp_srv6_unicast_action(bgp, afi);
-		bgp_zebra_release_srv6_sid(&ctx, bgp->srv6_unicast[afi].sid_locator->name);
+		bgp_zebra_release_srv6_sid(&ctx, SRV6_SID_REQUEST_ID_DEFAULT,
+					   bgp->srv6_unicast[afi].sid_locator->name);
 
 		sid_unregister(bgp, bgp->srv6_unicast[afi].sid);
 		XFREE(MTYPE_BGP_SRV6_SID, bgp->srv6_unicast[afi].sid);
