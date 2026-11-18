@@ -211,10 +211,7 @@ DEFPY_YANG(rip_log_neighbor_changes, rip_log_neighbor_changes_cmd,
 static void cli_show_rip_log_neighbor_changes(struct vty *vty, const struct lyd_node *dnode,
 					      bool show_defaults)
 {
-	if (yang_dnode_get_bool(dnode, NULL))
-		vty_out(vty, " log-neighbor-changes\n");
-	else if (show_defaults)
-		vty_out(vty, " no log-neighbor-changes\n");
+	vty_out(vty, " %slog-neighbor-changes\n", yang_dnode_get_bool(dnode, NULL) ? "" : "no ");
 }
 
 /*
