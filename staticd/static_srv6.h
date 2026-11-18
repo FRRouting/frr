@@ -49,6 +49,9 @@ struct static_srv6_sid {
 
 	char locator_name[SRV6_LOCNAME_SIZE];
 	struct static_srv6_locator *locator;
+
+	/* Identifier of the SID requests sent to the SRv6 SID manager */
+	uint32_t request_id;
 };
 
 /* Hash table to keep per-interface neighbors used for SRv6 SID nexthop resolution */
