@@ -5958,16 +5958,30 @@ void zebra_vxlan_flood_control(ZAPI_HANDLER_ARGS)
 	STREAM_GETC(s, flood_ctrl);
 	STREAM_GETL(s, vni);
 
-	if (IS_ZEBRA_DEBUG_VXLAN) {
-		if (vni == VNI_MAX)
+	if (vni == VNI_MAX) {
+		if (IS_ZEBRA_DEBUG_VXLAN)
 			zlog_debug("EVPN flood control %u, currently %u", flood_ctrl,
 				   zvrf->vxlan_flood_ctrl);
-		else
-			zlog_debug("EVPN flood control %u for VNI %u, currently %u", flood_ctrl,
-				   vni, zvrf->vxlan_flood_ctrl);
-	}
 
-	zvrf->vxlan_flood_ctrl = flood_ctrl;
+		zvrf->vxlan_flood_ctrl = flood_ctrl;
+	} else {
+		/* A per-VNI mode only applies to its VNI: the global mode stays
+		 * for the other VNIs.  bgpd sends it again when the VNI comes up.
+		 */
+		struct zebra_evpn *zevpn = zebra_evpn_lookup(vni);
+
+		if (!zevpn) {
+			if (IS_ZEBRA_DEBUG_VXLAN)
+				zlog_debug("EVPN flood control for unknown VNI %u", vni);
+			return;
+		}
+
+		if (IS_ZEBRA_DEBUG_VXLAN)
+			zlog_debug("EVPN flood control %u for VNI %u, currently %u", flood_ctrl,
+				   vni, zevpn->flood_ctrl);
+
+		zevpn->flood_ctrl = flood_ctrl;
+	}
 
 	args[0] = &vni;
 	args[1] = zvrf;
