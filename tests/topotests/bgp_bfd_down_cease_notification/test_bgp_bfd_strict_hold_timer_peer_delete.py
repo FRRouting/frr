@@ -67,6 +67,7 @@ def _r2_neighbor_observation(r2):
 
     return {
         "bgpState": neighbor.get("bgpState"),
+        "bgpTimerUpMsec": neighbor.get("bgpTimerUpMsec"),
         "connectionsDropped": neighbor.get("connectionsDropped"),
         "bfdHoldTimerExpireInMsecs": neighbor.get("bfdHoldTimerExpireInMsecs"),
         "bfdHoldTimerExpired": neighbor.get("bfdHoldTimerExpired"),
@@ -121,6 +122,9 @@ def test_bfd_strict_hold_timer_peer_delete_no_stale_crash():
         if obs["bgpState"] != "Established":
             return obs
         if obs["peerBfdStatus"] != "Up":
+            return obs
+        # bgpd ignores a BFD Down in the same second the session came up.
+        if (obs["bgpTimerUpMsec"] or 0) < 1000:
             return obs
         return None
 
