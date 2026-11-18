@@ -307,12 +307,10 @@ DEFPY_YANG(isis_bfd_profile,
 void cli_show_ip_isis_bfd_monitoring(struct vty *vty, const struct lyd_node *dnode,
 				     bool show_defaults)
 {
-	if (!yang_dnode_get_bool(dnode, "enabled")) {
-		if (show_defaults)
-			vty_out(vty, " no isis bfd\n");
-	} else {
+	if (yang_dnode_get_bool(dnode, "enabled"))
 		vty_out(vty, " isis bfd\n");
-	}
+	else if (!yang_dnode_is_default(dnode, "enabled") || show_defaults)
+		vty_out(vty, " no isis bfd\n");
 
 	if (yang_dnode_exists(dnode, "profile"))
 		vty_out(vty, " isis bfd profile %s\n", yang_dnode_get_string(dnode, "profile"));
@@ -473,10 +471,7 @@ DEFPY_YANG(advertise_high_metrics, advertise_high_metrics_cmd,
 void cli_show_advertise_high_metrics(struct vty *vty, const struct lyd_node *dnode,
 				     bool show_defaults)
 {
-	if (yang_dnode_get_bool(dnode, NULL))
-		vty_out(vty, " advertise-high-metrics\n");
-	else if (show_defaults)
-		vty_out(vty, " no advertise-high-metrics\n");
+	vty_out(vty, " %sadvertise-high-metrics\n", yang_dnode_get_bool(dnode, NULL) ? "" : "no ");
 }
 
 /*
@@ -1334,10 +1329,7 @@ DEFPY_YANG(isis_distribute_link_state, isis_distribute_link_state_cmd,
 void cli_show_isis_distribute_link_state(struct vty *vty, const struct lyd_node *dnode,
 					 bool show_defaults)
 {
-	if (!yang_dnode_get_bool(dnode, NULL))
-		return;
-
-	vty_out(vty, " distribute link-state\n");
+	vty_out(vty, " %sdistribute link-state\n", yang_dnode_get_bool(dnode, NULL) ? "" : "no ");
 }
 
 /*
@@ -2177,17 +2169,13 @@ DEFPY_YANG (isis_srv6_node_msd_max_end_d,
 void cli_show_isis_srv6_node_msd(struct vty *vty, const struct lyd_node *dnode, bool show_defaults)
 {
 	vty_out(vty, "  node-msd\n");
-	if (yang_dnode_get_uint8(dnode, "max-segs-left") !=
-	    yang_get_default_uint8("%s/msd/node-msd/max-segs-left", ISIS_SRV6))
+	if (!yang_dnode_is_default(dnode, "max-segs-left") || show_defaults)
 		vty_out(vty, "   max-segs-left %u\n", yang_dnode_get_uint8(dnode, "max-segs-left"));
-	if (yang_dnode_get_uint8(dnode, "max-end-pop") !=
-	    yang_get_default_uint8("%s/msd/node-msd/max-end-pop", ISIS_SRV6))
+	if (!yang_dnode_is_default(dnode, "max-end-pop") || show_defaults)
 		vty_out(vty, "   max-end-pop %u\n", yang_dnode_get_uint8(dnode, "max-end-pop"));
-	if (yang_dnode_get_uint8(dnode, "max-h-encaps") !=
-	    yang_get_default_uint8("%s/msd/node-msd/max-h-encaps", ISIS_SRV6))
+	if (!yang_dnode_is_default(dnode, "max-h-encaps") || show_defaults)
 		vty_out(vty, "   max-h-encaps %u\n", yang_dnode_get_uint8(dnode, "max-h-encaps"));
-	if (yang_dnode_get_uint8(dnode, "max-end-d") !=
-	    yang_get_default_uint8("%s/msd/node-msd/max-end-d", ISIS_SRV6))
+	if (!yang_dnode_is_default(dnode, "max-end-d") || show_defaults)
 		vty_out(vty, "   max-end-d %u\n", yang_dnode_get_uint8(dnode, "max-end-d"));
 }
 
@@ -3827,12 +3815,11 @@ void cli_show_isis_flex_algo(struct vty *vty, const struct lyd_node *dnode, bool
 	if (yang_dnode_exists(dnode, "prefix-metric"))
 		vty_out(vty, "  prefix-metric\n");
 
-	if (yang_dnode_exists(dnode, "metric-type")) {
+	if (yang_dnode_exists(dnode, "metric-type") &&
+	    (!yang_dnode_is_default(dnode, "metric-type") || show_defaults)) {
 		metric_type = yang_dnode_get_enum(dnode, "metric-type");
-		if (metric_type != MT_IGP) {
-			flex_algo_metric_type_print(type_str, sizeof(type_str), metric_type);
-			vty_out(vty, "  metric-type %s\n", type_str);
-		}
+		flex_algo_metric_type_print(type_str, sizeof(type_str), metric_type);
+		vty_out(vty, "  metric-type %s\n", type_str);
 	}
 
 	if (yang_dnode_exists(dnode, "priority")) {
