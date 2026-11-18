@@ -46,7 +46,14 @@ struct zebra_vtep {
 	int flood_control;
 
 	uint32_t flags;
-#define ZEBRA_VTEP_FPM_SENT (1 << 0) /* Flood entry sent to the FPM. */
+#define ZEBRA_VTEP_FPM_SENT  (1 << 0) /* Flood entry sent to the FPM. */
+#define ZEBRA_VTEP_INSTALLED (1 << 1) /* Flood entry installed. */
+
+	/*
+	 * Access VLAN the flood entry was installed with (0 when the bridge
+	 * is not VLAN-aware): removed with the same one.
+	 */
+	vlanid_t vid;
 
 	/* Links. */
 	struct zebra_vtep *next;
@@ -163,7 +170,8 @@ int zebra_evpn_vtep_del_all(struct zebra_evpn *zevpn, int uninstall,
 			    struct l2vni_walk_ctx *l2_wctx);
 vlanid_t zebra_evpn_access_vid(const struct zebra_evpn *zevpn);
 int zebra_evpn_vtep_install(struct zebra_evpn *zevpn, struct zebra_vtep *zvtep);
-int zebra_evpn_vtep_uninstall(struct zebra_evpn *zevpn, struct ipaddr *vtep_ip);
+int zebra_evpn_vtep_uninstall(struct zebra_evpn *zevpn, struct zebra_vtep *zvtep);
+void zebra_evpn_vtep_vid_update(struct zebra_evpn *zevpn);
 void zebra_evpn_handle_flooding_remote_vteps(struct hash_bucket *bucket, void *args[]);
 bool zebra_evpn_flooding_head_end(const struct zebra_evpn *zevpn);
 void zebra_evpn_cleanup_all(struct hash_bucket *bucket, void *arg);

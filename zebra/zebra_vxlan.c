@@ -5444,7 +5444,7 @@ void zebra_vxlan_remote_vtep_del(vrf_id_t vrf_id, vni_t vni, struct ipaddr *vtep
 
 	zvtep->gr_refresh_time = monotime(NULL);
 
-	zebra_evpn_vtep_uninstall(zevpn, vtep_ip);
+	zebra_evpn_vtep_uninstall(zevpn, zvtep);
 	zebra_evpn_vtep_del(zevpn, zvtep);
 }
 
@@ -5524,7 +5524,7 @@ void zebra_vxlan_remote_vtep_add(vrf_id_t vrf_id, vni_t vni, struct ipaddr *vtep
 				 * is no longer; get rid of the HER fdb
 				 * entry installed before
 				 */
-				zebra_evpn_vtep_uninstall(zevpn, vtep_ip);
+				zebra_evpn_vtep_uninstall(zevpn, zvtep);
 			zvtep->flood_control = flood_control;
 			zebra_evpn_vtep_install(zevpn, zvtep);
 		}
@@ -7373,6 +7373,16 @@ void zebra_vxlan_stale_hrep_add(struct ipaddr vtep_ip, vni_t vni)
 		if (IS_ZEBRA_DEBUG_VXLAN)
 			zlog_debug("EVPN-GR: Added stale HREP entry for %pIA, vni %u", &vtep_ip,
 				   vni);
+	}
+
+	/*
+	 * The flood entry is in the kernel: mark it installed, like
+	 * `zebra_evpn_vtep_install()` does, so that it is moved and removed
+	 * with its VLAN, and sent to a new FPM connection.
+	 */
+	if (!CHECK_FLAG(zvtep->flags, ZEBRA_VTEP_INSTALLED)) {
+		zvtep->vid = zebra_evpn_access_vid(zevpn);
+		SET_FLAG(zvtep->flags, ZEBRA_VTEP_INSTALLED);
 	}
 }
 

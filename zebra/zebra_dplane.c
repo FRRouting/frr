@@ -6641,19 +6641,20 @@ enum zebra_dplane_result dplane_rem_neigh_delete(const struct interface *ifp,
  * Enqueue evpn VTEP add for the dataplane.
  */
 enum zebra_dplane_result dplane_vtep_add(const struct interface *ifp, const struct ipaddr *ip,
-					 vni_t vni, vlanid_t vid)
+					 vni_t vni, vlanid_t vid, bool skip_kernel)
 {
 	enum zebra_dplane_result result;
 	struct ethaddr mac = { {0, 0, 0, 0, 0, 0} };
 
 	if (IS_ZEBRA_DEBUG_VXLAN)
-		zlog_debug("Install %pIA into flood list for VNI %u VLAN %u intf %s(%u)", ip, vni,
-			   vid, ifp->name, ifp->ifindex);
+		zlog_debug("Install %pIA into flood list for VNI %u VLAN %u intf %s(%u)%s", ip,
+			   vni, vid, ifp->name, ifp->ifindex,
+			   skip_kernel ? " (not in the kernel)" : "");
 
 	frrtrace(4, frr_zebra, dplane_vtep_add_del, ifp, ip, vni, 1);
 
 	result = neigh_update_internal(DPLANE_OP_VTEP_ADD, ifp, &mac, AF_ETHERNET, ip, vni, vid, 0,
-				       0, 0, 0);
+				       0, skip_kernel ? DPLANE_NEIGH_SKIP_KERNEL : 0, 0);
 
 	return result;
 }
@@ -6662,19 +6663,21 @@ enum zebra_dplane_result dplane_vtep_add(const struct interface *ifp, const stru
  * Enqueue evpn VTEP delete for the dataplane.
  */
 enum zebra_dplane_result dplane_vtep_delete(const struct interface *ifp, const struct ipaddr *ip,
-					    vni_t vni, vlanid_t vid)
+					    vni_t vni, vlanid_t vid, bool skip_kernel)
 {
 	enum zebra_dplane_result result;
 	struct ethaddr mac = { {0, 0, 0, 0, 0, 0} };
 
 	if (IS_ZEBRA_DEBUG_VXLAN)
-		zlog_debug("Uninstall %pIA from flood list for VNI %u VLAN %u intf %s(%u)", ip,
-			   vni, vid, ifp->name, ifp->ifindex);
+		zlog_debug("Uninstall %pIA from flood list for VNI %u VLAN %u intf %s(%u)%s", ip,
+			   vni, vid, ifp->name, ifp->ifindex,
+			   skip_kernel ? " (not in the kernel)" : "");
 
 	frrtrace(4, frr_zebra, dplane_vtep_add_del, ifp, ip, vni, 2);
 
 	result = neigh_update_internal(DPLANE_OP_VTEP_DELETE, ifp, (const void *)&mac, AF_ETHERNET,
-				       ip, vni, vid, 0, 0, 0, 0);
+				       ip, vni, vid, 0, 0,
+				       skip_kernel ? DPLANE_NEIGH_SKIP_KERNEL : 0, 0);
 
 	return result;
 }

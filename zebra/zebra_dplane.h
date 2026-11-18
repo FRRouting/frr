@@ -1249,11 +1249,15 @@ enum zebra_dplane_result dplane_local_neigh_delete(const struct interface *ifp,
 
 /*
  * Enqueue evpn VTEP updates for the dataplane.
+ *
+ * `skip_kernel`: the update is not sent to the kernel, only to the other
+ * dataplane providers (FPM). Used to move a flood entry to another access
+ * VLAN: the kernel vxlan FDB does not key the flood entries by VLAN.
  */
 enum zebra_dplane_result dplane_vtep_add(const struct interface *ifp, const struct ipaddr *ip,
-					 vni_t vni, vlanid_t vid);
+					 vni_t vni, vlanid_t vid, bool skip_kernel);
 enum zebra_dplane_result dplane_vtep_delete(const struct interface *ifp, const struct ipaddr *ip,
-					    vni_t vni, vlanid_t vid);
+					    vni_t vni, vlanid_t vid, bool skip_kernel);
 
 /* Helper api to init an empty or new context for a VTEP flood list update */
 void dplane_vtep_init(struct zebra_dplane_ctx *ctx, const struct interface *ifp,

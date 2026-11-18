@@ -1299,7 +1299,7 @@ int zebra_evpn_vtep_del_all(struct zebra_evpn *zevpn, int uninstall, struct l2vn
 			continue;
 
 		if (uninstall)
-			zebra_evpn_vtep_uninstall(zevpn, &zvtep->vtep_ip);
+			zebra_evpn_vtep_uninstall(zevpn, zvtep);
 
 		zebra_evpn_vtep_del(zevpn, zvtep);
 	}
@@ -1336,11 +1336,52 @@ vlanid_t zebra_evpn_access_vid(const struct zebra_evpn *zevpn)
 }
 
 /*
+ * Remove the flood entry of a remote VTEP, with the VLAN it was installed
+ * with.
+ *
+ * `vlan_move`: the entry is removed only to be installed again with
+ * another access VLAN. The kernel vxlan FDB does not key the flood entries
+ * by VLAN, so only the other dataplanes (FPM) get the removal: the kernel
+ * keeps its entry and no BUM traffic to the remote VTEP is lost.
+ */
+static int zebra_evpn_vtep_remove(struct zebra_evpn *zevpn, struct zebra_vtep *zvtep,
+				  bool vlan_move)
+{
+	if (!zevpn->vxlan_if) {
+		if (IS_ZEBRA_DEBUG_VXLAN)
+			zlog_debug("VNI %u hash %p couldn't be uninstalled - no intf", zevpn->vni,
+				   zevpn);
+		return -1;
+	}
+
+	/*
+	 * A move leaves the kernel entry in place: keep the entry installed,
+	 * so that its removal still reaches the kernel if installing it with
+	 * the new VLAN fails.
+	 */
+	if (!vlan_move)
+		UNSET_FLAG(zvtep->flags, ZEBRA_VTEP_INSTALLED);
+
+	if (dplane_vtep_delete(zevpn->vxlan_if, &zvtep->vtep_ip, zevpn->vni, zvtep->vid,
+			       vlan_move) == ZEBRA_DPLANE_REQUEST_FAILURE)
+		return -1;
+
+	return 0;
+}
+
+/*
  * Install remote VTEP into the kernel if the remote VTEP has asked
  * for head-end-replication.
+ *
+ * An entry installed with another access VLAN is moved to the current one:
+ * removed and installed again for the dataplanes keying the flood entries
+ * by VLAN (FPM), left alone in the kernel.
  */
 int zebra_evpn_vtep_install(struct zebra_evpn *zevpn, struct zebra_vtep *zvtep)
 {
+	bool vlan_move;
+	vlanid_t vid;
+
 	if (!zevpn->vxlan_if) {
 		if (IS_ZEBRA_DEBUG_VXLAN)
 			zlog_debug("VNI %u hash %p couldn't be installed - no intf", zevpn->vni,
@@ -1350,31 +1391,51 @@ int zebra_evpn_vtep_install(struct zebra_evpn *zevpn, struct zebra_vtep *zvtep)
 
 	if (zebra_evpn_flooding_head_end(zevpn) &&
 	    (zvtep->flood_control == VXLAN_FLOOD_HEAD_END_REPL)) {
-		if (dplane_vtep_add(zevpn->vxlan_if, &zvtep->vtep_ip, zevpn->vni,
-				    zebra_evpn_access_vid(zevpn)) == ZEBRA_DPLANE_REQUEST_FAILURE)
+		vid = zebra_evpn_access_vid(zevpn);
+		vlan_move = CHECK_FLAG(zvtep->flags, ZEBRA_VTEP_INSTALLED) && zvtep->vid != vid;
+		if (vlan_move)
+			zebra_evpn_vtep_remove(zevpn, zvtep, true);
+
+		/*
+		 * Keep the VLAN it was installed with if this fails, so that
+		 * the move is tried again on the next update.
+		 */
+		if (dplane_vtep_add(zevpn->vxlan_if, &zvtep->vtep_ip, zevpn->vni, vid,
+				    vlan_move) == ZEBRA_DPLANE_REQUEST_FAILURE)
 			return -1;
+
+		zvtep->vid = vid;
+		SET_FLAG(zvtep->flags, ZEBRA_VTEP_INSTALLED);
 	}
 
 	return 0;
 }
 
 /*
- * Uninstall remote VTEP from the kernel.
+ * Uninstall remote VTEP from the kernel, with the VLAN it was installed with.
  */
-int zebra_evpn_vtep_uninstall(struct zebra_evpn *zevpn, struct ipaddr *vtep_ip)
+int zebra_evpn_vtep_uninstall(struct zebra_evpn *zevpn, struct zebra_vtep *zvtep)
 {
-	if (!zevpn->vxlan_if) {
-		if (IS_ZEBRA_DEBUG_VXLAN)
-			zlog_debug("VNI %u hash %p couldn't be uninstalled - no intf",
-				   zevpn->vni, zevpn);
-		return -1;
+	return zebra_evpn_vtep_remove(zevpn, zvtep, false);
+}
+
+/*
+ * Move the installed flood entries to the current access VLAN, after an
+ * access VLAN or bridge change (a new bridge). Only the entries whose VLAN
+ * changed are installed again: SVD devices signal a VLAN change for every
+ * VNI on any VLAN to VNI mapping update.
+ */
+void zebra_evpn_vtep_vid_update(struct zebra_evpn *zevpn)
+{
+	struct zebra_vtep *zvtep;
+	vlanid_t vid = zebra_evpn_access_vid(zevpn);
+
+	for (zvtep = zevpn->vteps; zvtep; zvtep = zvtep->next) {
+		if (!CHECK_FLAG(zvtep->flags, ZEBRA_VTEP_INSTALLED) || zvtep->vid == vid)
+			continue;
+
+		zebra_evpn_vtep_install(zevpn, zvtep);
 	}
-
-	if (ZEBRA_DPLANE_REQUEST_FAILURE ==
-	    dplane_vtep_delete(zevpn->vxlan_if, vtep_ip, zevpn->vni, zebra_evpn_access_vid(zevpn)))
-		return -1;
-
-	return 0;
 }
 
 /*
@@ -1413,7 +1474,7 @@ void zebra_evpn_handle_flooding_remote_vteps(struct hash_bucket *bucket, void *a
 		if (zebra_evpn_flooding_head_end(zevpn))
 			zebra_evpn_vtep_install(zevpn, zvtep);
 		else
-			zebra_evpn_vtep_uninstall(zevpn, &zvtep->vtep_ip);
+			zebra_evpn_vtep_uninstall(zevpn, zvtep);
 	}
 }
 

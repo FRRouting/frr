@@ -414,6 +414,13 @@ static int zebra_vxlan_if_update_vni(struct interface *ifp,
 			frr_each (zebra_neigh_db, zevpn->neigh_table, n)
 				zebra_evpn_install_neigh_hash(zevpn, n);
 		}
+
+		/*
+		 * Access VLAN or bridge change: move the flood list to the
+		 * new access VLAN, whatever other change came with it.
+		 */
+		if (CHECK_FLAG(chgflags, (ZEBRA_VXLIF_MASTER_CHANGE | ZEBRA_VXLIF_VLAN_CHANGE)))
+			zebra_evpn_vtep_vid_update(zevpn);
 	}
 
 	return 0;

@@ -1697,13 +1697,12 @@ static void fpm_enqueue_l2vni_vtep(struct fpm_evpn_arg *fra, struct zebra_vtep *
 	if (CHECK_FLAG(zvtep->flags, ZEBRA_VTEP_FPM_SENT) || !fra->complete)
 		return;
 
-	if (!is_vxlan_flooding_head_end() || zvtep->flood_control != VXLAN_FLOOD_HEAD_END_REPL)
+	if (!CHECK_FLAG(zvtep->flags, ZEBRA_VTEP_INSTALLED))
 		return;
 
 	dplane_ctx_reset(fra->ctx);
 	dplane_ctx_set_op(fra->ctx, DPLANE_OP_VTEP_ADD);
-	dplane_vtep_init(fra->ctx, zevpn->vxlan_if, &zvtep->vtep_ip, zevpn->vni,
-			 zebra_evpn_access_vid(zevpn));
+	dplane_vtep_init(fra->ctx, zevpn->vxlan_if, &zvtep->vtep_ip, zevpn->vni, zvtep->vid);
 	if (fpm_nl_enqueue(fra->fnc, fra->ctx) == -1) {
 		event_add_timer(zrouter.master, fpm_evpn_send, fra->fnc, 1, &fra->fnc->t_evpnwalk);
 		fra->complete = false;
