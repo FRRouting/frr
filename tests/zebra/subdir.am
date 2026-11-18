@@ -6,12 +6,19 @@ ZEBRA_TEST_LDADD = zebra/label_manager.o $(ALL_TESTS_LDADD)
 
 if ZEBRA
 check_PROGRAMS += tests/zebra/test_lm_plugin
+check_PROGRAMS += tests/zebra/test_evpn_gr_time
 endif
 tests_zebra_test_lm_plugin_CFLAGS = $(TESTS_CFLAGS)
 tests_zebra_test_lm_plugin_CPPFLAGS = $(TESTS_CPPFLAGS)
 tests_zebra_test_lm_plugin_LDADD = $(ZEBRA_TEST_LDADD)
 tests_zebra_test_lm_plugin_SOURCES = tests/zebra/test_lm_plugin.c
+tests_zebra_test_evpn_gr_time_CFLAGS = $(TESTS_CFLAGS)
+tests_zebra_test_evpn_gr_time_CPPFLAGS = $(TESTS_CPPFLAGS)
+tests_zebra_test_evpn_gr_time_LDADD = $(ALL_TESTS_LDADD)
+tests_zebra_test_evpn_gr_time_SOURCES = tests/zebra/test_evpn_gr_time.c
 EXTRA_DIST += \
+	tests/zebra/test_evpn_gr_time.py \
+	tests/zebra/test_evpn_gr_time.refout \
 	tests/zebra/test_lm_plugin.py \
 	tests/zebra/test_lm_plugin.refout \
 	# end
