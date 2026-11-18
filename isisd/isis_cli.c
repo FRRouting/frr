@@ -2062,15 +2062,18 @@ DEFPY_YANG (no_isis_srv6_enable,
 
 void cli_show_isis_srv6_enabled(struct vty *vty, const struct lyd_node *dnode, bool show_defaults)
 {
-	if (!yang_dnode_get_bool(dnode, NULL))
-		vty_out(vty, " no");
-
-	vty_out(vty, " segment-routing srv6\n");
+	/*
+	 * "no segment-routing srv6" removes the whole container and enters no
+	 * node, so a disabled SRv6 has no form here and must not open a block.
+	 */
+	if (yang_dnode_get_bool(dnode, NULL))
+		vty_out(vty, " segment-routing srv6\n");
 }
 
 void cli_show_isis_srv6_end(struct vty *vty, const struct lyd_node *dnode)
 {
-	vty_out(vty, " exit\n");
+	if (yang_dnode_get_bool(dnode, "enabled"))
+		vty_out(vty, " exit\n");
 }
 
 /*
