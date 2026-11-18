@@ -5782,6 +5782,20 @@ bool bgp_maximum_prefix_overflow(struct peer *peer, afi_t afi, safi_t safi,
 	return false;
 }
 
+/*
+ * A path that was withdrawn but is still attached to its dest (flagged
+ * BGP_PATH_REMOVED and not reaped yet, or kept as a BGP_PATH_HISTORY entry
+ * by dampening) is not part of the peer's prefix count. When an UPDATE
+ * brings it back (bgp_path_info_restore() or bgp_damp_update()), it is
+ * counted again, so it has to pass the same maximum-prefix check as a new
+ * path would.
+ */
+static bool bgp_maximum_prefix_overflow_recount(struct peer *peer, afi_t afi, safi_t safi,
+						bool recount)
+{
+	return recount && bgp_maximum_prefix_overflow(peer, afi, safi, 0);
+}
+
 /* Unconditionally remove the route from the RIB, without taking
  * damping into consideration (eg, because the session went down)
  */
@@ -6612,6 +6626,11 @@ void bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 
 	/* If the update is implicit withdraw. */
 	if (pi) {
+		/* Withdrawn, but not yet reaped or kept as dampening history:
+		 * not counted in pcount until this update restores it.
+		 */
+		bool recount = !BGP_PATH_COUNTABLE(pi);
+
 		pi->uptime = monotime(NULL);
 		same_attr = attrhash_cmp(pi->attr, attr_new) &&
 			    bgp_path_info_extra_same(pi, &rmap_bpi);
@@ -6669,6 +6688,13 @@ void bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 					bgp_aggregate_increment(bgp, p, pi, afi,
 								safi);
 					bgp_process(bgp, dest, pi, afi, safi);
+				}
+
+				if (bgp_maximum_prefix_overflow_recount(peer, afi, orig_safi,
+									recount)) {
+					reason = "maximum-prefix overflow";
+					bgp_attr_unintern_clear_reuse(attr, &attr_new);
+					goto filtered;
 				}
 			} else /* Duplicate - odd */
 			{
@@ -6925,6 +6951,13 @@ void bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 			/* Now we do normal update dampening.  */
 			ret = bgp_damp_update(pi, dest, afi, safi);
 			if (ret == BGP_DAMP_SUPPRESSED) {
+				/* A suppressed path is counted as well */
+				if (bgp_maximum_prefix_overflow_recount(peer, afi, orig_safi,
+									recount)) {
+					reason = "maximum-prefix overflow";
+					goto filtered;
+				}
+
 				bgp_dest_unlock_node(dest);
 				if (p_evpn)
 					evpn_overlay_free(p_evpn);
@@ -6985,6 +7018,16 @@ void bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 
 		/* Process change. */
 		bgp_aggregate_increment(bgp, p, pi, afi, safi);
+
+		/* The path may have been counted again above
+		 * (bgp_path_info_restore() or bgp_damp_update()).
+		 * bgp_rib_remove() under filtered: takes it out of the
+		 * count and the aggregates again.
+		 */
+		if (bgp_maximum_prefix_overflow_recount(peer, afi, orig_safi, recount)) {
+			reason = "maximum-prefix overflow";
+			goto filtered;
+		}
 
 		bgp_process(bgp, dest, pi, afi, safi);
 		bgp_dest_unlock_node(dest);
