@@ -31,10 +31,7 @@ static void host_allow_reserved_ranges_cli_write(struct vty *vty, const struct l
 {
 	bool enable = yang_dnode_get_bool(dnode, NULL);
 
-	if (enable)
-		vty_out(vty, "allow-reserved-ranges\n");
-	else if (show_defaults)
-		vty_out(vty, "no allow-reserved-ranges\n");
+	vty_out(vty, "%sallow-reserved-ranges\n", enable ? "" : "no ");
 }
 
 /* clang-format off */
