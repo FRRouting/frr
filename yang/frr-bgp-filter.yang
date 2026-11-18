@@ -7,10 +7,6 @@ module frr-bgp-filter {
     prefix frr-filter;
   }
 
-  import frr-bgp-types {
-    prefix frr-bt;
-  }
-
   organization
     "Free Range Routing";
   contact
@@ -18,6 +14,14 @@ module frr-bgp-filter {
      FRR Development List: <mailto:dev@lists.frrouting.org>";
   description
     "This module defines filter settings";
+
+  revision 2026-11-19 {
+    description
+      "Standard extcommunity-list rt, soo, and nt values are strings.
+       A CLI word with no colon still reaches ecommunity_str2com().";
+    reference
+      "FRRouting";
+  }
 
   revision 2026-07-27 {
     description
@@ -308,19 +312,23 @@ module frr-bgp-filter {
             leaf-list extcommunity-rt {
               type string;
               description
-                "List of route-target values for the ext-community RT attribute";
+                "Route-target words from the CLI. ecommunity_str2com()
+                 rejects a malformed value.";
             }
 
             leaf-list extcommunity-soo {
               type string;
               description
-                "List of route-target values for the ext-community SOO attribute";
+                "Site-of-origin words from the CLI. ecommunity_str2com()
+                 rejects a malformed value.";
             }
 
             leaf-list extcommunity-nt {
               type string;
               description
-                "List of node-target values for the ext-community NT attribute";
+                "Node-target words from the CLI. ecommunity_str2com()
+                 rejects a malformed value, including an address with
+                 no ':0'.";
             }
 
             leaf-list extcommunity-color {
