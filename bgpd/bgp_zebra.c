@@ -4232,6 +4232,7 @@ static int bgp_zebra_srv6_sid_notify(ZAPI_CALLBACK_ARGS)
 	struct listnode *node;
 	char buf[256];
 	uint32_t sid_func, sid_wide_func = 0;
+	uint32_t request_id;
 	char loc_name[SRV6_LOCNAME_SIZE];
 	int ret_bgp = 0;
 	char errmsg[BUFSIZ] = { 0 };
@@ -4255,7 +4256,7 @@ static int bgp_zebra_srv6_sid_notify(ZAPI_CALLBACK_ARGS)
 	}
 
 	/* Decode the received notification message */
-	if (!zapi_srv6_sid_notify_decode(zclient->ibuf, &ctx, NULL, &sid_addr, &sid_func,
+	if (!zapi_srv6_sid_notify_decode(zclient->ibuf, &ctx, &request_id, &sid_addr, &sid_func,
 					 &sid_wide_func, &note, loc_name, sizeof(loc_name))) {
 		zlog_err("%s : error in msg decode", __func__);
 		return -1;
@@ -4349,7 +4350,7 @@ end_sid_notify:
 
 	/* the only case that reaches this code is SID_ALLOC, and there is an error */
 	if (note == ZAPI_SRV6_SID_ALLOCATED)
-		bgp_zebra_release_srv6_sid(&ctx, loc_name);
+		bgp_zebra_release_srv6_sid(&ctx, request_id, loc_name);
 
 	return 0;
 }
@@ -5289,13 +5290,14 @@ int bgp_zebra_srv6_manager_get_locator(const char *name)
  * from the provided locator (dynamic allocation).
  *
  * @param ctx Context to be associated with the request SID
+ * @param request_id Identifier of the requester of the SID in BGP
  * @param sid_value IPv6 address to be associated with the requested SID (optional)
  * @param locator_name Name of the locator from which the SID must be allocated
  * @param sid_func SID Function allocated by the SRv6 Manager.
  */
-bool bgp_zebra_request_srv6_sid(const struct srv6_sid_ctx *ctx,
-				struct in6_addr *sid_value,
-				const char *locator_name, uint32_t *sid_func)
+bool bgp_zebra_request_srv6_sid(const struct srv6_sid_ctx *ctx, uint32_t request_id,
+				struct in6_addr *sid_value, const char *locator_name,
+				uint32_t *sid_func)
 {
 	int ret;
 
@@ -5306,8 +5308,8 @@ bool bgp_zebra_request_srv6_sid(const struct srv6_sid_ctx *ctx,
 	 * Send the Get SRv6 SID request to the SRv6 Manager and check the
 	 * result
 	 */
-	ret = srv6_manager_get_sid(bgp_zclient, ctx, SRV6_SID_REQUEST_ID_DEFAULT, sid_value,
-				   locator_name, sid_func, false);
+	ret = srv6_manager_get_sid(bgp_zclient, ctx, request_id, sid_value, locator_name, sid_func,
+				   false);
 	if (ret < 0) {
 		zlog_warn("%s: error getting SRv6 SID!", __func__);
 		return false;
@@ -5323,9 +5325,11 @@ bool bgp_zebra_request_srv6_sid(const struct srv6_sid_ctx *ctx,
  * to use the SID.
  *
  * @param ctx Context to be associated with the SID to be released
+ * @param request_id Identifier of the requester of the SID in BGP
  * @param locator_name Parent locator of the SID
  */
-void bgp_zebra_release_srv6_sid(const struct srv6_sid_ctx *ctx, const char *locator_name)
+void bgp_zebra_release_srv6_sid(const struct srv6_sid_ctx *ctx, uint32_t request_id,
+				const char *locator_name)
 {
 	int ret;
 
@@ -5336,8 +5340,7 @@ void bgp_zebra_release_srv6_sid(const struct srv6_sid_ctx *ctx, const char *loca
 	 * Send the Release SRv6 SID request to the SRv6 Manager and check the
 	 * result
 	 */
-	ret = srv6_manager_release_sid(bgp_zclient, ctx, SRV6_SID_REQUEST_ID_DEFAULT, locator_name,
-				       false);
+	ret = srv6_manager_release_sid(bgp_zclient, ctx, request_id, locator_name, false);
 	if (ret < 0) {
 		zlog_warn("%s: error releasing SRv6 SID!", __func__);
 		return;
