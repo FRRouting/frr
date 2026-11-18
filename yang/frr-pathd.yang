@@ -502,6 +502,7 @@ module frr-pathd {
               leaf value {
                 type decimal64 {
                   fraction-digits 6;
+                  range "0..max";
                 }
                 mandatory true;
                 description
@@ -556,6 +557,7 @@ module frr-pathd {
               leaf value {
                 type decimal64 {
                   fraction-digits 6;
+                  range "0..max";
                 }
                 mandatory true;
                 description
