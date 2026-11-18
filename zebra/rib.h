@@ -621,11 +621,12 @@ static inline struct nexthop_group *rib_get_fib_nhg(struct route_entry *re)
 
 extern void zebra_gr_process_client(afi_t afi, vrf_id_t vrf_id, uint8_t proto, uint8_t instance,
 				    time_t restart_time, time_t update_pending_time,
+				    const struct timeval *gr_imet_cleanup_time,
 				    bool stale_client_cleanup);
 
 extern int rib_add_gr_run(afi_t afi, vrf_id_t vrf_id, uint8_t proto, uint8_t instance,
 			  time_t restart_time, time_t update_pending_time,
-			  bool stale_client_cleanup);
+			  const struct timeval *gr_imet_cleanup_time, bool stale_client_cleanup);
 extern void rib_add_finished_startup(void);
 
 extern void zebra_vty_init(void);
