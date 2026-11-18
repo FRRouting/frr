@@ -2162,6 +2162,7 @@ static void pim_upstream_start_register_stop_timer(struct pim_upstream *up)
 static void pim_upstream_register_probe_timer(struct event *t)
 {
 	struct pim_upstream *up = EVENT_ARG(t);
+	struct pim_instance *pim = up->pim;
 
 	if (pim_addr_is_any(pim_upstream_current_reg_rp(up))) {
 		if (PIM_DEBUG_PIM_REG)
@@ -2177,6 +2178,16 @@ static void pim_upstream_register_probe_timer(struct event *t)
 			zlog_debug("cannot send Null register for (%s:%u:%u)%pSG, no path to RP",
 				   PIM_DEBUG_VRF(up->pim->vrf), &up->sg);
 	} else {
+		if (up->channel_oil &&
+		    (up->channel_oil->cc.lastused / 100) > pim->keep_alive_time &&
+		    I_am_RP(pim, up->sg.grp)) {
+			/* A Null-Register sent back to the local RP would restart KAT. */
+			if (PIM_DEBUG_PIM_TRACE)
+				zlog_debug("%s: (S,G)=%s Stop sending the null register; local RP and source idle",
+					   __func__, up->sg_str);
+			pim_upstream_start_register_probe_timer(up);
+			return;
+		}
 		up->reg_state = PIM_REG_JOIN_PENDING;
 		if (PIM_DEBUG_PIM_TRACE) {
 			char state_str[PIM_REG_STATE_STR_LEN];
