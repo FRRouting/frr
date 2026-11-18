@@ -26,8 +26,6 @@
 
 DEFINE_MTYPE_STATIC(RIPNGD, RIPNG_RTE_DATA, "RIPng rte data");
 
-#define DEBUG 1
-
 struct ripng_rte_data {
 	struct prefix_ipv6 *p;
 	struct ripng_info *rinfo;
