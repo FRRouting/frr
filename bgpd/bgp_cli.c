@@ -2891,24 +2891,6 @@ static uint32_t bgp_cli_peer_group_listen_ranges(struct vty *vty, const char *pg
 }
 
 /*
- * Queue one destroy. Apply a full batch first so a peer-group with many
- * members still fits; those member deletes are valid while the group remains.
- */
-static int bgp_cli_enqueue_destroy(struct vty *vty, const char *xpath)
-{
-	int ret;
-
-	if (vty->num_cfg_changes >= VTY_MAXCFGCHANGES) {
-		ret = nb_cli_apply_changes(vty, NULL);
-		vty->num_cfg_changes = 0;
-		if (ret != CMD_SUCCESS)
-			return ret;
-	}
-	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
-	return CMD_SUCCESS;
-}
-
-/*
  * Classic "no neighbor PG peer-group" deletes the group and every member.
  * Each member peer-group leaf is a leafref, so deleting only the group is
  * rejected before the runtime destroy callback runs.
@@ -2918,7 +2900,6 @@ static int bgp_cli_enqueue_peer_group_delete(struct vty *vty, const char *pg)
 	struct bgp_cli_pg_member *members, *member;
 	char xpath[XPATH_MAXLEN];
 	uint32_t nlisten;
-	int ret;
 
 	nlisten = bgp_cli_peer_group_listen_ranges(vty, pg);
 	if (nlisten) {
@@ -2936,16 +2917,13 @@ static int bgp_cli_enqueue_peer_group_delete(struct vty *vty, const char *pg)
 		else
 			snprintfrr(xpath, sizeof(xpath),
 				   "./neighbors/neighbor[remote-address='%s']", member->id);
-		ret = bgp_cli_enqueue_destroy(vty, xpath);
-		if (ret != CMD_SUCCESS) {
-			bgp_cli_pg_members_free(members);
-			return ret;
-		}
+		nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
 	}
 	bgp_cli_pg_members_free(members);
 
 	snprintfrr(xpath, sizeof(xpath), "./peer-groups/peer-group[peer-group-name='%s']", pg);
-	return bgp_cli_enqueue_destroy(vty, xpath);
+	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
+	return CMD_SUCCESS;
 }
 
 DEFPY_YANG(neighbor_peer_group_yang, neighbor_peer_group_yang_cmd,
@@ -6453,31 +6431,9 @@ DEFPY_YANG(no_bgp_evpn_vrf_rd_without_val_yang, no_bgp_evpn_vrf_rd_without_val_y
 }
 
 /*
- * A single command can name more route-targets than cfg_changes[] holds.
- * Apply a full batch and keep going so the rest of the list is stored.
- */
-static int bgp_cli_reserve_cfg_slots(struct vty *vty, int slots)
-{
-	int ret;
-
-	if (slots <= 0)
-		return CMD_SUCCESS;
-	if (vty->num_cfg_changes + (size_t)slots <= VTY_MAXCFGCHANGES)
-		return CMD_SUCCESS;
-	if (!vty->num_cfg_changes)
-		return CMD_WARNING_CONFIG_FAILED;
-
-	ret = nb_cli_apply_changes(vty, NULL);
-	vty->num_cfg_changes = 0;
-	return ret;
-}
-
-/*
  * One route-target change queued by the command now in progress. The
  * candidate does not show it until the queue is applied, so a repeat in
- * the same RTLIST has to be answered from this list. A flush
- * (bgp_cli_reserve_cfg_slots) moves the queue into the candidate and the
- * list is dropped.
+ * the same RTLIST has to be answered from this list.
  */
 struct bgp_cli_rt_pend {
 	const char *rt;
@@ -6485,8 +6441,6 @@ struct bgp_cli_rt_pend {
 	bool export;
 	bool add;
 };
-
-#define BGP_CLI_RT_PEND_MAX 64
 
 static bool bgp_cli_rt_pend_state(const struct bgp_cli_rt_pend *pend, int npend, const char *rt,
 				  bool import, bool *known)
@@ -6537,17 +6491,19 @@ static int bgp_evpn_rtlist_apply(struct vty *vty, bool no, bool do_import, bool 
 				 const char *leaf_import, const char *leaf_export,
 				 struct cmd_token **argv, int idx, int argc)
 {
-	struct bgp_cli_rt_pend pend[BGP_CLI_RT_PEND_MAX];
+	struct bgp_cli_rt_pend *pend;
 	char leaf[XPATH_MAXLEN];
 	bool warned = false;
 	int npend = 0;
 	int ret;
 
+	/* At most one entry per RT in the list. */
+	pend = XCALLOC(MTYPE_TMP, sizeof(*pend) * (argc - idx > 0 ? argc - idx : 1));
+
 	for (; idx < argc; idx++) {
 		const char *rt = argv[idx]->arg;
 		bool have_import = false, have_export = false;
 		bool ch_import, ch_export;
-		int slots;
 
 		if (do_import)
 			have_import = bgp_cli_rt_is_set(vty, pend, npend, abs_base, leaf_import, rt,
@@ -6577,14 +6533,6 @@ static int bgp_evpn_rtlist_apply(struct vty *vty, bool no, bool do_import, bool 
 			}
 		}
 
-		slots = (ch_import ? 1 : 0) + (ch_export ? 1 : 0);
-		ret = bgp_cli_reserve_cfg_slots(vty, slots);
-		if (ret != CMD_SUCCESS)
-			return ret;
-		/* A flush moved earlier entries into the candidate. */
-		if (vty->num_cfg_changes == 0)
-			npend = 0;
-
 		if (ch_import) {
 			snprintfrr(leaf, sizeof(leaf), "%s/%s[.='%s']", rel_base, leaf_import, rt);
 			nb_cli_enqueue_change(vty, leaf, no ? NB_OP_DESTROY : NB_OP_CREATE, NULL);
@@ -6593,14 +6541,14 @@ static int bgp_evpn_rtlist_apply(struct vty *vty, bool no, bool do_import, bool 
 			snprintfrr(leaf, sizeof(leaf), "%s/%s[.='%s']", rel_base, leaf_export, rt);
 			nb_cli_enqueue_change(vty, leaf, no ? NB_OP_DESTROY : NB_OP_CREATE, NULL);
 		}
-		if (npend < BGP_CLI_RT_PEND_MAX) {
-			pend[npend].rt = rt;
-			pend[npend].import = ch_import;
-			pend[npend].export = ch_export;
-			pend[npend].add = !no;
-			npend++;
-		}
+		pend[npend].rt = rt;
+		pend[npend].import = ch_import;
+		pend[npend].export = ch_export;
+		pend[npend].add = !no;
+		npend++;
 	}
+
+	XFREE(MTYPE_TMP, pend);
 
 	ret = nb_cli_apply_changes(vty, NULL);
 	if (ret != CMD_SUCCESS)
@@ -6974,8 +6922,8 @@ DEFPY_YANG(no_bgp_evpn_vni_rt_without_val_yang, no_bgp_evpn_vni_rt_without_val_y
 	char leaf[XPATH_MAXLEN];
 
 	/*
-	 * Snapshot the values first. Flushing a full cfg_changes batch edits
-	 * the candidate, which frees the nodes being walked.
+	 * Snapshot the values first so the walk of the candidate is finished
+	 * before any change is queued.
 	 */
 	bgp_cli_vni_rt_init(&rts);
 	vni_dnode = yang_dnode_get(vty->candidate_config->dnode, VTY_CURR_XPATH);
@@ -6997,10 +6945,6 @@ DEFPY_YANG(no_bgp_evpn_vni_rt_without_val_yang, no_bgp_evpn_vni_rt_without_val_y
 	}
 
 	frr_each (bgp_cli_vni_rt, &rts, entry) {
-		if (bgp_cli_reserve_cfg_slots(vty, 1) != CMD_SUCCESS) {
-			bgp_cli_vni_rt_clear(&rts);
-			return CMD_WARNING_CONFIG_FAILED;
-		}
 		snprintfrr(leaf, sizeof(leaf), "./%s[.='%s']", want, entry->rt);
 		nb_cli_enqueue_change(vty, leaf, NB_OP_DESTROY, NULL);
 	}
