@@ -25,6 +25,8 @@
 
 #include "bgpd/bgpd.h"
 #include "bgpd/bgp_bfd.h"
+#include "bgpd/bgp_nsr.h"
+DEFINE_HOOK(cnlab_bgp_socket_identity, (int fd, const union sockunion *local, const union sockunion *remote), (fd,local,remote));
 #include "bgpd/bgp_open.h"
 #include "bgpd/bgp_fsm.h"
 #include "bgpd/bgp_attr.h"
@@ -485,6 +487,11 @@ static void bgp_accept(struct event *event)
 		}
 		return;
 	}
+	union sockunion *nsr_local = sockunion_getsockname(bgp_sock);
+	if (nsr_local) {
+		hook_call(cnlab_bgp_socket_identity, bgp_sock, nsr_local, &su);
+		sockunion_free(nsr_local);
+	}
 	set_nonblocking(bgp_sock);
 
 	/* Obtain BGP instance this connection is meant for.
@@ -856,6 +863,10 @@ static int bgp_update_source(struct peer_connection *connection)
 /* BGP try to connect to the peer.  */
 enum connect_result bgp_connect(struct peer_connection *connection)
 {
+	/* Explicit experimental follower has no transport before ownership. */
+	if (getenv("CNLAB_NSR_BGP_FOLLOWER"))
+		return connect_error;
+
 	struct peer *peer = connection->peer;
 
 	assert(!CHECK_FLAG(connection->thread_flags, PEER_THREAD_WRITES_ON));
@@ -988,6 +999,9 @@ enum connect_result bgp_connect(struct peer_connection *connection)
 	if (connection->su_local)
 		sockunion_free(connection->su_local);
 	connection->su_local = sockunion_getsockname(connection->fd);
+	if (res != connect_error && connection->su_local && connection->su_remote)
+		hook_call(cnlab_bgp_socket_identity, connection->fd, connection->su_local,
+			  connection->su_remote);
 
 	return res;
 }

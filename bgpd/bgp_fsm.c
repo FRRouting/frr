@@ -23,6 +23,7 @@
 #include "zclient.h"
 #include "lib/json.h"
 #include "bgpd/bgpd.h"
+#include "bgpd/bgp_nsr.h"
 #include "bgpd/bgp_attr.h"
 #include "bgpd/bgp_debug.h"
 #include "bgpd/bgp_errors.h"
@@ -618,6 +619,18 @@ static void bgp_holdtime_timer(struct event *event)
 
 	EVENT_VAL(event) = Hold_Timer_expired;
 	bgp_event(event); /* bgp_event unlocks peer */
+}
+
+int cnlab_bgp_restore_hold_timer(struct peer_connection *c, int64_t remaining_us)
+{
+	if (c->status != Established || remaining_us <= 0 ||
+	    remaining_us > (int64_t)c->peer->v_holdtime * 1000000)
+		return -1;
+	event_cancel(&c->t_holdtime);
+	struct timeval remaining = { .tv_sec = remaining_us / 1000000,
+				     .tv_usec = remaining_us % 1000000 };
+	event_add_timer_tv(bm->master, bgp_holdtime_timer, c, &remaining, &c->t_holdtime);
+	return 0;
 }
 
 void bgp_routeadv_timer(struct event *event)
@@ -3253,6 +3266,11 @@ void bgp_fsm_nht_update(struct peer_connection *connection, struct peer *peer,
 	if (!peer)
 		return;
 
+	/* A shadow has no local TCP transport whose reachability NHT can
+	 * invalidate. Replay source protocol inputs; keep local RIB/FIB gates. */
+	if (getenv("CNLAB_NSR_BGP_FOLLOWER") && connection->fd < 0)
+		return;
+
 	switch (connection->status) {
 	case Idle:
 		if (has_valid_nexthops)
@@ -3477,6 +3495,16 @@ int bgp_event_update(struct peer_connection *connection,
 	int passive_conn = 0;
 	int dyn_nbr;
 	struct peer *peer = connection->peer;
+
+	/* An fd-less NSR shadow reconstructs negotiation from the source journal.
+	 * A queued local connect retry can otherwise tear down an Established
+	 * replay (the native FSM maps that event to Clearing). Keep real packet,
+	 * hold-timer, BFD-down and administrative events unchanged. Socket adoption
+	 * removes this guard before normal connection management resumes. */
+	if (getenv("CNLAB_NSR_BGP_FOLLOWER") && connection->fd < 0 &&
+	    (event == BGP_Start || event == ConnectRetry_timer_expired ||
+	     event == DelayOpen_timer_expired || event == TCP_connection_open_failed))
+		return FSM_PEER_NOOP;
 
 	passive_conn = (bgp_peer_get_connection_direction(connection) == CONNECTION_INCOMING) ? 1
 											      : 0;

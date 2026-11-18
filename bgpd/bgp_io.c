@@ -24,6 +24,8 @@
 #include "bgpd/bgp_errors.h"	// for expanded error reference information
 #include "bgpd/bgp_fsm.h"	// for BGP_EVENT_ADD, bgp_event
 #include "bgpd/bgp_packet.h"	// for bgp_notify_io_invalid...
+#include "bgpd/bgp_nsr.h"
+DEFINE_HOOK(cnlab_bgp_written, (struct peer_connection *c, const struct iovec *iov, size_t count, size_t accepted), (c,iov,count,accepted));
 #include "bgpd/bgp_trace.h"	// for frrtraces
 #include "bgpd/bgpd.h"		// for peer, BGP_MARKER_SIZE, bgp_master, bm
 /* clang-format on */
@@ -43,6 +45,10 @@ static bool validate_header(struct peer_connection *connection);
 
 void bgp_writes_on(struct peer_connection *connection)
 {
+	/* fd-less follower consumes committed input; output stays in native FIFO. */
+	if (getenv("CNLAB_NSR_BGP_FOLLOWER") && connection->fd < 0)
+		return;
+
 	struct frr_pthread *fpt = bgp_pth_io;
 
 	assert(fpt->running);
@@ -84,6 +90,10 @@ void bgp_writes_off(struct peer_connection *connection)
 
 void bgp_reads_on(struct peer_connection *connection)
 {
+	/* fd-less follower consumes committed input; output stays in native FIFO. */
+	if (getenv("CNLAB_NSR_BGP_FOLLOWER") && connection->fd < 0)
+		return;
+
 	struct frr_pthread *fpt = bgp_pth_io;
 	assert(fpt->running);
 
@@ -392,6 +402,9 @@ static uint16_t bgp_write(struct peer_connection *connection)
 
 	do {
 		num = writev(connection->fd, iov, iovsz);
+		if (num > 0)
+			hook_call(cnlab_bgp_written, connection, iov, iovsz, (size_t)num);
+
 
 		if (num < 0) {
 			if (!ERRNO_IO_RETRY(errno)) {

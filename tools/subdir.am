@@ -66,3 +66,29 @@ EXTRA_DIST += \
 	tools/frr_babeltrace.py \
 	tools/build-debian-package.sh \
 	# end
+
+# Reference NSR sources are distributed, but not built or installed by default.
+EXTRA_DIST += \
+	tools/nsr-experimental/README.md \
+	tools/nsr-experimental/VALIDATION-10.7.1.md \
+	tools/nsr-experimental/VALIDATION.md \
+	tools/nsr-experimental/bfd_id_reservation.h \
+	tools/nsr-experimental/bfdd_native_follow.c \
+	tools/nsr-experimental/bfdd_native_journal.c \
+	tools/nsr-experimental/bgpd_native_follow.c \
+	tools/nsr-experimental/bgpd_native_journal.c \
+	tools/nsr-experimental/build.sh \
+	tools/nsr-experimental/native_rib.h \
+	tools/nsr-experimental/owner_claim.h \
+	tools/nsr-experimental/replay_idle.h \
+	tools/nsr-experimental/tcp_output_gate.c \
+	tools/nsr-experimental/tcp_output_gate_multi.c \
+	tools/nsr-experimental/tcp_snapshot.c \
+	tools/nsr-experimental/tcp_snapshot.h \
+	tools/nsr-experimental/tcp_stage_batch.c \
+	tools/nsr-experimental/tcp_stage_node.c \
+	tools/nsr-experimental/upstream-release.lock \
+	tools/nsr-experimental/upstream.lock \
+	tools/nsr-experimental/validation-smoke-10.7.1.json \
+	tools/nsr-experimental/validation-smoke.json \
+	# end

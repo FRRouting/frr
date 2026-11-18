@@ -23,6 +23,8 @@
 #include "bgpd/bgp_fsm.h"
 #include "bgpd/bgp_packet.h"
 #include "bgpd/bgp_open.h"
+#include "bgpd/bgp_nsr.h"
+DEFINE_HOOK(cnlab_bgp_open_restart_bit, (struct peer *peer, bool *restart), (peer,restart));
 #include "bgpd/bgp_aspath.h"
 #include "bgpd/bgp_vty.h"
 #include "bgpd/bgp_memory.h"
@@ -1762,7 +1764,12 @@ static void bgp_peer_send_gr_capability(struct stream *s, struct peer_connection
 	rcapp = stream_get_endp(s);
 	stream_putc(s, 0);
 	restart_time = bgp->restart_time;
-	if (event_is_scheduled(peer->bgp->t_startup) || bgp_in_graceful_restart()) {
+	bool nsr_restart = event_is_scheduled(peer->bgp->t_startup) || bgp_in_graceful_restart();
+	/* Historical OPEN replay must use the source's recorded startup decision.
+	 * Real transports always retain FRR's live restart state. */
+	if (getenv("CNLAB_NSR_BGP_FOLLOWER") && peer->connection->fd < 0)
+		hook_call(cnlab_bgp_open_restart_bit, peer, &nsr_restart);
+	if (nsr_restart) {
 		SET_FLAG(restart_time, GRACEFUL_RESTART_R_BIT);
 		SET_FLAG(peer->cap, PEER_CAP_GRACEFUL_RESTART_R_BIT_ADV);
 	}
