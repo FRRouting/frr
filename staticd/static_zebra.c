@@ -1164,8 +1164,9 @@ extern void static_zebra_request_srv6_sid(struct static_srv6_sid *sid)
 	}
 
 	/* Request SRv6 SID from SID Manager */
-	ret = srv6_manager_get_sid(static_zclient, &ctx, &sid->addr.prefix, sid->locator->name,
-				   NULL, is_srv6_sid_localonly(sid));
+	ret = srv6_manager_get_sid(static_zclient, &ctx, SRV6_SID_REQUEST_ID_DEFAULT,
+				   &sid->addr.prefix, sid->locator->name, NULL,
+				   is_srv6_sid_localonly(sid));
 	if (ret < 0)
 		zlog_warn("%s: error getting SRv6 SID!", __func__);
 }
@@ -1269,8 +1270,8 @@ extern void static_zebra_release_srv6_sid(struct static_srv6_sid *sid)
 	}
 
 	/* remove the SRv6 SID from the zebra RIB */
-	ret = srv6_manager_release_sid(static_zclient, &ctx, sid->locator->name,
-				       is_srv6_sid_localonly(sid));
+	ret = srv6_manager_release_sid(static_zclient, &ctx, SRV6_SID_REQUEST_ID_DEFAULT,
+				       sid->locator->name, is_srv6_sid_localonly(sid));
 	if (ret == ZCLIENT_SEND_FAILURE)
 		flog_err(EC_LIB_ZAPI_SOCKET, "zclient_send_get_srv6_sid() delete failed: %s",
 			 safe_strerror(errno));
@@ -1470,8 +1471,8 @@ static int static_zebra_srv6_sid_notify(ZAPI_CALLBACK_ARGS)
 		return -1;
 
 	/* Decode the received notification message */
-	if (!zapi_srv6_sid_notify_decode(zclient->ibuf, &ctx, &sid_addr, &sid_func, NULL, &note,
-					 locator_name, sizeof(locator_name))) {
+	if (!zapi_srv6_sid_notify_decode(zclient->ibuf, &ctx, NULL, &sid_addr, &sid_func, NULL,
+					 &note, locator_name, sizeof(locator_name))) {
 		zlog_err("%s : error in msg decode", __func__);
 		return -1;
 	}

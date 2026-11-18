@@ -21,6 +21,7 @@ static struct stream *notification(const char *name, size_t len)
 	assert(inet_pton(AF_INET6, "2001:db8::1", &sid) == 1);
 	stream_put(s, &note, sizeof(note));
 	stream_put(s, &ctx, sizeof(ctx));
+	stream_putl(s, 7);
 	stream_put(s, &sid, sizeof(sid));
 	stream_putl(s, 0xe000);
 	stream_putl(s, 0x12345678);
@@ -34,14 +35,15 @@ static bool decode(struct stream *s, char *name, size_t size)
 	struct srv6_sid_ctx ctx;
 	struct in6_addr sid, expected;
 	enum zapi_srv6_sid_notify note;
-	uint32_t func, wide_func;
+	uint32_t request_id, func, wide_func;
 	bool success;
 
-	success = zapi_srv6_sid_notify_decode(s, &ctx, &sid, &func,
-					    &wide_func, &note, name, size);
+	success = zapi_srv6_sid_notify_decode(s, &ctx, &request_id, &sid, &func, &wide_func, &note,
+					      name, size);
 	if (success) {
 		assert(ctx.behavior == ZEBRA_SEG6_LOCAL_ACTION_END_X);
 		assert(ctx.ifindex == 42);
+		assert(request_id == 7);
 		assert(inet_pton(AF_INET6, "2001:db8::1", &expected) == 1);
 		assert(IPV6_ADDR_SAME(&sid, &expected));
 		assert(func == 0xe000 && wide_func == 0x12345678);
