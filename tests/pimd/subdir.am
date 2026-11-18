@@ -1,5 +1,9 @@
 if !PIMD
-PYTEST_IGNORE += --ignore=pimd/
+PYTEST_IGNORE += --ignore=pimd/test_pim_jp_encode.py
+PYTEST_IGNORE += --ignore=pimd/test_pim_staterefresh.py
+endif
+if !PIM6D
+PYTEST_IGNORE += --ignore=pimd/test_mld_query.py
 endif
 
 
@@ -28,3 +32,21 @@ tests_pimd_test_pim_staterefresh_SOURCES = \
 	pimd/pim_tlv.c \
 	# end
 EXTRA_DIST += tests/pimd/test_pim_staterefresh.py
+
+if PIM6D
+check_PROGRAMS += tests/pimd/test_mld_query
+endif
+tests_pimd_test_mld_query_CFLAGS = $(TESTS_CFLAGS) -DPIM_IPV=6
+tests_pimd_test_mld_query_CPPFLAGS = $(TESTS_CPPFLAGS) -I$(top_srcdir)/pimd
+tests_pimd_test_mld_query_LDADD = $(ALL_TESTS_LDADD)
+tests_pimd_test_mld_query_SOURCES = \
+	tests/pimd/test_mld_query.c \
+	pimd/pim_memory.c \
+	pimd/pim_util.c \
+	# end
+# The included pimd/pim6_mld.c includes its clippy output
+tests/pimd/tests_pimd_test_mld_query-test_mld_query.$(OBJEXT): \
+	pimd/pim6_mld_clippy.c
+tests/pimd/test_mld_query-test_mld_query.$(OBJEXT): \
+	pimd/pim6_mld_clippy.c
+EXTRA_DIST += tests/pimd/test_mld_query.py
