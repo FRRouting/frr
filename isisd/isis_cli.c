@@ -903,19 +903,26 @@ void cli_show_isis_lsp_timers(struct vty *vty, const struct lyd_node *dnode, boo
 	const char *l2_lifetime = yang_dnode_get_string(dnode, "level-2/maximum-lifetime");
 	const char *l1_gen = yang_dnode_get_string(dnode, "level-1/generation-interval");
 	const char *l2_gen = yang_dnode_get_string(dnode, "level-2/generation-interval");
+	/* The command sets all three timers of a level, render configured levels only. */
+	bool l1_set = show_defaults ||
+		      !yang_dnode_is_default_recursive(yang_dnode_get(dnode, "level-1"));
+	bool l2_set = show_defaults ||
+		      !yang_dnode_is_default_recursive(yang_dnode_get(dnode, "level-2"));
 
-	if (strmatch(l1_refresh, l2_refresh) && strmatch(l1_lifetime, l2_lifetime) &&
-	    strmatch(l1_gen, l2_gen))
+	if (l1_set && l2_set && strmatch(l1_refresh, l2_refresh) &&
+	    strmatch(l1_lifetime, l2_lifetime) && strmatch(l1_gen, l2_gen)) {
 		vty_out(vty, " lsp-timers gen-interval %s refresh-interval %s max-lifetime %s\n",
 			l1_gen, l1_refresh, l1_lifetime);
-	else {
+		return;
+	}
+	if (l1_set)
 		vty_out(vty,
 			" lsp-timers level-1 gen-interval %s refresh-interval %s max-lifetime %s\n",
 			l1_gen, l1_refresh, l1_lifetime);
+	if (l2_set)
 		vty_out(vty,
 			" lsp-timers level-2 gen-interval %s refresh-interval %s max-lifetime %s\n",
 			l2_gen, l2_refresh, l2_lifetime);
-	}
 }
 
 /*
@@ -1000,18 +1007,43 @@ DEFPY_YANG(no_spf_interval, no_spf_interval_cmd,
 	return nb_cli_apply_changes(vty, NULL);
 }
 
-void cli_show_isis_spf_min_interval(struct vty *vty, const struct lyd_node *dnode,
-				    bool show_defaults)
+/*
+ * Render a level-1/level-2 leaf pair. Only explicitly configured levels are
+ * rendered, and the levelless form is used only when both levels are
+ * configured to the same value, so an implicit level never becomes explicit
+ * on reload. value_first selects "<cmd> <value> level-N" over
+ * "<cmd> level-N <value>".
+ */
+static void isis_cli_show_level_pair(struct vty *vty, const struct lyd_node *dnode,
+				     bool show_defaults, const char *cmd, bool value_first)
 {
 	const char *l1 = yang_dnode_get_string(dnode, "level-1");
 	const char *l2 = yang_dnode_get_string(dnode, "level-2");
+	bool l1_set = show_defaults || !yang_dnode_is_default(dnode, "level-1");
+	bool l2_set = show_defaults || !yang_dnode_is_default(dnode, "level-2");
 
-	if (strmatch(l1, l2))
-		vty_out(vty, " spf-interval %s\n", l1);
-	else {
-		vty_out(vty, " spf-interval level-1 %s\n", l1);
-		vty_out(vty, " spf-interval level-2 %s\n", l2);
+	if (l1_set && l2_set && strmatch(l1, l2)) {
+		vty_out(vty, " %s %s\n", cmd, l1);
+		return;
 	}
+	if (l1_set) {
+		if (value_first)
+			vty_out(vty, " %s %s level-1\n", cmd, l1);
+		else
+			vty_out(vty, " %s level-1 %s\n", cmd, l1);
+	}
+	if (l2_set) {
+		if (value_first)
+			vty_out(vty, " %s %s level-2\n", cmd, l2);
+		else
+			vty_out(vty, " %s level-2 %s\n", cmd, l2);
+	}
+}
+
+void cli_show_isis_spf_min_interval(struct vty *vty, const struct lyd_node *dnode,
+				    bool show_defaults)
+{
+	isis_cli_show_level_pair(vty, dnode, show_defaults, "spf-interval", false);
 }
 
 /*
@@ -2547,15 +2579,7 @@ DEFPY_YANG(no_isis_metric, no_isis_metric_cmd,
 
 void cli_show_ip_isis_metric(struct vty *vty, const struct lyd_node *dnode, bool show_defaults)
 {
-	const char *l1 = yang_dnode_get_string(dnode, "level-1");
-	const char *l2 = yang_dnode_get_string(dnode, "level-2");
-
-	if (strmatch(l1, l2))
-		vty_out(vty, " isis metric %s\n", l1);
-	else {
-		vty_out(vty, " isis metric level-1 %s\n", l1);
-		vty_out(vty, " isis metric level-2 %s\n", l2);
-	}
+	isis_cli_show_level_pair(vty, dnode, show_defaults, "isis metric", false);
 }
 
 /*
@@ -2601,15 +2625,7 @@ DEFPY_YANG(no_isis_hello_interval, no_isis_hello_interval_cmd,
 void cli_show_ip_isis_hello_interval(struct vty *vty, const struct lyd_node *dnode,
 				     bool show_defaults)
 {
-	const char *l1 = yang_dnode_get_string(dnode, "level-1");
-	const char *l2 = yang_dnode_get_string(dnode, "level-2");
-
-	if (strmatch(l1, l2))
-		vty_out(vty, " isis hello-interval %s\n", l1);
-	else {
-		vty_out(vty, " isis hello-interval level-1 %s\n", l1);
-		vty_out(vty, " isis hello-interval level-2 %s\n", l2);
-	}
+	isis_cli_show_level_pair(vty, dnode, show_defaults, "isis hello-interval", false);
 }
 
 /*
@@ -2654,15 +2670,7 @@ DEFPY_YANG(no_isis_hello_multiplier, no_isis_hello_multiplier_cmd,
 
 void cli_show_ip_isis_hello_multi(struct vty *vty, const struct lyd_node *dnode, bool show_defaults)
 {
-	const char *l1 = yang_dnode_get_string(dnode, "level-1");
-	const char *l2 = yang_dnode_get_string(dnode, "level-2");
-
-	if (strmatch(l1, l2))
-		vty_out(vty, " isis hello-multiplier %s\n", l1);
-	else {
-		vty_out(vty, " isis hello-multiplier level-1 %s\n", l1);
-		vty_out(vty, " isis hello-multiplier level-2 %s\n", l2);
-	}
+	isis_cli_show_level_pair(vty, dnode, show_defaults, "isis hello-multiplier", false);
 }
 
 /*
@@ -2850,15 +2858,7 @@ DEFPY_YANG(no_csnp_interval, no_csnp_interval_cmd,
 void cli_show_ip_isis_csnp_interval(struct vty *vty, const struct lyd_node *dnode,
 				    bool show_defaults)
 {
-	const char *l1 = yang_dnode_get_string(dnode, "level-1");
-	const char *l2 = yang_dnode_get_string(dnode, "level-2");
-
-	if (strmatch(l1, l2))
-		vty_out(vty, " isis csnp-interval %s\n", l1);
-	else {
-		vty_out(vty, " isis csnp-interval %s level-1\n", l1);
-		vty_out(vty, " isis csnp-interval %s level-2\n", l2);
-	}
+	isis_cli_show_level_pair(vty, dnode, show_defaults, "isis csnp-interval", true);
 }
 
 /*
@@ -2904,15 +2904,7 @@ DEFPY_YANG(no_psnp_interval, no_psnp_interval_cmd,
 void cli_show_ip_isis_psnp_interval(struct vty *vty, const struct lyd_node *dnode,
 				    bool show_defaults)
 {
-	const char *l1 = yang_dnode_get_string(dnode, "level-1");
-	const char *l2 = yang_dnode_get_string(dnode, "level-2");
-
-	if (strmatch(l1, l2))
-		vty_out(vty, " isis psnp-interval %s\n", l1);
-	else {
-		vty_out(vty, " isis psnp-interval %s level-1\n", l1);
-		vty_out(vty, " isis psnp-interval %s level-2\n", l2);
-	}
+	isis_cli_show_level_pair(vty, dnode, show_defaults, "isis psnp-interval", true);
 }
 
 /*
@@ -3146,15 +3138,7 @@ DEFPY_YANG(no_isis_priority, no_isis_priority_cmd,
 
 void cli_show_ip_isis_priority(struct vty *vty, const struct lyd_node *dnode, bool show_defaults)
 {
-	const char *l1 = yang_dnode_get_string(dnode, "level-1");
-	const char *l2 = yang_dnode_get_string(dnode, "level-2");
-
-	if (strmatch(l1, l2))
-		vty_out(vty, " isis priority %s\n", l1);
-	else {
-		vty_out(vty, " isis priority %s level-1\n", l1);
-		vty_out(vty, " isis priority %s level-2\n", l2);
-	}
+	isis_cli_show_level_pair(vty, dnode, show_defaults, "isis priority", true);
 }
 
 /*
