@@ -1707,6 +1707,10 @@ lib_interface_zebra_ipv6_router_advertisements_reachable_time_cli_write(
 {
 	uint32_t reachable_time = yang_dnode_get_uint32(dnode, NULL);
 
+	/* The default 0 has no CLI form (reachable-time takes 1-3600000). */
+	if (reachable_time == 0)
+		return;
+
 	vty_out(vty, " ipv6 nd reachable-time %u\n", reachable_time);
 }
 
