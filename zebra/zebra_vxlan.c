@@ -1348,6 +1348,8 @@ static int zl3vni_rmac_install(struct zebra_l3vni *zl3vni,
 		return -1;
 
 	vni = zebra_vxlan_if_vni_find(zif, zl3vni->vni);
+	if (!vni)
+		return -1;
 
 	br_zif = (const struct zebra_if *)br_ifp->info;
 
@@ -1401,6 +1403,8 @@ static int zl3vni_rmac_uninstall(struct zebra_l3vni *zl3vni,
 		return -1;
 
 	vni = zebra_vxlan_if_vni_find(zif, zl3vni->vni);
+	if (!vni)
+		return -1;
 
 	br_zif = (const struct zebra_if *)br_ifp->info;
 	if (IS_ZEBRA_IF_BRIDGE_VLAN_AWARE(br_zif))
