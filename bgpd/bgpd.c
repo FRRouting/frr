@@ -4728,6 +4728,9 @@ int bgp_delete(struct bgp *bgp)
 
 		vpn_leak_zebra_vrf_sid_withdraw(bgp, afi);
 
+		/* route-map locator SIDs, while vrf_id is still set */
+		bgp_srv6_per_locator_cache_reset(bgp, afi);
+
 		/* SRv6 unicast */
 		bgp_srv6_unicast_delete(bgp, afi);
 	}
@@ -9685,6 +9688,7 @@ void bgp_master_init(struct event_loop *master, const int buffer_size,
 	bm->select_defer_time = BGP_DEFAULT_SELECT_DEFERRAL_TIME;
 	bm->rib_stale_time = BGP_DEFAULT_RIB_STALE_TIME;
 	bgp_srv6_locators_init(&bm->srv6_locators);
+	bm->srv6_sid_request_ids = idalloc_new("BGP SRv6 SID requests");
 
 	bm->peer_clearing_batch_id = 1;
 	/* TODO -- make these configurable */
