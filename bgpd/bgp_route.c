@@ -5658,6 +5658,10 @@ static uint32_t bgp_filtered_routes_count(struct peer *peer, afi_t afi,
 		for (ain = dest->adj_in; ain; ain = ain->next) {
 			const struct prefix *rn_p = bgp_dest_get_prefix(dest);
 
+			/* Only this peer's routes count against its limit */
+			if (ain->peer != peer)
+				continue;
+
 			bgp_attr_dup_into(&attr, ain->attr);
 
 			filtered = false;
