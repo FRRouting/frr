@@ -46,6 +46,7 @@ struct zebra_gr_afi_clean {
 	time_t restart_time;
 	struct event *t_gac;
 	time_t update_pending_time;
+	struct timeval gr_imet_cleanup_time;
 };
 
 /*
@@ -167,6 +168,7 @@ int32_t zebra_gr_client_disconnect(struct zserv *client)
 	}
 
 	client->restart_time = monotime(&tv);
+	client->restart_time_tv = tv;
 
 	/* For all the GR instance start the stale removal timer. */
 	TAILQ_FOREACH (info, &client->gr_info_queue, gr_info) {
@@ -264,6 +266,7 @@ void zebra_gr_client_reconnect(struct zserv *client)
 
 	client->gr_instance_count = old_client->gr_instance_count;
 	client->restart_time = old_client->restart_time;
+	client->restart_time_tv = old_client->restart_time_tv;
 
 	LOG_GR("%s : old client %s, gr_instance_count %d", __func__,
 	       zebra_route_string(old_client->proto),
@@ -276,6 +279,10 @@ void zebra_gr_client_reconnect(struct zserv *client)
 	}
 
 	TAILQ_FOREACH (info, &client->gr_info_queue, gr_info) {
+		/* Both cleanup paths must follow the new owner before the old
+		 * client is freed, including when Zebra was started with -K.
+		 */
+		info->client_ptr = client;
 		info->stale_client_ptr = client;
 		info->stale_client = false;
 	}
@@ -377,7 +384,7 @@ void zread_client_capabilities(ZAPI_HANDLER_ARGS)
 				 * This timestamp will be later used to
 				 * cleanup stale routes and EVPN entries.
 				 */
-				client->restart_time = monotime(NULL);
+				client->restart_time = monotime(&client->restart_time_tv);
 				zrouter.gr_stale_cleanup_time_recorded = true;
 			}
 
@@ -434,7 +441,8 @@ void zread_client_capabilities(ZAPI_HANDLER_ARGS)
 		 * Schedule for after anything already in the meta Q
 		 */
 		rib_add_gr_run(api.afi, api.vrf_id, client->proto, client->instance,
-			       client->restart_time, client->update_pending_time, false);
+			       client->restart_time, client->update_pending_time,
+			       &client->update_pending_time_tv, false);
 		zebra_gr_process_client_stale_routes(client, info);
 		break;
 	case ZEBRA_CLIENT_ROUTE_UPDATE_PENDING:
@@ -453,7 +461,8 @@ void zread_client_capabilities(ZAPI_HANDLER_ARGS)
 
 			info->af_enabled[api.afi] = true;
 			if (!zrouter.gr_update_pending_time_recorded) {
-				client->update_pending_time = monotime(NULL);
+				client->update_pending_time =
+					monotime(&client->update_pending_time_tv);
 				zrouter.gr_update_pending_time_recorded = true;
 			}
 		}
@@ -562,7 +571,7 @@ static void zebra_gr_route_stale_delete_timer_expiry(struct event *event)
 	}
 
 	/* Schedule GR info and stale client deletion */
-	rib_add_gr_run(0, info->vrf_id, client->proto, client->instance, 0, 0, true);
+	rib_add_gr_run(0, info->vrf_id, client->proto, client->instance, 0, 0, NULL, true);
 }
 
 
@@ -691,7 +700,8 @@ static void zebra_gr_delete_stale_route_table_afi(struct event *event)
 
 	if (gac->afi == AFI_L2VPN && zvrf == zebra_vrf_get_evpn()) {
 		zebra_gr_cleanup_of_non_gr_vrf(gac);
-		zebra_evpn_stale_entries_cleanup(gac->update_pending_time);
+		zebra_evpn_stale_entries_cleanup(gac->update_pending_time,
+						 &gac->gr_imet_cleanup_time);
 		goto done;
 	}
 
@@ -720,6 +730,7 @@ static int32_t zebra_gr_delete_stale_route(struct client_gr_info *info,
 	uint16_t instance;
 	struct zserv *s_client;
 	struct zserv *client;
+	const struct timeval *gr_imet_cleanup_time;
 	time_t restart_time;
 
 	if ((info == NULL) || (zvrf == NULL))
@@ -734,6 +745,7 @@ static int32_t zebra_gr_delete_stale_route(struct client_gr_info *info,
 		proto = client->proto;
 		instance = client->instance;
 		restart_time = client->restart_time;
+		gr_imet_cleanup_time = &client->restart_time_tv;
 	} else {
 		s_client = info->stale_client_ptr;
 		if (s_client == NULL) {
@@ -743,6 +755,7 @@ static int32_t zebra_gr_delete_stale_route(struct client_gr_info *info,
 		proto = s_client->proto;
 		instance = s_client->instance;
 		restart_time = s_client->restart_time;
+		gr_imet_cleanup_time = &s_client->restart_time_tv;
 	}
 
 	LOG_GR("%s: Client %s %s(%u) stale routes are scheduled for deletion", __func__,
@@ -755,7 +768,7 @@ static int32_t zebra_gr_delete_stale_route(struct client_gr_info *info,
 		 * meta-Q
 		 */
 		rib_add_gr_run(afi, info->vrf_id, proto, instance, restart_time, restart_time,
-			       false);
+			       gr_imet_cleanup_time, false);
 	}
 	return 0;
 }
@@ -828,7 +841,7 @@ static void zebra_gr_process_client_stale_routes(struct zserv *client,
 
 void zebra_gr_process_client(afi_t afi, vrf_id_t vrf_id, uint8_t proto, uint8_t instance,
 			     time_t restart_time, time_t update_pending_time,
-			     bool stale_client_cleanup)
+			     const struct timeval *gr_imet_cleanup_time, bool stale_client_cleanup)
 {
 	struct zserv *client = zserv_find_client(proto, instance);
 	struct client_gr_info *info = NULL;
@@ -864,6 +877,8 @@ void zebra_gr_process_client(afi_t afi, vrf_id_t vrf_id, uint8_t proto, uint8_t 
 	gac->instance = instance;
 	gac->restart_time = restart_time;
 	gac->update_pending_time = update_pending_time;
+	if (gr_imet_cleanup_time)
+		gac->gr_imet_cleanup_time = *gr_imet_cleanup_time;
 
 	/*
 	 * If stale_client_cleanup is set, then we are being asked to cleanup
