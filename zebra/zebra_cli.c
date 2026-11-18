@@ -2122,6 +2122,10 @@ static void lib_interface_zebra_ipv6_router_advertisements_link_mtu_cli_write(
 {
 	uint16_t link_mtu = yang_dnode_get_uint16(dnode, NULL);
 
+	/* The default 0 (no MTU option) has no CLI form (mtu takes 1-65535). */
+	if (link_mtu == 0)
+		return;
+
 	vty_out(vty, " ipv6 nd mtu %u\n", link_mtu);
 }
 
