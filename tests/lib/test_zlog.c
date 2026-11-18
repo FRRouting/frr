@@ -6,6 +6,8 @@
  */
 #include <zebra.h>
 #include <sys/wait.h>
+#include <dirent.h>
+#include <fcntl.h>
 
 #include "lib/memory.h"
 #include "lib/xref.h"
@@ -89,12 +91,151 @@ static bool test_zlog_recirculate(void)
 	return true;
 }
 
+#ifdef HAVE_POSIX_FALLOCATE
+/* replaces libc's posix_fallocate() in this program, to make it fail */
+static int test_fallocate_err;
+static unsigned int test_fallocate_calls;
+
+int posix_fallocate(int fd, off_t offset, off_t len)
+{
+	test_fallocate_calls++;
+	return test_fallocate_err;
+}
+#endif
+
+/* log target: counts messages, notes an error with the expected text */
+static struct zlog_target test_target;
+static unsigned int test_target_nmsgs;
+static const char *test_target_errtext;
+static bool test_target_errseen;
+
+static void test_target_logfn(struct zlog_target *zt, struct zlog_msg *msgs[], size_t nmsgs)
+{
+	char text[256];
+	const char *p;
+	size_t len;
+
+	for (size_t i = 0; i < nmsgs; i++) {
+		test_target_nmsgs++;
+
+		/* message text is not NUL terminated */
+		p = zlog_msg_text(msgs[i], &len);
+		snprintfrr(text, sizeof(text), "%.*s", (int)len, p);
+		if (zlog_msg_prio(msgs[i]) == LOG_ERR && strstr(text, test_target_errtext))
+			test_target_errseen = true;
+	}
+}
+
+static unsigned int test_count_files(const char *path)
+{
+	struct dirent *ent;
+	unsigned int count = 0;
+	DIR *dir;
+
+	dir = opendir(path);
+	assertf(dir, "opendir(%s): %m", path);
+
+	while ((ent = readdir(dir)))
+		if (strcmp(ent->d_name, ".") && strcmp(ent->d_name, ".."))
+			count++;
+
+	closedir(dir);
+	return count;
+}
+
+static bool test_tls_check(bool cond, const char *errtext, const char *what)
+{
+	if (!cond) {
+		printf("tls buffer, \"%s\": %s\n", errtext, what);
+		fflush(stdout);
+	}
+	return cond;
+}
+
+/*
+ * zlog_tls_buffer_init() keeps the log buffer in its file if the space was
+ * reserved, or if it cannot be reserved on this system or filesystem.  On any
+ * other error it must log the error, remove the file and use the anonymous
+ * buffer.  An info message is held until the flush only if there is a buffer.
+ */
+static bool test_zlog_tls_buffer(void)
+{
+	static const struct {
+		int err;
+		bool file;
+	} cases[] = {
+#ifdef HAVE_POSIX_FALLOCATE
+		{ ENOSPC, false },
+		{ EINVAL, true },
+#endif
+		{ EOPNOTSUPP, true },
+	};
+	char dir[] = "/tmp/test_zlog.XXXXXX";
+	char errtext[128];
+	unsigned int nfiles, nmsgs;
+	bool file, ok = true;
+
+	assertf(mkdtemp(dir), "mkdtemp(%s): %m", dir);
+	zlog_tmpdirfd = open(dir, O_DIRECTORY | O_RDONLY | O_CLOEXEC);
+	assertf(zlog_tmpdirfd >= 0, "open(%s): %m", dir);
+
+	zlog_aux_init(NULL, LOG_DEBUG);
+
+	test_target.prio_min = LOG_DEBUG;
+	test_target.logfn = test_target_logfn;
+	zlog_target_replace(NULL, &test_target);
+
+	for (unsigned int i = 0; i < array_size(cases); i++) {
+		file = cases[i].file;
+		nfiles = file ? 1 : 0;
+#ifdef HAVE_POSIX_FALLOCATE
+		test_fallocate_err = cases[i].err;
+		test_fallocate_calls = 0;
+#endif
+		snprintfrr(errtext, sizeof(errtext), "%s", strerror(cases[i].err));
+		test_target_errtext = errtext;
+		test_target_errseen = false;
+
+		zlog_tls_buffer_init();
+
+#ifdef HAVE_POSIX_FALLOCATE
+		ok &= test_tls_check(test_fallocate_calls == 1, errtext,
+				     "posix_fallocate() was not called once");
+#endif
+		ok &= test_tls_check(test_target_errseen == !file, errtext,
+				     file ? "an error was logged" : "the error was not logged");
+		ok &= test_tls_check(test_count_files(dir) == nfiles, errtext,
+				     file ? "no buffer file" : "a buffer file was left");
+
+		nmsgs = test_target_nmsgs;
+		zlog_info("test tls buffer after \"%s\"", errtext);
+		ok &= test_tls_check(test_target_nmsgs == nmsgs, errtext,
+				     "the message was not held in a buffer");
+		zlog_tls_buffer_flush();
+		ok &= test_tls_check(test_target_nmsgs == nmsgs + 1, errtext,
+				     "the message did not come out with the flush");
+
+		zlog_tls_buffer_fini();
+		ok &= test_tls_check(test_count_files(dir) == 0, errtext,
+				     "the buffer file was not removed");
+	}
+
+	zlog_target_replace(&test_target, NULL);
+
+	close(zlog_tmpdirfd);
+	zlog_tmpdirfd = -1;
+	rmdir(dir);
+
+	return ok;
+}
+
 static const struct zlog_test {
 	bool (*testfn)(void);
 	const char *name;
 } tests[] = {
 	{ test_zlog_hexdump, "hexdump" },
 	{ test_zlog_recirculate, "recirculate" },
+	{ test_zlog_tls_buffer, "tls buffer" },
 };
 
 XREF_SETUP();
