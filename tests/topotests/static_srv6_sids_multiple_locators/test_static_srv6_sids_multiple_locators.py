@@ -24,6 +24,7 @@ sys.path.append(os.path.join(CWD, "../"))
 
 # pylint: disable=C0413
 from lib import topotest
+from lib.common_config import retry
 from lib.topogen import Topogen, TopoRouter, get_topogen
 from lib.topolog import logger
 
@@ -82,6 +83,77 @@ def test_srv6_static_sids():
 
     logger.info("Test for srv6 sids configuration")
     check_srv6_static_sids(router, "expected_srv6_sids.json")
+
+
+@retry(retry_timeout=15)
+def check_srv6_static_sids_vrf10(router, fe11_installed):
+    sid_vrf10 = [
+        {
+            "installed": True,
+            "nexthops": [
+                {
+                    "interfaceName": "Vrf10",
+                    "seg6local": {"action": "uDT4"},
+                }
+            ],
+        }
+    ]
+    expected = {
+        "fcbb:bb01:1:fe10::/64": sid_vrf10,
+        "fcbb:bb01:2:fe11::/64": sid_vrf10 if fe11_installed else None,
+    }
+
+    output = json.loads(router.vtysh_cmd("show ipv6 route static json"))
+    result = topotest.json_cmp(output, expected)
+    if result is not None:
+        return result
+    return True
+
+
+def test_srv6_static_sids_same_context_other_function():
+    """
+    Add a uDT4 SID of Vrf10 with the fe11 function on LOC2, in the block of
+    the uDT4 SID of Vrf10 with the fe10 function on LOC1. Both are installed.
+    """
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+    router = tgen.gears["r1"]
+
+    router.vtysh_cmd(
+        """
+        configure terminal
+         segment-routing
+          srv6
+           static-sids
+            sid fcbb:bb01:2:fe11::/64 locator LOC2 behavior uDT4 vrf Vrf10
+        """
+    )
+    result = check_srv6_static_sids_vrf10(router, True)
+    assert result is True, result
+
+
+def test_srv6_static_sids_same_context_other_function_removed():
+    """
+    Remove the uDT4 SID of Vrf10 with the fe11 function. The uDT4 SID of
+    Vrf10 with the fe10 function on LOC1 stays installed.
+    """
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+    router = tgen.gears["r1"]
+
+    router.vtysh_cmd(
+        """
+        configure terminal
+         segment-routing
+          srv6
+           static-sids
+            no sid fcbb:bb01:2:fe11::/64 locator LOC2 behavior uDT4 vrf Vrf10
+        """
+    )
+    result = check_srv6_static_sids_vrf10(router, False)
+    assert result is True, result
 
 
 if __name__ == "__main__":
