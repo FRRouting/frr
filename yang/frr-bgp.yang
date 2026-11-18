@@ -78,7 +78,9 @@ module frr-bgp {
   revision 2026-11-17 {
     description
       "Unnumbered neighbors carry the same AF filter and policy nodes as
-       numbered neighbors.";
+       numbered neighbors. A neighbor remote-as is not mandatory when the
+       neighbor is a peer-group member; the group's remote-as is inherited
+       and is not copied onto the member.";
     reference
       "FRRouting";
   }
@@ -341,9 +343,10 @@ module frr-bgp {
 
             leaf remote-as-type {
               type frr-bt:as-type;
-              mandatory true;
               description
-                "Remote AS type.";
+                "Remote AS type. Absent when this neighbor is only a
+                 peer-group member: the group's remote AS is inherited
+                 and must not be stored on the member.";
             }
 
             leaf remote-as {

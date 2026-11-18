@@ -3517,6 +3517,16 @@ int bgp_nb_neighbor_create(struct nb_cb_create_args *args)
 				return NB_ERR_VALIDATION;
 			}
 		}
+		/*
+		 * remote-as-type is optional so a peer-group member can inherit
+		 * the group's AS. A neighbor with neither is not a peer.
+		 */
+		if (!yang_dnode_exists(args->dnode, "neighbor-remote-as/remote-as-type") &&
+		    !yang_dnode_exists(args->dnode, "peer-group")) {
+			snprintfrr(args->errmsg, args->errmsg_len,
+				   "Specify remote-as or peer-group commands first");
+			return NB_ERR_VALIDATION;
+		}
 		return NB_OK;
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
@@ -3608,11 +3618,10 @@ void bgp_nb_cli_show_neighbor_end(struct vty *vty, const struct lyd_node *dnode)
 }
 
 /*
- * True when this neighbor's remote-as matches its peer-group (including a
- * peer-group leaf present in the same candidate). neighbor_set_peer_group_yang
- * copies the group ASN onto the neighbor because remote-as is mandatory; that
- * copy must not stamp PEER_FLAG_REMOTE_AS or peer_group_remote_as() skips the
- * member when the group remote-as later changes.
+ * True when this neighbor's own remote-as matches its peer-group. An explicit
+ * remote-as that matches the group is not an override: peer_group_remote_as()
+ * must still update the member when the group remote-as later changes.
+ * A member with no remote-as of its own inherits through peer_group_bind().
  */
 static bool bgp_nb_neighbor_remote_as_matches_group(const struct lyd_node *dnode,
 						    enum peer_asn_type as_type, as_t as)
@@ -3957,10 +3966,8 @@ int bgp_nb_peer_group_remote_as_type_destroy(struct nb_cb_destroy_args *args)
 	as = group->conf->as;
 
 	/*
-	 * YANG may stamp PEER_FLAG_REMOTE_AS on members when copying the
-	 * group's AS onto the mandatory neighbor remote-as leaf. Clear that
-	 * override when the member AS still matches the group so
-	 * peer_group_remote_as_delete() resets the session (→ Active).
+	 * An explicit member remote-as equal to the group is not an override.
+	 * Clear the flag so peer_group_remote_as_delete() resets the session.
 	 */
 	for (ALL_LIST_ELEMENTS(group->peer, node, nnode, peer)) {
 		if (!CHECK_FLAG(peer->flags_override, PEER_FLAG_REMOTE_AS))
@@ -13954,6 +13961,33 @@ void bgp_nb_cli_show_ls_fabric(struct vty *vty, const struct lyd_node *dnode, bo
 
 
 /*
+ * Neighbor or group whose remote-as this node should be judged by. A
+ * peer-group member with no remote-as of its own inherits the group's.
+ */
+static const struct lyd_node *bgp_nb_remote_as_source(const struct lyd_node *nbr)
+{
+	const struct lyd_node *bgp_node, *group;
+	const char *pg;
+
+	if (!nbr)
+		return NULL;
+	if (yang_dnode_exists(nbr, "neighbor-remote-as/remote-as-type"))
+		return nbr;
+	if (!yang_dnode_exists(nbr, "peer-group"))
+		return nbr;
+
+	pg = yang_dnode_get_string(nbr, "peer-group");
+	bgp_node = yang_dnode_get_parent(nbr, "bgp");
+	if (!pg || !bgp_node)
+		return nbr;
+
+	group = yang_dnode_getf(bgp_node, "peer-groups/peer-group[peer-group-name='%s']", pg);
+	if (group && yang_dnode_exists(group, "neighbor-remote-as/remote-as-type"))
+		return group;
+	return nbr;
+}
+
+/*
  * Sort implied by the candidate remote-as, not the running peer. A
  * peer-group with no remote-as (and no members yet) is INTERNAL: the
  * flag is stored and inherited when a member is bound.
@@ -13969,6 +14003,7 @@ static enum bgp_peer_sort bgp_nb_candidate_peer_sort(const struct lyd_node *dnod
 		nbr = yang_dnode_get_parent(dnode, "unnumbered-neighbor");
 	if (!nbr)
 		nbr = yang_dnode_get_parent(dnode, "peer-group");
+	nbr = bgp_nb_remote_as_source(nbr);
 	if (!nbr || !yang_dnode_exists(nbr, "neighbor-remote-as/remote-as-type"))
 		return BGP_PEER_INTERNAL;
 
@@ -16447,8 +16482,14 @@ int bgp_nb_peer_oad_modify(struct nb_cb_modify_args *args)
 	if (!peer)
 		return NB_ERR_NOT_FOUND;
 
+	/*
+	 * Same check as the classic `neighbor oad` command: set the
+	 * sub-sort only when this peer is already eBGP. peer_sort()
+	 * refreshes the cache so a peer-group bind that just inherited
+	 * remote-as is visible. `no neighbor oad` always clears it.
+	 */
 	if (yang_dnode_get_bool(args->dnode, NULL)) {
-		if (peer->sort == BGP_PEER_EBGP)
+		if (peer_sort(peer) == BGP_PEER_EBGP)
 			peer->sub_sort = BGP_PEER_EBGP_OAD;
 	} else
 		peer->sub_sort = 0;

@@ -2775,8 +2775,7 @@ static int bgp_cli_enqueue_remote_as(struct vty *vty, const char *base_xpath, co
 	} else {
 		/*
 		 * remote-as is when-gated on as-specified. Clear any leftover
-		 * ASN leaf before/with switching to internal/external/auto
-		 * (e.g. after peer-group join copied the group's ASN).
+		 * ASN leaf before switching to internal/external/auto.
 		 */
 		snprintfrr(leaf, sizeof(leaf), "%s/neighbor-remote-as/remote-as", base_xpath);
 		nb_cli_enqueue_change(vty, leaf, NB_OP_DESTROY, NULL);
@@ -4757,35 +4756,14 @@ DEFPY_YANG(neighbor_set_peer_group_yang, neighbor_set_peer_group_yang_cmd,
 		return nb_cli_apply_changes(vty, NULL);
 	}
 
-	/* Create neighbor list entry; remote-as-type is mandatory on neighbor. */
+	/*
+	 * Create the neighbor and point it at the group. Do not copy the
+	 * group's remote-as onto the member: that freezes the AS into the
+	 * member's own config, and a later group remote-as change is lost
+	 * on save/restart. peer_group_bind() inherits while the member has
+	 * no remote-as of its own.
+	 */
 	nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
-
-	snprintfrr(pg_path, sizeof(pg_path),
-		   "%s/peer-groups/peer-group[peer-group-name='%s']/neighbor-remote-as/remote-as-type",
-		   VTY_CURR_XPATH, pgname);
-	if (yang_dnode_exists(vty->candidate_config->dnode, pg_path)) {
-		const char *astype;
-		const struct lyd_node *pg_as;
-
-		pg_as = yang_dnode_get(vty->candidate_config->dnode, pg_path);
-		astype = yang_dnode_get_string(pg_as, NULL);
-		snprintfrr(leaf, sizeof(leaf), "%s/neighbor-remote-as/remote-as-type", xpath);
-		nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY, astype);
-
-		snprintfrr(pg_path, sizeof(pg_path),
-			   "%s/peer-groups/peer-group[peer-group-name='%s']/neighbor-remote-as/remote-as",
-			   VTY_CURR_XPATH, pgname);
-		if (yang_dnode_exists(vty->candidate_config->dnode, pg_path)) {
-			const char *asval;
-			const struct lyd_node *pg_asn;
-
-			pg_asn = yang_dnode_get(vty->candidate_config->dnode, pg_path);
-			asval = yang_dnode_get_string(pg_asn, NULL);
-			snprintfrr(leaf, sizeof(leaf), "%s/neighbor-remote-as/remote-as", xpath);
-			nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY, asval);
-		}
-	}
-
 	snprintfrr(leaf, sizeof(leaf), "%s/peer-group", xpath);
 	nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY, pgname);
 	return nb_cli_apply_changes(vty, NULL);
@@ -8046,7 +8024,7 @@ static int bgp_cli_peer_af_xpath(struct vty *vty, const char *neighbor, char *xp
 	/*
 	 * Classic AF neighbor cmds require an existing peer (remote-as or
 	 * peer-group first). Creating afi-safi under a missing neighbor would
-	 * auto-create the list entry without mandatory remote-as-type.
+	 * auto-create the list entry.
 	 */
 	snprintfrr(check, sizeof(check), "%s/%s", VTY_CURR_XPATH, base + 2);
 	if (!yang_dnode_exists(vty->candidate_config->dnode, check)) {

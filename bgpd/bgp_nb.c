@@ -4362,6 +4362,15 @@ const struct frr_yang_module_info frr_bgp_info = {
 				.modify = bgp_nb_peer_oad_modify,
 				.cli_show = bgp_nb_cli_show_peer_oad,
 			},
+			/*
+			 * Classic CLI applies `neighbor X oad` as its own line
+			 * after `neighbor X peer-group PG`. Bind (priority +1)
+			 * copies the group's sub_sort onto a member that inherits
+			 * remote-as; the member's oad must run after that copy,
+			 * once the peer's sort is eBGP. Group oad stays at the
+			 * default priority so the bind inherits it.
+			 */
+			.priority = NB_DFLT_PRIORITY + 2,
 		},
 		{
 			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/graceful-shutdown",
@@ -4458,6 +4467,8 @@ const struct frr_yang_module_info frr_bgp_info = {
 				.modify = bgp_nb_peer_oad_modify,
 				.cli_show = bgp_nb_cli_show_peer_oad,
 			},
+			/* Same post-bind ordering as numbered neighbor oad. */
+			.priority = NB_DFLT_PRIORITY + 2,
 		},
 		{
 			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/graceful-shutdown",
