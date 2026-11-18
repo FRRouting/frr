@@ -153,18 +153,34 @@ static int nb_cli_schedule_command(struct vty *vty)
 	return CMD_SUCCESS;
 }
 
+static void nb_cli_cfg_changes_reserve(struct vty *vty, size_t need)
+{
+	size_t n;
+
+	if (vty->cfg_changes_size >= need)
+		return;
+
+	n = vty->cfg_changes_size ? vty->cfg_changes_size : (size_t)VTY_MAXCFGCHANGES;
+	while (n < need) {
+		if (n > SIZE_MAX / 2) {
+			n = need;
+			break;
+		}
+		n *= 2;
+	}
+
+	vty->cfg_changes = XREALLOC(MTYPE_NB_CMDS, vty->cfg_changes, n * sizeof(*vty->cfg_changes));
+	memset(&vty->cfg_changes[vty->cfg_changes_size], 0,
+	       (n - vty->cfg_changes_size) * sizeof(*vty->cfg_changes));
+	vty->cfg_changes_size = n;
+}
+
 void nb_cli_enqueue_change(struct vty *vty, const char *xpath,
 			   enum nb_operation operation, const char *value)
 {
 	struct nb_cfg_change *change;
 
-	if (vty->num_cfg_changes == VTY_MAXCFGCHANGES) {
-		/* Not expected to happen. */
-		vty_out(vty,
-			"%% Exceeded the maximum number of changes (%u) for a single command\n\n",
-			VTY_MAXCFGCHANGES);
-		return;
-	}
+	nb_cli_cfg_changes_reserve(vty, vty->num_cfg_changes + 1);
 
 	change = &vty->cfg_changes[vty->num_cfg_changes++];
 	strlcpy(change->xpath, xpath, sizeof(change->xpath));

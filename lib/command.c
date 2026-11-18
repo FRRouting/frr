@@ -988,7 +988,9 @@ static int cmd_execute_command_real(vector vline, struct vty *vty,
 		if (vty->config) {
 			/* Clear array of enqueued configuration changes. */
 			vty->num_cfg_changes = 0;
-			memset(&vty->cfg_changes, 0, sizeof(vty->cfg_changes));
+			if (vty->cfg_changes && vty->cfg_changes_size)
+				memset(vty->cfg_changes, 0,
+				       vty->cfg_changes_size * sizeof(*vty->cfg_changes));
 
 			/* Regenerate candidate configuration if necessary. */
 			if (frr_get_cli_mode() == FRR_CLI_CLASSIC

@@ -118,9 +118,15 @@ struct vty {
 	/* History insert end point */
 	int hindex;
 
-	/* Changes enqueued to be applied in the candidate configuration. */
+	/*
+	 * Changes enqueued to be applied in the candidate configuration.
+	 * The array grows. VTY_MAXCFGCHANGES is the initial allocation, not
+	 * a cap: a command that names a variable-length list must be able
+	 * to enqueue every element and still apply them as one edit.
+	 */
 	size_t num_cfg_changes;
-	struct nb_cfg_change cfg_changes[VTY_MAXCFGCHANGES];
+	size_t cfg_changes_size;
+	struct nb_cfg_change *cfg_changes;
 
 	/* Input parameters */
 	size_t num_rpc_params;
