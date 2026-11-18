@@ -1308,6 +1308,34 @@ int zebra_evpn_vtep_del_all(struct zebra_evpn *zevpn, int uninstall, struct l2vn
 }
 
 /*
+ * Access VLAN to program the EVPN remote MACs (type-2) and flood list
+ * (type-3) entries with: only meaningful when the vxlan interface is
+ * enslaved to a VLAN-aware bridge, and 0 otherwise.
+ */
+vlanid_t zebra_evpn_access_vid(const struct zebra_evpn *zevpn)
+{
+	const struct zebra_if *zif, *br_zif;
+	const struct zebra_vxlan_vni *vni;
+
+	if (!zevpn->vxlan_if)
+		return 0;
+
+	zif = zevpn->vxlan_if->info;
+	if (!zif || !zif->brslave_info.br_if)
+		return 0;
+
+	br_zif = (const struct zebra_if *)zif->brslave_info.br_if->info;
+	if (!br_zif || !IS_ZEBRA_IF_BRIDGE_VLAN_AWARE(br_zif))
+		return 0;
+
+	vni = zebra_vxlan_if_vni_find(zif, zevpn->vni);
+	if (!vni)
+		return 0;
+
+	return vni->access_vlan;
+}
+
+/*
  * Install remote VTEP into the kernel if the remote VTEP has asked
  * for head-end-replication.
  */

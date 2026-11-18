@@ -1628,7 +1628,6 @@ static void fpm_enqueue_l2vni_mac_table(struct hash_bucket *bucket, void *arg)
 	struct zebra_mac *mac = bucket->data;
 	struct zebra_evpn *zevpn = fra->zevpn;
 	struct zebra_if *zif = zevpn->vxlan_if->info;
-	struct zebra_if *br_zif = zif->brslave_info.br_if->info;
 	struct zebra_vrf *zvrf = zebra_vrf_get_evpn();
 	struct zebra_vxlan_vni *vni;
 	struct ipaddr vtep_ip;
@@ -1669,7 +1668,7 @@ static void fpm_enqueue_l2vni_mac_table(struct hash_bucket *bucket, void *arg)
 	}
 
 	sticky = !!CHECK_FLAG(mac->flags, (ZEBRA_MAC_STICKY | ZEBRA_MAC_REMOTE_DEF_GW));
-	vid = IS_ZEBRA_IF_BRIDGE_VLAN_AWARE(br_zif) ? vni->access_vlan : 0;
+	vid = zebra_evpn_access_vid(zevpn);
 
 	dplane_ctx_reset(fra->ctx);
 	dplane_ctx_set_op(fra->ctx, DPLANE_OP_MAC_INSTALL);

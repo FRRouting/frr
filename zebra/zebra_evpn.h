@@ -161,6 +161,7 @@ struct zebra_vtep *zebra_evpn_vtep_add(struct zebra_evpn *zevpn, struct ipaddr *
 int zebra_evpn_vtep_del(struct zebra_evpn *zevpn, struct zebra_vtep *zvtep);
 int zebra_evpn_vtep_del_all(struct zebra_evpn *zevpn, int uninstall,
 			    struct l2vni_walk_ctx *l2_wctx);
+vlanid_t zebra_evpn_access_vid(const struct zebra_evpn *zevpn);
 int zebra_evpn_vtep_install(struct zebra_evpn *zevpn, struct zebra_vtep *zvtep);
 int zebra_evpn_vtep_uninstall(struct zebra_evpn *zevpn, struct ipaddr *vtep_ip);
 void zebra_evpn_handle_flooding_remote_vteps(struct hash_bucket *bucket, void *args[]);

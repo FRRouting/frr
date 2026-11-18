@@ -185,7 +185,7 @@ void zebra_evpn_mac_clear_fwd_info(struct zebra_mac *zmac)
 int zebra_evpn_rem_mac_install(struct zebra_evpn *zevpn, struct zebra_mac *mac,
 			       bool was_static)
 {
-	const struct zebra_if *zif, *br_zif;
+	const struct zebra_if *zif;
 	const struct zebra_vxlan_vni *vni;
 	bool sticky;
 	enum zebra_dplane_result res;
@@ -223,12 +223,7 @@ int zebra_evpn_rem_mac_install(struct zebra_evpn *zevpn, struct zebra_mac *mac,
 		vtep_ip = mac->fwd_info.r_vtep_ip;
 	}
 
-	br_zif = (const struct zebra_if *)(br_ifp->info);
-
-	if (IS_ZEBRA_IF_BRIDGE_VLAN_AWARE(br_zif))
-		vid = vni->access_vlan;
-	else
-		vid = 0;
+	vid = zebra_evpn_access_vid(zevpn);
 
 	/*
 	 * A MAC not remote is a local MAC of an ES that is down, redirected
@@ -250,7 +245,7 @@ int zebra_evpn_rem_mac_install(struct zebra_evpn *zevpn, struct zebra_mac *mac,
 int zebra_evpn_rem_mac_uninstall(struct zebra_evpn *zevpn,
 				 struct zebra_mac *mac, bool force)
 {
-	const struct zebra_if *zif, *br_zif;
+	const struct zebra_if *zif;
 	struct zebra_vxlan_vni *vni;
 	struct ipaddr vtep_ip;
 	const struct interface *ifp, *br_ifp;
@@ -290,12 +285,7 @@ int zebra_evpn_rem_mac_uninstall(struct zebra_evpn *zevpn,
 	if (!vni)
 		return -1;
 
-	br_zif = (const struct zebra_if *)br_ifp->info;
-
-	if (IS_ZEBRA_IF_BRIDGE_VLAN_AWARE(br_zif))
-		vid = vni->access_vlan;
-	else
-		vid = 0;
+	vid = zebra_evpn_access_vid(zevpn);
 
 	ifp = zevpn->vxlan_if;
 	vtep_ip = mac->fwd_info.r_vtep_ip;
@@ -307,23 +297,6 @@ int zebra_evpn_rem_mac_uninstall(struct zebra_evpn *zevpn,
 		return 0;
 	else
 		return -1;
-}
-
-/*
- * The access VLAN the remote MACs are installed with
- * (zebra_evpn_rem_mac_install()): the VNI's VLAN on a VLAN aware bridge,
- * none otherwise.
- */
-static vlanid_t zebra_evpn_rem_mac_vid(const struct zebra_evpn *zevpn, const struct zebra_if *zif,
-				       const struct interface *br_ifp)
-{
-	const struct zebra_vxlan_vni *vni = zebra_vxlan_if_vni_find(zif, zevpn->vni);
-	const struct zebra_if *br_zif = br_ifp->info;
-
-	if (!vni || !br_zif || !IS_ZEBRA_IF_BRIDGE_VLAN_AWARE(br_zif))
-		return 0;
-
-	return vni->access_vlan;
 }
 
 /*
@@ -349,7 +322,7 @@ static vlanid_t zebra_evpn_rem_mac_vid(const struct zebra_evpn *zevpn, const str
  * (zebra_vxlan_dp_network_mac_add()).
  *
  * The delete carries the access VLAN the MAC was installed with
- * (zebra_evpn_rem_mac_vid()): the kernel ignores it, but the FPM got the
+ * (zebra_evpn_access_vid()): the kernel ignores it, but the FPM got the
  * remote MAC with it and needs it to find the entry.
  *
  * Only for single-homed MACs. A remote MAC behind an ES is installed with
@@ -377,8 +350,8 @@ void zebra_evpn_rem_mac_net_entry_del(struct zebra_evpn *zevpn, const struct eth
 		zlog_debug("VNI %u MAC %pEA is local, removing the vxlan entry to VTEP %pIA",
 			   zevpn->vni, macaddr, vtep_ip);
 
-	dplane_rem_mac_net_del(zevpn->vxlan_if, br_ifp, zebra_evpn_rem_mac_vid(zevpn, zif, br_ifp),
-			       macaddr, zevpn->vni, vtep_ip, 0 /*nhg_id*/, false /*skip_kernel*/);
+	dplane_rem_mac_net_del(zevpn->vxlan_if, br_ifp, zebra_evpn_access_vid(zevpn), macaddr,
+			       zevpn->vni, vtep_ip, 0 /*nhg_id*/, false /*skip_kernel*/);
 }
 
 /*
@@ -414,9 +387,8 @@ static void zebra_evpn_rem_es_mac_net_entry_del(struct zebra_evpn *zevpn,
 	/* The same entry `zebra_evpn_rem_mac_install()` installs. */
 	memset(&vtep_ip, 0, sizeof(vtep_ip));
 	SET_IPADDR_NONE(&vtep_ip);
-	dplane_rem_mac_net_del(zevpn->vxlan_if, br_ifp, zebra_evpn_rem_mac_vid(zevpn, zif, br_ifp),
-			       &mac->macaddr, zevpn->vni, &vtep_ip, mac->es->nhg_id,
-			       true /*skip_kernel*/);
+	dplane_rem_mac_net_del(zevpn->vxlan_if, br_ifp, zebra_evpn_access_vid(zevpn), &mac->macaddr,
+			       zevpn->vni, &vtep_ip, mac->es->nhg_id, true /*skip_kernel*/);
 }
 
 static void zebra_evpn_rem_mac_flushed_hash(struct hash_bucket *bucket, void *arg)
@@ -459,7 +431,7 @@ static void zebra_evpn_rem_mac_flushed_hash(struct hash_bucket *bucket, void *ar
 		zlog_debug("VNI %u MAC %pEA flushed by the kernel, removing it from the FPM",
 			   zevpn->vni, &mac->macaddr);
 
-	dplane_rem_mac_net_del(zevpn->vxlan_if, br_ifp, zebra_evpn_rem_mac_vid(zevpn, zif, br_ifp),
+	dplane_rem_mac_net_del(zevpn->vxlan_if, br_ifp, zebra_evpn_access_vid(zevpn),
 			       &mac->macaddr, zevpn->vni, &vtep_ip, nhg_id, true /*skip_kernel*/);
 }
 
