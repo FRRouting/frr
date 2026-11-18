@@ -3708,6 +3708,8 @@ int bgp_nb_neighbor_remote_as_type_destroy(struct nb_cb_destroy_args *args)
 	return NB_OK;
 }
 
+static const char *bgp_nb_peer_show_indent(const struct lyd_node *dnode);
+
 void bgp_nb_cli_show_neighbor_remote_as_type(struct vty *vty, const struct lyd_node *dnode,
 					     bool show_defaults)
 {
@@ -3736,18 +3738,18 @@ void bgp_nb_cli_show_neighbor_remote_as_type(struct vty *vty, const struct lyd_n
 					return;
 				as = yang_dnode_get_uint32(dnode, "../remote-as");
 				asnotation = bgp_nb_cli_dnode_asnotation(dnode);
-				vty_out(vty, " neighbor %s interface%s remote-as ", name,
+				vty_out(vty, "%sneighbor %s interface%s remote-as ", bgp_nb_peer_show_indent(dnode), name,
 					v6only ? " v6only" : "");
 				vty_out(vty, ASN_FORMAT(asnotation), &as);
 				vty_out(vty, "\n");
 			} else if (strmatch(type, "internal"))
-				vty_out(vty, " neighbor %s interface%s remote-as internal\n", name,
+				vty_out(vty, "%sneighbor %s interface%s remote-as internal\n", bgp_nb_peer_show_indent(dnode), name,
 					v6only ? " v6only" : "");
 			else if (strmatch(type, "external"))
-				vty_out(vty, " neighbor %s interface%s remote-as external\n", name,
+				vty_out(vty, "%sneighbor %s interface%s remote-as external\n", bgp_nb_peer_show_indent(dnode), name,
 					v6only ? " v6only" : "");
 			else if (strmatch(type, "auto"))
-				vty_out(vty, " neighbor %s interface%s remote-as auto\n", name,
+				vty_out(vty, "%sneighbor %s interface%s remote-as auto\n", bgp_nb_peer_show_indent(dnode), name,
 					v6only ? " v6only" : "");
 			return;
 		}
@@ -3763,15 +3765,15 @@ void bgp_nb_cli_show_neighbor_remote_as_type(struct vty *vty, const struct lyd_n
 			return;
 		as = yang_dnode_get_uint32(dnode, "../remote-as");
 		asnotation = bgp_nb_cli_dnode_asnotation(dnode);
-		vty_out(vty, " neighbor %s remote-as ", name);
+		vty_out(vty, "%sneighbor %s remote-as ", bgp_nb_peer_show_indent(dnode), name);
 		vty_out(vty, ASN_FORMAT(asnotation), &as);
 		vty_out(vty, "\n");
 	} else if (strmatch(type, "internal"))
-		vty_out(vty, " neighbor %s remote-as internal\n", name);
+		vty_out(vty, "%sneighbor %s remote-as internal\n", bgp_nb_peer_show_indent(dnode), name);
 	else if (strmatch(type, "external"))
-		vty_out(vty, " neighbor %s remote-as external\n", name);
+		vty_out(vty, "%sneighbor %s remote-as external\n", bgp_nb_peer_show_indent(dnode), name);
 	else if (strmatch(type, "auto"))
-		vty_out(vty, " neighbor %s remote-as auto\n", name);
+		vty_out(vty, "%sneighbor %s remote-as auto\n", bgp_nb_peer_show_indent(dnode), name);
 }
 
 int bgp_nb_neighbor_remote_as_modify(struct nb_cb_modify_args *args)
@@ -3884,7 +3886,7 @@ int bgp_nb_peer_group_destroy(struct nb_cb_destroy_args *args)
 
 void bgp_nb_cli_show_peer_group(struct vty *vty, const struct lyd_node *dnode, bool show_defaults)
 {
-	vty_out(vty, " neighbor %s peer-group\n",
+	vty_out(vty, "%sneighbor %s peer-group\n", bgp_nb_peer_show_indent(dnode),
 		yang_dnode_get_string(dnode, "./peer-group-name"));
 }
 
@@ -3988,15 +3990,15 @@ void bgp_nb_cli_show_peer_group_remote_as_type(struct vty *vty, const struct lyd
 			return;
 		as = yang_dnode_get_uint32(dnode, "../remote-as");
 		asnotation = bgp_nb_cli_dnode_asnotation(dnode);
-		vty_out(vty, " neighbor %s remote-as ", name);
+		vty_out(vty, "%sneighbor %s remote-as ", bgp_nb_peer_show_indent(dnode), name);
 		vty_out(vty, ASN_FORMAT(asnotation), &as);
 		vty_out(vty, "\n");
 	} else if (strmatch(type, "internal"))
-		vty_out(vty, " neighbor %s remote-as internal\n", name);
+		vty_out(vty, "%sneighbor %s remote-as internal\n", bgp_nb_peer_show_indent(dnode), name);
 	else if (strmatch(type, "external"))
-		vty_out(vty, " neighbor %s remote-as external\n", name);
+		vty_out(vty, "%sneighbor %s remote-as external\n", bgp_nb_peer_show_indent(dnode), name);
 	else if (strmatch(type, "auto"))
-		vty_out(vty, " neighbor %s remote-as auto\n", name);
+		vty_out(vty, "%sneighbor %s remote-as auto\n", bgp_nb_peer_show_indent(dnode), name);
 }
 
 int bgp_nb_peer_group_remote_as_modify(struct nb_cb_modify_args *args)
@@ -4190,6 +4192,14 @@ static const char *bgp_nb_config_peer_name(const struct lyd_node *dnode)
 	return "?";
 }
 
+/* Address-family neighbor lines are indented under the AF; router lines are not. */
+static const char *bgp_nb_peer_show_indent(const struct lyd_node *dnode)
+{
+	if (yang_dnode_get_parent(dnode, "afi-safi"))
+		return "  ";
+	return " ";
+}
+
 /*
  * Unnumbered neighbors
  */
@@ -4283,9 +4293,9 @@ void bgp_nb_cli_show_unnumbered_neighbor(struct vty *vty, const struct lyd_node 
 	if (!yang_dnode_exists(dnode, "./neighbor-remote-as/remote-as-type") &&
 	    !yang_dnode_exists(dnode, "./peer-group")) {
 		if (v6only)
-			vty_out(vty, " neighbor %s interface v6only\n", ifname);
+			vty_out(vty, "%sneighbor %s interface v6only\n", bgp_nb_peer_show_indent(dnode), ifname);
 		else
-			vty_out(vty, " neighbor %s interface\n", ifname);
+			vty_out(vty, "%sneighbor %s interface\n", bgp_nb_peer_show_indent(dnode), ifname);
 	}
 }
 
@@ -4384,7 +4394,7 @@ void bgp_nb_cli_show_unnumbered_peer_group(struct vty *vty, const struct lyd_nod
 	 * and let remote-as cli_show print remote-as separately (classic
 	 * write often splits). Match classic: one line with all options.
 	 */
-	vty_out(vty, " neighbor %s interface%s peer-group %s", ifname, v6only ? " v6only" : "", pg);
+	vty_out(vty, "%sneighbor %s interface%s peer-group %s", bgp_nb_peer_show_indent(dnode), ifname, v6only ? " v6only" : "", pg);
 	if (type) {
 		if (strmatch(type, "as-specified") &&
 		    yang_dnode_exists(dnode, "../neighbor-remote-as/remote-as")) {
@@ -4440,7 +4450,7 @@ int bgp_nb_peer_password_destroy(struct nb_cb_destroy_args *args)
 void bgp_nb_cli_show_peer_password(struct vty *vty, const struct lyd_node *dnode,
 				   bool show_defaults)
 {
-	vty_out(vty, " neighbor %s password %s\n", bgp_nb_config_peer_name(dnode),
+	vty_out(vty, "%sneighbor %s password %s\n", bgp_nb_peer_show_indent(dnode), bgp_nb_config_peer_name(dnode),
 		yang_dnode_get_string(dnode, NULL));
 }
 
@@ -4477,7 +4487,7 @@ int bgp_nb_peer_description_destroy(struct nb_cb_destroy_args *args)
 void bgp_nb_cli_show_peer_description(struct vty *vty, const struct lyd_node *dnode,
 				      bool show_defaults)
 {
-	vty_out(vty, " neighbor %s description %s\n", bgp_nb_config_peer_name(dnode),
+	vty_out(vty, "%sneighbor %s description %s\n", bgp_nb_peer_show_indent(dnode), bgp_nb_config_peer_name(dnode),
 		yang_dnode_get_string(dnode, NULL));
 }
 
@@ -4502,9 +4512,9 @@ int bgp_nb_peer_passive_modify(struct nb_cb_modify_args *args)
 void bgp_nb_cli_show_peer_passive(struct vty *vty, const struct lyd_node *dnode, bool show_defaults)
 {
 	if (yang_dnode_get_bool(dnode, NULL))
-		vty_out(vty, " neighbor %s passive\n", bgp_nb_config_peer_name(dnode));
+		vty_out(vty, "%sneighbor %s passive\n", bgp_nb_peer_show_indent(dnode), bgp_nb_config_peer_name(dnode));
 	else if (show_defaults)
-		vty_out(vty, " no neighbor %s passive\n", bgp_nb_config_peer_name(dnode));
+		vty_out(vty, "%sno neighbor %s passive\n", bgp_nb_peer_show_indent(dnode), bgp_nb_config_peer_name(dnode));
 }
 
 int bgp_nb_peer_solo_modify(struct nb_cb_modify_args *args)
@@ -4525,9 +4535,9 @@ int bgp_nb_peer_solo_modify(struct nb_cb_modify_args *args)
 void bgp_nb_cli_show_peer_solo(struct vty *vty, const struct lyd_node *dnode, bool show_defaults)
 {
 	if (yang_dnode_get_bool(dnode, NULL))
-		vty_out(vty, " neighbor %s solo\n", bgp_nb_config_peer_name(dnode));
+		vty_out(vty, "%sneighbor %s solo\n", bgp_nb_peer_show_indent(dnode), bgp_nb_config_peer_name(dnode));
 	else if (show_defaults)
-		vty_out(vty, " no neighbor %s solo\n", bgp_nb_config_peer_name(dnode));
+		vty_out(vty, "%sno neighbor %s solo\n", bgp_nb_peer_show_indent(dnode), bgp_nb_config_peer_name(dnode));
 }
 
 int bgp_nb_peer_shutdown_enable_modify(struct nb_cb_modify_args *args)
@@ -4572,9 +4582,9 @@ void bgp_nb_cli_show_peer_shutdown_enable(struct vty *vty, const struct lyd_node
 		return;
 
 	if (yang_dnode_get_bool(dnode, NULL))
-		vty_out(vty, " neighbor %s shutdown\n", bgp_nb_config_peer_name(dnode));
+		vty_out(vty, "%sneighbor %s shutdown\n", bgp_nb_peer_show_indent(dnode), bgp_nb_config_peer_name(dnode));
 	else if (show_defaults)
-		vty_out(vty, " no neighbor %s shutdown\n", bgp_nb_config_peer_name(dnode));
+		vty_out(vty, "%sno neighbor %s shutdown\n", bgp_nb_peer_show_indent(dnode), bgp_nb_config_peer_name(dnode));
 }
 
 int bgp_nb_peer_shutdown_message_modify(struct nb_cb_modify_args *args)
@@ -4610,7 +4620,7 @@ int bgp_nb_peer_shutdown_message_destroy(struct nb_cb_destroy_args *args)
 void bgp_nb_cli_show_peer_shutdown_message(struct vty *vty, const struct lyd_node *dnode,
 					   bool show_defaults)
 {
-	vty_out(vty, " neighbor %s shutdown message %s\n", bgp_nb_config_peer_name(dnode),
+	vty_out(vty, "%sneighbor %s shutdown message %s\n", bgp_nb_peer_show_indent(dnode), bgp_nb_config_peer_name(dnode),
 		yang_dnode_get_string(dnode, NULL));
 }
 
@@ -4665,7 +4675,7 @@ void bgp_nb_cli_show_peer_shutdown_rtt(struct vty *vty, const struct lyd_node *d
 	if (shut && yang_dnode_exists(shut, "./rtt-count"))
 		count = yang_dnode_get_uint8(shut, "./rtt-count");
 
-	vty_out(vty, " neighbor %s shutdown rtt %u count %u\n", bgp_nb_config_peer_name(dnode),
+	vty_out(vty, "%sneighbor %s shutdown rtt %u count %u\n", bgp_nb_peer_show_indent(dnode), bgp_nb_config_peer_name(dnode),
 		yang_dnode_get_uint16(dnode, NULL), count);
 }
 
@@ -4739,7 +4749,7 @@ int bgp_nb_peer_update_source_ip_destroy(struct nb_cb_destroy_args *args)
 void bgp_nb_cli_show_peer_update_source_ip(struct vty *vty, const struct lyd_node *dnode,
 					   bool show_defaults)
 {
-	vty_out(vty, " neighbor %s update-source %s\n", bgp_nb_config_peer_name(dnode),
+	vty_out(vty, "%sneighbor %s update-source %s\n", bgp_nb_peer_show_indent(dnode), bgp_nb_config_peer_name(dnode),
 		yang_dnode_get_string(dnode, NULL));
 }
 
@@ -4775,7 +4785,7 @@ int bgp_nb_peer_update_source_if_destroy(struct nb_cb_destroy_args *args)
 void bgp_nb_cli_show_peer_update_source_if(struct vty *vty, const struct lyd_node *dnode,
 					   bool show_defaults)
 {
-	vty_out(vty, " neighbor %s update-source %s\n", bgp_nb_config_peer_name(dnode),
+	vty_out(vty, "%sneighbor %s update-source %s\n", bgp_nb_peer_show_indent(dnode), bgp_nb_config_peer_name(dnode),
 		yang_dnode_get_string(dnode, NULL));
 }
 
@@ -4994,7 +5004,7 @@ void bgp_nb_cli_show_peer_ebgp_mh_enabled(struct vty *vty, const struct lyd_node
 		return;
 
 	if (yang_dnode_get_bool(dnode, NULL))
-		vty_out(vty, " neighbor %s ebgp-multihop\n", bgp_nb_config_peer_name(dnode));
+		vty_out(vty, "%sneighbor %s ebgp-multihop\n", bgp_nb_peer_show_indent(dnode), bgp_nb_config_peer_name(dnode));
 }
 
 int bgp_nb_peer_ebgp_mh_ttl_modify(struct nb_cb_modify_args *args)
@@ -5045,7 +5055,7 @@ int bgp_nb_peer_ebgp_mh_ttl_destroy(struct nb_cb_destroy_args *args)
 void bgp_nb_cli_show_peer_ebgp_mh_ttl(struct vty *vty, const struct lyd_node *dnode,
 				      bool show_defaults)
 {
-	vty_out(vty, " neighbor %s ebgp-multihop %u\n", bgp_nb_config_peer_name(dnode),
+	vty_out(vty, "%sneighbor %s ebgp-multihop %u\n", bgp_nb_peer_show_indent(dnode), bgp_nb_config_peer_name(dnode),
 		yang_dnode_get_uint8(dnode, NULL));
 }
 
@@ -5071,10 +5081,10 @@ void bgp_nb_cli_show_peer_disable_connected(struct vty *vty, const struct lyd_no
 					    bool show_defaults)
 {
 	if (yang_dnode_get_bool(dnode, NULL))
-		vty_out(vty, " neighbor %s disable-connected-check\n",
+		vty_out(vty, "%sneighbor %s disable-connected-check\n", bgp_nb_peer_show_indent(dnode),
 			bgp_nb_config_peer_name(dnode));
 	else if (show_defaults)
-		vty_out(vty, " no neighbor %s disable-connected-check\n",
+		vty_out(vty, "%sno neighbor %s disable-connected-check\n", bgp_nb_peer_show_indent(dnode),
 			bgp_nb_config_peer_name(dnode));
 }
 
@@ -5158,7 +5168,7 @@ int bgp_nb_peer_ttl_security_destroy(struct nb_cb_destroy_args *args)
 void bgp_nb_cli_show_peer_ttl_security(struct vty *vty, const struct lyd_node *dnode,
 				       bool show_defaults)
 {
-	vty_out(vty, " neighbor %s ttl-security hops %u\n", bgp_nb_config_peer_name(dnode),
+	vty_out(vty, "%sneighbor %s ttl-security hops %u\n", bgp_nb_peer_show_indent(dnode), bgp_nb_config_peer_name(dnode),
 		yang_dnode_get_uint8(dnode, NULL));
 }
 
@@ -5272,7 +5282,7 @@ void bgp_nb_cli_show_peer_local_as(struct vty *vty, const struct lyd_node *dnode
 	as_t as = yang_dnode_get_uint32(dnode, NULL);
 	enum asnotation_mode asnotation = bgp_nb_cli_dnode_asnotation(dnode);
 
-	vty_out(vty, " neighbor %s local-as ", bgp_nb_config_peer_name(dnode));
+	vty_out(vty, "%sneighbor %s local-as ", bgp_nb_peer_show_indent(dnode), bgp_nb_config_peer_name(dnode));
 	vty_out(vty, ASN_FORMAT(asnotation), &as);
 	if (no_prepend)
 		vty_out(vty, " no-prepend");
@@ -5428,7 +5438,7 @@ void bgp_nb_cli_show_peer_timers_keepalive(struct vty *vty, const struct lyd_nod
 	if (timers && yang_dnode_exists(timers, "./hold-time"))
 		hold = yang_dnode_get_uint16(timers, "./hold-time");
 
-	vty_out(vty, " neighbor %s timers %u %u\n", bgp_nb_config_peer_name(dnode),
+	vty_out(vty, "%sneighbor %s timers %u %u\n", bgp_nb_peer_show_indent(dnode), bgp_nb_config_peer_name(dnode),
 		yang_dnode_get_uint16(dnode, NULL), hold);
 }
 
@@ -5450,8 +5460,8 @@ void bgp_nb_cli_show_peer_timers_holdtime(struct vty *vty, const struct lyd_node
 		return;
 
 	keepalive = ka ? yang_dnode_get_uint16(ka, NULL) : DFLT_BGP_KEEPALIVE;
-	vty_out(vty, " neighbor %s timers %u %u\n", bgp_nb_config_peer_name(dnode), keepalive,
-		yang_dnode_get_uint16(dnode, NULL));
+	vty_out(vty, "%sneighbor %s timers %u %u\n", bgp_nb_peer_show_indent(dnode),
+		bgp_nb_config_peer_name(dnode), keepalive, yang_dnode_get_uint16(dnode, NULL));
 }
 
 int bgp_nb_peer_timers_holdtime_modify(struct nb_cb_modify_args *args)
@@ -5513,7 +5523,7 @@ int bgp_nb_peer_timers_connect_destroy(struct nb_cb_destroy_args *args)
 void bgp_nb_cli_show_peer_timers_connect(struct vty *vty, const struct lyd_node *dnode,
 					 bool show_defaults)
 {
-	vty_out(vty, " neighbor %s timers connect %u\n", bgp_nb_config_peer_name(dnode),
+	vty_out(vty, "%sneighbor %s timers connect %u\n", bgp_nb_peer_show_indent(dnode), bgp_nb_config_peer_name(dnode),
 		yang_dnode_get_uint16(dnode, NULL));
 }
 
@@ -5548,7 +5558,7 @@ int bgp_nb_peer_timers_delayopen_destroy(struct nb_cb_destroy_args *args)
 void bgp_nb_cli_show_peer_timers_delayopen(struct vty *vty, const struct lyd_node *dnode,
 					   bool show_defaults)
 {
-	vty_out(vty, " neighbor %s timers delayopen %u\n", bgp_nb_config_peer_name(dnode),
+	vty_out(vty, "%sneighbor %s timers delayopen %u\n", bgp_nb_peer_show_indent(dnode), bgp_nb_config_peer_name(dnode),
 		yang_dnode_get_uint16(dnode, NULL));
 }
 
@@ -5583,7 +5593,7 @@ int bgp_nb_peer_advertise_interval_destroy(struct nb_cb_destroy_args *args)
 void bgp_nb_cli_show_peer_advertise_interval(struct vty *vty, const struct lyd_node *dnode,
 					     bool show_defaults)
 {
-	vty_out(vty, " neighbor %s advertisement-interval %u\n", bgp_nb_config_peer_name(dnode),
+	vty_out(vty, "%sneighbor %s advertisement-interval %u\n", bgp_nb_peer_show_indent(dnode), bgp_nb_config_peer_name(dnode),
 		yang_dnode_get_uint16(dnode, NULL));
 }
 
@@ -5609,9 +5619,9 @@ void bgp_nb_cli_show_peer_cap_dynamic(struct vty *vty, const struct lyd_node *dn
 				      bool show_defaults)
 {
 	if (yang_dnode_get_bool(dnode, NULL))
-		vty_out(vty, " neighbor %s capability dynamic\n", bgp_nb_config_peer_name(dnode));
+		vty_out(vty, "%sneighbor %s capability dynamic\n", bgp_nb_peer_show_indent(dnode), bgp_nb_config_peer_name(dnode));
 	else if (show_defaults)
-		vty_out(vty, " no neighbor %s capability dynamic\n",
+		vty_out(vty, "%sno neighbor %s capability dynamic\n", bgp_nb_peer_show_indent(dnode),
 			bgp_nb_config_peer_name(dnode));
 }
 
@@ -5693,10 +5703,10 @@ void bgp_nb_cli_show_peer_cap_enhe(struct vty *vty, const struct lyd_node *dnode
 				   bool show_defaults)
 {
 	if (yang_dnode_get_bool(dnode, NULL))
-		vty_out(vty, " neighbor %s capability extended-nexthop\n",
+		vty_out(vty, "%sneighbor %s capability extended-nexthop\n", bgp_nb_peer_show_indent(dnode),
 			bgp_nb_config_peer_name(dnode));
 	else if (show_defaults)
-		vty_out(vty, " no neighbor %s capability extended-nexthop\n",
+		vty_out(vty, "%sno neighbor %s capability extended-nexthop\n", bgp_nb_peer_show_indent(dnode),
 			bgp_nb_config_peer_name(dnode));
 }
 
@@ -5723,10 +5733,10 @@ void bgp_nb_cli_show_peer_cap_negotiate(struct vty *vty, const struct lyd_node *
 					bool show_defaults)
 {
 	if (!yang_dnode_get_bool(dnode, NULL))
-		vty_out(vty, " neighbor %s dont-capability-negotiate\n",
+		vty_out(vty, "%sneighbor %s dont-capability-negotiate\n", bgp_nb_peer_show_indent(dnode),
 			bgp_nb_config_peer_name(dnode));
 	else if (show_defaults)
-		vty_out(vty, " no neighbor %s dont-capability-negotiate\n",
+		vty_out(vty, "%sno neighbor %s dont-capability-negotiate\n", bgp_nb_peer_show_indent(dnode),
 			bgp_nb_config_peer_name(dnode));
 }
 
@@ -5759,10 +5769,10 @@ void bgp_nb_cli_show_peer_cap_fqdn(struct vty *vty, const struct lyd_node *dnode
 	/* Default is true (matches peer_create); only emit non-default. */
 	if (yang_dnode_get_bool(dnode, NULL)) {
 		if (show_defaults)
-			vty_out(vty, " neighbor %s capability fqdn\n",
+			vty_out(vty, "%sneighbor %s capability fqdn\n", bgp_nb_peer_show_indent(dnode),
 				bgp_nb_config_peer_name(dnode));
 	} else
-		vty_out(vty, " no neighbor %s capability fqdn\n", bgp_nb_config_peer_name(dnode));
+		vty_out(vty, "%sno neighbor %s capability fqdn\n", bgp_nb_peer_show_indent(dnode), bgp_nb_config_peer_name(dnode));
 }
 
 int bgp_nb_peer_enforce_first_as_modify(struct nb_cb_modify_args *args)
@@ -5788,10 +5798,10 @@ void bgp_nb_cli_show_peer_enforce_first_as(struct vty *vty, const struct lyd_nod
 {
 	if (yang_dnode_get_bool(dnode, NULL)) {
 		if (show_defaults)
-			vty_out(vty, " neighbor %s enforce-first-as\n",
+			vty_out(vty, "%sneighbor %s enforce-first-as\n", bgp_nb_peer_show_indent(dnode),
 				bgp_nb_config_peer_name(dnode));
 	} else
-		vty_out(vty, " no neighbor %s enforce-first-as\n", bgp_nb_config_peer_name(dnode));
+		vty_out(vty, "%sno neighbor %s enforce-first-as\n", bgp_nb_peer_show_indent(dnode), bgp_nb_config_peer_name(dnode));
 }
 
 int bgp_nb_peer_cap_soft_version_modify(struct nb_cb_modify_args *args)
@@ -5865,13 +5875,13 @@ void bgp_nb_cli_show_peer_cap_soft_version(struct vty *vty, const struct lyd_nod
 	const char *val = yang_dnode_get_string(dnode, NULL);
 
 	if (strmatch(val, "old-encoding"))
-		vty_out(vty, " neighbor %s capability software-version\n",
+		vty_out(vty, "%sneighbor %s capability software-version\n", bgp_nb_peer_show_indent(dnode),
 			bgp_nb_config_peer_name(dnode));
 	else if (strmatch(val, "latest-encoding"))
-		vty_out(vty, " neighbor %s capability software-version latest-encoding\n",
+		vty_out(vty, "%sneighbor %s capability software-version latest-encoding\n", bgp_nb_peer_show_indent(dnode),
 			bgp_nb_config_peer_name(dnode));
 	else
-		vty_out(vty, " no neighbor %s capability software-version\n",
+		vty_out(vty, "%sno neighbor %s capability software-version\n", bgp_nb_peer_show_indent(dnode),
 			bgp_nb_config_peer_name(dnode));
 }
 
@@ -5902,10 +5912,10 @@ void bgp_nb_cli_show_peer_cap_link_local(struct vty *vty, const struct lyd_node 
 					 bool show_defaults)
 {
 	if (yang_dnode_get_bool(dnode, NULL))
-		vty_out(vty, " neighbor %s capability link-local\n",
+		vty_out(vty, "%sneighbor %s capability link-local\n", bgp_nb_peer_show_indent(dnode),
 			bgp_nb_config_peer_name(dnode));
 	else if (show_defaults)
-		vty_out(vty, " no neighbor %s capability link-local\n",
+		vty_out(vty, "%sno neighbor %s capability link-local\n", bgp_nb_peer_show_indent(dnode),
 			bgp_nb_config_peer_name(dnode));
 }
 
@@ -5931,9 +5941,9 @@ void bgp_nb_cli_show_peer_cap_override(struct vty *vty, const struct lyd_node *d
 				       bool show_defaults)
 {
 	if (yang_dnode_get_bool(dnode, NULL))
-		vty_out(vty, " neighbor %s override-capability\n", bgp_nb_config_peer_name(dnode));
+		vty_out(vty, "%sneighbor %s override-capability\n", bgp_nb_peer_show_indent(dnode), bgp_nb_config_peer_name(dnode));
 	else if (show_defaults)
-		vty_out(vty, " no neighbor %s override-capability\n",
+		vty_out(vty, "%sno neighbor %s override-capability\n", bgp_nb_peer_show_indent(dnode),
 			bgp_nb_config_peer_name(dnode));
 }
 
@@ -5959,10 +5969,10 @@ void bgp_nb_cli_show_peer_cap_strict(struct vty *vty, const struct lyd_node *dno
 				     bool show_defaults)
 {
 	if (yang_dnode_get_bool(dnode, NULL))
-		vty_out(vty, " neighbor %s strict-capability-match\n",
+		vty_out(vty, "%sneighbor %s strict-capability-match\n", bgp_nb_peer_show_indent(dnode),
 			bgp_nb_config_peer_name(dnode));
 	else if (show_defaults)
-		vty_out(vty, " no neighbor %s strict-capability-match\n",
+		vty_out(vty, "%sno neighbor %s strict-capability-match\n", bgp_nb_peer_show_indent(dnode),
 			bgp_nb_config_peer_name(dnode));
 }
 
@@ -5996,7 +6006,7 @@ int bgp_nb_peer_tcp_mss_destroy(struct nb_cb_destroy_args *args)
 
 void bgp_nb_cli_show_peer_tcp_mss(struct vty *vty, const struct lyd_node *dnode, bool show_defaults)
 {
-	vty_out(vty, " neighbor %s tcp-mss %u\n", bgp_nb_config_peer_name(dnode),
+	vty_out(vty, "%sneighbor %s tcp-mss %u\n", bgp_nb_peer_show_indent(dnode), bgp_nb_config_peer_name(dnode),
 		yang_dnode_get_uint16(dnode, NULL));
 }
 
@@ -6038,9 +6048,9 @@ void bgp_nb_cli_show_peer_ip_transparent(struct vty *vty, const struct lyd_node 
 					 bool show_defaults)
 {
 	if (yang_dnode_get_bool(dnode, NULL))
-		vty_out(vty, " neighbor %s ip-transparent\n", bgp_nb_config_peer_name(dnode));
+		vty_out(vty, "%sneighbor %s ip-transparent\n", bgp_nb_peer_show_indent(dnode), bgp_nb_config_peer_name(dnode));
 	else if (show_defaults)
-		vty_out(vty, " no neighbor %s ip-transparent\n", bgp_nb_config_peer_name(dnode));
+		vty_out(vty, "%sno neighbor %s ip-transparent\n", bgp_nb_peer_show_indent(dnode), bgp_nb_config_peer_name(dnode));
 }
 
 int bgp_nb_peer_rpki_strict_modify(struct nb_cb_modify_args *args)
@@ -6065,9 +6075,9 @@ void bgp_nb_cli_show_peer_rpki_strict(struct vty *vty, const struct lyd_node *dn
 				      bool show_defaults)
 {
 	if (yang_dnode_get_bool(dnode, NULL))
-		vty_out(vty, " neighbor %s rpki strict\n", bgp_nb_config_peer_name(dnode));
+		vty_out(vty, "%sneighbor %s rpki strict\n", bgp_nb_peer_show_indent(dnode), bgp_nb_config_peer_name(dnode));
 	else if (show_defaults)
-		vty_out(vty, " no neighbor %s rpki strict\n", bgp_nb_config_peer_name(dnode));
+		vty_out(vty, "%sno neighbor %s rpki strict\n", bgp_nb_peer_show_indent(dnode), bgp_nb_config_peer_name(dnode));
 }
 
 static bool bgp_nb_role_from_str(const char *role_str, uint8_t *role)
@@ -6182,7 +6192,7 @@ void bgp_nb_cli_show_peer_local_role(struct vty *vty, const struct lyd_node *dno
 	bool strict = lr && yang_dnode_exists(lr, "./strict-mode") &&
 		      yang_dnode_get_bool(lr, "./strict-mode");
 
-	vty_out(vty, " neighbor %s local-role %s%s\n", bgp_nb_config_peer_name(dnode),
+	vty_out(vty, "%sneighbor %s local-role %s%s\n", bgp_nb_peer_show_indent(dnode), bgp_nb_config_peer_name(dnode),
 		yang_dnode_get_string(dnode, NULL), strict ? " strict-mode" : "");
 }
 
@@ -6270,10 +6280,10 @@ void bgp_nb_cli_show_peer_bfd_enable(struct vty *vty, const struct lyd_node *dno
 	 * disappear from the running configuration.
 	 */
 	if (mult != BFD_DEF_DETECT_MULT || min_rx != BFD_DEF_MIN_RX || min_tx != BFD_DEF_MIN_TX)
-		vty_out(vty, " neighbor %s bfd %u %u %u\n", bgp_nb_config_peer_name(dnode), mult,
+		vty_out(vty, "%sneighbor %s bfd %u %u %u\n", bgp_nb_peer_show_indent(dnode), bgp_nb_config_peer_name(dnode), mult,
 			min_rx, min_tx);
 	else
-		vty_out(vty, " neighbor %s bfd\n", bgp_nb_config_peer_name(dnode));
+		vty_out(vty, "%sneighbor %s bfd\n", bgp_nb_peer_show_indent(dnode), bgp_nb_config_peer_name(dnode));
 }
 
 int bgp_nb_peer_bfd_detect_mult_modify(struct nb_cb_modify_args *args)
@@ -6348,7 +6358,7 @@ void bgp_nb_cli_show_peer_bfd_cbit(struct vty *vty, const struct lyd_node *dnode
 				   bool show_defaults)
 {
 	if (yang_dnode_get_bool(dnode, NULL))
-		vty_out(vty, " neighbor %s bfd check-control-plane-failure\n",
+		vty_out(vty, "%sneighbor %s bfd check-control-plane-failure\n", bgp_nb_peer_show_indent(dnode),
 			bgp_nb_config_peer_name(dnode));
 }
 
@@ -6389,7 +6399,7 @@ int bgp_nb_peer_bfd_profile_destroy(struct nb_cb_destroy_args *args)
 void bgp_nb_cli_show_peer_bfd_profile(struct vty *vty, const struct lyd_node *dnode,
 				      bool show_defaults)
 {
-	vty_out(vty, " neighbor %s bfd profile %s\n", bgp_nb_config_peer_name(dnode),
+	vty_out(vty, "%sneighbor %s bfd profile %s\n", bgp_nb_peer_show_indent(dnode), bgp_nb_config_peer_name(dnode),
 		yang_dnode_get_string(dnode, NULL));
 }
 
@@ -6440,7 +6450,7 @@ void bgp_nb_cli_show_peer_bfd_strict(struct vty *vty, const struct lyd_node *dno
 	if (bfd && yang_dnode_exists(bfd, "./strict-hold-time"))
 		return;
 
-	vty_out(vty, " neighbor %s bfd strict\n", bgp_nb_config_peer_name(dnode));
+	vty_out(vty, "%sneighbor %s bfd strict\n", bgp_nb_peer_show_indent(dnode), bgp_nb_config_peer_name(dnode));
 }
 
 int bgp_nb_peer_bfd_strict_hold_modify(struct nb_cb_modify_args *args)
@@ -6482,7 +6492,7 @@ int bgp_nb_peer_bfd_strict_hold_destroy(struct nb_cb_destroy_args *args)
 void bgp_nb_cli_show_peer_bfd_strict_hold(struct vty *vty, const struct lyd_node *dnode,
 					  bool show_defaults)
 {
-	vty_out(vty, " neighbor %s bfd strict hold-time %u\n", bgp_nb_config_peer_name(dnode),
+	vty_out(vty, "%sneighbor %s bfd strict hold-time %u\n", bgp_nb_peer_show_indent(dnode), bgp_nb_config_peer_name(dnode),
 		yang_dnode_get_uint32(dnode, NULL));
 }
 
@@ -6934,7 +6944,7 @@ int bgp_nb_neighbor_peer_group_destroy(struct nb_cb_destroy_args *args)
 void bgp_nb_cli_show_neighbor_peer_group(struct vty *vty, const struct lyd_node *dnode,
 					 bool show_defaults)
 {
-	vty_out(vty, " neighbor %s peer-group %s\n", bgp_nb_config_peer_name(dnode),
+	vty_out(vty, "%sneighbor %s peer-group %s\n", bgp_nb_peer_show_indent(dnode), bgp_nb_config_peer_name(dnode),
 		yang_dnode_get_string(dnode, NULL));
 }
 
@@ -6974,7 +6984,7 @@ void bgp_nb_cli_show_neighbor_local_port(struct vty *vty, const struct lyd_node 
 	if (port == BGP_PORT_DEFAULT && !show_defaults)
 		return;
 
-	vty_out(vty, " neighbor %s port %u\n", bgp_nb_config_peer_name(dnode), port);
+	vty_out(vty, "%sneighbor %s port %u\n", bgp_nb_peer_show_indent(dnode), bgp_nb_config_peer_name(dnode), port);
 }
 
 int bgp_nb_neighbor_local_interface_modify(struct nb_cb_modify_args *args)
@@ -7021,7 +7031,7 @@ int bgp_nb_neighbor_local_interface_destroy(struct nb_cb_destroy_args *args)
 void bgp_nb_cli_show_neighbor_local_interface(struct vty *vty, const struct lyd_node *dnode,
 					      bool show_defaults)
 {
-	vty_out(vty, " neighbor %s interface %s\n", bgp_nb_config_peer_name(dnode),
+	vty_out(vty, "%sneighbor %s interface %s\n", bgp_nb_peer_show_indent(dnode), bgp_nb_config_peer_name(dnode),
 		yang_dnode_get_string(dnode, NULL));
 }
 
@@ -14143,9 +14153,9 @@ void bgp_nb_cli_show_peer_af_enabled(struct vty *vty, const struct lyd_node *dno
 				     bool show_defaults)
 {
 	if (yang_dnode_get_bool(dnode, NULL))
-		vty_out(vty, " neighbor %s activate\n", bgp_nb_config_peer_name(dnode));
+		vty_out(vty, "%sneighbor %s activate\n", bgp_nb_peer_show_indent(dnode), bgp_nb_config_peer_name(dnode));
 	else if (show_defaults)
-		vty_out(vty, " no neighbor %s activate\n", bgp_nb_config_peer_name(dnode));
+		vty_out(vty, "%sno neighbor %s activate\n", bgp_nb_peer_show_indent(dnode), bgp_nb_config_peer_name(dnode));
 }
 
 int bgp_nb_peer_af_soft_reconfig_modify(struct nb_cb_modify_args *args)
@@ -14157,10 +14167,10 @@ void bgp_nb_cli_show_peer_af_soft_reconfig(struct vty *vty, const struct lyd_nod
 					   bool show_defaults)
 {
 	if (yang_dnode_get_bool(dnode, NULL))
-		vty_out(vty, " neighbor %s soft-reconfiguration inbound\n",
+		vty_out(vty, "%sneighbor %s soft-reconfiguration inbound\n", bgp_nb_peer_show_indent(dnode),
 			bgp_nb_config_peer_name(dnode));
 	else if (show_defaults)
-		vty_out(vty, " no neighbor %s soft-reconfiguration inbound\n",
+		vty_out(vty, "%sno neighbor %s soft-reconfiguration inbound\n", bgp_nb_peer_show_indent(dnode),
 			bgp_nb_config_peer_name(dnode));
 }
 
@@ -14293,7 +14303,7 @@ void bgp_nb_cli_show_peer_af_encapsulation(struct vty *vty, const struct lyd_nod
 	else
 		cli = "encapsulation-srv6";
 
-	vty_out(vty, " neighbor %s %s\n", bgp_nb_config_peer_name(dnode), cli);
+	vty_out(vty, "%sneighbor %s %s\n", bgp_nb_peer_show_indent(dnode), bgp_nb_config_peer_name(dnode), cli);
 }
 
 int bgp_nb_peer_af_nexthop_self_modify(struct nb_cb_modify_args *args)
@@ -14305,9 +14315,9 @@ void bgp_nb_cli_show_peer_af_nexthop_self(struct vty *vty, const struct lyd_node
 					  bool show_defaults)
 {
 	if (yang_dnode_get_bool(dnode, NULL))
-		vty_out(vty, " neighbor %s next-hop-self\n", bgp_nb_config_peer_name(dnode));
+		vty_out(vty, "%sneighbor %s next-hop-self\n", bgp_nb_peer_show_indent(dnode), bgp_nb_config_peer_name(dnode));
 	else if (show_defaults)
-		vty_out(vty, " no neighbor %s next-hop-self\n", bgp_nb_config_peer_name(dnode));
+		vty_out(vty, "%sno neighbor %s next-hop-self\n", bgp_nb_peer_show_indent(dnode), bgp_nb_config_peer_name(dnode));
 }
 
 int bgp_nb_peer_af_nexthop_self_force_modify(struct nb_cb_modify_args *args)
@@ -14319,9 +14329,9 @@ void bgp_nb_cli_show_peer_af_nexthop_self_force(struct vty *vty, const struct ly
 						bool show_defaults)
 {
 	if (yang_dnode_get_bool(dnode, NULL))
-		vty_out(vty, " neighbor %s next-hop-self force\n", bgp_nb_config_peer_name(dnode));
+		vty_out(vty, "%sneighbor %s next-hop-self force\n", bgp_nb_peer_show_indent(dnode), bgp_nb_config_peer_name(dnode));
 	else if (show_defaults)
-		vty_out(vty, " no neighbor %s next-hop-self force\n",
+		vty_out(vty, "%sno neighbor %s next-hop-self force\n", bgp_nb_peer_show_indent(dnode),
 			bgp_nb_config_peer_name(dnode));
 }
 
@@ -14359,7 +14369,7 @@ static void bgp_nb_cli_show_attr_unchanged(struct vty *vty, const struct lyd_nod
 	if (strmatch(self, "next-hop") && med)
 		return;
 
-	vty_out(vty, " neighbor %s attribute-unchanged%s%s%s\n", bgp_nb_config_peer_name(dnode),
+	vty_out(vty, "%sneighbor %s attribute-unchanged%s%s%s\n", bgp_nb_peer_show_indent(dnode), bgp_nb_config_peer_name(dnode),
 		aspath ? " as-path" : "", nexthop ? " next-hop" : "", med ? " med" : "");
 }
 
@@ -14400,7 +14410,7 @@ void bgp_nb_cli_show_peer_af_as_override(struct vty *vty, const struct lyd_node 
 					 bool show_defaults)
 {
 	if (yang_dnode_get_bool(dnode, NULL))
-		vty_out(vty, " neighbor %s as-override\n", bgp_nb_config_peer_name(dnode));
+		vty_out(vty, "%sneighbor %s as-override\n", bgp_nb_peer_show_indent(dnode), bgp_nb_config_peer_name(dnode));
 }
 
 int bgp_nb_peer_af_remove_private_as_modify(struct nb_cb_modify_args *args)
@@ -14412,7 +14422,7 @@ void bgp_nb_cli_show_peer_af_remove_private_as(struct vty *vty, const struct lyd
 					       bool show_defaults)
 {
 	if (yang_dnode_get_bool(dnode, NULL))
-		vty_out(vty, " neighbor %s remove-private-AS\n", bgp_nb_config_peer_name(dnode));
+		vty_out(vty, "%sneighbor %s remove-private-AS\n", bgp_nb_peer_show_indent(dnode), bgp_nb_config_peer_name(dnode));
 }
 
 int bgp_nb_peer_af_remove_private_as_all_modify(struct nb_cb_modify_args *args)
@@ -14424,7 +14434,7 @@ void bgp_nb_cli_show_peer_af_remove_private_as_all(struct vty *vty, const struct
 						   bool show_defaults)
 {
 	if (yang_dnode_get_bool(dnode, NULL))
-		vty_out(vty, " neighbor %s remove-private-AS all\n",
+		vty_out(vty, "%sneighbor %s remove-private-AS all\n", bgp_nb_peer_show_indent(dnode),
 			bgp_nb_config_peer_name(dnode));
 }
 
@@ -14438,7 +14448,7 @@ void bgp_nb_cli_show_peer_af_remove_private_as_replace(struct vty *vty,
 						       bool show_defaults)
 {
 	if (yang_dnode_get_bool(dnode, NULL))
-		vty_out(vty, " neighbor %s remove-private-AS replace-AS\n",
+		vty_out(vty, "%sneighbor %s remove-private-AS replace-AS\n", bgp_nb_peer_show_indent(dnode),
 			bgp_nb_config_peer_name(dnode));
 }
 
@@ -14452,7 +14462,7 @@ void bgp_nb_cli_show_peer_af_remove_private_as_all_replace(struct vty *vty,
 							   bool show_defaults)
 {
 	if (yang_dnode_get_bool(dnode, NULL))
-		vty_out(vty, " neighbor %s remove-private-AS all replace-AS\n",
+		vty_out(vty, "%sneighbor %s remove-private-AS all replace-AS\n", bgp_nb_peer_show_indent(dnode),
 			bgp_nb_config_peer_name(dnode));
 }
 
@@ -14465,7 +14475,7 @@ void bgp_nb_cli_show_peer_af_reflector_client(struct vty *vty, const struct lyd_
 					      bool show_defaults)
 {
 	if (yang_dnode_get_bool(dnode, NULL))
-		vty_out(vty, " neighbor %s route-reflector-client\n",
+		vty_out(vty, "%sneighbor %s route-reflector-client\n", bgp_nb_peer_show_indent(dnode),
 			bgp_nb_config_peer_name(dnode));
 }
 
@@ -14478,7 +14488,7 @@ void bgp_nb_cli_show_peer_af_rserver_client(struct vty *vty, const struct lyd_no
 					    bool show_defaults)
 {
 	if (yang_dnode_get_bool(dnode, NULL))
-		vty_out(vty, " neighbor %s route-server-client\n", bgp_nb_config_peer_name(dnode));
+		vty_out(vty, "%sneighbor %s route-server-client\n", bgp_nb_peer_show_indent(dnode), bgp_nb_config_peer_name(dnode));
 }
 
 int bgp_nb_peer_af_weight_modify(struct nb_cb_modify_args *args)
@@ -14521,7 +14531,7 @@ int bgp_nb_peer_af_weight_destroy(struct nb_cb_destroy_args *args)
 void bgp_nb_cli_show_peer_af_weight(struct vty *vty, const struct lyd_node *dnode,
 				    bool show_defaults)
 {
-	vty_out(vty, " neighbor %s weight %" PRIu16 "\n", bgp_nb_config_peer_name(dnode),
+	vty_out(vty, "%sneighbor %s weight %" PRIu16 "\n", bgp_nb_peer_show_indent(dnode), bgp_nb_config_peer_name(dnode),
 		yang_dnode_get_uint16(dnode, NULL));
 }
 
@@ -14534,9 +14544,9 @@ void bgp_nb_cli_show_peer_af_send_community(struct vty *vty, const struct lyd_no
 					    bool show_defaults)
 {
 	if (!yang_dnode_get_bool(dnode, NULL))
-		vty_out(vty, " no neighbor %s send-community\n", bgp_nb_config_peer_name(dnode));
+		vty_out(vty, "%sno neighbor %s send-community\n", bgp_nb_peer_show_indent(dnode), bgp_nb_config_peer_name(dnode));
 	else if (show_defaults)
-		vty_out(vty, " neighbor %s send-community\n", bgp_nb_config_peer_name(dnode));
+		vty_out(vty, "%sneighbor %s send-community\n", bgp_nb_peer_show_indent(dnode), bgp_nb_config_peer_name(dnode));
 }
 
 int bgp_nb_peer_af_send_ext_community_modify(struct nb_cb_modify_args *args)
@@ -14548,10 +14558,10 @@ void bgp_nb_cli_show_peer_af_send_ext_community(struct vty *vty, const struct ly
 						bool show_defaults)
 {
 	if (!yang_dnode_get_bool(dnode, NULL))
-		vty_out(vty, " no neighbor %s send-community extended\n",
+		vty_out(vty, "%sno neighbor %s send-community extended\n", bgp_nb_peer_show_indent(dnode),
 			bgp_nb_config_peer_name(dnode));
 	else if (show_defaults)
-		vty_out(vty, " neighbor %s send-community extended\n",
+		vty_out(vty, "%sneighbor %s send-community extended\n", bgp_nb_peer_show_indent(dnode),
 			bgp_nb_config_peer_name(dnode));
 }
 
@@ -14564,10 +14574,10 @@ void bgp_nb_cli_show_peer_af_send_large_community(struct vty *vty, const struct 
 						  bool show_defaults)
 {
 	if (!yang_dnode_get_bool(dnode, NULL))
-		vty_out(vty, " no neighbor %s send-community large\n",
+		vty_out(vty, "%sno neighbor %s send-community large\n", bgp_nb_peer_show_indent(dnode),
 			bgp_nb_config_peer_name(dnode));
 	else if (show_defaults)
-		vty_out(vty, " neighbor %s send-community large\n", bgp_nb_config_peer_name(dnode));
+		vty_out(vty, "%sneighbor %s send-community large\n", bgp_nb_peer_show_indent(dnode), bgp_nb_config_peer_name(dnode));
 }
 
 int bgp_nb_peer_af_send_ext_community_rpki_modify(struct nb_cb_modify_args *args)
@@ -14579,7 +14589,7 @@ void bgp_nb_cli_show_peer_af_send_ext_community_rpki(struct vty *vty, const stru
 						     bool show_defaults)
 {
 	if (yang_dnode_get_bool(dnode, NULL))
-		vty_out(vty, " neighbor %s send-community extended rpki\n",
+		vty_out(vty, "%sneighbor %s send-community extended rpki\n", bgp_nb_peer_show_indent(dnode),
 			bgp_nb_config_peer_name(dnode));
 }
 
@@ -14641,15 +14651,15 @@ void bgp_nb_cli_show_peer_af_allow_own_as(struct vty *vty, const struct lyd_node
 
 	if (rmap) {
 		if (num == BGP_ALLOWAS_IN_DEFAULT)
-			vty_out(vty, " neighbor %s allowas-in route-map %s\n",
+			vty_out(vty, "%sneighbor %s allowas-in route-map %s\n", bgp_nb_peer_show_indent(dnode),
 				bgp_nb_config_peer_name(dnode), rmap);
 		else
-			vty_out(vty, " neighbor %s allowas-in route-map %s %u\n",
+			vty_out(vty, "%sneighbor %s allowas-in route-map %s %u\n", bgp_nb_peer_show_indent(dnode),
 				bgp_nb_config_peer_name(dnode), rmap, num);
 	} else if (num == BGP_ALLOWAS_IN_DEFAULT) {
-		vty_out(vty, " neighbor %s allowas-in\n", bgp_nb_config_peer_name(dnode));
+		vty_out(vty, "%sneighbor %s allowas-in\n", bgp_nb_peer_show_indent(dnode), bgp_nb_config_peer_name(dnode));
 	} else {
-		vty_out(vty, " neighbor %s allowas-in %u\n", bgp_nb_config_peer_name(dnode), num);
+		vty_out(vty, "%sneighbor %s allowas-in %u\n", bgp_nb_peer_show_indent(dnode), bgp_nb_config_peer_name(dnode), num);
 	}
 }
 
@@ -14703,10 +14713,10 @@ void bgp_nb_cli_show_peer_af_allow_own_origin_as(struct vty *vty, const struct l
 
 	rmap = bgp_nb_af_allowas_rmap(dnode);
 	if (rmap)
-		vty_out(vty, " neighbor %s allowas-in route-map %s origin\n",
+		vty_out(vty, "%sneighbor %s allowas-in route-map %s origin\n", bgp_nb_peer_show_indent(dnode),
 			bgp_nb_config_peer_name(dnode), rmap);
 	else
-		vty_out(vty, " neighbor %s allowas-in origin\n", bgp_nb_config_peer_name(dnode));
+		vty_out(vty, "%sneighbor %s allowas-in origin\n", bgp_nb_peer_show_indent(dnode), bgp_nb_config_peer_name(dnode));
 }
 
 int bgp_nb_peer_af_allowas_in_rmap_modify(struct nb_cb_modify_args *args)
@@ -14854,10 +14864,10 @@ void bgp_nb_cli_show_peer_af_default_originate(struct vty *vty, const struct lyd
 
 	rmap = bgp_nb_af_default_originate_rmap(dnode);
 	if (rmap)
-		vty_out(vty, " neighbor %s default-originate route-map %s\n",
+		vty_out(vty, "%sneighbor %s default-originate route-map %s\n", bgp_nb_peer_show_indent(dnode),
 			bgp_nb_config_peer_name(dnode), rmap);
 	else
-		vty_out(vty, " neighbor %s default-originate\n", bgp_nb_config_peer_name(dnode));
+		vty_out(vty, "%sneighbor %s default-originate\n", bgp_nb_peer_show_indent(dnode), bgp_nb_config_peer_name(dnode));
 }
 
 int bgp_nb_peer_af_default_originate_rmap_modify(struct nb_cb_modify_args *args)
@@ -15026,7 +15036,7 @@ int bgp_nb_peer_af_plist_import_destroy(struct nb_cb_destroy_args *args)
 void bgp_nb_cli_show_peer_af_plist_import(struct vty *vty, const struct lyd_node *dnode,
 					  bool show_defaults)
 {
-	vty_out(vty, " neighbor %s prefix-list %s in\n", bgp_nb_config_peer_name(dnode),
+	vty_out(vty, "%sneighbor %s prefix-list %s in\n", bgp_nb_peer_show_indent(dnode), bgp_nb_config_peer_name(dnode),
 		yang_dnode_get_string(dnode, NULL));
 }
 
@@ -15044,7 +15054,7 @@ int bgp_nb_peer_af_plist_export_destroy(struct nb_cb_destroy_args *args)
 void bgp_nb_cli_show_peer_af_plist_export(struct vty *vty, const struct lyd_node *dnode,
 					  bool show_defaults)
 {
-	vty_out(vty, " neighbor %s prefix-list %s out\n", bgp_nb_config_peer_name(dnode),
+	vty_out(vty, "%sneighbor %s prefix-list %s out\n", bgp_nb_peer_show_indent(dnode), bgp_nb_config_peer_name(dnode),
 		yang_dnode_get_string(dnode, NULL));
 }
 
@@ -15062,7 +15072,7 @@ int bgp_nb_peer_af_access_list_import_destroy(struct nb_cb_destroy_args *args)
 void bgp_nb_cli_show_peer_af_access_list_import(struct vty *vty, const struct lyd_node *dnode,
 						bool show_defaults)
 {
-	vty_out(vty, " neighbor %s distribute-list %s in\n", bgp_nb_config_peer_name(dnode),
+	vty_out(vty, "%sneighbor %s distribute-list %s in\n", bgp_nb_peer_show_indent(dnode), bgp_nb_config_peer_name(dnode),
 		yang_dnode_get_string(dnode, NULL));
 }
 
@@ -15080,7 +15090,7 @@ int bgp_nb_peer_af_access_list_export_destroy(struct nb_cb_destroy_args *args)
 void bgp_nb_cli_show_peer_af_access_list_export(struct vty *vty, const struct lyd_node *dnode,
 						bool show_defaults)
 {
-	vty_out(vty, " neighbor %s distribute-list %s out\n", bgp_nb_config_peer_name(dnode),
+	vty_out(vty, "%sneighbor %s distribute-list %s out\n", bgp_nb_peer_show_indent(dnode), bgp_nb_config_peer_name(dnode),
 		yang_dnode_get_string(dnode, NULL));
 }
 
@@ -15097,7 +15107,7 @@ int bgp_nb_peer_af_aspath_filter_import_destroy(struct nb_cb_destroy_args *args)
 void bgp_nb_cli_show_peer_af_aspath_filter_import(struct vty *vty, const struct lyd_node *dnode,
 						  bool show_defaults)
 {
-	vty_out(vty, " neighbor %s filter-list %s in\n", bgp_nb_config_peer_name(dnode),
+	vty_out(vty, "%sneighbor %s filter-list %s in\n", bgp_nb_peer_show_indent(dnode), bgp_nb_config_peer_name(dnode),
 		yang_dnode_get_string(dnode, NULL));
 }
 
@@ -15114,7 +15124,7 @@ int bgp_nb_peer_af_aspath_filter_export_destroy(struct nb_cb_destroy_args *args)
 void bgp_nb_cli_show_peer_af_aspath_filter_export(struct vty *vty, const struct lyd_node *dnode,
 						  bool show_defaults)
 {
-	vty_out(vty, " neighbor %s filter-list %s out\n", bgp_nb_config_peer_name(dnode),
+	vty_out(vty, "%sneighbor %s filter-list %s out\n", bgp_nb_peer_show_indent(dnode), bgp_nb_config_peer_name(dnode),
 		yang_dnode_get_string(dnode, NULL));
 }
 
@@ -15160,7 +15170,7 @@ int bgp_nb_peer_af_rmap_import_destroy(struct nb_cb_destroy_args *args)
 void bgp_nb_cli_show_peer_af_rmap_import(struct vty *vty, const struct lyd_node *dnode,
 					 bool show_defaults)
 {
-	vty_out(vty, " neighbor %s route-map %s in\n", bgp_nb_config_peer_name(dnode),
+	vty_out(vty, "%sneighbor %s route-map %s in\n", bgp_nb_peer_show_indent(dnode), bgp_nb_config_peer_name(dnode),
 		yang_dnode_get_string(dnode, NULL));
 }
 
@@ -15206,7 +15216,7 @@ int bgp_nb_peer_af_rmap_export_destroy(struct nb_cb_destroy_args *args)
 void bgp_nb_cli_show_peer_af_rmap_export(struct vty *vty, const struct lyd_node *dnode,
 					 bool show_defaults)
 {
-	vty_out(vty, " neighbor %s route-map %s out\n", bgp_nb_config_peer_name(dnode),
+	vty_out(vty, "%sneighbor %s route-map %s out\n", bgp_nb_peer_show_indent(dnode), bgp_nb_config_peer_name(dnode),
 		yang_dnode_get_string(dnode, NULL));
 }
 
@@ -15252,7 +15262,7 @@ int bgp_nb_peer_af_unsuppress_map_export_destroy(struct nb_cb_destroy_args *args
 void bgp_nb_cli_show_peer_af_unsuppress_map_export(struct vty *vty, const struct lyd_node *dnode,
 						   bool show_defaults)
 {
-	vty_out(vty, " neighbor %s unsuppress-map %s\n", bgp_nb_config_peer_name(dnode),
+	vty_out(vty, "%sneighbor %s unsuppress-map %s\n", bgp_nb_peer_show_indent(dnode), bgp_nb_config_peer_name(dnode),
 		yang_dnode_get_string(dnode, NULL));
 }
 
@@ -15420,7 +15430,7 @@ void bgp_nb_cli_show_peer_af_prefix_limit_max(struct vty *vty, const struct lyd_
 		force = yang_dnode_get_bool(dir, "./force-check");
 
 	if (strmatch(direction, "out")) {
-		vty_out(vty, " neighbor %s maximum-prefix-out %u\n",
+		vty_out(vty, "%sneighbor %s maximum-prefix-out %u\n", bgp_nb_peer_show_indent(dnode),
 			bgp_nb_config_peer_name(dnode), max);
 		return;
 	}
@@ -15430,7 +15440,7 @@ void bgp_nb_cli_show_peer_af_prefix_limit_max(struct vty *vty, const struct lyd_
 	 * emit the line piecewise instead of accumulating into a fixed
 	 * size buffer.
 	 */
-	vty_out(vty, " neighbor %s maximum-prefix %u", bgp_nb_config_peer_name(dnode), max);
+	vty_out(vty, "%sneighbor %s maximum-prefix %u", bgp_nb_peer_show_indent(dnode), bgp_nb_config_peer_name(dnode), max);
 
 	if (yang_dnode_exists(dir, "./options/tw-shutdown-threshold-pct")) {
 		vty_out(vty, " %u",
@@ -15543,13 +15553,13 @@ void bgp_nb_cli_show_peer_af_addpath_type(struct vty *vty, const struct lyd_node
 	const struct lyd_node *addpaths = yang_dnode_get_parent(dnode, "add-paths");
 
 	if (strmatch(type, "all"))
-		vty_out(vty, " neighbor %s addpath-tx-all-paths\n", bgp_nb_config_peer_name(dnode));
+		vty_out(vty, "%sneighbor %s addpath-tx-all-paths\n", bgp_nb_peer_show_indent(dnode), bgp_nb_config_peer_name(dnode));
 	else if (strmatch(type, "per-as"))
-		vty_out(vty, " neighbor %s addpath-tx-bestpath-per-AS\n",
+		vty_out(vty, "%sneighbor %s addpath-tx-bestpath-per-AS\n", bgp_nb_peer_show_indent(dnode),
 			bgp_nb_config_peer_name(dnode));
 	else if (strmatch(type, "best-selected") && addpaths &&
 		 yang_dnode_exists(addpaths, "./best-selected-paths"))
-		vty_out(vty, " neighbor %s addpath-tx-best-selected %u\n",
+		vty_out(vty, "%sneighbor %s addpath-tx-best-selected %u\n", bgp_nb_peer_show_indent(dnode),
 			bgp_nb_config_peer_name(dnode),
 			yang_dnode_get_uint8(addpaths, "./best-selected-paths"));
 }
@@ -15569,7 +15579,7 @@ void bgp_nb_cli_show_peer_af_disable_addpath_rx(struct vty *vty, const struct ly
 						bool show_defaults)
 {
 	if (yang_dnode_get_bool(dnode, NULL))
-		vty_out(vty, " neighbor %s disable-addpath-rx\n", bgp_nb_config_peer_name(dnode));
+		vty_out(vty, "%sneighbor %s disable-addpath-rx\n", bgp_nb_peer_show_indent(dnode), bgp_nb_config_peer_name(dnode));
 }
 
 int bgp_nb_peer_af_addpath_rx_limit_modify(struct nb_cb_modify_args *args)
@@ -15626,7 +15636,7 @@ int bgp_nb_peer_af_addpath_rx_limit_destroy(struct nb_cb_destroy_args *args)
 void bgp_nb_cli_show_peer_af_addpath_rx_limit(struct vty *vty, const struct lyd_node *dnode,
 					      bool show_defaults)
 {
-	vty_out(vty, " neighbor %s addpath-rx-paths-limit %u\n", bgp_nb_config_peer_name(dnode),
+	vty_out(vty, "%sneighbor %s addpath-rx-paths-limit %u\n", bgp_nb_peer_show_indent(dnode), bgp_nb_config_peer_name(dnode),
 		yang_dnode_get_uint16(dnode, NULL));
 }
 
@@ -15724,7 +15734,7 @@ void bgp_nb_cli_show_peer_af_advertise_map(struct vty *vty, const struct lyd_nod
 	} else
 		return;
 
-	vty_out(vty, " neighbor %s advertise-map %s %s %s\n", bgp_nb_config_peer_name(dnode),
+	vty_out(vty, "%sneighbor %s advertise-map %s %s %s\n", bgp_nb_peer_show_indent(dnode), bgp_nb_config_peer_name(dnode),
 		yang_dnode_get_string(dnode, NULL), kind, cname);
 }
 
@@ -15765,7 +15775,7 @@ void bgp_nb_cli_show_peer_af_accept_own(struct vty *vty, const struct lyd_node *
 					bool show_defaults)
 {
 	if (yang_dnode_get_bool(dnode, NULL))
-		vty_out(vty, " neighbor %s accept-own\n", bgp_nb_config_peer_name(dnode));
+		vty_out(vty, "%sneighbor %s accept-own\n", bgp_nb_peer_show_indent(dnode), bgp_nb_config_peer_name(dnode));
 }
 
 int bgp_nb_peer_af_soo_modify(struct nb_cb_modify_args *args)
@@ -15833,7 +15843,7 @@ int bgp_nb_peer_af_soo_destroy(struct nb_cb_destroy_args *args)
 
 void bgp_nb_cli_show_peer_af_soo(struct vty *vty, const struct lyd_node *dnode, bool show_defaults)
 {
-	vty_out(vty, " neighbor %s soo %s\n", bgp_nb_config_peer_name(dnode),
+	vty_out(vty, "%sneighbor %s soo %s\n", bgp_nb_peer_show_indent(dnode), bgp_nb_config_peer_name(dnode),
 		yang_dnode_get_string(dnode, NULL));
 }
 
@@ -15845,7 +15855,7 @@ int bgp_nb_peer_af_upa_modify(struct nb_cb_modify_args *args)
 void bgp_nb_cli_show_peer_af_upa(struct vty *vty, const struct lyd_node *dnode, bool show_defaults)
 {
 	if (yang_dnode_get_bool(dnode, NULL))
-		vty_out(vty, " neighbor %s upa\n", bgp_nb_config_peer_name(dnode));
+		vty_out(vty, "%sneighbor %s upa\n", bgp_nb_peer_show_indent(dnode), bgp_nb_config_peer_name(dnode));
 }
 
 int bgp_nb_peer_af_nexthop_local_unchanged_modify(struct nb_cb_modify_args *args)
@@ -15857,7 +15867,7 @@ void bgp_nb_cli_show_peer_af_nexthop_local_unchanged(struct vty *vty, const stru
 						     bool show_defaults)
 {
 	if (yang_dnode_get_bool(dnode, NULL))
-		vty_out(vty, " neighbor %s nexthop-local unchanged\n",
+		vty_out(vty, "%sneighbor %s nexthop-local unchanged\n", bgp_nb_peer_show_indent(dnode),
 			bgp_nb_config_peer_name(dnode));
 }
 
@@ -15925,7 +15935,7 @@ void bgp_nb_cli_show_peer_af_orf_send(struct vty *vty, const struct lyd_node *dn
 				      bool show_defaults)
 {
 	if (yang_dnode_get_bool(dnode, NULL))
-		vty_out(vty, " neighbor %s capability orf prefix-list send\n",
+		vty_out(vty, "%sneighbor %s capability orf prefix-list send\n", bgp_nb_peer_show_indent(dnode),
 			bgp_nb_config_peer_name(dnode));
 }
 
@@ -15969,7 +15979,7 @@ void bgp_nb_cli_show_peer_af_orf_receive(struct vty *vty, const struct lyd_node 
 					 bool show_defaults)
 {
 	if (yang_dnode_get_bool(dnode, NULL))
-		vty_out(vty, " neighbor %s capability orf prefix-list receive\n",
+		vty_out(vty, "%sneighbor %s capability orf prefix-list receive\n", bgp_nb_peer_show_indent(dnode),
 			bgp_nb_config_peer_name(dnode));
 }
 
@@ -16010,7 +16020,7 @@ void bgp_nb_cli_show_peer_af_orf_both(struct vty *vty, const struct lyd_node *dn
 				      bool show_defaults)
 {
 	if (yang_dnode_get_bool(dnode, NULL))
-		vty_out(vty, " neighbor %s capability orf prefix-list both\n",
+		vty_out(vty, "%sneighbor %s capability orf prefix-list both\n", bgp_nb_peer_show_indent(dnode),
 			bgp_nb_config_peer_name(dnode));
 }
 
@@ -16068,7 +16078,8 @@ static void bgp_nb_cli_show_peer_path_attr_list(struct vty *vty, const struct ly
 		return;
 
 	parent = lyd_parent(dnode);
-	vty_out(vty, " neighbor %s path-attribute %s", bgp_nb_config_peer_name(dnode), cli_kw);
+	vty_out(vty, "%sneighbor %s path-attribute %s", bgp_nb_peer_show_indent(dnode),
+		bgp_nb_config_peer_name(dnode), cli_kw);
 	for (child = lyd_child(parent); child; child = child->next) {
 		if (child->schema->nodetype != LYS_LEAFLIST)
 			continue;
@@ -16234,7 +16245,7 @@ void bgp_nb_cli_show_peer_gr_enable(struct vty *vty, const struct lyd_node *dnod
 				    bool show_defaults)
 {
 	if (yang_dnode_get_bool(dnode, NULL))
-		vty_out(vty, " neighbor %s graceful-restart\n", bgp_nb_config_peer_name(dnode));
+		vty_out(vty, "%sneighbor %s graceful-restart\n", bgp_nb_peer_show_indent(dnode), bgp_nb_config_peer_name(dnode));
 }
 
 int bgp_nb_peer_gr_helper_modify(struct nb_cb_modify_args *args)
@@ -16271,7 +16282,7 @@ void bgp_nb_cli_show_peer_gr_helper(struct vty *vty, const struct lyd_node *dnod
 				    bool show_defaults)
 {
 	if (yang_dnode_get_bool(dnode, NULL))
-		vty_out(vty, " neighbor %s graceful-restart-helper\n",
+		vty_out(vty, "%sneighbor %s graceful-restart-helper\n", bgp_nb_peer_show_indent(dnode),
 			bgp_nb_config_peer_name(dnode));
 }
 
@@ -16309,7 +16320,7 @@ void bgp_nb_cli_show_peer_gr_disable(struct vty *vty, const struct lyd_node *dno
 				     bool show_defaults)
 {
 	if (yang_dnode_get_bool(dnode, NULL))
-		vty_out(vty, " neighbor %s graceful-restart-disable\n",
+		vty_out(vty, "%sneighbor %s graceful-restart-disable\n", bgp_nb_peer_show_indent(dnode),
 			bgp_nb_config_peer_name(dnode));
 }
 
@@ -16334,9 +16345,9 @@ int bgp_nb_peer_aigp_modify(struct nb_cb_modify_args *args)
 void bgp_nb_cli_show_peer_aigp(struct vty *vty, const struct lyd_node *dnode, bool show_defaults)
 {
 	if (yang_dnode_get_bool(dnode, NULL))
-		vty_out(vty, " neighbor %s aigp\n", bgp_nb_config_peer_name(dnode));
+		vty_out(vty, "%sneighbor %s aigp\n", bgp_nb_peer_show_indent(dnode), bgp_nb_config_peer_name(dnode));
 	else if (show_defaults)
-		vty_out(vty, " no neighbor %s aigp\n", bgp_nb_config_peer_name(dnode));
+		vty_out(vty, "%sno neighbor %s aigp\n", bgp_nb_peer_show_indent(dnode), bgp_nb_config_peer_name(dnode));
 }
 
 static int bgp_nb_peer_bool_flag_modify(struct nb_cb_modify_args *args, uint64_t flag)
@@ -16365,9 +16376,9 @@ static void bgp_nb_cli_show_peer_bool_flag(struct vty *vty, const struct lyd_nod
 					   bool show_defaults, const char *cmd)
 {
 	if (yang_dnode_get_bool(dnode, NULL))
-		vty_out(vty, " neighbor %s %s\n", bgp_nb_config_peer_name(dnode), cmd);
+		vty_out(vty, "%sneighbor %s %s\n", bgp_nb_peer_show_indent(dnode), bgp_nb_config_peer_name(dnode), cmd);
 	else if (show_defaults)
-		vty_out(vty, " no neighbor %s %s\n", bgp_nb_config_peer_name(dnode), cmd);
+		vty_out(vty, "%sno neighbor %s %s\n", bgp_nb_peer_show_indent(dnode), bgp_nb_config_peer_name(dnode), cmd);
 }
 
 int bgp_nb_peer_extended_link_bw_modify(struct nb_cb_modify_args *args)
@@ -16447,9 +16458,9 @@ int bgp_nb_peer_oad_modify(struct nb_cb_modify_args *args)
 void bgp_nb_cli_show_peer_oad(struct vty *vty, const struct lyd_node *dnode, bool show_defaults)
 {
 	if (yang_dnode_get_bool(dnode, NULL))
-		vty_out(vty, " neighbor %s oad\n", bgp_nb_config_peer_name(dnode));
+		vty_out(vty, "%sneighbor %s oad\n", bgp_nb_peer_show_indent(dnode), bgp_nb_config_peer_name(dnode));
 	else if (show_defaults)
-		vty_out(vty, " no neighbor %s oad\n", bgp_nb_config_peer_name(dnode));
+		vty_out(vty, "%sno neighbor %s oad\n", bgp_nb_peer_show_indent(dnode), bgp_nb_config_peer_name(dnode));
 }
 
 static void bgp_nb_peer_announce_routes(struct peer *peer)
@@ -16521,9 +16532,9 @@ void bgp_nb_cli_show_peer_graceful_shutdown(struct vty *vty, const struct lyd_no
 					    bool show_defaults)
 {
 	if (yang_dnode_get_bool(dnode, NULL))
-		vty_out(vty, " neighbor %s graceful-shutdown\n", bgp_nb_config_peer_name(dnode));
+		vty_out(vty, "%sneighbor %s graceful-shutdown\n", bgp_nb_peer_show_indent(dnode), bgp_nb_config_peer_name(dnode));
 	else if (show_defaults)
-		vty_out(vty, " no neighbor %s graceful-shutdown\n", bgp_nb_config_peer_name(dnode));
+		vty_out(vty, "%sno neighbor %s graceful-shutdown\n", bgp_nb_peer_show_indent(dnode), bgp_nb_config_peer_name(dnode));
 }
 
 /*
@@ -16749,7 +16760,7 @@ int bgp_nb_peer_ls_local_link_id_destroy(struct nb_cb_destroy_args *args)
 void bgp_nb_cli_show_peer_ls_local_link_id(struct vty *vty, const struct lyd_node *dnode,
 					   bool show_defaults)
 {
-	vty_out(vty, " neighbor %s local-link-id %u\n", bgp_nb_config_peer_name(dnode),
+	vty_out(vty, "%sneighbor %s local-link-id %u\n", bgp_nb_peer_show_indent(dnode), bgp_nb_config_peer_name(dnode),
 		yang_dnode_get_uint32(dnode, NULL));
 }
 
@@ -16816,7 +16827,7 @@ int bgp_nb_peer_ls_remote_link_id_destroy(struct nb_cb_destroy_args *args)
 void bgp_nb_cli_show_peer_ls_remote_link_id(struct vty *vty, const struct lyd_node *dnode,
 					    bool show_defaults)
 {
-	vty_out(vty, " neighbor %s remote-link-id %u\n", bgp_nb_config_peer_name(dnode),
+	vty_out(vty, "%sneighbor %s remote-link-id %u\n", bgp_nb_peer_show_indent(dnode), bgp_nb_config_peer_name(dnode),
 		yang_dnode_get_uint32(dnode, NULL));
 }
 
