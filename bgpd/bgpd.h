@@ -270,6 +270,9 @@ struct bgp_master {
 	/* All SRv6 locators, sorted by name. */
 	struct bgp_srv6_locators_head srv6_locators;
 
+	/* Identifiers of the SID requests of the route-map locator contexts */
+	struct id_alloc *srv6_sid_request_ids;
+
 	QOBJ_FIELDS;
 };
 DECLARE_QOBJ_TYPE(bgp_master);
