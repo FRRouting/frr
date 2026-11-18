@@ -1746,7 +1746,7 @@ int bgp_nb_hold_time_modify(struct nb_cb_modify_args *args)
 
 		if (holdtime < 3 && holdtime != 0) {
 			snprintfrr(args->errmsg, args->errmsg_len,
-				   "hold time value must be either 0 or greater than 3");
+				   "hold time value must be either 0 or at least 3");
 			return NB_ERR_VALIDATION;
 		}
 		return NB_OK;
@@ -5379,7 +5379,7 @@ static int bgp_nb_peer_timers_validate(const struct lyd_node *dnode, char *errms
 	holdtime = yang_dnode_get_uint16(timers, "./hold-time");
 	if (holdtime < 3 && holdtime != 0) {
 		snprintfrr(errmsg, errmsg_len,
-			   "hold time value must be either 0 or greater than 3");
+			   "hold time value must be either 0 or at least 3");
 		return NB_ERR_VALIDATION;
 	}
 

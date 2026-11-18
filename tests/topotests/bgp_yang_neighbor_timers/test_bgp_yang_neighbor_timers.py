@@ -124,7 +124,7 @@ router bgp 65000
     if isinstance(stderr, bytes):
         stderr = stderr.decode(errors="replace")
     text = output + stderr
-    assert "hold time value must be either 0 or greater than 3" in text
+    assert "hold time value must be either 0 or at least 3" in text
 
     running = r1.vtysh_cmd("show running-config")
     assert "neighbor 192.0.2.2 timers 10 1" not in running

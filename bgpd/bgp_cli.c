@@ -1161,6 +1161,11 @@ DEFPY_YANG(no_bgp_bestpath_bw_yang, no_bgp_bestpath_bw_yang_cmd,
 }
 
 
+static bool bgp_cli_holdtime_valid(unsigned long holdtime)
+{
+	return holdtime == 0 || holdtime >= 3;
+}
+
 DEFUN_YANG(bgp_timers_yang, bgp_timers_yang_cmd,
 	   "timers bgp (0-65535) (0-65535)",
 	   "Adjust routing timers\n"
@@ -1168,6 +1173,12 @@ DEFUN_YANG(bgp_timers_yang, bgp_timers_yang_cmd,
 	   "Keepalive interval\n"
 	   "Holdtime\n")
 {
+	/* RFC 4271 4.2: hold time is either zero or at least three seconds. */
+	if (!bgp_cli_holdtime_valid(strtoul(argv[3]->arg, NULL, 10))) {
+		vty_out(vty, "%% hold time value must be either 0 or at least 3\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+
 	nb_cli_enqueue_change(vty, "./global/global-config-timers/keepalive", NB_OP_MODIFY,
 			      argv[2]->arg);
 	nb_cli_enqueue_change(vty, "./global/global-config-timers/hold-time", NB_OP_MODIFY,
@@ -3701,6 +3712,10 @@ DEFPY_YANG(neighbor_timers_yang, neighbor_timers_yang_cmd,
 	} else {
 		if (!keepalive_str || !holdtime_str) {
 			vty_out(vty, "%% Incomplete command\n");
+			return CMD_WARNING_CONFIG_FAILED;
+		}
+		if (!bgp_cli_holdtime_valid(holdtime)) {
+			vty_out(vty, "%% hold time value must be either 0 or at least 3\n");
 			return CMD_WARNING_CONFIG_FAILED;
 		}
 		/*
