@@ -1108,7 +1108,7 @@ DEFPY_YANG(ip_rip_bfd, ip_rip_bfd_cmd, "[no] ip rip bfd",
 void cli_show_ip_rip_bfd_enable(struct vty *vty, const struct lyd_node *dnode,
 				bool show_defaults)
 {
-	vty_out(vty, " ip rip bfd\n");
+	vty_out(vty, " %sip rip bfd\n", yang_dnode_get_bool(dnode, NULL) ? "" : "no ");
 }
 
 /*
