@@ -1424,6 +1424,23 @@ static int zl3vni_rmac_uninstall(struct zebra_l3vni *zl3vni,
 }
 
 /*
+ * The VLAN filtering of the bridge `br_if` changes, and with it the access
+ * VLAN the remote MACs and flood entries of its VNIs are installed with.
+ * Called twice, around the bridge update:
+ *
+ * - `install` false, before the update: remove the remote MACs with the
+ *   VLAN they were installed with;
+ * - `install` true, after the update: install them again, and move the
+ *   flood entries, with the new VLAN.
+ *
+ * The frozen duplicate MACs are not installed again.
+ */
+void zebra_vxlan_bridge_vlan_aware_change(const struct interface *br_if, bool install)
+{
+	zebra_evpn_bridge_vlan_aware_change(br_if, install);
+}
+
+/*
  * Build the VTEP address stored on the RMAC forwarding entry.
  * Callers use this when the L3VNI local VTEP is IPv4.
  *

@@ -152,6 +152,7 @@ struct interface *zebra_evpn_map_to_macvlan(struct interface *br_if,
 					    struct interface *svi_if);
 void zebra_evpn_rem_mac_install_all(struct zebra_evpn *zevpn);
 void zebra_evpn_rem_mac_uninstall_all(struct zebra_evpn *zevpn);
+void zebra_evpn_bridge_vlan_aware_change(const struct interface *br_if, bool install);
 void zebra_evpn_read_mac_neigh(struct zebra_evpn *zevpn, struct interface *ifp);
 unsigned int zebra_evpn_hash_keymake(const void *p);
 bool zebra_evpn_hash_cmp(const void *p1, const void *p2);

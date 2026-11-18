@@ -417,7 +417,9 @@ static int zebra_vxlan_if_update_vni(struct interface *ifp,
 
 		/*
 		 * Access VLAN or bridge change: move the flood list to the
-		 * new access VLAN, whatever other change came with it.
+		 * new access VLAN, whatever other change came with it. A VLAN
+		 * filtering change of the bridge is handled when the bridge
+		 * is updated (zebra_evpn_bridge_vlan_aware_change()).
 		 */
 		if (CHECK_FLAG(chgflags, (ZEBRA_VXLIF_MASTER_CHANGE | ZEBRA_VXLIF_VLAN_CHANGE)))
 			zebra_evpn_vtep_vid_update(zevpn);

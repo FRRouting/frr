@@ -950,6 +950,52 @@ void zebra_evpn_rem_mac_install_all(struct zebra_evpn *zevpn)
 	hash_iterate(zevpn->mac_table, zebra_evpn_install_mac_hash, &wctx);
 }
 
+struct zebra_evpn_bridge_walk {
+	const struct interface *br_if;
+	bool install;
+};
+
+static void zebra_evpn_bridge_vlan_aware_walk(struct hash_bucket *bucket, void *arg)
+{
+	struct zebra_evpn_bridge_walk *wctx = arg;
+	struct zebra_evpn *zevpn = bucket->data;
+	const struct zebra_if *zif;
+
+	if (!zevpn->vxlan_if)
+		return;
+
+	zif = zevpn->vxlan_if->info;
+	if (!zif || zif->brslave_info.br_if != wctx->br_if)
+		return;
+
+	if (wctx->install) {
+		zebra_evpn_rem_mac_install_all(zevpn);
+		zebra_evpn_vtep_vid_update(zevpn);
+	} else
+		zebra_evpn_rem_mac_uninstall_all(zevpn);
+}
+
+/*
+ * The VLAN filtering of the bridge `br_if` changes, and with it the access
+ * VLAN the remote MACs and flood entries of its L2VNIs are installed with
+ * (zebra_evpn_access_vid()). Called twice, around the bridge update:
+ *
+ * - `install` false, before the update: remove the remote MACs with the
+ *   VLAN they were installed with;
+ * - `install` true, after the update: install the remote MACs again, and
+ *   move the flood entries, with the new VLAN.
+ */
+void zebra_evpn_bridge_vlan_aware_change(const struct interface *br_if, bool install)
+{
+	struct zebra_evpn_bridge_walk wctx = { .br_if = br_if, .install = install };
+	struct zebra_vrf *zvrf = zebra_vrf_get_evpn();
+
+	if (!zvrf || !zvrf->evpn_table)
+		return;
+
+	hash_iterate(zvrf->evpn_table, zebra_evpn_bridge_vlan_aware_walk, &wctx);
+}
+
 /*
  * Read and populate local MACs and neighbors corresponding to this EVPN.
  */
@@ -1421,9 +1467,10 @@ int zebra_evpn_vtep_uninstall(struct zebra_evpn *zevpn, struct zebra_vtep *zvtep
 
 /*
  * Move the installed flood entries to the current access VLAN, after an
- * access VLAN or bridge change (a new bridge). Only the entries whose VLAN
- * changed are installed again: SVD devices signal a VLAN change for every
- * VNI on any VLAN to VNI mapping update.
+ * access VLAN or bridge change (a new bridge, or a VLAN filtering change of
+ * the bridge). Only the entries whose VLAN changed are installed again: SVD
+ * devices signal a VLAN change for every VNI on any VLAN to VNI mapping
+ * update.
  */
 void zebra_evpn_vtep_vid_update(struct zebra_evpn *zevpn)
 {
