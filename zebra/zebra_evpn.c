@@ -874,11 +874,21 @@ static void zebra_evpn_uninstall_mac_hash(struct hash_bucket *bucket,
 {
 	struct zebra_mac *mac;
 	struct mac_walk_ctx *wctx = ctxt;
+	struct zebra_vrf *zvrf = zebra_vrf_get_evpn();
 
 	mac = (struct zebra_mac *)bucket->data;
 
-	if (CHECK_FLAG(mac->flags, ZEBRA_MAC_REMOTE))
-		zebra_evpn_rem_mac_uninstall(wctx->zevpn, mac, false);
+	if (!CHECK_FLAG(mac->flags, ZEBRA_MAC_REMOTE))
+		return;
+
+	/*
+	 * Duplicate MAC updates are not installed while frozen (the kernel
+	 * entry is not this one): leave it alone, like the install does.
+	 */
+	if (CHECK_FLAG(mac->flags, ZEBRA_MAC_DUPLICATE) && zvrf && zvrf->dad_freeze)
+		return;
+
+	zebra_evpn_rem_mac_uninstall(wctx->zevpn, mac, false);
 }
 
 /*
@@ -888,11 +898,18 @@ static void zebra_evpn_install_mac_hash(struct hash_bucket *bucket, void *ctxt)
 {
 	struct zebra_mac *mac;
 	struct mac_walk_ctx *wctx = ctxt;
+	struct zebra_vrf *zvrf = zebra_vrf_get_evpn();
 
 	mac = (struct zebra_mac *)bucket->data;
 
-	if (CHECK_FLAG(mac->flags, ZEBRA_MAC_REMOTE))
-		zebra_evpn_rem_mac_install(wctx->zevpn, mac, false);
+	if (!CHECK_FLAG(mac->flags, ZEBRA_MAC_REMOTE))
+		return;
+
+	/* Duplicate MAC updates are not installed while frozen. */
+	if (CHECK_FLAG(mac->flags, ZEBRA_MAC_DUPLICATE) && zvrf && zvrf->dad_freeze)
+		return;
+
+	zebra_evpn_rem_mac_install(wctx->zevpn, mac, false);
 }
 
 /*

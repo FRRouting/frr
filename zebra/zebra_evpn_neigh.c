@@ -122,8 +122,16 @@ int zebra_evpn_rem_neigh_install(struct zebra_evpn *zevpn,
  */
 void zebra_evpn_install_neigh_hash(struct zebra_evpn *zevpn, struct zebra_neigh *n)
 {
-	if (CHECK_FLAG(n->flags, ZEBRA_NEIGH_REMOTE))
-		zebra_evpn_rem_neigh_install(zevpn, n, false /*was_static*/);
+	struct zebra_vrf *zvrf = zebra_vrf_get_evpn();
+
+	if (!CHECK_FLAG(n->flags, ZEBRA_NEIGH_REMOTE))
+		return;
+
+	/* Duplicate neighbor updates are not installed while frozen. */
+	if (CHECK_FLAG(n->flags, ZEBRA_NEIGH_DUPLICATE) && zvrf && zvrf->dad_freeze)
+		return;
+
+	zebra_evpn_rem_neigh_install(zevpn, n, false /*was_static*/);
 }
 
 /*
