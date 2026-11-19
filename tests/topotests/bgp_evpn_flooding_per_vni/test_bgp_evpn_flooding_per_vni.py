@@ -196,8 +196,8 @@ def test_bgp_evpn_flooding_per_vni_local():
         assert result is None, "%s: unexpected %s" % (step, command)
 
     def _relearn_remote_vteps(step):
-        # Replay IMET routes with each VNI's current flooding mode. An IMET
-        # withdrawal disables remote flooding but retains the VTEP.
+        # Replay IMET routes with each VNI's current flooding mode after the
+        # periodic sweep reclaims the withdrawn, unreferenced remote VTEPs.
         r1.vtysh_cmd(
             """
             configure terminal
@@ -211,12 +211,19 @@ def test_bgp_evpn_flooding_per_vni_local():
             step + ", remote IMET routes withdrawn",
         )
         _expect_flooded_vnis([], step + ", remote flooding withdrawn")
-        for vni in (10, 20, 30):
-            _expect_json(
-                f"show evpn vni {vni} json",
-                {"remoteVteps": [{"ip": "192.168.1.2", "flood": "-"}]},
-                step + f", VNI {vni} remote VTEP retained",
-            )
+
+        def _remote_vteps_swept():
+            output = r1.vtysh_cmd("show evpn vni json", isjson=True)
+            for vni in (10, 20, 30):
+                if str(vni) not in output:
+                    return f"VNI {vni} missing from Zebra"
+                if "192.168.1.2" in output[str(vni)].get("remoteVteps", []):
+                    return f"VNI {vni} still has remote VTEP 192.168.1.2"
+            return None
+
+        # Allow the 120-second sweep interval plus scheduling margin.
+        _, result = topotest.run_and_expect(_remote_vteps_swept, None, count=50, wait=3)
+        assert result is None, f"{step}, orphan remote VTEPs not swept: {result}"
         r1.vtysh_cmd(
             """
             configure terminal
