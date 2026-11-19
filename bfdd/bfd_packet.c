@@ -1293,6 +1293,15 @@ void bfd_recv_cb(struct event *t)
 		return;
 	}
 
+	/*
+	 * bfdd listens with a data plane connected for the sessions it
+	 * declined; a packet of one it runs is the data plane's to handle.
+	 */
+	if (bfd->bdc) {
+		cp_debug(is_mhop, &peer, &local, ifindex, vrfid, "session runs in a data plane");
+		return;
+	}
+
 	/* Validate single hop packet TTL. */
 	if ((!is_mhop) && (ttl != BFD_TTL_VAL)) {
 		frrtrace(8, frr_bfd, packet_validation_error, 2, is_mhop, &peer, &local, ifindex,
