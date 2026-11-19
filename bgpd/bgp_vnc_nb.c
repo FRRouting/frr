@@ -96,8 +96,7 @@ static int vnc_nb_parse_rd(const char *rd_str, struct prefix_rd *prd, bool is_vr
 
 	memset(prd, 0, sizeof(*prd));
 
-	if ((is_vrf_policy && !strncmp(rd_str, "auto:nh:", 8)) ||
-	    !strncmp(rd_str, "auto:vn:", 8)) {
+	if ((is_vrf_policy && !strncmp(rd_str, "auto:nh:", 8)) || !strncmp(rd_str, "auto:vn:", 8)) {
 		if (vnc_nb_parse_auto_rd(rd_str + 8, &nn))
 			return -1;
 
@@ -323,8 +322,8 @@ int bgp_global_vnc_nve_group_create(struct nb_cb_create_args *args)
 			struct listnode *node, *nnode;
 			struct rfapi_rfg_name *rfgn;
 
-			for (ALL_LIST_ELEMENTS(bgp->rfapi_cfg->rfg_export_direct_bgp_l, node, nnode,
-					       rfgn)) {
+			for (ALL_LIST_ELEMENTS(bgp->rfapi_cfg->rfg_export_direct_bgp_l, node,
+					       nnode, rfgn)) {
 				if (strcmp(rfgn->name, rfg->name))
 					continue;
 				rfgn->rfg = rfg;
@@ -378,8 +377,8 @@ int bgp_global_vnc_nve_group_destroy(struct nb_cb_destroy_args *args)
  * A prefix still installed for a different group is rejected the same way
  * the classic "prefix vn|un" handler rejects rn->info.
  */
-static int bgp_vnc_nve_prefix_validate(const struct lyd_node *group, const struct prefix *p, bool un,
-				       char *errmsg, size_t errmsg_len)
+static int bgp_vnc_nve_prefix_validate(const struct lyd_node *group, const struct prefix *p,
+				       bool un, char *errmsg, size_t errmsg_len)
 {
 	const struct lyd_node *parent, *sib;
 	const char *leaf = un ? "prefix-un" : "prefix-vn";
@@ -399,9 +398,11 @@ static int bgp_vnc_nve_prefix_validate(const struct lyd_node *group, const struc
 				continue;
 			if (!yang_dnode_exists(sib, leaf))
 				continue;
-			if (!str2prefix(yang_dnode_get_string(sib, "%s", leaf), &op) || !prefix_same(&op, p))
+			if (!str2prefix(yang_dnode_get_string(sib, "%s", leaf), &op) ||
+			    !prefix_same(&op, p))
 				continue;
-			snprintfrr(errmsg, errmsg_len, "nve group \"%s\" already has \"%s\" prefix %pFX",
+			snprintfrr(errmsg, errmsg_len,
+				   "nve group \"%s\" already has \"%s\" prefix %pFX",
 				   yang_dnode_get_string(sib, "name"), which, p);
 			return NB_ERR_VALIDATION;
 		}
@@ -498,8 +499,8 @@ int bgp_global_vnc_nve_group_prefix_vn_modify(struct nb_cb_modify_args *args)
 			snprintfrr(args->errmsg, args->errmsg_len, "Unsupported address family");
 			return NB_ERR_VALIDATION;
 		}
-		return bgp_vnc_nve_prefix_validate(lyd_parent(args->dnode), &p, false, args->errmsg,
-						   args->errmsg_len);
+		return bgp_vnc_nve_prefix_validate(lyd_parent(args->dnode), &p, false,
+						   args->errmsg, args->errmsg_len);
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
 		return NB_OK;

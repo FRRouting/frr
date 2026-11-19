@@ -4373,8 +4373,8 @@ static void bgp_cli_path_attr_enqueue_replace(struct vty *vty, const char *base,
 		*nheld = 0;
 
 	if (base[0] == '.')
-		snprintfrr(check, sizeof(check), "%s%s/path-attribute/%s", VTY_CURR_XPATH, base + 1,
-			   leaf_name);
+		snprintfrr(check, sizeof(check), "%s%s/path-attribute/%s", VTY_CURR_XPATH,
+			   base + 1, leaf_name);
 	else
 		snprintfrr(check, sizeof(check), "%s/path-attribute/%s", base, leaf_name);
 	/* Replace semantics on set: clear existing entries first. */
@@ -6264,8 +6264,8 @@ DEFPY_YANG(bgp_evpn_advertise_type5_yang,
 			const struct lyd_node *dnode;
 
 			/* Only remove the route-map if it is the configured one. */
-			snprintfrr(check, sizeof(check), "%s%s/ip-vrf/%s/route-map", VTY_CURR_XPATH,
-				   af_xpath + 1, cont);
+			snprintfrr(check, sizeof(check), "%s%s/ip-vrf/%s/route-map",
+				   VTY_CURR_XPATH, af_xpath + 1, cont);
 			dnode = yang_dnode_get(vty->candidate_config->dnode, check);
 			if (dnode && strmatch(yang_dnode_get_string(dnode, NULL), rmap)) {
 				snprintfrr(leaf, sizeof(leaf), "%s/ip-vrf/%s/route-map", af_xpath,
@@ -6506,11 +6506,11 @@ static int bgp_evpn_rtlist_apply(struct vty *vty, bool no, bool do_import, bool 
 		bool ch_import, ch_export;
 
 		if (do_import)
-			have_import = bgp_cli_rt_is_set(vty, pend, npend, abs_base, leaf_import, rt,
-							true);
+			have_import = bgp_cli_rt_is_set(vty, pend, npend, abs_base, leaf_import,
+							rt, true);
 		if (do_export)
-			have_export = bgp_cli_rt_is_set(vty, pend, npend, abs_base, leaf_export, rt,
-							false);
+			have_export = bgp_cli_rt_is_set(vty, pend, npend, abs_base, leaf_export,
+							rt, false);
 
 		if (!no) {
 			ch_import = do_import && !have_import;
@@ -6883,8 +6883,8 @@ DEFPY_YANG(bgp_evpn_vni_rt_yang, bgp_evpn_vni_rt_yang_cmd,
 
 		strlcpy(abs_base, VTY_CURR_XPATH, sizeof(abs_base));
 		return bgp_evpn_rtlist_apply(vty, !!no, do_import, do_export, "VNI", ".", abs_base,
-					     "import-route-target", "export-route-target", argv, idx,
-					     argc);
+					     "import-route-target", "export-route-target", argv,
+					     idx, argc);
 	}
 }
 
