@@ -324,7 +324,7 @@ zebra_ptrack_add_cookies(struct ptrack_vrf_ctx *ctx, struct zserv *client,
 	/* Nothing to add, do not create an entry for it */
 	if (count == 0) {
 		*entry = pe;
-		return ZEBRA_PTRACK_OK;
+		return ZEBRA_PTRACK_SUCCESS;
 	}
 
 	pvc = ptrack_vrf_client_find(ctx, client);
@@ -372,7 +372,7 @@ zebra_ptrack_add_cookies(struct ptrack_vrf_ctx *ctx, struct zserv *client,
 
 	*entry = pe;
 
-	return ZEBRA_PTRACK_OK;
+	return ZEBRA_PTRACK_SUCCESS;
 }
 
 void zebra_ptrack_del_cookies(struct ptrack_vrf_ctx *ctx, struct zserv *client,
@@ -638,7 +638,7 @@ void zebra_ptrack_register(struct zserv *client, const struct zapi_ptrack *api)
 
 	switch (zebra_ptrack_add_cookies(ctx, client, &api->prefix, api->cookies,
 					 api->cookie_count, &entry)) {
-	case ZEBRA_PTRACK_OK:
+	case ZEBRA_PTRACK_SUCCESS:
 		break;
 	case ZEBRA_PTRACK_LIMIT:
 		zlog_warn("%s: client %s: %u cookies would exceed the limit of %u in VRF %s, dropping the request",
@@ -694,12 +694,30 @@ void zebra_ptrack_unregister(struct zserv *client,
 	ptrack_ctx_put(zebra_vrf_lookup_by_name(api->vrf_name), ctx);
 }
 
+/*
+ * Store a new state of a prefix and notify its clients if it flipped, there
+ * is no message if the state is the same.
+ */
+static void ptrack_entry_update(struct ptrack_vrf_ctx *ctx,
+				struct ptrack_entry *entry,
+				const struct prefix *p,
+				enum zapi_ptrack_state state)
+{
+	struct ptrack_client *pc;
+
+	if (state == entry->state)
+		return;
+
+	entry->state = state;
+
+	frr_each (ptrack_clients, &entry->clients, pc)
+		ptrack_notify_client(pc, ctx->vrf_name, p, state);
+}
+
 void zebra_ptrack_evaluate(struct zebra_vrf *zvrf, struct route_node *rn)
 {
 	struct ptrack_vrf_ctx *ctx = zvrf->ptrack;
 	struct ptrack_entry *entry;
-	struct ptrack_client *pc;
-	enum zapi_ptrack_state state;
 	afi_t afi;
 
 	/* Nothing is tracked in this VRF, the common case */
@@ -719,14 +737,58 @@ void zebra_ptrack_evaluate(struct zebra_vrf *zvrf, struct route_node *rn)
 	if (!entry)
 		return;
 
-	state = ptrack_prefix_state(zvrf, &rn->p);
-	if (state == entry->state)
+	ptrack_entry_update(ctx, entry, &rn->p,
+			    ptrack_prefix_state(zvrf, &rn->p));
+}
+
+/*
+ * Set the state of every tracked prefix of a context to the given state, or,
+ * if recompute is set, to the state the RIB gives now. Flips are notified.
+ */
+static void ptrack_ctx_update_all(struct zebra_vrf *zvrf,
+				  struct ptrack_vrf_ctx *ctx, bool recompute)
+{
+	enum zapi_ptrack_state state;
+	struct ptrack_entry *pe;
+	struct route_node *rn;
+	afi_t afi;
+
+	for (afi = AFI_IP; afi <= AFI_IP6; afi++) {
+		for (rn = route_top(ctx->table[afi]); rn; rn = route_next(rn)) {
+			pe = rn->info;
+			if (!pe)
+				continue;
+
+			state = ZAPI_PTRACK_UNREACHABLE;
+			if (recompute)
+				state = ptrack_prefix_state(zvrf, &rn->p);
+
+			ptrack_entry_update(ctx, pe, &rn->p, state);
+		}
+	}
+}
+
+void zebra_ptrack_vrf_enable(struct zebra_vrf *zvrf)
+{
+	struct ptrack_vrf_ctx *ctx;
+
+	/* The ctx outlives the zebra_vrf, find it again by the VRF name */
+	ctx = zebra_ptrack_ctx_lookup(zvrf_name(zvrf));
+	zvrf->ptrack = ctx;
+	if (!ctx)
 		return;
 
-	entry->state = state;
+	/* Retained routes produce no RIB event, so look at all the prefixes */
+	ptrack_ctx_update_all(zvrf, ctx, true);
+}
 
-	frr_each (ptrack_clients, &entry->clients, pc)
-		ptrack_notify_client(pc, ctx->vrf_name, &rn->p, state);
+void zebra_ptrack_vrf_disable(struct zebra_vrf *zvrf)
+{
+	if (!zvrf->ptrack)
+		return;
+
+	/* Whatever routes are retained, a prefix of a down VRF is UNREACHABLE */
+	ptrack_ctx_update_all(zvrf, zvrf->ptrack, false);
 }
 
 /* Remove a client from all the prefixes of a context */

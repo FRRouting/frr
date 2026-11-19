@@ -34,7 +34,7 @@ struct ptrack_vrf_ctx;
 struct ptrack_entry;
 
 enum zebra_ptrack_result {
-	ZEBRA_PTRACK_OK = 0,
+	ZEBRA_PTRACK_SUCCESS = 0,
 	/* Adding the cookies would exceed the per client per VRF limit */
 	ZEBRA_PTRACK_LIMIT,
 	/* Bad VRF name or prefix family */
@@ -119,6 +119,18 @@ extern void zebra_ptrack_unregister(struct zserv *client,
  * UPDATE to the clients of the prefix if its state flipped
  */
 extern void zebra_ptrack_evaluate(struct zebra_vrf *zvrf, struct route_node *rn);
+
+/*
+ * Ptrack vrf enable: attach the context of the VRF name to the zebra_vrf and
+ * re-evaluate all its prefixes, sends UPDATE for the flips
+ */
+extern void zebra_ptrack_vrf_enable(struct zebra_vrf *zvrf);
+
+/*
+ * Ptrack vrf disable: force all the prefixes of the VRF to UNREACHABLE and
+ * send UPDATE for the flips, even if the routes are retained
+ */
+extern void zebra_ptrack_vrf_disable(struct zebra_vrf *zvrf);
 
 #ifdef __cplusplus
 }
