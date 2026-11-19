@@ -834,23 +834,8 @@ static void test_config(struct test *test, const char *fmt, bool invert,
 	config = buffer_getstr(test->vty->obuf);
 	buffer_reset(test->vty->obuf);
 
-	/*
-	 * "no neighbor … <cmd>" contains "<cmd>" as a substring. A matcher
-	 * that is not itself a "no " line must not hit that negation.
-	 * software-version shows an explicit disable that way.
-	 */
-	matched = false;
-	if (matcher[0]) {
-		const char *hit;
-		bool want_no = strncmp(matcher, "no ", 3) == 0;
-
-		for (hit = strstr(config, matcher); hit; hit = strstr(hit + 1, matcher)) {
-			if (!want_no && (hit - config) >= 3 && strncmp(hit - 3, "no ", 3) == 0)
-				continue;
-			matched = true;
-			break;
-		}
-	}
+	/* Match config against matcher. */
+	matched = !!strstr(config, matcher);
 	if (!matched && !invert) {
 		test->state = TEST_CONFIG_ERROR;
 		test->error = asprintfrr(MTYPE_TMP,
