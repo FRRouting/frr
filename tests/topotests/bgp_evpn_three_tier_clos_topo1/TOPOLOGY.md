@@ -718,6 +718,7 @@ Per-VRF VLAN Sub-interfaces (VRF peering to ext-1):
 - ✅ **L2VNI** - Intra-VLAN forwarding (Type-2, Type-3 routes)
 - ✅ **L3VNI** - Inter-VRF routing with symmetric IRB
 - ✅ **EVPN Type-5 routes** - External prefix advertisement and import
+- ✅ **Downstream VNI import** - A Type-5 VNI other than the hub L3VNI stays on `vxlan48` across `import vrf`, including a destination VRF with no L3VNI. IPv6 underlay skipped until Linux 7.0; IPv4 and IPv6 overlay prefixes run over the IPv4 VTEP
 - ✅ **Head-end Replication (HREP)** - BUM traffic handling
 - ✅ **Router MAC (RMAC)** - Inter-VNI routing MAC learning
 - ✅ **Nexthop Groups** - Linux kernel ECMP nexthop groups validation
@@ -748,7 +749,7 @@ Per-VRF VLAN Sub-interfaces (VRF peering to ext-1):
 
 The test suite (`test_bgp_evpn_v4_v6_vtep.py`) includes comprehensive validation.
 
-**Note:** All tests are parametrized to run with both IPv4 and IPv6 underlay configurations.
+**Note:** Tests are parametrized for IPv4 and IPv6 underlay. Exceptions: the ext-21 dynamic-neighbor tests run on IPv4 only, and the two downstream-VNI tests skip the IPv6 underlay until Linux 7.0 (commit b853b94e8482). Their IPv6 overlay prefixes still run on the IPv4 VTEP.
 
 1. **`test_bgp_summary_neighbor_state`** - Validates BGP session establishment (ipv4Unicast/ipv6Unicast based on underlay)
 2. **`test_evpn_routes_advertised`** - Checks EVPN Type-2/Type-3 route advertisement on all VTEPs
@@ -775,7 +776,15 @@ The test suite (`test_bgp_evpn_v4_v6_vtep.py`) includes comprehensive validation
    - Removes password, confirms dynamic neighbor re-establishes
    - Validates fix for stale per-peer TCP MD5 entry (bgpd commit 2d53b65)
    - IPv4 underlay only (skips IPv6)
-13. **`test_memory_leak`** - Memory leak detection
+13. **`test_import_vrf_preserves_dvni_label`** - Keep downstream VNI 900000 across `import vrf` into `vrf2`, which has L3VNI 104002
+   - `tor-21` originates `203.0.120.0/24` in `tenant_dvni`; hub and destination keep label and kernel encap 900000 on `vxlan48`
+   - Non-EVPN blackhole `203.0.121.0/24` leaked on the same path stays unlabeled
+   - IPv4 underlay; IPv6 underlay skipped until Linux 7.0 (`ip6_route_check_nh_onlink` rejects `via <IPv6 VTEP> dev vxlan48 onlink`)
+14. **`test_import_vrf_leaked_dvni_without_dest_l3vni`** - Install downstream VNI 900001 into `vrf_nol3`, which has no L3VNI
+   - `tor-21` originates `203.0.130.0/24` and `2001:db8:130::/64`; zebra borrows `vrf1`'s `vxlan48`
+   - Labels 104001 and 104002 must not appear; non-EVPN blackholes stay unlabeled
+   - IPv4 underlay. The IPv6 overlay prefix uses VTEP `10.0.0.30`. IPv6 underlay skipped until Linux 7.0
+15. **`test_memory_leak`** - Memory leak detection
 
 ### Library Functions (`tests/topotests/lib/evpn.py`)
 
@@ -800,6 +809,12 @@ Generic EVPN helper functions for reuse across topotests:
   - Nexthop group contains expected individual nexthops
   - Each nexthop has correct gateway IP and output device
   - Each nexthop has 'onlink' flag set (critical for EVPN/VXLAN)
+- **`evpn_verify_imported_route`** - BGP unicast, zebra label and VTEP, then kernel encap, in that order. A route that has not converged is logged at debug; a real label or encap mismatch is logged once at info
+- **`evpn_verify_vrf_route_labels`** - Selected zebra VRF route labels and egress device. An empty expected label list requires an unlabeled nexthop
+- **`evpn_verify_kernel_encap_vni`** - Kernel VXLAN encap id from `ip route` and `ip nexthop get id`. `expected_vni=None` requires no encap id
+- **`evpn_verify_bgp_vrf_l3vni`** - VRF L3VNI from `show bgp vrfs`. `0` means the VRF must not have an L3VNI
+
+These label and encap helpers apply to any EVPN nexthop. A symmetric L3VNI route egresses the SVI with no label and no kernel encap. A downstream-VNI route egresses `vxlan48` with the tenant VNI as both the zebra label and the kernel encap id.
 
 #### Connectivity and MAC Learning
 - **`evpn_verify_ping_connectivity`** - Generic ping test (IPv4/IPv6 auto-detect) with retry logic, asserts 0% packet loss

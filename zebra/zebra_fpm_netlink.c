@@ -198,10 +198,21 @@ static int netlink_route_info_add_nh(struct netlink_route_info *ri,
 		return 0;
 
 	if (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_EVPN)) {
+		const struct mpls_label_stack *labels = nexthop->nh_label;
+
 		nhi.encap_info.encap_type = FPM_NH_ENCAP_VXLAN;
 
-		/* Extract VNI id for the nexthop SVI interface */
-		zvrf = zebra_vrf_lookup_by_id(nexthop->vrf_id);
+		/*
+		 * A labeled EVPN nexthop is a downstream VNI on a single-VXLAN
+		 * device, not an SVI. The remote VTEP expects the VNI from the
+		 * label, as in the dataplane nh_encap.vni.
+		 */
+		if (labels && nexthop->nh_label_type == ZEBRA_LSP_EVPN && labels->num_labels)
+			vni = label2vni(&labels->label[labels->num_labels - 1]);
+
+		/* Otherwise extract VNI id for the nexthop SVI interface */
+		if (!vni)
+			zvrf = zebra_vrf_lookup_by_id(nexthop->vrf_id);
 		if (zvrf) {
 			ifp = if_lookup_by_index_per_ns(zvrf->zns,
 							nexthop->ifindex);
