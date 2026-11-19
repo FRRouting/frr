@@ -25,6 +25,14 @@ void bgp_nb_cli_show_router_bgp_end(struct vty *vty, const struct lyd_node *dnod
 
 struct bgp;
 const char *bgp_nb_instance_xpath(const struct bgp *bgp, char *buf, size_t buflen);
+
+/*
+ * True when path-attribute @attr_num cannot be discarded (or treated as
+ * withdraw). @dnode is a neighbor, unnumbered-neighbor or peer-group node,
+ * or a node below one, in the candidate. @errmsg gets the reason.
+ */
+bool bgp_nb_path_attr_forbidden(const struct lyd_node *dnode, uint8_t attr_num, bool withdraw,
+				char *errmsg, size_t errmsg_len);
 void bgp_nb_cli_show_instance(struct vty *vty, const struct lyd_node *dnode);
 void bgp_nb_cli_show_instance_bgp(struct vty *vty, struct bgp *bgp);
 

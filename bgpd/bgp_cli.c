@@ -4364,6 +4364,7 @@ static void bgp_cli_path_attr_enqueue_replace(struct vty *vty, const char *base,
 	char leaf[XPATH_MAXLEN + 256];
 	char check[XPATH_MAXLEN + 256];
 	char **attributes = NULL;
+	const struct lyd_node *nbr = NULL;
 	int num_attributes = 0;
 	int i;
 
@@ -4400,8 +4401,30 @@ static void bgp_cli_path_attr_enqueue_replace(struct vty *vty, const char *base,
 	if (!attrs)
 		return;
 
+	if (set && base[0] == '.') {
+		/*
+		 * The classic command warned about an attribute that cannot be
+		 * discarded, skipped it and applied the rest. Do the same here
+		 * so a config file that names one still loads. The NB validate
+		 * callback rejects it for clients that do not come through
+		 * this command.
+		 */
+		snprintfrr(leaf, sizeof(leaf), "%s%s", VTY_CURR_XPATH, base + 1);
+		nbr = yang_dnode_get(vty->candidate_config->dnode, leaf);
+	}
+
 	frrstr_split(attrs, " ", &attributes, &num_attributes);
 	for (i = 0; i < num_attributes; i++) {
+		if (nbr) {
+			char why[128];
+
+			if (bgp_nb_path_attr_forbidden(nbr, strtoul(attributes[i], NULL, 10),
+						       strmatch(leaf_name, "treat-as-withdraw"),
+						       why, sizeof(why))) {
+				vty_out(vty, "%% %s\n", why);
+				continue;
+			}
+		}
 		snprintfrr(leaf, sizeof(leaf), "%s/path-attribute/%s[.='%s']", base, leaf_name,
 			   attributes[i]);
 		if (set)

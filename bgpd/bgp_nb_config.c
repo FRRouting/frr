@@ -16144,8 +16144,8 @@ void bgp_nb_cli_show_peer_af_orf_both(struct vty *vty, const struct lyd_node *dn
 			bgp_nb_peer_show_indent(dnode), bgp_nb_config_peer_name(dnode));
 }
 
-static bool bgp_nb_path_attr_forbidden(const struct lyd_node *dnode, uint8_t attr_num,
-				       bool withdraw, char *errmsg, size_t errmsg_len)
+bool bgp_nb_path_attr_forbidden(const struct lyd_node *dnode, uint8_t attr_num, bool withdraw,
+				char *errmsg, size_t errmsg_len)
 {
 	bool ebgp;
 
