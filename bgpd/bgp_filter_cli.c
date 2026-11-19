@@ -337,7 +337,7 @@ static void bgp_filter_clear_entry_leaflists(struct vty *vty, const char *entry_
 		if (!child->schema || child->schema->nodetype != LYS_LEAFLIST)
 			continue;
 		snprintfrr(leaf, sizeof(leaf), "./%s[.='%s']", child->schema->name,
-			yang_dnode_get_string(child, NULL));
+			   yang_dnode_get_string(child, NULL));
 		nb_cli_enqueue_change(vty, leaf, NB_OP_DESTROY, NULL);
 	}
 }
