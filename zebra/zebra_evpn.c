@@ -1524,6 +1524,10 @@ void zebra_evpn_handle_flooding_remote_vteps(struct hash_bucket *bucket, void *a
 	if (vni != VNI_MAX && zevpn->vni != vni)
 		return;
 
+	/* A global change does not apply to the VNIs with their own one. */
+	if (vni == VNI_MAX && zevpn->flood_ctrl != VXLAN_FLOOD_INHERIT_GLOBAL)
+		return;
+
 	for (zvtep = zevpn->vteps; zvtep; zvtep = zvtep->next) {
 		if (zebra_evpn_flooding_head_end(zevpn))
 			zebra_evpn_vtep_install(zevpn, zvtep);

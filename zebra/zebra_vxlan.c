@@ -6424,6 +6424,9 @@ void zebra_vxlan_flood_control(ZAPI_HANDLER_ARGS)
 			zlog_debug("EVPN flood control %u, currently %u", flood_ctrl,
 				   zvrf->vxlan_flood_ctrl);
 
+		if (zvrf->vxlan_flood_ctrl == flood_ctrl)
+			return;
+
 		zvrf->vxlan_flood_ctrl = flood_ctrl;
 	} else {
 		/* A per-VNI mode only applies to its VNI: the global mode stays
@@ -6440,6 +6443,9 @@ void zebra_vxlan_flood_control(ZAPI_HANDLER_ARGS)
 		if (IS_ZEBRA_DEBUG_VXLAN)
 			zlog_debug("EVPN flood control %u for VNI %u, currently %u", flood_ctrl,
 				   vni, zevpn->flood_ctrl);
+
+		if (zevpn->flood_ctrl == flood_ctrl)
+			return;
 
 		zevpn->flood_ctrl = flood_ctrl;
 	}
