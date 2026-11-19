@@ -737,9 +737,12 @@ static const char *ecommunity_gettoken(const char *str, void *eval_ptr,
 			goto error;
 
 		*token = ecommunity_token_val6;
+<<<<<<< HEAD
 		while (isdigit((int)*p) || *p == ':' || *p == '.') {
+=======
+		while (*p != '\0' && !isspace((unsigned char)*p))
+>>>>>>> d1f2b33 (bgpd: consume a whole IPv6 extended community token)
 			p++;
-		}
 		return p;
 	}
 	while (isdigit((unsigned char)*p) || *p == ':' || *p == '.') {
