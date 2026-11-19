@@ -2048,7 +2048,7 @@ DEFPY_YANG(bgp_listen_range_yang, bgp_listen_range_yang_cmd,
 	/* Overlap / duplicate checks run in NB VALIDATE on commit. */
 
 	leaf = (range.family == AF_INET) ? "ipv4-listen-range" : "ipv6-listen-range";
-	prefix2str(&range, pfx, sizeof(pfx));
+	snprintfrr(pfx, sizeof(pfx), "%pFX", &range);
 	snprintfrr(xpath, sizeof(xpath),
 		   "./peer-groups/peer-group[peer-group-name='%s']/%s[.='%s']", pg, leaf, pfx);
 	nb_cli_enqueue_change(vty, xpath, no ? NB_OP_DESTROY : NB_OP_CREATE, no ? NULL : pfx);
