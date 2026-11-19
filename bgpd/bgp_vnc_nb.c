@@ -66,26 +66,40 @@ static struct bgp *bgp_nb_vnc_get_bgp(const struct lyd_node *dnode)
 
 
 /*
+ * Helper: parse the NN of an auto:vn:NN or auto:nh:NN RD. NN is a 2-octet
+ * quantity; like the classic CLI, reject an empty value, trailing garbage
+ * and anything above 0xffff.
+ */
+static int vnc_nb_parse_auto_rd(const char *nn_str, uint16_t *nn)
+{
+	char *end = NULL;
+	unsigned long value;
+
+	if (!*nn_str)
+		return -1;
+
+	errno = 0;
+	value = strtoul(nn_str, &end, 10);
+	if (errno || *end || value > 0xffff)
+		return -1;
+
+	*nn = value;
+	return 0;
+}
+
+/*
  * Helper: parse RD string including auto:vn:NN and auto:nh:NN formats.
  */
 static int vnc_nb_parse_rd(const char *rd_str, struct prefix_rd *prd, bool is_vrf_policy)
 {
+	uint16_t nn;
+
 	memset(prd, 0, sizeof(*prd));
 
-	if (is_vrf_policy && !strncmp(rd_str, "auto:nh:", 8)) {
-		uint16_t nn = atoi(rd_str + 8);
-
-		prd->family = AF_UNIX;
-		prd->prefixlen = 64;
-		prd->val[0] = (RD_TYPE_IP >> 8) & 0x0ff;
-		prd->val[1] = RD_TYPE_IP & 0x0ff;
-		prd->val[6] = (nn >> 8) & 0x0ff;
-		prd->val[7] = nn & 0x0ff;
-		return 0;
-	}
-
-	if (!strncmp(rd_str, "auto:vn:", 8)) {
-		uint16_t nn = atoi(rd_str + 8);
+	if ((is_vrf_policy && !strncmp(rd_str, "auto:nh:", 8)) ||
+	    !strncmp(rd_str, "auto:vn:", 8)) {
+		if (vnc_nb_parse_auto_rd(rd_str + 8, &nn))
+			return -1;
 
 		prd->family = AF_UNIX;
 		prd->prefixlen = 64;
@@ -100,6 +114,18 @@ static int vnc_nb_parse_rd(const char *rd_str, struct prefix_rd *prd, bool is_vr
 		return 0;
 
 	return -1;
+}
+
+static int vnc_nb_rd_validate(const struct lyd_node *dnode, bool is_vrf_policy, char *errmsg,
+			      size_t errmsg_len)
+{
+	struct prefix_rd prd;
+
+	if (vnc_nb_parse_rd(yang_dnode_get_string(dnode, NULL), &prd, is_vrf_policy)) {
+		snprintfrr(errmsg, errmsg_len, "Malformed rd");
+		return NB_ERR_VALIDATION;
+	}
+	return NB_OK;
 }
 
 int bgp_global_vnc_create(struct nb_cb_create_args *args)
@@ -157,6 +183,8 @@ int bgp_global_vnc_defaults_rd_modify(struct nb_cb_modify_args *args)
 	struct bgp *bgp;
 	struct prefix_rd prd;
 
+	if (args->event == NB_EV_VALIDATE)
+		return vnc_nb_rd_validate(args->dnode, false, args->errmsg, args->errmsg_len);
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
@@ -510,6 +538,8 @@ int bgp_global_vnc_nve_group_rd_modify(struct nb_cb_modify_args *args)
 {
 	struct rfapi_nve_group_cfg *rfg;
 
+	if (args->event == NB_EV_VALIDATE)
+		return vnc_nb_rd_validate(args->dnode, false, args->errmsg, args->errmsg_len);
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 	rfg = nb_running_get_entry(lyd_parent(args->dnode), NULL, true);
@@ -653,6 +683,8 @@ int bgp_global_vnc_vrf_policy_rd_modify(struct nb_cb_modify_args *args)
 	struct rfapi_nve_group_cfg *rfg;
 	struct bgp *bgp;
 
+	if (args->event == NB_EV_VALIDATE)
+		return vnc_nb_rd_validate(args->dnode, true, args->errmsg, args->errmsg_len);
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 	rfg = nb_running_get_entry(lyd_parent(args->dnode), NULL, true);
