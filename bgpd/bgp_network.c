@@ -39,6 +39,7 @@
 extern struct zebra_privs_t bgpd_privs;
 
 static char *bgp_get_bound_name(struct peer_connection *connection);
+static void bgp_connection_socket_binding_ifindex_set(struct peer_connection *connection);
 
 void bgp_dump_listener_info(struct vty *vty)
 {
@@ -557,6 +558,7 @@ static void bgp_accept(struct event *event)
 				vrf_bind(dynamic_peer->bgp->vrf_id, bgp_sock,
 					 bgp_get_bound_name(incoming));
 			}
+			bgp_connection_socket_binding_ifindex_set(incoming);
 			bgp_peer_connection_reg_with_nht(incoming);
 			bgp_fsm_change_status(incoming, Active);
 			event_cancel(&incoming->t_start);
@@ -716,6 +718,7 @@ static void bgp_accept(struct event *event)
 	frr_with_privs(&bgpd_privs) {
 		vrf_bind(bgp->vrf_id, bgp_sock, bgp_get_bound_name(incoming));
 	}
+	bgp_connection_socket_binding_ifindex_set(incoming);
 	bgp_peer_connection_reg_with_nht(incoming);
 	bgp_fsm_change_status(incoming, Active);
 	event_cancel(&incoming->t_start); /* created in peer_create() */
@@ -791,6 +794,35 @@ static char *bgp_get_bound_name(struct peer_connection *connection)
 		return NULL;
 
 	return peer->bgp->name;
+}
+
+/* Remember which device the socket got bound to, so that destroying that
+ * device can reset the session.
+ */
+static void bgp_connection_socket_binding_ifindex_set(struct peer_connection *connection)
+{
+#ifdef SO_BINDTODEVICE
+	char name[VRF_NAMSIZ + 1] = {0};
+	socklen_t len = sizeof(name) - 1;
+	struct interface *ifp;
+#endif
+
+	connection->socket_binding_ifindex = IFINDEX_INTERNAL;
+#ifdef SO_BINDTODEVICE
+	if (getsockopt(connection->fd, SOL_SOCKET, SO_BINDTODEVICE, name, &len) < 0) {
+		flog_err(EC_LIB_SOCKET, "%s: Cannot read socket binding for peer %s: %s",
+			 __func__, connection->peer->host, safe_strerror(errno));
+		return;
+	}
+	if (!name[0])
+		return;
+
+	ifp = if_lookup_by_name(name, connection->peer->bgp->vrf_id);
+	/* A VRF master device can belong to the default VRF. */
+	if (!ifp && !vrf_is_backend_netns())
+		ifp = if_lookup_by_name(name, VRF_DEFAULT);
+	connection->socket_binding_ifindex = ifp ? ifp->ifindex : IFINDEX_INTERNAL;
+#endif
 }
 
 int bgp_update_address(struct interface *ifp, const union sockunion *dst,
@@ -892,6 +924,7 @@ enum connect_result bgp_connect(struct peer_connection *connection)
 		return connect_error;
 	}
 
+	bgp_connection_socket_binding_ifindex_set(connection);
 	set_nonblocking(connection->fd);
 
 	/* Set the user configured MSS to TCP socket */
