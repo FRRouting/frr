@@ -1218,8 +1218,10 @@ void yang_afi_safi_identity2value(const char *key, afi_t *afi, safi_t *safi)
 
 	/*
 	 * libyang may return identityrefs as "frr-routing:l2vpn-evpn" or as
-	 * the bare identity name "l2vpn-evpn". Match on the trailing name so
-	 * callers (EVPN reapply, AF enable, …) do not silently no-op.
+	 * the bare identity name "l2vpn-evpn". Accept both so callers (EVPN
+	 * reapply, AF enable, …) do not silently no-op, but only for
+	 * frr-routing identities: ietf-bgp-types defines identities with the
+	 * same names that must not map to an FRR AFI/SAFI.
 	 */
 	if (!key) {
 		*afi = AFI_UNSPEC;
@@ -1227,7 +1229,17 @@ void yang_afi_safi_identity2value(const char *key, afi_t *afi, safi_t *safi)
 		return;
 	}
 	id = strrchr(key, ':');
-	id = id ? id + 1 : key;
+	if (id) {
+		if (strncmp(key, "frr-routing:", strlen("frr-routing:")) != 0 ||
+		    id != key + strlen("frr-routing:") - 1) {
+			*afi = AFI_UNSPEC;
+			*safi = SAFI_UNSPEC;
+			return;
+		}
+		id++;
+	} else {
+		id = key;
+	}
 
 	if (strmatch(id, "ipv4-unicast")) {
 		*afi = AFI_IP;
