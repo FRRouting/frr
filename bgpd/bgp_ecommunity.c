@@ -823,9 +823,8 @@ static const char *ecommunity_gettoken(const char *str, void *eval_ptr,
 			goto error;
 
 		*token = ecommunity_token_val6;
-		while (isdigit((unsigned char)*p) || *p == ':' || *p == '.') {
+		while (*p != '\0' && !isspace((unsigned char)*p))
 			p++;
-		}
 		return p;
 	}
 	while (isdigit((unsigned char)*p) || *p == ':' || *p == '.') {
