@@ -1717,6 +1717,7 @@ DEFUN_NOSH (router_bgp,
 	struct bgp *bgp = NULL;
 	const char *name = NULL;
 	enum bgp_instance_type inst_type;
+	bool new_instance = false;
 
 	// "router bgp" without an ASN
 	if (argc == 2) {
@@ -1778,6 +1779,7 @@ DEFUN_NOSH (router_bgp,
 
 		ret = bgp_lookup_by_as_name_type(&bgp, &as, argv[idx_asn]->arg, asnotation, name,
 						 inst_type, true);
+		new_instance = (bgp == NULL && ret == CMD_SUCCESS);
 		if (bgp && ret == BGP_INSTANCE_EXISTS)
 			ret = CMD_SUCCESS;
 		else if (bgp == NULL && ret == CMD_SUCCESS)
@@ -1808,7 +1810,9 @@ DEFUN_NOSH (router_bgp,
 		 */
 		if (inst_type == BGP_INSTANCE_TYPE_DEFAULT) {
 			bgp_need_listening(bgp, vty);
-			vpn_leak_postchange_all();
+			if (new_instance || CHECK_FLAG(bgp->vrf_flags, BGP_VRF_AUTO) ||
+			    IS_BGP_INSTANCE_HIDDEN(bgp))
+				vpn_leak_postchange_all();
 		}
 
 		if (inst_type == BGP_INSTANCE_TYPE_VRF || IS_BGP_INSTANCE_HIDDEN(bgp)) {
