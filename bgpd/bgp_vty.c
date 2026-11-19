@@ -150,6 +150,13 @@ FRR_CFG_DEFAULT_BOOL(BGP_DEFAULT_ORIGINATE_SETONLY_UNCONDITIONAL,
 	{ .val_bool = false },
 );
 
+#if CONFDATE > 20271118
+CPP_NOTICE("Flip BGP_DEFAULT_ORIGINATE_OPTIMIZED default to true")
+#endif
+FRR_CFG_DEFAULT_BOOL(BGP_DEFAULT_ORIGINATE_OPTIMIZED,
+	{ .val_bool = false },
+);
+
 FRR_CFG_DEFAULT_BOOL(BGP_IPV6_NEXTHOP_PREFER_GLOBAL,
 	{ .val_bool = false },
 );
@@ -788,6 +795,8 @@ int bgp_get_vty(struct bgp **bgp, as_t *as, const char *name,
 			SET_FLAG((*bgp)->flags, BGP_FLAG_COMPARE_AIGP);
 		if (DFLT_BGP_DEFAULT_ORIGINATE_SETONLY_UNCONDITIONAL)
 			SET_FLAG((*bgp)->flags, BGP_FLAG_DEFAULT_ORIGINATE_SETONLY_UNCONDITIONAL);
+		if (DFLT_BGP_DEFAULT_ORIGINATE_OPTIMIZED)
+			SET_FLAG((*bgp)->flags, BGP_FLAG_DEFAULT_ORIGINATE_OPTIMIZED);
 
 		ret = BGP_SUCCESS;
 	}
@@ -3435,6 +3444,26 @@ DEFUN (no_bgp_deterministic_med,
 	return CMD_SUCCESS;
 }
 
+/*
+ * Re-evaluate default-originate for every peer/AFI/SAFI in bgp that has
+ * default-originate configured.  Called when a bgp-instance-level flag
+ * governing default-originate behaviour changes.
+ */
+static void bgp_default_originate_reevaluate_all(struct bgp *bgp)
+{
+	struct peer *peer;
+	struct listnode *node;
+	afi_t afi;
+	safi_t safi;
+
+	for (ALL_LIST_ELEMENTS_RO(bgp->peer, node, peer)) {
+		FOREACH_AFI_SAFI (afi, safi) {
+			if (CHECK_FLAG(peer->af_flags[afi][safi], PEER_FLAG_DEFAULT_ORIGINATE))
+				bgp_default_originate(peer, afi, safi);
+		}
+	}
+}
+
 #if CONFDATE > 20271101
 CPP_NOTICE("Flip default and deprecate `bgp default-originate set-only-unconditional` knob")
 #endif
@@ -3449,10 +3478,42 @@ DEFPY (bgp_default_originate_setonly_empty_table,
 {
 	VTY_DECLVAR_CONTEXT(bgp, bgp);
 
+	bool was_set = !!CHECK_FLAG(bgp->flags, BGP_FLAG_DEFAULT_ORIGINATE_SETONLY_UNCONDITIONAL);
+
 	if (no)
 		UNSET_FLAG(bgp->flags, BGP_FLAG_DEFAULT_ORIGINATE_SETONLY_UNCONDITIONAL);
 	else
 		SET_FLAG(bgp->flags, BGP_FLAG_DEFAULT_ORIGINATE_SETONLY_UNCONDITIONAL);
+
+	if (was_set != !!CHECK_FLAG(bgp->flags, BGP_FLAG_DEFAULT_ORIGINATE_SETONLY_UNCONDITIONAL))
+		bgp_default_originate_reevaluate_all(bgp);
+
+	return CMD_SUCCESS;
+}
+
+#if CONFDATE > 20271118
+CPP_NOTICE("Flip default and deprecate `bgp default-originate optimized` knob")
+#endif
+/* "bgp default-originate optimized" configuration. */
+DEFPY (bgp_default_originate_optimized,
+       bgp_default_originate_optimized_cmd,
+       "[no$no] bgp default-originate optimized",
+       NO_STR
+       BGP_STR
+       "Control default-originate behavior\n"
+       "Use optimized prefix-list lookup instead of RIB walk for route-map evaluation\n")
+{
+	VTY_DECLVAR_CONTEXT(bgp, bgp);
+
+	bool was_set = !!CHECK_FLAG(bgp->flags, BGP_FLAG_DEFAULT_ORIGINATE_OPTIMIZED);
+
+	if (no)
+		UNSET_FLAG(bgp->flags, BGP_FLAG_DEFAULT_ORIGINATE_OPTIMIZED);
+	else
+		SET_FLAG(bgp->flags, BGP_FLAG_DEFAULT_ORIGINATE_OPTIMIZED);
+
+	if (was_set != !!CHECK_FLAG(bgp->flags, BGP_FLAG_DEFAULT_ORIGINATE_OPTIMIZED))
+		bgp_default_originate_reevaluate_all(bgp);
 
 	return CMD_SUCCESS;
 }
@@ -22898,6 +22959,14 @@ int bgp_config_write(struct vty *vty)
 					? ""
 					: "no ");
 
+		/* BGP default-originate optimized. */
+		if (!!CHECK_FLAG(bgp->flags, BGP_FLAG_DEFAULT_ORIGINATE_OPTIMIZED) !=
+		    SAVE_BGP_DEFAULT_ORIGINATE_OPTIMIZED)
+			vty_out(vty, " %sbgp default-originate optimized\n",
+				CHECK_FLAG(bgp->flags, BGP_FLAG_DEFAULT_ORIGINATE_OPTIMIZED)
+					? ""
+					: "no ");
+
 		/* BGP update-delay. */
 		bgp_config_write_update_delay(vty, bgp);
 
@@ -24045,6 +24114,9 @@ void bgp_vty_init(void)
 
 	/* "bgp default-originate set-only-unconditional" command */
 	install_element(BGP_NODE, &bgp_default_originate_setonly_empty_table_cmd);
+
+	/* "bgp default-originate optimized" command */
+	install_element(BGP_NODE, &bgp_default_originate_optimized_cmd);
 
 	/* "bgp graceful-restart" command */
 	install_element(BGP_NODE, &bgp_graceful_restart_cmd);
