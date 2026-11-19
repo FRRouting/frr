@@ -165,7 +165,7 @@ extern uint64_t mgmt_be_interested_clients(const char *xpath,
 					   enum mgmt_be_xpath_subscr_type type, const char *dbg_user);
 
 /**
- * mgmt_be_get_notify_conn() - Get the connetion associated with the special session_id.
+ * mgmt_be_get_notify_conn() - Get the connection associated with the special session_id.
  * @client_id: The client id to get the backend client connection for.
  * @format: The notification data format to use for this connection.
  *

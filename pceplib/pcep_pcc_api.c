@@ -25,7 +25,7 @@
 #include "pcep_utils_counters.h"
 #include "pcep_utils_logging.h"
 
-/* Not using an array here since the enum pcep_event_type indeces go into the
+/* Not using an array here since the enum pcep_event_type indices go into the
  * 100's */
 const char MESSAGE_RECEIVED_STR[] = "MESSAGE_RECEIVED";
 const char PCE_CLOSED_SOCKET_STR[] = "PCE_CLOSED_SOCKET";

@@ -306,7 +306,7 @@ static void cmd_reparent_tree(struct graph *fromgraph, struct graph *tograph,
 
 	for (i = 0; i < vector_active(fromgraph->nodes); i++)
 		if (vector_slot(fromgraph->nodes, i) == node) {
-			/* agressive iteration punching through subgraphs - may
+			/* aggressive iteration punching through subgraphs - may
 			 * hit some
 			 * nodes twice.  reparent only if found on old graph */
 			vector_unset(fromgraph->nodes, i);

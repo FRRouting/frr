@@ -106,7 +106,7 @@ check_daemon()
 	return 0
 }
 
-# Starts the server if it's not alrady running according to the pid file.
+# Starts the server if it's not already running according to the pid file.
 # The Frr daemons creates the pidfile when starting.
 start()
 {

@@ -157,7 +157,7 @@ handlers = {
     "ASNUM_TKN": AsDotHandler,
 }
 
-# core template invoked for each occurence of DEFPY.
+# core template invoked for each occurrence of DEFPY.
 #
 # the "#if $..." bits are there to keep this template unified into one
 # common form, without requiring a more advanced template engine (e.g.

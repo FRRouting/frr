@@ -1615,7 +1615,7 @@ struct peer_connection {
 	struct stream *curr;
 
 	/*
-	 * Timestamp of the last outgoing messge to the peer.
+	 * Timestamp of the last outgoing message to the peer.
 	 * This timestamp is written on multiple threads and read
 	 * on the master pthread.  As such it must be atomic.
 	 */

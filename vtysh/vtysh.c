@@ -4771,7 +4771,7 @@ static void execute_command(const char *command, char *argv[])
 		/* This is child process. */
 		execvp(command, (char *const *)argv);
 
-		/* When execlp suceed, this part is not executed. */
+		/* When execlp succeed, this part is not executed. */
 		fprintf(stderr, "Can't execute %s: %s\n", command,
 			safe_strerror(errno));
 		exit(1);
@@ -5090,7 +5090,7 @@ static int vtysh_connect(struct vtysh_client *vclient)
 
 	/*
 	 * Increasing the RECEIVE socket buffer size so that the socket can hold
-	 * after receving from other process.
+	 * after receiving from other process.
 	 */
 	ret = setsockopt_so_recvbuf(sock, rcvbufsize);
 	if (ret <= 0) {

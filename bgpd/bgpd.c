@@ -2146,7 +2146,7 @@ void bgp_peer_conf_if_to_su_update(struct peer_connection *connection)
 			 * only one bnc is detached from the peer.
 			 * Although the peer is deleted, the other stale
 			 * bnc still holds the previous peer pointer
-			 * and while accesing the peer it crashes.
+			 * and while accessing the peer it crashes.
 			 */
 			bgp_unlink_nexthop_by_peer(peer);
 			hash_release(peer->bgp->connectionhash, connection);

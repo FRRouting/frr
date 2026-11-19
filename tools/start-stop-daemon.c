@@ -156,7 +156,7 @@ static void badusage(const char *msg);
  * expression you can use the special values TVELEM, which when fed a
  * const struct timeval* gives you the relevant component, and
  * TVADJUST.  TVADJUST is necessary when subtracting timevals, to make
- * it easier to renormalise.  Whenver you subtract timeval elements,
+ * it easier to renormalise.  Whenever you subtract timeval elements,
  * you must make sure that TVADJUST is added to the result of the
  * subtraction (before any resulting multiplication or what have you).
  * TVELEM must be linear in TVADJUST.

@@ -5796,7 +5796,7 @@ size_t bgp_packet_mpattr_prefix_size(afi_t afi, safi_t safi,
 			size += 1;
 		break;
 	case SAFI_BGP_LS:
-		/* TODO: add explaination */
+		/* TODO: add explanation */
 		size = 0;
 		break;
 	case SAFI_UNREACH:

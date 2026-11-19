@@ -419,7 +419,7 @@ class OspfApiClient:
         """Send a message to OSPF API and wait for error code reply.
 
         Args:
-            mt: the messaage type
+            mt: the message type
             mp: the message payload
         Returns:
             error: an OSPF_API_XXX error code, 0 for OK.
@@ -457,7 +457,7 @@ class OspfApiClient:
         """Send a message to OSPF API and wait for error code reply.
 
         Args:
-            mt: the messaage type
+            mt: the message type
             mp: the message payload
         Raises:
             APIError if the server replies with an error.
@@ -883,7 +883,7 @@ class OspfOpaqueClient(OspfApiClient):
     async def register_opaque_data(self, lsa_type, otype, callback=None):
         """Register intent to advertise opaque data.
 
-        The application should wait for the async notificaiton that the server is
+        The application should wait for the async notification that the server is
         ready to advertise the given opaque data type. The API currently only allows
         a single "owner" of each unique (lsa_type,otype). To wait call `wait_opaque_ready`
 
