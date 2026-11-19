@@ -2170,25 +2170,55 @@ Configuring Peers
 
    **Conditional** (a ``route-map`` with at least one ``match`` clause): the
    default route is originated only if the match conditions are satisfied.
-   For example, announce the default route only if ``10.10.10.10/32`` route
-   exists and set an arbitrary community for a default route.
+   By default, the full BGP table is walked to find a route that matches the
+   route-map; any match type is supported.  This approach has severe
+   scalability issues for large routing tables and is scheduled to be
+   deprecated in a future FRR release in favour of the optimized algorithm
+   (see :clicmd:`bgp default-originate optimized`).
+
+   When :clicmd:`bgp default-originate optimized` is enabled, an optimized
+   prefix-list-driven lookup is used instead.  In that mode **every**
+   route-map sequence with match clauses **must** contain a prefix-list
+   match clause (``match ip address prefix-list`` for IPv4;
+   ``match ipv6 address prefix-list`` for IPv6) with one or more exact
+   prefix entries; entries with ge/le operators are not supported and will
+   be skipped.  The prefix-list determines which routes in the BGP table
+   to examine; additional match clauses (community, AS-path, etc.) are
+   also evaluated against those routes.
+
+   Route-map sequences that lack a prefix-list match clause are skipped
+   when selecting candidate prefixes, but are still included in the full
+   route-map evaluation for each candidate.  This can produce
+   non-intuitive results: a candidate discovered via a later sequence's
+   prefix-list may match an earlier non-prefix-list sequence and win with
+   a lower sequence number.  To avoid this, every sequence **should**
+   include a prefix-list clause.
+
+   **Example:** Announce the default route only if ``10.10.10.10/32`` or
+   ``192.168.1.0/24`` exists in the BGP table **and** has community 65001:100,
+   then add community 65001:200 on the default route advertisement:
 
    .. code-block:: frr
 
       router bgp 64555
        address-family ipv4 unicast
-        neighbor 192.168.255.1 default-originate route-map default
+        neighbor 192.168.255.1 default-originate route-map DEFAULT_MAP
       !
-      ip prefix-list p1 seq 5 permit 10.10.10.10/32
+      ip prefix-list CHECK_ROUTES seq 5 permit 10.10.10.10/32
+      ip prefix-list CHECK_ROUTES seq 10 permit 192.168.1.0/24
       !
-      route-map default permit 10
-       match ip address prefix-list p1
-       set community 123:123
+      bgp community-list standard COMM_LIST permit 65001:100
+      !
+      route-map DEFAULT_MAP permit 10
+       match ip address prefix-list CHECK_ROUTES
+       match community COMM_LIST
+       set community 65001:200 additive
       !
 
    See also :clicmd:`bgp default-originate set-only-unconditional` for
    backward compatibility options when using set-only route-maps with an
-   empty BGP table.
+   empty BGP table, and :clicmd:`bgp default-originate optimized` for
+   enabling the optimized route-map evaluation algorithm.
 
 .. clicmd:: bgp default-originate set-only-unconditional
 
@@ -2205,6 +2235,32 @@ Configuring Peers
    default route unconditionally, even if the BGP table is empty. This is the
    intended behavior for set-only route-maps, as they have no match conditions
    that could fail.
+
+   This command is scheduled to become the default behavior in a future FRR
+   release, at which point the command will be deprecated.
+
+.. clicmd:: bgp default-originate optimized
+
+   This command controls the algorithm used for evaluating conditional
+   route-maps (route-maps with ``match`` clauses) in the ``default-originate``
+   feature.
+
+   By default (without this command), a full BGP RIB walk is performed to find
+   routes matching the route-map conditions. This preserves backward
+   compatibility with previous FRR behavior.
+
+   When this command is configured, an optimized prefix-list driven lookup is
+   used instead. This algorithm directly looks up prefixes specified in the
+   route-map's ``match ip address prefix-list`` clause, avoiding the need to
+   iterate over the entire BGP table. This is significantly more efficient for
+   large routing tables.
+
+   **Limitation:** the optimized algorithm only inspects the top-level
+   route-map's sequences for prefix-list match rules.  Route-map ``call``
+   clauses (``call WORD``) are not followed; a prefix-list that resides inside
+   a called map will not be discovered and the default route will be
+   permanently withheld.  The ``call`` clause **must not** be used in a
+   route-map configured for ``default-originate``.
 
    This command is scheduled to become the default behavior in a future FRR
    release, at which point the command will be deprecated.
