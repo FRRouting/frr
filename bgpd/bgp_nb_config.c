@@ -5880,15 +5880,31 @@ void bgp_nb_cli_show_peer_cap_soft_version(struct vty *vty, const struct lyd_nod
 					   bool show_defaults)
 {
 	const char *val = yang_dnode_get_string(dnode, NULL);
+	const struct lyd_node *bgp_dnode = yang_dnode_get_parent(dnode, "bgp");
+	const char *dflt = "disabled";
+	bool dflt_old, dflt_new, has_old, has_new;
 
-	if (strmatch(val, "old-encoding"))
-		vty_out(vty, "%sneighbor %s capability software-version\n", bgp_nb_peer_show_indent(dnode),
+	if (bgp_dnode)
+		dflt = yang_dnode_get_string(bgp_dnode, "./global/default-software-version-capability");
+
+	dflt_old = strmatch(dflt, "old-encoding");
+	dflt_new = strmatch(dflt, "latest-encoding");
+	has_old = strmatch(val, "old-encoding");
+	has_new = strmatch(val, "latest-encoding");
+
+	/*
+	 * Same as the classic writer: a line is only needed where the
+	 * neighbor differs from "bgp default software-version-capability".
+	 * An explicit disable is shown as "no" only when the default would
+	 * otherwise have turned the capability on.
+	 */
+	if (dflt_old ? !has_old : has_old)
+		vty_out(vty, "%s%sneighbor %s capability software-version\n",
+			bgp_nb_peer_show_indent(dnode), dflt_old ? "no " : "",
 			bgp_nb_config_peer_name(dnode));
-	else if (strmatch(val, "latest-encoding"))
-		vty_out(vty, "%sneighbor %s capability software-version latest-encoding\n", bgp_nb_peer_show_indent(dnode),
-			bgp_nb_config_peer_name(dnode));
-	else
-		vty_out(vty, "%sno neighbor %s capability software-version\n", bgp_nb_peer_show_indent(dnode),
+	if (dflt_new ? !has_new : has_new)
+		vty_out(vty, "%s%sneighbor %s capability software-version latest-encoding\n",
+			bgp_nb_peer_show_indent(dnode), dflt_new ? "no " : "",
 			bgp_nb_config_peer_name(dnode));
 }
 
