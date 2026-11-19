@@ -50,7 +50,9 @@ def teardown_module(mod):
 
 def _configured_follows_bgp(router):
     detail = router.vtysh_cmd("show bgp neighbors 192.0.2.2")
-    assert "Configured hold time is 30 seconds, keepalive interval is 10 seconds" in detail
+    assert (
+        "Configured hold time is 30 seconds, keepalive interval is 10 seconds" in detail
+    )
 
 
 def test_no_neighbor_timers_follows_bgp_timers():
@@ -75,7 +77,9 @@ router bgp 65000
     assert "timers bgp 10 30" in running
     assert "neighbor 192.0.2.2 timers 20 60" in running
     detail = r1.vtysh_cmd("show bgp neighbors 192.0.2.2")
-    assert "Configured hold time is 60 seconds, keepalive interval is 20 seconds" in detail
+    assert (
+        "Configured hold time is 60 seconds, keepalive interval is 20 seconds" in detail
+    )
 
     r1.vtysh_multicmd(
         """

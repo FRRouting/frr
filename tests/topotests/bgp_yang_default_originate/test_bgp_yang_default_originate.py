@@ -77,7 +77,9 @@ def test_removing_filtered_default_originate_does_not_leak():
     )
     assert ok, result
 
-    ok, result = topotest.run_and_expect(lambda: _has_default(r2), False, count=10, wait=1)
+    ok, result = topotest.run_and_expect(
+        lambda: _has_default(r2), False, count=10, wait=1
+    )
     assert ok, "deny route-map did not suppress the default: %s" % result
 
     r1.vtysh_multicmd(
