@@ -36,6 +36,7 @@
 #include "zebra/router-id.h"
 #include "zebra/rtadv.h"
 #include "zebra/zebra_ptm.h"
+#include "zebra/zebra_ptrack.h"
 #include "zebra/zebra_ns.h"
 #include "zebra/redistribute.h"
 #include "zebra/zebra_mpls.h"
@@ -242,6 +243,8 @@ void zebra_finalize(struct event *dummy)
 
 	zebra_rib_terminate();
 	zebra_router_terminate();
+
+	zebra_ptrack_terminate();
 
 	zebra_mpls_terminate();
 
@@ -570,6 +573,9 @@ int main(int argc, char **argv)
 
 	/* RNH init */
 	zebra_rnh_init();
+
+	/* Ptrack init */
+	zebra_ptrack_init();
 
 	/* Config handler Init */
 	zebra_evpn_init();

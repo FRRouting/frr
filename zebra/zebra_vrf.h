@@ -20,6 +20,7 @@ extern "C" {
 #endif
 
 struct route_node;
+struct ptrack_vrf_ctx;
 
 FRR_CFG_DEFAULT_BOOL(ZEBRA_IP_NHT_RESOLVE_VIA_DEFAULT,
 	{ .val_bool = true, .match_profile = "traditional", },
@@ -77,6 +78,11 @@ struct zebra_vrf {
 	struct route_table *rnh_table_multicast[AFI_MAX];
 
 	struct otable_head other_tables;
+
+	/*
+	 * Ptrack context
+	 */
+	struct ptrack_vrf_ctx *ptrack;
 
 	/* 2nd pointer type used primarily to quell a warning on
 	 * ALL_LIST_ELEMENTS_RO
