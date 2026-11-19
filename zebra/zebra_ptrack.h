@@ -121,6 +121,11 @@ extern void zebra_ptrack_unregister(struct zserv *client,
 extern void zebra_ptrack_evaluate(struct zebra_vrf *zvrf, struct route_node *rn);
 
 /*
+ * Ptrack rib sweep
+ */
+extern void zebra_ptrack_rib_sweep(void);
+
+/*
  * Ptrack vrf enable: attach the context of the VRF name to the zebra_vrf and
  * re-evaluate all its prefixes, sends UPDATE for the flips
  */

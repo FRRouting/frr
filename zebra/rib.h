@@ -429,6 +429,7 @@ extern void rib_update(enum rib_update_event event, int type);
 extern void rib_update_table(struct route_table *table,
 			     enum rib_update_event event, int rtype);
 extern void rib_sweep_route(struct event *t);
+extern bool zebra_rib_startup_done(void);
 extern void rib_sweep_table(struct route_table *table);
 extern void rib_close_table(struct route_table *table);
 extern void zebra_rib_init(void);

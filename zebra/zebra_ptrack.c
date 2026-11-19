@@ -24,10 +24,12 @@
 #include "log.h"
 #include "hook.h"
 #include "stream.h"
+#include "frrevent.h"
 #include "zclient.h"
 
 #include "zebra/rib.h"
 #include "zebra/zserv.h"
+#include "zebra/zebra_router.h"
 #include "zebra/zebra_vrf.h"
 #include "zebra/zebra_ptrack.h"
 
@@ -125,6 +127,10 @@ DECLARE_RBTREE_UNIQ(ptrack_registry, struct ptrack_vrf_ctx, item,
 
 static struct ptrack_registry_head ptrack_registry;
 static uint32_t ptrack_cookie_limit = ZEBRA_PTRACK_DEFAULT_COOKIE_LIMIT;
+
+/* A message was held back because zebra was still starting up */
+static bool ptrack_held;
+static struct event *t_ptrack_release;
 
 /* Free a client of a prefix with all its cookies */
 static void ptrack_client_free(struct ptrack_client *pc)
@@ -519,10 +525,24 @@ static enum zapi_ptrack_state ptrack_prefix_state(struct zebra_vrf *zvrf,
 	return state;
 }
 
-/* Send one UPDATE message to a client, returns false if it can't be encoded */
+/*
+ * Send one UPDATE message to a client, every message goes through here.
+ *
+ * Returns false if it was not sent: nothing is sent until zebra finished its
+ * startup, the entries are still stored and updated meanwhile and everything
+ * is sent once, see zebra_ptrack_rib_sweep(). It also returns false if
+ * the message can't be encoded.
+ */
 static bool ptrack_send_msg(struct zserv *client, const struct zapi_ptrack *api)
 {
-	struct stream *s = stream_new(ZEBRA_MAX_PACKET_SIZ);
+	struct stream *s;
+
+	if (!zebra_rib_startup_done()) {
+		ptrack_held = true;
+		return false;
+	}
+
+	s = stream_new(ZEBRA_MAX_PACKET_SIZ);
 
 	if (zapi_ptrack_encode(ZEBRA_PREFIX_TRACK_UPDATE, s, api)) {
 		stream_free(s);
@@ -791,6 +811,57 @@ void zebra_ptrack_vrf_disable(struct zebra_vrf *zvrf)
 	ptrack_ctx_update_all(zvrf, zvrf->ptrack, false);
 }
 
+/*
+ * Send the current state of every tracked prefix to all its clients and
+ * cookies. Everything that was subscribed or flipped while the messages were
+ * held is pending, there is no flag per cookie. The state is taken from the
+ * RIB again, the sweep just marked the stale routes as removed.
+ */
+static void ptrack_release_held(struct event *event)
+{
+	struct ptrack_vrf_ctx *ctx;
+	struct ptrack_client *pc;
+	struct ptrack_entry *pe;
+	struct zebra_vrf *zvrf;
+	struct route_node *rn;
+	afi_t afi;
+
+	ptrack_held = false;
+
+	frr_each (ptrack_registry, &ptrack_registry, ctx) {
+		/* The VRF may be gone, its prefixes are UNREACHABLE then */
+		zvrf = zebra_vrf_lookup_by_name(ctx->vrf_name);
+
+		for (afi = AFI_IP; afi <= AFI_IP6; afi++) {
+			for (rn = route_top(ctx->table[afi]); rn;
+			     rn = route_next(rn)) {
+				pe = rn->info;
+				if (!pe)
+					continue;
+
+				pe->state = ZAPI_PTRACK_UNREACHABLE;
+				if (zvrf)
+					pe->state = ptrack_prefix_state(zvrf, &rn->p);
+
+				frr_each (ptrack_clients, &pe->clients, pc)
+					ptrack_notify_client(pc, ctx->vrf_name,
+							     &rn->p, pe->state);
+			}
+		}
+	}
+}
+
+void zebra_ptrack_rib_sweep(void)
+{
+	/* Nothing was held, always the case after a graceful restart */
+	if (!ptrack_held)
+		return;
+
+	/* An event keeps the sweep short, the messages can be many */
+	event_add_event(zrouter.master, ptrack_release_held, NULL, 0,
+			&t_ptrack_release);
+}
+
 /* Remove a client from all the prefixes of a context */
 static void ptrack_ctx_del_client(struct ptrack_vrf_ctx *ctx,
 				  struct zserv *client)
@@ -859,6 +930,8 @@ void zebra_ptrack_init(void)
 void zebra_ptrack_terminate(void)
 {
 	struct ptrack_vrf_ctx *ctx;
+
+	event_cancel(&t_ptrack_release);
 
 	while ((ctx = ptrack_registry_first(&ptrack_registry)))
 		ptrack_ctx_free(ctx);

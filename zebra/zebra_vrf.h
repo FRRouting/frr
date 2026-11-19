@@ -8,6 +8,7 @@
 #define __ZEBRA_VRF_H__
 
 #include "vxlan.h"
+#include "zebra_ptrack.h"
 
 #include <zebra/zebra_ns.h>
 #include <zebra/zebra_pw.h>
@@ -20,7 +21,6 @@ extern "C" {
 #endif
 
 struct route_node;
-struct ptrack_vrf_ctx;
 
 FRR_CFG_DEFAULT_BOOL(ZEBRA_IP_NHT_RESOLVE_VIA_DEFAULT,
 	{ .val_bool = true, .match_profile = "traditional", },

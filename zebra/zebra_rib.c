@@ -5064,6 +5064,24 @@ void rib_sweep_table(struct route_table *table)
 		zlog_debug("%s: ends", __func__);
 }
 
+/*
+ * Whether the RIB can be trusted to tell what is reachable after zebra
+ * (re)started, for the clients that ask about prefixes.
+ */
+bool zebra_rib_startup_done(void)
+{
+	/* FINISHED_STARTUP was not processed yet */
+	if (!zrouter.startup_time)
+		return false;
+
+	/* Stale routes are retained, so the state is already accurate */
+	if (zrouter.graceful_restart)
+		return true;
+
+	/* Not graceful, wait until the stale routes were swept */
+	return zrouter.rib_sweep_time != 0;
+}
+
 /* Sweep all RIB tables.  */
 void rib_sweep_route(struct event *t)
 {
@@ -5085,6 +5103,7 @@ void rib_sweep_route(struct event *t)
 	zebra_router_sweep_route();
 	zebra_router_sweep_nhgs();
 	zebra_evpn_stale_entries_cleanup(zrouter.startup_time);
+	zebra_ptrack_rib_sweep();
 }
 
 /* Remove specific by protocol routes from 'table'. */
