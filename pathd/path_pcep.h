@@ -118,7 +118,7 @@ struct pcep_caps {
 	/* If we know the objective functions supported by the PCE.
 	 * If we don't know, it doesn't mean the PCE doesn't support any */
 	bool supported_ofs_are_known;
-	/* Defined if we know which objective funtions are supported by the PCE.
+	/* Defined if we know which objective functions are supported by the PCE.
 	 * One bit per objective function, the bit index being equal to
 	 * enum pcep_objfun_type values: bit 0 is not used, bit 1 is
 	 * PCEP_OBJFUN_MCP, up to bit 17 that is PCEP_OBJFUN_MSN */
@@ -178,7 +178,7 @@ struct path_metric {
 };
 
 struct path {
-	/* Both the nbkey and the plspid are keys comming from the PCC,
+	/* Both the nbkey and the plspid are keys coming from the PCC,
 	but the PCE is only using the plspid. The missing key is looked up by
 	the PCC so we always have both */
 
@@ -188,7 +188,7 @@ struct path {
 	   See draft-ietf-pce-stateful-pce */
 	uint32_t plsp_id;
 
-	/* The transport address the path is comming from, PCE or PCC*/
+	/* The transport address the path is coming from, PCE or PCC*/
 	struct ipaddr sender;
 	/* The pcc protocol address, must be the same family as the endpoint */
 	struct ipaddr pcc_addr;
@@ -231,9 +231,9 @@ struct path {
 	/* Indicate the path is part of the synchronization process.
 	   See draft-ietf-pce-stateful-pce, section-7.3, flag S */
 	bool is_synching;
-	/* Indicate if the path bandwidth requirment is defined */
+	/* Indicate if the path bandwidth requirement is defined */
 	bool has_bandwidth;
-	/* Indicate if the bandwidth requirment should be enforced */
+	/* Indicate if the bandwidth requirement should be enforced */
 	bool enforce_bandwidth;
 	/* Path required bandwidth if defined */
 	float bandwidth;

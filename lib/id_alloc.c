@@ -252,7 +252,7 @@ uint32_t idalloc_allocate(struct id_alloc *alloc)
 
 /*
  * Tries to allocate a specific ID from the allocator. Returns IDALLOC_INVALID
- * when the ID being "reserved" has allready been assigned/reserved. This should
+ * when the ID being "reserved" has already been assigned/reserved. This should
  * only be done with low numbered IDs, as the allocator needs to reserve bit-map
  * pages in order
  */

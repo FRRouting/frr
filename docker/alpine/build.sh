@@ -9,7 +9,7 @@ set -x
 
 ##
 # Set GITREV=0 or similar in ENV if you want the tag to just be updated to -0
-# everytime for automation usage/scripts/etc locally.
+# every time for automation usage/scripts/etc locally.
 #
 # Ex) GITREV=0 ./build.sh
 ##

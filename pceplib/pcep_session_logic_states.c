@@ -745,7 +745,7 @@ bool check_and_send_open_keep_alive(pcep_session *session)
 	if (session->pce_open_received == true
 	    && session->pce_open_rejected == false
 	    && session->pce_open_keep_alive_sent == false) {
-		/* Send the PCE Open keep-alive response if it hasnt been sent
+		/* Send the PCE Open keep-alive response if it hasn't been sent
 		 * yet */
 		cancel_timer(session->timer_id_open_keep_alive);
 		session->timer_id_open_keep_alive = TIMER_ID_NOT_SET;

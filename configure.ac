@@ -1365,7 +1365,7 @@ AC_CHECK_FUNCS([ \
 	explicit_bzero \
 	])
 
-dnl note the trailing _ in the following macros; this is neccessary since
+dnl note the trailing _ in the following macros; this is necessary since
 dnl otherwise autoheader *replaces* the #define with the block...
 dnl
 dnl yes this might include stddef.h 3 times but who cares

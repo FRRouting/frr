@@ -136,7 +136,7 @@ void txn_cfg_cleanup(struct txn_req *txn_req)
 	/*
 	 * What state are we in:
 	 *
-	 * FINISH: Everythign went OK. If this was NOT validate-only then all
+	 * FINISH: Everything went OK. If this was NOT validate-only then all
 	 * clients have replied to the CFG_APPLY and deleted their txn state. We
 	 * have nothing to do. Otherwise, this is validate-only and all the
 	 * clients still have config txn state with the changes. We need to
@@ -149,7 +149,7 @@ void txn_cfg_cleanup(struct txn_req *txn_req)
 	 * SEND-CFG: Some clients may have cfg txn state. We send all clients
 	 * config abort (TXN-delete) to cleanup any transaction state. Even if
 	 * clients have rejected the config and deleted txn state already they
-	 * are expected to handle receving TXN-delete gracefully (e.g., their
+	 * are expected to handle receiving TXN-delete gracefully (e.g., their
 	 * reply may still be in flight when we got here).
 	 */
 	phase = ccreq->phase;
@@ -237,14 +237,14 @@ static int txn_cfg_send_txn_delete(struct mgmt_be_client_adapter *adapter, uint6
  * against our backend clients to see who is interested. For each interested
  * client we create a config message -- we also track which changes mgmtd itself
  * is interested in. If a client is interested we add the change to it's config
- * message and track the type of chagne in another string array.
+ * message and track the type of change in another string array.
  *
  * When done with the changes we first handle mgmtd's own changes, validating,
  * and preparing them into the mgmtd candidate (using normal lib/northbound
  * routines). Then for each backend client we complete it's config message by
  * append the action string and then we send it to the client.
  *
- * Return: 0 on success, the caller should arrange to receive REPLYS from the
+ * Return: 0 on success, the caller should arrange to receive REPLIES from the
  * clients before proceeding further, if no clients were interested the caller
  * should proceed to apply the mgmtd local changes (if any) to complete the txn.
  *
@@ -697,7 +697,7 @@ static void txn_cfg_timeout(struct event *event)
 }
 
 /*
- * Given a list of config changes, make backend client messages and send them. Aslo
+ * Given a list of config changes, make backend client messages and send them. Also
  * apply any mgmtd specific config as well.
  */
 static int txn_cfg_send_config_changes(struct txn_req_commit *ccreq,

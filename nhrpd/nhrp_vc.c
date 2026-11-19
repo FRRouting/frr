@@ -141,7 +141,7 @@ int nhrp_vc_ipsec_updown(uint32_t child_id, struct nhrp_vc *vc)
 		abort_migration = sa->vc->abort_migration;
 	}
 	if (sa->vc) {
-		/* Deattach old VC */
+		/* Detach old VC */
 		sa->vc->ipsec--;
 		if (!sa->vc->ipsec)
 			nhrp_vc_ipsec_reset(sa->vc);

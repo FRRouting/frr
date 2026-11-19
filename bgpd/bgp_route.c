@@ -18933,7 +18933,7 @@ static int peer_adj_routes_brief(struct vty *vty, struct peer *peer, afi_t afi, 
 			continue;
 		}
 	}
-	vty_json_no_pretty(vty, json_prefix); /* Free's all the JSON's associted with prefix */
+	vty_json_no_pretty(vty, json_prefix); /* Free's all the JSON's associated with prefix */
 	return CMD_SUCCESS;
 }
 

@@ -81,7 +81,7 @@ static inline int16_t errno_from_nb_error(enum nb_error ret)
 }
 
 /* --------------------- */
-/* Gernal Txn Functions. */
+/* General Txn Functions. */
 /* --------------------- */
 
 extern void mgmt_txn_init(void);
@@ -158,7 +158,7 @@ extern void mgmt_txn_send_rpc(uint64_t txn_id, uint64_t req_id, uint64_t clients
 /**
  * mgmt_txn_send_notify_selectors() - Send NOTIFY SELECT request.
  * @req_id: FE client request identifier.
- * @session_id: If non-zero the message will get sent as a `get_only` vs modifing
+ * @session_id: If non-zero the message will get sent as a `get_only` vs modifying
  *	        the selectors in the backend, and the get result will be sent
  *              back to the given session.
  * @clients: Bitmask of backend clients to send message to.

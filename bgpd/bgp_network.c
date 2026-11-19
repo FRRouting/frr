@@ -776,7 +776,7 @@ static char *bgp_get_bound_name(struct peer_connection *connection)
 	 * If a v6 neighbors address is covered by an interfaces connected prefix,
 	 * then let's use that interfaces name as the bind point.  This will prevent
 	 * 'fun' situations with DAD not fully saying an address is usable and causing
-	 * some random source address to be choosen.
+	 * some random source address to be chosen.
 	 * Skip link-local neighbors: they match every interface.
 	 */
 	if (connection->su.sa.sa_family == AF_INET6 &&

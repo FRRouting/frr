@@ -14583,7 +14583,7 @@ DEFPY(ospf_instance_shutdown, ospf_instance_shutdown_cmd,
 			return CMD_WARNING_CONFIG_FAILED;
 		}
 
-		/* Reenable routing instance in the GR mode. */
+		/* Re-enable routing instance in the GR mode. */
 		ospf_gr_restart_enter(ospf, OSPF_GR_SWITCH_CONTROL_PROCESSOR,
 				      time(NULL) + ospf->gr_info.grace_period);
 

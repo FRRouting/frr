@@ -1154,7 +1154,7 @@ static void vnc_direct_add_rn_group_rd(struct bgp *bgp,
 	const struct prefix *p = agg_node_get_prefix(rn);
 
 	if (irfd == NULL && rfg->type != RFAPI_GROUP_CFG_VRF) {
-		/* need new rfapi_handle, for peer strcture
+		/* need new rfapi_handle, for peer structure
 		 * -- based on vnc_add_vrf_prefi */
 		assert(rfg->rfd == NULL);
 
