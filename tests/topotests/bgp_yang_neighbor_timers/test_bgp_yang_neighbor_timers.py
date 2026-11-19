@@ -22,6 +22,7 @@ CWD = os.path.dirname(os.path.realpath(__file__))
 sys.path.append(os.path.join(CWD, "../"))
 
 # pylint: disable=C0413
+from lib import topotest
 from lib.common_config import kill_router_daemons, start_router_daemons
 from lib.topogen import Topogen, get_topogen
 
@@ -90,13 +91,32 @@ router bgp 65000
     assert "neighbor 192.0.2.2 timers" not in running
     _configured_follows_bgp(r1)
 
+    # The restart reloads frr.conf, so save what was configured above.
+    r1.vtysh_cmd("write memory")
+
     kill_router_daemons(tgen, "r1", ["bgpd"])
     start_router_daemons(tgen, "r1", ["bgpd"])
 
-    running = r1.vtysh_cmd("show running-config")
-    assert "timers bgp 10 30" in running
-    assert "neighbor 192.0.2.2 timers" not in running
-    _configured_follows_bgp(r1)
+    def _restored():
+        running = r1.vtysh_cmd("show running-config")
+        if "timers bgp 10 30" not in running:
+            return "timers bgp 10 30 missing after restart"
+        if "neighbor 192.0.2.2 timers" in running:
+            return "neighbor timers override came back after restart"
+        return None
+
+    ok, result = topotest.run_and_expect(_restored, None, count=30, wait=1)
+    assert ok, result
+
+    def _follows_bgp():
+        try:
+            _configured_follows_bgp(r1)
+        except AssertionError as err:
+            return str(err)
+        return None
+
+    ok, result = topotest.run_and_expect(_follows_bgp, None, count=30, wait=1)
+    assert ok, result
 
 
 def test_hold_time_one_is_rejected():
