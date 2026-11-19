@@ -1322,12 +1322,6 @@ void subgroup_default_update_packet(struct update_subgroup *subgrp,
 
 	(void)bpacket_queue_add(SUBGRP_PKTQ(subgrp), s, &vecarr);
 	subgroup_trigger_write(subgrp);
-
-	if (!CHECK_FLAG(subgrp->sflags,
-			SUBGRP_STATUS_PEER_DEFAULT_ORIGINATED)) {
-		subgrp->scount++;
-		SET_FLAG(subgrp->sflags, SUBGRP_STATUS_PEER_DEFAULT_ORIGINATED);
-	}
 }
 
 /*
@@ -1504,12 +1498,6 @@ void subgroup_default_withdraw_packet(struct update_subgroup *subgrp)
 
 	(void)bpacket_queue_add(SUBGRP_PKTQ(subgrp), s, NULL);
 	subgroup_trigger_write(subgrp);
-
-	if (CHECK_FLAG(subgrp->sflags, SUBGRP_STATUS_PEER_DEFAULT_ORIGINATED)) {
-		subgrp->scount--;
-		UNSET_FLAG(subgrp->sflags,
-			   SUBGRP_STATUS_PEER_DEFAULT_ORIGINATED);
-	}
 }
 
 static void

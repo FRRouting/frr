@@ -1134,6 +1134,8 @@ void subgroup_default_originate_unconfig(struct update_subgroup *subgrp)
 		if (bgp_debug_update(NULL, &p, subgrp->update_group, 0))
 			zlog_debug("u%" PRIu64 ":s%" PRIu64 " default-originate WITHDRAW (unset)",
 				   subgrp->update_group->id, subgrp->id);
+		if (!DISABLE_BGP_ANNOUNCE)
+			subgrp->scount--;
 		bgp_attr_unintern(&subgrp->default_originate_attr);
 		subgrp->default_originate_attr = NULL;
 		subgroup_default_withdraw_packet(subgrp);
@@ -1346,6 +1348,8 @@ rmap_done:;
 			if (do_debug)
 				zlog_debug("u%" PRIu64 ":s%" PRIu64 " default-originate WITHDRAW",
 					   subgrp->update_group->id, subgrp->id);
+			if (!DISABLE_BGP_ANNOUNCE)
+				subgrp->scount--;
 			bgp_attr_unintern(&subgrp->default_originate_attr);
 			subgrp->default_originate_attr = NULL;
 			subgroup_default_withdraw_packet(subgrp);
@@ -1377,6 +1381,8 @@ rmap_done:;
 						zlog_debug("u%" PRIu64 ":s%" PRIu64
 							   " default-originate WITHDRAW (route-map deny)",
 							   subgrp->update_group->id, subgrp->id);
+					if (!DISABLE_BGP_ANNOUNCE)
+						subgrp->scount--;
 					bgp_attr_unintern(&subgrp->default_originate_attr);
 					subgrp->default_originate_attr = NULL;
 					subgroup_default_withdraw_packet(subgrp);
@@ -1422,6 +1428,8 @@ rmap_done:;
 					   subgrp->update_group->id, subgrp->id);
 			if (subgrp->default_originate_attr)
 				bgp_attr_unintern(&subgrp->default_originate_attr);
+			else if (!DISABLE_BGP_ANNOUNCE)
+				subgrp->scount++;
 			subgrp->default_originate_attr = new_interned;
 			subgroup_default_update_packet(subgrp, new_interned, from);
 		} else if (!CHECK_FLAG(bgp->flags, BGP_FLAG_SUPPRESS_DUPLICATES) ||
