@@ -30,6 +30,7 @@ from lib import topotest
 from lib.common_config import step, shutdown_bringup_interface_in_kernel
 from lib.topogen import Topogen, TopoRouter, get_topogen
 from lib.topolog import logger
+from lib.topotest import json_cmp
 from time import sleep
 
 
@@ -816,6 +817,115 @@ def test_protodown():
         sleep(1)
 
     assert pdown is False, "Interface r1-eth0-macvlan not set protodown off"
+
+
+def test_route_survives_nexthop_interface_flap():
+    """
+    A route out of an interface must stay in the zebra RIB and kernel FIB
+    after a down/up flap of that interface.
+    """
+
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip("skipped because of previous test failure")
+
+    r1 = tgen.gears["r1"]
+
+    func_zebra_present = partial(
+        topotest.router_json_cmp,
+        r1,
+        "show ip route 172.16.20.0/24 json",
+        {
+            "172.16.20.0/24": [
+                {
+                    "prefix": "172.16.20.0/24",
+                    "protocol": "static",
+                    "selected": True,
+                    "destSelected": True,
+                    "installed": True,
+                    "nexthops": [
+                        {
+                            "fib": True,
+                            "directlyConnected": True,
+                            "interfaceName": "dummy0",
+                            "active": True,
+                        }
+                    ],
+                }
+            ]
+        },
+    )
+    func_zebra_absent = partial(
+        topotest.router_json_cmp,
+        r1,
+        "show ip route 172.16.20.0/24 json",
+        {},
+        exact=True,
+    )
+
+    def _kernel_route_cmp(expected, exact=False):
+        output = json.loads(r1.cmd("ip -j route show 172.16.20.0/24") or "[]")
+        return json_cmp(output, expected, exact=exact)
+
+    func_kernel_present = partial(
+        _kernel_route_cmp, [{"dst": "172.16.20.0/24", "dev": "dummy0"}]
+    )
+    func_kernel_absent = partial(_kernel_route_cmp, [], exact=True)
+
+    step("Create the nexthop interface and a static route out of it")
+    r1.run(
+        """
+ip link add dummy0 type dummy
+ip link set dummy0 up
+"""
+    )
+    r1.vtysh_cmd(
+        """
+configure
+ip route 172.16.20.0/24 dummy0
+"""
+    )
+
+    _, result = topotest.run_and_expect(func_zebra_present, None, count=20, wait=1)
+    assert result is None, '"r1" show ip route 172.16.20.0/24 json output mismatches'
+    _, result = topotest.run_and_expect(func_kernel_present, None, count=20, wait=1)
+    assert result is None, "172.16.20.0/24 is missing from the kernel FIB}"
+
+    step("Slowly flap dummy0")
+    r1.run("ip link set dummy0 down")
+    _, result = topotest.run_and_expect(func_zebra_absent, None, count=20, wait=1)
+    assert result is None, '"r1" show ip route 172.16.20.0/24 json output mismatches'
+    _, result = topotest.run_and_expect(func_kernel_absent, None, count=20, wait=1)
+    assert result is None, "172.16.20.0/24 is present in the kernel FIB"
+
+    r1.run("ip link set dummy0 up")
+    _, result = topotest.run_and_expect(func_zebra_present, None, count=20, wait=1)
+    assert result is None, '"r1" show ip route 172.16.20.0/24 json output mismatches'
+    _, result = topotest.run_and_expect(func_kernel_present, None, count=20, wait=1)
+    assert result is None, "172.16.20.0/24 is missing from the kernel FIB"
+
+    step("Fastly flap dummy0")
+    r1.run(
+        """
+ip -batch - <<EOF
+link set dummy0 down
+link set dummy0 up
+EOF
+"""
+    )
+
+    _, result = topotest.run_and_expect(func_zebra_present, None, count=20, wait=1)
+    assert result is None, '"r1" show ip route 172.16.20.0/24 json output mismatches'
+    _, result = topotest.run_and_expect(func_kernel_present, None, count=20, wait=1)
+    assert result is None, "172.16.20.0/24 is missing from the kernel FIB"
+
+    r1.vtysh_cmd(
+        """
+configure
+no ip route 172.16.20.0/24 dummy0
+"""
+    )
+    r1.run("ip link del dummy0")
 
 
 def test_memory_leak():
