@@ -15,6 +15,7 @@ not advertise an unfiltered default.
 
 import os
 import sys
+import time
 import pytest
 
 CWD = os.path.dirname(os.path.realpath(__file__))
@@ -93,8 +94,11 @@ router bgp 65001
     detail = r1.vtysh_cmd("show bgp neighbors 192.0.2.2")
     assert "Default information originate" not in detail
 
-    for _ in range(5):
+    # A leak needs the withdrawn default-originate to be re-evaluated and an
+    # UPDATE to reach r2, so watch for a few seconds rather than once.
+    for _ in range(10):
         assert not _has_default(r2), "unfiltered default was advertised"
+        time.sleep(1)
 
 
 if __name__ == "__main__":
