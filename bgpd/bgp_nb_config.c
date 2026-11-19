@@ -4386,6 +4386,10 @@ int bgp_nb_unnumbered_peer_group_modify(struct nb_cb_modify_args *args)
 
 	bgp_nb_peer_reapply_enabled_af(peer, args->dnode);
 
+	/* Same as a numbered neighbor: a group with a remote-as needs a socket. */
+	if (group->conf->as_type != AS_UNSPECIFIED)
+		bgp_nb_need_listening(peer->bgp);
+
 	return NB_OK;
 }
 
