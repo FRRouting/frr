@@ -701,6 +701,7 @@ static const char *ecommunity_gettoken(const char *str, void *eval_ptr,
 	if (*token == ecommunity_token_rt6 ||
 	    *token == ecommunity_token_val6) {
 		const char *limit;
+		char addrbuf[INET6_ADDRSTRLEN];
 
 		limit = strrchr(p, ':');
 		endptr = (char *)limit;
@@ -721,9 +722,11 @@ static const char *ecommunity_gettoken(const char *str, void *eval_ptr,
 			goto error;
 		as = (as_t)tmp_as;
 
-		memcpy(buf, p, (limit - p));
-		buf[limit - p] = '\0';
-		ret = inet_pton(AF_INET6, buf, &ip6);
+		if ((size_t)(limit - p) >= sizeof(addrbuf))
+			goto error;
+		memcpy(addrbuf, p, limit - p);
+		addrbuf[limit - p] = '\0';
+		ret = inet_pton(AF_INET6, addrbuf, &ip6);
 		if (ret == 0)
 			goto error;
 
