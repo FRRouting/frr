@@ -8,6 +8,7 @@
 #define _ZEBRA_PTRACK_H
 
 #include "prefix.h"
+#include "table.h"
 #include "zclient.h"
 #include "zebra/zserv.h"
 
@@ -112,6 +113,12 @@ extern void zebra_ptrack_register(struct zserv *client,
  */
 extern void zebra_ptrack_unregister(struct zserv *client,
 				    const struct zapi_ptrack *api);
+
+/*
+ * Ptrack evaluate: called with a route node the RIB just processed, sends
+ * UPDATE to the clients of the prefix if its state flipped
+ */
+extern void zebra_ptrack_evaluate(struct zebra_vrf *zvrf, struct route_node *rn);
 
 #ifdef __cplusplus
 }

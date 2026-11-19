@@ -43,6 +43,7 @@
 #include "zebra/zebra_errors.h"
 #include "zebra/zebra_ns.h"
 #include "zebra/zebra_rnh.h"
+#include "zebra/zebra_ptrack.h"
 #include "zebra/zebra_routemap.h"
 #include "zebra/zebra_vrf.h"
 #include "zebra/zebra_vxlan.h"
@@ -1615,6 +1616,11 @@ static void rib_process(struct route_node *rn)
 	 * Check if the dest can be deleted now.
 	 */
 	rib_gc_dest(rn);
+
+	/*
+	 * Evaluate the ptrack state for the prefix
+	 */
+	zebra_ptrack_evaluate(zvrf, rn);
 }
 
 static void zebra_rib_evaluate_mpls(struct route_node *rn)
