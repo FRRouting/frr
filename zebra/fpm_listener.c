@@ -133,6 +133,50 @@ struct glob {
 struct glob glob_space;
 struct glob *glob = &glob_space;
 
+/*
+ * The SIGUSR1 handler dumps the tables with stdio, and the SIGTERM, SIGINT
+ * and SIGHUP one exits, flushing stdio: keep the signals blocked while the
+ * tables or the output file change, and only take them while waiting for a
+ * connection or for data, so that a dump never walks a table in the middle
+ * of an update, nor an exit flushes a line being written.
+ */
+static sigset_t idle_sigset;
+
+static void idle_signals_allow(bool allow)
+{
+	int saved_errno = errno;
+
+	sigprocmask(allow ? SIG_UNBLOCK : SIG_BLOCK, &idle_sigset, NULL);
+	errno = saved_errno;
+}
+
+/*
+ * Write all of `buf`: a signal taken meanwhile may cut the write short
+ * (`SA_RESTART` only restarts a write that wrote nothing), which would
+ * leave a partial message in the stream. Returns 0, or the errno of the
+ * failure (no stdio here: the signals may be allowed).
+ */
+static int write_all(int fd, const void *buf, size_t len)
+{
+	const char *cur = buf;
+	ssize_t written;
+
+	while (len > 0) {
+		written = write(fd, cur, len);
+		if (written < 0) {
+			if (errno == EINTR)
+				continue;
+
+			return errno;
+		}
+
+		cur += written;
+		len -= written;
+	}
+
+	return 0;
+}
+
 #define ARRAY_SIZE(x) (sizeof(x) / sizeof(x[0]))
 
 /*
@@ -227,8 +271,10 @@ static int accept_conn(int listen_sock)
 
 		fprintf(glob->output_file, "Waiting for client connection...\n");
 		client_len = sizeof(client_addr);
+		idle_signals_allow(true);
 		sock = accept(listen_sock, (struct sockaddr *)&client_addr,
 			      &client_len);
+		idle_signals_allow(false);
 
 		if (sock >= 0) {
 			fprintf(glob->output_file, "[%s] Accepted client %s\n", get_timestamp(),
@@ -271,7 +317,9 @@ read_fpm_msg(char *buf, size_t buf_len)
 			reading_full_msg = 1;
 		}
 
+		idle_signals_allow(true);
 		bytes_read = read(glob->sock, cur, need_len);
+		idle_signals_allow(false);
 
 		if (bytes_read == 0) {
 			fprintf(glob->output_file, "Socket closed as that read returned 0\n");
@@ -1053,6 +1101,7 @@ static void parse_netlink_msg(char *buf, size_t buf_len, fpm_msg_hdr_t *fpm)
 	struct netlink_msg_ctx ctx_space, *ctx;
 	struct nlmsghdr *hdr;
 	unsigned int len;
+	int error;
 
 	fpm_listener_hexdump(buf, buf_len);
 	ctx = &ctx_space;
@@ -1090,7 +1139,13 @@ static void parse_netlink_msg(char *buf, size_t buf_len, fpm_msg_hdr_t *fpm)
 					ctx->rtmsg->rtm_flags |= RTM_F_OFFLOAD_FAILED;
 				else
 					ctx->rtmsg->rtm_flags |= RTM_F_OFFLOAD;
-				write(glob->sock, fpm, fpm_msg_len(fpm));
+				/* May block: take the signals meanwhile. */
+				idle_signals_allow(true);
+				error = write_all(glob->sock, fpm, fpm_msg_len(fpm));
+				idle_signals_allow(false);
+				if (error)
+					fprintf(stderr, "Failed to reflect the route: %s\n",
+						strerror(error));
 			}
 			break;
 
@@ -1157,6 +1212,11 @@ static void sigusr1_handler(int signum)
 	char buf[PREFIX_STRLEN];
 	FILE *out = glob->output_file;
 	FILE *dump_fp = NULL;
+	/*
+	 * Taken while `accept()` or `read()` waits: keep the errno a failed
+	 * one sets for the caller.
+	 */
+	int saved_errno = errno;
 
 	/*
 	 * Write the dump to a temporary file and rename it into place when
@@ -1247,6 +1307,8 @@ static void sigusr1_handler(int signum)
 				glob->dump_file_tmp, glob->dump_file, strerror(errno));
 		}
 	}
+
+	errno = saved_errno;
 }
 
 int main(int argc, char **argv)
@@ -1262,10 +1324,20 @@ int main(int argc, char **argv)
 	fpm_route_init(&glob->route_tree);
 	fpm_nhg_init(&glob->nhg_hash);
 
-	/* Set up signal handler for SIGUSR1 */
+	/*
+	 * Set up the signal handlers, blocked until we wait for I/O, and
+	 * blocking each other: an exit does not interrupt a dump.
+	 */
+	sigemptyset(&idle_sigset);
+	sigaddset(&idle_sigset, SIGUSR1);
+	sigaddset(&idle_sigset, SIGTERM);
+	sigaddset(&idle_sigset, SIGINT);
+	sigaddset(&idle_sigset, SIGHUP);
+	idle_signals_allow(false);
+
 	memset(&sa, 0, sizeof(sa));
 	sa.sa_handler = sigusr1_handler;
-	sigemptyset(&sa.sa_mask);
+	sa.sa_mask = idle_sigset;
 	sa.sa_flags = SA_RESTART;
 	if (sigaction(SIGUSR1, &sa, NULL) < 0) {
 		fprintf(stderr, "Failed to set up SIGUSR1 handler: %s\n", strerror(errno));
@@ -1274,7 +1346,7 @@ int main(int argc, char **argv)
 
 	memset(&sa, 0, sizeof(sa));
 	sa.sa_handler = sigterm_handler;
-	sigemptyset(&sa.sa_mask);
+	sa.sa_mask = idle_sigset;
 	if (sigaction(SIGTERM, &sa, NULL) < 0) {
 		fprintf(stderr, "Failed to set up SIGTERM handler: %s\n", strerror(errno));
 		exit(1);
