@@ -27,6 +27,7 @@
 #include "pbr_memory.h"
 #include "pbr_debug.h"
 #include "pbr_vrf.h"
+#include "pbr_tc.h"
 
 DEFINE_MTYPE_STATIC(PBRD, PBR_MAP, "PBR Map");
 DEFINE_MTYPE_STATIC(PBRD, PBR_MAP_SEQNO, "PBR Map Sequence");
@@ -165,10 +166,25 @@ static void pbr_map_pbrms_uninstall(struct pbr_map_sequence *pbrms)
 	pbr_map_pbrms_update_common(pbrms, false, false);
 }
 
+void pbr_map_sequence_uninstall(struct pbr_map_sequence *pbrms)
+{
+	pbr_map_pbrms_uninstall(pbrms);
+}
+
 static const char *const pbr_map_reason_str[] = {
-	"Invalid NH-group",	"Invalid NH",	 "No Nexthops",
-	"Both NH and NH-Group",    "Invalid Src or Dst", "Invalid VRF",
-	"Both VLAN Set and Strip", "Deleting Sequence",
+	"Invalid NH-group",
+	"Invalid NH",
+	"No Nexthops",
+	"Both NH and NH-Group",
+	"Invalid Src or Dst",
+	"Invalid VRF",
+	"Both VLAN Set and Strip",
+	"Deleting Sequence",
+	"Traffic-class with Queue-id",
+	"Traffic-class with Match Mark",
+	"Port Match needs IP Protocol TCP/UDP/SCTP",
+	"Match Mark with Traffic-class Mark Carrier",
+	"Untagged Match with Traffic-class needs an IP Match",
 };
 
 void pbr_map_reason_string(unsigned int reason, char *buf, int size)
@@ -558,9 +574,26 @@ struct pbr_map_sequence *pbrms_get(const char *name, uint32_t seqno)
 	return pbrms;
 }
 
+bool pbrms_is_classify_only(const struct pbr_map_sequence *pbrms)
+{
+	if (!CHECK_FLAG(pbrms->action_bm, PBR_ACTION_TRAFFIC_CLASS))
+		return false;
+
+	return !pbrms->vrf_unchanged && !pbrms->vrf_lookup && !pbrms->nhg && !pbrms->nhgrp_name;
+}
+
 static void
 pbr_map_sequence_check_nexthops_valid(struct pbr_map_sequence *pbrms)
 {
+	/*
+	 * A classify-only sequence changes no forwarding, so it needs no
+	 * nexthop: it is installed as a classifier only.
+	 */
+	if (pbrms_is_classify_only(pbrms)) {
+		pbrms->nhs_installed = true;
+		return;
+	}
+
 	/* Check if any are present first */
 	if (!pbrms->vrf_unchanged && !pbrms->vrf_lookup && !pbrms->nhg
 	    && !pbrms->nhgrp_name) {
@@ -638,7 +671,8 @@ static void pbr_map_sequence_check_not_empty(struct pbr_map_sequence *pbrms)
 			PBR_ACTION_VLAN_ID |
 			PBR_ACTION_VLAN_STRIP_INNER_ANY |
 
-			PBR_ACTION_QUEUE_ID
+			PBR_ACTION_QUEUE_ID |
+			PBR_ACTION_TRAFFIC_CLASS
 		))
 	) {
 		pbrms->reason |= PBR_MAP_INVALID_EMPTY;
@@ -662,6 +696,74 @@ static void pbr_map_sequence_check_vlan_actions(struct pbr_map_sequence *pbrms)
 }
 
 
+bool pbr_map_uses_traffic_class(const struct pbr_map *pbrm)
+{
+	const struct pbr_map_sequence *seq;
+	struct listnode *node;
+
+	for (ALL_LIST_ELEMENTS_RO(pbrm->seqnumbers, node, seq))
+		if (CHECK_FLAG(seq->action_bm, PBR_ACTION_TRAFFIC_CLASS))
+			return true;
+
+	return false;
+}
+
+static bool pbr_tc_port_proto_ok(uint8_t ip_proto)
+{
+	return ip_proto == IPPROTO_TCP || ip_proto == IPPROTO_UDP || ip_proto == IPPROTO_SCTP;
+}
+
+static void pbr_map_sequence_check_traffic_class(struct pbr_map_sequence *pbrms)
+{
+	/*
+	 * In a map that classifies with the mark carrier on, the classifier
+	 * writes the class into skb->mark before routing, and the FIB rule of
+	 * a `match mark` sequence compares the whole mark: it would no longer
+	 * match classified packets, whatever its value.  Reject the
+	 * combination; with `pbr traffic-class mark-mask 0` (skb->priority
+	 * only) it is allowed.  Maps that don't classify are not affected.
+	 */
+	if (CHECK_FLAG(pbrms->filter_bm, PBR_FILTER_FWMARK) && pbr_tc.mark_mask &&
+	    pbr_map_uses_traffic_class(pbrms->parent))
+		pbrms->reason |= PBR_MAP_INVALID_TC_MARK_CARRIER;
+
+	if (!CHECK_FLAG(pbrms->action_bm, PBR_ACTION_TRAFFIC_CLASS))
+		return;
+
+	/* queue-id keeps its opaque hardware meaning; one or the other */
+	if (CHECK_FLAG(pbrms->action_bm, PBR_ACTION_QUEUE_ID))
+		pbrms->reason |= PBR_MAP_INVALID_TC_WITH_QUEUE_ID;
+
+	/* the classifier (tc flower) has no fwmark key */
+	if (CHECK_FLAG(pbrms->filter_bm, PBR_FILTER_FWMARK))
+		pbrms->reason |= PBR_MAP_INVALID_TC_FWMARK;
+
+	/* flower matches L4 ports only together with the L4 protocol */
+	if (CHECK_FLAG(pbrms->filter_bm, PBR_FILTER_SRC_PORT | PBR_FILTER_DST_PORT) &&
+	    (!CHECK_FLAG(pbrms->filter_bm, PBR_FILTER_IP_PROTOCOL) ||
+	     !pbr_tc_port_proto_ok(pbrms->ip_proto)))
+		pbrms->reason |= PBR_MAP_INVALID_TC_PORT_NO_PROTO;
+
+	/*
+	 * The classifier (tc flower) cannot match "untagged, any payload": an
+	 * untagged frame is recognised by its IPv4 / IPv6 ethertype.  Without
+	 * an IP match, ARP, LLDP and other non-IP frames would silently miss
+	 * the class, so require an IP match with `match vlan untagged` and
+	 * `match vlan untagged-or-zero`.  A PCP match is fine without one: it
+	 * restricts untagged-or-zero to priority-tagged (VID 0) frames, which
+	 * the classifier matches whatever the payload.
+	 */
+	if (CHECK_FLAG(pbrms->filter_bm, PBR_FILTER_VLAN_FLAGS) &&
+	    (pbrms->match_vlan_flags == PBR_VLAN_FLAGS_UNTAGGED ||
+	     pbrms->match_vlan_flags == PBR_VLAN_FLAGS_UNTAGGED_0) &&
+	    !CHECK_FLAG(pbrms->filter_bm, PBR_FILTER_PCP) &&
+	    !CHECK_FLAG(pbrms->filter_bm, PBR_FILTER_SRC_IP | PBR_FILTER_DST_IP |
+						  PBR_FILTER_IP_PROTOCOL | PBR_FILTER_SRC_PORT |
+						  PBR_FILTER_DST_PORT | PBR_FILTER_DSCP |
+						  PBR_FILTER_ECN))
+		pbrms->reason |= PBR_MAP_INVALID_TC_UNTAGGED_NO_IP;
+}
+
 /*
  * Checks to see if we think that the pbmrs is valid.  If we think
  * the config is valid return true.
@@ -671,6 +773,7 @@ static void pbr_map_sequence_check_valid(struct pbr_map_sequence *pbrms)
 	pbr_map_sequence_check_nexthops_valid(pbrms);
 	pbr_map_sequence_check_vlan_actions(pbrms);
 	pbr_map_sequence_check_not_empty(pbrms);
+	pbr_map_sequence_check_traffic_class(pbrms);
 }
 
 static bool pbr_map_check_valid_internal(struct pbr_map *pbrm)
@@ -743,11 +846,11 @@ void pbr_map_schedule_policy_from_nhg(const char *nh_group, bool installed)
 			}
 
 			/*
-			 * vrf_unchanged pbrms have no nhg but their
-			 * installation is contingent on other sequences which
-			 * may...
+			 * vrf_unchanged and classify-only pbrms have no nhg
+			 * but their installation is contingent on other
+			 * sequences which may...
 			 */
-			if (pbrms->vrf_unchanged)
+			if (pbrms->vrf_unchanged || pbrms_is_classify_only(pbrms))
 				pbr_map_check(pbrms, false);
 		}
 	}
@@ -942,6 +1045,24 @@ void pbr_map_check(struct pbr_map_sequence *pbrms, bool changed)
 		pbr_map_pbrms_install(pbrms, changed);
 	else
 		pbr_map_pbrms_uninstall(pbrms);
+}
+
+/*
+ * Re-check every sequence of @pbrm: install the ones that became valid and
+ * withdraw the ones that became invalid.  Used when something map-wide
+ * changed, e.g. the first classifier was added or the last one removed, or
+ * the traffic class mark mask changed (a `match mark` sequence can turn
+ * (in)valid).  @tc_changed re-sends the traffic-class sequences, whose
+ * encoded rule changed.
+ */
+void pbr_map_recheck(struct pbr_map *pbrm, bool tc_changed)
+{
+	struct pbr_map_sequence *pbrms;
+	struct listnode *node, *nnode;
+
+	for (ALL_LIST_ELEMENTS(pbrm->seqnumbers, node, nnode, pbrms))
+		pbr_map_check(pbrms,
+			      tc_changed && CHECK_FLAG(pbrms->action_bm, PBR_ACTION_TRAFFIC_CLASS));
 }
 
 void pbr_map_install(struct pbr_map *pbrm)

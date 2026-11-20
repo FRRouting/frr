@@ -17,6 +17,7 @@ pbrd_libpbr_a_SOURCES = \
 	pbrd/pbr_nht.c \
 	pbrd/pbr_debug.c \
 	pbrd/pbr_vrf.c \
+	pbrd/pbr_tc.c \
 	# end
 
 noinst_HEADERS += \
@@ -27,6 +28,7 @@ noinst_HEADERS += \
 	pbrd/pbr_zebra.h \
 	pbrd/pbr_debug.h \
 	pbrd/pbr_vrf.h \
+	pbrd/pbr_tc.h \
 	# end
 
 clippy_scan += \

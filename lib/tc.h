@@ -23,6 +23,7 @@ enum tc_qdisc_kind {
 	TC_QDISC_UNSPEC,
 	TC_QDISC_HTB,
 	TC_QDISC_NOQUEUE,
+	TC_QDISC_CLSACT, /* ingress/egress classification hooks, no queueing */
 };
 
 struct tc_qdisc_htb {
@@ -84,6 +85,9 @@ struct tc_flower {
 #define TC_FLOWER_SRC_PORT (1 << 3)
 #define TC_FLOWER_DST_PORT (1 << 4)
 #define TC_FLOWER_DSFIELD (1 << 5)
+#define TC_FLOWER_VLAN_ID	(1 << 6)
+#define TC_FLOWER_VLAN_PRIO	(1 << 7)
+#define TC_FLOWER_VLAN_ETH_TYPE (1 << 8)
 
 	uint32_t filter_bm;
 
@@ -99,10 +103,35 @@ struct tc_flower {
 
 	uint8_t dsfield;
 	uint8_t dsfield_mask;
+
+	/* 802.1Q keys; only valid when the filter protocol is ETH_P_8021Q */
+	uint16_t vlan_id;
+	uint8_t vlan_prio;
+	uint16_t vlan_eth_type; /* ethertype inside the tag, host order */
 };
 
 struct tc_u32 {
 	/* TODO: fill in */
+};
+
+/* Where a filter is attached */
+enum tc_filter_attach {
+	TC_ATTACH_ROOT = 0, /* zebra's root qdisc (htb), classid steering */
+	TC_ATTACH_INGRESS,  /* clsact ingress hook */
+	TC_ATTACH_EGRESS,   /* clsact egress hook */
+};
+
+/*
+ * skbedit action: set skb->priority and/or a masked skb->mark, then
+ * continue (TC_ACT_PIPE).
+ */
+struct tc_action_skbedit {
+	bool set_priority;
+	uint32_t priority;
+
+	bool set_mark;
+	uint32_t mark;
+	uint32_t mark_mask;
 };
 
 struct tc_filter {
@@ -113,6 +142,15 @@ struct tc_filter {
 	uint16_t protocol;
 
 	enum tc_filter_kind kind;
+
+	enum tc_filter_attach attach;
+
+	/*
+	 * When set, the filter runs the skbedit action instead of steering
+	 * to u.flower.classid.
+	 */
+	bool has_action;
+	struct tc_action_skbedit skbedit;
 
 	union {
 		struct tc_bpf bpf;
