@@ -32,6 +32,20 @@ void _isis_tx_queue_add(struct isis_tx_queue *queue, struct isis_lsp *lsp,
 			enum isis_tx_type type, const char *func,
 			const char *file, int line);
 
+/*
+ * Queue an LSP only when it is not already queued.  Used for sends
+ * requested by SNP PDUs: re-requesting an LSP that is already in flight
+ * must not cancel the pending retransmission timer nor schedule another
+ * immediate send (ISO 10589 7.3.15.2 - setting SRM on an LSP that
+ * already has SRM set is a no-op).
+ */
+#define isis_tx_queue_add_if_absent(queue, lsp, type) \
+	_isis_tx_queue_add_if_absent((queue), (lsp), (type), \
+				     __func__, __FILE__, __LINE__)
+void _isis_tx_queue_add_if_absent(struct isis_tx_queue *queue,
+				  struct isis_lsp *lsp, enum isis_tx_type type,
+				  const char *func, const char *file, int line);
+
 #define isis_tx_queue_del(queue, lsp) \
 	_isis_tx_queue_del((queue), (lsp), __func__, __FILE__, __LINE__)
 void _isis_tx_queue_del(struct isis_tx_queue *queue, struct isis_lsp *lsp,

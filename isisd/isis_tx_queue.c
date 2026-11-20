@@ -153,6 +153,19 @@ void _isis_tx_queue_add(struct isis_tx_queue *queue,
 	e->is_retry = false;
 }
 
+void _isis_tx_queue_add_if_absent(struct isis_tx_queue *queue,
+				  struct isis_lsp *lsp, enum isis_tx_type type,
+				  const char *func, const char *file, int line)
+{
+	if (!queue)
+		return;
+
+	if (tx_queue_find(queue, lsp))
+		return;
+
+	_isis_tx_queue_add(queue, lsp, type, func, file, line);
+}
+
 void _isis_tx_queue_del(struct isis_tx_queue *queue, struct isis_lsp *lsp,
 			const char *func, const char *file, int line)
 {
