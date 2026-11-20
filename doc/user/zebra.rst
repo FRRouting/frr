@@ -1199,7 +1199,9 @@ and this section also helps that case.
 
 .. clicmd:: wide-local-id-block explicit start START
 
-   Configure the start value for the Explicit Wide LIB (EW-LIB).
+   Configure the start value for the Explicit Wide LIB (EW-LIB). The EW-LIB
+   goes from START to the end of the W-LIB. A START below the W-LIB start
+   makes the whole W-LIB explicit.
 
 ::
 

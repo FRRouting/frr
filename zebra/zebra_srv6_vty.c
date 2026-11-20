@@ -1488,7 +1488,7 @@ DEFPY(no_srv6_sid_format_usid_lib_explicit,
 
 DEFPY(srv6_sid_format_usid_wlib,
       srv6_sid_format_usid_wlib_cmd,
-      "wide-local-id-block start (0-4294967295)$start end (0-4294967295)$end",
+      "wide-local-id-block start (0-65535)$start end (0-65535)$end",
       "Configure Wide LIB\n"
       "Configure the start value for the Wide LIB\n"
       "Specify the start value for the Wide LIB\n"
@@ -1505,14 +1505,6 @@ DEFPY(srv6_sid_format_usid_wlib,
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 
-	if (start > format->config.usid.ewlib_start) {
-		vty_out(vty,
-			"%% Wide LIB start (%" PRId64
-			") cannot be greater than the Explicit Wide LIB start (%u)\n",
-			start, format->config.usid.ewlib_start);
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-
 	zebra_srv6_sid_format_change_start(format);
 	format->config.usid.wlib_start = start;
 	format->config.usid.wlib_end = end;
@@ -1525,7 +1517,7 @@ DEFPY(srv6_sid_format_usid_wlib,
 
 DEFPY(no_srv6_sid_format_usid_wlib,
       no_srv6_sid_format_usid_wlib_cmd,
-      "no wide-local-id-block [start (0-4294967295) end (0-4294967295)]",
+      "no wide-local-id-block [start (0-65535) end (0-65535)]",
       NO_STR
       "Configure Wide LIB\n"
       "Configure the start value for the Wide LIB\n"
@@ -1546,13 +1538,6 @@ DEFPY(no_srv6_sid_format_usid_wlib,
 		assert(0);
 	}
 
-	if (wlib_start > format->config.usid.ewlib_start) {
-		vty_out(vty,
-			"%% Default Wide LIB start (%u) would be greater than the Explicit Wide LIB start (%u), remove the Explicit Wide LIB first\n",
-			wlib_start, format->config.usid.ewlib_start);
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-
 	zebra_srv6_sid_format_change_start(format);
 	format->config.usid.wlib_start = wlib_start;
 	format->config.usid.wlib_end = wlib_end;
@@ -1565,21 +1550,13 @@ DEFPY(no_srv6_sid_format_usid_wlib,
 
 DEFPY(srv6_sid_format_usid_wide_lib_explicit,
       srv6_sid_format_usid_wide_lib_explicit_cmd,
-      "wide-local-id-block explicit start (0-4294967295)$start",
+      "wide-local-id-block explicit start (0-65535)$start",
       "Configure Wide LIB\n"
       "Configure Explicit Wide LIB\n"
       "Configure the start value for the Explicit Wide LIB\n"
       "Specify the start value for the Explicit Wide LIB\n")
 {
 	VTY_DECLVAR_CONTEXT(srv6_sid_format, format);
-
-	if (start < format->config.usid.wlib_start) {
-		vty_out(vty,
-			"%% Explicit Wide LIB start (%" PRId64
-			") cannot be less than Wide LIB start (%u)\n",
-			start, format->config.usid.wlib_start);
-		return CMD_WARNING_CONFIG_FAILED;
-	}
 
 	zebra_srv6_sid_format_change_start(format);
 	format->config.usid.ewlib_start = start;
@@ -1592,7 +1569,7 @@ DEFPY(srv6_sid_format_usid_wide_lib_explicit,
 
 DEFPY(no_srv6_sid_format_usid_wide_lib_explicit,
       no_srv6_sid_format_usid_wide_lib_explicit_cmd,
-      "no wide-local-id-block explicit [start (0-4294967295)]",
+      "no wide-local-id-block explicit [start (0-65535)]",
 	  NO_STR
       "Configure Wide LIB\n"
       "Configure Explicit Wide LIB\n"
@@ -1608,13 +1585,6 @@ DEFPY(no_srv6_sid_format_usid_wide_lib_explicit,
 		ewlib_start = SRV6_SID_FORMAT_USID_F4816_EWLIB_START;
 	else
 		assert(0);
-
-	if (ewlib_start < format->config.usid.wlib_start) {
-		vty_out(vty,
-			"%% Default Explicit Wide LIB start (%u) would be less than the Wide LIB start (%u), remove the Wide LIB first\n",
-			ewlib_start, format->config.usid.wlib_start);
-		return CMD_WARNING_CONFIG_FAILED;
-	}
 
 	zebra_srv6_sid_format_change_start(format);
 	format->config.usid.ewlib_start = ewlib_start;
