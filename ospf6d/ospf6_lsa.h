@@ -351,6 +351,7 @@ extern void ospf6_lsa_unlock(struct ospf6_lsa **lsa);
 
 extern void ospf6_lsa_expire(struct event *event);
 extern void ospf6_lsa_refresh(struct event *event);
+extern long ospf6_lsa_refresh_delay(struct ospf6_lsa *self);
 
 extern unsigned short ospf6_lsa_checksum(struct ospf6_lsa_header *lsah);
 extern int ospf6_lsa_checksum_valid(struct ospf6_lsa_header *lsah);
