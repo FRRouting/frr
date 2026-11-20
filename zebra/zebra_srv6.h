@@ -13,6 +13,7 @@
 
 #include "qobj.h"
 #include "prefix.h"
+#include "zclient.h"
 #include <pthread.h>
 #include <plist.h>
 
@@ -243,6 +244,8 @@ struct zebra_srv6 {
 
 	/* SRv6 SID blocks */
 	struct list *sid_blocks;
+
+	/* EVPN encapsulation is per-EVI; no instance-wide EVPN encap mode. */
 };
 
 /* declare hooks for the basic API, so that it can be specialized or served
@@ -283,6 +286,15 @@ DECLARE_HOOK(srv6_manager_get_locator,
 extern void zebra_srv6_locator_add(struct srv6_locator *locator);
 extern void zebra_srv6_locator_delete(struct srv6_locator *locator);
 extern struct srv6_locator *zebra_srv6_locator_lookup(const char *name);
+
+/* Compose a LOC:FUNC[:WIDE]:: SID under a locator (SRv6 L2 EVPN per-EVI SIDs). */
+extern bool zebra_srv6_l2_sid_compose(struct in6_addr *sid_value, struct srv6_locator *locator,
+				      uint32_t sid_func, uint32_t sid_func_wide);
+
+/* Release a zebra-internally-allocated SID (no client) by its context — used
+ * to free SRv6 L2 EVPN per-EVI DT2U/DT2M SIDs on EVI teardown.
+ */
+extern void zebra_srv6_l2_sid_release(const struct srv6_sid_ctx *ctx, const char *locator_name);
 
 void zebra_notify_srv6_locator_add(struct srv6_locator *locator);
 void zebra_notify_srv6_locator_delete(struct srv6_locator *locator);
