@@ -17319,31 +17319,24 @@ static void bgp_show_peer(struct vty *vty, struct peer *p, uint16_t sh_flags, bo
 
 		/* read timer */
 		time_t uptime;
-		struct tm tm;
 
 		uptime = monotime(NULL);
 		uptime -= p->readtime;
-		gmtime_r(&uptime, &tm);
 
 		json_object_int_add(json_neigh, "bgpTimerLastRead",
-				    (tm.tm_sec * 1000) + (tm.tm_min * 60000)
-					    + (tm.tm_hour * 3600000));
+				    (int64_t)uptime * 1000);
 
 		uptime = monotime(NULL);
 		uptime -= p->last_write;
-		gmtime_r(&uptime, &tm);
 
 		json_object_int_add(json_neigh, "bgpTimerLastWrite",
-				    (tm.tm_sec * 1000) + (tm.tm_min * 60000)
-					    + (tm.tm_hour * 3600000));
+				    (int64_t)uptime * 1000);
 
 		uptime = monotime(NULL);
 		uptime -= p->update_time;
-		gmtime_r(&uptime, &tm);
 
 		json_object_int_add(json_neigh, "bgpInUpdateElapsedTimeMsecs",
-				    (tm.tm_sec * 1000) + (tm.tm_min * 60000)
-					    + (tm.tm_hour * 3600000));
+				    (int64_t)uptime * 1000);
 
 		/* Configured timer values. */
 		json_object_int_add(json_neigh,
