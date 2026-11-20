@@ -3190,7 +3190,7 @@ int lib_interface_zebra_ipv6_router_advertisements_prefix_list_default_lifetimes
 /*
  * Both lifetime leaves carry a YANG default, so their callbacks fire even when
  * the operator named neither.  Treat the pair as configured only when at least
- * one holds a non-default value -- the same test the "ipv6 nd prefix" cli_write
+ * one is explicitly configured -- the same test the "ipv6 nd prefix" cli_write
  * uses to decide whether to print them back out.  A prefix that named nothing
  * inherits "ipv6 nd prefix-lifetime" from the interface instead.
  */

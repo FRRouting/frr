@@ -211,10 +211,7 @@ DEFPY_YANG(rip_log_neighbor_changes, rip_log_neighbor_changes_cmd,
 static void cli_show_rip_log_neighbor_changes(struct vty *vty, const struct lyd_node *dnode,
 					      bool show_defaults)
 {
-	if (yang_dnode_get_bool(dnode, NULL))
-		vty_out(vty, " log-neighbor-changes\n");
-	else if (show_defaults)
-		vty_out(vty, " no log-neighbor-changes\n");
+	vty_out(vty, " %slog-neighbor-changes\n", yang_dnode_get_bool(dnode, NULL) ? "" : "no ");
 }
 
 /*
@@ -247,7 +244,8 @@ DEFPY_YANG (no_rip_distance,
 void cli_show_rip_distance(struct vty *vty, const struct lyd_node *dnode,
 			   bool show_defaults)
 {
-	if (yang_dnode_is_default(dnode, NULL))
+	/* The default 0 has no "distance" form (the CLI takes 1-255). */
+	if (yang_dnode_get_uint8(dnode, NULL) == 0)
 		vty_out(vty, " no distance\n");
 	else
 		vty_out(vty, " distance %s\n",
@@ -1108,7 +1106,7 @@ DEFPY_YANG(ip_rip_bfd, ip_rip_bfd_cmd, "[no] ip rip bfd",
 void cli_show_ip_rip_bfd_enable(struct vty *vty, const struct lyd_node *dnode,
 				bool show_defaults)
 {
-	vty_out(vty, " ip rip bfd\n");
+	vty_out(vty, " %sip rip bfd\n", yang_dnode_get_bool(dnode, NULL) ? "" : "no ");
 }
 
 /*

@@ -870,7 +870,7 @@ DEFPY_YANG(
 	nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
 
 	snprintf(xpath_auth, sizeof(xpath_auth), "%s/authentication", xpath);
-	nb_cli_enqueue_change(vty, xpath_auth, NB_OP_MODIFY, "none");
+	nb_cli_enqueue_change(vty, xpath_auth, NB_OP_MODIFY, NULL);
 
 	return nb_cli_apply_changes(vty, NULL);
 }
@@ -883,6 +883,10 @@ void eigrp_cli_show_authentication(struct vty *vty,
 		yang_dnode_get_parent(dnode, "instance");
 	uint16_t asn = yang_dnode_get_uint16(instance, "asn");
 	const char *crypt = yang_dnode_get_string(dnode, NULL);
+
+	/* "none" has no "ip authentication mode" form. */
+	if (strmatch(crypt, "none"))
+		return;
 
 	vty_out(vty, " ip authentication mode eigrp %d %s\n", asn, crypt);
 }

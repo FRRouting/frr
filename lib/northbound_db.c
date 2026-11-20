@@ -75,12 +75,12 @@ int nb_db_transaction_save(const struct nb_transaction *transaction,
 
 	client_name = nb_client_name(transaction->context.client);
 	/*
-	 * Always record configurations in the XML format, save the default
-	 * values too, as this covers the case where defaults may change.
+	 * Always record configurations in the XML format. Save explicitly
+	 * configured leaves only: an implicit default printed here would be
+	 * parsed back as explicitly configured on rollback.
 	 */
 	if (lyd_print_mem(&config_str, transaction->config->dnode, LYD_XML,
-			  LYD_PRINT_WITHSIBLINGS | LYD_PRINT_WD_ALL)
-	    != 0)
+			  LYD_PRINT_WITHSIBLINGS | LYD_PRINT_WD_EXPLICIT) != 0)
 		goto exit;
 
 	if (db_bindf(ss, "%s%s%s", client_name, strlen(client_name),

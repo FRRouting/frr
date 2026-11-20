@@ -39,10 +39,7 @@ static void zebra_ptm_enable_cli_write(struct vty *vty,
 {
 	bool enable = yang_dnode_get_bool(dnode, NULL);
 
-	if (enable)
-		vty_out(vty, "ptm-enable\n");
-	else if (show_defaults)
-		vty_out(vty, "no ptm-enable\n");
+	vty_out(vty, "%sptm-enable\n", enable ? "" : "no ");
 }
 #endif
 
@@ -196,7 +193,7 @@ static void zebra_import_kernel_table_cli_write(struct vty *vty, const struct ly
 	if (safi == SAFI_MULTICAST)
 		vty_out(vty, " mrib");
 
-	if (distance != ZEBRA_TABLE_DISTANCE_DEFAULT)
+	if (!yang_dnode_is_default(dnode, "distance") || show_defaults)
 		vty_out(vty, " distance %u", distance);
 
 	if (rmap)
@@ -324,7 +321,7 @@ DEFPY_YANG (ip_zebra_import_table_distance,
 	nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
 
 	snprintfrr(xpath_child, sizeof(xpath_child), "%s/distance", xpath);
-	nb_cli_enqueue_change(vty, xpath_child, NB_OP_MODIFY, distance_str ? distance_str : "15");
+	nb_cli_enqueue_change(vty, xpath_child, NB_OP_MODIFY, distance_str);
 
 	snprintfrr(xpath_child, sizeof(xpath_child), "%s/route-map", xpath);
 	nb_cli_enqueue_change(vty, xpath_child, rmap ? NB_OP_MODIFY : NB_OP_DESTROY, rmap);
@@ -378,7 +375,7 @@ DEFPY_YANG (ipv6_zebra_import_table_distance,
 		return nb_cli_apply_changes(vty, NULL);
 
 	snprintfrr(xpath_child, sizeof(xpath_child), "%s/distance", xpath);
-	nb_cli_enqueue_change(vty, xpath_child, NB_OP_MODIFY, distance_str ? distance_str : "15");
+	nb_cli_enqueue_change(vty, xpath_child, NB_OP_MODIFY, distance_str);
 
 	snprintfrr(xpath_child, sizeof(xpath_child), "%s/route-map", xpath);
 	nb_cli_enqueue_change(vty, xpath_child, rmap ? NB_OP_MODIFY : NB_OP_DESTROY, rmap);
@@ -477,10 +474,7 @@ static void lib_interface_zebra_link_detect_cli_write(
 {
 	bool link_detect = yang_dnode_get_bool(dnode, NULL);
 
-	if (!link_detect)
-		vty_out(vty, " no link-detect\n");
-	else if (show_defaults)
-		vty_out(vty, " link-detect\n");
+	vty_out(vty, " %slink-detect\n", link_detect ? "" : "no ");
 }
 
 DEFPY_YANG (shutdown_if,
@@ -1139,7 +1133,7 @@ static void lib_interface_zebra_link_params_affinity_mode_cli_write(
 		vty_out(vty, "  affinity-mode standard\n");
 	else if (affinity_mode == AFFINITY_MODE_BOTH)
 		vty_out(vty, "  affinity-mode both\n");
-	else if (affinity_mode == AFFINITY_MODE_EXTENDED && show_defaults)
+	else if (affinity_mode == AFFINITY_MODE_EXTENDED)
 		vty_out(vty, "  affinity-mode extended\n");
 }
 
@@ -1707,6 +1701,10 @@ lib_interface_zebra_ipv6_router_advertisements_reachable_time_cli_write(
 {
 	uint32_t reachable_time = yang_dnode_get_uint32(dnode, NULL);
 
+	/* The default 0 has no CLI form (reachable-time takes 1-3600000). */
+	if (reachable_time == 0)
+		return;
+
 	vty_out(vty, " ipv6 nd reachable-time %u\n", reachable_time);
 }
 
@@ -2117,6 +2115,10 @@ static void lib_interface_zebra_ipv6_router_advertisements_link_mtu_cli_write(
 	struct vty *vty, const struct lyd_node *dnode, bool show_defaults)
 {
 	uint16_t link_mtu = yang_dnode_get_uint16(dnode, NULL);
+
+	/* The default 0 (no MTU option) has no CLI form (mtu takes 1-65535). */
+	if (link_mtu == 0)
+		return;
 
 	vty_out(vty, " ipv6 nd mtu %u\n", link_mtu);
 }
@@ -2669,13 +2671,15 @@ static void lib_vrf_zebra_resolve_via_default_cli_write(
 {
 	bool resolve_via_default = yang_dnode_get_bool(dnode, NULL);
 
-	if (resolve_via_default != SAVE_ZEBRA_IP_NHT_RESOLVE_VIA_DEFAULT ||
-	    show_defaults) {
-		zebra_vrf_indent_cli_write(vty, dnode);
+	/*
+	 * The leaf has no schema default (the effective default is
+	 * profile-dependent), so it only exists when explicitly configured
+	 * and must then always be rendered, even at the profile's default
+	 * value.
+	 */
+	zebra_vrf_indent_cli_write(vty, dnode);
 
-		vty_out(vty, "%sip nht resolve-via-default\n",
-			resolve_via_default ? "" : "no ");
-	}
+	vty_out(vty, "%sip nht resolve-via-default\n", resolve_via_default ? "" : "no ");
 }
 
 DEFPY_YANG (ipv6_nht_default_route,
@@ -2701,13 +2705,12 @@ static void lib_vrf_zebra_ipv6_resolve_via_default_cli_write(
 {
 	bool resolve_via_default = yang_dnode_get_bool(dnode, NULL);
 
-	if (resolve_via_default != SAVE_ZEBRA_IP_NHT_RESOLVE_VIA_DEFAULT ||
-	    show_defaults) {
-		zebra_vrf_indent_cli_write(vty, dnode);
+	/* No schema default (profile-dependent), same rationale as the
+	 * IPv4 variant above: explicit config always renders.
+	 */
+	zebra_vrf_indent_cli_write(vty, dnode);
 
-		vty_out(vty, "%sipv6 nht resolve-via-default\n",
-			resolve_via_default ? "" : "no ");
-	}
+	vty_out(vty, "%sipv6 nht resolve-via-default\n", resolve_via_default ? "" : "no ");
 }
 
 DEFPY_YANG (mpls_fec_nexthop_resolution, mpls_fec_nexthop_resolution_cmd,

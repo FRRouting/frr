@@ -332,8 +332,18 @@ static int txn_cfg_make_and_send_cfg_req(struct txn_req_commit *ccreq,
 			 * On the backend, we don't really care if it's CREATE
 			 * or MODIFY, because the existence was already checked
 			 * on the frontend. Therefore we use SET for both.
+			 *
+			 * A MODIFY whose target is an implicit default is a reset
+			 * to the default. Send it as a delete, so the backend
+			 * re-materializes the default itself instead of storing it
+			 * as an explicitly configured value.
 			 */
-			op = chg->cb.operation == NB_CB_DESTROY ? 'd' : 'm';
+			if (chg->cb.operation == NB_CB_DESTROY ||
+			    (chg->cb.operation == NB_CB_MODIFY &&
+			     CHECK_FLAG(chg->cb.dnode->flags, LYD_DEFAULT)))
+				op = 'd';
+			else
+				op = 'm';
 			darr_push(cfg_actions[id], op);
 
 			mgmt_msg_native_add_str(cfg_msgs[id], xpath);
