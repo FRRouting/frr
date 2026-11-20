@@ -537,9 +537,20 @@ static void txn_finish_commit(struct txn_req_commit *ccreq, enum mgmt_result res
 					    !ccreq->unlock_info);
 
 		mgmt_ds_copy_dss(ccreq->dst_ds_ctx, ccreq->src_ds_ctx, create_cmt_info_rec);
+		/*
+		 * Share running_config's dnode with candidate (copy-on-write).
+		 * After commit, candidate and running have identical content.
+		 */
+		nb_config_share_running(mgmt_ds_get_nb_config(ccreq->src_ds_ctx));
 	}
-	if (discard_changes)
+	if (discard_changes) {
 		mgmt_ds_copy_dss(ccreq->src_ds_ctx, ccreq->dst_ds_ctx, false);
+		/*
+		 * Share running_config's dnode with candidate (copy-on-write).
+		 * After discard, candidate is reset to match running.
+		 */
+		nb_config_share_running(mgmt_ds_get_nb_config(ccreq->src_ds_ctx));
+	}
 
 	/*
 	 * Release transaction datastore locks before sending replies to
