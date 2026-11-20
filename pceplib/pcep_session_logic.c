@@ -290,21 +290,13 @@ void close_pcep_session_with_reason(pcep_session *session,
 	session_send_message(session, close_msg);
 	socket_comm_session_close_tcp_after_write(session->socket_comm_session);
 	session->session_state = SESSION_STATE_INITIALIZED;
+	session->close_sent = true;
 }
 
 
-void destroy_pcep_session(pcep_session *session)
+/* The caller holds session_list_mutex */
+void destroy_pcep_session_locked(pcep_session *session)
 {
-	if (session == NULL) {
-		pcep_log(LOG_WARNING, "%s: Cannot destroy NULL session",
-			 __func__);
-		return;
-	}
-
-	/* Remove the session from the session_list and synchronize session
-	 * destroy with the session_logic_loop, so that no in-flight events
-	 * will be handled now that the session is destroyed. */
-	pthread_mutex_lock(&(session_logic_handle_->session_list_mutex));
 	ordered_list_remove_first_node_equals(
 		session_logic_handle_->session_list, session);
 	pcep_log(LOG_DEBUG,
@@ -330,6 +322,47 @@ void destroy_pcep_session(pcep_session *session)
 	pceplib_free(PCEPLIB_INFRA, session);
 	pcep_log(LOG_INFO, "%s: [%ld-%ld] session [%d] destroyed", __func__,
 		 time(NULL), pthread_self(), session_id);
+}
+
+void destroy_pcep_session(pcep_session *session)
+{
+	if (session == NULL) {
+		pcep_log(LOG_WARNING, "%s: Cannot destroy NULL session", __func__);
+		return;
+	}
+
+	/* Remove the session from the session_list and synchronize session
+	 * destroy with the session_logic_loop, so that no in-flight events
+	 * will be handled now that the session is destroyed.
+	 */
+	pthread_mutex_lock(&(session_logic_handle_->session_list_mutex));
+	destroy_pcep_session_locked(session);
+	pthread_mutex_unlock(&(session_logic_handle_->session_list_mutex));
+}
+
+/* Close the session and destroy it once the Close is written. This holds
+ * session_list_mutex throughout, so the message-sent handler on the socket
+ * comm thread cannot destroy the session while it is in use.
+ */
+void disconnect_pcep_session(pcep_session *session)
+{
+	pthread_mutex_lock(&(session_logic_handle_->session_list_mutex));
+	if (ordered_list_find(session_logic_handle_->session_list, session) == NULL) {
+		pthread_mutex_unlock(&(session_logic_handle_->session_list_mutex));
+		pcep_log(LOG_WARNING, "%s: session [%p] has already been deleted", __func__,
+			 session);
+		return;
+	}
+
+	if (session->socket_comm_session == NULL || session->socket_comm_session->socket_fd < 0) {
+		/* The socket is already closed, destroy the session now */
+		destroy_pcep_session_locked(session);
+	} else {
+		session->destroy_session_after_write = true;
+		/* Send a Close unless pceplib already queued one */
+		if (!session->close_sent)
+			close_pcep_session(session);
+	}
 	pthread_mutex_unlock(&(session_logic_handle_->session_list_mutex));
 }
 
@@ -394,6 +427,7 @@ static pcep_session *create_pcep_session_pre_setup(pcep_configuration *config)
 	session->pce_open_accepted = false;
 	session->pcc_open_accepted = false;
 	session->destroy_session_after_write = false;
+	session->close_sent = false;
 	session->lsp_db_version = config->lsp_db_version;
 	memcpy(&(session->pcc_config), config, sizeof(pcep_configuration));
 	/* copy the pcc_config to the pce_config until we receive the open

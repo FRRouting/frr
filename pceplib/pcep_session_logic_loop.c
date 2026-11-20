@@ -130,14 +130,30 @@ void session_logic_message_sent_handler(void *data, int socket_fd)
 		return;
 	}
 
+	if (session_logic_handle_ == NULL) {
+		pcep_log(LOG_WARNING, "%s: Cannot handle msg_sent with NULL session_logic_handle_",
+			 __func__);
+		return;
+	}
+
 	pcep_session *session = (pcep_session *)data;
+
+	/* Synchronize with disconnect_pcep_session(), and skip a session
+	 * destroyed since this message was written.
+	 */
+	pthread_mutex_lock(&(session_logic_handle_->session_list_mutex));
+	if (ordered_list_find(session_logic_handle_->session_list, session) == NULL) {
+		pthread_mutex_unlock(&(session_logic_handle_->session_list_mutex));
+		return;
+	}
+
 	if (session->destroy_session_after_write == true) {
 		/* Do not call destroy until all of the queued messages are
 		 * written */
 		if (session->socket_comm_session != NULL
 		    && session->socket_comm_session->message_queue->num_entries
 			       == 0) {
-			destroy_pcep_session(session);
+			destroy_pcep_session_locked(session);
 		}
 	} else {
 		/* Reset the keep alive timer for every message sent on
@@ -165,6 +181,7 @@ void session_logic_message_sent_handler(void *data, int socket_fd)
 			reset_timer(session->timer_id_keep_alive);
 		}
 	}
+	pthread_mutex_unlock(&(session_logic_handle_->session_list_mutex));
 }
 
 
