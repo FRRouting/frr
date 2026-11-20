@@ -68,8 +68,17 @@ static int mgmt_ds_dump_in_memory(struct mgmt_ds_ctx *ds_ctx,
 					      ? ds_ctx->root.cfg_root->dnode
 					      : ds_ctx->root.dnode_root,
 				      base_xpath);
-	if (!root)
+	if (!root) {
+		/*
+		 * No node resolves at the requested xpath. Emit a valid empty
+		 * JSON document so callers always receive parseable output
+		 * instead of an empty buffer that ends up rendered as
+		 * "(null)" by vty_out("%s\n", str).
+		 */
+		if (format == LYD_JSON)
+			ly_print(out, "{}");
 		return -1;
+	}
 
 	options = ds_ctx->config_ds ? LYD_PRINT_WD_TRIM :
 		LYD_PRINT_WD_EXPLICIT;
@@ -583,7 +592,7 @@ void mgmt_ds_dump_tree(struct vty *vty, struct mgmt_ds_ctx *ds_ctx,
 	mgmt_ds_dump_in_memory(ds_ctx, base_xpath, format, out);
 
 	if (!f)
-		vty_out(vty, "%s\n", str);
+		vty_out(vty, "%s\n", str ? str : "");
 
 	ly_out_free(out, NULL, 0);
 }
