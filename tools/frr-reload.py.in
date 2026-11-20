@@ -2223,6 +2223,39 @@ def ignore_unconfigurable_lines(lines_to_add, lines_to_del):
     return (lines_to_add, lines_to_del)
 
 
+def ignore_implied_bgp_neighbor_bfd_lines(newconf, lines_to_del):
+    """
+    "neighbor X bfd profile P" and "neighbor X bfd check-control-plane-failure"
+    also enable BFD for the neighbor, so bgpd writes an extra "neighbor X bfd"
+    line in the running configuration. A file that has only the profile or
+    check-control-plane-failure line must not cause "no neighbor X bfd", as
+    that removes the BFD session and BFD for the neighbor.
+    """
+    implied_bfd = re.compile(
+        r"^neighbor (\S+) bfd (profile \S+|check-control-plane-failure)$"
+    )
+    lines_to_del_to_del = []
+
+    for ctx_keys, line in lines_to_del:
+        if not ctx_keys[0].startswith("router bgp") or not line:
+            continue
+
+        re_nbr_bfd = re.match(r"^neighbor (\S+) bfd$", line)
+        if not re_nbr_bfd or ctx_keys not in newconf.contexts:
+            continue
+
+        for new_line in newconf.contexts[ctx_keys].lines:
+            re_implied = implied_bfd.match(new_line)
+            if re_implied and re_implied.group(1) == re_nbr_bfd.group(1):
+                lines_to_del_to_del.append((ctx_keys, line))
+                break
+
+    for ctx_keys, line in lines_to_del_to_del:
+        lines_to_del.remove((ctx_keys, line))
+
+    return lines_to_del
+
+
 def compare_context_objects(newconf, running):
     """
     Create a context diff for the two specified contexts
@@ -2497,6 +2530,7 @@ def compare_context_objects(newconf, running):
     lines_to_add, lines_to_del = ignore_delete_re_add_lines(lines_to_add, lines_to_del)
     lines_to_add, lines_to_del = delete_move_lines(lines_to_add, lines_to_del)
     lines_to_add, lines_to_del = ignore_unconfigurable_lines(lines_to_add, lines_to_del)
+    lines_to_del = ignore_implied_bgp_neighbor_bfd_lines(newconf, lines_to_del)
 
     # "no vrf NAME" after every other delete, including the BGP deletes
     # delete_move_lines() pushes to the end ("router bgp ASN vrf NAME").
