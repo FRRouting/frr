@@ -2381,16 +2381,17 @@ stream_failure:
 	return false;
 }
 
-bool zapi_srv6_sid_notify_decode(struct stream *s, struct srv6_sid_ctx *ctx,
-				 struct in6_addr *sid_value, uint32_t *func,
-				 uint32_t *wide_func, enum zapi_srv6_sid_notify *note,
-				 char *locator_name, size_t loc_size)
+bool zapi_srv6_sid_notify_decode(struct stream *s, struct srv6_sid_ctx *ctx, uint32_t *request_id,
+				 struct in6_addr *sid_value, uint32_t *func, uint32_t *wide_func,
+				 enum zapi_srv6_sid_notify *note, char *locator_name,
+				 size_t loc_size)
 {
-	uint32_t f, wf;
+	uint32_t f, wf, rid;
 	uint16_t len = 0;
 
 	STREAM_GET(note, s, sizeof(*note));
 	STREAM_GET(ctx, s, sizeof(struct srv6_sid_ctx));
+	STREAM_GETL(s, rid);
 	STREAM_GET(sid_value, s, sizeof(struct in6_addr));
 	STREAM_GETL(s, f);
 	STREAM_GETL(s, wf);
@@ -2399,6 +2400,8 @@ bool zapi_srv6_sid_notify_decode(struct stream *s, struct srv6_sid_ctx *ctx,
 	if (len >= loc_size && locator_name != NULL)
 		return false;
 
+	if (request_id)
+		*request_id = rid;
 	if (func)
 		*func = f;
 	if (wide_func)
@@ -3662,6 +3665,7 @@ int srv6_manager_get_locator(struct zclient *zclient, const char *locator_name)
  *
  * @param zclient The zclient used to connect to SRv6 manager (zebra)
  * @param ctx Context associated with the SRv6 SID
+ * @param request_id Identifier of the requester of the SID in the client
  * @param sid_value SRv6 SID value for explicit SID allocation
  * @param locator_name Name of the parent locator for dynamic SID allocation
  * @param sid_func SID function assigned by the SRv6 Manager
@@ -3669,8 +3673,8 @@ int srv6_manager_get_locator(struct zclient *zclient, const char *locator_name)
  * @result 0 on success, -1 otherwise
  */
 int srv6_manager_get_sid(struct zclient *zclient, const struct srv6_sid_ctx *ctx,
-			 struct in6_addr *sid_value, const char *locator_name, uint32_t *sid_func,
-			 bool is_localonly)
+			 uint32_t request_id, struct in6_addr *sid_value, const char *locator_name,
+			 uint32_t *sid_func, bool is_localonly)
 {
 	struct stream *s;
 	uint8_t flags = 0;
@@ -3694,6 +3698,7 @@ int srv6_manager_get_sid(struct zclient *zclient, const struct srv6_sid_ctx *ctx
 
 	/* Context associated with the SRv6 SID */
 	stream_put(s, ctx, sizeof(struct srv6_sid_ctx));
+	stream_putl(s, request_id);
 
 	/* Flags */
 	if (!sid_zero_ipv6(sid_value))
@@ -3724,12 +3729,13 @@ int srv6_manager_get_sid(struct zclient *zclient, const struct srv6_sid_ctx *ctx
  *
  * @param zclient Zclient used to connect to SRv6 manager (zebra)
  * @param ctx Context associated with the SRv6 SID to be removed
+ * @param request_id Identifier of the requester of the SID in the client
  * @param locator_name Parent locator of the SID
  * @param is_localonly SID is local-only
  * @result 0 on success, -1 otherwise
  */
 int srv6_manager_release_sid(struct zclient *zclient, const struct srv6_sid_ctx *ctx,
-			     const char *locator_name, bool is_localonly)
+			     uint32_t request_id, const char *locator_name, bool is_localonly)
 {
 	struct stream *s;
 	uint8_t flags = 0;
@@ -3754,6 +3760,7 @@ int srv6_manager_release_sid(struct zclient *zclient, const struct srv6_sid_ctx 
 
 	/* Context associated with the SRv6 SID */
 	stream_put(s, ctx, sizeof(struct srv6_sid_ctx));
+	stream_putl(s, request_id);
 
 	/* Flags */
 	if (locator_name)

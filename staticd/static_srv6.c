@@ -9,6 +9,7 @@
 
 #include "vrf.h"
 #include "nexthop.h"
+#include "id_alloc.h"
 
 #include "static_routes.h"
 #include "static_srv6.h"
@@ -21,6 +22,9 @@
  */
 struct list *srv6_locators;
 struct list *srv6_sids;
+
+/* Identifiers of the SID requests of the static SIDs */
+static struct id_alloc *srv6_sid_request_ids;
 
 DEFINE_MTYPE_STATIC(STATIC, STATIC_SRV6_LOCATOR, "Static SRv6 locator");
 DEFINE_MTYPE_STATIC(STATIC, STATIC_SRV6_SID, "Static SRv6 SID");
@@ -192,12 +196,15 @@ struct static_srv6_sid *static_srv6_sid_alloc(struct prefix_ipv6 *addr)
 
 	sid = XCALLOC(MTYPE_STATIC_SRV6_SID, sizeof(struct static_srv6_sid));
 	sid->addr = *addr;
+	sid->request_id = idalloc_allocate(srv6_sid_request_ids);
 
 	return sid;
 }
 
 void static_srv6_sid_free(struct static_srv6_sid *sid)
 {
+	if (sid->request_id != IDALLOC_INVALID)
+		idalloc_free(srv6_sid_request_ids, sid->request_id);
 	XFREE(MTYPE_STATIC_SRV6_SID, sid);
 }
 
@@ -267,7 +274,7 @@ void static_srv6_sid_del(struct static_srv6_sid *sid)
 	if (CHECK_FLAG(sid->flags, STATIC_FLAG_SRV6_SID_SENT_TO_ZEBRA))
 		static_zebra_srv6_sid_uninstall(sid);
 
-	XFREE(MTYPE_STATIC_SRV6_SID, sid);
+	static_srv6_sid_free(sid);
 }
 
 void delete_static_srv6_sid(void *val)
@@ -966,6 +973,7 @@ void static_srv6_init(void)
 	srv6_locators->del = delete_static_srv6_locator;
 	srv6_sids = list_new();
 	srv6_sids->del = delete_static_srv6_sid;
+	srv6_sid_request_ids = idalloc_new("Static SRv6 SID requests");
 	static_srv6_neigh_cache_init();
 }
 
@@ -977,4 +985,5 @@ void static_srv6_cleanup(void)
 	static_srv6_neigh_cache_cleanup();
 	list_delete(&srv6_locators);
 	list_delete(&srv6_sids);
+	idalloc_destroy(srv6_sid_request_ids);
 }
