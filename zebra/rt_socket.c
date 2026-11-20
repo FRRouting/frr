@@ -108,10 +108,15 @@ static int kernel_rtm(int cmd, const struct prefix *p,
 	/* Make gateway. */
 	for (ALL_NEXTHOPS_PTR(ng, nexthop)) {
 		/*
-		 * We only want to use the actual good nexthops
+		 * We only want to install the actual good nexthops.  When
+		 * deleting, an interface going down has already cleared
+		 * ACTIVE on the nexthops that are still in the kernel, so
+		 * try all of them; a gateway that isn't there just gives
+		 * ESRCH.
 		 */
-		if (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_RECURSIVE) ||
-		    !CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_ACTIVE))
+		if (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_RECURSIVE))
+			continue;
+		if (cmd != RTM_DELETE && !CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_ACTIVE))
 			continue;
 
 		smplsp = NULL;
