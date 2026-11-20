@@ -5315,7 +5315,7 @@ void zebra_vxlan_remote_vtep_add(vrf_id_t vrf_id, vni_t vni, struct ipaddr *vtep
 		 * the flood mode has changed
 		 */
 		if (zvtep->flood_control != flood_control) {
-			if (zvtep->flood_control == VXLAN_FLOOD_DISABLED)
+			if (zvtep->flood_control == VXLAN_FLOOD_HEAD_END_REPL)
 				/* old mode was head-end-replication but
 				 * is no longer; get rid of the HER fdb
 				 * entry installed before

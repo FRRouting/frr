@@ -72,6 +72,7 @@ This bug is verifiable by inspecting zebra's per-VNI per-remote-VTEP
 flood mode, which is directly derived from the PMSI value bgpd retained.
 """
 
+import json
 import os
 import sys
 from functools import partial
@@ -225,6 +226,95 @@ def test_evpn_flood_her_after_soft_clear():
 
     for rname in ROUTERS:
         _check_flood_her(rname)
+
+
+def _imet_hrep_entry(router, present):
+    output = router.run("bridge -j fdb show dev vxlan-101")
+    try:
+        entries = json.loads(output)
+    except json.JSONDecodeError:
+        return f"Invalid bridge FDB JSON: {output}"
+    found = any(
+        entry.get("mac") == "00:00:00:00:00:00" and entry.get("dst") == "10.0.0.2"
+        for entry in entries
+    )
+    return None if found == present else f"HREP present={found}, expected={present}"
+
+
+def _imet_flood_mode(router, expected):
+    output = router.vtysh_cmd("show evpn vni 101 json", isjson=True)
+    for vtep in output.get("remoteVteps", []):
+        if vtep.get("ip") == "10.0.0.2":
+            return None if vtep.get("flood") == expected else vtep
+    return f"Remote VTEP 10.0.0.2 missing: {output}"
+
+
+def test_imet_pmsi_discard_disables_her():
+    "An IMET update without PMSI must remove the existing kernel HREP entry."
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    r1 = tgen.gears["r1"]
+    _check_flood_her("r1")
+    check = partial(_imet_hrep_entry, r1, True)
+    _, result = topotest.run_and_expect(check, None, count=20, wait=1)
+    assert result is None, f"Initial IMET did not install HREP: {result}"
+
+    try:
+        # Discard PMSI (attribute 22) on subsequent updates from r2.
+        r1.vtysh_cmd(
+            """
+            configure terminal
+             router bgp 65000
+              neighbor 10.0.0.2 path-attribute discard 22
+            end
+            """
+        )
+
+        # Import a second IMET for the same VTEP into VNI 101, using VNI 102's
+        # distinct RD. This sends Zebra a VTEP ADD without first deleting HREP.
+        tgen.gears["r2"].vtysh_cmd(
+            """
+            configure terminal
+             router bgp 65000
+              address-family l2vpn evpn
+               vni 102
+                route-target export 65000:101
+            end
+            """
+        )
+
+        check = partial(_imet_flood_mode, r1, "-")
+        _, result = topotest.run_and_expect(check, None, count=30, wait=1)
+        assert result is None, f"IMET without PMSI did not disable flooding: {result}"
+
+        check = partial(_imet_hrep_entry, r1, False)
+        _, result = topotest.run_and_expect(check, None, count=20, wait=1)
+        assert result is None, f"HREP entry survived PMSI removal: {result}"
+    finally:
+        r1.vtysh_cmd(
+            """
+            configure terminal
+             router bgp 65000
+              no neighbor 10.0.0.2 path-attribute discard 22
+            end
+            """
+        )
+        tgen.gears["r2"].vtysh_cmd(
+            """
+            configure terminal
+             router bgp 65000
+              address-family l2vpn evpn
+               no vni 102
+            end
+            """
+        )
+
+    _check_flood_her("r1")
+    check = partial(_imet_hrep_entry, r1, True)
+    _, result = topotest.run_and_expect(check, None, count=20, wait=1)
+    assert result is None, f"Restored PMSI did not reinstall HREP: {result}"
 
 
 def test_memory_leak():
