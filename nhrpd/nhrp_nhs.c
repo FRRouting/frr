@@ -64,9 +64,8 @@ static void nhrp_reg_reply(struct nhrp_reqid *reqid, void *arg)
 				: &p->src_proto;
 		debugf(NHRP_DEBUG_COMMON, "NHS: CIE registration: %pSU: %d",
 		       proto, cie->code);
-		if (!((cie->code == NHRP_CODE_SUCCESS)
-		      || (cie->code == NHRP_CODE_ADMINISTRATIVELY_PROHIBITED
-			  && nhs->hub)))
+		/* Per RFC 2332 §5.2.4: any non-zero CIE code is a NAK. */
+		if (cie->code != NHRP_CODE_SUCCESS)
 			ok = 0;
 		mtu = ntohs(cie->mtu);
 		debugf(NHRP_DEBUG_COMMON, "NHS: CIE MTU: %d", mtu);
