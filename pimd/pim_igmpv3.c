@@ -314,6 +314,18 @@ void igmp_source_delete(struct gm_source *source)
 	}
 
 	source_timer_off(group, source);
+
+	/*
+	 * Unlink before the prune. The proxy interest walk would otherwise
+	 * still see this source. A '*' source stays wanted while the group
+	 * is EXCLUDE, so deleting it on the way from EXCLUDE {} to
+	 * EXCLUDE {S} kept the proxy (*,G) join.
+	 *
+	 * listnode_delete() stays here, not in igmp_source_free(), because
+	 * free() is also called by list_delete_all_node().
+	 */
+	listnode_delete(group->group_source_list, source);
+
 	igmp_source_forward_stop(source);
 	source->source_channel_oil = NULL;
 
@@ -324,13 +336,6 @@ void igmp_source_delete(struct gm_source *source)
 			  group->interface->name);
 		/* warning only */
 	}
-
-	/*
-	  notice that listnode_delete() can't be moved
-	  into igmp_source_free() because the later is
-	  called by list_delete_all_node()
-	*/
-	listnode_delete(group->group_source_list, source);
 
 	src.s_addr = source->source_addr.s_addr;
 	igmp_source_free(source);
@@ -1433,11 +1438,15 @@ void igmpv3_report_block(struct gm_sock *igmp, struct in_addr from,
 
 	on_trace(__func__, ifp, from, group_addr, num_sources, sources);
 
-	/* non-existent group is created as INCLUDE {empty} */
-	group = igmp_add_group_by_addr(igmp, group_addr);
-	if (!group) {
+	/*
+	 * A non-existent group is INCLUDE {empty}, and
+	 * INCLUDE (A) + BLOCK (B) = INCLUDE (A), Send Q(G,A*B): with A empty
+	 * there is nothing to do.  Creating the group here would leave an
+	 * empty INCLUDE group with no timer to age it out.
+	 */
+	group = find_group_by_addr(igmp, group_addr);
+	if (!group)
 		return;
-	}
 
 	if (group->group_filtermode_isexcl) {
 		/* EXCLUDE mode */
@@ -1763,8 +1772,19 @@ void igmp_v3_recv_query(struct gm_sock *igmp, struct in_addr from, char *igmp_ms
 					}
 				}
 			} else {
-				zlog_warn("IGMP query v3 from %pI4s on %s: could not find group %pI4s for timer update",
-					  &from, ifp->name, &group_addr);
+				/*
+				 * A proxy interface sends joins for groups it
+				 * has no local membership for. Queries for
+				 * those groups are expected and are not a
+				 * missing-state error.
+				 */
+				if (pim_ifp && pim_ifp->gm_proxy) {
+					if (PIM_DEBUG_GM_TRACE)
+						zlog_debug("IGMP query v3 from %pI4s on %s: could not find group %pI4s for timer update",
+							   &from, ifp->name, &group_addr);
+				} else
+					zlog_warn("IGMP query v3 from %pI4s on %s: could not find group %pI4s for timer update",
+						  &from, ifp->name, &group_addr);
 			}
 		}
 	} /* s_flag is clear: timer updates */
@@ -1821,6 +1841,112 @@ static bool igmp_pkt_grp_addr_ok(struct interface *ifp, struct in_addr from, str
 	}
 
 	return true;
+}
+
+/*
+ * A local join (ip igmp join-group) was added to, or removed from, a proxy
+ * join for the same (S,G) on ifp.  Both share one kernel membership, so the
+ * kernel reports no change, and our own reports for (S,G) are only learned
+ * while the local join exists (see igmp_self_report_joins()).  Apply the
+ * change as if we had received the corresponding report from ourselves.
+ */
+void igmp_local_join_shared(struct interface *ifp, struct in_addr group, struct in_addr source,
+			    bool join)
+{
+	struct pim_interface *pim_ifp = ifp->info;
+	struct gm_sock *igmp;
+
+	if (!pim_ifp || !pim_ifp->gm_socket_list || !listcount(pim_ifp->gm_socket_list))
+		return;
+
+	igmp = listnode_head(pim_ifp->gm_socket_list);
+
+	if (PIM_DEBUG_GM_EVENTS)
+		zlog_debug("%s: local join for (%pI4,%pI4) on %s %s proxy join", __func__, &source,
+			   &group, ifp->name, join ? "added to" : "removed from");
+
+	if (pim_addr_is_any(source)) {
+		if (join)
+			igmpv3_report_isex(igmp, igmp->ifaddr, group, 0, NULL, 0);
+		else
+			igmpv3_report_toin(igmp, igmp->ifaddr, group, 0, NULL);
+	} else {
+		if (join)
+			igmpv3_report_isin(igmp, igmp->ifaddr, group, 1, &source);
+		else
+			igmpv3_report_block(igmp, igmp->ifaddr, group, 1, &source);
+	}
+}
+
+/*
+ * Reduce a group record from one of our own reports to what is not owed to
+ * proxy-only joins on ifp (see igmp_self_report_joins()):
+ *  - EXCLUDE records come from a proxy (*,G) join; keep only the local (S,G)
+ *    joins, as an IS_IN record.
+ *  - INCLUDE/ALLOW/BLOCK records: drop the sources of proxy-only (S,G)
+ *    joins.
+ * Returns the number of sources left in *out (to be freed by the caller),
+ * or -1 when nothing is left and the record must be ignored.  A TO_IN
+ * record is never ignored: with nothing left it becomes TO_IN {}.
+ */
+static int igmpv3_self_record_filter(struct interface *ifp, struct in_addr group,
+				     const struct igmp_self_joins *sj, int *rec_type,
+				     int num_sources, const uint8_t *sources, struct in_addr **out)
+{
+	struct pim_interface *pim_ifp = ifp->info;
+	struct listnode *node;
+	struct gm_join *ij;
+	struct in_addr *srcs;
+	int n = 0;
+
+	*out = NULL;
+	srcs = XCALLOC(MTYPE_TMP,
+		       (MAX(num_sources, (int)pim_ifp->gm_join_list->count) + 1) * sizeof(*srcs));
+
+	switch (*rec_type) {
+	case IGMP_GRP_REC_TYPE_MODE_IS_EXCLUDE:
+	case IGMP_GRP_REC_TYPE_CHANGE_TO_EXCLUDE_MODE:
+		if (!sj->proxy_any) {
+			/* not the proxy's: some other local (*,G) membership */
+			for (n = 0; n < num_sources; n++)
+				memcpy(&srcs[n], sources + n * sizeof(*srcs), sizeof(*srcs));
+			*out = srcs;
+			return n;
+		}
+		for (ALL_LIST_ELEMENTS_RO(pim_ifp->gm_join_list, node, ij))
+			if (ij->join_type != GM_JOIN_PROXY &&
+			    !pim_addr_cmp(ij->group_addr, group) &&
+			    !pim_addr_is_any(ij->source_addr))
+				srcs[n++] = ij->source_addr;
+		*rec_type = IGMP_GRP_REC_TYPE_MODE_IS_INCLUDE;
+		break;
+	default:
+		for (int j = 0; j < num_sources; j++) {
+			struct in_addr src;
+
+			memcpy(&src, sources + j * sizeof(src), sizeof(src));
+			if (!igmp_proxy_only_join(ifp, group, src))
+				srcs[n++] = src;
+		}
+	}
+
+	if (!n) {
+		/*
+		 * A change to INCLUDE still applies to whatever we learned
+		 * from our own reports for the group (e.g. a local (*,G) join
+		 * was just removed while proxy (S,G) joins remain): pass it on
+		 * as TO_IN {}, a leave, which is ignored if there is no state.
+		 */
+		if (*rec_type == IGMP_GRP_REC_TYPE_CHANGE_TO_INCLUDE_MODE) {
+			*out = srcs;
+			return 0;
+		}
+		XFREE(MTYPE_TMP, srcs);
+		return -1;
+	}
+
+	*out = srcs;
+	return n;
 }
 
 int igmp_v3_recv_report(struct gm_sock *igmp, struct in_addr from, char *igmp_msg, int igmp_msg_len)
@@ -1889,6 +2015,8 @@ int igmp_v3_recv_report(struct gm_sock *igmp, struct in_addr from, char *igmp_ms
 	/* Scan groups */
 	for (i = 0; i < num_groups; ++i) {
 		struct in_addr rec_group;
+		struct in_addr *srcs, *self_srcs;
+		struct igmp_self_joins sj;
 		uint8_t *sources;
 		uint8_t *src;
 		int rec_type;
@@ -1959,43 +2087,49 @@ int igmp_v3_recv_report(struct gm_sock *igmp, struct in_addr from, char *igmp_ms
 		} /* for (sources) */
 
 
+		/* Our own report: ignore what our proxy-only joins account for */
+		srcs = (struct in_addr *)sources;
+		self_srcs = NULL;
+		if (igmp_self_report_joins(ifp, from, rec_group, &sj) && !sj.local_any) {
+			rec_num_sources = igmpv3_self_record_filter(ifp, rec_group, &sj, &rec_type,
+								    rec_num_sources, sources,
+								    &self_srcs);
+			srcs = self_srcs;
+			if (rec_num_sources < 0) {
+				if (PIM_DEBUG_GM_PACKETS)
+					zlog_debug("    Ignoring IGMP report v3 record=%d group=%pI4 from ourselves on %s: proxied",
+						   i, &rec_group, ifp->name);
+				group_record += record_len;
+				continue;
+			}
+		}
+
 		if (igmp_pkt_grp_addr_ok(ifp, from, rec_group, rec_type))
 			switch (rec_type) {
 			case IGMP_GRP_REC_TYPE_MODE_IS_INCLUDE:
-				igmpv3_report_isin(igmp, from, rec_group,
-						   rec_num_sources,
-						   (struct in_addr *)sources);
+				igmpv3_report_isin(igmp, from, rec_group, rec_num_sources, srcs);
 				break;
 			case IGMP_GRP_REC_TYPE_MODE_IS_EXCLUDE:
-				igmpv3_report_isex(
-					igmp, from, rec_group, rec_num_sources,
-					(struct in_addr *)sources, 0);
+				igmpv3_report_isex(igmp, from, rec_group, rec_num_sources, srcs, 0);
 				break;
 			case IGMP_GRP_REC_TYPE_CHANGE_TO_INCLUDE_MODE:
-				igmpv3_report_toin(igmp, from, rec_group,
-						   rec_num_sources,
-						   (struct in_addr *)sources);
+				igmpv3_report_toin(igmp, from, rec_group, rec_num_sources, srcs);
 				break;
 			case IGMP_GRP_REC_TYPE_CHANGE_TO_EXCLUDE_MODE:
-				igmpv3_report_toex(igmp, from, rec_group,
-						   rec_num_sources,
-						   (struct in_addr *)sources);
+				igmpv3_report_toex(igmp, from, rec_group, rec_num_sources, srcs);
 				break;
 			case IGMP_GRP_REC_TYPE_ALLOW_NEW_SOURCES:
-				igmpv3_report_allow(igmp, from, rec_group,
-						    rec_num_sources,
-						    (struct in_addr *)sources);
+				igmpv3_report_allow(igmp, from, rec_group, rec_num_sources, srcs);
 				break;
 			case IGMP_GRP_REC_TYPE_BLOCK_OLD_SOURCES:
-				igmpv3_report_block(igmp, from, rec_group,
-						    rec_num_sources,
-						    (struct in_addr *)sources);
+				igmpv3_report_block(igmp, from, rec_group, rec_num_sources, srcs);
 				break;
 			default:
 				zlog_warn("Recv IGMP report v3 from %pI4s on %s: unknown record type: type=%d",
 					  &from, ifp->name, rec_type);
 			}
 
+		XFREE(MTYPE_TMP, self_srcs);
 		group_record += record_len;
 
 	} /* for (group records) */

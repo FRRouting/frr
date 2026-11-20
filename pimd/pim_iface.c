@@ -1700,8 +1700,11 @@ ferr_r pim_if_gm_join_add(struct interface *ifp, pim_addr group_addr,
 	 */
 	if (ij) {
 		/* turn an existing join into a "both" join */
-		if (ij->join_type != join_type)
+		if (ij->join_type != join_type) {
+			if (ij->join_type == GM_JOIN_PROXY)
+				igmp_local_join_shared(ifp, group_addr, source_addr, true);
 			ij->join_type = GM_JOIN_BOTH;
+		}
 		return ferr_ok();
 	}
 
@@ -1717,6 +1720,16 @@ ferr_r pim_if_gm_join_add(struct interface *ifp, pim_addr group_addr,
 	}
 
 	return ferr_ok();
+}
+
+bool pim_if_gm_join_exists(struct interface *ifp, pim_addr group_addr, pim_addr source_addr)
+{
+	struct pim_interface *pim_ifp = ifp ? ifp->info : NULL;
+
+	if (!pim_ifp || !pim_ifp->gm_join_list)
+		return false;
+
+	return gm_join_find(pim_ifp->gm_join_list, group_addr, source_addr) != NULL;
 }
 
 int pim_if_gm_join_del(struct interface *ifp, pim_addr group_addr,
@@ -1757,6 +1770,8 @@ int pim_if_gm_join_del(struct interface *ifp, pim_addr group_addr,
 		/* drop back to a single join type from current setting of GM_JOIN_BOTH */
 		ij->join_type = (join_type == GM_JOIN_STATIC ? GM_JOIN_PROXY
 							     : GM_JOIN_STATIC);
+		if (ij->join_type == GM_JOIN_PROXY)
+			igmp_local_join_shared(ifp, group_addr, source_addr, false);
 		return 0;
 	}
 
@@ -1865,9 +1880,9 @@ int pim_if_static_group_del(struct interface *ifp, pim_addr group_addr,
 	sg.src = source_addr;
 	sg.grp = group_addr;
 
-	tib_sg_gm_prune(pim_ifp->pim, sg, ifp, &(stgrp->oilp));
-
+	/* Unlink first, so the prune does not count this static group. */
 	listnode_delete(pim_ifp->static_group_list, stgrp);
+	tib_sg_gm_prune(pim_ifp->pim, sg, ifp, &(stgrp->oilp));
 	static_group_free(stgrp);
 	if (listcount(pim_ifp->static_group_list) < 1) {
 		list_delete(&pim_ifp->static_group_list);
@@ -1939,6 +1954,51 @@ void pim_if_gm_proxy_init(struct pim_instance *pim, struct interface *oif)
 			}
 		}
 	} /* scan interfaces */
+}
+
+/* Is ifp an IGMP/MLD proxy (upstream) interface? */
+bool pim_if_is_gm_proxy(struct interface *ifp)
+{
+	struct pim_interface *pim_ifp = ifp ? ifp->info : NULL;
+
+	return pim_ifp && pim_ifp->gm_enable && pim_ifp->gm_proxy;
+}
+
+/*
+ * Does the proxy route-map on proxy_ifp let (src,grp) out?  The route-map
+ * may match on the receiver's interface, so test the interfaces that have
+ * interest in (src,grp).  With no interest anywhere yet, any interface the
+ * route-map permits will do.  No route-map, or no group to test, permits.
+ */
+bool pim_if_gm_proxy_permits(struct interface *proxy_ifp, pim_addr src, pim_addr grp)
+{
+	struct pim_interface *pim_proxy = proxy_ifp->info;
+	pim_sgaddr sg = { .src = src, .grp = grp };
+	bool interest = false;
+	bool permit = false;
+	struct prefix_sg pfx;
+	struct interface *ifp;
+
+	if (!pim_proxy || !pim_proxy->gm_proxy_filter.rmapname || pim_addr_is_any(grp))
+		return true;
+
+	pim_sg_to_prefix(&sg, &pfx);
+	FOR_ALL_INTERFACES (proxy_ifp->vrf, ifp) {
+		bool ifp_interest;
+
+		if (ifp == proxy_ifp || !ifp->info)
+			continue;
+
+		ifp_interest = tib_sg_ifp_has_downstream_interest(ifp, sg);
+		interest |= ifp_interest;
+		if (!pim_filter_match(&pim_proxy->gm_proxy_filter, &pfx, proxy_ifp, ifp))
+			continue;
+		if (ifp_interest)
+			return true;
+		permit = true;
+	}
+
+	return !interest && permit;
 }
 
 void pim_if_gm_proxy_finis(struct pim_instance *pim, struct interface *ifp)
@@ -2438,9 +2498,18 @@ void pim_pim_interface_delete(struct interface *ifp)
 void pim_gm_interface_delete(struct interface *ifp)
 {
 	struct pim_interface *pim_ifp = ifp->info;
+	struct pim_instance *pim;
+	bool was_proxy;
 
 	if (!pim_ifp)
 		return;
+
+	pim = pim_ifp->pim;
+	was_proxy = pim_if_is_gm_proxy(ifp);
+
+	/* Without IGMP/MLD this is no longer a proxy interface. */
+	if (was_proxy)
+		pim_if_gm_proxy_finis(pim, ifp);
 
 	pim_ifp->gm_enable = false;
 
@@ -2454,6 +2523,10 @@ void pim_gm_interface_delete(struct interface *ifp)
 
 	if (!pim_ifp->pim_enable)
 		pim_if_delete(ifp);
+
+	/* RPF over ifp may have relied on the proxy neighbor waiver. */
+	if (was_proxy)
+		pim_nht_upstream_if_update(pim, ifp);
 }
 
 

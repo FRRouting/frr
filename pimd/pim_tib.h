@@ -29,4 +29,18 @@ extern void tib_sg_downstream_ifaces_foreach(struct pim_instance *pim, pim_sgadd
 					     void (*cb)(struct interface *ifp, void *arg),
 					     void *arg);
 
+struct interface;
+
+/*
+ * Recompute proxy joins on proxy_ifp from current downstream interest and
+ * its proxy route-map. Used when the route-map is attached, detached, or
+ * its contents change, which is not a membership event.
+ */
+extern bool tib_sg_ifp_has_downstream_interest(struct interface *ifp, pim_sgaddr sg);
+extern void tib_sg_proxy_filter_reeval(struct pim_instance *pim, struct interface *proxy_ifp);
+
+/* Re-evaluate every proxy interface whose proxy route-map is named rmap_name. */
+extern void pim_gm_proxy_filter_update(const char *rmap_name);
+extern void pim_gm_proxy_filter_terminate(void);
+
 #endif /* _FRR_PIM_GLUE_H */
