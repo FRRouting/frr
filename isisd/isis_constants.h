@@ -95,6 +95,16 @@
 #define ISIS_MAX_PATH_SPLITS          64
 
 /*
+ * Upper bound on the adjacencies kept for one level on a broadcast
+ * circuit.  ISO 10589 8.4.2.5 requires adjacency state for every LAN
+ * IIH received, but a single LAN segment never carries anywhere near
+ * this many IS-IS speakers; without a bound, a LAN peer can pin
+ * unbounded adjacencies (object, expire timer, linear-scan entry per
+ * later IIH) by sending IIHs with distinct system IDs.
+ */
+#define ISIS_MAX_LAN_ADJACENCIES 1024
+
+/*
  * NLPID values
  */
 #define NLPID_IP   204
