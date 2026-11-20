@@ -233,6 +233,7 @@ void zebra_router_terminate(void)
 
 	RB_FOREACH_SAFE (zrt, zebra_router_table_head, &zrouter.tables, tmp)
 		zebra_router_free_table(zrt);
+	zebra_rib_kernel_routes_fini();
 
 	work_queue_free_and_null(&zrouter.ribq);
 	meta_queue_free(zrouter.mq, NULL);
@@ -288,6 +289,7 @@ void zebra_router_init(bool asic_offload, bool notify_on_ack, bool v6_with_v4_ne
 
 	/* Initialize the red-black tree for router tables */
 	RB_INIT(zebra_router_table_head, &zrouter.tables);
+	zebra_rib_kernel_routes_init();
 
 	/*Init V6 RA batching stuffs*/
 	zrouter.ra_wheel = wheel_init(zrouter.master, RTADV_TIMER_WHEEL_PERIOD_MS,
