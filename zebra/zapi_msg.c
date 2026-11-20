@@ -2273,6 +2273,8 @@ static void zread_route_add(ZAPI_HANDLER_ARGS)
 	 */
 	if (ret == -1) {
 		client->error_cnt++;
+		if (n)
+			zebra_nhg_free(n);
 		zebra_rib_route_entry_free(re);
 	}
 
