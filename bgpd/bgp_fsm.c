@@ -2241,9 +2241,23 @@ enum bgp_fsm_state_progress bgp_stop(struct peer_connection *connection)
 	if (peer_established(connection)) {
 		peer->dropped++;
 
-		if (peer->bfd_config && (peer->last_reset == PEER_DOWN_UPDATE_SOURCE_CHANGE ||
-					 peer->last_reset == PEER_DOWN_MULTIHOP_CHANGE))
+		/*
+		 * A bfd strict peer keeps its session: BGP comes back up only on
+		 * its state, so removing it lets BGP up on the stale Up and makes
+		 * a strict remote reject us.  New parameters were already applied
+		 * when the configuration changed.
+		 */
+		if (peer->bfd_config &&
+		    (peer->last_reset == PEER_DOWN_UPDATE_SOURCE_CHANGE ||
+		     peer->last_reset == PEER_DOWN_MULTIHOP_CHANGE) &&
+		    !CHECK_FLAG(peer->flags, PEER_FLAG_BFD_STRICT)) {
 			bfd_sess_uninstall(peer->bfd_config->session);
+			/*
+			 * The session parameters are kept, so nothing looks changed
+			 * when the peer reconnects: install it again from there.
+			 */
+			peer->bfd_config->install_pending = true;
+		}
 
 		if (peer->bfd_config)
 			event_cancel(&peer->bfd_config->t_hold_timer);
