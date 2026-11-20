@@ -833,6 +833,11 @@ struct bpacket *subgroup_update_packet(struct update_subgroup *subgrp)
 			bgp_attr_stream_put_prefix_addpath(s, dest_p, addpath_capable,
 							   addpath_tx_id);
 		else {
+			struct bgp_path_info_extra *extra = NULL;
+
+			if (safi == SAFI_MPLS_VPN)
+				extra = bgp_path_info_extra_get(path);
+
 			/* Encode the prefix in MP_REACH_NLRI attribute */
 			if (dest->pdest)
 				prd = (struct prefix_rd *)bgp_dest_get_prefix(
@@ -842,16 +847,12 @@ struct bpacket *subgroup_update_packet(struct update_subgroup *subgrp)
 				bgp_adv_label(dest, path, peer, afi, safi, labels, &num_labels);
 				label_pnt = &labels[0];
 			} else if (safi == SAFI_MPLS_VPN && path &&
-				   CHECK_FLAG(path->flags,
-					      BGP_PATH_MPLSVPN_NH_LABEL_BIND) &&
-				   path->mplsvpn.bmnc.nh_label_bind_cache &&
-				   path->peer && path->peer != peer &&
-				   path->sub_type != BGP_ROUTE_IMPORTED &&
+				   CHECK_FLAG(path->flags, BGP_PATH_MPLSVPN_NH_LABEL_BIND) &&
+				   extra->mplsvpn.bmnc.nh_label_bind_cache && path->peer &&
+				   path->peer != peer && path->sub_type != BGP_ROUTE_IMPORTED &&
 				   path->sub_type != BGP_ROUTE_STATIC &&
-				   bgp_mplsvpn_path_uses_valid_mpls_label(
-					   path) &&
-				   bgp_path_info_nexthop_changed(path, peer,
-								 afi)) {
+				   bgp_mplsvpn_path_uses_valid_mpls_label(path) &&
+				   bgp_path_info_nexthop_changed(path, peer, afi)) {
 				/* Redistributed mpls vpn route between distinct
 				 * peers from 'pi->peer' to 'to',
 				 * and an mpls label is used in this path,
