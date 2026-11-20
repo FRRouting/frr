@@ -47,7 +47,6 @@ import os
 import shlex
 import sys
 import time
-from functools import partial
 
 import pytest
 from scapy.contrib.ospf import OSPF_Hdr
@@ -183,14 +182,21 @@ def _start_capture(router, pcap_path, bpf="ip proto 89"):
         router.name,
         pid,
     )
-    if not _wait_until(partial(_file_ready, ready_path)):
+    _wait_until(
+        lambda: _file_ready(ready_path) or not _proc_alive(router, pid),
+        timeout_s=60,
+    )
+    if not _file_ready(ready_path):
+        alive = _proc_alive(router, pid)
+        router.cmd("kill -KILL %s >/dev/null 2>&1 || true" % pid)
         err = router.cmd("cat %s 2>/dev/null || true" % shlex.quote(err_path))
         if os.path.exists(err_path):
             with open(err_path) as f:
                 err = err or f.read()
-        assert False, "scapy capture did not become ready on %s (pid %s): %s" % (
+        assert False, "scapy capture did not become ready on %s (pid %s, %s): %s" % (
             router.name,
             pid,
+            "still running" if alive else "exited",
             err.strip() or "no capture stderr",
         )
     return pid
