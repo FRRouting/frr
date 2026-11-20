@@ -1880,6 +1880,11 @@ static int rpki_create_socket(void *_cache)
 		hints.ai_family = PF_UNSPEC;
 		hints.ai_socktype = SOCK_STREAM;
 	}
+#else
+	else {
+		/* SSH caches can't be configured without SSH support */
+		return -1;
+	}
 #endif
 
 	frr_with_privs (&bgpd_privs) {
