@@ -2511,8 +2511,13 @@ static void zread_hello(ZAPI_HANDLER_ARGS)
 		client->instance = instance;
 		client->session_id = session_id;
 
-		/* Graceful restart processing for client connect */
-		zebra_gr_client_reconnect(client);
+		/*
+		 * Graceful restart processing for client connect. GR state is
+		 * only built on the main session, so a synchronous session
+		 * such as bgpd's label manager must not take it over.
+		 */
+		if (!client->synchronous)
+			zebra_gr_client_reconnect(client);
 	}
 
 	if (!client->synchronous) {
