@@ -124,6 +124,43 @@ def _check_source_route_nexthop(router, prefix, table_id, protocol, nexthop_ip, 
     return f"Route {prefix} is not selected via {protocol} {nexthop_ip}: {output}"
 
 
+def _show_route(router, afi, prefix, table_id=None):
+    table = f" table {table_id}" if table_id else ""
+    return json.loads(router.vtysh_cmd(f"show {afi} route{table} {prefix} json"))
+
+
+def _check_kernel_route_imported(router, afi, prefix, table_id):
+    source_output = _show_route(router, afi, prefix, table_id)
+    if _route_missing(source_output, prefix) or not any(
+        route.get("protocol") == "kernel" and route.get("selected")
+        for route in source_output[prefix]
+    ):
+        return f"Kernel route {prefix} is not selected in table {table_id}: {source_output}"
+
+    imported_output = _show_route(router, afi, prefix)
+    if _route_missing(imported_output, prefix) or not any(
+        route.get("protocol") == "table"
+        and route.get("instance") == table_id
+        and route.get("selected")
+        for route in imported_output[prefix]
+    ):
+        return f"Kernel route {prefix} was not imported: {imported_output}"
+
+    return None
+
+
+def _check_route_withdrawn(router, afi, prefix, table_id):
+    source_output = _show_route(router, afi, prefix, table_id)
+    if not _route_missing(source_output, prefix):
+        return f"Route {prefix} is still in table {table_id}: {source_output}"
+
+    imported_output = _show_route(router, afi, prefix)
+    if not _route_missing(imported_output, prefix):
+        return f"Imported route {prefix} was not withdrawn: {imported_output}"
+
+    return None
+
+
 def _cleanup_added_import_test_routes(router):
     router.run(
         "vtysh -c 'sharp remove routes 10.21.0.0 1 table 10' >/dev/null 2>&1 || true"
@@ -433,6 +470,68 @@ def test_zebra_static_route_preferred_over_sharp_import(request):
     assert result is None, result
 
     _cleanup_added_import_test_routes(r1)
+
+
+def test_zebra_import_kernel_route_removed(request):
+    "Verify a kernel route that leaves an imported table is withdrawn from the main table"
+    tgen = get_topogen()
+    tc_name = request.node.name
+    write_test_header(tc_name)
+
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    r1 = tgen.gears["r1"]
+    _cleanup_added_import_test_routes(r1)
+
+    r1.vtysh_cmd(
+        """
+        conf term
+         ip import-table 10 distance 123
+         ipv6 import-table 10
+        """
+    )
+    r1.run("ip link add imp0 type dummy")
+    r1.run("ip link set imp0 up")
+
+    routes = [("ip", "-4", "10.23.0.0/24"), ("ipv6", "-6", "2001:db8:23::/64")]
+    for afi, family, prefix in routes:
+        step(f"Add kernel route {prefix} to table 10 and verify it is imported")
+        r1.run(f"ip {family} route add table 10 {prefix} dev imp0")
+
+        test_func = partial(_check_kernel_route_imported, r1, afi, prefix, 10)
+        _, result = topotest.run_and_expect(test_func, None, count=20, wait=1)
+        assert result is None, result
+
+        step(f"Delete kernel route {prefix} from table 10 and verify it is withdrawn")
+        r1.run(f"ip {family} route del table 10 {prefix} dev imp0")
+
+        test_func = partial(_check_route_withdrawn, r1, afi, prefix, 10)
+        _, result = topotest.run_and_expect(test_func, None, count=20, wait=1)
+        assert result is None, result
+
+    prefix = "10.24.0.0/24"
+    step(f"Add kernel route {prefix} to table 10 and verify it is imported")
+    r1.run(f"ip route add table 10 {prefix} dev imp0")
+
+    test_func = partial(_check_kernel_route_imported, r1, "ip", prefix, 10)
+    _, result = topotest.run_and_expect(test_func, None, count=20, wait=1)
+    assert result is None, result
+
+    step(f"Shut imp0 so the kernel drops {prefix} and verify it is withdrawn")
+    r1.run("ip link set imp0 down")
+
+    test_func = partial(_check_route_withdrawn, r1, "ip", prefix, 10)
+    _, result = topotest.run_and_expect(test_func, None, count=20, wait=1)
+    assert result is None, result
+
+    r1.run("ip link del imp0")
+    r1.vtysh_cmd(
+        """
+        conf term
+         no ipv6 import-table 10
+        """
+    )
 
 
 def test_zebra_mrib_import(request):
