@@ -1028,9 +1028,10 @@ ospf_aggr_handle_advertise_change(struct ospf *ospf,
 		return;
 	}
 
-	if (!CHECK_FLAG(aggr->flags, OSPF_EXTERNAL_AGGRT_ORIGINATED)) {
+	if (!CHECK_FLAG(aggr->flags, OSPF_EXTERNAL_AGGRT_ORIGINATED) &&
+	    OSPF_EXTERNAL_RT_COUNT(aggr)) {
 		if (IS_DEBUG_OSPF(lsa, EXTNL_LSA_AGGR))
-			zlog_debug("%s: Now it is advatisable", __func__);
+			zlog_debug("%s: Now it is advertisable", __func__);
 
 		lsa = ospf_external_info_find_lsa(ospf, &ei_aggr->p);
 		if (lsa && IS_LSA_MAXAGE(lsa)) {
