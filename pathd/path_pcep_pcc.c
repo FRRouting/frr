@@ -1562,14 +1562,7 @@ void schedule_reconnect(struct ctrl_state *ctrl_state,
 void schedule_session_timeout(struct ctrl_state *ctrl_state,
 			      struct pcc_state *pcc_state)
 {
-	/* No need to schedule timeout if multiple PCEs are connected */
-	if (get_pce_count_connected(ctrl_state->pcc)) {
-		PCEP_DEBUG_PCEP(
-			"schedule_session_timeout not setting timer for multi-pce mode");
-
-		return;
-	}
-
+	/* Each PCE has its own timeout, even when other PCEs are connected */
 	pcep_thread_schedule_session_timeout(
 		ctrl_state, pcep_pcc_get_pcc_id(pcc_state),
 		pcc_state->pce_opts->config_opts

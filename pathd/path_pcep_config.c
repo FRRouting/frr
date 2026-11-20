@@ -416,6 +416,12 @@ int path_pcep_config_update_path(struct path *path)
 	}
 
 	candidate->policy->srp_id = path->srp_id;
+	/* The PCE updating a PCE-initiated path takes it over (RFC 8281) */
+	if (candidate->protocol_origin == SRTE_ORIGIN_PCEP) {
+		strlcpy(candidate->originator, path->originator, sizeof(candidate->originator));
+		strlcpy(candidate->policy->originator, path->originator,
+			sizeof(candidate->policy->originator));
+	}
 	// first clean up old segment list if present
 	if (candidate->lsp->segment_list) {
 		SET_FLAG(candidate->lsp->segment_list->flags,

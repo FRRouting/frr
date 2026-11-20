@@ -449,7 +449,7 @@ struct srte_candidate *srte_candidate_find(struct srte_policy *policy,
 struct srte_segment_entry *
 srte_segment_entry_find(struct srte_segment_list *segment_list, uint32_t index);
 void srte_candidate_status_update(struct srte_candidate *candidate, int status);
-void srte_candidate_unset_segment_list(const char *originator, bool force);
+void srte_candidate_unset_segment_list(const char *originator);
 const char *srte_origin2str(enum srte_protocol_origin origin);
 void pathd_shutdown(void);
 
