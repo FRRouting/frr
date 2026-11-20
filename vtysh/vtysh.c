@@ -1481,6 +1481,7 @@ static struct cmd_node bgp_evpn_vni_node = {
 	.node = BGP_EVPN_VNI_NODE,
 	.parent_node = BGP_EVPN_NODE,
 	.prompt = "%s(config-router-af-vni)# ",
+	.no_xpath = true,
 };
 
 static struct cmd_node bgp_ipv6l_node = {

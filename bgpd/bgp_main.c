@@ -47,10 +47,18 @@
 #include "bgpd/bgp_network.h"
 #include "bgpd/bgp_errors.h"
 #include "bgpd/bgp_script.h"
+#include "bgpd/bgp_evpn.h"
 #include "bgpd/bgp_evpn_mh.h"
 #include "bgpd/bgp_nhg.h"
 #include "bgpd/bgp_routemap_nb.h"
+#include "bgpd/bgp_nb.h"
+#include "bgpd/bgp_rpki_nb.h"
+#include "bgpd/bgp_filter_nb.h"
+#ifdef ENABLE_BGP_VNC
+#include "bgpd/bgp_vnc_nb.h"
+#endif
 #include "bgpd/bgp_community_alias.h"
+#include "routing_nb.h"
 
 DEFINE_HOOK(bgp_hook_config_write_vrf, (struct vty *vty, struct vrf *vrf),
 	    (vty, vrf));
@@ -197,6 +205,17 @@ static FRR_NORETURN void bgp_exit(int status)
 	 * below.
 	 */
 	bgp_lp_release_pending_lu_locks();
+
+	/*
+	 * Tear down L3VNI / L2VNI linkage while the EVPN owner is still
+	 * alive. Tenant VRFs hold bgp_lock refs from linked L2VNIs;
+	 * classic CLI required L3VNI gone before "no router bgp", but
+	 * process exit (and YANG destroy) skip that ordering. Without
+	 * this, deleting VRFs before the EVPN owner leaves instances
+	 * allocated after unlock.
+	 */
+	for (ALL_LIST_ELEMENTS(bm->bgp, node, nnode, bgp))
+		bgp_evpn_instance_down(bgp);
 
 	/* reverse bgp_master_init */
 	for (ALL_LIST_ELEMENTS(bm->bgp, node, nnode, bgp)) {
@@ -396,11 +415,12 @@ static void bgp_vrf_terminate(void)
 }
 
 static const struct frr_yang_module_info *const bgpd_yang_modules[] = {
-	&frr_filter_info,
-	&frr_interface_info,
-	&frr_route_map_info,
-	&frr_vrf_info,
-	&frr_bgp_route_map_info,
+	&frr_filter_info,	 &frr_interface_info,  &frr_route_map_info,
+	&frr_vrf_info,		 &frr_routing_info,    &frr_bgp_info,
+	&frr_bgp_route_map_info, &frr_bgp_filter_info, &frr_bgp_rpki_info,
+#ifdef ENABLE_BGP_VNC
+	&frr_bgp_vnc_info,
+#endif
 };
 
 /* clang-format off */
@@ -531,6 +551,8 @@ CPP_NOTICE("Remove `--no_zebra` option as that it is deprecated")
 
 	/* BGP master init. */
 	bgp_master_init(frr_init(), buffer_size, addresses);
+
+	hook_register(routing_destroy, bgp_nb_routing_destroy);
 
 	bm->startup_time = monotime(NULL);
 	bm->port = bgp_port;

@@ -547,28 +547,6 @@ int bgp_damp_disable(struct bgp *bgp, afi_t afi, safi_t safi)
 	return 0;
 }
 
-void bgp_config_write_damp(struct vty *vty, struct bgp *bgp, afi_t afi,
-			   safi_t safi)
-{
-	struct bgp_damp_config *bdc;
-
-	bdc = &bgp->damp[afi][safi];
-	if (bdc->half_life == DEFAULT_HALF_LIFE * 60 &&
-	    bdc->reuse_limit == DEFAULT_REUSE &&
-	    bdc->suppress_value == DEFAULT_SUPPRESS &&
-	    bdc->max_suppress_time == bdc->half_life * 4)
-		vty_out(vty, "  bgp dampening\n");
-	else if (bdc->half_life != DEFAULT_HALF_LIFE * 60 &&
-		 bdc->reuse_limit == DEFAULT_REUSE &&
-		 bdc->suppress_value == DEFAULT_SUPPRESS &&
-		 bdc->max_suppress_time == bdc->half_life * 4)
-		vty_out(vty, "  bgp dampening %lld\n", bdc->half_life / 60LL);
-	else
-		vty_out(vty, "  bgp dampening %lld %d %d %lld\n",
-			bdc->half_life / 60LL, bdc->reuse_limit,
-			bdc->suppress_value, bdc->max_suppress_time / 60LL);
-}
-
 static const char *bgp_get_reuse_time(struct bgp_damp_config *bdc,
 				      unsigned int penalty, char *buf,
 				      size_t len, bool use_json,
@@ -861,31 +839,6 @@ void bgp_peer_damp_disable(struct peer *peer, afi_t afi, safi_t safi)
 		return;
 	bgp_damp_info_clean(peer->bgp, bdc, afi, safi);
 	XFREE(MTYPE_BGP_DAMP_CONFIG, peer->damp[afi][safi]);
-}
-
-void bgp_config_write_peer_damp(struct vty *vty, struct peer *peer, afi_t afi,
-				safi_t safi)
-{
-	struct bgp_damp_config *bdc;
-
-	bdc = peer->damp[afi][safi];
-	if (!bdc)
-		return;
-	if (bdc->half_life == DEFAULT_HALF_LIFE * 60 &&
-	    bdc->reuse_limit == DEFAULT_REUSE &&
-	    bdc->suppress_value == DEFAULT_SUPPRESS &&
-	    bdc->max_suppress_time == bdc->half_life * 4)
-		vty_out(vty, "  neighbor %s dampening\n", peer->host);
-	else if (bdc->half_life != DEFAULT_HALF_LIFE * 60 &&
-		 bdc->reuse_limit == DEFAULT_REUSE &&
-		 bdc->suppress_value == DEFAULT_SUPPRESS &&
-		 bdc->max_suppress_time == bdc->half_life * 4)
-		vty_out(vty, "  neighbor %s dampening %lld\n", peer->host,
-			bdc->half_life / 60LL);
-	else
-		vty_out(vty, "  neighbor %s dampening %lld %d %d %lld\n",
-			peer->host, bdc->half_life / 60LL, bdc->reuse_limit,
-			bdc->suppress_value, bdc->max_suppress_time / 60LL);
 }
 
 static void bgp_print_peer_dampening_parameters(struct vty *vty,

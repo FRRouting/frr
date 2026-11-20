@@ -75,6 +75,16 @@ module frr-bgp {
      (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
      OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.";
 
+  revision 2026-11-17 {
+    description
+      "Unnumbered neighbors carry the same AF filter and policy nodes as
+       numbered neighbors. A neighbor remote-as is not mandatory when the
+       neighbor is a peer-group member; the group's remote-as is inherited
+       and is not copied onto the member.";
+    reference
+      "FRRouting";
+  }
+
   revision 2026-07-21 {
     description
       "Sync BGP YANG with FRR CLI: daemon-wide config, EVPN, SRv6,
@@ -333,9 +343,10 @@ module frr-bgp {
 
             leaf remote-as-type {
               type frr-bt:as-type;
-              mandatory true;
               description
-                "Remote AS type.";
+                "Remote AS type. Absent when this neighbor is only a
+                 peer-group member: the group's remote AS is inherited
+                 and must not be stored on the member.";
             }
 
             leaf remote-as {
@@ -1602,6 +1613,11 @@ module frr-bgp {
     uses structure-neighbor-group-soft-reconfiguration;
 
     uses structure-neighbor-weight;
+
+    uses structure-neighbor-group-af-policy-options;
+
+    uses structure-neighbor-group-filter-config;
+
     uses route-flap-dampening;
 
   }
@@ -1630,9 +1646,13 @@ module frr-bgp {
 
     uses structure-neighbor-group-soft-reconfiguration;
 
+    uses structure-neighbor-group-af-policy-options;
+
     uses structure-neighbor-group-encapsulation;
 
     uses structure-neighbor-weight;
+
+    uses structure-neighbor-group-filter-config;
   }
 
   augment "/frr-rt:routing/frr-rt:control-plane-protocols/frr-rt:control-plane-protocol/bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/l3vpn-ipv6-unicast" {
@@ -1659,9 +1679,13 @@ module frr-bgp {
 
     uses structure-neighbor-group-soft-reconfiguration;
 
+    uses structure-neighbor-group-af-policy-options;
+
     uses structure-neighbor-group-encapsulation;
 
     uses structure-neighbor-weight;
+
+    uses structure-neighbor-group-filter-config;
   }
 
   augment "/frr-rt:routing/frr-rt:control-plane-protocols/frr-rt:control-plane-protocol/bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/l2vpn-evpn" {

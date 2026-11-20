@@ -330,6 +330,7 @@ DEFUN_NOSH(start_config, start_config_cmd, "XFRR_start_configuration",
 	monotime(&callback.readin_time);
 
 	vty->pending_allowed = 1;
+	vty->pending_commit_error = CMD_SUCCESS;
 
 	if (callback.start_config)
 		(*callback.start_config)(vty);
@@ -348,6 +349,14 @@ DEFUN_NOSH(end_config, end_config_cmd, "XFRR_end_configuration",
 	/* This is also getting cleared in the config node exit */
 	vty->pending_allowed = 0;
 	ret = nb_cli_pending_commit_check(vty);
+	/*
+	 * A node-changing command keeps CMD_SUCCESS when an earlier flush
+	 * was rejected, so vtysh can follow the node change. Report that
+	 * rejection once, here, after every such change has been applied.
+	 */
+	if (ret == CMD_SUCCESS)
+		ret = vty->pending_commit_error;
+	vty->pending_commit_error = CMD_SUCCESS;
 
 	zlog_info("Configuration Read in Took: %pTVI", &readin_time);
 	zlog_debug("%s: VTY:%p, pending SET-CFG: %u", __func__, vty,

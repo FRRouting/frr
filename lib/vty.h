@@ -118,9 +118,15 @@ struct vty {
 	/* History insert end point */
 	int hindex;
 
-	/* Changes enqueued to be applied in the candidate configuration. */
+	/*
+	 * Changes enqueued to be applied in the candidate configuration.
+	 * The array grows. VTY_MAXCFGCHANGES is the initial allocation, not
+	 * a cap: a command that names a variable-length list must be able
+	 * to enqueue every element and still apply them as one edit.
+	 */
 	size_t num_cfg_changes;
-	struct nb_cfg_change cfg_changes[VTY_MAXCFGCHANGES];
+	size_t cfg_changes_size;
+	struct nb_cfg_change *cfg_changes;
 
 	/* Input parameters */
 	size_t num_rpc_params;
@@ -152,6 +158,12 @@ struct vty {
 	size_t buffer_cmd_count;
 	bool pending_allowed;
 	bool pending_commit;
+	/*
+	 * First classic-CLI commit rejected while reading configuration.
+	 * Zero if none. XFRR_end_configuration returns it so a command that
+	 * changed the CLI node can still return success and vtysh can follow.
+	 */
+	int pending_commit_error;
 	char *pending_cmds_buf;
 	size_t pending_cmds_buflen;
 	size_t pending_cmds_bufpos;

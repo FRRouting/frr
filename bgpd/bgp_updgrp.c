@@ -39,6 +39,9 @@
 #include "bgpd/bgp_packet.h"
 #include "bgpd/bgp_updgrp.h"
 #include "bgpd/bgp_route.h"
+#if ENABLE_BGP_VNC
+#include "bgpd/rfapi/bgp_rfapi_cfg.h"
+#endif
 #include "bgpd/bgp_filter.h"
 #include "bgpd/bgp_io.h"
 #include "bgpd/bgp_trace.h"
@@ -152,6 +155,7 @@ static void conf_copy(struct peer *dst, struct peer *src, afi_t afi,
 	dst->change_local_as = src->change_local_as;
 	dst->shared_network = src->shared_network;
 	dst->local_role = src->local_role;
+	dst->remote_id = src->remote_id;
 
 	if (src->soo[afi][safi]) {
 		ecommunity_free(&dst->soo[afi][safi]);
@@ -317,8 +321,23 @@ static void *updgrp_hash_alloc(void *p)
  *       19. ORF: peers with ORF_PREFIX_RM_ADV and ORF_PREFIX_SM_RCV are
  *             each isolated into their own update-group (identified by
  *             peer address).
+ *       20. When VNC BGP export is enabled, the peer BGP identifier.
+ *             A vnc-direct route is withdrawn from its originator, and
+ *             that decision applies to the whole subgroup.
  *      )
  */
+
+static bool updgrp_vnc_separate_peers(const struct peer *peer)
+{
+#if ENABLE_BGP_VNC
+	if (!peer->bgp || !peer->bgp->rfapi_cfg)
+		return false;
+	return !!(peer->bgp->rfapi_cfg->flags & BGP_VNC_CONFIG_EXPORT_BGP_MODE_BITS);
+#else
+	(void)peer;
+	return false;
+#endif
+}
 static unsigned int updgrp_hash_key_make(const void *p)
 {
 	const struct update_group *updgrp;
@@ -379,7 +398,7 @@ static unsigned int updgrp_hash_key_make(const void *p)
 				   CHECK_FLAG(peer->flags,
 					      PEER_FLAG_AS_LOOP_DETECTION),
 				   key);
-	if (peer->group)
+	if (peer->group && peer->group->name)
 		key = jhash_1word(jhash(peer->group->name,
 					strlen(peer->group->name), SEED1),
 				  key);
@@ -480,6 +499,9 @@ static unsigned int updgrp_hash_key_make(const void *p)
 
 	key = jhash_1word(CHECK_FLAG(peer->af_flags[AFI_BGP_LS][SAFI_BGP_LS], PEER_FLAG_BGP_LS_IPV6), key);
 
+	if (updgrp_vnc_separate_peers(peer))
+		key = jhash_1word(peer->remote_id.s_addr, key);
+
 	/*
 	 * ANY NEW ITEMS THAT ARE ADDED TO THE key, ENSURE DEBUG
 	 * STATEMENT STAYS UP TO DATE
@@ -551,6 +573,8 @@ static unsigned int updgrp_hash_key_make(const void *p)
 							 PEER_FLAG_NEXTHOP_LOCAL_UNCHANGED)),
 			   &peer->nexthop.v6_global);
 
+		zlog_debug("%pBP Update Group Hash: VNC export separate: %d remote-id: %pI4", peer,
+			   updgrp_vnc_separate_peers(peer), &peer->remote_id);
 		zlog_debug("%pBP Update Group Hash key: %u", peer, key);
 	}
 	return key;
@@ -702,6 +726,10 @@ static bool updgrp_hash_cmp(const void *p1, const void *p2)
 	    (CHECK_FLAG(flags1, PEER_FLAG_NEXTHOP_LOCAL_UNCHANGED) ||
 	     CHECK_FLAG(flags2, PEER_FLAG_NEXTHOP_LOCAL_UNCHANGED)) &&
 	    !IPV6_ADDR_SAME(&pe1->nexthop.v6_global, &pe2->nexthop.v6_global))
+		return false;
+
+	if ((updgrp_vnc_separate_peers(pe1) || updgrp_vnc_separate_peers(pe2)) &&
+	    !IPV4_ADDR_SAME(&pe1->remote_id, &pe2->remote_id))
 		return false;
 
 	return true;
@@ -2157,6 +2185,22 @@ void update_group_show_stats(struct bgp *bgp, struct vty *vty)
 		bgp->update_group_stats.peer_refreshes_combined);
 	vty_out(vty, "Merge checks triggered: %u\n",
 		bgp->update_group_stats.merge_checks_triggered);
+}
+
+/*
+ * Recompute update-group membership for every established peer. Used when
+ * VNC BGP export starts or stops separating peers by router-id.
+ */
+void bgp_update_groups_adjust(struct bgp *bgp)
+{
+	struct peer *peer;
+	struct listnode *node;
+
+	if (!bgp || !bgp->peer)
+		return;
+
+	for (ALL_LIST_ELEMENTS_RO(bgp->peer, node, peer))
+		update_group_adjust_peer_afs(peer);
 }
 
 /*

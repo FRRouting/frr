@@ -143,6 +143,15 @@ FRR_CFG_DEFAULT_ULONG(BGP_CONNECT_RETRY,
 	} while (0)
 
 extern void bgp_clear_soft_in(struct bgp *bgp, afi_t afi, safi_t safi);
+extern void bgp_clear_soft_out(struct bgp *bgp, afi_t afi, safi_t safi);
+extern void bgp_clear_all_soft_in(struct bgp *bgp);
+extern void bgp_clear_all_soft_out(struct bgp *bgp);
+extern void bgp_initiate_graceful_shut_unshut(struct bgp *bgp);
+extern void bgp_update_graceful_restart_capability(struct peer *peer);
+extern void bgp_vty_role_update(struct peer *peer, int action);
+extern int bgp_inst_gr_config(struct bgp *bgp, bool on, bool disable);
+extern int bgp_global_gr_config(bool on, bool disable, char *errmsg, size_t errmsg_len);
+extern int bgp_global_graceful_shutdown_set(bool enable, char *errmsg, size_t errmsg_len);
 
 /* Peer show flags */
 /* Value of 0 means show all information */
@@ -162,16 +171,17 @@ extern const char *get_afi_safi_str(afi_t afi, safi_t safi, bool for_json);
 extern int bgp_get_vty(struct bgp **bgp, as_t *as, const char *name,
 		       enum bgp_instance_type inst_type, const char *as_pretty,
 		       enum asnotation_mode asnotation);
-extern void bgp_config_write_update_delay(struct vty *vty, struct bgp *bgp);
-extern void bgp_config_write_advertisement_delay(struct vty *vty, struct bgp *bgp);
-extern void bgp_config_write_wpkt_quanta(struct vty *vty, struct bgp *bgp);
-extern void bgp_config_write_rpkt_quanta(struct vty *vty, struct bgp *bgp);
-extern void bgp_config_write_listen(struct vty *vty, struct bgp *bgp);
-extern void bgp_config_write_coalesce_time(struct vty *vty, struct bgp *bgp);
 extern int bgp_vty_return(struct vty *vty, enum bgp_create_error_code ret);
 extern bool bgp_config_inprocess(void);
+extern void bgp_listen_range_warn(struct vty *vty, const struct peer_group *group,
+				  const struct prefix *range);
+extern void bgp_listen_range_warn_group(struct vty *vty, const struct peer_group *group);
 extern struct peer *peer_and_group_lookup_vty(struct vty *vty,
 					      const char *peer_str);
+
+extern bool peer_address_self_check(struct bgp *bgp, union sockunion *su);
+extern void bgp_nb_need_listening(struct bgp *bgp);
+extern void bgp_nb_may_stop_listening(struct bgp *bgp);
 
 extern afi_t bgp_vty_afi_from_str(const char *afi_str);
 
@@ -201,4 +211,10 @@ extern void bgp_init_ipv6_nexthop_prefer_global(struct bgp *bgp);
 
 extern int set_ecom_list(struct vty *vty, int argc, struct cmd_token **argv,
 			 struct ecommunity **list, bool is_rt6);
+
+extern void bgp_srv6_sids_unset(struct bgp *bgp);
+extern int bgp_srv6_locator_unset(struct bgp *bgp);
+extern void bgp_segment_routing_srv6_hencaps_refresh(struct bgp *bgp);
+extern void bgp_srv6_only_change(struct bgp *bgp, bool enable);
+
 #endif /* _QUAGGA_BGP_VTY_H */

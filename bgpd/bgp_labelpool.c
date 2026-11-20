@@ -1927,8 +1927,57 @@ bgp_label_per_nexthop_find(struct bgp_label_per_nexthop_cache_head *tree,
 	return bgp_label_per_nexthop_cache_find(tree, &blnc);
 }
 
+/*
+ * Forget every outstanding label request and queued callback that refers
+ * to this per-nexthop cache entry.  The labelpool completes requests
+ * asynchronously (fifo of requests waiting for a chunk, then a callback
+ * work queue), keyed on the raw blnc pointer, so the entry must not be
+ * freed while either still references it.
+ */
+static void bgp_lp_cancel_nexthop(struct bgp_label_per_nexthop_cache *blnc)
+{
+	struct lp_fifo *lf;
+	struct work_queue_item *item;
+	struct lp_lcb *lcb;
+	int debug = BGP_DEBUG(labelpool, LABELPOOL);
+
+	if (!lp)
+		return;
+
+	frr_each_safe (lp_fifo, &lp->requests, lf) {
+		if (lf->lcb.type == LP_TYPE_NEXTHOP && lf->lcb.labelid == blnc) {
+			lp_fifo_del(&lp->requests, lf);
+			XFREE(MTYPE_BGP_LABEL_FIFO, lf);
+		}
+	}
+
+	if (lp->callback_q) {
+		STAILQ_FOREACH (item, &lp->callback_q->items, wq) {
+			struct lp_cbq_item *q = item->data;
+
+			if (!q || q->type != LP_TYPE_NEXTHOP || q->labelid != blnc)
+				continue;
+
+			/*
+			 * A NULL labelid marks a drained item, see
+			 * lp_cbq_docallback().  If the label was already
+			 * handed out, give it back to the pool.
+			 */
+			if (q->allocated)
+				bgp_lp_release(q->label, blnc, LP_TYPE_NEXTHOP, false, debug);
+			q->labelid = NULL;
+		}
+	}
+
+	/* A request still waiting for a label has a ledger entry with no label. */
+	if (!skiplist_search(lp->ledger, blnc, (void **)&lcb) && lcb->label == MPLS_LABEL_NONE)
+		skiplist_delete(lp->ledger, blnc, NULL);
+}
+
 void bgp_label_per_nexthop_free(struct bgp_label_per_nexthop_cache *blnc)
 {
+	bgp_lp_cancel_nexthop(blnc);
+
 	if (blnc->label != MPLS_INVALID_LABEL) {
 		bgp_zebra_send_nexthop_label(ZEBRA_MPLS_LABELS_DELETE,
 					     blnc->label, blnc->nh->ifindex,

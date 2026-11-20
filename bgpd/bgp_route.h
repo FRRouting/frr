@@ -964,6 +964,20 @@ extern void bgp_static_update(struct bgp *bgp, const struct prefix *p,
 extern void bgp_static_withdraw(struct bgp *bgp, const struct prefix *p,
 				afi_t afi, safi_t safi, struct prefix_rd *prd);
 
+
+/* Non-VPN/EVPN network statement helpers (also used by northbound). */
+extern int bgp_network_set(struct bgp *bgp, afi_t afi, safi_t safi, const char *ip_str,
+			   const char *rmap, int backdoor, uint32_t label_index, char *errmsg,
+			   size_t errmsg_len);
+extern int bgp_network_unset(struct bgp *bgp, afi_t afi, safi_t safi, const char *ip_str,
+			     const char *rmap, uint32_t label_index, char *errmsg,
+			     size_t errmsg_len);
+
+/* L3VPN static network statements (also used by northbound). */
+extern int bgp_vpn_network_set(struct bgp *bgp, bool negate, const char *ip_str,
+			       const char *rd_str, const char *label_str, afi_t afi,
+			       const char *rmap, char *errmsg, size_t errmsg_len);
+
 extern int bgp_static_set(struct vty *vty, bool negate, const char *ip_str,
 			  const char *rd_str, const char *label_str, afi_t afi,
 			  safi_t safi, const char *rmap, int backdoor,
@@ -1008,9 +1022,17 @@ extern void bgp_process_early(struct bgp *bgp, struct bgp_dest *dest,
  * queue element with NULL bgp node.
  */
 extern void bgp_add_eoiu_mark(struct bgp *bgp);
-extern void bgp_config_write_table_map(struct vty *vty, struct bgp *bgp, afi_t afi, safi_t safi);
-extern void bgp_config_write_network(struct vty *vty, struct bgp *bgp, afi_t afi, safi_t safi);
-extern void bgp_config_write_distance(struct vty *vty, struct bgp *bgp, afi_t afi, safi_t safi);
+
+extern int bgp_table_map_set(struct bgp *bgp, afi_t afi, safi_t safi, const char *rmap_name);
+extern int bgp_table_map_unset(struct bgp *bgp, afi_t afi, safi_t safi);
+
+extern void bgp_distance_bgp_set(struct bgp *bgp, afi_t afi, safi_t safi, uint8_t distance_ebgp,
+				 uint8_t distance_ibgp, uint8_t distance_local);
+extern void bgp_distance_bgp_unset(struct bgp *bgp, afi_t afi, safi_t safi);
+extern int bgp_distance_source_set(afi_t afi, safi_t safi, uint8_t distance, const char *ip_str,
+				   const char *access_list_str, char *errmsg, size_t errmsg_len);
+extern int bgp_distance_source_unset(afi_t afi, safi_t safi, uint8_t distance, const char *ip_str,
+				     char *errmsg, size_t errmsg_len);
 
 extern void bgp_aggregate_delete(struct bgp *bgp, const struct prefix *p,
 				 afi_t afi, safi_t safi,
@@ -1128,6 +1150,15 @@ extern void bgp_path_info_free_with_caller(const char *caller,
 extern void bgp_path_info_add_with_caller(const char *caller,
 					  struct bgp_dest *dest,
 					  struct bgp_path_info *pi);
+
+extern int bgp_aggregate_config_set(struct bgp *bgp, const char *prefix_str, afi_t afi,
+				    safi_t safi, const char *rmap, uint8_t summary_only,
+				    uint8_t as_set, uint8_t origin, bool match_med,
+				    const char *suppress_map, bool upa_enabled, bool upa_drop,
+				    uint32_t upa_max_routes, char *errmsg, size_t errmsg_len);
+extern int bgp_aggregate_config_unset(struct bgp *bgp, const char *prefix_str, afi_t afi,
+				      safi_t safi, char *errmsg, size_t errmsg_len);
+
 extern void bgp_aggregate_free(struct bgp_aggregate *aggregate);
 
 /* UPA (Unreachable Prefix Announcement) functions */

@@ -54,4 +54,12 @@ extern void as_list_add_hook(void (*func)(char *));
 extern void as_list_delete_hook(void (*func)(const char *));
 extern bool config_bgp_aspath_validate(const char *regstr);
 
+/* Northbound helpers */
+extern struct as_list *as_list_first(void);
+extern int as_list_entry_set(const char *name, const char *seq_str, const char *regex_str,
+			     enum as_filter_type type);
+extern int as_list_entry_unset(const char *name, const char *seq_str, const char *regex_str,
+			       enum as_filter_type type);
+extern int as_list_delete_by_name(const char *name);
+
 #endif /* _QUAGGA_BGP_FILTER_H */

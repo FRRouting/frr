@@ -978,13 +978,19 @@ static int cmd_execute_command_real(vector vline, struct vty *vty,
 	int argc = argv_list->count;
 
 	int ret;
+	int pending_ret = CMD_SUCCESS;
+	int node_before;
+	int xpath_before;
+
 	if (matched_element->daemon)
 		ret = CMD_SUCCESS_DAEMON;
 	else {
 		if (vty->config) {
 			/* Clear array of enqueued configuration changes. */
 			vty->num_cfg_changes = 0;
-			memset(&vty->cfg_changes, 0, sizeof(vty->cfg_changes));
+			if (vty->cfg_changes && vty->cfg_changes_size)
+				memset(vty->cfg_changes, 0,
+				       vty->cfg_changes_size * sizeof(*vty->cfg_changes));
 
 			/* Regenerate candidate configuration if necessary. */
 			if (frr_get_cli_mode() == FRR_CLI_CLASSIC
@@ -995,13 +1001,30 @@ static int cmd_execute_command_real(vector vline, struct vty *vty,
 
 			/*
 			 * Perform pending commit (if any) before executing
-			 * non-YANG command.
+			 * non-YANG command. Still run the command. It may
+			 * change the CLI node, and that change has to be
+			 * reported as success so vtysh follows it. A
+			 * rejection is remembered on the vty.
 			 */
 			if (!(matched_element->attr & CMD_ATTR_YANG))
-				(void)nb_cli_pending_commit_check(vty);
+				pending_ret = nb_cli_pending_commit_check(vty);
 		}
 
+		node_before = vty->node;
+		xpath_before = vty->xpath_index;
 		ret = matched_element->func(matched_element, vty, argc, argv);
+
+		/*
+		 * Report a rejected pending commit from a command that
+		 * succeeded without changing nodes. A node change must keep
+		 * CMD_SUCCESS: the daemon has already moved, and vtysh
+		 * applies its own node change only on success. Returning
+		 * the flush error here parses the next line in the wrong
+		 * node. XFRR_end_configuration returns the failure once.
+		 */
+		if (ret == CMD_SUCCESS && pending_ret != CMD_SUCCESS && vty->node == node_before &&
+		    vty->xpath_index == xpath_before)
+			ret = pending_ret;
 	}
 
 	// delete list and cmd_token's in it
@@ -1375,7 +1398,14 @@ DEFUN (disable,
 	return CMD_SUCCESS;
 }
 
-/* Down vty node level. */
+/*
+ * Down vty node level.
+ *
+ * YANG on purpose. A command without CMD_ATTR_YANG flushes the pending
+ * northbound batch before it runs. "exit" must not flush. A rejected
+ * commit is remembered on the vty and returned from
+ * XFRR_end_configuration, after both sides have applied the node change.
+ */
 DEFUN_YANG (config_exit,
        config_exit_cmd,
        "exit",

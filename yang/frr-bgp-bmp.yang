@@ -49,6 +49,14 @@ submodule frr-bgp-bmp {
      (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
      OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.";
 
+  revision 2026-11-18 {
+    description
+      "Limit tcp-port to 1..65535 and add initiation-sysdescr and
+       initiation-sysname.";
+    reference
+      "FRRouting";
+  }
+
   revision 2026-07-21 {
     description
       "Add BMP import-vrf and experimental stats knobs to match CLI.
@@ -83,7 +91,9 @@ submodule frr-bgp-bmp {
         }
 
         leaf tcp-port {
-          type uint32;
+          type uint32 {
+            range "1..65535";
+          }
           description
             "TCP port to listen on for BMP incoming sessions.";
         }
@@ -108,7 +118,9 @@ submodule frr-bgp-bmp {
         }
 
         leaf tcp-port {
-          type uint32;
+          type uint32 {
+            range "1..65535";
+          }
           description
             "TCP port to connect to for BMP outgoing sessions.";
         }
@@ -243,6 +255,26 @@ submodule frr-bgp-bmp {
           type frr-bt:access-list-ref;
           description
             "Access list to restrict BMP sessions.";
+        }
+
+        leaf initiation-sysdescr {
+          type string {
+            length "1..255";
+          }
+          description
+            "System description sent in the BMP Initiation message
+             (default: the FRR version).
+             Maps to: bmp initiation sysDescr LINE.";
+        }
+
+        leaf initiation-sysname {
+          type string {
+            length "1..255";
+          }
+          description
+            "System name sent in the BMP Initiation message
+             (default: the hostname).
+             Maps to: bmp initiation sysName LINE.";
         }
 
         leaf-list import-vrf {

@@ -504,6 +504,10 @@ int peer_advertise_map_unset(struct peer *peer, afi_t afi, safi_t safi,
 				      MTYPE_BGP_FILTER_NAME);
 		PEER_ATTR_INHERIT(peer, peer->group,
 				  filter[afi][safi].advmap.amap);
+		PEER_STR_ATTR_INHERIT(peer, peer->group, filter[afi][safi].advmap.cname,
+				      MTYPE_BGP_FILTER_NAME);
+		PEER_ATTR_INHERIT(peer, peer->group, filter[afi][safi].advmap.cmap);
+		PEER_ATTR_INHERIT(peer, peer->group, filter[afi][safi].advmap.condition);
 	} else
 		peer_advertise_map_filter_update(
 			peer, afi, safi, advertise_name, advertise_map,

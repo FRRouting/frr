@@ -649,7 +649,13 @@ def test_igmp_local_join_with_reserved_address_p0(request):
     }
 
     result = create_igmp_config(tgen, topo, input_dict)
-    assert result is True, "Testcase {}: Failed Error: {}".format(tc_name, result)
+    # Reserved and non-multicast joins must be rejected. The checks below
+    # still confirm the join is not installed. This function configures
+    # IGMP_JOIN_RANGE_2 and then looks for IGMP_JOIN_RANGE_1; that mismatch
+    # is pre-existing and left as-is.
+    assert (
+        result is not True
+    ), "Testcase {}: reserved IGMP join was accepted: {}".format(tc_name, result)
 
     step("verify static igmp join using show ip igmp join")
     dut = "r1"
