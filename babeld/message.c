@@ -2079,7 +2079,12 @@ void handle_request(struct neighbour *neigh, const unsigned char *prefix, unsign
 		return;
 	}
 
-	if (route &&
+	/* RFC 8966 section 3.8.1.2: only a selected route with a finite metric
+	 * can satisfy a seqno request; a retracted (INFINITY-metric) route
+	 * cannot, so the request must fall through to the forwarding logic
+	 * below instead of being answered with a retraction.
+	 */
+	if (route && route_metric(route) < INFINITY &&
 	    (memcmp(id, route->src->id, 8) != 0 || seqno_compare(seqno, route->seqno) <= 0)) {
 		send_update(neigh->ifp, 1, prefix, plen);
 		return;
