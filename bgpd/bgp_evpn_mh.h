@@ -431,6 +431,7 @@ extern void bgp_evpn_mh_init(void);
 extern void bgp_evpn_mh_finish(void);
 extern void bgp_evpn_es_cleanup_routes(struct bgp *bgp);
 extern void bgp_evpn_es_instance_del_cleanup(struct bgp *bgp);
+extern void bgp_evpn_es_instance_local_es_del(struct bgp *bgp);
 void bgp_evpn_vni_es_init(struct bgpevpn *vpn);
 void bgp_evpn_vni_es_cleanup(struct bgpevpn *vpn);
 void bgp_evpn_es_show_esi(struct vty *vty, esi_t *esi, bool uj);
