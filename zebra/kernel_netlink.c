@@ -72,6 +72,14 @@
 #define NL_DEFAULT_BATCH_SEND_THRESHOLD (15 * NL_PKT_BUF_SIZE)
 
 /*
+ * Number of recvmsg() calls the dplane thread makes per read event before
+ * returning to the event loop. At this batch size the fixed cost of the round
+ * trip is already amortised, so a larger value mainly lengthens the time other
+ * events wait behind one read.
+ */
+#define NL_DPLANE_READ_COUNT 100
+
+/*
  * RTNLGRP_BIT - Convert an RTNLGRP_* group constant to a bit position
  * for the nl_groups bitmask. RTNLGRP constants are 1-based bit numbers,
  * so shift by (group - 1). Only valid for groups with bit positions < 32;
@@ -456,7 +464,8 @@ int kernel_dplane_read(struct zebra_dplane_info *info)
 {
 	struct nlsock *nl = kernel_netlink_nlsock_lookup(info->sock);
 
-	netlink_parse_info(dplane_netlink_information_fetch, nl, info, 5, false, NULL, NULL);
+	netlink_parse_info(dplane_netlink_information_fetch, nl, info, NL_DPLANE_READ_COUNT, false,
+			   NULL, NULL);
 
 	return 0;
 }
