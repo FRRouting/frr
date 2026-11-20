@@ -1139,10 +1139,11 @@ extern int srv6_manager_release_locator_chunk(struct zclient *zclient,
 extern int srv6_manager_get_locator(struct zclient *zclient,
 				    const char *locator_name);
 extern int srv6_manager_get_sid(struct zclient *zclient, const struct srv6_sid_ctx *ctx,
-				struct in6_addr *sid_value, const char *locator_name,
-				uint32_t *sid_func, bool is_localonly);
+				uint32_t request_id, struct in6_addr *sid_value,
+				const char *locator_name, uint32_t *sid_func, bool is_localonly);
 extern int srv6_manager_release_sid(struct zclient *zclient, const struct srv6_sid_ctx *ctx,
-				    const char *locator_name, bool is_localonly);
+				    uint32_t request_id, const char *locator_name,
+				    bool is_localonly);
 
 extern enum zclient_send_status zebra_send_sr_policy(struct zclient *zclient,
 						     int cmd,
@@ -1218,10 +1219,10 @@ bool zapi_ipset_notify_decode(struct stream *s,
 			     enum zapi_ipset_notify_owner *note);
 
 /* Normally use SRV6_LOCNAME_SIZE for the locator name buffer */
-bool zapi_srv6_sid_notify_decode(struct stream *s, struct srv6_sid_ctx *ctx,
-				 struct in6_addr *sid_value, uint32_t *func,
-				 uint32_t *wide_func, enum zapi_srv6_sid_notify *note,
-				 char *locator_name, size_t loc_size);
+bool zapi_srv6_sid_notify_decode(struct stream *s, struct srv6_sid_ctx *ctx, uint32_t *request_id,
+				 struct in6_addr *sid_value, uint32_t *func, uint32_t *wide_func,
+				 enum zapi_srv6_sid_notify *note, char *locator_name,
+				 size_t loc_size);
 
 /* Nexthop-group message apis */
 extern enum zclient_send_status
