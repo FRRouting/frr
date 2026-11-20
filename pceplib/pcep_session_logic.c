@@ -244,7 +244,6 @@ bool stop_session_logic(void)
 	}
 
 	session_logic_handle_->active = false;
-	teardown_timers();
 
 	pthread_mutex_lock(&(session_logic_handle_->session_logic_mutex));
 	session_logic_handle_->session_logic_condition = true;
@@ -252,12 +251,46 @@ bool stop_session_logic(void)
 	pthread_mutex_unlock(&(session_logic_handle_->session_logic_mutex));
 	pthread_join(session_logic_handle_->session_logic_thread, NULL);
 
+	/* Stop the socket comm thread before the session state it calls
+	 * into is destroyed. destroy_socket_comm_loop() below frees the
+	 * rest.
+	 */
+	stop_socket_comm_loop();
+
+	/* A session whose destroy was deferred until its Close message was
+	 * written is destroyed by the message-sent callback, which no
+	 * longer runs. Destroy any session still on the list.
+	 */
+	while (session_logic_handle_->session_list->head != NULL)
+		destroy_pcep_session(session_logic_handle_->session_list->head->data);
+
+	/* Destroying the sessions cancels their timers, so only now */
+	teardown_timers();
+
+	/* Free any events still queued, with the messages they carry */
+	pcep_session_event *event = queue_dequeue(session_logic_handle_->session_event_queue);
+
+	while (event != NULL) {
+		if (event->received_msg_list != NULL)
+			pcep_msg_free_message_list(event->received_msg_list);
+		pceplib_free(PCEPLIB_INFRA, event);
+		event = queue_dequeue(session_logic_handle_->session_event_queue);
+	}
+
 	pthread_mutex_destroy(&(session_logic_handle_->session_logic_mutex));
 	pthread_mutex_destroy(&(session_logic_handle_->session_list_mutex));
 	ordered_list_destroy(session_logic_handle_->session_list);
 	queue_destroy(session_logic_handle_->session_event_queue);
 
-	/* destroy the event_queue */
+	/* destroy the event_queue, freeing the events not yet retrieved */
+	pcep_event *pcep_ev = queue_dequeue(session_logic_event_queue_->event_queue);
+
+	while (pcep_ev != NULL) {
+		if (pcep_ev->event_type == MESSAGE_RECEIVED && pcep_ev->message != NULL)
+			pcep_msg_free_message(pcep_ev->message);
+		pceplib_free(PCEPLIB_INFRA, pcep_ev);
+		pcep_ev = queue_dequeue(session_logic_event_queue_->event_queue);
+	}
 	pthread_mutex_destroy(&(session_logic_event_queue_->event_queue_mutex));
 	queue_destroy(session_logic_event_queue_->event_queue);
 	pceplib_free(PCEPLIB_INFRA, session_logic_event_queue_);

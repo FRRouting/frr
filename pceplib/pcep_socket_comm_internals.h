@@ -21,6 +21,8 @@
 
 typedef struct pcep_socket_comm_handle_ {
 	bool active;
+	/* The socket comm thread has been joined */
+	bool thread_stopped;
 	pthread_t socket_comm_thread;
 	pthread_mutex_t socket_comm_mutex;
 	fd_set read_master_set;
