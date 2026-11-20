@@ -1232,6 +1232,8 @@ static void show_nexthop_group_out(struct vty *vty, struct nhg_hash_entry *nhe,
 			json_object_boolean_true_add(json, "installed");
 		if (CHECK_FLAG(nhe->flags, NEXTHOP_GROUP_INITIAL_DELAY_INSTALL))
 			json_object_boolean_true_add(json, "initialDelay");
+		if (CHECK_FLAG(nhe->flags, NEXTHOP_GROUP_PARTIAL))
+			json_object_boolean_true_add(json, "partial");
 		if (CHECK_FLAG(nhe->flags, NEXTHOP_GROUP_QUEUED))
 			json_object_boolean_true_add(json, "queued");
 		if (CHECK_FLAG(nhe->flags, NEXTHOP_GROUP_RECURSIVE))
