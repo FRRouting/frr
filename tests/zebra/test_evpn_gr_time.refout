@@ -1,0 +1,4 @@
+same-second RT-3 refresh after cutoff: fresh
+same-second RT-3 refresh before cutoff: stale
+RT-3 refresh equal to cutoff: stale
+later-second RT-3 refresh: fresh
