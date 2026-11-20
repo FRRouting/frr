@@ -23,6 +23,7 @@
 
 #include "pcep_pcc_api.h"
 #include "pcep_pcc_api_test.h"
+#include "pcep_session_logic_internals.h"
 #include "pcep_socket_comm_mock.h"
 #include "pcep_utils_memory.h"
 
@@ -224,6 +225,77 @@ void test_disconnect_pce(void)
 	destroy_pcc();
 }
 
+
+/* pceplib closes the session itself (e.g. too many unknown messages), then
+ * the API user disconnects it: no second Close is sent, the session is
+ * destroyed once its Close is written, and a late message-sent
+ * notification for it is ignored.
+ */
+void test_disconnect_pce_while_closing(void)
+{
+	pcep_configuration *config = create_default_pcep_configuration();
+	struct hostent *host_info = gethostbyname("localhost");
+	struct in_addr dest_address;
+	pcep_session *session;
+
+	memcpy(&dest_address, host_info->h_addr, host_info->h_length);
+	initialize_pcc();
+
+	session = connect_pce(config, &dest_address);
+	CU_ASSERT_PTR_NOT_NULL_FATAL(session);
+	verify_socket_comm_times_called(0, 0, 1, 1, 0, 0, 0);
+
+	close_pcep_session_with_reason(session, PCEP_CLOSE_REASON_UNREC_MSG);
+	verify_socket_comm_times_called(0, 0, 1, 2, 1, 0, 0);
+
+	disconnect_pce(session);
+	verify_socket_comm_times_called(0, 0, 1, 2, 1, 0, 0);
+	CU_ASSERT_TRUE(session_exists(session));
+
+	/* The socket comm thread reports the Close written */
+	session_logic_message_sent_handler(session, 0);
+	CU_ASSERT_FALSE(session_exists(session));
+	verify_socket_comm_times_called(0, 1, 1, 2, 1, 0, 0);
+
+	session_logic_message_sent_handler(session, 0);
+
+	destroy_pcep_configuration(config);
+	destroy_pcc();
+}
+
+
+/* The open keep wait timer expired: the socket is marked to close after
+ * the next write, but no Close is queued. disconnect_pce() must still send
+ * the Close, whose write closes the socket and destroys the session.
+ */
+void test_disconnect_pce_after_open_keep_wait(void)
+{
+	pcep_configuration *config = create_default_pcep_configuration();
+	struct hostent *host_info = gethostbyname("localhost");
+	struct in_addr dest_address;
+	pcep_session *session;
+
+	memcpy(&dest_address, host_info->h_addr, host_info->h_length);
+	initialize_pcc();
+
+	session = connect_pce(config, &dest_address);
+	CU_ASSERT_PTR_NOT_NULL_FATAL(session);
+	verify_socket_comm_times_called(0, 0, 1, 1, 0, 0, 0);
+
+	/* What handle_timer_event() does for the open keep wait timer */
+	socket_comm_session_close_tcp_after_write(session->socket_comm_session);
+	session->session_state = SESSION_STATE_INITIALIZED;
+
+	disconnect_pce(session);
+	verify_socket_comm_times_called(0, 0, 1, 2, 2, 0, 0);
+	CU_ASSERT_TRUE(session_exists(session));
+
+	session_logic_message_sent_handler(session, 0);
+	CU_ASSERT_FALSE(session_exists(session));
+
+	destroy_pcep_configuration(config);
+	destroy_pcc();
+}
 
 void test_send_message(void)
 {

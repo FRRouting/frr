@@ -364,15 +364,18 @@ void handle_writes(pcep_socket_comm_handle *socket_comm_handle)
 
 		if (comm_session->message_sent_handler != NULL
 		    && msg_written == true) {
+			message_sent_notifier sent_handler = comm_session->message_sent_handler;
+			void *session_data = comm_session->session_data;
+			int socket_fd = comm_session->socket_fd;
+
 			/* Unlocking to allow the message_sent_handler to
 			 * make calls like destroy_socket_comm_session */
 			pthread_mutex_unlock(
 				&(socket_comm_handle->socket_comm_mutex));
-			comm_session->message_sent_handler(
-				comm_session->session_data,
-				comm_session->socket_fd);
+			sent_handler(session_data, socket_fd);
 			pthread_mutex_lock(
 				&(socket_comm_handle->socket_comm_mutex));
+			node = socket_comm_handle->write_list->head;
 		}
 	}
 

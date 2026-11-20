@@ -144,6 +144,8 @@ typedef struct pcep_session_ {
 	queue_handle *num_unknown_messages_time_queue;
 	/* set this flag when finalizing the session */
 	bool destroy_session_after_write;
+	/* A Close has been queued on this session */
+	bool close_sent;
 	pcep_socket_comm_session *socket_comm_session;
 	/* Configuration sent from the PCC to the PCE */
 	pcep_configuration pcc_config;

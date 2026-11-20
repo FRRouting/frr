@@ -48,6 +48,10 @@ int main(int argc, char **argv)
 		    test_connect_pce_with_src_ip);
 	CU_add_test(test_pcc_api_suite, "test_disconnect_pce",
 		    test_disconnect_pce);
+	CU_add_test(test_pcc_api_suite, "test_disconnect_pce_while_closing",
+		    test_disconnect_pce_while_closing);
+	CU_add_test(test_pcc_api_suite, "test_disconnect_pce_after_open_keep_wait",
+		    test_disconnect_pce_after_open_keep_wait);
 	CU_add_test(test_pcc_api_suite, "test_send_message", test_send_message);
 	CU_add_test(test_pcc_api_suite, "test_event_queue", test_event_queue);
 	CU_add_test(test_pcc_api_suite, "test_get_event_type_str",
