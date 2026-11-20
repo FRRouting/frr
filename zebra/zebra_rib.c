@@ -682,6 +682,52 @@ int zebra_rib_labeled_unicast(struct route_entry *re)
 	return 1;
 }
 
+/*
+ * Return true if the kernel NHG used by this route is neither installed nor
+ * queued, so an install or update of the route cannot be enqueued yet.  The
+ * kernel has no such nexthop id, so rib_install_kernel() skips the enqueue.
+ * It only stays quiet when the NHG is not valid, a state zebra already knows
+ * about, and logs an error when a valid NHG failed to install.
+ *
+ * rib_install_kernel() calls zebra_nhg_install_kernel() first, which queues
+ * the NHG when it can be installed.  Only the install and update ops are
+ * passed, as a delete does not use the NHG.
+ */
+static bool rib_route_kernel_nhg_not_ready(const struct route_node *rn,
+					   const struct route_entry *re, enum dplane_op_e op)
+{
+#ifdef HAVE_NETLINK
+	struct nhg_hash_entry *nhe;
+	struct zebra_vrf *zvrf;
+
+	if (!zebra_nhg_kernel_nexthops_enabled())
+		return false;
+
+	nhe = zebra_nhg_resolve(re->nhe);
+	zvrf = zebra_vrf_lookup_by_id(re->vrf_id);
+
+	/* The NHG is in the kernel or its install is in flight, so the route can be enqueued. */
+	if (CHECK_FLAG(nhe->flags, NEXTHOP_GROUP_INSTALLED) ||
+	    CHECK_FLAG(nhe->flags, NEXTHOP_GROUP_QUEUED)) {
+		if (IS_ZEBRA_DEBUG_DPLANE_DETAIL)
+			zlog_debug("%s (%s:%u:%u)%pRN op %s nhg id %u flags 0x%x installed or queued, ready",
+				   __func__, zvrf_name(zvrf), re->vrf_id, re->table, rn,
+				   dplane_op2str(op), nhe->id, nhe->flags);
+		return false;
+	}
+
+	frrtrace(4, frr_zebra, rib_install_kernel_nhg_not_ready, op, nhe->id, nhe->flags,
+		 re->vrf_id);
+	if (IS_ZEBRA_DEBUG_DPLANE_DETAIL || IS_ZEBRA_DEBUG_RIB_DETAILED)
+		zlog_debug("%s (%s:%u:%u)%pRN op %s nhg id %u flags 0x%x nh %pNHs not installed nor queued",
+			   __func__, zvrf_name(zvrf), re->vrf_id, re->table, rn, dplane_op2str(op),
+			   nhe->id, nhe->flags, nhe->nhg.nexthop);
+	return true;
+#else
+	return false;
+#endif /* HAVE_NETLINK */
+}
+
 /* Update flag indicates whether this is a "replace" or not. Currently, this
  * is only used for IPv4.
  */
@@ -691,6 +737,7 @@ void rib_install_kernel(struct route_node *rn, struct route_entry *re,
 	struct rib_table_info *info = srcdest_rnode_table_info(rn);
 	struct zebra_vrf *zvrf = zebra_vrf_lookup_by_id(re->vrf_id);
 	enum zebra_dplane_result ret;
+	bool nhg_not_ready = false;
 
 	rib_dest_t *dest = rib_dest_from_rnode(rn);
 
@@ -716,11 +763,22 @@ void rib_install_kernel(struct route_node *rn, struct route_entry *re,
 	 */
 	hook_call(rib_update, rn, "installing in kernel");
 
-	/* Send add or update */
-	if (old)
+	/*
+	 * The NHG can be invalid and not installed here, for instance when the
+	 * kernel removed it with the only interface it used.  Zebra cannot
+	 * install it, so skip the enqueue.  The route is handled exactly like
+	 * any other failed enqueue, but an invalid NHG is not logged as an
+	 * error below.
+	 */
+	if (rib_route_kernel_nhg_not_ready(rn, re,
+					   old ? DPLANE_OP_ROUTE_UPDATE : DPLANE_OP_ROUTE_INSTALL)) {
+		nhg_not_ready = true;
+		ret = ZEBRA_DPLANE_REQUEST_FAILURE;
+	} else if (old) {
 		ret = dplane_route_update(rn, re, old);
-	else
+	} else {
 		ret = dplane_route_add(rn, re);
+	}
 
 	switch (ret) {
 	case ZEBRA_DPLANE_REQUEST_QUEUED:
@@ -736,9 +794,31 @@ void rib_install_kernel(struct route_node *rn, struct route_entry *re,
 		break;
 	case ZEBRA_DPLANE_REQUEST_FAILURE:
 	{
-		flog_err(EC_ZEBRA_DP_INSTALL_FAIL,
-			 "(%s:%u:%u)%pRN: Failed to enqueue dataplane install",
-			 zvrf_name(zvrf), re->vrf_id, re->table, rn);
+		struct nhg_hash_entry *nhe = NULL;
+
+		/*
+		 * An NHG that is not valid cannot be installed, which is expected
+		 * when the kernel removed it with its interface.  A valid NHG that
+		 * is still neither installed nor queued failed to install, which is
+		 * a real failure, so that one is logged as an error.
+		 *
+		 * The kernel group is zebra_nhg_resolve(re->nhe). A recursive
+		 * route NHE is only a wrapper, so the skip line has to name that
+		 * resolved id. rib_route_kernel_nhg_not_ready() already logged it
+		 * for this same event.
+		 */
+		if (nhg_not_ready)
+			nhe = zebra_nhg_resolve(re->nhe);
+
+		if (nhe && !CHECK_FLAG(nhe->flags, NEXTHOP_GROUP_VALID)) {
+			if (IS_ZEBRA_DEBUG_RIB_DETAILED || IS_ZEBRA_DEBUG_DPLANE_DETAIL)
+				zlog_debug("(%s:%u:%u)%pRN: dataplane install skipped, kernel nexthop group %u not valid",
+					   zvrf_name(zvrf), re->vrf_id, re->table, rn, nhe->id);
+		} else {
+			flog_err(EC_ZEBRA_DP_INSTALL_FAIL,
+				 "(%s:%u:%u)%pRN: Failed to enqueue dataplane install",
+				 zvrf_name(zvrf), re->vrf_id, re->table, rn);
+		}
 		break;
 	}
 	case ZEBRA_DPLANE_REQUEST_SUCCESS:

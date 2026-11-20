@@ -480,6 +480,30 @@ TRACEPOINT_EVENT(
 
 TRACEPOINT_LOGLEVEL(frr_zebra, dplane_ctx_route_kernel_nhg_not_ready, TRACE_INFO)
 
+/*
+ * rib_install_kernel() skipped the dataplane enqueue of a route because the
+ * kernel NHG it uses is neither installed nor queued. Same fields as
+ * dplane_ctx_route_kernel_nhg_not_ready, which dplane_ctx_route_init() emits
+ * when the route does get that far.
+ */
+TRACEPOINT_EVENT(
+	frr_zebra,
+	rib_install_kernel_nhg_not_ready,
+	TP_ARGS(
+		enum dplane_op_e, op,
+		uint32_t, nhe_id,
+		uint32_t, nhe_flags,
+		vrf_id_t, vrf_id),
+	TP_FIELDS(
+		ctf_integer(uint32_t, op, op)
+		ctf_integer(uint32_t, nhe_id, nhe_id)
+		ctf_integer(uint32_t, nhe_flags, nhe_flags)
+		ctf_integer(vrf_id_t, vrf_id, vrf_id)
+	)
+)
+
+TRACEPOINT_LOGLEVEL(frr_zebra, rib_install_kernel_nhg_not_ready, TRACE_INFO)
+
 TRACEPOINT_EVENT(
 	frr_zebra,
 	zebra_nhg_free_nhe_refcount,
