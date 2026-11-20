@@ -426,6 +426,8 @@ extern struct route_entry *rib_match(afi_t afi, safi_t safi, vrf_id_t vrf_id,
 				     const union g_addr *addr, struct route_node **rn_out);
 
 extern void rib_update(enum rib_update_event event, int type);
+extern void zebra_rib_kernel_routes_init(void);
+extern void zebra_rib_kernel_routes_fini(void);
 extern void rib_update_table(struct route_table *table,
 			     enum rib_update_event event, int rtype);
 extern void rib_sweep_route(struct event *t);
