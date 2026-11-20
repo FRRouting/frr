@@ -480,6 +480,25 @@ static int babel_packet_examin(const unsigned char *packet, int packetlen, int *
 	return 0;
 }
 
+/* Return the neighbour entry of the packet currently parsed by
+ * parse_packet(), creating it at the first TLV that acts on it.  Packets
+ * whose body carries no such TLV (an empty body, Pad1/PadN, unknown TLVs,
+ * or TLVs that RFC 8966 requires to be silently ignored) must not allocate
+ * an entry and trigger the associated traffic.  Aborts the packet on
+ * allocation failure, like the eager find_neighbour() call it replaces.
+ */
+static struct neighbour *packet_neighbour(struct neighbour *neigh,
+					  const unsigned char *from,
+					  struct interface *ifp)
+{
+	if (neigh)
+		return neigh;
+	neigh = find_neighbour(from, ifp);
+	if (neigh == NULL)
+		flog_err(EC_BABEL_PACKET, "Couldn't allocate neighbour.");
+	return neigh;
+}
+
 void parse_packet(const unsigned char *from, struct interface *ifp, const unsigned char *packet,
 		  int packetlen)
 {
@@ -513,11 +532,13 @@ void parse_packet(const unsigned char *from, struct interface *ifp, const unsign
 		return;
 	}
 
-	neigh = find_neighbour(from, ifp);
-	if (neigh == NULL) {
-		flog_err(EC_BABEL_PACKET, "Couldn't allocate neighbour.");
-		return;
-	}
+	/* Only some TLVs act on a neighbour.  Create the entry lazily, at the
+	 * first TLV that actually uses it: a packet whose body carries no such
+	 * TLV (an empty body, Pad1/PadN, unknown TLVs, or TLVs that RFC 8966
+	 * requires to be silently ignored) must not allocate an entry and
+	 * trigger the associated traffic.
+	 */
+	neigh = find_neighbour_nocreate(from, ifp);
 
 	if (v4mapped(from)) {
 		memcpy(v4_nh, from, 16);
@@ -569,6 +590,9 @@ void parse_packet(const unsigned char *from, struct interface *ifp, const unsign
 					goto done;
 				}
 			}
+			neigh = packet_neighbour(neigh, from, ifp);
+			if (neigh == NULL)
+				return;
 			send_ack(neigh, nonce, interval);
 		} else if (type == MESSAGE_ACK) {
 			debugf(BABEL_DEBUG_COMMON, "Received ack from %s on %s.",
@@ -634,11 +658,15 @@ void parse_packet(const unsigned char *from, struct interface *ifp, const unsign
 					       "Received Hello with subtlv Mandatory bit set, ignoring entire Hello TLV as per RFC 8966");
 					goto done;
 				}
-				if (ret > 0) {
-					neigh->hello_send_us = timestamp;
-					neigh->hello_rtt_receive_time = babel_now;
+				if (ret > 0)
 					have_hello_rtt = 1;
-				}
+			}
+			neigh = packet_neighbour(neigh, from, ifp);
+			if (neigh == NULL)
+				return;
+			if (have_hello_rtt) {
+				neigh->hello_send_us = timestamp;
+				neigh->hello_rtt_receive_time = babel_now;
 			}
 			/* Moving the update code to the end of the block to ensure we have processed sub-TLVs first */
 			changed = update_neighbour(neigh, seqno, interval);
@@ -669,6 +697,9 @@ void parse_packet(const unsigned char *from, struct interface *ifp, const unsign
 					       "Received IHU with subtlv Mandatory bit set, ignoring entire IHU TLV as per RFC 8966");
 					goto done;
 				}
+				neigh = packet_neighbour(neigh, from, ifp);
+				if (neigh == NULL)
+					return;
 				int changed = txcost != neigh->txcost;
 				neigh->txcost = txcost;
 				neigh->ihu_time = babel_now;
@@ -836,6 +867,9 @@ void parse_packet(const unsigned char *from, struct interface *ifp, const unsign
 						 "Received wildcard retraction with non-zero Plen or Omitted.");
 					goto done;
 				}
+				neigh = packet_neighbour(neigh, from, ifp);
+				if (neigh == NULL)
+					return;
 				retract_neighbour_routes(neigh);
 				goto done;
 			} else if (message[2] == 1) {
@@ -845,6 +879,9 @@ void parse_packet(const unsigned char *from, struct interface *ifp, const unsign
 			} else if (have_v6_nh) {
 				nh = v6_nh;
 			} else {
+				neigh = packet_neighbour(neigh, from, ifp);
+				if (neigh == NULL)
+					return;
 				nh = neigh->address;
 			}
 
@@ -878,9 +915,13 @@ void parse_packet(const unsigned char *from, struct interface *ifp, const unsign
 								    len - parsed_len, channels);
 			}
 
-			if (!ignore_update)
+			if (!ignore_update) {
+				neigh = packet_neighbour(neigh, from, ifp);
+				if (neigh == NULL)
+					return;
 				update_route(router_id, prefix, plen, seqno, metric, interval,
 					     neigh, nh, channels, channels_len(channels));
+			}
 		} else if (type == MESSAGE_REQUEST) {
 			unsigned char prefix[16], src_prefix[16], plen, src_plen;
 			int rc, is_ss;
@@ -913,7 +954,7 @@ void parse_packet(const unsigned char *from, struct interface *ifp, const unsign
 				goto done;
 			is_ss = !is_default(src_prefix, src_plen);
 			if (message[2] == 0) {
-				struct babel_interface *neigh_ifp = babel_get_if_nfo(neigh->ifp);
+				struct babel_interface *neigh_ifp;
 				if (is_ss) {
 					/* Wildcard requests don't carry a source prefix. */
 					flog_err(EC_BABEL_PACKET,
@@ -925,6 +966,10 @@ void parse_packet(const unsigned char *from, struct interface *ifp, const unsign
 						 "Ignoring request with AE=0 and non-zero Plen");
 					goto done;
 				}
+				neigh = packet_neighbour(neigh, from, ifp);
+				if (neigh == NULL)
+					return;
+				neigh_ifp = babel_get_if_nfo(neigh->ifp);
 				/* If a neighbour is requesting a full route dump from us,
                    we might as well send it an IHU. */
 				send_ihu(neigh, NULL);
@@ -937,6 +982,9 @@ void parse_packet(const unsigned char *from, struct interface *ifp, const unsign
 					     MAX(neigh_ifp->hello_interval / 100, 1)))
 					send_update(neigh->ifp, 0, NULL, 0);
 			} else {
+				neigh = packet_neighbour(neigh, from, ifp);
+				if (neigh == NULL)
+					return;
 				send_update(neigh->ifp, 0, prefix, plen);
 			}
 		} else if (type == MESSAGE_MH_REQUEST) {
@@ -958,6 +1006,9 @@ void parse_packet(const unsigned char *from, struct interface *ifp, const unsign
 				       "Received request with invalid hop count 0");
 				goto done;
 			}
+			neigh = packet_neighbour(neigh, from, ifp);
+			if (neigh == NULL)
+				return;
 			handle_request(neigh, prefix, plen, message[6], seqno, message + 8);
 		} else {
 			debugf(BABEL_DEBUG_COMMON, "Received unknown packet type %d from %s on %s.",
