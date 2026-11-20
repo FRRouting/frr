@@ -22,7 +22,9 @@ from functools import partial
 from lib.common_config import (
     create_address_on_interface,
     create_interface_in_kernel,
+    kill_router_daemons,
     shutdown_bringup_interface_in_kernel,
+    start_router_daemons,
     step,
 )
 from lib.topolog import logger
@@ -692,6 +694,187 @@ def test_zebra_ipv6_dad_kernel_route():
         _check_duplicated_kernel_route, None, count=20, wait=1
     )
     assert result is None, result
+
+
+#
+# Kernel routes on link down and link up.
+#
+# Linux removes the routes over an interface that goes down without telling
+# zebra, so zebra removes its copy of them itself: it goes through its kernel
+# routes and deletes the ones with no nexthop left alive. Routes that come
+# back afterwards must be tracked again, so a second flap removes them too.
+#
+
+KR_VRF = "kvrf"
+KR_VRF_TABLE = 1300
+KR_TABLE = 1400
+
+# name: (show command, prefix)
+KR_ROUTES = {
+    "v4": ("show ip route json", "198.51.100.0/24"),
+    "v6": ("show ipv6 route json", "2001:db8:100::/64"),
+    "other-if": ("show ip route json", "198.51.101.0/24"),
+    "multipath": ("show ip route json", "198.51.102.0/24"),
+    "vrf": ("show ip route vrf {} json".format(KR_VRF), "198.51.103.0/24"),
+    "table": ("show ip route table {} json".format(KR_TABLE), "198.51.104.0/24"),
+}
+
+KR_ADD = {
+    "v4": "ip route add 198.51.100.0/24 via 192.168.60.2 dev kr0",
+    "v6": "ip -6 route add 2001:db8:100::/64 via 2001:db8:60::2 dev kr0",
+    "other-if": "ip route add 198.51.101.0/24 via 192.168.61.2 dev kr1",
+    "multipath": "ip route add 198.51.102.0/24 nexthop via 192.168.60.2 dev kr0 "
+    "nexthop via 192.168.61.2 dev kr1",
+    "vrf": "ip route add 198.51.103.0/24 via 192.168.62.2 dev kr2 vrf {}".format(
+        KR_VRF
+    ),
+    "table": "ip route add 198.51.104.0/24 via 192.168.60.2 dev kr0 table {}".format(
+        KR_TABLE
+    ),
+}
+
+
+def _kr_in_zebra(router, name):
+    cmd, prefix = KR_ROUTES[name]
+    routes = json.loads(router.vtysh_cmd(cmd)).get(prefix, [])
+    return any(r.get("protocol") == "kernel" for r in routes)
+
+
+def _kr_expect(router, present):
+    "None once zebra has exactly the kernel routes named in 'present'."
+
+    def check():
+        seen = {name: _kr_in_zebra(router, name) for name in KR_ROUTES}
+        wrong = {n: v for n, v in seen.items() if v != (n in present)}
+        return wrong or None
+
+    _, result = topotest.run_and_expect(check, None, count=30, wait=0.5)
+    assert result is None, "kernel routes in zebra, expected {}: wrong {}".format(
+        sorted(present), result
+    )
+
+
+def _kr_tracked(router):
+    "Kernel routes zebra keeps in its kernel route set."
+    # vtysh nests each daemon's memory groups under the daemon's name
+    out = json.loads(router.vtysh_cmd("show memory zebra json"))
+    for mt in out.get("zebra", {}).get("zebra", []):
+        if mt["name"] == "RIB kernel route":
+            return mt["currentAllocations"]
+    return 0
+
+
+def _kr_expect_tracked(router, count):
+    _, result = topotest.run_and_expect(
+        partial(_kr_tracked, router), count, count=30, wait=0.5
+    )
+    assert result == count, "zebra tracks {} kernel routes, expected {}".format(
+        result, count
+    )
+
+
+def test_zebra_kernel_routes_link_flap():
+    "Kernel routes over a downed link are removed, and tracked again when re-added"
+
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    router = tgen.gears["r1"]
+
+    router.run(
+        "ip link add kr0 type dummy && ip link set kr0 up && "
+        "ip addr add 192.168.60.1/24 dev kr0 && "
+        "ip addr add 2001:db8:60::1/64 dev kr0 nodad && "
+        "ip link add kr1 type dummy && ip link set kr1 up && "
+        "ip addr add 192.168.61.1/24 dev kr1 && "
+        "ip link add {0} type vrf table {1} && ip link set {0} up && "
+        "ip link add kr2 type dummy && ip link set kr2 master {0} && "
+        "ip link set kr2 up && ip addr add 192.168.62.1/24 dev kr2".format(
+            KR_VRF, KR_VRF_TABLE
+        )
+    )
+    # kernel routes left by the other tests in this module
+    tracked = _kr_tracked(router)
+
+    try:
+        step("Every kernel route is in zebra and in its kernel route set")
+        for cmd in KR_ADD.values():
+            router.run(cmd)
+        _kr_expect(router, set(KR_ROUTES))
+        _kr_expect_tracked(router, tracked + len(KR_ROUTES))
+
+        step("Link down removes only the routes with no nexthop left alive")
+        router.run("ip link set kr0 down")
+        _kr_expect(router, {"other-if", "multipath", "vrf"})
+        _kr_expect_tracked(router, tracked + 3)
+
+        step("Link up brings nothing back: Linux doesn't restore the routes")
+        router.run("ip link set kr0 up")
+        router.run("ip addr add 2001:db8:60::1/64 dev kr0 nodad 2>/dev/null; true")
+        _kr_expect(router, {"other-if", "multipath", "vrf"})
+        assert not router.run("ip route show 198.51.100.0/24").strip()
+
+        step("Re-added and replaced routes are tracked: a second flap removes them")
+        for name in ("v4", "v6", "table"):
+            router.run(KR_ADD[name])
+        router.run("ip route replace 198.51.101.0/24 via 192.168.61.3 dev kr1")
+        _kr_expect(router, set(KR_ROUTES))
+        _kr_expect_tracked(router, tracked + len(KR_ROUTES))
+        router.run("ip link set kr0 down")
+        _kr_expect(router, {"other-if", "multipath", "vrf"})
+
+        step("The replaced route and the multipath route go once kr1 is down too")
+        router.run("ip link set kr1 down")
+        _kr_expect(router, {"vrf"})
+
+        step("A kernel route deleted from Linux by hand leaves the set as well")
+        router.run("ip link set kr1 up")
+        router.run(KR_ADD["other-if"])
+        _kr_expect(router, {"other-if", "vrf"})
+        router.run("ip route del 198.51.101.0/24")
+        _kr_expect(router, {"vrf"})
+        _kr_expect_tracked(router, tracked + 1)
+
+        step("A link down in a vrf removes its route; the set is back to the start")
+        router.run("ip link set kr2 down")
+        _kr_expect(router, set())
+        _kr_expect_tracked(router, tracked)
+    finally:
+        router.run(
+            "ip link del kr0; ip link del kr1; ip link del kr2; "
+            "ip link del {}; true".format(KR_VRF)
+        )
+
+
+def test_zebra_kernel_routes_read_at_startup():
+    "Kernel routes already in Linux when zebra starts are tracked and removed on link down"
+
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    router = tgen.gears["r1"]
+
+    router.run(
+        "ip link add kr0 type dummy && ip link set kr0 up && "
+        "ip addr add 192.168.60.1/24 dev kr0"
+    )
+    try:
+        step("A kernel route added while zebra is down is read when zebra starts")
+        kill_router_daemons(tgen, "r1", ["zebra"], save_config=False)
+        router.run(KR_ADD["v4"])
+        start_router_daemons(tgen, "r1", ["zebra"])
+        _kr_expect(router, {"v4"})
+        tracked = _kr_tracked(router)
+        assert tracked >= 1, "zebra does not track the kernel route read at startup"
+
+        step("Link down removes the route read at startup, like any other")
+        router.run("ip link set kr0 down")
+        _kr_expect(router, set())
+        _kr_expect_tracked(router, tracked - 1)
+    finally:
+        router.run("ip link del kr0; true")
 
 
 if __name__ == "__main__":
