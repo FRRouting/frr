@@ -234,6 +234,9 @@ enum dplane_op_e {
 	/* EVPN-MH FDB (L2) nexthop update */
 	DPLANE_OP_NH_FDB_INSTALL,
 	DPLANE_OP_NH_FDB_DELETE,
+
+	/* Interface master (bond, bridge, VRF device) membership */
+	DPLANE_OP_INTF_SET_MASTER,
 };
 
 /* Operational status of Bridge Ports */
@@ -464,6 +467,9 @@ void dplane_ctx_set_ifp_bridge_ifindex(struct zebra_dplane_ctx *ctx,
 ifindex_t dplane_ctx_get_ifp_bridge_ifindex(const struct zebra_dplane_ctx *ctx);
 void dplane_ctx_set_ifp_bypass(struct zebra_dplane_ctx *ctx, uint8_t bypass);
 uint8_t dplane_ctx_get_ifp_bypass(const struct zebra_dplane_ctx *ctx);
+/* Bond member LACP actor operational state (802.3ad bonds only) */
+void dplane_ctx_set_ifp_ad_actor_state(struct zebra_dplane_ctx *ctx, bool valid, uint8_t state);
+bool dplane_ctx_get_ifp_ad_actor_state(const struct zebra_dplane_ctx *ctx, uint8_t *state);
 void dplane_ctx_set_ifp_flags(struct zebra_dplane_ctx *ctx, uint64_t flags);
 uint64_t dplane_ctx_get_ifp_flags(const struct zebra_dplane_ctx *ctx);
 void dplane_ctx_set_ifp_change_flags(struct zebra_dplane_ctx *ctx, uint64_t change_flags);
@@ -968,6 +974,20 @@ dplane_ctx_neightable_get_mcast_probes(const struct zebra_dplane_ctx *ctx);
 uint32_t
 dplane_ctx_neightable_get_ucast_probes(const struct zebra_dplane_ctx *ctx);
 
+/* Accessors for interface master membership (DPLANE_OP_INTF_SET_MASTER) */
+
+/* Administrative state change requested together with the master change. */
+enum dplane_intf_admin {
+	DPLANE_INTF_ADMIN_NONE = 0,
+	DPLANE_INTF_ADMIN_UP,
+	DPLANE_INTF_ADMIN_DOWN,
+};
+
+bool dplane_ctx_intf_master_get_master(const struct zebra_dplane_ctx *ctx,
+				       ifindex_t *master_ifindex);
+enum dplane_intf_admin dplane_ctx_intf_master_get_admin(const struct zebra_dplane_ctx *ctx);
+const uint8_t *dplane_ctx_intf_master_get_mac(const struct zebra_dplane_ctx *ctx);
+
 /* Accessor for GRE set */
 uint32_t
 dplane_ctx_gre_get_link_ifindex(const struct zebra_dplane_ctx *ctx);
@@ -1233,6 +1253,29 @@ enum zebra_dplane_result dplane_neigh_table_update(const struct interface *ifp,
 						   const uint32_t app_probes,
 						   const uint32_t ucast_probes,
 						   const uint32_t mcast_probes);
+
+/*
+ * Interface master membership.
+ *
+ * dplane_intf_set_master() makes `ifp` a member (slave) of `master`. With
+ * DPLANE_INTF_MASTER_F_DOWN_FIRST the interface is set administratively
+ * down in the same request, before the master change: the Linux bonding
+ * driver refuses to enslave an interface that is up, and opens it itself
+ * once enslaved.
+ *
+ * dplane_intf_release_master() removes `ifp` from its master. The kernel
+ * may close the interface and restore its permanent MAC address while
+ * releasing it (the bonding driver does both), so the caller can ask for
+ * the interface to be set up again and for a MAC address to be applied
+ * afterwards. Those are sent as a second request, because the kernel
+ * applies flags and address before the master in a single request.
+ */
+#define DPLANE_INTF_MASTER_F_DOWN_FIRST 0x01
+
+enum zebra_dplane_result dplane_intf_set_master(const struct interface *ifp,
+						const struct interface *master, uint32_t flags);
+enum zebra_dplane_result dplane_intf_release_master(const struct interface *ifp, bool admin_up,
+						    const uint8_t *mac);
 
 /*
  * Enqueue a GRE set

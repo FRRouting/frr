@@ -794,18 +794,36 @@ static void netlink_proc_dplane_if_protodown(struct zebra_dplane_ctx *ctx,
 	dplane_ctx_set_ifp_protodown_set(ctx, true);
 }
 
-static uint8_t netlink_parse_lacp_bypass(struct rtattr **linkinfo)
+/*
+ * Parse the bond member (slave) attributes of a link message: the LACP
+ * bypass flag and, for 802.3ad bonds, the member's LACP actor operational
+ * state (IEEE 802.1AX actor state bits, see ZEBRA_LACP_STATE_*).
+ *
+ * `ad_actor_state_valid` is false when the kernel did not report an actor
+ * state (not an 802.3ad bond, or the member has no aggregator yet).
+ */
+static void netlink_parse_bond_slave_info(struct rtattr **linkinfo, uint8_t *bypass,
+					  bool *ad_actor_state_valid, uint8_t *ad_actor_state)
 {
-	uint8_t bypass = 0;
 	struct rtattr *mbrinfo[IFLA_BOND_SLAVE_MAX + 1];
+
+	*bypass = 0;
+	*ad_actor_state_valid = false;
+	*ad_actor_state = 0;
+
+	if (!linkinfo[IFLA_INFO_SLAVE_DATA])
+		return;
 
 	netlink_parse_rtattr_nested(mbrinfo, IFLA_BOND_SLAVE_MAX,
 				    linkinfo[IFLA_INFO_SLAVE_DATA]);
 	if (mbrinfo[IFLA_BOND_SLAVE_AD_RX_BYPASS])
-		bypass = *(uint8_t *)RTA_DATA(
-			mbrinfo[IFLA_BOND_SLAVE_AD_RX_BYPASS]);
+		*bypass = *(uint8_t *)RTA_DATA(mbrinfo[IFLA_BOND_SLAVE_AD_RX_BYPASS]);
 
-	return bypass;
+	if (mbrinfo[IFLA_BOND_SLAVE_AD_ACTOR_OPER_PORT_STATE]) {
+		*ad_actor_state =
+			*(uint8_t *)RTA_DATA(mbrinfo[IFLA_BOND_SLAVE_AD_ACTOR_OPER_PORT_STATE]);
+		*ad_actor_state_valid = true;
+	}
 }
 
 /* Request for specific interface or address information from the kernel */
@@ -937,34 +955,105 @@ static int interface_addr_lookup_netlink(struct zebra_ns *zns)
 	return 0;
 }
 
-int kernel_interface_set_master(struct interface *master,
-				struct interface *slave)
+/*
+ * Build an RTM_SETLINK request that changes an interface's master and, in
+ * the same request, optionally its admin state and MAC address.
+ *
+ * The kernel (do_setlink()) applies the MAC address and the flags before
+ * the master, so "set down, then enslave" fits in one request while "release,
+ * then set up" needs two.
+ *
+ * Returns the request length, or 0 if it did not fit in `buflen`.
+ */
+static ssize_t netlink_intf_set_master_build(void *buf, size_t buflen, ifindex_t ifindex,
+					     bool set_master, ifindex_t master_ifindex,
+					     enum dplane_intf_admin admin, const uint8_t *mac)
 {
-	struct zebra_ns *zns = zebra_ns_lookup(NS_DEFAULT);
-
 	struct {
 		struct nlmsghdr n;
-		struct ifinfomsg ifa;
+		struct ifinfomsg ifi;
+		char buf[];
+	} *req = buf;
+
+	if (buflen < sizeof(*req))
+		return 0;
+	memset(req, 0, sizeof(*req));
+
+	req->n.nlmsg_len = NLMSG_LENGTH(sizeof(struct ifinfomsg));
+	req->n.nlmsg_flags = NLM_F_REQUEST;
+	req->n.nlmsg_type = RTM_SETLINK;
+
+	req->ifi.ifi_family = AF_UNSPEC;
+	req->ifi.ifi_index = ifindex;
+
+	switch (admin) {
+	case DPLANE_INTF_ADMIN_UP:
+		req->ifi.ifi_change = IFF_UP;
+		req->ifi.ifi_flags = IFF_UP;
+		break;
+	case DPLANE_INTF_ADMIN_DOWN:
+		req->ifi.ifi_change = IFF_UP;
+		req->ifi.ifi_flags = 0;
+		break;
+	case DPLANE_INTF_ADMIN_NONE:
+		break;
+	}
+
+	if (mac && !nl_attr_put(&req->n, buflen, IFLA_ADDRESS, mac, ETH_ALEN))
+		return 0;
+
+	if (set_master && !nl_attr_put32(&req->n, buflen, IFLA_MASTER, master_ifindex))
+		return 0;
+
+	return NLMSG_ALIGN(req->n.nlmsg_len);
+}
+
+static ssize_t netlink_intf_set_master_msg_encoder(struct zebra_dplane_ctx *ctx, void *buf,
+						   size_t buflen)
+{
+	ifindex_t master_ifindex;
+	bool set_master;
+
+	set_master = dplane_ctx_intf_master_get_master(ctx, &master_ifindex);
+
+	return netlink_intf_set_master_build(buf, buflen, dplane_ctx_get_ifindex(ctx), set_master,
+					     master_ifindex, dplane_ctx_intf_master_get_admin(ctx),
+					     dplane_ctx_intf_master_get_mac(ctx));
+}
+
+enum netlink_msg_status netlink_put_intf_set_master_msg(struct nl_batch *bth,
+							struct zebra_dplane_ctx *ctx)
+{
+	assert(dplane_ctx_get_op(ctx) == DPLANE_OP_INTF_SET_MASTER);
+
+	return netlink_batch_add_msg(bth, ctx, netlink_intf_set_master_msg_encoder, false);
+}
+
+/*
+ * Synchronous variant, sent on the namespace's command socket from the main
+ * pthread. Only for zebra shutdown, when the dataplane pthread may already
+ * be stopped; everything else goes through dplane_intf_set_master() and
+ * dplane_intf_release_master().
+ */
+int kernel_intf_set_master_sync(struct zebra_ns *zns, ifindex_t ifindex, bool set_master,
+				ifindex_t master_ifindex, enum dplane_intf_admin admin,
+				const uint8_t *mac)
+{
+	struct {
+		struct nlmsghdr n;
+		struct ifinfomsg ifi;
 		char buf[NL_PKT_BUF_SIZE];
 	} req;
+	ssize_t len;
 
-	memset(&req, 0, sizeof(req));
+	len = netlink_intf_set_master_build(&req, sizeof(req), ifindex, set_master, master_ifindex,
+					    admin, mac);
+	if (len == 0) {
+		zlog_err("%s: failed to encode request for ifindex %u", __func__, ifindex);
+		return -1;
+	}
 
-	req.n.nlmsg_len = NLMSG_LENGTH(sizeof(struct ifinfomsg));
-	req.n.nlmsg_flags = NLM_F_REQUEST;
-	req.n.nlmsg_type = RTM_SETLINK;
 	req.n.nlmsg_pid = zns->netlink_cmd.snl.nl_pid;
-
-	req.ifa.ifi_index = slave->ifindex;
-
-	if (!nl_attr_put32(&req.n, sizeof(req), IFLA_MASTER, master->ifindex)) {
-		zlog_err("%s: failed to encode IFLA_MASTER nl attribute", __func__);
-		return -1;
-	}
-	if (!nl_attr_put32(&req.n, sizeof(req), IFLA_LINK, slave->ifindex)) {
-		zlog_err("%s: failed to encode IFLA_LINK nl attribute", __func__);
-		return -1;
-	}
 
 	return netlink_talk(netlink_talk_filter, &req.n, &zns->netlink_cmd, zns, false, NULL, NULL);
 }
@@ -1322,6 +1411,8 @@ int netlink_link_change(struct nlmsghdr *h, ns_id_t ns_id, int startup, void *ar
 	ns_id_t link_nsid = ns_id;
 	ifindex_t master_infindex = IFINDEX_INTERNAL;
 	uint8_t bypass = 0;
+	bool ad_actor_state_valid = false;
+	uint8_t ad_actor_state = 0;
 	uint32_t txqlen = 0;
 	uint32_t cchanges = 0;
 	int speed_err = 0;
@@ -1482,7 +1573,9 @@ int netlink_link_change(struct nlmsghdr *h, ns_id_t ns_id, int startup, void *ar
 				zif_slave_type = ZEBRA_IF_SLAVE_BOND;
 				master_infindex = bond_ifindex =
 					*(ifindex_t *)RTA_DATA(tb[IFLA_MASTER]);
-				bypass = netlink_parse_lacp_bypass(linkinfo);
+				netlink_parse_bond_slave_info(linkinfo, &bypass,
+							      &ad_actor_state_valid,
+							      &ad_actor_state);
 			} else
 				zif_slave_type = ZEBRA_IF_SLAVE_OTHER;
 		}
@@ -1507,6 +1600,7 @@ int netlink_link_change(struct nlmsghdr *h, ns_id_t ns_id, int startup, void *ar
 		dplane_ctx_set_ifp_bridge_ifindex(ctx, bridge_ifindex);
 		dplane_ctx_set_ifp_bond_ifindex(ctx, bond_ifindex);
 		dplane_ctx_set_ifp_bypass(ctx, bypass);
+		dplane_ctx_set_ifp_ad_actor_state(ctx, ad_actor_state_valid, ad_actor_state);
 		dplane_ctx_set_ifp_zltype(
 			ctx, netlink_to_zebra_link_type(ifi->ifi_type));
 

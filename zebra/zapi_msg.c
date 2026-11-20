@@ -3291,7 +3291,7 @@ static void zread_interface_set_master(ZAPI_HANDLER_ARGS)
 	if (!master || !slave)
 		return;
 
-	kernel_interface_set_master(master, slave);
+	dplane_intf_set_master(slave, master, 0);
 
 stream_failure:
 	return;
