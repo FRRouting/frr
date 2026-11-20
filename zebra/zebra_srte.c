@@ -277,6 +277,22 @@ static void zebra_sr_policy_deactivate(struct zebra_sr_policy *policy)
 	zebra_sr_policy_notify_update(policy);
 }
 
+/* An LSP that is being freed must not stay referenced by any SR policy.
+ * The policy caches the LSP pointer when it is activated, and the
+ * validate/label update notifications run at withdraw time, when
+ * the LSP still exists. The free happens later in the LSP
+ * work queue.
+ */
+void zebra_sr_policy_lsp_freed(struct zebra_lsp *lsp)
+{
+	struct zebra_sr_policy *policy;
+
+	RB_FOREACH (policy, zebra_sr_policy_instance_head, &zebra_sr_policy_instances) {
+		if (policy->lsp == lsp)
+			zebra_sr_policy_deactivate(policy);
+	}
+}
+
 int zebra_sr_policy_validate(struct zebra_sr_policy *policy,
 			     struct zapi_srte_tunnel *new_tunnel)
 {

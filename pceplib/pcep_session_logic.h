@@ -150,6 +150,12 @@ typedef struct pcep_session_ {
 	/* Configuration received from the PCE, to be used in the PCC */
 	pcep_configuration pce_config;
 	struct counters_group *pcep_session_counters;
+	/*
+	 * Bytes read from the socket that do not yet form a complete
+	 * message. A message split across reads is completed here.
+	 */
+	uint8_t rx_buffer[PCEP_MESSAGE_LENGTH];
+	uint32_t rx_buffer_len;
 
 } pcep_session;
 

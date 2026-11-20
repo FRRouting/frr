@@ -18,6 +18,7 @@
 #include "pathd/path_errors.h"
 #include "pathd/path_pcep.h"
 #include "pathd/path_pcep_controller.h"
+#include "pathd/path_pcep_lib.h"
 #include "pathd/path_pcep_pcc.h"
 #include "pathd/path_pcep_config.h"
 #include "pathd/path_pcep_debug.h"
@@ -52,7 +53,19 @@ struct pcep_main_event_data {
 	int pcc_id;
 	enum pcep_main_event_type type;
 	void *payload;
+	struct pcep_main_event_data *next;
 };
+
+/* Events posted to the main thread carry allocated payloads that
+ * would leak if the main event loop were torn down before running
+ * them.  Every posted event is linked here and unlinked once it is
+ * handled, so whatever is still on this list at daemon shutdown can
+ * be cancelled and freed.  Linked from the controller thread,
+ * unlinked on the main thread.
+ */
+static struct pcep_main_event_data *main_event_pending;
+static pthread_mutex_t main_event_mtx = PTHREAD_MUTEX_INITIALIZER;
+static struct event_loop *main_event_loop;
 
 struct pcep_refine_path_event_data {
 	struct ctrl_state *ctrl_state;
@@ -501,12 +514,20 @@ void pcep_thread_finish_event_handler(struct event *event)
 
 	assert(ctrl_state != NULL);
 
+	/* Tearing down, dont accept any more events to handle. */
+	ctrl_state->halting = true;
+
 	for (i = 0; i < MAX_PCC; i++) {
 		if (ctrl_state->pcc[i]) {
 			pcep_pcc_finalize(ctrl_state, ctrl_state->pcc[i]);
 			ctrl_state->pcc[i] = NULL;
 		}
 	}
+
+	/* Stop the pceplib threads while the controller state is still
+	 * alive.
+	 */
+	pcep_lib_finalize();
 
 	XFREE(MTYPE_PCEP, ctrl_state->pcc_opts);
 	XFREE(MTYPE_PCEP, ctrl_state);
@@ -664,6 +685,12 @@ int pcep_thread_socket_write(void *fpt, void **thread, int fd, void *payload,
 {
 	struct ctrl_state *ctrl_state = ((struct frr_pthread *)fpt)->data;
 
+	/* The pceplib threads run until the finish handler stops them
+	 * and used to call back into freed controller state.
+	 */
+	if (ctrl_state == NULL || ctrl_state->halting)
+		return -1;
+
 	return schedule_thread_socket(ctrl_state, 0, SOCK_PCEPLIB, false,
 				      payload, fd, (struct event **)thread,
 				      socket_cb);
@@ -674,6 +701,10 @@ int pcep_thread_socket_read(void *fpt, void **thread, int fd, void *payload,
 {
 	struct ctrl_state *ctrl_state = ((struct frr_pthread *)fpt)->data;
 
+	/* See pcep_thread_socket_write(). */
+	if (ctrl_state == NULL || ctrl_state->halting)
+		return -1;
+
 	return schedule_thread_socket(ctrl_state, 0, SOCK_PCEPLIB, true,
 				      payload, fd, (struct event **)thread,
 				      socket_cb);
@@ -683,6 +714,15 @@ int pcep_thread_send_ctrl_event(void *fpt, void *payload,
 				pcep_ctrl_thread_callback cb)
 {
 	struct ctrl_state *ctrl_state = ((struct frr_pthread *)fpt)->data;
+
+	/* The pceplib threads run until the finish handler stops them;
+	 * an event delivered while the controller is halting has
+	 * nowhere to go and must be freed here.
+	 */
+	if (ctrl_state == NULL || ctrl_state->halting) {
+		destroy_pcep_event((pcep_event *)payload);
+		return -1;
+	}
 
 	return send_to_thread_with_cb(ctrl_state, 0, EV_PCEPLIB_EVENT, 0,
 				      payload, cb);
@@ -973,6 +1013,12 @@ int send_to_main(struct ctrl_state *ctrl_state, int pcc_id,
 	data->pcc_id = pcc_id;
 	data->payload = payload;
 
+	pthread_mutex_lock(&main_event_mtx);
+	main_event_loop = ctrl_state->main;
+	data->next = main_event_pending;
+	main_event_pending = data;
+	pthread_mutex_unlock(&main_event_mtx);
+
 	event_add_event(ctrl_state->main, pcep_main_event_handler, (void *)data,
 			0, NULL);
 	return 0;
@@ -983,6 +1029,23 @@ void pcep_main_event_handler(struct event *event)
 	/* data unpacking */
 	struct pcep_main_event_data *data = EVENT_ARG(event);
 	assert(data != NULL);
+
+	/* Unlink from the pending list, see
+	 * pcep_ctrl_finalize_main_events().
+	 */
+	pthread_mutex_lock(&main_event_mtx);
+	if (main_event_pending == data) {
+		main_event_pending = data->next;
+	} else {
+		struct pcep_main_event_data *prev = main_event_pending;
+
+		while (prev != NULL && prev->next != data)
+			prev = prev->next;
+		if (prev != NULL)
+			prev->next = data->next;
+	}
+	pthread_mutex_unlock(&main_event_mtx);
+
 	pcep_main_event_handler_t handler = data->handler;
 	enum pcep_main_event_type type = data->type;
 	int pcc_id = data->pcc_id;
@@ -990,6 +1053,42 @@ void pcep_main_event_handler(struct event *event)
 	XFREE(MTYPE_PCEP, data);
 
 	handler(type, pcc_id, payload);
+}
+
+/* Cancel and free main-bound events that were still pending when the
+ * daemon shut down: the main event loop is torn down without running
+ * them, which would leak their payloads (e.g. paths parsed from
+ * PCInitiate messages received right before the shutdown).  Must be
+ * called after the controller thread is stopped, so nothing can post
+ * to the list any more.
+ */
+void pcep_ctrl_finalize_main_events(void)
+{
+	struct pcep_main_event_data *data;
+
+	pthread_mutex_lock(&main_event_mtx);
+	while ((data = main_event_pending) != NULL) {
+		main_event_pending = data->next;
+		if (main_event_loop != NULL)
+			event_cancel_event(main_event_loop, data);
+		switch (data->type) {
+		case PCEP_MAIN_EVENT_INITIATE_CANDIDATE:
+		case PCEP_MAIN_EVENT_UPDATE_CANDIDATE:
+			pcep_free_path((struct path *)data->payload);
+			break;
+		case PCEP_MAIN_EVENT_REMOVE_CANDIDATE_LSP: {
+			char *originator = (char *)data->payload;
+
+			XFREE(MTYPE_PCEP, originator);
+			break;
+		}
+		case PCEP_MAIN_EVENT_START_SYNC:
+		case PCEP_MAIN_EVENT_UNDEFINED:
+			break;
+		}
+		XFREE(MTYPE_PCEP, data);
+	}
+	pthread_mutex_unlock(&main_event_mtx);
 }
 
 
