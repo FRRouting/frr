@@ -485,7 +485,7 @@ DEFPY_YANG(no_accept_lifetime,
        NO_STR
        "Unset accept-lifetime\n")
 {
-	nb_cli_enqueue_change(vty, "accept-lifetime", NB_OP_DESTROY, NULL);
+	nb_cli_enqueue_change(vty, "./lifetime/accept-lifetime", NB_OP_DESTROY, NULL);
 	return nb_cli_apply_changes(vty, NULL);
 }
 
@@ -705,7 +705,7 @@ DEFUN (no_send_lifetime,
        NO_STR
        "Unset send-lifetime\n")
 {
-	nb_cli_enqueue_change(vty, "send-lifetime", NB_OP_DESTROY, NULL);
+	nb_cli_enqueue_change(vty, "./lifetime/send-lifetime", NB_OP_DESTROY, NULL);
 	return nb_cli_apply_changes(vty, NULL);
 }
 

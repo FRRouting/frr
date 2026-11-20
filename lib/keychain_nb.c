@@ -269,6 +269,21 @@ static const void *key_chains_key_chain_key_lookup_entry(struct nb_cb_lookup_ent
 	return NULL;
 }
 
+/* Make the send and/or accept lifetime of a key always valid, the default */
+static void __lifetime_reset(struct key *key, bool send, bool accept)
+{
+	if (send) {
+		key->send.start = 0;
+		key->send.end = -1;
+		key->send.duration = 0;
+	}
+	if (accept) {
+		key->accept.start = 0;
+		key->accept.end = -1;
+		key->accept.duration = 0;
+	}
+}
+
 static int __lifetime_create(struct nb_cb_create_args *args, bool send,
 			     bool accept, bool always)
 {
@@ -282,16 +297,7 @@ static int __lifetime_create(struct nb_cb_create_args *args, bool send,
 		key = __dnode_get_key3(args->dnode, true, &keychain);
 	else
 		key = __dnode_get_key2(args->dnode, true, &keychain);
-	if (send) {
-		key->send.start = 0;
-		key->send.end = -1;
-		key->send.duration = 0;
-	}
-	if (accept) {
-		key->accept.start = 0;
-		key->accept.end = -1;
-		key->accept.duration = 0;
-	}
+	__lifetime_reset(key, send, accept);
 
 	/*
 	 * A lifetime is as much a property of the key as its string or its
@@ -333,6 +339,35 @@ static int __lifetime_start_date_time_modify(struct nb_cb_modify_args *args,
 	if (keychain)
 		hook_call(keychain_updated, keychain->name);
 
+	return NB_OK;
+}
+
+/*
+ * A lifetime removed leaves the key valid at all times again, as one never
+ * given a lifetime is. The northbound destroys either the lifetime container,
+ * when nothing else is left in its case of the lifetime choice, or else only
+ * its children, among which the start time always is: both reset. Deleting
+ * the key does not call the destroy callbacks of its children.
+ */
+static int __lifetime_destroy(struct nb_cb_destroy_args *args, bool send, bool accept,
+			      bool container)
+{
+	struct keychain *keychain;
+	struct key *key;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	if (container)
+		key = __dnode_get_key2(args->dnode, true, &keychain);
+	else
+		key = __dnode_get_key3(args->dnode, true, &keychain);
+	if (!key)
+		return NB_OK;
+
+	__lifetime_reset(key, send, accept);
+	if (keychain)
+		hook_call(keychain_updated, keychain->name);
 	return NB_OK;
 }
 
@@ -435,6 +470,12 @@ static int key_chains_key_chain_key_lifetime_send_accept_lifetime_create(
 	return __lifetime_create(args, true, true, false);
 }
 
+static int
+key_chains_key_chain_key_lifetime_send_accept_lifetime_destroy(struct nb_cb_destroy_args *args)
+{
+	return __lifetime_destroy(args, true, true, true);
+}
+
 /*
  * XPath: /ietf-key-chain:key-chains/key-chain/key/lifetime/send-accept-lifetime/always
  */
@@ -447,6 +488,12 @@ static int key_chains_key_chain_key_lifetime_send_accept_lifetime_always_create(
 /*
  * XPath: /ietf-key-chain:key-chains/key-chain/key/lifetime/send-accept-lifetime/start-date-time
  */
+static int key_chains_key_chain_key_lifetime_send_accept_lifetime_start_date_time_destroy(
+	struct nb_cb_destroy_args *args)
+{
+	return __lifetime_destroy(args, true, true, false);
+}
+
 static int
 key_chains_key_chain_key_lifetime_send_accept_lifetime_start_date_time_modify(
 	struct nb_cb_modify_args *args)
@@ -493,6 +540,11 @@ static int key_chains_key_chain_key_lifetime_send_lifetime_create(
 	return __lifetime_create(args, true, false, false);
 }
 
+static int key_chains_key_chain_key_lifetime_send_lifetime_destroy(struct nb_cb_destroy_args *args)
+{
+	return __lifetime_destroy(args, true, false, true);
+}
+
 /*
  * XPath: /ietf-key-chain:key-chains/key-chain/key/lifetime/send-lifetime/always
  */
@@ -505,6 +557,12 @@ static int key_chains_key_chain_key_lifetime_send_lifetime_always_create(
 /*
  * XPath: /ietf-key-chain:key-chains/key-chain/key/lifetime/send-lifetime/start-date-time
  */
+static int key_chains_key_chain_key_lifetime_send_lifetime_start_date_time_destroy(
+	struct nb_cb_destroy_args *args)
+{
+	return __lifetime_destroy(args, true, false, false);
+}
+
 static int key_chains_key_chain_key_lifetime_send_lifetime_start_date_time_modify(struct nb_cb_modify_args *args)
 {
 	return __lifetime_start_date_time_modify(args, true, false);
@@ -544,6 +602,11 @@ static int key_chains_key_chain_key_lifetime_accept_lifetime_create(
 	return __lifetime_create(args, false, true, false);
 }
 
+static int key_chains_key_chain_key_lifetime_accept_lifetime_destroy(struct nb_cb_destroy_args *args)
+{
+	return __lifetime_destroy(args, false, true, true);
+}
+
 /*
  * XPath: /ietf-key-chain:key-chains/key-chain/key/lifetime/accept-lifetime/always
  */
@@ -555,6 +618,12 @@ static int key_chains_key_chain_key_lifetime_accept_lifetime_always_create(struc
 /*
  * XPath: /ietf-key-chain:key-chains/key-chain/key/lifetime/accept-lifetime/start-date-time
  */
+static int key_chains_key_chain_key_lifetime_accept_lifetime_start_date_time_destroy(
+	struct nb_cb_destroy_args *args)
+{
+	return __lifetime_destroy(args, false, true, false);
+}
+
 static int key_chains_key_chain_key_lifetime_accept_lifetime_start_date_time_modify(struct nb_cb_modify_args *args)
 {
 	return __lifetime_start_date_time_modify(args, false, true);
@@ -799,7 +868,7 @@ const struct frr_yang_module_info ietf_key_chain_info = {
 			.xpath = "/ietf-key-chain:key-chains/key-chain/key/lifetime/send-accept-lifetime",
 			.cbs = {
 				.create = key_chains_key_chain_key_lifetime_send_accept_lifetime_create,
-				.destroy = __destroy_nop,
+				.destroy = key_chains_key_chain_key_lifetime_send_accept_lifetime_destroy,
 			}
 		},
 		{
@@ -813,7 +882,7 @@ const struct frr_yang_module_info ietf_key_chain_info = {
 			.xpath = "/ietf-key-chain:key-chains/key-chain/key/lifetime/send-accept-lifetime/start-date-time",
 			.cbs = {
 				.modify = key_chains_key_chain_key_lifetime_send_accept_lifetime_start_date_time_modify,
-				.destroy = __destroy_nop,
+				.destroy = key_chains_key_chain_key_lifetime_send_accept_lifetime_start_date_time_destroy,
 				.cli_show = key_chains_key_chain_key_lifetime_send_accept_lifetime_start_date_time_cli_write,
 			}
 		},
@@ -842,7 +911,7 @@ const struct frr_yang_module_info ietf_key_chain_info = {
 			.xpath = "/ietf-key-chain:key-chains/key-chain/key/lifetime/send-lifetime",
 			.cbs = {
 				.create = key_chains_key_chain_key_lifetime_send_lifetime_create,
-				.destroy = __destroy_nop,
+				.destroy = key_chains_key_chain_key_lifetime_send_lifetime_destroy,
 			}
 		},
 		{
@@ -856,7 +925,7 @@ const struct frr_yang_module_info ietf_key_chain_info = {
 			.xpath = "/ietf-key-chain:key-chains/key-chain/key/lifetime/send-lifetime/start-date-time",
 			.cbs = {
 				.modify = key_chains_key_chain_key_lifetime_send_lifetime_start_date_time_modify,
-				.destroy = __destroy_nop,
+				.destroy = key_chains_key_chain_key_lifetime_send_lifetime_start_date_time_destroy,
 				.cli_show = key_chains_key_chain_key_lifetime_send_lifetime_start_date_time_cli_write,
 			}
 		},
@@ -885,7 +954,7 @@ const struct frr_yang_module_info ietf_key_chain_info = {
 			.xpath = "/ietf-key-chain:key-chains/key-chain/key/lifetime/accept-lifetime",
 			.cbs = {
 				.create = key_chains_key_chain_key_lifetime_accept_lifetime_create,
-				.destroy = __destroy_nop,
+				.destroy = key_chains_key_chain_key_lifetime_accept_lifetime_destroy,
 			}
 		},
 		{
@@ -899,7 +968,7 @@ const struct frr_yang_module_info ietf_key_chain_info = {
 			.xpath = "/ietf-key-chain:key-chains/key-chain/key/lifetime/accept-lifetime/start-date-time",
 			.cbs = {
 				.modify = key_chains_key_chain_key_lifetime_accept_lifetime_start_date_time_modify,
-				.destroy = __destroy_nop,
+				.destroy = key_chains_key_chain_key_lifetime_accept_lifetime_start_date_time_destroy,
 				.cli_show = key_chains_key_chain_key_lifetime_accept_lifetime_start_date_time_cli_write,
 			}
 		},
