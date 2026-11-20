@@ -200,6 +200,24 @@ test# lsa compare-age 10 11 ages 0 900
 compare = 0
 test# lsa compare-age 10 11 ages 0 901
 compare = -1
+test# lsa compare-age 10 11 ages 0 0
+compare = 0
+test# lsa compare-checksum 10 11 checksums 1 256
+compare = 1
+test# lsa compare-checksum 10 11 checksums 256 1
+compare = -1
+test# lsa compare-checksum 10 11 checksums 32767 32768
+compare = 1
+test# lsa compare-checksum 10 11 checksums 32768 32767
+compare = -1
+test# lsa compare-checksum 10 11 checksums 1 65535
+compare = 1
+test# lsa compare-checksum 10 11 checksums 65535 1
+compare = -1
+test# lsa compare-checksum 10 11 checksums 1 1
+compare = 0
+test# lsa compare-checksum 10 11 checksums 65535 65535
+compare = 0
 test# lsa drop 10
 test# lsa drop 11
 test# 
