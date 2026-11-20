@@ -349,11 +349,9 @@ typedef struct rib_tables_iter_t_ {
 
 /* Events/reasons triggering a RIB update. */
 enum rib_update_event {
-	RIB_UPDATE_INTERFACE_DOWN,
 	RIB_UPDATE_KERNEL,
 	RIB_UPDATE_RMAP_CHANGE,
 	RIB_UPDATE_OTHER,
-	RIB_UPDATE_KERNEL_LAST_IPV4_ADDRESS_DELETED,
 	RIB_UPDATE_MAX
 };
 void rib_update_finish(void);
@@ -489,6 +487,7 @@ extern void zebra_rib_evaluate_rn_nexthops(struct route_node *rn, uint32_t seq,
 					   bool rt_delete);
 
 extern void rib_update_handle_vrf_all(enum rib_update_event event, int rtype);
+extern void rib_update_kernel_routes_via_if(const struct interface *ifp);
 int zebra_show_metaq_counter(struct vty *vty, bool uj);
 
 /*
