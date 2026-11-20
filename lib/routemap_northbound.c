@@ -796,6 +796,136 @@ static int lib_route_map_entry_match_condition_metric_destroy(
 	return lib_route_map_entry_match_destroy(args);
 }
 
+
+/*
+ * XPath: /frr-route-map:lib/route-map/entry/match-condition/rmap-match-condition/metric-detail
+ */
+static int lib_route_map_entry_match_condition_rmap_match_condition_metric_detail_create(struct nb_cb_create_args *args)
+{
+	return NB_OK;
+}
+
+static int lib_route_map_entry_match_condition_rmap_match_condition_metric_detail_destroy(struct nb_cb_destroy_args *args)
+{
+	return lib_route_map_entry_match_destroy(args);
+}
+
+static void lib_route_map_entry_match_condition_rmap_match_condition_metric_detail_apply_finish(struct nb_cb_apply_finish_args *args)
+{
+	struct routemap_hook_context *rhc;
+	char argstr[VTY_BUFSIZ];
+	uint8_t proto;
+	uint32_t metric, metric_min, metric_max;
+	int rv;
+
+	/* Add configuration. */
+	rhc = nb_running_get_entry(args->dnode, NULL, true);
+	proto = yang_dnode_get_enum(args->dnode, "protocol");
+
+	/* Set destroy information. */
+	rhc->rhc_mhook = generic_match_delete;
+	rhc->rhc_rule = "metric detail";
+	rhc->rhc_event = RMAP_EVENT_MATCH_DELETED;
+
+	if (yang_dnode_get_bool(args->dnode, "range")) {
+		metric_min = yang_dnode_get_uint32(args->dnode, "metric-min");
+		metric_max = yang_dnode_get_uint32(args->dnode, "metric-max");
+		/* Format: <proto> range <metric_min> <metric_max> [external] */
+		snprintf(argstr, sizeof(argstr), "%u range %u %u", proto, metric_min, metric_max);
+	} else {
+		metric = yang_dnode_get_uint32(args->dnode, "metric");
+		/* Format: <proto> <metric> [external] */
+		snprintf(argstr, sizeof(argstr), "%u %u", proto, metric);
+	}
+
+	if (yang_dnode_get_bool(args->dnode, "external"))
+		strlcat(argstr, " external", sizeof(argstr));
+
+	rv = generic_match_add(rhc->rhc_rmi, "metric detail", argstr, RMAP_EVENT_MATCH_ADDED,
+			      args->errmsg, args->errmsg_len);
+
+	assert(rv == RMAP_COMPILE_SUCCESS);
+}
+
+/*
+ * XPath: /frr-route-map:lib/route-map/entry/match-condition/rmap-match-condition/metric-detail/metric
+ */
+static int lib_route_map_entry_match_condition_rmap_match_condition_metric_detail_metric_modify(struct nb_cb_modify_args *args)
+{
+	return NB_OK;
+}
+
+static int lib_route_map_entry_match_condition_rmap_match_condition_metric_detail_metric_destroy(struct nb_cb_destroy_args *args)
+{
+	return lib_route_map_entry_match_destroy(args);
+}
+
+/*
+ * XPath: /frr-route-map:lib/route-map/entry/match-condition/rmap-match-condition/metric-detail/metric-min
+ */
+static int lib_route_map_entry_match_condition_rmap_match_condition_metric_detail_metric_min_modify(struct nb_cb_modify_args *args)
+{
+	return NB_OK;
+}
+
+static int lib_route_map_entry_match_condition_rmap_match_condition_metric_detail_metric_min_destroy(struct nb_cb_destroy_args *args)
+{
+	return lib_route_map_entry_match_destroy(args);
+}
+
+/*
+ * XPath: /frr-route-map:lib/route-map/entry/match-condition/rmap-match-condition/metric-detail/metric-max
+ */
+static int lib_route_map_entry_match_condition_rmap_match_condition_metric_detail_metric_max_modify(struct nb_cb_modify_args *args)
+{
+	return NB_OK;
+}
+
+static int lib_route_map_entry_match_condition_rmap_match_condition_metric_detail_metric_max_destroy(struct nb_cb_destroy_args *args)
+{
+	return lib_route_map_entry_match_destroy(args);
+}
+
+
+/*
+ * XPath: /frr-route-map:lib/route-map/entry/match-condition/rmap-match-condition/metric-detail/protocol
+ */
+static int lib_route_map_entry_match_condition_rmap_match_condition_metric_detail_protocol_modify(struct nb_cb_modify_args *args)
+{
+	return NB_OK;
+}
+
+static int lib_route_map_entry_match_condition_rmap_match_condition_metric_detail_protocol_destroy(struct nb_cb_destroy_args *args)
+{
+	return lib_route_map_entry_match_destroy(args);
+}
+
+/*
+ * XPath: /frr-route-map:lib/route-map/entry/match-condition/rmap-match-condition/metric-detail/external
+ */
+static int lib_route_map_entry_match_condition_rmap_match_condition_metric_detail_external_modify(struct nb_cb_modify_args *args)
+{
+	return NB_OK;
+}
+
+static int lib_route_map_entry_match_condition_rmap_match_condition_metric_detail_external_destroy(struct nb_cb_destroy_args *args)
+{
+	return lib_route_map_entry_match_destroy(args);
+}
+
+/*
+ * XPath: /frr-route-map:lib/route-map/entry/match-condition/rmap-match-condition/metric-detail/range
+ */
+static int lib_route_map_entry_match_condition_rmap_match_condition_metric_detail_range_modify(struct nb_cb_modify_args *args)
+{
+	return NB_OK;
+}
+
+static int lib_route_map_entry_match_condition_rmap_match_condition_metric_detail_range_destroy(struct nb_cb_destroy_args *args)
+{
+	return lib_route_map_entry_match_destroy(args);
+}
+
 /*
  * XPath: /frr-route-map:lib/route-map/entry/match-condition/tag
  */
@@ -1471,6 +1601,56 @@ const struct frr_yang_module_info frr_route_map_info = {
 			.cbs = {
 				.modify = lib_route_map_entry_match_condition_metric_modify,
 				.destroy = lib_route_map_entry_match_condition_metric_destroy,
+			}
+		},
+		{
+			.xpath = "/frr-route-map:lib/route-map/entry/match-condition/rmap-match-condition/metric-detail",
+			.cbs = {
+				.create = lib_route_map_entry_match_condition_rmap_match_condition_metric_detail_create,
+				.destroy = lib_route_map_entry_match_condition_rmap_match_condition_metric_detail_destroy,
+				.apply_finish = lib_route_map_entry_match_condition_rmap_match_condition_metric_detail_apply_finish,
+			}
+		},
+		{
+			.xpath = "/frr-route-map:lib/route-map/entry/match-condition/rmap-match-condition/metric-detail/metric",
+			.cbs = {
+				.modify = lib_route_map_entry_match_condition_rmap_match_condition_metric_detail_metric_modify,
+				.destroy = lib_route_map_entry_match_condition_rmap_match_condition_metric_detail_metric_destroy,
+			}
+		},
+		{
+			.xpath = "/frr-route-map:lib/route-map/entry/match-condition/rmap-match-condition/metric-detail/metric-min",
+			.cbs = {
+				.modify = lib_route_map_entry_match_condition_rmap_match_condition_metric_detail_metric_min_modify,
+				.destroy = lib_route_map_entry_match_condition_rmap_match_condition_metric_detail_metric_min_destroy,
+			}
+		},
+		{
+			.xpath = "/frr-route-map:lib/route-map/entry/match-condition/rmap-match-condition/metric-detail/metric-max",
+			.cbs = {
+				.modify = lib_route_map_entry_match_condition_rmap_match_condition_metric_detail_metric_max_modify,
+				.destroy = lib_route_map_entry_match_condition_rmap_match_condition_metric_detail_metric_max_destroy,
+			}
+		},
+		{
+			.xpath = "/frr-route-map:lib/route-map/entry/match-condition/rmap-match-condition/metric-detail/protocol",
+			.cbs = {
+				.modify = lib_route_map_entry_match_condition_rmap_match_condition_metric_detail_protocol_modify,
+				.destroy = lib_route_map_entry_match_condition_rmap_match_condition_metric_detail_protocol_destroy,
+			}
+		},
+		{
+			.xpath = "/frr-route-map:lib/route-map/entry/match-condition/rmap-match-condition/metric-detail/external",
+			.cbs = {
+				.modify = lib_route_map_entry_match_condition_rmap_match_condition_metric_detail_external_modify,
+				.destroy = lib_route_map_entry_match_condition_rmap_match_condition_metric_detail_external_destroy,
+			}
+		},
+		{
+			.xpath = "/frr-route-map:lib/route-map/entry/match-condition/rmap-match-condition/metric-detail/range",
+			.cbs = {
+				.modify = lib_route_map_entry_match_condition_rmap_match_condition_metric_detail_range_modify,
+				.destroy = lib_route_map_entry_match_condition_rmap_match_condition_metric_detail_range_destroy,
 			}
 		},
 		{
