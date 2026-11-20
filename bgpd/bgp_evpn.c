@@ -3773,6 +3773,10 @@ static int install_evpn_route_entry_in_vni_common(
 					   new_local_es ? "local" : "non-local");
 			bgp_path_info_set_flag(dest, pi, BGP_PATH_ATTR_CHANGED);
 		}
+		/* IMET PMSI changes update the remote VTEP flood mode in zebra. */
+		if (p->prefix.route_type == BGP_EVPN_IMET_ROUTE &&
+		    bgp_attr_get_pmsi_tnl_type(pi->attr) != bgp_attr_get_pmsi_tnl_type(attr_new))
+			bgp_path_info_set_flag(dest, pi, BGP_PATH_ATTR_CHANGED);
 
 		/* Unintern existing, set to new. */
 		bgp_attr_unintern(&pi->attr);

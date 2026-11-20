@@ -72,6 +72,7 @@ This bug is verifiable by inspecting zebra's per-VNI per-remote-VTEP
 flood mode, which is directly derived from the PMSI value bgpd retained.
 """
 
+import json
 import os
 import sys
 from functools import partial
@@ -225,6 +226,113 @@ def test_evpn_flood_her_after_soft_clear():
 
     for rname in ROUTERS:
         _check_flood_her(rname)
+
+
+def _imet_flood_mode(router, expected):
+    output = router.vtysh_cmd("show evpn vni 101 json", isjson=True)
+    for vtep in output.get("remoteVteps", []):
+        if vtep.get("ip") == "10.0.0.2":
+            return None if vtep.get("flood") == expected else vtep
+    return f"Remote VTEP 10.0.0.2 missing: {output}"
+
+
+def _remote_imet_routes(router):
+    routes = router.vtysh_cmd(
+        "show bgp l2vpn evpn route detail type multicast json", isjson=True
+    )
+    return {
+        (rd, prefix): paths
+        for rd, table in routes.items()
+        if isinstance(table, dict)
+        for prefix, paths in table.items()
+        if prefix.startswith("[3]:") and "[10.0.0.2]" in prefix
+    }
+
+
+def _contains_pmsi(value):
+    if isinstance(value, dict):
+        return "pmsi" in value or any(_contains_pmsi(v) for v in value.values())
+    if isinstance(value, list):
+        return any(_contains_pmsi(v) for v in value)
+    return False
+
+
+def _imet_hrep_entry(router, present):
+    output = router.run("bridge -j fdb show dev vxlan-101")
+    try:
+        entries = json.loads(output)
+    except json.JSONDecodeError:
+        return f"Invalid bridge FDB JSON: {output}"
+    found = any(
+        entry.get("mac") == "00:00:00:00:00:00" and entry.get("dst") == "10.0.0.2"
+        for entry in entries
+    )
+    return None if found == present else f"HREP present={found}, expected={present}"
+
+
+def test_same_imet_update_disables_her():
+    "A same-route PMSI update must change flood mode and kernel HREP."
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    r1 = tgen.gears["r1"]
+    r2 = tgen.gears["r2"]
+    _check_flood_her("r1")
+    check = partial(_imet_hrep_entry, r1, True)
+    _, result = topotest.run_and_expect(check, None, count=20, wait=1)
+    assert result is None, f"Initial IMET did not install HREP: {result}"
+
+    initial = _remote_imet_routes(r1)
+    assert initial and all(_contains_pmsi(paths) for paths in initial.values())
+
+    def same_routes_without_pmsi():
+        routes = _remote_imet_routes(r1)
+        if routes.keys() != initial.keys():
+            return f"IMET RDs or NLRIs changed: {routes.keys()}"
+        return (
+            "PMSI is still present" if _contains_pmsi(list(routes.values())) else None
+        )
+
+    try:
+        r1.vtysh_cmd(
+            """
+            configure terminal
+             router bgp 65000
+              neighbor 10.0.0.2 path-attribute discard 22
+            end
+            """
+        )
+        # Resend on the wire so discard applies even with soft-reconfig inbound.
+        r2.vtysh_cmd("clear bgp l2vpn evpn 10.0.0.1 soft out")
+
+        _, result = topotest.run_and_expect(
+            same_routes_without_pmsi, None, count=30, wait=1
+        )
+        assert result is None, f"Same-route PMSI update was not received: {result}"
+
+        check = partial(_imet_flood_mode, r1, "-")
+        _, result = topotest.run_and_expect(check, None, count=30, wait=1)
+        assert result is None, f"PMSI-only update did not disable flooding: {result}"
+
+        check = partial(_imet_hrep_entry, r1, False)
+        _, result = topotest.run_and_expect(check, None, count=20, wait=1)
+        assert result is None, f"HREP entry survived PMSI removal: {result}"
+    finally:
+        r1.vtysh_cmd(
+            """
+            configure terminal
+             router bgp 65000
+              no neighbor 10.0.0.2 path-attribute discard 22
+            end
+            """
+        )
+        r2.vtysh_cmd("clear bgp l2vpn evpn 10.0.0.1 soft out")
+
+    _check_flood_her("r1")
+    check = partial(_imet_hrep_entry, r1, True)
+    _, result = topotest.run_and_expect(check, None, count=20, wait=1)
+    assert result is None, f"Restored PMSI did not reinstall HREP: {result}"
 
 
 def test_memory_leak():
