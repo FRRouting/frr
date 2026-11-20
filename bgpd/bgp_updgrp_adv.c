@@ -973,6 +973,335 @@ static route_map_result_t bgp_route_map_setting_only(struct bgp *bgp, struct rou
 }
 
 /*
+ * Apply the full route-map to every path at prefix p in the BGP table.
+ * For each path that the route-map permits, record the matching sequence
+ * number (new_pref) returned by route_map_apply_ext().  If new_pref is
+ * lower than the caller's current best_pref, update best_pref and write
+ * the resulting attributes into new_attr.
+ *
+ * orig_attr is the original clean default attributes (from bgp_attr_default_set)
+ * and is used as the base for bgp_attr_dup_into() for every candidate.
+ * new_attr is write-only output for the winner and must NOT be used as a base,
+ * since it may already hold a previous winner's unshared community allocation.
+ *
+ * All paths are examined (no early exit) so that the path with the
+ * globally lowest-numbered matching sequence is selected.  Attributes
+ * from that sequence govern the synthesized default route.
+ *
+ * Returns RMAP_PERMITMATCH if any path at p was permitted by the
+ * route-map with a sequence number better than best_pref; otherwise
+ * RMAP_DENYMATCH.
+ */
+static route_map_result_t
+bgp_route_map_match_one_prefix(struct route_map *rmap, struct bgp_table *table,
+			       const struct prefix *p, const struct attr *orig_attr,
+			       struct attr *new_attr, uint8_t rmap_type, int *best_pref)
+{
+	struct attr tmp_attr;
+	struct bgp_dest *dest;
+	struct bgp_path_info *pi;
+	struct bgp_path_info rmap_path;
+	route_map_result_t ret = RMAP_DENYMATCH;
+	route_map_result_t path_ret;
+	struct bgp *bgp = table->bgp;
+	int new_pref;
+
+	dest = bgp_node_lookup(table, p);
+	if (!dest)
+		return RMAP_DENYMATCH;
+
+	for (pi = bgp_dest_get_bgp_path_info(dest); pi; pi = pi->next) {
+		bgp_attr_dup_into(&tmp_attr, orig_attr);
+		memset(&rmap_path, 0, sizeof(rmap_path));
+		rmap_path.peer = bgp->peer_self;
+		rmap_path.attr = &tmp_attr;
+		new_pref = 0;
+
+		SET_FLAG(bgp->peer_self->rmap_type, rmap_type);
+		path_ret = route_map_apply_ext(rmap, p, pi, &rmap_path, &new_pref);
+		bgp->peer_self->rmap_type = 0;
+
+		if (path_ret == RMAP_PERMITMATCH && new_pref < *best_pref) {
+			if (ret == RMAP_PERMITMATCH)
+				bgp_attr_flush(new_attr);
+			*best_pref = new_pref;
+			*new_attr = tmp_attr;
+			ret = RMAP_PERMITMATCH;
+		} else {
+			bgp_attr_flush(&tmp_attr);
+		}
+	}
+
+	bgp_dest_unlock_node(dest);
+	return ret;
+}
+
+/*
+ * Iterate every exact-prefix PERMIT entry in prefix-list rule_str.  For
+ * each entry, call bgp_route_map_match_one_prefix() to apply the full
+ * route-map to the matching BGP table routes.
+ *
+ * All entries are examined (no early exit on first match) because a
+ * later entry may match the route-map at a lower sequence number, which
+ * would supply higher-priority attributes for the default route.
+ * best_pref is shared with the caller so that the global minimum is
+ * tracked across multiple prefix-list lookups.
+ *
+ * ge/le entries and DENY entries are skipped; only exact prefixes are
+ * considered.
+ */
+static route_map_result_t
+bgp_check_prefix_in_prefix_list(afi_t afi, char *rule_str, struct bgp_table *table,
+				struct route_map *rmap, const struct attr *orig_attr,
+				struct attr *new_attr, bool do_debug, int *best_pref)
+{
+	struct attr pentry_winner;
+	struct prefix_list *plist;
+	struct prefix_list_entry *pentry;
+	route_map_result_t ret = RMAP_DENYMATCH;
+
+	plist = prefix_list_lookup(afi, rule_str);
+	if (!plist) {
+		if (do_debug)
+			zlog_debug("%s: No prefix-list found in route-map", __func__);
+		return ret;
+	}
+
+	for (pentry = plist->head; pentry; pentry = pentry->next) {
+		if (pentry->type == PREFIX_DENY)
+			continue;
+
+		if ((pentry->ge != 0) || (pentry->le != 0))
+			continue;
+
+		int saved_best_pref = *best_pref;
+
+		memset(&pentry_winner, 0, sizeof(pentry_winner));
+		if (bgp_route_map_match_one_prefix(rmap, table, &pentry->prefix, orig_attr,
+						   &pentry_winner, PEER_RMAP_TYPE_DEFAULT,
+						   best_pref) == RMAP_PERMITMATCH) {
+			/* Flush previous winner if one exists.  ret tracks winners
+			 * found within this call; saved_best_pref != INT_MAX
+			 * indicates a winner from a previous call already occupies
+			 * *new_attr.
+			 */
+			if (ret == RMAP_PERMITMATCH || saved_best_pref != INT_MAX)
+				bgp_attr_flush(new_attr);
+			*new_attr = pentry_winner;
+			ret = RMAP_PERMITMATCH;
+			if (do_debug)
+				zlog_debug("%s: Condition map routes present in BGP table",
+					   __func__);
+		}
+	}
+
+	return ret;
+}
+
+/*
+ * Walk the entire RIB to find a prefix that matches the route-map.
+ * This is the original O(n) algorithm where n is the number of prefixes.
+ *
+ * On success, returns RMAP_PERMITMATCH and updates *result_attr to point
+ * to an interned attribute.  On failure, returns RMAP_DENYMATCH.
+ */
+static route_map_result_t bgp_default_originate_rib_walk(struct bgp_table *table,
+							 struct route_map *rmap,
+							 const struct attr *base_attr,
+							 struct attr **result_attr)
+{
+	struct attr tmp_attr;
+	struct bgp_dest *dest;
+	struct bgp_path_info *pi;
+	struct bgp_path_info rmap_path = { 0 };
+	route_map_result_t ret = RMAP_DENYMATCH;
+	route_map_result_t new_ret;
+	struct bgp *bgp = table->bgp;
+	int pref = INT_MAX;
+	int new_pref = 0;
+
+	*result_attr = NULL;
+	rmap_path.peer = bgp->peer_self;
+
+	SET_FLAG(bgp->peer_self->rmap_type, PEER_RMAP_TYPE_DEFAULT);
+
+	for (dest = bgp_table_top(table); dest; dest = bgp_route_next(dest)) {
+		if (!bgp_dest_has_bgp_path_info_data(dest))
+			continue;
+
+		for (pi = bgp_dest_get_bgp_path_info(dest); pi; pi = pi->next) {
+			bgp_attr_dup_into(&tmp_attr, base_attr);
+			rmap_path.attr = &tmp_attr;
+
+			new_ret = route_map_apply_ext(rmap, bgp_dest_get_prefix(dest), pi,
+						      &rmap_path, &new_pref);
+
+			if (new_ret == RMAP_PERMITMATCH) {
+				if (new_pref < pref) {
+					pref = new_pref;
+					if (*result_attr)
+						bgp_attr_flush(*result_attr);
+					bgp_attr_clear_reflection(&tmp_attr);
+					*result_attr = bgp_attr_intern(&tmp_attr);
+				}
+				bgp_attr_flush(&tmp_attr);
+				ret = new_ret;
+			} else {
+				bgp_attr_flush(&tmp_attr);
+			}
+		}
+	}
+
+	bgp->peer_self->rmap_type = 0;
+
+	return ret;
+}
+
+/*
+ * Optimized condition check for default-originate.  Instead of walking
+ * the entire RIB, only the prefixes named in prefix-list match clauses
+ * are looked up directly in the BGP table.
+ *
+ * Best-preference selection
+ * -------------------------
+ * route_map_apply_ext() evaluates the full route-map for each (prefix,
+ * path) candidate and returns the sequence number (pref) of the first
+ * sequence that matches.  This function tracks the globally lowest pref
+ * seen across all candidates (best_pref).  The candidate whose full
+ * route-map evaluation yields the lowest pref wins; its set clauses
+ * determine the attributes of the synthesized default route.  This
+ * selection is equivalent to what bgp_default_originate_rib_walk() would
+ * choose if it walked the entire RIB, but restricted to the prefixes
+ * named in the route-map's prefix-list match clauses.
+ *
+ * Example:
+ *   route-map DEFAULT-ORIG permit 10
+ *     match ip address prefix-list SENTINELS
+ *     match community COMM-HIGH        <- matches 10.0.0.1/32 only
+ *     set community 10:10
+ *   !
+ *   route-map DEFAULT-ORIG permit 20
+ *     match ip address prefix-list SENTINELS
+ *     match community COMM-LOW         <- matches 10.0.0.2/32 only
+ *     set community 20:20
+ *
+ *   ip prefix-list SENTINELS seq 5 permit 10.0.0.1/32
+ *   ip prefix-list SENTINELS seq 10 permit 10.0.0.2/32
+ *
+ * With both routes in the BGP table:
+ *   10.0.0.1/32 (COMM-HIGH): route_map_apply_ext returns pref=10 (seq 10)
+ *   10.0.0.2/32 (COMM-LOW):  route_map_apply_ext returns pref=20 (seq 20)
+ *
+ * best_pref starts at INT_MAX.  After evaluating 10.0.0.1/32, best_pref=10
+ * and new_attr carries community 10:10.  For 10.0.0.2/32, pref=20 is not
+ * less than best_pref=10, so it is skipped.  The default route is
+ * advertised with community 10:10.
+ *
+ * INT_MAX is used as the initial sentinel rather than UINT16_MAX+1 (65536)
+ * because route_map_apply_ext() itself returns pref=65536 when on-match
+ * next exhausts the last sequence (index becomes NULL at the end of the
+ * loop).  Using INT_MAX ensures that first match is always accepted via
+ * new_pref < best_pref, without a special-case guard.
+ *
+ * Algorithm structure
+ * -------------------
+ * Three nested loops:
+ *   1. Iterate every route-map sequence to discover prefix-list match
+ *      rules ("ip address prefix-list" / "ipv6 address prefix-list").
+ *   2. For each such rule, examine every exact-prefix entry in the list.
+ *   3. For each listed prefix, apply the full route-map to every BGP
+ *      path at that destination and record the matching sequence number.
+ *
+ * All sequences are scanned to discover every prefix-list that may
+ * contribute candidate prefixes.  route_map_apply_ext() is authoritative
+ * for whether a given (prefix, path) pair is ultimately permitted or
+ * denied — it correctly handles on-match goto/next clauses that can jump
+ * over DENY sequences.  The outer loop must therefore not short-circuit
+ * on a catch-all DENY sequence, because an earlier on-match goto may have
+ * made a later sequence reachable.
+ *
+ * Why the outer loop cannot break on the first match
+ * --------------------------------------------------
+ * Key distinction: a sequence without a prefix-list match rule is skipped
+ * by the outer loop for the purpose of SELECTING CANDIDATE PREFIXES, but
+ * it is still included in the FULL ROUTE-MAP EVALUATION performed by
+ * route_map_apply_ext() for every candidate.  A prefix discovered via a
+ * later sequence's prefix-list may therefore achieve a lower pref (by
+ * satisfying an earlier non-prefix-list sequence) than any prefix found
+ * so far, making early termination incorrect.
+ *
+ * Example:
+ *   route-map DEFAULT-ORIG permit 5
+ *     match community COMM-HIGH        <- no prefix-list; skipped by outer loop
+ *     set community 5:5
+ *   !
+ *   route-map DEFAULT-ORIG permit 10
+ *     match ip address prefix-list plist-A   <- 10.0.0.1/32 (no COMM-HIGH)
+ *     set community 10:10
+ *   !
+ *   route-map DEFAULT-ORIG permit 20
+ *     match ip address prefix-list plist-B   <- 10.0.0.2/32 (has COMM-HIGH)
+ *     set community 20:20
+ *
+ * Outer loop at seq 10: looks up 10.0.0.1/32 via plist-A.
+ *   route_map_apply_ext: seq 5 fails (no COMM-HIGH), seq 10 matches -> pref=10.
+ *   best_pref=10.
+ *
+ * If we stopped here, we would miss seq 20 entirely.
+ *
+ * Outer loop at seq 20: looks up 10.0.0.2/32 via plist-B.
+ *   route_map_apply_ext: seq 5 matches (HAS COMM-HIGH) -> pref=5.
+ *   pref=5 < best_pref=10 -> update.  community 5:5 is the correct answer.
+ *
+ * Breaking after the first match (best_pref=10 at seq 10) would have
+ * returned the wrong result (10:10 instead of 5:5).
+ */
+static route_map_result_t bgp_default_originate_condition(struct bgp_table *table,
+							  struct route_map *rmap,
+							  const struct attr *orig_attr,
+							  struct attr *new_attr, bool do_debug)
+{
+	struct route_map_rule *rule;
+	const struct route_map_rule_cmd *cmd;
+	route_map_result_t ret = RMAP_DENYMATCH;
+	afi_t afi = table->afi;
+	int best_pref = INT_MAX; /* sentinel: no match seen yet */
+
+	for (struct route_map_index *index = rmap->head; index; index = index->next) {
+		for (rule = index->match_list.head; rule; rule = rule->next) {
+			cmd = rule->cmd;
+			if (!cmd || !cmd->str)
+				continue;
+
+			if (afi == AFI_IP) {
+				if (strcmp(cmd->str, "ip address prefix-list") != 0)
+					continue;
+			} else if (afi == AFI_IP6) {
+				if (strcmp(cmd->str, "ipv6 address prefix-list") != 0)
+					continue;
+			} else {
+				continue;
+			}
+
+			if (bgp_check_prefix_in_prefix_list(afi, rule->rule_str, table, rmap,
+							    orig_attr, new_attr, do_debug,
+							    &best_pref) == RMAP_PERMITMATCH)
+				ret = RMAP_PERMITMATCH;
+		}
+	}
+
+	if (ret == RMAP_PERMITMATCH) {
+		if (do_debug)
+			zlog_debug("%s: condition matched, default-originate advertise", __func__);
+	} else {
+		if (do_debug)
+			zlog_debug("%s: Condition map routes not present in BGP table", __func__);
+	}
+
+	return ret;
+}
+
+/*
  * Clean up adj-out entries for the default prefix (0.0.0.0/0 or ::/0)
  * belonging to the subgroup.  Called when transitioning from
  * "no default-originate" to "default-originate" to clear stale entries
@@ -1182,16 +1511,11 @@ void subgroup_default_originate(struct update_subgroup *subgrp)
 	struct attr *new_attr = &attr;
 	struct aspath *aspath;
 	struct peer *from;
-	struct bgp_dest *dest;
-	struct bgp_path_info *pi;
 	struct peer *peer;
 	route_map_result_t ret = RMAP_DENYMATCH;
-	route_map_result_t new_ret = RMAP_DENYMATCH;
 	afi_t afi;
 	safi_t safi;
 	safi_t safi_rib;
-	int pref = 65536;
-	int new_pref = 0;
 	int match_rules;
 	struct route_map *rmap;
 	struct prefix p;
@@ -1275,71 +1599,44 @@ void subgroup_default_originate(struct update_subgroup *subgrp)
 	 * set-only route-map but the bgp instance requires at least one
 	 * table route (backward-compatible behavior).
 	 */
-	if (rmap && (match_rules != 0 ||
-		     !CHECK_FLAG(bgp->flags, BGP_FLAG_DEFAULT_ORIGINATE_SETONLY_UNCONDITIONAL))) {
-		struct bgp_path_info tmp_pi = {0};
-
-		if (!peer->default_rmap[afi][safi].map ||
-		    !peer->default_rmap[afi][safi].map->head) {
-			/* Route-map name is configured but the map is either
-			 * absent or empty.  Treat as unmet condition.
-			 */
-			do_withdraw = true;
-			goto rmap_done;
-		}
-
-		tmp_pi.peer = bgp->peer_self;
-
-		SET_FLAG(bgp->peer_self->rmap_type, PEER_RMAP_TYPE_DEFAULT);
-
-		/* Iterate over the RIB to see if we can announce
-		 * the default route. We announce the default
-		 * route only if route-map has a match.
+	if (!do_withdraw && rmap &&
+	    (match_rules != 0 ||
+	     !CHECK_FLAG(bgp->flags, BGP_FLAG_DEFAULT_ORIGINATE_SETONLY_UNCONDITIONAL))) {
+		/* Use optimized prefix-list-driven lookup or original RIB walk
+		 * based on configuration.  The optimized path only applies when
+		 * the route-map has match clauses; set-only route-maps must use
+		 * the RIB walk to check for at least one table route.
 		 */
-		for (dest = bgp_table_top(bgp->rib[afi][safi_rib]); dest;
-		     dest = bgp_route_next(dest)) {
-			if (!bgp_dest_has_bgp_path_info_data(dest))
-				continue;
+		if (CHECK_FLAG(bgp->flags, BGP_FLAG_DEFAULT_ORIGINATE_OPTIMIZED) &&
+		    match_rules != 0) {
+			const struct attr cond_base = *new_attr;
 
-			for (pi = bgp_dest_get_bgp_path_info(dest); pi;
-			     pi = pi->next) {
-				struct attr tmp_attr;
+			ret = bgp_default_originate_condition(bgp->rib[afi][safi_rib], rmap,
+							      &cond_base, new_attr, do_debug);
+			if (ret == RMAP_PERMITMATCH) {
+				bgp_attr_clear_reflection(new_attr);
+				struct attr *interned = bgp_attr_intern(new_attr);
+				bgp_attr_flush(new_attr);
+				new_attr = interned;
+			}
+		} else {
+			struct attr *result_attr = NULL;
 
-				bgp_attr_dup_into(&tmp_attr, &attr);
-				tmp_pi.attr = &tmp_attr;
-
-				new_ret = route_map_apply_ext(
-					peer->default_rmap[afi][safi].map,
-					bgp_dest_get_prefix(dest), pi, &tmp_pi,
-					&new_pref);
-
-				if (new_ret == RMAP_PERMITMATCH) {
-					if (new_pref < pref) {
-						pref = new_pref;
-						bgp_attr_flush(new_attr);
-						/* Clear reflection attributes - default-originate
-						 * is self-originated, not reflected.
-						 */
-						bgp_attr_clear_reflection(tmp_pi.attr);
-						new_attr = bgp_attr_intern(
-							tmp_pi.attr);
-					}
-					bgp_attr_flush(tmp_pi.attr);
-					subgroup_announce_reset_nhop(
-						(peer_cap_enhe(peer, afi, safi)
-							 ? AF_INET6
-							 : AF_INET),
-						new_attr);
-					ret = new_ret;
-				} else
-					bgp_attr_flush(&tmp_attr);
+			ret = bgp_default_originate_rib_walk(bgp->rib[afi][safi_rib], rmap, &attr,
+							     &result_attr);
+			if (ret == RMAP_PERMITMATCH && result_attr) {
+				bgp_attr_flush(new_attr);
+				new_attr = result_attr;
 			}
 		}
-		bgp->peer_self->rmap_type = 0;
 
-		if (ret == RMAP_DENYMATCH)
+		if (ret == RMAP_PERMITMATCH) {
+			subgroup_announce_reset_nhop((peer_cap_enhe(peer, afi, safi) ? AF_INET6
+										     : AF_INET),
+						     new_attr);
+		} else {
 			do_withdraw = true;
-rmap_done:;
+		}
 	}
 
 	if (do_withdraw) {
@@ -1501,6 +1798,7 @@ void group_announce_route(struct bgp *bgp, afi_t afi, safi_t safi,
 			  struct bgp_dest *dest, struct bgp_path_info *pi)
 {
 	struct updwalk_context ctx;
+
 	ctx.pi = pi;
 	ctx.dest = dest;
 

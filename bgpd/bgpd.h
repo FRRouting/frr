@@ -802,6 +802,8 @@ struct bgp {
 #define BGP_FLAG_SHUTDOWN_NO_NOTIFY (1ULL << 48)
 /* default-originate with set-only route-map works even with empty table */
 #define BGP_FLAG_DEFAULT_ORIGINATE_SETONLY_UNCONDITIONAL (1ULL << 49)
+/* default-originate uses optimized prefix-list lookup instead of RIB walk */
+#define BGP_FLAG_DEFAULT_ORIGINATE_OPTIMIZED (1ULL << 50)
 
 	/* BGP default address-families.
 	 * New peers inherit enabled afi/safis from bgp instance.
