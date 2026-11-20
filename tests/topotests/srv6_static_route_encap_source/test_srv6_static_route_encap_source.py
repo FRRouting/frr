@@ -16,6 +16,7 @@ from lib import topotest
 from lib.topogen import Topogen, get_topogen
 from lib.topolog import logger
 from lib.common_config import required_linux_kernel_version
+from time import sleep
 
 CWD = os.path.dirname(os.path.realpath(__file__))
 sys.path.append(os.path.join(CWD, "../"))
@@ -84,6 +85,18 @@ def test_srv6_static_route_encap_source():
     logger.info("Test for SRv6 (with encap-source) route configuration")
     check_rib(router, "r1/show_ip_route.json")
     check_rib_v6(router, "r1/show_ipv6_route.json")
+
+    logger.info("Check SRv6 encap-source restoration after rmap deletion")
+    router.vtysh_cmd(
+        """
+        configure terminal
+	no ip protocol static route-map rmap
+	no ipv6 protocol static route-map rmap
+        """
+    )
+    sleep(5)
+    check_rib(router, "r1/show_ip_route_no_rmap.json")
+    check_rib_v6(router, "r1/show_ipv6_route_no_rmap.json")
 
 
 if __name__ == "__main__":
