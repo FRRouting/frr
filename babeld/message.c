@@ -724,6 +724,19 @@ void parse_packet(const unsigned char *from, struct interface *ifp, const unsign
 			debugf(BABEL_DEBUG_COMMON, "Received nh %s (%d) from %s on %s.",
 			       format_address(nh), message[2], format_address(from), ifp->name);
 
+			/*
+			 * RFC 8966 s4.5/s4.6.8: the parser state must be updated
+			 * even if the TLV is otherwise ignored due to an unknown
+			 * mandatory sub-TLV, so update it before parsing sub-TLVs.
+			 */
+			if (message[2] == 1) {
+				memcpy(v4_nh, nh, 16);
+				have_v4_nh = 1;
+			} else {
+				memcpy(v6_nh, nh, 16);
+				have_v6_nh = 1;
+			}
+
 			/* handling sub-tlvs */
 			if (len > 2 + rc) {
 				int ret = parse_subtlv_no_special_action(message + 4 + rc,
@@ -734,14 +747,6 @@ void parse_packet(const unsigned char *from, struct interface *ifp, const unsign
 					       "Received NH with subtlv Mandatory bit set, ignoring entire NH TLV as per RFC 8966");
 					goto done;
 				}
-			}
-
-			if (message[2] == 1) {
-				memcpy(v4_nh, nh, 16);
-				have_v4_nh = 1;
-			} else {
-				memcpy(v6_nh, nh, 16);
-				have_v6_nh = 1;
 			}
 		} else if (type == MESSAGE_UPDATE) {
 			unsigned char prefix[16], *nh;
