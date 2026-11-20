@@ -22,6 +22,7 @@ import argparse
 
 from clippy.uidhash import uidhash
 from clippy.elf import *
+from clippy.macho import is_macho_header
 from clippy import frr_top_src, CmdAttr, elf_notes
 from tiabwarfo import FieldApplicator
 from xref2vtysh import CommandEntry
@@ -360,7 +361,7 @@ class Xrelfo(dict):
             with open(filename, "rb") as fd:
                 hdr = fd.read(4)
 
-            if hdr == b"\x7fELF":
+            if hdr == b"\x7fELF" or is_macho_header(hdr):
                 self.load_elf(filename, orig_filename)
                 return
 
@@ -396,7 +397,8 @@ class Xrelfo(dict):
             ptrs = edf.iter_data(XrefPtr, slice(start, end))
 
         else:
-            if elf_notes:
+            # Mach-O has no notes, the xref_array section is the only way
+            if elf_notes and getattr(edf._elffile, "supports_notes", True):
                 self.note_warn = True
                 sys.stderr.write(
                     """%s: warning: binary has no FRRouting.XREF note
@@ -406,10 +408,16 @@ class Xrelfo(dict):
                 )
 
             xrefarray = edf.get_section("xref_array")
-            if xrefarray is None:
+            if xrefarray is not None:
+                ptrs = xrefarray.iter_data(XrefPtr)
+            elif not getattr(edf._elffile, "supports_notes", True):
+                # Mach-O: unlike ELF, the linker doesn't create an empty
+                # section for the __start/__stop symbols, so a binary that
+                # has no xrefs at all (e.g. zebra/fpm_listener) has no
+                # xref_array section either.
+                ptrs = []
+            else:
                 raise ValueError("file has neither xref note nor xref_array section")
-
-            ptrs = xrefarray.iter_data(XrefPtr)
 
         for ptr in ptrs:
             if ptr.xref is None:

@@ -546,11 +546,6 @@ static inline bool bgp_rmap_nhop_changed(uint32_t out_rmap_flags)
 			: false);
 }
 
-static inline uint32_t mac_mobility_seqnum(struct attr *attr)
-{
-	return (attr) ? attr->mm_seqnum : 0;
-}
-
 static inline enum pta_type bgp_attr_get_pmsi_tnl_type(const struct attr *attr)
 {
 	return attr->extra ? attr->extra->pmsi_tnl_type : PMSI_TNLTYPE_NO_INFO;
@@ -838,6 +833,66 @@ static inline void bgp_attr_set_originator_id(struct attr *attr, struct in_addr 
 		bgp_attr_set(attr, BGP_ATTR_ORIGINATOR_ID);
 	else
 		bgp_attr_unset(attr, BGP_ATTR_ORIGINATOR_ID);
+}
+
+static inline uint8_t bgp_attr_get_es_flags(const struct attr *attr)
+{
+	return attr->es_flags;
+}
+
+static inline void bgp_attr_set_es_flags(struct attr *attr, uint8_t es_flags)
+{
+	attr->es_flags = es_flags;
+}
+
+static inline uint8_t bgp_attr_get_df_alg(const struct attr *attr)
+{
+	return attr->df_alg;
+}
+
+static inline void bgp_attr_set_df_alg(struct attr *attr, uint8_t df_alg)
+{
+	attr->df_alg = df_alg;
+}
+
+static inline uint8_t bgp_attr_get_evpn_flags(const struct attr *attr)
+{
+	return attr->evpn_flags;
+}
+
+static inline void bgp_attr_set_evpn_flags(struct attr *attr, uint8_t evpn_flags)
+{
+	attr->evpn_flags = evpn_flags;
+}
+
+static inline uint16_t bgp_attr_get_df_pref(const struct attr *attr)
+{
+	return attr->df_pref;
+}
+
+static inline void bgp_attr_set_df_pref(struct attr *attr, uint16_t df_pref)
+{
+	attr->df_pref = df_pref;
+}
+
+static inline uint32_t bgp_attr_get_mm_seqnum(const struct attr *attr)
+{
+	return attr->mm_seqnum;
+}
+
+static inline void bgp_attr_set_mm_seqnum(struct attr *attr, uint32_t mm_seqnum)
+{
+	attr->mm_seqnum = mm_seqnum;
+}
+
+static inline uint32_t bgp_attr_get_mm_sync_seqnum(const struct attr *attr)
+{
+	return attr->mm_sync_seqnum;
+}
+
+static inline void bgp_attr_set_mm_sync_seqnum(struct attr *attr, uint32_t mm_sync_seqnum)
+{
+	attr->mm_sync_seqnum = mm_sync_seqnum;
 }
 
 static inline struct bgp_route_evpn *

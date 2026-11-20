@@ -1410,7 +1410,7 @@ unsigned int attrhash_key_make(const void *p)
 	MIX3(attr->nh_ifindex, attr->nh_lla_ifindex, attr->distance);
 	MIX(attr->bh_type);
 	MIX(bgp_attr_get_otc(attr));
-	MIX3(attr->mm_seqnum, attr->df_alg, attr->df_pref);
+	MIX3(bgp_attr_get_mm_seqnum(attr), bgp_attr_get_df_alg(attr), bgp_attr_get_df_pref(attr));
 	MIX(attr->encap_tunneltype);
 	MIX(bgp_attr_get_pmsi_tnl_type(attr));
 	if (bgp_attr_get_pmsi_tnl_type(attr) == PMSI_TNLTYPE_INGR_REPL)
@@ -1460,9 +1460,11 @@ bool attrhash_cmp(const void *p1, const void *p2)
 		    IPV4_ADDR_SAME(&attr1->originator_id, &attr2->originator_id) &&
 		    overlay_index_same(attr1, attr2) &&
 		    !memcmp(&attr1->esi, &attr2->esi, sizeof(esi_t)) &&
-		    attr1->es_flags == attr2->es_flags && attr1->mm_seqnum == attr2->mm_seqnum &&
-		    attr1->mm_sync_seqnum == attr2->mm_sync_seqnum &&
-		    attr1->df_pref == attr2->df_pref && attr1->df_alg == attr2->df_alg &&
+		    bgp_attr_get_es_flags(attr1) == bgp_attr_get_es_flags(attr2) &&
+		    bgp_attr_get_mm_seqnum(attr1) == bgp_attr_get_mm_seqnum(attr2) &&
+		    bgp_attr_get_mm_sync_seqnum(attr1) == bgp_attr_get_mm_sync_seqnum(attr2) &&
+		    bgp_attr_get_df_pref(attr1) == bgp_attr_get_df_pref(attr2) &&
+		    bgp_attr_get_df_alg(attr1) == bgp_attr_get_df_alg(attr2) &&
 		    attr1->nh_ifindex == attr2->nh_ifindex &&
 		    attr1->nh_lla_ifindex == attr2->nh_lla_ifindex &&
 		    attr1->nh_flags == attr2->nh_flags && attr1->distance == attr2->distance &&
@@ -3500,6 +3502,8 @@ bgp_attr_ext_communities(struct bgp_attr_parser_args *args)
 	bool proxy = false;
 	struct ecommunity *ecomm;
 	bgp_encap_types tun_type = BGP_ENCAP_TYPE_VXLAN;/*Default tunnel type*/
+	uint8_t df_alg;
+	uint8_t evpn_flags;
 
 	if (length == 0) {
 		bgp_attr_set_ecommunity(attr, NULL);
@@ -3522,10 +3526,11 @@ bgp_attr_ext_communities(struct bgp_attr_parser_args *args)
 					  args->total);
 
 	/* Extract DF election preference and  mobility sequence number */
-	attr->df_pref = bgp_attr_df_pref_from_ec(attr, &attr->df_alg);
+	bgp_attr_set_df_pref(attr, bgp_attr_df_pref_from_ec(attr, &df_alg));
+	bgp_attr_set_df_alg(attr, df_alg);
 
 	/* Extract MAC mobility sequence number, if any. */
-	attr->mm_seqnum = bgp_attr_mac_mobility_seqnum(attr);
+	bgp_attr_set_mm_seqnum(attr, bgp_attr_mac_mobility_seqnum(attr));
 
 	/* Check if this is a Gateway MAC-IP advertisement */
 	bgp_attr_default_gw(attr);
@@ -3534,13 +3539,16 @@ bgp_attr_ext_communities(struct bgp_attr_parser_args *args)
 	 * set but default gw ext community is present.
 	 * Use default gateway, set and propagate R-bit.
 	 */
-	if (CHECK_FLAG(attr->evpn_flags, ATTR_EVPN_FLAG_DEFAULT_GW))
-		SET_FLAG(attr->evpn_flags, ATTR_EVPN_FLAG_ROUTER);
+	evpn_flags = bgp_attr_get_evpn_flags(attr);
+	if (CHECK_FLAG(evpn_flags, ATTR_EVPN_FLAG_DEFAULT_GW)) {
+		SET_FLAG(evpn_flags, ATTR_EVPN_FLAG_ROUTER);
+		bgp_attr_set_evpn_flags(attr, evpn_flags);
+	}
 
 	/* Check EVPN Neighbor advertisement flags, R-bit */
 	bgp_attr_evpn_na_flag(attr, &proxy);
 	if (proxy)
-		SET_FLAG(attr->es_flags, ATTR_ES_PROXY_ADVERT);
+		bgp_attr_set_es_flags(attr, bgp_attr_get_es_flags(attr) | ATTR_ES_PROXY_ADVERT);
 
 	/* Extract the Rmac, if any */
 	if (bgp_attr_rmac(attr, &attr->rmac)) {

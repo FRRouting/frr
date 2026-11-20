@@ -1393,6 +1393,29 @@ static void zebra_if_addr_update_ctx(struct zebra_dplane_ctx *ctx,
 		rib_update(RIB_UPDATE_KERNEL_LAST_IPV4_ADDRESS_DELETED, ZEBRA_ROUTE_ALL);
 }
 
+#ifdef __APPLE__
+void zebra_if_addr_install_result(struct zebra_dplane_ctx *ctx)
+{
+	const struct prefix *addr = dplane_ctx_get_intf_addr(ctx);
+	struct interface *ifp;
+
+	if (dplane_ctx_get_status(ctx) != ZEBRA_DPLANE_REQUEST_SUCCESS)
+		return;
+
+	ifp = if_lookup_by_index_per_nsid(dplane_ctx_get_ns_id(ctx), dplane_ctx_get_ifindex(ctx));
+	/* same arguments as ifam_read(), which has no peer address to rely on */
+	if (!ifp || if_is_pointopoint(ifp))
+		return;
+
+	if (addr->family == AF_INET)
+		connected_add_ipv4(ifp, 0, &addr->u.prefix4, addr->prefixlen, NULL, NULL,
+				   METRIC_MAX);
+	else if (addr->family == AF_INET6)
+		connected_add_ipv6(ifp, 0, &addr->u.prefix6, NULL, addr->prefixlen, NULL,
+				   METRIC_MAX);
+}
+#endif /* __APPLE__ */
+
 static void zebra_if_update_ctx(struct zebra_dplane_ctx *ctx,
 				struct interface *ifp)
 {

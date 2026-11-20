@@ -1143,9 +1143,9 @@ int bgp_path_info_cmp(struct bgp *bgp, struct bgp_path_info *new,
 		 * with the
 		 * sticky flag.
 		 */
-		bool new_sticky = CHECK_FLAG(newattr->evpn_flags,
+		bool new_sticky = CHECK_FLAG(bgp_attr_get_evpn_flags(newattr),
 					     ATTR_EVPN_FLAG_STICKY);
-		bool exist_sticky = CHECK_FLAG(existattr->evpn_flags,
+		bool exist_sticky = CHECK_FLAG(bgp_attr_get_evpn_flags(existattr),
 					       ATTR_EVPN_FLAG_STICKY);
 
 		if (new_sticky != exist_sticky) {
@@ -1209,8 +1209,8 @@ int bgp_path_info_cmp(struct bgp *bgp, struct bgp_path_info *new,
 			}
 		}
 
-		new_mm_seq = mac_mobility_seqnum(newattr);
-		exist_mm_seq = mac_mobility_seqnum(existattr);
+		new_mm_seq = bgp_attr_get_mm_seqnum(newattr);
+		exist_mm_seq = bgp_attr_get_mm_seqnum(existattr);
 
 		if (new_mm_seq > exist_mm_seq) {
 			*reason = bgp_path_selection_evpn_seq;
@@ -13735,13 +13735,10 @@ static void route_vty_out_detail_es_info(struct vty *vty,
 					 json_object *json_path)
 {
 	char esi_buf[ESI_STR_LEN];
-	bool es_local = !!CHECK_FLAG(attr->es_flags, ATTR_ES_IS_LOCAL);
-	bool peer_router = !!CHECK_FLAG(attr->es_flags,
-			ATTR_ES_PEER_ROUTER);
-	bool peer_active = !!CHECK_FLAG(attr->es_flags,
-			ATTR_ES_PEER_ACTIVE);
-	bool peer_proxy = !!CHECK_FLAG(attr->es_flags,
-			ATTR_ES_PEER_PROXY);
+	bool es_local = !!CHECK_FLAG(bgp_attr_get_es_flags(attr), ATTR_ES_IS_LOCAL);
+	bool peer_router = !!CHECK_FLAG(bgp_attr_get_es_flags(attr), ATTR_ES_PEER_ROUTER);
+	bool peer_active = !!CHECK_FLAG(bgp_attr_get_es_flags(attr), ATTR_ES_PEER_ACTIVE);
+	bool peer_proxy = !!CHECK_FLAG(bgp_attr_get_es_flags(attr), ATTR_ES_PEER_PROXY);
 	esi_to_str(&attr->esi, esi_buf, sizeof(esi_buf));
 	if (json_path) {
 		json_object *json_es_info = NULL;
@@ -13763,10 +13760,9 @@ static void route_vty_out_detail_es_info(struct vty *vty,
 			if (peer_router)
 				json_object_boolean_true_add(
 						json_es_info, "peerRouter");
-			if (attr->mm_sync_seqnum)
-				json_object_int_add(
-						json_es_info, "peerSeq",
-						attr->mm_sync_seqnum);
+			if (bgp_attr_get_mm_sync_seqnum(attr))
+				json_object_int_add(json_es_info, "peerSeq",
+						    bgp_attr_get_mm_sync_seqnum(attr));
 			json_object_object_add(
 					json_path, "es_info",
 					json_es_info);
@@ -13780,7 +13776,7 @@ static void route_vty_out_detail_es_info(struct vty *vty,
 					peer_proxy ? "proxy " : "",
 					peer_active ? "active ":"",
 					peer_router ? "router ":"",
-					attr->mm_sync_seqnum);
+					bgp_attr_get_mm_sync_seqnum(attr));
 		else
 			vty_out(vty, "      ESI %s %s\n",
 					esi_buf,
@@ -14026,23 +14022,22 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp, struct bgp_dest *bn,
 						(struct prefix_evpn *)bgp_dest_get_prefix(dest),
 						has_srv6_service ? "Label" : "VNI", evpn_label_buf);
 				}
-				if (CHECK_FLAG(attr->es_flags, ATTR_ES_L3_NHG) &&
+				if (CHECK_FLAG(bgp_attr_get_es_flags(attr), ATTR_ES_L3_NHG) &&
 				    !json_paths) {
 					vty_out(vty, ", L3NHG %s",
-						CHECK_FLAG(
-							attr->es_flags,
-							ATTR_ES_L3_NHG_ACTIVE)
+						CHECK_FLAG(bgp_attr_get_es_flags(attr),
+							   ATTR_ES_L3_NHG_ACTIVE)
 							? "active"
 							: "inactive");
 					vty_out(vty, "\n");
 				} else if (json_paths) {
 					json_object_boolean_add(
 						json_path, "l3nhg",
-						CHECK_FLAG(attr->es_flags,
+						CHECK_FLAG(bgp_attr_get_es_flags(attr),
 							   ATTR_ES_L3_NHG));
 					json_object_boolean_add(
 						json_path, "l3nhgActive",
-						CHECK_FLAG(attr->es_flags,
+						CHECK_FLAG(bgp_attr_get_es_flags(attr),
 							   ATTR_ES_L3_NHG_ACTIVE));
 				}
 			} else {
@@ -17635,7 +17630,8 @@ struct bgp_table_stats {
 	unsigned long long counts[BGP_STATS_MAX];
 
 	unsigned long long
-		prefix_len_count[MAX(EVPN_ROUTE_PREFIXLEN, IPV6_MAX_BITLEN) +
+		prefix_len_count[(EVPN_ROUTE_PREFIXLEN > IPV6_MAX_BITLEN ? EVPN_ROUTE_PREFIXLEN
+									 : IPV6_MAX_BITLEN) +
 				 1];
 
 	double total_space;

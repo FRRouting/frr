@@ -159,13 +159,16 @@ void bgp_attr_default_gw(struct attr *attr)
 {
 	struct ecommunity *ecom;
 	uint32_t i;
+	uint8_t evpn_flags = bgp_attr_get_evpn_flags(attr);
 
 	/* Reset default-gw flag */
-	UNSET_FLAG(attr->evpn_flags, ATTR_EVPN_FLAG_DEFAULT_GW);
+	UNSET_FLAG(evpn_flags, ATTR_EVPN_FLAG_DEFAULT_GW);
 
 	ecom = bgp_attr_get_ecommunity(attr);
-	if (!ecom || !ecom->size)
+	if (!ecom || !ecom->size) {
+		bgp_attr_set_evpn_flags(attr, evpn_flags);
 		return;
+	}
 
 	/* Look for a default gw extended community */
 	for (i = 0; i < ecom->size; i++) {
@@ -178,10 +181,12 @@ void bgp_attr_default_gw(struct attr *attr)
 
 		if ((type == ECOMMUNITY_ENCODE_OPAQUE
 		     && sub_type == ECOMMUNITY_EVPN_SUBTYPE_DEF_GW)) {
-			SET_FLAG(attr->evpn_flags, ATTR_EVPN_FLAG_DEFAULT_GW);
+			SET_FLAG(evpn_flags, ATTR_EVPN_FLAG_DEFAULT_GW);
 			break;
 		}
 	}
+
+	bgp_attr_set_evpn_flags(attr, evpn_flags);
 }
 
 /*
@@ -229,6 +234,7 @@ uint32_t bgp_attr_mac_mobility_seqnum(struct attr *attr)
 	struct ecommunity *ecom;
 	uint32_t i;
 	uint8_t flags = 0;
+	uint8_t evpn_flags;
 
 	ecom = bgp_attr_get_ecommunity(attr);
 	if (!ecom || !ecom->size)
@@ -253,11 +259,13 @@ uint32_t bgp_attr_mac_mobility_seqnum(struct attr *attr)
 			continue;
 		flags = *pnt++;
 
-		if (CHECK_FLAG(flags,
-			       ECOMMUNITY_EVPN_SUBTYPE_MACMOBILITY_FLAG_STICKY))
-			SET_FLAG(attr->evpn_flags, ATTR_EVPN_FLAG_STICKY);
+		evpn_flags = bgp_attr_get_evpn_flags(attr);
+
+		if (CHECK_FLAG(flags, ECOMMUNITY_EVPN_SUBTYPE_MACMOBILITY_FLAG_STICKY))
+			SET_FLAG(evpn_flags, ATTR_EVPN_FLAG_STICKY);
 		else
-			UNSET_FLAG(attr->evpn_flags, ATTR_EVPN_FLAG_STICKY);
+			UNSET_FLAG(evpn_flags, ATTR_EVPN_FLAG_STICKY);
+		bgp_attr_set_evpn_flags(attr, evpn_flags);
 
 		pnt++;
 		pnt = ptr_get_be32(pnt, &seq_num);
@@ -276,6 +284,7 @@ void bgp_attr_evpn_na_flag(struct attr *attr, bool *proxy)
 	struct ecommunity *ecom;
 	uint32_t i;
 	uint8_t val;
+	uint8_t evpn_flags;
 
 	ecom = bgp_attr_get_ecommunity(attr);
 	if (!ecom || !ecom->size)
@@ -294,10 +303,11 @@ void bgp_attr_evpn_na_flag(struct attr *attr, bool *proxy)
 		    sub_type == ECOMMUNITY_EVPN_SUBTYPE_ND) {
 			val = *pnt++;
 
-			if (CHECK_FLAG(val,
-				       ECOMMUNITY_EVPN_SUBTYPE_ND_ROUTER_FLAG))
-				SET_FLAG(attr->evpn_flags,
-					 ATTR_EVPN_FLAG_ROUTER);
+			if (CHECK_FLAG(val, ECOMMUNITY_EVPN_SUBTYPE_ND_ROUTER_FLAG)) {
+				evpn_flags = bgp_attr_get_evpn_flags(attr);
+				SET_FLAG(evpn_flags, ATTR_EVPN_FLAG_ROUTER);
+				bgp_attr_set_evpn_flags(attr, evpn_flags);
+			}
 
 			if (CHECK_FLAG(val, ECOMMUNITY_EVPN_SUBTYPE_PROXY_FLAG))
 				*proxy = true;
