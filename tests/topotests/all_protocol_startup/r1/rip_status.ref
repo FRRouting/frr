@@ -9,7 +9,7 @@ Routing Protocol is "rip"
     Interface        Send  Recv   Key-chain
     r1-eth1          2     2      
   Routing for Networks:
-    192.168.1.0/26
+    r1-eth1
   Routing Information Sources:
     Gateway          BadPackets BadRoutes  Distance Last Update
   Distance: (default is 120)
