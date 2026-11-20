@@ -1017,8 +1017,8 @@ int bgp_path_info_cmp(struct bgp *bgp, struct bgp_path_info *new,
 	uint32_t new_mm_seq;
 	uint32_t exist_mm_seq;
 	int nh_cmp;
-	esi_t *exist_esi;
-	esi_t *new_esi;
+	const esi_t *exist_esi;
+	const esi_t *new_esi;
 	bool same_esi;
 	bool old_proxy;
 	bool new_proxy;
@@ -1143,9 +1143,9 @@ int bgp_path_info_cmp(struct bgp *bgp, struct bgp_path_info *new,
 		 * with the
 		 * sticky flag.
 		 */
-		bool new_sticky = CHECK_FLAG(newattr->evpn_flags,
+		bool new_sticky = CHECK_FLAG(bgp_attr_get_evpn_flags(newattr),
 					     ATTR_EVPN_FLAG_STICKY);
-		bool exist_sticky = CHECK_FLAG(existattr->evpn_flags,
+		bool exist_sticky = CHECK_FLAG(bgp_attr_get_evpn_flags(existattr),
 					       ATTR_EVPN_FLAG_STICKY);
 
 		if (new_sticky != exist_sticky) {
@@ -1209,8 +1209,8 @@ int bgp_path_info_cmp(struct bgp *bgp, struct bgp_path_info *new,
 			}
 		}
 
-		new_mm_seq = mac_mobility_seqnum(newattr);
-		exist_mm_seq = mac_mobility_seqnum(existattr);
+		new_mm_seq = bgp_attr_get_mm_seqnum(newattr);
+		exist_mm_seq = bgp_attr_get_mm_seqnum(existattr);
 
 		if (new_mm_seq > exist_mm_seq) {
 			*reason = bgp_path_selection_evpn_seq;
@@ -6577,7 +6577,8 @@ void bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 		goto filtered;
 	}
 
-	if (safi == SAFI_EVPN && (bgp_mac_entry_exists(p) || bgp_mac_exist(&attr->rmac))) {
+	if (safi == SAFI_EVPN &&
+	    (bgp_mac_entry_exists(p) || bgp_mac_exist(bgp_attr_get_rmac(attr)))) {
 		peer->stat_pfx_nh_invalid++;
 		reason = "self mac;";
 		bgp_attr_flush(&new_attr);
@@ -9154,7 +9155,8 @@ void bgp_static_update(struct bgp *bgp, const struct prefix *p,
 			ipaddr_set_v6(&bre->gw_ip, &bgp_static->gatewayIp.u.prefix6);
 			bgp_attr_set_evpn_overlay(&attr, bre);
 		}
-		memcpy(&attr.esi, bgp_static->eth_s_id, sizeof(esi_t));
+		if (bgp_static->eth_s_id)
+			bgp_attr_set_esi(&attr, bgp_static->eth_s_id);
 		if (bgp_static->encap_tunneltype == BGP_ENCAP_TYPE_VXLAN) {
 			struct bgp_encap_type_vxlan bet;
 			memset(&bet, 0, sizeof(bet));
@@ -13133,10 +13135,10 @@ void route_vty_out(struct vty *vty, const struct prefix *p, struct bgp_path_info
 		vty_out(vty, "%s", bgp_origin_str[attr->origin]);
 
 	if (json_paths) {
-		if (bgp_evpn_is_esi_valid(&attr->esi)) {
+		if (bgp_evpn_is_esi_valid(bgp_attr_get_esi(attr))) {
 			json_object_string_add(json_path, "esi",
-					esi_to_str(&attr->esi,
-					esi_buf, sizeof(esi_buf)));
+					       esi_to_str(bgp_attr_get_esi(attr), esi_buf,
+							  sizeof(esi_buf)));
 		}
 		if ((safi == SAFI_EVPN || safi == SAFI_UNREACH) &&
 		    bgp_attr_exists(attr, BGP_ATTR_EXT_COMMUNITIES)) {
@@ -13191,11 +13193,11 @@ void route_vty_out(struct vty *vty, const struct prefix *p, struct bgp_path_info
 		vty_out(vty, "\n");
 
 		if (safi == SAFI_EVPN) {
-			if (bgp_evpn_is_esi_valid(&attr->esi)) {
+			if (bgp_evpn_is_esi_valid(bgp_attr_get_esi(attr))) {
 				/* XXX - add these params to the json out */
 				vty_out(vty, "%*s", 20, " ");
 				vty_out(vty, "ESI:%s",
-					esi_to_str(&attr->esi, esi_buf,
+					esi_to_str(bgp_attr_get_esi(attr), esi_buf,
 						   sizeof(esi_buf)));
 
 				vty_out(vty, "\n");
@@ -13786,14 +13788,12 @@ static void route_vty_out_detail_es_info(struct vty *vty,
 					 json_object *json_path)
 {
 	char esi_buf[ESI_STR_LEN];
-	bool es_local = !!CHECK_FLAG(attr->es_flags, ATTR_ES_IS_LOCAL);
-	bool peer_router = !!CHECK_FLAG(attr->es_flags,
-			ATTR_ES_PEER_ROUTER);
-	bool peer_active = !!CHECK_FLAG(attr->es_flags,
-			ATTR_ES_PEER_ACTIVE);
-	bool peer_proxy = !!CHECK_FLAG(attr->es_flags,
-			ATTR_ES_PEER_PROXY);
-	esi_to_str(&attr->esi, esi_buf, sizeof(esi_buf));
+	bool es_local = !!CHECK_FLAG(bgp_attr_get_es_flags(attr), ATTR_ES_IS_LOCAL);
+	bool peer_router = !!CHECK_FLAG(bgp_attr_get_es_flags(attr), ATTR_ES_PEER_ROUTER);
+	bool peer_active = !!CHECK_FLAG(bgp_attr_get_es_flags(attr), ATTR_ES_PEER_ACTIVE);
+	bool peer_proxy = !!CHECK_FLAG(bgp_attr_get_es_flags(attr), ATTR_ES_PEER_PROXY);
+
+	esi_to_str(bgp_attr_get_esi(attr), esi_buf, sizeof(esi_buf));
 	if (json_path) {
 		json_object *json_es_info = NULL;
 
@@ -13814,24 +13814,19 @@ static void route_vty_out_detail_es_info(struct vty *vty,
 			if (peer_router)
 				json_object_boolean_true_add(
 						json_es_info, "peerRouter");
-			if (attr->mm_sync_seqnum)
-				json_object_int_add(
-						json_es_info, "peerSeq",
-						attr->mm_sync_seqnum);
+			if (bgp_attr_get_mm_sync_seqnum(attr))
+				json_object_int_add(json_es_info, "peerSeq",
+						    bgp_attr_get_mm_sync_seqnum(attr));
 			json_object_object_add(
 					json_path, "es_info",
 					json_es_info);
 		}
 	} else {
 		if (bgp_evpn_attr_is_sync(attr))
-			vty_out(vty,
-					"      ESI %s %s peer-info: (%s%s%sMM: %d)\n",
-					esi_buf,
-					es_local ? "local-es":"",
-					peer_proxy ? "proxy " : "",
-					peer_active ? "active ":"",
-					peer_router ? "router ":"",
-					attr->mm_sync_seqnum);
+			vty_out(vty, "      ESI %s %s peer-info: (%s%s%sMM: %d)\n", esi_buf,
+				es_local ? "local-es" : "", peer_proxy ? "proxy " : "",
+				peer_active ? "active " : "", peer_router ? "router " : "",
+				bgp_attr_get_mm_sync_seqnum(attr));
 		else
 			vty_out(vty, "      ESI %s %s\n",
 					esi_buf,
@@ -14077,24 +14072,23 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp, struct bgp_dest *bn,
 						(struct prefix_evpn *)bgp_dest_get_prefix(dest),
 						has_srv6_service ? "Label" : "VNI", evpn_label_buf);
 				}
-				if (CHECK_FLAG(attr->es_flags, ATTR_ES_L3_NHG) &&
+				if (CHECK_FLAG(bgp_attr_get_es_flags(attr), ATTR_ES_L3_NHG) &&
 				    !json_paths) {
 					vty_out(vty, ", L3NHG %s",
-						CHECK_FLAG(
-							attr->es_flags,
-							ATTR_ES_L3_NHG_ACTIVE)
+						CHECK_FLAG(bgp_attr_get_es_flags(attr),
+							   ATTR_ES_L3_NHG_ACTIVE)
 							? "active"
 							: "inactive");
 					vty_out(vty, "\n");
 				} else if (json_paths) {
-					json_object_boolean_add(
-						json_path, "l3nhg",
-						CHECK_FLAG(attr->es_flags,
-							   ATTR_ES_L3_NHG));
-					json_object_boolean_add(
-						json_path, "l3nhgActive",
-						CHECK_FLAG(attr->es_flags,
-							   ATTR_ES_L3_NHG_ACTIVE));
+					json_object_boolean_add(json_path, "l3nhg",
+								CHECK_FLAG(bgp_attr_get_es_flags(
+										   attr),
+									   ATTR_ES_L3_NHG));
+					json_object_boolean_add(json_path, "l3nhgActive",
+								CHECK_FLAG(bgp_attr_get_es_flags(
+										   attr),
+									   ATTR_ES_L3_NHG_ACTIVE));
 				}
 			} else {
 				if (json_paths) {
@@ -14508,10 +14502,8 @@ skip_nexthop:
 						     "used");
 	}
 
-	if (safi == SAFI_EVPN &&
-			bgp_evpn_is_esi_valid(&attr->esi)) {
+	if (safi == SAFI_EVPN && bgp_evpn_is_esi_valid(bgp_attr_get_esi(attr)))
 		route_vty_out_detail_es_info(vty, path, attr, json_path);
-	}
 
 	/* Line 3 display Origin, Med, Locpref, Weight, Tag, valid,
 	 * Int/Ext/Local, Atomic, best */

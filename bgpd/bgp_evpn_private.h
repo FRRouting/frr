@@ -632,8 +632,7 @@ static inline void encode_esi_label_extcomm(struct ecommunity_val *eval,
 		eval->val[2] |= (1 << 0);
 }
 
-static inline void encode_rmac_extcomm(struct ecommunity_val *eval,
-				       struct ethaddr *rmac)
+static inline void encode_rmac_extcomm(struct ecommunity_val *eval, const struct ethaddr *rmac)
 {
 	memset(eval, 0, sizeof(*eval));
 	eval->val[0] = ECOMMUNITY_ENCODE_EVPN;
