@@ -366,6 +366,13 @@ struct attr {
 #define BATTR_RMAP_VPNV6_GLOBAL_NHOP_CHANGED (1 << 10)
 #define BATTR_RMAP_L3VPN_ACCEPT_GRETAP	      (1 << 11)
 
+/* All route-map next-hop related flags */
+#define BATTR_RMAP_NEXTHOP_FLAGS                                                                  \
+	(BATTR_RMAP_IPV4_NHOP_CHANGED | BATTR_RMAP_NEXTHOP_PEER_ADDRESS |                         \
+	 BATTR_RMAP_NEXTHOP_UNCHANGED | BATTR_RMAP_IPV6_GLOBAL_NHOP_CHANGED |                     \
+	 BATTR_RMAP_IPV6_LL_NHOP_CHANGED | BATTR_RMAP_IPV6_PREFER_GLOBAL_CHANGED |                \
+	 BATTR_RMAP_VPNV4_NHOP_CHANGED | BATTR_RMAP_VPNV6_GLOBAL_NHOP_CHANGED)
+
 /* Router Reflector related structure. */
 struct cluster_list {
 	unsigned long refcnt;
