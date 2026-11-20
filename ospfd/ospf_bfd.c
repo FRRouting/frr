@@ -102,6 +102,22 @@ static struct ospf_bfd_session_entry *ospf_bfd_entry_get(struct ospf_interface *
 	return entry;
 }
 
+static void ospf_bfd_clear_session_holders(struct ospf_interface *oi,
+					    struct bfd_session_params *bsp)
+{
+	struct route_node *rn;
+	struct ospf_neighbor *nbr;
+
+	if (!oi || !oi->nbrs || !bsp)
+		return;
+
+	for (rn = route_top(oi->nbrs); rn; rn = route_next(rn)) {
+		nbr = rn->info;
+		if (nbr && nbr->bfd_session == bsp)
+			nbr->bfd_session = NULL;
+	}
+}
+
 static void ospf_bfd_entry_del(struct ospf_interface *oi, const struct in_addr *endpoint)
 {
 	struct prefix key;
@@ -119,10 +135,9 @@ static void ospf_bfd_entry_del(struct ospf_interface *oi, const struct in_addr *
 	entry = rn->info;
 	if (entry) {
 		rn->info = NULL;
-		if (entry->nbr)
-			entry->nbr->bfd_session = NULL;
-		bfd_sess_free(&entry->bsp);
+		ospf_bfd_clear_session_holders(oi, entry->bsp);
 		entry->nbr = NULL;
+		bfd_sess_free(&entry->bsp);
 		XFREE(MTYPE_OSPF_BFD_SESSION_ENTRY, entry);
 		/* Drop the persistent node lock held while info was set. */
 		route_unlock_node(rn);
@@ -145,6 +160,9 @@ void ospf_bfd_trigger_event(struct ospf_neighbor *nbr, int old_state, int state)
 	 * installed to allow quick neighbor re-add
 	 */
 	if (!oip->bfd_config || oip->bfd_config->quick)
+		return;
+
+	if (!nbr->bfd_session)
 		return;
 
 	if ((old_state < NSM_TwoWay) && (state >= NSM_TwoWay))
@@ -296,6 +314,7 @@ void ospf_neighbor_bfd_clear(struct ospf_neighbor *nbr)
 	}
 
 	/* Legacy/partial-init fallback: free whatever the neighbor owns. */
+	ospf_bfd_clear_session_holders(oi, legacy_bsp);
 	bfd_sess_free(&legacy_bsp);
 }
 
@@ -316,10 +335,9 @@ void ospf_bfd_if_flush(struct ospf_interface *oi)
 			continue;
 
 		rn->info = NULL;
-		if (entry->nbr)
-			entry->nbr->bfd_session = NULL;
-		bfd_sess_free(&entry->bsp);
+		ospf_bfd_clear_session_holders(oi, entry->bsp);
 		entry->nbr = NULL;
+		bfd_sess_free(&entry->bsp);
 		XFREE(MTYPE_OSPF_BFD_SESSION_ENTRY, entry);
 		/* Drop the persistent node lock held while info was set. */
 		route_unlock_node(rn);
@@ -352,10 +370,9 @@ static void ospf_bfd_if_prune_nonquick(struct ospf_interface *oi)
 		 */
 		if (!entry->nbr || entry->nbr->state < NSM_TwoWay) {
 			rn->info = NULL;
-			if (entry->nbr)
-				entry->nbr->bfd_session = NULL;
-			bfd_sess_free(&entry->bsp);
+			ospf_bfd_clear_session_holders(oi, entry->bsp);
 			entry->nbr = NULL;
+			bfd_sess_free(&entry->bsp);
 			XFREE(MTYPE_OSPF_BFD_SESSION_ENTRY, entry);
 			/* Drop the persistent node lock held while info was set. */
 			route_unlock_node(rn);
