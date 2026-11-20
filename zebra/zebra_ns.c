@@ -114,6 +114,9 @@ struct interface *zebra_ns_lookup_ifp(struct zebra_ns *zns, uint32_t ifindex)
 	struct interface *ifp = NULL;
 	struct ifp_tree_link *link, tlink = {};
 
+	if (!zns)
+		return NULL;
+
 	/* Init temp struct for lookup */
 	tlink.ifindex = ifindex;
 
@@ -220,6 +223,10 @@ struct zebra_ns *zebra_ns_lookup(ns_id_t ns_id)
 {
 	if (ns_id == NS_DEFAULT)
 		return dzns;
+
+	if (ns_id == NS_UNKNOWN)
+		return NULL;
+
 	struct zebra_ns *info = (struct zebra_ns *)ns_info_lookup(ns_id);
 
 	return (info == NULL) ? dzns : info;
