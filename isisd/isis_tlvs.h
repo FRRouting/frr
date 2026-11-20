@@ -877,10 +877,15 @@ void isis_tlvs_set_te_router_id(struct isis_tlvs *tlvs, const struct in_addr *id
 void isis_tlvs_set_te_router_id_ipv6(struct isis_tlvs *tlvs, const struct in6_addr *id);
 void isis_tlvs_add_oldstyle_ip_reach(struct isis_tlvs *tlvs, struct prefix_ipv4 *dest,
 				     uint8_t metric);
-void isis_tlvs_add_extended_ip_reach(struct isis_tlvs *tlvs, struct prefix_ipv4 *dest,
-				     uint32_t metric, bool external, struct sr_prefix_cfg **pcfgs);
-void isis_tlvs_add_ipv6_reach(struct isis_tlvs *tlvs, uint16_t mtid, struct prefix_ipv6 *dest,
-			      uint32_t metric, bool external, struct sr_prefix_cfg **pcfgs);
+struct isis_extended_ip_reach *isis_tlvs_add_extended_ip_reach(struct isis_tlvs *tlvs,
+							       struct prefix_ipv4 *dest,
+							       uint32_t metric, bool external,
+							       struct sr_prefix_cfg **pcfgs);
+struct isis_ipv6_reach *isis_tlvs_add_ipv6_reach(struct isis_tlvs *tlvs, uint16_t mtid,
+						 struct prefix_ipv6 *dest, uint32_t metric,
+						 bool external, struct sr_prefix_cfg **pcfgs);
+void isis_tlvs_add_leaked_prefix_sid(struct isis_subtlvs **subtlvs, enum isis_tlv_context context,
+				     const struct isis_prefix_sid *psid);
 void isis_tlvs_add_ipv6_dstsrc_reach(struct isis_tlvs *tlvs, uint16_t mtid,
 				     struct prefix_ipv6 *dest, struct prefix_ipv6 *src,
 				     uint32_t metric);
