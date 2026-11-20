@@ -853,6 +853,128 @@ def test_pce_restart():
     assert result is None, "steering route missing after restarts: {}".format(result)
 
 
+def restart_pce():
+    "Start a new PCE instance and wait for it to initiate the base policies"
+
+    initiated = mock_pce_log_text().count("INITIATE-SENT")
+    PCE_GEN[0] += 1
+    start_pce()
+
+    def check_new_session():
+        sent = mock_pce_log_text().count("INITIATE-SENT") - initiated
+        return None if sent >= 2 else "new PCE sent {} of 2 base policies".format(sent)
+
+    _, result = topotest.run_and_expect(check_new_session, None, count=120, wait=1)
+    if result is not None:
+        print_pce_log()
+    assert result is None, "PCE session did not re-establish: {}".format(result)
+
+
+def sr_te_policies():
+    return get_topogen().gears["rt1"].vtysh_cmd("show sr-te policy")
+
+
+def test_orphans_removed_at_timeout():
+    "PCE-initiated paths are removed at the session timeout, freeing names"
+
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    pce_command("add {},{},orphan-b,4800".format(ENDPOINT, LABEL))
+    check = lambda: check_policy_count(3)
+    _, result = topotest.run_and_expect(check, None, count=30, wait=1)
+    assert result is None, result
+
+    kill_pce()
+
+    # session-timeout-interval defaults to 30 seconds
+    check = lambda: (
+        None if "orphan-b" not in sr_te_policies() else "orphan-b still present"
+    )
+    _, result = topotest.run_and_expect(check, None, count=90, wait=1)
+    assert result is None, result
+
+    restart_pce()
+    check = lambda: check_policy_count(2)
+    _, result = topotest.run_and_expect(check, None, count=60, wait=1)
+    assert result is None, "base policies did not come back: {}".format(result)
+
+    # The name is free again: a different color is a new LSP, not a 23/1
+    errors_before = count_pce_errors(23, 1)
+    pce_command("add {},{},orphan-b,4801".format(ENDPOINT, LABEL))
+    check = lambda: check_policy_count(3)
+    _, result = topotest.run_and_expect(check, None, count=30, wait=1)
+    if result is not None:
+        print_pce_log()
+    assert result is None, "freed name was not reusable: {}".format(result)
+    assert count_pce_errors(23, 1) == errors_before, "got PCErr 23/1"
+
+    pce_command("remove orphan-b")
+    check = lambda: check_policy_count(2)
+    _, result = topotest.run_and_expect(check, None, count=60, wait=1)
+    assert result is None, "cleanup remove failed: {}".format(result)
+
+
+def configure_pce2(no=False):
+    "Add or remove a second PCE, PCE2, on port 4190"
+
+    pce = "pce PCE2\n address ip 127.0.0.1 port 4190\n pce-initiated\n exit"
+    peer = "pcc\n peer PCE2\n exit"
+    # The PCE must exist before the PCC peers with it
+    steps = ["pcc\n no peer PCE2\n exit", "no pce PCE2"] if no else [pce, peer]
+    for step in steps:
+        get_topogen().gears["rt1"].vtysh_cmd(
+            "configure terminal\nsegment-routing\ntraffic-eng\npcep\n" + step
+        )
+
+
+def test_session_timeout_per_pce():
+    "A PCE's session timeout removes its own paths, not another PCE's"
+
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    rt1 = tgen.gears["rt1"]
+    pce2_log = os.path.join(tgen.logdir, "rt1", "mock_pce2.log")
+    pce2_commands = os.path.join(tgen.logdir, "rt1", "pce2_commands")
+
+    configure_pce2()
+    rt1.run(
+        "nohup python3 {}/mock_pce.py --port 4190 "
+        "--policy {},{},pce2-path,4900 "
+        "--command-file {} --log {} > /dev/null 2>&1 &".format(
+            CWD, ENDPOINT, LABEL, pce2_commands, pce2_log
+        )
+    )
+    check = lambda: None if "pce2-path" in sr_te_policies() else "no pce2-path"
+    _, result = topotest.run_and_expect(check, None, count=60, wait=1)
+    assert result is None, result
+
+    # Only PCE1 goes away; its timeout must fire while PCE2 is connected
+    rt1.run("pkill -f 'mock_pce.py --policy'; true")
+    check = lambda: (
+        None if "test-steer" not in sr_te_policies() else "PCE1 paths still present"
+    )
+    _, result = topotest.run_and_expect(check, None, count=90, wait=1)
+    assert result is None, result
+    assert "pce2-path" in sr_te_policies(), "PCE1's session timeout removed pce2-path"
+
+    with open(pce2_commands, "a") as cmds:
+        cmds.write("remove pce2-path\n")
+    check = lambda: None if "pce2-path" not in sr_te_policies() else "pce2-path left"
+    _, result = topotest.run_and_expect(check, None, count=30, wait=1)
+    assert result is None, result
+
+    rt1.run("pkill -f 'mock_pce.py --port 4190'; true")
+    configure_pce2(no=True)
+    restart_pce()
+    check = lambda: check_policy_count(2)
+    _, result = topotest.run_and_expect(check, None, count=60, wait=1)
+    assert result is None, "base policies did not come back: {}".format(result)
+
+
 def test_inflight_shutdown():
     "Leave PCInitiates in flight for the module teardown to race"
 
