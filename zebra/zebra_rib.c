@@ -1260,6 +1260,15 @@ static struct route_entry *rib_choose_best_type(uint8_t route_type,
 	return NULL;
 }
 
+/* Default distance of the protocol of a route, iBGP told apart from eBGP */
+static uint8_t rib_type_default_distance(const struct route_entry *re)
+{
+	if (re->type == ZEBRA_ROUTE_BGP && CHECK_FLAG(re->flags, ZEBRA_FLAG_IBGP))
+		return ZEBRA_IBGP_DISTANCE_DEFAULT;
+
+	return route_distance(re->type);
+}
+
 /* Check if 'alternate' RIB entry is better than 'current'. */
 static struct route_entry *rib_choose_best(struct route_entry *current,
 					   struct route_entry *alternate)
@@ -1275,11 +1284,13 @@ static struct route_entry *rib_choose_best(struct route_entry *current,
 	 * - if both connected, loopback or vrf wins
 	 * - lower distance beats higher
 	 * - lower metric beats higher for equal distance
-	 * - last, hence oldest, route wins tie break.
+	 * - lower default distance of the type beats higher for equal distance
+	 *   and metric
+	 * - first, hence newest, route wins tie break.
 	 */
 
 	/* Connected or Local routes. Check to see if either are a vrf
-	 * or loopback interface.  If not, pick the last connected
+	 * or loopback interface.  If not, pick the first connected
 	 * route of the set of lowest metric connected routes.
 	 */
 	possible = rib_choose_best_type(ZEBRA_ROUTE_LOCAL, current, alternate);
@@ -1302,6 +1313,17 @@ static struct route_entry *rib_choose_best(struct route_entry *current,
 
 	/* metric tie-breaks equal distance */
 	if (alternate->metric < current->metric)
+		return alternate;
+	if (current->metric < alternate->metric)
+		return current;
+
+	/*
+	 * Same distance and metric: prefer the type with the lower default
+	 * distance. Choosing on the age of the routes depends on the order
+	 * of the events, and a redistributed route that loses the tie is
+	 * never selected, hence never redistributed, again.
+	 */
+	if (rib_type_default_distance(alternate) < rib_type_default_distance(current))
 		return alternate;
 
 	return current;
