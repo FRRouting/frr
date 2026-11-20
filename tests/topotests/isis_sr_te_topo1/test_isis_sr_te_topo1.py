@@ -1124,6 +1124,101 @@ def test_srte_l3vpn_vrf_route_follows_sr_policy_step7():
         tgen.net[rname].cmd("ip link del vrf1")
 
 
+#
+# Step 8
+#
+# Checking the MPLS table with a segment given by a prefix and an interface
+# ID (type E), which pathd resolves in the TED to the Adj-SID of the link
+#
+def test_srte_prefix_iface_segment_check_mpls_table_step8():
+    tgen = setup_testcase(
+        "Test (step 8): check MPLS table for a prefix and interface ID segment"
+    )
+
+    @retry(retry_timeout=60)
+    def get_rt4_eth_rt6_link_identifier_and_adj_sid():
+        output = tgen.gears["rt1"].vtysh_cmd(
+            "show isis mpls-te database edge 10.0.7.4 json", isjson=True
+        )
+        found = {}
+
+        def walk(node):
+            if isinstance(node, dict):
+                for key, value in node.items():
+                    if key in ("local-identifier", "adj-sid") and key not in found:
+                        found[key] = value
+                    walk(value)
+            elif isinstance(node, list):
+                for value in node:
+                    walk(value)
+
+        walk(output)
+        if "local-identifier" not in found or "adj-sid" not in found:
+            return "rt4 eth-rt6 edge has no local identifier or Adj-SID: {}".format(
+                output
+            )
+        return found["local-identifier"], found["adj-sid"]
+
+    @retry(retry_timeout=60)
+    def check_rt1_bsid_label_stack(expected):
+        output = tgen.gears["rt1"].vtysh_cmd("show mpls table json", isjson=True)
+        nexthops = output.get("1111", {}).get("nexthops", [])
+        stacks = [nexthop.get("outLabelStack") for nexthop in nexthops]
+        if expected not in stacks:
+            return "binding SID 1111 label stacks {}, expected {}".format(
+                stacks, expected
+            )
+        return True
+
+    tgen.gears["rt4"].vtysh_cmd(
+        """
+        configure terminal
+         interface eth-rt6
+          isis mpls-te link-identifiers
+        """
+    )
+    result = get_rt4_eth_rt6_link_identifier_and_adj_sid()
+    assert isinstance(result, tuple), result
+    iface_id, adj_sid = result
+
+    # rt1 -[node-SID]-> rt4 -[Adj-SID of eth-rt6]-> rt6
+    set_ted_import("rt1", True)
+    tgen.gears["rt1"].vtysh_cmd(
+        """
+        configure terminal
+         segment-routing
+          traffic-eng
+           segment-list iface
+            index 10 mpls label 16040
+            index 20 nai prefix 4.4.4.4/32 iface {}
+        """.format(
+            iface_id
+        )
+    )
+    add_candidate_path("rt1", "6.6.6.6", 100, "iface", "iface")
+
+    result = check_rt1_bsid_label_stack([16040, adj_sid])
+    assert result is True, result
+
+    delete_candidate_path("rt1", "6.6.6.6", 100)
+    tgen.gears["rt1"].vtysh_cmd(
+        """
+        configure terminal
+         segment-routing
+          traffic-eng
+           no segment-list iface
+        """
+    )
+    set_ted_import("rt1", False)
+    tgen.gears["rt4"].vtysh_cmd(
+        """
+        configure terminal
+         interface eth-rt6
+          no isis mpls-te link-identifiers
+        """
+    )
+
+
 # Memory leak test template
 def test_memory_leak():
     "Run the memory leak test and report results."

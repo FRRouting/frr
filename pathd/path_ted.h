@@ -112,34 +112,37 @@ uint32_t path_ted_get_current_igp(uint32_t igp);
  */
 
 /**
- * Search for sid based in prefix and optional algo
+ * Search for sid based in prefix and optional algo: Prefix-SID of segment
+ * types C (IPv4) and D (IPv6) of RFC 9256
  *
  * @param prefix	Net prefix to resolv
  * @param algo		Algorithm for link state
  *
  * @return		sid of attribute
  */
-uint32_t path_ted_query_type_c(struct prefix *prefix, uint8_t algo);
+uint32_t path_ted_query_prefix_sid(struct prefix *prefix, uint8_t algo);
 
 /**
- * Search for sid based in prefix and interface id
+ * Search for sid based in prefix and interface id: Adj-SID of segment types
+ * E (IPv4) and G (IPv6) of RFC 9256
  *
  * @param prefix	Net prefix to resolv
  * @param iface_id	The interface id
  *
  * @return		sid of attribute
  */
-uint32_t path_ted_query_type_e(struct prefix *prefix, uint32_t iface_id);
+uint32_t path_ted_query_prefix_iface_adj_sid(struct prefix *prefix, uint32_t iface_id);
 
 /**
- * Search for sid based in local, remote pair
+ * Search for sid based in local, remote pair: Adj-SID of segment types F
+ * (IPv4) and H (IPv6) of RFC 9256
  *
  * @param local		local ip of attribute
  * @param remote	remote ip of attribute
  *
  * @return		sid of attribute
  */
-uint32_t path_ted_query_type_f(struct ipaddr *local, struct ipaddr *remote);
+uint32_t path_ted_query_adj_sid(struct ipaddr *local, struct ipaddr *remote);
 
 
 /**

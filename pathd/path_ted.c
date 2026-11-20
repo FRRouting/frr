@@ -202,7 +202,7 @@ uint32_t path_ted_rcvd_message(struct ls_message *msg)
 	return 0;
 }
 
-uint32_t path_ted_query_type_f(struct ipaddr *local, struct ipaddr *remote)
+uint32_t path_ted_query_adj_sid(struct ipaddr *local, struct ipaddr *remote)
 {
 	uint32_t sid = MPLS_LABEL_NONE;
 	struct ls_edge *edge;
@@ -219,6 +219,7 @@ uint32_t path_ted_query_type_f(struct ipaddr *local, struct ipaddr *remote)
 		/* We have local and remote ip */
 		/* so check all attributes in ted */
 		key.family = AF_INET;
+		key.node = 0;
 		IPV4_ADDR_COPY(&key.k.addr, &local->ip._v4_addr);
 		edge = ls_find_edge_by_key(ted_state_g.ted, key);
 		if (edge) {
@@ -234,6 +235,7 @@ uint32_t path_ted_query_type_f(struct ipaddr *local, struct ipaddr *remote)
 		break;
 	case IPADDR_V6:
 		key.family = AF_INET6;
+		key.node = 0;
 		IPV6_ADDR_COPY(&key.k.addr6, &local->ip._v6_addr);
 		edge = ls_find_edge_by_key(ted_state_g.ted, key);
 		if (edge) {
@@ -255,7 +257,7 @@ uint32_t path_ted_query_type_f(struct ipaddr *local, struct ipaddr *remote)
 	return sid;
 }
 
-uint32_t path_ted_query_type_c(struct prefix *prefix, uint8_t algo)
+uint32_t path_ted_query_prefix_sid(struct prefix *prefix, uint8_t algo)
 {
 	uint32_t sid = MPLS_LABEL_NONE;
 	struct ls_subnet *subnet;
@@ -283,9 +285,10 @@ uint32_t path_ted_query_type_c(struct prefix *prefix, uint8_t algo)
 	return sid;
 }
 
-uint32_t path_ted_query_type_e(struct prefix *prefix, uint32_t iface_id)
+uint32_t path_ted_query_prefix_iface_adj_sid(struct prefix *prefix, uint32_t iface_id)
 {
 	uint32_t sid = MPLS_LABEL_NONE;
+	uint32_t other_sid = MPLS_LABEL_NONE;
 	struct ls_subnet *subnet;
 	struct listnode *lst_node;
 	struct ls_edge *edge;
@@ -308,13 +311,34 @@ uint32_t path_ted_query_type_e(struct prefix *prefix, uint32_t iface_id)
 				     subnet->vertex->outgoing_edges, lst_node,
 				     edge)) {
 				/* and look for ifaceid */
-				/* so get sid of attribute */
-				if (CHECK_FLAG(edge->attributes->flags,
-					       LS_ATTR_LOCAL_ID)
-				    && edge->attributes->standard.local_id
-					       == iface_id) {
-					sid = subnet->ls_pref->sr.sid;
-					break;
+				/* so get the Adj-SID of the matching edge */
+				if (!CHECK_FLAG(edge->attributes->flags, LS_ATTR_LOCAL_ID) ||
+				    edge->attributes->standard.local_id != iface_id)
+					continue;
+
+				/*
+				 * The link may have one edge per topology with the
+				 * same interface ID: take the one with an Adj-SID of
+				 * the prefix family, or else, as on an unnumbered
+				 * link, an Adj-SID of the other family
+				 */
+				if (CHECK_FLAG(edge->attributes->flags, LS_ATTR_ADJ_SID)) {
+					if (prefix->family == AF_INET) {
+						sid = edge->attributes->adj_sid[ADJ_PRI_IPV4].sid;
+						break;
+					}
+					if (other_sid == MPLS_LABEL_NONE)
+						other_sid =
+							edge->attributes->adj_sid[ADJ_PRI_IPV4].sid;
+				}
+				if (CHECK_FLAG(edge->attributes->flags, LS_ATTR_ADJ_SID6)) {
+					if (prefix->family == AF_INET6) {
+						sid = edge->attributes->adj_sid[ADJ_PRI_IPV6].sid;
+						break;
+					}
+					if (other_sid == MPLS_LABEL_NONE)
+						other_sid =
+							edge->attributes->adj_sid[ADJ_PRI_IPV6].sid;
 				}
 			}
 		}
@@ -322,6 +346,9 @@ uint32_t path_ted_query_type_e(struct prefix *prefix, uint32_t iface_id)
 	default:
 		break;
 	}
+
+	if (sid == MPLS_LABEL_NONE)
+		sid = other_sid;
 
 	return sid;
 }

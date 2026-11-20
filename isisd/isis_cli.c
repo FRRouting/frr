@@ -3633,6 +3633,36 @@ void cli_show_isis_mpls_if_ldp_sync_holddown(struct vty *vty, const struct lyd_n
 	vty_out(vty, " isis mpls ldp-sync holddown %s\n", yang_dnode_get_string(dnode, NULL));
 }
 
+/*
+ * XPath: /frr-interface:lib/interface/frr-isisd:isis/mpls/te-link-identifiers
+ */
+DEFPY_YANG(isis_mpls_if_te_link_identifiers, isis_mpls_if_te_link_identifiers_cmd,
+	   "[no] isis mpls-te link-identifiers",
+	   NO_STR
+	   "IS-IS routing protocol\n"
+	   MPLS_TE_STR
+	   "Advertise the Link Local/Remote Identifiers on a point-to-point circuit\n")
+{
+	if (!isis_iface_cfg_dnode(vty)) {
+		vty_out(vty, "ISIS is not enabled on this circuit\n");
+		return CMD_SUCCESS;
+	}
+
+	nb_cli_enqueue_change(vty, "./frr-isisd:isis/mpls/te-link-identifiers", NB_OP_MODIFY,
+			      no ? "false" : "true");
+
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+void cli_show_isis_mpls_if_te_link_identifiers(struct vty *vty, const struct lyd_node *dnode,
+					       bool show_defaults)
+{
+	if (!yang_dnode_get_bool(dnode, NULL))
+		vty_out(vty, " no");
+
+	vty_out(vty, " isis mpls-te link-identifiers\n");
+}
+
 DEFPY_YANG_NOSH(flex_algo, flex_algo_cmd, "flex-algo (128-255)$algorithm",
 		"Flexible Algorithm\n"
 		"Flexible Algorithm Number\n")
@@ -4021,6 +4051,7 @@ void isis_cli_init(void)
 	install_element(INTERFACE_NODE, &isis_mpls_if_ldp_sync_cmd);
 	install_element(INTERFACE_NODE, &isis_mpls_if_ldp_sync_holddown_cmd);
 	install_element(INTERFACE_NODE, &no_isis_mpls_if_ldp_sync_holddown_cmd);
+	install_element(INTERFACE_NODE, &isis_mpls_if_te_link_identifiers_cmd);
 
 	install_element(ISIS_NODE, &flex_algo_cmd);
 	install_element(ISIS_NODE, &no_flex_algo_cmd);

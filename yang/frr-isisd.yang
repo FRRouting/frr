@@ -947,6 +947,15 @@ module frr-isisd {
         description
           "Time to wait for LDP-Sync to occur before restoring interface metric.";
       }
+      leaf te-link-identifiers {
+        type boolean;
+        default "false";
+        description
+          "Advertise the Link Local/Remote Identifiers sub-TLV (RFC 5307) on
+           a point-to-point circuit, when MPLS-TE is enabled. The identifiers
+           are the Extended Local Circuit IDs of the three-way handshake
+           (RFC 5303).";
+      }
     }
 
     container fast-reroute {
