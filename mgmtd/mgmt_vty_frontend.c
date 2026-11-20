@@ -387,6 +387,51 @@ static void vty_mgmt_handle_lock_ds_reply(struct mgmt_fe_client *client, uintptr
 	}
 }
 
+/* ---------------------------------------------------------------- */
+/* Running DS lock retry for implicit commits (startup race fix).   */
+/*                                                                  */
+/* When mgmtd sends initial config to a connecting backend, it      */
+/* holds the running DS lock briefly. Rather than silently dropping */
+/* the commit, we retry every 50 ms until the lock is available.    */
+/* ---------------------------------------------------------------- */
+
+#define MGMT_RUNNING_LOCK_RETRY_MS    50  /* interval between retries */
+#define MGMT_RUNNING_LOCK_MAX_RETRIES 200 /* 200 × 50 ms = 10 s */
+
+static void vty_mgmt_running_lock_retry(struct event *event)
+{
+	struct vty *vty = EVENT_ARG(event);
+
+	assert(vty->mgmt_req_pending_cmd &&
+	       !strcmp(vty->mgmt_req_pending_cmd, "RUNNING_DS_LOCK_RETRY"));
+
+	/*
+	 * Candidate edits were already applied before scheduling retry.
+	 * Candidate lock is held. Only need to acquire running lock and commit.
+	 */
+	if (vty_mgmt_lock_running_inline(vty) == 0) {
+		/* Running lock acquired — commit the pending candidate changes. */
+		if (vty_mgmt_send_commit_config(vty, false, false, true) < 0) {
+			vty_mgmt_unlock_running_inline(vty);
+			vty_mgmt_unlock_candidate_inline(vty);
+			vty_mgmt_resume_response(vty, CMD_WARNING_CONFIG_FAILED);
+		}
+		/* Success: pending_cmd is now "MESSAGE_COMMCFG_REQ"; reply will resume. */
+		return;
+	}
+
+	if (++vty->mgmt_running_lock_retry_count < MGMT_RUNNING_LOCK_MAX_RETRIES) {
+		event_add_timer_msec(mm->master, vty_mgmt_running_lock_retry, vty,
+				     MGMT_RUNNING_LOCK_RETRY_MS, &vty->mgmt_running_lock_retry_ev);
+		return;
+	}
+
+	/* Exhausted retries — give up. Unlock candidate held since initial call. */
+	vty_mgmt_unlock_candidate_inline(vty);
+	vty_out(vty, "%% could not lock running DS (timed out)\n");
+	vty_mgmt_resume_response(vty, CMD_WARNING_CONFIG_FAILED);
+}
+
 /* ------------------------------------------------ */
 /* "Send" Config Data -- actually just edits inline */
 /* ------------------------------------------------ */
@@ -402,9 +447,26 @@ int vty_mgmt_send_config_data(struct vty *vty, const char *xpath_base, bool impl
 			vty_out(vty, "%% could not lock candidate DS\n");
 			return CMD_WARNING_CONFIG_FAILED;
 		} else if (vty_mgmt_lock_running_inline(vty)) {
-			vty_out(vty, "%% could not lock running DS\n");
-			vty_mgmt_unlock_candidate_inline(vty);
-			return CMD_WARNING_CONFIG_FAILED;
+			/*
+			 * Running DS is locked (mgmtd may be sending initial
+			 * config to a backend). Apply candidate edit now while
+			 * cfg_changes values are still live, keep candidate
+			 * locked, and retry only lock+commit.
+			 */
+			nb_candidate_edit_config_changes(vty->candidate_config, vty->cfg_changes,
+							 vty->num_cfg_changes, xpath_base, false,
+							 err_buf, sizeof(err_buf), &error);
+			if (error) {
+				vty_out(vty, "%% Couldn't apply changes: %s", err_buf);
+				vty_mgmt_unlock_candidate_inline(vty);
+				return CMD_WARNING_CONFIG_FAILED;
+			}
+			vty->mgmt_running_lock_retry_count = 0;
+			vty->mgmt_req_pending_cmd = "RUNNING_DS_LOCK_RETRY";
+			event_add_timer_msec(mm->master, vty_mgmt_running_lock_retry, vty,
+					     MGMT_RUNNING_LOCK_RETRY_MS,
+					     &vty->mgmt_running_lock_retry_ev);
+			return CMD_SUCCESS;
 		}
 	}
 
@@ -684,6 +746,11 @@ static void vty_new_mgmt(struct vty *new)
 
 static void vty_close_mgmt(struct vty *vty)
 {
+	if (vty->mgmt_running_lock_retry_ev) {
+		event_cancel(&vty->mgmt_running_lock_retry_ev);
+		vty->mgmt_req_pending_cmd = NULL;
+	}
+
 	if (!mgmt_fe_client || !vty->mgmt_client_id)
 		return;
 
