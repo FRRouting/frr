@@ -35,6 +35,7 @@ sys.path.append(os.path.join(CWD, "../../"))
 
 # pylint: disable=C0413
 # Import topogen and topotest helpers
+from lib import topotest
 from lib.topogen import Topogen, get_topogen
 
 from lib.common_config import (
@@ -291,6 +292,123 @@ def test_modify_ecmp_max_paths(request, ecmp_num, test_type):
         )
 
     write_test_footer(tc_name)
+
+
+@pytest.mark.parametrize("addr_type", ["ipv4", "ipv6"])
+@pytest.mark.parametrize("change", ["reorder", "withdraw"])
+def test_ecmp_export_during_bestpath_recalculation(request, addr_type, change):
+    """Export eligible ECMP nexthops while best-path processing is pending."""
+    if addr_type not in ADDR_TYPES:
+        pytest.skip("Address family is disabled")
+
+    tgen = get_topogen()
+    r3 = tgen.gears["r3"]
+    if "Unknown command" in r3.vtysh_cmd("no bgp test metaq disable"):
+        pytest.skip("the bgp test commands need --enable-dev-build")
+
+    reset_config_on_routers(tgen)
+    static_or_nw(tgen, topo, request.node.name, "redist_static", "r2")
+    routes = {"r3": {"static_routes": [{"network": NETWORK[addr_type]}]}}
+    next_hops = NEXT_HOPS[addr_type][:]
+
+    def check_ecmp():
+        return verify_rib(
+            tgen,
+            addr_type,
+            "r3",
+            routes,
+            next_hop=next_hops,
+            protocol="bgp",
+            count_only=True,
+        )
+
+    result = check_ecmp()
+    assert result is True, result
+
+    r3.vtysh_cmd("bgp test metaq disable")
+    try:
+        if change == "withdraw":
+            command = "show bgp {} unicast {} json".format(
+                addr_type, NETWORK[addr_type]
+            )
+            paths = r3.vtysh_cmd(command, isjson=True)["paths"]
+            withdrawn_peer = next(
+                path["peer"]["peerId"]
+                for path in paths
+                if path.get("valid")
+                and path.get("multipath")
+                and not path.get("bestpath", {}).get("overall")
+            )
+            link = next(
+                name
+                for name, data in topo["routers"]["r2"]["links"].items()
+                if data.get(addr_type, "").split("/")[0] == withdrawn_peer
+            )
+            peer = topo["routers"]["r3"]["links"][link.replace("r3-", "r2-", 1)][
+                addr_type
+            ].split("/")[0]
+            r2 = tgen.gears["r2"]
+            r2.vtysh_cmd(
+                "configure terminal\n"
+                "{} prefix-list ECMP_WITHDRAW seq 5 deny {}\n"
+                "router bgp 100\naddress-family {} unicast\n"
+                "neighbor {} prefix-list ECMP_WITHDRAW out\nend".format(
+                    "ip" if addr_type == "ipv4" else "ipv6",
+                    NETWORK[addr_type],
+                    addr_type,
+                    peer,
+                )
+            )
+            r2.vtysh_cmd("clear bgp {} soft out".format(peer))
+
+            def withdrawal_received():
+                paths = r3.vtysh_cmd(command, isjson=True).get("paths", [])
+                valid = [path for path in paths if path.get("valid")]
+                return len(valid) == 31 and all(
+                    path["peer"]["peerId"] != withdrawn_peer for path in valid
+                )
+
+            _, result = topotest.run_and_expect(withdrawal_received, True)
+            assert result is True, "BGP did not receive the peer's withdrawal"
+            next_hops.remove(withdrawn_peer)
+        else:
+            # Recalculation reorders paths before the queued best-path work runs.
+            r3.vtysh_cmd(
+                "configure terminal\nrouter bgp 100\n"
+                "address-family {} unicast\nmaximum-paths ibgp 32\nend".format(
+                    addr_type
+                )
+            )
+
+        # Removing an absent table-map requests an export without changing
+        # path attributes or starting a route-map update timer.
+        r3.vtysh_cmd(
+            "configure terminal\nrouter bgp 100\n"
+            "address-family {} unicast\n"
+            "no table-map ECMP_EXPORT\nend".format(addr_type)
+        )
+
+        def export_done():
+            stats = r3.vtysh_cmd(
+                "show bgp {} unicast statistics json".format(addr_type),
+                isjson=True,
+            )
+            stats = stats["{}Unicast".format(addr_type)][0]
+            return stats.get("zebraAnnounceQueue") == 0
+
+        _, result = topotest.run_and_expect(export_done, True, count=30, wait=1)
+        assert result is True, "BGP did not finish the queued zebra export"
+
+        if change == "withdraw":
+            # Check before processing can clear the stale multipath flag and
+            # repair an export that incorrectly included the removed path.
+            result = check_ecmp()
+            assert result is True, result
+    finally:
+        r3.vtysh_cmd("no bgp test metaq disable")
+
+    result = check_ecmp()
+    assert result is True, result
 
 
 @pytest.mark.parametrize("ecmp_num", ["8", "16", "32"])
