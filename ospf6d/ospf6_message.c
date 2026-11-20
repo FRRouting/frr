@@ -408,6 +408,19 @@ static void ospf6_hello_recv(struct in6_addr *src, struct in6_addr *dst,
 	hello = (struct ospf6_hello *)((caddr_t)oh
 				       + sizeof(struct ospf6_header));
 
+	/* Source address check: RFC 5340 2.5 requires OSPF packets on all
+	 * interfaces except virtual links to use the interface link-local
+	 * address as source. ospf6d does not support virtual links, so a
+	 * Hello with a non-link-local source must not touch neighbor state.
+	 */
+	if (!IN6_IS_ADDR_LINKLOCAL(src)) {
+		zlog_warn(
+			"VRF %s: I/F %s Hello from non-link-local source %pI6 (%pI4): dropped",
+			oi->interface->vrf->name, oi->interface->name, src,
+			&oh->router_id);
+		return;
+	}
+
 	if ((oi->state == OSPF6_INTERFACE_POINTTOPOINT
 	     || oi->state == OSPF6_INTERFACE_POINTTOMULTIPOINT)
 	    && oi->p2xp_only_cfg_neigh) {
