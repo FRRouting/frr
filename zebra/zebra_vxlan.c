@@ -1807,7 +1807,13 @@ static int zl3vni_nh_uninstall(struct zebra_l3vni *zl3vni,
  */
 static int svd_nh_install(struct zebra_l3vni *zl3vni, struct zebra_neigh *n)
 {
-	return _nh_install(zl3vni, zl3vni->vxlan_if, n);
+	int ret = _nh_install(zl3vni, zl3vni->vxlan_if, n);
+
+	/* The kernel flushes the entry with this device */
+	if (ret == 0 && zl3vni->vxlan_if)
+		n->ifindex = zl3vni->vxlan_if->ifindex;
+
+	return ret;
 }
 
 /*
@@ -2595,14 +2601,75 @@ static int zl3vni_send_del_to_client(struct zebra_l3vni *zl3vni)
 	return zserv_send_message(client, s);
 }
 
+static void zl3vni_rmac_install_hash(struct hash_bucket *bucket, void *ctx)
+{
+	zl3vni_rmac_install(ctx, bucket->data);
+}
+
 void zebra_vxlan_process_l3vni_oper_up(struct zebra_l3vni *zl3vni)
 {
+	struct zebra_neigh *n, *svd_nh;
+	struct interface *svi, *old_svi = NULL;
+	bool install_nh;
+
 	if (!zl3vni)
 		return;
 
 	/* send l3vni add to BGP */
 	frrtrace(3, frr_zebra, send_l3vni_oper_to_client, zl3vni->vrf_id, zl3vni->vni, 0);
 	zl3vni_send_add_to_client(zl3vni);
+
+	if (zl3vni->rmac_flushed) {
+		zl3vni->rmac_flushed = false;
+		hash_iterate(zl3vni->rmac_table, zl3vni_rmac_install_hash, zl3vni);
+	}
+
+	/* Oper up also runs on every SVI link update; skip installed next hops */
+	svi = zl3vni->svi_if;
+	install_nh = svi && (zl3vni->nh_ifindex != svi->ifindex ||
+			     memcmp(&zl3vni->nh_svi_mac, svi->hw_addr, ETH_ALEN));
+	if (install_nh) {
+		/* The kernel keeps them on a previous SVI that is still up */
+		if (zl3vni->nh_ifindex != IFINDEX_INTERNAL && zl3vni->nh_ifindex != svi->ifindex)
+			old_svi = if_lookup_by_index(zl3vni->nh_ifindex, zl3vni_vrf_id(zl3vni));
+		zl3vni->nh_ifindex = svi->ifindex;
+		memcpy(&zl3vni->nh_svi_mac, svi->hw_addr, ETH_ALEN);
+	}
+
+	frr_each (zebra_neigh_db, zl3vni->nh_table, n) {
+		if (install_nh && !is_zero_mac(&n->emac)) {
+			if (old_svi)
+				_nh_uninstall(old_svi, n);
+			zl3vni_nh_install(zl3vni, n);
+		}
+
+		/*
+		 * Shared by the L3VNIs, so install it once per flush, on the
+		 * device it was flushed from, or on any if that was deleted.
+		 */
+		svd_nh = IS_ZL3VNI_SVD_BACKED(zl3vni) ? svd_nh_lookup(&n->ip) : NULL;
+		if (svd_nh && CHECK_FLAG(svd_nh->flags, ZEBRA_NEIGH_SVD_FLUSHED) &&
+		    (svd_nh->ifindex == IFINDEX_INTERNAL ||
+		     svd_nh->ifindex == zl3vni->vxlan_if->ifindex) &&
+		    !is_zero_mac(&svd_nh->emac)) {
+			UNSET_FLAG(svd_nh->flags, ZEBRA_NEIGH_SVD_FLUSHED);
+			svd_nh_install(zl3vni, svd_nh);
+		}
+	}
+}
+
+void zebra_vxlan_svd_nh_flushed(struct interface *ifp, bool deleted)
+{
+	struct zebra_neigh *n;
+
+	frr_each (zebra_neigh_db, svd_nh_table, n) {
+		if (n->ifindex != ifp->ifindex)
+			continue;
+
+		SET_FLAG(n->flags, ZEBRA_NEIGH_SVD_FLUSHED);
+		if (deleted)
+			n->ifindex = IFINDEX_INTERNAL;
+	}
 }
 
 void zebra_vxlan_process_l3vni_oper_down(struct zebra_l3vni *zl3vni)
@@ -5527,6 +5594,8 @@ int zebra_vxlan_svi_down(struct interface *ifp, struct interface *link_if)
 
 	zl3vni = zl3vni_from_svi(ifp, link_if);
 	if (zl3vni) {
+		/* The kernel flushes the next hops on the SVI */
+		zl3vni->nh_ifindex = IFINDEX_INTERNAL;
 
 		/* process l3-vni down */
 		zebra_vxlan_process_l3vni_oper_down(zl3vni);
