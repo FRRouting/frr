@@ -272,12 +272,13 @@ static void netlink_vrf_change(struct nlmsghdr *h, struct rtattr *tb,
 void kernel_read_intf_speed(struct zebra_dplane_ctx *ctx)
 {
 	const char *ifname = dplane_ctx_get_ifname(ctx);
-	struct zebra_ns *zns = zebra_ns_lookup(dplane_ctx_get_ns_id(ctx));
+	const struct zebra_dplane_info *info = dplane_ctx_get_ns(ctx);
 	uint32_t speed;
 	int error = 0;
 	int err_errno = 0;
 
-	speed = netlink_get_interface_speed(zns, ifname, &error, &err_errno);
+	speed = netlink_get_interface_speed(dplane_ns_ge_nlsock(info), info->ns_id, ifname, &error,
+					    &err_errno);
 	if (err_errno)
 		dplane_ctx_set_errno(ctx, err_errno);
 
@@ -854,7 +855,7 @@ int interface_lookup_netlink(struct zebra_ns *zns)
 {
 	int ret;
 	struct zebra_dplane_info dp_info;
-	struct nlsock *netlink_cmd = &zns->netlink_dplane_out;
+	struct nlsock *netlink_cmd = &zns->netlink_cmd;
 
 	/* Capture key info from ns struct */
 	zebra_dplane_info_from_zns(&dp_info, zns, true /*is_cmd*/);
@@ -1491,8 +1492,11 @@ int netlink_link_change(struct nlmsghdr *h, ns_id_t ns_id, int startup, void *ar
 
 		/* A PPP link has no speed, see dplane_intf_speed_get() */
 		if (startup && ifi->ifi_type != ARPHRD_PPP) {
-			speed = netlink_get_interface_speed(zebra_ns_lookup(ifp_vrf_id), name,
-							    &speed_err, NULL);
+			struct zebra_ns *speed_zns = zebra_ns_lookup(ifp_vrf_id);
+
+			speed = netlink_get_interface_speed(speed_zns ? &speed_zns->ge_netlink_cmd
+								      : NULL,
+							    ns_id, name, &speed_err, NULL);
 			if (speed_err == 0) {
 				dplane_ctx_set_ifp_speed(ctx, speed);
 				dplane_ctx_set_ifp_speed_set(ctx, true);
@@ -1564,11 +1568,12 @@ ssize_t netlink_intf_msg_encode(uint16_t cmd,
 	ifindex_t ifindex = dplane_ctx_get_ifindex(ctx);
 	bool down = dplane_ctx_intf_is_protodown(ctx);
 	bool pd_reason_val = dplane_ctx_get_intf_pd_reason_val(ctx);
-	struct nlsock *nl =
-		kernel_netlink_nlsock_lookup(dplane_ctx_get_ns_sock(ctx));
+	struct nlsock *nl = kernel_netlink_nlsock_lookup_info(dplane_ctx_get_ns(ctx));
 
 	if (buflen < sizeof(*req))
 		return 0;
+	if (!nl)
+		return -1;
 
 	memset(req, 0, sizeof(*req));
 

@@ -153,7 +153,8 @@ int genl_resolve_family(const char *family)
 			 strlen(family) + 1))
 		return -1;
 
-	return ge_netlink_talk(genl_parse_getfamily, &req.n, zns, false, NULL, NULL);
+	return ge_netlink_talk(genl_parse_getfamily, &req.n, &zns->ge_netlink_cmd, zns->ns_id,
+			       false, NULL, NULL);
 }
 
 /*
@@ -182,7 +183,9 @@ ssize_t netlink_sr_tunsrc_set_msg_encode(int cmd, struct zebra_dplane_ctx *ctx,
 	if (buflen < sizeof(*req))
 		return 0;
 
-	nl = kernel_netlink_nlsock_lookup(dplane_ctx_get_ns_sock(ctx));
+	nl = kernel_netlink_nlsock_lookup_info(dplane_ctx_get_ns(ctx));
+	if (!nl)
+		return -1;
 
 	memset(req, 0, sizeof(*req));
 
@@ -244,7 +247,8 @@ enum netlink_msg_status
 netlink_put_sr_tunsrc_set_msg(struct nl_batch *bth, struct zebra_dplane_ctx *ctx)
 {
 	enum dplane_op_e op;
-	struct zebra_ns *zns;
+	const struct zebra_dplane_info *info = dplane_ctx_get_ns(ctx);
+	struct nlsock *nl;
 	struct genl_request req = { 0 };
 
 	op = dplane_ctx_get_op(ctx);
@@ -252,9 +256,11 @@ netlink_put_sr_tunsrc_set_msg(struct nl_batch *bth, struct zebra_dplane_ctx *ctx
 
 	netlink_sr_tunsrc_set_msg_encoder(ctx, &req, sizeof(req));
 
-	zns = zebra_ns_lookup(dplane_ctx_get_ns_sock(ctx));
+	nl = dplane_ns_ge_nlsock(info);
+	if (!nl)
+		return FRR_NETLINK_ERROR;
 
-	return ge_netlink_talk(netlink_talk_filter, &req.n, zns, false, NULL, NULL);
+	return ge_netlink_talk(netlink_talk_filter, &req.n, nl, info->ns_id, false, NULL, NULL);
 }
 
 /**
@@ -355,6 +361,7 @@ int netlink_sr_tunsrc_read(struct zebra_ns *zns)
 	dp_info.is_cmd = true;
 	dp_info.sock = zns->ge_netlink_cmd.sock;
 	dp_info.seq = zns->ge_netlink_cmd.seq;
+	dp_info.sock_gen = zns->ge_netlink_cmd.gen;
 
 	/* Get SR tunsrc. */
 	ret = netlink_request_sr_tunsrc(zns);
@@ -414,20 +421,21 @@ static int netlink_ethtool_linkmodes_reply_read(struct nlmsghdr *h, ns_id_t ns_i
 
 /**
  * netlink_get_interface_speed() - Query interface speed via ethtool over netlink
- * @zns:	Per-namespace netlink sockets holder (uses zns->ge_netlink_cmd)
+ * @nl:		Generic netlink socket of the interface's namespace
+ * @ns_id:	Namespace id
  * @ifname:	Interface name
  * @error:	Out param, set to 0 on success, INTERFACE_SPEED_ERROR_* otherwise
  * @err_errno:	Optional out param, set to 0 or, if the request to the kernel
  *		failed, the errno (a positive value) describing the failure
  *
- * Sends ETHTOOL_MSG_LINKMODES_GET on the per-ns generic netlink command socket
- * and parses the reply. The socket is pinned to the right namespace at zns
- * creation time, so no setns is required from the caller.
+ * Sends ETHTOOL_MSG_LINKMODES_GET on a per-ns generic netlink socket and
+ * parses the reply. The socket is pinned to the right namespace at creation
+ * time, so no setns is required from the caller.
  *
  * Returns the link speed in Mbps, or 0 with *error set on failure.
  */
-uint32_t netlink_get_interface_speed(struct zebra_ns *zns, const char *ifname, int *error,
-				     int *err_errno)
+uint32_t netlink_get_interface_speed(struct nlsock *nl, ns_id_t ns_id, const char *ifname,
+				     int *error, int *err_errno)
 {
 	struct ethtool_speed_result res = {};
 	struct genl_request req = {};
@@ -439,7 +447,7 @@ uint32_t netlink_get_interface_speed(struct zebra_ns *zns, const char *ifname, i
 	if (err_errno)
 		*err_errno = 0;
 
-	if (zns == NULL || zns->ge_netlink_cmd.sock < 0) {
+	if (nl == NULL || nl->sock < 0) {
 		if (error)
 			*error = INTERFACE_SPEED_ERROR_READ;
 		return 0;
@@ -457,7 +465,7 @@ uint32_t netlink_get_interface_speed(struct zebra_ns *zns, const char *ifname, i
 	req.n.nlmsg_len = NLMSG_LENGTH(GENL_HDRLEN);
 	req.n.nlmsg_flags = NLM_F_REQUEST;
 	req.n.nlmsg_type = ethtool_genl_family;
-	req.n.nlmsg_pid = zns->ge_netlink_cmd.snl.nl_pid;
+	req.n.nlmsg_pid = nl->snl.nl_pid;
 
 	req.g.cmd = ETHTOOL_MSG_LINKMODES_GET;
 	req.g.version = ETHTOOL_GENL_VERSION;
@@ -476,7 +484,7 @@ uint32_t netlink_get_interface_speed(struct zebra_ns *zns, const char *ifname, i
 	}
 	nl_attr_nest_end(&req.n, header);
 
-	ret = ge_netlink_talk(netlink_ethtool_linkmodes_reply_read, &req.n, zns, false, &res,
+	ret = ge_netlink_talk(netlink_ethtool_linkmodes_reply_read, &req.n, nl, ns_id, false, &res,
 			      &res.nl_err);
 	if (ret < 0) {
 		int nl_errno = res.nl_err ? -res.nl_err : errno;

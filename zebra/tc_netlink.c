@@ -166,7 +166,9 @@ static ssize_t netlink_qdisc_msg_encode(int cmd, struct zebra_dplane_ctx *ctx,
 	if (datalen < sizeof(*req))
 		return 0;
 
-	nl = kernel_netlink_nlsock_lookup(dplane_ctx_get_ns_sock(ctx));
+	nl = kernel_netlink_nlsock_lookup_info(dplane_ctx_get_ns(ctx));
+	if (!nl)
+		return -1;
 
 	memset(req, 0, sizeof(*req));
 
@@ -247,7 +249,9 @@ static ssize_t netlink_tclass_msg_encode(int cmd, struct zebra_dplane_ctx *ctx,
 	if (datalen < sizeof(*req))
 		return 0;
 
-	nl = kernel_netlink_nlsock_lookup(dplane_ctx_get_ns_sock(ctx));
+	nl = kernel_netlink_nlsock_lookup_info(dplane_ctx_get_ns(ctx));
+	if (!nl)
+		return -1;
 
 	memset(req, 0, sizeof(*req));
 
@@ -514,7 +518,9 @@ static ssize_t netlink_tfilter_msg_encode(int cmd, struct zebra_dplane_ctx *ctx,
 	if (datalen < sizeof(*req))
 		return 0;
 
-	nl = kernel_netlink_nlsock_lookup(dplane_ctx_get_ns_sock(ctx));
+	nl = kernel_netlink_nlsock_lookup_info(dplane_ctx_get_ns(ctx));
+	if (!nl)
+		return -1;
 
 	memset(req, 0, sizeof(*req));
 
@@ -813,7 +819,7 @@ void kernel_read_tc_qdisc(struct zebra_dplane_ctx *ctx)
 	int ret;
 	int nl_err = 0;
 
-	nl = kernel_netlink_nlsock_lookup(dplane_ctx_get_ns_sock(ctx));
+	nl = kernel_netlink_nlsock_lookup_info(dplane_ctx_get_ns(ctx));
 	if (!nl) {
 		dplane_ctx_set_status(ctx, ZEBRA_DPLANE_REQUEST_FAILURE);
 		zebra_dplane_startup_stage(dplane_ctx_get_ns_id(ctx),
