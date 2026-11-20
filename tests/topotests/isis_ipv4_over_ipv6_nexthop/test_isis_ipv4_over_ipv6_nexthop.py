@@ -499,7 +499,8 @@ def test_lfa():
         r3.run("ip link set r3-eth0 up")
         _config(r5, "interface lo", "no ip address 10.255.5.5/32")
         _config(r1, "router isis TEST", "spf-interval 1")
-    _expect(_check_nexthops, r1, host4("r3"), {("r1-eth2", "ll")}, count=120)
+    # isisd's held SPF and the NHG tracker's 10s timeout can both delay this.
+    _expect(_check_nexthops, r1, host4("r3"), {("r1-eth2", "ll")}, count=240)
     _expect(_has_backup)
 
     # Interface down switches over every nexthop of the interface at once.
