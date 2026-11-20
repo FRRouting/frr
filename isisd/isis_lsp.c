@@ -120,8 +120,14 @@ static void lsp_destroy(struct isis_lsp *lsp)
 	lsp_clear_data(lsp);
 
 	if (!LSP_FRAGMENT(lsp->hdr.lsp_id)) {
-		/* Only non-pseudo nodes and non-fragment LSPs can delete nodes. */
-		if (!LSP_PSEUDO_ID(lsp->hdr.lsp_id))
+		/*
+		 * Only non-pseudo nodes and non-fragment LSPs can delete nodes,
+		 * and the hostname is still needed when the system has an LSP
+		 * in the database of the other level.
+		 */
+		if (!LSP_PSEUDO_ID(lsp->hdr.lsp_id) &&
+		    !lsp_search(&lsp->area->lspdb[lsp->level == IS_LEVEL_1 ? 1 : 0],
+				lsp->hdr.lsp_id))
 			isis_dynhn_remove(lsp->area->isis, lsp->hdr.lsp_id);
 
 		if (lsp->lspu.frags)
