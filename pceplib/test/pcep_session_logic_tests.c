@@ -91,6 +91,8 @@ int main(int argc, char **argv)
 	CU_add_test(test_session_logic_loop_suite,
 		    "test_session_logic_msg_ready_handler",
 		    test_session_logic_msg_ready_handler);
+	CU_add_test(test_session_logic_loop_suite, "test_session_logic_msg_ready_handler_partial",
+		    test_session_logic_msg_ready_handler_partial);
 	CU_add_test(test_session_logic_loop_suite,
 		    "test_session_logic_conn_except_notifier",
 		    test_session_logic_conn_except_notifier);
