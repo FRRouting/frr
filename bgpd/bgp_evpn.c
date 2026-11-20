@@ -4010,8 +4010,14 @@ int uninstall_evpn_route_entry_in_vrf(struct bgp *bgp_vrf, const struct prefix_e
 	bgp_aggregate_decrement(bgp_vrf, bgp_dest_get_prefix(dest), pi, afi,
 				safi);
 
-	/* Force deletion */
-	SET_FLAG(dest->flags, BGP_NODE_PROCESS_CLEAR);
+	/*
+	 * Force a zebra reinstall only when this path is the selected path
+	 * or a multipath member. Those are the paths zebra installed.
+	 * Withdrawing any other import still runs best-path selection, but
+	 * must not bump the version and reinstall an unchanged best path.
+	 */
+	if (CHECK_FLAG(pi->flags, BGP_PATH_SELECTED) || CHECK_FLAG(pi->flags, BGP_PATH_MULTIPATH))
+		SET_FLAG(dest->flags, BGP_NODE_PROCESS_CLEAR);
 
 	/* Mark entry for deletion */
 	bgp_path_info_mark_for_delete(dest, pi);
