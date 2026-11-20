@@ -12,6 +12,7 @@ enum bgp_fsm_state_progress {
 	BGP_FSM_FAILURE = -1,
 	BGP_FSM_SUCCESS = 0,
 	BGP_FSM_SUCCESS_STATE_TRANSFER = 1,
+	BGP_FSM_IMMEDIATE_RETRY = 2,
 };
 
 /* Macro for BGP read, write and timer thread.  */

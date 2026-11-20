@@ -642,6 +642,12 @@ const struct frr_yang_module_info frr_zebra_info = {
 			}
 		},
 		{
+			.xpath = "/frr-interface:lib/interface/frr-zebra:zebra/ipv6-router-advertisements/multi-access",
+			.cbs = {
+				.modify = lib_interface_zebra_ipv6_router_advertisements_multi_access_modify,
+			}
+		},
+		{
 			.xpath = "/frr-interface:lib/interface/frr-zebra:zebra/ipv6-router-advertisements/max-rtr-adv-interval",
 			.cbs = {
 				.modify = lib_interface_zebra_ipv6_router_advertisements_max_rtr_adv_interval_modify,
