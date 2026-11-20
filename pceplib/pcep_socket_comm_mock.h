@@ -30,6 +30,7 @@ typedef struct mock_socket_comm_info_ {
 	int socket_comm_session_send_message_times_called;
 	int socket_comm_session_close_tcp_after_write_times_called;
 	int socket_comm_session_close_tcp_times_called;
+	int stop_socket_comm_loop_times_called;
 	int destroy_socket_comm_loop_times_called;
 
 	/* TODO later if necessary, we can add return values for

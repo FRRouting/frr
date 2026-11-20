@@ -179,6 +179,7 @@ int pceplib_external_socket_write(int fd, void *payload);
 /* the socket comm loop is started internally by
  * socket_comm_session_initialize()
  * but needs to be explicitly stopped with this call. */
+bool stop_socket_comm_loop(void);
 bool destroy_socket_comm_loop(void);
 
 int socket_fd_node_compare(void *list_entry, void *new_entry);
