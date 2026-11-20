@@ -805,6 +805,36 @@ void test_handle_socket_comm_event_unknown_msg()
 }
 
 
+/* Unknown messages older than a minute no longer count towards
+ * max_unknown_messages (RFC 5440 is a per-minute rate).
+ */
+void test_handle_socket_comm_event_unknown_msg_purge(void)
+{
+	time_t *old_time = pceplib_malloc(PCEPLIB_INFRA, sizeof(time_t));
+	mock_socket_comm_info *mock_info;
+	uint8_t *encoded_msg;
+
+	/* One unknown message two minutes ago, max_unknown_messages = 2 */
+	*old_time = time(NULL) - 120;
+	queue_enqueue(session.num_unknown_messages_time_queue, old_time);
+
+	create_message_for_test(13, false, false);
+	mock_info = get_mock_socket_comm_info();
+	mock_info->send_message_save_message = true;
+
+	handle_socket_comm_event(&event);
+
+	/* The old entry is purged: an error is sent, the session stays open */
+	CU_ASSERT_EQUAL(session.num_unknown_messages_time_queue->num_entries, 1);
+	CU_ASSERT_EQUAL(session_logic_event_queue_->event_queue->num_entries, 0);
+	verify_socket_comm_times_called(0, 0, 0, 1, 0, 0, 0);
+
+	encoded_msg = dll_delete_first_node(mock_info->sent_message_list);
+	CU_ASSERT_PTR_NOT_NULL(encoded_msg);
+	pceplib_free(PCEPLIB_MESSAGES, encoded_msg);
+	destroy_message_for_test();
+}
+
 void test_connection_failure(void)
 {
 	/*

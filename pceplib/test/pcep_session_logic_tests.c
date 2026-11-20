@@ -163,6 +163,9 @@ int main(int argc, char **argv)
 	CU_add_test(test_session_logic_states_suite,
 		    "test_handle_socket_comm_event_unknown_msg",
 		    test_handle_socket_comm_event_unknown_msg);
+	CU_add_test(test_session_logic_states_suite,
+		    "test_handle_socket_comm_event_unknown_msg_purge",
+		    test_handle_socket_comm_event_unknown_msg_purge);
 	CU_add_test(test_session_logic_states_suite, "test_connection_failure",
 		    test_connection_failure);
 

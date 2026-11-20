@@ -705,7 +705,7 @@ void increment_unknown_message(pcep_session *session)
 	time_t *unknown_message_time =
 		pceplib_malloc(PCEPLIB_INFRA, sizeof(time_t));
 	*unknown_message_time = time(NULL);
-	time_t expire_time = *unknown_message_time + 60;
+	time_t expire_time = *unknown_message_time - 60;
 	queue_enqueue(session->num_unknown_messages_time_queue,
 		      unknown_message_time);
 
@@ -713,7 +713,7 @@ void increment_unknown_message(pcep_session *session)
 	 * queue head */
 	queue_node *time_node = session->num_unknown_messages_time_queue->head;
 	while (time_node != NULL) {
-		if (*((time_t *)time_node->data) > expire_time) {
+		if (*((time_t *)time_node->data) <= expire_time) {
 			pceplib_free(
 				PCEPLIB_INFRA,
 				queue_dequeue(
