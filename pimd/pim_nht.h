@@ -56,6 +56,9 @@ struct pim_nexthop_cache {
 	 */
 	uint32_t bsr_count;
 	uint32_t candrp_count;
+
+	/* IGMP/MLD proxy (S,G) entries tracking this source (RPF proxy mode) */
+	uint32_t gm_proxy_count;
 };
 
 struct pnc_hash_walk_data {
@@ -92,6 +95,12 @@ void pim_nht_set_gateway(struct pim_instance *pim, struct pim_nexthop_cache *pnc
 /* Track a new addr, registers an upstream or RP for updates */
 bool pim_nht_find_or_track(struct pim_instance *pim, pim_addr addr, struct pim_upstream *up,
 			   struct rp_info *rp, struct pim_nexthop_cache *out_pnc);
+
+/* Track a new addr, increments IGMP/MLD proxy count */
+void pim_nht_gm_proxy_add(struct pim_instance *pim, pim_addr addr);
+
+/* Decrement IGMP/MLD proxy count, if no-one else is interested, stop tracking */
+void pim_nht_gm_proxy_del(struct pim_instance *pim, pim_addr addr);
 
 /* Track a new addr, increments BSR count */
 void pim_nht_bsr_add(struct pim_instance *pim, pim_addr bsr_addr);

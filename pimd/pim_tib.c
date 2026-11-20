@@ -20,6 +20,20 @@
 #include "pim6_mld.h"
 #endif
 
+DEFINE_MTYPE_STATIC(PIMD, PIM_GM_PROXY_RPF, "PIM GM RPF proxy (S,G)");
+
+/* Ordered by source first so all groups for one source are adjacent */
+static int gm_proxy_rpf_cmp(const struct gm_proxy_rpf *a, const struct gm_proxy_rpf *b)
+{
+	int ret = pim_addr_cmp(a->sg.src, b->sg.src);
+
+	if (ret)
+		return ret;
+	return pim_addr_cmp(a->sg.grp, b->sg.grp);
+}
+
+DECLARE_RBTREE_UNIQ(gm_proxy_rpf, struct gm_proxy_rpf, item, gm_proxy_rpf_cmp);
+
 static struct channel_oil *
 tib_sg_oil_setup(struct pim_instance *pim, pim_sgaddr sg, struct interface *oif)
 {
@@ -236,6 +250,10 @@ static void tib_sg_proxy_prune_uncovered_sources(struct pim_instance *pim, pim_a
 	if (!pim_ifp || !pim_ifp->gm_join_list)
 		return;
 
+	/* In RPF proxy mode (S,G) proxy joins are owned by gm_proxy_rpf state */
+	if (pim->gm_proxy_rpf)
+		return;
+
 	for (ALL_LIST_ELEMENTS(pim_ifp->gm_join_list, node, nextnode, ij)) {
 		pim_sgaddr check;
 
@@ -263,6 +281,313 @@ static void tib_sg_proxy_prune_uncovered_sources(struct pim_instance *pim, pim_a
 	}
 }
 
+/*
+ * RPF proxy mode
+ *
+ * Only (S,G) memberships are handled here; (*,G) keeps the default behaviour
+ * of proxying on every proxy interface.  For each (S,G) the set of downstream
+ * interfaces with interest is kept, and the proxy join is placed only on the
+ * RPF interface toward S, and only if that interface is a proxy interface,
+ * is not itself the only downstream interface, and its proxy route-map
+ * permits the (S,G) for at least one downstream interface.  If the RPF
+ * interface is not a proxy interface this router is the first hop and no
+ * proxy join is sent.  If there is no route to S the entry stays pending
+ * until NHT reports one.  On an RPF change the new join is issued before the
+ * old one is withdrawn.
+ *
+ * Since the join only ever moves toward S, memberships learned on a proxy
+ * interface (e.g. from another proxy downstream of it) can be proxied
+ * onward without echoing back to where they came from.
+ */
+bool tib_sg_proxy_rpf_applies(struct pim_instance *pim, pim_sgaddr sg)
+{
+	return pim->gm_proxy_rpf && !pim_addr_is_any(sg.src);
+}
+
+static struct gm_proxy_rpf *tib_sg_proxy_rpf_find(struct pim_instance *pim, pim_sgaddr sg)
+{
+	struct gm_proxy_rpf ref = { .sg = sg };
+
+	return gm_proxy_rpf_find(&pim->gm_proxy_rpf_sgs, &ref);
+}
+
+static bool tib_sg_proxy_rpf_ds_has(struct gm_proxy_rpf *e, ifindex_t ifindex)
+{
+	for (unsigned int i = 0; i < e->ds_count; i++)
+		if (e->ds_ifindex[i] == ifindex)
+			return true;
+	return false;
+}
+
+static void tib_sg_proxy_rpf_ds_add(struct gm_proxy_rpf *e, ifindex_t ifindex)
+{
+	if (tib_sg_proxy_rpf_ds_has(e, ifindex))
+		return;
+
+	if (e->ds_count == e->ds_alloc) {
+		e->ds_alloc = e->ds_alloc ? e->ds_alloc * 2 : 4;
+		e->ds_ifindex = XREALLOC(MTYPE_PIM_GM_PROXY_RPF, e->ds_ifindex,
+					 e->ds_alloc * sizeof(*e->ds_ifindex));
+	}
+	e->ds_ifindex[e->ds_count++] = ifindex;
+}
+
+static void tib_sg_proxy_rpf_ds_del(struct gm_proxy_rpf *e, ifindex_t ifindex)
+{
+	for (unsigned int i = 0; i < e->ds_count; i++) {
+		if (e->ds_ifindex[i] != ifindex)
+			continue;
+		e->ds_ifindex[i] = e->ds_ifindex[--e->ds_count];
+		return;
+	}
+}
+
+static void tib_sg_proxy_rpf_free(struct gm_proxy_rpf *e)
+{
+	XFREE(MTYPE_PIM_GM_PROXY_RPF, e->ds_ifindex);
+	XFREE(MTYPE_PIM_GM_PROXY_RPF, e);
+}
+
+/* Is ds_ifp a downstream interface the proxy join on rpf_ifp would serve? */
+static bool tib_sg_proxy_rpf_ds_permitted(struct interface *rpf_ifp, struct interface *ds_ifp,
+					  struct prefix_sg *pfx)
+{
+	struct pim_interface *pim_rpf = rpf_ifp->info;
+
+	/* Never send the join back out where the membership came from */
+	if (ds_ifp == rpf_ifp)
+		return false;
+
+	return pim_filter_match(&pim_rpf->gm_proxy_filter, pfx, rpf_ifp, ds_ifp);
+}
+
+/* The proxy interface sg should be joined on right now, or NULL for none */
+static struct interface *tib_sg_proxy_rpf_select(struct pim_instance *pim, struct gm_proxy_rpf *e)
+{
+	struct pim_interface *pim_rpf;
+	struct interface *rpf_ifp;
+	struct pim_nexthop nexthop = {};
+	struct prefix grp;
+	struct prefix_sg pfx;
+
+	pim_addr_to_prefix(&grp, e->sg.grp);
+	if (!pim_nht_lookup_ecmp(pim, &nexthop, e->sg.src, &grp, false, NULL) ||
+	    !nexthop.interface) {
+		if (PIM_DEBUG_GM_TRACE)
+			zlog_debug("%s: (%s:%u:%u)%pSG no RPF for source, proxy join pending",
+				   __func__, PIM_DEBUG_VRF(pim->vrf), &e->sg);
+		return NULL;
+	}
+
+	rpf_ifp = nexthop.interface;
+	pim_rpf = rpf_ifp->info;
+	if (!pim_rpf->gm_enable || !pim_rpf->gm_proxy) {
+		if (PIM_DEBUG_GM_TRACE)
+			zlog_debug("%s: (%s:%u:%u)%pSG RPF %s is not a proxy interface (first hop), no proxy join",
+				   __func__, PIM_DEBUG_VRF(pim->vrf), &e->sg, rpf_ifp->name);
+		return NULL;
+	}
+
+	pim_sg_to_prefix(&e->sg, &pfx);
+
+	for (unsigned int i = 0; i < e->ds_count; i++) {
+		struct interface *ds_ifp = if_lookup_by_index(e->ds_ifindex[i], pim->vrf->vrf_id);
+
+		if (ds_ifp && tib_sg_proxy_rpf_ds_permitted(rpf_ifp, ds_ifp, &pfx))
+			return rpf_ifp;
+	}
+
+	if (PIM_DEBUG_GM_TRACE)
+		zlog_debug("%s: (%s:%u:%u)%pSG no downstream interest for RPF proxy %s", __func__,
+			   PIM_DEBUG_VRF(pim->vrf), &e->sg, rpf_ifp->name);
+	return NULL;
+}
+
+/* Move the proxy join for e to where it belongs: join new, then leave old */
+static void tib_sg_proxy_rpf_update(struct pim_instance *pim, struct gm_proxy_rpf *e)
+{
+	struct interface *new_ifp, *old_ifp = NULL;
+
+	new_ifp = tib_sg_proxy_rpf_select(pim, e);
+	if (e->proxy_ifindex != IFINDEX_INTERNAL)
+		old_ifp = if_lookup_by_index(e->proxy_ifindex, pim->vrf->vrf_id);
+
+	if (new_ifp == old_ifp) {
+		e->proxy_ifindex = new_ifp ? new_ifp->ifindex : IFINDEX_INTERNAL;
+		return;
+	}
+
+	if (PIM_DEBUG_GM_TRACE)
+		zlog_debug("%s: (%s:%u:%u)%pSG RPF proxy %s -> %s", __func__,
+			   PIM_DEBUG_VRF(pim->vrf), &e->sg, old_ifp ? old_ifp->name : "none",
+			   new_ifp ? new_ifp->name : "none");
+
+	/*
+	 * If the new join fails, keep the old one and the recorded proxy
+	 * interface, so that the next update tries the move again.
+	 */
+	if (new_ifp &&
+	    pim_if_gm_join_add(new_ifp, e->sg.grp, e->sg.src, GM_JOIN_PROXY) != ferr_ok()) {
+		zlog_warn("%s: (%s:%u:%u)%pSG failed to join on %s, keeping %s", __func__,
+			  PIM_DEBUG_VRF(pim->vrf), &e->sg, new_ifp->name,
+			  old_ifp ? old_ifp->name : "none");
+		return;
+	}
+	if (old_ifp)
+		pim_if_gm_join_del(old_ifp, e->sg.grp, e->sg.src, GM_JOIN_PROXY);
+
+	e->proxy_ifindex = new_ifp ? new_ifp->ifindex : IFINDEX_INTERNAL;
+}
+
+static void tib_sg_proxy_rpf_join(struct pim_instance *pim, pim_sgaddr sg, struct interface *oif)
+{
+	struct gm_proxy_rpf *e;
+
+	if (pim->stopping)
+		return;
+
+	e = tib_sg_proxy_rpf_find(pim, sg);
+	if (!e) {
+		e = XCALLOC(MTYPE_PIM_GM_PROXY_RPF, sizeof(*e));
+		e->sg = sg;
+		e->proxy_ifindex = IFINDEX_INTERNAL;
+		gm_proxy_rpf_add(&pim->gm_proxy_rpf_sgs, e);
+		pim_nht_gm_proxy_add(pim, sg.src);
+	}
+
+	tib_sg_proxy_rpf_ds_add(e, oif->ifindex);
+	tib_sg_proxy_rpf_update(pim, e);
+}
+
+static void tib_sg_proxy_rpf_leave(struct pim_instance *pim, pim_sgaddr sg, struct interface *oif)
+{
+	struct gm_proxy_rpf *e;
+
+	if (pim->stopping)
+		return;
+
+	e = tib_sg_proxy_rpf_find(pim, sg);
+	if (!e)
+		return;
+
+	tib_sg_proxy_rpf_ds_del(e, oif->ifindex);
+	tib_sg_proxy_rpf_update(pim, e);
+
+	if (e->ds_count)
+		return;
+
+	gm_proxy_rpf_del(&pim->gm_proxy_rpf_sgs, e);
+	pim_nht_gm_proxy_del(pim, sg.src);
+	tib_sg_proxy_rpf_free(e);
+}
+
+static void tib_sg_proxy_rpf_ds_foreach(struct pim_instance *pim, pim_sgaddr sg,
+					struct interface *proxy_ifp, struct interface *skip_ifp,
+					void (*cb)(struct interface *ifp, void *arg), void *arg)
+{
+	struct gm_proxy_rpf *e;
+	struct prefix_sg pfx;
+
+	e = tib_sg_proxy_rpf_find(pim, sg);
+	if (!e || e->proxy_ifindex != proxy_ifp->ifindex)
+		return;
+
+	pim_sg_to_prefix(&sg, &pfx);
+
+	for (unsigned int i = 0; i < e->ds_count; i++) {
+		struct interface *ds_ifp = if_lookup_by_index(e->ds_ifindex[i], pim->vrf->vrf_id);
+
+		if (!ds_ifp || ds_ifp == skip_ifp)
+			continue;
+		if (!tib_sg_proxy_rpf_ds_permitted(proxy_ifp, ds_ifp, &pfx))
+			continue;
+		cb(ds_ifp, arg);
+	}
+}
+
+void tib_sg_proxy_rpf_nht_update(struct pim_instance *pim, pim_addr src)
+{
+	struct gm_proxy_rpf ref = { .sg.src = src, .sg.grp = PIMADDR_ANY };
+	struct gm_proxy_rpf *e, *from;
+
+	from = gm_proxy_rpf_find_gteq(&pim->gm_proxy_rpf_sgs, &ref);
+	frr_each_from (gm_proxy_rpf, &pim->gm_proxy_rpf_sgs, e, from) {
+		if (pim_addr_cmp(e->sg.src, src))
+			break;
+		tib_sg_proxy_rpf_update(pim, e);
+	}
+}
+
+void tib_sg_proxy_rpf_update_all(struct pim_instance *pim)
+{
+	struct gm_proxy_rpf *e;
+
+	frr_each (gm_proxy_rpf, &pim->gm_proxy_rpf_sgs, e)
+		tib_sg_proxy_rpf_update(pim, e);
+}
+
+void tib_sg_proxy_rpf_set(struct pim_instance *pim, bool enable)
+{
+	struct interface *ifp;
+	struct gm_proxy_rpf *e;
+
+	if (pim->gm_proxy_rpf == enable)
+		return;
+
+	/*
+	 * Tear down every proxy join, drop the RPF state and rebuild as if
+	 * each proxy interface had just been enabled under the new mode.
+	 */
+	FOR_ALL_INTERFACES (pim->vrf, ifp) {
+		struct pim_interface *pim_ifp = ifp->info;
+
+		if (pim_ifp && pim_ifp->gm_proxy)
+			pim_if_gm_proxy_finis(pim, ifp);
+	}
+
+	while ((e = gm_proxy_rpf_pop(&pim->gm_proxy_rpf_sgs))) {
+		pim_nht_gm_proxy_del(pim, e->sg.src);
+		tib_sg_proxy_rpf_free(e);
+	}
+
+	pim->gm_proxy_rpf = enable;
+
+	FOR_ALL_INTERFACES (pim->vrf, ifp) {
+		struct pim_interface *pim_ifp = ifp->info;
+
+		if (pim_ifp && pim_ifp->gm_proxy)
+			pim_if_gm_proxy_init(pim, ifp);
+	}
+}
+
+/*
+ * The RPF lookup only accepts interfaces with PIM enabled, and only
+ * proxies on interfaces with IGMP/MLD enabled: re-evaluate when an
+ * interface gains or loses either.
+ */
+void tib_sg_proxy_rpf_if_changed(struct interface *ifp)
+{
+	struct pim_instance *pim = ifp->vrf->info;
+
+	if (pim && pim->gm_proxy_rpf)
+		tib_sg_proxy_rpf_update_all(pim);
+}
+
+void tib_sg_proxy_rpf_init(struct pim_instance *pim)
+{
+	gm_proxy_rpf_init(&pim->gm_proxy_rpf_sgs);
+}
+
+/* Instance teardown: NHT and joins are cleaned up by their own terminate paths */
+void tib_sg_proxy_rpf_fini(struct pim_instance *pim)
+{
+	struct gm_proxy_rpf *e;
+
+	while ((e = gm_proxy_rpf_pop(&pim->gm_proxy_rpf_sgs)))
+		tib_sg_proxy_rpf_free(e);
+	gm_proxy_rpf_fini(&pim->gm_proxy_rpf_sgs);
+}
+
 void tib_sg_downstream_ifaces_foreach(struct pim_instance *pim, pim_sgaddr sg,
 				      struct interface *proxy_ifp, struct interface *skip_ifp,
 				      void (*cb)(struct interface *ifp, void *arg), void *arg)
@@ -276,6 +601,11 @@ void tib_sg_downstream_ifaces_foreach(struct pim_instance *pim, pim_sgaddr sg,
 
 	pim_proxy = proxy_ifp->info;
 	pim_sg_to_prefix(&sg, &pfx);
+
+	if (tib_sg_proxy_rpf_applies(pim, sg)) {
+		tib_sg_proxy_rpf_ds_foreach(pim, sg, proxy_ifp, skip_ifp, cb, arg);
+		return;
+	}
 
 	FOR_ALL_INTERFACES (pim->vrf, ifp) {
 		if (ifp == skip_ifp || ifp == proxy_ifp)
@@ -292,6 +622,14 @@ void tib_sg_proxy_join_prune_check(struct pim_instance *pim, pim_sgaddr sg,
 				   struct interface *oif, bool join)
 {
 	struct interface *ifp;
+
+	if (tib_sg_proxy_rpf_applies(pim, sg)) {
+		if (join)
+			tib_sg_proxy_rpf_join(pim, sg, oif);
+		else
+			tib_sg_proxy_rpf_leave(pim, sg, oif);
+		return;
+	}
 
 	FOR_ALL_INTERFACES (pim->vrf, ifp) {
 		struct pim_interface *pim_ifp = ifp->info;
