@@ -1348,6 +1348,15 @@ IPv6 Support
 
    Default: disabled (link-local addresses are installed to Zebra).
 
+   .. note::
+
+      Independent of this command, the global IPv6 address is installed if the
+      link-local address of the peer can not be reached on the link of the BGP
+      session: when the session is sourced from a loopback (or VRF) interface,
+      or when the peer is a multihop eBGP peer whose address is not part of a
+      connected network. The link-local nexthop is still displayed in the BGP
+      RIB.
+
 .. clicmd:: bgp ipv6-auto-ra
 
    By default, bgpd can ask Zebra to enable sending IPv6 router advertisement

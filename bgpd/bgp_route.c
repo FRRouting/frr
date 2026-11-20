@@ -6150,6 +6150,29 @@ void bgp_update_check_valid_flags(struct bgp *bgp, struct peer *peer, struct bgp
 	}
 }
 
+/*
+ * A link-local nexthop is only usable on the link which is shared with the
+ * peer, and it gets bound to the interface which holds the local address of
+ * the session (peer->nexthop.ifp).
+ *
+ * Return false if the link-local nexthop of the peer can not be reached that
+ * way:
+ * - the session is sourced from a loopback (or VRF) interface: there is no
+ *   neighbor which could be resolved on such an interface.
+ * - the peer is a multihop eBGP peer and its address is not part of one of
+ *   the connected networks.
+ */
+static bool bgp_peer_ll_nexthop_usable(const struct peer *peer)
+{
+	if (peer->nexthop.ifp && if_is_loopback(peer->nexthop.ifp))
+		return false;
+
+	if (peer->sort == BGP_PEER_EBGP && peer->ttl != BGP_DEFAULT_TTL && !peer->shared_network)
+		return false;
+
+	return true;
+}
+
 void bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 		struct attr *attr, afi_t afi, safi_t safi, int type,
 		int sub_type, struct prefix_rd *prd, mpls_label_t *label,
@@ -6506,6 +6529,19 @@ void bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 	 * but is applied globally for the configured AFI/SAFI.
 	 */
 	if (peer->bgp->nexthop_prefer_global[afi][safi])
+		SET_FLAG(new_attr.nh_flags, BGP_ATTR_NH_MP_PREFER_GLOBAL);
+
+	/*
+	 * Both a global and a link-local nexthop were received, but the
+	 * link-local nexthop is not usable because the peer is not on the link
+	 * of the session. Use the global nexthop, which can be resolved
+	 * recursively, instead of installing the link-local nexthop on an
+	 * interface where it is not reachable.
+	 */
+	if (new_attr.mp_nexthop_len == BGP_ATTR_NHLEN_IPV6_GLOBAL_AND_LL &&
+	    !IN6_IS_ADDR_UNSPECIFIED(&new_attr.mp_nexthop_global) &&
+	    !IN6_IS_ADDR_LINKLOCAL(&new_attr.mp_nexthop_global) &&
+	    !bgp_peer_ll_nexthop_usable(peer))
 		SET_FLAG(new_attr.nh_flags, BGP_ATTR_NH_MP_PREFER_GLOBAL);
 
 	if (pi && pi->attr->rmap_table_id != new_attr.rmap_table_id) {
