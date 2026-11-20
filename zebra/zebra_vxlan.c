@@ -5315,7 +5315,7 @@ void zebra_vxlan_remote_vtep_add(vrf_id_t vrf_id, vni_t vni, struct ipaddr *vtep
 		 * the flood mode has changed
 		 */
 		if (zvtep->flood_control != flood_control) {
-			if (zvtep->flood_control == VXLAN_FLOOD_DISABLED)
+			if (zvtep->flood_control == VXLAN_FLOOD_HEAD_END_REPL)
 				/* old mode was head-end-replication but
 				 * is no longer; get rid of the HER fdb
 				 * entry installed before
@@ -5983,6 +5983,14 @@ void zebra_vxlan_flood_control(ZAPI_HANDLER_ARGS)
 		zevpn->flood_ctrl = flood_ctrl;
 	}
 
+	/*
+	 * bgpd restates per-VNI modes while learning its VNIs on reconnect.
+	 * Save those modes, but do not apply them to unrefreshed remote VTEPs.
+	 * The GR sweep will reconcile the surviving VTEPs after route sync.
+	 */
+	if (zvrf->evpn_flood_resync_needed)
+		return;
+
 	args[0] = &vni;
 	args[1] = zvrf;
 
@@ -6336,9 +6344,40 @@ void zebra_vxlan_advertise_all_vni(ZAPI_HANDLER_ARGS)
 			   is_evpn_enabled() ? "enabled" : "disabled",
 			   flood_ctrl);
 
-	if (zvrf->advertise_all_vni == advertise)
-		return;
+	if (zvrf->advertise_all_vni == advertise) {
+		/*
+		 * Zebra's own tables stayed current over netlink, so only
+		 * the client-facing replay is needed. Gateway MAC-IPs and
+		 * subnet prefixes get walks of their own; the MAC replay
+		 * and the retained advertise-subnet state skip them.
+		 */
+		if (advertise && zvrf->vxlan_flood_ctrl != flood_ctrl) {
+			/*
+			 * Record the reconnecting client's global mode, but wait
+			 * until stale EVPN entries are swept to reconcile the flood
+			 * list. The retained VTEP table is not synchronized yet.
+			 */
+			zvrf->vxlan_flood_ctrl = flood_ctrl;
+		}
 
+		if (advertise && zvrf->evpn_resync_needed) {
+			zvrf->evpn_resync_needed = false;
+
+			/*
+			 * ESs go after the VNIs: bgpd rejects a local
+			 * ES-EVI add for a VNI it does not know yet.
+			 */
+			zevpn_build_hash_table();
+			zebra_evpn_es_send_all_to_client(true);
+			hash_iterate(zvrf->evpn_table, zebra_evpn_gw_macip_add_for_evpn_hash, NULL);
+			hash_iterate(zvrf->evpn_table, zebra_evpn_advertise_subnet_for_evpn_hash,
+				     NULL);
+		}
+		return;
+	}
+
+	zvrf->evpn_resync_needed = false;
+	zvrf->evpn_flood_resync_needed = false;
 	zvrf->advertise_all_vni = advertise;
 	if (EVPN_ENABLED(zvrf)) {
 		zrouter.evpn_vrf = zvrf;
@@ -6810,6 +6849,7 @@ static void zebra_evpn_vrf_cfg_cleanup(struct zebra_vrf *zvrf, bool stale_cleanu
 	struct l2vni_walk_ctx wctx;
 
 	if (!stale_cleanup) {
+		zvrf->evpn_flood_resync_needed = false;
 		zvrf->advertise_all_vni = 0;
 		zvrf->advertise_gw_macip = 0;
 		zvrf->advertise_svi_macip = 0;
@@ -6862,6 +6902,23 @@ void zebra_evpn_stale_entries_cleanup(uint64_t gr_cleanup_time)
 	}
 }
 
+/* Reconcile flood modes after the GR sweep has removed stale VTEPs. */
+void zebra_evpn_flood_control_resync(struct zebra_vrf *zvrf)
+{
+	vni_t vni = VNI_MAX;
+	void *args[2];
+
+	zvrf->evpn_flood_resync_needed = false;
+	if (!EVPN_ENABLED(zvrf))
+		return;
+
+	args[0] = &vni;
+	args[1] = zvrf;
+	hash_iterate(zvrf->evpn_table,
+		     (void (*)(struct hash_bucket *, void *))zebra_evpn_handle_flooding_remote_vteps,
+		     args);
+}
+
 /* Cleanup BGP EVPN configuration upon client disconnect */
 static int zebra_evpn_bgp_cfg_clean_up(struct zserv *client)
 {
@@ -6893,6 +6950,16 @@ static int zebra_evpn_pim_cfg_clean_up(struct zserv *client)
 static int zebra_evpn_cfg_clean_up(struct zserv *client)
 {
 	if (client->proto == ZEBRA_ROUTE_BGP) {
+		struct zebra_vrf *zvrf;
+
+		/*
+		 * Extra BGP zserv sessions (session_id != 0) own no EVPN
+		 * config; bgpd opens one for synchronous label-manager
+		 * exchanges. Their disconnect must not clear it.
+		 */
+		if (client->session_id)
+			return 0;
+
 		if (DYNAMIC_CLIENT_GR_DISABLED(client)) {
 			if (IS_ZEBRA_DEBUG_EVENT)
 				zlog_debug(
@@ -6921,6 +6988,16 @@ static int zebra_evpn_cfg_clean_up(struct zserv *client)
 
 		if (!client->synchronous && IS_ZEBRA_DEBUG_EVPN_MH_ES)
 			zlog_debug("EVPN-GR: retaining remote ES VTEPs across bgp disconnect");
+
+		/*
+		 * GR kept the config, so what the client re-sends on reconnect
+		 * looks unchanged to zebra and is dropped. Ask for a replay.
+		 */
+		zvrf = zebra_vrf_get_evpn();
+		if (zvrf && zvrf->advertise_all_vni) {
+			zvrf->evpn_resync_needed = true;
+			zvrf->evpn_flood_resync_needed = true;
+		}
 	}
 
 	if (client->proto == ZEBRA_ROUTE_PIM)
