@@ -740,9 +740,17 @@ int ospf_auth_type(struct ospf_interface *oi)
 	/* Handle case where MD5 key list, or a key-chain, is not configured aka Cisco */
 	if (auth_type == OSPF_AUTH_CRYPTOGRAPHIC
 	    && (list_isempty(OSPF_IF_PARAM(oi, auth_crypt))
-		&& OSPF_IF_PARAM(oi, keychain_name) == NULL))
+		&& OSPF_IF_PARAM(oi, keychain_name) == NULL)) {
+		if (!oi->auth_null_fallback_warned) {
+			oi->auth_null_fallback_warned = true;
+			flog_warn(EC_OSPF_AUTH,
+				  "interface %s: message-digest authentication configured without any key, falling back to NULL authentication (Cisco-compatible)",
+				  IF_NAME(oi));
+		}
 		return OSPF_AUTH_NULL;
+	}
 
+	oi->auth_null_fallback_warned = false;
 	return auth_type;
 }
 
