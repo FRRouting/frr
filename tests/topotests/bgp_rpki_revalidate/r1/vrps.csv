@@ -1,0 +1,4 @@
+ASN,IP Prefix,Max Length,Trust Anchor
+AS65001,10.10.1.0/24,24,private
+AS65001,10.10.2.0/24,24,private
+AS65099,10.10.3.0/24,24,private
