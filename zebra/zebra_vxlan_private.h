@@ -212,6 +212,8 @@ struct nh_walk_ctx {
 extern struct zebra_l3vni *zl3vni_from_vrf(vrf_id_t vrf_id);
 extern struct interface *zl3vni_map_to_vxlan_if(struct zebra_l3vni *zl3vni);
 extern struct interface *zl3vni_map_to_svi_if(struct zebra_l3vni *zl3vni);
+extern void zl3vni_access_vlan_update(struct zebra_l3vni *zl3vni, struct zebra_vxlan_vni *vnip,
+				      vlanid_t old_vlan);
 extern struct interface *zl3vni_map_to_mac_vlan_if(struct zebra_l3vni *zl3vni);
 extern struct zebra_l3vni *zl3vni_lookup(vni_t vni);
 extern vni_t vni_id_from_svi(struct interface *ifp, struct interface *br_if);

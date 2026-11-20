@@ -264,8 +264,7 @@ static int zebra_vxlan_if_update_vni(struct interface *ifp,
 		if (CHECK_FLAG(chgflags, ZEBRA_VXLIF_VLAN_CHANGE)) {
 			if (if_is_operative(ifp)) {
 				zebra_vxlan_process_l3vni_oper_down(zl3vni);
-				zl3vni->svi_if = NULL;
-				zl3vni->svi_if = zl3vni_map_to_svi_if(zl3vni);
+				zl3vni_access_vlan_update(zl3vni, vnip, ctx->old_vni.access_vlan);
 				zl3vni->mac_vlan_if =
 					zl3vni_map_to_mac_vlan_if(zl3vni);
 				zl3vni->local_vtep_ip = vxl->vtep_ip;
