@@ -448,6 +448,7 @@ static void rip_rte_process(struct rte *rte, struct sockaddr_in *from,
 	struct route_node *rp;
 	struct rip_info *rinfo = NULL, newinfo;
 	struct rip_interface *ri;
+	struct connected *nh_ifc;
 	struct in_addr *nexthop;
 	int same = 0;
 	unsigned char old_dist, new_dist;
@@ -530,6 +531,17 @@ static void rip_rte_process(struct rte *rte, struct sockaddr_in *from,
 				   nexthop);
 		return;
 	}
+
+	/* The next hop is not necessarily reachable on the interface the
+	 * update arrived on: the RIPv2 next hop field may name a router on
+	 * another directly connected network.  Bind the route to the
+	 * interface the next hop is actually reachable on (falling back to
+	 * the arrival interface), so split horizon and next hop propagation
+	 * see the real egress interface.
+	 */
+	nh_ifc = if_lookup_address((void *)nexthop, AF_INET, rip->vrf->vrf_id);
+	if (nh_ifc)
+		newinfo.nh.ifindex = nh_ifc->ifp->ifindex;
 
 	/* Get index for the prefix. */
 	rp = route_node_get(rip->table, (struct prefix *)&p);
@@ -1271,8 +1283,24 @@ static void rip_response_process(struct rip_packet *packet, int size,
 					if (rn->info)
 						rinfo = rip_info_list_first(rn->info);
 
+					/* Only resolve the next hop through the
+					 * matched route when that route is
+					 * usable (a metric of 16 means it is
+					 * being withdrawn and must not vouch
+					 * for reachability) and when it was
+					 * learned on the interface this packet
+					 * arrived on; RFC 2453 section 4.4
+					 * requires the next hop to be directly
+					 * reachable on the subnet the
+					 * advertisement was made over.
+					 * Otherwise the gateway would not be
+					 * reachable on the new entry's
+					 * interface.
+					 */
 					if (rinfo && rinfo->type == ZEBRA_ROUTE_RIP &&
-					    rinfo->sub_type == RIP_ROUTE_RTE) {
+					    rinfo->sub_type == RIP_ROUTE_RTE &&
+					    rinfo->metric != RIP_METRIC_INFINITY &&
+					    rinfo->nh.ifindex == ifc->ifp->ifindex) {
 						if (IS_RIP_DEBUG_EVENT)
 							zlog_debug(
 								"Next hop %pI4 is on RIP network.  Set nexthop to the packet's originator",
