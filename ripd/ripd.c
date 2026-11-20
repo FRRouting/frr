@@ -3333,11 +3333,12 @@ void rip_distribute_update_interface(struct interface *ifp)
 /* ARGSUSED */
 static void rip_distribute_update_all(struct prefix_list *notused)
 {
-	struct vrf *vrf = vrf_lookup_by_id(VRF_DEFAULT);
+	struct vrf *vrf;
 	struct interface *ifp;
 
-	FOR_ALL_INTERFACES (vrf, ifp)
-		rip_distribute_update_interface(ifp);
+	RB_FOREACH (vrf, vrf_id_head, &vrfs_by_id)
+		FOR_ALL_INTERFACES (vrf, ifp)
+			rip_distribute_update_interface(ifp);
 }
 /* ARGSUSED */
 static void rip_distribute_update_all_wrapper(struct access_list *notused)
@@ -3458,15 +3459,15 @@ static void rip_routemap_update_redistribute(struct rip *rip)
 /* ARGSUSED */
 static void rip_routemap_update(const char *notused)
 {
-	struct vrf *vrf = vrf_lookup_by_id(VRF_DEFAULT);
 	struct rip *rip;
+	struct vrf *vrf;
 	struct interface *ifp;
 
-	FOR_ALL_INTERFACES (vrf, ifp)
-		rip_if_rmap_update_interface(ifp);
+	RB_FOREACH (vrf, vrf_id_head, &vrfs_by_id)
+		FOR_ALL_INTERFACES (vrf, ifp)
+			rip_if_rmap_update_interface(ifp);
 
-	rip = vrf->info;
-	if (rip)
+	RB_FOREACH (rip, rip_instance_head, &rip_instances)
 		rip_routemap_update_redistribute(rip);
 }
 
