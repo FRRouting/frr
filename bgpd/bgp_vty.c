@@ -3672,11 +3672,13 @@ static void bgp_graceful_restart_restart_time_set(struct bgp *bgp, uint32_t rest
 {
 	struct listnode *node, *nnode;
 	struct peer *peer;
+	uint32_t old_restart_time = bgp->restart_time;
 
-	if (bgp->restart_time == restart_time)
+	if (old_restart_time == restart_time)
 		return;
 
 	bgp->restart_time = restart_time;
+	bgp_startup_timer_update(bgp, old_restart_time);
 
 	for (ALL_LIST_ELEMENTS(bgp->peer, node, nnode, peer)) {
 		if (!CHECK_FLAG(peer->cap, PEER_CAP_DYNAMIC_RCV) ||
