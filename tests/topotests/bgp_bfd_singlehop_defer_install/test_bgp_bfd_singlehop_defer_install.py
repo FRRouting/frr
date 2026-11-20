@@ -18,7 +18,7 @@ bfdd keys sessions on those fields, so the (already Up) session was deleted
 and re-created with a new discriminator: the remote saw BFD go Down and, in
 the field, reset BGP.
 
-Topology (r2/r3 are passive, their BFD sessions are static so their counters
+Topology (r2/r3 are passive except towards fe80::c:1, their BFD sessions are static so their counters
 only reflect what r1 does; link-local addresses are pinned to fe80::<n>:1 on
 r1 and fe80::<n>:2 on r2):
 
@@ -30,8 +30,9 @@ r1 and fe80::<n>:2 on r2):
   r1-eth2 192.0.2.5/30       ---- r2-eth2 192.0.2.6/30        IPv4, strict
   r1-eth3 2001:db8:4::1/64   ---- r2-eth3 2001:db8:4::2/64    IPv6, strict
                                                               inherited from pg
-  r1-eth4 192.0.2.9/30       ---- r2-eth4 192.0.2.10/30       r2 lo .2, egress
-                                                              unknown pre-TCP
+  r1-eth4 192.0.2.9/30       ---- r2-eth4 192.0.2.10/30       r2 lo .2, no
+                                                              connected subnet:
+                                                              no interface
   r1-eth5 192.0.2.13/30      ---- r2-eth5 192.0.2.14/30       r2 lo .4, same,
                                                               strict inherited
                                                               from pg (fallback)
@@ -57,6 +58,21 @@ r1 and fe80::<n>:2 on r2):
                                                               local address is
                                                               on lo, BFD egress
                                                               stays r1-eth14
+  r1-eth15 192.0.2.29/30     ---- r2-eth14 192.0.2.30/30      update-source lo
+                                                              (r1 lo .129): BFD
+                                                              egress stays
+                                                              r1-eth15, not lo
+  r1-eth16 192.0.2.33/30     ---- r2-eth15 192.0.2.34/30      VRF BLUE on r1,
+                                                              update-source
+                                                              BLUE (r1 BLUE
+                                                              .130): BFD egress
+                                                              stays r1-eth16,
+                                                              not the VRF device
+  r1-eth17 fe80::c:1         ---- r2-eth16 fe80::c:2          link-local
+                                                              neighbor, no
+                                                              interface, update-
+                                                              source r1-eth17;
+                                                              r2 connects
   r1 lo 198.51.100.1 ---(via eth0)--- r2 lo 198.51.100.3      multihop
   r1 lo 2001:db8:ff::1 ---(via eth1)--- r2 lo 2001:db8:ff::3  IPv6 multihop
 """
@@ -66,7 +82,6 @@ import sys
 import json
 import time
 import pytest
-import functools
 
 CWD = os.path.dirname(os.path.realpath(__file__))
 sys.path.append(os.path.join(CWD, "../"))
@@ -87,6 +102,7 @@ LINK_LOCAL = {
         "r1-eth10": "fe80::a:1",
         "r1-eth11.100": "fe80::b:1",
         "r1-eth11.101": "fe80::b:1",
+        "r1-eth17": "fe80::c:1",
     },
     "r2": {
         "r2-eth7": "fe80::7:2",
@@ -95,6 +111,7 @@ LINK_LOCAL = {
         "r2-eth10": "fe80::a:2",
         "r2-eth11.100": "fe80::b:2",
         "r2-eth11.101": "fe80::b:2",
+        "r2-eth16": "fe80::c:2",
     },
 }
 
@@ -110,11 +127,16 @@ RESOLVABLE = {
     "fe80::a:2": ("fe80::a:2%r1-eth10", "r1-eth10", "fe80::a:1", ("r2", "fe80::a:1%r2-eth10")),
     "192.0.2.18": ("192.0.2.18", "r1-eth13", "192.0.2.17", ("r2", "192.0.2.17")),
     "192.0.2.26": ("192.0.2.26", "r1-eth14", "198.51.100.11", ("r2", "198.51.100.11")),
+    "192.0.2.30": ("192.0.2.30", "r1-eth15", "192.0.2.129", ("r2", "192.0.2.129")),
+    "192.0.2.34": ("192.0.2.34", "r1-eth16", "192.0.2.130", ("r2", "192.0.2.130")),
+    # link-local, no neighbor interface: update-source names the link
+    "fe80::c:2": ("fe80::c:2%r1-eth17", "r1-eth17", "fe80::c:1", ("r2", "fe80::c:1%r2-eth16")),
 }
 # Installed only once TCP is up.
 DEFERRED = {
     "192.0.2.2": ("192.0.2.2", "r1-eth0", "192.0.2.1", ("r2", "192.0.2.1")),
-    "198.51.100.2": ("198.51.100.2", "r1-eth4", "192.0.2.9", ("r2", "192.0.2.9")),
+    # no connected subnet: like the BGP socket, not bound to an interface
+    "198.51.100.2": ("198.51.100.2", None, "192.0.2.9", ("r2", "192.0.2.9")),
     "2001:db8:6::2": ("2001:db8:6::2", "r1-eth6", "2001:db8:6::1", ("r2", "2001:db8:6::1")),
     "r1-eth7": ("fe80::7:2%r1-eth7", "r1-eth7", "fe80::7:1", ("r2", "fe80::7:1%r2-eth7")),
     "fe80::9:2": ("fe80::9:2%r1-eth9", "r1-eth9", "fe80::9:1", ("r2", "fe80::9:1%r2-eth9")),
@@ -141,7 +163,7 @@ MULTIHOP = ("198.51.100.3", "2001:db8:ff::3")
 STRICT_FALLBACK = "198.51.100.4"
 PENDING_REMOVE = "198.51.100.5"
 PENDING_GROUP = ("PGP", "198.51.100.6")
-VRF_NEIGHBORS = {"192.0.2.18": "RED"}
+VRF_NEIGHBORS = {"192.0.2.18": "RED", "192.0.2.34": "BLUE"}
 ALL_NEIGHBORS = list(SINGLEHOP) + list(MULTIHOP) + [STRICT_FALLBACK]
 
 # r1 BFD ids / remote session-down counters once the held-down sessions are Up
@@ -162,7 +184,7 @@ def build_topo(tgen):
     switch.add_link(tgen.gears["r1"])
     switch.add_link(tgen.gears["r3"])
 
-    for switchn in (14, 15):
+    for switchn in (14, 15, 16, 17, 18):
         switch = tgen.add_switch("s{}".format(switchn))
         switch.add_link(tgen.gears["r1"])
         switch.add_link(tgen.gears["r2"])
@@ -187,7 +209,10 @@ def setup_module(mod):
 
     tgen.gears["r1"].cmd_raises(
         "ip link add RED type vrf table 10 && ip link set RED up && "
-        "ip link set r1-eth13 master RED"
+        "ip link set r1-eth13 master RED && "
+        "ip link add BLUE type vrf table 20 && ip link set BLUE up && "
+        "ip addr add 192.0.2.130/32 dev BLUE && "
+        "ip link set r1-eth16 master BLUE"
     )
 
     for rname, router in tgen.routers().items():
@@ -286,7 +311,8 @@ def test_bfd_installed_with_interface_before_bgp_connects():
             for peer, ifname, local, _ in RESOLVABLE.values()
         }
         expected[STRICT_FALLBACK] = {"status": "up"}
-        expected[RESOLVABLE["192.0.2.18"][0]]["vrf"] = "RED"
+        for n, vrf in VRF_NEIGHBORS.items():
+            expected[RESOLVABLE[n][0]]["vrf"] = vrf
         return topotest.json_cmp(peers, expected)
 
     step("BFD sessions of BGP-down single-hop peers come Up with interface/local")
@@ -401,6 +427,19 @@ def test_bgp_peer_reset_keeps_bfd_session():
     r1 = tgen.gears["r1"]
     cleared = ("192.0.2.2", "2001:db8:2::2", "r1-eth7", "r1-eth11.100")
 
+    step("Bring the neighbors up (no-op after the previous test)")
+    r1_neighbors_cmd("no neighbor {} shutdown", cleared)
+
+    def _established():
+        expected = {
+            n: {"bgpState": "Established", "peerBfdInfo": {"status": "Up"}} for n in cleared
+        }
+        return topotest.json_cmp(bgp_neighbors(r1), expected)
+
+    _, result = topotest.run_and_expect(_established, None, count=60, wait=1)
+    assert result is None, "BGP/BFD did not come up before clear: {}".format(result)
+
+    established = {n: v["connectionsEstablished"] for n, v in bgp_neighbors(r1).items()}
     before = {p: v["id"] for p, v in bfd_peers(r1).items()}
     down_before = remote_downs()
 
@@ -410,7 +449,8 @@ def test_bgp_peer_reset_keeps_bfd_session():
 
     def _bgp_up():
         expected = {
-            n: {"bgpState": "Established", "connectionsEstablished": 2} for n in cleared
+            n: {"bgpState": "Established", "connectionsEstablished": established[n] + 1}
+            for n in cleared
         }
         return topotest.json_cmp(bgp_neighbors(r1), expected)
 
