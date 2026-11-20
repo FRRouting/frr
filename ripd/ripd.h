@@ -90,6 +90,19 @@ DECLARE_MTYPE(RIP_INFO_LIST);
 PREDECL_SORTLIST_UNIQ(rip_offset_list);
 PREDECL_SORTLIST_UNIQ(rip_peer_list);
 PREDECL_DLIST(rip_info_list);
+PREDECL_LIST(changed_route_list);
+
+/* One changed route collected for a triggered update round.  The
+ * route_node pointer is borrowed from the RIB; the entry is freed when
+ * the round is done.
+ */
+struct rip_changed_route {
+	struct route_node *node;
+
+	struct changed_route_list_item item;
+};
+
+DECLARE_LIST(changed_route_list, struct rip_changed_route, item);
 
 /* RIP structure. */
 struct rip {
@@ -119,6 +132,13 @@ struct rip {
 
 	/* RIP routing information base. */
 	struct route_table *table;
+
+	/* Changed routes collected for the triggered update round in
+	 * progress.  The route_node pointers are borrowed from the RIB; the
+	 * list is filled and emptied inside rip_triggered_update() and is
+	 * empty between rounds.
+	 */
+	struct changed_route_list_head changed_routes;
 
 	/* RIP static neighbors. */
 	struct route_table *neighbor;
