@@ -1427,6 +1427,7 @@ int rip_create_socket(struct vrf *vrf)
 	setsockopt_ipv4_tos(sock, IPTOS_PREC_INTERNETCONTROL);
 #endif
 	setsockopt_so_recvbuf(sock, RIP_UDP_RCV_BUF);
+	setsockopt_ifindex(AF_INET, sock, 1);
 
 	frr_with_privs(&ripd_privs) {
 		if ((ret = bind(sock, (struct sockaddr *)&addr, sizeof(addr)))
@@ -1748,9 +1749,12 @@ static void rip_read(struct event *t)
 	union rip_buf rip_buf;
 	struct rip_packet *packet;
 	struct sockaddr_in from;
+	struct msghdr msg;
+	struct iovec iov;
+	char adata[1024];
+	ifindex_t ifindex;
 	int len;
 	int vrecv;
-	socklen_t fromlen;
 	struct interface *ifp = NULL;
 	struct connected *ifc;
 	struct rip_interface *ri = NULL;
@@ -1764,12 +1768,19 @@ static void rip_read(struct event *t)
 
 	/* RIPd manages only IPv4. */
 	memset(&from, 0, sizeof(from));
-	fromlen = sizeof(struct sockaddr_in);
+	memset(&msg, 0, sizeof(msg));
+	msg.msg_name = (struct sockaddr *)&from;
+	msg.msg_namelen = sizeof(struct sockaddr_in);
+	msg.msg_iov = &iov;
+	msg.msg_iovlen = 1;
+	msg.msg_control = (void *)adata;
+	msg.msg_controllen = sizeof(adata);
+	iov.iov_base = (char *)&rip_buf.buf;
+	iov.iov_len = sizeof(rip_buf.buf);
 
-	len = recvfrom(sock, (char *)&rip_buf.buf, sizeof(rip_buf.buf), 0,
-		       (struct sockaddr *)&from, &fromlen);
+	len = recvmsg(sock, &msg, 0);
 	if (len < 0) {
-		zlog_info("recvfrom failed (VRF %s): %s", rip->vrf_name,
+		zlog_info("recvmsg failed (VRF %s): %s", rip->vrf_name,
 			  safe_strerror(errno));
 		return;
 	}
@@ -1782,13 +1793,26 @@ static void rip_read(struct event *t)
 		return;
 	}
 
-	/* Which interface is this packet comes from. */
-	ifc = if_lookup_address((void *)&from.sin_addr, AF_INET,
-				rip->vrf->vrf_id);
-	if (ifc) {
-		ifp = ifc->ifp;
-		ri = ifp->info;
+	/* Which interface is this packet comes from.  The kernel reports the
+	 * real ingress interface via IP_PKTINFO.  It, not the source address,
+	 * must select the interface: a source address from another
+	 * interface's connected prefix would otherwise apply that
+	 * interface's RIP configuration (running, version, authentication,
+	 * filters) and next-hop interface to a packet that never arrived
+	 * there.  Fall back to the source-address lookup only when the
+	 * kernel provides no interface index.
+	 */
+	ifindex = getsockopt_ifindex(AF_INET, &msg);
+	if (ifindex)
+		ifp = if_lookup_by_index(ifindex, rip->vrf->vrf_id);
+	else {
+		ifc = if_lookup_address((void *)&from.sin_addr, AF_INET,
+					rip->vrf->vrf_id);
+		if (ifc)
+			ifp = ifc->ifp;
 	}
+	if (ifp)
+		ri = ifp->info;
 
 	/* RIP packet received */
 	if (IS_RIP_DEBUG_EVENT)
