@@ -24,7 +24,7 @@ extern pid_t integrated_write_pid;
 extern void integrated_write_sigchld(int status);
 
 struct vty;
-extern void watchfrr_status(struct vty *vty);
+extern void watchfrr_status(struct vty *vty, bool use_json);
 
 /*
  * Check if all daemons we are monitoring are in the DAEMON_UP state.
