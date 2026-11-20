@@ -13,6 +13,10 @@
 #include "hook.h"
 #include "admin_group.h"
 
+#ifdef GNU_LINUX
+#include <linux/if_link.h>
+#endif
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -317,9 +321,9 @@ struct interface {
 	char ptm_status;
 
 /* Statistics fields. */
-#ifdef HAVE_PROC_NET_DEV
-	struct if_stats stats;
-#endif /* HAVE_PROC_NET_DEV */
+#ifdef HAVE_NETLINK
+	struct rtnl_link_stats64 stats;
+#endif /* HAVE_NETLINK */
 #ifdef HAVE_NET_RT_IFLIST
 	struct if_data stats;
 #endif /* HAVE_NET_RT_IFLIST */
