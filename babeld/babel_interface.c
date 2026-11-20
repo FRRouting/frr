@@ -639,6 +639,14 @@ static int interface_recalculate(struct interface *ifp)
 	if (rc > 0)
 		send_update(ifp, 0, NULL, 0);
 
+	/* The interface's hello/update timers were just (re)armed.  If the main
+	 * loop is asleep on an earlier-scheduled, far-future wakeup (e.g. the
+	 * daemon was running with no enabled interface), it would not honour
+	 * these timers until then, stalling Hellos on this interface for many
+	 * seconds.  Reschedule the loop to run now.
+	 */
+	babel_schedule_now();
+
 	return 1;
 }
 

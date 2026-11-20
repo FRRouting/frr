@@ -86,6 +86,8 @@ struct babel {
 	/* Babel threads. */
 	struct event *t_read;	/* on Babel protocol's socket */
 	struct event *t_update; /* timers */
+	/* babel_init_routing_process() has run and set myid/myseqno */
+	bool init_done;
 	/* distribute_ctx */
 	struct distribute_ctx *distribute_ctx;
 };
@@ -101,6 +103,7 @@ extern int redistribute_filter(const unsigned char *prefix, unsigned short plen,
 			       unsigned int ifindex, int proto);
 extern int resize_receive_buffer(int size);
 extern void schedule_neighbours_check(int msecs, int override);
+extern void babel_schedule_now(void);
 extern struct babel *babel_lookup(void);
 extern void babel_clean_routing_process(void);
 
