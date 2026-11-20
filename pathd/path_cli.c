@@ -36,12 +36,13 @@ static int segment_list_has_src_dst(
 	struct in6_addr adj_src_ipv6, struct in6_addr adj_dst_ipv6,
 	const char *adj_src_ipv4_str, const char *adj_dst_ipv4_str,
 	const char *adj_src_ipv6_str, const char *adj_dst_ipv6_str);
-static int segment_list_has_prefix(
-	struct vty *vty, char *xpath, long index, const char *index_str,
-	const struct prefix_ipv4 *prefix_ipv4, const char *prefix_ipv4_str,
-	const struct prefix_ipv6 *prefix_ipv6, const char *prefix_ipv6_str,
-	const char *has_algo, long algo, const char *algo_str,
-	const char *has_iface_id, long iface_id, const char *iface_id_str);
+static int segment_list_has_prefix(struct vty *vty, char *xpath, char *buf_prefix, long index,
+				   const char *index_str, const struct prefix_ipv4 *prefix_ipv4,
+				   const char *prefix_ipv4_str,
+				   const struct prefix_ipv6 *prefix_ipv6,
+				   const char *prefix_ipv6_str, const char *has_algo, long algo,
+				   const char *algo_str, const char *has_iface_id, long iface_id,
+				   const char *iface_id_str);
 
 DEFINE_MTYPE_STATIC(PATHD, PATH_CLI, "Client");
 
@@ -381,15 +382,17 @@ static int segment_list_has_src_dst(
 					       : adj_dst_ipv6_str);
 	return CMD_SUCCESS;
 }
-int segment_list_has_prefix(
-	struct vty *vty, char *xpath, long index, const char *index_str,
-	const struct prefix_ipv4 *prefix_ipv4, const char *prefix_ipv4_str,
-	const struct prefix_ipv6 *prefix_ipv6, const char *prefix_ipv6_str,
-	const char *has_algo, long algo, const char *algo_str,
-	const char *has_iface_id, long iface_id, const char *iface_id_str)
+/*
+ * buf_prefix (INET6_ADDRSTRLEN) holds the address of the queued change: it
+ * must live until the caller applies the changes.
+ */
+int segment_list_has_prefix(struct vty *vty, char *xpath, char *buf_prefix, long index,
+			    const char *index_str, const struct prefix_ipv4 *prefix_ipv4,
+			    const char *prefix_ipv4_str, const struct prefix_ipv6 *prefix_ipv6,
+			    const char *prefix_ipv6_str, const char *has_algo, long algo,
+			    const char *algo_str, const char *has_iface_id, long iface_id,
+			    const char *iface_id_str)
 {
-	char buf_prefix[INET6_ADDRSTRLEN];
-
 	uint32_t ted_sid = MPLS_LABEL_NONE;
 	struct prefix prefix_cli = {};
 	struct ipaddr pre_ipaddr = {};
@@ -424,8 +427,7 @@ int segment_list_has_prefix(
 			vty_out(vty, "%% Malformed prefix\n");
 			return CMD_WARNING_CONFIG_FAILED;
 		}
-		inet_ntop(AF_INET, &prefix_cli.u.prefix4, buf_prefix,
-			  sizeof(buf_prefix));
+		inet_ntop(AF_INET, &prefix_cli.u.prefix4, buf_prefix, INET6_ADDRSTRLEN);
 		pre_ipaddr.ipa_type = IPADDR_V4;
 		pre_ipaddr.ip._v4_addr = prefix_cli.u.prefix4;
 	} else if (prefix_ipv6_str != NULL) {
@@ -433,8 +435,7 @@ int segment_list_has_prefix(
 			vty_out(vty, "%% Malformed prefix\n");
 			return CMD_WARNING_CONFIG_FAILED;
 		}
-		inet_ntop(AF_INET6, &prefix_cli.u.prefix6, buf_prefix,
-			  sizeof(buf_prefix));
+		inet_ntop(AF_INET6, &prefix_cli.u.prefix6, buf_prefix, INET6_ADDRSTRLEN);
 		pre_ipaddr.ipa_type = IPADDR_V6;
 		pre_ipaddr.ip._v6_addr = prefix_cli.u.prefix6;
 	}
@@ -517,6 +518,8 @@ DEFPY_YANG(srte_segment_list_segment, srte_segment_list_segment_cmd,
 /* clang-format on */
 {
 	char xpath[XPATH_MAXLEN];
+	/* the queued NAI address points here until the changes are applied */
+	char buf_prefix[INET6_ADDRSTRLEN];
 	int status = CMD_SUCCESS;
 
 	snprintf(xpath, sizeof(xpath), "./segment[index='%s']", index_str);
@@ -544,10 +547,10 @@ DEFPY_YANG(srte_segment_list_segment, srte_segment_list_segment_cmd,
 		if (status != CMD_SUCCESS)
 			return status;
 	} else {
-		status = segment_list_has_prefix(
-			vty, xpath, index, index_str, prefix_ipv4,
-			prefix_ipv4_str, prefix_ipv6, prefix_ipv6_str, has_algo,
-			algo, algo_str, has_iface_id, iface_id, iface_id_str);
+		status = segment_list_has_prefix(vty, xpath, buf_prefix, index, index_str,
+						 prefix_ipv4, prefix_ipv4_str, prefix_ipv6,
+						 prefix_ipv6_str, has_algo, algo, algo_str,
+						 has_iface_id, iface_id, iface_id_str);
 		if (status != CMD_SUCCESS)
 			return status;
 	}
