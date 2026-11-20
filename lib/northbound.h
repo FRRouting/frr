@@ -222,6 +222,12 @@ struct nb_cb_move_args {
 	size_t errmsg_len;
 };
 
+/*
+ * WARNING: pre_validate is called for EVERY instance of a node type on EVERY
+ * commit, causing O(N) overhead where N is the total count of that node type.
+ * Prefer NB_EV_VALIDATE in create/modify/delete callbacks instead.
+ * See the pre_validate callback documentation below for details.
+ */
 struct nb_cb_pre_validate_args {
 	/* Context of the configuration transaction. */
 	struct nb_context *context;
@@ -415,6 +421,23 @@ struct nb_callbacks {
 	 * configuration being committed before validating the configuration
 	 * changes themselves. It's useful to perform more complex validations
 	 * that depend on the relationship between multiple nodes.
+	 *
+	 * WARNING: pre_validate walks the ENTIRE candidate config tree on every
+	 * commit.  For a deployment with N instances of this node, changing any
+	 * single node triggers N pre_validate calls -- O(N) work for an O(1)
+	 * change.  This causes severe performance degradation at scale (e.g.,
+	 * 10,000+ static routes).
+	 *
+	 * PREFER NB_EV_VALIDATE in create/modify/delete callbacks instead:
+	 *   - NB_EV_VALIDATE fires only for nodes actually changed in the
+	 *     current transaction -- O(changed) instead of O(total).
+	 *   - At NB_EV_VALIDATE time, args->dnode reflects the candidate config
+	 *     including all changes in the transaction, so you can walk parent
+	 *     or sibling nodes to perform cross-node validation.
+	 *
+	 * Only use pre_validate when you truly need to validate relationships
+	 * across unrelated subtrees that cannot be expressed via YANG
+	 * constraints or NB_EV_VALIDATE.
 	 *
 	 * args
 	 *    Refer to the documentation comments of nb_cb_pre_validate_args for
