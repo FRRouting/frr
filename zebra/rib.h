@@ -159,6 +159,14 @@ struct route_entry {
  * then addition.
  */
 #define ROUTE_ENTRY_SEND_NHT_REMOVAL 0x100
+/*
+ * This entry was withdrawn and re-announced identically before the RIB got
+ * a chance to process the withdrawal, so the withdrawal was cancelled and
+ * the entry resurrected in place.  We still believe it is installed, but
+ * the dataplane may have dropped it in the meantime, so it has to be
+ * programmed again rather than left alone.
+ */
+#define ROUTE_ENTRY_FORCE_REINSTALL 0x200
 
 	/* Sequence value incremented for each dataplane operation */
 	uint32_t dplane_sequence;
