@@ -358,6 +358,7 @@ struct ospf_interface *ospf_if_new(struct ospf *ospf, struct interface *ifp,
 
 	oi->ls_upd_queue = route_table_init();
 
+	oi->crypt_seqnums = route_table_init();
 	oi->crypt_seqnum = frr_sequence32_next();
 
 	ospf_opaque_type9_lsa_init(oi);
@@ -483,6 +484,7 @@ void ospf_if_cleanup(struct ospf_interface *oi)
 void ospf_if_free(struct ospf_interface *oi)
 {
 	struct interface *ifp = oi->ifp;
+	struct route_node *rn;
 
 	ospf_if_down(oi);
 
@@ -503,6 +505,10 @@ void ospf_if_free(struct ospf_interface *oi)
 	route_table_finish(oi->bfd_sessions);
 	route_table_finish(oi->nbrs);
 	route_table_finish(oi->ls_upd_queue);
+
+	for (rn = route_top(oi->crypt_seqnums); rn; rn = route_next(rn))
+		XFREE(MTYPE_OSPF_CRYPT_SEQNUM, rn->info);
+	route_table_finish(oi->crypt_seqnums);
 
 	/* Free any lists that should be freed */
 	list_delete(&oi->nbr_nbma);
