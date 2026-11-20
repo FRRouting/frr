@@ -51,10 +51,6 @@
 #define	MIN_PWID_ID		1
 #define	MAX_PWID_ID		0xffffffff
 
-#define	DEFAULT_L2VPN_MTU	1500
-#define	MIN_L2VPN_MTU		512
-#define	MAX_L2VPN_MTU		0xffff
-
 /* LDP message types */
 #define MSG_TYPE_NOTIFICATION	0x0001
 #define MSG_TYPE_HELLO		0x0100
