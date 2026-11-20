@@ -1320,7 +1320,9 @@ int zebra_send_rnh_update(struct rnh *rnh, struct zserv *client,
 		stream_putw(s, 0);
 
 		nhg = rib_get_fib_nhg(re);
-		for (ALL_NEXTHOPS_PTR(nhg, nh))
+		for (ALL_NEXTHOPS_PTR(nhg, nh)) {
+			if (num > zrouter.zav.multipath_num)
+				continue;
 			if (rnh_nexthop_valid(re, nh)) {
 				zapi_nexthop_from_nexthop(&znh, nh);
 				ret = zapi_nexthop_encode(s, &znh, 0, message);
@@ -1329,6 +1331,7 @@ int zebra_send_rnh_update(struct rnh *rnh, struct zserv *client,
 
 				num++;
 			}
+		}
 
 		stream_putw_at(s, nump, num);
 	} else {
