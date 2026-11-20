@@ -631,7 +631,12 @@ static void rip_rte_process(struct rte *rte, struct sockaddr_in *from,
 	}
 
 	if (!rinfo) {
-		if (rp->info)
+		/* Only an added route holds the node via its rip_info; an
+		 * infinity-metric update adds none, so the lock taken by
+		 * route_node_get() must be dropped here or the empty node
+		 * stays in the table until the process exits.
+		 */
+		if (rp->info || rte->metric == RIP_METRIC_INFINITY)
 			route_unlock_node(rp);
 
 		/* Now, check to see whether there is already an explicit route
