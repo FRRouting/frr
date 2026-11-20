@@ -1,0 +1,21 @@
+if !BFDD
+PYTEST_IGNORE += --ignore=bfdd/
+endif
+
+
+if BFDD
+check_PROGRAMS += tests/bfdd/test_bfdd_cli_xpath
+endif
+tests_bfdd_test_bfdd_cli_xpath_CFLAGS = $(TESTS_CFLAGS)
+# bfdd_cli.c is built into the test with the northbound calls it makes
+# renamed, so that the test can record them.
+tests_bfdd_test_bfdd_cli_xpath_CPPFLAGS = $(TESTS_CPPFLAGS) \
+	-Dnb_cli_enqueue_change=test_nb_cli_enqueue_change \
+	-Dnb_cli_apply_changes=test_nb_cli_apply_changes \
+	# end
+tests_bfdd_test_bfdd_cli_xpath_LDADD = bfdd/libbfd.a $(ALL_TESTS_LDADD)
+tests_bfdd_test_bfdd_cli_xpath_SOURCES = \
+	tests/bfdd/test_bfdd_cli_xpath.c \
+	bfdd/bfdd_cli.c \
+	# end
+EXTRA_DIST += tests/bfdd/test_bfdd_cli_xpath.py
