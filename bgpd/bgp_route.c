@@ -1419,8 +1419,11 @@ int bgp_path_info_cmp(struct bgp *bgp, struct bgp_path_info *new,
 	/* 4. Tie-breaker - AIGP (Metric TLV) attribute */
 	if (bgp_attr_exists(newattr, BGP_ATTR_AIGP) && bgp_attr_exists(existattr, BGP_ATTR_AIGP) &&
 	    CHECK_FLAG(bgp->flags, BGP_FLAG_COMPARE_AIGP)) {
-		uint64_t new_aigp = bgp_aigp_metric_total(new, new->attr);
-		uint64_t exist_aigp = bgp_aigp_metric_total(exist, exist->attr);
+		uint64_t new_aigp;
+		uint64_t exist_aigp;
+
+		bgp_aigp_metric_total(new, new->attr, &new_aigp);
+		bgp_aigp_metric_total(exist, exist->attr, &exist_aigp);
 
 		if (new_aigp < exist_aigp) {
 			*reason = bgp_path_selection_aigp;
@@ -3378,9 +3381,12 @@ bool subgroup_announce_check(struct bgp_dest *dest, struct bgp_path_info *pi,
 		if (AIGP_TRANSMIT_ALLOWED(peer)) {
 			if (nh_reset ||
 			    CHECK_FLAG(attr->rmap_change_flags, BATTR_RMAP_NEXTHOP_PEER_ADDRESS)) {
-				uint64_t aigp = bgp_aigp_metric_total(pi, attr);
+				uint64_t aigp;
 
-				bgp_attr_set_aigp_metric(attr, aigp);
+				if (bgp_aigp_metric_total(pi, attr, &aigp))
+					bgp_attr_set_aigp_metric(attr, aigp);
+				else
+					bgp_attr_unset_aigp_metric(attr);
 			}
 		} else {
 			bgp_attr_unset_aigp_metric(attr);
@@ -4426,6 +4432,7 @@ void bgp_process_main_one(struct bgp *bgp, struct bgp_dest *dest, afi_t afi, saf
 	struct bgp_path_info *new_select;
 	struct bgp_path_info *old_select;
 	struct bgp_path_info_pair old_and_new;
+	bool aigp_nexthop_update;
 	int debug = 0;
 	struct bgp_debug_vrf dv = {
 		.name = "Unknown",
@@ -4513,6 +4520,12 @@ void bgp_process_main_one(struct bgp *bgp, struct bgp_dest *dest, afi_t afi, saf
 	old_select = old_and_new.old;
 	new_select = old_and_new.new;
 
+	aigp_nexthop_update =
+		CHECK_FLAG(dest->flags, BGP_NODE_NHT_RESOLVED_NODE) &&
+		(old_select != new_select ||
+		 (new_select && (CHECK_FLAG(new_select->flags, BGP_PATH_ATTR_CHANGED) ||
+				 CHECK_FLAG(new_select->flags, BGP_PATH_IGP_CHANGED))));
+
 	if (safi == SAFI_UNICAST && is_srv6_unicast_enabled(bgp, afi))
 		bgp_srv6_unicast_register_route(bgp, afi, dest, new_select);
 
@@ -4589,6 +4602,8 @@ void bgp_process_main_one(struct bgp *bgp, struct bgp_dest *dest, afi_t afi, saf
 
 		UNSET_FLAG(old_select->flags, BGP_PATH_MULTIPATH_CHG);
 		UNSET_FLAG(old_select->flags, BGP_PATH_LINK_BW_CHG);
+		if (aigp_nexthop_update)
+			bgp_aigp_nexthop_route_update(bgp, afi, dest);
 		bgp_zebra_clear_route_change_flags(dest);
 		UNSET_FLAG(dest->flags, BGP_NODE_ZEBRA_ANNOUNCE_EARLY);
 		UNSET_FLAG(dest->flags, BGP_NODE_PROCESS_SCHEDULED);
@@ -4636,6 +4651,10 @@ void bgp_process_main_one(struct bgp *bgp, struct bgp_dest *dest, afi_t afi, saf
 		bgp_dest_decrement_gr_fib_install_pending_count(dest);
 		UNSET_FLAG(dest->flags, BGP_NODE_FIB_INSTALL_PENDING);
 	}
+
+	/* The AIGP distance is read from the path flagged as selected */
+	if (aigp_nexthop_update)
+		bgp_aigp_nexthop_route_update(bgp, afi, dest);
 
 	/* call bmp hook for loc-rib route update / withdraw after flags were
 	 * set
