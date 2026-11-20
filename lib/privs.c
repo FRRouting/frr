@@ -604,27 +604,54 @@ void zprivs_preinit(struct zebra_privs_t *zprivs)
 
 struct zebra_privs_t *lib_privs;
 
+/* getgrouplist() fails if the user is in more groups than the array has room
+ * for.  macOS has NGROUPS_MAX = 16, but it's quite common to be in more groups
+ * than that (e.g. with directory service accounts), so look up into a larger
+ * array and only cut it down to NGROUPS_MAX for setgroups().
+ */
+#if NGROUPS_MAX < 1024
+#define PRIVS_GROUPS_LOOKUP_MAX 1024
+#else
+#define PRIVS_GROUPS_LOOKUP_MAX NGROUPS_MAX
+#endif
+
+static int privs_getgrouplist(const char *user, gid_t base, gid_t *groups, int *ngroups)
+{
+#ifdef __APPLE__
+	int igroups[PRIVS_GROUPS_LOOKUP_MAX];
+	int n = *ngroups;
+	int i;
+
+	if (getgrouplist(user, (int)base, igroups, &n) < 0)
+		return -1;
+	if (n < 0 || n > (int)array_size(igroups))
+		return -1;
+	for (i = 0; i < n; i++)
+		groups[i] = (gid_t)igroups[i];
+	*ngroups = n;
+	return 0;
+#else
+	return getgrouplist(user, base, groups, ngroups);
+#endif
+}
+
 void zprivs_init(struct zebra_privs_t *zprivs)
 {
-	gid_t groups[NGROUPS_MAX] = {};
-	int i, ngroups = 0;
+	gid_t groups[PRIVS_GROUPS_LOOKUP_MAX] = {};
+	int i = 0, ngroups = 0;
 	int found = 0;
 
 	/* NULL privs */
-	if (!(zprivs->user || zprivs->group || zprivs->cap_num_p
-	      || zprivs->cap_num_i))
+	if (!(zprivs->user || zprivs->group || zprivs->cap_num_p || zprivs->cap_num_i))
 		return;
 
 	lib_privs = zprivs;
 
 	if (zprivs->user) {
 		ngroups = array_size(groups);
-		if (getgrouplist(zprivs->user, zprivs_state.zgid, groups,
-				 &ngroups)
-		    < 0) {
+		if (privs_getgrouplist(zprivs->user, zprivs_state.zgid, groups, &ngroups) < 0) {
 			/* cant use log.h here as it depends on vty */
-			fprintf(stderr,
-				"privs_init: could not getgrouplist for user %s\n",
+			fprintf(stderr, "privs_init: could not getgrouplist for user %s\n",
 				zprivs->user);
 			exit(1);
 		}
@@ -635,8 +662,7 @@ void zprivs_init(struct zebra_privs_t *zprivs)
 	   */
 	{
 		if (zprivs_state.vtygrp == (gid_t)-1) {
-			fprintf(stderr,
-				"privs_init: could not lookup vty group %s\n",
+			fprintf(stderr, "privs_init: could not lookup vty group %s\n",
 				zprivs->vty_group);
 			exit(1);
 		}
@@ -659,6 +685,22 @@ void zprivs_init(struct zebra_privs_t *zprivs)
 	}
 
 	zprivs_state.zsuid = geteuid(); /* initial uid */
+
+	if (ngroups > NGROUPS_MAX) {
+		/*
+		 * more than the kernel takes in setgroups(), keep the vty group
+		 * in the list if it would be cut off. Only do a warning if
+		 * setgroups() is actually going to be called (see below).
+		 */
+		if (zprivs_state.zsuid != zprivs_state.zuid)
+			fprintf(stderr,
+				"privs_init: user %s is in %d groups, setgroups() keeps %d\n",
+				zprivs->user ? zprivs->user : "(none)", ngroups, NGROUPS_MAX);
+		if (zprivs->vty_group && i >= NGROUPS_MAX)
+			groups[NGROUPS_MAX - 1] = zprivs_state.vtygrp;
+		ngroups = NGROUPS_MAX;
+	}
+
 	/* add groups only if we changed uid - otherwise skip */
 	if ((ngroups) && (zprivs_state.zsuid != zprivs_state.zuid)) {
 		if (setgroups(ngroups, groups)) {

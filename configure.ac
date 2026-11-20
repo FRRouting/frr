@@ -1442,6 +1442,12 @@ if test "$enable_protobuf" != "no"; then
       AC_MSG_FAILURE([protobuf requested but libprotobuf-c > 1.3.0 not found])
     fi
   fi
+
+  # missing on macOS
+  if test "$PROTOC_C" = "/bin/false" || test "$PROTO3" = "false"; then
+    AC_MSG_NOTICE([protoc-c and/or libprotobuf-c not found, protobuf support disabled])
+    enable_protobuf="no"
+  fi
 fi
 #
 # End of logic for protobuf support.
@@ -1750,7 +1756,10 @@ if test "$ac_cv_have_decl_TCP_MD5SIG" = "no"; then
 fi
 
 LIBS_save="$LIBS"
-AC_CHECK_LIB([crypt], [crypt], [], [
+dnl crypt() is from libc on some systems (e.g. macOS)
+AC_SEARCH_LIBS([crypt], [crypt], [
+  AC_DEFINE([HAVE_LIBCRYPT], [1], [crypt() is available (libc or libcrypt)])
+], [
   AC_CHECK_LIB([crypto], [DES_crypt])
 ])
 LIBCRYPT="$LIBS"
@@ -2053,6 +2062,13 @@ dnl ---------------
 PKG_CHECK_MODULES([LIBYANG], [libyang >= 2.1.128], , [
 AC_MSG_ERROR([m4_normalize([libyang >= 2.1.128 is required, and was not found on your system.
 Please consult doc/developer/building-libyang.rst for instructions on installing or building libyang.])])])
+
+dnl LIBYANG_LIBS may carry -L for a libyang outside the default linker path
+for frr_libyang_flag in $LIBYANG_LIBS; do
+  case "$frr_libyang_flag" in
+    -L*) LDFLAGS="$LDFLAGS $frr_libyang_flag" ;;
+  esac
+done
 
 ac_cflags_save="$CFLAGS"
 CFLAGS="$CFLAGS $LIBYANG_CFLAGS"

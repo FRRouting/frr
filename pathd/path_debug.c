@@ -8,7 +8,11 @@
 #include <string.h>
 #include <stdbool.h>
 #include <time.h>
+/* libyang's _DEPRECATED clashes with compiler.h; see yang.h. */
+#pragma push_macro("_DEPRECATED")
+#undef _DEPRECATED
 #include <libyang/libyang.h>
+#pragma pop_macro("_DEPRECATED")
 
 #include "printfrr.h"
 #include "ipaddr.h"

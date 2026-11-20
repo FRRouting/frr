@@ -176,9 +176,17 @@ inet4:
 #endif
 
 #if !defined(INET_NTOP_NO_OVERRIDE)
+#ifdef __MACH__
+/* macOS doesn't support symbol aliase */
+const char *inet_ntop(int af, const void *src, char *dst, socklen_t size)
+{
+	return frr_inet_ntop(af, src, dst, size);
+}
+#else
 /* we want to override libc inet_ntop, but make sure it shows up in backtraces
  * as frr_inet_ntop (to avoid confusion while debugging)
  */
 const char *inet_ntop(int af, const void *src, char *dst, socklen_t size)
 	__attribute__((alias ("frr_inet_ntop")));
+#endif
 #endif

@@ -51,7 +51,11 @@ extern struct zebra_privs_t zserv_privs;
  * 0).  We follow this practice without questioning it, but it is a
  * bug if frr calls ROUNDUP with 0.
  */
+#ifdef __APPLE__
+#define ROUNDUP_TYPE uint32_t
+#else
 #define ROUNDUP_TYPE long
+#endif
 
 /*
  * Because of these varying conventions, the only sane approach is for
@@ -497,6 +501,49 @@ static enum zebra_link_type sdl_to_zebra_link_type(unsigned int sdlt)
 	}
 }
 
+#ifdef __APPLE__
+/*
+ * Check again at the flags of the interfaces that are up but not running,
+ * for a few seconds: see ifm_read().
+ * XNU workaround on an issue fixed on BSD kernel decades ago.
+ */
+#define KERNEL_FLAGS_RECHECK_MSEC 200
+#define KERNEL_FLAGS_RECHECK_MAX  25
+
+static struct event *t_flags_recheck;
+static int flags_recheck_left;
+
+static void kernel_flags_recheck(struct event *event)
+{
+	struct vrf *vrf;
+	struct interface *ifp;
+	bool pending = false;
+
+	RB_FOREACH (vrf, vrf_id_head, &vrfs_by_id) {
+		FOR_ALL_INTERFACES (vrf, ifp) {
+			if (ifp->ifindex == IFINDEX_INTERNAL || !CHECK_FLAG(ifp->flags, IFF_UP) ||
+			    if_is_operative(ifp))
+				continue;
+			if_get_flags(ifp);
+			if (CHECK_FLAG(ifp->flags, IFF_UP) && !if_is_operative(ifp))
+				pending = true;
+		}
+	}
+
+	if (pending && --flags_recheck_left > 0)
+		event_add_timer_msec(zrouter.master, kernel_flags_recheck, NULL,
+				     KERNEL_FLAGS_RECHECK_MSEC, &t_flags_recheck);
+}
+
+static void kernel_flags_recheck_start(void)
+{
+	flags_recheck_left = KERNEL_FLAGS_RECHECK_MAX;
+	if (!t_flags_recheck)
+		event_add_timer_msec(zrouter.master, kernel_flags_recheck, NULL,
+				     KERNEL_FLAGS_RECHECK_MSEC, &t_flags_recheck);
+}
+#endif /* __APPLE__ */
+
 /*
  * Handle struct if_msghdr obtained from reading routing socket or
  * sysctl (from interface_list).  There may or may not be sockaddrs
@@ -602,13 +649,13 @@ int ifm_read(struct if_msghdr *ifm)
 			return -1;
 		}
 
-#ifndef RTM_IFANNOUNCE
+#if !defined(RTM_IFANNOUNCE) && !defined(__APPLE__)
 		/* Down->Down interface should be ignored here.
 		 * See further comment below.
 		 */
 		if (!CHECK_FLAG(ifm->ifm_flags, IFF_UP))
 			return 0;
-#endif /* !RTM_IFANNOUNCE */
+#endif /* !RTM_IFANNOUNCE && !__APPLE__ */
 
 		if (ifp == NULL) {
 			/* Interface that zebra was not previously aware of, so
@@ -695,7 +742,16 @@ int ifm_read(struct if_msghdr *ifm)
 
 		/* update flags and handle operative->inoperative transition, if
 		 * any */
+#ifdef __APPLE__
+		if (if_nametoindex(ifp->name) == (unsigned int)ifm->ifm_index) {
+			if_get_flags(ifp);
+			if (CHECK_FLAG(ifp->flags, IFF_UP) && !if_is_operative(ifp))
+				kernel_flags_recheck_start();
+		} else
+			if_flags_update(ifp, ifm->ifm_flags);
+#else
 		if_flags_update(ifp, ifm->ifm_flags);
+#endif /* __APPLE__ */
 
 #ifndef RTM_IFANNOUNCE
 		if (!if_is_up(ifp)) {
@@ -710,7 +766,12 @@ int ifm_read(struct if_msghdr *ifm)
 			 * will still behave correctly if run on a platform
 			 * without
 			 */
-			if_delete_update(&ifp);
+#ifdef __APPLE__
+			char name[IFNAMSIZ];
+
+			if (if_indextoname(ifm->ifm_index, name) == NULL)
+#endif /* __APPLE__ */
+				if_delete_update(&ifp);
 		}
 #endif /* RTM_IFANNOUNCE */
 		if (ifp && if_is_up(ifp)) {
@@ -750,6 +811,9 @@ static void ifam_read_mesg(struct ifa_msghdr *ifm, union sockunion *addr,
 
 	pnt = (caddr_t)(ifm + 1);
 	end = ((caddr_t)ifm) + ifm->ifam_msglen;
+#ifdef __APPLE__
+	end = ((caddr_t)ifm) + ROUNDUP(ifm->ifam_msglen);
+#endif
 
 	/* Be sure structure is cleared */
 	memset(mask, 0, sizeof(union sockunion));
@@ -934,6 +998,9 @@ static int rtm_read_mesg(struct rt_msghdr *rtm, union sockunion *dest,
 	/* Pnt points out socket data start point. */
 	pnt = (caddr_t)(rtm + 1);
 	end = ((caddr_t)rtm) + rtm->rtm_msglen;
+#ifdef __APPLE__
+	end = ((caddr_t)rtm) + ROUNDUP(rtm->rtm_msglen);
+#endif
 
 	/* rt_msghdr version check. */
 	if (rtm->rtm_version != RTM_VERSION)
@@ -970,6 +1037,10 @@ static int rtm_read_mesg(struct rt_msghdr *rtm, union sockunion *dest,
 			break;
 		case RTA_IFP:
 			pnt += rta_getsdlname(pnt, ifname, ifnlen);
+			break;
+
+		case RTA_IFA:
+			pnt += rta_get(pnt, NULL, 0);
 			break;
 
 		default:
