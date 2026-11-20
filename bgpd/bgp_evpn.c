@@ -3613,7 +3613,20 @@ static int install_evpn_route_entry_in_vrf(struct bgp *bgp_vrf,
 
 	bgp_dest_set_defer_flag(dest, false);
 
-	/* Gateway IP nexthop should be resolved */
+	/*
+	 * An RT-5 can carry an overlay index (RFC 9136, Table 1). With a GW IP
+	 * overlay index it works like a static route "prefix X via GW IP Y".
+	 * The BGP next hop is meaningless, and the originator need not be in
+	 * the path to X. Traffic for X must be sent to Y, so Y MUST resolve,
+	 * and the path is only valid while it does.
+	 *
+	 * Y is resolved by nexthop tracking in this VRF, and only with
+	 * enable-resolve-overlay-index. In addition, Y must be a host known
+	 * from a MAC/IP route (RT-2), either in the EVI of the L2VNI SVI that
+	 * Y resolves over, or in any EVI of this VRF if Y resolves over the
+	 * L3VNI SVI (symmetric IRB host route). See
+	 * bgp_evpn_is_gateway_ip_resolved().
+	 */
 	if (bre && bre->type == OVERLAY_INDEX_GATEWAY_IP) {
 		if (bgp_find_or_add_nexthop(bgp_vrf, bgp_vrf, afi, safi, pi, NULL, 0, NULL, NULL))
 			bgp_path_info_set_flag(dest, pi, BGP_PATH_VALID);
@@ -3627,7 +3640,48 @@ static int install_evpn_route_entry_in_vrf(struct bgp *bgp_vrf,
 			bgp_path_info_unset_flag(dest, pi, BGP_PATH_VALID);
 		}
 	} else {
-		/* as it is an importation, change nexthop */
+		/*
+		 * A route without GW IP. It is an RT-2 MAC+IP host route, or an
+		 * RT-5 for the Interface-less IP-VRF-to-IP-VRF Model (RFC 9136,
+		 * 4.4.1) with no ESI, no GW IP, and with the Router's MAC
+		 * extended community and the label (L3VNI) set. Note that the
+		 * Router's MAC is an overlay index type in Table 1 too. For this
+		 * RT-5 case Table 1 gives the overlay index as "MAC or None",
+		 * depending on local policy:
+		 * - MAC: resolve the Router's MAC recursively via an RT-2 that
+		 *   advertises it, and forward to the VTEP of that RT-2. RFC
+		 *   9136 uses it in the example of 4.4.3 (Interface-ful
+		 *   IP-VRF-to-IP-VRF with Unnumbered SBD IRB).
+		 * - None: no recursive resolution. Forward to the BGP next hop,
+		 *   the VTEP, with the label. The Router's MAC is only used as
+		 *   inner destination MAC.
+		 * FRR always uses None. "None" without any Router's MAC is the
+		 * IP NVO tunnel case only. VXLAN is an Ethernet NVO tunnel, so
+		 * the Router's MAC must be present. An ESI overlay index is not
+		 * resolved here either.
+		 *
+		 * The VRF path is only imported while its parent EVPN path is
+		 * valid, and the parent tracks the VTEP in the underlay. So the
+		 * VRF path needs no nexthop tracking of its own and is valid,
+		 * as bgp_create_evpn_bgp_path_info() makes a new one. Only the
+		 * GW IP branch above links a VRF path to nexthop tracking, and
+		 * only it and that tracking clear BGP_PATH_VALID. A linked path
+		 * therefore had a GW IP before, so unlink it. Marking the path
+		 * valid repairs a GW IP that did not resolve, and changes
+		 * nothing on any other update.
+		 */
+		if (!new_pi) {
+			if (pi->nexthop)
+				bgp_unlink_nexthop(pi);
+			bgp_path_info_set_flag(dest, pi, BGP_PATH_VALID);
+		}
+		/*
+		 * The nexthop of this route is a VTEP and thus only meaningful
+		 * within EVPN. When the VRF re-advertises this route to a
+		 * non-EVPN peer, for example a CE via IPv4 unicast, announce
+		 * ourselves as next hop. A GW IP path does not get this, its GW
+		 * IP is reachable in the VRF and stays the next hop.
+		 */
 		bgp_path_info_set_flag(dest, pi, BGP_PATH_ANNC_NH_SELF);
 	}
 

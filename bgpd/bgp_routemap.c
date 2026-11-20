@@ -1419,8 +1419,7 @@ route_set_evpn_gateway_ip(void *rule, const struct prefix *prefix, void *object)
 	struct ipaddr *gw_ip = rule;
 	struct bgp_path_info *path;
 	struct prefix_evpn *evp;
-	struct bgp_route_evpn *bre = XCALLOC(MTYPE_BGP_EVPN_OVERLAY,
-					     sizeof(struct bgp_route_evpn));
+	struct bgp_route_evpn *bre;
 
 	if (prefix->family != AF_EVPN)
 		return RMAP_OKAY;
@@ -1436,6 +1435,7 @@ route_set_evpn_gateway_ip(void *rule, const struct prefix *prefix, void *object)
 	path = object;
 
 	/* Set gateway-ip value. */
+	bre = XCALLOC(MTYPE_BGP_EVPN_OVERLAY, sizeof(struct bgp_route_evpn));
 	bre->type = OVERLAY_INDEX_GATEWAY_IP;
 	bre->gw_ip = *gw_ip;
 	bgp_attr_set_evpn_overlay(path->attr, bre);
@@ -1494,7 +1494,15 @@ route_set_evpn_router_mac(void *rule, const struct prefix *prefix, void *object)
 		return RMAP_OKAY;
 
 	evp = (const struct prefix_evpn *)prefix;
-	if (evp->prefix.route_type != BGP_EVPN_IP_PREFIX_ROUTE)
+	/*
+	 * Only Route Type 2 and Route Type 5 can carry the EVPN Router's MAC
+	 * Extended Community. This is applied to every Route Type 2 on purpose,
+	 * whether or not it has an IP address or an MPLS Label2 (L3VNI), to give
+	 * the user maximum freedom. To limit it to Route Type 2 with an IP or an
+	 * L3VNI, add the matching match clauses to the route-map.
+	 */
+	if (evp->prefix.route_type != BGP_EVPN_IP_PREFIX_ROUTE &&
+	    evp->prefix.route_type != BGP_EVPN_MAC_IP_ROUTE)
 		return RMAP_OKAY;
 
 	path = object;
