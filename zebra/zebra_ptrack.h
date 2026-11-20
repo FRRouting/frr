@@ -53,9 +53,7 @@ extern void zebra_ptrack_terminate(void);
 extern struct ptrack_vrf_ctx *zebra_ptrack_ctx_lookup(const char *vrf_name);
 
 /*
- * Find the context of a VRF name, or create it. The caller must have checked
- * that the VRF exists in zebra, a ptrack request never creates a VRF. Returns
- * NULL if the name is not valid.
+ * Find the context for a VRF name, or create it.
  */
 extern struct ptrack_vrf_ctx *zebra_ptrack_ctx_get(const char *vrf_name);
 

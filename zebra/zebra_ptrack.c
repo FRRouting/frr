@@ -618,18 +618,30 @@ static void ptrack_notify_client(struct ptrack_client *pc,
 }
 
 /*
+ * Sync ptrack context with the zebra_vrf.
+ */
+static void ptrack_zvrf_sync(struct zebra_vrf *zvrf, struct ptrack_vrf_ctx *ctx)
+{
+	if (!zvrf)
+		return;
+
+	if (ctx && ptrack_vrf_clients_count(&ctx->vrf_clients) > 0)
+		zvrf->ptrack = ctx;
+	else if (zvrf->ptrack == ctx)
+		zvrf->ptrack = NULL;
+}
+
+/*
  * Free the context if it has no subscription left. The pointer of the
  * zebra_vrf is cleared first, it must not point to a freed context.
  */
 static void ptrack_ctx_put(struct zebra_vrf *zvrf, struct ptrack_vrf_ctx *ctx)
 {
-	bool attached = zvrf && zvrf->ptrack == ctx;
-
-	if (attached)
+	if (zvrf && zvrf->ptrack == ctx)
 		zvrf->ptrack = NULL;
 
-	if (!zebra_ptrack_ctx_free_if_unused(ctx) && attached)
-		zvrf->ptrack = ctx;
+	if (!zebra_ptrack_ctx_free_if_unused(ctx))
+		ptrack_zvrf_sync(zvrf, ctx);
 }
 
 void zebra_ptrack_register(struct zserv *client, const struct zapi_ptrack *api)
@@ -642,14 +654,8 @@ void zebra_ptrack_register(struct zserv *client, const struct zapi_ptrack *api)
 
 	/* The ptrack request never creates a VRF */
 	zvrf = zebra_vrf_lookup_by_name(api->vrf_name);
-	if (!zvrf) {
-		zlog_debug("%s: client %s: VRF %s does not exist, dropping the request",
-			   __func__, zebra_route_string(client->proto),
-			   api->vrf_name);
-		return;
-	}
-
 	ctx = zebra_ptrack_ctx_get(api->vrf_name);
+
 	if (!ctx) {
 		zlog_debug("%s: client %s: invalid VRF name, dropping the request",
 			   __func__, zebra_route_string(client->proto));
@@ -681,7 +687,14 @@ void zebra_ptrack_register(struct zserv *client, const struct zapi_ptrack *api)
 		return;
 	}
 
-	zvrf->ptrack = ctx;
+	ptrack_zvrf_sync(zvrf, ctx);
+
+	/*
+	 * No initial UPDATE until the zebra_vrf exists: UNREACHABLE in the
+	 * protocol means the VRF was evaluated, not merely absent at register.
+	 */
+	if (!zvrf)
+		return;
 
 	/* The state is sent with the masked prefix, like the entry is keyed */
 	prefix_copy(&p, &api->prefix);
@@ -794,8 +807,9 @@ void zebra_ptrack_vrf_enable(struct zebra_vrf *zvrf)
 
 	/* The ctx outlives the zebra_vrf, find it again by the VRF name */
 	ctx = zebra_ptrack_ctx_lookup(zvrf_name(zvrf));
-	zvrf->ptrack = ctx;
-	if (!ctx)
+	ptrack_zvrf_sync(zvrf, ctx);
+
+	if (!ctx || ptrack_vrf_clients_count(&ctx->vrf_clients) == 0)
 		return;
 
 	/* Retained routes produce no RIB event, so look at all the prefixes */
