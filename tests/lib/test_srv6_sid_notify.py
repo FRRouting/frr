@@ -10,4 +10,14 @@ TestSrv6SidNotify.onesimple("Names decode without stale suffixes.")
 TestSrv6SidNotify.onesimple("Caller buffers retain independent names.")
 TestSrv6SidNotify.onesimple("Buffer boundaries reserve space for the terminator.")
 TestSrv6SidNotify.onesimple("Unused names are consumed.")
-TestSrv6SidNotify.onesimple("Truncated notifications fail and do not poison later decodes.")
+TestSrv6SidNotify.onesimple(
+    "Truncated notifications fail and do not poison later decodes."
+)
+TestSrv6SidNotify.onesimple("Local-only flag decoded after locator.")
+TestSrv6SidNotify.onesimple("Legacy notification defaults to zero flags.")
+TestSrv6SidNotify.onesimple("Unused locator and flags are consumed.")
+TestSrv6SidNotify.onesimple("Flag decoded when locator output is ignored.")
+TestSrv6SidNotify.onesimple("Locator decoded when flag output is ignored.")
+TestSrv6SidNotify.onesimple(
+    "Alternating legacy and flagged notifications reset the output."
+)
