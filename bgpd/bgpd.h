@@ -237,6 +237,10 @@ struct bgp_master {
 	uint32_t inq_limit;
 	uint32_t outq_limit;
 
+	/* Delay (ms) before running the route process queue of an instance */
+#define BGP_DEFAULT_PROCESS_QUEUE_HOLD_TIME 50
+	uint32_t process_queue_hold_time;
+
 	struct event *t_bgp_sync_label_manager;
 	struct event *t_bgp_start_label_manager;
 
