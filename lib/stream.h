@@ -200,6 +200,7 @@ extern uint64_t stream_getq(struct stream *s);
 extern uint64_t stream_getq_from(struct stream *s, size_t from);
 bool stream_getq2(struct stream *s, uint64_t *q);
 extern uint32_t stream_get_ipv4(struct stream *s);
+extern bool stream_get_ipv4_2(struct stream *s, uint32_t *l);
 extern bool stream_get_ipaddr(struct stream *s, struct ipaddr *ip);
 
 /* IEEE-754 floats */
@@ -457,6 +458,14 @@ static inline const uint8_t *ptr_get_be16(const uint8_t *ptr, uint16_t *out)
 	do {                                                                   \
 		if (!stream_get_ipaddr((S), (P)))                              \
 			goto stream_failure;                                   \
+	} while (0)
+
+#define STREAM_GET_IPV4(S, P)                                                  \
+	do {                                                                   \
+		uint32_t _pval = 0;                                            \
+		if (!stream_get_ipv4_2((S), &_pval))                           \
+			goto stream_failure;                                   \
+		(P) = _pval;                                                   \
 	} while (0)
 
 #define STREAM_GET(P, STR, SIZE)                                               \
