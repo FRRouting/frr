@@ -364,7 +364,6 @@ static int pcep_module_late_init(struct event_loop *tm)
 int pcep_module_finish(void)
 {
 	pcep_ctrl_finalize(&pcep_g->fpt);
-	pcep_lib_finalize();
 
 	for (int i = 0; i < MAX_PCC; i++)
 		if (pcep_g->pce_opts_cli[i] != NULL)

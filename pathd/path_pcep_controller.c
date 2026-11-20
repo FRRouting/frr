@@ -18,6 +18,7 @@
 #include "pathd/path_errors.h"
 #include "pathd/path_pcep.h"
 #include "pathd/path_pcep_controller.h"
+#include "pathd/path_pcep_lib.h"
 #include "pathd/path_pcep_pcc.h"
 #include "pathd/path_pcep_config.h"
 #include "pathd/path_pcep_debug.h"
@@ -507,6 +508,11 @@ void pcep_thread_finish_event_handler(struct event *event)
 			ctrl_state->pcc[i] = NULL;
 		}
 	}
+
+	/* Stop the pceplib threads while the controller state is still
+	 * alive.
+	 */
+	pcep_lib_finalize();
 
 	XFREE(MTYPE_PCEP, ctrl_state->pcc_opts);
 	XFREE(MTYPE_PCEP, ctrl_state);
