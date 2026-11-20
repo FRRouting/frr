@@ -733,6 +733,60 @@ def test_long_symbolic_names():
     assert result is None, "long-name cleanup failed: {}".format(result)
 
 
+def test_pcupd_rejected_in_report():
+    "A refused PCUpd is reported in a PCRpt LSP-ERROR-CODE, not a PCErr"
+
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    name = "upd-clash"
+    pce_command("add {},{},{},4600".format(ENDPOINT, LABEL, name))
+    check = lambda: None if get_plsp_id(name) else "no PLSP-ID for {} yet".format(name)
+    _, result = topotest.run_and_expect(check, None, count=30, wait=1)
+    assert result is None, result
+    result = check_policy_count(3)
+    assert result is None, result
+
+    # The PCUpd renames "<name>-0" to "<name>-<plsp_id>": take that name first
+    plsp_id = get_plsp_id(name)
+    squat = "{}-{}".format(name, plsp_id)
+    output = configure_segment_list(squat)
+    assert "already exists" not in output, output
+
+    errors_before = mock_pce_log_text().count("RECV-ERROR type=24")
+    pce_command("update {},{}".format(name, LABEL))
+
+    def check_report():
+        sent = re.findall(
+            r"UPDATE-SENT name=%s plsp-id=\d+ srp=(\d+)" % re.escape(name),
+            mock_pce_log_text(),
+        )
+        if not sent:
+            return "PCUpd not sent yet"
+        expected = "REPORT plsp-id={} ".format(plsp_id)
+        for line in mock_pce_log_text().splitlines():
+            if expected in line and "srp={} lsp-error=4".format(sent[-1]) in line:
+                return None
+        return "no PCRpt with LSP-ERROR-CODE 4 for SRP {}".format(sent[-1])
+
+    _, result = topotest.run_and_expect(check_report, None, count=30, wait=1)
+    if result is not None:
+        print_pce_log()
+    assert result is None, result
+    assert (
+        mock_pce_log_text().count("RECV-ERROR type=24") == errors_before
+    ), "a refused PCUpd must not be answered with PCErr type 24"
+    result = check_policy_count(3)
+    assert result is None, result
+
+    configure_segment_list(squat, no=True)
+    pce_command("remove {}".format(name))
+    check = lambda: check_policy_count(2)
+    _, result = topotest.run_and_expect(check, None, count=60, wait=1)
+    assert result is None, "cleanup remove failed: {}".format(result)
+
+
 def test_pce_restart():
     "Kill and restart the PCE; policies must re-establish"
 

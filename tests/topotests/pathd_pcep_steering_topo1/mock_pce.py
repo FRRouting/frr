@@ -38,6 +38,7 @@ MSG_OPEN = 1
 MSG_KEEPALIVE = 2
 MSG_ERROR = 6
 MSG_REPORT = 10
+MSG_UPDATE = 11
 MSG_INITIATE = 12
 
 CLASS_OPEN = 1
@@ -55,6 +56,7 @@ VENDOR_ESI_COLOR = 0x00010004
 
 TLV_STATEFUL_CAP = 16
 TLV_SYMBOLIC_NAME = 17
+TLV_LSP_ERROR_CODE = 20
 TLV_SR_CAP = 26
 TLV_PATH_SETUP_TYPE = 28
 TLV_PST_CAP = 34
@@ -273,6 +275,27 @@ class MockPce:
 
         return self._msg(MSG_INITIATE, srp + lsp)
 
+    def build_update(self, name, plsp_id, srp_id, label):
+        """PCUpd (RFC 8231 S6.2): SRP, LSP (D|A) with name, one-label ERO"""
+        srp_tlv = struct.pack(">HHBBBB", TLV_PATH_SETUP_TYPE, 4, 0, 0, 0, 1)
+        srp = self._obj(CLASS_SRP, 1, struct.pack(">II", 0, srp_id) + srp_tlv)
+
+        encoded = name.encode()
+        pad = (-len(encoded)) % 4
+        lsp_tlv = (
+            struct.pack(">HH", TLV_SYMBOLIC_NAME, len(encoded))
+            + encoded
+            + b"\x00" * pad
+        )
+        lsp = self._obj(
+            CLASS_LSP, 1, struct.pack(">I", (plsp_id << 12) | 0x09) + lsp_tlv
+        )
+
+        sid = (label << 12) & 0xFFFFFFFF
+        ero = self._obj(CLASS_ERO, 1, struct.pack(">BBBBI", 0x24, 8, 0x00, 0x09, sid))
+
+        return self._msg(MSG_UPDATE, srp + lsp + ero)
+
     # ------------------------------------------------------------------
     # Receive path
     # ------------------------------------------------------------------
@@ -299,9 +322,16 @@ class MockPce:
                 plsp_id = word0 >> 12
                 flags = word0 & 0xFF
                 oper = (flags >> 4) & 0x07
+                lsp_error = None
+                tlv = index + 8
+                while tlv + 4 <= index + olen:
+                    ttype, tlen = struct.unpack(">HH", body[tlv : tlv + 4])
+                    if ttype == TLV_LSP_ERROR_CODE and tlen >= 4:
+                        lsp_error = struct.unpack(">I", body[tlv + 4 : tlv + 8])[0]
+                    tlv += 4 + tlen + (-tlen) % 4
                 self.log(
-                    "REPORT plsp-id=%u flags=0x%02x oper=%u srp=%s"
-                    % (plsp_id, flags, oper, srp_id)
+                    "REPORT plsp-id=%u flags=0x%02x oper=%u srp=%s lsp-error=%s"
+                    % (plsp_id, flags, oper, srp_id, lsp_error)
                 )
                 if plsp_id == 0 and not flags & LSP_FLAG_SYNC:
                     self.sync_done = True
@@ -362,6 +392,7 @@ class MockPce:
 
         remove <name>
         add <endpoint,label,name[,color]>
+        update <name,label>
 
         add is only meaningful once the PCC's state-sync is done (pathd
         silently discards earlier PCInitiates); the tests churn well
@@ -388,6 +419,9 @@ class MockPce:
             fields = line.split()
             if len(fields) == 2 and fields[0] == "remove":
                 self.send_remove(fields[1])
+            elif len(fields) == 2 and fields[0] == "update":
+                name, label = fields[1].split(",")
+                self.send_update(name, int(label))
             elif len(fields) == 2 and fields[0] == "add":
                 try:
                     policy = parse_policy(fields[1])
@@ -420,6 +454,17 @@ class MockPce:
         plsp_id = self.plsp_by_name.pop(name)
         self.send(self.build_remove(name, plsp_id, srp_id))
         self.log("REMOVE-SENT name=%s plsp-id=%u" % (name, plsp_id))
+
+    def send_update(self, name, label):
+        """Send a PCUpd for a mapped policy"""
+        if name not in self.plsp_by_name:
+            self.log("UPDATE-UNKNOWN name=%s" % name)
+            return
+        srp_id = self.next_srp_id
+        self.next_srp_id += 1
+        plsp_id = self.plsp_by_name[name]
+        self.send(self.build_update(name, plsp_id, srp_id, label))
+        self.log("UPDATE-SENT name=%s plsp-id=%u srp=%u" % (name, plsp_id, srp_id))
 
     def send(self, data):
         with self.send_lock:
