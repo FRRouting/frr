@@ -50,7 +50,7 @@ DEFINE_MTYPE(ZEBRA, VLAN_CHANGE_ARR, "Vlan Change Array");
  * are made. The minor version (at least) should be updated when new APIs
  * are introduced.
  */
-static uint32_t zdplane_version = MAKE_FRRVERSION(4, 1, 0);
+static uint32_t zdplane_version = MAKE_FRRVERSION(4, 2, 0);
 
 /* Control for collection of extra interface info with route updates; a plugin
  * can enable the extra info via a dplane api.
@@ -2567,6 +2567,17 @@ const struct zebra_dplane_info *dplane_ctx_get_ns(
 	return &(ctx->zd_ns_info);
 }
 
+uint32_t dplane_ctx_get_nl_pid(const struct zebra_dplane_ctx *ctx)
+{
+	DPLANE_CTX_VALID(ctx);
+
+#ifdef HAVE_NETLINK
+	return ctx->zd_ns_info.nlmsg_pid;
+#else
+	return 0;
+#endif
+}
+
 int dplane_ctx_get_ns_sock(const struct zebra_dplane_ctx *ctx)
 {
 	DPLANE_CTX_VALID(ctx);
@@ -2577,7 +2588,6 @@ int dplane_ctx_get_ns_sock(const struct zebra_dplane_ctx *ctx)
 	return -1;
 #endif
 }
-
 /* Setters/accessors for nexthop information */
 void dplane_ctx_set_nhe_id(struct zebra_dplane_ctx *ctx, uint32_t id)
 {
@@ -4314,6 +4324,8 @@ static void ctx_info_from_zns(struct zebra_dplane_info *ns_info,
 	ns_info->is_cmd = true;
 	ns_info->sock = zns->netlink_dplane_out.sock;
 	ns_info->seq = zns->netlink_dplane_out.seq;
+	ns_info->sock_gen = zns->netlink_dplane_out.gen;
+	ns_info->nlmsg_pid = zns->netlink_dplane_out.snl.nl_pid;
 #endif /* NETLINK */
 }
 
@@ -7724,7 +7736,7 @@ static void dplane_incoming_request(struct event *event)
 		       zi->info.sock, &zi->t_read);
 
 	/* Send requests */
-	netlink_request_netconf(zi->info.sock);
+	netlink_request_netconf(&zi->info);
 }
 
 /*
@@ -7785,6 +7797,7 @@ void zebra_dplane_ns_enable(struct zebra_ns *zns, bool enabled)
 #if defined(HAVE_NETLINK)
 		zi->info.is_cmd = false;
 		zi->info.sock = zns->netlink_dplane_in.sock;
+		zi->info.sock_gen = zns->netlink_dplane_in.gen;
 
 		/* Initiate requests for existing info from the OS, and
 		 * begin reading from the netlink socket.
