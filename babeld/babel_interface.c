@@ -175,7 +175,7 @@ static int babel_enable_if_add(const char *ifname)
 
 	ret = babel_enable_if_lookup(ifname);
 	if (ret >= 0)
-		return -1;
+		return 0;
 
 	vector_set(babel_enable_if, strdup(ifname));
 
@@ -183,7 +183,7 @@ static int babel_enable_if_add(const char *ifname)
 	if (ifp != NULL)
 		interface_recalculate(ifp);
 
-	return 1;
+	return 0;
 }
 
 /* Delete interface from babel_enable_if. */
@@ -195,7 +195,7 @@ static int babel_enable_if_delete(const char *ifname)
 
 	babel_enable_if_index = babel_enable_if_lookup(ifname);
 	if (babel_enable_if_index < 0)
-		return -1;
+		return 0;
 
 	str = vector_slot(babel_enable_if, babel_enable_if_index);
 	free(str);
@@ -205,15 +205,15 @@ static int babel_enable_if_delete(const char *ifname)
 	if (ifp != NULL)
 		interface_reset(ifp);
 
-	return 1;
+	return 0;
 }
 
-/* [Babel Command] Babel enable on specified interface or matched network. */
+/* [Babel Command] Enable Babel on specified interface. */
 DEFUN (babel_network,
        babel_network_cmd,
-       "network IF_OR_ADDR",
-       "Enable Babel protocol on specified interface or network.\n"
-       "Interface or address\n")
+       "network IFNAME",
+       "Enable Babel protocol on specified interface.\n"
+       "Interface name\n")
 {
 	int ret;
 	struct prefix p;
@@ -221,26 +221,23 @@ DEFUN (babel_network,
 	ret = str2prefix(argv[1]->arg, &p);
 
 	/* Given string is:               */
-	if (ret)			 /* an IPv4 or v6 network */
-		return CMD_ERR_NO_MATCH; /* not implemented yet */
-
-	ret = babel_enable_if_add(argv[1]->arg);
-
-	if (ret < 0) {
-		vty_out(vty, "There is same network configuration %s\n", argv[1]->arg);
-		return CMD_WARNING;
+	if (ret) {			 /* an IPv4 or v6 network */
+		vty_out(vty, "%% Interface name required\n");
+		return CMD_WARNING_CONFIG_FAILED;
 	}
+
+	babel_enable_if_add(argv[1]->arg);
 
 	return CMD_SUCCESS;
 }
 
-/* [Babel Command] Babel enable on specified interface or matched network. */
+/* [Babel Command] Disable Babel on specified interface. */
 DEFUN (no_babel_network,
        no_babel_network_cmd,
-       "no network IF_OR_ADDR",
+       "no network IFNAME",
        NO_STR
-       "Disable Babel protocol on specified interface or network.\n"
-       "Interface or address\n")
+       "Disable Babel protocol on specified interface.\n"
+       "Interface name\n")
 {
 	int ret;
 	struct prefix p;
@@ -248,15 +245,12 @@ DEFUN (no_babel_network,
 	ret = str2prefix(argv[2]->arg, &p);
 
 	/* Given string is:               */
-	if (ret)			 /* an IPv4 or v6 network */
-		return CMD_ERR_NO_MATCH; /* not implemented yet */
-
-	ret = babel_enable_if_delete(argv[2]->arg);
-
-	if (ret < 0) {
-		vty_out(vty, "can't find network %s\n", argv[2]->arg);
+	if (ret) {			 /* an IPv4 or v6 network */
+		vty_out(vty, "%% Interface name required\n");
 		return CMD_WARNING_CONFIG_FAILED;
 	}
+
+	babel_enable_if_delete(argv[2]->arg);
 
 	return CMD_SUCCESS;
 }

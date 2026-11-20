@@ -69,13 +69,6 @@ DEFPY_YANG(no_router_isis, no_router_isis_cmd,
 	if (!vrf_name)
 		vrf_name = VRF_DEFAULT_NAME;
 
-	if (!yang_dnode_existsf(vty->candidate_config->dnode,
-				"/frr-isisd:isis/instance[area-tag='%s'][vrf='%s']", tag,
-				vrf_name)) {
-		vty_out(vty, "ISIS area %s not found.\n", tag);
-		return CMD_ERR_NOTHING_TODO;
-	}
-
 	nb_cli_enqueue_change(vty, ".", NB_OP_DESTROY, NULL);
 
 	return nb_cli_apply_changes_clear_pending(vty,
@@ -1469,7 +1462,7 @@ DEFPY_YANG(isis_redistribute_table, isis_redistribute_table_cmd,
 
 	if (no) {
 		if (!isis_redist_table_is_present(vty, &rtda))
-			return CMD_WARNING_CONFIG_FAILED;
+			return CMD_SUCCESS;
 
 		snprintf(xpath, sizeof(xpath), "./table[table='%s']", table_str);
 		nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
@@ -3662,11 +3655,6 @@ DEFPY_YANG(no_flex_algo, no_flex_algo_cmd, "no flex-algo (128-255)$algorithm",
 
 	snprintfrr(xpath, sizeof(xpath), "%s/flex-algos/flex-algo[flex-algo='%'" PRId64 "']",
 		   VTY_CURR_XPATH, algorithm);
-
-	if (!yang_dnode_exists(vty->candidate_config->dnode, xpath)) {
-		vty_out(vty, "ISIS flex-algo %" PRId64 " isn't exist.\n", algorithm);
-		return CMD_ERR_NO_MATCH;
-	}
 
 	nb_cli_enqueue_change(vty, ".", NB_OP_DESTROY, NULL);
 	return nb_cli_apply_changes_clear_pending(vty,

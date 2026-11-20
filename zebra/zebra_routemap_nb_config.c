@@ -37,6 +37,8 @@ lib_route_map_entry_match_condition_rmap_match_condition_ipv4_prefix_length_modi
 			rhc->rhc_rule = "ip address prefix-len";
 		else if (IS_MATCH_IPv4_NH_PREFIX_LEN(condition))
 			rhc->rhc_rule = "ip next-hop prefix-len";
+		else
+			assert(0);
 
 		rhc->rhc_mhook = generic_match_delete;
 		rhc->rhc_event = RMAP_EVENT_MATCH_DELETED;

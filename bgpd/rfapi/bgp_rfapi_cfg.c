@@ -3551,7 +3551,7 @@ DEFUN (vnc_l2_group_rt,
 		break;
 	default:
 		vty_out(vty, "Unknown option, %s\n", argv[1]->arg);
-		return CMD_ERR_NO_MATCH;
+		return CMD_WARNING_CONFIG_FAILED;
 	}
 
 	/* make sure it's still in list */
