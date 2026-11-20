@@ -266,9 +266,9 @@ done:
  */
 
 enum nb_error lib_vrf_zebra_router_id_get(const struct nb_node *nb_node,
-					  const void *parent_list_entry, struct lyd_node *parent)
+					  const void *list_entry, struct lyd_node *parent)
 {
-	return _router_id_get(nb_node, (const struct vrf *)parent_list_entry, parent, AFI_IP);
+	return _router_id_get(nb_node, (const struct vrf *)list_entry, parent, AFI_IP);
 }
 
 /*
@@ -276,10 +276,10 @@ enum nb_error lib_vrf_zebra_router_id_get(const struct nb_node *nb_node,
  */
 
 enum nb_error lib_vrf_zebra_ipv6_router_id_get(const struct nb_node *nb_node,
-					       const void *parent_list_entry,
+					       const void *list_entry,
 					       struct lyd_node *parent)
 {
-	return _router_id_get(nb_node, (const struct vrf *)parent_list_entry, parent, AFI_IP6);
+	return _router_id_get(nb_node, (const struct vrf *)list_entry, parent, AFI_IP6);
 }
 
 /*

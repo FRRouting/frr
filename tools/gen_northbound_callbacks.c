@@ -118,7 +118,7 @@ static struct nb_callback_info nb_oper_get = {
 	.return_type = "enum nb_error ",
 	.return_value = "NB_OK",
 	.arguments =
-		"const struct nb_node *nb_node, const void *parent_list_entry, struct lyd_node *parent",
+		"const struct nb_node *nb_node, const void *list_entry, struct lyd_node *parent",
 };
 
 static void replace_hyphens_by_underscores(char *str)
