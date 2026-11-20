@@ -19,6 +19,8 @@ FRRouting Developer's Guide
    grpc
    ospf
    zebra
+   srv6_l2_evpn
+   srv6_l2_evpn_irb
    vtysh
    path
    pceplib

@@ -31,8 +31,30 @@
 #include "zebra/zebra_evpn_mh.h"
 #include "zebra/zebra_evpn_neigh.h"
 #include "zebra/zebra_evpn_mac.h"
+#include "zebra/zebra_srv6_l2evpn.h"
 
 DEFINE_MTYPE_STATIC(ZEBRA, NEIGH, "EVI Neighbor");
+
+/*
+ * Grace period (seconds) before reaping a neighbor left LOCAL+INACTIVE by
+ * its MAC moving to remote (zebra_evpn_process_neigh_on_remote_mac_add()).
+ * Well beyond any legitimate BGP convergence delay - the MAC-only and
+ * MAC+IP routes for the same move are typically seconds apart, not
+ * minutes - so by the time this fires without the entry having been
+ * reclaimed, it is a genuine orphan (see zebra_evpn_neigh_orphan_reap_exp()).
+ */
+#define ZEBRA_EVPN_NEIGH_ORPHAN_REAP_TIME 300
+
+/* Return the zebra_vrf for a zevpn, working for both VxLAN and SRv6 EVIs.
+ * VxLAN EVIs store the vrf via vxlan_if; SRv6 EVIs have no vxlan_if so we
+ * fall back to the global EVPN VRF.
+ */
+static inline struct zebra_vrf *zebra_evpn_get_zvrf(struct zebra_evpn *zevpn)
+{
+	if (zevpn->vxlan_if && zevpn->vxlan_if->vrf)
+		return (struct zebra_vrf *)zevpn->vxlan_if->vrf->info;
+	return zebra_vrf_get_evpn();
+}
 
 int neigh_list_cmp(void *p1, void *p2)
 {
@@ -558,6 +580,9 @@ int zebra_evpn_neigh_del(struct zebra_evpn *zevpn, struct zebra_neigh *n)
 	/* Cancel proxy hold timer */
 	zebra_evpn_neigh_stop_hold_timer(n);
 
+	/* Cancel orphan reap timer */
+	event_cancel(&n->orphan_reap_timer);
+
 	/* Free the VNI hash entry and allocated memory. */
 	zebra_neigh_db_del(zevpn->neigh_table, n);
 	XFREE(MTYPE_NEIGH, n);
@@ -578,8 +603,8 @@ void zebra_evpn_sync_neigh_del(struct zebra_neigh *n)
 		struct zebra_ns *zns = NULL;
 		struct interface *ifp = NULL;
 
-		if (n->zevpn && n->zevpn->vxlan_if && n->zevpn->vxlan_if->vrf) {
-			struct zebra_vrf *zvrf = n->zevpn->vxlan_if->vrf->info;
+		if (n->zevpn) {
+			struct zebra_vrf *zvrf = zebra_evpn_get_zvrf(n->zevpn);
 
 			if (zvrf)
 				zns = zvrf->zns;
@@ -912,7 +937,7 @@ void zebra_evpn_process_neigh_on_local_mac_change(struct zebra_evpn *zevpn,
 	struct listnode *node = NULL;
 	struct zebra_vrf *zvrf = NULL;
 
-	zvrf = zevpn->vxlan_if->vrf->info;
+	zvrf = zebra_evpn_get_zvrf(zevpn);
 
 	if (IS_ZEBRA_DEBUG_VXLAN)
 		zlog_debug("Processing neighbors on local MAC %pEA %s, VNI %u",
@@ -977,6 +1002,32 @@ void zebra_evpn_process_neigh_on_local_mac_del(struct zebra_evpn *zevpn,
 }
 
 /*
+ * Reap a neighbor left LOCAL+INACTIVE by an earlier MAC move, if nothing
+ * has reclaimed it in the meantime. Re-checks the flags at fire time
+ * rather than assuming: a fresh local relearn (zebra_evpn_local_neigh_update)
+ * or a remote MACIP add for the same IP (zebra_evpn_neigh_remote_macip_add)
+ * may have already converted this exact struct, in which case this is a
+ * harmless no-op.
+ */
+static void zebra_evpn_neigh_orphan_reap_exp(struct event *t)
+{
+	struct zebra_neigh *n = EVENT_ARG(t);
+	struct zebra_evpn *zevpn;
+
+	if (!CHECK_FLAG(n->flags, ZEBRA_NEIGH_LOCAL) || IS_ZEBRA_NEIGH_ACTIVE(n))
+		return;
+
+	zevpn = n->zevpn;
+
+	if (IS_ZEBRA_DEBUG_VXLAN)
+		zlog_debug("%s: reaping orphaned neigh %pIA mac %pEA VNI %u, inactive %us",
+			   __func__, &n->ip, &n->emac, zevpn->vni,
+			   ZEBRA_EVPN_NEIGH_ORPHAN_REAP_TIME);
+
+	zebra_evpn_neigh_del(zevpn, n);
+}
+
+/*
  * Process all neighbors associated with a MAC upon the MAC being remotely
  * learnt.
  */
@@ -994,15 +1045,31 @@ void zebra_evpn_process_neigh_on_remote_mac_add(struct zebra_evpn *zevpn,
 	 * BGP, if needed.
 	 */
 	for (ALL_LIST_ELEMENTS_RO(zmac->neigh_list, node, n)) {
-		if (CHECK_FLAG(n->flags, ZEBRA_NEIGH_LOCAL)) {
-			if (IS_ZEBRA_NEIGH_ACTIVE(n)) {
-				ZEBRA_NEIGH_SET_INACTIVE(n);
-				n->loc_seq = 0;
-				zebra_evpn_neigh_send_del_to_client(
-					zevpn->vni, &n->ip, &n->emac, n->flags,
-					ZEBRA_NEIGH_ACTIVE, false /* force */);
-			}
+		if (!CHECK_FLAG(n->flags, ZEBRA_NEIGH_LOCAL))
+			continue;
+
+		if (IS_ZEBRA_NEIGH_ACTIVE(n)) {
+			ZEBRA_NEIGH_SET_INACTIVE(n);
+			n->loc_seq = 0;
+			zebra_evpn_neigh_send_del_to_client(zevpn->vni, &n->ip, &n->emac, n->flags,
+							    ZEBRA_NEIGH_ACTIVE, false /* force */);
 		}
+
+		/*
+		 * Schedule (or refresh) the reap timer regardless of whether
+		 * this neighbor was freshly deactivated just now or was
+		 * already LOCAL+INACTIVE when we got here (e.g. created
+		 * inactive from a kernel-replayed neighbor event) - either
+		 * way it is LOCAL on a MAC that is now remote, and deserves
+		 * the same bounded grace period before being treated as
+		 * orphaned. Give a genuine in-flight reconvergence (a remote
+		 * MACIP add for this same IP, or a fresh local relearn) time
+		 * to reclaim this entry - see
+		 * struct zebra_neigh::orphan_reap_timer.
+		 */
+		event_cancel(&n->orphan_reap_timer);
+		event_add_timer(zrouter.master, zebra_evpn_neigh_orphan_reap_exp, n,
+				ZEBRA_EVPN_NEIGH_ORPHAN_REAP_TIME, &n->orphan_reap_timer);
 	}
 }
 
@@ -1286,11 +1353,33 @@ int zebra_evpn_local_neigh_update(struct zebra_evpn *zevpn,
 		}
 	}
 
-	zvrf = zevpn->vxlan_if->vrf->info;
+	/*
+	 * SRv6 L2 EVPN: a PE advertises a host MAC+IP Type-2 only once the
+	 * neighbor's MAC is a known *local* MAC.  The SVI neighbor event that
+	 * brought us here is reliably delivered, but the matching local MAC
+	 * from the SW-bridge FDB may not be: the EVI-realize FDB rescan is
+	 * one-shot, and an ongoing SW-bridge learn can be missed or race the
+	 * neighbor (learned before its MAC).  While the neighbor's MAC is
+	 * still an AUTO placeholder, kick a bridge FDB re-read so the real
+	 * local MAC is (re-)learned; that converts the AUTO MAC to local and
+	 * activates this neighbor for advertisement.  Driven by the recurring
+	 * neighbor events, this retries until the MAC lands, and is
+	 * self-limiting: once the MAC is local the AUTO flag is gone and this
+	 * is skipped.
+	 */
+	if (zevpn->dp_ops == &zevpn_dp_ops_srv6 && zevpn->bridge_if &&
+	    CHECK_FLAG(zmac->flags, ZEBRA_MAC_AUTO)) {
+		struct zebra_ns *zns = zebra_ns_lookup(NS_DEFAULT);
+
+		if (zns)
+			dplane_fdb_read_for_bridge(zns, zevpn->bridge_if, zevpn->bridge_if,
+						   zevpn->vid);
+	}
+
+	zvrf = zebra_evpn_get_zvrf(zevpn);
 	if (!zvrf) {
 		if (IS_ZEBRA_DEBUG_VXLAN)
-			zlog_debug("        Unable to find vrf for: %d",
-				   zevpn->vxlan_if->vrf->vrf_id);
+			zlog_debug("        Unable to find vrf for VNI %u", zevpn->vni);
 		return -1;
 	}
 
@@ -2339,7 +2428,7 @@ int zebra_evpn_neigh_del_ip(struct zebra_evpn *zevpn, const struct ipaddr *ip)
 		return 0;
 	}
 
-	zvrf = zevpn->vxlan_if->vrf->info;
+	zvrf = zebra_evpn_get_zvrf(zevpn);
 	if (!zvrf) {
 		zlog_debug("%s: VNI %u vrf lookup failed.", __func__,
 			   zevpn->vni);
