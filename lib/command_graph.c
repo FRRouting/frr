@@ -284,7 +284,7 @@ static void cmd_fork_bump_attr(struct graph_node *gn, struct graph_node *join,
 	struct cmd_token *tok = gn->data;
 	struct graph_node *stop = cmd_loopstop(gn);
 
-	tok->attr = attr;
+	tok->attr &= attr;
 	for (i = 0; i < vector_active(gn->to); i++) {
 		struct graph_node *next = vector_slot(gn->to, i);
 		if (next == stop || next == join)
@@ -397,17 +397,20 @@ static void cmd_merge_nodes(struct graph *oldgraph, struct graph *newgraph,
 				/* the entire fork compared as equal, we
 				 * continue after it. */
 				if (told->type == FORK_TKN) {
-					if (tnew->attr < told->attr
-					    && direction > 0)
-						cmd_fork_bump_attr(
-							cold, told->forkjoin,
-							tnew->attr);
+					if ((told->attr & ~tnew->attr) && direction > 0)
+						cmd_fork_bump_attr(cold, told->forkjoin,
+								   tnew->attr);
 					/* XXX: no reverse bump on uninstall */
 					told = (cold = told->forkjoin)->data;
 					tnew = (cnew = tnew->forkjoin)->data;
 				}
-				if (tnew->attr < told->attr)
-					told->attr = tnew->attr;
+				/* A token shared by several commands keeps an
+				 * attribute (e.g. CMD_ATTR_HIDDEN) only if all of
+				 * them have it.  attr is a bitmask, so this must
+				 * not be a numeric comparison: CMD_ATTR_NOSH is
+				 * larger than CMD_ATTR_HIDDEN.
+				 */
+				told->attr &= tnew->attr;
 
 				cmd_merge_nodes(oldgraph, newgraph, cold, cnew,
 						direction);
