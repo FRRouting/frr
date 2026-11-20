@@ -1138,7 +1138,7 @@ static void bgp_show_nexthop(struct vty *vty, struct bgp *bgp, struct bgp_nextho
 				vty_out(vty, "  Is not Registered\n");
 		}
 	}
-	tbuf = time(NULL) - (monotime(NULL) - bnc->last_update);
+	tbuf = time_to_epoch(bnc->last_update);
 	if (uj) {
 		if (detail) {
 			json_last_update = json_object_new_object();

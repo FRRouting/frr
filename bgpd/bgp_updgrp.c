@@ -753,7 +753,7 @@ static int update_group_show_walkcb(struct update_group *updgrp, void *arg)
 	json_object *json_subgrp_event = NULL;
 	json_object *json_peers = NULL;
 	json_object *json_pkt_info = NULL;
-	time_t epoch_tbuf, tbuf;
+	time_t epoch_tbuf;
 	char timebuf[32];
 	char time_buf[64];
 
@@ -785,9 +785,7 @@ static int update_group_show_walkcb(struct update_group *updgrp, void *arg)
 	if (ctx->uj) {
 		json_updgrp = json_object_new_object();
 		/* Display json o/p */
-		tbuf = monotime(NULL);
-		tbuf -= updgrp->uptime;
-		epoch_tbuf = time(NULL) - tbuf;
+		epoch_tbuf = time_to_epoch(updgrp->uptime);
 		json_time = json_object_new_object();
 		json_object_int_add(json_time, "epoch", epoch_tbuf);
 		json_object_string_add(json_time, "epochString",
@@ -866,9 +864,7 @@ static int update_group_show_walkcb(struct update_group *updgrp, void *arg)
 			json_subgrp = json_object_new_object();
 			json_object_int_add(json_subgrp, "subGroupId",
 					    subgrp->id);
-			tbuf = monotime(NULL);
-			tbuf -= subgrp->uptime;
-			epoch_tbuf = time(NULL) - tbuf;
+			epoch_tbuf = time_to_epoch(subgrp->uptime);
 			json_subgrp_time = json_object_new_object();
 			json_object_int_add(json_subgrp_time, "epoch",
 					    epoch_tbuf);
