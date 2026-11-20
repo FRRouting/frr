@@ -815,12 +815,16 @@ void ospf_opaque_type9_lsa_if_cleanup(struct ospf_interface *oi)
 		 * is removed from the interface opaque info list.
 		 */
 		if (lsa->oi == oi) {
+			bool discarded;
+
 			if (IS_DEBUG_OSPF_OPAQUE_LSA)
 				zlog_debug("Delete Type-9 Opaque-LSA on interface delete: [opaque-type=%u, opaque-id=%x]",
 					   GET_OPAQUE_TYPE(
 						   ntohl(lsa->data->id.s_addr)),
 					   GET_OPAQUE_ID(ntohl(
 						   lsa->data->id.s_addr)));
+			discarded = CHECK_FLAG(lsa->flags, OSPF_LSA_DISCARD);
+			ospf_lsa_lock(lsa);
 			ospf_lsdb_delete(lsdb, lsa);
 			LS_AGE_SET(lsa, OSPF_LSA_MAXAGE);
 
@@ -830,7 +834,10 @@ void ospf_opaque_type9_lsa_if_cleanup(struct ospf_interface *oi)
 			 */
 			ospf_opaque_lsa_delete_hook(lsa);
 			lsa->oi = NULL;
-			ospf_lsa_discard(lsa);
+			if (discarded)
+				ospf_lsa_unlock(&lsa);
+			else
+				ospf_lsa_discard(lsa);
 		}
 }
 
