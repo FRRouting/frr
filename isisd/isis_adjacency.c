@@ -1006,7 +1006,7 @@ bool isis_adj_ipv4_native_usable(const struct isis_adjacency *adj)
 	if (!circuit)
 		return false;
 
-	return (fabricd_ip_addrs(circuit) && adj->ipv4_address_count);
+	return (isis_circuit_ip_addrs(circuit) && adj->ipv4_address_count);
 }
 
 /*

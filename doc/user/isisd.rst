@@ -16,11 +16,18 @@ like :abbr:`OSPF`. ISIS is widely used in large networks such as :abbr:`ISP
 Configuring isisd
 =================
 
-There are no *isisd* specific options. Common options can be specified
-(:ref:`common-invocation-options`) to *isisd*. *isisd* needs to acquire
-interface information from *zebra* in order to function. Therefore *zebra* must
-be running before invoking *isisd*. Also, if *zebra* is restarted then *isisd*
-must be too.
+*isisd* accepts all common invocations (:ref:`common-invocation-options`) and
+the following specific options.
+
+.. program:: isisd
+
+.. option:: --dummy_as_loopback
+
+   Treat dummy interfaces as loopback interfaces.
+
+*isisd* needs to acquire interface information from *zebra* in order to
+function. Therefore *zebra* must be running before invoking *isisd*. Also, if
+*zebra* is restarted then *isisd* must be too.
 
 .. include:: config-include.rst
 
@@ -230,6 +237,10 @@ ISIS region
 ISIS interface
 ==============
 
+ISIS supports IPv4 unnumbered interfaces when enabled with
+:clicmd:`isis unnumbered`. IPv6 requires no global addresses on the links, but
+needs IPv6 link-local addresses.
+
 .. _ip-router-isis-word:
 
 .. clicmd:: <ip|ipv6> router isis WORD
@@ -298,6 +309,15 @@ sessions.
 
    Configure the passive mode for this interface.
 
+.. clicmd:: isis unnumbered
+
+   Enable IPv4 unnumbered operation on this interface. If the interface has no
+   IPv4 address, ISIS borrows one from a loopback interface that is part of the
+   same area and advertises it in its hellos. IPv4 nexthops through this
+   interface that are not covered by any of its subnets are installed as
+   on-link. Disabled by default. It cannot be combined with
+   :clicmd:`isis ipv4-over-ipv6-nexthop` on the same interface.
+
 .. clicmd:: isis password [clear | md5] <password>
 
    Configure the authentication password (clear or encoded text) for the
@@ -351,7 +371,8 @@ sessions.
    neighbor's IPv6 link-local address, which becomes the nexthop of the IPv4
    routes installed through it (as with BGP and :rfc:`8950`). Adjacencies
    with usable IPv4 addressing keep IPv4 nexthops, so the option can be
-   enabled on some interfaces and not others.
+   enabled on some interfaces and not others. It cannot be combined with
+   :clicmd:`isis unnumbered` on the same interface.
 
    The kernel must support IPv4 routes with IPv6 nexthops (Linux 5.2 or
    later). Nothing in IS-IS tells a neighbor whether this is enabled, so

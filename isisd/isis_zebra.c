@@ -200,8 +200,6 @@ static int isis_zebra_add_nexthops(struct isis *isis, struct list *nexthops,
 
 		zapi_nexthop_init(api_nh);
 
-		if (fabricd)
-			SET_FLAG(api_nh->flags, ZAPI_NEXTHOP_FLAG_ONLINK);
 		api_nh->vrf_id = isis->vrf_id;
 
 		switch (nexthop->family) {
@@ -230,6 +228,15 @@ static int isis_zebra_add_nexthops(struct isis *isis, struct list *nexthops,
 		}
 
 		api_nh->ifindex = nexthop->ifindex;
+
+		/*
+		 * Force ONLINK for IPv4 nexthops outside the circuit's
+		 * connected prefixes (e.g. on unnumbered interfaces), so the
+		 * kernel skips the nexthop reachability check. Also keep the
+		 * existing fabricd behavior.
+		 */
+		if (fabricd || nexthop->onlink)
+			SET_FLAG(api_nh->flags, ZAPI_NEXTHOP_FLAG_ONLINK);
 
 		/* Add MPLS label(s). */
 		if (nexthop->label_stack) {
