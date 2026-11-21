@@ -615,11 +615,13 @@ bool bgp_adj_out_set_subgroup(struct bgp_dest *dest,
 		}
 
 		/*
-		 * If this is a duplicate of the update that was sent out,
-		 * clean up the queued update, regardless whether it is a
-		 * withdraw or an advertisement.
+		 * Cancel queued state that differs from the update already sent.
+		 * Keep a matching queued advertisement: a forced route-refresh
+		 * reply must still be sent even when normal processing sees a
+		 * duplicate before that reply leaves the queue.
 		 */
-		if (adj->adv && (attr_new == adj->attr)) {
+		if (adj->adv && attr_new == adj->attr &&
+		    (!adj->adv->baa || attr_new != adj->adv->baa->attr)) {
 			if (debug) {
 				zlog_debug("%s delete queued UPDATE (%s:%u:%u)%pBD, afi=%s, safi=%s",
 					   peer->host, dv.name, dv.id, dv.table_id, dest,
