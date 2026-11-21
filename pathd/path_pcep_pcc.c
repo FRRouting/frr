@@ -554,6 +554,12 @@ void pcep_pcc_send_report(struct ctrl_state *ctrl_state,
 	PCEP_DEBUG("(%s)%s Send report for candidate path %s", __func__,
 		   pcc_state->tag, path->name);
 
+	if (path->lsp_error_code != 0) {
+		send_report(pcc_state, path);
+		pcep_free_path(path);
+		return;
+	}
+
 	/* ODL and Cisco requires the first reported
 	 * LSP to have a DOWN status, the later status changes
 	 * will be communicated through hook calls.
@@ -1329,10 +1335,13 @@ void handle_pcep_lsp_initiate(struct ctrl_state *ctrl_state,
 		}
 	}
 
-	/* TODO: If there is a conflict with the symbolic path name of an
-	 * existing LSP, the PCC MUST send a PCErr message with Error-type=23
-	 * (Bad Parameter value) and Error-value=1 (SYMBOLIC-PATH-NAME in
-	 * use) */
+	/* If there is a conflict with the symbolic path name of an existing
+	 * LSP, the PCC MUST send a PCErr message with Error-type=23 (Bad
+	 * Parameter value) and Error-value=1 (SYMBOLIC-PATH-NAME in use).
+	 * The candidate paths live on the main thread, so the check is done
+	 * in path_pcep_config_initiate_path() and the error sent from
+	 * pcep_main_event_initiate_candidate().
+	 */
 
 	specialize_incoming_path(pcc_state, path);
 	/* TODO: Validate the PCC address received from the PCE is valid */
@@ -1553,14 +1562,7 @@ void schedule_reconnect(struct ctrl_state *ctrl_state,
 void schedule_session_timeout(struct ctrl_state *ctrl_state,
 			      struct pcc_state *pcc_state)
 {
-	/* No need to schedule timeout if multiple PCEs are connected */
-	if (get_pce_count_connected(ctrl_state->pcc)) {
-		PCEP_DEBUG_PCEP(
-			"schedule_session_timeout not setting timer for multi-pce mode");
-
-		return;
-	}
-
+	/* Each PCE has its own timeout, even when other PCEs are connected */
 	pcep_thread_schedule_session_timeout(
 		ctrl_state, pcep_pcc_get_pcc_id(pcc_state),
 		pcc_state->pce_opts->config_opts

@@ -121,7 +121,8 @@ static void srte_policy_status_log(struct srte_policy *policy)
  * Adds a segment list to pathd.
  *
  * @param name The name of the segment list to add
- * @return The added segment list
+ * @return The added segment list, or NULL if a segment list with that
+ *	   name already exists
  */
 struct srte_segment_list *srte_segment_list_add(const char *name)
 {
@@ -130,7 +131,15 @@ struct srte_segment_list *srte_segment_list_add(const char *name)
 	segment_list = XCALLOC(MTYPE_PATH_SEGMENT_LIST, sizeof(*segment_list));
 	strlcpy(segment_list->name, name, sizeof(segment_list->name));
 	RB_INIT(srte_segment_entry_head, &segment_list->segments);
-	RB_INSERT(srte_segment_list_head, &srte_segment_lists, segment_list);
+	/* Duplicates are not allowed: every caller checks the name is
+	 * free before adding, so a collision here is a bug.  Refuse it
+	 * rather than hand out a segment list that is not in the tree.
+	 */
+	if (RB_INSERT(srte_segment_list_head, &srte_segment_lists, segment_list) != NULL) {
+		zlog_warn("%s: a segment list named %s already exists", __func__, name);
+		XFREE(MTYPE_PATH_SEGMENT_LIST, segment_list);
+		return NULL;
+	}
 
 	return segment_list;
 }
@@ -150,7 +159,18 @@ void srte_segment_list_del(struct srte_segment_list *segment_list)
 			 &segment_list->segments, safe_seg) {
 		srte_segment_entry_del(segment);
 	}
-	RB_REMOVE(srte_segment_list_head, &srte_segment_lists, segment_list);
+
+	/* Check first that the named list is in the tree before
+	 * removing, otherwise it will dereference a NULL pointer.
+	 * This should no longer happen since duplicates are
+	 * prevented at insertion.
+	 */
+	if (RB_FIND(srte_segment_list_head, &srte_segment_lists, segment_list) == segment_list) {
+		RB_REMOVE(srte_segment_list_head, &srte_segment_lists, segment_list);
+	} else {
+		zlog_warn("%s: deleting a segment list named %s that is not in the tree; a duplicate insert slipped through somewhere",
+			  __func__, segment_list->name);
+	}
 	XFREE(MTYPE_PATH_SEGMENT_LIST, segment_list);
 }
 
@@ -1208,6 +1228,18 @@ void srte_candidate_status_update(struct srte_candidate *candidate, int status)
 	trigger_pathd_candidate_updated(candidate);
 }
 
+static bool srte_policy_has_other_candidates(struct srte_policy *policy,
+					     struct srte_candidate *candidate)
+{
+	struct srte_candidate *other;
+
+	RB_FOREACH (other, srte_candidate_head, &policy->candidate_paths) {
+		if (other != candidate && !CHECK_FLAG(other->flags, F_CANDIDATE_DELETED))
+			return true;
+	}
+	return false;
+}
+
 /**
  * Flags the segment lists from give originator for removal.
  *
@@ -1215,9 +1247,8 @@ void srte_candidate_status_update(struct srte_candidate *candidate, int status)
  * the segment list to be removed.
  *
  * @param originator The originator tag of the segment list to be marked
- * @param force If the unset should be forced regardless of the originator
  */
-void srte_candidate_unset_segment_list(const char *originator, bool force)
+void srte_candidate_unset_segment_list(const char *originator)
 {
 	if (originator == NULL) {
 		zlog_warn(
@@ -1243,6 +1274,15 @@ void srte_candidate_unset_segment_list(const char *originator, bool force)
 				continue;
 			}
 
+			/* At the session timeout, PCE-initiated paths are removed (RFC 8281) */
+			if (candidate->protocol_origin == SRTE_ORIGIN_PCEP &&
+			    strcmp(candidate->originator, originator) == 0) {
+				SET_FLAG(candidate->flags, F_CANDIDATE_DELETED);
+				if (!srte_policy_has_other_candidates(policy, candidate))
+					SET_FLAG(policy->flags, F_POLICY_DELETED);
+				continue;
+			}
+
 			/* The candidate->lsp->segment_list is operational data,
 			 * configured by the PCE. We dont want to modify the
 			 * candidate->segment_list,
@@ -1261,13 +1301,8 @@ void srte_candidate_unset_segment_list(const char *originator, bool force)
 				continue;
 			}
 
-			/* In the case of last pce,we force the unset
-			 * because we don't have pce by prefix (TODO) is all
-			 * 'global' */
 			if (strncmp(segment_list->originator, originator,
-				    sizeof(segment_list->originator))
-				    == 0
-			    || force) {
+				    sizeof(segment_list->originator)) == 0) {
 				PATH_POLICY_DEBUG("Unset segment list %s",
 						  segment_list->name);
 				SET_FLAG(segment_list->flags,

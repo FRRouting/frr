@@ -195,11 +195,19 @@ RB_HEAD(srte_segment_entry_head, srte_segment_entry);
 RB_PROTOTYPE(srte_segment_entry_head, srte_segment_entry, entry,
 	     srte_segment_entry_compare)
 
+/* Name length limit in frr-pathd.yang */
+#define SRTE_YANG_NAME_MAX_LENGTH 64
+#define SRTE_NAME_LENGTH	  (SRTE_YANG_NAME_MAX_LENGTH + 1)
+/* PCEP segment lists are "<name>-<plsp_id>", PLSP-ID up to 7 digits */
+#define SRTE_PCEP_NAME_MAX_LENGTH (SRTE_YANG_NAME_MAX_LENGTH - 8)
+/* Prefix of hashed PCEP segment list names, reserved from configuration */
+#define SRTE_PCEP_HASHED_PREFIX "pcep-hash-"
+
 struct srte_segment_list {
 	RB_ENTRY(srte_segment_list) entry;
 
 	/* Name of the Segment List. */
-	char name[64];
+	char name[SRTE_NAME_LENGTH];
 
 	/* The Protocol-Origin. */
 	enum srte_protocol_origin protocol_origin;
@@ -274,7 +282,7 @@ struct srte_candidate {
 	uint32_t preference;
 
 	/* Symbolic Name. */
-	char name[64];
+	char name[SRTE_NAME_LENGTH];
 
 	/* The associated Segment List. */
 	struct srte_segment_list *segment_list;
@@ -336,7 +344,7 @@ struct srte_policy {
 	struct ipaddr endpoint;
 
 	/* Name */
-	char name[64];
+	char name[SRTE_NAME_LENGTH];
 
 	/* Binding SID */
 	mpls_label_t binding_sid;
@@ -441,7 +449,7 @@ struct srte_candidate *srte_candidate_find(struct srte_policy *policy,
 struct srte_segment_entry *
 srte_segment_entry_find(struct srte_segment_list *segment_list, uint32_t index);
 void srte_candidate_status_update(struct srte_candidate *candidate, int status);
-void srte_candidate_unset_segment_list(const char *originator, bool force);
+void srte_candidate_unset_segment_list(const char *originator);
 const char *srte_origin2str(enum srte_protocol_origin origin);
 void pathd_shutdown(void);
 

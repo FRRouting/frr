@@ -222,6 +222,8 @@ struct path {
 	uint32_t req_id;
 	/* The operational status of the path */
 	enum pcep_lsp_operational_status status;
+	/* LSP-ERROR-CODE TLV value, 0 for none */
+	enum pcep_tlv_lsp_error_codes lsp_error_code;
 	/* If true, the receiver (PCC) must remove the path.
 	   See draft-ietf-pce-pce-initiated-lsp */
 	bool do_remove;
@@ -298,6 +300,9 @@ struct pcep_error {
 #define ERROR_19_1 1
 #define ERROR_19_3 2
 #define ERROR_19_9 3
+#define ERROR_23_1 4
+#define ERROR_24_2 5
+#define ERROR_24_1 6
 };
 
 /* Path Helper Functions */
