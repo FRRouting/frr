@@ -13297,6 +13297,37 @@ void route_vty_out_tmp(struct vty *vty, struct bgp *bgp, struct bgp_dest *dest,
 			json_object_string_add(
 				json_net, "origin",
 				bgp_origin_long_str[attr->origin]);
+
+			/* Print community */
+			if (bgp_attr_get_community(attr)) {
+				if (!bgp_attr_get_community(attr)->json)
+					community_str(bgp_attr_get_community(attr), true);
+				json_object_lock(bgp_attr_get_community(attr)->json);
+				json_object_object_add(json_net, "community",
+						       bgp_attr_get_community(attr)->json);
+			}
+
+			/* Print extended community */
+			if (bgp_attr_get_ecommunity(attr)) {
+				struct json_object *json_ext_community;
+
+				if (!bgp_attr_get_ecommunity(attr)->str)
+					ecommunity_str(bgp_attr_get_ecommunity(attr));
+				json_ext_community = json_object_new_object();
+				json_object_string_add(json_ext_community, "string",
+						       bgp_attr_get_ecommunity(attr)->str);
+				json_object_object_add(json_net, "extendedCommunity",
+						       json_ext_community);
+			}
+
+			/* Print large community */
+			if (bgp_attr_get_lcommunity(attr)) {
+				if (!bgp_attr_get_lcommunity(attr)->json)
+					lcommunity_str(bgp_attr_get_lcommunity(attr), true);
+				json_object_lock(bgp_attr_get_lcommunity(attr)->json);
+				json_object_object_add(json_net, "largeCommunity",
+						       bgp_attr_get_lcommunity(attr)->json);
+			}
 		} else if (safi == SAFI_UNREACH) {
 			/* Skip nexthop display for SAFI_UNREACH */
 		} else {
