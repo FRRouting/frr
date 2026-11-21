@@ -13,6 +13,13 @@
 #ifdef __OpenBSD__
 #include <netmpls/mpls.h>
 #endif
+#ifdef __APPLE__
+#include <sys/ioctl.h>
+#include <sys/kern_event.h>
+#include <sys/sysctl.h>
+#include <net/if_var.h>
+#include <net/net_kev.h>
+#endif /* __APPLE__ */
 
 #include "if.h"
 #include "prefix.h"
@@ -1596,6 +1603,112 @@ static void kernel_read(struct event *event)
 	}
 }
 
+#ifdef __APPLE__
+/*
+ * XNU sends no RTM_IFANNOUNCE, and its RTM_IFINFO has no interface name:
+ * zebra would not learn an interface created after it started. XNU reports
+ * the interfaces it attaches and detaches with kernel events: read a new
+ * interface and its addresses like interface_list() does at startup.
+ */
+static int kev_sock = -1;
+
+static void kernel_ifindex_read(unsigned int ifindex)
+{
+	int mib[6] = { CTL_NET, PF_ROUTE, 0, 0, NET_RT_IFLIST, (int)ifindex };
+	struct if_msghdr *ifm;
+	char *buf, *end, *p;
+	size_t len;
+
+	if (sysctl(mib, 6, NULL, &len, NULL, 0) < 0 || len == 0)
+		return;
+	buf = XMALLOC(MTYPE_TMP, len);
+	ifm = (struct if_msghdr *)buf;
+	/*
+	 * XNU attaches a vlan or bond interface before it has a parent: it has
+	 * no flags and takes no address then. Read it on one of its next
+	 * events, once configured.
+	 */
+	if (sysctl(mib, 6, buf, &len, NULL, 0) == 0 &&
+	    (len < sizeof(*ifm) || ifm->ifm_type != RTM_IFINFO || ifm->ifm_flags)) {
+		end = buf + len;
+		for (p = buf; p + sizeof(*ifm) <= end; p += ifm->ifm_msglen) {
+			ifm = (struct if_msghdr *)p;
+			if (ifm->ifm_msglen == 0)
+				break;
+			if (ifm->ifm_type == RTM_IFINFO)
+				ifm_read(ifm);
+			else if (ifm->ifm_type == RTM_NEWADDR)
+				ifam_read((struct ifa_msghdr *)ifm);
+		}
+	}
+	XFREE(MTYPE_TMP, buf);
+}
+
+static void kernel_kev_read(struct event *event)
+{
+	union {
+		struct kern_event_msg msg;
+		char buf[512];
+	} kev;
+	struct net_event_data *data;
+	struct interface *ifp;
+	char ifname[IFNAMSIZ];
+	unsigned int ifindex;
+	ssize_t len;
+
+	event_add_read(zrouter.master, kernel_kev_read, NULL, kev_sock, NULL);
+
+	len = recv(kev_sock, &kev, sizeof(kev), 0);
+	if (len < (ssize_t)(offsetof(struct kern_event_msg, event_data) + sizeof(*data)))
+		return;
+	data = (struct net_event_data *)&kev.msg.event_data[0];
+	snprintfrr(ifname, sizeof(ifname), "%s%u", data->if_name, data->if_unit);
+
+	switch (kev.msg.event_code) {
+	case KEV_DL_IF_DETACHING:
+		break;
+	case KEV_DL_IF_DETACHED:
+		if (IS_ZEBRA_DEBUG_KERNEL)
+			zlog_debug("%s: %s detached", __func__, ifname);
+		ifp = if_lookup_by_name(ifname, VRF_DEFAULT);
+		if (ifp && ifp->ifindex != IFINDEX_INTERNAL)
+			if_delete_update(&ifp);
+		break;
+	default:
+		/* attached, or configured since it was attached */
+		ifindex = if_nametoindex(ifname);
+		if (!ifindex || if_lookup_by_index(ifindex, VRF_DEFAULT))
+			break;
+		if (IS_ZEBRA_DEBUG_KERNEL)
+			zlog_debug("%s: %s event %u, ifindex %u", __func__, ifname,
+				   kev.msg.event_code, ifindex);
+		kernel_ifindex_read(ifindex);
+		break;
+	}
+}
+
+static void kernel_kev_socket(void)
+{
+	struct kev_request req = {
+		.vendor_code = KEV_VENDOR_APPLE,
+		.kev_class = KEV_NETWORK_CLASS,
+		.kev_subclass = KEV_DL_SUBCLASS,
+	};
+
+	frr_with_privs (&zserv_privs) {
+		kev_sock = socket(PF_SYSTEM, SOCK_RAW, SYSPROTO_EVENT);
+	}
+	if (kev_sock < 0 || ioctl(kev_sock, SIOCSKEVFILT, &req) < 0) {
+		flog_err_sys(EC_LIB_SOCKET, "Can't init kernel event socket");
+		if (kev_sock >= 0)
+			close(kev_sock);
+		kev_sock = -1;
+		return;
+	}
+	event_add_read(zrouter.master, kernel_kev_read, NULL, kev_sock, NULL);
+}
+#endif /* __APPLE__ */
+
 /* Make routing socket. */
 static void routing_socket(struct zebra_ns *zns)
 {
@@ -1655,6 +1768,10 @@ static void routing_socket(struct zebra_ns *zns)
 
 	/* kernel_read needs rewrite. */
 	event_add_read(zrouter.master, kernel_read, NULL, routing_sock, NULL);
+
+#ifdef __APPLE__
+	kernel_kev_socket();
+#endif /* __APPLE__ */
 }
 
 void interface_list_second(struct zebra_ns *zns)
