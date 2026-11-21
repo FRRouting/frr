@@ -1180,6 +1180,13 @@ void srte_candidate_status_update(struct srte_candidate *candidate, int status)
 				 get is back to DOWN and remove the
 				 policy */
 		case SRTE_POLICY_STATUS_GOING_UP:
+			/* An update of an UP policy that zebra could not
+			 * install leaves the old steering route behind.
+			 * Withdraw it so traffic falls back to the IGP
+			 * while zebra retries.
+			 */
+			path_zebra_update_steering_route(policy);
+			return;
 		case SRTE_POLICY_STATUS_DOWN:
 			return;
 		case SRTE_POLICY_STATUS_UNKNOWN:
@@ -1187,6 +1194,7 @@ void srte_candidate_status_update(struct srte_candidate *candidate, int status)
 		case SRTE_POLICY_STATUS_GOING_DOWN:
 			policy->status = SRTE_POLICY_STATUS_DOWN;
 			srte_policy_status_log(policy);
+			path_zebra_update_steering_route(policy);
 			break;
 		}
 		break;
@@ -1200,6 +1208,7 @@ void srte_candidate_status_update(struct srte_candidate *candidate, int status)
 		case SRTE_POLICY_STATUS_GOING_UP:
 			policy->status = SRTE_POLICY_STATUS_UP;
 			srte_policy_status_log(policy);
+			path_zebra_update_steering_route(policy);
 			break;
 		}
 		break;
