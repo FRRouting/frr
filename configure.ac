@@ -2055,7 +2055,13 @@ AC_MSG_ERROR([m4_normalize([libyang >= 2.1.128 is required, and was not found on
 Please consult doc/developer/building-libyang.rst for instructions on installing or building libyang.])])])
 
 ac_cflags_save="$CFLAGS"
+ac_ldflags_save="$LDFLAGS"
 CFLAGS="$CFLAGS $LIBYANG_CFLAGS"
+for flag in $LIBYANG_LIBS; do
+  case "$flag" in
+  -L*) LDFLAGS="$LDFLAGS $flag" ;;
+  esac
+done
 AC_CHECK_MEMBER([struct lyd_node.priv], [], [
   AC_MSG_ERROR([m4_normalize([
     libyang needs to be compiled with ENABLE_LYD_PRIV=ON.
@@ -2070,6 +2076,7 @@ dnl -- https://github.com/CESNET/libyang/issues/2149
 AC_CHECK_FUNCS([ly_yang_module_dir lyd_trim_xpath])
 
 CFLAGS="$ac_cflags_save"
+LDFLAGS="$ac_ldflags_save"
 
 dnl ---------------
 dnl configuration rollbacks
