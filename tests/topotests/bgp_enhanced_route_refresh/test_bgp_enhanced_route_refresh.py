@@ -13,6 +13,10 @@ its routes and an EoRR. The markers must not make r2 send anything back,
 and each address family must be tracked on its own when both are refreshed
 at the same time.
 
+An unchanged eBGP advertisement must also survive normal route reprocessing
+while its forced refresh reply is queued. After EoRR, r2 must retain the
+refreshed path without a stale flag.
+
 Which markers were ignored or rejected is not visible in any show command,
 so the second test reads r2's bgpd.log, written under
 `debug bgp neighbor-events`.
@@ -36,6 +40,7 @@ from lib.topolog import logger
 pytestmark = [pytest.mark.bgpd]
 
 R1 = "192.168.1.1"
+R2 = "192.168.1.2"
 
 
 def build_topo(tgen):
@@ -217,6 +222,82 @@ def test_bgp_dual_af_refresh():
         )
 
     assert False, "the two refreshes did not overlap in {} attempts".format(attempts)
+
+
+def test_refresh_survives_unchanged_egress_attributes():
+    """A normal reprocess must not cancel a queued route-refresh reply."""
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    r1, r2 = tgen.gears["r1"], tgen.gears["r2"]
+    if "Unknown command" in r1.vtysh_cmd("no bgp test updates disable"):
+        pytest.skip("the bgp test commands need --enable-dev-build")
+
+    prefix = "10.0.0.1/32"
+    r1.vtysh_cmd(
+        "configure terminal\nbgp route-map delay-timer 1\n"
+        "route-map REFRESH_TEST permit 10\nset local-preference 100\n"
+        "router bgp 65001\naddress-family ipv4 unicast\n"
+        "network {} route-map REFRESH_TEST\nend".format(prefix)
+    )
+
+    # Local preference changes best-path state but is not sent over eBGP.
+    def local_pref(expected):
+        route = r1.vtysh_cmd(
+            "show bgp ipv4 unicast {} json".format(prefix), isjson=True
+        )
+        paths = route.get("paths", [])
+        return bool(paths) and paths[0].get("locPrf") == expected
+
+    ok, _ = topotest.run_and_expect(lambda: local_pref(100), True, count=30, wait=1)
+    assert ok, "Initial local preference was not applied"
+    before = _stats_towards_r1(r2)["routeRefreshRecv"]
+    try:
+        r1.vtysh_cmd("bgp test updates disable neighbor {}".format(R2))
+        r2.vtysh_cmd("clear bgp ipv4 unicast {} soft in".format(R1))
+        _wait_refresh_received(r2, before + 1)
+
+        def queued():
+            return prefix in r1.vtysh_cmd(
+                "show bgp ipv4 unicast update-groups advertise-queue"
+            )
+
+        ok, _ = topotest.run_and_expect(queued, True, count=30, wait=1)
+        assert ok, "The forced refresh reply was not queued"
+        version = r1.vtysh_cmd("show bgp ipv4 unicast json", isjson=True)[
+            "tableVersion"
+        ]
+        r1.vtysh_cmd(
+            "configure terminal\nroute-map REFRESH_TEST permit 10\n"
+            "set local-preference 200\nend"
+        )
+
+        def reprocessed():
+            output = r1.vtysh_cmd("show bgp ipv4 unicast json", isjson=True)
+            return local_pref(200) and output["tableVersion"] > version
+
+        ok, _ = topotest.run_and_expect(reprocessed, True, count=30, wait=1)
+        assert ok, "The route was not reprocessed with its new local preference"
+        r1.vtysh_cmd("no bgp test updates disable neighbor {}".format(R2))
+        _wait_refresh_received(r2, before + 2)
+        route = r2.vtysh_cmd(
+            "show bgp ipv4 unicast {} json".format(prefix), isjson=True
+        )
+        paths = route.get("paths", [])
+        assert paths, "Refresh lost a route with unchanged egress attributes"
+        assert not any(
+            path.get("stale", False) for path in paths
+        ), "Refresh left a route stale with unchanged egress attributes"
+    finally:
+        r1.vtysh_cmd("no bgp test updates disable neighbor {}".format(R2))
+        r1.vtysh_cmd(
+            "configure terminal\nrouter bgp 65001\naddress-family ipv4 unicast\n"
+            "network {}\nexit-address-family\nexit\n"
+            "no route-map REFRESH_TEST\nno bgp route-map delay-timer 1\nend".format(
+                prefix
+            )
+        )
 
 
 def test_memory_leak():
