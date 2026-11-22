@@ -551,6 +551,7 @@ bool bgp_adj_out_set_subgroup(struct bgp_dest *dest,
 	struct bgp *bgp;
 	struct attr *attr_new;
 	bool debug;
+	bool refresh_pending = false;
 	struct bgp_debug_vrf dv = {
 		.name = "Unknown",
 		.id = VRF_UNKNOWN,
@@ -599,8 +600,23 @@ bool bgp_adj_out_set_subgroup(struct bgp_dest *dest,
 	 */
 	attr_new = bgp_attr_intern(attr);
 
+	/* The refresh walk clears FORCE_UPDATES before its replies are packed.
+	 * Until EoRR, the last packed attributes may still predate BoRR. Replace
+	 * a queued withdraw or different update even when returning to those
+	 * attributes. Refresh state belongs to live peers, not the group config.
+	 */
+	if (adj->adv && attr_new == adj->attr &&
+	    (!adj->adv->baa || attr_new != adj->adv->baa->attr)) {
+		SUBGRP_FOREACH_PEER (subgrp, paf) {
+			if (CHECK_FLAG(PAF_PEER(paf)->af_sflags[afi][safi], PEER_STATUS_BORR_SEND)) {
+				refresh_pending = true;
+				break;
+			}
+		}
+	}
+
 	if (CHECK_FLAG(bgp->flags, BGP_FLAG_SUPPRESS_DUPLICATES) &&
-	    !CHECK_FLAG(subgrp->sflags, SUBGRP_STATUS_FORCE_UPDATES) &&
+	    !CHECK_FLAG(subgrp->sflags, SUBGRP_STATUS_FORCE_UPDATES) && !refresh_pending &&
 	    ((attr_new == adj->attr) ||
 	     (adj->adv && adj->adv->baa && (attr_new == adj->adv->baa->attr))) &&
 	    bgp_labels_cmp(path->extra ? path->extra->labels : NULL, adj->labels)) {
