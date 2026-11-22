@@ -2407,11 +2407,13 @@ int bgp_nb_establish_wait_time_destroy(struct nb_cb_destroy_args *args)
 		return NB_OK;
 
 	bgp = nb_running_get_entry(args->dnode, NULL, true);
-	timers = yang_dnode_get_parent(args->dnode, "global-config-timers");
-	if (yang_dnode_exists(timers, "update-delay-time"))
+	timers = bgp_nb_candidate_match(yang_dnode_get_parent(args->dnode, "global-config-timers"));
+	if (timers && yang_dnode_exists(timers, "update-delay-time")) {
 		bgp->v_establish_wait = yang_dnode_get_uint16(timers, "update-delay-time");
-	else
+	} else {
+		bgp->v_update_delay = BGP_UPDATE_DELAY_DEFAULT;
 		bgp->v_establish_wait = BGP_UPDATE_DELAY_DEFAULT;
+	}
 	return NB_OK;
 }
 
@@ -3036,10 +3038,11 @@ static void bgp_nb_tcp_keepalive_apply(struct bgp *bgp, const struct lyd_node *d
 
 static void bgp_nb_tcp_keepalive_clear_if_empty(struct bgp *bgp, const struct lyd_node *dnode)
 {
-	const struct lyd_node *ka = yang_dnode_get_parent(dnode, "tcp-keepalive");
+	const struct lyd_node *ka =
+		bgp_nb_candidate_match(yang_dnode_get_parent(dnode, "tcp-keepalive"));
 
-	if (yang_dnode_exists(ka, "idle") || yang_dnode_exists(ka, "interval") ||
-	    yang_dnode_exists(ka, "probes"))
+	if (ka && (yang_dnode_exists(ka, "idle") || yang_dnode_exists(ka, "interval") ||
+		   yang_dnode_exists(ka, "probes")))
 		return;
 
 	bgp_tcp_keepalive_unset(bgp);
@@ -7794,9 +7797,14 @@ int bgp_nb_network_rmap_modify(struct nb_cb_modify_args *args)
 
 int bgp_nb_network_rmap_destroy(struct nb_cb_destroy_args *args)
 {
+	const struct lyd_node *net;
+
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
-	return bgp_nb_network_apply(yang_dnode_get_parent(args->dnode, "network-config"), true);
+	net = bgp_nb_candidate_match(yang_dnode_get_parent(args->dnode, "network-config"));
+	if (!net)
+		return NB_OK;
+	return bgp_nb_network_apply(net, false);
 }
 
 /*
@@ -7959,8 +7967,6 @@ int bgp_nb_vpn_network_rmap_modify(struct nb_cb_modify_args *args)
 		return NB_OK;
 	return bgp_nb_vpn_network_apply(yang_dnode_get_parent(args->dnode, "prefix-list"));
 }
-
-static const struct lyd_node *bgp_nb_candidate_match(const struct lyd_node *old);
 
 int bgp_nb_vpn_network_rmap_destroy(struct nb_cb_destroy_args *args)
 {
@@ -8576,7 +8582,7 @@ static int bgp_nb_distance_bgp_apply(const struct lyd_node *leaf)
 
 	admin = yang_dnode_get_parent(leaf, "admin-distance");
 	if (!admin)
-		return NB_ERR_NOT_FOUND;
+		admin = leaf;
 
 	bgp = nb_running_get_entry(admin, NULL, true);
 	if (!bgp || !bgp_nb_dnode_afi_safi(admin, &afi, &safi))
@@ -8612,9 +8618,22 @@ int bgp_nb_distance_bgp_modify(struct nb_cb_modify_args *args)
 
 int bgp_nb_distance_bgp_destroy(struct nb_cb_destroy_args *args)
 {
+	const struct lyd_node *admin;
+	struct bgp *bgp;
+	afi_t afi;
+	safi_t safi;
+
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
-	return bgp_nb_distance_bgp_apply(args->dnode);
+
+	admin = bgp_nb_candidate_match(yang_dnode_get_parent(args->dnode, "admin-distance"));
+	if (admin)
+		return bgp_nb_distance_bgp_apply(admin);
+
+	bgp = nb_running_get_entry(args->dnode, NULL, true);
+	if (bgp && bgp_nb_dnode_afi_safi(args->dnode, &afi, &safi))
+		bgp_distance_bgp_unset(bgp, afi, safi);
+	return NB_OK;
 }
 
 void bgp_nb_cli_show_distance_bgp(struct vty *vty, const struct lyd_node *dnode, bool show_defaults)
@@ -8746,10 +8765,14 @@ int bgp_nb_distance_route_acl_modify(struct nb_cb_modify_args *args)
 
 int bgp_nb_distance_route_acl_destroy(struct nb_cb_destroy_args *args)
 {
+	const struct lyd_node *route;
+
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
-	return bgp_nb_distance_route_apply(
-		yang_dnode_get_parent(args->dnode, "admin-distance-route"));
+	route = bgp_nb_candidate_match(yang_dnode_get_parent(args->dnode, "admin-distance-route"));
+	if (!route)
+		return NB_OK;
+	return bgp_nb_distance_route_apply(route);
 }
 
 /*
@@ -8870,11 +8893,28 @@ int bgp_nb_dampening_enable_modify(struct nb_cb_modify_args *args)
 	return bgp_nb_dampening_apply(args->dnode);
 }
 
+static int bgp_nb_dampening_destroy_common(const struct lyd_node *dnode)
+{
+	const struct lyd_node *damp;
+	struct bgp *bgp;
+	afi_t afi;
+	safi_t safi;
+
+	damp = bgp_nb_candidate_match(yang_dnode_get_parent(dnode, "route-flap-dampening"));
+	if (damp)
+		return bgp_nb_dampening_apply(damp);
+
+	bgp = nb_running_get_entry(dnode, NULL, true);
+	if (bgp && bgp_nb_dnode_afi_safi(dnode, &afi, &safi))
+		bgp_damp_disable(bgp, afi, safi);
+	return NB_OK;
+}
+
 int bgp_nb_dampening_enable_destroy(struct nb_cb_destroy_args *args)
 {
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
-	return bgp_nb_dampening_apply(args->dnode);
+	return bgp_nb_dampening_destroy_common(args->dnode);
 }
 
 int bgp_nb_dampening_param_modify(struct nb_cb_modify_args *args)
@@ -8908,7 +8948,7 @@ int bgp_nb_dampening_param_destroy(struct nb_cb_destroy_args *args)
 {
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
-	return bgp_nb_dampening_apply(args->dnode);
+	return bgp_nb_dampening_destroy_common(args->dnode);
 }
 
 void bgp_nb_cli_show_dampening(struct vty *vty, const struct lyd_node *dnode, bool show_defaults)
@@ -9018,11 +9058,28 @@ int bgp_nb_peer_dampening_enable_modify(struct nb_cb_modify_args *args)
 	return bgp_nb_peer_dampening_apply(args->dnode);
 }
 
+static int bgp_nb_peer_dampening_destroy_common(const struct lyd_node *dnode)
+{
+	const struct lyd_node *damp;
+	struct peer *peer;
+	afi_t afi;
+	safi_t safi;
+
+	damp = bgp_nb_candidate_match(yang_dnode_get_parent(dnode, "route-flap-dampening"));
+	if (damp)
+		return bgp_nb_peer_dampening_apply(damp);
+
+	peer = bgp_nb_config_peer(dnode);
+	if (peer && bgp_nb_dnode_afi_safi(dnode, &afi, &safi))
+		bgp_peer_damp_disable(peer, afi, safi);
+	return NB_OK;
+}
+
 int bgp_nb_peer_dampening_enable_destroy(struct nb_cb_destroy_args *args)
 {
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
-	return bgp_nb_peer_dampening_apply(args->dnode);
+	return bgp_nb_peer_dampening_destroy_common(args->dnode);
 }
 
 int bgp_nb_peer_dampening_param_modify(struct nb_cb_modify_args *args)
@@ -9056,7 +9113,7 @@ int bgp_nb_peer_dampening_param_destroy(struct nb_cb_destroy_args *args)
 {
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
-	return bgp_nb_peer_dampening_apply(args->dnode);
+	return bgp_nb_peer_dampening_destroy_common(args->dnode);
 }
 
 void bgp_nb_cli_show_peer_dampening(struct vty *vty, const struct lyd_node *dnode,
@@ -9757,7 +9814,10 @@ static int bgp_nb_evpn_dad_apply(const struct lyd_node *dnode)
 	bgp->evpn_info->dad_max_moves = max_moves;
 	bgp->evpn_info->dad_time = time_s;
 
-	if (yang_dnode_exists(dad, "./freeze-permanent")) {
+	if (!enable) {
+		bgp->evpn_info->dad_freeze = false;
+		bgp->evpn_info->dad_freeze_time = 0;
+	} else if (yang_dnode_exists(dad, "./freeze-permanent")) {
 		bgp->evpn_info->dad_freeze = true;
 		bgp->evpn_info->dad_freeze_time = 0;
 	} else if (yang_dnode_exists(dad, "./freeze-time")) {
@@ -9769,6 +9829,27 @@ static int bgp_nb_evpn_dad_apply(const struct lyd_node *dnode)
 	}
 
 	bgp_zebra_dup_addr_detection(bgp);
+	return NB_OK;
+}
+
+static int bgp_nb_evpn_dad_destroy_common(const struct lyd_node *dnode)
+{
+	const struct lyd_node *dad;
+	struct bgp *bgp;
+
+	dad = bgp_nb_candidate_match(yang_dnode_get_parent(dnode, "duplicate-address-detection"));
+	if (dad)
+		return bgp_nb_evpn_dad_apply(dad);
+
+	bgp = nb_running_get_entry(dnode, NULL, true);
+	if (bgp && bgp->evpn_info) {
+		bgp->evpn_info->dup_addr_detect = false;
+		bgp->evpn_info->dad_max_moves = EVPN_DAD_DEFAULT_MAX_MOVES;
+		bgp->evpn_info->dad_time = EVPN_DAD_DEFAULT_TIME;
+		bgp->evpn_info->dad_freeze = false;
+		bgp->evpn_info->dad_freeze_time = 0;
+		bgp_zebra_dup_addr_detection(bgp);
+	}
 	return NB_OK;
 }
 
@@ -9796,7 +9877,7 @@ int bgp_nb_evpn_dad_enable_destroy(struct nb_cb_destroy_args *args)
 {
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
-	return bgp_nb_evpn_dad_apply(args->dnode);
+	return bgp_nb_evpn_dad_destroy_common(args->dnode);
 }
 
 int bgp_nb_evpn_dad_param_modify(struct nb_cb_modify_args *args)
@@ -9823,7 +9904,7 @@ int bgp_nb_evpn_dad_param_destroy(struct nb_cb_destroy_args *args)
 {
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
-	return bgp_nb_evpn_dad_apply(args->dnode);
+	return bgp_nb_evpn_dad_destroy_common(args->dnode);
 }
 
 void bgp_nb_cli_show_evpn_dad_enable(struct vty *vty, const struct lyd_node *dnode,
@@ -9913,7 +9994,7 @@ int bgp_nb_evpn_dad_freeze_permanent_destroy(struct nb_cb_destroy_args *args)
 {
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
-	return bgp_nb_evpn_dad_apply(args->dnode);
+	return bgp_nb_evpn_dad_destroy_common(args->dnode);
 }
 
 void bgp_nb_cli_show_evpn_dad_freeze_permanent(struct vty *vty, const struct lyd_node *dnode,
@@ -10315,6 +10396,60 @@ static int bgp_nb_evpn_type5_apply(const struct lyd_node *dnode, struct bgp *bgp
 	return NB_OK;
 }
 
+static int bgp_nb_evpn_type5_destroy_common(const struct lyd_node *dnode)
+{
+	const struct lyd_node *cont = NULL, *cand;
+	struct bgp *bgp;
+	afi_t afi;
+	safi_t safi;
+	uint16_t flag_oi_none, flag_oi_gw_ip, suppress_flag;
+	uint16_t *flags;
+	bool has_none, has_gw;
+
+	if (!bgp_nb_evpn_type5_container(dnode, &cont, &afi, &safi))
+		return NB_OK;
+
+	cand = bgp_nb_candidate_match(cont);
+	if (cand)
+		return bgp_nb_evpn_type5_apply(cand, NULL, false);
+
+	bgp = bgp_nb_dnode_lookup_bgp(cont);
+	if (!bgp)
+		return NB_OK;
+
+	flags = &bgp->af_flags[AFI_L2VPN][SAFI_EVPN];
+	if (safi == SAFI_UNICAST) {
+		if (afi == AFI_IP) {
+			flag_oi_none = BGP_L2VPN_EVPN_ADV_IPV4_UNICAST;
+			flag_oi_gw_ip = BGP_L2VPN_EVPN_ADV_IPV4_UNICAST_GW_IP;
+			suppress_flag = BGP_L2VPN_EVPN_SUPPRESS_IPV4_IMPORT_FROM_EVPN;
+		} else {
+			flag_oi_none = BGP_L2VPN_EVPN_ADV_IPV6_UNICAST;
+			flag_oi_gw_ip = BGP_L2VPN_EVPN_ADV_IPV6_UNICAST_GW_IP;
+			suppress_flag = BGP_L2VPN_EVPN_SUPPRESS_IPV6_IMPORT_FROM_EVPN;
+		}
+	} else {
+		flag_oi_none = (afi == AFI_IP) ? BGP_L2VPN_EVPN_ADV_IPV4_VPN
+					       : BGP_L2VPN_EVPN_ADV_IPV6_VPN;
+		flag_oi_gw_ip = 0;
+		suppress_flag = 0;
+	}
+
+	has_none = CHECK_FLAG(*flags, flag_oi_none);
+	has_gw = flag_oi_gw_ip && CHECK_FLAG(*flags, flag_oi_gw_ip);
+	if (has_none || has_gw)
+		bgp_evpn_withdraw_type5_routes(bgp, afi, safi);
+	UNSET_FLAG(*flags, flag_oi_none);
+	if (flag_oi_gw_ip)
+		UNSET_FLAG(*flags, flag_oi_gw_ip);
+	if (suppress_flag)
+		UNSET_FLAG(*flags, suppress_flag);
+	if (has_gw)
+		bgp_addpath_type_changed(bgp);
+	bgp_nb_evpn_type5_rmap_free(bgp, afi, safi);
+	return NB_OK;
+}
+
 int bgp_nb_evpn_type5_enable_modify(struct nb_cb_modify_args *args)
 {
 	if (args->event != NB_EV_APPLY)
@@ -10326,7 +10461,7 @@ int bgp_nb_evpn_type5_enable_destroy(struct nb_cb_destroy_args *args)
 {
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
-	return bgp_nb_evpn_type5_apply(args->dnode, NULL, false);
+	return bgp_nb_evpn_type5_destroy_common(args->dnode);
 }
 
 int bgp_nb_evpn_type5_gateway_ip_modify(struct nb_cb_modify_args *args)
@@ -10340,7 +10475,7 @@ int bgp_nb_evpn_type5_gateway_ip_destroy(struct nb_cb_destroy_args *args)
 {
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
-	return bgp_nb_evpn_type5_apply(args->dnode, NULL, false);
+	return bgp_nb_evpn_type5_destroy_common(args->dnode);
 }
 
 int bgp_nb_evpn_type5_route_map_modify(struct nb_cb_modify_args *args)
@@ -10354,7 +10489,7 @@ int bgp_nb_evpn_type5_route_map_destroy(struct nb_cb_destroy_args *args)
 {
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
-	return bgp_nb_evpn_type5_apply(args->dnode, NULL, true);
+	return bgp_nb_evpn_type5_destroy_common(args->dnode);
 }
 
 int bgp_nb_evpn_type5_skip_evpn_imported_modify(struct nb_cb_modify_args *args)
@@ -10368,7 +10503,7 @@ int bgp_nb_evpn_type5_skip_evpn_imported_destroy(struct nb_cb_destroy_args *args
 {
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
-	return bgp_nb_evpn_type5_apply(args->dnode, NULL, false);
+	return bgp_nb_evpn_type5_destroy_common(args->dnode);
 }
 
 void bgp_nb_cli_show_evpn_type5_enable(struct vty *vty, const struct lyd_node *dnode,
@@ -10494,6 +10629,31 @@ static int bgp_nb_evpn_pip_apply(const struct lyd_node *dnode)
 	return NB_OK;
 }
 
+static int bgp_nb_evpn_pip_destroy_common(const struct lyd_node *dnode)
+{
+	const struct lyd_node *cont;
+	struct bgp *bgp, *bgp_evpn;
+
+	cont = bgp_nb_candidate_match(yang_dnode_get_parent(dnode, "advertise-pip"));
+	if (cont)
+		return bgp_nb_evpn_pip_apply(cont);
+
+	bgp = nb_running_get_entry(dnode, NULL, true);
+	if (bgp && bgp->evpn_info) {
+		bgp_evpn = bgp_get_evpn();
+		bgp->evpn_info->advertise_pip = false;
+		memcpy(&bgp->evpn_info->pip_rmac, &bgp->rmac, ETH_ALEN);
+		memset(&bgp->evpn_info->pip_rmac_static, 0, ETH_ALEN);
+		bgp->evpn_info->pip_ip_static.ipaddr_v4.s_addr = INADDR_ANY;
+		if (bgp_evpn)
+			bgp->evpn_info->pip_ip.ipaddr_v4 = bgp_evpn->router_id;
+		else
+			bgp->evpn_info->pip_ip.ipaddr_v4.s_addr = INADDR_ANY;
+		bgp_nb_evpn_pip_refresh(bgp);
+	}
+	return NB_OK;
+}
+
 int bgp_nb_evpn_advertise_pip_enable_modify(struct nb_cb_modify_args *args)
 {
 	struct bgp *bgp;
@@ -10518,7 +10678,7 @@ int bgp_nb_evpn_advertise_pip_enable_destroy(struct nb_cb_destroy_args *args)
 {
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
-	return bgp_nb_evpn_pip_apply(args->dnode);
+	return bgp_nb_evpn_pip_destroy_common(args->dnode);
 }
 
 int bgp_nb_evpn_advertise_pip_param_modify(struct nb_cb_modify_args *args)
@@ -10545,34 +10705,30 @@ int bgp_nb_evpn_advertise_pip_param_destroy(struct nb_cb_destroy_args *args)
 {
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
-	return bgp_nb_evpn_pip_apply(args->dnode);
+	return bgp_nb_evpn_pip_destroy_common(args->dnode);
 }
 
 void bgp_nb_cli_show_evpn_advertise_pip_enable(struct vty *vty, const struct lyd_node *dnode,
 					       bool show_defaults)
 {
+	if (!yang_dnode_get_bool(dnode, NULL))
+		vty_out(vty, "  no advertise-pip\n");
+}
+
+void bgp_nb_cli_show_evpn_advertise_pip_ip(struct vty *vty, const struct lyd_node *dnode,
+					   bool show_defaults)
+{
 	const struct lyd_node *cont = yang_dnode_get_parent(dnode, "advertise-pip");
-	const char *ip, *mac;
 
 	if (!cont)
 		return;
-
-	if (!yang_dnode_get_bool(dnode, NULL)) {
-		vty_out(vty, "  no advertise-pip\n");
+	if (yang_dnode_exists(cont, "./enable") && !yang_dnode_get_bool(cont, "./enable"))
 		return;
-	}
 
-	if (yang_dnode_exists(cont, "./system-ip")) {
-		ip = yang_dnode_get_string(cont, "./system-ip");
-		vty_out(vty, "  advertise-pip ip %s", ip);
-		if (yang_dnode_exists(cont, "./system-mac")) {
-			mac = yang_dnode_get_string(cont, "./system-mac");
-			vty_out(vty, " mac %s", mac);
-		}
-		vty_out(vty, "\n");
-	}
-
-	/* Plain "advertise-pip" is the default and is not written. */
+	vty_out(vty, "  advertise-pip ip %s", yang_dnode_get_string(dnode, NULL));
+	if (yang_dnode_exists(cont, "./system-mac"))
+		vty_out(vty, " mac %s", yang_dnode_get_string(cont, "./system-mac"));
+	vty_out(vty, "\n");
 }
 
 /*
@@ -16074,7 +16230,7 @@ int bgp_nb_peer_af_prefix_limit_option_destroy(struct nb_cb_destroy_args *args)
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
-	dir = bgp_nb_prefix_limit_dir(args->dnode);
+	dir = bgp_nb_candidate_match(bgp_nb_prefix_limit_dir(args->dnode));
 	if (!dir)
 		return NB_OK;
 
@@ -19382,7 +19538,7 @@ int bgp_nb_maxpaths_ibgp_cluster_destroy(struct nb_cb_destroy_args *args)
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
-	ibgp = yang_dnode_get_parent(args->dnode, "ibgp");
+	ibgp = bgp_nb_candidate_match(yang_dnode_get_parent(args->dnode, "ibgp"));
 	if (!ibgp || !yang_dnode_exists(ibgp, "./maximum-paths"))
 		return NB_OK;
 
@@ -19515,9 +19671,14 @@ int bgp_nb_aggregate_attr_modify(struct nb_cb_modify_args *args)
 
 int bgp_nb_aggregate_attr_destroy(struct nb_cb_destroy_args *args)
 {
+	const struct lyd_node *agg;
+
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
-	return bgp_nb_aggregate_apply(yang_dnode_get_parent(args->dnode, "aggregate-route"));
+	agg = bgp_nb_candidate_match(yang_dnode_get_parent(args->dnode, "aggregate-route"));
+	if (!agg)
+		return NB_OK;
+	return bgp_nb_aggregate_apply(agg);
 }
 
 int bgp_nb_connect_retry_modify(struct nb_cb_modify_args *args)

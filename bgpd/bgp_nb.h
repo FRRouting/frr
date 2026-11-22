@@ -995,6 +995,8 @@ int bgp_nb_evpn_advertise_pip_param_modify(struct nb_cb_modify_args *args);
 int bgp_nb_evpn_advertise_pip_param_destroy(struct nb_cb_destroy_args *args);
 void bgp_nb_cli_show_evpn_advertise_pip_enable(struct vty *vty, const struct lyd_node *dnode,
 					       bool show_defaults);
+void bgp_nb_cli_show_evpn_advertise_pip_ip(struct vty *vty, const struct lyd_node *dnode,
+					   bool show_defaults);
 
 int bgp_nb_evpn_ead_es_rt_create(struct nb_cb_create_args *args);
 int bgp_nb_evpn_ead_es_rt_destroy(struct nb_cb_destroy_args *args);

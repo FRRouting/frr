@@ -2188,6 +2188,7 @@ const struct frr_yang_module_info frr_bgp_info = {
 			.cbs = {
 				.modify = bgp_nb_evpn_advertise_pip_param_modify,
 				.destroy = bgp_nb_evpn_advertise_pip_param_destroy,
+				.cli_show = bgp_nb_cli_show_evpn_advertise_pip_ip,
 			},
 		},
 		{

@@ -221,6 +221,108 @@ router bgp 65000
     assert "bgp confederation" not in running
 
 
+def test_destroy_callbacks_use_candidate():
+    "Destroy callbacks must apply from the candidate tree, not running"
+    tgen = get_topogen()
+
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    r1 = tgen.gears["r1"]
+
+    # Dampening off must disable runtime dampening, not re-enable it from
+    # deleted parameter leaves.
+    r1.vtysh_multicmd(
+        """
+router bgp 65000
+ address-family ipv4 unicast
+  no bgp dampening
+ exit-address-family
+""",
+        pretty_output=False,
+        raises=True,
+    )
+    assert "bgp dampening" not in r1.vtysh_cmd("show running-config")
+    damp = r1.vtysh_cmd("show bgp ipv4 unicast dampening parameters")
+    assert "dampening not enabled" in damp.lower()
+
+    # Distance route ACL removal must clear the ACL.
+    r1.vtysh_multicmd(
+        """
+router bgp 65000
+ address-family ipv4 unicast
+  distance 50 10.0.0.0/24 MYACL
+ exit-address-family
+""",
+        pretty_output=False,
+        raises=True,
+    )
+    assert "distance 50 10.0.0.0/24 MYACL" in r1.vtysh_cmd("show running-config")
+
+    r1.vtysh_multicmd(
+        """
+router bgp 65000
+ address-family ipv4 unicast
+  distance 50 10.0.0.0/24
+ exit-address-family
+""",
+        pretty_output=False,
+        raises=True,
+    )
+    running = r1.vtysh_cmd("show running-config")
+    assert "distance 50 10.0.0.0/24\n" in running
+    assert "MYACL" not in running
+
+    # TCP keepalive and update-delay unset must clear runtime timers.
+    r1.vtysh_multicmd(
+        """
+router bgp 65000
+ bgp tcp-keepalive 10 10 3
+ update-delay 60 10
+""",
+        pretty_output=False,
+        raises=True,
+    )
+    r1.vtysh_multicmd(
+        """
+router bgp 65000
+ no bgp tcp-keepalive
+ no update-delay
+""",
+        pretty_output=False,
+        raises=True,
+    )
+    running = r1.vtysh_cmd("show running-config")
+    assert "tcp-keepalive" not in running
+    assert "update-delay" not in running
+
+    # EVPN DAD freeze + disable must leave both DAD and freeze off.
+    r1.vtysh_multicmd(
+        """
+router bgp 65000
+ address-family l2vpn evpn
+  advertise-all-vni
+  dup-addr-detection freeze 60
+ exit-address-family
+""",
+        pretty_output=False,
+        raises=True,
+    )
+    r1.vtysh_multicmd(
+        """
+router bgp 65000
+ address-family l2vpn evpn
+  no dup-addr-detection
+ exit-address-family
+""",
+        pretty_output=False,
+        raises=True,
+    )
+    running = r1.vtysh_cmd("show running-config")
+    assert "freeze" not in running
+    assert "no dup-addr-detection" in running
+
+
 if __name__ == "__main__":
     args = ["-s"] + sys.argv[1:]
     sys.exit(pytest.main(args))
