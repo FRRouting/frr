@@ -6876,13 +6876,66 @@ DEFPY_YANG(bgp_evpn_dad_yang, bgp_evpn_dad_yang_cmd,
 	   "Duplicate address detection freeze time (30-3600)\n")
 {
 	char af_xpath[XPATH_MAXLEN];
+	char check[XPATH_MAXLEN + 256];
 	char leaf[XPATH_MAXLEN + 256];
 	char moves_buf[16], time_buf[16], freeze_buf[16];
+	const struct lyd_node *cand_root;
 
 	bgp_cli_global_af_xpath(vty, af_xpath, sizeof(af_xpath));
-	nb_cli_enqueue_change(vty, af_xpath, NB_OP_CREATE, NULL);
+	cand_root = vty->candidate_config ? vty->candidate_config->dnode : NULL;
+
+	/*
+	 * Reject on a non-EVPN instance even when arguments match YANG defaults
+	 * (which would otherwise produce an empty diff and skip VALIDATE).
+	 */
+	snprintfrr(check, sizeof(check), "%s%s/advertise-all-vni", VTY_CURR_XPATH, af_xpath + 1);
+	if (!cand_root || !yang_dnode_exists(cand_root, check) ||
+	    !yang_dnode_get_bool(cand_root, "%s", check)) {
+		vty_out(vty, "%% This command is only supported under the EVPN VRF\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
 
 	if (no) {
+		if (max_moves_str || time_str) {
+			uint16_t cur_moves = EVPN_DAD_DEFAULT_MAX_MOVES;
+			uint16_t cur_time = EVPN_DAD_DEFAULT_TIME;
+
+			snprintfrr(check, sizeof(check),
+				   "%s%s/duplicate-address-detection/max-moves", VTY_CURR_XPATH,
+				   af_xpath + 1);
+			if (yang_dnode_exists(cand_root, check))
+				cur_moves = yang_dnode_get_uint16(cand_root, "%s", check);
+
+			snprintfrr(check, sizeof(check), "%s%s/duplicate-address-detection/time",
+				   VTY_CURR_XPATH, af_xpath + 1);
+			if (yang_dnode_exists(cand_root, check))
+				cur_time = yang_dnode_get_uint16(cand_root, "%s", check);
+
+			if ((max_moves_str && cur_moves != max_moves) ||
+			    (time_str && cur_time != time)) {
+				vty_out(vty, "%% Value does not match with config\n");
+				return CMD_WARNING_CONFIG_FAILED;
+			}
+		} else if (freeze_time_str) {
+			snprintfrr(check, sizeof(check),
+				   "%s%s/duplicate-address-detection/freeze-time", VTY_CURR_XPATH,
+				   af_xpath + 1);
+			if (!yang_dnode_exists(cand_root, check) ||
+			    yang_dnode_get_uint16(cand_root, "%s", check) != freeze_time) {
+				vty_out(vty, "%% Value does not match with config\n");
+				return CMD_WARNING_CONFIG_FAILED;
+			}
+		} else if (permanent) {
+			snprintfrr(check, sizeof(check),
+				   "%s%s/duplicate-address-detection/freeze-permanent",
+				   VTY_CURR_XPATH, af_xpath + 1);
+			if (!yang_dnode_exists(cand_root, check)) {
+				vty_out(vty, "%% Value does not match with config\n");
+				return CMD_WARNING_CONFIG_FAILED;
+			}
+		}
+
+		nb_cli_enqueue_change(vty, af_xpath, NB_OP_CREATE, NULL);
 		if (!max_moves_str && !time_str && !permanent && !freeze_time_str) {
 			snprintfrr(leaf, sizeof(leaf), "%s/duplicate-address-detection/enable",
 				   af_xpath);
@@ -6919,6 +6972,7 @@ DEFPY_YANG(bgp_evpn_dad_yang, bgp_evpn_dad_yang_cmd,
 		return nb_cli_apply_changes(vty, NULL);
 	}
 
+	nb_cli_enqueue_change(vty, af_xpath, NB_OP_CREATE, NULL);
 	snprintfrr(leaf, sizeof(leaf), "%s/duplicate-address-detection/enable", af_xpath);
 	nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY, "true");
 
@@ -7169,14 +7223,24 @@ DEFPY_YANG(bgp_evpn_advertise_pip_yang, bgp_evpn_advertise_pip_yang_cmd,
 	   MAC_STR MAC_STR MAC_STR)
 {
 	char af_xpath[XPATH_MAXLEN];
+	char check[XPATH_MAXLEN + 256];
 	char leaf[XPATH_MAXLEN + 256];
 	char macbuf[PREFIX_STRLEN];
+	const struct lyd_node *cand_root;
 
 	bgp_cli_global_af_xpath(vty, af_xpath, sizeof(af_xpath));
-	nb_cli_enqueue_change(vty, af_xpath, NB_OP_CREATE, NULL);
+	cand_root = vty->candidate_config ? vty->candidate_config->dnode : NULL;
+
+	snprintfrr(check, sizeof(check), "%s%s/advertise-all-vni", VTY_CURR_XPATH, af_xpath + 1);
+	if (cand_root && yang_dnode_exists(cand_root, check) &&
+	    yang_dnode_get_bool(cand_root, "%s", check)) {
+		vty_out(vty, "This command is supported under L3VNI BGP EVPN VRF\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
 
 	if (no) {
 		if (!ip_str) {
+			nb_cli_enqueue_change(vty, af_xpath, NB_OP_CREATE, NULL);
 			snprintfrr(leaf, sizeof(leaf), "%s/advertise-pip/enable", af_xpath);
 			nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY, "false");
 			snprintfrr(leaf, sizeof(leaf), "%s/advertise-pip/system-ip", af_xpath);
@@ -7184,6 +7248,25 @@ DEFPY_YANG(bgp_evpn_advertise_pip_yang, bgp_evpn_advertise_pip_yang_cmd,
 			snprintfrr(leaf, sizeof(leaf), "%s/advertise-pip/system-mac", af_xpath);
 			nb_cli_enqueue_change(vty, leaf, NB_OP_DESTROY, NULL);
 		} else {
+			snprintfrr(check, sizeof(check), "%s%s/advertise-pip/system-ip",
+				   VTY_CURR_XPATH, af_xpath + 1);
+			if (!cand_root || !yang_dnode_exists(cand_root, check) ||
+			    !strmatch(yang_dnode_get_string(cand_root, "%s", check), ip_str)) {
+				vty_out(vty, "%% BGP EVPN PIP IP does not match\n");
+				return CMD_WARNING_CONFIG_FAILED;
+			}
+			if (mac_str) {
+				prefix_mac2str(&mac->eth_addr, macbuf, sizeof(macbuf));
+				snprintfrr(check, sizeof(check), "%s%s/advertise-pip/system-mac",
+					   VTY_CURR_XPATH, af_xpath + 1);
+				if (!yang_dnode_exists(cand_root, check) ||
+				    strcasecmp(yang_dnode_get_string(cand_root, "%s", check),
+					       macbuf) != 0) {
+					vty_out(vty, "%% BGP EVPN PIP MAC does not match\n");
+					return CMD_WARNING_CONFIG_FAILED;
+				}
+			}
+			nb_cli_enqueue_change(vty, af_xpath, NB_OP_CREATE, NULL);
 			snprintfrr(leaf, sizeof(leaf), "%s/advertise-pip/system-ip", af_xpath);
 			nb_cli_enqueue_change(vty, leaf, NB_OP_DESTROY, NULL);
 			snprintfrr(leaf, sizeof(leaf), "%s/advertise-pip/system-mac", af_xpath);
@@ -7192,14 +7275,25 @@ DEFPY_YANG(bgp_evpn_advertise_pip_yang, bgp_evpn_advertise_pip_yang_cmd,
 		return nb_cli_apply_changes(vty, NULL);
 	}
 
+	if (!ip_str) {
+		snprintfrr(check, sizeof(check), "%s%s/advertise-pip/enable", VTY_CURR_XPATH,
+			   af_xpath + 1);
+		/* Plain `advertise-pip` when already enabled must keep static IP/MAC. */
+		if (!cand_root || !yang_dnode_exists(cand_root, check) ||
+		    yang_dnode_get_bool(cand_root, "%s", check))
+			return CMD_SUCCESS;
+		nb_cli_enqueue_change(vty, af_xpath, NB_OP_CREATE, NULL);
+		snprintfrr(leaf, sizeof(leaf), "%s/advertise-pip/enable", af_xpath);
+		nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY, "true");
+		return nb_cli_apply_changes(vty, NULL);
+	}
+
+	nb_cli_enqueue_change(vty, af_xpath, NB_OP_CREATE, NULL);
 	snprintfrr(leaf, sizeof(leaf), "%s/advertise-pip/enable", af_xpath);
 	nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY, "true");
 
 	snprintfrr(leaf, sizeof(leaf), "%s/advertise-pip/system-ip", af_xpath);
-	if (ip_str)
-		nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY, ip_str);
-	else
-		nb_cli_enqueue_change(vty, leaf, NB_OP_DESTROY, NULL);
+	nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY, ip_str);
 
 	snprintfrr(leaf, sizeof(leaf), "%s/advertise-pip/system-mac", af_xpath);
 	if (mac_str) {

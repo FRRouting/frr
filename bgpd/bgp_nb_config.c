@@ -10843,15 +10843,22 @@ static int bgp_nb_evpn_dad_destroy_common(const struct lyd_node *dnode)
 	return NB_OK;
 }
 
+static bool bgp_nb_evpn_local_enabled_in_candidate(struct bgp *bgp, const struct lyd_node *dnode)
+{
+	const struct lyd_node *evpn = yang_dnode_get_parent(dnode, "l2vpn-evpn");
+
+	if (evpn && yang_dnode_exists(evpn, "./advertise-all-vni"))
+		return yang_dnode_get_bool(evpn, "./advertise-all-vni");
+	return bgp && EVPN_ENABLED(bgp);
+}
+
 int bgp_nb_evpn_dad_enable_modify(struct nb_cb_modify_args *args)
 {
 	struct bgp *bgp;
 
 	if (args->event == NB_EV_VALIDATE) {
 		bgp = nb_running_get_entry(args->dnode, NULL, false);
-		if (!bgp)
-			return NB_OK;
-		if (!EVPN_ENABLED(bgp)) {
+		if (!bgp_nb_evpn_local_enabled_in_candidate(bgp, args->dnode)) {
 			snprintfrr(args->errmsg, args->errmsg_len,
 				   "This command is only supported under the EVPN VRF");
 			return NB_ERR_VALIDATION;
@@ -10876,9 +10883,7 @@ int bgp_nb_evpn_dad_param_modify(struct nb_cb_modify_args *args)
 
 	if (args->event == NB_EV_VALIDATE) {
 		bgp = nb_running_get_entry(args->dnode, NULL, false);
-		if (!bgp)
-			return NB_OK;
-		if (!EVPN_ENABLED(bgp)) {
+		if (!bgp_nb_evpn_local_enabled_in_candidate(bgp, args->dnode)) {
 			snprintfrr(args->errmsg, args->errmsg_len,
 				   "This command is only supported under the EVPN VRF");
 			return NB_ERR_VALIDATION;
@@ -10966,9 +10971,7 @@ int bgp_nb_evpn_dad_freeze_permanent_create(struct nb_cb_create_args *args)
 
 	if (args->event == NB_EV_VALIDATE) {
 		bgp = nb_running_get_entry(args->dnode, NULL, false);
-		if (!bgp)
-			return NB_OK;
-		if (!EVPN_ENABLED(bgp)) {
+		if (!bgp_nb_evpn_local_enabled_in_candidate(bgp, args->dnode)) {
 			snprintfrr(args->errmsg, args->errmsg_len,
 				   "This command is only supported under the EVPN VRF");
 			return NB_ERR_VALIDATION;
@@ -11552,7 +11555,7 @@ static void bgp_nb_evpn_pip_refresh(struct bgp *bgp_vrf)
 
 static int bgp_nb_evpn_pip_apply(const struct lyd_node *dnode)
 {
-	struct bgp *bgp, *bgp_evpn;
+	struct bgp *bgp;
 	const struct lyd_node *cont;
 	bool enable;
 	bool has_ip, has_mac;
@@ -11575,17 +11578,12 @@ static int bgp_nb_evpn_pip_apply(const struct lyd_node *dnode)
 	if (has_mac)
 		yang_dnode_get_mac(&mac, cont, "./system-mac");
 
-	bgp_evpn = bgp_get_evpn();
-
 	if (!enable) {
 		bgp->evpn_info->advertise_pip = false;
 		memcpy(&bgp->evpn_info->pip_rmac, &bgp->rmac, ETH_ALEN);
 		memset(&bgp->evpn_info->pip_rmac_static, 0, ETH_ALEN);
-		bgp->evpn_info->pip_ip_static.ipaddr_v4.s_addr = INADDR_ANY;
-		if (bgp_evpn)
-			bgp->evpn_info->pip_ip.ipaddr_v4 = bgp_evpn->router_id;
-		else
-			bgp->evpn_info->pip_ip.ipaddr_v4.s_addr = INADDR_ANY;
+		memset(&bgp->evpn_info->pip_ip_static, 0, sizeof(bgp->evpn_info->pip_ip_static));
+		bgp_evpn_derive_pip_ip(bgp);
 		bgp_nb_evpn_pip_refresh(bgp);
 		return NB_OK;
 	}
@@ -11594,14 +11592,10 @@ static int bgp_nb_evpn_pip_apply(const struct lyd_node *dnode)
 
 	if (has_ip) {
 		ipaddr_set_v4(&bgp->evpn_info->pip_ip_static, ip);
-		ipaddr_set_v4(&bgp->evpn_info->pip_ip, ip);
 	} else {
-		bgp->evpn_info->pip_ip_static.ipaddr_v4.s_addr = INADDR_ANY;
-		if (bgp_evpn)
-			bgp->evpn_info->pip_ip.ipaddr_v4 = bgp_evpn->router_id;
-		else
-			bgp->evpn_info->pip_ip.ipaddr_v4.s_addr = INADDR_ANY;
+		memset(&bgp->evpn_info->pip_ip_static, 0, sizeof(bgp->evpn_info->pip_ip_static));
 	}
+	bgp_evpn_derive_pip_ip(bgp);
 
 	if (has_mac) {
 		memcpy(&bgp->evpn_info->pip_rmac_static, &mac, ETH_ALEN);
@@ -11622,7 +11616,7 @@ static int bgp_nb_evpn_pip_apply(const struct lyd_node *dnode)
 static int bgp_nb_evpn_pip_destroy_common(const struct lyd_node *dnode)
 {
 	const struct lyd_node *cont;
-	struct bgp *bgp, *bgp_evpn;
+	struct bgp *bgp;
 
 	cont = bgp_nb_candidate_match(yang_dnode_get_parent(dnode, "advertise-pip"));
 	if (cont)
@@ -11630,15 +11624,11 @@ static int bgp_nb_evpn_pip_destroy_common(const struct lyd_node *dnode)
 
 	bgp = nb_running_get_entry(dnode, NULL, true);
 	if (bgp && bgp->evpn_info) {
-		bgp_evpn = bgp_get_evpn();
 		bgp->evpn_info->advertise_pip = false;
 		memcpy(&bgp->evpn_info->pip_rmac, &bgp->rmac, ETH_ALEN);
 		memset(&bgp->evpn_info->pip_rmac_static, 0, ETH_ALEN);
-		bgp->evpn_info->pip_ip_static.ipaddr_v4.s_addr = INADDR_ANY;
-		if (bgp_evpn)
-			bgp->evpn_info->pip_ip.ipaddr_v4 = bgp_evpn->router_id;
-		else
-			bgp->evpn_info->pip_ip.ipaddr_v4.s_addr = INADDR_ANY;
+		memset(&bgp->evpn_info->pip_ip_static, 0, sizeof(bgp->evpn_info->pip_ip_static));
+		bgp_evpn_derive_pip_ip(bgp);
 		bgp_nb_evpn_pip_refresh(bgp);
 	}
 	return NB_OK;
@@ -11650,9 +11640,7 @@ int bgp_nb_evpn_advertise_pip_enable_modify(struct nb_cb_modify_args *args)
 
 	if (args->event == NB_EV_VALIDATE) {
 		bgp = nb_running_get_entry(args->dnode, NULL, false);
-		if (!bgp)
-			return NB_OK;
-		if (EVPN_ENABLED(bgp)) {
+		if (bgp_nb_evpn_local_enabled_in_candidate(bgp, args->dnode)) {
 			snprintfrr(args->errmsg, args->errmsg_len,
 				   "This command is supported under L3VNI BGP EVPN VRF");
 			return NB_ERR_VALIDATION;
@@ -11677,9 +11665,7 @@ int bgp_nb_evpn_advertise_pip_param_modify(struct nb_cb_modify_args *args)
 
 	if (args->event == NB_EV_VALIDATE) {
 		bgp = nb_running_get_entry(args->dnode, NULL, false);
-		if (!bgp)
-			return NB_OK;
-		if (EVPN_ENABLED(bgp)) {
+		if (bgp_nb_evpn_local_enabled_in_candidate(bgp, args->dnode)) {
 			snprintfrr(args->errmsg, args->errmsg_len,
 				   "This command is supported under L3VNI BGP EVPN VRF");
 			return NB_ERR_VALIDATION;
@@ -11701,6 +11687,10 @@ int bgp_nb_evpn_advertise_pip_param_destroy(struct nb_cb_destroy_args *args)
 void bgp_nb_cli_show_evpn_advertise_pip_enable(struct vty *vty, const struct lyd_node *dnode,
 					       bool show_defaults)
 {
+	struct bgp *bgp = nb_running_get_entry(dnode, NULL, false);
+
+	if (!bgp || bgp->inst_type != BGP_INSTANCE_TYPE_VRF)
+		return;
 	if (!yang_dnode_get_bool(dnode, NULL))
 		vty_out(vty, "  no advertise-pip\n");
 }
@@ -11709,7 +11699,10 @@ void bgp_nb_cli_show_evpn_advertise_pip_ip(struct vty *vty, const struct lyd_nod
 					   bool show_defaults)
 {
 	const struct lyd_node *cont = yang_dnode_get_parent(dnode, "advertise-pip");
+	struct bgp *bgp = nb_running_get_entry(dnode, NULL, false);
 
+	if (!bgp || bgp->inst_type != BGP_INSTANCE_TYPE_VRF)
+		return;
 	if (!cont)
 		return;
 	if (yang_dnode_exists(cont, "./enable") && !yang_dnode_get_bool(cont, "./enable"))
