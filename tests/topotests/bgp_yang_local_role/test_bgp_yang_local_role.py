@@ -78,6 +78,79 @@ router bgp 65000
     assert "neighbor 192.0.2.3 local-role customer" in running
 
 
+def test_candidate_peer_sort_local_as_and_groups():
+    """Verify candidate peer sort honors local-as, oad, and peer-group members (B004)."""
+    tgen = get_topogen()
+
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    r1 = tgen.gears["r1"]
+
+    # local-as makes remote-as 65000 an eBGP peer; as-override & oad succeed.
+    r1.vtysh_multicmd(
+        """
+router bgp 65000
+ neighbor 192.0.2.10 remote-as 65000
+ neighbor 192.0.2.10 local-as 65100
+ neighbor 192.0.2.10 oad
+ address-family ipv4 unicast
+  neighbor 192.0.2.10 as-override
+ exit-address-family
+""",
+        pretty_output=False,
+        raises=True,
+    )
+    running = r1.vtysh_cmd("show running-config")
+    assert "neighbor 192.0.2.10 oad" in running
+    assert "neighbor 192.0.2.10 as-override" in running
+
+    # Inverse: local-as matching remote-as makes peer iBGP; as-override & oad fail.
+    r1.vtysh_multicmd(
+        """
+router bgp 65000
+ neighbor 192.0.2.11 remote-as 65200
+ neighbor 192.0.2.11 local-as 65200
+""",
+        pretty_output=False,
+        raises=True,
+    )
+    for bad in (
+        "address-family ipv4 unicast\n  neighbor 192.0.2.11 as-override\n exit-address-family",
+        "neighbor 192.0.2.11 oad",
+    ):
+        with pytest.raises(subprocess.CalledProcessError):
+            r1.vtysh_multicmd(
+                f"router bgp 65000\n {bad}\n",
+                pretty_output=False,
+                raises=True,
+            )
+    running = r1.vtysh_cmd("show running-config")
+    assert "neighbor 192.0.2.11 as-override" not in running
+    assert "neighbor 192.0.2.11 oad" not in running
+
+    # Untyped peer-group with no members must reject route-reflector-client.
+    r1.vtysh_multicmd(
+        """
+router bgp 65000
+ neighbor PG_EMPTY peer-group
+""",
+        pretty_output=False,
+        raises=True,
+    )
+    with pytest.raises(subprocess.CalledProcessError):
+        r1.vtysh_multicmd(
+            """
+router bgp 65000
+ address-family ipv4 unicast
+  neighbor PG_EMPTY route-reflector-client
+ exit-address-family
+""",
+            pretty_output=False,
+            raises=True,
+        )
+
+
 if __name__ == "__main__":
     args = ["-s"] + sys.argv[1:]
     sys.exit(pytest.main(args))

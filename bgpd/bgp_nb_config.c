@@ -6615,14 +6615,13 @@ static bool bgp_nb_role_from_str(const char *role_str, uint8_t *role)
 }
 
 static enum bgp_peer_sort bgp_nb_candidate_peer_sort(const struct lyd_node *dnode);
+static bool bgp_nb_candidate_group_members_match(const struct lyd_node *grp,
+						 enum bgp_peer_sort req_sort, bool require_equal);
 
 static int bgp_nb_peer_local_role_validate(const struct lyd_node *dnode, char *errmsg,
 					   size_t errmsg_len)
 {
-	const struct lyd_node *grp, *bgp_node, *list, *nbr;
-	const char *gname;
-	struct peer *peer, *member;
-	struct listnode *node;
+	const struct lyd_node *grp;
 	enum bgp_peer_sort sort;
 	bool group;
 
@@ -6632,52 +6631,17 @@ static int bgp_nb_peer_local_role_validate(const struct lyd_node *dnode, char *e
 
 	/*
 	 * An untyped peer-group is allowed if all its members are eBGP.
-	 * A neighbor, or a group that is already iBGP, is not.
+	 * A neighbor, or a group that is already iBGP/confed, is not.
 	 */
-	if ((!group && sort != BGP_PEER_EBGP) || (group && sort == BGP_PEER_IBGP)) {
+	if ((!group && sort != BGP_PEER_EBGP) ||
+	    (group && (sort == BGP_PEER_IBGP || sort == BGP_PEER_CONFED))) {
 		snprintfrr(errmsg, errmsg_len, "External roles can be set only on eBGP session");
 		return NB_ERR_VALIDATION;
 	}
 
-	if (group) {
-		gname = yang_dnode_exists(grp, "peer-group-name")
-				? yang_dnode_get_string(grp, "peer-group-name")
-				: NULL;
-		bgp_node = yang_dnode_get_parent(grp, "bgp");
-		if (gname && bgp_node) {
-			const char *lists[] = { "neighbors", "unnumbered-neighbors" };
-
-			for (size_t i = 0; i < array_size(lists); i++) {
-				list = yang_dnode_get(bgp_node, lists[i]);
-				if (!list)
-					continue;
-				LY_LIST_FOR (lyd_child(list), nbr) {
-					if (!yang_dnode_exists(nbr, "peer-group"))
-						continue;
-					if (!strmatch(yang_dnode_get_string(nbr, "peer-group"),
-						      gname))
-						continue;
-					if (bgp_nb_candidate_peer_sort(nbr) != BGP_PEER_EBGP) {
-						snprintfrr(
-							errmsg, errmsg_len,
-							"External roles can be set only on eBGP session");
-						return NB_ERR_VALIDATION;
-					}
-				}
-			}
-		}
-
-		peer = bgp_nb_config_peer(dnode);
-		if (peer && peer->group) {
-			for (ALL_LIST_ELEMENTS_RO(peer->group->peer, node, member)) {
-				if (member->sort != BGP_PEER_EBGP) {
-					snprintfrr(
-						errmsg, errmsg_len,
-						"External roles can be set only on eBGP session");
-					return NB_ERR_VALIDATION;
-				}
-			}
-		}
+	if (group && !bgp_nb_candidate_group_members_match(grp, BGP_PEER_EBGP, true)) {
+		snprintfrr(errmsg, errmsg_len, "External roles can be set only on eBGP session");
+		return NB_ERR_VALIDATION;
 	}
 
 	return NB_OK;
@@ -14824,85 +14788,257 @@ static const struct lyd_node *bgp_nb_remote_as_source(const struct lyd_node *nbr
 	return nbr;
 }
 
-/*
- * Sort implied by the candidate remote-as, not the running peer. A
- * peer-group with no remote-as (and no members yet) is INTERNAL: the
- * flag is stored and inherited when a member is bound.
- */
-static enum bgp_peer_sort bgp_nb_candidate_peer_sort(const struct lyd_node *dnode)
+static const struct lyd_node *bgp_nb_candidate_peer_node(const struct lyd_node *dnode)
 {
-	const struct lyd_node *nbr, *bgp_node;
-	const char *as_type;
-	as_t local_as, remote_as;
+	const struct lyd_node *nbr;
 
+	if (!dnode)
+		return NULL;
 	nbr = yang_dnode_get_parent(dnode, "neighbor");
 	if (!nbr)
 		nbr = yang_dnode_get_parent(dnode, "unnumbered-neighbor");
 	if (!nbr)
 		nbr = yang_dnode_get_parent(dnode, "peer-group");
-	nbr = bgp_nb_remote_as_source(nbr);
-	if (!nbr || !yang_dnode_exists(nbr, "neighbor-remote-as/remote-as-type"))
+	return nbr;
+}
+
+static as_t bgp_nb_candidate_peer_local_as(const struct lyd_node *nbr,
+					   const struct lyd_node *bgp_node)
+{
+	if (nbr && yang_dnode_exists(nbr, "local-as/local-as"))
+		return yang_dnode_get_uint32(nbr, "local-as/local-as");
+
+	if (nbr && !strmatch(nbr->schema->name, "peer-group") &&
+	    yang_dnode_exists(nbr, "peer-group") && bgp_node) {
+		const char *pg = yang_dnode_get_string(nbr, "peer-group");
+		const struct lyd_node *group;
+
+		group = pg ? yang_dnode_getf(bgp_node, "peer-groups/peer-group[peer-group-name='%s']",
+					     pg)
+			   : NULL;
+		if (group && yang_dnode_exists(group, "local-as/local-as"))
+			return yang_dnode_get_uint32(group, "local-as/local-as");
+	}
+
+	if (bgp_node && yang_dnode_exists(bgp_node, "global/local-as"))
+		return yang_dnode_get_uint32(bgp_node, "global/local-as");
+	return 0;
+}
+
+static enum bgp_peer_sort bgp_nb_candidate_peer_sort_single(const struct lyd_node *nbr,
+							    const struct lyd_node *bgp_node)
+{
+	const struct lyd_node *src;
+	const char *as_type = NULL;
+	as_t bgp_as, local_as, remote_as = 0, confed_id = 0;
+	bool has_as_type = false;
+	bool resolved_internal = false, resolved_external = false;
+
+	if (!nbr)
 		return BGP_PEER_INTERNAL;
 
-	as_type = yang_dnode_get_string(nbr, "neighbor-remote-as/remote-as-type");
-	if (strmatch(as_type, "internal"))
-		return BGP_PEER_IBGP;
-	if (strmatch(as_type, "external"))
+	bgp_as = (bgp_node && yang_dnode_exists(bgp_node, "global/local-as"))
+			 ? yang_dnode_get_uint32(bgp_node, "global/local-as")
+			 : 0;
+	local_as = bgp_nb_candidate_peer_local_as(nbr, bgp_node);
+
+	/* Peer-group */
+	if (strmatch(nbr->schema->name, "peer-group")) {
+		const char *gname;
+		const struct lyd_node *list, *member;
+
+		if (yang_dnode_exists(nbr, "neighbor-remote-as/remote-as-type")) {
+			as_type = yang_dnode_get_string(nbr, "neighbor-remote-as/remote-as-type");
+			if (strmatch(as_type, "internal"))
+				return BGP_PEER_IBGP;
+			if (strmatch(as_type, "external"))
+				return BGP_PEER_EBGP;
+			if (strmatch(as_type, "as-specified") &&
+			    yang_dnode_exists(nbr, "neighbor-remote-as/remote-as")) {
+				remote_as = yang_dnode_get_uint32(nbr,
+								  "neighbor-remote-as/remote-as");
+				if (remote_as)
+					return local_as == remote_as ? BGP_PEER_IBGP
+								     : BGP_PEER_EBGP;
+			}
+		}
+
+		/*
+		 * Untyped peer-group: mirror peer_calc_sort() by using the
+		 * first member's sort (or INTERNAL if unresolved auto / none).
+		 */
+		gname = yang_dnode_exists(nbr, "peer-group-name")
+				? yang_dnode_get_string(nbr, "peer-group-name")
+				: NULL;
+		list = bgp_node ? yang_dnode_get(bgp_node, "neighbors") : NULL;
+		if (gname && list) {
+			LY_LIST_FOR (lyd_child(list), member) {
+				if (!yang_dnode_exists(member, "peer-group"))
+					continue;
+				if (!strmatch(yang_dnode_get_string(member, "peer-group"), gname))
+					continue;
+				if (yang_dnode_exists(member,
+						      "neighbor-remote-as/remote-as-type") &&
+				    strmatch(yang_dnode_get_string(
+						     member, "neighbor-remote-as/remote-as-type"),
+					     "auto")) {
+					struct peer *p = bgp_nb_config_peer(member);
+
+					if (!p || p->as_type == AS_AUTO)
+						return BGP_PEER_INTERNAL;
+				}
+				return bgp_nb_candidate_peer_sort_single(member, bgp_node);
+			}
+		}
+		return BGP_PEER_INTERNAL;
+	}
+
+	/* Normal peer */
+	src = bgp_nb_remote_as_source(nbr);
+	if (src && yang_dnode_exists(src, "neighbor-remote-as/remote-as-type")) {
+		has_as_type = true;
+		as_type = yang_dnode_get_string(src, "neighbor-remote-as/remote-as-type");
+		if (strmatch(as_type, "as-specified") &&
+		    yang_dnode_exists(src, "neighbor-remote-as/remote-as")) {
+			remote_as = yang_dnode_get_uint32(src, "neighbor-remote-as/remote-as");
+		} else if (strmatch(as_type, "auto")) {
+			struct peer *p = bgp_nb_config_peer(nbr);
+
+			if (p) {
+				if (CHECK_FLAG(p->as_type, AS_INTERNAL))
+					resolved_internal = true;
+				else if (CHECK_FLAG(p->as_type, AS_EXTERNAL))
+					resolved_external = true;
+				else if (p->as)
+					remote_as = p->as;
+			}
+		}
+	}
+
+	if (bgp_node && yang_dnode_exists(bgp_node, "global/confederation/identifier"))
+		confed_id = yang_dnode_get_uint32(bgp_node, "global/confederation/identifier");
+
+	if (confed_id) {
+		if (local_as == 0)
+			return BGP_PEER_INTERNAL;
+		if ((has_as_type && strmatch(as_type, "internal")) || resolved_internal)
+			return BGP_PEER_IBGP;
+		if ((has_as_type && strmatch(as_type, "external")) || resolved_external)
+			return BGP_PEER_EBGP;
+
+		if (local_as == remote_as) {
+			if (bgp_as == confed_id)
+				return local_as == bgp_as ? BGP_PEER_IBGP : BGP_PEER_EBGP;
+			if (remote_as == confed_id)
+				return BGP_PEER_IBGP;
+			if (local_as == confed_id)
+				return BGP_PEER_EBGP;
+			return BGP_PEER_IBGP;
+		}
+
+		if (remote_as && bgp_node &&
+		    yang_dnode_existsf(bgp_node, "global/confederation/member-as[.='%u']",
+				       remote_as))
+			return BGP_PEER_CONFED;
+
 		return BGP_PEER_EBGP;
-	if (!strmatch(as_type, "as-specified") ||
-	    !yang_dnode_exists(nbr, "neighbor-remote-as/remote-as"))
-		return BGP_PEER_INTERNAL;
+	}
 
-	remote_as = yang_dnode_get_uint32(nbr, "neighbor-remote-as/remote-as");
-	bgp_node = yang_dnode_get_parent(dnode, "bgp");
-	if (!bgp_node || !yang_dnode_exists(bgp_node, "global/local-as"))
-		return BGP_PEER_INTERNAL;
-	local_as = yang_dnode_get_uint32(bgp_node, "global/local-as");
-	if (!local_as)
-		return BGP_PEER_INTERNAL;
+	if (!has_as_type)
+		return BGP_PEER_UNSPECIFIED;
 
+	if (strmatch(as_type, "internal") || resolved_internal)
+		return BGP_PEER_IBGP;
+	if (strmatch(as_type, "external") || resolved_external)
+		return BGP_PEER_EBGP;
+
+	if (local_as == 0)
+		return BGP_PEER_INTERNAL;
 	return local_as == remote_as ? BGP_PEER_IBGP : BGP_PEER_EBGP;
 }
 
-static enum bgp_peer_sort bgp_nb_af_flag_sort(const struct lyd_node *dnode)
+/*
+ * Check every member of peer-group `grp` in the candidate tree:
+ *  - require_equal == true:  every member must have sort == req_sort.
+ *  - require_equal == false: no member may have sort == req_sort.
+ */
+static bool bgp_nb_candidate_group_members_match(const struct lyd_node *grp,
+						 enum bgp_peer_sort req_sort, bool require_equal)
 {
-	struct peer *peer;
-	enum bgp_peer_sort sort;
+	const struct lyd_node *bgp_node, *list, *member;
+	const char *gname;
 
-	sort = bgp_nb_candidate_peer_sort(dnode);
-	if (sort != BGP_PEER_INTERNAL)
-		return sort;
+	if (!grp || !yang_dnode_exists(grp, "peer-group-name"))
+		return true;
 
-	peer = bgp_nb_config_peer(dnode);
-	if (!peer)
-		return BGP_PEER_INTERNAL;
-	if (CHECK_FLAG(peer->sflags, PEER_STATUS_GROUP) && peer_sort(peer) == BGP_PEER_INTERNAL)
-		return BGP_PEER_INTERNAL;
-	return peer_sort(peer);
+	gname = yang_dnode_get_string(grp, "peer-group-name");
+	bgp_node = yang_dnode_get_parent(grp, "bgp");
+	list = bgp_node ? yang_dnode_get(bgp_node, "neighbors") : NULL;
+	if (!gname || !list)
+		return true;
+
+	LY_LIST_FOR (lyd_child(list), member) {
+		enum bgp_peer_sort msort;
+
+		if (!yang_dnode_exists(member, "peer-group"))
+			continue;
+		if (!strmatch(yang_dnode_get_string(member, "peer-group"), gname))
+			continue;
+
+		msort = bgp_nb_candidate_peer_sort_single(member, bgp_node);
+		if (require_equal ? (msort != req_sort) : (msort == req_sort))
+			return false;
+	}
+	return true;
+}
+
+/*
+ * Sort implied by the candidate config, mirroring peer_calc_sort() including
+ * local-as, confederation id/members, peer-group inheritance, and resolved
+ * remote-as auto.
+ */
+static enum bgp_peer_sort bgp_nb_candidate_peer_sort(const struct lyd_node *dnode)
+{
+	const struct lyd_node *nbr = bgp_nb_candidate_peer_node(dnode);
+	const struct lyd_node *bgp_node = yang_dnode_get_parent(dnode, "bgp");
+
+	return bgp_nb_candidate_peer_sort_single(nbr, bgp_node);
 }
 
 static int bgp_nb_peer_af_flag_validate(struct nb_cb_modify_args *args, uint64_t flag)
 {
+	const struct lyd_node *grp;
 	enum bgp_peer_sort sort;
 
-	sort = bgp_nb_af_flag_sort(args->dnode);
-	if (sort == BGP_PEER_INTERNAL || sort == BGP_PEER_UNSPECIFIED)
+	if (!yang_dnode_get_bool(args->dnode, NULL))
 		return NB_OK;
 
-	if (CHECK_FLAG(flag, PEER_FLAG_REFLECTOR_CLIENT) && sort != BGP_PEER_IBGP) {
-		snprintfrr(args->errmsg, args->errmsg_len,
-			   "Invalid command. Not an internal neighbor");
-		return NB_ERR_VALIDATION;
+	grp = yang_dnode_get_parent(args->dnode, "peer-group");
+	sort = bgp_nb_candidate_peer_sort(args->dnode);
+
+	if (CHECK_FLAG(flag, PEER_FLAG_REFLECTOR_CLIENT)) {
+		if (sort != BGP_PEER_IBGP ||
+		    (grp && !bgp_nb_candidate_group_members_match(grp, BGP_PEER_IBGP, true))) {
+			snprintfrr(args->errmsg, args->errmsg_len,
+				   "Invalid command. Not an internal neighbor");
+			return NB_ERR_VALIDATION;
+		}
 	}
-	if (CHECK_FLAG(flag, PEER_FLAG_REMOVE_PRIVATE_AS) && sort == BGP_PEER_IBGP) {
-		snprintfrr(args->errmsg, args->errmsg_len,
-			   "remove-private-AS cannot be configured for IBGP peers");
-		return NB_ERR_VALIDATION;
+	if (CHECK_FLAG(flag, PEER_FLAG_REMOVE_PRIVATE_AS)) {
+		if (sort == BGP_PEER_IBGP ||
+		    (grp && !bgp_nb_candidate_group_members_match(grp, BGP_PEER_IBGP, false))) {
+			snprintfrr(args->errmsg, args->errmsg_len,
+				   "remove-private-AS cannot be configured for IBGP peers");
+			return NB_ERR_VALIDATION;
+		}
 	}
-	if (CHECK_FLAG(flag, PEER_FLAG_AS_OVERRIDE) && sort == BGP_PEER_IBGP) {
-		snprintfrr(args->errmsg, args->errmsg_len,
-			   "as-override cannot be configured for IBGP peers");
-		return NB_ERR_VALIDATION;
+	if (CHECK_FLAG(flag, PEER_FLAG_AS_OVERRIDE)) {
+		if (sort == BGP_PEER_IBGP ||
+		    (grp && !bgp_nb_candidate_group_members_match(grp, BGP_PEER_IBGP, false))) {
+			snprintfrr(args->errmsg, args->errmsg_len,
+				   "as-override cannot be configured for IBGP peers");
+			return NB_ERR_VALIDATION;
+		}
 	}
 	return NB_OK;
 }
@@ -16996,13 +17132,15 @@ void bgp_nb_cli_show_peer_af_orf_receive(struct vty *vty, const struct lyd_node 
 bool bgp_nb_path_attr_forbidden(const struct lyd_node *dnode, uint8_t attr_num, bool withdraw,
 				char *errmsg, size_t errmsg_len)
 {
+	const struct lyd_node *grp = yang_dnode_get_parent(dnode, "peer-group");
 	bool ebgp;
 
 	/*
 	 * Peer-independent attributes are rejected even when the neighbor
 	 * is created in this same candidate and has no running peer yet.
 	 */
-	ebgp = bgp_nb_candidate_peer_sort(dnode) == BGP_PEER_EBGP;
+	ebgp = bgp_nb_candidate_peer_sort(dnode) == BGP_PEER_EBGP &&
+	       (!grp || bgp_nb_candidate_group_members_match(grp, BGP_PEER_EBGP, true));
 	return bgp_path_attribute_discard_forbidden(attr_num, ebgp, withdraw, errmsg, errmsg_len);
 }
 
@@ -17414,19 +17552,32 @@ int bgp_nb_peer_oad_modify(struct nb_cb_modify_args *args)
 {
 	struct peer *peer;
 
-	if (args->event != NB_EV_APPLY)
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+		if (yang_dnode_get_bool(args->dnode, NULL)) {
+			const struct lyd_node *grp =
+				yang_dnode_get_parent(args->dnode, "peer-group");
+
+			if (bgp_nb_candidate_peer_sort(args->dnode) != BGP_PEER_EBGP ||
+			    (grp && !bgp_nb_candidate_group_members_match(grp, BGP_PEER_EBGP,
+									  true))) {
+				snprintfrr(args->errmsg, args->errmsg_len,
+					   "OAD can only be configured for EBGP peers");
+				return NB_ERR_VALIDATION;
+			}
+		}
 		return NB_OK;
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+		return NB_OK;
+	case NB_EV_APPLY:
+		break;
+	}
 
 	peer = bgp_nb_config_peer(args->dnode);
 	if (!peer)
 		return NB_ERR_NOT_FOUND;
 
-	/*
-	 * Same check as the classic `neighbor oad` command: set the
-	 * sub-sort only when this peer is already eBGP. peer_sort()
-	 * refreshes the cache so a peer-group bind that just inherited
-	 * remote-as is visible. `no neighbor oad` always clears it.
-	 */
 	if (yang_dnode_get_bool(args->dnode, NULL)) {
 		if (peer_sort(peer) == BGP_PEER_EBGP)
 			peer->sub_sort = BGP_PEER_EBGP_OAD;
