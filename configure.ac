@@ -2069,7 +2069,7 @@ AC_CHECK_MEMBER([struct lyd_node.priv], [], [
   ])
 ], [[#include <libyang/libyang.h>]])
 
-AC_CHECK_LIB([yang],[lyd_find_xpath3],[],[AC_MSG_ERROR([m4_normalize([
+AC_CHECK_LIB([yang],[lyd_find_xpath3],[LIBS="$LIBYANG_LIBS $LIBS"],[AC_MSG_ERROR([m4_normalize([
 libyang missing lyd_find_xpath3])])])
 dnl -- don't add lyd_new_list3 to this list unless bug is fixed upstream
 dnl -- https://github.com/CESNET/libyang/issues/2149
