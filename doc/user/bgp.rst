@@ -4322,6 +4322,12 @@ and used as the source VNI for sending traffic to the destination IP-VRF.
 Note that in FRR, Downstream VNI requires the use of single VXLAN devices (SVD)
 for the dataplane and will not work with traditional VXLAN devices.
 
+.. note::
+
+   For caveats of Downstream VNI on Linux, see
+   :ref:`evpn-downstream-vni-rp-filter` and
+   :ref:`evpn-downstream-vni-source`.
+
 .. _bgp-evpn-route-target-configuration:
 
 EVPN Route Target Configuration
