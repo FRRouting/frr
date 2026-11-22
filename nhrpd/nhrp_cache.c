@@ -451,7 +451,7 @@ int nhrp_cache_update_binding(struct nhrp_cache *c, enum nhrp_cache_type type,
 		sockunion2str(nbma_oa, buf[1], sizeof(buf[1]));
 
 	nhrp_cache_reset_new(c);
-	if (c->cur.type == type && c->cur.peer == p && c->cur.mtu == mtu) {
+	if (holding_time >= 0 && c->cur.type == type && c->cur.peer == p && c->cur.mtu == mtu) {
 		c->cur.unique = unique;
 		debugf(NHRP_DEBUG_COMMON,
 		       "cache: same type %u, updating expiry and changing nbma addr from %s to %s",
