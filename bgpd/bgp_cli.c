@@ -5702,6 +5702,17 @@ DEFPY_YANG(bgp_fs_local_install_yang, bgp_fs_local_install_yang_cmd,
 	return nb_cli_apply_changes(vty, NULL);
 }
 
+static bool bgp_cli_mask_prefix(const char *raw, char *out, size_t out_sz)
+{
+	struct prefix p;
+
+	if (!raw || !str2prefix(raw, &p))
+		return false;
+	apply_mask(&p);
+	prefix2str(&p, out, out_sz);
+	return true;
+}
+
 DEFPY_YANG(bgp_network_yang, bgp_network_yang_cmd,
 	   "[no] network <A.B.C.D/M$prefix|A.B.C.D$address [mask A.B.C.D$netmask]> [{route-map RMAP_NAME$map_name|label-index (0-1048560)$label_index|backdoor$backdoor}]",
 	   NO_STR
@@ -5720,6 +5731,7 @@ DEFPY_YANG(bgp_network_yang, bgp_network_yang_cmd,
 	char net_xpath[XPATH_MAXLEN * 10];
 	char leaf[XPATH_MAXLEN * 12];
 	char addr_prefix_str[BUFSIZ];
+	char masked_pfx[PREFIX2STR_BUFFER];
 	const char *pfx;
 	char buf[16];
 
@@ -5732,6 +5744,12 @@ DEFPY_YANG(bgp_network_yang, bgp_network_yang_cmd,
 		pfx = addr_prefix_str;
 	} else
 		pfx = prefix_str;
+
+	if (!bgp_cli_mask_prefix(pfx, masked_pfx, sizeof(masked_pfx))) {
+		vty_out(vty, "%% Malformed address\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+	pfx = masked_pfx;
 
 	bgp_cli_global_af_xpath(vty, af_xpath, sizeof(af_xpath));
 	nb_cli_enqueue_change(vty, af_xpath, NB_OP_CREATE, NULL);
@@ -5771,12 +5789,18 @@ DEFPY_YANG(ipv6_bgp_network_yang, ipv6_bgp_network_yang_cmd,
 	char af_xpath[XPATH_MAXLEN];
 	char net_xpath[XPATH_MAXLEN + 256];
 	char leaf[XPATH_MAXLEN + 512];
+	char masked_pfx[PREFIX2STR_BUFFER];
 	char buf[16];
+
+	if (!bgp_cli_mask_prefix(prefix_str, masked_pfx, sizeof(masked_pfx))) {
+		vty_out(vty, "%% Malformed address\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
 
 	bgp_cli_global_af_xpath(vty, af_xpath, sizeof(af_xpath));
 	nb_cli_enqueue_change(vty, af_xpath, NB_OP_CREATE, NULL);
 	snprintfrr(net_xpath, sizeof(net_xpath), "%s/network-config[prefix='%s']", af_xpath,
-		   prefix_str);
+		   masked_pfx);
 
 	if (no) {
 		nb_cli_enqueue_change(vty, net_xpath, NB_OP_DESTROY, NULL);
@@ -5847,6 +5871,7 @@ DEFPY_YANG(aggregate_addressv4_yang, aggregate_addressv4_yang_cmd,
 	char agg_xpath[XPATH_MAXLEN * 10];
 	char leaf[XPATH_MAXLEN * 11];
 	char prefix_buf[BUFSIZ];
+	char masked_pfx[PREFIX2STR_BUFFER];
 	const char *pfx;
 	char buf[16];
 
@@ -5858,6 +5883,12 @@ DEFPY_YANG(aggregate_addressv4_yang, aggregate_addressv4_yang_cmd,
 		pfx = prefix_buf;
 	} else
 		pfx = prefix_str;
+
+	if (!bgp_cli_mask_prefix(pfx, masked_pfx, sizeof(masked_pfx))) {
+		vty_out(vty, "%% Malformed address\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+	pfx = masked_pfx;
 
 	bgp_cli_global_af_xpath(vty, af_xpath, sizeof(af_xpath));
 	nb_cli_enqueue_change(vty, af_xpath, NB_OP_CREATE, NULL);
@@ -5942,12 +5973,18 @@ DEFPY_YANG(aggregate_addressv6_yang, aggregate_addressv6_yang_cmd,
 	char af_xpath[XPATH_MAXLEN];
 	char agg_xpath[XPATH_MAXLEN + 256];
 	char leaf[XPATH_MAXLEN + 512];
+	char masked_pfx[PREFIX2STR_BUFFER];
 	char buf[16];
+
+	if (!bgp_cli_mask_prefix(prefix_str, masked_pfx, sizeof(masked_pfx))) {
+		vty_out(vty, "%% Malformed address\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
 
 	bgp_cli_global_af_xpath(vty, af_xpath, sizeof(af_xpath));
 	nb_cli_enqueue_change(vty, af_xpath, NB_OP_CREATE, NULL);
 	snprintfrr(agg_xpath, sizeof(agg_xpath), "%s/aggregate-route[prefix='%s']", af_xpath,
-		   prefix_str);
+		   masked_pfx);
 
 	if (no) {
 		nb_cli_enqueue_change(vty, agg_xpath, NB_OP_DESTROY, NULL);
@@ -8244,6 +8281,7 @@ DEFPY_YANG(vpn_network_yang, vpn_network_yang_cmd,
 	char rd_xpath[XPATH_MAXLEN + 256];
 	char pfx_xpath[XPATH_MAXLEN + 512];
 	char leaf[XPATH_MAXLEN + 768];
+	char masked_pfx[PREFIX2STR_BUFFER];
 	char buf[16];
 	const char *pfx;
 
@@ -8251,16 +8289,30 @@ DEFPY_YANG(vpn_network_yang, vpn_network_yang_cmd,
 	if (!pfx)
 		return CMD_WARNING_CONFIG_FAILED;
 
+	if (!bgp_cli_mask_prefix(pfx, masked_pfx, sizeof(masked_pfx))) {
+		vty_out(vty, "%% Malformed address\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+	pfx = masked_pfx;
+
 	bgp_cli_global_af_xpath(vty, af_xpath, sizeof(af_xpath));
-	nb_cli_enqueue_change(vty, af_xpath, NB_OP_CREATE, NULL);
 	snprintfrr(rd_xpath, sizeof(rd_xpath), "%s/network-config[rd='%s']", af_xpath, rd);
 	snprintfrr(pfx_xpath, sizeof(pfx_xpath), "%s/prefix-list[prefix='%s']", rd_xpath, pfx);
 
 	if (no) {
+		char check[XPATH_MAXLEN + 512];
+
+		snprintfrr(check, sizeof(check), "%s%s", VTY_CURR_XPATH, pfx_xpath + 1);
+		if (!vty->candidate_config || !vty->candidate_config->dnode ||
+		    !yang_dnode_exists(vty->candidate_config->dnode, check)) {
+			vty_out(vty, "%% Can't find static route specified\n");
+			return CMD_WARNING_CONFIG_FAILED;
+		}
 		nb_cli_enqueue_change(vty, pfx_xpath, NB_OP_DESTROY, NULL);
 		return nb_cli_apply_changes(vty, NULL);
 	}
 
+	nb_cli_enqueue_change(vty, af_xpath, NB_OP_CREATE, NULL);
 	nb_cli_enqueue_change(vty, rd_xpath, NB_OP_CREATE, NULL);
 	nb_cli_enqueue_change(vty, pfx_xpath, NB_OP_CREATE, NULL);
 	snprintfrr(leaf, sizeof(leaf), "%s/label-index", pfx_xpath);

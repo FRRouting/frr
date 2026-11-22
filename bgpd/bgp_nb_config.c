@@ -8839,11 +8839,18 @@ int bgp_nb_vpn_network_prefix_create(struct nb_cb_create_args *args)
 			snprintfrr(args->errmsg, args->errmsg_len, "Malformed network prefix");
 			return NB_ERR_VALIDATION;
 		}
-		if (bgp_nb_dnode_afi_safi(args->dnode, &afi, &safi) && afi == AFI_IP6 &&
-		    IN6_IS_ADDR_LINKLOCAL(&p.u.prefix6)) {
-			snprintfrr(args->errmsg, args->errmsg_len,
-				   "Malformed prefix (link-local address)");
-			return NB_ERR_VALIDATION;
+		if (bgp_nb_dnode_afi_safi(args->dnode, &afi, &safi)) {
+			if ((afi == AFI_IP && p.family != AF_INET) ||
+			    (afi == AFI_IP6 && p.family != AF_INET6)) {
+				snprintfrr(args->errmsg, args->errmsg_len,
+					   "Malformed network prefix");
+				return NB_ERR_VALIDATION;
+			}
+			if (afi == AFI_IP6 && IN6_IS_ADDR_LINKLOCAL(&p.u.prefix6)) {
+				snprintfrr(args->errmsg, args->errmsg_len,
+					   "Malformed prefix (link-local address)");
+				return NB_ERR_VALIDATION;
+			}
 		}
 		return NB_OK;
 	}
