@@ -2358,6 +2358,9 @@ struct peer {
 	/* Path attributes treat-as-withdraw */
 	bool withdraw_attrs[BGP_ATTR_MAX + 1];
 
+	/* Pending inbound soft-clear after batched path-attribute NB updates */
+	bool nb_path_attr_dirty;
+
 	/* BGP Software Version Capability */
 #define BGP_MAX_SOFT_VERSION 64
 	char *soft_version;

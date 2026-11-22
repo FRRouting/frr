@@ -384,6 +384,10 @@ int bgp_nb_default_software_version_capability_destroy(struct nb_cb_destroy_args
 void bgp_nb_cli_show_default_software_version_capability(struct vty *vty,
 							 const struct lyd_node *dnode,
 							 bool show_defaults);
+int bgp_nb_default_software_version_latest_modify(struct nb_cb_modify_args *args);
+int bgp_nb_default_software_version_latest_destroy(struct nb_cb_destroy_args *args);
+void bgp_nb_cli_show_default_software_version_latest(struct vty *vty, const struct lyd_node *dnode,
+						     bool show_defaults);
 
 /* Numbered neighbors */
 int bgp_nb_neighbor_create(struct nb_cb_create_args *args);
@@ -398,6 +402,9 @@ void bgp_nb_cli_show_neighbor_remote_as_type(struct vty *vty, const struct lyd_n
 
 int bgp_nb_neighbor_remote_as_modify(struct nb_cb_modify_args *args);
 int bgp_nb_neighbor_remote_as_destroy(struct nb_cb_destroy_args *args);
+int bgp_nb_peer_remote_as_pretty_modify(struct nb_cb_modify_args *args);
+int bgp_nb_peer_remote_as_pretty_destroy(struct nb_cb_destroy_args *args);
+void bgp_nb_peer_apply_finish(struct nb_cb_apply_finish_args *args);
 
 /* Peer-groups */
 int bgp_nb_peer_group_create(struct nb_cb_create_args *args);
@@ -493,6 +500,8 @@ void bgp_nb_cli_show_peer_ttl_security(struct vty *vty, const struct lyd_node *d
 				       bool show_defaults);
 int bgp_nb_peer_local_as_modify(struct nb_cb_modify_args *args);
 int bgp_nb_peer_local_as_destroy(struct nb_cb_destroy_args *args);
+int bgp_nb_peer_local_as_pretty_modify(struct nb_cb_modify_args *args);
+int bgp_nb_peer_local_as_pretty_destroy(struct nb_cb_destroy_args *args);
 void bgp_nb_cli_show_peer_local_as(struct vty *vty, const struct lyd_node *dnode,
 				   bool show_defaults);
 int bgp_nb_peer_local_as_no_prepend_modify(struct nb_cb_modify_args *args);
@@ -541,6 +550,10 @@ int bgp_nb_peer_cap_soft_version_modify(struct nb_cb_modify_args *args);
 int bgp_nb_peer_cap_soft_version_destroy(struct nb_cb_destroy_args *args);
 void bgp_nb_cli_show_peer_cap_soft_version(struct vty *vty, const struct lyd_node *dnode,
 					   bool show_defaults);
+int bgp_nb_peer_cap_soft_version_latest_modify(struct nb_cb_modify_args *args);
+int bgp_nb_peer_cap_soft_version_latest_destroy(struct nb_cb_destroy_args *args);
+void bgp_nb_cli_show_peer_cap_soft_version_latest(struct vty *vty, const struct lyd_node *dnode,
+						  bool show_defaults);
 int bgp_nb_peer_cap_link_local_modify(struct nb_cb_modify_args *args);
 int bgp_nb_peer_cap_link_local_destroy(struct nb_cb_destroy_args *args);
 void bgp_nb_cli_show_peer_cap_link_local(struct vty *vty, const struct lyd_node *dnode,

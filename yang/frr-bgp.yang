@@ -349,14 +349,6 @@ module frr-bgp {
                Maps to: neighbor <A.B.C.D|X:X::X:X> interface WORD.";
           }
 
-          leaf local-port {
-            type inet:port-number {
-              range "0..65535";
-            }
-            description
-              "Neighbor's BGP TCP port number.";
-          }
-
           leaf peer-group {
             type leafref {
               path "../../../peer-groups/peer-group/peer-group-name";
@@ -385,6 +377,14 @@ module frr-bgp {
                  the BGP OPEN message.";
               reference
                 "RFC 4271";
+            }
+
+            leaf remote-as-pretty {
+              when "../remote-as-type = 'as-specified'";
+              type string;
+              description
+                "Configured textual representation of the remote AS number
+                 (e.g. dot or dot+ notation as entered by the operator).";
             }
           }
 

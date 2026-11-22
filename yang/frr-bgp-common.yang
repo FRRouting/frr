@@ -657,15 +657,17 @@ submodule frr-bgp-common {
     }
 
     leaf default-software-version-capability {
-      type enumeration {
-        enum disabled;
-        enum old-encoding;
-        enum latest-encoding;
-      }
+      type boolean;
       description
-        "Advertise software version capability.
-         Maps to: bgp default software-version-capability
-         [latest-encoding].";
+        "Advertise the legacy software version capability encoding by default.
+         Maps to: bgp default software-version-capability.";
+    }
+
+    leaf default-software-version-latest-encoding {
+      type boolean;
+      description
+        "Advertise the latest software version capability encoding by default.
+         Maps to: bgp default software-version-capability latest-encoding.";
     }
 
     leaf-list default-afi-safi {

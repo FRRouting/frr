@@ -74,6 +74,12 @@ DEFINE_HOOK(bgp_route_distinguisher_update, (struct bgp *bgp, afi_t afi, bool pr
 	    (bgp, afi, preconfig));
 
 static const struct lyd_node *bgp_nb_candidate_match(const struct lyd_node *old);
+static bool bgp_nb_is_interface_peer(const struct lyd_node *dnode, const struct peer *peer);
+static const struct lyd_node *bgp_nb_candidate_peer_group(const struct lyd_node *dnode,
+							  const char *name);
+static struct peer *bgp_nb_config_peer(const struct lyd_node *dnode);
+static const char *bgp_nb_config_peer_name(const struct lyd_node *dnode);
+static const char *bgp_nb_peer_show_indent(const struct lyd_node *dnode);
 static bool bgp_nb_inst_has_leaf(const struct bgp *bgp, const char *rel_xpath);
 static bool bgp_nb_inst_has_active_gr_mode(const struct bgp *bgp);
 DEFINE_HOOK(bgp_snmp_update_last_changed, (struct bgp *bgp), (bgp));
@@ -360,20 +366,38 @@ static enum asnotation_mode bgp_nb_cli_dnode_asnotation(const struct lyd_node *d
 }
 
 /*
- * Update peer->as_pretty from the configured uint32 ASN and instance
- * as-notation without resetting the session (ASDOT vs plain churn).
+ * Resolve the operator-configured AS text when present (remote-as-pretty),
+ * falling back to formatting the uint32 ASN with the instance as-notation.
+ */
+static const char *bgp_nb_remote_as_text(const struct lyd_node *ras_container, as_t as,
+					 char *buf, size_t buflen)
+{
+	enum asnotation_mode asnotation;
+
+	if (ras_container && yang_dnode_exists(ras_container, "./remote-as-pretty"))
+		return yang_dnode_get_string(ras_container, "./remote-as-pretty");
+
+	asnotation = bgp_nb_cli_dnode_asnotation(ras_container);
+	snprintfrr(buf, buflen, ASN_FORMAT(asnotation), &as);
+	return buf;
+}
+
+/*
+ * Update peer->as_pretty from remote-as-pretty (or instance as-notation)
+ * without resetting the session (ASDOT vs plain churn).
  */
 static void bgp_nb_peer_update_as_pretty(struct peer *peer, const struct lyd_node *dnode, as_t as)
 {
-	enum asnotation_mode asnotation = bgp_nb_cli_dnode_asnotation(dnode);
+	const struct lyd_node *ras = yang_dnode_get_parent(dnode, "neighbor-remote-as");
 	char buf[32];
+	const char *text;
 
-	snprintfrr(buf, sizeof(buf), ASN_FORMAT(asnotation), &as);
-	if (peer->as_pretty && strmatch(peer->as_pretty, buf))
+	text = bgp_nb_remote_as_text(ras ? ras : dnode, as, buf, sizeof(buf));
+	if (peer->as_pretty && strmatch(peer->as_pretty, text))
 		return;
 	if (peer->as_pretty)
 		XFREE(MTYPE_BGP_NAME, peer->as_pretty);
-	peer->as_pretty = XSTRDUP(MTYPE_BGP_NAME, buf);
+	peer->as_pretty = XSTRDUP(MTYPE_BGP_NAME, text);
 }
 
 void bgp_nb_cli_show_router_bgp(struct vty *vty, const struct lyd_node *dnode, bool show_defaults)
@@ -3947,22 +3971,13 @@ void bgp_nb_cli_show_default_link_local_capability(struct vty *vty, const struct
 int bgp_nb_default_software_version_capability_modify(struct nb_cb_modify_args *args)
 {
 	struct bgp *bgp;
-	const char *val;
 
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
 	bgp = nb_running_get_entry(args->dnode, NULL, true);
-	val = yang_dnode_get_string(args->dnode, NULL);
-
-	UNSET_FLAG(bgp->flags,
-		   BGP_FLAG_SOFT_VERSION_CAPABILITY_OLD | BGP_FLAG_SOFT_VERSION_CAPABILITY_NEW);
-
-	if (strmatch(val, "old-encoding"))
-		SET_FLAG(bgp->flags, BGP_FLAG_SOFT_VERSION_CAPABILITY_OLD);
-	else if (strmatch(val, "latest-encoding"))
-		SET_FLAG(bgp->flags, BGP_FLAG_SOFT_VERSION_CAPABILITY_NEW);
-
+	COND_FLAG(bgp->flags, BGP_FLAG_SOFT_VERSION_CAPABILITY_OLD,
+		  yang_dnode_get_bool(args->dnode, NULL));
 	return NB_OK;
 }
 
@@ -3976,8 +3991,6 @@ int bgp_nb_default_software_version_capability_destroy(struct nb_cb_destroy_args
 	bgp = nb_running_get_entry(args->dnode, NULL, true);
 	COND_FLAG(bgp->flags, BGP_FLAG_SOFT_VERSION_CAPABILITY_OLD,
 		  DFLT_BGP_SOFT_VERSION_CAPABILITY_OLD);
-	COND_FLAG(bgp->flags, BGP_FLAG_SOFT_VERSION_CAPABILITY_NEW,
-		  DFLT_BGP_SOFT_VERSION_CAPABILITY_NEW);
 	return NB_OK;
 }
 
@@ -3985,17 +3998,52 @@ void bgp_nb_cli_show_default_software_version_capability(struct vty *vty,
 							 const struct lyd_node *dnode,
 							 bool show_defaults)
 {
-	const char *val = yang_dnode_get_string(dnode, NULL);
+	bool enabled = yang_dnode_get_bool(dnode, NULL);
 
-	if (strmatch(val, "old-encoding")) {
+	if (enabled) {
 		if (!SAVE_BGP_SOFT_VERSION_CAPABILITY_OLD || show_defaults)
 			vty_out(vty, " bgp default software-version-capability\n");
-	} else if (strmatch(val, "latest-encoding")) {
+	} else if (SAVE_BGP_SOFT_VERSION_CAPABILITY_OLD || show_defaults) {
+		vty_out(vty, " no bgp default software-version-capability\n");
+	}
+}
+
+int bgp_nb_default_software_version_latest_modify(struct nb_cb_modify_args *args)
+{
+	struct bgp *bgp;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	bgp = nb_running_get_entry(args->dnode, NULL, true);
+	COND_FLAG(bgp->flags, BGP_FLAG_SOFT_VERSION_CAPABILITY_NEW,
+		  yang_dnode_get_bool(args->dnode, NULL));
+	return NB_OK;
+}
+
+int bgp_nb_default_software_version_latest_destroy(struct nb_cb_destroy_args *args)
+{
+	struct bgp *bgp;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	bgp = nb_running_get_entry(args->dnode, NULL, true);
+	COND_FLAG(bgp->flags, BGP_FLAG_SOFT_VERSION_CAPABILITY_NEW,
+		  DFLT_BGP_SOFT_VERSION_CAPABILITY_NEW);
+	return NB_OK;
+}
+
+void bgp_nb_cli_show_default_software_version_latest(struct vty *vty, const struct lyd_node *dnode,
+						     bool show_defaults)
+{
+	bool enabled = yang_dnode_get_bool(dnode, NULL);
+
+	if (enabled) {
 		if (!SAVE_BGP_SOFT_VERSION_CAPABILITY_NEW || show_defaults)
 			vty_out(vty, " bgp default software-version-capability latest-encoding\n");
-	} else if (SAVE_BGP_SOFT_VERSION_CAPABILITY_OLD || SAVE_BGP_SOFT_VERSION_CAPABILITY_NEW ||
-		   show_defaults) {
-		vty_out(vty, " no bgp default software-version-capability\n");
+	} else if (SAVE_BGP_SOFT_VERSION_CAPABILITY_NEW || show_defaults) {
+		vty_out(vty, " no bgp default software-version-capability latest-encoding\n");
 	}
 }
 
@@ -4098,10 +4146,42 @@ int bgp_nb_neighbor_create(struct nb_cb_create_args *args)
 		return NB_OK;
 	}
 	if (!peer) {
-		peer = peer_create(&su, NULL, bgp, bgp->as, 0, AS_UNSPECIFIED, NULL, true, NULL,
+		as_t as = 0;
+		enum peer_asn_type as_type = AS_UNSPECIFIED;
+		const char *as_pretty = NULL;
+		char as_buf[32];
+		as_t local_as = bgp->as;
+
+		if (yang_dnode_exists(args->dnode, "./neighbor-remote-as/remote-as-type")) {
+			const struct lyd_node *type_dn =
+				yang_dnode_get(args->dnode, "./neighbor-remote-as/remote-as-type");
+			const char *type_str = yang_dnode_get_string(type_dn, NULL);
+
+			if (bgp_nb_parse_as_type(type_str, &as_type, &as, type_dn) == 0) {
+				if (as_type == AS_SPECIFIED)
+					as_pretty = bgp_nb_remote_as_text(lyd_parent(type_dn), as,
+									  as_buf, sizeof(as_buf));
+				else
+					as_pretty = type_str;
+			} else {
+				as = 0;
+				as_type = AS_UNSPECIFIED;
+			}
+		}
+
+		if (as_type == AS_SPECIFIED && CHECK_FLAG(bgp->config, BGP_CONFIG_CONFEDERATION) &&
+		    !bgp_confederation_peers_check(bgp, as) && as && bgp->as != as)
+			local_as = bgp->confed_id;
+
+		peer = peer_create(&su, NULL, bgp, local_as, as, as_type, NULL, true, as_pretty,
 				   CONNECTION_OUTGOING);
 		if (!peer)
 			return NB_ERR_RESOURCE;
+
+		if (as_type != AS_UNSPECIFIED) {
+			SET_FLAG(peer->flags_override, PEER_FLAG_REMOTE_AS);
+			bgp_nb_need_listening(bgp);
+		}
 	}
 
 	nb_running_set_entry(args->dnode, peer);
@@ -4165,53 +4245,80 @@ void bgp_nb_cli_show_neighbor(struct vty *vty, const struct lyd_node *dnode, boo
 	/* remote-as printed by child leaf cli_show */
 }
 
+static void bgp_nb_cli_show_peer_profile_timers(struct vty *vty, const struct lyd_node *dnode)
+{
+	const struct lyd_node *bgp_dnode;
+	struct bgp *bgp;
+	const char *name;
+
+	if (yang_dnode_exists(dnode, "./peer-group"))
+		return;
+
+	bgp_dnode = yang_dnode_get_parent(dnode, "bgp");
+	bgp = bgp_dnode ? nb_running_get_entry_non_rec(bgp_dnode, NULL, false) : NULL;
+	if (!bgp)
+		return;
+
+	name = bgp_nb_config_peer_name(dnode);
+	if (!yang_dnode_exists(dnode, "./timers/connect-retry-interval") &&
+	    bgp->default_connect_retry != SAVE_BGP_CONNECT_RETRY)
+		vty_out(vty, "%sneighbor %s timers connect %u\n", bgp_nb_peer_show_indent(dnode),
+			name, bgp->default_connect_retry);
+
+	if (!yang_dnode_exists(dnode, "./timers/delayopen") &&
+	    bgp->default_delayopen != BGP_DEFAULT_DELAYOPEN)
+		vty_out(vty, "%sneighbor %s timers delayopen %u\n", bgp_nb_peer_show_indent(dnode),
+			name, bgp->default_delayopen);
+}
+
 void bgp_nb_cli_show_neighbor_end(struct vty *vty, const struct lyd_node *dnode)
 {
+	bgp_nb_cli_show_peer_profile_timers(vty, dnode);
 }
 
 /*
- * True when this neighbor's own remote-as matches its peer-group. An explicit
- * remote-as that matches the group is not an override: peer_group_remote_as()
- * must still update the member when the group remote-as later changes.
- * A member with no remote-as of its own inherits through peer_group_bind().
+ * True when this neighbor's own remote-as matches its peer-group in the same
+ * YANG tree (used by cli_show to suppress redundant member remote-as lines,
+ * matching classic bgp_config_write_peer()).
  */
-static bool bgp_nb_neighbor_remote_as_matches_group(const struct lyd_node *dnode,
-						    enum peer_asn_type as_type, as_t as)
+static bool bgp_nb_dnode_remote_as_matches_group(const struct lyd_node *nbr)
 {
-	const struct lyd_node *nbr;
-	const char *pgname;
-	struct peer *peer;
-	struct peer_group *group;
+	const struct lyd_node *grp;
+	const char *pgname, *m_type, *g_type;
 
-	nbr = yang_dnode_get_parent(dnode, "neighbor");
-	if (!nbr)
-		nbr = yang_dnode_get_parent(dnode, "unnumbered-neighbor");
 	if (!nbr || !yang_dnode_exists(nbr, "./peer-group"))
+		return false;
+	if (!yang_dnode_exists(nbr, "./neighbor-remote-as/remote-as-type"))
 		return false;
 
 	pgname = yang_dnode_get_string(nbr, "./peer-group");
-	peer = nb_running_get_entry_non_rec(nbr, NULL, false);
-	if (!peer || !peer->bgp)
+	grp = bgp_nb_candidate_peer_group(nbr, pgname);
+	if (!grp || !yang_dnode_exists(grp, "./neighbor-remote-as/remote-as-type"))
 		return false;
 
-	group = peer_group_lookup(peer->bgp, pgname);
-	if (!group || !group->conf)
+	m_type = yang_dnode_get_string(nbr, "./neighbor-remote-as/remote-as-type");
+	g_type = yang_dnode_get_string(grp, "./neighbor-remote-as/remote-as-type");
+	if (!strmatch(m_type, g_type))
 		return false;
-
-	if (group->conf->as_type != as_type)
-		return false;
-	if (as_type == AS_SPECIFIED && group->conf->as != as)
-		return false;
+	if (strmatch(m_type, "as-specified")) {
+		if (!yang_dnode_exists(nbr, "./neighbor-remote-as/remote-as") ||
+		    !yang_dnode_exists(grp, "./neighbor-remote-as/remote-as"))
+			return false;
+		return yang_dnode_get_uint32(nbr, "./neighbor-remote-as/remote-as") ==
+		       yang_dnode_get_uint32(grp, "./neighbor-remote-as/remote-as");
+	}
 	return true;
 }
 
-static void bgp_nb_neighbor_remote_as_set_override(struct peer *peer, const struct lyd_node *dnode,
-						   enum peer_asn_type as_type, as_t as)
+/*
+ * Classic peer_remote_as() unconditionally set PEER_FLAG_REMOTE_AS in
+ * peer->flags_override whenever a member configured its own remote-as, even
+ * if it happened to match the group's remote-as, so later group remote-as
+ * changes or deletions do not overwrite or clear the member.
+ */
+static void bgp_nb_neighbor_remote_as_set_override(struct peer *peer)
 {
-	if (bgp_nb_neighbor_remote_as_matches_group(dnode, as_type, as))
-		UNSET_FLAG(peer->flags_override, PEER_FLAG_REMOTE_AS);
-	else
-		SET_FLAG(peer->flags_override, PEER_FLAG_REMOTE_AS);
+	SET_FLAG(peer->flags_override, PEER_FLAG_REMOTE_AS);
 }
 
 int bgp_nb_neighbor_remote_as_type_modify(struct nb_cb_modify_args *args)
@@ -4222,6 +4329,7 @@ int bgp_nb_neighbor_remote_as_type_modify(struct nb_cb_modify_args *args)
 	as_t as = 0;
 	int ret;
 	const char *as_pretty;
+	char as_buf[32];
 
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
@@ -4237,17 +4345,18 @@ int bgp_nb_neighbor_remote_as_type_modify(struct nb_cb_modify_args *args)
 		return NB_OK; /* as-specified without remote-as yet */
 
 	if (as_type == AS_SPECIFIED)
-		as_pretty = yang_dnode_get_string(args->dnode, "../remote-as");
+		as_pretty = bgp_nb_remote_as_text(lyd_parent(args->dnode), as, as_buf,
+						  sizeof(as_buf));
 
 	if (peer->as_type == as_type && (as_type != AS_SPECIFIED || peer->as == as)) {
 		if (as_type == AS_SPECIFIED)
 			bgp_nb_peer_update_as_pretty(peer, args->dnode, as);
-		bgp_nb_neighbor_remote_as_set_override(peer, args->dnode, as_type, as);
+		bgp_nb_neighbor_remote_as_set_override(peer);
 		return NB_OK;
 	}
 
 	peer_as_change(peer, as, as_type, as_pretty);
-	bgp_nb_neighbor_remote_as_set_override(peer, args->dnode, as_type, as);
+	bgp_nb_neighbor_remote_as_set_override(peer);
 	bgp_nb_fix_confed_local_as(peer, as);
 	bgp_nb_need_listening(peer->bgp);
 	return NB_OK;
@@ -4278,11 +4387,14 @@ void bgp_nb_cli_show_neighbor_remote_as_type(struct vty *vty, const struct lyd_n
 	const char *name = NULL;
 	const char *type = yang_dnode_get_string(dnode, NULL);
 	bool v6only;
+	char as_buf[32];
 
 	parent = yang_dnode_get_parent(dnode, "neighbor");
-	if (parent)
+	if (parent) {
+		if (bgp_nb_dnode_remote_as_matches_group(parent))
+			return;
 		name = yang_dnode_get_string(parent, "./remote-address");
-	else {
+	} else {
 		parent = yang_dnode_get_parent(dnode, "unnumbered-neighbor");
 		if (parent) {
 			/* Combined line printed by peer-group cli_show. */
@@ -4293,17 +4405,15 @@ void bgp_nb_cli_show_neighbor_remote_as_type(struct vty *vty, const struct lyd_n
 				 yang_dnode_get_bool(parent, "./v6only");
 			if (strmatch(type, "as-specified")) {
 				as_t as;
-				enum asnotation_mode asnotation;
 
 				if (!yang_dnode_exists(dnode, "../remote-as"))
 					return;
 				as = yang_dnode_get_uint32(dnode, "../remote-as");
-				asnotation = bgp_nb_cli_dnode_asnotation(dnode);
-				vty_out(vty, "%sneighbor %s interface%s remote-as ",
+				vty_out(vty, "%sneighbor %s interface%s remote-as %s\n",
 					bgp_nb_peer_show_indent(dnode), name,
-					v6only ? " v6only" : "");
-				vty_out(vty, ASN_FORMAT(asnotation), &as);
-				vty_out(vty, "\n");
+					v6only ? " v6only" : "",
+					bgp_nb_remote_as_text(lyd_parent(dnode), as, as_buf,
+							      sizeof(as_buf)));
 			} else if (strmatch(type, "internal"))
 				vty_out(vty, "%sneighbor %s interface%s remote-as internal\n",
 					bgp_nb_peer_show_indent(dnode), name,
@@ -4324,15 +4434,12 @@ void bgp_nb_cli_show_neighbor_remote_as_type(struct vty *vty, const struct lyd_n
 
 	if (strmatch(type, "as-specified")) {
 		as_t as;
-		enum asnotation_mode asnotation;
 
 		if (!yang_dnode_exists(dnode, "../remote-as"))
 			return;
 		as = yang_dnode_get_uint32(dnode, "../remote-as");
-		asnotation = bgp_nb_cli_dnode_asnotation(dnode);
-		vty_out(vty, "%sneighbor %s remote-as ", bgp_nb_peer_show_indent(dnode), name);
-		vty_out(vty, ASN_FORMAT(asnotation), &as);
-		vty_out(vty, "\n");
+		vty_out(vty, "%sneighbor %s remote-as %s\n", bgp_nb_peer_show_indent(dnode), name,
+			bgp_nb_remote_as_text(lyd_parent(dnode), as, as_buf, sizeof(as_buf)));
 	} else if (strmatch(type, "internal"))
 		vty_out(vty, "%sneighbor %s remote-as internal\n", bgp_nb_peer_show_indent(dnode),
 			name);
@@ -4349,7 +4456,7 @@ int bgp_nb_neighbor_remote_as_modify(struct nb_cb_modify_args *args)
 	struct peer *peer;
 	as_t as;
 	char as_buf[32];
-	enum asnotation_mode asnotation;
+	const char *as_pretty;
 
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
@@ -4359,19 +4466,36 @@ int bgp_nb_neighbor_remote_as_modify(struct nb_cb_modify_args *args)
 
 	if (peer->as_type == AS_SPECIFIED && peer->as == as) {
 		bgp_nb_peer_update_as_pretty(peer, args->dnode, as);
-		bgp_nb_neighbor_remote_as_set_override(peer, args->dnode, AS_SPECIFIED, as);
+		bgp_nb_neighbor_remote_as_set_override(peer);
 		return NB_OK;
 	}
 
-	asnotation = bgp_nb_cli_dnode_asnotation(args->dnode);
-	snprintfrr(as_buf, sizeof(as_buf), ASN_FORMAT(asnotation), &as);
-	peer_as_change(peer, as, AS_SPECIFIED, as_buf);
-	bgp_nb_neighbor_remote_as_set_override(peer, args->dnode, AS_SPECIFIED, as);
+	as_pretty = bgp_nb_remote_as_text(lyd_parent(args->dnode), as, as_buf, sizeof(as_buf));
+	peer_as_change(peer, as, AS_SPECIFIED, as_pretty);
+	bgp_nb_neighbor_remote_as_set_override(peer);
 	bgp_nb_need_listening(peer->bgp);
 	return NB_OK;
 }
 
 int bgp_nb_neighbor_remote_as_destroy(struct nb_cb_destroy_args *args)
+{
+	return NB_OK;
+}
+
+int bgp_nb_peer_remote_as_pretty_modify(struct nb_cb_modify_args *args)
+{
+	struct peer *peer;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	peer = bgp_nb_config_peer(args->dnode);
+	if (peer && peer->as_type == AS_SPECIFIED)
+		bgp_nb_peer_update_as_pretty(peer, args->dnode, peer->as);
+	return NB_OK;
+}
+
+int bgp_nb_peer_remote_as_pretty_destroy(struct nb_cb_destroy_args *args)
 {
 	return NB_OK;
 }
@@ -4509,10 +4633,6 @@ int bgp_nb_peer_group_remote_as_type_modify(struct nb_cb_modify_args *args)
 int bgp_nb_peer_group_remote_as_type_destroy(struct nb_cb_destroy_args *args)
 {
 	struct peer_group *group;
-	struct peer *peer;
-	struct listnode *node, *nnode;
-	enum peer_asn_type as_type;
-	as_t as;
 
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
@@ -4520,23 +4640,6 @@ int bgp_nb_peer_group_remote_as_type_destroy(struct nb_cb_destroy_args *args)
 	group = nb_running_get_entry(args->dnode, NULL, true);
 	if (!group)
 		return NB_OK;
-
-	as_type = group->conf->as_type;
-	as = group->conf->as;
-
-	/*
-	 * An explicit member remote-as equal to the group is not an override.
-	 * Clear the flag so peer_group_remote_as_delete() resets the session.
-	 */
-	for (ALL_LIST_ELEMENTS(group->peer, node, nnode, peer)) {
-		if (!CHECK_FLAG(peer->flags_override, PEER_FLAG_REMOTE_AS))
-			continue;
-		if (peer->as_type != as_type)
-			continue;
-		if (as_type == AS_SPECIFIED && peer->as != as)
-			continue;
-		UNSET_FLAG(peer->flags_override, PEER_FLAG_REMOTE_AS);
-	}
 
 	peer_group_remote_as_delete(group);
 	return NB_OK;
@@ -4550,15 +4653,13 @@ void bgp_nb_cli_show_peer_group_remote_as_type(struct vty *vty, const struct lyd
 
 	if (strmatch(type, "as-specified")) {
 		as_t as;
-		enum asnotation_mode asnotation;
+		char as_buf[32];
 
 		if (!yang_dnode_exists(dnode, "../remote-as"))
 			return;
 		as = yang_dnode_get_uint32(dnode, "../remote-as");
-		asnotation = bgp_nb_cli_dnode_asnotation(dnode);
-		vty_out(vty, "%sneighbor %s remote-as ", bgp_nb_peer_show_indent(dnode), name);
-		vty_out(vty, ASN_FORMAT(asnotation), &as);
-		vty_out(vty, "\n");
+		vty_out(vty, "%sneighbor %s remote-as %s\n", bgp_nb_peer_show_indent(dnode), name,
+			bgp_nb_remote_as_text(lyd_parent(dnode), as, as_buf, sizeof(as_buf)));
 	} else if (strmatch(type, "internal"))
 		vty_out(vty, "%sneighbor %s remote-as internal\n", bgp_nb_peer_show_indent(dnode),
 			name);
@@ -4575,6 +4676,7 @@ int bgp_nb_peer_group_remote_as_modify(struct nb_cb_modify_args *args)
 	struct peer_group *group;
 	as_t as;
 	const char *as_str;
+	char as_buf[32];
 	int ret;
 
 	if (args->event != NB_EV_APPLY)
@@ -4582,7 +4684,7 @@ int bgp_nb_peer_group_remote_as_modify(struct nb_cb_modify_args *args)
 
 	group = nb_running_get_entry(args->dnode, NULL, true);
 	as = yang_dnode_get_uint32(args->dnode, NULL);
-	as_str = yang_dnode_get_string(args->dnode, NULL);
+	as_str = bgp_nb_remote_as_text(lyd_parent(args->dnode), as, as_buf, sizeof(as_buf));
 
 	ret = peer_group_remote_as(group->bgp, group->name, &as, AS_SPECIFIED, as_str);
 	if (ret != 0)
@@ -4821,15 +4923,11 @@ int bgp_nb_unnumbered_neighbor_create(struct nb_cb_create_args *args)
 		const char *type_str = yang_dnode_get_string(type_dn, NULL);
 
 		if (bgp_nb_parse_as_type(type_str, &as_type, &as, type_dn) == 0) {
-			if (as_type == AS_SPECIFIED) {
-				enum asnotation_mode asnotation =
-					bgp_nb_cli_dnode_asnotation(args->dnode);
-
-				snprintfrr(as_buf, sizeof(as_buf), ASN_FORMAT(asnotation), &as);
-				as_pretty = as_buf;
-			} else {
+			if (as_type == AS_SPECIFIED)
+				as_pretty = bgp_nb_remote_as_text(lyd_parent(type_dn), as, as_buf,
+								  sizeof(as_buf));
+			else
 				as_pretty = type_str;
-			}
 		} else {
 			as = 0;
 			as_type = AS_UNSPECIFIED;
@@ -4842,6 +4940,9 @@ int bgp_nb_unnumbered_neighbor_create(struct nb_cb_create_args *args)
 				   CONNECTION_OUTGOING);
 		if (!peer)
 			return NB_ERR_RESOURCE;
+
+		if (as_type != AS_UNSPECIFIED)
+			SET_FLAG(peer->flags_override, PEER_FLAG_REMOTE_AS);
 
 		if (yang_dnode_exists(args->dnode, "./v6only") &&
 		    yang_dnode_get_bool(args->dnode, "./v6only"))
@@ -4914,6 +5015,7 @@ void bgp_nb_cli_show_unnumbered_neighbor(struct vty *vty, const struct lyd_node 
 
 void bgp_nb_cli_show_unnumbered_neighbor_end(struct vty *vty, const struct lyd_node *dnode)
 {
+	bgp_nb_cli_show_peer_profile_timers(vty, dnode);
 }
 
 int bgp_nb_unnumbered_v6only_modify(struct nb_cb_modify_args *args)
@@ -5020,14 +5122,15 @@ void bgp_nb_cli_show_unnumbered_peer_group(struct vty *vty, const struct lyd_nod
 	 */
 	vty_out(vty, "%sneighbor %s interface%s peer-group %s", bgp_nb_peer_show_indent(dnode),
 		ifname, v6only ? " v6only" : "", pg);
-	if (type) {
+	if (type && !bgp_nb_dnode_remote_as_matches_group(lyd_parent(dnode))) {
 		if (strmatch(type, "as-specified") &&
 		    yang_dnode_exists(dnode, "../neighbor-remote-as/remote-as")) {
 			as_t as = yang_dnode_get_uint32(dnode, "../neighbor-remote-as/remote-as");
-			enum asnotation_mode asnotation = bgp_nb_cli_dnode_asnotation(dnode);
+			const struct lyd_node *ras = yang_dnode_get(dnode, "../neighbor-remote-as");
+			char as_buf[32];
 
-			vty_out(vty, " remote-as ");
-			vty_out(vty, ASN_FORMAT(asnotation), &as);
+			vty_out(vty, " remote-as %s",
+				bgp_nb_remote_as_text(ras, as, as_buf, sizeof(as_buf)));
 		} else if (strmatch(type, "internal"))
 			vty_out(vty, " remote-as internal");
 		else if (strmatch(type, "external"))
@@ -5366,8 +5469,21 @@ int bgp_nb_peer_update_source_ip_modify(struct nb_cb_modify_args *args)
 	union sockunion su;
 	const char *ip;
 
-	if (args->event != NB_EV_APPLY)
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+		peer = bgp_nb_config_peer(args->dnode);
+		if (bgp_nb_is_interface_peer(args->dnode, peer)) {
+			snprintfrr(args->errmsg, args->errmsg_len,
+				   "Cannot configure update-source on interface peer");
+			return NB_ERR_VALIDATION;
+		}
 		return NB_OK;
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+		return NB_OK;
+	case NB_EV_APPLY:
+		break;
+	}
 
 	peer = bgp_nb_config_peer(args->dnode);
 	if (!peer)
@@ -5384,8 +5500,14 @@ int bgp_nb_peer_update_source_ip_modify(struct nb_cb_modify_args *args)
 int bgp_nb_peer_update_source_ip_destroy(struct nb_cb_destroy_args *args)
 {
 	struct peer *peer;
+	const struct lyd_node *us;
 
 	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	/* Switching IP -> interface replaces in place without a double reset. */
+	us = bgp_nb_candidate_match(yang_dnode_get_parent(args->dnode, "update-source"));
+	if (us && (yang_dnode_exists(us, "./ip") || yang_dnode_exists(us, "./interface")))
 		return NB_OK;
 
 	peer = bgp_nb_config_peer(args->dnode);
@@ -5404,9 +5526,30 @@ void bgp_nb_cli_show_peer_update_source_ip(struct vty *vty, const struct lyd_nod
 int bgp_nb_peer_update_source_if_modify(struct nb_cb_modify_args *args)
 {
 	struct peer *peer;
+	struct prefix p;
+	const char *ifname;
 
-	if (args->event != NB_EV_APPLY)
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+		peer = bgp_nb_config_peer(args->dnode);
+		if (bgp_nb_is_interface_peer(args->dnode, peer)) {
+			snprintfrr(args->errmsg, args->errmsg_len,
+				   "Cannot configure update-source on interface peer");
+			return NB_ERR_VALIDATION;
+		}
+		ifname = yang_dnode_get_string(args->dnode, NULL);
+		if (str2prefix(ifname, &p)) {
+			snprintfrr(args->errmsg, args->errmsg_len,
+				   "Invalid update-source, remove prefix length");
+			return NB_ERR_VALIDATION;
+		}
 		return NB_OK;
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+		return NB_OK;
+	case NB_EV_APPLY:
+		break;
+	}
 
 	peer = bgp_nb_config_peer(args->dnode);
 	if (!peer)
@@ -5420,8 +5563,14 @@ int bgp_nb_peer_update_source_if_modify(struct nb_cb_modify_args *args)
 int bgp_nb_peer_update_source_if_destroy(struct nb_cb_destroy_args *args)
 {
 	struct peer *peer;
+	const struct lyd_node *us;
 
 	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	/* Switching interface -> IP replaces in place without a double reset. */
+	us = bgp_nb_candidate_match(yang_dnode_get_parent(args->dnode, "update-source"));
+	if (us && (yang_dnode_exists(us, "./ip") || yang_dnode_exists(us, "./interface")))
 		return NB_OK;
 
 	peer = bgp_nb_config_peer(args->dnode);
@@ -5630,11 +5779,26 @@ int bgp_nb_peer_ebgp_mh_enabled_modify(struct nb_cb_modify_args *args)
 	return NB_OK;
 }
 
+static bool bgp_nb_ebgp_mh_candidate_active(const struct lyd_node *old_leaf)
+{
+	const struct lyd_node *mh =
+		bgp_nb_candidate_match(yang_dnode_get_parent(old_leaf, "ebgp-multihop"));
+
+	if (!mh)
+		return false;
+	if (yang_dnode_exists(mh, "./multihop-ttl"))
+		return true;
+	return yang_dnode_exists(mh, "./enabled") && yang_dnode_get_bool(mh, "./enabled");
+}
+
 int bgp_nb_peer_ebgp_mh_enabled_destroy(struct nb_cb_destroy_args *args)
 {
 	struct peer *peer;
 
 	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	if (bgp_nb_ebgp_mh_candidate_active(args->dnode))
 		return NB_OK;
 
 	peer = bgp_nb_config_peer(args->dnode);
@@ -5695,6 +5859,10 @@ int bgp_nb_peer_ebgp_mh_ttl_destroy(struct nb_cb_destroy_args *args)
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
+	/* Switching ebgp-multihop 255 <-> bare ebgp-multihop must not reset. */
+	if (bgp_nb_ebgp_mh_candidate_active(args->dnode))
+		return NB_OK;
+
 	peer = bgp_nb_config_peer(args->dnode);
 	if (peer)
 		peer_ebgp_multihop_unset(peer, true);
@@ -5704,16 +5872,36 @@ int bgp_nb_peer_ebgp_mh_ttl_destroy(struct nb_cb_destroy_args *args)
 void bgp_nb_cli_show_peer_ebgp_mh_ttl(struct vty *vty, const struct lyd_node *dnode,
 				      bool show_defaults)
 {
-	vty_out(vty, "%sneighbor %s ebgp-multihop %u\n", bgp_nb_peer_show_indent(dnode),
-		bgp_nb_config_peer_name(dnode), yang_dnode_get_uint8(dnode, NULL));
+	uint8_t ttl = yang_dnode_get_uint8(dnode, NULL);
+
+	if (ttl == MAXTTL)
+		vty_out(vty, "%sneighbor %s ebgp-multihop\n", bgp_nb_peer_show_indent(dnode),
+			bgp_nb_config_peer_name(dnode));
+	else
+		vty_out(vty, "%sneighbor %s ebgp-multihop %u\n", bgp_nb_peer_show_indent(dnode),
+			bgp_nb_config_peer_name(dnode), ttl);
 }
 
 int bgp_nb_peer_disable_connected_modify(struct nb_cb_modify_args *args)
 {
 	struct peer *peer;
 
-	if (args->event != NB_EV_APPLY)
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+		peer = bgp_nb_config_peer(args->dnode);
+		if (yang_dnode_get_bool(args->dnode, NULL) &&
+		    bgp_nb_is_interface_peer(args->dnode, peer)) {
+			snprintfrr(args->errmsg, args->errmsg_len,
+				   "Cannot configure disable-connected-check on interface peer");
+			return NB_ERR_VALIDATION;
+		}
 		return NB_OK;
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+		return NB_OK;
+	case NB_EV_APPLY:
+		break;
+	}
 
 	peer = bgp_nb_config_peer(args->dnode);
 	if (!peer)
@@ -5835,7 +6023,10 @@ static int bgp_nb_peer_local_as_apply(struct peer *peer, const struct lyd_node *
 		return NB_OK;
 
 	as = yang_dnode_get_uint32(las, "./local-as");
-	as_str = yang_dnode_get_string(las, "./local-as");
+	if (yang_dnode_exists(las, "./local-as-pretty"))
+		as_str = yang_dnode_get_string(las, "./local-as-pretty");
+	else
+		as_str = yang_dnode_get_string(las, "./local-as");
 	if (yang_dnode_exists(las, "./no-prepend"))
 		no_prepend = yang_dnode_get_bool(las, "./no-prepend");
 	if (yang_dnode_exists(las, "./replace-as"))
@@ -5918,6 +6109,24 @@ int bgp_nb_peer_local_as_destroy(struct nb_cb_destroy_args *args)
 	return NB_OK;
 }
 
+int bgp_nb_peer_local_as_pretty_modify(struct nb_cb_modify_args *args)
+{
+	struct peer *peer;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	peer = bgp_nb_config_peer(args->dnode);
+	if (peer && CHECK_FLAG(peer->flags, PEER_FLAG_LOCAL_AS))
+		bgp_nb_peer_local_as_apply(peer, args->dnode, args->errmsg, args->errmsg_len);
+	return NB_OK;
+}
+
+int bgp_nb_peer_local_as_pretty_destroy(struct nb_cb_destroy_args *args)
+{
+	return NB_OK;
+}
+
 void bgp_nb_cli_show_peer_local_as(struct vty *vty, const struct lyd_node *dnode,
 				   bool show_defaults)
 {
@@ -5933,7 +6142,10 @@ void bgp_nb_cli_show_peer_local_as(struct vty *vty, const struct lyd_node *dnode
 
 	vty_out(vty, "%sneighbor %s local-as ", bgp_nb_peer_show_indent(dnode),
 		bgp_nb_config_peer_name(dnode));
-	vty_out(vty, ASN_FORMAT(asnotation), &as);
+	if (las && yang_dnode_exists(las, "./local-as-pretty"))
+		vty_out(vty, "%s", yang_dnode_get_string(las, "./local-as-pretty"));
+	else
+		vty_out(vty, ASN_FORMAT(asnotation), &as);
 	if (no_prepend)
 		vty_out(vty, " no-prepend");
 	if (replace_as)
@@ -6467,11 +6679,18 @@ void bgp_nb_cli_show_peer_enforce_first_as(struct vty *vty, const struct lyd_nod
 		enabled ? "" : "no ", bgp_nb_config_peer_name(dnode));
 }
 
+static void bgp_nb_peer_cap_soft_version_send(struct peer *peer)
+{
+	bool enable = CHECK_FLAG(peer->flags, PEER_FLAG_CAPABILITY_SOFT_VERSION_OLD) ||
+		      CHECK_FLAG(peer->flags, PEER_FLAG_CAPABILITY_SOFT_VERSION_NEW);
+
+	bgp_nb_capability_send(peer, CAPABILITY_CODE_SOFT_VERSION,
+			       enable ? CAPABILITY_ACTION_SET : CAPABILITY_ACTION_UNSET);
+}
+
 int bgp_nb_peer_cap_soft_version_modify(struct nb_cb_modify_args *args)
 {
 	struct peer *peer;
-	const char *val;
-	bool enable;
 
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
@@ -6480,26 +6699,12 @@ int bgp_nb_peer_cap_soft_version_modify(struct nb_cb_modify_args *args)
 	if (!peer)
 		return NB_ERR_NOT_FOUND;
 
-	val = yang_dnode_get_string(args->dnode, NULL);
-	/* Clear both encodings separately so peer_flag_* finds each flag. */
-	peer_flag_unset(peer, PEER_FLAG_CAPABILITY_SOFT_VERSION_OLD);
-	peer_flag_unset(peer, PEER_FLAG_CAPABILITY_SOFT_VERSION_NEW);
-	if (strmatch(val, "old-encoding"))
+	if (yang_dnode_get_bool(args->dnode, NULL))
 		peer_flag_set(peer, PEER_FLAG_CAPABILITY_SOFT_VERSION_OLD);
-	else if (strmatch(val, "latest-encoding"))
-		peer_flag_set(peer, PEER_FLAG_CAPABILITY_SOFT_VERSION_NEW);
-	/*
-	 * "disabled" leaves whatever peer_flag_unset just did. A standalone
-	 * peer loses the flag, which is how "no neighbor capability
-	 * software-version" overrides bgp default software-version-capability.
-	 * A group member inherits the group. Do not set flags_override here:
-	 * that marks the peer-group overridden and undoes the member inherit.
-	 */
+	else
+		peer_flag_unset(peer, PEER_FLAG_CAPABILITY_SOFT_VERSION_OLD);
 
-	enable = CHECK_FLAG(peer->flags, PEER_FLAG_CAPABILITY_SOFT_VERSION_OLD) ||
-		 CHECK_FLAG(peer->flags, PEER_FLAG_CAPABILITY_SOFT_VERSION_NEW);
-	bgp_nb_capability_send(peer, CAPABILITY_CODE_SOFT_VERSION,
-			       enable ? CAPABILITY_ACTION_SET : CAPABILITY_ACTION_UNSET);
+	bgp_nb_peer_cap_soft_version_send(peer);
 	return NB_OK;
 }
 
@@ -6514,60 +6719,93 @@ int bgp_nb_peer_cap_soft_version_destroy(struct nb_cb_destroy_args *args)
 	if (!peer)
 		return NB_OK;
 
-	/* Leaf gone → inherit from bgp default again. */
 	UNSET_FLAG(peer->flags_override, PEER_FLAG_CAPABILITY_SOFT_VERSION_OLD);
-	UNSET_FLAG(peer->flags_override, PEER_FLAG_CAPABILITY_SOFT_VERSION_NEW);
-	peer_flag_unset(peer, PEER_FLAG_CAPABILITY_SOFT_VERSION_OLD);
-	peer_flag_unset(peer, PEER_FLAG_CAPABILITY_SOFT_VERSION_NEW);
 	if (CHECK_FLAG(peer->bgp->flags, BGP_FLAG_SOFT_VERSION_CAPABILITY_OLD))
 		peer_flag_set(peer, PEER_FLAG_CAPABILITY_SOFT_VERSION_OLD);
-	if (CHECK_FLAG(peer->bgp->flags, BGP_FLAG_SOFT_VERSION_CAPABILITY_NEW))
-		peer_flag_set(peer, PEER_FLAG_CAPABILITY_SOFT_VERSION_NEW);
+	else
+		peer_flag_unset(peer, PEER_FLAG_CAPABILITY_SOFT_VERSION_OLD);
 
-	bgp_nb_capability_send(peer, CAPABILITY_CODE_SOFT_VERSION,
-			       (CHECK_FLAG(peer->flags, PEER_FLAG_CAPABILITY_SOFT_VERSION_OLD) ||
-				CHECK_FLAG(peer->flags, PEER_FLAG_CAPABILITY_SOFT_VERSION_NEW))
-				       ? CAPABILITY_ACTION_SET
-				       : CAPABILITY_ACTION_UNSET);
+	bgp_nb_peer_cap_soft_version_send(peer);
 	return NB_OK;
 }
 
 void bgp_nb_cli_show_peer_cap_soft_version(struct vty *vty, const struct lyd_node *dnode,
 					   bool show_defaults)
 {
-	const char *val = yang_dnode_get_string(dnode, NULL);
 	const struct lyd_node *bgp_dnode = yang_dnode_get_parent(dnode, "bgp");
-	const char *dflt = "disabled";
-	bool dflt_old, dflt_new, has_old, has_new;
+	bool dflt_old = SAVE_BGP_SOFT_VERSION_CAPABILITY_OLD;
+	bool has_old = yang_dnode_get_bool(dnode, NULL);
 
 	if (bgp_dnode &&
 	    yang_dnode_exists(bgp_dnode, "./global/default-software-version-capability"))
-		dflt = yang_dnode_get_string(bgp_dnode,
-					     "./global/default-software-version-capability");
-	else if (SAVE_BGP_SOFT_VERSION_CAPABILITY_OLD)
-		dflt = "old-encoding";
-	else if (SAVE_BGP_SOFT_VERSION_CAPABILITY_NEW)
-		dflt = "latest-encoding";
+		dflt_old = yang_dnode_get_bool(bgp_dnode,
+					       "./global/default-software-version-capability");
 
-	dflt_old = strmatch(dflt, "old-encoding");
-	dflt_new = strmatch(dflt, "latest-encoding");
-	has_old = strmatch(val, "old-encoding");
-	has_new = strmatch(val, "latest-encoding");
+	if (!show_defaults && has_old == dflt_old)
+		return;
+	vty_out(vty, "%s%sneighbor %s capability software-version\n",
+		bgp_nb_peer_show_indent(dnode), has_old ? "" : "no ",
+		bgp_nb_config_peer_name(dnode));
+}
 
-	/*
-	 * Same as the classic writer: a line is only needed where the
-	 * neighbor differs from "bgp default software-version-capability".
-	 * An explicit disable is shown as "no" only when the default would
-	 * otherwise have turned the capability on.
-	 */
-	if (dflt_old ? !has_old : has_old)
-		vty_out(vty, "%s%sneighbor %s capability software-version\n",
-			bgp_nb_peer_show_indent(dnode), dflt_old ? "no " : "",
-			bgp_nb_config_peer_name(dnode));
-	if (dflt_new ? !has_new : has_new)
-		vty_out(vty, "%s%sneighbor %s capability software-version latest-encoding\n",
-			bgp_nb_peer_show_indent(dnode), dflt_new ? "no " : "",
-			bgp_nb_config_peer_name(dnode));
+int bgp_nb_peer_cap_soft_version_latest_modify(struct nb_cb_modify_args *args)
+{
+	struct peer *peer;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	peer = bgp_nb_config_peer(args->dnode);
+	if (!peer)
+		return NB_ERR_NOT_FOUND;
+
+	if (yang_dnode_get_bool(args->dnode, NULL))
+		peer_flag_set(peer, PEER_FLAG_CAPABILITY_SOFT_VERSION_NEW);
+	else
+		peer_flag_unset(peer, PEER_FLAG_CAPABILITY_SOFT_VERSION_NEW);
+
+	bgp_nb_peer_cap_soft_version_send(peer);
+	return NB_OK;
+}
+
+int bgp_nb_peer_cap_soft_version_latest_destroy(struct nb_cb_destroy_args *args)
+{
+	struct peer *peer;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	peer = bgp_nb_config_peer(args->dnode);
+	if (!peer)
+		return NB_OK;
+
+	UNSET_FLAG(peer->flags_override, PEER_FLAG_CAPABILITY_SOFT_VERSION_NEW);
+	if (CHECK_FLAG(peer->bgp->flags, BGP_FLAG_SOFT_VERSION_CAPABILITY_NEW))
+		peer_flag_set(peer, PEER_FLAG_CAPABILITY_SOFT_VERSION_NEW);
+	else
+		peer_flag_unset(peer, PEER_FLAG_CAPABILITY_SOFT_VERSION_NEW);
+
+	bgp_nb_peer_cap_soft_version_send(peer);
+	return NB_OK;
+}
+
+void bgp_nb_cli_show_peer_cap_soft_version_latest(struct vty *vty, const struct lyd_node *dnode,
+						  bool show_defaults)
+{
+	const struct lyd_node *bgp_dnode = yang_dnode_get_parent(dnode, "bgp");
+	bool dflt_new = SAVE_BGP_SOFT_VERSION_CAPABILITY_NEW;
+	bool has_new = yang_dnode_get_bool(dnode, NULL);
+
+	if (bgp_dnode &&
+	    yang_dnode_exists(bgp_dnode, "./global/default-software-version-latest-encoding"))
+		dflt_new = yang_dnode_get_bool(bgp_dnode,
+					       "./global/default-software-version-latest-encoding");
+
+	if (!show_defaults && has_new == dflt_new)
+		return;
+	vty_out(vty, "%s%sneighbor %s capability software-version latest-encoding\n",
+		bgp_nb_peer_show_indent(dnode), has_new ? "" : "no ",
+		bgp_nb_config_peer_name(dnode));
 }
 
 int bgp_nb_peer_cap_link_local_modify(struct nb_cb_modify_args *args)
@@ -6637,8 +6875,22 @@ int bgp_nb_peer_cap_override_modify(struct nb_cb_modify_args *args)
 {
 	struct peer *peer;
 
-	if (args->event != NB_EV_APPLY)
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+		if (yang_dnode_get_bool(args->dnode, NULL) &&
+		    yang_dnode_exists(lyd_parent(args->dnode), "./strict-capability") &&
+		    yang_dnode_get_bool(lyd_parent(args->dnode), "./strict-capability")) {
+			snprintfrr(args->errmsg, args->errmsg_len,
+				   "Can't set override-capability and strict-capability-match at the same time");
+			return NB_ERR_VALIDATION;
+		}
 		return NB_OK;
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+		return NB_OK;
+	case NB_EV_APPLY:
+		break;
+	}
 
 	peer = bgp_nb_config_peer(args->dnode);
 	if (!peer)
@@ -6666,8 +6918,22 @@ int bgp_nb_peer_cap_strict_modify(struct nb_cb_modify_args *args)
 {
 	struct peer *peer;
 
-	if (args->event != NB_EV_APPLY)
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+		if (yang_dnode_get_bool(args->dnode, NULL) &&
+		    yang_dnode_exists(lyd_parent(args->dnode), "./override-capability") &&
+		    yang_dnode_get_bool(lyd_parent(args->dnode), "./override-capability")) {
+			snprintfrr(args->errmsg, args->errmsg_len,
+				   "Can't set override-capability and strict-capability-match at the same time");
+			return NB_ERR_VALIDATION;
+		}
 		return NB_OK;
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+		return NB_OK;
+	case NB_EV_APPLY:
+		break;
+	}
 
 	peer = bgp_nb_config_peer(args->dnode);
 	if (!peer)
@@ -6725,17 +6991,33 @@ void bgp_nb_cli_show_peer_tcp_mss(struct vty *vty, const struct lyd_node *dnode,
 		bgp_nb_config_peer_name(dnode), yang_dnode_get_uint16(dnode, NULL));
 }
 
+static bool bgp_nb_candidate_has_update_source(const struct lyd_node *dnode)
+{
+	const struct lyd_node *nbr = bgp_nb_peer_container(dnode);
+	const struct lyd_node *grp;
+
+	if (!nbr)
+		return false;
+	if (yang_dnode_exists(nbr, "./update-source/ip") ||
+	    yang_dnode_exists(nbr, "./update-source/interface"))
+		return true;
+	if (yang_dnode_exists(nbr, "./peer-group")) {
+		grp = bgp_nb_candidate_peer_group(dnode, yang_dnode_get_string(nbr, "./peer-group"));
+		if (grp && (yang_dnode_exists(grp, "./update-source/ip") ||
+			    yang_dnode_exists(grp, "./update-source/interface")))
+			return true;
+	}
+	return false;
+}
+
 int bgp_nb_peer_ip_transparent_modify(struct nb_cb_modify_args *args)
 {
 	struct peer *peer;
 
 	switch (args->event) {
 	case NB_EV_VALIDATE:
-		peer = bgp_nb_config_peer(args->dnode);
-		if (!peer)
-			return NB_OK;
 		if (yang_dnode_get_bool(args->dnode, NULL) &&
-		    !peergroup_flag_check(peer, PEER_FLAG_UPDATE_SOURCE)) {
+		    !bgp_nb_candidate_has_update_source(args->dnode)) {
 			snprintfrr(args->errmsg, args->errmsg_len,
 				   "ip-transparent requires update-source");
 			return NB_ERR_VALIDATION;
@@ -6989,6 +7271,13 @@ int bgp_nb_peer_bfd_enable_destroy(struct nb_cb_destroy_args *args)
 void bgp_nb_cli_show_peer_bfd_enable(struct vty *vty, const struct lyd_node *dnode,
 				     bool show_defaults)
 {
+#if HAVE_BFDD > 0
+	if (!yang_dnode_get_bool(dnode, NULL))
+		return;
+
+	vty_out(vty, "%sneighbor %s bfd\n", bgp_nb_peer_show_indent(dnode),
+		bgp_nb_config_peer_name(dnode));
+#else
 	const struct lyd_node *bfd = yang_dnode_get_parent(dnode, "bfd-options");
 	uint8_t mult = BFD_DEF_DETECT_MULT;
 	uint16_t min_rx = BFD_DEF_MIN_RX, min_tx = BFD_DEF_MIN_TX;
@@ -7003,18 +7292,9 @@ void bgp_nb_cli_show_peer_bfd_enable(struct vty *vty, const struct lyd_node *dno
 	if (bfd && yang_dnode_exists(bfd, "./desired-min-tx"))
 		min_tx = yang_dnode_get_uint16(bfd, "./desired-min-tx");
 
-	/*
-	 * Print the whole line here. detect-multiplier's cli_show is not
-	 * called when the multiplier is 3: lyd_is_default() treats an explicit
-	 * 3 as the default, so "neighbor X bfd 3 100 100" would otherwise
-	 * disappear from the running configuration.
-	 */
-	if (mult != BFD_DEF_DETECT_MULT || min_rx != BFD_DEF_MIN_RX || min_tx != BFD_DEF_MIN_TX)
-		vty_out(vty, "%sneighbor %s bfd %u %u %u\n", bgp_nb_peer_show_indent(dnode),
-			bgp_nb_config_peer_name(dnode), mult, min_rx, min_tx);
-	else
-		vty_out(vty, "%sneighbor %s bfd\n", bgp_nb_peer_show_indent(dnode),
-			bgp_nb_config_peer_name(dnode));
+	vty_out(vty, "%sneighbor %s bfd %u %u %u\n", bgp_nb_peer_show_indent(dnode),
+		bgp_nb_config_peer_name(dnode), mult, min_rx, min_tx);
+#endif
 }
 
 int bgp_nb_peer_bfd_detect_mult_modify(struct nb_cb_modify_args *args)
@@ -7666,13 +7946,18 @@ int bgp_nb_neighbor_local_port_modify(struct nb_cb_modify_args *args)
 int bgp_nb_neighbor_local_port_destroy(struct nb_cb_destroy_args *args)
 {
 	struct peer *peer;
+	struct servent *sp;
+	uint16_t port;
 
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
 	peer = bgp_nb_config_peer(args->dnode);
-	if (peer)
-		peer_port_unset(peer);
+	if (peer) {
+		sp = getservbyname("bgp", "tcp");
+		port = (sp == NULL) ? BGP_PORT_DEFAULT : ntohs(sp->s_port);
+		peer_port_set(peer, port);
+	}
 	return NB_OK;
 }
 
@@ -17406,21 +17691,38 @@ static void bgp_nb_cli_show_peer_path_attr_list(struct vty *vty, const struct ly
 						const char *leaf_name, const char *cli_kw)
 {
 	const struct lyd_node *parent, *child;
+	bool seen[BGP_ATTR_MAX + 1] = {};
+	int i;
 
 	if (!bgp_nb_leaflist_is_first(dnode))
 		return;
 
 	parent = lyd_parent(dnode);
-	vty_out(vty, "%sneighbor %s path-attribute %s", bgp_nb_peer_show_indent(dnode),
-		bgp_nb_config_peer_name(dnode), cli_kw);
 	for (child = lyd_child(parent); child; child = child->next) {
 		if (child->schema->nodetype != LYS_LEAFLIST)
 			continue;
 		if (!strmatch(child->schema->name, leaf_name))
 			continue;
-		vty_out(vty, " %u", yang_dnode_get_uint8(child, NULL));
+		seen[yang_dnode_get_uint8(child, NULL)] = true;
+	}
+
+	vty_out(vty, "%sneighbor %s path-attribute %s", bgp_nb_peer_show_indent(dnode),
+		bgp_nb_config_peer_name(dnode), cli_kw);
+	for (i = 1; i <= BGP_ATTR_MAX; i++) {
+		if (seen[i])
+			vty_out(vty, " %d", i);
 	}
 	vty_out(vty, "\n");
+}
+
+void bgp_nb_peer_apply_finish(struct nb_cb_apply_finish_args *args)
+{
+	struct peer *peer = bgp_nb_config_peer(args->dnode);
+
+	if (peer && peer->nb_path_attr_dirty) {
+		peer->nb_path_attr_dirty = false;
+		bgp_nb_peer_path_attr_soft_clear(peer);
+	}
 }
 
 int bgp_nb_peer_path_attr_discard_create(struct nb_cb_create_args *args)
@@ -17448,7 +17750,7 @@ int bgp_nb_peer_path_attr_discard_create(struct nb_cb_create_args *args)
 
 	attr_num = yang_dnode_get_uint8(args->dnode, NULL);
 	peer->discard_attrs[attr_num] = true;
-	bgp_nb_peer_path_attr_soft_clear(peer);
+	peer->nb_path_attr_dirty = true;
 	return NB_OK;
 }
 
@@ -17466,7 +17768,7 @@ int bgp_nb_peer_path_attr_discard_destroy(struct nb_cb_destroy_args *args)
 
 	attr_num = yang_dnode_get_uint8(args->dnode, NULL);
 	peer->discard_attrs[attr_num] = false;
-	bgp_nb_peer_path_attr_soft_clear(peer);
+	peer->nb_path_attr_dirty = true;
 	return NB_OK;
 }
 
@@ -17501,7 +17803,7 @@ int bgp_nb_peer_path_attr_withdraw_create(struct nb_cb_create_args *args)
 
 	attr_num = yang_dnode_get_uint8(args->dnode, NULL);
 	peer->withdraw_attrs[attr_num] = true;
-	bgp_nb_peer_path_attr_soft_clear(peer);
+	peer->nb_path_attr_dirty = true;
 	return NB_OK;
 }
 
@@ -17519,7 +17821,7 @@ int bgp_nb_peer_path_attr_withdraw_destroy(struct nb_cb_destroy_args *args)
 
 	attr_num = yang_dnode_get_uint8(args->dnode, NULL);
 	peer->withdraw_attrs[attr_num] = false;
-	bgp_nb_peer_path_attr_soft_clear(peer);
+	peer->nb_path_attr_dirty = true;
 	return NB_OK;
 }
 

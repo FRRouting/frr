@@ -3088,32 +3088,10 @@ DEFPY_YANG(bgp_default_software_version_capability_yang,
 	   "Advertise software version capability for all neighbors\n"
 	   "Use the latest-encoding defined in draft-abraitis-bgp-version-capability-15\n")
 {
-	const char *val;
+	const char *leaf = latest_encoding ? "./global/default-software-version-latest-encoding"
+					   : "./global/default-software-version-capability";
 
-	if (no) {
-		VTY_DECLVAR_CONTEXT(bgp, bgp);
-		bool old = CHECK_FLAG(bgp->flags, BGP_FLAG_SOFT_VERSION_CAPABILITY_OLD);
-		bool latest = CHECK_FLAG(bgp->flags, BGP_FLAG_SOFT_VERSION_CAPABILITY_NEW);
-
-		if (latest_encoding)
-			latest = false;
-		else
-			old = false;
-
-		if (latest)
-			val = "latest-encoding";
-		else if (old)
-			val = "old-encoding";
-		else
-			val = "disabled";
-	} else if (latest_encoding) {
-		val = "latest-encoding";
-	} else {
-		val = "old-encoding";
-	}
-
-	nb_cli_enqueue_change(vty, "./global/default-software-version-capability", NB_OP_MODIFY,
-			      val);
+	nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY, no ? "false" : "true");
 	return nb_cli_apply_changes(vty, NULL);
 }
 
@@ -3202,15 +3180,104 @@ static int bgp_cli_neighbor_create_xpath(struct vty *vty, const char *neighbor, 
 						  true);
 }
 
+static void bgp_cli_enqueue_default_shutdown_if_new(struct vty *vty, const char *base_xpath)
+{
+	char full_xpath[XPATH_MAXLEN + 256];
+	char leaf[XPATH_MAXLEN + 256];
+
+	if (!vty->candidate_config || !vty->candidate_config->dnode || base_xpath[0] != '.')
+		return;
+
+	snprintfrr(full_xpath, sizeof(full_xpath), "%s%s", VTY_CURR_XPATH, base_xpath + 1);
+	if (yang_dnode_exists(vty->candidate_config->dnode, full_xpath))
+		return;
+
+	snprintfrr(full_xpath, sizeof(full_xpath), "%s/global/default-shutdown", VTY_CURR_XPATH);
+	if (!yang_dnode_exists(vty->candidate_config->dnode, full_xpath) ||
+	    !yang_dnode_get_bool(vty->candidate_config->dnode, "%s", full_xpath))
+		return;
+
+	snprintfrr(leaf, sizeof(leaf), "%s/admin-shutdown/enable", base_xpath);
+	nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY, "true");
+}
+
+static void bgp_cli_clear_role_rr_on_sort_change(struct vty *vty, const char *base_xpath,
+						 as_t new_as, bool internal, bool external,
+						 bool as_auto)
+{
+	char full_xpath[XPATH_MAXLEN + 256];
+	char leaf[XPATH_MAXLEN + 256];
+	const struct lyd_node *bgp_dn, *nbr_dn, *afs_dn, *af_dn, *sub;
+	as_t local_as = 0;
+	bool is_ibgp = false, is_ebgp = false;
+
+	if (!vty->candidate_config || !vty->candidate_config->dnode || base_xpath[0] != '.')
+		return;
+
+	snprintfrr(full_xpath, sizeof(full_xpath), "%s%s", VTY_CURR_XPATH, base_xpath + 1);
+	nbr_dn = yang_dnode_get(vty->candidate_config->dnode, full_xpath);
+	if (!nbr_dn)
+		return;
+
+	bgp_dn = yang_dnode_get(vty->candidate_config->dnode, VTY_CURR_XPATH);
+	if (bgp_dn && yang_dnode_exists(bgp_dn, "./global/local-as"))
+		local_as = yang_dnode_get_uint32(bgp_dn, "./global/local-as");
+
+	if (internal)
+		is_ibgp = true;
+	else if (external)
+		is_ebgp = true;
+	else if (!as_auto && new_as && local_as) {
+		if (new_as == local_as)
+			is_ibgp = true;
+		else
+			is_ebgp = true;
+	}
+
+	if (!is_ibgp) {
+		afs_dn = yang_dnode_get(nbr_dn, "./afi-safis");
+		if (afs_dn) {
+			LY_LIST_FOR (lyd_child(afs_dn), af_dn) {
+				const char *af_name;
+
+				if (!strmatch(af_dn->schema->name, "afi-safi"))
+					continue;
+				af_name = yang_dnode_get_string(af_dn, "./afi-safi-name");
+				LY_LIST_FOR (lyd_child(af_dn), sub) {
+					if (sub->schema->nodetype != LYS_CONTAINER)
+						continue;
+					if (!yang_dnode_exists(sub,
+							       "./route-reflector/route-reflector-client"))
+						continue;
+					snprintfrr(leaf, sizeof(leaf),
+						   "%s/afi-safis/afi-safi[afi-safi-name='%s']/%s/route-reflector/route-reflector-client",
+						   base_xpath, af_name, sub->schema->name);
+					nb_cli_enqueue_change(vty, leaf, NB_OP_DESTROY, NULL);
+				}
+			}
+		}
+	}
+
+	if (!is_ebgp) {
+		if (yang_dnode_exists(nbr_dn, "./local-role/strict-mode")) {
+			snprintfrr(leaf, sizeof(leaf), "%s/local-role/strict-mode", base_xpath);
+			nb_cli_enqueue_change(vty, leaf, NB_OP_DESTROY, NULL);
+		}
+		if (yang_dnode_exists(nbr_dn, "./local-role/role")) {
+			snprintfrr(leaf, sizeof(leaf), "%s/local-role/role", base_xpath);
+			nb_cli_enqueue_change(vty, leaf, NB_OP_DESTROY, NULL);
+		}
+	}
+}
+
 static int bgp_cli_enqueue_remote_as(struct vty *vty, const char *base_xpath, const char *as_str,
 				     bool internal, bool external, bool as_auto)
 {
 	char leaf[XPATH_MAXLEN + 256];
 	const char *as_type;
+	as_t as_num = 0;
 
 	if (as_str) {
-		as_t as_num;
-
 		if (!asn_str2asn(as_str, &as_num)) {
 			vty_out(vty, "%% Invalid AS number: %s\n", as_str);
 			return CMD_WARNING_CONFIG_FAILED;
@@ -3220,11 +3287,17 @@ static int bgp_cli_enqueue_remote_as(struct vty *vty, const char *base_xpath, co
 		nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY, as_type);
 		snprintfrr(leaf, sizeof(leaf), "%s/neighbor-remote-as/remote-as", base_xpath);
 		nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY, asn_asn2asplain(as_num));
+		snprintfrr(leaf, sizeof(leaf), "%s/neighbor-remote-as/remote-as-pretty",
+			   base_xpath);
+		nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY, as_str);
 	} else {
 		/*
 		 * remote-as is when-gated on as-specified. Clear any leftover
 		 * ASN leaf before switching to internal/external/auto.
 		 */
+		snprintfrr(leaf, sizeof(leaf), "%s/neighbor-remote-as/remote-as-pretty",
+			   base_xpath);
+		nb_cli_enqueue_change(vty, leaf, NB_OP_DESTROY, NULL);
 		snprintfrr(leaf, sizeof(leaf), "%s/neighbor-remote-as/remote-as", base_xpath);
 		nb_cli_enqueue_change(vty, leaf, NB_OP_DESTROY, NULL);
 
@@ -3237,6 +3310,8 @@ static int bgp_cli_enqueue_remote_as(struct vty *vty, const char *base_xpath, co
 		snprintfrr(leaf, sizeof(leaf), "%s/neighbor-remote-as/remote-as-type", base_xpath);
 		nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY, as_type);
 	}
+
+	bgp_cli_clear_role_rr_on_sort_change(vty, base_xpath, as_num, internal, external, as_auto);
 	return CMD_SUCCESS;
 }
 
@@ -3412,8 +3487,10 @@ DEFPY_YANG(neighbor_remote_as_yang, neighbor_remote_as_yang_cmd,
 		return CMD_WARNING_CONFIG_FAILED;
 
 	/* Numbered neighbors are created by remote-as; peer-groups must exist. */
-	if (!is_pg)
+	if (!is_pg) {
 		nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
+		bgp_cli_enqueue_default_shutdown_if_new(vty, xpath);
+	}
 
 	ret = bgp_cli_enqueue_remote_as(vty, xpath, as_str, !!internal, !!external, !!as_auto);
 	if (ret != CMD_SUCCESS)
@@ -3571,6 +3648,7 @@ static int bgp_cli_neighbor_interface_create(struct vty *vty, const char *ifname
 
 	snprintfrr(xpath, sizeof(xpath), "./neighbors/unnumbered-neighbor[interface='%s']", ifname);
 	nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
+	bgp_cli_enqueue_default_shutdown_if_new(vty, xpath);
 
 	snprintfrr(leaf, sizeof(leaf), "%s/v6only", xpath);
 	nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY, v6only ? "true" : "false");
@@ -3880,8 +3958,10 @@ DEFPY_YANG(neighbor_shutdown_yang, neighbor_shutdown_yang_cmd,
 	if (ret != 0)
 		return CMD_WARNING_CONFIG_FAILED;
 
-	snprintfrr(leaf, sizeof(leaf), "%s/admin-shutdown/message", xpath);
-	nb_cli_enqueue_change(vty, leaf, NB_OP_DESTROY, NULL);
+	if (no) {
+		snprintfrr(leaf, sizeof(leaf), "%s/admin-shutdown/message", xpath);
+		nb_cli_enqueue_change(vty, leaf, NB_OP_DESTROY, NULL);
+	}
 	snprintfrr(leaf, sizeof(leaf), "%s/admin-shutdown/enable", xpath);
 	nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY, no ? "false" : "true");
 	return nb_cli_apply_changes(vty, NULL);
@@ -3972,12 +4052,11 @@ DEFPY_YANG(neighbor_shutdown_rtt_yang, neighbor_shutdown_rtt_yang_cmd,
 
 	snprintfrr(rtt_buf, sizeof(rtt_buf), "%" PRId64, rtt);
 	nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY, rtt_buf);
-	snprintfrr(leaf, sizeof(leaf), "%s/admin-shutdown/rtt-count", xpath);
 	if (count_str) {
+		snprintfrr(leaf, sizeof(leaf), "%s/admin-shutdown/rtt-count", xpath);
 		snprintfrr(count_buf, sizeof(count_buf), "%" PRId64, count);
 		nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY, count_buf);
-	} else
-		nb_cli_enqueue_change(vty, leaf, NB_OP_DESTROY, NULL);
+	}
 
 	return nb_cli_apply_changes(vty, NULL);
 }
@@ -3994,6 +4073,7 @@ DEFPY_YANG(neighbor_update_source_yang, neighbor_update_source_yang_cmd,
 	char leaf[XPATH_MAXLEN + 256];
 	bool is_pg = false;
 	union sockunion su;
+	struct prefix p;
 	int ret;
 
 	ret = bgp_cli_neighbor_base_xpath(vty, neighbor, xpath, sizeof(xpath), &is_pg);
@@ -4011,6 +4091,10 @@ DEFPY_YANG(neighbor_update_source_yang, neighbor_update_source_yang_cmd,
 		snprintfrr(leaf, sizeof(leaf), "%s/update-source/ip", xpath);
 		nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY, source);
 	} else {
+		if (str2prefix(source, &p)) {
+			vty_out(vty, "%% Invalid update-source, remove prefix length \n");
+			return CMD_WARNING_CONFIG_FAILED;
+		}
 		snprintfrr(leaf, sizeof(leaf), "%s/update-source/ip", xpath);
 		nb_cli_enqueue_change(vty, leaf, NB_OP_DESTROY, NULL);
 		snprintfrr(leaf, sizeof(leaf), "%s/update-source/interface", xpath);
@@ -4152,6 +4236,8 @@ DEFPY_YANG(neighbor_local_as_yang, neighbor_local_as_yang_cmd,
 	 */
 	snprintfrr(leaf, sizeof(leaf), "%s/local-as/local-as", xpath);
 	nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY, asn_asn2asplain(as_str));
+	snprintfrr(leaf, sizeof(leaf), "%s/local-as/local-as-pretty", xpath);
+	nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY, as_str_str);
 	snprintfrr(leaf, sizeof(leaf), "%s/local-as/no-prepend", xpath);
 	nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY, noprepend ? "true" : "false");
 	snprintfrr(leaf, sizeof(leaf), "%s/local-as/replace-as", xpath);
@@ -4184,6 +4270,8 @@ DEFPY_YANG(no_neighbor_local_as_yang, no_neighbor_local_as_yang_cmd,
 	snprintfrr(leaf, sizeof(leaf), "%s/local-as/replace-as", xpath);
 	nb_cli_enqueue_change(vty, leaf, NB_OP_DESTROY, NULL);
 	snprintfrr(leaf, sizeof(leaf), "%s/local-as/no-prepend", xpath);
+	nb_cli_enqueue_change(vty, leaf, NB_OP_DESTROY, NULL);
+	snprintfrr(leaf, sizeof(leaf), "%s/local-as/local-as-pretty", xpath);
 	nb_cli_enqueue_change(vty, leaf, NB_OP_DESTROY, NULL);
 	snprintfrr(leaf, sizeof(leaf), "%s/local-as/local-as", xpath);
 	nb_cli_enqueue_change(vty, leaf, NB_OP_DESTROY, NULL);
@@ -4455,29 +4543,16 @@ DEFPY_YANG(neighbor_capability_software_version_yang,
 	char xpath[XPATH_MAXLEN];
 	char leaf[XPATH_MAXLEN + 256];
 	bool is_pg = false;
-	const char *val;
 	int ret;
 
 	ret = bgp_cli_neighbor_base_xpath(vty, neighbor, xpath, sizeof(xpath), &is_pg);
 	if (ret != 0)
 		return CMD_WARNING_CONFIG_FAILED;
 
-	/*
-	 * "no" stores "disabled". Absent means inherit bgp default
-	 * software-version-capability, so deleting the leaf turns the
-	 * capability back on when that default is set. "disabled" is the
-	 * explicit per-neighbor override.
-	 * Capability messages are sent solely by the NB modify callback.
-	 */
-	if (no)
-		val = "disabled";
-	else if (latest_encoding)
-		val = "latest-encoding";
-	else
-		val = "old-encoding";
-
-	snprintfrr(leaf, sizeof(leaf), "%s/capability-options/software-version-capability", xpath);
-	nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY, val);
+	snprintfrr(leaf, sizeof(leaf), "%s/capability-options/%s", xpath,
+		   latest_encoding ? "software-version-latest-encoding"
+				   : "software-version-capability");
+	nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY, no ? "false" : "true");
 	return nb_cli_apply_changes(vty, NULL);
 }
 
@@ -4696,20 +4771,25 @@ DEFPY_YANG(neighbor_bfd_yang, neighbor_bfd_yang_cmd,
 		nb_cli_enqueue_change(vty, leaf, NB_OP_DESTROY, NULL);
 		snprintfrr(leaf, sizeof(leaf), "%s/bfd-options/strict-hold-time", xpath);
 		nb_cli_enqueue_change(vty, leaf, NB_OP_DESTROY, NULL);
-		snprintfrr(leaf, sizeof(leaf), "%s/bfd-options/strict-mode", xpath);
-		nb_cli_enqueue_change(vty, leaf, NB_OP_DESTROY, NULL);
 	} else
 		nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY, "true");
 	return nb_cli_apply_changes(vty, NULL);
 }
 
-DEFPY_YANG(neighbor_bfd_param_yang, neighbor_bfd_param_yang_cmd,
+#if HAVE_BFDD > 0
+#define BGP_BFD_PARAM_ATTR (CMD_ATTR_YANG | CMD_ATTR_HIDDEN)
+#else
+#define BGP_BFD_PARAM_ATTR CMD_ATTR_YANG
+#endif
+
+DEFPY_ATTR(neighbor_bfd_param_yang, neighbor_bfd_param_yang_cmd,
 	   "neighbor <A.B.C.D|X:X::X:X|WORD>$neighbor bfd (2-255)$detect (50-60000)$min_rx (50-60000)$min_tx",
 	   NEIGHBOR_STR NEIGHBOR_ADDR_STR2
 	   "Enables BFD support\n"
 	   "Detect Multiplier\n"
 	   "Required min receive interval\n"
-	   "Desired min transmit interval\n")
+	   "Desired min transmit interval\n",
+	   BGP_BFD_PARAM_ATTR)
 {
 	char xpath[XPATH_MAXLEN];
 	char leaf[XPATH_MAXLEN + 256];
@@ -4794,15 +4874,10 @@ DEFPY_YANG(neighbor_bfd_cbit_yang, neighbor_bfd_cbit_yang_cmd,
 	if (ret != 0)
 		return CMD_WARNING_CONFIG_FAILED;
 
-	if (!no) {
-		snprintfrr(leaf, sizeof(leaf), "%s/bfd-options/enable", xpath);
-		nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY, "true");
-	}
+	/* Classic enabled BFD on both positive and 'no' forms of cbit. */
+	snprintfrr(leaf, sizeof(leaf), "%s/bfd-options/enable", xpath);
+	nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY, "true");
 	snprintfrr(leaf, sizeof(leaf), "%s/bfd-options/check-cp-failure", xpath);
-	/*
-	 * Setting the leaf to false requires enable = true. Destroy clears
-	 * cbit whether or not BFD is configured on the neighbor.
-	 */
 	if (no)
 		nb_cli_enqueue_change(vty, leaf, NB_OP_DESTROY, NULL);
 	else
@@ -4848,14 +4923,15 @@ DEFPY_YANG(neighbor_bfd_strict_hold_yang, neighbor_bfd_strict_hold_yang_cmd,
 	if (ret != 0)
 		return CMD_WARNING_CONFIG_FAILED;
 
+	/* Classic enabled BFD on both positive and 'no' forms of strict hold-time. */
+	snprintfrr(leaf, sizeof(leaf), "%s/bfd-options/enable", xpath);
+	nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY, "true");
 	snprintfrr(leaf, sizeof(leaf), "%s/bfd-options/strict-hold-time", xpath);
 	if (no) {
 		nb_cli_enqueue_change(vty, leaf, NB_OP_DESTROY, NULL);
 		snprintfrr(leaf, sizeof(leaf), "%s/bfd-options/strict-mode", xpath);
 		nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY, "false");
 	} else {
-		snprintfrr(leaf, sizeof(leaf), "%s/bfd-options/enable", xpath);
-		nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY, "true");
 		snprintfrr(leaf, sizeof(leaf), "%s/bfd-options/strict-mode", xpath);
 		nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY, "true");
 		snprintfrr(buf, sizeof(buf), "%" PRId64, hold_time);
@@ -4927,13 +5003,11 @@ static void bgp_cli_path_attr_enqueue_replace(struct vty *vty, const char *base,
 	if (!attrs)
 		return;
 
-	if (set && base[0] == '.') {
+	if (base[0] == '.') {
 		/*
 		 * The classic command warned about an attribute that cannot be
-		 * discarded, skipped it and applied the rest. Do the same here
-		 * so a config file that names one still loads. The NB validate
-		 * callback rejects it for clients that do not come through
-		 * this command.
+		 * discarded/withdrawn on both set and 'no' forms, skipped it
+		 * and applied the rest.
 		 */
 		snprintfrr(leaf, sizeof(leaf), "%s%s", VTY_CURR_XPATH, base + 1);
 		nbr = yang_dnode_get(vty->candidate_config->dnode, leaf);
@@ -5014,6 +5088,19 @@ DEFPY_YANG(no_neighbor_path_attribute_discard_yang,
 
 	argv_find(argv, argc, "(1-255)", &idx);
 	if (idx) {
+		if (xpath[0] == '.') {
+			const struct lyd_node *nbr;
+			char why[128];
+
+			snprintfrr(leaf, sizeof(leaf), "%s%s", VTY_CURR_XPATH, xpath + 1);
+			nbr = yang_dnode_get(vty->candidate_config->dnode, leaf);
+			if (nbr && bgp_nb_path_attr_forbidden(nbr,
+							      strtoul(argv[idx]->arg, NULL, 10),
+							      false, why, sizeof(why))) {
+				vty_out(vty, "%% %s\n", why);
+				return CMD_SUCCESS;
+			}
+		}
 		snprintfrr(leaf, sizeof(leaf), "%s/path-attribute/discard[.='%s']", xpath,
 			   argv[idx]->arg);
 		nb_cli_enqueue_change(vty, leaf, NB_OP_DESTROY, NULL);
@@ -5324,6 +5411,7 @@ DEFPY_YANG(neighbor_set_peer_group_yang, neighbor_set_peer_group_yang_cmd,
 	 * no remote-as of its own.
 	 */
 	nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
+	bgp_cli_enqueue_default_shutdown_if_new(vty, xpath);
 	bgp_cli_clear_stale_member_af_on_bind(vty, xpath, pgname);
 	snprintfrr(leaf, sizeof(leaf), "%s/peer-group", xpath);
 	nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY, pgname);
@@ -10751,7 +10839,9 @@ void bgp_cli_init(void)
 	install_element(BGP_NODE, &no_neighbor_local_role_yang_cmd);
 	install_element(BGP_NODE, &neighbor_bfd_yang_cmd);
 	install_element(BGP_NODE, &neighbor_bfd_param_yang_cmd);
+#if HAVE_BFDD == 0
 	install_element(BGP_NODE, &no_neighbor_bfd_param_yang_cmd);
+#endif
 	install_element(BGP_NODE, &neighbor_bfd_profile_yang_cmd);
 	install_element(BGP_NODE, &neighbor_bfd_cbit_yang_cmd);
 	install_element(BGP_NODE, &neighbor_bfd_strict_yang_cmd);
