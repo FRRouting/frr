@@ -575,6 +575,64 @@ router bgp 65000
     r1.vtysh_multicmd("no bgp update-delay\n", pretty_output=False, raises=True)
 
 
+def test_router_bgp_identity_view_default_and_as_notation():
+    """Verify view default, vrf/view mismatch, as_pretty, and as-notation (B011)."""
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    r1 = tgen.gears["r1"]
+    r1.vtysh_multicmd(
+        """
+router bgp 1 view default
+ bgp router-id 2.2.2.2
+exit
+router bgp 65536 view v_dot as-notation dot
+exit
+router bgp 0.65001 view v_dp
+exit
+router bgp 1.0 view v_plain as-notation plain
+exit
+""",
+        pretty_output=False,
+        raises=True,
+    )
+    running = r1.vtysh_cmd("show running-config")
+    assert "\nrouter bgp 1 view default\n" in running
+    assert "\nrouter bgp 65536 view v_dot as-notation dot\n" in running
+    assert "\nrouter bgp 0.65001 view v_dp\n" in running
+    assert "\nrouter bgp 1.0 view v_plain as-notation plain\n" in running
+
+    # Entering existing view as VRF must fail
+    out = r1.vtysh_multicmd("router bgp 65536 vrf v_dot\n", pretty_output=False, raises=False)
+    assert "mismatch" in out
+
+    # Re-entering existing view with different as-notation must ignore it
+    r1.vtysh_multicmd(
+        "router bgp 65536 view v_dot as-notation plain\n",
+        pretty_output=False,
+        raises=True,
+    )
+    assert "\nrouter bgp 65536 view v_dot as-notation dot\n" in r1.vtysh_cmd(
+        "show running-config"
+    )
+
+    # Deleting view default must keep default instance intact
+    r1.vtysh_multicmd(
+        """
+no router bgp 1 view default
+no router bgp 65536 view v_dot
+no router bgp 0.65001 view v_dp
+no router bgp 1.0 view v_plain
+""",
+        pretty_output=False,
+        raises=True,
+    )
+    running = r1.vtysh_cmd("show running-config")
+    assert "view default" not in running
+    assert "\nrouter bgp 65000\n" in running
+
+
 if __name__ == "__main__":
     args = ["-s"] + sys.argv[1:]
     sys.exit(pytest.main(args))

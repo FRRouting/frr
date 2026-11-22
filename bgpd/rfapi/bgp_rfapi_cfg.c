@@ -3833,7 +3833,10 @@ int bgp_rfapi_cfg_write(struct vty *vty, struct bgp *bgp)
 	if (!bgp)
 		return 0;
 
-	if (bgp->inst_type != BGP_INSTANCE_TYPE_DEFAULT) {
+	if (bgp->inst_type == BGP_INSTANCE_TYPE_VIEW) {
+		name = bgp->name;
+		vrf_name = "view";
+	} else if (bgp->inst_type != BGP_INSTANCE_TYPE_DEFAULT) {
 		name = bgp->name;
 		vrf_name = bgp->name;
 	}

@@ -38,6 +38,8 @@ void bgp_nb_cli_show_instance_bgp(struct vty *vty, struct bgp *bgp);
 
 /* Global leaves */
 int bgp_nb_local_as_modify(struct nb_cb_modify_args *args);
+int bgp_nb_local_as_pretty_modify(struct nb_cb_modify_args *args);
+int bgp_nb_local_as_pretty_destroy(struct nb_cb_destroy_args *args);
 int bgp_nb_router_id_modify(struct nb_cb_modify_args *args);
 int bgp_nb_router_id_destroy(struct nb_cb_destroy_args *args);
 void bgp_nb_cli_show_router_id(struct vty *vty, const struct lyd_node *dnode, bool show_defaults);

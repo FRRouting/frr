@@ -20,6 +20,7 @@
 #include "routing_nb.h"
 
 #include "bgpd/bgpd.h"
+#include "bgpd/bgp_aspath.h"
 #include "bgpd/bgp_attr.h"
 #include "bgpd/bgp_route.h"
 #include "bgpd/bgp_vty.h"
@@ -117,12 +118,14 @@ DEFUN_YANG_NOSH(router_bgp_yang, router_bgp_yang_cmd,
 	char cpp_xpath[XPATH_MAXLEN];
 	char bgp_xpath[XPATH_MAXLEN];
 	char leaf_xpath[XPATH_MAXLEN + 256];
+	const struct lyd_node *existing_dnode;
 	int ret;
 	as_t as = 0;
 	const char *name = VRF_DEFAULT_NAME;
 	const char *vrf_name = VRF_DEFAULT_NAME;
+	const char *as_pretty = NULL;
 	bool is_view = false;
-	enum asnotation_mode asnotation = ASNOTATION_UNDEFINED;
+	const char *notation_str = NULL;
 	int idx = 0;
 
 	/* "router bgp" with no ASN — enter the sole existing instance */
@@ -141,6 +144,9 @@ DEFUN_YANG_NOSH(router_bgp_yang, router_bgp_yang_cmd,
 		if (bgp->inst_type == BGP_INSTANCE_TYPE_DEFAULT) {
 			name = VRF_DEFAULT_NAME;
 			vrf_name = VRF_DEFAULT_NAME;
+		} else if (bgp->inst_type == BGP_INSTANCE_TYPE_VIEW) {
+			name = bgp->name;
+			vrf_name = "view";
 		} else {
 			name = bgp->name;
 			vrf_name = bgp->name;
@@ -152,40 +158,81 @@ DEFUN_YANG_NOSH(router_bgp_yang, router_bgp_yang_cmd,
 		return CMD_SUCCESS;
 	}
 
-	if (!asn_str2asn(argv[2]->arg, &as)) {
-		vty_out(vty, "%% BGP: No such AS %s\n", argv[2]->arg);
+	as_pretty = argv[2]->arg;
+	if (!asn_str2asn(as_pretty, &as)) {
+		vty_out(vty, "%% BGP: No such AS %s\n", as_pretty);
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 
+	if (as == BGP_PRIVATE_AS_MAX || as == BGP_AS4_MAX)
+		vty_out(vty, "Reserved AS used (%u|%u); AS is %u\n", BGP_PRIVATE_AS_MAX,
+			BGP_AS4_MAX, as);
+
 	if (argv_find(argv, argc, "VIEWVRFNAME", &idx)) {
 		name = argv[idx]->arg;
-		vrf_name = name;
-		if (strmatch(argv[idx - 1]->text, "view"))
+		if (strmatch(argv[idx - 1]->text, "view")) {
 			is_view = true;
-		if (strmatch(name, VRF_DEFAULT_NAME)) {
+			vrf_name = "view";
+		} else if (strmatch(name, VRF_DEFAULT_NAME)) {
 			name = VRF_DEFAULT_NAME;
 			vrf_name = VRF_DEFAULT_NAME;
+		} else {
+			vrf_name = name;
 		}
 	}
 
 	idx = 0;
 	if (argv_find(argv, argc, "as-notation", &idx)) {
 		if (strmatch(argv[idx + 1]->text, "dot+"))
-			asnotation = ASNOTATION_DOTPLUS;
+			notation_str = "dot+";
 		else if (strmatch(argv[idx + 1]->text, "dot"))
-			asnotation = ASNOTATION_DOT;
+			notation_str = "dot";
 		else
-			asnotation = ASNOTATION_PLAIN;
-	} else {
-		/*
-		 * Match classic: ASDOT input like "1.300" implies asnotation
-		 * dot even without an explicit as-notation keyword.
-		 */
-		asn_str2asn_notation(argv[2]->arg, NULL, &asnotation);
+			notation_str = "plain";
 	}
 
 	snprintfrr(cpp_xpath, sizeof(cpp_xpath), BGP_CPP_XPATH, name, vrf_name);
 	snprintfrr(bgp_xpath, sizeof(bgp_xpath), BGP_BASE_XPATH, name, vrf_name);
+
+	existing_dnode = yang_dnode_get(vty->candidate_config->dnode, bgp_xpath);
+	if (existing_dnode) {
+		bool cur_view = yang_dnode_exists(existing_dnode, "./global/instance-type-view") &&
+				yang_dnode_get_bool(existing_dnode, "./global/instance-type-view");
+		as_t cur_as = yang_dnode_get_uint32(existing_dnode, "./global/local-as");
+		const char *cur_as_str =
+			yang_dnode_exists(existing_dnode, "./global/local-as-pretty")
+				? yang_dnode_get_string(existing_dnode, "./global/local-as-pretty")
+				: yang_dnode_get_string(existing_dnode, "./global/local-as");
+
+		if (cur_view != is_view) {
+			vty_out(vty, "BGP instance name and AS number mismatch\n");
+			vty_out(vty, "BGP instance is already running; AS is %s\n",
+				cur_as_str ? cur_as_str : "unknown");
+			return CMD_WARNING_CONFIG_FAILED;
+		}
+		if (cur_as != as) {
+			vty_out(vty, "BGP is already running; AS is %s\n",
+				cur_as_str ? cur_as_str : "unknown");
+			return CMD_WARNING_CONFIG_FAILED;
+		}
+
+		/*
+		 * Re-entering an existing instance: match classic by ignoring
+		 * as-notation / as_pretty changes and not re-seeding defaults.
+		 */
+		VTY_PUSH_XPATH(BGP_NODE, bgp_xpath);
+		{
+			struct bgp *bgp;
+
+			if (!is_view && strmatch(vrf_name, VRF_DEFAULT_NAME))
+				bgp = bgp_get_default();
+			else
+				bgp = bgp_lookup_by_name(name);
+			if (bgp)
+				VTY_PUSH_CONTEXT(BGP_NODE, bgp);
+		}
+		return CMD_SUCCESS;
+	}
 
 	nb_cli_enqueue_change(vty, cpp_xpath, NB_OP_CREATE, NULL);
 
@@ -195,10 +242,12 @@ DEFUN_YANG_NOSH(router_bgp_yang, router_bgp_yang_cmd,
 	snprintfrr(leaf_xpath, sizeof(leaf_xpath), "%s/global/local-as", bgp_xpath);
 	nb_cli_enqueue_change(vty, leaf_xpath, NB_OP_MODIFY, asn_asn2asplain(as));
 
-	if (asnotation == ASNOTATION_DOT || asnotation == ASNOTATION_DOTPLUS) {
+	snprintfrr(leaf_xpath, sizeof(leaf_xpath), "%s/global/local-as-pretty", bgp_xpath);
+	nb_cli_enqueue_change(vty, leaf_xpath, NB_OP_MODIFY, as_pretty);
+
+	if (notation_str) {
 		snprintfrr(leaf_xpath, sizeof(leaf_xpath), "%s/global/as-notation", bgp_xpath);
-		nb_cli_enqueue_change(vty, leaf_xpath, NB_OP_MODIFY,
-				      asnotation == ASNOTATION_DOTPLUS ? "dot+" : "dot");
+		nb_cli_enqueue_change(vty, leaf_xpath, NB_OP_MODIFY, notation_str);
 	}
 
 	/*
@@ -210,11 +259,12 @@ DEFUN_YANG_NOSH(router_bgp_yang, router_bgp_yang_cmd,
 	{
 		struct bgp *existing;
 
-		if (strmatch(vrf_name, VRF_DEFAULT_NAME))
+		if (!is_view && strmatch(vrf_name, VRF_DEFAULT_NAME))
 			existing = bgp_get_default();
 		else
 			existing = bgp_lookup_by_name(name);
-		if (!existing) {
+		if (!existing || CHECK_FLAG(existing->vrf_flags, BGP_VRF_AUTO) ||
+		    IS_BGP_INSTANCE_HIDDEN(existing)) {
 			snprintfrr(leaf_xpath, sizeof(leaf_xpath),
 				   "%s/global/default-afi-safi[.='ipv4-unicast']", bgp_xpath);
 			nb_cli_enqueue_change(vty, leaf_xpath, NB_OP_CREATE, NULL);
@@ -274,7 +324,7 @@ DEFUN_YANG_NOSH(router_bgp_yang, router_bgp_yang_cmd,
 		VTY_PUSH_XPATH(BGP_NODE, bgp_xpath);
 
 		/* Classic DEFUN children still use VTY_GET_CONTEXT(bgp). */
-		if (strmatch(vrf_name, VRF_DEFAULT_NAME))
+		if (!is_view && strmatch(vrf_name, VRF_DEFAULT_NAME))
 			bgp = bgp_get_default();
 		else
 			bgp = bgp_lookup_by_name(name);
@@ -312,22 +362,57 @@ static bool bgp_cli_vrf_blocks_default_delete(struct bgp *bgp, struct bgp *vrf)
 	return false;
 }
 
-static bool bgp_cli_no_router_blocked(struct vty *vty, int argc, struct cmd_token **argv)
+static unsigned int bgp_cli_count_candidate_instances(const struct lyd_node *root)
 {
-	struct bgp *bgp;
+	const struct lyd_node *cpps, *cpp;
+	unsigned int count = 0;
+
+	if (!root)
+		return 0;
+
+	cpps = yang_dnode_get(root, "/frr-routing:routing/control-plane-protocols");
+	if (!cpps)
+		return 0;
+
+	LY_LIST_FOR (lyd_child(cpps), cpp) {
+		const char *type;
+		const char *id;
+
+		if (!strmatch(cpp->schema->name, "control-plane-protocol"))
+			continue;
+		if (!yang_dnode_exists(cpp, "./type"))
+			continue;
+		type = yang_dnode_get_string(cpp, "./type");
+		if (!type)
+			continue;
+		id = strrchr(type, ':');
+		id = id ? id + 1 : type;
+		if (strmatch(id, "bgp"))
+			count++;
+	}
+	return count;
+}
+
+static bool bgp_cli_no_router_blocked(struct vty *vty, int argc, struct cmd_token **argv,
+				      const char *bgp_xpath, bool is_view, const char *inst_name)
+{
+	const struct lyd_node *cand;
+	struct bgp *bgp = NULL;
 	struct listnode *node, *nnode;
 	struct bgp *tmp_bgp;
-	const char *name = NULL;
 	as_t as = 0;
-	int idx = 0;
 
 	if (argc == 3) {
+		unsigned int cand_count =
+			bgp_cli_count_candidate_instances(vty->candidate_config->dnode);
+
+		cand = yang_dnode_get(vty->candidate_config->dnode, bgp_xpath);
 		bgp = bgp_get_default();
-		if (!bgp) {
+		if (!cand && !bgp) {
 			vty_out(vty, "%% No BGP process is configured\n");
 			return true;
 		}
-		if (listcount(bm->bgp) > 1) {
+		if (cand_count > 1 || listcount(bm->bgp) > 1) {
 			vty_out(vty, "%% Please specify ASN and VRF\n");
 			return true;
 		}
@@ -336,18 +421,21 @@ static bool bgp_cli_no_router_blocked(struct vty *vty, int argc, struct cmd_toke
 			vty_out(vty, "%% BGP: No such AS %s\n", argv[3]->arg);
 			return true;
 		}
-		if (argv_find(argv, argc, "VIEWVRFNAME", &idx)) {
-			name = argv[idx]->arg;
-			if (strmatch(argv[idx - 1]->text, "vrf") &&
-			    strmatch(name, VRF_DEFAULT_NAME))
-				name = NULL;
-		}
-		bgp = bgp_lookup(as, name);
-		if (!bgp) {
+
+		cand = yang_dnode_get(vty->candidate_config->dnode, bgp_xpath);
+		if (!cand || yang_dnode_get_uint32(cand, "./global/local-as") != as) {
 			vty_out(vty, "%% Can't find BGP instance\n");
 			return true;
 		}
+
+		bgp = bgp_lookup(as, inst_name);
+		if (bgp && ((is_view && bgp->inst_type != BGP_INSTANCE_TYPE_VIEW) ||
+			    (!is_view && bgp->inst_type == BGP_INSTANCE_TYPE_VIEW)))
+			bgp = NULL;
 	}
+
+	if (!bgp)
+		return false;
 
 	if (bgp->l3vni) {
 		vty_out(vty, "%% Please unconfigure l3vni %u\n", bgp->l3vni);
@@ -382,27 +470,40 @@ DEFUN_YANG(no_router_bgp_yang, no_router_bgp_yang_cmd,
 	   "Ignore as-notation on delete\n")
 {
 	char cpp_xpath[XPATH_MAXLEN];
+	char bgp_xpath[XPATH_MAXLEN];
 	const char *name = VRF_DEFAULT_NAME;
 	const char *vrf_name = VRF_DEFAULT_NAME;
+	const char *inst_name = NULL;
+	bool is_view = false;
 	int idx = 0;
 
 	if (argv_find(argv, argc, "VIEWVRFNAME", &idx)) {
 		name = argv[idx]->arg;
-		vrf_name = name;
-		if (strmatch(name, VRF_DEFAULT_NAME)) {
+		if (strmatch(argv[idx - 1]->text, "view")) {
+			is_view = true;
+			vrf_name = "view";
+			inst_name = name;
+		} else if (strmatch(name, VRF_DEFAULT_NAME)) {
 			name = VRF_DEFAULT_NAME;
 			vrf_name = VRF_DEFAULT_NAME;
+			inst_name = NULL;
+		} else {
+			vrf_name = name;
+			inst_name = name;
 		}
 	} else if (argc == 3) {
 		/* no router bgp — delete default instance */
 		name = VRF_DEFAULT_NAME;
 		vrf_name = VRF_DEFAULT_NAME;
+		inst_name = NULL;
 	}
 
-	if (bgp_cli_no_router_blocked(vty, argc, argv))
+	snprintfrr(cpp_xpath, sizeof(cpp_xpath), BGP_CPP_XPATH, name, vrf_name);
+	snprintfrr(bgp_xpath, sizeof(bgp_xpath), BGP_BASE_XPATH, name, vrf_name);
+
+	if (bgp_cli_no_router_blocked(vty, argc, argv, bgp_xpath, is_view, inst_name))
 		return CMD_WARNING_CONFIG_FAILED;
 
-	snprintfrr(cpp_xpath, sizeof(cpp_xpath), BGP_CPP_XPATH, name, vrf_name);
 	nb_cli_enqueue_change(vty, cpp_xpath, NB_OP_DESTROY, NULL);
 	return nb_cli_apply_changes_clear_pending(vty, NULL);
 }

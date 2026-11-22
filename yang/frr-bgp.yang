@@ -152,6 +152,13 @@ module frr-bgp {
              the 32-bit as-number type from the model in RFC 6991.";
         }
 
+        leaf local-as-pretty {
+          type string;
+          description
+            "Original textual representation of local-as as entered by the
+             operator (for example '0.65001' or '1.0').";
+        }
+
         uses frr-rt:router-id;
 
         container confederation {

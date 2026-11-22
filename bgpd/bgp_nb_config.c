@@ -80,7 +80,15 @@ DEFINE_HOOK(bgp_snmp_update_last_changed, (struct bgp *bgp), (bgp));
 static void bgp_nb_instance_key(const struct lyd_node *bgp_dnode,
 				enum bgp_instance_type *inst_type, const char **inst_name)
 {
+	const char *name = yang_dnode_get_string(bgp_dnode, "../name");
 	const char *vrf_name = yang_dnode_get_string(bgp_dnode, "../vrf");
+
+	if (yang_dnode_exists(bgp_dnode, "./global/instance-type-view") &&
+	    yang_dnode_get_bool(bgp_dnode, "./global/instance-type-view")) {
+		*inst_type = BGP_INSTANCE_TYPE_VIEW;
+		*inst_name = name;
+		return;
+	}
 
 	if (strmatch(vrf_name, VRF_DEFAULT_NAME)) {
 		*inst_name = NULL;
@@ -89,11 +97,7 @@ static void bgp_nb_instance_key(const struct lyd_node *bgp_dnode,
 	}
 
 	*inst_name = vrf_name;
-	if (yang_dnode_exists(bgp_dnode, "./global/instance-type-view") &&
-	    yang_dnode_get_bool(bgp_dnode, "./global/instance-type-view"))
-		*inst_type = BGP_INSTANCE_TYPE_VIEW;
-	else
-		*inst_type = BGP_INSTANCE_TYPE_VRF;
+	*inst_type = BGP_INSTANCE_TYPE_VRF;
 }
 
 static bool bgp_nb_cpp_is_bgp(const struct lyd_node *cpp)
@@ -114,27 +118,30 @@ static bool bgp_nb_cpp_is_bgp(const struct lyd_node *cpp)
 	return strmatch(id, "bgp");
 }
 
-static bool bgp_nb_instance_same(enum bgp_instance_type a, const char *aname,
-				 enum bgp_instance_type b, const char *bname)
+static bool bgp_nb_instance_conflict(enum bgp_instance_type a, const char *aname,
+				     enum bgp_instance_type b, const char *bname)
 {
-	if (a != b)
-		return false;
 	if (!aname || !bname)
 		return !aname && !bname;
+	/*
+	 * Classic bgp_lookup_by_name_filter() shares the bgp->name namespace
+	 * between VRF and VIEW instances (so vrf V and view V cannot coexist),
+	 * while the default instance has name == NULL and can coexist with
+	 * "view default" (name == "default").
+	 */
 	return strmatch(aname, bname);
 }
 
 /*
- * The list key is (type, name, vrf), but the instance is looked up by the
- * vrf leaf. Two entries that resolve to the same instance would share one
- * struct bgp and bgp_delete() either of them out from under the other.
+ * The list key is (type, name, vrf), but the instance is looked up by
+ * instance name (NULL for default, non-NULL for VRF/view). Reject duplicates
+ * and VRF/view name collisions before APPLY.
  */
 static int bgp_nb_bgp_validate_unique(struct nb_cb_create_args *args)
 {
 	const struct lyd_node *cpp, *sib, *other;
 	enum bgp_instance_type mine_type, other_type;
 	const char *mine_name, *other_name;
-	const char *vrf;
 
 	cpp = yang_dnode_get_parent(args->dnode, "control-plane-protocol");
 	if (!cpp || !lyd_parent(cpp))
@@ -150,12 +157,16 @@ static int bgp_nb_bgp_validate_unique(struct nb_cb_create_args *args)
 		if (!other)
 			continue;
 		bgp_nb_instance_key(other, &other_type, &other_name);
-		if (!bgp_nb_instance_same(mine_type, mine_name, other_type, other_name))
+		if (!bgp_nb_instance_conflict(mine_type, mine_name, other_type, other_name))
 			continue;
 
-		vrf = yang_dnode_get_string(args->dnode, "../vrf");
+		const char *other_as = yang_dnode_exists(other, "./global/local-as-pretty")
+					       ? yang_dnode_get_string(other,
+								       "./global/local-as-pretty")
+					       : yang_dnode_get_string(other, "./global/local-as");
 		snprintfrr(args->errmsg, args->errmsg_len,
-			   "BGP instance for vrf %s is already configured", vrf);
+			   "BGP instance name and AS number mismatch\nBGP instance is already running; AS is %s",
+			   other_as ? other_as : "unknown");
 		return NB_ERR_VALIDATION;
 	}
 	return NB_OK;
@@ -168,6 +179,7 @@ int bgp_nb_bgp_create(struct nb_cb_create_args *args)
 {
 	struct bgp *bgp = NULL;
 	const char *name;
+	const char *as_pretty = NULL;
 	enum bgp_instance_type inst_type;
 	enum asnotation_mode asnotation = ASNOTATION_UNDEFINED;
 	const char *notation;
@@ -182,6 +194,8 @@ int bgp_nb_bgp_create(struct nb_cb_create_args *args)
 		break;
 	case NB_EV_APPLY:
 		as = yang_dnode_get_uint32(args->dnode, "./global/local-as");
+		if (yang_dnode_exists(args->dnode, "./global/local-as-pretty"))
+			as_pretty = yang_dnode_get_string(args->dnode, "./global/local-as-pretty");
 		bgp_nb_instance_key(args->dnode, &inst_type, &name);
 
 		if (yang_dnode_exists(args->dnode, "./global/as-notation")) {
@@ -202,12 +216,23 @@ int bgp_nb_bgp_create(struct nb_cb_create_args *args)
 		 * on the YANG instance while L3VNI stays on the AUTO one
 		 * (memory leak + missing EVPN prefixes).
 		 */
-		ret = bgp_lookup_by_as_name_type(&bgp, &as, NULL, asnotation, name, inst_type,
+		ret = bgp_lookup_by_as_name_type(&bgp, &as, as_pretty, asnotation, name, inst_type,
 						 true);
 		if (!(bgp && ret == BGP_INSTANCE_EXISTS)) {
-			ret = bgp_get_vty(&bgp, &as, name, inst_type, NULL, asnotation);
+			ret = bgp_get_vty(&bgp, &as, name, inst_type, as_pretty, asnotation);
 			if (ret != BGP_SUCCESS && ret != BGP_CREATED && ret != BGP_INSTANCE_EXISTS)
 				return NB_ERR_RESOURCE;
+		} else if (CHECK_FLAG(bgp->vrf_flags, BGP_VRF_AUTO)) {
+			XFREE(MTYPE_BGP_NAME, bgp->as_pretty);
+			bgp->as_pretty = XSTRDUP(MTYPE_BGP_NAME,
+						 as_pretty ? as_pretty : asn_asn2asplain(as));
+			if (asnotation != ASNOTATION_UNDEFINED) {
+				bgp->asnotation = asnotation;
+				SET_FLAG(bgp->config, BGP_CONFIG_ASNOTATION);
+			} else {
+				UNSET_FLAG(bgp->config, BGP_CONFIG_ASNOTATION);
+				asn_str2asn_notation(bgp->as_pretty, NULL, &bgp->asnotation);
+			}
 		}
 
 		if (inst_type == BGP_INSTANCE_TYPE_VRF || IS_BGP_INSTANCE_HIDDEN(bgp)) {
@@ -225,6 +250,9 @@ int bgp_nb_bgp_create(struct nb_cb_create_args *args)
 					bgp_vrf_link(bgp, vrf);
 			}
 		}
+
+		if (inst_type == BGP_INSTANCE_TYPE_DEFAULT)
+			bgp_nb_need_listening(bgp);
 
 		nb_running_set_entry(args->dnode, bgp);
 		bgp_vpn_leak_export(bgp);
@@ -258,7 +286,8 @@ int bgp_nb_bgp_create(struct nb_cb_create_args *args)
 int bgp_nb_bgp_destroy(struct nb_cb_destroy_args *args)
 {
 	struct bgp *bgp;
-	const char *vrf_name;
+	enum bgp_instance_type inst_type;
+	const char *inst_name;
 
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
@@ -267,11 +296,11 @@ int bgp_nb_bgp_destroy(struct nb_cb_destroy_args *args)
 	if (bgp) {
 		nb_running_unset_entry(args->dnode);
 	} else {
-		vrf_name = yang_dnode_get_string(args->dnode, "../vrf");
-		if (strmatch(vrf_name, VRF_DEFAULT_NAME))
+		bgp_nb_instance_key(args->dnode, &inst_type, &inst_name);
+		if (inst_type == BGP_INSTANCE_TYPE_DEFAULT)
 			bgp = bgp_get_default();
 		else
-			bgp = bgp_lookup_by_name(vrf_name);
+			bgp = bgp_lookup_by_name(inst_name);
 		if (!bgp)
 			return NB_OK;
 	}
@@ -321,6 +350,9 @@ static enum asnotation_mode bgp_nb_cli_dnode_asnotation(const struct lyd_node *d
 			asnotation = ASNOTATION_DOTPLUS;
 		else if (strmatch(notation, "dot"))
 			asnotation = ASNOTATION_DOT;
+	} else if (yang_dnode_exists(bgp, "./global/local-as-pretty")) {
+		asn_str2asn_notation(yang_dnode_get_string(bgp, "./global/local-as-pretty"), NULL,
+				     &asnotation);
 	}
 	return asnotation;
 }
@@ -349,7 +381,6 @@ void bgp_nb_cli_show_router_bgp(struct vty *vty, const struct lyd_node *dnode, b
 	const char *name;
 	as_t as;
 	bool is_view = false;
-	enum asnotation_mode asnotation = ASNOTATION_PLAIN;
 
 	cpp = yang_dnode_get_parent(dnode, "control-plane-protocol");
 	vrf_name = yang_dnode_get_string(cpp, "vrf");
@@ -359,28 +390,18 @@ void bgp_nb_cli_show_router_bgp(struct vty *vty, const struct lyd_node *dnode, b
 	if (yang_dnode_exists(dnode, "./global/instance-type-view"))
 		is_view = yang_dnode_get_bool(dnode, "./global/instance-type-view");
 
-	if (yang_dnode_exists(dnode, "./global/as-notation")) {
-		const char *notation = yang_dnode_get_string(dnode, "./global/as-notation");
-
-		if (strmatch(notation, "dot+"))
-			asnotation = ASNOTATION_DOTPLUS;
-		else if (strmatch(notation, "dot"))
-			asnotation = ASNOTATION_DOT;
-	}
-
 	vty_out(vty, "!\n");
 	vty_out(vty, "router bgp ");
-	vty_out(vty, ASN_FORMAT(asnotation), &as);
+	if (yang_dnode_exists(dnode, "./global/local-as-pretty"))
+		vty_out(vty, "%s", yang_dnode_get_string(dnode, "./global/local-as-pretty"));
+	else
+		vty_out(vty, "%s", asn_asn2asplain(as));
 	if (is_view)
 		vty_out(vty, " view %s", name);
 	else if (!strmatch(vrf_name, VRF_DEFAULT_NAME))
 		vty_out(vty, " vrf %s", vrf_name);
-	/*
-	 * Do not emit "as-notation ..." here. ASDOT is already reflected in
-	 * the ASN display; printing the keyword makes config deltas generate
-	 * "no router bgp X as-notation ..." which the YANG CLI does not
-	 * accept (classic also omits the keyword when notation was inferred).
-	 */
+	if (yang_dnode_exists(dnode, "./global/as-notation"))
+		vty_out(vty, " as-notation %s", yang_dnode_get_string(dnode, "./global/as-notation"));
 	vty_out(vty, "\n");
 }
 
@@ -440,7 +461,10 @@ const char *bgp_nb_instance_xpath(const struct bgp *bgp, char *buf, size_t bufle
 	const char *name = VRF_DEFAULT_NAME;
 	const char *vrf = VRF_DEFAULT_NAME;
 
-	if (bgp->name) {
+	if (bgp->inst_type == BGP_INSTANCE_TYPE_VIEW) {
+		name = bgp->name;
+		vrf = "view";
+	} else if (bgp->name) {
 		name = bgp->name;
 		vrf = bgp->name;
 	}
@@ -453,23 +477,16 @@ const char *bgp_nb_instance_xpath(const struct bgp *bgp, char *buf, size_t bufle
 
 /*
  * Locate the running-config frr-bgp:bgp dnode for a BGP instance by walking
- * control-plane-protocol list keys (name/vrf). Avoids identityref predicates
- * in xpath lookups that silently fail (type-5 / RD reapply no-op).
+ * control-plane-protocol entries and matching bgp_nb_instance_key().
  */
 static const struct lyd_node *bgp_nb_find_instance_dnode(const struct bgp *bgp)
 {
 	const struct lyd_node *root, *cpps, *cpp, *bgp_dnode;
-	const char *want_name = VRF_DEFAULT_NAME;
-	const char *want_vrf = VRF_DEFAULT_NAME;
-	const char *name, *vrf, *type;
+	enum bgp_instance_type inst_type;
+	const char *inst_name;
 
 	if (!bgp || !running_config || !running_config->dnode)
 		return NULL;
-
-	if (bgp->name) {
-		want_name = bgp->name;
-		want_vrf = bgp->name;
-	}
 
 	root = running_config->dnode;
 	cpps = yang_dnode_get(root, "/frr-routing:routing/control-plane-protocols");
@@ -477,31 +494,19 @@ static const struct lyd_node *bgp_nb_find_instance_dnode(const struct bgp *bgp)
 		return NULL;
 
 	LY_LIST_FOR (lyd_child(cpps), cpp) {
-		if (!strmatch(cpp->schema->name, "control-plane-protocol"))
-			continue;
-		if (!yang_dnode_exists(cpp, "./type") || !yang_dnode_exists(cpp, "./name") ||
-		    !yang_dnode_exists(cpp, "./vrf"))
-			continue;
-		type = yang_dnode_get_string(cpp, "./type");
-		/*
-		 * Identityref string form varies by libyang (frr-bgp:bgp,
-		 * bgp, …). Accept any value whose final identity name is bgp.
-		 */
-		if (!type)
-			continue;
-		{
-			const char *id = strrchr(type, ':');
-
-			id = id ? id + 1 : type;
-			if (!strmatch(id, "bgp"))
-				continue;
-		}
-		name = yang_dnode_get_string(cpp, "./name");
-		vrf = yang_dnode_get_string(cpp, "./vrf");
-		if (!strmatch(name, want_name) || !strmatch(vrf, want_vrf))
+		if (!bgp_nb_cpp_is_bgp(cpp))
 			continue;
 		bgp_dnode = yang_dnode_get(cpp, "frr-bgp:bgp");
-		if (bgp_dnode)
+		if (!bgp_dnode)
+			bgp_dnode = yang_dnode_get(cpp, "bgp");
+		if (!bgp_dnode)
+			continue;
+		bgp_nb_instance_key(bgp_dnode, &inst_type, &inst_name);
+		if (inst_type != bgp->inst_type)
+			continue;
+		if (!inst_name && !bgp->name)
+			return bgp_dnode;
+		if (inst_name && bgp->name && strmatch(inst_name, bgp->name))
 			return bgp_dnode;
 	}
 
@@ -510,24 +515,22 @@ static const struct lyd_node *bgp_nb_find_instance_dnode(const struct bgp *bgp)
 
 /*
  * Resolve struct bgp * for a dnode under frr-bgp:bgp by walking up to the
- * control-plane-protocol name/vrf keys. Prefer this over nb_running_get_entry
- * alone for EVPN ip-vrf leaves — parent-chain entry lookup has bound the
- * wrong (default) instance and made RD / type-5 APPLY a silent no-op.
+ * frr-bgp:bgp node and resolving via bgp_nb_instance_key().
  */
 static struct bgp *bgp_nb_dnode_lookup_bgp(const struct lyd_node *dnode)
 {
-	const struct lyd_node *cpp;
-	const char *name, *vrf;
+	const struct lyd_node *bgp_dnode;
+	enum bgp_instance_type inst_type;
+	const char *inst_name;
 	struct bgp *bgp;
 
-	cpp = yang_dnode_get_parent(dnode, "control-plane-protocol");
-	if (cpp && yang_dnode_exists(cpp, "name") && yang_dnode_exists(cpp, "vrf")) {
-		name = yang_dnode_get_string(cpp, "name");
-		vrf = yang_dnode_get_string(cpp, "vrf");
-		if (strmatch(vrf, VRF_DEFAULT_NAME))
+	bgp_dnode = yang_dnode_get_parent(dnode, "bgp");
+	if (bgp_dnode) {
+		bgp_nb_instance_key(bgp_dnode, &inst_type, &inst_name);
+		if (inst_type == BGP_INSTANCE_TYPE_DEFAULT)
 			bgp = bgp_get_default();
 		else
-			bgp = bgp_lookup_by_name(name);
+			bgp = bgp_lookup_by_name(inst_name);
 		if (bgp)
 			return bgp;
 	}
@@ -769,9 +772,60 @@ void bgp_nb_cli_show_router_id(struct vty *vty, const struct lyd_node *dnode, bo
 	vty_out(vty, " bgp router-id %pI4\n", &router_id);
 }
 
+int bgp_nb_local_as_pretty_modify(struct nb_cb_modify_args *args)
+{
+	struct bgp *bgp;
+	const char *val;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	bgp = nb_running_get_entry(args->dnode, NULL, true);
+	val = yang_dnode_get_string(args->dnode, NULL);
+	if (bgp->as_pretty && strmatch(bgp->as_pretty, val))
+		return NB_OK;
+
+	XFREE(MTYPE_BGP_NAME, bgp->as_pretty);
+	bgp->as_pretty = XSTRDUP(MTYPE_BGP_NAME, val);
+	if (!CHECK_FLAG(bgp->config, BGP_CONFIG_ASNOTATION))
+		asn_str2asn_notation(bgp->as_pretty, NULL, &bgp->asnotation);
+	return NB_OK;
+}
+
+int bgp_nb_local_as_pretty_destroy(struct nb_cb_destroy_args *args)
+{
+	struct bgp *bgp;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	bgp = nb_running_get_entry(args->dnode, NULL, true);
+	XFREE(MTYPE_BGP_NAME, bgp->as_pretty);
+	bgp->as_pretty = XSTRDUP(MTYPE_BGP_NAME, asn_asn2asplain(bgp->as));
+	if (!CHECK_FLAG(bgp->config, BGP_CONFIG_ASNOTATION))
+		bgp->asnotation = ASNOTATION_PLAIN;
+	return NB_OK;
+}
+
 int bgp_nb_instance_type_view_modify(struct nb_cb_modify_args *args)
 {
-	/* Applied at create time via bgp_nb_bgp_create; nothing further. */
+	struct bgp *bgp;
+	bool want_view;
+
+	if (args->event != NB_EV_VALIDATE)
+		return NB_OK;
+
+	bgp = nb_running_get_entry(args->dnode, NULL, false);
+	if (!bgp)
+		return NB_OK;
+
+	want_view = yang_dnode_get_bool(args->dnode, NULL);
+	if (want_view != (bgp->inst_type == BGP_INSTANCE_TYPE_VIEW)) {
+		snprintfrr(args->errmsg, args->errmsg_len,
+			   "BGP instance name and AS number mismatch\nBGP instance is already running; AS is %s",
+			   bgp->as_pretty ? bgp->as_pretty : "unknown");
+		return NB_ERR_VALIDATION;
+	}
 	return NB_OK;
 }
 
@@ -791,6 +845,7 @@ int bgp_nb_as_notation_modify(struct nb_cb_modify_args *args)
 		bgp->asnotation = ASNOTATION_DOT;
 	else
 		bgp->asnotation = ASNOTATION_PLAIN;
+	SET_FLAG(bgp->config, BGP_CONFIG_ASNOTATION);
 	return NB_OK;
 }
 
@@ -19877,7 +19932,11 @@ int bgp_nb_as_notation_destroy(struct nb_cb_destroy_args *args)
 		return NB_OK;
 
 	bgp = nb_running_get_entry(args->dnode, NULL, true);
-	bgp->asnotation = ASNOTATION_PLAIN;
+	UNSET_FLAG(bgp->config, BGP_CONFIG_ASNOTATION);
+	if (bgp->as_pretty)
+		asn_str2asn_notation(bgp->as_pretty, NULL, &bgp->asnotation);
+	else
+		bgp->asnotation = ASNOTATION_PLAIN;
 	return NB_OK;
 }
 
