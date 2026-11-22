@@ -5866,10 +5866,52 @@ const struct frr_yang_module_info frr_bgp_info = {
 			},
 		},
 		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv4-flowspec/attr-unchanged/as-path-unchanged",
+			.cbs = {
+				.modify = bgp_nb_peer_af_aspath_unchanged_modify,
+				.cli_show = bgp_nb_cli_show_peer_af_aspath_unchanged,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv4-flowspec/attr-unchanged/next-hop-unchanged",
+			.cbs = {
+				.modify = bgp_nb_peer_af_nexthop_unchanged_modify,
+				.cli_show = bgp_nb_cli_show_peer_af_nexthop_unchanged,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv4-flowspec/attr-unchanged/med-unchanged",
+			.cbs = {
+				.modify = bgp_nb_peer_af_med_unchanged_modify,
+				.cli_show = bgp_nb_cli_show_peer_af_med_unchanged,
+			},
+		},
+		{
 			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv6-flowspec/soft-reconfiguration",
 			.cbs = {
 				.modify = bgp_nb_peer_af_soft_reconfig_modify,
 				.cli_show = bgp_nb_cli_show_peer_af_soft_reconfig,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv6-flowspec/attr-unchanged/as-path-unchanged",
+			.cbs = {
+				.modify = bgp_nb_peer_af_aspath_unchanged_modify,
+				.cli_show = bgp_nb_cli_show_peer_af_aspath_unchanged,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv6-flowspec/attr-unchanged/next-hop-unchanged",
+			.cbs = {
+				.modify = bgp_nb_peer_af_nexthop_unchanged_modify,
+				.cli_show = bgp_nb_cli_show_peer_af_nexthop_unchanged,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv6-flowspec/attr-unchanged/med-unchanged",
+			.cbs = {
+				.modify = bgp_nb_peer_af_med_unchanged_modify,
+				.cli_show = bgp_nb_cli_show_peer_af_med_unchanged,
 			},
 		},
 		{
@@ -6310,10 +6352,52 @@ const struct frr_yang_module_info frr_bgp_info = {
 			},
 		},
 		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv4-flowspec/attr-unchanged/as-path-unchanged",
+			.cbs = {
+				.modify = bgp_nb_peer_af_aspath_unchanged_modify,
+				.cli_show = bgp_nb_cli_show_peer_af_aspath_unchanged,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv4-flowspec/attr-unchanged/next-hop-unchanged",
+			.cbs = {
+				.modify = bgp_nb_peer_af_nexthop_unchanged_modify,
+				.cli_show = bgp_nb_cli_show_peer_af_nexthop_unchanged,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv4-flowspec/attr-unchanged/med-unchanged",
+			.cbs = {
+				.modify = bgp_nb_peer_af_med_unchanged_modify,
+				.cli_show = bgp_nb_cli_show_peer_af_med_unchanged,
+			},
+		},
+		{
 			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv6-flowspec/soft-reconfiguration",
 			.cbs = {
 				.modify = bgp_nb_peer_af_soft_reconfig_modify,
 				.cli_show = bgp_nb_cli_show_peer_af_soft_reconfig,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv6-flowspec/attr-unchanged/as-path-unchanged",
+			.cbs = {
+				.modify = bgp_nb_peer_af_aspath_unchanged_modify,
+				.cli_show = bgp_nb_cli_show_peer_af_aspath_unchanged,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv6-flowspec/attr-unchanged/next-hop-unchanged",
+			.cbs = {
+				.modify = bgp_nb_peer_af_nexthop_unchanged_modify,
+				.cli_show = bgp_nb_cli_show_peer_af_nexthop_unchanged,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv6-flowspec/attr-unchanged/med-unchanged",
+			.cbs = {
+				.modify = bgp_nb_peer_af_med_unchanged_modify,
+				.cli_show = bgp_nb_cli_show_peer_af_med_unchanged,
 			},
 		},
 		{
@@ -6753,10 +6837,52 @@ const struct frr_yang_module_info frr_bgp_info = {
 			},
 		},
 		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv4-flowspec/attr-unchanged/as-path-unchanged",
+			.cbs = {
+				.modify = bgp_nb_peer_af_aspath_unchanged_modify,
+				.cli_show = bgp_nb_cli_show_peer_af_aspath_unchanged,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv4-flowspec/attr-unchanged/next-hop-unchanged",
+			.cbs = {
+				.modify = bgp_nb_peer_af_nexthop_unchanged_modify,
+				.cli_show = bgp_nb_cli_show_peer_af_nexthop_unchanged,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv4-flowspec/attr-unchanged/med-unchanged",
+			.cbs = {
+				.modify = bgp_nb_peer_af_med_unchanged_modify,
+				.cli_show = bgp_nb_cli_show_peer_af_med_unchanged,
+			},
+		},
+		{
 			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv6-flowspec/soft-reconfiguration",
 			.cbs = {
 				.modify = bgp_nb_peer_af_soft_reconfig_modify,
 				.cli_show = bgp_nb_cli_show_peer_af_soft_reconfig,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv6-flowspec/attr-unchanged/as-path-unchanged",
+			.cbs = {
+				.modify = bgp_nb_peer_af_aspath_unchanged_modify,
+				.cli_show = bgp_nb_cli_show_peer_af_aspath_unchanged,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv6-flowspec/attr-unchanged/next-hop-unchanged",
+			.cbs = {
+				.modify = bgp_nb_peer_af_nexthop_unchanged_modify,
+				.cli_show = bgp_nb_cli_show_peer_af_nexthop_unchanged,
+			},
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/afi-safis/afi-safi/ipv6-flowspec/attr-unchanged/med-unchanged",
+			.cbs = {
+				.modify = bgp_nb_peer_af_med_unchanged_modify,
+				.cli_show = bgp_nb_cli_show_peer_af_med_unchanged,
 			},
 		},
 		{

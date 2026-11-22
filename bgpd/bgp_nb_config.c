@@ -17621,17 +17621,24 @@ void bgp_nb_cli_show_peer_af_prefix_limit_max(struct vty *vty, const struct lyd_
 		bgp_nb_config_peer_name(dnode), max);
 
 	if (yang_dnode_exists(dir, "./options/tw-shutdown-threshold-pct")) {
-		vty_out(vty, " %u",
-			yang_dnode_get_uint8(dir, "./options/tw-shutdown-threshold-pct"));
+		uint8_t thr = yang_dnode_get_uint8(dir, "./options/tw-shutdown-threshold-pct");
+
+		if (thr != MAXIMUM_PREFIX_THRESHOLD_DEFAULT || show_defaults)
+			vty_out(vty, " %u", thr);
 		if (yang_dnode_exists(dir, "./options/tw-warning-only") &&
 		    yang_dnode_get_bool(dir, "./options/tw-warning-only"))
 			vty_out(vty, " warning-only");
 	} else if (yang_dnode_exists(dir, "./options/tr-shutdown-threshold-pct")) {
-		vty_out(vty, " %u restart %u",
-			yang_dnode_get_uint8(dir, "./options/tr-shutdown-threshold-pct"),
-			yang_dnode_get_uint16(dir, "./options/tr-restart-timer"));
+		uint8_t thr = yang_dnode_get_uint8(dir, "./options/tr-shutdown-threshold-pct");
+
+		if (thr != MAXIMUM_PREFIX_THRESHOLD_DEFAULT || show_defaults)
+			vty_out(vty, " %u", thr);
+		vty_out(vty, " restart %u", yang_dnode_get_uint16(dir, "./options/tr-restart-timer"));
 	} else if (yang_dnode_exists(dir, "./options/shutdown-threshold-pct")) {
-		vty_out(vty, " %u", yang_dnode_get_uint8(dir, "./options/shutdown-threshold-pct"));
+		uint8_t thr = yang_dnode_get_uint8(dir, "./options/shutdown-threshold-pct");
+
+		if (thr != MAXIMUM_PREFIX_THRESHOLD_DEFAULT || show_defaults)
+			vty_out(vty, " %u", thr);
 	} else if (yang_dnode_exists(dir, "./options/restart-timer")) {
 		vty_out(vty, " restart %u", yang_dnode_get_uint16(dir, "./options/restart-timer"));
 	} else if (yang_dnode_exists(dir, "./options/warning-only") &&

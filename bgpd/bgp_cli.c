@@ -10270,7 +10270,7 @@ DEFPY_YANG(neighbor_maximum_prefix_yang, neighbor_maximum_prefix_yang_cmd,
 
 
 DEFPY_YANG(no_neighbor_maximum_prefix_yang, no_neighbor_maximum_prefix_yang_cmd,
-	   "no neighbor <A.B.C.D|X:X::X:X|WORD>$neighbor maximum-prefix [(1-4294967295) [(1-100)] [restart (1-65535)] [warning-only] [force]]",
+	   "no neighbor <A.B.C.D|X:X::X:X|WORD>$neighbor maximum-prefix [(1-4294967295) [(1-100)] [{restart (1-65535)|warning-only}] [force]]",
 	   NO_STR NEIGHBOR_STR NEIGHBOR_ADDR_STR2
 	   "Maximum number of prefix accept from this peer\n"
 	   "maximum no. of prefix limit\n"
@@ -10353,6 +10353,28 @@ DEFPY_YANG(neighbor_addpath_tx_yang, neighbor_addpath_tx_yang_cmd,
 		return CMD_WARNING_CONFIG_FAILED;
 
 	af = bgp_cli_afi_safi_name(vty->node);
+
+	if (no) {
+		const struct lyd_node *cur = NULL;
+		const struct lyd_node *dn = NULL;
+		const char *cur_type = "none";
+		const char *want = all ? "all" : "per-as";
+
+		snprintfrr(leaf, sizeof(leaf), "%s/%s/add-paths/path-type", xpath, af);
+		if (vty->candidate_config && vty->candidate_config->dnode)
+			cur = yang_dnode_get(vty->candidate_config->dnode, VTY_CURR_XPATH);
+		if (cur)
+			dn = yang_dnode_get(cur, leaf);
+		if (dn)
+			cur_type = yang_dnode_get_string(dn, NULL);
+		if (!strmatch(cur_type, want)) {
+			vty_out(vty,
+				all ? "%% Peer not currently configured to transmit all paths.\n"
+				    : "%% Peer not currently configured to transmit all best path per as.\n");
+			return CMD_WARNING_CONFIG_FAILED;
+		}
+	}
+
 	nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
 
 	snprintfrr(leaf, sizeof(leaf), "%s/%s/add-paths/best-selected-paths", xpath, af);
@@ -10636,7 +10658,7 @@ ALIAS_ATTR(
 
 
 ALIAS_ATTR(no_neighbor_maximum_prefix_yang, no_neighbor_maximum_prefix_yang_hidden_cmd,
-	   "no neighbor <A.B.C.D|X:X::X:X|WORD>$neighbor maximum-prefix [(1-4294967295) [(1-100)] [restart (1-65535)] [warning-only] [force]]",
+	   "no neighbor <A.B.C.D|X:X::X:X|WORD>$neighbor maximum-prefix [(1-4294967295) [(1-100)] [{restart (1-65535)|warning-only}] [force]]",
 	   NO_STR NEIGHBOR_STR NEIGHBOR_ADDR_STR2
 	   "Maximum number of prefix accept from this peer\n"
 	   "maximum no. of prefix limit\n"

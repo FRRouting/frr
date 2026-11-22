@@ -1365,6 +1365,8 @@ module frr-bgp {
 
     uses structure-neighbor-group-soft-reconfiguration;
 
+    uses structure-neighbor-group-attr-unchanged;
+
     uses structure-neighbor-group-af-policy-options;
 
     uses structure-neighbor-group-filter-config;
@@ -1379,6 +1381,8 @@ module frr-bgp {
     uses structure-neighbor-route-server;
 
     uses structure-neighbor-group-soft-reconfiguration;
+
+    uses structure-neighbor-group-attr-unchanged;
 
     uses structure-neighbor-group-af-policy-options;
 
@@ -1751,6 +1755,8 @@ module frr-bgp {
 
     uses structure-neighbor-group-soft-reconfiguration;
 
+    uses structure-neighbor-group-attr-unchanged;
+
     uses structure-neighbor-group-af-policy-options;
 
     uses structure-neighbor-group-filter-config;
@@ -1765,6 +1771,8 @@ module frr-bgp {
     uses structure-neighbor-route-server;
 
     uses structure-neighbor-group-soft-reconfiguration;
+
+    uses structure-neighbor-group-attr-unchanged;
 
     uses structure-neighbor-group-af-policy-options;
 
@@ -2136,6 +2144,8 @@ module frr-bgp {
 
     uses structure-neighbor-group-soft-reconfiguration;
 
+    uses structure-neighbor-group-attr-unchanged;
+
     uses structure-neighbor-group-af-policy-options;
 
     uses structure-neighbor-group-filter-config;
@@ -2150,6 +2160,8 @@ module frr-bgp {
     uses structure-neighbor-route-server;
 
     uses structure-neighbor-group-soft-reconfiguration;
+
+    uses structure-neighbor-group-attr-unchanged;
 
     uses structure-neighbor-group-af-policy-options;
 
