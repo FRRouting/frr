@@ -166,4 +166,12 @@ int main(int argc, char **argv)
 
 	/* delete table */
 	ttable_del(tt);
+
+	/* dump a table that never had a row */
+	tt = ttable_new(&ttable_styles[TTSTYLE_ASCII]);
+	assert(tt->ncols == 0);
+	table = ttable_dump(tt, "\n");
+	fprintf(stdout, "%s\n", table);
+	XFREE(MTYPE_TMP_TTABLE, table);
+	ttable_del(tt);
 }
