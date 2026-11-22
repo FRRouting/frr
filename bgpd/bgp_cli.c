@@ -3487,6 +3487,80 @@ DEFPY_YANG(no_neighbor_remote_as_yang, no_neighbor_remote_as_yang_cmd,
  * Positive forms are separate commands so peer-group and remote-as cannot
  * be combined. The no form ignores the optional words and deletes the neighbor.
  */
+static bool bgp_cli_pg_af_active(const struct lyd_node *bgp_node, const struct lyd_node *pg_node,
+				 const char *af_name)
+{
+	char af_xpath[XPATH_MAXLEN];
+	const struct lyd_node *en;
+
+	snprintfrr(af_xpath, sizeof(af_xpath), "afi-safis/afi-safi[afi-safi-name='%s']/enabled",
+		   af_name);
+	en = yang_dnode_get(pg_node, af_xpath);
+	if (en)
+		return yang_dnode_get_bool(en, NULL);
+
+	snprintfrr(af_xpath, sizeof(af_xpath), "global/default-afi-safi[.='%s']", af_name);
+	return yang_dnode_exists(bgp_node, af_xpath);
+}
+
+/*
+ * Classic peer_group_bind() overwrites a member's AF activation state with the
+ * group's active AFs. When binding an already-configured peer to a peer-group,
+ * drop any stale member afi-safi/enabled leaf that disagrees with the group so
+ * YANG and show running-config match peer_group_bind() and do not reactivate
+ * an AF the group does not have active.
+ */
+static void bgp_cli_clear_stale_member_af_on_bind(struct vty *vty, const char *rel_xpath,
+						  const char *pgname)
+{
+	char nbr_xpath[XPATH_MAXLEN];
+	char pg_xpath[XPATH_MAXLEN];
+	char leaf[XPATH_MAXLEN + 256];
+	const struct lyd_node *bgp_node, *nbr, *pg_node, *container, *af;
+
+	bgp_node = yang_dnode_get(vty->candidate_config->dnode, VTY_CURR_XPATH);
+	if (!bgp_node)
+		return;
+
+	if (rel_xpath[0] == '.' && rel_xpath[1] == '/')
+		snprintfrr(nbr_xpath, sizeof(nbr_xpath), "%s/%s", VTY_CURR_XPATH, rel_xpath + 2);
+	else
+		strlcpy(nbr_xpath, rel_xpath, sizeof(nbr_xpath));
+
+	nbr = yang_dnode_get(vty->candidate_config->dnode, nbr_xpath);
+	if (!nbr || yang_dnode_exists(nbr, "./peer-group"))
+		return;
+
+	snprintfrr(pg_xpath, sizeof(pg_xpath), "%s/peer-groups/peer-group[peer-group-name='%s']",
+		   VTY_CURR_XPATH, pgname);
+	pg_node = yang_dnode_get(vty->candidate_config->dnode, pg_xpath);
+	if (!pg_node)
+		return;
+
+	LY_LIST_FOR (lyd_child(nbr), container) {
+		if (!strmatch(container->schema->name, "afi-safis"))
+			continue;
+		LY_LIST_FOR (lyd_child(container), af) {
+			const char *af_name;
+			bool mem_en, pg_en;
+
+			if (!strmatch(af->schema->name, "afi-safi"))
+				continue;
+			if (!yang_dnode_exists(af, "enabled"))
+				continue;
+			af_name = yang_dnode_get_string(af, "afi-safi-name");
+			mem_en = yang_dnode_get_bool(af, "enabled");
+			pg_en = bgp_cli_pg_af_active(bgp_node, pg_node, af_name);
+			if (mem_en != pg_en) {
+				snprintfrr(leaf, sizeof(leaf),
+					   "%s/afi-safis/afi-safi[afi-safi-name='%s']/enabled",
+					   rel_xpath, af_name);
+				nb_cli_enqueue_change(vty, leaf, NB_OP_DESTROY, NULL);
+			}
+		}
+	}
+}
+
 static int bgp_cli_neighbor_interface_create(struct vty *vty, const char *ifname,
 					     const char *v6only, const char *peergroup,
 					     const char *as_str, const char *internal,
@@ -3498,12 +3572,11 @@ static int bgp_cli_neighbor_interface_create(struct vty *vty, const char *ifname
 	snprintfrr(xpath, sizeof(xpath), "./neighbors/unnumbered-neighbor[interface='%s']", ifname);
 	nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
 
-	if (v6only) {
-		snprintfrr(leaf, sizeof(leaf), "%s/v6only", xpath);
-		nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY, "true");
-	}
+	snprintfrr(leaf, sizeof(leaf), "%s/v6only", xpath);
+	nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY, v6only ? "true" : "false");
 
 	if (peergroup) {
+		bgp_cli_clear_stale_member_af_on_bind(vty, xpath, peergroup);
 		snprintfrr(leaf, sizeof(leaf), "%s/peer-group", xpath);
 		nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY, peergroup);
 	}
@@ -5251,6 +5324,7 @@ DEFPY_YANG(neighbor_set_peer_group_yang, neighbor_set_peer_group_yang_cmd,
 	 * no remote-as of its own.
 	 */
 	nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
+	bgp_cli_clear_stale_member_af_on_bind(vty, xpath, pgname);
 	snprintfrr(leaf, sizeof(leaf), "%s/peer-group", xpath);
 	nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY, pgname);
 	return nb_cli_apply_changes(vty, NULL);

@@ -4714,6 +4714,12 @@ const struct frr_yang_module_info frr_bgp_info = {
 				.destroy = bgp_nb_peer_af_enabled_destroy,
 				.cli_show = bgp_nb_cli_show_peer_af_enabled,
 			},
+			/*
+			 * Apply member AF activation after peer-group bind (+1)
+			 * so explicit activate / no activate on a member wins
+			 * over peer_group_bind() during a batch load.
+			 */
+			.priority = NB_DFLT_PRIORITY + 2,
 		},
 		{
 			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/afi-safis/afi-safi/ipv4-unicast/soft-reconfiguration",
@@ -5787,6 +5793,7 @@ const struct frr_yang_module_info frr_bgp_info = {
 				.destroy = bgp_nb_peer_af_enabled_destroy,
 				.cli_show = bgp_nb_cli_show_peer_af_enabled,
 			},
+			.priority = NB_DFLT_PRIORITY + 2,
 		},
 		{
 			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/ipv4-unicast/soft-reconfiguration",

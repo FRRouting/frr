@@ -4789,6 +4789,10 @@ int bgp_nb_unnumbered_neighbor_create(struct nb_cb_create_args *args)
 	struct bgp *bgp;
 	const char *ifname;
 	struct peer *peer;
+	as_t as = 0;
+	enum peer_asn_type as_type = AS_UNSPECIFIED;
+	const char *as_pretty = NULL;
+	char as_buf[32];
 
 	switch (args->event) {
 	case NB_EV_VALIDATE:
@@ -4811,14 +4815,40 @@ int bgp_nb_unnumbered_neighbor_create(struct nb_cb_create_args *args)
 	bgp = nb_running_get_entry(lyd_parent(args->dnode), NULL, true);
 	ifname = yang_dnode_get_string(args->dnode, "./interface");
 
+	if (yang_dnode_exists(args->dnode, "./neighbor-remote-as/remote-as-type")) {
+		const struct lyd_node *type_dn =
+			yang_dnode_get(args->dnode, "./neighbor-remote-as/remote-as-type");
+		const char *type_str = yang_dnode_get_string(type_dn, NULL);
+
+		if (bgp_nb_parse_as_type(type_str, &as_type, &as, type_dn) == 0) {
+			if (as_type == AS_SPECIFIED) {
+				enum asnotation_mode asnotation =
+					bgp_nb_cli_dnode_asnotation(args->dnode);
+
+				snprintfrr(as_buf, sizeof(as_buf), ASN_FORMAT(asnotation), &as);
+				as_pretty = as_buf;
+			} else {
+				as_pretty = type_str;
+			}
+		} else {
+			as = 0;
+			as_type = AS_UNSPECIFIED;
+		}
+	}
+
 	peer = peer_lookup_by_conf_if(bgp, ifname);
 	if (!peer) {
-		peer = peer_create(NULL, ifname, bgp, bgp->as, 0, AS_UNSPECIFIED, NULL, true, NULL,
+		peer = peer_create(NULL, ifname, bgp, bgp->as, as, as_type, NULL, true, as_pretty,
 				   CONNECTION_OUTGOING);
 		if (!peer)
 			return NB_ERR_RESOURCE;
 
-		bgp_zebra_initiate_radv(bgp, peer);
+		if (yang_dnode_exists(args->dnode, "./v6only") &&
+		    yang_dnode_get_bool(args->dnode, "./v6only"))
+			peer_flag_set(peer, PEER_FLAG_IFPEER_V6ONLY);
+
+		if (peer->ifp)
+			bgp_zebra_initiate_radv(bgp, peer);
 
 		if (!CHECK_FLAG(peer->flags_invert, PEER_FLAG_CAPABILITY_ENHE)) {
 			SET_FLAG(peer->flags, PEER_FLAG_CAPABILITY_ENHE);
@@ -4918,8 +4948,6 @@ void bgp_nb_cli_show_unnumbered_v6only(struct vty *vty, const struct lyd_node *d
 	/* Printed with interface / peer-group / remote-as composition. */
 }
 
-static bool bgp_nb_dnode_afi_safi(const struct lyd_node *dnode, afi_t *afi, safi_t *safi);
-static void bgp_nb_peer_reapply_enabled_af(struct peer *peer, const struct lyd_node *pg_leaf);
 static int bgp_nb_peer_group_bind_validate(const struct lyd_node *dnode, char *errmsg,
 					   size_t errmsg_len);
 
@@ -4953,8 +4981,6 @@ int bgp_nb_unnumbered_peer_group_modify(struct nb_cb_modify_args *args)
 		zlog_warn("%s: peer_group_bind failed for %s (%d)", __func__, peer->host, ret);
 		return NB_OK;
 	}
-
-	bgp_nb_peer_reapply_enabled_af(peer, args->dnode);
 
 	/* Same as a numbered neighbor: a group with a remote-as needs a socket. */
 	if (group->conf->as_type != AS_UNSPECIFIED)
@@ -7202,44 +7228,6 @@ void bgp_nb_cli_show_peer_bfd_strict_hold(struct vty *vty, const struct lyd_node
 		bgp_nb_config_peer_name(dnode), yang_dnode_get_uint32(dnode, NULL));
 }
 
-/*
- * peer_group_bind() deactivates any member AFI/SAFI the group does not have.
- * Bind is applied after neighbor AF enable (higher priority, so the group
- * exists), which clears an explicit "neighbor X activate". Put those back
- * from the candidate.
- */
-static void bgp_nb_peer_reapply_enabled_af(struct peer *peer, const struct lyd_node *pg_leaf)
-{
-	const struct lyd_node *nbr, *container, *af;
-	afi_t afi;
-	safi_t safi;
-
-	if (!peer || !pg_leaf)
-		return;
-
-	nbr = yang_dnode_get_parent(pg_leaf, "neighbor");
-	if (!nbr)
-		nbr = yang_dnode_get_parent(pg_leaf, "unnumbered-neighbor");
-	if (!nbr)
-		return;
-
-	LY_LIST_FOR (lyd_child(nbr), container) {
-		if (!strmatch(container->schema->name, "afi-safis"))
-			continue;
-		LY_LIST_FOR (lyd_child(container), af) {
-			if (!strmatch(af->schema->name, "afi-safi"))
-				continue;
-			if (!yang_dnode_exists(af, "enabled") ||
-			    !yang_dnode_get_bool(af, "enabled"))
-				continue;
-			if (!bgp_nb_dnode_afi_safi(af, &afi, &safi))
-				continue;
-			if (!peer->afc[afi][safi])
-				peer_activate(peer, afi, safi);
-		}
-	}
-}
-
 static int bgp_nb_peer_group_bind_validate(const struct lyd_node *dnode, char *errmsg,
 					   size_t errmsg_len)
 {
@@ -7277,11 +7265,7 @@ static int bgp_nb_peer_group_bind_validate(const struct lyd_node *dnode, char *e
 	if (!peer || !peer->bgp)
 		return NB_OK;
 	group = peer_group_lookup(peer->bgp, group_name);
-	if (!group) {
-		/*
-		 * A group created in this same candidate is applied
-		 * after neighbor edits, so it is not there to bind.
-		 */
+	if (!group && !grp_node) {
 		snprintfrr(errmsg, errmsg_len, "Configure the peer-group first");
 		return NB_ERR_VALIDATION;
 	}
@@ -7289,7 +7273,7 @@ static int bgp_nb_peer_group_bind_validate(const struct lyd_node *dnode, char *e
 	 * Mirror peer_group_bind() when the candidate containers
 	 * were not both visible.
 	 */
-	if ((!nbr || !grp_node) &&
+	if (group && (!nbr || !grp_node) &&
 	    ((CHECK_FLAG(peer->flags, PEER_FLAG_EBGP_MULTIHOP) &&
 	      group->conf->gtsm_hops != BGP_GTSM_HOPS_DISABLED) ||
 	     (peer->gtsm_hops != BGP_GTSM_HOPS_DISABLED && group->conf->cfg_ttl != 0))) {
@@ -7333,8 +7317,6 @@ int bgp_nb_neighbor_peer_group_modify(struct nb_cb_modify_args *args)
 		zlog_warn("%s: peer_group_bind failed for %s (%d)", __func__, peer->host, ret);
 		return NB_OK;
 	}
-
-	bgp_nb_peer_reapply_enabled_af(peer, args->dnode);
 
 	if (group->conf->as_type != AS_UNSPECIFIED)
 		bgp_nb_need_listening(peer->bgp);
