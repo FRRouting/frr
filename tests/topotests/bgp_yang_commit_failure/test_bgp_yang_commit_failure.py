@@ -112,6 +112,47 @@ exit
     ), "Rejected transaction was applied to the running configuration"
 
 
+def test_validation_failure_does_not_wedge_transactions():
+    "A rejected commit must not leave transaction_in_progress wedged"
+    tgen = get_topogen()
+
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    r1 = tgen.gears["r1"]
+
+    long_pw = "a" * 81
+    with pytest.raises(subprocess.CalledProcessError):
+        r1.vtysh_multicmd(
+            f"""
+router bgp 65001
+ neighbor 192.0.2.10 remote-as 65002
+ neighbor 192.0.2.10 password {long_pw}
+exit
+""",
+            pretty_output=False,
+            raises=True,
+        )
+
+    assert not _running_config_has(
+        r1, long_pw
+    ), "Overlong password was committed to running configuration"
+
+    # A subsequent valid commit must still succeed.
+    r1.vtysh_multicmd(
+        """
+router bgp 65001
+ bgp router-id 1.2.3.4
+exit
+""",
+        pretty_output=False,
+        raises=True,
+    )
+    assert _running_config_has(
+        r1, "bgp router-id 1.2.3.4"
+    ), "Commit failed after a rejected validation"
+
+
 if __name__ == "__main__":
     args = ["-s"] + sys.argv[1:]
     sys.exit(pytest.main(args))

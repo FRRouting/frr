@@ -1446,9 +1446,9 @@ void nb_candidate_commit_abort(struct nb_transaction *transaction, char *errmsg,
 	nb_transaction_free(transaction);
 }
 
-void nb_candidate_commit_apply(struct nb_transaction *transaction,
-			       bool save_transaction, uint32_t *transaction_id,
-			       char *errmsg, size_t errmsg_len)
+int nb_candidate_commit_apply(struct nb_transaction *transaction,
+			      bool save_transaction, uint32_t *transaction_id,
+			      char *errmsg, size_t errmsg_len)
 {
 	int err;
 
@@ -1456,7 +1456,8 @@ void nb_candidate_commit_apply(struct nb_transaction *transaction,
 	if (err != NB_OK) {
 		flog_warn(EC_LIB_NB_CB_CONFIG_APPLY, "%s: failed to apply transaction: %s",
 			  __func__, errmsg);
-		return;
+		nb_transaction_free(transaction);
+		return err;
 	}
 
 	nb_transaction_apply_finish(transaction, errmsg, errmsg_len);
@@ -1474,6 +1475,7 @@ void nb_candidate_commit_apply(struct nb_transaction *transaction,
 			  "%s: failed to record transaction", __func__);
 
 	nb_transaction_free(transaction);
+	return NB_OK;
 }
 
 int nb_candidate_commit(struct nb_context context, struct nb_config *candidate,
@@ -1492,8 +1494,9 @@ int nb_candidate_commit(struct nb_context context, struct nb_config *candidate,
 	 * the transaction.
 	 */
 	if (ret == NB_OK)
-		nb_candidate_commit_apply(transaction, save_transaction,
-					  transaction_id, errmsg, errmsg_len);
+		ret = nb_candidate_commit_apply(transaction, save_transaction,
+						transaction_id, errmsg,
+						errmsg_len);
 	else if (transaction != NULL)
 		nb_candidate_commit_abort(transaction, errmsg, errmsg_len);
 

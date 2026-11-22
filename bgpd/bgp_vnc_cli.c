@@ -53,9 +53,12 @@ DEFPY_YANG_NOSH(vnc_defaults_cli,
 	"Configure default NVE group settings\n")
 {
 	char xpath_abs[XPATH_MAXLEN + 256];
+	int ret;
 
 	nb_cli_enqueue_change(vty, "./frr-bgp-vnc:vnc/defaults", NB_OP_CREATE, NULL);
-	nb_cli_apply_changes_clear_pending(vty, NULL);
+	ret = nb_cli_apply_changes_clear_pending(vty, NULL);
+	if (ret != CMD_SUCCESS)
+		return ret;
 
 	snprintfrr(xpath_abs, sizeof(xpath_abs), "%s/frr-bgp-vnc:vnc/defaults", VTY_CURR_XPATH);
 	VTY_PUSH_XPATH(BGP_VNC_DEFAULTS_NODE, xpath_abs);
@@ -144,10 +147,13 @@ DEFPY_YANG_NOSH(vnc_nve_group_cli,
 {
 	char xpath[XPATH_MAXLEN];
 	char xpath_abs[XPATH_MAXLEN + 256];
+	int ret;
 
 	snprintfrr(xpath, sizeof(xpath), "./frr-bgp-vnc:vnc/nve-group[name='%s']", name);
 	nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
-	nb_cli_apply_changes_clear_pending(vty, NULL);
+	ret = nb_cli_apply_changes_clear_pending(vty, NULL);
+	if (ret != CMD_SUCCESS)
+		return ret;
 
 	snprintfrr(xpath_abs, sizeof(xpath_abs), "%s/frr-bgp-vnc:vnc/nve-group[name='%s']",
 		   VTY_CURR_XPATH, name);
@@ -226,10 +232,13 @@ DEFPY_YANG_NOSH(vrf_policy_cli,
 {
 	char xpath[XPATH_MAXLEN];
 	char xpath_abs[XPATH_MAXLEN + 256];
+	int ret;
 
 	snprintfrr(xpath, sizeof(xpath), "./frr-bgp-vnc:vnc/vrf-policy[name='%s']", name);
 	nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
-	nb_cli_apply_changes_clear_pending(vty, NULL);
+	ret = nb_cli_apply_changes_clear_pending(vty, NULL);
+	if (ret != CMD_SUCCESS)
+		return ret;
 
 	snprintfrr(xpath_abs, sizeof(xpath_abs), "%s/frr-bgp-vnc:vnc/vrf-policy[name='%s']",
 		   VTY_CURR_XPATH, name);
@@ -1131,10 +1140,13 @@ DEFPY_YANG_NOSH(vnc_l2_group_cli, vnc_l2_group_cli_cmd,
 {
 	char xpath[XPATH_MAXLEN];
 	char xpath_abs[XPATH_MAXLEN + 256];
+	int ret;
 
 	snprintfrr(xpath, sizeof(xpath), "./frr-bgp-vnc:vnc/l2-group[name='%s']", name);
 	nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
-	nb_cli_apply_changes_clear_pending(vty, NULL);
+	ret = nb_cli_apply_changes_clear_pending(vty, NULL);
+	if (ret != CMD_SUCCESS)
+		return ret;
 
 	snprintfrr(xpath_abs, sizeof(xpath_abs), "%s/frr-bgp-vnc:vnc/l2-group[name='%s']",
 		   VTY_CURR_XPATH, name);

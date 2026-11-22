@@ -127,10 +127,52 @@ static int vnc_nb_rd_validate(const struct lyd_node *dnode, bool is_vrf_policy, 
 	return NB_OK;
 }
 
+static int vnc_nb_validate_default_bgp(const struct lyd_node *dnode, char *errmsg,
+				       size_t errmsg_len)
+{
+	const struct lyd_node *cur, *cpp;
+	struct bgp *bgp;
+
+	for (cur = dnode; cur; cur = lyd_parent(cur)) {
+		if (cur->schema->nodetype != LYS_CONTAINER &&
+		    cur->schema->nodetype != LYS_LIST)
+			continue;
+		if (!strmatch(cur->schema->name, "bgp"))
+			continue;
+		if (!cur->schema->module || !strmatch(cur->schema->module->name, "frr-bgp"))
+			continue;
+
+		if (yang_dnode_exists(cur, "./global/instance-type-view") &&
+		    yang_dnode_get_bool(cur, "./global/instance-type-view")) {
+			snprintfrr(errmsg, errmsg_len,
+				   "VNC operations only permitted on default BGP instance.");
+			return NB_ERR_VALIDATION;
+		}
+		cpp = yang_dnode_get_parent(cur, "control-plane-protocol");
+		if (cpp && yang_dnode_exists(cpp, "./vrf") &&
+		    !strmatch(yang_dnode_get_string(cpp, "./vrf"), VRF_DEFAULT_NAME)) {
+			snprintfrr(errmsg, errmsg_len,
+				   "VNC operations only permitted on default BGP instance.");
+			return NB_ERR_VALIDATION;
+		}
+		bgp = nb_running_get_entry_non_rec(cur, NULL, false);
+		if (bgp && (bgp->inst_type != BGP_INSTANCE_TYPE_DEFAULT || !bgp->rfapi_cfg)) {
+			snprintfrr(errmsg, errmsg_len,
+				   "VNC operations only permitted on default BGP instance.");
+			return NB_ERR_VALIDATION;
+		}
+		return NB_OK;
+	}
+
+	snprintfrr(errmsg, errmsg_len,
+		   "VNC operations only permitted on default BGP instance.");
+	return NB_ERR_VALIDATION;
+}
+
 int bgp_global_vnc_create(struct nb_cb_create_args *args)
 {
-	if (args->event != NB_EV_APPLY)
-		return NB_OK;
+	if (args->event == NB_EV_VALIDATE)
+		return vnc_nb_validate_default_bgp(args->dnode, args->errmsg, args->errmsg_len);
 	return NB_OK;
 }
 
@@ -138,12 +180,14 @@ int bgp_global_vnc_rfp_holddown_factor_modify(struct nb_cb_modify_args *args)
 {
 	struct bgp *bgp;
 
+	if (args->event == NB_EV_VALIDATE)
+		return vnc_nb_validate_default_bgp(args->dnode, args->errmsg, args->errmsg_len);
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
 	bgp = bgp_nb_vnc_get_bgp(args->dnode);
 	if (!bgp || !bgp->rfapi_cfg)
-		return NB_ERR_INCONSISTENCY;
+		return NB_OK;
 
 	bgp->rfapi_cfg->rfp_cfg.holddown_factor = yang_dnode_get_uint32(args->dnode, NULL);
 	return NB_OK;
@@ -153,12 +197,14 @@ int bgp_global_vnc_rfp_full_table_download_modify(struct nb_cb_modify_args *args
 {
 	struct bgp *bgp;
 
+	if (args->event == NB_EV_VALIDATE)
+		return vnc_nb_validate_default_bgp(args->dnode, args->errmsg, args->errmsg_len);
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
 	bgp = bgp_nb_vnc_get_bgp(args->dnode);
 	if (!bgp || !bgp->rfapi_cfg)
-		return NB_ERR_INCONSISTENCY;
+		return NB_OK;
 
 	const char *mode = yang_dnode_get_string(args->dnode, NULL);
 
@@ -169,6 +215,8 @@ int bgp_global_vnc_rfp_full_table_download_modify(struct nb_cb_modify_args *args
 
 int bgp_global_vnc_defaults_create(struct nb_cb_create_args *args)
 {
+	if (args->event == NB_EV_VALIDATE)
+		return vnc_nb_validate_default_bgp(args->dnode, args->errmsg, args->errmsg_len);
 	return NB_OK;
 }
 
@@ -253,12 +301,14 @@ int bgp_global_vnc_nve_group_create(struct nb_cb_create_args *args)
 	const char *name;
 	const struct lyd_node *defaults;
 
+	if (args->event == NB_EV_VALIDATE)
+		return vnc_nb_validate_default_bgp(args->dnode, args->errmsg, args->errmsg_len);
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
 	bgp = bgp_nb_vnc_get_bgp(args->dnode);
 	if (!bgp || !bgp->rfapi_cfg)
-		return NB_ERR_INCONSISTENCY;
+		return NB_OK;
 
 	name = yang_dnode_get_string(args->dnode, "name");
 	rfg = bgp_rfapi_cfg_match_byname(bgp, name, RFAPI_GROUP_CFG_NVE);
@@ -607,11 +657,13 @@ int bgp_global_vnc_vrf_policy_create(struct nb_cb_create_args *args)
 	struct rfapi_nve_group_cfg *rfg;
 	const char *name;
 
+	if (args->event == NB_EV_VALIDATE)
+		return vnc_nb_validate_default_bgp(args->dnode, args->errmsg, args->errmsg_len);
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 	bgp = bgp_nb_vnc_get_bgp(args->dnode);
 	if (!bgp || !bgp->rfapi_cfg)
-		return NB_ERR_INCONSISTENCY;
+		return NB_OK;
 	name = yang_dnode_get_string(args->dnode, "name");
 	rfg = bgp_rfapi_cfg_match_byname(bgp, name, RFAPI_GROUP_CFG_VRF);
 	if (!rfg)
@@ -1867,12 +1919,14 @@ int bgp_global_vnc_l2_group_create(struct nb_cb_create_args *args)
 	struct rfapi_l2_group_cfg *rfg;
 	const char *name;
 
+	if (args->event == NB_EV_VALIDATE)
+		return vnc_nb_validate_default_bgp(args->dnode, args->errmsg, args->errmsg_len);
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
 	bgp = bgp_nb_vnc_get_bgp(args->dnode);
 	if (!bgp || !bgp->rfapi_cfg)
-		return NB_ERR_INCONSISTENCY;
+		return NB_OK;
 
 	name = yang_dnode_get_string(args->dnode, "name");
 	rfg = rfapi_l2_group_lookup_byname(bgp, name);

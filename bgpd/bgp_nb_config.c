@@ -72,6 +72,8 @@
 DEFINE_HOOK(bgp_snmp_init_stats, (struct bgp *bgp), (bgp));
 DEFINE_HOOK(bgp_route_distinguisher_update, (struct bgp *bgp, afi_t afi, bool preconfig),
 	    (bgp, afi, preconfig));
+
+static const struct lyd_node *bgp_nb_candidate_match(const struct lyd_node *old);
 DEFINE_HOOK(bgp_snmp_update_last_changed, (struct bgp *bgp), (bgp));
 
 /* Same instance identity bgp_nb_bgp_create() uses on APPLY. */
@@ -4615,6 +4617,8 @@ void bgp_nb_cli_show_unnumbered_v6only(struct vty *vty, const struct lyd_node *d
 
 static bool bgp_nb_dnode_afi_safi(const struct lyd_node *dnode, afi_t *afi, safi_t *safi);
 static void bgp_nb_peer_reapply_enabled_af(struct peer *peer, const struct lyd_node *pg_leaf);
+static int bgp_nb_peer_group_bind_validate(const struct lyd_node *dnode, char *errmsg,
+					   size_t errmsg_len);
 
 int bgp_nb_unnumbered_peer_group_modify(struct nb_cb_modify_args *args)
 {
@@ -4624,8 +4628,15 @@ int bgp_nb_unnumbered_peer_group_modify(struct nb_cb_modify_args *args)
 	as_t as;
 	int ret;
 
-	if (args->event != NB_EV_APPLY)
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+		return bgp_nb_peer_group_bind_validate(args->dnode, args->errmsg, args->errmsg_len);
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
 		return NB_OK;
+	case NB_EV_APPLY:
+		break;
+	}
 
 	peer = nb_running_get_entry(args->dnode, NULL, true);
 	group_name = yang_dnode_get_string(args->dnode, NULL);
@@ -4635,8 +4646,10 @@ int bgp_nb_unnumbered_peer_group_modify(struct nb_cb_modify_args *args)
 
 	as = peer->as;
 	ret = peer_group_bind(peer->bgp, NULL, peer, group, &as);
-	if (ret != 0)
-		return NB_ERR_RESOURCE;
+	if (ret != 0) {
+		zlog_warn("%s: peer_group_bind failed for %s (%d)", __func__, peer->host, ret);
+		return NB_OK;
+	}
 
 	bgp_nb_peer_reapply_enabled_af(peer, args->dnode);
 
@@ -4702,17 +4715,34 @@ void bgp_nb_cli_show_unnumbered_peer_group(struct vty *vty, const struct lyd_nod
 int bgp_nb_peer_password_modify(struct nb_cb_modify_args *args)
 {
 	struct peer *peer;
+	const char *password;
+	size_t len;
 	int ret;
 
-	if (args->event != NB_EV_APPLY)
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+		password = yang_dnode_get_string(args->dnode, NULL);
+		len = strlen(password);
+		if (len < PEER_PASSWORD_MINLEN || len > PEER_PASSWORD_MAXLEN) {
+			snprintfrr(args->errmsg, args->errmsg_len, "Invalid value");
+			return NB_ERR_VALIDATION;
+		}
 		return NB_OK;
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+		return NB_OK;
+	case NB_EV_APPLY:
+		break;
+	}
 
 	peer = bgp_nb_config_peer(args->dnode);
 	if (!peer)
 		return NB_ERR_NOT_FOUND;
 
 	ret = peer_password_set(peer, yang_dnode_get_string(args->dnode, NULL));
-	return ret ? NB_ERR_RESOURCE : NB_OK;
+	if (ret != 0)
+		zlog_warn("%s: peer_password_set failed for %s (%d)", __func__, peer->host, ret);
+	return NB_OK;
 }
 
 int bgp_nb_peer_password_destroy(struct nb_cb_destroy_args *args)
@@ -6418,19 +6448,65 @@ static enum bgp_peer_sort bgp_nb_candidate_peer_sort(const struct lyd_node *dnod
 static int bgp_nb_peer_local_role_validate(const struct lyd_node *dnode, char *errmsg,
 					   size_t errmsg_len)
 {
+	const struct lyd_node *grp, *bgp_node, *list, *nbr;
+	const char *gname;
+	struct peer *peer, *member;
+	struct listnode *node;
 	enum bgp_peer_sort sort;
 	bool group;
 
-	group = yang_dnode_get_parent(dnode, "peer-group") != NULL;
+	grp = yang_dnode_get_parent(dnode, "peer-group");
+	group = grp != NULL;
 	sort = bgp_nb_candidate_peer_sort(dnode);
 
 	/*
-	 * An untyped peer-group is allowed; members are checked when they
-	 * are bound. A neighbor, or a group that is already iBGP, is not.
+	 * An untyped peer-group is allowed if all its members are eBGP.
+	 * A neighbor, or a group that is already iBGP, is not.
 	 */
 	if ((!group && sort != BGP_PEER_EBGP) || (group && sort == BGP_PEER_IBGP)) {
 		snprintfrr(errmsg, errmsg_len, "External roles can be set only on eBGP session");
 		return NB_ERR_VALIDATION;
+	}
+
+	if (group) {
+		gname = yang_dnode_exists(grp, "peer-group-name")
+				? yang_dnode_get_string(grp, "peer-group-name")
+				: NULL;
+		bgp_node = yang_dnode_get_parent(grp, "bgp");
+		if (gname && bgp_node) {
+			const char *lists[] = { "neighbors", "unnumbered-neighbors" };
+
+			for (size_t i = 0; i < array_size(lists); i++) {
+				list = yang_dnode_get(bgp_node, lists[i]);
+				if (!list)
+					continue;
+				LY_LIST_FOR (lyd_child(list), nbr) {
+					if (!yang_dnode_exists(nbr, "peer-group"))
+						continue;
+					if (!strmatch(yang_dnode_get_string(nbr, "peer-group"),
+						      gname))
+						continue;
+					if (bgp_nb_candidate_peer_sort(nbr) != BGP_PEER_EBGP) {
+						snprintfrr(
+							errmsg, errmsg_len,
+							"External roles can be set only on eBGP session");
+						return NB_ERR_VALIDATION;
+					}
+				}
+			}
+		}
+
+		peer = bgp_nb_config_peer(dnode);
+		if (peer && peer->group) {
+			for (ALL_LIST_ELEMENTS_RO(peer->group->peer, node, member)) {
+				if (member->sort != BGP_PEER_EBGP) {
+					snprintfrr(
+						errmsg, errmsg_len,
+						"External roles can be set only on eBGP session");
+					return NB_ERR_VALIDATION;
+				}
+			}
+		}
 	}
 
 	return NB_OK;
@@ -6852,65 +6928,77 @@ static void bgp_nb_peer_reapply_enabled_af(struct peer *peer, const struct lyd_n
 	}
 }
 
-int bgp_nb_neighbor_peer_group_modify(struct nb_cb_modify_args *args)
+static int bgp_nb_peer_group_bind_validate(const struct lyd_node *dnode, char *errmsg,
+					   size_t errmsg_len)
 {
 	struct peer *peer;
 	struct peer_group *group;
 	const struct lyd_node *nbr, *grp_node;
+	const char *group_name;
+
+	peer = bgp_nb_config_peer(dnode);
+	group_name = yang_dnode_get_string(dnode, NULL);
+	/*
+	 * Soft lookup may return NULL (same-candidate create) or a
+	 * stale/wrong entry without a live bgp — never deref blindly.
+	 */
+	if (peer && peer->bgp && peer_dynamic_neighbor(peer)) {
+		snprintfrr(errmsg, errmsg_len, "operation not allowed on a dynamic neighbor");
+		return NB_ERR_VALIDATION;
+	}
+	if (peer && peer_group_active(peer) && !strmatch(peer->group->name, group_name)) {
+		snprintfrr(errmsg, errmsg_len, "Cannot change the peer-group. Deconfigure first");
+		return NB_ERR_VALIDATION;
+	}
+	/*
+	 * The neighbor and the group may both be created in this
+	 * candidate. Compare those leaves. Running flags still show
+	 * a knob this commit is removing.
+	 */
+	nbr = bgp_nb_peer_container(dnode);
+	grp_node = bgp_nb_candidate_peer_group(dnode, group_name);
+	if (nbr && grp_node && bgp_nb_candidate_gtsm_multihop_conflict(nbr, grp_node)) {
+		snprintfrr(errmsg, errmsg_len,
+			   "%%Cannot configure both ttl-security hops and ebgp-multihop");
+		return NB_ERR_VALIDATION;
+	}
+	if (!peer || !peer->bgp)
+		return NB_OK;
+	group = peer_group_lookup(peer->bgp, group_name);
+	if (!group) {
+		/*
+		 * A group created in this same candidate is applied
+		 * after neighbor edits, so it is not there to bind.
+		 */
+		snprintfrr(errmsg, errmsg_len, "Configure the peer-group first");
+		return NB_ERR_VALIDATION;
+	}
+	/*
+	 * Mirror peer_group_bind() when the candidate containers
+	 * were not both visible.
+	 */
+	if ((!nbr || !grp_node) &&
+	    ((CHECK_FLAG(peer->flags, PEER_FLAG_EBGP_MULTIHOP) &&
+	      group->conf->gtsm_hops != BGP_GTSM_HOPS_DISABLED) ||
+	     (peer->gtsm_hops != BGP_GTSM_HOPS_DISABLED && group->conf->cfg_ttl != 0))) {
+		snprintfrr(errmsg, errmsg_len,
+			   "%%Cannot configure both ttl-security hops and ebgp-multihop");
+		return NB_ERR_VALIDATION;
+	}
+	return NB_OK;
+}
+
+int bgp_nb_neighbor_peer_group_modify(struct nb_cb_modify_args *args)
+{
+	struct peer *peer;
+	struct peer_group *group;
 	const char *group_name;
 	as_t as;
 	int ret;
 
 	switch (args->event) {
 	case NB_EV_VALIDATE:
-		peer = bgp_nb_config_peer(args->dnode);
-		group_name = yang_dnode_get_string(args->dnode, NULL);
-		/*
-		 * Soft lookup may return NULL (same-candidate create) or a
-		 * stale/wrong entry without a live bgp — never deref blindly.
-		 */
-		if (peer && peer->bgp && peer_dynamic_neighbor(peer)) {
-			snprintfrr(args->errmsg, args->errmsg_len,
-				   "operation not allowed on a dynamic neighbor");
-			return NB_ERR_VALIDATION;
-		}
-		/*
-		 * The neighbor and the group may both be created in this
-		 * candidate. Compare those leaves. Running flags still show
-		 * a knob this commit is removing.
-		 */
-		nbr = bgp_nb_peer_container(args->dnode);
-		grp_node = bgp_nb_candidate_peer_group(args->dnode, group_name);
-		if (nbr && grp_node && bgp_nb_candidate_gtsm_multihop_conflict(nbr, grp_node)) {
-			snprintfrr(args->errmsg, args->errmsg_len,
-				   "%%Cannot configure both ttl-security hops and ebgp-multihop");
-			return NB_ERR_VALIDATION;
-		}
-		if (!peer || !peer->bgp)
-			return NB_OK;
-		group = peer_group_lookup(peer->bgp, group_name);
-		if (!group) {
-			/*
-			 * A group created in this same candidate is applied
-			 * after neighbor edits, so it is not there to bind.
-			 */
-			snprintfrr(args->errmsg, args->errmsg_len,
-				   "Configure the peer-group first");
-			return NB_ERR_VALIDATION;
-		}
-		/*
-		 * Mirror peer_group_bind() when the candidate containers
-		 * were not both visible.
-		 */
-		if ((!nbr || !grp_node) &&
-		    ((CHECK_FLAG(peer->flags, PEER_FLAG_EBGP_MULTIHOP) &&
-		      group->conf->gtsm_hops != BGP_GTSM_HOPS_DISABLED) ||
-		     (peer->gtsm_hops != BGP_GTSM_HOPS_DISABLED && group->conf->cfg_ttl != 0))) {
-			snprintfrr(args->errmsg, args->errmsg_len,
-				   "%%Cannot configure both ttl-security hops and ebgp-multihop");
-			return NB_ERR_VALIDATION;
-		}
-		return NB_OK;
+		return bgp_nb_peer_group_bind_validate(args->dnode, args->errmsg, args->errmsg_len);
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
 		return NB_OK;
@@ -6929,17 +7017,10 @@ int bgp_nb_neighbor_peer_group_modify(struct nb_cb_modify_args *args)
 
 	as = peer->as;
 	ret = peer_group_bind(peer->bgp, &peer->connection->su, peer, group, &as);
-	if (ret == BGP_ERR_NO_EBGP_MULTIHOP_WITH_TTLHACK) {
-		/*
-		 * VALIDATE rejects this pair. Failing APPLY cannot roll
-		 * back leaves that were already applied.
-		 */
-		zlog_warn("%s: bind rejected for %s; ttl-security and ebgp-multihop conflict",
-			  __func__, peer->host);
+	if (ret != 0) {
+		zlog_warn("%s: peer_group_bind failed for %s (%d)", __func__, peer->host, ret);
 		return NB_OK;
 	}
-	if (ret != 0)
-		return NB_ERR_RESOURCE;
 
 	bgp_nb_peer_reapply_enabled_af(peer, args->dnode);
 
@@ -7558,7 +7639,7 @@ static int bgp_nb_network_apply(const struct lyd_node *dnode, bool clear_rmap)
 
 	if (bgp_network_set(bgp, afi, safi, prefix, rmap, backdoor ? 1 : 0, label_index, err,
 			    sizeof(err)) < 0)
-		return NB_ERR_RESOURCE;
+		zlog_warn("%s: bgp_network_set failed for %s: %s", __func__, prefix, err);
 	return NB_OK;
 }
 
@@ -7566,10 +7647,18 @@ int bgp_nb_network_create(struct nb_cb_create_args *args)
 {
 	if (args->event == NB_EV_VALIDATE) {
 		struct prefix p;
+		afi_t afi;
+		safi_t safi;
 		const char *prefix = yang_dnode_get_string(args->dnode, "./prefix");
 
 		if (!str2prefix(prefix, &p)) {
 			snprintfrr(args->errmsg, args->errmsg_len, "Malformed network prefix");
+			return NB_ERR_VALIDATION;
+		}
+		if (bgp_nb_dnode_afi_safi(args->dnode, &afi, &safi) && afi == AFI_IP6 &&
+		    IN6_IS_ADDR_LINKLOCAL(&p.u.prefix6)) {
+			snprintfrr(args->errmsg, args->errmsg_len,
+				   "Malformed prefix (link-local address)");
 			return NB_ERR_VALIDATION;
 		}
 		return NB_OK;
@@ -7622,8 +7711,52 @@ int bgp_nb_network_backdoor_modify(struct nb_cb_modify_args *args)
 	return bgp_nb_network_apply(yang_dnode_get_parent(args->dnode, "network-config"), false);
 }
 
+static int bgp_nb_network_label_index_validate(const struct lyd_node *net_dnode,
+					       uint32_t new_label_index, char *errmsg,
+					       size_t errmsg_len)
+{
+	struct bgp *bgp;
+	afi_t afi;
+	safi_t safi;
+	struct prefix p;
+	struct bgp_dest *dest;
+	struct bgp_static *bgp_static;
+
+	if (!net_dnode)
+		return NB_OK;
+
+	bgp = nb_running_get_entry(net_dnode, NULL, false);
+	if (!bgp || !bgp_nb_dnode_afi_safi(net_dnode, &afi, &safi))
+		return NB_OK;
+
+	if (!str2prefix(yang_dnode_get_string(net_dnode, "./prefix"), &p))
+		return NB_OK;
+
+	apply_mask(&p);
+	dest = bgp_node_lookup(bgp->static_routes[afi][safi], &p);
+	if (!dest)
+		return NB_OK;
+
+	bgp_static = bgp_dest_get_bgp_static_info(dest);
+	if (bgp_static && bgp_static->label_index != new_label_index) {
+		bgp_dest_unlock_node(dest);
+		snprintfrr(errmsg, errmsg_len, "cannot change label-index");
+		return NB_ERR_VALIDATION;
+	}
+	bgp_dest_unlock_node(dest);
+	return NB_OK;
+}
+
 int bgp_nb_network_label_index_modify(struct nb_cb_modify_args *args)
 {
+	if (args->event == NB_EV_VALIDATE) {
+		const struct lyd_node *net_dnode =
+			yang_dnode_get_parent(args->dnode, "network-config");
+
+		return bgp_nb_network_label_index_validate(
+			net_dnode, yang_dnode_get_uint32(args->dnode, NULL), args->errmsg,
+			args->errmsg_len);
+	}
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 	return bgp_nb_network_apply(yang_dnode_get_parent(args->dnode, "network-config"), false);
@@ -7631,9 +7764,25 @@ int bgp_nb_network_label_index_modify(struct nb_cb_modify_args *args)
 
 int bgp_nb_network_label_index_destroy(struct nb_cb_destroy_args *args)
 {
+	if (args->event == NB_EV_VALIDATE) {
+		const struct lyd_node *net_dnode =
+			bgp_nb_candidate_match(yang_dnode_get_parent(args->dnode, "network-config"));
+
+		if (!net_dnode)
+			return NB_OK;
+		return bgp_nb_network_label_index_validate(net_dnode, BGP_INVALID_LABEL_INDEX,
+							   args->errmsg, args->errmsg_len);
+	}
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
-	return bgp_nb_network_apply(yang_dnode_get_parent(args->dnode, "network-config"), false);
+	{
+		const struct lyd_node *net_dnode =
+			bgp_nb_candidate_match(yang_dnode_get_parent(args->dnode, "network-config"));
+
+		if (!net_dnode)
+			return NB_OK;
+		return bgp_nb_network_apply(net_dnode, false);
+	}
 }
 
 int bgp_nb_network_rmap_modify(struct nb_cb_modify_args *args)
@@ -7686,7 +7835,7 @@ static int bgp_nb_vpn_network_apply(const struct lyd_node *prefix_dnode)
 
 	if (bgp_vpn_network_set(bgp, false, prefix, rd_str, label_buf, afi, rmap, err,
 				sizeof(err)) < 0)
-		return NB_ERR_RESOURCE;
+		zlog_warn("%s: bgp_vpn_network_set failed for %s: %s", __func__, prefix, err);
 	return NB_OK;
 }
 
@@ -7728,10 +7877,18 @@ int bgp_nb_vpn_network_rd_destroy(struct nb_cb_destroy_args *args)
 int bgp_nb_vpn_network_prefix_create(struct nb_cb_create_args *args)
 {
 	struct prefix p;
+	afi_t afi;
+	safi_t safi;
 
 	if (args->event == NB_EV_VALIDATE) {
 		if (!str2prefix(yang_dnode_get_string(args->dnode, "./prefix"), &p)) {
 			snprintfrr(args->errmsg, args->errmsg_len, "Malformed network prefix");
+			return NB_ERR_VALIDATION;
+		}
+		if (bgp_nb_dnode_afi_safi(args->dnode, &afi, &safi) && afi == AFI_IP6 &&
+		    IN6_IS_ADDR_LINKLOCAL(&p.u.prefix6)) {
+			snprintfrr(args->errmsg, args->errmsg_len,
+				   "Malformed prefix (link-local address)");
 			return NB_ERR_VALIDATION;
 		}
 		return NB_OK;
@@ -14010,10 +14167,9 @@ int bgp_nb_srv6_locator_modify(struct nb_cb_modify_args *args)
 		snprintfrr(bgp->srv6_locator_name, sizeof(bgp->srv6_locator_name), "%s", name);
 	}
 	ret = bgp_zebra_srv6_manager_get_locator(name);
-	if (ret < 0) {
-		snprintfrr(args->errmsg, args->errmsg_len, "failed to get srv6 locator %s", name);
-		return NB_ERR_RESOURCE;
-	}
+	if (ret < 0)
+		zlog_warn("%s: failed to get srv6 locator %s (zebra may not be connected yet)",
+			  __func__, name);
 	return NB_OK;
 }
 
@@ -14028,10 +14184,8 @@ int bgp_nb_srv6_locator_destroy(struct nb_cb_destroy_args *args)
 	if (!bgp)
 		return NB_OK;
 
-	if (bgp_srv6_locator_unset(bgp) < 0) {
-		snprintfrr(args->errmsg, args->errmsg_len, "failed to unset srv6 locator");
-		return NB_ERR_RESOURCE;
-	}
+	if (bgp_srv6_locator_unset(bgp) < 0)
+		zlog_warn("%s: failed to unset srv6 locator", __func__);
 	return NB_OK;
 }
 
@@ -14176,8 +14330,8 @@ static int bgp_nb_ls_fabric_enable(struct bgp *bgp, uint64_t instance_id, char *
 				   size_t errmsg_len)
 {
 	if (!bgp->ls_info) {
-		snprintfrr(errmsg, errmsg_len, "BGP-LS not initialized");
-		return NB_ERR_RESOURCE;
+		zlog_warn("%s: BGP-LS not initialized", __func__);
+		return NB_OK;
 	}
 
 	if (bgp->ls_info->enable_distribution && bgp->ls_info->instance_id == instance_id)
@@ -14197,10 +14351,8 @@ static int bgp_nb_ls_fabric_enable(struct bgp *bgp, uint64_t instance_id, char *
 	if (bgp_zclient && bgp_zclient->sock >= 0)
 		bgp_zebra_srv6_manager_get_locator(NULL);
 
-	if (bgp_ls_export_bgp_topology(bgp) != 0) {
-		snprintfrr(errmsg, errmsg_len, "Failed to export BGP topology");
-		return NB_ERR_RESOURCE;
-	}
+	if (bgp_ls_export_bgp_topology(bgp) != 0)
+		zlog_warn("%s: Failed to export BGP topology", __func__);
 	return NB_OK;
 }
 
@@ -14267,6 +14419,12 @@ int bgp_nb_ls_fabric_instance_id_modify(struct nb_cb_modify_args *args)
 
 	switch (args->event) {
 	case NB_EV_VALIDATE:
+		bgp = nb_running_get_entry(args->dnode, NULL, false);
+		if (bgp && !bgp->ls_info) {
+			snprintfrr(args->errmsg, args->errmsg_len, "BGP-LS not initialized");
+			return NB_ERR_VALIDATION;
+		}
+		return NB_OK;
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
 		return NB_OK;
@@ -14499,25 +14657,112 @@ int bgp_nb_peer_afi_safi_destroy(struct nb_cb_destroy_args *args)
 	return NB_OK;
 }
 
+static bool bgp_nb_candidate_af_active(const struct lyd_node *peer_node, struct peer *peer,
+				       afi_t afi, safi_t safi)
+{
+	const struct lyd_node *af_list, *af;
+	afi_t a;
+	safi_t s;
+
+	if (peer_node) {
+		af_list = yang_dnode_get(peer_node, "afi-safis");
+		if (af_list) {
+			LY_LIST_FOR (lyd_child(af_list), af) {
+				if (!bgp_nb_dnode_afi_safi(af, &a, &s))
+					continue;
+				if (a != afi || s != safi)
+					continue;
+				if (yang_dnode_exists(af, "enabled"))
+					return yang_dnode_get_bool(af, "enabled");
+			}
+		}
+	}
+
+	return peer ? (peer->afc[afi][safi] != 0) : false;
+}
+
 int bgp_nb_peer_af_enabled_modify(struct nb_cb_modify_args *args)
 {
 	struct peer *peer;
 	afi_t afi;
 	safi_t safi;
+	int ret;
 
-	if (args->event != NB_EV_APPLY)
+	switch (args->event) {
+	case NB_EV_VALIDATE: {
+		const struct lyd_node *peer_node;
+		safi_t other_safi;
+		bool conflict = false;
+
+		if (!yang_dnode_get_bool(args->dnode, NULL))
+			return NB_OK;
+		if (!bgp_nb_dnode_afi_safi(args->dnode, &afi, &safi))
+			return NB_OK;
+		if (safi != SAFI_UNICAST && safi != SAFI_LABELED_UNICAST)
+			return NB_OK;
+
+		other_safi = (safi == SAFI_UNICAST) ? SAFI_LABELED_UNICAST : SAFI_UNICAST;
+		peer_node = bgp_nb_peer_container(args->dnode);
+		peer = bgp_nb_config_peer(args->dnode);
+
+		if (bgp_nb_candidate_af_active(peer_node, peer, afi, other_safi))
+			conflict = true;
+
+		/* If peer-group, also check members for the conflicting SAFI. */
+		if (!conflict && peer && CHECK_FLAG(peer->sflags, PEER_STATUS_GROUP) &&
+		    peer->group) {
+			struct peer *member;
+			struct listnode *node;
+
+			for (ALL_LIST_ELEMENTS_RO(peer->group->peer, node, member)) {
+				if (member->afc[afi][other_safi]) {
+					conflict = true;
+					break;
+				}
+			}
+		}
+
+		/* If peer-group member, check the peer-group as well. */
+		if (!conflict && peer_node && yang_dnode_exists(peer_node, "peer-group")) {
+			const char *gname = yang_dnode_get_string(peer_node, "peer-group");
+			const struct lyd_node *grp_node =
+				bgp_nb_candidate_peer_group(args->dnode, gname);
+			struct peer *gpeer = (peer && peer->group) ? peer->group->conf : NULL;
+
+			if (bgp_nb_candidate_af_active(grp_node, gpeer, afi, other_safi))
+				conflict = true;
+		}
+
+		if (conflict) {
+			snprintfrr(
+				args->errmsg, args->errmsg_len,
+				"Cannot activate peer for both '%s unicast' and '%s labeled-unicast'",
+				afi == AFI_IP ? "ipv4" : "ipv6", afi == AFI_IP ? "ipv4" : "ipv6");
+			return NB_ERR_VALIDATION;
+		}
 		return NB_OK;
+	}
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+		return NB_OK;
+	case NB_EV_APPLY:
+		break;
+	}
 
 	peer = bgp_nb_config_peer(args->dnode);
 	if (!peer || !bgp_nb_dnode_afi_safi(args->dnode, &afi, &safi))
 		return NB_ERR_NOT_FOUND;
 
 	if (yang_dnode_get_bool(args->dnode, NULL)) {
-		if (peer_activate(peer, afi, safi) < 0)
-			return NB_ERR_RESOURCE;
+		ret = peer_activate(peer, afi, safi);
+		if (ret < 0)
+			zlog_warn("%s: peer_activate failed for %s (%d)", __func__, peer->host,
+				  ret);
 	} else {
-		if (peer_deactivate(peer, afi, safi) < 0)
-			return NB_ERR_RESOURCE;
+		ret = peer_deactivate(peer, afi, safi);
+		if (ret < 0)
+			zlog_warn("%s: peer_deactivate failed for %s (%d)", __func__, peer->host,
+				  ret);
 	}
 	return NB_OK;
 }

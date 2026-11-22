@@ -1444,11 +1444,14 @@ extern void nb_candidate_commit_abort(struct nb_transaction *transaction,
  *
  * errmsg_len
  *    Size of errmsg.
+ * Returns:
+ *    - NB_OK on success.
+ *    - NB_ERR_* if applying the transaction failed.
  */
-extern void nb_candidate_commit_apply(struct nb_transaction *transaction,
-				      bool save_transaction,
-				      uint32_t *transaction_id, char *errmsg,
-				      size_t errmsg_len);
+extern int nb_candidate_commit_apply(struct nb_transaction *transaction,
+				     bool save_transaction,
+				     uint32_t *transaction_id, char *errmsg,
+				     size_t errmsg_len);
 
 /*
  * Create a new transaction to commit a candidate configuration. This is a
