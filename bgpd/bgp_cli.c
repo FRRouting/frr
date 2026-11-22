@@ -32,6 +32,7 @@
 #include "bgpd/bgp_community.h"
 #include "bgpd/bgp_lcommunity.h"
 #include "bgpd/bgp_ecommunity.h"
+#include "bgpd/bgp_mplsvpn.h"
 #include "bgpd/bgp_evpn.h"
 #include "bgpd/bgp_evpn_private.h"
 #include "bgpd/bgp_rd.h"
@@ -622,8 +623,10 @@ DEFPY_YANG(bgp_sid_vpn_export_yang, bgp_sid_vpn_export_yang_cmd,
 		return nb_cli_apply_changes(vty, NULL);
 	}
 
-	if (!sid_idx_str && !sid_auto && !sid_explicit)
+	if (!sid_idx_str && !sid_auto && !sid_explicit) {
+		vty_out(vty, "%% Command incomplete.\n");
 		return CMD_WARNING_CONFIG_FAILED;
+	}
 
 	if (!sid_auto)
 		nb_cli_enqueue_change(vty, "./global/sid-vpn-per-vrf-export/sid-auto",
@@ -8319,6 +8322,47 @@ DEFPY_YANG(bgp_imexport_vpn_yang, bgp_imexport_vpn_yang_cmd,
 	return nb_cli_apply_changes(vty, NULL);
 }
 
+static bool bgp_cli_vpn_policy_check(struct vty *vty, bool v2vimport)
+{
+	struct bgp *bgp = VTY_GET_CONTEXT(bgp);
+	afi_t afi;
+
+	switch (vty->node) {
+	case BGP_IPV4_NODE:
+		afi = AFI_IP;
+		break;
+	case BGP_IPV6_NODE:
+		afi = AFI_IP6;
+		break;
+	default:
+		vty_out(vty,
+			"%% context error: valid only in address-family <ipv4|ipv6> unicast block\n");
+		return false;
+	}
+
+	if (!bgp)
+		return true;
+
+	if (!v2vimport) {
+		if (CHECK_FLAG(bgp->af_flags[afi][SAFI_UNICAST], BGP_CONFIG_VRF_TO_VRF_IMPORT) ||
+		    CHECK_FLAG(bgp->af_flags[afi][SAFI_UNICAST], BGP_CONFIG_VRF_TO_VRF_EXPORT)) {
+			vty_out(vty,
+				"%% error: Please unconfigure import vrf commands before using vpn commands\n");
+			return false;
+		}
+	} else {
+		if (CHECK_FLAG(bgp->af_flags[afi][SAFI_UNICAST],
+			       BGP_CONFIG_VRF_TO_MPLSVPN_EXPORT) ||
+		    CHECK_FLAG(bgp->af_flags[afi][SAFI_UNICAST],
+			       BGP_CONFIG_MPLSVPN_TO_VRF_IMPORT)) {
+			vty_out(vty,
+				"%% error: Please unconfigure vpn to vrf commands before using import vrf commands\n");
+			return false;
+		}
+	}
+	return true;
+}
+
 DEFPY_YANG(af_route_map_vpn_yang, af_route_map_vpn_yang_cmd,
 	   "[no] route-map vpn <import|export>$direction_str [RMAP$rmap_str]",
 	   NO_STR
@@ -8331,6 +8375,10 @@ DEFPY_YANG(af_route_map_vpn_yang, af_route_map_vpn_yang_cmd,
 	char af_xpath[XPATH_MAXLEN];
 	char leaf[XPATH_MAXLEN + 256];
 	const char *leafname;
+	int ret;
+
+	if (!bgp_cli_vpn_policy_check(vty, false))
+		return CMD_WARNING_CONFIG_FAILED;
 
 	if (!strcmp(direction_str, "import"))
 		leafname = "rmap-import";
@@ -8342,22 +8390,29 @@ DEFPY_YANG(af_route_map_vpn_yang, af_route_map_vpn_yang_cmd,
 	}
 
 	bgp_cli_global_af_xpath(vty, af_xpath, sizeof(af_xpath));
-	nb_cli_enqueue_change(vty, af_xpath, NB_OP_CREATE, NULL);
 	snprintfrr(leaf, sizeof(leaf), "%s/vpn-config/%s", af_xpath, leafname);
-	if (no)
+	if (no) {
 		nb_cli_enqueue_change(vty, leaf, NB_OP_DESTROY, NULL);
-	else {
-		if (!rmap_str)
-			return CMD_WARNING_CONFIG_FAILED;
-		if (!strcmp(direction_str, "import")) {
-			char other[XPATH_MAXLEN + 256];
-
-			snprintfrr(other, sizeof(other), "%s/vpn-config/vrf-rmap-import", af_xpath);
-			nb_cli_enqueue_change(vty, other, NB_OP_DESTROY, NULL);
-		}
-		nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY, rmap_str);
+		return nb_cli_apply_changes(vty, NULL);
 	}
-	return nb_cli_apply_changes(vty, NULL);
+
+	if (!rmap_str) {
+		vty_out(vty, "%% Command incomplete.\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+
+	nb_cli_enqueue_change(vty, af_xpath, NB_OP_CREATE, NULL);
+	if (!strcmp(direction_str, "import")) {
+		char other[XPATH_MAXLEN + 256];
+
+		snprintfrr(other, sizeof(other), "%s/vpn-config/vrf-rmap-import", af_xpath);
+		nb_cli_enqueue_change(vty, other, NB_OP_DESTROY, NULL);
+	}
+	nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY, rmap_str);
+	ret = nb_cli_apply_changes(vty, NULL);
+	if (ret == CMD_SUCCESS)
+		route_map_lookup_warn_noexist(vty, rmap_str);
+	return ret;
 }
 
 DEFPY_YANG(af_import_vrf_route_map_yang, af_import_vrf_route_map_yang_cmd,
@@ -8371,20 +8426,31 @@ DEFPY_YANG(af_import_vrf_route_map_yang, af_import_vrf_route_map_yang_cmd,
 	char af_xpath[XPATH_MAXLEN];
 	char leaf[XPATH_MAXLEN + 256];
 	char other[XPATH_MAXLEN + 256];
+	int ret;
+
+	if (!bgp_cli_vpn_policy_check(vty, true))
+		return CMD_WARNING_CONFIG_FAILED;
 
 	bgp_cli_global_af_xpath(vty, af_xpath, sizeof(af_xpath));
-	nb_cli_enqueue_change(vty, af_xpath, NB_OP_CREATE, NULL);
 	snprintfrr(leaf, sizeof(leaf), "%s/vpn-config/vrf-rmap-import", af_xpath);
-	if (no)
+	if (no) {
 		nb_cli_enqueue_change(vty, leaf, NB_OP_DESTROY, NULL);
-	else {
-		if (!rmap_str)
-			return CMD_WARNING_CONFIG_FAILED;
-		snprintfrr(other, sizeof(other), "%s/vpn-config/rmap-import", af_xpath);
-		nb_cli_enqueue_change(vty, other, NB_OP_DESTROY, NULL);
-		nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY, rmap_str);
+		return nb_cli_apply_changes(vty, NULL);
 	}
-	return nb_cli_apply_changes(vty, NULL);
+
+	if (!rmap_str) {
+		vty_out(vty, "%% Command incomplete.\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+
+	nb_cli_enqueue_change(vty, af_xpath, NB_OP_CREATE, NULL);
+	snprintfrr(other, sizeof(other), "%s/vpn-config/rmap-import", af_xpath);
+	nb_cli_enqueue_change(vty, other, NB_OP_DESTROY, NULL);
+	nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY, rmap_str);
+	ret = nb_cli_apply_changes(vty, NULL);
+	if (ret == CMD_SUCCESS)
+		route_map_lookup_warn_noexist(vty, rmap_str);
+	return ret;
 }
 
 DEFPY_YANG(af_rd_vpn_export_yang, af_rd_vpn_export_yang_cmd,
@@ -8398,14 +8464,19 @@ DEFPY_YANG(af_rd_vpn_export_yang, af_rd_vpn_export_yang_cmd,
 	char af_xpath[XPATH_MAXLEN];
 	char leaf[XPATH_MAXLEN + 256];
 
+	if (!bgp_cli_vpn_policy_check(vty, false))
+		return CMD_WARNING_CONFIG_FAILED;
+
 	bgp_cli_global_af_xpath(vty, af_xpath, sizeof(af_xpath));
-	nb_cli_enqueue_change(vty, af_xpath, NB_OP_CREATE, NULL);
 	snprintfrr(leaf, sizeof(leaf), "%s/vpn-config/rd", af_xpath);
 	if (no)
 		nb_cli_enqueue_change(vty, leaf, NB_OP_DESTROY, NULL);
 	else {
-		if (!rd_str)
+		if (!rd_str) {
+			vty_out(vty, "%% Command incomplete.\n");
 			return CMD_WARNING_CONFIG_FAILED;
+		}
+		nb_cli_enqueue_change(vty, af_xpath, NB_OP_CREATE, NULL);
 		nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY, rd_str);
 	}
 	return nb_cli_apply_changes(vty, NULL);
@@ -8423,40 +8494,51 @@ DEFPY_YANG(af_label_vpn_export_yang, af_label_vpn_export_yang_cmd,
 	char af_xpath[XPATH_MAXLEN];
 	char label_xpath[XPATH_MAXLEN + 256];
 	char auto_xpath[XPATH_MAXLEN + 256];
+	char check[XPATH_MAXLEN + 256];
+	const struct lyd_node *cand = vty->candidate_config ? vty->candidate_config->dnode : NULL;
 	char buf[16];
-	//struct bgp *bgp;
+
+	if (!bgp_cli_vpn_policy_check(vty, false))
+		return CMD_WARNING_CONFIG_FAILED;
 
 	bgp_cli_global_af_xpath(vty, af_xpath, sizeof(af_xpath));
-	nb_cli_enqueue_change(vty, af_xpath, NB_OP_CREATE, NULL);
 	snprintfrr(label_xpath, sizeof(label_xpath), "%s/vpn-config/label", af_xpath);
 	snprintfrr(auto_xpath, sizeof(auto_xpath), "%s/vpn-config/label-auto", af_xpath);
 
 	if (no) {
+		bool is_auto = false;
+
+		snprintfrr(check, sizeof(check), "%s%s", VTY_CURR_XPATH, auto_xpath + 1);
+		if (cand && yang_dnode_exists(cand, check))
+			is_auto = yang_dnode_get_bool(cand, "%s", check);
+
 		if (label_auto) {
-			//		if (!CHECK_FLAG(bgp->vpn_policy[afi].flags,
-			//				BGP_VPN_POLICY_TOVPN_LABEL_AUTO))
-			//			return CMD_WARNING_CONFIG_FAILED;
+			if (!is_auto)
+				return CMD_WARNING_CONFIG_FAILED;
 			nb_cli_enqueue_change(vty, auto_xpath, NB_OP_DESTROY, NULL);
 		} else if (label_val_str) {
-			//		if (CHECK_FLAG(bgp->vpn_policy[afi].flags,
-			//			       BGP_VPN_POLICY_TOVPN_LABEL_AUTO) ||
-			//		    (mpls_label_t)label_val !=
-			//			    bgp->vpn_policy[afi].tovpn_label)
-			//			return CMD_WARNING_CONFIG_FAILED;
+			snprintfrr(check, sizeof(check), "%s%s", VTY_CURR_XPATH, label_xpath + 1);
+			if (is_auto || !cand || !yang_dnode_exists(cand, check) ||
+			    yang_dnode_get_uint32(cand, "%s", check) != (uint32_t)label_val)
+				return CMD_WARNING_CONFIG_FAILED;
 			nb_cli_enqueue_change(vty, label_xpath, NB_OP_DESTROY, NULL);
 		} else {
 			nb_cli_enqueue_change(vty, label_xpath, NB_OP_DESTROY, NULL);
 			nb_cli_enqueue_change(vty, auto_xpath, NB_OP_DESTROY, NULL);
 		}
 	} else if (label_auto) {
+		nb_cli_enqueue_change(vty, af_xpath, NB_OP_CREATE, NULL);
 		nb_cli_enqueue_change(vty, label_xpath, NB_OP_DESTROY, NULL);
 		nb_cli_enqueue_change(vty, auto_xpath, NB_OP_MODIFY, "true");
 	} else if (label_val_str) {
+		nb_cli_enqueue_change(vty, af_xpath, NB_OP_CREATE, NULL);
 		snprintfrr(buf, sizeof(buf), "%" PRId64, label_val);
 		nb_cli_enqueue_change(vty, auto_xpath, NB_OP_DESTROY, NULL);
 		nb_cli_enqueue_change(vty, label_xpath, NB_OP_MODIFY, buf);
-	} else
+	} else {
+		vty_out(vty, "%% Command incomplete.\n");
 		return CMD_WARNING_CONFIG_FAILED;
+	}
 
 	return nb_cli_apply_changes(vty, NULL);
 }
@@ -8473,26 +8555,31 @@ DEFPY_YANG(af_label_vpn_alloc_mode_yang, af_label_vpn_alloc_mode_yang_cmd,
 {
 	char af_xpath[XPATH_MAXLEN];
 	char leaf[XPATH_MAXLEN + 256];
-	//bool old_per_nexthop;
+	char check[XPATH_MAXLEN + 256];
+	const struct lyd_node *cand = vty->candidate_config ? vty->candidate_config->dnode : NULL;
+	bool old_per_nexthop = false;
 
-	//old_per_nexthop = !!CHECK_FLAG(bgp->vpn_policy[afi].flags,
-	//			      BGP_VPN_POLICY_TOVPN_LABEL_PER_NEXTHOP);
-
-	if (no) {
-		//if (!old_per_nexthop && label_per_nh)
-		//	return CMD_ERR_NO_MATCH;
-		//if (old_per_nexthop && label_per_vrf)
-		//	return CMD_ERR_NO_MATCH;
-	}
+	if (!bgp_cli_vpn_policy_check(vty, false))
+		return CMD_WARNING_CONFIG_FAILED;
 
 	bgp_cli_global_af_xpath(vty, af_xpath, sizeof(af_xpath));
-	nb_cli_enqueue_change(vty, af_xpath, NB_OP_CREATE, NULL);
 	snprintfrr(leaf, sizeof(leaf), "%s/vpn-config/export-allocation-mode", af_xpath);
-	if (no)
+
+	if (no) {
+		snprintfrr(check, sizeof(check), "%s%s", VTY_CURR_XPATH, leaf + 1);
+		if (cand && yang_dnode_exists(cand, check))
+			old_per_nexthop = strmatch(yang_dnode_get_string(cand, "%s", check),
+						   "per-nexthop");
+		if (!old_per_nexthop && label_per_nh)
+			return CMD_ERR_NO_MATCH;
+		if (old_per_nexthop && label_per_vrf)
+			return CMD_ERR_NO_MATCH;
 		nb_cli_enqueue_change(vty, leaf, NB_OP_DESTROY, NULL);
-	else
+	} else {
+		nb_cli_enqueue_change(vty, af_xpath, NB_OP_CREATE, NULL);
 		nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY,
 				      label_per_nh ? "per-nexthop" : "per-vrf");
+	}
 	return nb_cli_apply_changes(vty, NULL);
 }
 
@@ -8635,6 +8722,10 @@ DEFPY_YANG(bgp_import_vrf_yang, bgp_import_vrf_yang_cmd,
 {
 	char af_xpath[XPATH_MAXLEN];
 	char list_xpath[XPATH_MAXLEN + 256];
+	char check[XPATH_MAXLEN + 256];
+	struct bgp *bgp = VTY_GET_CONTEXT(bgp);
+	const struct lyd_node *cand = vty->candidate_config ? vty->candidate_config->dnode : NULL;
+	bool exists = false;
 
 	if (!import_name) {
 		vty_out(vty, "%% Missing import name\n");
@@ -8645,11 +8736,36 @@ DEFPY_YANG(bgp_import_vrf_yang, bgp_import_vrf_yang_cmd,
 		return CMD_WARNING;
 	}
 
+	if (!bgp_cli_vpn_policy_check(vty, true))
+		return CMD_WARNING_CONFIG_FAILED;
+
+	if (bgp && (((bgp->inst_type == BGP_INSTANCE_TYPE_DEFAULT) &&
+		     strmatch(import_name, VRF_DEFAULT_NAME)) ||
+		    (bgp->name && strmatch(import_name, bgp->name)))) {
+		vty_out(vty, "%% Cannot %s vrf %s into itself\n", no ? "unimport" : "import",
+			import_name);
+		return CMD_WARNING;
+	}
+
 	bgp_cli_global_af_xpath(vty, af_xpath, sizeof(af_xpath));
-	nb_cli_enqueue_change(vty, af_xpath, NB_OP_CREATE, NULL);
 	snprintfrr(list_xpath, sizeof(list_xpath), "%s/vpn-config/import-vrf-list[vrf='%s']",
 		   af_xpath, import_name);
-	nb_cli_enqueue_change(vty, list_xpath, no ? NB_OP_DESTROY : NB_OP_CREATE, NULL);
+	snprintfrr(check, sizeof(check), "%s%s", VTY_CURR_XPATH, list_xpath + 1);
+	if (cand)
+		exists = yang_dnode_exists(cand, check);
+
+	if (no) {
+		if (!exists)
+			return CMD_WARNING;
+		nb_cli_enqueue_change(vty, list_xpath, NB_OP_DESTROY, NULL);
+		return nb_cli_apply_changes(vty, NULL);
+	}
+
+	if (exists)
+		return CMD_WARNING;
+
+	nb_cli_enqueue_change(vty, af_xpath, NB_OP_CREATE, NULL);
+	nb_cli_enqueue_change(vty, list_xpath, NB_OP_CREATE, NULL);
 	return nb_cli_apply_changes(vty, NULL);
 }
 
@@ -9172,17 +9288,40 @@ DEFPY_YANG(sid_export_yang, sid_export_yang_cmd,
 	char af_xpath[XPATH_MAXLEN];
 	char leaf[XPATH_MAXLEN + 256];
 	char buf[16];
+	struct bgp *bgp = VTY_GET_CONTEXT(bgp);
+	afi_t afi = bgp_node_afi(vty);
+
+	if (bgp) {
+		if (bgp->inst_type != BGP_INSTANCE_TYPE_DEFAULT) {
+			vty_out(vty,
+				"SRv6 unicast is only supported on the default BGP instance\n");
+			return CMD_WARNING_CONFIG_FAILED;
+		}
+		if (is_srv6_vpn_afi_enabled(bgp, afi)) {
+			vty_out(vty,
+				"sid vpn per afi is configured; remove it before sid export\n");
+			return CMD_WARNING_CONFIG_FAILED;
+		}
+		if (is_srv6_vpn_vrf_enabled(bgp)) {
+			vty_out(vty,
+				"sid vpn per-vrf is configured; remove it before sid export\n");
+			return CMD_WARNING_CONFIG_FAILED;
+		}
+	}
 
 	bgp_cli_global_af_xpath(vty, af_xpath, sizeof(af_xpath));
-	nb_cli_enqueue_change(vty, af_xpath, NB_OP_CREATE, NULL);
 
 	if (no) {
 		bgp_cli_sid_export_clear(vty, af_xpath);
 		return nb_cli_apply_changes(vty, NULL);
 	}
 
-	if (!sid_idx_str && !sid_auto && !sid_explicit)
+	if (!sid_idx_str && !sid_auto && !sid_explicit) {
+		vty_out(vty, "%% Command incomplete.\n");
 		return CMD_WARNING_CONFIG_FAILED;
+	}
+
+	nb_cli_enqueue_change(vty, af_xpath, NB_OP_CREATE, NULL);
 
 	/*
 	 * Choice: destroy only sibling allocation leaves so a same-mode
@@ -9252,16 +9391,22 @@ DEFPY_YANG(af_sid_vpn_export_yang, af_sid_vpn_export_yang_cmd,
 	char leaf[XPATH_MAXLEN + 256];
 	char buf[16];
 
+	if (!bgp_cli_vpn_policy_check(vty, false))
+		return CMD_WARNING_CONFIG_FAILED;
+
 	bgp_cli_global_af_xpath(vty, af_xpath, sizeof(af_xpath));
-	nb_cli_enqueue_change(vty, af_xpath, NB_OP_CREATE, NULL);
 
 	if (no) {
 		bgp_cli_sid_vpn_export_clear(vty, af_xpath);
 		return nb_cli_apply_changes(vty, NULL);
 	}
 
-	if (!sid_idx_str && !sid_auto && !sid_explicit)
+	if (!sid_idx_str && !sid_auto && !sid_explicit) {
+		vty_out(vty, "%% Command incomplete.\n");
 		return CMD_WARNING_CONFIG_FAILED;
+	}
+
+	nb_cli_enqueue_change(vty, af_xpath, NB_OP_CREATE, NULL);
 
 	if (!sid_auto) {
 		snprintfrr(leaf, sizeof(leaf), "%s/vpn-config/sid-vpn-export/sid-auto", af_xpath);

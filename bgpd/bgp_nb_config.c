@@ -13173,6 +13173,8 @@ static int bgp_nb_vpn_rmap_apply(struct bgp *bgp, afi_t afi, enum vpn_policy_dir
 	if (rmap_name) {
 		bgp->vpn_policy[afi].rmap_name[dir] = XSTRDUP(MTYPE_ROUTE_MAP_NAME, rmap_name);
 		bgp->vpn_policy[afi].rmap[dir] = route_map_lookup_by_name(rmap_name);
+		if (!bgp->vpn_policy[afi].rmap[dir])
+			return NB_OK;
 	} else {
 		bgp->vpn_policy[afi].rmap_name[dir] = NULL;
 		bgp->vpn_policy[afi].rmap[dir] = NULL;
@@ -14462,8 +14464,18 @@ static void bgp_nb_sid_vpn_export_read(const struct lyd_node *cont, enum bgp_nb_
 }
 
 static int bgp_nb_sid_vpn_export_validate(struct bgp *bgp, afi_t afi, enum bgp_nb_sid_vpn_mode mode,
-					  char *errmsg, size_t errmsg_len)
+					  const struct lyd_node *cont, char *errmsg,
+					  size_t errmsg_len)
 {
+	if (CHECK_FLAG(bgp->af_flags[afi][SAFI_UNICAST], BGP_CONFIG_VRF_TO_VRF_IMPORT) ||
+	    CHECK_FLAG(bgp->af_flags[afi][SAFI_UNICAST], BGP_CONFIG_VRF_TO_VRF_EXPORT) ||
+	    (cont && (yang_dnode_exists(cont, "../import-vrf-list") ||
+		      yang_dnode_exists(cont, "../vrf-rmap-import")))) {
+		snprintfrr(errmsg, errmsg_len,
+			   "Please unconfigure import vrf commands before using vpn commands");
+		return NB_ERR_VALIDATION;
+	}
+
 	if (mode == BGP_NB_SID_VPN_NONE)
 		return NB_OK;
 
@@ -14515,7 +14527,7 @@ static int bgp_nb_sid_vpn_export_apply(struct bgp *bgp, afi_t afi, const struct 
 	enum bgp_nb_sid_vpn_mode mode;
 	uint32_t idx;
 	struct in6_addr explicit;
-	bool same_family;
+	bool same_val;
 
 	bgp_nb_sid_vpn_export_read(cont, &mode, &idx, &explicit);
 
@@ -14524,12 +14536,14 @@ static int bgp_nb_sid_vpn_export_apply(struct bgp *bgp, afi_t afi, const struct 
 		return NB_OK;
 	}
 
-	same_family = (mode == BGP_NB_SID_VPN_AUTO &&
-		       CHECK_FLAG(bgp->vpn_policy[afi].flags, BGP_VPN_POLICY_TOVPN_SID_AUTO)) ||
-		      (mode == BGP_NB_SID_VPN_INDEX && bgp->vpn_policy[afi].tovpn_sid_index != 0) ||
-		      (mode == BGP_NB_SID_VPN_EXPLICIT &&
-		       CHECK_FLAG(bgp->vpn_policy[afi].flags, BGP_VPN_POLICY_TOVPN_SID_EXPLICIT));
-	if (same_family)
+	same_val = (mode == BGP_NB_SID_VPN_AUTO &&
+		    CHECK_FLAG(bgp->vpn_policy[afi].flags, BGP_VPN_POLICY_TOVPN_SID_AUTO)) ||
+		   (mode == BGP_NB_SID_VPN_INDEX && bgp->vpn_policy[afi].tovpn_sid_index == idx) ||
+		   (mode == BGP_NB_SID_VPN_EXPLICIT &&
+		    CHECK_FLAG(bgp->vpn_policy[afi].flags, BGP_VPN_POLICY_TOVPN_SID_EXPLICIT) &&
+		    bgp->vpn_policy[afi].tovpn_sid_explicit &&
+		    IPV6_ADDR_SAME(&explicit, bgp->vpn_policy[afi].tovpn_sid_explicit));
+	if (same_val)
 		return NB_OK;
 
 	vpn_leak_prechange(BGP_VPN_POLICY_DIR_TOVPN, afi, bgp_get_default(), bgp);
@@ -14569,7 +14583,7 @@ static int bgp_nb_sid_vpn_export_from_dnode(const struct lyd_node *dnode, enum n
 		bgp = nb_running_get_entry(dnode, NULL, false);
 		if (!bgp || !bgp_nb_dnode_afi_safi(dnode, &afi, &safi))
 			return NB_OK;
-		return bgp_nb_sid_vpn_export_validate(bgp, afi, mode, errmsg, errmsg_len);
+		return bgp_nb_sid_vpn_export_validate(bgp, afi, mode, cont, errmsg, errmsg_len);
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
 		return NB_OK;
@@ -14590,13 +14604,26 @@ int bgp_nb_sid_vpn_export_index_modify(struct nb_cb_modify_args *args)
 						args->errmsg_len);
 }
 
-int bgp_nb_sid_vpn_export_index_destroy(struct nb_cb_destroy_args *args)
+static int bgp_nb_sid_vpn_export_destroy_common(struct nb_cb_destroy_args *args,
+						const char *other1, const char *other2)
 {
 	struct bgp *bgp;
 	afi_t afi;
 	safi_t safi;
 	const struct lyd_node *cont;
 
+	if (args->event == NB_EV_VALIDATE) {
+		bgp = nb_running_get_entry(args->dnode, NULL, false);
+		if (!bgp || !bgp_nb_dnode_afi_safi(args->dnode, &afi, &safi))
+			return NB_OK;
+		if (CHECK_FLAG(bgp->af_flags[afi][SAFI_UNICAST], BGP_CONFIG_VRF_TO_VRF_IMPORT) ||
+		    CHECK_FLAG(bgp->af_flags[afi][SAFI_UNICAST], BGP_CONFIG_VRF_TO_VRF_EXPORT)) {
+			snprintfrr(args->errmsg, args->errmsg_len,
+				   "Please unconfigure import vrf commands before using vpn commands");
+			return NB_ERR_VALIDATION;
+		}
+		return NB_OK;
+	}
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
@@ -14605,12 +14632,16 @@ int bgp_nb_sid_vpn_export_index_destroy(struct nb_cb_destroy_args *args)
 		return NB_OK;
 
 	cont = yang_dnode_get_parent(args->dnode, "sid-vpn-export");
-	if (cont &&
-	    (yang_dnode_exists(cont, "./sid-auto") || yang_dnode_exists(cont, "./sid-explicit")))
+	if (cont && (yang_dnode_exists(cont, other1) || yang_dnode_exists(cont, other2)))
 		return NB_OK;
 
 	bgp_nb_sid_vpn_export_clear(bgp, afi);
 	return NB_OK;
+}
+
+int bgp_nb_sid_vpn_export_index_destroy(struct nb_cb_destroy_args *args)
+{
+	return bgp_nb_sid_vpn_export_destroy_common(args, "./sid-auto", "./sid-explicit");
 }
 
 int bgp_nb_sid_vpn_export_auto_create(struct nb_cb_create_args *args)
@@ -14621,25 +14652,7 @@ int bgp_nb_sid_vpn_export_auto_create(struct nb_cb_create_args *args)
 
 int bgp_nb_sid_vpn_export_auto_destroy(struct nb_cb_destroy_args *args)
 {
-	struct bgp *bgp;
-	afi_t afi;
-	safi_t safi;
-	const struct lyd_node *cont;
-
-	if (args->event != NB_EV_APPLY)
-		return NB_OK;
-
-	bgp = nb_running_get_entry(args->dnode, NULL, true);
-	if (!bgp || !bgp_nb_dnode_afi_safi(args->dnode, &afi, &safi))
-		return NB_OK;
-
-	cont = yang_dnode_get_parent(args->dnode, "sid-vpn-export");
-	if (cont &&
-	    (yang_dnode_exists(cont, "./sid-index") || yang_dnode_exists(cont, "./sid-explicit")))
-		return NB_OK;
-
-	bgp_nb_sid_vpn_export_clear(bgp, afi);
-	return NB_OK;
+	return bgp_nb_sid_vpn_export_destroy_common(args, "./sid-index", "./sid-explicit");
 }
 
 int bgp_nb_sid_vpn_export_explicit_modify(struct nb_cb_modify_args *args)
@@ -14650,25 +14663,7 @@ int bgp_nb_sid_vpn_export_explicit_modify(struct nb_cb_modify_args *args)
 
 int bgp_nb_sid_vpn_export_explicit_destroy(struct nb_cb_destroy_args *args)
 {
-	struct bgp *bgp;
-	afi_t afi;
-	safi_t safi;
-	const struct lyd_node *cont;
-
-	if (args->event != NB_EV_APPLY)
-		return NB_OK;
-
-	bgp = nb_running_get_entry(args->dnode, NULL, true);
-	if (!bgp || !bgp_nb_dnode_afi_safi(args->dnode, &afi, &safi))
-		return NB_OK;
-
-	cont = yang_dnode_get_parent(args->dnode, "sid-vpn-export");
-	if (cont &&
-	    (yang_dnode_exists(cont, "./sid-index") || yang_dnode_exists(cont, "./sid-auto")))
-		return NB_OK;
-
-	bgp_nb_sid_vpn_export_clear(bgp, afi);
-	return NB_OK;
+	return bgp_nb_sid_vpn_export_destroy_common(args, "./sid-index", "./sid-auto");
 }
 
 void bgp_nb_cli_show_sid_vpn_export(struct vty *vty, const struct lyd_node *dnode,
@@ -14774,7 +14769,7 @@ static int bgp_nb_sid_vpn_per_vrf_apply(struct bgp *bgp, const struct lyd_node *
 	enum bgp_nb_sid_vpn_mode mode;
 	uint32_t idx;
 	struct in6_addr explicit;
-	bool same_family;
+	bool same_val;
 
 	bgp_nb_sid_vpn_per_vrf_read(cont, &mode, &idx, &explicit);
 
@@ -14783,12 +14778,13 @@ static int bgp_nb_sid_vpn_per_vrf_apply(struct bgp *bgp, const struct lyd_node *
 		return NB_OK;
 	}
 
-	same_family = (mode == BGP_NB_SID_VPN_AUTO &&
-		       CHECK_FLAG(bgp->vrf_flags, BGP_VRF_TOVPN_SID_AUTO)) ||
-		      (mode == BGP_NB_SID_VPN_INDEX && bgp->tovpn_sid_index != 0) ||
-		      (mode == BGP_NB_SID_VPN_EXPLICIT &&
-		       CHECK_FLAG(bgp->vrf_flags, BGP_VRF_TOVPN_SID_EXPLICIT));
-	if (same_family)
+	same_val = (mode == BGP_NB_SID_VPN_AUTO &&
+		    CHECK_FLAG(bgp->vrf_flags, BGP_VRF_TOVPN_SID_AUTO)) ||
+		   (mode == BGP_NB_SID_VPN_INDEX && bgp->tovpn_sid_index == idx) ||
+		   (mode == BGP_NB_SID_VPN_EXPLICIT &&
+		    CHECK_FLAG(bgp->vrf_flags, BGP_VRF_TOVPN_SID_EXPLICIT) &&
+		    bgp->tovpn_sid_explicit && IPV6_ADDR_SAME(&explicit, bgp->tovpn_sid_explicit));
+	if (same_val)
 		return NB_OK;
 
 	vpn_leak_prechange(BGP_VPN_POLICY_DIR_TOVPN, AFI_IP, bgp_get_default(), bgp);
@@ -15139,11 +15135,12 @@ static int bgp_nb_sid_export_apply(struct bgp *bgp, afi_t afi, const struct lyd_
 
 	same_alloc = (mode == BGP_NB_SID_AUTO &&
 		      CHECK_FLAG(bgp->srv6_unicast[afi].flags, SRV6_POLICY_FLAG_SID_AUTO)) ||
-		     (mode == BGP_NB_SID_INDEX && bgp->srv6_unicast[afi].sid_index != 0) ||
-		     (mode == BGP_NB_SID_EXPLICIT && bgp->srv6_unicast[afi].sid_explicit);
+		     (mode == BGP_NB_SID_INDEX && bgp->srv6_unicast[afi].sid_index == idx) ||
+		     (mode == BGP_NB_SID_EXPLICIT && bgp->srv6_unicast[afi].sid_explicit &&
+		      IPV6_ADDR_SAME(&explicit, bgp->srv6_unicast[afi].sid_explicit));
 
 	if (was_enabled && same_alloc) {
-		/* Same mode family: only route-map may change (classic). */
+		/* Identical SID allocation: only route-map may change. */
 		const char *cur = bgp->srv6_unicast[afi].rmap_name;
 
 		if ((!rmap && !cur) || (rmap && cur && strmatch(rmap, cur)))
@@ -15161,6 +15158,9 @@ static int bgp_nb_sid_export_apply(struct bgp *bgp, afi_t afi, const struct lyd_
 		bgp_srv6_unicast_announce(bgp, afi);
 		return NB_OK;
 	}
+
+	if (was_enabled)
+		bgp_srv6_unicast_sid_withdraw(bgp, afi);
 
 	if (rmap) {
 		if (bgp->srv6_unicast[afi].rmap_name) {
@@ -15235,13 +15235,25 @@ int bgp_nb_sid_export_index_modify(struct nb_cb_modify_args *args)
 					    args->errmsg_len);
 }
 
-int bgp_nb_sid_export_index_destroy(struct nb_cb_destroy_args *args)
+static int bgp_nb_sid_export_destroy_common(struct nb_cb_destroy_args *args, const char *other1,
+					    const char *other2)
 {
 	struct bgp *bgp;
 	afi_t afi;
 	safi_t safi;
 	const struct lyd_node *cont;
 
+	if (args->event == NB_EV_VALIDATE) {
+		bgp = nb_running_get_entry(args->dnode, NULL, false);
+		if (!bgp || !bgp_nb_dnode_afi_safi(args->dnode, &afi, &safi))
+			return NB_OK;
+		if (bgp->inst_type != BGP_INSTANCE_TYPE_DEFAULT) {
+			snprintfrr(args->errmsg, args->errmsg_len,
+				   "SRv6 unicast is only supported on the default BGP instance");
+			return NB_ERR_VALIDATION;
+		}
+		return NB_OK;
+	}
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
@@ -15254,12 +15266,16 @@ int bgp_nb_sid_export_index_destroy(struct nb_cb_destroy_args *args)
 	 * present; let that leaf's apply own the state.
 	 */
 	cont = yang_dnode_get_parent(args->dnode, "sid-export");
-	if (cont &&
-	    (yang_dnode_exists(cont, "./sid-auto") || yang_dnode_exists(cont, "./sid-explicit")))
+	if (cont && (yang_dnode_exists(cont, other1) || yang_dnode_exists(cont, other2)))
 		return NB_OK;
 
 	bgp_nb_sid_export_clear(bgp, afi);
 	return NB_OK;
+}
+
+int bgp_nb_sid_export_index_destroy(struct nb_cb_destroy_args *args)
+{
+	return bgp_nb_sid_export_destroy_common(args, "./sid-auto", "./sid-explicit");
 }
 
 int bgp_nb_sid_export_auto_create(struct nb_cb_create_args *args)
@@ -15270,25 +15286,7 @@ int bgp_nb_sid_export_auto_create(struct nb_cb_create_args *args)
 
 int bgp_nb_sid_export_auto_destroy(struct nb_cb_destroy_args *args)
 {
-	struct bgp *bgp;
-	afi_t afi;
-	safi_t safi;
-	const struct lyd_node *cont;
-
-	if (args->event != NB_EV_APPLY)
-		return NB_OK;
-
-	bgp = nb_running_get_entry(args->dnode, NULL, true);
-	if (!bgp || !bgp_nb_dnode_afi_safi(args->dnode, &afi, &safi))
-		return NB_OK;
-
-	cont = yang_dnode_get_parent(args->dnode, "sid-export");
-	if (cont &&
-	    (yang_dnode_exists(cont, "./sid-index") || yang_dnode_exists(cont, "./sid-explicit")))
-		return NB_OK;
-
-	bgp_nb_sid_export_clear(bgp, afi);
-	return NB_OK;
+	return bgp_nb_sid_export_destroy_common(args, "./sid-index", "./sid-explicit");
 }
 
 int bgp_nb_sid_export_explicit_modify(struct nb_cb_modify_args *args)
@@ -15299,25 +15297,7 @@ int bgp_nb_sid_export_explicit_modify(struct nb_cb_modify_args *args)
 
 int bgp_nb_sid_export_explicit_destroy(struct nb_cb_destroy_args *args)
 {
-	struct bgp *bgp;
-	afi_t afi;
-	safi_t safi;
-	const struct lyd_node *cont;
-
-	if (args->event != NB_EV_APPLY)
-		return NB_OK;
-
-	bgp = nb_running_get_entry(args->dnode, NULL, true);
-	if (!bgp || !bgp_nb_dnode_afi_safi(args->dnode, &afi, &safi))
-		return NB_OK;
-
-	cont = yang_dnode_get_parent(args->dnode, "sid-export");
-	if (cont &&
-	    (yang_dnode_exists(cont, "./sid-index") || yang_dnode_exists(cont, "./sid-auto")))
-		return NB_OK;
-
-	bgp_nb_sid_export_clear(bgp, afi);
-	return NB_OK;
+	return bgp_nb_sid_export_destroy_common(args, "./sid-index", "./sid-auto");
 }
 
 int bgp_nb_sid_export_dt46_modify(struct nb_cb_modify_args *args)
