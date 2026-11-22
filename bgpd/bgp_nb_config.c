@@ -162,30 +162,6 @@ static int bgp_nb_bgp_validate_unique(struct nb_cb_create_args *args)
 }
 
 /*
- * bgp_get_vty() enables neighbor-change logging for the datacenter profile.
- * The YANG default stays false, and a leaf whose value equals that default
- * is not a configuration diff, so an implicit false must not clear the flag.
- * An explicit value is not marked LYD_DEFAULT once the candidate is validated.
- */
-static void bgp_nb_apply_explicit_log_neighbor_changes(struct bgp *bgp,
-						       const struct lyd_node *bgp_dnode)
-{
-	const struct lyd_node *leaf;
-
-	if (!bgp ||
-	    !yang_dnode_exists(bgp_dnode, "./global/global-neighbor-config/log-neighbor-changes"))
-		return;
-
-	leaf = yang_dnode_get(bgp_dnode, "./global/global-neighbor-config/log-neighbor-changes");
-	if (!leaf || (leaf->flags & LYD_DEFAULT))
-		return;
-	if (yang_dnode_get_bool(leaf, NULL))
-		SET_FLAG(bgp->flags, BGP_FLAG_LOG_NEIGHBOR_CHANGES);
-	else
-		UNSET_FLAG(bgp->flags, BGP_FLAG_LOG_NEIGHBOR_CHANGES);
-}
-
-/*
  * XPath: .../frr-bgp:bgp
  */
 int bgp_nb_bgp_create(struct nb_cb_create_args *args)
@@ -273,7 +249,6 @@ int bgp_nb_bgp_create(struct nb_cb_create_args *args)
 		 */
 		if (bgp->l3vni)
 			bgp_nb_evpn_vrf_yang_reapply(bgp);
-		bgp_nb_apply_explicit_log_neighbor_changes(bgp, args->dnode);
 		break;
 	}
 
@@ -407,32 +382,6 @@ void bgp_nb_cli_show_router_bgp(struct vty *vty, const struct lyd_node *dnode, b
 	 * accept (classic also omits the keyword when notation was inferred).
 	 */
 	vty_out(vty, "\n");
-
-	/*
-	 * "no bgp log-neighbor-changes" equals the YANG default, so the leaf
-	 * writer is skipped on a normal save. Emit it from the operational
-	 * flag when that differs from the active defaults profile.
-	 */
-	if (!show_defaults) {
-		const struct lyd_node *leaf = NULL;
-		struct bgp *bgp;
-		bool enabled;
-		bool profile_on = (frr_default_chosen() == FRR_DEFAULT_DATACENTER);
-
-		if (yang_dnode_exists(dnode,
-				      "./global/global-neighbor-config/log-neighbor-changes"))
-			leaf = yang_dnode_get(dnode,
-					      "./global/global-neighbor-config/log-neighbor-changes");
-		if (!leaf || yang_dnode_is_default(leaf, NULL)) {
-			bgp = nb_running_get_entry(dnode, NULL, false);
-			if (bgp) {
-				enabled = !!CHECK_FLAG(bgp->flags, BGP_FLAG_LOG_NEIGHBOR_CHANGES);
-				if (enabled != profile_on)
-					vty_out(vty, " %sbgp log-neighbor-changes\n",
-						enabled ? "" : "no ");
-			}
-		}
-	}
 }
 
 void bgp_nb_cli_show_router_bgp_end(struct vty *vty, const struct lyd_node *dnode)
@@ -860,18 +809,24 @@ int bgp_nb_log_neighbor_changes_modify(struct nb_cb_modify_args *args)
 	return NB_OK;
 }
 
+int bgp_nb_log_neighbor_changes_destroy(struct nb_cb_destroy_args *args)
+{
+	struct bgp *bgp;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	bgp = nb_running_get_entry(args->dnode, NULL, true);
+	COND_FLAG(bgp->flags, BGP_FLAG_LOG_NEIGHBOR_CHANGES, DFLT_BGP_LOG_NEIGHBOR_CHANGES);
+	return NB_OK;
+}
+
 void bgp_nb_cli_show_log_neighbor_changes(struct vty *vty, const struct lyd_node *dnode,
 					  bool show_defaults)
 {
 	bool enabled = yang_dnode_get_bool(dnode, NULL);
-	bool profile_on = (frr_default_chosen() == FRR_DEFAULT_DATACENTER);
 
-	/*
-	 * Match classic config write: keep the line only when it differs
-	 * from the active defaults profile, so "no bgp log-neighbor-changes"
-	 * survives a save under datacenter.
-	 */
-	if (!show_defaults && enabled == profile_on)
+	if (!show_defaults && enabled == SAVE_BGP_LOG_NEIGHBOR_CHANGES)
 		return;
 	vty_out(vty, " %sbgp log-neighbor-changes\n", enabled ? "" : "no ");
 }
@@ -891,15 +846,26 @@ int bgp_nb_ebgp_requires_policy_modify(struct nb_cb_modify_args *args)
 	return NB_OK;
 }
 
+int bgp_nb_ebgp_requires_policy_destroy(struct nb_cb_destroy_args *args)
+{
+	struct bgp *bgp;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	bgp = nb_running_get_entry(args->dnode, NULL, true);
+	COND_FLAG(bgp->flags, BGP_FLAG_EBGP_REQUIRES_POLICY, DFLT_BGP_EBGP_REQUIRES_POLICY);
+	return NB_OK;
+}
+
 void bgp_nb_cli_show_ebgp_requires_policy(struct vty *vty, const struct lyd_node *dnode,
 					  bool show_defaults)
 {
 	bool enabled = yang_dnode_get_bool(dnode, NULL);
 
-	if (enabled)
-		vty_out(vty, " bgp ebgp-requires-policy\n");
-	else
-		vty_out(vty, " no bgp ebgp-requires-policy\n");
+	if (!show_defaults && enabled == SAVE_BGP_EBGP_REQUIRES_POLICY)
+		return;
+	vty_out(vty, " %sbgp ebgp-requires-policy\n", enabled ? "" : "no ");
 }
 
 int bgp_nb_import_check_modify(struct nb_cb_modify_args *args)
@@ -923,14 +889,30 @@ int bgp_nb_import_check_modify(struct nb_cb_modify_args *args)
 	return NB_OK;
 }
 
+int bgp_nb_import_check_destroy(struct nb_cb_destroy_args *args)
+{
+	struct bgp *bgp;
+	bool was_set;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	bgp = nb_running_get_entry(args->dnode, NULL, true);
+	was_set = !!CHECK_FLAG(bgp->flags, BGP_FLAG_IMPORT_CHECK);
+	if (was_set == DFLT_BGP_IMPORT_CHECK)
+		return NB_OK;
+	COND_FLAG(bgp->flags, BGP_FLAG_IMPORT_CHECK, DFLT_BGP_IMPORT_CHECK);
+	bgp_static_redo_import_check(bgp);
+	return NB_OK;
+}
+
 void bgp_nb_cli_show_import_check(struct vty *vty, const struct lyd_node *dnode, bool show_defaults)
 {
 	bool enabled = yang_dnode_get_bool(dnode, NULL);
 
-	if (enabled)
-		vty_out(vty, " bgp network import-check\n");
-	else
-		vty_out(vty, " no bgp network import-check\n");
+	if (!show_defaults && enabled == SAVE_BGP_IMPORT_CHECK)
+		return;
+	vty_out(vty, " %sbgp network import-check\n", enabled ? "" : "no ");
 }
 
 int bgp_nb_cluster_id_modify(struct nb_cb_modify_args *args)
@@ -1086,13 +1068,31 @@ int bgp_nb_deterministic_med_modify(struct nb_cb_modify_args *args)
 	return NB_OK;
 }
 
+int bgp_nb_deterministic_med_destroy(struct nb_cb_destroy_args *args)
+{
+	struct bgp *bgp;
+	bool was_set;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	bgp = nb_running_get_entry(args->dnode, NULL, true);
+	was_set = !!CHECK_FLAG(bgp->flags, BGP_FLAG_DETERMINISTIC_MED);
+	if (was_set == DFLT_BGP_DETERMINISTIC_MED)
+		return NB_OK;
+	COND_FLAG(bgp->flags, BGP_FLAG_DETERMINISTIC_MED, DFLT_BGP_DETERMINISTIC_MED);
+	bgp_recalculate_all_bestpaths(bgp);
+	return NB_OK;
+}
+
 void bgp_nb_cli_show_deterministic_med(struct vty *vty, const struct lyd_node *dnode,
 				       bool show_defaults)
 {
-	if (yang_dnode_get_bool(dnode, NULL))
-		vty_out(vty, " bgp deterministic-med\n");
-	else if (show_defaults)
-		vty_out(vty, " no bgp deterministic-med\n");
+	bool enabled = yang_dnode_get_bool(dnode, NULL);
+
+	if (!show_defaults && enabled == SAVE_BGP_DETERMINISTIC_MED)
+		return;
+	vty_out(vty, " %sbgp deterministic-med\n", enabled ? "" : "no ");
 }
 
 int bgp_nb_local_pref_modify(struct nb_cb_modify_args *args)
@@ -1158,14 +1158,26 @@ int bgp_nb_suppress_duplicates_modify(struct nb_cb_modify_args *args)
 	return NB_OK;
 }
 
+int bgp_nb_suppress_duplicates_destroy(struct nb_cb_destroy_args *args)
+{
+	struct bgp *bgp;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	bgp = nb_running_get_entry(args->dnode, NULL, true);
+	COND_FLAG(bgp->flags, BGP_FLAG_SUPPRESS_DUPLICATES, DFLT_BGP_SUPPRESS_DUPLICATES);
+	return NB_OK;
+}
+
 void bgp_nb_cli_show_suppress_duplicates(struct vty *vty, const struct lyd_node *dnode,
 					 bool show_defaults)
 {
-	if (yang_dnode_get_bool(dnode, NULL)) {
-		if (show_defaults)
-			vty_out(vty, " bgp suppress-duplicates\n");
-	} else
-		vty_out(vty, " no bgp suppress-duplicates\n");
+	bool enabled = yang_dnode_get_bool(dnode, NULL);
+
+	if (!show_defaults && enabled == SAVE_BGP_SUPPRESS_DUPLICATES)
+		return;
+	vty_out(vty, " %sbgp suppress-duplicates\n", enabled ? "" : "no ");
 }
 
 int bgp_nb_graceful_shutdown_modify(struct nb_cb_modify_args *args)
@@ -1280,10 +1292,11 @@ int bgp_nb_enforce_first_as_modify(struct nb_cb_modify_args *args)
 void bgp_nb_cli_show_enforce_first_as(struct vty *vty, const struct lyd_node *dnode,
 				      bool show_defaults)
 {
-	if (yang_dnode_get_bool(dnode, NULL))
-		vty_out(vty, " bgp enforce-first-as\n");
-	else
-		vty_out(vty, " no bgp enforce-first-as\n");
+	bool enabled = yang_dnode_get_bool(dnode, NULL);
+
+	if (!show_defaults && enabled == SAVE_BGP_ENFORCE_FIRST_AS)
+		return;
+	vty_out(vty, " %sbgp enforce-first-as\n", enabled ? "" : "no ");
 }
 
 int bgp_nb_connected_route_check_modify(struct nb_cb_modify_args *args)
@@ -1363,10 +1376,11 @@ int bgp_nb_hard_admin_reset_modify(struct nb_cb_modify_args *args)
 void bgp_nb_cli_show_hard_admin_reset(struct vty *vty, const struct lyd_node *dnode,
 				      bool show_defaults)
 {
-	if (yang_dnode_get_bool(dnode, NULL))
-		vty_out(vty, " bgp hard-administrative-reset\n");
-	else
-		vty_out(vty, " no bgp hard-administrative-reset\n");
+	bool enabled = yang_dnode_get_bool(dnode, NULL);
+
+	if (!show_defaults && enabled == SAVE_BGP_HARD_ADMIN_RESET)
+		return;
+	vty_out(vty, " %sbgp hard-administrative-reset\n", enabled ? "" : "no ");
 }
 
 int bgp_nb_show_hostname_modify(struct nb_cb_modify_args *args)
@@ -1384,13 +1398,26 @@ int bgp_nb_show_hostname_modify(struct nb_cb_modify_args *args)
 	return NB_OK;
 }
 
+int bgp_nb_show_hostname_destroy(struct nb_cb_destroy_args *args)
+{
+	struct bgp *bgp;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	bgp = nb_running_get_entry(args->dnode, NULL, true);
+	COND_FLAG(bgp->flags, BGP_FLAG_SHOW_HOSTNAME, DFLT_BGP_SHOW_HOSTNAME);
+	return NB_OK;
+}
+
 void bgp_nb_cli_show_show_hostname(struct vty *vty, const struct lyd_node *dnode,
 				   bool show_defaults)
 {
-	if (yang_dnode_get_bool(dnode, NULL))
-		vty_out(vty, " bgp default show-hostname\n");
-	else if (show_defaults)
-		vty_out(vty, " no bgp default show-hostname\n");
+	bool enabled = yang_dnode_get_bool(dnode, NULL);
+
+	if (!show_defaults && enabled == SAVE_BGP_SHOW_HOSTNAME)
+		return;
+	vty_out(vty, " %sbgp default show-hostname\n", enabled ? "" : "no ");
 }
 
 int bgp_nb_show_nexthop_hostname_modify(struct nb_cb_modify_args *args)
@@ -1408,13 +1435,26 @@ int bgp_nb_show_nexthop_hostname_modify(struct nb_cb_modify_args *args)
 	return NB_OK;
 }
 
+int bgp_nb_show_nexthop_hostname_destroy(struct nb_cb_destroy_args *args)
+{
+	struct bgp *bgp;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	bgp = nb_running_get_entry(args->dnode, NULL, true);
+	COND_FLAG(bgp->flags, BGP_FLAG_SHOW_NEXTHOP_HOSTNAME, DFLT_BGP_SHOW_NEXTHOP_HOSTNAME);
+	return NB_OK;
+}
+
 void bgp_nb_cli_show_show_nexthop_hostname(struct vty *vty, const struct lyd_node *dnode,
 					   bool show_defaults)
 {
-	if (yang_dnode_get_bool(dnode, NULL))
-		vty_out(vty, " bgp default show-nexthop-hostname\n");
-	else if (show_defaults)
-		vty_out(vty, " no bgp default show-nexthop-hostname\n");
+	bool enabled = yang_dnode_get_bool(dnode, NULL);
+
+	if (!show_defaults && enabled == SAVE_BGP_SHOW_NEXTHOP_HOSTNAME)
+		return;
+	vty_out(vty, " %sbgp default show-nexthop-hostname\n", enabled ? "" : "no ");
 }
 
 int bgp_nb_external_compare_router_id_modify(struct nb_cb_modify_args *args)
@@ -1807,18 +1847,20 @@ void bgp_nb_cli_show_bandwidth_handling(struct vty *vty, const struct lyd_node *
 	vty_out(vty, " bgp bestpath bandwidth %s\n", val);
 }
 
-static void bgp_nb_apply_global_timers(struct bgp *bgp, const struct lyd_node *dnode)
+static void bgp_nb_apply_global_timers(struct bgp *bgp, const struct lyd_node *timers)
 {
-	const struct lyd_node *timers;
-	uint32_t keepalive;
-	uint32_t holdtime;
+	uint32_t keepalive = DFLT_BGP_KEEPALIVE;
+	uint32_t holdtime = DFLT_BGP_HOLDTIME;
 	uint32_t connect_retry = DFLT_BGP_CONNECT_RETRY;
 
-	timers = yang_dnode_get_parent(dnode, "global-config-timers");
-	keepalive = yang_dnode_get_uint16(timers, "keepalive");
-	holdtime = yang_dnode_get_uint16(timers, "hold-time");
-	if (yang_dnode_exists(timers, "connect-retry-interval"))
-		connect_retry = yang_dnode_get_uint16(timers, "connect-retry-interval");
+	if (timers) {
+		if (yang_dnode_exists(timers, "keepalive"))
+			keepalive = yang_dnode_get_uint16(timers, "keepalive");
+		if (yang_dnode_exists(timers, "hold-time"))
+			holdtime = yang_dnode_get_uint16(timers, "hold-time");
+		if (yang_dnode_exists(timers, "connect-retry-interval"))
+			connect_retry = yang_dnode_get_uint16(timers, "connect-retry-interval");
+	}
 	bgp_timers_set(NULL, bgp, keepalive, holdtime, connect_retry, BGP_DEFAULT_DELAYOPEN);
 }
 
@@ -1830,7 +1872,21 @@ int bgp_nb_keepalive_modify(struct nb_cb_modify_args *args)
 		return NB_OK;
 
 	bgp = nb_running_get_entry(args->dnode, NULL, true);
-	bgp_nb_apply_global_timers(bgp, args->dnode);
+	bgp_nb_apply_global_timers(bgp, yang_dnode_get_parent(args->dnode, "global-config-timers"));
+	return NB_OK;
+}
+
+int bgp_nb_keepalive_destroy(struct nb_cb_destroy_args *args)
+{
+	struct bgp *bgp;
+	const struct lyd_node *timers;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	bgp = nb_running_get_entry(args->dnode, NULL, true);
+	timers = bgp_nb_candidate_match(yang_dnode_get_parent(args->dnode, "global-config-timers"));
+	bgp_nb_apply_global_timers(bgp, timers);
 	return NB_OK;
 }
 
@@ -1857,7 +1913,21 @@ int bgp_nb_hold_time_modify(struct nb_cb_modify_args *args)
 	}
 
 	bgp = nb_running_get_entry(args->dnode, NULL, true);
-	bgp_nb_apply_global_timers(bgp, args->dnode);
+	bgp_nb_apply_global_timers(bgp, yang_dnode_get_parent(args->dnode, "global-config-timers"));
+	return NB_OK;
+}
+
+int bgp_nb_hold_time_destroy(struct nb_cb_destroy_args *args)
+{
+	struct bgp *bgp;
+	const struct lyd_node *timers;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	bgp = nb_running_get_entry(args->dnode, NULL, true);
+	timers = bgp_nb_candidate_match(yang_dnode_get_parent(args->dnode, "global-config-timers"));
+	bgp_nb_apply_global_timers(bgp, timers);
 	return NB_OK;
 }
 
@@ -1865,29 +1935,29 @@ void bgp_nb_cli_show_keepalive(struct vty *vty, const struct lyd_node *dnode, bo
 {
 	const struct lyd_node *timers = yang_dnode_get_parent(dnode, "global-config-timers");
 	uint16_t keepalive = yang_dnode_get_uint16(dnode, NULL);
-	uint16_t holdtime = yang_dnode_get_uint16(timers, "hold-time");
+	uint16_t holdtime = (timers && yang_dnode_exists(timers, "hold-time"))
+				    ? yang_dnode_get_uint16(timers, "hold-time")
+				    : SAVE_BGP_HOLDTIME;
 
-	if (keepalive != DFLT_BGP_KEEPALIVE || holdtime != DFLT_BGP_HOLDTIME || show_defaults)
+	if (keepalive > holdtime / 3)
+		keepalive = holdtime / 3;
+
+	if (keepalive != SAVE_BGP_KEEPALIVE || holdtime != SAVE_BGP_HOLDTIME || show_defaults)
 		vty_out(vty, " timers bgp %u %u\n", keepalive, holdtime);
 }
 
 void bgp_nb_cli_show_holdtime(struct vty *vty, const struct lyd_node *dnode, bool show_defaults)
 {
 	const struct lyd_node *timers = yang_dnode_get_parent(dnode, "global-config-timers");
-	const struct lyd_node *ka;
-	uint16_t keepalive, holdtime;
+	uint16_t keepalive = SAVE_BGP_KEEPALIVE;
+	uint16_t holdtime;
 
-	/*
-	 * Keepalive owns this line when nb_cli_show will visit it. A default
-	 * keepalive is skipped, which dropped "timers bgp 60 <hold>".
-	 */
-	ka = timers ? yang_dnode_get(timers, "keepalive") : NULL;
-	if (ka && (show_defaults || !yang_dnode_is_default(ka, NULL)))
+	/* Keepalive owns this line whenever it is present. */
+	if (timers && yang_dnode_exists(timers, "keepalive"))
 		return;
 
-	keepalive = ka ? yang_dnode_get_uint16(ka, NULL) : DFLT_BGP_KEEPALIVE;
 	holdtime = yang_dnode_get_uint16(dnode, NULL);
-	if (keepalive != DFLT_BGP_KEEPALIVE || holdtime != DFLT_BGP_HOLDTIME || show_defaults)
+	if (keepalive != SAVE_BGP_KEEPALIVE || holdtime != SAVE_BGP_HOLDTIME || show_defaults)
 		vty_out(vty, " timers bgp %u %u\n", keepalive, holdtime);
 }
 
@@ -1918,7 +1988,11 @@ int bgp_nb_minimum_holdtime_destroy(struct nb_cb_destroy_args *args)
 void bgp_nb_cli_show_minimum_holdtime(struct vty *vty, const struct lyd_node *dnode,
 				      bool show_defaults)
 {
-	vty_out(vty, " bgp minimum-holdtime %u\n", yang_dnode_get_uint16(dnode, NULL));
+	uint16_t val = yang_dnode_get_uint16(dnode, NULL);
+
+	if (val == 0 || (val == SAVE_BGP_HOLDTIME && !show_defaults))
+		return;
+	vty_out(vty, " bgp minimum-holdtime %u\n", val);
 }
 
 int bgp_nb_confederation_identifier_modify(struct nb_cb_modify_args *args)
@@ -2859,10 +2933,11 @@ int bgp_nb_gr_notification_destroy(struct nb_cb_destroy_args *args)
 void bgp_nb_cli_show_gr_notification(struct vty *vty, const struct lyd_node *dnode,
 				     bool show_defaults)
 {
-	if (yang_dnode_get_bool(dnode, NULL))
-		vty_out(vty, " bgp graceful-restart notification\n");
-	else
-		vty_out(vty, " no bgp graceful-restart notification\n");
+	bool enabled = yang_dnode_get_bool(dnode, NULL);
+
+	if (!show_defaults && enabled == SAVE_BGP_GRACEFUL_NOTIFICATION)
+		return;
+	vty_out(vty, " %sbgp graceful-restart notification\n", enabled ? "" : "no ");
 }
 
 int bgp_nb_gr_disable_eor_modify(struct nb_cb_modify_args *args)
@@ -3177,30 +3252,33 @@ void bgp_nb_cli_show_rpkt_quanta(struct vty *vty, const struct lyd_node *dnode, 
 int bgp_nb_coalesce_time_modify(struct nb_cb_modify_args *args)
 {
 	struct bgp *bgp;
-	uint32_t value;
 
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
 	bgp = nb_running_get_entry(args->dnode, NULL, true);
-	value = yang_dnode_get_uint32(args->dnode, NULL);
-	if (value == BGP_DEFAULT_SUBGROUP_COALESCE_TIME) {
-		bgp->heuristic_coalesce = true;
-		bgp->coalesce_time = BGP_DEFAULT_SUBGROUP_COALESCE_TIME;
-	} else {
-		bgp->heuristic_coalesce = false;
-		bgp->coalesce_time = value;
-	}
+	bgp->heuristic_coalesce = false;
+	bgp->coalesce_time = yang_dnode_get_uint32(args->dnode, NULL);
+	return NB_OK;
+}
+
+int bgp_nb_coalesce_time_destroy(struct nb_cb_destroy_args *args)
+{
+	struct bgp *bgp;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	bgp = nb_running_get_entry(args->dnode, NULL, true);
+	bgp->heuristic_coalesce = true;
+	bgp->coalesce_time = BGP_DEFAULT_SUBGROUP_COALESCE_TIME;
 	return NB_OK;
 }
 
 void bgp_nb_cli_show_coalesce_time(struct vty *vty, const struct lyd_node *dnode,
 				   bool show_defaults)
 {
-	uint32_t value = yang_dnode_get_uint32(dnode, NULL);
-
-	if (value != BGP_DEFAULT_SUBGROUP_COALESCE_TIME || show_defaults)
-		vty_out(vty, " coalesce-time %u\n", value);
+	vty_out(vty, " coalesce-time %u\n", yang_dnode_get_uint32(dnode, NULL));
 }
 
 int bgp_nb_subgroup_pkt_queue_size_modify(struct nb_cb_modify_args *args)
@@ -3567,6 +3645,19 @@ int bgp_nb_ipv6_auto_ra_modify(struct nb_cb_modify_args *args)
 	return NB_OK;
 }
 
+int bgp_nb_ipv6_auto_ra_destroy(struct nb_cb_destroy_args *args)
+{
+	struct bgp *bgp;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	bgp = nb_running_get_entry(args->dnode, NULL, true);
+	COND_FLAG(bgp->flags, BGP_FLAG_IPV6_NO_AUTO_RA,
+		  CHECK_FLAG(bm->flags, BM_FLAG_IPV6_NO_AUTO_RA));
+	return NB_OK;
+}
+
 void bgp_nb_cli_show_ipv6_auto_ra(struct vty *vty, const struct lyd_node *dnode, bool show_defaults)
 {
 	bool enabled = yang_dnode_get_bool(dnode, NULL);
@@ -3630,13 +3721,26 @@ int bgp_nb_default_dynamic_capability_modify(struct nb_cb_modify_args *args)
 	return NB_OK;
 }
 
+int bgp_nb_default_dynamic_capability_destroy(struct nb_cb_destroy_args *args)
+{
+	struct bgp *bgp;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	bgp = nb_running_get_entry(args->dnode, NULL, true);
+	COND_FLAG(bgp->flags, BGP_FLAG_DYNAMIC_CAPABILITY, DFLT_BGP_DYNAMIC_CAPABILITY);
+	return NB_OK;
+}
+
 void bgp_nb_cli_show_default_dynamic_capability(struct vty *vty, const struct lyd_node *dnode,
 						bool show_defaults)
 {
-	if (yang_dnode_get_bool(dnode, NULL))
-		vty_out(vty, " bgp default dynamic-capability\n");
-	else if (show_defaults)
-		vty_out(vty, " no bgp default dynamic-capability\n");
+	bool enabled = yang_dnode_get_bool(dnode, NULL);
+
+	if (!show_defaults && enabled == SAVE_BGP_DYNAMIC_CAPABILITY)
+		return;
+	vty_out(vty, " %sbgp default dynamic-capability\n", enabled ? "" : "no ");
 }
 
 int bgp_nb_default_link_local_capability_modify(struct nb_cb_modify_args *args)
@@ -3685,18 +3789,37 @@ int bgp_nb_default_software_version_capability_modify(struct nb_cb_modify_args *
 	return NB_OK;
 }
 
+int bgp_nb_default_software_version_capability_destroy(struct nb_cb_destroy_args *args)
+{
+	struct bgp *bgp;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	bgp = nb_running_get_entry(args->dnode, NULL, true);
+	COND_FLAG(bgp->flags, BGP_FLAG_SOFT_VERSION_CAPABILITY_OLD,
+		  DFLT_BGP_SOFT_VERSION_CAPABILITY_OLD);
+	COND_FLAG(bgp->flags, BGP_FLAG_SOFT_VERSION_CAPABILITY_NEW,
+		  DFLT_BGP_SOFT_VERSION_CAPABILITY_NEW);
+	return NB_OK;
+}
+
 void bgp_nb_cli_show_default_software_version_capability(struct vty *vty,
 							 const struct lyd_node *dnode,
 							 bool show_defaults)
 {
 	const char *val = yang_dnode_get_string(dnode, NULL);
 
-	if (strmatch(val, "old-encoding"))
-		vty_out(vty, " bgp default software-version-capability\n");
-	else if (strmatch(val, "latest-encoding"))
-		vty_out(vty, " bgp default software-version-capability latest-encoding\n");
-	else if (show_defaults)
+	if (strmatch(val, "old-encoding")) {
+		if (!SAVE_BGP_SOFT_VERSION_CAPABILITY_OLD || show_defaults)
+			vty_out(vty, " bgp default software-version-capability\n");
+	} else if (strmatch(val, "latest-encoding")) {
+		if (!SAVE_BGP_SOFT_VERSION_CAPABILITY_NEW || show_defaults)
+			vty_out(vty, " bgp default software-version-capability latest-encoding\n");
+	} else if (SAVE_BGP_SOFT_VERSION_CAPABILITY_OLD || SAVE_BGP_SOFT_VERSION_CAPABILITY_NEW ||
+		   show_defaults) {
 		vty_out(vty, " no bgp default software-version-capability\n");
+	}
 }
 
 /*
@@ -5659,30 +5782,6 @@ int bgp_nb_peer_local_as_dual_as_modify(struct nb_cb_modify_args *args)
 	return bgp_nb_peer_local_as_apply(peer, args->dnode, args->errmsg, args->errmsg_len);
 }
 
-static bool bgp_nb_timer_leaf_implicit(const struct lyd_node *timers, const char *path)
-{
-	const struct lyd_node *leaf;
-
-	if (!timers || !yang_dnode_exists(timers, path))
-		return true;
-
-	leaf = yang_dnode_get(timers, path);
-	return CHECK_FLAG(leaf->flags, LYD_DEFAULT);
-}
-
-/*
- * "no neighbor X timers" deletes both leaves. They have YANG defaults, so
- * the diff arrives as MODIFY back to 60/180 with LYD_DEFAULT set. That is
- * not an explicit "timers 60 180", which must still override "timers bgp".
- */
-static bool bgp_nb_peer_timers_implicit(const struct lyd_node *dnode)
-{
-	const struct lyd_node *timers = yang_dnode_get_parent(dnode, "timers");
-
-	return bgp_nb_timer_leaf_implicit(timers, "./keepalive") &&
-	       bgp_nb_timer_leaf_implicit(timers, "./hold-time");
-}
-
 static int bgp_nb_peer_timers_validate(const struct lyd_node *dnode, char *errmsg,
 				       size_t errmsg_len)
 {
@@ -5712,14 +5811,13 @@ static int bgp_nb_peer_timers_apply(const struct lyd_node *dnode)
 	if (!peer)
 		return NB_ERR_NOT_FOUND;
 
-	if (bgp_nb_peer_timers_implicit(dnode)) {
-		peer_timers_unset(peer);
-		return NB_OK;
-	}
-
 	timers = yang_dnode_get_parent(dnode, "timers");
-	keepalive = yang_dnode_get_uint16(timers, "./keepalive");
-	holdtime = yang_dnode_get_uint16(timers, "./hold-time");
+	keepalive = (timers && yang_dnode_exists(timers, "./keepalive"))
+			    ? yang_dnode_get_uint16(timers, "./keepalive")
+			    : peer->bgp->default_keepalive;
+	holdtime = (timers && yang_dnode_exists(timers, "./hold-time"))
+			   ? yang_dnode_get_uint16(timers, "./hold-time")
+			   : peer->bgp->default_holdtime;
 	peer_timers_set(peer, keepalive, holdtime);
 	return NB_OK;
 }
@@ -5756,10 +5854,9 @@ void bgp_nb_cli_show_peer_timers_keepalive(struct vty *vty, const struct lyd_nod
 					   bool show_defaults)
 {
 	const struct lyd_node *timers = yang_dnode_get_parent(dnode, "timers");
-	uint16_t hold = 0;
-
-	if (timers && yang_dnode_exists(timers, "./hold-time"))
-		hold = yang_dnode_get_uint16(timers, "./hold-time");
+	uint16_t hold = (timers && yang_dnode_exists(timers, "./hold-time"))
+				? yang_dnode_get_uint16(timers, "./hold-time")
+				: SAVE_BGP_HOLDTIME;
 
 	vty_out(vty, "%sneighbor %s timers %u %u\n", bgp_nb_peer_show_indent(dnode),
 		bgp_nb_config_peer_name(dnode), yang_dnode_get_uint16(dnode, NULL), hold);
@@ -5769,22 +5866,14 @@ void bgp_nb_cli_show_peer_timers_holdtime(struct vty *vty, const struct lyd_node
 					  bool show_defaults)
 {
 	const struct lyd_node *timers = yang_dnode_get_parent(dnode, "timers");
-	const struct lyd_node *ka;
-	uint16_t keepalive;
 
-	/*
-	 * Keepalive owns this line when nb_cli_show will visit it. A default
-	 * keepalive is skipped, which dropped "neighbor A timers 60 <hold>".
-	 */
-	ka = (timers && yang_dnode_exists(timers, "./keepalive"))
-		     ? yang_dnode_get(timers, "./keepalive")
-		     : NULL;
-	if (ka && (show_defaults || !yang_dnode_is_default(ka, NULL)))
+	/* Keepalive owns this line whenever it is present. */
+	if (timers && yang_dnode_exists(timers, "./keepalive"))
 		return;
 
-	keepalive = ka ? yang_dnode_get_uint16(ka, NULL) : DFLT_BGP_KEEPALIVE;
-	vty_out(vty, "%sneighbor %s timers %u %u\n", bgp_nb_peer_show_indent(dnode),
-		bgp_nb_config_peer_name(dnode), keepalive, yang_dnode_get_uint16(dnode, NULL));
+	vty_out(vty, "%sneighbor %s timers %lu %u\n", bgp_nb_peer_show_indent(dnode),
+		bgp_nb_config_peer_name(dnode), SAVE_BGP_KEEPALIVE,
+		yang_dnode_get_uint16(dnode, NULL));
 }
 
 int bgp_nb_peer_timers_holdtime_modify(struct nb_cb_modify_args *args)
@@ -5938,15 +6027,38 @@ int bgp_nb_peer_cap_dynamic_modify(struct nb_cb_modify_args *args)
 	return NB_OK;
 }
 
+int bgp_nb_peer_cap_dynamic_destroy(struct nb_cb_destroy_args *args)
+{
+	struct peer *peer;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	peer = bgp_nb_config_peer(args->dnode);
+	if (!peer)
+		return NB_OK;
+
+	if (CHECK_FLAG(peer->bgp->flags, BGP_FLAG_DYNAMIC_CAPABILITY))
+		peer_flag_set(peer, PEER_FLAG_DYNAMIC_CAPABILITY);
+	else
+		peer_flag_unset(peer, PEER_FLAG_DYNAMIC_CAPABILITY);
+	return NB_OK;
+}
+
 void bgp_nb_cli_show_peer_cap_dynamic(struct vty *vty, const struct lyd_node *dnode,
 				      bool show_defaults)
 {
-	if (yang_dnode_get_bool(dnode, NULL))
-		vty_out(vty, "%sneighbor %s capability dynamic\n", bgp_nb_peer_show_indent(dnode),
-			bgp_nb_config_peer_name(dnode));
-	else if (show_defaults)
-		vty_out(vty, "%sno neighbor %s capability dynamic\n",
-			bgp_nb_peer_show_indent(dnode), bgp_nb_config_peer_name(dnode));
+	const struct lyd_node *bgp_dnode = yang_dnode_get_parent(dnode, "bgp");
+	bool enabled = yang_dnode_get_bool(dnode, NULL);
+	bool global_dflt = SAVE_BGP_DYNAMIC_CAPABILITY;
+
+	if (bgp_dnode && yang_dnode_exists(bgp_dnode, "./global/default-dynamic-capability"))
+		global_dflt = yang_dnode_get_bool(bgp_dnode, "./global/default-dynamic-capability");
+
+	if (!show_defaults && enabled == global_dflt)
+		return;
+	vty_out(vty, "%s%sneighbor %s capability dynamic\n", bgp_nb_peer_show_indent(dnode),
+		enabled ? "" : "no ", bgp_nb_config_peer_name(dnode));
 }
 
 /*
@@ -6118,16 +6230,38 @@ int bgp_nb_peer_enforce_first_as_modify(struct nb_cb_modify_args *args)
 	return NB_OK;
 }
 
+int bgp_nb_peer_enforce_first_as_destroy(struct nb_cb_destroy_args *args)
+{
+	struct peer *peer;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	peer = bgp_nb_config_peer(args->dnode);
+	if (!peer)
+		return NB_OK;
+
+	if (CHECK_FLAG(peer->bgp->flags, BGP_FLAG_ENFORCE_FIRST_AS))
+		peer_flag_set(peer, PEER_FLAG_ENFORCE_FIRST_AS);
+	else
+		peer_flag_unset(peer, PEER_FLAG_ENFORCE_FIRST_AS);
+	return NB_OK;
+}
+
 void bgp_nb_cli_show_peer_enforce_first_as(struct vty *vty, const struct lyd_node *dnode,
 					   bool show_defaults)
 {
-	if (yang_dnode_get_bool(dnode, NULL)) {
-		if (show_defaults)
-			vty_out(vty, "%sneighbor %s enforce-first-as\n",
-				bgp_nb_peer_show_indent(dnode), bgp_nb_config_peer_name(dnode));
-	} else
-		vty_out(vty, "%sno neighbor %s enforce-first-as\n", bgp_nb_peer_show_indent(dnode),
-			bgp_nb_config_peer_name(dnode));
+	const struct lyd_node *bgp_dnode = yang_dnode_get_parent(dnode, "bgp");
+	bool enabled = yang_dnode_get_bool(dnode, NULL);
+	bool global_dflt = SAVE_BGP_ENFORCE_FIRST_AS;
+
+	if (bgp_dnode && yang_dnode_exists(bgp_dnode, "./global/enforce-first-as"))
+		global_dflt = yang_dnode_get_bool(bgp_dnode, "./global/enforce-first-as");
+
+	if (!show_defaults && enabled == global_dflt)
+		return;
+	vty_out(vty, "%s%sneighbor %s enforce-first-as\n", bgp_nb_peer_show_indent(dnode),
+		enabled ? "" : "no ", bgp_nb_config_peer_name(dnode));
 }
 
 int bgp_nb_peer_cap_soft_version_modify(struct nb_cb_modify_args *args)
@@ -6203,9 +6337,14 @@ void bgp_nb_cli_show_peer_cap_soft_version(struct vty *vty, const struct lyd_nod
 	const char *dflt = "disabled";
 	bool dflt_old, dflt_new, has_old, has_new;
 
-	if (bgp_dnode)
+	if (bgp_dnode &&
+	    yang_dnode_exists(bgp_dnode, "./global/default-software-version-capability"))
 		dflt = yang_dnode_get_string(bgp_dnode,
 					     "./global/default-software-version-capability");
+	else if (SAVE_BGP_SOFT_VERSION_CAPABILITY_OLD)
+		dflt = "old-encoding";
+	else if (SAVE_BGP_SOFT_VERSION_CAPABILITY_NEW)
+		dflt = "latest-encoding";
 
 	dflt_old = strmatch(dflt, "old-encoding");
 	dflt_new = strmatch(dflt, "latest-encoding");
@@ -6251,15 +6390,44 @@ int bgp_nb_peer_cap_link_local_modify(struct nb_cb_modify_args *args)
 	return NB_OK;
 }
 
+int bgp_nb_peer_cap_link_local_destroy(struct nb_cb_destroy_args *args)
+{
+	struct peer *peer;
+	bool enable;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	peer = bgp_nb_config_peer(args->dnode);
+	if (!peer)
+		return NB_OK;
+
+	enable = CHECK_FLAG(peer->bgp->flags, BGP_FLAG_LINK_LOCAL_CAPABILITY);
+	if (enable)
+		peer_flag_set(peer, PEER_FLAG_CAPABILITY_LINK_LOCAL);
+	else
+		peer_flag_unset(peer, PEER_FLAG_CAPABILITY_LINK_LOCAL);
+
+	bgp_nb_capability_send(peer, CAPABILITY_CODE_LINK_LOCAL,
+			       enable ? CAPABILITY_ACTION_SET : CAPABILITY_ACTION_UNSET);
+	return NB_OK;
+}
+
 void bgp_nb_cli_show_peer_cap_link_local(struct vty *vty, const struct lyd_node *dnode,
 					 bool show_defaults)
 {
-	if (yang_dnode_get_bool(dnode, NULL))
-		vty_out(vty, "%sneighbor %s capability link-local\n",
-			bgp_nb_peer_show_indent(dnode), bgp_nb_config_peer_name(dnode));
-	else if (show_defaults)
-		vty_out(vty, "%sno neighbor %s capability link-local\n",
-			bgp_nb_peer_show_indent(dnode), bgp_nb_config_peer_name(dnode));
+	const struct lyd_node *bgp_dnode = yang_dnode_get_parent(dnode, "bgp");
+	bool enabled = yang_dnode_get_bool(dnode, NULL);
+	bool global_dflt = SAVE_BGP_LINK_LOCAL_CAPABILITY;
+
+	if (bgp_dnode && yang_dnode_exists(bgp_dnode, "./global/default-link-local-capability"))
+		global_dflt = yang_dnode_get_bool(bgp_dnode,
+						  "./global/default-link-local-capability");
+
+	if (!show_defaults && enabled == global_dflt)
+		return;
+	vty_out(vty, "%s%sneighbor %s capability link-local\n", bgp_nb_peer_show_indent(dnode),
+		enabled ? "" : "no ", bgp_nb_config_peer_name(dnode));
 }
 
 int bgp_nb_peer_cap_override_modify(struct nb_cb_modify_args *args)
@@ -18503,7 +18671,11 @@ int bgp_nb_daemon_session_dscp_destroy(struct nb_cb_destroy_args *args)
 void bgp_nb_cli_show_daemon_session_dscp(struct vty *vty, const struct lyd_node *dnode,
 					 bool show_defaults)
 {
-	vty_out(vty, "bgp session-dscp %u\n", yang_dnode_get_uint8(dnode, NULL));
+	uint8_t dscp = yang_dnode_get_uint8(dnode, NULL);
+
+	if (!show_defaults && dscp == (IPTOS_PREC_INTERNETCONTROL >> 2))
+		return;
+	vty_out(vty, "bgp session-dscp %u\n", dscp);
 }
 
 int bgp_nb_daemon_inq_limit_modify(struct nb_cb_modify_args *args)
@@ -18527,7 +18699,11 @@ int bgp_nb_daemon_inq_limit_destroy(struct nb_cb_destroy_args *args)
 void bgp_nb_cli_show_daemon_inq_limit(struct vty *vty, const struct lyd_node *dnode,
 				      bool show_defaults)
 {
-	vty_out(vty, "bgp input-queue-limit %u\n", yang_dnode_get_uint32(dnode, NULL));
+	uint32_t limit = yang_dnode_get_uint32(dnode, NULL);
+
+	if (!show_defaults && limit == BM_DEFAULT_Q_LIMIT)
+		return;
+	vty_out(vty, "bgp input-queue-limit %u\n", limit);
 }
 
 int bgp_nb_daemon_outq_limit_modify(struct nb_cb_modify_args *args)
@@ -18551,7 +18727,11 @@ int bgp_nb_daemon_outq_limit_destroy(struct nb_cb_destroy_args *args)
 void bgp_nb_cli_show_daemon_outq_limit(struct vty *vty, const struct lyd_node *dnode,
 				       bool show_defaults)
 {
-	vty_out(vty, "bgp output-queue-limit %u\n", yang_dnode_get_uint32(dnode, NULL));
+	uint32_t limit = yang_dnode_get_uint32(dnode, NULL);
+
+	if (!show_defaults && limit == BM_DEFAULT_Q_LIMIT)
+		return;
+	vty_out(vty, "bgp output-queue-limit %u\n", limit);
 }
 
 int bgp_nb_daemon_suppress_fib_modify(struct nb_cb_modify_args *args)
@@ -19689,7 +19869,21 @@ int bgp_nb_connect_retry_modify(struct nb_cb_modify_args *args)
 		return NB_OK;
 
 	bgp = nb_running_get_entry(args->dnode, NULL, true);
-	bgp_nb_apply_global_timers(bgp, args->dnode);
+	bgp_nb_apply_global_timers(bgp, yang_dnode_get_parent(args->dnode, "global-config-timers"));
+	return NB_OK;
+}
+
+int bgp_nb_connect_retry_destroy(struct nb_cb_destroy_args *args)
+{
+	struct bgp *bgp;
+	const struct lyd_node *timers;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	bgp = nb_running_get_entry(args->dnode, NULL, true);
+	timers = bgp_nb_candidate_match(yang_dnode_get_parent(args->dnode, "global-config-timers"));
+	bgp_nb_apply_global_timers(bgp, timers);
 	return NB_OK;
 }
 
@@ -19739,10 +19933,11 @@ int bgp_nb_daemon_gr_notification_destroy(struct nb_cb_destroy_args *args)
 void bgp_nb_cli_show_daemon_gr_notification(struct vty *vty, const struct lyd_node *dnode,
 					    bool show_defaults)
 {
-	if (yang_dnode_get_bool(dnode, NULL))
-		vty_out(vty, "bgp graceful-restart notification\n");
-	else
-		vty_out(vty, "no bgp graceful-restart notification\n");
+	bool enabled = yang_dnode_get_bool(dnode, NULL);
+
+	if (!show_defaults && enabled == SAVE_BGP_GRACEFUL_NOTIFICATION)
+		return;
+	vty_out(vty, "%sbgp graceful-restart notification\n", enabled ? "" : "no ");
 }
 
 int bgp_nb_daemon_gr_disable_eor_modify(struct nb_cb_modify_args *args)

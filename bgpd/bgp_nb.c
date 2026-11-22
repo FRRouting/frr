@@ -238,6 +238,7 @@ const struct frr_yang_module_info frr_bgp_info = {
 			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/global-neighbor-config/log-neighbor-changes",
 			.cbs = {
 				.modify = bgp_nb_log_neighbor_changes_modify,
+				.destroy = bgp_nb_log_neighbor_changes_destroy,
 				.cli_show = bgp_nb_cli_show_log_neighbor_changes,
 			},
 		},
@@ -245,6 +246,7 @@ const struct frr_yang_module_info frr_bgp_info = {
 			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/ebgp-requires-policy",
 			.cbs = {
 				.modify = bgp_nb_ebgp_requires_policy_modify,
+				.destroy = bgp_nb_ebgp_requires_policy_destroy,
 				.cli_show = bgp_nb_cli_show_ebgp_requires_policy,
 			},
 		},
@@ -252,6 +254,7 @@ const struct frr_yang_module_info frr_bgp_info = {
 			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/import-check",
 			.cbs = {
 				.modify = bgp_nb_import_check_modify,
+				.destroy = bgp_nb_import_check_destroy,
 				.cli_show = bgp_nb_cli_show_import_check,
 			},
 		},
@@ -281,6 +284,7 @@ const struct frr_yang_module_info frr_bgp_info = {
 			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/route-selection-options/deterministic-med",
 			.cbs = {
 				.modify = bgp_nb_deterministic_med_modify,
+				.destroy = bgp_nb_deterministic_med_destroy,
 				.cli_show = bgp_nb_cli_show_deterministic_med,
 			},
 		},
@@ -302,6 +306,7 @@ const struct frr_yang_module_info frr_bgp_info = {
 			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/suppress-duplicates",
 			.cbs = {
 				.modify = bgp_nb_suppress_duplicates_modify,
+				.destroy = bgp_nb_suppress_duplicates_destroy,
 				.cli_show = bgp_nb_cli_show_suppress_duplicates,
 			},
 		},
@@ -642,6 +647,7 @@ const struct frr_yang_module_info frr_bgp_info = {
 			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/show-hostname",
 			.cbs = {
 				.modify = bgp_nb_show_hostname_modify,
+				.destroy = bgp_nb_show_hostname_destroy,
 				.cli_show = bgp_nb_cli_show_show_hostname,
 			},
 		},
@@ -649,6 +655,7 @@ const struct frr_yang_module_info frr_bgp_info = {
 			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/show-nexthop-hostname",
 			.cbs = {
 				.modify = bgp_nb_show_nexthop_hostname_modify,
+				.destroy = bgp_nb_show_nexthop_hostname_destroy,
 				.cli_show = bgp_nb_cli_show_show_nexthop_hostname,
 			},
 		},
@@ -741,6 +748,7 @@ const struct frr_yang_module_info frr_bgp_info = {
 			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/global-config-timers/keepalive",
 			.cbs = {
 				.modify = bgp_nb_keepalive_modify,
+				.destroy = bgp_nb_keepalive_destroy,
 				.cli_show = bgp_nb_cli_show_keepalive,
 			},
 		},
@@ -748,6 +756,7 @@ const struct frr_yang_module_info frr_bgp_info = {
 			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/global-config-timers/hold-time",
 			.cbs = {
 				.modify = bgp_nb_hold_time_modify,
+				.destroy = bgp_nb_hold_time_destroy,
 				.cli_show = bgp_nb_cli_show_holdtime,
 			},
 		},
@@ -793,6 +802,7 @@ const struct frr_yang_module_info frr_bgp_info = {
 			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/global-config-timers/conditional-advertisement-timer",
 			.cbs = {
 				.modify = bgp_nb_conditional_advertisement_timer_modify,
+				.destroy = bgp_nb_conditional_advertisement_timer_destroy,
 				.cli_show = bgp_nb_cli_show_conditional_advertisement_timer,
 			},
 		},
@@ -3053,6 +3063,7 @@ const struct frr_yang_module_info frr_bgp_info = {
 			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/global-update-group-config/coalesce-time",
 			.cbs = {
 				.modify = bgp_nb_coalesce_time_modify,
+				.destroy = bgp_nb_coalesce_time_destroy,
 				.cli_show = bgp_nb_cli_show_coalesce_time,
 			},
 		},
@@ -3140,6 +3151,7 @@ const struct frr_yang_module_info frr_bgp_info = {
 			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/ipv6-auto-ra",
 			.cbs = {
 				.modify = bgp_nb_ipv6_auto_ra_modify,
+				.destroy = bgp_nb_ipv6_auto_ra_destroy,
 				.cli_show = bgp_nb_cli_show_ipv6_auto_ra,
 			},
 		},
@@ -3154,6 +3166,7 @@ const struct frr_yang_module_info frr_bgp_info = {
 			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/default-dynamic-capability",
 			.cbs = {
 				.modify = bgp_nb_default_dynamic_capability_modify,
+				.destroy = bgp_nb_default_dynamic_capability_destroy,
 				.cli_show = bgp_nb_cli_show_default_dynamic_capability,
 			},
 		},
@@ -3168,6 +3181,7 @@ const struct frr_yang_module_info frr_bgp_info = {
 			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/default-software-version-capability",
 			.cbs = {
 				.modify = bgp_nb_default_software_version_capability_modify,
+				.destroy = bgp_nb_default_software_version_capability_destroy,
 				.cli_show = bgp_nb_cli_show_default_software_version_capability,
 			},
 		},
@@ -3593,6 +3607,7 @@ const struct frr_yang_module_info frr_bgp_info = {
 			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/timers/keepalive",
 			.cbs = {
 				.modify = bgp_nb_peer_timers_keepalive_modify,
+				.destroy = bgp_nb_peer_timers_keepalive_destroy,
 				.cli_show = bgp_nb_cli_show_peer_timers_keepalive,
 			},
 		},
@@ -3600,6 +3615,7 @@ const struct frr_yang_module_info frr_bgp_info = {
 			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/timers/hold-time",
 			.cbs = {
 				.modify = bgp_nb_peer_timers_holdtime_modify,
+				.destroy = bgp_nb_peer_timers_holdtime_destroy,
 				.cli_show = bgp_nb_cli_show_peer_timers_holdtime,
 			},
 		},
@@ -3631,6 +3647,7 @@ const struct frr_yang_module_info frr_bgp_info = {
 			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/capability-options/dynamic-capability",
 			.cbs = {
 				.modify = bgp_nb_peer_cap_dynamic_modify,
+				.destroy = bgp_nb_peer_cap_dynamic_destroy,
 				.cli_show = bgp_nb_cli_show_peer_cap_dynamic,
 			},
 		},
@@ -3659,6 +3676,7 @@ const struct frr_yang_module_info frr_bgp_info = {
 			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/enforce-first-as",
 			.cbs = {
 				.modify = bgp_nb_peer_enforce_first_as_modify,
+				.destroy = bgp_nb_peer_enforce_first_as_destroy,
 				.cli_show = bgp_nb_cli_show_peer_enforce_first_as,
 			},
 		},
@@ -3739,6 +3757,7 @@ const struct frr_yang_module_info frr_bgp_info = {
 			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/timers/keepalive",
 			.cbs = {
 				.modify = bgp_nb_peer_timers_keepalive_modify,
+				.destroy = bgp_nb_peer_timers_keepalive_destroy,
 				.cli_show = bgp_nb_cli_show_peer_timers_keepalive,
 			},
 		},
@@ -3746,6 +3765,7 @@ const struct frr_yang_module_info frr_bgp_info = {
 			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/timers/hold-time",
 			.cbs = {
 				.modify = bgp_nb_peer_timers_holdtime_modify,
+				.destroy = bgp_nb_peer_timers_holdtime_destroy,
 				.cli_show = bgp_nb_cli_show_peer_timers_holdtime,
 			},
 		},
@@ -3777,6 +3797,7 @@ const struct frr_yang_module_info frr_bgp_info = {
 			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/capability-options/dynamic-capability",
 			.cbs = {
 				.modify = bgp_nb_peer_cap_dynamic_modify,
+				.destroy = bgp_nb_peer_cap_dynamic_destroy,
 				.cli_show = bgp_nb_cli_show_peer_cap_dynamic,
 			},
 		},
@@ -3805,6 +3826,7 @@ const struct frr_yang_module_info frr_bgp_info = {
 			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/enforce-first-as",
 			.cbs = {
 				.modify = bgp_nb_peer_enforce_first_as_modify,
+				.destroy = bgp_nb_peer_enforce_first_as_destroy,
 				.cli_show = bgp_nb_cli_show_peer_enforce_first_as,
 			},
 		},
@@ -3885,6 +3907,7 @@ const struct frr_yang_module_info frr_bgp_info = {
 			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/timers/keepalive",
 			.cbs = {
 				.modify = bgp_nb_peer_timers_keepalive_modify,
+				.destroy = bgp_nb_peer_timers_keepalive_destroy,
 				.cli_show = bgp_nb_cli_show_peer_timers_keepalive,
 			},
 		},
@@ -3892,6 +3915,7 @@ const struct frr_yang_module_info frr_bgp_info = {
 			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/timers/hold-time",
 			.cbs = {
 				.modify = bgp_nb_peer_timers_holdtime_modify,
+				.destroy = bgp_nb_peer_timers_holdtime_destroy,
 				.cli_show = bgp_nb_cli_show_peer_timers_holdtime,
 			},
 		},
@@ -3923,6 +3947,7 @@ const struct frr_yang_module_info frr_bgp_info = {
 			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/capability-options/dynamic-capability",
 			.cbs = {
 				.modify = bgp_nb_peer_cap_dynamic_modify,
+				.destroy = bgp_nb_peer_cap_dynamic_destroy,
 				.cli_show = bgp_nb_cli_show_peer_cap_dynamic,
 			},
 		},
@@ -3951,6 +3976,7 @@ const struct frr_yang_module_info frr_bgp_info = {
 			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/enforce-first-as",
 			.cbs = {
 				.modify = bgp_nb_peer_enforce_first_as_modify,
+				.destroy = bgp_nb_peer_enforce_first_as_destroy,
 				.cli_show = bgp_nb_cli_show_peer_enforce_first_as,
 			},
 		},
@@ -3967,6 +3993,7 @@ const struct frr_yang_module_info frr_bgp_info = {
 			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/capability-options/link-local-capability",
 			.cbs = {
 				.modify = bgp_nb_peer_cap_link_local_modify,
+				.destroy = bgp_nb_peer_cap_link_local_destroy,
 				.cli_show = bgp_nb_cli_show_peer_cap_link_local,
 			},
 		},
@@ -4033,6 +4060,7 @@ const struct frr_yang_module_info frr_bgp_info = {
 			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/capability-options/link-local-capability",
 			.cbs = {
 				.modify = bgp_nb_peer_cap_link_local_modify,
+				.destroy = bgp_nb_peer_cap_link_local_destroy,
 				.cli_show = bgp_nb_cli_show_peer_cap_link_local,
 			},
 		},
@@ -4099,6 +4127,7 @@ const struct frr_yang_module_info frr_bgp_info = {
 			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/capability-options/link-local-capability",
 			.cbs = {
 				.modify = bgp_nb_peer_cap_link_local_modify,
+				.destroy = bgp_nb_peer_cap_link_local_destroy,
 				.cli_show = bgp_nb_cli_show_peer_cap_link_local,
 			},
 		},
@@ -17865,6 +17894,7 @@ const struct frr_yang_module_info frr_bgp_info = {
 			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/global-config-timers/connect-retry-interval",
 			.cbs = {
 				.modify = bgp_nb_connect_retry_modify,
+				.destroy = bgp_nb_connect_retry_destroy,
 			},
 		},
 		{

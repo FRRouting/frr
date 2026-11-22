@@ -323,6 +323,137 @@ router bgp 65000
     assert "no dup-addr-detection" in running
 
 
+def test_profile_and_inherited_defaults():
+    """Verify profile/inherited defaults are not masked by YANG defaults (B003)."""
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    r1 = tgen.gears["r1"]
+
+    # coalesce-time 1000 must stay explicit; no coalesce-time restores heuristic.
+    r1.vtysh_multicmd(
+        """
+router bgp 65000
+ coalesce-time 1000
+""",
+        pretty_output=False,
+        raises=True,
+    )
+    assert " coalesce-time 1000" in r1.vtysh_cmd("show running-config")
+
+    r1.vtysh_multicmd(
+        """
+router bgp 65000
+ no coalesce-time
+""",
+        pretty_output=False,
+        raises=True,
+    )
+    assert "coalesce-time" not in r1.vtysh_cmd("show running-config")
+
+    # Positive defaults matching SAVE_* / daemon defaults must stay suppressed,
+    # while per-instance ipv6-auto-ra overrides global no bgp ipv6-auto-ra.
+    r1.vtysh_multicmd(
+        """
+no bgp ipv6-auto-ra
+bgp session-dscp 48
+bgp input-queue-limit 10000
+bgp output-queue-limit 10000
+router bgp 65000
+ bgp enforce-first-as
+ bgp hard-administrative-reset
+ bgp graceful-restart notification
+ bgp ipv6-auto-ra
+""",
+        pretty_output=False,
+        raises=True,
+    )
+    running = r1.vtysh_cmd("show running-config")
+    for suppressed in (
+        "bgp session-dscp 48",
+        "bgp input-queue-limit 10000",
+        "bgp output-queue-limit 10000",
+        "bgp enforce-first-as",
+        "bgp hard-administrative-reset",
+        "bgp graceful-restart notification",
+    ):
+        assert suppressed not in running
+    assert "no bgp ipv6-auto-ra\n" in running
+    assert " bgp ipv6-auto-ra\n" in running
+
+    # Per-neighbor overrides against global capability/enforce-first-as defaults.
+    r1.vtysh_multicmd(
+        """
+router bgp 65000
+ bgp default dynamic-capability
+ bgp default link-local-capability
+ no bgp enforce-first-as
+ neighbor 192.0.2.10 remote-as 65002
+ no neighbor 192.0.2.10 capability dynamic
+ no neighbor 192.0.2.10 capability link-local
+ neighbor 192.0.2.10 enforce-first-as
+ neighbor 192.0.2.10 timers 60 180
+""",
+        pretty_output=False,
+        raises=True,
+    )
+    running = r1.vtysh_cmd("show running-config")
+    assert " no neighbor 192.0.2.10 capability dynamic" in running
+    assert " no neighbor 192.0.2.10 capability link-local" in running
+    assert " neighbor 192.0.2.10 enforce-first-as" in running
+    assert " neighbor 192.0.2.10 timers 60 180" in running
+
+    r1.vtysh_multicmd(
+        """
+router bgp 65000
+ no neighbor 192.0.2.10 timers
+""",
+        pretty_output=False,
+        raises=True,
+    )
+    assert "neighbor 192.0.2.10 timers" not in r1.vtysh_cmd("show running-config")
+
+
+def test_timers_clamping_and_minimum_holdtime():
+    """timers bgp clamps keepalive to holdtime/3 and minimum-holdtime suppresses default (B013)."""
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    r1 = tgen.gears["r1"]
+    out = r1.vtysh_multicmd(
+        """
+router bgp 65000
+ timers bgp 20 30
+""",
+        pretty_output=False,
+        raises=True,
+    )
+    assert "larger than 1/3 of the holdtime, setting to 10" in out
+    assert " timers bgp 10 30\n" in r1.vtysh_cmd("show running-config")
+
+    r1.vtysh_multicmd(
+        """
+router bgp 65000
+ bgp minimum-holdtime 180
+""",
+        pretty_output=False,
+        raises=True,
+    )
+    assert "minimum-holdtime" not in r1.vtysh_cmd("show running-config")
+
+    r1.vtysh_multicmd(
+        """
+router bgp 65000
+ no timers bgp
+ no bgp minimum-holdtime
+""",
+        pretty_output=False,
+        raises=True,
+    )
+
+
 if __name__ == "__main__":
     args = ["-s"] + sys.argv[1:]
     sys.exit(pytest.main(args))

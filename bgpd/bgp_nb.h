@@ -46,14 +46,17 @@ int bgp_nb_instance_type_view_modify(struct nb_cb_modify_args *args);
 int bgp_nb_as_notation_modify(struct nb_cb_modify_args *args);
 
 int bgp_nb_log_neighbor_changes_modify(struct nb_cb_modify_args *args);
+int bgp_nb_log_neighbor_changes_destroy(struct nb_cb_destroy_args *args);
 void bgp_nb_cli_show_log_neighbor_changes(struct vty *vty, const struct lyd_node *dnode,
 					  bool show_defaults);
 
 int bgp_nb_ebgp_requires_policy_modify(struct nb_cb_modify_args *args);
+int bgp_nb_ebgp_requires_policy_destroy(struct nb_cb_destroy_args *args);
 void bgp_nb_cli_show_ebgp_requires_policy(struct vty *vty, const struct lyd_node *dnode,
 					  bool show_defaults);
 
 int bgp_nb_import_check_modify(struct nb_cb_modify_args *args);
+int bgp_nb_import_check_destroy(struct nb_cb_destroy_args *args);
 void bgp_nb_cli_show_import_check(struct vty *vty, const struct lyd_node *dnode,
 				  bool show_defaults);
 
@@ -71,6 +74,7 @@ void bgp_nb_cli_show_always_compare_med(struct vty *vty, const struct lyd_node *
 					bool show_defaults);
 
 int bgp_nb_deterministic_med_modify(struct nb_cb_modify_args *args);
+int bgp_nb_deterministic_med_destroy(struct nb_cb_destroy_args *args);
 void bgp_nb_cli_show_deterministic_med(struct vty *vty, const struct lyd_node *dnode,
 				       bool show_defaults);
 
@@ -82,6 +86,7 @@ void bgp_nb_cli_show_fast_external_failover(struct vty *vty, const struct lyd_no
 					    bool show_defaults);
 
 int bgp_nb_suppress_duplicates_modify(struct nb_cb_modify_args *args);
+int bgp_nb_suppress_duplicates_destroy(struct nb_cb_destroy_args *args);
 void bgp_nb_cli_show_suppress_duplicates(struct vty *vty, const struct lyd_node *dnode,
 					 bool show_defaults);
 
@@ -110,10 +115,12 @@ void bgp_nb_cli_show_hard_admin_reset(struct vty *vty, const struct lyd_node *dn
 				      bool show_defaults);
 
 int bgp_nb_show_hostname_modify(struct nb_cb_modify_args *args);
+int bgp_nb_show_hostname_destroy(struct nb_cb_destroy_args *args);
 void bgp_nb_cli_show_show_hostname(struct vty *vty, const struct lyd_node *dnode,
 				   bool show_defaults);
 
 int bgp_nb_show_nexthop_hostname_modify(struct nb_cb_modify_args *args);
+int bgp_nb_show_nexthop_hostname_destroy(struct nb_cb_destroy_args *args);
 void bgp_nb_cli_show_show_nexthop_hostname(struct vty *vty, const struct lyd_node *dnode,
 					   bool show_defaults);
 
@@ -165,7 +172,9 @@ void bgp_nb_cli_show_bandwidth_handling(struct vty *vty, const struct lyd_node *
 					bool show_defaults);
 
 int bgp_nb_keepalive_modify(struct nb_cb_modify_args *args);
+int bgp_nb_keepalive_destroy(struct nb_cb_destroy_args *args);
 int bgp_nb_hold_time_modify(struct nb_cb_modify_args *args);
+int bgp_nb_hold_time_destroy(struct nb_cb_destroy_args *args);
 void bgp_nb_cli_show_keepalive(struct vty *vty, const struct lyd_node *dnode, bool show_defaults);
 void bgp_nb_cli_show_holdtime(struct vty *vty, const struct lyd_node *dnode, bool show_defaults);
 
@@ -300,6 +309,7 @@ int bgp_nb_rpkt_quanta_modify(struct nb_cb_modify_args *args);
 void bgp_nb_cli_show_rpkt_quanta(struct vty *vty, const struct lyd_node *dnode, bool show_defaults);
 
 int bgp_nb_coalesce_time_modify(struct nb_cb_modify_args *args);
+int bgp_nb_coalesce_time_destroy(struct nb_cb_destroy_args *args);
 void bgp_nb_cli_show_coalesce_time(struct vty *vty, const struct lyd_node *dnode,
 				   bool show_defaults);
 
@@ -350,6 +360,7 @@ void bgp_nb_cli_show_fast_convergence(struct vty *vty, const struct lyd_node *dn
 				      bool show_defaults);
 
 int bgp_nb_ipv6_auto_ra_modify(struct nb_cb_modify_args *args);
+int bgp_nb_ipv6_auto_ra_destroy(struct nb_cb_destroy_args *args);
 void bgp_nb_cli_show_ipv6_auto_ra(struct vty *vty, const struct lyd_node *dnode,
 				  bool show_defaults);
 
@@ -358,6 +369,7 @@ void bgp_nb_cli_show_labeled_unicast_explicit_null(struct vty *vty, const struct
 						   bool show_defaults);
 
 int bgp_nb_default_dynamic_capability_modify(struct nb_cb_modify_args *args);
+int bgp_nb_default_dynamic_capability_destroy(struct nb_cb_destroy_args *args);
 void bgp_nb_cli_show_default_dynamic_capability(struct vty *vty, const struct lyd_node *dnode,
 						bool show_defaults);
 
@@ -366,6 +378,7 @@ void bgp_nb_cli_show_default_link_local_capability(struct vty *vty, const struct
 						   bool show_defaults);
 
 int bgp_nb_default_software_version_capability_modify(struct nb_cb_modify_args *args);
+int bgp_nb_default_software_version_capability_destroy(struct nb_cb_destroy_args *args);
 void bgp_nb_cli_show_default_software_version_capability(struct vty *vty,
 							 const struct lyd_node *dnode,
 							 bool show_defaults);
@@ -504,6 +517,7 @@ int bgp_nb_peer_advertise_interval_destroy(struct nb_cb_destroy_args *args);
 void bgp_nb_cli_show_peer_advertise_interval(struct vty *vty, const struct lyd_node *dnode,
 					     bool show_defaults);
 int bgp_nb_peer_cap_dynamic_modify(struct nb_cb_modify_args *args);
+int bgp_nb_peer_cap_dynamic_destroy(struct nb_cb_destroy_args *args);
 void bgp_nb_cli_show_peer_cap_dynamic(struct vty *vty, const struct lyd_node *dnode,
 				      bool show_defaults);
 int bgp_nb_peer_cap_enhe_modify(struct nb_cb_modify_args *args);
@@ -516,6 +530,7 @@ int bgp_nb_peer_cap_fqdn_modify(struct nb_cb_modify_args *args);
 void bgp_nb_cli_show_peer_cap_fqdn(struct vty *vty, const struct lyd_node *dnode,
 				   bool show_defaults);
 int bgp_nb_peer_enforce_first_as_modify(struct nb_cb_modify_args *args);
+int bgp_nb_peer_enforce_first_as_destroy(struct nb_cb_destroy_args *args);
 void bgp_nb_cli_show_peer_enforce_first_as(struct vty *vty, const struct lyd_node *dnode,
 					   bool show_defaults);
 
@@ -525,6 +540,7 @@ int bgp_nb_peer_cap_soft_version_destroy(struct nb_cb_destroy_args *args);
 void bgp_nb_cli_show_peer_cap_soft_version(struct vty *vty, const struct lyd_node *dnode,
 					   bool show_defaults);
 int bgp_nb_peer_cap_link_local_modify(struct nb_cb_modify_args *args);
+int bgp_nb_peer_cap_link_local_destroy(struct nb_cb_destroy_args *args);
 void bgp_nb_cli_show_peer_cap_link_local(struct vty *vty, const struct lyd_node *dnode,
 					 bool show_defaults);
 int bgp_nb_peer_cap_override_modify(struct nb_cb_modify_args *args);
@@ -1385,6 +1401,7 @@ int bgp_nb_peer_bfd_session_type_destroy(struct nb_cb_destroy_args *args);
 int bgp_nb_aggregate_attr_modify(struct nb_cb_modify_args *args);
 int bgp_nb_aggregate_attr_destroy(struct nb_cb_destroy_args *args);
 int bgp_nb_connect_retry_modify(struct nb_cb_modify_args *args);
+int bgp_nb_connect_retry_destroy(struct nb_cb_destroy_args *args);
 int bgp_nb_daemon_gr_notification_modify(struct nb_cb_modify_args *args);
 int bgp_nb_daemon_gr_notification_destroy(struct nb_cb_destroy_args *args);
 void bgp_nb_cli_show_daemon_gr_notification(struct vty *vty, const struct lyd_node *dnode,

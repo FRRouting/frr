@@ -220,7 +220,6 @@ submodule frr-bgp-common {
 
       leaf deterministic-med {
         type boolean;
-        default "false";
         description
           "Compare multi-exit discriminator (MED) value from
            Same ASes when selecting the best route.";
@@ -519,14 +518,12 @@ submodule frr-bgp-common {
 
     leaf suppress-duplicates {
       type boolean;
-      default "true";
       description
         "Suppress duplicate updates if the route actually not changed.";
     }
 
     leaf ebgp-requires-policy {
       type boolean;
-      default "true";
       description
         "When set to 'true' BGP speaker requires in and out policy
          for EBGP peers (RFC8212).";
@@ -534,14 +531,12 @@ submodule frr-bgp-common {
 
     leaf show-hostname {
       type boolean;
-      default "false";
       description
         "When set to 'true' BGP show hostname in certain command outputs.";
     }
 
     leaf show-nexthop-hostname {
       type boolean;
-      default "false";
       description
         "When set to 'true' BGP show hostname for nexthop in certain
          command outputs.";
@@ -601,7 +596,6 @@ submodule frr-bgp-common {
 
     leaf ipv6-auto-ra {
       type boolean;
-      default "true";
       description
         "Allow enabling IPv6 ND RA sending for unnumbered peers.
          Maps to: [no] bgp ipv6-auto-ra.";
@@ -649,7 +643,6 @@ submodule frr-bgp-common {
 
     leaf default-dynamic-capability {
       type boolean;
-      default "false";
       description
         "Advertise dynamic capability to all neighbors by default.
          Maps to: bgp default dynamic-capability.";
@@ -669,7 +662,6 @@ submodule frr-bgp-common {
         enum old-encoding;
         enum latest-encoding;
       }
-      default "disabled";
       description
         "Advertise software version capability.
          Maps to: bgp default software-version-capability
@@ -909,7 +901,6 @@ submodule frr-bgp-common {
 
       leaf log-neighbor-changes {
         type boolean;
-        default "false";
         description
           "When set to 'true' BGP will start logging neighbor up/down and reset reason.
            When set to 'false' BGP will stop logging neighbor up/down and reset reason.";
@@ -962,7 +953,6 @@ submodule frr-bgp-common {
           range "0..4294967295";
         }
         units "milliseconds";
-        default "1000";
         description
           "Configures the Subgroup coalesce timer.";
       }
@@ -975,7 +965,6 @@ submodule frr-bgp-common {
 
     leaf import-check {
       type boolean;
-      default "true";
       description
         "When set to 'true' bgp creates entries for network statements
          if a matching prefix exists in the rib. When set to 'false' bgp
@@ -995,7 +984,6 @@ submodule frr-bgp-common {
         range "0 | 3..65535";
       }
       units "seconds";
-      default "180";
       description
         "Time interval (in seconds) for the HoldTimer established
          with the peer.  When read as operational data (ro), the
@@ -1023,7 +1011,6 @@ submodule frr-bgp-common {
         range "0..65535";
       }
       units "seconds";
-      default "60";
       description
         "When used as a configuration (rw) value, this Time interval
          (in seconds) for the KeepAlive timer configured for this BGP
@@ -1100,10 +1087,10 @@ submodule frr-bgp-common {
           range "1..max";
         }
         units "seconds";
-        default "120";
         description
           "Time interval (in seconds) for the ConnectRetryTimer. The
-           suggested value for this timer is 120 seconds.";
+           suggested value for this timer is 120 seconds (10 seconds
+           under datacenter profile).";
         reference
           "RFC 4271, This is the value used
            to initialize the 'ConnectRetryTimer'.";
@@ -1134,7 +1121,6 @@ submodule frr-bgp-common {
           range "5..240";
         }
         units "seconds";
-        default "60";
         description
           "Period to rescan BGP table for conditional advertisement.
            Maps to: bgp conditional-advertisement timer (5-240).";

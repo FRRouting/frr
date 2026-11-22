@@ -218,6 +218,52 @@ DEFUN_YANG_NOSH(router_bgp_yang, router_bgp_yang_cmd,
 			snprintfrr(leaf_xpath, sizeof(leaf_xpath),
 				   "%s/global/default-afi-safi[.='ipv4-unicast']", bgp_xpath);
 			nb_cli_enqueue_change(vty, leaf_xpath, NB_OP_CREATE, NULL);
+
+			/*
+			 * When loading an older "frr version" config, DFLT_BGP_*
+			 * differs from SAVE_BGP_*; seed explicit leaves so
+			 * show running-config emits the "no ..." forms needed
+			 * to preserve those pre-upgrade defaults on save.
+			 */
+			if (DFLT_BGP_EBGP_REQUIRES_POLICY != SAVE_BGP_EBGP_REQUIRES_POLICY) {
+				snprintfrr(leaf_xpath, sizeof(leaf_xpath),
+					   "%s/global/ebgp-requires-policy", bgp_xpath);
+				nb_cli_enqueue_change(vty, leaf_xpath, NB_OP_MODIFY,
+						      DFLT_BGP_EBGP_REQUIRES_POLICY ? "true"
+										     : "false");
+			}
+			if (DFLT_BGP_SUPPRESS_DUPLICATES != SAVE_BGP_SUPPRESS_DUPLICATES) {
+				snprintfrr(leaf_xpath, sizeof(leaf_xpath),
+					   "%s/global/suppress-duplicates", bgp_xpath);
+				nb_cli_enqueue_change(vty, leaf_xpath, NB_OP_MODIFY,
+						      DFLT_BGP_SUPPRESS_DUPLICATES ? "true"
+										    : "false");
+			}
+			if (DFLT_BGP_IMPORT_CHECK != SAVE_BGP_IMPORT_CHECK) {
+				snprintfrr(leaf_xpath, sizeof(leaf_xpath),
+					   "%s/global/import-check", bgp_xpath);
+				nb_cli_enqueue_change(vty, leaf_xpath, NB_OP_MODIFY,
+						      DFLT_BGP_IMPORT_CHECK ? "true" : "false");
+			}
+			if (DFLT_BGP_ENFORCE_FIRST_AS != SAVE_BGP_ENFORCE_FIRST_AS) {
+				snprintfrr(leaf_xpath, sizeof(leaf_xpath),
+					   "%s/global/enforce-first-as", bgp_xpath);
+				nb_cli_enqueue_change(vty, leaf_xpath, NB_OP_MODIFY,
+						      DFLT_BGP_ENFORCE_FIRST_AS ? "true" : "false");
+			}
+			if (DFLT_BGP_HARD_ADMIN_RESET != SAVE_BGP_HARD_ADMIN_RESET) {
+				snprintfrr(leaf_xpath, sizeof(leaf_xpath),
+					   "%s/global/hard-administrative-reset", bgp_xpath);
+				nb_cli_enqueue_change(vty, leaf_xpath, NB_OP_MODIFY,
+						      DFLT_BGP_HARD_ADMIN_RESET ? "true" : "false");
+			}
+			if (DFLT_BGP_GRACEFUL_NOTIFICATION != SAVE_BGP_GRACEFUL_NOTIFICATION) {
+				snprintfrr(leaf_xpath, sizeof(leaf_xpath),
+					   "%s/global/graceful-restart/notification", bgp_xpath);
+				nb_cli_enqueue_change(vty, leaf_xpath, NB_OP_MODIFY,
+						      DFLT_BGP_GRACEFUL_NOTIFICATION ? "true"
+										      : "false");
+			}
 		}
 	}
 
@@ -1204,14 +1250,27 @@ DEFUN_YANG(bgp_timers_yang, bgp_timers_yang_cmd,
 	   "Keepalive interval\n"
 	   "Holdtime\n")
 {
+	unsigned long keepalive = strtoul(argv[2]->arg, NULL, 10);
+	unsigned long holdtime = strtoul(argv[3]->arg, NULL, 10);
+	char kbuf[16];
+
 	/* RFC 4271 4.2: hold time is either zero or at least three seconds. */
-	if (!bgp_cli_holdtime_valid(strtoul(argv[3]->arg, NULL, 10))) {
+	if (!bgp_cli_holdtime_valid(holdtime)) {
 		vty_out(vty, "%% hold time value must be either 0 or at least 3\n");
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 
-	nb_cli_enqueue_change(vty, "./global/global-config-timers/keepalive", NB_OP_MODIFY,
-			      argv[2]->arg);
+	if (keepalive > holdtime / 3) {
+		unsigned long clamped = holdtime / 3;
+
+		vty_out(vty,
+			"%% keepalive value %lu is larger than 1/3 of the holdtime, setting to %lu\n",
+			keepalive, clamped);
+		keepalive = clamped;
+	}
+
+	snprintfrr(kbuf, sizeof(kbuf), "%lu", keepalive);
+	nb_cli_enqueue_change(vty, "./global/global-config-timers/keepalive", NB_OP_MODIFY, kbuf);
 	nb_cli_enqueue_change(vty, "./global/global-config-timers/hold-time", NB_OP_MODIFY,
 			      argv[3]->arg);
 	return nb_cli_apply_changes(vty, NULL);
@@ -1225,15 +1284,8 @@ DEFUN_YANG(no_bgp_timers_yang, no_bgp_timers_yang_cmd,
 	   "Keepalive interval\n"
 	   "Holdtime\n")
 {
-	char keepalive[16];
-	char holdtime[16];
-
-	snprintfrr(keepalive, sizeof(keepalive), "%lu", DFLT_BGP_KEEPALIVE);
-	snprintfrr(holdtime, sizeof(holdtime), "%lu", DFLT_BGP_HOLDTIME);
-	nb_cli_enqueue_change(vty, "./global/global-config-timers/keepalive", NB_OP_MODIFY,
-			      keepalive);
-	nb_cli_enqueue_change(vty, "./global/global-config-timers/hold-time", NB_OP_MODIFY,
-			      holdtime);
+	nb_cli_enqueue_change(vty, "./global/global-config-timers/keepalive", NB_OP_DESTROY, NULL);
+	nb_cli_enqueue_change(vty, "./global/global-config-timers/hold-time", NB_OP_DESTROY, NULL);
 	return nb_cli_apply_changes(vty, NULL);
 }
 
@@ -2500,11 +2552,8 @@ DEFUN_YANG(no_bgp_coalesce_time_yang, no_bgp_coalesce_time_yang_cmd,
 	   "Subgroup coalesce timer\n"
 	   "Subgroup coalesce timer value (in ms)\n")
 {
-	char val[16];
-
-	snprintfrr(val, sizeof(val), "%u", BGP_DEFAULT_SUBGROUP_COALESCE_TIME);
 	nb_cli_enqueue_change(vty, "./global/global-update-group-config/coalesce-time",
-			      NB_OP_MODIFY, val);
+			      NB_OP_DESTROY, NULL);
 	return nb_cli_apply_changes(vty, NULL);
 }
 

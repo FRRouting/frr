@@ -418,7 +418,6 @@ submodule frr-bgp-common-structure {
          group.";
       leaf dynamic-capability {
         type boolean;
-        default "false";
         description
           "When set to 'true' dynamic capability is advertise to this peer.";
       }
@@ -494,7 +493,6 @@ submodule frr-bgp-common-structure {
 
       leaf link-local-capability {
         type boolean;
-        default "false";
         description
           "Advertise the Link-Local Next Hop capability to this peer.
            Maps to: neighbor <peer> capability link-local.";

@@ -82,7 +82,6 @@ submodule frr-bgp-neighbor {
 
     leaf enforce-first-as {
       type boolean;
-      default "true";
       description
         "When set to 'true' it will enforce the first AS for EBGP routes.";
     }
