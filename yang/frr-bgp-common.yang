@@ -762,9 +762,13 @@ submodule frr-bgp-common {
 
     leaf establish-wait-time {
       type uint16 {
-        range "1..3600";
+        range "0..3600";
       }
       units "seconds";
+      must "(. > 0) or (../update-delay-time = 0)" {
+        error-message
+          "BGP establish-wait-time can only be 0 when update-delay-time is 0.";
+      }
       must "not(../update-delay-time) or . <= ../update-delay-time" {
         error-message
           "BGP establish-wait-time must be less than or equal to update-delay-time.";
@@ -1071,9 +1075,13 @@ submodule frr-bgp-common {
 
       leaf establish-wait-time {
         type uint16 {
-          range "1..3600";
+          range "0..3600";
         }
         units "seconds";
+        must "(. > 0) or (../update-delay-time = 0)" {
+          error-message
+            "BGP establish-wait-time can only be 0 when update-delay-time is 0.";
+        }
         must "not(../update-delay-time) or . <= ../update-delay-time" {
           error-message
             "BGP establish-wait-time must be less than or equal to update-delay-time.";

@@ -1506,6 +1506,16 @@ DEFUN_YANG(no_bgp_update_delay_yang, no_bgp_update_delay_yang_cmd,
 	   "Max delay in seconds\n"
 	   "Establish wait in seconds\n")
 {
+	if (yang_dnode_exists(vty->candidate_config->dnode,
+			      "/frr-bgp:bgp-daemon/update-delay-time") &&
+	    yang_dnode_get_uint16(vty->candidate_config->dnode,
+				  "/frr-bgp:bgp-daemon/update-delay-time") !=
+		    BGP_UPDATE_DELAY_DEFAULT) {
+		vty_out(vty,
+			"%%Failed: bgp update-delay configured globally. Delete per-vrf not permitted\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+
 	nb_cli_enqueue_change(vty, "./global/global-config-timers/update-delay-time",
 			      NB_OP_DESTROY, NULL);
 	nb_cli_enqueue_change(vty, "./global/global-config-timers/establish-wait-time",

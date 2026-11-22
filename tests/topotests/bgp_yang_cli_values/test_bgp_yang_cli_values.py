@@ -525,6 +525,56 @@ router bgp 65000
     assert "graceful-restart restart-time" not in running
 
 
+def test_update_delay_zero_and_global_guard():
+    """update-delay 0 must succeed and no update-delay must fail when global is set (B010)."""
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    r1 = tgen.gears["r1"]
+    r1.vtysh_multicmd(
+        """
+router bgp 65000
+ update-delay 0
+""",
+        pretty_output=False,
+        raises=True,
+    )
+    assert "update-delay" not in r1.vtysh_cmd("show running-config")
+
+    r1.vtysh_multicmd(
+        """
+router bgp 65000
+ update-delay 30 10
+""",
+        pretty_output=False,
+        raises=True,
+    )
+    assert " update-delay 30 10\n" in r1.vtysh_cmd("show running-config")
+
+    r1.vtysh_multicmd(
+        """
+router bgp 65000
+ no update-delay
+""",
+        pretty_output=False,
+        raises=True,
+    )
+    assert "update-delay" not in r1.vtysh_cmd("show running-config")
+
+    r1.vtysh_multicmd("bgp update-delay 30\n", pretty_output=False, raises=True)
+    out = r1.vtysh_multicmd(
+        """
+router bgp 65000
+ no update-delay
+""",
+        pretty_output=False,
+        raises=False,
+    )
+    assert "configured globally" in out
+    r1.vtysh_multicmd("no bgp update-delay\n", pretty_output=False, raises=True)
+
+
 if __name__ == "__main__":
     args = ["-s"] + sys.argv[1:]
     sys.exit(pytest.main(args))

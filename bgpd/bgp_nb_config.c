@@ -2351,7 +2351,9 @@ int bgp_nb_update_delay_time_modify(struct nb_cb_modify_args *args)
 		 * YANG only — never bm->v_update_delay operational state.
 		 * delay vs establish-wait is constrained by YANG must.
 		 */
-		if (yang_dnode_exists(args->dnode, "/frr-bgp:bgp-daemon/update-delay-time")) {
+		if (yang_dnode_exists(args->dnode, "/frr-bgp:bgp-daemon/update-delay-time") &&
+		    yang_dnode_get_uint16(args->dnode, "/frr-bgp:bgp-daemon/update-delay-time") !=
+			    BGP_UPDATE_DELAY_DEFAULT) {
 			snprintfrr(args->errmsg, args->errmsg_len,
 				   "per-vrf update-delay not permitted with global update-delay");
 			return NB_ERR_VALIDATION;
@@ -2376,7 +2378,9 @@ int bgp_nb_update_delay_time_destroy(struct nb_cb_destroy_args *args)
 
 	switch (args->event) {
 	case NB_EV_VALIDATE:
-		if (yang_dnode_exists(args->dnode, "/frr-bgp:bgp-daemon/update-delay-time")) {
+		if (yang_dnode_exists(args->dnode, "/frr-bgp:bgp-daemon/update-delay-time") &&
+		    yang_dnode_get_uint16(args->dnode, "/frr-bgp:bgp-daemon/update-delay-time") !=
+			    BGP_UPDATE_DELAY_DEFAULT) {
 			snprintfrr(args->errmsg, args->errmsg_len,
 				   "cannot remove per-vrf update-delay while global update-delay is set");
 			return NB_ERR_VALIDATION;
@@ -2401,6 +2405,9 @@ void bgp_nb_cli_show_update_delay_time(struct vty *vty, const struct lyd_node *d
 	const struct lyd_node *timers = yang_dnode_get_parent(dnode, "global-config-timers");
 	uint16_t delay = yang_dnode_get_uint16(dnode, NULL);
 	uint16_t wait = delay;
+
+	if (delay == BGP_UPDATE_DELAY_DEFAULT && !show_defaults)
+		return;
 
 	if (yang_dnode_exists(timers, "establish-wait-time"))
 		wait = yang_dnode_get_uint16(timers, "establish-wait-time");
@@ -19049,7 +19056,7 @@ static int bgp_nb_daemon_update_delay_apply(struct nb_cb_modify_args *args, uint
 		 */
 		if (yang_dnode_exists(
 			    args->dnode,
-			    "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/global-config-timers/update-delay-time")) {
+			    "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/global-config-timers/update-delay-time[. != 0]")) {
 			snprintfrr(args->errmsg, args->errmsg_len,
 				   "global update-delay not permitted with per-vrf update-delay");
 			return NB_ERR_VALIDATION;
@@ -19142,14 +19149,22 @@ int bgp_nb_daemon_establish_wait_destroy(struct nb_cb_destroy_args *args)
 {
 	struct listnode *node, *nnode;
 	struct bgp *bgp;
+	const struct lyd_node *parent;
 
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
-	/* update-delay destroy resets both; keep establish-wait aligned. */
-	bm->v_establish_wait = bm->v_update_delay;
-	for (ALL_LIST_ELEMENTS(bm->bgp, node, nnode, bgp))
+	parent = bgp_nb_candidate_match(yang_dnode_get_parent(args->dnode, "bgp-daemon"));
+	if (parent && yang_dnode_exists(parent, "update-delay-time"))
+		bm->v_establish_wait = yang_dnode_get_uint16(parent, "update-delay-time");
+	else {
+		bm->v_update_delay = BGP_UPDATE_DELAY_DEFAULT;
+		bm->v_establish_wait = BGP_UPDATE_DELAY_DEFAULT;
+	}
+	for (ALL_LIST_ELEMENTS(bm->bgp, node, nnode, bgp)) {
+		bgp->v_update_delay = bm->v_update_delay;
 		bgp->v_establish_wait = bm->v_establish_wait;
+	}
 	return NB_OK;
 }
 
