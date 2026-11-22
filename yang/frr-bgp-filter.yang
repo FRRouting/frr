@@ -80,7 +80,7 @@ module frr-bgp-filter {
 
   typedef community-string {
     type string {
-      pattern "(6553[0-5]|655[0-2][0-9]|65[0-4][0-9]{2}|6[0-4][0-9]{3}|[1-5][0-9]{4}|[1-9][0-9]{0,3}|0)|((6553[0-5]|655[0-2][0-9]|65[0-4][0-9]{2}|6[0-4][0-9]{3}|[1-5][0-9]{4}|[1-9][0-9]{0,3}|0):(6553[0-5]|655[0-2][0-9]|65[0-4][0-9]{2}|6[0-4][0-9]{3}|[1-5][0-9]{4}|[1-9][0-9]{0,3}|0))|(local-AS)|(no-advertise)|(no-export)|(internet)|(graceful-shutdown)|(blackhole)|(no-peer)|(llgr-stale)";
+      pattern "(6553[0-5]|655[0-2][0-9]|65[0-4][0-9]{2}|6[0-4][0-9]{3}|[1-5][0-9]{4}|[1-9][0-9]{0,3}|0)|((6553[0-5]|655[0-2][0-9]|65[0-4][0-9]{2}|6[0-4][0-9]{3}|[1-5][0-9]{4}|[1-9][0-9]{0,3}|0):(6553[0-5]|655[0-2][0-9]|65[0-4][0-9]{2}|6[0-4][0-9]{3}|[1-5][0-9]{4}|[1-9][0-9]{0,3}|0))|(local-AS)|(no-advertise)|(no-export)|(internet)|(graceful-shutdown)|(blackhole)|(no-peer)|(llgr-stale)|(no-llgr)|(accept-own)|(accept-own-nexthop)|(route-filter-v4)|(route-filter-translated-v4)|(route-filter-v6)|(route-filter-translated-v6)";
     }
     description
       "The BGP community string";
@@ -313,6 +313,13 @@ module frr-bgp-filter {
               type string;
               description
                 "Route-target words from the CLI. ecommunity_str2com()
+                 rejects a malformed value.";
+            }
+
+            leaf-list extcommunity-rt6 {
+              type string;
+              description
+                "IPv6 route-target words from the CLI (rt6). ecommunity_str2com_ipv6()
                  rejects a malformed value.";
             }
 

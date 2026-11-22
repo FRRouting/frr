@@ -702,9 +702,10 @@ static const char *ecommunity_gettoken(const char *str, void *eval_ptr,
 		p++;
 		if (tolower((unsigned char)*p) == 't') {
 			p++;
-			if (*p != '\0' && tolower((unsigned char)*p) == '6')
+			if (*p != '\0' && tolower((unsigned char)*p) == '6') {
+				p++;
 				*token = ecommunity_token_rt6;
-			else
+			} else
 				*token = ecommunity_token_rt;
 			return p;
 		}
@@ -804,6 +805,8 @@ static const char *ecommunity_gettoken(const char *str, void *eval_ptr,
 			goto error;
 
 		endptr = (char *)(limit + 1);
+		if (endptr == token_end)
+			goto error;
 		errno = 0;
 		tmp_as = strtoul(endptr, &endptr, 10);
 		/* 'unsigned long' is a uint64 on 64-bit

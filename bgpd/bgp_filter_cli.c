@@ -22,6 +22,7 @@
 #include "bgpd/bgp_community.h"
 #include "bgpd/bgp_ecommunity.h"
 #include "bgpd/bgp_lcommunity.h"
+#include "bgpd/bgp_regex.h"
 
 #include "bgpd/bgp_filter_cli_clippy.c"
 
@@ -68,11 +69,9 @@ static int64_t clist_get_seq(struct vty *vty, const char *xpath)
 
 	yang_dnode_iterate(clist_get_seq_cb, &seq, vty->candidate_config->dnode, "%s/entry", xpath);
 
-	seq += 5;
-	if (seq > UINT32_MAX) {
-		vty_out(vty, "%% Sequence number out of range\n");
-		return -1;
-	}
+	seq = ((seq / 5) * 5) + 5;
+	if (seq > UINT32_MAX)
+		seq = UINT32_MAX;
 	return seq;
 }
 
@@ -104,6 +103,30 @@ static bool bgp_filter_entry_matches(const struct lyd_node *entry, const char *v
 		return false;
 	if (leaf_list) {
 		yang_dnode_iterate(bgp_filter_join_value, &join, entry, "%s", value_leaf);
+		if (join.first)
+			return false;
+		if (strmatch(value_leaf, "standard-community-string")) {
+			struct community *got_com = community_str2com(join.buf);
+			struct community *want_com = community_str2com(want);
+			bool eq = got_com && want_com && community_cmp(got_com, want_com);
+
+			if (got_com)
+				community_free(&got_com);
+			if (want_com)
+				community_free(&want_com);
+			return eq;
+		}
+		if (strmatch(value_leaf, "standard-large-community-string")) {
+			struct lcommunity *got_lcom = lcommunity_str2com(join.buf);
+			struct lcommunity *want_lcom = lcommunity_str2com(want);
+			bool eq = got_lcom && want_lcom && lcommunity_cmp(got_lcom, want_lcom);
+
+			if (got_lcom)
+				lcommunity_free(&got_lcom);
+			if (want_lcom)
+				lcommunity_free(&want_lcom);
+			return eq;
+		}
 		return strmatch(join.buf, want);
 	}
 	if (!yang_dnode_existsf(entry, "%s", value_leaf))
@@ -112,14 +135,16 @@ static bool bgp_filter_entry_matches(const struct lyd_node *entry, const char *v
 }
 
 /*
- * Classic extcommunity-list entries mix types: "rt A soo B nt C color D".
- * Keywords may be repeated or omitted between values of the same type.
+ * Classic extcommunity-list entries mix types: "rt A soo B nt C color D" (plus
+ * IPv6 "rt6"). Keywords are case-insensitive and accept the same abbreviations
+ * as ecommunity_gettoken(): r/rt, rt6, s/so/soo, n/nt, c/co/col/colo/color.
  * Compare the parsed extended communities, which is how the old unset
  * decided two lines were the same entry.
  */
-static const char *const bgp_extcommunity_keywords[] = { "rt", "soo", "nt", "color" };
+static const char *const bgp_extcommunity_keywords[] = { "rt", "rt6", "soo", "nt", "color" };
 static const char *const bgp_extcommunity_leaves[] = {
 	"extcommunity-rt",
+	"extcommunity-rt6",
 	"extcommunity-soo",
 	"extcommunity-nt",
 	"extcommunity-color",
@@ -127,12 +152,21 @@ static const char *const bgp_extcommunity_leaves[] = {
 
 static int bgp_extcommunity_keyword(const char *arg)
 {
-	size_t i;
+	if (!arg || !arg[0])
+		return -1;
 
-	for (i = 0; i < array_size(bgp_extcommunity_keywords); i++) {
-		if (strmatch(arg, bgp_extcommunity_keywords[i]))
-			return (int)i;
-	}
+	if (strcasecmp(arg, "r") == 0 || strcasecmp(arg, "rt") == 0)
+		return 0;
+	if (strcasecmp(arg, "rt6") == 0)
+		return 1;
+	if (strcasecmp(arg, "s") == 0 || strcasecmp(arg, "so") == 0 ||
+	    strcasecmp(arg, "soo") == 0)
+		return 2;
+	if (strcasecmp(arg, "n") == 0 || strcasecmp(arg, "nt") == 0)
+		return 3;
+	if (strncasecmp("color", arg, strlen(arg)) == 0 && strlen(arg) <= 5)
+		return 4;
+
 	return -1;
 }
 
@@ -317,6 +351,51 @@ static int bgp_filter_destroy_matching_entry(struct vty *vty, const char *list_x
 }
 
 /*
+ * Check whether an entry at a different sequence (or any sequence when adding
+ * without explicit replacement) already has the same action and parsed value.
+ * Classic community_list_set() and as_list_entry_set() silently ignored
+ * duplicate rules instead of adding a second sequence.
+ */
+static bool bgp_filter_has_duplicate(struct vty *vty, const char *list_xpath, int64_t skip_seq,
+				     const char *action, const char *value_leaf, bool leaf_list,
+				     bool extcommunity, const char *want, struct cmd_token **argv,
+				     int argc, int val_idx)
+{
+	char xpath_entry[XPATH_MAXLEN + 256];
+	struct ly_set *set = NULL;
+	bool found = false;
+
+	if (!vty->candidate_config || !vty->candidate_config->dnode)
+		return false;
+
+	snprintfrr(xpath_entry, sizeof(xpath_entry), "%s/entry[action='%s']", list_xpath, action);
+	if (lyd_find_xpath(vty->candidate_config->dnode, xpath_entry, &set) != LY_SUCCESS ||
+	    !set) {
+		ly_set_free(set, NULL);
+		return false;
+	}
+
+	for (uint32_t i = 0; i < set->count; i++) {
+		const struct lyd_node *entry = set->dnodes[i];
+		int64_t eseq = yang_dnode_get_uint32(entry, "sequence");
+
+		if (skip_seq >= 0 && eseq == skip_seq)
+			continue;
+		if (extcommunity) {
+			if (bgp_filter_extcommunity_matches(entry, argv, argc, val_idx)) {
+				found = true;
+				break;
+			}
+		} else if (bgp_filter_entry_matches(entry, value_leaf, leaf_list, want)) {
+			found = true;
+			break;
+		}
+	}
+	ly_set_free(set, NULL);
+	return found;
+}
+
+/*
  * A repeated sequence replaces the entry. NB_OP_CREATE on a leaf-list only
  * adds, so drop the values already stored before enqueueing the new ones.
  * community_list_entry_add() replaces by sequence.
@@ -405,6 +484,17 @@ DEFPY_YANG(
 			return CMD_WARNING_CONFIG_FAILED;
 		}
 		community_free(&com);
+	}
+
+	{
+		char *want = argv_concat(argv, argc, idx);
+		bool dup = want && bgp_filter_has_duplicate(vty, xpath, seq_str ? sseq : -1,
+							    action, "standard-community-string",
+							    true, false, want, NULL, 0, 0);
+
+		XFREE(MTYPE_TMP, want);
+		if (dup)
+			return CMD_SUCCESS;
 	}
 
 	/* Create list and entry */
@@ -522,6 +612,13 @@ DEFPY_YANG(
 	if (!regex_str) {
 		vty_out(vty, "%% No community regex specified\n");
 		return CMD_WARNING_CONFIG_FAILED;
+	}
+
+	if (bgp_filter_has_duplicate(vty, xpath, seq_str ? sseq : -1, action,
+				     "expanded-community-string", false, false, regex_str, NULL, 0,
+				     0)) {
+		XFREE(MTYPE_TMP, regex_str);
+		return CMD_SUCCESS;
 	}
 
 	nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
@@ -657,6 +754,18 @@ DEFPY_YANG(
 		lcommunity_free(&lcom);
 	}
 
+	{
+		char *want = argv_concat(argv, argc, idx);
+		bool dup = want && bgp_filter_has_duplicate(vty, xpath, seq_str ? sseq : -1,
+							    action,
+							    "standard-large-community-string",
+							    true, false, want, NULL, 0, 0);
+
+		XFREE(MTYPE_TMP, want);
+		if (dup)
+			return CMD_SUCCESS;
+	}
+
 	nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
 	nb_cli_enqueue_change(vty, xpath_entry, NB_OP_CREATE, NULL);
 	nb_cli_enqueue_change(vty, "./action", NB_OP_MODIFY, action);
@@ -776,6 +885,13 @@ DEFPY_YANG(
 	if (!regex_str) {
 		vty_out(vty, "%% No large community regex specified\n");
 		return CMD_WARNING_CONFIG_FAILED;
+	}
+
+	if (bgp_filter_has_duplicate(vty, xpath, seq_str ? sseq : -1, action,
+				     "expanded-large-community-string", false, false, regex_str,
+				     NULL, 0, 0)) {
+		XFREE(MTYPE_TMP, regex_str);
+		return CMD_SUCCESS;
 	}
 
 	nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
@@ -925,31 +1041,30 @@ DEFPY_YANG(
 	idx++;
 
 	/*
-	 * Classic CLI is "permit rt 65001:1 soo 65001:2". Type keywords may
-	 * repeat. A value with no keyword in front of it is malformed.
-	 * Check before enqueueing so a rejected line leaves no pending change.
+	 * Classic CLI is "permit rt 65001:1 soo 65001:2" (with rt6, case-insensitive
+	 * keywords and ecommunity_gettoken() abbreviations). Validate the entire
+	 * assembled string before enqueueing so a rejected line leaves no change.
 	 */
 	{
-		const char *check_leaf = NULL;
-		bool saw_value = false;
+		char assembled[4096];
+		struct ecommunity *ecom;
 
-		for (i = idx; i < argc; i++) {
-			if (strmatch(argv[i]->arg, "rt") || strmatch(argv[i]->arg, "soo") ||
-			    strmatch(argv[i]->arg, "nt") || strmatch(argv[i]->arg, "color")) {
-				check_leaf = argv[i]->arg;
-				continue;
-			}
-			if (!check_leaf) {
-				vty_out(vty, "%% Malformed community-list value\n");
-				return CMD_WARNING_CONFIG_FAILED;
-			}
-			saw_value = true;
-		}
-		if (!saw_value) {
+		if (!bgp_filter_extcommunity_from_argv(argv, argc, idx, assembled,
+						       sizeof(assembled))) {
 			vty_out(vty, "%% Malformed community-list value\n");
 			return CMD_WARNING_CONFIG_FAILED;
 		}
+		ecom = ecommunity_str2com(assembled, 0, 1);
+		if (!ecom) {
+			vty_out(vty, "%% Malformed community-list value\n");
+			return CMD_WARNING_CONFIG_FAILED;
+		}
+		ecommunity_free(&ecom);
 	}
+
+	if (bgp_filter_has_duplicate(vty, xpath, seq_str ? sseq : -1, action, NULL, false, true,
+				     NULL, argv, argc, idx))
+		return CMD_SUCCESS;
 
 	nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
 	nb_cli_enqueue_change(vty, xpath_entry, NB_OP_CREATE, NULL);
@@ -964,20 +1079,10 @@ DEFPY_YANG(
 	 * for the keyword in front of it. Those lists are kept together.
 	 */
 	for (i = idx; i < argc; i++) {
-		if (strmatch(argv[i]->arg, "rt")) {
-			rt_or_soo_leaf = "extcommunity-rt";
-			continue;
-		}
-		if (strmatch(argv[i]->arg, "soo")) {
-			rt_or_soo_leaf = "extcommunity-soo";
-			continue;
-		}
-		if (strmatch(argv[i]->arg, "nt")) {
-			rt_or_soo_leaf = "extcommunity-nt";
-			continue;
-		}
-		if (strmatch(argv[i]->arg, "color")) {
-			rt_or_soo_leaf = "extcommunity-color";
+		int kind = bgp_extcommunity_keyword(argv[i]->arg);
+
+		if (kind >= 0) {
+			rt_or_soo_leaf = bgp_extcommunity_leaves[kind];
 			continue;
 		}
 		snprintfrr(xpath_leaf, sizeof(xpath_leaf), "./%s[.='%s']", rt_or_soo_leaf,
@@ -1093,6 +1198,13 @@ DEFPY_YANG(
 	if (!regex_str) {
 		vty_out(vty, "%% No extcommunity regex specified\n");
 		return CMD_WARNING_CONFIG_FAILED;
+	}
+
+	if (bgp_filter_has_duplicate(vty, xpath, seq_str ? sseq : -1, action,
+				     "expanded-extcommunity-string", false, false, regex_str, NULL,
+				     0, 0)) {
+		XFREE(MTYPE_TMP, regex_str);
+		return CMD_SUCCESS;
 	}
 
 	nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
@@ -1218,6 +1330,12 @@ DEFPY_YANG(
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 
+	if (bgp_filter_has_duplicate(vty, xpath, seq_str ? sseq : -1, action, "as-path", false,
+				     false, regex_str, NULL, 0, 0)) {
+		XFREE(MTYPE_TMP, regex_str);
+		return CMD_SUCCESS;
+	}
+
 	nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
 	nb_cli_enqueue_change(vty, xpath_entry, NB_OP_CREATE, NULL);
 	nb_cli_enqueue_change(vty, "./action", NB_OP_MODIFY, action);
@@ -1248,29 +1366,32 @@ DEFPY_YANG(
 	ASPATH_REGEX_STR)
 {
 	char xpath[XPATH_MAXLEN + 64];
-	char xpath_entry[XPATH_MAXLEN + 256];
 	char *regex_str = NULL;
-	struct ly_set *set = NULL;
+	struct frregex *regex;
+	const struct lyd_node *list_dnode;
+	const struct lyd_node *child;
+	const struct lyd_node *match = NULL;
+	char *entry_path;
 	int idx = 0;
 	int ret;
+
+	(void)seq_str;
+	(void)seq;
+	(void)action;
 
 	snprintfrr(xpath, sizeof(xpath), "/frr-filter:lib/frr-bgp-filter:as-path-list[name='%s']",
 		   name);
 
-	if (seq_str) {
-		/* Explicit seq: destroy that entry directly. */
-		snprintfrr(xpath_entry, sizeof(xpath_entry), "%s/entry[sequence='%s']", xpath,
-			   seq_str);
-		nb_cli_enqueue_change(vty, xpath_entry, NB_OP_DESTROY, NULL);
-		return nb_cli_apply_changes(vty, NULL);
+	list_dnode = (vty->candidate_config && vty->candidate_config->dnode)
+			     ? yang_dnode_get(vty->candidate_config->dnode, xpath)
+			     : NULL;
+	if (!list_dnode) {
+		vty_out(vty, "bgp as-path access-list %s doesn't exist\n", name);
+		return CMD_WARNING_CONFIG_FAILED;
 	}
 
-	/* No seq given. Match on (action, regex) like baseline's
-	 * DEFUN(no_as_path) — delete only the single matching entry, not the
-	 * whole list. Destroying the whole list while a route-map still
-	 * references it via `set as-path exclude as-path-access-list NAME`
-	 * leaves a dangling reference in the YANG tree and corrupts libyang's
-	 * teardown during the candidate->running swap.
+	/* Classic DEFUN(no_as_path) ignored seq and action and matched the first
+	 * entry whose regex equals LINE, failing if list or regex is missing/invalid.
 	 */
 	if (argv_find(argv, argc, "deny", &idx) || argv_find(argv, argc, "permit", &idx))
 		idx++;
@@ -1281,37 +1402,45 @@ DEFPY_YANG(
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 
-	if (!vty->candidate_config || !vty->candidate_config->dnode) {
+	if (!aspath_regex_validate(regex_str)) {
+		vty_out(vty, "Invalid character in as-path access-list %s\n", regex_str);
 		XFREE(MTYPE_TMP, regex_str);
-		return CMD_SUCCESS;
+		return CMD_WARNING_CONFIG_FAILED;
 	}
 
-	snprintfrr(xpath_entry, sizeof(xpath_entry), "%s/entry[action='%s'][as-path='%s']", xpath,
-		   action, regex_str);
-
-	if (lyd_find_xpath(vty->candidate_config->dnode, xpath_entry, &set) != LY_SUCCESS ||
-	    !set || set->count == 0) {
-		/* No matching entry — match baseline's "not found" behavior:
-		 * quiet no-op. The commit will be empty.
-		 */
-		ly_set_free(set, NULL);
+	regex = bgp_regcomp(regex_str);
+	if (!regex) {
+		vty_out(vty, "can't compile regexp %s\n", regex_str);
 		XFREE(MTYPE_TMP, regex_str);
-		return CMD_SUCCESS;
+		return CMD_WARNING_CONFIG_FAILED;
 	}
+	bgp_regex_free(regex);
 
-	/* Destroy each matching entry (typically just one). */
-	for (uint32_t i = 0; i < set->count; i++) {
-		char *entry_path = lyd_path(set->dnodes[i], LYD_PATH_STD, NULL, 0);
-
-		if (!entry_path)
+	LY_LIST_FOR (lyd_child(list_dnode), child) {
+		if (!child->schema || !strmatch(child->schema->name, "entry"))
 			continue;
-		nb_cli_enqueue_change(vty, entry_path, NB_OP_DESTROY, NULL);
-		free(entry_path);
+		if (yang_dnode_exists(child, "as-path") &&
+		    strmatch(yang_dnode_get_string(child, "as-path"), regex_str)) {
+			match = child;
+			break;
+		}
 	}
-	ly_set_free(set, NULL);
+
+	if (!match) {
+		vty_out(vty, "Regex entered %s does not exist\n", regex_str);
+		XFREE(MTYPE_TMP, regex_str);
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+
+	entry_path = lyd_path(match, LYD_PATH_STD, NULL, 0);
+	XFREE(MTYPE_TMP, regex_str);
+	if (!entry_path)
+		return CMD_WARNING_CONFIG_FAILED;
+
+	nb_cli_enqueue_change(vty, entry_path, NB_OP_DESTROY, NULL);
+	free(entry_path);
 
 	ret = nb_cli_apply_changes(vty, NULL);
-	XFREE(MTYPE_TMP, regex_str);
 	return ret;
 }
 
@@ -1329,6 +1458,12 @@ DEFPY_YANG(
 
 	snprintfrr(xpath, sizeof(xpath), "/frr-filter:lib/frr-bgp-filter:as-path-list[name='%s']",
 		   name);
+
+	if (!vty->candidate_config || !vty->candidate_config->dnode ||
+	    !yang_dnode_exists(vty->candidate_config->dnode, xpath)) {
+		vty_out(vty, "bgp as-path access-list %s doesn't exist\n", name);
+		return CMD_WARNING_CONFIG_FAILED;
+	}
 
 	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
 	return nb_cli_apply_changes(vty, NULL);

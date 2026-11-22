@@ -10959,21 +10959,113 @@ DEFUN (show_extcommunity_list_arg,
 }
 
 /* Display community-list and extcommunity-list configuration.  */
-static int community_list_config_write_one(const struct lyd_node *dnode, void *arg)
+struct clist_write_ctx {
+	const struct lyd_node **nodes;
+	size_t count;
+	size_t cap;
+};
+
+static int clist_collect_cb(const struct lyd_node *dnode, void *arg)
 {
-	nb_cli_show_dnode_cmds(arg, dnode, false);
+	struct clist_write_ctx *ctx = arg;
+
+	if (ctx->count == ctx->cap) {
+		ctx->cap = ctx->cap ? ctx->cap * 2 : 16;
+		ctx->nodes = XREALLOC(MTYPE_TMP, ctx->nodes,
+				      ctx->cap * sizeof(*ctx->nodes));
+	}
+	ctx->nodes[ctx->count++] = dnode;
 	return YANG_ITER_CONTINUE;
+}
+
+static bool clist_is_numbered_name(const char *name, unsigned long *num_out)
+{
+	unsigned long val;
+	char *end = NULL;
+
+	if (!name || !all_digit(name))
+		return false;
+	val = strtoul(name, &end, 10);
+	if (!end || *end != '\0' || val < 1 || val > 500)
+		return false;
+	if (num_out)
+		*num_out = val;
+	return true;
+}
+
+static int clist_name_cmp(const void *a, const void *b)
+{
+	const struct lyd_node *na = *(const struct lyd_node *const *)a;
+	const struct lyd_node *nb = *(const struct lyd_node *const *)b;
+	const char *sa = yang_dnode_get_string(na, "name");
+	const char *sb = yang_dnode_get_string(nb, "name");
+	unsigned long va = 0, vb = 0;
+	bool numa = clist_is_numbered_name(sa, &va);
+	bool numb = clist_is_numbered_name(sb, &vb);
+
+	if (numa && numb) {
+		if (va < vb)
+			return -1;
+		if (va > vb)
+			return 1;
+		return strcmp(sa, sb);
+	}
+	if (numa != numb)
+		return numa ? -1 : 1;
+	return strcmp(sa, sb);
+}
+
+static int clist_entry_seq_cmp(const void *a, const void *b)
+{
+	const struct lyd_node *na = *(const struct lyd_node *const *)a;
+	const struct lyd_node *nb = *(const struct lyd_node *const *)b;
+	uint32_t sa = yang_dnode_get_uint32(na, "sequence");
+	uint32_t sb = yang_dnode_get_uint32(nb, "sequence");
+
+	if (sa < sb)
+		return -1;
+	if (sa > sb)
+		return 1;
+	return 0;
+}
+
+static int community_list_config_write_xpath(struct vty *vty, const char *xpath)
+{
+	struct clist_write_ctx lists = {};
+	int write = 0;
+
+	yang_dnode_iterate(clist_collect_cb, &lists, running_config->dnode, "%s", xpath);
+	if (lists.count > 1)
+		qsort(lists.nodes, lists.count, sizeof(*lists.nodes), clist_name_cmp);
+
+	for (size_t i = 0; i < lists.count; i++) {
+		struct clist_write_ctx entries = {};
+
+		yang_dnode_iterate(clist_collect_cb, &entries, lists.nodes[i], "entry");
+		if (entries.count > 1)
+			qsort(entries.nodes, entries.count, sizeof(*entries.nodes),
+			      clist_entry_seq_cmp);
+		for (size_t j = 0; j < entries.count; j++) {
+			nb_cli_show_dnode_cmds(vty, entries.nodes[j], false);
+			write++;
+		}
+		XFREE(MTYPE_TMP, entries.nodes);
+	}
+	XFREE(MTYPE_TMP, lists.nodes);
+	return write;
 }
 
 static int community_list_config_write(struct vty *vty)
 {
-	yang_dnode_iterate(community_list_config_write_one, vty, running_config->dnode,
-			   "/frr-filter:lib/frr-bgp-filter:community-list");
-	yang_dnode_iterate(community_list_config_write_one, vty, running_config->dnode,
-			   "/frr-filter:lib/frr-bgp-filter:extcommunity-list");
-	yang_dnode_iterate(community_list_config_write_one, vty, running_config->dnode,
-			   "/frr-filter:lib/frr-bgp-filter:large-community-list");
-	return 0;
+	int write = 0;
+
+	write += community_list_config_write_xpath(
+		vty, "/frr-filter:lib/frr-bgp-filter:community-list");
+	write += community_list_config_write_xpath(
+		vty, "/frr-filter:lib/frr-bgp-filter:extcommunity-list");
+	write += community_list_config_write_xpath(
+		vty, "/frr-filter:lib/frr-bgp-filter:large-community-list");
+	return write;
 }
 
 static struct cmd_node community_list_node = {

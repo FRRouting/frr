@@ -118,6 +118,7 @@ static const struct {
 	const char *keyword;
 } bgp_extcommunity_parts[] = {
 	{ "extcommunity-rt", "rt" },
+	{ "extcommunity-rt6", "rt6" },
 	{ "extcommunity-soo", "soo" },
 	{ "extcommunity-nt", "nt" },
 	{ "extcommunity-color", "color" },
@@ -207,6 +208,19 @@ static const char *bgp_filter_entry_text(const struct lyd_node *entry, int maste
 }
 
 /* Shared helpers for community / large / extcommunity list cli_show. */
+static bool bgp_filter_is_numbered_name(const char *name, bool standard)
+{
+	unsigned long val;
+	char *end = NULL;
+
+	if (!name || !all_digit(name))
+		return false;
+	val = strtoul(name, &end, 10);
+	if (!end || *end != '\0')
+		return false;
+	return standard ? (val >= 1 && val <= 99) : (val >= 100 && val <= 500);
+}
+
 static void bgp_filter_cli_show_style_line(struct vty *vty, const char *kind, const char *name,
 					   bool numbered, bool standard, uint32_t seq,
 					   const char *action, const char *value)
@@ -236,9 +250,21 @@ static void lib_community_list_entry_cli_show(struct vty *vty, const struct lyd_
 	standard = strmatch(type_str, "community-list-standard");
 
 	comm_str = bgp_filter_entry_text(dnode, COMMUNITY_LIST_MASTER, !standard, &owned);
-	if (comm_str[0])
-		bgp_filter_cli_show_style_line(vty, "community-list", name, all_digit(name),
-					       standard, seq, action, comm_str);
+	if (comm_str[0]) {
+		struct community *com = NULL;
+		const char *display = comm_str;
+
+		if (standard) {
+			com = community_str2com(comm_str);
+			if (com)
+				display = community_str(com, false);
+		}
+		bgp_filter_cli_show_style_line(vty, "community-list", name,
+					       bgp_filter_is_numbered_name(name, standard),
+					       standard, seq, action, display);
+		if (com)
+			community_free(&com);
+	}
 	XFREE(MTYPE_TMP, owned);
 }
 
@@ -261,7 +287,8 @@ static void lib_large_community_list_entry_cli_show(struct vty *vty, const struc
 
 	comm_str = bgp_filter_entry_text(dnode, LARGE_COMMUNITY_LIST_MASTER, !standard, &owned);
 	if (comm_str[0])
-		bgp_filter_cli_show_style_line(vty, "large-community-list", name, all_digit(name),
+		bgp_filter_cli_show_style_line(vty, "large-community-list", name,
+					       bgp_filter_is_numbered_name(name, standard),
 					       standard, seq, action, comm_str);
 	XFREE(MTYPE_TMP, owned);
 }
@@ -285,7 +312,8 @@ static void lib_extcommunity_list_entry_cli_show(struct vty *vty, const struct l
 
 	comm_str = bgp_filter_entry_text(dnode, EXTCOMMUNITY_LIST_MASTER, !standard, &owned);
 	if (comm_str[0])
-		bgp_filter_cli_show_style_line(vty, "extcommunity-list", name, all_digit(name),
+		bgp_filter_cli_show_style_line(vty, "extcommunity-list", name,
+					       bgp_filter_is_numbered_name(name, standard),
 					       standard, seq, action, comm_str);
 	XFREE(MTYPE_TMP, owned);
 }
@@ -518,6 +546,78 @@ static int bgp_filter_value_check(int master, int style, const char *value, char
 	return NB_OK;
 }
 
+static bool bgp_filter_values_equal(int master, bool expanded, const char *a, const char *b)
+{
+	if (expanded)
+		return strmatch(a, b);
+
+	if (master == COMMUNITY_LIST_MASTER) {
+		struct community *ca = community_str2com(a);
+		struct community *cb = community_str2com(b);
+		bool eq = ca && cb && community_cmp(ca, cb);
+
+		if (ca)
+			community_free(&ca);
+		if (cb)
+			community_free(&cb);
+		return eq;
+	}
+
+	if (master == LARGE_COMMUNITY_LIST_MASTER) {
+		struct lcommunity *la = lcommunity_str2com(a);
+		struct lcommunity *lb = lcommunity_str2com(b);
+		bool eq = la && lb && lcommunity_cmp(la, lb);
+
+		if (la)
+			lcommunity_free(&la);
+		if (lb)
+			lcommunity_free(&lb);
+		return eq;
+	}
+
+	if (master == EXTCOMMUNITY_LIST_MASTER) {
+		struct ecommunity *ea = ecommunity_str2com(a, 0, 1);
+		struct ecommunity *eb = ecommunity_str2com(b, 0, 1);
+		bool eq = ea && eb && ecommunity_cmp(ea, eb);
+
+		if (ea)
+			ecommunity_free(&ea);
+		if (eb)
+			ecommunity_free(&eb);
+		return eq;
+	}
+
+	return strmatch(a, b);
+}
+
+struct bgp_filter_dup_walk {
+	const struct lyd_node *self;
+	int master;
+	bool expanded;
+	const char *action;
+	const char *value;
+	bool found;
+};
+
+static int bgp_filter_dup_walk_cb(const struct lyd_node *dnode, void *arg)
+{
+	struct bgp_filter_dup_walk *walk = arg;
+	const char *other_val;
+	char *other_owned = NULL;
+
+	if (dnode == walk->self || !yang_dnode_exists(dnode, "action"))
+		return YANG_ITER_CONTINUE;
+	if (!strmatch(yang_dnode_get_string(dnode, "action"), walk->action))
+		return YANG_ITER_CONTINUE;
+
+	other_val = bgp_filter_entry_text(dnode, walk->master, walk->expanded, &other_owned);
+	if (other_val[0] &&
+	    bgp_filter_values_equal(walk->master, walk->expanded, walk->value, other_val))
+		walk->found = true;
+	XFREE(MTYPE_TMP, other_owned);
+	return walk->found ? YANG_ITER_STOP : YANG_ITER_CONTINUE;
+}
+
 static int bgp_filter_entry_validate(const struct lyd_node *entry, int master, char *errmsg,
 				     size_t errmsg_len)
 {
@@ -525,6 +625,7 @@ static int bgp_filter_entry_validate(const struct lyd_node *entry, int master, c
 	int ret;
 	const char *value;
 	char *owned = NULL;
+	bool expanded;
 
 	if (!entry || !yang_dnode_exists(entry, "type"))
 		return NB_OK;
@@ -534,8 +635,25 @@ static int bgp_filter_entry_validate(const struct lyd_node *entry, int master, c
 	if (ret != NB_OK)
 		return ret;
 
-	value = bgp_filter_entry_text(entry, master, bgp_filter_style_expanded(style), &owned);
+	expanded = bgp_filter_style_expanded(style);
+	value = bgp_filter_entry_text(entry, master, expanded, &owned);
 	ret = bgp_filter_value_check(master, style, value, errmsg, errmsg_len);
+	if (ret == NB_OK && value[0] != '\0' && yang_dnode_exists(entry, "action") &&
+	    lyd_parent(entry)) {
+		struct bgp_filter_dup_walk dup = {
+			.self = entry,
+			.master = master,
+			.expanded = expanded,
+			.action = yang_dnode_get_string(entry, "action"),
+			.value = value,
+		};
+
+		yang_dnode_iterate(bgp_filter_dup_walk_cb, &dup, lyd_parent(entry), "entry");
+		if (dup.found) {
+			snprintfrr(errmsg, errmsg_len, "Duplicate community-list entry");
+			ret = NB_ERR_VALIDATION;
+		}
+	}
 	XFREE(MTYPE_TMP, owned);
 	return ret;
 }
@@ -562,6 +680,28 @@ static int bgp_filter_nb_validate(enum nb_event event, const struct lyd_node *dn
 	return bgp_filter_entry_validate(bgp_filter_entry_node(dnode), master, errmsg, errmsg_len);
 }
 
+struct bgp_as_path_dup_walk {
+	const struct lyd_node *self;
+	const char *action;
+	const char *expr;
+	bool found;
+};
+
+static int bgp_as_path_dup_walk_cb(const struct lyd_node *dnode, void *arg)
+{
+	struct bgp_as_path_dup_walk *walk = arg;
+
+	if (dnode == walk->self || !yang_dnode_exists(dnode, "action") ||
+	    !yang_dnode_exists(dnode, "as-path"))
+		return YANG_ITER_CONTINUE;
+	if (strmatch(yang_dnode_get_string(dnode, "action"), walk->action) &&
+	    strmatch(yang_dnode_get_string(dnode, "as-path"), walk->expr)) {
+		walk->found = true;
+		return YANG_ITER_STOP;
+	}
+	return YANG_ITER_CONTINUE;
+}
+
 static int bgp_as_path_entry_validate(const struct lyd_node *entry, char *errmsg, size_t errmsg_len)
 {
 	const char *expr;
@@ -584,6 +724,20 @@ static int bgp_as_path_entry_validate(const struct lyd_node *entry, char *errmsg
 		return NB_ERR_VALIDATION;
 	}
 	bgp_regex_free(regex);
+
+	if (yang_dnode_exists(entry, "action") && lyd_parent(entry)) {
+		struct bgp_as_path_dup_walk dup = {
+			.self = entry,
+			.action = yang_dnode_get_string(entry, "action"),
+			.expr = expr,
+		};
+
+		yang_dnode_iterate(bgp_as_path_dup_walk_cb, &dup, lyd_parent(entry), "entry");
+		if (dup.found) {
+			snprintfrr(errmsg, errmsg_len, "Duplicate as-path access-list entry");
+			return NB_ERR_VALIDATION;
+		}
+	}
 	return NB_OK;
 }
 
@@ -702,7 +856,8 @@ int lib_community_list_entry_destroy(struct nb_cb_destroy_args *args)
 int lib_community_list_entry_action_modify(struct nb_cb_modify_args *args)
 {
 	/* Rebuilt by community-list entry apply_finish */
-	return NB_OK;
+	return bgp_filter_nb_validate(args->event, args->dnode, COMMUNITY_LIST_MASTER,
+				      args->errmsg, args->errmsg_len);
 }
 
 int lib_community_list_entry_action_destroy(struct nb_cb_destroy_args *args)
@@ -866,7 +1021,8 @@ int lib_large_community_list_entry_destroy(struct nb_cb_destroy_args *args)
 int lib_large_community_list_entry_action_modify(struct nb_cb_modify_args *args)
 {
 	/* Rebuilt by large-community-list entry apply_finish */
-	return NB_OK;
+	return bgp_filter_nb_validate(args->event, args->dnode, LARGE_COMMUNITY_LIST_MASTER,
+				      args->errmsg, args->errmsg_len);
 }
 
 int lib_large_community_list_entry_action_destroy(struct nb_cb_destroy_args *args)
@@ -1032,25 +1188,31 @@ int lib_extcommunity_list_entry_destroy(struct nb_cb_destroy_args *args)
  * callback could see it. ecommunity_str2com() is what accepts or rejects
  * the word, as the classic extcommunity-list parser did.
  */
-static int lib_extcommunity_list_value_validate(struct nb_cb_create_args *args, int sub_type)
+static int lib_extcommunity_list_value_validate(struct nb_cb_create_args *args, int sub_type,
+						bool is_ipv6)
 {
 	struct ecommunity *ecom;
+	const char *val;
 
 	if (args->event != NB_EV_VALIDATE)
 		return NB_OK;
 
-	ecom = ecommunity_str2com(yang_dnode_get_string(args->dnode, NULL), sub_type, 0);
+	val = yang_dnode_get_string(args->dnode, NULL);
+	ecom = is_ipv6 ? ecommunity_str2com_ipv6(val, sub_type, 0)
+		       : ecommunity_str2com(val, sub_type, 0);
 	if (!ecom) {
 		snprintfrr(args->errmsg, args->errmsg_len, "Malformed community-list value");
 		return NB_ERR_VALIDATION;
 	}
 	ecommunity_free(&ecom);
-	return NB_OK;
+	return bgp_filter_nb_validate(args->event, args->dnode, EXTCOMMUNITY_LIST_MASTER,
+				      args->errmsg, args->errmsg_len);
 }
 
 int lib_extcommunity_list_entry_action_modify(struct nb_cb_modify_args *args)
 {
-	return NB_OK;
+	return bgp_filter_nb_validate(args->event, args->dnode, EXTCOMMUNITY_LIST_MASTER,
+				      args->errmsg, args->errmsg_len);
 }
 
 int lib_extcommunity_list_entry_action_destroy(struct nb_cb_destroy_args *args)
@@ -1066,7 +1228,7 @@ int lib_extcommunity_list_entry_type_modify(struct nb_cb_modify_args *args)
 
 int lib_extcommunity_list_entry_rt_create(struct nb_cb_create_args *args)
 {
-	return lib_extcommunity_list_value_validate(args, ECOMMUNITY_ROUTE_TARGET);
+	return lib_extcommunity_list_value_validate(args, ECOMMUNITY_ROUTE_TARGET, false);
 }
 
 int lib_extcommunity_list_entry_rt_destroy(struct nb_cb_destroy_args *args)
@@ -1074,9 +1236,19 @@ int lib_extcommunity_list_entry_rt_destroy(struct nb_cb_destroy_args *args)
 	return NB_OK;
 }
 
+int lib_extcommunity_list_entry_rt6_create(struct nb_cb_create_args *args)
+{
+	return lib_extcommunity_list_value_validate(args, ECOMMUNITY_ROUTE_TARGET, true);
+}
+
+int lib_extcommunity_list_entry_rt6_destroy(struct nb_cb_destroy_args *args)
+{
+	return NB_OK;
+}
+
 int lib_extcommunity_list_entry_soo_create(struct nb_cb_create_args *args)
 {
-	return lib_extcommunity_list_value_validate(args, ECOMMUNITY_SITE_ORIGIN);
+	return lib_extcommunity_list_value_validate(args, ECOMMUNITY_SITE_ORIGIN, false);
 }
 
 int lib_extcommunity_list_entry_soo_destroy(struct nb_cb_destroy_args *args)
@@ -1086,7 +1258,7 @@ int lib_extcommunity_list_entry_soo_destroy(struct nb_cb_destroy_args *args)
 
 int lib_extcommunity_list_entry_nt_create(struct nb_cb_create_args *args)
 {
-	return lib_extcommunity_list_value_validate(args, ECOMMUNITY_NODE_TARGET);
+	return lib_extcommunity_list_value_validate(args, ECOMMUNITY_NODE_TARGET, false);
 }
 
 int lib_extcommunity_list_entry_nt_destroy(struct nb_cb_destroy_args *args)
@@ -1096,7 +1268,7 @@ int lib_extcommunity_list_entry_nt_destroy(struct nb_cb_destroy_args *args)
 
 int lib_extcommunity_list_entry_color_create(struct nb_cb_create_args *args)
 {
-	return lib_extcommunity_list_value_validate(args, ECOMMUNITY_COLOR);
+	return lib_extcommunity_list_value_validate(args, ECOMMUNITY_COLOR, false);
 }
 
 int lib_extcommunity_list_entry_color_destroy(struct nb_cb_destroy_args *args)
@@ -1143,7 +1315,7 @@ int lib_as_path_list_destroy(struct nb_cb_destroy_args *args)
 /*
  * XPath: /frr-filter:lib/frr-bgp-filter:as-path-list/entry
  */
-int lib_as_path_list_entry_create(struct nb_cb_create_args *args)
+static void lib_as_path_list_entry_apply_finish(struct nb_cb_apply_finish_args *args)
 {
 	const char *name;
 	const char *seq_str;
@@ -1152,34 +1324,21 @@ int lib_as_path_list_entry_create(struct nb_cb_create_args *args)
 	enum as_filter_type type;
 	int ret;
 
-	ret = bgp_as_path_nb_validate(args->event, args->dnode, args->errmsg, args->errmsg_len);
-	if (ret != NB_OK)
-		return ret;
-	if (args->event != NB_EV_APPLY)
-		return NB_OK;
-
-	/* Get parent list name */
 	name = yang_dnode_get_string(args->dnode, "../name");
-
-	/* Get sequence */
 	seq_str = yang_dnode_get_string(args->dnode, "sequence");
-
-	/* Get action (permit/deny) */
 	action_str = yang_dnode_get_string(args->dnode, "action");
 	type = (strcmp(action_str, "permit") == 0) ? AS_FILTER_PERMIT : AS_FILTER_DENY;
-
-	/* Get as-path regex */
 	aspath_regex = yang_dnode_get_string(args->dnode, "as-path");
 
 	ret = as_list_entry_set(name, seq_str, aspath_regex, type);
-	if (ret < 0) {
+	if (ret < 0)
 		zlog_warn("as-path-list %s: failed to set entry with regex '%s'", name,
 			  aspath_regex);
-		/* APPLY cannot reject the transaction. */
-		return NB_OK;
-	}
+}
 
-	return NB_OK;
+int lib_as_path_list_entry_create(struct nb_cb_create_args *args)
+{
+	return bgp_as_path_nb_validate(args->event, args->dnode, args->errmsg, args->errmsg_len);
 }
 
 int lib_as_path_list_entry_destroy(struct nb_cb_destroy_args *args)
@@ -1209,40 +1368,12 @@ int lib_as_path_list_entry_destroy(struct nb_cb_destroy_args *args)
 /*
  * Leaf callbacks for as-path-list/entry
  *
- * When a leaf value is modified on an existing entry, we need to
- * update the as-path-list. We do this by calling as_list_entry_set()
- * which handles both creation and replacement of entries.
+ * Validation runs per leaf; installation runs once in apply_finish so
+ * modifying both action and regex at the same sequence fires add_hook once.
  */
 int lib_as_path_list_entry_action_modify(struct nb_cb_modify_args *args)
 {
-	const char *name;
-	const char *seq_str;
-	const char *action_str;
-	const char *aspath_regex;
-	enum as_filter_type type;
-	int ret;
-
-	ret = bgp_as_path_nb_validate(args->event, args->dnode, args->errmsg, args->errmsg_len);
-	if (ret != NB_OK)
-		return ret;
-	if (args->event != NB_EV_APPLY)
-		return NB_OK;
-
-	/* Get parent list name - go up to entry, then to as-path-list */
-	name = yang_dnode_get_string(args->dnode, "../../name");
-	seq_str = yang_dnode_get_string(args->dnode, "../sequence");
-	action_str = yang_dnode_get_string(args->dnode, NULL);
-	type = (strcmp(action_str, "permit") == 0) ? AS_FILTER_PERMIT : AS_FILTER_DENY;
-	aspath_regex = yang_dnode_get_string(args->dnode, "../as-path");
-
-	ret = as_list_entry_set(name, seq_str, aspath_regex, type);
-	if (ret < 0) {
-		zlog_warn("as-path-list %s: failed to update entry action", name);
-		/* APPLY cannot reject the transaction. */
-		return NB_OK;
-	}
-
-	return NB_OK;
+	return bgp_as_path_nb_validate(args->event, args->dnode, args->errmsg, args->errmsg_len);
 }
 
 int lib_as_path_list_entry_action_destroy(struct nb_cb_destroy_args *args)
@@ -1252,34 +1383,7 @@ int lib_as_path_list_entry_action_destroy(struct nb_cb_destroy_args *args)
 
 int lib_as_path_list_entry_as_path_modify(struct nb_cb_modify_args *args)
 {
-	const char *name;
-	const char *seq_str;
-	const char *action_str;
-	const char *aspath_regex;
-	enum as_filter_type type;
-	int ret;
-
-	ret = bgp_as_path_nb_validate(args->event, args->dnode, args->errmsg, args->errmsg_len);
-	if (ret != NB_OK)
-		return ret;
-	if (args->event != NB_EV_APPLY)
-		return NB_OK;
-
-	/* Get parent list name - go up to entry, then to as-path-list */
-	name = yang_dnode_get_string(args->dnode, "../../name");
-	seq_str = yang_dnode_get_string(args->dnode, "../sequence");
-	action_str = yang_dnode_get_string(args->dnode, "../action");
-	type = (strcmp(action_str, "permit") == 0) ? AS_FILTER_PERMIT : AS_FILTER_DENY;
-	aspath_regex = yang_dnode_get_string(args->dnode, NULL);
-
-	ret = as_list_entry_set(name, seq_str, aspath_regex, type);
-	if (ret < 0) {
-		zlog_warn("as-path-list %s: failed to update entry as-path", name);
-		/* APPLY cannot reject the transaction. */
-		return NB_OK;
-	}
-
-	return NB_OK;
+	return bgp_as_path_nb_validate(args->event, args->dnode, args->errmsg, args->errmsg_len);
 }
 
 int lib_as_path_list_entry_as_path_destroy(struct nb_cb_destroy_args *args)
@@ -2195,6 +2299,13 @@ const struct frr_yang_module_info frr_bgp_filter_info = {
 			}
 		},
 		{
+			.xpath = "/frr-filter:lib/frr-bgp-filter:extcommunity-list/entry/extcommunity-rt6",
+			.cbs = {
+				.create = lib_extcommunity_list_entry_rt6_create,
+				.destroy = lib_extcommunity_list_entry_rt6_destroy,
+			}
+		},
+		{
 			.xpath = "/frr-filter:lib/frr-bgp-filter:extcommunity-list/entry/extcommunity-soo",
 			.cbs = {
 				.create = lib_extcommunity_list_entry_soo_create,
@@ -2242,6 +2353,7 @@ const struct frr_yang_module_info frr_bgp_filter_info = {
 				.get_keys = lib_as_path_list_entry_get_keys,
 				.lookup_entry = lib_as_path_list_entry_lookup_entry,
 				.cli_show = lib_as_path_list_entry_cli_show,
+				.apply_finish = lib_as_path_list_entry_apply_finish,
 			}
 		},
 		{

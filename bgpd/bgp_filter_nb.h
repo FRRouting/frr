@@ -51,6 +51,8 @@ int lib_extcommunity_list_entry_action_destroy(struct nb_cb_destroy_args *args);
 int lib_extcommunity_list_entry_type_modify(struct nb_cb_modify_args *args);
 int lib_extcommunity_list_entry_rt_create(struct nb_cb_create_args *args);
 int lib_extcommunity_list_entry_rt_destroy(struct nb_cb_destroy_args *args);
+int lib_extcommunity_list_entry_rt6_create(struct nb_cb_create_args *args);
+int lib_extcommunity_list_entry_rt6_destroy(struct nb_cb_destroy_args *args);
 int lib_extcommunity_list_entry_soo_create(struct nb_cb_create_args *args);
 int lib_extcommunity_list_entry_soo_destroy(struct nb_cb_destroy_args *args);
 int lib_extcommunity_list_entry_nt_create(struct nb_cb_create_args *args);

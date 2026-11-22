@@ -446,7 +446,11 @@ int as_list_entry_set(const char *name, const char *seq_str, const char *regex_s
 
 	asfilter = as_filter_make(regex, regex_str, type);
 	asfilter->seq = seq;
-	as_list_filter_add(aslist, asfilter);
+	if (as_list_dup_check(aslist, asfilter)) {
+		as_filter_free(asfilter);
+	} else {
+		as_list_filter_add(aslist, asfilter);
+	}
 
 	if (created) {
 		ase = as_exclude_lookup_orphan(name);
@@ -498,6 +502,11 @@ int as_list_delete_by_name(const char *name)
 		return -1;
 
 	as_list_delete(aslist);
+
+	/* Run hook function. */
+	if (as_list_master.delete_hook)
+		(*as_list_master.delete_hook)(name);
+
 	return 0;
 }
 
@@ -803,17 +812,73 @@ ALIAS (show_as_path_access_list_all,
        "List AS path access lists\n"
        JSON_STR)
 
-static int config_write_as_list_one(const struct lyd_node *dnode, void *arg)
+struct as_list_write_ctx {
+	const struct lyd_node **nodes;
+	size_t count;
+	size_t cap;
+};
+
+static int as_list_collect_cb(const struct lyd_node *dnode, void *arg)
 {
-	nb_cli_show_dnode_cmds(arg, dnode, false);
+	struct as_list_write_ctx *ctx = arg;
+
+	if (ctx->count == ctx->cap) {
+		ctx->cap = ctx->cap ? ctx->cap * 2 : 16;
+		ctx->nodes = XREALLOC(MTYPE_TMP, ctx->nodes,
+				      ctx->cap * sizeof(*ctx->nodes));
+	}
+	ctx->nodes[ctx->count++] = dnode;
 	return YANG_ITER_CONTINUE;
+}
+
+static int as_list_name_cmp(const void *a, const void *b)
+{
+	const struct lyd_node *na = *(const struct lyd_node *const *)a;
+	const struct lyd_node *nb = *(const struct lyd_node *const *)b;
+
+	return strcmp(yang_dnode_get_string(na, "name"),
+		      yang_dnode_get_string(nb, "name"));
+}
+
+static int as_list_entry_seq_cmp(const void *a, const void *b)
+{
+	const struct lyd_node *na = *(const struct lyd_node *const *)a;
+	const struct lyd_node *nb = *(const struct lyd_node *const *)b;
+	uint32_t sa = yang_dnode_get_uint32(na, "sequence");
+	uint32_t sb = yang_dnode_get_uint32(nb, "sequence");
+
+	if (sa < sb)
+		return -1;
+	if (sa > sb)
+		return 1;
+	return 0;
 }
 
 static int config_write_as_list(struct vty *vty)
 {
-	yang_dnode_iterate(config_write_as_list_one, vty, running_config->dnode,
+	struct as_list_write_ctx lists = {};
+	int write = 0;
+
+	yang_dnode_iterate(as_list_collect_cb, &lists, running_config->dnode,
 			   "/frr-filter:lib/frr-bgp-filter:as-path-list");
-	return 0;
+	if (lists.count > 1)
+		qsort(lists.nodes, lists.count, sizeof(*lists.nodes), as_list_name_cmp);
+
+	for (size_t i = 0; i < lists.count; i++) {
+		struct as_list_write_ctx entries = {};
+
+		yang_dnode_iterate(as_list_collect_cb, &entries, lists.nodes[i], "entry");
+		if (entries.count > 1)
+			qsort(entries.nodes, entries.count, sizeof(*entries.nodes),
+			      as_list_entry_seq_cmp);
+		for (size_t j = 0; j < entries.count; j++) {
+			nb_cli_show_dnode_cmds(vty, entries.nodes[j], false);
+			write++;
+		}
+		XFREE(MTYPE_TMP, entries.nodes);
+	}
+	XFREE(MTYPE_TMP, lists.nodes);
+	return write;
 }
 
 static struct cmd_node as_list_node = {
