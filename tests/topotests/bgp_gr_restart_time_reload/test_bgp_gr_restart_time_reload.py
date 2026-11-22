@@ -124,6 +124,10 @@ def test_bgp_gr_restart_time_reload():
 
     step("Reload the very same configuration twice")
 
+    # Clear message stats so any initial TCP connection-collision
+    # notification during session establishment is not counted as a reset.
+    r1.vtysh_cmd("clear bgp 192.168.1.2 message-stats")
+
     frrdir = tgen.config.get(tgen.CONFIG_SECTION, "frrdir")
     for _ in range(2):
         r1.cmd_raises("{}/frr-reload.py --reload {}".format(frrdir, reload_conf))
