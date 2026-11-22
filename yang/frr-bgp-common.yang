@@ -1213,14 +1213,13 @@ submodule frr-bgp-common {
         range "0..4095";
       }
       units "seconds";
-      default "120";
       description
         "Estimated time (in seconds) for the local BGP speaker to
          restart a session. This value is advertise in the graceful
          restart BGP capability.  This is a 12-bit value, referred to
          as Restart Time in RFC4724.  Per RFC4724, the suggested
          default value is <= the hold-time value. This timer is
-         applicable for helper node.
+         applicable for helper node. Defaults to 120 seconds when unset.
          Maps to: bgp graceful-restart restart-time (0-4095).";
       reference
         "RFC 4724: Graceful Restart Mechanism for BGP.";

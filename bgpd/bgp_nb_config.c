@@ -2800,13 +2800,34 @@ static void bgp_nb_gr_restart_time_peers(struct bgp *bgp, bool unset)
 int bgp_nb_gr_restart_time_modify(struct nb_cb_modify_args *args)
 {
 	struct bgp *bgp;
+	uint16_t val;
 
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
 	bgp = nb_running_get_entry(args->dnode, NULL, true);
-	bgp->restart_time = yang_dnode_get_uint16(args->dnode, NULL);
+	val = yang_dnode_get_uint16(args->dnode, NULL);
+	if (bgp->restart_time == val)
+		return NB_OK;
+
+	bgp->restart_time = val;
 	bgp_nb_gr_restart_time_peers(bgp, false);
+	return NB_OK;
+}
+
+int bgp_nb_gr_restart_time_destroy(struct nb_cb_destroy_args *args)
+{
+	struct bgp *bgp;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	bgp = nb_running_get_entry(args->dnode, NULL, true);
+	if (bgp->restart_time == BGP_DEFAULT_RESTART_TIME)
+		return NB_OK;
+
+	bgp->restart_time = BGP_DEFAULT_RESTART_TIME;
+	bgp_nb_gr_restart_time_peers(bgp, true);
 	return NB_OK;
 }
 
@@ -19550,8 +19571,28 @@ int bgp_nb_daemon_gr_restart_time_modify(struct nb_cb_modify_args *args)
 	val = yang_dnode_get_uint16(args->dnode, NULL);
 	bm->restart_time = val;
 	for (ALL_LIST_ELEMENTS(bm->bgp, node, nnode, bgp)) {
+		if (bgp->restart_time == val)
+			continue;
 		bgp->restart_time = val;
 		bgp_nb_gr_restart_time_peers(bgp, false);
+	}
+	return NB_OK;
+}
+
+int bgp_nb_daemon_gr_restart_time_destroy(struct nb_cb_destroy_args *args)
+{
+	struct listnode *node, *nnode;
+	struct bgp *bgp;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	bm->restart_time = BGP_DEFAULT_RESTART_TIME;
+	for (ALL_LIST_ELEMENTS(bm->bgp, node, nnode, bgp)) {
+		if (bgp->restart_time == BGP_DEFAULT_RESTART_TIME)
+			continue;
+		bgp->restart_time = BGP_DEFAULT_RESTART_TIME;
+		bgp_nb_gr_restart_time_peers(bgp, true);
 	}
 	return NB_OK;
 }
@@ -19888,7 +19929,7 @@ int bgp_nb_gr_llgr_stale_time_destroy(struct nb_cb_destroy_args *args)
 	bgp->llgr_stale_time = BGP_DEFAULT_LLGR_STALE_TIME;
 	for (ALL_LIST_ELEMENTS(bgp->peer, node, nnode, peer))
 		bgp_capability_send(peer->connection, AFI_IP, SAFI_UNICAST, CAPABILITY_CODE_LLGR,
-				    CAPABILITY_ACTION_SET);
+				    CAPABILITY_ACTION_UNSET);
 	return NB_OK;
 }
 
@@ -20184,7 +20225,7 @@ int bgp_nb_daemon_gr_llgr_stale_time_destroy(struct nb_cb_destroy_args *args)
 		bgp->llgr_stale_time = BGP_DEFAULT_LLGR_STALE_TIME;
 		for (ALL_LIST_ELEMENTS(bgp->peer, pnode, pnnode, peer))
 			bgp_capability_send(peer->connection, AFI_IP, SAFI_UNICAST,
-					    CAPABILITY_CODE_LLGR, CAPABILITY_ACTION_SET);
+					    CAPABILITY_CODE_LLGR, CAPABILITY_ACTION_UNSET);
 	}
 	return NB_OK;
 }

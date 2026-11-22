@@ -257,6 +257,7 @@ void bgp_nb_cli_show_gr_stale_routes_time(struct vty *vty, const struct lyd_node
 					  bool show_defaults);
 
 int bgp_nb_gr_restart_time_modify(struct nb_cb_modify_args *args);
+int bgp_nb_gr_restart_time_destroy(struct nb_cb_destroy_args *args);
 void bgp_nb_cli_show_gr_restart_time(struct vty *vty, const struct lyd_node *dnode,
 				     bool show_defaults);
 
@@ -1360,6 +1361,7 @@ int bgp_nb_daemon_gr_stale_routes_time_modify(struct nb_cb_modify_args *args);
 void bgp_nb_cli_show_daemon_gr_stale_routes_time(struct vty *vty, const struct lyd_node *dnode,
 						 bool show_defaults);
 int bgp_nb_daemon_gr_restart_time_modify(struct nb_cb_modify_args *args);
+int bgp_nb_daemon_gr_restart_time_destroy(struct nb_cb_destroy_args *args);
 void bgp_nb_cli_show_daemon_gr_restart_time(struct vty *vty, const struct lyd_node *dnode,
 					    bool show_defaults);
 int bgp_nb_daemon_gr_select_defer_time_modify(struct nb_cb_modify_args *args);

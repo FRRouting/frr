@@ -491,6 +491,40 @@ router bgp 65000
     assert "  neighbor 192.0.2.24 activate\n" not in running
 
 
+def test_llgr_stale_time_and_gr_restart_time_unset():
+    """no bgp long-lived-graceful-restart stale-time and GR restart-time must destroy cleanly (B008)."""
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    r1 = tgen.gears["r1"]
+    r1.vtysh_multicmd(
+        """
+router bgp 65000
+ bgp long-lived-graceful-restart stale-time 100
+ bgp graceful-restart restart-time 60
+""",
+        pretty_output=False,
+        raises=True,
+    )
+    running = r1.vtysh_cmd("show running-config")
+    assert " bgp long-lived-graceful-restart stale-time 100\n" in running
+    assert " bgp graceful-restart restart-time 60\n" in running
+
+    r1.vtysh_multicmd(
+        """
+router bgp 65000
+ no bgp long-lived-graceful-restart stale-time
+ no bgp graceful-restart restart-time
+""",
+        pretty_output=False,
+        raises=True,
+    )
+    running = r1.vtysh_cmd("show running-config")
+    assert "long-lived-graceful-restart stale-time" not in running
+    assert "graceful-restart restart-time" not in running
+
+
 if __name__ == "__main__":
     args = ["-s"] + sys.argv[1:]
     sys.exit(pytest.main(args))

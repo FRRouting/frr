@@ -1964,11 +1964,8 @@ DEFUN_YANG(no_bgp_daemon_gr_restart_time_yang,
 	   "Set the time to wait to delete stale routes before a BGP open message is received\n"
 	   "Delay value (seconds)\n")
 {
-	char val[16];
-
-	snprintfrr(val, sizeof(val), "%u", BGP_DEFAULT_RESTART_TIME);
 	nb_cli_enqueue_change(vty, "/frr-bgp:bgp-daemon/graceful-restart/restart-time",
-			      NB_OP_MODIFY, val);
+			      NB_OP_DESTROY, NULL);
 	return nb_cli_apply_changes(vty, NULL);
 }
 
@@ -2280,10 +2277,7 @@ DEFUN_YANG(no_bgp_graceful_restart_restart_time_yang,
 	   "Set the time to wait to delete stale routes before a BGP open message is received\n"
 	   "Delay value (seconds)\n")
 {
-	char val[16];
-
-	snprintfrr(val, sizeof(val), "%u", BGP_DEFAULT_RESTART_TIME);
-	nb_cli_enqueue_change(vty, "./global/graceful-restart/restart-time", NB_OP_MODIFY, val);
+	nb_cli_enqueue_change(vty, "./global/graceful-restart/restart-time", NB_OP_DESTROY, NULL);
 	return nb_cli_apply_changes(vty, NULL);
 }
 
@@ -2421,11 +2415,8 @@ DEFUN_YANG(no_bgp_llgr_stalepath_time_yang, no_bgp_llgr_stalepath_time_yang_cmd,
 	   "Specifies maximum time to wait before purging long-lived stale routes\n"
 	   "Stale time value (seconds)\n")
 {
-	char val[16];
-
-	snprintfrr(val, sizeof(val), "%u", BGP_DEFAULT_LLGR_STALE_TIME);
-	nb_cli_enqueue_change(vty, "./global/graceful-restart/long-lived-stale-time", NB_OP_MODIFY,
-			      val);
+	nb_cli_enqueue_change(vty, "./global/graceful-restart/long-lived-stale-time", NB_OP_DESTROY,
+			      NULL);
 	return nb_cli_apply_changes(vty, NULL);
 }
 

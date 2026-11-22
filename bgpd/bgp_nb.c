@@ -167,6 +167,7 @@ const struct frr_yang_module_info frr_bgp_info = {
 			.xpath = "/frr-bgp:bgp-daemon/graceful-restart/restart-time",
 			.cbs = {
 				.modify = bgp_nb_daemon_gr_restart_time_modify,
+				.destroy = bgp_nb_daemon_gr_restart_time_destroy,
 				.cli_show = bgp_nb_cli_show_daemon_gr_restart_time,
 			},
 		},
@@ -2960,6 +2961,7 @@ const struct frr_yang_module_info frr_bgp_info = {
 			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/graceful-restart/restart-time",
 			.cbs = {
 				.modify = bgp_nb_gr_restart_time_modify,
+				.destroy = bgp_nb_gr_restart_time_destroy,
 				.cli_show = bgp_nb_cli_show_gr_restart_time,
 			},
 		},
