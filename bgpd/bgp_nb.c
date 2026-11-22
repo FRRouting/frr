@@ -160,6 +160,7 @@ const struct frr_yang_module_info frr_bgp_info = {
 			.xpath = "/frr-bgp:bgp-daemon/graceful-restart/stale-routes-time",
 			.cbs = {
 				.modify = bgp_nb_daemon_gr_stale_routes_time_modify,
+				.destroy = bgp_nb_daemon_gr_stale_routes_time_destroy,
 				.cli_show = bgp_nb_cli_show_daemon_gr_stale_routes_time,
 			},
 		},
@@ -175,6 +176,7 @@ const struct frr_yang_module_info frr_bgp_info = {
 			.xpath = "/frr-bgp:bgp-daemon/graceful-restart/selection-deferral-time",
 			.cbs = {
 				.modify = bgp_nb_daemon_gr_select_defer_time_modify,
+				.destroy = bgp_nb_daemon_gr_select_defer_time_destroy,
 				.cli_show = bgp_nb_cli_show_daemon_gr_select_defer_time,
 			},
 		},
@@ -182,6 +184,7 @@ const struct frr_yang_module_info frr_bgp_info = {
 			.xpath = "/frr-bgp:bgp-daemon/graceful-restart/rib-stale-time",
 			.cbs = {
 				.modify = bgp_nb_daemon_gr_rib_stale_time_modify,
+				.destroy = bgp_nb_daemon_gr_rib_stale_time_destroy,
 				.cli_show = bgp_nb_cli_show_daemon_gr_rib_stale_time,
 			},
 		},
@@ -189,6 +192,7 @@ const struct frr_yang_module_info frr_bgp_info = {
 			.xpath = "/frr-bgp:bgp-daemon/graceful-restart/preserve-fw-entry",
 			.cbs = {
 				.modify = bgp_nb_daemon_gr_preserve_fw_modify,
+				.destroy = bgp_nb_daemon_gr_preserve_fw_destroy,
 				.cli_show = bgp_nb_cli_show_daemon_gr_preserve_fw,
 			},
 		},
@@ -774,13 +778,6 @@ const struct frr_yang_module_info frr_bgp_info = {
 				.modify = bgp_nb_minimum_holdtime_modify,
 				.destroy = bgp_nb_minimum_holdtime_destroy,
 				.cli_show = bgp_nb_cli_show_minimum_holdtime,
-			},
-		},
-		{
-			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/global-config-timers/rmap-delay-time",
-			.cbs = {
-				.modify = bgp_nb_rmap_delay_time_modify,
-				.cli_show = bgp_nb_cli_show_rmap_delay_time,
 			},
 		},
 		{
@@ -2961,6 +2958,7 @@ const struct frr_yang_module_info frr_bgp_info = {
 			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/graceful-restart/stale-routes-time",
 			.cbs = {
 				.modify = bgp_nb_gr_stale_routes_time_modify,
+				.destroy = bgp_nb_gr_stale_routes_time_destroy,
 				.cli_show = bgp_nb_cli_show_gr_stale_routes_time,
 			},
 		},
@@ -2976,6 +2974,7 @@ const struct frr_yang_module_info frr_bgp_info = {
 			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/graceful-restart/selection-deferral-time",
 			.cbs = {
 				.modify = bgp_nb_gr_select_defer_time_modify,
+				.destroy = bgp_nb_gr_select_defer_time_destroy,
 				.cli_show = bgp_nb_cli_show_gr_select_defer_time,
 			},
 		},
@@ -2983,6 +2982,7 @@ const struct frr_yang_module_info frr_bgp_info = {
 			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/graceful-restart/rib-stale-time",
 			.cbs = {
 				.modify = bgp_nb_gr_rib_stale_time_modify,
+				.destroy = bgp_nb_gr_rib_stale_time_destroy,
 				.cli_show = bgp_nb_cli_show_gr_rib_stale_time,
 			},
 		},
@@ -2990,6 +2990,7 @@ const struct frr_yang_module_info frr_bgp_info = {
 			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/graceful-restart/preserve-fw-entry",
 			.cbs = {
 				.modify = bgp_nb_gr_preserve_fw_modify,
+				.destroy = bgp_nb_gr_preserve_fw_destroy,
 				.cli_show = bgp_nb_cli_show_gr_preserve_fw,
 			},
 		},

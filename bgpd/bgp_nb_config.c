@@ -74,6 +74,8 @@ DEFINE_HOOK(bgp_route_distinguisher_update, (struct bgp *bgp, afi_t afi, bool pr
 	    (bgp, afi, preconfig));
 
 static const struct lyd_node *bgp_nb_candidate_match(const struct lyd_node *old);
+static bool bgp_nb_inst_has_leaf(const struct bgp *bgp, const char *rel_xpath);
+static bool bgp_nb_inst_has_active_gr_mode(const struct bgp *bgp);
 DEFINE_HOOK(bgp_snmp_update_last_changed, (struct bgp *bgp), (bgp));
 
 /* Same instance identity bgp_nb_bgp_create() uses on APPLY. */
@@ -2473,45 +2475,6 @@ void bgp_nb_cli_show_update_delay_time(struct vty *vty, const struct lyd_node *d
 		vty_out(vty, " update-delay %u\n", delay);
 }
 
-int bgp_nb_rmap_delay_time_modify(struct nb_cb_modify_args *args)
-{
-	uint16_t timer;
-
-	if (args->event != NB_EV_APPLY)
-		return NB_OK;
-
-	timer = yang_dnode_get_uint16(args->dnode, NULL);
-	bm->rmap_update_timer = timer;
-
-	/*
-	 * Disabling the delay timer while one is armed: cancel and run the
-	 * update immediately (matches classic CLI).
-	 */
-	if (!timer && event_is_scheduled(bm->t_rmap_update)) {
-		event_cancel(&bm->t_rmap_update);
-		event_execute(bm->master, bgp_route_map_update_timer, NULL, 0, NULL);
-	}
-	return NB_OK;
-}
-
-int bgp_nb_rmap_delay_time_destroy(struct nb_cb_destroy_args *args)
-{
-	if (args->event != NB_EV_APPLY)
-		return NB_OK;
-
-	bm->rmap_update_timer = RMAP_DEFAULT_UPDATE_TIMER;
-	return NB_OK;
-}
-
-void bgp_nb_cli_show_rmap_delay_time(struct vty *vty, const struct lyd_node *dnode,
-				     bool show_defaults)
-{
-	uint16_t timer = yang_dnode_get_uint16(dnode, NULL);
-
-	if (timer != RMAP_DEFAULT_UPDATE_TIMER || show_defaults)
-		vty_out(vty, " bgp route-map delay-timer %u\n", timer);
-}
-
 int bgp_nb_establish_wait_time_modify(struct nb_cb_modify_args *args)
 {
 	struct bgp *bgp;
@@ -2553,26 +2516,8 @@ int bgp_nb_establish_wait_time_destroy(struct nb_cb_destroy_args *args)
 	return NB_OK;
 }
 
-int bgp_nb_advertisement_delay_modify(struct nb_cb_modify_args *args)
+static void bgp_nb_advertisement_delay_reset(struct bgp *bgp)
 {
-	struct bgp *bgp;
-
-	if (args->event != NB_EV_APPLY)
-		return NB_OK;
-
-	bgp = nb_running_get_entry(args->dnode, NULL, true);
-	bgp->v_advertisement_delay = yang_dnode_get_uint16(args->dnode, NULL);
-	return NB_OK;
-}
-
-int bgp_nb_advertisement_delay_destroy(struct nb_cb_destroy_args *args)
-{
-	struct bgp *bgp;
-
-	if (args->event != NB_EV_APPLY)
-		return NB_OK;
-
-	bgp = nb_running_get_entry(args->dnode, NULL, true);
 	bgp->v_advertisement_delay = BGP_ADVERTISEMENT_DELAY_DEFAULT;
 	if (bgp->advertisement_delay_started && !bgp->advertisement_delay_over) {
 		event_cancel(&bgp->t_advertisement_delay);
@@ -2587,13 +2532,51 @@ int bgp_nb_advertisement_delay_destroy(struct nb_cb_destroy_args *args)
 		bgp->advertisement_delay_started = 0;
 		bgp->advertisement_delay_over = 0;
 	}
+}
+
+int bgp_nb_advertisement_delay_modify(struct nb_cb_modify_args *args)
+{
+	struct bgp *bgp;
+	uint16_t delay;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	bgp = nb_running_get_entry(args->dnode, NULL, true);
+	delay = yang_dnode_get_uint16(args->dnode, NULL);
+	if (delay == BGP_ADVERTISEMENT_DELAY_DEFAULT)
+		bgp_nb_advertisement_delay_reset(bgp);
+	else
+		bgp->v_advertisement_delay = delay;
+	return NB_OK;
+}
+
+int bgp_nb_advertisement_delay_destroy(struct nb_cb_destroy_args *args)
+{
+	struct bgp *bgp;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	bgp = nb_running_get_entry(args->dnode, NULL, true);
+	bgp_nb_advertisement_delay_reset(bgp);
 	return NB_OK;
 }
 
 void bgp_nb_cli_show_advertisement_delay(struct vty *vty, const struct lyd_node *dnode,
 					 bool show_defaults)
 {
-	vty_out(vty, " advertisement-delay %u\n", yang_dnode_get_uint16(dnode, NULL));
+	uint16_t delay = yang_dnode_get_uint16(dnode, NULL);
+	const struct lyd_node *daemon;
+
+	if (delay == BGP_ADVERTISEMENT_DELAY_DEFAULT)
+		return;
+
+	daemon = yang_dnode_get(dnode, "/frr-bgp:bgp-daemon/advertisement-delay-time");
+	if (daemon && yang_dnode_get_uint16(daemon, NULL) == delay && !show_defaults)
+		return;
+
+	vty_out(vty, " advertisement-delay %u\n", delay);
 }
 
 int bgp_nb_conditional_advertisement_timer_modify(struct nb_cb_modify_args *args)
@@ -2833,13 +2816,32 @@ int bgp_nb_gr_stale_routes_time_modify(struct nb_cb_modify_args *args)
 	return NB_OK;
 }
 
+int bgp_nb_gr_stale_routes_time_destroy(struct nb_cb_destroy_args *args)
+{
+	struct bgp *bgp;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	bgp = nb_running_get_entry(args->dnode, NULL, true);
+	bgp->stalepath_time = BGP_DEFAULT_STALEPATH_TIME;
+	return NB_OK;
+}
+
 void bgp_nb_cli_show_gr_stale_routes_time(struct vty *vty, const struct lyd_node *dnode,
 					  bool show_defaults)
 {
 	uint16_t val = yang_dnode_get_uint16(dnode, NULL);
+	const struct lyd_node *daemon;
 
-	if (val != BGP_DEFAULT_STALEPATH_TIME || show_defaults)
-		vty_out(vty, " bgp graceful-restart stalepath-time %u\n", val);
+	if (val == BGP_DEFAULT_STALEPATH_TIME && !show_defaults)
+		return;
+
+	daemon = yang_dnode_get(dnode, "/frr-bgp:bgp-daemon/graceful-restart/stale-routes-time");
+	if (daemon && yang_dnode_get_uint16(daemon, NULL) == val && !show_defaults)
+		return;
+
+	vty_out(vty, " bgp graceful-restart stalepath-time %u\n", val);
 }
 
 static void bgp_nb_gr_restart_time_peers(struct bgp *bgp, bool unset)
@@ -2873,7 +2875,7 @@ int bgp_nb_gr_restart_time_modify(struct nb_cb_modify_args *args)
 		return NB_OK;
 
 	bgp->restart_time = val;
-	bgp_nb_gr_restart_time_peers(bgp, false);
+	bgp_nb_gr_restart_time_peers(bgp, val == BGP_DEFAULT_RESTART_TIME);
 	return NB_OK;
 }
 
@@ -2897,9 +2899,16 @@ void bgp_nb_cli_show_gr_restart_time(struct vty *vty, const struct lyd_node *dno
 				     bool show_defaults)
 {
 	uint16_t val = yang_dnode_get_uint16(dnode, NULL);
+	const struct lyd_node *daemon;
 
-	if (val != BGP_DEFAULT_RESTART_TIME || show_defaults)
-		vty_out(vty, " bgp graceful-restart restart-time %u\n", val);
+	if (val == BGP_DEFAULT_RESTART_TIME && !show_defaults)
+		return;
+
+	daemon = yang_dnode_get(dnode, "/frr-bgp:bgp-daemon/graceful-restart/restart-time");
+	if (daemon && yang_dnode_get_uint16(daemon, NULL) == val && !show_defaults)
+		return;
+
+	vty_out(vty, " bgp graceful-restart restart-time %u\n", val);
 }
 
 int bgp_nb_gr_select_defer_time_modify(struct nb_cb_modify_args *args)
@@ -2920,13 +2929,34 @@ int bgp_nb_gr_select_defer_time_modify(struct nb_cb_modify_args *args)
 	return NB_OK;
 }
 
+int bgp_nb_gr_select_defer_time_destroy(struct nb_cb_destroy_args *args)
+{
+	struct bgp *bgp;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	bgp = nb_running_get_entry(args->dnode, NULL, true);
+	bgp->select_defer_time = BGP_DEFAULT_SELECT_DEFERRAL_TIME;
+	UNSET_FLAG(bgp->flags, BGP_FLAG_SELECT_DEFER_DISABLE);
+	return NB_OK;
+}
+
 void bgp_nb_cli_show_gr_select_defer_time(struct vty *vty, const struct lyd_node *dnode,
 					  bool show_defaults)
 {
 	uint16_t val = yang_dnode_get_uint16(dnode, NULL);
+	const struct lyd_node *daemon;
 
-	if (val != BGP_DEFAULT_SELECT_DEFERRAL_TIME || show_defaults)
-		vty_out(vty, " bgp graceful-restart select-defer-time %u\n", val);
+	if (val == BGP_DEFAULT_SELECT_DEFERRAL_TIME && !show_defaults)
+		return;
+
+	daemon = yang_dnode_get(dnode,
+				"/frr-bgp:bgp-daemon/graceful-restart/selection-deferral-time");
+	if (daemon && yang_dnode_get_uint16(daemon, NULL) == val && !show_defaults)
+		return;
+
+	vty_out(vty, " bgp graceful-restart select-defer-time %u\n", val);
 }
 
 int bgp_nb_gr_rib_stale_time_modify(struct nb_cb_modify_args *args)
@@ -2942,13 +2972,33 @@ int bgp_nb_gr_rib_stale_time_modify(struct nb_cb_modify_args *args)
 	return NB_OK;
 }
 
+int bgp_nb_gr_rib_stale_time_destroy(struct nb_cb_destroy_args *args)
+{
+	struct bgp *bgp;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	bgp = nb_running_get_entry(args->dnode, NULL, true);
+	bgp->rib_stale_time = BGP_DEFAULT_RIB_STALE_TIME;
+	bgp_zebra_stale_timer_update(bgp);
+	return NB_OK;
+}
+
 void bgp_nb_cli_show_gr_rib_stale_time(struct vty *vty, const struct lyd_node *dnode,
 				       bool show_defaults)
 {
 	uint16_t val = yang_dnode_get_uint16(dnode, NULL);
+	const struct lyd_node *daemon;
 
-	if (val != BGP_DEFAULT_RIB_STALE_TIME || show_defaults)
-		vty_out(vty, " bgp graceful-restart rib-stale-time %u\n", val);
+	if (val == BGP_DEFAULT_RIB_STALE_TIME && !show_defaults)
+		return;
+
+	daemon = yang_dnode_get(dnode, "/frr-bgp:bgp-daemon/graceful-restart/rib-stale-time");
+	if (daemon && yang_dnode_get_uint16(daemon, NULL) == val && !show_defaults)
+		return;
+
+	vty_out(vty, " bgp graceful-restart rib-stale-time %u\n", val);
 }
 
 int bgp_nb_gr_preserve_fw_modify(struct nb_cb_modify_args *args)
@@ -2966,13 +3016,35 @@ int bgp_nb_gr_preserve_fw_modify(struct nb_cb_modify_args *args)
 	return NB_OK;
 }
 
+int bgp_nb_gr_preserve_fw_destroy(struct nb_cb_destroy_args *args)
+{
+	struct bgp *bgp;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	bgp = nb_running_get_entry(args->dnode, NULL, true);
+	UNSET_FLAG(bgp->flags, BGP_FLAG_GR_PRESERVE_FWD);
+	return NB_OK;
+}
+
 void bgp_nb_cli_show_gr_preserve_fw(struct vty *vty, const struct lyd_node *dnode,
 				    bool show_defaults)
 {
-	if (yang_dnode_get_bool(dnode, NULL))
-		vty_out(vty, " bgp graceful-restart preserve-fw-state\n");
-	else if (show_defaults)
-		vty_out(vty, " no bgp graceful-restart preserve-fw-state\n");
+	bool val = yang_dnode_get_bool(dnode, NULL);
+	const struct lyd_node *daemon;
+
+	if (!val) {
+		if (show_defaults)
+			vty_out(vty, " no bgp graceful-restart preserve-fw-state\n");
+		return;
+	}
+
+	daemon = yang_dnode_get(dnode, "/frr-bgp:bgp-daemon/graceful-restart/preserve-fw-entry");
+	if (daemon && yang_dnode_get_bool(daemon, NULL) == val && !show_defaults)
+		return;
+
+	vty_out(vty, " bgp graceful-restart preserve-fw-state\n");
 }
 
 int bgp_nb_gr_notification_modify(struct nb_cb_modify_args *args)
@@ -3077,7 +3149,6 @@ int bgp_nb_gr_enabled_modify(struct nb_cb_modify_args *args)
 {
 	struct bgp *bgp;
 	int ret;
-
 	bool enable;
 
 	if (args->event != NB_EV_APPLY)
@@ -3086,7 +3157,7 @@ int bgp_nb_gr_enabled_modify(struct nb_cb_modify_args *args)
 	enable = yang_dnode_get_bool(args->dnode, NULL);
 	bgp = nb_running_get_entry(args->dnode, NULL, true);
 	ret = bgp_inst_gr_config(bgp, enable, false);
-	if (ret != BGP_GR_SUCCESS) {
+	if (ret != BGP_GR_SUCCESS && ret != BGP_GR_NO_OPERATION) {
 		snprintfrr(args->errmsg, args->errmsg_len,
 			   enable ? "Failed to enable graceful-restart"
 				  : "Failed to disable graceful-restart");
@@ -3097,15 +3168,21 @@ int bgp_nb_gr_enabled_modify(struct nb_cb_modify_args *args)
 
 int bgp_nb_gr_enabled_destroy(struct nb_cb_destroy_args *args)
 {
+	const struct lyd_node *gr;
 	struct bgp *bgp;
 	int ret;
 
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
+	/* Direct switch to graceful-restart-disable: skip intermediate helper. */
+	gr = bgp_nb_candidate_match(yang_dnode_get_parent(args->dnode, "graceful-restart"));
+	if (gr && yang_dnode_exists(gr, "graceful-restart-disable[.='true']"))
+		return NB_OK;
+
 	bgp = nb_running_get_entry(args->dnode, NULL, true);
 	ret = bgp_inst_gr_config(bgp, false, false);
-	if (ret != BGP_GR_SUCCESS) {
+	if (ret != BGP_GR_SUCCESS && ret != BGP_GR_NO_OPERATION) {
 		snprintfrr(args->errmsg, args->errmsg_len, "Failed to disable graceful-restart");
 		return NB_ERR;
 	}
@@ -3114,8 +3191,12 @@ int bgp_nb_gr_enabled_destroy(struct nb_cb_destroy_args *args)
 
 void bgp_nb_cli_show_gr_enabled(struct vty *vty, const struct lyd_node *dnode, bool show_defaults)
 {
-	if (yang_dnode_get_bool(dnode, NULL))
-		vty_out(vty, " bgp graceful-restart\n");
+	if (!yang_dnode_get_bool(dnode, NULL))
+		return;
+	if (!show_defaults &&
+	    yang_dnode_exists(dnode, "/frr-bgp:bgp-daemon/graceful-restart/enabled[.='true']"))
+		return;
+	vty_out(vty, " bgp graceful-restart\n");
 }
 
 int bgp_nb_gr_disable_modify(struct nb_cb_modify_args *args)
@@ -3124,7 +3205,6 @@ int bgp_nb_gr_disable_modify(struct nb_cb_modify_args *args)
 	struct listnode *node, *nnode;
 	struct peer *peer;
 	int ret;
-
 	bool disable;
 
 	if (args->event != NB_EV_APPLY)
@@ -3134,7 +3214,7 @@ int bgp_nb_gr_disable_modify(struct nb_cb_modify_args *args)
 	bgp = nb_running_get_entry(args->dnode, NULL, true);
 	if (!disable) {
 		ret = bgp_inst_gr_config(bgp, false, true);
-		if (ret != BGP_GR_SUCCESS) {
+		if (ret != BGP_GR_SUCCESS && ret != BGP_GR_NO_OPERATION) {
 			snprintfrr(args->errmsg, args->errmsg_len,
 				   "Failed to clear graceful-restart-disable");
 			return NB_ERR;
@@ -3143,31 +3223,39 @@ int bgp_nb_gr_disable_modify(struct nb_cb_modify_args *args)
 	}
 
 	ret = bgp_inst_gr_config(bgp, true, true);
-	if (ret != BGP_GR_SUCCESS) {
+	if (ret != BGP_GR_SUCCESS && ret != BGP_GR_NO_OPERATION) {
 		snprintfrr(args->errmsg, args->errmsg_len,
 			   "Failed to disable graceful-restart globally");
 		return NB_ERR;
 	}
-	for (ALL_LIST_ELEMENTS(bgp->peer, node, nnode, peer)) {
-		bgp_capability_send(peer->connection, AFI_IP, SAFI_UNICAST,
-				    CAPABILITY_CODE_RESTART, CAPABILITY_ACTION_UNSET);
-		bgp_capability_send(peer->connection, AFI_IP, SAFI_UNICAST, CAPABILITY_CODE_LLGR,
-				    CAPABILITY_ACTION_UNSET);
+	if (ret == BGP_GR_SUCCESS) {
+		for (ALL_LIST_ELEMENTS(bgp->peer, node, nnode, peer)) {
+			bgp_capability_send(peer->connection, AFI_IP, SAFI_UNICAST,
+					    CAPABILITY_CODE_RESTART, CAPABILITY_ACTION_UNSET);
+			bgp_capability_send(peer->connection, AFI_IP, SAFI_UNICAST,
+					    CAPABILITY_CODE_LLGR, CAPABILITY_ACTION_UNSET);
+		}
 	}
 	return NB_OK;
 }
 
 int bgp_nb_gr_disable_destroy(struct nb_cb_destroy_args *args)
 {
+	const struct lyd_node *gr;
 	struct bgp *bgp;
 	int ret;
 
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
+	/* Direct switch to graceful-restart: skip intermediate helper. */
+	gr = bgp_nb_candidate_match(yang_dnode_get_parent(args->dnode, "graceful-restart"));
+	if (gr && yang_dnode_exists(gr, "enabled[.='true']"))
+		return NB_OK;
+
 	bgp = nb_running_get_entry(args->dnode, NULL, true);
 	ret = bgp_inst_gr_config(bgp, false, true);
-	if (ret != BGP_GR_SUCCESS) {
+	if (ret != BGP_GR_SUCCESS && ret != BGP_GR_NO_OPERATION) {
 		snprintfrr(args->errmsg, args->errmsg_len,
 			   "Failed to clear graceful-restart-disable");
 		return NB_ERR;
@@ -3177,8 +3265,14 @@ int bgp_nb_gr_disable_destroy(struct nb_cb_destroy_args *args)
 
 void bgp_nb_cli_show_gr_disable(struct vty *vty, const struct lyd_node *dnode, bool show_defaults)
 {
-	if (yang_dnode_get_bool(dnode, NULL))
-		vty_out(vty, " bgp graceful-restart-disable\n");
+	if (!yang_dnode_get_bool(dnode, NULL))
+		return;
+	if (!show_defaults &&
+	    yang_dnode_exists(
+		    dnode,
+		    "/frr-bgp:bgp-daemon/graceful-restart/graceful-restart-disable[.='true']"))
+		return;
+	vty_out(vty, " bgp graceful-restart-disable\n");
 }
 
 static void bgp_nb_tcp_keepalive_apply(struct bgp *bgp, const struct lyd_node *dnode)
@@ -8386,6 +8480,43 @@ static const struct lyd_node *bgp_nb_candidate_match(const struct lyd_node *old)
 	if (!yang_dnode_exists(root, path))
 		return NULL;
 	return yang_dnode_get(root, path);
+}
+
+static bool bgp_nb_inst_has_leaf(const struct bgp *bgp, const char *rel_xpath)
+{
+	const struct lyd_node *root = nb_transaction_candidate_dnode();
+	char xpath[XPATH_MAXLEN];
+	const char *vrf_key;
+	const char *inst_name;
+
+	if (!root)
+		root = running_config->dnode;
+	if (!root || !bgp)
+		return false;
+
+	if (bgp->inst_type == BGP_INSTANCE_TYPE_VIEW) {
+		vrf_key = "view";
+		inst_name = bgp->name ? bgp->name : VRF_DEFAULT_NAME;
+	} else {
+		vrf_key = (bgp->inst_type == BGP_INSTANCE_TYPE_DEFAULT || !bgp->name)
+				  ? VRF_DEFAULT_NAME
+				  : bgp->name;
+		inst_name = vrf_key;
+	}
+
+	snprintfrr(xpath, sizeof(xpath),
+		   "/frr-routing:routing/control-plane-protocols/"
+		   "control-plane-protocol[type='frr-bgp:bgp'][name='%s'][vrf='%s']"
+		   "/frr-bgp:bgp/%s",
+		   inst_name, vrf_key, rel_xpath);
+	return yang_dnode_exists(root, xpath);
+}
+
+static bool bgp_nb_inst_has_active_gr_mode(const struct bgp *bgp)
+{
+	return bgp_nb_inst_has_leaf(bgp, "global/graceful-restart/enabled[.='true']") ||
+	       bgp_nb_inst_has_leaf(bgp,
+				    "global/graceful-restart/graceful-restart-disable[.='true']");
 }
 
 int bgp_nb_aggregate_rmap_destroy(struct nb_cb_destroy_args *args)
@@ -17419,16 +17550,32 @@ void bgp_nb_cli_show_peer_path_attr_withdraw(struct vty *vty, const struct lyd_n
 static int bgp_nb_peer_gr_cmd(struct peer *peer, enum peer_gr_command cmd)
 {
 	int result;
-	int ret = BGP_GR_SUCCESS;
 
 	result = bgp_neighbor_graceful_restart(peer, cmd);
-	if (result == BGP_GR_SUCCESS)
-		VTY_BGP_GR_ROUTER_DETECT_AND_SEND_CAPABILITY_TO_ZEBRA(peer->bgp, peer->bgp->peer,
-								      ret);
+	if (result == BGP_GR_SUCCESS) {
+		int zret = BGP_GR_SUCCESS;
 
-	if (result == BGP_GR_FAILURE || ret == BGP_ERR_INVALID_VALUE)
+		VTY_BGP_GR_ROUTER_DETECT_AND_SEND_CAPABILITY_TO_ZEBRA(peer->bgp, peer->bgp->peer,
+								      zret);
+		(void)zret;
+	}
+
+	if (result == BGP_GR_FAILURE)
 		return NB_ERR_RESOURCE;
 	return NB_OK;
+}
+
+static bool bgp_nb_peer_gr_switching_mode(const struct lyd_node *dnode)
+{
+	const struct lyd_node *gr =
+		bgp_nb_candidate_match(yang_dnode_get_parent(dnode, "graceful-restart"));
+
+	if (!gr)
+		return false;
+
+	return yang_dnode_exists(gr, "enable[.='true']") ||
+	       yang_dnode_exists(gr, "graceful-restart-helper[.='true']") ||
+	       yang_dnode_exists(gr, "graceful-restart-disable[.='true']");
 }
 
 int bgp_nb_peer_gr_enable_modify(struct nb_cb_modify_args *args)
@@ -17452,6 +17599,9 @@ int bgp_nb_peer_gr_enable_destroy(struct nb_cb_destroy_args *args)
 	struct peer *peer;
 
 	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	if (bgp_nb_peer_gr_switching_mode(args->dnode))
 		return NB_OK;
 
 	peer = bgp_nb_config_peer(args->dnode);
@@ -17492,6 +17642,9 @@ int bgp_nb_peer_gr_helper_destroy(struct nb_cb_destroy_args *args)
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
+	if (bgp_nb_peer_gr_switching_mode(args->dnode))
+		return NB_OK;
+
 	peer = bgp_nb_config_peer(args->dnode);
 	if (!peer)
 		return NB_OK;
@@ -17528,6 +17681,9 @@ int bgp_nb_peer_gr_disable_destroy(struct nb_cb_destroy_args *args)
 	struct peer *peer;
 
 	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	if (bgp_nb_peer_gr_switching_mode(args->dnode))
 		return NB_OK;
 
 	peer = bgp_nb_config_peer(args->dnode);
@@ -19234,8 +19390,11 @@ int bgp_nb_daemon_advertisement_delay_modify(struct nb_cb_modify_args *args)
 
 	delay = yang_dnode_get_uint16(args->dnode, NULL);
 	bm->v_advertisement_delay = delay;
-	for (ALL_LIST_ELEMENTS(bm->bgp, node, nnode, bgp))
+	for (ALL_LIST_ELEMENTS(bm->bgp, node, nnode, bgp)) {
+		if (bgp_nb_inst_has_leaf(bgp, "global/global-config-timers/advertisement-delay-time"))
+			continue;
 		bgp->v_advertisement_delay = delay;
+	}
 	return NB_OK;
 }
 
@@ -19249,20 +19408,9 @@ int bgp_nb_daemon_advertisement_delay_destroy(struct nb_cb_destroy_args *args)
 
 	bm->v_advertisement_delay = BGP_ADVERTISEMENT_DELAY_DEFAULT;
 	for (ALL_LIST_ELEMENTS(bm->bgp, node, nnode, bgp)) {
-		bgp->v_advertisement_delay = BGP_ADVERTISEMENT_DELAY_DEFAULT;
-		if (bgp->advertisement_delay_started && !bgp->advertisement_delay_over) {
-			event_cancel(&bgp->t_advertisement_delay);
-			bgp->advertisement_delay_started = 0;
-			bgp->advertisement_delay_over = 0;
-			if (!bgp_update_delay_active(bgp) && !bgp->main_zebra_update_hold) {
-				bgp->main_peers_update_hold = 0;
-				bgp_start_routeadv(bgp);
-			}
-		} else {
-			event_cancel(&bgp->t_advertisement_delay);
-			bgp->advertisement_delay_started = 0;
-			bgp->advertisement_delay_over = 0;
-		}
+		if (bgp_nb_inst_has_leaf(bgp, "global/global-config-timers/advertisement-delay-time"))
+			continue;
+		bgp_nb_advertisement_delay_reset(bgp);
 	}
 	return NB_OK;
 }
@@ -19515,7 +19663,51 @@ static bool bgp_nb_daemon_gr_per_vrf_conflict(const struct lyd_node *dnode, char
 
 static int bgp_nb_daemon_gr_mode_apply(bool on, bool disable, char *errmsg, size_t errmsg_len)
 {
-	if (bgp_global_gr_config(on, disable, errmsg, errmsg_len) != BGP_GR_SUCCESS)
+	struct listnode *node, *nnode;
+	struct bgp *bgp;
+	int ret = BGP_GR_SUCCESS;
+
+	if (disable) {
+		if ((on && CHECK_FLAG(bm->flags, BM_FLAG_GR_DISABLED)) ||
+		    (!on && !CHECK_FLAG(bm->flags, BM_FLAG_GR_DISABLED)))
+			return NB_OK;
+	} else {
+		if ((on && CHECK_FLAG(bm->flags, BM_FLAG_GR_RESTARTER)) ||
+		    (!on && !CHECK_FLAG(bm->flags, BM_FLAG_GR_RESTARTER)))
+			return NB_OK;
+	}
+
+	if (on) {
+		if (disable) {
+			UNSET_FLAG(bm->flags, BM_FLAG_GR_RESTARTER);
+			SET_FLAG(bm->flags, BM_FLAG_GR_DISABLED);
+		} else {
+			SET_FLAG(bm->flags, BM_FLAG_GR_RESTARTER);
+			UNSET_FLAG(bm->flags, BM_FLAG_GR_DISABLED);
+		}
+	} else {
+		if (disable)
+			UNSET_FLAG(bm->flags, BM_FLAG_GR_DISABLED);
+		else
+			UNSET_FLAG(bm->flags, BM_FLAG_GR_RESTARTER);
+	}
+
+	for (ALL_LIST_ELEMENTS(bm->bgp, node, nnode, bgp)) {
+		int iret;
+
+		if (!on && bgp_nb_inst_has_active_gr_mode(bgp))
+			continue;
+		iret = bgp_inst_gr_config(bgp, on, disable);
+		if (iret != BGP_GR_SUCCESS && iret != BGP_GR_NO_OPERATION) {
+			ret = iret;
+			if (errmsg && errmsg_len)
+				snprintfrr(errmsg, errmsg_len,
+					   "Applying global graceful-restart %s config to %s failed, error %d",
+					   disable ? "disable" : "", bgp->name_pretty, iret);
+		}
+	}
+
+	if (ret != BGP_GR_SUCCESS && ret != BGP_GR_NO_OPERATION)
 		return NB_ERR;
 	return NB_OK;
 }
@@ -19525,7 +19717,8 @@ int bgp_nb_daemon_gr_enabled_modify(struct nb_cb_modify_args *args)
 	if (args->event == NB_EV_VALIDATE) {
 		if (!yang_dnode_get_bool(args->dnode, NULL))
 			return NB_OK;
-		if (bgp_nb_daemon_gr_per_vrf_conflict(args->dnode, args->errmsg, args->errmsg_len))
+		if (!CHECK_FLAG(bm->flags, BM_FLAG_GR_CONFIGURED) &&
+		    bgp_nb_daemon_gr_per_vrf_conflict(args->dnode, args->errmsg, args->errmsg_len))
 			return NB_ERR_VALIDATION;
 		return NB_OK;
 	}
@@ -19539,7 +19732,16 @@ int bgp_nb_daemon_gr_enabled_modify(struct nb_cb_modify_args *args)
 
 int bgp_nb_daemon_gr_enabled_destroy(struct nb_cb_destroy_args *args)
 {
+	const struct lyd_node *root;
+
 	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	/* Direct switch to graceful-restart-disable: skip intermediate helper. */
+	root = nb_transaction_candidate_dnode();
+	if (root && yang_dnode_exists(
+			    root,
+			    "/frr-bgp:bgp-daemon/graceful-restart/graceful-restart-disable[.='true']"))
 		return NB_OK;
 
 	return bgp_nb_daemon_gr_mode_apply(false, false, args->errmsg, args->errmsg_len);
@@ -19554,16 +19756,11 @@ void bgp_nb_cli_show_daemon_gr_enabled(struct vty *vty, const struct lyd_node *d
 
 int bgp_nb_daemon_gr_disable_modify(struct nb_cb_modify_args *args)
 {
-	struct listnode *node, *nnode;
-	struct listnode *pnode, *pnnode;
-	struct bgp *bgp;
-	struct peer *peer;
-	int ret;
-
 	if (args->event == NB_EV_VALIDATE) {
 		if (!yang_dnode_get_bool(args->dnode, NULL))
 			return NB_OK;
-		if (bgp_nb_daemon_gr_per_vrf_conflict(args->dnode, args->errmsg, args->errmsg_len))
+		if (!CHECK_FLAG(bm->flags, BM_FLAG_GR_CONFIGURED) &&
+		    bgp_nb_daemon_gr_per_vrf_conflict(args->dnode, args->errmsg, args->errmsg_len))
 			return NB_ERR_VALIDATION;
 		return NB_OK;
 	}
@@ -19571,27 +19768,20 @@ int bgp_nb_daemon_gr_disable_modify(struct nb_cb_modify_args *args)
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
-	if (!yang_dnode_get_bool(args->dnode, NULL))
-		return bgp_nb_daemon_gr_mode_apply(false, true, args->errmsg, args->errmsg_len);
-
-	ret = bgp_nb_daemon_gr_mode_apply(true, true, args->errmsg, args->errmsg_len);
-	if (ret != NB_OK)
-		return ret;
-
-	for (ALL_LIST_ELEMENTS(bm->bgp, node, nnode, bgp)) {
-		for (ALL_LIST_ELEMENTS(bgp->peer, pnode, pnnode, peer)) {
-			bgp_capability_send(peer->connection, AFI_IP, SAFI_UNICAST,
-					    CAPABILITY_CODE_RESTART, CAPABILITY_ACTION_UNSET);
-			bgp_capability_send(peer->connection, AFI_IP, SAFI_UNICAST,
-					    CAPABILITY_CODE_LLGR, CAPABILITY_ACTION_UNSET);
-		}
-	}
-	return NB_OK;
+	return bgp_nb_daemon_gr_mode_apply(yang_dnode_get_bool(args->dnode, NULL), true,
+					   args->errmsg, args->errmsg_len);
 }
 
 int bgp_nb_daemon_gr_disable_destroy(struct nb_cb_destroy_args *args)
 {
+	const struct lyd_node *root;
+
 	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	/* Direct switch to graceful-restart: skip intermediate helper. */
+	root = nb_transaction_candidate_dnode();
+	if (root && yang_dnode_exists(root, "/frr-bgp:bgp-daemon/graceful-restart/enabled[.='true']"))
 		return NB_OK;
 
 	return bgp_nb_daemon_gr_mode_apply(false, true, args->errmsg, args->errmsg_len);
@@ -19615,8 +19805,28 @@ int bgp_nb_daemon_gr_stale_routes_time_modify(struct nb_cb_modify_args *args)
 
 	val = yang_dnode_get_uint16(args->dnode, NULL);
 	bm->stalepath_time = val;
-	for (ALL_LIST_ELEMENTS(bm->bgp, node, nnode, bgp))
+	for (ALL_LIST_ELEMENTS(bm->bgp, node, nnode, bgp)) {
+		if (bgp_nb_inst_has_leaf(bgp, "global/graceful-restart/stale-routes-time"))
+			continue;
 		bgp->stalepath_time = val;
+	}
+	return NB_OK;
+}
+
+int bgp_nb_daemon_gr_stale_routes_time_destroy(struct nb_cb_destroy_args *args)
+{
+	struct listnode *node, *nnode;
+	struct bgp *bgp;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	bm->stalepath_time = BGP_DEFAULT_STALEPATH_TIME;
+	for (ALL_LIST_ELEMENTS(bm->bgp, node, nnode, bgp)) {
+		if (bgp_nb_inst_has_leaf(bgp, "global/graceful-restart/stale-routes-time"))
+			continue;
+		bgp->stalepath_time = BGP_DEFAULT_STALEPATH_TIME;
+	}
 	return NB_OK;
 }
 
@@ -19641,6 +19851,8 @@ int bgp_nb_daemon_gr_restart_time_modify(struct nb_cb_modify_args *args)
 	val = yang_dnode_get_uint16(args->dnode, NULL);
 	bm->restart_time = val;
 	for (ALL_LIST_ELEMENTS(bm->bgp, node, nnode, bgp)) {
+		if (bgp_nb_inst_has_leaf(bgp, "global/graceful-restart/restart-time"))
+			continue;
 		if (bgp->restart_time == val)
 			continue;
 		bgp->restart_time = val;
@@ -19659,6 +19871,8 @@ int bgp_nb_daemon_gr_restart_time_destroy(struct nb_cb_destroy_args *args)
 
 	bm->restart_time = BGP_DEFAULT_RESTART_TIME;
 	for (ALL_LIST_ELEMENTS(bm->bgp, node, nnode, bgp)) {
+		if (bgp_nb_inst_has_leaf(bgp, "global/graceful-restart/restart-time"))
+			continue;
 		if (bgp->restart_time == BGP_DEFAULT_RESTART_TIME)
 			continue;
 		bgp->restart_time = BGP_DEFAULT_RESTART_TIME;
@@ -19688,11 +19902,31 @@ int bgp_nb_daemon_gr_select_defer_time_modify(struct nb_cb_modify_args *args)
 	defer_time = yang_dnode_get_uint16(args->dnode, NULL);
 	bm->select_defer_time = defer_time;
 	for (ALL_LIST_ELEMENTS(bm->bgp, node, nnode, bgp)) {
+		if (bgp_nb_inst_has_leaf(bgp, "global/graceful-restart/selection-deferral-time"))
+			continue;
 		bgp->select_defer_time = defer_time;
 		if (defer_time == 0)
 			SET_FLAG(bgp->flags, BGP_FLAG_SELECT_DEFER_DISABLE);
 		else
 			UNSET_FLAG(bgp->flags, BGP_FLAG_SELECT_DEFER_DISABLE);
+	}
+	return NB_OK;
+}
+
+int bgp_nb_daemon_gr_select_defer_time_destroy(struct nb_cb_destroy_args *args)
+{
+	struct listnode *node, *nnode;
+	struct bgp *bgp;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	bm->select_defer_time = BGP_DEFAULT_SELECT_DEFERRAL_TIME;
+	for (ALL_LIST_ELEMENTS(bm->bgp, node, nnode, bgp)) {
+		if (bgp_nb_inst_has_leaf(bgp, "global/graceful-restart/selection-deferral-time"))
+			continue;
+		bgp->select_defer_time = BGP_DEFAULT_SELECT_DEFERRAL_TIME;
+		UNSET_FLAG(bgp->flags, BGP_FLAG_SELECT_DEFER_DISABLE);
 	}
 	return NB_OK;
 }
@@ -19718,7 +19952,27 @@ int bgp_nb_daemon_gr_rib_stale_time_modify(struct nb_cb_modify_args *args)
 	val = yang_dnode_get_uint16(args->dnode, NULL);
 	bm->rib_stale_time = val;
 	for (ALL_LIST_ELEMENTS(bm->bgp, node, nnode, bgp)) {
+		if (bgp_nb_inst_has_leaf(bgp, "global/graceful-restart/rib-stale-time"))
+			continue;
 		bgp->rib_stale_time = val;
+		bgp_zebra_stale_timer_update(bgp);
+	}
+	return NB_OK;
+}
+
+int bgp_nb_daemon_gr_rib_stale_time_destroy(struct nb_cb_destroy_args *args)
+{
+	struct listnode *node, *nnode;
+	struct bgp *bgp;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	bm->rib_stale_time = BGP_DEFAULT_RIB_STALE_TIME;
+	for (ALL_LIST_ELEMENTS(bm->bgp, node, nnode, bgp)) {
+		if (bgp_nb_inst_has_leaf(bgp, "global/graceful-restart/rib-stale-time"))
+			continue;
+		bgp->rib_stale_time = BGP_DEFAULT_RIB_STALE_TIME;
 		bgp_zebra_stale_timer_update(bgp);
 	}
 	return NB_OK;
@@ -19749,10 +20003,29 @@ int bgp_nb_daemon_gr_preserve_fw_modify(struct nb_cb_modify_args *args)
 		UNSET_FLAG(bm->flags, BM_FLAG_GR_PRESERVE_FWD);
 
 	for (ALL_LIST_ELEMENTS(bm->bgp, node, nnode, bgp)) {
+		if (bgp_nb_inst_has_leaf(bgp, "global/graceful-restart/preserve-fw-entry"))
+			continue;
 		if (set)
 			SET_FLAG(bgp->flags, BGP_FLAG_GR_PRESERVE_FWD);
 		else
 			UNSET_FLAG(bgp->flags, BGP_FLAG_GR_PRESERVE_FWD);
+	}
+	return NB_OK;
+}
+
+int bgp_nb_daemon_gr_preserve_fw_destroy(struct nb_cb_destroy_args *args)
+{
+	struct listnode *node, *nnode;
+	struct bgp *bgp;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	UNSET_FLAG(bm->flags, BM_FLAG_GR_PRESERVE_FWD);
+	for (ALL_LIST_ELEMENTS(bm->bgp, node, nnode, bgp)) {
+		if (bgp_nb_inst_has_leaf(bgp, "global/graceful-restart/preserve-fw-entry"))
+			continue;
+		UNSET_FLAG(bgp->flags, BGP_FLAG_GR_PRESERVE_FWD);
 	}
 	return NB_OK;
 }

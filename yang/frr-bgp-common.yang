@@ -1047,19 +1047,6 @@ submodule frr-bgp-common {
       description
         "Container for global configuration timers.";
 
-      leaf rmap-delay-time {
-        type uint16 {
-          range "0..600";
-        }
-        units "seconds";
-        default "5";
-        description
-          "Time to wait before processing route-map changes.
-           Maps to: bgp route-map delay-timer (0-600). Zero disables
-           delayed processing (route-map changes apply immediately via
-           an immediate update).";
-      }
-
       leaf update-delay-time {
         type uint16 {
           range "0..3600";
@@ -1106,12 +1093,13 @@ submodule frr-bgp-common {
 
       leaf advertisement-delay-time {
         type uint16 {
-          range "1..3600";
+          range "0..3600";
         }
         units "seconds";
         description
           "Delay initial route advertisements after session
-           establishment. Maps to: advertisement-delay (1-3600).";
+           establishment. Maps to: advertisement-delay (1-3600).
+           Zero explicitly disables/overrides a daemon-wide delay.";
       }
 
       leaf minimum-holdtime {
@@ -1209,7 +1197,6 @@ submodule frr-bgp-common {
 
     leaf preserve-fw-entry {
       type boolean;
-      default "false";
       description
         "Sets F-bit indication that fib is preserved while doing Graceful Restart.
          When set to 'true' Zebra would preserve the FIB entry on the restarting
@@ -1238,7 +1225,6 @@ submodule frr-bgp-common {
         range "1..4095";
       }
       units "seconds";
-      default "360";
       description
         "An upper-bound on the time that stale routes will be
          retained by a router after a session is restarted. If an
@@ -1256,7 +1242,6 @@ submodule frr-bgp-common {
         range "0..3600";
       }
       units "seconds";
-      default "360";
       description
         "An upper-bound on the time that restarting router defers
          the route selection process after restart.";
@@ -1269,7 +1254,6 @@ submodule frr-bgp-common {
         range "1..3600";
       }
       units "seconds";
-      default "500";
       description
         "An upper-bound on the time that helper router holds the
          stale routes in Zebra, When this timer gets expired Zebra

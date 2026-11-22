@@ -963,6 +963,13 @@ DEFUN_YANG(no_bgp_graceful_shutdown_yang, no_bgp_graceful_shutdown_yang_cmd,
 	   "no bgp graceful-shutdown",
 	   NO_STR BGP_STR "Graceful shutdown parameters\n")
 {
+	if (yang_dnode_exists(vty->candidate_config->dnode,
+			      "/frr-bgp:bgp-daemon/graceful-shutdown/enable[.='true']")) {
+		vty_out(vty,
+			"%%Failed: bgp graceful-shutdown configured globally. Delete per-vrf not permitted\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+
 	nb_cli_enqueue_change(vty, "./global/graceful-shutdown/enable", NB_OP_MODIFY, "false");
 	return nb_cli_apply_changes(vty, NULL);
 }
@@ -1625,28 +1632,27 @@ DEFUN_YANG(no_bgp_update_delay_yang, no_bgp_update_delay_yang_cmd,
 }
 
 DEFPY_YANG(bgp_rmap_delay_timer_yang, bgp_rmap_delay_timer_yang_cmd,
-	   "[no] bgp route-map delay-timer [(0-600)$timer]",
-	   NO_STR BGP_STR
+	   "bgp route-map delay-timer (0-600)$timer",
+	   BGP_STR
 	   "BGP route-map delay timer\n"
 	   "Time in secs to wait before processing route-map changes\n"
 	   "0 disables the timer, no route updates happen when route-maps change\n")
 {
 	char buf[16];
 
-	if (no) {
-		nb_cli_enqueue_change(vty, "./global/global-config-timers/rmap-delay-time",
-				      NB_OP_DESTROY, NULL);
-		return nb_cli_apply_changes(vty, NULL);
-	}
-
-	if (!timer_str) {
-		vty_out(vty, "%% Incomplete command\n");
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-
 	snprintfrr(buf, sizeof(buf), "%" PRId64, timer);
-	nb_cli_enqueue_change(vty, "./global/global-config-timers/rmap-delay-time", NB_OP_MODIFY,
-			      buf);
+	nb_cli_enqueue_change(vty, "/frr-bgp:bgp-daemon/rmap-delay-time", NB_OP_MODIFY, buf);
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFPY_YANG(no_bgp_rmap_delay_timer_yang, no_bgp_rmap_delay_timer_yang_cmd,
+	   "no bgp route-map delay-timer [(0-600)$timer]",
+	   NO_STR BGP_STR
+	   "BGP route-map delay timer\n"
+	   "Time in secs to wait before processing route-map changes\n"
+	   "0 disables the timer, no route updates happen when route-maps change\n")
+{
+	nb_cli_enqueue_change(vty, "/frr-bgp:bgp-daemon/rmap-delay-time", NB_OP_DESTROY, NULL);
 	return nb_cli_apply_changes(vty, NULL);
 }
 
@@ -1666,8 +1672,13 @@ DEFUN_YANG(no_bgp_advertisement_delay_yang, no_bgp_advertisement_delay_yang_cmd,
 	   "Hold route advertisements to peers for configured seconds after first peer establishes\n"
 	   "Delay in seconds\n")
 {
-	nb_cli_enqueue_change(vty, "./global/global-config-timers/advertisement-delay-time",
-			      NB_OP_DESTROY, NULL);
+	if (yang_dnode_exists(vty->candidate_config->dnode,
+			      "/frr-bgp:bgp-daemon/advertisement-delay-time"))
+		nb_cli_enqueue_change(vty, "./global/global-config-timers/advertisement-delay-time",
+				      NB_OP_MODIFY, "0");
+	else
+		nb_cli_enqueue_change(vty, "./global/global-config-timers/advertisement-delay-time",
+				      NB_OP_DESTROY, NULL);
 	return nb_cli_apply_changes(vty, NULL);
 }
 
@@ -1959,70 +1970,78 @@ DEFPY_YANG(bgp_daemon_snmp_traps_rfc4382_yang,
 	return nb_cli_apply_changes(vty, NULL);
 }
 
-DEFPY_YANG(bgp_daemon_rmap_delay_timer_yang,
-	   bgp_daemon_rmap_delay_timer_yang_cmd,
-	   "[no] bgp route-map delay-timer [(0-600)$timer]",
-	   NO_STR BGP_STR
-	   "BGP route-map delay timer\n"
-	   "Time in secs to wait before processing route-map changes\n"
-	   "0 disables the timer, no route updates happen when route-maps change\n")
-{
-	char buf[16];
-
-	if (no) {
-		nb_cli_enqueue_change(vty, "/frr-bgp:bgp-daemon/rmap-delay-time", NB_OP_DESTROY,
-				      NULL);
-		return nb_cli_apply_changes(vty, NULL);
-	}
-
-	if (!timer_str) {
-		vty_out(vty, "%% Incomplete command\n");
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-
-	snprintfrr(buf, sizeof(buf), "%" PRId64, timer);
-	nb_cli_enqueue_change(vty, "/frr-bgp:bgp-daemon/rmap-delay-time", NB_OP_MODIFY, buf);
-	return nb_cli_apply_changes(vty, NULL);
-}
-
 DEFUN_YANG(bgp_daemon_graceful_restart_yang,
 	   bgp_daemon_graceful_restart_yang_cmd,
 	   "bgp graceful-restart", BGP_STR GR_CMD)
 {
+	bool changed = !yang_dnode_exists(vty->candidate_config->dnode,
+					  "/frr-bgp:bgp-daemon/graceful-restart/enabled[.='true']");
+	int ret;
+
 	nb_cli_enqueue_change(vty, "/frr-bgp:bgp-daemon/graceful-restart/graceful-restart-disable",
 			      NB_OP_DESTROY, NULL);
 	nb_cli_enqueue_change(vty, "/frr-bgp:bgp-daemon/graceful-restart/enabled", NB_OP_MODIFY,
 			      "true");
-	return nb_cli_apply_changes(vty, NULL);
+	ret = nb_cli_apply_changes(vty, NULL);
+	if (ret == CMD_SUCCESS && changed)
+		vty_out(vty,
+			"Graceful restart configuration changed, reset all peers to take effect\n");
+	return ret;
 }
 
 DEFUN_YANG(no_bgp_daemon_graceful_restart_yang,
 	   no_bgp_daemon_graceful_restart_yang_cmd,
 	   "no bgp graceful-restart", NO_STR BGP_STR NO_GR_CMD)
 {
+	bool changed = yang_dnode_exists(vty->candidate_config->dnode,
+					 "/frr-bgp:bgp-daemon/graceful-restart/enabled[.='true']");
+	int ret;
+
 	nb_cli_enqueue_change(vty, "/frr-bgp:bgp-daemon/graceful-restart/enabled", NB_OP_DESTROY,
 			      NULL);
-	return nb_cli_apply_changes(vty, NULL);
+	ret = nb_cli_apply_changes(vty, NULL);
+	if (ret == CMD_SUCCESS && changed)
+		vty_out(vty,
+			"Graceful restart configuration changed, reset all peers to take effect\n");
+	return ret;
 }
 
 DEFUN_YANG(bgp_daemon_graceful_restart_disable_yang,
 	   bgp_daemon_graceful_restart_disable_yang_cmd,
 	   "bgp graceful-restart-disable", BGP_STR GR_DISABLE)
 {
+	bool changed = !yang_dnode_exists(
+		vty->candidate_config->dnode,
+		"/frr-bgp:bgp-daemon/graceful-restart/graceful-restart-disable[.='true']");
+	int ret;
+
 	nb_cli_enqueue_change(vty, "/frr-bgp:bgp-daemon/graceful-restart/enabled", NB_OP_DESTROY,
 			      NULL);
 	nb_cli_enqueue_change(vty, "/frr-bgp:bgp-daemon/graceful-restart/graceful-restart-disable",
 			      NB_OP_MODIFY, "true");
-	return nb_cli_apply_changes(vty, NULL);
+	ret = nb_cli_apply_changes(vty, NULL);
+	if (ret == CMD_SUCCESS && changed)
+		vty_out(vty,
+			"Graceful restart configuration changed, reset all peers to take effect\n");
+	return ret;
 }
 
 DEFUN_YANG(no_bgp_daemon_graceful_restart_disable_yang,
 	   no_bgp_daemon_graceful_restart_disable_yang_cmd,
 	   "no bgp graceful-restart-disable", NO_STR BGP_STR NO_GR_DISABLE)
 {
+	bool changed = yang_dnode_exists(
+		vty->candidate_config->dnode,
+		"/frr-bgp:bgp-daemon/graceful-restart/graceful-restart-disable[.='true']");
+	int ret;
+
 	nb_cli_enqueue_change(vty, "/frr-bgp:bgp-daemon/graceful-restart/graceful-restart-disable",
 			      NB_OP_DESTROY, NULL);
-	return nb_cli_apply_changes(vty, NULL);
+	ret = nb_cli_apply_changes(vty, NULL);
+	if (ret == CMD_SUCCESS && changed)
+		vty_out(vty,
+			"Graceful restart configuration changed, reset all peers to take effect\n");
+	return ret;
 }
 
 DEFUN_YANG(bgp_daemon_gr_stalepath_time_yang,
@@ -2046,11 +2065,8 @@ DEFUN_YANG(no_bgp_daemon_gr_stalepath_time_yang,
 	   "Set the max time to hold onto restarting peer's stale paths\n"
 	   "Delay value (seconds)\n")
 {
-	char val[16];
-
-	snprintfrr(val, sizeof(val), "%u", BGP_DEFAULT_STALEPATH_TIME);
 	nb_cli_enqueue_change(vty, "/frr-bgp:bgp-daemon/graceful-restart/stale-routes-time",
-			      NB_OP_MODIFY, val);
+			      NB_OP_DESTROY, NULL);
 	return nb_cli_apply_changes(vty, NULL);
 }
 
@@ -2101,11 +2117,8 @@ DEFUN_YANG(no_bgp_daemon_gr_select_defer_time_yang,
 	   "Set the time to defer the BGP route selection after restart\n"
 	   "Delay value (seconds, 0 - disable)\n")
 {
-	char val[16];
-
-	snprintfrr(val, sizeof(val), "%u", BGP_DEFAULT_SELECT_DEFERRAL_TIME);
 	nb_cli_enqueue_change(vty, "/frr-bgp:bgp-daemon/graceful-restart/selection-deferral-time",
-			      NB_OP_MODIFY, val);
+			      NB_OP_DESTROY, NULL);
 	return nb_cli_apply_changes(vty, NULL);
 }
 
@@ -2130,11 +2143,8 @@ DEFUN_YANG(no_bgp_daemon_gr_rib_stale_time_yang,
 	   "Specify the stale route removal timer in rib\n"
 	   "Delay value (seconds)\n")
 {
-	char val[16];
-
-	snprintfrr(val, sizeof(val), "%u", BGP_DEFAULT_RIB_STALE_TIME);
 	nb_cli_enqueue_change(vty, "/frr-bgp:bgp-daemon/graceful-restart/rib-stale-time",
-			      NB_OP_MODIFY, val);
+			      NB_OP_DESTROY, NULL);
 	return nb_cli_apply_changes(vty, NULL);
 }
 
@@ -2158,7 +2168,7 @@ DEFUN_YANG(no_bgp_daemon_gr_preserve_fw_yang,
 	   "Unsets F-bit indication that fib is preserved while doing Graceful Restart\n")
 {
 	nb_cli_enqueue_change(vty, "/frr-bgp:bgp-daemon/graceful-restart/preserve-fw-entry",
-			      NB_OP_MODIFY, "false");
+			      NB_OP_DESTROY, NULL);
 	return nb_cli_apply_changes(vty, NULL);
 }
 
@@ -2338,6 +2348,33 @@ DEFPY_YANG(bgp_default_afi_safi_yang, bgp_default_afi_safi_yang_cmd,
 	return nb_cli_apply_changes(vty, NULL);
 }
 
+static enum global_mode bgp_cli_inst_gr_mode(struct vty *vty)
+{
+	char xpath[XPATH_MAXLEN];
+	const struct lyd_node *dnode;
+
+	snprintfrr(xpath, sizeof(xpath), "%s/global/graceful-restart/enabled",
+		   VTY_CURR_XPATH);
+	dnode = yang_dnode_get(vty->candidate_config->dnode, xpath);
+	if (dnode)
+		return yang_dnode_get_bool(dnode, NULL) ? GLOBAL_GR : GLOBAL_HELPER;
+
+	snprintfrr(xpath, sizeof(xpath), "%s/global/graceful-restart/graceful-restart-disable",
+		   VTY_CURR_XPATH);
+	dnode = yang_dnode_get(vty->candidate_config->dnode, xpath);
+	if (dnode)
+		return yang_dnode_get_bool(dnode, NULL) ? GLOBAL_DISABLE : GLOBAL_HELPER;
+
+	if (yang_dnode_exists(vty->candidate_config->dnode,
+			      "/frr-bgp:bgp-daemon/graceful-restart/enabled[.='true']"))
+		return GLOBAL_GR;
+	if (yang_dnode_exists(
+		    vty->candidate_config->dnode,
+		    "/frr-bgp:bgp-daemon/graceful-restart/graceful-restart-disable[.='true']"))
+		return GLOBAL_DISABLE;
+	return GLOBAL_HELPER;
+}
+
 DEFUN_YANG(bgp_graceful_restart_stalepath_time_yang,
 	   bgp_graceful_restart_stalepath_time_yang_cmd,
 	   "bgp graceful-restart stalepath-time (1-4095)",
@@ -2359,11 +2396,20 @@ DEFUN_YANG(no_bgp_graceful_restart_stalepath_time_yang,
 	   "Set the max time to hold onto restarting peer's stale paths\n"
 	   "Delay value (seconds)\n")
 {
-	char val[16];
+	const struct lyd_node *daemon = yang_dnode_get(
+		vty->candidate_config->dnode,
+		"/frr-bgp:bgp-daemon/graceful-restart/stale-routes-time");
 
-	snprintfrr(val, sizeof(val), "%u", BGP_DEFAULT_STALEPATH_TIME);
-	nb_cli_enqueue_change(vty, "./global/graceful-restart/stale-routes-time", NB_OP_MODIFY,
-			      val);
+	if (daemon && yang_dnode_get_uint16(daemon, NULL) != BGP_DEFAULT_STALEPATH_TIME) {
+		char val[16];
+
+		snprintfrr(val, sizeof(val), "%u", BGP_DEFAULT_STALEPATH_TIME);
+		nb_cli_enqueue_change(vty, "./global/graceful-restart/stale-routes-time",
+				      NB_OP_MODIFY, val);
+	} else {
+		nb_cli_enqueue_change(vty, "./global/graceful-restart/stale-routes-time",
+				      NB_OP_DESTROY, NULL);
+	}
 	return nb_cli_apply_changes(vty, NULL);
 }
 
@@ -2388,7 +2434,20 @@ DEFUN_YANG(no_bgp_graceful_restart_restart_time_yang,
 	   "Set the time to wait to delete stale routes before a BGP open message is received\n"
 	   "Delay value (seconds)\n")
 {
-	nb_cli_enqueue_change(vty, "./global/graceful-restart/restart-time", NB_OP_DESTROY, NULL);
+	const struct lyd_node *daemon = yang_dnode_get(
+		vty->candidate_config->dnode,
+		"/frr-bgp:bgp-daemon/graceful-restart/restart-time");
+
+	if (daemon && yang_dnode_get_uint16(daemon, NULL) != BGP_DEFAULT_RESTART_TIME) {
+		char val[16];
+
+		snprintfrr(val, sizeof(val), "%u", BGP_DEFAULT_RESTART_TIME);
+		nb_cli_enqueue_change(vty, "./global/graceful-restart/restart-time", NB_OP_MODIFY,
+				      val);
+	} else {
+		nb_cli_enqueue_change(vty, "./global/graceful-restart/restart-time", NB_OP_DESTROY,
+				      NULL);
+	}
 	return nb_cli_apply_changes(vty, NULL);
 }
 
@@ -2413,11 +2472,20 @@ DEFUN_YANG(no_bgp_graceful_restart_select_defer_time_yang,
 	   "Set the time to defer the BGP route selection after restart\n"
 	   "Delay value (seconds, 0 - disable)\n")
 {
-	char val[16];
+	const struct lyd_node *daemon = yang_dnode_get(
+		vty->candidate_config->dnode,
+		"/frr-bgp:bgp-daemon/graceful-restart/selection-deferral-time");
 
-	snprintfrr(val, sizeof(val), "%u", BGP_DEFAULT_SELECT_DEFERRAL_TIME);
-	nb_cli_enqueue_change(vty, "./global/graceful-restart/selection-deferral-time",
-			      NB_OP_MODIFY, val);
+	if (daemon && yang_dnode_get_uint16(daemon, NULL) != BGP_DEFAULT_SELECT_DEFERRAL_TIME) {
+		char val[16];
+
+		snprintfrr(val, sizeof(val), "%u", BGP_DEFAULT_SELECT_DEFERRAL_TIME);
+		nb_cli_enqueue_change(vty, "./global/graceful-restart/selection-deferral-time",
+				      NB_OP_MODIFY, val);
+	} else {
+		nb_cli_enqueue_change(vty, "./global/graceful-restart/selection-deferral-time",
+				      NB_OP_DESTROY, NULL);
+	}
 	return nb_cli_apply_changes(vty, NULL);
 }
 
@@ -2442,10 +2510,20 @@ DEFUN_YANG(no_bgp_graceful_restart_rib_stale_time_yang,
 	   "Specify the stale route removal timer in rib\n"
 	   "Delay value (seconds)\n")
 {
-	char val[16];
+	const struct lyd_node *daemon = yang_dnode_get(
+		vty->candidate_config->dnode,
+		"/frr-bgp:bgp-daemon/graceful-restart/rib-stale-time");
 
-	snprintfrr(val, sizeof(val), "%u", BGP_DEFAULT_RIB_STALE_TIME);
-	nb_cli_enqueue_change(vty, "./global/graceful-restart/rib-stale-time", NB_OP_MODIFY, val);
+	if (daemon && yang_dnode_get_uint16(daemon, NULL) != BGP_DEFAULT_RIB_STALE_TIME) {
+		char val[16];
+
+		snprintfrr(val, sizeof(val), "%u", BGP_DEFAULT_RIB_STALE_TIME);
+		nb_cli_enqueue_change(vty, "./global/graceful-restart/rib-stale-time",
+				      NB_OP_MODIFY, val);
+	} else {
+		nb_cli_enqueue_change(vty, "./global/graceful-restart/rib-stale-time",
+				      NB_OP_DESTROY, NULL);
+	}
 	return nb_cli_apply_changes(vty, NULL);
 }
 
@@ -2468,8 +2546,13 @@ DEFUN_YANG(no_bgp_graceful_restart_preserve_fw_yang,
 	   "Graceful restart capability parameters\n"
 	   "Sets F-bit indication that fib is preserved while doing Graceful Restart\n")
 {
-	nb_cli_enqueue_change(vty, "./global/graceful-restart/preserve-fw-entry", NB_OP_MODIFY,
-			      "false");
+	if (yang_dnode_exists(vty->candidate_config->dnode,
+			      "/frr-bgp:bgp-daemon/graceful-restart/preserve-fw-entry[.='true']"))
+		nb_cli_enqueue_change(vty, "./global/graceful-restart/preserve-fw-entry",
+				      NB_OP_MODIFY, "false");
+	else
+		nb_cli_enqueue_change(vty, "./global/graceful-restart/preserve-fw-entry",
+				      NB_OP_DESTROY, NULL);
 	return nb_cli_apply_changes(vty, NULL);
 }
 
@@ -2535,36 +2618,76 @@ DEFUN_YANG(no_bgp_llgr_stalepath_time_yang, no_bgp_llgr_stalepath_time_yang_cmd,
 DEFUN_YANG(bgp_graceful_restart_yang, bgp_graceful_restart_yang_cmd,
 	   "bgp graceful-restart", BGP_STR GR_CMD)
 {
+	bool changed = bgp_cli_inst_gr_mode(vty) != GLOBAL_GR;
+	int ret;
+
 	nb_cli_enqueue_change(vty, "./global/graceful-restart/graceful-restart-disable",
 			      NB_OP_DESTROY, NULL);
 	nb_cli_enqueue_change(vty, "./global/graceful-restart/enabled", NB_OP_MODIFY, "true");
-	return nb_cli_apply_changes(vty, NULL);
+	ret = nb_cli_apply_changes(vty, NULL);
+	if (ret == CMD_SUCCESS && changed)
+		vty_out(vty,
+			"Graceful restart configuration changed, reset all peers to take effect\n");
+	return ret;
 }
 
 DEFUN_YANG(no_bgp_graceful_restart_yang, no_bgp_graceful_restart_yang_cmd,
 	   "no bgp graceful-restart", NO_STR BGP_STR NO_GR_CMD)
 {
-	nb_cli_enqueue_change(vty, "./global/graceful-restart/enabled", NB_OP_DESTROY, NULL);
-	return nb_cli_apply_changes(vty, NULL);
+	bool changed = bgp_cli_inst_gr_mode(vty) == GLOBAL_GR;
+	int ret;
+
+	if (yang_dnode_exists(vty->candidate_config->dnode,
+			      "/frr-bgp:bgp-daemon/graceful-restart/enabled[.='true']"))
+		nb_cli_enqueue_change(vty, "./global/graceful-restart/enabled", NB_OP_MODIFY,
+				      "false");
+	else
+		nb_cli_enqueue_change(vty, "./global/graceful-restart/enabled", NB_OP_DESTROY,
+				      NULL);
+	ret = nb_cli_apply_changes(vty, NULL);
+	if (ret == CMD_SUCCESS && changed)
+		vty_out(vty,
+			"Graceful restart configuration changed, reset all peers to take effect\n");
+	return ret;
 }
 
 DEFUN_YANG(bgp_graceful_restart_disable_yang,
 	   bgp_graceful_restart_disable_yang_cmd,
 	   "bgp graceful-restart-disable", BGP_STR GR_DISABLE)
 {
+	bool changed = bgp_cli_inst_gr_mode(vty) != GLOBAL_DISABLE;
+	int ret;
+
 	nb_cli_enqueue_change(vty, "./global/graceful-restart/enabled", NB_OP_DESTROY, NULL);
 	nb_cli_enqueue_change(vty, "./global/graceful-restart/graceful-restart-disable",
 			      NB_OP_MODIFY, "true");
-	return nb_cli_apply_changes(vty, NULL);
+	ret = nb_cli_apply_changes(vty, NULL);
+	if (ret == CMD_SUCCESS && changed)
+		vty_out(vty,
+			"Graceful restart configuration changed, reset all peers to take effect\n");
+	return ret;
 }
 
 DEFUN_YANG(no_bgp_graceful_restart_disable_yang,
 	   no_bgp_graceful_restart_disable_yang_cmd,
 	   "no bgp graceful-restart-disable", NO_STR BGP_STR NO_GR_DISABLE)
 {
-	nb_cli_enqueue_change(vty, "./global/graceful-restart/graceful-restart-disable",
-			      NB_OP_DESTROY, NULL);
-	return nb_cli_apply_changes(vty, NULL);
+	bool changed = bgp_cli_inst_gr_mode(vty) == GLOBAL_DISABLE;
+	int ret;
+
+	if (yang_dnode_exists(
+		    vty->candidate_config->dnode,
+		    "/frr-bgp:bgp-daemon/graceful-restart/graceful-restart-disable[.='true']"))
+		nb_cli_enqueue_change(vty, "./global/graceful-restart/graceful-restart-disable",
+				      NB_OP_MODIFY, "false");
+	else
+		nb_cli_enqueue_change(vty, "./global/graceful-restart/graceful-restart-disable",
+				      NB_OP_DESTROY, NULL);
+	ret = nb_cli_apply_changes(vty, NULL);
+	if (ret == CMD_SUCCESS && changed)
+		vty_out(vty,
+			"Graceful restart configuration changed, reset all peers to take effect\n");
+	return ret;
 }
 
 DEFPY_YANG(bgp_tcp_keepalive_yang, bgp_tcp_keepalive_yang_cmd,
@@ -4889,30 +5012,48 @@ DEFPY_YANG(no_neighbor_path_attribute_withdraw_yang,
 static int bgp_cli_peer_gr_mode(struct vty *vty, const char *neighbor, const char *mode_leaf,
 				bool enable)
 {
+	static const char *const modes[] = {
+		"enable",
+		"graceful-restart-helper",
+		"graceful-restart-disable",
+	};
 	char xpath[XPATH_MAXLEN];
 	char leaf[XPATH_MAXLEN + 256];
+	char cur_xpath[XPATH_MAXLEN + 256];
 	bool is_pg = false;
+	bool cur_active;
+	bool changed;
 	int ret;
 
 	ret = bgp_cli_neighbor_base_xpath(vty, neighbor, xpath, sizeof(xpath), &is_pg);
 	if (ret != 0)
 		return CMD_WARNING_CONFIG_FAILED;
 
-	/* Choice: clear other modes when enabling one. */
-	snprintfrr(leaf, sizeof(leaf), "%s/graceful-restart/enable", xpath);
-	nb_cli_enqueue_change(vty, leaf, NB_OP_DESTROY, NULL);
-	snprintfrr(leaf, sizeof(leaf), "%s/graceful-restart/graceful-restart-helper", xpath);
-	nb_cli_enqueue_change(vty, leaf, NB_OP_DESTROY, NULL);
-	snprintfrr(leaf, sizeof(leaf), "%s/graceful-restart/graceful-restart-disable", xpath);
-	nb_cli_enqueue_change(vty, leaf, NB_OP_DESTROY, NULL);
+	if (xpath[0] == '.' && xpath[1] == '/')
+		snprintfrr(cur_xpath, sizeof(cur_xpath), "%s/%s/graceful-restart/%s[.='true']",
+			   VTY_CURR_XPATH, xpath + 2, mode_leaf);
+	else
+		snprintfrr(cur_xpath, sizeof(cur_xpath), "%s/graceful-restart/%s[.='true']", xpath,
+			   mode_leaf);
+	cur_active = yang_dnode_exists(vty->candidate_config->dnode, cur_xpath);
+	changed = enable ? !cur_active : cur_active;
 
 	if (enable) {
+		for (size_t i = 0; i < array_size(modes); i++) {
+			if (strmatch(modes[i], mode_leaf))
+				continue;
+			snprintfrr(leaf, sizeof(leaf), "%s/graceful-restart/%s", xpath, modes[i]);
+			nb_cli_enqueue_change(vty, leaf, NB_OP_DESTROY, NULL);
+		}
 		snprintfrr(leaf, sizeof(leaf), "%s/graceful-restart/%s", xpath, mode_leaf);
 		nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY, "true");
+	} else {
+		snprintfrr(leaf, sizeof(leaf), "%s/graceful-restart/%s", xpath, mode_leaf);
+		nb_cli_enqueue_change(vty, leaf, NB_OP_DESTROY, NULL);
 	}
 
 	ret = nb_cli_apply_changes(vty, NULL);
-	if (ret == CMD_SUCCESS)
+	if (ret == CMD_SUCCESS && changed && !strmatch(mode_leaf, "graceful-restart-disable"))
 		vty_out(vty,
 			"Graceful restart configuration changed, reset this peer to take effect\n");
 	return ret;
@@ -10430,6 +10571,7 @@ void bgp_cli_init(void)
 	install_element(BGP_NODE, &bgp_update_delay_yang_cmd);
 	install_element(BGP_NODE, &no_bgp_update_delay_yang_cmd);
 	install_element(BGP_NODE, &bgp_rmap_delay_timer_yang_cmd);
+	install_element(BGP_NODE, &no_bgp_rmap_delay_timer_yang_cmd);
 	install_element(BGP_NODE, &bgp_advertisement_delay_yang_cmd);
 	install_element(BGP_NODE, &no_bgp_advertisement_delay_yang_cmd);
 
@@ -10710,7 +10852,8 @@ void bgp_cli_init(void)
 	install_element(CONFIG_NODE, &bgp_daemon_community_alias_yang_cmd);
 	install_element(CONFIG_NODE, &bgp_daemon_send_extra_data_yang_cmd);
 	/* bgp snmp traps commands are installed by bgp_cli_snmp_traps_init() when bgpd_snmp loads */
-	install_element(CONFIG_NODE, &bgp_daemon_rmap_delay_timer_yang_cmd);
+	install_element(CONFIG_NODE, &bgp_rmap_delay_timer_yang_cmd);
+	install_element(CONFIG_NODE, &no_bgp_rmap_delay_timer_yang_cmd);
 	install_element(CONFIG_NODE, &bgp_daemon_graceful_restart_yang_cmd);
 	install_element(CONFIG_NODE, &no_bgp_daemon_graceful_restart_yang_cmd);
 	install_element(CONFIG_NODE, &bgp_daemon_graceful_restart_disable_yang_cmd);

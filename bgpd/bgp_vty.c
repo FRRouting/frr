@@ -1461,8 +1461,11 @@ int bgp_inst_gr_config(struct bgp *bgp, bool on, bool disable)
 		ret = bgp_gr_update_all(bgp,
 					on ? GLOBAL_GR_CMD : NO_GLOBAL_GR_CMD);
 
+	int zret = BGP_GR_SUCCESS;
+
 	VTY_BGP_GR_ROUTER_DETECT_AND_SEND_CAPABILITY_TO_ZEBRA(bgp, bgp->peer,
-							      ret);
+							      zret);
+	(void)zret;
 	return ret;
 }
 
@@ -1505,11 +1508,15 @@ int bgp_global_gr_config(bool on, bool disable, char *errmsg, size_t errmsg_len)
 	}
 
 	for (ALL_LIST_ELEMENTS(bm->bgp, node, nnode, bgp)) {
-		ret = bgp_inst_gr_config(bgp, on, disable);
-		if (ret != BGP_GR_SUCCESS && errmsg && errmsg_len)
-			snprintfrr(errmsg, errmsg_len,
-				   "Applying global graceful-restart %s config to %s failed, error %d",
-				   disable ? "disable" : "", bgp->name_pretty, ret);
+		int iret = bgp_inst_gr_config(bgp, on, disable);
+
+		if (iret != BGP_GR_SUCCESS && iret != BGP_GR_NO_OPERATION) {
+			ret = iret;
+			if (errmsg && errmsg_len)
+				snprintfrr(errmsg, errmsg_len,
+					   "Applying global graceful-restart %s config to %s failed, error %d",
+					   disable ? "disable" : "", bgp->name_pretty, iret);
+		}
 	}
 
 	return ret;
