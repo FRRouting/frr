@@ -460,6 +460,10 @@ static struct test_peer_attr test_peer_attrs[] = {
 			| PEER_FLAG_MED_UNCHANGED,
 	},
 	{
+		.cmd = "disable-addpath-rx",
+		.u.flag = PEER_FLAG_DISABLE_ADDPATH_RX,
+	},
+	{
 		.cmd = "encapsulation-mpls",
 		.families[0] = {.afi = AFI_IP, .safi = SAFI_MPLS_VPN},
 		.families[1] = {.afi = AFI_IP6, .safi = SAFI_MPLS_VPN},
@@ -1507,6 +1511,13 @@ int main(void)
 	struct list *pa_list;
 	struct test_peer_attr *pa, *pac;
 	struct listnode *node, *nnode;
+
+	/*
+	 * zlog_aux_init() writes directly to stdout fd; line-buffer stdout so
+	 * zlog messages cannot interleave mid-line with buffered printf output
+	 * when stdout is piped (e.g. under pytest / frrtest.py).
+	 */
+	setvbuf(stdout, NULL, _IOLBF, 0);
 
 	bgp_startup();
 

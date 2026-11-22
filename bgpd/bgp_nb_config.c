@@ -436,6 +436,333 @@ void bgp_nb_cli_show_router_bgp_end(struct vty *vty, const struct lyd_node *dnod
 	vty_out(vty, "exit\n");
 }
 
+static bool bgp_nb_dnode_keys_equal(const struct lyd_node *a, const struct lyd_node *b)
+{
+	const struct lyd_node *ka, *kb;
+
+	for (ka = lyd_child(a), kb = lyd_child(b); ka && kb; ka = ka->next, kb = kb->next) {
+		if (!lysc_is_key(ka->schema))
+			break;
+		if (!lysc_is_key(kb->schema))
+			return false;
+		if (!strmatch(ka->schema->name, kb->schema->name) ||
+		    !strmatch(lyd_get_value(ka), lyd_get_value(kb)))
+			return false;
+	}
+	return true;
+}
+
+static const struct lyd_node *bgp_nb_find_matching_child(const struct lyd_node *parent,
+							 const struct lyd_node *target)
+{
+	const struct lyd_node *child;
+
+	if (!parent || !target)
+		return NULL;
+
+	LY_LIST_FOR (lyd_child(parent), child) {
+		if (child->schema->nodetype != target->schema->nodetype)
+			continue;
+		if (!strmatch(child->schema->name, target->schema->name))
+			continue;
+		if (target->schema->nodetype == LYS_LEAFLIST) {
+			if (!strmatch(lyd_get_value(child), lyd_get_value(target)))
+				continue;
+		} else if (target->schema->nodetype == LYS_LIST) {
+			if (!bgp_nb_dnode_keys_equal(child, target))
+				continue;
+		}
+		return child;
+	}
+	return NULL;
+}
+
+/*
+ * Schema-name-based subtree equality across sibling YANG trees
+ * (neighbor / unnumbered-neighbor vs peer-group), ignoring implicit defaults.
+ */
+static bool bgp_nb_dnode_subtree_equal(const struct lyd_node *a, const struct lyd_node *b)
+{
+	const struct lyd_node *ca, *cb;
+	size_t count_a = 0, count_b = 0;
+
+	if (!a || !b)
+		return a == b;
+	if (a->schema->nodetype != b->schema->nodetype ||
+	    !strmatch(a->schema->name, b->schema->name))
+		return false;
+
+	if (a->schema->nodetype & (LYS_LEAF | LYS_LEAFLIST))
+		return strmatch(lyd_get_value(a), lyd_get_value(b));
+
+	LY_LIST_FOR (lyd_child(a), ca) {
+		if (yang_dnode_is_default_recursive(ca))
+			continue;
+		count_a++;
+		cb = bgp_nb_find_matching_child(b, ca);
+		if (!cb || yang_dnode_is_default_recursive(cb))
+			return false;
+		if (!bgp_nb_dnode_subtree_equal(ca, cb))
+			return false;
+	}
+
+	LY_LIST_FOR (lyd_child(b), cb) {
+		if (yang_dnode_is_default_recursive(cb))
+			continue;
+		count_b++;
+	}
+
+	return count_a == count_b;
+}
+
+/*
+ * Given any dnode under a peer-group member (neighbor or unnumbered-neighbor),
+ * return the corresponding dnode under its peer-group in the same YANG tree,
+ * or NULL if the peer is not a group member or the group lacks that node.
+ */
+static const struct lyd_node *bgp_nb_peer_group_matching_dnode(const struct lyd_node *dnode)
+{
+	const struct lyd_node *path[16];
+	const struct lyd_node *cur = dnode;
+	const struct lyd_node *grp;
+	int depth = 0, i;
+
+	while (cur && depth < (int)array_size(path)) {
+		if (strmatch(cur->schema->name, "neighbor") ||
+		    strmatch(cur->schema->name, "unnumbered-neighbor"))
+			break;
+		if (strmatch(cur->schema->name, "peer-group") ||
+		    strmatch(cur->schema->name, "bgp"))
+			return NULL;
+		path[depth++] = cur;
+		cur = lyd_parent(cur);
+	}
+	if (!cur || depth >= (int)array_size(path) || !yang_dnode_exists(cur, "./peer-group"))
+		return NULL;
+
+	grp = bgp_nb_candidate_peer_group(cur, yang_dnode_get_string(cur, "./peer-group"));
+	if (!grp)
+		return NULL;
+
+	cur = grp;
+	for (i = depth - 1; i >= 0 && cur; i--)
+		cur = bgp_nb_find_matching_child(cur, path[i]);
+	return cur;
+}
+
+/*
+ * A member node holding a non-default value while the group also sets one is
+ * an override (classic flags_override), printed even when the values match.
+ * A member reset to the default (classic "no" on a member) inherits instead.
+ */
+static bool bgp_nb_member_is_override(const struct lyd_node *m_node,
+				      const struct lyd_node *g_node)
+{
+	return m_node && g_node && !yang_dnode_is_default_recursive(m_node) &&
+	       !yang_dnode_is_default_recursive(g_node);
+}
+
+static bool bgp_nb_peer_group_bool_baseline(const struct lyd_node *dnode, bool global_dflt)
+{
+	const struct lyd_node *g = bgp_nb_peer_group_matching_dnode(dnode);
+
+	/*
+	 * An explicit member value equal to the inherited default is classic
+	 * "no" on a member (inherit the group); any other is an override.
+	 */
+	if (g && (dnode->flags & LYD_DEFAULT))
+		return yang_dnode_get_bool(g, NULL);
+	return global_dflt;
+}
+
+static bool bgp_nb_member_never_suppress(const char *name)
+{
+	static const char *const keep[] = {
+		"remote-address",
+		"interface",
+		"v6only",
+		"peer-group",
+		"local-interface",
+		"description",
+		"neighbor-remote-as",
+		"afi-safi-name",
+		"enabled",
+		NULL,
+	};
+	unsigned int i;
+
+	for (i = 0; keep[i]; i++) {
+		if (strmatch(name, keep[i]))
+			return true;
+	}
+	return false;
+}
+
+static bool bgp_nb_member_atomic_container(const char *name)
+{
+	static const char *const atomic[] = {
+		"local-as",
+		"local-role",
+		"ebgp-multihop",
+		"prefix-limit",
+		"ipv4-prefix-limit",
+		"ipv6-prefix-limit",
+		"prefix-limit-out",
+		"default-originate",
+		"conditional-advertise",
+		"path-attribute",
+		"graceful-restart",
+		"attribute-unchanged",
+		NULL,
+	};
+	unsigned int i;
+
+	for (i = 0; atomic[i]; i++) {
+		if (strmatch(name, atomic[i]))
+			return true;
+	}
+	return false;
+}
+
+/*
+ * When a peer-group sets a schema-default-true boolean leaf to false (e.g.
+ * "no neighbor PG send-community"), libyang still populates an implicit
+ * default-true node on every member. Use the runtime peer override bit to
+ * distinguish an inherited group setting from an explicit member override back
+ * to true.
+ */
+static bool bgp_nb_member_overrides_default_leaf(const struct lyd_node *m_leaf)
+{
+	struct peer *peer = bgp_nb_config_peer(m_leaf);
+	const char *name = m_leaf->schema->name;
+	afi_t afi;
+	safi_t safi;
+
+	if (!peer || !peer_group_active(peer))
+		return false;
+
+	if (strmatch(name, "fqdn-capability"))
+		return CHECK_FLAG(peer->flags_override, PEER_FLAG_CAPABILITY_FQDN) &&
+		       CHECK_FLAG(peer->flags, PEER_FLAG_CAPABILITY_FQDN);
+	if (strmatch(name, "capability-negotiate"))
+		return CHECK_FLAG(peer->flags_override, PEER_FLAG_DONT_CAPABILITY) &&
+		       !CHECK_FLAG(peer->flags, PEER_FLAG_DONT_CAPABILITY);
+	if (strmatch(name, "extended-nexthop-capability"))
+		return CHECK_FLAG(peer->flags_override, PEER_FLAG_CAPABILITY_ENHE) &&
+		       CHECK_FLAG(peer->flags, PEER_FLAG_CAPABILITY_ENHE);
+
+	const struct lyd_node *af = yang_dnode_get_parent(m_leaf, "afi-safi");
+
+	if (af && yang_dnode_exists(af, "./afi-safi-name")) {
+		yang_afi_safi_identity2value(yang_dnode_get_string(af, "./afi-safi-name"), &afi,
+					     &safi);
+		if (afi == AFI_UNSPEC || safi == SAFI_UNSPEC)
+			return false;
+		if (strmatch(name, "send-community"))
+			return CHECK_FLAG(peer->af_flags_override[afi][safi],
+					  PEER_FLAG_SEND_COMMUNITY) &&
+			       CHECK_FLAG(peer->af_flags[afi][safi], PEER_FLAG_SEND_COMMUNITY);
+		if (strmatch(name, "send-ext-community"))
+			return CHECK_FLAG(peer->af_flags_override[afi][safi],
+					  PEER_FLAG_SEND_EXT_COMMUNITY) &&
+			       CHECK_FLAG(peer->af_flags[afi][safi], PEER_FLAG_SEND_EXT_COMMUNITY);
+		if (strmatch(name, "send-large-community"))
+			return CHECK_FLAG(peer->af_flags_override[afi][safi],
+					  PEER_FLAG_SEND_LARGE_COMMUNITY) &&
+			       CHECK_FLAG(peer->af_flags[afi][safi],
+					  PEER_FLAG_SEND_LARGE_COMMUNITY);
+	}
+
+	return false;
+}
+
+/*
+ * Walk a peer-group member's YANG subtree against its peer-group's subtree.
+ * Match classic peergroup_flag_check() / bgp_config_write_peer*(): emit any
+ * non-default member node (even when its value matches the group, preserving
+ * explicit overrides across save/reload), and suppress implicit default nodes
+ * unless the peer-group holds a non-default value and the member overrides it
+ * back to the default.
+ */
+static void bgp_nb_cli_show_member_dnode(struct vty *vty, const struct lyd_node *m_node,
+					 const struct lyd_node *g_node)
+{
+	struct nb_node *nb_node;
+	const struct lyd_node *m_child, *g_child;
+	bool m_is_default = yang_dnode_is_default_recursive(m_node);
+	bool g_non_default = g_node && !yang_dnode_is_default_recursive(g_node);
+	bool override = bgp_nb_member_is_override(m_node, g_node);
+
+	if (m_is_default && !g_non_default)
+		return;
+
+	if (bgp_nb_member_never_suppress(m_node->schema->name) || !g_node) {
+		nb_cli_show_dnode_cmds(vty, m_node, false);
+		return;
+	}
+
+	if (m_node->schema->nodetype & (LYS_LEAF | LYS_LEAFLIST | LYS_ANYDATA)) {
+		if (override) {
+			nb_node = m_node->schema->priv;
+			if (nb_node && nb_node->cbs.cli_show)
+				(*nb_node->cbs.cli_show)(vty, m_node, false);
+			return;
+		}
+		if (bgp_nb_dnode_subtree_equal(m_node, g_node))
+			return;
+		if (m_is_default) {
+			if (!bgp_nb_member_overrides_default_leaf(m_node))
+				return;
+			nb_node = m_node->schema->priv;
+			if (nb_node && nb_node->cbs.cli_show)
+				(*nb_node->cbs.cli_show)(vty, m_node, false);
+			return;
+		}
+		nb_cli_show_dnode_cmds(vty, m_node, false);
+		return;
+	}
+
+	if (!override && bgp_nb_dnode_subtree_equal(m_node, g_node))
+		return;
+
+	if (bgp_nb_member_atomic_container(m_node->schema->name)) {
+		if (!m_is_default)
+			nb_cli_show_dnode_cmds(vty, m_node, false);
+		return;
+	}
+
+	nb_node = m_node->schema->priv;
+	if (!m_is_default && nb_node && nb_node->cbs.cli_show)
+		(*nb_node->cbs.cli_show)(vty, m_node, false);
+
+	LY_LIST_FOR (lyd_child(m_node), m_child) {
+		/*
+		 * timers/keepalive and timers/hold-time render together as one
+		 * 'neighbor X timers K H' line; emit whenever the member
+		 * overrides or either timer differs from the group.
+		 */
+		if (strmatch(m_node->schema->name, "timers") &&
+		    (strmatch(m_child->schema->name, "keepalive") ||
+		     strmatch(m_child->schema->name, "hold-time"))) {
+			const struct lyd_node *m_ka = yang_dnode_get(m_node, "./keepalive");
+			const struct lyd_node *m_ht = yang_dnode_get(m_node, "./hold-time");
+			const struct lyd_node *g_ka = yang_dnode_get(g_node, "./keepalive");
+			const struct lyd_node *g_ht = yang_dnode_get(g_node, "./hold-time");
+
+			if (!override && bgp_nb_dnode_subtree_equal(m_ka, g_ka) &&
+			    bgp_nb_dnode_subtree_equal(m_ht, g_ht))
+				continue;
+			nb_cli_show_dnode_cmds(vty, m_child, false);
+			continue;
+		}
+		g_child = bgp_nb_find_matching_child(g_node, m_child);
+		bgp_nb_cli_show_member_dnode(vty, m_child, g_child);
+	}
+
+	if (!m_is_default && nb_node && nb_node->cbs.cli_show_end)
+		(*nb_node->cbs.cli_show_end)(vty, m_node);
+}
+
 /*
  * Dump a neighbor / peer-group / unnumbered entry without walking
  * afi-safis. Peer AF knobs are emitted inside address-family blocks by
@@ -445,9 +772,16 @@ static void bgp_nb_cli_show_dnode_skip_afi_safis(struct vty *vty, const struct l
 {
 	struct nb_node *nb_node;
 	const struct lyd_node *child;
+	const struct lyd_node *grp = NULL;
 
 	if (yang_dnode_is_default_recursive(dnode))
 		return;
+
+	if ((strmatch(dnode->schema->name, "neighbor") ||
+	     strmatch(dnode->schema->name, "unnumbered-neighbor")) &&
+	    yang_dnode_exists(dnode, "./peer-group"))
+		grp = bgp_nb_candidate_peer_group(dnode,
+						  yang_dnode_get_string(dnode, "./peer-group"));
 
 	nb_node = dnode->schema->priv;
 	if (nb_node && nb_node->cbs.cli_show)
@@ -457,7 +791,12 @@ static void bgp_nb_cli_show_dnode_skip_afi_safis(struct vty *vty, const struct l
 		LY_LIST_FOR (lyd_child(dnode), child) {
 			if (strmatch(child->schema->name, "afi-safis"))
 				continue;
-			nb_cli_show_dnode_cmds(vty, child, false);
+			if (grp)
+				bgp_nb_cli_show_member_dnode(vty, child,
+							     bgp_nb_find_matching_child(grp,
+											child));
+			else
+				nb_cli_show_dnode_cmds(vty, child, false);
 		}
 	}
 
@@ -6466,11 +6805,13 @@ void bgp_nb_cli_show_peer_cap_dynamic(struct vty *vty, const struct lyd_node *dn
 	const struct lyd_node *bgp_dnode = yang_dnode_get_parent(dnode, "bgp");
 	bool enabled = yang_dnode_get_bool(dnode, NULL);
 	bool global_dflt = SAVE_BGP_DYNAMIC_CAPABILITY;
+	bool baseline;
 
 	if (bgp_dnode && yang_dnode_exists(bgp_dnode, "./global/default-dynamic-capability"))
 		global_dflt = yang_dnode_get_bool(bgp_dnode, "./global/default-dynamic-capability");
 
-	if (!show_defaults && enabled == global_dflt)
+	baseline = bgp_nb_peer_group_bool_baseline(dnode, global_dflt);
+	if (!show_defaults && enabled == baseline)
 		return;
 	vty_out(vty, "%s%sneighbor %s capability dynamic\n", bgp_nb_peer_show_indent(dnode),
 		enabled ? "" : "no ", bgp_nb_config_peer_name(dnode));
@@ -6553,12 +6894,15 @@ int bgp_nb_peer_cap_enhe_modify(struct nb_cb_modify_args *args)
 void bgp_nb_cli_show_peer_cap_enhe(struct vty *vty, const struct lyd_node *dnode,
 				   bool show_defaults)
 {
-	if (yang_dnode_get_bool(dnode, NULL))
-		vty_out(vty, "%sneighbor %s capability extended-nexthop\n",
-			bgp_nb_peer_show_indent(dnode), bgp_nb_config_peer_name(dnode));
-	else if (show_defaults)
-		vty_out(vty, "%sno neighbor %s capability extended-nexthop\n",
-			bgp_nb_peer_show_indent(dnode), bgp_nb_config_peer_name(dnode));
+	bool enabled = yang_dnode_get_bool(dnode, NULL);
+	bool dflt = !!yang_dnode_get_parent(dnode, "unnumbered-neighbor");
+	bool baseline = bgp_nb_peer_group_bool_baseline(dnode, dflt);
+
+	if (!show_defaults && enabled == baseline)
+		return;
+	vty_out(vty, "%s%sneighbor %s capability extended-nexthop\n",
+		bgp_nb_peer_show_indent(dnode), enabled ? "" : "no ",
+		bgp_nb_config_peer_name(dnode));
 }
 
 int bgp_nb_peer_cap_negotiate_modify(struct nb_cb_modify_args *args)
@@ -6583,10 +6927,15 @@ int bgp_nb_peer_cap_negotiate_modify(struct nb_cb_modify_args *args)
 void bgp_nb_cli_show_peer_cap_negotiate(struct vty *vty, const struct lyd_node *dnode,
 					bool show_defaults)
 {
-	if (!yang_dnode_get_bool(dnode, NULL))
+	bool enabled = yang_dnode_get_bool(dnode, NULL);
+	bool baseline = bgp_nb_peer_group_bool_baseline(dnode, true);
+
+	if (!show_defaults && enabled == baseline)
+		return;
+	if (!enabled)
 		vty_out(vty, "%sneighbor %s dont-capability-negotiate\n",
 			bgp_nb_peer_show_indent(dnode), bgp_nb_config_peer_name(dnode));
-	else if (show_defaults)
+	else
 		vty_out(vty, "%sno neighbor %s dont-capability-negotiate\n",
 			bgp_nb_peer_show_indent(dnode), bgp_nb_config_peer_name(dnode));
 }
@@ -6617,14 +6966,13 @@ int bgp_nb_peer_cap_fqdn_modify(struct nb_cb_modify_args *args)
 void bgp_nb_cli_show_peer_cap_fqdn(struct vty *vty, const struct lyd_node *dnode,
 				   bool show_defaults)
 {
-	/* Default is true (matches peer_create); only emit non-default. */
-	if (yang_dnode_get_bool(dnode, NULL)) {
-		if (show_defaults)
-			vty_out(vty, "%sneighbor %s capability fqdn\n",
-				bgp_nb_peer_show_indent(dnode), bgp_nb_config_peer_name(dnode));
-	} else
-		vty_out(vty, "%sno neighbor %s capability fqdn\n", bgp_nb_peer_show_indent(dnode),
-			bgp_nb_config_peer_name(dnode));
+	bool enabled = yang_dnode_get_bool(dnode, NULL);
+	bool baseline = bgp_nb_peer_group_bool_baseline(dnode, true);
+
+	if (!show_defaults && enabled == baseline)
+		return;
+	vty_out(vty, "%s%sneighbor %s capability fqdn\n", bgp_nb_peer_show_indent(dnode),
+		enabled ? "" : "no ", bgp_nb_config_peer_name(dnode));
 }
 
 int bgp_nb_peer_enforce_first_as_modify(struct nb_cb_modify_args *args)
@@ -6669,11 +7017,13 @@ void bgp_nb_cli_show_peer_enforce_first_as(struct vty *vty, const struct lyd_nod
 	const struct lyd_node *bgp_dnode = yang_dnode_get_parent(dnode, "bgp");
 	bool enabled = yang_dnode_get_bool(dnode, NULL);
 	bool global_dflt = SAVE_BGP_ENFORCE_FIRST_AS;
+	bool baseline;
 
 	if (bgp_dnode && yang_dnode_exists(bgp_dnode, "./global/enforce-first-as"))
 		global_dflt = yang_dnode_get_bool(bgp_dnode, "./global/enforce-first-as");
 
-	if (!show_defaults && enabled == global_dflt)
+	baseline = bgp_nb_peer_group_bool_baseline(dnode, global_dflt);
+	if (!show_defaults && enabled == baseline)
 		return;
 	vty_out(vty, "%s%sneighbor %s enforce-first-as\n", bgp_nb_peer_show_indent(dnode),
 		enabled ? "" : "no ", bgp_nb_config_peer_name(dnode));
@@ -6735,13 +7085,15 @@ void bgp_nb_cli_show_peer_cap_soft_version(struct vty *vty, const struct lyd_nod
 	const struct lyd_node *bgp_dnode = yang_dnode_get_parent(dnode, "bgp");
 	bool dflt_old = SAVE_BGP_SOFT_VERSION_CAPABILITY_OLD;
 	bool has_old = yang_dnode_get_bool(dnode, NULL);
+	bool baseline;
 
 	if (bgp_dnode &&
 	    yang_dnode_exists(bgp_dnode, "./global/default-software-version-capability"))
 		dflt_old = yang_dnode_get_bool(bgp_dnode,
 					       "./global/default-software-version-capability");
 
-	if (!show_defaults && has_old == dflt_old)
+	baseline = bgp_nb_peer_group_bool_baseline(dnode, dflt_old);
+	if (!show_defaults && has_old == baseline)
 		return;
 	vty_out(vty, "%s%sneighbor %s capability software-version\n",
 		bgp_nb_peer_show_indent(dnode), has_old ? "" : "no ",
@@ -6795,13 +7147,15 @@ void bgp_nb_cli_show_peer_cap_soft_version_latest(struct vty *vty, const struct 
 	const struct lyd_node *bgp_dnode = yang_dnode_get_parent(dnode, "bgp");
 	bool dflt_new = SAVE_BGP_SOFT_VERSION_CAPABILITY_NEW;
 	bool has_new = yang_dnode_get_bool(dnode, NULL);
+	bool baseline;
 
 	if (bgp_dnode &&
 	    yang_dnode_exists(bgp_dnode, "./global/default-software-version-latest-encoding"))
 		dflt_new = yang_dnode_get_bool(bgp_dnode,
 					       "./global/default-software-version-latest-encoding");
 
-	if (!show_defaults && has_new == dflt_new)
+	baseline = bgp_nb_peer_group_bool_baseline(dnode, dflt_new);
+	if (!show_defaults && has_new == baseline)
 		return;
 	vty_out(vty, "%s%sneighbor %s capability software-version latest-encoding\n",
 		bgp_nb_peer_show_indent(dnode), has_new ? "" : "no ",
@@ -6860,12 +7214,14 @@ void bgp_nb_cli_show_peer_cap_link_local(struct vty *vty, const struct lyd_node 
 	const struct lyd_node *bgp_dnode = yang_dnode_get_parent(dnode, "bgp");
 	bool enabled = yang_dnode_get_bool(dnode, NULL);
 	bool global_dflt = SAVE_BGP_LINK_LOCAL_CAPABILITY;
+	bool baseline;
 
 	if (bgp_dnode && yang_dnode_exists(bgp_dnode, "./global/default-link-local-capability"))
 		global_dflt = yang_dnode_get_bool(bgp_dnode,
 						  "./global/default-link-local-capability");
 
-	if (!show_defaults && enabled == global_dflt)
+	baseline = bgp_nb_peer_group_bool_baseline(dnode, global_dflt);
+	if (!show_defaults && enabled == baseline)
 		return;
 	vty_out(vty, "%s%sneighbor %s capability link-local\n", bgp_nb_peer_show_indent(dnode),
 		enabled ? "" : "no ", bgp_nb_config_peer_name(dnode));
@@ -8148,11 +8504,25 @@ static void bgp_nb_cli_show_peer_afi_safis(struct vty *vty, const struct lyd_nod
 	container = yang_dnode_get(bgp_dnode, "neighbors");
 	if (container) {
 		LY_LIST_FOR (lyd_child(container), peer) {
+			const struct lyd_node *grp = NULL, *grp_af = NULL;
+
 			if (!strmatch(peer->schema->name, "neighbor") &&
 			    !strmatch(peer->schema->name, "unnumbered-neighbor"))
 				continue;
 			af = yang_dnode_getf(peer, "afi-safis/afi-safi[afi-safi-name='%s']", ident);
-			if (af)
+			if (!af)
+				continue;
+			if (yang_dnode_exists(peer, "./peer-group")) {
+				grp = bgp_nb_candidate_peer_group(
+					peer, yang_dnode_get_string(peer, "./peer-group"));
+				if (grp)
+					grp_af = yang_dnode_getf(
+						grp, "afi-safis/afi-safi[afi-safi-name='%s']",
+						ident);
+			}
+			if (grp_af)
+				bgp_nb_cli_show_member_dnode(vty, af, grp_af);
+			else
 				nb_cli_show_dnode_cmds(vty, af, false);
 		}
 	}
@@ -16176,12 +16546,13 @@ int bgp_nb_peer_af_send_community_modify(struct nb_cb_modify_args *args)
 void bgp_nb_cli_show_peer_af_send_community(struct vty *vty, const struct lyd_node *dnode,
 					    bool show_defaults)
 {
-	if (!yang_dnode_get_bool(dnode, NULL))
-		vty_out(vty, "%sno neighbor %s send-community\n", bgp_nb_peer_show_indent(dnode),
-			bgp_nb_config_peer_name(dnode));
-	else if (show_defaults)
-		vty_out(vty, "%sneighbor %s send-community\n", bgp_nb_peer_show_indent(dnode),
-			bgp_nb_config_peer_name(dnode));
+	bool enabled = yang_dnode_get_bool(dnode, NULL);
+	bool baseline = bgp_nb_peer_group_bool_baseline(dnode, true);
+
+	if (!show_defaults && enabled == baseline)
+		return;
+	vty_out(vty, "%s%sneighbor %s send-community\n", bgp_nb_peer_show_indent(dnode),
+		enabled ? "" : "no ", bgp_nb_config_peer_name(dnode));
 }
 
 int bgp_nb_peer_af_send_ext_community_modify(struct nb_cb_modify_args *args)
@@ -16192,12 +16563,13 @@ int bgp_nb_peer_af_send_ext_community_modify(struct nb_cb_modify_args *args)
 void bgp_nb_cli_show_peer_af_send_ext_community(struct vty *vty, const struct lyd_node *dnode,
 						bool show_defaults)
 {
-	if (!yang_dnode_get_bool(dnode, NULL))
-		vty_out(vty, "%sno neighbor %s send-community extended\n",
-			bgp_nb_peer_show_indent(dnode), bgp_nb_config_peer_name(dnode));
-	else if (show_defaults)
-		vty_out(vty, "%sneighbor %s send-community extended\n",
-			bgp_nb_peer_show_indent(dnode), bgp_nb_config_peer_name(dnode));
+	bool enabled = yang_dnode_get_bool(dnode, NULL);
+	bool baseline = bgp_nb_peer_group_bool_baseline(dnode, true);
+
+	if (!show_defaults && enabled == baseline)
+		return;
+	vty_out(vty, "%s%sneighbor %s send-community extended\n", bgp_nb_peer_show_indent(dnode),
+		enabled ? "" : "no ", bgp_nb_config_peer_name(dnode));
 }
 
 int bgp_nb_peer_af_send_large_community_modify(struct nb_cb_modify_args *args)
@@ -16208,12 +16580,13 @@ int bgp_nb_peer_af_send_large_community_modify(struct nb_cb_modify_args *args)
 void bgp_nb_cli_show_peer_af_send_large_community(struct vty *vty, const struct lyd_node *dnode,
 						  bool show_defaults)
 {
-	if (!yang_dnode_get_bool(dnode, NULL))
-		vty_out(vty, "%sno neighbor %s send-community large\n",
-			bgp_nb_peer_show_indent(dnode), bgp_nb_config_peer_name(dnode));
-	else if (show_defaults)
-		vty_out(vty, "%sneighbor %s send-community large\n",
-			bgp_nb_peer_show_indent(dnode), bgp_nb_config_peer_name(dnode));
+	bool enabled = yang_dnode_get_bool(dnode, NULL);
+	bool baseline = bgp_nb_peer_group_bool_baseline(dnode, true);
+
+	if (!show_defaults && enabled == baseline)
+		return;
+	vty_out(vty, "%s%sneighbor %s send-community large\n", bgp_nb_peer_show_indent(dnode),
+		enabled ? "" : "no ", bgp_nb_config_peer_name(dnode));
 }
 
 int bgp_nb_peer_af_send_ext_community_rpki_modify(struct nb_cb_modify_args *args)
@@ -16618,17 +16991,31 @@ static int bgp_nb_peer_af_named_filter_modify(struct nb_cb_modify_args *args, in
 	const char *name;
 
 	switch (args->event) {
-	case NB_EV_VALIDATE:
+	case NB_EV_VALIDATE: {
+		const struct lyd_node *pg_fc;
+
 		/*
-		 * The other list may be created in this same candidate, so
-		 * read the candidate rather than the live peer filter.
+		 * The other list may be created in this same candidate or
+		 * inherited from the member's peer-group, so check both
+		 * the member and its peer-group in the candidate.
 		 */
 		if (conflict && yang_dnode_exists(args->dnode, conflict)) {
 			snprintfrr(args->errmsg, args->errmsg_len,
 				   "Prefix/distribute list can not co-exist");
 			return NB_ERR_VALIDATION;
 		}
+		if (conflict) {
+			pg_fc = bgp_nb_peer_group_matching_dnode(lyd_parent(args->dnode));
+			if (pg_fc &&
+			    yang_dnode_exists(pg_fc, !strncmp(conflict, "../", 3) ? conflict + 3
+										  : conflict)) {
+				snprintfrr(args->errmsg, args->errmsg_len,
+					   "Prefix/distribute list can not co-exist");
+				return NB_ERR_VALIDATION;
+			}
+		}
 		return NB_OK;
+	}
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
 		return NB_OK;
