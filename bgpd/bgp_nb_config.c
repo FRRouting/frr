@@ -15247,12 +15247,42 @@ int bgp_nb_peer_af_enabled_destroy(struct nb_cb_destroy_args *args)
 void bgp_nb_cli_show_peer_af_enabled(struct vty *vty, const struct lyd_node *dnode,
 				     bool show_defaults)
 {
-	if (yang_dnode_get_bool(dnode, NULL))
-		vty_out(vty, "%sneighbor %s activate\n", bgp_nb_peer_show_indent(dnode),
-			bgp_nb_config_peer_name(dnode));
-	else if (show_defaults)
-		vty_out(vty, "%sno neighbor %s activate\n", bgp_nb_peer_show_indent(dnode),
-			bgp_nb_config_peer_name(dnode));
+	const struct lyd_node *peer_node = bgp_nb_peer_container(dnode);
+	const struct lyd_node *bgp_node = yang_dnode_get_parent(dnode, "bgp");
+	const struct lyd_node *af_node = yang_dnode_get_parent(dnode, "afi-safi");
+	const char *ident = af_node ? yang_dnode_get_string(af_node, "afi-safi-name") : NULL;
+	struct bgp *bgp = bgp_node ? nb_running_get_entry(bgp_node, NULL, false) : NULL;
+	bool enabled = yang_dnode_get_bool(dnode, NULL);
+	bool inherited = false;
+	afi_t afi = AFI_UNSPEC;
+	safi_t safi = SAFI_UNSPEC;
+
+	bgp_nb_dnode_afi_safi(dnode, &afi, &safi);
+
+	if (peer_node && !strmatch(peer_node->schema->name, "peer-group") &&
+	    yang_dnode_exists(peer_node, "peer-group")) {
+		const char *gname = yang_dnode_get_string(peer_node, "peer-group");
+		const struct lyd_node *grp_node = bgp_nb_candidate_peer_group(dnode, gname);
+		const struct lyd_node *grp_en =
+			(grp_node && ident)
+				? yang_dnode_getf(grp_node,
+						  "afi-safis/afi-safi[afi-safi-name='%s']/enabled",
+						  ident)
+				: NULL;
+
+		if (grp_en)
+			inherited = yang_dnode_get_bool(grp_en, NULL);
+		else if (bgp && afi != AFI_UNSPEC && safi != SAFI_UNSPEC)
+			inherited = bgp->default_af[afi][safi];
+	} else if (bgp && afi != AFI_UNSPEC && safi != SAFI_UNSPEC && safi != SAFI_ENCAP) {
+		inherited = bgp->default_af[afi][safi];
+	}
+
+	if (!show_defaults && enabled == inherited)
+		return;
+
+	vty_out(vty, "%s%sneighbor %s activate\n", bgp_nb_peer_show_indent(dnode),
+		enabled ? "" : "no ", bgp_nb_config_peer_name(dnode));
 }
 
 int bgp_nb_peer_af_soft_reconfig_modify(struct nb_cb_modify_args *args)

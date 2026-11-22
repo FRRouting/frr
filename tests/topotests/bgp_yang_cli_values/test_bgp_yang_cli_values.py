@@ -454,6 +454,43 @@ router bgp 65000
     )
 
 
+def test_no_neighbor_activate_saved():
+    """no neighbor activate must be saved for default-af and active peer-group (B006)."""
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    r1 = tgen.gears["r1"]
+    r1.vtysh_multicmd(
+        """
+router bgp 65000
+ neighbor 192.0.2.21 remote-as 65002
+ neighbor 192.0.2.22 remote-as 65002
+ neighbor PG_ACT peer-group
+ neighbor PG_ACT remote-as 65002
+ neighbor 192.0.2.23 peer-group PG_ACT
+ neighbor 192.0.2.24 peer-group PG_ACT
+ address-family ipv4 unicast
+  no neighbor 192.0.2.21 activate
+  neighbor 192.0.2.22 activate
+ exit-address-family
+ address-family ipv6 unicast
+  neighbor PG_ACT activate
+  no neighbor 192.0.2.23 activate
+  neighbor 192.0.2.24 activate
+ exit-address-family
+""",
+        pretty_output=False,
+        raises=True,
+    )
+    running = r1.vtysh_cmd("show running-config")
+    assert "  no neighbor 192.0.2.21 activate\n" in running
+    assert "  neighbor 192.0.2.22 activate\n" not in running
+    assert "  neighbor PG_ACT activate\n" in running
+    assert "  no neighbor 192.0.2.23 activate\n" in running
+    assert "  neighbor 192.0.2.24 activate\n" not in running
+
+
 if __name__ == "__main__":
     args = ["-s"] + sys.argv[1:]
     sys.exit(pytest.main(args))
