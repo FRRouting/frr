@@ -8447,6 +8447,76 @@ static const char *bgp_nb_afi_safi_cli_name(afi_t afi, safi_t safi)
 	return NULL;
 }
 
+static void bgp_nb_cli_show_evpn_mh_global_fallback(struct vty *vty, const struct lyd_node *dnode)
+{
+	const struct lyd_node *leaf;
+
+	if (!bgp_mh_info)
+		return;
+
+	leaf = yang_dnode_get(dnode, "l2vpn-evpn/multihoming/use-es-l3nhg");
+	if ((!leaf || yang_dnode_is_default(leaf, NULL)) &&
+	    bgp_mh_info->host_routes_use_l3nhg != BGP_EVPN_MH_USE_ES_L3NHG_DEF)
+		vty_out(vty, "  %suse-es-l3nhg\n",
+			bgp_mh_info->host_routes_use_l3nhg ? "" : "no ");
+
+	leaf = yang_dnode_get(dnode, "l2vpn-evpn/multihoming/disable-ead-evi-rx");
+	if ((!leaf || yang_dnode_is_default(leaf, NULL)) &&
+	    bgp_mh_info->enable_ead_evi_rx != BGP_EVPN_MH_EAD_EVI_RX_DEF)
+		vty_out(vty, "  %sdisable-ead-evi-rx\n",
+			bgp_mh_info->enable_ead_evi_rx ? "no " : "");
+
+	leaf = yang_dnode_get(dnode, "l2vpn-evpn/multihoming/disable-ead-evi-tx");
+	if ((!leaf || yang_dnode_is_default(leaf, NULL)) &&
+	    bgp_mh_info->enable_ead_evi_tx != BGP_EVPN_MH_EAD_EVI_TX_DEF)
+		vty_out(vty, "  %sdisable-ead-evi-tx\n",
+			bgp_mh_info->enable_ead_evi_tx ? "no " : "");
+
+	leaf = yang_dnode_get(dnode, "l2vpn-evpn/multihoming/ead-es-fragment-evi-limit");
+	if ((!leaf || yang_dnode_is_default(leaf, NULL)) &&
+	    bgp_mh_info->evi_per_es_frag != BGP_EVPN_MAX_EVI_PER_ES_FRAG)
+		vty_out(vty, "  ead-es-frag evi-limit %u\n", bgp_mh_info->evi_per_es_frag);
+
+	if (yang_dnode_exists(dnode, "l2vpn-evpn/advertise-all-vni") &&
+	    yang_dnode_get_bool(dnode, "l2vpn-evpn/advertise-all-vni") &&
+	    bgp_mh_info->ead_es_export_rtl) {
+		const struct lyd_node *mh = yang_dnode_get(dnode, "l2vpn-evpn/multihoming");
+		struct listnode *node;
+		struct ecommunity *ecom;
+
+		for (ALL_LIST_ELEMENTS_RO(bgp_mh_info->ead_es_export_rtl, node, ecom)) {
+			char *ecom_str = ecommunity_ecom2str(ecom, ECOMMUNITY_FORMAT_ROUTE_MAP, 0);
+			bool found = false;
+
+			if (mh) {
+				const struct lyd_node *child;
+
+				LY_LIST_FOR (lyd_child(mh), child) {
+					struct ecommunity *cecom;
+
+					if (!child->schema ||
+					    !strmatch(child->schema->name,
+						      "ead-es-export-route-target"))
+						continue;
+					cecom = ecommunity_str2com(
+						yang_dnode_get_string(child, NULL),
+						ECOMMUNITY_ROUTE_TARGET, 0);
+					if (cecom) {
+						if (ecommunity_cmp(cecom, ecom))
+							found = true;
+						ecommunity_free(&cecom);
+					}
+					if (found)
+						break;
+				}
+			}
+			if (!found)
+				vty_out(vty, "  ead-es-route-target export %s\n", ecom_str);
+			XFREE(MTYPE_ECOMMUNITY_STR, ecom_str);
+		}
+	}
+}
+
 void bgp_nb_cli_show_global_afi_safi(struct vty *vty, const struct lyd_node *dnode,
 				     bool show_defaults)
 {
@@ -8471,6 +8541,7 @@ void bgp_nb_cli_show_global_afi_safi(struct vty *vty, const struct lyd_node *dno
 			bgp_config_write_network_evpn(
 				vty, nb_running_get_entry_non_rec(bgp_dnode, NULL, false), afi,
 				safi);
+		bgp_nb_cli_show_evpn_mh_global_fallback(vty, dnode);
 	}
 	bgp_config_write_distance_source(vty, afi, safi);
 }
@@ -11807,9 +11878,7 @@ int bgp_nb_evpn_ead_es_rt_create(struct nb_cb_create_args *args)
 	switch (args->event) {
 	case NB_EV_VALIDATE:
 		bgp = nb_running_get_entry(args->dnode, NULL, false);
-		if (!bgp)
-			return NB_OK;
-		if (!EVPN_ENABLED(bgp)) {
+		if (!bgp_nb_evpn_local_enabled_in_candidate(bgp, args->dnode)) {
 			snprintfrr(args->errmsg, args->errmsg_len,
 				   "This command is only supported under EVPN VRF");
 			return NB_ERR_VALIDATION;
@@ -11895,7 +11964,18 @@ int bgp_nb_evpn_ead_es_rt_destroy(struct nb_cb_destroy_args *args)
 void bgp_nb_cli_show_evpn_ead_es_rt(struct vty *vty, const struct lyd_node *dnode,
 				    bool show_defaults)
 {
-	vty_out(vty, "  ead-es-route-target export %s\n", yang_dnode_get_string(dnode, NULL));
+	const char *rt_str = yang_dnode_get_string(dnode, NULL);
+	struct ecommunity *ecom = ecommunity_str2com(rt_str, ECOMMUNITY_ROUTE_TARGET, 0);
+
+	if (ecom) {
+		char *ecom_str = ecommunity_ecom2str(ecom, ECOMMUNITY_FORMAT_ROUTE_MAP, 0);
+
+		vty_out(vty, "  ead-es-route-target export %s\n", ecom_str);
+		XFREE(MTYPE_ECOMMUNITY_STR, ecom_str);
+		ecommunity_free(&ecom);
+		return;
+	}
+	vty_out(vty, "  ead-es-route-target export %s\n", rt_str);
 }
 
 /*
@@ -12245,16 +12325,65 @@ int bgp_nb_evpn_vrf_rt_destroy(struct nb_cb_destroy_args *args)
 	return NB_OK;
 }
 
+static void bgp_nb_cli_show_evpn_rt_list(struct vty *vty, const struct lyd_node *dnode,
+					 const char *indent, const char *dir)
+{
+	const struct lyd_node *parent = lyd_parent(dnode);
+	const struct lyd_node *child;
+	struct bgp_evpn_cfgd_rt_slu_head head;
+	struct bgp_evpn_cfgd_rt *cfgd_rt;
+	char rt_buf[RT_ADDRSTRLEN];
+
+	if (!parent)
+		return;
+
+	/* Emit the sorted list once when called on the first sibling of this name. */
+	LY_LIST_FOR (lyd_child(parent), child) {
+		if (!child->schema || child->schema != dnode->schema)
+			continue;
+		if (child != dnode)
+			return;
+		break;
+	}
+
+	bgp_evpn_cfgd_rt_slu_init(&head);
+	LY_LIST_FOR (lyd_child(parent), child) {
+		struct ecommunity *ecom;
+		bool is_wildcard = false;
+
+		if (!child->schema || child->schema != dnode->schema)
+			continue;
+		ecom = bgp_nb_evpn_vrf_rt_str2com(yang_dnode_get_string(child, NULL),
+						  &is_wildcard);
+		if (!ecom)
+			continue;
+		ecommunity_str(ecom);
+		cfgd_rt = bgp_evpn_cfgd_rt_from_ecom(ecom, is_wildcard);
+		ecommunity_free(&ecom);
+		if (!cfgd_rt)
+			continue;
+		if (bgp_evpn_cfgd_rt_slu_add(&head, cfgd_rt))
+			bgp_evpn_cfgd_rt_free(cfgd_rt);
+	}
+
+	while ((cfgd_rt = bgp_evpn_cfgd_rt_slu_pop(&head))) {
+		bgp_evpn_format_cfgd_rt(rt_buf, sizeof(rt_buf), cfgd_rt);
+		vty_out(vty, "%sroute-target %s %s\n", indent, dir, rt_buf);
+		bgp_evpn_cfgd_rt_free(cfgd_rt);
+	}
+	bgp_evpn_cfgd_rt_slu_fini(&head);
+}
+
 void bgp_nb_cli_show_evpn_vrf_rt_import(struct vty *vty, const struct lyd_node *dnode,
 					bool show_defaults)
 {
-	vty_out(vty, "  route-target import %s\n", yang_dnode_get_string(dnode, NULL));
+	bgp_nb_cli_show_evpn_rt_list(vty, dnode, "  ", "import");
 }
 
 void bgp_nb_cli_show_evpn_vrf_rt_export(struct vty *vty, const struct lyd_node *dnode,
 					bool show_defaults)
 {
-	vty_out(vty, "  route-target export %s\n", yang_dnode_get_string(dnode, NULL));
+	bgp_nb_cli_show_evpn_rt_list(vty, dnode, "  ", "export");
 }
 
 static bool bgp_nb_evpn_rt_auto_is_import(const struct lyd_node *dnode)
@@ -12412,6 +12541,12 @@ int bgp_nb_evpn_vni_rd_modify(struct nb_cb_modify_args *args)
 	const char *rd_str;
 
 	if (args->event == NB_EV_VALIDATE) {
+		bgp = bgp_nb_evpn_vni_underlay(args->dnode);
+		if (!bgp_nb_evpn_local_enabled_in_candidate(bgp, args->dnode)) {
+			snprintfrr(args->errmsg, args->errmsg_len,
+				   "This command is only supported under EVPN VRF");
+			return NB_ERR_VALIDATION;
+		}
 		rd_str = yang_dnode_get_string(args->dnode, NULL);
 		if (!str2prefix_rd(rd_str, &prd)) {
 			snprintfrr(args->errmsg, args->errmsg_len, "Malformed Route Distinguisher");
@@ -12476,6 +12611,12 @@ int bgp_nb_evpn_vni_rt_create(struct nb_cb_create_args *args)
 
 	switch (args->event) {
 	case NB_EV_VALIDATE:
+		bgp = bgp_nb_evpn_vni_underlay(args->dnode);
+		if (!bgp_nb_evpn_local_enabled_in_candidate(bgp, args->dnode)) {
+			snprintfrr(args->errmsg, args->errmsg_len,
+				   "This command is only supported under EVPN VRF");
+			return NB_ERR_VALIDATION;
+		}
 		rt_str = yang_dnode_get_string(args->dnode, NULL);
 		if (rt_str[0] == '*' && !bgp_nb_evpn_vni_rt_is_import(args->dnode)) {
 			snprintfrr(args->errmsg, args->errmsg_len,
@@ -12567,13 +12708,13 @@ int bgp_nb_evpn_vni_rt_destroy(struct nb_cb_destroy_args *args)
 void bgp_nb_cli_show_evpn_vni_rt_import(struct vty *vty, const struct lyd_node *dnode,
 					bool show_defaults)
 {
-	vty_out(vty, "   route-target import %s\n", yang_dnode_get_string(dnode, NULL));
+	bgp_nb_cli_show_evpn_rt_list(vty, dnode, "   ", "import");
 }
 
 void bgp_nb_cli_show_evpn_vni_rt_export(struct vty *vty, const struct lyd_node *dnode,
 					bool show_defaults)
 {
-	vty_out(vty, "   route-target export %s\n", yang_dnode_get_string(dnode, NULL));
+	bgp_nb_cli_show_evpn_rt_list(vty, dnode, "   ", "export");
 }
 
 int bgp_nb_evpn_vni_rt_auto_modify(struct nb_cb_modify_args *args)
@@ -12582,6 +12723,15 @@ int bgp_nb_evpn_vni_rt_auto_modify(struct nb_cb_modify_args *args)
 	struct bgpevpn *vpn;
 	enum bgp_evpn_autort_cfgd autort;
 
+	if (args->event == NB_EV_VALIDATE) {
+		bgp = bgp_nb_evpn_vni_underlay(args->dnode);
+		if (!bgp_nb_evpn_local_enabled_in_candidate(bgp, args->dnode)) {
+			snprintfrr(args->errmsg, args->errmsg_len,
+				   "This command is only supported under EVPN VRF");
+			return NB_ERR_VALIDATION;
+		}
+		return NB_OK;
+	}
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
@@ -12716,6 +12866,17 @@ int bgp_nb_evpn_vni_advertise_subnet_modify(struct nb_cb_modify_args *args)
 	struct bgp *bgp;
 	struct bgpevpn *vpn;
 
+	if (args->event == NB_EV_VALIDATE) {
+		if (yang_dnode_get_bool(args->dnode, NULL)) {
+			vpn = nb_running_get_entry(args->dnode, NULL, false);
+			if (vpn && !bgp_lookup_by_vrf_id(vpn->tenant_vrf_id)) {
+				snprintfrr(args->errmsg, args->errmsg_len,
+					   "Tenant VRF BGP instance does not exist");
+				return NB_ERR_VALIDATION;
+			}
+		}
+		return NB_OK;
+	}
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 

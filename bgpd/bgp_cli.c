@@ -31,6 +31,7 @@
 #include "bgpd/bgp_damp.h"
 #include "bgpd/bgp_community.h"
 #include "bgpd/bgp_lcommunity.h"
+#include "bgpd/bgp_ecommunity.h"
 #include "bgpd/bgp_evpn.h"
 #include "bgpd/bgp_evpn_private.h"
 #include "bgpd/bgp_rd.h"
@@ -7006,6 +7007,78 @@ DEFPY_YANG(bgp_evpn_dad_yang, bgp_evpn_dad_yang_cmd,
 	return nb_cli_apply_changes(vty, NULL);
 }
 
+/*
+ * Process-global EVPN multihoming knobs live in bgp_mh_info at runtime,
+ * while YANG stores them per BGP instance under l2vpn-evpn/multihoming.
+ * Mirror writes onto every other BGP instance that already has an EVPN
+ * block so clearing a knob on one instance never leaves a stale value
+ * printed on another.
+ */
+struct bgp_cli_evpn_mh_sync_ctx {
+	struct vty *vty;
+	const char *cur_bgp_xpath;
+	const char *rel_leaf;
+	enum nb_operation op;
+	const char *val;
+	bool require_evpn;
+};
+
+static int bgp_cli_evpn_mh_sync_cb(const struct lyd_node *dnode, void *arg)
+{
+	struct bgp_cli_evpn_mh_sync_ctx *ctx = arg;
+	char *path;
+	char xpath[XPATH_MAXLEN * 2];
+
+	if (!yang_dnode_exists(
+		    dnode,
+		    "global/afi-safis/afi-safi[afi-safi-name='frr-routing:l2vpn-evpn']/l2vpn-evpn"))
+		return YANG_ITER_CONTINUE;
+
+	if (ctx->require_evpn &&
+	    (!yang_dnode_exists(
+		     dnode,
+		     "global/afi-safis/afi-safi[afi-safi-name='frr-routing:l2vpn-evpn']/l2vpn-evpn/advertise-all-vni") ||
+	     !yang_dnode_get_bool(
+		     dnode,
+		     "global/afi-safis/afi-safi[afi-safi-name='frr-routing:l2vpn-evpn']/l2vpn-evpn/advertise-all-vni")))
+		return YANG_ITER_CONTINUE;
+
+	path = lyd_path(dnode, LYD_PATH_STD, NULL, 0);
+	if (!path)
+		return YANG_ITER_CONTINUE;
+
+	if (!strmatch(path, ctx->cur_bgp_xpath)) {
+		snprintfrr(xpath, sizeof(xpath),
+			   "%s/global/afi-safis/afi-safi[afi-safi-name='frr-routing:l2vpn-evpn']/l2vpn-evpn/%s",
+			   path, ctx->rel_leaf);
+		if (ctx->op != NB_OP_DESTROY ||
+		    yang_dnode_exists(ctx->vty->candidate_config->dnode, xpath))
+			nb_cli_enqueue_change(ctx->vty, xpath, ctx->op, ctx->val);
+	}
+	free(path);
+	return YANG_ITER_CONTINUE;
+}
+
+static void bgp_cli_evpn_mh_sync_other_instances(struct vty *vty, const char *rel_leaf,
+						 enum nb_operation op, const char *val,
+						 bool require_evpn)
+{
+	struct bgp_cli_evpn_mh_sync_ctx ctx = {
+		.vty = vty,
+		.cur_bgp_xpath = VTY_CURR_XPATH,
+		.rel_leaf = rel_leaf,
+		.op = op,
+		.val = val,
+		.require_evpn = require_evpn,
+	};
+
+	if (!vty->candidate_config || !vty->candidate_config->dnode)
+		return;
+
+	yang_dnode_iterate(bgp_cli_evpn_mh_sync_cb, &ctx, vty->candidate_config->dnode,
+			   "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp");
+}
+
 static bool bgp_cli_evpn_is_enabled(struct vty *vty, const char *af_xpath)
 {
 	char check[XPATH_MAXLEN + 256];
@@ -7035,11 +7108,14 @@ DEFPY_YANG(bgp_evpn_use_es_l3nhg_yang, bgp_evpn_use_es_l3nhg_yang_cmd,
 {
 	char af_xpath[XPATH_MAXLEN];
 	char leaf[XPATH_MAXLEN + 256];
+	const char *val = no ? "false" : "true";
 
 	bgp_cli_global_af_xpath(vty, af_xpath, sizeof(af_xpath));
 	nb_cli_enqueue_change(vty, af_xpath, NB_OP_CREATE, NULL);
 	snprintfrr(leaf, sizeof(leaf), "%s/multihoming/use-es-l3nhg", af_xpath);
-	nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY, no ? "false" : "true");
+	nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY, val);
+	bgp_cli_evpn_mh_sync_other_instances(vty, "multihoming/use-es-l3nhg", NB_OP_MODIFY, val,
+					     false);
 	return nb_cli_apply_changes(vty, NULL);
 }
 
@@ -7051,11 +7127,14 @@ DEFPY_YANG(bgp_evpn_disable_ead_evi_rx_yang,
 {
 	char af_xpath[XPATH_MAXLEN];
 	char leaf[XPATH_MAXLEN + 256];
+	const char *val = no ? "false" : "true";
 
 	bgp_cli_global_af_xpath(vty, af_xpath, sizeof(af_xpath));
 	nb_cli_enqueue_change(vty, af_xpath, NB_OP_CREATE, NULL);
 	snprintfrr(leaf, sizeof(leaf), "%s/multihoming/disable-ead-evi-rx", af_xpath);
-	nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY, no ? "false" : "true");
+	nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY, val);
+	bgp_cli_evpn_mh_sync_other_instances(vty, "multihoming/disable-ead-evi-rx", NB_OP_MODIFY,
+					     val, false);
 	return nb_cli_apply_changes(vty, NULL);
 }
 
@@ -7067,11 +7146,14 @@ DEFPY_YANG(bgp_evpn_disable_ead_evi_tx_yang,
 {
 	char af_xpath[XPATH_MAXLEN];
 	char leaf[XPATH_MAXLEN + 256];
+	const char *val = no ? "false" : "true";
 
 	bgp_cli_global_af_xpath(vty, af_xpath, sizeof(af_xpath));
 	nb_cli_enqueue_change(vty, af_xpath, NB_OP_CREATE, NULL);
 	snprintfrr(leaf, sizeof(leaf), "%s/multihoming/disable-ead-evi-tx", af_xpath);
-	nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY, no ? "false" : "true");
+	nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY, val);
+	bgp_cli_evpn_mh_sync_other_instances(vty, "multihoming/disable-ead-evi-tx", NB_OP_MODIFY,
+					     val, false);
 	return nb_cli_apply_changes(vty, NULL);
 }
 
@@ -7089,11 +7171,15 @@ DEFPY_YANG(bgp_evpn_ead_es_frag_yang, bgp_evpn_ead_es_frag_yang_cmd,
 	bgp_cli_global_af_xpath(vty, af_xpath, sizeof(af_xpath));
 	nb_cli_enqueue_change(vty, af_xpath, NB_OP_CREATE, NULL);
 	snprintfrr(leaf, sizeof(leaf), "%s/multihoming/ead-es-fragment-evi-limit", af_xpath);
-	if (no)
+	if (no) {
 		nb_cli_enqueue_change(vty, leaf, NB_OP_DESTROY, NULL);
-	else {
+		bgp_cli_evpn_mh_sync_other_instances(vty, "multihoming/ead-es-fragment-evi-limit",
+						     NB_OP_DESTROY, NULL, false);
+	} else {
 		snprintfrr(buf, sizeof(buf), "%" PRId64, limit);
 		nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY, buf);
+		bgp_cli_evpn_mh_sync_other_instances(vty, "multihoming/ead-es-fragment-evi-limit",
+						     NB_OP_MODIFY, buf, false);
 	}
 	return nb_cli_apply_changes(vty, NULL);
 }
@@ -7305,6 +7391,68 @@ DEFPY_YANG(bgp_evpn_advertise_pip_yang, bgp_evpn_advertise_pip_yang_cmd,
 	return nb_cli_apply_changes(vty, NULL);
 }
 
+static struct ecommunity *bgp_cli_evpn_rt_parse(const char *rt_str, bool *is_wildcard)
+{
+	char buf[64];
+	bool wildcard = false;
+
+	if (is_wildcard)
+		*is_wildcard = false;
+	if (!rt_str || !rt_str[0])
+		return NULL;
+	if (rt_str[0] == '*') {
+		if (strlen(rt_str) >= sizeof(buf))
+			return NULL;
+		strlcpy(buf, rt_str, sizeof(buf));
+		buf[0] = '0';
+		wildcard = true;
+		rt_str = buf;
+	}
+	if (is_wildcard)
+		*is_wildcard = wildcard;
+	return ecommunity_str2com(rt_str, ECOMMUNITY_ROUTE_TARGET, 0);
+}
+
+static bool bgp_cli_evpn_rt_canonical(const char *rt_str, bool allow_wildcard, char *out,
+				      size_t out_sz)
+{
+	struct ecommunity *ecom;
+	struct bgp_evpn_cfgd_rt *cfgd_rt;
+	bool is_wildcard = false;
+
+	if (!rt_str || !rt_str[0])
+		return false;
+	if (rt_str[0] == '*' && !allow_wildcard)
+		return false;
+	ecom = bgp_cli_evpn_rt_parse(rt_str, &is_wildcard);
+	if (!ecom)
+		return false;
+	ecommunity_str(ecom);
+	cfgd_rt = bgp_evpn_cfgd_rt_from_ecom(ecom, is_wildcard);
+	ecommunity_free(&ecom);
+	if (!cfgd_rt)
+		return false;
+	bgp_evpn_format_cfgd_rt(out, out_sz, cfgd_rt);
+	bgp_evpn_cfgd_rt_free(cfgd_rt);
+	return true;
+}
+
+static bool bgp_cli_evpn_rt_equal(const char *a, const char *b)
+{
+	struct ecommunity *ea, *eb;
+	bool wa = false, wb = false;
+	bool eq;
+
+	ea = bgp_cli_evpn_rt_parse(a, &wa);
+	eb = bgp_cli_evpn_rt_parse(b, &wb);
+	eq = ea && eb && wa == wb && ecommunity_cmp(ea, eb);
+	if (ea)
+		ecommunity_free(&ea);
+	if (eb)
+		ecommunity_free(&eb);
+	return eq;
+}
+
 DEFPY_YANG(bgp_evpn_ead_es_rt_yang, bgp_evpn_ead_es_rt_yang_cmd,
 	   "[no] ead-es-route-target export RT$rt",
 	   NO_STR
@@ -7314,17 +7462,58 @@ DEFPY_YANG(bgp_evpn_ead_es_rt_yang, bgp_evpn_ead_es_rt_yang_cmd,
 {
 	char af_xpath[XPATH_MAXLEN];
 	char leaf[XPATH_MAXLEN + 256];
+	char rel_leaf[XPATH_MAXLEN];
+	char canon[RT_ADDRSTRLEN];
+	char check[XPATH_MAXLEN + 256];
+	const struct lyd_node *mh_dnode, *child;
+	const char *stored_val = NULL;
 
 	bgp_cli_global_af_xpath(vty, af_xpath, sizeof(af_xpath));
-	nb_cli_enqueue_change(vty, af_xpath, NB_OP_CREATE, NULL);
-	snprintfrr(leaf, sizeof(leaf), "%s/multihoming/ead-es-export-route-target[.='%s']",
-		   af_xpath, rt);
+	if (!bgp_cli_evpn_is_enabled(vty, af_xpath)) {
+		vty_out(vty, "This command is only supported under EVPN VRF\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
 
-	if (no)
+	if (!bgp_cli_evpn_rt_canonical(rt, false, canon, sizeof(canon))) {
+		vty_out(vty, "%% Malformed Route Target list\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+
+	if (no) {
+		snprintfrr(check, sizeof(check), "%s%s/multihoming", VTY_CURR_XPATH, af_xpath + 1);
+		mh_dnode = (vty->candidate_config && vty->candidate_config->dnode)
+				   ? yang_dnode_get(vty->candidate_config->dnode, check)
+				   : NULL;
+		if (mh_dnode) {
+			LY_LIST_FOR (lyd_child(mh_dnode), child) {
+				if (!child->schema ||
+				    !strmatch(child->schema->name, "ead-es-export-route-target"))
+					continue;
+				if (bgp_cli_evpn_rt_equal(yang_dnode_get_string(child, NULL),
+							  canon)) {
+					stored_val = yang_dnode_get_string(child, NULL);
+					break;
+				}
+			}
+		}
+		if (!stored_val) {
+			vty_out(vty, "%% RT specified does not match EAD-ES RT configuration\n");
+			return CMD_WARNING_CONFIG_FAILED;
+		}
+		snprintfrr(rel_leaf, sizeof(rel_leaf),
+			   "multihoming/ead-es-export-route-target[.='%s']", stored_val);
+		snprintfrr(leaf, sizeof(leaf), "%s/%s", af_xpath, rel_leaf);
 		nb_cli_enqueue_change(vty, leaf, NB_OP_DESTROY, NULL);
-	else
-		nb_cli_enqueue_change(vty, leaf, NB_OP_CREATE, NULL);
+		bgp_cli_evpn_mh_sync_other_instances(vty, rel_leaf, NB_OP_DESTROY, NULL, true);
+		return nb_cli_apply_changes(vty, NULL);
+	}
 
+	nb_cli_enqueue_change(vty, af_xpath, NB_OP_CREATE, NULL);
+	snprintfrr(rel_leaf, sizeof(rel_leaf), "multihoming/ead-es-export-route-target[.='%s']",
+		   canon);
+	snprintfrr(leaf, sizeof(leaf), "%s/%s", af_xpath, rel_leaf);
+	nb_cli_enqueue_change(vty, leaf, NB_OP_CREATE, NULL);
+	bgp_cli_evpn_mh_sync_other_instances(vty, rel_leaf, NB_OP_CREATE, NULL, true);
 	return nb_cli_apply_changes(vty, NULL);
 }
 
@@ -7395,7 +7584,7 @@ DEFPY_YANG(no_bgp_evpn_vrf_rd_without_val_yang, no_bgp_evpn_vrf_rd_without_val_y
  * the same RTLIST has to be answered from this list.
  */
 struct bgp_cli_rt_pend {
-	const char *rt;
+	char rt[RT_ADDRSTRLEN];
 	bool import;
 	bool export;
 	bool add;
@@ -7418,12 +7607,23 @@ static bool bgp_cli_rt_pend_state(const struct bgp_cli_rt_pend *pend, int npend,
 	return present;
 }
 
-/* True when @rt is configured for this direction, including this command. */
+/*
+ * True when an RT semantically equal to @rt is configured for this direction,
+ * including this command. If found in candidate, writes the exact stored leaf
+ * value into @stored_out (if non-NULL) so NB_OP_DESTROY removes it.
+ */
 static bool bgp_cli_rt_is_set(struct vty *vty, const struct bgp_cli_rt_pend *pend, int npend,
-			      const char *abs_base, const char *leaf, const char *rt, bool import)
+			      const char *abs_base, const char *leaf, const char *rt, bool import,
+			      char *stored_out, size_t stored_sz)
 {
-	char xpath[XPATH_MAXLEN];
+	char parent_xpath[XPATH_MAXLEN];
+	const char *slash;
+	const char *leaf_name;
+	const struct lyd_node *parent, *child;
 	bool known;
+
+	if (stored_out && stored_sz)
+		strlcpy(stored_out, rt, stored_sz);
 
 	if (bgp_cli_rt_pend_state(pend, npend, rt, import, &known))
 		return true;
@@ -7432,18 +7632,40 @@ static bool bgp_cli_rt_is_set(struct vty *vty, const struct bgp_cli_rt_pend *pen
 	if (!vty->candidate_config || !vty->candidate_config->dnode)
 		return false;
 
-	snprintfrr(xpath, sizeof(xpath), "%s/%s[.='%s']", abs_base, leaf, rt);
-	return yang_dnode_exists(vty->candidate_config->dnode, xpath);
+	slash = strrchr(leaf, '/');
+	if (slash) {
+		snprintfrr(parent_xpath, sizeof(parent_xpath), "%s/%.*s", abs_base,
+			   (int)(slash - leaf), leaf);
+		leaf_name = slash + 1;
+	} else {
+		strlcpy(parent_xpath, abs_base, sizeof(parent_xpath));
+		leaf_name = leaf;
+	}
+
+	parent = yang_dnode_get(vty->candidate_config->dnode, parent_xpath);
+	if (!parent)
+		return false;
+
+	LY_LIST_FOR (lyd_child(parent), child) {
+		const char *val;
+
+		if (!child->schema || child->schema->nodetype != LYS_LEAFLIST ||
+		    !strmatch(child->schema->name, leaf_name))
+			continue;
+		val = yang_dnode_get_string(child, NULL);
+		if (bgp_cli_evpn_rt_equal(val, rt)) {
+			if (stored_out && stored_sz)
+				strlcpy(stored_out, val, stored_sz);
+			return true;
+		}
+	}
+	return false;
 }
 
 /*
- * Apply an RTLIST the way the classic CLI did. An RT that is already
- * configured, or repeated in this list, is skipped and warned. "both"
- * warns on add only when every requested direction is already present,
- * and on delete only when none of them are; the missing or present
- * direction is still changed. @scope is "VRF" or "VNI" (the warning
- * text). @rel_base is the enqueue prefix, @abs_base the same node on the
- * candidate. Remaining entries are still applied.
+ * Apply an RTLIST the way the classic CLI did. Validate every token up front
+ * before enqueueing anything so a malformed entry fails the whole command.
+ * Compare RTs as extended communities and canonicalize stored values.
  */
 static int bgp_evpn_rtlist_apply(struct vty *vty, bool no, bool do_import, bool do_export,
 				 const char *scope, const char *rel_base, const char *abs_base,
@@ -7452,31 +7674,57 @@ static int bgp_evpn_rtlist_apply(struct vty *vty, bool no, bool do_import, bool 
 {
 	struct bgp_cli_rt_pend *pend;
 	char leaf[XPATH_MAXLEN];
+	char (*canon_rts)[RT_ADDRSTRLEN];
+	int n_rts = argc - idx;
 	bool warned = false;
 	int npend = 0;
 	int ret;
 
-	/* At most one entry per RT in the list. */
-	pend = XCALLOC(MTYPE_TMP, sizeof(*pend) * (argc - idx > 0 ? argc - idx : 1));
+	if (n_rts <= 0)
+		return CMD_WARNING_CONFIG_FAILED;
 
-	for (; idx < argc; idx++) {
-		const char *rt = argv[idx]->arg;
+	/* Validate and canonicalize the entire list before enqueueing any change. */
+	canon_rts = XCALLOC(MTYPE_TMP, sizeof(*canon_rts) * n_rts);
+	for (int i = 0; i < n_rts; i++) {
+		if (argv[idx + i]->arg[0] == '*' && do_export) {
+			vty_out(vty, "%% Wildcard '*' only applicable for import\n");
+			XFREE(MTYPE_TMP, canon_rts);
+			return CMD_WARNING_CONFIG_FAILED;
+		}
+		if (!bgp_cli_evpn_rt_canonical(argv[idx + i]->arg, !do_export, canon_rts[i],
+					       sizeof(canon_rts[i]))) {
+			vty_out(vty, "%% Malformed Route Target list\n");
+			XFREE(MTYPE_TMP, canon_rts);
+			return CMD_WARNING_CONFIG_FAILED;
+		}
+	}
+
+	if (!no && !strmatch(rel_base, "."))
+		nb_cli_enqueue_change(vty, rel_base, NB_OP_CREATE, NULL);
+
+	/* At most one entry per RT in the list. */
+	pend = XCALLOC(MTYPE_TMP, sizeof(*pend) * n_rts);
+
+	for (int i = 0; i < n_rts; i++) {
+		const char *rt = canon_rts[i];
+		char stored_imp[RT_ADDRSTRLEN] = "";
+		char stored_exp[RT_ADDRSTRLEN] = "";
 		bool have_import = false, have_export = false;
 		bool ch_import, ch_export;
 
 		if (do_import)
 			have_import = bgp_cli_rt_is_set(vty, pend, npend, abs_base, leaf_import,
-							rt, true);
+							rt, true, stored_imp, sizeof(stored_imp));
 		if (do_export)
 			have_export = bgp_cli_rt_is_set(vty, pend, npend, abs_base, leaf_export,
-							rt, false);
+							rt, false, stored_exp, sizeof(stored_exp));
 
 		if (!no) {
 			ch_import = do_import && !have_import;
 			ch_export = do_export && !have_export;
 			if (!ch_import && !ch_export) {
 				vty_out(vty, "%% RT specified already configured for this %s: %s\n",
-					scope, rt);
+					scope, argv[idx + i]->arg);
 				warned = true;
 				continue;
 			}
@@ -7486,21 +7734,24 @@ static int bgp_evpn_rtlist_apply(struct vty *vty, bool no, bool do_import, bool 
 			if (!ch_import && !ch_export) {
 				vty_out(vty,
 					"%% RT specified does not match configuration for this %s: %s\n",
-					scope, rt);
+					scope, argv[idx + i]->arg);
 				warned = true;
 				continue;
 			}
 		}
 
 		if (ch_import) {
-			snprintfrr(leaf, sizeof(leaf), "%s/%s[.='%s']", rel_base, leaf_import, rt);
+			snprintfrr(leaf, sizeof(leaf), "%s/%s[.='%s']", rel_base, leaf_import,
+				   no ? stored_imp : rt);
 			nb_cli_enqueue_change(vty, leaf, no ? NB_OP_DESTROY : NB_OP_CREATE, NULL);
 		}
 		if (ch_export) {
-			snprintfrr(leaf, sizeof(leaf), "%s/%s[.='%s']", rel_base, leaf_export, rt);
+			snprintfrr(leaf, sizeof(leaf), "%s/%s[.='%s']", rel_base, leaf_export,
+				   no ? stored_exp : rt);
 			nb_cli_enqueue_change(vty, leaf, no ? NB_OP_DESTROY : NB_OP_CREATE, NULL);
 		}
-		pend[npend].rt = rt;
+
+		strlcpy(pend[npend].rt, rt, sizeof(pend[npend].rt));
 		pend[npend].import = ch_import;
 		pend[npend].export = ch_export;
 		pend[npend].add = !no;
@@ -7508,6 +7759,7 @@ static int bgp_evpn_rtlist_apply(struct vty *vty, bool no, bool do_import, bool 
 	}
 
 	XFREE(MTYPE_TMP, pend);
+	XFREE(MTYPE_TMP, canon_rts);
 
 	ret = nb_cli_apply_changes(vty, NULL);
 	if (ret != CMD_SUCCESS)
@@ -7525,10 +7777,10 @@ DEFPY_YANG(bgp_evpn_vrf_rt_yang, bgp_evpn_vrf_rt_yang_cmd,
 	   "Space separated route target list (A.B.C.D:MN|EF:OPQR|GHJK:MN)\n")
 {
 	char af_xpath[XPATH_MAXLEN];
+	char abs_base[XPATH_MAXLEN];
 	bool do_import = false;
 	bool do_export = false;
 	int idx = 0;
-	int i;
 
 	if (strmatch(type, "import"))
 		do_import = true;
@@ -7548,25 +7800,13 @@ DEFPY_YANG(bgp_evpn_vrf_rt_yang, bgp_evpn_vrf_rt_yang_cmd,
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 
-	for (i = idx; i < argc; i++) {
-		if (argv[i]->arg[0] == '*' && do_export) {
-			vty_out(vty, "%% Wildcard '*' only applicable for import\n");
-			return CMD_WARNING_CONFIG_FAILED;
-		}
-	}
-
 	bgp_cli_global_af_xpath(vty, af_xpath, sizeof(af_xpath));
-	nb_cli_enqueue_change(vty, af_xpath, NB_OP_CREATE, NULL);
 
-	{
-		char abs_base[XPATH_MAXLEN];
-
-		/* af_xpath is relative ("./..."); the candidate lookup is absolute. */
-		snprintfrr(abs_base, sizeof(abs_base), "%s%s", VTY_CURR_XPATH, af_xpath + 1);
-		return bgp_evpn_rtlist_apply(vty, !!no, do_import, do_export, "VRF", af_xpath,
-					     abs_base, "ip-vrf/import-route-target",
-					     "ip-vrf/export-route-target", argv, idx, argc);
-	}
+	/* af_xpath is relative ("./..."); the candidate lookup is absolute. */
+	snprintfrr(abs_base, sizeof(abs_base), "%s%s", VTY_CURR_XPATH, af_xpath + 1);
+	return bgp_evpn_rtlist_apply(vty, !!no, do_import, do_export, "VRF", af_xpath, abs_base,
+				     "ip-vrf/import-route-target", "ip-vrf/export-route-target",
+				     argv, idx, argc);
 }
 
 /*
@@ -7575,13 +7815,22 @@ DEFPY_YANG(bgp_evpn_vrf_rt_yang, bgp_evpn_vrf_rt_yang_cmd,
  * @mode is an add-mode keyword or "rfc8365-compatible" (VRF only).
  */
 static int bgp_evpn_autort_cli(struct vty *vty, bool vrf, bool no, const char *type,
-			       const char *mode)
+			       const char *mode, bool deprecated_auto)
 {
 	static const char *const dirs[] = { "import", "export" };
 	char af_xpath[XPATH_MAXLEN];
 	char leaf[XPATH_MAXLEN + 256];
+	char cur_xpath[XPATH_MAXLEN * 2];
+	const struct lyd_node *cand_root = vty->candidate_config ? vty->candidate_config->dnode
+								 : NULL;
 	bool rfc = mode && strmatch(mode, "rfc8365-compatible");
 	bool sel[2];
+	bool cleared = false;
+
+	if (!vrf && !bgp_cli_evpn_is_enabled(vty, NULL)) {
+		vty_out(vty, "This command is only supported under EVPN VRF\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
 
 	sel[0] = !type || strmatch(type, "import") || strmatch(type, "both");
 	sel[1] = !type || strmatch(type, "export") || strmatch(type, "both");
@@ -7599,8 +7848,16 @@ static int bgp_evpn_autort_cli(struct vty *vty, bool vrf, bool no, const char *t
 		if (rfc) {
 			snprintfrr(leaf, sizeof(leaf), "%s/%s-autort-rfc8365-compatible", af_xpath,
 				   dirs[i]);
-			nb_cli_enqueue_change(vty, leaf, no ? NB_OP_DESTROY : NB_OP_MODIFY,
-					      no ? NULL : "true");
+			if (!no) {
+				nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY, "true");
+				continue;
+			}
+			snprintfrr(cur_xpath, sizeof(cur_xpath), "%s%s", VTY_CURR_XPATH, leaf + 1);
+			if (cand_root && yang_dnode_exists(cand_root, cur_xpath) &&
+			    yang_dnode_get_bool(cand_root, "%s", cur_xpath)) {
+				nb_cli_enqueue_change(vty, leaf, NB_OP_DESTROY, NULL);
+				cleared = true;
+			}
 			continue;
 		}
 
@@ -7619,22 +7876,42 @@ static int bgp_evpn_autort_cli(struct vty *vty, bool vrf, bool no, const char *t
 		 * With an explicit mode only clear a matching configuration;
 		 * without one clear whatever is configured.
 		 */
-		if (mode) {
-			char cur_xpath[XPATH_MAXLEN * 2];
-			const struct lyd_node *cur;
+		snprintfrr(cur_xpath, sizeof(cur_xpath), "%s%s", VTY_CURR_XPATH, leaf + 1);
+		if (cand_root && yang_dnode_exists(cand_root, cur_xpath)) {
+			const struct lyd_node *cur = yang_dnode_get(cand_root, cur_xpath);
 
-			snprintfrr(cur_xpath, sizeof(cur_xpath), "%s%s", VTY_CURR_XPATH, leaf + 1);
-			cur = yang_dnode_get(vty->candidate_config->dnode, cur_xpath);
-			if (cur && !strmatch(yang_dnode_get_string(cur, NULL), mode))
-				continue;
+			if (!mode || (cur && strmatch(yang_dnode_get_string(cur, NULL), mode))) {
+				nb_cli_enqueue_change(vty, leaf, NB_OP_DESTROY, NULL);
+				cleared = true;
+			}
 		}
-		nb_cli_enqueue_change(vty, leaf, NB_OP_DESTROY, NULL);
 
 		if (vrf && !mode) {
 			snprintfrr(leaf, sizeof(leaf), "%s/%s-autort-rfc8365-compatible", af_xpath,
 				   dirs[i]);
-			nb_cli_enqueue_change(vty, leaf, NB_OP_DESTROY, NULL);
+			snprintfrr(cur_xpath, sizeof(cur_xpath), "%s%s", VTY_CURR_XPATH, leaf + 1);
+			if (cand_root && yang_dnode_exists(cand_root, cur_xpath) &&
+			    yang_dnode_get_bool(cand_root, "%s", cur_xpath)) {
+				nb_cli_enqueue_change(vty, leaf, NB_OP_DESTROY, NULL);
+				cleared = true;
+			}
 		}
+	}
+
+	if (no && !cleared) {
+		const char *scope = vrf ? "VRF" : "VNI";
+
+		if (rfc)
+			vty_out(vty,
+				"%% RFC 8365 compatible automatic route-target is not configured for this VRF\n");
+		else if (mode && !deprecated_auto)
+			vty_out(vty,
+				"%% Automatic route-target \"%s\" is not configured for this %s\n",
+				mode, scope);
+		else
+			vty_out(vty, "%% Automatic route-target is not configured for this %s\n",
+				scope);
+		return CMD_WARNING_CONFIG_FAILED;
 	}
 
 	return nb_cli_apply_changes(vty, NULL);
@@ -7654,7 +7931,7 @@ DEFPY_YANG(bgp_evpn_vrf_auto_rt_yang, bgp_evpn_vrf_auto_rt_yang_cmd,
 	   AUTORT_HELP_STR
 	   "Encode the automatic route-target as RFC 8365 compatible (set the VXLAN encapsulation bits in the local admin field)\n")
 {
-	return bgp_evpn_autort_cli(vty, true, false, type, mode);
+	return bgp_evpn_autort_cli(vty, true, false, type, mode, false);
 }
 
 DEFPY_YANG(no_bgp_evpn_vrf_auto_rt_yang, no_bgp_evpn_vrf_auto_rt_yang_cmd,
@@ -7663,7 +7940,7 @@ DEFPY_YANG(no_bgp_evpn_vrf_auto_rt_yang, no_bgp_evpn_vrf_auto_rt_yang_cmd,
 	   AUTORT_HELP_STR
 	   "Encode the automatic route-target as RFC 8365 compatible (set the VXLAN encapsulation bits in the local admin field)\n")
 {
-	return bgp_evpn_autort_cli(vty, true, true, type, mode);
+	return bgp_evpn_autort_cli(vty, true, true, type, mode, false);
 }
 
 /* Deprecated: use "auto-route-target <both|import|export> add-always". */
@@ -7681,7 +7958,7 @@ DEFPY_ATTR(bgp_evpn_vrf_rt_auto_yang, bgp_evpn_vrf_rt_auto_yang_cmd,
 		vty_out(vty,
 			"%% \"%sroute-target %s auto\" is deprecated, use \"%sauto-route-target %s add-always\"\n",
 			no ? "no " : "", type, no ? "no " : "", type);
-		return bgp_evpn_autort_cli(vty, true, !!no, type, "add-always");
+		return bgp_evpn_autort_cli(vty, true, !!no, type, "add-always", true);
 	}
 
 	vty_out(vty, "%% Invalid Route Target type\n");
@@ -7735,9 +8012,27 @@ DEFPY_YANG(no_bgp_evpn_vni_yang, no_bgp_evpn_vni_yang_cmd,
 {
 	char af_xpath[XPATH_MAXLEN];
 	char vni_rel[XPATH_MAXLEN + 256];
+	char vni_abs[XPATH_MAXLEN + 256];
+	struct bgp *bgp = VTY_GET_CONTEXT(bgp);
+	struct bgpevpn *vpn;
+	bool cand_exists = false;
 
 	bgp_cli_global_af_xpath(vty, af_xpath, sizeof(af_xpath));
 	snprintfrr(vni_rel, sizeof(vni_rel), "%s/vni[vni='%" PRId64 "']", af_xpath, vni);
+	snprintfrr(vni_abs, sizeof(vni_abs), "%s%s", VTY_CURR_XPATH, vni_rel + 1);
+	if (vty->candidate_config && vty->candidate_config->dnode)
+		cand_exists = yang_dnode_exists(vty->candidate_config->dnode, vni_abs);
+
+	vpn = bgp ? bgp_evpn_lookup_vni(bgp, (vni_t)vni) : NULL;
+	if (!vpn && !cand_exists) {
+		vty_out(vty, "%% Specified VNI does not exist\n");
+		return CMD_WARNING;
+	}
+	if (vpn && !is_vni_configured(vpn) && !cand_exists) {
+		vty_out(vty, "%% Specified VNI is not configured\n");
+		return CMD_WARNING;
+	}
+
 	nb_cli_enqueue_change(vty, vni_rel, NB_OP_DESTROY, NULL);
 	return nb_cli_apply_changes(vty, NULL);
 }
@@ -7764,6 +8059,11 @@ DEFPY_YANG(bgp_evpn_vni_rd_yang, bgp_evpn_vni_rd_yang_cmd,
 	struct prefix_rd prd;
 	const char *vni_key;
 	vni_t vni = 0;
+
+	if (!bgp_cli_evpn_is_enabled(vty, NULL)) {
+		vty_out(vty, "This command is only supported under EVPN VRF\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
 
 	if (!no) {
 		if (!rd) {
@@ -7810,7 +8110,11 @@ DEFPY_YANG(bgp_evpn_vni_rt_yang, bgp_evpn_vni_rt_yang_cmd,
 	bool do_import = false;
 	bool do_export = false;
 	int idx = 0;
-	int i;
+
+	if (!bgp_cli_evpn_is_enabled(vty, NULL)) {
+		vty_out(vty, "This command is only supported under EVPN VRF\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
 
 	if (strmatch(type, "import"))
 		do_import = true;
@@ -7828,13 +8132,6 @@ DEFPY_YANG(bgp_evpn_vni_rt_yang, bgp_evpn_vni_rt_yang_cmd,
 	if (!idx) {
 		vty_out(vty, "%% Missing RTLIST\n");
 		return CMD_WARNING_CONFIG_FAILED;
-	}
-
-	for (i = idx; i < argc; i++) {
-		if (argv[i]->arg[0] == '*' && do_export) {
-			vty_out(vty, "%% Wildcard '*' only applicable for import\n");
-			return CMD_WARNING_CONFIG_FAILED;
-		}
 	}
 
 	{
@@ -7880,6 +8177,11 @@ DEFPY_YANG(no_bgp_evpn_vni_rt_without_val_yang, no_bgp_evpn_vni_rt_without_val_y
 	struct bgp_cli_vni_rt *entry;
 	char leaf[XPATH_MAXLEN];
 
+	if (!bgp_cli_evpn_is_enabled(vty, NULL)) {
+		vty_out(vty, "This command is only supported under EVPN VRF\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+
 	/*
 	 * Snapshot the values first so the walk of the candidate is finished
 	 * before any change is queued.
@@ -7915,7 +8217,7 @@ DEFPY_YANG(bgp_evpn_vni_auto_rt_yang, bgp_evpn_vni_auto_rt_yang_cmd,
 	   "auto-route-target <both|import|export>$type <add-always|add-never|add-if-no-manual>$mode",
 	   AUTORT_HELP_STR)
 {
-	return bgp_evpn_autort_cli(vty, false, false, type, mode);
+	return bgp_evpn_autort_cli(vty, false, false, type, mode, false);
 }
 
 DEFPY_YANG(no_bgp_evpn_vni_auto_rt_yang, no_bgp_evpn_vni_auto_rt_yang_cmd,
@@ -7923,7 +8225,7 @@ DEFPY_YANG(no_bgp_evpn_vni_auto_rt_yang, no_bgp_evpn_vni_auto_rt_yang_cmd,
 	   NO_STR
 	   AUTORT_HELP_STR)
 {
-	return bgp_evpn_autort_cli(vty, false, true, type, mode);
+	return bgp_evpn_autort_cli(vty, false, true, type, mode, false);
 }
 
 DEFPY_YANG(bgp_evpn_vni_advertise_default_gw_yang,
@@ -7947,12 +8249,23 @@ DEFPY_YANG(bgp_evpn_vni_advertise_svi_ip_yang,
 	return nb_cli_apply_changes(vty, NULL);
 }
 
-DEFPY_YANG(bgp_evpn_vni_advertise_subnet_yang,
+DEFPY_ATTR(bgp_evpn_vni_advertise_subnet_yang,
 	   bgp_evpn_vni_advertise_subnet_yang_cmd,
 	   "[no] advertise-subnet",
 	   NO_STR
-	   "Advertise the subnet corresponding to VNI\n")
+	   "Advertise the subnet corresponding to VNI\n",
+	   CMD_ATTR_YANG | CMD_ATTR_HIDDEN)
 {
+	if (!no) {
+		struct bgp *bgp = VTY_GET_CONTEXT(bgp);
+		const char *vni_key = vty->xpath_index > 0 ? strstr(VTY_CURR_XPATH, "vni[vni='")
+							   : NULL;
+		vni_t vni = vni_key ? (vni_t)strtoul(vni_key + strlen("vni[vni='"), NULL, 10) : 0;
+		struct bgpevpn *vpn = (bgp && vni) ? bgp_evpn_lookup_vni(bgp, vni) : NULL;
+
+		if (!vpn || !bgp_lookup_by_vrf_id(vpn->tenant_vrf_id))
+			return CMD_WARNING;
+	}
 	nb_cli_enqueue_change(vty, "./advertise-subnet", NB_OP_MODIFY, no ? "false" : "true");
 	return nb_cli_apply_changes(vty, NULL);
 }
