@@ -38,11 +38,13 @@ DEFUN (rfp_example_config_value,
 	uint32_t value = 0;
 	struct rfp_instance_t *rfi = NULL;
 	rfi = rfapi_get_rfp_start_val(VTY_GET_CONTEXT(bgp)); /* BGP_NODE */
-	assert(rfi != NULL);
+	if (!rfi) {
+		vty_out(vty, "VNC operations only permitted on default BGP instance.\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
 
 	value = strtoul(argv[2]->arg, NULL, 10);
-	if (rfi)
-		rfi->config_var = value;
+	rfi->config_var = value;
 	return CMD_SUCCESS;
 }
 
@@ -187,15 +189,6 @@ static int rfp_cfg_write_cb(struct vty *vty, void *rfp_start_val)
 	if (rfi->config_var != 0) {
 		vty_out(vty, " rfp example-config-value %u", rfi->config_var);
 		vty_out(vty, "\n");
-		write++;
-	}
-	if (rfi->rfapi_config.holddown_factor != 0) {
-		vty_out(vty, " rfp holddown-factor %u\n",
-			rfi->rfapi_config.holddown_factor);
-		write++;
-	}
-	if (rfi->rfapi_config.download_type == RFAPI_RFP_DOWNLOAD_FULL) {
-		vty_out(vty, " rfp full-table-download on\n");
 		write++;
 	}
 	return write;

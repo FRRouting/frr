@@ -13,6 +13,10 @@
 
 extern const struct frr_yang_module_info frr_bgp_vnc_info;
 
+struct bgp *bgp_nb_vnc_get_bgp(const struct lyd_node *dnode);
+int vnc_nb_parse_rd(const char *rd_str, struct prefix_rd *prd, bool is_vrf_policy);
+void vnc_cli_show_rfp_cfg_cb(struct vty *vty, struct bgp *bgp);
+
 int bgp_global_vnc_create(struct nb_cb_create_args *args);
 int bgp_global_vnc_rfp_holddown_factor_modify(struct nb_cb_modify_args *args);
 int bgp_global_vnc_rfp_full_table_download_modify(struct nb_cb_modify_args *args);

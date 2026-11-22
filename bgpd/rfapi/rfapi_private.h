@@ -171,6 +171,7 @@ struct rfapi {
 	 * be overridden per-rfd (currently used only for debug/test scenarios)
 	 */
 	struct rfapi_rfp_cb_methods rfp_methods;
+	struct rfapi_rfp_cfg *rfp_cfg_orig;
 
 	/*
 	 * Import tables for Ethernet over IPSEC

@@ -13,11 +13,53 @@
 #include "frrstr.h"
 
 #include "bgpd/bgpd.h"
+#include "bgpd/bgp_ecommunity.h"
 #include "bgpd/bgp_vty.h"
 #include "bgpd/bgp_vnc_nb.h"
 #include "bgpd/rfapi/bgp_rfapi_cfg.h"
+#include "bgpd/rfapi/rfapi.h"
+#include "bgpd/rfapi/rfapi_private.h"
 
 #include "bgpd/bgp_vnc_cli_clippy.c"
+
+void vnc_cli_show_rfp_cfg_cb(struct vty *vty, struct bgp *bgp)
+{
+	if (bgp && bgp->inst_type == BGP_INSTANCE_TYPE_DEFAULT && bgp->rfapi &&
+	    bgp->rfapi->rfp_methods.cfg_cb)
+		bgp->rfapi->rfp_methods.cfg_cb(vty, bgp->rfapi->rfp);
+}
+
+static const struct lyd_node *vnc_cli_candidate_get(struct vty *vty, const char *rel_xpath)
+{
+	const struct lyd_node *cur;
+
+	if (!vty->candidate_config || !vty->candidate_config->dnode)
+		return NULL;
+	cur = yang_dnode_get(vty->candidate_config->dnode, VTY_CURR_XPATH);
+	if (!cur)
+		return NULL;
+	if (!rel_xpath)
+		return cur;
+	return yang_dnode_get(cur, rel_xpath);
+}
+
+static int vnc_cli_filter_apply(struct vty *vty, const char *xpath, bool no, const char *name)
+{
+	if (no) {
+		if (name) {
+			const struct lyd_node *dnode = vnc_cli_candidate_get(vty, xpath);
+
+			if (!dnode || !strmatch(yang_dnode_get_string(dnode, NULL), name)) {
+				vty_out(vty, "%% Filter name \"%s\" does not match\n", name);
+				return CMD_WARNING_CONFIG_FAILED;
+			}
+		}
+		nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
+	} else {
+		nb_cli_enqueue_change(vty, xpath, NB_OP_MODIFY, name);
+	}
+	return nb_cli_apply_changes(vty, NULL);
+}
 
 /*
  * LIFETIME is any token. A non-numeric word is stored as 0, which is what
@@ -172,6 +214,10 @@ DEFPY_YANG(no_vnc_nve_group_cli,
 	char xpath[XPATH_MAXLEN];
 
 	snprintfrr(xpath, sizeof(xpath), "./frr-bgp-vnc:vnc/nve-group[name='%s']", name);
+	if (!vnc_cli_candidate_get(vty, xpath)) {
+		vty_out(vty, "No NVE group named \"%s\"\n", name);
+		return CMD_WARNING_CONFIG_FAILED;
+	}
 	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
 	return nb_cli_apply_changes(vty, NULL);
 }
@@ -256,6 +302,10 @@ DEFPY_YANG(no_vrf_policy_cli,
 	char xpath[XPATH_MAXLEN];
 
 	snprintfrr(xpath, sizeof(xpath), "./frr-bgp-vnc:vnc/vrf-policy[name='%s']", name);
+	if (!vnc_cli_candidate_get(vty, xpath)) {
+		vty_out(vty, "No NVE group named \"%s\"\n", name);
+		return CMD_WARNING_CONFIG_FAILED;
+	}
 	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
 	return nb_cli_apply_changes(vty, NULL);
 }
@@ -356,9 +406,38 @@ DEFPY_YANG(vnc_export_bgp_group_nve_cli,
 	return nb_cli_apply_changes(vty, NULL);
 }
 
+static int vnc_cli_no_export_group_nve(struct vty *vty, const char *proto, const char *name)
+{
+	char xpath[XPATH_MAXLEN];
+
+	if (name) {
+		snprintfrr(xpath, sizeof(xpath),
+			   "./frr-bgp-vnc:vnc/export/%s/group-nve-group[.='%s']", proto, name);
+		nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
+		return nb_cli_apply_changes(vty, NULL);
+	}
+
+	snprintfrr(xpath, sizeof(xpath), "./frr-bgp-vnc:vnc/export/%s", proto);
+	const struct lyd_node *exp = vnc_cli_candidate_get(vty, xpath);
+
+	if (exp) {
+		const struct lyd_node *child;
+
+		LY_LIST_FOR (lyd_child(exp), child) {
+			if (strcmp(child->schema->name, "group-nve-group"))
+				continue;
+			snprintfrr(xpath, sizeof(xpath),
+				   "./frr-bgp-vnc:vnc/export/%s/group-nve-group[.='%s']", proto,
+				   lyd_get_value(child));
+			nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
+		}
+	}
+	return nb_cli_apply_changes(vty, NULL);
+}
+
 DEFPY_YANG(no_vnc_export_bgp_group_nve_cli,
 	no_vnc_export_bgp_group_nve_cli_cmd,
-	"no vnc export bgp group-nve group WORD$name",
+	"no vnc export bgp group-nve group [WORD$name]",
 	NO_STR
 	"VNC/RFAPI configuration\n"
 	"Export to other protocols\n"
@@ -367,16 +446,11 @@ DEFPY_YANG(no_vnc_export_bgp_group_nve_cli,
 	"Specify NVE group\n"
 	"NVE group name\n")
 {
-	char xpath[XPATH_MAXLEN];
-
-	snprintfrr(xpath, sizeof(xpath), "./frr-bgp-vnc:vnc/export/bgp/group-nve-group[.='%s']",
-		   name);
-	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
-	return nb_cli_apply_changes(vty, NULL);
+	return vnc_cli_no_export_group_nve(vty, "bgp", name);
 }
 
 ALIAS_ATTR(no_vnc_export_bgp_group_nve_cli, vnc_export_bgp_group_nve_no_group_cmd,
-	   "vnc export bgp group-nve no group WORD$name",
+	   "vnc export bgp group-nve no group [WORD$name]",
 	   "VNC/RFAPI configuration\n"
 	   "Export to other protocols\n"
 	   "Export to BGP\n"
@@ -428,7 +502,7 @@ DEFPY_YANG(vnc_export_zebra_group_nve_cli,
 
 DEFPY_YANG(no_vnc_export_zebra_group_nve_cli,
 	   no_vnc_export_zebra_group_nve_cli_cmd,
-	   "no vnc export zebra group-nve group WORD$name",
+	   "no vnc export zebra group-nve group [WORD$name]",
 	   NO_STR
 	   "VNC/RFAPI configuration\n"
 	   "Export to other protocols\n"
@@ -437,16 +511,11 @@ DEFPY_YANG(no_vnc_export_zebra_group_nve_cli,
 	   "Specify NVE group\n"
 	   "NVE group name\n")
 {
-	char xpath[XPATH_MAXLEN];
-
-	snprintfrr(xpath, sizeof(xpath),
-		   "./frr-bgp-vnc:vnc/export/zebra/group-nve-group[.='%s']", name);
-	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
-	return nb_cli_apply_changes(vty, NULL);
+	return vnc_cli_no_export_group_nve(vty, "zebra", name);
 }
 
 ALIAS_ATTR(no_vnc_export_zebra_group_nve_cli, vnc_export_zebra_group_nve_no_group_cmd,
-	   "vnc export zebra group-nve no group WORD$name",
+	   "vnc export zebra group-nve no group [WORD$name]",
 	   "VNC/RFAPI configuration\n"
 	   "Export to other protocols\n"
 	   "Export to Zebra (experimental)\n"
@@ -499,6 +568,12 @@ DEFPY_YANG(vnc_redistribute_source_cli,
 		snprintfrr(xpath, sizeof(xpath),
 			   "./frr-bgp-vnc:vnc/redistribute/ipv6-source[.='%s']", source);
 	nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
+	if (!strcmp(source, "bgp-direct-to-nve-groups") &&
+	    vnc_cli_candidate_get(vty,
+				  "./frr-bgp-vnc:vnc/redistribute/bgp-direct-to-nve-groups-view"))
+		nb_cli_enqueue_change(vty,
+				      "./frr-bgp-vnc:vnc/redistribute/bgp-direct-to-nve-groups-view",
+				      NB_OP_DESTROY, NULL);
 	return nb_cli_apply_changes(vty, NULL);
 }
 
@@ -520,15 +595,22 @@ DEFPY_YANG(no_vnc_redistribute_source_cli,
 	"Static routes\n")
 {
 	char xpath[XPATH_MAXLEN];
+	const char *other_xpath;
 
-	if (!strcmp(afi, "ipv4"))
+	if (!strcmp(afi, "ipv4")) {
 		snprintfrr(xpath, sizeof(xpath),
 			   "./frr-bgp-vnc:vnc/redistribute/ipv4-source[.='%s']", source);
-	else
+		other_xpath =
+			"./frr-bgp-vnc:vnc/redistribute/ipv6-source[.='bgp-direct-to-nve-groups']";
+	} else {
 		snprintfrr(xpath, sizeof(xpath),
 			   "./frr-bgp-vnc:vnc/redistribute/ipv6-source[.='%s']", source);
+		other_xpath =
+			"./frr-bgp-vnc:vnc/redistribute/ipv4-source[.='bgp-direct-to-nve-groups']";
+	}
 	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
-	if (!strcmp(source, "bgp-direct-to-nve-groups"))
+	if (!strcmp(source, "bgp-direct-to-nve-groups") &&
+	    !vnc_cli_candidate_get(vty, other_xpath))
 		nb_cli_enqueue_change(vty,
 				      "./frr-bgp-vnc:vnc/redistribute/bgp-direct-to-nve-groups-view",
 				      NB_OP_DESTROY, NULL);
@@ -614,21 +696,100 @@ DEFPY_YANG(vnc_redistribute_bgp_exterior_cli,
 	return nb_cli_apply_changes(vty, NULL);
 }
 
-/* RFP holddown-factor and full-table-download are rfp-example commands. */
+/* --- RFP holddown-factor and full-table-download --- */
 
-/* Helper to emit RT lines: compares import/export and emits "rt both" if equal */
+DEFPY_YANG(rfp_holddown_factor_cli,
+	   rfp_holddown_factor_cli_cmd,
+	   "rfp holddown-factor (0-4294967295)$factor",
+	   "RFP configuration\n"
+	   "Set holddown factor as percentage of registration lifetime\n"
+	   "Percentage of registration lifetime\n")
+{
+	nb_cli_enqueue_change(vty, "./frr-bgp-vnc:vnc/rfp/holddown-factor", NB_OP_MODIFY,
+			      factor_str);
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFPY_YANG(rfp_full_table_download_cli,
+	   rfp_full_table_download_cli_cmd,
+	   "rfp full-table-download <on|off>$mode",
+	   "RFP configuration\n"
+	   "Enable/disable full table download\n"
+	   "Enable full table download\n"
+	   "Disable full table download\n")
+{
+	nb_cli_enqueue_change(vty, "./frr-bgp-vnc:vnc/rfp/full-table-download", NB_OP_MODIFY, mode);
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+static void vnc_rd_cli_show_helper(struct vty *vty, const char *rd_str, bool is_vrf_policy,
+				   const char *indent)
+{
+	struct prefix_rd prd;
+
+	if (!vnc_nb_parse_rd(rd_str, &prd, is_vrf_policy)) {
+		if (prd.family == AF_UNIX) {
+			uint16_t nn = ((prd.val[6] << 8) & 0xff00) | (prd.val[7] & 0x00ff);
+
+			vty_out(vty, "%srd auto:%s:%u\n", indent, is_vrf_policy ? "nh" : "vn", nn);
+		} else {
+			vty_out(vty, "%srd %pRDP\n", indent, &prd);
+		}
+	} else {
+		vty_out(vty, "%srd %s\n", indent, rd_str);
+	}
+}
+
+static void vnc_prefix_cli_show_helper(struct vty *vty, const char *which, const char *pfx_str,
+				       const char *indent)
+{
+	struct prefix p;
+
+	if (str2prefix(pfx_str, &p)) {
+		apply_mask(&p);
+		vty_out(vty, "%sprefix %s %pFX\n", indent, which, &p);
+	} else {
+		vty_out(vty, "%sprefix %s %s\n", indent, which, pfx_str);
+	}
+}
+
+/* Helper to emit RT lines: compares canonical ecommunities and emits "rt both" if equal */
 static void vnc_rt_cli_show_helper(struct vty *vty, const struct lyd_node *dnode,
 				   const char *indent)
 {
 	const char *rt_import = NULL;
 	const char *rt_export = NULL;
+	struct ecommunity *ec_imp = NULL;
+	struct ecommunity *ec_exp = NULL;
 
-	if (yang_dnode_exists(dnode, "rt-import"))
+	if (yang_dnode_exists(dnode, "rt-import")) {
 		rt_import = yang_dnode_get_string(dnode, "rt-import");
-	if (yang_dnode_exists(dnode, "rt-export"))
+		ec_imp = ecommunity_str2com(rt_import, ECOMMUNITY_ROUTE_TARGET, 0);
+	}
+	if (yang_dnode_exists(dnode, "rt-export")) {
 		rt_export = yang_dnode_get_string(dnode, "rt-export");
+		ec_exp = ecommunity_str2com(rt_export, ECOMMUNITY_ROUTE_TARGET, 0);
+	}
 
-	if (rt_import && rt_export && !strcmp(rt_import, rt_export)) {
+	if (ec_imp && ec_exp && ecommunity_cmp(ec_imp, ec_exp)) {
+		char *b = ecommunity_ecom2str(ec_imp, ECOMMUNITY_FORMAT_ROUTE_MAP,
+					      ECOMMUNITY_ROUTE_TARGET);
+		vty_out(vty, "%srt both %s\n", indent, b);
+		XFREE(MTYPE_ECOMMUNITY_STR, b);
+	} else if (ec_imp || ec_exp) {
+		if (ec_imp) {
+			char *b = ecommunity_ecom2str(ec_imp, ECOMMUNITY_FORMAT_ROUTE_MAP,
+						      ECOMMUNITY_ROUTE_TARGET);
+			vty_out(vty, "%srt import %s\n", indent, b);
+			XFREE(MTYPE_ECOMMUNITY_STR, b);
+		}
+		if (ec_exp) {
+			char *b = ecommunity_ecom2str(ec_exp, ECOMMUNITY_FORMAT_ROUTE_MAP,
+						      ECOMMUNITY_ROUTE_TARGET);
+			vty_out(vty, "%srt export %s\n", indent, b);
+			XFREE(MTYPE_ECOMMUNITY_STR, b);
+		}
+	} else if (rt_import && rt_export && !strcmp(rt_import, rt_export)) {
 		vty_out(vty, "%srt both %s\n", indent, rt_import);
 	} else {
 		if (rt_import)
@@ -636,68 +797,123 @@ static void vnc_rt_cli_show_helper(struct vty *vty, const struct lyd_node *dnode
 		if (rt_export)
 			vty_out(vty, "%srt export %s\n", indent, rt_export);
 	}
+
+	if (ec_imp)
+		ecommunity_free(&ec_imp);
+	if (ec_exp)
+		ecommunity_free(&ec_exp);
+}
+
+static bool vnc_defaults_has_nondefault(const struct lyd_node *dnode, bool show_defaults)
+{
+	if (yang_dnode_exists(dnode, "rd") || yang_dnode_exists(dnode, "l2rd") ||
+	    yang_dnode_exists(dnode, "rt-import") || yang_dnode_exists(dnode, "rt-export"))
+		return true;
+	if (yang_dnode_exists(dnode, "response-lifetime")) {
+		const char *val = yang_dnode_get_string(dnode, "response-lifetime");
+
+		if (show_defaults || strcmp(val, "3600") != 0)
+			return true;
+	}
+	return false;
+}
+
+static bool vnc_defaults_should_show(const struct lyd_node *dnode, bool show_defaults)
+{
+	const struct lyd_node *vnc = lyd_parent(dnode);
+
+	if (vnc_defaults_has_nondefault(dnode, show_defaults))
+		return true;
+	if (vnc && yang_dnode_exists(vnc, "./nve-group"))
+		return true;
+	return false;
 }
 
 void vnc_cli_show(struct vty *vty, const struct lyd_node *dnode, bool show_defaults)
 {
-	/* The vnc presence container itself doesn't emit anything.
-	 * Children (rfp, defaults, nve-group, etc.) handle their own output.
+	/*
+	 * Classic bgp_rfapi_cfg_write() always emits "vnc defaults" when any
+	 * NVE group exists, even if no explicit default leaves were set.
 	 */
+	if (!yang_dnode_exists(dnode, "./defaults") && yang_dnode_exists(dnode, "./nve-group")) {
+		struct bgp *bgp = bgp_nb_vnc_get_bgp(dnode);
+
+		vty_out(vty, " vnc defaults\n");
+		if (bgp && bgp->rfapi && bgp->rfapi_cfg && bgp->rfapi->rfp_methods.cfg_group_cb)
+			bgp->rfapi->rfp_methods.cfg_group_cb(vty, bgp->rfapi->rfp,
+							     RFAPI_RFP_CFG_GROUP_DEFAULT, NULL,
+							     bgp->rfapi_cfg->default_rfp_cfg);
+		vty_out(vty, "  exit-vnc\n");
+	}
 }
 
 void vnc_rfp_cli_show(struct vty *vty, const struct lyd_node *dnode, bool show_defaults)
 {
-	/* rfp-example owns these lines. Do not write commands bgpd will not accept. */
-	(void)vty;
-	(void)dnode;
-	(void)show_defaults;
-	if (0) {
-	/* Match baseline rfp_cfg_write_cb: only display non-default values */
 	if (yang_dnode_exists(dnode, "holddown-factor")) {
 		uint32_t val = yang_dnode_get_uint32(dnode, "holddown-factor");
 
-		if (val != 0)
+		if (val != 0 || show_defaults)
 			vty_out(vty, " rfp holddown-factor %u\n", val);
 	}
 	if (yang_dnode_exists(dnode, "full-table-download")) {
 		const char *mode = yang_dnode_get_string(dnode, "full-table-download");
 
-		/* Baseline only displays when non-default (off) */
-		if (!strcmp(mode, "off"))
-			vty_out(vty, " rfp full-table-download off\n");
-	}
+		if (!strcmp(mode, "on") || show_defaults)
+			vty_out(vty, " rfp full-table-download %s\n", mode);
 	}
 }
 
 void vnc_defaults_cli_show(struct vty *vty, const struct lyd_node *dnode, bool show_defaults)
 {
+	struct bgp *bgp;
+
+	if (!vnc_defaults_should_show(dnode, show_defaults))
+		return;
+
 	vty_out(vty, " vnc defaults\n");
 
 	if (yang_dnode_exists(dnode, "rd"))
-		vty_out(vty, "  rd %s\n", yang_dnode_get_string(dnode, "rd"));
-	if (yang_dnode_exists(dnode, "response-lifetime"))
-		vty_out(vty, "  response-lifetime %s\n",
-			yang_dnode_get_string(dnode, "response-lifetime"));
+		vnc_rd_cli_show_helper(vty, yang_dnode_get_string(dnode, "rd"), false, "  ");
+	if (yang_dnode_exists(dnode, "response-lifetime")) {
+		const char *val = yang_dnode_get_string(dnode, "response-lifetime");
+
+		if (show_defaults || strcmp(val, "3600") != 0)
+			vty_out(vty, "  response-lifetime %s\n", val);
+	}
 	if (yang_dnode_exists(dnode, "l2rd"))
 		vty_out(vty, "  l2rd %s\n", yang_dnode_get_string(dnode, "l2rd"));
 	vnc_rt_cli_show_helper(vty, dnode, "  ");
+
+	bgp = bgp_nb_vnc_get_bgp(dnode);
+	if (bgp && bgp->rfapi && bgp->rfapi_cfg && bgp->rfapi->rfp_methods.cfg_group_cb)
+		bgp->rfapi->rfp_methods.cfg_group_cb(vty, bgp->rfapi->rfp,
+						     RFAPI_RFP_CFG_GROUP_DEFAULT, NULL,
+						     bgp->rfapi_cfg->default_rfp_cfg);
 }
 
 void vnc_defaults_cli_show_end(struct vty *vty, const struct lyd_node *dnode)
 {
+	if (!vnc_defaults_should_show(dnode, false))
+		return;
 	vty_out(vty, "  exit-vnc\n");
 }
 
 void vnc_nve_group_cli_show(struct vty *vty, const struct lyd_node *dnode, bool show_defaults)
 {
-	vty_out(vty, " vnc nve-group %s\n", yang_dnode_get_string(dnode, "name"));
+	const char *name = yang_dnode_get_string(dnode, "name");
+	struct bgp *bgp = bgp_nb_vnc_get_bgp(dnode);
+	struct rfapi_nve_group_cfg *rfg = nb_running_get_entry_non_rec(dnode, NULL, false);
+
+	vty_out(vty, " vnc nve-group %s\n", name);
 
 	if (yang_dnode_exists(dnode, "prefix-vn"))
-		vty_out(vty, "  prefix vn %s\n", yang_dnode_get_string(dnode, "prefix-vn"));
+		vnc_prefix_cli_show_helper(vty, "vn", yang_dnode_get_string(dnode, "prefix-vn"),
+					   "  ");
 	if (yang_dnode_exists(dnode, "prefix-un"))
-		vty_out(vty, "  prefix un %s\n", yang_dnode_get_string(dnode, "prefix-un"));
+		vnc_prefix_cli_show_helper(vty, "un", yang_dnode_get_string(dnode, "prefix-un"),
+					   "  ");
 	if (yang_dnode_exists(dnode, "rd"))
-		vty_out(vty, "  rd %s\n", yang_dnode_get_string(dnode, "rd"));
+		vnc_rd_cli_show_helper(vty, yang_dnode_get_string(dnode, "rd"), false, "  ");
 	if (yang_dnode_exists(dnode, "response-lifetime"))
 		vty_out(vty, "  response-lifetime %s\n",
 			yang_dnode_get_string(dnode, "response-lifetime"));
@@ -731,6 +947,11 @@ void vnc_nve_group_cli_show(struct vty *vty, const struct lyd_node *dnode, bool 
 	if (yang_dnode_exists(dnode, "bgp-direct-route-map"))
 		vty_out(vty, "  redistribute bgp-direct route-map %s\n",
 			yang_dnode_get_string(dnode, "bgp-direct-route-map"));
+
+	if (bgp && bgp->rfapi && bgp->rfapi->rfp_methods.cfg_group_cb)
+		bgp->rfapi->rfp_methods.cfg_group_cb(vty, bgp->rfapi->rfp,
+						     RFAPI_RFP_CFG_GROUP_NVE, name,
+						     rfg ? rfg->rfp_cfg : NULL);
 }
 
 void vnc_nve_group_cli_show_end(struct vty *vty, const struct lyd_node *dnode)
@@ -745,7 +966,7 @@ void vnc_vrf_policy_cli_show(struct vty *vty, const struct lyd_node *dnode, bool
 	if (yang_dnode_exists(dnode, "label"))
 		vty_out(vty, "  label %s\n", yang_dnode_get_string(dnode, "label"));
 	if (yang_dnode_exists(dnode, "rd"))
-		vty_out(vty, "  rd %s\n", yang_dnode_get_string(dnode, "rd"));
+		vnc_rd_cli_show_helper(vty, yang_dnode_get_string(dnode, "rd"), true, "  ");
 	vnc_rt_cli_show_helper(vty, dnode, "  ");
 	if (yang_dnode_exists(dnode, "nexthop"))
 		vty_out(vty, "  nexthop %s\n", yang_dnode_get_string(dnode, "nexthop"));
@@ -909,11 +1130,7 @@ DEFPY_YANG(vnc_redist_bgpdirect_prefixlist_cli,
 
 	snprintfrr(xpath, sizeof(xpath), "./frr-bgp-vnc:vnc/redistribute/%s-%s-prefix-list", proto,
 		   afi);
-	if (no)
-		nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
-	else
-		nb_cli_enqueue_change(vty, xpath, NB_OP_MODIFY, name);
-	return nb_cli_apply_changes(vty, NULL);
+	return vnc_cli_filter_apply(vty, xpath, no, name);
 }
 
 DEFPY_YANG(vnc_redist_bgpdirect_routemap_cli,
@@ -930,11 +1147,7 @@ DEFPY_YANG(vnc_redist_bgpdirect_routemap_cli,
 	char xpath[XPATH_MAXLEN];
 
 	snprintfrr(xpath, sizeof(xpath), "./frr-bgp-vnc:vnc/redistribute/%s-route-map", proto);
-	if (no)
-		nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
-	else
-		nb_cli_enqueue_change(vty, xpath, NB_OP_MODIFY, name);
-	return nb_cli_apply_changes(vty, NULL);
+	return vnc_cli_filter_apply(vty, xpath, no, name);
 }
 
 DEFPY_YANG(vnc_nve_export_prefixlist_cli,
@@ -953,11 +1166,7 @@ DEFPY_YANG(vnc_nve_export_prefixlist_cli,
 	char xpath[XPATH_MAXLEN];
 
 	snprintfrr(xpath, sizeof(xpath), "./frr-bgp-vnc:vnc/export/%s/%s-prefix-list", proto, afi);
-	if (no)
-		nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
-	else
-		nb_cli_enqueue_change(vty, xpath, NB_OP_MODIFY, name);
-	return nb_cli_apply_changes(vty, NULL);
+	return vnc_cli_filter_apply(vty, xpath, no, name);
 }
 
 DEFPY_YANG(vnc_nve_export_routemap_cli,
@@ -974,11 +1183,7 @@ DEFPY_YANG(vnc_nve_export_routemap_cli,
 	char xpath[XPATH_MAXLEN];
 
 	snprintfrr(xpath, sizeof(xpath), "./frr-bgp-vnc:vnc/export/%s/route-map", proto);
-	if (no)
-		nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
-	else
-		nb_cli_enqueue_change(vty, xpath, NB_OP_MODIFY, name);
-	return nb_cli_apply_changes(vty, NULL);
+	return vnc_cli_filter_apply(vty, xpath, no, name);
 }
 
 DEFPY_YANG(vnc_nve_group_redist_bgpdirect_prefixlist_cli,
@@ -995,11 +1200,7 @@ DEFPY_YANG(vnc_nve_group_redist_bgpdirect_prefixlist_cli,
 	char xpath[XPATH_MAXLEN];
 
 	snprintfrr(xpath, sizeof(xpath), "./bgp-direct-%s-prefix-list", afi);
-	if (no)
-		nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
-	else
-		nb_cli_enqueue_change(vty, xpath, NB_OP_MODIFY, name);
-	return nb_cli_apply_changes(vty, NULL);
+	return vnc_cli_filter_apply(vty, xpath, no, name);
 }
 
 DEFPY_YANG(vnc_nve_group_redist_bgpdirect_routemap_cli,
@@ -1011,11 +1212,7 @@ DEFPY_YANG(vnc_nve_group_redist_bgpdirect_routemap_cli,
 	   "Route-map for filtering redistributed routes\n"
 	   "Route map name\n")
 {
-	if (no)
-		nb_cli_enqueue_change(vty, "./bgp-direct-route-map", NB_OP_DESTROY, NULL);
-	else
-		nb_cli_enqueue_change(vty, "./bgp-direct-route-map", NB_OP_MODIFY, name);
-	return nb_cli_apply_changes(vty, NULL);
+	return vnc_cli_filter_apply(vty, "./bgp-direct-route-map", no, name);
 }
 
 DEFPY_YANG(vnc_nve_group_export_prefixlist_cli,
@@ -1033,11 +1230,7 @@ DEFPY_YANG(vnc_nve_group_export_prefixlist_cli,
 	char xpath[XPATH_MAXLEN];
 
 	snprintfrr(xpath, sizeof(xpath), "./%s-export-%s-prefix-list", proto, afi);
-	if (no)
-		nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
-	else
-		nb_cli_enqueue_change(vty, xpath, NB_OP_MODIFY, name);
-	return nb_cli_apply_changes(vty, NULL);
+	return vnc_cli_filter_apply(vty, xpath, no, name);
 }
 
 DEFPY_YANG(vnc_nve_group_export_routemap_cli,
@@ -1053,11 +1246,7 @@ DEFPY_YANG(vnc_nve_group_export_routemap_cli,
 	char xpath[XPATH_MAXLEN];
 
 	snprintfrr(xpath, sizeof(xpath), "./%s-export-route-map", proto);
-	if (no)
-		nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
-	else
-		nb_cli_enqueue_change(vty, xpath, NB_OP_MODIFY, name);
-	return nb_cli_apply_changes(vty, NULL);
+	return vnc_cli_filter_apply(vty, xpath, no, name);
 }
 
 DEFPY_YANG(vnc_vrf_policy_export_prefixlist_cli,
@@ -1073,11 +1262,7 @@ DEFPY_YANG(vnc_vrf_policy_export_prefixlist_cli,
 	char xpath[XPATH_MAXLEN];
 
 	snprintfrr(xpath, sizeof(xpath), "./%s-export-prefix-list", afi);
-	if (no)
-		nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
-	else
-		nb_cli_enqueue_change(vty, xpath, NB_OP_MODIFY, name);
-	return nb_cli_apply_changes(vty, NULL);
+	return vnc_cli_filter_apply(vty, xpath, no, name);
 }
 
 DEFPY_YANG(vnc_vrf_policy_export_routemap_cli,
@@ -1088,11 +1273,7 @@ DEFPY_YANG(vnc_vrf_policy_export_routemap_cli,
 	   "Route-map for filtering exported routes\n"
 	   "Route map name\n")
 {
-	if (no)
-		nb_cli_enqueue_change(vty, "./export-route-map", NB_OP_DESTROY, NULL);
-	else
-		nb_cli_enqueue_change(vty, "./export-route-map", NB_OP_MODIFY, name);
-	return nb_cli_apply_changes(vty, NULL);
+	return vnc_cli_filter_apply(vty, "./export-route-map", no, name);
 }
 
 /* --- advertise-un-method --- */
@@ -1164,6 +1345,10 @@ DEFPY_YANG(no_vnc_l2_group_cli, no_vnc_l2_group_cli_cmd,
 	char xpath[XPATH_MAXLEN];
 
 	snprintfrr(xpath, sizeof(xpath), "./frr-bgp-vnc:vnc/l2-group[name='%s']", name);
+	if (!vnc_cli_candidate_get(vty, xpath)) {
+		vty_out(vty, "No L2 group named \"%s\"\n", name);
+		return CMD_WARNING_CONFIG_FAILED;
+	}
 	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
 	return nb_cli_apply_changes(vty, NULL);
 }
@@ -1227,8 +1412,11 @@ void vnc_advertise_un_method_cli_show(struct vty *vty, const struct lyd_node *dn
 void vnc_l2_group_cli_show(struct vty *vty, const struct lyd_node *dnode, bool show_defaults)
 {
 	const struct lyd_node *child;
+	const char *name = yang_dnode_get_string(dnode, "name");
+	struct bgp *bgp = bgp_nb_vnc_get_bgp(dnode);
+	struct rfapi_l2_group_cfg *rfgc = nb_running_get_entry_non_rec(dnode, NULL, false);
 
-	vty_out(vty, " vnc l2-group %s\n", yang_dnode_get_string(dnode, "name"));
+	vty_out(vty, " vnc l2-group %s\n", name);
 	if (yang_dnode_exists(dnode, "logical-network-id") &&
 	    yang_dnode_get_uint32(dnode, "logical-network-id") != 0)
 		vty_out(vty, "  logical-network-id %u\n",
@@ -1250,6 +1438,10 @@ void vnc_l2_group_cli_show(struct vty *vty, const struct lyd_node *dnode, bool s
 			vty_out(vty, "\n");
 	}
 	vnc_rt_cli_show_helper(vty, dnode, "  ");
+	if (bgp && bgp->rfapi && bgp->rfapi->rfp_methods.cfg_group_cb)
+		bgp->rfapi->rfp_methods.cfg_group_cb(vty, bgp->rfapi->rfp,
+						     RFAPI_RFP_CFG_GROUP_L2, name,
+						     rfgc ? rfgc->rfp_cfg : NULL);
 }
 
 void vnc_l2_group_cli_show_end(struct vty *vty, const struct lyd_node *dnode)
@@ -1294,6 +1486,8 @@ void bgp_vnc_cli_init(void)
 	install_element(BGP_NODE, &vnc_redist_bgpdirect_routemap_cli_cmd);
 	install_element(BGP_NODE, &vnc_nve_export_prefixlist_cli_cmd);
 	install_element(BGP_NODE, &vnc_nve_export_routemap_cli_cmd);
+	install_element(BGP_NODE, &rfp_holddown_factor_cli_cmd);
+	install_element(BGP_NODE, &rfp_full_table_download_cli_cmd);
 
 	install_element(BGP_VNC_DEFAULTS_NODE, &vnc_defaults_rd_cli_cmd);
 	install_element(BGP_VNC_DEFAULTS_NODE, &vnc_defaults_response_lifetime_cli_cmd);

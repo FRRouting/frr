@@ -24,6 +24,9 @@
 #include "bgpd/bgpd.h"
 #include "bgpd/bgp_open.h"
 #include "bgpd/bgp_nb.h"
+#if ENABLE_BGP_VNC
+#include "bgpd/bgp_vnc_nb.h"
+#endif
 #include "bgpd/bgp_vty.h"
 #include "bgpd/bgp_mplsvpn.h"
 #include "bgpd/bgp_addpath.h"
@@ -1006,6 +1009,10 @@ void bgp_nb_cli_show_instance(struct vty *vty, const struct lyd_node *bgp)
 			vty_endframe(vty, " exit-address-family\n");
 		}
 	}
+
+#if ENABLE_BGP_VNC
+	vnc_cli_show_rfp_cfg_cb(vty, nb_running_get_entry_non_rec(bgp, NULL, false));
+#endif
 
 	vnc = yang_dnode_get(bgp, "frr-bgp-vnc:vnc");
 	if (vnc)
