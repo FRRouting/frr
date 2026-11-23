@@ -24,12 +24,16 @@ Steps:
   8. Wait for the 40-second sweep timer to expire.
   9. Verify the stale routes and NHGs are cleaned up.
   10. Verify the static ECMP route survives the sweep (staticd reclaims it).
+  11. Restart zebra with -K40 again, have sharpd reclaim a kernel-read
+      nexthop group that routes still use, and verify the reclaimed group
+      stays installed after the nexthop-group keep timer expires.
 """
 
 import os
 import sys
 import json
 from functools import partial
+from time import sleep
 
 import pytest
 
@@ -360,6 +364,103 @@ def test_zebra_gr_kernel_read_and_sweep():
         _check_sharp_nhgs_removed, None, count=15, wait=1
     )
     assert result is None, result
+
+
+def check_reclaimed_nhg(r1, nhg_id, prefix_base, route_count):
+    """Verify the NHG is installed in zebra and the kernel and still used by routes."""
+    nhg_json = json.loads(r1.vtysh_cmd("show nexthop-group rib {} json".format(nhg_id)))
+    entry = nhg_json.get(str(nhg_id))
+    if not entry:
+        return "NHG {} not in zebra ID table".format(nhg_id)
+    if not entry.get("installed"):
+        return "NHG {} not installed in zebra".format(nhg_id)
+
+    if not topotest.kernel_nexthops(r1, nhid=nhg_id):
+        return "NHG {} not in kernel".format(nhg_id)
+
+    routes = topotest.kernel_routes(r1)
+    count = sum(
+        1
+        for route in routes
+        if route.get("dst", "").startswith(prefix_base) and route.get("nhid") == nhg_id
+    )
+    if count != route_count:
+        return "Expected {} kernel routes using NHG {}, found {}: {}".format(
+            route_count, nhg_id, count, routes
+        )
+    return None
+
+
+def test_zebra_gr_proto_nhg_reclaim():
+    """
+    A protocol NHG read from the kernel during graceful restart is still used
+    by the kernel-read routes when the daemon re-adds it with the same ID.
+    Retiring the kernel-read entry must not delete the reclaimed NHG from the
+    kernel or from zebra once the nexthop-group keep timer expires.
+    """
+    if not topotest.platform_has_kernel_nhg():
+        pytest.skip("platform does not support kernel nexthop groups")
+
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    r1 = tgen.gears["r1"]
+    nhg_keep = 5
+    prefix_base = "10.4.0."
+    route_count = 10
+    nhg_config = (
+        "configure terminal\n"
+        "nexthop-group reclaimnhg\n"
+        "nexthop 192.168.1.2 r1-eth0\n"
+        "nexthop 192.168.2.2 r1-eth1\n"
+        "exit\n"
+    )
+    install_cmd = "sharp install routes 10.4.0.0 nexthop-group reclaimnhg {}".format(
+        route_count
+    )
+
+    step("Install sharp routes via a nexthop group")
+    r1.vtysh_cmd(nhg_config)
+    r1.vtysh_cmd(install_cmd)
+
+    def _get_nhg_id():
+        output = json.loads(r1.vtysh_cmd("show ip route 10.4.0.0/32 json"))
+        if "10.4.0.0/32" not in output:
+            return None
+        return output["10.4.0.0/32"][0].get("nexthopGroupId")
+
+    _, nhg_id = topotest.run_and_expect_type(_get_nhg_id, int, count=30, wait=1)
+    assert isinstance(nhg_id, int), "sharp route 10.4.0.0/32 not installed"
+
+    test_func = partial(check_reclaimed_nhg, r1, nhg_id, prefix_base, route_count)
+    _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
+    assert result is None, result
+
+    step("Kill zebra and sharpd, leaving the routes and NHG in the kernel")
+    kill_router_daemons(tgen, "r1", ["zebra", "sharpd"], save_config=False)
+
+    step("Restart zebra with -K{} and sharpd".format(GR_SWEEP_TIME))
+    r1.net.daemons_options["zebra"] = "-K{}".format(GR_SWEEP_TIME)
+    start_router_daemons(tgen, "r1", ["zebra", "sharpd"])
+    r1.vtysh_cmd("conf\nzebra nexthop-group keep {}".format(nhg_keep))
+
+    step("Verify the kernel routes and NHG are read back into zebra")
+    _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
+    assert result is None, result
+
+    step("Have sharpd reclaim the nexthop group and its routes")
+    r1.vtysh_cmd(nhg_config)
+    r1.vtysh_cmd(install_cmd)
+
+    _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
+    assert result is None, result
+
+    step("Verify the reclaimed NHG survives past the keep timer")
+    for _ in range(nhg_keep * 3):
+        result = check_reclaimed_nhg(r1, nhg_id, prefix_base, route_count)
+        assert result is None, result
+        sleep(1)
 
 
 def test_memory_leak():

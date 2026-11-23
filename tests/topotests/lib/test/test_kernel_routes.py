@@ -11,6 +11,7 @@ sys.path.append(os.path.join(CWD, "../../"))
 # pylint: disable=C0413
 from lib.kernel_routes import (  # noqa: E402
     KernelRoutesError,
+    kernel_nexthops,
     kernel_routes,
     _freebsd_argv,
     _linux_argv,
@@ -323,3 +324,25 @@ def test_argv_helpers_match_kernel_routes():
     ]
     with pytest.raises(KernelRoutesError):
         kernel_routes(FakeNode(""), family="ethernet")
+
+
+def test_kernel_nexthops(monkeypatch):
+    monkeypatch.setattr(sys, "platform", "linux")
+    shown = [
+        {"id": 7, "gateway": "192.168.1.2", "dev": "eth0", "flags": []},
+        {"id": 8, "group": [{"id": 7}], "protocol": "sharp", "flags": []},
+    ]
+    node = FakeNode(json.dumps(shown))
+    assert kernel_nexthops(node) == shown
+    assert node.cmds == [["ip", "-j", "nexthop", "show"]]
+
+    assert kernel_nexthops(FakeNode(json.dumps(shown)), nhid=8) == [shown[1]]
+    assert kernel_nexthops(FakeNode(json.dumps(shown)), nhid="7") == [shown[0]]
+    assert kernel_nexthops(FakeNode(json.dumps(shown)), nhid=9) == []
+    assert kernel_nexthops(FakeNode(""), nhid=9) == []
+
+    monkeypatch.setattr(sys, "platform", "freebsd14")
+    node = FakeNode("[]")
+    with pytest.raises(KernelRoutesError, match="Linux"):
+        kernel_nexthops(node)
+    assert node.cmds == []
