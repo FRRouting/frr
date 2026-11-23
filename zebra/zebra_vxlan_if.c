@@ -358,6 +358,16 @@ static int zebra_vxlan_if_update_vni(struct interface *ifp,
 				frr_each (zebra_neigh_db, zevpn->neigh_table, n)
 					zebra_evpn_neigh_uninstall(zevpn, n);
 			zebra_evpn_rem_mac_uninstall_all(zevpn);
+			/*
+			 * The remote neighbors are on the old VLAN's SVI, if it
+			 * changes (SVD devices signal a VLAN change for every VNI
+			 * on any VLAN to VNI mapping update). Without VLAN
+			 * filtering, the SVI is the bridge whatever the VLAN.
+			 */
+			br_if = zif->brslave_info.br_if;
+			if (access_vlan != vnip->access_vlan && br_if && br_if->info &&
+			    IS_ZEBRA_IF_BRIDGE_VLAN_AWARE((struct zebra_if *)br_if->info))
+				zebra_evpn_rem_neigh_uninstall_all(zevpn);
 			vnip->access_vlan = access_vlan;
 		}
 
@@ -405,14 +415,10 @@ static int zebra_vxlan_if_update_vni(struct interface *ifp,
 		if (CHECK_FLAG(chgflags, ZEBRA_VXLIF_MASTER_CHANGE))
 			zebra_evpn_read_mac_neigh(zevpn, ifp);
 		else if (CHECK_FLAG(chgflags, ZEBRA_VXLIF_VLAN_CHANGE)) {
-			struct zebra_neigh *n;
-
 			zebra_evpn_read_mac_neigh(zevpn, ifp);
 
 			zebra_evpn_rem_mac_install_all(zevpn);
-
-			frr_each (zebra_neigh_db, zevpn->neigh_table, n)
-				zebra_evpn_install_neigh_hash(zevpn, n);
+			zebra_evpn_rem_neigh_install_all(zevpn);
 		}
 
 		/*

@@ -970,20 +970,27 @@ static void zebra_evpn_bridge_vlan_aware_walk(struct hash_bucket *bucket, void *
 
 	if (wctx->install) {
 		zebra_evpn_rem_mac_install_all(zevpn);
+		zebra_evpn_rem_neigh_install_all(zevpn);
 		zebra_evpn_vtep_vid_update(zevpn);
-	} else
+	} else {
 		zebra_evpn_rem_mac_uninstall_all(zevpn);
+		zebra_evpn_rem_neigh_uninstall_all(zevpn);
+	}
 }
 
 /*
  * The VLAN filtering of the bridge `br_if` changes, and with it the access
  * VLAN the remote MACs and flood entries of its L2VNIs are installed with
- * (zebra_evpn_access_vid()). Called twice, around the bridge update:
+ * (zebra_evpn_access_vid()), and the SVI their remote neighbors are
+ * installed on (zevpn_map_to_svi(): the VLAN device or the bridge). Called
+ * twice, around the bridge update:
  *
  * - `install` false, before the update: remove the remote MACs with the
- *   VLAN they were installed with;
+ *   VLAN they were installed with, and the remote neighbors from the old
+ *   SVI;
  * - `install` true, after the update: install the remote MACs again, and
- *   move the flood entries, with the new VLAN.
+ *   move the flood entries, with the new VLAN, and install the remote
+ *   neighbors on the new SVI.
  */
 void zebra_evpn_bridge_vlan_aware_change(const struct interface *br_if, bool install)
 {

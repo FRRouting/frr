@@ -135,6 +135,52 @@ void zebra_evpn_install_neigh_hash(struct zebra_evpn *zevpn, struct zebra_neigh 
 }
 
 /*
+ * Remove the installed remote neighbors from the SVI they are installed on,
+ * before it changes (access VLAN or VLAN filtering change of the bridge):
+ * `zebra_evpn_rem_neigh_install_all()` installs them on the new one after
+ * the change. Called while `zevpn_map_to_svi()` still gives the old SVI;
+ * nothing to remove if it is down, as the kernel removed them then.
+ */
+void zebra_evpn_rem_neigh_uninstall_all(struct zebra_evpn *zevpn)
+{
+	struct zebra_vrf *zvrf = zebra_vrf_get_evpn();
+	struct interface *vlan_if;
+	struct zebra_neigh *n;
+
+	vlan_if = zevpn_map_to_svi(zevpn, false);
+	if (!vlan_if)
+		return;
+
+	frr_each (zebra_neigh_db, zevpn->neigh_table, n) {
+		if (!CHECK_FLAG(n->flags, ZEBRA_NEIGH_REMOTE) || !IS_ZEBRA_NEIGH_ACTIVE(n))
+			continue;
+
+		/*
+		 * Duplicate neighbor updates are not installed while frozen
+		 * (the kernel entry is not this one): leave it alone, like
+		 * `zebra_evpn_install_neigh_hash()` does.
+		 */
+		if (CHECK_FLAG(n->flags, ZEBRA_NEIGH_DUPLICATE) && zvrf && zvrf->dad_freeze)
+			continue;
+
+		ZEBRA_NEIGH_SET_INACTIVE(n);
+		dplane_rem_neigh_delete(vlan_if, &n->ip, false /*skip_kernel*/);
+	}
+}
+
+/*
+ * Install the remote neighbors on the current SVI, after an access VLAN or
+ * VLAN filtering change of the bridge.
+ */
+void zebra_evpn_rem_neigh_install_all(struct zebra_evpn *zevpn)
+{
+	struct zebra_neigh *n;
+
+	frr_each (zebra_neigh_db, zevpn->neigh_table, n)
+		zebra_evpn_install_neigh_hash(zevpn, n);
+}
+
+/*
  * A remote neighbor turns local: the kernel entry is replaced by the local
  * one, but the FPM only gets the remote neighbors, so it would keep the
  * remote one. Send it the removal, and leave the kernel alone. Nothing to
