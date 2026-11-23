@@ -208,15 +208,22 @@ const struct lyd_node *bgp_nb_cand_evpn_underlay(const struct lyd_node *dnode)
 	return ctx.evpn_inst ? ctx.evpn_inst : ctx.dflt_inst;
 }
 
+static bool bgp_nb_cand_is_peer_group_list(const struct lyd_node *dnode)
+{
+	return dnode && dnode->schema->nodetype == LYS_LIST &&
+	       strmatch(dnode->schema->name, "peer-group");
+}
+
 const struct lyd_node *bgp_nb_cand_peer_node(const struct lyd_node *dnode)
 {
 	const struct lyd_node *nbr;
 
 	if (!dnode)
 		return NULL;
-	if (strmatch(dnode->schema->name, "neighbor") ||
-	    strmatch(dnode->schema->name, "unnumbered-neighbor") ||
-	    strmatch(dnode->schema->name, "peer-group"))
+	if (dnode->schema->nodetype == LYS_LIST &&
+	    (strmatch(dnode->schema->name, "neighbor") ||
+	     strmatch(dnode->schema->name, "unnumbered-neighbor") ||
+	     strmatch(dnode->schema->name, "peer-group")))
 		return dnode;
 	nbr = yang_dnode_get_parent(dnode, "neighbor");
 	if (!nbr)
@@ -243,7 +250,7 @@ const struct lyd_node *bgp_nb_cand_peer_group(const struct lyd_node *peer_dnode)
 {
 	const struct lyd_node *nbr = bgp_nb_cand_peer_node(peer_dnode);
 
-	if (!nbr || strmatch(nbr->schema->name, "peer-group"))
+	if (!nbr || bgp_nb_cand_is_peer_group_list(nbr))
 		return NULL;
 	if (!yang_dnode_exists(nbr, "peer-group"))
 		return NULL;
@@ -260,7 +267,7 @@ bool bgp_nb_cand_group_members(const struct lyd_node *group_dnode, bgp_nb_cand_m
 	if (!group_dnode || !cb)
 		return true;
 
-	grp = strmatch(group_dnode->schema->name, "peer-group")
+	grp = bgp_nb_cand_is_peer_group_list(group_dnode)
 		      ? group_dnode
 		      : yang_dnode_get_parent(group_dnode, "peer-group");
 	if (!grp || !yang_dnode_exists(grp, "peer-group-name"))

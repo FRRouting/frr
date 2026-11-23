@@ -86,6 +86,12 @@ static const char *bgp_nb_config_peer_name(const struct lyd_node *dnode);
 static const char *bgp_nb_peer_show_indent(const struct lyd_node *dnode);
 static bool bgp_nb_inst_has_leaf(const struct bgp *bgp, const char *rel_xpath);
 static bool bgp_nb_inst_has_active_gr_mode(const struct bgp *bgp);
+static int bgp_nb_peer_sort_deps_validate(const struct lyd_node *dnode, char *errmsg,
+					  size_t errmsg_len);
+static int bgp_nb_instance_sort_deps_validate(const struct lyd_node *bgp_dnode, char *errmsg,
+					      size_t errmsg_len);
+static int bgp_nb_peer_update_source_destroy_validate(const struct lyd_node *old_dnode,
+						      char *errmsg, size_t errmsg_len);
 DEFINE_HOOK(bgp_snmp_update_last_changed, (struct bgp *bgp), (bgp));
 
 /* Same instance identity bgp_nb_bgp_create() uses on APPLY. */
@@ -2523,6 +2529,9 @@ int bgp_nb_confederation_identifier_modify(struct nb_cb_modify_args *args)
 	const struct lyd_node *confed;
 	const char *pretty;
 
+	if (args->event == NB_EV_VALIDATE)
+		return bgp_nb_instance_sort_deps_validate(
+			yang_dnode_get_parent(args->dnode, "bgp"), args->errmsg, args->errmsg_len);
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
@@ -2539,6 +2548,10 @@ int bgp_nb_confederation_identifier_destroy(struct nb_cb_destroy_args *args)
 {
 	struct bgp *bgp;
 
+	if (args->event == NB_EV_VALIDATE)
+		return bgp_nb_instance_sort_deps_validate(
+			bgp_nb_candidate_match(yang_dnode_get_parent(args->dnode, "bgp")),
+			args->errmsg, args->errmsg_len);
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
@@ -2600,6 +2613,9 @@ int bgp_nb_confederation_member_as_create(struct nb_cb_create_args *args)
 	char xpath[96];
 	const char *pretty;
 
+	if (args->event == NB_EV_VALIDATE)
+		return bgp_nb_instance_sort_deps_validate(
+			yang_dnode_get_parent(args->dnode, "bgp"), args->errmsg, args->errmsg_len);
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
@@ -2619,6 +2635,10 @@ int bgp_nb_confederation_member_as_destroy(struct nb_cb_destroy_args *args)
 {
 	struct bgp *bgp;
 
+	if (args->event == NB_EV_VALIDATE)
+		return bgp_nb_instance_sort_deps_validate(
+			bgp_nb_candidate_match(yang_dnode_get_parent(args->dnode, "bgp")),
+			args->errmsg, args->errmsg_len);
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
@@ -4759,6 +4779,8 @@ int bgp_nb_neighbor_remote_as_type_modify(struct nb_cb_modify_args *args)
 	const char *as_pretty;
 	char as_buf[32];
 
+	if (args->event == NB_EV_VALIDATE)
+		return bgp_nb_peer_sort_deps_validate(args->dnode, args->errmsg, args->errmsg_len);
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
@@ -4794,6 +4816,10 @@ int bgp_nb_neighbor_remote_as_type_destroy(struct nb_cb_destroy_args *args)
 {
 	struct peer *peer;
 
+	if (args->event == NB_EV_VALIDATE)
+		return bgp_nb_peer_sort_deps_validate(
+			bgp_nb_candidate_match(bgp_nb_cand_peer_node(args->dnode)), args->errmsg,
+			args->errmsg_len);
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
@@ -4898,6 +4924,8 @@ int bgp_nb_neighbor_remote_as_modify(struct nb_cb_modify_args *args)
 	char as_buf[32];
 	const char *as_pretty;
 
+	if (args->event == NB_EV_VALIDATE)
+		return bgp_nb_peer_sort_deps_validate(args->dnode, args->errmsg, args->errmsg_len);
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
@@ -4919,6 +4947,10 @@ int bgp_nb_neighbor_remote_as_modify(struct nb_cb_modify_args *args)
 
 int bgp_nb_neighbor_remote_as_destroy(struct nb_cb_destroy_args *args)
 {
+	if (args->event == NB_EV_VALIDATE)
+		return bgp_nb_peer_sort_deps_validate(
+			bgp_nb_candidate_match(bgp_nb_cand_peer_node(args->dnode)), args->errmsg,
+			args->errmsg_len);
 	return NB_OK;
 }
 
@@ -5036,6 +5068,8 @@ int bgp_nb_peer_group_remote_as_type_modify(struct nb_cb_modify_args *args)
 	int ret;
 	const char *as_pretty;
 
+	if (args->event == NB_EV_VALIDATE)
+		return bgp_nb_peer_sort_deps_validate(args->dnode, args->errmsg, args->errmsg_len);
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
@@ -5074,6 +5108,10 @@ int bgp_nb_peer_group_remote_as_type_destroy(struct nb_cb_destroy_args *args)
 {
 	struct peer_group *group;
 
+	if (args->event == NB_EV_VALIDATE)
+		return bgp_nb_peer_sort_deps_validate(
+			bgp_nb_candidate_match(bgp_nb_cand_peer_node(args->dnode)), args->errmsg,
+			args->errmsg_len);
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
@@ -5119,6 +5157,8 @@ int bgp_nb_peer_group_remote_as_modify(struct nb_cb_modify_args *args)
 	char as_buf[32];
 	int ret;
 
+	if (args->event == NB_EV_VALIDATE)
+		return bgp_nb_peer_sort_deps_validate(args->dnode, args->errmsg, args->errmsg_len);
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
@@ -5136,6 +5176,10 @@ int bgp_nb_peer_group_remote_as_modify(struct nb_cb_modify_args *args)
 
 int bgp_nb_peer_group_remote_as_destroy(struct nb_cb_destroy_args *args)
 {
+	if (args->event == NB_EV_VALIDATE)
+		return bgp_nb_peer_sort_deps_validate(
+			bgp_nb_candidate_match(bgp_nb_cand_peer_node(args->dnode)), args->errmsg,
+			args->errmsg_len);
 	return NB_OK;
 }
 
@@ -5927,6 +5971,9 @@ int bgp_nb_peer_update_source_ip_destroy(struct nb_cb_destroy_args *args)
 	struct peer *peer;
 	const struct lyd_node *us;
 
+	if (args->event == NB_EV_VALIDATE)
+		return bgp_nb_peer_update_source_destroy_validate(args->dnode, args->errmsg,
+								  args->errmsg_len);
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
@@ -5990,6 +6037,9 @@ int bgp_nb_peer_update_source_if_destroy(struct nb_cb_destroy_args *args)
 	struct peer *peer;
 	const struct lyd_node *us;
 
+	if (args->event == NB_EV_VALIDATE)
+		return bgp_nb_peer_update_source_destroy_validate(args->dnode, args->errmsg,
+								  args->errmsg_len);
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
@@ -6491,15 +6541,8 @@ int bgp_nb_peer_local_as_modify(struct nb_cb_modify_args *args)
 					   "Cannot have local-as same as BGP AS number");
 				return NB_ERR_VALIDATION;
 			}
-			return NB_OK;
 		}
-		peer = bgp_nb_config_peer(args->dnode);
-		if (peer && peer->bgp && peer->bgp->as == as) {
-			snprintfrr(args->errmsg, args->errmsg_len,
-				   "Cannot have local-as same as BGP AS number");
-			return NB_ERR_VALIDATION;
-		}
-		return NB_OK;
+		return bgp_nb_peer_sort_deps_validate(args->dnode, args->errmsg, args->errmsg_len);
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
 		return NB_OK;
@@ -6518,6 +6561,10 @@ int bgp_nb_peer_local_as_destroy(struct nb_cb_destroy_args *args)
 {
 	struct peer *peer;
 
+	if (args->event == NB_EV_VALIDATE)
+		return bgp_nb_peer_sort_deps_validate(
+			bgp_nb_candidate_match(bgp_nb_cand_peer_node(args->dnode)), args->errmsg,
+			args->errmsg_len);
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
@@ -7545,7 +7592,10 @@ static int bgp_nb_peer_local_role_validate(const struct lyd_node *dnode, char *e
 	enum bgp_peer_sort sort;
 	bool group;
 
-	grp = yang_dnode_get_parent(dnode, "peer-group");
+	grp = (dnode && dnode->schema->nodetype == LYS_LIST &&
+	       strmatch(dnode->schema->name, "peer-group"))
+		      ? dnode
+		      : yang_dnode_get_parent(dnode, "peer-group");
 	group = grp != NULL;
 	sort = bgp_nb_candidate_peer_sort(dnode);
 
@@ -7562,6 +7612,237 @@ static int bgp_nb_peer_local_role_validate(const struct lyd_node *dnode, char *e
 	if (group && !bgp_nb_candidate_group_members_match(grp, BGP_PEER_EBGP, true)) {
 		snprintfrr(errmsg, errmsg_len, "External roles can be set only on eBGP session");
 		return NB_ERR_VALIDATION;
+	}
+
+	return NB_OK;
+}
+
+struct bgp_nb_sort_deps_ctx {
+	char *errmsg;
+	size_t errmsg_len;
+	int ret;
+};
+
+static int bgp_nb_peer_sort_deps_validate_one(const struct lyd_node *peer_dnode, char *errmsg,
+					      size_t errmsg_len)
+{
+	const struct lyd_node *grp, *pa, *afs, *af_entry, *af_cont, *child;
+	enum bgp_peer_sort sort;
+	int ret;
+
+	if (!peer_dnode)
+		return NB_OK;
+
+	if (yang_dnode_exists(peer_dnode, "./local-role/role")) {
+		ret = bgp_nb_peer_local_role_validate(peer_dnode, errmsg, errmsg_len);
+		if (ret != NB_OK)
+			return ret;
+	}
+
+	pa = yang_dnode_get(peer_dnode, "./path-attribute");
+	if (pa) {
+		for (child = lyd_child(pa); child; child = child->next) {
+			if (child->schema->nodetype != LYS_LEAFLIST)
+				continue;
+			if (strmatch(child->schema->name, "discard")) {
+				if (bgp_nb_path_attr_forbidden(
+					    child, yang_dnode_get_uint8(child, NULL), false,
+					    errmsg, errmsg_len))
+					return NB_ERR_VALIDATION;
+			} else if (strmatch(child->schema->name, "treat-as-withdraw")) {
+				if (bgp_nb_path_attr_forbidden(
+					    child, yang_dnode_get_uint8(child, NULL), true, errmsg,
+					    errmsg_len))
+					return NB_ERR_VALIDATION;
+			}
+		}
+	}
+
+	afs = yang_dnode_get(peer_dnode, "./afi-safis");
+	if (!afs)
+		return NB_OK;
+
+	grp = strmatch(peer_dnode->schema->name, "peer-group") ? peer_dnode : NULL;
+	sort = bgp_nb_cand_peer_sort(peer_dnode);
+
+	for (af_entry = lyd_child(afs); af_entry; af_entry = af_entry->next) {
+		if (!strmatch(af_entry->schema->name, "afi-safi"))
+			continue;
+		for (af_cont = lyd_child(af_entry); af_cont; af_cont = af_cont->next) {
+			if (af_cont->schema->nodetype != LYS_CONTAINER)
+				continue;
+
+			if (yang_dnode_exists(af_cont, "./route-reflector/route-reflector-client") &&
+			    yang_dnode_get_bool(af_cont,
+						"./route-reflector/route-reflector-client")) {
+				if (sort != BGP_PEER_IBGP ||
+				    (grp &&
+				     !bgp_nb_cand_group_members_match_sort(grp, BGP_PEER_IBGP,
+									   true))) {
+					snprintfrr(errmsg, errmsg_len,
+						   "Invalid command. Not an internal neighbor");
+					return NB_ERR_VALIDATION;
+				}
+			}
+
+			if ((yang_dnode_exists(af_cont, "./private-as/remove-private-as") &&
+			     yang_dnode_get_bool(af_cont, "./private-as/remove-private-as")) ||
+			    (yang_dnode_exists(af_cont, "./private-as/remove-private-as-all") &&
+			     yang_dnode_get_bool(af_cont, "./private-as/remove-private-as-all")) ||
+			    (yang_dnode_exists(af_cont, "./private-as/remove-private-as-replace") &&
+			     yang_dnode_get_bool(af_cont,
+						 "./private-as/remove-private-as-replace")) ||
+			    (yang_dnode_exists(af_cont,
+					       "./private-as/remove-private-as-all-replace") &&
+			     yang_dnode_get_bool(af_cont,
+						 "./private-as/remove-private-as-all-replace"))) {
+				if (sort == BGP_PEER_IBGP ||
+				    (grp &&
+				     !bgp_nb_cand_group_members_match_sort(grp, BGP_PEER_IBGP,
+									   false))) {
+					snprintfrr(
+						errmsg, errmsg_len,
+						"remove-private-AS cannot be configured for IBGP peers");
+					return NB_ERR_VALIDATION;
+				}
+			}
+
+			if (yang_dnode_exists(af_cont, "./as-path-options/replace-peer-as") &&
+			    yang_dnode_get_bool(af_cont, "./as-path-options/replace-peer-as")) {
+				if (sort == BGP_PEER_IBGP ||
+				    (grp &&
+				     !bgp_nb_cand_group_members_match_sort(grp, BGP_PEER_IBGP,
+									   false))) {
+					snprintfrr(
+						errmsg, errmsg_len,
+						"as-override cannot be configured for IBGP peers");
+					return NB_ERR_VALIDATION;
+				}
+			}
+		}
+	}
+
+	return NB_OK;
+}
+
+static bool bgp_nb_sort_deps_member_cb(const struct lyd_node *member_dnode, void *arg)
+{
+	struct bgp_nb_sort_deps_ctx *ctx = arg;
+
+	ctx->ret = bgp_nb_peer_sort_deps_validate_one(member_dnode, ctx->errmsg, ctx->errmsg_len);
+	return ctx->ret == NB_OK;
+}
+
+static int bgp_nb_peer_sort_deps_validate(const struct lyd_node *dnode, char *errmsg,
+					  size_t errmsg_len)
+{
+	const struct lyd_node *peer_dnode, *grp;
+	int ret;
+
+	peer_dnode = bgp_nb_cand_peer_node(dnode);
+	if (!peer_dnode)
+		return NB_OK;
+
+	ret = bgp_nb_peer_sort_deps_validate_one(peer_dnode, errmsg, errmsg_len);
+	if (ret != NB_OK)
+		return ret;
+
+	if (strmatch(peer_dnode->schema->name, "peer-group")) {
+		struct bgp_nb_sort_deps_ctx ctx = {
+			.errmsg = errmsg,
+			.errmsg_len = errmsg_len,
+			.ret = NB_OK,
+		};
+
+		bgp_nb_cand_group_members(peer_dnode, bgp_nb_sort_deps_member_cb, &ctx);
+		return ctx.ret;
+	}
+
+	grp = bgp_nb_cand_peer_group(peer_dnode);
+	if (grp)
+		return bgp_nb_peer_sort_deps_validate_one(grp, errmsg, errmsg_len);
+
+	return NB_OK;
+}
+
+static int bgp_nb_instance_sort_deps_validate(const struct lyd_node *bgp_dnode, char *errmsg,
+					      size_t errmsg_len)
+{
+	const struct lyd_node *cont, *child;
+	int ret;
+
+	if (!bgp_dnode)
+		return NB_OK;
+
+	cont = yang_dnode_get(bgp_dnode, "./peer-groups");
+	if (cont) {
+		for (child = lyd_child(cont); child; child = child->next) {
+			if (!strmatch(child->schema->name, "peer-group"))
+				continue;
+			ret = bgp_nb_peer_sort_deps_validate_one(child, errmsg, errmsg_len);
+			if (ret != NB_OK)
+				return ret;
+		}
+	}
+
+	cont = yang_dnode_get(bgp_dnode, "./neighbors");
+	if (cont) {
+		for (child = lyd_child(cont); child; child = child->next) {
+			if (!strmatch(child->schema->name, "neighbor") &&
+			    !strmatch(child->schema->name, "unnumbered-neighbor"))
+				continue;
+			ret = bgp_nb_peer_sort_deps_validate_one(child, errmsg, errmsg_len);
+			if (ret != NB_OK)
+				return ret;
+		}
+	}
+
+	return NB_OK;
+}
+
+static int bgp_nb_ip_transparent_check_one(const struct lyd_node *peer_dnode, char *errmsg,
+					   size_t errmsg_len)
+{
+	if (yang_dnode_exists(peer_dnode, "./ip-transparent") &&
+	    yang_dnode_get_bool(peer_dnode, "./ip-transparent") &&
+	    !bgp_nb_candidate_has_update_source(peer_dnode)) {
+		snprintfrr(errmsg, errmsg_len, "ip-transparent requires update-source");
+		return NB_ERR_VALIDATION;
+	}
+	return NB_OK;
+}
+
+static bool bgp_nb_ip_transparent_member_cb(const struct lyd_node *member_dnode, void *arg)
+{
+	struct bgp_nb_sort_deps_ctx *ctx = arg;
+
+	ctx->ret = bgp_nb_ip_transparent_check_one(member_dnode, ctx->errmsg, ctx->errmsg_len);
+	return ctx->ret == NB_OK;
+}
+
+static int bgp_nb_peer_update_source_destroy_validate(const struct lyd_node *old_dnode,
+						      char *errmsg, size_t errmsg_len)
+{
+	const struct lyd_node *cand_peer;
+	int ret;
+
+	cand_peer = bgp_nb_candidate_match(bgp_nb_cand_peer_node(old_dnode));
+	if (!cand_peer)
+		return NB_OK;
+
+	ret = bgp_nb_ip_transparent_check_one(cand_peer, errmsg, errmsg_len);
+	if (ret != NB_OK)
+		return ret;
+
+	if (strmatch(cand_peer->schema->name, "peer-group")) {
+		struct bgp_nb_sort_deps_ctx ctx = {
+			.errmsg = errmsg,
+			.errmsg_len = errmsg_len,
+			.ret = NB_OK,
+		};
+
+		bgp_nb_cand_group_members(cand_peer, bgp_nb_ip_transparent_member_cb, &ctx);
+		return ctx.ret;
 	}
 
 	return NB_OK;
@@ -7977,6 +8258,12 @@ static int bgp_nb_peer_group_bind_validate(const struct lyd_node *dnode, char *e
 			   "%%Cannot configure both ttl-security hops and ebgp-multihop");
 		return NB_ERR_VALIDATION;
 	}
+	if (nbr && grp_node) {
+		int sort_ret = bgp_nb_peer_sort_deps_validate(dnode, errmsg, errmsg_len);
+
+		if (sort_ret != NB_OK)
+			return sort_ret;
+	}
 	if (!peer || !peer->bgp)
 		return NB_OK;
 	group = peer_group_lookup(peer->bgp, group_name);
@@ -8332,6 +8619,20 @@ int bgp_nb_neighbor_peer_group_destroy(struct nb_cb_destroy_args *args)
 	afi_t afi;
 	safi_t safi;
 
+	if (args->event == NB_EV_VALIDATE) {
+		const struct lyd_node *cand_peer;
+		int ret;
+
+		cand_peer = bgp_nb_candidate_match(bgp_nb_cand_peer_node(args->dnode));
+		if (!cand_peer)
+			return NB_OK;
+
+		ret = bgp_nb_peer_sort_deps_validate(cand_peer, args->errmsg, args->errmsg_len);
+		if (ret != NB_OK)
+			return ret;
+
+		return bgp_nb_ip_transparent_check_one(cand_peer, args->errmsg, args->errmsg_len);
+	}
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
@@ -15863,7 +16164,9 @@ static int bgp_nb_peer_af_flag_validate(struct nb_cb_modify_args *args, uint64_t
 			return NB_ERR_VALIDATION;
 		}
 	}
-	if (CHECK_FLAG(flag, PEER_FLAG_REMOVE_PRIVATE_AS)) {
+	if (CHECK_FLAG(flag, PEER_FLAG_REMOVE_PRIVATE_AS | PEER_FLAG_REMOVE_PRIVATE_AS_ALL |
+				     PEER_FLAG_REMOVE_PRIVATE_AS_REPLACE |
+				     PEER_FLAG_REMOVE_PRIVATE_AS_ALL_REPLACE)) {
 		if (sort == BGP_PEER_IBGP ||
 		    (grp && !bgp_nb_candidate_group_members_match(grp, BGP_PEER_IBGP, false))) {
 			snprintfrr(args->errmsg, args->errmsg_len,
@@ -18025,7 +18328,10 @@ void bgp_nb_cli_show_peer_af_orf_receive(struct vty *vty, const struct lyd_node 
 bool bgp_nb_path_attr_forbidden(const struct lyd_node *dnode, uint8_t attr_num, bool withdraw,
 				char *errmsg, size_t errmsg_len)
 {
-	const struct lyd_node *grp = yang_dnode_get_parent(dnode, "peer-group");
+	const struct lyd_node *grp = (dnode && dnode->schema->nodetype == LYS_LIST &&
+				      strmatch(dnode->schema->name, "peer-group"))
+					     ? dnode
+					     : yang_dnode_get_parent(dnode, "peer-group");
 	bool ebgp;
 
 	/*
@@ -18487,27 +18793,8 @@ int bgp_nb_peer_oad_modify(struct nb_cb_modify_args *args)
 {
 	struct peer *peer;
 
-	switch (args->event) {
-	case NB_EV_VALIDATE:
-		if (yang_dnode_get_bool(args->dnode, NULL)) {
-			const struct lyd_node *grp =
-				yang_dnode_get_parent(args->dnode, "peer-group");
-
-			if (bgp_nb_candidate_peer_sort(args->dnode) != BGP_PEER_EBGP ||
-			    (grp && !bgp_nb_candidate_group_members_match(grp, BGP_PEER_EBGP,
-									  true))) {
-				snprintfrr(args->errmsg, args->errmsg_len,
-					   "OAD can only be configured for EBGP peers");
-				return NB_ERR_VALIDATION;
-			}
-		}
+	if (args->event != NB_EV_APPLY)
 		return NB_OK;
-	case NB_EV_PREPARE:
-	case NB_EV_ABORT:
-		return NB_OK;
-	case NB_EV_APPLY:
-		break;
-	}
 
 	peer = bgp_nb_config_peer(args->dnode);
 	if (!peer)
@@ -18523,7 +18810,8 @@ int bgp_nb_peer_oad_modify(struct nb_cb_modify_args *args)
 
 void bgp_nb_cli_show_peer_oad(struct vty *vty, const struct lyd_node *dnode, bool show_defaults)
 {
-	if (yang_dnode_get_bool(dnode, NULL))
+	/* APPLY ignores oad on non-eBGP peers; classic printed nothing for them. */
+	if (yang_dnode_get_bool(dnode, NULL) && bgp_nb_candidate_peer_sort(dnode) == BGP_PEER_EBGP)
 		vty_out(vty, "%sneighbor %s oad\n", bgp_nb_peer_show_indent(dnode),
 			bgp_nb_config_peer_name(dnode));
 	else if (show_defaults)

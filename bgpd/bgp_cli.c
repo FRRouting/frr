@@ -3212,38 +3212,11 @@ static void bgp_cli_enqueue_default_shutdown_if_new(struct vty *vty, const char 
 	nb_cli_enqueue_change(vty, leaf, NB_OP_MODIFY, "true");
 }
 
-static void bgp_cli_clear_role_rr_on_sort_change(struct vty *vty, const char *base_xpath,
-						 as_t new_as, bool internal, bool external,
-						 bool as_auto)
+static void bgp_cli_clear_role_rr_node(struct vty *vty, const char *base_xpath,
+				       const struct lyd_node *nbr_dn, bool is_ibgp, bool is_ebgp)
 {
-	char full_xpath[XPATH_MAXLEN + 256];
 	char leaf[XPATH_MAXLEN + 256];
-	const struct lyd_node *bgp_dn, *nbr_dn, *afs_dn, *af_dn, *sub;
-	as_t local_as = 0;
-	bool is_ibgp = false, is_ebgp = false;
-
-	if (!vty->candidate_config || !vty->candidate_config->dnode || base_xpath[0] != '.')
-		return;
-
-	snprintfrr(full_xpath, sizeof(full_xpath), "%s%s", VTY_CURR_XPATH, base_xpath + 1);
-	nbr_dn = yang_dnode_get(vty->candidate_config->dnode, full_xpath);
-	if (!nbr_dn)
-		return;
-
-	bgp_dn = yang_dnode_get(vty->candidate_config->dnode, VTY_CURR_XPATH);
-	if (bgp_dn && yang_dnode_exists(bgp_dn, "./global/local-as"))
-		local_as = yang_dnode_get_uint32(bgp_dn, "./global/local-as");
-
-	if (internal)
-		is_ibgp = true;
-	else if (external)
-		is_ebgp = true;
-	else if (!as_auto && new_as && local_as) {
-		if (new_as == local_as)
-			is_ibgp = true;
-		else
-			is_ebgp = true;
-	}
+	const struct lyd_node *afs_dn, *af_dn, *sub;
 
 	if (!is_ibgp) {
 		afs_dn = yang_dnode_get(nbr_dn, "./afi-safis");
@@ -3278,6 +3251,87 @@ static void bgp_cli_clear_role_rr_on_sort_change(struct vty *vty, const char *ba
 			snprintfrr(leaf, sizeof(leaf), "%s/local-role/role", base_xpath);
 			nb_cli_enqueue_change(vty, leaf, NB_OP_DESTROY, NULL);
 		}
+	}
+}
+
+struct bgp_cli_clear_member_ctx {
+	struct vty *vty;
+	bool is_ibgp;
+	bool is_ebgp;
+};
+
+static bool bgp_cli_clear_role_rr_member_cb(const struct lyd_node *member_dn, void *arg)
+{
+	struct bgp_cli_clear_member_ctx *ctx = arg;
+	char mem_xpath[XPATH_MAXLEN];
+
+	if (yang_dnode_exists(member_dn, "./neighbor-remote-as/remote-as-type") ||
+	    yang_dnode_exists(member_dn, "./neighbor-remote-as/remote-as"))
+		return true;
+
+	if (strmatch(member_dn->schema->name, "neighbor"))
+		snprintfrr(mem_xpath, sizeof(mem_xpath),
+			   "./neighbors/neighbor[remote-address='%s']",
+			   yang_dnode_get_string(member_dn, "./remote-address"));
+	else if (strmatch(member_dn->schema->name, "unnumbered-neighbor"))
+		snprintfrr(mem_xpath, sizeof(mem_xpath),
+			   "./neighbors/unnumbered-neighbor[interface='%s']",
+			   yang_dnode_get_string(member_dn, "./interface"));
+	else
+		return true;
+
+	bgp_cli_clear_role_rr_node(ctx->vty, mem_xpath, member_dn, ctx->is_ibgp, ctx->is_ebgp);
+	return true;
+}
+
+static void bgp_cli_clear_role_rr_on_sort_change(struct vty *vty, const char *base_xpath,
+						 as_t new_as, bool internal, bool external,
+						 bool as_auto)
+{
+	char full_xpath[XPATH_MAXLEN + 256];
+	const struct lyd_node *bgp_dn, *nbr_dn;
+	as_t local_as = 0;
+	bool is_ibgp = false, is_ebgp = false;
+
+	if (!vty->candidate_config || !vty->candidate_config->dnode || base_xpath[0] != '.')
+		return;
+
+	snprintfrr(full_xpath, sizeof(full_xpath), "%s%s", VTY_CURR_XPATH, base_xpath + 1);
+	nbr_dn = yang_dnode_get(vty->candidate_config->dnode, full_xpath);
+	if (!nbr_dn)
+		return;
+
+	bgp_dn = yang_dnode_get(vty->candidate_config->dnode, VTY_CURR_XPATH);
+	if (yang_dnode_exists(nbr_dn, "./local-as/local-as"))
+		local_as = yang_dnode_get_uint32(nbr_dn, "./local-as/local-as");
+	else if (bgp_dn && yang_dnode_exists(bgp_dn, "./global/local-as"))
+		local_as = yang_dnode_get_uint32(bgp_dn, "./global/local-as");
+
+	if (internal)
+		is_ibgp = true;
+	else if (external || as_auto)
+		is_ebgp = true;
+	else if (new_as && local_as) {
+		if (new_as == local_as)
+			is_ibgp = true;
+		else if (bgp_dn && yang_dnode_exists(bgp_dn, "./global/confederation/identifier") &&
+			 yang_dnode_existsf(bgp_dn, "./global/confederation/member-as[.='%u']",
+					    new_as)) {
+			/* Confederation peer: neither iBGP nor eBGP */
+		} else
+			is_ebgp = true;
+	}
+
+	bgp_cli_clear_role_rr_node(vty, base_xpath, nbr_dn, is_ibgp, is_ebgp);
+
+	if (strmatch(nbr_dn->schema->name, "peer-group")) {
+		struct bgp_cli_clear_member_ctx ctx = {
+			.vty = vty,
+			.is_ibgp = is_ibgp,
+			.is_ebgp = is_ebgp,
+		};
+
+		bgp_nb_cand_group_members(nbr_dn, bgp_cli_clear_role_rr_member_cb, &ctx);
 	}
 }
 

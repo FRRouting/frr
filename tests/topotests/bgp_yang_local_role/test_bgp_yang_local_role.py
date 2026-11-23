@@ -105,7 +105,8 @@ router bgp 65000
     assert "neighbor 192.0.2.10 oad" in running
     assert "neighbor 192.0.2.10 as-override" in running
 
-    # Inverse: local-as matching remote-as makes peer iBGP; as-override & oad fail.
+    # Inverse: local-as matching remote-as makes peer iBGP; as-override fails,
+    # oad is accepted as a no-op (as classic does) and not shown.
     r1.vtysh_multicmd(
         """
 router bgp 65000
@@ -115,16 +116,18 @@ router bgp 65000
         pretty_output=False,
         raises=True,
     )
-    for bad in (
-        "address-family ipv4 unicast\n  neighbor 192.0.2.11 as-override\n exit-address-family",
-        "neighbor 192.0.2.11 oad",
-    ):
-        with pytest.raises(subprocess.CalledProcessError):
-            r1.vtysh_multicmd(
-                f"router bgp 65000\n {bad}\n",
-                pretty_output=False,
-                raises=True,
-            )
+    with pytest.raises(subprocess.CalledProcessError):
+        r1.vtysh_multicmd(
+            "router bgp 65000\n address-family ipv4 unicast\n"
+            "  neighbor 192.0.2.11 as-override\n exit-address-family\n",
+            pretty_output=False,
+            raises=True,
+        )
+    r1.vtysh_multicmd(
+        "router bgp 65000\n neighbor 192.0.2.11 oad\n",
+        pretty_output=False,
+        raises=True,
+    )
     running = r1.vtysh_cmd("show running-config")
     assert "neighbor 192.0.2.11 as-override" not in running
     assert "neighbor 192.0.2.11 oad" not in running
