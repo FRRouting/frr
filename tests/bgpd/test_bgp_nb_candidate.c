@@ -545,6 +545,7 @@ int main(int argc, char **argv)
 	nb_init(master, test_yang_modules, array_size(test_yang_modules), false, false);
 	bgp_master_init(master, BGP_SOCKET_SNDBUF_SIZE, list_new());
 	hook_register(routing_destroy, bgp_nb_routing_destroy);
+	hook_register(routing_destroy_validate, bgp_nb_routing_destroy);
 	bgp_option_set(BGP_OPT_NO_LISTEN);
 	vrf_init(NULL, NULL, NULL, NULL);
 	frr_pthread_init();

@@ -268,12 +268,123 @@ int bgp_nb_bgp_create(struct nb_cb_create_args *args)
 	return NB_OK;
 }
 
+struct bgp_nb_def_destroy_ctx {
+	bool default_is_evpn;
+	bool blocked;
+};
+
+static bool bgp_nb_vrf_has_vpn_dep(const struct lyd_node *bgp_dnode, const char *af_name,
+				   const char *af_cont)
+{
+	char xpath[256];
+	const struct lyd_node *vpn;
+
+	snprintfrr(xpath, sizeof(xpath),
+		   "global/afi-safis/afi-safi[afi-safi-name='frr-routing:%s']/%s/vpn-config",
+		   af_name, af_cont);
+	vpn = yang_dnode_get(bgp_dnode, xpath);
+
+	if (!vpn)
+		return false;
+
+	if ((yang_dnode_exists(vpn, "import-vpn") && yang_dnode_get_bool(vpn, "import-vpn")) ||
+	    (yang_dnode_exists(vpn, "export-vpn") && yang_dnode_get_bool(vpn, "export-vpn")) ||
+	    yang_dnode_exists(vpn, "import-vrf-list"))
+		return true;
+	return false;
+}
+
+static bool bgp_nb_vrf_blocks_default_destroy_cb(const struct lyd_node *cand_bgp, void *arg)
+{
+	struct bgp_nb_def_destroy_ctx *ctx = arg;
+	enum bgp_instance_type inst_type;
+	const char *inst_name = NULL;
+	struct bgp *rt_vrf;
+
+	if (!bgp_nb_cand_instance_key(cand_bgp, &inst_type, &inst_name, NULL) ||
+	    inst_type != BGP_INSTANCE_TYPE_VRF)
+		return true;
+
+	if (bgp_nb_vrf_has_vpn_dep(cand_bgp, "ipv4-unicast", "ipv4-unicast") ||
+	    bgp_nb_vrf_has_vpn_dep(cand_bgp, "ipv6-unicast", "ipv6-unicast")) {
+		ctx->blocked = true;
+		return false;
+	}
+
+	if (ctx->default_is_evpn) {
+		const struct lyd_node *evpn = yang_dnode_get(
+			cand_bgp,
+			"global/afi-safis/afi-safi[afi-safi-name='frr-routing:l2vpn-evpn']/l2vpn-evpn/ip-vrf");
+
+		if (evpn &&
+		    ((yang_dnode_exists(evpn, "ipv4-unicast/enable") &&
+		      yang_dnode_get_bool(evpn, "ipv4-unicast/enable")) ||
+		     (yang_dnode_exists(evpn, "ipv6-unicast/enable") &&
+		      yang_dnode_get_bool(evpn, "ipv6-unicast/enable")))) {
+			ctx->blocked = true;
+			return false;
+		}
+	}
+
+	/* RUNTIME-STATE: L3VNI binding is learned from zebra, not stored in BGP YANG. */
+	rt_vrf = inst_name ? bgp_lookup_by_name(inst_name) : NULL;
+	if (rt_vrf && !CHECK_FLAG(rt_vrf->vrf_flags, BGP_VRF_AUTO) && rt_vrf->l3vni) {
+		ctx->blocked = true;
+		return false;
+	}
+
+	return true;
+}
+
+static int bgp_nb_bgp_destroy_validate(const struct lyd_node *dnode, char *errmsg,
+				       size_t errmsg_len)
+{
+	struct bgp *bgp;
+	enum bgp_instance_type inst_type;
+	const char *inst_name = NULL;
+
+	bgp_nb_instance_key(dnode, &inst_type, &inst_name);
+	bgp = nb_running_get_entry(dnode, NULL, false);
+	if (!bgp) {
+		if (inst_type == BGP_INSTANCE_TYPE_DEFAULT)
+			bgp = bgp_get_default();
+		else if (inst_name)
+			bgp = bgp_lookup_by_name(inst_name);
+	}
+
+	/* RUNTIME-STATE: L3VNI binding is learned from zebra, not stored in BGP YANG. */
+	if (bgp && bgp->l3vni) {
+		snprintfrr(errmsg, errmsg_len, "Please unconfigure l3vni %u", bgp->l3vni);
+		return NB_ERR_VALIDATION;
+	}
+
+	if (inst_type == BGP_INSTANCE_TYPE_DEFAULT) {
+		struct bgp_nb_def_destroy_ctx ctx = {
+			.default_is_evpn =
+				bgp_nb_cand_evpn_enabled(dnode) || (bgp && bgp == bgp_get_evpn()),
+			.blocked = false,
+		};
+
+		bgp_nb_cand_each_instance_in_tree(nb_transaction_candidate_dnode(),
+						  bgp_nb_vrf_blocks_default_destroy_cb, &ctx);
+		if (ctx.blocked) {
+			snprintfrr(errmsg, errmsg_len,
+				   "Cannot delete default BGP instance. Dependent VRF instances exist");
+			return NB_ERR_VALIDATION;
+		}
+	}
+
+	return NB_OK;
+}
+
 int bgp_nb_bgp_destroy(struct nb_cb_destroy_args *args)
 {
 	struct bgp *bgp;
 	enum bgp_instance_type inst_type;
 	const char *inst_name;
 
+	if (args->event == NB_EV_VALIDATE)
+		return bgp_nb_bgp_destroy_validate(args->dnode, args->errmsg, args->errmsg_len);
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
@@ -288,6 +399,17 @@ int bgp_nb_bgp_destroy(struct nb_cb_destroy_args *args)
 			bgp = bgp_lookup_by_name(inst_name);
 		if (!bgp)
 			return NB_OK;
+	}
+
+	if (bgp->inst_type == BGP_INSTANCE_TYPE_DEFAULT) {
+		struct listnode *node, *nnode;
+		struct bgp *tmp_bgp;
+
+		for (ALL_LIST_ELEMENTS(bm->bgp, node, nnode, tmp_bgp)) {
+			if (tmp_bgp->inst_type == BGP_INSTANCE_TYPE_VRF &&
+			    CHECK_FLAG(tmp_bgp->vrf_flags, BGP_VRF_AUTO))
+				bgp_delete(tmp_bgp);
+		}
 	}
 
 	bgp_delete(bgp);
@@ -308,9 +430,8 @@ int bgp_nb_routing_destroy(struct nb_cb_destroy_args *args)
 	if (!bgp_dnode)
 		return NB_OK;
 
-	memset(&destroy_args, 0, sizeof(destroy_args));
+	destroy_args = *args;
 	destroy_args.dnode = bgp_dnode;
-	destroy_args.event = args->event;
 	return bgp_nb_bgp_destroy(&destroy_args);
 }
 
@@ -9388,9 +9509,11 @@ int bgp_nb_maxpaths_ibgp_cluster_modify(struct nb_cb_modify_args *args)
 /*
  * redistribution-list (ipv4/ipv6 unicast)
  */
-static int bgp_nb_redistribute_validate(struct bgp *bgp, afi_t afi, int type,
+static int bgp_nb_redistribute_validate(const struct lyd_node *dnode, afi_t afi, int type,
 					unsigned short instance, char *errmsg, size_t errmsg_len)
 {
+	enum bgp_instance_type inst_type = BGP_INSTANCE_TYPE_DEFAULT;
+
 	if (type == ZEBRA_ROUTE_BGP) {
 		snprintfrr(errmsg, errmsg_len, "Redistributing BGP into BGP is not allowed");
 		return NB_ERR_VALIDATION;
@@ -9410,7 +9533,8 @@ static int bgp_nb_redistribute_validate(struct bgp *bgp, afi_t afi, int type,
 				   "'table-direct' cannot use %u routing table", instance);
 			return NB_ERR_VALIDATION;
 		}
-		if (afi == AFI_IP6 && bgp->vrf_id != VRF_DEFAULT) {
+		bgp_nb_cand_instance_key(dnode, &inst_type, NULL, NULL);
+		if (afi == AFI_IP6 && inst_type != BGP_INSTANCE_TYPE_DEFAULT) {
 			snprintfrr(errmsg, errmsg_len,
 				   "Only default BGP instance can use 'table-direct'");
 			return NB_ERR_VALIDATION;
@@ -9467,21 +9591,17 @@ static int bgp_nb_redistribute_apply(const struct lyd_node *dnode)
 
 int bgp_nb_redistribute_create(struct nb_cb_create_args *args)
 {
-	struct bgp *bgp;
 	afi_t afi;
 	safi_t safi;
 	int type;
 	unsigned short instance;
 
 	if (args->event == NB_EV_VALIDATE) {
-		bgp = nb_running_get_entry(args->dnode, NULL, false);
-		if (!bgp)
-			return NB_OK;
 		if (!bgp_nb_dnode_afi_safi(args->dnode, &afi, &safi))
 			return NB_ERR_VALIDATION;
 		type = yang_dnode_get_enum(args->dnode, "./route-type");
 		instance = yang_dnode_get_uint16(args->dnode, "./route-instance");
-		return bgp_nb_redistribute_validate(bgp, afi, type, instance, args->errmsg,
+		return bgp_nb_redistribute_validate(args->dnode, afi, type, instance, args->errmsg,
 						    args->errmsg_len);
 	}
 	if (args->event != NB_EV_APPLY)

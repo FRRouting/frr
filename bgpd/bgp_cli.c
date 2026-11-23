@@ -25,6 +25,7 @@
 #include "bgpd/bgp_route.h"
 #include "bgpd/bgp_vty.h"
 #include "bgpd/bgp_nb.h"
+#include "bgpd/bgp_nb_candidate.h"
 #include "bgpd/bgp_io.h"
 #include "bgpd/bgp_updgrp.h"
 #include "bgpd/bgp_zebra.h"
@@ -44,6 +45,35 @@
 #endif
 
 #include "bgpd/bgp_cli_clippy.c"
+
+/*
+ * Candidate frr-bgp:bgp node for the current VTY xpath (works in BGP_NODE,
+ * AF nodes, and BGP_EVPN_VNI_NODE without reading vty->qobj_index).
+ */
+static const struct lyd_node *bgp_cli_curr_bgp_dnode(struct vty *vty)
+{
+	const struct lyd_node *dn;
+
+	if (!vty->candidate_config || !vty->candidate_config->dnode || vty->xpath_index == 0)
+		return NULL;
+	dn = yang_dnode_get(vty->candidate_config->dnode, VTY_CURR_XPATH);
+	if (!dn)
+		return NULL;
+	return strmatch(dn->schema->name, "bgp") ? dn : yang_dnode_get_parent(dn, "bgp");
+}
+
+static struct bgp *bgp_cli_curr_bgp_runtime(struct vty *vty)
+{
+	const struct lyd_node *bgp_dn = bgp_cli_curr_bgp_dnode(vty);
+	enum bgp_instance_type inst_type;
+	const char *inst_name = NULL;
+
+	if (!bgp_dn || !bgp_nb_cand_instance_key(bgp_dn, &inst_type, &inst_name, NULL))
+		return NULL;
+	if (inst_type == BGP_INSTANCE_TYPE_DEFAULT)
+		return bgp_get_default();
+	return inst_name ? bgp_lookup_by_name(inst_name) : NULL;
+}
 
 /*
  * Address-family CLI helpers (classic AF nodes keep vty->node; BGP YANG
@@ -106,6 +136,50 @@ static int bgp_cli_global_af_xpath(struct vty *vty, char *xpath, size_t xpath_le
 	"/frr-routing:routing/control-plane-protocols/control-plane-protocol[type='frr-bgp:bgp'][name='%s'][vrf='%s']"
 #define BGP_BASE_XPATH BGP_CPP_XPATH "/frr-bgp:bgp"
 
+struct bgp_cli_sole_inst_ctx {
+	unsigned int count;
+	enum bgp_instance_type inst_type;
+	const char *name;
+	const char *vrf_name;
+};
+
+static bool bgp_cli_sole_inst_cb(const struct lyd_node *bgp_dnode, void *arg)
+{
+	struct bgp_cli_sole_inst_ctx *ctx = arg;
+	enum bgp_instance_type inst_type;
+	const char *name = NULL;
+	const char *vrf = NULL;
+
+	if (!bgp_nb_cand_instance_key(bgp_dnode, &inst_type, &name, &vrf))
+		return true;
+
+	ctx->count++;
+	if (ctx->count == 1) {
+		ctx->inst_type = inst_type;
+		ctx->name = name ? name : VRF_DEFAULT_NAME;
+		ctx->vrf_name = vrf ? vrf : VRF_DEFAULT_NAME;
+	}
+	return ctx->count <= 1;
+}
+
+static unsigned int bgp_cli_find_sole_candidate_instance(const struct lyd_node *root,
+							 enum bgp_instance_type *inst_type,
+							 const char **name, const char **vrf_name)
+{
+	struct bgp_cli_sole_inst_ctx ctx = { 0 };
+
+	bgp_nb_cand_each_instance_in_tree(root, bgp_cli_sole_inst_cb, &ctx);
+	if (ctx.count == 1) {
+		if (inst_type)
+			*inst_type = ctx.inst_type;
+		if (name)
+			*name = ctx.name;
+		if (vrf_name)
+			*vrf_name = ctx.vrf_name;
+	}
+	return ctx.count;
+}
+
 /*
  * router bgp — create/enter instance via YANG
  */
@@ -132,31 +206,48 @@ DEFUN_YANG_NOSH(router_bgp_yang, router_bgp_yang_cmd,
 
 	/* "router bgp" with no ASN — enter the sole existing instance */
 	if (argc == 2) {
-		struct bgp *bgp = bgp_get_default();
+		enum bgp_instance_type inst_type = BGP_INSTANCE_TYPE_DEFAULT;
+		unsigned int cand_count = bgp_cli_find_sole_candidate_instance(
+			vty->candidate_config->dnode, &inst_type, &name, &vrf_name);
+		struct bgp *bgp = NULL;
 
-		if (!bgp) {
-			vty_out(vty, "%% No BGP process is configured\n");
-			return CMD_WARNING_CONFIG_FAILED;
-		}
-		if (listcount(bm->bgp) > 1) {
+		if (cand_count > 1) {
 			vty_out(vty, "%% Please specify ASN and VRF\n");
 			return CMD_WARNING_CONFIG_FAILED;
 		}
-
-		if (bgp->inst_type == BGP_INSTANCE_TYPE_DEFAULT) {
-			name = VRF_DEFAULT_NAME;
-			vrf_name = VRF_DEFAULT_NAME;
-		} else if (bgp->inst_type == BGP_INSTANCE_TYPE_VIEW) {
-			name = bgp->name;
-			vrf_name = "view";
+		if (cand_count == 1) {
+			if (inst_type == BGP_INSTANCE_TYPE_DEFAULT)
+				bgp = bgp_get_default();
+			else
+				bgp = bgp_lookup_by_name(name);
 		} else {
-			name = bgp->name;
-			vrf_name = bgp->name;
+			bgp = bgp_get_default();
+			if (!bgp) {
+				vty_out(vty, "%% No BGP process is configured\n");
+				return CMD_WARNING_CONFIG_FAILED;
+			}
+			if (listcount(bm->bgp) > 1) {
+				vty_out(vty, "%% Please specify ASN and VRF\n");
+				return CMD_WARNING_CONFIG_FAILED;
+			}
+			if (bgp->inst_type == BGP_INSTANCE_TYPE_DEFAULT) {
+				name = VRF_DEFAULT_NAME;
+				vrf_name = VRF_DEFAULT_NAME;
+			} else if (bgp->inst_type == BGP_INSTANCE_TYPE_VIEW) {
+				name = bgp->name;
+				vrf_name = "view";
+			} else {
+				name = bgp->name;
+				vrf_name = bgp->name;
+			}
 		}
 
 		snprintfrr(bgp_xpath, sizeof(bgp_xpath), BGP_BASE_XPATH, name, vrf_name);
 		VTY_PUSH_XPATH(BGP_NODE, bgp_xpath);
-		VTY_PUSH_CONTEXT(BGP_NODE, bgp);
+		if (bgp)
+			VTY_PUSH_CONTEXT(BGP_NODE, bgp);
+		else
+			vty->qobj_index = 0;
 		return CMD_SUCCESS;
 	}
 
@@ -232,6 +323,8 @@ DEFUN_YANG_NOSH(router_bgp_yang, router_bgp_yang_cmd,
 				bgp = bgp_lookup_by_name(name);
 			if (bgp)
 				VTY_PUSH_CONTEXT(BGP_NODE, bgp);
+			else
+				vty->qobj_index = 0;
 		}
 		return CMD_SUCCESS;
 	}
@@ -332,135 +425,11 @@ DEFUN_YANG_NOSH(router_bgp_yang, router_bgp_yang_cmd,
 			bgp = bgp_lookup_by_name(name);
 		if (bgp)
 			VTY_PUSH_CONTEXT(BGP_NODE, bgp);
+		else
+			vty->qobj_index = 0;
 	}
 
 	return ret;
-}
-
-/*
- * Classic no_router_bgp refuses to tear the instance down when an L3VNI is
- * still configured, or when another VRF still imports or exports VPN routes
- * through the default instance. Deleting anyway frees the parent dests while
- * those VRFs still hold vrfleak parent pointers, and the next zebra announce
- * crashes in is_route_parent_evpn().
- */
-static bool bgp_cli_vrf_blocks_default_delete(struct bgp *bgp, struct bgp *vrf)
-{
-	if (CHECK_FLAG(vrf->af_flags[AFI_IP][SAFI_UNICAST], BGP_CONFIG_MPLSVPN_TO_VRF_IMPORT) ||
-	    CHECK_FLAG(vrf->af_flags[AFI_IP6][SAFI_UNICAST], BGP_CONFIG_MPLSVPN_TO_VRF_IMPORT) ||
-	    CHECK_FLAG(vrf->af_flags[AFI_IP][SAFI_UNICAST], BGP_CONFIG_VRF_TO_MPLSVPN_EXPORT) ||
-	    CHECK_FLAG(vrf->af_flags[AFI_IP6][SAFI_UNICAST], BGP_CONFIG_VRF_TO_MPLSVPN_EXPORT) ||
-	    CHECK_FLAG(vrf->af_flags[AFI_IP][SAFI_UNICAST], BGP_CONFIG_VRF_TO_VRF_EXPORT) ||
-	    CHECK_FLAG(vrf->af_flags[AFI_IP6][SAFI_UNICAST], BGP_CONFIG_VRF_TO_VRF_EXPORT) ||
-	    (bgp == bgp_get_evpn() &&
-	     (CHECK_FLAG(vrf->af_flags[AFI_L2VPN][SAFI_EVPN], BGP_L2VPN_EVPN_ADV_IPV4_UNICAST) ||
-	      CHECK_FLAG(vrf->af_flags[AFI_L2VPN][SAFI_EVPN],
-			 BGP_L2VPN_EVPN_ADV_IPV4_UNICAST_GW_IP) ||
-	      CHECK_FLAG(vrf->af_flags[AFI_L2VPN][SAFI_EVPN], BGP_L2VPN_EVPN_ADV_IPV6_UNICAST) ||
-	      CHECK_FLAG(vrf->af_flags[AFI_L2VPN][SAFI_EVPN],
-			 BGP_L2VPN_EVPN_ADV_IPV6_UNICAST_GW_IP))) ||
-	    vrf->l3vni)
-		return true;
-	return false;
-}
-
-static unsigned int bgp_cli_count_candidate_instances(const struct lyd_node *root)
-{
-	const struct lyd_node *cpps, *cpp;
-	unsigned int count = 0;
-
-	if (!root)
-		return 0;
-
-	cpps = yang_dnode_get(root, "/frr-routing:routing/control-plane-protocols");
-	if (!cpps)
-		return 0;
-
-	LY_LIST_FOR (lyd_child(cpps), cpp) {
-		const char *type;
-		const char *id;
-
-		if (!strmatch(cpp->schema->name, "control-plane-protocol"))
-			continue;
-		if (!yang_dnode_exists(cpp, "./type"))
-			continue;
-		type = yang_dnode_get_string(cpp, "./type");
-		if (!type)
-			continue;
-		id = strrchr(type, ':');
-		id = id ? id + 1 : type;
-		if (strmatch(id, "bgp"))
-			count++;
-	}
-	return count;
-}
-
-static bool bgp_cli_no_router_blocked(struct vty *vty, int argc, struct cmd_token **argv,
-				      const char *bgp_xpath, bool is_view, const char *inst_name)
-{
-	const struct lyd_node *cand;
-	struct bgp *bgp = NULL;
-	struct listnode *node, *nnode;
-	struct bgp *tmp_bgp;
-	as_t as = 0;
-
-	if (argc == 3) {
-		unsigned int cand_count =
-			bgp_cli_count_candidate_instances(vty->candidate_config->dnode);
-
-		cand = yang_dnode_get(vty->candidate_config->dnode, bgp_xpath);
-		bgp = bgp_get_default();
-		if (!cand && !bgp) {
-			vty_out(vty, "%% No BGP process is configured\n");
-			return true;
-		}
-		if (cand_count > 1 || listcount(bm->bgp) > 1) {
-			vty_out(vty, "%% Please specify ASN and VRF\n");
-			return true;
-		}
-	} else {
-		if (!asn_str2asn(argv[3]->arg, &as)) {
-			vty_out(vty, "%% BGP: No such AS %s\n", argv[3]->arg);
-			return true;
-		}
-
-		cand = yang_dnode_get(vty->candidate_config->dnode, bgp_xpath);
-		if (!cand || yang_dnode_get_uint32(cand, "./global/local-as") != as) {
-			vty_out(vty, "%% Can't find BGP instance\n");
-			return true;
-		}
-
-		bgp = bgp_lookup(as, inst_name);
-		if (bgp && ((is_view && bgp->inst_type != BGP_INSTANCE_TYPE_VIEW) ||
-			    (!is_view && bgp->inst_type == BGP_INSTANCE_TYPE_VIEW)))
-			bgp = NULL;
-	}
-
-	if (!bgp)
-		return false;
-
-	if (bgp->l3vni) {
-		vty_out(vty, "%% Please unconfigure l3vni %u\n", bgp->l3vni);
-		return true;
-	}
-
-	if (bgp->inst_type != BGP_INSTANCE_TYPE_DEFAULT)
-		return false;
-
-	for (ALL_LIST_ELEMENTS(bm->bgp, node, nnode, tmp_bgp)) {
-		if (tmp_bgp->inst_type != BGP_INSTANCE_TYPE_VRF)
-			continue;
-		if (CHECK_FLAG(tmp_bgp->vrf_flags, BGP_VRF_AUTO)) {
-			bgp_delete(tmp_bgp);
-			continue;
-		}
-		if (bgp_cli_vrf_blocks_default_delete(bgp, tmp_bgp)) {
-			vty_out(vty,
-				"%% Cannot delete default BGP instance. Dependent VRF instances exist\n");
-			return true;
-		}
-	}
-	return false;
 }
 
 DEFUN_YANG(no_router_bgp_yang, no_router_bgp_yang_cmd,
@@ -473,38 +442,87 @@ DEFUN_YANG(no_router_bgp_yang, no_router_bgp_yang_cmd,
 {
 	char cpp_xpath[XPATH_MAXLEN];
 	char bgp_xpath[XPATH_MAXLEN];
+	const struct lyd_node *cand;
 	const char *name = VRF_DEFAULT_NAME;
 	const char *vrf_name = VRF_DEFAULT_NAME;
 	const char *inst_name = NULL;
 	bool is_view = false;
 	int idx = 0;
 
-	if (argv_find(argv, argc, "VIEWVRFNAME", &idx)) {
-		name = argv[idx]->arg;
-		if (strmatch(argv[idx - 1]->text, "view")) {
-			is_view = true;
-			vrf_name = "view";
-			inst_name = name;
-		} else if (strmatch(name, VRF_DEFAULT_NAME)) {
-			name = VRF_DEFAULT_NAME;
-			vrf_name = VRF_DEFAULT_NAME;
-			inst_name = NULL;
-		} else {
-			vrf_name = name;
-			inst_name = name;
+	if (argc == 3) {
+		enum bgp_instance_type inst_type = BGP_INSTANCE_TYPE_DEFAULT;
+		unsigned int cand_count = bgp_cli_find_sole_candidate_instance(
+			vty->candidate_config->dnode, &inst_type, &name, &vrf_name);
+
+		if (cand_count > 1) {
+			vty_out(vty, "%% Please specify ASN and VRF\n");
+			return CMD_WARNING_CONFIG_FAILED;
 		}
-	} else if (argc == 3) {
-		/* no router bgp — delete default instance */
-		name = VRF_DEFAULT_NAME;
-		vrf_name = VRF_DEFAULT_NAME;
-		inst_name = NULL;
+		if (cand_count == 0) {
+			struct bgp *bgp = bgp_get_default();
+
+			if (!bgp) {
+				vty_out(vty, "%% No BGP process is configured\n");
+				return CMD_WARNING_CONFIG_FAILED;
+			}
+			if (listcount(bm->bgp) > 1) {
+				vty_out(vty, "%% Please specify ASN and VRF\n");
+				return CMD_WARNING_CONFIG_FAILED;
+			}
+			vty_out(vty, "%% No BGP process is configured\n");
+			return CMD_WARNING_CONFIG_FAILED;
+		}
+	} else {
+		as_t as = 0;
+
+		if (!asn_str2asn(argv[3]->arg, &as)) {
+			vty_out(vty, "%% BGP: No such AS %s\n", argv[3]->arg);
+			return CMD_WARNING_CONFIG_FAILED;
+		}
+
+		if (argv_find(argv, argc, "VIEWVRFNAME", &idx)) {
+			name = argv[idx]->arg;
+			if (strmatch(argv[idx - 1]->text, "view")) {
+				is_view = true;
+				vrf_name = "view";
+				inst_name = name;
+			} else if (strmatch(name, VRF_DEFAULT_NAME)) {
+				name = VRF_DEFAULT_NAME;
+				vrf_name = VRF_DEFAULT_NAME;
+				inst_name = NULL;
+			} else {
+				vrf_name = name;
+				inst_name = name;
+			}
+		}
+
+		snprintfrr(bgp_xpath, sizeof(bgp_xpath), BGP_BASE_XPATH, name, vrf_name);
+		cand = yang_dnode_get(vty->candidate_config->dnode, bgp_xpath);
+		if (!cand || yang_dnode_get_uint32(cand, "./global/local-as") != as) {
+			/*
+			 * A1-09: allow deleting a runtime-only AUTO VRF instance
+			 * that was created by EVPN/zebra and has no YANG node.
+			 */
+			if (!cand && !is_view && inst_name) {
+				struct bgp *rt_bgp = bgp_lookup(as, inst_name);
+
+				if (rt_bgp && rt_bgp->inst_type == BGP_INSTANCE_TYPE_VRF &&
+				    CHECK_FLAG(rt_bgp->vrf_flags, BGP_VRF_AUTO)) {
+					if (rt_bgp->l3vni) {
+						vty_out(vty, "%% Please unconfigure l3vni %u\n",
+							rt_bgp->l3vni);
+						return CMD_WARNING_CONFIG_FAILED;
+					}
+					bgp_delete(rt_bgp);
+					return CMD_SUCCESS;
+				}
+			}
+			vty_out(vty, "%% Can't find BGP instance\n");
+			return CMD_WARNING_CONFIG_FAILED;
+		}
 	}
 
 	snprintfrr(cpp_xpath, sizeof(cpp_xpath), BGP_CPP_XPATH, name, vrf_name);
-	snprintfrr(bgp_xpath, sizeof(bgp_xpath), BGP_BASE_XPATH, name, vrf_name);
-
-	if (bgp_cli_no_router_blocked(vty, argc, argv, bgp_xpath, is_view, inst_name))
-		return CMD_WARNING_CONFIG_FAILED;
 
 	nb_cli_enqueue_change(vty, cpp_xpath, NB_OP_DESTROY, NULL);
 	return nb_cli_apply_changes_clear_pending(vty, NULL);
@@ -549,12 +567,14 @@ DEFPY_YANG(no_bgp_srv6_locator_yang, no_bgp_srv6_locator_yang_cmd,
 	   "Specify SRv6 locator\n"
 	   "Specify SRv6 locator\n")
 {
-	VTY_DECLVAR_CONTEXT(bgp, bgp);
+	const struct lyd_node *bgp_dn = bgp_cli_curr_bgp_dnode(vty);
+	const char *cur_loc;
 
-	if (strlen(bgp->srv6_locator_name) < 1)
+	if (!bgp_dn || !yang_dnode_exists(bgp_dn, "global/segment-routing/srv6/locator"))
 		return CMD_SUCCESS;
 
-	if (!strmatch(name, bgp->srv6_locator_name)) {
+	cur_loc = yang_dnode_get_string(bgp_dn, "global/segment-routing/srv6/locator");
+	if (!cur_loc || !strmatch(name, cur_loc)) {
 		vty_out(vty, "%% No srv6 locator is configured\n");
 		return CMD_WARNING_CONFIG_FAILED;
 	}
@@ -749,23 +769,9 @@ DEFUN_YANG(no_bgp_log_neighbor_changes_yang,
 	   "no bgp log-neighbor-changes",
 	   NO_STR BGP_STR "Log neighbor up/down and reset reason\n")
 {
-	struct bgp *bgp = VTY_GET_CONTEXT(bgp);
-	int pending_err = vty->pending_commit_error;
-	int ret;
-
 	nb_cli_enqueue_change(vty, "./global/global-neighbor-config/log-neighbor-changes",
 			      NB_OP_MODIFY, "false");
-	ret = nb_cli_apply_changes(vty, NULL);
-	/*
-	 * Datacenter enables logging in bgp_get_vty() while the YANG default
-	 * stays false, so this modify is not a diff and the callback never
-	 * clears the flag. A config-file batch commits later; create applies
-	 * an explicit false from that candidate.
-	 */
-	if (ret == CMD_SUCCESS && bgp && !vty->pending_commit &&
-	    vty->pending_commit_error == pending_err)
-		UNSET_FLAG(bgp->flags, BGP_FLAG_LOG_NEIGHBOR_CHANGES);
-	return ret;
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 DEFUN_YANG(bgp_ebgp_requires_policy_yang, bgp_ebgp_requires_policy_yang_cmd,
@@ -2315,7 +2321,8 @@ DEFPY_YANG(bgp_listen_range_yang, bgp_listen_range_yang_cmd,
 	 * and nothing is printed.
 	 */
 	if (ret == CMD_SUCCESS && !no && !bgp_config_inprocess() &&
-	    (bgp = VTY_GET_CONTEXT(bgp)) != NULL && (group = peer_group_lookup(bgp, pg)) != NULL) {
+	    (bgp = bgp_cli_curr_bgp_runtime(vty)) != NULL &&
+	    (group = peer_group_lookup(bgp, pg)) != NULL) {
 		struct listnode *node;
 		struct prefix *lr;
 
@@ -3776,7 +3783,7 @@ DEFPY_YANG(neighbor_password_yang, neighbor_password_yang_cmd,
 	 * frr.conf is loading.
 	 */
 	if (ret == CMD_SUCCESS && no && is_pg && !bgp_config_inprocess()) {
-		struct bgp *bgp = VTY_GET_CONTEXT(bgp);
+		struct bgp *bgp = bgp_cli_curr_bgp_runtime(vty);
 		struct peer_group *group = bgp ? peer_group_lookup(bgp, neighbor) : NULL;
 
 		if (group && !group->conf->password)
@@ -6190,27 +6197,6 @@ static int bgp_cli_redistribute(struct vty *vty, const char *proto, unsigned sho
 	char af_xpath[XPATH_MAXLEN];
 	char red_xpath[XPATH_MAXLEN + 256];
 	char leaf[XPATH_MAXLEN + 512];
-	struct bgp *bgp;
-
-	if (strmatch(proto, "table-direct")) {
-		/*
-		 * During XFRR batch load, router-bgp context is not pushed
-		 * yet — do not abort. NB validate covers table/VRF checks.
-		 */
-		bgp = VTY_GET_CONTEXT(bgp);
-		if (bgp) {
-			if (instance == RT_TABLE_MAIN || instance == RT_TABLE_LOCAL) {
-				vty_out(vty, "%% 'table-direct', can not use %u routing table\n",
-					instance);
-				return CMD_WARNING_CONFIG_FAILED;
-			}
-			if (vty->node == BGP_IPV6_NODE && bgp->vrf_id != VRF_DEFAULT) {
-				vty_out(vty,
-					"%% Only default BGP instance can use 'table-direct'\n");
-				return CMD_WARNING_CONFIG_FAILED;
-			}
-		}
-	}
 
 	bgp_cli_global_af_xpath(vty, af_xpath, sizeof(af_xpath));
 	nb_cli_enqueue_change(vty, af_xpath, NB_OP_CREATE, NULL);
@@ -7528,25 +7514,26 @@ DEFPY_YANG(bgp_evpn_vrf_rd_yang, bgp_evpn_vrf_rd_yang_cmd,
 {
 	char af_xpath[XPATH_MAXLEN];
 	char leaf[XPATH_MAXLEN + 256];
-	struct bgp *bgp_vrf;
-	struct prefix_rd prd;
+	struct prefix_rd prd, cand_prd;
 
 	bgp_cli_global_af_xpath(vty, af_xpath, sizeof(af_xpath));
 	snprintfrr(leaf, sizeof(leaf), "%s/ip-vrf/rd", af_xpath);
 
 	if (no) {
-		bgp_vrf = VTY_GET_CONTEXT(bgp);
-		if (!bgp_vrf)
-			return CMD_WARNING;
+		const struct lyd_node *bgp_dn = bgp_cli_curr_bgp_dnode(vty);
+		const char *cand_rd;
+
 		if (!str2prefix_rd(rd, &prd)) {
 			vty_out(vty, "%% Malformed Route Distinguisher\n");
 			return CMD_WARNING;
 		}
-		if (!is_vrf_rd_configured(bgp_vrf)) {
+		if (!bgp_dn || !yang_dnode_exists(bgp_dn, leaf)) {
 			vty_out(vty, "%% RD is not configured for this VRF\n");
 			return CMD_WARNING;
 		}
-		if (!bgp_evpn_vrf_rd_matches_existing(bgp_vrf, &prd)) {
+		cand_rd = yang_dnode_get_string(bgp_dn, "%s", leaf);
+		if (!cand_rd || !str2prefix_rd(cand_rd, &cand_prd) ||
+		    memcmp(prd.val, cand_prd.val, ECOMMUNITY_SIZE) != 0) {
 			vty_out(vty,
 				"%% RD specified does not match configuration for this VRF\n");
 			return CMD_WARNING;
@@ -7566,18 +7553,15 @@ DEFPY_YANG(no_bgp_evpn_vrf_rd_without_val_yang, no_bgp_evpn_vrf_rd_without_val_y
 	   NO_STR
 	   EVPN_RT_DIST_HELP_STR)
 {
-	struct bgp *bgp_vrf = VTY_GET_CONTEXT(bgp);
+	const struct lyd_node *bgp_dn = bgp_cli_curr_bgp_dnode(vty);
+	const char *rd_xpath =
+		"./global/afi-safis/afi-safi[afi-safi-name='frr-routing:l2vpn-evpn']/l2vpn-evpn/ip-vrf/rd";
 
-	if (!bgp_vrf)
-		return CMD_WARNING;
-	if (!is_vrf_rd_configured(bgp_vrf)) {
+	if (!bgp_dn || !yang_dnode_exists(bgp_dn, rd_xpath)) {
 		vty_out(vty, "%% RD is not configured for this VRF\n");
 		return CMD_WARNING;
 	}
-	nb_cli_enqueue_change(
-		vty,
-		"./global/afi-safis/afi-safi[afi-safi-name='frr-routing:l2vpn-evpn']/l2vpn-evpn/ip-vrf/rd",
-		NB_OP_DESTROY, NULL);
+	nb_cli_enqueue_change(vty, rd_xpath, NB_OP_DESTROY, NULL);
 	return nb_cli_apply_changes(vty, NULL);
 }
 
@@ -8016,8 +8000,6 @@ DEFPY_YANG(no_bgp_evpn_vni_yang, no_bgp_evpn_vni_yang_cmd,
 	char af_xpath[XPATH_MAXLEN];
 	char vni_rel[XPATH_MAXLEN + 256];
 	char vni_abs[XPATH_MAXLEN + 256];
-	struct bgp *bgp = VTY_GET_CONTEXT(bgp);
-	struct bgpevpn *vpn;
 	bool cand_exists = false;
 
 	bgp_cli_global_af_xpath(vty, af_xpath, sizeof(af_xpath));
@@ -8026,13 +8008,8 @@ DEFPY_YANG(no_bgp_evpn_vni_yang, no_bgp_evpn_vni_yang_cmd,
 	if (vty->candidate_config && vty->candidate_config->dnode)
 		cand_exists = yang_dnode_exists(vty->candidate_config->dnode, vni_abs);
 
-	vpn = bgp ? bgp_evpn_lookup_vni(bgp, (vni_t)vni) : NULL;
-	if (!vpn && !cand_exists) {
+	if (!cand_exists) {
 		vty_out(vty, "%% Specified VNI does not exist\n");
-		return CMD_WARNING;
-	}
-	if (vpn && !is_vni_configured(vpn) && !cand_exists) {
-		vty_out(vty, "%% Specified VNI is not configured\n");
 		return CMD_WARNING;
 	}
 
@@ -8057,11 +8034,10 @@ DEFPY_YANG(bgp_evpn_vni_rd_yang, bgp_evpn_vni_rd_yang_cmd,
 	   EVPN_RT_DIST_HELP_STR
 	   EVPN_ASN_IP_HELP_STR)
 {
-	struct bgp *bgp;
-	struct bgpevpn *vpn;
-	struct prefix_rd prd;
-	const char *vni_key;
-	vni_t vni = 0;
+	struct prefix_rd prd, cand_prd;
+	char rd_abs[XPATH_MAXLEN + 32];
+	const struct lyd_node *cand = vty->candidate_config ? vty->candidate_config->dnode : NULL;
+	const char *cand_rd;
 
 	if (!bgp_cli_evpn_is_enabled(vty, NULL)) {
 		vty_out(vty, "This command is only supported under EVPN VRF\n");
@@ -8077,12 +8053,8 @@ DEFPY_YANG(bgp_evpn_vni_rd_yang, bgp_evpn_vni_rd_yang_cmd,
 		return nb_cli_apply_changes(vty, NULL);
 	}
 
-	bgp = VTY_GET_CONTEXT(bgp);
-	vni_key = vty->xpath_index > 0 ? strstr(VTY_CURR_XPATH, "vni[vni='") : NULL;
-	if (vni_key)
-		vni = (vni_t)strtoul(vni_key + strlen("vni[vni='"), NULL, 10);
-	vpn = (bgp && vni) ? bgp_evpn_lookup_vni(bgp, vni) : NULL;
-	if (!vpn || !is_rd_configured(vpn)) {
+	snprintfrr(rd_abs, sizeof(rd_abs), "%s/rd", VTY_CURR_XPATH);
+	if (!cand || !yang_dnode_exists(cand, rd_abs)) {
 		vty_out(vty, "%% RD is not configured for this VNI\n");
 		return CMD_WARNING;
 	}
@@ -8091,7 +8063,9 @@ DEFPY_YANG(bgp_evpn_vni_rd_yang, bgp_evpn_vni_rd_yang_cmd,
 			vty_out(vty, "%% Malformed Route Distinguisher\n");
 			return CMD_WARNING;
 		}
-		if (!bgp_evpn_rd_matches_existing(vpn, &prd)) {
+		cand_rd = yang_dnode_get_string(cand, "%s", rd_abs);
+		if (!cand_rd || !str2prefix_rd(cand_rd, &cand_prd) ||
+		    memcmp(prd.val, cand_prd.val, ECOMMUNITY_SIZE) != 0) {
 			vty_out(vty,
 				"%% RD specified does not match configuration for this VNI\n");
 			return CMD_WARNING;
@@ -8259,16 +8233,6 @@ DEFPY_ATTR(bgp_evpn_vni_advertise_subnet_yang,
 	   "Advertise the subnet corresponding to VNI\n",
 	   CMD_ATTR_YANG | CMD_ATTR_HIDDEN)
 {
-	if (!no) {
-		struct bgp *bgp = VTY_GET_CONTEXT(bgp);
-		const char *vni_key = vty->xpath_index > 0 ? strstr(VTY_CURR_XPATH, "vni[vni='")
-							   : NULL;
-		vni_t vni = vni_key ? (vni_t)strtoul(vni_key + strlen("vni[vni='"), NULL, 10) : 0;
-		struct bgpevpn *vpn = (bgp && vni) ? bgp_evpn_lookup_vni(bgp, vni) : NULL;
-
-		if (!vpn || !bgp_lookup_by_vrf_id(vpn->tenant_vrf_id))
-			return CMD_WARNING;
-	}
 	nb_cli_enqueue_change(vty, "./advertise-subnet", NB_OP_MODIFY, no ? "false" : "true");
 	return nb_cli_apply_changes(vty, NULL);
 }
@@ -8322,17 +8286,42 @@ DEFPY_YANG(bgp_imexport_vpn_yang, bgp_imexport_vpn_yang_cmd,
 	return nb_cli_apply_changes(vty, NULL);
 }
 
+struct bgp_cli_vrf_export_ctx {
+	const struct lyd_node *self_bgp;
+	const char *self_name;
+	const char *af_name;
+	bool exported;
+};
+
+static bool bgp_cli_vrf_export_check_cb(const struct lyd_node *bgp_dn, void *arg)
+{
+	struct bgp_cli_vrf_export_ctx *ctx = arg;
+
+	if (bgp_dn == ctx->self_bgp)
+		return true;
+
+	if (yang_dnode_existsf(bgp_dn,
+			       "global/afi-safis/afi-safi[afi-safi-name='%s']"
+			       "/vpn-config/import-vrf-list[vrf='%s']",
+			       ctx->af_name, ctx->self_name)) {
+		ctx->exported = true;
+		return false;
+	}
+	return true;
+}
+
 static bool bgp_cli_vpn_policy_check(struct vty *vty, bool v2vimport)
 {
-	struct bgp *bgp = VTY_GET_CONTEXT(bgp);
-	afi_t afi;
+	const struct lyd_node *bgp_dn;
+	const char *af_name;
+	char af_xpath[XPATH_MAXLEN];
 
 	switch (vty->node) {
 	case BGP_IPV4_NODE:
-		afi = AFI_IP;
+		af_name = "frr-routing:ipv4-unicast";
 		break;
 	case BGP_IPV6_NODE:
-		afi = AFI_IP6;
+		af_name = "frr-routing:ipv6-unicast";
 		break;
 	default:
 		vty_out(vty,
@@ -8340,21 +8329,52 @@ static bool bgp_cli_vpn_policy_check(struct vty *vty, bool v2vimport)
 		return false;
 	}
 
-	if (!bgp)
+	bgp_dn = bgp_cli_curr_bgp_dnode(vty);
+	if (!bgp_dn)
 		return true;
 
+	snprintfrr(af_xpath, sizeof(af_xpath),
+		   "global/afi-safis/afi-safi[afi-safi-name='%s']/vpn-config", af_name);
+
 	if (!v2vimport) {
-		if (CHECK_FLAG(bgp->af_flags[afi][SAFI_UNICAST], BGP_CONFIG_VRF_TO_VRF_IMPORT) ||
-		    CHECK_FLAG(bgp->af_flags[afi][SAFI_UNICAST], BGP_CONFIG_VRF_TO_VRF_EXPORT)) {
+		enum bgp_instance_type inst_type;
+		const char *inst_name = NULL;
+		const char *self_vrf_name = NULL;
+		bool has_v2v = yang_dnode_existsf(bgp_dn, "%s/import-vrf-list", af_xpath);
+
+		if (!has_v2v &&
+		    bgp_nb_cand_instance_key(bgp_dn, &inst_type, &inst_name, NULL)) {
+			self_vrf_name = (inst_type == BGP_INSTANCE_TYPE_DEFAULT)
+						? VRF_DEFAULT_NAME
+						: inst_name;
+			if (self_vrf_name) {
+				struct bgp_cli_vrf_export_ctx ctx = {
+					.self_bgp = bgp_dn,
+					.self_name = self_vrf_name,
+					.af_name = af_name,
+					.exported = false,
+				};
+
+				bgp_nb_cand_each_instance_in_tree(
+					vty->candidate_config->dnode, bgp_cli_vrf_export_check_cb,
+					&ctx);
+				has_v2v = ctx.exported;
+			}
+		}
+
+		if (has_v2v) {
 			vty_out(vty,
 				"%% error: Please unconfigure import vrf commands before using vpn commands\n");
 			return false;
 		}
 	} else {
-		if (CHECK_FLAG(bgp->af_flags[afi][SAFI_UNICAST],
-			       BGP_CONFIG_VRF_TO_MPLSVPN_EXPORT) ||
-		    CHECK_FLAG(bgp->af_flags[afi][SAFI_UNICAST],
-			       BGP_CONFIG_MPLSVPN_TO_VRF_IMPORT)) {
+		bool has_vpn =
+			(yang_dnode_existsf(bgp_dn, "%s/export-vpn", af_xpath) &&
+			 yang_dnode_get_bool(bgp_dn, "%s/export-vpn", af_xpath)) ||
+			(yang_dnode_existsf(bgp_dn, "%s/import-vpn", af_xpath) &&
+			 yang_dnode_get_bool(bgp_dn, "%s/import-vpn", af_xpath));
+
+		if (has_vpn) {
 			vty_out(vty,
 				"%% error: Please unconfigure vpn to vrf commands before using import vrf commands\n");
 			return false;
@@ -8723,8 +8743,10 @@ DEFPY_YANG(bgp_import_vrf_yang, bgp_import_vrf_yang_cmd,
 	char af_xpath[XPATH_MAXLEN];
 	char list_xpath[XPATH_MAXLEN + 256];
 	char check[XPATH_MAXLEN + 256];
-	struct bgp *bgp = VTY_GET_CONTEXT(bgp);
+	const struct lyd_node *bgp_dn = bgp_cli_curr_bgp_dnode(vty);
 	const struct lyd_node *cand = vty->candidate_config ? vty->candidate_config->dnode : NULL;
+	enum bgp_instance_type inst_type;
+	const char *inst_name = NULL;
 	bool exists = false;
 
 	if (!import_name) {
@@ -8739,9 +8761,10 @@ DEFPY_YANG(bgp_import_vrf_yang, bgp_import_vrf_yang_cmd,
 	if (!bgp_cli_vpn_policy_check(vty, true))
 		return CMD_WARNING_CONFIG_FAILED;
 
-	if (bgp && (((bgp->inst_type == BGP_INSTANCE_TYPE_DEFAULT) &&
-		     strmatch(import_name, VRF_DEFAULT_NAME)) ||
-		    (bgp->name && strmatch(import_name, bgp->name)))) {
+	if (bgp_dn && bgp_nb_cand_instance_key(bgp_dn, &inst_type, &inst_name, NULL) &&
+	    (((inst_type == BGP_INSTANCE_TYPE_DEFAULT) &&
+	      strmatch(import_name, VRF_DEFAULT_NAME)) ||
+	     (inst_name && strmatch(import_name, inst_name)))) {
 		vty_out(vty, "%% Cannot %s vrf %s into itself\n", no ? "unimport" : "import",
 			import_name);
 		return CMD_WARNING;
@@ -9288,32 +9311,40 @@ DEFPY_YANG(sid_export_yang, sid_export_yang_cmd,
 	char af_xpath[XPATH_MAXLEN];
 	char leaf[XPATH_MAXLEN + 256];
 	char buf[16];
-	struct bgp *bgp = VTY_GET_CONTEXT(bgp);
-	afi_t afi = bgp_node_afi(vty);
-
-	if (bgp) {
-		if (bgp->inst_type != BGP_INSTANCE_TYPE_DEFAULT) {
-			vty_out(vty,
-				"SRv6 unicast is only supported on the default BGP instance\n");
-			return CMD_WARNING_CONFIG_FAILED;
-		}
-		if (is_srv6_vpn_afi_enabled(bgp, afi)) {
-			vty_out(vty,
-				"sid vpn per afi is configured; remove it before sid export\n");
-			return CMD_WARNING_CONFIG_FAILED;
-		}
-		if (is_srv6_vpn_vrf_enabled(bgp)) {
-			vty_out(vty,
-				"sid vpn per-vrf is configured; remove it before sid export\n");
-			return CMD_WARNING_CONFIG_FAILED;
-		}
-	}
+	const struct lyd_node *bgp_dn = bgp_cli_curr_bgp_dnode(vty);
+	enum bgp_instance_type inst_type;
 
 	bgp_cli_global_af_xpath(vty, af_xpath, sizeof(af_xpath));
 
 	if (no) {
 		bgp_cli_sid_export_clear(vty, af_xpath);
 		return nb_cli_apply_changes(vty, NULL);
+	}
+
+	if (bgp_dn) {
+		if (bgp_nb_cand_instance_key(bgp_dn, &inst_type, NULL, NULL) &&
+		    inst_type != BGP_INSTANCE_TYPE_DEFAULT) {
+			vty_out(vty,
+				"SRv6 unicast is only supported on the default BGP instance\n");
+			return CMD_WARNING_CONFIG_FAILED;
+		}
+		if (yang_dnode_existsf(bgp_dn, "%s/vpn-config/sid-vpn-export/sid-index",
+				       af_xpath + 2) ||
+		    yang_dnode_existsf(bgp_dn, "%s/vpn-config/sid-vpn-export/sid-auto",
+				       af_xpath + 2) ||
+		    yang_dnode_existsf(bgp_dn, "%s/vpn-config/sid-vpn-export/sid-explicit",
+				       af_xpath + 2)) {
+			vty_out(vty,
+				"sid vpn per afi is configured; remove it before sid export\n");
+			return CMD_WARNING_CONFIG_FAILED;
+		}
+		if (yang_dnode_exists(bgp_dn, "global/sid-vpn-per-vrf-export/sid-index") ||
+		    yang_dnode_exists(bgp_dn, "global/sid-vpn-per-vrf-export/sid-auto") ||
+		    yang_dnode_exists(bgp_dn, "global/sid-vpn-per-vrf-export/sid-explicit")) {
+			vty_out(vty,
+				"sid vpn per-vrf is configured; remove it before sid export\n");
+			return CMD_WARNING_CONFIG_FAILED;
+		}
 	}
 
 	if (!sid_idx_str && !sid_auto && !sid_explicit) {

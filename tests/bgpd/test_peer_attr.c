@@ -1451,6 +1451,7 @@ static void bgp_startup(void)
 	 * next "router bgp" reuses the old peers.
 	 */
 	hook_register(routing_destroy, bgp_nb_routing_destroy);
+	hook_register(routing_destroy_validate, bgp_nb_routing_destroy);
 	bgp_option_set(BGP_OPT_NO_LISTEN);
 	vrf_init(NULL, NULL, NULL, NULL);
 	frr_pthread_init();

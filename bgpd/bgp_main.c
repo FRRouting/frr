@@ -553,6 +553,7 @@ CPP_NOTICE("Remove `--no_zebra` option as that it is deprecated")
 	bgp_master_init(frr_init(), buffer_size, addresses);
 
 	hook_register(routing_destroy, bgp_nb_routing_destroy);
+	hook_register(routing_destroy_validate, bgp_nb_routing_destroy);
 
 	bm->startup_time = monotime(NULL);
 	bm->port = bgp_port;

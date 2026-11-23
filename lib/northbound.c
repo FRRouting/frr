@@ -1307,7 +1307,11 @@ int nb_candidate_validate_code(struct nb_context *context,
 {
 	struct nb_config_cb *cb;
 	struct lyd_node *root, *child;
-	int ret;
+	const struct lyd_node *saved;
+	int ret = NB_OK;
+
+	saved = nb_txn_candidate_dnode;
+	nb_txn_candidate_dnode = candidate ? candidate->dnode : NULL;
 
 	/* First validate the candidate as a whole. */
 	LY_LIST_FOR (candidate->dnode, root) {
@@ -1320,8 +1324,10 @@ int nb_candidate_validate_code(struct nb_context *context,
 
 			ret = nb_callback_pre_validate(context, nb_node, child,
 						       errmsg, errmsg_len);
-			if (ret != NB_OK)
-				return NB_ERR_VALIDATION;
+			if (ret != NB_OK) {
+				ret = NB_ERR_VALIDATION;
+				goto done;
+			}
 
 		next:
 			LYD_TREE_DFS_END(root, child);
@@ -1334,11 +1340,15 @@ int nb_candidate_validate_code(struct nb_context *context,
 
 		ret = nb_callback_configuration(context, NB_EV_VALIDATE, change,
 						errmsg, errmsg_len);
-		if (ret != NB_OK)
-			return NB_ERR_VALIDATION;
+		if (ret != NB_OK) {
+			ret = NB_ERR_VALIDATION;
+			goto done;
+		}
 	}
 
-	return NB_OK;
+done:
+	nb_txn_candidate_dnode = saved;
+	return ret;
 }
 
 int nb_candidate_diff_and_validate_yang(struct nb_context *context,

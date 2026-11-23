@@ -16,6 +16,7 @@
 DEFINE_HOOK(routing_conf_event, (struct nb_cb_create_args *args), (args));
 DEFINE_HOOK(routing_create, (struct nb_cb_create_args *args), (args));
 DEFINE_KOOH(routing_destroy, (struct nb_cb_destroy_args *args), (args));
+DEFINE_HOOK(routing_destroy_validate, (struct nb_cb_destroy_args *args), (args));
 
 /*
  * XPath: /frr-routing:routing/control-plane-protocols/control-plane-protocol
@@ -61,6 +62,8 @@ int routing_control_plane_protocols_control_plane_protocol_create(
 int routing_control_plane_protocols_control_plane_protocol_destroy(
 	struct nb_cb_destroy_args *args)
 {
+	if (args->event == NB_EV_VALIDATE)
+		return hook_call(routing_destroy_validate, args) ? NB_ERR_VALIDATION : NB_OK;
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
