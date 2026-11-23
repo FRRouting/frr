@@ -34,6 +34,7 @@ sys.path.append(os.path.join(CWD, "../"))
 # pylint: disable=C0413
 # Import topogen and topotest helpers
 from lib import topotest
+from lib.common_config import kill_router_daemons, start_router_daemons
 from lib.topogen import Topogen, get_topogen
 from lib.topolog import logger
 
@@ -396,6 +397,33 @@ configure terminal
 
     test_func = partial(_check_fpm_route_withdrawn, r2, RECURSIVE_PREFIX)
     _, result = topotest.run_and_expect(test_func, None, count=15, wait=1)
+    assert result is None, result
+
+
+def test_evpn_route_fpm_encap_after_zebra_restart():
+    """
+    zebra restarted with -K takes over the type-5 route from the kernel. When
+    bgpd sends the route again, it reaches the FPM with its VXLAN
+    encapsulation, not through the nexthop group of the adopted route.
+    """
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    r2 = tgen.gears["r2"]
+
+    # zebra goes first, so that it does not remove bgpd's routes from the kernel
+    kill_router_daemons(tgen, "r2", ["zebra", "bgpd"])
+    r2.net.daemons_options["zebra"] = "-M dplane_fpm_nl -K60"
+    start_router_daemons(tgen, "r2", ["zebra", "bgpd"])
+
+    expected = {"connected": True, "useNHG": False}
+    test_func = partial(topotest.router_json_cmp, r2, "show fpm status json", expected)
+    _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
+    assert result is None, "r2 is not connected to the FPM listener:\n{}".format(result)
+
+    test_func = partial(_check_fpm_route_encap, r2, EVPN_PREFIX, REMOTE_VTEP, L3VNI)
+    _, result = topotest.run_and_expect(test_func, None, count=60, wait=1)
     assert result is None, result
 
 
