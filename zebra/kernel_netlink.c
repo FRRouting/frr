@@ -1220,7 +1220,8 @@ static int nl_batch_read_resp(struct nl_batch *bth, struct nlsock *nl)
 
 			while ((ctx = dplane_ctx_dequeue(&(bth->ctx_list))) !=
 			       NULL) {
-				if (status == -1) {
+				/* Not sent: the kernel failure is not theirs. */
+				if (status == -1 && !dplane_ctx_is_skip_kernel(ctx)) {
 					dplane_ctx_set_status(
 						ctx,
 						ZEBRA_DPLANE_REQUEST_FAILURE);
@@ -1420,7 +1421,8 @@ static void nl_batch_send(struct nl_batch *bth)
 		if (ctx == NULL)
 			break;
 
-		if (err) {
+		/* Not sent: the kernel failure is not theirs. */
+		if (err && !dplane_ctx_is_skip_kernel(ctx)) {
 			dplane_ctx_set_status(ctx,
 					      ZEBRA_DPLANE_REQUEST_FAILURE);
 			if (err_errno)
