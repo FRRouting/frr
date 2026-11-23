@@ -36,6 +36,7 @@ static void pcep_segment_list_name(char *buf, size_t size, struct path *path);
 static bool segment_list_name_taken(struct path *path, struct srte_candidate *candidate);
 static bool path_name_too_long(struct path *path);
 static bool path_name_reserved(struct path *path);
+static int path_pcep_config_adopt_path(struct path *path);
 static char *candidate_name(struct srte_candidate *candidate);
 static enum pcep_lsp_operational_status
 status_int_to_ext(enum srte_policy_status status);
@@ -277,6 +278,9 @@ int path_pcep_config_initiate_path(struct path *path)
 	struct srte_policy *policy;
 	struct srte_candidate *candidate;
 
+	if (!path->do_remove && path->plsp_id != 0)
+		return path_pcep_config_adopt_path(path);
+
 	if (path->do_remove) {
 		zlog_warn("PCE %s tried to REMOVE pce-initiate a path ",
 			  path->originator);
@@ -515,6 +519,33 @@ struct srte_candidate *lookup_candidate_by_name(const char *name)
 	}
 
 	return NULL;
+}
+
+/* RFC 8281 section 6: a PCE takes over an orphaned PCE-initiated path */
+int path_pcep_config_adopt_path(struct path *path)
+{
+	struct srte_candidate *candidate = lookup_candidate(&path->nbkey);
+	struct srte_segment_list *segment_list;
+
+	if (candidate == NULL || candidate->protocol_origin != SRTE_ORIGIN_PCEP ||
+	    !pcep_originator_orphaned(candidate->originator)) {
+		zlog_warn("PCE %s tried to take over PLSP-ID %u, which is not an orphaned PCE-initiated path",
+			  path->originator, path->plsp_id);
+		return ERROR_19_8;
+	}
+
+	zlog_info("PCE %s takes over path %s from PCE %s", path->originator, candidate->name,
+		  candidate->originator);
+	strlcpy(candidate->originator, path->originator, sizeof(candidate->originator));
+	strlcpy(candidate->policy->originator, path->originator,
+		sizeof(candidate->policy->originator));
+	segment_list = candidate->lsp ? candidate->lsp->segment_list : NULL;
+	if (segment_list != NULL && segment_list->protocol_origin == SRTE_ORIGIN_PCEP)
+		strlcpy(segment_list->originator, path->originator,
+			sizeof(segment_list->originator));
+	candidate->policy->srp_id = path->srp_id;
+
+	return PATH_NB_NO_CHANGE;
 }
 
 /* "<name>-<plsp_id>", hashed if too long or in the reserved namespace */

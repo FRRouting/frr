@@ -17,6 +17,8 @@ enum pcep_main_event_type {
 	PCEP_MAIN_EVENT_INITIATE_CANDIDATE,
 	PCEP_MAIN_EVENT_UPDATE_CANDIDATE,
 	PCEP_MAIN_EVENT_REMOVE_CANDIDATE_LSP,
+	PCEP_MAIN_EVENT_SESSION_DOWN,
+	PCEP_MAIN_EVENT_SESSION_UP,
 };
 
 typedef int (*pcep_main_event_handler_t)(enum pcep_main_event_type type,
@@ -146,6 +148,8 @@ void pcep_thread_schedule_session_timeout(struct ctrl_state *ctrl_state,
 					  struct event **thread);
 void pcep_thread_remove_candidate_path_segments(struct ctrl_state *ctrl_state,
 						struct pcc_state *pcc_state);
+void pcep_thread_session_state(struct ctrl_state *ctrl_state, struct pcc_state *pcc_state,
+			       bool down);
 
 void pcep_thread_schedule_sync_best_pce(struct ctrl_state *ctrl_state,
 					int pcc_id, int delay,

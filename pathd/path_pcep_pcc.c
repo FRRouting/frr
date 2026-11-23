@@ -1265,6 +1265,23 @@ void handle_pcep_lsp_initiate(struct ctrl_state *ctrl_state,
 				break;
 			}
 		}
+	} else if (path->plsp_id != 0) {
+		/* RFC 8281 section 6: taking over an orphan by its PLSP-ID */
+		struct nbkey_map_data key, *mapping;
+
+		key.plspid = path->plsp_id;
+		mapping = nbkey_map_find(&pcc_state->nbkey_map, &key);
+		if (mapping == NULL) {
+			/* Any other non-zero PLSP-ID gets PCErr 19/8 */
+			flog_warn(EC_PATH_PCEP_PROTOCOL_ERROR,
+				  "PCE initiated path with unknown PLSP ID: %s",
+				  format_pcep_message(msg));
+			send_pcep_error(pcc_state, PCEP_ERRT_INVALID_OPERATION,
+					PCEP_ERRV_LSP_INIT_NON_ZERO_PLSP_ID, path);
+			pcep_free_path(path);
+			return;
+		}
+		path->nbkey = mapping->nbkey;
 	} else {
 		if (path->first_hop == NULL /*ero sets first_hop*/) {
 			/* If the PCC receives a PCInitiate message without an
@@ -1278,23 +1295,6 @@ void handle_pcep_lsp_initiate(struct ctrl_state *ctrl_state,
 			send_pcep_error(pcc_state,
 					PCEP_ERRT_LSP_INSTANTIATE_ERROR,
 					PCEP_ERRV_INTERNAL_ERROR, path);
-			pcep_free_path(path);
-			return;
-		}
-
-		if (path->plsp_id != 0) {
-			/* If the PCC receives a PCInitiate message with a
-			 * non-zero PLSP-ID and the R flag in the SRP object set
-			 * to zero, then it MUST send a PCErr message with
-			 * Error-type=19 (Invalid Operation) and Error-value=8
-			 * (Non-zero PLSP-ID in the LSP Initiate Request) */
-			flog_warn(
-				EC_PATH_PCEP_PROTOCOL_ERROR,
-				"PCE initiated path with non-zero PLSP ID: %s",
-				format_pcep_message(msg));
-			send_pcep_error(pcc_state, PCEP_ERRT_INVALID_OPERATION,
-					PCEP_ERRV_LSP_INIT_NON_ZERO_PLSP_ID,
-					path);
 			pcep_free_path(path);
 			return;
 		}
@@ -1537,11 +1537,15 @@ void schedule_session_timeout(struct ctrl_state *ctrl_state,
 			      struct pcc_state *pcc_state)
 {
 	/* Each PCE has its own timeout, even when other PCEs are connected */
+	if (event_is_scheduled(pcc_state->t_session_timeout))
+		return;
+
 	pcep_thread_schedule_session_timeout(
 		ctrl_state, pcep_pcc_get_pcc_id(pcc_state),
 		pcc_state->pce_opts->config_opts
 			.session_timeout_inteval_seconds,
 		&pcc_state->t_session_timeout);
+	pcep_thread_session_state(ctrl_state, pcc_state, true);
 }
 
 void cancel_session_timeout(struct ctrl_state *ctrl_state,
@@ -1554,6 +1558,7 @@ void cancel_session_timeout(struct ctrl_state *ctrl_state,
 
 	PCEP_DEBUG_PCEP("Cancel session_timeout timer");
 	pcep_thread_cancel_timer(&pcc_state->t_session_timeout);
+	pcep_thread_session_state(ctrl_state, pcc_state, false);
 }
 
 void send_pcep_message(struct pcc_state *pcc_state, struct pcep_message *msg)

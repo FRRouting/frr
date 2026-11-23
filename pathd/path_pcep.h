@@ -299,6 +299,7 @@ struct pcep_error {
 	/* PCErr type and value, apart from the PATH_NB_* results */
 #define ERROR_19_1 1901
 #define ERROR_19_3 1903
+#define ERROR_19_8 1908
 #define ERROR_19_9 1909
 #define ERROR_23_1 2301
 #define ERROR_24_1 2401
@@ -311,6 +312,7 @@ struct path_hop *pcep_new_hop(void);
 struct path_metric *pcep_new_metric(void);
 struct path *pcep_copy_path(struct path *path);
 void pcep_free_path(struct path *path);
+bool pcep_originator_orphaned(const char *originator);
 
 
 #endif // _PATH_PCEP_H_
