@@ -24,6 +24,7 @@
 #include "bgpd/bgpd.h"
 #include "bgpd/bgp_open.h"
 #include "bgpd/bgp_nb.h"
+#include "bgpd/bgp_nb_candidate.h"
 #if ENABLE_BGP_VNC
 #include "bgpd/bgp_vnc_nb.h"
 #endif
@@ -91,42 +92,15 @@ DEFINE_HOOK(bgp_snmp_update_last_changed, (struct bgp *bgp), (bgp));
 static void bgp_nb_instance_key(const struct lyd_node *bgp_dnode,
 				enum bgp_instance_type *inst_type, const char **inst_name)
 {
-	const char *name = yang_dnode_get_string(bgp_dnode, "../name");
-	const char *vrf_name = yang_dnode_get_string(bgp_dnode, "../vrf");
-
-	if (yang_dnode_exists(bgp_dnode, "./global/instance-type-view") &&
-	    yang_dnode_get_bool(bgp_dnode, "./global/instance-type-view")) {
-		*inst_type = BGP_INSTANCE_TYPE_VIEW;
-		*inst_name = name;
-		return;
-	}
-
-	if (strmatch(vrf_name, VRF_DEFAULT_NAME)) {
-		*inst_name = NULL;
+	if (!bgp_nb_cand_instance_key(bgp_dnode, inst_type, inst_name, NULL)) {
 		*inst_type = BGP_INSTANCE_TYPE_DEFAULT;
-		return;
+		*inst_name = NULL;
 	}
-
-	*inst_name = vrf_name;
-	*inst_type = BGP_INSTANCE_TYPE_VRF;
 }
 
 static bool bgp_nb_cpp_is_bgp(const struct lyd_node *cpp)
 {
-	const char *type;
-	const char *id;
-
-	if (!cpp || !strmatch(cpp->schema->name, "control-plane-protocol"))
-		return false;
-	if (!yang_dnode_exists(cpp, "./type"))
-		return false;
-
-	type = yang_dnode_get_string(cpp, "./type");
-	if (!type)
-		return false;
-	id = strrchr(type, ':');
-	id = id ? id + 1 : type;
-	return strmatch(id, "bgp");
+	return bgp_nb_cand_cpp_is_bgp(cpp);
 }
 
 static bool bgp_nb_instance_conflict(enum bgp_instance_type a, const char *aname,
@@ -3064,35 +3038,7 @@ void bgp_nb_cli_show_dynamic_neighbors_limit(struct vty *vty, const struct lyd_n
 static int bgp_nb_parse_default_afi_safi(const char *afi_safi, afi_t *afi, safi_t *safi,
 					 char *errmsg, size_t errmsg_len)
 {
-	char buf[64];
-	char *tok = NULL;
-	char *afi_str;
-	char *safi_str;
-
-	strlcpy(buf, afi_safi, sizeof(buf));
-	afi_str = strtok_r(buf, "-", &tok);
-	safi_str = strtok_r(NULL, "-", &tok);
-	if (!afi_str || !safi_str) {
-		snprintfrr(errmsg, errmsg_len, "Invalid AFI/SAFI %s", afi_safi);
-		return NB_ERR_VALIDATION;
-	}
-
-	*afi = bgp_vty_afi_from_str(afi_str);
-	if (*afi == AFI_MAX) {
-		snprintfrr(errmsg, errmsg_len, "Invalid AFI in %s", afi_safi);
-		return NB_ERR_VALIDATION;
-	}
-
-	if (strmatch(safi_str, "labeled"))
-		*safi = bgp_vty_safi_from_str("labeled-unicast");
-	else
-		*safi = bgp_vty_safi_from_str(safi_str);
-
-	if (*safi == SAFI_MAX) {
-		snprintfrr(errmsg, errmsg_len, "Invalid SAFI in %s", afi_safi);
-		return NB_ERR_VALIDATION;
-	}
-	return NB_OK;
+	return bgp_nb_cand_parse_default_afi_safi(afi_safi, afi, safi, errmsg, errmsg_len);
 }
 
 int bgp_nb_default_afi_safi_create(struct nb_cb_create_args *args)
@@ -5989,14 +5935,7 @@ static bool bgp_nb_is_interface_peer(const struct lyd_node *dnode, const struct 
 static const struct lyd_node *bgp_nb_candidate_peer_group(const struct lyd_node *dnode,
 							  const char *name)
 {
-	const struct lyd_node *bgp;
-
-	if (!name)
-		return NULL;
-	bgp = yang_dnode_get_parent(dnode, "bgp");
-	if (!bgp)
-		return NULL;
-	return yang_dnode_getf(bgp, "peer-groups/peer-group[peer-group-name='%s']", name);
+	return bgp_nb_cand_peer_group_by_name(dnode, name);
 }
 
 /*
@@ -15759,248 +15698,15 @@ void bgp_nb_cli_show_ls_fabric(struct vty *vty, const struct lyd_node *dnode, bo
 }
 
 
-/*
- * Neighbor or group whose remote-as this node should be judged by. A
- * peer-group member with no remote-as of its own inherits the group's.
- */
-static const struct lyd_node *bgp_nb_remote_as_source(const struct lyd_node *nbr)
-{
-	const struct lyd_node *bgp_node, *group;
-	const char *pg;
-
-	if (!nbr)
-		return NULL;
-	if (yang_dnode_exists(nbr, "neighbor-remote-as/remote-as-type"))
-		return nbr;
-	if (!yang_dnode_exists(nbr, "peer-group"))
-		return nbr;
-
-	pg = yang_dnode_get_string(nbr, "peer-group");
-	bgp_node = yang_dnode_get_parent(nbr, "bgp");
-	if (!pg || !bgp_node)
-		return nbr;
-
-	group = yang_dnode_getf(bgp_node, "peer-groups/peer-group[peer-group-name='%s']", pg);
-	if (group && yang_dnode_exists(group, "neighbor-remote-as/remote-as-type"))
-		return group;
-	return nbr;
-}
-
-static const struct lyd_node *bgp_nb_candidate_peer_node(const struct lyd_node *dnode)
-{
-	const struct lyd_node *nbr;
-
-	if (!dnode)
-		return NULL;
-	nbr = yang_dnode_get_parent(dnode, "neighbor");
-	if (!nbr)
-		nbr = yang_dnode_get_parent(dnode, "unnumbered-neighbor");
-	if (!nbr)
-		nbr = yang_dnode_get_parent(dnode, "peer-group");
-	return nbr;
-}
-
-static as_t bgp_nb_candidate_peer_local_as(const struct lyd_node *nbr,
-					   const struct lyd_node *bgp_node)
-{
-	if (nbr && yang_dnode_exists(nbr, "local-as/local-as"))
-		return yang_dnode_get_uint32(nbr, "local-as/local-as");
-
-	if (nbr && !strmatch(nbr->schema->name, "peer-group") &&
-	    yang_dnode_exists(nbr, "peer-group") && bgp_node) {
-		const char *pg = yang_dnode_get_string(nbr, "peer-group");
-		const struct lyd_node *group;
-
-		group = pg ? yang_dnode_getf(bgp_node, "peer-groups/peer-group[peer-group-name='%s']",
-					     pg)
-			   : NULL;
-		if (group && yang_dnode_exists(group, "local-as/local-as"))
-			return yang_dnode_get_uint32(group, "local-as/local-as");
-	}
-
-	if (bgp_node && yang_dnode_exists(bgp_node, "global/local-as"))
-		return yang_dnode_get_uint32(bgp_node, "global/local-as");
-	return 0;
-}
-
-static enum bgp_peer_sort bgp_nb_candidate_peer_sort_single(const struct lyd_node *nbr,
-							    const struct lyd_node *bgp_node)
-{
-	const struct lyd_node *src;
-	const char *as_type = NULL;
-	as_t bgp_as, local_as, remote_as = 0, confed_id = 0;
-	bool has_as_type = false;
-	bool resolved_internal = false, resolved_external = false;
-
-	if (!nbr)
-		return BGP_PEER_INTERNAL;
-
-	bgp_as = (bgp_node && yang_dnode_exists(bgp_node, "global/local-as"))
-			 ? yang_dnode_get_uint32(bgp_node, "global/local-as")
-			 : 0;
-	local_as = bgp_nb_candidate_peer_local_as(nbr, bgp_node);
-
-	/* Peer-group */
-	if (strmatch(nbr->schema->name, "peer-group")) {
-		const char *gname;
-		const struct lyd_node *list, *member;
-
-		if (yang_dnode_exists(nbr, "neighbor-remote-as/remote-as-type")) {
-			as_type = yang_dnode_get_string(nbr, "neighbor-remote-as/remote-as-type");
-			if (strmatch(as_type, "internal"))
-				return BGP_PEER_IBGP;
-			if (strmatch(as_type, "external"))
-				return BGP_PEER_EBGP;
-			if (strmatch(as_type, "as-specified") &&
-			    yang_dnode_exists(nbr, "neighbor-remote-as/remote-as")) {
-				remote_as = yang_dnode_get_uint32(nbr,
-								  "neighbor-remote-as/remote-as");
-				if (remote_as)
-					return local_as == remote_as ? BGP_PEER_IBGP
-								     : BGP_PEER_EBGP;
-			}
-		}
-
-		/*
-		 * Untyped peer-group: mirror peer_calc_sort() by using the
-		 * first member's sort (or INTERNAL if unresolved auto / none).
-		 */
-		gname = yang_dnode_exists(nbr, "peer-group-name")
-				? yang_dnode_get_string(nbr, "peer-group-name")
-				: NULL;
-		list = bgp_node ? yang_dnode_get(bgp_node, "neighbors") : NULL;
-		if (gname && list) {
-			LY_LIST_FOR (lyd_child(list), member) {
-				if (!yang_dnode_exists(member, "peer-group"))
-					continue;
-				if (!strmatch(yang_dnode_get_string(member, "peer-group"), gname))
-					continue;
-				if (yang_dnode_exists(member,
-						      "neighbor-remote-as/remote-as-type") &&
-				    strmatch(yang_dnode_get_string(
-						     member, "neighbor-remote-as/remote-as-type"),
-					     "auto")) {
-					struct peer *p = bgp_nb_config_peer(member);
-
-					if (!p || p->as_type == AS_AUTO)
-						return BGP_PEER_INTERNAL;
-				}
-				return bgp_nb_candidate_peer_sort_single(member, bgp_node);
-			}
-		}
-		return BGP_PEER_INTERNAL;
-	}
-
-	/* Normal peer */
-	src = bgp_nb_remote_as_source(nbr);
-	if (src && yang_dnode_exists(src, "neighbor-remote-as/remote-as-type")) {
-		has_as_type = true;
-		as_type = yang_dnode_get_string(src, "neighbor-remote-as/remote-as-type");
-		if (strmatch(as_type, "as-specified") &&
-		    yang_dnode_exists(src, "neighbor-remote-as/remote-as")) {
-			remote_as = yang_dnode_get_uint32(src, "neighbor-remote-as/remote-as");
-		} else if (strmatch(as_type, "auto")) {
-			struct peer *p = bgp_nb_config_peer(nbr);
-
-			if (p) {
-				if (CHECK_FLAG(p->as_type, AS_INTERNAL))
-					resolved_internal = true;
-				else if (CHECK_FLAG(p->as_type, AS_EXTERNAL))
-					resolved_external = true;
-				else if (p->as)
-					remote_as = p->as;
-			}
-		}
-	}
-
-	if (bgp_node && yang_dnode_exists(bgp_node, "global/confederation/identifier"))
-		confed_id = yang_dnode_get_uint32(bgp_node, "global/confederation/identifier");
-
-	if (confed_id) {
-		if (local_as == 0)
-			return BGP_PEER_INTERNAL;
-		if ((has_as_type && strmatch(as_type, "internal")) || resolved_internal)
-			return BGP_PEER_IBGP;
-		if ((has_as_type && strmatch(as_type, "external")) || resolved_external)
-			return BGP_PEER_EBGP;
-
-		if (local_as == remote_as) {
-			if (bgp_as == confed_id)
-				return local_as == bgp_as ? BGP_PEER_IBGP : BGP_PEER_EBGP;
-			if (remote_as == confed_id)
-				return BGP_PEER_IBGP;
-			if (local_as == confed_id)
-				return BGP_PEER_EBGP;
-			return BGP_PEER_IBGP;
-		}
-
-		if (remote_as && bgp_node &&
-		    yang_dnode_existsf(bgp_node, "global/confederation/member-as[.='%u']",
-				       remote_as))
-			return BGP_PEER_CONFED;
-
-		return BGP_PEER_EBGP;
-	}
-
-	if (!has_as_type)
-		return BGP_PEER_UNSPECIFIED;
-
-	if (strmatch(as_type, "internal") || resolved_internal)
-		return BGP_PEER_IBGP;
-	if (strmatch(as_type, "external") || resolved_external)
-		return BGP_PEER_EBGP;
-
-	if (local_as == 0)
-		return BGP_PEER_INTERNAL;
-	return local_as == remote_as ? BGP_PEER_IBGP : BGP_PEER_EBGP;
-}
-
-/*
- * Check every member of peer-group `grp` in the candidate tree:
- *  - require_equal == true:  every member must have sort == req_sort.
- *  - require_equal == false: no member may have sort == req_sort.
- */
 static bool bgp_nb_candidate_group_members_match(const struct lyd_node *grp,
 						 enum bgp_peer_sort req_sort, bool require_equal)
 {
-	const struct lyd_node *bgp_node, *list, *member;
-	const char *gname;
-
-	if (!grp || !yang_dnode_exists(grp, "peer-group-name"))
-		return true;
-
-	gname = yang_dnode_get_string(grp, "peer-group-name");
-	bgp_node = yang_dnode_get_parent(grp, "bgp");
-	list = bgp_node ? yang_dnode_get(bgp_node, "neighbors") : NULL;
-	if (!gname || !list)
-		return true;
-
-	LY_LIST_FOR (lyd_child(list), member) {
-		enum bgp_peer_sort msort;
-
-		if (!yang_dnode_exists(member, "peer-group"))
-			continue;
-		if (!strmatch(yang_dnode_get_string(member, "peer-group"), gname))
-			continue;
-
-		msort = bgp_nb_candidate_peer_sort_single(member, bgp_node);
-		if (require_equal ? (msort != req_sort) : (msort == req_sort))
-			return false;
-	}
-	return true;
+	return bgp_nb_cand_group_members_match_sort(grp, req_sort, require_equal);
 }
 
-/*
- * Sort implied by the candidate config, mirroring peer_calc_sort() including
- * local-as, confederation id/members, peer-group inheritance, and resolved
- * remote-as auto.
- */
 static enum bgp_peer_sort bgp_nb_candidate_peer_sort(const struct lyd_node *dnode)
 {
-	const struct lyd_node *nbr = bgp_nb_candidate_peer_node(dnode);
-	const struct lyd_node *bgp_node = yang_dnode_get_parent(dnode, "bgp");
-
-	return bgp_nb_candidate_peer_sort_single(nbr, bgp_node);
+	return bgp_nb_cand_peer_sort(dnode);
 }
 
 static int bgp_nb_peer_af_flag_validate(struct nb_cb_modify_args *args, uint64_t flag)
