@@ -27,7 +27,7 @@ except ImportError:
 
 import _clippy
 
-frr_top_src = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+frr_top_src = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
 
 # vtysh needs to know which daemon(s) to send commands to.  For lib/, this is
 # not quite obvious...
@@ -197,7 +197,9 @@ class CommandEntry:
         if path.name == "vtysh":
             return {}
 
-        defun_file = os.path.relpath(self._spec["defun"]["file"], frr_top_src)
+        defun_file = os.path.relpath(
+            os.path.realpath(self._spec["defun"]["file"]), frr_top_src
+        )
         defun_path = pathlib.Path(defun_file)
 
         if defun_path.parts[0] != "lib":
