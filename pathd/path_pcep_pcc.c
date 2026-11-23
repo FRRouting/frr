@@ -8,7 +8,6 @@
 	  by the PCE or by NB.
 	- Revert the hacks to work around ODL requiring a report with
 	  operational status DOWN when an LSP is activated.
-	- Enforce only the PCE a policy has been delegated to can update it.
 	- If the router-id is used because the PCC IP is not specified
 	  (either IPv4 or IPv6), the connection to the PCE is not reset
 	  when the router-id changes.
@@ -1209,6 +1208,17 @@ void handle_pcep_lsp_update(struct ctrl_state *ctrl_state,
 {
 	struct path *path;
 	path = pcep_lib_parse_path(msg);
+
+	/* Paths are only delegated to the best PCE (RFC 8231 PCErr 19/1) */
+	if (!pcc_state->is_best) {
+		flog_warn(EC_PATH_PCEP_PROTOCOL_ERROR,
+			  "%s PCE sent a PCUpd for a path not delegated to it", pcc_state->tag);
+		send_pcep_error(pcc_state, PCEP_ERRT_INVALID_OPERATION,
+				PCEP_ERRV_LSP_UPDATE_FOR_NON_DELEGATED_LSP, path);
+		pcep_free_path(path);
+		return;
+	}
+
 	lookup_nbkey(pcc_state, path);
 	pcep_thread_refine_path(ctrl_state, pcc_state->id,
 				&continue_pcep_lsp_update, path, NULL);
