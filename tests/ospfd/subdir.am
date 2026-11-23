@@ -51,6 +51,14 @@ tests_ospfd_test_ospf_sr_ext_lsa_CPPFLAGS = $(TESTS_CPPFLAGS)
 tests_ospfd_test_ospf_sr_ext_lsa_LDADD = $(OSPFD_TEST_LDADD)
 tests_ospfd_test_ospf_sr_ext_lsa_SOURCES = tests/ospfd/test_ospf_sr_ext_lsa.c
 
+if OSPFD
+check_PROGRAMS += tests/ospfd/test_ospf_te
+endif
+tests_ospfd_test_ospf_te_CFLAGS = $(TESTS_CFLAGS)
+tests_ospfd_test_ospf_te_CPPFLAGS = $(TESTS_CPPFLAGS)
+tests_ospfd_test_ospf_te_LDADD = $(OSPFD_TEST_LDADD)
+tests_ospfd_test_ospf_te_SOURCES = tests/ospfd/test_ospf_te.c
+
 EXTRA_DIST += \
 	tests/ospfd/test_ospf_adj_pacing.py \
 	tests/ospfd/test_ospf_opaque_show.py \
@@ -61,6 +69,7 @@ EXTRA_DIST += \
 	tests/ospfd/test_ospf_spf.refout \
 	tests/ospfd/test_ospf_asbr_summary.py \
 	tests/ospfd/test_ospf_asbr_summary.refout \
+	tests/ospfd/test_ospf_te.py \
 	# end
 
 
