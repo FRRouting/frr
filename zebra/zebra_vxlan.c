@@ -2994,10 +2994,11 @@ void zebra_vxlan_evpn_vrf_route_add(vrf_id_t vrf_id, const struct ethaddr *rmac,
 	svd_remote_nh_add(zl3vni, vtep_ip, rmac, host_prefix);
 
 	/*
-	 * add the rmac - remote rmac to be installed is against the
-	 * nexthop address
+	 * Type-2 imports without the Router MAC extcomm carry a zero RMAC;
+	 * a zero-MAC FDB entry would become a BUM flood destination.
 	 */
-	zl3vni_remote_rmac_add(zl3vni, rmac, vtep_ip);
+	if (!is_zero_mac(rmac))
+		zl3vni_remote_rmac_add(zl3vni, rmac, vtep_ip);
 }
 
 /* handle evpn vrf route delete */
