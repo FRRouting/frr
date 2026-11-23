@@ -219,6 +219,15 @@ int zebra_evpn_rem_mac_install(struct zebra_evpn *zevpn, struct zebra_mac *mac,
 		nhg_id = mac->es->nhg_id;
 		SET_IPADDR_NONE(&vtep_ip);
 	} else {
+		/*
+		 * No VTEP: a stale remote MAC a graceful restart read back
+		 * from a kernel FDB entry without a destination (e.g. one
+		 * behind an EVPN-MH next hop group), until BGP refreshes it:
+		 * not installed.
+		 */
+		if (ipaddr_is_zero(&mac->fwd_info.r_vtep_ip))
+			return -1;
+
 		nhg_id = 0;
 		vtep_ip = mac->fwd_info.r_vtep_ip;
 	}
