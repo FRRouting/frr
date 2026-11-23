@@ -1329,11 +1329,6 @@ void handle_pcep_lsp_initiate(struct ctrl_state *ctrl_state,
 		}
 	}
 
-	/* TODO: If there is a conflict with the symbolic path name of an
-	 * existing LSP, the PCC MUST send a PCErr message with Error-type=23
-	 * (Bad Parameter value) and Error-value=1 (SYMBOLIC-PATH-NAME in
-	 * use) */
-
 	specialize_incoming_path(pcc_state, path);
 	/* TODO: Validate the PCC address received from the PCE is valid */
 	PCEP_DEBUG("%s Received LSP initiate", pcc_state->tag);
