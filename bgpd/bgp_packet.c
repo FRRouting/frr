@@ -3104,6 +3104,9 @@ static int bgp_route_refresh_receive(struct peer_connection *connection, bgp_siz
 				   SUBGRP_STATUS_DEFAULT_ORIGINATE);
 	}
 
+	if (!paf)
+		return BGP_PACKET_NOOP;
+
 	if (subtype == BGP_ROUTE_REFRESH_BORR) {
 		/* A BGP speaker that has received the Graceful Restart
 		 * Capability from its neighbor MUST ignore any BoRRs for
@@ -3121,7 +3124,7 @@ static int bgp_route_refresh_receive(struct peer_connection *connection, bgp_siz
 			return BGP_PACKET_NOOP;
 		}
 
-		if (event_is_scheduled(peer->t_refresh_stalepath)) {
+		if (event_is_scheduled(paf->t_refresh_stalepath)) {
 			if (bgp_debug_neighbor_events(peer))
 				zlog_debug(
 					"%pBP rcvd route-refresh (BoRR) for %s/%s, whereas BoRR already received",
@@ -3146,7 +3149,7 @@ static int bgp_route_refresh_receive(struct peer_connection *connection, bgp_siz
 			event_add_timer(bm->master,
 					bgp_refresh_stalepath_timer_expire, paf,
 					peer->bgp->stalepath_time,
-					&peer->t_refresh_stalepath);
+					&paf->t_refresh_stalepath);
 
 		if (bgp_debug_neighbor_events(peer))
 			zlog_debug(
@@ -3154,14 +3157,14 @@ static int bgp_route_refresh_receive(struct peer_connection *connection, bgp_siz
 				peer, afi2str(afi), safi2str(safi),
 				peer->bgp->stalepath_time);
 	} else if (subtype == BGP_ROUTE_REFRESH_EORR) {
-		if (!event_is_scheduled(peer->t_refresh_stalepath)) {
+		if (!event_is_scheduled(paf->t_refresh_stalepath)) {
 			flog_err(EC_BGP_ROUTE_REFRESH_INVALID,
 				 "%pBP rcvd route-refresh (EoRR) for %s/%s, whereas no BoRR received",
 				 peer, afi2str(afi), safi2str(safi));
 			return BGP_PACKET_NOOP;
 		}
 
-		event_cancel(&peer->t_refresh_stalepath);
+		event_cancel(&paf->t_refresh_stalepath);
 
 		SET_FLAG(peer->af_sflags[afi][safi], PEER_STATUS_EORR_RECEIVED);
 		UNSET_FLAG(peer->af_sflags[afi][safi],

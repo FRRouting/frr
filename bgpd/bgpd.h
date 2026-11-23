@@ -1392,6 +1392,9 @@ struct peer_af {
 	 */
 	struct event *t_announce_route;
 
+	/* Runs from a received BoRR until the matching EoRR */
+	struct event *t_refresh_stalepath;
+
 	afi_t afi;
 	safi_t safi;
 	int afid;
@@ -2059,7 +2062,6 @@ struct peer {
 
 	/* Threads. */
 	struct event *t_llgr_stale[AFI_MAX][SAFI_MAX];
-	struct event *t_refresh_stalepath;
 
 	/* Thread flags. */
 	_Atomic uint32_t thread_flags;
