@@ -11,8 +11,8 @@
 test_zebra_evpn_vxlan_del.py: check that zebra frees the L2-VNI entry bound
 to a VxLAN interface deleted while EVPN is disabled.
 
-The L2-VNI entry is created by removing the vrf-vni mapping of an L3-VNI
-after bgpd has stopped (EVPN disabled). It must be freed when its VxLAN
+The L2-VNI entry is created by removing the vrf-vni mapping of an L3-VNI,
+and is kept when bgpd stops (EVPN disabled). It must be freed when its VxLAN
 interface is deleted, and must not be found when EVPN is enabled again.
 """
 
@@ -118,13 +118,6 @@ def test_evpn_disabled_vxlan_del():
 
     r1 = tgen.gears["r1"]
 
-    # EVPN is disabled when bgpd disconnects from zebra. bgpd is not
-    # running until the end of the test, so routers_have_failure()
-    # must not be called before.
-    kill_router_daemons(tgen, "r1", ["bgpd"], save_config=False)
-    result = check_evpn(r1, None)
-    assert result is True, result
-
     # Removing the vrf-vni mapping turns VNI 101 into an L2-VNI
     r1.vtysh_cmd(
         """
@@ -134,6 +127,15 @@ def test_evpn_disabled_vxlan_del():
          exit-vrf
         """
     )
+    result = check_vni_hash_count(r1, 1)
+    assert result is True, result
+
+    # EVPN is disabled when bgpd disconnects from zebra, the L2-VNI
+    # entry is kept. bgpd is not running until the end of the test, so
+    # routers_have_failure() must not be called before.
+    kill_router_daemons(tgen, "r1", ["bgpd"], save_config=False)
+    result = check_evpn(r1, None)
+    assert result is True, result
     result = check_vni_hash_count(r1, 1)
     assert result is True, result
 
