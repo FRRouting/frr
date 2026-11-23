@@ -673,6 +673,12 @@ double_linked_list *pcep_lib_format_path(struct pcep_caps *caps,
 		assert(tlv != NULL);
 		dll_append(lsp_tlvs, tlv);
 	}
+	if (path->lsp_error_code != 0) {
+		tlv = (struct pcep_object_tlv_header *)pcep_tlv_create_lsp_error_code(
+			path->lsp_error_code);
+		assert(tlv != NULL);
+		dll_append(lsp_tlvs, tlv);
+	}
 	lsp = pcep_obj_create_lsp(
 		path->plsp_id, path->status, path->was_created /* C Flag */,
 		path->go_active /* A Flag */, path->was_removed /* R Flag */,

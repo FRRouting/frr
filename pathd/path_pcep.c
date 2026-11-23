@@ -305,6 +305,19 @@ int pcep_main_event_update_candidate(struct path *path)
 	int ret = 0;
 
 	ret = path_pcep_config_update_path(path);
+	if (ret == ERROR_24_1 || ret == ERROR_24_2) {
+		struct path *resp = path_pcep_config_get_path(&path->nbkey);
+
+		if (resp) {
+			resp->srp_id = path->srp_id;
+			resp->lsp_error_code = ret == ERROR_24_1
+						       ? PCEP_TLV_LSP_ERROR_CODE_UNACCEPTABLE_PARAMS
+						       : PCEP_TLV_LSP_ERROR_CODE_INTERNAL_ERROR;
+			pcep_ctrl_send_report(pcep_g->fpt, path->pcc_id, resp, true);
+		}
+		pcep_free_path(path);
+		return ret;
+	}
 	if (ret != PATH_NB_ERR && path->srp_id != 0)
 		notify_status(path, ret == PATH_NB_NO_CHANGE);
 	/* Same ownership as the initiate case: the parsed path is ours. */

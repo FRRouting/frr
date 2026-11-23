@@ -404,6 +404,13 @@ int path_pcep_config_update_path(struct path *path)
 	if (!candidate)
 		return 0;
 
+	/* Refuse before the current segment list is deleted */
+	if (segment_list_name_taken(path, candidate)) {
+		zlog_warn("segment list name %s-%u of path %s is already in use, rejecting the path",
+			  path->name, path->plsp_id, path->name);
+		return ERROR_24_1;
+	}
+
 	candidate->policy->srp_id = path->srp_id;
 	// first clean up old segment list if present
 	if (candidate->lsp->segment_list) {
@@ -419,11 +426,12 @@ int path_pcep_config_update_path(struct path *path)
 	pcep_segment_list_name(segment_list_name_buff, sizeof(segment_list_name_buff), path);
 	segment_list_name = segment_list_name_buff;
 
+	/* Unreachable: segment_list_name_taken() checked the name above */
 	segment_list = srte_segment_list_add(segment_list_name);
 	if (segment_list == NULL) {
 		zlog_warn("segment list name %s of path %s (plsp %u) is already in use, rejecting the path",
 			  segment_list_name, path->name, path->plsp_id);
-		return PATH_NB_ERR;
+		return ERROR_24_2;
 	}
 	segment_list->protocol_origin = path->update_origin;
 	strlcpy(segment_list->originator, path->originator,
