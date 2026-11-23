@@ -487,6 +487,32 @@ void if_flags_update(struct interface *ifp, uint64_t newflags)
 }
 #endif
 
+/*
+ * Return true if the kernel already has the local address of the
+ * configured IPv4 address @ifc on @ifp, but with a different prefix length.
+ * Peer addresses are stored as /32 with the mask in the destination, so
+ * they are never compared.
+ */
+static bool if_addr_kernel_has_other_plen(struct interface *ifp, const struct connected *ifc)
+{
+	struct connected *c;
+
+	if (CONNECTED_PEER(ifc))
+		return false;
+
+	frr_each (if_connected, ifp->connected, c) {
+		if (c == ifc || !CHECK_FLAG(c->conf, ZEBRA_IFC_REAL) || CONNECTED_PEER(c))
+			continue;
+		if (c->address->family != AF_INET ||
+		    c->address->prefixlen == ifc->address->prefixlen)
+			continue;
+		if (IPV4_ADDR_SAME(&c->address->u.prefix4, &ifc->address->u.prefix4))
+			return true;
+	}
+
+	return false;
+}
+
 /* Wake up configured address if it is not in current kernel
    address. */
 void if_addr_wakeup(struct interface *ifp)
@@ -502,6 +528,19 @@ void if_addr_wakeup(struct interface *ifp)
 		    && !CHECK_FLAG(ifc->conf, ZEBRA_IFC_QUEUED)) {
 			/* Address check. */
 			if (p->family == AF_INET) {
+				/*
+				 * Something outside of zebra has put the
+				 * same IP with another prefix length on the
+				 * interface, e.g. while it was down. Re-adding the
+				 * configured prefix would leave both on the
+				 * interface, so leave the kernel alone.
+				 */
+				if (if_addr_kernel_has_other_plen(ifp, ifc)) {
+					zlog_warn("%s: not re-adding configured address %pFX, the kernel has the same address with another prefix length",
+						  ifp->name, p);
+					continue;
+				}
+
 				if (!if_is_up(ifp)) {
 					/* Assume zebra is configured like
 					 * following:
