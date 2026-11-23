@@ -1574,6 +1574,7 @@ static void zl3vni_bridge_vlan_aware_walk(struct hash_bucket *bucket, void *arg)
 	struct zl3vni_bridge_walk *wctx = arg;
 	struct zebra_l3vni *zl3vni = bucket->data;
 	const struct zebra_if *zif;
+	struct interface *svi_if;
 
 	if (!zl3vni->vxlan_if)
 		return;
@@ -1583,22 +1584,43 @@ static void zl3vni_bridge_vlan_aware_walk(struct hash_bucket *bucket, void *arg)
 		return;
 
 	zl3vni_rmac_vid_update(zl3vni, false /*install*/);
+
+	/*
+	 * The SVI changes too (the VLAN device of the access VLAN, or the
+	 * bridge itself): move the L3VNI to it like an access VLAN change
+	 * does, its next hops removed from the old one first.
+	 */
+	svi_if = zl3vni_map_to_svi_if(zl3vni);
+	if (svi_if == zl3vni->svi_if)
+		return;
+
+	zebra_vxlan_l3vni_svi_change(zl3vni);
+	if (is_l3vni_oper_up(zl3vni))
+		zebra_vxlan_process_l3vni_oper_down(zl3vni);
+	zl3vni->svi_if = svi_if;
+	zl3vni->mac_vlan_if = zl3vni_map_to_mac_vlan_if(zl3vni);
+	if (is_l3vni_oper_up(zl3vni))
+		zebra_vxlan_process_l3vni_oper_up(zl3vni);
 }
 
 /*
  * The VLAN filtering of the bridge `br_if` changes, and with it the access
  * VLAN the remote MACs, router MACs and flood entries of its VNIs are
- * installed with. Called twice, around the bridge update:
+ * installed with, and the SVI of the remote neighbors of its L2VNIs and of
+ * its L3VNIs. Called twice, around the bridge update:
  *
  * - `install` false, before the update: remove the remote MACs with the
- *   VLAN they were installed with;
+ *   VLAN they were installed with, and the remote neighbors from the old
+ *   SVI;
  * - `install` true, after the update: install them again, and move the
- *   flood entries and the router MACs, with the new VLAN.
+ *   flood entries and the router MACs, with the new VLAN, and the remote
+ *   neighbors on the new SVI, and move the L3VNIs to their new SVI.
  *
  * The router MACs record the VLAN they were installed with, like the flood
  * entries: they are only moved after the update, whatever the state of
- * their L3VNI (they stay installed while it is down). The frozen duplicate
- * MACs are not installed again.
+ * their L3VNI (they stay installed while it is down). The L3VNIs record
+ * their SVI (`svi_if`): they are moved after the update too. The frozen
+ * duplicate MACs are not installed again.
  */
 void zebra_vxlan_bridge_vlan_aware_change(const struct interface *br_if, bool install)
 {
@@ -2987,9 +3009,10 @@ void zebra_vxlan_process_l3vni_oper_up(struct zebra_l3vni *zl3vni)
 }
 
 /*
- * The SVI of the L3VNI changes (an access VLAN change): remove its next
- * hops from the old one, in the kernel too. They are installed on the new
- * one when the L3VNI comes back up.
+ * The SVI of the L3VNI changes (an access VLAN change, or a VLAN filtering
+ * change of the bridge): remove its next hops from the old one, in the
+ * kernel too. They are installed on the new one when the L3VNI comes back
+ * up.
  */
 void zebra_vxlan_l3vni_svi_change(struct zebra_l3vni *zl3vni)
 {
