@@ -1443,16 +1443,18 @@ static void fpm_enqueue_rmac_table(struct hash_bucket *bucket, void *arg)
 	struct zebra_mac *zrmac = bucket->data;
 	struct zebra_if *zif;
 	struct zebra_vxlan_vni *vni;
-	struct zebra_if *br_zif;
-	vlanid_t vid;
 
 	/* Entry already sent. */
 	if (CHECK_FLAG(zrmac->flags, ZEBRA_MAC_FPM_SENT) || !fra->complete)
 		return;
 
-	/* Same entries and checks as `zl3vni_rmac_install()`. */
+	/*
+	 * The entries `zl3vni_rmac_install()` installed, with the VLAN it
+	 * installed them with.
+	 */
 	if (!CHECK_FLAG(zrmac->flags, ZEBRA_MAC_REMOTE) ||
-	    !CHECK_FLAG(zrmac->flags, ZEBRA_MAC_REMOTE_RMAC))
+	    !CHECK_FLAG(zrmac->flags, ZEBRA_MAC_REMOTE_RMAC) ||
+	    !CHECK_FLAG(zrmac->flags, ZEBRA_MAC_RMAC_INSTALLED))
 		return;
 
 	/* The caller only walks the L3VNIs that are up, with a vxlan interface. */
@@ -1464,12 +1466,9 @@ static void fpm_enqueue_rmac_table(struct hash_bucket *bucket, void *arg)
 	if (!vni)
 		return;
 
-	br_zif = (struct zebra_if *)(zif->brslave_info.br_if->info);
-	vid = IS_ZEBRA_IF_BRIDGE_VLAN_AWARE(br_zif) ? vni->access_vlan : 0;
-
 	dplane_ctx_reset(fra->ctx);
 	dplane_ctx_set_op(fra->ctx, DPLANE_OP_MAC_INSTALL);
-	dplane_mac_init(fra->ctx, fra->zl3vni->vxlan_if, zif->brslave_info.br_if, vid,
+	dplane_mac_init(fra->ctx, fra->zl3vni->vxlan_if, zif->brslave_info.br_if, zrmac->rmac_vid,
 			&zrmac->macaddr, vni->vni, &zrmac->fwd_info.r_vtep_ip, false /*sticky*/,
 			0 /*nhg*/, DPLANE_MAC_REMOTE);
 	if (fpm_nl_enqueue(fra->fnc, fra->ctx) == -1) {

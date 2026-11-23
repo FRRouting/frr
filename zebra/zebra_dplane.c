@@ -6383,7 +6383,8 @@ enum zebra_dplane_result dplane_rem_mac_del(const struct interface *ifp,
  * on a VXLAN device entry, but the FPM gets the entry with it. `nhg_id` is
  * the next hop group an EVPN-MH MAC was installed with, instead of a VTEP.
  * `skip_kernel`: the delete is not sent to the kernel, only to the other
- * dataplane providers (FPM).
+ * dataplane providers (FPM), which get it as the delete of the whole remote
+ * MAC (see `netlink_macfdb_update_ctx()`).
  */
 enum zebra_dplane_result dplane_rem_mac_net_del(const struct interface *ifp,
 						const struct interface *bridge_ifp, vlanid_t vid,

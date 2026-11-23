@@ -524,27 +524,20 @@ static char *zebra_evpn_zebra_mac_flag_dump(struct zebra_mac *mac, char *buf,
 		return buf;
 	}
 
-	snprintfrr(buf, len, "%s%s%s%s%s%s%s%s%s%s%s%s",
+	snprintfrr(buf, len, "%s%s%s%s%s%s%s%s%s%s%s%s%s",
 		   CHECK_FLAG(mac->flags, ZEBRA_MAC_LOCAL) ? "LOC " : "",
 		   CHECK_FLAG(mac->flags, ZEBRA_MAC_REMOTE) ? "REM " : "",
 		   CHECK_FLAG(mac->flags, ZEBRA_MAC_AUTO) ? "AUTO " : "",
 		   CHECK_FLAG(mac->flags, ZEBRA_MAC_STICKY) ? "STICKY " : "",
-		   CHECK_FLAG(mac->flags, ZEBRA_MAC_REMOTE_RMAC) ? "REM Router "
-								 : "",
+		   CHECK_FLAG(mac->flags, ZEBRA_MAC_REMOTE_RMAC) ? "REM Router " : "",
 		   CHECK_FLAG(mac->flags, ZEBRA_MAC_DEF_GW) ? "Default GW " : "",
-		   CHECK_FLAG(mac->flags, ZEBRA_MAC_REMOTE_DEF_GW)
-			   ? "REM DEF GW "
-			   : "",
+		   CHECK_FLAG(mac->flags, ZEBRA_MAC_REMOTE_DEF_GW) ? "REM DEF GW " : "",
 		   CHECK_FLAG(mac->flags, ZEBRA_MAC_DUPLICATE) ? "DUP " : "",
 		   CHECK_FLAG(mac->flags, ZEBRA_MAC_FPM_SENT) ? "FPM " : "",
-		   CHECK_FLAG(mac->flags, ZEBRA_MAC_ES_PEER_ACTIVE)
-			   ? "PEER Active "
-			   : "",
-		   CHECK_FLAG(mac->flags, ZEBRA_MAC_ES_PEER_PROXY) ? "PROXY "
-								   : "",
-		   CHECK_FLAG(mac->flags, ZEBRA_MAC_LOCAL_INACTIVE)
-			   ? "LOC Inactive "
-			   : "");
+		   CHECK_FLAG(mac->flags, ZEBRA_MAC_ES_PEER_ACTIVE) ? "PEER Active " : "",
+		   CHECK_FLAG(mac->flags, ZEBRA_MAC_ES_PEER_PROXY) ? "PROXY " : "",
+		   CHECK_FLAG(mac->flags, ZEBRA_MAC_LOCAL_INACTIVE) ? "LOC Inactive " : "",
+		   CHECK_FLAG(mac->flags, ZEBRA_MAC_RMAC_INSTALLED) ? "RMAC Installed " : "");
 	return buf;
 }
 

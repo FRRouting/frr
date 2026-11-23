@@ -98,6 +98,7 @@ static int zl3vni_rmac_install(struct zebra_l3vni *zl3vni,
 			       struct zebra_mac *zrmac);
 static int zl3vni_rmac_uninstall(struct zebra_l3vni *zl3vni,
 				 struct zebra_mac *zrmac);
+static int zl3vni_rmac_remove(struct zebra_l3vni *zl3vni, struct zebra_mac *zrmac, bool skip_fpm);
 
 /* l3-vni related APIs*/
 static void *zl3vni_alloc(void *p);
@@ -1317,12 +1318,40 @@ static int zl3vni_rmac_del(struct zebra_l3vni *zl3vni, struct zebra_mac *zrmac)
 }
 
 /*
+ * Access VLAN to install the router MACs of the L3VNI with: only
+ * meaningful when its vxlan interface is enslaved to a VLAN-aware bridge,
+ * and 0 otherwise.
+ */
+static vlanid_t zl3vni_access_vid(const struct zebra_l3vni *zl3vni)
+{
+	const struct zebra_vxlan_vni *vni;
+	const struct zebra_if *zif, *br_zif;
+
+	if (!zl3vni->vxlan_if)
+		return 0;
+
+	zif = zl3vni->vxlan_if->info;
+	if (!zif || !zif->brslave_info.br_if)
+		return 0;
+
+	br_zif = zif->brslave_info.br_if->info;
+	if (!br_zif || !IS_ZEBRA_IF_BRIDGE_VLAN_AWARE(br_zif))
+		return 0;
+
+	vni = zebra_vxlan_if_vni_find(zif, zl3vni->vni);
+	if (!vni)
+		return 0;
+
+	return vni->access_vlan;
+}
+
+/*
  * Install remote RMAC into the forwarding plane.
  */
 static int zl3vni_rmac_install(struct zebra_l3vni *zl3vni,
 			       struct zebra_mac *zrmac)
 {
-	const struct zebra_if *zif = NULL, *br_zif = NULL;
+	const struct zebra_if *zif = NULL;
 	const struct zebra_vxlan_vni *vni;
 	const struct interface *br_ifp;
 	enum zebra_dplane_result res;
@@ -1351,32 +1380,45 @@ static int zl3vni_rmac_install(struct zebra_l3vni *zl3vni,
 	if (!vni)
 		return -1;
 
-	br_zif = (const struct zebra_if *)br_ifp->info;
-
-	if (IS_ZEBRA_IF_BRIDGE_VLAN_AWARE(br_zif))
-		vid = vni->access_vlan;
-	else
-		vid = 0;
+	vid = zl3vni_access_vid(zl3vni);
 
 	frrtrace(5, frr_zebra, evpn_dplane_remote_rmac_add, zrmac, &zrmac->fwd_info.r_vtep_ip,
 		 vni->vni, vid, zl3vni->vxlan_if);
 
+	/*
+	 * Installed with another VLAN: remove it first (a move). The kernel
+	 * may have removed the entry with the old VLAN already (the vxlan
+	 * interface moved to another bridge): its removal then fails, and a
+	 * failed removal never reaches the FPM. So send the FPM the removal on
+	 * its own (the removal of the whole entry), and the kernel its
+	 * removal alone, so that the FPM gets it once.
+	 */
+	if (CHECK_FLAG(zrmac->flags, ZEBRA_MAC_RMAC_INSTALLED) && zrmac->rmac_vid != vid) {
+		dplane_rem_mac_net_del(zl3vni->vxlan_if, br_ifp, zrmac->rmac_vid, &zrmac->macaddr,
+				       vni->vni, &zrmac->fwd_info.r_vtep_ip, 0 /*nhg_id*/,
+				       true /*skip_kernel*/);
+		zl3vni_rmac_remove(zl3vni, zrmac, true /*skip_fpm*/);
+	}
+
 	res = dplane_rem_mac_add(zl3vni->vxlan_if, br_ifp, vid, &zrmac->macaddr, vni->vni,
 				 &zrmac->fwd_info.r_vtep_ip, 0, 0, false /*was_static*/,
 				 false /*skip_fpm*/);
-	if (res != ZEBRA_DPLANE_REQUEST_FAILURE)
-		return 0;
-	else
+	if (res == ZEBRA_DPLANE_REQUEST_FAILURE)
 		return -1;
+
+	zrmac->rmac_vid = vid;
+	SET_FLAG(zrmac->flags, ZEBRA_MAC_RMAC_INSTALLED);
+
+	return 0;
 }
 
 /*
- * Uninstall remote RMAC from the forwarding plane.
+ * Remove a remote RMAC from the forwarding plane, from the kernel alone
+ * with `skip_fpm`.
  */
-static int zl3vni_rmac_uninstall(struct zebra_l3vni *zl3vni,
-				 struct zebra_mac *zrmac)
+static int zl3vni_rmac_remove(struct zebra_l3vni *zl3vni, struct zebra_mac *zrmac, bool skip_fpm)
 {
-	const struct zebra_if *zif = NULL, *br_zif;
+	const struct zebra_if *zif = NULL;
 	const struct zebra_vxlan_vni *vni;
 	const struct interface *br_ifp;
 	vlanid_t vid;
@@ -1406,17 +1448,22 @@ static int zl3vni_rmac_uninstall(struct zebra_l3vni *zl3vni,
 	if (!vni)
 		return -1;
 
-	br_zif = (const struct zebra_if *)br_ifp->info;
-	if (IS_ZEBRA_IF_BRIDGE_VLAN_AWARE(br_zif))
-		vid = vni->access_vlan;
+	/*
+	 * Removed with the VLAN it was installed with, whatever changed in
+	 * the bridge or the access VLAN since. Not known for an entry zebra
+	 * did not install itself: the current one then.
+	 */
+	if (CHECK_FLAG(zrmac->flags, ZEBRA_MAC_RMAC_INSTALLED))
+		vid = zrmac->rmac_vid;
 	else
-		vid = 0;
+		vid = zl3vni_access_vid(zl3vni);
+	UNSET_FLAG(zrmac->flags, ZEBRA_MAC_RMAC_INSTALLED);
 
 	frrtrace(5, frr_zebra, evpn_dplane_remote_rmac_del, zrmac, &zrmac->fwd_info.r_vtep_ip,
 		 vni->vni, vid, zl3vni->vxlan_if);
 
 	res = dplane_rem_mac_del(zl3vni->vxlan_if, br_ifp, vid, &zrmac->macaddr, vni->vni,
-				 &zrmac->fwd_info.r_vtep_ip, false /*skip_fpm*/);
+				 &zrmac->fwd_info.r_vtep_ip, skip_fpm);
 	if (res != ZEBRA_DPLANE_REQUEST_FAILURE)
 		return 0;
 	else
@@ -1424,20 +1471,91 @@ static int zl3vni_rmac_uninstall(struct zebra_l3vni *zl3vni,
 }
 
 /*
+ * Uninstall remote RMAC from the forwarding plane.
+ */
+static int zl3vni_rmac_uninstall(struct zebra_l3vni *zl3vni, struct zebra_mac *zrmac)
+{
+	return zl3vni_rmac_remove(zl3vni, zrmac, false /*skip_fpm*/);
+}
+
+struct zl3vni_rmac_vid_walk {
+	struct zebra_l3vni *zl3vni;
+	vlanid_t vid;
+};
+
+static void zl3vni_rmac_vid_update_hash(struct hash_bucket *bucket, void *arg)
+{
+	struct zl3vni_rmac_vid_walk *wctx = arg;
+	struct zebra_mac *zrmac = bucket->data;
+
+	/* `zl3vni_rmac_install()` moves it to the current VLAN. */
+	if (CHECK_FLAG(zrmac->flags, ZEBRA_MAC_RMAC_INSTALLED) && zrmac->rmac_vid != wctx->vid)
+		zl3vni_rmac_install(wctx->zl3vni, zrmac);
+}
+
+/*
+ * Move the installed router MACs to the current access VLAN of the L3VNI,
+ * after an access VLAN change or a VLAN filtering change of the bridge.
+ * They stay installed while the L3VNI is down, so whatever its state.
+ */
+static void zl3vni_rmac_vid_update(struct zebra_l3vni *zl3vni)
+{
+	struct zl3vni_rmac_vid_walk wctx = {
+		.zl3vni = zl3vni,
+		.vid = zl3vni_access_vid(zl3vni),
+	};
+
+	/* Installed on the vxlan interface (moved by `zl3vni_rmac_install()`). */
+	if (!zl3vni->vxlan_if)
+		return;
+
+	hash_iterate(zl3vni->rmac_table, zl3vni_rmac_vid_update_hash, &wctx);
+}
+
+struct zl3vni_bridge_walk {
+	const struct interface *br_if;
+};
+
+static void zl3vni_bridge_vlan_aware_walk(struct hash_bucket *bucket, void *arg)
+{
+	struct zl3vni_bridge_walk *wctx = arg;
+	struct zebra_l3vni *zl3vni = bucket->data;
+	const struct zebra_if *zif;
+
+	if (!zl3vni->vxlan_if)
+		return;
+
+	zif = zl3vni->vxlan_if->info;
+	if (!zif || zif->brslave_info.br_if != wctx->br_if)
+		return;
+
+	zl3vni_rmac_vid_update(zl3vni);
+}
+
+/*
  * The VLAN filtering of the bridge `br_if` changes, and with it the access
- * VLAN the remote MACs and flood entries of its VNIs are installed with.
- * Called twice, around the bridge update:
+ * VLAN the remote MACs, router MACs and flood entries of its VNIs are
+ * installed with. Called twice, around the bridge update:
  *
  * - `install` false, before the update: remove the remote MACs with the
  *   VLAN they were installed with;
  * - `install` true, after the update: install them again, and move the
- *   flood entries, with the new VLAN.
+ *   flood entries and the router MACs, with the new VLAN.
  *
- * The frozen duplicate MACs are not installed again.
+ * The router MACs record the VLAN they were installed with, like the flood
+ * entries: they are only moved after the update, whatever the state of
+ * their L3VNI (they stay installed while it is down). The frozen duplicate
+ * MACs are not installed again.
  */
 void zebra_vxlan_bridge_vlan_aware_change(const struct interface *br_if, bool install)
 {
+	struct zl3vni_bridge_walk wctx = { .br_if = br_if };
+
 	zebra_evpn_bridge_vlan_aware_change(br_if, install);
+
+	/* The router MACs are removed with the VLAN they were installed with. */
+	if (install)
+		hash_iterate(zrouter.l3vni_table, zl3vni_bridge_vlan_aware_walk, &wctx);
 }
 
 /*
@@ -2781,6 +2899,13 @@ void zebra_vxlan_process_l3vni_oper_up(struct zebra_l3vni *zl3vni)
 
 	if (!zl3vni)
 		return;
+
+	/*
+	 * The router MACs stay installed while the L3VNI is down: move them if
+	 * its access VLAN changed meanwhile (an access VLAN change takes the
+	 * L3VNI down and up again).
+	 */
+	zl3vni_rmac_vid_update(zl3vni);
 
 	/*
 	 * The next hops are not installed while the L3VNI is down
@@ -7425,6 +7550,13 @@ void zebra_vxlan_stale_remote_mac_add_l3vni(struct zebra_l3vni *zl3vni, struct e
 	}
 
 	zrmac->fwd_info.r_vtep_ip = vtep_ip;
+
+	/*
+	 * The router MAC is in the kernel: mark it installed, with the
+	 * current access VLAN, like `zl3vni_rmac_install()` would have.
+	 */
+	zrmac->rmac_vid = zl3vni_access_vid(zl3vni);
+	SET_FLAG(zrmac->flags, ZEBRA_MAC_RMAC_INSTALLED);
 
 	if (IS_ZEBRA_DEBUG_VXLAN)
 		zlog_debug("EVPN-GR: Added stale RMAC %pEA (%p) zl3vni %p, VTEP %pIA L3VNI %d",

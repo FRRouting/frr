@@ -81,6 +81,8 @@ struct zebra_mac {
 #define ZEBRA_MAC_LOCAL_INACTIVE 0x800
 /* The MAC entry was created because of advertise_svi_mac */
 #define ZEBRA_MAC_SVI 0x1000
+/* Remote router MAC installed, with the VLAN in `rmac_vid` */
+#define ZEBRA_MAC_RMAC_INSTALLED 0x2000
 
 #define ZEBRA_MAC_ALL_LOCAL_FLAGS (ZEBRA_MAC_LOCAL | ZEBRA_MAC_LOCAL_INACTIVE)
 #define ZEBRA_MAC_ALL_PEER_FLAGS                                               \
@@ -126,6 +128,12 @@ struct zebra_mac {
 
 	/* List of nexthop associated with this RMAC */
 	struct list *nh_list;
+
+	/*
+	 * Access VLAN the router MAC was installed with (0 when the bridge is
+	 * not VLAN-aware): removed with the same one.
+	 */
+	vlanid_t rmac_vid;
 
 	/* Duplicate mac detection */
 	uint32_t dad_count;
