@@ -783,17 +783,27 @@ static const char *ecommunity_gettoken(const char *str, void *eval_ptr,
 	 * OPQR:    Four byte value
 	 *
 	 */
-	/* IPv6 case : look for last ':' */
+	/* IPv6 case : look for the last ':' in this token. */
 	if (*token == ecommunity_token_rt6 ||
 	    *token == ecommunity_token_val6) {
-		const char *limit;
+		const char *token_end;
+		const char *limit = NULL;
+		const char *scan;
+		char addrbuf[INET6_ADDRSTRLEN];
 
-		limit = strrchr(p, ':');
-		endptr = (char *)limit;
-		if (!endptr)
+		token_end = p;
+		while (*token_end != '\0' && !isspace((unsigned char)*token_end))
+			token_end++;
+		for (scan = token_end; scan > p; scan--) {
+			if (*(scan - 1) == ':') {
+				limit = scan - 1;
+				break;
+			}
+		}
+		if (!limit)
 			goto error;
 
-		endptr++;
+		endptr = (char *)(limit + 1);
 		errno = 0;
 		tmp_as = strtoul(endptr, &endptr, 10);
 		/* 'unsigned long' is a uint64 on 64-bit
@@ -803,13 +813,15 @@ static const char *ecommunity_gettoken(const char *str, void *eval_ptr,
 		 * 32-bit we can check for errno (set to ERANGE
 		 * upon overflow).
 		 */
-		if (*endptr != '\0' || tmp_as == BGP_AS4_MAX || errno)
+		if (endptr != token_end || tmp_as == BGP_AS4_MAX || errno)
 			goto error;
 		as = (as_t)tmp_as;
 
-		memcpy(buf, p, (limit - p));
-		buf[limit - p] = '\0';
-		ret = inet_pton(AF_INET6, buf, &ip6);
+		if ((size_t)(limit - p) >= sizeof(addrbuf))
+			goto error;
+		memcpy(addrbuf, p, limit - p);
+		addrbuf[limit - p] = '\0';
+		ret = inet_pton(AF_INET6, addrbuf, &ip6);
 		if (ret == 0)
 			goto error;
 
@@ -820,9 +832,8 @@ static const char *ecommunity_gettoken(const char *str, void *eval_ptr,
 			goto error;
 
 		*token = ecommunity_token_val6;
-		while (isdigit((unsigned char)*p) || *p == ':' || *p == '.') {
+		while (*p != '\0' && !isspace((unsigned char)*p))
 			p++;
-		}
 		return p;
 	}
 	while (isdigit((unsigned char)*p) || *p == ':' || *p == '.') {
