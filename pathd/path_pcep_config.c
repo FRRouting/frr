@@ -410,6 +410,11 @@ int path_pcep_config_update_path(struct path *path)
 	segment_list_name = segment_list_name_buff;
 
 	segment_list = srte_segment_list_add(segment_list_name);
+	if (segment_list == NULL) {
+		zlog_warn("segment list name %s of path %s (plsp %u) is already in use, rejecting the path",
+			  segment_list_name, path->name, path->plsp_id);
+		return PATH_NB_ERR;
+	}
 	segment_list->protocol_origin = path->update_origin;
 	strlcpy(segment_list->originator, path->originator,
 		sizeof(segment_list->originator));
