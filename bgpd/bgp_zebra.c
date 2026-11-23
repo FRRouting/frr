@@ -2642,9 +2642,14 @@ void bgp_zebra_instance_register(struct bgp *bgp)
 	/* Register for router-id, interfaces, redistributed routes. */
 	zclient_send_reg_requests(bgp_zclient, bgp->vrf_id);
 
-	/* For EVPN instance, register to learn about VNIs, if appropriate. */
-	if (bgp->advertise_all_vni)
+	/*
+	 * For EVPN instance, register to learn about VNIs, if appropriate,
+	 * and give the BUM handling of the VNIs it knows (zebra reconnects).
+	 */
+	if (bgp->advertise_all_vni) {
 		bgp_zebra_advertise_all_vni(bgp, 1);
+		bgp_evpn_flood_control_send_all(bgp);
+	}
 
 	bgp_nht_register_nexthops(bgp);
 
