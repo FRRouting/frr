@@ -1307,6 +1307,31 @@ static struct route_entry *rib_choose_best(struct route_entry *current,
 	return current;
 }
 
+/*
+ * Withdraw the main-table copy that `ip import-table` made of a kernel
+ * route that the kernel has removed.  Other routes are withdrawn once the
+ * dataplane delete completes (rib_process_result_import_table_del()), but
+ * zebra sends no delete for a kernel route.
+ */
+static void rib_process_import_table_del_kernel(struct route_node *rn, struct route_entry *re)
+{
+	struct zebra_vrf *zvrf;
+	afi_t afi;
+	safi_t safi;
+
+	zvrf = zebra_vrf_lookup_by_id(re->vrf_id);
+	if (!zvrf)
+		return;
+
+	afi = family2afi(rn->p.family);
+	for (safi = SAFI_UNICAST; safi < SAFI_MAX; safi++) {
+		if (!is_zebra_import_table_enabled(afi, safi, re->vrf_id, re->table))
+			continue;
+
+		zebra_del_import_table_entry(zvrf, safi, rn, re);
+	}
+}
+
 /* Core function for processing routing information base. */
 static void rib_process(struct route_node *rn)
 {
@@ -1572,6 +1597,8 @@ static void rib_process(struct route_node *rn)
 		rib_process_add_fib(zvrf, rn, new_fib);
 	else if (old_fib && !RIB_KERNEL_ROUTE(old_fib))
 		rib_process_del_fib(zvrf, rn, old_fib);
+	else if (old_fib && CHECK_FLAG(old_fib->status, ROUTE_ENTRY_REMOVED))
+		rib_process_import_table_del_kernel(rn, old_fib);
 
 	/* Remove all RE entries queued for removal */
 	RNODE_FOREACH_RE_SAFE (rn, re, next) {
