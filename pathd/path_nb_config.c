@@ -32,6 +32,12 @@ int pathd_srte_segment_list_create(struct nb_cb_create_args *args)
 	if (args->event == NB_EV_VALIDATE) {
 		/* Refuse names reserved for, or already used by PCEP */
 		name = yang_dnode_get_string(args->dnode, "name");
+		if (strncmp(name, SRTE_PCEP_HASHED_PREFIX, strlen(SRTE_PCEP_HASHED_PREFIX)) == 0) {
+			snprintfrr(args->errmsg, args->errmsg_len,
+				   "Segment list names starting with %s are reserved for PCEP",
+				   SRTE_PCEP_HASHED_PREFIX);
+			return NB_ERR_VALIDATION;
+		}
 		segment_list = srte_segment_list_find(name);
 		if (segment_list != NULL && segment_list->protocol_origin == SRTE_ORIGIN_PCEP) {
 			snprintfrr(args->errmsg, args->errmsg_len,

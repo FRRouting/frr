@@ -8,6 +8,7 @@
 #include <northbound.h>
 #include <yang.h>
 #include <printfrr.h>
+#include "jhash.h"
 #include "pceplib/pcep_msg_objects.h"
 #include "pathd/pathd.h"
 #include "pathd/path_pcep.h"
@@ -31,6 +32,8 @@ static struct path_hop *
 path_pcep_config_list_path_hops(struct srte_segment_list *segment_list);
 static struct srte_candidate *lookup_candidate(struct lsp_nb_key *key);
 static struct srte_candidate *lookup_candidate_by_name(const char *name);
+static void pcep_segment_list_name(char *buf, size_t size, struct path *path);
+static bool path_name_reserved(struct path *path);
 static char *candidate_name(struct srte_candidate *candidate);
 static enum pcep_lsp_operational_status
 status_int_to_ext(enum srte_policy_status status);
@@ -381,7 +384,7 @@ int path_pcep_config_update_path(struct path *path)
 	struct path_hop *hop;
 	struct path_metric *metric;
 	int index;
-	char segment_list_name_buff[64 + 1 + 64 + 1 + 11 + 1];
+	char segment_list_name_buff[SRTE_NAME_LENGTH];
 	char *segment_list_name = NULL;
 	struct srte_candidate *candidate;
 	struct srte_segment_list *segment_list = NULL;
@@ -405,8 +408,7 @@ int path_pcep_config_update_path(struct path *path)
 	if (path->first_hop == NULL)
 		return PATH_NB_ERR;
 
-	snprintf(segment_list_name_buff, sizeof(segment_list_name_buff),
-		 "%s-%u", path->name, path->plsp_id);
+	pcep_segment_list_name(segment_list_name_buff, sizeof(segment_list_name_buff), path);
 	segment_list_name = segment_list_name_buff;
 
 	segment_list = srte_segment_list_add(segment_list_name);
@@ -497,6 +499,27 @@ struct srte_candidate *lookup_candidate_by_name(const char *name)
 	}
 
 	return NULL;
+}
+
+/* "<name>-<plsp_id>", hashed if too long or in the reserved namespace */
+void pcep_segment_list_name(char *buf, size_t size, struct path *path)
+{
+	uint32_t hash;
+
+	if (!path_name_reserved(path) &&
+	    snprintfrr(buf, size, "%s-%u", path->name, path->plsp_id) < (ssize_t)size)
+		return;
+
+	hash = jhash(path->name, strlen(path->name), 0);
+	snprintfrr(buf, size, SRTE_PCEP_HASHED_PREFIX "%.*s-%08x-%u",
+		   (int)(SRTE_YANG_NAME_MAX_LENGTH - 20 - strlen(SRTE_PCEP_HASHED_PREFIX)),
+		   path->name, hash, path->plsp_id);
+}
+
+bool path_name_reserved(struct path *path)
+{
+	return path->name != NULL &&
+	       strncmp(path->name, SRTE_PCEP_HASHED_PREFIX, strlen(SRTE_PCEP_HASHED_PREFIX)) == 0;
 }
 
 char *candidate_name(struct srte_candidate *candidate)
