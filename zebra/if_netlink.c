@@ -1014,14 +1014,26 @@ static ssize_t netlink_address_msg_encoder(struct zebra_dplane_ctx *ctx,
 			if (!nl_attr_put(&req->n, buflen, IFA_ADDRESS,
 					 &p->u.prefix, bytelen))
 				return 0;
-		} else if (cmd == RTM_NEWADDR) {
-			struct in_addr broad = {
-				.s_addr = ipv4_broadcast_addr(p->u.prefix4.s_addr,
-							p->prefixlen)
-			};
-			if (!nl_attr_put(&req->n, buflen, IFA_BROADCAST, &broad,
-					 bytelen))
+		} else {
+			/*
+			 * Without IFA_ADDRESS the kernel ignores the prefix
+			 * length on RTM_DELADDR and removes the first address
+			 * matching IFA_LOCAL. When the same local address is
+			 * present with several prefix lengths this removes the
+			 * wrong one. Send IFA_ADDRESS like iproute2 does so
+			 * the kernel matches the exact prefix.
+			 */
+			if (!nl_attr_put(&req->n, buflen, IFA_ADDRESS, &p->u.prefix, bytelen))
 				return 0;
+
+			if (cmd == RTM_NEWADDR) {
+				struct in_addr broad = {
+					.s_addr = ipv4_broadcast_addr(p->u.prefix4.s_addr,
+								      p->prefixlen)
+				};
+				if (!nl_attr_put(&req->n, buflen, IFA_BROADCAST, &broad, bytelen))
+					return 0;
+			}
 		}
 	}
 
