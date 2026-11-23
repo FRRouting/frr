@@ -4697,6 +4697,10 @@ static void bgp_nb_cli_show_peer_profile_timers(struct vty *vty, const struct ly
 
 void bgp_nb_cli_show_neighbor_end(struct vty *vty, const struct lyd_node *dnode)
 {
+	if (yang_dnode_exists(dnode, "./local-interface"))
+		vty_out(vty, "%sneighbor %s interface %s\n", bgp_nb_peer_show_indent(dnode),
+			bgp_nb_config_peer_name(dnode),
+			yang_dnode_get_string(dnode, "./local-interface"));
 	bgp_nb_cli_show_peer_profile_timers(vty, dnode);
 }
 
@@ -4821,36 +4825,48 @@ void bgp_nb_cli_show_neighbor_remote_as_type(struct vty *vty, const struct lyd_n
 	} else {
 		parent = yang_dnode_get_parent(dnode, "unnumbered-neighbor");
 		if (parent) {
-			/* Combined line printed by peer-group cli_show. */
-			if (yang_dnode_exists(parent, "./peer-group"))
-				return;
 			name = yang_dnode_get_string(parent, "./interface");
-			v6only = yang_dnode_exists(parent, "./v6only") &&
-				 yang_dnode_get_bool(parent, "./v6only");
-			if (strmatch(type, "as-specified")) {
-				as_t as;
-
-				if (!yang_dnode_exists(dnode, "../remote-as"))
+			/*
+			 * When bound to a peer-group, the peer-group cli_show
+			 * prints "neighbor IF interface [v6only] peer-group PG".
+			 * Print a separate "neighbor IF remote-as X" line only
+			 * when the member's AS differs from the group (including
+			 * when the group has no remote-as), matching master.
+			 */
+			if (yang_dnode_exists(parent, "./peer-group")) {
+				if (bgp_nb_dnode_remote_as_matches_group(parent))
 					return;
-				as = yang_dnode_get_uint32(dnode, "../remote-as");
-				vty_out(vty, "%sneighbor %s interface%s remote-as %s\n",
-					bgp_nb_peer_show_indent(dnode), name,
-					v6only ? " v6only" : "",
-					bgp_nb_remote_as_text(lyd_parent(dnode), as, as_buf,
-							      sizeof(as_buf)));
-			} else if (strmatch(type, "internal"))
-				vty_out(vty, "%sneighbor %s interface%s remote-as internal\n",
-					bgp_nb_peer_show_indent(dnode), name,
-					v6only ? " v6only" : "");
-			else if (strmatch(type, "external"))
-				vty_out(vty, "%sneighbor %s interface%s remote-as external\n",
-					bgp_nb_peer_show_indent(dnode), name,
-					v6only ? " v6only" : "");
-			else if (strmatch(type, "auto"))
-				vty_out(vty, "%sneighbor %s interface%s remote-as auto\n",
-					bgp_nb_peer_show_indent(dnode), name,
-					v6only ? " v6only" : "");
-			return;
+				/* Fall through to print "neighbor IF remote-as X". */
+			} else {
+				v6only = yang_dnode_exists(parent, "./v6only") &&
+					 yang_dnode_get_bool(parent, "./v6only");
+				if (strmatch(type, "as-specified")) {
+					as_t as;
+
+					if (!yang_dnode_exists(dnode, "../remote-as"))
+						return;
+					as = yang_dnode_get_uint32(dnode, "../remote-as");
+					vty_out(vty, "%sneighbor %s interface%s remote-as %s\n",
+						bgp_nb_peer_show_indent(dnode), name,
+						v6only ? " v6only" : "",
+						bgp_nb_remote_as_text(lyd_parent(dnode), as, as_buf,
+								      sizeof(as_buf)));
+				} else if (strmatch(type, "internal"))
+					vty_out(vty,
+						"%sneighbor %s interface%s remote-as internal\n",
+						bgp_nb_peer_show_indent(dnode), name,
+						v6only ? " v6only" : "");
+				else if (strmatch(type, "external"))
+					vty_out(vty,
+						"%sneighbor %s interface%s remote-as external\n",
+						bgp_nb_peer_show_indent(dnode), name,
+						v6only ? " v6only" : "");
+				else if (strmatch(type, "auto"))
+					vty_out(vty, "%sneighbor %s interface%s remote-as auto\n",
+						bgp_nb_peer_show_indent(dnode), name,
+						v6only ? " v6only" : "");
+				return;
+			}
 		}
 	}
 	if (!name)
@@ -5540,37 +5556,14 @@ void bgp_nb_cli_show_unnumbered_peer_group(struct vty *vty, const struct lyd_nod
 	const char *pg = yang_dnode_get_string(dnode, NULL);
 	bool v6only = yang_dnode_exists(dnode, "../v6only") &&
 		      yang_dnode_get_bool(dnode, "../v6only");
-	const char *type = NULL;
-
-	if (yang_dnode_exists(dnode, "../neighbor-remote-as/remote-as-type"))
-		type = yang_dnode_get_string(dnode, "../neighbor-remote-as/remote-as-type");
 
 	/*
-	 * Prefer a single combined line when peer-group is set. Remote-as
-	 * child cli_show also prints; suppress bare remote-as when we print
-	 * here with peer-group. Simpler: print interface+v6only+peer-group
-	 * and let remote-as cli_show print remote-as separately (classic
-	 * write often splits). Match classic: one line with all options.
+	 * Print only the peer-group line here; any overriding remote-as is
+	 * printed separately by bgp_nb_cli_show_neighbor_remote_as_type(),
+	 * matching master's two-line output that the CLI can parse back.
 	 */
-	vty_out(vty, "%sneighbor %s interface%s peer-group %s", bgp_nb_peer_show_indent(dnode),
+	vty_out(vty, "%sneighbor %s interface%s peer-group %s\n", bgp_nb_peer_show_indent(dnode),
 		ifname, v6only ? " v6only" : "", pg);
-	if (type && !bgp_nb_dnode_remote_as_matches_group(lyd_parent(dnode))) {
-		if (strmatch(type, "as-specified") &&
-		    yang_dnode_exists(dnode, "../neighbor-remote-as/remote-as")) {
-			as_t as = yang_dnode_get_uint32(dnode, "../neighbor-remote-as/remote-as");
-			const struct lyd_node *ras = yang_dnode_get(dnode, "../neighbor-remote-as");
-			char as_buf[32];
-
-			vty_out(vty, " remote-as %s",
-				bgp_nb_remote_as_text(ras, as, as_buf, sizeof(as_buf)));
-		} else if (strmatch(type, "internal"))
-			vty_out(vty, " remote-as internal");
-		else if (strmatch(type, "external"))
-			vty_out(vty, " remote-as external");
-		else if (strmatch(type, "auto"))
-			vty_out(vty, " remote-as auto");
-	}
-	vty_out(vty, "\n");
 }
 
 /*
@@ -8459,8 +8452,10 @@ int bgp_nb_neighbor_local_interface_destroy(struct nb_cb_destroy_args *args)
 void bgp_nb_cli_show_neighbor_local_interface(struct vty *vty, const struct lyd_node *dnode,
 					      bool show_defaults)
 {
-	vty_out(vty, "%sneighbor %s interface %s\n", bgp_nb_peer_show_indent(dnode),
-		bgp_nb_config_peer_name(dnode), yang_dnode_get_string(dnode, NULL));
+	/*
+	 * Deferred to bgp_nb_cli_show_neighbor_end() so "neighbor X interface IF"
+	 * prints after remote-as / peer-group and parses back cleanly on reload.
+	 */
 }
 
 /*
