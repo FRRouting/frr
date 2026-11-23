@@ -3093,6 +3093,7 @@ const struct frr_yang_module_info frr_bgp_info = {
 		},
 		{
 			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/global/default-shutdown",
+			.priority = NB_DFLT_PRIORITY + 3,
 			.cbs = {
 				.modify = bgp_nb_default_shutdown_modify,
 				.cli_show = bgp_nb_cli_show_default_shutdown,

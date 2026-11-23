@@ -4464,8 +4464,20 @@ int bgp_nb_neighbor_create(struct nb_cb_create_args *args)
 		    !bgp_confederation_peers_check(bgp, as) && as && bgp->as != as)
 			local_as = bgp->confed_id;
 
+		/*
+		 * For NB-configured peers, YANG admin-shutdown/enable is the
+		 * sole source of administrative shutdown state (populated by
+		 * CLI when default-shutdown is already active). Suppress
+		 * bgp->autoshutdown during NB peer_create() so batch-load
+		 * apply order and non-CLI NB clients never diverge from YANG;
+		 * bgp->autoshutdown remains active for dynamic peers.
+		 */
+		bool saved_autoshutdown = bgp->autoshutdown;
+
+		bgp->autoshutdown = false;
 		peer = peer_create(&su, NULL, bgp, local_as, as, as_type, NULL, true, as_pretty,
 				   CONNECTION_OUTGOING);
+		bgp->autoshutdown = saved_autoshutdown;
 		if (!peer)
 			return NB_ERR_RESOURCE;
 
@@ -5227,8 +5239,16 @@ int bgp_nb_unnumbered_neighbor_create(struct nb_cb_create_args *args)
 
 	peer = peer_lookup_by_conf_if(bgp, ifname);
 	if (!peer) {
+		/*
+		 * Suppress bgp->autoshutdown during NB peer_create(); YANG
+		 * admin-shutdown/enable is authoritative for configured peers.
+		 */
+		bool saved_autoshutdown = bgp->autoshutdown;
+
+		bgp->autoshutdown = false;
 		peer = peer_create(NULL, ifname, bgp, bgp->as, as, as_type, NULL, true, as_pretty,
 				   CONNECTION_OUTGOING);
+		bgp->autoshutdown = saved_autoshutdown;
 		if (!peer)
 			return NB_ERR_RESOURCE;
 
