@@ -1,0 +1,35 @@
+case 01: codec round trip: ok
+case 02: codec rejects invalid encode input: ok
+case 03: codec rejects malformed messages: ok
+case 04: codec largest message fits in one packet: ok
+case 05: core context lookup and get: ok
+case 06: core add creates entry and counters: ok
+case 07: core masks the prefix: ok
+case 08: core counts duplicates once: ok
+case 09: core two clients and two families: ok
+case 10: core bad family and empty add: ok
+case 11: core cookie limit: ok
+case 12: core delete frees in order: ok
+case 13: core terminate frees what is left: ok
+case 14: register for a VRF that does not exist yet: ok
+case 15: register without a route answers UNREACHABLE: ok
+case 16: register state follows the RIB and the VRF: ok
+case 17: register of an existing cookie answers again: ok
+case 18: register over the limit is dropped: ok
+case 19: register without cookies tracks nothing: ok
+case 20: unregister: ok
+case 21: a new zebra_vrf gets the context back: ok
+case 22: evaluate flips and notifies every client: ok
+case 23: evaluate ignores what is not tracked: ok
+case 24: evaluate splits many cookies: ok
+case 25: vrf disable forces UNREACHABLE: ok
+case 26: vrf enable attaches by name and looks at all prefixes: ok
+case 27: vrf deleted and added again: ok
+case 28: vrf disable splits many cookies: ok
+case 29: client close removes only that client: ok
+case 30: sweep with nothing held schedules nothing: ok
+case 31: gate closed holds the answers and keeps the state: ok
+case 32: release sends the current state to every client: ok
+case 33: release splits many cookies and tells about a VRF that is gone: ok
+case 34: terminate cancels a scheduled release: ok
+all ok
