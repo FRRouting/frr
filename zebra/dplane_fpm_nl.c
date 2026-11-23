@@ -1457,7 +1457,7 @@ static void fpm_enqueue_rmac_table(struct hash_bucket *bucket, void *arg)
 	    !CHECK_FLAG(zrmac->flags, ZEBRA_MAC_RMAC_INSTALLED))
 		return;
 
-	/* The caller only walks the L3VNIs that are up, with a vxlan interface. */
+	/* The caller only walks the L3VNIs with a vxlan interface. */
 	zif = fra->zl3vni->vxlan_if->info;
 	if (!zif || !zif->brslave_info.br_if)
 		return;
@@ -1533,12 +1533,13 @@ static void fpm_enqueue_l3vni_table(struct hash_bucket *bucket, void *arg)
 	struct zebra_neigh *n;
 
 	/*
-	 * Router MACs are installed on the vxlan interface, which flushes
-	 * them when it goes down, and the table outlives it until BGP
-	 * withdraws them.
+	 * The router MACs installed stay installed while the L3VNI is down,
+	 * until the kernel flushes them from the vxlan interface going down
+	 * (`zl3vni_rmac_flushed()`), and the table outlives the vxlan
+	 * interface until BGP withdraws the entries.
 	 */
 	fra->zl3vni = zl3vni;
-	if (zl3vni->vxlan_if && if_is_operative(zl3vni->vxlan_if))
+	if (zl3vni->vxlan_if)
 		hash_iterate(zl3vni->rmac_table, fpm_enqueue_rmac_table, fra);
 
 	/*

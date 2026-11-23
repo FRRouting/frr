@@ -1481,6 +1481,7 @@ static int zl3vni_rmac_uninstall(struct zebra_l3vni *zl3vni, struct zebra_mac *z
 struct zl3vni_rmac_vid_walk {
 	struct zebra_l3vni *zl3vni;
 	vlanid_t vid;
+	bool install;
 };
 
 static void zl3vni_rmac_vid_update_hash(struct hash_bucket *bucket, void *arg)
@@ -1489,7 +1490,10 @@ static void zl3vni_rmac_vid_update_hash(struct hash_bucket *bucket, void *arg)
 	struct zebra_mac *zrmac = bucket->data;
 
 	/* `zl3vni_rmac_install()` moves it to the current VLAN. */
-	if (CHECK_FLAG(zrmac->flags, ZEBRA_MAC_RMAC_INSTALLED) && zrmac->rmac_vid != wctx->vid)
+	if (CHECK_FLAG(zrmac->flags, ZEBRA_MAC_RMAC_INSTALLED)) {
+		if (zrmac->rmac_vid != wctx->vid)
+			zl3vni_rmac_install(wctx->zl3vni, zrmac);
+	} else if (wctx->install)
 		zl3vni_rmac_install(wctx->zl3vni, zrmac);
 }
 
@@ -1497,8 +1501,10 @@ static void zl3vni_rmac_vid_update_hash(struct hash_bucket *bucket, void *arg)
  * Move the installed router MACs to the current access VLAN of the L3VNI,
  * after an access VLAN change or a VLAN filtering change of the bridge.
  * They stay installed while the L3VNI is down, so whatever its state.
+ * With `install`, also install the ones not installed (flushed by the
+ * kernel, see `zl3vni_rmac_flushed()`), while the vxlan interface is up.
  */
-static void zl3vni_rmac_vid_update(struct zebra_l3vni *zl3vni)
+static void zl3vni_rmac_vid_update(struct zebra_l3vni *zl3vni, bool install)
 {
 	struct zl3vni_rmac_vid_walk wctx = {
 		.zl3vni = zl3vni,
@@ -1509,7 +1515,54 @@ static void zl3vni_rmac_vid_update(struct zebra_l3vni *zl3vni)
 	if (!zl3vni->vxlan_if)
 		return;
 
+	wctx.install = install && if_is_operative(zl3vni->vxlan_if);
 	hash_iterate(zl3vni->rmac_table, zl3vni_rmac_vid_update_hash, &wctx);
+}
+
+static void zl3vni_rmac_flushed_hash(struct hash_bucket *bucket, void *arg)
+{
+	struct zebra_l3vni *zl3vni = arg;
+	struct zebra_mac *zrmac = bucket->data;
+	const struct zebra_if *zif = zl3vni->vxlan_if->info;
+	const struct zebra_vxlan_vni *vni;
+
+	if (!CHECK_FLAG(zrmac->flags, ZEBRA_MAC_RMAC_INSTALLED))
+		return;
+
+	UNSET_FLAG(zrmac->flags, ZEBRA_MAC_RMAC_INSTALLED);
+
+	vni = zebra_vxlan_if_vni_find(zif, zl3vni->vni);
+	if (!vni)
+		return;
+
+	if (IS_ZEBRA_DEBUG_VXLAN)
+		zlog_debug("L3VNI %u RMAC %pEA flushed by the kernel, removing it from the FPM",
+			   zl3vni->vni, &zrmac->macaddr);
+
+	dplane_rem_mac_net_del(zl3vni->vxlan_if, zif->brslave_info.br_if, zrmac->rmac_vid,
+			       &zrmac->macaddr, vni->vni, &zrmac->fwd_info.r_vtep_ip, 0 /*nhg_id*/,
+			       true /*skip_kernel*/);
+}
+
+/*
+ * The vxlan interface of the L3VNI went down: the kernel flushed the router
+ * MACs from it (they are not sticky), keeping the bridge's entries, so
+ * their removal, when BGP withdraws them, fails and would never reach the
+ * FPM. Send the FPM their removal on its own, and mark them not installed:
+ * installed again when the L3VNI comes back up.
+ */
+static void zl3vni_rmac_flushed(struct zebra_l3vni *zl3vni)
+{
+	const struct zebra_if *zif;
+
+	if (!zl3vni->vxlan_if || if_is_operative(zl3vni->vxlan_if))
+		return;
+
+	zif = zl3vni->vxlan_if->info;
+	if (!zif || !zif->brslave_info.br_if)
+		return;
+
+	hash_iterate(zl3vni->rmac_table, zl3vni_rmac_flushed_hash, zl3vni);
 }
 
 struct zl3vni_bridge_walk {
@@ -1529,7 +1582,7 @@ static void zl3vni_bridge_vlan_aware_walk(struct hash_bucket *bucket, void *arg)
 	if (!zif || zif->brslave_info.br_if != wctx->br_if)
 		return;
 
-	zl3vni_rmac_vid_update(zl3vni);
+	zl3vni_rmac_vid_update(zl3vni, false /*install*/);
 }
 
 /*
@@ -2903,9 +2956,10 @@ void zebra_vxlan_process_l3vni_oper_up(struct zebra_l3vni *zl3vni)
 	/*
 	 * The router MACs stay installed while the L3VNI is down: move them if
 	 * its access VLAN changed meanwhile (an access VLAN change takes the
-	 * L3VNI down and up again).
+	 * L3VNI down and up again), and install the ones the kernel flushed
+	 * from the vxlan interface going down.
 	 */
-	zl3vni_rmac_vid_update(zl3vni);
+	zl3vni_rmac_vid_update(zl3vni, true /*install*/);
 
 	/*
 	 * The next hops are not installed while the L3VNI is down
@@ -2955,6 +3009,9 @@ void zebra_vxlan_process_l3vni_oper_down(struct zebra_l3vni *zl3vni)
 	 * down: the other interface may go down later.
 	 */
 	zl3vni_nh_uninstall_all(zl3vni, true /*flushed_only*/);
+
+	/* The same for the router MACs of a down vxlan interface. */
+	zl3vni_rmac_flushed(zl3vni);
 
 	/* send l3-vni del to BGP*/
 	frrtrace(3, frr_zebra, send_l3vni_oper_to_client, zl3vni->vrf_id, zl3vni->vni, 1);
