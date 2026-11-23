@@ -195,11 +195,15 @@ RB_HEAD(srte_segment_entry_head, srte_segment_entry);
 RB_PROTOTYPE(srte_segment_entry_head, srte_segment_entry, entry,
 	     srte_segment_entry_compare)
 
+/* Name length limit in frr-pathd.yang */
+#define SRTE_YANG_NAME_MAX_LENGTH 64
+#define SRTE_NAME_LENGTH	  (SRTE_YANG_NAME_MAX_LENGTH + 1)
+
 struct srte_segment_list {
 	RB_ENTRY(srte_segment_list) entry;
 
 	/* Name of the Segment List. */
-	char name[64];
+	char name[SRTE_NAME_LENGTH];
 
 	/* The Protocol-Origin. */
 	enum srte_protocol_origin protocol_origin;
@@ -274,7 +278,7 @@ struct srte_candidate {
 	uint32_t preference;
 
 	/* Symbolic Name. */
-	char name[64];
+	char name[SRTE_NAME_LENGTH];
 
 	/* The associated Segment List. */
 	struct srte_segment_list *segment_list;
@@ -336,7 +340,7 @@ struct srte_policy {
 	struct ipaddr endpoint;
 
 	/* Name */
-	char name[64];
+	char name[SRTE_NAME_LENGTH];
 
 	/* Binding SID */
 	mpls_label_t binding_sid;
