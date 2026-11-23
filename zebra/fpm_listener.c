@@ -494,15 +494,23 @@ static inline void netlink_msg_ctx_set_err(struct netlink_msg_ctx *ctx,
 static int parse_rtattrs_(struct rtattr *rta, size_t len, struct rtattr **rtas,
 			  uint16_t num_rtas, const char **err_msg)
 {
+	/*
+	 * Signed: `RTA_NEXT()` takes the aligned length of the last
+	 * attribute, which goes past the end of a message not padded.
+	 */
+	int left = len;
+
 	memset(rtas, 0, num_rtas * sizeof(rtas[0]));
 
-	for (; len > 0; rta = RTA_NEXT(rta, len)) {
-		uint16_t type = rta->rta_type & NLA_TYPE_MASK;
+	for (; left > 0; rta = RTA_NEXT(rta, left)) {
+		uint16_t type;
 
-		if (!RTA_OK(rta, len)) {
+		if (!RTA_OK(rta, left)) {
 			*err_msg = "Malformed rta";
 			return 0;
 		}
+
+		type = rta->rta_type & NLA_TYPE_MASK;
 
 		if (type >= num_rtas) {
 			warn("Unknown rtattr type %d", rta->rta_type);
@@ -1094,6 +1102,24 @@ static void handle_nexthop_update(struct nlmsghdr *hdr, struct nhmsg *nhmsg, str
 }
 
 /*
+ * The netlink message after `hdr`, `len` being what is left from it. Like
+ * `NLMSG_NEXT()`, but the length does not wrap around when the last
+ * message is not padded.
+ */
+static struct nlmsghdr *fpm_nlmsg_next(struct nlmsghdr *hdr, unsigned int *len)
+{
+	unsigned int aligned = NLMSG_ALIGN(hdr->nlmsg_len);
+
+	if (aligned >= *len) {
+		*len = 0;
+		return hdr;
+	}
+
+	*len -= aligned;
+	return (struct nlmsghdr *)((char *)hdr + aligned);
+}
+
+/*
  * parse_netlink_msg
  */
 static void parse_netlink_msg(char *buf, size_t buf_len, fpm_msg_hdr_t *fpm)
@@ -1108,8 +1134,7 @@ static void parse_netlink_msg(char *buf, size_t buf_len, fpm_msg_hdr_t *fpm)
 
 	hdr = (struct nlmsghdr *)buf;
 	len = buf_len;
-	for (; NLMSG_OK(hdr, len); hdr = NLMSG_NEXT(hdr, len)) {
-
+	for (; NLMSG_OK(hdr, len); hdr = fpm_nlmsg_next(hdr, &len)) {
 		netlink_msg_ctx_init(ctx);
 		ctx->hdr = hdr;
 
