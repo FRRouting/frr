@@ -882,6 +882,8 @@ int pcep_thread_event_remove_pcc_by_id(struct ctrl_state *ctrl_state,
 		struct pcc_state *pcc_state =
 			pcep_pcc_get_pcc_by_id(ctrl_state->pcc, pcc_id);
 		if (pcc_state) {
+			/* A removed PCE has no session timeout left to clean up */
+			pcep_thread_remove_candidate_path_segments(ctrl_state, pcc_state);
 			remove_pcc_state(ctrl_state, pcc_state);
 			pcep_pcc_finalize(ctrl_state, pcc_state);
 		}

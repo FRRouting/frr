@@ -46,8 +46,7 @@ static int pcep_main_event_start_sync(int pcc_id);
 static int pcep_main_event_start_sync_cb(struct path *path, void *arg);
 static int pcep_main_event_initiate_candidate(struct path *path);
 static int pcep_main_event_update_candidate(struct path *path);
-static int pcep_main_event_remove_candidate_segments(const char *originator,
-						     bool force);
+static int pcep_main_event_remove_candidate_segments(const char *originator);
 
 /* Hook Handlers called from the Main Thread */
 static int pathd_candidate_created_handler(struct srte_candidate *candidate);
@@ -199,8 +198,7 @@ int pcep_main_event_handler(enum pcep_main_event_type type, int pcc_id,
 		ret = pcep_main_event_update_candidate((struct path *)payload);
 		break;
 	case PCEP_MAIN_EVENT_REMOVE_CANDIDATE_LSP:
-		ret = pcep_main_event_remove_candidate_segments(
-			(const char *)payload, true);
+		ret = pcep_main_event_remove_candidate_segments((const char *)payload);
 		break;
 	case PCEP_MAIN_EVENT_UNDEFINED:
 		flog_warn(EC_PATH_PCEP_RECOVERABLE_INTERNAL_ERROR,
@@ -325,10 +323,9 @@ int pcep_main_event_update_candidate(struct path *path)
 	return ret;
 }
 
-int pcep_main_event_remove_candidate_segments(const char *originator,
-					      bool force)
+int pcep_main_event_remove_candidate_segments(const char *originator)
 {
-	srte_candidate_unset_segment_list(originator, force);
+	srte_candidate_unset_segment_list(originator);
 	/* Avoid compiler warnings about const char* */
 	void *free_ptr = (void *)originator;
 	XFREE(MTYPE_PCEP, free_ptr);

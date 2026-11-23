@@ -103,7 +103,6 @@ static int compare_pcc_opts(struct pcc_opts *lhs, struct pcc_opts *rhs);
 static int compare_pce_opts(struct pce_opts *lhs, struct pce_opts *rhs);
 static int get_previous_best_pce(struct pcc_state **pcc);
 static int get_best_pce(struct pcc_state **pcc);
-static int get_pce_count_connected(struct pcc_state **pcc);
 static bool update_best_pce(struct pcc_state **pcc, int best);
 
 /* Data Structure Helper Functions */
@@ -446,11 +445,6 @@ int pcep_pcc_disable(struct ctrl_state *ctrl_state, struct pcc_state *pcc_state)
 		PCEP_DEBUG("%s Disconnecting PCC...", pcc_state->tag);
 		cancel_comp_requests(ctrl_state, pcc_state);
 		pcep_lib_disconnect(pcc_state->sess);
-		/* No need to remove if any PCEs is connected */
-		if (get_pce_count_connected(ctrl_state->pcc) == 0) {
-			pcep_thread_remove_candidate_path_segments(ctrl_state,
-								   pcc_state);
-		}
 		pcc_state->sess = NULL;
 		pcc_state->status = PCEP_PCC_DISCONNECTED;
 		return 0;
@@ -808,18 +802,6 @@ int get_best_pce(struct pcc_state **pcc)
 		}
 	}
 	return 0;
-}
-
-int get_pce_count_connected(struct pcc_state **pcc)
-{
-	int count = 0;
-	for (int i = 0; i < MAX_PCC; i++) {
-		if (pcc[i] && pcc[i]->pce_opts
-		    && pcc[i]->status != PCEP_PCC_DISCONNECTED) {
-			count++;
-		}
-	}
-	return count;
 }
 
 int get_previous_best_pce(struct pcc_state **pcc)
@@ -1554,14 +1536,7 @@ void schedule_reconnect(struct ctrl_state *ctrl_state,
 void schedule_session_timeout(struct ctrl_state *ctrl_state,
 			      struct pcc_state *pcc_state)
 {
-	/* No need to schedule timeout if multiple PCEs are connected */
-	if (get_pce_count_connected(ctrl_state->pcc)) {
-		PCEP_DEBUG_PCEP(
-			"schedule_session_timeout not setting timer for multi-pce mode");
-
-		return;
-	}
-
+	/* Each PCE has its own timeout, even when other PCEs are connected */
 	pcep_thread_schedule_session_timeout(
 		ctrl_state, pcep_pcc_get_pcc_id(pcc_state),
 		pcc_state->pce_opts->config_opts
@@ -1572,7 +1547,6 @@ void schedule_session_timeout(struct ctrl_state *ctrl_state,
 void cancel_session_timeout(struct ctrl_state *ctrl_state,
 			    struct pcc_state *pcc_state)
 {
-	/* No need to schedule timeout if multiple PCEs are connected */
 	if (!event_is_scheduled(pcc_state->t_session_timeout)) {
 		PCEP_DEBUG_PCEP("cancel_session_timeout timer thread NULL");
 		return;
