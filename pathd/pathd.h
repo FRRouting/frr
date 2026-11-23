@@ -198,6 +198,8 @@ RB_PROTOTYPE(srte_segment_entry_head, srte_segment_entry, entry,
 /* Name length limit in frr-pathd.yang */
 #define SRTE_YANG_NAME_MAX_LENGTH 64
 #define SRTE_NAME_LENGTH	  (SRTE_YANG_NAME_MAX_LENGTH + 1)
+/* PCEP segment lists are "<name>-<plsp_id>", PLSP-ID up to 7 digits */
+#define SRTE_PCEP_NAME_MAX_LENGTH (SRTE_YANG_NAME_MAX_LENGTH - 8)
 /* Prefix of hashed PCEP segment list names, reserved from configuration */
 #define SRTE_PCEP_HASHED_PREFIX "pcep-hash-"
 

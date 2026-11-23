@@ -33,6 +33,8 @@ path_pcep_config_list_path_hops(struct srte_segment_list *segment_list);
 static struct srte_candidate *lookup_candidate(struct lsp_nb_key *key);
 static struct srte_candidate *lookup_candidate_by_name(const char *name);
 static void pcep_segment_list_name(char *buf, size_t size, struct path *path);
+static bool segment_list_name_taken(struct path *path, struct srte_candidate *candidate);
+static bool path_name_too_long(struct path *path);
 static bool path_name_reserved(struct path *path);
 static char *candidate_name(struct srte_candidate *candidate);
 static enum pcep_lsp_operational_status
@@ -331,6 +333,12 @@ int path_pcep_config_initiate_path(struct path *path)
 					  path->originator, path->name);
 				return ERROR_23_1;
 			}
+			/* Refuse before creating anything */
+			if (segment_list_name_taken(path, NULL)) {
+				zlog_warn("segment list name %s-%u of path %s is already in use, rejecting the path",
+					  path->name, path->plsp_id, path->name);
+				return ERROR_24_1;
+			}
 			policy = srte_policy_add(
 				path->nbkey.color, &path->nbkey.endpoint,
 				SRTE_ORIGIN_PCEP, path->originator);
@@ -514,6 +522,25 @@ void pcep_segment_list_name(char *buf, size_t size, struct path *path)
 	snprintfrr(buf, size, SRTE_PCEP_HASHED_PREFIX "%.*s-%08x-%u",
 		   (int)(SRTE_YANG_NAME_MAX_LENGTH - 20 - strlen(SRTE_PCEP_HASHED_PREFIX)),
 		   path->name, hash, path->plsp_id);
+}
+
+/* Segment list name "<name>-<plsp_id>" held by a list other than candidate's */
+bool segment_list_name_taken(struct path *path, struct srte_candidate *candidate)
+{
+	char name[SRTE_NAME_LENGTH];
+	struct srte_segment_list *segment_list;
+
+	pcep_segment_list_name(name, sizeof(name), path);
+	segment_list = srte_segment_list_find(name);
+	if (segment_list == NULL)
+		return false;
+
+	return candidate == NULL || segment_list != candidate->lsp->segment_list;
+}
+
+bool path_name_too_long(struct path *path)
+{
+	return path->name != NULL && strlen(path->name) > SRTE_PCEP_NAME_MAX_LENGTH;
 }
 
 bool path_name_reserved(struct path *path)
