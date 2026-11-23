@@ -1952,7 +1952,8 @@ static int zl3vni_nh_uninstall(struct zebra_l3vni *zl3vni,
  *
  * The SVD table is shared by all the SVD backed L3VNIs, which may not all
  * use the same vxlan interface: `_nh_install()` remembers the one the entry
- * is installed on (`ifindex`), to remove it from there.
+ * is installed on (`ifindex`), to remove it from there and to send it to a
+ * new FPM connection on the same one.
  */
 static int svd_nh_install(struct zebra_l3vni *zl3vni, struct zebra_neigh *n)
 {

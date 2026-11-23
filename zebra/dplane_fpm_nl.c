@@ -1421,8 +1421,8 @@ static void fpm_rib_send(struct event *t)
 }
 
 /*
- * The next functions will handle RMAC, EVPN-MH next hop, L2VNI remote MAC,
- * remote neighbor and flood list enqueue.
+ * The next functions will handle RMAC, L3VNI next hop, EVPN-MH next hop,
+ * L2VNI remote MAC, remote neighbor and flood list enqueue.
  */
 struct fpm_evpn_arg {
 	struct zebra_dplane_ctx *ctx;
@@ -1477,21 +1477,86 @@ static void fpm_enqueue_rmac_table(struct hash_bucket *bucket, void *arg)
 	SET_FLAG(zrmac->flags, ZEBRA_MAC_FPM_SENT);
 }
 
+/*
+ * L3VNI next hops: the remote VTEP neighbors `zl3vni_nh_install()` programs
+ * on the L3VNI SVI and `svd_nh_install()` programs on the SVD vxlan
+ * interface. The installed ones (active), on the interface they are
+ * installed on (`ifindex`), while it is up: the kernel removes them while
+ * it is down.
+ */
+static void fpm_enqueue_l3vni_nh(struct fpm_evpn_arg *fra, struct zebra_neigh *n)
+{
+	struct zebra_ns *zns;
+	struct interface *ifp;
+	uint32_t flags;
+
+	if (!CHECK_FLAG(n->flags, ZEBRA_NEIGH_REMOTE) ||
+	    !CHECK_FLAG(n->flags, ZEBRA_NEIGH_REMOTE_NH) ||
+	    CHECK_FLAG(n->flags, ZEBRA_NEIGH_FPM_SENT) || !fra->complete)
+		return;
+
+	if (!IS_ZEBRA_NEIGH_ACTIVE(n) || n->ifindex == IFINDEX_INTERNAL)
+		return;
+
+	/* Not another namespace's interface if its namespace is gone. */
+	zns = zebra_ns_lookup(n->ns_id);
+	if (!zns || zns->ns_id != n->ns_id)
+		return;
+
+	ifp = if_lookup_by_index_per_ns(zns, n->ifindex);
+	if (!ifp || !if_is_operative(ifp))
+		return;
+
+	flags = DPLANE_NTF_EXT_LEARNED;
+	if (CHECK_FLAG(n->flags, ZEBRA_NEIGH_ROUTER_FLAG))
+		flags |= DPLANE_NTF_ROUTER;
+
+	dplane_ctx_reset(fra->ctx);
+	dplane_ctx_set_op(fra->ctx, DPLANE_OP_NEIGH_INSTALL);
+	dplane_rem_neigh_init(fra->ctx, ifp, &n->ip, &n->emac, flags);
+	if (fpm_nl_enqueue(fra->fnc, fra->ctx) == -1) {
+		event_add_timer(zrouter.master, fpm_evpn_send, fra->fnc, 1, &fra->fnc->t_evpnwalk);
+		fra->complete = false;
+		return;
+	}
+
+	SET_FLAG(n->flags, ZEBRA_NEIGH_FPM_SENT);
+}
+
 static void fpm_enqueue_l3vni_table(struct hash_bucket *bucket, void *arg)
 {
 	struct fpm_evpn_arg *fra = arg;
 	struct zebra_l3vni *zl3vni = bucket->data;
+	struct zebra_neigh *n;
 
 	/*
 	 * Router MACs are installed on the vxlan interface, which flushes
 	 * them when it goes down, and the table outlives it until BGP
 	 * withdraws them.
 	 */
-	if (!zl3vni->vxlan_if || !if_is_operative(zl3vni->vxlan_if))
-		return;
-
 	fra->zl3vni = zl3vni;
-	hash_iterate(zl3vni->rmac_table, fpm_enqueue_rmac_table, fra);
+	if (zl3vni->vxlan_if && if_is_operative(zl3vni->vxlan_if))
+		hash_iterate(zl3vni->rmac_table, fpm_enqueue_rmac_table, fra);
+
+	/*
+	 * The next hops stay installed on an SVI that is up while the L3VNI
+	 * is down (e.g. its vxlan interface is down).
+	 */
+	frr_each (zebra_neigh_db, zl3vni->nh_table, n)
+		fpm_enqueue_l3vni_nh(fra, n);
+}
+
+/*
+ * SVD backed L3VNIs also install the next hops of the global SVD table,
+ * each on the vxlan interface of the L3VNI that installed it. Walk the
+ * table once, not once per L3VNI sharing it.
+ */
+static void fpm_enqueue_svd_nh_table(struct fpm_evpn_arg *fra)
+{
+	struct zebra_neigh *n;
+
+	frr_each (zebra_neigh_db, svd_nh_table, n)
+		fpm_enqueue_l3vni_nh(fra, n);
 }
 
 /*
@@ -1732,6 +1797,7 @@ static void fpm_evpn_send(struct event *t)
 	fra.ctx = dplane_ctx_alloc();
 	fra.complete = true;
 	hash_iterate(zrouter.l3vni_table, fpm_enqueue_l3vni_table, &fra);
+	fpm_enqueue_svd_nh_table(&fra);
 
 	/*
 	 * The EVPN-MH next hops, then their groups, then the MACs using them
@@ -1824,8 +1890,8 @@ static void fpm_rib_reset(struct event *t)
 }
 
 /*
- * The next functions will handle RMAC, EVPN-MH next hop, L2VNI remote MAC,
- * remote neighbor and flood list reset.
+ * The next functions will handle RMAC, L3VNI next hop, EVPN-MH next hop,
+ * L2VNI remote MAC, remote neighbor and flood list reset.
  */
 static void fpm_unset_mac_table(struct hash_bucket *bucket, void *arg)
 {
@@ -1837,8 +1903,11 @@ static void fpm_unset_mac_table(struct hash_bucket *bucket, void *arg)
 static void fpm_unset_l3vni_table(struct hash_bucket *bucket, void *arg)
 {
 	struct zebra_l3vni *zl3vni = bucket->data;
+	struct zebra_neigh *n;
 
 	hash_iterate(zl3vni->rmac_table, fpm_unset_mac_table, zl3vni);
+	frr_each (zebra_neigh_db, zl3vni->nh_table, n)
+		UNSET_FLAG(n->flags, ZEBRA_NEIGH_FPM_SENT);
 }
 
 static void fpm_unset_l2vni_table(struct hash_bucket *bucket, void *arg)
@@ -1869,8 +1938,11 @@ static void fpm_evpn_reset(struct event *t)
 	struct fpm_nl_ctx *fnc = EVENT_ARG(t);
 	struct zebra_vrf *zvrf = zebra_vrf_get_evpn();
 	struct zebra_evpn_es *es;
+	struct zebra_neigh *n;
 
 	hash_iterate(zrouter.l3vni_table, fpm_unset_l3vni_table, NULL);
+	frr_each (zebra_neigh_db, svd_nh_table, n)
+		UNSET_FLAG(n->flags, ZEBRA_NEIGH_FPM_SENT);
 	if (zmh_info) {
 		hash_iterate(zmh_info->nh_ip_table, fpm_unset_l2_nh, NULL);
 		RB_FOREACH (es, zebra_es_rb_head, &zmh_info->es_rb_tree)

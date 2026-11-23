@@ -61,6 +61,9 @@ struct zebra_l3vni {
 	struct zebra_neigh_db_head nh_table[1];
 };
 
+/* Single VXlan Device global remote vtep-ip neigh table */
+extern struct zebra_neigh_db_head svd_nh_table[1];
+
 #define IS_ZL3VNI_SVD_BACKED(zl3vni)                                           \
 	(zl3vni->vxlan_if && zl3vni->vxlan_if->info &&                         \
 	 IS_ZEBRA_VXLAN_IF_SVD((struct zebra_if *)zl3vni->vxlan_if->info))
