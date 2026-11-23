@@ -294,10 +294,10 @@ struct pcep_error {
 	struct path *path;
 	int error_type;
 	int error_value;
-	/* Rfc 8281 PcInitiated error on bad values */
-#define ERROR_19_1 1
-#define ERROR_19_3 2
-#define ERROR_19_9 3
+	/* PCErr type and value, apart from the PATH_NB_* results */
+#define ERROR_19_1 1901
+#define ERROR_19_3 1903
+#define ERROR_19_9 1909
 };
 
 /* Path Helper Functions */
