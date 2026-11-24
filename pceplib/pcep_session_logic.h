@@ -262,6 +262,9 @@ pcep_session *create_pcep_session_ipv6(pcep_configuration *config,
 void close_pcep_session(pcep_session *session);
 /* Asynchronous: the session logic thread closes and destroys the session */
 void session_logic_disconnect(pcep_session *session);
+/* Send on a session that still exists and sent no Close */
+bool session_logic_send_message(pcep_session *session, struct pcep_message *msg,
+				bool free_after_send);
 void close_pcep_session_with_reason(pcep_session *session,
 				    enum pcep_close_reason);
 

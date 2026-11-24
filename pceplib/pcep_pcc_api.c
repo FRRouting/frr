@@ -176,26 +176,11 @@ void send_message(pcep_session *session, struct pcep_message *msg,
 		return;
 	}
 
-	if (session_exists(session) == false) {
-		pcep_log(
-			LOG_WARNING,
-			"%s: send_message session [%p] has already been deleted",
-			__func__, session);
-		return;
-	}
-
-	pcep_encode_message(msg, session->pcc_config.pcep_msg_versioning);
-	socket_comm_session_send_message(
-		session->socket_comm_session, (char *)msg->encoded_message,
-		msg->encoded_message_length, free_after_send);
-
-	increment_message_tx_counters(session, msg);
-
-	if (free_after_send == true) {
-		/* The encoded_message will be deleted once sent, so everything
-		 * else in the message will be freed */
-		msg->encoded_message = NULL;
-		pcep_msg_free_message(msg);
+	if (!session_logic_send_message(session, msg, free_after_send)) {
+		pcep_log(LOG_WARNING, "%s: send_message session [%p] has been deleted or closed",
+			 __func__, session);
+		if (free_after_send)
+			pcep_msg_free_message(msg);
 	}
 }
 

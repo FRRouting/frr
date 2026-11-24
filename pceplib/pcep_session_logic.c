@@ -565,6 +565,35 @@ void session_send_message(pcep_session *session, struct pcep_message *message)
 }
 
 
+bool session_logic_send_message(pcep_session *session, struct pcep_message *msg,
+				bool free_after_send)
+{
+	if (session_logic_handle_ == NULL)
+		return false;
+
+	/* The session logic thread closes and destroys sessions under this lock */
+	pthread_mutex_lock(&(session_logic_handle_->session_list_mutex));
+	if (ordered_list_find(session_logic_handle_->session_list, session) == NULL ||
+	    session->close_sent) {
+		pthread_mutex_unlock(&(session_logic_handle_->session_list_mutex));
+		return false;
+	}
+
+	pcep_encode_message(msg, session->pcc_config.pcep_msg_versioning);
+	socket_comm_session_send_message(session->socket_comm_session, (char *)msg->encoded_message,
+					 msg->encoded_message_length, free_after_send);
+	increment_message_tx_counters(session, msg);
+	pthread_mutex_unlock(&(session_logic_handle_->session_list_mutex));
+
+	if (free_after_send) {
+		msg->encoded_message = NULL;
+		pcep_msg_free_message(msg);
+	}
+
+	return true;
+}
+
+
 /* This function is also used in pcep_session_logic_states.c */
 struct pcep_message *create_pcep_open(pcep_session *session)
 {

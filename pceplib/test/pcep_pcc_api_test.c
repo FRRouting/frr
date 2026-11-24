@@ -284,6 +284,12 @@ void test_send_message(void)
 
 	verify_socket_comm_times_called(0, 0, 1, 2, 0, 0, 0);
 
+	/* Nothing may follow a Close (RFC 5440 6.9) */
+	close_pcep_session(session);
+	verify_socket_comm_times_called(0, 0, 1, 3, 1, 0, 0);
+	send_message(session, msg, false);
+	verify_socket_comm_times_called(0, 0, 1, 3, 1, 0, 0);
+
 	pcep_msg_free_message(msg);
 	destroy_pcep_session(session);
 	destroy_pcep_configuration(config);
