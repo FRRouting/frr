@@ -204,15 +204,16 @@ def _fpm_route_messages(router, prefix):
     ]
 
 
-def _check_fpm_route_encap(router, prefix, gateway, vni):
+def _check_fpm_route_encap(router, prefix, gateway, vni, after=0):
     """
     Check that the last FPM message for ``prefix`` installs it through
-    ``gateway`` with the VXLAN encapsulation of ``vni``. Returns None on
-    success, otherwise what the FPM listener received.
+    ``gateway`` with the VXLAN encapsulation of ``vni``, and that it is not
+    one of the first ``after`` messages. Returns None on success, otherwise
+    what the FPM listener received.
     """
     messages = _fpm_route_messages(router, prefix)
-    if not messages:
-        return "FPM listener received no message for {}".format(prefix)
+    if len(messages) <= after:
+        return "FPM listener received no new message for {}".format(prefix)
 
     last = messages[-1]
     if not last.startswith("New route"):
@@ -411,6 +412,8 @@ def test_evpn_route_fpm_encap_after_zebra_restart():
         pytest.skip(tgen.errors)
 
     r2 = tgen.gears["r2"]
+    # The listener keeps its log across the restart: only a later message counts
+    before = len(_fpm_route_messages(r2, EVPN_PREFIX))
 
     # zebra goes first, so that it does not remove bgpd's routes from the kernel
     kill_router_daemons(tgen, "r2", ["zebra", "bgpd"])
@@ -422,7 +425,9 @@ def test_evpn_route_fpm_encap_after_zebra_restart():
     _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
     assert result is None, "r2 is not connected to the FPM listener:\n{}".format(result)
 
-    test_func = partial(_check_fpm_route_encap, r2, EVPN_PREFIX, REMOTE_VTEP, L3VNI)
+    test_func = partial(
+        _check_fpm_route_encap, r2, EVPN_PREFIX, REMOTE_VTEP, L3VNI, after=before
+    )
     _, result = topotest.run_and_expect(test_func, None, count=60, wait=1)
     assert result is None, result
 
