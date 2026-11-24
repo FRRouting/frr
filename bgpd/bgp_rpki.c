@@ -1869,7 +1869,7 @@ static int rpki_create_socket(void *_cache)
 		port = tcp_config->port;
 	}
 #if defined(FOUND_SSH)
-	else {
+	else if (cache->type == SSH) {
 		ssh_config = cache->tr_config.ssh_config;
 		host = ssh_config->host;
 		snprintf(s_port, sizeof(s_port), "%u", ssh_config->port);
@@ -1881,6 +1881,8 @@ static int rpki_create_socket(void *_cache)
 		hints.ai_socktype = SOCK_STREAM;
 	}
 #endif
+	else
+		return -1;
 
 	frr_with_privs (&bgpd_privs) {
 		ret = vrf_getaddrinfo(host, port, &hints, &res, vrf->vrf_id);
