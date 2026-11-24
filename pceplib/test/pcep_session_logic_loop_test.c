@@ -142,17 +142,11 @@ void test_session_logic_msg_ready_handler()
 	memset(&session, 0, sizeof(pcep_session));
 	session.session_id = 100;
 	CU_ASSERT_EQUAL(session_logic_msg_ready_handler(&session, fd), 0);
-	CU_ASSERT_EQUAL(session_logic_handle_->session_event_queue->num_entries,
-			1);
+	CU_ASSERT_EQUAL(session_logic_handle_->session_event_queue->num_entries, 0);
 	pcep_event *e = queue_dequeue(session_logic_event_queue_->event_queue);
 	CU_ASSERT_EQUAL(PCE_CLOSED_SOCKET, e->event_type);
 	pceplib_free(PCEPLIB_INFRA, e);
-	pcep_session_event *socket_event = (pcep_session_event *)queue_dequeue(
-		session_logic_handle_->session_event_queue);
-	CU_ASSERT_PTR_NOT_NULL(socket_event);
-	assert(socket_event != NULL);
-	CU_ASSERT_TRUE(socket_event->socket_closed);
-	pceplib_free(PCEPLIB_INFRA, socket_event);
+	pcep_session_event *socket_event;
 
 	/* A pcep_session_event should be created */
 	struct pcep_versioning *versioning = create_default_pcep_versioning();
@@ -170,7 +164,7 @@ void test_session_logic_msg_ready_handler()
 		session_logic_handle_->session_event_queue);
 	CU_ASSERT_PTR_NOT_NULL(socket_event);
 	assert(socket_event != NULL);
-	CU_ASSERT_FALSE(socket_event->socket_closed);
+	CU_ASSERT_EQUAL(socket_event->type, PCEP_SESSION_EVENT_MSG_RCVD);
 	CU_ASSERT_PTR_EQUAL(socket_event->session, &session);
 	CU_ASSERT_EQUAL(socket_event->expired_timer_id, TIMER_ID_NOT_SET);
 	CU_ASSERT_PTR_NOT_NULL(socket_event->received_msg_list);
@@ -199,7 +193,7 @@ void test_session_logic_conn_except_notifier()
 		session_logic_handle_->session_event_queue);
 	CU_ASSERT_PTR_NOT_NULL_FATAL(socket_event);
 	assert(socket_event != NULL);
-	CU_ASSERT_TRUE(socket_event->socket_closed);
+	CU_ASSERT_EQUAL(socket_event->type, PCEP_SESSION_EVENT_SOCKET_CLOSED);
 	CU_ASSERT_PTR_EQUAL(socket_event->session, &session);
 	CU_ASSERT_EQUAL(socket_event->expired_timer_id, TIMER_ID_NOT_SET);
 	CU_ASSERT_PTR_NULL(socket_event->received_msg_list);
@@ -224,7 +218,7 @@ void test_session_logic_timer_expire_handler()
 		session_logic_handle_->session_event_queue);
 	CU_ASSERT_PTR_NOT_NULL_FATAL(socket_event);
 	assert(socket_event != NULL);
-	CU_ASSERT_FALSE(socket_event->socket_closed);
+	CU_ASSERT_EQUAL(socket_event->type, PCEP_SESSION_EVENT_TIMER);
 	CU_ASSERT_PTR_EQUAL(socket_event->session, &session);
 	CU_ASSERT_EQUAL(socket_event->expired_timer_id, 42);
 	CU_ASSERT_PTR_NULL(socket_event->received_msg_list);

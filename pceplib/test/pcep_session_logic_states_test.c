@@ -94,7 +94,7 @@ void pcep_session_logic_states_test_setup()
 	session.num_unknown_messages_time_queue = queue_initialize();
 
 	memset(&event, 0, sizeof(pcep_session_event));
-	event.socket_closed = false;
+	event.type = PCEP_SESSION_EVENT_MSG_RCVD;
 	event.session = &session;
 
 	setup_mock_socket_comm_info();
@@ -282,7 +282,7 @@ void test_handle_socket_comm_event_null_params()
 
 void test_handle_socket_comm_event_close()
 {
-	event.socket_closed = true;
+	event.type = PCEP_SESSION_EVENT_SOCKET_CLOSED;
 	handle_socket_comm_event(&event);
 
 	CU_ASSERT_EQUAL(session.session_state, SESSION_STATE_INITIALIZED);
@@ -931,7 +931,7 @@ void test_connection_failure(void)
 	/* Send a socket close while connecting, which should
 	 * generate a PCC_CONNECTION_FAILURE event */
 	reset_mock_socket_comm_info();
-	event.socket_closed = true;
+	event.type = PCEP_SESSION_EVENT_SOCKET_CLOSED;
 	event.received_msg_list = NULL;
 
 	handle_socket_comm_event(&event);

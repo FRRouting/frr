@@ -922,19 +922,17 @@ void handle_socket_comm_event(pcep_session_event *event)
 
 	pcep_session *session = event->session;
 
-	pcep_log(
-		LOG_INFO,
-		"%s: [%ld-%ld] pcep_session_logic handle_socket_comm_event: session [%d] num messages [%d] socket_closed [%d]",
-		__func__, time(NULL), pthread_self(), session->session_id,
-		(event->received_msg_list == NULL
-			 ? -1
-			 : (int)event->received_msg_list->num_entries),
-		event->socket_closed);
+	pcep_log(LOG_INFO,
+		 "%s: [%ld-%ld] pcep_session_logic handle_socket_comm_event: session [%d] num messages [%d] socket_closed [%d]",
+		 __func__, time(NULL), pthread_self(), session->session_id,
+		 (event->received_msg_list == NULL ? -1
+						   : (int)event->received_msg_list->num_entries),
+		 event->type == PCEP_SESSION_EVENT_SOCKET_CLOSED);
 
 	/*
 	 * independent of the session state
 	 */
-	if (event->socket_closed) {
+	if (event->type == PCEP_SESSION_EVENT_SOCKET_CLOSED) {
 		pcep_log(
 			LOG_INFO,
 			"%s: handle_socket_comm_event socket closed for session [%d]",
