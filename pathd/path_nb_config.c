@@ -213,6 +213,7 @@ void pathd_srte_segment_list_segment_nai_apply_finish(
 						     "./remote-interface");
 		break;
 	case SRTE_SEGMENT_NAI_TYPE_IPV4_ALGORITHM:
+	case SRTE_SEGMENT_NAI_TYPE_IPV6_ALGORITHM:
 		algo_buf = yang_dnode_get_string(args->dnode, "algorithm");
 		algo = atoi(algo_buf);
 		local_prefix_len_buf = yang_dnode_get_string(
@@ -220,6 +221,7 @@ void pathd_srte_segment_list_segment_nai_apply_finish(
 		local_prefix_len = atoi(local_prefix_len_buf);
 		break;
 	case SRTE_SEGMENT_NAI_TYPE_IPV4_LOCAL_IFACE:
+	case SRTE_SEGMENT_NAI_TYPE_IPV6_LOCAL_IFACE:
 		local_iface =
 			yang_dnode_get_uint32(args->dnode, "local-interface");
 		local_prefix_len_buf = yang_dnode_get_string(
@@ -228,8 +230,6 @@ void pathd_srte_segment_list_segment_nai_apply_finish(
 		break;
 	case SRTE_SEGMENT_NAI_TYPE_NONE:
 	case SRTE_SEGMENT_NAI_TYPE_IPV6_ADJACENCY_LINK_LOCAL_ADDRESSES:
-	case SRTE_SEGMENT_NAI_TYPE_IPV6_LOCAL_IFACE:
-	case SRTE_SEGMENT_NAI_TYPE_IPV6_ALGORITHM:
 		break;
 	}
 
