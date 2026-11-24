@@ -7,6 +7,7 @@
 
 import functools
 import ipaddress
+import json
 import os
 import platform
 import socket
@@ -1810,6 +1811,118 @@ def delete_address_on_interface_freebsd(
 
     if vrf:
         logger.debug("[DUT: %s]: %s stays in the base FIB (vrf %s)", dut, name, vrf)
+
+
+def get_addresses_on_interface(tgen, dut, name, addr_type=None):
+    """
+    Return the IP addresses the kernel has on an interface.
+
+    Parameters
+    ----------
+    * `tgen` : Topogen object
+    * `dut` : Device whose interface is read
+    * `name` : interface name
+    * `addr_type` : "ipv4", "ipv6" or None for both
+
+    Returns
+    -------
+    Sorted list of addresses as "address/prefixlen" strings. IPv6
+    link-local addresses are returned without a zone index.
+    """
+
+    if sys.platform.startswith("freebsd"):
+        addrs = get_addresses_on_interface_freebsd(tgen, dut, name)
+    else:
+        addrs = get_addresses_on_interface_linux(tgen, dut, name)
+
+    if addr_type:
+        version = 6 if addr_type == "ipv6" else 4
+        addrs = [a for a in addrs if ipaddress.ip_interface(a).version == version]
+    return sorted(addrs)
+
+
+def get_addresses_on_interface_linux(tgen, dut, name):
+    """Return the addresses of a Linux interface as "address/prefixlen"."""
+
+    rnode = tgen.gears[dut]
+    cmd = "ip -j addr show dev {}".format(name)
+    logger.debug("[DUT: %s]: Running command: %s", dut, cmd)
+    output = rnode.run(cmd)
+    if not output.strip():
+        return []
+    return [
+        "{}/{}".format(a["local"], a["prefixlen"])
+        for link in json.loads(output)
+        for a in link.get("addr_info", [])
+    ]
+
+
+def get_addresses_on_interface_freebsd(tgen, dut, name):
+    """Return the addresses of a FreeBSD interface as "address/prefixlen".
+
+    Parses ``ifconfig <name>`` lines of the form
+    ``inet 192.0.2.1 netmask 0xffffffe0 ...`` and
+    ``inet6 fe80::1%<name> prefixlen 64 ...``.
+    """
+
+    rnode = tgen.gears[dut]
+    output = rnode.cmd_raises(["/sbin/ifconfig", name])
+    addrs = []
+    for line in output.splitlines():
+        words = line.split()
+        if len(words) < 4:
+            continue
+        if words[0] == "inet" and words[2] == "netmask":
+            mask = ipaddress.IPv4Address(int(words[3], 16))
+            ifaddr = ipaddress.ip_interface("{}/{}".format(words[1], mask))
+        elif words[0] == "inet6" and words[2] == "prefixlen":
+            addr = words[1].split("%")[0]
+            ifaddr = ipaddress.ip_interface("{}/{}".format(addr, words[3]))
+        else:
+            continue
+        addrs.append(str(ifaddr))
+    return addrs
+
+
+def flush_addresses_on_interface(tgen, dut, name):
+    """
+    Remove all IPv4 and IPv6 addresses from a kernel interface.
+
+    The interface must already exist. Link state is not changed.
+
+    Parameters
+    ----------
+    * `tgen` : Topogen object
+    * `dut` : Device whose interface loses its addresses
+    * `name` : interface name
+    """
+
+    if sys.platform.startswith("freebsd"):
+        flush_addresses_on_interface_freebsd(tgen, dut, name)
+    else:
+        flush_addresses_on_interface_linux(tgen, dut, name)
+
+
+def flush_addresses_on_interface_linux(tgen, dut, name):
+    """Remove all addresses from a Linux interface."""
+
+    rnode = tgen.gears[dut]
+    cmd = "ip addr flush dev {}".format(name)
+    logger.debug("[DUT: %s]: Running command: %s", dut, cmd)
+    rnode.run(cmd)
+
+
+def flush_addresses_on_interface_freebsd(tgen, dut, name):
+    """Remove all addresses from a FreeBSD interface."""
+
+    rnode = tgen.gears[dut]
+    for addr in get_addresses_on_interface_freebsd(tgen, dut, name):
+        ifaddr = ipaddress.ip_interface(addr)
+        family = "inet6" if ifaddr.version == 6 else "inet"
+        ip = str(ifaddr.ip)
+        if ifaddr.version == 6 and ifaddr.ip.is_link_local:
+            ip = "{}%{}".format(ip, name)
+        _freebsd_run(rnode, dut, ["/sbin/ifconfig", name, family, ip, "delete"])
 
 
 def shutdown_bringup_interface_in_kernel(tgen, dut, intf_name, ifaceaction=False):
