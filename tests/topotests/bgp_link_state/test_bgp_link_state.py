@@ -163,6 +163,40 @@ def check_bgp_ls_link(router, local_id, remote_id, should_exist=True):
         return None
 
 
+def check_bgp_ls_link_attrs(router, expected_attrs):
+    """Check selected attributes on links originating at r2."""
+    output = router.vtysh_cmd("show bgp link-state link-state json")
+    json_data = json.loads(output)
+    data = extract_bgp_ls_routes(json_data)
+    observed = {remote_id: [] for remote_id in expected_attrs}
+
+    for entry in data:
+        nlri = entry.get("nlri", {})
+        if nlri.get("nlriType") != "link":
+            continue
+
+        local_id = nlri.get("localNodeDescriptors", {}).get("igpRouterId")
+        remote_id = nlri.get("remoteNodeDescriptors", {}).get("igpRouterId")
+        if local_id != "0000.0000.0002.00" or remote_id not in expected_attrs:
+            continue
+
+        link_attrs = entry.get("linkStateAttrs", {})
+        observed[remote_id].append(link_attrs)
+
+    for remote_id, attrs in expected_attrs.items():
+        if not observed[remote_id]:
+            return f"Link from r2 to {remote_id} was not found"
+        for link_attrs in observed[remote_id]:
+            for name, value in attrs.items():
+                if link_attrs.get(name) != value:
+                    return (
+                        f"Link from r2 to {remote_id} has {name}="
+                        f"{link_attrs.get(name)!r}, expected {value!r}"
+                    )
+
+    return None
+
+
 def check_bgp_ls_node(router, node_id, should_exist=True):
     """
     Check if a node exists in BGP-LS NLRI
@@ -1116,6 +1150,104 @@ def test_bgp_ls_sync_on_isis_producer_registration():
     assert (
         result is None
     ), '"rr" did not receive the full IS-IS TED after export was enabled'
+
+
+def test_bgp_ls_link_attributes_are_not_shared():
+    """Verify differing TE attributes survive BGP-LS attribute interning."""
+    tgen = get_topogen()
+
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    producer = tgen.gears["r2"]
+    consumer = tgen.gears["rr"]
+
+    links = {
+        "r2-eth0": "0000.0000.0001.00",
+        "r2-eth1": "0000.0000.0003.00",
+    }
+    clear_commands = [
+        "no delay",
+        "no delay-variation",
+        "no packet-loss",
+        "no res-bw",
+        "no ava-bw",
+        "no use-bw",
+    ]
+    cases = [
+        ("delay", "delay 1000", "delay 5000", {"delay": 1000}, {"delay": 5000}),
+        (
+            "min/max delay",
+            "delay 2000 min 1000 max 3000",
+            "delay 2000 min 1500 max 2500",
+            {"delay": 2000, "minDelay": 1000, "maxDelay": 3000},
+            {"delay": 2000, "minDelay": 1500, "maxDelay": 2500},
+        ),
+        (
+            "delay variation",
+            "delay-variation 100",
+            "delay-variation 500",
+            {"jitter": 100},
+            {"jitter": 500},
+        ),
+        (
+            "packet loss",
+            "packet-loss 0.00003",
+            "packet-loss 0.00006",
+            {"loss": 0.00003},
+            {"loss": 0.00006},
+        ),
+        (
+            "residual bandwidth",
+            "res-bw 100000",
+            "res-bw 200000",
+            {"residualBandwidth": 100000.0},
+            {"residualBandwidth": 200000.0},
+        ),
+        (
+            "available bandwidth",
+            "ava-bw 100000",
+            "ava-bw 200000",
+            {"availableBandwidth": 100000.0},
+            {"availableBandwidth": 200000.0},
+        ),
+        (
+            "utilized bandwidth",
+            "use-bw 100000",
+            "use-bw 200000",
+            {"utilizedBandwidth": 100000.0},
+            {"utilizedBandwidth": 200000.0},
+        ),
+    ]
+
+    # Each case changes one attribute at a time so it independently catches
+    # that field being omitted from the BGP-LS attribute comparison.
+    for name, eth0_cmd, eth1_cmd, eth0_attrs, eth1_attrs in cases:
+        config = ["configure terminal"]
+        for interface, command in zip(links, [eth0_cmd, eth1_cmd]):
+            config.extend(
+                [
+                    f"interface {interface}",
+                    "link-params",
+                    *clear_commands,
+                    command,
+                    "exit-link-params",
+                ]
+            )
+        producer.vtysh_cmd("\n".join(config))
+
+        expected_attrs = {
+            links["r2-eth0"]: eth0_attrs,
+            links["r2-eth1"]: eth1_attrs,
+        }
+        for router in [producer, consumer]:
+            test_func = functools.partial(
+                check_bgp_ls_link_attrs, router, expected_attrs
+            )
+            _, result = topotest.run_and_expect(test_func, None, count=60, wait=1)
+            assert (
+                result is None
+            ), f'"{router.name}" BGP-LS {name} attributes are incorrect: {result}'
 
 
 def test_memory_leak():
