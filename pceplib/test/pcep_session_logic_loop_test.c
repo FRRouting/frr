@@ -247,3 +247,45 @@ void test_session_logic_timer_expire_handler()
 
 	pceplib_free(PCEPLIB_INFRA, socket_event);
 }
+
+
+/* A message for a destroyed session is freed with its discarded event */
+void test_session_logic_loop_discarded_msg(void)
+{
+	struct pceplib_memory_type *infra = PCEPLIB_INFRA;
+	struct pceplib_memory_type *msgs = PCEPLIB_MESSAGES;
+	uint32_t infra_allocs = infra->num_allocates;
+	uint32_t infra_frees = infra->num_frees;
+	uint32_t msg_allocs = msgs->num_allocates;
+	uint32_t msg_frees = msgs->num_frees;
+	pcep_session session; /* not on the session list */
+	pcep_session_event *event = pceplib_malloc(PCEPLIB_INFRA, sizeof(*event));
+	pthread_t thread;
+	bool done = false;
+
+	memset(&session, 0, sizeof(session));
+	memset(event, 0, sizeof(*event));
+	event->type = PCEP_SESSION_EVENT_MSG_RCVD;
+	event->session = &session;
+	event->received_msg_list = dll_initialize();
+	dll_append(event->received_msg_list, pcep_msg_create_keepalive());
+	queue_enqueue(session_logic_handle_->session_event_queue, event);
+
+	pthread_create(&thread, NULL, session_logic_loop, session_logic_handle_);
+	for (int i = 0; i < 200 && !done; i++) {
+		usleep(10000);
+		pthread_mutex_lock(&(session_logic_handle_->session_logic_mutex));
+		done = session_logic_handle_->session_event_queue->num_entries == 0;
+		pthread_mutex_unlock(&(session_logic_handle_->session_logic_mutex));
+	}
+	pthread_mutex_lock(&(session_logic_handle_->session_logic_mutex));
+	session_logic_handle_->active = false;
+	session_logic_handle_->session_logic_condition = true;
+	pthread_cond_signal(&(session_logic_handle_->session_logic_cond_var));
+	pthread_mutex_unlock(&(session_logic_handle_->session_logic_mutex));
+	pthread_join(thread, NULL);
+
+	CU_ASSERT_TRUE(done);
+	CU_ASSERT_EQUAL(msgs->num_allocates - msg_allocs, msgs->num_frees - msg_frees);
+	CU_ASSERT_EQUAL(infra->num_allocates - infra_allocs, infra->num_frees - infra_frees);
+}

@@ -99,6 +99,8 @@ int main(int argc, char **argv)
 	CU_add_test(test_session_logic_loop_suite,
 		    "test_session_logic_timer_expire_handler",
 		    test_session_logic_timer_expire_handler);
+	CU_add_test(test_session_logic_loop_suite, "test_session_logic_loop_discarded_msg",
+		    test_session_logic_loop_discarded_msg);
 
 	CU_pSuite test_session_logic_states_suite =
 		CU_add_suite_with_setup_and_teardown(

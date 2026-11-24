@@ -231,6 +231,15 @@ void session_logic_timer_expire_handler(void *data, int timer_id)
  * session_logic event loop
  * this function is called upon thread creation from pcep_session_logic.c
  */
+/* A discarded event still owns the messages it carries */
+static void discard_session_event(pcep_session_event *event)
+{
+	if (event->received_msg_list != NULL)
+		pcep_msg_free_message_list(event->received_msg_list);
+	pceplib_free(PCEPLIB_INFRA, event);
+}
+
+
 void *session_logic_loop(void *data)
 {
 	if (data == NULL) {
@@ -268,7 +277,7 @@ void *session_logic_loop(void *data)
 					 __func__, time(NULL), pthread_self(),
 					 (event->type == PCEP_SESSION_EVENT_TIMER) ? "timer"
 										   : "message");
-				pceplib_free(PCEPLIB_INFRA, event);
+				discard_session_event(event);
 				event = queue_dequeue(
 					session_logic_handle
 						->session_event_queue);
@@ -292,7 +301,7 @@ void *session_logic_loop(void *data)
 					 __func__, time(NULL), pthread_self(),
 					 (event->type == PCEP_SESSION_EVENT_TIMER) ? "timer"
 										   : "message");
-				pceplib_free(PCEPLIB_INFRA, event);
+				discard_session_event(event);
 				event = queue_dequeue(
 					session_logic_handle
 						->session_event_queue);
