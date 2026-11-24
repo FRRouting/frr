@@ -2259,7 +2259,7 @@ void rip_output_process(struct connected *ifc, struct sockaddr_in *to,
 			}
 		}
 
-		/* Apply redistribute route map - continue, if deny */
+		/* Apply redistribute route map - poison if previously advertised */
 		if (rip->redist[rinfo->type].route_map.name &&
 		    rinfo->sub_type != RIP_ROUTE_INTERFACE) {
 			ret = route_map_apply(
@@ -2271,8 +2271,20 @@ void rip_output_process(struct connected *ifc, struct sockaddr_in *to,
 					zlog_debug(
 						"%pFX is filtered by route-map",
 						p);
-				continue;
+				if (!CHECK_FLAG(rinfo->flags, RIP_RTF_POLICY_ADVERTISED))
+					continue;
+
+				SET_FLAG(rinfo->flags, RIP_RTF_POLICY_POISONED);
+				rinfo->metric_out = RIP_METRIC_INFINITY;
+				rinfo->metric_set = 1;
+			} else {
+				SET_FLAG(rinfo->flags, RIP_RTF_POLICY_ADVERTISED);
+				UNSET_FLAG(rinfo->flags, RIP_RTF_POLICY_POISONED);
 			}
+		} else if (rinfo->sub_type != RIP_ROUTE_INTERFACE &&
+			   rinfo->type != ZEBRA_ROUTE_RIP) {
+			SET_FLAG(rinfo->flags, RIP_RTF_POLICY_ADVERTISED);
+			UNSET_FLAG(rinfo->flags, RIP_RTF_POLICY_POISONED);
 		}
 
 		/* When route-map does not set metric. */
@@ -2437,6 +2449,30 @@ static void rip_update_interface(struct connected *ifc, uint8_t version,
 	}
 }
 
+/* Walk down the RIP routing table and clear policy-poisoned flags once an
+ * update pass has sent the poison to all interfaces and unicast neighbors. */
+static void rip_clear_policy_poisoned_flag(struct rip *rip, int route_type)
+{
+	struct route_node *rp;
+	struct rip_info *rinfo;
+	struct rip_info_list_head *list;
+
+	for (rp = route_top(rip->table); rp; rp = route_next(rp)) {
+		list = rp->info;
+
+		if (list == NULL)
+			continue;
+
+		rinfo = rip_info_list_first(list);
+		if (!rinfo || !CHECK_FLAG(rinfo->flags, RIP_RTF_POLICY_POISONED))
+			continue;
+
+		if (route_type == rip_all_route || CHECK_FLAG(rinfo->flags, RIP_RTF_CHANGED))
+			UNSET_FLAG(rinfo->flags,
+				   RIP_RTF_POLICY_ADVERTISED | RIP_RTF_POLICY_POISONED);
+	}
+}
+
 /* Update send to all interface and neighbor. */
 static void rip_update_process(struct rip *rip, int route_type)
 {
@@ -2528,6 +2564,8 @@ static void rip_update_process(struct rip *rip, int route_type)
 		rip_output_process(connected, &to, route_type,
 				   rip->version_send);
 	}
+
+	rip_clear_policy_poisoned_flag(rip, route_type);
 }
 
 /* RIP's periodical timer. */

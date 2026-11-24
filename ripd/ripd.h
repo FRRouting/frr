@@ -250,8 +250,10 @@ struct rip_info {
 	uint16_t tag;
 
 /* Flags of RIP route. */
-#define RIP_RTF_FIB      1
-#define RIP_RTF_CHANGED  2
+#define RIP_RTF_FIB		  1
+#define RIP_RTF_CHANGED		  2
+#define RIP_RTF_POLICY_ADVERTISED 4
+#define RIP_RTF_POLICY_POISONED	  8
 	uint8_t flags;
 
 	/* Garbage collect timer - not copied by rip_info_cpy() */
