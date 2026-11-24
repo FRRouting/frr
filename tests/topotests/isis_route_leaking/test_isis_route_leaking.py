@@ -23,7 +23,9 @@ sys.path.append(os.path.join(CWD, "../"))
 
 # pylint: disable=C0413
 from lib import topotest
+from lib.checkping import check_ping
 from lib.common_config import step
+from lib.kernel_routes import kernel_routes
 from lib.topogen import Topogen, get_topogen
 
 pytestmark = [pytest.mark.isisd]
@@ -70,6 +72,38 @@ def _route_absent(router, cmd, prefix):
     return None
 
 
+def _route_diagnostics(router, prefix):
+    ipv6 = ":" in prefix
+    if prefix == "default":
+        prefix = "0.0.0.0/0"
+    elif "/" not in prefix:
+        prefix += "/128" if ipv6 else "/32"
+
+    kernel_prefix = prefix.split("/")[0] if prefix.endswith(("/32", "/128")) else prefix
+    if kernel_prefix == "0.0.0.0/0":
+        kernel_prefix = "default"
+    kernel = [
+        route
+        for route in kernel_routes(router, family="ipv6" if ipv6 else "ipv4")
+        if route.get("dst") == kernel_prefix
+    ]
+    zebra_cmd = "show {} route {} json".format("ipv6" if ipv6 else "ip", prefix)
+    zebra = router.vtysh_cmd(zebra_cmd, isjson=True)
+    diagnostics = "{}: kernel route {}\n{}\n{}: {}\n{}".format(
+        router.name,
+        prefix,
+        json.dumps(kernel, indent=2),
+        router.name,
+        zebra_cmd,
+        json.dumps(zebra, indent=2),
+    )
+    if not zebra.get(prefix):
+        diagnostics += "\n{}: show isis route\n{}".format(
+            router.name, router.vtysh_cmd("show isis route")
+        )
+    return diagnostics
+
+
 def test_l1_prefixes_are_leaked_into_l2():
     """r3 must learn the loopbacks of r1 with the cost of the path to r1."""
     tgen = get_topogen()
@@ -81,18 +115,49 @@ def test_l1_prefixes_are_leaked_into_l2():
     step("Check the IPv4 loopback of r1 on r3")
     expected = {"1.1.1.1/32": [{"protocol": "isis", "selected": True, "metric": 30}]}
     result = _expect(r3, "show ip route 1.1.1.1/32 json", expected)
-    assert result is None, result
+    assert result is None, "{}\n{}".format(result, _route_diagnostics(r3, "1.1.1.1/32"))
 
     step("Check the IPv6 loopback of r1 on r3")
     expected = {
         "2001:db8:1::1/128": [{"protocol": "isis", "selected": True, "metric": 30}]
     }
     result = _expect(r3, "show ipv6 route 2001:db8:1::1/128 json", expected)
-    assert result is None, result
+    assert result is None, "{}\n{}".format(
+        result, _route_diagnostics(r3, "2001:db8:1::1/128")
+    )
+
+    step("Wait for the kernel routes for the ping and its reply")
+
+    def kernel_route_cmp(router, expected):
+        return topotest.json_cmp(kernel_routes(router), expected)
+
+    ping_routes = (
+        ("r3", "1.1.1.1", "10.0.23.2", "r3-eth0"),
+        ("r2", "1.1.1.1", "10.0.12.1", "r2-eth0"),
+        ("r1", "default", "10.0.12.2", "r1-eth0"),
+        ("r2", "2.2.2.2", "10.0.23.3", "r2-eth1"),
+    )
+    for name, prefix, nexthop, interface in ping_routes:
+        expected = [{"dst": prefix, "gateway": nexthop, "dev": interface}]
+        test_func = functools.partial(kernel_route_cmp, tgen.gears[name], expected)
+        _, result = topotest.run_and_expect(test_func, None, count=60, wait=0.5)
+        assert result is None, "{}: kernel route {} not ready: {}\n{}".format(
+            name, prefix, result, _route_diagnostics(tgen.gears[name], prefix)
+        )
 
     step("Check that r3 can reach r1")
-    output = tgen.gears["r3"].run("ping -c 2 -W 2 -I 2.2.2.2 1.1.1.1")
-    assert " 0% packet loss" in output, output
+    try:
+        check_ping("r3", "1.1.1.1", True, count=60, wait=0.5, source_addr="2.2.2.2")
+    except AssertionError as error:
+        pytest.fail(
+            "r3: ping from 2.2.2.2 to 1.1.1.1 failed: {}\n{}".format(
+                error,
+                "\n".join(
+                    _route_diagnostics(tgen.gears[name], prefix)
+                    for name, prefix, _, _ in ping_routes
+                ),
+            )
+        )
 
 
 def test_leaked_prefixes_in_l2_lsp():
