@@ -22,5 +22,7 @@ void test_socket_comm_loop_not_active(void);
 void test_handle_reads_no_read(void);
 void test_handle_reads_read_message(void);
 void test_handle_reads_read_message_close(void);
+void test_handle_reads_teardown_during_read(void);
+void test_handle_reads_close_during_read(void);
 
 #endif /* PCEPTIMERINTERNALS_H_ */

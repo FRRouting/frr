@@ -31,12 +31,18 @@ typedef struct pcep_socket_comm_handle_ {
 	/* ordered_list of socket_descriptors to write to */
 	ordered_list_handle *write_list;
 	ordered_list_handle *session_list;
+	/* handle_reads() closes and frees this session if needed once read */
+	pcep_socket_comm_session *reading_session;
+	bool reading_session_torn_down;
+	int reading_session_fd_to_close;
 	int num_active_sessions;
 	void *external_infra_data;
 	ext_socket_write socket_write_func;
 	ext_socket_read socket_read_func;
 
 } pcep_socket_comm_handle;
+
+extern pcep_socket_comm_handle *socket_comm_handle_;
 
 
 typedef struct pcep_socket_comm_queued_message_ {
@@ -49,6 +55,8 @@ typedef struct pcep_socket_comm_queued_message_ {
 
 /* Functions implemented in pcep_socket_comm_loop.c */
 void *socket_comm_loop(void *data);
+void socket_comm_session_close_fd(pcep_socket_comm_handle *socket_comm_handle,
+				  pcep_socket_comm_session *socket_comm_session);
 bool comm_session_exists(pcep_socket_comm_handle *socket_comm_handle,
 			 pcep_socket_comm_session *socket_comm_session);
 bool comm_session_exists_locking(pcep_socket_comm_handle *socket_comm_handle,

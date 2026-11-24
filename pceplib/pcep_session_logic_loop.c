@@ -64,14 +64,14 @@ int session_logic_msg_ready_handler(void *data, int socket_fd)
 		return -1;
 	}
 
+	/* data may be freed meanwhile: only its pointer goes in the event */
 	pcep_session *session = (pcep_session *)data;
 	double_linked_list *msg_list = pcep_msg_read(socket_fd);
 
 	if (msg_list == NULL) {
 		/* Socket comm reports the closed socket in its own event */
-		pcep_log(LOG_INFO,
-			 "%s: PCEP connection closed for session [%d]",
-			 __func__, session->session_id);
+		pcep_log(LOG_INFO, "%s: PCEP connection closed on socket fd [%d]", __func__,
+			 socket_fd);
 		return 0;
 	}
 
@@ -84,9 +84,9 @@ int session_logic_msg_ready_handler(void *data, int socket_fd)
 		struct pcep_message *msg =
 			((struct pcep_message *)msg_list->head->data);
 		pcep_log(LOG_INFO,
-			 "%s: [%ld-%ld] session_logic_msg_ready_handler received message of type [%d] len [%d] on session [%d]",
+			 "%s: [%ld-%ld] received message of type [%d] len [%d] on socket fd [%d]",
 			 __func__, time(NULL), pthread_self(), msg->msg_header->type,
-			 msg->encoded_message_length, session->session_id);
+			 msg->encoded_message_length, socket_fd);
 		msg_length = msg->encoded_message_length;
 	}
 
@@ -175,11 +175,8 @@ void session_logic_conn_except_notifier(void *data, int socket_fd)
 	}
 
 	pcep_session *session = (pcep_session *)data;
-	pcep_log(
-		LOG_INFO,
-		"%s: [%ld-%ld] pcep_session_logic session_logic_conn_except_notifier socket closed [%d], session [%d]",
-		__func__, time(NULL), pthread_self(), socket_fd,
-		session->session_id);
+	pcep_log(LOG_INFO, "%s: [%ld-%ld] socket closed [%d]", __func__, time(NULL),
+		 pthread_self(), socket_fd);
 
 	pthread_mutex_lock(&(session_logic_handle_->session_logic_mutex));
 	pcep_session_event *socket_event = create_session_event(session,
