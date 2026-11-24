@@ -325,7 +325,7 @@ TRACEPOINT_EVENT(
 	evpn_mac_ip_zsend,
 	TP_ARGS(int, add, struct bgpevpn *, vpn,
 		const struct prefix_evpn *, pfx,
-		struct ipaddr *, vtep, esi_t *, esi),
+		struct ipaddr *, vtep, const esi_t *, esi),
 	TP_FIELDS(
 		ctf_string(action, add ? "add" : "del")
 		ctf_integer(vni_t, vni, (vpn ? vpn->vni : 0))
