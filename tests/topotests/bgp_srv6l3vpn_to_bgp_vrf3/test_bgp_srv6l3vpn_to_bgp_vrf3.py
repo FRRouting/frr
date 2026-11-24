@@ -65,18 +65,50 @@ def setup_module(mod):
 
     tgen.gears["r1"].run("sysctl net.vrf.strict_mode=1")
     tgen.gears["r1"].run("ip link add vrf10 type vrf table 10")
+<<<<<<< HEAD
     tgen.gears["r1"].run("ip link set vrf10 up")
     tgen.gears["r1"].run("ip link add vrf20 type vrf table 20")
     tgen.gears["r1"].run("ip link set vrf20 up")
+=======
+    shutdown_bringup_interface_in_kernel(
+        tgen.gears["r1"].tgen,
+        tgen.gears["r1"].name,
+        "vrf10",
+        True,
+    )
+    tgen.gears["r1"].run("ip link add vrf20 type vrf table 20")
+    shutdown_bringup_interface_in_kernel(
+        tgen.gears["r1"].tgen,
+        tgen.gears["r1"].name,
+        "vrf20",
+        True,
+    )
+>>>>>>> 10759a6 (tests: Apply black formatting to `bgp_srv6l3vpn_to_bgp_vrf3`)
     tgen.gears["r1"].run("ip link set eth1 master vrf10")
     tgen.gears["r1"].run("ip link set eth2 master vrf10")
     tgen.gears["r1"].run("ip link set eth3 master vrf20")
 
     tgen.gears["r2"].run("sysctl net.vrf.strict_mode=1")
     tgen.gears["r2"].run("ip link add vrf10 type vrf table 10")
+<<<<<<< HEAD
     tgen.gears["r2"].run("ip link set vrf10 up")
     tgen.gears["r2"].run("ip link add vrf20 type vrf table 20")
     tgen.gears["r2"].run("ip link set vrf20 up")
+=======
+    shutdown_bringup_interface_in_kernel(
+        tgen.gears["r2"].tgen,
+        tgen.gears["r2"].name,
+        "vrf10",
+        True,
+    )
+    tgen.gears["r2"].run("ip link add vrf20 type vrf table 20")
+    shutdown_bringup_interface_in_kernel(
+        tgen.gears["r2"].tgen,
+        tgen.gears["r2"].name,
+        "vrf20",
+        True,
+    )
+>>>>>>> 10759a6 (tests: Apply black formatting to `bgp_srv6l3vpn_to_bgp_vrf3`)
     tgen.gears["r2"].run("ip link set eth1 master vrf10")
     tgen.gears["r2"].run("ip link set eth2 master vrf20")
     tgen.gears["r2"].run("ip link set eth3 master vrf20")
