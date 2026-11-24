@@ -1429,20 +1429,29 @@ void route_map_action_show(struct vty *vty, const struct lyd_node *dnode,
 				vty_out(vty, " set community none\n");
 		}
 	} else if (IS_SET_EXTCOMMUNITY_RT(action)) {
-		vty_out(vty, " set extcommunity rt %s\n",
-			yang_dnode_get_string(
-				dnode,
-				"./rmap-set-action/frr-bgp-route-map:extcommunity-rt"));
+		if (yang_dnode_exists(
+			    dnode,
+			    "./rmap-set-action/frr-bgp-route-map:extcommunity-rt"))
+			vty_out(vty, " set extcommunity rt %s\n",
+				yang_dnode_get_string(
+					dnode,
+					"./rmap-set-action/frr-bgp-route-map:extcommunity-rt"));
 	} else if (IS_SET_EXTCOMMUNITY_NT(action)) {
-		vty_out(vty, " set extcommunity nt %s\n",
-			yang_dnode_get_string(
-				dnode,
-				"./rmap-set-action/frr-bgp-route-map:extcommunity-nt"));
+		if (yang_dnode_exists(
+			    dnode,
+			    "./rmap-set-action/frr-bgp-route-map:extcommunity-nt"))
+			vty_out(vty, " set extcommunity nt %s\n",
+				yang_dnode_get_string(
+					dnode,
+					"./rmap-set-action/frr-bgp-route-map:extcommunity-nt"));
 	} else if (IS_SET_EXTCOMMUNITY_SOO(action)) {
-		vty_out(vty, " set extcommunity soo %s\n",
-			yang_dnode_get_string(
-				dnode,
-				"./rmap-set-action/frr-bgp-route-map:extcommunity-soo"));
+		if (yang_dnode_exists(
+			    dnode,
+			    "./rmap-set-action/frr-bgp-route-map:extcommunity-soo"))
+			vty_out(vty, " set extcommunity soo %s\n",
+				yang_dnode_get_string(
+					dnode,
+					"./rmap-set-action/frr-bgp-route-map:extcommunity-soo"));
 	} else if (IS_SET_EXTCOMMUNITY_LB(action)) {
 		enum ecommunity_lb_type lb_type;
 		char str[VTY_BUFSIZ];
@@ -1472,10 +1481,13 @@ void route_map_action_show(struct vty *vty, const struct lyd_node *dnode,
 
 		vty_out(vty, " set extcommunity bandwidth %s\n", str);
 	} else if (IS_SET_EXTCOMMUNITY_COLOR(action)) {
-		vty_out(vty, " set extcommunity color %s\n",
-			yang_dnode_get_string(
-				dnode,
-				"./rmap-set-action/frr-bgp-route-map:extcommunity-color"));
+		if (yang_dnode_exists(
+			    dnode,
+			    "./rmap-set-action/frr-bgp-route-map:extcommunity-color"))
+			vty_out(vty, " set extcommunity color %s\n",
+				yang_dnode_get_string(
+					dnode,
+					"./rmap-set-action/frr-bgp-route-map:extcommunity-color"));
 	} else if (IS_SET_EXTCOMMUNITY_NONE(action)) {
 		if (yang_dnode_get_bool(
 			    dnode,
@@ -1490,15 +1502,21 @@ void route_map_action_show(struct vty *vty, const struct lyd_node *dnode,
 				dnode,
 				"./rmap-set-action/frr-bgp-route-map:aggregator/aggregator-address"));
 	} else if (IS_SET_AS_EXCLUDE(action)) {
-		vty_out(vty, " set as-path exclude %s\n",
-			yang_dnode_get_string(
-				dnode,
-				"./rmap-set-action/frr-bgp-route-map:exclude-as-path"));
+		if (yang_dnode_exists(
+			    dnode,
+			    "./rmap-set-action/frr-bgp-route-map:exclude-as-path"))
+			vty_out(vty, " set as-path exclude %s\n",
+				yang_dnode_get_string(
+					dnode,
+					"./rmap-set-action/frr-bgp-route-map:exclude-as-path"));
 	} else if (IS_SET_AS_REPLACE(action)) {
-		vty_out(vty, " set as-path replace %s\n",
-			yang_dnode_get_string(
-				dnode,
-				"./rmap-set-action/frr-bgp-route-map:replace-as-path"));
+		if (yang_dnode_exists(
+			    dnode,
+			    "./rmap-set-action/frr-bgp-route-map:replace-as-path"))
+			vty_out(vty, " set as-path replace %s\n",
+				yang_dnode_get_string(
+					dnode,
+					"./rmap-set-action/frr-bgp-route-map:replace-as-path"));
 	} else if (IS_SET_AS_PREPEND(action)) {
 		if (yang_dnode_exists(
 			    dnode,
