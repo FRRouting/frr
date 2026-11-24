@@ -1003,6 +1003,13 @@ void handle_socket_comm_event(pcep_session_event *event)
 		return;
 	}
 
+	/* Nothing is handled once this side sent a Close */
+	if (session->close_sent) {
+		if (event->received_msg_list != NULL)
+			pcep_msg_free_message_list(event->received_msg_list);
+		return;
+	}
+
 	/* A read that decoded no message */
 	if (event->received_msg_list != NULL && event->received_msg_list->num_entries == 0) {
 		increment_unknown_message(session);
@@ -1020,6 +1027,13 @@ void handle_socket_comm_event(pcep_session_event *event)
 	double_linked_list_node *msg_node;
 	for (msg_node = event->received_msg_list->head; msg_node != NULL;
 	     msg_node = msg_node->next_node) {
+		/* A message before it closed the session: drop the rest */
+		if (session->close_sent) {
+			for (; msg_node != NULL; msg_node = msg_node->next_node)
+				pcep_msg_free_message(msg_node->data);
+			break;
+		}
+
 		bool message_enqueued = false;
 		struct pcep_message *msg =
 			(struct pcep_message *)msg_node->data;

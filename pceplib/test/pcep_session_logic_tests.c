@@ -171,6 +171,9 @@ int main(int argc, char **argv)
 	CU_add_test(test_session_logic_states_suite,
 		    "test_handle_socket_comm_event_undecodable_msg",
 		    test_handle_socket_comm_event_undecodable_msg);
+	CU_add_test(test_session_logic_states_suite,
+		    "test_handle_socket_comm_event_msgs_after_close",
+		    test_handle_socket_comm_event_msgs_after_close);
 	CU_add_test(test_session_logic_states_suite, "test_connection_failure",
 		    test_connection_failure);
 
