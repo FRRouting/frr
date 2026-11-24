@@ -95,6 +95,12 @@ static int ospf_check_sum(struct ospf_header *ospfh)
 	return 1;
 }
 
+/* The digest is an HMAC (RFC 5709); a key with a plain hash cannot make it. */
+static bool ospf_auth_algo_usable(enum keychain_hash_algo algo)
+{
+	return algo != KEYCHAIN_ALGO_NULL && algo != KEYCHAIN_ALGO_SHA1;
+}
+
 #ifdef CRYPTO_OPENSSL
 static const char *ospf_auth_get_digest_name_from_key(struct key *key)
 {
@@ -456,7 +462,7 @@ int ospf_auth_check_digest(struct ospf_interface *oi, struct ip *iph, struct osp
 		return 0;
 	}
 
-	if (key->string == NULL || key->hash_algo == KEYCHAIN_ALGO_NULL) {
+	if (key->string == NULL || !ospf_auth_algo_usable(key->hash_algo)) {
 		if (IS_DEBUG_OSPF_PACKET(ospfh->type - 1, RECV))
 			flog_warn(EC_OSPF_AUTH,
 				  "interface %s: Key ID %d in keychain %s is incomplete, Router-ID %pI4",
@@ -522,7 +528,7 @@ int ospf_auth_make_digest(struct ospf_interface *oi, struct ospf_packet *op)
 		return 0;
 	}
 
-	if (key->string == NULL || key->hash_algo == KEYCHAIN_ALGO_NULL) {
+	if (key->string == NULL || !ospf_auth_algo_usable(key->hash_algo)) {
 		if (IS_DEBUG_OSPF_PACKET(ospfh->type - 1, SEND))
 			flog_warn(EC_OSPF_AUTH,
 				  "interface %s: Key ID %d in keychain %s is incomplete, Router-ID %pI4",
@@ -768,7 +774,10 @@ int ospf_auth_make_data(struct ospf_interface *oi, struct ospf_header *ospfh)
 			if (oi->key) {
 				ospfh->u.crypt.zero = 0;
 				ospfh->u.crypt.key_id = oi->key->index;
-				ospfh->u.crypt.auth_data_len = keychain_get_hash_len(oi->key->hash_algo);
+				ospfh->u.crypt.auth_data_len =
+					ospf_auth_algo_usable(oi->key->hash_algo)
+						? keychain_get_hash_len(oi->key->hash_algo)
+						: 0;
 			} else {
 				/* If key is not set, then set 0. */
 				ospfh->u.crypt.zero = 0;

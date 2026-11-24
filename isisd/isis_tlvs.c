@@ -5817,6 +5817,7 @@ static bool crypto_auth_algo_supported(enum keychain_hash_algo algo)
 	case KEYCHAIN_ALGO_NULL:
 	case KEYCHAIN_ALGO_CLEARTEXT:
 	case KEYCHAIN_ALGO_MD5:
+	case KEYCHAIN_ALGO_SHA1:
 	case KEYCHAIN_ALGO_MAX:
 		return false;
 	}
@@ -5839,6 +5840,7 @@ static const EVP_MD *crypto_auth_md(enum keychain_hash_algo algo)
 	case KEYCHAIN_ALGO_NULL:
 	case KEYCHAIN_ALGO_CLEARTEXT:
 	case KEYCHAIN_ALGO_MD5:
+	case KEYCHAIN_ALGO_SHA1:
 	case KEYCHAIN_ALGO_MAX:
 		break;
 	}
