@@ -4654,7 +4654,7 @@ static int parse_residual_bw(struct stream *s, uint16_t length, struct bgp_ls_at
 		return -1;
 	}
 
-	stream_get(&attr->residual_bw, s, 4);
+	attr->residual_bw = stream_getf(s);
 	SET_FLAG(attr->present_tlvs, BGP_LS_ATTR_RESIDUAL_BW_BIT);
 
 	return 0;
@@ -4676,7 +4676,7 @@ static int parse_available_bw(struct stream *s, uint16_t length, struct bgp_ls_a
 		return -1;
 	}
 
-	stream_get(&attr->available_bw, s, 4);
+	attr->available_bw = stream_getf(s);
 	SET_FLAG(attr->present_tlvs, BGP_LS_ATTR_AVAILABLE_BW_BIT);
 
 	return 0;
@@ -4698,7 +4698,7 @@ static int parse_utilized_bw(struct stream *s, uint16_t length, struct bgp_ls_at
 		return -1;
 	}
 
-	stream_get(&attr->utilized_bw, s, 4);
+	attr->utilized_bw = stream_getf(s);
 	SET_FLAG(attr->present_tlvs, BGP_LS_ATTR_UTILIZED_BW_BIT);
 
 	return 0;
