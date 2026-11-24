@@ -268,6 +268,17 @@ void bfd_session_apply(struct bfd_session *bs)
 	bs->auth_meticulous = bs->peer_profile.auth_config.meticulous ||
 			      (bs->profile && bs->profile->auth_config.meticulous);
 
+	if (bs->peer_profile.auth_config.key_chain_name[0] != '\0' &&
+	    !bfd_session_auth_config_takes_precedence_over_profile(bs)) {
+		if (bs->kc)
+			zlog_warn("BFD: session [%s] keychain %s does not exist; using keychain %s of profile %s",
+				  bs_to_string(bs), bs->peer_profile.auth_config.key_chain_name,
+				  bs->kc->name, bs->profile->name);
+		else
+			zlog_warn("BFD: session [%s] keychain %s does not exist; the session will not authenticate",
+				  bs_to_string(bs), bs->peer_profile.auth_config.key_chain_name);
+	}
+
 	/*
 	 * Warn here rather than per packet. A keychain that holds nothing
 	 * this session can use now keeps the session down instead of
