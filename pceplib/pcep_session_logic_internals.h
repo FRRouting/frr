@@ -47,6 +47,7 @@ enum pcep_session_event_type {
 	PCEP_SESSION_EVENT_TIMER,
 	PCEP_SESSION_EVENT_MSG_RCVD,
 	PCEP_SESSION_EVENT_SOCKET_CLOSED,
+	PCEP_SESSION_EVENT_MSG_SENT,
 };
 
 typedef struct pcep_session_event_ {
@@ -79,6 +80,8 @@ void session_logic_timer_expire_handler(void *data, int timer_id);
 
 void handle_timer_event(pcep_session_event *event);
 void handle_socket_comm_event(pcep_session_event *event);
+void handle_msg_sent_event(pcep_session_event *event);
+void destroy_pcep_session_locked(pcep_session *session);
 void session_send_message(pcep_session *session, struct pcep_message *message);
 
 /* defined in pcep_session_logic_states.c */

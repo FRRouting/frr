@@ -909,6 +909,36 @@ void handle_timer_event(pcep_session_event *event)
 	}
 }
 
+/* A message was written: destroy a drained session or re-arm the keep alive */
+void handle_msg_sent_event(pcep_session_event *event)
+{
+	pcep_session *session = event->session;
+
+	if (session->destroy_session_after_write) {
+		if (!socket_comm_session_write_pending(session->socket_comm_session))
+			destroy_pcep_session_locked(session);
+		return;
+	}
+
+	if (session->timer_id_keep_alive == TIMER_ID_NOT_SET) {
+		pcep_log(LOG_INFO,
+			 "%s: [%ld-%ld] pcep_session_logic set keep alive timer [%d secs] for session [%d]",
+			 __func__, time(NULL), pthread_self(),
+			 session->pcc_config.keep_alive_pce_negotiated_timer_seconds,
+			 session->session_id);
+		session->timer_id_keep_alive =
+			create_timer(session->pcc_config.keep_alive_pce_negotiated_timer_seconds,
+				     session);
+	} else {
+		pcep_log(LOG_INFO,
+			 "%s: [%ld-%ld] pcep_session_logic reset keep alive timer [%d secs] for session [%d]",
+			 __func__, time(NULL), pthread_self(),
+			 session->pcc_config.keep_alive_pce_negotiated_timer_seconds,
+			 session->session_id);
+		reset_timer(session->timer_id_keep_alive);
+	}
+}
+
 /* State machine handling for received messages.
  * This event was created in session_logic_msg_ready_handler() in
  * pcep_session_logic_loop.c */
@@ -938,6 +968,7 @@ void handle_socket_comm_event(pcep_session_event *event)
 			"%s: handle_socket_comm_event socket closed for session [%d]",
 			__func__, session->session_id);
 		socket_comm_session_close_tcp(session->socket_comm_session);
+		pcep_session_cancel_timers(session);
 		enqueue_event(session, PCE_CLOSED_SOCKET, NULL);
 		if (session->session_state == SESSION_STATE_PCEP_CONNECTING) {
 			enqueue_event(session, PCC_CONNECTION_FAILURE, NULL);
@@ -945,6 +976,13 @@ void handle_socket_comm_event(pcep_session_event *event)
 		session->session_state = SESSION_STATE_INITIALIZED;
 		increment_event_counters(session,
 					 PCEP_EVENT_COUNTER_ID_PCE_DISCONNECT);
+		return;
+	}
+
+	/* A read that decoded no message */
+	if (event->received_msg_list != NULL && event->received_msg_list->num_entries == 0) {
+		increment_unknown_message(session);
+		dll_destroy(event->received_msg_list);
 		return;
 	}
 

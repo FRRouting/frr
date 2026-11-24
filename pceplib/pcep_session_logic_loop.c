@@ -65,51 +65,39 @@ int session_logic_msg_ready_handler(void *data, int socket_fd)
 	}
 
 	pcep_session *session = (pcep_session *)data;
-
-	pthread_mutex_lock(&(session_logic_handle_->session_logic_mutex));
-	session_logic_handle_->session_logic_condition = true;
-
-	int msg_length = 0;
 	double_linked_list *msg_list = pcep_msg_read(socket_fd);
 
 	if (msg_list == NULL) {
-		/* The socket was closed, or there was a socket read error */
+		/* Socket comm reports the closed socket in its own event */
 		pcep_log(LOG_INFO,
 			 "%s: PCEP connection closed for session [%d]",
 			 __func__, session->session_id);
-		dll_destroy(msg_list);
-		socket_comm_session_teardown(session->socket_comm_session);
-		pcep_session_cancel_timers(session);
-		session->socket_comm_session = NULL;
-		session->session_state = SESSION_STATE_INITIALIZED;
-		enqueue_event(session, PCE_CLOSED_SOCKET, NULL);
-	} else if (msg_list->num_entries == 0) {
-		/* Invalid message received */
-		increment_unknown_message(session);
-		dll_destroy_with_data(msg_list);
-		/* 0 tells socket comm the socket closed */
-		msg_length = 1;
-	} else {
+		return 0;
+	}
+
+	/* 0 tells socket comm the socket closed */
+	int msg_length = 1;
+
+	if (msg_list->num_entries > 0) {
 		/* Just logging the first of potentially several messages
 		 * received */
 		struct pcep_message *msg =
 			((struct pcep_message *)msg_list->head->data);
-		pcep_log(
-			LOG_INFO,
-			"%s: [%ld-%ld] session_logic_msg_ready_handler received message of type [%d] len [%d] on session [%d]",
-			__func__, time(NULL), pthread_self(),
-			msg->msg_header->type, msg->encoded_message_length,
-			session->session_id);
-
-		/* Handled by handle_socket_comm_event() in
-		 * pcep_session_logic_states.c */
-		pcep_session_event *rcvd_msg_event =
-			create_session_event(session, PCEP_SESSION_EVENT_MSG_RCVD);
-		rcvd_msg_event->received_msg_list = msg_list;
+		pcep_log(LOG_INFO,
+			 "%s: [%ld-%ld] session_logic_msg_ready_handler received message of type [%d] len [%d] on session [%d]",
+			 __func__, time(NULL), pthread_self(), msg->msg_header->type,
+			 msg->encoded_message_length, session->session_id);
 		msg_length = msg->encoded_message_length;
-		queue_enqueue(session_logic_handle_->session_event_queue, rcvd_msg_event);
 	}
 
+	/* Handled on the session logic thread, an empty list is an unknown message */
+	pcep_session_event *rcvd_msg_event = create_session_event(session,
+								  PCEP_SESSION_EVENT_MSG_RCVD);
+	rcvd_msg_event->received_msg_list = msg_list;
+
+	pthread_mutex_lock(&(session_logic_handle_->session_logic_mutex));
+	queue_enqueue(session_logic_handle_->session_event_queue, rcvd_msg_event);
+	session_logic_handle_->session_logic_condition = true;
 	pthread_cond_signal(&(session_logic_handle_->session_logic_cond_var));
 	pthread_mutex_unlock(&(session_logic_handle_->session_logic_mutex));
 
@@ -131,41 +119,18 @@ void session_logic_message_sent_handler(void *data, int socket_fd)
 		return;
 	}
 
-	pcep_session *session = (pcep_session *)data;
-	if (session->destroy_session_after_write == true) {
-		/* Do not call destroy until all of the queued messages are
-		 * written */
-		if (session->socket_comm_session != NULL
-		    && session->socket_comm_session->message_queue->num_entries
-			       == 0) {
-			destroy_pcep_session(session);
-		}
-	} else {
-		/* Reset the keep alive timer for every message sent on
-		 * the session, only if the session is not destroyed */
-		if (session->timer_id_keep_alive == TIMER_ID_NOT_SET) {
-			pcep_log(
-				LOG_INFO,
-				"%s: [%ld-%ld] pcep_session_logic set keep alive timer [%d secs] for session [%d]",
-				__func__, time(NULL), pthread_self(),
-				session->pcc_config
-					.keep_alive_pce_negotiated_timer_seconds,
-				session->session_id);
-			session->timer_id_keep_alive = create_timer(
-				session->pcc_config
-					.keep_alive_pce_negotiated_timer_seconds,
-				session);
-		} else {
-			pcep_log(
-				LOG_INFO,
-				"%s: [%ld-%ld] pcep_session_logic reset keep alive timer [%d secs] for session [%d]",
-				__func__, time(NULL), pthread_self(),
-				session->pcc_config
-					.keep_alive_pce_negotiated_timer_seconds,
-				session->session_id);
-			reset_timer(session->timer_id_keep_alive);
-		}
-	}
+	if (session_logic_handle_->active == false)
+		return;
+
+	/* Handled on the session logic thread */
+	pcep_session_event *sent_event = create_session_event((pcep_session *)data,
+							      PCEP_SESSION_EVENT_MSG_SENT);
+
+	pthread_mutex_lock(&(session_logic_handle_->session_logic_mutex));
+	queue_enqueue(session_logic_handle_->session_event_queue, sent_event);
+	session_logic_handle_->session_logic_condition = true;
+	pthread_cond_signal(&(session_logic_handle_->session_logic_cond_var));
+	pthread_mutex_unlock(&(session_logic_handle_->session_logic_mutex));
 }
 
 
@@ -327,6 +292,9 @@ void *session_logic_loop(void *data)
 			case PCEP_SESSION_EVENT_MSG_RCVD:
 			case PCEP_SESSION_EVENT_SOCKET_CLOSED:
 				handle_socket_comm_event(event);
+				break;
+			case PCEP_SESSION_EVENT_MSG_SENT:
+				handle_msg_sent_event(event);
 				break;
 			}
 

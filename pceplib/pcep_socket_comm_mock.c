@@ -344,6 +344,14 @@ bool socket_comm_session_close_tcp_after_write(
 }
 
 
+bool socket_comm_session_write_pending(pcep_socket_comm_session *socket_comm_session)
+{
+	(void)socket_comm_session;
+
+	return false;
+}
+
+
 bool socket_comm_session_close_tcp(
 	pcep_socket_comm_session *socket_comm_session)
 {

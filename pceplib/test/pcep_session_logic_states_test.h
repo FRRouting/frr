@@ -36,6 +36,7 @@ void test_handle_socket_comm_event_notify(void);
 void test_handle_socket_comm_event_error(void);
 void test_handle_socket_comm_event_unknown_msg(void);
 void test_handle_socket_comm_event_unknown_msg_purge(void);
+void test_handle_socket_comm_event_undecodable_msg(void);
 void test_connection_failure(void);
 
 #endif /* PCEPTIMERINTERNALS_H_ */

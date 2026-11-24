@@ -170,6 +170,9 @@ void socket_comm_session_send_message(
 	const char *encoded_message, unsigned int msg_length,
 	bool free_after_send);
 
+/* True while messages are queued to be written */
+bool socket_comm_session_write_pending(pcep_socket_comm_session *socket_comm_session);
+
 /* If an external Socket infra like FRR is used, then these functions will
  * be called when a socket is ready to read/write in the external infra.
  * Implemented in pcep_socket_comm_loop.c */

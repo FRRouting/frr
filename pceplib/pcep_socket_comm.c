@@ -590,6 +590,21 @@ bool socket_comm_session_connect_tcp(
 }
 
 
+bool socket_comm_session_write_pending(pcep_socket_comm_session *socket_comm_session)
+{
+	bool pending;
+
+	if (socket_comm_session == NULL || socket_comm_handle_ == NULL)
+		return false;
+
+	pthread_mutex_lock(&(socket_comm_handle_->socket_comm_mutex));
+	pending = socket_comm_session->message_queue->num_entries > 0;
+	pthread_mutex_unlock(&(socket_comm_handle_->socket_comm_mutex));
+
+	return pending;
+}
+
+
 bool socket_comm_session_close_tcp(
 	pcep_socket_comm_session *socket_comm_session)
 {

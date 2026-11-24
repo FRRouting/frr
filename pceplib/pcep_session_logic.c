@@ -305,6 +305,13 @@ void destroy_pcep_session(pcep_session *session)
 	 * destroy with the session_logic_loop, so that no in-flight events
 	 * will be handled now that the session is destroyed. */
 	pthread_mutex_lock(&(session_logic_handle_->session_list_mutex));
+	destroy_pcep_session_locked(session);
+	pthread_mutex_unlock(&(session_logic_handle_->session_list_mutex));
+}
+
+/* The caller holds session_list_mutex */
+void destroy_pcep_session_locked(pcep_session *session)
+{
 	ordered_list_remove_first_node_equals(
 		session_logic_handle_->session_list, session);
 	pcep_log(LOG_DEBUG,
@@ -328,9 +335,8 @@ void destroy_pcep_session(pcep_session *session)
 
 	int session_id = session->session_id;
 	pceplib_free(PCEPLIB_INFRA, session);
-	pcep_log(LOG_INFO, "%s: [%ld-%ld] session [%d] destroyed", __func__,
-		 time(NULL), pthread_self(), session_id);
-	pthread_mutex_unlock(&(session_logic_handle_->session_list_mutex));
+	pcep_log(LOG_INFO, "%s: [%ld-%ld] session [%d] destroyed", __func__, time(NULL),
+		 pthread_self(), session_id);
 }
 
 void pcep_session_cancel_timers(pcep_session *session)

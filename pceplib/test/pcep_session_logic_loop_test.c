@@ -142,10 +142,9 @@ void test_session_logic_msg_ready_handler()
 	memset(&session, 0, sizeof(pcep_session));
 	session.session_id = 100;
 	CU_ASSERT_EQUAL(session_logic_msg_ready_handler(&session, fd), 0);
+	/* Socket comm reports the closed socket through conn_except */
 	CU_ASSERT_EQUAL(session_logic_handle_->session_event_queue->num_entries, 0);
-	pcep_event *e = queue_dequeue(session_logic_event_queue_->event_queue);
-	CU_ASSERT_EQUAL(PCE_CLOSED_SOCKET, e->event_type);
-	pceplib_free(PCEPLIB_INFRA, e);
+	CU_ASSERT_EQUAL(session_logic_event_queue_->event_queue->num_entries, 0);
 	pcep_session_event *socket_event;
 
 	/* A pcep_session_event should be created */
@@ -199,6 +198,29 @@ void test_session_logic_conn_except_notifier()
 	CU_ASSERT_PTR_NULL(socket_event->received_msg_list);
 
 	pceplib_free(PCEPLIB_INFRA, socket_event);
+}
+
+
+void test_session_logic_message_sent_handler(void)
+{
+	/* Just testing that it does not core dump */
+	session_logic_message_sent_handler(NULL, 10);
+
+	/* Only an event for the session logic thread is created */
+	pcep_session session;
+
+	memset(&session, 0, sizeof(pcep_session));
+	session.session_id = 100;
+	session_logic_message_sent_handler(&session, 10);
+	CU_ASSERT_EQUAL(session_logic_handle_->session_event_queue->num_entries, 1);
+	pcep_session_event *sent_event =
+		(pcep_session_event *)queue_dequeue(session_logic_handle_->session_event_queue);
+	CU_ASSERT_PTR_NOT_NULL_FATAL(sent_event);
+	assert(sent_event != NULL);
+	CU_ASSERT_EQUAL(sent_event->type, PCEP_SESSION_EVENT_MSG_SENT);
+	CU_ASSERT_PTR_EQUAL(sent_event->session, &session);
+
+	pceplib_free(PCEPLIB_INFRA, sent_event);
 }
 
 

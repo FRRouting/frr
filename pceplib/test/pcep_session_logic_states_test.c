@@ -949,3 +949,43 @@ void test_connection_failure(void)
 	CU_ASSERT_EQUAL(PCC_CONNECTION_FAILURE, e->event_type);
 	pceplib_free(PCEPLIB_INFRA, e);
 }
+
+
+/* A read that decodes no message counts as an unknown message, and the
+ * session logic thread sends the one Close at max_unknown_messages.
+ */
+void test_handle_socket_comm_event_undecodable_msg(void)
+{
+	mock_socket_comm_info *mock_info = get_mock_socket_comm_info();
+
+	mock_info->send_message_save_message = true;
+
+	event.received_msg_list = dll_initialize();
+	handle_socket_comm_event(&event);
+	CU_ASSERT_EQUAL(session.num_unknown_messages_time_queue->num_entries, 1);
+	CU_ASSERT_EQUAL(session_logic_event_queue_->event_queue->num_entries, 0);
+	verify_socket_comm_times_called(0, 0, 0, 0, 0, 0, 0);
+
+	/* max_unknown_messages = 2 */
+	event.received_msg_list = dll_initialize();
+	handle_socket_comm_event(&event);
+	verify_socket_comm_times_called(0, 0, 0, 1, 1, 0, 0);
+	CU_ASSERT_EQUAL(session_logic_event_queue_->event_queue->num_entries, 1);
+	pcep_event *e = queue_dequeue(session_logic_event_queue_->event_queue);
+
+	CU_ASSERT_EQUAL(PCC_RCVD_MAX_UNKOWN_MSGS, e->event_type);
+	pceplib_free(PCEPLIB_INFRA, e);
+
+	uint8_t *encoded_msg = dll_delete_first_node(mock_info->sent_message_list);
+
+	CU_ASSERT_PTR_NOT_NULL_FATAL(encoded_msg);
+	assert(encoded_msg != NULL);
+	struct pcep_message *msg = pcep_decode_message(encoded_msg);
+
+	CU_ASSERT_PTR_NOT_NULL_FATAL(msg);
+	assert(msg != NULL);
+	CU_ASSERT_EQUAL(PCEP_TYPE_CLOSE, msg->msg_header->type);
+	pcep_msg_free_message(msg);
+	pceplib_free(PCEPLIB_MESSAGES, encoded_msg);
+	event.received_msg_list = NULL;
+}
