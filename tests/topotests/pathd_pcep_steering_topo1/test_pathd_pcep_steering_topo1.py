@@ -611,6 +611,15 @@ def test_steering_route_withdrawn_on_policy_delete():
     assert result is None, "steering route not withdrawn: {}".format(result)
 
 
+def test_memory_leak():
+    "Run the memory leak test and report results."
+
+    tgen = get_topogen()
+    if not tgen.is_memleak_enabled():
+        pytest.skip("Memory leak test/report is disabled")
+    tgen.report_memory_leaks()
+
+
 if __name__ == "__main__":
     args = ["-s"] + sys.argv[1:]
     sys.exit(pytest.main(args))

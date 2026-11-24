@@ -111,6 +111,8 @@ Every steering-route check asserts both address families (ipv4, ipv6).
 9. **test_steering_route_withdrawn_on_policy_delete**: the PCE deletes
    the two initial policies, the last one per endpoint, and pathd
    withdraws both steering routes.
+10. **test_memory_leak**: with the memory leak check enabled, pathd
+    must not leak across the PCInitiate creates and removes above.
 
 ## Notes
 
