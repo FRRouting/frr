@@ -56,6 +56,7 @@ VENDOR_ESI_COLOR = 0x00010004
 
 TLV_STATEFUL_CAP = 16
 TLV_SYMBOLIC_NAME = 17
+TLV_LSP_ERROR_CODE = 20
 TLV_SR_CAP = 26
 TLV_PATH_SETUP_TYPE = 28
 TLV_PST_CAP = 34
@@ -321,9 +322,16 @@ class MockPce:
                 plsp_id = word0 >> 12
                 flags = word0 & 0xFF
                 oper = (flags >> 4) & 0x07
+                lsp_error = None
+                tlv = index + 8
+                while tlv + 4 <= index + olen:
+                    ttype, tlen = struct.unpack(">HH", body[tlv : tlv + 4])
+                    if ttype == TLV_LSP_ERROR_CODE and tlen >= 4:
+                        lsp_error = struct.unpack(">I", body[tlv + 4 : tlv + 8])[0]
+                    tlv += 4 + tlen + (-tlen) % 4
                 self.log(
-                    "REPORT plsp-id=%u flags=0x%02x oper=%u srp=%s"
-                    % (plsp_id, flags, oper, srp_id)
+                    "REPORT plsp-id=%u flags=0x%02x oper=%u srp=%s lsp-error=%s"
+                    % (plsp_id, flags, oper, srp_id, lsp_error)
                 )
                 if plsp_id == 0 and not flags & LSP_FLAG_SYNC:
                     self.sync_done = True
