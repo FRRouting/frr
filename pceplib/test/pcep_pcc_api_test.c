@@ -267,6 +267,39 @@ void test_disconnect_pce(void)
 }
 
 
+/* destroy_pcc() right after disconnect_pce() still frees the session */
+void test_destroy_pcc_after_disconnect(void)
+{
+	struct pceplib_memory_type *infra = PCEPLIB_INFRA;
+	struct pceplib_memory_type *msgs = PCEPLIB_MESSAGES;
+	pcep_configuration *config = create_default_pcep_configuration();
+	struct hostent *host_info = gethostbyname("localhost");
+	struct in_addr dest_address;
+	mock_socket_comm_info *mock_info = get_mock_socket_comm_info();
+	uint8_t *encoded_msg;
+
+	memcpy(&dest_address, host_info->h_addr, host_info->h_length);
+	mock_info->send_message_save_message = true;
+	uint32_t infra_allocs = infra->num_allocates;
+	uint32_t infra_frees = infra->num_frees;
+	uint32_t msg_allocs = msgs->num_allocates;
+	uint32_t msg_frees = msgs->num_frees;
+
+	initialize_pcc();
+	pcep_session *session = connect_pce(config, &dest_address);
+
+	session->session_state = SESSION_STATE_PCEP_CONNECTED;
+	disconnect_pce(session);
+	destroy_pcc();
+
+	while ((encoded_msg = dll_delete_first_node(mock_info->sent_message_list)))
+		pceplib_free(PCEPLIB_MESSAGES, encoded_msg);
+	CU_ASSERT_EQUAL(infra->num_allocates - infra_allocs, infra->num_frees - infra_frees);
+	CU_ASSERT_EQUAL(msgs->num_allocates - msg_allocs, msgs->num_frees - msg_frees);
+	destroy_pcep_configuration(config);
+}
+
+
 void test_send_message(void)
 {
 	pcep_configuration *config = create_default_pcep_configuration();
