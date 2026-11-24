@@ -725,8 +725,9 @@ void increment_unknown_message(pcep_session *session)
 		}
 	}
 
-	if ((int)session->num_unknown_messages_time_queue->num_entries
-	    >= session->pcc_config.max_unknown_messages) {
+	if ((int)session->num_unknown_messages_time_queue->num_entries >=
+		    session->pcc_config.max_unknown_messages &&
+	    !session->close_sent) {
 		pcep_log(
 			LOG_INFO,
 			"%s: [%ld-%ld] Max unknown messages reached [%d] closing session [%d]",
@@ -937,6 +938,29 @@ void handle_msg_sent_event(pcep_session_event *event)
 			 session->session_id);
 		reset_timer(session->timer_id_keep_alive);
 	}
+}
+
+/* disconnect_pce(): send one Close on an established session, and destroy
+ * the session once nothing is left to write.
+ */
+void handle_disconnect_event(pcep_session_event *event)
+{
+	pcep_session *session = event->session;
+
+	if (socket_comm_session_closed(session->socket_comm_session)) {
+		destroy_pcep_session_locked(session);
+		return;
+	}
+
+	session->destroy_session_after_write = true;
+	if (session->session_state == SESSION_STATE_PCEP_CONNECTED && !session->close_sent) {
+		/* Destroyed by handle_msg_sent_event() once written */
+		close_pcep_session(session);
+		return;
+	}
+
+	if (!socket_comm_session_write_pending(session->socket_comm_session))
+		destroy_pcep_session_locked(session);
 }
 
 /* State machine handling for received messages.

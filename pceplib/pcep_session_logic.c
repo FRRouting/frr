@@ -280,6 +280,12 @@ void close_pcep_session(pcep_session *session)
 void close_pcep_session_with_reason(pcep_session *session,
 				    enum pcep_close_reason reason)
 {
+	if (session->close_sent) {
+		pcep_log(LOG_INFO, "%s: Close already sent for session [%d]", __func__,
+			 session->session_id);
+		return;
+	}
+
 	struct pcep_message *close_msg = pcep_msg_create_close(reason);
 
 	pcep_log(
@@ -290,6 +296,7 @@ void close_pcep_session_with_reason(pcep_session *session,
 	session_send_message(session, close_msg);
 	socket_comm_session_close_tcp_after_write(session->socket_comm_session);
 	session->session_state = SESSION_STATE_INITIALIZED;
+	session->close_sent = true;
 }
 
 

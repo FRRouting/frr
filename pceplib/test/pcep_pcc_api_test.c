@@ -22,6 +22,7 @@
 #include <CUnit/CUnit.h>
 
 #include "pcep_pcc_api.h"
+#include "pcep_session_logic_internals.h"
 #include "pcep_pcc_api_test.h"
 #include "pcep_socket_comm_mock.h"
 #include "pcep_utils_memory.h"
@@ -180,47 +181,88 @@ void test_connect_pce_with_src_ip(void)
 	destroy_pcc();
 }
 
+/* disconnect_pce() is handled by the session logic thread */
+static bool wait_session_destroyed(pcep_session *session)
+{
+	for (int i = 0; i < 200; i++) {
+		if (!session_exists(session))
+			return true;
+		usleep(10000);
+	}
+	return false;
+}
+
+/* The session logic thread handles events holding session_logic_mutex */
+static void wait_events_handled(void)
+{
+	for (int i = 0; i < 200; i++) {
+		pthread_mutex_lock(&session_logic_handle_->session_logic_mutex);
+		bool done = session_logic_handle_->session_event_queue->num_entries == 0;
+
+		pthread_mutex_unlock(&session_logic_handle_->session_logic_mutex);
+		if (done)
+			return;
+		usleep(10000);
+	}
+}
+
+static void check_sent_message(mock_socket_comm_info *mock_info, enum pcep_message_types type)
+{
+	uint8_t *encoded_msg = dll_delete_first_node(mock_info->sent_message_list);
+
+	CU_ASSERT_PTR_NOT_NULL_FATAL(encoded_msg);
+	assert(encoded_msg != NULL);
+	struct pcep_message *msg = pcep_decode_message(encoded_msg);
+
+	CU_ASSERT_PTR_NOT_NULL_FATAL(msg);
+	assert(msg != NULL);
+	CU_ASSERT_EQUAL(msg->msg_header->type, type);
+	pcep_msg_free_message(msg);
+	pceplib_free(PCEPLIB_MESSAGES, encoded_msg);
+}
+
 void test_disconnect_pce(void)
 {
 	pcep_configuration *config = create_default_pcep_configuration();
 	struct hostent *host_info = gethostbyname("localhost");
 	struct in_addr dest_address;
-	memcpy(&dest_address, host_info->h_addr, host_info->h_length);
 	mock_socket_comm_info *mock_info = get_mock_socket_comm_info();
+
+	memcpy(&dest_address, host_info->h_addr, host_info->h_length);
 	mock_info->send_message_save_message = true;
 
 	initialize_pcc();
 
+	/* Not established: no Close (RFC 5440 4.2.7), destroyed at once */
 	pcep_session *session = connect_pce(config, &dest_address);
 	disconnect_pce(session);
+	CU_ASSERT_TRUE(wait_session_destroyed(session));
+	CU_ASSERT_EQUAL(mock_info->sent_message_list->num_entries, 1);
+	check_sent_message(mock_info, PCEP_TYPE_OPEN);
 
+	/* Established: one Close, destroyed once it is written */
+	session = connect_pce(config, &dest_address);
+	session->session_state = SESSION_STATE_PCEP_CONNECTED;
+	disconnect_pce(session);
+	wait_events_handled();
 	CU_ASSERT_EQUAL(mock_info->sent_message_list->num_entries, 2);
+	CU_ASSERT_TRUE(session_exists(session));
+	session_logic_message_sent_handler(session, 0);
+	CU_ASSERT_TRUE(wait_session_destroyed(session));
+	check_sent_message(mock_info, PCEP_TYPE_OPEN);
+	check_sent_message(mock_info, PCEP_TYPE_CLOSE);
 
-	/* First there should be an open message from connect_pce() */
-	uint8_t *encoded_msg =
-		dll_delete_first_node(mock_info->sent_message_list);
-	CU_ASSERT_PTR_NOT_NULL(encoded_msg);
-	struct pcep_message *msg = pcep_decode_message(encoded_msg);
-	CU_ASSERT_PTR_NOT_NULL(msg);
-	assert(msg != NULL);
-	CU_ASSERT_EQUAL(msg->msg_header->type, PCEP_TYPE_OPEN);
-	pcep_msg_free_message(msg);
-	pceplib_free(PCEPLIB_MESSAGES, encoded_msg);
+	/* pceplib already closed it: no second Close (RFC 5440 6.9) */
+	session = connect_pce(config, &dest_address);
+	session->session_state = SESSION_STATE_PCEP_CONNECTED;
+	close_pcep_session_with_reason(session, PCEP_CLOSE_REASON_UNREC_MSG);
+	disconnect_pce(session);
+	CU_ASSERT_TRUE(wait_session_destroyed(session));
+	CU_ASSERT_EQUAL(mock_info->sent_message_list->num_entries, 2);
+	check_sent_message(mock_info, PCEP_TYPE_OPEN);
+	check_sent_message(mock_info, PCEP_TYPE_CLOSE);
 
-	/* Then there should be a close message from disconnect_pce() */
-	encoded_msg = dll_delete_first_node(mock_info->sent_message_list);
-	CU_ASSERT_PTR_NOT_NULL(encoded_msg);
-	msg = pcep_decode_message(encoded_msg);
-	CU_ASSERT_PTR_NOT_NULL(msg);
-	assert(msg != NULL);
-	assert(msg->msg_header != NULL);
-	CU_ASSERT_EQUAL(msg->msg_header->type, PCEP_TYPE_CLOSE);
-
-	pcep_msg_free_message(msg);
-	destroy_pcep_session(session);
 	destroy_pcep_configuration(config);
-	pceplib_free(PCEPLIB_MESSAGES, encoded_msg);
-
 	destroy_pcc();
 }
 

@@ -605,6 +605,21 @@ bool socket_comm_session_write_pending(pcep_socket_comm_session *socket_comm_ses
 }
 
 
+bool socket_comm_session_closed(pcep_socket_comm_session *socket_comm_session)
+{
+	bool closed;
+
+	if (socket_comm_session == NULL || socket_comm_handle_ == NULL)
+		return true;
+
+	pthread_mutex_lock(&(socket_comm_handle_->socket_comm_mutex));
+	closed = socket_comm_session->socket_fd < 0;
+	pthread_mutex_unlock(&(socket_comm_handle_->socket_comm_mutex));
+
+	return closed;
+}
+
+
 bool socket_comm_session_close_tcp(
 	pcep_socket_comm_session *socket_comm_session)
 {

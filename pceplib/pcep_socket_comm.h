@@ -172,6 +172,8 @@ void socket_comm_session_send_message(
 
 /* True while messages are queued to be written */
 bool socket_comm_session_write_pending(pcep_socket_comm_session *socket_comm_session);
+/* True once the socket is closed, or for a NULL session */
+bool socket_comm_session_closed(pcep_socket_comm_session *socket_comm_session);
 
 /* If an external Socket infra like FRR is used, then these functions will
  * be called when a socket is ready to read/write in the external infra.

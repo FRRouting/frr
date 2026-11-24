@@ -156,27 +156,13 @@ pcep_session *connect_pce_ipv6(pcep_configuration *config,
 
 void disconnect_pce(pcep_session *session)
 {
-	if (session_exists(session) == false) {
-		pcep_log(
-			LOG_WARNING,
-			"%s: disconnect_pce session [%p] has already been deleted",
-			__func__, session);
+	if (session == NULL) {
+		pcep_log(LOG_WARNING, "%s: disconnect_pce NULL session", __func__);
 		return;
 	}
 
-	if (session->socket_comm_session == NULL
-	    || session->socket_comm_session->socket_fd < 0) {
-		/* If the socket has already been closed, just destroy the
-		 * session */
-		destroy_pcep_session(session);
-	} else {
-		/* This will cause the session to be destroyed AFTER the close
-		 * message is sent */
-		session->destroy_session_after_write = true;
-
-		/* Send a PCEP close message */
-		close_pcep_session(session);
-	}
+	/* The session logic thread sends any Close and destroys the session */
+	session_logic_disconnect(session);
 }
 
 void send_message(pcep_session *session, struct pcep_message *msg,

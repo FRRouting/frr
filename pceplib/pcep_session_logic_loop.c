@@ -134,6 +134,26 @@ void session_logic_message_sent_handler(void *data, int socket_fd)
 }
 
 
+/* The session logic thread disconnects and destroys the session */
+void session_logic_disconnect(pcep_session *session)
+{
+	if (session_logic_handle_ == NULL || session_logic_handle_->active == false) {
+		pcep_log(LOG_WARNING,
+			 "%s: Cannot disconnect while the session logic is not active", __func__);
+		return;
+	}
+
+	pcep_session_event *disconnect_event = create_session_event(session,
+								    PCEP_SESSION_EVENT_DISCONNECT);
+
+	pthread_mutex_lock(&(session_logic_handle_->session_logic_mutex));
+	queue_enqueue(session_logic_handle_->session_event_queue, disconnect_event);
+	session_logic_handle_->session_logic_condition = true;
+	pthread_cond_signal(&(session_logic_handle_->session_logic_cond_var));
+	pthread_mutex_unlock(&(session_logic_handle_->session_logic_mutex));
+}
+
+
 /* A function pointer to this function was passed to pcep_socket_comm,
  * so it will be called whenever the socket is closed. this function
  * will be called by the socket_comm thread. */
@@ -295,6 +315,9 @@ void *session_logic_loop(void *data)
 				break;
 			case PCEP_SESSION_EVENT_MSG_SENT:
 				handle_msg_sent_event(event);
+				break;
+			case PCEP_SESSION_EVENT_DISCONNECT:
+				handle_disconnect_event(event);
 				break;
 			}
 
