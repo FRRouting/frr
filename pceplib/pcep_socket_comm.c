@@ -140,11 +140,27 @@ bool initialize_socket_comm_loop(void)
 }
 
 
+/* Stop the socket comm thread, keeping the handle for the session
+ * teardowns. destroy_socket_comm_loop() frees the handle.
+ */
+bool stop_socket_comm_loop(void)
+{
+	if (socket_comm_handle_ == NULL)
+		return true;
+
+	if (socket_comm_handle_->thread_stopped == false) {
+		socket_comm_handle_->active = false;
+		pthread_join(socket_comm_handle_->socket_comm_thread, NULL);
+		socket_comm_handle_->thread_stopped = true;
+	}
+
+	return true;
+}
+
 bool destroy_socket_comm_loop(void)
 {
-	socket_comm_handle_->active = false;
+	stop_socket_comm_loop();
 
-	pthread_join(socket_comm_handle_->socket_comm_thread, NULL);
 	ordered_list_destroy(socket_comm_handle_->read_list);
 	ordered_list_destroy(socket_comm_handle_->write_list);
 	ordered_list_destroy(socket_comm_handle_->session_list);

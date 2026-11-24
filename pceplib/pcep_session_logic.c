@@ -252,6 +252,12 @@ bool stop_session_logic(void)
 	pthread_mutex_unlock(&(session_logic_handle_->session_logic_mutex));
 	pthread_join(session_logic_handle_->session_logic_thread, NULL);
 
+	/* Stop the socket comm thread before the session state it calls
+	 * into is destroyed. destroy_socket_comm_loop() below frees the
+	 * rest.
+	 */
+	stop_socket_comm_loop();
+
 	pthread_mutex_destroy(&(session_logic_handle_->session_logic_mutex));
 	pthread_mutex_destroy(&(session_logic_handle_->session_list_mutex));
 	ordered_list_destroy(session_logic_handle_->session_list);
