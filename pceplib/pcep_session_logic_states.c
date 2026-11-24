@@ -865,6 +865,9 @@ void handle_timer_event(pcep_session_event *event)
 			increment_event_counters(
 				session,
 				PCEP_EVENT_COUNTER_ID_TIMER_OPENKEEPWAIT);
+			/* RFC 5440 4.2.7: PCErr 1/2, not a Close, then close TCP */
+			send_pcep_error(session, PCEP_ERRT_SESSION_FAILURE,
+					PCEP_ERRV_OPENWAIT_TIMED_OUT);
 			socket_comm_session_close_tcp_after_write(
 				session->socket_comm_session);
 			session->session_state = SESSION_STATE_INITIALIZED;

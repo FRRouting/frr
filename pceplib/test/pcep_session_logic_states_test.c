@@ -194,7 +194,10 @@ void test_handle_timer_event_keep_alive()
 
 void test_handle_timer_event_open_keep_wait()
 {
-	/* Open Keep Wait timer expired */
+	/* Open Keep Wait timer expired: PCErr 1/2, then close TCP */
+	mock_socket_comm_info *mock_info = get_mock_socket_comm_info();
+
+	mock_info->send_message_save_message = true;
 	event.expired_timer_id = session.timer_id_open_keep_wait = 300;
 	session.session_state = SESSION_STATE_PCEP_CONNECTING;
 	handle_timer_event(&event);
@@ -203,7 +206,22 @@ void test_handle_timer_event_open_keep_wait()
 	CU_ASSERT_EQUAL(session.session_state, SESSION_STATE_INITIALIZED);
 	CU_ASSERT_EQUAL(session_logic_event_queue_->event_queue->num_entries,
 			1);
-	verify_socket_comm_times_called(0, 0, 0, 0, 1, 0, 0);
+	verify_socket_comm_times_called(0, 0, 0, 1, 1, 0, 0);
+	uint8_t *encoded_msg = dll_delete_first_node(mock_info->sent_message_list);
+
+	CU_ASSERT_PTR_NOT_NULL_FATAL(encoded_msg);
+	assert(encoded_msg != NULL);
+	struct pcep_message *msg = pcep_decode_message(encoded_msg);
+
+	CU_ASSERT_PTR_NOT_NULL_FATAL(msg);
+	assert(msg != NULL);
+	CU_ASSERT_EQUAL(PCEP_TYPE_ERROR, msg->msg_header->type);
+	struct pcep_object_error *error_obj = msg->obj_list->head->data;
+
+	CU_ASSERT_EQUAL(PCEP_ERRT_SESSION_FAILURE, error_obj->error_type);
+	CU_ASSERT_EQUAL(PCEP_ERRV_OPENWAIT_TIMED_OUT, error_obj->error_value);
+	pcep_msg_free_message(msg);
+	pceplib_free(PCEPLIB_MESSAGES, encoded_msg);
 
 	pcep_event *e = queue_dequeue(session_logic_event_queue_->event_queue);
 	CU_ASSERT_EQUAL(PCE_OPEN_KEEP_WAIT_TIMER_EXPIRED, e->event_type);
