@@ -98,12 +98,11 @@ extern void bgp_redistribute_unset(struct bgp *bgp, afi_t afi, int type,
 extern int bgp_redistribute_unreg(struct bgp *bgp, afi_t afi, int type,
 				  unsigned short instance);
 
-extern struct interface *if_lookup_by_ipv4(struct in_addr *addr,
-					   vrf_id_t vrf_id);
+extern struct interface *if_lookup_by_ipv4(struct bgp *bgp, struct in_addr *addr);
 extern struct interface *if_lookup_by_ipv4_exact(struct in_addr *addr,
 						 vrf_id_t vrf_id);
-extern struct interface *if_lookup_by_ipv6(struct in6_addr *addr,
-					   ifindex_t ifindex, vrf_id_t vrf_id);
+extern struct interface *if_lookup_by_ipv6(struct bgp *bgp, struct in6_addr *addr,
+					   ifindex_t ifindex);
 extern struct interface *if_lookup_by_ipv6_exact(struct in6_addr *addr,
 						 ifindex_t ifindex,
 						 vrf_id_t vrf_id);

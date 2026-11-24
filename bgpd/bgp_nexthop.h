@@ -119,6 +119,11 @@ extern char *bgp_nexthop_dump_bnc_flags(struct bgp_nexthop_cache *bnc,
 					char *buf, size_t len);
 extern char *bgp_nexthop_dump_bnc_change_flags(struct bgp_nexthop_cache *bnc,
 					       char *buf, size_t len);
+struct bgp_connected_ref {
+	unsigned int refcnt;
+	struct interface *ifp;
+};
+
 extern void bgp_connected_add(struct bgp *bgp, struct connected *c);
 extern void bgp_connected_delete(struct bgp *bgp, struct connected *c);
 extern bool bgp_subgrp_multiaccess_check_v4(struct in_addr nexthop,
@@ -148,6 +153,7 @@ extern struct bgp_nexthop_cache *bnc_find(struct bgp_nexthop_cache_head *tree,
 extern void bnc_nexthop_free(struct bgp_nexthop_cache *bnc);
 extern void bgp_scan_init(struct bgp *bgp);
 extern void bgp_scan_finish(struct bgp *bgp);
+extern void bgp_connected_table_reset(struct bgp *bgp);
 extern void bgp_scan_vty_init(void);
 extern void bgp_address_init(struct bgp *bgp);
 extern void bgp_address_destroy(struct bgp *bgp);

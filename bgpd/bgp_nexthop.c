@@ -423,10 +423,6 @@ static void bgp_connected_peer_nexthop_update(struct bgp *bgp)
 	}
 }
 
-struct bgp_connected_ref {
-	unsigned int refcnt;
-};
-
 void bgp_connected_add(struct bgp *bgp, struct connected *ifc)
 {
 	struct prefix p;
@@ -456,6 +452,7 @@ void bgp_connected_add(struct bgp *bgp, struct connected *ifc)
 			bc = XCALLOC(MTYPE_BGP_CONN,
 				     sizeof(struct bgp_connected_ref));
 			bc->refcnt = 1;
+			bc->ifp = ifc->ifp;
 			bgp_dest_set_bgp_connected_ref_info(dest, bc);
 		}
 
@@ -479,6 +476,7 @@ void bgp_connected_add(struct bgp *bgp, struct connected *ifc)
 			bc = XCALLOC(MTYPE_BGP_CONN,
 				     sizeof(struct bgp_connected_ref));
 			bc->refcnt = 1;
+			bc->ifp = ifc->ifp;
 			bgp_dest_set_bgp_connected_ref_info(dest, bc);
 		}
 	}
@@ -516,7 +514,6 @@ void bgp_connected_delete(struct bgp *bgp, struct connected *ifc)
 			return;
 
 		bgp_address_del(bgp, ifc, addr);
-		bgp_connected_peer_nexthop_update(bgp);
 
 		dest = bgp_node_lookup(bgp->connected_table[AFI_IP], &p);
 	} else if (addr->family == AF_INET6) {
@@ -527,13 +524,14 @@ void bgp_connected_delete(struct bgp *bgp, struct connected *ifc)
 			return;
 
 		bgp_address_del(bgp, ifc, addr);
-		bgp_connected_peer_nexthop_update(bgp);
 
 		dest = bgp_node_lookup(bgp->connected_table[AFI_IP6], &p);
 	}
 
-	if (!dest)
+	if (!dest) {
+		bgp_connected_peer_nexthop_update(bgp);
 		return;
+	}
 
 	bc = bgp_dest_get_bgp_connected_ref_info(dest);
 	bc->refcnt--;
@@ -545,6 +543,11 @@ void bgp_connected_delete(struct bgp *bgp, struct connected *ifc)
 	dest = bgp_dest_unlock_node(dest);
 	assert(dest);
 	bgp_dest_unlock_node(dest);
+
+	/* Refresh peers after the prefix has been removed from the table so
+	 * if_lookup_by_ipv4/v6() no longer finds the deleted prefix.
+	 */
+	bgp_connected_peer_nexthop_update(bgp);
 }
 
 static void bgp_connected_cleanup(struct route_table *table,
@@ -559,6 +562,21 @@ static void bgp_connected_cleanup(struct route_table *table,
 
 	XFREE(MTYPE_BGP_CONN, bc);
 	bgp_dest_set_bgp_connected_ref_info(bn, NULL);
+}
+
+/*
+ * Reset the connected_table for a BGP instance so that a Zebra reconnect
+ * replay rebuilds it from scratch rather than inflating refcounts.
+ */
+void bgp_connected_table_reset(struct bgp *bgp)
+{
+	afi_t afi;
+
+	for (afi = AFI_IP; afi < AFI_MAX; afi++) {
+		bgp->connected_table[afi]->route_table->cleanup = bgp_connected_cleanup;
+		bgp_table_unlock(bgp->connected_table[afi]);
+		bgp->connected_table[afi] = bgp_table_init(bgp, afi, SAFI_UNICAST);
+	}
 }
 
 bool bgp_nexthop_self(struct bgp *bgp, afi_t afi, uint8_t type,
