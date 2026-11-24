@@ -60,6 +60,8 @@ static bool run_session_logic_common(void)
 	/* Initialize the event queue */
 	session_logic_event_queue_ =
 		pceplib_malloc(PCEPLIB_INFRA, sizeof(pcep_event_queue));
+	/* No event_callback unless initialized with an infra config */
+	memset(session_logic_event_queue_, 0, sizeof(pcep_event_queue));
 	session_logic_event_queue_->event_queue = queue_initialize();
 	if (pthread_mutex_init(&(session_logic_event_queue_->event_queue_mutex),
 			       NULL)
