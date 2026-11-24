@@ -79,15 +79,15 @@ def setup_module(mod):
     tgen.gears["r1"].run("sysctl net.vrf.strict_mode=1")
     tgen.gears["r1"].run("ip link add vrf10 type vrf table 10")
     shutdown_bringup_interface_in_kernel(
-        tgen.gears['r1'].tgen,
-        tgen.gears['r1'].name,
+        tgen.gears["r1"].tgen,
+        tgen.gears["r1"].name,
         "vrf10",
         True,
     )
     tgen.gears["r1"].run("ip link add vrf20 type vrf table 20")
     shutdown_bringup_interface_in_kernel(
-        tgen.gears['r1'].tgen,
-        tgen.gears['r1'].name,
+        tgen.gears["r1"].tgen,
+        tgen.gears["r1"].name,
         "vrf20",
         True,
     )
@@ -98,15 +98,15 @@ def setup_module(mod):
     tgen.gears["r2"].run("sysctl net.vrf.strict_mode=1")
     tgen.gears["r2"].run("ip link add vrf10 type vrf table 10")
     shutdown_bringup_interface_in_kernel(
-        tgen.gears['r2'].tgen,
-        tgen.gears['r2'].name,
+        tgen.gears["r2"].tgen,
+        tgen.gears["r2"].name,
         "vrf10",
         True,
     )
     tgen.gears["r2"].run("ip link add vrf20 type vrf table 20")
     shutdown_bringup_interface_in_kernel(
-        tgen.gears['r2'].tgen,
-        tgen.gears['r2'].name,
+        tgen.gears["r2"].tgen,
+        tgen.gears["r2"].name,
         "vrf20",
         True,
     )
