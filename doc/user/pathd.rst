@@ -549,6 +549,26 @@ Utility Commands
    normal reconnection process. No configuration is changed.
 
 
+Steering into PCE initiated policies
+====================================
+
+When a PCE initiated policy comes up, *pathd* installs a route to the
+policy's endpoint, a /32 or for IPv6 a /128, with an administrative distance
+of 10. The route has one colored nexthop for each PCE initiated policy that is
+up for that endpoint, so traffic to the endpoint is steered into those
+policies. The route is withdrawn when the last of the policies goes down or is
+deleted. ``show ip route`` shows it as an ``SR-TE`` route.
+
+- With a distance of 10, the route is preferred over routes learned from an
+  IGP. Connected (0) and static (1) routes to the endpoint are still preferred
+  over it.
+- The route carries at most ``MULTIPATH_NUM`` colored nexthops (see
+  ``--enable-multipath``). Policies beyond that, in color order, are not used
+  and a warning is logged.
+- Locally configured policies, and policies used through BGP route-maps as
+  described below, do not get this route.
+
+
 Usage with BGP route-maps
 =========================
 
