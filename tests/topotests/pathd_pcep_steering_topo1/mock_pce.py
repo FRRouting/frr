@@ -94,6 +94,7 @@ class MockPce:
         self.next_srp_id = 1
         self.srp_to_name = {}
         self.plsp_by_name = {}
+        self.plsp_by_report_name = {}
         self.command_pos = 0
         self.deferred_removes = []
 
@@ -275,6 +276,13 @@ class MockPce:
 
         return self._msg(MSG_INITIATE, srp + lsp)
 
+    def build_takeover(self, plsp_id, srp_id):
+        """PCInitiate taking over an orphaned LSP (RFC 8281 S6): only the
+        SRP and LSP objects, the LSP carrying the PCC's PLSP-ID (D set)"""
+        srp = self._obj(CLASS_SRP, 1, struct.pack(">II", 0, srp_id))
+        lsp = self._obj(CLASS_LSP, 1, struct.pack(">I", (plsp_id << 12) | 0x01))
+        return self._msg(MSG_INITIATE, srp + lsp)
+
     def build_update(self, name, plsp_id, srp_id, label):
         """PCUpd (RFC 8231 S6.2): SRP, LSP (D|A) with name, one-label ERO"""
         srp_tlv = struct.pack(">HHBBBB", TLV_PATH_SETUP_TYPE, 4, 0, 0, 0, 1)
@@ -323,11 +331,18 @@ class MockPce:
                 flags = word0 & 0xFF
                 oper = (flags >> 4) & 0x07
                 lsp_error = None
+                name = None
                 tlv = index + 8
                 while tlv + 4 <= index + olen:
                     ttype, tlen = struct.unpack(">HH", body[tlv : tlv + 4])
                     if ttype == TLV_LSP_ERROR_CODE and tlen >= 4:
                         lsp_error = struct.unpack(">I", body[tlv + 4 : tlv + 8])[0]
+                    if ttype == TLV_SYMBOLIC_NAME:
+                        name = (
+                            body[tlv + 4 : tlv + 4 + tlen]
+                            .decode(errors="replace")
+                            .rstrip("\x00")
+                        )
                     tlv += 4 + tlen + (-tlen) % 4
                 self.log(
                     "REPORT plsp-id=%u flags=0x%02x oper=%u srp=%s lsp-error=%s"
@@ -335,6 +350,9 @@ class MockPce:
                 )
                 if plsp_id == 0 and not flags & LSP_FLAG_SYNC:
                     self.sync_done = True
+                # For adopt: the PLSP-ID of each name the PCC reports
+                if name and plsp_id != 0:
+                    self.plsp_by_report_name[name] = plsp_id
                 # A report echoing one of our SRP-IDs tells us the
                 # PLSP-ID the PCC assigned to that policy.
                 if srp_id in self.srp_to_name and plsp_id != 0:
@@ -393,6 +411,7 @@ class MockPce:
         remove <name>
         add <endpoint,label,name[,color]>
         update <name,label>
+        adopt <name>  (take over a path another PCE initiated, RFC 8281 S6)
 
         add is only meaningful once the PCC's state-sync is done (pathd
         silently discards earlier PCInitiates); the tests churn well
@@ -419,6 +438,19 @@ class MockPce:
             fields = line.split()
             if len(fields) == 2 and fields[0] == "remove":
                 self.send_remove(fields[1])
+            elif len(fields) == 2 and fields[0] == "adopt":
+                plsp_id = self.plsp_by_report_name.get(fields[1])
+                if plsp_id is None:
+                    self.log("ADOPT-UNKNOWN name=%s" % fields[1])
+                    continue
+                self.plsp_by_name[fields[1]] = plsp_id
+                srp_id = self.next_srp_id
+                self.next_srp_id += 1
+                self.send(self.build_takeover(plsp_id, srp_id))
+                self.log(
+                    "ADOPT-SENT name=%s plsp-id=%u srp=%u"
+                    % (fields[1], plsp_id, srp_id)
+                )
             elif len(fields) == 2 and fields[0] == "update":
                 name, label = fields[1].split(",")
                 self.send_update(name, int(label))
@@ -456,13 +488,13 @@ class MockPce:
         self.log("REMOVE-SENT name=%s plsp-id=%u" % (name, plsp_id))
 
     def send_update(self, name, label):
-        """Send a PCUpd for a mapped policy"""
-        if name not in self.plsp_by_name:
+        """Send a PCUpd for a mapped policy, or one the PCC reported"""
+        plsp_id = self.plsp_by_name.get(name, self.plsp_by_report_name.get(name))
+        if plsp_id is None:
             self.log("UPDATE-UNKNOWN name=%s" % name)
             return
         srp_id = self.next_srp_id
         self.next_srp_id += 1
-        plsp_id = self.plsp_by_name[name]
         self.send(self.build_update(name, plsp_id, srp_id, label))
         self.log("UPDATE-SENT name=%s plsp-id=%u srp=%u" % (name, plsp_id, srp_id))
 
@@ -494,6 +526,7 @@ class MockPce:
         self.next_srp_id = 1
         self.srp_to_name = {}
         self.plsp_by_name = {}
+        self.plsp_by_report_name = {}
         self.command_pos = 0
         self.deferred_removes = []
 
