@@ -334,6 +334,8 @@ static int zebra_vxlan_if_update_vni(struct interface *ifp,
 
 		/* Handle other changes. */
 		if (CHECK_FLAG(chgflags, ZEBRA_VXLIF_VLAN_CHANGE)) {
+			struct zebra_neigh *n;
+
 			/* Remove all existing local neigh and MACs for this VNI
 			 * (including from BGP)
 			 */
@@ -341,6 +343,12 @@ static int zebra_vxlan_if_update_vni(struct interface *ifp,
 			vnip->access_vlan = ctx->old_vni.access_vlan;
 			zebra_evpn_neigh_del_all(zevpn, 0, 1, DEL_LOCAL_MAC, NULL);
 			zebra_evpn_mac_del_all(zevpn, 0, 1, DEL_LOCAL_MAC, NULL);
+			/* Take remote neighs off the old SVI; SVD flags a VLAN
+			 * change even when the VLAN is the same.
+			 */
+			if (ctx->old_vni.access_vlan != access_vlan)
+				frr_each (zebra_neigh_db, zevpn->neigh_table, n)
+					zebra_evpn_neigh_uninstall(zevpn, n);
 			zebra_evpn_rem_mac_uninstall_all(zevpn);
 			vnip->access_vlan = access_vlan;
 		}

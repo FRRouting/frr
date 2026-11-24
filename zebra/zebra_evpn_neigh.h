@@ -237,6 +237,7 @@ int remote_neigh_count(struct zebra_mac *zmac);
 int zebra_evpn_rem_neigh_install(struct zebra_evpn *zevpn,
 				 struct zebra_neigh *n, bool was_static);
 void zebra_evpn_install_neigh_hash(struct zebra_evpn *zevpn, struct zebra_neigh *n);
+int zebra_evpn_neigh_uninstall(struct zebra_evpn *zevpn, struct zebra_neigh *n);
 int zebra_evpn_neigh_send_add_to_client(vni_t vni, const struct ipaddr *ip,
 					const struct ethaddr *macaddr,
 					struct zebra_mac *zmac,
