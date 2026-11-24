@@ -50,6 +50,8 @@ int main(int argc, char **argv)
 		    test_disconnect_pce);
 	CU_add_test(test_pcc_api_suite, "test_destroy_pcc_after_disconnect",
 		    test_destroy_pcc_after_disconnect);
+	CU_add_test(test_pcc_api_suite, "test_disconnect_pce_unknown_messages_stress",
+		    test_disconnect_pce_unknown_messages_stress);
 	CU_add_test(test_pcc_api_suite, "test_send_message", test_send_message);
 	CU_add_test(test_pcc_api_suite, "test_event_queue", test_event_queue);
 	CU_add_test(test_pcc_api_suite, "test_get_event_type_str",

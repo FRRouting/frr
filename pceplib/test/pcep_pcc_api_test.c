@@ -16,6 +16,7 @@
 #include <assert.h>
 #include <netdb.h> // gethostbyname
 #include <pthread.h>
+#include <stdatomic.h>
 #include <stdlib.h>
 #include <unistd.h>
 
@@ -297,6 +298,107 @@ void test_destroy_pcc_after_disconnect(void)
 	CU_ASSERT_EQUAL(infra->num_allocates - infra_allocs, infra->num_frees - infra_frees);
 	CU_ASSERT_EQUAL(msgs->num_allocates - msg_allocs, msgs->num_frees - msg_frees);
 	destroy_pcep_configuration(config);
+}
+
+
+/* Plays socket comm: an unknown message, then a sent notification, until stopped */
+struct stress_args {
+	pcep_session *session;
+	int rd_fd;
+	int wr_fd;
+	atomic_bool stop;
+};
+
+static void *stress_socket_thread(void *data)
+{
+	struct stress_args *args = data;
+	/* Version 0: no message decodes, each read is an unknown message */
+	const uint8_t garbage[MESSAGE_HEADER_LENGTH] = { 0, 0, 0, 4 };
+
+	while (!atomic_load(&args->stop)) {
+		if (write(args->wr_fd, garbage, sizeof(garbage)) != sizeof(garbage))
+			break;
+		session_logic_msg_ready_handler(args->session, args->rd_fd);
+		session_logic_message_sent_handler(args->session, args->rd_fd);
+	}
+	return NULL;
+}
+
+/* Consumes the API events, returns how many are of this type */
+static int drain_events(enum pcep_event_type type)
+{
+	struct pcep_event *event;
+	int count = 0;
+
+	while ((event = event_queue_get_event()) != NULL) {
+		if (event->event_type == type)
+			count++;
+		destroy_pcep_event(event);
+	}
+	return count;
+}
+
+static int count_sent_messages(mock_socket_comm_info *mock_info, enum pcep_message_types type)
+{
+	int count = 0;
+	uint8_t *encoded_msg;
+
+	while ((encoded_msg = dll_delete_first_node(mock_info->sent_message_list))) {
+		struct pcep_message *msg = pcep_decode_message(encoded_msg);
+
+		if (msg != NULL && msg->msg_header->type == type)
+			count++;
+		pcep_msg_free_message(msg);
+		pceplib_free(PCEPLIB_MESSAGES, encoded_msg);
+	}
+	return count;
+}
+
+/* Unknown messages close the session while pathd disconnects it: exactly
+ * one Close, and the session is destroyed once.
+ */
+void test_disconnect_pce_unknown_messages_stress(void)
+{
+	pcep_configuration *config = create_default_pcep_configuration();
+	struct hostent *host_info = gethostbyname("localhost");
+	struct in_addr dest_address;
+	mock_socket_comm_info *mock_info = get_mock_socket_comm_info();
+
+	memcpy(&dest_address, host_info->h_addr, host_info->h_length);
+	mock_info->send_message_save_message = true;
+	config->max_unknown_messages = 3;
+
+	initialize_pcc();
+
+	for (int round = 0; round < 50; round++) {
+		int fds[2];
+		pthread_t thread;
+		struct stress_args args = { .stop = false };
+
+		CU_ASSERT_EQUAL_FATAL(pipe(fds), 0);
+		pcep_session *session = connect_pce(config, &dest_address);
+
+		session->session_state = SESSION_STATE_PCEP_CONNECTED;
+		args.session = session;
+		args.rd_fd = fds[0];
+		args.wr_fd = fds[1];
+		pthread_create(&thread, NULL, stress_socket_thread, &args);
+
+		usleep(1000 * (round % 5));
+		disconnect_pce(session);
+		CU_ASSERT_TRUE(wait_session_destroyed(session));
+
+		atomic_store(&args.stop, true);
+		pthread_join(thread, NULL);
+		close(fds[0]);
+		close(fds[1]);
+		CU_ASSERT_EQUAL(count_sent_messages(mock_info, PCEP_TYPE_CLOSE), 1);
+		/* none if the disconnect sent the Close first */
+		CU_ASSERT_TRUE(drain_events(PCC_RCVD_MAX_UNKOWN_MSGS) <= 1);
+	}
+
+	destroy_pcep_configuration(config);
+	destroy_pcc();
 }
 
 
