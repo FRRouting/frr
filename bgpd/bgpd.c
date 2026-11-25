@@ -4214,11 +4214,14 @@ peer_init:
 
 	update_bgp_group_init(bgp);
 
+	/* A hidden EVPN owner lost its VNI state during deletion. */
+	if (!bgp->vnihash)
+		bgp_evpn_init(bgp);
+
 	if (!hidden) {
 		/* assign a unique rd id for auto derivation of vrf's RD */
 		bf_assign_index(bm->rd_idspace, bgp->vrf_rd_id);
 
-		bgp_evpn_init(bgp);
 		bgp_evpn_vrf_es_init(bgp);
 		bgp_pbr_init(bgp);
 		bgp_srv6_init(bgp);
