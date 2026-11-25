@@ -30,7 +30,7 @@ DEFINE_MTYPE_STATIC(ZEBRA, PTRACK_ENTRY, "Ptrack prefix entry");
 DEFINE_MTYPE_STATIC(ZEBRA, PTRACK_CLIENT, "Ptrack per-prefix client");
 DEFINE_MTYPE_STATIC(ZEBRA, PTRACK_COOKIE, "Ptrack cookie");
 
-/* Cookies of one client on one prefix, keyed by the cookie (opaque to zebra) */
+/* Cookies per prefix per client */
 PREDECL_RBTREE_UNIQ(ptrack_cookies);
 
 struct ptrack_cookie {
@@ -48,7 +48,7 @@ static int ptrack_cookie_cmp(const struct ptrack_cookie *a,
 DECLARE_RBTREE_UNIQ(ptrack_cookies, struct ptrack_cookie, item,
 		    ptrack_cookie_cmp);
 
-/* Clients subscribed to one prefix, keyed by the client */
+/* Client(s) subscribed per prefix */
 PREDECL_RBTREE_UNIQ(ptrack_clients);
 
 struct ptrack_client {
@@ -66,13 +66,6 @@ static int ptrack_client_cmp(const struct ptrack_client *a,
 
 DECLARE_RBTREE_UNIQ(ptrack_clients, struct ptrack_client, item,
 		    ptrack_client_cmp);
-
-/* Stored in route_node->info of the table of the VRF context */
-struct ptrack_entry {
-	enum zapi_ptrack_state state;
-
-	struct ptrack_clients_head clients;
-};
 
 /* Cookies of a client in a VRF, all its prefixes together, for the limit */
 PREDECL_RBTREE_UNIQ(ptrack_vrf_clients);
@@ -117,12 +110,16 @@ DECLARE_RBTREE_UNIQ(ptrack_registry, struct ptrack_vrf_ctx, item,
 		    ptrack_vrf_ctx_cmp);
 
 static struct ptrack_registry_head ptrack_registry;
-
-/* A message was held back because zebra was still starting up */
 static bool ptrack_held;
-static struct event *t_ptrack_release;
+static struct event *t_ptrack_release_timer;
 
-/* Free a client of a prefix with all its cookies */
+struct ptrack_entry {
+	enum zapi_ptrack_state state;
+
+	struct ptrack_clients_head clients;
+};
+
+
 static void ptrack_client_free(struct ptrack_client *pc)
 {
 	struct ptrack_cookie *pck;
@@ -134,7 +131,6 @@ static void ptrack_client_free(struct ptrack_client *pc)
 	XFREE(MTYPE_PTRACK_CLIENT, pc);
 }
 
-/* Free a prefix entry with all its clients and cookies */
 static void ptrack_entry_free(struct ptrack_entry *entry)
 {
 	struct ptrack_client *pc;
@@ -144,19 +140,6 @@ static void ptrack_entry_free(struct ptrack_entry *entry)
 
 	ptrack_clients_fini(&entry->clients);
 	XFREE(MTYPE_PTRACK_ENTRY, entry);
-}
-
-/*
- * Called when a node of a ptrack table is freed (the context is freed). The
- * per-VRF counters go away with the context, so they are not adjusted here.
- */
-static void ptrack_table_node_cleanup(struct route_table *table,
-				      struct route_node *node)
-{
-	if (node->info) {
-		ptrack_entry_free(node->info);
-		node->info = NULL;
-	}
 }
 
 static void ptrack_ctx_free(struct ptrack_vrf_ctx *ctx)
@@ -179,6 +162,15 @@ static void ptrack_ctx_free(struct ptrack_vrf_ctx *ctx)
 
 	ptrack_vrf_clients_fini(&ctx->vrf_clients);
 	XFREE(MTYPE_PTRACK_VRF_CTX, ctx);
+}
+
+static void ptrack_table_node_cleanup(struct route_table *table,
+				      struct route_node *node)
+{
+	if (node->info) {
+		ptrack_entry_free(node->info);
+		node->info = NULL;
+	}
 }
 
 struct ptrack_vrf_ctx *zebra_ptrack_ctx_lookup(const char *vrf_name)
@@ -222,19 +214,7 @@ struct ptrack_vrf_ctx *zebra_ptrack_ctx_get(const char *vrf_name)
 	return ctx;
 }
 
-bool zebra_ptrack_ctx_free_if_unused(struct ptrack_vrf_ctx *ctx)
-{
-	if (ptrack_vrf_clients_count(&ctx->vrf_clients) > 0)
-		return false;
-
-	ptrack_ctx_free(ctx);
-
-	return true;
-}
-
-/*
- * Number of cookies that are not on the prefix yet. Duplicates ignored
- */
+/* Number of cookies requested (duplicates ignored) */
 static uint32_t ptrack_count_new_cookies(struct ptrack_client *pc,
 					 const uint64_t *cookies, uint16_t count)
 {
@@ -278,6 +258,7 @@ ptrack_vrf_client_find(struct ptrack_vrf_ctx *ctx, struct zserv *client)
 	return ptrack_vrf_clients_find(&ctx->vrf_clients, &lookup);
 }
 
+/* Add client cookies per prefix (check limit) */
 enum zebra_ptrack_result
 zebra_ptrack_add_cookies(struct ptrack_vrf_ctx *ctx, struct zserv *client,
 			 const struct prefix *p, const uint64_t *cookies,
@@ -303,11 +284,11 @@ zebra_ptrack_add_cookies(struct ptrack_vrf_ctx *ctx, struct zserv *client,
 
 	table = ctx->table[afi];
 
-	/* The tables are keyed by the masked prefix */
+	/* Mask Prefix */
 	prefix_copy(&pfx, p);
 	apply_mask(&pfx);
 
-	/* First pass, nothing is changed before the limit is checked */
+	/* Check threshold */
 	rn = route_node_lookup(table, &pfx);
 	pe = rn ? rn->info : NULL;
 	if (pe)
@@ -317,7 +298,6 @@ zebra_ptrack_add_cookies(struct ptrack_vrf_ctx *ctx, struct zserv *client,
 	if (rn)
 		route_unlock_node(rn);
 
-	/* Nothing to add, do not create an entry for it */
 	if (count == 0) {
 		*entry = pe;
 		return ZEBRA_PTRACK_SUCCESS;
@@ -328,7 +308,6 @@ zebra_ptrack_add_cookies(struct ptrack_vrf_ctx *ctx, struct zserv *client,
 	if (total > ZEBRA_PTRACK_DEFAULT_COOKIE_LIMIT)
 		return ZEBRA_PTRACK_LIMIT;
 
-	/* Second pass */
 	rn = route_node_get(table, &pfx);
 	if (!rn->info) {
 		pe = XCALLOC(MTYPE_PTRACK_ENTRY, sizeof(*pe));
@@ -371,6 +350,7 @@ zebra_ptrack_add_cookies(struct ptrack_vrf_ctx *ctx, struct zserv *client,
 	return ZEBRA_PTRACK_SUCCESS;
 }
 
+/* Remove client cookies per prefix */
 void zebra_ptrack_del_cookies(struct ptrack_vrf_ctx *ctx, struct zserv *client,
 			      const struct prefix *p, const uint64_t *cookies,
 			      uint16_t count)
@@ -389,6 +369,7 @@ void zebra_ptrack_del_cookies(struct ptrack_vrf_ctx *ctx, struct zserv *client,
 	if (afi != AFI_IP && afi != AFI_IP6)
 		return;
 
+	/* Mask Prefix */
 	prefix_copy(&pfx, p);
 	apply_mask(&pfx);
 
@@ -436,6 +417,7 @@ void zebra_ptrack_del_cookies(struct ptrack_vrf_ctx *ctx, struct zserv *client,
 	route_unlock_node(rn);
 }
 
+/* Check entry of the prefix (masked) */
 struct ptrack_entry *zebra_ptrack_entry_lookup(struct ptrack_vrf_ctx *ctx,
 					       const struct prefix *p)
 {
@@ -460,7 +442,7 @@ struct ptrack_entry *zebra_ptrack_entry_lookup(struct ptrack_vrf_ctx *ctx,
 	return rn->info;
 }
 
-enum zapi_ptrack_state zebra_ptrack_entry_state(const struct ptrack_entry *entry)
+enum zapi_ptrack_state zebra_ptrack_entry_get_state(const struct ptrack_entry *entry)
 {
 	return entry->state;
 }
@@ -479,11 +461,7 @@ uint32_t zebra_ptrack_client_cookie_count(struct ptrack_vrf_ctx *ctx,
 	return pvc ? pvc->cookie_count : 0;
 }
 
-/*
- * The prefix is REACHABLE if the VRF is active and the exact prefix has at
- * least one route entry in the default table of the VRF that is not being
- * removed. Route type, nexthops, selection and FIB installation are ignored.
- */
+/* REACHABLE if VRF is enabled or the exact prefix has a non-removed route */
 static enum zapi_ptrack_state ptrack_prefix_state(struct zebra_vrf *zvrf,
 						  const struct prefix *p)
 {
@@ -515,14 +493,7 @@ static enum zapi_ptrack_state ptrack_prefix_state(struct zebra_vrf *zvrf,
 	return state;
 }
 
-/*
- * Send one UPDATE message to a client, every message goes through here.
- *
- * Returns false if it was not sent: nothing is sent until zebra finished its
- * startup, the entries are still stored and updated meanwhile and everything
- * is sent once, see zebra_ptrack_rib_sweep(). It also returns false if
- * the message can't be encoded.
- */
+/* Send state update to client */
 static bool ptrack_send_msg(struct zserv *client, const struct zapi_ptrack *api)
 {
 	struct stream *s;
@@ -544,11 +515,7 @@ static bool ptrack_send_msg(struct zserv *client, const struct zapi_ptrack *api)
 	return true;
 }
 
-/*
- * Send the state of a prefix to a client for the given cookies. The cookies
- * are split in several messages, with the same prefix and state, if they do
- * not fit in one ZAPI message.
- */
+/* Send prefix state, split into multiple messages if required */
 static void ptrack_send_update(struct zserv *client, const char *vrf_name,
 			       const struct prefix *p,
 			       enum zapi_ptrack_state state,
@@ -575,11 +542,7 @@ static void ptrack_send_update(struct zserv *client, const char *vrf_name,
 	}
 }
 
-/*
- * Send the state of a prefix to a client for all the cookies the client has
- * on it, split like ptrack_send_update(). The cookies are copied from the
- * tree straight into the message, there is no temporary array.
- */
+/* Send prefix state to client for cookies on prefix */
 static void ptrack_notify_client(struct ptrack_client *pc,
 				 const char *vrf_name, const struct prefix *p,
 				 enum zapi_ptrack_state state)
@@ -608,7 +571,7 @@ static void ptrack_notify_client(struct ptrack_client *pc,
 }
 
 /*
- * Sync ptrack context with the zebra_vrf.
+ * Sync ptrack context with the zebra_vrf
  */
 static void ptrack_zvrf_sync(struct zebra_vrf *zvrf, struct ptrack_vrf_ctx *ctx)
 {
@@ -621,10 +584,16 @@ static void ptrack_zvrf_sync(struct zebra_vrf *zvrf, struct ptrack_vrf_ctx *ctx)
 		zvrf->ptrack = NULL;
 }
 
-/*
- * Free the context if it has no subscription left. The pointer of the
- * zebra_vrf is cleared first, it must not point to a freed context.
- */
+bool zebra_ptrack_ctx_free_if_unused(struct ptrack_vrf_ctx *ctx)
+{
+	if (ptrack_vrf_clients_count(&ctx->vrf_clients) > 0)
+		return false;
+
+	ptrack_ctx_free(ctx);
+
+	return true;
+}
+
 static void ptrack_ctx_put(struct zebra_vrf *zvrf, struct ptrack_vrf_ctx *ctx)
 {
 	if (zvrf && zvrf->ptrack == ctx)
@@ -634,6 +603,7 @@ static void ptrack_ctx_put(struct zebra_vrf *zvrf, struct ptrack_vrf_ctx *ctx)
 		ptrack_zvrf_sync(zvrf, ctx);
 }
 
+/* Add client cookies for prefix */
 void zebra_ptrack_register(struct zserv *client, const struct zapi_ptrack *api)
 {
 	struct zebra_vrf *zvrf;
@@ -642,7 +612,6 @@ void zebra_ptrack_register(struct zserv *client, const struct zapi_ptrack *api)
 	struct prefix p;
 	enum zapi_ptrack_state state;
 
-	/* The ptrack request never creates a VRF */
 	zvrf = zebra_vrf_lookup_by_name(api->vrf_name);
 	ctx = zebra_ptrack_ctx_get(api->vrf_name);
 
@@ -679,14 +648,10 @@ void zebra_ptrack_register(struct zserv *client, const struct zapi_ptrack *api)
 
 	ptrack_zvrf_sync(zvrf, ctx);
 
-	/*
-	 * No initial UPDATE until the zebra_vrf exists: UNREACHABLE in the
-	 * protocol means the VRF was evaluated, not merely absent at register.
-	 */
+	/* No update if vrf is not present */
 	if (!zvrf)
 		return;
 
-	/* The state is sent with the masked prefix, like the entry is keyed */
 	prefix_copy(&p, &api->prefix);
 	apply_mask(&p);
 
@@ -697,6 +662,7 @@ void zebra_ptrack_register(struct zserv *client, const struct zapi_ptrack *api)
 			   api->cookie_count);
 }
 
+/* Remove client cookies for prefix */
 void zebra_ptrack_unregister(struct zserv *client,
 			     const struct zapi_ptrack *api)
 {
@@ -713,13 +679,11 @@ void zebra_ptrack_unregister(struct zserv *client,
 	zebra_ptrack_del_cookies(ctx, client, &api->prefix, api->cookies,
 				 api->cookie_count);
 
-	/* The VRF may be gone, then there is no pointer to clear */
 	ptrack_ctx_put(zebra_vrf_lookup_by_name(api->vrf_name), ctx);
 }
 
 /*
- * Store a new state of a prefix and notify its clients if it flipped, there
- * is no message if the state is the same.
+ * Update prefix reachability, notify subscribed client(s)
  */
 static void ptrack_entry_update(struct ptrack_vrf_ctx *ctx,
 				struct ptrack_entry *entry,
@@ -737,20 +701,17 @@ static void ptrack_entry_update(struct ptrack_vrf_ctx *ctx,
 		ptrack_notify_client(pc, ctx->vrf_name, p, state);
 }
 
+/* Evaluate the tracked prefix state */
 void zebra_ptrack_evaluate(struct zebra_vrf *zvrf, struct route_node *rn)
 {
 	struct ptrack_vrf_ctx *ctx = zvrf->ptrack;
 	struct ptrack_entry *entry;
 	afi_t afi;
 
-	/* Nothing is tracked in this VRF, the common case */
 	if (!ctx)
 		return;
 
-	/*
-	 * Only the unicast table of the VRF is tracked. A node of another
-	 * table, or a source node of an IPv6 srcdest table, is not.
-	 */
+	/* Only nodes of the VRF unicast table are tracked, not srcdest nodes */
 	afi = family2afi(rn->p.family);
 	if ((afi != AFI_IP && afi != AFI_IP6) ||
 	    rn->table != zvrf->table[afi][SAFI_UNICAST])
@@ -764,10 +725,7 @@ void zebra_ptrack_evaluate(struct zebra_vrf *zvrf, struct route_node *rn)
 			    ptrack_prefix_state(zvrf, &rn->p));
 }
 
-/*
- * Set the state of every tracked prefix of a context to the given state, or,
- * if recompute is set, to the state the RIB gives now. Flips are notified.
- */
+/* Update state for all tracked prefixes */
 static void ptrack_ctx_update_all(struct zebra_vrf *zvrf,
 				  struct ptrack_vrf_ctx *ctx, bool recompute)
 {
@@ -791,36 +749,30 @@ static void ptrack_ctx_update_all(struct zebra_vrf *zvrf,
 	}
 }
 
+/* Handle vrf enable */
 void zebra_ptrack_vrf_enable(struct zebra_vrf *zvrf)
 {
 	struct ptrack_vrf_ctx *ctx;
 
-	/* The ctx outlives the zebra_vrf, find it again by the VRF name */
 	ctx = zebra_ptrack_ctx_lookup(zvrf_name(zvrf));
 	ptrack_zvrf_sync(zvrf, ctx);
 
 	if (!ctx || ptrack_vrf_clients_count(&ctx->vrf_clients) == 0)
 		return;
 
-	/* Retained routes produce no RIB event, so look at all the prefixes */
 	ptrack_ctx_update_all(zvrf, ctx, true);
 }
 
+/* Handle vrf disable */
 void zebra_ptrack_vrf_disable(struct zebra_vrf *zvrf)
 {
 	if (!zvrf->ptrack)
 		return;
 
-	/* Whatever routes are retained, a prefix of a down VRF is UNREACHABLE */
 	ptrack_ctx_update_all(zvrf, zvrf->ptrack, false);
 }
 
-/*
- * Send the current state of every tracked prefix to all its clients and
- * cookies. Everything that was subscribed or flipped while the messages were
- * held is pending, there is no flag per cookie. The state is taken from the
- * RIB again, the sweep just marked the stale routes as removed.
- */
+/* Send the RIB state for all prefixes, once context released */
 static void ptrack_release_held(struct event *event)
 {
 	struct ptrack_vrf_ctx *ctx;
@@ -833,7 +785,6 @@ static void ptrack_release_held(struct event *event)
 	ptrack_held = false;
 
 	frr_each (ptrack_registry, &ptrack_registry, ctx) {
-		/* The VRF may be gone, its prefixes are UNREACHABLE then */
 		zvrf = zebra_vrf_lookup_by_name(ctx->vrf_name);
 
 		for (afi = AFI_IP; afi <= AFI_IP6; afi++) {
@@ -857,16 +808,15 @@ static void ptrack_release_held(struct event *event)
 
 void zebra_ptrack_rib_sweep(void)
 {
-	/* Nothing was held, always the case after a graceful restart */
+	/* Nothing was held (after GR) */
 	if (!ptrack_held)
 		return;
 
-	/* An event keeps the sweep short, the messages can be many */
 	event_add_event(zrouter.master, ptrack_release_held, NULL, 0,
-			&t_ptrack_release);
+			&t_ptrack_release_timer);
 }
 
-/* Remove a client from all the prefixes of a context */
+/* Remove a client from all prefixes */
 static void ptrack_ctx_del_client(struct ptrack_vrf_ctx *ctx,
 				  struct zserv *client)
 {
@@ -909,7 +859,7 @@ static void ptrack_ctx_del_client(struct ptrack_vrf_ctx *ctx,
 	XFREE(MTYPE_PTRACK_VRF_CLIENT, pvc);
 }
 
-/* A client is closing, drop all its subscriptions in all the VRFs */
+/* Drop subscriptions of closing client in all VRFs */
 static int ptrack_client_cleanup(struct zserv *client)
 {
 	struct ptrack_vrf_ctx *ctx;
@@ -917,13 +867,13 @@ static int ptrack_client_cleanup(struct zserv *client)
 	frr_each_safe (ptrack_registry, &ptrack_registry, ctx) {
 		ptrack_ctx_del_client(ctx, client);
 
-		/* The VRF may be gone, then there is no pointer to clear */
 		ptrack_ctx_put(zebra_vrf_lookup_by_name(ctx->vrf_name), ctx);
 	}
 
 	return 0;
 }
 
+/* Initialze ptrack */
 void zebra_ptrack_init(void)
 {
 	ptrack_registry_init(&ptrack_registry);
@@ -931,11 +881,12 @@ void zebra_ptrack_init(void)
 	hook_register(zserv_client_close, ptrack_client_cleanup);
 }
 
+/* Remove ptrack data on zebra shutdown */
 void zebra_ptrack_terminate(void)
 {
 	struct ptrack_vrf_ctx *ctx;
 
-	event_cancel(&t_ptrack_release);
+	event_cancel(&t_ptrack_release_timer);
 
 	while ((ctx = ptrack_registry_first(&ptrack_registry)))
 		ptrack_ctx_free(ctx);

@@ -245,7 +245,7 @@ static int ent_state(const char *vrf, const char *p)
 	if (!e)
 		return -1;
 
-	return zebra_ptrack_entry_state(e);
+	return zebra_ptrack_entry_get_state(e);
 }
 
 /* Routes: a real dest with real route entries on the unicast table of a VRF */
@@ -567,11 +567,11 @@ static void test_core(void)
 	CHECK(zebra_ptrack_add_cookies(ctx, &cl_a, &p4, c12, 2, &e) ==
 	      ZEBRA_PTRACK_SUCCESS);
 	CHECK(e != NULL);
-	CHECK(zebra_ptrack_entry_state(e) == ZAPI_PTRACK_UNREACHABLE);
+	CHECK(zebra_ptrack_entry_get_state(e) == ZAPI_PTRACK_UNREACHABLE);
 	CHECK(zebra_ptrack_client_cookie_count(ctx, &cl_a) == 2);
 	CHECK(zebra_ptrack_client_cookie_count(ctx, &cl_b) == 0);
 	zebra_ptrack_entry_set_state(e, ZAPI_PTRACK_REACHABLE);
-	CHECK(zebra_ptrack_entry_state(e) == ZAPI_PTRACK_REACHABLE);
+	CHECK(zebra_ptrack_entry_get_state(e) == ZAPI_PTRACK_REACHABLE);
 	case_end();
 
 	case_begin(7, "core masks the prefix");

@@ -51,7 +51,7 @@ extern struct ptrack_entry *zebra_ptrack_entry_lookup(struct ptrack_vrf_ctx *ctx
 						      const struct prefix *p);
 
 extern enum zapi_ptrack_state
-zebra_ptrack_entry_state(const struct ptrack_entry *entry);
+zebra_ptrack_entry_get_state(const struct ptrack_entry *entry);
 extern void zebra_ptrack_entry_set_state(struct ptrack_entry *entry,
 					 enum zapi_ptrack_state state);
 extern uint32_t zebra_ptrack_client_cookie_count(struct ptrack_vrf_ctx *ctx,
