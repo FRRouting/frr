@@ -1618,7 +1618,7 @@ static void rib_process(struct route_node *rn)
 	rib_gc_dest(rn);
 
 	/*
-	 * Evaluate the ptrack state for the prefix
+	 * Evaluate ptrack state
 	 */
 	zebra_ptrack_evaluate(zvrf, rn);
 }
@@ -5065,20 +5065,17 @@ void rib_sweep_table(struct route_table *table)
 }
 
 /*
- * Whether the RIB can be trusted to tell what is reachable after zebra
- * (re)started, for the clients that ask about prefixes.
+ * RIB startup status
  */
 bool zebra_rib_startup_done(void)
 {
-	/* FINISHED_STARTUP was not processed yet */
 	if (!zrouter.startup_time)
 		return false;
 
-	/* Stale routes are retained, so the state is already accurate */
 	if (zrouter.graceful_restart)
 		return true;
 
-	/* Not graceful, wait until the stale routes were swept */
+	/* Non GR, wait until stale routes sweep */
 	return zrouter.rib_sweep_time != 0;
 }
 
