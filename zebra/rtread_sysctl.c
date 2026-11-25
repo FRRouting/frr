@@ -76,6 +76,11 @@ void kernel_read_macfdb(struct zebra_dplane_ctx *ctx)
 {
 }
 
+int kernel_fdb_filter_set(struct zebra_ns *zns, const ifindex_t *ports, int nports)
+{
+	return 0;
+}
+
 void kernel_read_neigh(struct zebra_dplane_ctx *ctx)
 {
 }

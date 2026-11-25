@@ -6286,6 +6286,168 @@ stream_failure:
 	return;
 }
 
+/*
+ * Kernel bridge fdb event filter.
+ *
+ * zebra_neigh_macfdb_update() uses a bridge fdb event only while EVPN is
+ * enabled and only from a port of a bridge that also has a VXLAN port.
+ * The kernel layer drops the events of all other ports before they reach
+ * zebra (kernel_fdb_filter_set()).  The port set is recomputed after
+ * interface changes and EVPN enable/disable; when it grows, the fdb of
+ * the bridges with new ports is read again, so that a MAC learned before
+ * the new filter was in place is not missed.
+ */
+struct fdb_filter_walk {
+	ifindex_t bridges[ZEBRA_FDB_FILTER_MAX_PORTS];
+	int nbridges;
+	ifindex_t ports[ZEBRA_FDB_FILTER_MAX_PORTS];
+	ifindex_t port_bridge[ZEBRA_FDB_FILTER_MAX_PORTS];
+	int nports;
+	bool overflow;
+};
+
+static struct event *t_fdb_filter;
+
+static bool fdb_filter_has(const ifindex_t *set, int n, ifindex_t ifindex)
+{
+	int i;
+
+	for (i = 0; i < n; i++)
+		if (set[i] == ifindex)
+			return true;
+	return false;
+}
+
+/* Bridges with a VXLAN port */
+static int fdb_filter_bridge_walk(struct interface *ifp, void *arg)
+{
+	struct fdb_filter_walk *w = arg;
+	struct zebra_if *zif = ifp->info;
+	ifindex_t br;
+
+	if (!zif || zif->zif_type != ZEBRA_IF_VXLAN || zif->zif_slave_type != ZEBRA_IF_SLAVE_BRIDGE)
+		return NS_WALK_CONTINUE;
+
+	br = zif->brslave_info.bridge_ifindex;
+	if (br == IFINDEX_INTERNAL || fdb_filter_has(w->bridges, w->nbridges, br))
+		return NS_WALK_CONTINUE;
+
+	if (w->nbridges == ZEBRA_FDB_FILTER_MAX_PORTS) {
+		w->overflow = true;
+		return NS_WALK_STOP;
+	}
+	w->bridges[w->nbridges++] = br;
+	return NS_WALK_CONTINUE;
+}
+
+/* All ports of these bridges, VXLAN ports included */
+static int fdb_filter_port_walk(struct interface *ifp, void *arg)
+{
+	struct fdb_filter_walk *w = arg;
+	struct zebra_if *zif = ifp->info;
+	ifindex_t br;
+
+	if (!zif || zif->zif_slave_type != ZEBRA_IF_SLAVE_BRIDGE ||
+	    ifp->ifindex == IFINDEX_INTERNAL)
+		return NS_WALK_CONTINUE;
+
+	br = zif->brslave_info.bridge_ifindex;
+	if (!fdb_filter_has(w->bridges, w->nbridges, br))
+		return NS_WALK_CONTINUE;
+
+	if (w->nports == ZEBRA_FDB_FILTER_MAX_PORTS) {
+		w->overflow = true;
+		return NS_WALK_STOP;
+	}
+	w->ports[w->nports] = ifp->ifindex;
+	w->port_bridge[w->nports] = br;
+	w->nports++;
+	return NS_WALK_CONTINUE;
+}
+
+static void zebra_vxlan_fdb_filter_ns(struct zebra_ns *zns, bool resync)
+{
+	struct fdb_filter_walk *w;
+	ifindex_t read[ZEBRA_FDB_FILTER_MAX_PORTS];
+	struct interface *br_ifp;
+	int nports, nread = 0, i;
+	bool grew;
+
+	w = XCALLOC(MTYPE_TMP, sizeof(*w));
+	if (is_evpn_enabled()) {
+		zebra_ns_ifp_walk(zns, fdb_filter_bridge_walk, w);
+		if (!w->overflow)
+			zebra_ns_ifp_walk(zns, fdb_filter_port_walk, w);
+	}
+	nports = w->overflow ? -1 : w->nports;
+
+	if (nports == zns->fdb_filter_nports &&
+	    (nports <= 0 || !memcmp(w->ports, zns->fdb_filter_ports, nports * sizeof(w->ports[0]))))
+		goto done;
+
+	if (kernel_fdb_filter_set(zns, w->ports, nports) < 0)
+		goto done; /* the old filter stays; retried on the next change */
+
+	if (IS_ZEBRA_DEBUG_VXLAN || IS_ZEBRA_DEBUG_KERNEL)
+		zlog_debug("NS %u: bridge fdb events from %s%d ports (%d bridges with VXLAN)",
+			   zns->ns_id, nports < 0 ? "all, more than " : "",
+			   nports < 0 ? ZEBRA_FDB_FILTER_MAX_PORTS : nports, w->nbridges);
+
+	/* Ports new to the filter: read their bridges' fdb again */
+	grew = zns->fdb_filter_nports >= 0;
+	if (resync && grew && nports < 0) {
+		dplane_fdb_read(zns);
+	} else if (resync && grew) {
+		for (i = 0; i < nports; i++) {
+			if (fdb_filter_has(zns->fdb_filter_ports, zns->fdb_filter_nports,
+					   w->ports[i]) ||
+			    fdb_filter_has(read, nread, w->port_bridge[i]))
+				continue;
+			read[nread++] = w->port_bridge[i];
+			br_ifp = zebra_ns_lookup_ifp(zns, w->port_bridge[i]);
+			if (br_ifp && br_ifp->info) {
+				if (IS_ZEBRA_DEBUG_VXLAN)
+					zlog_debug("Reading MAC FDB of bridge %s(%u) for the fdb filter",
+						   br_ifp->name, br_ifp->ifindex);
+				dplane_fdb_read_for_bridge(zns, br_ifp, br_ifp, 0);
+			}
+		}
+	}
+
+	zns->fdb_filter_nports = nports;
+	if (nports > 0)
+		memcpy(zns->fdb_filter_ports, w->ports, nports * sizeof(w->ports[0]));
+done:
+	XFREE(MTYPE_TMP, w);
+}
+
+static int zebra_vxlan_fdb_filter_ns_walk(struct ns *ns, void *_in_param, void **out_param)
+{
+	bool *resync = _in_param;
+
+	if (ns->info)
+		zebra_vxlan_fdb_filter_ns(ns->info, *resync);
+	return NS_WALK_CONTINUE;
+}
+
+/* Recompute the fdb filter of every NS now */
+static void zebra_vxlan_fdb_filter_refresh(bool resync)
+{
+	event_cancel(&t_fdb_filter);
+	ns_walk_func(zebra_vxlan_fdb_filter_ns_walk, &resync, NULL);
+}
+
+static void zebra_vxlan_fdb_filter_event(struct event *event)
+{
+	zebra_vxlan_fdb_filter_refresh(true);
+}
+
+/* Recompute the fdb filter after the current batch of interface changes */
+void zebra_vxlan_fdb_filter_schedule(void)
+{
+	event_add_event(zrouter.master, zebra_vxlan_fdb_filter_event, NULL, 0, &t_fdb_filter);
+}
+
 static int macfdb_read_ns(struct ns *ns,
 			  void *_in_param __attribute__((unused)),
 			  void **out_param __attribute__((unused)))
@@ -6343,6 +6505,13 @@ void zebra_vxlan_advertise_all_vni(ZAPI_HANDLER_ARGS)
 	if (EVPN_ENABLED(zvrf)) {
 		zrouter.evpn_vrf = zvrf;
 
+		/*
+		 * Open the fdb event filter before the MAC FDB read below, so
+		 * that no fdb event after it is dropped; that read covers the
+		 * time before.  is_evpn_enabled() needs zrouter.evpn_vrf.
+		 */
+		zebra_vxlan_fdb_filter_refresh(false);
+
 		/* Note BUM handling */
 		zvrf->vxlan_flood_ctrl = flood_ctrl;
 
@@ -6376,6 +6545,9 @@ void zebra_vxlan_advertise_all_vni(ZAPI_HANDLER_ARGS)
 
 		/* Mark as "no EVPN VRF" */
 		zrouter.evpn_vrf = NULL;
+
+		/* No fdb event is needed any more */
+		zebra_vxlan_fdb_filter_refresh(false);
 	}
 
 stream_failure:
@@ -6444,6 +6616,8 @@ void zebra_vxlan_init(void)
 void zebra_vxlan_terminate(void)
 {
 	struct zebra_neigh *n;
+
+	event_cancel(&t_fdb_filter);
 
 	while ((n = zebra_neigh_db_pop(svd_nh_table)))
 		svd_nh_del_terminate(n);
@@ -6814,6 +6988,7 @@ static void zebra_evpn_vrf_cfg_cleanup(struct zebra_vrf *zvrf, bool stale_cleanu
 		zvrf->advertise_gw_macip = 0;
 		zvrf->advertise_svi_macip = 0;
 		zvrf->vxlan_flood_ctrl = VXLAN_FLOOD_HEAD_END_REPL;
+		zebra_vxlan_fdb_filter_schedule();
 	}
 
 	wctx.gr_stale_cleanup = stale_cleanup;

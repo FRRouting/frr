@@ -89,6 +89,12 @@ extern void interface_list_second(struct zebra_ns *zns);
 extern void kernel_init(struct zebra_ns *zns);
 extern void kernel_terminate(struct zebra_ns *zns, bool complete);
 extern void kernel_read_macfdb(struct zebra_dplane_ctx *ctx);
+/*
+ * Pass only the bridge fdb (AF_BRIDGE neighbor) events of these ports up
+ * from the kernel (nports >= 0), or all of them (nports < 0).
+ * Returns 0 or -1 if the filter was not changed.
+ */
+extern int kernel_fdb_filter_set(struct zebra_ns *zns, const ifindex_t *ports, int nports);
 extern void kernel_read_neigh(struct zebra_dplane_ctx *ctx);
 extern void kernel_read_tc_qdisc(struct zebra_dplane_ctx *ctx);
 extern void kernel_read_intf_speed(struct zebra_dplane_ctx *ctx);
