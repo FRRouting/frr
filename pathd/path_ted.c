@@ -202,6 +202,38 @@ uint32_t path_ted_rcvd_message(struct ls_message *msg)
 	return 0;
 }
 
+/* V-Flag of the Adj-SID: RFC 8665 section 6.1, RFC 8667 section 2.2.1 */
+#define PATH_TED_OSPF_ADJ_SID_VFLG 0x40
+#define PATH_TED_ISIS_ADJ_SID_VFLG 0x20
+
+/* Primary Adj-SID of an edge, if it is a label: an index is not supported */
+static uint32_t path_ted_adj_sid_label(struct ls_attributes *attr, int idx)
+{
+	uint8_t vflag = 0;
+
+	switch (attr->adv.origin) {
+	case ISIS_L1:
+	case ISIS_L2:
+		vflag = PATH_TED_ISIS_ADJ_SID_VFLG;
+		break;
+	case OSPFv2:
+		vflag = PATH_TED_OSPF_ADJ_SID_VFLG;
+		break;
+	case UNKNOWN:
+	case DIRECT:
+	case STATIC:
+		return attr->adj_sid[idx].sid;
+	}
+
+	if (!CHECK_FLAG(attr->adj_sid[idx].flags, vflag)) {
+		PATH_TED_DEBUG("%s: PATHD-TED: Adj-SID index %u not supported", __func__,
+			       attr->adj_sid[idx].sid);
+		return MPLS_LABEL_NONE;
+	}
+
+	return attr->adj_sid[idx].sid;
+}
+
 uint32_t path_ted_query_type_f(struct ipaddr *local, struct ipaddr *remote)
 {
 	uint32_t sid = MPLS_LABEL_NONE;
@@ -226,8 +258,7 @@ uint32_t path_ted_query_type_f(struct ipaddr *local, struct ipaddr *remote)
 				    == remote->ip._v4_addr.s_addr
 			    && CHECK_FLAG(edge->attributes->flags,
 					  LS_ATTR_ADJ_SID)) {
-				sid = edge->attributes->adj_sid[0]
-					      .sid; /* from primary */
+				sid = path_ted_adj_sid_label(edge->attributes, ADJ_PRI_IPV4);
 				break;
 			}
 		}
@@ -242,8 +273,7 @@ uint32_t path_ted_query_type_f(struct ipaddr *local, struct ipaddr *remote)
 					 sizeof(remote->ip._v6_addr)) &&
 			     CHECK_FLAG(edge->attributes->flags,
 					LS_ATTR_ADJ_SID6))) {
-				sid = edge->attributes->adj_sid[ADJ_PRI_IPV6]
-					      .sid; /* from primary */
+				sid = path_ted_adj_sid_label(edge->attributes, ADJ_PRI_IPV6);
 				break;
 			}
 		}
