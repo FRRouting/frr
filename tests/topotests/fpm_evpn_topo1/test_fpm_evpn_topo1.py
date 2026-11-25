@@ -88,6 +88,7 @@ sys.path.append(os.path.join(CWD, "../"))
 
 # pylint: disable=C0413
 from lib import topotest
+from lib.evpn import vxlan_dynamic_nh_fdb_skip_reason
 from lib.topogen import Topogen, TopoRouter, get_topogen
 from lib.topolog import logger
 
@@ -1668,6 +1669,9 @@ def test_fpm_evpn_mh_es():
         pytest.skip(
             'EVPN-MH FDB next hops need kernel 5.8 or newer (have "{}")'.format(krel)
         )
+    skip = vxlan_dynamic_nh_fdb_skip_reason()
+    if skip:
+        pytest.skip(skip)
 
     r1 = tgen.gears["r1"]
     _wait_bgp_evpn(r1)
