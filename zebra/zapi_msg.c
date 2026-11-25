@@ -1416,9 +1416,7 @@ stream_failure:
 	return;
 }
 
-/*
- * Ptrack register
- */
+/* Ptrack register */
 static void zread_ptrack_register(ZAPI_HANDLER_ARGS)
 {
 	struct zapi_ptrack api;
@@ -1432,9 +1430,7 @@ static void zread_ptrack_register(ZAPI_HANDLER_ARGS)
 	zebra_ptrack_register(client, &api);
 }
 
-/*
- * Ptrack unregister
- */
+/* Ptrack unregister */
 static void zread_ptrack_unregister(ZAPI_HANDLER_ARGS)
 {
 	struct zapi_ptrack api;
