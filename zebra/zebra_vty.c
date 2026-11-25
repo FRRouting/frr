@@ -3808,6 +3808,62 @@ DEFPY_HIDDEN (no_evpn_accept_bgp_seq,
 	return CMD_SUCCESS;
 }
 
+DEFPY (zebra_stale_route_sweep,
+       zebra_stale_route_sweep_cmd,
+       "zebra stale-route sweep [vrf <NAME$vrf_name|all$vrf_all>] [<ipv4|ipv6>$afi_str] [json$json]",
+       ZEBRA_STR
+       "Routes from a previous zebra run, read back from the kernel\n"
+       "Remove them now instead of waiting for the startup sweep\n"
+       VRF_FULL_CMD_HELP_STR
+       "IPv4 unicast routes\n"
+       "IPv6 unicast routes\n"
+       JSON_STR)
+{
+	struct vrf *vrf = NULL;
+	afi_t afi = AFI_UNSPEC;
+	bool full = !vrf_name && !vrf_all && !afi_str;
+	struct rib_stale_sweep_count count;
+
+	/*
+	 * Routes read from the kernel at startup reach the tables through the
+	 * rib work queue; sweeping before it drains would miss them.
+	 */
+	if (zrouter.mq->size) {
+		vty_out(vty, "%% %u route update(s) still queued, try again later\n",
+			zrouter.mq->size);
+		return CMD_WARNING;
+	}
+
+	if (vrf_name && !vrf_all) {
+		vrf = vrf_lookup_by_name(vrf_name);
+		if (!vrf || !vrf->info) {
+			vty_out(vty, "%% VRF %s not found\n", vrf_name);
+			return CMD_WARNING;
+		}
+	}
+
+	if (afi_str)
+		afi = strmatch(afi_str, "ipv4") ? AFI_IP : AFI_IP6;
+
+	rib_sweep_stale_routes(vrf, afi, full, &count);
+
+	if (json) {
+		json_object *jo = json_object_new_object();
+
+		json_object_int_add(jo, "staleRoutesSwept", count.routes);
+		json_object_int_add(jo, "nexthopGroupsSwept", count.nhgs);
+		vty_json(vty, jo);
+		return CMD_SUCCESS;
+	}
+
+	vty_out(vty, "Swept %lu stale route(s)", count.routes);
+	if (full)
+		vty_out(vty, " and %lu nexthop group(s)", count.nhgs);
+	vty_out(vty, "\n");
+
+	return CMD_SUCCESS;
+}
+
 /* Static ip route configuration write function. */
 static int zebra_ip_config(struct vty *vty)
 {
@@ -4404,6 +4460,7 @@ void zebra_vty_init(void)
 	install_element(VIEW_NODE, &show_evpn_neigh_vni_dad_cmd);
 	install_element(VIEW_NODE, &show_evpn_neigh_vni_all_dad_cmd);
 	install_element(ENABLE_NODE, &clear_evpn_dup_addr_cmd);
+	install_element(ENABLE_NODE, &zebra_stale_route_sweep_cmd);
 	install_element(CONFIG_NODE, &evpn_accept_bgp_seq_cmd);
 	install_element(CONFIG_NODE, &no_evpn_accept_bgp_seq_cmd);
 
