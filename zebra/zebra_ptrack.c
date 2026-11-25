@@ -117,7 +117,6 @@ DECLARE_RBTREE_UNIQ(ptrack_registry, struct ptrack_vrf_ctx, item,
 		    ptrack_vrf_ctx_cmp);
 
 static struct ptrack_registry_head ptrack_registry;
-static uint32_t ptrack_cookie_limit = ZEBRA_PTRACK_DEFAULT_COOKIE_LIMIT;
 
 /* A message was held back because zebra was still starting up */
 static bool ptrack_held;
@@ -326,7 +325,7 @@ zebra_ptrack_add_cookies(struct ptrack_vrf_ctx *ctx, struct zserv *client,
 
 	pvc = ptrack_vrf_client_find(ctx, client);
 	total += pvc ? pvc->cookie_count : 0;
-	if (total > ptrack_cookie_limit)
+	if (total > ZEBRA_PTRACK_DEFAULT_COOKIE_LIMIT)
 		return ZEBRA_PTRACK_LIMIT;
 
 	/* Second pass */
@@ -660,7 +659,7 @@ void zebra_ptrack_register(struct zserv *client, const struct zapi_ptrack *api)
 	case ZEBRA_PTRACK_LIMIT:
 		zlog_warn("%s: client %s: %u cookies would exceed the limit of %u in VRF %s, dropping the request",
 			  __func__, zebra_route_string(client->proto),
-			  api->cookie_count, ptrack_cookie_limit,
+			  api->cookie_count, ZEBRA_PTRACK_DEFAULT_COOKIE_LIMIT,
 			  api->vrf_name);
 		ptrack_ctx_put(zvrf, ctx);
 		return;
