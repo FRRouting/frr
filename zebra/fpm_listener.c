@@ -87,7 +87,14 @@ struct fpm_nhg {
 	uint8_t protocol;     /* Routing protocol that installed nhg */
 	uint8_t scope;	      /* Scope */
 	bool is_blackhole;    /* Is this a blackhole nexthop? */
+	bool is_fdb;	      /* Is this an FDB (EVPN-MH) nexthop or group? */
 	uint8_t num_nexthops; /* Number of nexthops in the group */
+	/* Gateway of a single nexthop (AF_UNSPEC when none) */
+	uint8_t gateway_family;
+	union {
+		struct in_addr v4;
+		struct in6_addr v6;
+	} gateway;
 	/* Resolving info, for recursive nexthops */
 	uint32_t resolved_nhg;	    /* resolving NHG ID */
 	struct prefix resolved_pfx; /* resolving prefix */
@@ -1138,7 +1145,21 @@ static void handle_nexthop_update(struct nlmsghdr *hdr, struct nhmsg *nhmsg, str
 	nhg->protocol = nhmsg->nh_protocol;
 	nhg->scope = nhmsg->nh_scope;
 	nhg->is_blackhole = tb[NHA_BLACKHOLE] ? true : false;
+	nhg->is_fdb = tb[NHA_FDB] ? true : false;
 	nhg->num_nexthops = nhg_count;
+
+	nhg->gateway_family = AF_UNSPEC;
+	memset(&nhg->gateway, 0, sizeof(nhg->gateway));
+	if (tb[NHA_GATEWAY]) {
+		if (RTA_PAYLOAD(tb[NHA_GATEWAY]) == sizeof(struct in_addr))
+			nhg->gateway_family = AF_INET;
+		else if (RTA_PAYLOAD(tb[NHA_GATEWAY]) == sizeof(struct in6_addr))
+			nhg->gateway_family = AF_INET6;
+
+		if (nhg->gateway_family != AF_UNSPEC)
+			memcpy(&nhg->gateway, RTA_DATA(tb[NHA_GATEWAY]),
+			       RTA_PAYLOAD(tb[NHA_GATEWAY]));
+	}
 
 	/* Update recursive resolving info, if present */
 	/* NHG ID */
@@ -1324,6 +1345,19 @@ static void fpm_neigh_flush(void)
 }
 
 /*
+ * Same for the next hop groups: zebra sends them again before the routes
+ * and MACs using them, so a dump only shows the groups this connection
+ * sent (e.g. the EVPN-MH ES group a remote MAC points to).
+ */
+static void fpm_nhg_flush(void)
+{
+	struct fpm_nhg *nhg;
+
+	while ((nhg = fpm_nhg_pop(&glob->nhg_hash)))
+		free(nhg);
+}
+
+/*
  * The netlink message after `hdr`, `len` being what is left from it. Like
  * `NLMSG_NEXT()`, but the length does not wrap around when the last
  * message is not padded.
@@ -1502,6 +1536,12 @@ static void sigusr1_handler(int signum)
 		if (nhg->resolved_pfx.prefixlen > 0) {
 			prefix2str(&nhg->resolved_pfx, buf, sizeof(buf));
 			fprintf(out, ", ResolvedPfx: %s", buf);
+		}
+		if (nhg->is_fdb)
+			fprintf(out, ", FDB");
+		if (nhg->gateway_family != AF_UNSPEC) {
+			inet_ntop(nhg->gateway_family, &nhg->gateway, buf, sizeof(buf));
+			fprintf(out, ", Gateway: %s", buf);
 		}
 
 		/* Display individual nexthops if any */
@@ -1704,6 +1744,7 @@ int main(int argc, char **argv)
 	while (1) {
 		glob->sock = accept_conn(glob->server_sock);
 		fpm_neigh_flush();
+		fpm_nhg_flush();
 		glob->connections++;
 		fpm_serve();
 		fprintf(glob->output_file, "Done serving client\n");
