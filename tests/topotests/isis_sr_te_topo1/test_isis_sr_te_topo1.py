@@ -1246,6 +1246,117 @@ def test_srte_prefix_iface_segment_check_mpls_table_step8():
         )
 
 
+#
+# Step 9
+#
+# Checking the MPLS table with segments given by a prefix and an algorithm,
+# which pathd resolves in the TED to the Prefix-SID of the prefix: the index
+# advertised by IS-IS is converted to a label with the SRGB of its node
+#
+def test_srte_prefix_segment_check_mpls_table_step9():
+    tgen = setup_testcase("Test (step 9): check MPLS table for prefix segments")
+
+    def _check_rt1_bsid_label_stack(bsid, expected):
+        output = tgen.gears["rt1"].vtysh_cmd("show mpls table json", isjson=True)
+        nexthops = output.get(str(bsid), {}).get("nexthops", [])
+        stacks = [nexthop.get("outLabelStack") for nexthop in nexthops]
+        if expected not in stacks:
+            return "binding SID {} label stacks {}, expected {}".format(
+                bsid, stacks, expected
+            )
+        return None
+
+    def _check_rt1_bsid_not_installed(bsid):
+        output = tgen.gears["rt1"].vtysh_cmd("show mpls table json", isjson=True)
+        if str(bsid) in output:
+            return "binding SID {} installed: {}".format(bsid, output[str(bsid)])
+        return None
+
+    def configure_rt6_srgb(lower_bound, upper_bound):
+        tgen.gears["rt6"].vtysh_cmd(
+            """
+            configure terminal
+             router isis 1
+              segment-routing global-block {} {}
+            """.format(
+                lower_bound, upper_bound
+            )
+        )
+
+    def configure_prefix_segments(rt4_prefix, rt6_prefix):
+        tgen.gears["rt1"].vtysh_cmd(
+            """
+            configure terminal
+             segment-routing
+              traffic-eng
+               segment-list prefix_sid
+                index 10 nai prefix {} algorithm 0
+                index 20 nai prefix {} algorithm 0
+            """.format(
+                rt4_prefix, rt6_prefix
+            )
+        )
+
+    set_ted_import("rt1", True)
+    try:
+        # rt1 -[node-SID index 40]-> rt4 -[node-SID index 60]-> rt6
+        configure_prefix_segments("4.4.4.4/32", "6.6.6.6/32")
+        add_candidate_path("rt1", "6.6.6.6", 100, "prefix_sid", "prefix_sid")
+
+        test_func = partial(_check_rt1_bsid_label_stack, 1111, [16040, 16060])
+        _, result = topotest.run_and_expect(test_func, None, count=30, wait=2)
+        assert result is None, result
+
+        # zebra resolves a binding SID only with a first label of the
+        # family of the endpoint: the IPv6 segments go to an IPv6 endpoint
+        delete_candidate_path("rt1", "6.6.6.6", 100)
+        # rt1 -[node-SID index 41]-> rt4 -[node-SID index 61]-> rt6
+        configure_prefix_segments("2001:db8:1000::4/128", "2001:db8:1000::6/128")
+        tgen.gears["rt1"].vtysh_cmd(
+            """
+            configure terminal
+             segment-routing
+              traffic-eng
+               policy color 1 endpoint 2001:db8:1000::6
+                name prefix_sid_ipv6
+                binding-sid 2222
+            """
+        )
+        add_candidate_path("rt1", "2001:db8:1000::6", 100, "prefix_sid", "prefix_sid")
+
+        test_func = partial(_check_rt1_bsid_label_stack, 2222, [16041, 16061])
+        _, result = topotest.run_and_expect(test_func, None, count=30, wait=2)
+        assert result is None, result
+
+        # The label of an index depends on the SRGB of the node that looks
+        # it up, which pathd does not know: with another SRGB on rt6, the
+        # indexes are not converted
+        configure_rt6_srgb(24000, 31999)
+
+        test_func = partial(_check_rt1_bsid_not_installed, 2222)
+        _, result = topotest.run_and_expect(test_func, None, count=30, wait=2)
+        assert result is None, result
+
+        configure_rt6_srgb(16000, 23999)
+
+        test_func = partial(_check_rt1_bsid_label_stack, 2222, [16041, 16061])
+        _, result = topotest.run_and_expect(test_func, None, count=30, wait=2)
+        assert result is None, result
+    finally:
+        configure_rt6_srgb(16000, 23999)
+        delete_candidate_path("rt1", "6.6.6.6", 100)
+        delete_sr_policy("rt1", "2001:db8:1000::6")
+        tgen.gears["rt1"].vtysh_cmd(
+            """
+            configure terminal
+             segment-routing
+              traffic-eng
+               no segment-list prefix_sid
+            """
+        )
+        set_ted_import("rt1", False)
+
+
 # Memory leak test template
 def test_memory_leak():
     "Run the memory leak test and report results."
