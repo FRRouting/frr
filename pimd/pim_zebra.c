@@ -27,6 +27,7 @@
 #include "pim_join.h"
 #include "pim_zlookup.h"
 #include "pim_ifchannel.h"
+#include "pim_macro.h"
 #include "pim_rp.h"
 #include "pim_igmpv3.h"
 #include "pim_jp_agg.h"
@@ -490,10 +491,11 @@ void pim_forward_stop(struct pim_ifchannel *origch)
 			   origch->interface->name, up->channel_oil->installed);
 
 	/*
-	 * If a channel is being removed, check to see if we still need
-	 * to inherit the interface.  If so make sure it is added in
+	 * Retain PIM ownership only for an active downstream join that has not
+	 * lost Assert. Local membership and inheritance keep their own GM and
+	 * STAR bits.
 	 */
-	if (pim_upstream_evaluate_join_desired_interface(up, ch, chrpt, origch->parent))
+	if (ch && pim_macro_chisin_joins(ch) && !pim_macro_ch_lost_assert(ch))
 		pim_channel_add_oif(up->channel_oil, origch->interface, PIM_OIF_FLAG_PROTO_PIM,
 				    __func__);
 	else
