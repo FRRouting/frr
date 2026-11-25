@@ -158,7 +158,7 @@ static int zebra_vrf_enable(struct vrf *vrf)
 	/* Kick off any VxLAN-EVPN processing. */
 	zebra_vxlan_vrf_enable(zvrf);
 
-	/* Attach the tracked prefixes of this VRF name and re-evaluate them */
+	/* Kick off ptrack processing. */
 	zebra_ptrack_vrf_enable(zvrf);
 
 	return 0;
@@ -246,9 +246,7 @@ static int zebra_vrf_disable(struct vrf *vrf)
 
 	rtadv_vrf_terminate(zvrf);
 
-	/* The tracked prefixes are UNREACHABLE while the VRF is down, even if
-	 * the routes are retained.
-	 */
+	/* Stop any ptrack processing. */
 	zebra_ptrack_vrf_disable(zvrf);
 
 	/* Inform clients that the VRF is now inactive. This is a
