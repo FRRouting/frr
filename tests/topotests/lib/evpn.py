@@ -11,13 +11,78 @@
 evpn.py: Library of helper functions for EVPN testing
 """
 
+import functools
 import ipaddress
 import json
+import platform
 import re
 import shlex
+import subprocess
 import sys
 from lib import topotest
 from lib.topolog import logger
+
+
+# Kernels with upstream 98fc57d16744 ("vxlan: reject dynamic fdb entries
+# that reference a nexthop id") but without its correction 7308ef8b4a67
+# ("vxlan: Stop rejecting dynamic FDB entries with a nexthop ID") reject a
+# dynamic VXLAN FDB entry pointing at a nexthop id. FRR installs an EVPN-MH
+# remote MAC behind an ES that way, so tests needing one cannot pass there.
+# The reject went to stable trees and distribution builds of many versions
+# and flavors, so the kernel is probed instead of matching release strings.
+_VXLAN_NH_FDB_REJECT = "A nexthop fdb cannot be dynamic"
+_VXLAN_NH_FDB_PROBE = """
+set -e
+ip link add vxnhprobe type vxlan id 4242 dstport 4789 nolearning
+ip nexthop add id 1 via 192.0.2.1 fdb
+ip nexthop add id 2 group 1 fdb
+set +e
+bridge fdb add 02:00:5e:00:53:01 dev vxnhprobe self extern_learn dynamic nhid 2
+rc=$?
+ip link del vxnhprobe
+exit $rc
+"""
+
+
+def vxlan_nh_fdb_probe_reason(rc, output, release):
+    """
+    Read the result of _VXLAN_NH_FDB_PROBE: the skip reason when the kernel
+    rejected the dynamic nexthop FDB entry, None otherwise. A probe failing
+    for another reason (no unshare, no nexthop support, ...) does not skip:
+    the test keeps its own requirements.
+    """
+    if rc == 0 or _VXLAN_NH_FDB_REJECT not in (output or ""):
+        return None
+    return (
+        "kernel %s rejects a dynamic VXLAN FDB entry with a nexthop id "
+        "(98fc57d16744 without 7308ef8b4a67)" % release
+    )
+
+
+@functools.lru_cache(maxsize=None)
+def vxlan_dynamic_nh_fdb_skip_reason():
+    """
+    Why to skip a test installing an EVPN-MH remote MAC behind an ES (a
+    dynamic VXLAN FDB entry with a nexthop id) on this kernel, or None to
+    run it. The probe runs once, in a throwaway network namespace.
+    """
+    release = platform.release()
+    try:
+        p = subprocess.run(
+            ["unshare", "--net", "sh", "-c", _VXLAN_NH_FDB_PROBE],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            text=True,
+            timeout=30,
+            check=False,
+        )
+    except (OSError, subprocess.SubprocessError) as error:
+        logger.debug("vxlan nh fdb: probe did not run (%s), running", error)
+        return None
+    logger.debug(
+        "vxlan nh fdb: kernel %s probe rc %s output %r", release, p.returncode, p.stdout
+    )
+    return vxlan_nh_fdb_probe_reason(p.returncode, p.stdout, release)
 
 
 def _evpn_elide_ifindex(data):
