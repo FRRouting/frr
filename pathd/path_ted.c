@@ -285,6 +285,58 @@ uint32_t path_ted_query_type_f(struct ipaddr *local, struct ipaddr *remote)
 	return sid;
 }
 
+/* V-Flag of the Prefix-SID: RFC 8665 section 5, RFC 8667 section 2.1.1 */
+#define PATH_TED_PREFIX_SID_VFLG 0x08
+
+/*
+ * Label of a Prefix-SID. An index is converted with the SRGB of the node that
+ * looks the label up: the head-end for the first segment, the node reached by
+ * the previous segment for the others. The TED of pathd knows neither, so the
+ * index is converted only when all the SR nodes give the same label.
+ */
+static uint32_t path_ted_prefix_sid_label(struct ls_subnet *subnet)
+{
+	struct ls_prefix *pref = subnet->ls_pref;
+	struct ls_vertex *vertex;
+	struct ls_node *node;
+
+	switch (pref->adv.origin) {
+	case ISIS_L1:
+	case ISIS_L2:
+	case OSPFv2:
+		break;
+	case UNKNOWN:
+	case DIRECT:
+	case STATIC:
+		return pref->sr.sid;
+	}
+
+	if (CHECK_FLAG(pref->sr.sid_flag, PATH_TED_PREFIX_SID_VFLG))
+		return pref->sr.sid;
+
+	node = subnet->vertex ? subnet->vertex->node : NULL;
+	if (!node || !CHECK_FLAG(node->flags, LS_NODE_SR) ||
+	    pref->sr.sid >= node->srgb.range_size) {
+		PATH_TED_DEBUG("%s: PATHD-TED: Prefix-SID index %u of %pFX out of the SRGB",
+			       __func__, pref->sr.sid, &pref->pref);
+		return MPLS_LABEL_NONE;
+	}
+
+	frr_each (vertices, &ted_state_g.ted->vertices, vertex) {
+		if (!vertex->node || !CHECK_FLAG(vertex->node->flags, LS_NODE_SR))
+			continue;
+		if (vertex->node->srgb.lower_bound != node->srgb.lower_bound ||
+		    pref->sr.sid >= vertex->node->srgb.range_size) {
+			PATH_TED_DEBUG("%s: PATHD-TED: Prefix-SID index %u of %pFX not converted, the SRGB of %pI4 differs",
+				       __func__, pref->sr.sid, &pref->pref,
+				       &vertex->node->router_id);
+			return MPLS_LABEL_NONE;
+		}
+	}
+
+	return node->srgb.lower_bound + pref->sr.sid;
+}
+
 uint32_t path_ted_query_type_c(struct prefix *prefix, uint8_t algo)
 {
 	uint32_t sid = MPLS_LABEL_NONE;
@@ -303,7 +355,7 @@ uint32_t path_ted_query_type_c(struct prefix *prefix, uint8_t algo)
 		if (subnet) {
 			if ((CHECK_FLAG(subnet->ls_pref->flags, LS_PREF_SR))
 			    && (subnet->ls_pref->sr.algo == algo))
-				sid = subnet->ls_pref->sr.sid;
+				sid = path_ted_prefix_sid_label(subnet);
 		}
 		break;
 	default:
