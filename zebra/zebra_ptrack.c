@@ -1,17 +1,8 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 /*
- * Zebra prefix tracking (ptrack): data structures and bookkeeping.
+ * Zebra prefix tracking (ptrack) code
  *
- * Subscriptions are kept outside of struct zebra_vrf, keyed by the VRF name,
- * because the vrf_id (and the zebra_vrf) changes across VRF delete and add.
- *
- *   registry (rbtree by VRF name)
- *     -> ptrack_vrf_ctx
- *          -> vrf_clients (rbtree by client): cookies per client, for the limit
- *          -> table[afi] (route_table by masked prefix)
- *               -> ptrack_entry: state
- *                    -> clients (rbtree by client)
- *                         -> cookies (rbtree by cookie)
+ * Copyright (C) 2026 Nokia
  */
 
 #include <zebra.h>

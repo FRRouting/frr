@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 /*
- * Zebra prefix tracking (ptrack): subscriptions of zebra clients to the
- * reachability of an exact prefix in a VRF.
+ * Zebra prefix tracking (ptrack) header
+ *
+ * Copyright (C) 2026 Nokia
  */
 
 #ifndef _ZEBRA_PTRACK_H

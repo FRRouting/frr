@@ -1,13 +1,8 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 /*
- * Zebra prefix tracking (ptrack) tests.
+ * Zebra prefix tracking (ptrack) tests
  *
- * zebra/zebra_ptrack.o is linked as is. What zebra provides to it (the client
- * send, the VRF lookup, the startup gate, the router, the client close hook)
- * is shimmed here, like the label manager test does.
- *
- * The test checks itself: every case prints "case NN: <name>: ok", or the
- * failed checks followed by "FAILED".
+ * Copyright (C) 2026 Nokia
  */
 
 #include <zebra.h>
