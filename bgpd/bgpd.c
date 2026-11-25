@@ -5153,6 +5153,12 @@ void bgp_free(struct bgp *bgp)
 	bgp_meta_queue_free(bgp->mq);
 	bgp->mq = NULL;
 
+	/* Events queued with this instance as their argument and no t_
+	 * reference, such as bgp_nht_ifp_initial, would otherwise run on
+	 * freed memory.
+	 */
+	event_cancel_event(bm->master, bgp);
+
 	XFREE(MTYPE_BGP, bgp);
 }
 
