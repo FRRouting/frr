@@ -1,0 +1,18 @@
+if !PIMD
+PYTEST_IGNORE += --ignore=pimd/
+endif
+
+
+if PIMD
+check_PROGRAMS += tests/pimd/test_pim_jp_encode
+endif
+tests_pimd_test_pim_jp_encode_CFLAGS = $(TESTS_CFLAGS) -DPIM_IPV=4
+tests_pimd_test_pim_jp_encode_CPPFLAGS = $(TESTS_CPPFLAGS) -I$(top_srcdir)/pimd
+tests_pimd_test_pim_jp_encode_LDADD = $(ALL_TESTS_LDADD)
+tests_pimd_test_pim_jp_encode_SOURCES = \
+	tests/pimd/test_pim_jp_encode.c \
+	pimd/pim_int.c \
+	pimd/pim_msg.c \
+	pimd/pim_tlv.c \
+	# end
+EXTRA_DIST += tests/pimd/test_pim_jp_encode.py

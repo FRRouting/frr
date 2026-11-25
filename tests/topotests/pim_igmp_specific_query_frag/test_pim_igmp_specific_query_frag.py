@@ -40,6 +40,7 @@ from lib.topotest import json_cmp
 from lib.topogen import Topogen, TopoRouter, get_topogen
 from lib.topolog import logger
 
+R1_IP="192.168.10.1"
 HOST_IP="192.168.10.2"
 IGMP_GROUP="232.1.1.12"
 TOTAL_SOURCES = 5000
@@ -81,6 +82,49 @@ def teardown_module(mod):
     "Teardown the pytest environment"
     tgen = get_topogen()
     tgen.stop_topology()
+
+def igmpv3_verify_pim_ready(tgen):
+    """
+    Wait for pimd on r1 to have a primary address on r1-eth0 and a vif
+    created for it.
+
+    The interface address is configured asynchronously (mgmtd -> zebra ->
+    netlink -> zapi -> pimd), and pimd only creates the IGMP socket (which
+    joins 224.0.0.22) and the vif once it learns that address. Reports sent
+    before that point are dropped and never retransmitted.
+    """
+    logger.info("Verify PIM has an address and a vif on r1-eth0")
+
+    r1 = tgen.gears["r1"]
+
+    def verify_pim_ready():
+        # 'show ip multicast' has no json output, parse the interface table:
+        # Interface  Address  ifi  Vif  PktsIn  PktsOut  BytesIn  BytesOut
+        output = r1.vtysh_cmd("show ip multicast")
+        for line in output.splitlines():
+            fields = line.split()
+            if len(fields) < 4 or fields[0] != "r1-eth0":
+                continue
+
+            if fields[1] != R1_IP:
+                return f"r1-eth0 address is {fields[1]}, expected {R1_IP}"
+
+            try:
+                vifi = int(fields[3])
+            except ValueError:
+                return f"r1-eth0 has invalid vif '{fields[3]}'"
+
+            if vifi < 0:
+                return f"r1-eth0 has no vif yet (vif {vifi})"
+
+            return None
+
+        return "r1-eth0 not found in 'show ip multicast' output"
+
+    success, result = topotest.run_and_expect(
+        verify_pim_ready, None, count=60, wait=1
+    )
+    assert success is True, f"PIM is not ready on r1-eth0: {result}"
 
 def igmpv3_sources_save_to_json(tgen, sources_db):
     sources_list = list(sources_db.keys())
@@ -246,6 +290,7 @@ def test_igmpv3_specific_query_frag(tgen, sources_db):
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
 
+    igmpv3_verify_pim_ready(tgen)
     logger.info(f"Starting IGMPv3 fragmentation test ({TOTAL_SOURCES} sources)")
     igmpv3_sources_save_to_json(tgen, sources_db)
     igmpv3_send_membership_reports_include(tgen)

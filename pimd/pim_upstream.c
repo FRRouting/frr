@@ -1934,8 +1934,8 @@ void pim_upstream_set_sptbit(struct pim_upstream *up,
 		if (PIM_DEBUG_PIM_TRACE)
 			zlog_debug(
 				"%s: Incoming Interface: %s is different than RPF_interface(S) %s",
-				__func__, incoming->name,
-				up->rpf.source_nexthop.interface->name);
+				__func__, incoming->name, up->rpf.source_nexthop.interface ?
+				up->rpf.source_nexthop.interface->name : "NONE");
 		return;
 	}
 
