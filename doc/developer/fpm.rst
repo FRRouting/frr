@@ -162,11 +162,12 @@ a VTEP with several L3VNIs, and there is no ``NDA_VLAN`` without VLAN
 filtering), the flood list entries by vxlan interface, VNI, VTEP and
 VLAN, and the neighbors by interface and IP address. Some removals only go
 to the FPM, when the kernel already removed the entry by itself (e.g. an
-SVI or a vxlan interface going down) or keeps it (e.g. a MAC behind an
-ethernet segment turning local), and an entry moving to another access
-VLAN is removed with its old VLAN and added with the new one. The
-entries of an interface that is deleted are not always removed: the FPM
-server should remove them with it, as the kernel does.
+SVI or a vxlan interface going down) or keeps it (e.g. a flood list entry
+moving to another access VLAN, the kernel not keying them by VLAN), and
+an entry moving to another access VLAN is removed with its old VLAN and
+added with the new one. The entries of an interface that is deleted are
+not always removed: the FPM server should remove them with it, as the
+kernel does.
 
 When ``zebra`` connects to the FPM it sends all these entries again, after
 the routes.

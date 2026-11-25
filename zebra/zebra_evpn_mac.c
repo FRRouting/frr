@@ -334,11 +334,8 @@ int zebra_evpn_rem_mac_uninstall(struct zebra_evpn *zevpn,
  * (zebra_evpn_access_vid()): the kernel ignores it, but the FPM got the
  * remote MAC with it and needs it to find the entry.
  *
- * Only for single-homed MACs. A remote MAC behind an ES is installed with
- * a nexthop group and no VTEP address; its entry may stay behind when the
- * MAC becomes local, but zebra ignores such entries when it reads the FDB
- * back, so they cannot delete the local MAC. See
- * zebra_evpn_rem_es_mac_net_entry_del() for the FPM.
+ * Only for single-homed MACs: see zebra_evpn_rem_es_mac_net_entry_del()
+ * for the ones behind an ES, installed with a nexthop group and no VTEP.
  */
 void zebra_evpn_rem_mac_net_entry_del(struct zebra_evpn *zevpn, const struct ethaddr *macaddr,
 				      const struct ipaddr *vtep_ip)
@@ -364,10 +361,13 @@ void zebra_evpn_rem_mac_net_entry_del(struct zebra_evpn *zevpn, const struct eth
 }
 
 /*
- * A remote MAC behind an ES becomes local: the kernel keeps the VXLAN
- * device's entry (see zebra_evpn_rem_mac_net_entry_del()), but the FPM would
- * keep it as the remote MAC. Send it the removal, and leave the kernel
- * alone.
+ * A remote MAC behind an ES becomes local: like for a single-homed MAC (see
+ * zebra_evpn_rem_mac_net_entry_del()), the VXLAN device's entry, to the ES
+ * nexthop group, stays behind. zebra ignores it when it reads the FDB back,
+ * but the kernel does not replace it when the MAC is installed again behind
+ * a single VTEP: the MAC would keep going to the ES VTEPs, until a vxlan
+ * flap flushes the entry. The FPM, too, would keep it as the remote MAC.
+ * Delete it from both.
  */
 static void zebra_evpn_rem_es_mac_net_entry_del(struct zebra_evpn *zevpn,
 						const struct zebra_mac *mac)
@@ -390,14 +390,17 @@ static void zebra_evpn_rem_es_mac_net_entry_del(struct zebra_evpn *zevpn,
 		return;
 
 	if (IS_ZEBRA_DEBUG_VXLAN)
-		zlog_debug("VNI %u MAC %pEA is local, removing the FPM vxlan entry to ES %s",
+		zlog_debug("VNI %u MAC %pEA is local, removing its vxlan entry to ES %s",
 			   zevpn->vni, &mac->macaddr, mac->es->esi_str);
 
-	/* The same entry `zebra_evpn_rem_mac_install()` installs. */
+	/*
+	 * Like `zebra_evpn_rem_mac_uninstall()`: an all-zero VTEP, which the
+	 * kernel takes as the whole entry.
+	 */
 	memset(&vtep_ip, 0, sizeof(vtep_ip));
-	SET_IPADDR_NONE(&vtep_ip);
+	SET_IPADDR_V4(&vtep_ip);
 	dplane_rem_mac_net_del(zevpn->vxlan_if, br_ifp, zebra_evpn_access_vid(zevpn), &mac->macaddr,
-			       zevpn->vni, &vtep_ip, mac->es->nhg_id, true /*skip_kernel*/);
+			       zevpn->vni, &vtep_ip, 0 /*nhg_id*/, false /*skip_kernel*/);
 }
 
 static void zebra_evpn_rem_mac_flushed_hash(struct hash_bucket *bucket, void *arg)
@@ -1843,11 +1846,10 @@ static inline bool zebra_evpn_mac_is_bgp_seq_ok(struct zebra_evpn *zevpn,
 }
 
 /*
- * A remote single-VTEP MAC is about to become local via a sync route.
- * Delete the VXLAN device's "dst <vtep>" entry while the remote VTEP is
- * still recorded and before mac->es is switched. An ES MAC was installed
- * with a nexthop group and no VTEP, so there is no single-VTEP entry to
- * remove here: only the FPM is told.
+ * A remote MAC is about to become local via a sync route. Delete the VXLAN
+ * device's entry while the remote VTEP (or ES) is still recorded and before
+ * mac->es is switched: the "dst <vtep>" entry of a single-VTEP MAC, or the
+ * nexthop group entry of an ES MAC.
  */
 static void zebra_evpn_sync_mac_del_old_remote(struct zebra_evpn *zevpn, struct zebra_mac *mac)
 {
