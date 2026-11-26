@@ -4040,7 +4040,7 @@ static bool bgp_evpn_es_l3_vtep_compute(struct bgp_evpn_es *es, const struct ipa
 			continue;
 		eligible = false;
 		if (missing)
-			json_array_string_add(missing, es_vrf->bgp_vrf->name);
+			json_array_string_add(missing, es_vrf->bgp_vrf->name_pretty);
 	}
 
 	return ready && eligible;
@@ -4607,7 +4607,7 @@ void bgp_evpn_ip_ead_flush_all(void)
 static void bgp_evpn_es_vrf_json_identity(json_object *json, const struct bgp_evpn_es_vrf *es_vrf)
 {
 	json_object_string_add(json, "esi", es_vrf->es->esi_str);
-	json_object_string_add(json, "vrf", es_vrf->bgp_vrf->name);
+	json_object_string_add(json, "vrf", es_vrf->bgp_vrf->name_pretty);
 }
 
 static void bgp_evpn_es_vrf_show_summary(struct vty *vty, struct bgp_evpn_es_vrf *es_vrf,
@@ -4649,7 +4649,7 @@ static void bgp_evpn_es_vrf_show_summary(struct vty *vty, struct bgp_evpn_es_vrf
 		strlcpy(ipv6_nhg, "-", sizeof(ipv6_nhg));
 
 	vty_out(vty, "%-30s %-15s %-10s %-5s %-10s %-10s %-11u %u\n", es_vrf->es->esi_str,
-		es_vrf->bgp_vrf->name, nhg_active ? "yes" : "no", l3mh ? "yes" : "no", ipv4_nhg,
+		es_vrf->bgp_vrf->name_pretty, nhg_active ? "yes" : "no", l3mh ? "yes" : "no", ipv4_nhg,
 		ipv6_nhg, es_vrf->ref_cnt, es_vrf->l3_ref_cnt);
 }
 
@@ -4664,7 +4664,8 @@ static void bgp_evpn_es_vrf_show_drop_counters(struct vty *vty, struct bgp_evpn_
 		return;
 	}
 
-	vty_out(vty, "%-30s %-15s %-14u %-12u %u\n", es_vrf->es->esi_str, es_vrf->bgp_vrf->name,
+	vty_out(vty, "%-30s %-15s %-14u %-12u %u\n", es_vrf->es->esi_str,
+		es_vrf->bgp_vrf->name_pretty,
 		es_vrf->ip_ead_drop_label, es_vrf->ip_ead_drop_rmac, es_vrf->ip_ead_drop_non_aa);
 }
 
@@ -4678,7 +4679,7 @@ static void bgp_evpn_es_vrf_show_ip_ad_vteps(struct vty *vty, struct bgp_evpn_es
 		bgp_evpn_es_vrf_json_identity(json, es_vrf);
 		json_vteps = json_object_new_array();
 	} else {
-		vty_out(vty, "%-30s %s\n", es_vrf->es->esi_str, es_vrf->bgp_vrf->name);
+		vty_out(vty, "%-30s %s\n", es_vrf->es->esi_str, es_vrf->bgp_vrf->name_pretty);
 		vty_out(vty, "  %-39s %-9s %-8s %-6s %s\n", "Remote-VTEP", "IP-AD-EVI", "IP-AD-ES",
 			"Active", "RMAC");
 	}
