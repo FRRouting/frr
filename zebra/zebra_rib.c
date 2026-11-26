@@ -5710,8 +5710,11 @@ static void rib_process_dplane_results(struct event *event)
 				zebra_neigh_dplane_update(ctx);
 				break;
 
-			case DPLANE_OP_FDB_READ:
 			case DPLANE_OP_NEIGH_READ:
+				zebra_evpn_l3vni_neigh_check_result(ctx);
+				break;
+
+			case DPLANE_OP_FDB_READ:
 			case DPLANE_OP_TC_QDISC_READ:
 				break;
 			} /* Dispatch by op code */

@@ -136,6 +136,8 @@ struct zebra_neigh {
 	 * peer can record a desired bond alone until its pin is installed.
 	 */
 	ifindex_t sync_mac_ifindex;
+	uint32_t sync_mac_seq;
+	bool sync_mac_confirmed;
 	ifindex_t sync_mac_bridge_ifindex;
 
 	/* Recorded binding for a local or peer-synced pure-L3 neighbor. */
@@ -148,6 +150,9 @@ struct zebra_neigh {
 	uint32_t l3mh_generation;
 	uint32_t l3mh_probe_seq;
 	uint32_t l3mh_probe_generation;
+	uint32_t l3mh_check_seq;
+	uint16_t l3mh_check_state;
+	bool l3mh_check_deleted;
 	uint32_t l3mh_down_generation;
 	struct event *l3mh_down_timer;
 	struct ipaddr l3mh_peer_origin; /* Advertising PE, separate from forwarding. */
@@ -294,6 +299,7 @@ static inline void zebra_evpn_l3mh_neigh_record(struct zebra_neigh *n,
 		return;
 
 	zebra_evpn_l3mh_down_cancel(n);
+	n->l3mh_check_seq = 0;
 	n->l3mh_state = next;
 	n->l3mh_validation_learned = false;
 	n->l3mh_last_removal_reason = ZEBRA_L3MH_NEIGH_REMOVE_NONE;
@@ -525,6 +531,13 @@ void zebra_evpn_l3vni_remote_neigh_del(struct zebra_evpn *zevpn, const struct ip
 void zebra_evpn_l3vni_remote_neigh_reinstall_bd(vni_t l3vni, vlanid_t vid);
 void zebra_evpn_l3vni_svi_vrf_change(struct interface *ifp, vrf_id_t old_vrf_id);
 void zebra_evpn_l3vni_svi_addr_add(struct interface *ifp);
+void zebra_evpn_l3vni_sync_mac_result(const struct zebra_dplane_ctx *ctx);
+bool zebra_evpn_l3vni_sync_mac_event(vni_t vni, const struct interface *bond,
+				     const struct interface *br_if, const struct ethaddr *mac,
+				     vlanid_t vid, bool deleted);
+bool zebra_evpn_l3vni_neigh_check_loss(struct interface *ifp, ns_id_t ns_id,
+				       const struct ipaddr *ip, uint16_t state, bool deleted);
+void zebra_evpn_l3vni_neigh_check_result(const struct zebra_dplane_ctx *ctx);
 ifindex_t zebra_evpn_l3vni_sync_mac_ifindex(vni_t l3vni, const struct ethaddr *mac, vlanid_t vid,
 					    const struct interface *br_if);
 int zebra_evpn_remote_neigh_update(struct zebra_evpn *zevpn, struct interface *ifp,

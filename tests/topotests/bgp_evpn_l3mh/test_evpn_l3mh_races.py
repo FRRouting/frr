@@ -600,6 +600,56 @@ def test_new_static_user_before_old_fdb_delete_completion(events):
     assert events.route(owner, companion)
 
 
+def test_late_kernel_notification_preserves_current_local_arp(events):
+    owner = events.owner
+    entry = events.binding(176)
+    events.learn(owner, entry)
+    events.settle()
+    version = l3mh._local_rt2_version(owner, entry[0])
+    assert events.route(owner, entry) and version is not None
+
+    for event in ("stale-failed", "stale-gc"):
+        control(owner, f"{event} {entry[0]}")
+        events.settle()
+        events.status(entry, "REACHABLE")
+        assert has_dynamic_fdb(owner, entry) and events.route(owner, entry), event
+        assert l3mh._local_rt2_version(owner, entry[0]) == version
+
+    events.arp(owner, entry, "failed")
+    events.settle()
+    assert not events.route(owner, entry)
+    send_arp(owner, entry, "host1-eth0", request=True)
+    events.settle()
+    assert events.route(owner, entry) and has_dynamic_fdb(owner, entry)
+
+
+@pytest.mark.parametrize("action", ("release", "fail"))
+def test_shared_static_pin_must_be_installed_before_local_rt2(events, action):
+    owner, peer, _ = events.leaves
+    local = events.binding(177 if action == "release" else 179)
+    remote = events.binding(178 if action == "release" else 180, local[1])
+    events.arp(owner, local)
+    events.settle()
+    assert not events.route(owner, local) and not events.pinned(local)
+
+    control(owner, f"arm before-pin {local[1]}")
+    events.learn(peer, remote)
+    events.settle()
+    control(owner, "held before")
+    assert not events.pinned(local)
+    assert not events.route(owner, local)
+
+    control(owner, f"{action} before")
+    events.settle()
+    assert events.pinned(local) is (action == "release")
+    assert bool(events.route(owner, local)) is (action == "release")
+    if action == "fail":
+        events.fdb(owner, local)
+        events.settle()
+        events.status(remote, "PERMANENT")
+        assert events.route(owner, local) and events.pinned(local)
+
+
 @pytest.mark.parametrize(
     "withdraw_first", (False, True), ids=("failure-first", "withdraw-first")
 )
@@ -720,3 +770,63 @@ def test_retained_rt2_second_spine_copy_stays_ineligible(events):
         events.status(entry, "PERMANENT", receiver)
     finally:
         configure(remove + f"\n exit-address-family\n exit\nno route-map {rmap}")
+
+
+def test_stale_pin_success_cannot_validate_deleted_mac(events):
+    observer, owner, _ = events.leaves
+    speaker = l3mh.get_topogen().gears["leaf3"]
+    remote = events.binding(251)
+    local = events.binding(252, remote[1])
+    events.arp(owner, local)
+    events.settle()
+    with l3mh._raw_evpn_peer(owner, speaker, remote[1], remote[0]) as send:
+        control(owner, f"arm after-pin {remote[1]}")
+        send(f"announce 0 {l3mh.L3VNI}")
+        events.settle()
+        control(owner, "held after")
+        assert l3mh._mac_static_pinned(owner, remote[1], remote[2])
+        control(owner, f"arm before-pin {remote[1]}")
+        events.fdb(owner, remote, "del")
+        events.settle()
+        control(owner, "held before")
+        events.status(remote, "PERMANENT", owner)
+        control(owner, "release after")
+        events.settle()
+        assert not events.route(owner, local, observer)
+        assert not has_dynamic_fdb(owner, local)
+        assert not l3mh._mac_static_pinned(owner, remote[1], remote[2])
+        control(owner, "release before")
+        events.settle()
+        assert events.route(owner, local, observer)
+        assert l3mh._mac_static_pinned(owner, remote[1], remote[2])
+
+
+def test_loss_of_confirmed_pin_rechecks_dependent_local_rt2(events):
+    observer, owner, _ = events.leaves
+    speaker = l3mh.get_topogen().gears["leaf3"]
+    remote = events.binding(237)
+    local = events.binding(238, remote[1])
+    events.arp(owner, local)
+    events.settle()
+    assert not events.route(owner, local, observer)
+
+    # Keep the peer advertisement independent of the local RT-2 withdrawal.
+    with l3mh._raw_evpn_peer(owner, speaker, remote[1], remote[0]) as send:
+        send(f"announce 0 {l3mh.L3VNI}")
+        events.settle()
+        events.status(remote, "PERMANENT", owner)
+        assert l3mh._mac_static_pinned(owner, remote[1], VID)
+        assert events.route(owner, local, observer)
+        control(owner, f"arm before-pin {remote[1]}")
+        events.fdb(owner, remote, "del")
+        events.settle()
+        control(owner, "held before")
+        events.status(remote, "PERMANENT", owner)
+        events.status(local, "REACHABLE", owner)
+        assert not l3mh._mac_static_pinned(owner, remote[1], VID)
+        assert not has_dynamic_fdb(owner, local)
+        assert not events.route(owner, local, observer)
+        control(owner, "release before")
+        events.settle()
+        assert l3mh._mac_static_pinned(owner, remote[1], VID)
+        assert events.route(owner, local, observer)

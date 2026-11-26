@@ -1020,6 +1020,8 @@ bool dplane_ctx_get_macfdb_read_is_vxlan(const struct zebra_dplane_ctx *ctx);
  */
 ifindex_t dplane_ctx_get_neigh_read_ifindex(const struct zebra_dplane_ctx *ctx);
 const struct ipaddr *dplane_ctx_get_neigh_read_ip(const struct zebra_dplane_ctx *ctx);
+bool dplane_ctx_neigh_read_matches(const struct zebra_dplane_ctx *ctx);
+void dplane_ctx_neigh_read_match(struct zebra_dplane_ctx *ctx, const struct ethaddr *mac);
 
 /* Interface netconf info */
 enum dplane_netconf_status_e
@@ -1184,6 +1186,9 @@ enum zebra_dplane_result dplane_rem_mac_add(const struct interface *ifp,
 					    struct ipaddr *vtep_ip, bool sticky, uint32_t nhg_id,
 					    bool was_static);
 
+enum zebra_dplane_result dplane_l3mh_mac_pin(const struct interface *ifp,
+					     const struct interface *bridge_ifp, vlanid_t vid,
+					     const struct ethaddr *mac, uint32_t seq);
 enum zebra_dplane_result dplane_local_mac_add(const struct interface *ifp,
 					const struct interface *bridge_ifp,
 					vlanid_t vid,
@@ -1319,6 +1324,9 @@ enum zebra_dplane_result dplane_neigh_read_for_vlan(struct zebra_ns *zns,
 enum zebra_dplane_result dplane_neigh_read_specific_ip(struct zebra_ns *zns,
 						       const struct ipaddr *ip,
 						       const struct interface *vlan_ifp);
+enum zebra_dplane_result dplane_l3mh_neigh_check(struct zebra_ns *zns, ifindex_t ifindex,
+						 const struct ipaddr *ip,
+						 const struct ethaddr *mac, uint32_t seq);
 
 /*
  * Enqueue a traffic control qdisc read request for the dataplane.

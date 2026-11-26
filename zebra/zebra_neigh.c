@@ -605,6 +605,11 @@ static void zebra_neigh_ipaddr_update(struct zebra_dplane_ctx *ctx)
 			zlog_debug("    Neighbor Entry received is a 5549 entry, finished");
 		return;
 	}
+	if ((op == DPLANE_OP_NEIGH_IP_DELETE ||
+	     (op == DPLANE_OP_NEIGH_IP_INSTALL && (ndm_state & ZEBRA_NUD_FAILED))) &&
+	    zebra_evpn_l3vni_neigh_check_loss(ifp, ns_id, &ip, ndm_state,
+					      op == DPLANE_OP_NEIGH_IP_DELETE))
+		return;
 
 	/* if kernel marks our rfc5549 neighbor entry invalid, re-install it */
 	if (op == DPLANE_OP_NEIGH_IP_INSTALL && !(ndm_state & ZEBRA_NUD_VALID))

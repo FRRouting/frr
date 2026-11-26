@@ -4655,6 +4655,22 @@ static int netlink_request_specific_neigh_in_vlan(struct nlsock *nl, int type,
 	return netlink_request(nl, &req);
 }
 
+static int netlink_l3mh_neigh_check(struct nlmsghdr *h, ns_id_t ns_id, int startup, void *arg)
+{
+	struct ndmsg *ndm = NLMSG_DATA(h);
+	int len = h->nlmsg_len - NLMSG_LENGTH(sizeof(*ndm));
+	struct rtattr *tb[NDA_MAX + 1];
+
+	if (h->nlmsg_type != RTM_NEWNEIGH || len < 0)
+		return 0;
+	if (!(ndm->ndm_state & (NUD_REACHABLE | NUD_STALE | NUD_DELAY | NUD_PROBE)))
+		return 0;
+	netlink_parse_rtattr(tb, NDA_MAX, NDA_RTA(ndm), len);
+	if (tb[NDA_LLADDR] && RTA_PAYLOAD(tb[NDA_LLADDR]) == ETH_ALEN)
+		dplane_ctx_neigh_read_match(arg, RTA_DATA(tb[NDA_LLADDR]));
+	return 0;
+}
+
 void kernel_read_neigh(struct zebra_dplane_ctx *ctx)
 {
 	const struct zebra_dplane_info *dp_info = dplane_ctx_get_ns(ctx);
@@ -4676,8 +4692,9 @@ void kernel_read_neigh(struct zebra_dplane_ctx *ctx)
 	if (ip->ipa_type != IPADDR_NONE) {
 		ret = netlink_request_specific_neigh_in_vlan(nl, RTM_GETNEIGH, ip, ifindex);
 		if (ret >= 0)
-			netlink_parse_info(netlink_neigh_table, nl, dp_info, 1, false, NULL,
-					   &nl_err);
+			netlink_parse_info(dplane_ctx_get_seq(ctx) ? netlink_l3mh_neigh_check
+								   : netlink_neigh_table,
+					   nl, dp_info, 1, false, ctx, &nl_err);
 	} else if (ifindex) {
 		ret = netlink_request_neigh(nl, AF_UNSPEC, RTM_GETNEIGH, ifindex);
 		if (ret >= 0)

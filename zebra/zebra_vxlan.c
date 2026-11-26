@@ -7104,7 +7104,7 @@ static int zebra_evpn_cfg_clean_up(struct zserv *client)
  */
 extern void zebra_vxlan_handle_result(struct zebra_dplane_ctx *ctx)
 {
-	return;
+	zebra_evpn_l3vni_sync_mac_result(ctx);
 }
 
 /* Config knob for accepting lower sequence numbers */
