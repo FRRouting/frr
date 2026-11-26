@@ -313,6 +313,11 @@ struct vpn_policy {
 	char *rmap_name[BGP_VPN_POLICY_DIR_MAX];
 	struct route_map *rmap[BGP_VPN_POLICY_DIR_MAX];
 
+	/* Number of occurrences of the VRF AS accepted when importing, with
+	 * BGP_VPN_POLICY_FROMVPN_ALLOWAS_IN
+	 */
+	uint8_t import_allowas_in;
+
 	/* should be mpls_label_t? */
 	uint32_t tovpn_label; /* may be MPLS_LABEL_NONE */
 	uint32_t tovpn_zebra_vrf_label_last_sent;
@@ -333,6 +338,8 @@ struct vpn_policy {
 #define BGP_VPN_POLICY_TOVPN_SID_FUNC_WIDE    (1 << 8)
 /* Is this RT value set by the cli? */
 #define BGP_VPN_POLICY_TOVPN_RT_CLI_SET (1 << 9)
+/* Accept the VRF AS in the AS path of the routes imported */
+#define BGP_VPN_POLICY_FROMVPN_ALLOWAS_IN (1 << 10)
 
 	/*
 	 * If we are importing another vrf into us keep a list of

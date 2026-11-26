@@ -4148,6 +4148,7 @@ peer_init:
 		bgp->vpn_policy[afi].tovpn_label = MPLS_LABEL_NONE;
 		bgp->vpn_policy[afi].tovpn_zebra_vrf_label_last_sent =
 			MPLS_LABEL_NONE;
+		bgp->vpn_policy[afi].import_allowas_in = BGP_ALLOWAS_IN_DEFAULT;
 
 		if (!bgp->vpn_policy[afi].import_vrf)
 			bgp->vpn_policy[afi].import_vrf = list_new();

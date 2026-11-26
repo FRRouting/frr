@@ -154,6 +154,12 @@ FRR_CFG_DEFAULT_BOOL(BGP_IPV6_NEXTHOP_PREFER_GLOBAL,
 	{ .val_bool = false },
 );
 
+/* clang-format off */
+FRR_CFG_DEFAULT_BOOL(BGP_VPN_IMPORT_ALLOWAS_IN,
+	{ .val_bool = false },
+);
+/* clang-format on */
+
 DEFINE_HOOK(bgp_inst_config_write,
 		(struct bgp *bgp, struct vty *vty),
 		(bgp, vty));
@@ -748,6 +754,7 @@ int bgp_get_vty(struct bgp **bgp, as_t *as, const char *name,
 		enum asnotation_mode asnotation)
 {
 	int ret = bgp_get(bgp, as, name, inst_type, as_pretty, asnotation);
+	afi_t afi;
 
 	if (ret == BGP_CREATED) {
 		bgp_timers_set(NULL, *bgp, DFLT_BGP_KEEPALIVE, DFLT_BGP_HOLDTIME,
@@ -788,6 +795,10 @@ int bgp_get_vty(struct bgp **bgp, as_t *as, const char *name,
 			SET_FLAG((*bgp)->flags, BGP_FLAG_COMPARE_AIGP);
 		if (DFLT_BGP_DEFAULT_ORIGINATE_SETONLY_UNCONDITIONAL)
 			SET_FLAG((*bgp)->flags, BGP_FLAG_DEFAULT_ORIGINATE_SETONLY_UNCONDITIONAL);
+		if (DFLT_BGP_VPN_IMPORT_ALLOWAS_IN)
+			for (afi = AFI_IP; afi < AFI_MAX; afi++)
+				SET_FLAG((*bgp)->vpn_policy[afi].flags,
+					 BGP_VPN_POLICY_FROMVPN_ALLOWAS_IN);
 
 		ret = BGP_SUCCESS;
 	}
@@ -11615,6 +11626,67 @@ ALIAS (af_route_map_vpn_imexport,
        "For routes leaked from vpn to current address-family\n"
        "For routes leaked from current address-family to vpn\n")
 
+DEFPY (af_allowas_in_vpn_import,
+       af_allowas_in_vpn_import_cmd,
+       "[no] allowas-in vpn import",
+       NO_STR
+       "Accept as-path with my AS present in it\n"
+       "Between current address-family and vpn\n"
+       "For routes leaked from vpn to current address-family\n")
+{
+	VTY_DECLVAR_CONTEXT(bgp, bgp);
+	afi_t afi = bgp_node_afi(vty);
+
+	vpn_leak_prechange(BGP_VPN_POLICY_DIR_FROMVPN, afi, bgp_get_default(), bgp);
+	if (no)
+		UNSET_FLAG(bgp->vpn_policy[afi].flags, BGP_VPN_POLICY_FROMVPN_ALLOWAS_IN);
+	else
+		SET_FLAG(bgp->vpn_policy[afi].flags, BGP_VPN_POLICY_FROMVPN_ALLOWAS_IN);
+	vpn_leak_postchange(BGP_VPN_POLICY_DIR_FROMVPN, afi, bgp_get_default(), bgp);
+
+	return CMD_SUCCESS;
+}
+
+static int af_allowas_in_vpn_import_count_set(struct vty *vty, uint8_t count)
+{
+	VTY_DECLVAR_CONTEXT(bgp, bgp);
+	afi_t afi = bgp_node_afi(vty);
+	bool enabled = CHECK_FLAG(bgp->vpn_policy[afi].flags, BGP_VPN_POLICY_FROMVPN_ALLOWAS_IN);
+
+	if (enabled)
+		vpn_leak_prechange(BGP_VPN_POLICY_DIR_FROMVPN, afi, bgp_get_default(), bgp);
+	bgp->vpn_policy[afi].import_allowas_in = count;
+	if (enabled)
+		vpn_leak_postchange(BGP_VPN_POLICY_DIR_FROMVPN, afi, bgp_get_default(), bgp);
+
+	return CMD_SUCCESS;
+}
+
+DEFPY (af_allowas_in_vpn_import_count,
+       af_allowas_in_vpn_import_count_cmd,
+       "allowas-in vpn import count (1-10)$count",
+       "Accept as-path with my AS present in it\n"
+       "Between current address-family and vpn\n"
+       "For routes leaked from vpn to current address-family\n"
+       "Number of occurrences of AS number accepted\n"
+       "Number of occurrences of AS number\n")
+{
+	return af_allowas_in_vpn_import_count_set(vty, count);
+}
+
+DEFPY (no_af_allowas_in_vpn_import_count,
+       no_af_allowas_in_vpn_import_count_cmd,
+       "no allowas-in vpn import count [(1-10)]",
+       NO_STR
+       "Accept as-path with my AS present in it\n"
+       "Between current address-family and vpn\n"
+       "For routes leaked from vpn to current address-family\n"
+       "Number of occurrences of AS number accepted\n"
+       "Number of occurrences of AS number\n")
+{
+	return af_allowas_in_vpn_import_count_set(vty, BGP_ALLOWAS_IN_DEFAULT);
+}
+
 DEFPY(af_import_vrf_route_map, af_import_vrf_route_map_cmd,
       "import vrf route-map RMAP$rmap_str",
       "Import routes from another VRF\n"
@@ -21496,6 +21568,15 @@ static void bgp_vpn_policy_config_write_afi(struct vty *vty, struct bgp *bgp,
 				bgp->vpn_policy[afi]
 				.rmap_name[BGP_VPN_POLICY_DIR_FROMVPN]);
 	}
+	if (!!CHECK_FLAG(bgp->vpn_policy[afi].flags, BGP_VPN_POLICY_FROMVPN_ALLOWAS_IN) !=
+	    SAVE_BGP_VPN_IMPORT_ALLOWAS_IN)
+		vty_out(vty, "%*s%sallowas-in vpn import\n", indent, "",
+			CHECK_FLAG(bgp->vpn_policy[afi].flags, BGP_VPN_POLICY_FROMVPN_ALLOWAS_IN)
+				? ""
+				: "no ");
+	if (bgp->vpn_policy[afi].import_allowas_in != BGP_ALLOWAS_IN_DEFAULT)
+		vty_out(vty, "%*sallowas-in vpn import count %u\n", indent, "",
+			bgp->vpn_policy[afi].import_allowas_in);
 	if (CHECK_FLAG(bgp->af_flags[afi][SAFI_UNICAST],
 		       BGP_CONFIG_VRF_TO_VRF_IMPORT)
 	    || CHECK_FLAG(bgp->af_flags[afi][SAFI_UNICAST],
@@ -25513,6 +25594,12 @@ void bgp_vty_init(void)
 	install_element(BGP_IPV6_NODE, &af_rt_vpn_imexport_cmd);
 	install_element(BGP_IPV4_NODE, &af_route_map_vpn_imexport_cmd);
 	install_element(BGP_IPV6_NODE, &af_route_map_vpn_imexport_cmd);
+	install_element(BGP_IPV4_NODE, &af_allowas_in_vpn_import_cmd);
+	install_element(BGP_IPV6_NODE, &af_allowas_in_vpn_import_cmd);
+	install_element(BGP_IPV4_NODE, &af_allowas_in_vpn_import_count_cmd);
+	install_element(BGP_IPV6_NODE, &af_allowas_in_vpn_import_count_cmd);
+	install_element(BGP_IPV4_NODE, &no_af_allowas_in_vpn_import_count_cmd);
+	install_element(BGP_IPV6_NODE, &no_af_allowas_in_vpn_import_count_cmd);
 	install_element(BGP_IPV4_NODE, &af_import_vrf_route_map_cmd);
 	install_element(BGP_IPV6_NODE, &af_import_vrf_route_map_cmd);
 
