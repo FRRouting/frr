@@ -52,8 +52,8 @@ struct zebra_neigh_info {
 /****************************************************************************/
 extern void zebra_neigh_add(ns_id_t ns_id, struct interface *ifp, struct ipaddr *ip,
 			    struct ethaddr *mac, uint16_t ndm_state, bool is_router);
-extern bool zebra_neigh_has_mac(ns_id_t ns_id, ifindex_t ifindex, const struct ipaddr *ip,
-				const struct ethaddr *mac);
+extern uint16_t zebra_neigh_mac_state(ns_id_t ns_id, ifindex_t ifindex, const struct ipaddr *ip,
+				      const struct ethaddr *mac);
 extern void zebra_neigh_del(ns_id_t ns_id, struct interface *ifp, struct ipaddr *ip);
 extern void zebra_neigh_del_all(struct interface *ifp);
 extern void zebra_neigh_l3_replay(void);

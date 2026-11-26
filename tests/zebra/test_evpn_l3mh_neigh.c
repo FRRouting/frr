@@ -44,6 +44,8 @@ static void test_transitions(void)
 		{ ZEBRA_L3MH_NEIGH_HANDOFF_WAIT, ZEBRA_L3MH_NEIGH_NOT_MANAGED },
 		{ ZEBRA_L3MH_NEIGH_HANDOFF_WAIT, ZEBRA_L3MH_NEIGH_PEER_SYNC_PROTECTED },
 		{ ZEBRA_L3MH_NEIGH_HANDOFF_WAIT, ZEBRA_L3MH_NEIGH_VALIDATION_PENDING },
+		{ ZEBRA_L3MH_NEIGH_PEER_SYNC_PROTECTED, ZEBRA_L3MH_NEIGH_VALIDATION_PENDING },
+		{ ZEBRA_L3MH_NEIGH_VALIDATION_PENDING, ZEBRA_L3MH_NEIGH_PEER_SYNC_PROTECTED },
 		{ ZEBRA_L3MH_NEIGH_VALIDATION_PENDING, ZEBRA_L3MH_NEIGH_HANDOFF_WAIT },
 		{ ZEBRA_L3MH_NEIGH_PEER_SYNC_PROTECTED, ZEBRA_L3MH_NEIGH_NOT_MANAGED },
 		{ ZEBRA_L3MH_NEIGH_LOCAL_DYNAMIC, ZEBRA_L3MH_NEIGH_PEER_SYNC_PROTECTED },
@@ -230,9 +232,11 @@ static void test_down_timer_cancel(void)
 	event_call(&old);
 	assert(n.l3mh_state == ZEBRA_L3MH_NEIGH_VALIDATION_PENDING);
 	assert(zebra_evpn_l3mh_probe_begin(&n, 1));
+	n.l3mh_validation_learned = true;
 
 	assert(zebra_evpn_l3mh_down_begin(&n, loop, 0, down_expire));
 	assert(!zebra_evpn_l3mh_probe_current(&n));
+	assert(!n.l3mh_validation_learned);
 	event_call(&old);
 	assert(n.l3mh_state == ZEBRA_L3MH_NEIGH_HANDOFF_WAIT && n.l3mh_down_timer);
 	assert(!zebra_evpn_l3mh_probe_complete(&n, 1, true));

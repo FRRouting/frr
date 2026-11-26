@@ -3583,6 +3583,15 @@ static void zebra_evpn_local_mac_oper_state_change(struct zebra_evpn_es *es)
 
 DEFINE_HOOK(zebra_evpn_l3mh_port_oper, (struct zebra_if *zif, bool up), (zif, up));
 
+static int zebra_evpn_l3mh_neigh_port_oper(struct zebra_if *zif, bool up)
+{
+	if (up)
+		zebra_evpn_l3vni_neigh_port_up(zif);
+	else
+		zebra_evpn_l3vni_neigh_port_down(zif);
+	return 0;
+}
+
 void zebra_evpn_es_if_oper_state_change(struct zebra_if *zif, bool up)
 {
 	struct zebra_evpn_es *es = zif->es_info.es;
@@ -5254,12 +5263,14 @@ void zebra_evpn_mh_init(void)
 	zebra_evpn_mh_startup_delay_timer_start("init");
 
 	zebra_evpn_bpp_init();
+	hook_register(zebra_evpn_l3mh_port_oper, zebra_evpn_l3mh_neigh_port_oper);
 }
 
 void zebra_evpn_mh_terminate(void)
 {
 	struct zebra_evpn_mh_vtep *mh_vtep;
 
+	hook_unregister(zebra_evpn_l3mh_port_oper, zebra_evpn_l3mh_neigh_port_oper);
 	zebra_evpn_bpp_terminate();
 
 	list_delete(&zmh_info->local_es_list);

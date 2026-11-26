@@ -85,6 +85,7 @@ static inline bool zebra_evpn_l3mh_neigh_transition_valid(enum zebra_l3mh_neigh_
 		       current == ZEBRA_L3MH_NEIGH_VALIDATION_PENDING;
 	if (next == ZEBRA_L3MH_NEIGH_VALIDATION_PENDING)
 		return current == ZEBRA_L3MH_NEIGH_HANDOFF_WAIT ||
+		       current == ZEBRA_L3MH_NEIGH_PEER_SYNC_PROTECTED ||
 		       current == ZEBRA_L3MH_NEIGH_VALIDATION_PENDING;
 	return true;
 }
@@ -151,6 +152,7 @@ struct zebra_neigh {
 	struct event *l3mh_down_timer;
 	struct ipaddr l3mh_peer_origin; /* Advertising PE, separate from forwarding. */
 	bool l3mh_peer_rt1_lost;
+	bool l3mh_validation_learned;
 	struct zebra_l3mh_peer *l3mh_peer;
 	struct zebra_l3mh_peer_neighs_item l3mh_peer_item;
 	struct zebra_l3mh_port *l3mh_port;
@@ -293,6 +295,7 @@ static inline void zebra_evpn_l3mh_neigh_record(struct zebra_neigh *n,
 
 	zebra_evpn_l3mh_down_cancel(n);
 	n->l3mh_state = next;
+	n->l3mh_validation_learned = false;
 	n->l3mh_last_removal_reason = ZEBRA_L3MH_NEIGH_REMOVE_NONE;
 	n->l3mh_expected_mac = mac;
 	n->l3mh_expected_esi = expected_esi;
@@ -497,6 +500,7 @@ struct zebra_dplane_ctx;
 bool zebra_evpn_l3vni_neigh_start_probe(struct zebra_neigh *n, const struct interface *ifp);
 bool zebra_evpn_l3vni_neigh_start_down_timer(struct zebra_neigh *n);
 void zebra_evpn_l3vni_neigh_port_down(struct zebra_if *zif);
+void zebra_evpn_l3vni_neigh_port_up(struct zebra_if *zif);
 bool zebra_evpn_l3vni_neigh_probe_result(const struct zebra_dplane_ctx *ctx);
 bool zebra_evpn_l3vni_neigh_probe_delete_event(ns_id_t ns_id, ifindex_t ifindex,
 					       const struct ipaddr *ip, bool deleted);

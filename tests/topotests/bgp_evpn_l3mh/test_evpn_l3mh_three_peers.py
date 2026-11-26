@@ -141,6 +141,122 @@ def test_pure_l3_per_es_rt1_follows_port():
             configure(leaf, "no evpn mh bridge-port-protection")
 
 
+def test_protected_port_recovery():
+    tgen = l3mh.get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    local, peer = (tgen.gears[name] for name in ("leaf1", "leaf2"))
+    leaves = (local, peer)
+    vid = l3mh.HOST_VID
+    svi = f"vlan{vid}"
+    port = "hostbond1"
+    success, fallback, lost, lost_failure, retained, fresh = (
+        (f"45.0.0.{240 + i}", f"02:00:00:00:00:{0xe0 + i:02x}") for i in range(6)
+    )
+    synced = (success, fallback, lost, lost_failure)
+    bindings = (*synced, retained, fresh)
+
+    def neigh(leaf, binding, state):
+        ip, mac = binding
+        leaf.cmd_raises(f"ip neigh replace {ip} lladdr {mac} dev {svi} nud {state}")
+
+    def learn(leaf, binding):
+        leaf.cmd_raises(
+            f"bridge fdb replace {binding[1]} dev {port} master vlan {vid} dynamic"
+        )
+        neigh(leaf, binding, "reachable")
+
+    def check_nud(binding, expected):
+        entry = local.cmd_raises(f"ip neigh show to {binding[0]} dev {svi}")
+        assert expected in entry.split(), (binding, entry)
+
+    def route(leaf, asn, binding):
+        return l3mh._pure_l3_rt2_path(leaf, asn, ip=binding[0], mac=binding[1])
+
+    def configure(command):
+        local.vtysh_cmd(f"configure terminal\n{command}", raises=True)
+
+    def set_port(state):
+        local.cmd_raises(f"ip link set dev {port} {state}")
+
+    l3mh._settle(leaves)
+    retrans = f"net.ipv4.neigh.{svi}.retrans_time_ms"
+    original_retrans = local.cmd_raises(f"sysctl -n {retrans}").strip()
+    try:
+        configure(f"interface {port}\n evpn mh bridge-port-protection")
+        configure("evpn mh l3-neigh-down-peering-time 60")
+        local.cmd_raises(f"sysctl -w {retrans}=60000")
+        for binding in synced:
+            learn(peer, binding)
+        learn(local, retained)
+        l3mh._settle(leaves)
+        for binding in synced:
+            check_nud(binding, "PERMANENT")
+        assert route(peer, 65011, retained)
+
+        set_port("down")
+        l3mh._settle(leaves)
+        check_nud(retained, "PERMANENT")
+        assert route(peer, 65011, retained)
+
+        set_port("up")
+        l3mh._settle(leaves)
+        for binding in (*synced, retained):
+            check_nud(binding, "PROBE")
+        for binding in synced:
+            assert route(local, 65012, binding)
+            assert not route(peer, 65011, binding)
+        assert route(peer, 65011, retained)
+
+        set_port("down")
+        l3mh._settle(leaves)
+        for binding in (*synced, retained):
+            check_nud(binding, "PERMANENT")
+        set_port("up")
+        l3mh._settle(leaves)
+        for binding in (*synced, retained):
+            check_nud(binding, "PROBE")
+
+        learn(local, success)
+        neigh(local, fallback, "failed")
+        for binding in (lost, lost_failure):
+            neigh(peer, binding, "failed")
+        learn(peer, fresh)
+        l3mh._settle(leaves)
+        assert route(peer, 65011, success)
+        check_nud(fallback, "PERMANENT")
+        for binding in (lost, lost_failure):
+            check_nud(binding, "PROBE")
+            assert not route(local, 65012, binding)
+        check_nud(fresh, "PERMANENT")
+        assert not route(peer, 65011, fallback)
+        assert not route(peer, 65011, fresh)
+
+        neigh(peer, fresh, "failed")
+        neigh(local, lost_failure, "failed")
+        l3mh._settle(leaves)
+        check_nud(fresh, "PROBE")
+        check_nud(lost_failure, "FAILED")
+        assert not route(peer, 65011, lost_failure)
+        for binding in (lost, fresh):
+            learn(local, binding)
+        l3mh._settle(leaves)
+        for binding in (lost, fresh):
+            assert route(peer, 65011, binding)
+    finally:
+        set_port("up")
+        configure(f"interface {port}\n no evpn mh bridge-port-protection")
+        configure("no evpn mh l3-neigh-down-peering-time")
+        local.cmd_raises(f"sysctl -w {retrans}={original_retrans}")
+        for leaf in leaves:
+            for ip, mac in bindings:
+                leaf.run(f"ip neigh del {ip} dev {svi} 2>/dev/null")
+                leaf.run(
+                    f"bridge fdb del {mac} dev {port} master vlan {vid} 2>/dev/null"
+                )
+
+
 def test_rt2_origin_survives_spine_path_loss_and_changes_on_withdrawal():
     tgen = l3mh.get_topogen()
     if tgen.routers_have_failure():

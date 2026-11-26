@@ -125,13 +125,15 @@ static struct zebra_neigh_ent *zebra_neigh_find(ns_id_t ns_id, ifindex_t ifindex
 	return RB_FIND(zebra_neigh_rb_head, &zneigh_info->neigh_rb_tree, &tmp);
 }
 
-bool zebra_neigh_has_mac(ns_id_t ns_id, ifindex_t ifindex, const struct ipaddr *ip,
-			 const struct ethaddr *mac)
+uint16_t zebra_neigh_mac_state(ns_id_t ns_id, ifindex_t ifindex, const struct ipaddr *ip,
+			       const struct ethaddr *mac)
 {
 	const struct zebra_neigh_ent *n = zebra_neigh_find(ns_id, ifindex, ip);
 
-	return n && CHECK_FLAG(n->flags, ZEBRA_NEIGH_ENT_ACTIVE) &&
-	       !memcmp(&n->mac, mac, sizeof(*mac));
+	if (!n || !CHECK_FLAG(n->flags, ZEBRA_NEIGH_ENT_ACTIVE) ||
+	    memcmp(&n->mac, mac, sizeof(*mac)))
+		return 0;
+	return n->neigh_state;
 }
 
 static struct zebra_neigh_ent *zebra_neigh_new(ns_id_t ns_id, ifindex_t ifindex, struct ipaddr *ip,
