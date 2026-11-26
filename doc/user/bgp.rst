@@ -4845,11 +4845,10 @@ It requires L3 multihoming (``advertise-all-vni l3vni-neigh``, with VLANs
 in broadcast domains that have no L2VNI). It has no effect on DF
 election.
 
-Configure bridge-port protection on every PE that participates in the ES.
-Each PE originates the IP A-D per-ES route used for peer eligibility only
-when protection is configured on that PE. If a peer is left unconfigured,
-the configured PE can remain pending with no eligible backup member or
-Binding.
+Enable L3 multihoming on every PE that participates in the ES.
+An eligible peer originates IP A-D and can serve as a backup member with
+bridge-port protection disabled on that peer. Configure protection on
+each PE that needs backup forwarding on its own ES port.
 
 .. clicmd:: show evpn mh bridge-port-protection [interface IFNAME] [detail] [json]
 
@@ -4880,6 +4879,11 @@ the host. This holdtime is configurable via the following zebra commands -
 
 L3 multihoming neighbor handoff
 """""""""""""""""""""""""""""""
+L3 multihoming neighbor handoff and IP A-D origination work on eligible
+Ethernet segments with ``advertise-all-vni l3vni-neigh``. Bridge-port
+protection separately configures backup forwarding and can use peers
+with protection disabled.
+
 When an L3 multihoming access interface fails, Zebra uses a usable peer
 MAC-IP route immediately. If none is available, Zebra starts the
 down-peering timer for each retained neighbor.

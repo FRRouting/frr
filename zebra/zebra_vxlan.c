@@ -6448,6 +6448,7 @@ void zebra_vxlan_advertise_all_vni(ZAPI_HANDLER_ARGS)
 	struct stream *s = NULL;
 	int advertise = 0;
 	int l3vni_neigh = 0;
+	bool l3vni_neigh_changed;
 	enum vxlan_flood_control flood_ctrl;
 
 	/* Mismatch between EVPN VRF and current VRF (should be prevented by
@@ -6461,6 +6462,7 @@ void zebra_vxlan_advertise_all_vni(ZAPI_HANDLER_ARGS)
 	STREAM_GETC(s, l3vni_neigh);
 	if (!advertise)
 		l3vni_neigh = 0;
+	l3vni_neigh_changed = !!zvrf->advertise_l3vni_neigh != !!l3vni_neigh;
 
 	if (IS_ZEBRA_DEBUG_VXLAN)
 		zlog_debug("EVPN VRF %s(%u) VNI Adv %s, currently %s, flood control %u, L3VNI neigh %s, currently %s",
@@ -6524,6 +6526,8 @@ void zebra_vxlan_advertise_all_vni(ZAPI_HANDLER_ARGS)
 	}
 
 l3vni_neigh_sync:
+	if (l3vni_neigh_changed)
+		zebra_evpn_es_l3vni_associations_update();
 	zebra_evpn_bpp_re_eval_schedule();
 
 	/* Idempotent while enabled, so a bgpd (GR) reconnect that re-sends the

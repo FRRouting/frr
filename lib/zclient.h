@@ -879,6 +879,8 @@ static inline const char *zapi_srv6_sid_notify2str(enum zapi_srv6_sid_notify not
 #define ZEBRA_MACIP_TYPE_L3_NEIGH_REFRESH ZEBRA_MACIP_TYPE_SYNC_PATH
 /* With L3_NEIGH_SYNC, cache a survivor while the old RT-1 probe runs. */
 #define ZEBRA_MACIP_TYPE_L3_NEIGH_FALLBACK ZEBRA_MACIP_TYPE_OVERRIDE_FLAG
+/* With L3_NEIGH_SYNC, restore backing for a retained path on RT-1 return. */
+#define ZEBRA_MACIP_TYPE_L3_NEIGH_RESTORE ZEBRA_MACIP_TYPE_SVI_IP
 /* XXX - flags is an u8 and 0x80 is now the last free bit; that needs to be
  * changed to u32 if you need to allocate past 0x80.  Additionally touch
  * zclient_evpn_dump_macip_flags

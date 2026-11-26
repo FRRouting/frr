@@ -2515,7 +2515,7 @@ static void bgp_evpn_es_local_info_clear(struct bgp_evpn_es *es, bool finish)
 	bgp_evpn_es_frag_free_all(es);
 
 	old_is_local = bgp_evpn_is_es_local_and_non_bypass(es);
-	UNSET_FLAG(es->flags, BGP_EVPNES_LOCAL);
+	UNSET_FLAG(es->flags, BGP_EVPNES_LOCAL | BGP_EVPNES_BPP);
 
 	is_local = bgp_evpn_is_es_local_and_non_bypass(es);
 	if (!finish && (old_is_local != is_local))
@@ -2861,11 +2861,12 @@ int bgp_evpn_local_es_del(struct bgp *bgp, esi_t *esi)
  * ES.
  */
 int bgp_evpn_local_es_add(struct bgp *bgp, esi_t *esi, struct ipaddr originator_ip, bool oper_up,
-			  uint16_t df_pref, bool bypass)
+			  uint16_t df_pref, bool bypass, bool bpp)
 {
 	struct bgp_evpn_es *es;
 	bool new_es = true;
 	bool regen_esr = false;
+	bool bpp_changed;
 
 	/* create the new es */
 	es = bgp_evpn_es_find(esi);
@@ -2874,6 +2875,9 @@ int bgp_evpn_local_es_add(struct bgp *bgp, esi_t *esi, struct ipaddr originator_
 			new_es = false;
 	} else
 		es = bgp_evpn_es_new(bgp, esi);
+
+	bpp_changed = !!CHECK_FLAG(es->flags, BGP_EVPNES_BPP) != bpp;
+	COND_FLAG(es->flags, BGP_EVPNES_BPP, bpp);
 
 	if (BGP_DEBUG(evpn_mh, EVPN_MH_ES))
 		zlog_debug("add local es %s orig-ip %pIA df_pref %u %s", es->esi_str,
@@ -2931,6 +2935,8 @@ int bgp_evpn_local_es_add(struct bgp *bgp, esi_t *esi, struct ipaddr originator_
 		bgp_evpn_local_es_down(bgp, es);
 
 	bgp_evpn_local_es_l3evi_bind_all(es);
+	if (bpp_changed)
+		bgp_evpn_es_l3_vtep_re_eval_all(es);
 
 	return 0;
 }
@@ -4024,7 +4030,7 @@ static bool bgp_evpn_es_l3_vtep_compute(struct bgp_evpn_es *es, const struct ipa
 	unsigned int ready = 0;
 	bool eligible = true;
 
-	if (!bgp_evpn_is_es_local(es))
+	if (!bgp_evpn_is_es_local(es) || !CHECK_FLAG(es->flags, BGP_EVPNES_BPP))
 		return false;
 
 	for (ALL_LIST_ELEMENTS_RO(es->es_vrf_list, node, es_vrf)) {
@@ -4145,8 +4151,10 @@ static void bgp_evpn_es_l3_vtep_re_eval(struct bgp_evpn_es *es, const struct ipa
 	sent = CHECK_FLAG(l3_vtep->flags, BGP_EVPN_ES_L3_VTEP_SENT);
 	rmac_chg = eligible && sent && memcmp(&l3_vtep->sent_rmac, &l3_vtep->rmac, ETH_ALEN);
 
-	bgp_evpn_es_l3_vtep_log_rmac_diff(l3_vtep);
-	bgp_evpn_es_l3_vtep_warn(l3_vtep, eligible, rt4);
+	if (CHECK_FLAG(es->flags, BGP_EVPNES_BPP)) {
+		bgp_evpn_es_l3_vtep_log_rmac_diff(l3_vtep);
+		bgp_evpn_es_l3_vtep_warn(l3_vtep, eligible, rt4);
+	}
 
 	if (eligible && (!sent || rmac_chg)) {
 		if (BGP_DEBUG(evpn_mh, EVPN_MH_PROT))
@@ -4257,8 +4265,11 @@ static void bgp_evpn_l3mh_peer_backing_invalidate(const struct bgp_evpn_es_vrf_v
 
 static void bgp_evpn_ip_ead_es_ref(struct bgp_evpn_es_vrf_vtep *vtep)
 {
-	if (vtep->es_ref++ == 0)
+	if (vtep->es_ref++ == 0) {
 		SET_FLAG(vtep->flags, BGP_EVPN_ES_VRF_VTEP_IP_EAD_ES);
+		bgp_evpn_l3vni_neigh_rt1_restored(vtep->es_vrf->es, vtep->es_vrf->bgp_vrf,
+						  &vtep->vtep_ip);
+	}
 }
 
 static void bgp_evpn_ip_ead_es_deref(struct bgp_evpn_es_vrf_vtep *vtep)
@@ -5319,7 +5330,7 @@ bgp_evpn_local_es_evi_do_del(struct bgp_evpn_es_evi *es_evi)
 	return bgp_evpn_es_evi_local_info_clear(es_evi);
 }
 
-/* L3VNI ES-EVIs: ES to IP-VRF association for bridge-port protection */
+/* L3VNI ES-EVIs: ES to IP-VRF association for L3 multihoming. */
 static struct bgp_evpn_es_l3evi *bgp_evpn_es_l3evi_find(const esi_t *esi, vni_t l3vni)
 {
 	struct bgp_evpn_es_l3evi *l3evi;
@@ -5373,7 +5384,8 @@ static void bgp_evpn_es_l3evi_bind(struct bgp_evpn_es_l3evi *l3evi)
 		zlog_debug("es %s l3vni %u vrf %s ref, l3 ref_cnt %u", es->esi_str, l3evi->l3vni,
 			   bgp_vrf->name_pretty, es_vrf->l3_ref_cnt);
 
-	bgp_evpn_es_l3_vtep_re_eval_all(es);
+	if (CHECK_FLAG(es->flags, BGP_EVPNES_BPP))
+		bgp_evpn_es_l3_vtep_re_eval_all(es);
 }
 
 static void bgp_evpn_es_l3evi_unbind(struct bgp_evpn_es_l3evi *l3evi)
@@ -5398,7 +5410,8 @@ static void bgp_evpn_es_l3evi_unbind(struct bgp_evpn_es_l3evi *l3evi)
 	bgp_evpn_es_frag_vrf_del(es_vrf, true);
 	if (bgp_evpn_local_es_is_active(es_vrf->es))
 		bgp_evpn_ead_es_route_update(bgp_get_evpn(), es_vrf->es);
-	bgp_evpn_es_l3_vtep_re_eval_all(es_vrf->es);
+	if (CHECK_FLAG(es_vrf->es->flags, BGP_EVPNES_BPP))
+		bgp_evpn_es_l3_vtep_re_eval_all(es_vrf->es);
 	bgp_evpn_es_vrf_try_delete(es_vrf);
 }
 

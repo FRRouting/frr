@@ -443,6 +443,7 @@ extern void zebra_evpn_es_set_base_evpn(struct zebra_evpn *zevpn);
 extern void zebra_evpn_es_clear_base_evpn(struct zebra_evpn *zevpn);
 extern void zebra_evpn_es_l3vni_base_evpn_clear(void);
 extern void zebra_evpn_es_l3vni_base_evpn_reeval(void);
+extern void zebra_evpn_es_l3vni_associations_update(void);
 extern void zebra_evpn_es_l3vni_oper_down(struct zebra_l3vni *zl3vni);
 extern enum zebra_evpn_bd_evpn_mode
 zebra_evpn_bd_evpn_mode(const struct zebra_evpn_access_bd *acc_bd);

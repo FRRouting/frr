@@ -5,6 +5,7 @@ from contextlib import contextmanager
 import subprocess
 
 NEIGH_ADD, NEIGH_DELETE = 28, 29
+NUD_FAILED = 0x20
 NUD_NOARP, NUD_PERMANENT = 0x40, 0x80
 FDB_STATIC = NUD_NOARP | NUD_PERMANENT
 
@@ -17,7 +18,8 @@ import sys
 ip, mac, vlan, *probe = sys.argv[1:]
 svi = socket.if_nametoindex(f"vlan{vlan}")
 port = socket.if_nametoindex("hostbond1")
-address = socket.inet_aton(ip)
+address_family = socket.AF_INET6 if ":" in ip else socket.AF_INET
+address = socket.inet_pton(address_family, ip)
 mac = bytes.fromhex(mac.replace(":", ""))
 tag = struct.pack("=H", int(vlan))
 with socket.socket(socket.AF_NETLINK, socket.SOCK_RAW, socket.NETLINK_ROUTE) as netlink:
@@ -42,9 +44,9 @@ with socket.socket(socket.AF_NETLINK, socket.SOCK_RAW, socket.NETLINK_ROUTE) as 
                 family, _, _, index, state = struct.unpack_from("=BBHiH", message, 16)
                 if kind not in (28, 29):  # RTM_NEWNEIGH, RTM_DELNEIGH
                     continue
-                arp = family == socket.AF_INET and index == svi
+                neighbor = family == address_family and index == svi
                 fdb = family == 7 and index == port  # AF_BRIDGE
-                if not (arp or fdb):
+                if not (neighbor or fdb):
                     continue
                 attrs = message[28:]
                 values = {}
@@ -53,7 +55,7 @@ with socket.socket(socket.AF_NETLINK, socket.SOCK_RAW, socket.NETLINK_ROUTE) as 
                     assert size >= 4
                     values[key] = attrs[4:size]
                     attrs = attrs[(size + 3) & ~3:]
-                if arp and values.get(1) == address:  # NDA_DST
+                if neighbor and values.get(1) == address:  # NDA_DST
                     if probe and kind == 28 and state == 16:  # NUD_PROBE
                         sys.exit(0)
                     if not probe:
@@ -66,7 +68,7 @@ with socket.socket(socket.AF_NETLINK, socket.SOCK_RAW, socket.NETLINK_ROUTE) as 
 
 @contextmanager
 def watch_binding(leaf, entry, *, expect_probe=False):
-    """Collect this binding's kernel ARP and FDB events through the barrier."""
+    """Collect this binding's kernel IP neighbor and FDB events."""
     ip, mac, vid = entry
     args = ["python3", "-c", WATCH_BINDING, ip, mac, str(vid)]
     if expect_probe:
@@ -125,7 +127,7 @@ def check_static_fdb(leaf, entry, *, permanent_arp=False):
 
 @contextmanager
 def check_probe(leaf, entry):
-    # The fixture keeps retransmits beyond this event window. A new ARP
+    # The fixture keeps retransmits beyond this event window. A new neighbor
     # notification would reveal a replacement or a restart of this probe.
     with watch_binding(leaf, entry) as changes:
         yield

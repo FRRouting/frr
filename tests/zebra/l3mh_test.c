@@ -154,8 +154,10 @@ DEFUN(l3mh_test_gate, l3mh_test_gate_cmd,
 	return CMD_SUCCESS;
 }
 
-DEFUN(l3mh_test_expiry, l3mh_test_expiry_cmd, "show l3mh-test immediate-expiry [A.B.C.D]",
-      SHOW_STR "L3MH test controls\n" "Expire a hold on its next dispatch\n" "Neighbor IP\n")
+DEFUN(l3mh_test_expiry, l3mh_test_expiry_cmd,
+      "show l3mh-test immediate-expiry [<A.B.C.D|X:X::X:X>]",
+      SHOW_STR "L3MH test controls\n" "Expire a hold on its next dispatch\n"
+      "Neighbor IPv4 address\n" "Neighbor IPv6 address\n")
 {
 	struct zebra_evpn *zevpn;
 	struct zebra_neigh *n;

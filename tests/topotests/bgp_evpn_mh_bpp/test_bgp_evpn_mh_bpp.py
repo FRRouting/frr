@@ -35,7 +35,9 @@ SVIs sit in an IP-VRF with an L3VNI:
     VLAN 30 -> vlan30 in vrf-a (added to hostbond1 by the tests)
 
 A protection entry is kept per (ES bond, VLAN). The protection tests run on
-tor1, on hostbond1.
+tor1, on hostbond1. Other ToRs attach their access VLANs when a test needs
+them to originate IP A-D. This controls the set of available peers while
+all ToRs can still receive routes and advertise their Ethernet segments.
 """
 
 import os
@@ -190,8 +192,8 @@ def config_tor_dataplane(tor):
         tor.run("ip link set dev %s up" % bond)
         tor.run("ip link set dev %s master br_default" % bond)
         tor.run("/sbin/bridge vlan del vid 1 dev %s" % bond)
-        for vid in ES_VLANS:
-            tor.run("/sbin/bridge vlan add vid %d dev %s" % (vid, bond))
+        if tor.name == "tor1":
+            _set_ip_ead_vlans(tor, bond, True)
 
 
 def config_host(host):
@@ -599,6 +601,25 @@ def _set_bpp_if(router, ifname, enable):
         "configure terminal\ninterface %s\n%sevpn mh bridge-port-protection"
         % (ifname, "" if enable else "no ")
     )
+
+
+def _set_ip_ead_vlans(router, ifname, enable):
+    for vid in ES_VLANS:
+        command = "/sbin/bridge vlan %s vid %d dev %s" % (
+            "add" if enable else "del",
+            vid,
+            ifname,
+        )
+        if enable:
+            router.cmd_raises(command)
+        else:
+            router.run(command)
+
+
+def _set_peer_ip_ead(router, ifname, enable):
+    """Set a peer's VLAN attachment and its backup forwarding for this test."""
+    _set_bpp_if(router, ifname, enable)
+    _set_ip_ead_vlans(router, ifname, enable)
 
 
 def _expect_json(router, cmd, expected, msg):
@@ -1464,7 +1485,7 @@ def _expect_ip_ead_rt_rx(router, source, esi, evi_rts, es_rts, msg):
 
 
 def _clear_ip_ead(router):
-    _set_bpp_if(router, ES_IF, False)
+    _set_peer_ip_ead(router, ES_IF, False)
     _expect_ip_ead(router, "IP A-D withdrawn", evi_absent=True, es_absent=True)
 
 
@@ -1497,6 +1518,7 @@ def test_bpp_ip_ead_tx():
     _expect_no_ip_ead_rx(tor2, ES1_ID, "source RT-1 withdrawn")
     _expect_no_exports(tor2, "source withdrawal removes exports", released=True)
     _clear_ip_ead(tor2)
+    _set_ip_ead_vlans(tor1, ES_IF, True)
 
 
 def test_bpp_ip_ead_tx_ipv6():
@@ -1510,7 +1532,7 @@ def test_bpp_ip_ead_tx_ipv6():
     rts = (_vrf_rt(tor3, "vrf-a"), _vrf_rt(tor3, "vrf-b"))
 
     _set_bpp(tor1, True)
-    _set_bpp(tor3, True)
+    _set_peer_ip_ead(tor3, ES_IF, True)
     _expect_ip_ead(
         tor3, "configured IPv6 VTEP", evi_vrfs=("vrf-a", "vrf-b"), es_rts=rts,
     )
@@ -1532,6 +1554,7 @@ def test_bpp_ip_ead_tx_ipv6():
     _expect_no_ip_ead_rx(tor1, ES1_ID, "IPv6 source RT-1 withdrawn")
     _expect_no_exports(tor1, "IPv6 source cleanup removes exports", released=True)
     _clear_ip_ead(tor1)
+    _set_ip_ead_vlans(tor1, ES_IF, True)
 
 
 def test_bpp_ip_ead_tx_per_es_frag():
@@ -1601,6 +1624,7 @@ def test_bpp_ip_ead_tx_per_es_frag():
     _expect_no_ip_ead_rx(tor2, ES1_ID, "fragmented source withdrawn")
     _expect_no_exports(tor2, "fragment source cleanup removes exports", released=True)
     _clear_ip_ead(tor2)
+    _set_ip_ead_vlans(tor1, ES_IF, True)
 
 
 def test_bpp_ip_ead_tx_no_l3mh():
@@ -1631,6 +1655,7 @@ def test_bpp_ip_ead_tx_no_l3mh():
     _expect_no_ip_ead_rx(tor2, ES1_ID, "restored source withdrawn")
     _expect_no_exports(tor2, "no-l3mh cleanup removes exports", released=True)
     _clear_ip_ead(tor2)
+    _set_ip_ead_vlans(tor1, ES_IF, True)
 
 
 def test_bpp_ip_ead_tx_withdraw():
@@ -1644,7 +1669,7 @@ def test_bpp_ip_ead_tx_withdraw():
     rts = (_vrf_rt(tor2, "vrf-a"), _vrf_rt(tor2, "vrf-b"))
 
     _set_bpp(tor1, True)
-    _set_bpp_if(tor2, ES_IF, True)
+    _set_peer_ip_ead(tor2, ES_IF, True)
     _expect_ip_ead(tor2, "tor2 initial", evi_vrfs=("vrf-a", "vrf-b"), es_rts=rts)
     _expect_ip_ead_rx_all(tor1, ES1_ID, (lo2,), "originator RT-1 classified")
     _expect_export_clean(
@@ -1684,6 +1709,7 @@ def test_bpp_ip_ead_tx_withdraw():
     _expect_no_ip_ead_rx(tor1, ES1_ID, "originator cleanup withdraws RT-1")
     _expect_no_exports(tor1, "withdrawal cleanup removes exports", released=True)
     _clear_ip_ead(tor1)
+    _set_ip_ead_vlans(tor1, ES_IF, True)
 
 
 def test_bpp_ip_ead_tx_svi_oper():
@@ -1695,7 +1721,7 @@ def test_bpp_ip_ead_tx_svi_oper():
     tor2 = tgen.gears["tor2"]
     lo2 = tor_lo("tor2")
     rts = (_vrf_rt(tor1, "vrf-a"), _vrf_rt(tor1, "vrf-b"))
-    _set_bpp_if(tor2, ES_IF, True)
+    _set_peer_ip_ead(tor2, ES_IF, True)
     _set_bpp(tor1, True)
     _expect_ip_ead(tor1, "before SVI down", evi_vrfs=("vrf-a", "vrf-b"), es_rts=rts)
     _expect_ip_ead_rx_all(tor1, ES1_ID, (lo2,), "remote RT-1 before SVI down")
@@ -1723,6 +1749,7 @@ def test_bpp_ip_ead_tx_svi_oper():
     _expect_export_events(tor1, marker, [], "SVI up sends no export")
     _clear_ip_ead(tor1)
     _clear_ip_ead(tor2)
+    _set_ip_ead_vlans(tor1, ES_IF, True)
     _expect_no_ip_ead_rx(tor1, ES1_ID, "SVI test remote RT-1 cleanup")
     _expect_no_exports(tor1, "SVI test cleanup has no exports")
 
@@ -1736,7 +1763,7 @@ def test_bpp_ip_ead_tx_local_es_down():
     tor2 = tgen.gears["tor2"]
     lo1 = tor_lo("tor1")
     rts = (_vrf_rt(tor1, "vrf-a"), _vrf_rt(tor1, "vrf-b"))
-    _set_bpp(tor2, True)
+    _set_peer_ip_ead(tor2, ES_IF, True)
     _set_bpp(tor1, True)
     _expect_ip_ead(tor1, "before ES down", evi_vrfs=("vrf-a", "vrf-b"), es_rts=rts)
     _expect_ip_ead_rx_all(tor2, ES1_ID, (lo1,), "source RT-1 before ES down")
@@ -1771,6 +1798,7 @@ def test_bpp_ip_ead_tx_local_es_down():
     _expect_no_ip_ead_rx(tor2, ES1_ID, "local ES source cleanup")
     _expect_no_exports(tor2, "local ES cleanup removes exports", released=True)
     _clear_ip_ead(tor2)
+    _set_ip_ead_vlans(tor1, ES_IF, True)
 
 
 def test_bpp_ip_ead_tx_rt_change():
@@ -1781,7 +1809,7 @@ def test_bpp_ip_ead_tx_rt_change():
     tor1 = tgen.gears["tor1"]
     tor2 = tgen.gears["tor2"]
     lo1 = tor_lo("tor1")
-    _set_bpp(tor2, True)
+    _set_peer_ip_ead(tor2, ES_IF, True)
     _set_bpp(tor1, True)
     new_rt = "65001:9999"
     auto_rts = (_vrf_rt(tor1, "vrf-a"), _vrf_rt(tor1, "vrf-b"))
@@ -1845,6 +1873,7 @@ def test_bpp_ip_ead_tx_rt_change():
     _expect_no_ip_ead_rx(tor2, ES1_ID, "RT source cleanup withdraws classification")
     _expect_no_exports(tor2, "RT decoration cleanup removes exports", released=True)
     _clear_ip_ead(tor2)
+    _set_ip_ead_vlans(tor1, ES_IF, True)
 
 
 def test_bpp_ip_ead_tx_rmac_change():
@@ -1855,7 +1884,7 @@ def test_bpp_ip_ead_tx_rmac_change():
     tor1 = tgen.gears["tor1"]
     tor2 = tgen.gears["tor2"]
     lo1 = tor_lo("tor1")
-    _set_bpp(tor2, True)
+    _set_peer_ip_ead(tor2, ES_IF, True)
     _set_bpp(tor1, True)
     _expect_ip_ead(tor1, "before RMAC change", evi_vrfs=("vrf-a", "vrf-b"))
     _expect_ip_ead_bgp_rx(
@@ -1931,6 +1960,7 @@ def test_bpp_ip_ead_tx_rmac_change():
     _expect_no_ip_ead_rx(tor2, ES1_ID, "RMAC source cleanup")
     _expect_no_exports(tor2, "RMAC source cleanup removes exports", released=True)
     _clear_ip_ead(tor2)
+    _set_ip_ead_vlans(tor1, ES_IF, True)
 
 
 def _evpn_nbrs(router):
@@ -2107,8 +2137,8 @@ def test_bpp_ip_ead_rx_classify():
     peers = (tor_lo("tor2"), tor_vtep("tor3"))
 
     _set_bpp(tor1, True)
-    _set_bpp_if(tor2, ES_IF, True)
-    _set_bpp_if(tor3, ES_IF, True)
+    _set_peer_ip_ead(tor2, ES_IF, True)
+    _set_peer_ip_ead(tor3, ES_IF, True)
     for vrf in VRFS:
         _expect_ip_ead_rx(tor1, ES1_ID, vrf, peers, "tor2/tor3 classified in %s" % vrf)
     _expect_export_clean(tor1, "both classified peers exported", members=2, vteps=peers)
@@ -2151,7 +2181,7 @@ def test_bpp_ip_ead_rx_attr_update_withdraw():
     asn = 65002
 
     _set_bpp(tor1, True)
-    _set_bpp_if(tor2, ES_IF, True)
+    _set_peer_ip_ead(tor2, ES_IF, True)
     _expect_ip_ead_rx(tor1, ES1_ID, "vrf-a", (lo,), "before attribute update")
     _expect_ip_ead_rx(tor1, ES1_ID, "vrf-b", (lo,), "before attribute update")
     _expect_export_clean(tor1, "attribute source exported", members=1, vteps=(lo,))
@@ -2221,7 +2251,7 @@ def test_bpp_ip_ead_rx_mac_scope_only():
     lo2 = tor_lo("tor2")
 
     _set_bpp(tor1, True)
-    _set_bpp_if(tor2, ES_IF, True)
+    _set_peer_ip_ead(tor2, ES_IF, True)
     _expect_ip_ead_rx(tor1, ES1_ID, "vrf-a", (lo2,), "ES-1 IP A-D")
     _expect_ip_ead_rx(tor1, ES1_ID, "vrf-b", (lo2,), "ES-1 IP A-D")
     _expect_no_ip_ead_rx(tor1, ES2_ID, "ES-2 has no IP A-D")
@@ -2245,7 +2275,7 @@ def test_bpp_ip_ead_rx_dual_scope():
     import_rt = _vrf_rt(tor2, "vrf-a")
 
     _set_bpp(tor1, True)
-    _set_bpp_if(tor2, ES_IF, True)
+    _set_peer_ip_ead(tor2, ES_IF, True)
     _expect_ip_ead_rx_all(tor1, ES1_ID, (lo2,), "dual-scope baseline")
     _expect_export_clean(tor1, "dual-scope baseline export", members=1)
     baseline = _ip_ead_classification_snapshot(tor1, ES1_ID)
@@ -2341,7 +2371,7 @@ def test_bpp_ip_ead_rx_label_mismatch():
         "route-target import 65002:4001" % VRF_C
     )
     _set_bpp(tor1, True)
-    _set_bpp_if(tor2, ES_IF, True)
+    _set_peer_ip_ead(tor2, ES_IF, True)
     _expect_ip_ead_rx(tor1, ES1_ID, "vrf-a", (lo,), "vrf-a still matches")
     _expect_export_clean(
         tor1,
@@ -2399,7 +2429,7 @@ def test_bpp_ip_ead_rx_no_rmac_ec():
     asn = 65002
 
     _set_bpp(tor1, True)
-    _set_bpp_if(tor2, ES_IF, True)
+    _set_peer_ip_ead(tor2, ES_IF, True)
     _expect_ip_ead_rx(tor1, ES1_ID, "vrf-a", (lo,), "with rmac")
     _expect_export_clean(tor1, "RMAC route exports one Member", members=1, vteps=(lo,))
 
@@ -2461,7 +2491,7 @@ def test_bpp_ip_ead_rx_not_all_active():
     asn = 65002
 
     _set_bpp(tor1, True)
-    _set_bpp_if(tor2, ES_IF, True)
+    _set_peer_ip_ead(tor2, ES_IF, True)
     _expect_ip_ead_rx_all(tor1, ES1_ID, (lo,), "all-active baseline")
     _expect_export_clean(
         tor1, "all-active route exports one Member", members=1, vteps=(lo,)
@@ -2537,7 +2567,7 @@ def test_bpp_ip_ead_rx_knob_off():
     lo2 = tor_lo("tor2")
 
     _set_bpp(tor1, True)
-    _set_bpp_if(tor2, ES_IF, True)
+    _set_peer_ip_ead(tor2, ES_IF, True)
     _expect_ip_ead_rx_all(tor1, ES1_ID, (lo2,), "before knob off")
     _expect_export_clean(
         tor1, "knob-on classification exports objects", members=1, vteps=(lo2,)
@@ -2569,8 +2599,8 @@ def test_bpp_ip_ead_rx_protection_off():
     peers = (tor_lo("tor2"), tor_vtep("tor3"))
 
     _set_bpp(tor1, True)
-    _set_bpp_if(tor2, ES_IF, True)
-    _set_bpp_if(tor3, ES_IF, True)
+    _set_peer_ip_ead(tor2, ES_IF, True)
+    _set_peer_ip_ead(tor3, ES_IF, True)
     _expect_ip_ead_rx(tor1, ES1_ID, "vrf-a", peers, "with protection")
     _expect_export_clean(
         tor1, "protected RX exports both Members", members=2, vteps=peers
@@ -2602,12 +2632,12 @@ def test_bpp_ip_ead_rx_remote_only_es():
     tor2 = tgen.gears["tor2"]
 
     tor1.vtysh_cmd("configure terminal\ninterface hostbond2\nno evpn mh es-id")
-    _set_bpp_if(tor2, "hostbond2", True)
+    _set_peer_ip_ead(tor2, "hostbond2", True)
     _expect_ip_ead_rx(tor1, ES2_ID, "vrf-a", (tor_lo("tor2"),), "remote-only ES-2")
     _expect_ip_ead_rx(tor1, ES2_ID, "vrf-b", (tor_lo("tor2"),), "remote-only ES-2")
     _expect_no_exports(tor1, "remote-only ES exports nothing")
 
-    _set_bpp_if(tor2, "hostbond2", False)
+    _set_peer_ip_ead(tor2, "hostbond2", False)
     tor1.vtysh_cmd("configure terminal\ninterface hostbond2\nevpn mh es-id 2")
     _expect_no_ip_ead_rx(tor1, ES2_ID, "cleaned")
     _expect_no_exports(tor1, "remote-only RX cleanup has no exports")
@@ -2910,7 +2940,7 @@ def test_bpp_zapi():
     lo2 = tor_lo("tor2")
 
     _set_prot_debug(tor1, True)
-    _set_bpp_if(tor2, ES_IF, True)
+    _set_peer_ip_ead(tor2, ES_IF, True)
     _set_bpp(tor1, True)
     _expect_eligible(tor1, ES1_ID, (lo2,), "tor2 eligible")
     _expect_bpp_peer(tgen, tor1, ES1_ID, lo2, "add", "ADD logged")
@@ -2940,7 +2970,7 @@ def test_bpp_l2_untouched():
     before_nh = _kernel_nexthops(tor1)
     _set_prot_debug(tor1, True)
     snap = _log_text(tgen, tor1, "zebra")
-    _set_bpp_if(tor2, ES_IF, True)
+    _set_peer_ip_ead(tor2, ES_IF, True)
     _set_bpp(tor1, True)
     _expect_eligible(tor1, ES1_ID, (tor_lo("tor2"),), "ES-1 eligible")
     _expect_no_new_bpp_peer(tgen, tor1, snap, "no ES-2 BPP_PEER", esi=ES2_ID, delay=3)
@@ -3088,8 +3118,8 @@ def test_bpp_eligibility_all_vrfs():
 
     _set_vrf_auto_rt(tor3, "vrf-b", False)
     _set_prot_debug(tor1, True)
-    _set_bpp_if(tor2, ES_IF, True)
-    _set_bpp_if(tor3, ES_IF, True)
+    _set_peer_ip_ead(tor2, ES_IF, True)
+    _set_peer_ip_ead(tor3, ES_IF, True)
     _set_bpp(tor1, True)
     _expect_eligible(tor1, ES1_ID, (tor_lo("tor2"),), "tor2 eligible")
     _expect_eligible(
@@ -3115,7 +3145,7 @@ def test_bpp_new_local_vrf():
     lo2 = tor_lo("tor2")
 
     _set_prot_debug(tor1, True)
-    _set_bpp_if(tor2, ES_IF, True)
+    _set_peer_ip_ead(tor2, ES_IF, True)
     _set_bpp(tor1, True)
     _expect_eligible(tor1, ES1_ID, (lo2,), "before vrf-c")
     snap = _log_text(tgen, tor1, "zebra")
@@ -3148,14 +3178,14 @@ def test_bpp_single_resolver():
     lo2 = tor_lo("tor2")
 
     _set_prot_debug(tor1, True)
-    _set_bpp_if(tor2, ES_IF, True)
+    _set_peer_ip_ead(tor2, ES_IF, True)
     _set_bpp(tor1, True)
     _expect_eligible(tor1, ES1_ID, (lo2,), "eligible")
     snap_z = _log_text(tgen, tor1, "zebra")
     snap_b = _log_text(tgen, tor1, "bgpd")
-    _set_bpp_if(tor2, ES_IF, False)
+    _set_peer_ip_ead(tor2, ES_IF, False)
     _expect_eligible(tor1, ES1_ID, (lo2,), "withdrawn", eligible=False)
-    _set_bpp_if(tor2, ES_IF, True)
+    _set_peer_ip_ead(tor2, ES_IF, True)
     _expect_eligible(tor1, ES1_ID, (lo2,), "restored")
     znew = _log_text(tgen, tor1, "zebra")[len(snap_z) :]
     bnew = _log_text(tgen, tor1, "bgpd")[len(snap_b) :]
@@ -3184,7 +3214,7 @@ def test_bpp_rmac_common_multi_vrf():
 
     _set_prot_debug(tor1, True)
     snap = _log_text(tgen, tor1, "zebra")
-    _set_bpp_if(tor2, ES_IF, True)
+    _set_peer_ip_ead(tor2, ES_IF, True)
     _set_bpp(tor1, True)
     _expect_eligible(tor1, ES1_ID, (lo2,), "same rmac")
     _expect_bpp_peer(
@@ -3211,7 +3241,7 @@ def test_bpp_rmac_latest():
     tor2.run("ip link set vlan4002 address %s" % mac_a)
 
     _set_prot_debug(tor1, True)
-    _set_bpp_if(tor2, ES_IF, True)
+    _set_peer_ip_ead(tor2, ES_IF, True)
     _set_bpp(tor1, True)
     _expect_eligible(tor1, ES1_ID, (lo2,), "common rmac")
     # The RMAC mismatch warning must be visible without protection debugging.
@@ -3248,7 +3278,7 @@ def test_bpp_rmac_change():
     old1, old2 = _if_mac(tor2, "vlan4001"), _if_mac(tor2, "vlan4002")
 
     _set_prot_debug(tor1, True)
-    _set_bpp_if(tor2, ES_IF, True)
+    _set_peer_ip_ead(tor2, ES_IF, True)
     _set_bpp(tor1, True)
     _expect_eligible(tor1, ES1_ID, (lo2,), "before rmac change")
     snap = _log_text(tgen, tor1, "zebra")
@@ -3291,7 +3321,7 @@ def test_bpp_eligibility_order():
 
     _set_prot_debug(tor1, True)
     tor2.vtysh_cmd("configure terminal\n%s%s" % (rmap, nbr_cfg))
-    _set_bpp_if(tor2, ES_IF, True)
+    _set_peer_ip_ead(tor2, ES_IF, True)
     _set_bpp(tor1, True)
     _expect_eligible(tor1, ES1_ID, (lo2,), "per-ES only", eligible=False)
     snap = _log_text(tgen, tor1, "zebra")
@@ -3323,7 +3353,7 @@ def test_bpp_rt4_initial_admission():
     _set_rt4_filter(tor2, True)
     _set_prot_debug(tor1, True)
     marker = _log_text(tgen, tor1, "bgpd")
-    _set_bpp_if(tor2, ES_IF, True)
+    _set_peer_ip_ead(tor2, ES_IF, True)
     _set_bpp(tor1, True)
     _expect_eligible(tor1, ES1_ID, (lo2,), "eligible without rt4")
     _expect_bpp_peer(tgen, tor1, ES1_ID, lo2, "add", "ADD without rt4")
@@ -3345,7 +3375,7 @@ def test_bpp_rt4_late_arrival():
 
     _set_rt4_filter(tor2, True)
     _set_prot_debug(tor1, True)
-    _set_bpp_if(tor2, ES_IF, True)
+    _set_peer_ip_ead(tor2, ES_IF, True)
     _set_bpp(tor1, True)
     _expect_eligible(tor1, ES1_ID, (lo2,), "eligible")
     snap = _log_text(tgen, tor1, "zebra")
@@ -3366,7 +3396,7 @@ def test_bpp_rt4_withdraw():
     lo2 = tor_lo("tor2")
 
     _set_prot_debug(tor1, True)
-    _set_bpp_if(tor2, ES_IF, True)
+    _set_peer_ip_ead(tor2, ES_IF, True)
     _set_bpp(tor1, True)
     _expect_eligible(tor1, ES1_ID, (lo2,), "with rt4")
     _expect_ip_ead_rx_all(tor1, ES1_ID, (lo2,), "RT-4 present RT-1 classified")
@@ -3424,7 +3454,7 @@ def test_bpp_host_route_no_effect():
     gw = ACCESS_VLANS[ES_VLANS[0]][1].split("/")[0]
 
     _set_prot_debug(tor1, True)
-    _set_bpp_if(tor2, ES_IF, True)
+    _set_peer_ip_ead(tor2, ES_IF, True)
     _set_bpp(tor1, True)
     _expect_eligible(tor1, ES1_ID, (lo2,), "before ping")
     snap = _log_text(tgen, tor1, "zebra")
@@ -3446,7 +3476,7 @@ def test_bpp_other_esi():
 
     _set_prot_debug(tor1, True)
     snap = _log_text(tgen, tor1, "zebra")
-    _set_bpp_if(tor2, ES_IF, True)
+    _set_peer_ip_ead(tor2, ES_IF, True)
     _set_bpp(tor1, True)
     _expect_eligible(tor1, ES1_ID, (tor_lo("tor2"),), "tor2 eligible")
     _expect_eligible(tor1, ES1_ID, (lo4,), "tor4 never eligible", eligible=False)
@@ -3467,7 +3497,7 @@ def test_bpp_non_l3mh_es():
 
     _set_prot_debug(tor1, True)
     snap = _log_text(tgen, tor1, "zebra")
-    _set_bpp_if(tor2, ES_IF, True)
+    _set_peer_ip_ead(tor2, ES_IF, True)
     _set_bpp(tor1, True)
     _expect_eligible(tor1, ES1_ID, (tor_lo("tor2"),), "ES-1")
     _expect_no_new_bpp_peer(
@@ -3504,7 +3534,7 @@ def test_bpp_ineligible_rx():
     _set_prot_debug(tor1, True)
     tor2.vtysh_cmd("configure terminal\n%s%s" % (rmap, nbr_cfg))
     snap = _log_text(tgen, tor1, "zebra")
-    _set_bpp_if(tor2, ES_IF, True)
+    _set_peer_ip_ead(tor2, ES_IF, True)
     _set_bpp(tor1, True)
     _expect_eligible(tor1, ES1_ID, (lo2,), "no rmac, not eligible", eligible=False)
     _expect_no_new_bpp_peer(tgen, tor1, snap, "no ADD without rmac", esi=ES1_ID)
@@ -3532,7 +3562,7 @@ def test_bpp_knob_off_del():
     lo2 = tor_lo("tor2")
 
     _set_prot_debug(tor1, True)
-    _set_bpp_if(tor2, ES_IF, True)
+    _set_peer_ip_ead(tor2, ES_IF, True)
     _set_bpp(tor1, True)
     _expect_eligible(tor1, ES1_ID, (lo2,), "before knob off")
     snap = _log_text(tgen, tor1, "zebra")
@@ -3559,7 +3589,7 @@ def test_bpp_protection_off_del():
     lo2 = tor_lo("tor2")
 
     _set_prot_debug(tor1, True)
-    _set_bpp_if(tor2, ES_IF, True)
+    _set_peer_ip_ead(tor2, ES_IF, True)
     _set_bpp(tor1, True)
     _expect_eligible(tor1, ES1_ID, (lo2,), "protected")
     _expect_ip_ead_rx_all(tor1, ES1_ID, (lo2,), "protected RT-1 classified")
@@ -3668,11 +3698,11 @@ def test_bpp_remote_only_es_no_send():
     _set_prot_debug(tor1, True)
     tor1.vtysh_cmd("configure terminal\ninterface hostbond2\nno evpn mh es-id")
     snap = _log_text(tgen, tor1, "zebra")
-    _set_bpp_if(tor2, "hostbond2", True)
+    _set_peer_ip_ead(tor2, "hostbond2", True)
     _expect_ip_ead_rx(tor1, ES2_ID, "vrf-a", (tor_lo("tor2"),), "remote-only rx")
     _expect_no_new_bpp_peer(tgen, tor1, snap, "no BPP_PEER for remote-only", esi=ES2_ID)
     _expect_no_exports(tor1, "remote-only ES sends no exports")
-    _set_bpp_if(tor2, "hostbond2", False)
+    _set_peer_ip_ead(tor2, "hostbond2", False)
     tor1.vtysh_cmd("configure terminal\ninterface hostbond2\nevpn mh es-id 2")
     _expect_no_ip_ead_rx(tor1, ES2_ID, "remote-only route withdrawn")
     _expect_no_exports(tor1, "remote-only cleanup has no exports")
@@ -3691,8 +3721,8 @@ def test_bpp_vrf_leaves_ready_set():
 
     _set_vrf_auto_rt(tor3, "vrf-b", False)
     _set_prot_debug(tor1, True)
-    _set_bpp_if(tor2, ES_IF, True)
-    _set_bpp_if(tor3, ES_IF, True)
+    _set_peer_ip_ead(tor2, ES_IF, True)
+    _set_peer_ip_ead(tor3, ES_IF, True)
     _set_bpp(tor1, True)
     _expect_eligible(
         tor1, ES1_ID, (lo3,), "missing vrf-b", eligible=False, missing=["vrf-b"]
@@ -3735,7 +3765,7 @@ def test_bpp_fanout():
     lo2 = tor_lo("tor2")
 
     _set_prot_debug(tor1, True)
-    _set_bpp_if(tor2, ES_IF, True)
+    _set_peer_ip_ead(tor2, ES_IF, True)
     _set_bpp(tor1, True)
     _expect_eligible(tor1, ES1_ID, (lo2,), "tor2 eligible")
     _expect_entries(
@@ -3770,7 +3800,7 @@ def test_bpp_pending_vlan():
     tor1 = tgen.gears["tor1"]
     tor2 = tgen.gears["tor2"]
 
-    _set_bpp_if(tor2, ES_IF, True)
+    _set_peer_ip_ead(tor2, ES_IF, True)
     _set_bpp(tor1, True)
     _expect_entries(
         tor1,
@@ -3814,8 +3844,8 @@ def test_bpp_show_member():
     macs2 = {_if_mac(tor2, "vlan4001"), _if_mac(tor2, "vlan4002")}
     macs3 = {_if_mac(tor3, "vlan4001"), _if_mac(tor3, "vlan4002")}
 
-    _set_bpp_if(tor2, ES_IF, True)
-    _set_bpp_if(tor3, ES_IF, True)
+    _set_peer_ip_ead(tor2, ES_IF, True)
+    _set_peer_ip_ead(tor3, ES_IF, True)
     _set_bpp(tor1, True)
     _expect_members(tor1, ES1_ID, (lo2, lo3), "tor2 and tor3 in member view")
 
@@ -3848,8 +3878,8 @@ def test_bpp_group_all_vrfs():
     lo2, lo3 = tor_lo("tor2"), tor_vtep("tor3")
 
     _set_vrf_auto_rt(tor3, "vrf-b", False)
-    _set_bpp_if(tor2, ES_IF, True)
-    _set_bpp_if(tor3, ES_IF, True)
+    _set_peer_ip_ead(tor2, ES_IF, True)
+    _set_peer_ip_ead(tor3, ES_IF, True)
     _set_bpp(tor1, True)
     _expect_members(tor1, ES1_ID, (lo2,), "Group is tor2 only")
 
@@ -3872,8 +3902,8 @@ def test_bpp_vrf_no_per_evi():
 
     _set_vrf_auto_rt(tor2, "vrf-b", False)
     _set_vrf_auto_rt(tor3, "vrf-b", False)
-    _set_bpp_if(tor2, ES_IF, True)
-    _set_bpp_if(tor3, ES_IF, True)
+    _set_peer_ip_ead(tor2, ES_IF, True)
+    _set_peer_ip_ead(tor3, ES_IF, True)
     _set_bpp(tor1, True)
     _expect_entries(
         tor1,
@@ -3907,7 +3937,7 @@ def test_bpp_unprotected_l3mh_es():
         tor1, "show evpn mh bridge-port-protection member json", {}, "no Group"
     )
 
-    _set_bpp_if(tor2, ES_IF, True)
+    _set_peer_ip_ead(tor2, ES_IF, True)
     _set_bpp(tor1, True)
     _expect_es_evi_l3vnis(tor1, ["__ordered__", 4001, 4002], "L3VNI ES-EVIs sent")
     _expect_entries(
@@ -3942,7 +3972,7 @@ def test_bpp_member_rmac():
 
     tor2.run("ip link set vlan4001 address %s" % mac)
     tor2.run("ip link set vlan4002 address %s" % mac)
-    _set_bpp_if(tor2, ES_IF, True)
+    _set_peer_ip_ead(tor2, ES_IF, True)
     _set_bpp(tor1, True)
     _expect_members(tor1, ES1_ID, (lo2,), "member present")
     output = json.loads(
@@ -3981,7 +4011,7 @@ def test_bpp_ipv6_vtep():
     tor3 = tgen.gears["tor3"]
     vtep = tor_vtep("tor3")
 
-    _set_bpp_if(tor3, ES_IF, True)
+    _set_peer_ip_ead(tor3, ES_IF, True)
     _set_bpp(tor1, True)
     _expect_json(
         tor1,
@@ -4011,8 +4041,8 @@ def test_bpp_dual_family_same_peer():
     tor3 = tgen.gears["tor3"]
     lo2, lo3 = tor_lo("tor2"), tor_vtep("tor3")
 
-    _set_bpp_if(tor2, ES_IF, True)
-    _set_bpp_if(tor3, ES_IF, True)
+    _set_peer_ip_ead(tor2, ES_IF, True)
+    _set_peer_ip_ead(tor3, ES_IF, True)
     _set_bpp(tor1, True)
     _expect_members(tor1, ES1_ID, (lo2, lo3), "IPv4 and IPv6 Members")
     _expect_json(
@@ -4032,7 +4062,7 @@ def test_bpp_dual_family_same_peer():
     _clear_ip_ead(tor3)
     _expect_members(tor1, ES1_ID, (lo2,), "removing IPv6 keeps IPv4")
 
-    _set_bpp_if(tor3, ES_IF, True)
+    _set_peer_ip_ead(tor3, ES_IF, True)
     _clear_ip_ead(tor2)
     _expect_members(tor1, ES1_ID, (lo3,), "removing IPv4 keeps IPv6")
 
@@ -4106,7 +4136,7 @@ def test_bpp_id_disjoint():
     tor2 = tgen.gears["tor2"]
     lo2 = tor_lo("tor2")
 
-    _set_bpp_if(tor2, ES_IF, True)
+    _set_peer_ip_ead(tor2, ES_IF, True)
     _set_bpp(tor1, True)
     _expect_members(tor1, ES1_ID, (lo2,), "member present")
 
@@ -4138,7 +4168,7 @@ def test_bpp_id_disjoint_same_vtep():
     tor2 = tgen.gears["tor2"]
     lo2 = tor_lo("tor2")
 
-    _set_bpp_if(tor2, ES_IF, True)
+    _set_peer_ip_ead(tor2, ES_IF, True)
     _set_bpp(tor1, True)
     _expect_members(tor1, ES1_ID, (lo2,), "L3 member")
 
@@ -4165,8 +4195,8 @@ def test_bpp_member_shared():
     tor2 = tgen.gears["tor2"]
     lo2 = tor_lo("tor2")
 
-    _set_bpp_if(tor2, ES_IF, True)
-    _set_bpp_if(tor2, "hostbond2", True)
+    _set_peer_ip_ead(tor2, ES_IF, True)
+    _set_peer_ip_ead(tor2, "hostbond2", True)
     _set_bpp_if(tor1, "hostbond2", True)
     _set_bpp(tor1, True)
     _expect_members(tor1, ES1_ID, (lo2,), "ES-1 member")
@@ -4181,7 +4211,7 @@ def test_bpp_member_shared():
     id2 = _member_view(tor1, ES2_ID)["members"][0]["nhId"]
     assert id1 == id2, "Member IDs %s vs %s" % (id1, id2)
 
-    _set_bpp_if(tor2, "hostbond2", False)
+    _set_peer_ip_ead(tor2, "hostbond2", False)
     _expect_members(tor1, ES1_ID, (lo2,), "ES-1 keeps Member")
     _expect_json(
         tor1,
@@ -4191,7 +4221,7 @@ def test_bpp_member_shared():
     )
     assert _member_view(tor1, ES1_ID)["members"][0]["nhId"] == id1
 
-    _set_bpp_if(tor2, ES_IF, False)
+    _set_peer_ip_ead(tor2, ES_IF, False)
     _expect_members(tor1, ES1_ID, (), "Member deleted after last Group", bound=False)
 
     _set_bpp_if(tor1, "hostbond2", False)
@@ -4208,8 +4238,8 @@ def test_bpp_group_per_es_same_peers():
     tor2 = tgen.gears["tor2"]
     lo2 = tor_lo("tor2")
 
-    _set_bpp_if(tor2, ES_IF, True)
-    _set_bpp_if(tor2, "hostbond2", True)
+    _set_peer_ip_ead(tor2, ES_IF, True)
+    _set_peer_ip_ead(tor2, "hostbond2", True)
     _set_bpp_if(tor1, "hostbond2", True)
     _set_bpp(tor1, True)
     _expect_members(tor1, ES1_ID, (lo2,), "ES-1")
@@ -4226,7 +4256,7 @@ def test_bpp_group_per_es_same_peers():
     assert es1["members"][0]["nhId"] == es2["members"][0]["nhId"]
     gid1 = es1["groupId"]
 
-    _set_bpp_if(tor2, "hostbond2", False)
+    _set_peer_ip_ead(tor2, "hostbond2", False)
     _expect_members(tor1, ES1_ID, (lo2,), "ES-1 unchanged")
     assert _member_view(tor1, ES1_ID)["groupId"] == gid1
     _expect_json(
@@ -4251,13 +4281,13 @@ def test_bpp_id_disjoint_churn():
     tor3 = tgen.gears["tor3"]
     lo2, lo3 = tor_lo("tor2"), tor_vtep("tor3")
 
-    _set_bpp_if(tor2, ES_IF, True)
-    _set_bpp_if(tor3, ES_IF, True)
+    _set_peer_ip_ead(tor2, ES_IF, True)
+    _set_peer_ip_ead(tor3, ES_IF, True)
     _set_bpp(tor1, True)
     _expect_members(tor1, ES1_ID, (lo2, lo3), "both Members")
     _clear_ip_ead(tor3)
     _expect_members(tor1, ES1_ID, (lo2,), "tor3 gone")
-    _set_bpp_if(tor3, ES_IF, True)
+    _set_peer_ip_ead(tor3, ES_IF, True)
     _expect_members(tor1, ES1_ID, (lo2, lo3), "tor3 back")
 
     bpp = _bpp_ids(tor1, ES1_ID)
@@ -4279,7 +4309,7 @@ def test_bpp_group_separate_from_l2_nhg():
     tor2 = tgen.gears["tor2"]
     lo2 = tor_lo("tor2")
 
-    _set_bpp_if(tor2, ES_IF, True)
+    _set_peer_ip_ead(tor2, ES_IF, True)
     _set_bpp(tor1, True)
     _expect_members(tor1, ES1_ID, (lo2,), "member present")
 
@@ -4307,7 +4337,7 @@ def test_bpp_ids_stable():
     mac = "02:02:00:00:00:22"
     old1, old2 = _if_mac(tor2, "vlan4001"), _if_mac(tor2, "vlan4002")
 
-    _set_bpp_if(tor2, ES_IF, True)
+    _set_peer_ip_ead(tor2, ES_IF, True)
     _set_bpp(tor1, True)
     _expect_members(tor1, ES1_ID, (lo2,), "initial")
     before = _member_view(tor1, ES1_ID)
@@ -4323,7 +4353,7 @@ def test_bpp_ids_stable():
     )
     assert _member_view(tor1, ES1_ID)["groupId"] == gid
 
-    _set_bpp_if(tor3, ES_IF, True)
+    _set_peer_ip_ead(tor3, ES_IF, True)
     _expect_members(tor1, ES1_ID, (lo2, tor_vtep("tor3")), "tor3 joins")
     after = _member_view(tor1, ES1_ID)
     assert after["groupId"] == gid
@@ -4345,7 +4375,7 @@ def test_bpp_id_no_reuse():
     tor2 = tgen.gears["tor2"]
     lo2 = tor_lo("tor2")
 
-    _set_bpp_if(tor2, ES_IF, True)
+    _set_peer_ip_ead(tor2, ES_IF, True)
     _set_bpp(tor1, True)
     _expect_members(tor1, ES1_ID, (lo2,), "member present")
     _expect_ip_ead_rx_all(tor1, ES1_ID, (lo2,), "ES-1 RT-1 present")
@@ -4353,7 +4383,7 @@ def test_bpp_id_no_reuse():
     old_gid = old["groupId"]
     old_nid = old["members"][0]["nhId"]
 
-    _set_bpp_if(tor2, ES_IF, False)
+    _set_peer_ip_ead(tor2, ES_IF, False)
     _expect_members(tor1, ES1_ID, (), "Member deleted", bound=False)
     _expect_no_ip_ead_rx(tor1, ES1_ID, "ES-1 RT-1 withdrawn")
     _expect_export_clean(
@@ -4366,7 +4396,7 @@ def test_bpp_id_no_reuse():
     )
 
     _set_bpp_if(tor1, "hostbond2", True)
-    _set_bpp_if(tor2, "hostbond2", True)
+    _set_peer_ip_ead(tor2, "hostbond2", True)
     _expect_ip_ead_rx_all(tor1, ES2_ID, (lo2,), "ES-2 RT-1 present")
     _expect_json(
         tor1,
@@ -4378,7 +4408,7 @@ def test_bpp_id_no_reuse():
     assert es2["groupId"] != old_gid, (old, es2)
     assert es2["members"][0]["nhId"] != old_nid, (old, es2)
 
-    _set_bpp_if(tor2, ES_IF, True)
+    _set_peer_ip_ead(tor2, ES_IF, True)
     _expect_members(tor1, ES1_ID, (lo2,), "member back")
     _expect_ip_ead_rx_all(tor1, ES1_ID, (lo2,), "ES-1 RT-1 restored")
     restored = _member_view(tor1, ES1_ID)
@@ -4391,7 +4421,7 @@ def test_bpp_id_no_reuse():
     )
     assert _id_errors(tor1, ES1_ID) == 0
 
-    _set_bpp_if(tor2, "hostbond2", False)
+    _set_peer_ip_ead(tor2, "hostbond2", False)
     _expect_no_ip_ead_rx(tor1, ES2_ID, "ES-2 RT-1 withdrawn")
     _set_bpp_if(tor1, "hostbond2", False)
     _set_bpp(tor1, False)
@@ -5119,8 +5149,8 @@ def test_bpp_dplane_emit():
     tor3 = tgen.gears["tor3"]
     lo2, lo3 = tor_lo("tor2"), tor_vtep("tor3")
 
-    _set_bpp_if(tor2, ES_IF, True)
-    _set_bpp_if(tor3, ES_IF, True)
+    _set_peer_ip_ead(tor2, ES_IF, True)
+    _set_peer_ip_ead(tor3, ES_IF, True)
     marker = _export_marker(tor1)
     _set_bpp(tor1, True)
     _expect_members(tor1, ES1_ID, (lo2, lo3), "members present")
@@ -5188,7 +5218,7 @@ def test_bpp_config_order_export():
     tor1 = tgen.gears["tor1"]
     tor2 = tgen.gears["tor2"]
 
-    _set_bpp_if(tor2, ES_IF, True)
+    _set_peer_ip_ead(tor2, ES_IF, True)
     _expect_ip_ead_rx_all(tor1, ES1_ID, (tor_lo("tor2"),), "remote RT-1 present")
     rt_state = _ip_ead_classification_snapshot(tor1, ES1_ID)
 
@@ -5268,7 +5298,7 @@ def test_bpp_all_pending_no_binding():
     tor1 = tgen.gears["tor1"]
     tor2 = tgen.gears["tor2"]
 
-    _set_bpp_if(tor2, ES_IF, True)
+    _set_peer_ip_ead(tor2, ES_IF, True)
     _set_bpp(tor1, True)
     _expect_export_clean(tor1, "initially active", members=1)
     _expect_ip_ead_rx_all(
@@ -5342,7 +5372,7 @@ def test_bpp_all_vlans_removed():
     tor2 = tgen.gears["tor2"]
     first_vid, last_vid = ES_VLANS
 
-    _set_bpp_if(tor2, ES_IF, True)
+    _set_peer_ip_ead(tor2, ES_IF, True)
     _set_bpp(tor1, True)
     _expect_export_clean(tor1, "initially active", members=1)
     _expect_ip_ead_rx_all(tor1, ES1_ID, (tor_lo("tor2"),), "initial RT-1 classified")
@@ -5428,13 +5458,13 @@ def test_bpp_peer_join_leave():
     tor3 = tgen.gears["tor3"]
     lo2, lo3 = tor_lo("tor2"), tor_vtep("tor3")
 
-    _set_bpp_if(tor2, ES_IF, True)
+    _set_peer_ip_ead(tor2, ES_IF, True)
     _set_bpp(tor1, True)
     _expect_export_clean(tor1, "initial peer", members=1)
     _expect_ip_ead_rx_all(tor1, ES1_ID, (lo2,), "initial peer RT-1")
 
     marker = _export_marker(tor1)
-    _set_bpp_if(tor3, ES_IF, True)
+    _set_peer_ip_ead(tor3, ES_IF, True)
     _expect_members(tor1, ES1_ID, (lo2, lo3), "peer joined")
     _expect_export_clean(tor1, "peer join export", members=2)
     _expect_export_events(
@@ -5446,7 +5476,7 @@ def test_bpp_peer_join_leave():
     _expect_ip_ead_rx_all(tor1, ES1_ID, (lo2, lo3), "joined peer RT-1")
 
     marker = _export_marker(tor1)
-    _set_bpp_if(tor3, ES_IF, False)
+    _set_peer_ip_ead(tor3, ES_IF, False)
     _expect_members(tor1, ES1_ID, (lo2,), "peer left")
     _expect_export_clean(tor1, "peer leave export", members=1)
     _expect_export_events(
@@ -5473,13 +5503,13 @@ def test_bpp_last_peer():
     tor1 = tgen.gears["tor1"]
     tor2 = tgen.gears["tor2"]
 
-    _set_bpp_if(tor2, ES_IF, True)
+    _set_peer_ip_ead(tor2, ES_IF, True)
     _set_bpp(tor1, True)
     _expect_export_clean(tor1, "initial peer", members=1)
     _expect_ip_ead_rx_all(tor1, ES1_ID, (tor_lo("tor2"),), "last peer RT-1 present")
 
     marker = _export_marker(tor1)
-    _set_bpp_if(tor2, ES_IF, False)
+    _set_peer_ip_ead(tor2, ES_IF, False)
     _expect_members(tor1, ES1_ID, (), "last peer left", bound=False)
     _expect_export_clean(
         tor1, "last peer export", members=0, groups=0, bindings=0, released=True,
@@ -5508,8 +5538,8 @@ def test_bpp_disable():
     tor2 = tgen.gears["tor2"]
     tor3 = tgen.gears["tor3"]
 
-    _set_bpp_if(tor2, ES_IF, True)
-    _set_bpp_if(tor3, ES_IF, True)
+    _set_peer_ip_ead(tor2, ES_IF, True)
+    _set_peer_ip_ead(tor3, ES_IF, True)
     _set_bpp(tor1, True)
     _expect_export_clean(tor1, "protected", members=2)
     peers = (tor_lo("tor2"), tor_vtep("tor3"))
@@ -5546,7 +5576,7 @@ def test_bpp_es_delete():
     tor1 = tgen.gears["tor1"]
     tor2 = tgen.gears["tor2"]
 
-    _set_bpp_if(tor2, ES_IF, True)
+    _set_peer_ip_ead(tor2, ES_IF, True)
     _set_bpp(tor1, True)
     _expect_export_clean(tor1, "protected", members=1)
     lo2 = tor_lo("tor2")
@@ -5587,8 +5617,8 @@ def test_bpp_per_evi_one_vrf():
     tor3 = tgen.gears["tor3"]
     lo2, lo3 = tor_lo("tor2"), tor_vtep("tor3")
 
-    _set_bpp_if(tor2, ES_IF, True)
-    _set_bpp_if(tor3, ES_IF, True)
+    _set_peer_ip_ead(tor2, ES_IF, True)
+    _set_peer_ip_ead(tor3, ES_IF, True)
     _set_bpp(tor1, True)
     _expect_export_clean(tor1, "both peers", members=2)
     _expect_ip_ead_rx_all(tor1, ES1_ID, (lo2, lo3), "both peer RT-1 present")
@@ -5638,8 +5668,8 @@ def test_bpp_per_es_mass_withdraw():
     tor3 = tgen.gears["tor3"]
     lo2, lo3 = tor_lo("tor2"), tor_vtep("tor3")
 
-    _set_bpp_if(tor2, ES_IF, True)
-    _set_bpp_if(tor3, ES_IF, True)
+    _set_peer_ip_ead(tor2, ES_IF, True)
+    _set_peer_ip_ead(tor3, ES_IF, True)
     _set_bpp(tor1, True)
     _expect_export_clean(tor1, "both peers", members=2)
     _expect_ip_ead_rx_all(tor1, ES1_ID, (lo2, lo3), "mass-withdraw RT-1 present")
@@ -5691,8 +5721,8 @@ def test_bpp_peer_vtep_unreachable():
     tor3 = tgen.gears["tor3"]
     lo2, lo3 = tor_lo("tor2"), tor_vtep("tor3")
 
-    _set_bpp_if(tor2, ES_IF, True)
-    _set_bpp_if(tor3, ES_IF, True)
+    _set_peer_ip_ead(tor2, ES_IF, True)
+    _set_peer_ip_ead(tor3, ES_IF, True)
     _set_bpp(tor1, True)
     _expect_export_clean(tor1, "both peers", members=2)
     _expect_ip_ead_rx_all(tor1, ES1_ID, (lo2, lo3), "reachable peer RT-1 present")
@@ -5742,7 +5772,7 @@ def test_bpp_rmac_change_export():
     new_mac = "44:38:39:00:00:99"
     old1, old2 = _if_mac(tor2, "vlan4001"), _if_mac(tor2, "vlan4002")
 
-    _set_bpp_if(tor2, ES_IF, True)
+    _set_peer_ip_ead(tor2, ES_IF, True)
     _set_bpp(tor1, True)
     _expect_export_clean(tor1, "initial RMAC", members=1)
     _expect_ip_ead_rx_all(tor1, ES1_ID, (lo2,), "initial RMAC RT-1")
@@ -5795,7 +5825,7 @@ def test_bpp_local_link_down():
     gw = ACCESS_VLANS[10][1].split("/")[0]
     rts = (_vrf_rt(tor1, "vrf-a"), _vrf_rt(tor1, "vrf-b"))
 
-    _set_bpp_if(tor2, ES_IF, True)
+    _set_peer_ip_ead(tor2, ES_IF, True)
     _set_bpp(tor1, True)
     _expect_ip_ead(
         tor1, "local RT-1 before link down", evi_vrfs=("vrf-a", "vrf-b"), es_rts=rts,
@@ -5850,8 +5880,8 @@ def test_bpp_replay():
     tor2 = tgen.gears["tor2"]
     tor3 = tgen.gears["tor3"]
 
-    _set_bpp_if(tor2, ES_IF, True)
-    _set_bpp_if(tor3, ES_IF, True)
+    _set_peer_ip_ead(tor2, ES_IF, True)
+    _set_peer_ip_ead(tor3, ES_IF, True)
     _set_bpp(tor1, True)
     _expect_export_clean(tor1, "before replay", members=2)
     peers = (tor_lo("tor2"), tor_vtep("tor3"))
@@ -5903,7 +5933,7 @@ def test_bpp_replay_idempotent():
     tor1 = tgen.gears["tor1"]
     tor2 = tgen.gears["tor2"]
 
-    _set_bpp_if(tor2, ES_IF, True)
+    _set_peer_ip_ead(tor2, ES_IF, True)
     _set_bpp(tor1, True)
     _expect_export_clean(tor1, "before repeated replay", members=1)
     _expect_ip_ead_rx_all(
@@ -5938,7 +5968,7 @@ def test_bpp_config_reload():
     tor1 = tgen.gears["tor1"]
     tor2 = tgen.gears["tor2"]
 
-    _set_bpp_if(tor2, ES_IF, True)
+    _set_peer_ip_ead(tor2, ES_IF, True)
     _set_bpp(tor1, True)
     _expect_export_clean(tor1, "before config reload", members=1)
     _expect_ip_ead_rx_all(tor1, ES1_ID, (tor_lo("tor2"),), "config reload RT-1 present")
@@ -6127,7 +6157,7 @@ def test_bpp_fpm_kernel_disjoint():
     tor2 = tgen.gears["tor2"]
     lo2 = tor_lo("tor2")
 
-    _set_bpp_if(tor2, ES_IF, True)
+    _set_peer_ip_ead(tor2, ES_IF, True)
     _set_bpp(tor1, True)
     _expect_members(tor1, ES1_ID, (lo2,), "member present")
     _expect_export_clean(tor1, "typed IDs", members=1, groups=1, bindings=1)
@@ -6177,7 +6207,7 @@ def test_bpp_l2_br_port_unchanged():
     assert all("backup_nhg 0x0" in context for context in baseline_ctx), baseline_ctx
     _expect_es_df_converged(tor1, ES2_ID, "baseline L2 ES")
 
-    _set_bpp_if(tor2, ES_IF, True)
+    _set_peer_ip_ead(tor2, ES_IF, True)
     _set_bpp(tor1, True)
     _expect_members(tor1, ES1_ID, (lo2,), "member present")
     _expect_export_clean(tor1, "hostbond1 Binding", bindings=1)
@@ -6212,7 +6242,7 @@ def test_bpp_l2vni_on_bd_binding():
     tor2 = tgen.gears["tor2"]
     lo2 = tor_lo("tor2")
 
-    _set_bpp_if(tor2, ES_IF, True)
+    _set_peer_ip_ead(tor2, ES_IF, True)
     _set_bpp(tor1, True)
     _expect_members(tor1, ES1_ID, (lo2,), "member present")
     _expect_export_clean(tor1, "protection Binding", bindings=1)
@@ -6335,7 +6365,7 @@ def test_bpp_export_status():
     tor2 = tgen.gears["tor2"]
     lo2 = tor_lo("tor2")
 
-    _set_bpp_if(tor2, ES_IF, True)
+    _set_peer_ip_ead(tor2, ES_IF, True)
     _set_bpp(tor1, True)
     _expect_members(tor1, ES1_ID, (lo2,), "member present")
     _expect_export_clean(
@@ -6378,7 +6408,7 @@ def test_bpp_export_failure_status():
             "test zebra evpn mh bridge-port-protection "
             "fail-next %s add" % object_name
         )
-        _set_bpp_if(tor2, ES_IF, True)
+        _set_peer_ip_ead(tor2, ES_IF, True)
         _set_bpp(tor1, True)
         _expect_failed_completion(
             tor1, marker, op, "add", "failed %s ADD is visible" % object_name
@@ -6427,7 +6457,7 @@ def test_bpp_export_failure_status():
         )
 
     for object_name, op in operations.items():
-        _set_bpp_if(tor2, ES_IF, True)
+        _set_peer_ip_ead(tor2, ES_IF, True)
         _set_bpp(tor1, True)
         _expect_export_clean(
             tor1,
@@ -6543,7 +6573,7 @@ def test_bpp_replay_binding_delete_and_add_completions():
     op = "BR_PORT_UPDATE"
     fail = "test zebra evpn mh bridge-port-protection fail-next binding"
     try:
-        _set_bpp_if(tor2, ES_IF, True)
+        _set_peer_ip_ead(tor2, ES_IF, True)
         _set_bpp(tor1, True)
         _expect_export_clean(
             tor1, "initial binding", members=1, vteps=(tor_lo("tor2"),), allow_failed=True

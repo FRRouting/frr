@@ -709,6 +709,39 @@ def _assert_settled(bad_fn, msg):
     assert not bad_fn(), msg() if callable(msg) else msg
 
 
+@contextlib.contextmanager
+def _withdraw_rt1(leaf, *neighbors):
+    """Withdraw the origin's RT-1 on the selected spines while retaining RT-2."""
+    asn = 65010 + int(leaf.name[-1])
+    route_map = "L3MH-WITHDRAW-RT1"
+    bgp = f"router bgp {asn}\n address-family l2vpn evpn\n"
+    try:
+        commands = [
+            f"route-map {route_map} deny 10",
+            " match evpn route-type ead",
+            "exit",
+            f"route-map {route_map} permit 20",
+            "exit",
+            bgp,
+            *(f" neighbor {peer} route-map {route_map} out" for peer in neighbors),
+        ]
+        leaf.vtysh_cmd("configure terminal\n" + "\n".join(commands), raises=True)
+        for peer in neighbors:
+            leaf.vtysh_cmd(f"clear bgp l2vpn evpn {peer} soft out", raises=True)
+        yield
+    finally:
+        commands = [
+            bgp,
+            *(f" no neighbor {peer} route-map {route_map} out" for peer in neighbors),
+            "exit-address-family",
+            "exit",
+            f"no route-map {route_map}",
+        ]
+        leaf.vtysh_cmd("configure terminal\n" + "\n".join(commands), raises=True)
+        for peer in neighbors:
+            leaf.vtysh_cmd(f"clear bgp l2vpn evpn {peer} soft out", raises=True)
+
+
 def _relearn_local_fdb(dut, mac, vid=HOST_VID, leaves=None):
     # The synthetic ARP learn releases the last pin. Model the later MAC learn.
     _settle(leaves)

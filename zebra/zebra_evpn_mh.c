@@ -2408,6 +2408,7 @@ static int zebra_evpn_es_send_add_to_client(struct zebra_evpn_es *es)
 	stream_putw(s, es->df_pref);
 	bypass = !!(es->flags & ZEBRA_EVPNES_BYPASS);
 	stream_putc(s, bypass);
+	stream_putc(s, es->zif && CHECK_FLAG(es->zif->es_info.flags, ZIF_CFG_ES_FLAG_BPP));
 
 	/* Write packet size. */
 	stream_putw_at(s, 0, stream_get_endp(s));
@@ -3421,12 +3422,19 @@ void zebra_evpn_es_bypass_cfg_update(struct zebra_if *zif, bool bypass)
 
 void zebra_evpn_es_bpp_cfg_update(struct zebra_if *zif, bool bpp)
 {
+	struct zebra_evpn_es *es = zif->es_info.es;
+
+	if (!!CHECK_FLAG(zif->es_info.flags, ZIF_CFG_ES_FLAG_BPP) == bpp)
+		return;
+
 	if (bpp)
 		SET_FLAG(zif->es_info.flags, ZIF_CFG_ES_FLAG_BPP);
 	else
 		UNSET_FLAG(zif->es_info.flags, ZIF_CFG_ES_FLAG_BPP);
 
 	zebra_evpn_bpp_if_update(zif);
+	if (es && CHECK_FLAG(es->flags, ZEBRA_EVPNES_READY_FOR_BGP))
+		zebra_evpn_es_send_add_to_client(es);
 }
 
 
@@ -4305,6 +4313,15 @@ void zebra_evpn_es_l3vni_base_evpn_reeval(void)
 		zevpn->local_vtep_ip = zl3vni->local_vtep_ip;
 		zebra_evpn_es_set_base_evpn(zevpn);
 	}
+}
+
+void zebra_evpn_es_l3vni_associations_update(void)
+{
+	struct listnode *node;
+	struct zebra_evpn_es *es;
+
+	for (ALL_LIST_ELEMENTS_RO(zmh_info->local_es_list, node, es))
+		zebra_evpn_bpp_if_update(es->zif);
 }
 
 /* Derive the EVPN origination mode of an access broadcast domain: L2VNI when it

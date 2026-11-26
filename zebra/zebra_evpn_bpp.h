@@ -23,8 +23,8 @@ struct zapi_evpn_bpp_peer;
 struct zebra_dplane_ctx;
 
 /*
- * A protection entry is kept per (ES bond, VLAN) while the bond has
- * "evpn mh bridge-port-protection" configured.
+ * Track each local ES bond's L3VNI associations and any configured
+ * bridge-port protection.
  */
 extern void zebra_evpn_bpp_init(void);
 extern void zebra_evpn_bpp_terminate(void);

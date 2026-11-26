@@ -1,15 +1,29 @@
 # SPDX-License-Identifier: ISC
 # Copyright (c) 2026 Cisco Systems, Inc.
 
-from contextlib import ExitStack, nullcontext
+from contextlib import ExitStack, contextmanager, nullcontext
 import json
 import subprocess
 
 import pytest
 
 import test_evpn_l3mh as l3mh
-from l3mh_netlink import check_probe, check_static_fdb, observe_probe, watch_binding
-from test_evpn_l3mh_port_events import PORT, VID, events, setup_module, teardown_module
+from l3mh_netlink import (
+    NEIGH_ADD,
+    NUD_FAILED,
+    check_probe,
+    check_static_fdb,
+    observe_probe,
+    watch_binding,
+)
+from test_evpn_l3mh_port_events import (
+    PORT,
+    PROTECTION,
+    VID,
+    events,
+    setup_module,
+    teardown_module,
+)
 
 pytestmark = l3mh.pytestmark
 
@@ -51,10 +65,107 @@ import socket
 import sys
 
 vrf, address = sys.argv[1:]
-with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as traffic:
+family = socket.AF_INET6 if ":" in address else socket.AF_INET
+with socket.socket(family, socket.SOCK_DGRAM) as traffic:
     traffic.setsockopt(socket.SOL_SOCKET, socket.SO_BINDTODEVICE, vrf.encode() + b"\\0")
     traffic.sendto(b"neighbor use", (address, 9))
 """
+
+ND_WIRE = """
+import socket
+import struct
+import sys
+from scapy.layers.inet6 import IPv6, ICMPv6ND_NS, ICMPv6ND_NA, ICMPv6NDOptDstLLAddr
+from scapy.layers.l2 import Ether
+
+member, ip, mac = sys.argv[1:]
+eth_ipv6 = 0x86dd
+with socket.socket(socket.AF_PACKET, socket.SOCK_RAW, socket.htons(eth_ipv6)) as wire:
+    wire.bind((member, eth_ipv6))
+    membership = struct.pack("=IHH8s", socket.if_nametoindex(member), 1, 0, b"")
+    wire.setsockopt(263, 1, membership)  # SOL_PACKET, PACKET_ADD_MEMBERSHIP
+    wire.settimeout(20)
+    print("ready", flush=True)
+    while True:
+        frame = Ether(wire.recv(2048))
+        if frame.dst == mac and ICMPv6ND_NS in frame and frame[ICMPv6ND_NS].tgt == ip:
+            break
+    assert sys.stdin.buffer.read(1) == b"y"
+    reply = (
+        Ether(src=mac, dst=frame.src)
+        / IPv6(src=ip, dst=frame[IPv6].src, hlim=255)
+        / ICMPv6ND_NA(tgt=ip, R=0, S=1, O=1)
+        / ICMPv6NDOptDstLLAddr(lladdr=mac)
+    )
+    wire.send(bytes(reply))
+"""
+
+
+@contextmanager
+def answer_nd_probe(entry, member):
+    host = l3mh.get_topogen().gears["host1"]
+    ip, mac, _ = entry
+    with host.popen(
+        ["python3", "-c", ND_WIRE, member, ip, mac],
+        stdin=subprocess.PIPE,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+    ) as wire:
+        try:
+            assert wire.stdout.readline() == "ready\n", wire.stderr.read()
+            yield
+            _, error = wire.communicate("y", timeout=25)
+            assert not wire.returncode, error
+        finally:
+            if wire.poll() is None:
+                wire.terminate()
+
+
+@pytest.mark.parametrize("events", ("ipv6",), indirect=True)
+@pytest.mark.parametrize("protected", (False, True), ids=("unprotected", "protected"))
+def test_nd_unicast_handoff_and_port_up_validation(events, protected):
+    owner, peer, other = events.leaves
+    if not protected:
+        owner.vtysh_cmd(
+            f"configure terminal\ninterface {PORT}\n no {PROTECTION}", raises=True
+        )
+    entry = events.binding(168)
+    events.learn(owner, entry)
+    events.settle()
+    assert events.route(owner, entry)
+    for leaf in (peer, other):
+        events.status(entry, "PERMANENT", leaf)
+        assert l3mh._mac_static_pinned(leaf, entry[1], VID)
+
+    with answer_nd_probe(entry, "host1-eth1"):
+        events.flap("down")
+        detail = events.status(entry, "PERMANENT")
+        assert detail["l3mhState"] == "handoff-wait", detail
+        assert detail["timerState"] == "down-peering", detail
+        assert events.pinned(entry) and events.route(owner, entry)
+        for leaf in (peer, other):
+            events.status(entry, "PROBE", leaf)
+            assert not l3mh._mac_static_pinned(leaf, entry[1], VID)
+            assert not events.route(leaf, entry, owner)
+    events.settle()
+    assert events.status(entry, "REACHABLE", peer)["l3mhState"] == "local-dynamic"
+    assert events.route(peer, entry, owner) and not events.route(owner, entry)
+    for leaf in (owner, other):
+        detail = events.status(entry, "PERMANENT", leaf)
+        assert detail["l3mhState"] == "peer-sync-protected", detail
+        assert detail["peerOrigin"] == l3mh.LEAF_LO[peer.name], detail
+        assert detail["timerState"] == "inactive", detail
+        assert l3mh._mac_static_pinned(leaf, entry[1], VID)
+    assert not events.route(other, entry, peer)
+
+    with answer_nd_probe(entry, "host1-eth0"):
+        events.flap("up")
+        detail = events.status(entry, "PROBE")
+        assert detail["l3mhState"] == "validation-pending", detail
+        assert not events.pinned(entry) and not events.route(owner, entry)
+    events.settle()
+    assert events.status(entry, "REACHABLE")["l3mhState"] == "local-dynamic"
+    assert events.route(owner, entry) and not events.pinned(entry)
 
 
 def send_arp(leaf, entry, member, mac=None, request=False):
@@ -160,20 +271,30 @@ def test_real_unicast_reply_resolves_only_the_receiving_leaf(events, shared):
     assert events.route(receiver, late)
 
 
-@pytest.mark.parametrize("fdb_start", ("existing-fdb", "missing-fdb", "shared-static"))
+@pytest.mark.parametrize(
+    "events,fdb_start",
+    (
+        pytest.param("ipv4", "existing-fdb", id="existing-fdb"),
+        pytest.param("ipv4", "missing-fdb", id="missing-fdb"),
+        pytest.param("ipv4", "shared-static", id="shared-static"),
+        ("ipv6", "existing-fdb"),
+    ),
+    indirect=("events",),
+)
 def test_kernel_aging_and_fallback_during_ordinary_probe(events, fdb_start):
     owner, peer, _ = events.leaves
     aging, idle, static = (events.binding(i) for i in (136, 137, 138))
     idle_with_peer = events.binding(153)
     svi = f"vlan{VID}"
-    delay = f"net.ipv4.neigh.{svi}.delay_first_probe_time"
+    sysctl = f"net.{events.family}.neigh.{svi}"
+    delay = f"{sysctl}.delay_first_probe_time"
     original = owner.cmd_raises(f"sysctl -n {delay}").strip()
     try:
         # Hold DELAY until the explicit PROBE update.
         owner.cmd_raises(f"sysctl -qw {delay}=60")
         bridge = json.loads(owner.cmd_raises("ip -d -j link show dev br_default"))[0]
         reachable_ms = int(
-            owner.cmd_raises(f"sysctl -n net.ipv4.neigh.{svi}.base_reachable_time_ms")
+            owner.cmd_raises(f"sysctl -n {sysctl}.base_reachable_time_ms")
         )
         # iproute2 reports the FDB timer in hundredths of a second. Linux
         # randomizes reachable time up to one and a half times the base.
@@ -358,6 +479,7 @@ def test_real_reply_during_ordinary_aging_keeps_or_restores_rt2(events):
     assert l3mh._local_rt2_version(owner, keep[0]) == version
 
 
+@pytest.mark.parametrize("events", ("ipv4", "ipv6"), indirect=True)
 def test_retained_port_up_probe_failure_and_kernel_delete(events):
     owner = events.owner
     entry = events.binding(162)
@@ -370,14 +492,18 @@ def test_retained_port_up_probe_failure_and_kernel_delete(events):
         owner.cmd_raises(f"ip link set dev {PORT} up")
     events.status(entry, "PROBE")
     assert events.route(owner, entry)
-    events.arp(owner, entry, "failed")
-    events.settle()
-    events.status(entry, "FAILED")
+    with watch_binding(owner, entry) as changes:
+        events.arp(owner, entry, "failed")
+        events.settle()
+    assert (0, NEIGH_ADD, NUD_FAILED) in changes, changes
     assert not events.route(owner, entry)
     assert entry[1] not in owner.cmd_raises(f"bridge fdb show dev {PORT}")
-    events.delete_arp(owner, entry)
+    # The kernel may collect the failed entry before the readback.
+    kernel = owner.cmd_raises(f"ip neigh show to {entry[0]} dev vlan{VID}").split()
+    assert not kernel or "FAILED" in kernel, kernel
+    owner.run(f"ip neigh del {entry[0]} dev vlan{VID} 2>/dev/null")
     events.settle()
-    events.status(entry)
+    assert not events.status(entry).get("ip")
     assert not events.route(owner, entry)
 
 

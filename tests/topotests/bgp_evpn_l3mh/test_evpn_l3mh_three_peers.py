@@ -76,7 +76,11 @@ def _es_rd(leaf):
 
 
 def _per_es_route_targets(routes, rd):
-    prefix = f"[4294967295]:[{l3mh.ES1_ID}]"
+    return _rt1_route_targets(routes, rd, 4294967295)
+
+
+def _rt1_route_targets(routes, rd, etag):
+    prefix = f"[{etag}]:[{l3mh.ES1_ID}]"
     return {
         frozenset(
             token
@@ -89,6 +93,36 @@ def _per_es_route_targets(routes, rd):
         for path in (paths if isinstance(paths, list) else [paths])
         if path.get("valid")
     }
+
+
+def test_pure_l3_per_evi_rt1_follows_vrf_router_id():
+    tgen = l3mh.get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    origin, peer, spine = (tgen.gears[name] for name in ("leaf1", "leaf2", "spine1"))
+    command = f"show bgp l2vpn evpn vni {l3mh.L3VNI} json"
+    targets = {frozenset((f"RT:65011:{l3mh.L3VNI}",))}
+
+    def router_id(ip):
+        origin.vtysh_cmd(
+            f"configure terminal\nrouter bgp 65011 vrf {l3mh.VRF}\nbgp router-id {ip}",
+            raises=True,
+        )
+
+    try:
+        router_id("10.0.1.11")
+        l3mh._barrier_round((origin, peer))
+        old_rd = origin.vtysh_cmd(command, isjson=True)["rd"]
+        router_id("10.0.2.11")
+        l3mh._barrier_round((origin, peer))
+        new_rd = origin.vtysh_cmd(command, isjson=True)["rd"]
+        routes = spine.vtysh_cmd("show bgp l2vpn evpn route type 1 json", isjson=True)
+        assert new_rd != old_rd, (new_rd, old_rd)
+        assert _rt1_route_targets(routes, new_rd, 0) == targets, (old_rd, new_rd)
+        assert not _rt1_route_targets(routes, old_rd, 0), old_rd
+    finally:
+        router_id(l3mh.LEAF_LO[origin.name])
 
 
 def test_pure_l3_per_es_rt1_follows_port():
@@ -105,44 +139,85 @@ def test_pure_l3_per_es_rt1_follows_port():
         leaf.vtysh_cmd(f"configure terminal\ninterface {port}\n {command}", raises=True)
 
     l3mh._settle(leaves)
-    origin_rd, peer_rd = _es_rd(origin), _es_rd(peer)
+    es_rds = tuple(_es_rd(leaf) for leaf in (origin, peer))
+    evi_rds = tuple(
+        leaf.vtysh_cmd(f"show bgp l2vpn evpn vni {l3mh.L3VNI} json", isjson=True)["rd"]
+        for leaf in (origin, peer)
+    )
+    targets = tuple(frozenset((f"RT:{asn}:{l3mh.L3VNI}",)) for asn in (65011, 65012))
 
-    def check(origin_up, peer_up, phase):
+    def check(origin_up, phase, origin_enabled=True):
         l3mh._barrier_round((origin, peer))
-        expected_origin = (
-            {frozenset((f"RT:65011:{l3mh.L3VNI}",))} if origin_up else set()
-        )
-        expected_peer = {frozenset((f"RT:65012:{l3mh.L3VNI}",))} if peer_up else set()
         for spine in spines:
             routes = spine.vtysh_cmd(
                 "show bgp l2vpn evpn route type 1 json", isjson=True
             )
-            actual_origin = _per_es_route_targets(routes, origin_rd)
-            actual_peer = _per_es_route_targets(routes, peer_rd)
-            assert actual_origin == expected_origin, (phase, spine.name, actual_origin)
-            assert actual_peer == expected_peer, (phase, spine.name, actual_peer)
+            for rd, target, up in zip(es_rds, targets, (origin_up, True)):
+                actual = _per_es_route_targets(routes, rd)
+                assert actual == ({target} if up else set()), (
+                    phase,
+                    spine.name,
+                    actual,
+                )
+            for rd, target, enabled in zip(evi_rds, targets, (origin_enabled, True)):
+                actual = _rt1_route_targets(routes, rd, 0)
+                assert actual == ({target} if enabled else set()), (
+                    phase,
+                    spine.name,
+                    rd,
+                    actual,
+                    {
+                        key: tuple(value)
+                        for key, value in routes.items()
+                        if isinstance(value, dict)
+                    },
+                )
 
-    check(False, False, "protection disabled")
+    def check_exports(protected):
+        exports = origin.vtysh_cmd(
+            "show evpn mh bridge-port-protection export json", isjson=True
+        )["tables"]
+        assert bool(exports["groups"]) == protected, exports
+        assert bool(exports["members"]) == protected, exports
+        assert bool(exports["bindings"]) == protected, exports
+
     try:
-        for leaf in (origin, peer):
-            configure(leaf, "evpn mh bridge-port-protection")
-        check(True, True, "protection enabled")
+        check(True, "protection disabled")
+        check_exports(False)
+        origin.cmd_raises(f"ip link set dev {port} down")
+        check(False, "unprotected port down")
+        origin.cmd_raises(f"ip link set dev {port} up")
+        check(True, "unprotected port restored")
+
+        configure(origin, "evpn mh bridge-port-protection")
+        check(True, "protection enabled on origin only")
+        check_exports(True)
 
         origin.cmd_raises(f"ip link set dev {port} down")
-        check(False, True, "port down")
+        check(False, "protected port down")
         origin.cmd_raises(f"ip link set dev {port} up")
-        check(True, True, "port restored")
+        check(True, "protected port restored")
 
         configure(origin, "evpn mh bypass")
-        check(False, True, "bypass enabled")
+        check(False, "bypass enabled")
+        configure(origin, "no evpn mh bypass")
+        configure(origin, "no evpn mh bridge-port-protection")
+        check(True, "protection disabled again")
+        check_exports(False)
+
+        l3mh._l3mh_knob(origin, 65011, False)
+        check(False, "L3MH disabled", origin_enabled=False)
+        l3mh._l3mh_knob(origin, 65011, True)
+        check(True, "L3MH re-enabled")
     finally:
         origin.cmd_raises(f"ip link set dev {port} up")
         configure(origin, "no evpn mh bypass")
-        for leaf in (origin, peer):
-            configure(leaf, "no evpn mh bridge-port-protection")
+        configure(origin, "no evpn mh bridge-port-protection")
+        l3mh._l3mh_knob(origin, 65011, True)
 
 
-def test_protected_port_recovery():
+@pytest.mark.parametrize("protected", (False, True), ids=("unprotected", "protected"))
+def test_port_recovery(protected):
     tgen = l3mh.get_topogen()
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
@@ -185,7 +260,8 @@ def test_protected_port_recovery():
     retrans = f"net.ipv4.neigh.{svi}.retrans_time_ms"
     original_retrans = local.cmd_raises(f"sysctl -n {retrans}").strip()
     try:
-        configure(f"interface {port}\n evpn mh bridge-port-protection")
+        if protected:
+            configure(f"interface {port}\n evpn mh bridge-port-protection")
         configure("evpn mh l3-neigh-down-peering-time 60")
         local.cmd_raises(f"sysctl -w {retrans}=60000")
         for binding in synced:
@@ -353,7 +429,8 @@ def test_l3mh_handoff_through_rt1_restoration(owner_name):
         assert rt2(owner) and l3mh._local_rt2_version(owner, ip) == version
         for leaf in (responder, observer):
             entry = binding(leaf)
-            assert entry.get("peerRt1Lost"), entry
+            assert not entry.get("peerRt1Lost"), entry
+            assert entry.get("peerOrigin") == l3mh.LEAF_LO[owner.name], entry
 
         with check_probe(owner, (ip, mac, vid)):
             learn(responder)
@@ -372,19 +449,18 @@ def test_l3mh_handoff_through_rt1_restoration(owner_name):
             l3mh._settle(leaves)
         assert not rt2(responder) and rt2(owner)
         check_nud(owner, "PROBE")
-        check_nud(observer, "PROBE")
+        check_sync(responder, owner)
+        check_sync(observer, owner)
         entry = binding(owner)
         assert entry.get("l3mhState") == "validation-pending", entry
         assert not entry.get("peerPresent"), entry
 
-        with check_probe(owner, (ip, mac, vid)):
-            learn(responder)
-            l3mh._settle(leaves)
-        assert rt2(responder) and rt2(owner)
-        check_sync(observer, responder)
-
         flap("down")
         check_rt1(False)
+        check_nud(responder, "PROBE")
+        assert rt2(owner) and not rt2(responder)
+        learn(responder)
+        l3mh._settle(leaves)
         assert not rt2(owner) and rt2(responder)
         check_sync(owner, responder)
         check_sync(observer, responder)
@@ -520,7 +596,6 @@ def test_rt1_last_path_marks_only_its_origin():
     )
     spine = "192.168.4.1"
     bgp = "router bgp 65011\n address-family l2vpn evpn"
-    protection = "evpn mh bridge-port-protection"
     svi = f"vlan{vid}"
     timer = f"net.ipv4.neigh.{svi}.retrans_time_ms"
     original_timer = receiver.cmd_raises(f"sysctl -n {timer}").strip()
@@ -542,7 +617,7 @@ def test_rt1_last_path_marks_only_its_origin():
             for path in (paths if isinstance(paths, list) else [paths])
         )
 
-    def check(first_paths, first_rt1_lost=False):
+    def check(first_paths, first_probing=False):
         l3mh._settle(leaves)
         assert rt1_paths(first_rd) == first_paths
         assert rt1_paths(second_rd) == 2
@@ -554,7 +629,7 @@ def test_rt1_last_path_marks_only_its_origin():
                 f"show evpn arp-cache vni {vni} ip {ip} json", isjson=True
             )
             assert entry.get("peerOrigin") == l3mh.LEAF_LO[leaf.name], entry
-            probing = leaf is first and first_rt1_lost
+            probing = leaf is first and first_probing
             if probing:
                 neigh = receiver.cmd_raises(f"ip neigh show to {ip} dev {svi}")
                 assert {mac, "PROBE"} <= set(neigh.split()), neigh
@@ -578,8 +653,6 @@ def test_rt1_last_path_marks_only_its_origin():
     configure(receiver, "debug zebra packet recv")
     try:
         receiver.cmd_raises(f"sysctl -qw {timer}=60000")
-        for leaf in (first, second):
-            configure(leaf, f"interface hostbond1\n {protection}")
         for leaf, ip, mac in bindings:
             leaf.cmd_raises(
                 f"bridge fdb replace {mac} dev hostbond1 master vlan {vid} dynamic"
@@ -600,13 +673,12 @@ def test_rt1_last_path_marks_only_its_origin():
         assert check(1) == [False, False, False]
         assert backing_messages() == []
 
-        configure(first, f"interface hostbond1\n no {protection}")
-        assert check(0, first_rt1_lost=True) == [True, False, True]
-        withdrawn = backing_messages()
-        assert len(withdrawn) == 1, withdrawn
+        with l3mh._withdraw_rt1(first, "192.168.1.1"):
+            assert check(0, first_probing=True) == [True, False, True]
+            withdrawn = backing_messages()
+            assert len(withdrawn) == 1, withdrawn
 
-        configure(first, f"interface hostbond1\n {protection}")
-        assert check(1, first_rt1_lost=True) == [True, False, True]
+        assert check(1, first_probing=True) == [False, False, False]
         assert backing_messages() == withdrawn
         assert withdrawn == [("ZEBRA_EVPN_BPP_PEER_DEL", "30")]
 
@@ -628,14 +700,14 @@ def test_rt1_last_path_marks_only_its_origin():
             send(f"announce 0 {vni}")
             assert_kernel(ip, mac, "PERMANENT")
 
-            # The original RT-2 is still advertised, even with RT-1 restored.
+            # The original RT-2 backs the binding again after RT-1 is restored.
             send("withdraw")
-            assert_kernel(ip, mac, "PROBE")
+            assert_kernel(ip, mac, "PERMANENT")
 
             receiver.cmd_raises(
                 f"ip neigh replace {failed_ip} lladdr {failed_mac} dev {svi} nud failed"
             )
-            assert_kernel(failed_ip, failed_mac, "FAILED")
+            assert_kernel(failed_ip, failed_mac, "PERMANENT")
 
             send(f"announce 0 {vni} ip={failed_ip} mac={failed_mac}")
             assert_kernel(failed_ip, failed_mac, "PERMANENT")
@@ -649,8 +721,6 @@ def test_rt1_last_path_marks_only_its_origin():
             f"{bgp}\n  no neighbor {spine} route-map RT1-ONE-SPINE out\n"
             " exit-address-family\n exit\nno route-map RT1-ONE-SPINE",
         )
-        for leaf in (first, second):
-            configure(leaf, f"interface hostbond1\n no {protection}")
         for leaf, ip, mac in bindings:
             leaf.run(f"ip neigh del {ip} dev vlan{vid} 2>/dev/null")
             leaf.run(
@@ -671,14 +741,14 @@ def test_rt1_loss_excludes_rt2_before_import():
     vni = l3mh.L3VNI
     origin = l3mh.LEAF_LO[owner.name]
     config = "configure terminal\ninterface hostbond1\n"
-    protection = "evpn mh bridge-port-protection"
+    bypass = "evpn mh bypass"
     svi = f"vlan{l3mh.HOST_VID}"
     retrans = f"net.ipv4.neigh.{svi}.retrans_time_ms"
     old_retrans = receiver.cmd_raises(f"sysctl -n {retrans}").strip()
 
     try:
         receiver.cmd_raises(f"sysctl -qw {retrans}=60000")
-        owner.vtysh_cmd(config + protection, raises=True)
+        owner.vtysh_cmd(config + "no " + bypass, raises=True)
         l3mh._settle(leaves)
         with l3mh._raw_evpn_peer(receiver, speaker, mac, ip) as send:
             # Keep a pure-L3 path in the global RIB without a matching import RT.
@@ -687,7 +757,7 @@ def test_rt1_loss_excludes_rt2_before_import():
             assert ip in receiver.vtysh_cmd("show bgp l2vpn evpn route type macip")
             assert not l3mh._neigh_synced(receiver, ip)
 
-            owner.vtysh_cmd(config + "no " + protection, raises=True)
+            owner.vtysh_cmd(config + bypass, raises=True)
             l3mh._settle(leaves)
             send(f"announce 0 {vni} origin={origin}")
             l3mh._settle(leaves)
@@ -700,9 +770,9 @@ def test_rt1_loss_excludes_rt2_before_import():
             l3mh._settle(leaves)
             assert l3mh._neigh_synced(receiver, ip)
 
-            owner.vtysh_cmd(config + protection, raises=True)
+            owner.vtysh_cmd(config + "no " + bypass, raises=True)
             l3mh._settle(leaves)
-            owner.vtysh_cmd(config + "no " + protection, raises=True)
+            owner.vtysh_cmd(config + bypass, raises=True)
             l3mh._settle(leaves)
             entry = receiver.cmd_raises(f"ip neigh show to {ip} dev {svi}")
             assert {mac, "PROBE"} <= set(entry.split()), entry
@@ -715,8 +785,14 @@ def test_rt1_loss_excludes_rt2_before_import():
             entry = receiver.cmd_raises(f"ip neigh show to {ip} dev {svi}")
             assert {mac, "PROBE"} <= set(entry.split()), entry
             assert not l3mh._mac_static_pinned(receiver, mac, l3mh.HOST_VID)
+
+            owner.vtysh_cmd(config + "no " + bypass, raises=True)
+            l3mh._settle(leaves)
+            receiver.cmd_raises(f"ip neigh replace {ip} lladdr {mac} dev {svi} nud failed")
+            l3mh._settle(leaves)
+            assert l3mh._neigh_synced(receiver, ip)
     finally:
-        owner.vtysh_cmd(config + "no " + protection, raises=True)
+        owner.vtysh_cmd(config + "no " + bypass, raises=True)
         receiver.cmd_raises(f"sysctl -qw {retrans}={old_retrans}")
         receiver.run(f"ip neigh del {ip} dev {svi} 2>/dev/null")
 
@@ -779,13 +855,6 @@ def test_arp_failure_and_gc_require_a_usable_peer_fallback():
     mac, vid = "02:00:00:00:00:d3", l3mh.HOST_VID
     svi = f"vlan{vid}"
     fdb = f"{mac} dev hostbond1 master vlan {vid}"
-    protection = "evpn mh bridge-port-protection"
-
-    def protect(enable):
-        command = protection if enable else f"no {protection}"
-        owner.vtysh_cmd(
-            f"configure terminal\ninterface hostbond1\n {command}", raises=True
-        )
 
     def learn(leaf):
         for ip in ips:
@@ -808,7 +877,6 @@ def test_arp_failure_and_gc_require_a_usable_peer_fallback():
         assert l3mh._mac_static_pinned(receiver, mac, vid)
 
     try:
-        protect(True)
         owner.cmd_raises(f"bridge fdb replace {fdb} dynamic")
         learn(owner)
         l3mh._settle(leaves)
@@ -823,22 +891,21 @@ def test_arp_failure_and_gc_require_a_usable_peer_fallback():
 
         learn(receiver)
         l3mh._relearn_local_fdb(receiver, mac, leaves=leaves)
-        protect(False)
-        l3mh._settle(leaves)
-        for ip in ips:
-            assert l3mh._pure_l3_rt2_path(receiver, 65011, ip=ip)
-            entry = receiver.vtysh_cmd(
-                f"show evpn arp-cache vni {l3mh.L3VNI} ip {ip} json", isjson=True
-            )
-            assert entry.get("peerRt1Lost"), entry
+        with l3mh._withdraw_rt1(owner, "192.168.1.1", "192.168.4.1"):
+            l3mh._settle(leaves)
+            for ip in ips:
+                assert l3mh._pure_l3_rt2_path(receiver, 65011, ip=ip)
+                entry = receiver.vtysh_cmd(
+                    f"show evpn arp-cache vni {l3mh.L3VNI} ip {ip} json", isjson=True
+                )
+                assert entry.get("peerRt1Lost"), entry
 
-        age()
-        failed = receiver.cmd_raises(f"ip neigh show to {fail} dev {svi}")
-        assert "FAILED" in failed and "extern_learn" not in failed, failed
-        assert not receiver.cmd_raises(f"ip neigh show to {idle} dev {svi}").strip()
-        assert not l3mh._mac_static_pinned(receiver, mac, vid)
+            age()
+            failed = receiver.cmd_raises(f"ip neigh show to {fail} dev {svi}")
+            assert "FAILED" in failed and "extern_learn" not in failed, failed
+            assert not receiver.cmd_raises(f"ip neigh show to {idle} dev {svi}").strip()
+            assert not l3mh._mac_static_pinned(receiver, mac, vid)
     finally:
-        protect(False)
         for leaf in leaves:
             for ip in ips:
                 leaf.run(f"ip neigh del {ip} dev {svi} 2>/dev/null")

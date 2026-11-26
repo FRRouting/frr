@@ -3494,6 +3494,7 @@ static int bgp_zebra_process_local_es_add(ZAPI_CALLBACK_ARGS)
 	uint8_t active;
 	uint8_t bypass;
 	uint16_t df_pref;
+	bool bpp;
 
 	bgp = bgp_lookup_by_vrf_id(vrf_id);
 	if (!bgp)
@@ -3509,6 +3510,8 @@ static int bgp_zebra_process_local_es_add(ZAPI_CALLBACK_ARGS)
 	active = stream_getc(s);
 	df_pref = stream_getw(s);
 	bypass = stream_getc(s);
+	/* Older Zebra advertised L3VNI associations only on protected ports. */
+	bpp = STREAM_READABLE(s) ? !!stream_getc(s) : true;
 
 	if (BGP_DEBUG(zebra, ZEBRA))
 		zlog_debug("Rx add ESI %s originator-ip %pIA active %u df_pref %u %s",
@@ -3518,8 +3521,7 @@ static int bgp_zebra_process_local_es_add(ZAPI_CALLBACK_ARGS)
 	frrtrace(5, frr_bgp, evpn_mh_local_es_add_zrecv, &esi, &originator_ip, active, bypass,
 		 df_pref);
 
-	bgp_evpn_local_es_add(bgp, &esi, originator_ip, active, df_pref,
-			      !!bypass);
+	bgp_evpn_local_es_add(bgp, &esi, originator_ip, active, df_pref, !!bypass, bpp);
 
 	return 0;
 }

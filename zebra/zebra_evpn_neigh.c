@@ -2364,6 +2364,30 @@ void zebra_evpn_l3vni_remote_neigh_add(vni_t vni, const struct ipaddr *ip,
 		return;
 
 	n = zebra_evpn_neigh_lookup(zevpn, ip);
+	if (n && CHECK_FLAG(macip_flags, ZEBRA_MACIP_TYPE_L3_NEIGH_RESTORE)) {
+		/* Restore the old key only if it has not been replaced. Cache the
+		 * path for active local bindings and probes. Retained bindings
+		 * waiting for handoff use the normal peer install path.
+		 */
+		if (n->mac || n->eth_tag != eth_tag || memcmp(&n->emac, macaddr, ETH_ALEN) ||
+		    (zebra_evpn_l3vni_has_peer(n) && !n->l3mh_peer_rt1_lost))
+			goto restore_done;
+		if ((CHECK_FLAG(n->flags, ZEBRA_NEIGH_LOCAL) &&
+		     n->l3mh_state != ZEBRA_L3MH_NEIGH_HANDOFF_WAIT) ||
+		    zebra_evpn_l3mh_probe_current(n)) {
+			if (install && zebra_evpn_l3vni_peer_on_bd(es, acc_bd)) {
+				if (CHECK_FLAG(n->flags, ZEBRA_NEIGH_LOCAL))
+					zebra_evpn_l3vni_peer_copy_save(n, seq, esi, origin,
+									is_router);
+				else {
+					zebra_evpn_l3vni_peer_meta_set(n, seq, esi, origin,
+								       is_router);
+					COND_FLAG(n->flags, ZEBRA_NEIGH_ROUTER_FLAG, is_router);
+				}
+			}
+			goto restore_done;
+		}
+	}
 	if (n && CHECK_FLAG(macip_flags, ZEBRA_MACIP_TYPE_L3_NEIGH_FALLBACK)) {
 		if (n->l3mh_peer_rt1_lost && n->eth_tag == eth_tag &&
 		    !memcmp(&n->emac, macaddr, ETH_ALEN) && install &&
@@ -2525,6 +2549,10 @@ void zebra_evpn_l3vni_remote_neigh_add(vni_t vni, const struct ipaddr *ip,
 	if (n->sync_mac_ifindex != desired_mac_ifindex ||
 	    (!n->sync_mac_confirmed && !n->sync_mac_seq))
 		zebra_evpn_l3vni_sync_mac_pin(n, bond_ifp, br_if);
+	return;
+
+restore_done:
+	zebra_evpn_l3_neigh_sync_unref(zevpn);
 }
 
 static bool zebra_evpn_l3vni_peer_loss_probe(struct zebra_neigh *n)

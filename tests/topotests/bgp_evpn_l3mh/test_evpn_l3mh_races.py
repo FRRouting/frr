@@ -11,6 +11,8 @@ import pytest
 import test_evpn_l3mh as l3mh
 from lib.topogen import TopoRouter
 from l3mh_netlink import (
+    NEIGH_ADD,
+    NUD_FAILED,
     check_fdb_delete,
     check_probe,
     check_static_fdb,
@@ -19,7 +21,7 @@ from l3mh_netlink import (
     watch_binding,
 )
 from test_evpn_l3mh_aging import send_arp
-from test_evpn_l3mh_port_events import PORT, VID, events
+from test_evpn_l3mh_port_events import PORT, PROTECTION, VID, events
 from test_evpn_l3mh_three_peers import _es_rd, _per_es_route_targets
 
 pytestmark = l3mh.pytestmark
@@ -67,6 +69,89 @@ def control(leaf, command):
     leaf.cmd_raises(["python3", "-c", VTY, command])
 
 
+@pytest.mark.parametrize("events", ("ipv4", "ipv6"), indirect=True)
+def test_rt1_restore_recovers_retained_rt2_without_readvertisement(events):
+    owner, peer, other = events.leaves
+    retained, withdrawn = (events.binding(i) for i in (166, 167))
+    for entry in (retained, withdrawn):
+        events.learn(owner, entry)
+    events.settle()
+    version = l3mh._local_rt2_version(owner, retained[0])
+    assert version is not None
+    events.status(retained, "PERMANENT", leaf=peer)
+    events.status(withdrawn, "PERMANENT", leaf=peer)
+
+    events.flap("down")
+    with watch_binding(peer, retained) as changes:
+        events.arp(peer, retained, "failed")
+        events.arp(peer, withdrawn, "failed")
+        control(owner, f"immediate-expiry {withdrawn[0]}")
+        events.settle()
+    assert (0, NEIGH_ADD, NUD_FAILED) in changes, changes
+    assert not events.route(owner, withdrawn)
+
+    events.flap("up")
+    assert events.status(retained, "PROBE")["l3mhState"] == "validation-pending"
+    events.status(retained, "PERMANENT", leaf=peer)
+    assert not events.status(retained, "PROBE", leaf=other).get("peerRt1Lost")
+    events.arp(other, retained, "failed")
+    events.settle()
+    for leaf in (peer, other):
+        detail = events.status(retained, "PERMANENT", leaf=leaf)
+        assert detail["peerOrigin"] == l3mh.LEAF_LO[owner.name], detail
+        assert l3mh._mac_static_pinned(leaf, retained[1], retained[2])
+    assert l3mh._local_rt2_version(owner, retained[0]) == version
+    assert not events.route(owner, withdrawn)
+    assert "PERMANENT" not in peer.cmd_raises(
+        f"ip neigh show to {withdrawn[0]} dev vlan{withdrawn[2]}"
+    )
+    events.learn(owner, retained)
+    events.settle()
+    assert events.status(retained, "REACHABLE")["l3mhState"] == "local-dynamic"
+    assert l3mh._local_rt2_version(owner, retained[0]) == version
+
+
+@pytest.mark.parametrize("events", ("ipv4", "ipv6"), indirect=True)
+def test_restored_peer_rt1_completes_down_port_handoff(events):
+    owner, peer, _ = events.leaves
+    entry = events.binding(173)
+    ip, mac, _ = entry
+    origin = l3mh.LEAF_LO[peer.name]
+    events.learn(owner, entry)
+    events.settle()
+    events.arp(peer, entry)
+    l3mh._relearn_local_fdb(peer, mac, leaves=events.leaves)
+    events.settle()
+    version = l3mh._local_rt2_version(peer, ip)
+    assert version is not None
+    before = events.status(entry, "REACHABLE")
+    assert before["l3mhState"] == "local-dynamic", before
+    assert before["peerOrigin"] == origin, before
+    assert not before.get("peerRt1Lost"), before
+
+    with l3mh._withdraw_rt1(peer, "192.168.2.1", "192.168.5.1"):
+        events.settle()
+        invalid = events.status(entry, "REACHABLE")
+        assert invalid.get("peerRt1Lost"), invalid
+        assert events.route(peer, entry, owner)
+        events.flap("down")
+        retained = events.status(entry, "PERMANENT")
+        assert retained["l3mhState"] == "handoff-wait", retained
+        assert retained["timerState"] == "down-peering", retained
+        assert events.pinned(entry) and events.route(owner, entry)
+
+    events.settle()
+    restored = events.status(entry, "PERMANENT")
+    assert restored["peerOrigin"] == origin, restored
+    assert not restored.get("peerRt1Lost"), restored
+    assert l3mh._local_rt2_version(peer, ip) == version
+    assert restored["l3mhState"] == "peer-sync-protected", restored
+    assert restored["timerState"] == "inactive", restored
+    assert events.pinned(entry)
+    assert not events.route(owner, entry)
+    assert events.route(peer, entry, owner)
+
+
 def test_peer_rt2_installs_when_local_mac_missing(events):
     owner, peer, _ = events.leaves
     entry = events.binding(244)
@@ -104,8 +189,13 @@ def test_peer_rt2_is_cached_during_local_probe_without_mac(events):
     assert events.pinned(entry)
 
 
-def test_early_fdb_and_old_arp_notifications_during_hold(events):
+@pytest.mark.parametrize("protected", (False, True), ids=("unprotected", "protected"))
+def test_early_fdb_and_old_arp_notifications_during_hold(events, protected):
     owner = events.owner
+    if not protected:
+        owner.vtysh_cmd(
+            f"configure terminal\ninterface {PORT}\n no {PROTECTION}", raises=True
+        )
     early, alone = (events.binding(i) for i in (120, 121))
     for entry in (early, alone):
         events.learn(owner, entry)
@@ -336,10 +426,11 @@ def test_retained_probe_failure_keeps_pin_for_other_static_ip(events):
     assert events.pinned(sibling) and events.route(peer, sibling)
 
 
+@pytest.mark.parametrize("events", ("ipv4", "ipv6"), indirect=True)
 def test_expiry_keeps_mac_pinned_for_other_retained_ip(events):
     owner, peer, _ = events.leaves
     expired = events.binding(159)
-    retained = events.binding(160, expired[1])
+    retained = events.binding(160, expired[1], family="ipv4")
     events.learn(owner, expired)
     events.arp(owner, retained)
     events.settle()
@@ -691,13 +782,10 @@ def test_shared_static_pin_must_be_installed_before_local_rt2(events, action):
 def test_existing_same_key_survivor_backs_probe_after_rt1_loss(events, withdraw_first):
     owner, selected, survivor = events.leaves
     entry = events.binding(181)
-    config = f"configure terminal\ninterface {PORT}\n"
-    protection = "evpn mh bridge-port-protection"
     debug = "debug bgp evpn mh l3vni-neigh"
     log = Path(owner.logdir) / owner.name / "bgpd.log"
     origin = l3mh.LEAF_LO[selected.name]
     lookup_log = f"L3MH RT-1 fallback VNI {l3mh.L3VNI} origin {origin}: "
-    selected.vtysh_cmd(config + protection, raises=True)
     owner.vtysh_cmd(debug, raises=True)
     try:
         events.learn(survivor, entry)
@@ -711,40 +799,39 @@ def test_existing_same_key_survivor_backs_probe_after_rt1_loss(events, withdraw_
             assert events.route(leaf, entry, owner)
 
         offset = log.stat().st_size
-        selected.vtysh_cmd(config + "no " + protection, raises=True)
-        events.settle()
-        with log.open() as stream:
-            stream.seek(offset)
-            lookups = [
-                line.split(lookup_log)[1].strip()
-                for line in stream
-                if lookup_log in line
-            ]
-        assert lookups == ["1 lookups"], lookups
-        events.status(entry, "PROBE")
-        assert events.route(selected, entry, owner)
-        if withdraw_first:
-            with check_probe(owner, entry):
+        with l3mh._withdraw_rt1(selected, "192.168.2.1", "192.168.5.1"):
+            events.settle()
+            with log.open() as stream:
+                stream.seek(offset)
+                lookups = [
+                    line.split(lookup_log)[1].strip()
+                    for line in stream
+                    if lookup_log in line
+                ]
+            assert lookups == ["1 lookups"], lookups
+            events.status(entry, "PROBE")
+            assert events.route(selected, entry, owner)
+            if withdraw_first:
+                with check_probe(owner, entry):
+                    events.delete_arp(selected, entry)
+                    events.settle()
+                assert not events.route(selected, entry, owner)
+                events.status(entry, "PROBE")
+
+            events.arp(owner, entry, "failed")
+            events.settle()
+            detail = events.status(entry, "PERMANENT")
+            assert detail.get("peerOrigin") == l3mh.LEAF_LO[survivor.name], detail
+            assert events.pinned(entry) and not events.route(owner, entry)
+            if not withdraw_first:
                 events.delete_arp(selected, entry)
                 events.settle()
-            assert not events.route(selected, entry, owner)
-            events.status(entry, "PROBE")
-
-        events.arp(owner, entry, "failed")
-        events.settle()
-        detail = events.status(entry, "PERMANENT")
-        assert detail.get("peerOrigin") == l3mh.LEAF_LO[survivor.name], detail
-        assert events.pinned(entry) and not events.route(owner, entry)
-        if not withdraw_first:
-            events.delete_arp(selected, entry)
-            events.settle()
-            assert (
-                events.status(entry, "PERMANENT").get("peerOrigin")
-                == l3mh.LEAF_LO[survivor.name]
-            )
+                assert (
+                    events.status(entry, "PERMANENT").get("peerOrigin")
+                    == l3mh.LEAF_LO[survivor.name]
+                )
     finally:
         owner.vtysh_cmd("no " + debug, raises=True)
-        selected.vtysh_cmd(config + "no " + protection, raises=True)
 
 
 def test_retained_rt2_second_spine_copy_stays_ineligible(events):

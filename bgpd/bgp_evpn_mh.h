@@ -85,6 +85,8 @@ struct bgp_evpn_es {
 #define BGP_EVPNES_CONS_CHECK_PEND (1 << 4)
 	/* ES is in LACP bypass mode - don't advertise EAD-ES or ESR */
 #define BGP_EVPNES_BYPASS (1 << 5)
+	/* Local ES uses bridge-port backup forwarding. */
+#define BGP_EVPNES_BPP (1 << 6)
 	/* bits needed for printing the flags + null */
 #define BGP_EVPN_FLAG_STR_SZ 7
 
@@ -512,7 +514,7 @@ int bgp_evpn_type4_route_process(struct peer *peer, afi_t afi, safi_t safi,
 		struct attr *attr, uint8_t *pfx, int psize,
 		uint32_t addpath_id);
 extern int bgp_evpn_local_es_add(struct bgp *bgp, esi_t *esi, struct ipaddr originator_ip,
-				 bool oper_up, uint16_t df_pref, bool bypass);
+				 bool oper_up, uint16_t df_pref, bool bypass, bool bpp);
 extern int bgp_evpn_local_es_del(struct bgp *bgp, esi_t *esi);
 extern int bgp_evpn_local_es_evi_add(struct bgp *bgp, esi_t *esi, vni_t vni);
 extern int bgp_evpn_local_es_evi_del(struct bgp *bgp, esi_t *esi, vni_t vni);

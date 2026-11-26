@@ -5100,6 +5100,7 @@ DECLARE_HASH(bgp_l3mh_rt1_scopes, struct bgp_l3mh_rt1_scope, item, bgp_l3mh_rt1_
 DEFINE_MTYPE_STATIC(BGPD, BGP_L3MH_RT1_SCOPE, "L3MH RT-1 generation scope");
 static struct bgp_l3mh_rt1_scopes_head bgp_l3mh_rt1_scope_table =
 	INIT_HASH(bgp_l3mh_rt1_scope_table);
+static uint64_t bgp_l3mh_rt1_walk;
 
 static int bgp_l3mh_rt2_binding_cmp(const struct bgp_l3mh_rt2_binding *a,
 				    const struct bgp_l3mh_rt2_binding *b)
@@ -5343,7 +5344,6 @@ void bgp_evpn_l3vni_neigh_rt1_lost(const struct bgp_evpn_es *es, struct bgp *vrf
 								    &key);
 	struct bgp *bgp_evpn = bgp_get_evpn();
 	struct bgp_path_info_extra_evpn *evpn;
-	static uint64_t fallback_walk;
 	uint64_t previous, walk;
 	unsigned int lookups = 0;
 
@@ -5353,7 +5353,7 @@ void bgp_evpn_l3vni_neigh_rt1_lost(const struct bgp_evpn_es *es, struct bgp *vrf
 	if (!bgp_evpn || !EVPN_ENABLED(bgp_evpn) || !bgp_evpn->advertise_l3vni_neigh)
 		return;
 
-	walk = ++fallback_walk;
+	walk = ++bgp_l3mh_rt1_walk;
 	/* Search each affected binding once even when several spines carry it.
 	 * Zebra keeps probing and uses the eligible candidate if the probe fails.
 	 */
@@ -5384,6 +5384,43 @@ void bgp_evpn_l3vni_neigh_rt1_lost(const struct bgp_evpn_es *es, struct bgp *vrf
 	if (BGP_DEBUG(evpn_mh, EVPN_MH_L3_NEIGH))
 		zlog_debug("L3MH RT-1 fallback VNI %u origin %pIA: %u lookups", vrf->l3vni, origin,
 			   lookups);
+}
+
+void bgp_evpn_l3vni_neigh_rt1_restored(const struct bgp_evpn_es *es, struct bgp *vrf,
+				       const struct ipaddr *origin)
+{
+	struct bgp_l3mh_rt1_scope key = { .origin = *origin, .esi = es->esi, .vni = vrf->l3vni };
+	struct bgp_l3mh_rt1_scope *scope = bgp_l3mh_rt1_scopes_find(&bgp_l3mh_rt1_scope_table,
+								    &key);
+	struct bgp *bgp_evpn = bgp_get_evpn();
+	struct bgp_path_info_extra_evpn *evpn;
+	bool enabled = bgp_evpn && EVPN_ENABLED(bgp_evpn) && bgp_evpn->advertise_l3vni_neigh;
+	uint64_t walk;
+
+	if (!scope || !scope->generation)
+		return;
+	walk = ++bgp_l3mh_rt1_walk;
+	/* The live paths recover with RT-1 even if the origin never sends another
+	 * RT-2 UPDATE. Reuse the binding index to send once across spine copies.
+	 */
+	frr_each (bgp_l3mh_rt2_paths, &scope->paths, evpn) {
+		struct bgp_l3mh_rt2_binding *binding = evpn->l3mh_rt2_binding;
+		struct bgp_path_info *pi = evpn->l3mh_rt2_path;
+		const struct prefix_evpn *p =
+			(const struct prefix_evpn *)bgp_dest_get_prefix(pi->net);
+
+		if (evpn->l3mh_rt2_generation == scope->generation)
+			continue;
+		evpn->l3mh_rt2_generation = scope->generation;
+		if (!enabled || binding->fallback_walk == walk ||
+		    (is_evpn_prefix_ipaddr_v6(p) &&
+		     IN6_IS_ADDR_LINKLOCAL(&p->prefix.macip_addr.ip.ipaddr_v6)) ||
+		    !bgp_evpn_l3vni_neigh_path_backs(vrf, p, pi))
+			continue;
+		binding->fallback_walk = walk;
+		bgp_evpn_l3vni_neigh_zsend(bgp_evpn, vrf->l3vni, p, pi, true,
+					   ZEBRA_MACIP_TYPE_L3_NEIGH_RESTORE);
+	}
 }
 
 /* A received pure-L3 (no-L2VNI) RT-2 syncs a host neighbor onto the ES peers.
@@ -5829,6 +5866,7 @@ static void update_router_id_vrf(struct bgp *bgp_vrf)
 
 	/* derive the RD for the VRF based on new router-id */
 	bgp_evpn_derive_auto_rd_for_vrf(bgp_vrf);
+	bgp_evpn_es_vrf_ip_ead_update(bgp_vrf);
 
 	/* update advertise ipv4|ipv6 routes as type-5 routes */
 	update_advertise_vrf_routes(bgp_vrf);

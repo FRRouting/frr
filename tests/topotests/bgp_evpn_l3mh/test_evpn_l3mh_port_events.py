@@ -25,13 +25,16 @@ def teardown_module(module):
 
 
 class PortEvents:
-    def __init__(self, leaves):
+    def __init__(self, leaves, family):
         self.leaves = leaves
+        self.family = family
         self.owner, self.peer, self.other = leaves
         self.bindings = set()
 
-    def binding(self, number, mac=None, vid=VID):
-        entry = (f"45.0.0.{number}", mac or f"02:00:00:00:01:{number:02x}", vid)
+    def binding(self, number, mac=None, vid=VID, *, family=None):
+        family = family or self.family
+        ip = f"fd00:45::{number}" if family == "ipv6" else f"45.0.0.{number}"
+        entry = (ip, mac or f"02:00:00:00:01:{number:02x}", vid)
         self.bindings.add(entry)
         return entry
 
@@ -84,14 +87,19 @@ class PortEvents:
 
 
 @pytest.fixture
-def events():
+def events(request):
     tgen = l3mh.get_topogen()
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
 
-    case = PortEvents(tuple(tgen.gears[name] for name in ("leaf1", "leaf2", "leaf4")))
+    case = PortEvents(
+        tuple(tgen.gears[name] for name in ("leaf1", "leaf2", "leaf4")),
+        getattr(request, "param", "ipv4"),
+    )
     owner = case.owner
     timers = [f"net.ipv4.neigh.vlan{vid}.retrans_time_ms" for vid in (VID, VID + 1)]
+    if case.family == "ipv6":
+        timers.append(f"net.ipv6.neigh.vlan{VID}.retrans_time_ms")
     original = {}
     try:
         for leaf in case.leaves:

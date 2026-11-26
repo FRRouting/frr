@@ -6568,8 +6568,8 @@ DEFPY_HIDDEN(test_es_add,
 			oper_up = false;
 		ipaddr_set_v4(&vtep_ip, bgp->router_id);
 
-		ret = bgp_evpn_local_es_add(bgp, &esi, vtep_ip, oper_up,
-					    EVPN_MH_DF_PREF_MIN, false);
+		ret = bgp_evpn_local_es_add(bgp, &esi, vtep_ip, oper_up, EVPN_MH_DF_PREF_MIN,
+					    false, false);
 		if (ret == -1) {
 			vty_out(vty, "%% Failed to add ES\n");
 			return CMD_WARNING;

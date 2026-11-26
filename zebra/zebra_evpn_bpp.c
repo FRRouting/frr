@@ -472,26 +472,25 @@ static const char *zebra_evpn_bpp_type_str(uint8_t type)
 	return "-";
 }
 
-/* Does a VLAN of the bond other than vid have an L2VNI? */
-static bool zebra_evpn_bpp_zif_has_l2vni(struct zebra_if *zif, struct interface *br_if,
-					 vlanid_t skip_vid)
+/* Count only as far as needed to tell whether another VLAN has an L2VNI. */
+static unsigned int zebra_evpn_bpp_l2vni_count(struct zebra_if *zif)
 {
+	struct interface *br_if = zif->brslave_info.br_if;
 	struct zebra_evpn_access_bd *acc_bd;
+	unsigned int count = 0;
 	vlanid_t vid;
 
 	if (!br_if || !bf_is_inited(zif->vlan_bitmap))
-		return false;
+		return 0;
 
 	bf_for_each_set_bit(zif->vlan_bitmap, vid, IF_VLAN_BITMAP_MAX)
 	{
-		if (vid == skip_vid)
-			continue;
 		acc_bd = zebra_evpn_acc_vl_find(vid, br_if);
-		if (acc_bd && acc_bd->zevpn)
-			return true;
+		if (acc_bd && acc_bd->zevpn && ++count == 2)
+			break;
 	}
 
-	return false;
+	return count;
 }
 
 /* acc_bd->vlan_zif is cleared while the SVI is oper-down. The SVI still
@@ -528,7 +527,7 @@ static struct interface *zebra_evpn_bpp_svi_find(vlanid_t vid, struct interface 
 	return ctx.svi;
 }
 
-static void zebra_evpn_bpp_eval(struct zebra_evpn_bpp *e, bool created)
+static void zebra_evpn_bpp_eval(struct zebra_evpn_bpp *e, bool created, unsigned int l2vnis)
 {
 	struct zebra_if *zif = e->zif;
 	struct interface *br_if = zif->brslave_info.br_if;
@@ -560,7 +559,7 @@ static void zebra_evpn_bpp_eval(struct zebra_evpn_bpp *e, bool created)
 		SET_FLAG(flags, ZEBRA_EVPN_BPP_NO_LOCAL_ES);
 	if (acc_bd && acc_bd->zevpn)
 		SET_FLAG(flags, ZEBRA_EVPN_BPP_BD_HAS_L2VNI);
-	if (zebra_evpn_bpp_zif_has_l2vni(zif, br_if, e->vid))
+	if (l2vnis > (acc_bd && acc_bd->zevpn ? 1U : 0U))
 		SET_FLAG(flags, ZEBRA_EVPN_BPP_ES_HAS_L2VNI);
 	if (e->vrf_id == VRF_UNKNOWN)
 		SET_FLAG(flags, ZEBRA_EVPN_BPP_NO_SVI_VRF);
@@ -600,9 +599,14 @@ static struct zebra_evpn_bpp_if *zebra_evpn_bpp_if_find(struct zebra_if *zif)
 	return zebra_evpn_bpp_if_hash_find(&bpp_if_hash, &key);
 }
 
+static bool zebra_evpn_bpp_configured(const struct zebra_if *zif)
+{
+	return CHECK_FLAG(zif->es_info.flags, ZIF_CFG_ES_FLAG_BPP);
+}
+
 static void zebra_evpn_bpp_group_id_ensure(struct zebra_evpn_es *es)
 {
-	if (!es || es->l3_nhg_id)
+	if (!es || !es->zif || !zebra_evpn_bpp_configured(es->zif) || es->l3_nhg_id)
 		return;
 
 	es->l3_nhg_id = zebra_evpn_mh_nhid_alloc(NHG_TYPE_L3_BPP);
@@ -702,7 +706,6 @@ static struct zebra_evpn_bpp_if *zebra_evpn_bpp_if_new(struct zebra_if *zif)
 	zebra_evpn_bpp_evi_list_init(&bif->evis);
 	zebra_evpn_bpp_peer_hash_init(&bif->peers);
 	zebra_evpn_bpp_if_hash_add(&bpp_if_hash, bif);
-	zebra_evpn_bpp_group_id_ensure(zif->es_info.es);
 	zebra_evpn_bpp_lifecycle_set(bif, ZEBRA_EVPN_BPP_PENDING);
 
 	return bif;
@@ -777,7 +780,7 @@ static bool zebra_evpn_bpp_if_bound(struct zebra_evpn_bpp_if *bif)
 {
 	struct zebra_evpn_bpp *e;
 
-	if (!bif || !zebra_evpn_bpp_member_count(bif))
+	if (!bif || !zebra_evpn_bpp_configured(bif->zif) || !zebra_evpn_bpp_member_count(bif))
 		return false;
 
 	frr_each (zebra_evpn_bpp_hash, &bif->entries, e) {
@@ -1264,20 +1267,23 @@ void zebra_evpn_bpp_es_clear(struct zebra_evpn_es *es)
 
 void zebra_evpn_bpp_if_update(struct zebra_if *zif)
 {
+	struct zebra_vrf *evpn_zvrf = zebra_vrf_get_evpn();
 	struct zebra_evpn_bpp_if *bif;
 	struct zebra_evpn_bpp *e;
+	bool track;
 	bool protect;
 	vlanid_t vid;
 
 	if (!bpp_inited)
 		return;
 
-	protect = CHECK_FLAG(zif->es_info.flags, ZIF_CFG_ES_FLAG_BPP) &&
-		  bf_is_inited(zif->vlan_bitmap);
+	protect = zebra_evpn_bpp_configured(zif);
+	track = bf_is_inited(zif->vlan_bitmap) &&
+		(protect || (zif->es_info.es && evpn_zvrf && evpn_zvrf->advertise_l3vni_neigh));
 
 	bif = zebra_evpn_bpp_if_find(zif);
 	if (!bif) {
-		if (!protect)
+		if (!track)
 			return;
 		bif = zebra_evpn_bpp_if_new(zif);
 	}
@@ -1288,24 +1294,28 @@ void zebra_evpn_bpp_if_update(struct zebra_if *zif)
 		zebra_evpn_bpp_group_id_ensure(zif->es_info.es);
 
 	frr_each_safe (zebra_evpn_bpp_hash, &bif->entries, e) {
-		if (protect && bf_test_index(zif->vlan_bitmap, e->vid))
+		if (track && bf_test_index(zif->vlan_bitmap, e->vid))
 			continue;
 		zebra_evpn_bpp_free(bif, e);
 	}
 
-	if (protect) {
+	if (track) {
+		unsigned int l2vnis = zebra_evpn_bpp_l2vni_count(zif);
+
 		bf_for_each_set_bit(zif->vlan_bitmap, vid, IF_VLAN_BITMAP_MAX)
 		{
 			e = zebra_evpn_bpp_find(bif, vid);
 			if (e) {
-				zebra_evpn_bpp_eval(e, false);
+				zebra_evpn_bpp_eval(e, false, l2vnis);
 				continue;
 			}
-			zebra_evpn_bpp_eval(zebra_evpn_bpp_new(bif, vid), true);
+			zebra_evpn_bpp_eval(zebra_evpn_bpp_new(bif, vid), true, l2vnis);
 		}
 	}
 
 	zebra_evpn_bpp_if_sync(bif);
+	if (!protect)
+		zebra_evpn_bpp_group_id_release(zif->es_info.es);
 }
 
 void zebra_evpn_bpp_if_del(struct zebra_if *zif)
@@ -1333,8 +1343,10 @@ static void zebra_evpn_bpp_re_eval_all(struct event *event)
 	struct zebra_evpn_bpp *e;
 
 	frr_each (zebra_evpn_bpp_if_hash, &bpp_if_hash, bif) {
+		unsigned int l2vnis = zebra_evpn_bpp_l2vni_count(bif->zif);
+
 		frr_each (zebra_evpn_bpp_hash, &bif->entries, e)
-			zebra_evpn_bpp_eval(e, false);
+			zebra_evpn_bpp_eval(e, false, l2vnis);
 		zebra_evpn_bpp_evi_sync(bif);
 	}
 }
@@ -1378,7 +1390,7 @@ void zebra_evpn_bpp_peer_update(const struct zapi_evpn_bpp_peer *zpeer, bool add
 	es = zebra_evpn_es_find(&zpeer->esi);
 	if (!es || !es->zif)
 		return;
-	if (!CHECK_FLAG(es->zif->es_info.flags, ZIF_CFG_ES_FLAG_BPP))
+	if (!zebra_evpn_bpp_configured(es->zif))
 		return;
 
 	bif = zebra_evpn_bpp_if_find(es->zif);
@@ -1581,14 +1593,18 @@ static struct zebra_evpn_bpp **zebra_evpn_bpp_sorted(size_t *count)
 	if (!bpp_inited)
 		return NULL;
 	frr_each (zebra_evpn_bpp_if_hash, &bpp_if_hash, bif)
-		*count += zebra_evpn_bpp_hash_count(&bif->entries);
+		if (zebra_evpn_bpp_configured(bif->zif))
+			*count += zebra_evpn_bpp_hash_count(&bif->entries);
 	if (!*count)
 		return NULL;
 
 	sorted = XCALLOC(MTYPE_TMP, *count * sizeof(*sorted));
-	frr_each (zebra_evpn_bpp_if_hash, &bpp_if_hash, bif)
+	frr_each (zebra_evpn_bpp_if_hash, &bpp_if_hash, bif) {
+		if (!zebra_evpn_bpp_configured(bif->zif))
+			continue;
 		frr_each (zebra_evpn_bpp_hash, &bif->entries, e)
 			sorted[i++] = e;
+	}
 	qsort(sorted, *count, sizeof(*sorted), zebra_evpn_bpp_show_cmp);
 
 	return sorted;
