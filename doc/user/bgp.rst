@@ -4840,6 +4840,12 @@ It requires L3 multihoming (``advertise-all-vni l3vni-neigh``, with VLANs
 in broadcast domains that have no L2VNI). It has no effect on DF
 election.
 
+Configure bridge-port protection on every PE that participates in the ES.
+Each PE originates the IP A-D per-ES route used for peer eligibility only
+when protection is configured on that PE. If a peer is left unconfigured,
+the configured PE can remain pending with no eligible backup member or
+Binding.
+
 .. clicmd:: show evpn mh bridge-port-protection [interface IFNAME] [detail] [json]
 
    Display one protection entry per VLAN of each protected ES interface,
