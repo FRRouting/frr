@@ -240,6 +240,9 @@ static const char *zebra_evpn_l3mh_nud_event(uint16_t state)
 static void zebra_evpn_l3vni_remote_neigh_reinstall(vni_t l3vni, struct zebra_neigh *n);
 static bool zebra_evpn_l3vni_peer_loss_probe(struct zebra_neigh *n);
 static void zebra_evpn_l3vni_validation_probe(struct zebra_neigh *n);
+static bool zebra_evpn_l3vni_expiry_pending(ns_id_t ns_id, ifindex_t ifindex,
+					    const struct ipaddr *ip);
+static void zebra_evpn_l3vni_expiry_delete(struct zebra_neigh *n);
 
 /* Index current peer metadata for both synced neighbors and local fallbacks. */
 PREDECL_HASH(zebra_l3mh_peers);
@@ -759,6 +762,8 @@ static void zebra_evpn_l3vni_down_expire(struct event *event)
 	zebra_evpn_l3mh_neigh_debug_transition(n, n->l3mh_state, "down-peering-expired",
 					       ZEBRA_L3MH_NEIGH_NOT_MANAGED,
 					       ZEBRA_L3MH_NEIGH_REMOVE_AGEOUT, NULL);
+	zebra_evpn_l3vni_expiry_delete(n);
+	zebra_evpn_l3mh_neigh_record(n, ZEBRA_L3MH_NEIGH_NOT_MANAGED, 0, NULL);
 	zebra_evpn_l3vni_neigh_del_one(n->zevpn, n);
 }
 
@@ -878,6 +883,7 @@ int zebra_evpn_l3vni_local_neigh_update(struct interface *ifp, struct interface 
 			}
 		}
 		n->l3mh_check_seq = 0;
+		n->l3mh_check_reprobe = false;
 		zebra_evpn_l3mh_probe_cancel(n);
 		if (CHECK_FLAG(n->flags, ZEBRA_NEIGH_LOCAL))
 			zebra_evpn_l3vni_sync_mac_del(n);
@@ -1001,6 +1007,14 @@ static bool zebra_evpn_l3vni_neigh_migrate_to_l2(struct zebra_evpn *l2zevpn,
  * has left L3VNI neighbor-sync mode (knob off, L3VNI down, or an L2VNI
  * appeared).
  */
+static void zebra_evpn_l3vni_neigh_repair(const struct zebra_neigh *n, const struct interface *ifp)
+{
+	uint32_t flags = CHECK_FLAG(n->flags, ZEBRA_NEIGH_ROUTER_FLAG) ? DPLANE_NTF_ROUTER : 0;
+
+	if (IS_ZEBRA_NEIGH_ACTIVE(n) && ifp && if_is_operative(ifp))
+		dplane_l3mh_neigh_add(ifp, &n->ip, &n->emac, flags, true /* create_only */);
+}
+
 int zebra_evpn_l3vni_local_neigh_del(struct interface *ifp, const struct ipaddr *ip,
 				     enum zebra_l3mh_nud_event event)
 {
@@ -1044,12 +1058,8 @@ int zebra_evpn_l3vni_local_neigh_del(struct interface *ifp, const struct ipaddr 
 
 	/* A delete may be for the old dynamic entry. Repair only an empty slot. */
 	if (retained || (remote && !zebra_evpn_l3mh_probe_current(n))) {
-		uint32_t flags = CHECK_FLAG(n->flags, ZEBRA_NEIGH_ROUTER_FLAG) ? DPLANE_NTF_ROUTER
-									       : 0;
-
-		if (!failed && (retained || !n->l3mh_peer_rt1_lost) && IS_ZEBRA_NEIGH_ACTIVE(n) &&
-		    if_is_operative(ifp))
-			dplane_l3mh_neigh_add(ifp, ip, &n->emac, flags, true /* create_only */);
+		if (!failed && (retained || !n->l3mh_peer_rt1_lost))
+			zebra_evpn_l3vni_neigh_repair(n, ifp);
 		return 0;
 	}
 	if (remote) {
@@ -1096,21 +1106,32 @@ static struct zebra_neigh *zebra_evpn_l3vni_check_local(struct interface *ifp,
 	return n;
 }
 
-bool zebra_evpn_l3vni_neigh_check_loss(struct interface *ifp, ns_id_t ns_id,
-				      const struct ipaddr *ip, uint16_t state, bool deleted)
+static bool zebra_evpn_l3vni_neigh_check_queue(struct zebra_neigh *n, ns_id_t ns_id,
+					       uint16_t state, bool deleted, bool reprobe)
 {
-	struct zebra_neigh *n = zebra_evpn_l3vni_check_local(ifp, ip);
-	uint32_t seq;
+	uint32_t seq = zebra_router_get_next_sequence();
 
-	if (!n)
-		return false;
-	seq = zebra_router_get_next_sequence();
-	if (dplane_l3mh_neigh_check(zebra_ns_lookup(ns_id), n->ifindex, ip, &n->emac, seq) !=
+	if (dplane_l3mh_neigh_check(zebra_ns_lookup(ns_id), n->ifindex, &n->ip, &n->emac, seq) !=
 	    ZEBRA_DPLANE_REQUEST_QUEUED)
 		return false;
 	n->l3mh_check_seq = seq;
 	n->l3mh_check_state = state;
 	n->l3mh_check_deleted = deleted;
+	n->l3mh_check_reprobe |= reprobe;
+	n->l3mh_check_retried = false;
+	return true;
+}
+
+bool zebra_evpn_l3vni_neigh_check_loss(struct interface *ifp, ns_id_t ns_id,
+				       const struct ipaddr *ip, uint16_t state, bool deleted)
+{
+	struct zebra_neigh *n = zebra_evpn_l3vni_check_local(ifp, ip);
+
+	if (!n)
+		return false;
+	/* Expiry checks the slot once the queued delete has reached the kernel. */
+	if (!zebra_evpn_l3vni_expiry_pending(ns_id, ifp->ifindex, ip))
+		zebra_evpn_l3vni_neigh_check_queue(n, ns_id, state, deleted, false);
 	return true;
 }
 
@@ -1121,7 +1142,9 @@ void zebra_evpn_l3vni_neigh_check_result(const struct zebra_dplane_ctx *ctx)
 	struct ipaddr ip = *dplane_ctx_get_neigh_read_ip(ctx);
 	struct interface *ifp;
 	struct zebra_neigh *n;
+	struct ethaddr mac;
 	bool deleted;
+	bool reprobe;
 
 	if (!seq)
 		return;
@@ -1129,16 +1152,35 @@ void zebra_evpn_l3vni_neigh_check_result(const struct zebra_dplane_ctx *ctx)
 	n = zebra_evpn_l3vni_check_local(ifp, &ip);
 	if (!n || n->l3mh_check_seq != seq)
 		return;
+	/* A failed read leaves the kernel binding unknown. Try once more. */
+	if (dplane_ctx_get_status(ctx) != ZEBRA_DPLANE_REQUEST_SUCCESS) {
+		if (!n->l3mh_check_retried &&
+		    zebra_evpn_l3vni_neigh_check_queue(n, ns_id, n->l3mh_check_state,
+						       n->l3mh_check_deleted, false)) {
+			n->l3mh_check_retried = true;
+			return;
+		}
+		n->l3mh_check_seq = 0;
+		n->l3mh_check_reprobe = false;
+		return;
+	}
 	n->l3mh_check_seq = 0;
+	reprobe = n->l3mh_check_reprobe &&
+		  (!CHECK_FLAG(n->flags, ZEBRA_NEIGH_ES_PEER_ACTIVE) || n->l3mh_peer_rt1_lost) &&
+		  if_is_operative(ifp);
+	n->l3mh_check_reprobe = false;
 	if (dplane_ctx_neigh_read_matches(ctx))
 		return;
 
 	deleted = n->l3mh_check_deleted;
+	mac = n->emac;
 	zsend_neighbor_notify(deleted ? ZEBRA_NEIGH_REMOVED : ZEBRA_NEIGH_ADDED, ifp, &ip,
 			      n->l3mh_check_state, NULL, 0);
 	zebra_neigh_del(ns_id, ifp, &ip);
 	zebra_evpn_l3vni_local_neigh_del(ifp, &ip,
 					 deleted ? ZEBRA_L3MH_NUD_DELETE : ZEBRA_L3MH_NUD_FAILED);
+	if (reprobe)
+		dplane_neigh_probe(ifp, &ip, &mac, 0, 0);
 }
 
 /* Withdraw and delete every pure-L3 neighbor in a singleton. Used when a
@@ -1773,7 +1815,9 @@ struct l3mh_probe_delete {
 	ns_id_t ns_id;
 	ifindex_t ifindex;
 	uint32_t seq;
+	uint32_t expiry_seq;
 	vni_t vni;
+	bool expiry_retried;
 };
 
 static uint32_t l3mh_probe_delete_hash(const struct l3mh_probe_delete *d)
@@ -1792,6 +1836,101 @@ DECLARE_HASH(l3mh_probe_delete, struct l3mh_probe_delete, item, l3mh_probe_delet
 DEFINE_MTYPE_STATIC(ZEBRA, L3MH_PROBE_DELETE, "L3MH probe delete notification");
 static struct l3mh_probe_delete_head l3mh_probe_deletes = INIT_HASH(l3mh_probe_deletes);
 
+static void l3mh_probe_delete_retire(struct l3mh_probe_delete *expected)
+{
+	if (!expected->seq && !expected->expiry_seq) {
+		l3mh_probe_delete_del(&l3mh_probe_deletes, expected);
+		XFREE(MTYPE_L3MH_PROBE_DELETE, expected);
+	}
+}
+
+static bool zebra_evpn_l3vni_expiry_pending(ns_id_t ns_id, ifindex_t ifindex,
+					    const struct ipaddr *ip)
+{
+	struct l3mh_probe_delete key = { .ns_id = ns_id, .ifindex = ifindex, .ip = *ip };
+	struct l3mh_probe_delete *expected = l3mh_probe_delete_find(&l3mh_probe_deletes, &key);
+
+	return expected && expected->expiry_seq;
+}
+
+static void zebra_evpn_l3vni_expiry_delete(struct zebra_neigh *n)
+{
+	struct interface *ifp = if_lookup_by_index_per_nsid(NS_DEFAULT, n->ifindex);
+	struct l3mh_probe_delete key, *expected;
+	uint32_t seq;
+
+	if (!ifp)
+		return;
+	key = (struct l3mh_probe_delete){ .ns_id = zebra_ns_lookup(ifp->vrf->vrf_id)->ns_id,
+					  .ifindex = ifp->ifindex,
+					  .ip = n->ip,
+					  .vni = n->zevpn->vni };
+	seq = zebra_router_get_next_sequence();
+	if (dplane_neigh_probe_delete(ifp, &n->ip, key.vni, seq, true) !=
+	    ZEBRA_DPLANE_REQUEST_QUEUED)
+		return;
+	expected = l3mh_probe_delete_find(&l3mh_probe_deletes, &key);
+	if (!expected) {
+		expected = XCALLOC(MTYPE_L3MH_PROBE_DELETE, sizeof(*expected));
+		*expected = key;
+		l3mh_probe_delete_add(&l3mh_probe_deletes, expected);
+	}
+	expected->expiry_seq = seq;
+	expected->expiry_retried = false;
+}
+
+static bool zebra_evpn_l3vni_expiry_retry(struct l3mh_probe_delete *expected, vni_t vni)
+{
+	struct interface *ifp = if_lookup_by_index_per_nsid(expected->ns_id, expected->ifindex);
+	vni_t current_vni;
+	uint32_t seq;
+
+	if (expected->expiry_retried || !zebra_evpn_l3vni_from_svi(ifp, &current_vni) ||
+	    current_vni != vni)
+		return false;
+	seq = zebra_router_get_next_sequence();
+	if (dplane_neigh_probe_delete(ifp, &expected->ip, vni, seq, true) !=
+	    ZEBRA_DPLANE_REQUEST_QUEUED)
+		return false;
+	expected->expiry_seq = seq;
+	expected->expiry_retried = true;
+	return true;
+}
+
+static void zebra_evpn_l3vni_expiry_result(const struct zebra_dplane_ctx *ctx)
+{
+	struct l3mh_probe_delete key = { .ns_id = dplane_ctx_get_ns_id(ctx),
+					 .ifindex = dplane_ctx_get_ifindex(ctx),
+					 .ip = *dplane_ctx_neigh_get_ipaddr(ctx) };
+	struct l3mh_probe_delete *expected = l3mh_probe_delete_find(&l3mh_probe_deletes, &key);
+	struct zebra_evpn *zevpn;
+	struct zebra_neigh *n;
+	vni_t vni = dplane_ctx_neigh_get_vni(ctx);
+	bool replacement;
+
+	if (!expected || expected->expiry_seq != dplane_ctx_get_seq(ctx))
+		return;
+	zevpn = zebra_evpn_l3_neigh_sync_lookup(vni);
+	n = zevpn ? zebra_evpn_neigh_lookup(zevpn, &key.ip) : NULL;
+	replacement = n && n->ifindex == key.ifindex;
+	if (!replacement && dplane_ctx_get_status(ctx) != ZEBRA_DPLANE_REQUEST_SUCCESS) {
+		if (zebra_evpn_l3vni_expiry_retry(expected, vni))
+			return;
+		zlog_warn("L3MH expiry cleanup could not delete %pIA on interface %u", &key.ip,
+			  key.ifindex);
+	}
+	expected->expiry_seq = 0;
+	l3mh_probe_delete_retire(expected);
+	if (!replacement)
+		return;
+	if (n->l3mh_state == ZEBRA_L3MH_NEIGH_LOCAL_DYNAMIC || n->l3mh_validation_learned)
+		zebra_evpn_l3vni_neigh_check_queue(n, key.ns_id, ZEBRA_NEIGH_STATE_FAILED, true,
+						   true);
+	else if (CHECK_FLAG(n->flags, ZEBRA_NEIGH_REMOTE) && n->l3mh_peer_rt1_lost)
+		zebra_evpn_l3vni_peer_loss_probe(n);
+	zebra_evpn_l3vni_validation_probe(n);
+}
+
 /* Keep the kernel key until its notification, even if the binding is replaced. */
 bool zebra_evpn_l3vni_neigh_probe_delete_event(ns_id_t ns_id, ifindex_t ifindex,
 					       const struct ipaddr *ip, bool deleted)
@@ -1799,19 +1938,30 @@ bool zebra_evpn_l3vni_neigh_probe_delete_event(ns_id_t ns_id, ifindex_t ifindex,
 	struct l3mh_probe_delete key = { .ns_id = ns_id, .ifindex = ifindex, .ip = *ip };
 	struct l3mh_probe_delete *expected = l3mh_probe_delete_find(&l3mh_probe_deletes, &key);
 
-	if (!expected)
+	if (!expected || !expected->seq)
 		return false;
 	if (deleted) {
 		struct zebra_evpn *zevpn = zebra_evpn_l3_neigh_sync_lookup(expected->vni);
 		struct zebra_neigh *n = zevpn ? zebra_evpn_neigh_lookup(zevpn, ip) : NULL;
 
-		l3mh_probe_delete_del(&l3mh_probe_deletes, expected);
-		XFREE(MTYPE_L3MH_PROBE_DELETE, expected);
+		expected->seq = 0;
+		l3mh_probe_delete_retire(expected);
 		/* The replacement can lose its RT-1 while the old delete is pending. */
 		if (n && n->ifindex == ifindex) {
+			if ((n->l3mh_state == ZEBRA_L3MH_NEIGH_LOCAL_DYNAMIC ||
+			     n->l3mh_validation_learned) &&
+			    !zebra_evpn_l3mh_probe_current(n))
+				zebra_evpn_l3vni_neigh_check_queue(n, ns_id,
+								   ZEBRA_NEIGH_STATE_FAILED, true,
+								   true);
 			if (CHECK_FLAG(n->flags, ZEBRA_NEIGH_REMOTE) && n->l3mh_peer_rt1_lost &&
 			    !zebra_evpn_l3mh_probe_current(n))
 				zebra_evpn_l3vni_peer_loss_probe(n);
+			else if (n->l3mh_state == ZEBRA_L3MH_NEIGH_PEER_SYNC_PROTECTED &&
+				 zebra_evpn_l3vni_has_peer(n) && !zebra_evpn_l3mh_probe_current(n))
+				zebra_evpn_l3vni_neigh_repair(n,
+							      if_lookup_by_index_per_nsid(ns_id,
+											  ifindex));
 			zebra_evpn_l3vni_validation_probe(n);
 		}
 	}
@@ -1829,7 +1979,7 @@ static bool zebra_evpn_l3vni_neigh_probe_submit(struct zebra_neigh *n, const str
 		return false;
 
 	if (deleting)
-		result = dplane_neigh_probe_delete(ifp, &n->ip, vni, seq);
+		result = dplane_neigh_probe_delete(ifp, &n->ip, vni, seq, false);
 	else
 		result = dplane_neigh_probe(ifp, &n->ip, &n->emac, vni, seq);
 	if (result == ZEBRA_DPLANE_REQUEST_QUEUED)
@@ -1846,7 +1996,8 @@ bool zebra_evpn_l3vni_neigh_start_probe(struct zebra_neigh *n, const struct inte
 	if (n->mac || !IS_ZEBRA_NEIGH_ACTIVE(n) || n->ifindex != ifp->ifindex ||
 	    is_zero_mac(&n->emac) || zebra_evpn_l3mh_probe_current(n))
 		return false;
-	if (zebra_evpn_l3vni_neigh_probe_delete_event(ns_id, ifp->ifindex, &n->ip, false) ||
+	if (zebra_evpn_l3vni_expiry_pending(ns_id, ifp->ifindex, &n->ip) ||
+	    zebra_evpn_l3vni_neigh_probe_delete_event(ns_id, ifp->ifindex, &n->ip, false) ||
 	    !zebra_evpn_l3vni_neigh_probe_submit(n, ifp, true))
 		return false;
 	expected = XCALLOC(MTYPE_L3MH_PROBE_DELETE, sizeof(*expected));
@@ -1871,6 +2022,22 @@ static void zebra_evpn_l3vni_validation_probe(struct zebra_neigh *n)
 		zebra_evpn_l3vni_neigh_start_probe(n, svi_ifp);
 }
 
+static void zebra_evpn_l3vni_probe_create_failed(struct zebra_neigh *n)
+{
+	zlog_warn("L3MH could not create a probe for %pIA on interface %u", &n->ip, n->ifindex);
+	if (zebra_evpn_l3vni_has_peer(n) && !n->l3mh_peer_rt1_lost) {
+		if (CHECK_FLAG(n->flags, ZEBRA_NEIGH_LOCAL))
+			zebra_evpn_l3vni_local_fallback_peer(n->zevpn, n);
+		else
+			zebra_evpn_l3vni_remote_neigh_reinstall(n->zevpn->vni, n);
+	} else if (CHECK_FLAG(n->flags, ZEBRA_NEIGH_LOCAL)) {
+		zebra_evpn_l3vni_neigh_del_one(n->zevpn, n);
+	} else {
+		zebra_evpn_l3vni_sync_mac_del(n);
+		zebra_evpn_l3vni_neigh_forget(n->zevpn, n);
+	}
+}
+
 bool zebra_evpn_l3vni_neigh_probe_result(const struct zebra_dplane_ctx *ctx)
 {
 	uint32_t seq = dplane_ctx_get_seq(ctx);
@@ -1880,11 +2047,27 @@ bool zebra_evpn_l3vni_neigh_probe_result(const struct zebra_dplane_ctx *ctx)
 	struct interface *ifp;
 	bool success = dplane_ctx_get_status(ctx) == ZEBRA_DPLANE_REQUEST_SUCCESS;
 	bool deleting = dplane_ctx_get_op(ctx) == DPLANE_OP_NEIGH_DELETE;
-	bool advance, unbacked, validating, canceled;
+	bool advance, unbacked, validating, canceled, current, occupied;
+	bool replacement_needs_probe;
 
 	if (!seq || !vni)
 		return false;
-	if (deleting && !success) {
+	if (deleting &&
+	    CHECK_FLAG(dplane_ctx_neigh_get_update_flags(ctx), DPLANE_NEIGH_L3MH_EXPIRY)) {
+		zebra_evpn_l3vni_expiry_result(ctx);
+		return true;
+	}
+	zevpn = zebra_evpn_l3_neigh_sync_lookup(vni);
+	n = zevpn ? zebra_evpn_neigh_lookup(zevpn, dplane_ctx_neigh_get_ipaddr(ctx)) : NULL;
+	canceled = n && n->l3mh_probe_seq == seq && !zebra_evpn_l3mh_probe_current(n);
+	replacement_needs_probe = canceled && CHECK_FLAG(n->flags, ZEBRA_NEIGH_REMOTE) &&
+				  n->l3mh_peer_rt1_lost;
+	/* No delete notification follows ENOENT. A canceled delete must also
+	 * finish reconciling the replacement. Keep a successful delete tracked
+	 * until its notification if the replacement needs to delete the same IP.
+	 */
+	if (deleting && (!success || dplane_ctx_get_errno(ctx) == ENOENT || !n ||
+			 n->l3mh_probe_seq != seq || (canceled && !replacement_needs_probe))) {
 		struct l3mh_probe_delete key = { .ns_id = dplane_ctx_get_ns_id(ctx),
 						 .ifindex = dplane_ctx_get_ifindex(ctx),
 						 .ip = *dplane_ctx_neigh_get_ipaddr(ctx) };
@@ -1895,23 +2078,21 @@ bool zebra_evpn_l3vni_neigh_probe_result(const struct zebra_dplane_ctx *ctx)
 			zebra_evpn_l3vni_neigh_probe_delete_event(key.ns_id, key.ifindex, &key.ip,
 								  true);
 	}
-	zevpn = zebra_evpn_l3_neigh_sync_lookup(vni);
-	if (!zevpn)
-		return true;
-	n = zebra_evpn_neigh_lookup(zevpn, dplane_ctx_neigh_get_ipaddr(ctx));
 	if (!n)
 		return true;
 
-	canceled = n->l3mh_probe_seq == seq && !zebra_evpn_l3mh_probe_current(n);
 	validating = n->l3mh_state == ZEBRA_L3MH_NEIGH_VALIDATION_PENDING;
-	unbacked = n->l3mh_probe_seq == seq && n->ifindex == dplane_ctx_get_ifindex(ctx) &&
-		   zebra_evpn_l3mh_probe_current(n) && CHECK_FLAG(n->flags, ZEBRA_NEIGH_REMOTE) &&
+	current = n->l3mh_probe_seq == seq && n->ifindex == dplane_ctx_get_ifindex(ctx) &&
+		  zebra_evpn_l3mh_probe_current(n);
+	unbacked = current && CHECK_FLAG(n->flags, ZEBRA_NEIGH_REMOTE) &&
 		   (!zebra_evpn_l3vni_has_peer(n) || n->l3mh_peer_rt1_lost);
+	occupied = !deleting && dplane_ctx_get_errno(ctx) == EEXIST;
 	/* A failed delete can mean an empty slot. A create-only probe can then
 	 * fill it, or leave newer kernel state in place if the slot is occupied.
 	 */
 	advance = zebra_evpn_l3mh_probe_complete(n, seq,
-						 (success || validating) &&
+						 (success ||
+						  (validating && (deleting || occupied))) &&
 							 n->ifindex == dplane_ctx_get_ifindex(ctx));
 	if (IS_ZEBRA_DEBUG_EVPN_MH_L3_NEIGH)
 		zlog_debug("L3MH probe result %s VNI %u IP %pIA seq %u status %u current %u",
@@ -1920,19 +2101,26 @@ bool zebra_evpn_l3vni_neigh_probe_result(const struct zebra_dplane_ctx *ctx)
 	if (advance && success && (deleting || validating))
 		zebra_evpn_l3vni_sync_mac_del(n);
 	if (advance && deleting) {
-		ifp = if_lookup_by_index_per_ns(zebra_ns_lookup(dplane_ctx_get_ns_id(ctx)),
-						n->ifindex);
+		ifp = if_lookup_by_index_per_nsid(dplane_ctx_get_ns_id(ctx), n->ifindex);
 		if (ifp && if_is_operative(ifp) &&
 		    zebra_evpn_l3vni_neigh_probe_submit(n, ifp, false))
 			return true;
 		zebra_evpn_l3mh_probe_cancel(n);
-		advance = false;
+		zebra_evpn_l3vni_probe_create_failed(n);
+		return true;
+	}
+	/* A rejected create cannot produce a kernel probe timeout. */
+	if (current && !deleting && !success && !occupied) {
+		zebra_evpn_l3vni_probe_create_failed(n);
+		return true;
 	}
 	if (!advance && unbacked) {
 		zebra_evpn_l3vni_sync_mac_del(n);
 		zebra_evpn_l3vni_neigh_forget(zevpn, n);
 	} else if (canceled) {
-		/* A second port-up may have been waiting for this sequence. */
+		/* A replacement or second port-up can be waiting for this slot. */
+		if (replacement_needs_probe)
+			zebra_evpn_l3vni_peer_loss_probe(n);
 		zebra_evpn_l3vni_validation_probe(n);
 	}
 	return true;

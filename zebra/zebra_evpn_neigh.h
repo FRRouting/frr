@@ -153,6 +153,8 @@ struct zebra_neigh {
 	uint32_t l3mh_check_seq;
 	uint16_t l3mh_check_state;
 	bool l3mh_check_deleted;
+	bool l3mh_check_reprobe;
+	bool l3mh_check_retried;
 	uint32_t l3mh_down_generation;
 	struct event *l3mh_down_timer;
 	struct ipaddr l3mh_peer_origin; /* Advertising PE, separate from forwarding. */
@@ -300,6 +302,7 @@ static inline void zebra_evpn_l3mh_neigh_record(struct zebra_neigh *n,
 
 	zebra_evpn_l3mh_down_cancel(n);
 	n->l3mh_check_seq = 0;
+	n->l3mh_check_reprobe = false;
 	n->l3mh_state = next;
 	n->l3mh_validation_learned = false;
 	n->l3mh_last_removal_reason = ZEBRA_L3MH_NEIGH_REMOVE_NONE;

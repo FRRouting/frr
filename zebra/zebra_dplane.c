@@ -6872,10 +6872,15 @@ enum zebra_dplane_result dplane_neigh_probe(const struct interface *ifp, const s
 }
 
 enum zebra_dplane_result dplane_neigh_probe_delete(const struct interface *ifp,
-						   const struct ipaddr *ip, vni_t vni, uint32_t seq)
+						   const struct ipaddr *ip, vni_t vni,
+						   uint32_t seq, bool expiry)
 {
+	uint32_t flags = DPLANE_NEIGH_REMOTE | DPLANE_NEIGH_NO_PROTOCOL;
+
+	if (expiry)
+		flags |= DPLANE_NEIGH_L3MH_EXPIRY;
 	return neigh_update_internal(DPLANE_OP_NEIGH_DELETE, ifp, NULL, AF_ETHERNET, ip, vni, 0, 0,
-				     DPLANE_NEIGH_REMOTE | DPLANE_NEIGH_NO_PROTOCOL, 0, seq);
+				     flags, 0, seq);
 }
 
 enum zebra_dplane_result dplane_neigh_table_update(const struct interface *ifp,

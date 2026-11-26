@@ -600,6 +600,41 @@ def test_new_static_user_before_old_fdb_delete_completion(events):
     assert events.route(owner, companion)
 
 
+@pytest.mark.parametrize("operation", ("delete", "mac"))
+def test_queued_expiry_delete_followed_by_fresh_local_binding(events, operation):
+    owner = events.owner
+    entry = events.binding(174 if operation == "delete" else 175)
+    events.learn(owner, entry)
+    events.settle()
+    events.flap("down")
+    assert events.route(owner, entry) and events.pinned(entry)
+    target = entry[0] if operation == "delete" else entry[1]
+    control(owner, f"arm before-{operation} {target}")
+    control(owner, f"immediate-expiry {entry[0]}")
+    events.settle()
+    control(owner, "held before")
+    assert not events.route(owner, entry)
+
+    events.flap("up")
+    if operation == "delete":
+        events.delete_arp(owner, entry)
+    else:
+        events.fdb(owner, entry, "del")
+    send_arp(owner, entry, "host1-eth0", request=True)
+    events.settle()
+    events.status(entry, "STALE")
+    assert events.route(owner, entry) and has_dynamic_fdb(owner, entry)
+
+    control(owner, "release before")
+    events.settle()
+    assert not events.route(owner, entry)
+    events.status(entry, "PROBE" if operation == "delete" else "STALE")
+    send_arp(owner, entry, "host1-eth0")
+    events.settle()
+    events.status(entry, "REACHABLE")
+    assert events.route(owner, entry) and has_dynamic_fdb(owner, entry)
+
+
 def test_late_kernel_notification_preserves_current_local_arp(events):
     owner = events.owner
     entry = events.binding(176)
@@ -772,6 +807,271 @@ def test_retained_rt2_second_spine_copy_stays_ineligible(events):
         configure(remove + f"\n exit-address-family\n exit\nno route-map {rmap}")
 
 
+def test_probe_delete_executes_after_replacement_is_static(events):
+    owner, old, replacement = events.leaves
+    entry = events.binding(233)
+    events.learn(old, entry)
+    events.settle()
+    events.status(entry, "PERMANENT")
+    control(owner, f"arm before-delete {entry[0]}")
+    events.delete_arp(old, entry)
+    events.settle()
+    control(owner, "held before")
+    events.learn(replacement, entry)
+    events.settle()
+    assert (
+        events.status(entry, "PERMANENT").get("peerOrigin")
+        == l3mh.LEAF_LO[replacement.name]
+    )
+    assert events.pinned(entry) and events.route(replacement, entry, owner)
+    control(owner, "release before")
+    events.settle()
+    assert (
+        events.status(entry, "PERMANENT").get("peerOrigin")
+        == l3mh.LEAF_LO[replacement.name]
+    )
+    assert events.pinned(entry) and events.route(replacement, entry, owner)
+
+
+def test_expiry_delete_executes_after_replacement_is_static(events):
+    owner, peer, _ = events.leaves
+    entry = events.binding(234)
+    events.learn(owner, entry)
+    events.settle()
+    events.flap("down")
+    events.status(entry, "PERMANENT")
+    control(owner, f"arm before-delete {entry[0]}")
+    control(owner, f"immediate-expiry {entry[0]}")
+    events.settle()
+    control(owner, "held before")
+    assert not events.route(owner, entry)
+    events.learn(peer, entry)
+    events.settle()
+    assert (
+        events.status(entry, "PERMANENT").get("peerOrigin") == l3mh.LEAF_LO[peer.name]
+    )
+    control(owner, "release before")
+    events.settle()
+    assert (
+        events.status(entry, "PERMANENT").get("peerOrigin") == l3mh.LEAF_LO[peer.name]
+    )
+    assert events.pinned(entry) and events.route(peer, entry, owner)
+
+
+def test_expiry_reject_with_new_binding_never_reissues_delete(events):
+    owner = events.owner
+    entry = events.binding(249)
+    events.learn(owner, entry)
+    events.settle()
+    events.flap("down")
+    control(owner, f"arm before-delete {entry[0]}")
+    control(owner, f"immediate-expiry {entry[0]}")
+    events.settle()
+    control(owner, "held before")
+    assert not events.route(owner, entry)
+    events.flap("up")
+    events.delete_arp(owner, entry)
+    send_arp(owner, entry, "host1-eth0", request=True)
+    events.settle()
+    events.status(entry, "STALE")
+    version = l3mh._local_rt2_version(owner, entry[0])
+    assert version is not None and events.route(owner, entry)
+    with check_probe(owner, entry):
+        control(owner, "fail before")
+        events.settle()
+    events.status(entry, "STALE")
+    assert l3mh._local_rt2_version(owner, entry[0]) == version
+
+
+def test_expiry_delete_rejected_then_port_relearns(events):
+    owner = events.owner
+    entry = events.binding(235)
+    events.learn(owner, entry)
+    events.settle()
+    events.flap("down")
+    events.status(entry, "PERMANENT")
+    control(owner, f"arm before-delete {entry[0]}")
+    control(owner, f"immediate-expiry {entry[0]}")
+    events.settle()
+    control(owner, "held before")
+    assert not events.route(owner, entry)
+    control(owner, "fail before")
+    events.settle()
+    events.status(entry)
+    events.flap("up")
+    send_arp(owner, entry, "host1-eth0", request=True)
+    events.settle()
+    events.status(entry, "STALE")
+    assert events.route(owner, entry)
+
+
+@pytest.mark.parametrize("fallback", (False, True), ids=("unbacked", "fallback"))
+def test_rejected_port_up_probe_create_ends_validation(events, fallback):
+    owner, peer, _ = events.leaves
+    entry = events.binding(246 if fallback else 245)
+    events.learn(owner, entry)
+    events.settle()
+    events.flap("down")
+    events.status(entry, "PERMANENT")
+    control(owner, f"arm before-repair {entry[0]}")
+    events.flap("up")
+    control(owner, "held-create-only before")
+    events.status(entry)
+    assert events.route(owner, entry)
+    if fallback:
+        events.learn(peer, entry)
+        events.settle()
+        assert events.route(peer, entry, owner)
+    control(owner, "fail before")
+    events.settle()
+    assert not events.route(owner, entry)
+    if fallback:
+        events.status(entry, "PERMANENT")
+        assert events.pinned(entry)
+    else:
+        assert not events.status(entry) and not events.pinned(entry)
+
+
+def test_rejected_single_peer_static_install_is_not_retried(events):
+    _, owner, _ = events.leaves
+    speaker = l3mh.get_topogen().gears["leaf3"]
+    entry = events.binding(253)
+    with l3mh._raw_evpn_peer(owner, speaker, entry[1], entry[0]) as send:
+        control(owner, f"arm before-repair {entry[0]}")
+        send(f"announce 0 {l3mh.L3VNI}")
+        events.settle()
+        control(owner, "held before")
+        events.status(entry, leaf=owner)
+        assert l3mh._pure_l3_rt2_path(owner, 65099, ip=entry[0], mac=entry[1])
+        control(owner, "fail before")
+        events.settle()
+        assert l3mh._pure_l3_rt2_path(owner, 65099, ip=entry[0], mac=entry[1])
+        events.status(entry, leaf=owner)
+
+
+def test_rejected_last_pin_delete_is_not_retried(events):
+    owner, peer, _ = events.leaves
+    entry = events.binding(247)
+    events.learn(peer, entry)
+    events.settle()
+    events.status(entry, "PERMANENT")
+    assert events.pinned(entry)
+    control(owner, f"arm before-mac {entry[1]}")
+    events.delete_arp(peer, entry)
+    events.settle()
+    control(owner, "held before")
+    events.status(entry, "PROBE")
+    assert not events.route(peer, entry, owner)
+    control(owner, "fail before")
+    events.settle()
+    assert events.pinned(entry)
+
+
+def test_late_probe_create_keeps_new_retention(events):
+    owner = events.owner
+    entry = events.binding(250)
+    events.learn(owner, entry)
+    events.settle()
+    events.flap("down")
+    control(owner, f"arm before-repair {entry[0]}")
+    events.flap("up")
+    control(owner, "held-create-only before")
+    events.status(entry)
+    events.flap("down")
+    events.status(entry, "PERMANENT")
+    assert events.pinned(entry) and events.route(owner, entry)
+    control(owner, "release before")
+    events.settle()
+    events.status(entry, "PERMANENT")
+    assert events.pinned(entry) and events.route(owner, entry)
+
+
+def test_rejected_peer_static_install_preserves_new_local_binding(events):
+    _, owner, observer = events.leaves
+    speaker = l3mh.get_topogen().gears["leaf3"]
+    entry = events.binding(239)
+    with l3mh._raw_evpn_peer(owner, speaker, entry[1], entry[0]) as send:
+        control(owner, f"arm before-repair {entry[0]}")
+        send(f"announce 0 {l3mh.L3VNI}")
+        events.settle()
+        control(owner, "held before")
+        events.status(entry, leaf=owner)
+        events.arp(owner, entry)
+        events.settle()
+        # The local learn releases the old pin. Learn M1 after that cleanup.
+        events.fdb(owner, entry)
+        events.settle()
+        events.status(entry, "REACHABLE", owner)
+        assert events.route(owner, entry, observer)
+        control(owner, "fail before")
+        events.settle()
+        events.status(entry, "REACHABLE", owner)
+        assert events.route(owner, entry, observer)
+
+
+def test_rejected_last_pin_delete_preserves_new_dynamic_mac(events):
+    owner, peer, _ = events.leaves
+    entry = events.binding(238)
+    events.learn(peer, entry)
+    events.settle()
+    events.status(entry, "PERMANENT")
+    assert events.pinned(entry)
+    control(owner, f"arm before-mac {entry[1]}")
+    events.delete_arp(peer, entry)
+    events.settle()
+    control(owner, "held before")
+    events.fdb(owner, entry)
+    events.settle()
+    assert has_dynamic_fdb(owner, entry)
+    control(owner, "fail before")
+    events.settle()
+    assert has_dynamic_fdb(owner, entry)
+
+
+def test_old_static_repair_completion_after_expiry(events):
+    owner = events.owner
+    entry = events.binding(237)
+    events.learn(owner, entry)
+    events.settle()
+    events.flap("down")
+    control(owner, f"arm after-repair {entry[0]}")
+    events.delete_arp(owner, entry)
+    events.settle()
+    control(owner, "held-create-only after")
+    events.status(entry, "PERMANENT")
+    control(owner, f"immediate-expiry {entry[0]}")
+    events.settle()
+    assert not events.route(owner, entry)
+    events.status(entry)
+    control(owner, "release after")
+    events.settle()
+    assert not events.status(entry)
+    assert not events.route(owner, entry) and not events.pinned(entry)
+
+
+def test_empty_slot_probe_delete_does_not_block_next_validation(events):
+    owner = events.owner
+    entry = events.binding(236)
+    events.learn(owner, entry)
+    events.settle()
+    events.flap("down")
+    control(owner, f"arm before-repair {entry[0]}")
+    events.delete_arp(owner, entry)
+    events.settle()
+    control(owner, "held-create-only before")
+    events.status(entry)
+    events.flap("up")
+    events.status(entry, "PROBE")
+    assert events.route(owner, entry)
+    control(owner, "fail before")
+    events.settle()
+    events.flap("down")
+    events.status(entry, "PERMANENT")
+    events.flap("up")
+    events.status(entry, "PROBE")
+    assert events.route(owner, entry)
+
+
 def test_stale_pin_success_cannot_validate_deleted_mac(events):
     observer, owner, _ = events.leaves
     speaker = l3mh.get_topogen().gears["leaf3"]
@@ -830,3 +1130,46 @@ def test_loss_of_confirmed_pin_rechecks_dependent_local_rt2(events):
         events.settle()
         assert l3mh._mac_static_pinned(owner, remote[1], VID)
         assert events.route(owner, local, observer)
+
+
+@pytest.mark.parametrize("stale", (True, False), ids=("stale", "genuine"))
+def test_read_retries_after_failure(events, stale):
+    owner = events.owner
+    entry = events.binding(241 if stale else 243)
+    events.learn(owner, entry)
+    events.settle()
+    events.status(entry, "REACHABLE")
+    assert events.route(owner, entry)
+    control(owner, f"arm before-read {entry[0]}")
+    if stale:
+        control(owner, f"stale-failed {entry[0]}")
+    else:
+        events.arp(owner, entry, "failed")
+    events.settle()
+    control(owner, "held before")
+    assert events.route(owner, entry)
+    control(owner, "fail before")
+    events.settle()
+    events.status(entry, "REACHABLE" if stale else "FAILED")
+    assert bool(events.route(owner, entry)) is stale
+
+
+def test_held_negative_read_cannot_remove_fresh_arp(events):
+    owner = events.owner
+    entry = events.binding(242)
+    events.learn(owner, entry)
+    events.settle()
+    version = l3mh._local_rt2_version(owner, entry[0])
+    assert version is not None
+    control(owner, f"arm after-read {entry[0]}")
+    events.arp(owner, entry, "failed")
+    events.settle()
+    events.status(entry, "FAILED")
+    control(owner, "held after")
+    events.arp(owner, entry)
+    events.settle()
+    control(owner, "release after")
+    events.settle()
+    events.status(entry, "REACHABLE")
+    assert events.route(owner, entry)
+    assert l3mh._local_rt2_version(owner, entry[0]) == version

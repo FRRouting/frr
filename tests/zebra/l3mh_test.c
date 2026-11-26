@@ -42,7 +42,10 @@ static int gate_process(struct zebra_dplane_provider *provider)
 		hold = gate->armed && dplane_ctx_get_op(ctx) == gate->op &&
 		       ((gate->op == DPLANE_OP_MAC_DELETE || gate->op == DPLANE_OP_MAC_INSTALL)
 				? !memcmp(&gate->mac, dplane_ctx_mac_get_addr(ctx), ETH_ALEN)
-				: !ipaddr_cmp(&gate->ip, dplane_ctx_neigh_get_ipaddr(ctx)));
+				: !ipaddr_cmp(&gate->ip,
+					      gate->op == DPLANE_OP_NEIGH_READ
+						      ? dplane_ctx_get_neigh_read_ip(ctx)
+						      : dplane_ctx_neigh_get_ipaddr(ctx)));
 		if (hold) {
 			gate->held = ctx;
 			gate->armed = false;
@@ -73,16 +76,17 @@ static int gate_finish(struct zebra_dplane_provider *provider, bool early)
 }
 
 DEFUN(l3mh_test_arm, l3mh_test_arm_cmd,
-      "show l3mh-test arm <before-delete|after-delete|before-mac|after-mac|before-repair|before-pin|after-pin> WORD",
+      "show l3mh-test arm <before-delete|after-delete|before-mac|after-mac|before-repair|after-repair|before-pin|after-pin|before-read|after-read> WORD",
       SHOW_STR "L3MH test controls\n" "Arm a delete gate\n" "Before neighbor delete\n"
       "After neighbor delete\n" "Before MAC delete\n" "After MAC delete\n"
-      "Before neighbor install\n" "Before MAC install\n" "After MAC install\n" "IP or MAC to match\n")
+      "Before neighbor install\n" "After neighbor install\n" "Before MAC install\n" "After MAC install\n"
+      "Before neighbor read\n" "After neighbor read\n" "IP or MAC to match\n")
 {
 	const char *mode = argv[3]->text;
 	struct delete_gate *gate = !strncmp(mode, "before-", 7) ? &before_kernel : &after_kernel;
 	bool pin = !strcmp(mode, "before-pin") || !strcmp(mode, "after-pin");
 	bool mac = pin || !strcmp(mode, "after-mac") || !strcmp(mode, "before-mac");
-	bool repair = !strcmp(mode, "before-repair");
+	bool repair = !strcmp(mode, "before-repair") || !strcmp(mode, "after-repair");
 	struct ethaddr addr = {};
 	struct ipaddr ip = {};
 
@@ -98,6 +102,8 @@ DEFUN(l3mh_test_arm, l3mh_test_arm_cmd,
 		gate->op = pin ? DPLANE_OP_MAC_INSTALL : DPLANE_OP_MAC_DELETE;
 	if (repair)
 		gate->op = DPLANE_OP_NEIGH_INSTALL;
+	if (!strcmp(mode, "before-read") || !strcmp(mode, "after-read"))
+		gate->op = DPLANE_OP_NEIGH_READ;
 	gate->ip = ip;
 	gate->mac = addr;
 	gate->armed = true;

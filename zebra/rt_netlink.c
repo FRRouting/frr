@@ -4692,9 +4692,9 @@ void kernel_read_neigh(struct zebra_dplane_ctx *ctx)
 	if (ip->ipa_type != IPADDR_NONE) {
 		ret = netlink_request_specific_neigh_in_vlan(nl, RTM_GETNEIGH, ip, ifindex);
 		if (ret >= 0)
-			netlink_parse_info(dplane_ctx_get_seq(ctx) ? netlink_l3mh_neigh_check
-								   : netlink_neigh_table,
-					   nl, dp_info, 1, false, ctx, &nl_err);
+			ret = netlink_parse_info(dplane_ctx_get_seq(ctx) ? netlink_l3mh_neigh_check
+									 : netlink_neigh_table,
+						 nl, dp_info, 1, false, ctx, &nl_err);
 	} else if (ifindex) {
 		ret = netlink_request_neigh(nl, AF_UNSPEC, RTM_GETNEIGH, ifindex);
 		if (ret >= 0)
@@ -4711,6 +4711,11 @@ void kernel_read_neigh(struct zebra_dplane_ctx *ctx)
 	if (nl_err)
 		dplane_ctx_set_errno(ctx, -nl_err);
 
+	if (dplane_ctx_get_seq(ctx) && (ret < 0 || nl_err) && nl_err != -ENOENT &&
+	    nl_err != -ESRCH) {
+		dplane_ctx_set_status(ctx, ZEBRA_DPLANE_REQUEST_FAILURE);
+		return;
+	}
 	dplane_ctx_set_status(ctx, ZEBRA_DPLANE_REQUEST_SUCCESS);
 }
 

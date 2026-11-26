@@ -284,6 +284,7 @@ enum dplane_op_e {
 #define DPLANE_NEIGH_NO_EXTENSION (1 << 4)
 #define DPLANE_NEIGH_CREATE_ONLY  (1 << 5)
 #define DPLANE_NEIGH_NO_PROTOCOL  (1 << 6)
+#define DPLANE_NEIGH_L3MH_EXPIRY  (1 << 7)
 
 #define DPLANE_BR_PORT_NON_DF (1 << 0)
 
@@ -1278,7 +1279,7 @@ enum zebra_dplane_result dplane_neigh_probe(const struct interface *ifp, const s
 					    const struct ethaddr *mac, vni_t vni, uint32_t seq);
 enum zebra_dplane_result dplane_neigh_probe_delete(const struct interface *ifp,
 						   const struct ipaddr *ip, vni_t vni,
-						   uint32_t seq);
+						   uint32_t seq, bool expiry);
 
 /*
  * Enqueue a neighbor table parameter set
