@@ -146,6 +146,7 @@ static void test_probe_results(void)
 	assert(!zebra_evpn_l3mh_probe_begin(&n, 2));
 	assert(!zebra_evpn_l3mh_probe_complete(&n, 2, true));
 	assert(!zebra_evpn_l3mh_probe_complete(&n, 1, false));
+	assert(!zebra_evpn_l3mh_probe_current(&n));
 	assert(!zebra_evpn_l3mh_probe_complete(&n, 1, true));
 
 	assert(zebra_evpn_l3mh_probe_begin(&n, 2));
@@ -159,9 +160,12 @@ static void test_probe_results(void)
 
 	assert(zebra_evpn_l3mh_probe_begin(&n, 4));
 	assert(zebra_evpn_l3mh_probe_complete(&n, 4, true));
+	assert(zebra_evpn_l3mh_probe_current(&n));
 	assert(zebra_evpn_l3mh_probe_begin(&n, 5));
 	assert(!zebra_evpn_l3mh_probe_complete(&n, 4, true));
 	assert(zebra_evpn_l3mh_probe_complete(&n, 5, true));
+	zebra_evpn_l3mh_probe_cancel(&n);
+	assert(!zebra_evpn_l3mh_probe_current(&n));
 	puts("L3MH probe result ordering passed.");
 }
 

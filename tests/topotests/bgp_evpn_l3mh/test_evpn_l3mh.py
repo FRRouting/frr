@@ -2264,70 +2264,39 @@ def test_pure_l3_local_delete_falls_back_to_peer_sync():
 
 
 def test_pure_l3_local_delete_on_both_leaves_leaves_no_sync():
-    """
-    host1 is local on both leaves, so each one's entry is backed by the
-    other's RT-2. Deleting both local entries at once may briefly leave both
-    synced, but neither originates an RT-2, so the withdrawals must clear both:
-    no host1 neighbor and no static sync-MAC FDB entry may remain on either.
-    """
+    """Both withdrawals clear peer sync even if a dynamic probe follows."""
     tgen = get_topogen()
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
 
-    host1 = tgen.gears["host1"]
-    leaves = {"leaf1": 65011, "leaf2": 65012}
-    svi = "vlan%d" % HOST_VID
-    _ping(host1, ANYCAST_GW)
-    host1_mac = _host_bond_mac(host1)
-    gw_mac = tgen.gears["leaf1"].run("cat /sys/class/net/%s/address" % svi).strip()
-
-    def _expect(fn, msg):
-        _, result = topotest.run_and_expect(
-            lambda: None if fn() else msg, None, count=WAIT_COUNT, wait=WAIT_STEP
-        )
-        assert result is None, result
-
-    def _host1_state(name):
-        dut = tgen.gears[name]
-        return _host1_neigh_line(dut), _mac_static_pinned(dut, host1_mac, HOST_VID)
+    leaves = (tgen.gears["leaf1"], tgen.gears["leaf2"])
+    peers = tuple(zip(leaves, (65011, 65012)))
+    ip, mac = "45.0.0.219", "02:00:00:00:00:d5"
+    svi = f"vlan{HOST_VID}"
+    fdb = f"{mac} dev hostbond1 master vlan {HOST_VID}"
 
     try:
-        # A permanent gateway entry stops host1 from ARPing and being relearned.
-        host1.run(
-            "ip neigh replace %s lladdr %s dev bond0 nud permanent"
-            % (ANYCAST_GW, gw_mac)
-        )
-        for name in leaves:
-            tgen.gears[name].run(
-                "ip neigh replace %s lladdr %s dev %s nud reachable"
-                % (HOST_IP["host1"], host1_mac, svi)
+        for leaf in leaves:
+            leaf.cmd_raises(
+                f"ip neigh replace {ip} lladdr {mac} dev {svi} nud reachable"
             )
-        for name, asn in leaves.items():
-            _expect(
-                lambda n=name, a=asn: _pure_l3_rt2_path(tgen.gears[n], a) is not None,
-                "%s does not advertise host1" % name,
-            )
+        _settle(leaves)
+        for leaf in leaves:
+            leaf.cmd_raises(f"bridge fdb replace {fdb} dynamic")
+        _settle(leaves)
+        assert all(_pure_l3_rt2_path(leaf, asn, ip=ip) for leaf, asn in peers)
 
-        for name in leaves:
-            tgen.gears[name].run("ip neigh del %s dev %s" % (HOST_IP["host1"], svi))
-
-        _expect(
-            lambda: all(_host1_state(n) == (None, False) for n in leaves),
-            "host1 state left behind: %s" % {n: _host1_state(n) for n in leaves},
-        )
-        _assert_settled(
-            lambda: any(_host1_state(n) != (None, False) for n in leaves),
-            lambda: "host1 state came back: %s" % {n: _host1_state(n) for n in leaves},
-        )
+        for leaf in leaves:
+            leaf.cmd_raises(f"ip neigh del {ip} dev {svi}")
+        _settle(leaves)
+        for leaf, asn in peers:
+            assert _pure_l3_rt2_path(leaf, asn, ip=ip) is None
+            assert not _neigh_synced(leaf, ip)
+            assert not _mac_static_pinned(leaf, mac, HOST_VID)
     finally:
-        host1.run("ip neigh del %s dev bond0" % ANYCAST_GW)
-
-    _ping(host1, ANYCAST_GW)
-    _expect(
-        lambda: _host1_synced(tgen.gears["leaf2"])
-        or _host1_synced(tgen.gears["leaf1"]),
-        "host1 not re-synced after the test",
-    )
+        for leaf in leaves:
+            leaf.run(f"ip neigh del {ip} dev {svi} 2>/dev/null")
+            leaf.run(f"bridge fdb del {fdb} 2>/dev/null")
 
 
 def test_pure_l3_import_rt_change_updates_sync_neigh():
@@ -2704,103 +2673,60 @@ def test_pure_l3_sync_esi_reprogrammed_reconciles():
 
 
 def test_pure_l3_arp_delete_withdraws_sync():
-    """
-    ARP delete / age-out withdraw. Removing the locally-learned ARP entry for
-    host1 on its local owner (leaf1) -- as happens on neighbor delete or kernel
-    age-out -- makes leaf1 withdraw the pure-L3 RT-2, and the ES peer (leaf2)
-    removes both the synced extern_learn neighbor and the static sync-MAC pin.
-    Re-learning host1 restores the full sync. An explicit `ip neigh del` drives
-    the DELNEIGH -> withdraw -> peer-cleanup path deterministically (waiting for
-    kernel aging would only add timing flakes to the same code path).
-    """
+    """Losing the last RT-2 starts a dynamic probe with no peer fallback."""
     tgen = get_topogen()
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
 
-    leaf1 = tgen.gears["leaf1"]
-    leaf2 = tgen.gears["leaf2"]
-    host1 = tgen.gears["host1"]
-    _ping(host1, ANYCAST_GW)
+    owner, receiver = (tgen.gears[name] for name in ("leaf1", "leaf2"))
+    leaves = (owner, receiver)
+    ip, mac = "45.0.0.218", "02:00:00:00:00:d4"
+    svi = f"vlan{HOST_VID}"
+    fdb = f"{mac} dev hostbond1 master vlan {HOST_VID}"
+    timer = f"net.ipv4.neigh.{svi}.retrans_time_ms"
+    original = receiver.cmd_raises(f"sysctl -n {timer}").strip()
 
-    def _expect(fn):
-        _, result = topotest.run_and_expect(fn, None, count=WAIT_COUNT, wait=WAIT_STEP)
-        assert result is None, result
+    def learn_owner():
+        owner.cmd_raises(f"ip neigh replace {ip} lladdr {mac} dev {svi} nud reachable")
+        _settle(leaves)
+        assert _pure_l3_rt2_path(receiver, 65011, ip=ip, mac=mac)
+        assert {"PERMANENT", "extern_learn"} <= set(entry().split()), entry()
+        assert _mac_static_pinned(receiver, mac, HOST_VID)
 
-    ip = HOST_IP["host1"]
-    host1_mac = _host_bond_mac(host1)
-
-    def _synced_pinned(dut):
-        if not _host1_synced(dut):
-            return "host1 not synced on leaf2: %s" % dut.run(
-                "ip neigh show dev vlan%d" % HOST_VID
-            )
-        if not _mac_static_pinned(dut, host1_mac, HOST_VID):
-            return "host1 sync-MAC pin missing on hostbond1"
-        return None
-
-    # Baseline: leaf1 owns the local ARP + originates the RT-2; leaf2 syncs + pins.
-    _expect(
-        lambda: (
-            None
-            if _pure_l3_rt2_path(leaf1, 65011) is not None
-            else "baseline pure-L3 RT-2 missing"
-        )
-    )
-    _expect(lambda: _synced_pinned(leaf2))
-    # host1's ARP must be a local (not synced) entry on leaf1 -- that is the
-    # entry whose deletion drives the withdraw.
-    _expect(
-        lambda: (
-            None
-            if _host1_local(leaf1)
-            else "host1 not learned locally on leaf1: %s"
-            % leaf1.run("ip neigh show dev vlan%d" % HOST_VID)
-        )
-    )
+    def entry():
+        return receiver.cmd_raises(f"ip neigh show to {ip} dev {svi}")
 
     try:
-        # host1's ARP probe for the gateway would let leaf1 re-learn it at once.
-        gw_mac = leaf1.run("cat /sys/class/net/vlan%d/address" % HOST_VID).strip()
-        host1.run(
-            "ip neigh replace %s lladdr %s dev bond0 nud permanent"
-            % (ANYCAST_GW, gw_mac)
+        # Drive failure explicitly while keeping the probe observable.
+        receiver.cmd_raises(f"sysctl -qw {timer}=60000")
+        owner.cmd_raises(f"bridge fdb replace {fdb} dynamic")
+        learn_owner()
+
+        owner.cmd_raises(f"ip neigh del {ip} dev {svi}")
+        _settle(leaves)
+        assert _pure_l3_rt2_path(receiver, 65011, ip=ip) is None
+        probe = entry()
+        assert {mac, "PROBE"} <= set(probe.split()), repr(probe)
+        assert "extern_learn" not in probe
+        assert not _mac_static_pinned(receiver, mac, HOST_VID)
+        detail = receiver.vtysh_cmd(
+            f"show evpn arp-cache vni {L3VNI} ip {ip} json", isjson=True
         )
+        assert detail.get("peerPresent") is False, detail
 
-        # Delete host1's local ARP entry on leaf1 (models neighbor del/age-out).
-        leaf1.run("ip neigh del %s dev vlan%d" % (ip, HOST_VID))
+        receiver.cmd_raises(f"ip neigh replace {ip} lladdr {mac} dev {svi} nud failed")
+        _settle(leaves)
+        failed = entry()
+        assert "FAILED" in failed and "extern_learn" not in failed, failed
+        assert _pure_l3_rt2_path(receiver, 65012, ip=ip) is None
+        assert not _mac_static_pinned(receiver, mac, HOST_VID)
 
-        # leaf1 withdraws its RT-2 ...
-        _expect(
-            lambda: (
-                None
-                if _pure_l3_rt2_path(leaf1, 65011) is None
-                else "pure-L3 RT-2 not withdrawn after ARP delete"
-            )
-        )
-
-        # ... and leaf2 clears both the synced neighbor and the static pin.
-        def _cleaned(dut):
-            if _host1_synced(dut):
-                return "leaf2 synced neighbor still present after ARP delete"
-            if _mac_static_pinned(dut, host1_mac, HOST_VID):
-                return "leaf2 sync-MAC pin still present after ARP delete"
-            return None
-
-        _expect(lambda: _cleaned(leaf2))
+        learn_owner()
     finally:
-        # Re-learn host1 so the baseline is restored for later tests.
-        host1.run("ip neigh del %s dev bond0 2>/dev/null" % ANYCAST_GW)
-        _ping(host1, ANYCAST_GW)
-
-    # Baseline restored: RT-2 re-originated and leaf2 re-syncs neighbor + pin.
-    _expect(
-        lambda: (
-            None
-            if _pure_l3_rt2_path(leaf1, 65011) is not None
-            else "pure-L3 RT-2 did not return after re-learn"
-        )
-    )
-    _expect(lambda: _synced_pinned(leaf2))
+        for leaf in leaves:
+            leaf.run(f"ip neigh del {ip} dev {svi} 2>/dev/null")
+            leaf.run(f"bridge fdb del {fdb} 2>/dev/null")
+        receiver.cmd_raises(f"sysctl -qw {timer}={original}")
 
 
 def test_pure_l3_synced_neigh_survives_kernel_flush():

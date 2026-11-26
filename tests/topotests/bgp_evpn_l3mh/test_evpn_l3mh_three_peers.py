@@ -382,6 +382,84 @@ def test_nud_transitions_do_not_learn_or_delete_l3mh_binding():
         owner.cmd_raises(f"sysctl -qw {timer}={original}")
 
 
+def test_arp_failure_and_gc_require_a_usable_peer_fallback():
+    tgen = l3mh.get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    owner, receiver = (tgen.gears[name] for name in ("leaf1", "leaf2"))
+    leaves = (owner, receiver)
+    fail, idle = "45.0.0.216", "45.0.0.217"
+    ips = (fail, idle)
+    mac, vid = "02:00:00:00:00:d3", l3mh.HOST_VID
+    svi = f"vlan{vid}"
+    fdb = f"{mac} dev hostbond1 master vlan {vid}"
+    protection = "evpn mh bridge-port-protection"
+
+    def protect(enable):
+        command = protection if enable else f"no {protection}"
+        owner.vtysh_cmd(
+            f"configure terminal\ninterface hostbond1\n {command}", raises=True
+        )
+
+    def learn(leaf):
+        for ip in ips:
+            leaf.cmd_raises(
+                f"ip neigh replace {ip} lladdr {mac} dev {svi} nud reachable"
+            )
+
+    def age():
+        receiver.cmd_raises(
+            f"ip neigh replace {fail} lladdr {mac} dev {svi} nud failed"
+        )
+        receiver.cmd_raises(f"ip neigh del {idle} dev {svi}")
+        l3mh._settle(leaves)
+        assert all(not l3mh._pure_l3_rt2_path(receiver, 65012, ip=ip) for ip in ips)
+
+    def check_peer_static():
+        for ip in ips:
+            entry = receiver.cmd_raises(f"ip neigh show to {ip} dev {svi}")
+            assert {"PERMANENT", "extern_learn"} <= set(entry.split()), entry
+        assert l3mh._mac_static_pinned(receiver, mac, vid)
+
+    try:
+        protect(True)
+        owner.cmd_raises(f"bridge fdb replace {fdb} dynamic")
+        learn(owner)
+        l3mh._settle(leaves)
+        check_peer_static()
+
+        learn(receiver)
+        l3mh._relearn_local_fdb(receiver, mac, leaves=leaves)
+        l3mh._settle(leaves)
+        assert all(l3mh._pure_l3_rt2_path(receiver, 65012, ip=ip) for ip in ips)
+        age()
+        check_peer_static()
+
+        learn(receiver)
+        l3mh._relearn_local_fdb(receiver, mac, leaves=leaves)
+        protect(False)
+        l3mh._settle(leaves)
+        for ip in ips:
+            assert l3mh._pure_l3_rt2_path(receiver, 65011, ip=ip)
+            entry = receiver.vtysh_cmd(
+                f"show evpn arp-cache vni {l3mh.L3VNI} ip {ip} json", isjson=True
+            )
+            assert entry.get("peerRt1Lost"), entry
+
+        age()
+        failed = receiver.cmd_raises(f"ip neigh show to {fail} dev {svi}")
+        assert "FAILED" in failed and "extern_learn" not in failed, failed
+        assert not receiver.cmd_raises(f"ip neigh show to {idle} dev {svi}").strip()
+        assert not l3mh._mac_static_pinned(receiver, mac, vid)
+    finally:
+        protect(False)
+        for leaf in leaves:
+            for ip in ips:
+                leaf.run(f"ip neigh del {ip} dev {svi} 2>/dev/null")
+            leaf.run(f"bridge fdb del {fdb} 2>/dev/null")
+
+
 def test_last_static_neighbor_releases_its_vlan_mac_pin():
     tgen = l3mh.get_topogen()
     if tgen.routers_have_failure():

@@ -220,12 +220,20 @@ static inline void zebra_evpn_l3mh_probe_cancel(struct zebra_neigh *n)
 	n->l3mh_probe_generation = 0;
 }
 
+static inline bool zebra_evpn_l3mh_probe_current(const struct zebra_neigh *n)
+{
+	return n->l3mh_probe_generation && n->l3mh_probe_generation == n->l3mh_generation;
+}
+
 static inline bool zebra_evpn_l3mh_probe_complete(struct zebra_neigh *n, uint32_t seq, bool success)
 {
 	if (!seq || n->l3mh_probe_seq != seq)
 		return false;
 	n->l3mh_probe_seq = 0;
-	return success && n->l3mh_probe_generation == n->l3mh_generation;
+	if (success && zebra_evpn_l3mh_probe_current(n))
+		return true;
+	zebra_evpn_l3mh_probe_cancel(n);
+	return false;
 }
 
 /* Record the ES attachment. A missing ESI clears the binding. */
@@ -426,8 +434,8 @@ int zebra_evpn_local_neigh_update(struct zebra_evpn *zevpn,
 int zebra_evpn_l3vni_local_neigh_update(struct interface *ifp, struct interface *br_if,
 					const struct ipaddr *ip, const struct ethaddr *macaddr,
 					uint16_t nud_state, bool is_own, bool is_router);
-int zebra_evpn_l3vni_local_neigh_del(struct interface *ifp, struct interface *br_if,
-				     const struct ipaddr *ip, enum zebra_l3mh_nud_event event);
+int zebra_evpn_l3vni_local_neigh_del(struct interface *ifp, const struct ipaddr *ip,
+				     enum zebra_l3mh_nud_event event);
 struct zebra_dplane_ctx;
 bool zebra_evpn_l3vni_neigh_start_probe(struct zebra_neigh *n, const struct interface *ifp);
 bool zebra_evpn_l3vni_neigh_probe_result(const struct zebra_dplane_ctx *ctx);

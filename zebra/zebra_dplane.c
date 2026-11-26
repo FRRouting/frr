@@ -6724,6 +6724,20 @@ enum zebra_dplane_result dplane_rem_neigh_add(const struct interface *ifp,
 	return result;
 }
 
+/* Program a peer-static L3MH neighbor. Repairs require an empty slot. */
+enum zebra_dplane_result dplane_l3mh_neigh_add(const struct interface *ifp,
+					       const struct ipaddr *ip, const struct ethaddr *mac,
+					       uint32_t flags, bool create_only)
+{
+	uint32_t update_flags = DPLANE_NEIGH_REMOTE;
+
+	if (create_only)
+		SET_FLAG(update_flags, DPLANE_NEIGH_CREATE_ONLY);
+
+	return neigh_update_internal(DPLANE_OP_NEIGH_INSTALL, ifp, mac, AF_ETHERNET, ip, 0, flags,
+				     DPLANE_NUD_PERMANENT, update_flags, 0, 0);
+}
+
 /*
  * Enqueue local neighbor add for the dataplane.
  */

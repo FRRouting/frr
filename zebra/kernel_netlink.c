@@ -931,6 +931,15 @@ static int netlink_parse_error(const struct nlsock *nl, struct nlmsghdr *h, bool
 		return 0;
 	}
 
+	/* A create-only neighbor can lose a race with a newer entry. */
+	if (nl->proto == NETLINK_ROUTE && msg_type == RTM_NEWNEIGH && errnum == -EEXIST &&
+	    CHECK_FLAG(err->msg.nlmsg_flags, NLM_F_EXCL)) {
+		if (IS_ZEBRA_DEBUG_KERNEL)
+			zlog_debug("%s: create-only neighbor already exists, seq %u", nl->name,
+				   err->msg.nlmsg_seq);
+		return -1;
+	}
+
 	/*
 	 * We see RTM_DELNEIGH when shutting down an interface with an IPv4
 	 * link-local.  The kernel should have already deleted the neighbor so

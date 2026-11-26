@@ -4634,7 +4634,7 @@ int zebra_vxlan_handle_kernel_neigh_del(struct interface *ifp, struct interface 
 			zlog_debug(
 				"%s: Del neighbor %pIA EVPN is not present for interface %s",
 				__func__, ip, ifp->name);
-		return zebra_evpn_l3vni_local_neigh_del(ifp, link_if, ip, event);
+		return zebra_evpn_l3vni_local_neigh_del(ifp, ip, event);
 	}
 
 	if (!zevpn->vxlan_if) {

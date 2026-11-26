@@ -479,29 +479,30 @@ void zebra_neigh_terminate(void)
  * In the event the kernel deletes ipv4 link-local neighbor entries created for
  * 5549 support, re-install them.
  */
-static void zebra_neigh_handle_5549(uint32_t ndm_family, uint32_t ndm_state, struct zebra_if *zif,
+static bool zebra_neigh_handle_5549(uint32_t ndm_family, uint32_t ndm_state, struct zebra_if *zif,
 				    struct interface *ifp, struct ipaddr *ip, bool handle_failed)
 {
 	if (ndm_family != AF_INET)
-		return;
+		return false;
 
 	if (!zif->v6_2_v4_ll_neigh_entry)
-		return;
+		return false;
 
 	struct in_addr ipv4_ll;
 
 	inet_pton(AF_INET, ipv4_ll_buf, &ipv4_ll);
 
 	if (ipv4_ll.s_addr != ip->ip._v4_addr.s_addr)
-		return;
+		return false;
 
 	if (handle_failed && ndm_state & ZEBRA_NUD_FAILED) {
 		zlog_info("Neighbor Entry for %s has entered a failed state, not reinstalling",
 			  ifp->name);
-		return;
+		return true;
 	}
 
 	if_nbr_ipv6ll_to_ipv4ll_neigh_update(ifp, &zif->v6_2_v4_ll_addr6, true);
+	return true;
 }
 
 /* Is vni mcast group */
@@ -542,8 +543,13 @@ void zebra_neigh_dplane_update(struct zebra_dplane_ctx *ctx)
 		zebra_neigh_ipaddr_update(ctx);
 	} else if (op == DPLANE_OP_NEIGH_INSTALL || op == DPLANE_OP_NEIGH_DELETE ||
 		   op == DPLANE_OP_NEIGH_UPDATE) {
-		if (!zebra_evpn_l3vni_neigh_probe_result(ctx))
-			zebra_neigh_macfdb_update(ctx);
+		if (zebra_evpn_l3vni_neigh_probe_result(ctx))
+			return;
+		if (op == DPLANE_OP_NEIGH_INSTALL &&
+		    dplane_ctx_get_status(ctx) != ZEBRA_DPLANE_REQUEST_QUEUED &&
+		    CHECK_FLAG(dplane_ctx_neigh_get_update_flags(ctx), DPLANE_NEIGH_CREATE_ONLY))
+			return;
+		zebra_neigh_macfdb_update(ctx);
 	}
 }
 
@@ -590,9 +596,9 @@ static void zebra_neigh_ipaddr_update(struct zebra_dplane_ctx *ctx)
 		return;
 	}
 
-	/* if kernel deletes our rfc5549 neighbor entry, re-install it */
-	if (op == DPLANE_OP_NEIGH_IP_DELETE && (ndm_state & ZEBRA_NUD_PERMANENT)) {
-		zebra_neigh_handle_5549(ndm_family, ndm_state, zif, ifp, &ip, false);
+	/* Consume a permanent delete handled by RFC 5549. */
+	if (op == DPLANE_OP_NEIGH_IP_DELETE && (ndm_state & ZEBRA_NUD_PERMANENT) &&
+	    zebra_neigh_handle_5549(ndm_family, ndm_state, zif, ifp, &ip, false)) {
 		if (IS_ZEBRA_DEBUG_KERNEL)
 			zlog_debug("    Neighbor Entry received is a 5549 entry, finished");
 		return;
