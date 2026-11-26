@@ -7,6 +7,7 @@
  */
 
 #include <zebra.h>
+#include <sys/ioctl.h>
 
 #include "command.h"
 #include "hash.h"
@@ -24,6 +25,7 @@
 #include "zebra/zebra_router.h"
 #include "zebra/debug.h"
 #include "zebra/interface.h"
+#include "zebra/ioctl.h"
 #include "zebra/rib.h"
 #include "zebra/rt.h"
 #include "zebra/rt_netlink.h"
@@ -3579,9 +3581,12 @@ static void zebra_evpn_local_mac_oper_state_change(struct zebra_evpn_es *es)
 	}
 }
 
+DEFINE_HOOK(zebra_evpn_l3mh_port_oper, (struct zebra_if *zif, bool up), (zif, up));
+
 void zebra_evpn_es_if_oper_state_change(struct zebra_if *zif, bool up)
 {
 	struct zebra_evpn_es *es = zif->es_info.es;
+	struct zebra_vrf *evpn_zvrf;
 	bool old_up = !!(es->flags & ZEBRA_EVPNES_OPER_UP);
 
 	if (old_up == up)
@@ -3605,6 +3610,11 @@ void zebra_evpn_es_if_oper_state_change(struct zebra_if *zif, bool up)
 	/* inform BGP of the ES oper state change */
 	if (es->flags & ZEBRA_EVPNES_READY_FOR_BGP)
 		zebra_evpn_es_send_add_to_client(es);
+
+	evpn_zvrf = zebra_vrf_get_evpn();
+	if (evpn_zvrf && evpn_zvrf->advertise_l3vni_neigh &&
+	    !CHECK_FLAG(es->flags, ZEBRA_EVPNES_BYPASS))
+		hook_call(zebra_evpn_l3mh_port_oper, zif, up);
 }
 
 static char *zebra_evpn_es_vtep_str(char *vtep_str, struct zebra_evpn_es *es,
@@ -4428,6 +4438,28 @@ static ifindex_t zebra_evpn_l3_mac_es_find(struct zebra_evpn_access_bd *acc_bd,
 	return e ? e->acc_ifindex : 0;
 }
 
+/* A bond's FDB flush can reach Zebra before its link notification. Reconcile
+ * only a confirmed kernel outage. A standalone MAC deletion still withdraws.
+ */
+static void zebra_evpn_l3mh_mac_check_port_down(struct interface *ifp)
+{
+	struct zebra_if *zif = ifp->info;
+	struct zebra_evpn_es *es = zif ? zif->es_info.es : NULL;
+	struct ifreq ifr = {};
+
+	if (!es || !ifp->vrf || !CHECK_FLAG(es->flags, ZEBRA_EVPNES_OPER_UP) ||
+	    CHECK_FLAG(es->flags, ZEBRA_EVPNES_BYPASS))
+		return;
+
+	ifreq_set_name(&ifr, ifp);
+	if (vrf_if_ioctl(SIOCGIFFLAGS, (caddr_t)&ifr, ifp->vrf->vrf_id) < 0)
+		return;
+	if (!CHECK_FLAG(ifr.ifr_flags, IFF_UP) ||
+	    (CHECK_FLAG(ifp->status, ZEBRA_INTERFACE_LINKDETECTION) &&
+	     !CHECK_FLAG(ifr.ifr_flags, IFF_RUNNING)))
+		zebra_evpn_es_if_oper_state_change(zif, false);
+}
+
 /* Empty an access BD's MAC/ES cache (BD teardown or mode exit). */
 void zebra_evpn_l3vni_mac_es_flush(struct zebra_evpn_access_bd *acc_bd)
 {
@@ -4559,6 +4591,9 @@ void zebra_evpn_l3vni_local_mac_update(struct interface *acc_ifp, struct interfa
 		if (old_ifindex != acc_ifp->ifindex)
 			return;
 
+		if (hook_have_hooks(zebra_evpn_l3mh_port_oper) &&
+		    zebra_evpn_bd_evpn_mode(acc_bd) == ZEBRA_EVPN_BD_MODE_L3VNI_NEIGH)
+			zebra_evpn_l3mh_mac_check_port_down(acc_ifp);
 		e = zebra_evpn_l3_mac_es_lookup(acc_bd, macaddr);
 		if (e) {
 			zebra_l3_mac_es_del(&acc_bd->l3_mac_es_table, e);

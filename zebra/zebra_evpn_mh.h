@@ -12,6 +12,7 @@
 #include <zebra.h>
 
 #include "if.h"
+#include "hook.h"
 #include "linklist.h"
 #include "bitfield.h"
 #include "typesafe.h"
@@ -468,6 +469,7 @@ extern void zebra_evpn_vl_mbr_ref(uint16_t vid, struct zebra_if *zif);
 extern void zebra_evpn_vl_mbr_deref(uint16_t vid, struct zebra_if *zif);
 extern void zebra_evpn_es_send_all_to_client(bool add);
 extern void zebra_evpn_es_if_oper_state_change(struct zebra_if *zif, bool up);
+DECLARE_HOOK(zebra_evpn_l3mh_port_oper, (struct zebra_if *zif, bool up), (zif, up));
 extern void zebra_evpn_es_show(struct vty *vty, bool uj);
 extern void zebra_evpn_es_show_detail(struct vty *vty, bool uj);
 extern void zebra_evpn_es_show_esi(struct vty *vty, bool uj, esi_t *esi);
