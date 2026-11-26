@@ -67,12 +67,14 @@ def test_move_to_pe2_and_back():
     step_move_to_pe2_and_back()
 
 
-def test_fdb_reread_keeps_local_mac():
-    step_fdb_reread_keeps_local_mac()
-
-
 def test_leftover_seen_live_is_removed():
     step_leftover_seen_live_is_removed()
+
+
+# The FDB reread rebuilds EVPN state and can queue remote MAC updates.
+# Run the live cleanup check before that rebuild to isolate its FDB events.
+def test_fdb_reread_keeps_local_mac():
+    step_fdb_reread_keeps_local_mac()
 
 
 def test_leftover_across_restart():

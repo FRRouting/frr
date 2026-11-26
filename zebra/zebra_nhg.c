@@ -3883,6 +3883,9 @@ void zebra_nhg_install_kernel(struct nhg_hash_entry *nhe, uint8_t type)
 
 		enum zebra_dplane_result ret = dplane_nexthop_add(nhe);
 
+		if (CHECK_FLAG(nhe->flags, NEXTHOP_GROUP_REINSTALL))
+			UNSET_FLAG(nhe->flags, NEXTHOP_GROUP_REINSTALL);
+
 		switch (ret) {
 		case ZEBRA_DPLANE_REQUEST_QUEUED:
 			SET_FLAG(nhe->flags, NEXTHOP_GROUP_QUEUED);
@@ -3976,7 +3979,16 @@ void zebra_nhg_dplane_result(struct zebra_dplane_ctx *ctx)
 		}
 
 		UNSET_FLAG(nhe->flags, NEXTHOP_GROUP_QUEUED);
-		UNSET_FLAG(nhe->flags, NEXTHOP_GROUP_REINSTALL);
+
+		/* A newer snapshot was requested while this one was queued. */
+		if (CHECK_FLAG(nhe->flags, NEXTHOP_GROUP_REINSTALL)) {
+			if (IS_ZEBRA_DEBUG_DPLANE_DETAIL || IS_ZEBRA_DEBUG_NHG_DETAIL)
+				zlog_debug("%s: replacing stale NHG snapshot for NHE %pNG",
+					   __func__, nhe);
+			zebra_nhg_install_kernel(nhe, nhe->type);
+			return;
+		}
+
 		switch (status) {
 		case ZEBRA_DPLANE_REQUEST_SUCCESS:
 			SET_FLAG(nhe->flags, NEXTHOP_GROUP_INSTALLED);
