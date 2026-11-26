@@ -476,6 +476,12 @@ struct bgp_static {
 	struct prefix gatewayIp;
 };
 
+enum bgp_aggregate_med_config {
+	BGP_AGGREGATE_MED_DEFAULT = 0,
+	BGP_AGGREGATE_MED_MATCH,
+	BGP_AGGREGATE_MED_IGNORE,
+};
+
 /* Aggreagete address:
  *
  *  advertise-map  Set condition to advertise attribute
@@ -502,7 +508,7 @@ struct bgp_aggregate {
 	/** Did we get the first MED value? */
 	bool med_initialized;
 	/** Match only equal MED. */
-	bool match_med;
+	enum bgp_aggregate_med_config match_med;
 
 	/* Route-map for aggregated route. */
 	struct {
@@ -561,9 +567,8 @@ struct bgp_aggregate {
 	 * returns `false`. This macro will also return `true` if MED
 	 * matching is disabled.
 	 */
-#define AGGREGATE_MED_VALID(aggregate)                                         \
-	(((aggregate)->match_med && !(aggregate)->med_mismatched)              \
-	 || !(aggregate)->match_med)
+#define AGGREGATE_MED_VALID(bgp, aggregate)                                                       \
+	(!bgp_aggregate_med_match_enabled((bgp), (aggregate)) || !(aggregate)->med_mismatched)
 
 	/** Suppress map route map name (`NULL` when disabled). */
 	char *suppress_map_name;
@@ -1024,6 +1029,9 @@ extern void bgp_aggregate_increment(struct bgp *bgp, const struct prefix *p,
 extern void bgp_aggregate_decrement(struct bgp *bgp, const struct prefix *p,
 				    struct bgp_path_info *path, afi_t afi,
 				    safi_t safi);
+extern bool bgp_aggregate_med_match_enabled(const struct bgp *bgp,
+					    const struct bgp_aggregate *aggregate);
+extern void bgp_aggregate_med_matching_update_all(struct bgp *bgp);
 
 extern uint8_t bgp_distance_apply(const struct prefix *p,
 				  struct bgp_path_info *path, afi_t afi,
