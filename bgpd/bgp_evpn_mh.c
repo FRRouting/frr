@@ -4267,6 +4267,8 @@ static void bgp_evpn_ip_ead_es_deref(struct bgp_evpn_es_vrf_vtep *vtep)
 		return;
 	if (--vtep->es_ref == 0) {
 		UNSET_FLAG(vtep->flags, BGP_EVPN_ES_VRF_VTEP_IP_EAD_ES);
+		bgp_evpn_l3vni_neigh_rt1_lost(vtep->es_vrf->es, vtep->es_vrf->bgp_vrf->l3vni,
+					      &vtep->vtep_ip);
 		bgp_evpn_l3mh_peer_backing_invalidate(vtep);
 	}
 }

@@ -1121,6 +1121,12 @@ extern int bgp_evpn_route_entry_install_if_vrf_match(struct bgp *bgp_vrf,
 						     int install);
 extern void bgp_evpn_import_type2_route(struct bgp_path_info *pi, int import);
 extern void bgp_evpn_l3vni_neigh_reimport(struct bgp *bgp_vrf);
+struct bgp_path_info_extra_evpn;
+extern void bgp_evpn_l3vni_neigh_rt1_lost(const struct bgp_evpn_es *es, vni_t vni,
+					  const struct ipaddr *origin);
+extern void bgp_evpn_l3vni_neigh_path_update(const struct prefix *p, struct bgp_path_info *pi,
+					     bool replaced);
+extern void bgp_evpn_l3vni_neigh_path_release(struct bgp_path_info_extra_evpn *evpn);
 extern void bgp_evpn_xxport_delete_ecomm(void *val);
 extern int bgp_evpn_route_target_cmp(struct ecommunity *ecom1,
 				     struct ecommunity *ecom2);

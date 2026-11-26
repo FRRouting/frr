@@ -1519,7 +1519,7 @@ void zebra_evpn_rem_macip_add(vni_t vni, const struct ethaddr *macaddr, uint16_t
 	 */
 	if (ipa_len && CHECK_FLAG(flags, ZEBRA_MACIP_TYPE_L3_NEIGH_SYNC)) {
 		zebra_evpn_l3vni_remote_neigh_add(vni, ipaddr, macaddr, eth_tag, seq, esi, vtep_ip,
-						  flags, false);
+						  flags);
 		return;
 	}
 

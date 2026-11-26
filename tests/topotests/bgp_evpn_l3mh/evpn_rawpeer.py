@@ -95,8 +95,8 @@ class Speaker:
             value += struct.pack("!I", label)[1:]
         return struct.pack("!BB", 2, len(value)) + value
 
-    def announce(self, labels, with_rt=True, **key):
-        nh = socket.inet_aton(self.local_ip)
+    def announce(self, labels, with_rt=True, origin=None, **key):
+        nh = socket.inet_aton(origin or self.local_ip)
         mp_reach = struct.pack("!HBB", AFI_L2VPN, SAFI_EVPN, len(nh)) + nh + b"\x00"
         mp_reach += self.rt2(labels, **key)
         # RT type 0 (2-octet AS), sub-type 2; the VRF import matches on the
@@ -161,6 +161,8 @@ def parse_key(words):
             key[name] = bytes.fromhex(value.replace(":", ""))
         elif name == "ip":
             key[name] = socket.inet_aton(value)
+        elif name == "origin":
+            key[name] = value
     return key
 
 

@@ -433,8 +433,10 @@ void bgp_path_info_extra_free(struct bgp_path_info_extra **extra)
 	if ((*extra)->flowspec && (*extra)->flowspec->bgp_fs_pbr)
 		list_delete(&((*extra)->flowspec->bgp_fs_pbr));
 
-	if (e->evpn)
+	if (e->evpn) {
+		bgp_evpn_l3vni_neigh_path_release(e->evpn);
 		XFREE(MTYPE_BGP_ROUTE_EXTRA_EVPN, e->evpn);
+	}
 	if (e->unreach)
 		XFREE(MTYPE_BGP_ROUTE_EXTRA_UNREACH, e->unreach);
 	if (e->flowspec)
@@ -7040,6 +7042,7 @@ void bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 		 * the attributes for the route in the VNI(s).
 		 */
 		if (safi == SAFI_EVPN) {
+			bgp_evpn_l3vni_neigh_path_update(p, pi, force_evpn_import);
 			if ((!same_attr || force_evpn_import) &&
 			    CHECK_FLAG(pi->flags, BGP_PATH_VALID))
 				bgp_evpn_import_route(bgp, afi, safi, p, pi);
@@ -7234,8 +7237,11 @@ void bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 #endif
 
 	/* If this is an EVPN route, process for import. */
-	if (safi == SAFI_EVPN && CHECK_FLAG(new->flags, BGP_PATH_VALID))
-		bgp_evpn_import_route(bgp, afi, safi, p, new);
+	if (safi == SAFI_EVPN) {
+		bgp_evpn_l3vni_neigh_path_update(p, new, false);
+		if (CHECK_FLAG(new->flags, BGP_PATH_VALID))
+			bgp_evpn_import_route(bgp, afi, safi, p, new);
+	}
 	/* If this is a route we should export for EVPN, process for export */
 	if (advertise_type5_routes_multipath(bgp, afi, safi) &&
 	    is_route_injectable_into_evpn(bgp, afi, safi, new))

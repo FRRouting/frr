@@ -5060,21 +5060,117 @@ static int install_uninstall_type5_route_in_vpn_rib(struct bgp *bgp, struct pref
 	return 0;
 }
 
-/* A received pure-L3 (no-L2VNI) RT-2 syncs a host neighbor onto the ES peers.
- * For each VRF that imports the route, program the neighbor into that VRF's own
- * L3VNI when the route's ESI is a local ES and the operator opted in via
- * advertise-all-vni l3vni-neigh; otherwise withdraw it. The knob gates only the add:
- * a route that goes away or turns non-local must be cleared even once the
- * operator has disabled the feature. (Bulk teardown on knob disable is done
- * in zebra, alongside the locally-originated neighbors.)
- *
- * walk_gen is a per-route stamp: it dedupes VRFs reached through several RTs
- * (e.g. an exact and a wildcard match) without an O(n^2) membership scan.
- */
+PREDECL_HASH(bgp_l3mh_rt1_scopes);
+
+struct bgp_l3mh_rt1_scope {
+	struct bgp_l3mh_rt1_scopes_item item;
+	struct ipaddr origin;
+	esi_t esi;
+	vni_t vni;
+	uint64_t generation;
+	unsigned int paths;
+};
+
+static int bgp_l3mh_rt1_scope_cmp(const struct bgp_l3mh_rt1_scope *a,
+				  const struct bgp_l3mh_rt1_scope *b)
+{
+	return a->vni != b->vni || memcmp(&a->esi, &b->esi, sizeof(a->esi)) ||
+	       ipaddr_cmp(&a->origin, &b->origin);
+}
+
+static uint32_t bgp_l3mh_rt1_scope_hash(const struct bgp_l3mh_rt1_scope *scope)
+{
+	return jhash(&scope->esi, sizeof(scope->esi),
+		     jhash_2words(scope->vni, ipaddr_hash(&scope->origin), 0));
+}
+
+DECLARE_HASH(bgp_l3mh_rt1_scopes, struct bgp_l3mh_rt1_scope, item, bgp_l3mh_rt1_scope_cmp,
+	     bgp_l3mh_rt1_scope_hash);
+DEFINE_MTYPE_STATIC(BGPD, BGP_L3MH_RT1_SCOPE, "L3MH RT-1 generation scope");
+static struct bgp_l3mh_rt1_scopes_head bgp_l3mh_rt1_scope_table =
+	INIT_HASH(bgp_l3mh_rt1_scope_table);
+
+void bgp_evpn_l3vni_neigh_path_release(struct bgp_path_info_extra_evpn *evpn)
+{
+	struct bgp_l3mh_rt1_scope *scope = evpn->l3mh_rt1_scope;
+
+	if (!scope)
+		return;
+	evpn->l3mh_rt1_scope = NULL;
+	if (--scope->paths == 0) {
+		bgp_l3mh_rt1_scopes_del(&bgp_l3mh_rt1_scope_table, scope);
+		XFREE(MTYPE_BGP_L3MH_RT1_SCOPE, scope);
+	}
+}
+
+/* Attach on BGP UPDATE so import policy and replay cannot refresh the stamp. */
+void bgp_evpn_l3vni_neigh_path_update(const struct prefix *p, struct bgp_path_info *pi,
+				      bool replaced)
+{
+	const struct prefix_evpn *evp = (const struct prefix_evpn *)p;
+	struct bgp_l3mh_rt1_scope key = {};
+	struct bgp_l3mh_rt1_scope *scope;
+	struct bgp_path_info_extra_evpn *evpn;
+
+	if (evp->prefix.route_type != BGP_EVPN_MAC_IP_ROUTE || is_evpn_prefix_ipaddr_none(evp))
+		return;
+
+	if (bgp_evpn_is_pure_l3_macip(pi)) {
+		key.vni = label2vni(&pi->extra->labels->label[1]);
+		key.esi = *bgp_evpn_attr_get_esi(pi->attr);
+		bgp_evpn_mh_fill_vtep_ip_from_pi(pi, &key.origin);
+	}
+	if (!key.vni || !memcmp(&key.esi, zero_esi, sizeof(key.esi)) ||
+	    ipaddr_is_zero(&key.origin)) {
+		if (pi->extra && pi->extra->evpn)
+			bgp_evpn_l3vni_neigh_path_release(pi->extra->evpn);
+		return;
+	}
+
+	evpn = bgp_evpn_path_info_extra_get(pi)->evpn;
+	scope = evpn->l3mh_rt1_scope;
+	if (scope && !bgp_l3mh_rt1_scope_cmp(scope, &key)) {
+		if (replaced)
+			evpn->l3mh_rt2_generation = scope->generation;
+		return;
+	}
+
+	bgp_evpn_l3vni_neigh_path_release(evpn);
+	scope = bgp_l3mh_rt1_scopes_find(&bgp_l3mh_rt1_scope_table, &key);
+	if (!scope) {
+		scope = XCALLOC(MTYPE_BGP_L3MH_RT1_SCOPE, sizeof(*scope));
+		*scope = key;
+		bgp_l3mh_rt1_scopes_add(&bgp_l3mh_rt1_scope_table, scope);
+	}
+	scope->paths++;
+	evpn->l3mh_rt1_scope = scope;
+	evpn->l3mh_rt2_generation = scope->generation;
+}
+
+/* Invalidate retained RT-2s for this PE without walking the ES paths. */
+void bgp_evpn_l3vni_neigh_rt1_lost(const struct bgp_evpn_es *es, vni_t vni,
+				   const struct ipaddr *origin)
+{
+	struct bgp_l3mh_rt1_scope key = { .origin = *origin, .esi = es->esi, .vni = vni };
+	struct bgp_l3mh_rt1_scope *scope;
+
+	scope = bgp_l3mh_rt1_scopes_find(&bgp_l3mh_rt1_scope_table, &key);
+	if (scope)
+		scope->generation++;
+}
+
+static bool bgp_evpn_l3vni_neigh_rt1_is_lost(const struct bgp_path_info *pi)
+{
+	const struct bgp_path_info_extra_evpn *evpn = pi->extra ? pi->extra->evpn : NULL;
+
+	return evpn && evpn->l3mh_rt1_scope &&
+	       evpn->l3mh_rt2_generation != evpn->l3mh_rt1_scope->generation;
+}
+
 static bool bgp_evpn_l3vni_neigh_path_backs(struct bgp *bgp_vrf, const struct prefix_evpn *evp,
 					    struct bgp_path_info *tmp_pi)
 {
-	if (CHECK_FLAG(tmp_pi->flags, BGP_PATH_REMOVED))
+	if (CHECK_FLAG(tmp_pi->flags, BGP_PATH_REMOVED) || bgp_evpn_l3vni_neigh_rt1_is_lost(tmp_pi))
 		return false;
 	if (!(CHECK_FLAG(tmp_pi->flags, BGP_PATH_VALID) && tmp_pi->type == ZEBRA_ROUTE_BGP &&
 	      tmp_pi->sub_type == BGP_ROUTE_NORMAL))
@@ -5151,6 +5247,17 @@ bgp_evpn_l3vni_neigh_other_installing_path(struct bgp *bgp_vrf, const struct pre
 	return other;
 }
 
+/* A received pure-L3 (no-L2VNI) RT-2 syncs a host neighbor onto the ES peers.
+ * For each VRF that imports the route, program the neighbor into that VRF's own
+ * L3VNI when the route's ESI is a local ES and the operator opted in via
+ * advertise-all-vni l3vni-neigh; otherwise withdraw it. The knob gates only the add:
+ * a route that goes away or turns non-local must be cleared even once the
+ * operator has disabled the feature. (Bulk teardown on knob disable is done
+ * in zebra, alongside the locally-originated neighbors.)
+ *
+ * walk_gen is a per-route stamp: it dedupes VRFs reached through several RTs
+ * (e.g. an exact and a wildcard match) without an O(n^2) membership scan.
+ */
 static void bgp_evpn_l3vni_neigh_install_uninstall(struct prefix_evpn *evp,
 						   struct bgp_path_info *pi, struct list *vrfs,
 						   int install, uint32_t walk_gen)
@@ -5162,7 +5269,7 @@ static void bgp_evpn_l3vni_neigh_install_uninstall(struct prefix_evpn *evp,
 	bool gates_on;
 	bool add;
 
-	if (!bgp_evpn)
+	if (!bgp_evpn || (install && bgp_evpn_l3vni_neigh_rt1_is_lost(pi)))
 		return;
 
 	/* An ADD is authorized only while EVPN and its l3vni-neigh token are

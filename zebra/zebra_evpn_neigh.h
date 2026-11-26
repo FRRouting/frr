@@ -23,6 +23,9 @@ extern "C" {
 
 typedef struct json_object json_object;
 struct l2vni_walk_ctx;
+struct zebra_l3mh_peer;
+
+PREDECL_DLIST(zebra_l3mh_peer_neighs);
 
 enum zebra_l3mh_neigh_lifecycle {
 	ZEBRA_L3MH_NEIGH_NOT_MANAGED,
@@ -134,6 +137,8 @@ struct zebra_neigh {
 	uint32_t l3mh_probe_generation;
 	struct ipaddr l3mh_peer_origin; /* Advertising PE, separate from forwarding. */
 	bool l3mh_peer_rt1_lost;
+	struct zebra_l3mh_peer *l3mh_peer;
+	struct zebra_l3mh_peer_neighs_item l3mh_peer_item;
 
 	/* Refcnt - Only used by SVD neighs currently */
 	uint32_t refcnt;
@@ -454,7 +459,7 @@ void zebra_evpn_l3vni_neigh_readvertise_bd(vni_t l3vni, vlanid_t vid);
 void zebra_evpn_l3vni_remote_neigh_add(vni_t vni, const struct ipaddr *ip,
 				       const struct ethaddr *macaddr, vlanid_t eth_tag,
 				       uint32_t seq, const esi_t *esi, const struct ipaddr *origin,
-				       uint8_t flags, bool rt1_lost);
+				       uint8_t flags);
 void zebra_evpn_l3vni_peer_backing_invalidate(vni_t vni, const esi_t *esi,
 					      const struct ipaddr *origin);
 void zebra_evpn_l3vni_remote_neigh_del(struct zebra_evpn *zevpn, const struct ipaddr *ip,

@@ -189,6 +189,10 @@ struct bgp_path_info_extra_evpn {
 	/* Per-VRF ownership of imported IP A-D state. */
 	struct bgp_evpn_ip_ead_path_owners *ip_ead_owners;
 
+	/* RT-1 generation when this L3MH RT-2 was advertised. */
+	struct bgp_l3mh_rt1_scope *l3mh_rt1_scope;
+	uint64_t l3mh_rt2_generation;
+
 	struct bgp_path_info *type5_originator;
 };
 
