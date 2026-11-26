@@ -9,6 +9,9 @@
 """
 Test if aggregate-address command works fine when suppressing summary-only
 and using matching-MED-only together.
+
+Also test `bgp default aggregate-address matching-med-only` and the
+per-aggregate `ignore-med` override.
 """
 
 import os
@@ -128,6 +131,138 @@ def test_aggregate_address_matching_med():
     test_func = functools.partial(_bgp_converge)
     _, result = topotest.run_and_expect(test_func, None, count=30, wait=0.5)
     assert result is None, "Failed to see unsuppressed routes from R2"
+
+
+def _bgp_not_aggregated(router):
+    output = json.loads(router.vtysh_cmd("show bgp ipv4 unicast json"))
+    expected = {
+        "routes": {
+            "172.16.255.0/24": None,
+            "172.16.255.1/32": [{"path": "65002 65001"}],
+            "172.16.255.2/32": [{"path": "65002 65001"}],
+            "172.16.255.3/32": [{"path": "65002 65001"}],
+        }
+    }
+    return topotest.json_cmp(output, expected)
+
+
+def _bgp_aggregated(router):
+    output = json.loads(router.vtysh_cmd("show bgp ipv4 unicast json"))
+    expected = {
+        "routes": {
+            "172.16.255.0/24": [{"path": "65002"}],
+            "172.16.255.1/32": None,
+            "172.16.255.2/32": None,
+            "172.16.255.3/32": None,
+        }
+    }
+    return topotest.json_cmp(output, expected)
+
+
+def _bgp_aggregate_match_med(router, match_med):
+    output = json.loads(
+        router.vtysh_cmd("show bgp ipv4 unicast aggregate-address 172.16.255.0/24 json")
+    )
+    expected = {"aggregates": {"172.16.255.0/24": {"matchMed": match_med}}}
+    return topotest.json_cmp(output, expected)
+
+
+def _check(func, *args, msg):
+    test_func = functools.partial(func, *args)
+    _, result = topotest.run_and_expect(test_func, None, count=30, wait=0.5)
+    assert result is None, msg
+
+
+def test_aggregate_address_default_matching_med():
+    tgen = get_topogen()
+
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    r2 = tgen.gears["r2"]
+    r3 = tgen.gears["r3"]
+
+    # MEDs are 300, 300 and 400 (mismatched) after the previous test.
+
+    step("Remove matching-MED-only from the aggregate, MED should be ignored")
+    r2.vtysh_cmd(
+        """
+    configure terminal
+        router bgp 65002
+            address-family ipv4 unicast
+                aggregate-address 172.16.255.0/24 summary-only
+    """
+    )
+    _check(_bgp_aggregated, r3, msg="Aggregate should be created ignoring MED")
+    _check(_bgp_aggregate_match_med, r2, False, msg="matchMed should be false")
+
+    step("Enable bgp default aggregate-address matching-med-only")
+    r2.vtysh_cmd(
+        """
+    configure terminal
+        router bgp 65002
+            bgp default aggregate-address matching-med-only
+    """
+    )
+    _check(_bgp_not_aggregated, r3, msg="Aggregate should be withdrawn (MED mismatch)")
+    _check(_bgp_aggregate_match_med, r2, True, msg="matchMed should be true")
+
+    step("Override the default with ignore-med for the aggregate")
+    r2.vtysh_cmd(
+        """
+    configure terminal
+        router bgp 65002
+            address-family ipv4 unicast
+                aggregate-address 172.16.255.0/24 summary-only ignore-med
+    """
+    )
+    _check(_bgp_aggregated, r3, msg="ignore-med should override the default")
+    _check(_bgp_aggregate_match_med, r2, False, msg="matchMed should be false")
+
+    step("Disable the default, ignore-med aggregate should not change")
+    r2.vtysh_cmd(
+        """
+    configure terminal
+        router bgp 65002
+            no bgp default aggregate-address matching-med-only
+    """
+    )
+    _check(_bgp_aggregated, r3, msg="ignore-med aggregate should stay installed")
+
+    step("Use matching-med-only alias while the default is disabled")
+    r2.vtysh_cmd(
+        """
+    configure terminal
+        router bgp 65002
+            address-family ipv4 unicast
+                aggregate-address 172.16.255.0/24 summary-only matching-med-only
+    """
+    )
+    _check(_bgp_not_aggregated, r3, msg="Aggregate should be withdrawn (MED mismatch)")
+    _check(_bgp_aggregate_match_med, r2, True, msg="matchMed should be true")
+
+    step("Check running configuration")
+    output = r2.vtysh_cmd("show running-config")
+    assert "bgp default aggregate-address matching-med-only" not in output
+    assert (
+        "aggregate-address 172.16.255.0/24 summary-only matching-MED-only" in output
+    ), "matching-med-only should be rendered as matching-MED-only"
+
+    step("matching-med-only and ignore-med can't be used together")
+    output = r2.vtysh_cmd(
+        """
+    configure terminal
+        router bgp 65002
+            address-family ipv4 unicast
+                aggregate-address 172.16.255.0/24 matching-med-only ignore-med
+    """
+    )
+    assert "can't be used at the same time" in output
+    output = r2.vtysh_cmd("show running-config")
+    assert (
+        "aggregate-address 172.16.255.0/24 summary-only matching-MED-only" in output
+    ), "Aggregate configuration should not be changed"
+    _check(_bgp_not_aggregated, r3, msg="Aggregate should not be changed")
 
 
 if __name__ == "__main__":
