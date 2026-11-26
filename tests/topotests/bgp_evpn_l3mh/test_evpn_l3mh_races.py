@@ -139,10 +139,12 @@ def test_early_fdb_and_old_arp_notifications_during_hold(events):
 def test_rt2_withdrawal_and_replacement_rt1_loss_during_queued_probe(events):
     owner, peer, other = events.leaves
     withdrawn, replaced = (events.binding(i) for i in (122, 123))
+    failed = events.binding(131)
     events.learn(peer, withdrawn)
+    events.learn(peer, failed)
     events.learn(other, replaced)
     events.settle()
-    for entry in (withdrawn, replaced):
+    for entry in (withdrawn, replaced, failed):
         events.status(entry, "PERMANENT")
 
     control(owner, f"old-withdraw {withdrawn[0]}")
@@ -153,6 +155,13 @@ def test_rt2_withdrawal_and_replacement_rt1_loss_during_queued_probe(events):
     assert detail.get("peerRt1Lost"), detail
     assert detail.get("peerOrigin") == l3mh.LEAF_LO[peer.name], detail
     assert not events.pinned(withdrawn) and not events.pinned(replaced)
+    events.status(failed, "PROBE")
+    events.arp(owner, failed, "failed")
+    events.settle()
+    peer.cmd_raises(f"ip neigh del {failed[0]} dev vlan{VID}")
+    events.settle()
+    failure = owner.cmd_raises(f"ip neigh show to {failed[0]} dev vlan{VID}")
+    assert "FAILED" in failure and not events.pinned(failed), failure
 
 
 def test_failed_static_delete_and_pending_probe_across_reflap(events):
@@ -589,3 +598,125 @@ def test_new_static_user_before_old_fdb_delete_completion(events):
     assert events.route(peer, new) and events.pinned(new)
     events.status(companion, "REACHABLE")
     assert events.route(owner, companion)
+
+
+@pytest.mark.parametrize(
+    "withdraw_first", (False, True), ids=("failure-first", "withdraw-first")
+)
+def test_existing_same_key_survivor_backs_probe_after_rt1_loss(events, withdraw_first):
+    owner, selected, survivor = events.leaves
+    entry = events.binding(181)
+    config = f"configure terminal\ninterface {PORT}\n"
+    protection = "evpn mh bridge-port-protection"
+    debug = "debug bgp evpn mh l3vni-neigh"
+    log = Path(owner.logdir) / owner.name / "bgpd.log"
+    origin = l3mh.LEAF_LO[selected.name]
+    lookup_log = f"L3MH RT-1 fallback VNI {l3mh.L3VNI} origin {origin}: "
+    selected.vtysh_cmd(config + protection, raises=True)
+    owner.vtysh_cmd(debug, raises=True)
+    try:
+        events.learn(survivor, entry)
+        events.settle()
+        events.arp(selected, entry)
+        l3mh._relearn_local_fdb(selected, entry[1], leaves=events.leaves)
+        events.settle()
+        detail = events.status(entry, "PERMANENT")
+        assert detail.get("peerOrigin") == origin, detail
+        for leaf in (selected, survivor):
+            assert events.route(leaf, entry, owner)
+
+        offset = log.stat().st_size
+        selected.vtysh_cmd(config + "no " + protection, raises=True)
+        events.settle()
+        with log.open() as stream:
+            stream.seek(offset)
+            lookups = [
+                line.split(lookup_log)[1].strip()
+                for line in stream
+                if lookup_log in line
+            ]
+        assert lookups == ["1 lookups"], lookups
+        events.status(entry, "PROBE")
+        assert events.route(selected, entry, owner)
+        if withdraw_first:
+            with check_probe(owner, entry):
+                events.delete_arp(selected, entry)
+                events.settle()
+            assert not events.route(selected, entry, owner)
+            events.status(entry, "PROBE")
+
+        events.arp(owner, entry, "failed")
+        events.settle()
+        detail = events.status(entry, "PERMANENT")
+        assert detail.get("peerOrigin") == l3mh.LEAF_LO[survivor.name], detail
+        assert events.pinned(entry) and not events.route(owner, entry)
+        if not withdraw_first:
+            events.delete_arp(selected, entry)
+            events.settle()
+            assert (
+                events.status(entry, "PERMANENT").get("peerOrigin")
+                == l3mh.LEAF_LO[survivor.name]
+            )
+    finally:
+        owner.vtysh_cmd("no " + debug, raises=True)
+        selected.vtysh_cmd(config + "no " + protection, raises=True)
+
+
+def test_retained_rt2_second_spine_copy_stays_ineligible(events):
+    owner, receiver, _ = events.leaves
+    entry = events.binding(182)
+    spine = "192.168.5.1"
+    rmap = "L3MH-HOLD-SPINE"
+    address_family = "router bgp 65012\n address-family l2vpn evpn\n"
+
+    def configure(commands):
+        receiver.vtysh_cmd("configure terminal\n" + commands, raises=True)
+
+    def spines():
+        routes = receiver.vtysh_cmd(
+            "show bgp l2vpn evpn route detail type macip json", isjson=True
+        )
+        rd = f"{l3mh.LEAF_LO[owner.name]}:"
+        return {
+            path["peer"]["peerId"]
+            for key, table in routes.items()
+            if key.startswith(rd)
+            for route in table.values()
+            if isinstance(route, dict) and route.get("ip") == entry[0]
+            for paths in route["paths"]
+            for path in paths
+            if path.get("valid")
+        }
+
+    configure(
+        f"route-map {rmap} deny 10\n match evpn route-type macip\n exit\n"
+        f"route-map {rmap} permit 20\n exit\n"
+        + address_family
+        + f"  neighbor {spine} route-map {rmap} in"
+    )
+    remove = address_family + f"  no neighbor {spine} route-map {rmap} in"
+    try:
+        events.learn(owner, entry)
+        events.settle()
+        events.status(entry, "PERMANENT", receiver)
+        assert spines() == {"192.168.2.1"}
+        events.flap("down")
+        events.status(entry, "PROBE", receiver)
+        assert events.route(owner, entry, receiver)
+        with check_probe(receiver, entry):
+            configure(remove)
+            receiver.vtysh_cmd(f"clear bgp l2vpn evpn {spine} soft in", raises=True)
+            events.settle()
+            assert spines() == {"192.168.2.1", spine}
+        events.status(entry, "PROBE", receiver)
+        assert not l3mh._mac_static_pinned(receiver, entry[1], VID)
+
+        control(owner, f"immediate-expiry {entry[0]}")
+        events.settle()
+        assert not spines()
+        events.flap("up")
+        events.learn(owner, entry)
+        events.settle()
+        events.status(entry, "PERMANENT", receiver)
+    finally:
+        configure(remove + f"\n exit-address-family\n exit\nno route-map {rmap}")

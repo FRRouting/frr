@@ -2007,13 +2007,31 @@ void zebra_evpn_l3vni_remote_neigh_add(vni_t vni, const struct ipaddr *ip,
 		return;
 
 	n = zebra_evpn_neigh_lookup(zevpn, ip);
+	if (n && CHECK_FLAG(macip_flags, ZEBRA_MACIP_TYPE_L3_NEIGH_FALLBACK)) {
+		if (n->l3mh_peer_rt1_lost && n->eth_tag == eth_tag &&
+		    !memcmp(&n->emac, macaddr, ETH_ALEN) && install &&
+		    zebra_evpn_l3vni_peer_on_bd(es, acc_bd)) {
+			if (CHECK_FLAG(n->flags, ZEBRA_NEIGH_LOCAL))
+				zebra_evpn_l3vni_peer_copy_save(n, seq, esi, origin, is_router);
+			else {
+				zebra_evpn_l3vni_peer_meta_set(n, seq, esi, origin, is_router);
+				COND_FLAG(n->flags, ZEBRA_NEIGH_ROUTER_FLAG, is_router);
+			}
+		}
+		zebra_evpn_l3_neigh_sync_unref(zevpn);
+		return;
+	}
 	if (CHECK_FLAG(macip_flags, ZEBRA_MACIP_TYPE_L3_NEIGH_REFRESH)) {
 		/* A surviving path for an old key cannot replace a newer binding. */
 		if (!n || n->mac || n->eth_tag != eth_tag || memcmp(&n->emac, macaddr, ETH_ALEN)) {
 			zebra_evpn_l3_neigh_sync_unref(zevpn);
 			return;
 		}
-		if (!n->l3mh_probe_seq && !zebra_evpn_l3mh_probe_current(n) &&
+		/* Withdrawal of the old path can refresh the cached fallback
+		 * while a probe is running. Keep that probe in flight.
+		 */
+		if (((!n->l3mh_probe_seq && !zebra_evpn_l3mh_probe_current(n)) ||
+		     (!n->l3mh_peer_rt1_lost && ipaddr_is_same(&n->l3mh_peer_origin, origin))) &&
 		    CHECK_FLAG(n->flags, ZEBRA_NEIGH_REMOTE) &&
 		    !memcmp(&n->rem_esi, esi, sizeof(*esi)) &&
 		    !!CHECK_FLAG(n->flags, ZEBRA_NEIGH_ROUTER_FLAG) == is_router) {

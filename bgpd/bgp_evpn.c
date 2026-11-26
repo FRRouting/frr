@@ -1336,13 +1336,12 @@ bgp_zebra_send_remote_macip(struct bgp *bgp, struct bgpevpn *vpn, const struct p
 static enum zclient_send_status bgp_evpn_l3vni_neigh_zsend(struct bgp *bgp_evpn, vni_t l3vni,
 							   const struct prefix_evpn *p,
 							   const struct bgp_path_info *pi,
-							   bool add, bool refresh)
+							   bool add, uint8_t flags)
 {
 	const esi_t *esi = bgp_evpn_attr_get_esi(pi->attr);
 	struct ipaddr origin = { .ipa_type = IPADDR_V4 };
 	struct stream *s;
 	uint16_t ipa_len;
-	uint8_t flags = ZEBRA_MACIP_TYPE_L3_NEIGH_SYNC;
 
 	if (!bgp_zclient || bgp_zclient->sock < 0)
 		return ZCLIENT_SEND_SUCCESS;
@@ -1373,11 +1372,10 @@ static enum zclient_send_status bgp_evpn_l3vni_neigh_zsend(struct bgp *bgp_evpn,
 	stream_put_ipaddr(s, &origin);
 
 	if (add) {
+		SET_FLAG(flags, ZEBRA_MACIP_TYPE_L3_NEIGH_SYNC);
 		if (is_evpn_prefix_ipaddr_v6(p) &&
 		    CHECK_FLAG(bgp_attr_get_evpn_flags(pi->attr), ATTR_EVPN_FLAG_ROUTER))
 			SET_FLAG(flags, ZEBRA_MACIP_TYPE_ROUTER_FLAG);
-		if (refresh)
-			SET_FLAG(flags, ZEBRA_MACIP_TYPE_L3_NEIGH_REFRESH);
 		stream_putc(s, flags);
 		stream_putl(s, 0);
 		stream_put(s, esi, sizeof(esi_t));
@@ -5061,6 +5059,9 @@ static int install_uninstall_type5_route_in_vpn_rib(struct bgp *bgp, struct pref
 }
 
 PREDECL_HASH(bgp_l3mh_rt1_scopes);
+PREDECL_HASH(bgp_l3mh_rt2_bindings);
+DECLARE_DLIST(bgp_l3mh_rt2_paths, struct bgp_path_info_extra_evpn, l3mh_rt2_item);
+DECLARE_DLIST(bgp_l3mh_rt2_candidates, struct bgp_path_info_extra_evpn, l3mh_rt2_candidate_item);
 
 struct bgp_l3mh_rt1_scope {
 	struct bgp_l3mh_rt1_scopes_item item;
@@ -5068,7 +5069,17 @@ struct bgp_l3mh_rt1_scope {
 	esi_t esi;
 	vni_t vni;
 	uint64_t generation;
-	unsigned int paths;
+	struct bgp_l3mh_rt2_paths_head paths;
+};
+
+struct bgp_l3mh_rt2_binding {
+	struct bgp_l3mh_rt2_bindings_item item;
+	struct bgp_l3mh_rt2_candidates_head candidates;
+	vni_t vni;
+	uint32_t eth_tag;
+	struct ethaddr mac;
+	struct ipaddr ip;
+	uint64_t fallback_walk;
 };
 
 static int bgp_l3mh_rt1_scope_cmp(const struct bgp_l3mh_rt1_scope *a,
@@ -5090,17 +5101,100 @@ DEFINE_MTYPE_STATIC(BGPD, BGP_L3MH_RT1_SCOPE, "L3MH RT-1 generation scope");
 static struct bgp_l3mh_rt1_scopes_head bgp_l3mh_rt1_scope_table =
 	INIT_HASH(bgp_l3mh_rt1_scope_table);
 
-void bgp_evpn_l3vni_neigh_path_release(struct bgp_path_info_extra_evpn *evpn)
+static int bgp_l3mh_rt2_binding_cmp(const struct bgp_l3mh_rt2_binding *a,
+				    const struct bgp_l3mh_rt2_binding *b)
+{
+	return a->vni != b->vni || a->eth_tag != b->eth_tag ||
+	       memcmp(&a->mac, &b->mac, ETH_ALEN) || ipaddr_cmp(&a->ip, &b->ip);
+}
+
+static uint32_t bgp_l3mh_rt2_binding_hash(const struct bgp_l3mh_rt2_binding *binding)
+{
+	return jhash(&binding->mac, ETH_ALEN,
+		     jhash_3words(binding->vni, binding->eth_tag, ipaddr_hash(&binding->ip), 0));
+}
+
+DECLARE_HASH(bgp_l3mh_rt2_bindings, struct bgp_l3mh_rt2_binding, item, bgp_l3mh_rt2_binding_cmp,
+	     bgp_l3mh_rt2_binding_hash);
+DEFINE_MTYPE_STATIC(BGPD, BGP_L3MH_RT2_BINDING, "L3MH RT-2 binding");
+static struct bgp_l3mh_rt2_bindings_head bgp_l3mh_rt2_binding_table =
+	INIT_HASH(bgp_l3mh_rt2_binding_table);
+
+static void bgp_l3mh_rt2_binding_release(struct bgp_path_info_extra_evpn *evpn)
+{
+	struct bgp_l3mh_rt2_binding *binding = evpn->l3mh_rt2_binding;
+
+	if (!binding)
+		return;
+	evpn->l3mh_rt2_binding = NULL;
+	bgp_l3mh_rt2_candidates_del(&binding->candidates, evpn);
+	if (!bgp_l3mh_rt2_candidates_count(&binding->candidates)) {
+		bgp_l3mh_rt2_candidates_fini(&binding->candidates);
+		bgp_l3mh_rt2_bindings_del(&bgp_l3mh_rt2_binding_table, binding);
+		XFREE(MTYPE_BGP_L3MH_RT2_BINDING, binding);
+	}
+}
+
+static void bgp_l3mh_rt2_binding_update(struct bgp_path_info_extra_evpn *evpn,
+					const struct evpn_macip_addr *macip, vni_t vni)
+{
+	struct bgp_l3mh_rt2_binding key = {
+		.vni = vni, .eth_tag = macip->eth_tag, .mac = macip->mac, .ip = macip->ip
+	};
+	struct bgp_l3mh_rt2_binding *binding = evpn->l3mh_rt2_binding;
+
+	/* The NLRI stays fixed for this path. Only its L3VNI can change. */
+	if (binding && binding->vni == vni)
+		return;
+	bgp_l3mh_rt2_binding_release(evpn);
+	binding = bgp_l3mh_rt2_bindings_find(&bgp_l3mh_rt2_binding_table, &key);
+	if (!binding) {
+		binding = XCALLOC(MTYPE_BGP_L3MH_RT2_BINDING, sizeof(*binding));
+		*binding = key;
+		bgp_l3mh_rt2_candidates_init(&binding->candidates);
+		bgp_l3mh_rt2_bindings_add(&bgp_l3mh_rt2_binding_table, binding);
+	}
+	bgp_l3mh_rt2_candidates_add_tail(&binding->candidates, evpn);
+	evpn->l3mh_rt2_binding = binding;
+}
+
+static void bgp_l3mh_rt1_scope_release(struct bgp_path_info_extra_evpn *evpn)
 {
 	struct bgp_l3mh_rt1_scope *scope = evpn->l3mh_rt1_scope;
 
 	if (!scope)
 		return;
 	evpn->l3mh_rt1_scope = NULL;
-	if (--scope->paths == 0) {
+	bgp_l3mh_rt2_paths_del(&scope->paths, evpn);
+	if (!bgp_l3mh_rt2_paths_count(&scope->paths)) {
+		bgp_l3mh_rt2_paths_fini(&scope->paths);
 		bgp_l3mh_rt1_scopes_del(&bgp_l3mh_rt1_scope_table, scope);
 		XFREE(MTYPE_BGP_L3MH_RT1_SCOPE, scope);
 	}
+}
+
+void bgp_evpn_l3vni_neigh_path_release(struct bgp_path_info_extra_evpn *evpn)
+{
+	bgp_l3mh_rt1_scope_release(evpn);
+	bgp_l3mh_rt2_binding_release(evpn);
+}
+
+static uint64_t bgp_l3mh_rt2_generation(const struct bgp_path_info *pi,
+					const struct bgp_l3mh_rt1_scope *scope)
+{
+	const struct bgp_path_info *other;
+
+	/* A different spine can still deliver the same retained NLRI. */
+	for (other = bgp_dest_get_bgp_path_info(pi->net); other; other = other->next) {
+		const struct bgp_path_info_extra_evpn *evpn = other->extra ? other->extra->evpn
+									   : NULL;
+
+		if (other != pi && evpn && evpn->l3mh_rt1_scope == scope &&
+		    !CHECK_FLAG(other->flags, BGP_PATH_REMOVED) &&
+		    evpn->l3mh_rt2_generation != scope->generation)
+			return evpn->l3mh_rt2_generation;
+	}
+	return scope->generation;
 }
 
 /* Attach on BGP UPDATE so import policy and replay cannot refresh the stamp. */
@@ -5120,43 +5214,37 @@ void bgp_evpn_l3vni_neigh_path_update(const struct prefix *p, struct bgp_path_in
 		key.esi = *bgp_evpn_attr_get_esi(pi->attr);
 		bgp_evpn_mh_fill_vtep_ip_from_pi(pi, &key.origin);
 	}
-	if (!key.vni || !memcmp(&key.esi, zero_esi, sizeof(key.esi)) ||
-	    ipaddr_is_zero(&key.origin)) {
+	if (!key.vni || !memcmp(&key.esi, zero_esi, sizeof(key.esi))) {
 		if (pi->extra && pi->extra->evpn)
 			bgp_evpn_l3vni_neigh_path_release(pi->extra->evpn);
 		return;
 	}
 
 	evpn = bgp_evpn_path_info_extra_get(pi)->evpn;
+	evpn->l3mh_rt2_path = pi;
+	bgp_l3mh_rt2_binding_update(evpn, &evp->prefix.macip_addr, key.vni);
+	if (ipaddr_is_zero(&key.origin)) {
+		bgp_l3mh_rt1_scope_release(evpn);
+		return;
+	}
 	scope = evpn->l3mh_rt1_scope;
 	if (scope && !bgp_l3mh_rt1_scope_cmp(scope, &key)) {
 		if (replaced)
-			evpn->l3mh_rt2_generation = scope->generation;
+			evpn->l3mh_rt2_generation = bgp_l3mh_rt2_generation(pi, scope);
 		return;
 	}
 
-	bgp_evpn_l3vni_neigh_path_release(evpn);
+	bgp_l3mh_rt1_scope_release(evpn);
 	scope = bgp_l3mh_rt1_scopes_find(&bgp_l3mh_rt1_scope_table, &key);
 	if (!scope) {
 		scope = XCALLOC(MTYPE_BGP_L3MH_RT1_SCOPE, sizeof(*scope));
 		*scope = key;
+		bgp_l3mh_rt2_paths_init(&scope->paths);
 		bgp_l3mh_rt1_scopes_add(&bgp_l3mh_rt1_scope_table, scope);
 	}
-	scope->paths++;
+	bgp_l3mh_rt2_paths_add_tail(&scope->paths, evpn);
 	evpn->l3mh_rt1_scope = scope;
-	evpn->l3mh_rt2_generation = scope->generation;
-}
-
-/* Invalidate retained RT-2s for this PE without walking the ES paths. */
-void bgp_evpn_l3vni_neigh_rt1_lost(const struct bgp_evpn_es *es, vni_t vni,
-				   const struct ipaddr *origin)
-{
-	struct bgp_l3mh_rt1_scope key = { .origin = *origin, .esi = es->esi, .vni = vni };
-	struct bgp_l3mh_rt1_scope *scope;
-
-	scope = bgp_l3mh_rt1_scopes_find(&bgp_l3mh_rt1_scope_table, &key);
-	if (scope)
-		scope->generation++;
+	evpn->l3mh_rt2_generation = scope->generation ? bgp_l3mh_rt2_generation(pi, scope) : 0;
 }
 
 static bool bgp_evpn_l3vni_neigh_rt1_is_lost(const struct bgp_path_info *pi)
@@ -5247,6 +5335,57 @@ bgp_evpn_l3vni_neigh_other_installing_path(struct bgp *bgp_vrf, const struct pre
 	return other;
 }
 
+void bgp_evpn_l3vni_neigh_rt1_lost(const struct bgp_evpn_es *es, struct bgp *vrf,
+				   const struct ipaddr *origin)
+{
+	struct bgp_l3mh_rt1_scope key = { .origin = *origin, .esi = es->esi, .vni = vrf->l3vni };
+	struct bgp_l3mh_rt1_scope *scope = bgp_l3mh_rt1_scopes_find(&bgp_l3mh_rt1_scope_table,
+								    &key);
+	struct bgp *bgp_evpn = bgp_get_evpn();
+	struct bgp_path_info_extra_evpn *evpn;
+	static uint64_t fallback_walk;
+	uint64_t previous, walk;
+	unsigned int lookups = 0;
+
+	if (!scope)
+		return;
+	previous = scope->generation++;
+	if (!bgp_evpn || !EVPN_ENABLED(bgp_evpn) || !bgp_evpn->advertise_l3vni_neigh)
+		return;
+
+	walk = ++fallback_walk;
+	/* Search each affected binding once even when several spines carry it.
+	 * Zebra keeps probing and uses the eligible candidate if the probe fails.
+	 */
+	frr_each (bgp_l3mh_rt2_paths, &scope->paths, evpn) {
+		struct bgp_l3mh_rt2_binding *binding = evpn->l3mh_rt2_binding;
+		struct bgp_path_info_extra_evpn *candidate;
+		struct bgp_path_info *pi = evpn->l3mh_rt2_path;
+		const struct prefix_evpn *p =
+			(const struct prefix_evpn *)bgp_dest_get_prefix(pi->net);
+
+		if (binding->fallback_walk == walk || evpn->l3mh_rt2_generation != previous ||
+		    CHECK_FLAG(pi->flags, BGP_PATH_REMOVED) ||
+		    !CHECK_FLAG(pi->flags, BGP_PATH_VALID) || !is_route_matching_for_vrf(vrf, pi))
+			continue;
+
+		binding->fallback_walk = walk;
+		lookups++;
+		frr_each (bgp_l3mh_rt2_candidates, &binding->candidates, candidate) {
+			struct bgp_path_info *survivor = candidate->l3mh_rt2_path;
+
+			if (!bgp_evpn_l3vni_neigh_path_backs(vrf, p, survivor))
+				continue;
+			bgp_evpn_l3vni_neigh_zsend(bgp_evpn, vrf->l3vni, p, survivor, true,
+						   ZEBRA_MACIP_TYPE_L3_NEIGH_FALLBACK);
+			break;
+		}
+	}
+	if (BGP_DEBUG(evpn_mh, EVPN_MH_L3_NEIGH))
+		zlog_debug("L3MH RT-1 fallback VNI %u origin %pIA: %u lookups", vrf->l3vni, origin,
+			   lookups);
+}
+
 /* A received pure-L3 (no-L2VNI) RT-2 syncs a host neighbor onto the ES peers.
  * For each VRF that imports the route, program the neighbor into that VRF's own
  * L3VNI when the route's ESI is a local ES and the operator opted in via
@@ -5315,7 +5454,8 @@ static void bgp_evpn_l3vni_neigh_install_uninstall(struct prefix_evpn *evp,
 			}
 		}
 
-		bgp_evpn_l3vni_neigh_zsend(bgp_evpn, bgp_vrf->l3vni, evp, src, vrf_add, src != pi);
+		bgp_evpn_l3vni_neigh_zsend(bgp_evpn, bgp_vrf->l3vni, evp, src, vrf_add,
+					   src != pi ? ZEBRA_MACIP_TYPE_L3_NEIGH_REFRESH : 0);
 	}
 }
 
