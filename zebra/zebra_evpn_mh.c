@@ -4587,12 +4587,13 @@ static ifindex_t zebra_evpn_l3vni_sync_mac_acc_ifindex(const struct zebra_evpn_a
 {
 	struct zebra_l3vni *zl3vni;
 
-	if (!svi_ifp->vrf)
+	if (!svi_ifp->vrf || !acc_bd->bridge_zif)
 		return 0;
 	zl3vni = zl3vni_from_vrf(svi_ifp->vrf->vrf_id);
 	if (!zl3vni)
 		return 0;
-	return zebra_evpn_l3vni_sync_mac_ifindex(zl3vni->vni, macaddr, acc_bd->vid);
+	return zebra_evpn_l3vni_sync_mac_ifindex(zl3vni->vni, macaddr, acc_bd->vid,
+						 acc_bd->bridge_zif->ifp);
 }
 
 /* Resolve the local Ethernet Segment a host MAC is learned behind, so the

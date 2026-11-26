@@ -114,7 +114,8 @@ static int zebra_neigh_rb_cmp(const struct zebra_neigh_ent *n1,
 }
 RB_GENERATE(zebra_neigh_rb_head, zebra_neigh_ent, rb_node, zebra_neigh_rb_cmp);
 
-static struct zebra_neigh_ent *zebra_neigh_find(ns_id_t ns_id, ifindex_t ifindex, struct ipaddr *ip)
+static struct zebra_neigh_ent *zebra_neigh_find(ns_id_t ns_id, ifindex_t ifindex,
+						const struct ipaddr *ip)
 {
 	struct zebra_neigh_ent tmp;
 
@@ -122,6 +123,15 @@ static struct zebra_neigh_ent *zebra_neigh_find(ns_id_t ns_id, ifindex_t ifindex
 	tmp.ifindex = ifindex;
 	memcpy(&tmp.ip, ip, sizeof(*ip));
 	return RB_FIND(zebra_neigh_rb_head, &zneigh_info->neigh_rb_tree, &tmp);
+}
+
+bool zebra_neigh_has_mac(ns_id_t ns_id, ifindex_t ifindex, const struct ipaddr *ip,
+			 const struct ethaddr *mac)
+{
+	const struct zebra_neigh_ent *n = zebra_neigh_find(ns_id, ifindex, ip);
+
+	return n && CHECK_FLAG(n->flags, ZEBRA_NEIGH_ENT_ACTIVE) &&
+	       !memcmp(&n->mac, mac, sizeof(*mac));
 }
 
 static struct zebra_neigh_ent *zebra_neigh_new(ns_id_t ns_id, ifindex_t ifindex, struct ipaddr *ip,

@@ -116,11 +116,11 @@ struct zebra_neigh {
 	 */
 	vlanid_t eth_tag;
 
-	/* For a remote pure-L3 (no-L2VNI) synced neighbor: ifindex of the ES
-	 * bond the host MAC was pinned to in the bridge FDB (local-ES sync-MAC),
-	 * so the exact FDB entry can be removed on update/withdraw. 0 if none.
+	/* ES bond and bridge for a pure-L3 static neighbor's MAC pin. A held
+	 * peer can record a desired bond alone until its pin is installed.
 	 */
 	ifindex_t sync_mac_ifindex;
+	ifindex_t sync_mac_bridge_ifindex;
 
 	/* Recorded binding for a local or peer-synced pure-L3 neighbor. */
 	enum zebra_l3mh_neigh_lifecycle l3mh_state;
@@ -454,7 +454,8 @@ void zebra_evpn_l3vni_remote_neigh_del(struct zebra_evpn *zevpn, const struct ip
 void zebra_evpn_l3vni_remote_neigh_reinstall_bd(vni_t l3vni, vlanid_t vid);
 void zebra_evpn_l3vni_svi_vrf_change(struct interface *ifp, vrf_id_t old_vrf_id);
 void zebra_evpn_l3vni_svi_addr_add(struct interface *ifp);
-ifindex_t zebra_evpn_l3vni_sync_mac_ifindex(vni_t l3vni, const struct ethaddr *mac, vlanid_t vid);
+ifindex_t zebra_evpn_l3vni_sync_mac_ifindex(vni_t l3vni, const struct ethaddr *mac, vlanid_t vid,
+					    const struct interface *br_if);
 int zebra_evpn_remote_neigh_update(struct zebra_evpn *zevpn, struct interface *ifp,
 				   const struct ipaddr *ip, const struct ethaddr *macaddr,
 				   uint16_t state, bool is_router);

@@ -709,6 +709,14 @@ def _assert_settled(bad_fn, msg):
     assert not bad_fn(), msg() if callable(msg) else msg
 
 
+def _relearn_local_fdb(dut, mac, vid=HOST_VID, leaves=None):
+    # The synthetic ARP learn releases the last pin. Model the later MAC learn.
+    _settle(leaves)
+    dut.cmd_raises(
+        "bridge fdb replace %s dev hostbond1 master vlan %d dynamic" % (mac, vid)
+    )
+
+
 def _pure_l3_rt2_path(dut, asn, ip=None, eth_tag=HOST_VID, mac=None):
     """Return the pure-L3 RT-2 path dict for ip/eth_tag on dut, or None.
 
@@ -1906,6 +1914,7 @@ def test_pure_l3_svi_vrf_move_falls_back_to_peer():
         lambda: _host1_synced(leaf2) or _host1_local(leaf2), "host1 missing on leaf2"
     )
     leaf2.run("ip neigh replace %s lladdr %s dev %s nud reachable" % (ip, mac, svi))
+    _relearn_local_fdb(leaf2, mac)
     _expect(
         lambda: _host1_local(leaf2) and _pure_l3_rt2_path(leaf2, 65012) is not None,
         "leaf2 did not take host1 as local before the VRF move",
@@ -2081,6 +2090,7 @@ def test_pure_l3_local_learn_over_synced_keeps_neigh():
             "ip neigh replace %s lladdr %s dev %s nud reachable"
             % (HOST_IP["host1"], host1_mac, svi)
         )
+        _relearn_local_fdb(leaf2, host1_mac)
         _expect(
             lambda: _pure_l3_rt2_path(leaf2, 65012) is not None,
             "leaf2 does not advertise host1 after the local learn",
@@ -2139,6 +2149,7 @@ def test_pure_l3_peer_with_local_arp_handles_origin_withdraw():
         # Convert leaf2's synced entry into a local ARP entry. The origin's
         # still-present RT-2 is recorded as peer-active on that local entry.
         leaf2.run("ip neigh replace %s lladdr %s dev %s nud reachable" % (ip, mac, svi))
+        _relearn_local_fdb(leaf2, mac)
         _expect(
             lambda: _host1_local(leaf2) and _pure_l3_rt2_path(leaf2, 65012) is not None,
             "leaf2 did not learn and advertise its local ARP",
@@ -2227,6 +2238,7 @@ def test_pure_l3_local_delete_falls_back_to_peer_sync():
             "ip neigh replace %s lladdr %s dev %s nud reachable"
             % (HOST_IP["host1"], host1_mac, svi)
         )
+        _relearn_local_fdb(leaf2, host1_mac)
         _expect(
             lambda: _pure_l3_rt2_path(leaf2, 65012) is not None,
             "leaf2 does not advertise host1 after the local learn",
@@ -3206,6 +3218,63 @@ def test_pure_l3_fdb_ageout_withdraws_until_relearn():
         _fdb("del")
 
 
+def test_pure_l3_last_pin_loss_rechecks_all_local_ips():
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    owner, receiver = (tgen.gears[name] for name in ("leaf1", "leaf2"))
+    leaves = (owner, receiver)
+    mac, svi = "02:00:00:00:00:d2", f"vlan{HOST_VID}"
+    peer, keep, fail, pending, later = (f"45.0.0.{i}" for i in range(211, 216))
+    local_ips = (keep, fail, pending, later)
+    fdb = f"{mac} dev hostbond1 master vlan {HOST_VID}"
+
+    def learn(leaf, ip, state="reachable"):
+        leaf.cmd_raises(f"ip neigh replace {ip} lladdr {mac} dev {svi} nud {state}")
+
+    def advertised():
+        _settle(leaves)
+        return {
+            ip
+            for ip in local_ips
+            if _pure_l3_rt2_path(receiver, 65012, ip=ip) is not None
+        }
+
+    try:
+        owner.cmd_raises(f"bridge fdb replace {fdb} dynamic")
+        learn(owner, peer)
+        _settle(leaves)
+        assert _neigh_synced(receiver, peer)
+        assert _mac_static_pinned(receiver, mac, HOST_VID)
+
+        learn(receiver, keep)
+        learn(receiver, fail)
+        learn(receiver, pending)
+        assert advertised() == {keep, fail, pending}
+
+        owner.cmd_raises(f"ip neigh del {peer} dev {svi}")
+        routes = advertised()
+        assert mac not in receiver.cmd_raises("bridge fdb show dev hostbond1")
+        assert not routes, f"RT-2s still advertised without the shared MAC: {routes}"
+        assert mac in receiver.cmd_raises(f"ip neigh show to {keep} dev {svi}")
+
+        learn(receiver, fail, "failed")
+        receiver.cmd_raises(f"ip neigh replace {pending} dev {svi} nud incomplete")
+        assert not advertised()
+        receiver.cmd_raises(f"bridge fdb replace {fdb} dynamic")
+        assert advertised() == {keep}, "MAC relearn advertised an unresolved IP"
+
+        learn(receiver, pending)
+        learn(receiver, later)
+        assert advertised() == {keep, pending, later}
+    finally:
+        for leaf in leaves:
+            for ip in (peer, *local_ips):
+                leaf.run(f"ip neigh del {ip} dev {svi} 2>/dev/null")
+            leaf.run(f"bridge fdb del {fdb} 2>/dev/null")
+
+
 def test_pure_l3_reimport_with_l2vni_es_base():
     """
     On a leaf that also has an L2VNI, the ES base EVPN comes from that L2VNI,
@@ -3501,6 +3570,7 @@ def test_pure_l3_local_on_es_peer_yields_to_etag_mobility():
             "ip neigh replace %s lladdr %s dev %s nud reachable"
             % (ip, host1_mac, svi100)
         )
+        _relearn_local_fdb(leaf2, host1_mac, old_vid)
         _expect(
             lambda: (
                 None

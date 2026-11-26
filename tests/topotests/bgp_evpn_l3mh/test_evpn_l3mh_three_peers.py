@@ -156,11 +156,9 @@ def test_rt2_origin_survives_spine_path_loss_and_changes_on_withdrawal():
 
     def learn(leaf):
         leaf.cmd_raises(
-            f"bridge fdb replace {mac} dev hostbond1 master vlan {vid} dynamic"
-        )
-        leaf.cmd_raises(
             f"ip neigh replace {ip} lladdr {mac} dev vlan{vid} nud reachable"
         )
+        l3mh._relearn_local_fdb(leaf, mac, leaves=leaves)
 
     def check_origin(leaf):
         entry = receiver.vtysh_cmd(neighbor, isjson=True)
@@ -382,3 +380,58 @@ def test_nud_transitions_do_not_learn_or_delete_l3mh_binding():
         owner.run(f"ip neigh del {ip} dev vlan{vid} 2>/dev/null")
         owner.run(f"bridge fdb del {mac} dev hostbond1 master vlan {vid} 2>/dev/null")
         owner.cmd_raises(f"sysctl -qw {timer}={original}")
+
+
+def test_last_static_neighbor_releases_its_vlan_mac_pin():
+    tgen = l3mh.get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    owner, receiver = (tgen.gears[name] for name in ("leaf1", "leaf2"))
+    leaves = (owner, receiver)
+    mac = "02:00:00:00:00:d1"
+    vid, other_vid = l3mh.HOST_VID, l3mh.HOST_VID2
+    bindings = (("45.0.0.209", vid), ("45.0.0.210", vid), ("45.0.1.209", other_vid))
+
+    def learn(leaf, ip, vlan):
+        leaf.cmd_raises(
+            f"ip neigh replace {ip} lladdr {mac} dev vlan{vlan} nud reachable"
+        )
+
+    def pin_present(vlan):
+        return l3mh._mac_static_pinned(receiver, mac, vlan)
+
+    l3mh._settle(leaves)
+    try:
+        for vlan in (vid, other_vid):
+            owner.cmd_raises(
+                f"bridge fdb replace {mac} dev hostbond1 master vlan {vlan} dynamic"
+            )
+        for ip, vlan in bindings:
+            learn(owner, ip, vlan)
+        l3mh._settle(leaves)
+        assert pin_present(vid) and pin_present(other_vid)
+
+        learn(receiver, bindings[0][0], vid)
+        l3mh._settle(leaves)
+        assert pin_present(vid), "Release of one static ARP removed a shared MAC pin"
+
+        learn(receiver, bindings[1][0], vid)
+        l3mh._settle(leaves)
+        entries = receiver.cmd_raises("bridge fdb show dev hostbond1")
+        assert not any(
+            line.startswith(f"{mac} ") and f" vlan {vid} " in f"{line} "
+            for line in entries.splitlines()
+        ), entries
+        assert pin_present(other_vid), "Release removed the same MAC on another VLAN"
+        for ip, _ in bindings[:2]:
+            entry = receiver.cmd_raises(f"ip neigh show to {ip} dev vlan{vid}")
+            assert mac in entry and "extern_learn" not in entry, entry
+    finally:
+        for leaf in leaves:
+            for ip, vlan in bindings:
+                leaf.run(f"ip neigh del {ip} dev vlan{vlan} 2>/dev/null")
+            for vlan in (vid, other_vid):
+                leaf.run(
+                    f"bridge fdb del {mac} dev hostbond1 master vlan {vlan} 2>/dev/null"
+                )
