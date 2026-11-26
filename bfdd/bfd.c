@@ -268,6 +268,17 @@ void bfd_session_apply(struct bfd_session *bs)
 	bs->auth_meticulous = bs->peer_profile.auth_config.meticulous ||
 			      (bs->profile && bs->profile->auth_config.meticulous);
 
+	if (bs->peer_profile.auth_config.key_chain_name[0] != '\0' &&
+	    !bfd_session_auth_config_takes_precedence_over_profile(bs)) {
+		if (bs->kc)
+			zlog_warn("BFD: session [%s] keychain %s does not exist; using keychain %s of profile %s",
+				  bs_to_string(bs), bs->peer_profile.auth_config.key_chain_name,
+				  bs->kc->name, bs->profile->name);
+		else
+			zlog_warn("BFD: session [%s] keychain %s does not exist; the session will not authenticate",
+				  bs_to_string(bs), bs->peer_profile.auth_config.key_chain_name);
+	}
+
 	/*
 	 * Warn here rather than per packet. A keychain that holds nothing
 	 * this session can use now keeps the session down instead of
@@ -305,6 +316,23 @@ void bfd_profile_remove(struct bfd_session *bs)
 	/* Remove any previous set profile name. */
 	XFREE(MTYPE_BFDD_PROFILE, bs->profile_name);
 	bfd_profile_remove_reference(bs);
+}
+
+void bfd_profile_apply_client(struct bfd_session *bs)
+{
+	const char *profname = ptm_bfd_client_profile(bs);
+
+	if (profname)
+		bfd_profile_apply(profname, bs);
+	else
+		bfd_profile_remove(bs);
+}
+
+void bfd_session_unconfigure(struct bfd_session *bs)
+{
+	bs->peer_profile = bs->client_peer_profile;
+	UNSET_FLAG(bs->flags, BFD_SESS_FLAG_CONFIG_PROFILE);
+	bfd_profile_apply_client(bs);
 }
 
 void gen_bfd_key(struct bfd_key *key, struct sockaddr_any *peer, struct sockaddr_any *local,
@@ -469,10 +497,10 @@ int bfd_session_enable(struct bfd_session *bs)
 		bvrf->bg_session_count++;
 		/*
 		 * Echo set before the VRF was known opened no echo socket.
-		 * Only where bfd_vrf_start_sockets would open sockets: not
-		 * with a data plane, and not in a VRF left out of --vrfs.
+		 * Only where bfd_vrf_start_sockets would open sockets, and
+		 * not in a VRF left out of --vrfs.
 		 */
-		if (CHECK_FLAG(bs->flags, BFD_SESS_FLAG_ECHO) && !bglobal.bg_use_dplane &&
+		if (CHECK_FLAG(bs->flags, BFD_SESS_FLAG_ECHO) && bfd_vrf_listens() &&
 		    bfd_vrf_is_perm(bvrf->vrf->name))
 			bfd_vrf_toggle_echo(bvrf);
 	}
@@ -637,6 +665,7 @@ enum bfd_auth_type map_keychain_algo_to_bfd_auth_type(enum keychain_hash_algo kc
 {
 	switch (kc_algo) {
 	case KEYCHAIN_ALGO_HMAC_SHA1:
+	case KEYCHAIN_ALGO_SHA1:
 		return meticulous ? BFD_AUTH_TYPE_METICULOUS_KEYED_SHA1 : BFD_AUTH_TYPE_KEYED_SHA1;
 	case KEYCHAIN_ALGO_NULL:
 	case KEYCHAIN_ALGO_CLEARTEXT:
@@ -674,10 +703,10 @@ struct key *bfd_keychain_key_find_active(const struct keychain *keychain, bool m
 	for (ALL_LIST_ELEMENTS_RO(keychain->key, node, key)) {
 		size_t keylen, maxlen;
 
-		if (meticulous && key->hash_algo != KEYCHAIN_ALGO_HMAC_SHA1)
+		if (meticulous && !bfd_auth_algo_is_sha1(key->hash_algo))
 			continue;
 		if (key->hash_algo != KEYCHAIN_ALGO_CLEARTEXT &&
-		    key->hash_algo != KEYCHAIN_ALGO_HMAC_SHA1)
+		    !bfd_auth_algo_is_sha1(key->hash_algo))
 			continue;
 		if (!key->string)
 			continue;
@@ -688,9 +717,8 @@ struct key *bfd_keychain_key_find_active(const struct keychain *keychain, bool m
 		 * is 28 bytes whatever the key length, so the longer key does
 		 * not grow the packet.
 		 */
-		maxlen = key->hash_algo == KEYCHAIN_ALGO_HMAC_SHA1
-				 ? BFD_AUTH_SHA1_KEY_MAX_LEN
-				 : BFD_AUTH_SIMPLE_PASSWD_MAX_LEN;
+		maxlen = bfd_auth_algo_is_sha1(key->hash_algo) ? BFD_AUTH_SHA1_KEY_MAX_LEN
+							       : BFD_AUTH_SIMPLE_PASSWD_MAX_LEN;
 		keylen = strlen(key->string);
 		if (keylen < BFD_AUTH_SIMPLE_PASSWD_MIN_LEN || keylen > maxlen)
 			continue;
@@ -722,6 +750,20 @@ void ptm_bfd_xmt_TO(struct bfd_session *bfd, int fbit)
 
 	/* Send the scheduled control packet */
 	ptm_bfd_snd(bfd, fbit);
+
+	/*
+	 * Cap AdminDown re-transmit to the admindown_tx_left budget. Once
+	 * it is exhausted, stop the transmit timer so a shut session no
+	 * longer burns 1 pps forever.
+	 */
+	if (CHECK_FLAG(bfd->flags, BFD_SESS_FLAG_SHUTDOWN) && bfd->ses_state == PTM_BFD_ADM_DOWN) {
+		if (bfd->admindown_tx_left > 0)
+			bfd->admindown_tx_left--;
+		if (bfd->admindown_tx_left == 0) {
+			bfd_xmttimer_delete(bfd);
+			return;
+		}
+	}
 
 	/* Restart the timer for next time */
 	ptm_bfd_start_xmt_timer(bfd, false);
@@ -1148,6 +1190,7 @@ struct bfd_session *bfd_session_new(enum bfd_mode_type mode)
 
 	/* Set peer session defaults. */
 	bfd_profile_set_default(&bs->peer_profile);
+	bfd_profile_set_default(&bs->client_peer_profile);
 
 	bs->timers.desired_min_tx = BFD_DEFDESIREDMINTX;
 	bs->timers.required_min_rx = BFD_DEFREQUIREDMINRX;
@@ -1238,6 +1281,37 @@ static void _bfd_session_update(struct bfd_session *bs,
 	 */
 	if (bpc->bpc_has_profile)
 		bfd_profile_apply(bpc->bpc_profile, bs);
+}
+
+void bfd_session_save_client_config(struct bfd_session *bs, const struct bfd_peer_cfg *bpc)
+{
+	struct bfd_profile *bp = &bs->client_peer_profile;
+
+	/* The peer settings _bfd_session_update() applies. */
+	bfd_profile_set_default(bp);
+
+	if (bpc->bpc_has_txinterval)
+		bp->min_tx = bpc->bpc_txinterval * 1000;
+
+	if (bpc->bpc_has_recvinterval)
+		bp->min_rx = bpc->bpc_recvinterval * 1000;
+
+	if (bpc->bpc_has_detectmultiplier)
+		bp->detection_multiplier = bpc->bpc_detectmultiplier;
+
+	if (bpc->bpc_has_echorecvinterval)
+		bp->min_echo_rx = bpc->bpc_echorecvinterval * 1000;
+
+	if (bpc->bpc_has_echotxinterval)
+		bp->min_echo_tx = bpc->bpc_echotxinterval * 1000;
+
+	if (bpc->bpc_has_minimum_ttl)
+		bp->minimum_ttl = bpc->bpc_minimum_ttl;
+
+	bp->echo_mode = bpc->bpc_echo;
+	bp->admin_shutdown = bpc->bpc_shutdown;
+	strlcpy(bp->auth_config.key_chain_name, bpc->auth_config.key_chain_name,
+		sizeof(bp->auth_config.key_chain_name));
 }
 
 int bfd_session_update(struct bfd_session *bs, struct bfd_peer_cfg *bpc)
@@ -1352,6 +1426,7 @@ struct bfd_session *ptm_bfd_sess_new(struct bfd_peer_cfg *bpc)
 
 	/* Apply other configurations. */
 	_bfd_session_update(bfd, bpc);
+	bfd_session_save_client_config(bfd, bpc);
 
 	return bfd;
 }
@@ -1860,7 +1935,7 @@ void bfd_set_shutdown(struct bfd_session *bs, bool shutdown)
 		SET_FLAG(bs->flags, BFD_SESS_FLAG_SHUTDOWN);
 		bs->local_diag = BD_ADMIN_DOWN;
 
-		/* Handle data plane shutdown case. */
+		/* Offloaded sessions must also keep sending AdminDown. */
 		if (bs->bdc) {
 			bs->ses_state = PTM_BFD_ADM_DOWN;
 			bfd_dplane_update_session(bs);
@@ -1868,25 +1943,53 @@ void bfd_set_shutdown(struct bfd_session *bs, bool shutdown)
 			return;
 		}
 
-		/* Disable all events. */
+		/* Stop receive/echo timers, but keep transmitting AdminDown. */
 		bfd_recvtimer_delete(bs);
 		bfd_echo_recvtimer_delete(bs);
-		bfd_xmttimer_delete(bs);
 		bfd_echo_xmttimer_delete(bs);
 
 		/* Change and notify state change. */
 		bs->ses_state = PTM_BFD_ADM_DOWN;
 		ptm_bfd_notify(bs, bs->ses_state);
 
-		/* Don't try to send packets with a disabled session. */
-		if (bs->sock != -1)
+		/*
+		 * Advertise AdminDown at slow rate for a bounded burst:
+		 *   max(BFD_ADMIN_DOWN_TX_MIN,
+		 *       ceil(pre-slow detect_TO / BFD_DEF_SLOWTX))
+		 * so RFC 5880 6.8.16 ("SHOULD be transmitted for at least a
+		 * Detection Time") holds for any negotiated timers, and
+		 * aggressive-timer sessions still get the min-floor as a
+		 * loss-tolerance margin. Sample detect_TO BEFORE moving to
+		 * slow timers, since bs_set_slow_timers() resets it.
+		 * The first packet goes out immediately; the timer is
+		 * re-armed only while budget remains.
+		 */
+		if (bs->sock != -1) {
+			uint64_t pre_slow_detect_TO = bs->detect_TO;
+			uint32_t detect_pkts;
+
+			bs_set_slow_timers(bs);
+			detect_pkts = (pre_slow_detect_TO + BFD_DEF_SLOWTX - 1) / BFD_DEF_SLOWTX;
+			bs->admindown_tx_left = MAX(BFD_ADMIN_DOWN_TX_MIN, detect_pkts);
 			ptm_bfd_snd(bs, 0);
+			bs->admindown_tx_left--;
+			if (bs->admindown_tx_left > 0)
+				ptm_bfd_start_xmt_timer(bs, false);
+		}
 	} else {
 		/* Already working. */
 		if (!is_shutdown)
 			return;
 
 		UNSET_FLAG(bs->flags, BFD_SESS_FLAG_SHUTDOWN);
+
+		/*
+		 * Clear any pending AdminDown transmit budget so a rapid
+		 * shut/no-shut cannot leak stale state into the recovered
+		 * session; the timer restart below replaces any pending
+		 * slow-rate AdminDown slot.
+		 */
+		bs->admindown_tx_left = 0;
 
 		/* Handle data plane shutdown case. */
 		if (bs->bdc) {
@@ -2585,9 +2688,14 @@ static void _bfd_session_remove_manual(struct hash_bucket *hb,
 	bs->refcount--;
 	UNSET_FLAG(bs->flags, BFD_SESS_FLAG_CONFIG);
 
-	/* Don't delete sessions still in use. */
-	if (bs->refcount != 0)
+	/*
+	 * Don't delete sessions still in use, but drop what the `peer` node
+	 * configured.
+	 */
+	if (bs->refcount != 0) {
+		bfd_session_unconfigure(bs);
 		return;
+	}
 
 	bfd_session_free(bs);
 }
@@ -2610,6 +2718,38 @@ void bfd_profiles_remove(void)
 		bfd_profile_free(bp, true);
 }
 
+/*
+ * Whether bfdd listens for the sessions it runs. With a data plane
+ * configured, only once one is connected and has declared what it supports:
+ * the sessions bfdd runs then are ones it declined. Until then they wait for
+ * it, and the ports stay free for a data plane on this host.
+ */
+bool bfd_vrf_listens(void)
+{
+	return !bglobal.bg_use_dplane || bfd_dplane_declared();
+}
+
+/*
+ * Open or close the listening sockets of every VRF once a data plane
+ * connects, declares what it supports, or goes away.
+ */
+void bfd_vrfs_listen_update(void)
+{
+	struct bfd_vrf_global *bvrf;
+	struct vrf *vrf;
+
+	RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name) {
+		bvrf = vrf->info;
+		if (!bvrf)
+			continue;
+
+		if (!bfd_vrf_listens())
+			bfd_vrf_stop_sockets(bvrf);
+		else if (bvrf->bg_session_count > 0 || bvrf->bg_reflector_count > 0)
+			bfd_vrf_start_sockets(bvrf);
+	}
+}
+
 struct __bfd_session_echo {
 	/* VRF peers must match */
 	struct vrf *vrf;
@@ -2626,6 +2766,9 @@ static int __bfd_session_has_echo(struct hash_bucket *hb, void *arg)
 		return HASHWALK_CONTINUE;
 	if (!CHECK_FLAG(session->flags, BFD_SESS_FLAG_ECHO))
 		return HASHWALK_CONTINUE;
+	/* A data plane sends and receives its sessions' echo. */
+	if (session->bdc)
+		return HASHWALK_CONTINUE;
 
 	has_echo->enabled = true;
 	return HASHWALK_ABORT;
@@ -2638,8 +2781,8 @@ void bfd_vrf_toggle_echo(struct bfd_vrf_global *bfd_vrf)
 		.vrf = bfd_vrf->vrf,
 	};
 
-	/* As bfd_vrf_start_sockets: the data plane sends and receives echo. */
-	if (bglobal.bg_use_dplane)
+	/* As bfd_vrf_start_sockets. */
+	if (!bfd_vrf_listens())
 		return;
 
 	/* Check for peers using echo */
@@ -3026,8 +3169,7 @@ void bfd_rtt_init(struct bfd_session *bfd)
  */
 int bfd_vrf_start_sockets(struct bfd_vrf_global *bvrf)
 {
-	/* Don't open sockets when using data plane. */
-	if (bglobal.bg_use_dplane)
+	if (!bfd_vrf_listens())
 		return 0;
 
 	if (!bfd_vrf_is_perm(bvrf->vrf->name))

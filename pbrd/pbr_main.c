@@ -74,6 +74,7 @@ static FRR_NORETURN void sigint(void)
 	nexthop_group_terminate();
 	pbr_nht_terminate();
 	access_list_reset();
+	prefix_list_reset();
 
 	pbr_zebra_destroy();
 

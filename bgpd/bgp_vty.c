@@ -4618,6 +4618,31 @@ DEFPY (bgp_bestpath_use_imported_attrs,
 	return CMD_SUCCESS;
 }
 
+DEFPY (bgp_bestpath_prefer_mpls_over_srv6,
+       bgp_bestpath_prefer_mpls_over_srv6_cmd,
+       "[no$no] bgp bestpath prefer-mpls-over-srv6",
+       NO_STR
+       BGP_STR
+       "Change the default bestpath selection\n"
+       "Prefer the MPLS path over the SRv6 path\n")
+{
+	VTY_DECLVAR_CONTEXT(bgp, bgp);
+
+	if (no) {
+		if (CHECK_FLAG(bgp->flags, BGP_FLAG_BESTPATH_PREFER_MPLS_OVER_SRV6)) {
+			UNSET_FLAG(bgp->flags, BGP_FLAG_BESTPATH_PREFER_MPLS_OVER_SRV6);
+			bgp_recalculate_all_bestpaths(bgp);
+		}
+	} else {
+		if (!CHECK_FLAG(bgp->flags, BGP_FLAG_BESTPATH_PREFER_MPLS_OVER_SRV6)) {
+			SET_FLAG(bgp->flags, BGP_FLAG_BESTPATH_PREFER_MPLS_OVER_SRV6);
+			bgp_recalculate_all_bestpaths(bgp);
+		}
+	}
+
+	return CMD_SUCCESS;
+}
+
 /* "bgp bestpath as-path confed" configuration.  */
 DEFUN (bgp_bestpath_aspath_confed,
        bgp_bestpath_aspath_confed_cmd,
@@ -17396,31 +17421,24 @@ static void bgp_show_peer(struct vty *vty, struct peer *p, uint16_t sh_flags, bo
 
 		/* read timer */
 		time_t uptime;
-		struct tm tm;
 
 		uptime = monotime(NULL);
 		uptime -= p->readtime;
-		gmtime_r(&uptime, &tm);
 
 		json_object_int_add(json_neigh, "bgpTimerLastRead",
-				    (tm.tm_sec * 1000) + (tm.tm_min * 60000)
-					    + (tm.tm_hour * 3600000));
+				    (int64_t)uptime * 1000);
 
 		uptime = monotime(NULL);
 		uptime -= p->last_write;
-		gmtime_r(&uptime, &tm);
 
 		json_object_int_add(json_neigh, "bgpTimerLastWrite",
-				    (tm.tm_sec * 1000) + (tm.tm_min * 60000)
-					    + (tm.tm_hour * 3600000));
+				    (int64_t)uptime * 1000);
 
 		uptime = monotime(NULL);
 		uptime -= p->update_time;
-		gmtime_r(&uptime, &tm);
 
 		json_object_int_add(json_neigh, "bgpInUpdateElapsedTimeMsecs",
-				    (tm.tm_sec * 1000) + (tm.tm_min * 60000)
-					    + (tm.tm_hour * 3600000));
+				    (int64_t)uptime * 1000);
 
 		/* Configured timer values. */
 		json_object_int_add(json_neigh,
@@ -23092,6 +23110,8 @@ int bgp_config_write(struct vty *vty)
 			vty_out(vty, " bgp bestpath compare-routerid\n");
 		if (CHECK_FLAG(bgp->flags, BGP_FLAG_BESTPATH_USE_IMPORTED_ATTRS))
 			vty_out(vty, " bgp bestpath use-imported-attributes\n");
+		if (CHECK_FLAG(bgp->flags, BGP_FLAG_BESTPATH_PREFER_MPLS_OVER_SRV6))
+			vty_out(vty, " bgp bestpath prefer-mpls-over-srv6\n");
 
 		if (!!CHECK_FLAG(bgp->flags, BGP_FLAG_COMPARE_AIGP) != SAVE_BGP_COMPARE_AIGP)
 			vty_out(vty, " %sbgp bestpath aigp\n",
@@ -24181,6 +24201,8 @@ void bgp_vty_init(void)
 
 	/* "bgp bestpath use-imported-attributes" commands */
 	install_element(BGP_NODE, &bgp_bestpath_use_imported_attrs_cmd);
+
+	install_element(BGP_NODE, &bgp_bestpath_prefer_mpls_over_srv6_cmd);
 
 	/* "bgp bestpath as-path confed" commands */
 	install_element(BGP_NODE, &bgp_bestpath_aspath_confed_cmd);

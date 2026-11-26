@@ -656,7 +656,7 @@ static int fe_session_send_error(struct mgmt_fe_session_ctx *session, uint64_t r
  * in-progress txn.
  *
  * XXXchopps this is used in 2 places for GET-DATA and RPC errors from TXN
- * module just adapt those 2 normal reply fucntions to take an error result and
+ * module just adapt those 2 normal reply functions to take an error result and
  * get rid of this function.
  */
 int mgmt_fe_adapter_txn_error(uint64_t txn_id, uint64_t req_id, bool short_circuit_ok,
@@ -738,7 +738,7 @@ int mgmt_fe_send_commit_cfg_reply(uint64_t session_id, uint64_t txn_id, enum mgm
 	 * back that change out of the candidate DS, and the user will be
 	 * presented with an error message.
 	 *
-	 * So, if we have a failiure to apply an implicit commit, we
+	 * So, if we have a failure to apply an implicit commit, we
 	 * should restore the candidate DS, and we can do this by copying
 	 * running back over candidate. This doesn't work in the transactional
 	 * case b/c the candidate may be made up from multiple changes and a
@@ -844,7 +844,7 @@ static void fe_session_handle_commit(struct mgmt_fe_session_ctx *session, void *
 	}
 
 	/*
-	 * We get an exisitng cfg_txn_id if a check/validate was done first then
+	 * We get an existing cfg_txn_id if a check/validate was done first then
 	 * an apply/abort later.
 	 */
 	if (session->cfg_txn_id == MGMTD_TXN_ID_NONE) {
@@ -1016,7 +1016,7 @@ void mgmt_fe_adapter_send_tree_data(uint64_t session_id, uint64_t txn_id, uint64
 	if (!session)
 		return;
 
-	/* XXXchopps why do we care about this? Why not allow multple? */
+	/* XXXchopps why do we care about this? Why not allow multiple? */
 	assert(session->txn_id == txn_id);
 
 	if (fe_session_send_tree_data(session, req_id, short_circuit_ok, result_type, wd_options,
@@ -1344,7 +1344,7 @@ static void fe_session_handle_edit(struct mgmt_fe_session_ctx *session, void *_m
 	}
 
 	/*
-	 * Everythign valid and setup, proceed to make the edit.
+	 * Everything valid and setup, proceed to make the edit.
 	 */
 
 	errstr[0] = '\0';
@@ -1552,7 +1552,7 @@ void mgmt_fe_adapter_send_rpc_reply(uint64_t session_id, uint64_t txn_id, uint64
 	if (!session)
 		return;
 
-	/* XXXchopps why do we care about this? Why not allow multple? */
+	/* XXXchopps why do we care about this? Why not allow multiple? */
 	assert(session->txn_id == txn_id);
 
 	if (fe_session_send_rpc_reply(session, req_id, result_type, restconf, result))

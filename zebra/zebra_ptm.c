@@ -1358,7 +1358,7 @@ static void _zebra_ptm_reroute(struct zserv *zs, struct zebra_vrf *zvrf,
 	zebra_ptm_send_bfdd(msgc);
 	msgc = NULL;
 
-	/* Registrate process PID for shutdown hook. */
+	/* Register process PID for shutdown hook. */
 	STREAM_GETL(msg, ppid);
 	pp_new(ppid, zs);
 

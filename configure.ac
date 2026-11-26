@@ -1365,7 +1365,7 @@ AC_CHECK_FUNCS([ \
 	explicit_bzero \
 	])
 
-dnl note the trailing _ in the following macros; this is neccessary since
+dnl note the trailing _ in the following macros; this is necessary since
 dnl otherwise autoheader *replaces* the #define with the block...
 dnl
 dnl yes this might include stddef.h 3 times but who cares
@@ -2055,7 +2055,13 @@ AC_MSG_ERROR([m4_normalize([libyang >= 2.1.128 is required, and was not found on
 Please consult doc/developer/building-libyang.rst for instructions on installing or building libyang.])])])
 
 ac_cflags_save="$CFLAGS"
+ac_ldflags_save="$LDFLAGS"
 CFLAGS="$CFLAGS $LIBYANG_CFLAGS"
+for flag in $LIBYANG_LIBS; do
+  case "$flag" in
+  -L*) LDFLAGS="$LDFLAGS $flag" ;;
+  esac
+done
 AC_CHECK_MEMBER([struct lyd_node.priv], [], [
   AC_MSG_ERROR([m4_normalize([
     libyang needs to be compiled with ENABLE_LYD_PRIV=ON.
@@ -2063,13 +2069,14 @@ AC_CHECK_MEMBER([struct lyd_node.priv], [], [
   ])
 ], [[#include <libyang/libyang.h>]])
 
-AC_CHECK_LIB([yang],[lyd_find_xpath3],[],[AC_MSG_ERROR([m4_normalize([
+AC_CHECK_LIB([yang],[lyd_find_xpath3],[LIBS="$LIBYANG_LIBS $LIBS"],[AC_MSG_ERROR([m4_normalize([
 libyang missing lyd_find_xpath3])])])
 dnl -- don't add lyd_new_list3 to this list unless bug is fixed upstream
 dnl -- https://github.com/CESNET/libyang/issues/2149
 AC_CHECK_FUNCS([ly_yang_module_dir lyd_trim_xpath])
 
 CFLAGS="$ac_cflags_save"
+LDFLAGS="$ac_ldflags_save"
 
 dnl ---------------
 dnl configuration rollbacks

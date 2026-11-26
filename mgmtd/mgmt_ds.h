@@ -83,7 +83,7 @@ static inline enum mgmt_ds_id mgmt_ds_name2id(const char *name)
 /*
  * Convert datastore ID to datastore name.
  *
- * similar to above funtion.
+ * similar to above function.
  */
 static inline enum mgmt_ds_id mgmt_get_ds_id_by_name(const char *ds_name)
 {

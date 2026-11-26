@@ -833,6 +833,8 @@ static bool netlink_error_is_expected(const struct nlsock *nl, int msg_type, int
 			return -errnum == ENETDOWN || -errnum == EEXIST;
 		case RTM_DELNEXTHOP:
 			return -errnum == ENOENT || -errnum == ESRCH;
+		case RTM_DELNEIGH:
+			return -errnum == ENOENT;
 		case RTM_NEWTUNNEL:
 		case RTM_DELTUNNEL:
 		case RTM_GETTUNNEL:

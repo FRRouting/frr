@@ -821,8 +821,7 @@ struct zebra_neigh *zebra_evpn_proc_sync_neigh_update(
 /*
  * Uninstall remote neighbor from the kernel.
  */
-static int zebra_evpn_neigh_uninstall(struct zebra_evpn *zevpn,
-				      struct zebra_neigh *n)
+int zebra_evpn_neigh_uninstall(struct zebra_evpn *zevpn, struct zebra_neigh *n)
 {
 	struct interface *vlan_if;
 
@@ -2346,7 +2345,7 @@ int zebra_evpn_neigh_del_ip(struct zebra_evpn *zevpn, const struct ipaddr *ip)
 		return -1;
 	}
 
-	/* In case of feeze action, if local neigh is in duplicate state,
+	/* In case of freeze action, if local neigh is in duplicate state,
 	 * Mark the Neigh as inactive before sending delete request to BGPd,
 	 * If BGPd has remote entry, it will re-install
 	 */

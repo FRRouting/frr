@@ -296,7 +296,7 @@ char *ttable_dump(struct ttable *tt, const char *newline)
 	char *buf;	   // print buffer
 	size_t pos;	   // position in buffer
 	size_t nl_len;     // strlen(newline)
-	int cw[tt->ncols]; // calculated column widths
+	int cw[MAX(tt->ncols, 1)]; // calculated column widths
 	int nlines;	   // total number of newlines / table lines
 	size_t width;      // length of one line, with newline
 	int abspad;	   // calculated whitespace for sprintf

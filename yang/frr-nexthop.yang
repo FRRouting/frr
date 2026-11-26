@@ -342,7 +342,7 @@ module frr-nexthop {
     }
   }
 
-  /* Contaner for SRv6 segs SIDs */
+  /* Container for SRv6 segs SIDs */
   grouping srv6-segs-stack {
     description
       "This grouping specifies an SRv6 segs SIDs stack. The segs

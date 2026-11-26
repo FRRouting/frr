@@ -275,6 +275,7 @@ enum bfd_session_flags {
 	BFD_SESS_FLAG_PASSIVE = 1 << 10,	     /* Passive mode */
 	BFD_SESS_FLAG_MAC_SET = 1 << 11,	     /* MAC of peer known */
 	BFD_SESS_FLAG_LOG_SESSION_CHANGES = 1 << 12, /* Log session changes */
+	BFD_SESS_FLAG_CONFIG_PROFILE = 1 << 13,	     /* Profile set with bfd NB API */
 };
 
 enum bfd_mode_type {
@@ -401,6 +402,11 @@ struct bfd_session {
 	struct bfd_profile *profile;
 	/** BFD peer configuration (without profile). */
 	struct bfd_profile peer_profile;
+	/**
+	 * Peer configuration the first client of the session asked for,
+	 * restored when a `peer` node stops configuring the session.
+	 */
+	struct bfd_profile client_peer_profile;
 
 	/* Timers */
 	struct bfd_config_timers timers;
@@ -418,6 +424,14 @@ struct bfd_session {
 
 	/* software object state */
 	uint8_t polling;
+
+	/*
+	 * AdminDown transmit budget: number of slow-rate AdminDown Control
+	 * packets still to send after administrative shutdown. Seeded on
+	 * entering shutdown, decremented after each send, and reset to 0 on
+	 * no-shutdown so a rapid shut/no-shut cannot leak stale state.
+	 */
+	uint32_t admindown_tx_left;
 
 	/* This and the localDiscr are the keys to state info */
 	struct bfd_key key;
@@ -507,6 +521,20 @@ struct sbfd_reflector {
 #define BFD_DEF_REQ_MIN_ECHO_RX (50 * 1000) /* microseconds. */
 #define BFD_DEF_SLOWTX (1000 * 1000) /* microseconds. */
 #define SBFD_ECHO_DEF_SLOWTX	(1000 * 1000) /* microseconds. */
+/*
+ * Minimum number of AdminDown control packets to transmit at slow rate
+ * after administrative shutdown. The actual budget is:
+ *
+ *     max(BFD_ADMIN_DOWN_TX_MIN,
+ *         ceil(pre_slow_detect_TO / BFD_DEF_SLOWTX))
+ *
+ * so RFC 5880 Section 6.8.16 ("SHOULD be transmitted for at least a
+ * Detection Time") holds for any negotiated timers, while aggressive-
+ * timer sessions still get this floor as a loss-tolerance safety margin.
+ * Once the budget is spent the transmit timer stops, so a shut session
+ * no longer burns a packet-per-second forever.
+ */
+#define BFD_ADMIN_DOWN_TX_MIN 5
 /** Minimum multi hop TTL. */
 #define BFD_DEF_MHOP_TTL 254
 #define BFD_PKT_LEN 24 /* Length of control packet */
@@ -716,6 +744,16 @@ const struct bfd_session *bfd_session_next(const struct bfd_session *bs, bool mh
 					   uint32_t bfd_mode);
 void bfd_sessions_remove_manual(void);
 void bfd_profiles_remove(void);
+/*
+ * Key chain algorithms that give keyed SHA1. "sha-1" is the construction of
+ * RFC 5880 Section 6.7.4; "hmac-sha-1" is an HMAC-SHA1 over the packet,
+ * which earlier releases used and which only interoperates with them.
+ */
+static inline bool bfd_auth_algo_is_sha1(enum keychain_hash_algo algo)
+{
+	return algo == KEYCHAIN_ALGO_SHA1 || algo == KEYCHAIN_ALGO_HMAC_SHA1;
+}
+
 extern enum bfd_auth_type map_keychain_algo_to_bfd_auth_type(enum keychain_hash_algo kc_algo,
 							     bool meticulous);
 extern const char *bfd_auth_type_get_description(enum bfd_auth_type auth_type);
@@ -857,6 +895,32 @@ void bfd_profile_apply(const char *profname, struct bfd_session *bs);
 void bfd_profile_remove(struct bfd_session *bs);
 
 /**
+ * Give the session back the profile one of its clients registered it with,
+ * or no profile if they gave none.
+ *
+ * \param bs the BFD session.
+ */
+void bfd_profile_apply_client(struct bfd_session *bs);
+
+/**
+ * Remove the configuration a `peer` node set on a session that clients still
+ * use: give it back the peer settings of its first client, and the profile of
+ * its clients.
+ *
+ * \param bs the BFD session.
+ */
+void bfd_session_unconfigure(struct bfd_session *bs);
+
+/**
+ * Save the peer settings a client registered the session with, which the
+ * session gets back when a `peer` node stops configuring it.
+ *
+ * \param bs the BFD session.
+ * \param bpc the peer configuration of the client.
+ */
+void bfd_session_save_client_config(struct bfd_session *bs, const struct bfd_peer_cfg *bpc);
+
+/**
  * Apply new profile values to sessions using it.
  *
  * \param[in] bp the BFD profile that got updated.
@@ -892,6 +956,16 @@ void bfdd_sessions_disable_vrf(struct vrf *vrf);
 
 int ptm_bfd_notify(struct bfd_session *bs, uint8_t notify_state);
 
+/**
+ * Look up the profile a client registered the session with.
+ *
+ * \param bs the BFD session.
+ *
+ * \returns the profile name of the most recent registration that gave one,
+ * among those of the clients still using the session, or NULL.
+ */
+const char *ptm_bfd_client_profile(const struct bfd_session *bs);
+
 /*
  * dplane.c
  */
@@ -915,6 +989,9 @@ void bfd_dplane_init(const struct sockaddr *sa, socklen_t salen, bool client);
  * and we should fallback to software implementation.
  */
 int bfd_dplane_add_session(struct bfd_session *bs);
+bool bfd_dplane_declared(void);
+bool bfd_vrf_listens(void);
+void bfd_vrfs_listen_update(void);
 
 /**
  * Send new session settings to data plane.

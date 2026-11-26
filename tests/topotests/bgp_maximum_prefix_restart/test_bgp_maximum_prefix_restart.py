@@ -18,10 +18,16 @@ Test BGP maximum-prefix recovery scenarios:
 3. Peer-group member: set max-prefix below count -> session down
 4. Peer-group member: increase max-prefix above count -> session recovers
 5. Peer-group member: unset max-prefix (inherit) -> session recovers
+6. Labeled-unicast neighbor: max-prefix configured under
+   address-family ipv4 labeled-unicast is enforced, both when it is
+   set on an established session and when more prefixes are received
 
 Topology:
     r2 (sends 3 routes) ----> r1 (DUT) <---- r3 (sends 1 route)
                          (regular nbr)   (peer-group)
+                                 ^
+                                 |
+                       r4 (sends 3 routes, ipv4 labeled-unicast)
 """
 
 import os
@@ -42,8 +48,8 @@ pytestmark = [pytest.mark.bgpd]
 
 
 def build_topo(tgen):
-    # Create 3 routers
-    for routern in range(1, 4):
+    # Create 4 routers
+    for routern in range(1, 5):
         tgen.add_router("r{}".format(routern))
 
     # r2 <-> r1 (regular neighbor test)
@@ -55,6 +61,11 @@ def build_topo(tgen):
     switch = tgen.add_switch("s2")
     switch.add_link(tgen.gears["r1"])
     switch.add_link(tgen.gears["r3"])
+
+    # r4 <-> r1 (labeled-unicast neighbor test)
+    switch = tgen.add_switch("s3")
+    switch.add_link(tgen.gears["r1"])
+    switch.add_link(tgen.gears["r4"])
 
 
 def setup_module(mod):
@@ -323,6 +334,111 @@ def test_bgp_maximum_prefix_peer_group_unset():
     test_func = functools.partial(_bgp_session_established_r3)
     _, result = topotest.run_and_expect(test_func, None, count=20, wait=3)
     assert result is None, "Session failed to recover after unsetting maximum-prefix"
+
+
+def test_bgp_maximum_prefix_labeled_unicast():
+    """
+    Test maximum-prefix with a labeled-unicast neighbor (r1 <-> r4):
+    labeled-unicast routes are installed in the unicast table, but the
+    limit is configured under address-family ipv4 labeled-unicast.
+    - Session established initially (r4 sends 3 routes)
+    - Set max-prefix to 1 on r1 (< 3 received) -> session goes down
+    - Increase max-prefix to 5 on r1 (> 3 received) -> session recovers
+    - r4 sends 3 more routes (6 > 5) -> session goes down
+    - Increase max-prefix to 10 on r1 -> session recovers
+    """
+    tgen = get_topogen()
+
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    r1 = tgen.gears["r1"]
+    r4 = tgen.gears["r4"]
+
+    def _bgp_lu_neighbor(expected):
+        output = json.loads(r1.vtysh_cmd("show bgp neighbor 192.168.3.2 json"))
+        return topotest.json_cmp(output, {"192.168.3.2": expected})
+
+    def _bgp_lu_established(accepted):
+        return _bgp_lu_neighbor(
+            {
+                "bgpState": "Established",
+                "addressFamilyInfo": {
+                    "ipv4LabeledUnicast": {"acceptedPrefixCounter": accepted}
+                },
+            }
+        )
+
+    def _bgp_lu_prefix_exceeded():
+        # lastResetDueTo alone is not enough, it is kept after the session
+        # recovers; the session stays Idle until the limit is raised.
+        return _bgp_lu_neighbor(
+            {"bgpState": "Idle", "lastResetDueTo": "Reached received prefix count"}
+        )
+
+    def _r1_set_lu_maximum_prefix(limit):
+        r1.vtysh_cmd(
+            """
+            configure terminal
+            router bgp 65001
+            address-family ipv4 labeled-unicast
+            neighbor 192.168.3.2 maximum-prefix {}
+            """.format(
+                limit
+            )
+        )
+
+    step("Verify labeled-unicast session between r1 and r4 with 3 routes")
+    test_func = functools.partial(_bgp_lu_established, 3)
+    _, result = topotest.run_and_expect(test_func, None, count=20, wait=3)
+    assert result is None, "Labeled-unicast session with r4 failed to establish"
+
+    step("Set labeled-unicast maximum-prefix to 1 on r1 (below received count of 3)")
+    _r1_set_lu_maximum_prefix(1)
+
+    step("Verify session goes down due to prefix count exceeded")
+    test_func = functools.partial(_bgp_lu_prefix_exceeded)
+    _, result = topotest.run_and_expect(test_func, None, count=20, wait=3)
+    assert (
+        result is None
+    ), "Labeled-unicast session didn't go down when maximum-prefix was set below the count"
+
+    step("Increase labeled-unicast maximum-prefix to 5 on r1 (above received count)")
+    _r1_set_lu_maximum_prefix(5)
+
+    step("Verify session recovers with 3 routes")
+    test_func = functools.partial(_bgp_lu_established, 3)
+    _, result = topotest.run_and_expect(test_func, None, count=20, wait=3)
+    assert (
+        result is None
+    ), "Labeled-unicast session failed to recover after increasing maximum-prefix"
+
+    step("Add 3 more static routes on r4 (total 6 routes, above the limit of 5)")
+    r4.vtysh_cmd(
+        """
+        configure terminal
+        ip route 10.4.4.0/24 Null0
+        ip route 10.4.5.0/24 Null0
+        ip route 10.4.6.0/24 Null0
+        """
+    )
+
+    step("Verify session goes down due to prefix count exceeded")
+    test_func = functools.partial(_bgp_lu_prefix_exceeded)
+    _, result = topotest.run_and_expect(test_func, None, count=20, wait=3)
+    assert (
+        result is None
+    ), "Labeled-unicast session didn't go down when receiving more than maximum-prefix"
+
+    step("Increase labeled-unicast maximum-prefix to 10 on r1 (above received count)")
+    _r1_set_lu_maximum_prefix(10)
+
+    step("Verify session recovers with 6 routes")
+    test_func = functools.partial(_bgp_lu_established, 6)
+    _, result = topotest.run_and_expect(test_func, None, count=20, wait=3)
+    assert (
+        result is None
+    ), "Labeled-unicast session failed to recover after increasing maximum-prefix"
 
 
 def test_memory_leak():

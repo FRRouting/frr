@@ -44,15 +44,14 @@ Test plan
 """
 
 import os
-import shlex
 import sys
 import time
-from functools import partial
 
 import pytest
 from scapy.contrib.ospf import OSPF_Hdr
 from scapy.utils import rdpcap
 
+from lib.scapy_capture import start_capture, stop_capture
 from lib.topogen import Topogen, get_topogen
 from lib.topolog import logger
 
@@ -118,30 +117,6 @@ def _vtysh_responsive(router, timeout_s=VTYSH_TIMEOUT_S):
     return ok, elapsed
 
 
-def _wait_until(func, timeout_s=15, interval_s=0.25):
-    deadline = time.time() + timeout_s
-    while time.time() < deadline:
-        if func():
-            return True
-        time.sleep(interval_s)
-    return bool(func())
-
-
-def _proc_alive(router, pid):
-    out = router.cmd("kill -0 %s 2>/dev/null; echo $?" % pid).strip()
-    try:
-        return int(out.splitlines()[-1]) == 0
-    except (ValueError, IndexError):
-        return False
-
-
-def _file_ready(path):
-    try:
-        return os.path.exists(path) and os.path.getsize(path) > 0
-    except OSError:
-        return False
-
-
 def _count_dd_from(pcap_path, router_id):
     if not os.path.exists(pcap_path) or os.path.getsize(pcap_path) < 24:
         return 0
@@ -153,66 +128,6 @@ def _count_dd_from(pcap_path, router_id):
         if hdr.type == OSPF_MSG_DB_DESC and str(hdr.src) == router_id:
             n += 1
     return n
-
-
-def _start_capture(router, pcap_path, bpf="ip proto 89"):
-    """Sniff with scapy in the router netns. tcpdump is not used: it is often
-    missing in CI images and it exits when the peer interface goes down.
-    """
-    err_path = pcap_path + ".err"
-    ready_path = pcap_path + ".ready"
-    router.cmd(
-        "rm -f %s %s %s"
-        % (shlex.quote(pcap_path), shlex.quote(err_path), shlex.quote(ready_path))
-    )
-    # nohup: router.cmd() closing the session would otherwise SIGHUP the sniffer.
-    pid = router.cmd(
-        "nohup python3 %s/capture_ospf.py --iface eth1 --pcap %s "
-        "--filter %s --ready-file %s </dev/null >%s 2>&1 & echo $!"
-        % (
-            shlex.quote(CWD),
-            shlex.quote(pcap_path),
-            shlex.quote(bpf),
-            shlex.quote(ready_path),
-            shlex.quote(err_path),
-        )
-    ).strip()
-    if pid:
-        pid = pid.splitlines()[-1]
-    assert pid.isdigit(), "scapy capture did not start on %s (pid %r)" % (
-        router.name,
-        pid,
-    )
-    if not _wait_until(partial(_file_ready, ready_path)):
-        err = router.cmd("cat %s 2>/dev/null || true" % shlex.quote(err_path))
-        if os.path.exists(err_path):
-            with open(err_path) as f:
-                err = err or f.read()
-        assert False, "scapy capture did not become ready on %s (pid %s): %s" % (
-            router.name,
-            pid,
-            err.strip() or "no capture stderr",
-        )
-    return pid
-
-
-def _stop_capture(router, pid, pcap_path):
-    err_path = pcap_path + ".err"
-    router.cmd("kill -TERM %s >/dev/null 2>&1 || true" % pid)
-    if not _wait_until(lambda: not _proc_alive(router, pid), timeout_s=8):
-        router.cmd("kill -KILL %s >/dev/null 2>&1 || true" % pid)
-        _wait_until(lambda: not _proc_alive(router, pid))
-    if not _wait_until(
-        lambda: os.path.exists(pcap_path) and os.path.getsize(pcap_path) >= 24
-    ):
-        err = router.cmd("cat %s 2>/dev/null || true" % shlex.quote(err_path))
-        if os.path.exists(err_path):
-            with open(err_path) as f:
-                err = err or f.read()
-        assert False, "pcap %s missing after stopping capture: %s" % (
-            pcap_path,
-            err.strip() or "empty/missing file",
-        )
 
 
 def test_adjacency_full():
@@ -235,18 +150,18 @@ def test_dd_dup_flood_slave_resend_paced():
     # Shared rundir is visible to pytest and to both routers; /tmp in the
     # namespace is not a reliable place to rdpcap from the host.
     capture = os.path.join(tgen.logdir, "exch.pcap")
-    cap_pid = _start_capture(r1, capture)
+    cap_pid = start_capture(r1, "eth1", capture, "ip proto 89")
     # Retrigger DD while leaving eth1 up.  Shutdown/no-shutdown takes the
     # p2p peer down and kills in-netns sniffers (tcpdump/tshark/scapy).
     r2.vtysh_cmd("clear ip ospf process")
     _expect_full(tgen)
-    _stop_capture(r1, cap_pid, capture)
+    stop_capture(r1, cap_pid, capture)
     n_master_dd = _count_dd_from(capture, R2_RID)
     assert n_master_dd > 0, "capture has no DD packets from master %s" % R2_RID
     logger.info("captured %d master DD packet(s) for replay", n_master_dd)
 
     txpcap = os.path.join(tgen.logdir, "r1tx.pcap")
-    tx_pid = _start_capture(r1, txpcap, "ip proto 89 and src 10.0.0.1")
+    tx_pid = start_capture(r1, "eth1", txpcap, "ip proto 89 and src 10.0.0.1")
 
     flood_cmd = (
         "python3 %s/flood_dd.py --pcap %s --iface eth1 "
@@ -258,7 +173,7 @@ def test_dd_dup_flood_slave_resend_paced():
     flood_s = time.time() - t0
     logger.info("flood finished in %.2fs", flood_s)
 
-    _stop_capture(r1, tx_pid, txpcap)
+    stop_capture(r1, tx_pid, txpcap)
 
     assert _ospfd_alive(r1), "ospfd on r1 died during DD duplicate flood"
     ok, elapsed = _vtysh_responsive(r1)

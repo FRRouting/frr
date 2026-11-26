@@ -1307,6 +1307,31 @@ static struct route_entry *rib_choose_best(struct route_entry *current,
 	return current;
 }
 
+/*
+ * Withdraw the main-table copy that `ip import-table` made of a kernel
+ * route that the kernel has removed.  Other routes are withdrawn once the
+ * dataplane delete completes (rib_process_result_import_table_del()), but
+ * zebra sends no delete for a kernel route.
+ */
+static void rib_process_import_table_del_kernel(struct route_node *rn, struct route_entry *re)
+{
+	struct zebra_vrf *zvrf;
+	afi_t afi;
+	safi_t safi;
+
+	zvrf = zebra_vrf_lookup_by_id(re->vrf_id);
+	if (!zvrf)
+		return;
+
+	afi = family2afi(rn->p.family);
+	for (safi = SAFI_UNICAST; safi < SAFI_MAX; safi++) {
+		if (!is_zebra_import_table_enabled(afi, safi, re->vrf_id, re->table))
+			continue;
+
+		zebra_del_import_table_entry(zvrf, safi, rn, re);
+	}
+}
+
 /* Core function for processing routing information base. */
 static void rib_process(struct route_node *rn)
 {
@@ -1572,6 +1597,8 @@ static void rib_process(struct route_node *rn)
 		rib_process_add_fib(zvrf, rn, new_fib);
 	else if (old_fib && !RIB_KERNEL_ROUTE(old_fib))
 		rib_process_del_fib(zvrf, rn, old_fib);
+	else if (old_fib && CHECK_FLAG(old_fib->status, ROUTE_ENTRY_REMOVED))
+		rib_process_import_table_del_kernel(rn, old_fib);
 
 	/* Remove all RE entries queued for removal */
 	RNODE_FOREACH_RE_SAFE (rn, re, next) {
@@ -2624,8 +2651,8 @@ static void rib_re_nhg_free(struct route_entry *re)
 	if (re->nhe && re->nhe_id) {
 		assert(re->nhe->id == re->nhe_id);
 		route_entry_update_nhe(re, NULL);
-	} else if (re->nhe && re->nhe->nhg.nexthop)
-		nexthops_free(re->nhe->nhg.nexthop);
+	} else if (re->nhe)
+		zebra_nhg_free(re->nhe);
 
 	/*
 	 * Clean up nhe_received if it wasn't already cleared by
@@ -4524,6 +4551,7 @@ int rib_add_multipath_nhe(afi_t afi, safi_t safi, struct prefix *p, struct prefi
 			  bool replace)
 {
 	struct zebra_early_route *ere;
+	int ret;
 
 	if (!re)
 		return -1;
@@ -4542,7 +4570,11 @@ int rib_add_multipath_nhe(afi_t afi, safi_t safi, struct prefix *p, struct prefi
 	ere->startup = startup;
 	ere->replace = replace;
 
-	return mq_add_handler(ere, rib_meta_queue_early_route_add);
+	ret = mq_add_handler(ere, rib_meta_queue_early_route_add);
+	if (ret == -1)
+		XFREE(MTYPE_WQ_WRAPPER, ere);
+
+	return ret;
 }
 
 /*
@@ -4631,8 +4663,10 @@ int rib_add_multipath(afi_t afi, safi_t safi, struct prefix *p, struct prefix_ip
 	ret = rib_add_multipath_nhe(afi, safi, p, src_p, re, n, startup, replace);
 
 	/* In error cases, free the route also */
-	if (ret < 0)
+	if (ret < 0) {
+		zebra_nhg_free(n);
 		zebra_rib_route_entry_free(re);
+	}
 
 	return ret;
 }
@@ -4668,7 +4702,8 @@ void rib_delete(afi_t afi, safi_t safi, vrf_id_t vrf_id, int type,
 	ere->deletion = true;
 	ere->fromkernel = fromkernel;
 
-	mq_add_handler(ere, rib_meta_queue_early_route_add);
+	if (mq_add_handler(ere, rib_meta_queue_early_route_add) == -1)
+		early_route_memory_free(ere);
 }
 
 

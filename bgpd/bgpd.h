@@ -804,6 +804,7 @@ struct bgp {
 #define BGP_FLAG_SHUTDOWN_NO_NOTIFY (1ULL << 48)
 /* default-originate with set-only route-map works even with empty table */
 #define BGP_FLAG_DEFAULT_ORIGINATE_SETONLY_UNCONDITIONAL (1ULL << 49)
+#define BGP_FLAG_BESTPATH_PREFER_MPLS_OVER_SRV6		 (1ULL << 50)
 
 	/* BGP default address-families.
 	 * New peers inherit enabled afi/safis from bgp instance.
@@ -1617,7 +1618,7 @@ struct peer_connection {
 	struct stream *curr;
 
 	/*
-	 * Timestamp of the last outgoing messge to the peer.
+	 * Timestamp of the last outgoing message to the peer.
 	 * This timestamp is written on multiple threads and read
 	 * on the master pthread.  As such it must be atomic.
 	 */

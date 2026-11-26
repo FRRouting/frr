@@ -1249,9 +1249,11 @@ struct zebra_mac *zebra_evpn_mac_add_auto(struct zebra_evpn *zevpn,
 	return mac;
 }
 
-static bool zebra_evpn_check_mac_del_from_db(struct mac_walk_ctx *wctx,
-					     struct zebra_mac *mac)
+static bool zebra_evpn_check_mac_del_from_db(struct mac_walk_ctx *wctx, struct zebra_mac *mac,
+					     bool *uninstall)
 {
+	*uninstall = wctx->uninstall;
+
 	if (CHECK_FLAG(wctx->flags, DEL_LOCAL_MAC) &&
 	    CHECK_FLAG(mac->flags, ZEBRA_MAC_LOCAL))
 		return true;
@@ -1292,7 +1294,7 @@ static bool zebra_evpn_check_mac_del_from_db(struct mac_walk_ctx *wctx,
 				   zebra_evpn_zebra_mac_flag_dump(mac, mac_buf,
 								  sizeof(mac_buf)));
 		}
-		wctx->uninstall = 0;
+		*uninstall = false;
 
 		return true;
 	}
@@ -1307,8 +1309,9 @@ static void zebra_evpn_mac_del_hash_entry(struct hash_bucket *bucket, void *arg)
 {
 	struct mac_walk_ctx *wctx = arg;
 	struct zebra_mac *mac = bucket->data;
+	bool uninstall;
 
-	if (!zebra_evpn_check_mac_del_from_db(wctx, mac))
+	if (!zebra_evpn_check_mac_del_from_db(wctx, mac, &uninstall))
 		return;
 
 	if (wctx->upd_client && CHECK_FLAG(mac->flags, ZEBRA_MAC_LOCAL)) {
@@ -1316,7 +1319,7 @@ static void zebra_evpn_mac_del_hash_entry(struct hash_bucket *bucket, void *arg)
 						  &mac->macaddr, mac->flags,
 						  false);
 	}
-	if (wctx->uninstall) {
+	if (uninstall) {
 		if (zebra_evpn_mac_is_static(mac))
 			zebra_evpn_sync_mac_dp_install(mac, false, true,
 						       __func__);

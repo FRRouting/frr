@@ -4062,7 +4062,7 @@ check_format_info_main (format_check_results *res,
   init_dollar_format_checking (info->first_arg_num, first_fillin_param);
 
   /* In GCC diagnostic functions check plain directives (substrings within
-     the format string that don't start with %) for quoting and punctuations
+     the format string that don't start with %) for quoting and punctuation
      problems.  */
   bool ck_plain = (!info->is_raw
 		   && (info->format_type == gcc_diag_format_type
