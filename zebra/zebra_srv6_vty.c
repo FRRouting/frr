@@ -1509,7 +1509,7 @@ static void srv6_sid_format_usid_wlib_warn(struct vty *vty, const struct srv6_si
 
 DEFPY(srv6_sid_format_usid_wlib,
       srv6_sid_format_usid_wlib_cmd,
-      "wide-local-id-block start (0-4294967295)$start end (0-4294967295)$end",
+      "wide-local-id-block start (0-65535)$start end (0-65535)$end",
       "Configure Wide LIB\n"
       "Configure the start value for the Wide LIB\n"
       "Specify the start value for the Wide LIB\n"
@@ -1540,7 +1540,7 @@ DEFPY(srv6_sid_format_usid_wlib,
 
 DEFPY(no_srv6_sid_format_usid_wlib,
       no_srv6_sid_format_usid_wlib_cmd,
-      "no wide-local-id-block [start (0-4294967295) end (0-4294967295)]",
+      "no wide-local-id-block [start (0-65535) end (0-65535)]",
       NO_STR
       "Configure Wide LIB\n"
       "Configure the start value for the Wide LIB\n"
@@ -1575,7 +1575,7 @@ DEFPY(no_srv6_sid_format_usid_wlib,
 
 DEFPY(srv6_sid_format_usid_wide_lib_explicit,
       srv6_sid_format_usid_wide_lib_explicit_cmd,
-      "wide-local-id-block explicit start (0-4294967295)$start",
+      "wide-local-id-block explicit start (0-65535)$start",
       "Configure Wide LIB\n"
       "Configure Explicit Wide LIB\n"
       "Configure the start value for the Explicit Wide LIB\n"
@@ -1596,7 +1596,7 @@ DEFPY(srv6_sid_format_usid_wide_lib_explicit,
 
 DEFPY(no_srv6_sid_format_usid_wide_lib_explicit,
       no_srv6_sid_format_usid_wide_lib_explicit_cmd,
-      "no wide-local-id-block explicit [start (0-4294967295)]",
+      "no wide-local-id-block explicit [start (0-65535)]",
 	  NO_STR
       "Configure Wide LIB\n"
       "Configure Explicit Wide LIB\n"

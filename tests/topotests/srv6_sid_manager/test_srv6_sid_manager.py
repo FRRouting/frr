@@ -442,7 +442,7 @@ def test_ping():
 
 
 def test_usid_lib_ranges():
-    """Verify uSID LIB ranges reject a start greater than the end."""
+    """Verify uSID LIB ranges reject invalid bounds."""
     tgen = get_topogen()
 
     if tgen.routers_have_failure():
@@ -466,9 +466,15 @@ format usid-f3216
     )
     assert "Wide LIB start (401) cannot be greater than end (400)" in output
 
+    output = router.vtysh_cmd(
+        format_context + "wide-local-id-block start 0 end 65536\n"
+    )
+    assert "%" in output, output
+
     output = router.vtysh_cmd("write terminal")
     assert "local-id-block explicit start 201 end 200" not in output
     assert "wide-local-id-block start 401 end 400" not in output
+    assert "wide-local-id-block start 0 end 65536" not in output
 
 
 USID_F4816_CONTEXT = """configure terminal
@@ -517,18 +523,18 @@ def test_usid_wide_lib_explicit_range():
 
     # The Wide LIB can move above the Explicit Wide LIB start
     output = router.vtysh_cmd(
-        USID_F4816_CONTEXT + "wide-local-id-block start 100000 end 100010\n"
+        USID_F4816_CONTEXT + "wide-local-id-block start 65530 end 65535\n"
     )
     assert (
-        "Explicit Wide LIB start (65527) is below the Wide LIB start (100000), "
-        "the Explicit Wide LIB starts at 100000" in output
+        "Explicit Wide LIB start (65527) is below the Wide LIB start (65530), "
+        "the Explicit Wide LIB starts at 65530" in output
     )
 
     # Resetting the Explicit Wide LIB cannot fail because of the Wide LIB
     output = router.vtysh_cmd(USID_F4816_CONTEXT + "no wide-local-id-block explicit\n")
     assert (
-        "Explicit Wide LIB start (65527) is below the Wide LIB start (100000), "
-        "the Explicit Wide LIB starts at 100000" in output
+        "Explicit Wide LIB start (65527) is below the Wide LIB start (65530), "
+        "the Explicit Wide LIB starts at 65530" in output
     )
 
     # Nor can resetting the Wide LIB fail because of the Explicit Wide LIB
@@ -1099,15 +1105,15 @@ def test_usid_wide_lib_config_survives_zebra_restart():
     # A Wide LIB above the default Explicit Wide LIB start of 65527
     router.vtysh_cmd(
         USID_F4816_CONTEXT
-        + """wide-local-id-block explicit start 100005
-wide-local-id-block start 100000 end 100010
+        + """wide-local-id-block explicit start 65533
+wide-local-id-block start 65530 end 65535
 """
     )
     check_wide_lib_config_after_zebra_restart(
         router,
         [
-            "wide-local-id-block start 100000 end 100010",
-            "wide-local-id-block explicit start 100005",
+            "wide-local-id-block start 65530 end 65535",
+            "wide-local-id-block explicit start 65533",
         ],
     )
 
@@ -1134,6 +1140,96 @@ wide-local-id-block explicit start 150
         + """no wide-local-id-block
 no wide-local-id-block explicit
 """
+    )
+
+
+def test_explicit_wide_sid_after_wide_lib_change():
+    """
+    Grow the Wide LIB of a format used by a locator, and verify an explicit wide
+    SID past the end of the former Wide LIB is allocated, installed, and
+    advertised.
+    """
+    tgen = get_topogen()
+
+    # Required linux kernel version for this suite to run.
+    result = required_linux_kernel_version("6.1")
+    if result is not True:
+        pytest.skip("Kernel requirements are not met, kernel version should be >=6.1")
+
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    rt1 = tgen.gears["rt1"]
+    rt6 = tgen.gears["rt6"]
+    # function 0xffdc (65500), index 100 in the Wide LIB array, wide function 1
+    sid = "fc00:0:1:ffdc:1::"
+    format_context = """configure terminal
+segment-routing
+srv6
+formats
+format usid-f3216
+"""
+    vrf_context = """configure terminal
+router bgp 1 vrf vrf10
+address-family ipv6 unicast
+"""
+
+    step("Grow the Wide LIB and use an explicit wide SID", reset=True)
+    rt1.vtysh_cmd(
+        format_context
+        + """wide-local-id-block start 65400 end 65535
+wide-local-id-block explicit start 65400
+"""
+    )
+    rt1.vtysh_cmd(
+        vrf_context
+        + """no sid vpn export 65024
+sid vpn export explicit {}
+""".format(
+            sid
+        )
+    )
+
+    check_lifecycle = functools.partial(_check_srv6_sid_lifecycle, rt1, rt6, sid, True)
+    _, result = topotest.run_and_expect(check_lifecycle, None, count=30, wait=1)
+    assert result is None, (
+        "Explicit wide SID {} was not allocated, installed, and advertised: "
+        "{}".format(sid, result)
+    )
+
+    step("Shrink the Wide LIB back so the SID falls outside it")
+    rt1.vtysh_cmd(
+        format_context
+        + """no wide-local-id-block
+no wide-local-id-block explicit
+"""
+    )
+
+    check_lifecycle = functools.partial(_check_srv6_sid_lifecycle, rt1, rt6, sid, False)
+    _, result = topotest.run_and_expect(check_lifecycle, None, count=30, wait=1)
+    assert result is None, (
+        "SID {} remained allocated, installed, or advertised outside the Wide "
+        "LIB: {}".format(sid, result)
+    )
+
+    step("Restore the default explicit SID")
+    rt1.vtysh_cmd(
+        vrf_context
+        + """no sid vpn export explicit {}
+sid vpn export 65024
+""".format(
+            sid
+        )
+    )
+
+    default_sid = "fc00:0:1:fe00::"
+    check_lifecycle = functools.partial(
+        _check_srv6_sid_lifecycle, rt1, rt6, default_sid, True
+    )
+    _, result = topotest.run_and_expect(check_lifecycle, None, count=30, wait=1)
+    assert result is None, (
+        "Default explicit SID {} was not allocated, installed, and advertised: "
+        "{}".format(default_sid, result)
     )
 
 
