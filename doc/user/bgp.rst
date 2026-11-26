@@ -1375,13 +1375,13 @@ IPv6 Support
 Route Aggregation
 -----------------
 
-.. clicmd:: bgp default aggregate-address matching-MED-only
+.. clicmd:: bgp default aggregate-address matching-med-only
 
-   Enable ``matching-MED-only`` behavior for all aggregate addresses in this
+   Enable ``matching-med-only`` behavior for all aggregate addresses in this
    BGP instance. Routes that have different MULTI_EXIT_DISC attributes are not
    aggregated, as required by :rfc:`4271` (Section 9.2.2.2).
 
-   Individual aggregate addresses can override this with ``matching-MED-only``
+   Individual aggregate addresses can override this with ``matching-med-only``
    or ``ignore-med``.
 
    This is currently disabled by default.
@@ -1421,17 +1421,17 @@ Route Aggregation-IPv4 Address Family
 
    Longer prefixes advertisements of more specific routes to all neighbors are suppressed.
 
-.. clicmd:: aggregate-address A.B.C.D/M matching-MED-only
+.. clicmd:: aggregate-address A.B.C.D/M matching-med-only
 
    Configure the aggregated address to only be created when the routes MED
    match, otherwise no aggregated route will be created.
 
-   See also :clicmd:`bgp default aggregate-address matching-MED-only`.
+   See also :clicmd:`bgp default aggregate-address matching-med-only`.
 
 .. clicmd:: aggregate-address A.B.C.D/M ignore-med
 
    Configure the aggregated address to be created regardless of the routes
-   MED, overriding :clicmd:`bgp default aggregate-address matching-MED-only`.
+   MED, overriding :clicmd:`bgp default aggregate-address matching-med-only`.
 
 .. clicmd:: aggregate-address A.B.C.D/M suppress-map NAME
 
@@ -1497,17 +1497,17 @@ Route Aggregation-IPv6 Address Family
 
    Longer prefixes advertisements of more specific routes to all neighbors are suppressed
 
-.. clicmd:: aggregate-address X:X::X:X/M matching-MED-only
+.. clicmd:: aggregate-address X:X::X:X/M matching-med-only
 
    Configure the aggregated address to only be created when the routes MED
    match, otherwise no aggregated route will be created.
 
-   See also :clicmd:`bgp default aggregate-address matching-MED-only`.
+   See also :clicmd:`bgp default aggregate-address matching-med-only`.
 
 .. clicmd:: aggregate-address X:X::X:X/M ignore-med
 
    Configure the aggregated address to be created regardless of the routes
-   MED, overriding :clicmd:`bgp default aggregate-address matching-MED-only`.
+   MED, overriding :clicmd:`bgp default aggregate-address matching-med-only`.
 
 .. clicmd:: aggregate-address X:X::X:X/M suppress-map NAME
 

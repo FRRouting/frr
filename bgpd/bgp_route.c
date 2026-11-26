@@ -12025,7 +12025,7 @@ DEFPY(aggregate_addressv4, aggregate_addressv4_cmd,
       "|summary-only$summary_only"
       "|route-map RMAP_NAME$rmap_name"
       "|origin <egp|igp|incomplete>$origin_s"
-      "|matching-MED-only$match_med"
+      "|<matching-MED-only|matching-med-only>$match_med"
       "|ignore-med$ignore_med"
       "|suppress-map RMAP_NAME$suppress_map"
       "|upa$upa [drop$upa_drop] [max-routes (1-65535)$upa_max_routes]"
@@ -12043,6 +12043,7 @@ DEFPY(aggregate_addressv4, aggregate_addressv4_cmd,
       "Remote EGP\n"
       "Local IGP\n"
       "Unknown heritage\n"
+      "Only aggregate routes with matching MED\n"
       "Only aggregate routes with matching MED\n"
       "Aggregate routes regardless of MED\n"
       "Suppress the selected more specific routes\n"
@@ -12097,7 +12098,7 @@ DEFPY(aggregate_addressv4, aggregate_addressv4_cmd,
 
 	if (match_med && ignore_med) {
 		vty_out(vty,
-			"%% 'matching-MED-only' and 'ignore-med' can't be used at the same time\n");
+			"%% 'matching-med-only' and 'ignore-med' can't be used at the same time\n");
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 
@@ -12154,7 +12155,7 @@ DEFPY(aggregate_addressv6, aggregate_addressv6_cmd,
       "|summary-only$summary_only"
       "|route-map RMAP_NAME$rmap_name"
       "|origin <egp|igp|incomplete>$origin_s"
-      "|matching-MED-only$match_med"
+      "|<matching-MED-only|matching-med-only>$match_med"
       "|ignore-med$ignore_med"
       "|suppress-map RMAP_NAME$suppress_map"
       "|upa$upa [drop$upa_drop] [max-routes (1-65535)$upa_max_routes]"
@@ -12170,6 +12171,7 @@ DEFPY(aggregate_addressv6, aggregate_addressv6_cmd,
       "Remote EGP\n"
       "Local IGP\n"
       "Unknown heritage\n"
+      "Only aggregate routes with matching MED\n"
       "Only aggregate routes with matching MED\n"
       "Aggregate routes regardless of MED\n"
       "Suppress the selected more specific routes\n"
@@ -12210,7 +12212,7 @@ DEFPY(aggregate_addressv6, aggregate_addressv6_cmd,
 
 	if (match_med && ignore_med) {
 		vty_out(vty,
-			"%% 'matching-MED-only' and 'ignore-med' can't be used at the same time\n");
+			"%% 'matching-med-only' and 'ignore-med' can't be used at the same time\n");
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 

@@ -5033,7 +5033,7 @@ DEFPY (bgp_default_dynamic_capability,
 
 DEFPY (bgp_default_aggregate_matching_med_only,
        bgp_default_aggregate_matching_med_only_cmd,
-       "[no] bgp default aggregate-address matching-MED-only",
+       "[no] bgp default aggregate-address matching-med-only",
        NO_STR
        BGP_STR
        "Configure BGP defaults\n"
@@ -22878,10 +22878,10 @@ int bgp_config_write(struct vty *vty)
 					? ""
 					: "no ");
 
-		/* BGP default aggregate-address matching-MED-only. */
+		/* BGP default aggregate-address matching-med-only. */
 		if (!!CHECK_FLAG(bgp->flags, BGP_FLAG_AGGREGATE_MATCHING_MED_ONLY) !=
 		    SAVE_BGP_AGGREGATE_MATCHING_MED_ONLY)
-			vty_out(vty, " %sbgp default aggregate-address matching-MED-only\n",
+			vty_out(vty, " %sbgp default aggregate-address matching-med-only\n",
 				CHECK_FLAG(bgp->flags, BGP_FLAG_AGGREGATE_MATCHING_MED_ONLY)
 					? ""
 					: "no ");
@@ -24214,7 +24214,7 @@ void bgp_vty_init(void)
 	/* bgp default dynamic-capability */
 	install_element(BGP_NODE, &bgp_default_dynamic_capability_cmd);
 
-	/* bgp default aggregate-address matching-MED-only */
+	/* bgp default aggregate-address matching-med-only */
 	install_element(BGP_NODE, &bgp_default_aggregate_matching_med_only_cmd);
 
 	/* "bgp default subgroup-pkt-queue-max" commands. */
