@@ -4679,8 +4679,8 @@ int zebra_vxlan_handle_kernel_neigh_update(struct interface *ifp, struct interfa
 	 */
 	zevpn = zebra_evpn_from_svi(ifp, link_if);
 	if (!zevpn)
-		return zebra_evpn_l3vni_local_neigh_update(ifp, link_if, ip, macaddr, is_own,
-							   is_router);
+		return zebra_evpn_l3vni_local_neigh_update(ifp, link_if, ip, macaddr, state,
+							   is_own, is_router);
 
 	if (IS_ZEBRA_DEBUG_VXLAN || IS_ZEBRA_DEBUG_EVPN_MH_NEIGH)
 		zlog_debug("Add/Update neighbor %pIA MAC %pEA intf %s(%u) state 0x%x %s%s%s%s-> L2-VNI %u",
@@ -4716,8 +4716,8 @@ void zebra_vxlan_l3vni_neigh_replay_entry(struct interface *ifp, struct interfac
 	if (zebra_evpn_from_svi(ifp, link_if))
 		return;
 
-	zebra_evpn_l3vni_local_neigh_update(ifp, link_if, ip, macaddr, false /* is_own */,
-					    is_router);
+	zebra_evpn_l3vni_local_neigh_update(ifp, link_if, ip, macaddr, 0 /* nud_state */,
+					    false /* is_own */, is_router);
 }
 
 static int32_t zebra_vxlan_remote_macip_helper(bool add, struct stream *s, vni_t *vni,

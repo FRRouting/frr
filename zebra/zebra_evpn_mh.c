@@ -4565,8 +4565,10 @@ void zebra_evpn_l3vni_local_mac_update(struct interface *acc_ifp, struct interfa
 	if (!acc_bd->vlan_zif || !acc_bd->vlan_zif->ifp || !acc_bd->vlan_zif->ifp->vrf)
 		return;
 	zl3vni = zl3vni_from_vrf(acc_bd->vlan_zif->ifp->vrf->vrf_id);
-	if (zl3vni)
+	if (zl3vni) {
+		zebra_evpn_l3vni_neigh_debug_mac_event(zl3vni->vni, macaddr, vid, acc_ifp, add);
 		zebra_evpn_l3vni_neigh_readvertise_mac(zl3vni->vni, macaddr, vid);
+	}
 }
 
 /* Cache-miss fallback: the bond holding a static sync-MAC FDB entry for the MAC.

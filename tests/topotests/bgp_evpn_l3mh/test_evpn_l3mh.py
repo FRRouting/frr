@@ -1418,6 +1418,133 @@ def test_pure_l3_sync_neighbor_install():
     assert result is None, result
 
 
+def test_l3mh_neighbor_transition_debug():
+    """A kernel neighbor update emits the stable L3MH transition fields."""
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    leaves = (tgen.gears["leaf1"], tgen.gears["leaf2"])
+    _ping(tgen.gears["host1"], ANYCAST_GW)
+
+    _, result = topotest.run_and_expect(
+        lambda: any(_host1_local(leaf) for leaf in leaves),
+        True,
+        count=WAIT_COUNT,
+        wait=WAIT_STEP,
+    )
+    assert result is True, "neither MH leaf learned host1 locally"
+
+    local_leaf = next(leaf for leaf in leaves if _host1_local(leaf))
+    host1_mac = _host_bond_mac(tgen.gears["host1"])
+    update = "ip neigh replace %s lladdr %s dev vlan%d nud " % (
+        HOST_IP["host1"],
+        host1_mac,
+        HOST_VID,
+    )
+    log_path = os.path.join(local_leaf.logdir, local_leaf.name, "zebra.log")
+    log_offset = os.path.getsize(log_path)
+    pattern = re.compile(
+        r"L3MH-neigh transition state \S+ event nud-reachable "
+        r"next local-dynamic ip %s mac %s interface \S+\(\d+\) "
+        r"L3-VNI %d ETAG %d generation (\d+) reason none forwarding bridge "
+        r"associated-neighbors \d+"
+        % (re.escape(HOST_IP["host1"]), re.escape(host1_mac), L3VNI, HOST_VID,)
+    )
+
+    local_leaf.vtysh_cmd("configure terminal\ndebug zebra evpn mh l3vni-neigh")
+    match = None
+    try:
+        # A repeated REACHABLE update may not notify zebra.
+        local_leaf.cmd_raises(update + "stale")
+        local_leaf.cmd_raises(update + "reachable")
+
+        def _transition_logged():
+            nonlocal match
+            with open(log_path, "r", encoding="utf-8", errors="replace") as log_file:
+                log_file.seek(log_offset)
+                output = log_file.read()
+            match = pattern.search(output)
+            if match:
+                return None
+            return "L3MH transition record not found in zebra log: %s" % output
+
+        _, result = topotest.run_and_expect(
+            _transition_logged, None, count=WAIT_COUNT, wait=WAIT_STEP
+        )
+        assert result is None, result
+        assert match is not None and int(match[1]) > 0
+    finally:
+        local_leaf.vtysh_cmd("configure terminal\nno debug zebra evpn mh l3vni-neigh")
+
+
+def test_l3mh_neighbor_show_state():
+    """Text and JSON detail expose recorded local and peer-sync state."""
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    leaf1 = tgen.gears["leaf1"]
+    leaf2 = tgen.gears["leaf2"]
+    ip = HOST_IP["host1"]
+    command = "show evpn arp-cache vni %d ip %s" % (L3VNI, ip)
+
+    _ping(tgen.gears["host1"], ANYCAST_GW)
+
+    def _entry(dut):
+        try:
+            return json.loads(dut.vtysh_cmd("%s json" % command))
+        except Exception:  # pragma: no cover - defensive
+            return {}
+
+    def _show_ready():
+        local = _entry(leaf1)
+        synced = _entry(leaf2)
+        if local.get("l3mhState") != "local-dynamic":
+            return "leaf1 local L3MH state not ready: %s" % local
+        if synced.get("l3mhState") != "peer-sync-protected":
+            return "leaf2 peer-sync L3MH state not ready: %s" % synced
+        return None
+
+    _, result = topotest.run_and_expect(
+        _show_ready, None, count=WAIT_COUNT, wait=WAIT_STEP
+    )
+    assert result is None, result
+
+    local = _entry(leaf1)
+    assert local["l3mhManaged"] is True
+    assert local["macOwnership"] == "local-dynamic"
+    assert local["forwardingModel"] == "bridge"
+    assert local["expectedInterface"] == "hostbond1"
+    assert local["generation"] > 0
+    assert local["lastRemovalReason"] == "none"
+    assert local["associatedNeighborCount"] >= 1
+    assert local["neighborAging"] == "platform-default"
+    assert local["macAging"] == "platform-default"
+
+    synced = _entry(leaf2)
+    assert synced["l3mhManaged"] is True
+    assert synced["peerPresent"] is True
+    assert synced["macOwnership"] == "sync-static"
+    assert synced["timerState"] == "inactive"
+    assert synced["forwardingModel"] == "bridge"
+    assert synced["expectedInterface"] == "hostbond1"
+    assert synced["generation"] > 0
+    assert synced["lastRemovalReason"] == "none"
+    assert synced["associatedNeighborCount"] >= 1
+    assert synced["neighborAging"] == "disabled"
+    assert synced["macAging"] == "disabled"
+
+    local_text = leaf1.vtysh_cmd(command)
+    assert " L3MH state: local-dynamic" in local_text
+    assert " MAC ownership: local-dynamic" in local_text
+
+    synced_text = leaf2.vtysh_cmd(command)
+    assert " L3MH state: peer-sync-protected" in synced_text
+    assert " MAC ownership: sync-static" in synced_text
+    assert " Expected interface: hostbond1" in synced_text
+
+
 @pytest.mark.parametrize("proxy_arp", [1, 0], ids=["proxy_arp_on", "proxy_arp_off"])
 def test_pure_l3_sync_neigh_independent_of_proxy_arp(proxy_arp):
     """
@@ -3738,6 +3865,8 @@ def _rolling_l2vni_hold_on_leaf2(leaf2, host1_mac):
     """Only leaf2 gains the L2VNI. A re-sent pure-L3 ADD must be held, then
     re-installed when the L2VNI is removed."""
 
+    show = "show evpn arp-cache vni %d ip %s json" % (L3VNI, HOST_IP["host1"])
+
     def _expect(fn, msg):
         _, result = topotest.run_and_expect(
             lambda: None if fn() else msg, None, count=WAIT_COUNT, wait=WAIT_STEP
@@ -3763,6 +3892,7 @@ def _rolling_l2vni_hold_on_leaf2(leaf2, host1_mac):
             lambda: "pure-L3 neighbor installed on leaf2's L2VNI-owned VLAN: %s"
             % leaf2.run("ip neigh show dev vlan%d" % HOST_VID),
         )
+        assert not json.loads(leaf2.vtysh_cmd(show)).get("l3mhManaged", False)
 
         config_del_l2vni(leaf2, L2VNI_100)
         l2vni_on = False
@@ -3772,6 +3902,7 @@ def _rolling_l2vni_hold_on_leaf2(leaf2, host1_mac):
             "leaf2 did not re-install host1 after losing the L2VNI: %s"
             % leaf2.run("ip neigh show dev vlan%d" % HOST_VID),
         )
+        assert json.loads(leaf2.vtysh_cmd(show))["l3mhState"] == "peer-sync-protected"
     finally:
         if l2vni_on:
             config_del_l2vni(leaf2, L2VNI_100)
@@ -4322,6 +4453,10 @@ def test_pure_l3_non_peer_leaf_type5_route_no_sync_neigh():
         partial(_sync_neigh_present, dut),
         "leaf3 (non-peer) installed a synced neighbor for host1",
     )
+    out = dut.vtysh_cmd(
+        "show evpn arp-cache vni %d ip %s json" % (L3VNI, HOST_IP["host1"])
+    )
+    assert not json.loads(out).get("l3mhManaged", False)
 
 
 def test_pure_l3_rt2_not_imported_into_vrf_on_l3vni_flap():
