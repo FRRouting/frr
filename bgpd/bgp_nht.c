@@ -1743,7 +1743,8 @@ void path_nh_map(struct bgp_path_info *path, struct bgp_nexthop_cache *bnc,
 /*
  * This function is called to register nexthops to zebra
  * as that we may have tried to install the nexthops
- * before we actually have a zebra connection
+ * before we actually have a zebra connection.  The same
+ * goes for the import check entries of 'network' statements.
  */
 void bgp_nht_register_nexthops(struct bgp *bgp)
 {
@@ -1754,6 +1755,9 @@ void bgp_nht_register_nexthops(struct bgp *bgp)
 			  bnc) {
 			register_zebra_rnh(bnc);
 		}
+
+		frr_each (bgp_nexthop_cache, &bgp->import_check_table[afi], bnc)
+			register_zebra_rnh(bnc);
 	}
 }
 
