@@ -689,6 +689,9 @@ void bgp_path_info_mpath_aggregate_update(struct bgp_path_info *new_best,
 
 		for (mpinfo = bgp_path_info_mpath_first(new_best); mpinfo;
 		     mpinfo = bgp_path_info_mpath_next(mpinfo)) {
+			if (bgp_attr_exists(mpinfo->attr, BGP_ATTR_ATOMIC_AGGREGATE))
+				bgp_attr_set(&attr, BGP_ATTR_ATOMIC_AGGREGATE);
+
 			asmerge =
 				aspath_aggregate(aspath, mpinfo->attr->aspath);
 			aspath_free(aspath);
@@ -751,7 +754,7 @@ void bgp_path_info_mpath_aggregate_update(struct bgp_path_info *new_best,
 		attr.nexthop.s_addr = INADDR_ANY;
 		memset(&attr.mp_nexthop_global, 0, sizeof(struct in6_addr));
 
-		/* TODO: should we set ATOMIC_AGGREGATE and AGGREGATOR? */
+		/* TODO: should we set AGGREGATOR? */
 	}
 
 	new_attr = bgp_attr_intern(&attr);
