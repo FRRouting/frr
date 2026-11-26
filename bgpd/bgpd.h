@@ -1610,6 +1610,9 @@ struct peer_connection {
 	union sockunion *su_local;  /* Sockunion of local address. */
 	union sockunion *su_remote; /* Sockunion of remote address. */
 
+	/* AS the neighbor's OPEN announced on this attempt, 0 until then */
+	as_t open_as;
+
 	/* For FIFO list */
 	struct peer_connection_fifo_item fifo_item;
 
@@ -1644,6 +1647,23 @@ extern void bgp_peer_connection_free(struct peer_connection **connection);
 extern void bgp_peer_connection_buffers_free(struct peer_connection *connection);
 
 /* BGP neighbor structure. */
+/*
+ * Multi-access: an nbr_connected address that sent or was sent Bad Peer AS
+ * (as is then the AS its OPEN announced, 0 if unknown), or that established
+ * a session with this peer (as is then its ASN)
+ */
+PREDECL_DLIST(nbr_conn);
+struct nbr_conn_entry {
+	struct in6_addr addr;
+	as_t as;
+	time_t added; /* monotime, for Bad Peer AS expiry */
+	struct nbr_conn_item item;
+};
+DECLARE_DLIST(nbr_conn, struct nbr_conn_entry, item);
+
+/* Seconds a neighbor that sent or was sent Bad Peer AS is skipped */
+#define BGP_NBR_CONN_BAD_HOLD 120
+
 struct peer {
 	/* BGP structure.  */
 	struct bgp *bgp;
@@ -1726,6 +1746,23 @@ struct peer {
 
 	char *conf_if;	 /* neighbor interface config name. */
 	struct interface *ifp; /* corresponding interface */
+	uint32_t nbr_conn_idx; /* index into nbr_connected list */
+	uint32_t nbr_conn_tried; /* entries tried in current cycle */
+	bool nbr_conn_found;	 /* true once established on current nbr_connected list */
+	bool sent_bad_peer_as;	 /* last notify was Bad Peer AS (for round-robin) */
+	bool nbr_conn_skipped;	 /* last address update skipped Bad Peer AS entries */
+	bool nbr_conn_nht_wait;	 /* last start was held waiting for NHT */
+	/*
+	 * Multi-access verdicts, per neighbor.  Both lists are cleared in
+	 * peer_free(), peer_as_change() (remote-as), peer_clear() (hard
+	 * "clear bgp") and on "neighbor shutdown" (peer_flag_modify_action());
+	 * an entry is dropped when its neighbor leaves the segment
+	 * (peer_nbr_conn_del()).  nbr_conn_bad entries also expire after
+	 * BGP_NBR_CONN_BAD_HOLD and the list is cleared when every neighbor
+	 * is on it.  Not in bgp_stop(): it runs on every failed attempt.
+	 */
+	struct nbr_conn_head nbr_conn_bad;     /* addresses that answered Bad Peer AS */
+	struct nbr_conn_head nbr_conn_matched; /* addresses that passed remote-as */
 	char *ifname;	  /* bind interface name. */
 	char *update_if;
 	union sockunion *update_source;
@@ -2744,6 +2781,15 @@ extern struct peer *peer_lookup(struct bgp *bgp, union sockunion *su);
 extern struct peer *peer_lookup_by_conf_if(struct bgp *bgp, const char *ifname);
 extern struct peer *peer_lookup_by_hostname(struct bgp *bgp, const char *hostname);
 extern void bgp_peer_conf_if_to_su_update(struct peer_connection *connection);
+extern void peer_nbr_conn_bad_add(struct peer *peer, const struct in6_addr *addr, as_t as);
+extern bool peer_nbr_conn_bad_open(struct peer *peer, const struct in6_addr *addr, as_t as);
+extern time_t peer_nbr_conn_bad_expires_in(const struct nbr_conn_entry *entry);
+extern void peer_nbr_conn_matched_add(struct peer *peer, const struct in6_addr *addr, as_t as);
+extern void peer_nbr_conn_del(struct peer *peer, const struct in6_addr *addr);
+extern void peer_nbr_conn_clear(struct peer *peer);
+extern struct peer *peer_lookup_nbr_conn_multi(struct bgp *bgp, const union sockunion *su,
+					       uint32_t *idx);
+extern void peer_nbr_conn_retarget(struct peer *peer, uint32_t idx);
 extern int peer_group_listen_range_del(struct peer_group *group, struct prefix *range);
 extern struct peer_group *peer_group_lookup(struct bgp *bgp, const char *name);
 extern struct peer_group *peer_group_get(struct bgp *bgp, const char *name);
@@ -3269,6 +3315,17 @@ static inline bool peer_dynamic_neighbor_no_nsf(struct peer *peer)
 {
 	return (peer_dynamic_neighbor(peer) &&
 		!CHECK_FLAG(peer->sflags, PEER_STATUS_NSF_WAIT));
+}
+
+/*
+ * Unnumbered peer on an "ipv6 nd multi-access" interface with several RA
+ * sources: the multi-access round-robin applies.  Never true without the
+ * command.
+ */
+static inline bool peer_nbr_conn_multi(const struct peer *peer)
+{
+	return peer->conf_if && peer->ifp && peer->ifp->nbr_multi_access &&
+	       listcount(peer->ifp->nbr_connected) > 1;
 }
 
 static inline bool peer_is_config_node(const struct peer *peer)

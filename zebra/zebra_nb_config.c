@@ -32,6 +32,7 @@
 #include "zebra/table_manager.h"
 #include "zebra/ipforward.h"
 #include "zebra/zebra_nhg.h"
+#include "zebra/zapi_msg.h"
 
 /*
  * XPath: /frr-zebra:zebra/ip-forwarding
@@ -2683,6 +2684,22 @@ int lib_interface_zebra_evpn_mh_uplink_modify(struct nb_cb_modify_args *args)
 	ifp = nb_running_get_entry(args->dnode, NULL, true);
 	uplink = yang_dnode_get_bool(args->dnode, NULL);
 	zebra_evpn_mh_uplink_cfg_update(ifp->info, uplink);
+
+	return NB_OK;
+}
+
+/*
+ * XPath: /frr-interface:lib/interface/frr-zebra:zebra/ipv6-router-advertisements/multi-access
+ */
+int lib_interface_zebra_ipv6_router_advertisements_multi_access_modify(struct nb_cb_modify_args *args)
+{
+	struct interface *ifp;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	ifp = nb_running_get_entry(args->dnode, NULL, true);
+	nbr_connected_multi_access_set(ifp, yang_dnode_get_bool(args->dnode, NULL));
 
 	return NB_OK;
 }
