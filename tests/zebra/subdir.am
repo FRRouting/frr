@@ -14,6 +14,16 @@ tests_zebra_test_evpn_l3mh_neigh_CFLAGS = $(TESTS_CFLAGS)
 tests_zebra_test_evpn_l3mh_neigh_CPPFLAGS = $(TESTS_CPPFLAGS)
 tests_zebra_test_evpn_l3mh_neigh_LDADD = $(ALL_TESTS_LDADD)
 tests_zebra_test_evpn_l3mh_neigh_SOURCES = tests/zebra/test_evpn_l3mh_neigh.c
+if ZEBRA
+if LINUX
+if DEV_BUILD
+module_LTLIBRARIES += tests/zebra/l3mh_test.la
+endif
+endif
+endif
+tests_zebra_l3mh_test_la_SOURCES = tests/zebra/l3mh_test.c
+tests_zebra_l3mh_test_la_LDFLAGS = $(MODULE_LDFLAGS)
+
 tests_zebra_test_lm_plugin_CFLAGS = $(TESTS_CFLAGS)
 tests_zebra_test_lm_plugin_CPPFLAGS = $(TESTS_CPPFLAGS)
 tests_zebra_test_lm_plugin_LDADD = $(ZEBRA_TEST_LDADD)

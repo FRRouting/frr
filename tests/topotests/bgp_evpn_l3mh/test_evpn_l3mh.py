@@ -2119,6 +2119,8 @@ def test_pure_l3_peer_with_local_arp_handles_origin_withdraw():
     leaf2 must keep its local neighbor and route, clear only the peer-active
     marker, and avoid peer-proxy or hold-timer behavior.
     """
+    from l3mh_netlink import has_dynamic_fdb
+
     tgen = get_topogen()
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
@@ -2158,6 +2160,9 @@ def test_pure_l3_peer_with_local_arp_handles_origin_withdraw():
             lambda: bool(_leaf2_detail().get("peerActive")),
             "leaf2 did not record the origin's peer-active copy",
         )
+        _settle()
+        version = _local_rt2_version(leaf2, ip)
+        assert version
 
         # The origin loses its ARP entry and withdraws. leaf2's own local ARP
         # and RT-2 must survive; the remote withdraw only clears peer-active.
@@ -2167,14 +2172,16 @@ def test_pure_l3_peer_with_local_arp_handles_origin_withdraw():
             "leaf1's local RT-2 was not withdrawn",
         )
         _expect(
-            lambda: _host1_local(leaf2)
-            and _pure_l3_rt2_path(leaf2, 65012) is not None
-            and not _leaf2_detail().get("peerActive", False)
+            lambda: not _leaf2_detail().get("peerActive", False)
             and not _leaf2_detail().get("peerProxy", False)
             and not _leaf2_detail().get("peerActiveHold"),
-            "leaf2 did not retain only its local neighbor without peer/proxy timer state: %s"
-            % _leaf2_detail(),
+            f"leaf2 did not clear its peer/proxy timer state: {_leaf2_detail()}",
         )
+        entry = (_host1_neigh_line(leaf2) or "").split()
+        assert mac in entry and "extern_learn" not in entry, entry
+        assert {"REACHABLE", "STALE", "DELAY", "PROBE"}.intersection(entry), entry
+        assert has_dynamic_fdb(leaf2, (ip, mac, HOST_VID))
+        assert _local_rt2_version(leaf2, ip) == version
     finally:
         # Restore the shared-host baseline for later topotests.
         leaf2.run("ip neigh del %s dev %s 2>/dev/null" % (ip, svi))

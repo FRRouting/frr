@@ -9,6 +9,7 @@ from pathlib import Path
 import pytest
 
 import test_evpn_l3mh as l3mh
+from l3mh_netlink import check_probe, check_static_fdb
 
 pytestmark = l3mh.pytestmark
 
@@ -257,6 +258,160 @@ def test_protected_port_recovery():
                 )
 
 
+@pytest.mark.parametrize("owner_name", ES_PEERS)
+def test_l3mh_handoff_through_rt1_restoration(owner_name):
+    """Rotate the original owner, the ARP reply recipient, and the sync leaf."""
+    tgen = l3mh.get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    index = ES_PEERS.index(owner_name)
+    owner, responder, observer = (
+        tgen.gears[ES_PEERS[(index + offset) % len(ES_PEERS)]] for offset in range(3)
+    )
+    leaves = (owner, responder, observer)
+    vid, vni = l3mh.HOST_VID, l3mh.L3VNI
+    ip, mac = f"45.0.0.{231 + index}", f"02:00:00:00:00:{0xb0 + index:02x}"
+    port, svi = "hostbond1", f"vlan{vid}"
+    protection = "evpn mh bridge-port-protection"
+    fdb = f"{mac} dev {port} master vlan {vid}"
+    retrans = f"net.ipv4.neigh.{svi}.retrans_time_ms"
+    previous_retrans = {}
+
+    def configure(leaf, command):
+        leaf.vtysh_cmd(f"configure terminal\n{command}", raises=True)
+
+    def learn(leaf):
+        leaf.cmd_raises(f"bridge fdb replace {fdb} dynamic")
+        leaf.cmd_raises(f"ip neigh replace {ip} lladdr {mac} dev {svi} nud reachable")
+
+    def flap(state):
+        owner.cmd_raises(f"ip link set dev {port} {state}")
+        l3mh._settle(leaves)
+
+    def rt2(source, on=observer):
+        return l3mh._pure_l3_rt2_path(on, 65010 + int(source.name[-1]), ip=ip, mac=mac)
+
+    def check_rt1(present):
+        for leaf in (responder, observer):
+            routes = leaf.vtysh_cmd(
+                "show bgp l2vpn evpn route type 1 json", isjson=True
+            )
+            assert bool(_per_es_route_targets(routes, owner_rd)) == present, leaf.name
+
+    def binding(leaf):
+        return leaf.vtysh_cmd(
+            f"show evpn arp-cache vni {vni} ip {ip} json", isjson=True
+        )
+
+    def check_nud(leaf, state):
+        entry = leaf.cmd_raises(f"ip neigh show to {ip} dev {svi}").split()
+        assert {mac, state} <= set(entry), (leaf.name, entry)
+
+    def check_sync(leaf, source):
+        check_nud(leaf, "PERMANENT")
+        assert l3mh._mac_static_pinned(leaf, mac, vid), leaf.name
+        entry = binding(leaf)
+        assert entry.get("l3mhState") == "peer-sync-protected", entry
+        assert entry.get("peerOrigin") == l3mh.LEAF_LO[source.name], entry
+
+    try:
+        for leaf in leaves:
+            previous_retrans[leaf.name] = leaf.cmd_raises(
+                f"sysctl -n {retrans}"
+            ).strip()
+            leaf.cmd_raises(f"sysctl -qw {retrans}=60000")
+            configure(leaf, f"interface {port}\n {protection}")
+        configure(owner, "evpn mh l3-neigh-down-peering-time 600")
+        learn(owner)
+        l3mh._settle(leaves)
+        owner_rd = _es_rd(owner)
+        version = l3mh._local_rt2_version(owner, ip)
+        assert version is not None
+        check_rt1(True)
+        for leaf in (responder, observer):
+            assert rt2(owner, leaf)
+            check_sync(leaf, owner)
+
+        flap("down")
+        check_rt1(False)
+        check_nud(owner, "PERMANENT")
+        entry = binding(owner)
+        assert entry.get("l3mhState") == "handoff-wait", entry
+        assert entry.get("timerState") == "down-peering", entry
+        for leaf in (responder, observer):
+            check_nud(leaf, "PROBE")
+            assert rt2(owner, leaf)
+
+        with check_probe(responder, (ip, mac, vid)), check_probe(
+            observer, (ip, mac, vid)
+        ):
+            flap("up")
+        check_rt1(True)
+        for leaf in leaves:
+            check_nud(leaf, "PROBE")
+        assert rt2(owner) and l3mh._local_rt2_version(owner, ip) == version
+        for leaf in (responder, observer):
+            entry = binding(leaf)
+            assert entry.get("peerRt1Lost"), entry
+
+        with check_probe(owner, (ip, mac, vid)):
+            learn(responder)
+            l3mh._settle(leaves)
+        assert rt2(responder) and rt2(owner)
+        check_sync(observer, responder)
+        check_nud(owner, "PROBE")
+        entry = binding(owner)
+        assert entry.get("l3mhState") == "validation-pending", entry
+        assert entry.get("peerOrigin") == l3mh.LEAF_LO[responder.name], entry
+
+        with check_probe(owner, (ip, mac, vid)):
+            responder.cmd_raises(
+                f"ip neigh replace {ip} lladdr {mac} dev {svi} nud failed"
+            )
+            l3mh._settle(leaves)
+        assert not rt2(responder) and rt2(owner)
+        check_nud(owner, "PROBE")
+        check_nud(observer, "PROBE")
+        entry = binding(owner)
+        assert entry.get("l3mhState") == "validation-pending", entry
+        assert not entry.get("peerPresent"), entry
+
+        with check_probe(owner, (ip, mac, vid)):
+            learn(responder)
+            l3mh._settle(leaves)
+        assert rt2(responder) and rt2(owner)
+        check_sync(observer, responder)
+
+        flap("down")
+        check_rt1(False)
+        assert not rt2(owner) and rt2(responder)
+        check_sync(owner, responder)
+        check_sync(observer, responder)
+        entry = binding(owner)
+        assert entry.get("timerState") == "inactive", entry
+
+        flap("up")
+        check_rt1(True)
+        assert not rt2(owner) and rt2(responder)
+        check_nud(owner, "PROBE")
+        check_sync(observer, responder)
+        learn(owner)
+        l3mh._settle(leaves)
+        assert rt2(owner) and rt2(responder)
+        entry = binding(owner)
+        assert entry.get("l3mhState") == "local-dynamic", entry
+    finally:
+        owner.cmd_raises(f"ip link set dev {port} up")
+        configure(owner, "no evpn mh l3-neigh-down-peering-time")
+        for leaf in leaves:
+            configure(leaf, f"interface {port}\n no {protection}")
+            if leaf.name in previous_retrans:
+                leaf.cmd_raises(f"sysctl -qw {retrans}={previous_retrans[leaf.name]}")
+            leaf.run(f"ip neigh del {ip} dev {svi} 2>/dev/null")
+            leaf.run(f"bridge fdb del {fdb} 2>/dev/null")
+
+
 def test_rt2_origin_survives_spine_path_loss_and_changes_on_withdrawal():
     tgen = l3mh.get_topogen()
     if tgen.routers_have_failure():
@@ -324,8 +479,13 @@ def test_rt2_origin_survives_spine_path_loss_and_changes_on_withdrawal():
         assert source_sessions(second) == {spine1}
         check_origin(second)
 
-        second.cmd_raises(f"ip neigh del {ip} dev vlan{vid}")
-        l3mh._settle(leaves)
+        with check_static_fdb(receiver, (ip, mac, vid), permanent_arp=True):
+            second.cmd_raises(f"ip neigh del {ip} dev vlan{vid}")
+            l3mh._settle(leaves)
+        assert (
+            "PERMANENT"
+            in receiver.cmd_raises(f"ip neigh show to {ip} dev vlan{vid}").split()
+        )
         check_origin(first)
 
         l3mh._l3mh_knob(receiver, 65012, False)
@@ -512,8 +672,12 @@ def test_rt1_loss_excludes_rt2_before_import():
     origin = l3mh.LEAF_LO[owner.name]
     config = "configure terminal\ninterface hostbond1\n"
     protection = "evpn mh bridge-port-protection"
+    svi = f"vlan{l3mh.HOST_VID}"
+    retrans = f"net.ipv4.neigh.{svi}.retrans_time_ms"
+    old_retrans = receiver.cmd_raises(f"sysctl -n {retrans}").strip()
 
     try:
+        receiver.cmd_raises(f"sysctl -qw {retrans}=60000")
         owner.vtysh_cmd(config + protection, raises=True)
         l3mh._settle(leaves)
         with l3mh._raw_evpn_peer(receiver, speaker, mac, ip) as send:
@@ -535,9 +699,26 @@ def test_rt1_loss_excludes_rt2_before_import():
             send(f"announce 0 {vni} origin={origin}")
             l3mh._settle(leaves)
             assert l3mh._neigh_synced(receiver, ip)
+
+            owner.vtysh_cmd(config + protection, raises=True)
+            l3mh._settle(leaves)
+            owner.vtysh_cmd(config + "no " + protection, raises=True)
+            l3mh._settle(leaves)
+            entry = receiver.cmd_raises(f"ip neigh show to {ip} dev {svi}")
+            assert {mac, "PROBE"} <= set(entry.split()), entry
+            with check_probe(receiver, (ip, mac, l3mh.HOST_VID)):
+                send(f"announce-nort 0 {vni} origin={origin}")
+                l3mh._settle(leaves)
+                send(f"announce 0 {vni} origin={origin}")
+                l3mh._settle(leaves)
+            assert l3mh._pure_l3_rt2_path(receiver, 65099, ip=ip, mac=mac)
+            entry = receiver.cmd_raises(f"ip neigh show to {ip} dev {svi}")
+            assert {mac, "PROBE"} <= set(entry.split()), entry
+            assert not l3mh._mac_static_pinned(receiver, mac, l3mh.HOST_VID)
     finally:
         owner.vtysh_cmd(config + "no " + protection, raises=True)
-        receiver.run(f"ip neigh del {ip} dev vlan{l3mh.HOST_VID} 2>/dev/null")
+        receiver.cmd_raises(f"sysctl -qw {retrans}={old_retrans}")
+        receiver.run(f"ip neigh del {ip} dev {svi} 2>/dev/null")
 
 
 def test_nud_transitions_do_not_learn_or_delete_l3mh_binding():

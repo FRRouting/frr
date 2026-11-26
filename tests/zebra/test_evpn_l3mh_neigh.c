@@ -239,8 +239,24 @@ static void test_down_timer_cancel(void)
 	assert(!n.l3mh_validation_learned);
 	event_call(&old);
 	assert(n.l3mh_state == ZEBRA_L3MH_NEIGH_HANDOFF_WAIT && n.l3mh_down_timer);
-	assert(!zebra_evpn_l3mh_probe_complete(&n, 1, true));
 
+	assert(event_fetch(loop, &current));
+	zebra_evpn_l3mh_neigh_record(&n, ZEBRA_L3MH_NEIGH_VALIDATION_PENDING, 10, &esi);
+	event_call(&current);
+	assert(n.l3mh_state == ZEBRA_L3MH_NEIGH_VALIDATION_PENDING);
+	assert(!zebra_evpn_l3mh_probe_begin(&n, 2));
+	assert(!zebra_evpn_l3mh_probe_complete(&n, 1, true));
+	assert(zebra_evpn_l3mh_probe_begin(&n, 2));
+	assert(!zebra_evpn_l3mh_probe_complete(&n, 1, false));
+	assert(zebra_evpn_l3mh_probe_current(&n));
+	assert(zebra_evpn_l3mh_probe_complete(&n, 2, true));
+
+	zebra_evpn_l3mh_neigh_record_local(&n, 10, &esi);
+	event_call(&current);
+	assert(n.l3mh_state == ZEBRA_L3MH_NEIGH_LOCAL_DYNAMIC);
+	assert(n.l3mh_expected_ifindex == 10 && !n.l3mh_down_timer);
+
+	assert(zebra_evpn_l3mh_down_begin(&n, loop, 0, down_expire));
 	assert(event_fetch(loop, &current));
 	zebra_evpn_l3mh_neigh_record(&n, ZEBRA_L3MH_NEIGH_PEER_SYNC_PROTECTED, 10, &esi);
 	event_call(&current);
