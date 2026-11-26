@@ -277,7 +277,7 @@ void *rfp_start(struct event_loop *master, struct rfapi_rfp_cfg **cfgp,
 	memset(&global_rfi, 0, sizeof(global_rfi));
 	global_rfi.master = master; /* for BGPD threads */
 
-	/* initilize struct rfapi_rfp_cfg, see rfapi.h */
+	/* initialize struct rfapi_rfp_cfg, see rfapi.h */
 	global_rfi.rfapi_config.download_type =
 		RFAPI_RFP_DOWNLOAD_PARTIAL; /* default=partial */
 	global_rfi.rfapi_config.ftd_advertisement_interval =
@@ -288,7 +288,7 @@ void *rfp_start(struct event_loop *master, struct rfapi_rfp_cfg **cfgp,
 	global_rfi.rfapi_config.use_removes = 1;	  /* 0=no */
 
 
-	/* initilize structrfapi_rfp_cb_methods , see rfapi.h */
+	/* initialize structrfapi_rfp_cb_methods , see rfapi.h */
 	global_rfi.rfapi_callbacks.cfg_cb = rfp_cfg_write_cb;
 	/* no group config */
 	global_rfi.rfapi_callbacks.response_cb = rfp_response_cb;

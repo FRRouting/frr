@@ -516,7 +516,7 @@ static int add_nexthops(struct list *list, struct graph_node *node,
 
 /**
  * Determines the node types for which a partial match may count as a full
- * match. Enables command abbrevations.
+ * match. Enables command abbreviations.
  *
  * @param[in] type node type
  * @return minimum match level needed to for a token to fully match

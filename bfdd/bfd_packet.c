@@ -544,14 +544,22 @@ void ptm_bfd_snd(struct bfd_session *bfd, int fbit)
 			memcpy(auth_payload_ptr, &seq_num_n, sizeof(seq_num_n));
 			auth_payload_ptr += sizeof(seq_num_n);
 
-			/* SHA1 Auth Data is 20 bytes.
-			 * Ensure we only HMAC the packet with the 20-byte digest area zeroed.
-			 */
+			/* SHA1 Auth Data is 20 bytes. */
 			memset(auth_payload_ptr, 0, 20);
-
-			/* Note: HMAC-SHA1 results in 20 bytes */
-			HMAC(md_alg, key->string, strlen(key->string), send_buffer, packet_len,
-			     digest, &digest_len);
+			if (key->hash_algo == KEYCHAIN_ALGO_SHA1) {
+				/*
+				 * RFC 5880 Section 6.7.4: the key, zero
+				 * padded, in place of the digest, then SHA1
+				 * over the whole packet.
+				 */
+				memcpy(auth_payload_ptr, key->string, strlen(key->string));
+				EVP_Digest(send_buffer, packet_len, digest, &digest_len, md_alg,
+					   NULL);
+			} else {
+				/* HMAC-SHA1 over the packet, digest zeroed. */
+				HMAC(md_alg, key->string, strlen(key->string), send_buffer,
+				     packet_len, digest, &digest_len);
+			}
 
 			memcpy(auth_payload_ptr, digest, 20);
 		}
@@ -1173,11 +1181,17 @@ static bool bfd_check_auth(struct bfd_session *bfd, const struct bfd_pkt *cp)
 		received_digest = auth_section + 8;
 
 		memcpy(msgbuf, cp, cp->len);
-		/* Zero out the 20-byte digest field in the temp packet before hashing */
+		/* Recompute over the packet as sent, as in ptm_bfd_snd(). */
 		memset(msgbuf + BFD_PKT_LEN + 8, 0, digest_len);
-
-		HMAC(md_alg, key->string, strlen(key->string), msgbuf, cp->len, computed_digest,
-		     &digest_len);
+		if (key->hash_algo == KEYCHAIN_ALGO_SHA1) {
+			if (strlen(key->string) > digest_len)
+				return false;
+			memcpy(msgbuf + BFD_PKT_LEN + 8, key->string, strlen(key->string));
+			EVP_Digest(msgbuf, cp->len, computed_digest, &digest_len, md_alg, NULL);
+		} else {
+			HMAC(md_alg, key->string, strlen(key->string), msgbuf, cp->len,
+			     computed_digest, &digest_len);
+		}
 
 		if (memcmp(received_digest, computed_digest, digest_len) != 0) {
 			cp_debug(CHECK_FLAG(bfd->flags, BFD_SESS_FLAG_MH), &peer_sa, &local_sa,
@@ -1290,6 +1304,15 @@ void bfd_recv_cb(struct event *t)
 		frrtrace(6, frr_bfd, packet_session_not_found, is_mhop, &peer, &local, ifindex,
 			 vrfid, ntohl(cp->discrs.my_discr));
 		cp_debug(is_mhop, &peer, &local, ifindex, vrfid, "no session found");
+		return;
+	}
+
+	/*
+	 * bfdd listens with a data plane connected for the sessions it
+	 * declined; a packet of one it runs is the data plane's to handle.
+	 */
+	if (bfd->bdc) {
+		cp_debug(is_mhop, &peer, &local, ifindex, vrfid, "session runs in a data plane");
 		return;
 	}
 

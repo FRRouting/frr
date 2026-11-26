@@ -372,7 +372,7 @@ extern void rfp_stop(void *rfp_start_val);
  *
  * return value:
  *	0		Success
- *	ENXIO		Unabled to locate configured BGP/VNC
+ *	ENXIO		Unable to locate configured BGP/VNC
 --------------------------------------------*/
 extern int rfapi_rfp_set_configuration(void *rfp_start_val,
 				       struct rfapi_rfp_cfg *rfp_cfg);

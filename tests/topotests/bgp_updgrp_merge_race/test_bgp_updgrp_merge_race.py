@@ -374,8 +374,6 @@ def _strip_community(tgen, enable):
     tgen.gears["b"].vtysh_cmd(
         """
         configure terminal
-         route-map TO-CD permit 10
-          set community none
          router bgp 65000
           address-family ipv4 unicast
            {0}neighbor {1} route-map TO-CD out
@@ -387,13 +385,24 @@ def _strip_community(tgen, enable):
     )
 
 
+def _route_map_out(b, nbr):
+    output = b.vtysh_cmd("show bgp neighbor {} json".format(nbr), isjson=True)
+    return output[nbr]["addressFamilyInfo"]["ipv4Unicast"].get(
+        "routeMapForOutgoingAdvertisements"
+    )
+
+
 def _reset(tgen):
     b = tgen.gears["b"]
     b.vtysh_cmd("no bgp test metaq disable")
     b.vtysh_cmd("no bgp test updates disable neighbor {}".format(D))
     for nbr in [C, E]:
         _shutdown(tgen, nbr, False)
-    _strip_community(tgen, False)
+    # Unsetting an outbound route-map schedules a re-announce even when none
+    # is set. If that is still pending when a test starts, it re-announces
+    # to the whole subgroup and the test's own split is lost.
+    if any(_route_map_out(b, nbr) for nbr in [C, D, E]):
+        _strip_community(tgen, False)
     _network(tgen, "a1", PFX, True)
     _network(tgen, "a1", BUSY, False)
     _a2_network(tgen, PFX, True)

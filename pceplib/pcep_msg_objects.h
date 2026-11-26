@@ -103,7 +103,7 @@ enum pcep_object_types {
 #define OBJECT_HEADER_FLAG_I 0x01
 #define OBJECT_HEADER_FLAG_P 0x02
 
-/* The flag_p and flag_i arent set via the APIs, if they need to be set, just
+/* The flag_p and flag_i aren't set via the APIs, if they need to be set, just
  * set them on the returned object once it has been created. */
 struct pcep_object_header {
 	enum pcep_object_classes object_class;

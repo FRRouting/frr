@@ -2630,7 +2630,7 @@ void cmd_terminate(void)
 	if (cmdvec) {
 		for (unsigned int i = 0; i < vector_active(cmdvec); i++)
 			if ((cmd_node = vector_slot(cmdvec, i)) != NULL) {
-				// deleting the graph delets the cmd_element as
+				// deleting the graph deletes the cmd_element as
 				// well
 				graph_delete_graph(cmd_node->cmdgraph);
 				vector_free(cmd_node->cmd_vector);

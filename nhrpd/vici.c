@@ -529,7 +529,7 @@ static void vici_reconnect(struct event *t)
 	vici->fd = fd;
 	event_add_read(master, vici_read, vici, vici->fd, &vici->t_read);
 
-	/* Send event subscribtions */
+	/* Send event subscriptions */
 	// vici_register_event(vici, "child-updown");
 	// vici_register_event(vici, "child-rekey");
 	vici_register_event(vici, "child-state-installed");

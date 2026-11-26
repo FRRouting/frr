@@ -622,7 +622,7 @@ static void ripng_connect_set(struct interface *ifp, int set)
 	}
 }
 
-/* Check RIPng is enabed on this interface. */
+/* Check RIPng is enabled on this interface. */
 void ripng_enable_apply(struct interface *ifp)
 {
 	int ret;

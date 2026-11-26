@@ -656,7 +656,7 @@ void send_pcep_open(pcep_session *session)
 
 /* This is a blocking call, since it is synchronized with destroy_pcep_session()
  * and session_logic_loop(). It may be possible that the session has been
- * deleted but API users havent been informed yet.
+ * deleted but API users haven't been informed yet.
  */
 bool session_exists(pcep_session *session)
 {

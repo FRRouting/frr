@@ -247,17 +247,17 @@ static int zebra_vrf_disable(struct vrf *vrf)
 	 */
 	zebra_vrf_delete_update(zvrf);
 
-	/* If asked to retain routes, there's nothing more to do. */
-	if (CHECK_FLAG(zvrf->flags, ZEBRA_VRF_RETAIN))
-		return 0;
-
-	/* Remove all routes. */
 	for (afi = AFI_IP; afi <= AFI_IP6; afi++) {
 		route_table_finish(zvrf->rnh_table[afi]);
 		zvrf->rnh_table[afi] = NULL;
 		route_table_finish(zvrf->rnh_table_multicast[afi]);
 		zvrf->rnh_table_multicast[afi] = NULL;
+	}
 
+	if (CHECK_FLAG(zvrf->flags, ZEBRA_VRF_RETAIN))
+		return 0;
+
+	for (afi = AFI_IP; afi <= AFI_IP6; afi++) {
 		for (safi = SAFI_UNICAST; safi <= SAFI_MULTICAST; safi++)
 			rib_close_table(zvrf->table[afi][safi]);
 	}

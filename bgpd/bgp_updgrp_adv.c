@@ -551,6 +551,7 @@ bool bgp_adj_out_set_subgroup(struct bgp_dest *dest,
 	struct bgp *bgp;
 	struct attr *attr_new;
 	bool debug;
+	bool refresh_pending = false;
 	struct bgp_debug_vrf dv = {
 		.name = "Unknown",
 		.id = VRF_UNKNOWN,
@@ -599,8 +600,23 @@ bool bgp_adj_out_set_subgroup(struct bgp_dest *dest,
 	 */
 	attr_new = bgp_attr_intern(attr);
 
+	/* The refresh walk clears FORCE_UPDATES before its replies are packed.
+	 * Until EoRR, the last packed attributes may still predate BoRR. Replace
+	 * a queued withdraw or different update even when returning to those
+	 * attributes. Refresh state belongs to live peers, not the group config.
+	 */
+	if (adj->adv && attr_new == adj->attr &&
+	    (!adj->adv->baa || attr_new != adj->adv->baa->attr)) {
+		SUBGRP_FOREACH_PEER (subgrp, paf) {
+			if (CHECK_FLAG(PAF_PEER(paf)->af_sflags[afi][safi], PEER_STATUS_BORR_SEND)) {
+				refresh_pending = true;
+				break;
+			}
+		}
+	}
+
 	if (CHECK_FLAG(bgp->flags, BGP_FLAG_SUPPRESS_DUPLICATES) &&
-	    !CHECK_FLAG(subgrp->sflags, SUBGRP_STATUS_FORCE_UPDATES) &&
+	    !CHECK_FLAG(subgrp->sflags, SUBGRP_STATUS_FORCE_UPDATES) && !refresh_pending &&
 	    ((attr_new == adj->attr) ||
 	     (adj->adv && adj->adv->baa && (attr_new == adj->adv->baa->attr))) &&
 	    bgp_labels_cmp(path->extra ? path->extra->labels : NULL, adj->labels)) {
@@ -615,11 +631,13 @@ bool bgp_adj_out_set_subgroup(struct bgp_dest *dest,
 		}
 
 		/*
-		 * If this is a duplicate of the update that was sent out,
-		 * clean up the queued update, regardless whether it is a
-		 * withdraw or an advertisement.
+		 * Cancel queued state that differs from the update already sent.
+		 * Keep a matching queued advertisement: a forced route-refresh
+		 * reply must still be sent even when normal processing sees a
+		 * duplicate before that reply leaves the queue.
 		 */
-		if (adj->adv && (attr_new == adj->attr)) {
+		if (adj->adv && attr_new == adj->attr &&
+		    (!adj->adv->baa || attr_new != adj->adv->baa->attr)) {
 			if (debug) {
 				zlog_debug("%s delete queued UPDATE (%s:%u:%u)%pBD, afi=%s, safi=%s",
 					   peer->host, dv.name, dv.id, dv.table_id, dest,
@@ -1134,6 +1152,8 @@ void subgroup_default_originate_unconfig(struct update_subgroup *subgrp)
 		if (bgp_debug_update(NULL, &p, subgrp->update_group, 0))
 			zlog_debug("u%" PRIu64 ":s%" PRIu64 " default-originate WITHDRAW (unset)",
 				   subgrp->update_group->id, subgrp->id);
+		if (!DISABLE_BGP_ANNOUNCE)
+			subgrp->scount--;
 		bgp_attr_unintern(&subgrp->default_originate_attr);
 		subgrp->default_originate_attr = NULL;
 		subgroup_default_withdraw_packet(subgrp);
@@ -1346,6 +1366,8 @@ rmap_done:;
 			if (do_debug)
 				zlog_debug("u%" PRIu64 ":s%" PRIu64 " default-originate WITHDRAW",
 					   subgrp->update_group->id, subgrp->id);
+			if (!DISABLE_BGP_ANNOUNCE)
+				subgrp->scount--;
 			bgp_attr_unintern(&subgrp->default_originate_attr);
 			subgrp->default_originate_attr = NULL;
 			subgroup_default_withdraw_packet(subgrp);
@@ -1377,6 +1399,8 @@ rmap_done:;
 						zlog_debug("u%" PRIu64 ":s%" PRIu64
 							   " default-originate WITHDRAW (route-map deny)",
 							   subgrp->update_group->id, subgrp->id);
+					if (!DISABLE_BGP_ANNOUNCE)
+						subgrp->scount--;
 					bgp_attr_unintern(&subgrp->default_originate_attr);
 					subgrp->default_originate_attr = NULL;
 					subgroup_default_withdraw_packet(subgrp);
@@ -1422,6 +1446,8 @@ rmap_done:;
 					   subgrp->update_group->id, subgrp->id);
 			if (subgrp->default_originate_attr)
 				bgp_attr_unintern(&subgrp->default_originate_attr);
+			else if (!DISABLE_BGP_ANNOUNCE)
+				subgrp->scount++;
 			subgrp->default_originate_attr = new_interned;
 			subgroup_default_update_packet(subgrp, new_interned, from);
 		} else if (!CHECK_FLAG(bgp->flags, BGP_FLAG_SUPPRESS_DUPLICATES) ||

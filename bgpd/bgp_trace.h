@@ -325,7 +325,7 @@ TRACEPOINT_EVENT(
 	evpn_mac_ip_zsend,
 	TP_ARGS(int, add, struct bgpevpn *, vpn,
 		const struct prefix_evpn *, pfx,
-		struct ipaddr *, vtep, esi_t *, esi),
+		struct ipaddr *, vtep, const esi_t *, esi),
 	TP_FIELDS(
 		ctf_string(action, add ? "add" : "del")
 		ctf_integer(vni_t, vni, (vpn ? vpn->vni : 0))
@@ -577,7 +577,7 @@ TRACEPOINT_EVENT(
 	frr_bgp,
 	evpn_advertise_type5,
 	TP_ARGS(vrf_id_t, vrf, const struct prefix_evpn *, pfx,
-		struct ethaddr *, rmac, struct ipaddr *, vtep),
+		const struct ethaddr *, rmac, struct ipaddr *, vtep),
 	TP_FIELDS(
 		ctf_integer(int, vrf_id, vrf)
 		ctf_array(unsigned char, ip, &pfx->prefix.prefix_addr.ip,
@@ -1202,7 +1202,7 @@ TRACEPOINT_LOGLEVEL(frr_bgp, upd_ignoring_non_ll_nexthop, TRACE_INFO)
 TRACEPOINT_EVENT(
 	frr_bgp,
 	upd_rmac_is_self_mac,
-	TP_ARGS(struct ethaddr *, rmac),
+	TP_ARGS(const struct ethaddr *, rmac),
 	TP_FIELDS(
 		ctf_array(unsigned char, rmac, rmac, sizeof(struct ethaddr))
 	)

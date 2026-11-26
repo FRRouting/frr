@@ -560,7 +560,7 @@ static void be_adapter_process_msg(uint8_t version, uint8_t *data, size_t msg_le
 	 * Most messages are sent to the TXN module for processing.
 	 *
 	 * NOTE: Handling the config messages may lead to disconnect and
-	 * deletion of the adapater. So don't do with it after calling the txn
+	 * deletion of the adapter. So don't do with it after calling the txn
 	 * function.
 	 */
 

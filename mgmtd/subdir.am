@@ -1,5 +1,5 @@
 #
-# mgmtd -- Mangagement Daemon
+# mgmtd -- Management Daemon
 #
 
 # dist_examples_DATA += \

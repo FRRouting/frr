@@ -154,7 +154,7 @@ bool socket_comm_session_teardown(
 bool socket_comm_session_connect_tcp(
 	pcep_socket_comm_session *socket_comm_session);
 
-/* Immediately close the TCP connection, irregardless if there are pending
+/* Immediately close the TCP connection, regardless if there are pending
  * messages to be sent. */
 bool socket_comm_session_close_tcp(
 	pcep_socket_comm_session *socket_comm_session);

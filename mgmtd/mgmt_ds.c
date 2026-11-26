@@ -586,6 +586,7 @@ void mgmt_ds_dump_tree(struct vty *vty, struct mgmt_ds_ctx *ds_ctx,
 		vty_out(vty, "%s\n", str);
 
 	ly_out_free(out, NULL, 0);
+	free(str);
 }
 
 void mgmt_ds_status_write_one(struct vty *vty, struct mgmt_ds_ctx *ds_ctx)

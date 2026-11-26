@@ -1188,7 +1188,7 @@ static bool atomhash_setup_level(struct atomhash_head *head, int level, atomptr_
  *    This is done /backwards in chunks/ (cf. CHUNKING) below.  The reason to
  *    do it backwards is that we can then just grab the start position from our
  *    own level's preceding element, and go forward from there.  There will be
- *    only one other stub element inbetween before what we delete, so that'll
+ *    only one other stub element in between before what we delete, so that'll
  *    generally be faster than doing full _anchor().
  * 4. in the same wash, after everything in a chunk was marked L, actually
  *    unlink the items from the list.  If we're lucky we can batch a little bit

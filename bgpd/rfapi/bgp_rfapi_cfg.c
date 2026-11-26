@@ -2310,7 +2310,7 @@ static void bgp_rfapi_delete_nve_group(struct vty *vty, /* NULL = no output */
 			 *          a. reuse original descriptor
 			 * 3. rfapi_register() on remembered advertised route
 			 * list
-			 * 4. rfapi_query on rememebred query list
+			 * 4. rfapi_query on remembered query list
 			 */
 
 			int rc;
@@ -3714,7 +3714,7 @@ void bgp_rfapi_cfg_init(void)
 
 	install_element(BGP_VRF_POLICY_NODE, &vnc_vrf_policy_label_cmd);
 	install_element(BGP_VRF_POLICY_NODE, &vnc_vrf_policy_no_label_cmd);
-	// Reenable to support VRF controller use case and testing
+	// Re-enable to support VRF controller use case and testing
 	install_element(BGP_VRF_POLICY_NODE, &vnc_vrf_policy_nexthop_cmd);
 	install_element(BGP_VRF_POLICY_NODE, &vnc_vrf_policy_rt_import_cmd);
 	install_element(BGP_VRF_POLICY_NODE, &vnc_vrf_policy_rt_export_cmd);

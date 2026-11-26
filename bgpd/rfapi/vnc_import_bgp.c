@@ -1344,7 +1344,7 @@ vnc_import_bgp_del_route_mode_resolve_nve(struct bgp *bgp, afi_t afi,
  ***********************************************************************/
 
 /*
- * Should be called whan a bpi is added to VPN RIB. This function
+ * Should be called when a bpi is added to VPN RIB. This function
  * will check if it is a host route and return immediately if not.
  */
 void vnc_import_bgp_add_vnc_host_route_mode_resolve_nve(
@@ -1591,7 +1591,7 @@ static int is_usable_interior_route(struct bgp_path_info *bpi_interior)
  * There should be only one of these per prefix at a time.
  * This should be called as a result of selection operation
  *
- * NB should be called espacially for bgp instances that are named,
+ * NB should be called especially for bgp instances that are named,
  * because the exterior routes will always come from one of those.
  * We filter here on the instance name to make sure we get only the
  * right routes.
@@ -1781,7 +1781,7 @@ void vnc_import_bgp_exterior_add_route(
  * There should be only one of these per prefix at a time.
  * This should probably be called as a result of selection operation.
  *
- * NB should be called espacially for bgp instances that are named,
+ * NB should be called especially for bgp instances that are named,
  * because the exterior routes will always come from one of those.
  * We filter here on the instance name to make sure we get only the
  * right routes.
